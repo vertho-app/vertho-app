@@ -56,6 +56,15 @@ carimba `LATEST_SPEC_VERSION`) ou **promoção deliberada** (jsonb_set) pega a r
     (rampa 30 crua destravava 6 gates de Empatia em Ibipeba). Avaliar o gate em `DEF.tol` pina
     o corte onde o psicólogo o calibrou; só o SCORE ganha rampa. Em v<4 os dois fits coincidem
     (régua tol=20) → no-op. É o guardião `knockout_acoplado_piso` na alavanca da tolerância.
+  - **Status DRIVER-AWARE** (v4): um VERDE com um band trait (competência/DISC) em déficit
+    moderado+ (fit < `driverThreshold`, v4=0,65) é rebaixado p/ "com ressalvas" e entra no
+    plano. O Beta (média ponderada) mascara furos locais (Beta 90 + Dominância 35%); sem isto
+    selo×narrativa×plano contavam histórias diferentes. Leve (65-74) só menciona. `kind:'band'`
+    já exclui Mapeamento/Liderança (domain-agnostic).
+- **Fonte ÚNICA de cor/classificação = `result.status`** (tela E PDF). Antes a tela usava
+  `classificar()`/`getFaixa()` com 85 hardcoded (≠ `spec.bandHigh`), divergindo na fronteira
+  v4. Hoje `calcularFitUnificado` deriva classificação do status + persiste `status` no
+  `resultado_json`; `loadRankingCargo` repassa; `app/admin/fit` colore por `viewDe(status)`.
 - **Coluna "Premissas"** no ranking (`/admin/fit`): ✓ atendida / ✗ não, tooltip do motivo.
   ⚠️ Mudança de fórmula do `fit_final` exige **Recalcular (forçar)** — `fit_resultados` fica
   com o valor antigo até recalcular.
