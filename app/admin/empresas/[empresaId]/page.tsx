@@ -625,6 +625,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                           <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase2`)} className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300">{t('phaseExtras.diagnosis')}</button>
                           <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase2?tab=trilhas`)} className="text-[10px] font-bold text-amber-400 hover:text-amber-300">{t('phaseExtras.trails')}</button>
                           <button onClick={() => router.push(`/admin/empresas/${empresaId}/relatorios`)} className="text-[10px] font-bold" style={{ color: '#A78BFA' }}>{t('phaseExtras.reports')}</button>
+                          <button onClick={() => router.push(`/admin/empresas/${empresaId}/calibracao`)} className="text-[10px] font-bold text-slate-400 hover:text-slate-200" title="Diagnóstico interno de calibração do gabarito — dev-only, não vai pro cliente">Calibração ⚙</button>
                         </div>
                       )}
                       {fase.num === 4 && (
