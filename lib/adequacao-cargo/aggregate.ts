@@ -73,7 +73,7 @@ export interface AdequacaoCargo {
   avaliados: number;
   perfilIdeal: PerfilIdeal;
   pessoas: PessoaAdequacao[];        // ordenadas por Beta desc
-  avisosCalibracao: { traco: string; pct: number }[]; // traço que zera em >50% → revisar alvo (guardião)
+  avisosCalibracao: { traco: string; pct: number; tipo: 'piso' | 'teto' }[]; // guardião bilateral: piso=zera >50% (alvo alto), teto=satura >50% (faixa frouxa)
   semGabarito: boolean;
   semColaboradores: boolean;
 }
@@ -155,17 +155,19 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
   ).order('nome_completo');
   if (!rows?.length) return { ...base, perfilIdeal, semColaboradores: true };
 
-  // Guardião de calibração: conta, por traço (band, exceto Mapeamento), quantos
-  // avaliados ZERAM (fit < 5%). Traço que zera em >50% → alvo provavelmente mal posto.
-  const satura = new Map<string, { z: number; n: number }>();
+  // Guardião de calibração BILATERAL: conta, por traço (band, exceto Mapeamento),
+  // quantos avaliados ZERAM (fit<5% — saturação no PISO, alvo alto demais) e quantos
+  // SATURAM (fit>95% — teto, faixa frouxa que não discrimina). >50% em qualquer lado
+  // → calibração suspeita. (O caso Gestão Escolar: 9 floors em 41 → todo mundo ~100%.)
+  const satura = new Map<string, { z: number; s: number; n: number }>();
 
   const pessoas: PessoaAdequacao[] = (rows as any[]).map((x) => {
     const profile = buildCandidateProfile(x, g);
     const result = scoreCandidate(spec, profile);
     for (const t of result.traits) {
       if (t.block === BLOCK.MAP) continue;
-      const acc = satura.get(t.label) || { z: 0, n: 0 };
-      acc.n++; if (t.fit < 0.05) acc.z++;
+      const acc = satura.get(t.label) || { z: 0, s: 0, n: 0 };
+      acc.n++; if (t.fit < 0.05) acc.z++; if (t.fit > 0.95) acc.s++;
       satura.set(t.label, acc);
     }
 
@@ -224,9 +226,18 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
   });
 
   const avisosCalibracao = [...satura.entries()]
-    .filter(([, v]) => v.n > 0 && v.z / v.n > 0.5)
-    .map(([traco, v]) => ({ traco, pct: Math.round((v.z / v.n) * 100) }))
-    .sort((a, b) => b.pct - a.pct);
+    .flatMap(([traco, v]) => {
+      if (!v.n) return [];
+      const out: { traco: string; pct: number; tipo: 'piso' | 'teto' }[] = [];
+      if (v.z / v.n > 0.5) out.push({ traco, pct: Math.round((v.z / v.n) * 100), tipo: 'piso' }); // zera (alvo alto demais)
+      if (v.s / v.n > 0.5) out.push({ traco, pct: Math.round((v.s / v.n) * 100), tipo: 'teto' }); // satura (faixa frouxa, não discrimina)
+      return out;
+    })
+    // Piso (gente zerando) é mais acionável que teto → vem primeiro; depois por %.
+    // Capa em 6: um gabarito muito frouxo pode saturar quase tudo (Gestão Escolar: 12)
+    // e a lista inteira afogaria o sinal. O top-6 mostra os piores.
+    .sort((a, b) => (a.tipo === b.tipo ? b.pct - a.pct : a.tipo === 'piso' ? -1 : 1))
+    .slice(0, 6);
 
   return { cargo, avaliados: pessoas.length, perfilIdeal, pessoas, avisosCalibracao, semGabarito: false, semColaboradores: false };
 }

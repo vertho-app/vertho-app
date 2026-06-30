@@ -300,7 +300,9 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
             <View style={s.calibBox}>
               <Text style={s.calibTitle}>Revisão de calibração sugerida</Text>
               {data.avisosCalibracao.map((a, i) => (
-                <Text key={i} style={s.calibTx}>• {a.traco} zera (aderência ~0%) em {a.pct}% dos avaliados — provável alvo mal posto (piso alto demais) ou déficit sistêmico do grupo. Revisar o alvo.</Text>
+                a.tipo === 'teto'
+                  ? <Text key={i} style={s.calibTx}>• {a.traco} satura (aderência ~100%) em {a.pct}% dos avaliados — a faixa não discrimina ninguém (piso baixo demais / "mais é melhor" frouxo). Considerar subir o piso ou usar faixa-alvo.</Text>
+                  : <Text key={i} style={s.calibTx}>• {a.traco} zera (aderência ~0%) em {a.pct}% dos avaliados — provável alvo mal posto (piso alto demais) ou déficit sistêmico do grupo. Revisar o alvo.</Text>
               ))}
             </View>
           )}
