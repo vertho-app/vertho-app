@@ -10,7 +10,18 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { aggregateAdequacao } from '@/lib/adequacao-cargo/aggregate';
 import { camada0Higiene, camada1Cartao, camada1Direcao } from '@/lib/calibracao/diagnostico';
 import { simularMaterialidade } from '@/lib/calibracao/materialidade';
-import { candidateColumns } from '@/lib/scoring/candidate';
+import { buildRoleSpec } from '@/lib/scoring/role-spec';
+import { buildCandidateProfile, candidateColumns } from '@/lib/scoring/candidate';
+import { scoreCandidate } from '@/lib/scoring/engine';
+import { COMP_LABEL } from '@/lib/perfil-organizacional/aggregate';
+
+const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+type Mudanca = { tipo: 'direcao'; para: 'floor' | 'target' | 'ceiling' } | { tipo: 'ombro'; lo: number };
+
+/** Aplica a mudança no SPEC (em memória) — usado pelo e-se. */
+function specComMudanca(spec: any, tracoKey: string, m: Mudanca) {
+  return { ...spec, traits: spec.traits.map((t: any) => t.key !== tracoKey ? { ...t } : (m.tipo === 'direcao' ? { ...t, direction: m.para } : { ...t, lo: m.lo })) };
+}
 
 export async function listarCargosCalibracao(empresaId: string): Promise<{ cargos: string[] }> {
   try {
@@ -53,4 +64,61 @@ export async function diagnosticarCalibracao(empresaId: string, cargo: string): 
   } catch (e: any) {
     return { success: false, error: e?.message || 'Erro no diagnóstico de calibração.' };
   }
+}
+
+/**
+ * E-SE de uma mudança de régua (read-only, NÃO aplica). Roda o rito decomposto: mede o
+ * efeito antes de promover. Mostra o PERIGO (gate destravando) explicitamente — gate
+ * avaliado em betaBand-held no baseline + bloqueados antes/depois nominais.
+ */
+export async function simularMudancaRegua(empresaId: string, cargo: string, tracoKey: string, m: Mudanca): Promise<any> {
+  try {
+    const sb = await requireAdminSupabase('admin.access');
+    const { data: cg } = await sb.from('cargos_empresa').select('gabarito, eh_lideranca').eq('empresa_id', empresaId).eq('nome', cargo).maybeSingle();
+    if (!cg?.gabarito) return { success: false, error: 'Cargo sem gabarito.' };
+    const { data: colabs } = await sb.from('colaboradores').select(['id', 'nome_completo', ...candidateColumns()].join(', ')).eq('empresa_id', empresaId).eq('cargo', cargo).not('d_natural', 'is', null).not('email', 'ilike', '%@vertho.ai%');
+    if (!colabs?.length) return { success: false, error: 'Sem colaboradores com DISC.' };
+    const spec0 = buildRoleSpec(cg.gabarito, cargo, { ehLideranca: cg.eh_lideranca });
+    const profiles = colabs.map((c: any) => buildCandidateProfile(c, cg.gabarito));
+    // recuperação: ombro = p75 dos brutos (top quartil satura, resto ganha gradiente)
+    if (m.tipo === 'ombro' && m.lo == null) { const br = profiles.map((p) => Number(p[tracoKey]) || 0).sort((a, b) => a - b); m.lo = Math.round(br[Math.floor(0.75 * (br.length - 1))]); }
+    const specM = specComMudanca(spec0, tracoKey, m);
+    const band = (r: any[], which: 'betaBand') => ['verde', 'amarelo', 'vermelho'].map((b) => r.filter((x) => x[which] === b).length);
+    const rows = colabs.map((c: any, i: number) => { const p = profiles[i]; return { nome: (c.nome_completo || '').split(' ').slice(0, 2).join(' '), r0: scoreCandidate(spec0, p), rM: scoreCandidate(specM, p) }; });
+    const naoBloq = rows.filter((x) => !x.r0.knockoutFailed);
+    const cruzam = naoBloq.filter((x) => x.r0.betaBand !== x.rM.betaBand).map((x) => ({ nome: x.nome, de: x.r0.betaBand, para: x.rM.betaBand }));
+    // PERIGO: gate destravando (bloqueado no baseline → passa depois) ou bloqueando novo
+    const desbloqueados = rows.filter((x) => x.r0.knockoutFailed && !x.rM.knockoutFailed).map((x) => x.nome);
+    const bloqueadosNovos = rows.filter((x) => !x.r0.knockoutFailed && x.rM.knockoutFailed).map((x) => x.nome);
+    const [v0, a0, r0c] = band(rows.map((x) => x.r0), 'betaBand'); const [vM, aM, rMc] = band(rows.map((x) => x.rM), 'betaBand');
+    // Spearman beta
+    const sp = (() => { const A = rows.map((x) => x.r0.betaPct), B = rows.map((x) => x.rM.betaPct); const rk = (z: number[]) => { const i = z.map((v, j) => [v, j] as [number, number]).sort((p, q) => p[0] - q[0]); const o: number[] = []; i.forEach(([, j], k) => o[j] = k); return o; }; const ra = rk(A), rb = rk(B); const n = A.length, ma = ra.reduce((s, x) => s + x, 0) / n, mb = rb.reduce((s, x) => s + x, 0) / n; let c = 0, x2 = 0, y2 = 0; for (let i = 0; i < n; i++) { c += (ra[i] - ma) * (rb[i] - mb); x2 += (ra[i] - ma) ** 2; y2 += (rb[i] - mb) ** 2; } return x2 && y2 ? Math.round(c / Math.sqrt(x2 * y2) * 1000) / 1000 : 1; })();
+    return { success: true, n: rows.length, naoBloqueados: naoBloq.length, mudanca: m, dist0: { v: v0, a: a0, r: r0c }, distM: { v: vM, a: aM, r: rMc }, cruzam, desbloqueados, bloqueadosNovos, spearman: sp };
+  } catch (e: any) { return { success: false, error: e?.message || 'Erro no e-se.' }; }
+}
+
+/**
+ * APLICA a mudança de DIREÇÃO no gabarito (mutação real, GUARDADA: só após o e-se +
+ * confirmação na UI). Lê o gabarito, muda a direção do traço, reescreve o objeto inteiro.
+ * Só `tipo:'direcao'` — ombro/recuperação é composição (não one-field), fica fora.
+ */
+export async function aplicarMudancaRegua(empresaId: string, cargo: string, tracoKey: string, m: Mudanca): Promise<any> {
+  try {
+    if (m.tipo !== 'direcao') return { success: false, error: 'Só mudança de direção é aplicável por aqui (recuperação de ombro é decisão de mesa).' };
+    const sb = await requireAdminSupabase('ai.audit.regenerate');
+    const { data: cg } = await sb.from('cargos_empresa').select('gabarito').eq('empresa_id', empresaId).eq('nome', cargo).maybeSingle();
+    const g = cg?.gabarito; if (!g) return { success: false, error: 'Cargo sem gabarito.' };
+    let alvo = '';
+    if (['D', 'I', 'S', 'C'].includes(tracoKey)) {
+      if (g.tela4?.[tracoKey]) { g.tela4[tracoKey].direcao = m.para; alvo = tracoKey; }
+    } else {
+      const nome = COMP_LABEL.find((c: any) => c.key === tracoKey)?.nome;
+      const sub = (g.tela2?.subcompetencias || []).find((s: any) => norm(s.nome) === norm(nome));
+      if (sub) { sub.direcao = m.para; alvo = sub.nome; }
+    }
+    if (!alvo) return { success: false, error: `Traço ${tracoKey} não encontrado no gabarito.` };
+    const { error } = await sb.from('cargos_empresa').update({ gabarito: g }).eq('empresa_id', empresaId).eq('nome', cargo);
+    if (error) return { success: false, error: error.message };
+    return { success: true, alvo, para: m.para };
+  } catch (e: any) { return { success: false, error: e?.message || 'Erro ao aplicar.' }; }
 }
