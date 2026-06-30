@@ -101,17 +101,26 @@ export default function CalibracaoPage() {
                     <p className="text-xs text-slate-300 mt-1">{frase(l)}</p>
                     <button onClick={() => simular(l)} disabled={busy === 'sim:' + l.key} className="mt-2 text-[11px] font-bold px-3 py-1 rounded border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-50">{busy === 'sim:' + l.key ? 'Simulando…' : ehTensao ? 'Simular: aplicar teto (faixa-alvo)' : 'Simular: recuperar sinal (ombro↑)'}</button>
 
-                    {sim && sim.success && (
-                      <div className="mt-2 rounded bg-black/20 p-2 text-[11px] text-slate-300 space-y-1">
-                        <div>Cor V/A/R: <span className="font-mono">{sim.dist0.v}/{sim.dist0.a}/{sim.dist0.r}</span> → <span className="font-mono">{sim.distM.v}/{sim.distM.a}/{sim.distM.r}</span> · {sim.cruzam.length} mudam de cor · Spearman {sim.spearman}</div>
-                        {sim.desbloqueados.length > 0
-                          ? <div className="text-red-400 font-bold">⚠ DESTRAVA {sim.desbloqueados.length} gate(s): {sim.desbloqueados.join(', ')} — NÃO aplicar (vira eliminatória afrouxada). Leve à mesa.</div>
-                          : <div className="text-emerald-400/80">Nenhum gate destrava. {sim.bloqueadosNovos.length > 0 && `(${sim.bloqueadosNovos.length} novo(s) bloqueio: ${sim.bloqueadosNovos.join(', ')})`}</div>}
-                        {ehTensao && sim.desbloqueados.length === 0
-                          ? <button onClick={() => aplicar(l)} disabled={busy === 'apl:' + l.key} className="mt-1 text-[11px] font-bold px-3 py-1 rounded bg-amber-500/20 border border-amber-400 text-amber-200 hover:bg-amber-500/30 disabled:opacity-50">{busy === 'apl:' + l.key ? 'Aplicando…' : 'Aplicar mudança de régua'}</button>
-                          : !ehTensao && <div className="text-slate-500 italic">Recuperação não é mudança de um campo (composição) — preview só; leva à mesa.</div>}
-                      </div>
-                    )}
+                    {sim && sim.success && (() => {
+                      const SUG: Record<string, { cor: string; icone: string }> = { seguro: { cor: '#10b981', icone: '✓' }, opcional: { cor: '#94a3b8', icone: '○' }, cuidado: { cor: '#f59e0b', icone: '⚠' }, nao: { cor: '#ef4444', icone: '✗' } };
+                      const sg = sim.sugestao; const podeAplicar = ehTensao && sg.nivel !== 'nao';
+                      return (
+                        <div className="mt-2 rounded bg-black/20 p-2 text-[11px] text-slate-300 space-y-1.5">
+                          <div>Cor V/A/R: <span className="font-mono">{sim.dist0.v}/{sim.dist0.a}/{sim.dist0.r}</span> → <span className="font-mono">{sim.distM.v}/{sim.distM.a}/{sim.distM.r}</span> · {sim.cruzam.length} mudam de cor · Spearman {sim.spearman}</div>
+                          {sim.desbloqueados.length > 0 && <div className="text-red-400">Destrava: {sim.desbloqueados.join(', ')}</div>}
+                          {sim.bloqueadosNovos.length > 0 && <div className="text-amber-400/90">Bloqueia novos: {sim.bloqueadosNovos.join(', ')}</div>}
+                          {/* SUGESTÃO = segurança mecânica, não o "deve" clínico */}
+                          <div className="font-bold flex items-center gap-1" style={{ color: SUG[sg.nivel].cor }}>{SUG[sg.nivel].icone} Sugestão: {sg.texto}</div>
+                          {!ehTensao && <div className="text-slate-500 italic">Recuperação não é mudança de um campo (composição) — só preview; leva à mesa.</div>}
+                          <div className="flex items-center gap-2 pt-0.5">
+                            {podeAplicar && <button onClick={() => aplicar(l)} disabled={busy === 'apl:' + l.key} className="text-[11px] font-bold px-3 py-1 rounded bg-amber-500/20 border border-amber-400 text-amber-200 hover:bg-amber-500/30 disabled:opacity-50">{busy === 'apl:' + l.key ? 'Aplicando…' : 'Aplicar mudança'}</button>}
+                            <button onClick={() => setSims((s) => { const c = { ...s }; delete c[l.key]; return c; })} className="text-[11px] px-3 py-1 rounded border border-white/10 text-slate-400 hover:bg-white/5">Não aplicar</button>
+                          </div>
+                          {ehTensao && sg.nivel === 'nao' && <div className="text-[10px] text-red-400/80">Aplicar bloqueado: a mudança destrava gate. Decisão de mesa, não automática.</div>}
+                          <div className="text-[10px] text-slate-500">A sugestão diz se é SEGURO aplicar; SE deve aplicar é decisão clínica.</div>
+                        </div>
+                      );
+                    })()}
                     {sim && !sim.success && <div className="text-[11px] text-red-400 mt-1">{sim.error}</div>}
                   </div>
                 );

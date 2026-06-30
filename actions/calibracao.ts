@@ -94,7 +94,14 @@ export async function simularMudancaRegua(empresaId: string, cargo: string, trac
     const [v0, a0, r0c] = band(rows.map((x) => x.r0), 'betaBand'); const [vM, aM, rMc] = band(rows.map((x) => x.rM), 'betaBand');
     // Spearman beta
     const sp = (() => { const A = rows.map((x) => x.r0.betaPct), B = rows.map((x) => x.rM.betaPct); const rk = (z: number[]) => { const i = z.map((v, j) => [v, j] as [number, number]).sort((p, q) => p[0] - q[0]); const o: number[] = []; i.forEach(([, j], k) => o[j] = k); return o; }; const ra = rk(A), rb = rk(B); const n = A.length, ma = ra.reduce((s, x) => s + x, 0) / n, mb = rb.reduce((s, x) => s + x, 0) / n; let c = 0, x2 = 0, y2 = 0; for (let i = 0; i < n; i++) { c += (ra[i] - ma) * (rb[i] - mb); x2 += (ra[i] - ma) ** 2; y2 += (rb[i] - mb) ** 2; } return x2 && y2 ? Math.round(c / Math.sqrt(x2 * y2) * 1000) / 1000 : 1; })();
-    return { success: true, n: rows.length, naoBloqueados: naoBloq.length, mudanca: m, dist0: { v: v0, a: a0, r: r0c }, distM: { v: vM, a: aM, r: rMc }, cruzam, desbloqueados, bloqueadosNovos, spearman: sp };
+    // SUGESTÃO = veredito de SEGURANÇA mecânica (lê o e-se), NÃO o "deve" clínico.
+    let sugNivel: 'seguro' | 'opcional' | 'cuidado' | 'nao'; let sugTexto: string;
+    if (desbloqueados.length) { sugNivel = 'nao'; sugTexto = `Não aplicar — destrava ${desbloqueados.length} gate(s) (afrouxa a eliminatória). Decisão de mesa.`; }
+    else if (bloqueadosNovos.length) { sugNivel = 'cuidado'; sugTexto = `Cuidado — bloqueia ${bloqueadosNovos.length} novo(s) pelo gate (a mudança aperta a eliminatória). Confira os nomes.`; }
+    else if (sp < 0.9) { sugNivel = 'cuidado'; sugTexto = `Cuidado — reordena o ranking (Spearman ${sp}). Revise quem se move antes de aplicar.`; }
+    else if (cruzam.length === 0) { sugNivel = 'opcional'; sugTexto = `Seguro, mas INERTE neste grupo — não muda ninguém aqui. Aplicar corrige a forma da régua p/ grupos futuros; sem efeito agora.`; }
+    else { sugNivel = 'seguro'; sugTexto = `Seguro de aplicar — re-classifica ${cruzam.length} pessoa(s), rank preservado, sem destravar gate.`; }
+    return { success: true, n: rows.length, naoBloqueados: naoBloq.length, mudanca: m, dist0: { v: v0, a: a0, r: r0c }, distM: { v: vM, a: aM, r: rMc }, cruzam, desbloqueados, bloqueadosNovos, spearman: sp, sugestao: { nivel: sugNivel, texto: sugTexto } };
   } catch (e: any) { return { success: false, error: e?.message || 'Erro no e-se.' }; }
 }
 
