@@ -10,6 +10,7 @@
 import { getUserContext } from '@/lib/authz';
 import { canBase } from '@/lib/permissions';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 // O snapshot grava pesos[].bloco como LABEL acentuado ("Competência"), não a key.
 // Tudo aqui é keyed por LABEL pra casar com o snapshot.
@@ -30,16 +31,24 @@ async function ctxGestor() {
 
 const cargoEnc = (c: string) => encodeURIComponent(c).replace(/%/g, '');
 
-/** Cargos da empresa que TÊM snapshot de ranking (relatório gerado). */
+// ── Núcleo compartilhado (gestor self-service E preview de admin) ────────────
+async function _listarCargos(sb: any, empresaId: string): Promise<string[]> {
+  const { data: cargos } = await sb.from('cargos_empresa').select('nome, gabarito').eq('empresa_id', empresaId);
+  const comGab = (cargos || []).filter((c: any) => c.gabarito?.tela4).map((c: any) => c.nome);
+  const { data: files } = await sb.storage.from('conteudos').list('final/adequacao-cargo', { limit: 1000, search: empresaId });
+  const nomes = new Set((files || []).map((f: any) => f.name));
+  return comGab.filter((nome: string) => [...nomes].some((fn) => fn.startsWith(`${empresaId}-${cargoEnc(nome)}-`) && fn.endsWith('.json'))).sort((a: string, b: string) => a.localeCompare(b));
+}
+
+/** Cargos da empresa que TÊM snapshot de ranking (relatório gerado) — GESTOR. */
 export async function listarCargosComRanking(): Promise<{ cargos: string[]; erro?: string }> {
   const g = await ctxGestor(); if ('erro' in g) return { cargos: [], erro: g.erro };
-  const sb = createSupabaseAdmin();
-  const { data: cargos } = await sb.from('cargos_empresa').select('nome, gabarito').eq('empresa_id', g.empresaId);
-  const comGab = (cargos || []).filter((c: any) => c.gabarito?.tela4).map((c: any) => c.nome);
-  const { data: files } = await sb.storage.from('conteudos').list('final/adequacao-cargo', { limit: 1000, search: g.empresaId });
-  const nomes = new Set((files || []).map((f: any) => f.name));
-  const temSnap = comGab.filter((nome: string) => [...nomes].some((fn) => fn.startsWith(`${g.empresaId}-${cargoEnc(nome)}-`) && fn.endsWith('.json')));
-  return { cargos: temSnap.sort((a, b) => a.localeCompare(b)) };
+  return { cargos: await _listarCargos(createSupabaseAdmin(), g.empresaId) };
+}
+/** Idem — PREVIEW de admin (empresa vem da rota, gated p/ platform_admin). */
+export async function listarCargosComRankingAdmin(empresaId: string): Promise<{ cargos: string[]; erro?: string }> {
+  const sb = await requireAdminSupabase('admin.access');
+  return { cargos: await _listarCargos(sb, empresaId) };
 }
 
 async function ultimoSnapshot(sb: any, empresaId: string, cargo: string): Promise<any | null> {
@@ -58,10 +67,8 @@ function gateTexto(e: any): string {
   return e.ehBloco ? `${e.traco} ${Math.round(e.medidoPct ?? 0)}% < ${Math.round(e.minPct ?? 0)}%` : `${e.traco} ${e.valorBruto} < ${e.piso}`;
 }
 
-export async function getRankingAdequacao(cargo: string): Promise<any> {
-  const g = await ctxGestor(); if ('erro' in g) return { success: false, error: g.erro };
-  const sb = createSupabaseAdmin();
-  const snap = await ultimoSnapshot(sb, g.empresaId, cargo);
+async function _getRanking(sb: any, empresaId: string, cargo: string): Promise<any> {
+  const snap = await ultimoSnapshot(sb, empresaId, cargo);
   if (!snap?.data) return { success: false, semSnapshot: true, error: 'Ranking ainda não disponível para este cargo (relatório não gerado).' };
   const data = snap.data;
   const temTracos = data.pessoas?.[0] && Array.isArray(data.pessoas[0].tracos);
@@ -107,4 +114,15 @@ export async function getRankingAdequacao(cargo: string): Promise<any> {
     divergencia, pesos, elegiveis, anexoGate, driversDisponiveis,
     totais: { elegiveis: elegiveis.length, bloqueados: anexoGate.length },
   };
+}
+
+/** GESTOR self-service (empresa da sessão). */
+export async function getRankingAdequacao(cargo: string): Promise<any> {
+  const g = await ctxGestor(); if ('erro' in g) return { success: false, error: g.erro };
+  return _getRanking(createSupabaseAdmin(), g.empresaId, cargo);
+}
+/** PREVIEW de admin (empresa da rota, gated p/ platform_admin). */
+export async function getRankingAdequacaoAdmin(empresaId: string, cargo: string): Promise<any> {
+  const sb = await requireAdminSupabase('admin.access');
+  return _getRanking(sb, empresaId, cargo);
 }
