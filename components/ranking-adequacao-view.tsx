@@ -39,6 +39,12 @@ export default function RankingAdequacaoView({ listar, carregar }: {
     setLoading(false);
   }
 
+  // SEP = o bloco que de fato SEPARA: quando o eixo declarado (peso) não discrimina,
+  // é o discriminador empírico (divergencia.real). É por ele que ordenamos e destacamos
+  // o chip — exibir o bloco morto como se decidisse foi o pecado do v1.0. (Decisão #2 +).
+  const sep: string = data?.divergencia?.real || data?.eixo?.label || '';
+  const eixoMorto = data?.divergencia ? data.eixo.label : null; // declarado mas não separa
+
   const visiveis = useMemo(() => {
     if (!data) return [];
     let arr = [...data.elegiveis];
@@ -46,9 +52,9 @@ export default function RankingAdequacaoView({ listar, carregar }: {
     if (fDriver === 'sem-gap') arr = arr.filter((e) => e.drivers.length === 0);
     else if (fDriver !== 'qualquer') arr = arr.filter((e) => e.drivers.includes(fDriver));
     arr = arr.filter((e) => e.aderencia >= fMin);
-    arr.sort((a, b) => sort === 'eixo' ? (b.eixoFit ?? -1) - (a.eixoFit ?? -1) : b.aderencia - a.aderencia);
+    arr.sort((a, b) => sort === 'eixo' ? ((b.blocos[sep] ?? -1) - (a.blocos[sep] ?? -1)) : b.aderencia - a.aderencia);
     return arr;
-  }, [data, fStatus, fDriver, fMin, sort]);
+  }, [data, fStatus, fDriver, fMin, sort, sep]);
 
   return (
     <>
@@ -83,7 +89,7 @@ export default function RankingAdequacaoView({ listar, carregar }: {
           {data.divergencia && (
             <div className="rounded-lg p-2.5 border border-amber-400/30 bg-amber-400/5 text-[11px] text-amber-200/90 flex gap-2">
               <ShieldAlert size={14} className="shrink-0 mt-0.5" />
-              <span>Neste grupo, <b>{data.divergencia.eixo}</b> quase não diferencia os candidatos (dispersão {data.divergencia.sdEixo}). A ordenação reflete o <b>peso do cargo</b>, não a separação real — quem separa de fato aqui é {data.divergencia.real}. Leia o ranking com isso em mente.</span>
+              <span>Neste grupo, <b>{data.divergencia.eixo}</b> (o bloco de maior peso do cargo) quase não diferencia os candidatos (dispersão {data.divergencia.sdEixo}). Quem separa de fato aqui é <b>{data.divergencia.real}</b> — então ordenamos e destacamos por ela, e {data.divergencia.eixo} aparece ao lado como contexto.</span>
             </div>
           )}
 
@@ -103,7 +109,7 @@ export default function RankingAdequacaoView({ listar, carregar }: {
               <input type="range" min={0} max={100} value={fMin} onChange={(e) => setFMin(Number(e.target.value))} className="accent-brand-400" />
             </label>
             <div className="flex items-center gap-1 text-slate-400">Ordenar por
-              <button onClick={() => setSort('eixo')} className={`px-2 py-1 rounded border ${sort === 'eixo' ? 'border-brand-400 text-brand-200' : 'border-white/10 text-slate-400'}`}>{data.eixo.label} (eixo)</button>
+              <button onClick={() => setSort('eixo')} className={`px-2 py-1 rounded border ${sort === 'eixo' ? 'border-brand-400 text-brand-200' : 'border-white/10 text-slate-400'}`}>{sep} {data.divergencia ? '(separa)' : '(eixo)'}</button>
               <button onClick={() => setSort('aderencia')} className={`px-2 py-1 rounded border ${sort === 'aderencia' ? 'border-brand-400 text-brand-200' : 'border-white/10 text-slate-400'}`}>Aderência</button>
             </div>
             <span className="text-slate-500 ml-auto">{visiveis.length} de {data.totais.elegiveis} elegíveis</span>
@@ -121,7 +127,8 @@ export default function RankingAdequacaoView({ listar, carregar }: {
                       <span className="text-sm font-medium text-white truncate">{e.nome}</span>
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: st.cor + '22', color: st.cor }}>{st.label}</span>
                       {e.borderline && <span className="text-[9px] text-amber-400" title="Sensível à margem de medida (±SEM)">limítrofe ±{e.semDelta}</span>}
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-400/10 text-cyan-300">{data.eixo.label}: {e.eixoFit != null ? Math.round(e.eixoFit) + '%' : 'n/a'}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-400/10 text-cyan-300">{sep}: {e.blocos[sep] != null ? Math.round(e.blocos[sep]) + '%' : 'n/a'}</span>
+                      {eixoMorto && <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-slate-500" title="Bloco de maior peso do cargo, mas não diferencia este grupo">{eixoMorto}: {e.blocos[eixoMorto] != null ? Math.round(e.blocos[eixoMorto]) + '%' : 'n/a'}</span>}
                     </div>
                     {e.drivers.length > 0 && <div className="text-[10px] text-slate-500 mt-0.5 truncate">A desenvolver: {e.drivers.join(', ')}</div>}
                   </div>
