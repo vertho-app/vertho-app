@@ -44,10 +44,13 @@ export function camada0Higiene(colabs: ColabHigiene[]): IssueHigiene[] {
         out.push({ tipo: 'disc_conflitante', detalhe: `${comEmail[i].nome}: d_natural ${comEmail[i].dNatural} vs ${comEmail[j].dNatural} — qual mede a pessoa? (decisão humana)` });
     }
   }
-  // (c) duplicados por nome (mesmo nome, ids diferentes)
+  // (c) duplicados por nome — só conta linhas SUBSTANTIVAS. Um proxy de WhatsApp vazio
+  // (nao-email + sem DISC) é a identidade-telefone do MESMO usuário (login dual, por
+  // design), NÃO uma duplicata a resolver. Sem isto, a Camada 0 flagaria todo dual-login.
+  const proxyVazio = (c: ColabHigiene) => c.dNatural == null && !!c.email && /@nao-email\./.test(c.email);
   const porNome = new Map<string, ColabHigiene[]>();
-  for (const c of colabs) { const k = norm(c.nome); if (!porNome.has(k)) porNome.set(k, []); porNome.get(k)!.push(c); }
-  for (const [, g] of porNome) if (g.length > 1) out.push({ tipo: 'duplicado', detalhe: `"${g[0].nome}" aparece ${g.length}× (ids: ${g.map((c) => c.id.slice(0, 8)).join(', ')})` });
+  for (const c of colabs) { if (proxyVazio(c)) continue; const k = norm(c.nome); if (!porNome.has(k)) porNome.set(k, []); porNome.get(k)!.push(c); }
+  for (const [, g] of porNome) if (g.length > 1) out.push({ tipo: 'duplicado', detalhe: `"${g[0].nome}" aparece ${g.length}× substantivas (ids: ${g.map((c) => c.id.slice(0, 8)).join(', ')})` });
   return out;
 }
 
