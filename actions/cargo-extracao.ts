@@ -13,12 +13,12 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { extrairCargo, type ExtratorInput } from '@/lib/cargo-extracao/extrator';
 import { achatarExtracao, prepararRevisao, type ExtracaoCargo, type AchatarOpts } from '@/lib/cargo-extracao/adapter';
 
-/** Cargos da empresa (todos — a extração é ANTES do gabarito) p/ o seletor da tela. */
-export async function listarCargosDaEmpresa(empresaId: string): Promise<{ cargos: string[] }> {
+/** Cargos da empresa (nome + eh_lideranca) — p/ o badge novo/existente e pré-carga do toggle. */
+export async function listarCargosDaEmpresa(empresaId: string): Promise<{ cargos: { nome: string; eh_lideranca: boolean }[] }> {
   try {
     const sb = await requireAdminSupabase('admin.access');
-    const { data } = await sb.from('cargos_empresa').select('nome').eq('empresa_id', empresaId);
-    const cargos = (data || []).map((c: any) => c.nome).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b));
+    const { data } = await sb.from('cargos_empresa').select('nome, eh_lideranca').eq('empresa_id', empresaId);
+    const cargos = (data || []).filter((c: any) => c.nome).map((c: any) => ({ nome: c.nome, eh_lideranca: !!c.eh_lideranca })).sort((a: any, b: any) => a.nome.localeCompare(b.nome));
     return { cargos };
   } catch { return { cargos: [] }; }
 }
@@ -36,26 +36,36 @@ export async function extrairDescricaoCargo(
   }
 }
 
-/** Persiste a extração REVISADA: achata (só aprovados) → PATCH parcial em cargos_empresa.
- *  Patch parcial NUNCA apaga coluna existente com "" (campo vazio não entra no update). */
+/** Persiste a extração REVISADA num cargo. CRIA (INSERT) se `nome` não existe na empresa,
+ *  senão ATUALIZA (UPDATE) com PATCH PARCIAL (campo vazio NUNCA apaga coluna existente).
+ *  `ehLideranca` (decisão do gestor, não do doc) grava sempre que informado — muda pesos/
+ *  knockouts na IA2. `nome` é o nome final (editável, pode ser novo). */
 export async function salvarRevisaoCargo(
   empresaId: string,
-  cargo: string,
+  nome: string,
   extracaoRevisada: ExtracaoCargo,
   opts: AchatarOpts = {},
-): Promise<{ success: boolean; gravados?: string[]; diagnostico?: any; error?: string }> {
+  ehLideranca?: boolean,
+): Promise<{ success: boolean; criado?: boolean; gravados?: string[]; diagnostico?: any; error?: string }> {
   try {
-    if (!empresaId || !cargo) return { success: false, error: 'Empresa e cargo são obrigatórios.' };
+    if (!empresaId || !nome?.trim()) return { success: false, error: 'Empresa e nome do cargo são obrigatórios.' };
+    const nomeCargo = nome.trim();
     const sb = await requireAdminSupabase('admin.access');
     const { patch, diagnostico } = achatarExtracao(extracaoRevisada, opts);
-
     if (diagnostico.documentoInvalido) return { success: false, error: 'Documento marcado como inválido — nada a gravar.', diagnostico };
-    const gravados = Object.keys(patch);
-    if (!gravados.length) return { success: true, gravados: [], diagnostico }; // nada aprovado ainda — não toca no cargo
 
-    const { error } = await sb.from('cargos_empresa').update(patch).eq('empresa_id', empresaId).eq('nome', cargo);
-    if (error) return { success: false, error: `Falha ao gravar no cargo: ${error.message}`, diagnostico };
-    return { success: true, gravados, diagnostico };
+    const registro: Record<string, any> = { ...patch, ...(ehLideranca !== undefined ? { eh_lideranca: ehLideranca } : {}) };
+    const { data: existe } = await sb.from('cargos_empresa').select('nome').eq('empresa_id', empresaId).eq('nome', nomeCargo).maybeSingle();
+
+    if (existe) {
+      if (!Object.keys(registro).length) return { success: true, criado: false, gravados: [], diagnostico };
+      const { error } = await sb.from('cargos_empresa').update(registro).eq('empresa_id', empresaId).eq('nome', nomeCargo);
+      if (error) return { success: false, error: `Falha ao atualizar o cargo: ${error.message}`, diagnostico };
+      return { success: true, criado: false, gravados: Object.keys(registro), diagnostico };
+    }
+    const { error } = await sb.from('cargos_empresa').insert({ empresa_id: empresaId, nome: nomeCargo, ...registro });
+    if (error) return { success: false, error: `Falha ao criar o cargo: ${error.message}`, diagnostico };
+    return { success: true, criado: true, gravados: ['nome', ...Object.keys(registro)], diagnostico };
   } catch (e: any) {
     return { success: false, error: e?.message || 'Falha ao salvar a revisão do cargo.' };
   }
