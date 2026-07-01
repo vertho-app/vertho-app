@@ -52,13 +52,18 @@ const fmtData = (iso?: string | null) => iso ? (() => { const [y, m, d] = iso.sl
 const iniciais = (n: string) => n.split(' ').filter(Boolean).slice(0, 2).map((x) => x[0]?.toUpperCase()).join('');
 
 // ── Barra-contra-faixa (SVG): banda lo→hi (target) / lo→100 (floor) / 0→hi (ceiling),
-//    linha no piso, marcador do bruto (verde dentro / vermelho fora), escala 0-100. ──
-function BarraTraco({ label, bruto, lo, hi, direcao, fitPct }: { label: string; bruto: number | null; lo: number | null; hi: number | null; direcao?: string; fitPct?: number | null }) {
+//    linha no piso, marcador do bruto. COR DO MARCADOR = severidade que o TEXTO honra,
+//    NÃO pertencimento geométrico à banda: vermelho SÓ se é gap (a narrativa comenta),
+//    âmbar se está fora do ideal mas o motor NÃO o marcou como gap (tolerável). Assim a
+//    bolinha vermelha nunca aparece ao lado de "sem gaps" — tela e prosa concordam. ──
+function BarraTraco({ label, bruto, lo, hi, direcao, fitPct, isGap }: { label: string; bruto: number | null; lo: number | null; hi: number | null; direcao?: string; fitPct?: number | null; isGap?: boolean }) {
   const W = 200, H = 9;
   const x = (v: number) => Math.max(0, Math.min(W, (v / 100) * W));
   const L = lo ?? 0, Hh = hi ?? 100;
   const banda = direcao === 'floor' ? [L, 100] : direcao === 'ceiling' ? [0, Hh] : [L, Hh];
   const dentro = bruto != null && bruto >= banda[0] && bruto <= banda[1];
+  // Legado (sem fitPct): cai no geométrico. Com fitPct: gap=vermelho, resto mostrado=âmbar.
+  const cor = fitPct == null ? (dentro ? T.verde : T.vermelho) : (isGap ? T.vermelho : T.clay);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
       <Text style={{ width: 92, fontSize: 7.5, color: T.ink }}>{label}</Text>
@@ -66,9 +71,9 @@ function BarraTraco({ label, bruto, lo, hi, direcao, fitPct }: { label: string; 
         <Rect x={0} y={H / 2 - 0.5} width={W} height={1} fill="#D8D2C4" />
         <Rect x={x(banda[0])} y={0} width={x(banda[1]) - x(banda[0])} height={H} rx={1.5} fill={T.verde} fillOpacity={0.18} />
         {lo != null && <Line x1={x(L)} y1={0} x2={x(L)} y2={H} stroke={T.teal} strokeWidth={0.8} strokeDasharray="1.5 1.5" />}
-        {bruto != null && <Rect x={x(bruto) - 1.2} y={-1} width={2.4} height={H + 2} rx={1} fill={dentro ? T.verde : T.vermelho} />}
+        {bruto != null && <Rect x={x(bruto) - 1.2} y={-1} width={2.4} height={H + 2} rx={1} fill={cor} />}
       </Svg>
-      <Text style={[s.num, { width: 22, textAlign: 'right', fontSize: 8, color: dentro ? T.verde : T.vermelho }]}>{bruto != null ? Math.round(bruto) : '—'}</Text>
+      <Text style={[s.num, { width: 22, textAlign: 'right', fontSize: 8, color: cor }]}>{bruto != null ? Math.round(bruto) : '—'}</Text>
       <Text style={{ width: 34, textAlign: 'right', fontSize: 6.5, color: T.mute }}>{fitPct != null ? `${Math.round(fitPct)}% fit` : ''}</Text>
     </View>
   );
@@ -97,6 +102,7 @@ function Capa({ empresaNome, cargo, dataISO }: any) {
 // ── PÁGINA RANKING (escura) ──────────────────────────────────────────────────
 function PaginaRanking({ elegiveis, eixo, sep, divergencia, narrCount, cargo }: any) {
   const eixoMorto = divergencia ? eixo.label : null;
+  const temBorderline = elegiveis.some((p: PessoaAdequacao) => p.borderline);
   return (
     <Page size="A4" style={s.pageDark}>
       <Text style={s.eyebrow}>Ranking · {cargo}</Text>
@@ -104,6 +110,7 @@ function PaginaRanking({ elegiveis, eixo, sep, divergencia, narrCount, cargo }: 
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 8, fontSize: 7.5, color: T.mute }}>
         <Text>Eixo do cargo: <Text style={{ color: T.cyan }}>{sep}</Text>{divergencia ? ' (o que separa)' : ` (peso ${eixo.peso ?? '—'}%)`}</Text>
         <Text><Text style={{ color: T.verde }}>■</Text> Recomendado  <Text style={{ color: T.clay }}>■</Text> Com ressalvas  <Text style={{ color: T.mute }}>■</Text> Abaixo do corte</Text>
+        {temBorderline && <Text><Text style={{ color: T.clay }}>± X</Text> = margem de incerteza da medida (SEM)</Text>}
       </View>
       {divergencia && (
         <View style={[s.card, { backgroundColor: 'rgba(224,161,86,0.12)', marginBottom: 8 }]}>
@@ -178,14 +185,14 @@ function AnaliseIndividual({ elegiveis, narrativas, sep, gates }: any) {
     <Page size="A4" style={s.pageLight} wrap>
       <Text style={[s.eyebrow, { color: T.teal }]}>Análise individual</Text>
       <Text style={[s.h2, { color: T.ink, marginTop: 3, marginBottom: 2 }]}>Candidatos elegíveis</Text>
-      <Text style={{ fontSize: 7, color: T.mute, marginBottom: 6 }}>Cada barra é o <Text style={{ color: T.ink }}>valor bruto (0–100)</Text> do traço contra a <Text style={{ color: T.verde }}>faixa ideal</Text>; o traço da linha marca o piso. À direita: bruto e o <Text style={{ color: T.ink }}>fit%</Text> (aderência do traço à faixa). Mostramos os traços fora da faixa e os drivers; os que estão dentro são resumidos.</Text>
+      <Text style={{ fontSize: 7, color: T.mute, marginBottom: 6 }}>Cada barra é o <Text style={{ color: T.ink }}>valor bruto (0–100)</Text> do traço contra a <Text style={{ color: T.verde }}>faixa ideal</Text>; à direita, bruto e o <Text style={{ color: T.ink }}>fit%</Text> (aderência à faixa). Marcador <Text style={{ color: T.vermelho }}>■ vermelho = gap</Text> (déficit que o texto comenta) · <Text style={{ color: T.clay }}>■ âmbar = fora do ideal, mas tolerável</Text> (não é gap). Traços com fit alto são resumidos.</Text>
       {elegiveis.map((p: PessoaAdequacao) => {
         const narr = narrativas?.[p.nome];
         const gapLabels = new Set((p.gaps || []).map((g) => g.traco));
-        // Relevância = FORA da faixa (fit<100) OU driver/gate. sep (eixo) é bloco escalar
-        // sem traço-a-traço (Liderança/Mapeamento) → não filtra por ele. Isto faz as
-        // barras APARECEREM: Comando-acima-do-teto, Conformidade-fora-da-banda etc.
-        const relevantes = (p.tracos || []).filter((t) => (t.fitPct ?? 100) < 100 || gapLabels.has(t.label) || gateLabels.has(t.label));
+        // Relevância = é gap/gate OU fit MEANINGFULLY baixo (<90). Esconde os quase-perfeitos
+        // (fit 90–99, geometricamente um fio fora da banda mas irrelevantes → não poluem).
+        // Cor do marcador (em BarraTraco) = gap→vermelho / resto→âmbar: casa com a narrativa.
+        const relevantes = (p.tracos || []).filter((t) => gapLabels.has(t.label) || gateLabels.has(t.label) || (t.fitPct ?? 100) < 90);
         const resto = (p.tracos || []).length - relevantes.length;
         return (
           <View key={p.id || p.nome} style={{ marginBottom: 9, borderTopWidth: 1, borderTopColor: '#E4DECF', paddingTop: 6 }} wrap={false}>
@@ -195,10 +202,10 @@ function AnaliseIndividual({ elegiveis, narrativas, sep, gates }: any) {
               <Text style={[s.num, { fontSize: 12, color: Cor(p.status), marginLeft: 8 }]}>{Math.round(p.beta.pct)}%</Text>
             </View>
             {narr && <Text style={{ fontSize: 8, color: T.ink, lineHeight: 1.45, marginTop: 2, marginBottom: 3 }}>{narr}</Text>}
-            {relevantes.map((t, i) => <BarraTraco key={i} label={t.label} bruto={t.bruto} lo={t.lo} hi={t.hi} direcao={t.direcao} fitPct={t.fitPct} />)}
+            {relevantes.map((t, i) => <BarraTraco key={i} label={t.label} bruto={t.bruto} lo={t.lo} hi={t.hi} direcao={t.direcao} fitPct={t.fitPct} isGap={gapLabels.has(t.label)} />)}
             {relevantes.length === 0
-              ? <Text style={{ fontSize: 7.5, color: T.verde, marginTop: 1 }}>Todos os {resto} traços dentro da faixa ideal.</Text>
-              : resto > 0 && <Text style={{ fontSize: 7, color: T.mute, marginTop: 1 }}>+ {resto} traços dentro da faixa.</Text>}
+              ? <Text style={{ fontSize: 7.5, color: T.verde, marginTop: 1 }}>Todos os {resto} traços dentro do ideal.</Text>
+              : resto > 0 && <Text style={{ fontSize: 7, color: T.mute, marginTop: 1 }}>+ {resto} traços dentro do ideal.</Text>}
           </View>
         );
       })}
