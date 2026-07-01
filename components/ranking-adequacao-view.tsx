@@ -98,7 +98,7 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
             <span>Ranking de <b className="text-slate-300">{fmtData(data.dataISO)}</b> (foto da geração).</span>
             <span>Eixo do cargo: <b className="text-slate-300">{data.eixo.label}</b>{data.eixo.peso != null && ` (peso ${data.eixo.peso}%)`}.</span>
-            <span>🟢 Recomendado · 🟡 Com ressalvas</span>
+            <span>🟢 Recomendado · 🟡 Com ressalvas · ⚪ Abaixo do corte{data.faixas ? ` (aderência < ${data.faixas.ressalvasMin}%; não é eliminação por gate)` : ''}</span>
           </div>
           {data.divergencia && (
             <div className="rounded-lg p-2.5 border border-amber-400/30 bg-amber-400/5 text-[11px] text-amber-200/90 flex gap-2">

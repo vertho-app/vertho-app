@@ -74,6 +74,7 @@ export interface PerfilIdeal {
   pesos: { bloco: string; pct: number }[];
   liderancaAplicavel: boolean;
   gates?: GateDef[];                 // definições de eliminatória (traço/bloco + limiar) — autossuficiente p/ o PDF canônico. Ausente em snapshots pré-enriquecimento.
+  faixas?: { recomendadoMin: number; ressalvasMin: number }; // corte da régua versionada (bandHigh/bandMid em %). É o critério que gera "abaixo do corte" — DECLARADO no doc, não oculto. Ausente em snapshots pré-enriquecimento.
 }
 /** Definição de gate p/ a página de Gabarito do PDF (lida do snapshot, não das evidências). */
 export interface GateDef { tipo: 'trait' | 'block'; label: string; bloco: string; minPct: number; piso: number | null }
@@ -164,7 +165,11 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
     const t = spec.traits.find((x) => x.key === k.key) as any;
     return { tipo: 'trait' as const, label: t?.label || k.key, bloco: BLOCO_LABEL[t?.block] || t?.block || '', minPct: Math.round(k.min * 100), piso: t?.lo ?? null };
   });
-  const perfilIdeal: PerfilIdeal = { caracteristicas, competencias: competenciasIdeal, lideranca: liderancaIdeal, estiloPredominante: g.tela3?.estilo_predominante || '', disc: discIdeal, pesos, liderancaAplicavel, gates };
+  // Faixas de aderência = a régua de cor versionada (mesma que separa verde/amarelo/
+  // vermelho). O corte "abaixo do corte" É o ressalvasMin. Grava DECLARADO no snapshot
+  // p/ o PDF imprimir o critério, em vez de a Secretaria descobrir por dedução.
+  const faixas = { recomendadoMin: Math.round((spec.bandHigh ?? 0.85) * 100), ressalvasMin: Math.round((spec.bandMid ?? 0.60) * 100) };
+  const perfilIdeal: PerfilIdeal = { caracteristicas, competencias: competenciasIdeal, lideranca: liderancaIdeal, estiloPredominante: g.tela3?.estilo_predominante || '', disc: discIdeal, pesos, liderancaAplicavel, gates, faixas };
 
   // 3) Colaboradores do cargo (com DISC mapeado).
   const cols = ['id', 'nome_completo', ...candidateColumns()].join(', ');

@@ -14,20 +14,26 @@ import { Document, Page, View, Text, StyleSheet, Svg, Rect, Line, Font, renderTo
 import type { AdequacaoCargo, PessoaAdequacao, GateDef } from './aggregate';
 
 const CDN = 'https://cdn.jsdelivr.net/fontsource/fonts';
+// CORPO = Inter. A Plus Jakarta do fontsource aplica a ligadura fi/fl DESTRUTIVA
+// ("final"→"ﬁnal" com i sem pingo → lê como letra faltando), mesma armadilha que já
+// tinha aposentado a NotoSans no projeto. A Inter do fontsource NÃO liga fi (i pontuado
+// normal) — é a fonte de corpo provada de todos os PDFs. DISPLAY = Fraunces (serifa T&S;
+// nenhum título do template contém "fi", então a ligadura da Fraunces não dispara).
 try {
   Font.register({ family: 'Fraunces', fonts: [{ src: `${CDN}/fraunces@latest/latin-600-normal.ttf`, fontWeight: 600 }] });
-  Font.register({ family: 'Jakarta', fonts: [
-    { src: `${CDN}/plus-jakarta-sans@latest/latin-400-normal.ttf`, fontWeight: 400 },
-    { src: `${CDN}/plus-jakarta-sans@latest/latin-600-normal.ttf`, fontWeight: 600 },
+  Font.register({ family: 'Inter', fonts: [
+    { src: `${CDN}/inter@latest/latin-400-normal.ttf`, fontWeight: 400 },
+    { src: `${CDN}/inter@latest/latin-600-normal.ttf`, fontWeight: 600 },
   ] });
   Font.registerHyphenationCallback((w: string) => [w]);
 } catch { /* fontsource indisponível → cai p/ default do react-pdf, render não quebra */ }
-const DISPLAY = 'Fraunces';   // se faltar no build, styles caem p/ Jakarta (abaixo)
-const BODY = 'Jakarta';
+const DISPLAY = 'Fraunces';
+const BODY = 'Inter';
 
 // ── Tinta & Sinal ────────────────────────────────────────────────────────────
 const T = { navy: '#0B1B2E', cyan: '#3DD2E6', teal: '#14808C', clay: '#E0A156', verde: '#1D9E75', vermelho: '#C0504D', off: '#F4F1EA', ink: '#22303C', mute: '#6B7B88' };
 const Cor = (status: string) => status === 'recomendado' ? T.verde : status === 'recomendado_com_ressalvas' ? T.clay : T.mute;
+const DIR_LABEL: Record<string, string> = { floor: '(piso — quanto mais, melhor)', target: '(faixa-alvo)', ceiling: '(teto — quanto menos, melhor)' };
 
 const s = StyleSheet.create({
   // escuras (pontua)
@@ -47,7 +53,7 @@ const iniciais = (n: string) => n.split(' ').filter(Boolean).slice(0, 2).map((x)
 
 // ── Barra-contra-faixa (SVG): banda lo→hi (target) / lo→100 (floor) / 0→hi (ceiling),
 //    linha no piso, marcador do bruto (verde dentro / vermelho fora), escala 0-100. ──
-function BarraTraco({ label, bruto, lo, hi, direcao }: { label: string; bruto: number | null; lo: number | null; hi: number | null; direcao?: string }) {
+function BarraTraco({ label, bruto, lo, hi, direcao, fitPct }: { label: string; bruto: number | null; lo: number | null; hi: number | null; direcao?: string; fitPct?: number | null }) {
   const W = 200, H = 9;
   const x = (v: number) => Math.max(0, Math.min(W, (v / 100) * W));
   const L = lo ?? 0, Hh = hi ?? 100;
@@ -62,7 +68,8 @@ function BarraTraco({ label, bruto, lo, hi, direcao }: { label: string; bruto: n
         {lo != null && <Line x1={x(L)} y1={0} x2={x(L)} y2={H} stroke={T.teal} strokeWidth={0.8} strokeDasharray="1.5 1.5" />}
         {bruto != null && <Rect x={x(bruto) - 1.2} y={-1} width={2.4} height={H + 2} rx={1} fill={dentro ? T.verde : T.vermelho} />}
       </Svg>
-      <Text style={[s.num, { width: 26, textAlign: 'right', fontSize: 8, color: dentro ? T.verde : T.vermelho }]}>{bruto != null ? Math.round(bruto) : '—'}</Text>
+      <Text style={[s.num, { width: 22, textAlign: 'right', fontSize: 8, color: dentro ? T.verde : T.vermelho }]}>{bruto != null ? Math.round(bruto) : '—'}</Text>
+      <Text style={{ width: 34, textAlign: 'right', fontSize: 6.5, color: T.mute }}>{fitPct != null ? `${Math.round(fitPct)}% fit` : ''}</Text>
     </View>
   );
 }
@@ -96,7 +103,7 @@ function PaginaRanking({ elegiveis, eixo, sep, divergencia, narrCount, cargo }: 
       <Text style={[s.h2, { color: T.off, marginTop: 3, marginBottom: 2 }]}>{elegiveis.length} candidatos elegíveis</Text>
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 8, fontSize: 7.5, color: T.mute }}>
         <Text>Eixo do cargo: <Text style={{ color: T.cyan }}>{sep}</Text>{divergencia ? ' (o que separa)' : ` (peso ${eixo.peso ?? '—'}%)`}</Text>
-        <Text><Text style={{ color: T.verde }}>■</Text> Recomendado  <Text style={{ color: T.clay }}>■</Text> Com ressalvas</Text>
+        <Text><Text style={{ color: T.verde }}>■</Text> Recomendado  <Text style={{ color: T.clay }}>■</Text> Com ressalvas  <Text style={{ color: T.mute }}>■</Text> Abaixo do corte</Text>
       </View>
       {divergencia && (
         <View style={[s.card, { backgroundColor: 'rgba(224,161,86,0.12)', marginBottom: 8 }]}>
@@ -125,28 +132,41 @@ function PaginaRanking({ elegiveis, eixo, sep, divergencia, narrCount, cargo }: 
 // ── PÁGINA GABARITO (clara) ──────────────────────────────────────────────────
 function PaginaGabarito({ perfilIdeal }: { perfilIdeal: AdequacaoCargo['perfilIdeal'] }) {
   const gates = (perfilIdeal as any).gates as GateDef[] | undefined;
+  const faixas = (perfilIdeal as any).faixas as { recomendadoMin: number; ressalvasMin: number } | undefined;
   return (
     <Page size="A4" style={s.pageLight}>
       <Text style={[s.eyebrow, { color: T.teal }]}>Critério do cargo</Text>
-      <Text style={[s.h2, { color: T.ink, marginTop: 3, marginBottom: 8 }]}>Gabarito — pesos, faixas e eliminatórias</Text>
+      <Text style={[s.h2, { color: T.ink, marginTop: 3, marginBottom: 8 }]}>Gabarito — pesos, faixas, aderência e eliminatórias</Text>
 
       <Text style={{ fontSize: 9, fontWeight: 600, marginBottom: 3, color: T.teal }}>Pesos por bloco</Text>
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
         {perfilIdeal.pesos.map((p) => <View key={p.bloco} style={{ borderWidth: 1, borderColor: '#D8D2C4', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3 }}><Text style={{ fontSize: 8 }}>{p.bloco} <Text style={s.num}>{p.pct}%</Text></Text></View>)}
       </View>
 
+      <Text style={{ fontSize: 9, fontWeight: 600, marginBottom: 3, color: T.teal }}>Cortes de aderência (o que decide o rótulo)</Text>
+      {faixas ? (
+        <View style={{ marginBottom: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 4, marginBottom: 3 }}>
+            <View style={{ backgroundColor: T.verde, borderRadius: 3, paddingHorizontal: 5, paddingVertical: 2 }}><Text style={{ fontSize: 7.5, color: '#fff' }}>Recomendado ≥ {faixas.recomendadoMin}%</Text></View>
+            <View style={{ backgroundColor: T.clay, borderRadius: 3, paddingHorizontal: 5, paddingVertical: 2 }}><Text style={{ fontSize: 7.5, color: '#fff' }}>Com ressalvas {faixas.ressalvasMin}–{faixas.recomendadoMin - 1}%</Text></View>
+            <View style={{ backgroundColor: T.mute, borderRadius: 3, paddingHorizontal: 5, paddingVertical: 2 }}><Text style={{ fontSize: 7.5, color: '#fff' }}>Abaixo do corte &lt; {faixas.ressalvasMin}%</Text></View>
+          </View>
+          <Text style={{ fontSize: 7, color: T.mute }}>A aderência é a média ponderada dos blocos. "Abaixo do corte" NÃO é eliminação por requisito — é nota de aderência insuficiente (não bloqueia, mas não recomenda). Eliminatórios são os gates abaixo.</Text>
+        </View>
+      ) : <Text style={{ fontSize: 8, color: T.mute, marginBottom: 10 }}>Cortes de aderência não gravados neste snapshot (gerado antes do enriquecimento). Regere o relatório para incluí-los.</Text>}
+
       <Text style={{ fontSize: 9, fontWeight: 600, marginBottom: 3, color: T.teal }}>Faixas ideais por competência</Text>
       {perfilIdeal.competencias.slice(0, 12).map((c: any, i: number) => (
         <View key={i} style={{ flexDirection: 'row', marginBottom: 1.5 }}>
           <Text style={{ width: 130, fontSize: 8 }}>{c.nome}</Text>
-          <Text style={{ fontSize: 8, color: T.mute }}>{c.faixa_min ?? c.min}{(c.faixa_max ?? c.max) ? ` – ${c.faixa_max ?? c.max}` : ''}{c.direcao ? `  (${c.direcao})` : ''}</Text>
+          <Text style={{ fontSize: 8, color: T.mute }}>{c.min}{c.max ? ` – ${c.max}` : ''}{DIR_LABEL[c.direcao] ? `  ${DIR_LABEL[c.direcao]}` : ''}</Text>
         </View>
       ))}
 
       <Text style={{ fontSize: 9, fontWeight: 600, marginTop: 10, marginBottom: 3, color: T.vermelho }}>Requisitos eliminatórios (gates)</Text>
       {gates && gates.length > 0 ? gates.map((g, i) => (
         <Text key={i} style={{ fontSize: 8, marginBottom: 1.5 }}>• {g.label}{g.tipo === 'trait' && g.piso != null ? ` — mínimo ${g.piso} (aderência ≥ ${g.minPct}%)` : ` — aderência do bloco ≥ ${g.minPct}%`}</Text>
-      )) : <Text style={{ fontSize: 8, color: T.mute }}>Definições de gate não gravadas neste snapshot (gerado antes do enriquecimento). Regere o relatório para incluí-las.</Text>}
+      )) : <Text style={{ fontSize: 8, color: T.mute }}>Sem requisitos eliminatórios gravados neste snapshot. Se o cargo tem gates, regere o relatório para exibi-los; caso contrário, não há eliminatórias — o corte é só por aderência (acima).</Text>}
     </Page>
   );
 }
@@ -157,11 +177,15 @@ function AnaliseIndividual({ elegiveis, narrativas, sep, gates }: any) {
   return (
     <Page size="A4" style={s.pageLight} wrap>
       <Text style={[s.eyebrow, { color: T.teal }]}>Análise individual</Text>
-      <Text style={[s.h2, { color: T.ink, marginTop: 3, marginBottom: 8 }]}>Candidatos elegíveis</Text>
+      <Text style={[s.h2, { color: T.ink, marginTop: 3, marginBottom: 2 }]}>Candidatos elegíveis</Text>
+      <Text style={{ fontSize: 7, color: T.mute, marginBottom: 6 }}>Cada barra é o <Text style={{ color: T.ink }}>valor bruto (0–100)</Text> do traço contra a <Text style={{ color: T.verde }}>faixa ideal</Text>; o traço da linha marca o piso. À direita: bruto e o <Text style={{ color: T.ink }}>fit%</Text> (aderência do traço à faixa). Mostramos os traços fora da faixa e os drivers; os que estão dentro são resumidos.</Text>
       {elegiveis.map((p: PessoaAdequacao) => {
         const narr = narrativas?.[p.nome];
         const gapLabels = new Set((p.gaps || []).map((g) => g.traco));
-        const relevantes = (p.tracos || []).filter((t) => t.bloco === sep || gapLabels.has(t.label) || gateLabels.has(t.label));
+        // Relevância = FORA da faixa (fit<100) OU driver/gate. sep (eixo) é bloco escalar
+        // sem traço-a-traço (Liderança/Mapeamento) → não filtra por ele. Isto faz as
+        // barras APARECEREM: Comando-acima-do-teto, Conformidade-fora-da-banda etc.
+        const relevantes = (p.tracos || []).filter((t) => (t.fitPct ?? 100) < 100 || gapLabels.has(t.label) || gateLabels.has(t.label));
         const resto = (p.tracos || []).length - relevantes.length;
         return (
           <View key={p.id || p.nome} style={{ marginBottom: 9, borderTopWidth: 1, borderTopColor: '#E4DECF', paddingTop: 6 }} wrap={false}>
@@ -171,8 +195,10 @@ function AnaliseIndividual({ elegiveis, narrativas, sep, gates }: any) {
               <Text style={[s.num, { fontSize: 12, color: Cor(p.status), marginLeft: 8 }]}>{Math.round(p.beta.pct)}%</Text>
             </View>
             {narr && <Text style={{ fontSize: 8, color: T.ink, lineHeight: 1.45, marginTop: 2, marginBottom: 3 }}>{narr}</Text>}
-            {relevantes.map((t, i) => <BarraTraco key={i} label={t.label} bruto={t.bruto} lo={t.lo} hi={t.hi} direcao={t.direcao} />)}
-            {resto > 0 && <Text style={{ fontSize: 7, color: T.mute, marginTop: 1 }}>demais {resto} traços: dentro da faixa</Text>}
+            {relevantes.map((t, i) => <BarraTraco key={i} label={t.label} bruto={t.bruto} lo={t.lo} hi={t.hi} direcao={t.direcao} fitPct={t.fitPct} />)}
+            {relevantes.length === 0
+              ? <Text style={{ fontSize: 7.5, color: T.verde, marginTop: 1 }}>Todos os {resto} traços dentro da faixa ideal.</Text>
+              : resto > 0 && <Text style={{ fontSize: 7, color: T.mute, marginTop: 1 }}>+ {resto} traços dentro da faixa.</Text>}
           </View>
         );
       })}
@@ -191,7 +217,7 @@ function PlanoDesenvolvimento({ elegiveis }: any) {
       {comGap.map((p: PessoaAdequacao) => (
         <View key={p.id || p.nome} style={{ marginBottom: 5 }}>
           <Text style={{ fontSize: 9, fontWeight: 600 }}>{p.nome}</Text>
-          {(p.gaps || []).map((g, i) => <Text key={i} style={{ fontSize: 8, color: T.ink, marginLeft: 8 }}>• {g.traco} ({g.fitPct}%) — trilha Mentor IA a definir.</Text>)}
+          {(p.gaps || []).map((g, i) => <Text key={i} style={{ fontSize: 8, color: T.ink, marginLeft: 8 }}>• {g.traco} — {g.valorBruto != null ? `bruto ${g.valorBruto} → ` : ''}fit {g.fitPct}%{g.lo != null ? ` (faixa começa em ${g.lo})` : ''} — trilha Mentor IA a definir.</Text>)}
         </View>
       ))}
     </Page>

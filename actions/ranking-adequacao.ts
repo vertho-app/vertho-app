@@ -122,6 +122,7 @@ async function _getRanking(sb: any, empresaId: string, cargo: string): Promise<a
   return {
     success: true, cargo, dataISO: snap.dataISO || null, temTracos,
     eixo: { bloco: eixoBloco, label: eixoBloco, peso: eixoPeso },
+    faixas: data.perfilIdeal?.faixas || null,
     divergencia, pesos, elegiveis, anexoGate, driversDisponiveis,
     totais: { elegiveis: elegiveis.length, bloqueados: anexoGate.length },
   };
