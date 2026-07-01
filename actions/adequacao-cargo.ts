@@ -28,7 +28,7 @@ export async function listarCargosComGabarito(empresaId: string): Promise<{ carg
 export async function gerarRelatorioAdequacao(
   empresaId: string,
   cargo: string,
-  opts: { comAnaliseIA?: boolean } = {},
+  opts: { comAnaliseIA?: boolean; poolCompleto?: boolean } = {},
 ): Promise<{ success: boolean; url?: string; avaliados?: number; error?: string }> {
   try {
     if (!empresaId || !cargo) return { success: false, error: 'Empresa e cargo são obrigatórios.' };
@@ -36,9 +36,9 @@ export async function gerarRelatorioAdequacao(
     const { data: emp } = await sb.from('empresas').select('id, nome').eq('id', empresaId).maybeSingle();
     if (!emp) return { success: false, error: 'Empresa não encontrada.' };
 
-    const data = await aggregateAdequacao(sb, empresaId, cargo);
-    if (data.semGabarito) return { success: false, error: `O cargo "${cargo}" ainda não tem perfil ideal (gabarito). Gere o gabarito do cargo primeiro.` };
-    if (data.semColaboradores) return { success: false, error: `Nenhum colaborador do cargo "${cargo}" tem mapeamento comportamental (DISC). Sem dados para o relatório.` };
+    const data = await aggregateAdequacao(sb, empresaId, cargo, { poolCompleto: opts.poolCompleto });
+    if (data.semGabarito) return { success: false, error: `"${cargo}" ainda não tem perfil ideal (gabarito). Gere o perfil primeiro.` };
+    if (data.semColaboradores) return { success: false, error: opts.poolCompleto ? 'Nenhum candidato com mapeamento comportamental (DISC) na base. Importe candidatos e capture o DISC antes de avaliar.' : `Nenhum colaborador do cargo "${cargo}" tem mapeamento comportamental (DISC). Sem dados para o relatório.` };
 
     const narrativas = opts.comAnaliseIA
       ? await (await import('@/lib/adequacao-cargo/narrative')).gerarNarrativasAdequacao(data).catch(() => ({}))

@@ -127,7 +127,10 @@ function evidenciaDeKnockout(k: any, spec: RoleSpec, profile: Record<string, any
   };
 }
 
-export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, cargo: string): Promise<AdequacaoCargo> {
+/** `poolCompleto` (Módulo de Seleção): avalia TODOS os colaboradores da empresa com DISC
+ *  contra o gabarito do cargo — em vez de só quem TEM o cargo. É o que permite uma VAGA
+ *  (0 ocupantes) ranquear seu pool de candidatos. */
+export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, cargo: string, opts: { poolCompleto?: boolean } = {}): Promise<AdequacaoCargo> {
   const base: AdequacaoCargo = { cargo, avaliados: 0, perfilIdeal: { caracteristicas: [], competencias: [], lideranca: [], estiloPredominante: '', disc: [], pesos: [], liderancaAplicavel: false }, pessoas: [], avisosCalibracao: [], semGabarito: false, semColaboradores: false };
 
   // 1) Gabarito (perfil ideal) do cargo.
@@ -176,9 +179,11 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
 
   // 3) Colaboradores do cargo (com DISC mapeado).
   const cols = ['id', 'nome_completo', ...candidateColumns()].join(', ');
-  const { data: rows } = await excludeInternalEmails(
-    sb.from('colaboradores').select(cols).eq('empresa_id', empresaId).eq('cargo', cargo).not('d_natural', 'is', null),
-  ).order('nome_completo');
+  // Vaga (poolCompleto): candidatos = todos com DISC na empresa, independente do cargo deles.
+  // Operacional: só quem ocupa o cargo.
+  let q = sb.from('colaboradores').select(cols).eq('empresa_id', empresaId).not('d_natural', 'is', null);
+  if (!opts.poolCompleto) q = q.eq('cargo', cargo);
+  const { data: rows } = await excludeInternalEmails(q).order('nome_completo');
   if (!rows?.length) return { ...base, perfilIdeal, semColaboradores: true };
 
   // Guardião de calibração BILATERAL: conta, por traço (band, exceto Mapeamento),
