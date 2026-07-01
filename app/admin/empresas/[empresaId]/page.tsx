@@ -60,7 +60,7 @@ const PHASE_CONFIG = [
       { key: 'gerenciar',      label: 'Colaboradores & Cargos', icon: Users,        href: '/admin/empresas/gerenciar' },
       { key: 'competencias',   label: 'Competências',            icon: BookOpen,     href: '/admin/competencias' },
       { key: 'ppp',            label: 'Extrair PPPs',            icon: FileText,     href: '/admin/ppp' },
-      { key: 'extracao-cargo', label: 'Extrair Descrição de Cargo', icon: Briefcase, hrefFn: (id: string) => `/admin/empresas/${id}/extracao-cargo` },
+      { key: 'selecao', label: 'Seleção — Vagas', icon: Briefcase, hrefFn: (id: string) => `/admin/empresas/${id}/selecao` },
       { key: 'preferencias',   label: 'Preferências',            icon: GraduationCap,hrefFn: (id: string) => `/admin/empresas/${id}/fase0?tab=preferencias` },
       { key: 'knowledge-base', label: 'Knowledge Base (RAG)',    icon: Database,     hrefFn: (id: string) => `/admin/vertho/knowledge-base?empresa=${id}` },
     ]},

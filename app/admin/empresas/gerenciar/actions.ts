@@ -407,6 +407,7 @@ export async function loadCargos(empresaId: any) {
   const { data, error } = await sb.from('cargos_empresa')
     .select('*')
     .eq('empresa_id', empresaId)
+    .eq('eh_vaga', false) // vagas vivem no Módulo de Seleção, não na lista de cargos operacionais
     .order('nome');
   if (error) return [];
   return data || [];

@@ -136,7 +136,7 @@ export default function CargoExtracaoPanel({ empresaId }: { empresaId: string })
     try {
       const r = await salvarRevisaoCargo(empresaId, nome.trim(), ext, { autoAceitaAte: 'nunca' }, ehLideranca);
       if (r.success) {
-        setOkMsg(`${r.criado ? 'Cargo criado' : 'Cargo atualizado'}: "${nome.trim()}" — ${r.gravados?.length ? r.gravados.join(', ') : 'sem campos de conteúdo'}.`);
+        setOkMsg(`${r.criado ? 'Vaga criada' : 'Vaga atualizada'}: "${nome.trim()}" — ${r.gravados?.length ? r.gravados.join(', ') : 'sem campos de conteúdo'}.`);
         if (r.criado) listarCargosDaEmpresa(empresaId).then((x) => setCargos(x.cargos));
       } else setErro(r.error || 'Falha ao salvar.');
     } catch { setErro('Falha ao salvar.'); }
@@ -173,12 +173,12 @@ export default function CargoExtracaoPanel({ empresaId }: { empresaId: string })
           {/* 2) Identidade — nome (cria/vincula) + liderança */}
           <div className="rounded-xl border border-brand-400/20 bg-brand-500/[0.04] p-4 space-y-3">
             <div className="flex flex-wrap items-end gap-3">
-              <label className="flex-1 min-w-[220px] text-xs text-slate-400">Nome do cargo <span className="text-red-400">*</span> <span className="text-slate-600">(sugerido do documento — edite se preciso)</span>
+              <label className="flex-1 min-w-[220px] text-xs text-slate-400">Nome da vaga <span className="text-red-400">*</span> <span className="text-slate-600">(sugerido do documento — edite se preciso)</span>
                 <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Coordenação Pedagógica" className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-slate-100 outline-none focus:border-brand-400/50" />
               </label>
               {nome.trim() && (existente
-                ? <span className="flex items-center gap-1 text-[11px] text-cyan-300 bg-cyan-400/10 px-2 py-1.5 rounded-lg"><RefreshCw size={12} /> atualiza existente</span>
-                : <span className="flex items-center gap-1 text-[11px] text-emerald-300 bg-emerald-400/10 px-2 py-1.5 rounded-lg"><Sparkles size={12} /> cria novo</span>)}
+                ? <span className="flex items-center gap-1 text-[11px] text-cyan-300 bg-cyan-400/10 px-2 py-1.5 rounded-lg"><RefreshCw size={12} /> atualiza vaga</span>
+                : <span className="flex items-center gap-1 text-[11px] text-emerald-300 bg-emerald-400/10 px-2 py-1.5 rounded-lg"><Sparkles size={12} /> nova vaga</span>)}
             </div>
             <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
               <input type="checkbox" checked={ehLideranca} onChange={(e) => setEhLideranca(e.target.checked)} className="accent-brand-400" />
@@ -252,9 +252,9 @@ export default function CargoExtracaoPanel({ empresaId }: { empresaId: string })
           {/* Salvar */}
           <div className="flex items-center gap-3 pt-2 border-t border-white/5">
             <button onClick={salvar} disabled={!podeSalvar} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40 text-sm">
-              {salvando ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {existente ? 'Atualizar cargo' : 'Criar cargo'}
+              {salvando ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {existente ? 'Atualizar vaga' : 'Criar vaga'}
             </button>
-            {!nome.trim() && <span className="text-[11px] text-slate-500">informe o nome do cargo</span>}
+            {!nome.trim() && <span className="text-[11px] text-slate-500">informe o nome da vaga</span>}
             {nome.trim() && faltam.length > 0 && <span className="text-[11px] text-amber-400/80">resolva os {faltam.length} campos pendentes</span>}
             {okMsg && <p className="text-xs text-emerald-400">{okMsg}</p>}
             {erro && <p className="text-xs text-red-400">{erro}</p>}

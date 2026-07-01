@@ -14,8 +14,8 @@ export default function ExtracaoCargoPage({ params }: { params: Promise<{ empres
     <div className="max-w-[900px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       <BackButton onClick={() => router.back()} />
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-white flex items-center gap-2"><Briefcase size={20} className="text-brand-400" /> Extração de descrição de cargo</h1>
-        <p className="text-xs text-gray-500">Cole a descrição do cargo (ou envie um PDF) e a IA estrutura os campos que a <strong className="text-gray-300">parametrização comportamental</strong> usa — só o que o documento diz. Você revisa item a item; o que ficar incluído grava no cargo. NÃO gera competências nem gabarito (isso é o passo seguinte).</p>
+        <h1 className="text-xl font-bold text-white flex items-center gap-2"><Briefcase size={20} className="text-brand-400" /> Nova vaga — extração de descrição</h1>
+        <p className="text-xs text-gray-500">Cole a descrição da vaga (ou envie um PDF) e a IA estrutura os campos que a <strong className="text-gray-300">parametrização comportamental</strong> usa — só o que o documento diz. Você revisa item a item; o que ficar incluído grava na <strong className="text-gray-300">vaga aberta</strong> (Módulo de Seleção). NÃO gera competências nem gabarito (passo seguinte). Cargos operacionais (com colaboradores) são cadastrados em Colaboradores &amp; Cargos.</p>
       </div>
 
       <CargoExtracaoPanel empresaId={empresaId} />

@@ -33,7 +33,7 @@ const cargoEnc = (c: string) => encodeURIComponent(c).replace(/%/g, '');
 
 // ── Núcleo compartilhado (gestor self-service E preview de admin) ────────────
 async function _listarCargos(sb: any, empresaId: string): Promise<string[]> {
-  const { data: cargos } = await sb.from('cargos_empresa').select('nome, gabarito').eq('empresa_id', empresaId);
+  const { data: cargos } = await sb.from('cargos_empresa').select('nome, gabarito').eq('empresa_id', empresaId).eq('eh_vaga', false);
   const comGab = (cargos || []).filter((c: any) => c.gabarito?.tela4).map((c: any) => c.nome);
   const { data: files } = await sb.storage.from('conteudos').list('final/adequacao-cargo', { limit: 1000, search: empresaId });
   const nomes: string[] = (files || []).map((f: any) => String(f.name));

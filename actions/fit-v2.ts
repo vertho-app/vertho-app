@@ -358,6 +358,7 @@ export async function loadCargosComFit(empresaId: string) {
 
   const { data: cargos } = await tdb.from('cargos_empresa')
     .select('id, nome, gabarito, fit_perfil_ideal')
+    .eq('eh_vaga', false)
     .order('nome');
 
   if (!cargos?.length) return [];

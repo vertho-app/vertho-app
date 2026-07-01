@@ -14,7 +14,7 @@ export async function listarCargosComGabarito(empresaId: string): Promise<{ carg
   try {
     const sb = await requireAdminSupabase('admin.access');
     const { data } = await sb.from('cargos_empresa')
-      .select('nome, gabarito').eq('empresa_id', empresaId);
+      .select('nome, gabarito').eq('empresa_id', empresaId).eq('eh_vaga', false);
     const cargos = (data || [])
       .filter((c: any) => c.gabarito?.tela4)
       .map((c: any) => c.nome)

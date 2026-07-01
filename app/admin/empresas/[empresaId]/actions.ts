@@ -42,6 +42,11 @@ export async function loadEmpresaPipeline(empresaId) {
     .eq('empresa_id', empresaId);
   const cargosComTop10 = totalTop10 ? Math.ceil((totalTop10 || 0) / 10) : 0;
 
+  // Vagas abertas (Módulo de Seleção) — cargos_empresa com eh_vaga=true, fora dos operacionais
+  const { count: totalVagas } = await sb.from('cargos_empresa')
+    .select('id', { count: 'exact', head: true })
+    .eq('empresa_id', empresaId).eq('eh_vaga', true);
+
   // Top 5 definidos
   const { data: cargosComTop5Data } = await sb.from('cargos_empresa')
     .select('top5_workshop')
@@ -73,7 +78,7 @@ export async function loadEmpresaPipeline(empresaId) {
 
   const fases = [
     { num: 0, titulo: 'Onboarding & PPP', status: totalColab > 0 ? 'concluido' : 'andamento',
-      metricas: [{ label: 'Colaboradores', valor: totalColab }, { label: 'Cargos', valor: totalCargos }, { label: 'PPPs', valor: totalPPPs }] },
+      metricas: [{ label: 'Colaboradores', valor: totalColab }, { label: 'Cargos', valor: totalCargos }, { label: 'Vagas', valor: totalVagas || 0 }, { label: 'PPPs', valor: totalPPPs }] },
     { num: 1, titulo: 'Análise de Cargos & Cenários', status: fase1Status,
       metricas: [{ label: 'Top 10', valor: cargosComTop10, total: totalCargos || cargosComTop10 }, { label: 'Top 5', valor: cargosComTop5, total: totalCargos || cargosComTop5 }, { label: 'Cenários', valor: totalCenarios }, { label: 'Aprovados', valor: cenariosAprovados || 0 }] },
     { num: 2, titulo: 'Formulários & Envios', status: totalEnvios > 0 ? 'concluido' : totalCenarios > 0 ? 'andamento' : 'pendente',
