@@ -117,31 +117,38 @@ function Capa({ empresaNome, cargo, dataISO, metricas, emin, faixas, elegiveis }
   return (
     <Page size="A4" style={s.pageDark}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Marca dark /><Text style={{ fontSize: 8, letterSpacing: 1.6, color: T.cyan, textTransform: 'uppercase' }}>Documento canônico</Text></View>
+        <Marca dark />
         <Text style={{ fontSize: 8, color: T.mute, letterSpacing: 1 }}>{fmtData(dataISO)?.replace(/\//g, ' · ')}</Text>
       </View>
       <View style={{ marginTop: 90 }}>
         <Text style={{ fontSize: 9, letterSpacing: 2, color: T.cyan, textTransform: 'uppercase', fontWeight: 600, marginBottom: 12 }}>Ranking de Adequação ao Cargo</Text>
         <Text style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 46, color: T.off, lineHeight: 1.05 }}>{cargo}</Text>
         <Text style={{ fontSize: 15, color: T.cyan, marginTop: 14, fontWeight: 600 }}>{empresaNome}</Text>
-        <Text style={{ fontSize: 8, color: T.mute, marginTop: 6 }}>Foto da geração — {fmtDataLonga(dataISO)}</Text>
+        <Text style={{ fontSize: 8, color: T.mute, marginTop: 6 }}>Gerado em {fmtDataLonga(dataISO)}</Text>
       </View>
       <View style={{ marginTop: 'auto' }}>
-        {/* Régua de distribuição do pool: zonas + bolinhas dos elegíveis */}
-        {faixas && (
-          <View style={{ marginBottom: 22 }}>
-            <Svg width={W} height={16}>
-              <Rect x={0} y={4} width={W} height={8} rx={4} fill="#463A3E" />
-              <Rect x={x(rec)} y={4} width={W - x(rec)} height={8} rx={4} fill={T.verde} />
-              {(elegiveis || []).map((p: any, i: number) => <Circle key={i} cx={x(p.beta.pct)} cy={8} r={3.2} fill={Cor(p.status)} stroke={T.navy} strokeWidth={0.6} />)}
-            </Svg>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: W, marginTop: 3 }}>
-              <Text style={{ fontSize: 7, color: T.mute }}>{emin}</Text>
-              <Text style={{ fontSize: 7, color: T.cyan }}>{fmtBeta(rec)} · recomendado</Text>
-              <Text style={{ fontSize: 7, color: T.mute }}>100</Text>
+        {/* Distribuição do pool: barra clay (abaixo do corte) + verde (recomendado),
+            um ponto por candidato espalhado em 3 fileiras (jitter Y) p/ não empilhar. */}
+        {faixas && elegiveis.length > 0 && (() => {
+          const acima = elegiveis.filter((p: any) => p.beta.pct >= rec).length;
+          const BH = 36, rows = [BH * 0.32, BH * 0.5, BH * 0.68];
+          const corPt = (st: string) => st === 'recomendado' ? T.off : st === 'recomendado_com_ressalvas' ? T.clay : T.mute;
+          return (
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ fontSize: 8.5, color: T.mute, marginBottom: 8 }}>Aderência dos <Text style={{ color: T.off, fontWeight: 600 }}>{elegiveis.length} candidatos elegíveis</Text> — {acima === elegiveis.length ? 'todos' : `${acima} de ${elegiveis.length}`} acima do corte de recomendação</Text>
+              <Svg width={W} height={BH}>
+                <Rect x={0} y={0} width={W} height={BH} rx={7} fill={T.clay} />
+                <Rect x={x(rec)} y={0} width={W - x(rec)} height={BH} rx={7} fill={T.verde} />
+                {elegiveis.map((p: any, i: number) => <Circle key={i} cx={x(p.beta.pct)} cy={rows[i % 3]} r={4.2} fill={corPt(p.status)} stroke={T.navy} strokeWidth={0.8} />)}
+              </Svg>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: W, marginTop: 5 }}>
+                <Text style={{ fontSize: 7, color: T.mute }}>{emin}</Text>
+                <Text style={{ fontSize: 7, color: T.off }}>{fmtBeta(rec)} · recomendado</Text>
+                <Text style={{ fontSize: 7, color: T.mute }}>100</Text>
+              </View>
             </View>
-          </View>
-        )}
+          );
+        })()}
         <View style={{ borderTopWidth: 1, borderTopColor: CL.navyLine, paddingTop: 16, flexDirection: 'row', gap: 30 }}>
           {metricas.map((m: any, i: number) => (
             <View key={i}>
