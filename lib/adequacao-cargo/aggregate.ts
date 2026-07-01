@@ -217,7 +217,12 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
         const raw = typeof t.raw === 'number' ? t.raw : null;
         let lado: 'abaixo' | 'acima' | null = null;
         if (raw != null && st && st.kind === 'band') lado = raw < st.lo ? 'abaixo' : raw > st.hi ? 'acima' : null;
-        return { traco: t.label, bloco: BLOCO_LABEL[t.block] || t.block, fitPct: Math.round(t.fit * 100), direcao: st?.direction, valorBruto: raw, lo: st?.lo ?? null, hi: st?.hi ?? null, lado };
+        // valorBruto SÓ p/ band trait (escala 0–100 real, comparável a uma faixa). Para
+        // scalar (Liderança) o "raw" É o próprio fit 0..1 (liderancaFit = distância de
+        // estilo), não um bruto — imprimir "bruto 0.69" engana; e ×100 daria "bruto 70 →
+        // fit 70%", redundante. Sem faixa, o gap se descreve só pelo fit%.
+        const brutoBand = st?.kind === 'band' ? raw : null;
+        return { traco: t.label, bloco: BLOCO_LABEL[t.block] || t.block, fitPct: Math.round(t.fit * 100), direcao: st?.direction, valorBruto: brutoBand, lo: st?.lo ?? null, hi: st?.hi ?? null, lado };
       })
       .sort((a, b) => a.fitPct - b.fitPct)
       .slice(0, 6);

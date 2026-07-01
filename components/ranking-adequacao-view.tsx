@@ -15,6 +15,10 @@ const STATUS_COR: Record<string, { cor: string; label: string }> = {
   abaixo_do_corte: { cor: '#94a3b8', label: 'Abaixo do corte' },
 };
 const iniciais = (n: string) => n.split(' ').filter(Boolean).slice(0, 2).map((x) => x[0]?.toUpperCase()).join('');
+// Aderência = número-herói: 1 casa decimal (vírgula pt-BR). Exibir inteiro criava
+// "empates" visuais (várias "92%") cuja sub-ordem — pela aderência CHEIA — parecia
+// arbitrária ao lado do chip de Liderança. 1 casa torna a ordem auto-evidente.
+const fmtBeta = (v: number) => (Math.round(v * 10) / 10).toFixed(1).replace('.', ',');
 const fmtData = (iso: string | null) => iso ? (() => { const [y, m, d] = iso.slice(0, 10).split('-'); return `${d}/${m}/${y}`; })() : '—';
 
 export default function RankingAdequacaoView({ listar, carregar, exportar }: {
@@ -30,7 +34,7 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
   const [fStatus, setFStatus] = useState<'todos' | 'recomendado' | 'recomendado_com_ressalvas'>('todos');
   const [fDriver, setFDriver] = useState<string>('qualquer');
   const [fMin, setFMin] = useState(0);
-  const [sort, setSort] = useState<'eixo' | 'aderencia'>('eixo');
+  const [sort, setSort] = useState<'eixo' | 'aderencia'>('aderencia');
   const [exportando, setExportando] = useState(false);
   const [erroExport, setErroExport] = useState('');
 
@@ -52,15 +56,18 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
     listar().then((r) => { setCargos(r.cargos); if (r.erro) setErro(r.erro); });
   }, [listar]);
   async function run(cargo: string) {
-    setSel(cargo); setLoading(true); setData(null); setErro(''); setSort('eixo'); setFStatus('todos'); setFDriver('qualquer'); setFMin(0);
+    setSel(cargo); setLoading(true); setData(null); setErro(''); setSort('aderencia'); setFStatus('todos'); setFDriver('qualquer'); setFMin(0);
     const r = await carregar(cargo);
     if (r.success) setData(r); else setErro(r.error || 'Erro.');
     setLoading(false);
   }
 
-  // SEP = o bloco que de fato SEPARA: quando o eixo declarado (peso) não discrimina,
-  // é o discriminador empírico (divergencia.real). É por ele que ordenamos e destacamos
-  // o chip — exibir o bloco morto como se decidisse foi o pecado do v1.0. (Decisão #2 +).
+  // SEP = o bloco que de fato SEPARA: quando o eixo declarado (peso) não discrimina, é o
+  // discriminador empírico (divergencia.real). O DEFAULT ordena por ADERÊNCIA (o veredito
+  // candidato-vs-cargo, imune ao pool); sep é o DESEMPATE + o foco de leitura (chip por
+  // pessoa + callout). NÃO é a chave de ordenação: a variância de um bloco é propriedade
+  // do POOL (quem se inscreveu), e a posição de um candidato não deve depender disso —
+  // é o tipo de critério contestável num edital. "Ordenar por sep" fica como MODO opcional.
   const sep: string = data?.divergencia?.real || data?.eixo?.label || '';
   const eixoMorto = data?.divergencia ? data.eixo.label : null; // declarado mas não separa
 
@@ -71,7 +78,9 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
     if (fDriver === 'sem-gap') arr = arr.filter((e) => e.drivers.length === 0);
     else if (fDriver !== 'qualquer') arr = arr.filter((e) => e.drivers.includes(fDriver));
     arr = arr.filter((e) => e.aderencia >= fMin);
-    arr.sort((a, b) => sort === 'eixo' ? ((b.blocos[sep] ?? -1) - (a.blocos[sep] ?? -1)) : b.aderencia - a.aderencia);
+    arr.sort((a, b) => sort === 'eixo'
+      ? ((b.blocos[sep] ?? -1) - (a.blocos[sep] ?? -1)) || (b.aderencia - a.aderencia)
+      : (b.aderencia - a.aderencia) || ((b.blocos[sep] ?? -1) - (a.blocos[sep] ?? -1)));
     return arr;
   }, [data, fStatus, fDriver, fMin, sort, sep]);
 
@@ -108,7 +117,7 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
           {data.divergencia && (
             <div className="rounded-lg p-2.5 border border-amber-400/30 bg-amber-400/5 text-[11px] text-amber-200/90 flex gap-2">
               <ShieldAlert size={14} className="shrink-0 mt-0.5" />
-              <span>Neste grupo, <b>{data.divergencia.eixo}</b> (o bloco de maior peso do cargo) quase não diferencia os candidatos (dispersão {data.divergencia.sdEixo}). Quem separa de fato aqui é <b>{data.divergencia.real}</b> — então ordenamos e destacamos por ela, e {data.divergencia.eixo} aparece ao lado como contexto.</span>
+              <span>Neste grupo, <b>{data.divergencia.eixo}</b> (o bloco de maior peso do cargo) quase não diferencia os candidatos (dispersão {data.divergencia.sdEixo}). A ordem segue a <b>aderência</b> (o veredito do cargo); quem de fato separa aqui é <b>{data.divergencia.real}</b> — é nela que a entrevista deve focar (mostrada ao lado de cada candidato e usada como desempate).</span>
             </div>
           )}
 
@@ -128,8 +137,8 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
               <input type="range" min={0} max={100} value={fMin} onChange={(e) => setFMin(Number(e.target.value))} className="accent-brand-400" />
             </label>
             <div className="flex items-center gap-1 text-slate-400">Ordenar por
-              <button onClick={() => setSort('eixo')} className={`px-2 py-1 rounded border ${sort === 'eixo' ? 'border-brand-400 text-brand-200' : 'border-white/10 text-slate-400'}`}>{sep} {data.divergencia ? '(separa)' : '(eixo)'}</button>
               <button onClick={() => setSort('aderencia')} className={`px-2 py-1 rounded border ${sort === 'aderencia' ? 'border-brand-400 text-brand-200' : 'border-white/10 text-slate-400'}`}>Aderência</button>
+              <button onClick={() => setSort('eixo')} className={`px-2 py-1 rounded border ${sort === 'eixo' ? 'border-brand-400 text-brand-200' : 'border-white/10 text-slate-400'}`}>{sep} {data.divergencia ? '(separa)' : '(eixo)'}</button>
             </div>
             <span className="text-slate-500 ml-auto">{visiveis.length} de {data.totais.elegiveis} elegíveis</span>
             {exportar && (
@@ -159,7 +168,7 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
                     {e.drivers.length > 0 && <div className="text-[10px] text-slate-500 mt-0.5 truncate">A desenvolver: {e.drivers.join(', ')}</div>}
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-sm font-bold" style={{ color: st.cor }}>{Math.round(e.aderencia)}%</div>
+                    <div className="text-sm font-bold" style={{ color: st.cor }}>{fmtBeta(e.aderencia)}%</div>
                     <div className="text-[8px] text-slate-500">aderência</div>
                   </div>
                 </div>

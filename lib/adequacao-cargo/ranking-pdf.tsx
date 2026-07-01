@@ -3,8 +3,9 @@
  *
  * VIEW PURA do snapshot — recebe o resultado já assado (nunca recomputa). Documento
  * completo do pool (independe dos filtros da tela). TRAVAS: bloqueados só no anexo (sem
- * aderência); ordena/destaca pelo eixo que SEPARA; disclaimer apoio-à-decisão; data do
- * snapshot; narrativas vêm do snapshot (nunca gera nova) e degradam gracioso se vazias.
+ * aderência); ordena por ADERÊNCIA (veredito imune ao pool), destacando o eixo que SEPARA
+ * como foco de leitura + desempate; disclaimer apoio-à-decisão; data do snapshot;
+ * narrativas vêm do snapshot (nunca gera nova) e degradam gracioso se vazias.
  *
  * Fontes via fontsource CDN (mesmo mecanismo do Inter do projeto), pesos ESTÁTICOS:
  * Fraunces 600 (display/números) + Plus Jakarta Sans 400/600 (corpo). Fallback: Inter.
@@ -50,6 +51,9 @@ const s = StyleSheet.create({
 const DISCLAIMER = 'Apoio à decisão. Este documento reorganiza e apresenta o resultado da avaliação — não seleciona nem elimina candidatos. A escolha final cabe ao gestor ou psicólogo responsável.';
 const fmtData = (iso?: string | null) => iso ? (() => { const [y, m, d] = iso.slice(0, 10).split('-'); return `${d}/${m}/${y}`; })() : '—';
 const iniciais = (n: string) => n.split(' ').filter(Boolean).slice(0, 2).map((x) => x[0]?.toUpperCase()).join('');
+// Aderência (número-herói) em 1 casa decimal, vírgula pt-BR: torna a ordem por aderência
+// CHEIA auto-evidente (sem "92%" repetidos que fazem a sub-ordem parecer arbitrária).
+const fmtBeta = (v: number) => (Math.round(v * 10) / 10).toFixed(1).replace('.', ',');
 
 // ── Barra-contra-faixa (SVG): banda lo→hi (target) / lo→100 (floor) / 0→hi (ceiling),
 //    linha no piso, marcador do bruto. COR DO MARCADOR = severidade que o TEXTO honra,
@@ -108,13 +112,13 @@ function PaginaRanking({ elegiveis, eixo, sep, divergencia, narrCount, cargo }: 
       <Text style={s.eyebrow}>Ranking · {cargo}</Text>
       <Text style={[s.h2, { color: T.off, marginTop: 3, marginBottom: 2 }]}>{elegiveis.length} candidatos elegíveis</Text>
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 8, fontSize: 7.5, color: T.mute }}>
-        <Text>Eixo do cargo: <Text style={{ color: T.cyan }}>{sep}</Text>{divergencia ? ' (o que separa)' : ` (peso ${eixo.peso ?? '—'}%)`}</Text>
+        <Text>Ordenado por aderência · o que separa: <Text style={{ color: T.cyan }}>{sep}</Text>{divergencia ? '' : ` (eixo, peso ${eixo.peso ?? '—'}%)`}</Text>
         <Text><Text style={{ color: T.verde }}>■</Text> Recomendado  <Text style={{ color: T.clay }}>■</Text> Com ressalvas  <Text style={{ color: T.mute }}>■</Text> Abaixo do corte</Text>
         {temBorderline && <Text><Text style={{ color: T.clay }}>± X</Text> = margem de incerteza da medida (SEM)</Text>}
       </View>
       {divergencia && (
         <View style={[s.card, { backgroundColor: 'rgba(224,161,86,0.12)', marginBottom: 8 }]}>
-          <Text style={{ fontSize: 7.5, color: T.clay }}>Neste grupo, {divergencia.eixo} (bloco de maior peso) quase não diferencia os candidatos (dispersão {divergencia.sdEixo}). Quem separa de fato é {divergencia.real} — ordenamos e destacamos por ela; {divergencia.eixo} aparece como contexto.</Text>
+          <Text style={{ fontSize: 7.5, color: T.clay }}>Neste grupo, {divergencia.eixo} (bloco de maior peso) quase não diferencia os candidatos (dispersão {divergencia.sdEixo}). A ordem segue a aderência (o veredito do cargo); quem de fato separa é {divergencia.real} — é nela que a entrevista deve focar (ao lado de cada nome e usada como desempate).</Text>
         </View>
       )}
       {elegiveis.map((p: PessoaAdequacao, i: number) => {
@@ -127,7 +131,7 @@ function PaginaRanking({ elegiveis, eixo, sep, divergencia, narrCount, cargo }: 
               <Text style={{ fontSize: 6.5, color: T.mute }}>{p.statusLabel}{p.gaps?.length ? ` · a desenvolver: ${p.gaps.map((g) => g.traco).join(', ')}` : ''}</Text>
             </View>
             <Text style={{ fontSize: 7, color: T.cyan, width: 96, textAlign: 'right' }}>{sep} {sepFit != null ? Math.round(sepFit) + '%' : '—'}{morto != null ? ` · ${eixoMorto} ${Math.round(morto)}%` : ''}</Text>
-            <Text style={[s.num, { width: 40, textAlign: 'right', fontSize: 12, color: cor }]}>{Math.round(p.beta.pct)}%</Text>
+            <Text style={[s.num, { width: 40, textAlign: 'right', fontSize: 12, color: cor }]}>{fmtBeta(p.beta.pct)}%</Text>
           </View>
         );
       })}
@@ -199,7 +203,7 @@ function AnaliseIndividual({ elegiveis, narrativas, sep, gates }: any) {
             <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
               <Text style={{ fontSize: 10.5, fontWeight: 600, flex: 1 }}>{p.nome}</Text>
               <Text style={{ fontSize: 8, color: Cor(p.status) }}>{p.statusLabel}</Text>
-              <Text style={[s.num, { fontSize: 12, color: Cor(p.status), marginLeft: 8 }]}>{Math.round(p.beta.pct)}%</Text>
+              <Text style={[s.num, { fontSize: 12, color: Cor(p.status), marginLeft: 8 }]}>{fmtBeta(p.beta.pct)}%</Text>
             </View>
             {narr && <Text style={{ fontSize: 8, color: T.ink, lineHeight: 1.45, marginTop: 2, marginBottom: 3 }}>{narr}</Text>}
             {relevantes.map((t, i) => <BarraTraco key={i} label={t.label} bruto={t.bruto} lo={t.lo} hi={t.hi} direcao={t.direcao} fitPct={t.fitPct} isGap={gapLabels.has(t.label)} />)}
@@ -224,7 +228,11 @@ function PlanoDesenvolvimento({ elegiveis }: any) {
       {comGap.map((p: PessoaAdequacao) => (
         <View key={p.id || p.nome} style={{ marginBottom: 5 }}>
           <Text style={{ fontSize: 9, fontWeight: 600 }}>{p.nome}</Text>
-          {(p.gaps || []).map((g, i) => <Text key={i} style={{ fontSize: 8, color: T.ink, marginLeft: 8 }}>• {g.traco} — {g.valorBruto != null ? `bruto ${g.valorBruto} → ` : ''}fit {g.fitPct}%{g.lo != null ? ` (faixa começa em ${g.lo})` : ''} — trilha Mentor IA a definir.</Text>)}
+          {/* Bruto só quando há faixa (band trait): sem lo-hi de referência ele não
+              significa nada — e p/ Liderança (scalar) o "bruto" É o fit (0..1), imprimi-lo
+              vaza float cru ("0.6950000000000001"). Sem faixa → só o fit%. Defesa também p/
+              snapshots antigos (que gravaram valorBruto 0..1). Math.round mata o float. */}
+          {(p.gaps || []).map((g, i) => <Text key={i} style={{ fontSize: 8, color: T.ink, marginLeft: 8 }}>• {g.traco} — {g.valorBruto != null && g.lo != null ? `bruto ${Math.round(g.valorBruto)} · ` : ''}fit {g.fitPct}%{g.lo != null ? ` (faixa começa em ${g.lo})` : ''} — trilha Mentor IA a definir.</Text>)}
         </View>
       ))}
     </Page>
@@ -257,7 +265,7 @@ export interface RankingPDFInput {
   eixo: { label: string; peso: number | null };
   sep: string;
   divergencia: { eixo: string; real: string; sdEixo: number } | null;
-  elegiveis: PessoaAdequacao[];   // FULL, já ordenados por sep, com __sepFit/__mortoFit
+  elegiveis: PessoaAdequacao[];   // FULL, já ordenados por aderência (desempate sep), com __sepFit/__mortoFit
   anexo: PessoaAdequacao[];
   narrativas: Record<string, string>;
 }

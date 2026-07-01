@@ -139,10 +139,14 @@ async function _exportarPDF(sb: any, empresaId: string, cargo: string): Promise<
   const anexo = (data.pessoas || []).filter((p: any) => p.status === 'bloqueado');
   const { eixoBloco, eixoPeso, sep, divergencia } = _eixoDivergencia(pesos, elegiveisFull.map(blocosDe));
 
-  // Ordena pelo bloco que SEPARA (TRAVA 2); carimba __sepFit/__mortoFit p/ o template.
+  // Ordena por ADERÊNCIA (Beta) — o veredito candidato-vs-cargo, imune ao pool. Desempate
+  // = o bloco que SEPARA (sep), que também vira o foco de leitura ao lado de cada nome.
+  // NÃO ordena por sep: a variância de um bloco é propriedade de QUEM se inscreveu, e a
+  // posição do candidato não pode depender disso (contestável em concurso). __sepFit/
+  // __mortoFit ainda carimbam o chip do template.
   const eixoMorto = divergencia ? eixoBloco : null;
   const withFit = elegiveisFull.map((p: any) => { const b = blocosDe(p); return { ...p, __sepFit: b[sep], __mortoFit: eixoMorto ? b[eixoMorto] : null }; });
-  withFit.sort((a: any, b: any) => (b.__sepFit ?? -1) - (a.__sepFit ?? -1));
+  withFit.sort((a: any, b: any) => (b.beta?.pct ?? -1) - (a.beta?.pct ?? -1) || (b.__sepFit ?? -1) - (a.__sepFit ?? -1));
 
   const { renderRankingAdequacaoPDF } = await import('@/lib/adequacao-cargo/ranking-pdf');
   const buffer = await renderRankingAdequacaoPDF({
