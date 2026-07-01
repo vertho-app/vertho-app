@@ -10,7 +10,7 @@
 import { getUserContext } from '@/lib/authz';
 import { canBase } from '@/lib/permissions';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 
 // O snapshot grava pesos[].bloco como LABEL acentuado ("Competência"), não a key.
 // Tudo aqui é keyed por LABEL pra casar com o snapshot.
@@ -173,7 +173,7 @@ export async function exportarRankingPDF(cargo: string) {
 }
 /** ADMIN — exporta o PDF do ranking (empresa da rota, gated p/ platform_admin). */
 export async function exportarRankingPDFAdmin(empresaId: string, cargo: string) {
-  const sb = await requireAdminSupabase('admin.access');
+  const sb = await requireEmpresaSupabase(empresaId, 'admin.access');
   return _exportarPDF(sb, empresaId, cargo);
 }
 

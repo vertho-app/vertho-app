@@ -5,14 +5,14 @@
  * opcional (lib/adequacao-cargo/narrative) → PDF (lib/adequacao-cargo-pdf) →
  * Storage → URL.
  */
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { aggregateAdequacao } from '@/lib/adequacao-cargo/aggregate';
 import { renderAdequacaoCargoPDF } from '@/lib/adequacao-cargo-pdf';
 
 /** Cargos da empresa que TÊM gabarito (perfil ideal) — alimenta o seletor da UI. */
 export async function listarCargosComGabarito(empresaId: string): Promise<{ cargos: string[] }> {
   try {
-    const sb = await requireAdminSupabase('admin.access');
+    const sb = await requireEmpresaSupabase(empresaId, 'admin.access');
     const { data } = await sb.from('cargos_empresa')
       .select('nome, gabarito').eq('empresa_id', empresaId).eq('eh_vaga', false);
     const cargos = (data || [])
@@ -32,7 +32,7 @@ export async function gerarRelatorioAdequacao(
 ): Promise<{ success: boolean; url?: string; avaliados?: number; error?: string }> {
   try {
     if (!empresaId || !cargo) return { success: false, error: 'Empresa e cargo são obrigatórios.' };
-    const sb = await requireAdminSupabase('admin.access');
+    const sb = await requireEmpresaSupabase(empresaId, 'admin.access');
     const { data: emp } = await sb.from('empresas').select('id, nome').eq('id', empresaId).maybeSingle();
     if (!emp) return { success: false, error: 'Empresa não encontrada.' };
 

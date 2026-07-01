@@ -13,7 +13,7 @@ import { gerarPerfilVaga, gerarRankingVaga } from '@/actions/selecao';
 
 const fmtData = (iso: string | null) => { if (!iso) return ''; const [y, m, d] = iso.slice(0, 10).split('-'); return `${d}/${m}/${y}`; };
 
-export default function SelecaoPanel({ empresaId }: { empresaId: string }) {
+export default function SelecaoPanel({ empresaId, novaVagaHref }: { empresaId: string; novaVagaHref: string }) {
   const [vagas, setVagas] = useState<any[] | null>(null);
   const [erro, setErro] = useState('');
   const [busy, setBusy] = useState<string>(''); // `${id}:perfil` | `${id}:avaliar`
@@ -45,7 +45,7 @@ export default function SelecaoPanel({ empresaId }: { empresaId: string }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-slate-400 max-w-[520px]">Vagas abertas para recrutamento — perfis a preencher, separados dos cargos operacionais. Fluxo: <b className="text-slate-300">1)</b> gerar o perfil ideal · <b className="text-slate-300">2)</b> avaliar os candidatos (todos com DISC) contra a vaga.</p>
-        <Link href={`/admin/empresas/${empresaId}/extracao-cargo`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-400/40 bg-brand-500/10 text-brand-200 hover:bg-brand-500/20 text-sm shrink-0"><Plus size={14} /> Nova vaga</Link>
+        <Link href={novaVagaHref} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-400/40 bg-brand-500/10 text-brand-200 hover:bg-brand-500/20 text-sm shrink-0"><Plus size={14} /> Nova vaga</Link>
       </div>
 
       {vagas === null && <div className="flex justify-center py-12"><Loader2 className="animate-spin text-brand-400" /></div>}
@@ -56,7 +56,7 @@ export default function SelecaoPanel({ empresaId }: { empresaId: string }) {
           <Briefcase size={28} className="text-slate-600 mx-auto mb-3" />
           <p className="text-sm text-slate-300 mb-1">Nenhuma vaga aberta ainda.</p>
           <p className="text-xs text-slate-500 mb-4">Crie uma vaga extraindo a descrição de um documento (cole o texto ou envie um PDF).</p>
-          <Link href={`/admin/empresas/${empresaId}/extracao-cargo`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-400/40 bg-brand-500/10 text-brand-200 hover:bg-brand-500/20 text-sm"><Plus size={14} /> Criar primeira vaga</Link>
+          <Link href={novaVagaHref} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-400/40 bg-brand-500/10 text-brand-200 hover:bg-brand-500/20 text-sm"><Plus size={14} /> Criar primeira vaga</Link>
         </div>
       )}
 
@@ -93,7 +93,7 @@ export default function SelecaoPanel({ empresaId }: { empresaId: string }) {
                         </button>
                         <button onClick={() => gerarPerfil(v)} disabled={!!busy} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-white/10 text-slate-400 hover:bg-white/5 disabled:opacity-40 text-[10px]">{bPerfil ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />} refazer perfil</button>
                       </>}
-                  <Link href={`/admin/empresas/${empresaId}/extracao-cargo`} className="text-[11px] text-brand-300 hover:text-brand-200 flex items-center gap-1"><FileText size={11} /> editar descrição</Link>
+                  <Link href={novaVagaHref} className="text-[11px] text-brand-300 hover:text-brand-200 flex items-center gap-1"><FileText size={11} /> editar descrição</Link>
                   {m?.texto && <span className={`text-[11px] ${m.erro ? 'text-amber-400' : 'text-emerald-400'} ml-auto`}>{m.texto} {m.url && <a href={m.url} target="_blank" rel="noreferrer" className="underline text-brand-300">abrir ranking</a>}</span>}
                 </div>
               </div>

@@ -9,7 +9,7 @@
  * Só campos que a IA2 (gabarito) consome; nomes já são as colunas de cargos_empresa.
  * NÃO gera competências/faixas/DISC — isso é da IA2 (actions/fase1.ts).
  */
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { extrairCargo, type ExtratorInput } from '@/lib/cargo-extracao/extrator';
 import { achatarExtracao, prepararRevisao, type ExtracaoCargo, type AchatarOpts } from '@/lib/cargo-extracao/adapter';
 
@@ -17,7 +17,7 @@ import { achatarExtracao, prepararRevisao, type ExtracaoCargo, type AchatarOpts 
  *  então o badge "atualiza existente" compara só entre vagas, nunca com cargos operacionais. */
 export async function listarCargosDaEmpresa(empresaId: string): Promise<{ cargos: { nome: string; eh_lideranca: boolean }[] }> {
   try {
-    const sb = await requireAdminSupabase('admin.access');
+    const sb = await requireEmpresaSupabase(empresaId, 'admin.access');
     const { data } = await sb.from('cargos_empresa').select('nome, eh_lideranca').eq('empresa_id', empresaId).eq('eh_vaga', true);
     const cargos = (data || []).filter((c: any) => c.nome).map((c: any) => ({ nome: c.nome, eh_lideranca: !!c.eh_lideranca })).sort((a: any, b: any) => a.nome.localeCompare(b.nome));
     return { cargos };
@@ -27,7 +27,7 @@ export async function listarCargosDaEmpresa(empresaId: string): Promise<{ cargos
 /** VAGAS abertas da empresa (Módulo de Seleção) — com status de descrição/gabarito. */
 export async function listarVagas(empresaId: string): Promise<{ vagas: { id: string; nome: string; area: string | null; temDescricao: boolean; temGabarito: boolean; ehLideranca: boolean; criadaEm: string | null }[]; erro?: string }> {
   try {
-    const sb = await requireAdminSupabase('admin.access');
+    const sb = await requireEmpresaSupabase(empresaId, 'admin.access');
     const { data } = await sb.from('cargos_empresa')
       .select('id, nome, area_depto, descricao, gabarito, eh_lideranca, created_at')
       .eq('empresa_id', empresaId).eq('eh_vaga', true).order('created_at', { ascending: false });
@@ -43,10 +43,11 @@ export async function listarVagas(empresaId: string): Promise<{ vagas: { id: str
 
 /** Extrai a descrição de um documento → estrutura RICA pré-marcada p/ revisão. NÃO grava. */
 export async function extrairDescricaoCargo(
+  empresaId: string,
   input: ExtratorInput,
 ): Promise<{ success: boolean; extracao?: ExtracaoCargo; error?: string }> {
   try {
-    await requireAdminSupabase('admin.access');
+    await requireEmpresaSupabase(empresaId, 'admin.access');
     const extracao = await extrairCargo(input);
     return { success: true, extracao: prepararRevisao(extracao) };
   } catch (e: any) {
@@ -68,7 +69,7 @@ export async function salvarRevisaoCargo(
   try {
     if (!empresaId || !nome?.trim()) return { success: false, error: 'Empresa e nome da vaga são obrigatórios.' };
     const nomeCargo = nome.trim();
-    const sb = await requireAdminSupabase('admin.access');
+    const sb = await requireEmpresaSupabase(empresaId, 'admin.access');
     const { patch, diagnostico } = achatarExtracao(extracaoRevisada, opts);
     if (diagnostico.documentoInvalido) return { success: false, error: 'Documento marcado como inválido — nada a gravar.', diagnostico };
 

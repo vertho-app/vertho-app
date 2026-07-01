@@ -18,7 +18,7 @@ export default function SelecaoPage({ params }: { params: Promise<{ empresaId: s
         <p className="text-xs text-gray-500">Recrutamento: vagas a preencher, avaliadas pelo mesmo motor de adequação, mas separadas dos cargos operacionais (que têm colaboradores). Crie vagas pela extração de descrição.</p>
       </div>
 
-      <SelecaoPanel empresaId={empresaId} />
+      <SelecaoPanel empresaId={empresaId} novaVagaHref={`/admin/empresas/${empresaId}/extracao-cargo`} />
     </div>
   );
 }

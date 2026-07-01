@@ -5,12 +5,12 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
-import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, Briefcase } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import type { TenantTheme } from '@/lib/ui-resolver';
 
-type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean };
+type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean; rhOnly?: boolean };
 
 // Fallback = tema Vertho atual (usado se o layout não passar theme).
 const DEFAULT_THEME: TenantTheme = {
@@ -40,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', labelKey: 'home', icon: Home },
   { href: '/dashboard/gestor', labelKey: 'team', icon: Users2, gestorOnly: true },
   { href: '/dashboard/gestor/ranking', labelKey: 'ranking', icon: ListOrdered, gestorOnly: true },
+  { href: '/dashboard/gestor/selecao', labelKey: 'selection', icon: Briefcase, rhOnly: true },
   { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock },
   { href: '/dashboard/temporada', labelKey: 'season', icon: Play },
   { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp },
@@ -54,7 +55,8 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   const [user, setUser] = useState<any>(null);
   const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
-  const navItems = NAV_ITEMS.filter((it) => !it.gestorOnly || isGestorOuRH);
+  const isRH = colaborador?.role === 'rh';
+  const navItems = NAV_ITEMS.filter((it) => (!it.gestorOnly || isGestorOuRH) && (!it.rhOnly || isRH));
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {

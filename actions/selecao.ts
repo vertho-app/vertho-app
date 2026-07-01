@@ -7,7 +7,7 @@
  * a partir da DESCRIÇÃO da vaga → grava em top10_cargos → reusa a IA2 inteira (rodarIA2),
  * que gera o gabarito (telas 1-4) com todo o rigor/versionamento existente.
  */
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { callAI } from '@/actions/ai-client';
 import { rodarIA2 } from '@/actions/fase1';
 import { gerarRelatorioAdequacao } from '@/actions/adequacao-cargo';
@@ -32,7 +32,7 @@ function extrairJson(raw: string): any {
 export async function gerarPerfilVaga(empresaId: string, nomeVaga: string): Promise<{ success: boolean; competencias?: number; error?: string }> {
   try {
     if (!empresaId || !nomeVaga?.trim()) return { success: false, error: 'Empresa e vaga obrigatórios.' };
-    const sb = await requireAdminSupabase('ai.audit.regenerate');
+    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
     const nome = nomeVaga.trim();
 
     const { data: vaga } = await sb.from('cargos_empresa')
@@ -85,7 +85,7 @@ export async function gerarPerfilVaga(empresaId: string, nomeVaga: string): Prom
 export async function gerarRankingVaga(empresaId: string, nomeVaga: string, opts: { comAnaliseIA?: boolean } = {}): Promise<{ success: boolean; url?: string; avaliados?: number; error?: string }> {
   try {
     if (!empresaId || !nomeVaga?.trim()) return { success: false, error: 'Empresa e vaga obrigatórios.' };
-    const sb = await requireAdminSupabase('admin.access');
+    const sb = await requireEmpresaSupabase(empresaId, 'admin.access');
     // Pool de candidatos = ocupantes dos cargos marcados "pool de candidatos" (ex.: "Em busca").
     // Se nenhum cargo estiver marcado, cai para todos com DISC (poolCompleto).
     const { data: poolRows } = await sb.from('cargos_empresa').select('nome').eq('empresa_id', empresaId).eq('eh_pool_candidatos', true);

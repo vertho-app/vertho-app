@@ -93,7 +93,7 @@ export default function CargoExtracaoPanel({ empresaId }: { empresaId: string })
     setExtraindo(true); setErro(''); setOkMsg(''); setExt(null); setDispensados(new Set());
     try {
       const input = modo === 'pdf' ? { pdfBase64: pdf?.base64, nomeArquivo: pdf?.nome } : { texto };
-      const r = await extrairDescricaoCargo(input);
+      const r = await extrairDescricaoCargo(empresaId, input);
       if (r.success && r.extracao) {
         const e = { ...r.extracao };
         for (const { k } of ESCALARES) if (!(e as any)[k]) (e as any)[k] = escalarVazio();

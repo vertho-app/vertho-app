@@ -5,7 +5,7 @@ import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import type { FaseCarreira } from '@/lib/season-engine/programa-config';
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { hasDiscMapeado } from '@/lib/disc-status';
 import { LATEST_SPEC_VERSION } from '@/lib/scoring/role-spec';
 import { candidateColumns } from '@/lib/scoring/candidate';
@@ -719,8 +719,8 @@ export async function listarCargosParaIA2(empresaId: string): Promise<{ cargos: 
 }
 
 export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}, opts: { cargoNome?: string } = {}) {
-  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
   const tdb = tenantDb(empresaId);
   try {
     // 1. Buscar empresa (id é tenant — raw)
