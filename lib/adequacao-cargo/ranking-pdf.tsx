@@ -94,6 +94,22 @@ const rangeBeta = (beta: number, semDelta: number) => `${Math.round(Math.max(0, 
 // Rótulo da faixa coerente com a barra: floor não tem teto (o "hi" nominal não penaliza),
 // então "41+"; ceiling é "até X"; só target é "lo–hi".
 const faixaLabel = (lo: number | null, hi: number | null, direcao?: string) => direcao === 'floor' ? `${lo}+` : direcao === 'ceiling' ? `até ${hi}` : `${lo}${hi ? `–${hi}` : ''}`;
+const isTargetDir = (direcao?: string) => direcao !== 'floor' && direcao !== 'ceiling';
+
+// Banda da faixa ideal: SÓLIDA em piso/teto (tudo acima/abaixo é igualmente bom); DEGRADÊ
+// pico-no-centro na FAIXA-ALVO (o ideal é o meio, as bordas já valem menos — reflete a curva
+// de fit). Feito por SEGMENTOS de opacidade (gradiente SVG não renderiza no @react-pdf). ──
+function Banda({ x, y, w, h, r, direcao, cor }: { x: number; y: number; w: number; h: number; r: number; direcao?: string; cor: string }) {
+  if (!isTargetDir(direcao)) return <Rect x={x} y={y} width={w} height={h} rx={r} fill={cor} />;
+  const ops = [0.28, 0.6, 1, 0.6, 0.28]; // pico no centro, esmaece p/ as bordas
+  const sw = w / ops.length;
+  return (
+    <>
+      <Rect x={x} y={y} width={w} height={h} rx={r} fill={cor} fillOpacity={0.28} />
+      {ops.map((op, i) => op > 0.28 ? <Rect key={i} x={x + i * sw} y={y} width={sw + 0.4} height={h} fill={cor} fillOpacity={op} /> : null)}
+    </>
+  );
+}
 
 // ── Faixa ideal do cargo (Gabarito): SÓ a banda destacada + piso, sem marcador de pessoa.
 //    Mesma linguagem visual das barras dos candidatos. ──
@@ -106,7 +122,7 @@ function BarraFaixa({ nome, lo, hi, direcao }: { nome: string; lo: number | null
       <Text style={{ width: 118, fontSize: 8, color: T.ink }}>{nome}</Text>
       <Svg width={W} height={H + 4}>
         <Rect x={0} y={2} width={W} height={H} rx={H / 2} fill={CL.trackF} />
-        <Rect x={x(a)} y={2} width={Math.max(2, x(b) - x(a))} height={H} rx={H / 2} fill={CL.faixaF} />
+        <Banda x={x(a)} y={2} w={Math.max(2, x(b) - x(a))} h={H} r={H / 2} direcao={direcao} cor={CL.faixaF} />
         {lo != null && direcao !== 'ceiling' && <Line x1={x(lo)} y1={0} x2={x(lo)} y2={H + 4} stroke={T.navy} strokeWidth={1} strokeDasharray="1.5 1.5" />}
       </Svg>
       <Text style={[s.num, { width: 48, textAlign: 'right', fontSize: 8, color: T.navy }]}>{faixaLabel(lo, hi, direcao)}</Text>
@@ -129,7 +145,7 @@ function BarraTraco({ label, bruto, lo, hi, direcao, fitPct, isGap }: { label: s
       <Text style={{ width: 96, fontSize: 8, color: T.ink }}>{label}</Text>
       <Svg width={W} height={H + 6}>
         <Rect x={0} y={3} width={W} height={H} rx={H / 2} fill={CL.track} />
-        <Rect x={bx0} y={3} width={Math.max(2, bx1 - bx0)} height={H} rx={H / 2} fill={CL.faixa} />
+        <Banda x={bx0} y={3} w={Math.max(2, bx1 - bx0)} h={H} r={H / 2} direcao={direcao} cor={CL.faixa} />
         {bruto != null && <Circle cx={x(bruto)} cy={3 + H / 2} r={r} fill={cor} stroke="#FFFFFF" strokeWidth={1.4} />}
       </Svg>
       <Text style={[s.num, { width: 26, textAlign: 'right', fontSize: 9.5, color: T.navy }]}>{bruto != null ? Math.round(bruto) : '—'}</Text>
