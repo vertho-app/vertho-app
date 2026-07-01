@@ -32,7 +32,8 @@ const BODY = 'Inter';
 // ── Tinta & Sinal ────────────────────────────────────────────────────────────
 const T = { navy: '#0B1B2E', cyan: '#3DD2E6', teal: '#14808C', clay: '#E0A156', verde: '#1D9E75', vermelho: '#C0504D', off: '#F4F1EA', ink: '#22303C', mute: '#6B7B88' };
 // Tons claros p/ zonas/faixas/cards (derivados da paleta, baixa saturação).
-const CL = { card: '#FFFFFF', cardBorda: '#E9E3D6', track: '#ECE7DC', zVerde: '#D4EBDF', zClay: '#F5E5CE', zVerm: '#F0DBD7', faixa: '#D4EBDF', linha: '#E4DECF', navyLine: 'rgba(255,255,255,0.10)' };
+const CL = { card: '#FFFFFF', cardBorda: '#E9E3D6', track: '#ECE7DC', zVerde: '#D4EBDF', zClay: '#F5E5CE', zVerm: '#F0DBD7', faixa: '#D4EBDF', linha: '#E4DECF', navyLine: 'rgba(255,255,255,0.10)',
+  trackF: '#CFC6B0', faixaF: '#7EC6A4' }; // tons mais fortes p/ as faixas do Gabarito
 const Cor = (status: string) => status === 'recomendado' ? T.verde : status === 'recomendado_com_ressalvas' ? T.clay : status === 'abaixo_do_corte' ? T.mute : T.vermelho;
 const DIR_LABEL: Record<string, string> = { floor: 'piso — quanto mais, melhor', target: 'faixa-alvo', ceiling: 'teto — quanto menos, melhor' };
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -61,13 +62,16 @@ const Marca = ({ dark }: { dark?: boolean }) => (
 
 // ── Régua de aderência: base rosa (não-recomendado) + cápsula verde (≥corte) + marcador
 //    circular colorido pelo status. É o VEREDITO visual — cada candidato posicionado. ──
-function ReguaAderencia({ beta, emin, rec, cor, W = 230, H = 9, r = 6 }: { beta: number; emin: number; rec: number; cor: string; W?: number; H?: number; r?: number }) {
+function ReguaAderencia({ beta, emin, rec, cor, semDelta = 0, W = 230, H = 9, r = 6 }: { beta: number; emin: number; rec: number; cor: string; semDelta?: number; W?: number; H?: number; r?: number }) {
   const x = (v: number) => clamp(((clamp(v, emin, 100) - emin) / (100 - emin)) * W, r, W - r);
+  const cy = 3 + H / 2;
   return (
     <Svg width={W} height={H + 6}>
       <Rect x={0} y={3} width={W} height={H} rx={H / 2} fill={CL.zVerm} />
       <Rect x={x(rec) - r} y={3} width={W - (x(rec) - r)} height={H} rx={H / 2} fill={CL.zVerde} />
-      <Circle cx={x(beta)} cy={3 + H / 2} r={r} fill={cor} stroke="#FFFFFF" strokeWidth={1.6} />
+      {/* margem de medida (SEM): faixa na cor do status expandindo do centro p/ os lados */}
+      {semDelta > 0 && <Rect x={x(beta - semDelta)} y={cy - 2.5} width={Math.max(3, x(beta + semDelta) - x(beta - semDelta))} height={5} rx={2.5} fill={cor} fillOpacity={0.42} />}
+      <Circle cx={x(beta)} cy={cy} r={r} fill={cor} stroke="#FFFFFF" strokeWidth={1.6} />
     </Svg>
   );
 }
@@ -101,9 +105,9 @@ function BarraFaixa({ nome, lo, hi, direcao }: { nome: string; lo: number | null
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
       <Text style={{ width: 118, fontSize: 8, color: T.ink }}>{nome}</Text>
       <Svg width={W} height={H + 4}>
-        <Rect x={0} y={2} width={W} height={H} rx={H / 2} fill={CL.track} />
-        <Rect x={x(a)} y={2} width={Math.max(2, x(b) - x(a))} height={H} rx={H / 2} fill={CL.faixa} />
-        {lo != null && direcao !== 'ceiling' && <Line x1={x(lo)} y1={1} x2={x(lo)} y2={H + 3} stroke={T.teal} strokeWidth={0.8} strokeDasharray="1.5 1.5" />}
+        <Rect x={0} y={2} width={W} height={H} rx={H / 2} fill={CL.trackF} />
+        <Rect x={x(a)} y={2} width={Math.max(2, x(b) - x(a))} height={H} rx={H / 2} fill={CL.faixaF} />
+        {lo != null && direcao !== 'ceiling' && <Line x1={x(lo)} y1={0} x2={x(lo)} y2={H + 4} stroke={T.navy} strokeWidth={1} strokeDasharray="1.5 1.5" />}
       </Svg>
       <Text style={[s.num, { width: 48, textAlign: 'right', fontSize: 8, color: T.navy }]}>{faixaLabel(lo, hi, direcao)}</Text>
       <Text style={{ width: 96, fontSize: 6.5, color: T.mute, paddingLeft: 6 }}>{DIR_CURTO[direcao || ''] || ''}</Text>
@@ -118,7 +122,7 @@ function BarraTraco({ label, bruto, lo, hi, direcao, fitPct, isGap }: { label: s
   const x = (v: number) => clamp((v / 100) * W, r, W - r);
   const banda = bandaDe(lo, hi, direcao);
   const dentro = dentroDaBanda(bruto, lo, hi, direcao);
-  const cor = fitPct == null ? (dentro ? T.verde : T.vermelho) : (isGap ? T.vermelho : dentro ? T.verde : T.clay);
+  const cor = fitPct == null ? (dentro ? T.verde : T.vermelho) : (isGap ? T.vermelho : (fitPct >= 90 ? T.verde : T.clay));
   const bx0 = clamp((banda[0] / 100) * W, 0, W), bx1 = clamp((banda[1] / 100) * W, 0, W);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
@@ -218,7 +222,7 @@ function PaginaRanking({ elegiveis, sep, divergencia, cargo, emin, faixas }: any
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: T.clay }} /><Text style={{ fontSize: 7.5, color: T.mute }}>Com ressalvas</Text></View>
           </View>
         </View>
-        <Text style={{ fontSize: 8, color: T.mute, lineHeight: 1.4, marginBottom: 10, maxWidth: 440 }}>Cada candidato posicionado na régua de aderência ({emin} a 100) — a nota final que resume o encaixe do perfil no cargo. Quanto mais à direita, maior a adequação. A <Text style={{ color: T.clay }}>faixa em cinza-âmbar</Text> ao lado de alguns nomes é o intervalo provável da nota sob a margem de medida (só nos limítrofes).</Text>
+        <Text style={{ fontSize: 8, color: T.mute, lineHeight: 1.4, marginBottom: 10, maxWidth: 440 }}>Cada candidato posicionado na régua de aderência ({emin} a 100) — a nota final que resume o encaixe do perfil no cargo. Quanto mais à direita, maior a adequação. A faixa mais clara ao redor do marcador é o intervalo provável da nota (margem de medida), que aparece só nos candidatos limítrofes.</Text>
         {divergencia && (
           <View style={{ backgroundColor: 'rgba(224,161,86,0.10)', borderRadius: 6, padding: 8, marginBottom: 10 }}>
             <Text style={{ fontSize: 7.5, color: T.clay, lineHeight: 1.4 }}>Neste grupo, {divergencia.eixo} (bloco de maior peso) quase não diferencia os candidatos (dispersão {divergencia.sdEixo}). A ordem segue a aderência; quem de fato separa é {divergencia.real} — é nela que a entrevista deve focar.</Text>
@@ -234,9 +238,9 @@ function PaginaRanking({ elegiveis, sep, divergencia, cargo, emin, faixas }: any
           <View key={p.id || p.nome} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 3.5, borderBottomWidth: i < elegiveis.length - 1 ? 0.5 : 0, borderBottomColor: '#F0ECE2' }}>
             <Text style={[s.num, { width: 22, fontSize: 8.5, color: T.teal }]}>{String(i + 1).padStart(2, '0')}</Text>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 9, color: T.navy, fontWeight: 600 }}>{p.nome}{p.borderline ? <Text style={{ fontSize: 6.5, color: T.clay }}>  {rangeBeta(p.beta.pct, p.betaSemDelta)}</Text> : ''}</Text>
+              <Text style={{ fontSize: 9, color: T.navy, fontWeight: 600 }}>{p.nome}</Text>
             </View>
-            <View style={{ width: RW }}><ReguaAderencia beta={p.beta.pct} emin={emin} rec={rec} cor={Cor(p.status)} W={RW} /></View>
+            <View style={{ width: RW }}><ReguaAderencia beta={p.beta.pct} emin={emin} rec={rec} cor={Cor(p.status)} semDelta={p.borderline ? p.betaSemDelta : 0} W={RW} /></View>
             <Text style={[s.num, { width: 44, textAlign: 'right', fontSize: 11, color: T.navy }]}>{fmtBeta(p.beta.pct)}%</Text>
           </View>
         ))}
@@ -286,6 +290,13 @@ function PaginaGabarito({ perfilIdeal }: { perfilIdeal: AdequacaoCargo['perfilId
           {perfilIdeal.competencias.slice(0, 14).map((c: any, i: number) => (
             <BarraFaixa key={i} nome={c.nome} lo={c.min} hi={c.max} direcao={c.direcao} />
           ))}
+          {/* eixo/escala 0–100 alinhado à barra (label 118 + barra 190) */}
+          <View style={{ flexDirection: 'row', marginTop: 2 }}>
+            <View style={{ width: 118 }} />
+            <View style={{ width: 190, borderTopWidth: 0.5, borderTopColor: '#C7BEA8', flexDirection: 'row', justifyContent: 'space-between', paddingTop: 2 }}>
+              {['0', '25', '50', '75', '100'].map((t) => <Text key={t} style={{ fontSize: 6, color: T.mute }}>{t}</Text>)}
+            </View>
+          </View>
         </View>
 
         <Text style={{ fontSize: 8.5, fontWeight: 600, marginBottom: 5, color: T.vermelho }}>Requisitos eliminatórios (gates)</Text>
@@ -308,16 +319,20 @@ function AnaliseIndividual({ elegiveis, narrativas, gates }: any) {
     <Page size="A4" style={s.pageLight} wrap>
       <Text style={s.eyebrow}>Análise individual</Text>
       <Text style={[s.h2, { marginTop: 4, marginBottom: 4 }]}>Candidatos elegíveis</Text>
-      <Text style={{ fontSize: 7.5, color: T.mute, marginBottom: 8, lineHeight: 1.4, maxWidth: 470 }}>Cada barra mostra o valor bruto (0–100) do traço contra a faixa ideal (área destacada). Listamos só os traços que pedem atenção (fora do ideal); os demais estão dentro e aparecem no total ao final de cada pessoa.</Text>
+      <Text style={{ fontSize: 7.5, color: T.mute, marginBottom: 8, lineHeight: 1.4, maxWidth: 470 }}>Cada barra mostra o valor bruto (0–100) do traço contra a faixa ideal (área destacada). Listamos até 5 traços que pedem atenção (fora do ideal), do que mais destoa ao menos; os demais estão dentro e aparecem no total ao final de cada pessoa.</Text>
       <Legenda />
       {elegiveis.map((p: PessoaAdequacao) => {
         const narr = narrativas?.[p.nome];
         const gapLabels = new Set((p.gaps || []).map((g) => g.traco));
-        // Lista só os traços que EXIGEM ATENÇÃO: gap ou FORA da faixa ideal (marcador não-
-        // verde). Os que estão DENTRO (verde) só entram na contagem — assim a lista exibida
-        // e o "+N dentro do ideal" nunca se contradizem (exibido = fora; contado = dentro).
-        const relevantes = (p.tracos || []).filter((t: any) => gapLabels.has(t.label) || !dentroDaBanda(t.bruto, t.lo, t.hi, t.direcao));
-        const resto = (p.tracos || []).length - relevantes.length;
+        // Traços FORA do ideal (gap ou fora da faixa), ordenados do PIOR (menor fit) para o
+        // melhor, e padronizados em ATÉ 5 — comparação lado a lado entre candidatos. Os que
+        // estão DENTRO (verde) entram na contagem "+N dentro do ideal" (exibido≠contado nunca
+        // se contradizem). Se houver >5 fora, os extras também são resumidos.
+        const fora = (p.tracos || []).filter((t: any) => gapLabels.has(t.label) || (t.fitPct ?? 100) < 90)
+          .sort((a: any, b: any) => (a.fitPct ?? 100) - (b.fitPct ?? 100));
+        const relevantes = fora.slice(0, 5);
+        const resto = (p.tracos || []).length - fora.length; // dentro do ideal
+        const foraExtra = fora.length - relevantes.length;
         return (
           <View key={p.id || p.nome} style={[s.card, { padding: 14, marginBottom: 8 }]} wrap={false}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
@@ -335,7 +350,7 @@ function AnaliseIndividual({ elegiveis, narrativas, gates }: any) {
             {relevantes.map((t, i) => <BarraTraco key={i} label={t.label} bruto={t.bruto} lo={t.lo} hi={t.hi} direcao={t.direcao} fitPct={t.fitPct} isGap={gapLabels.has(t.label)} />)}
             {relevantes.length === 0
               ? <Text style={{ fontSize: 7.5, color: T.verde, marginTop: 1 }}>Todos os {resto} traços dentro do ideal.</Text>
-              : resto > 0 && <Text style={{ fontSize: 7, color: T.mute, marginTop: 2 }}>+ {resto} traços dentro do ideal.</Text>}
+              : <Text style={{ fontSize: 7, color: T.mute, marginTop: 2 }}>{foraExtra > 0 ? `+ ${foraExtra} outros fora do ideal · ` : ''}+ {resto} traços dentro do ideal.</Text>}
           </View>
         );
       })}
