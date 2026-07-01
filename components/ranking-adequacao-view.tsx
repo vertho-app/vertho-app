@@ -45,7 +45,12 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
     setExportando(false);
   }
 
-  useEffect(() => { listar().then((r) => { setCargos(r.cargos); if (r.erro) setErro(r.erro); }); }, [listar]);
+  // `listar` muda de identidade quando a empresa muda (useCallback keyed no empresaId).
+  // Reseta o que estava carregado do tenant anterior — senão o ranking velho fica grudado.
+  useEffect(() => {
+    setSel(''); setData(null); setErro(''); setCargos([]);
+    listar().then((r) => { setCargos(r.cargos); if (r.erro) setErro(r.erro); });
+  }, [listar]);
   async function run(cargo: string) {
     setSel(cargo); setLoading(true); setData(null); setErro(''); setSort('eixo'); setFStatus('todos'); setFDriver('qualquer'); setFMin(0);
     const r = await carregar(cargo);
