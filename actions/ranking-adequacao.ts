@@ -32,8 +32,12 @@ async function ctxGestor() {
 const cargoEnc = (c: string) => encodeURIComponent(c).replace(/%/g, '');
 
 // ── Núcleo compartilhado (gestor self-service E preview de admin) ────────────
-async function _listarCargos(sb: any, empresaId: string): Promise<string[]> {
-  const { data: cargos } = await sb.from('cargos_empresa').select('nome, gabarito').eq('empresa_id', empresaId).eq('eh_vaga', false);
+async function _listarCargos(sb: any, empresaId: string, incluirVagas = false): Promise<string[]> {
+  // incluirVagas: a tela de ranking do gestor mostra também as VAGAS (eh_vaga=true) — numa
+  // empresa de seleção (só vagas) a tela viveria vazia senão. O cadastro segue separado.
+  let cq = sb.from('cargos_empresa').select('nome, gabarito').eq('empresa_id', empresaId);
+  if (!incluirVagas) cq = cq.eq('eh_vaga', false);
+  const { data: cargos } = await cq;
   const comGab = (cargos || []).filter((c: any) => c.gabarito?.tela4).map((c: any) => c.nome);
   const { data: files } = await sb.storage.from('conteudos').list('final/adequacao-cargo', { limit: 1000, search: empresaId });
   const nomes: string[] = (files || []).map((f: any) => String(f.name));
@@ -43,7 +47,7 @@ async function _listarCargos(sb: any, empresaId: string): Promise<string[]> {
 /** Cargos da empresa que TÊM snapshot de ranking (relatório gerado) — GESTOR. */
 export async function listarCargosComRanking(): Promise<{ cargos: string[]; erro?: string }> {
   const g = await ctxGestor(); if ('erro' in g) return { cargos: [], erro: g.erro };
-  return { cargos: await _listarCargos(createSupabaseAdmin(), g.empresaId) };
+  return { cargos: await _listarCargos(createSupabaseAdmin(), g.empresaId, true) };
 }
 /** Idem — PREVIEW de admin (empresa vem da rota, gated p/ platform_admin). */
 export async function listarCargosComRankingAdmin(empresaId: string): Promise<{ cargos: string[]; erro?: string }> {
