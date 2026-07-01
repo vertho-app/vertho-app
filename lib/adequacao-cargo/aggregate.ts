@@ -127,10 +127,12 @@ function evidenciaDeKnockout(k: any, spec: RoleSpec, profile: Record<string, any
   };
 }
 
-/** `poolCompleto` (Módulo de Seleção): avalia TODOS os colaboradores da empresa com DISC
- *  contra o gabarito do cargo — em vez de só quem TEM o cargo. É o que permite uma VAGA
- *  (0 ocupantes) ranquear seu pool de candidatos. */
-export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, cargo: string, opts: { poolCompleto?: boolean } = {}): Promise<AdequacaoCargo> {
+/** Módulo de Seleção — quem é avaliado contra o gabarito:
+ *  - `poolCargos` (lista): candidatos = ocupantes desses cargos (os marcados "pool de
+ *    candidatos", ex.: "Em busca"). É o filtro preferido para VAGAS.
+ *  - `poolCompleto`: TODOS com DISC (fallback quando nenhum cargo é pool).
+ *  - nenhum: só quem OCUPA o cargo (operacional). */
+export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, cargo: string, opts: { poolCompleto?: boolean; poolCargos?: string[] } = {}): Promise<AdequacaoCargo> {
   const base: AdequacaoCargo = { cargo, avaliados: 0, perfilIdeal: { caracteristicas: [], competencias: [], lideranca: [], estiloPredominante: '', disc: [], pesos: [], liderancaAplicavel: false }, pessoas: [], avisosCalibracao: [], semGabarito: false, semColaboradores: false };
 
   // 1) Gabarito (perfil ideal) do cargo.
@@ -179,10 +181,11 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
 
   // 3) Colaboradores do cargo (com DISC mapeado).
   const cols = ['id', 'nome_completo', ...candidateColumns()].join(', ');
-  // Vaga (poolCompleto): candidatos = todos com DISC na empresa, independente do cargo deles.
-  // Operacional: só quem ocupa o cargo.
+  // Pool de avaliados: cargos-candidatos (poolCargos) > todos com DISC (poolCompleto) > só
+  // quem ocupa o cargo (operacional).
   let q = sb.from('colaboradores').select(cols).eq('empresa_id', empresaId).not('d_natural', 'is', null);
-  if (!opts.poolCompleto) q = q.eq('cargo', cargo);
+  if (opts.poolCargos && opts.poolCargos.length) q = q.in('cargo', opts.poolCargos);
+  else if (!opts.poolCompleto) q = q.eq('cargo', cargo);
   const { data: rows } = await excludeInternalEmails(q).order('nome_completo');
   if (!rows?.length) return { ...base, perfilIdeal, semColaboradores: true };
 

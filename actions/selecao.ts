@@ -85,9 +85,12 @@ export async function gerarPerfilVaga(empresaId: string, nomeVaga: string): Prom
 export async function gerarRankingVaga(empresaId: string, nomeVaga: string, opts: { comAnaliseIA?: boolean } = {}): Promise<{ success: boolean; url?: string; avaliados?: number; error?: string }> {
   try {
     if (!empresaId || !nomeVaga?.trim()) return { success: false, error: 'Empresa e vaga obrigatórios.' };
-    await requireAdminSupabase('admin.access');
-    // Gera o snapshot avaliando TODOS os candidatos com DISC contra o gabarito da vaga.
-    const rel = await gerarRelatorioAdequacao(empresaId, nomeVaga.trim(), { comAnaliseIA: !!opts.comAnaliseIA, poolCompleto: true });
+    const sb = await requireAdminSupabase('admin.access');
+    // Pool de candidatos = ocupantes dos cargos marcados "pool de candidatos" (ex.: "Em busca").
+    // Se nenhum cargo estiver marcado, cai para todos com DISC (poolCompleto).
+    const { data: poolRows } = await sb.from('cargos_empresa').select('nome').eq('empresa_id', empresaId).eq('eh_pool_candidatos', true);
+    const poolCargos = (poolRows || []).map((r: any) => r.nome).filter(Boolean);
+    const rel = await gerarRelatorioAdequacao(empresaId, nomeVaga.trim(), { comAnaliseIA: !!opts.comAnaliseIA, poolCompleto: poolCargos.length === 0, poolCargos: poolCargos.length ? poolCargos : undefined });
     if (!rel.success) return { success: false, error: rel.error };
     // Ranking PDF a partir do snapshot recém-gerado.
     const rk = await exportarRankingPDFAdmin(empresaId, nomeVaga.trim());
