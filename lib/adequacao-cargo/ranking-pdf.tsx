@@ -84,6 +84,12 @@ const dentroDaBanda = (bruto: number | null, lo: number | null, hi: number | nul
   return bruto >= a && bruto <= b;
 };
 const DIR_CURTO: Record<string, string> = { floor: 'quanto mais, melhor', target: 'faixa-alvo', ceiling: 'quanto menos, melhor' };
+// Range de aderência sob a margem de medida (SEM): mais legível que "± X" — mostra se a
+// nota cruza um corte. Inteiro p/ caber ao lado do nome.
+const rangeBeta = (beta: number, semDelta: number) => `${Math.round(Math.max(0, beta - semDelta))}–${Math.round(Math.min(100, beta + semDelta))}%`;
+// Rótulo da faixa coerente com a barra: floor não tem teto (o "hi" nominal não penaliza),
+// então "41+"; ceiling é "até X"; só target é "lo–hi".
+const faixaLabel = (lo: number | null, hi: number | null, direcao?: string) => direcao === 'floor' ? `${lo}+` : direcao === 'ceiling' ? `até ${hi}` : `${lo}${hi ? `–${hi}` : ''}`;
 
 // ── Faixa ideal do cargo (Gabarito): SÓ a banda destacada + piso, sem marcador de pessoa.
 //    Mesma linguagem visual das barras dos candidatos. ──
@@ -99,7 +105,7 @@ function BarraFaixa({ nome, lo, hi, direcao }: { nome: string; lo: number | null
         <Rect x={x(a)} y={2} width={Math.max(2, x(b) - x(a))} height={H} rx={H / 2} fill={CL.faixa} />
         {lo != null && direcao !== 'ceiling' && <Line x1={x(lo)} y1={1} x2={x(lo)} y2={H + 3} stroke={T.teal} strokeWidth={0.8} strokeDasharray="1.5 1.5" />}
       </Svg>
-      <Text style={[s.num, { width: 48, textAlign: 'right', fontSize: 8, color: T.navy }]}>{lo}{hi ? `–${hi}` : ''}</Text>
+      <Text style={[s.num, { width: 48, textAlign: 'right', fontSize: 8, color: T.navy }]}>{faixaLabel(lo, hi, direcao)}</Text>
       <Text style={{ width: 96, fontSize: 6.5, color: T.mute, paddingLeft: 6 }}>{DIR_CURTO[direcao || ''] || ''}</Text>
     </View>
   );
@@ -212,7 +218,7 @@ function PaginaRanking({ elegiveis, sep, divergencia, cargo, emin, faixas }: any
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: T.clay }} /><Text style={{ fontSize: 7.5, color: T.mute }}>Com ressalvas</Text></View>
           </View>
         </View>
-        <Text style={{ fontSize: 8, color: T.mute, lineHeight: 1.4, marginBottom: 10, maxWidth: 400 }}>Cada candidato posicionado na régua de aderência ({emin} → 100) — a nota final que resume o encaixe do perfil no cargo. Quanto mais à direita, maior a adequação.</Text>
+        <Text style={{ fontSize: 8, color: T.mute, lineHeight: 1.4, marginBottom: 10, maxWidth: 440 }}>Cada candidato posicionado na régua de aderência ({emin} a 100) — a nota final que resume o encaixe do perfil no cargo. Quanto mais à direita, maior a adequação. A <Text style={{ color: T.clay }}>faixa em cinza-âmbar</Text> ao lado de alguns nomes é o intervalo provável da nota sob a margem de medida (só nos limítrofes).</Text>
         {divergencia && (
           <View style={{ backgroundColor: 'rgba(224,161,86,0.10)', borderRadius: 6, padding: 8, marginBottom: 10 }}>
             <Text style={{ fontSize: 7.5, color: T.clay, lineHeight: 1.4 }}>Neste grupo, {divergencia.eixo} (bloco de maior peso) quase não diferencia os candidatos (dispersão {divergencia.sdEixo}). A ordem segue a aderência; quem de fato separa é {divergencia.real} — é nela que a entrevista deve focar.</Text>
@@ -228,7 +234,7 @@ function PaginaRanking({ elegiveis, sep, divergencia, cargo, emin, faixas }: any
           <View key={p.id || p.nome} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 3.5, borderBottomWidth: i < elegiveis.length - 1 ? 0.5 : 0, borderBottomColor: '#F0ECE2' }}>
             <Text style={[s.num, { width: 22, fontSize: 8.5, color: T.teal }]}>{String(i + 1).padStart(2, '0')}</Text>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 9, color: T.navy, fontWeight: 600 }}>{p.nome}{p.borderline ? <Text style={{ fontSize: 6.5, color: T.clay }}>  ± {p.betaSemDelta}</Text> : ''}</Text>
+              <Text style={{ fontSize: 9, color: T.navy, fontWeight: 600 }}>{p.nome}{p.borderline ? <Text style={{ fontSize: 6.5, color: T.clay }}>  {rangeBeta(p.beta.pct, p.betaSemDelta)}</Text> : ''}</Text>
             </View>
             <View style={{ width: RW }}><ReguaAderencia beta={p.beta.pct} emin={emin} rec={rec} cor={Cor(p.status)} W={RW} /></View>
             <Text style={[s.num, { width: 44, textAlign: 'right', fontSize: 11, color: T.navy }]}>{fmtBeta(p.beta.pct)}%</Text>
