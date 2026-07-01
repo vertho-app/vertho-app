@@ -5,6 +5,10 @@
  * marca se é liderança e resolve CADA campo: preenche OU marca "não se aplica". Núcleo
  * (nome + descrição) é obrigatório de verdade; o resto exige decisão consciente — força
  * atenção sem forçar invenção. WYSIWYG: salva com autoAceitaAte:'nunca' (só o incluído entra).
+ *
+ * NOTA React: ItemRow/DispensaCtrl/DispensadoBox são de ESCOPO DE MÓDULO (não definidos
+ * dentro do componente) — se fossem internos, cada keystroke recriaria o tipo e o React
+ * remontaria o <textarea>, tirando o foco a cada letra.
  */
 import { useEffect, useState, useCallback } from 'react';
 import { Loader2, FileText, Upload, Check, X, HelpCircle, Plus, Save, Sparkles, RefreshCw, Ban } from 'lucide-react';
@@ -31,6 +35,36 @@ const CONF_COR: Record<string, string> = { alta: 'text-emerald-400 bg-emerald-40
 const novoItem = (): ItemEvid => ({ texto: '', confianca: 'alta', fonte: 'Inserido na revisão', aprovado: true });
 const escalarVazio = (): ItemEvid => ({ texto: '', confianca: 'baixa', fonte: '', aprovado: false });
 const norm = (s: string) => s.trim().toLowerCase();
+
+// ── Componentes de escopo de módulo (identidade estável → textarea não perde foco) ──
+function ItemRow({ it, onToggle, onEdit, onRemove, placeholder }: { it: ItemEvid; onToggle: () => void; onEdit: (v: string) => void; onRemove?: () => void; placeholder?: string }) {
+  const estado = it.aprovado === true ? 'in' : it.aprovado === false ? 'out' : 'rev';
+  const cor = estado === 'in' ? 'border-emerald-400/40 bg-emerald-400/5' : estado === 'out' ? 'border-white/5 bg-white/[0.01]' : 'border-amber-400/30 bg-amber-400/5';
+  return (
+    <div className={`rounded-lg border p-2 ${cor}`}>
+      <div className="flex items-start gap-2">
+        <button onClick={onToggle} title="Incluir / excluir" className="shrink-0 mt-0.5">
+          {estado === 'in' ? <Check size={15} className="text-emerald-400" /> : estado === 'out' ? <X size={15} className="text-slate-500" /> : <HelpCircle size={15} className="text-amber-400" />}
+        </button>
+        <div className="flex-1 min-w-0">
+          <textarea value={it.texto} placeholder={placeholder} onChange={(e) => onEdit(e.target.value)} rows={Math.max(1, Math.ceil((it.texto.length || 20) / 70))}
+            className="w-full bg-transparent text-sm text-slate-100 resize-none outline-none border-b border-white/5 focus:border-brand-400/50 leading-snug placeholder:text-slate-600" />
+          {it.fonte && <div className="text-[10px] text-slate-500 mt-1 italic truncate" title={it.fonte}>fonte: {it.fonte}</div>}
+        </div>
+        <span className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded ${CONF_COR[it.confianca] || ''}`}>{it.confianca}</span>
+        {onRemove && <button onClick={onRemove} className="shrink-0 text-slate-600 hover:text-red-400"><X size={13} /></button>}
+      </div>
+    </div>
+  );
+}
+function DispensaCtrl({ dispensado, onToggle }: { dispensado: boolean; onToggle: (on: boolean) => void }) {
+  return dispensado
+    ? <button onClick={() => onToggle(false)} className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-200"><RefreshCw size={10} /> reativar</button>
+    : <button onClick={() => onToggle(true)} className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-amber-300"><Ban size={10} /> não se aplica</button>;
+}
+function DispensadoBox() {
+  return <div className="rounded-lg border border-white/5 bg-white/[0.01] p-2 text-[11px] text-slate-500 italic">Marcado como “não se aplica” a este cargo.</div>;
+}
 
 export default function CargoExtracaoPanel({ empresaId }: { empresaId: string }) {
   const [cargos, setCargos] = useState<{ nome: string; eh_lideranca: boolean }[]>([]);
@@ -109,32 +143,6 @@ export default function CargoExtracaoPanel({ empresaId }: { empresaId: string })
     setSalvando(false);
   }
 
-  const DispensaCtrl = ({ k }: { k: string }) => dispensados.has(k)
-    ? <button onClick={() => dispensar(k, false)} className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-200"><RefreshCw size={10} /> reativar</button>
-    : <button onClick={() => dispensar(k, true)} className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-amber-300"><Ban size={10} /> não se aplica</button>;
-  const DispensadoBox = () => <div className="rounded-lg border border-white/5 bg-white/[0.01] p-2 text-[11px] text-slate-500 italic">Marcado como “não se aplica” a este cargo.</div>;
-
-  const ItemRow = ({ campo, idx, it, removivel, placeholder }: { campo: string; idx: number | null; it: ItemEvid; removivel?: () => void; placeholder?: string }) => {
-    const estado = it.aprovado === true ? 'in' : it.aprovado === false ? 'out' : 'rev';
-    const cor = estado === 'in' ? 'border-emerald-400/40 bg-emerald-400/5' : estado === 'out' ? 'border-white/5 bg-white/[0.01]' : 'border-amber-400/30 bg-amber-400/5';
-    return (
-      <div className={`rounded-lg border p-2 ${cor}`}>
-        <div className="flex items-start gap-2">
-          <button onClick={() => toggle(campo, idx, it.aprovado)} title="Incluir / excluir" className="shrink-0 mt-0.5">
-            {estado === 'in' ? <Check size={15} className="text-emerald-400" /> : estado === 'out' ? <X size={15} className="text-slate-500" /> : <HelpCircle size={15} className="text-amber-400" />}
-          </button>
-          <div className="flex-1 min-w-0">
-            <textarea value={it.texto} placeholder={placeholder} onChange={(e) => editar(campo, idx, it, e.target.value)} rows={Math.max(1, Math.ceil((it.texto.length || 20) / 70))}
-              className="w-full bg-transparent text-sm text-slate-100 resize-none outline-none border-b border-white/5 focus:border-brand-400/50 leading-snug placeholder:text-slate-600" />
-            {it.fonte && <div className="text-[10px] text-slate-500 mt-1 italic truncate" title={it.fonte}>fonte: {it.fonte}</div>}
-          </div>
-          <span className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded ${CONF_COR[it.confianca] || ''}`}>{it.confianca}</span>
-          {removivel && <button onClick={removivel} className="shrink-0 text-slate-600 hover:text-red-400"><X size={13} /></button>}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-4">
       {/* 1) Documento */}
@@ -198,14 +206,15 @@ export default function CargoExtracaoPanel({ empresaId }: { empresaId: string })
           </div>
 
           {ESCALARES.map(({ k, label, nucleo, hint }) => {
+            const it = (ext as any)[k] as ItemEvid;
             const disp = dispensados.has(k) && !temConteudo(k, 'escalar');
             return (
               <div key={k}>
                 <div className="flex items-center justify-between mb-1">
                   <div className="text-xs font-semibold text-slate-300">{label} {nucleo && <span className="text-red-400">*</span>} {hint && <span className="text-[10px] text-slate-500 font-normal">({hint})</span>}</div>
-                  {!nucleo && !temConteudo(k, 'escalar') && <DispensaCtrl k={k} />}
+                  {!nucleo && !temConteudo(k, 'escalar') && <DispensaCtrl dispensado={dispensados.has(k)} onToggle={(on) => dispensar(k, on)} />}
                 </div>
-                {disp ? <DispensadoBox /> : <ItemRow campo={k} idx={null} it={(ext as any)[k]} placeholder={k === 'area_depto' ? 'ex.: Educação / Coordenação' : undefined} />}
+                {disp ? <DispensadoBox /> : <ItemRow it={it} onToggle={() => toggle(k, null, it.aprovado)} onEdit={(v) => editar(k, null, it, v)} placeholder={k === 'area_depto' ? 'ex.: Educação / Coordenação' : undefined} />}
               </div>
             );
           })}
@@ -218,13 +227,13 @@ export default function CargoExtracaoPanel({ empresaId }: { empresaId: string })
                 <div className="flex items-center justify-between mb-1">
                   <div className="text-xs font-semibold text-slate-300">{label} <span className="text-[10px] text-slate-500">({contaIncluidos(k)} incluídos)</span></div>
                   <div className="flex items-center gap-3">
-                    {contaIncluidos(k) === 0 && <DispensaCtrl k={k} />}
+                    {contaIncluidos(k) === 0 && <DispensaCtrl dispensado={dispensados.has(k)} onToggle={(on) => dispensar(k, on)} />}
                     <button onClick={() => addItem(k)} className="flex items-center gap-1 text-[10px] text-brand-300 hover:text-brand-200"><Plus size={11} /> adicionar</button>
                   </div>
                 </div>
                 {disp ? <DispensadoBox /> : (
                   <div className="space-y-1.5">
-                    {itens.map((it, i) => <ItemRow key={i} campo={k} idx={i} it={it} removivel={() => rmItem(k, i)} />)}
+                    {itens.map((it, i) => <ItemRow key={i} it={it} onToggle={() => toggle(k, i, it.aprovado)} onEdit={(v) => editar(k, i, it, v)} onRemove={() => rmItem(k, i)} />)}
                     {itens.length === 0 && <p className="text-[11px] text-slate-500">Nada extraído. Adicione manualmente ou marque “não se aplica”.</p>}
                   </div>
                 )}
