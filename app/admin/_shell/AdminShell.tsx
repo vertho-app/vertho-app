@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { AdminShellContext } from './AdminShellContext';
 import { loadAdminShellEmpresas, type EmpresaLite } from './actions';
 import AdminSidebar from './AdminSidebar';
@@ -11,6 +11,9 @@ const FILTER_KEY = 'vertho-admin-filter-empresa';
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
+  // empresaId da ROTA quando estamos numa página escopada (/admin/empresas/{id}/...).
+  const routeEmpresaId = pathname?.match(/^\/admin\/empresas\/([^/]+)/)?.[1];
   const [empresas, setEmpresas] = useState<EmpresaLite[]>([]);
   const [empresaFiltro, setEmpresaFiltroState] = useState<string>('all');
   const [collapsed, setCollapsed] = useState(false);
@@ -26,11 +29,29 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     loadAdminShellEmpresas().then(setEmpresas).catch(() => {});
   }, []);
 
-  // Persiste o filtro (mesma chave que as páginas já leem).
+  // Persiste o filtro (mesma chave que as páginas já leem) e, se estamos numa rota
+  // escopada por empresa, NAVEGA pra mesma subpágina da nova empresa. Fix num LUGAR SÓ:
+  // todas as telas /admin/empresas/[empresaId]/* reagem ao filtro do header sem cada uma
+  // precisar assinar (era o bug recorrente: b48fa97 calibração, 70048d9 ranking...).
+  // Trunca ids aninhados (ex. .../pulso/{cicloId}/dashboard → .../pulso), que pertencem
+  // à empresa antiga.
   const setEmpresaFiltro = useCallback((id: string) => {
     setEmpresaFiltroState(id);
     try { localStorage.setItem(FILTER_KEY, id); } catch {}
-  }, []);
+    if (id && id !== 'all' && pathname) {
+      const m = pathname.match(/^\/admin\/empresas\/([^/]+)(\/[^/]+)?/);
+      if (m && m[1] !== id) router.replace(`/admin/empresas/${id}${m[2] || ''}`);
+    }
+  }, [pathname, router]);
+
+  // Sentido inverso: ao navegar direto pra uma empresa (link, voltar), o filtro do header
+  // passa a refletir a empresa da rota. setState direto (sem navegar) p/ não recursar.
+  useEffect(() => {
+    if (routeEmpresaId && routeEmpresaId !== empresaFiltro && empresas.some((e) => e.id === routeEmpresaId)) {
+      setEmpresaFiltroState(routeEmpresaId);
+      try { localStorage.setItem(FILTER_KEY, routeEmpresaId); } catch {}
+    }
+  }, [routeEmpresaId, empresas, empresaFiltro]);
 
   // Se a empresa salva não existe mais (foi deletada), volta pra 'all'.
   useEffect(() => {
