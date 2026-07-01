@@ -6,7 +6,7 @@
  * (cada página provê o seu shell). Nunca recomputa — só exibe o que a action devolve.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, ShieldAlert, Info } from 'lucide-react';
+import { Loader2, ShieldAlert, Info, FileDown } from 'lucide-react';
 import { GlassCard } from '@/components/page-shell';
 
 const STATUS_COR: Record<string, { cor: string; label: string }> = {
@@ -17,9 +17,10 @@ const STATUS_COR: Record<string, { cor: string; label: string }> = {
 const iniciais = (n: string) => n.split(' ').filter(Boolean).slice(0, 2).map((x) => x[0]?.toUpperCase()).join('');
 const fmtData = (iso: string | null) => iso ? (() => { const [y, m, d] = iso.slice(0, 10).split('-'); return `${d}/${m}/${y}`; })() : '—';
 
-export default function RankingAdequacaoView({ listar, carregar }: {
+export default function RankingAdequacaoView({ listar, carregar, exportar }: {
   listar: () => Promise<{ cargos: string[]; erro?: string }>;
   carregar: (cargo: string) => Promise<any>;
+  exportar?: (cargo: string) => Promise<{ success: boolean; url?: string; error?: string }>;
 }) {
   const [cargos, setCargos] = useState<string[]>([]);
   const [sel, setSel] = useState('');
@@ -30,6 +31,19 @@ export default function RankingAdequacaoView({ listar, carregar }: {
   const [fDriver, setFDriver] = useState<string>('qualquer');
   const [fMin, setFMin] = useState(0);
   const [sort, setSort] = useState<'eixo' | 'aderencia'>('eixo');
+  const [exportando, setExportando] = useState(false);
+  const [erroExport, setErroExport] = useState('');
+
+  async function exportarPDF() {
+    if (!exportar || !sel) return;
+    setExportando(true); setErroExport('');
+    try {
+      const r = await exportar(sel);
+      if (r.success && r.url) window.open(r.url, '_blank');
+      else setErroExport(r.error || 'Falha ao gerar o PDF.');
+    } catch { setErroExport('Falha ao gerar o PDF.'); }
+    setExportando(false);
+  }
 
   useEffect(() => { listar().then((r) => { setCargos(r.cargos); if (r.erro) setErro(r.erro); }); }, [listar]);
   async function run(cargo: string) {
@@ -113,7 +127,14 @@ export default function RankingAdequacaoView({ listar, carregar }: {
               <button onClick={() => setSort('aderencia')} className={`px-2 py-1 rounded border ${sort === 'aderencia' ? 'border-brand-400 text-brand-200' : 'border-white/10 text-slate-400'}`}>Aderência</button>
             </div>
             <span className="text-slate-500 ml-auto">{visiveis.length} de {data.totais.elegiveis} elegíveis</span>
+            {exportar && (
+              <button onClick={exportarPDF} disabled={exportando} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-400/40 bg-brand-500/10 text-brand-200 hover:bg-brand-500/20 disabled:opacity-50">
+                {exportando ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+                {exportando ? 'Gerando…' : 'Exportar PDF'}
+              </button>
+            )}
           </div>
+          {erroExport && <p className="text-[11px] text-amber-400">{erroExport}</p>}
 
           <div className="space-y-1.5">
             {visiveis.map((e, i) => {

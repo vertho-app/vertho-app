@@ -4,16 +4,17 @@
 import { useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import RankingAdequacaoView from '@/components/ranking-adequacao-view';
-import { listarCargosComRankingAdmin, getRankingAdequacaoAdmin } from '@/actions/ranking-adequacao';
+import { listarCargosComRankingAdmin, getRankingAdequacaoAdmin, exportarRankingPDFAdmin } from '@/actions/ranking-adequacao';
 
 export default function AdminRankingPage() {
   const { empresaId } = useParams() as { empresaId: string };
   const listar = useCallback(() => listarCargosComRankingAdmin(empresaId), [empresaId]);
   const carregar = useCallback((c: string) => getRankingAdequacaoAdmin(empresaId, c), [empresaId]);
+  const exportar = useCallback((c: string) => exportarRankingPDFAdmin(empresaId, c), [empresaId]);
   return (
     <div className="p-6 max-w-4xl mx-auto text-slate-200">
       <div className="mb-3 text-[11px] text-amber-400/80">Preview interno — é a tela que o gestor do cliente vê (`/dashboard/gestor/ranking`), escopada pela empresa da rota.</div>
-      <RankingAdequacaoView listar={listar} carregar={carregar} />
+      <RankingAdequacaoView listar={listar} carregar={carregar} exportar={exportar} />
     </div>
   );
 }

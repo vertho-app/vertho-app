@@ -73,7 +73,10 @@ export interface PerfilIdeal {
   disc: { fator: 'D' | 'I' | 'S' | 'C'; nome: string; min: number; max: number; direcao?: Direcao }[];
   pesos: { bloco: string; pct: number }[];
   liderancaAplicavel: boolean;
+  gates?: GateDef[];                 // definições de eliminatória (traço/bloco + limiar) — autossuficiente p/ o PDF canônico. Ausente em snapshots pré-enriquecimento.
 }
+/** Definição de gate p/ a página de Gabarito do PDF (lida do snapshot, não das evidências). */
+export interface GateDef { tipo: 'trait' | 'block'; label: string; bloco: string; minPct: number; piso: number | null }
 
 export interface AdequacaoCargo {
   cargo: string;
@@ -153,7 +156,15 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
   const pesos = Object.entries(spec.blockWeights)
     .filter(([, w]) => num(w) > 0)
     .map(([bloco, w]) => ({ bloco: BLOCO_LABEL[bloco] || bloco, pct: Math.round(num(w) * 100) }));
-  const perfilIdeal: PerfilIdeal = { caracteristicas, competencias: competenciasIdeal, lideranca: liderancaIdeal, estiloPredominante: g.tela3?.estilo_predominante || '', disc: discIdeal, pesos, liderancaAplicavel };
+  // Gates (eliminatórias) → definições legíveis no snapshot (traço+piso ou bloco+min%).
+  // A página de Gabarito do PDF canônico lê DAQUI (não das evidências, que só existem p/
+  // bloqueados) — funciona mesmo com 0 bloqueados.
+  const gates: GateDef[] = (spec.knockouts || []).map((k) => {
+    if (k.scope === 'block') return { tipo: 'block' as const, label: BLOCO_LABEL[k.key] || k.key, bloco: BLOCO_LABEL[k.key] || k.key, minPct: Math.round(k.min * 100), piso: null };
+    const t = spec.traits.find((x) => x.key === k.key) as any;
+    return { tipo: 'trait' as const, label: t?.label || k.key, bloco: BLOCO_LABEL[t?.block] || t?.block || '', minPct: Math.round(k.min * 100), piso: t?.lo ?? null };
+  });
+  const perfilIdeal: PerfilIdeal = { caracteristicas, competencias: competenciasIdeal, lideranca: liderancaIdeal, estiloPredominante: g.tela3?.estilo_predominante || '', disc: discIdeal, pesos, liderancaAplicavel, gates };
 
   // 3) Colaboradores do cargo (com DISC mapeado).
   const cols = ['id', 'nome_completo', ...candidateColumns()].join(', ');
