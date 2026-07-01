@@ -148,7 +148,7 @@ function PaginaGabarito({ perfilIdeal }: { perfilIdeal: AdequacaoCargo['perfilId
         <View style={{ marginBottom: 10 }}>
           <View style={{ flexDirection: 'row', gap: 4, marginBottom: 3 }}>
             <View style={{ backgroundColor: T.verde, borderRadius: 3, paddingHorizontal: 5, paddingVertical: 2 }}><Text style={{ fontSize: 7.5, color: '#fff' }}>Recomendado ≥ {faixas.recomendadoMin}%</Text></View>
-            <View style={{ backgroundColor: T.clay, borderRadius: 3, paddingHorizontal: 5, paddingVertical: 2 }}><Text style={{ fontSize: 7.5, color: '#fff' }}>Com ressalvas {faixas.ressalvasMin}–{faixas.recomendadoMin - 1}%</Text></View>
+            <View style={{ backgroundColor: T.clay, borderRadius: 3, paddingHorizontal: 5, paddingVertical: 2 }}><Text style={{ fontSize: 7.5, color: '#fff' }}>Com ressalvas ≥ {faixas.ressalvasMin}%</Text></View>
             <View style={{ backgroundColor: T.mute, borderRadius: 3, paddingHorizontal: 5, paddingVertical: 2 }}><Text style={{ fontSize: 7.5, color: '#fff' }}>Abaixo do corte &lt; {faixas.ressalvasMin}%</Text></View>
           </View>
           <Text style={{ fontSize: 7, color: T.mute }}>A aderência é a média ponderada dos blocos. "Abaixo do corte" NÃO é eliminação por requisito — é nota de aderência insuficiente (não bloqueia, mas não recomenda). Eliminatórios são os gates abaixo.</Text>

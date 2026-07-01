@@ -168,7 +168,10 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
   // Faixas de aderência = a régua de cor versionada (mesma que separa verde/amarelo/
   // vermelho). O corte "abaixo do corte" É o ressalvasMin. Grava DECLARADO no snapshot
   // p/ o PDF imprimir o critério, em vez de a Secretaria descobrir por dedução.
-  const faixas = { recomendadoMin: Math.round((spec.bandHigh ?? 0.85) * 100), ressalvasMin: Math.round((spec.bandMid ?? 0.60) * 100) };
+  // Uma casa decimal: o corte real (v4 = 86,5 / 75,4) precisa bater com o Beta arredondado
+  // exibido no ranking. Ex.: Silvia 74,7 → mostra "75%"; com corte "75,4%", "75% < 75,4%"
+  // lê consistente (com inteiro "75", cairia em "75% < 75%", contradição).
+  const faixas = { recomendadoMin: Math.round((spec.bandHigh ?? 0.85) * 1000) / 10, ressalvasMin: Math.round((spec.bandMid ?? 0.60) * 1000) / 10 };
   const perfilIdeal: PerfilIdeal = { caracteristicas, competencias: competenciasIdeal, lideranca: liderancaIdeal, estiloPredominante: g.tela3?.estilo_predominante || '', disc: discIdeal, pesos, liderancaAplicavel, gates, faixas };
 
   // 3) Colaboradores do cargo (com DISC mapeado).
