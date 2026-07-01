@@ -2515,6 +2515,7 @@
       "gerenciar": "Colaboradores y Puestos",
       "competencias": "Competencias",
       "ppp": "Extraer PPPs",
+      "extracao-cargo": "Extraer Descripción del Cargo",
       "preferencias": "Preferencias",
       "knowledge-base": "Knowledge Base (RAG)",
       "videos": "Vídeos (Bunny)",

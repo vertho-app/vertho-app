@@ -2515,6 +2515,7 @@
       "gerenciar": "Team members & Positions",
       "competencias": "Skills",
       "ppp": "Extract PPPs",
+      "extracao-cargo": "Extract Job Description",
       "preferencias": "Preferences",
       "knowledge-base": "Knowledge Base (RAG)",
       "videos": "Videos (Bunny)",
