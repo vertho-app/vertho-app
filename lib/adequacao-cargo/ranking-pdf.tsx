@@ -72,14 +72,46 @@ function ReguaAderencia({ beta, emin, rec, cor, W = 230, H = 9, r = 6 }: { beta:
   );
 }
 
+// Banda ideal (direção-aware) e teste de pertencimento — compartilhados pelas barras e
+// pelo filtro da Análise Individual (garante que "fora do ideal" = marcador não-verde).
+const bandaDe = (lo: number | null, hi: number | null, direcao?: string): [number, number] => {
+  const L = lo ?? 0, Hh = hi ?? 100;
+  return direcao === 'floor' ? [L, 100] : direcao === 'ceiling' ? [0, Hh] : [L, Hh];
+};
+const dentroDaBanda = (bruto: number | null, lo: number | null, hi: number | null, direcao?: string): boolean => {
+  if (bruto == null) return false;
+  const [a, b] = bandaDe(lo, hi, direcao);
+  return bruto >= a && bruto <= b;
+};
+const DIR_CURTO: Record<string, string> = { floor: 'quanto mais, melhor', target: 'faixa-alvo', ceiling: 'quanto menos, melhor' };
+
+// ── Faixa ideal do cargo (Gabarito): SÓ a banda destacada + piso, sem marcador de pessoa.
+//    Mesma linguagem visual das barras dos candidatos. ──
+function BarraFaixa({ nome, lo, hi, direcao }: { nome: string; lo: number | null; hi: number | null; direcao?: string }) {
+  const W = 190, H = 6;
+  const x = (v: number) => clamp((v / 100) * W, 0, W);
+  const [a, b] = bandaDe(lo, hi, direcao);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
+      <Text style={{ width: 118, fontSize: 8, color: T.ink }}>{nome}</Text>
+      <Svg width={W} height={H + 4}>
+        <Rect x={0} y={2} width={W} height={H} rx={H / 2} fill={CL.track} />
+        <Rect x={x(a)} y={2} width={Math.max(2, x(b) - x(a))} height={H} rx={H / 2} fill={CL.faixa} />
+        {lo != null && direcao !== 'ceiling' && <Line x1={x(lo)} y1={1} x2={x(lo)} y2={H + 3} stroke={T.teal} strokeWidth={0.8} strokeDasharray="1.5 1.5" />}
+      </Svg>
+      <Text style={[s.num, { width: 48, textAlign: 'right', fontSize: 8, color: T.navy }]}>{lo}{hi ? `–${hi}` : ''}</Text>
+      <Text style={{ width: 96, fontSize: 6.5, color: T.mute, paddingLeft: 6 }}>{DIR_CURTO[direcao || ''] || ''}</Text>
+    </View>
+  );
+}
+
 // ── Barra-contra-faixa (Análise Individual): track pill + faixa ideal destacada +
 //    marcador CIRCULAR. Cor: gap→vermelho · dentro da faixa→verde · fora tolerável→clay. ──
 function BarraTraco({ label, bruto, lo, hi, direcao, fitPct, isGap }: { label: string; bruto: number | null; lo: number | null; hi: number | null; direcao?: string; fitPct?: number | null; isGap?: boolean }) {
   const W = 210, H = 7, r = 5;
   const x = (v: number) => clamp((v / 100) * W, r, W - r);
-  const L = lo ?? 0, Hh = hi ?? 100;
-  const banda = direcao === 'floor' ? [L, 100] : direcao === 'ceiling' ? [0, Hh] : [L, Hh];
-  const dentro = bruto != null && bruto >= banda[0] && bruto <= banda[1];
+  const banda = bandaDe(lo, hi, direcao);
+  const dentro = dentroDaBanda(bruto, lo, hi, direcao);
   const cor = fitPct == null ? (dentro ? T.verde : T.vermelho) : (isGap ? T.vermelho : dentro ? T.verde : T.clay);
   const bx0 = clamp((banda[0] / 100) * W, 0, W), bx1 = clamp((banda[1] / 100) * W, 0, W);
   return (
@@ -242,14 +274,11 @@ function PaginaGabarito({ perfilIdeal }: { perfilIdeal: AdequacaoCargo['perfilId
           </View>
         ) : <Text style={{ fontSize: 8, color: T.mute, marginBottom: 16 }}>Cortes não gravados neste snapshot. Regere o relatório para incluí-los.</Text>}
 
-        <Text style={{ fontSize: 8.5, fontWeight: 600, marginBottom: 5, color: T.navy }}>Faixas ideais por competência</Text>
+        <Text style={{ fontSize: 8.5, fontWeight: 600, marginBottom: 2, color: T.navy }}>Faixas ideais por competência</Text>
+        <Text style={{ fontSize: 6.5, color: T.mute, marginBottom: 5 }}>A <Text style={{ color: T.verde }}>■</Text> área destacada é a faixa desejada (0–100); a linha tracejada marca o piso.</Text>
         <View style={{ marginBottom: 14 }}>
           {perfilIdeal.competencias.slice(0, 14).map((c: any, i: number) => (
-            <View key={i} style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 2.5, paddingVertical: 1 }}>
-              <Text style={{ width: 150, fontSize: 8, color: T.ink }}>{c.nome}</Text>
-              <Text style={[s.num, { fontSize: 8.5, color: T.navy, width: 60 }]}>{c.min}{c.max ? `–${c.max}` : ''}</Text>
-              <Text style={{ fontSize: 7, color: T.mute }}>{DIR_LABEL[c.direcao] || ''}</Text>
-            </View>
+            <BarraFaixa key={i} nome={c.nome} lo={c.min} hi={c.max} direcao={c.direcao} />
           ))}
         </View>
 
@@ -273,12 +302,15 @@ function AnaliseIndividual({ elegiveis, narrativas, gates }: any) {
     <Page size="A4" style={s.pageLight} wrap>
       <Text style={s.eyebrow}>Análise individual</Text>
       <Text style={[s.h2, { marginTop: 4, marginBottom: 4 }]}>Candidatos elegíveis</Text>
-      <Text style={{ fontSize: 7.5, color: T.mute, marginBottom: 8, lineHeight: 1.4, maxWidth: 460 }}>Cada barra mostra o valor bruto (0–100) do traço contra a faixa ideal (área destacada). O marcador indica onde o candidato está.</Text>
+      <Text style={{ fontSize: 7.5, color: T.mute, marginBottom: 8, lineHeight: 1.4, maxWidth: 470 }}>Cada barra mostra o valor bruto (0–100) do traço contra a faixa ideal (área destacada). Listamos só os traços que pedem atenção (fora do ideal); os demais estão dentro e aparecem no total ao final de cada pessoa.</Text>
       <Legenda />
       {elegiveis.map((p: PessoaAdequacao) => {
         const narr = narrativas?.[p.nome];
         const gapLabels = new Set((p.gaps || []).map((g) => g.traco));
-        const relevantes = (p.tracos || []).filter((t) => gapLabels.has(t.label) || gateLabels.has(t.label) || (t.fitPct ?? 100) < 90);
+        // Lista só os traços que EXIGEM ATENÇÃO: gap ou FORA da faixa ideal (marcador não-
+        // verde). Os que estão DENTRO (verde) só entram na contagem — assim a lista exibida
+        // e o "+N dentro do ideal" nunca se contradizem (exibido = fora; contado = dentro).
+        const relevantes = (p.tracos || []).filter((t: any) => gapLabels.has(t.label) || !dentroDaBanda(t.bruto, t.lo, t.hi, t.direcao));
         const resto = (p.tracos || []).length - relevantes.length;
         return (
           <View key={p.id || p.nome} style={[s.card, { padding: 14, marginBottom: 8 }]} wrap={false}>
