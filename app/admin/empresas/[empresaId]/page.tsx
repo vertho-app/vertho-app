@@ -11,7 +11,7 @@ import {
   Building2, Users, Brain, Mail, Bot, GraduationCap, TrendingUp, Activity,
   Zap, Database, FileText, Send, ClipboardCheck, BarChart3, Target, Clock,
   Play, BookOpen, Layers, MessageSquare, FileBarChart, CheckCircle,
-  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, Film, Sparkles
+  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, Film, Sparkles, Briefcase
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
@@ -60,6 +60,7 @@ const PHASE_CONFIG = [
       { key: 'gerenciar',      label: 'Colaboradores & Cargos', icon: Users,        href: '/admin/empresas/gerenciar' },
       { key: 'competencias',   label: 'Competências',            icon: BookOpen,     href: '/admin/competencias' },
       { key: 'ppp',            label: 'Extrair PPPs',            icon: FileText,     href: '/admin/ppp' },
+      { key: 'extracao-cargo', label: 'Extrair Descrição de Cargo', icon: Briefcase, hrefFn: (id: string) => `/admin/empresas/${id}/extracao-cargo` },
       { key: 'preferencias',   label: 'Preferências',            icon: GraduationCap,hrefFn: (id: string) => `/admin/empresas/${id}/fase0?tab=preferencias` },
       { key: 'knowledge-base', label: 'Knowledge Base (RAG)',    icon: Database,     hrefFn: (id: string) => `/admin/vertho/knowledge-base?empresa=${id}` },
     ]},
