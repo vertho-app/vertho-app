@@ -288,6 +288,16 @@ export async function POST(request) {
       const respostaMasked = maskTextPII(respostaAgregada, piiMap);
       const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
 
+      // Régua temporal do prompt vem da config (regular=14/13, byte-idêntico;
+      // piloto=3/2 + nota de contexto — a devolutiva não fala mais em "14 semanas").
+      const isPiloto = programaConfig.modo === 'piloto';
+      const promptTempo = {
+        semanaFinal: semCenarioB,
+        semanasEvidencia: semAcumulada,
+        notaPrograma: isPiloto
+          ? 'Este é um PILOTO de 2 semanas (degustação). O fechamento demonstra o método de avaliação — NÃO mede evolução. Não trate a janela curta de evidências como falha do colaborador; avalie o que as 2 semanas sustentam.'
+          : '',
+      };
       const { system, user } = promptEvolutionScenarioScore({
         competencia: competenciasLabel,
         descritores: descritoresComRegua,
@@ -295,6 +305,7 @@ export async function POST(request) {
         perfilDominante: colab?.perfil_dominante,
         evidenciasAcumuladas: evidenciasMasked,
         acumuladoPrimaria,
+        ...promptTempo,
       });
       const r = await callAI(system, user, {}, 10000);
       let parsed: any = {};
@@ -331,6 +342,8 @@ export async function POST(request) {
           cenario, resposta: respostaMasked,
           avaliacaoPrimaria: parsed,
           evidenciasAcumuladas: evidenciasMasked,
+          semanaFinal: semCenarioB,
+          semanasEvidencia: semAcumulada,
         });
         const rCheck = await callAI(sCheck, uCheck, {}, 8000);
         let cleanedChk = rCheck.trim();

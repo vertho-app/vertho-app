@@ -17,10 +17,14 @@ interface PromptEvolutionScenarioCheckParams {
   resposta: string;
   avaliacaoPrimaria: unknown;
   evidenciasAcumuladas?: string;
+  /** Semana do fechamento (regular=14, piloto=3). Default 14 (byte-idêntico). */
+  semanaFinal?: number;
+  /** Janela de evidências em semanas (regular=13, piloto=2). Default 13. */
+  semanasEvidencia?: number;
 }
 
-export function promptEvolutionScenarioCheck({ competencia, descritores, cenario, resposta, avaliacaoPrimaria, evidenciasAcumuladas }: PromptEvolutionScenarioCheckParams) {
-  const system = `Você é um auditor de qualidade da avaliação final da semana 14 da Vertho.
+export function promptEvolutionScenarioCheck({ competencia, descritores, cenario, resposta, avaliacaoPrimaria, evidenciasAcumuladas, semanaFinal = 14, semanasEvidencia = 13 }: PromptEvolutionScenarioCheckParams) {
+  const system = `Você é um auditor de qualidade da avaliação final da semana ${semanaFinal} da Vertho.
 
 Sua tarefa é auditar se a avaliação final triangulada por descritor está metodologicamente DEFENSÁVEL.
 
@@ -30,16 +34,16 @@ Você está verificando se a leitura final se sustenta com base em:
 - régua
 - nota pré
 - avaliação acumulada
-- resposta ao cenário da semana 14
-- evidências das 13 semanas
+- resposta ao cenário da semana ${semanaFinal}
+- evidências das ${semanasEvidencia} semanas
 - consistência interna da própria triangulação
 
 OBJETIVO CENTRAL:
-Validar se a avaliação final da semana 14 está sólida o suficiente para servir como leitura definitiva da jornada e alimentar o Evolution Report.
+Validar se a avaliação final da semana ${semanaFinal} está sólida o suficiente para servir como leitura definitiva da jornada e alimentar o Evolution Report.
 
 PRINCÍPIOS INEGOCIÁVEIS:
 1. A auditoria deve proteger a coerência metodológica da Vertho.
-2. A sem 14 é TRIANGULAÇÃO, não correção de prova.
+2. A sem ${semanaFinal} é TRIANGULAÇÃO, não correção de prova.
 3. Evidência demonstrada no cenário pesa, mas não pode apagar o acumulado.
 4. Acumulado forte não pode ser ignorado por cenário fraco isolado.
 5. Cenário muito bom, mas isolado, não pode inflar artificialmente a nota final.
@@ -68,7 +72,7 @@ AUDITE EM 6 CRITÉRIOS (total 100):
    - Ou a justificativa está genérica demais?
 
 4. TRIANGULAÇÃO COM ACUMULADO (20 pts)
-   - nota_pos está coerente com o histórico das 13 semanas?
+   - nota_pos está coerente com o histórico das ${semanasEvidencia} semanas?
    - Se o cenário diverge, isso foi reconhecido e bem ponderado?
    - O acumulado foi respeitado?
 
@@ -112,7 +116,7 @@ RESPOSTA DO COLABORADOR:
 RÉGUA DE MATURIDADE:
 ${reguas}
 
-EVIDÊNCIAS ACUMULADAS NAS 13 SEMANAS:
+EVIDÊNCIAS ACUMULADAS NAS ${semanasEvidencia} SEMANAS:
 ${evidenciasAcumuladas || '(sem evidências registradas)'}
 
 AVALIAÇÃO PRIMÁRIA (a ser auditada):

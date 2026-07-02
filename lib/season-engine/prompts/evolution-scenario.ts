@@ -79,20 +79,26 @@ interface PromptEvolutionScenarioScoreParams {
   perfilDominante?: string | null;
   evidenciasAcumuladas?: string;
   acumuladoPrimaria?: unknown;
+  /** Semana do fechamento (regular=14, piloto=3). Default 14 (byte-idêntico). */
+  semanaFinal?: number;
+  /** Janela de evidências em semanas (regular=13, piloto=2). Default 13. */
+  semanasEvidencia?: number;
+  /** Nota de contexto do programa (ex.: aviso do piloto). Vazio no regular. */
+  notaPrograma?: string;
 }
 
-export function promptEvolutionScenarioScore({ competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria }: PromptEvolutionScenarioScoreParams) {
+export function promptEvolutionScenarioScore({ competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria, semanaFinal = 14, semanasEvidencia = 13, notaPrograma = '' }: PromptEvolutionScenarioScoreParams) {
   const tomDevol = tomDevolutivaPorPerfil(perfilDominante);
   const system = `Você é um avaliador rigoroso e criterioso da Vertho.
 
-Sua tarefa é calcular a AVALIAÇÃO FINAL da semana 14 por TRIANGULAÇÃO.
-
+Sua tarefa é calcular a AVALIAÇÃO FINAL da semana ${semanaFinal} por TRIANGULAÇÃO.
+${notaPrograma ? `\nCONTEXTO DO PROGRAMA: ${notaPrograma}\n` : ''}
 ATENÇÃO:
-A semana 14 é o ponto de chegada.
+A semana ${semanaFinal} é o ponto de chegada.
 Você NUNCA pontua só pela resposta ao cenário.
 Você pontua pela triangulação entre:
 - nota pré (baseline)
-- avaliação acumulada das 13 semanas
+- avaliação acumulada das ${semanasEvidencia} semanas
 - resposta ao cenário
 - evidências acumuladas da temporada
 
@@ -137,7 +143,7 @@ REGRAS DURAS:
 DEVOLUTIVA (resumo_avaliacao):
 - Tom adaptado ao DISC: ${tomDevol}
 - Conteúdo NUNCA muda por perfil — o que muda é a forma.
-- Cite ao menos 1 evidência das 13 semanas além do cenário.
+- Cite ao menos 1 evidência das ${semanasEvidencia} semanas além do cenário.
 - Seja honesto, construtivo e não inflado.
 
 RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
@@ -163,10 +169,10 @@ RESPOSTA DE ${nomeColab} AO CENÁRIO:
 RÉGUA DE MATURIDADE (critério OBJETIVO):
 ${reguas}
 
-${acumuladoPrimaria ? `AVALIAÇÃO ACUMULADA (padrão das 13 semanas — USE como referência):
+${acumuladoPrimaria ? `AVALIAÇÃO ACUMULADA (padrão das ${semanasEvidencia} semanas — USE como referência):
 ${JSON.stringify(acumuladoPrimaria, null, 2)}
 
-` : ''}EVIDÊNCIAS DAS 13 SEMANAS (pra triangular):
+` : ''}EVIDÊNCIAS DAS ${semanasEvidencia} SEMANAS (pra triangular):
 ${evidenciasAcumuladas || '(sem evidências registradas)'}
 
 EXTRAIA o JSON abaixo com base na TRIANGULAÇÃO:
@@ -184,7 +190,7 @@ ${descritores.map(d => `    {
       "consistencia_com_acumulado": "consistente|divergente_cenario_superior|divergente_cenario_inferior|sem_evidencia_acumulada",
       "justificativa": "cite trecho do cenário + evidência acumulada + régua",
       "trecho_cenario": "trecho curto da resposta",
-      "evidencia_acumulada": "trecho curto ou síntese fiel das 13 semanas",
+      "evidencia_acumulada": "trecho curto ou síntese fiel das ${semanasEvidencia} semanas",
       "limites_da_leitura": ["limite 1"]
     }`).join(',\n')}
   ],
