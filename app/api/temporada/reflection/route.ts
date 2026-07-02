@@ -441,7 +441,8 @@ export async function POST(request) {
       (async () => {
         try {
           const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
-          await gerarAvaliacaoAcumulada(trilhaId);
+          // internal=true: sessão é do COLAB — mesmo padrão da parcial.
+          await gerarAvaliacaoAcumulada(trilhaId, true);
         } catch (e: any) {
           console.error('[piloto acumulada sem 2]', e?.message);
         }

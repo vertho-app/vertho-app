@@ -13,12 +13,17 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
  * Gera avaliação acumulada da temporada (1ª IA) + check por 2ª IA e
  * persiste em temporada_semana_progresso (semana=programaConfig.semanaAcumulada).feedback.acumulado.
  *
- * Trigger: chamada no fim da semana de acumulada (regular=13), após
- * extração qualitativa. Também pode ser chamada manualmente pelo admin Vertho.
+ * Trigger: chamada no fim da semana de acumulada (regular=13) e no fim da
+ * sem 2 do piloto. Também pode ser chamada manualmente pelo admin Vertho.
+ *
+ * Auth: `internal=true` pula o gate de admin — usado pelos AUTO-TRIGGERS das
+ * rotas (o usuário da sessão é o PRÓPRIO COLAB que terminou a semana, não um
+ * admin; sem o flag o trigger morria em FORBIDDEN silencioso). Mesmo padrão
+ * do gerarAvaliacaoAcumuladaParcial. Path restrito a callers no servidor.
  */
-export async function gerarAvaliacaoAcumulada(trilhaId: string) {
+export async function gerarAvaliacaoAcumulada(trilhaId: string, internal: boolean = false) {
   // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
-  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
+  const sbRaw = internal ? createSupabaseAdmin() : await requireAdminSupabase('ai.audit.regenerate');
   const { data: trilha } = await sbRaw.from('trilhas')
     .select('id, empresa_id, colaborador_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano, programa_modo')
     .eq('id', trilhaId).maybeSingle();

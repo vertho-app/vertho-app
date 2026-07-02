@@ -168,7 +168,9 @@ export async function POST(request) {
         (async () => {
           try {
             const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
-            await gerarAvaliacaoAcumulada(trilhaId);
+            // internal=true: o usuário da sessão é o COLAB (não admin) — sem
+            // o flag o trigger morria em FORBIDDEN silencioso.
+            await gerarAvaliacaoAcumulada(trilhaId, true);
           } catch (e) {
             console.error('[VERTHO] avaliação acumulada sem 13:', e?.message);
           }
