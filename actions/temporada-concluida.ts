@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUserAction } from '@/lib/auth/action-context';
+import { findColabByEmail } from '@/lib/authz';
 
 /**
  * Carrega dados pra tela "Temporada Concluída" do colaborador.
@@ -14,9 +15,10 @@ export async function loadTemporadaConcluida(email: string) {
 
   const sb = createSupabaseAdmin();
 
-  const { data: colab } = await sb.from('colaboradores')
-    .select('id, nome_completo, cargo, perfil_dominante')
-    .eq('email', email).maybeSingle();
+  // findColabByEmail resolve o TENANT (cookie/header do host) — a query
+  // direta com .maybeSingle() quebrava pra usuário presente em 2+ empresas
+  // (multi-tenant → múltiplas rows → null → "Colaborador não encontrado").
+  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, perfil_dominante, empresa_id') as any;
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   const { data: trilha } = await sb.from('trilhas')
