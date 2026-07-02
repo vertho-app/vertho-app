@@ -195,6 +195,24 @@ export const PROGRAMA_PILOTO: ProgramaConfig = Object.freeze({
 }) as ProgramaConfig;
 
 /**
+ * Rótulos persistíveis de modo (colaboradores.programa_modo e
+ * trilhas.programa_modo — migration 154). Distintos de ProgramaModo:
+ * 'regular' ambíguo vira 'regular_duo' | 'regular_single'.
+ */
+export type ProgramaModoLabel = 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto';
+
+/**
+ * Mapeia um rótulo de modo → template. Desconhecido/ausente → DUO
+ * (fail-safe do default global, mesmo contrato do sys_config).
+ */
+export function getProgramaConfigByModo(modo?: string | null): ProgramaConfig {
+  if (modo === 'onboarding') return PROGRAMA_ONBOARDING;
+  if (modo === 'regular_single') return PROGRAMA_REGULAR;
+  if (modo === 'piloto') return PROGRAMA_PILOTO;
+  return PROGRAMA_REGULAR_DUO;
+}
+
+/**
  * Resolve a config a partir do `sys_config` JSONB de uma empresa.
  *
  * Default GLOBAL = Regular DUO (2 competências). Escape hatches por
@@ -206,10 +224,36 @@ export const PROGRAMA_PILOTO: ProgramaConfig = Object.freeze({
  *   - ausente / outro   → PROGRAMA_REGULAR_DUO
  */
 export function getProgramaConfig(sysConfig?: { programa_modo?: string } | null): ProgramaConfig {
-  if (sysConfig?.programa_modo === 'onboarding') return PROGRAMA_ONBOARDING;
-  if (sysConfig?.programa_modo === 'regular_single') return PROGRAMA_REGULAR;
-  if (sysConfig?.programa_modo === 'piloto') return PROGRAMA_PILOTO;
-  return PROGRAMA_REGULAR_DUO;
+  return getProgramaConfigByModo(sysConfig?.programa_modo);
+}
+
+/**
+ * FONTE ÚNICA da precedência de GERAÇÃO: override do colaborador →
+ * default da empresa → 'regular_duo'. Retorna o RÓTULO resolvido (o que
+ * a geração carimba em trilhas.programa_modo) — nunca resolva o modo de
+ * outro jeito, senão o carimbo e o plano podem divergir.
+ */
+export function resolverModoColab(
+  colab?: { programa_modo?: string | null } | null,
+  sysConfig?: { programa_modo?: string } | null,
+): ProgramaModoLabel {
+  const bruto = colab?.programa_modo || sysConfig?.programa_modo;
+  if (bruto === 'onboarding' || bruto === 'regular_single' || bruto === 'piloto') return bruto;
+  if (bruto === 'regular_duo' || bruto === 'regular') return 'regular_duo';
+  return 'regular_duo';
+}
+
+/**
+ * FONTE ÚNICA do RUNTIME: config da trilha pelo CARIMBO (trilhas.programa_modo,
+ * gravado na geração — congela as regras). Trilha legada sem carimbo →
+ * fallback pro sys_config da empresa (comportamento pré-154).
+ */
+export function getProgramaConfigDaTrilha(
+  trilha?: { programa_modo?: string | null } | null,
+  sysConfig?: { programa_modo?: string } | null,
+): ProgramaConfig {
+  if (trilha?.programa_modo) return getProgramaConfigByModo(trilha.programa_modo);
+  return getProgramaConfig(sysConfig);
 }
 
 /**

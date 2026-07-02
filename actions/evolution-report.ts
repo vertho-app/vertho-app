@@ -3,7 +3,7 @@
 import { tenantDb } from '@/lib/tenant-db';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { getProgramaConfig } from '@/lib/season-engine/programa-config';
+import { getProgramaConfig, getProgramaConfigByModo } from '@/lib/season-engine/programa-config';
 import { PILOTO_SPEC_VERSION } from '@/lib/season-engine/piloto-trava';
 
 /**
@@ -29,17 +29,23 @@ export async function gerarEvolutionReport(trilhaId: string) {
     // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
     const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
     const { data: trilha } = await sbRaw.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados')
+      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados, programa_modo')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return { success: false, error: 'Trilha não encontrada' };
 
     const tdb = tenantDb(trilha.empresa_id);
 
     // Semanas da qualitativa/cenário vêm da config do programa (regular/DUO =
-    // 13/14, byte-idêntico ao hardcode anterior; piloto = 2/3).
-    const { data: empConf } = await sbRaw.from('empresas')
-      .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
-    const programaConfig = getProgramaConfig(empConf?.sys_config);
+    // 13/14, byte-idêntico ao hardcode anterior; piloto = 2/3). Fonte =
+    // CARIMBO da trilha (mig 154); legado sem carimbo → sys_config.
+    let programaConfig;
+    if (trilha.programa_modo) {
+      programaConfig = getProgramaConfigByModo(trilha.programa_modo);
+    } else {
+      const { data: empConf } = await sbRaw.from('empresas')
+        .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
+      programaConfig = getProgramaConfig(empConf?.sys_config);
+    }
     const isPiloto = programaConfig.modo === 'piloto';
 
     const { data: prog13 } = await tdb.from('temporada_semana_progresso')

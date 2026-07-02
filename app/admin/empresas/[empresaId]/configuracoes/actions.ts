@@ -178,10 +178,37 @@ export async function loadEquipe(empresaId) {
   const sb = await requireAdminSupabase();
   if (!empresaId) return [];
   const { data } = await sb.from('colaboradores')
-    .select('id, nome_completo, email, cargo, role')
+    .select('id, nome_completo, email, cargo, role, programa_modo')
     .eq('empresa_id', empresaId)
     .order('nome_completo');
   return data || [];
+}
+
+/**
+ * Override do programa POR COLABORADOR (mig 154): null = herda o default da
+ * empresa (sys_config.programa_modo). Só afeta a PRÓXIMA geração de trilha —
+ * trilha em andamento roda pelo carimbo dela (trilhas.programa_modo).
+ */
+export async function atualizarProgramaModo(colaboradorId, novoModo) {
+  const sb = await requireAdminSupabase('users.manage');
+  if (!colaboradorId) return { success: false, error: 'colaboradorId obrigatório' };
+  const modo = novoModo || null;
+  const validos = [null, 'regular_duo', 'regular_single', 'onboarding', 'piloto'];
+  if (!validos.includes(modo)) return { success: false, error: 'Modo inválido. Use: herdar (vazio), regular_duo, regular_single, onboarding, piloto' };
+
+  const { data: upd, error } = await sb.from('colaboradores')
+    .update({ programa_modo: modo })
+    .eq('id', colaboradorId)
+    .select('empresa_id, nome_completo')
+    .maybeSingle();
+  if (error) return { success: false, error: error.message };
+  await logAdminAction({
+    adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+    acao: 'equipe.editar_programa', empresaId: upd?.empresa_id,
+    alvo: upd?.nome_completo || colaboradorId,
+    detalhes: { colaboradorId, programa_modo: modo },
+  });
+  return { success: true, message: modo ? `Programa: ${modo} (vale pra próxima geração)` : 'Programa: herda o default da empresa' };
 }
 
 export async function atualizarRole(colaboradorId, novoRole) {

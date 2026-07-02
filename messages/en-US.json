@@ -3863,7 +3863,9 @@
         "tutor": "Tutor (Onboarding)",
         "gestor": "Manager",
         "rh": "HR / Director"
-      }
+      },
+      "programInherit": "Inherit (company)",
+      "programTitle": "Program for the NEXT track generation — an in-flight track runs on its own stamp"
     },
     "program": {
       "title": "Program mode",

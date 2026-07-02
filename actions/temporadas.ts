@@ -7,7 +7,7 @@ import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsDuo, select
 import { buildSeason } from '@/lib/season-engine/build-season';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
-import { getProgramaConfig } from '@/lib/season-engine/programa-config';
+import { getProgramaConfig, getProgramaConfigByModo, resolverModoColab, type ProgramaModoLabel } from '@/lib/season-engine/programa-config';
 import type { AIConfig } from './ai-client';
 import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
@@ -45,7 +45,7 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
 
     // Busca raw porque colaboradores é root de tenancy (descobre o tenant aqui).
     const { data: colab } = await sbRaw.from('colaboradores')
-      .select('id, nome_completo, cargo, empresa_id, area_depto, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso')
+      .select('id, nome_completo, cargo, empresa_id, area_depto, programa_modo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso')
       .eq('id', colaboradorId).maybeSingle();
     if (!colab) return { error: 'Colaborador não encontrado' };
 
@@ -76,7 +76,11 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
     const { data: empresa } = await sbRaw.from('empresas')
       .select('segmento, sys_config').eq('id', colab.empresa_id).maybeSingle();
     const contexto = inferirContexto(empresa?.segmento);
-    const programaConfig = getProgramaConfig(empresa?.sys_config);
+    // Precedência de GERAÇÃO (fonte única): override do colaborador →
+    // default da empresa → DUO. O rótulo resolvido é CARIMBADO na trilha
+    // (programa_modo) — o runtime passa a ler de lá, congelando as regras.
+    const modoResolvido = resolverModoColab(colab, empresa?.sys_config);
+    const programaConfig = getProgramaConfigByModo(modoResolvido);
     const isOnboarding = programaConfig.modo === 'onboarding';
 
     // ── Modo Onboarding: trilha multi-competência ────────────────────────
@@ -183,6 +187,9 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
       numero_temporada: numeroTemporada,
       temporada_plano: semanas,
       descritores_selecionados: descritoresSelecionados,
+      // Carimbo do runtime: trilha single-comp roda com as regras do single
+      // (inclui o fallback DUO→single — o plano gerado É single).
+      programa_modo: 'regular_single' satisfies ProgramaModoLabel,
       status: 'ativa',
       data_inicio: nextMondayISO(), // semana 1 libera na próxima segunda às 03:00 BRT
       cursos: [], // campo legado, conteúdo agora vive em temporada_plano
@@ -329,6 +336,7 @@ async function gerarTemporadaOnboarding(args: {
     numero_temporada: numeroTemporada,
     temporada_plano: semanas,
     descritores_selecionados: descritoresSelecionados,
+    programa_modo: 'onboarding' satisfies ProgramaModoLabel, // carimbo do runtime
     status: 'ativa',
     data_inicio: nextMondayISO(),
     cursos: [],
@@ -469,6 +477,7 @@ async function gerarTemporadaRegularDuo(args: {
     numero_temporada: numeroTemporada,
     temporada_plano: semanas,
     descritores_selecionados: descritoresSelecionados,
+    programa_modo: 'regular_duo' satisfies ProgramaModoLabel, // carimbo do runtime
     status: 'ativa',
     data_inicio: nextMondayISO(),
     cursos: [],
@@ -574,6 +583,7 @@ async function gerarTemporadaPiloto(args: {
     numero_temporada: numeroTemporada,
     temporada_plano: semanas,
     descritores_selecionados: descritoresSelecionados,
+    programa_modo: 'piloto' satisfies ProgramaModoLabel, // carimbo do runtime
     status: 'ativa',
     data_inicio: nextMondayISO(),
     cursos: [],
@@ -628,15 +638,21 @@ export async function verificarProntidaoPiloto(empresaId: string) {
 
     const { data: empresa } = await sbRaw.from('empresas')
       .select('sys_config').eq('id', empresaId).maybeSingle();
-    const programaConfig = getProgramaConfig(empresa?.sys_config);
-    if (programaConfig.modo !== 'piloto') {
-      return { error: `Empresa não está em modo piloto (modo atual: ${empresa?.sys_config?.programa_modo || 'regular DUO'}). Ajuste em Configurações → Programa.` };
-    }
 
     const tdb = tenantDb(empresaId);
-    const { data: colabs } = await tdb.from('colaboradores')
-      .select('id, nome_completo, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso');
-    if (!colabs?.length) return { error: 'Sem colaboradores' };
+    const { data: todosColabs } = await tdb.from('colaboradores')
+      .select('id, nome_completo, cargo, programa_modo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso');
+    if (!todosColabs?.length) return { error: 'Sem colaboradores' };
+
+    // O modo é por COLABORADOR (override) com default da empresa — o check
+    // cobre só quem RESOLVERIA pra piloto na geração (fonte única de precedência).
+    const colabs = (todosColabs as any[]).filter(
+      c => resolverModoColab(c, empresa?.sys_config) === 'piloto',
+    );
+    if (!colabs.length) {
+      return { error: `Nenhum colaborador resolveria pra piloto (default da empresa: ${empresa?.sys_config?.programa_modo || 'regular DUO'}; nenhum override individual 'piloto'). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.` };
+    }
+    const programaConfig = getProgramaConfigByModo('piloto');
 
     // Cenários B disponíveis por cargo (fechamento)
     const { data: cenariosB } = await tdb.from('banco_cenarios')

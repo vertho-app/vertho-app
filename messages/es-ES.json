@@ -3863,7 +3863,9 @@
         "tutor": "Tutor (Onboarding)",
         "gestor": "Gestor",
         "rh": "RR. HH. / Director"
-      }
+      },
+      "programInherit": "Heredar (empresa)",
+      "programTitle": "Programa de la PRÓXIMA generación de ruta — la ruta en curso corre por su sello"
     },
     "program": {
       "title": "Modo del programa",

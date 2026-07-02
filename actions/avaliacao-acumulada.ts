@@ -6,7 +6,7 @@ import { callAI } from './ai-client';
 import { promptAvaliacaoAcumulada, promptAvaliacaoAcumuladaCheck, validateAvaliacaoAcumulada, validateAvaliacaoAcumuladaCheck } from '@/lib/season-engine/prompts/acumulado';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { requireAdminAction } from '@/lib/auth/action-context';
-import { getProgramaConfig } from '@/lib/season-engine/programa-config';
+import { getProgramaConfig, getProgramaConfigByModo, type ProgramaConfig } from '@/lib/season-engine/programa-config';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 /**
@@ -20,16 +20,15 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
   // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
   const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   const { data: trilha } = await sbRaw.from('trilhas')
-    .select('id, empresa_id, colaborador_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano')
+    .select('id, empresa_id, colaborador_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano, programa_modo')
     .eq('id', trilhaId).maybeSingle();
   if (!trilha) return { error: 'trilha não encontrada' };
 
   const tdb = tenantDb(trilha.empresa_id);
 
-  // sys_config define qual semana é a "acumulada" (regular=13) + nível-meta
-  const { data: empresa } = await sbRaw.from('empresas')
-    .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
-  const programaConfig = getProgramaConfig(empresa?.sys_config);
+  // Semana da acumulada + nível-meta vêm do CARIMBO da trilha (mig 154);
+  // legado sem carimbo → sys_config da empresa (comportamento antigo).
+  const programaConfig = await resolverConfigDaTrilha(sbRaw, trilha);
   const semanaAcumulada = programaConfig.semanaAcumulada;
   const nivelMetaAlvo = programaConfig.nivelMetaAlvo;
 
@@ -200,7 +199,7 @@ export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenc
   }
   const sbRaw = createSupabaseAdmin();
   const { data: trilha } = await sbRaw.from('trilhas')
-    .select('id, empresa_id, colaborador_id, competencia_foco, descritores_selecionados, temporada_plano')
+    .select('id, empresa_id, colaborador_id, competencia_foco, descritores_selecionados, temporada_plano, programa_modo')
     .eq('id', trilhaId).maybeSingle();
   if (!trilha) return { error: 'trilha não encontrada' };
 
@@ -214,10 +213,8 @@ export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenc
   const descritores = todos.filter((d: any) => d.competencia && competenciasFiltro.includes(d.competencia));
   if (!descritores.length) return { error: 'sem descritores para as competências dadas' };
 
-  // Busca config pra saber nível-meta (Onboarding=2, regular=3)
-  const { data: empresa } = await sbRaw.from('empresas')
-    .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
-  const programaConfig = getProgramaConfig(empresa?.sys_config);
+  // Config pra saber nível-meta (Onboarding=2, regular=3) — do carimbo da trilha
+  const programaConfig = await resolverConfigDaTrilha(sbRaw, trilha);
   const nivelMetaAlvo = programaConfig.nivelMetaAlvo;
 
   // Para cada competência, gera acumulada independente e agrega
@@ -277,6 +274,14 @@ export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenc
 }
 
 // ── Helpers ──
+
+/** Config pelo CARIMBO da trilha (mig 154); legado sem carimbo → sys_config. */
+async function resolverConfigDaTrilha(sbRaw: any, trilha: { programa_modo?: string | null; empresa_id: string }): Promise<ProgramaConfig> {
+  if (trilha.programa_modo) return getProgramaConfigByModo(trilha.programa_modo);
+  const { data: empresa } = await sbRaw.from('empresas')
+    .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
+  return getProgramaConfig(empresa?.sys_config);
+}
 
 async function enriquecerComRegua(tdb: any, sbRaw: any, competencia: string, descritores: any[]) {
   const nomesCurtos = descritores.map((d: any) => d.descritor);

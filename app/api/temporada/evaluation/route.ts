@@ -9,7 +9,7 @@ import { promptEvolutionScenarioScore, validateEvolutionScenarioScore } from '@/
 import { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
-import { getProgramaConfig, semanaCalendario } from '@/lib/season-engine/programa-config';
+import { getProgramaConfig, getProgramaConfigByModo, semanaCalendario } from '@/lib/season-engine/programa-config';
 import { aplicarTravaPiloto } from '@/lib/season-engine/piloto-trava';
 
 /**
@@ -41,14 +41,21 @@ export async function POST(request) {
 
     const sb = createSupabaseAdmin();
     const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados, data_inicio')
+      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados, data_inicio, programa_modo')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha' }, { status: 404 });
 
-    // sys_config define quais semanas correspondem a acumulada / cenário B
-    const { data: empConf } = await sb.from('empresas')
-      .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
-    const programaConfig = getProgramaConfig(empConf?.sys_config);
+    // Regras da trilha vêm do CARIMBO da geração (programa_modo, mig 154) —
+    // trocar o modo da empresa não afeta trilha em andamento. Legado sem
+    // carimbo → fallback pro sys_config da empresa (comportamento antigo).
+    let programaConfig;
+    if (trilha.programa_modo) {
+      programaConfig = getProgramaConfigByModo(trilha.programa_modo);
+    } else {
+      const { data: empConf } = await sb.from('empresas')
+        .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
+      programaConfig = getProgramaConfig(empConf?.sys_config);
+    }
     const semAcumulada = programaConfig.semanaAcumulada;     // regular = 13
     const semCenarioB = programaConfig.semanaCenarioB;       // regular = 14
 

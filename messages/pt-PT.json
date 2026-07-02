@@ -3863,7 +3863,9 @@
         "tutor": "Tutor (Onboarding)",
         "gestor": "Gestor",
         "rh": "RH / Diretor"
-      }
+      },
+      "programInherit": "Herdar (empresa)",
+      "programTitle": "Programa da PRÓXIMA geração de trilha — a trilha em curso corre pelo carimbo dela"
     },
     "program": {
       "title": "Modo do programa",

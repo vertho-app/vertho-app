@@ -9,7 +9,7 @@ import { promptAnalytic } from '@/lib/season-engine/prompts/analytic';
 import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedback';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
-import { getProgramaConfig } from '@/lib/season-engine/programa-config';
+import { getProgramaConfig, getProgramaConfigByModo } from '@/lib/season-engine/programa-config';
 
 function parseExtracaoResponse(raw: string): any {
   let cleaned = raw.trim();
@@ -211,7 +211,7 @@ export async function POST(request) {
     const sb = createSupabaseAdmin();
 
     const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano, data_inicio')
+      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano, data_inicio, programa_modo')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
 
@@ -409,10 +409,16 @@ export async function POST(request) {
       await sb.from('temporada_semana_progresso').insert(upsertPayload);
     }
 
-    // Resolve programaConfig pra parametrizar transição + auto-trigger Onboarding
-    const { data: empConf } = await sb.from('empresas')
-      .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
-    const programaConfig = getProgramaConfig(empConf?.sys_config);
+    // Resolve programaConfig pra parametrizar transição + auto-triggers.
+    // Fonte = CARIMBO da trilha (mig 154); legado sem carimbo → sys_config.
+    let programaConfig;
+    if (trilha.programa_modo) {
+      programaConfig = getProgramaConfigByModo(trilha.programa_modo);
+    } else {
+      const { data: empConf } = await sb.from('empresas')
+        .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
+      programaConfig = getProgramaConfig(empConf?.sys_config);
+    }
 
     // Se concluiu, libera próxima semana (status pendente → em_andamento na UI fica visível)
     if (finished && Number(semana) < programaConfig.semanas) {

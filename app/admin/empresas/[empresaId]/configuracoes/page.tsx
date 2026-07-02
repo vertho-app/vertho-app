@@ -8,7 +8,7 @@ import {
   Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users, GraduationCap, Film, Sparkles
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, vincularDominioVercel, salvarLocaleEmpresa, resumirPPPEscola, listarPPPEscolas, gerarBriefDoPPP } from './actions';
+import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, atualizarProgramaModo, vincularDominioVercel, salvarLocaleEmpresa, resumirPPPEscola, listarPPPEscolas, gerarBriefDoPPP } from './actions';
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { ROOT_DOMAIN } from '@/lib/domain';
@@ -88,6 +88,16 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
     const r = await atualizarRole(colaboradorId, novoRole);
     if (r.success) {
       setEquipe(prev => prev.map(c => c.id === colaboradorId ? { ...c, role: novoRole } : c));
+      setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);
+    } else { setError(r.error); }
+    setRoleUpdating(null);
+  }
+
+  async function handleProgramaChange(colaboradorId, novoModo) {
+    setRoleUpdating(colaboradorId);
+    const r = await atualizarProgramaModo(colaboradorId, novoModo || null);
+    if (r.success) {
+      setEquipe(prev => prev.map(c => c.id === colaboradorId ? { ...c, programa_modo: novoModo || null } : c));
       setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);
     } else { setError(r.error); }
     setRoleUpdating(null);
@@ -243,6 +253,21 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                       <option value="tutor">{t('team.roles.tutor')}</option>
                       <option value="gestor">{t('team.roles.gestor')}</option>
                       <option value="rh">{t('team.roles.rh')}</option>
+                    </select>
+                    <select
+                      value={c.programa_modo || ''}
+                      onChange={e => handleProgramaChange(c.id, e.target.value)}
+                      disabled={roleUpdating === c.id}
+                      title={t('team.programTitle')}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-semibold border outline-none transition-colors ${
+                        c.programa_modo ? 'border-cyan-400/30 text-cyan-300 bg-cyan-400/10' : 'border-white/10 text-gray-500 bg-white/[0.03]'
+                      }`}
+                      style={{ minWidth: '130px' }}>
+                      <option value="">{t('team.programInherit')}</option>
+                      <option value="regular_duo">Regular DUO</option>
+                      <option value="regular_single">Regular single</option>
+                      <option value="onboarding">Onboarding</option>
+                      <option value="piloto">{t('program.pilot')}</option>
                     </select>
                     {roleUpdating === c.id && <Loader2 size={14} className="animate-spin text-cyan-400 shrink-0" />}
                   </div>
