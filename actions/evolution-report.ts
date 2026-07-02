@@ -23,11 +23,17 @@ function classificarConvergencia({ nota_pre, nota_pos, nivel_percebido }: { nota
 /**
  * Consolida semana 13 (qualitativa) + semana 14 (quantitativa) num Evolution Report.
  * Salva em trilhas.evolution_report e marca status='concluida'.
+ *
+ * Auth: `internal=true` pula o gate de admin — usado pela rota /evaluation ao
+ * FINALIZAR o cenário B (a sessão é do PRÓPRIO COLAB; sem o flag o report
+ * automático morria em FORBIDDEN silencioso). Mesmo padrão da acumulada.
+ * Path restrito a callers no servidor.
  */
-export async function gerarEvolutionReport(trilhaId: string) {
+export async function gerarEvolutionReport(trilhaId: string, internal: boolean = false) {
   try {
     // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
-    const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
+    const { createSupabaseAdmin } = await import('@/lib/supabase');
+    const sbRaw = internal ? createSupabaseAdmin() : await requireAdminSupabase('ai.audit.regenerate');
     const { data: trilha } = await sbRaw.from('trilhas')
       .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados, programa_modo')
       .eq('id', trilhaId).maybeSingle();

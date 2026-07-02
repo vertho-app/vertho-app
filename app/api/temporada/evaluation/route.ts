@@ -67,7 +67,9 @@ export async function POST(request) {
     if (guard) return guard;
 
     if (action === 'generate_report') {
-      const r = await gerarEvolutionReport(trilhaId);
+      // internal=true: a sessão é do COLAB (assertColabAccess já validou o
+      // dono da trilha acima) — sem o flag morria em FORBIDDEN silencioso.
+      const r = await gerarEvolutionReport(trilhaId, true);
       return NextResponse.json(r);
     }
 
@@ -346,8 +348,8 @@ export async function POST(request) {
       };
       await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: true });
 
-      // Gera Evolution Report automático
-      const report = await gerarEvolutionReport(trilhaId);
+      // Gera Evolution Report automático (internal: sessão é do colab)
+      const report = await gerarEvolutionReport(trilhaId, true);
 
       return NextResponse.json({
         finished: true,
