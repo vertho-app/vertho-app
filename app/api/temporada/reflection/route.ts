@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, callAIChat } from '@/actions/ai-client';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
@@ -438,7 +438,9 @@ export async function POST(request) {
       semanaPlan.tipo === 'conteudo' &&
       Number(semana) === programaConfig.semanaAcumulada
     ) {
-      (async () => {
+      // after(): fire-and-forget solto MORRE quando a lambda congela após o
+      // response — after() mantém a função viva até o trabalho terminar.
+      after(async () => {
         try {
           const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
           // internal=true: sessão é do COLAB — mesmo padrão da parcial.
@@ -446,7 +448,7 @@ export async function POST(request) {
         } catch (e: any) {
           console.error('[piloto acumulada sem 2]', e?.message);
         }
-      })();
+      });
     }
 
     // Modo Onboarding: ao concluir missão integradora (4/7/9), dispara acumulada
@@ -466,17 +468,18 @@ export async function POST(request) {
         ? compsTrilha
         : idxs.map(i => compsTrilha[i]).filter(Boolean);
       if (compsCobertas.length) {
-        (async () => {
+        // after(): idem — o IIFE solto morre no freeze pós-response da Vercel.
+        after(async () => {
           try {
             const { gerarAvaliacaoAcumuladaParcial } = await import('@/actions/avaliacao-acumulada');
             await gerarAvaliacaoAcumuladaParcial(trilhaId, compsCobertas, Number(semana), true);
           } catch (e: any) {
             console.error('[onboarding acumulada parcial]', e?.message);
           }
-        })();
+        });
 
         // Push pro tutor — só sems 4 e 7 (brief seção 3.4; sem 9 é final).
-        (async () => {
+        after(async () => {
           try {
             const { notifyTutorMissaoConcluida } = await import('@/lib/notify-tutor');
             await notifyTutorMissaoConcluida({
@@ -487,7 +490,7 @@ export async function POST(request) {
           } catch (e: any) {
             console.error('[onboarding notify tutor]', e?.message);
           }
-        })();
+        });
       }
     }
 

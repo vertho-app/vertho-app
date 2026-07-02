@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, callAIChat } from '@/actions/ai-client';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
@@ -165,7 +165,9 @@ export async function POST(request) {
       // (1ª IA + check por 2ª IA). Roda em background: não bloqueia a resposta
       // ao colab. Persiste em feedback.acumulado pra consumo pela sem 14.
       if (finished) {
-        (async () => {
+        // after(): fire-and-forget solto MORRE quando a lambda congela após
+        // o response — after() mantém a função viva até o trabalho terminar.
+        after(async () => {
           try {
             const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
             // internal=true: o usuário da sessão é o COLAB (não admin) — sem
@@ -174,7 +176,7 @@ export async function POST(request) {
           } catch (e) {
             console.error('[VERTHO] avaliação acumulada sem 13:', e?.message);
           }
-        })();
+        });
       }
 
       if (finished && Number(semana) < semCenarioB) await liberarProxima(sb, trilhaId, semCenarioB);
