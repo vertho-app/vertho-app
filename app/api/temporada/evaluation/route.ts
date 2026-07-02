@@ -9,7 +9,8 @@ import { promptEvolutionScenarioScore, validateEvolutionScenarioScore } from '@/
 import { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
-import { getProgramaConfig } from '@/lib/season-engine/programa-config';
+import { getProgramaConfig, semanaCalendario } from '@/lib/season-engine/programa-config';
+import { aplicarTravaPiloto } from '@/lib/season-engine/piloto-trava';
 
 /**
  * POST /api/temporada/evaluation
@@ -63,11 +64,15 @@ export async function POST(request) {
       return NextResponse.json(r);
     }
 
-    // Gate temporal + progressão (idem reflection)
+    // Gate temporal + progressão (idem reflection). O calendário passa pelo
+    // espelho da config: no piloto o fechamento (sem 3) herda o calendário da
+    // sem 2 — o gate real é a progressão logo abaixo ("anterior concluída").
+    // Nos demais modos semanaCalendario é identidade (vanilla inalterado).
     const { semanaLiberadaPorData, formatarLiberacao } = await import('@/lib/season-engine/week-gating');
-    if (!semanaLiberadaPorData(trilha.data_inicio, semana)) {
+    const semanaCal = semanaCalendario(programaConfig, Number(semana));
+    if (!semanaLiberadaPorData(trilha.data_inicio, semanaCal)) {
       return NextResponse.json({
-        error: `Semana ${semana} ainda bloqueada. Libera ${formatarLiberacao(trilha.data_inicio, semana)}.`,
+        error: `Semana ${semana} ainda bloqueada. Libera ${formatarLiberacao(trilha.data_inicio, semanaCal)}.`,
       }, { status: 403 });
     }
     if (Number(semana) > 1) {
@@ -92,8 +97,11 @@ export async function POST(request) {
     const dados = prog?.[slotKey] || { transcript_completo: [] };
     const historico = Array.isArray(dados.transcript_completo) ? dados.transcript_completo : [];
 
-    // Semana da acumulada (regular=13): conversa qualitativa
-    if (Number(semana) === semAcumulada) {
+    // Semana da acumulada (regular=13): conversa qualitativa.
+    // Piloto NÃO tem esta etapa: semanaAcumulada=2 é só o ENDEREÇO de
+    // persistência do acumulado (roda em background ao concluir a sem 2,
+    // via /reflection) — a sem 2 é de conteúdo, nunca conversa qualitativa.
+    if (Number(semana) === semAcumulada && programaConfig.modo !== 'piloto') {
       if (action === 'send' && message) {
         historico.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
       }
@@ -258,7 +266,8 @@ export async function POST(request) {
 
       // Agrega evidências de TODAS as semanas até a acumulada (conteúdo + prática
       // + sem acumulada) pra triangulação. A nota_pos NUNCA sai só do cenário.
-      const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, semAcumulada);
+      // Piloto: a reflexão da semana evidencia os 2 descritores da semana.
+      const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, semAcumulada, programaConfig.modo === 'piloto');
 
       // PII masking pra chamadas IA externas — substitui nome real + sanitiza
       // texto livre (emails/telefones/menções) antes de enviar.
@@ -282,6 +291,14 @@ export async function POST(request) {
         parsed = validateEvolutionScenarioScore(JSON.parse(cleaned14));
       } catch (e) {
         console.error('[VERTHO] parse sem14:', e.message);
+      }
+
+      // TRAVA piloto-only (piso no baseline): nota_pos exibida = max(bruto,
+      // baseline), bruto preservado, piso_aplicado marcado, spec_version
+      // 'piloto-v1' carimbada. Vive SÓ neste caminho — o scorer dos outros
+      // modos passa reto (parsed intocado).
+      if (programaConfig.modo === 'piloto') {
+        parsed = aplicarTravaPiloto(parsed, descritoresComRegua);
       }
 
       // Despersonaliza campos textuais do output
@@ -423,7 +440,7 @@ function normalizarAcumuladoPrimaria(acumulado) {
  * numa string estruturada por descritor. A semana do cenário B NUNCA avalia
  * só pelo cenário — triangula com o histórico completo da temporada.
  */
-async function agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, semAcumulada = 13) {
+async function agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, semAcumulada = 13, evidenciaPorCobertos = false) {
   const { data: progressos } = await sb.from('temporada_semana_progresso')
     .select('semana, tipo, descritor, reflexao, feedback, tira_duvidas')
     .eq('trilha_id', trilhaId).lte('semana', semAcumulada).order('semana');
@@ -440,10 +457,15 @@ async function agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, 
   for (const d of descritoresComRegua) linhasPorDescritor[d.descritor] = [];
 
   for (const p of progressos) {
-    // Conteúdo (sems 1-12 exceto 4/8/12): reflexão socrática
+    // Conteúdo (sems 1-12 exceto 4/8/12): reflexão socrática.
+    // Piloto (evidenciaPorCobertos): a reflexão evidencia TODOS os descritores
+    // da semana (2 entregas). Demais modos: só o principal, como sempre foi.
     if (p.tipo === 'conteudo' && p.reflexao) {
-      const desc = descritorPorSem[p.semana];
-      if (desc && linhasPorDescritor[desc]) {
+      const descsDaSemana = evidenciaPorCobertos
+        ? (descritoresCobertosPorSem[p.semana]?.length ? descritoresCobertosPorSem[p.semana] : [descritorPorSem[p.semana]])
+        : [descritorPorSem[p.semana]];
+      for (const desc of descsDaSemana) {
+        if (!desc || !linhasPorDescritor[desc]) continue;
         const partes = [
           `Sem ${p.semana} (conteúdo/reflexão)`,
           p.reflexao.insight_principal && `insight: "${p.reflexao.insight_principal}"`,

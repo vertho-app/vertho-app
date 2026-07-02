@@ -66,6 +66,10 @@ export default function TemporadaPage() {
   const semanasAvaliacao = semanas.filter((s: any) => s.tipo === 'avaliacao').map((s: any) => s.semana);
   const semCenarioB = semanasAvaliacao.length ? Math.max(...semanasAvaliacao) : totalSemanas;
   const pct = Math.round((concluidas / Math.max(1, totalSemanas)) * 100);
+  // Piloto: o slot de fechamento carrega calendario_semana (espelho) no plano.
+  // A jornada "vendida" são as semanas de CONTEÚDO (2) — o fechamento é etapa.
+  const isPiloto = semanas.some((s: any) => s.calendario_semana != null);
+  const semanasJornada = isPiloto ? semanas.filter((s: any) => s.tipo === 'conteudo').length : totalSemanas;
 
   return (
     // ✅ data-phase="4" + CSS vars — toda a página herda a cor violeta da Temporada
@@ -80,7 +84,7 @@ export default function TemporadaPage() {
           subtitle={
             <span>
               {t.rich('hero.subtitle', {
-                weeks: totalSemanas,
+                weeks: semanasJornada,
                 evolve: (chunks) => <em style={{ ...serifStyle, color: 'var(--phase-accent)', fontSize: 'inherit' }}>{chunks}</em>,
                 level: (chunks) => <em style={{ ...serifStyle, color: 'var(--phase-accent)', fontSize: 'inherit' }}>{chunks}</em>,
               })}
@@ -134,14 +138,18 @@ export default function TemporadaPage() {
             const p = progressoMap[s.semana];
             const concluida = p?.status === 'concluido';
             const emAndamento = p?.status === 'em_andamento';
-            const liberadaPorData = semanaLiberadaPorData(trilha.data_inicio, s.semana);
+            // Piloto: o fechamento herda o calendário da sem 2 (calendario_semana
+            // no plano) — o gate real vira "anterior concluída". Demais modos:
+            // calendario_semana ausente → comportamento vanilla.
+            const semanaCal = s.calendario_semana ?? s.semana;
+            const liberadaPorData = semanaLiberadaPorData(trilha.data_inicio, semanaCal);
             const anteriorConcluida = s.semana === 1
               ? true
               : progressoMap[s.semana - 1]?.status === 'concluido';
             const liberada = concluida || (liberadaPorData && (emAndamento || anteriorConcluida));
             const motivoBloqueio = !liberada
               ? (!liberadaPorData
-                  ? t('locked.releaseAt', { date: formatarLiberacao(trilha.data_inicio, s.semana) })
+                  ? t('locked.releaseAt', { date: formatarLiberacao(trilha.data_inicio, semanaCal) })
                   : t('locked.completePrevious'))
               : '';
 
@@ -169,7 +177,9 @@ export default function TemporadaPage() {
                 } : undefined}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-gray-400">{t('weekShort', { number: s.semana })}</span>
+                  <span className="text-[10px] text-gray-400">
+                    {s.calendario_semana != null ? t('pilotClosing') : t('weekShort', { number: s.semana })}
+                  </span>
                   {concluida ? (
                     <Check size={14} className="text-emerald-400" />
                   ) : !liberada ? (

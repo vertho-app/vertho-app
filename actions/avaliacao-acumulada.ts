@@ -50,10 +50,15 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
   let primariaRet: any = null;
   let auditoriaRet: any = null;
 
+  // Piloto: as semanas de conteúdo têm 2 descritores (conteudos_dia) — a
+  // evidência da reflexão vale pros DOIS (descritores_cobertos). Nos demais
+  // modos o flag fica false e o mapeamento por `descritor` segue byte-igual.
+  const evidenciaPorCobertos = programaConfig.modo === 'piloto';
+
   if (!isMultiComp) {
-    // ── Single-comp (Regular legado / regular_single): shape inalterado ──
+    // ── Single-comp (Regular legado / regular_single / piloto): shape inalterado ──
     const r = await avaliarCompAcumulada(
-      tdb, sbRaw, trilha, colab, trilha.competencia_foco, descritores, semanaAcumulada, nivelMetaAlvo,
+      tdb, sbRaw, trilha, colab, trilha.competencia_foco, descritores, semanaAcumulada, nivelMetaAlvo, evidenciaPorCobertos,
     );
     if (r.error) return { error: r.error };
     primariaRet = r.primaria;
@@ -114,13 +119,14 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
 async function avaliarCompAcumulada(
   tdb: any, sbRaw: any, trilha: any, colab: any,
   competencia: string, descritores: any[], semanaAcumulada: number, nivelMetaAlvo: 2 | 3,
+  evidenciaPorCobertos: boolean = false,
 ): Promise<{ primaria?: any; auditoria?: any; error?: string }> {
   // Enriquece com régua + nota_atual fresh (por competência → régua correta)
   const descritoresComRegua = await enriquecerComRegua(tdb, sbRaw, competencia, descritores);
   const descritoresFresh = await atualizarNotaAtualFresh(tdb, trilha.colaborador_id, competencia, descritoresComRegua);
 
   // Agrega evidências até a semana de acumulada (regular=13)
-  const evidenciasAcumuladas = await agregarEvidencias(tdb, trilha.id, descritoresFresh, trilha.temporada_plano, semanaAcumulada);
+  const evidenciasAcumuladas = await agregarEvidencias(tdb, trilha.id, descritoresFresh, trilha.temporada_plano, semanaAcumulada, evidenciaPorCobertos);
 
   // PII masking pro prompt externo (Claude).
   const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
@@ -300,7 +306,7 @@ async function atualizarNotaAtualFresh(tdb: any, colaboradorId: string, competen
   }));
 }
 
-async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[], plano: any, semanaLimite: number = 13) {
+async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[], plano: any, semanaLimite: number = 13, evidenciaPorCobertos: boolean = false) {
   const { data: progressos } = await tdb.from('temporada_semana_progresso')
     .select('semana, tipo, reflexao, feedback')
     .eq('trilha_id', trilhaId).lte('semana', semanaLimite).order('semana');
@@ -314,8 +320,14 @@ async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[],
 
   for (const p of progressos) {
     if (p.tipo === 'conteudo' && p.reflexao) {
-      const desc = descritorPorSem[p.semana];
-      if (desc && linhasPorDescritor[desc]) {
+      // Piloto (evidenciaPorCobertos): a reflexão da semana cobre TODOS os
+      // descritores da semana (2 entregas). Demais modos: só o `descritor`
+      // principal, como sempre foi.
+      const descsDaSemana = evidenciaPorCobertos
+        ? (descritoresCobertosPorSem[p.semana]?.length ? descritoresCobertosPorSem[p.semana] : [descritorPorSem[p.semana]])
+        : [descritorPorSem[p.semana]];
+      for (const desc of descsDaSemana) {
+        if (!desc || !linhasPorDescritor[desc]) continue;
         const partes = [
           `Sem ${p.semana}`,
           p.reflexao.insight_principal && `insight: "${p.reflexao.insight_principal}"`,

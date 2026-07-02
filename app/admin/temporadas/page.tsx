@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
 import { ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X, Unlock, Download } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado, anteciparInicioTemporada, prepararEntregasJornada, gerarTemporada } from '@/actions/temporadas';
+import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado, anteciparInicioTemporada, prepararEntregasJornada, gerarTemporada, verificarProntidaoPiloto } from '@/actions/temporadas';
 import { simularUmaSemanaSimulacao } from '@/actions/simulador-temporada';
 import { getSupabase } from '@/lib/supabase-browser';
 
@@ -98,6 +98,16 @@ export default function TemporadasAdminPage() {
   }
 
   const [simProgress, setSimProgress] = useState(null); // { semana, total, erros }
+  const [prontidao, setProntidao] = useState(null); // resultado do check do piloto
+
+  async function handleProntidaoPiloto() {
+    if (!empresaId) { alert('Abra esta tela no contexto de uma empresa (?empresa=...).'); return; }
+    setBusy(true);
+    const r = await verificarProntidaoPiloto(empresaId);
+    setBusy(false);
+    if (r.error) { alert(r.error); return; }
+    setProntidao(r);
+  }
 
   async function handleSimular(trilhaId: any, nome: string) {
     const perfil = prompt(
@@ -148,6 +158,13 @@ export default function TemporadasAdminPage() {
             <h1 className="text-2xl font-bold">{t('title')}</h1>
             <p className="text-xs text-gray-400">{empresaId ? t('scope.company') : t('scope.allCompanies')} · {itemsFiltrados.length}/{items.length}</p>
           </div>
+          {empresaId && (
+            <button onClick={handleProntidaoPiloto} disabled={busy}
+              title="Piloto: verifica formato-core dos top-4 descritores + Cenário B do cargo ANTES de liberar"
+              className="bg-white/5 border border-white/10 hover:border-cyan-400/40 rounded-lg px-3 py-1.5 text-xs text-cyan-300 disabled:opacity-50">
+              Prontidão piloto
+            </button>
+          )}
           <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value)}
             className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white">
             <option value="ativa" className="bg-[#0d1426]">{t('filters.active')}</option>
@@ -157,6 +174,39 @@ export default function TemporadasAdminPage() {
             <option value="todas" className="bg-[#0d1426]">{t('filters.all')}</option>
           </select>
         </div>
+
+        {prontidao && (
+          <div className="mb-6 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.04] p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-bold text-cyan-300">
+                Prontidão do piloto — {prontidao.prontos}/{prontidao.total} colaborador(es) prontos
+              </p>
+              <button onClick={() => setProntidao(null)} className="text-xs text-gray-400 hover:text-white">fechar ✕</button>
+            </div>
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {prontidao.resultados.map((r, i) => (
+                <div key={i} className={`rounded-lg border p-2.5 ${r.pronto ? 'border-emerald-500/25 bg-emerald-500/[0.04]' : 'border-red-500/30 bg-red-500/[0.05]'}`}>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className="text-xs font-bold text-white">
+                      {r.pronto ? '✅' : '⛔'} {r.colaborador}
+                      {r.cargo && <span className="text-gray-400 font-normal"> · {r.cargo}</span>}
+                    </p>
+                    {r.competencia && <p className="text-[10px] text-gray-400">{r.competencia}</p>}
+                  </div>
+                  {r.descritores?.length > 0 && (
+                    <p className="text-[10px] text-gray-500 mt-1">Top-4: {r.descritores.join(' · ')}</p>
+                  )}
+                  {r.bloqueadores?.map((b, j) => (
+                    <p key={j} className="text-[11px] text-red-300 mt-1">⛔ {b}</p>
+                  ))}
+                  {r.avisos?.map((a, j) => (
+                    <p key={j} className="text-[11px] text-amber-300/80 mt-1">⚠ {a}</p>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-12 text-gray-500 text-sm">{t('loading')}</div>

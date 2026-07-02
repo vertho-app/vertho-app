@@ -3,7 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
-import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsDuo, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
+import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsDuo, selectDescriptorsPiloto, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
@@ -83,6 +83,13 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
     if (isOnboarding) {
       return await gerarTemporadaOnboarding({
         colab, empresa, tdb, sbRaw, contexto, programaConfig, aiConfig, competenciaPrincipal: competenciaAlvo,
+      });
+    }
+
+    // ── Modo Piloto: degustação 2 semanas, 1 comp, 4 conteúdos ───────────
+    if (programaConfig.modo === 'piloto') {
+      return await gerarTemporadaPiloto({
+        colab, tdb, contexto, programaConfig, aiConfig, competenciaAlvo,
       });
     }
 
@@ -497,6 +504,222 @@ async function gerarTemporadaRegularDuo(args: {
     semanas: semanas.length,
     modo: 'regular_duo',
   };
+}
+
+/**
+ * Modo Piloto: degustação de 2 semanas focada em RODAR O FLUXO INTEIRO
+ * (diagnóstico → conteúdo → fechamento com cenário + avaliação IA), não em
+ * demonstrar evolução. 1 competência (resolução de âncora EXISTENTE:
+ * competência explícita → trilha → cargo), top-4 descritores por gap
+ * (selectDescriptorsPiloto), 2 conteúdos/semana resolvidos pela via atual
+ * (formato-core preferência×taxa + opcionais), slot 3 = fechamento.
+ *
+ * Verify by presence: se o assessment não sustenta 4 descritores distintos,
+ * erro EXPLÍCITO com a contagem — nunca slot vazio silencioso.
+ */
+async function gerarTemporadaPiloto(args: {
+  colab: any; tdb: any; contexto: string;
+  programaConfig: any; aiConfig?: AIConfig; competenciaAlvo: string;
+}) {
+  const { colab, tdb, contexto, programaConfig, aiConfig, competenciaAlvo } = args;
+
+  // 1) Assessment da competência âncora (anti-viés: sem default 1.5)
+  const { data: assessment } = await tdb.from('descriptor_assessments')
+    .select('descritor, nota')
+    .eq('colaborador_id', colab.id)
+    .eq('competencia', competenciaAlvo);
+  if (!assessment || assessment.length === 0) {
+    return {
+      error: `Colaborador ainda não tem avaliação (descriptor_assessments) para "${competenciaAlvo}". Rode a rodada de mapeamento antes de gerar o piloto.`,
+      codigo: 'sem_assessment',
+    };
+  }
+
+  // 2) Top-4 descritores por gap, 2 por semana, exatamente 4 distintos
+  const esperado = (programaConfig.slotsConteudo?.length || 2) * (programaConfig.conteudosPorSemana || 2);
+  const descritoresSelecionados = selectDescriptorsPiloto(
+    competenciaAlvo, assessment, programaConfig.slotsConteudo, programaConfig.conteudosPorSemana,
+  );
+  if (descritoresSelecionados.length < esperado) {
+    return {
+      error: `Piloto precisa de ${esperado} descritores avaliados distintos em "${competenciaAlvo}" — o colaborador tem ${descritoresSelecionados.length} (${descritoresSelecionados.map(d => d.descritor).join(', ') || 'nenhum'}). Complete o mapeamento ou cadastre mais descritores.`,
+      codigo: 'piloto_descritores_insuficientes',
+    };
+  }
+
+  // 3) Plano: sems 1-2 com 2 entregas cada (via existente) + slot 3 fechamento
+  const prioridadeFormatos = derivarPrioridadeFormatos(colab);
+  const semanas = await buildSeason({
+    descritoresSelecionados,
+    competencia: competenciaAlvo,
+    cargo: colab.cargo,
+    contexto,
+    prioridadeFormatos,
+    empresaId: colab.empresa_id,
+    aiConfig,
+    programaConfig,
+  });
+
+  // 4) Persiste (UPDATE se existir, INSERT senão) — idêntico aos demais modos
+  const { data: existente } = await tdb.from('trilhas')
+    .select('id, numero_temporada')
+    .eq('colaborador_id', colab.id)
+    .order('criado_em', { ascending: false }).limit(1).maybeSingle();
+  const numeroTemporada = existente?.numero_temporada || 1;
+  const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
+  const payload = {
+    colaborador_id: colab.id,
+    competencia_foco: competenciaAlvo,
+    competencias_foco: [competenciaAlvo],
+    numero_temporada: numeroTemporada,
+    temporada_plano: semanas,
+    descritores_selecionados: descritoresSelecionados,
+    status: 'ativa',
+    data_inicio: nextMondayISO(),
+    cursos: [],
+  };
+  let trilhaId: string;
+  if (existente) {
+    const { error } = await tdb.from('trilhas').update(payload).eq('id', existente.id);
+    if (error) return { error: error.message };
+    trilhaId = existente.id;
+  } else {
+    const { data: nova, error } = await tdb.from('trilhas').insert(payload).select('id').maybeSingle();
+    if (error) return { error: error.message };
+    trilhaId = nova.id;
+  }
+
+  const progressos = semanas.map((s: any) => ({
+    trilha_id: trilhaId,
+    colaborador_id: colab.id,
+    semana: s.semana,
+    tipo: s.tipo,
+    status: s.semana === 1 ? 'em_andamento' : 'pendente',
+  }));
+  await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
+  await tdb.from('temporada_semana_progresso').insert(progressos);
+
+  return {
+    ok: true,
+    trilhaId,
+    numeroTemporada,
+    competencia: competenciaAlvo,
+    descritores: descritoresSelecionados.length,
+    semanas: semanas.length,
+    modo: 'piloto',
+  };
+}
+
+/**
+ * Check de PRONTIDÃO do Piloto (admin, antes de liberar): pra cada colaborador,
+ * resolve a competência âncora + top-4 descritores e verifica POR PRESENÇA:
+ *   - CORE (bloqueador): descritor sem NENHUM micro-conteúdo utilizável
+ *     (nem match direto do descritor, nem pool da competência) → a semana
+ *     nasceria com fallback templated. Sinalizado como bloqueador.
+ *   - Match direto ausente (aviso): usa pool da competência — degrada, ok.
+ *   - Formatos opcionais faltando: ok, o switch degrada.
+ *   - Cenário B (bloqueador do fechamento): sem banco_cenarios tipo
+ *     'cenario_b' pro cargo → fechamento retornaria 424. Gerar via Fase 5.
+ */
+export async function verificarProntidaoPiloto(empresaId: string) {
+  try {
+    const sbRaw = await requireAdminSupabase();
+    if (!empresaId) return { error: 'empresaId obrigatório' };
+
+    const { data: empresa } = await sbRaw.from('empresas')
+      .select('sys_config').eq('id', empresaId).maybeSingle();
+    const programaConfig = getProgramaConfig(empresa?.sys_config);
+    if (programaConfig.modo !== 'piloto') {
+      return { error: `Empresa não está em modo piloto (modo atual: ${empresa?.sys_config?.programa_modo || 'regular DUO'}). Ajuste em Configurações → Programa.` };
+    }
+
+    const tdb = tenantDb(empresaId);
+    const { data: colabs } = await tdb.from('colaboradores')
+      .select('id, nome_completo, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso');
+    if (!colabs?.length) return { error: 'Sem colaboradores' };
+
+    // Cenários B disponíveis por cargo (fechamento)
+    const { data: cenariosB } = await tdb.from('banco_cenarios')
+      .select('cargo').eq('tipo_cenario', 'cenario_b');
+    const cargosComCenarioB = new Set((cenariosB || []).map((c: any) => c.cargo));
+
+    const esperado = (programaConfig.slotsConteudo?.length || 2) * (programaConfig.conteudosPorSemana || 2);
+    const resultados: any[] = [];
+    const conteudoCache: Record<string, any[]> = {};
+
+    for (const colab of colabs as any[]) {
+      // Competência âncora — MESMA resolução da geração (trilha → cargo)
+      let comp: string | undefined;
+      const { data: trilhaExist } = await tdb.from('trilhas')
+        .select('competencia_foco').eq('colaborador_id', colab.id)
+        .order('criado_em', { ascending: false }).limit(1).maybeSingle();
+      comp = trilhaExist?.competencia_foco;
+      if (!comp && colab.cargo) {
+        const { data: cargoEmp } = await tdb.from('cargos_empresa')
+          .select('competencia_foco').eq('nome', colab.cargo).maybeSingle();
+        comp = cargoEmp?.competencia_foco;
+      }
+      if (!comp) {
+        resultados.push({ colaborador: colab.nome_completo, pronto: false, bloqueadores: ['Sem competência foco resolvível (trilha/cargo)'] });
+        continue;
+      }
+
+      const { data: assessment } = await tdb.from('descriptor_assessments')
+        .select('descritor, nota').eq('colaborador_id', colab.id).eq('competencia', comp);
+      const top = selectDescriptorsPiloto(comp, assessment || [], programaConfig.slotsConteudo, programaConfig.conteudosPorSemana);
+
+      const bloqueadores: string[] = [];
+      const avisos: string[] = [];
+      if (top.length < esperado) {
+        bloqueadores.push(`Só ${top.length}/${esperado} descritores avaliados distintos em "${comp}" — complete o mapeamento`);
+      }
+
+      // Conteúdos da competência (empresa OU global), 1 query por competência
+      if (!conteudoCache[comp]) {
+        const { data: conteudos } = await sbRaw.from('micro_conteudos')
+          .select('descritor, formato')
+          .eq('ativo', true).eq('competencia', comp)
+          .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+        conteudoCache[comp] = conteudos || [];
+      }
+      const pool = conteudoCache[comp];
+      const formatosPool = new Set(pool.map((c: any) => c.formato));
+
+      for (const d of top) {
+        const doDescritor = pool.filter((c: any) => c.descritor === d.descritor);
+        if (doDescritor.length === 0 && pool.length === 0) {
+          bloqueadores.push(`"${d.descritor}": SEM formato-core (nenhum conteúdo da competência) — semana nasceria com fallback`);
+        } else if (doDescritor.length === 0) {
+          avisos.push(`"${d.descritor}": sem conteúdo próprio — reusa pool da competência (${[...formatosPool].join(', ')})`);
+        } else {
+          const formatosDesc = new Set(doDescritor.map((c: any) => c.formato));
+          const faltando = ['video', 'texto', 'audio', 'case'].filter(f => !formatosDesc.has(f));
+          if (faltando.length) avisos.push(`"${d.descritor}": opcionais faltando no switch (${faltando.join(', ')}) — ok, degrada`);
+        }
+      }
+
+      // Fechamento: cenário B do cargo (a rota busca cargo do colab || 'todos')
+      if (!cargosComCenarioB.has(colab.cargo || 'todos') && !cargosComCenarioB.has('todos')) {
+        bloqueadores.push(`Fechamento sem Cenário B pro cargo "${colab.cargo || 'todos'}" — gere na Fase 5 (Cenários B em lote)`);
+      }
+
+      resultados.push({
+        colaborador: colab.nome_completo,
+        cargo: colab.cargo,
+        competencia: comp,
+        descritores: top.map(d => d.descritor),
+        pronto: bloqueadores.length === 0,
+        bloqueadores,
+        avisos,
+      });
+    }
+
+    const prontos = resultados.filter(r => r.pronto).length;
+    return { ok: true, total: resultados.length, prontos, resultados };
+  } catch (err: any) {
+    console.error('[verificarProntidaoPiloto]', err);
+    return { error: err?.message || 'Erro' };
+  }
 }
 
 function derivarPrioridadeFormatos(colab: any): string[] {

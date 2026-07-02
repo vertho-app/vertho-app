@@ -38,14 +38,16 @@ interface InternalCandidate extends DescriptorAssessment {
 
 const DEFAULT_SLOTS = [1, 2, 3, 5, 6, 7, 9, 10, 11]; // 9 slots (regular 14sem)
 
-export function selectDescriptors(
-  assessment: DescriptorAssessment[] = [],
-  slots: number[] = DEFAULT_SLOTS,
-): SelectedDescriptor[] {
-  const SLOTS = slots;
-  if (!Array.isArray(assessment) || assessment.length === 0) return [];
-
-  // Separa em "tem gap" e "já proficiente"
+/**
+ * Núcleo de ordenação do single (fonte única, reusado pelo Piloto):
+ * separa em "tem gap" (nota < 3.0, ordenado por gap DECRESCENTE = nota
+ * crescente) e "já proficiente" (nota >= 3.0, mais alto primeiro — eleva
+ * pra Avançado). Extraído byte-idêntico de selectDescriptors.
+ */
+function ordenarCandidatos(assessment: DescriptorAssessment[]): {
+  comGap: InternalCandidate[];
+  proficientes: InternalCandidate[];
+} {
   const comGap: InternalCandidate[] = assessment
     .filter(a => Number(a.nota) < 3.0)
     .map(a => ({ ...a, gap: 3.0 - Number(a.nota), semanas_desejadas: Number(a.nota) < 2.0 ? 2 : 1 }))
@@ -55,6 +57,19 @@ export function selectDescriptors(
     .filter(a => Number(a.nota) >= 3.0)
     .map(a => ({ ...a, gap: Math.max(0, 4.0 - Number(a.nota)), semanas_desejadas: 1 }))
     .sort((a, b) => Number(b.nota) - Number(a.nota)); // mais alto primeiro (eleva pra Avançado)
+
+  return { comGap, proficientes };
+}
+
+export function selectDescriptors(
+  assessment: DescriptorAssessment[] = [],
+  slots: number[] = DEFAULT_SLOTS,
+): SelectedDescriptor[] {
+  const SLOTS = slots;
+  if (!Array.isArray(assessment) || assessment.length === 0) return [];
+
+  // Separa em "tem gap" e "já proficiente" (núcleo compartilhado)
+  const { comGap, proficientes } = ordenarCandidatos(assessment);
 
   const selecionados: SelectedDescriptor[] = [];
   let slotIdx = 0;
@@ -156,6 +171,54 @@ export function selectDescriptorsMulti(
     });
   }
   return selecionados;
+}
+
+// ── Piloto (degustação 2 semanas) ───────────────────────────────────────────
+
+/**
+ * Piloto: 1 competência, top-N descritores por gap decrescente (reusa o
+ * núcleo de ordenação do single — ordenarCandidatos), cada um em EXATAMENTE
+ * 1 slot, SEM doubling de 2 semanas e SEM reforço. `porSemana` descritores
+ * por slot de conteúdo (piloto = 2/semana em [1, 2] → 4 distintos).
+ *
+ * Se faltarem descritores com gap, completa com proficientes (mesma regra
+ * do single: mais alto primeiro, gap 0). Se o assessment tem MENOS descritores
+ * distintos que os slots pedem, retorna quantos há — o caller valida por
+ * PRESENÇA (length !== esperado → erro explícito, nunca slot vazio silencioso).
+ */
+export function selectDescriptorsPiloto(
+  competencia: string,
+  assessment: DescriptorAssessment[] = [],
+  slots: number[] = [1, 2],
+  porSemana: number = 2,
+): SelectedDescriptor[] {
+  if (!Array.isArray(assessment) || assessment.length === 0) return [];
+
+  const { comGap, proficientes } = ordenarCandidatos(assessment);
+
+  // Prioridade: gap decrescente, depois proficientes; dedupe por descritor
+  // (defensivo — o assessment deveria ser único por descritor).
+  const vistos = new Set<string>();
+  const fila: InternalCandidate[] = [];
+  for (const c of [...comGap, ...proficientes]) {
+    if (vistos.has(c.descritor)) continue;
+    vistos.add(c.descritor);
+    fila.push(c);
+  }
+
+  const total = slots.length * porSemana;
+  return fila.slice(0, total).map((d, i) => {
+    const nota = Number(d.nota);
+    const semana = slots[Math.floor(i / porSemana)];
+    return {
+      descritor: d.descritor,
+      competencia,
+      nota_atual: nota,
+      gap: nota < 3.0 ? 3.0 - nota : 0,
+      semanas_alocadas: 1,
+      semanas_ids: [semana],
+    };
+  });
 }
 
 // ── Multi-competência PROFUNDA (Regular DUO) ────────────────────────────────

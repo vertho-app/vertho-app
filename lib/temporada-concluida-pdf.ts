@@ -44,8 +44,67 @@ const CONV_LABEL = {
   regressao:           'Regressão',
 };
 
+/**
+ * Variante PILOTO: SEM bloco de evolução / delta antes→depois. A competência
+ * aparece como PONTO DE PARTIDA (baseline) e o fechamento como DEMONSTRAÇÃO
+ * da avaliação — 2 semanas não medem evolução. A riqueza vem do diagnóstico
+ * (baseline por descritor) + engajamento (momentos de insight).
+ */
+function TemporadaPilotoPDF({ dados }) {
+  const { colab, trilha, evolutionReport, momentos, sem14 } = dados;
+  const descritores = evolutionReport?.descritores || [];
+  const firstName = sanitize((colab?.nome || '').split(' ')[0]);
+
+  return React.createElement(Document, { title: `Piloto — ${colab.nome}` },
+    React.createElement(Page, { size: 'A4', style: styles.page },
+      React.createElement(Text, { style: styles.eyebrow }, 'Piloto concluido'),
+      React.createElement(Text, { style: styles.h1 }, `${firstName}, voce experimentou a jornada completa`),
+      React.createElement(Text, { style: styles.subtitle },
+        sanitize(`2 semanas de degustacao em ${trilha.competencia} — diagnostico, conteudo personalizado e avaliacao com IA.`)),
+
+      // Ponto de partida (baseline do diagnóstico — não é resultado)
+      React.createElement(Text, { style: styles.h2 }, 'Seu ponto de partida'),
+      React.createElement(Text, { style: { ...styles.rowValue, marginBottom: 6 } },
+        'Niveis mapeados no diagnostico — a base sobre a qual uma temporada completa trabalha.'),
+      ...descritores.map((d, i) =>
+        React.createElement(View, { key: i, style: styles.card, wrap: false },
+          React.createElement(View, { style: styles.row },
+            React.createElement(Text, { style: styles.rowLabel }, sanitize(d.descritor)),
+            d.baseline != null && React.createElement(Text, { style: { ...styles.rowValue, fontWeight: 700 } },
+              `${Number(d.baseline).toFixed(1)}/4.0`),
+          ),
+        )
+      ),
+
+      // Momentos de insight (engajamento)
+      momentos?.length > 0 && React.createElement(Text, { style: styles.h2 }, 'Momentos de insight'),
+      ...(momentos || []).map((m, i) =>
+        React.createElement(View, { key: i, style: styles.card, wrap: false },
+          React.createElement(Text, { style: styles.eyebrow }, `Semana ${m.semana} - ${sanitize(m.descritor || '')}`),
+          React.createElement(Text, { style: { fontSize: 10, fontStyle: 'italic', color: '#374151' } },
+            sanitize(m.insight)),
+        )
+      ),
+
+      // Fechamento = demonstração da avaliação (nunca "resultado de evolução")
+      sem14 && React.createElement(Text, { style: styles.h2 }, 'Avaliacao de fechamento (demonstracao)'),
+      sem14 && React.createElement(Text, { style: { ...styles.rowValue, marginBottom: 6 } },
+        'Como a avaliacao por cenario funciona na temporada completa. Em 2 semanas ela demonstra o metodo — nao mede evolucao.'),
+      sem14?.resumo_avaliacao?.mensagem_geral && React.createElement(View, { style: styles.card },
+        React.createElement(Text, { style: styles.h3 }, 'Devolutiva'),
+        React.createElement(Text, null, sanitize(sem14.resumo_avaliacao.mensagem_geral)),
+        sem14.nota_media_pos != null && React.createElement(Text, { style: { ...styles.rowValue, marginTop: 4 } },
+          `Nota da demonstracao: ${Number(sem14.nota_media_pos).toFixed(1)}/4.0`),
+      ),
+
+      React.createElement(Text, { style: styles.footer, fixed: true }, 'Vertho Mentor IA - Piloto'),
+    )
+  );
+}
+
 export function TemporadaConcluidaPDF({ dados }) {
   const { colab, trilha, evolutionReport, momentos, missoes, sem14 } = dados;
+  if (evolutionReport?.modo === 'piloto') return TemporadaPilotoPDF({ dados });
   const descritores = evolutionReport?.descritores || [];
   const resumo = evolutionReport?.resumo || {};
   const firstName = sanitize((colab?.nome || '').split(' ')[0]);

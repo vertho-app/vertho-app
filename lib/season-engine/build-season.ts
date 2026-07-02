@@ -92,6 +92,12 @@ interface SemanaAvaliacao {
   tipo: 'avaliacao';
   descritor: null;
   descritores_cobertos: string[];
+  /**
+   * Piloto: semana cujo CALENDÁRIO governa a liberação deste slot (espelho).
+   * Fica gravado NO PLANO (snapshot = contrato) pra UI e rotas não dependerem
+   * de re-resolver a config. Ausente nos demais modos.
+   */
+  calendario_semana?: number;
   status: 'disponivel' | 'bloqueada';
 }
 
@@ -163,11 +169,13 @@ export async function buildSeason({
     if (programaConfig.semanasMissao.includes(semana)) {
       plan = await montarSemanaAplicacao(semana, descritoresSelecionados, competencia, cargo, contexto, aiConfig, programaConfig, compsArray);
     } else if (programaConfig.semanasAvaliacao.includes(semana)) {
+      const espelho = programaConfig.semanaEspelhoCalendario?.[semana];
       plan = {
         semana,
         tipo: 'avaliacao',
         descritor: null,
         descritores_cobertos: descritoresSelecionados.map(d => d.descritor),
+        ...(espelho != null ? { calendario_semana: espelho } : {}),
         status: 'bloqueada',
       };
     } else {
@@ -178,6 +186,41 @@ export async function buildSeason({
           tipo: 'conteudo',
           descritor: null,
           descritores_cobertos: [],
+          status: 'bloqueada',
+        };
+      } else if (isPilotoContentWeek(programaConfig, descritoresDaSemana)) {
+        // Piloto: N entregas na MESMA competência (1 descritor DISTINTO cada),
+        // resolvidas pela via existente (formato-core + opcionais). Mesmo shape
+        // conteudos_dia do DUO → UI/reflection/kit-overlay funcionam sem mudança.
+        const ordenados = descritoresDaSemana.slice(0, programaConfig.conteudosPorSemana);
+        const entregas: NonNullable<SemanaConteudo['conteudos_dia']> = [];
+
+        for (const [idx, d] of ordenados.entries()) {
+          const compDaEntrega = d.competencia || competencia;
+          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados);
+          if (entrega.conteudo?.core_id) idsJaUsados.add(entrega.conteudo.core_id);
+          entregas.push({
+            dia: idx === 0 ? 'segunda' : 'terca',
+            label: idx === 0 ? 'Segunda-feira' : 'Terça-feira',
+            competencia: compDaEntrega,
+            descritor: entrega.descritor,
+            nivel_alvo: entrega.nivel_alvo,
+            nivel_atual: entrega.nivel_atual,
+            conteudo: entrega.conteudo,
+          });
+        }
+
+        const primeiro = entregas[0];
+        plan = {
+          semana,
+          tipo: 'conteudo',
+          competencia,
+          descritor: primeiro?.descritor || null,
+          descritores_cobertos: entregas.map(e => e.descritor).filter(Boolean) as string[],
+          nivel_alvo: 3.0,
+          nivel_atual: primeiro?.nivel_atual,
+          conteudo: primeiro?.conteudo,
+          conteudos_dia: entregas,
           status: 'bloqueada',
         };
       } else if (isRegularDuoContentWeek(programaConfig, compsArray, descritoresDaSemana)) {
@@ -227,6 +270,15 @@ export async function buildSeason({
   }
 
   return semanas;
+}
+
+function isPilotoContentWeek(
+  programaConfig: ProgramaConfig,
+  descritoresDaSemana: SelectedDescriptor[],
+): boolean {
+  // Só o Piloto define conteudosPorSemana > 1 — nos demais modos a chave é
+  // undefined e este branch nunca dispara (garantia por construção).
+  return (programaConfig.conteudosPorSemana || 1) > 1 && descritoresDaSemana.length > 1;
 }
 
 function isRegularDuoContentWeek(

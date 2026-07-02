@@ -716,7 +716,9 @@
       "title": "Evaluación concluida",
       "pre": "Pre",
       "post": "Post",
-      "viewReport": "Ver informe completo →"
+      "viewReport": "Ver informe completo →",
+      "demoScore": "Nota de la demostración",
+      "pilotNote": "En el piloto, la evaluación demuestra el método de la temporada completa — no mide evolución en 2 semanas."
     }
   },
   "SeasonWeek": {
@@ -840,6 +842,16 @@
       "viewAnswer": "Ver tu respuesta",
       "feedback": "Devolución",
       "postAverage": "Nota media post-temporada:"
+    },
+    "pilot": {
+      "eyebrow": "Piloto concluido",
+      "title": "{name}, has experimentado el recorrido completo",
+      "subtitle": "2 semanas de degustación en <strong>{competency}</strong> — diagnóstico, contenido personalizado y evaluación con IA.",
+      "baselineSection": "Tu punto de partida",
+      "baselineNote": "Niveles mapeados en el diagnóstico — la base sobre la que trabaja una temporada completa.",
+      "assessmentSection": "Evaluación de cierre (demostración)",
+      "assessmentNote": "Así funciona la evaluación por escenario en la temporada completa. En 2 semanas demuestra el método — no mide evolución.",
+      "demoScore": "Nota de la demostración:"
     }
   },
   "Voting": {
@@ -897,7 +909,8 @@
     "report": {
       "title": "Evolution Report",
       "nextStep": "Siguiente paso:"
-    }
+    },
+    "pilotClosing": "Cierre"
   },
   "Pdi": {
     "eyebrowShort": "MI PDI",
@@ -3866,7 +3879,10 @@
       "junior": "Junior (recién graduado)",
       "pleno": "Pleno (sin sesgo explícito)",
       "senior": "Senior",
-      "careerHint": "En modo Onboarding el default razonable es <b>junior</b>. En modo Regular normalmente queda vacío."
+      "careerHint": "En modo Onboarding el default razonable es <b>junior</b>. En modo Regular normalmente queda vacío.",
+      "pilot": "Piloto",
+      "pilotDesc": "Degustación: 2 semanas, 1 competencia, 4 contenidos + cierre completo",
+      "pilotNote": "Piloto: el diagnóstico completo (DISC, mapeo, ADN, Fit) corre sin cambios. Ruta de 2 semanas con 2 contenidos/semana (top-4 descriptores por brecha) y cierre con escenario + evaluación IA. La nota mostrada nunca queda por debajo del baseline (tope mínimo, bruto preservado en el snapshot). Objetivo: recorrer el flujo completo, no demostrar evolución."
     },
     "language": {
       "title": "Idioma predeterminado de la empresa",

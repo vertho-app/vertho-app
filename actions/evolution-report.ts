@@ -3,6 +3,8 @@
 import { tenantDb } from '@/lib/tenant-db';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { getProgramaConfig } from '@/lib/season-engine/programa-config';
+import { PILOTO_SPEC_VERSION } from '@/lib/season-engine/piloto-trava';
 
 /**
  * Classifica convergência de um descritor comparando nota_pre (início da temporada),
@@ -32,14 +34,56 @@ export async function gerarEvolutionReport(trilhaId: string) {
     if (!trilha) return { success: false, error: 'Trilha não encontrada' };
 
     const tdb = tenantDb(trilha.empresa_id);
+
+    // Semanas da qualitativa/cenário vêm da config do programa (regular/DUO =
+    // 13/14, byte-idêntico ao hardcode anterior; piloto = 2/3).
+    const { data: empConf } = await sbRaw.from('empresas')
+      .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
+    const programaConfig = getProgramaConfig(empConf?.sys_config);
+    const isPiloto = programaConfig.modo === 'piloto';
+
     const { data: prog13 } = await tdb.from('temporada_semana_progresso')
-      .select('reflexao').eq('trilha_id', trilhaId).eq('semana', 13).maybeSingle();
+      .select('reflexao').eq('trilha_id', trilhaId).eq('semana', programaConfig.semanaAcumulada).maybeSingle();
     const { data: prog14 } = await tdb.from('temporada_semana_progresso')
-      .select('feedback').eq('trilha_id', trilhaId).eq('semana', 14).maybeSingle();
+      .select('feedback').eq('trilha_id', trilhaId).eq('semana', programaConfig.semanaCenarioB).maybeSingle();
 
     const qualitativa = prog13?.reflexao?.evolucao_percebida || [];
     const quantitativa = prog14?.feedback?.avaliacao_por_descritor || [];
     const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
+
+    // ── Piloto: relatório SEM delta/evolução ─────────────────────────────
+    // 2 semanas não medem evolução. A competência entra como PONTO DE
+    // PARTIDA (baseline) e o fechamento como DEMONSTRAÇÃO da avaliação.
+    // nota_avaliacao já vem TRAVADA do fechamento (piso >= baseline), com
+    // bruto + piso_aplicado preservados — nunca mutação silenciosa.
+    if (isPiloto) {
+      const consolidadoPiloto = descritores.map((d: any) => {
+        const n = quantitativa.find((x: any) => x.descritor === d.descritor) || {};
+        return {
+          competencia: d.competencia || trilha.competencia_foco,
+          descritor: d.descritor,
+          baseline: n.nota_pre ?? d.nota_atual ?? null,
+          nota_avaliacao: n.nota_pos ?? null,
+          nota_avaliacao_bruta: n.nota_pos_bruto ?? n.nota_pos ?? null,
+          piso_aplicado: !!n.piso_aplicado,
+          justificativa_cenario: n.justificativa || null,
+        };
+      });
+      const evolution_report = {
+        modo: 'piloto',
+        spec_version: prog14?.feedback?.spec_version || PILOTO_SPEC_VERSION,
+        descritores: consolidadoPiloto,
+        resumo_avaliacao: prog14?.feedback?.resumo_avaliacao || null,
+        nota_media_pos: prog14?.feedback?.nota_media_pos ?? null,
+        piso_aplicado: !!prog14?.feedback?.piso_aplicado,
+      };
+      await tdb.from('trilhas').update({
+        evolution_report,
+        evolution_generated_at: new Date().toISOString(),
+        status: 'concluida',
+      }).eq('id', trilhaId);
+      return { success: true, evolution_report };
+    }
 
     const consolidado = descritores.map((d: any) => {
       const q = qualitativa.find((x: any) => x.descritor === d.descritor) || {};
@@ -100,9 +144,12 @@ export async function loadEvolutionReportsEmpresa(empresaId: string) {
       .eq('status', 'concluida')
       .not('evolution_report', 'is', null);
     // exclui trilhas de colaboradores internos @vertho.ai da agregação
+    // + relatórios de PILOTO (demonstração da avaliação, não medem evolução —
+    // entrariam sem convergência e poluiriam a distribuição do gestor)
     const { data: internosEv } = await tdb.from('colaboradores').select('id').ilike('email', '%@vertho.ai');
     const internosEvSet = new Set((internosEv || []).map((c: any) => c.id));
-    const trilhas = (trilhasRaw || []).filter((t: any) => !internosEvSet.has(t.colaborador_id));
+    const trilhas = (trilhasRaw || []).filter((t: any) =>
+      !internosEvSet.has(t.colaborador_id) && t.evolution_report?.modo !== 'piloto');
 
     const ids = (trilhas || []).map(t => t.colaborador_id);
     const { data: colabs } = await tdb.from('colaboradores')

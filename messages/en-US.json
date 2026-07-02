@@ -716,7 +716,9 @@
       "title": "Assessment completed",
       "pre": "Pre",
       "post": "Powders",
-      "viewReport": "See full report →"
+      "viewReport": "See full report →",
+      "demoScore": "Demonstration score",
+      "pilotNote": "In the pilot, the assessment demonstrates the full-season method — it does not measure growth over 2 weeks."
     }
   },
   "SeasonWeek": {
@@ -840,6 +842,16 @@
       "viewAnswer": "See your answer",
       "feedback": "Feedback",
       "postAverage": "Average postseason grade:"
+    },
+    "pilot": {
+      "eyebrow": "Pilot completed",
+      "title": "{name}, you experienced the full journey",
+      "subtitle": "A 2-week taste of <strong>{competency}</strong> — diagnostics, personalized content and AI assessment.",
+      "baselineSection": "Your starting point",
+      "baselineNote": "Levels mapped in the diagnostic — the baseline a full season builds on.",
+      "assessmentSection": "Closing assessment (demonstration)",
+      "assessmentNote": "How scenario-based assessment works in the full season. In 2 weeks it demonstrates the method — it does not measure growth.",
+      "demoScore": "Demonstration score:"
     }
   },
   "Voting": {
@@ -897,7 +909,8 @@
     "report": {
       "title": "Evolution Report",
       "nextStep": "Next step:"
-    }
+    },
+    "pilotClosing": "Closing"
   },
   "Pdi": {
     "eyebrowShort": "MY IDP",
@@ -3866,7 +3879,10 @@
       "junior": "Junior (new graduate)",
       "pleno": "Mid-level (no explicit bias)",
       "senior": "Senior",
-      "careerHint": "In Onboarding mode, <b>junior</b> is the sensible default. Regular mode usually stays blank."
+      "careerHint": "In Onboarding mode, <b>junior</b> is the sensible default. Regular mode usually stays blank.",
+      "pilot": "Pilot",
+      "pilotDesc": "Tasting: 2 weeks, 1 competency, 4 content pieces + full closing",
+      "pilotNote": "Pilot: the full diagnostic (DISC, mapping, DNA, Fit) runs unchanged. A 2-week track with 2 content pieces/week (top-4 descriptors by gap) and a closing with scenario + AI assessment. The displayed score never drops below baseline (floor lock, raw score preserved in the snapshot). Goal: run the whole flow, not demonstrate growth."
     },
     "language": {
       "title": "Company default language",

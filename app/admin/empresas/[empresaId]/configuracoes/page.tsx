@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
   ai: { modelo_padrao: 'claude-sonnet-4-6', modelos: {}, anthropic_key: null, gemini_key: null, openai_key: null, thinking: false },
   cadencia: { fase4_dia_pilula: 1, fase4_dia_pilula2: 2, fase4_dia_evidencia: 4, fase4_hora: 8, email_ativo: true, whatsapp_ativo: true },
   envios: { email_remetente: null, email_alias: null },
-  programa_modo: 'regular' as 'regular' | 'onboarding',
+  programa_modo: 'regular' as 'regular' | 'onboarding' | 'piloto',
   fase_carreira_default: null as null | 'junior' | 'pleno' | 'senior',
 };
 
@@ -264,6 +264,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               {[
                 { id: 'regular', label: t('program.regular'), desc: t('program.regularDesc') },
                 { id: 'onboarding', label: t('program.onboarding'), desc: t('program.onboardingDesc') },
+                { id: 'piloto', label: t('program.pilot'), desc: t('program.pilotDesc') },
               ].map(opt => (
                 <button key={opt.id}
                   onClick={() => setConfig(prev => ({ ...prev, programa_modo: opt.id as any }))}
@@ -285,6 +286,14 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                   {t.rich('program.onboardingNote', {
                     code: (chunks) => <code className="text-cyan-200">{chunks}</code>,
                   })}
+                </p>
+              </div>
+            )}
+            {config.programa_modo === 'piloto' && (
+              <div className="flex items-start gap-2 mt-3 p-3 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(6,182,212,0.06)' }}>
+                <CheckCircle size={13} className="text-cyan-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-cyan-300/85 leading-relaxed">
+                  {t('program.pilotNote')}
                 </p>
               </div>
             )}

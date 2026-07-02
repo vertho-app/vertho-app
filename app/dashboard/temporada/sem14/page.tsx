@@ -43,7 +43,7 @@ export default function Sem14Page() {
     (async () => {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const r = await loadTemporadaPorEmail(user.email, { semanaTranscrito: 14 });
+      let r = await loadTemporadaPorEmail(user.email, { semanaTranscrito: 14 });
       if (r.error || !r.trilha) { setError(r.error || t('errors.noTrack')); return; }
       setTrilhaId(r.trilha.id);
       setCompetencia(Array.isArray(r.trilha.competencias_foco) && r.trilha.competencias_foco.length > 1
@@ -58,6 +58,14 @@ export default function Sem14Page() {
       const semCB = semsAval.length ? Math.max(...semsAval) : 14;
       setSemCenarioB(semCB);
 
+      // Cenário B fora da sem 14 (piloto=3, onboarding=10): rebusca com o
+      // transcript da semana certa — senão feedback vem vazio e o wizard
+      // perde cenário/respostas parciais já persistidos.
+      if (semCB !== 14) {
+        const r2 = await loadTemporadaPorEmail(user.email, { semanaTranscrito: semCB });
+        if (!r2.error && r2.trilha) r = r2;
+      }
+
       const prog = (r.progresso || []).find(p => p.semana === semCB);
       const fb = prog?.feedback || {};
 
@@ -68,6 +76,7 @@ export default function Sem14Page() {
           nota_media_pos: fb.nota_media_pos,
           delta_medio: fb.delta_medio,
           resumo_avaliacao: fb.resumo_avaliacao,
+          spec_version: fb.spec_version,
         });
         setStep(6);
         return;
@@ -258,6 +267,17 @@ export default function Sem14Page() {
             <CheckCircle2 size={20} className="text-emerald-400" />
             <p className="text-base font-bold text-white">{t('done.title')}</p>
           </div>
+          {String(avaliacao.spec_version || '').startsWith('piloto') ? (
+            /* Piloto: SEM pré/delta — a avaliação é demonstração do método,
+               não medição de evolução (2 semanas não medem evolução). */
+            <div className="mb-4">
+              <div className="text-center rounded-lg bg-white/[0.05] p-3">
+                <p className="text-xl font-bold text-brand-400">{avaliacao.nota_media_pos}</p>
+                <p className="text-[10px] text-gray-500 uppercase">{t('done.demoScore')}</p>
+              </div>
+              <p className="text-[11px] text-gray-500 mt-2">{t('done.pilotNote')}</p>
+            </div>
+          ) : (
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="text-center rounded-lg bg-white/[0.05] p-3">
               <p className="text-xl font-bold text-white">{avaliacao.nota_media_pre}</p>
@@ -274,6 +294,7 @@ export default function Sem14Page() {
               <p className="text-[10px] text-gray-500 uppercase">Delta</p>
             </div>
           </div>
+          )}
           {avaliacao.resumo_avaliacao?.mensagem_geral && (
             <div className="rounded-lg bg-white/[0.03] p-3 text-sm text-gray-200 mb-4">
               {avaliacao.resumo_avaliacao.mensagem_geral}

@@ -96,9 +96,13 @@ async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
 
   if (!estiloAnalytic) {
     // DUO: a semana tem N desafios (um por competência) → avalia cada um.
-    const compsDuo: string[] = Array.isArray(semanaPlan?.conteudos_dia)
-      ? semanaPlan.conteudos_dia.map((e: any) => e.competencia).filter(Boolean)
-      : [];
+    // Dedupe por Set: no DUO as comps são distintas (identidade); no PILOTO as
+    // 2 entregas são da MESMA comp → vira single desafio_realizado (correto).
+    const compsDuo: string[] = [...new Set<string>(
+      Array.isArray(semanaPlan?.conteudos_dia)
+        ? semanaPlan.conteudos_dia.map((e: any) => e.competencia).filter(Boolean)
+        : [],
+    )];
     const isDuo = compsDuo.length > 1;
     const desafioField = isDuo
       ? `"desafios_realizados": [${compsDuo.map((c) => `{"competencia": "${c}", "status": "sim|parcial|nao"}`).join(', ')}],`
@@ -416,6 +420,26 @@ export async function POST(request) {
       await sb.from('temporada_semana_progresso')
         .update({ status: 'em_andamento' })
         .eq('trilha_id', trilhaId).eq('semana', proxima).eq('status', 'pendente');
+    }
+
+    // Modo Piloto: ao concluir a ÚLTIMA semana de conteúdo (sem 2), dispara a
+    // avaliação acumulada single-comp em background (mesmo padrão do trigger
+    // da sem 13 no regular). Persiste em sem 2.feedback.acumulado — insumo de
+    // triangulação do scorer no fechamento (sem 3). Não bloqueia a resposta.
+    if (
+      finished &&
+      programaConfig.modo === 'piloto' &&
+      semanaPlan.tipo === 'conteudo' &&
+      Number(semana) === programaConfig.semanaAcumulada
+    ) {
+      (async () => {
+        try {
+          const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
+          await gerarAvaliacaoAcumulada(trilhaId);
+        } catch (e: any) {
+          console.error('[piloto acumulada sem 2]', e?.message);
+        }
+      })();
     }
 
     // Modo Onboarding: ao concluir missão integradora (4/7/9), dispara acumulada

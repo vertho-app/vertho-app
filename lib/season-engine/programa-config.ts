@@ -7,7 +7,7 @@
  * O template Onboarding entra na Fase 2.
  */
 
-export type ProgramaModo = 'regular' | 'onboarding';
+export type ProgramaModo = 'regular' | 'onboarding' | 'piloto';
 export type ComplexidadeMissao = 'simples' | 'intermediario' | 'completo';
 export type FaseCarreira = 'junior' | 'pleno' | 'senior';
 
@@ -51,6 +51,19 @@ export interface ProgramaConfig {
    * -1 (em qualquer posição) = todas. Default regular: undefined.
    */
   competenciasNaMissao?: Record<number, number[]>;
+  /**
+   * Piloto: quantos conteúdos (entregas) cada semana de conteúdo recebe.
+   * Piloto=2 (1 descritor distinto por entrega, MESMA competência).
+   * undefined = 1 entrega (regular/single) ou derivado por competência (DUO).
+   */
+  conteudosPorSemana?: number;
+  /**
+   * Piloto: mapeia semana → semana cujo CALENDÁRIO ela herda. Ex.: {3: 2}
+   * faz o slot de fechamento (sem 3) liberar junto com a sem 2 (dia 7) —
+   * o gate real vira a PROGRESSÃO ("anterior concluída"), não o calendário.
+   * undefined (todos os outros modos) = calendário vanilla, zero mudança.
+   */
+  semanaEspelhoCalendario?: Record<number, number>;
 }
 
 /**
@@ -148,6 +161,40 @@ export const PROGRAMA_REGULAR_DUO: ProgramaConfig = Object.freeze({
 }) as ProgramaConfig;
 
 /**
+ * Piloto: degustação de 2 semanas, 1 competência, 4 conteúdos (2/semana,
+ * cada um sobre 1 descritor DISTINTO — top-4 por gap). Objetivo é rodar o
+ * FLUXO inteiro (diagnóstico completo → conteúdo → fechamento com cenário
+ * + avaliação IA), NÃO demonstrar evolução na competência.
+ *
+ * Estrutura do plano (3 entradas, "2 semanas" de calendário):
+ *   1, 2 — conteúdo, 2 entregas cada (conteudosPorSemana=2), resolvidas
+ *          pela via EXISTENTE (formato-core por preferência×taxa + opcionais)
+ *   3    — fechamento (Cenário B + scorer). CALENDÁRIO espelhado na sem 2
+ *          (semanaEspelhoCalendario {3:2}): libera assim que os 2 conteúdos
+ *          da sem 2 concluem (gate de progressão), sem esperar dia 14.
+ *
+ * Acumulada (single-comp) roda em background ao concluir a sem 2 e persiste
+ * na row da sem 2 (semanaAcumulada=2) — NÃO há semana de conversa qualitativa.
+ * Sem missões. O fechamento do piloto carimba spec_version 'piloto-v1' e
+ * aplica a trava de piso (nota_pos_exibido ≥ baseline) SÓ nesse caminho.
+ */
+export const PROGRAMA_PILOTO: ProgramaConfig = Object.freeze({
+  modo: 'piloto',
+  semanas: 3,
+  semanasMissao: [],
+  semanasAvaliacao: [3],
+  semanaCenarioB: 3,
+  semanaAcumulada: 2, // persistência do acumulado; NÃO é semana de conversa
+  slotsConteudo: [1, 2],
+  blocosCobertos: {},
+  complexidadeMap: {},
+  nivelMetaAlvo: 3,
+  numCompetencias: 1,
+  conteudosPorSemana: 2,
+  semanaEspelhoCalendario: { 3: 2 },
+}) as ProgramaConfig;
+
+/**
  * Resolve a config a partir do `sys_config` JSONB de uma empresa.
  *
  * Default GLOBAL = Regular DUO (2 competências). Escape hatches por
@@ -155,12 +202,23 @@ export const PROGRAMA_REGULAR_DUO: ProgramaConfig = Object.freeze({
  *   - 'onboarding'      → PROGRAMA_ONBOARDING (10 sem, 5 comps, espiral)
  *   - 'regular_single'  → PROGRAMA_REGULAR (1 comp aprofundada — rollback
  *                         sem mexer em código, caso um cliente precise)
+ *   - 'piloto'          → PROGRAMA_PILOTO (degustação 2 sem, 1 comp, 4 conteúdos)
  *   - ausente / outro   → PROGRAMA_REGULAR_DUO
  */
 export function getProgramaConfig(sysConfig?: { programa_modo?: string } | null): ProgramaConfig {
   if (sysConfig?.programa_modo === 'onboarding') return PROGRAMA_ONBOARDING;
   if (sysConfig?.programa_modo === 'regular_single') return PROGRAMA_REGULAR;
+  if (sysConfig?.programa_modo === 'piloto') return PROGRAMA_PILOTO;
   return PROGRAMA_REGULAR_DUO;
+}
+
+/**
+ * Semana cujo CALENDÁRIO governa a liberação de `semana`. Nos modos sem
+ * espelho (todos exceto piloto) devolve a própria semana — comportamento
+ * vanilla inalterado. Usar SEMPRE que for chamar semanaLiberadaPorData.
+ */
+export function semanaCalendario(config: ProgramaConfig, semana: number): number {
+  return config.semanaEspelhoCalendario?.[semana] ?? semana;
 }
 
 /**
