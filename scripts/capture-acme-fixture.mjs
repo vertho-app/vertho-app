@@ -41,8 +41,9 @@ async function main() {
   const personaArtifacts = {};
   if (demo.data?.id) {
     const did = demo.data.id;
-    const colabs = await must('demo colabs', sb.from('colaboradores').select('id, email').eq('empresa_id', did));
+    const colabs = await must('demo colabs', sb.from('colaboradores').select('id, email, report_texts, report_generated_at').eq('empresa_id', did));
     const idToEmail = new Map((colabs || []).map((c) => [c.id, c.email]));
+    const reportByEmail = new Map((colabs || []).map((c) => [c.email, c.report_texts ? { report_texts: c.report_texts, report_generated_at: c.report_generated_at } : null]));
     const respAval = await must('demo respostas avaliadas',
       sb.from('respostas').select('colaborador_id, competencia_nome, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, payload_ia4, status_ia4')
         .eq('empresa_id', did).not('avaliacao_ia', 'is', null));
@@ -50,7 +51,7 @@ async function main() {
       sb.from('descriptor_assessments').select('*').eq('empresa_id', did));
     for (const email of new Set([...idToEmail.values()])) {
       if (!email) continue;
-      personaArtifacts[email] = { respostas: [], descriptor_assessments: [] };
+      personaArtifacts[email] = { respostas: [], descriptor_assessments: [], report: reportByEmail.get(email) || null };
     }
     for (const r of respAval || []) {
       const email = idToEmail.get(r.colaborador_id);
@@ -64,6 +65,23 @@ async function main() {
       // `nivel` é GENERATED ALWAYS — não capturar (não pode ser inserido).
       const { id, colaborador_id, empresa_id, nivel, ...rest } = d;
       personaArtifacts[email].descriptor_assessments.push(rest);
+    }
+
+    // Trilha (jornada) por persona: a row de trilhas (conteúdo inline em
+    // temporada_plano) + o progresso semanal. Replay recria com ids novos.
+    const trilhas = await must('demo trilhas', sb.from('trilhas').select('*').eq('empresa_id', did));
+    const progress = await must('demo progress', sb.from('temporada_semana_progresso').select('*').eq('empresa_id', did));
+    const progByTrilha = new Map();
+    for (const pr of progress || []) { const arr = progByTrilha.get(pr.trilha_id) || []; arr.push(pr); progByTrilha.set(pr.trilha_id, arr); }
+    for (const t of trilhas || []) {
+      const email = idToEmail.get(t.colaborador_id);
+      if (!email || !personaArtifacts[email]) continue;
+      const { id: tid, colaborador_id, empresa_id, created_at, updated_at, ...trest } = t;
+      const progs = (progByTrilha.get(tid) || []).map((pr) => {
+        const { id, trilha_id, colaborador_id, empresa_id, created_at, updated_at, ...prest } = pr;
+        return prest;
+      });
+      personaArtifacts[email].trilha = { row: trest, progress: progs };
     }
   }
 
@@ -79,7 +97,7 @@ async function main() {
   writeFileSync(OUT, JSON.stringify(fixture, null, 2) + '\n');
   console.log(`Fixture salvo em ${OUT}`);
   console.log(`  competencias=${fixture.competencias.length} cargos=${fixture.cargos.length} top10=${fixture.top10.length} cenarios=${fixture.cenarios.length}`);
-  const pa = Object.entries(personaArtifacts).map(([e, a]) => `${e}: ${a.respostas.length}resp/${a.descriptor_assessments.length}desc`);
+  const pa = Object.entries(personaArtifacts).map(([e, a]) => `${e}: ${a.respostas.length}resp/${a.descriptor_assessments.length}desc/${a.report ? 'report✓' : '—'}/${a.trilha ? 'trilha✓(' + (a.trilha.progress?.length || 0) + 'sem)' : '—'}`);
   console.log(`  personaArtifacts: ${pa.length ? pa.join(' · ') : '(nenhum — rode IA4 no acme-demo antes de capturar)'}`);
 }
 

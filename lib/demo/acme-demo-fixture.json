@@ -1,7 +1,7 @@
 {
   "_meta": {
     "source": "acme",
-    "capturedAt": "2026-07-03T21:05:34.122Z",
+    "capturedAt": "2026-07-03T21:29:04.907Z",
     "note": "Golden state congelado do ACME Demo. Regenerar com scripts/capture-acme-fixture.mjs (rode IA4 no acme-demo ANTES, p/ congelar o mapeamento avaliado)."
   },
   "empresa": {
@@ -5183,7 +5183,95 @@
   "personaArtifacts": {
     "ana.demo@vertho.ai": {
       "respostas": [],
-      "descriptor_assessments": []
+      "descriptor_assessments": [],
+      "report": {
+        "report_texts": {
+          "quadrante_C": {
+            "adaptacao": null,
+            "descricao": "Ana tende a ter uma relação mais flexível com normas, procedimentos e detalhes — o que favorece criatividade, agilidade e abertura para soluções não convencionais. Esse padrão pode ser uma vantagem em ambientes que valorizam inovação e adaptabilidade. A atenção necessária está nos contextos que exigem precisão, documentação ou cumprimento rigoroso de processos, onde essa flexibilidade pode gerar lacunas.",
+            "titulo_traco": "Criador"
+          },
+          "quadrante_D": {
+            "adaptacao": null,
+            "descricao": "Ana tende a lidar com desafios de forma colaborativa, preferindo construir consenso a impor diretrizes. Diante de conflitos ou problemas complexos, sua inclinação natural é buscar saídas que preservem o relacionamento e o ambiente, o que pode ser um recurso valioso em situações que exigem diplomacia. Esse padrão também pode fazer com que ela hesite em posições mais assertivas quando o contexto demanda decisões firmes e rápidas.",
+            "titulo_traco": "Cooperador"
+          },
+          "quadrante_I": {
+            "adaptacao": null,
+            "descricao": "A dimensão de maior expressão no perfil de Ana é justamente a sua facilidade com pessoas. Ela tende a se comunicar de forma envolvente, com entusiasmo genuíno e uma capacidade natural de criar clima positivo ao seu redor. Esse traço provavelmente faz dela uma profissional lembrada pelo impacto que causa nas pessoas — seja em apresentações, alinhamentos ou conversas informais. O risco de excesso nessa dimensão pode aparecer como tendência a priorizar o relacionamento em detrimento de análises mais criteriosas ou entregas mais técnicas.",
+            "titulo_traco": "Comunicador"
+          },
+          "quadrante_S": {
+            "adaptacao": null,
+            "descricao": "Com um S em faixa intermediária, Ana combina alguma capacidade de adaptação a mudanças com uma dose razoável de estabilidade. Ela provavelmente não é a pessoa que resiste às mudanças, mas também não as busca compulsivamente — tende a avaliar o contexto antes de se ajustar. Em situações de alta demanda, pode alternar entre momentos de foco intenso e episódios de dispersão, especialmente quando o ambiente não oferece estrutura clara.",
+            "titulo_traco": "Executor"
+          },
+          "top5_forcas": [
+            {
+              "frase": "A facilidade natural de Ana em construir relações torna a conexão com pessoas um de seus recursos mais espontâneos e eficazes.",
+              "competencia": "Sociabilidade"
+            },
+            {
+              "frase": "Seu modo de se engajar com projetos e pessoas tende a ser contagiante, criando energia positiva nos ambientes em que atua.",
+              "competencia": "Entusiasmo"
+            },
+            {
+              "frase": "Ana provavelmente se sente mais energizada em interações, o que favorece contextos colaborativos, apresentações e dinâmicas de grupo.",
+              "competencia": "Extroversão"
+            },
+            {
+              "frase": "A combinação de comunicação envolvente e energia relacional tende a torná-la naturalmente persuasiva em negociações e alinhamentos.",
+              "competencia": "Persuasão"
+            },
+            {
+              "frase": "A orientação para pessoas que emerge no perfil de Ana favorece uma escuta mais sensível e a percepção das necessidades dos que estão ao seu redor.",
+              "competencia": "Empatia"
+            }
+          ],
+          "frases_chave": [
+            "Pessoas são seu maior recurso — e também seu maior campo de atenção.",
+            "O entusiasmo abre portas; a consistência as mantém abertas.",
+            "Liderar pelo exemplo relacional é sua força — e seguir até o fim da entrega é seu desafio.",
+            "Flexibilidade é um ativo quando acompanhada de estrutura mínima."
+          ],
+          "sintese_perfil": "Ana tende a se apresentar como uma pessoa energética, comunicativa e naturalmente voltada para o contato com as pessoas. Seu modo de funcionar costuma ser movido pela conexão, pelo entusiasmo e pela capacidade de influenciar e engajar os que estão ao seu redor. Em contexto profissional, ela provavelmente se destaca pela facilidade em criar rapport, mobilizar equipes e manter o ambiente motivado. Ao mesmo tempo, sua preferência por ritmo mais flexível e abordagem menos rígida pode ser tanto um diferencial criativo quanto um ponto de atenção quando o contexto exige mais estrutura ou disciplina de execução.",
+          "modo_de_trabalho": "No trabalho, Ana tende a funcionar melhor em ambientes que oferecem variedade, contato com pessoas e liberdade para explorar ideias. Tarefas muito repetitivas, solitárias ou altamente estruturadas por regras podem gerar desconforto ou queda de engajamento. Sob pressão, seu padrão mais automático provavelmente é buscar apoio nas relações — conversar, compartilhar e co-construir saídas — antes de mergulhar em análise isolada.",
+          "top5_desenvolver": [
+            {
+              "frase": "Desenvolver maior atenção aos detalhes pode ampliar a qualidade das entregas de Ana em contextos que exigem precisão técnica.",
+              "competencia": "Detalhismo"
+            },
+            {
+              "frase": "Criar estruturas e rotinas de trabalho pode ajudar Ana a sustentar seus resultados ao longo do tempo, sem depender apenas do impulso do momento.",
+              "competencia": "Organização"
+            },
+            {
+              "frase": "Incorporar uma pausa reflexiva antes de decisões importantes pode evitar comprometimentos assumidos por entusiasmo antes de uma análise mais cuidadosa.",
+              "competencia": "Prudência"
+            },
+            {
+              "frase": "Aprender a sustentar posições com firmeza, mesmo quando há resistência, pode fortalecer a presença de Ana em situações que exigem liderança direta.",
+              "competencia": "Assertividade"
+            },
+            {
+              "frase": "Em ambientes com múltiplos estímulos, cultivar foco sustentado pode ser um diferencial importante para a entrega consistente de resultados.",
+              "competencia": "Concentração"
+            }
+          ],
+          "lideranca_sintese": "Os dados de estilo de liderança formal não apresentam uma distribuição concentrada em nenhum dos perfis mapeados, o que indica que o estilo de liderança de Ana pode ainda estar em construção ou se manifesta de forma situacional. Considerando seu perfil DISC, o natural de Ana é liderar pelo engajamento — mobilizando pessoas pela energia, pelo relacionamento e pela capacidade de criar entusiasmo ao redor de uma ideia ou objetivo. Ela provavelmente é mais eficaz quando pode inspirar do que quando precisa controlar ou monitorar processos.",
+          "lideranca_trabalhar": "Para ampliar sua eficácia como líder, Ana pode se beneficiar de desenvolver maior consistência na execução e no acompanhamento de resultados, áreas que tendem a ser desafiadoras para perfis com alto I e baixo C. Aprender a equilibrar o foco nas pessoas com atenção às entregas e métricas concretas pode tornar sua liderança mais completa e sustentável no longo prazo.",
+          "relacoes_e_comunicacao": "Ana tende a se comunicar de forma aberta, expressiva e próxima — valorizando o contato humano antes do conteúdo técnico. Em contexto profissional, é provável que seja lembrada pela presença, pelo calor nas interações e pela capacidade de criar um ambiente de confiança com relativa rapidez. Pode ter mais facilidade com pessoas que respondem à comunicação informal e entusiasmada, e alguma dificuldade com perfis mais reservados ou analíticos que esperam objetividade antes do rapport.",
+          "pontos_desenvolver_pressao": [
+            "Tendência a evitar conversas difíceis ou feedbacks mais duros, priorizando a harmonia do relacionamento em detrimento da clareza necessária.",
+            "Risco de assumir múltiplos compromissos ao mesmo tempo motivada pelo entusiasmo, sem avaliar a real capacidade de entrega.",
+            "Possível dificuldade em sustentar foco quando o ambiente oferece muitos estímulos simultâneos ou quando a tarefa é repetitiva e pouco estimulante.",
+            "Tendência a buscar validação externa com frequência, especialmente de pessoas com quem tem vínculo afetivo ou relação de confiança.",
+            "Risco de reagir a críticas ou rejeições de forma mais emocional do que o contexto exige, especialmente quando percebe que a relação está ameaçada.",
+            "Possibilidade de postergar decisões que impliquem confronto ou desapontamento, gerando ambiguidade nos processos que dependem de sua posição clara."
+          ]
+        },
+        "report_generated_at": "2026-07-03T21:23:20.102+00:00"
+      }
     },
     "bruna.demo@vertho.ai": {
       "respostas": [
@@ -7582,7 +7670,622 @@
           "origem": "ia4",
           "assessment_date": "2026-07-03T21:02:17.051+00:00"
         }
-      ]
+      ],
+      "report": {
+        "report_texts": {
+          "quadrante_C": {
+            "adaptacao": null,
+            "descricao": "Bruna tende a levar a sério normas, procedimentos e padrões de qualidade, buscando fazer as coisas do jeito certo antes de fazer rápido. Sua inclinação à precisão a torna uma profissional que detecta riscos e inconsistências com facilidade, sendo uma referência natural em contextos que exigem rigor. O risco dessa tendência em excesso é a paralisia analítica — a dificuldade de avançar sem ter todas as informações necessárias.",
+            "titulo_traco": "Analista"
+          },
+          "quadrante_D": {
+            "adaptacao": null,
+            "descricao": "Bruna tende a abordar problemas de forma colaborativa, priorizando o consenso e o impacto coletivo antes de tomar decisões unilaterais. Ela provavelmente evita confrontos diretos e pode hesitar em assumir posições de autoridade em situações de conflito. Esse perfil a torna parceira confiável em processos que exigem negociação e harmonia, mas pode limitar sua visibilidade em contextos que valorizam iniciativa e posicionamento assertivo.",
+            "titulo_traco": "Cooperador"
+          },
+          "quadrante_I": {
+            "adaptacao": null,
+            "descricao": "Em contextos sociais e de influência, Bruna tende a ser mais reservada e seletiva do que expressiva ou persuasiva. Ela provavelmente prefere construir relações com base em confiança e consistência ao longo do tempo, em vez de criar rapport rápido com pessoas novas. Sua comunicação tende a ser mais formal e ponderada, o que pode transmitir credibilidade, mas também pode ser lida como distanciamento por perfis mais extrovertidos.",
+            "titulo_traco": "Pesquisador"
+          },
+          "quadrante_S": {
+            "adaptacao": null,
+            "descricao": "Bruna tende a valorizar ritmo constante, previsibilidade e ambientes onde pode se dedicar com profundidade ao longo do tempo. Ela provavelmente se destaca em contextos que exigem continuidade, suporte sustentado e entrega consistente, sem oscilações. Mudanças abruptas de prioridade ou ambientes muito voláteis podem gerar tensão interna, já que seu padrão natural favorece a estabilidade.",
+            "titulo_traco": "Planejador"
+          },
+          "top5_forcas": [
+            {
+              "frase": "Sua atenção ao detalhe tende a ser uma vantagem competitiva em contextos onde erros custam caro e a qualidade é inegociável.",
+              "competencia": "Detalhismo"
+            },
+            {
+              "frase": "A tendência de avaliar riscos antes de agir torna Bruna uma profissional que evita decisões precipitadas e protege o coletivo de erros evitáveis.",
+              "competencia": "Prudência"
+            },
+            {
+              "frase": "Sua orientação natural para estrutura e método favorece a entrega consistente e a manutenção de processos sólidos ao longo do tempo.",
+              "competencia": "Organização"
+            },
+            {
+              "frase": "A capacidade de sustentar esforço ao longo do tempo, sem perder foco ou motivação, é uma força rara em ambientes de alta demanda.",
+              "competencia": "Paciência"
+            },
+            {
+              "frase": "Sua sensibilidade ao ambiente e às pessoas ao redor tende a torná-la uma presença estabilizadora em equipes sob pressão.",
+              "competencia": "Empatia"
+            }
+          ],
+          "frases_chave": [
+            "Consistência e cuidado são os alicerces do seu modo de funcionar.",
+            "Sua maior força está em fazer certo — o desafio é aprender a fazer isso com mais visibilidade.",
+            "Bruna tende a ser o tipo de profissional que o time percebe quando falta, não quando está presente.",
+            "O passo seguinte não é mudar quem você é — é deixar que os outros vejam mais do que você já entrega."
+          ],
+          "sintese_perfil": "Bruna tende a funcionar com uma combinação de cuidado e consistência que a torna confiável e difícil de substituir em ambientes que exigem precisão e entrega. Sua orientação natural aponta para a qualidade do processo tanto quanto para o resultado, com atenção às regras, aos detalhes e ao impacto das decisões antes de agir. Ela costuma preferir ambientes previsíveis e colaborativos, onde pode contribuir de forma sustentada e sem precisar abrir mão de seus padrões. Essa combinação de estabilidade e análise tende a gerar um perfil de forte suporte técnico e humano — mas que pode, em contexto de alta pressão, recuar para zonas de conforto e evitar o confronto necessário.",
+          "modo_de_trabalho": "Bruna tende a trabalhar melhor em contextos onde há clareza de expectativas, processos definidos e espaço para entregar com qualidade, sem constante interrupção. Ela provavelmente se adapta bem a rotinas estruturadas e entrega resultados mais sólidos quando tem tempo para planejar e revisar antes de apresentar. Em situações de alta pressão e ambiguidade, o risco é que ela invista mais energia em análise do que em ação, o que pode ser interpretado como lentidão quando na verdade é cautela.",
+          "top5_desenvolver": [
+            {
+              "frase": "Desenvolver a capacidade de se posicionar com mais clareza e firmeza pode ampliar significativamente sua influência e visibilidade profissional.",
+              "competencia": "Assertividade"
+            },
+            {
+              "frase": "Exercitar a tomada de riscos calculados em situações de menor impacto pode ajudar Bruna a expandir sua zona de atuação com segurança.",
+              "competencia": "Ousadia"
+            },
+            {
+              "frase": "Praticar a comunicação mais direta e concisa — especialmente em reuniões e apresentações — pode tornar suas contribuições ainda mais impactantes.",
+              "competencia": "Objetividade"
+            },
+            {
+              "frase": "Aprender a construir argumentos que movem pessoas, e não apenas que informam, é uma habilidade que pode ampliar sua capacidade de liderança.",
+              "competencia": "Persuasão"
+            },
+            {
+              "frase": "Ampliar a presença em redes e interações profissionais pode aumentar a visibilidade do seu trabalho e criar novas oportunidades de colaboração.",
+              "competencia": "Extroversão"
+            }
+          ],
+          "lideranca_sintese": "Com os percentuais de liderança zerados, o que os dados sugerem é que Bruna ainda não ocupa — ou não reconhece — um estilo de liderança consolidado no contexto avaliado. Isso não significa ausência de potencial, mas pode indicar que ela ainda está construindo sua identidade como referência para os outros ou que o ambiente atual não tem ativado esse papel. Seu perfil CS tende a gerar uma liderança de bastidores — discreta, técnica e de suporte — mais orientada a garantir que o time funcione bem do que a ocupar o centro das decisões.",
+          "lideranca_trabalhar": "Para ampliar sua eficácia como liderança, Bruna pode se beneficiar de praticar posicionamentos mais visíveis em reuniões e decisões coletivas, tornando sua perspectiva mais presente no processo. Desenvolver a habilidade de dar feedbacks diretos — mesmo quando isso gera desconforto — também é um passo importante para que sua influência vá além do exemplo silencioso.",
+          "relacoes_e_comunicacao": "Bruna tende a construir relações profissionais com base em confiança gradual e consistência, preferindo vínculos mais profundos a uma rede ampla e superficial. Sua comunicação costuma ser cuidadosa e bem elaborada, o que transmite responsabilidade — mas pode ser percebida como excessivamente cautelosa ou difícil de ler por pessoas que esperam respostas rápidas e diretas. Em ambientes de alta colaboração, ela tende a ser uma presença estabilizadora e confiável.",
+          "pontos_desenvolver_pressao": [
+            "Tendência a recuar e evitar o conflito mesmo quando o posicionamento seria necessário e esperado",
+            "Dificuldade em tomar decisões rápidas sem ter todas as informações disponíveis, gerando lentidão percebida",
+            "Possível excesso de autocrítica diante de erros, tornando o processo de aprendizado mais lento e doloroso",
+            "Risco de acumular sobrecarga silenciosa ao dizer sim para demandas além da capacidade, sem sinalizar o limite",
+            "Tendência a se isolar quando o ambiente se torna muito caótico ou imprevisível, reduzindo a presença no coletivo",
+            "Dificuldade em adaptar rapidamente o plano quando mudanças de rota são impostas sem aviso ou justificativa clara"
+          ]
+        },
+        "report_generated_at": "2026-07-03T21:24:06.729+00:00"
+      },
+      "trilha": {
+        "row": {
+          "pdi_id": null,
+          "cursos": [],
+          "status": "ativa",
+          "criado_em": "2026-07-03T21:28:45.933552+00:00",
+          "competencia_foco": "Negociação e Fechamento",
+          "temporada_plano": [
+            {
+              "tipo": "conteudo",
+              "semana": 1,
+              "status": "disponivel",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 1: Criação de senso de urgência",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique Criação de senso de urgência em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "Criação de senso de urgência",
+              "nivel_alvo": 3,
+              "competencia": "Negociação e Fechamento",
+              "nivel_atual": 1.33,
+              "descritores_cobertos": [
+                "Criação de senso de urgência"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 2,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 2: Criação de senso de urgência",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique Criação de senso de urgência em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "Criação de senso de urgência",
+              "nivel_alvo": 3,
+              "competencia": "Negociação e Fechamento",
+              "nivel_atual": 1.33,
+              "descritores_cobertos": [
+                "Criação de senso de urgência"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 3,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 3: Tratamento de objeções",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique Tratamento de objeções em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "Tratamento de objeções",
+              "nivel_alvo": 3,
+              "competencia": "Negociação e Fechamento",
+              "nivel_atual": 1.5,
+              "descritores_cobertos": [
+                "Tratamento de objeções"
+              ]
+            },
+            {
+              "tipo": "aplicacao",
+              "missao": {
+                "texto": "```json\n{\n  \"missao_texto\": \"Identifique um cliente em negociação parada há mais de uma semana e conduza uma conversa onde você apresenta uma razão concreta para decidir agora, responde ao principal ponto de resistência dele e propõe um próximo passo que leve ao fechamento. O objetivo não é forçar uma venda, mas sair da conversa com uma posição clara: avanço ou descarte.\",\n  \"acao_principal\": \"Conduzir uma conversa de reativação com um cliente em negociação estagnada, movendo-a para uma definição concreta\",\n  \"contexto_de_aplicacao\": \"Qualquer negociação ativa no funil que esteja sem resposta ou sem evolução há mais de sete dias — pode ser um cliente que pediu prazo para pensar, que sumiu após proposta enviada ou que está 'avaliando internamente'\",\n  \"criterio_de_execucao\": \"A conversa aconteceu, o cliente respondeu ao menos uma objeção com uma réplica estruturada, e a negociação saiu do estado de espera — com data de retorno definida, proposta ajustada, contrato encaminhado ou descarte formalizado\",\n  \"integracao_descritores\": [\n    {\n      \"descritor\": \"Criação de senso de urgência\",\n      \"como_aparece\": \"O representante apresenta ao cliente uma razão real e específica para decidir agora — pode ser prazo de condição comercial, disponibilidade de produto, agenda de implementação ou outro fator concreto do contexto — sem inventar pressão artificial\"\n    },\n    {\n      \"descritor\": \"Tratamento de objeções\",\n      \"como_aparece\": \"Durante a conversa, o representante identifica o principal ponto de resistência do cliente e responde a ele de forma direta, sem desviar ou ignorar — a objeção é nomeada, tratada e superada ou registrada como bloqueio real\"\n    },\n    {\n      \"descritor\": \"Condução ao fechamento\",\n      \"como_aparece\": \"O representante não encerra a conversa sem propor um próximo passo concreto — uma data, uma ação, uma decisão — evitando que a negociação volte ao estado de espera indefinida\"\n    }\n  ],\n  \"por_que_cabe_na_semana\": \"Todo representante comercial ativo tem"
+              },
+              "semana": 4,
+              "status": "bloqueada",
+              "cenario": {
+                "texto": "**Contexto:** Você é representante comercial de uma empresa de software de gestão B2B. Há três semanas acompanha um prospect de médio porte que demonstrou interesse real na solução. Na última reunião, o gerente de operações — seu principal contato — sinalizou que a proposta faz sentido e que gostaria de avançar. Hoje ele te liga e diz: 'Olha, gostei bastante, mas acho que posso esperar mais um mês para bater o martelo. Não tem urgência por enquanto.' Você sabe que o desconto especial da campanha trimestral vence em cinco dias e que, após esse prazo, o valor sobe 15%. Também sabe que a equipe de implantação está com agenda aberta agora, mas ficará lotada no próximo mês.\n\n**Tensão central:** O prospect quer postergar a decisão, mas há condições reais e concretas que tornam o momento atual mais vantajoso para ele — e você precisa conduzir ao fechamento sem parecer pressionar artificialmente.\n\n**Fator complicador:** O gerente de operações não é o decisor final — ele ainda precisa de um aval rápido do diretor financeiro, com quem você nunca falou diretamente. Qualquer movimentação errada pode fazer o contato se sentir pressionado e recuar.\n\n**Stakeholders:**\n- Gerente de operações (contato principal, favorável à solução)\n- Diretor financeiro (decisor final, desconhecido)\n\n**O que você faz nessa ligação? Como trata a objeção do gerente, usa ou não os argumentos de urgência, e de que forma conduz a conversa em direção ao fechamento considerando que o diretor financeiro ainda precisa ser envolvido?**",
+                "complexidade": "simples",
+                "stakeholders": [
+                  "Gerente de operações (contato principal, favorável à solução)",
+                  "Diretor financeiro (decisor final, desconhecido)"
+                ],
+                "tensao_central": "O prospect quer postergar a decisão, mas há condições reais e concretas que tornam o momento atual mais vantajoso para ele — e você precisa conduzir ao fechamento sem parecer pressionar artificialmente.",
+                "tradeoff_testado": "Usar os argumentos reais de urgência agora, arriscando pressionar o contato, ou respeitar o ritmo dele e perder as condições favoráveis que poderiam facilitar o fechamento.",
+                "armadilha_resposta_generica": "Dizer que 'apresentaria os benefícios e alinharia as expectativas com todos os envolvidos' não resolve porque o tempo é limitado, o decisor real está fora do alcance direto e a objeção já foi colocada — é preciso decidir como agir nessa ligação, com esse contato, agora."
+              },
+              "descritor": null,
+              "descritores_cobertos": [
+                "Criação de senso de urgência",
+                "Tratamento de objeções",
+                "Condução ao fechamento"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 5,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 5: Condução ao fechamento",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique Condução ao fechamento em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "Condução ao fechamento",
+              "nivel_alvo": 3,
+              "competencia": "Negociação e Fechamento",
+              "nivel_atual": 1.5,
+              "descritores_cobertos": [
+                "Condução ao fechamento"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 6,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 6: Condução ao fechamento",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique Condução ao fechamento em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "Condução ao fechamento",
+              "nivel_alvo": 3,
+              "competencia": "Negociação e Fechamento",
+              "nivel_atual": 1.5,
+              "descritores_cobertos": [
+                "Condução ao fechamento"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 7,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 7: Defesa de preço e margem",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique Defesa de preço e margem em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "Defesa de preço e margem",
+              "nivel_alvo": 3,
+              "competencia": "Negociação e Fechamento",
+              "nivel_atual": 1.67,
+              "descritores_cobertos": [
+                "Defesa de preço e margem"
+              ]
+            },
+            {
+              "tipo": "aplicacao",
+              "missao": {
+                "texto": "```json\n{\n  \"missao_texto\": \"Escolha uma proposta que está parada há mais de uma semana sem resposta e marque uma conversa direta com o decisor para destravar. Nessa conversa, traga um elemento concreto que justifique uma decisão agora, responda cada resistência que surgir sem ceder no preço antes de esgotar outros argumentos, e feche com uma condição específica que você está disposto a oferecer — ou sinalize claramente que não há espaço para avanço e encerre o ciclo.\",\n  \"acao_principal\": \"Conduzir uma conversa de retomada com um cliente que está em silêncio, com o objetivo de fechar, ajustar condições ou encerrar o processo de forma consciente\",\n  \"contexto_de_aplicacao\": \"Proposta enviada ao cliente corporativo que não recebeu retorno, retomada por ligação, reunião presencial ou videochamada com o decisor ou influenciador-chave\",\n  \"criterio_de_execucao\": \"A conversa aconteceu, o representante usou ao menos um argumento de urgência real, respondeu ao menos uma objeção sem baixar o preço imediatamente, e saiu da conversa com um desfecho claro: avanço com condição definida, ajuste negociado ou encerramento formal do ciclo\",\n  \"integracao_descritores\": [\n    {\n      \"descritor\": \"Criação de senso de urgência\",\n      \"como_aparece\": \"O representante identifica e apresenta um elemento concreto que justifica a decisão agora — prazo de validade da proposta, disponibilidade de estoque, condição comercial por tempo limitado ou mudança de cenário que afeta o cliente\"\n    },\n    {\n      \"descritor\": \"Tratamento de objeções\",\n      \"como_aparece\": \"Quando o cliente levanta resistências — preço alto, necessidade de pensar, comparação com concorrente — o representante responde com argumento específico antes de qualquer concessão\"\n    },\n    {\n      \"descritor\": \"Condução ao fechamento\",\n      \"como_aparece\": \"A conversa não termina em aberto: o representante direciona ativamente para uma decisão, seja um sim com condição, um ajuste acordado ou um encerramento formal\"\n    },\n    {\n      \"descritor\": \"Defesa de preço"
+              },
+              "semana": 8,
+              "status": "bloqueada",
+              "cenario": {
+                "texto": "```json\n{\n  \"contexto\": \"Você é representante comercial de uma empresa de software B2B e está na reta final de uma negociação com um cliente corporativo de médio porte. Após três reuniões, o cliente demonstra interesse real na solução, mas na última conversa o gerente de compras sinalizou que precisa de mais 45 dias para 'passar pela diretoria' antes de fechar. Você sabe, por informações internas, que a sua empresa vai reajustar a tabela de preços em 30 dias, o que tornaria a proposta atual inviável para o orçamento aprovado pelo cliente. Além disso, o gerente de compras mencionou que um concorrente apresentou uma proposta com desconto de 15% e parcelamento em 6 vezes sem juros. Sua margem mínima autorizada é de 8% de desconto, e parcelamento acima de 3 vezes compromete o fluxo de caixa da operação neste trimestre.\",\n  \"tensao_central\": \"O cliente quer tempo que você não tem, e as condições que ele sinaliza estar considerando estão fora do que você pode oferecer sem comprometer margem ou política comercial.\",\n  \"fator_complicador\": \"O gerente de compras não é o decisor final — ele precisa da aprovação da diretoria — o que torna qualquer pressão de urgência arriscada: forçar demais pode soar como blefe ou pressão indevida, afastando o interlocutor que ainda precisa vender internamente a proposta.\",\n  \"stakeholders\": [\n    \"Gerente de compras do cliente (interlocutor, não decisor final)\",\n    \"Gerente comercial interno (define os limites de desconto e parcelamento autorizados)\"\n  ],\n  \"tradeoff_testado\": \"Criar urgência real sem parecer manipulador, enquanto defende margem e condições frente a uma contraproposta do concorrente que você não consegue igualar integralmente.\",\n  \"armadilha_resposta_generica\": \"Dizer que 'alinharia internamente e apresentaria uma contraproposta equilibrada' não resolve porque o cenário exige decisão sobre o que ceder, o que defender e como conduzir o gerente de compras a agir antes do reajuste — sem ter acesso direto ao decisor final.\",\n  \"pergunta\": \"Como você conduziria a próxima conversa com o gerente de compras para avançar ao fechamento dentro do prazo que você tem, considerando os limites de desconto e parcelamento que pode oferecer e a pressão da proposta concorrente?\",\n  \"complexidade_aplicada\": \"intermediario\",\n  \"por_que_essa_complexidade_faz_sentido\": \"O caso combina múltiplos descritores em uma situação única com tensão real: há urgência legítima mas com risco de uso errado, objeção de preço com limite de margem definido, necessidade de conduzir ao fechamento sem acesso ao decisor, e um ponto em que recuar demais significa perder rentabilidade. A presença de um interlocutor que não decide sozinho adiciona o fator complicador sem tornar o caso ex",
+                "complexidade": "intermediario"
+              },
+              "descritor": null,
+              "descritores_cobertos": [
+                "Criação de senso de urgência",
+                "Tratamento de objeções",
+                "Condução ao fechamento",
+                "Defesa de preço e margem",
+                "Negociação de condições e contrato",
+                "Saber a hora de recuar"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 9,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 9: Negociação de condições e contrato",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique Negociação de condições e contrato em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "Negociação de condições e contrato",
+              "nivel_alvo": 3,
+              "competencia": "Negociação e Fechamento",
+              "nivel_atual": 2,
+              "descritores_cobertos": [
+                "Negociação de condições e contrato"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 10,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 10: Saber a hora de recuar",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique Saber a hora de recuar em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "Saber a hora de recuar",
+              "nivel_alvo": 3,
+              "competencia": "Negociação e Fechamento",
+              "nivel_atual": 2.33,
+              "descritores_cobertos": [
+                "Saber a hora de recuar"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 11,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 11: Criação de senso de urgência",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique Criação de senso de urgência em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "Criação de senso de urgência",
+              "nivel_alvo": 3,
+              "competencia": "Negociação e Fechamento",
+              "nivel_atual": 1.33,
+              "descritores_cobertos": [
+                "Criação de senso de urgência"
+              ]
+            },
+            {
+              "tipo": "aplicacao",
+              "missao": {
+                "texto": "```json\n{\n  \"missao_texto\": \"Escolha uma negociação em andamento onde o cliente ainda não deu uma resposta definitiva e conduza uma conversa com o objetivo de fechar. Antes dessa conversa, mapeie as objeções mais prováveis, defina qual é o seu limite real de concessão e decida o que você não vai ceder. Execute a conversa e registre o que aconteceu.\",\n  \"acao_principal\": \"Conduzir uma conversa de fechamento com um cliente em negociação aberta, com preparação prévia de objeções, limites de concessão e momento de recuo\",\n  \"contexto_de_aplicacao\": \"Qualquer negociação ativa onde o cliente ainda não fechou — pode ser uma proposta enviada sem retorno, uma reunião agendada ou um follow-up necessário\",\n  \"criterio_de_execucao\": \"A conversa aconteceu, o representante tentou fechar ativamente, respondeu a pelo menos uma objeção real do cliente, e consegue relatar o que cedeu, o que defendeu e como encerrou — independentemente do resultado\",\n  \"integracao_descritores\": [\n    {\n      \"descritor\": \"Criação de senso de urgência\",\n      \"como_aparece\": \"Durante a conversa, o representante usa um elemento concreto — prazo de proposta, disponibilidade de estoque, condição vigente — para sinalizar que a decisão tem um custo de espera\"\n    },\n    {\n      \"descritor\": \"Tratamento de objeções\",\n      \"como_aparece\": \"O mapeamento prévio das objeções mais prováveis prepara o representante para responder sem improviso quando o cliente questionar preço, prazo ou condições\"\n    },\n    {\n      \"descritor\": \"Condução ao fechamento\",\n      \"como_aparece\": \"A conversa tem intenção declarada: não é um follow-up vago, é uma tentativa ativa de obter uma resposta definitiva do cliente\"\n    },\n    {\n      \"descritor\": \"Defesa de preço e margem\",\n      \"como_aparece\": \"O representante define antes da conversa o que não vai ceder e sustenta essa posição diante de pressão por desconto ou condição melhor\"\n    },\n    {\n      \"descritor\": \"Negociação de condições e contrato\",\n      \"como_aparece\": \"Se o"
+              },
+              "semana": 12,
+              "status": "bloqueada",
+              "cenario": {
+                "texto": "```json\n{\n  \"contexto\": \"Você é representante comercial de uma empresa de software B2B e está na reta final de uma negociação com a Kairos, uma empresa de médio porte que avaliou sua solução por 60 dias. O contrato anual está em R$ 84.000, dentro da faixa padrão sem desconto. O decisor final, o diretor financeiro Marcelo, acaba de te ligar dizendo que aprovou internamente o projeto, mas que precisa de 25% de desconto para fechar ainda nessa semana — porque o orçamento do trimestre fecha em três dias. Ele menciona que tem uma proposta de um concorrente mais barato, mas não apresenta nenhum documento que comprove isso. Você sabe que seu produto entrega mais funcionalidades e que a migração para o concorrente levaria no mínimo 45 dias, o que inviabilizaria o projeto dele ainda neste trimestre. Seu gerente já sinalizou que pode autorizar até 10% de desconto em casos excepcionais, mas que qualquer concessão acima disso precisa de aprovação da diretoria comercial — e essa aprovação leva em média 5 dias úteis.\",\n  \"tensao_central\": \"O cliente usa a urgência do próprio prazo como alavanca para forçar um desconto que está além do que você pode autorizar, e aceitar sem critério destrói margem; recusar sem manejo pode perder o negócio.\",\n  \"fator_complicador\": \"O prazo real de fechamento do orçamento do cliente é o mesmo prazo que inviabilizaria a aprovação interna do desconto maior — ou seja, ceder à pressão sem critério ou escalar o desconto são caminhos que, cada um à sua maneira, podem travar o fechamento.\",\n  \"stakeholders\": [\n    \"Marcelo — diretor financeiro da Kairos, decisor final com pressão de orçamento trimestral\",\n    \"Gerente comercial interno — autoriza até 10% de desconto, mas desconto maior exige aprovação que leva 5 dias\"\n  ],\n  \"tradeoff_testado\": \"Defender a margem e usar os argumentos de valor e urgência real para fechar dentro do que você pode autorizar agora — ou sinalizar abertura para um desconto maior e escalar internamente, arriscando perder o prazo do cliente e o negócio.\",\n  \"armadilha_resposta_generica\": \"Dizer que 'conversaria com o gerente e alinharia as expectativas com o cliente' não resolve porque o tempo de aprovação interna já colide com o prazo do cliente — a resposta precisa mostrar como o representante conduz a negociação agora, com o que tem em mãos, defendendo valor e manejando a objeção de preço sem entregar margem sem critério.\",\n  \"pergunta\": \"Diante dessa situação, como você conduz a conversa com Marcelo a partir desse momento — o que você diz, o que concede, o que defende e como decide até onde vai antes de considerar recuar?\",\n  \"complexidade_aplicada\": \"completo\",\n  \"por_que_essa_complexidade_faz_sentido\": \"O caso ex",
+                "complexidade": "completo"
+              },
+              "descritor": null,
+              "descritores_cobertos": [
+                "Criação de senso de urgência",
+                "Tratamento de objeções",
+                "Condução ao fechamento",
+                "Defesa de preço e margem",
+                "Negociação de condições e contrato",
+                "Saber a hora de recuar"
+              ]
+            },
+            {
+              "tipo": "avaliacao",
+              "semana": 13,
+              "status": "bloqueada",
+              "descritor": null,
+              "descritores_cobertos": [
+                "Criação de senso de urgência",
+                "Tratamento de objeções",
+                "Condução ao fechamento",
+                "Defesa de preço e margem",
+                "Negociação de condições e contrato",
+                "Saber a hora de recuar"
+              ]
+            },
+            {
+              "tipo": "avaliacao",
+              "semana": 14,
+              "status": "bloqueada",
+              "descritor": null,
+              "descritores_cobertos": [
+                "Criação de senso de urgência",
+                "Tratamento de objeções",
+                "Condução ao fechamento",
+                "Defesa de preço e margem",
+                "Negociação de condições e contrato",
+                "Saber a hora de recuar"
+              ]
+            }
+          ],
+          "descritores_selecionados": [
+            {
+              "gap": 1.67,
+              "descritor": "Criação de senso de urgência",
+              "nota_atual": 1.33,
+              "semanas_ids": [
+                1,
+                2,
+                11
+              ],
+              "semanas_alocadas": 3
+            },
+            {
+              "gap": 1.5,
+              "descritor": "Tratamento de objeções",
+              "nota_atual": 1.5,
+              "semanas_ids": [
+                3
+              ],
+              "semanas_alocadas": 1
+            },
+            {
+              "gap": 1.5,
+              "descritor": "Condução ao fechamento",
+              "nota_atual": 1.5,
+              "semanas_ids": [
+                5,
+                6
+              ],
+              "semanas_alocadas": 2
+            },
+            {
+              "gap": 1.33,
+              "descritor": "Defesa de preço e margem",
+              "nota_atual": 1.67,
+              "semanas_ids": [
+                7
+              ],
+              "semanas_alocadas": 1
+            },
+            {
+              "gap": 1,
+              "descritor": "Negociação de condições e contrato",
+              "nota_atual": 2,
+              "semanas_ids": [
+                9
+              ],
+              "semanas_alocadas": 1
+            },
+            {
+              "gap": 0.6699999999999999,
+              "descritor": "Saber a hora de recuar",
+              "nota_atual": 2.33,
+              "semanas_ids": [
+                10
+              ],
+              "semanas_alocadas": 1
+            }
+          ],
+          "numero_temporada": 1,
+          "evolution_report": null,
+          "evolution_generated_at": null,
+          "data_inicio": "2026-07-06",
+          "competencias_foco": [
+            "Negociação e Fechamento"
+          ],
+          "programa_modo": "regular_single"
+        },
+        "progress": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "status": "em_andamento",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 4,
+            "tipo": "aplicacao",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 6,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 7,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 8,
+            "tipo": "aplicacao",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 9,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 10,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 11,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 12,
+            "tipo": "aplicacao",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 13,
+            "tipo": "avaliacao",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 14,
+            "tipo": "avaliacao",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          }
+        ]
+      }
     },
     "paulo.demo@vertho.ai": {
       "respostas": [
@@ -8574,11 +9277,187 @@
           "origem": "ia4",
           "assessment_date": "2026-07-03T20:53:03.129+00:00"
         }
-      ]
+      ],
+      "report": {
+        "report_texts": {
+          "quadrante_C": {
+            "adaptacao": null,
+            "descricao": "Paulo tende a ter uma relação flexível com regras e procedimentos — preferindo adaptar, improvisar e criar soluções próprias a seguir protocolos ao pé da letra. Isso pode ser uma fonte importante de inovação e agilidade, especialmente em contextos que precisam de movimento. O risco é subestimar a importância de detalhes, revisões e processos que, embora pareçam lentos, evitam retrabalho e garantem qualidade.",
+            "titulo_traco": "Criador"
+          },
+          "quadrante_D": {
+            "adaptacao": null,
+            "descricao": "Paulo tende a encarar problemas com postura proativa e disposição para tomar frente das situações, mesmo quando o cenário é incerto. Sua inclinação natural é ir atrás de resultados, tomar decisões com relativa rapidez e não recuar facilmente diante de obstáculos. Em contextos de pressão, essa característica pode ser um grande diferencial — mas também pode gerar impaciência com processos mais lentos ou com pessoas que precisam de mais tempo para deliberar.",
+            "titulo_traco": "Diretor"
+          },
+          "quadrante_I": {
+            "adaptacao": null,
+            "descricao": "A influência é um traço expressivo no funcionamento de Paulo — ele tende a se conectar com facilidade com outras pessoas, usar a comunicação como ferramenta de mobilização e criar entusiasmo ao redor de ideias e projetos. Seu estilo tende a ser aberto, expressivo e socialmente ativo, o que favorece ambientes colaborativos e papéis que envolvam convencimento e visibilidade. Um ponto de atenção é que a alta energia social pode, em alguns momentos, sobrepor a escuta — tornando a comunicação mais de mão única do que de troca.",
+            "titulo_traco": "Comunicador"
+          },
+          "quadrante_S": {
+            "adaptacao": null,
+            "descricao": "Paulo provavelmente funciona com ritmo acelerado, baixa tolerância à inércia e preferência por ambientes que mudam e evoluem. Tarefas repetitivas, rotinas muito fixas ou processos que exigem espera tendem a não favorecer seu melhor desempenho. Essa velocidade é uma vantagem real em contextos dinâmicos, mas pode criar tensão em situações que demandam paciência, constância ou execução detalhada ao longo do tempo.",
+            "titulo_traco": "Executor"
+          },
+          "top5_forcas": [
+            {
+              "frase": "A combinação de D e I elevados sugere que Paulo tende a defender posições com clareza e energia, sem depender de aprovação para se posicionar.",
+              "competencia": "Assertividade"
+            },
+            {
+              "frase": "Paulo provavelmente tem facilidade natural em mobilizar pessoas ao redor de ideias, unindo convicção e habilidade de conexão.",
+              "competencia": "Persuasão"
+            },
+            {
+              "frase": "Seu perfil indica disposição para assumir riscos calculados e avançar mesmo em situações de incerteza, o que favorece contextos de inovação e mudança.",
+              "competencia": "Ousadia"
+            },
+            {
+              "frase": "A alta influência sugere que Paulo tende a transmitir energia e motivação ao ambiente, influenciando o ânimo do grupo ao seu redor.",
+              "competencia": "Entusiasmo"
+            },
+            {
+              "frase": "A dominância elevada aponta para uma tendência de tomar frente de situações e assumir responsabilidade sobre decisões e direções.",
+              "competencia": "Comando"
+            }
+          ],
+          "frases_chave": [
+            "Energia, direção e influência — Paulo tende a mover pessoas e situações ao mesmo tempo.",
+            "Sua força está na ação; seu desenvolvimento, na escuta.",
+            "Avança rápido — o desafio é garantir que a equipe venha junto.",
+            "Onde há inércia, Paulo provavelmente é o primeiro a criar movimento."
+          ],
+          "sintese_perfil": "Paulo tende a se apresentar como alguém de presença marcante — direto, energético e naturalmente orientado para resultados e pessoas ao mesmo tempo. Sua combinação de alta dominância com alta influência sugere um estilo que mistura assertividade e capacidade de engajamento, funcionando bem em ambientes que demandam decisão rápida e articulação de pessoas em torno de objetivos. Paulo costuma se mover com velocidade, preferindo ação e visibilidade a processos longos e rotinas rígidas. Seu perfil indica alguém que tende a liderar pelo exemplo e pela persuasão, mais do que pela estrutura ou pelo controle.",
+          "modo_de_trabalho": "Paulo tende a funcionar melhor em ambientes que oferecem variedade, autonomia e desafios concretos — rotinas muito fixas ou burocráticas dificilmente aproveitam seu melhor potencial. Sob pressão, sua tendência é agir antes de parar para analisar, o que pode ser tanto uma vantagem quanto uma armadilha dependendo do contexto. Criar rituais de pausa deliberada — mesmo breves — pode fazer diferença expressiva na qualidade das decisões que toma nos momentos mais críticos.",
+          "top5_desenvolver": [
+            {
+              "frase": "Desenvolver tolerância a ritmos diferentes dos seus pode ampliar significativamente a eficácia de Paulo em contextos de equipe e negociação.",
+              "competencia": "Paciência"
+            },
+            {
+              "frase": "Dedicar mais atenção aos detalhes de execução pode evitar lacunas que comprometem entregas que começam com excelente intenção.",
+              "competencia": "Detalhismo"
+            },
+            {
+              "frase": "Criar o hábito de pausar antes de decidir em situações de alta pressão pode reduzir erros que surgem da velocidade sem reflexão suficiente.",
+              "competencia": "Prudência"
+            },
+            {
+              "frase": "Ampliar a escuta ativa e considerar o estado emocional das pessoas ao redor pode tornar sua liderança mais inclusiva e sustentável.",
+              "competencia": "Empatia"
+            },
+            {
+              "frase": "Estruturar melhor as etapas de um projeto antes de avançar pode trazer consistência e previsibilidade às iniciativas que Paulo conduz.",
+              "competencia": "Planejamento"
+            }
+          ],
+          "lideranca_sintese": "Com base na distribuição do perfil, Paulo tende a exercer uma liderança de natureza diretiva e inspiradora — mais voltada para mobilizar pessoas e avançar em direção a resultados do que para construir estrutura ou garantir processos. Ele provavelmente lidera melhor quando tem autonomia para decidir e agir com velocidade, e tende a engajar equipes pela energia e pelo senso de urgência que transmite. Seu estilo pode gerar tração em momentos de mudança, lançamento de projetos e situações que exigem coragem para avançar.",
+          "lideranca_trabalhar": "Um desenvolvimento importante para Paulo como líder é aprender a calibrar o ritmo — reconhecendo que nem todos os membros da equipe se movem com a mesma velocidade ou segurança que ele. Criar espaços mais estruturados de escuta, feedforward e acompanhamento pode transformar seu impacto de pontual e intenso para consistente e multiplicador.",
+          "relacoes_e_comunicacao": "Paulo tende a se comunicar de forma direta, expressiva e energizada — o que facilita conexões rápidas e gera presença nos ambientes em que atua. Seu estilo relacional provavelmente é mais orientado à ação e ao resultado do que à troca emocional profunda, o que pode gerar boa sinergia com pessoas de perfil semelhante, mas exige ajuste com quem valoriza mais a escuta e a reflexão. Cultivar curiosidade genuína sobre o ponto de vista do outro pode ampliar muito a qualidade das suas relações profissionais.",
+          "pontos_desenvolver_pressao": [
+            "Tendência a acelerar decisões sem considerar informações importantes ainda em curso",
+            "Possível impaciência com pessoas que precisam de mais tempo para processar ou concordar",
+            "Risco de sobrepor a fala à escuta, reduzindo a percepção sobre o que os outros realmente sentem ou precisam",
+            "Tendência a assumir controle unilateral em situações de crise, dificultando a participação da equipe",
+            "Possível desconsideração de detalhes e processos na pressa por resultados rápidos",
+            "Risco de reagir de forma intensa ou direta em conflitos, antes de construir contexto e buscar entendimento"
+          ]
+        },
+        "report_generated_at": "2026-07-03T21:25:42.016+00:00"
+      }
     },
     "carla.demo@vertho.ai": {
       "respostas": [],
-      "descriptor_assessments": []
+      "descriptor_assessments": [],
+      "report": {
+        "report_texts": {
+          "quadrante_C": {
+            "adaptacao": null,
+            "descricao": "Carla tende a ter uma relação flexível com regras e procedimentos — ela os respeita quando fazem sentido, mas questiona naturalmente protocolos que parecem burocráticos ou que desaceleram o que importa. Essa característica pode ser um ativo em ambientes que valorizam inovação e agilidade, mas também pode gerar atritos em contextos que exigem conformidade ou execução metódica. A tendência a priorizar o resultado sobre o processo pode ser percebida como informal ou, em excesso, como descuidada.",
+            "titulo_traco": "Criador"
+          },
+          "quadrante_D": {
+            "adaptacao": null,
+            "descricao": "Carla tende a enfrentar desafios de forma direta, com pouca hesitação e forte inclinação para assumir o controle da situação. Em momentos de adversidade, sua tendência é propor soluções e movimentar o ambiente ao redor, mais do que aguardar consenso. O risco desse padrão está na velocidade: decisões tomadas com muita agilidade podem desconsiderar nuances importantes ou deixar outras pessoas sem espaço de contribuição.",
+            "titulo_traco": "Diretor"
+          },
+          "quadrante_I": {
+            "adaptacao": null,
+            "descricao": "A dimensão de influência de Carla está em um ponto intermediário — ela pode ser comunicativa e persuasiva quando o contexto exige, mas essa não é necessariamente sua forma padrão de se mover. Em relações profissionais, tende a ser mais seletiva do que expansiva, priorizando conexões com propósito em vez de interações amplas e abertas. Esse perfil pode passar uma imagem de objetividade e foco, mas também pode ser lido como distância ou falta de abertura por quem espera mais calor relacional.",
+            "titulo_traco": "Pesquisador"
+          },
+          "quadrante_S": {
+            "adaptacao": null,
+            "descricao": "Carla tende a operar bem em contextos de mudança e variação de ritmo — ambientes estáveis e repetitivos podem parecer pouco estimulantes para ela. Sua inclinação é para a ação, para transitar entre demandas e para se adaptar rapidamente a novos cenários. Por outro lado, esse baixo índice de estabilidade pode se manifestar como impaciência com processos lentos ou com pessoas que precisam de mais tempo para processar e se posicionar.",
+            "titulo_traco": "Executor"
+          },
+          "top5_forcas": [
+            {
+              "frase": "A disposição natural de Carla para assumir riscos calculados e ir além do conforto é um diferencial em contextos que exigem coragem para decidir e agir.",
+              "competencia": "Ousadia"
+            },
+            {
+              "frase": "Sua tendência a ir direto ao ponto, sem rodeios desnecessários, confere clareza às suas comunicações e agilidade nas decisões.",
+              "competencia": "Objetividade"
+            },
+            {
+              "frase": "Carla tende a posicionar suas opiniões com firmeza, o que gera segurança ao redor e facilita o alinhamento em situações de impasse.",
+              "competencia": "Assertividade"
+            },
+            {
+              "frase": "Sua inclinação natural para assumir a liderança em situações de pressão é uma força que pode estabilizar equipes em momentos críticos.",
+              "competencia": "Comando"
+            },
+            {
+              "frase": "Quando motivada por um objetivo claro, Carla tem capacidade de mobilizar pessoas ao redor de uma causa com convicção e energia.",
+              "competencia": "Persuasão"
+            }
+          ],
+          "frases_chave": [
+            "Age primeiro, ajusta depois — e prefere errar em movimento a acertar parada.",
+            "Clareza, ritmo e resultado: é nessa direção que sua energia naturalmente flui.",
+            "Pode parecer impaciente, mas o que está por trás é um senso genuíno de urgência.",
+            "Seu maior desafio não é o que entrega — é como leva os outros junto nessa jornada."
+          ],
+          "sintese_perfil": "Carla tende a se apresentar como uma profissional de ritmo acelerado, com forte orientação para resultados e baixa tolerância a situações que parecem emperradas ou sem direção clara. Sua energia natural vai para a resolução de problemas e para a tomada de decisão — ela costuma preferir agir a esperar, e tende a se sentir mais viva em ambientes que desafiam e exigem posicionamento. Ao mesmo tempo, carrega uma camada comunicativa que pode surpreender: quando vê oportunidade de engajar pessoas em torno de uma causa ou objetivo, esse lado se ativa com naturalidade. O que mais a move, no entanto, é a sensação de avanço concreto — entregar, resolver, avançar.",
+          "modo_de_trabalho": "Carla tende a funcionar bem em ambientes dinâmicos, com metas claras e autonomia para agir. Rotinas muito rígidas ou processos sem propósito aparente podem drenar sua energia ao longo do tempo. Sob pressão, seu padrão automático é intensificar o ritmo e assumir o controle — o que pode ser muito eficaz em crises pontuais, mas desgastante como modo de operação contínuo.",
+          "top5_desenvolver": [
+            {
+              "frase": "Desenvolver a capacidade de desacelerar em momentos específicos pode ampliar a qualidade das decisões e o espaço para outras pessoas contribuírem.",
+              "competencia": "Paciência"
+            },
+            {
+              "frase": "Investir em escuta ativa e consideração pelo ritmo emocional do outro pode fortalecer vínculos e reduzir atritos desnecessários.",
+              "competencia": "Empatia"
+            },
+            {
+              "frase": "Dar mais atenção ao processo — e não apenas ao resultado — pode aumentar a previsibilidade e a segurança de quem trabalha com ela.",
+              "competencia": "Planejamento"
+            },
+            {
+              "frase": "Em contextos que exigem precisão, cultivar a atenção aos detalhes antes de finalizar pode evitar retrabalhos e fortalecer a credibilidade técnica.",
+              "competencia": "Detalhismo"
+            },
+            {
+              "frase": "Pausar antes de reagir em situações de tensão pode transformar respostas automáticas em escolhas mais estratégicas e bem recebidas.",
+              "competencia": "Prudência"
+            }
+          ],
+          "lideranca_sintese": "Os dados de liderança de Carla não apontam para um estilo consolidado e predominante — o que, longe de ser uma limitação, pode indicar um momento de transição ou uma versatilidade que ainda está sendo reconhecida. Seu perfil comportamental sugere uma liderança de natureza executiva e diretiva: ela tende a liderar pelo exemplo da ação, pela clareza do que precisa ser feito e pela capacidade de tomar decisões sem se perder em debates prolongados. Equipes lideradas por ela provavelmente percebem um ritmo acelerado, alta exigência por resultados e pouca tolerância à paralisia.",
+          "lideranca_trabalhar": "Para ampliar sua eficácia como líder, Carla pode se beneficiar de desenvolver uma presença mais intencional no campo relacional — ouvir antes de concluir, reconhecer o esforço além do resultado e criar espaço para que outros liderem partes do processo. Líderes com seu perfil frequentemente ganham muito ao aprender a diferenciar quando ser diretiva é um ativo e quando isso pode estar sufocando o potencial do time.",
+          "relacoes_e_comunicacao": "No campo relacional, Carla tende a ser direta e eficiente — sua comunicação é orientada ao ponto, sem muitos rodeios, o que é apreciado por quem valoriza clareza. Em contextos profissionais, ela tende a construir relações com propósito e a investir mais em conexões funcionais do que em vínculos afetivos amplos. Isso pode ser lido como objetividade por uns e como frieza por outros, dependendo do estilo de quem está do outro lado.",
+          "pontos_desenvolver_pressao": [
+            "Tendência a acelerar decisões sem consultar as pessoas envolvidas, o que pode gerar resistência ou sensação de exclusão.",
+            "Possível redução da escuta ativa em situações de pressão, respondendo antes de compreender completamente o contexto.",
+            "Risco de comunicação mais incisiva do que o necessário, podendo ser percebida como agressiva ou impaciente.",
+            "Propensão a assumir o controle de situações que poderiam ser resolvidas colaborativamente, centralizando decisões sem intenção.",
+            "Dificuldade em aceitar ritmos diferentes dos seus, gerando impaciência explícita com pessoas mais reflexivas ou cautelosas.",
+            "Tendência a minimizar processos e procedimentos considerados lentos, o que pode comprometer a qualidade ou criar conflitos com áreas mais estruturadas."
+          ]
+        },
+        "report_generated_at": "2026-07-03T21:24:55.613+00:00"
+      }
     }
   }
 }

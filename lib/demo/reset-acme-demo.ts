@@ -217,6 +217,13 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
       const a = artifacts[p.email];
       if (!colabId || !a) continue;
       try {
+        // Relatório comportamental (DISC) — report_texts congelado → abre sem IA.
+        if (a.report?.report_texts) {
+          await sb.from('colaboradores').update({
+            report_texts: a.report.report_texts,
+            report_generated_at: a.report.report_generated_at || new Date().toISOString(),
+          }).eq('id', colabId);
+        }
         for (const r of a.respostas || []) {
           await sb.from('respostas').update({
             avaliacao_ia: r.avaliacao_ia, nivel_ia4: r.nivel_ia4, nota_ia4: r.nota_ia4,
@@ -231,6 +238,16 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
             return { ...rest, empresa_id: destId, colaborador_id: colabId };
           });
           await sb.from('descriptor_assessments').insert(rows);
+        }
+        // Trilha (jornada) congelada — conteúdo inline em temporada_plano.
+        if (a.trilha?.row) {
+          const ins = await sb.from('trilhas').insert({ ...a.trilha.row, empresa_id: destId, colaborador_id: colabId }).select('id').single();
+          if (ins.error) throw new Error(`trilha: ${ins.error.message}`);
+          const newTrilhaId = ins.data?.id;
+          if (newTrilhaId && a.trilha.progress?.length) {
+            const rows = a.trilha.progress.map((pr: any) => ({ ...pr, empresa_id: destId, colaborador_id: colabId, trilha_id: newTrilhaId }));
+            await sb.from('temporada_semana_progresso').insert(rows);
+          }
         }
       } catch (e: any) {
         console.warn(`[reset-demo] artifacts ${p.email}:`, e?.message);
