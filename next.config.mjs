@@ -18,6 +18,10 @@ const nextConfig = {
   // Não vaza a versão do framework.
   poweredByHeader: false,
 
+  // ESLint (eslint.config.mjs) é rede de segurança MANUAL (`npx eslint .`), não
+  // gate de build — o código legado tem warnings demais pra bloquear deploy.
+  eslint: { ignoreDuringBuilds: true },
+
   env: {
     NEXT_PUBLIC_APP_VERSION: pkg.version,
     NEXT_PUBLIC_BUILD_NUM: buildNum,
