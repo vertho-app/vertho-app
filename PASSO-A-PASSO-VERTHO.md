@@ -263,8 +263,8 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
   - Gera **4 notas por descritor**: pré, acumulada, cenário, final
   - `nota_cenario` isolada + `nota_pos` triangulada
 - **DISC** usado apenas no tom da devolutiva (não influencia nota)
-- **Arguição (defesa oral) — 2º instrumento, LIGADA só no PILOTO** (regular/DUO/onboarding OFF):
-  quando `arguicao.ativa` (por modo), a 4ª resposta ABRE uma conversa por turnos (a UI troca do
+- **Arguição (defesa oral) — 2º instrumento, LIGADA em TODOS os modos** (Piloto 4 turnos, Regular
+  DUO/single 8, Onboarding 6): a 4ª resposta ABRE uma conversa por turnos (a UI troca do
   wizard para modo CHAT). A IA sonda a resposta (critério, robustez sob variação, limite); ao
   encerrar, extrai `sustentou×forca` por descritor e **modula a nota** via mapa determinístico
   (±0,5 no CÓDIGO, `fusao-arguicao.ts`) — ordem: scorer → fusão → trava. Histórico persistido cru;

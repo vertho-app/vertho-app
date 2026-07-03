@@ -46,10 +46,11 @@ do scorer em `/api/temporada/evaluation`:
 
 ## Arguição — defesa oral (LIGADA no piloto)
 
-O piloto é o **testbed** da arguição (2º instrumento do fechamento): `PROGRAMA_PILOTO.arguicao =
-{ativa:true, maxTurnos:4}` em `programa-config.ts`. Regular/DUO/onboarding seguem **OFF** até
-validar aqui. Como o runtime resolve a config do piloto pela **constante de código** (o carimbo é
-só o rótulo `programa_modo`), ligar no código vale pra todas as trilhas piloto — sem migração.
+O piloto foi o **testbed** da arguição (2º instrumento do fechamento): `PROGRAMA_PILOTO.arguicao =
+{ativa:true, maxTurnos:4}` em `programa-config.ts`. Depois de validado, foi ligado em **todos os
+modos**: Regular DUO/single (maxTurnos 8) e Onboarding (6). Como o runtime resolve a config pela
+**constante de código** (o carimbo é só o rótulo `programa_modo`), ligar no código vale pra todas
+as trilhas do modo — sem migração.
 
 - Depois das 4 perguntas do Cenário B, a IA abre uma **defesa oral** por até 4 turnos (`arguicao.ts`),
   sonda a resposta e, ao encerrar, extrai evidências por descritor (`sustentou×forca`).

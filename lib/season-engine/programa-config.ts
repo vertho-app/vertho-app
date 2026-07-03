@@ -131,7 +131,9 @@ export const PROGRAMA_ONBOARDING: ProgramaConfig = Object.freeze({
   semanaParaCompetenciaIdx: { 2: 0, 3: 1, 5: 2, 6: 3, 8: 4 },
   // Missão 1 (sem 4) = Comps 0+1; Missão 2 (sem 7) = 0..3; Missão 3 (sem 9) = todas
   competenciasNaMissao: { 4: [0, 1], 7: [0, 1, 2, 3], 9: [-1] },
-  arguicao: { ativa: false, maxTurnos: 6 },
+  // Fase D+ (03/07): arguição LIGADA no onboarding (maxTurnos 6, janela mais
+  // curta pra recém-formados). Todos os modos agora ON.
+  arguicao: { ativa: true, maxTurnos: 6 },
 }) as ProgramaConfig;
 
 /**

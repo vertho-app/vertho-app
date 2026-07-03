@@ -1032,9 +1032,9 @@
 - **Consumido por**: `feedback.auditoria`.
 
 ### 6.14 Arguição — defesa oral do fechamento (2º instrumento)
-> `ATIVO` (LIGADO só no PILOTO; regular/DUO/onboarding OFF) · Fases A→D concluídas 03/07
+> `ATIVO` (LIGADO em TODOS os modos) · Fases A→D concluídas 03/07
 
-Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma **defesa oral** por turnos — sonda a resposta pra expor profundidade ou fragilidade que o texto não captura. Triangulação de método: o cenário escrito (resposta preparada) vs. a sustentação ao vivo. A conversa **modula a nota** (não soma) via regra de CÓDIGO. Gate por modo: `arguicao:{ativa,maxTurnos}` em `programa-config.ts` — piloto 4 turnos (ativo), regular/DUO 8, onboarding 6 (todos OFF).
+Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma **defesa oral** por turnos — sonda a resposta pra expor profundidade ou fragilidade que o texto não captura. Triangulação de método: o cenário escrito (resposta preparada) vs. a sustentação ao vivo. A conversa **modula a nota** (não soma) via regra de CÓDIGO. Gate por modo (`arguicao:{ativa,maxTurnos}` em `programa-config.ts`) — todos **LIGADOS**: Piloto 4 turnos, Regular DUO/single 8, Onboarding 6.
 
 **(a) Condução da arguição** — `lib/season-engine/arguicao.ts::buildArguicaoSystemPrompt` (via `abrirArguicao`/`turnoArguicao`)
 - **Caller**: `app/api/temporada/evaluation/route.ts` — `action:'send'` da 4ª resposta ABRE a arguição (quando `programaConfig.arguicao.ativa`); `action:'arguir'` conduz cada turno.
