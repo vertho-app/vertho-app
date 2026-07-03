@@ -54,6 +54,22 @@ describe('arguição — motor', () => {
     expect(r.estado.historico.filter(h => h.role === 'user').map(h => h.content)).toContain('Eu ligaria assim mesmo');
   });
 
+  it('payload à IA só tem {role, content} — sem `turn` (a API rejeita campos extras)', async () => {
+    const estado: ArguicaoEstado = {
+      historico: [
+        { role: 'user', content: '═══ CENÁRIO ═══' },
+        { role: 'assistant', content: 'q1', turn: 1 },
+      ],
+      turno: 1, concluida: false,
+    };
+    mockChat.mockResolvedValueOnce(reply('próxima?'));
+    await turnoArguicao(CTX, estado, 'minha defesa', 4);
+    const payload = mockChat.mock.calls[0][1] as any[];
+    for (const m of payload) {
+      expect(Object.keys(m).sort()).toEqual(['content', 'role']);
+    }
+  });
+
   it('encerra ao atingir maxTurnos (teto da config)', async () => {
     const estado: ArguicaoEstado = { historico: [], turno: 3, concluida: false };
     mockChat.mockResolvedValueOnce(reply('última'));

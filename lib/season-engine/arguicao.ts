@@ -168,10 +168,10 @@ function ctxParaIA(ctx: ArguicaoContexto, pii?: ArguicaoPII): ArguicaoContexto {
   };
 }
 
-/** Mascara o conteúdo do histórico só para o payload da IA. */
-function histParaIA(hist: ArguicaoMsg[], pii?: ArguicaoPII): ArguicaoMsg[] {
-  if (!pii) return hist;
-  return hist.map(m => ({ ...m, content: maskTextPII(m.content, pii.map) }));
+/** Projeta o histórico para o payload da IA: SÓ {role, content} (a API da
+ *  Anthropic rejeita campos extras como `turn`/`timestamp`) + masking em-voo. */
+function histParaIA(hist: ArguicaoMsg[], pii?: ArguicaoPII): Array<{ role: 'user' | 'assistant'; content: string }> {
+  return hist.map(m => ({ role: m.role, content: pii ? maskTextPII(m.content, pii.map) : m.content }));
 }
 
 const desmascarar = (texto: string, pii?: ArguicaoPII) => (pii ? unmaskPII(texto, pii.map) : texto);
