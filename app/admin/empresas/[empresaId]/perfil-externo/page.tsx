@@ -1,4 +1,5 @@
 'use client';
+import { toast } from 'sonner';
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
@@ -28,11 +29,10 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
   const [colabs, setColabs] = useState<ColaboradorPerfilExterno[]>([]);
   const [fonte, setFonte] = useState<string | null>(null);
   const [acao, setAcao] = useState<{ id: string; tipo: string } | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<{ colab: ColaboradorPerfilExterno; perfil: any } | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{ colab: ColaboradorPerfilExterno; url: string } | null>(null);
 
-  function flash(msg: string, ms = 3000) { setToast(msg); setTimeout(() => setToast(null), ms); }
+  function flash(msg: string, _ms?: number) { toast(msg); }
 
   const refresh = useCallback(async () => {
     const r = await listarPerfisExternos(empresaId);
@@ -122,7 +122,6 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
-      {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
 
       {/* Header */}
       <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}`)} />

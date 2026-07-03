@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
@@ -18,7 +19,6 @@ export default function VotacaoPage() {
   const [sugestao, setSugestao] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [toast, setToast] = useState('');
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const router = useRouter();
@@ -43,7 +43,7 @@ export default function VotacaoPage() {
     setSaved(false);
     setSelected(prev => {
       if (prev.includes(nome)) return prev.filter(n => n !== nome);
-      if (prev.length >= 5) { setToast(t('toast.max')); setTimeout(() => setToast(''), 2000); return prev; }
+      if (prev.length >= 5) { toast(t('toast.max')); return prev; }
       return [...prev, nome];
     });
   }
@@ -69,12 +69,12 @@ export default function VotacaoPage() {
   }
 
   async function handleSalvar() {
-    if (selected.length !== 5) { setToast(t('toast.exactly')); setTimeout(() => setToast(''), 2000); return; }
+    if (selected.length !== 5) { toast(t('toast.exactly')); return; }
     setSaving(true);
     const r = await salvarVoto(selected, sugestao);
     setSaving(false);
-    if (r.error) { setToast(r.error); setTimeout(() => setToast(''), 3000); }
-    else { setSaved(true); setToast(t('toast.saved')); setTimeout(() => router.push('/dashboard'), 1500); }
+    if (r.error) { toast.error(r.error); }
+    else { setSaved(true); toast.success(t('toast.saved')); setTimeout(() => router.push('/dashboard'), 1500); }
   }
 
   if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-brand-400" /></div>;
@@ -122,12 +122,6 @@ export default function VotacaoPage() {
 
   return (
     <div className="max-w-[640px] mx-auto px-5 py-6">
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-bold shadow-lg">
-          {toast}
-        </div>
-      )}
-
       <BackButton />
 
       <header className="mb-6">

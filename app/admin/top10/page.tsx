@@ -1,4 +1,5 @@
 'use client';
+import { toast } from 'sonner';
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -16,13 +17,12 @@ export default function Top10Page() {
   const [top10, setTop10] = useState([]);
   const [allComps, setAllComps] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState(null);
   const [filtroCargo, setFiltroCargo] = useState('');
   const [showAdd, setShowAdd] = useState(null); // cargo para adicionar
   const [addSearch, setAddSearch] = useState('');
   const [ia1Resultados, setIa1Resultados] = useState<Record<string, any>>({});
 
-  function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
+  function flash(msg) { toast(msg); }
 
   async function refresh() {
     if (!empresaId) return;
@@ -98,7 +98,6 @@ export default function Top10Page() {
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
-      {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
 
       <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}`)} />
       {/* Header */}

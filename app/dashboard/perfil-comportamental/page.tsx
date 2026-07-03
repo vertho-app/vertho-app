@@ -1,4 +1,5 @@
 'use client';
+import { toast } from 'sonner';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -413,11 +414,10 @@ export default function PerfilComportamentalPage() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [gerandoAudio, setGerandoAudio] = useState(false);
   const [enviandoWhats, setEnviandoWhats] = useState(false);
-  const [toast, setToast] = useState('');
   const router = useRouter();
   const supabase = getSupabase();
 
-  function flash(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
+  function flash(msg) { toast(msg); }
 
   async function handleOuvirDevolutiva() {
     setGerandoAudio(true);
@@ -615,9 +615,6 @@ export default function PerfilComportamentalPage() {
         ) : null}
       />
 
-      {toast && (
-        <div className="rounded-xl px-4 py-2.5 text-xs font-semibold text-white" style={{ background: 'rgba(13,148,136,0.85)' }}>{toast}</div>
-      )}
       {audioUrl && (
         <div className="rounded-2xl border border-purple-400/20 bg-purple-500/5 p-4 flex items-center gap-3">
           <Volume2 size={18} className="text-purple-300 shrink-0" />

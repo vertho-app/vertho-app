@@ -1,4 +1,5 @@
 'use client';
+import { toast } from 'sonner';
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -36,7 +37,6 @@ export default function AssessmentPage() {
   const [phase, setPhase] = useState(PHASE.LOADING);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
-  const [toast, setToast] = useState(null);
 
   const [pergIdx, setPergIdx] = useState(0); // 0..3
   const [respostas, setRespostas] = useState({ r1: '', r2: '', r3: '', r4: '' });
@@ -44,7 +44,7 @@ export default function AssessmentPage() {
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState(null);
 
-  function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 3000); }
+  function flash(msg) { toast.error(msg); }
 
   useEffect(() => {
     (async () => {
@@ -119,12 +119,6 @@ export default function AssessmentPage() {
 
   return (
     <div className="max-w-[640px] mx-auto px-5 py-6 space-y-4">
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-red-500/90 text-white text-sm font-bold shadow-lg">
-          {toast}
-        </div>
-      )}
-
       <BackButton />
 
       {/* Header com progresso */}

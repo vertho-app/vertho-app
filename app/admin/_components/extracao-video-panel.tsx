@@ -1,4 +1,5 @@
 'use client';
+import { toast } from 'sonner';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -43,7 +44,6 @@ export default function ExtracaoVideoPanel({
   const [base, setBase] = useState<any>(null);
   const [gerando, setGerando] = useState(false);
   const [modulosSync, setModulosSync] = useState<any[]>([]);
-  const [toast, setToast] = useState('');
   const [erroSync, setErroSync] = useState('');
   const [erroGeracao, setErroGeracao] = useState('');
 
@@ -102,7 +102,7 @@ export default function ExtracaoVideoPanel({
     return () => { vivo = false; };
   }, [alcance, escopoEmpresaId]);
 
-  function flash(m: string) { setToast(m); setTimeout(() => setToast(''), 4000); }
+  function flash(msg) { toast(msg); }
   function isYouTubeUrl(v: string) { return /(?:youtube\.com|youtu\.be)/i.test(v); }
   function direcionamentoAtual(): DirecionamentoExtracao | null {
     if (!pilarDirecionador && !competenciaDirecionadora && !competenciaBaseDirecionadora) return null;
@@ -301,7 +301,6 @@ export default function ExtracaoVideoPanel({
 
   return (
     <div>
-      {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
 
       {/* Síncrona (YouTube / .mp4) */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 mb-5">

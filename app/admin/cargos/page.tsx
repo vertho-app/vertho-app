@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Loader2, Briefcase, Check, Save, ChevronDown, AlertTriangle, Link2, X } from 'lucide-react';
@@ -20,7 +21,6 @@ export default function CargosPage() {
   const [loadingCargos, setLoadingCargos] = useState(false);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [top5Edits, setTop5Edits] = useState<Record<string, string[]>>({});
-  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -71,15 +71,13 @@ export default function CargosPage() {
     const r = await renomearTop10Cargo(empresaId, vinculandoCargo.deNome, vinculoTarget);
     setSalvandoVinculo(false);
     if (r.success) {
-      setToast(r.message);
-      setTimeout(() => setToast(null), 3000);
+      toast(r.message);
       setVinculandoCargo(null);
       setVinculoTarget('');
       // Recarrega lista
       handleSelectEmpresa(empresaId);
     } else {
-      setToast(t('messages.error', { error: r.error }));
-      setTimeout(() => setToast(null), 4000);
+      toast.error(t('messages.error', { error: r.error }));
     }
   }
 
@@ -88,11 +86,9 @@ export default function CargosPage() {
     const r = await salvarTop5(cargoId, top5Edits[cargoId] || []);
     setSaving(prev => ({ ...prev, [cargoId]: false }));
     if (r.success) {
-      setToast(t('messages.top5Saved'));
-      setTimeout(() => setToast(null), 2000);
+      toast.success(t('messages.top5Saved'));
     } else {
-      setToast(t('messages.error', { error: r.error }));
-      setTimeout(() => setToast(null), 3000);
+      toast.error(t('messages.error', { error: r.error }));
     }
   }
 
@@ -128,12 +124,6 @@ export default function CargosPage() {
       )}
 
       {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">
-          {toast}
-        </div>
-      )}
-
       {/* Loading */}
       {loadingCargos && (
         <div className="flex items-center justify-center py-12">

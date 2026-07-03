@@ -1,4 +1,5 @@
 'use client';
+import { toast } from 'sonner';
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -27,7 +28,6 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
     ['top10', 'top5', 'gabarito', 'cenarios'].includes(initialTab || '') ? (initialTab as string) : 'top10'
   );
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState(null);
 
   // Top10
   const [top10, setTop10] = useState([]);
@@ -54,7 +54,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
     setSelectedCen(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
 
-  function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
+  function flash(msg) { toast(msg); }
 
   // Regenera (+ re-checa) um conjunto de cenários de um cargo, em lote.
   async function regenerarLote(cargo: string, lista: any[]) {
@@ -151,7 +151,6 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
-      {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
 
       {/* Header */}
       <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}`)} />

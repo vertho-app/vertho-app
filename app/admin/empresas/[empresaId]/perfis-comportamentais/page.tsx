@@ -1,4 +1,5 @@
 'use client';
+import { toast } from 'sonner';
 
 import { useState, useEffect, useMemo, use } from 'react';
 import { useRouter } from 'next/navigation';
@@ -32,9 +33,8 @@ export default function PerfisComportamentaisPage({ params }: { params: Promise<
   const [gerandoAudio, setGerandoAudio] = useState<string | null>(null);
   const [enviandoWhats, setEnviandoWhats] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
 
-  function flash(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
+  function flash(msg) { toast(msg); }
 
   async function handleOuvir(colabId: string) {
     setGerandoAudio(colabId);
@@ -95,7 +95,6 @@ export default function PerfisComportamentaisPage({ params }: { params: Promise<
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
-      {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
 
       {/* Header */}
       <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}`)} />

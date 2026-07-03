@@ -1,4 +1,5 @@
 'use client';
+import { toast } from 'sonner';
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -143,7 +144,6 @@ export default function FitPage() {
   const [distribuicao, setDistribuicao] = useState({});
   const [loadingRanking, setLoadingRanking] = useState(false);
   const [calculating, setCalculating] = useState(false);
-  const [toast, setToast] = useState(null);
   const [sortBy, setSortBy] = useState('fit'); // fit|nome|mapeamento|competencias|lideranca|disc|classificacao
   const [sortDir, setSortDir] = useState('desc');
   const [detailColab, setDetailColab] = useState(null);
@@ -153,7 +153,7 @@ export default function FitPage() {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [comIA, setComIA] = useState(true);
 
-  function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 3000); }
+  function flash(msg) { toast(msg); }
 
   // Gera o PDF de Adequação ao Cargo (relatório imprimível do ranking atual).
   async function handleGerarPdfAderencia() {
@@ -254,7 +254,6 @@ export default function FitPage() {
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
-      {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
 
       <BackButton />
       {/* Header */}
