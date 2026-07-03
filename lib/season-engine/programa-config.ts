@@ -203,7 +203,9 @@ export const PROGRAMA_PILOTO: ProgramaConfig = Object.freeze({
   numCompetencias: 1,
   conteudosPorSemana: 2,
   semanaEspelhoCalendario: { 3: 2 },
-  arguicao: { ativa: false, maxTurnos: 4 },
+  // Fase D (03/07): arguição LIGADA no piloto — testbed de degustação (2 sem).
+  // Regular/DUO/onboarding seguem OFF até validar aqui. 4 turnos (janela curta).
+  arguicao: { ativa: true, maxTurnos: 4 },
 }) as ProgramaConfig;
 
 /**
