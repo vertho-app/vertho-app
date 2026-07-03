@@ -11,6 +11,7 @@ import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { parseJsonIA } from '@/lib/ai-json';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { PROGRESSO } from '@/lib/status';
 
@@ -26,6 +27,28 @@ import { PROGRESSO } from '@/lib/status';
  * `getProgramaConfig` — em Modo Onboarding a acumulada é embutida nas
  * missões e o cenário B fica na sem 10.
  */
+/** Monta o contexto da arguição a partir do estado do fechamento na rota:
+ *  agrega as 4 respostas do cenário como a "tese" a ser defendida. */
+function montarCtxArguicao(opts: {
+  cenario: string; perguntas: any[]; historico: any[];
+  colab: any; competenciasLabel: string; descritores: any[]; isPiloto: boolean;
+}): ArguicaoContexto {
+  const respostasUser = opts.historico.filter((m: any) => m.role === 'user');
+  const respostaCenario = opts.perguntas.map((p: any, i: number) =>
+    `[${p.dimensao}] ${p.texto}\n\u2192 ${respostasUser[i]?.content || '(sem resposta)'}`
+  ).join('\n\n');
+  return {
+    nomeColab: (opts.colab?.nome_completo || '').split(' ')[0] || 'voc\u00ea',
+    cargo: opts.colab?.cargo,
+    competencia: opts.competenciasLabel,
+    perfilDominante: opts.colab?.perfil_dominante,
+    cenario: opts.cenario,
+    respostaCenario,
+    descritores: opts.descritores,
+    isPiloto: opts.isPiloto,
+  };
+}
+
 export async function POST(request) {
   try {
     const csrf = csrfCheck(request);
@@ -38,7 +61,7 @@ export async function POST(request) {
     if (limited) return limited;
 
     const body = await request.json();
-    const { trilhaId, semana, message, action = 'send', colaboradorId: colabBody } = body;
+    const { trilhaId, semana, message, action = 'send', colaboradorId: colabBody, aiConfig = {} } = body;
     if (!trilhaId || !semana) return NextResponse.json({ error: 'trilhaId+semana' }, { status: 400 });
 
     const sb = createSupabaseAdmin();
@@ -215,6 +238,23 @@ export async function POST(request) {
         return NextResponse.json({ cenario, cenario_b_id, perguntas, history: historico, finished: false });
       }
 
+      // action === 'arguir': turno da ARGUIÇÃO (defesa oral) — só quando ligada.
+      // Fase A: conduz a conversa e persiste em feedback.arguicao; NÃO pontua
+      // (a fusão da nota é Fase B). Gate off (default) = branch nunca entra.
+      if (action === 'arguir') {
+        if (!programaConfig.arguicao?.ativa) return NextResponse.json({ error: 'arguição desativada' }, { status: 400 });
+        if (!message) return NextResponse.json({ error: 'message obrigatório' }, { status: 400 });
+        const estadoArg = dados.arguicao as ArguicaoEstado | undefined;
+        if (!estadoArg || estadoArg.concluida) return NextResponse.json({ error: 'arguição não está em andamento' }, { status: 400 });
+        const ctxArg = montarCtxArguicao({ cenario: dados.cenario, perguntas: dados.perguntas || [], historico, colab, competenciasLabel, descritores, isPiloto: programaConfig.modo === 'piloto' });
+        const { estado, reply, concluida } = await turnoArguicao(ctxArg, estadoArg, message, programaConfig.arguicao.maxTurnos, aiConfig);
+        const arguicao: any = estado;
+        if (concluida) arguicao.extracao = await extrairEvidenciasArguicao(ctxArg, estado, aiConfig);
+        const novoSlot = { ...dados, arguicao };
+        await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: false });
+        return NextResponse.json({ arguindo: !concluida, arguicaoConcluida: concluida, message: reply, turno: estado.turno, finished: false });
+      }
+
       // action === 'send': colab respondeu. Pode ser pergunta 1-3 (faz próxima) ou pergunta 4 (scorer).
       if (!message) return NextResponse.json({ error: 'message obrigatório' }, { status: 400 });
       const cenario = dados.cenario;
@@ -233,6 +273,17 @@ export async function POST(request) {
         const novoSlot = { ...dados, transcript_completo: historico, cenario, perguntas };
         await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: false });
         return NextResponse.json({ message: msgIA, history: historico, finished: false, dimensao: proxima.dimensao });
+      }
+
+      // Respondeu à última pergunta. Se a ARGUIÇÃO está ligada, abre a defesa
+      // oral ANTES de pontuar (Fase A: só a conversa; a fusão é Fase B). Gate
+      // off (default) → cai direto no scorer, fechamento atual byte-igual.
+      if (programaConfig.arguicao?.ativa && !dados.arguicao) {
+        const ctxArg = montarCtxArguicao({ cenario, perguntas, historico, colab, competenciasLabel, descritores, isPiloto: programaConfig.modo === 'piloto' });
+        const { estado, reply } = await abrirArguicao(ctxArg, programaConfig.arguicao.maxTurnos, aiConfig);
+        const novoSlot = { ...dados, transcript_completo: historico, cenario, perguntas, arguicao: estado };
+        await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: false });
+        return NextResponse.json({ arguindo: true, message: reply, turno: 1, finished: false });
       }
 
       // Colab respondeu à última pergunta → scorer

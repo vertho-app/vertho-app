@@ -64,6 +64,14 @@ export interface ProgramaConfig {
    * undefined (todos os outros modos) = calendário vanilla, zero mudança.
    */
   semanaEspelhoCalendario?: Record<number, number>;
+  /**
+   * Arguição conversacional no fechamento (a "defesa oral" da resposta ao
+   * Cenário B). Depois das 4 perguntas fixas, a IA sonda a resposta por até
+   * `maxTurnos` turnos — expõe profundidade ou fragilidade que o escrito não
+   * captura. `ativa:false` (ou undefined) = fechamento SEM arguição, byte-igual
+   * ao atual. Fusão da nota (Fase B) e UI (Fase C) vêm depois; aqui só o motor.
+   */
+  arguicao?: { ativa: boolean; maxTurnos: number };
 }
 
 /**
@@ -83,6 +91,7 @@ export const PROGRAMA_REGULAR: ProgramaConfig = Object.freeze({
   complexidadeMap: { 4: 'simples', 8: 'intermediario', 12: 'completo' },
   nivelMetaAlvo: 3,
   numCompetencias: 1,
+  arguicao: { ativa: false, maxTurnos: 8 },
 }) as ProgramaConfig;
 
 /**
@@ -121,6 +130,7 @@ export const PROGRAMA_ONBOARDING: ProgramaConfig = Object.freeze({
   semanaParaCompetenciaIdx: { 2: 0, 3: 1, 5: 2, 6: 3, 8: 4 },
   // Missão 1 (sem 4) = Comps 0+1; Missão 2 (sem 7) = 0..3; Missão 3 (sem 9) = todas
   competenciasNaMissao: { 4: [0, 1], 7: [0, 1, 2, 3], 9: [-1] },
+  arguicao: { ativa: false, maxTurnos: 6 },
 }) as ProgramaConfig;
 
 /**
@@ -158,6 +168,7 @@ export const PROGRAMA_REGULAR_DUO: ProgramaConfig = Object.freeze({
   // SEM semanaParaCompetenciaIdx: a competência de cada semana de conteúdo
   // vem do descritor (selectDescriptorsDuo grava .competencia). O mapa
   // semana→comp é exclusivo do onboarding (espiral raso).
+  arguicao: { ativa: false, maxTurnos: 8 },
 }) as ProgramaConfig;
 
 /**
@@ -192,6 +203,7 @@ export const PROGRAMA_PILOTO: ProgramaConfig = Object.freeze({
   numCompetencias: 1,
   conteudosPorSemana: 2,
   semanaEspelhoCalendario: { 3: 2 },
+  arguicao: { ativa: false, maxTurnos: 4 },
 }) as ProgramaConfig;
 
 /**
