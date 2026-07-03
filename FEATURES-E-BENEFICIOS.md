@@ -1,7 +1,7 @@
 # Vertho — Features e Benefícios
 
 > Inventário das features em produção (Mentor IA + Pulso de Desenvolvimento + Radar) com o benefício correspondente para o cliente. Base para o site, materiais comerciais e ajuste de comunicação.
-> Última atualização: 01/06/2026 — HEAD `f1fb87c`.
+> Última atualização: 02/07/2026 — HEAD `b66aa1f`.
 
 ---
 
@@ -11,9 +11,10 @@ A Vertho é uma plataforma SaaS B2B que **transforma diagnóstico de competênci
 
 Produtos vivos voltados ao cliente:
 
-- **Mentor IA** (principal) — Diagnóstico, plano de desenvolvimento individual e trilha guiada, multi-tenant por empresa. Dois modos de uso:
+- **Mentor IA** (principal) — Diagnóstico, plano de desenvolvimento individual e trilha guiada, multi-tenant por empresa. Três modos de uso (configuráveis **por empresa e por colaborador** — dá pra misturar no mesmo tenant):
   - **Programa Regular (DUO)** — 14 semanas desenvolvendo 2 competências em paralelo, em profundidade (nível-meta 3 / proficiência). É o modo default. *(Single-comp segue disponível como configuração pontual.)*
   - **Vertho Onboarding** — 10 semanas em espiral cobrindo 5 competências (nível-meta 2 / autonomia supervisionada), para profissionais recém-formados.
+  - **Modo Piloto** — degustação de 2 semanas com 1 competência e fechamento completo (cenário + avaliação IA), para o lead experimentar a jornada inteira antes de fechar. Não mede evolução — demonstra o método.
 - **Pulso de Desenvolvimento** *(mai/2026)* — Instrumento leve T0/T2 para entender se o ambiente favorece ou bloqueia o desenvolvimento. Dashboard agregado com guard de anonimato (n≥7), Dual-IA classifica respostas abertas em 12 temas, PDFs executivo + complementar NR-1.
 - **Radar Vertho** ([radar.vertho.ai](https://radar.vertho.ai)) — Inteligência pública nacional sobre escolas, municípios, redes e estados (Saeb, Ideb, ENEM, Censo, FUNDEB) com narrativa por IA.
 
@@ -77,6 +78,7 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 | **Top 10 + Top 5 + Gabarito** | IA1 sugere top 10 por cargo (com aderência cargo/mercado + motivo), RH escolhe top 5, gera gabarito | Curadoria assistida — IA prepara, RH valida. |
 | **Votação define o cenário** | A competência aprovada na votação dos colaboradores entra direto na geração de cenário — mesmo que não estivesse no Top 10 do IA | A voz da equipe vira avaliação de verdade, sem ficar presa a um pré-filtro. |
 | **Banco de Cenários** | IA3 gera cenários situacionais + checagem por 2ª IA | Cenários realistas, validados, sem RH inventar caso a caso. |
+| **Prontidão do piloto** | Check pré-liberação em `/admin/temporadas`: por colaborador em modo piloto, valida formato-core dos top-4 descritores e Cenário B do cargo — bloqueadores explícitos, opcionais degradam | Nenhum lead começa a degustação com semana vazia ou fechamento quebrado. |
 | **Cenários por escola (PPP local)** | Em redes com várias unidades, gera **um cenário por escola** — cada um ancorado no PPP/realidade daquela instituição. O colaborador é avaliado no cenário da SUA escola (fallback para um cenário de rede quando a escola não tem PPP) | Avaliação hiper-contextualizada: o gestor de uma escola quilombola/EJA responde a um caso da realidade dele, não a um genérico — sem a rede inteira herdar o contexto de uma escola só. |
 | **Envios em massa (WhatsApp + Email)** | Z-API + Resend + QStash (delay incremental 2s), com filtros (cargo · votação · perfil DISC), anexo PDF, anexo arbitrário, preview e variáveis dinâmicas | Campanha de engajamento em escala, com tracking — sem listinha de WhatsApp manual. |
 | **Magic Links em lote** | Envia link de acesso direto (24h) por WhatsApp para um filtro de colaboradores | Onboarding sem fricção — recebe link, abre, está dentro. |
@@ -89,6 +91,7 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 | **Branding completo** | Logo + 7 cores + cor da fonte + subtítulo de login + esconder elementos + renomear labels (`ui_config` JSONB) | Plataforma "veste" a empresa cliente, do login ao dashboard. |
 | **Vincular ao Vercel** | Botão no painel pra registrar o subdomínio no Vercel (lib/vercel-domain.ts) | Operação técnica em 1 clique — sem ticket pra time de TI. |
 | **Configuração por tenant** | `sys_config` JSONB: modelo de IA preferido, cadência, parâmetros de envio | Cada empresa ajusta o programa ao seu ritmo. |
+| **Programa por colaborador** | Select em Configurações → Equipe: cada pessoa pode ter modo próprio (Regular DUO/single, Onboarding, Piloto) com herança do default da empresa; a trilha gerada carrega o **carimbo** do modo — trocar o default não afeta trilha em andamento | Novatos em onboarding, veteranos no regular e um lead em piloto — no MESMO tenant, sem empresa paralela. |
 
 ### 3.3 Relatórios e analytics
 | Feature | O que é | Benefício |
@@ -129,9 +132,9 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 
 ---
 
-## 5. Vertho Onboarding — Caso de uso para recém-formados
+## 5. Modos de programa — Vertho Onboarding e Modo Piloto
 
-> Mesmo motor do Mentor IA configurado para acelerar profissionais em fase inicial de carreira. Não é produto separado: é um *modo* da plataforma, ativável por empresa. Beta privado em 3-4 escolas que pediram a feature no Bett Brasil 2026 (foco: professor recém-formado).
+> Mesmo motor do Mentor IA em configurações diferentes. Não são produtos separados: são *modos* da plataforma, ativáveis por empresa **ou por colaborador** (mistura no mesmo tenant). Onboarding: beta privado em 3-4 escolas que pediram a feature no Bett Brasil 2026 (foco: professor recém-formado). Piloto: validado E2E em produção (jul/2026).
 
 ### 5.1 Como difere do programa Regular
 
@@ -157,7 +160,7 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 | **Papel "Tutor"** | Subset do papel Gestor: escopo restrito a `tutorados_ids` (não a uma equipe inteira por área). Dashboard mostra "Meus tutorados" | Professor sênior ou coordenador pedagógico acompanha 3-5 colegas em onboarding, sem ver dados de outras pessoas. |
 | **Push WhatsApp ao tutor nas sems 4 e 7** | Após cada missão integradora cumulativa, tutor recebe automaticamente: nome do tutorado, semana, competências cobertas e 3 perguntas de pauta sugerida pro check-in | Tutor não precisa lembrar quando agendar conversa — sistema avisa com pauta pronta. |
 | **Plenária do Onboarding (PDF)** | Mesmo motor da Plenária do Gestor, refatorado para aceitar título e responsável customizáveis. Pode ser entregue pelo Tutor ou RH | Documento consolidado da turma de recém-formados ao fim das 10 semanas. |
-| **Toggle por empresa** | Admin liga/desliga via tab "Programa" em configurações; `sys_config.programa_modo` controla. Top 5 default vem de `competencias_onboarding` ou top 5 do cargo no IA1 | Mesma plataforma, dois usos — escola escolhe se quer onboarding ou desenvolvimento de cargo regular. |
+| **Toggle por empresa E por colaborador** | Admin define o default via tab "Programa" (`sys_config.programa_modo`) e pode sobrescrever por pessoa em Configurações → Equipe (`colaboradores.programa_modo`). Top 5 default vem de `competencias_onboarding` ou top 5 do cargo no IA1 | Mesma plataforma, vários usos ao mesmo tempo — novatos em onboarding sem tirar os veteranos do regular. |
 
 ### 5.3 Mensagens-chave do Onboarding (síntese pra copy)
 
@@ -166,6 +169,20 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 3. **"O tutor recebe pauta pronta — não precisa adivinhar o que perguntar."**
 4. **"Nível-meta calibrado pra quem está começando: autonomia supervisionada, não excelência sênior."**
 5. **"Sem produto separado: é a mesma plataforma de desenvolvimento, em modo recém-formado."**
+
+### 5.4 Modo Piloto — degustação de 2 semanas (lead → cliente)
+
+> O lead vive a jornada **completa** em 2 semanas: diagnóstico integral (DISC, mapeamento de competências, DNA, Fit), conteúdo personalizado e fechamento com cenário + avaliação por dupla IA. O objetivo é demonstrar o MÉTODO, não a evolução — 2 semanas não medem desenvolvimento, e o produto é honesto quanto a isso. Doc técnico: `docs/MODO-PILOTO.md`.
+
+| Feature | O que é | Benefício |
+|---|---|---|
+| **Trilha de 2 semanas, 4 conteúdos** | 2 conteúdos/semana, cada um sobre 1 descritor distinto (top-4 por gap do diagnóstico), resolvidos pelo mesmo motor de conteúdo (formato-core + switch de formatos) | O lead experimenta exatamente o produto real — nada de demo maquiada. |
+| **Fechamento completo antecipado** | Cenário situacional do cargo + wizard de 4 perguntas + scorer com auditoria por 2ª IA. Libera assim que os 2 conteúdos da semana 2 concluem — sem esperar "semana 3" de calendário | Em 2 semanas o lead vê a peça mais impressionante do produto: a avaliação por IA. |
+| **Trava de piso (honestidade estrutural)** | A nota exibida no fechamento nunca fica abaixo do baseline do diagnóstico; a nota bruta fica preservada no snapshot com `spec_version` própria (`piloto-v1`), inconfundível com uma avaliação real | A degustação nunca "rebaixa" o lead por falta de tempo de jornada — e o dado bruto continua auditável. |
+| **Relatório sem falso delta** | Tela e PDF de conclusão em variante própria: competência como PONTO DE PARTIDA + fechamento como demonstração — zero "antes→depois" | Nenhuma promessa de evolução que 2 semanas não sustentam — credibilidade na venda. |
+| **Conversão sem re-trabalho** | Fechou? Troca o modo do colaborador e regenera a temporada: o diagnóstico inteiro é reaproveitado na trilha completa | O investimento do lead na degustação vira o ponto de partida do programa real. |
+
+**Mensagens-chave:** *"Experimente a jornada inteira em 2 semanas."* · *"O fechamento demonstra o método — não infla resultado."* · *"O diagnóstico da degustação já é o do programa completo."*
 
 ---
 

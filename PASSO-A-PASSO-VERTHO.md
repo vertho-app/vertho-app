@@ -134,6 +134,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 **Admin** · `/admin/empresas/{id}` → **Fase 3 · Temporadas · Gerar Temporadas**
 - Roda lote para todos os colabs da empresa
 - Para cada colab:
+  0. **Resolve o modo do programa** (`resolverModoColab`): `colaboradores.programa_modo` (override individual, Configurações → Equipe) → `sys_config.programa_modo` (default da empresa) → Regular DUO. O rótulo resolvido é **carimbado** em `trilhas.programa_modo` — o runtime da trilha lê do carimbo (trocar o default depois não afeta trilha em andamento). Modo `piloto` desvia pro fluxo próprio (ver "Fluxo alternativo: Modo Piloto" abaixo)
   1. Busca as competências da trilha (passo 12) — 2 no default DUO, 1 no `regular_single`
   2. Busca descritores cadastrados (passo 13) — assessment por competência
   3. **Seleção de descritores nos 9 slots** (sem 1-3, 5-7, 9-11), por gap decrescente, 2 semanas se nota<=1.5:
@@ -151,6 +152,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 **Admin** · `/admin/temporadas?empresa={id}`
 - Ver cada colab: plano de 14 semanas, descritores selecionados, status
 - **Ações por temporada**: Pausar / Retomar / Arquivar / Regerar semana
+- **Prontidão piloto**: botão no header valida, por colaborador em modo piloto, formato-core dos top-4 descritores (bloqueador se nenhum conteúdo utilizável) e Cenário B do cargo (bloqueador do fechamento) — rodar ANTES de liberar a degustação
 - **Detalhe**: abre modal com transcripts completos, insights, avaliações IA
 - **Simulador**: botão "SIM" roda simulação completa (1 semana/chamada, 4 perfis, Haiku, barra de progresso)
 
@@ -330,6 +332,20 @@ Todos com back button context-aware.
 - Arquivar temporadas concluídas (liberam a trilha do colab para nova competência foco)
 - `numero_temporada` não infla em regeneração
 - Voltar ao passo 12 (nova competência foco) e repetir o ciclo
+
+---
+
+## Fluxo alternativo: Modo Piloto (degustação de 2 semanas)
+
+> `programa_modo='piloto'` (por colaborador ou empresa). O lead roda a jornada INTEIRA em 2 semanas — o fechamento demonstra o método, não mede evolução. Doc canônico: `docs/MODO-PILOTO.md`.
+
+1. **Marcar o colaborador**: Configurações → Equipe → select "Piloto" (ou default da empresa na tab Programa)
+2. **Prontidão**: `/admin/temporadas` → "Prontidão piloto" → resolver bloqueadores (conteúdo core dos top-4 descritores; Cenário B do cargo — gerar na Fase 4 do pipeline "Cenários B + Check")
+3. **Gerar temporada** (mesmo botão do passo 16): 1 competência âncora, top-4 descritores por gap, 2 conteúdos/semana (sems 1-2), fechamento no slot 3 com **calendário espelhado na sem 2**
+4. **Colaborador**: diagnóstico completo inalterado (DISC/mapeamento/DNA/Fit) → sems 1-2 com 2 conteúdos + reflexão socrática cada (a IA cobra os DOIS desafios) → ao concluir a sem 2, a acumulada single-comp roda automática em background
+5. **Fechamento** (libera assim que a sem 2 conclui, sem esperar dia 14): wizard Cenário B (4 perguntas) → scorer com **trava de piso** (`nota_pos = max(bruto, baseline)`, bruto + `piso_aplicado` preservados, `spec_version='piloto-v1'`) → auditoria 2ª IA → Evolution Report variante piloto
+6. **Relatório**: tela/PDF SEM delta antes→depois — competência como ponto de partida, fechamento como demonstração da avaliação
+7. **Conversão**: fechou → trocar o modo do colaborador → regerar temporada (diagnóstico é reaproveitado; o plano piloto é sobrescrito na mesma trilha)
 
 ---
 

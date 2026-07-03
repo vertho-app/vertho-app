@@ -1,6 +1,6 @@
 # Catálogo de Prompts da IA — Vertho Mentor IA
 
-> Revisão: 2026-06-15 | Total: 65 prompts catalogados (48 ativos + 3 wrappers/reusos + 3 legados + 5 auxiliares + demais appendix/mistos)
+> Revisão: 2026-07-02 | Total: 65 prompts catalogados (48 ativos + 3 wrappers/reusos + 3 legados + 5 auxiliares + demais appendix/mistos)
 >
 > Roteador universal: `actions/ai-client.ts` (`callAI` single-turn + `callAIChat` multi-turn). Default = `claude-sonnet-4-6`.
 > Prompt caching automático: `system` > 4000 chars → `cache_control: ephemeral`.
@@ -743,6 +743,8 @@
 
 ## Motor de Temporadas (14 semanas)
 
+> **Modos** (02/07/2026): a mesma cadeia de prompts serve Regular DUO/single (14 sem), Onboarding (10 sem) e **Piloto** (2 sem + fechamento — `docs/MODO-PILOTO.md`). As semanas de acumulada/fechamento vêm do **carimbo da trilha** (`trilhas.programa_modo`, mig 154), não mais do sys_config vivo. Os prompts 6.12/6.13 são parametrizados por `semanaFinal`/`semanasEvidencia` (defaults 14/13 = regular byte-idêntico).
+
 ### 6.1 Prompt Desafio Semanal (conteúdo)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
@@ -944,11 +946,11 @@
 - **Output**: JSON `{ evolucao_percebida[{descritor, antes, depois, nivel_percebido:1.0-4.0, forca_evidencia, confianca:0.0-1.0, evidencia, citacoes_literais[], limites_da_leitura[]}], insight_geral, maior_avanco, ponto_atencao, microcaso_resposta_qualidade:"alta|media|baixa", microcaso_justificativa, consciencia_do_gap:"alta|media|baixa", dificuldades_persistentes[], ganhos_qualitativos[], alertas_metodologicos[], limites_gerais_da_conversa[] }`. Validacao: `validateEvolutionExtract`.
 - **Consumido por**: Merge em `reflexao` da sem 13.
 
-### 6.10 Avaliação Acumulada (IA1 fim sem 13)
+### 6.10 Avaliação Acumulada (IA1 — fim sem 13 no regular; fim sem 2 no piloto)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/acumulado.ts::promptAvaliacaoAcumulada`
-- **Caller**: `actions/avaliacao-acumulada.ts::gerarAvaliacaoAcumulada` (disparado automaticamente fim sem 13)
+- **Caller**: `actions/avaliacao-acumulada.ts::gerarAvaliacaoAcumulada(trilhaId, internal?)` — auto-trigger no fim da sem 13 (rota `/evaluation`, regular) e no fim da sem 2 (rota `/reflection`, **piloto**). Ambos com `internal=true` (sessão é do colab) e dentro de **`after()`** — a IIFE solta morria no freeze pós-response da Vercel (fix 02/07, `7fcbe88`+`dc0ffe2`). Caller admin (tela auditoria) e simulador mantêm o gate.
 - **Max tokens**: 8000
 - **PII masking**: Sim — nome do colab vira alias, evidências passam pelo sanitizador.
 - **System prompt** (resumo editorial do prompt real em `acumulado.ts`):
@@ -962,7 +964,7 @@
   7. Nao infira alem dos registros
 - **Inputs user**: Competencia, nome colab, regua completa N1-N4 por descritor, evidencias agregadas das 13 semanas.
 - **Output**: JSON `{ avaliacao_acumulada[{descritor, nota_acumulada:1.0-4.0|null, nivel_rubrica:"lacuna|em_desenvolvimento|meta|referencia|sem_evidencia", quantidade_referencias, tendencia:"subindo|estavel|oscilando|descendo|sem_evidencia", forca_do_padrao:"fraca|moderada|forte", justificativa, trechos_sustentadores[], limites_da_base[]}], nota_media_acumulada, resumo_geral, descritores_mais_consistentes[], descritores_mais_frageis[], alertas_metodologicos[] }`. Validacao: `validateAvaliacaoAcumulada`.
-- **Consumido por**: `temporada_semana_progresso.feedback.acumulado.primaria` (sem 13).
+- **Consumido por**: `temporada_semana_progresso.feedback.acumulado.primaria` (na semana `programaConfig.semanaAcumulada` — 13 regular, 2 piloto). No piloto, a evidência de semana de conteúdo cobre TODOS os `descritores_cobertos` (2 entregas/semana; flag `evidenciaPorCobertos`).
 
 ### 6.11 Avaliação Acumulada Check (IA2)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
@@ -986,7 +988,9 @@
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/evolution-scenario.ts::promptEvolutionScenarioScore`
-- **Caller**: `app/api/temporada/evaluation/route.ts` (sem=14), `app/admin/vertho/auditoria-sem14/actions.ts::regerarScoringComFeedback`
+- **Caller**: `app/api/temporada/evaluation/route.ts` (sem = `semanaCenarioB` da config: 14 regular · 10 onboarding · **3 piloto**), `app/admin/vertho/auditoria-sem14/actions.ts::regerarScoringComFeedback`
+- **Params de régua temporal** (02/07): `semanaFinal`/`semanasEvidencia` (defaults 14/13 = regular byte-idêntico) + `notaPrograma` (piloto injeta contexto: "demonstra o método, NÃO mede evolução; janela curta não é falha do colaborador")
+- **Pós-processamento piloto-only**: após `validateEvolutionScenarioScore`, o branch piloto aplica `aplicarTravaPiloto` (lib/season-engine/piloto-trava.ts): `nota_pos = max(bruto, baseline)`, `nota_pos_bruto`+`piso_aplicado` preservados, `spec_version='piloto-v1'` no snapshot — o prompt e o output dos demais modos ficam intocados
 - **Max tokens**: 10000
 - **PII masking**: Sim (nome do colab, resposta, evidências).
 - **System prompt** (resumo editorial do prompt real em `evolution-scenario.ts`):
@@ -1005,12 +1009,13 @@
   REGRAS DURAS: 4.0 so se acumulado E cenario sustentarem; Acumulado N1-2 -> nota_pos <=2.5; Acumulado N3 consistente (3+ semanas) -> nota_pos >=2.5
 - **Inputs user**: Competencia, cenario, resposta do colab, regua com nota_atual por descritor, avaliacao acumulada primaria (se houver), evidencias das 13 semanas.
 - **Output**: JSON `{ avaliacao_por_descritor[{descritor, nota_pre, nota_acumulada, nota_cenario, nota_pos, delta, classificacao:"evoluiu|manteve|regrediu", nivel_rubrica, consistencia_com_acumulado:"consistente|divergente_cenario_superior|divergente_cenario_inferior|sem_evidencia_acumulada", justificativa, trecho_cenario, evidencia_acumulada, limites_da_leitura[]}], nota_media_pre, nota_media_acumulada, nota_media_cenario, nota_media_pos, delta_medio, resumo_avaliacao:{mensagem_geral, evidencias_citadas[], principal_avanco, principal_ponto_de_atencao}, alertas_metodologicos[] }`. Validacao: `validateEvolutionScenarioScore`.
-- **Consumido por**: `temporada_semana_progresso.feedback` (sem 14) + Evolution Report.
+- **Consumido por**: `temporada_semana_progresso.feedback` (semana do fechamento) + Evolution Report (`gerarEvolutionReport(trilhaId, internal?)` — variante piloto SEM delta/convergência; report automático da rota usa `internal=true`).
 
 ### 6.13 Evolution Scenario Check (audit sem 14)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/evolution-scenario-check.ts::promptEvolutionScenarioCheck`
+- **Params de régua temporal** (02/07): `semanaFinal`/`semanasEvidencia` (defaults 14/13 = regular byte-idêntico; piloto = 3/2)
 - **Max tokens**: 8000
 - **System prompt** (resumo editorial do prompt real em `evolution-scenario-check.ts`):
   Voce e um auditor de qualidade da avaliacao final da semana 14 da Vertho. Audita se a avaliacao final triangulada por descritor esta metodologicamente DEFENSAVEL. Nao refaz a avaliacao; verifica se a leitura final se sustenta com base em regua, nota pre, avaliacao acumulada, resposta ao cenario, evidencias das 13 semanas e consistencia interna da triangulacao. Principios-chave:
