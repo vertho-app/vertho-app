@@ -4,10 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Loader2, Trophy, Trash2, Plus, X, ChevronDown, Filter } from 'lucide-react';
-import { loadTop10TodosCargos, adicionarTop10, removerTop10 } from '@/actions/fase1';
+import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadIa1ResultadosCargos } from '@/actions/fase1';
 import BackButton from '@/components/back-button';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
-import { getSupabase } from '@/lib/supabase-browser';
 export default function Top10Page() {
   const router = useRouter();
   const t = useTranslations('AdminTop10');
@@ -34,16 +33,10 @@ export default function Top10Page() {
     setTop10(t);
     if (c.success) setAllComps(c.data || []);
 
-    // Buscar ia1_resultado dos cargos
+    // ia1_resultado dos cargos — via server action (era leitura pelo client
+    // anon do browser, que dependia da RLS permissiva removida na mig 156).
     try {
-      const sb = getSupabase();
-      const { data: cargosEmp } = await sb.from('cargos_empresa')
-        .select('nome, ia1_resultado')
-        .eq('empresa_id', empresaId)
-        .not('ia1_resultado', 'is', null);
-      const resultMap: Record<string, any> = {};
-      (cargosEmp || []).forEach((c: any) => { resultMap[c.nome] = c.ia1_resultado; });
-      setIa1Resultados(resultMap);
+      setIa1Resultados(await loadIa1ResultadosCargos(empresaId));
     } catch { /* ia1_resultado é opcional */ }
 
     setLoading(false);

@@ -254,6 +254,21 @@ export async function loadTop10TodosCargos(empresaId: string) {
   return data || [];
 }
 
+/** ia1_resultado por nome de cargo (enriquece a tela /admin/top10). Server-side
+ *  (service_role via tenantDb) — a leitura antes ia pelo client anon do browser,
+ *  dependendo da policy permissiva de cargos_empresa (removida na mig 156). */
+export async function loadIa1ResultadosCargos(empresaId: string): Promise<Record<string, any>> {
+  await requireAdminAction();
+  if (!empresaId) return {};
+  const tdb = tenantDb(empresaId);
+  const { data } = await tdb.from('cargos_empresa')
+    .select('nome, ia1_resultado')
+    .not('ia1_resultado', 'is', null);
+  const map: Record<string, any> = {};
+  (data || []).forEach((c: any) => { map[c.nome] = c.ia1_resultado; });
+  return map;
+}
+
 export async function adicionarTop10(empresaId: string, cargo: string, competenciaId: string) {
   await requireAdminAction('content.manage');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
