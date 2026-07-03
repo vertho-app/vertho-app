@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { segmentarEEstruturarExtracao } from '@/actions/modulos-base';
+import { safeSecretEqual } from '@/lib/secure-compare';
 
 /**
  * Callback interno do worker de extração (trigger.dev). O worker baixa o vídeo,
@@ -7,8 +8,11 @@ import { segmentarEEstruturarExtracao } from '@/actions/modulos-base';
  * rota para segmentar em temas e estruturar N Módulos-Base rascunho — a IA-autora
  * + o catálogo só existem no runtime do app. Vídeo curto → 1 módulo; 1h+ → N.
  *
- * Autenticação: header `x-internal-secret` == SUPABASE_SERVICE_ROLE_KEY (segredo
- * forte que o worker já possui — evita uma env var nova). Não é rota pública.
+ * Autenticação: header `x-internal-secret`. Aceita INTERNAL_API_KEY (dedicada,
+ * preferida) OU SUPABASE_SERVICE_ROLE_KEY (compat — é o que o worker manda hoje).
+ * Migração: setar INTERNAL_API_KEY no app E no worker → depois remover o fallback
+ * (acoplar o secret de bypass-RLS a um endpoint de rede é risco se vazar em log).
+ * Comparação timing-safe. Não é rota pública.
  *
  * Body: { extracaoId, transcricao, titulo?, locale? }
  */
@@ -17,7 +21,9 @@ export const maxDuration = 800; // segmentar + estruturar N módulos via IA pode
 
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-internal-secret') || '';
-  if (!secret || secret !== process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const ok = safeSecretEqual(secret, process.env.INTERNAL_API_KEY)
+    || safeSecretEqual(secret, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!ok) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 

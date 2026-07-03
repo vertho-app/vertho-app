@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cleanupSessoes, triggerSegunda, triggerQuinta, triggerDiario } from '@/actions/cron-jobs';
+import { safeSecretEqual } from '@/lib/secure-compare';
 
 /**
  * GET /api/cron?action=cleanup_sessoes|trigger_segunda|trigger_quinta
@@ -18,7 +19,7 @@ export async function GET(req) {
 
   if (cronSecret) {
     const token = authHeader?.replace('Bearer ', '');
-    if (token !== cronSecret) {
+    if (!safeSecretEqual(token, cronSecret)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   } else if (process.env.NODE_ENV === 'production') {

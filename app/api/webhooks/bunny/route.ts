@@ -14,6 +14,7 @@
 // BUNNY_WEBHOOK_SECRET (OBRIGATÓRIO em produção): valida via header Authorization ou ?token=
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { safeSecretEqual } from '@/lib/secure-compare';
 
 export async function POST(req) {
   try {
@@ -26,7 +27,7 @@ export async function POST(req) {
     const auth = req.headers.get('authorization') || '';
     const tokenHeader = auth.replace(/^Bearer\s+/i, '');
     const tokenQuery = new URL(req.url).searchParams.get('token') || '';
-    if (tokenHeader !== secret && tokenQuery !== secret) {
+    if (!safeSecretEqual(tokenHeader, secret) && !safeSecretEqual(tokenQuery, secret)) {
       return new Response('Unauthorized', { status: 401 });
     }
 

@@ -30,7 +30,14 @@ export async function POST(request: Request) {
     const { formato, filename } = await request.json();
     if (!formato || !filename) return NextResponse.json({ error: 'formato+filename obrigatórios' }, { status: 400 });
 
-    // Sanitiza filename e monta path tenant-aware (dev pode subir em empresa/empresa_id/)
+    // `formato` é o 1º segmento do path no bucket — allowlist estrita (senão
+    // um valor com `../` escaparia o prefixo/tenant no storage). `filename` já
+    // é sanitizado (`/`→`_`, então `..` sem separador é inócuo) e `empresaSlug`
+    // é UUID do banco.
+    const FORMATOS = new Set(['pdf', 'audio', 'video', 'texto', 'xlsx', 'case']);
+    if (!FORMATOS.has(formato)) {
+      return NextResponse.json({ error: `formato inválido (esperado: ${[...FORMATOS].join(', ')})` }, { status: 400 });
+    }
     const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
     const empresaSlug = auth.colaborador?.empresa_id || 'global';
     const path = `${formato}/${empresaSlug}/${Date.now()}-${safeFilename}`;

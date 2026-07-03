@@ -4,6 +4,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import { Resend } from 'resend';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import { safeSecretEqual } from '@/lib/secure-compare';
 import { montarPropostaPayload } from '@/lib/radar/proposta-pdf-data';
 import RadarPropostaPDF from '@/components/pdf/RadarPropostaPDF';
 import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
@@ -18,7 +19,7 @@ async function verifyRequest(req: Request, body: string): Promise<boolean> {
   const internalSecret = process.env.INTERNAL_DISPATCH_SECRET;
   if (internalSecret) {
     const headerToken = req.headers.get('x-internal-dispatch') || '';
-    if (headerToken && headerToken === internalSecret) return true;
+    if (safeSecretEqual(headerToken, internalSecret)) return true;
   }
 
   // 2) QStash signature
