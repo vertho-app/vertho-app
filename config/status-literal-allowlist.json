@@ -31,7 +31,7 @@
     "app/dashboard/page.tsx": 1,
     "app/dashboard/praticar/praticar-actions.ts": 4,
     "app/dashboard/temporada/page.tsx": 6,
-    "app/dashboard/temporada/sem14/page.tsx": 1,
+    "app/dashboard/temporada/sem14/page.tsx": 0,
     "app/dashboard/temporada/semana/[week]/page.tsx": 1,
     "app/radar/actions.ts": 1,
     "lib/radar/censo-importer.ts": 1,

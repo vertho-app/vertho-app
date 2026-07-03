@@ -10,6 +10,7 @@ import { loadTemporadaPorEmail } from '@/actions/temporadas';
 import ReactMarkdown from 'react-markdown';
 import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
+import { PROGRESSO } from '@/lib/status';
 
 const MIN_CHARS = 20;
 const MIN_CHARS_ARG = 3; // arguição é conversa — respostas curtas são válidas
@@ -91,7 +92,7 @@ export default function Sem14Page() {
       const fb = prog?.feedback || {};
 
       // Já concluída — mostra avaliação
-      if (prog?.status === 'concluido') {
+      if (prog?.status === PROGRESSO.CONCLUIDO) {
         setAvaliacao({
           nota_media_pre: fb.nota_media_pre,
           nota_media_pos: fb.nota_media_pos,
@@ -105,7 +106,7 @@ export default function Sem14Page() {
 
       // Arguição em andamento (colab reabriu no meio da defesa oral): entra
       // direto no chat, reconstruindo do histórico persistido (feedback.arguicao).
-      if (fb.arguicao && !fb.arguicao.concluida && prog?.status !== 'concluido') {
+      if (fb.arguicao && !fb.arguicao.concluida && prog?.status !== PROGRESSO.CONCLUIDO) {
         setCenario(fb.cenario || '');
         setPerguntas(fb.perguntas || []);
         const respostasExistentes = (fb.transcript_completo || []).filter(m => m.role === 'user').map(m => m.content);
