@@ -15,6 +15,7 @@
 
 import { getProgramaConfig, getProgramaConfigByModo, type ProgramaConfig } from './programa-config';
 import { semanaLiberadaPorData, formatarLiberacao } from './week-gating';
+import { PROGRESSO } from '@/lib/status';
 
 interface TrilhaRuntime {
   id: string;
@@ -68,7 +69,7 @@ export async function checarGatesSemana(
   if (Number(semana) > 1) {
     const { data: prev } = await sb.from('temporada_semana_progresso')
       .select('status').eq('trilha_id', trilha.id).eq('semana', Number(semana) - 1).maybeSingle();
-    if (prev?.status !== 'concluido') {
+    if (prev?.status !== PROGRESSO.CONCLUIDO) {
       return { error: `Conclua a semana ${Number(semana) - 1} antes.`, status: 403 };
     }
   }

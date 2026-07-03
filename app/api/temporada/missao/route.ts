@@ -4,6 +4,7 @@ import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { checarGatesSemana } from '@/lib/season-engine/trilha-runtime';
+import { PROGRESSO } from '@/lib/status';
 
 /**
  * POST /api/temporada/missao
@@ -85,7 +86,7 @@ export async function POST(request) {
       colaborador_id: trilha.colaborador_id,
       semana: Number(semana),
       tipo: 'aplicacao',
-      status: 'em_andamento',
+      status: PROGRESSO.EM_ANDAMENTO,
       feedback: novoFeedback,
       iniciado_em: prog?.iniciado_em || new Date().toISOString(),
     };

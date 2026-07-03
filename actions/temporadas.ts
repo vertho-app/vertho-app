@@ -12,6 +12,7 @@ import type { AIConfig } from './ai-client';
 import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { logAdminAction } from '@/lib/audit';
+import { PROGRESSO, TRILHA } from '@/lib/status';
 
 interface GerarTemporadaParams {
   colaboradorId?: string;
@@ -656,7 +657,7 @@ async function persistirTrilha(tdb: any, args: {
     temporada_plano: semanas,
     descritores_selecionados: descritoresSelecionados,
     programa_modo: programaModo,                // carimbo do runtime (mig 154)
-    status: 'ativa',
+    status: TRILHA.ATIVA,
     data_inicio: nextMondayISO(),               // sem 1 libera na próxima segunda 03:00 BRT
     cursos: [],                                 // legado — conteúdo vive em temporada_plano
   };
@@ -677,7 +678,7 @@ async function persistirTrilha(tdb: any, args: {
     colaborador_id: colaboradorId,
     semana: sem.semana,
     tipo: sem.tipo,
-    status: sem.semana === 1 ? 'em_andamento' : 'pendente',
+    status: sem.semana === 1 ? PROGRESSO.EM_ANDAMENTO : PROGRESSO.PENDENTE,
   }));
   await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
   await tdb.from('temporada_semana_progresso').insert(progressos);
@@ -779,7 +780,7 @@ export async function pausarRetomarTemporada(trilhaId: string) {
     const sb = await requireAdminSupabase('content.manage');
     const { data: t } = await sb.from('trilhas').select('status, empresa_id').eq('id', trilhaId).maybeSingle();
     if (!t) return { success: false, error: 'Trilha não encontrada' };
-    const novo = t.status === 'pausada' ? 'ativa' : 'pausada';
+    const novo = t.status === TRILHA.PAUSADA ? TRILHA.ATIVA : TRILHA.PAUSADA;
     const { error } = await sb.from('trilhas').update({ status: novo }).eq('id', trilhaId).eq('empresa_id', t.empresa_id);
     if (error) return { success: false, error: error.message };
     return { success: true, status: novo, message: `Temporada ${novo}` };
@@ -819,7 +820,7 @@ export async function arquivarTemporada(trilhaId: string) {
     const sb = await requireAdminSupabase('content.manage');
     const { data: t } = await sb.from('trilhas').select('empresa_id').eq('id', trilhaId).maybeSingle();
     if (!t) return { success: false, error: 'Trilha não encontrada' };
-    const { error } = await sb.from('trilhas').update({ status: 'arquivada' }).eq('id', trilhaId).eq('empresa_id', t.empresa_id);
+    const { error } = await sb.from('trilhas').update({ status: TRILHA.ARQUIVADA }).eq('id', trilhaId).eq('empresa_id', t.empresa_id);
     if (error) return { success: false, error: error.message };
     return { success: true, message: 'Arquivada' };
   } catch (err: any) {
@@ -913,7 +914,7 @@ export async function regerarSemana(trilhaId: string, semana: number, aiConfig: 
 
     // Reseta progresso da semana
     await sb.from('temporada_semana_progresso')
-      .update({ status: 'pendente', conteudo_consumido: false, reflexao: null, feedback: null, iniciado_em: null, concluido_em: null })
+      .update({ status: PROGRESSO.PENDENTE, conteudo_consumido: false, reflexao: null, feedback: null, iniciado_em: null, concluido_em: null })
       .eq('trilha_id', trilhaId).eq('empresa_id', trilha.empresa_id).eq('semana', Number(semana));
 
     return { success: true, message: `Semana ${semana} regerada` };
@@ -1049,7 +1050,7 @@ export async function marcarConteudoConsumido(trilhaId: string, semana: number) 
       .select('id, iniciado_em').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
     const payload = {
       conteudo_consumido: true,
-      status: 'em_andamento',
+      status: PROGRESSO.EM_ANDAMENTO,
       iniciado_em: existente?.iniciado_em || new Date().toISOString(),
     };
     if (existente) {

@@ -10,6 +10,7 @@ import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
 import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedback';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validateEvolutionExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { PROGRESSO } from '@/lib/status';
 
 const SIM_EXTRACTOR_SYSTEM = `Você é um extrator de dados estruturados da Vertho.
 
@@ -165,7 +166,7 @@ async function simularSocratico(sb: any, trilha: any, colab: any, s: any, perfil
   // marca conteudo_consumido
   await upsertProgresso(sb, trilha, s.semana, {
     tipo: 'conteudo',
-    status: 'em_andamento',
+    status: PROGRESSO.EM_ANDAMENTO,
     conteudo_consumido: true,
     iniciado_em: new Date().toISOString(),
   });
@@ -236,7 +237,7 @@ REGRAS:
 
   await upsertProgresso(sb, trilha, s.semana, {
     tipo: 'conteudo',
-    status: 'concluido',
+    status: PROGRESSO.CONCLUIDO,
     conteudo_consumido: true,
     reflexao: { ...extracao, transcript_completo: historico },
     concluido_em: new Date().toISOString(),
@@ -244,8 +245,8 @@ REGRAS:
 
   // Libera próxima
   await sb.from('temporada_semana_progresso')
-    .update({ status: 'em_andamento' })
-    .eq('trilha_id', trilha.id).eq('empresa_id', trilha.empresa_id).eq('semana', s.semana + 1).eq('status', 'pendente');
+    .update({ status: PROGRESSO.EM_ANDAMENTO })
+    .eq('trilha_id', trilha.id).eq('empresa_id', trilha.empresa_id).eq('semana', s.semana + 1).eq('status', PROGRESSO.PENDENTE);
 }
 
 // ── SEM DE APLICAÇÃO — modo PRÁTICA (10 turnos) ──
@@ -264,7 +265,7 @@ async function simularMissaoPratica(sb: any, trilha: any, colab: any, s: any, pe
   // 2. set modo=pratica
   await upsertProgresso(sb, trilha, s.semana, {
     tipo: 'aplicacao',
-    status: 'em_andamento',
+    status: PROGRESSO.EM_ANDAMENTO,
     feedback: { modo: 'pratica', compromisso, transcript_completo: [] },
     iniciado_em: new Date().toISOString(),
   });
@@ -346,13 +347,13 @@ REGRAS:
 
   await upsertProgresso(sb, trilha, s.semana, {
     tipo: 'aplicacao',
-    status: 'concluido',
+    status: PROGRESSO.CONCLUIDO,
     feedback: { modo: 'pratica', compromisso, ...extracao, transcript_completo: historico },
     concluido_em: new Date().toISOString(),
   });
   await sb.from('temporada_semana_progresso')
-    .update({ status: 'em_andamento' })
-    .eq('trilha_id', trilha.id).eq('empresa_id', trilha.empresa_id).eq('semana', s.semana + 1).eq('status', 'pendente');
+    .update({ status: PROGRESSO.EM_ANDAMENTO })
+    .eq('trilha_id', trilha.id).eq('empresa_id', trilha.empresa_id).eq('semana', s.semana + 1).eq('status', PROGRESSO.PENDENTE);
 }
 
 // ── SEM 13 QUALITATIVA (12 turnos) ──
@@ -405,13 +406,13 @@ async function simularQualitativa(sb: any, trilha: any, colab: any, s: any, perf
 
   await upsertProgresso(sb, trilha, 13, {
     tipo: 'avaliacao',
-    status: 'concluido',
+    status: PROGRESSO.CONCLUIDO,
     reflexao: { ...extracao, transcript_completo: historico },
     concluido_em: new Date().toISOString(),
   });
   await sb.from('temporada_semana_progresso')
-    .update({ status: 'em_andamento' })
-    .eq('trilha_id', trilha.id).eq('empresa_id', trilha.empresa_id).eq('semana', 14).eq('status', 'pendente');
+    .update({ status: PROGRESSO.EM_ANDAMENTO })
+    .eq('trilha_id', trilha.id).eq('empresa_id', trilha.empresa_id).eq('semana', 14).eq('status', PROGRESSO.PENDENTE);
 
   // Dispara avaliação acumulada (mesmo hook do endpoint real). Propaga erro
   // pra cima se falhar — antes silenciava e a acumulada ficava sem ser gerada.
@@ -435,7 +436,7 @@ async function simularSem14Ate(sb: any, trilha: any, colab: any, perfilEvolucao:
     // Não há cenário B — registra estado e retorna
     await upsertProgresso(sb, trilha, 14, {
       tipo: 'avaliacao',
-      status: 'em_andamento',
+      status: PROGRESSO.EM_ANDAMENTO,
       feedback: { erro: 'Cenário B não cadastrado no banco_cenarios.', transcript_completo: [] },
       iniciado_em: new Date().toISOString(),
     });
@@ -456,7 +457,7 @@ async function simularSem14Ate(sb: any, trilha: any, colab: any, perfilEvolucao:
 
   await upsertProgresso(sb, trilha, 14, {
     tipo: 'avaliacao',
-    status: 'em_andamento',
+    status: PROGRESSO.EM_ANDAMENTO,
     feedback: {
       cenario, cenario_b_id: cenB.id,
       cenario_resposta: resposta,

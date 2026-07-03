@@ -12,6 +12,7 @@ import { parseJsonIA } from '@/lib/ai-json';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
+import { PROGRESSO } from '@/lib/status';
 
 /**
  * POST /api/temporada/evaluation
@@ -334,7 +335,7 @@ export async function POST(request) {
 async function upsertProg(sb, { prog, trilhaId, semana, tipo, empresaId, colaboradorId, slotKey, novoSlot, finished }) {
   const payload = {
     trilha_id: trilhaId, empresa_id: empresaId, colaborador_id: colaboradorId,
-    semana: Number(semana), tipo, status: finished ? 'concluido' : 'em_andamento',
+    semana: Number(semana), tipo, status: finished ? PROGRESSO.CONCLUIDO : PROGRESSO.EM_ANDAMENTO,
     [slotKey]: novoSlot,
     ...(finished ? { concluido_em: new Date().toISOString() } : { iniciado_em: prog?.iniciado_em || new Date().toISOString() }),
   };
@@ -344,6 +345,6 @@ async function upsertProg(sb, { prog, trilhaId, semana, tipo, empresaId, colabor
 
 async function liberarProxima(sb, trilhaId, proxima) {
   await sb.from('temporada_semana_progresso')
-    .update({ status: 'em_andamento' })
-    .eq('trilha_id', trilhaId).eq('semana', proxima).eq('status', 'pendente');
+    .update({ status: PROGRESSO.EM_ANDAMENTO })
+    .eq('trilha_id', trilhaId).eq('semana', proxima).eq('status', PROGRESSO.PENDENTE);
 }

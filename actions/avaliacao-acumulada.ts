@@ -10,6 +10,7 @@ import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { parseJsonIA } from '@/lib/ai-json';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { PROGRESSO } from '@/lib/status';
 
 /**
  * Gera avaliação acumulada da temporada (1ª IA) + check por 2ª IA e
@@ -108,7 +109,7 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string, internal: boolea
     await tdb.from('temporada_semana_progresso').insert({
       trilha_id: trilhaId,
       colaborador_id: trilha.colaborador_id,
-      semana: semanaAcumulada, tipo: 'avaliacao', status: 'em_andamento',
+      semana: semanaAcumulada, tipo: 'avaliacao', status: PROGRESSO.EM_ANDAMENTO,
       feedback: { acumulado: payload },
     });
   }
@@ -266,7 +267,7 @@ export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenc
     await tdb.from('temporada_semana_progresso').insert({
       trilha_id: trilhaId,
       colaborador_id: trilha.colaborador_id,
-      semana: semFim, tipo: 'aplicacao', status: 'em_andamento',
+      semana: semFim, tipo: 'aplicacao', status: PROGRESSO.EM_ANDAMENTO,
       feedback: { acumulado: payload },
     });
   }

@@ -5,6 +5,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { PILOTO_SPEC_VERSION } from '@/lib/season-engine/piloto-trava';
+import { PROGRESSO, TRILHA } from '@/lib/status';
 
 /**
  * Classifica convergência de um descritor comparando nota_pre (início da temporada),
@@ -22,7 +23,7 @@ function classificarConvergencia({ nota_pre, nota_pos, nivel_percebido }: { nota
 
 /**
  * Consolida semana 13 (qualitativa) + semana 14 (quantitativa) num Evolution Report.
- * Salva em trilhas.evolution_report e marca status='concluida'.
+ * Salva em trilhas.evolution_report e marca status=TRILHA.CONCLUIDA.
  *
  * Auth: `internal=true` pula o gate de admin — usado pela rota /evaluation ao
  * FINALIZAR o cenário B (a sessão é do PRÓPRIO COLAB; sem o flag o report
@@ -55,10 +56,10 @@ export async function gerarEvolutionReport(trilhaId: string, internal: boolean =
     const quantitativa = prog14?.feedback?.avaliacao_por_descritor || [];
     const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
 
-    // GUARDS — o report é o ato que marca a trilha como 'concluida'; nunca
+    // GUARDS — o report é o ato que marca a trilha como TRILHA.CONCLUIDA; nunca
     // concluir sobre fechamento inexistente/incompleto (generate_report é
     // chamável a qualquer momento pela rota):
-    if (prog14?.status !== 'concluido') {
+    if (prog14?.status !== PROGRESSO.CONCLUIDO) {
       return { success: false, error: `Fechamento (semana ${programaConfig.semanaCenarioB}) ainda não concluído — report não gerado.` };
     }
     if (!Array.isArray(quantitativa) || quantitativa.length === 0) {
@@ -100,7 +101,7 @@ export async function gerarEvolutionReport(trilhaId: string, internal: boolean =
       await tdb.from('trilhas').update({
         evolution_report,
         evolution_generated_at: new Date().toISOString(),
-        status: 'concluida',
+        status: TRILHA.CONCLUIDA,
       }).eq('id', trilhaId);
       return { success: true, evolution_report };
     }
@@ -139,7 +140,7 @@ export async function gerarEvolutionReport(trilhaId: string, internal: boolean =
     await tdb.from('trilhas').update({
       evolution_report,
       evolution_generated_at: new Date().toISOString(),
-      status: 'concluida',
+      status: TRILHA.CONCLUIDA,
     }).eq('id', trilhaId);
 
     return { success: true, evolution_report };
@@ -161,7 +162,7 @@ export async function loadEvolutionReportsEmpresa(empresaId: string) {
     const tdb = tenantDb(empresaId);
     const { data: trilhasRaw } = await tdb.from('trilhas')
       .select('id, colaborador_id, competencia_foco, evolution_report, evolution_generated_at')
-      .eq('status', 'concluida')
+      .eq('status', TRILHA.CONCLUIDA)
       .not('evolution_report', 'is', null);
     // exclui trilhas de colaboradores internos @vertho.ai da agregação
     // + relatórios de PILOTO (demonstração da avaliação, não medem evolução —

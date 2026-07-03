@@ -10,6 +10,7 @@ import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedbac
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { PROGRESSO } from '@/lib/status';
 
 function parseExtracaoResponse(raw: string): any {
   let cleaned = raw.trim();
@@ -386,7 +387,7 @@ export async function POST(request) {
       colaborador_id: trilha.colaborador_id,
       semana: Number(semana),
       tipo: semanaPlan.tipo,
-      status: finished ? 'concluido' : 'em_andamento',
+      status: finished ? PROGRESSO.CONCLUIDO : PROGRESSO.EM_ANDAMENTO,
       [slot]: novoSlotData,
       ...(finished ? { concluido_em: new Date().toISOString() } : { iniciado_em: prog?.iniciado_em || new Date().toISOString() }),
     };
@@ -404,8 +405,8 @@ export async function POST(request) {
     if (finished && Number(semana) < programaConfig.semanas) {
       const proxima = Number(semana) + 1;
       await sb.from('temporada_semana_progresso')
-        .update({ status: 'em_andamento' })
-        .eq('trilha_id', trilhaId).eq('semana', proxima).eq('status', 'pendente');
+        .update({ status: PROGRESSO.EM_ANDAMENTO })
+        .eq('trilha_id', trilhaId).eq('semana', proxima).eq('status', PROGRESSO.PENDENTE);
     }
 
     // Modo Piloto: ao concluir a ÚLTIMA semana de conteúdo (sem 2), dispara a
