@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
+import fixture from '@/lib/demo/acme-demo-fixture.json';
 
 /**
  * Reset/seed do tenant ACME Demo (slug `acme-demo`) — versão IN-APP da lógica
@@ -6,8 +7,10 @@ import { createSupabaseAdmin } from '@/lib/supabase';
  * usada pelo botão "Resetar demo agora" (server action) e pelo cron noturno.
  *
  * Idempotente e TENANT-SAFE: todo delete/insert é filtrado por `empresa_id` do
- * acme-demo — NUNCA toca outro tenant. Clona a estrutura do `acme` (competências,
- * cargos, top10, cenários) e recria personas + respostas de demonstração.
+ * acme-demo — NUNCA toca outro tenant. Semeia a estrutura (competências, cargos,
+ * top10, cenários) de um FIXTURE CONGELADO (`acme-demo-fixture.json`, capturado
+ * do acme via scripts/capture-acme-fixture.mjs) — imune a mexidas no acme vivo.
+ * Recria personas + respostas de demonstração.
  *
  * GUARDRAIL de envio (importante): a proteção REAL contra envio a pessoas reais
  * são as PERSONAS — e-mails @vertho.ai (domínio interno) e SEM telefone (WhatsApp
@@ -18,7 +21,6 @@ import { createSupabaseAdmin } from '@/lib/supabase';
  * sendWhatsapp/Resend de TODOS os tenants; fora do escopo cauteloso deste passo).
  */
 
-const SOURCE_SLUG = 'acme';
 const DEMO_SLUG = 'acme-demo';
 const DEMO_NAME = 'ACME Demo';
 
@@ -101,8 +103,9 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
     return await must('insert demo empresa', sb.from('empresas').insert(payload).select('id,nome,slug').single());
   }
 
-  async function cloneCompetencias(sourceId: string, destId: string) {
-    const rows = await must('load competencias', sb.from('competencias').select('*').eq('empresa_id', sourceId).order('cargo').order('cod_comp'));
+  // Seed a partir do FIXTURE congelado (arrays), não do acme vivo. Mantém o
+  // remapeamento source-id→new-id (competências/cenários) pra preservar as FKs.
+  async function seedCompetencias(rows: any[], destId: string) {
     const idMap = new Map<string, string>();
     if (!rows?.length) return idMap;
     for (const row of rows) {
@@ -112,8 +115,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
     return idMap;
   }
 
-  async function cloneCargos(sourceId: string, destId: string) {
-    const rows = await must('load cargos', sb.from('cargos_empresa').select('*').eq('empresa_id', sourceId).order('nome'));
+  async function seedCargos(rows: any[], destId: string) {
     if (!rows?.length) return;
     const payload = rows.map((row: any) => {
       let top5 = Array.isArray(row.top5_workshop) ? row.top5_workshop : [];
@@ -124,8 +126,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
     await must('insert cargos', sb.from('cargos_empresa').insert(payload));
   }
 
-  async function cloneTop10(sourceId: string, destId: string, compMap: Map<string, string>) {
-    const rows = await must('load top10', sb.from('top10_cargos').select('*').eq('empresa_id', sourceId).order('cargo').order('posicao'));
+  async function seedTop10(rows: any[], destId: string, compMap: Map<string, string>) {
     const payload = (rows || [])
       .map((row: any) => {
         const competenciaId = compMap.get(row.competencia_id);
@@ -136,8 +137,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
     if (payload.length) await must('insert top10', sb.from('top10_cargos').insert(payload));
   }
 
-  async function cloneCenarios(sourceId: string, destId: string, compMap: Map<string, string>) {
-    const rows = await must('load cenarios', sb.from('banco_cenarios').select('*').eq('empresa_id', sourceId).order('created_at'));
+  async function seedCenarios(rows: any[], destId: string, compMap: Map<string, string>) {
     const idMap = new Map<string, string>();
     for (const row of rows || []) {
       const competenciaId = compMap.get(row.competencia_id);
@@ -208,15 +208,13 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
   }
 
   try {
-    const source = await must('load source empresa',
-      sb.from('empresas').select('id,nome,segmento,sys_config,ui_config,default_locale').eq('slug', SOURCE_SLUG).single());
-    const demo = await upsertEmpresaDemo(source);
+    const demo = await upsertEmpresaDemo((fixture as any).empresa);
 
     await resetTenant(demo.id);
-    const compMap = await cloneCompetencias(source.id, demo.id);
-    await cloneCargos(source.id, demo.id);
-    await cloneTop10(source.id, demo.id, compMap);
-    await cloneCenarios(source.id, demo.id, compMap);
+    const compMap = await seedCompetencias((fixture as any).competencias, demo.id);
+    await seedCargos((fixture as any).cargos, demo.id);
+    await seedTop10((fixture as any).top10, demo.id, compMap);
+    await seedCenarios((fixture as any).cenarios, demo.id, compMap);
     const personaMap = await insertPersonas(demo.id);
     await seedRespostas(demo.id, personaMap);
 
