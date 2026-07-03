@@ -6,6 +6,7 @@ import { formatPerfilContext } from '@/lib/perfil-comportamental';
 import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { createSupabaseAdmin } from '@/lib/supabase';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { hasDiscMapeado } from '@/lib/disc-status';
 
@@ -366,8 +367,10 @@ export async function rodarIA4Uma(empresaId: string, respostaId: string, aiConfi
   }
 }
 
-export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
+export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}, opts: { internal?: boolean } = {}) {
+  // internal=true: chamado por um caminho JÁ gated (reset do demo: botão admin
+  // ou cron com CRON_SECRET) — usa service_role sem exigir sessão de admin.
+  const sbRaw = opts.internal ? createSupabaseAdmin() : await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {

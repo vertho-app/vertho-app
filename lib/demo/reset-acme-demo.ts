@@ -207,6 +207,37 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
     if (payload.length) await must('insert respostas demo', sb.from('respostas').insert(payload));
   }
 
+  // Replay dos artefatos AVALIADOS congelados (mapeamento pronto sem rodar IA no
+  // reset). BEST-EFFORT: falha aqui NÃO derruba o reset — a demo só fica com o
+  // mapeamento não-avaliado (sem regressão). Chaveado por e-mail da persona.
+  async function applyPersonaArtifacts(destId: string, personaMap: Map<string, string>) {
+    const artifacts: any = (fixture as any).personaArtifacts || {};
+    for (const p of PERSONAS) {
+      const colabId = personaMap.get(p.key);
+      const a = artifacts[p.email];
+      if (!colabId || !a) continue;
+      try {
+        for (const r of a.respostas || []) {
+          await sb.from('respostas').update({
+            avaliacao_ia: r.avaliacao_ia, nivel_ia4: r.nivel_ia4, nota_ia4: r.nota_ia4,
+            pontos_fortes: r.pontos_fortes, pontos_atencao: r.pontos_atencao,
+            feedback_ia4: r.feedback_ia4, payload_ia4: r.payload_ia4, status_ia4: r.status_ia4,
+          }).eq('colaborador_id', colabId).eq('competencia_nome', r.competencia_nome);
+        }
+        if (a.descriptor_assessments?.length) {
+          // `nivel` é coluna GENERATED ALWAYS — nunca inserir (dá erro).
+          const rows = a.descriptor_assessments.map((d: any) => {
+            const { nivel, ...rest } = d;
+            return { ...rest, empresa_id: destId, colaborador_id: colabId };
+          });
+          await sb.from('descriptor_assessments').insert(rows);
+        }
+      } catch (e: any) {
+        console.warn(`[reset-demo] artifacts ${p.email}:`, e?.message);
+      }
+    }
+  }
+
   try {
     const demo = await upsertEmpresaDemo((fixture as any).empresa);
 
@@ -217,6 +248,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
     await seedCenarios((fixture as any).cenarios, demo.id, compMap);
     const personaMap = await insertPersonas(demo.id);
     await seedRespostas(demo.id, personaMap);
+    await applyPersonaArtifacts(demo.id, personaMap);
 
     const counts: Record<string, number | null> = {};
     for (const table of ['colaboradores', 'cargos_empresa', 'competencias', 'top10_cargos', 'banco_cenarios', 'respostas']) {

@@ -34,17 +34,53 @@ async function main() {
   const top10 = await must('top10', sb.from('top10_cargos').select('*').eq('empresa_id', sid).order('cargo').order('posicao'));
   const cenarios = await must('cenarios', sb.from('banco_cenarios').select('*').eq('empresa_id', sid).order('created_at'));
 
+  // ── Artefatos AVALIADOS das personas (do acme-demo, após rodar IA4) ─────────
+  // Congela o MAPEAMENTO já avaliado por persona (chaveado por e-mail, estável
+  // entre resets) → a demo abre com notas prontas, SEM rodar IA no reset.
+  const demo = await sb.from('empresas').select('id').eq('slug', 'acme-demo').maybeSingle();
+  const personaArtifacts = {};
+  if (demo.data?.id) {
+    const did = demo.data.id;
+    const colabs = await must('demo colabs', sb.from('colaboradores').select('id, email').eq('empresa_id', did));
+    const idToEmail = new Map((colabs || []).map((c) => [c.id, c.email]));
+    const respAval = await must('demo respostas avaliadas',
+      sb.from('respostas').select('colaborador_id, competencia_nome, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, payload_ia4, status_ia4')
+        .eq('empresa_id', did).not('avaliacao_ia', 'is', null));
+    const descAssess = await must('demo descriptor_assessments',
+      sb.from('descriptor_assessments').select('*').eq('empresa_id', did));
+    for (const email of new Set([...idToEmail.values()])) {
+      if (!email) continue;
+      personaArtifacts[email] = { respostas: [], descriptor_assessments: [] };
+    }
+    for (const r of respAval || []) {
+      const email = idToEmail.get(r.colaborador_id);
+      if (!email || !personaArtifacts[email]) continue;
+      const { colaborador_id, ...rest } = r;
+      personaArtifacts[email].respostas.push(rest);
+    }
+    for (const d of descAssess || []) {
+      const email = idToEmail.get(d.colaborador_id);
+      if (!email || !personaArtifacts[email]) continue;
+      // `nivel` é GENERATED ALWAYS — não capturar (não pode ser inserido).
+      const { id, colaborador_id, empresa_id, nivel, ...rest } = d;
+      personaArtifacts[email].descriptor_assessments.push(rest);
+    }
+  }
+
   const fixture = {
-    _meta: { source: SOURCE_SLUG, capturedAt: new Date().toISOString(), note: 'Golden state congelado do ACME Demo. Regenerar com scripts/capture-acme-fixture.mjs.' },
+    _meta: { source: SOURCE_SLUG, capturedAt: new Date().toISOString(), note: 'Golden state congelado do ACME Demo. Regenerar com scripts/capture-acme-fixture.mjs (rode IA4 no acme-demo ANTES, p/ congelar o mapeamento avaliado).' },
     empresa,
     competencias: competencias || [],
     cargos: cargos || [],
     top10: top10 || [],
     cenarios: cenarios || [],
+    personaArtifacts,
   };
   writeFileSync(OUT, JSON.stringify(fixture, null, 2) + '\n');
   console.log(`Fixture salvo em ${OUT}`);
   console.log(`  competencias=${fixture.competencias.length} cargos=${fixture.cargos.length} top10=${fixture.top10.length} cenarios=${fixture.cenarios.length}`);
+  const pa = Object.entries(personaArtifacts).map(([e, a]) => `${e}: ${a.respostas.length}resp/${a.descriptor_assessments.length}desc`);
+  console.log(`  personaArtifacts: ${pa.length ? pa.join(' · ') : '(nenhum — rode IA4 no acme-demo antes de capturar)'}`);
 }
 
 main().catch((e) => { console.error('ERRO:', e.message); process.exit(1); });
