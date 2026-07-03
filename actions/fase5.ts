@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
+import { mapComLimite } from '@/lib/concurrency';
 import { tenantEmailFrom, tenantUrl } from '@/lib/domain';
 import { callAI, callAIChat, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
@@ -346,16 +347,14 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
     const compMap = {};
     const descritoresMap = {};
 
-    for (const cid of compIdsNeeded) {
-      const { data: comp } = await tdb.from('competencias')
-        .select('id, nome, descricao, cod_comp')
-        .eq('id', cid)
-        .maybeSingle();
-      if (comp) {
-        compMap[comp.id] = comp;
-        descritoresMap[comp.id] = await fetchDescritoresTexto(tdb, comp.cod_comp);
-      }
-    }
+    // Batch (era 1 query por competência) + descritores em pool de DB (8)
+    const { data: compsRows } = compIdsNeeded.length
+      ? await tdb.from('competencias').select('id, nome, descricao, cod_comp').in('id', compIdsNeeded)
+      : { data: [] };
+    for (const comp of compsRows || []) compMap[comp.id] = comp;
+    await mapComLimite(Object.values(compMap) as any[], 8, async (comp: any) => {
+      descritoresMap[comp.id] = await fetchDescritoresTexto(tdb, comp.cod_comp);
+    });
     const compIds = Object.keys(compMap);
 
     // Já tem B?
@@ -660,13 +659,22 @@ export async function iniciarReavaliacaoLote(empresaId: string, aiConfig: AIConf
       compByNomeCargoMap[`${c.nome}::${c.cargo}`] = c;
     });
 
-    // Descritores por cod_comp (linhas filhas em competencias)
+    // Descritores por cod_comp (linhas filhas em competencias) — UMA query
+    // agrupada em memória (era 1 query por competência, N+1 puro)
     const descritoresCache = {};
+    const codComps = [...new Set((competencias || []).map(c => c.cod_comp).filter(Boolean))];
+    const { data: todosDescs } = codComps.length
+      ? await tdb.from('competencias')
+          .select('cod_comp, cod_desc, nome_curto, descritor_completo')
+          .in('cod_comp', codComps)
+          .not('cod_desc', 'is', null)
+      : { data: [] };
+    const descsPorCodComp = {};
+    for (const d of todosDescs || []) {
+      (descsPorCodComp[d.cod_comp] = descsPorCodComp[d.cod_comp] || []).push(d);
+    }
     for (const comp of competencias || []) {
-      const { data: descs } = await tdb.from('competencias')
-        .select('cod_desc, nome_curto, descritor_completo')
-        .eq('cod_comp', comp.cod_comp)
-        .not('cod_desc', 'is', null);
+      const descs = descsPorCodComp[comp.cod_comp];
       descritoresCache[comp.id] = (descs || []).map((d, i) => ({
         codigo: d.cod_desc || `D${i + 1}`,
         nome: d.nome_curto || d.descritor_completo || `Descritor ${i + 1}`,
@@ -2053,25 +2061,30 @@ export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Confi
 
     const modelo = aiConfig?.checkModel || aiConfig?.model || 'gemini-3.1-flash-lite';
     const pppResumo = await fetchPppResumo(tdb);
-    const compCache = {}, descCache = {};
-    let ok = 0, erros = 0;
 
-    for (const cen of pendentes) {
+    // Pré-carga em BATCH (elimina o cache incremental) e checks IA em
+    // PARALELO com limite 4 — check é idempotente e barato de repetir,
+    // o alvo seguro pra primeira leva de paralelização (review 03/07).
+    const compIdsChk = [...new Set(pendentes.map(c => c.competencia_id).filter(Boolean))];
+    const { data: compsChk } = compIdsChk.length
+      ? await tdb.from('competencias').select('id, nome, cod_comp').in('id', compIdsChk)
+      : { data: [] };
+    const compCache = Object.fromEntries((compsChk || []).map(c => [c.id, c]));
+    const descCache = {};
+    await mapComLimite(Object.values(compCache) as any[], 8, async (comp: any) => {
+      descCache[comp.id] = await fetchDescritoresTexto(tdb, comp.cod_comp);
+    });
+
+    const resultados = await mapComLimite(pendentes as any[], 4, async (cen: any) => {
       try {
-        let comp = compCache[cen.competencia_id];
-        if (!comp) {
-          const { data } = await tdb.from('competencias')
-            .select('id, nome, cod_comp').eq('id', cen.competencia_id).maybeSingle();
-          comp = compCache[cen.competencia_id] = data || null;
-        }
-        let descritoresTexto = descCache[cen.competencia_id];
-        if (descritoresTexto === undefined) {
-          descritoresTexto = descCache[cen.competencia_id] = comp ? await fetchDescritoresTexto(tdb, comp.cod_comp) : '';
-        }
+        const comp = compCache[cen.competencia_id] || null;
+        const descritoresTexto = comp ? (descCache[cen.competencia_id] ?? '') : '';
         const r = await runCheckOnCenB(sbRaw, cen, comp, descritoresTexto, pppResumo, modelo);
-        if (r.success) ok++; else erros++;
-      } catch { erros++; }
-    }
+        return r.success ? 'ok' : 'erro';
+      } catch { return 'erro'; }
+    });
+    const ok = resultados.filter(r => r === 'ok').length;
+    const erros = resultados.filter(r => r === 'erro').length;
 
     return { success: true, message: `Check cenários B: ${ok} checados${erros ? `, ${erros} erros` : ''} (${cenarios.length - pendentes.length} já checados antes)` };
   } catch (err) {
