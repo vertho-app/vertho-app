@@ -38,9 +38,10 @@ function corrigirTexto(t: string): string {
  * deu pra corrigir com segurança — o caller trata como narrativa inválida
  * (retry/erro recuperável), nunca publica.
  */
-export function sanitizarNarrativaPiloto(parsed: any): { parsed: any; ok: boolean } {
-  if (!parsed || typeof parsed !== 'object') return { parsed, ok: true };
+export function sanitizarNarrativaPiloto(parsed: any): { parsed: any; ok: boolean; alterou: boolean } {
+  if (!parsed || typeof parsed !== 'object') return { parsed, ok: true, alterou: false };
   const out = { ...parsed };
+  let alterou = false;
 
   const campos: Array<[any, string]> = [];
   if (out.resumo_avaliacao && typeof out.resumo_avaliacao === 'object') {
@@ -57,10 +58,14 @@ export function sanitizarNarrativaPiloto(parsed: any): { parsed: any; ok: boolea
   let restou = false;
   for (const [obj, k] of campos) {
     if (typeof obj[k] !== 'string' || !obj[k]) continue;
-    if (DURACAO_ERRADA.test(obj[k])) obj[k] = corrigirTexto(obj[k]);
+    if (DURACAO_ERRADA.test(obj[k])) {
+      const antes = obj[k];
+      obj[k] = corrigirTexto(obj[k]);
+      if (obj[k] !== antes) alterou = true;
+    }
     if (DURACAO_ERRADA.test(obj[k])) restou = true;
   }
-  return { parsed: out, ok: !restou };
+  return { parsed: out, ok: !restou, alterou };
 }
 
 interface DescritorBaseline {

@@ -2,6 +2,11 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
+import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
+import { pontuarFechamento } from '@/lib/season-engine/fechamento-scorer';
+import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 
 /**
  * Lista auditorias da semana 14 de todas as empresas.
@@ -99,7 +104,7 @@ export async function regerarScoringComFeedback(progressoId) {
   if (!auditoriaAnterior) return { error: 'Sem auditoria anterior pra usar como feedback' };
 
   const { data: trilha } = await sb.from('trilhas')
-    .select('id, empresa_id, colaborador_id, competencia_foco, descritores_selecionados')
+    .select('id, empresa_id, colaborador_id, competencia_foco, competencias_foco, descritores_selecionados, programa_modo')
     .eq('id', prog.trilha_id).maybeSingle();
   if (!trilha) return { error: 'Trilha não encontrada' };
 
@@ -107,36 +112,33 @@ export async function regerarScoringComFeedback(progressoId) {
     .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
 
   const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
-  const { callAI } = await import('@/actions/ai-client');
+  if (!descritores.length) return { error: 'Trilha sem descritores_selecionados' };
 
-  // Enriquece com régua + nota_pre fresh (reusa helpers do evaluation route)
-  const nomes = descritores.map(d => d.descritor);
-  let { data: regRows } = await sb.from('competencias')
-    .select('nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-    .eq('empresa_id', trilha.empresa_id).eq('nome', trilha.competencia_foco)
-    .in('nome_curto', nomes);
-  if (!regRows?.length) {
-    const { data: base } = await sb.from('competencias_base')
-      .select('nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-      .eq('nome', trilha.competencia_foco).in('nome_curto', nomes);
-    regRows = base || [];
-  }
-  const regMap = Object.fromEntries(regRows.map(r => [r.nome_curto, r]));
-  const { data: assRows } = await sb.from('descriptor_assessments')
-    .select('descritor, nota').eq('colaborador_id', trilha.colaborador_id)
-    .eq('competencia', trilha.competencia_foco).in('descritor', nomes);
-  const notaMap = Object.fromEntries((assRows || []).map(a => [a.descritor, Number(a.nota)]));
-  const descritoresEnriquecidos = descritores.map(d => ({
-    ...d, ...(regMap[d.descritor] || {}),
-    nota_atual: notaMap[d.descritor] != null ? notaMap[d.descritor] : d.nota_atual,
-  }));
+  // Config pela FONTE ÚNICA (carimbo da trilha) — a regeneração passa a usar
+  // as semanas certas do modo (antes: 13 HARDCODED, quebraria piloto/onboarding)
+  // e a herdar trava/spec_version/notaPrograma do núcleo no piloto.
+  const programaConfig = await resolverConfigDaTrilha(sb, trilha);
+  const isPiloto = programaConfig.modo === 'piloto';
+  const competenciasLabel = Array.isArray(trilha.competencias_foco) && trilha.competencias_foco.length > 1
+    ? trilha.competencias_foco.join(' + ')
+    : trilha.competencia_foco;
 
-  // Acumulada + evidências
-  const { data: prog13 } = await sb.from('temporada_semana_progresso')
-    .select('feedback').eq('trilha_id', trilha.id).eq('semana', 13).maybeSingle();
-  const acumuladoPrimaria = prog13?.feedback?.acumulado?.primaria || null;
+  // Régua + nota fresh pela fonte única (mata a 4ª cópia local da régua)
+  const enriquecidos = await enriquecerComRegua({
+    db: sb, sbGlobal: sb, empresaId: trilha.empresa_id,
+    competencia: trilha.competencia_foco, descritores,
+  });
+  const descritoresComRegua = await sobreporNotaFresh(sb, trilha.colaborador_id, trilha.competencia_foco, enriquecidos);
 
-  // Monta feedback da auditoria anterior como instrução extra
+  // Acumulado + evidências nas semanas da CONFIG (não mais 13 fixo)
+  const { data: progAcum } = await sb.from('temporada_semana_progresso')
+    .select('feedback').eq('trilha_id', trilha.id).eq('semana', programaConfig.semanaAcumulada).maybeSingle();
+  const acumuladoPrimaria = normalizarAcumuladoPrimaria(progAcum?.feedback?.acumulado);
+  const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(
+    sb, trilha.id, descritoresComRegua, programaConfig.semanaAcumulada, isPiloto,
+  );
+
+  // Feedback da auditoria anterior como instrução extra (2ª rodada)
   const alertasTexto = (auditoriaAnterior.alertas || []).map((a: any) =>
     typeof a === 'string' ? `- ${a}` : `- [${a.descritor || a.tipo || ''}] ${a.descricao || a.detalhe || ''}`
   ).join('\n') || '(nenhum)';
@@ -153,158 +155,46 @@ ${alertasTexto}
 Ajustes sugeridos:
 ${ajustesTexto}`;
 
-  const { promptEvolutionScenarioScore, validateEvolutionScenarioScore } = await import('@/lib/season-engine/prompts/evolution-scenario');
-  const { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } = await import('@/lib/season-engine/prompts/evolution-scenario-check');
+  // PII masking — a regeneração agora segue a MESMA política do fluxo normal
+  // (antes mandava nome/resposta crus pra IA externa).
+  const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
+  const respostaMasked = maskTextPII(fb.cenario_resposta || '', piiMap);
+  const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
 
-  // Agrega evidências das 13 sems (era '' antes — root cause do "EVIDÊNCIAS AUSENTES")
-  const { data: progs } = await sb.from('temporada_semana_progresso')
-    .select('semana, tipo, reflexao, feedback')
-    .eq('trilha_id', trilha.id).lte('semana', 13).order('semana');
-  const plano = trilha.descritores_selecionados; // fallback — plano completo seria melhor
-  const { data: planRow } = await sb.from('trilhas').select('temporada_plano').eq('id', trilha.id).maybeSingle();
-  const planoArr = Array.isArray(planRow?.temporada_plano) ? planRow.temporada_plano : [];
-  const descPorSem = Object.fromEntries(planoArr.map(s => [s.semana, s.descritor]));
-  const cobPorSem = Object.fromEntries(planoArr.map(s => [s.semana, s.descritores_cobertos || []]));
-  const linhas = Object.fromEntries(nomes.map(n => [n, []]));
-  for (const p of (progs || [])) {
-    const r = p.reflexao || {};
-    const f = p.feedback || {};
-    if (p.tipo === 'conteudo' && r.insight_principal) {
-      const d = descPorSem[p.semana];
-      if (d && linhas[d]) linhas[d].push(`Sem ${p.semana} | insight: "${r.insight_principal}" | desafio: ${r.desafio_realizado || '?'} | qualidade: ${r.qualidade_reflexao || '?'}`);
-    }
-    if (p.tipo === 'aplicacao' && f) {
-      for (const d of (cobPorSem[p.semana] || [])) {
-        if (!linhas[d]) continue;
-        const aval = (f.avaliacao_por_descritor || []).find(a => a.descritor === d);
-        if (aval) linhas[d].push(`Sem ${p.semana} (${f.modo || 'cenario'}) | nota: ${aval.nota} | obs: "${aval.observacao || ''}"`);
-      }
-    }
-    if (p.semana === 13 && r.evolucao_percebida) {
-      for (const ev of r.evolucao_percebida) {
-        if (linhas[ev.descritor]) linhas[ev.descritor].push(`Sem 13 | antes: "${ev.antes || ''}" | depois: "${ev.depois || ''}" | nivel: ${ev.nivel_percebido ?? '?'}`);
-      }
-    }
-  }
-  const evidenciasAcumuladas = nomes.map(n =>
-    `### ${n}\n` + (linhas[n].length ? '- ' + linhas[n].join('\n- ') : '(sem evidência)')
-  ).join('\n\n');
-
-  const nomeColab = (colab?.nome_completo || '').split(' ')[0];
-
-  // Scorer com feedback injetado
-  const { system, user } = promptEvolutionScenarioScore({
-    competencia: trilha.competencia_foco,
-    descritores: descritoresEnriquecidos,
+  // Núcleo compartilhado com a rota /evaluation — scorer + trava + check
+  const resultado = await pontuarFechamento({
+    competencia: competenciasLabel,
+    descritores: descritoresComRegua,
     cenario: fb.cenario,
-    resposta: fb.cenario_resposta,
-    nomeColab,
+    resposta: respostaMasked,
+    nomeColab: colabMasked.nome,
     perfilDominante: colab?.perfil_dominante,
-    evidenciasAcumuladas,
+    evidenciasAcumuladas: evidenciasMasked,
     acumuladoPrimaria,
+    config: programaConfig,
+    regeracao: { feedbackAuditoria },
   });
+  if (resultado.ok !== true) return { error: `Scorer falhou: ${resultado.erro}`, meta: resultado.meta };
 
-  const scorerAppendix = `
+  const { parsed, auditoria } = resultado;
 
-ATENÇÃO: Esta é uma REGERAÇÃO COM FEEDBACK da avaliação da semana 14.
-
-REGRAS ADICIONAIS OBRIGATÓRIAS:
-1. O nome do colaborador é "${nomeColab}". No resumo_avaliacao, use SOMENTE "${nomeColab}".
-2. NÃO use nomes de personagens do cenário no resumo_avaliacao.
-3. Você recebeu feedback da auditoria anterior. Use esse feedback para corrigir APENAS os pontos realmente frágeis.
-4. NÃO descarte automaticamente o que já estava defensável.
-5. NÃO corrija por estilo. Corrija por coerência metodológica.
-6. Se a auditoria anterior apontou supervalorização do cenário, ignorância do acumulado, delta incoerente, justificativa genérica ou ausência de limites — esses pontos precisam ser explicitamente tratados.
-7. Preserve a lógica de triangulação: cenário não manda sozinho, acumulado não pode ser apagado, regressão é possível, evolução não deve ser forçada.
-
-FEEDBACK DA AUDITORIA ANTERIOR:
-${feedbackAuditoria}
-
-Produza uma nova versão MAIS DEFENSÁVEL da avaliação final.`;
-
-  const systemComFeedback = system + scorerAppendix;
-
-  let parsed: any = {};
-  try {
-    const r = await callAI(systemComFeedback, user, {}, 10000);
-    let cleaned14 = r.trim();
-    if (cleaned14.startsWith('```')) cleaned14 = cleaned14.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-    parsed = validateEvolutionScenarioScore(JSON.parse(cleaned14));
-  } catch (e) {
-    return { error: 'Scorer falhou: ' + e.message };
+  // Despersonaliza os campos textuais
+  if (parsed?.resumo_avaliacao?.mensagem_geral) parsed.resumo_avaliacao.mensagem_geral = unmaskPII(parsed.resumo_avaliacao.mensagem_geral, piiMap);
+  if (Array.isArray(parsed?.avaliacao_por_descritor)) {
+    parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => ({
+      ...d, justificativa: unmaskPII(d.justificativa, piiMap),
+    }));
   }
+  if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
 
-  // Validação: resumo_avaliacao não pode conter nomes de personagens do cenário
-  const resumoText = parsed.resumo_avaliacao?.mensagem_geral || '';
-  if (resumoText && nomeColab && !resumoText.includes(nomeColab) && resumoText.length > 50) {
-    console.warn('[regerar] resumo_avaliacao pode não conter nome do colab');
-  }
-
-  // Check de segunda rodada
-  let auditoria = null;
-  try {
-    const { system: sC, user: uC } = promptEvolutionScenarioCheck({
-      competencia: trilha.competencia_foco,
-      descritores: descritoresEnriquecidos,
-      cenario: fb.cenario,
-      resposta: fb.cenario_resposta,
-      avaliacaoPrimaria: parsed,
-      evidenciasAcumuladas,
-    });
-
-    const checkAppendix = `
-
-ATENÇÃO: Esta é uma AUDITORIA DE SEGUNDA RODADA da semana 14.
-Você está auditando uma NOVA VERSÃO do scoring final, gerada após feedback da auditoria anterior.
-
-REGRAS ADICIONAIS OBRIGATÓRIAS:
-1. Não trate esta rodada como auditoria cega de primeira passagem.
-2. Compare a nova versão com os problemas apontados anteriormente.
-3. Sua tarefa é dizer:
-   - o que foi corrigido
-   - o que foi corrigido parcialmente
-   - o que ainda permaneceu frágil
-   - se surgiu algum novo problema
-4. Se um problema anterior foi resolvido, reconheça explicitamente.
-5. Se um problema anterior persistiu, sinalize claramente.
-6. Se a nova versão criou novo erro metodológico, destaque.
-7. Continue auditando a DEFENSABILIDADE da triangulação, não a "beleza" do texto.
-8. Mantenha rigor com: 4.0 sem base, cenário supervalorizado, acumulado ignorado, delta incoerente, justificativa genérica, ausência de limites.
-
-CONTEXTO DA AUDITORIA ANTERIOR:
-${feedbackAuditoria}
-
-EXPECTATIVA DESTA RODADA:
-- resumo_auditoria deve dizer se a nova versão ficou melhor resolvida, parcialmente corrigida ou ainda frágil
-- alertas devem refletir problemas mantidos E novos problemas
-- ajustes_sugeridos devem focar no que ainda precisa ser corrigido
-- Não seja complacente só porque houve reprocessamento
-- Reconheça melhora real quando ela aconteceu`;
-
-    const rC = await callAI(sC + checkAppendix, uC, {}, 8000);
-    let cleanedChk = rC.trim();
-    if (cleanedChk.startsWith('```')) cleanedChk = cleanedChk.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-    auditoria = validateEvolutionScenarioCheck(JSON.parse(cleanedChk));
-
-    // Validação de segunda rodada: resumo deve referenciar comparação
-    if (auditoria?.resumo_auditoria) {
-      const resumo = auditoria.resumo_auditoria.toLowerCase();
-      const temComparacao = ['corrig', 'melhora', 'manteve', 'persist', 'anterior', 'segunda', 'resolv', 'parcial'].some(w => resumo.includes(w));
-      if (!temComparacao) {
-        console.warn('[regerar check] resumo_auditoria pode não estar comparando com rodada anterior');
-      }
-    }
-  } catch (e) {
-    console.warn('[regerar check]', e.message);
-  }
-
-  // Salva
+  // Salva (regeneracao_meta = metadados operacionais pro admin/debug)
   const novoFb = {
     ...fb, ...parsed,
     auditoria,
     auditoria_anterior: auditoriaAnterior,
     regerado_com_feedback: true,
     regerado_em: new Date().toISOString(),
+    regeneracao_meta: resultado.meta,
   };
   await sb.from('temporada_semana_progresso').update({ feedback: novoFb }).eq('id', prog.id).eq('empresa_id', prog.empresa_id);
 
@@ -314,7 +204,7 @@ EXPECTATIVA DESTA RODADA:
     await gerarEvolutionReport(prog.trilha_id);
   } catch (e) { console.warn('[regerar ER]', e.message); }
 
-  return { ok: true, novaNota: auditoria?.nota_auditoria, novoStatus: auditoria?.status };
+  return { ok: true, novaNota: auditoria?.nota_auditoria, novoStatus: auditoria?.status, meta: resultado.meta };
 }
 
 export async function loadAuditoriaSem14Detalhe(progressoId) {

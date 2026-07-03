@@ -5,13 +5,12 @@ import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validateEvolutionExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
-import { promptEvolutionScenarioScore, validateEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
-import { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
+import { pontuarFechamento } from '@/lib/season-engine/fechamento-scorer';
+import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { parseJsonIA } from '@/lib/ai-json';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
-import { aplicarTravaPiloto, sanitizarNarrativaPiloto } from '@/lib/season-engine/piloto-trava';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 
 /**
@@ -268,69 +267,33 @@ export async function POST(request) {
       const respostaMasked = maskTextPII(respostaAgregada, piiMap);
       const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
 
-      // Régua temporal do prompt vem da config (regular=14/13, byte-idêntico;
-      // piloto=3/2 + nota de contexto — a devolutiva não fala mais em "14 semanas").
-      const isPiloto = programaConfig.modo === 'piloto';
-      const promptTempo = {
-        semanaFinal: semCenarioB,
-        semanasEvidencia: semAcumulada,
-        notaPrograma: isPiloto
-          ? 'Este é um PILOTO de 2 semanas (degustação). O fechamento demonstra o método de avaliação — NÃO mede evolução. Não trate a janela curta de evidências como falha do colaborador; avalie o que as 2 semanas sustentam.'
-          : '',
-      };
-      const { system, user } = promptEvolutionScenarioScore({
+      // Scorer + trava + check — NÚCLEO compartilhado com a auditoria-sem14
+      // (lib/season-engine/fechamento-scorer). Inputs mascarados; unmask abaixo.
+      const resultadoScorer = await pontuarFechamento({
         competencia: competenciasLabel,
         descritores: descritoresComRegua,
-        cenario, resposta: respostaMasked, nomeColab: colabMasked.nome,
+        cenario,
+        resposta: respostaMasked,
+        nomeColab: colabMasked.nome,
         perfilDominante: colab?.perfil_dominante,
         evidenciasAcumuladas: evidenciasMasked,
         acumuladoPrimaria,
-        ...promptTempo,
+        config: programaConfig,
       });
-      // Até 2 tentativas: a 2ª só roda se o parse falhou OU (piloto) a
-      // narrativa saiu com régua temporal errada e a sanitização cirúrgica
-      // não resolveu ("14 semanas" numa degustação de 2).
-      let parsed: any = {};
-      let narrativaOk = true;
-      for (let tentativa = 1; tentativa <= 2; tentativa++) {
-        const r = await callAI(system, user, {}, 10000);
-        try {
-          parsed = validateEvolutionScenarioScore(parseJsonIA(r));
-        } catch (e) {
-          console.error(`[VERTHO] parse sem${semCenarioB} (tentativa ${tentativa}):`, e.message);
-          parsed = {};
-          continue;
-        }
-        if (isPiloto) {
-          const san = sanitizarNarrativaPiloto(parsed);
-          parsed = san.parsed;
-          narrativaOk = san.ok;
-          if (!narrativaOk) {
-            console.warn(`[VERTHO] narrativa piloto com régua errada (tentativa ${tentativa}) — ${tentativa === 1 ? 'retry' : 'abortando'}`);
-            continue;
-          }
-        }
-        break;
+      if (resultadoScorer.meta.warnings.length) {
+        console.warn('[VERTHO] fechamento warnings:', resultadoScorer.meta.warnings.join(' | '));
       }
-
-      // Guard: avaliação vazia (parse falhou 2x) ou narrativa piloto ainda
-      // inválida → NÃO finaliza. Erro recuperável — a última resposta não
-      // foi persistida, o colab reenvia e o scorer roda de novo.
-      if (!Array.isArray(parsed?.avaliacao_por_descritor) || parsed.avaliacao_por_descritor.length === 0 || !narrativaOk) {
+      // Guard: parse vazio ou narrativa piloto inválida → NÃO finaliza. Erro
+      // recuperável — a última resposta não foi persistida, reenviar reprocessa.
+      if (!resultadoScorer.ok) {
         return NextResponse.json({
           error: 'A avaliação automática falhou ao processar sua resposta. Nada foi perdido — envie a última resposta novamente para reprocessar.',
         }, { status: 502 });
       }
+      const parsed = resultadoScorer.parsed;
+      const auditoria = resultadoScorer.auditoria;
 
-      // TRAVA piloto-only (piso no baseline): nota_pos exibida = max(bruto,
-      // baseline), bruto preservado, piso_aplicado marcado, spec_version
-      // 'piloto-v1' carimbada. Vive SÓ neste caminho — o scorer dos outros
-      // modos passa reto (parsed intocado).
-      if (isPiloto) {
-        parsed = aplicarTravaPiloto(parsed, descritoresComRegua);
-      }
-
-      // Despersonaliza campos textuais do output
+      // Despersonaliza campos textuais do output (primária)
       if (parsed?.resumo_avaliacao?.mensagem_geral) parsed.resumo_avaliacao.mensagem_geral = unmaskPII(parsed.resumo_avaliacao.mensagem_geral, piiMap);
       if (Array.isArray(parsed?.avaliacao_por_descritor)) {
         parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => ({
@@ -338,25 +301,7 @@ export async function POST(request) {
         }));
       }
 
-      // Check por segunda IA — também com masking aplicado
-      let auditoria = null;
-      try {
-        const { system: sCheck, user: uCheck } = promptEvolutionScenarioCheck({
-          competencia: competenciasLabel,
-          descritores: descritoresComRegua,
-          cenario, resposta: respostaMasked,
-          avaliacaoPrimaria: parsed,
-          evidenciasAcumuladas: evidenciasMasked,
-          semanaFinal: semCenarioB,
-          semanasEvidencia: semAcumulada,
-          notaPrograma: promptTempo.notaPrograma,
-        });
-        const rCheck = await callAI(sCheck, uCheck, {}, 8000);
-        auditoria = validateEvolutionScenarioCheck(parseJsonIA(rCheck));
-        if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
-      } catch (e) {
-        console.error('[VERTHO] check sem14:', e.message);
-      }
+      if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
 
       const novoSlot = {
         ...dados, ...parsed,
@@ -384,108 +329,7 @@ export async function POST(request) {
 }
 
 
-function normalizarAcumuladoPrimaria(acumulado) {
-  if (!acumulado) return null;
-  if (acumulado.primaria) return acumulado.primaria;
-  if (!Array.isArray(acumulado.por_competencia)) return null;
-  const avaliacao_acumulada = acumulado.por_competencia.flatMap((item) =>
-    (item.primaria?.avaliacao_acumulada || []).map((d) => ({
-      ...d,
-      competencia: item.competencia,
-    })),
-  );
-  return {
-    multi: true,
-    competencias: acumulado.competencias,
-    avaliacao_acumulada,
-    resumo_geral: acumulado.por_competencia
-      .map((item) => item.primaria?.resumo_geral ? `${item.competencia}: ${item.primaria.resumo_geral}` : null)
-      .filter(Boolean)
-      .join('\n'),
-  };
-}
 
-/**
- * Agrega evidências qualitativas de TODAS as semanas até a acumulada
- * numa string estruturada por descritor. A semana do cenário B NUNCA avalia
- * só pelo cenário — triangula com o histórico completo da temporada.
- */
-async function agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, semAcumulada = 13, evidenciaPorCobertos = false) {
-  const { data: progressos } = await sb.from('temporada_semana_progresso')
-    .select('semana, tipo, descritor, reflexao, feedback, tira_duvidas')
-    .eq('trilha_id', trilhaId).lte('semana', semAcumulada).order('semana');
-  if (!progressos?.length) return '';
-
-  // Mapa de temporada_plano pra saber qual descritor cada semana trabalhou
-  const { data: trilhaPlan } = await sb.from('trilhas')
-    .select('temporada_plano').eq('id', trilhaId).maybeSingle();
-  const plano = Array.isArray(trilhaPlan?.temporada_plano) ? trilhaPlan.temporada_plano : [];
-  const descritorPorSem = Object.fromEntries(plano.map(s => [s.semana, s.descritor]));
-  const descritoresCobertosPorSem = Object.fromEntries(plano.map(s => [s.semana, s.descritores_cobertos || []]));
-
-  const linhasPorDescritor = {};
-  for (const d of descritoresComRegua) linhasPorDescritor[d.descritor] = [];
-
-  for (const p of progressos) {
-    // Conteúdo (sems 1-12 exceto 4/8/12): reflexão socrática.
-    // Piloto (evidenciaPorCobertos): a reflexão evidencia TODOS os descritores
-    // da semana (2 entregas). Demais modos: só o principal, como sempre foi.
-    if (p.tipo === 'conteudo' && p.reflexao) {
-      const descsDaSemana = evidenciaPorCobertos
-        ? (descritoresCobertosPorSem[p.semana]?.length ? descritoresCobertosPorSem[p.semana] : [descritorPorSem[p.semana]])
-        : [descritorPorSem[p.semana]];
-      for (const desc of descsDaSemana) {
-        if (!desc || !linhasPorDescritor[desc]) continue;
-        const partes = [
-          `Sem ${p.semana} (conteúdo/reflexão)`,
-          p.reflexao.insight_principal && `insight: "${p.reflexao.insight_principal}"`,
-          p.reflexao.desafio_realizado && `desafio: ${p.reflexao.desafio_realizado}`,
-          p.reflexao.qualidade_reflexao && `qualidade: ${p.reflexao.qualidade_reflexao}`,
-        ].filter(Boolean).join(' · ');
-        linhasPorDescritor[desc].push(partes);
-      }
-    }
-    // Prática (sems 4/8/12): feedback analítico ou missão
-    if (p.tipo === 'aplicacao' && p.feedback) {
-      const cobertos = descritoresCobertosPorSem[p.semana] || [];
-      const avals = Array.isArray(p.feedback.avaliacao_por_descritor) ? p.feedback.avaliacao_por_descritor : [];
-      const modo = p.feedback.modo || 'cenario';
-      const compromisso = p.feedback.compromisso;
-      for (const desc of cobertos) {
-        if (!linhasPorDescritor[desc]) continue;
-        const aval = avals.find(a => a.descritor === desc);
-        const partes = [
-          `Sem ${p.semana} (prática${modo === 'pratica' ? ' — missão real' : ' — cenário escrito'})`,
-          modo === 'pratica' && compromisso && `compromisso: "${compromisso}"`,
-          aval?.observacao && `avaliação: "${aval.observacao}"`,
-          aval?.nota && `nota: ${aval.nota}`,
-        ].filter(Boolean).join(' · ');
-        if (partes) linhasPorDescritor[desc].push(partes);
-      }
-    }
-    // Semana da acumulada (regular=13): evolução percebida
-    if (p.semana === semAcumulada && p.reflexao?.evolucao_percebida) {
-      for (const ev of p.reflexao.evolucao_percebida) {
-        if (!linhasPorDescritor[ev.descritor]) continue;
-        const partes = [
-          `Sem ${semAcumulada} (auto-percepção)`,
-          ev.antes && `antes: "${ev.antes}"`,
-          ev.depois && `depois: "${ev.depois}"`,
-          ev.evidencia && `evidência: "${ev.evidencia}"`,
-          ev.nivel_percebido != null && `nível percebido: ${ev.nivel_percebido}`,
-        ].filter(Boolean).join(' · ');
-        linhasPorDescritor[ev.descritor].push(partes);
-      }
-    }
-  }
-
-  const blocos = descritoresComRegua.map(d => {
-    const linhas = linhasPorDescritor[d.descritor] || [];
-    if (!linhas.length) return `### ${d.descritor}\n(sem evidência registrada nas 13 semanas)`;
-    return `### ${d.descritor}\n- ${linhas.join('\n- ')}`;
-  });
-  return blocos.join('\n\n');
-}
 
 async function upsertProg(sb, { prog, trilhaId, semana, tipo, empresaId, colaboradorId, slotKey, novoSlot, finished }) {
   const payload = {
