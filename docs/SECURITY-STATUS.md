@@ -1,6 +1,6 @@
 # Estado atual de seguranca — Vertho Mentor IA
 
-> Ultima revisao: 2026-04-17 (coberturas de teste atualizadas 2026-05-27)
+> Ultima revisao: 2026-07-03 (auditoria de segurança — RCE/RLS/IDOR/search_path/MVs fechados; ver seção "Auditoria de segurança 03/07")
 
 ## Camadas de protecao implementadas
 
@@ -86,10 +86,11 @@ A reducao real de risco ja esta feita via:
 Prerequisito para migracao real: RLS policies por tabela + testes de enforcement
 
 ### RLS
-- Habilitada em varias tabelas mas com policies permissivas (`USING (true)`)
-- Todas as queries usam `createSupabaseAdmin()` (service_role) que bypassa RLS
-- RLS real requer: policies corretas + migracao pra client user-scoped + testes por tabela
-- Status: **nao implementada como defense-in-depth real**
+- **Corrigido 03/07 (mig 156)**: as policies permissivas `USING(true) TO public` que davam leitura/escrita ANÔNIMA cross-tenant (respostas, mensagens_chat, fit_resultados, evolucao, sessoes_avaliacao, trilhas, admin_audit_log, radarempresas_*) foram removidas. Comprovado: `GET /rest/v1/respostas` com a anon key ia de dados → 0 linhas.
+- As queries do app usam `createSupabaseAdmin()`/`tenantDb` (service_role, bypassa RLS) — o isolamento primário é na app; RLS agora é **defense-in-depth**: tabelas de tenant sem permissiva = deny-all para anon/authenticated; tabelas com leitura legítima via browser têm policy tenant-scoped (`empresa_id = get_empresa_id()`).
+- `diag_*` (censo público do Radar) mantêm `SELECT public` de propósito; `radarempresas_*` → service_role-only.
+- **Guard anti-regressão**: `tests/unit/security/rls-posture.test.ts` (5 invariantes de estado do banco — sem RLS-off+anon, sem policy `true`, sem exec_sql, sem MV anon-readable, search_path em toda SECURITY DEFINER).
+- Follow-up: policies tenant-scoped EXPLÍCITAS nas ~60 tabelas hoje deny-by-default (fechadas, mas implícito).
 
 ### Schema
 - `respostas`: 46 colunas em producao, reconciliadas via migration 044
@@ -131,9 +132,22 @@ Nenhuma aceita mais email/colaboradorId/empresaId do client como identidade do c
 ### Go-live
 Checklist operacional: `docs/GO-LIVE-CHECKLIST.md`
 
+## Auditoria de segurança 03/07 — críticos fechados (verificados no banco)
+Quatro vetores ATIVOS (exploráveis em prod) + achados de endurecimento, todos corrigidos:
+- **RCE `public.exec_sql(text)`** (mig 155/157): função `SECURITY DEFINER` executora de SQL arbitrário, com grant default `EXECUTE TO PUBLIC` → chamável por anon via `POST /rest/v1/rpc/exec_sql`. Revogada e depois **removida** (`DROP`).
+- **RLS "always true" anon cross-tenant** (mig 156): ver seção RLS acima.
+- **2 server actions sem auth** (`cbaaeda`): `baixarRelatorioComportamentalPdfPorId` (IDOR — fetchColabPorId sem filtro empresa) e `pregerarPdfsEmpresa` (IDOR + abuso LLM) → gateadas com `requireAdminAction`.
+- **`search_path` em SECURITY DEFINER** (mig 157): `get_empresa_id()` (ancora todo o RLS tenant-scoped) + diag_qualidade_* ganharam `SET search_path=public` (anti-hijack).
+- **Materialized views anon-readable** (mig 158): `pulse_mv_aggregates` (dado de tenant!) + `diag_mv_*` tinham SELECT pra anon (MV não aceita RLS) → revogado.
+- **Path-traversal** no `/api/upload/signed-url` (`formato` do body virava segmento de path) → allowlist estrita.
+- **Compare de secret timing-unsafe** (`!==`) em webhooks bunny/cron/radar-lead-pdf → `lib/secure-compare.safeSecretEqual`. `modulo-from-video` passa a aceitar `INTERNAL_API_KEY` (desacopla do service-role).
+- **Self-protection no platform-admins**: master não pode se rebaixar/remover (self-lockout).
+
 ## O que NAO esta coberto
-- RLS real no banco (policies sao permissivas)
-- Rate limiting distribuido (so por Lambda instance)
+- Rate limiting distribuido (so por Lambda instance — `lib/rate-limit.ts`; teto efetivo × N lambdas; migrar p/ Upstash Redis)
+- `middleware.ts` global (rate-limit/CSRF centralizados; headers de segurança JÁ estão em `next.config.mjs`; falta CSP completa)
+- Leaked-password protection no Supabase Auth (toggle no dashboard)
+- Gate de envio central por tenant-demo (acme-demo: proteção hoje é personas @vertho.ai sem telefone)
+- Policies tenant-scoped explícitas nas ~60 tabelas deny-by-default (fechadas, mas implícito)
 - CSRF em server actions (Next.js tem protecao built-in mas nao auditamos)
 - Testes E2E de isolamento real (requer 2 tenants em test env)
-- Auditoria parcial das actions server-side — as prioritarias (relatorios, evaluation, reflection, fit) foram hardened com auth + tenant check; demais actions usam guards basicos

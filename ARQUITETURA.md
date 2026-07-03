@@ -59,7 +59,7 @@
 
 Contexto rapido para reinicializacao da maquina:
 
-- Branch atual: `master`, HEAD `c182d23`. Migrations 022-121 aplicadas em prod (103 arquivos com gaps de numeração).
+- Branch atual: `master`. Migrations 022-158 aplicadas em prod (com gaps de numeração). Recentes (03/07): 153-154 (modo piloto por colab/trilha), 155/157 (revoga+DROP exec_sql, search_path em SECURITY DEFINER), 156 (fecha RLS permissivas anon cross-tenant), 158 (revoga MVs anon-readable) — ver `docs/SECURITY-STATUS.md`.
 - **Frentes 27/05** (sessao de UX + qualidade):
   - **Video de instrucoes no mapeamento** — capa clicavel (thumbnail Bunny) na tela de instrucoes do DISC abre o `VideoModal` (lib 636615, guid `e235d703-…`) com tracking de view por colaborador. Endpoint `/api/bunny-thumb` passou a resolver `thumbnailFileName` (thumbnails customizados ganham nome com hash, nao `thumbnail.jpg`).
   - **Botao "Voltar" padronizado** — `components/back-button.tsx` no topo-direito, substituindo botoes inline inconsistentes em ~55 telas (dashboard + admin).
