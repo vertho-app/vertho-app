@@ -4059,5 +4059,11 @@
       "overrideSaved": "Override saved.",
       "overrideRemoved": "Override removed."
     }
+  },
+  "SegmentError": {
+    "title": "Something went wrong in this section",
+    "unknown": "Unexpected error.",
+    "back": "Back",
+    "retry": "Try again"
   }
 }
