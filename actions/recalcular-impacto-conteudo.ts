@@ -54,15 +54,25 @@ export async function recalcularImpactoConteudo(email: string) {
   }
 
   // 3. Calcula média + amostras e persiste
+  // Tenant da linha em LOTE (evita query por item no loop) — predicado explícito
+  const coreIds = Object.keys(conteudoStats);
+  const { data: linhasMc } = coreIds.length
+    ? await sb.from('micro_conteudos').select('id, empresa_id').in('id', coreIds)
+    : { data: [] as any[] };
+  const tenantPorConteudo = new Map((linhasMc || []).map((l: any) => [l.id, l.empresa_id]));
   let atualizados = 0;
   for (const [coreId, stats] of Object.entries(conteudoStats)) {
+    if (!tenantPorConteudo.has(coreId)) continue; // conteúdo não existe mais
     const amostras = stats.deltas.length;
     const media = stats.deltas.reduce((a, b) => a + b, 0) / amostras;
-    await sb.from('micro_conteudos').update({
+    const empresaLinha = tenantPorConteudo.get(coreId);
+    let qImp = sb.from('micro_conteudos').update({
       impacto_medio_delta: Number(media.toFixed(2)),
       impacto_amostras: amostras,
       impacto_atualizado_em: new Date().toISOString(),
     }).eq('id', coreId);
+    qImp = empresaLinha ? qImp.eq('empresa_id', empresaLinha) : qImp.is('empresa_id', null);
+    await qImp;
     atualizados++;
   }
 

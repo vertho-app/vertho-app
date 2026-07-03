@@ -1,15 +1,4 @@
 {
-  "description": "Mutações RAW (update/delete sem tenantDb e sem .eq('empresa_id')) em tabelas tenant-owned, por arquivo. Estoque CONGELADO em 02/07/2026 — todo site novo falha no CI. Preferência: tenantDb(empresaId) OU .eq('empresa_id', ...) explícito no WHERE. Reduzir estas contagens é o backlog P1 de tenant-hardening (Fase 2: repos tenant-safe).",
-  "allowlist": {
-    "actions/conteudos.ts": 8,
-    "actions/fase1.ts": 3,
-    "actions/fase5.ts": 2,
-    "actions/recalcular-impacto-conteudo.ts": 1,
-    "actions/simulador-temporada.ts": 4,
-    "actions/temporadas.ts": 6,
-    "app/admin/cargos/actions.ts": 1,
-    "app/admin/competencias/actions.ts": 1,
-    "app/admin/empresas/gerenciar/actions.ts": 1,
-    "app/admin/vertho/auditoria-sem14/actions.ts": 1
-  }
+  "description": "Mutações RAW (update/delete sem tenantDb e sem predicado de tenant no WHERE) em tabelas tenant-owned/mistas. ZERADA em 03/07/2026 — toda mutação nova precisa de .eq('empresa_id', ...) (tenant) OU .is('empresa_id', null) (catálogo global) OU tenantDb. Allowlist vazia é o estado normal; adicionar entrada exige justificativa em code review.",
+  "allowlist": {}
 }

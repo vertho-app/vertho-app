@@ -618,7 +618,8 @@ export async function derivarGestorEmailPorNome(empresaId: string): Promise<{
   for (const u of updates) {
     await sb.from('colaboradores')
       .update({ gestor_email: u.gestor_email })
-      .eq('id', u.id);
+      .eq('id', u.id)
+      .eq('empresa_id', empresaId);
   }
 
   return {

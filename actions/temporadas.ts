@@ -777,10 +777,10 @@ export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig
 export async function pausarRetomarTemporada(trilhaId: string) {
   try {
     const sb = await requireAdminSupabase('content.manage');
-    const { data: t } = await sb.from('trilhas').select('status').eq('id', trilhaId).maybeSingle();
+    const { data: t } = await sb.from('trilhas').select('status, empresa_id').eq('id', trilhaId).maybeSingle();
     if (!t) return { success: false, error: 'Trilha não encontrada' };
     const novo = t.status === 'pausada' ? 'ativa' : 'pausada';
-    const { error } = await sb.from('trilhas').update({ status: novo }).eq('id', trilhaId);
+    const { error } = await sb.from('trilhas').update({ status: novo }).eq('id', trilhaId).eq('empresa_id', t.empresa_id);
     if (error) return { success: false, error: error.message };
     return { success: true, status: novo, message: `Temporada ${novo}` };
   } catch (err: any) {
@@ -804,7 +804,9 @@ export async function anteciparInicioTemporada(trilhaId: string) {
     const diasDesdeSegunda = (dow + 6) % 7; // seg=0, ter=1, ..., dom=6
     const segunda = new Date(Date.UTC(sp.getUTCFullYear(), sp.getUTCMonth(), sp.getUTCDate() - diasDesdeSegunda));
     const dataInicio = segunda.toISOString().slice(0, 10);
-    const { error } = await sb.from('trilhas').update({ data_inicio: dataInicio }).eq('id', trilhaId);
+    const { data: t } = await sb.from('trilhas').select('empresa_id').eq('id', trilhaId).maybeSingle();
+    if (!t) return { success: false, error: 'Trilha não encontrada' };
+    const { error } = await sb.from('trilhas').update({ data_inicio: dataInicio }).eq('id', trilhaId).eq('empresa_id', t.empresa_id);
     if (error) return { success: false, error: error.message };
     return { success: true, dataInicio, message: `Semanas liberadas (início ${dataInicio})` };
   } catch (err: any) {
@@ -815,7 +817,9 @@ export async function anteciparInicioTemporada(trilhaId: string) {
 export async function arquivarTemporada(trilhaId: string) {
   try {
     const sb = await requireAdminSupabase('content.manage');
-    const { error } = await sb.from('trilhas').update({ status: 'arquivada' }).eq('id', trilhaId);
+    const { data: t } = await sb.from('trilhas').select('empresa_id').eq('id', trilhaId).maybeSingle();
+    if (!t) return { success: false, error: 'Trilha não encontrada' };
+    const { error } = await sb.from('trilhas').update({ status: 'arquivada' }).eq('id', trilhaId).eq('empresa_id', t.empresa_id);
     if (error) return { success: false, error: error.message };
     return { success: true, message: 'Arquivada' };
   } catch (err: any) {
@@ -905,12 +909,12 @@ export async function regerarSemana(trilhaId: string, semana: number, aiConfig: 
       return { success: false, error: 'Semana de avaliação não pode ser regerada' };
     }
 
-    await sb.from('trilhas').update({ temporada_plano: plano }).eq('id', trilhaId);
+    await sb.from('trilhas').update({ temporada_plano: plano }).eq('id', trilhaId).eq('empresa_id', trilha.empresa_id);
 
     // Reseta progresso da semana
     await sb.from('temporada_semana_progresso')
       .update({ status: 'pendente', conteudo_consumido: false, reflexao: null, feedback: null, iniciado_em: null, concluido_em: null })
-      .eq('trilha_id', trilhaId).eq('semana', Number(semana));
+      .eq('trilha_id', trilhaId).eq('empresa_id', trilha.empresa_id).eq('semana', Number(semana));
 
     return { success: true, message: `Semana ${semana} regerada` };
   } catch (err: any) {
@@ -1039,6 +1043,8 @@ export async function marcarConteudoConsumido(trilhaId: string, semana: number) 
   try {
     await requireUserAction();
     const sb = createSupabaseAdmin();
+    const { data: t } = await sb.from('trilhas').select('empresa_id, colaborador_id, temporada_plano').eq('id', trilhaId).maybeSingle();
+    if (!t) return { error: 'Trilha não encontrada' };
     const { data: existente } = await sb.from('temporada_semana_progresso')
       .select('id, iniciado_em').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
     const payload = {
@@ -1047,10 +1053,9 @@ export async function marcarConteudoConsumido(trilhaId: string, semana: number) 
       iniciado_em: existente?.iniciado_em || new Date().toISOString(),
     };
     if (existente) {
-      await sb.from('temporada_semana_progresso').update(payload).eq('id', existente.id);
+      await sb.from('temporada_semana_progresso').update(payload).eq('id', existente.id).eq('empresa_id', t.empresa_id);
     } else {
-      const { data: t } = await sb.from('trilhas').select('empresa_id, colaborador_id, temporada_plano').eq('id', trilhaId).maybeSingle();
-      const tipo = (t?.temporada_plano || []).find((s: any) => s.semana === semana)?.tipo || 'conteudo';
+      const tipo = (t.temporada_plano || []).find((s: any) => s.semana === semana)?.tipo || 'conteudo';
       await sb.from('temporada_semana_progresso').insert({
         trilha_id: trilhaId, empresa_id: t.empresa_id, colaborador_id: t.colaborador_id,
         semana, tipo, ...payload,

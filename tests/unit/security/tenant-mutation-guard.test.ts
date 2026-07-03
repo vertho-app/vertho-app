@@ -15,8 +15,8 @@ import { describe, it } from 'vitest';
  *
  * Heurística do scan (mesma da varredura que gerou a allowlist):
  *  - tabela tenant-owned + .update(/.delete( logo após o .from(...)
- *  - trecho de 400 chars sem .eq('empresa_id'
- *  - prefixo de 30 chars sem "tdb" (tenantDb injeta o filtro no wrapper)
+ *  - trecho de 1400 chars sem .eq/.is('empresa_id'
+ *  - prefixo de 40 chars sem "tdb" (wrapper) nem "mutacaoConteudo" (helper sancionado)
  */
 
 const config = JSON.parse(readFileSync('config/tenant-mutation-allowlist.json', 'utf-8'));
@@ -52,9 +52,11 @@ function scanDir(dir: string, counts: Record<string, number>) {
     PADRAO.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = PADRAO.exec(content)) !== null) {
-      const trecho = content.slice(m.index, m.index + 400);
-      const prefixo = content.slice(Math.max(0, m.index - 30), m.index);
-      if (!trecho.includes(".eq('empresa_id'") && !prefixo.includes('tdb')) n++;
+      const trecho = content.slice(m.index, m.index + 1400); // janela cobre payloads longos
+      const prefixo = content.slice(Math.max(0, m.index - 40), m.index);
+      // .eq = tenant; .is('empresa_id', null) = catálogo GLOBAL (tabelas mistas)
+      // 'mutacaoConteudo(' = helper sancionado que aplica o predicado internamente
+      if (!/\.(eq|is)\('empresa_id'/.test(trecho) && !prefixo.includes('tdb') && !prefixo.includes('mutacaoConteudo')) n++;
     }
     if (n > 0) counts[rel] = n;
   }

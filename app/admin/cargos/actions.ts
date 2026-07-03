@@ -126,9 +126,13 @@ export async function salvarTop5(cargoId: string, top5: any) {
     // Se cargoId é UUID, atualiza cargos_empresa; senão ignora
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
     if (uuidRegex.test(cargoId)) {
+      // Predicado de tenant explícito: mutação restrita ao tenant da linha lida
+      const { data: cargoLinha } = await sb.from('cargos_empresa').select('empresa_id').eq('id', cargoId).maybeSingle();
+      if (!cargoLinha) return { success: false, error: 'Cargo não encontrado' };
       const { error } = await sb.from('cargos_empresa')
         .update({ top5_workshop: top5 })
-        .eq('id', cargoId);
+        .eq('id', cargoId)
+        .eq('empresa_id', cargoLinha.empresa_id);
       if (error) return { success: false, error: error.message };
     }
     return { success: true, message: 'Top 5 salvo com sucesso' };

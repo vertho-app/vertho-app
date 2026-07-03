@@ -297,7 +297,8 @@ async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: st
     : resultado.nota >= 80 ? 'aprovado_com_ressalvas'
     : 'revisar';
 
-  await sb.from('banco_cenarios').update({
+  const { data: cenLinha } = await sb.from('banco_cenarios').select('empresa_id').eq('id', cen.id).maybeSingle();
+  const qChk0 = sb.from('banco_cenarios').update({
     nota_check: resultado.nota,
     status_check: statusCheck,
     dimensoes_check: resultado.dimensoes || null,
@@ -313,6 +314,7 @@ async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: st
     },
     checked_at: new Date().toISOString(),
   }).eq('id', cen.id);
+  await (cenLinha?.empresa_id ? qChk0.eq('empresa_id', cenLinha.empresa_id) : qChk0.is('empresa_id', null));
 
   return { success: true, nota: resultado.nota, status: statusCheck };
 }
@@ -560,7 +562,8 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
     const cenarioData = await extractJSON(resposta);
     if (!cenarioData?.titulo) return { success: false, error: 'IA não retornou cenário válido' };
 
-    const { error: updErr } = await sbRaw.from('banco_cenarios').update({
+    const { data: cenLinhaRg } = await sbRaw.from('banco_cenarios').select('empresa_id').eq('id', cenarioId).maybeSingle();
+    const payloadRg = {
       titulo: cenarioData.titulo,
       descricao: cenarioData.descricao,
       p1: cenarioData.p1,
@@ -591,7 +594,10 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
       sugestao_check: null,
       alertas_check: null,
       checked_at: null,
-    }).eq('id', cenarioId);
+    };
+    let qRg = sbRaw.from('banco_cenarios').update(payloadRg).eq('id', cenarioId);
+    qRg = cenLinhaRg?.empresa_id ? qRg.eq('empresa_id', cenLinhaRg.empresa_id) : qRg.is('empresa_id', null);
+    const { error: updErr } = await qRg;
 
     if (updErr) return { success: false, error: updErr.message };
     return { success: true, message: `Cenário B regenerado: ${comp.nome}` };

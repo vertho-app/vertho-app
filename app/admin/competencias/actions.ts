@@ -73,7 +73,10 @@ export async function salvarCompetencia(empresaId: string, comp: any) {
 export async function excluirCompetencia(id: string) {
   const sb = await requireAdminSupabase('content.manage');
   try {
-    const { error } = await sb.from('competencias').delete().eq('id', id);
+    // Predicado de tenant explícito: mutação restrita ao tenant da linha lida
+    const { data: compLinha } = await sb.from('competencias').select('empresa_id').eq('id', id).maybeSingle();
+    if (!compLinha) return { success: false, error: 'Competência não encontrada' };
+    const { error } = await sb.from('competencias').delete().eq('id', id).eq('empresa_id', compLinha.empresa_id);
     if (error) return { success: false, error: error.message };
     return { success: true, message: 'Excluida' };
   } catch (err: any) {

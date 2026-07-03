@@ -245,7 +245,7 @@ REGRAS:
   // Libera próxima
   await sb.from('temporada_semana_progresso')
     .update({ status: 'em_andamento' })
-    .eq('trilha_id', trilha.id).eq('semana', s.semana + 1).eq('status', 'pendente');
+    .eq('trilha_id', trilha.id).eq('empresa_id', trilha.empresa_id).eq('semana', s.semana + 1).eq('status', 'pendente');
 }
 
 // ── SEM DE APLICAÇÃO — modo PRÁTICA (10 turnos) ──
@@ -352,7 +352,7 @@ REGRAS:
   });
   await sb.from('temporada_semana_progresso')
     .update({ status: 'em_andamento' })
-    .eq('trilha_id', trilha.id).eq('semana', s.semana + 1).eq('status', 'pendente');
+    .eq('trilha_id', trilha.id).eq('empresa_id', trilha.empresa_id).eq('semana', s.semana + 1).eq('status', 'pendente');
 }
 
 // ── SEM 13 QUALITATIVA (12 turnos) ──
@@ -411,7 +411,7 @@ async function simularQualitativa(sb: any, trilha: any, colab: any, s: any, perf
   });
   await sb.from('temporada_semana_progresso')
     .update({ status: 'em_andamento' })
-    .eq('trilha_id', trilha.id).eq('semana', 14).eq('status', 'pendente');
+    .eq('trilha_id', trilha.id).eq('empresa_id', trilha.empresa_id).eq('semana', 14).eq('status', 'pendente');
 
   // Dispara avaliação acumulada (mesmo hook do endpoint real). Propaga erro
   // pra cima se falhar — antes silenciava e a acumulada ficava sem ser gerada.
@@ -472,7 +472,7 @@ async function simularSem14Ate(sb: any, trilha: any, colab: any, perfilEvolucao:
 // ── Helper: upsert do progresso com os campos necessários ──
 async function upsertProgresso(sb: any, trilha: any, semana: number, patch: any) {
   const { data: prog } = await sb.from('temporada_semana_progresso')
-    .select('id').eq('trilha_id', trilha.id).eq('semana', semana).maybeSingle();
+    .select('id').eq('trilha_id', trilha.id).eq('empresa_id', trilha.empresa_id).eq('semana', semana).maybeSingle();
 
   const payload = {
     trilha_id: trilha.id,
@@ -482,6 +482,6 @@ async function upsertProgresso(sb: any, trilha: any, semana: number, patch: any)
     ...patch,
   };
 
-  if (prog) await sb.from('temporada_semana_progresso').update(payload).eq('id', prog.id);
+  if (prog) await sb.from('temporada_semana_progresso').update(payload).eq('id', prog.id).eq('empresa_id', trilha.empresa_id);
   else await sb.from('temporada_semana_progresso').insert(payload);
 }

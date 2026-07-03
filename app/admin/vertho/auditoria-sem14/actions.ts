@@ -306,7 +306,7 @@ EXPECTATIVA DESTA RODADA:
     regerado_com_feedback: true,
     regerado_em: new Date().toISOString(),
   };
-  await sb.from('temporada_semana_progresso').update({ feedback: novoFb }).eq('id', prog.id);
+  await sb.from('temporada_semana_progresso').update({ feedback: novoFb }).eq('id', prog.id).eq('empresa_id', prog.empresa_id);
 
   // Regenera Evolution Report
   try {

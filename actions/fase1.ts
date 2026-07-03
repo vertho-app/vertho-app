@@ -307,7 +307,12 @@ export async function loadGabaritosCargos(empresaId: string) {
 export async function excluirCenario(cenarioId: string) {
   const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!cenarioId) return { success: false, error: 'cenarioId obrigatório' };
-  const { error } = await sbRaw.from('banco_cenarios').delete().eq('id', cenarioId);
+  // Predicado de tenant explícito (mutação sobre linha lida): empresa OU catálogo global
+  const { data: cenLinha } = await sbRaw.from('banco_cenarios').select('empresa_id').eq('id', cenarioId).maybeSingle();
+  if (!cenLinha) return { success: false, error: 'Cenário não encontrado' };
+  let qDel = sbRaw.from('banco_cenarios').delete().eq('id', cenarioId);
+  qDel = cenLinha.empresa_id ? qDel.eq('empresa_id', cenLinha.empresa_id) : qDel.is('empresa_id', null);
+  const { error } = await qDel;
   if (error) return { success: false, error: error.message };
   return { success: true };
 }
@@ -1384,7 +1389,8 @@ export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {
       mapa_cobertura_descritores: resultado.mapa_cobertura_descritores || null,
     };
 
-    const { error: updErr } = await sbRaw.from('banco_cenarios').update({
+    const { data: cenLinha } = await sbRaw.from('banco_cenarios').select('empresa_id').eq('id', cenarioId).maybeSingle();
+    let qUpd = sbRaw.from('banco_cenarios').update({
       titulo,
       descricao: contexto,
       alternativas: alternativasEnriquecidas,
@@ -1396,6 +1402,8 @@ export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {
       alertas_check: null,
       checked_at: null,
     }).eq('id', cenarioId);
+    qUpd = cenLinha?.empresa_id ? qUpd.eq('empresa_id', cenLinha.empresa_id) : qUpd.is('empresa_id', null);
+    const { error: updErr } = await qUpd;
 
     if (updErr) return { success: false, error: updErr.message };
     return { success: true, message: `Cenário regenerado: ${comp.nome}` };
@@ -1537,7 +1545,8 @@ export async function checkCenarioUm(cenarioId: string, empresaId: string | null
       : resultado.nota >= 80 ? 'aprovado_com_ressalvas'
       : 'revisar';
 
-    const { data: updated, error: updErr } = await sbRaw.from('banco_cenarios').update({
+    const { data: cenLinhaChk } = await sbRaw.from('banco_cenarios').select('empresa_id').eq('id', cen.id).maybeSingle();
+    let qChk = sbRaw.from('banco_cenarios').update({
       nota_check: resultado.nota,
       status_check: statusCheck,
       dimensoes_check: resultado.dimensoes || null,
@@ -1551,7 +1560,9 @@ export async function checkCenarioUm(cenarioId: string, empresaId: string | null
         perguntas_com_risco: resultado.perguntas_com_risco || [],
       },
       checked_at: new Date().toISOString(),
-    }).eq('id', cen.id).select('id, nota_check');
+    }).eq('id', cen.id);
+    qChk = cenLinhaChk?.empresa_id ? qChk.eq('empresa_id', cenLinhaChk.empresa_id) : qChk.is('empresa_id', null);
+    const { data: updated, error: updErr } = await qChk.select('id, nota_check');
 
     if (updErr) return { success: false, error: `Check UPDATE falhou: ${updErr.message} (cen.id: ${cen.id})` };
     if (!updated?.length) return { success: false, error: `Check UPDATE: 0 linhas afetadas (cen.id: ${cen.id})` };
