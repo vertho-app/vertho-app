@@ -1,7 +1,7 @@
 {
   "_meta": {
     "source": "acme",
-    "capturedAt": "2026-07-03T21:29:04.907Z",
+    "capturedAt": "2026-07-03T21:34:23.162Z",
     "note": "Golden state congelado do ACME Demo. Regenerar com scripts/capture-acme-fixture.mjs (rode IA4 no acme-demo ANTES, p/ congelar o mapeamento avaliado)."
   },
   "empresa": {
@@ -5704,6 +5704,439 @@
           "status_ia4": null
         },
         {
+          "competencia_nome": "Orientação a Metas e Resultados",
+          "avaliacao_ia": {
+            "cargo": "Representante Comercial",
+            "feedback": {
+              "tom_base": "acolhedor e estruturado — perfil CS valoriza estabilidade, precisão e reconhecimento genuíno; feedback deve ser cuidadoso, embasado e sem confronto direto",
+              "resumo_geral": "Bruna demonstra uma postura reflexiva e orientada a consequências, o que é uma base importante para evoluir em orientação a resultados. Ao mesmo tempo, as respostas ficaram predominantemente no plano da intenção — o que torna difícil identificar práticas estabelecidas de acompanhamento de meta, uso de dados e responsabilidade pelos resultados. O principal movimento de desenvolvimento está em tornar essas intenções em rotinas concretas e mensuráveis.",
+              "recomendacoes": [
+                "Toda semana, antes de planejar suas atividades, consulte onde você está em relação à meta (percentual atingido, pipeline necessário, atividades abertas) e decida suas prioridades a partir disso — não do que parece mais urgente",
+                "Após cada negociação relevante, faça um registro rápido de 3 linhas: o que funcionou, o que você faria diferente e qual dado ou sinal você ignorou — isso cria o hábito de revisão com método",
+                "Identifique 2 ou 3 indicadores que você considera seus termômetros de desempenho (ex: taxa de conversão, volume de follow-ups, valor médio de proposta) e passe a consultá-los toda semana de forma ativa"
+              ],
+              "mensagem_positiva": "Bruna, um ponto que se destaca nas suas respostas é a sua capacidade de pensar antes de agir — a ideia de 'delimitar o problema antes de reagir' e de reconhecer que a própria reação pode ter sido impulsiva mostra maturidade emocional e autocrítica genuína. Você também demonstrou sensibilidade comercial ao mencionar a importância de não comprometer margem ou previsibilidade, e ao citar o CRM e o próximo passo como parte da ação — são elementos concretos de processo que fazem diferença no dia a dia.",
+              "mensagem_construtiva": "O principal convite de desenvolvimento está em conectar essa postura reflexiva à meta concreta e aos dados do dia a dia. Nas suas respostas, a meta em si não apareceu como guia das decisões — os critérios foram qualidade da relação, sustentabilidade e valor ao cliente, o que é importante, mas precisa coexistir com o número que você está perseguindo. Da mesma forma, quando você menciona 'acompanhar indicadores', o próximo nível é saber responder: quais indicadores? Com que frequência? O que você faz quando eles estão abaixo do esperado? Tornar isso mais específico e rotineiro é o que vai transformar intenção em resultado consistente."
+            },
+            "competencia": {
+              "nome": "Orientação a Metas e Resultados",
+              "codigo": "REP10"
+            },
+            "consolidacao": {
+              "gap": 1,
+              "nivel_geral": 2,
+              "confianca_geral": 0.66,
+              "travas_aplicadas": [
+                "Nenhuma"
+              ],
+              "media_descritores": 2.1,
+              "notas_por_descritor": {
+                "D1": {
+                  "nome": "REP10-D03 — Ação baseada em dados",
+                  "nivel": 1,
+                  "confianca": 0.68,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 1.88
+                },
+                "D2": {
+                  "nome": "REP10-D01 — Foco e compromisso com a meta",
+                  "nivel": 1,
+                  "confianca": 0.62,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 1.83
+                },
+                "D3": {
+                  "nome": "REP10-D06 — Cumprimento de processo e disciplina comercial",
+                  "nivel": 2,
+                  "confianca": 0.65,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.25
+                },
+                "D4": {
+                  "nome": "REP10-D05 — Busca por melhoria contínua",
+                  "nivel": 2,
+                  "confianca": 0.7,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.5
+                },
+                "D5": {
+                  "nome": "REP10-D04 — Responsabilidade pelos resultados",
+                  "nivel": 2,
+                  "confianca": 0.68,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.13
+                },
+                "D6": {
+                  "nome": "REP10-D02 — Acompanhamento de indicadores próprios",
+                  "nivel": 2,
+                  "confianca": 0.6,
+                  "sustentacao": "insuficiente",
+                  "nota_decimal": 2
+                }
+              }
+            },
+            "profissional": "Bruna Costa",
+            "recomendacoes_pdi": [
+              {
+                "acao": "Criar o hábito de iniciar a semana revisando o status da meta e definindo as 3 ações prioritárias que têm maior probabilidade de contribuir para o atingimento — documentar isso antes de agir",
+                "nivel_meta": 3,
+                "descritor_foco": "REP10-D01 — Foco e compromisso com a meta",
+                "por_que_importa": "Sem a meta como referência explícita, as decisões tendem a ser boas em qualidade, mas não necessariamente eficazes para o resultado esperado",
+                "barreira_provavel": "Perfil CS pode tender a focar na qualidade da entrega e na relação com o cliente, deixando o número da meta em segundo plano por parecer mais 'frio' ou menos humano",
+                "nivel_atual_sugerido": 1
+              },
+              {
+                "acao": "Escolher 2 a 3 indicadores concretos do próprio funil e criar uma rotina semanal (15 minutos) de revisão com registro de interpretação: o que o dado diz? O que preciso mudar?",
+                "nivel_meta": 3,
+                "descritor_foco": "REP10-D03 — Ação baseada em dados",
+                "por_que_importa": "Decisões baseadas em dados reduzem o risco de repetir abordagens que não funcionam e aumentam a previsibilidade dos resultados",
+                "barreira_provavel": "Sem prática prévia de análise de dados, pode parecer abstrato ou burocrático — começar com indicadores simples e de fácil acesso reduz essa barreira",
+                "nivel_atual_sugerido": 1
+              },
+              {
+                "acao": "Definir quais são os indicadores que você acompanha (pelo menos 3: ex. propostas enviadas, taxa de retorno, meta acumulada) e estabelecer um dia fixo na semana para consultá-los ativamente — não apenas quando solicitado",
+                "nivel_meta": 3,
+                "descritor_foco": "REP10-D02 — Acompanhamento de indicadores próprios",
+                "por_que_importa": "Saber onde você está em relação à meta em tempo real permite ajustar a rota antes que o resultado fique comprometido",
+                "barreira_provavel": "A falta de hábito pode fazer com que o acompanhamento aconteça apenas no final do mês, quando a janela de ação já está reduzida",
+                "nivel_atual_sugerido": 2
+              },
+              {
+                "acao": "Após cada resultado abaixo do esperado (perda de venda, reunião sem avanço), escrever uma análise de 3 perguntas: o que estava sob meu controle? O que eu fiz ou deixei de fazer? O que faço diferente na próxima?",
+                "nivel_meta": 3,
+                "descritor_foco": "REP10-D04 — Responsabilidade pelos resultados",
+                "por_que_importa": "Assumir a parte que pertence a você — mesmo quando há fatores externos — é o que permite aprendizado real e melhoria contínua",
+                "barreira_provavel": "Perfil CS pode evitar confrontar situações de erro por sensibilidade a julgamentos — estruturar isso como uma rotina privada e não punitiva tende a facilitar a adoção",
+                "nivel_atual_sugerido": 2
+              }
+            ],
+            "descritores_destaque": {
+              "pontos_fortes": [
+                {
+                  "nivel": 2,
+                  "descritor": "REP10-D05 — Busca por melhoria contínua",
+                  "evidencia_resumida": "Reconhece que a própria reação pode ter sido impulsiva ou defensiva e propõe ajuste na próxima abordagem — sinal de autocrítica orientada a melhoria"
+                },
+                {
+                  "nivel": 2,
+                  "descritor": "REP10-D06 — Cumprimento de processo e disciplina comercial",
+                  "evidencia_resumida": "Cita registro no CRM e próximo passo claro como parte da ação comercial — o elemento mais concreto de processo entre todas as respostas"
+                }
+              ],
+              "gaps_prioritarios": [
+                {
+                  "nivel": 1,
+                  "descritor": "REP10-D01 — Foco e compromisso com a meta",
+                  "o_que_faltou": "A meta como referência concreta não aparece em nenhuma das quatro respostas — as decisões são orientadas por critérios gerais (valor, margem, sustentabilidade), não pela meta definida"
+                },
+                {
+                  "nivel": 1,
+                  "descritor": "REP10-D03 — Ação baseada em dados",
+                  "o_que_faltou": "Não demonstrou uso de dados ou indicadores reais para orientar decisões — as menções a 'fatos' e 'indicadores' ficaram no nível de declaração de intenção sem especificidade"
+                }
+              ]
+            },
+            "insumos_consolidacao": {
+              "alertas_metodologicos": [
+                "Todas as quatro respostas são predominantemente projetivas ('eu faria', 'minha ação seria', 'o critério seria', 'eu acompanharia') — ausência de relatos de situações reais vividas dificulta separar intenção de comportamento estabelecido",
+                "Nenhuma resposta faz referência direta à meta como número ou objetivo quantificado — o descritor REP10-D01 ficou prejudicado pela abstração das respostas",
+                "O cenário situacional parece ter induzido respostas de raciocínio e intenção em vez de relato de prática — isso limita a confiança das notas atribuídas",
+                "Nenhum descritor atingiu evidência forte; o conjunto sugere maturidade em desenvolvimento em toda a competência"
+              ],
+              "descritores_sem_sustentacao": [
+                "REP10-D02 — Acompanhamento de indicadores próprios"
+              ],
+              "descritores_com_evidencia_forte": [],
+              "descritores_com_evidencia_fraca": [
+                "REP10-D06 — Cumprimento de processo e disciplina comercial",
+                "REP10-D05 — Busca por melhoria contínua",
+                "REP10-D04 — Responsabilidade pelos resultados",
+                "REP10-D03 — Ação baseada em dados",
+                "REP10-D01 — Foco e compromisso com a meta"
+              ]
+            },
+            "avaliacao_por_resposta": {
+              "R1": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "REP10-D03 — Ação baseada em dados",
+                    "numero": 1,
+                    "limites": "Menciona separar fatos, mas não cita dados concretos, indicadores ou métricas. Não há evidência de uso real de dados — é declaração de intenção genérica sem especificidade de como os dados seriam acessados ou usados.",
+                    "confianca": 0.65,
+                    "evidencia": "'separaria fatos, interesses do cliente e riscos comerciais para evitar uma resposta automática'",
+                    "nota_decimal": 1.5
+                  },
+                  {
+                    "nome": "REP10-D01 — Foco e compromisso com a meta",
+                    "numero": 2,
+                    "limites": "Não há qualquer referência à meta como orientadora da decisão. A resposta fala em 'delimitando o problema' e 'riscos comerciais', mas a meta em si não é citada como referência concreta para a ação.",
+                    "confianca": 0.6,
+                    "evidencia": "'No caso de Orientação a Metas e Resultados' — menção temática ao cenário",
+                    "nota_decimal": 1.5
+                  },
+                  {
+                    "nome": "REP10-D04 — Responsabilidade pelos resultados",
+                    "numero": 5,
+                    "limites": "Postura reflexiva é positiva, mas não demonstra assunção de responsabilidade por resultados. Não há evidência de accountability nem de autocrítica sobre o próprio papel no resultado.",
+                    "confianca": 0.55,
+                    "evidencia": "'evitar uma resposta automática' — indica postura reflexiva antes de agir",
+                    "nota_decimal": 1.75
+                  }
+                ]
+              },
+              "R2": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "REP10-D06 — Cumprimento de processo e disciplina comercial",
+                    "numero": 3,
+                    "limites": "Cita CRM e próximo passo — sinais de processo comercial. Porém, é declaração de intenção ('minha ação seria'), não relato de prática habitual. Não há evidência de constância nem de como age sob pressão.",
+                    "confianca": 0.7,
+                    "evidencia": "'combinar uma conversa objetiva com registro no CRM e um próximo passo claro'",
+                    "nota_decimal": 2.5
+                  },
+                  {
+                    "nome": "REP10-D01 — Foco e compromisso com a meta",
+                    "numero": 2,
+                    "limites": "Menciona margem e previsibilidade como balizadores — indícios de consciência de resultado. Mas não conecta explicitamente à meta. A referência é a 'valor ao cliente', não ao atingimento de meta.",
+                    "confianca": 0.65,
+                    "evidencia": "'o que preserva valor para o cliente sem comprometer margem ou previsibilidade'",
+                    "nota_decimal": 2
+                  },
+                  {
+                    "nome": "REP10-D04 — Responsabilidade pelos resultados",
+                    "numero": 5,
+                    "limites": "Demonstra senso de consequência comercial, mas não há assunção explícita de responsabilidade pelo resultado. Falta o 'eu sou responsável por isso' — o foco está na decisão, não na responsabilidade.",
+                    "confianca": 0.6,
+                    "evidencia": "'priorizaria o que preserva valor para o cliente sem comprometer margem ou previsibilidade'",
+                    "nota_decimal": 2
+                  }
+                ]
+              },
+              "R3": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "REP10-D01 — Foco e compromisso com a meta",
+                    "numero": 2,
+                    "limites": "Resultado é citado como critério de decisão, mas meta não é referenciada diretamente. A lógica está mais voltada a critérios gerais de qualidade da decisão do que ao foco em atingir meta definida.",
+                    "confianca": 0.6,
+                    "evidencia": "'equilibrar relação, resultado e sustentabilidade'",
+                    "nota_decimal": 2
+                  },
+                  {
+                    "nome": "REP10-D06 — Cumprimento de processo e disciplina comercial",
+                    "numero": 3,
+                    "limites": "Demonstra visão de consequência e disciplina de compromisso. Mas não descreve aderência a processo de vendas como rotina — é raciocínio de princípios, não de disciplina processual.",
+                    "confianca": 0.55,
+                    "evidencia": "'resolver o curto prazo sem criar dependência ou promessa difícil de cumprir depois'",
+                    "nota_decimal": 2
+                  },
+                  {
+                    "nome": "REP10-D04 — Responsabilidade pelos resultados",
+                    "numero": 5,
+                    "limites": "Visão de consequência está presente, mas responsabilidade pelo resultado em si não é explicitada. Fala do que a decisão deve evitar, não do que a Bruna assume como seu.",
+                    "confianca": 0.55,
+                    "evidencia": "'Uma decisão boa precisa resolver o curto prazo sem criar dependência ou promessa difícil de cumprir depois'",
+                    "nota_decimal": 2
+                  }
+                ]
+              },
+              "R4": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "REP10-D03 — Ação baseada em dados",
+                    "numero": 1,
+                    "limites": "Menciona indicadores e feedback — elementos de análise. Contudo, não especifica quais indicadores, com que frequência, nem como esses dados guiariam decisões concretas. Ainda no plano da intenção genérica.",
+                    "confianca": 0.7,
+                    "evidencia": "'acompanharia indicadores e pediria feedback'",
+                    "nota_decimal": 2.25
+                  },
+                  {
+                    "nome": "REP10-D02 — Acompanhamento de indicadores próprios",
+                    "numero": 6,
+                    "limites": "Cita acompanhamento de indicadores, mas sem especificidade: quais indicadores? Com que regularidade? Como usa para se orientar? A ausência de detalhe impede N3.",
+                    "confianca": 0.65,
+                    "evidencia": "'acompanharia indicadores e pediria feedback'",
+                    "nota_decimal": 2
+                  },
+                  {
+                    "nome": "REP10-D05 — Busca por melhoria contínua",
+                    "numero": 4,
+                    "limites": "Autocrítica concreta e orientada a ajuste futuro — evidência mais sólida desta resposta. Porém, é projetivo ('observaria'), não relato de prática estabelecida. Não há método ou constância demonstrados.",
+                    "confianca": 0.72,
+                    "evidencia": "'observaria onde minha reação inicial poderia ter sido impulsiva ou defensiva, para ajustar a próxima abordagem'",
+                    "nota_decimal": 2.5
+                  },
+                  {
+                    "nome": "REP10-D04 — Responsabilidade pelos resultados",
+                    "numero": 5,
+                    "limites": "Mais próximo de assunção de responsabilidade — reconhece que a própria reação pode ser o problema e busca corrigir. Ainda é condicional ('observaria'), mas o conteúdo é o mais substantivo sobre responsabilidade pessoal.",
+                    "confianca": 0.75,
+                    "evidencia": "'observaria onde minha reação inicial poderia ter sido impulsiva ou defensiva, para ajustar a próxima abordagem'",
+                    "nota_decimal": 2.75
+                  }
+                ]
+              }
+            },
+            "avaliacao_por_descritor": [
+              {
+                "nome": "REP10-D03 — Ação baseada em dados",
+                "numero": 1,
+                "racional": "As evidências tocam tangencialmente o descritor (fatos, indicadores), mas sem especificidade ou demonstração de uso real — ficam no limiar N1/N2, e pela regra de dúvida, aplica-se o nível inferior.",
+                "confianca": 0.68,
+                "evidencias": [
+                  {
+                    "trecho": "'separaria fatos, interesses do cliente e riscos comerciais para evitar uma resposta automática'",
+                    "resposta": "R1",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'acompanharia indicadores e pediria feedback'",
+                    "resposta": "R4",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 1.88,
+                "nivel_sugerido": 1,
+                "limites_da_evidencia": [
+                  "Nenhuma menção a dados numéricos, métricas ou indicadores específicos usados em decisões reais",
+                  "Ambas as ocorrências são declarações de intenção projetivas ('eu faria'), não relatos de prática",
+                  "Não demonstra como dados guiam ajustes concretos na forma de trabalhar"
+                ]
+              },
+              {
+                "nome": "REP10-D01 — Foco e compromisso com a meta",
+                "numero": 2,
+                "racional": "A meta não aparece como elemento orientador em nenhuma resposta — as referências são a qualidade da decisão e ao cliente, não ao atingimento de meta. N1 pois a meta não funciona como referência explícita.",
+                "confianca": 0.62,
+                "evidencias": [
+                  {
+                    "trecho": "'o que preserva valor para o cliente sem comprometer margem ou previsibilidade'",
+                    "resposta": "R2",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'equilibrar relação, resultado e sustentabilidade'",
+                    "resposta": "R3",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 1.83,
+                "nivel_sugerido": 1,
+                "limites_da_evidencia": [
+                  "Meta como referência concreta nunca é citada em nenhuma das quatro respostas",
+                  "Os critérios usados (valor, margem, resultado) são genéricos e não remetem a meta quantificada ou acompanhada",
+                  "Não há demonstração de que as atividades do dia são orientadas à meta"
+                ]
+              },
+              {
+                "nome": "REP10-D06 — Cumprimento de processo e disciplina comercial",
+                "numero": 3,
+                "racional": "Cita CRM e próximo passo claro — o elemento mais concreto de processo nas respostas — o que sustenta N2 (considera processo em parte), mas não há demonstração de constância ou disciplina sistemática.",
+                "confianca": 0.65,
+                "evidencias": [
+                  {
+                    "trecho": "'combinar uma conversa objetiva com registro no CRM e um próximo passo claro'",
+                    "resposta": "R2",
+                    "forca_evidencia": "moderada"
+                  },
+                  {
+                    "trecho": "'resolver o curto prazo sem criar dependência ou promessa difícil de cumprir depois'",
+                    "resposta": "R3",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.25,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "O registro no CRM e próximo passo são declarações de intenção, não relatos de hábito estabelecido",
+                  "Não há evidência de aderência ao processo sob pressão",
+                  "Não descreve o processo de vendas como rotina — cita elementos processuais pontualmente"
+                ]
+              },
+              {
+                "nome": "REP10-D05 — Busca por melhoria contínua",
+                "numero": 4,
+                "racional": "A autocrítica sobre a própria reação impulsiva é o sinal mais próximo de melhoria contínua, mas sem constância ou método — sustenta N2, ficando no limiar por ser projetivo.",
+                "confianca": 0.7,
+                "evidencias": [
+                  {
+                    "trecho": "'observaria onde minha reação inicial poderia ter sido impulsiva ou defensiva, para ajustar a próxima abordagem'",
+                    "resposta": "R4",
+                    "forca_evidencia": "moderada"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.5,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "É a evidência mais concreta do conjunto, mas ainda projetiva ('observaria')",
+                  "Não demonstra revisão regular de performance como prática — é resposta a um cenário hipotético",
+                  "Sem método ou frequência de revisão descritos",
+                  "Falta busca ativa por feedback ou prática deliberada"
+                ]
+              },
+              {
+                "nome": "REP10-D04 — Responsabilidade pelos resultados",
+                "numero": 5,
+                "racional": "O reconhecimento de que a reação pode ter sido impulsiva sinaliza alguma autocrítica e responsabilidade parcial, o que sustenta N2 — mas falta a declaração de posse do resultado e o foco no que controla.",
+                "confianca": 0.68,
+                "evidencias": [
+                  {
+                    "trecho": "'observaria onde minha reação inicial poderia ter sido impulsiva ou defensiva, para ajustar a próxima abordagem'",
+                    "resposta": "R4",
+                    "forca_evidencia": "moderada"
+                  },
+                  {
+                    "trecho": "'priorizaria o que preserva valor para o cliente sem comprometer margem ou previsibilidade'",
+                    "resposta": "R2",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.13,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Nenhuma resposta atribui resultado ao próprio esforço ou à própria postura de forma direta",
+                  "Não há menção a fatores externos, mas também não há assunção explícita de responsabilidade",
+                  "A ausência de culpa externa é positiva, mas não equivale a ownership ativo"
+                ]
+              },
+              {
+                "nome": "REP10-D02 — Acompanhamento de indicadores próprios",
+                "numero": 6,
+                "racional": "Uma menção única, vaga e projetiva não sustenta N3 — enquadra-se em N2 (olha os números esporadicamente), mas com baixa confiança pela ausência de detalhe.",
+                "confianca": 0.6,
+                "evidencias": [
+                  {
+                    "trecho": "'acompanharia indicadores e pediria feedback'",
+                    "resposta": "R4",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "insuficiente",
+                "nota_decimal": 2,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Única menção ao tema em todo o conjunto de respostas",
+                  "Declaração de intenção sem especificação de quais indicadores",
+                  "Sem referência a frequência de acompanhamento ou uso dos dados para ajustar rota",
+                  "Não demonstra saber onde está em relação à meta"
+                ]
+              }
+            ]
+          },
+          "nivel_ia4": 2,
+          "nota_ia4": 2.1,
+          "pontos_fortes": "REP10-D05 — Busca por melhoria contínua; REP10-D06 — Cumprimento de processo e disciplina comercial",
+          "pontos_atencao": "REP10-D01 — Foco e compromisso com a meta; REP10-D03 — Ação baseada em dados",
+          "feedback_ia4": "Bruna demonstra uma postura reflexiva e orientada a consequências, o que é uma base importante para evoluir em orientação a resultados. Ao mesmo tempo, as respostas ficaram predominantemente no plano da intenção — o que torna difícil identificar práticas estabelecidas de acompanhamento de meta, uso de dados e responsabilidade pelos resultados. O principal movimento de desenvolvimento está em tornar essas intenções em rotinas concretas e mensuráveis.\nBruna, um ponto que se destaca nas suas respostas é a sua capacidade de pensar antes de agir — a ideia de 'delimitar o problema antes de reagir' e de reconhecer que a própria reação pode ter sido impulsiva mostra maturidade emocional e autocrítica genuína. Você também demonstrou sensibilidade comercial ao mencionar a importância de não comprometer margem ou previsibilidade, e ao citar o CRM e o próximo passo como parte da ação — são elementos concretos de processo que fazem diferença no dia a dia.\nO principal convite de desenvolvimento está em conectar essa postura reflexiva à meta concreta e aos dados do dia a dia. Nas suas respostas, a meta em si não apareceu como guia das decisões — os critérios foram qualidade da relação, sustentabilidade e valor ao cliente, o que é importante, mas precisa coexistir com o número que você está perseguindo. Da mesma forma, quando você menciona 'acompanhar indicadores', o próximo nível é saber responder: quais indicadores? Com que frequência? O que você faz quando eles estão abaixo do esperado? Tornar isso mais específico e rotineiro é o que vai transformar intenção em resultado consistente.",
+          "payload_ia4": null,
+          "status_ia4": null
+        },
+        {
           "competencia_nome": "Negociação e Fechamento",
           "avaliacao_ia": {
             "cargo": "Representante Comercial",
@@ -6944,439 +7377,6 @@
           "pontos_fortes": null,
           "pontos_atencao": "Recuperação após perdas (D05); Lidar com a rejeição (D01); Constância de atividade (D02); Automotivação e disciplina (D06); Gestão da pressão por metas (D03); Autoconfiança e postura (D04)",
           "feedback_ia4": "Bruna, suas respostas mostram que você tem familiaridade com conceitos de qualidade comercial — como preservar margem, equilibrar relações e evitar decisões impulsivas. No entanto, o exercício pedia que você aplicasse esses conceitos ao cenário específico apresentado, e as respostas ficaram em um nível muito genérico, sem tocar nas situações concretas do enunciado. Isso dificultou a identificação de evidências sobre como você de fato lida com rejeição, pressão e períodos de resultados baixos.\nÉ possível perceber que você tem um pensamento orientado à qualidade da decisão — frases como 'sem criar dependência ou promessa difícil de cumprir depois' mostram que você pensa além do curto prazo e se preocupa com a sustentabilidade das relações comerciais. Isso é um ponto de maturidade genuíno.\nO que ficou faltando foi ancorar essas ideias no cenário concreto. Por exemplo: das 9 oportunidades do pipeline de Rodrigo, quais você desqualificaria e com qual critério? Como chegaria na segunda-feira depois de perder R$ 48 mil? Quais sinais no seu próprio comportamento indicariam que o estado emocional está afetando os clientes? Sem esse nível de especificidade, é difícil avaliar se os conceitos que você conhece se traduzem em comportamentos reais sob pressão. Para os próximos exercícios situacionais, tente responder diretamente às situações descritas — use os números, os grupos, os nomes do cenário como âncora.",
-          "payload_ia4": null,
-          "status_ia4": null
-        },
-        {
-          "competencia_nome": "Orientação a Metas e Resultados",
-          "avaliacao_ia": {
-            "cargo": "Representante Comercial",
-            "feedback": {
-              "tom_base": "acolhedor e estruturado — perfil CS valoriza estabilidade, precisão e reconhecimento genuíno; feedback deve ser cuidadoso, embasado e sem confronto direto",
-              "resumo_geral": "Bruna demonstra uma postura reflexiva e orientada a consequências, o que é uma base importante para evoluir em orientação a resultados. Ao mesmo tempo, as respostas ficaram predominantemente no plano da intenção — o que torna difícil identificar práticas estabelecidas de acompanhamento de meta, uso de dados e responsabilidade pelos resultados. O principal movimento de desenvolvimento está em tornar essas intenções em rotinas concretas e mensuráveis.",
-              "recomendacoes": [
-                "Toda semana, antes de planejar suas atividades, consulte onde você está em relação à meta (percentual atingido, pipeline necessário, atividades abertas) e decida suas prioridades a partir disso — não do que parece mais urgente",
-                "Após cada negociação relevante, faça um registro rápido de 3 linhas: o que funcionou, o que você faria diferente e qual dado ou sinal você ignorou — isso cria o hábito de revisão com método",
-                "Identifique 2 ou 3 indicadores que você considera seus termômetros de desempenho (ex: taxa de conversão, volume de follow-ups, valor médio de proposta) e passe a consultá-los toda semana de forma ativa"
-              ],
-              "mensagem_positiva": "Bruna, um ponto que se destaca nas suas respostas é a sua capacidade de pensar antes de agir — a ideia de 'delimitar o problema antes de reagir' e de reconhecer que a própria reação pode ter sido impulsiva mostra maturidade emocional e autocrítica genuína. Você também demonstrou sensibilidade comercial ao mencionar a importância de não comprometer margem ou previsibilidade, e ao citar o CRM e o próximo passo como parte da ação — são elementos concretos de processo que fazem diferença no dia a dia.",
-              "mensagem_construtiva": "O principal convite de desenvolvimento está em conectar essa postura reflexiva à meta concreta e aos dados do dia a dia. Nas suas respostas, a meta em si não apareceu como guia das decisões — os critérios foram qualidade da relação, sustentabilidade e valor ao cliente, o que é importante, mas precisa coexistir com o número que você está perseguindo. Da mesma forma, quando você menciona 'acompanhar indicadores', o próximo nível é saber responder: quais indicadores? Com que frequência? O que você faz quando eles estão abaixo do esperado? Tornar isso mais específico e rotineiro é o que vai transformar intenção em resultado consistente."
-            },
-            "competencia": {
-              "nome": "Orientação a Metas e Resultados",
-              "codigo": "REP10"
-            },
-            "consolidacao": {
-              "gap": 1,
-              "nivel_geral": 2,
-              "confianca_geral": 0.66,
-              "travas_aplicadas": [
-                "Nenhuma"
-              ],
-              "media_descritores": 2.1,
-              "notas_por_descritor": {
-                "D1": {
-                  "nome": "REP10-D03 — Ação baseada em dados",
-                  "nivel": 1,
-                  "confianca": 0.68,
-                  "sustentacao": "fraca",
-                  "nota_decimal": 1.88
-                },
-                "D2": {
-                  "nome": "REP10-D01 — Foco e compromisso com a meta",
-                  "nivel": 1,
-                  "confianca": 0.62,
-                  "sustentacao": "fraca",
-                  "nota_decimal": 1.83
-                },
-                "D3": {
-                  "nome": "REP10-D06 — Cumprimento de processo e disciplina comercial",
-                  "nivel": 2,
-                  "confianca": 0.65,
-                  "sustentacao": "fraca",
-                  "nota_decimal": 2.25
-                },
-                "D4": {
-                  "nome": "REP10-D05 — Busca por melhoria contínua",
-                  "nivel": 2,
-                  "confianca": 0.7,
-                  "sustentacao": "fraca",
-                  "nota_decimal": 2.5
-                },
-                "D5": {
-                  "nome": "REP10-D04 — Responsabilidade pelos resultados",
-                  "nivel": 2,
-                  "confianca": 0.68,
-                  "sustentacao": "fraca",
-                  "nota_decimal": 2.13
-                },
-                "D6": {
-                  "nome": "REP10-D02 — Acompanhamento de indicadores próprios",
-                  "nivel": 2,
-                  "confianca": 0.6,
-                  "sustentacao": "insuficiente",
-                  "nota_decimal": 2
-                }
-              }
-            },
-            "profissional": "Bruna Costa",
-            "recomendacoes_pdi": [
-              {
-                "acao": "Criar o hábito de iniciar a semana revisando o status da meta e definindo as 3 ações prioritárias que têm maior probabilidade de contribuir para o atingimento — documentar isso antes de agir",
-                "nivel_meta": 3,
-                "descritor_foco": "REP10-D01 — Foco e compromisso com a meta",
-                "por_que_importa": "Sem a meta como referência explícita, as decisões tendem a ser boas em qualidade, mas não necessariamente eficazes para o resultado esperado",
-                "barreira_provavel": "Perfil CS pode tender a focar na qualidade da entrega e na relação com o cliente, deixando o número da meta em segundo plano por parecer mais 'frio' ou menos humano",
-                "nivel_atual_sugerido": 1
-              },
-              {
-                "acao": "Escolher 2 a 3 indicadores concretos do próprio funil e criar uma rotina semanal (15 minutos) de revisão com registro de interpretação: o que o dado diz? O que preciso mudar?",
-                "nivel_meta": 3,
-                "descritor_foco": "REP10-D03 — Ação baseada em dados",
-                "por_que_importa": "Decisões baseadas em dados reduzem o risco de repetir abordagens que não funcionam e aumentam a previsibilidade dos resultados",
-                "barreira_provavel": "Sem prática prévia de análise de dados, pode parecer abstrato ou burocrático — começar com indicadores simples e de fácil acesso reduz essa barreira",
-                "nivel_atual_sugerido": 1
-              },
-              {
-                "acao": "Definir quais são os indicadores que você acompanha (pelo menos 3: ex. propostas enviadas, taxa de retorno, meta acumulada) e estabelecer um dia fixo na semana para consultá-los ativamente — não apenas quando solicitado",
-                "nivel_meta": 3,
-                "descritor_foco": "REP10-D02 — Acompanhamento de indicadores próprios",
-                "por_que_importa": "Saber onde você está em relação à meta em tempo real permite ajustar a rota antes que o resultado fique comprometido",
-                "barreira_provavel": "A falta de hábito pode fazer com que o acompanhamento aconteça apenas no final do mês, quando a janela de ação já está reduzida",
-                "nivel_atual_sugerido": 2
-              },
-              {
-                "acao": "Após cada resultado abaixo do esperado (perda de venda, reunião sem avanço), escrever uma análise de 3 perguntas: o que estava sob meu controle? O que eu fiz ou deixei de fazer? O que faço diferente na próxima?",
-                "nivel_meta": 3,
-                "descritor_foco": "REP10-D04 — Responsabilidade pelos resultados",
-                "por_que_importa": "Assumir a parte que pertence a você — mesmo quando há fatores externos — é o que permite aprendizado real e melhoria contínua",
-                "barreira_provavel": "Perfil CS pode evitar confrontar situações de erro por sensibilidade a julgamentos — estruturar isso como uma rotina privada e não punitiva tende a facilitar a adoção",
-                "nivel_atual_sugerido": 2
-              }
-            ],
-            "descritores_destaque": {
-              "pontos_fortes": [
-                {
-                  "nivel": 2,
-                  "descritor": "REP10-D05 — Busca por melhoria contínua",
-                  "evidencia_resumida": "Reconhece que a própria reação pode ter sido impulsiva ou defensiva e propõe ajuste na próxima abordagem — sinal de autocrítica orientada a melhoria"
-                },
-                {
-                  "nivel": 2,
-                  "descritor": "REP10-D06 — Cumprimento de processo e disciplina comercial",
-                  "evidencia_resumida": "Cita registro no CRM e próximo passo claro como parte da ação comercial — o elemento mais concreto de processo entre todas as respostas"
-                }
-              ],
-              "gaps_prioritarios": [
-                {
-                  "nivel": 1,
-                  "descritor": "REP10-D01 — Foco e compromisso com a meta",
-                  "o_que_faltou": "A meta como referência concreta não aparece em nenhuma das quatro respostas — as decisões são orientadas por critérios gerais (valor, margem, sustentabilidade), não pela meta definida"
-                },
-                {
-                  "nivel": 1,
-                  "descritor": "REP10-D03 — Ação baseada em dados",
-                  "o_que_faltou": "Não demonstrou uso de dados ou indicadores reais para orientar decisões — as menções a 'fatos' e 'indicadores' ficaram no nível de declaração de intenção sem especificidade"
-                }
-              ]
-            },
-            "insumos_consolidacao": {
-              "alertas_metodologicos": [
-                "Todas as quatro respostas são predominantemente projetivas ('eu faria', 'minha ação seria', 'o critério seria', 'eu acompanharia') — ausência de relatos de situações reais vividas dificulta separar intenção de comportamento estabelecido",
-                "Nenhuma resposta faz referência direta à meta como número ou objetivo quantificado — o descritor REP10-D01 ficou prejudicado pela abstração das respostas",
-                "O cenário situacional parece ter induzido respostas de raciocínio e intenção em vez de relato de prática — isso limita a confiança das notas atribuídas",
-                "Nenhum descritor atingiu evidência forte; o conjunto sugere maturidade em desenvolvimento em toda a competência"
-              ],
-              "descritores_sem_sustentacao": [
-                "REP10-D02 — Acompanhamento de indicadores próprios"
-              ],
-              "descritores_com_evidencia_forte": [],
-              "descritores_com_evidencia_fraca": [
-                "REP10-D06 — Cumprimento de processo e disciplina comercial",
-                "REP10-D05 — Busca por melhoria contínua",
-                "REP10-D04 — Responsabilidade pelos resultados",
-                "REP10-D03 — Ação baseada em dados",
-                "REP10-D01 — Foco e compromisso com a meta"
-              ]
-            },
-            "avaliacao_por_resposta": {
-              "R1": {
-                "descritores_avaliados": [
-                  {
-                    "nome": "REP10-D03 — Ação baseada em dados",
-                    "numero": 1,
-                    "limites": "Menciona separar fatos, mas não cita dados concretos, indicadores ou métricas. Não há evidência de uso real de dados — é declaração de intenção genérica sem especificidade de como os dados seriam acessados ou usados.",
-                    "confianca": 0.65,
-                    "evidencia": "'separaria fatos, interesses do cliente e riscos comerciais para evitar uma resposta automática'",
-                    "nota_decimal": 1.5
-                  },
-                  {
-                    "nome": "REP10-D01 — Foco e compromisso com a meta",
-                    "numero": 2,
-                    "limites": "Não há qualquer referência à meta como orientadora da decisão. A resposta fala em 'delimitando o problema' e 'riscos comerciais', mas a meta em si não é citada como referência concreta para a ação.",
-                    "confianca": 0.6,
-                    "evidencia": "'No caso de Orientação a Metas e Resultados' — menção temática ao cenário",
-                    "nota_decimal": 1.5
-                  },
-                  {
-                    "nome": "REP10-D04 — Responsabilidade pelos resultados",
-                    "numero": 5,
-                    "limites": "Postura reflexiva é positiva, mas não demonstra assunção de responsabilidade por resultados. Não há evidência de accountability nem de autocrítica sobre o próprio papel no resultado.",
-                    "confianca": 0.55,
-                    "evidencia": "'evitar uma resposta automática' — indica postura reflexiva antes de agir",
-                    "nota_decimal": 1.75
-                  }
-                ]
-              },
-              "R2": {
-                "descritores_avaliados": [
-                  {
-                    "nome": "REP10-D06 — Cumprimento de processo e disciplina comercial",
-                    "numero": 3,
-                    "limites": "Cita CRM e próximo passo — sinais de processo comercial. Porém, é declaração de intenção ('minha ação seria'), não relato de prática habitual. Não há evidência de constância nem de como age sob pressão.",
-                    "confianca": 0.7,
-                    "evidencia": "'combinar uma conversa objetiva com registro no CRM e um próximo passo claro'",
-                    "nota_decimal": 2.5
-                  },
-                  {
-                    "nome": "REP10-D01 — Foco e compromisso com a meta",
-                    "numero": 2,
-                    "limites": "Menciona margem e previsibilidade como balizadores — indícios de consciência de resultado. Mas não conecta explicitamente à meta. A referência é a 'valor ao cliente', não ao atingimento de meta.",
-                    "confianca": 0.65,
-                    "evidencia": "'o que preserva valor para o cliente sem comprometer margem ou previsibilidade'",
-                    "nota_decimal": 2
-                  },
-                  {
-                    "nome": "REP10-D04 — Responsabilidade pelos resultados",
-                    "numero": 5,
-                    "limites": "Demonstra senso de consequência comercial, mas não há assunção explícita de responsabilidade pelo resultado. Falta o 'eu sou responsável por isso' — o foco está na decisão, não na responsabilidade.",
-                    "confianca": 0.6,
-                    "evidencia": "'priorizaria o que preserva valor para o cliente sem comprometer margem ou previsibilidade'",
-                    "nota_decimal": 2
-                  }
-                ]
-              },
-              "R3": {
-                "descritores_avaliados": [
-                  {
-                    "nome": "REP10-D01 — Foco e compromisso com a meta",
-                    "numero": 2,
-                    "limites": "Resultado é citado como critério de decisão, mas meta não é referenciada diretamente. A lógica está mais voltada a critérios gerais de qualidade da decisão do que ao foco em atingir meta definida.",
-                    "confianca": 0.6,
-                    "evidencia": "'equilibrar relação, resultado e sustentabilidade'",
-                    "nota_decimal": 2
-                  },
-                  {
-                    "nome": "REP10-D06 — Cumprimento de processo e disciplina comercial",
-                    "numero": 3,
-                    "limites": "Demonstra visão de consequência e disciplina de compromisso. Mas não descreve aderência a processo de vendas como rotina — é raciocínio de princípios, não de disciplina processual.",
-                    "confianca": 0.55,
-                    "evidencia": "'resolver o curto prazo sem criar dependência ou promessa difícil de cumprir depois'",
-                    "nota_decimal": 2
-                  },
-                  {
-                    "nome": "REP10-D04 — Responsabilidade pelos resultados",
-                    "numero": 5,
-                    "limites": "Visão de consequência está presente, mas responsabilidade pelo resultado em si não é explicitada. Fala do que a decisão deve evitar, não do que a Bruna assume como seu.",
-                    "confianca": 0.55,
-                    "evidencia": "'Uma decisão boa precisa resolver o curto prazo sem criar dependência ou promessa difícil de cumprir depois'",
-                    "nota_decimal": 2
-                  }
-                ]
-              },
-              "R4": {
-                "descritores_avaliados": [
-                  {
-                    "nome": "REP10-D03 — Ação baseada em dados",
-                    "numero": 1,
-                    "limites": "Menciona indicadores e feedback — elementos de análise. Contudo, não especifica quais indicadores, com que frequência, nem como esses dados guiariam decisões concretas. Ainda no plano da intenção genérica.",
-                    "confianca": 0.7,
-                    "evidencia": "'acompanharia indicadores e pediria feedback'",
-                    "nota_decimal": 2.25
-                  },
-                  {
-                    "nome": "REP10-D02 — Acompanhamento de indicadores próprios",
-                    "numero": 6,
-                    "limites": "Cita acompanhamento de indicadores, mas sem especificidade: quais indicadores? Com que regularidade? Como usa para se orientar? A ausência de detalhe impede N3.",
-                    "confianca": 0.65,
-                    "evidencia": "'acompanharia indicadores e pediria feedback'",
-                    "nota_decimal": 2
-                  },
-                  {
-                    "nome": "REP10-D05 — Busca por melhoria contínua",
-                    "numero": 4,
-                    "limites": "Autocrítica concreta e orientada a ajuste futuro — evidência mais sólida desta resposta. Porém, é projetivo ('observaria'), não relato de prática estabelecida. Não há método ou constância demonstrados.",
-                    "confianca": 0.72,
-                    "evidencia": "'observaria onde minha reação inicial poderia ter sido impulsiva ou defensiva, para ajustar a próxima abordagem'",
-                    "nota_decimal": 2.5
-                  },
-                  {
-                    "nome": "REP10-D04 — Responsabilidade pelos resultados",
-                    "numero": 5,
-                    "limites": "Mais próximo de assunção de responsabilidade — reconhece que a própria reação pode ser o problema e busca corrigir. Ainda é condicional ('observaria'), mas o conteúdo é o mais substantivo sobre responsabilidade pessoal.",
-                    "confianca": 0.75,
-                    "evidencia": "'observaria onde minha reação inicial poderia ter sido impulsiva ou defensiva, para ajustar a próxima abordagem'",
-                    "nota_decimal": 2.75
-                  }
-                ]
-              }
-            },
-            "avaliacao_por_descritor": [
-              {
-                "nome": "REP10-D03 — Ação baseada em dados",
-                "numero": 1,
-                "racional": "As evidências tocam tangencialmente o descritor (fatos, indicadores), mas sem especificidade ou demonstração de uso real — ficam no limiar N1/N2, e pela regra de dúvida, aplica-se o nível inferior.",
-                "confianca": 0.68,
-                "evidencias": [
-                  {
-                    "trecho": "'separaria fatos, interesses do cliente e riscos comerciais para evitar uma resposta automática'",
-                    "resposta": "R1",
-                    "forca_evidencia": "fraca"
-                  },
-                  {
-                    "trecho": "'acompanharia indicadores e pediria feedback'",
-                    "resposta": "R4",
-                    "forca_evidencia": "fraca"
-                  }
-                ],
-                "sustentacao": "fraca",
-                "nota_decimal": 1.88,
-                "nivel_sugerido": 1,
-                "limites_da_evidencia": [
-                  "Nenhuma menção a dados numéricos, métricas ou indicadores específicos usados em decisões reais",
-                  "Ambas as ocorrências são declarações de intenção projetivas ('eu faria'), não relatos de prática",
-                  "Não demonstra como dados guiam ajustes concretos na forma de trabalhar"
-                ]
-              },
-              {
-                "nome": "REP10-D01 — Foco e compromisso com a meta",
-                "numero": 2,
-                "racional": "A meta não aparece como elemento orientador em nenhuma resposta — as referências são a qualidade da decisão e ao cliente, não ao atingimento de meta. N1 pois a meta não funciona como referência explícita.",
-                "confianca": 0.62,
-                "evidencias": [
-                  {
-                    "trecho": "'o que preserva valor para o cliente sem comprometer margem ou previsibilidade'",
-                    "resposta": "R2",
-                    "forca_evidencia": "fraca"
-                  },
-                  {
-                    "trecho": "'equilibrar relação, resultado e sustentabilidade'",
-                    "resposta": "R3",
-                    "forca_evidencia": "fraca"
-                  }
-                ],
-                "sustentacao": "fraca",
-                "nota_decimal": 1.83,
-                "nivel_sugerido": 1,
-                "limites_da_evidencia": [
-                  "Meta como referência concreta nunca é citada em nenhuma das quatro respostas",
-                  "Os critérios usados (valor, margem, resultado) são genéricos e não remetem a meta quantificada ou acompanhada",
-                  "Não há demonstração de que as atividades do dia são orientadas à meta"
-                ]
-              },
-              {
-                "nome": "REP10-D06 — Cumprimento de processo e disciplina comercial",
-                "numero": 3,
-                "racional": "Cita CRM e próximo passo claro — o elemento mais concreto de processo nas respostas — o que sustenta N2 (considera processo em parte), mas não há demonstração de constância ou disciplina sistemática.",
-                "confianca": 0.65,
-                "evidencias": [
-                  {
-                    "trecho": "'combinar uma conversa objetiva com registro no CRM e um próximo passo claro'",
-                    "resposta": "R2",
-                    "forca_evidencia": "moderada"
-                  },
-                  {
-                    "trecho": "'resolver o curto prazo sem criar dependência ou promessa difícil de cumprir depois'",
-                    "resposta": "R3",
-                    "forca_evidencia": "fraca"
-                  }
-                ],
-                "sustentacao": "fraca",
-                "nota_decimal": 2.25,
-                "nivel_sugerido": 2,
-                "limites_da_evidencia": [
-                  "O registro no CRM e próximo passo são declarações de intenção, não relatos de hábito estabelecido",
-                  "Não há evidência de aderência ao processo sob pressão",
-                  "Não descreve o processo de vendas como rotina — cita elementos processuais pontualmente"
-                ]
-              },
-              {
-                "nome": "REP10-D05 — Busca por melhoria contínua",
-                "numero": 4,
-                "racional": "A autocrítica sobre a própria reação impulsiva é o sinal mais próximo de melhoria contínua, mas sem constância ou método — sustenta N2, ficando no limiar por ser projetivo.",
-                "confianca": 0.7,
-                "evidencias": [
-                  {
-                    "trecho": "'observaria onde minha reação inicial poderia ter sido impulsiva ou defensiva, para ajustar a próxima abordagem'",
-                    "resposta": "R4",
-                    "forca_evidencia": "moderada"
-                  }
-                ],
-                "sustentacao": "fraca",
-                "nota_decimal": 2.5,
-                "nivel_sugerido": 2,
-                "limites_da_evidencia": [
-                  "É a evidência mais concreta do conjunto, mas ainda projetiva ('observaria')",
-                  "Não demonstra revisão regular de performance como prática — é resposta a um cenário hipotético",
-                  "Sem método ou frequência de revisão descritos",
-                  "Falta busca ativa por feedback ou prática deliberada"
-                ]
-              },
-              {
-                "nome": "REP10-D04 — Responsabilidade pelos resultados",
-                "numero": 5,
-                "racional": "O reconhecimento de que a reação pode ter sido impulsiva sinaliza alguma autocrítica e responsabilidade parcial, o que sustenta N2 — mas falta a declaração de posse do resultado e o foco no que controla.",
-                "confianca": 0.68,
-                "evidencias": [
-                  {
-                    "trecho": "'observaria onde minha reação inicial poderia ter sido impulsiva ou defensiva, para ajustar a próxima abordagem'",
-                    "resposta": "R4",
-                    "forca_evidencia": "moderada"
-                  },
-                  {
-                    "trecho": "'priorizaria o que preserva valor para o cliente sem comprometer margem ou previsibilidade'",
-                    "resposta": "R2",
-                    "forca_evidencia": "fraca"
-                  }
-                ],
-                "sustentacao": "fraca",
-                "nota_decimal": 2.13,
-                "nivel_sugerido": 2,
-                "limites_da_evidencia": [
-                  "Nenhuma resposta atribui resultado ao próprio esforço ou à própria postura de forma direta",
-                  "Não há menção a fatores externos, mas também não há assunção explícita de responsabilidade",
-                  "A ausência de culpa externa é positiva, mas não equivale a ownership ativo"
-                ]
-              },
-              {
-                "nome": "REP10-D02 — Acompanhamento de indicadores próprios",
-                "numero": 6,
-                "racional": "Uma menção única, vaga e projetiva não sustenta N3 — enquadra-se em N2 (olha os números esporadicamente), mas com baixa confiança pela ausência de detalhe.",
-                "confianca": 0.6,
-                "evidencias": [
-                  {
-                    "trecho": "'acompanharia indicadores e pediria feedback'",
-                    "resposta": "R4",
-                    "forca_evidencia": "fraca"
-                  }
-                ],
-                "sustentacao": "insuficiente",
-                "nota_decimal": 2,
-                "nivel_sugerido": 2,
-                "limites_da_evidencia": [
-                  "Única menção ao tema em todo o conjunto de respostas",
-                  "Declaração de intenção sem especificação de quais indicadores",
-                  "Sem referência a frequência de acompanhamento ou uso dos dados para ajustar rota",
-                  "Não demonstra saber onde está em relação à meta"
-                ]
-              }
-            ]
-          },
-          "nivel_ia4": 2,
-          "nota_ia4": 2.1,
-          "pontos_fortes": "REP10-D05 — Busca por melhoria contínua; REP10-D06 — Cumprimento de processo e disciplina comercial",
-          "pontos_atencao": "REP10-D01 — Foco e compromisso com a meta; REP10-D03 — Ação baseada em dados",
-          "feedback_ia4": "Bruna demonstra uma postura reflexiva e orientada a consequências, o que é uma base importante para evoluir em orientação a resultados. Ao mesmo tempo, as respostas ficaram predominantemente no plano da intenção — o que torna difícil identificar práticas estabelecidas de acompanhamento de meta, uso de dados e responsabilidade pelos resultados. O principal movimento de desenvolvimento está em tornar essas intenções em rotinas concretas e mensuráveis.\nBruna, um ponto que se destaca nas suas respostas é a sua capacidade de pensar antes de agir — a ideia de 'delimitar o problema antes de reagir' e de reconhecer que a própria reação pode ter sido impulsiva mostra maturidade emocional e autocrítica genuína. Você também demonstrou sensibilidade comercial ao mencionar a importância de não comprometer margem ou previsibilidade, e ao citar o CRM e o próximo passo como parte da ação — são elementos concretos de processo que fazem diferença no dia a dia.\nO principal convite de desenvolvimento está em conectar essa postura reflexiva à meta concreta e aos dados do dia a dia. Nas suas respostas, a meta em si não apareceu como guia das decisões — os critérios foram qualidade da relação, sustentabilidade e valor ao cliente, o que é importante, mas precisa coexistir com o número que você está perseguindo. Da mesma forma, quando você menciona 'acompanhar indicadores', o próximo nível é saber responder: quais indicadores? Com que frequência? O que você faz quando eles estão abaixo do esperado? Tornar isso mais específico e rotineiro é o que vai transformar intenção em resultado consistente.",
           "payload_ia4": null,
           "status_ia4": null
         }
@@ -9365,6 +9365,550 @@
           ]
         },
         "report_generated_at": "2026-07-03T21:25:42.016+00:00"
+      },
+      "trilha": {
+        "row": {
+          "pdi_id": null,
+          "cursos": [],
+          "status": "ativa",
+          "criado_em": "2026-07-03T21:34:00.976816+00:00",
+          "competencia_foco": "Orientação a Metas e Resultados",
+          "temporada_plano": [
+            {
+              "tipo": "conteudo",
+              "semana": 1,
+              "status": "disponivel",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 1: REP10-D03 — Ação baseada em dados",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique REP10-D03 — Ação baseada em dados em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "REP10-D03 — Ação baseada em dados",
+              "nivel_alvo": 3,
+              "competencia": "Orientação a Metas e Resultados",
+              "nivel_atual": 1.75,
+              "descritores_cobertos": [
+                "REP10-D03 — Ação baseada em dados"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 2,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 2: REP10-D03 — Ação baseada em dados",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique REP10-D03 — Ação baseada em dados em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "REP10-D03 — Ação baseada em dados",
+              "nivel_alvo": 3,
+              "competencia": "Orientação a Metas e Resultados",
+              "nivel_atual": 1.75,
+              "descritores_cobertos": [
+                "REP10-D03 — Ação baseada em dados"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 3,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 3: REP10-D02 — Acompanhamento de indicadores próprios",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique REP10-D02 — Acompanhamento de indicadores próprios em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "REP10-D02 — Acompanhamento de indicadores próprios",
+              "nivel_alvo": 3,
+              "competencia": "Orientação a Metas e Resultados",
+              "nivel_atual": 1.75,
+              "descritores_cobertos": [
+                "REP10-D02 — Acompanhamento de indicadores próprios"
+              ]
+            },
+            {
+              "tipo": "aplicacao",
+              "missao": {
+                "texto": "**Sua missão:** Escolha um cliente ou oportunidade ativa que está travada ou abaixo do esperado e monte uma análise rápida com os números que você já tem: histórico de contatos, valor em jogo e prazo. Com base nisso, defina uma ação específica para essa semana e execute.\n\n**Descritores a integrar:**\n- **REP10-D03 — Ação baseada em dados**: A escolha da oportunidade e a ação tomada precisam ser justificadas por algum número real — valor, prazo, frequência de contato — e não por intuição\n- **REP10-D02 — Acompanhamento de indicadores próprios**: O ponto de partida da missão é o representante olhar para o próprio pipeline e identificar onde há desvio ou estagnação, sem depender de um gestor apontando\n- **REP10-D01 — Foco e compromisso com a meta**: A oportunidade escolhida deve ter impacto direto na meta do período, e a ação executada deve ser orientada a fechar ou avançar esse negócio",
+                "acao_principal": "Analisar os próprios dados de pipeline e agir sobre uma oportunidade concreta com base nessa leitura",
+                "criterio_de_execucao": "A pessoa consegue relatar qual oportunidade escolheu, que dado usou para tomar a decisão e o que fez de concreto a partir disso",
+                "contexto_de_aplicacao": "Reunião de alinhamento individual, revisão de carteira ou qualquer momento em que o representante acessa seus registros de CRM ou planilha de acompanhamento",
+                "integracao_descritores": [
+                  {
+                    "descritor": "REP10-D03 — Ação baseada em dados",
+                    "como_aparece": "A escolha da oportunidade e a ação tomada precisam ser justificadas por algum número real — valor, prazo, frequência de contato — e não por intuição"
+                  },
+                  {
+                    "descritor": "REP10-D02 — Acompanhamento de indicadores próprios",
+                    "como_aparece": "O ponto de partida da missão é o representante olhar para o próprio pipeline e identificar onde há desvio ou estagnação, sem depender de um gestor apontando"
+                  },
+                  {
+                    "descritor": "REP10-D01 — Foco e compromisso com a meta",
+                    "como_aparece": "A oportunidade escolhida deve ter impacto direto na meta do período, e a ação executada deve ser orientada a fechar ou avançar esse negócio"
+                  }
+                ]
+              },
+              "semana": 4,
+              "status": "bloqueada",
+              "cenario": {
+                "texto": "**Contexto:** Você é representante comercial e está na terceira semana do mês. Sua meta mensal é fechar 12 contratos. Até agora, você fechou 5. Você tem dois clientes em negociação avançada: um com grande potencial de valor, mas que está travado há duas semanas pedindo ajustes no contrato, e outro menor, mais simples, que provavelmente fecha em dois dias se você dedicar atenção agora. Olhando seus números, você percebe que, mesmo fechando os dois, chegaria a 7 — ainda longe da meta. Sua agenda da próxima semana está livre, mas você ainda não decidiu como vai distribuir seu tempo e esforço.\n\n**Tensão central:** O representante precisa decidir como alocar seu tempo e energia para maximizar o avanço em direção à meta, sabendo que os dois negócios em andamento não são suficientes para atingi-la.\n\n**Fator complicador:** O cliente de maior potencial consome muito tempo sem garantia de fechamento no mês, enquanto o cliente menor garante resultado imediato mas não move o ponteiro o suficiente — e nenhum dos dois, sozinho ou juntos, entrega a meta.\n\n**Stakeholders:**\n- Cliente A — negociação travada, alto valor, prazo incerto\n- Cliente B — negociação simples, valor menor, fechamento provável em 2 dias\n\n**Diante dos seus números atuais e do tempo que resta no mês, como você definiria sua prioridade de ação para a próxima semana — e o que, nos dados que você tem, sustenta essa escolha?**",
+                "complexidade": "simples",
+                "stakeholders": [
+                  "Cliente A — negociação travada, alto valor, prazo incerto",
+                  "Cliente B — negociação simples, valor menor, fechamento provável em 2 dias"
+                ],
+                "tensao_central": "O representante precisa decidir como alocar seu tempo e energia para maximizar o avanço em direção à meta, sabendo que os dois negócios em andamento não são suficientes para atingi-la.",
+                "tradeoff_testado": "Priorizar o fechamento garantido do cliente menor versus investir tempo no cliente maior com retorno incerto — sabendo que nenhuma das duas escolhas, isoladamente, é suficiente para bater a meta.",
+                "armadilha_resposta_generica": "Dizer que 'trabalharia os dois clientes em paralelo e buscaria novos ao mesmo tempo' ignora a necessidade de critério real de priorização com base nos dados disponíveis — tempo restante, probabilidade de fechamento e distância da meta."
+              },
+              "descritor": null,
+              "descritores_cobertos": [
+                "REP10-D03 — Ação baseada em dados",
+                "REP10-D02 — Acompanhamento de indicadores próprios",
+                "REP10-D01 — Foco e compromisso com a meta"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 5,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 5: REP10-D01 — Foco e compromisso com a meta",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique REP10-D01 — Foco e compromisso com a meta em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "REP10-D01 — Foco e compromisso com a meta",
+              "nivel_alvo": 3,
+              "competencia": "Orientação a Metas e Resultados",
+              "nivel_atual": 2,
+              "descritores_cobertos": [
+                "REP10-D01 — Foco e compromisso com a meta"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 6,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 6: REP10-D06 — Cumprimento de processo e disciplina comercial",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique REP10-D06 — Cumprimento de processo e disciplina comercial em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "REP10-D06 — Cumprimento de processo e disciplina comercial",
+              "nivel_alvo": 3,
+              "competencia": "Orientação a Metas e Resultados",
+              "nivel_atual": 2.25,
+              "descritores_cobertos": [
+                "REP10-D06 — Cumprimento de processo e disciplina comercial"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 7,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 7: REP10-D05 — Busca por melhoria contínua",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique REP10-D05 — Busca por melhoria contínua em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "REP10-D05 — Busca por melhoria contínua",
+              "nivel_alvo": 3,
+              "competencia": "Orientação a Metas e Resultados",
+              "nivel_atual": 2.25,
+              "descritores_cobertos": [
+                "REP10-D05 — Busca por melhoria contínua"
+              ]
+            },
+            {
+              "tipo": "aplicacao",
+              "missao": {
+                "texto": "```json\n{\n  \"missao_texto\": \"Escolha um indicador comercial que está abaixo do esperado no seu pipeline e defina uma mudança concreta na sua abordagem para os próximos contatos. Execute essa abordagem revisada com ao menos dois clientes ou oportunidades reais e registre o que mudou, o que funcionou e o que ainda precisa ajustar.\",\n  \"acao_principal\": \"Identificar um indicador próprio fora da meta, mudar deliberadamente a abordagem comercial com base nisso e registrar o resultado da mudança\",\n  \"contexto_de_aplicacao\": \"Rotina de prospecção, follow-up ou negociação ativa — qualquer momento em que o representante perceba que uma etapa do funil não está convertendo como deveria\",\n  \"criterio_de_execucao\": \"A missão foi executada quando o representante consegue apontar: qual indicador estava abaixo, qual ajuste fez na abordagem, com quem aplicou e o que observou de diferença nos contatos realizados\",\n  \"integracao_descritores\": [\n    {\n      \"descritor\": \"REP10-D01 — Foco e compromisso com a meta\",\n      \"como_aparece\": \"O ponto de partida da missão é a meta: o representante escolhe um indicador que está abaixo do esperado, o que exige reconhecer onde está e manter o compromisso com onde precisa chegar\"\n    },\n    {\n      \"descritor\": \"REP10-D02 — Acompanhamento de indicadores próprios\",\n      \"como_aparece\": \"Para identificar o indicador fora da meta, o representante precisa olhar seus próprios números — taxa de conversão, retorno de follow-up, tempo de fechamento — e não depender de alguém apontando o problema\"\n    },\n    {\n      \"descritor\": \"REP10-D03 — Ação baseada em dados\",\n      \"como_aparece\": \"A mudança de abordagem não é intuitiva: ela parte do que o indicador revela. O representante define o ajuste com base no que os números mostram, não em achismo\"\n    },\n    {\n      \"descritor\": \"REP10-D04 — Responsabilidade pelos resultados\",\n      \"como_aparece\": \"Ao escolher o indicador e propor a correção por conta própria, o representante assume"
+              },
+              "semana": 8,
+              "status": "bloqueada",
+              "cenario": {
+                "texto": "```json\n{\n  \"contexto\": \"Você é representante comercial em uma empresa de soluções corporativas B2B. Faltam 12 dias para o fechamento do trimestre e você está em 71% da sua meta. Para atingir os 100%, precisa fechar aproximadamente R$ 85 mil em novos contratos. Ao revisar seu funil, você identifica dois caminhos possíveis: um cliente em negociação avançada (R$ 70 mil) que está travado há três semanas por conta de uma exigência técnica que o produto ainda não atende completamente, e um conjunto de quatro prospects menores (R$ 20 mil cada) que estão em fase inicial, mas com perfil bem aderente ao seu histórico de fechamento rápido. Seu gerente regional comentou na última reunião de pipeline que 'o grande contrato vai fazer diferença na foto do trimestre' — mas não deu orientação direta sobre prioridade.\",\n  \"tensao_central\": \"Concentrar energia no contrato grande, que pode não fechar por limitação técnica real, ou redistribuir esforço nos prospects menores, que oferecem caminho mais concreto para bater a meta.\",\n  \"fator_complicador\": \"O contrato grande tem uma limitação técnica que você não controla — e o cliente já mencionou isso duas vezes como obstáculo. Forçar esse fechamento sem resolver a questão pode gerar uma venda problemática. Ao mesmo tempo, os prospects menores exigem esforço paralelo intenso em tempo curto, e você não tem clareza sobre quais deles têm real potencial de avanço sem uma análise mais fina do histórico de cada um.\",\n  \"stakeholders\": [\n    \"Gerente regional — que sinalizou preferência pelo contrato grande sem dar diretriz clara\",\n    \"Cliente do contrato grande — travado por exigência técnica não resolvida\"\n  ],\n  \"tradeoff_testado\": \"Priorizar o contrato de maior volume e visibilidade, mas com risco real de não fechar, versus redistribuir esforço nos menores com maior probabilidade de conversão — o que exige critério sobre o próprio funil, disciplina de processo e responsabilidade pela decisão tomada.\",\n  \"armadilha_resposta_generica\": \"Dizer que 'trabalharia os dois ao mesmo tempo' não resolve porque o tempo é limitado, a limitação técnica do cliente grande é real e os prospects menores exigem ações comerciais concretas e sequenciadas — qualquer resposta que não defina critério de priorização e próximos passos específicos é insuficiente.\",\n  \"pergunta\": \"Com base no que você sabe sobre seu funil, seu histórico e os 12 dias restantes, como você decidiria onde concentrar sua energia — e o que concretamente faria diferente a partir de amanhã para maximizar sua chance de bater a meta?\",\n  \"complexidade_aplicada\": \"intermediario\",\n  \"por_que_essa_complexidade_faz_sentido\": \"O caso exige critério real de priorização com dados limitados, tensão entre visibilidade e probabilidade de fechamento, e pressão de tempo sem orientação clara do gestor — o que força o colaborador a",
+                "complexidade": "intermediario"
+              },
+              "descritor": null,
+              "descritores_cobertos": [
+                "REP10-D03 — Ação baseada em dados",
+                "REP10-D02 — Acompanhamento de indicadores próprios",
+                "REP10-D01 — Foco e compromisso com a meta",
+                "REP10-D06 — Cumprimento de processo e disciplina comercial",
+                "REP10-D05 — Busca por melhoria contínua",
+                "REP10-D04 — Responsabilidade pelos resultados"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 9,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 9: REP10-D04 — Responsabilidade pelos resultados",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique REP10-D04 — Responsabilidade pelos resultados em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "REP10-D04 — Responsabilidade pelos resultados",
+              "nivel_alvo": 3,
+              "competencia": "Orientação a Metas e Resultados",
+              "nivel_atual": 2.25,
+              "descritores_cobertos": [
+                "REP10-D04 — Responsabilidade pelos resultados"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 10,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 10: REP10-D02 — Acompanhamento de indicadores próprios",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique REP10-D02 — Acompanhamento de indicadores próprios em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "REP10-D02 — Acompanhamento de indicadores próprios",
+              "nivel_alvo": 3,
+              "competencia": "Orientação a Metas e Resultados",
+              "nivel_atual": 1.75,
+              "descritores_cobertos": [
+                "REP10-D02 — Acompanhamento de indicadores próprios"
+              ]
+            },
+            {
+              "tipo": "conteudo",
+              "semana": 11,
+              "status": "bloqueada",
+              "conteudo": {
+                "core_id": null,
+                "core_url": null,
+                "core_reuso": false,
+                "core_titulo": "Episódio 11: REP10-D03 — Ação baseada em dados",
+                "formato_core": "texto",
+                "desafio_texto": "Aplique REP10-D03 — Ação baseada em dados em uma situação real esta semana e observe o resultado.",
+                "fallback_gerado": true,
+                "formatos_disponiveis": {}
+              },
+              "descritor": "REP10-D03 — Ação baseada em dados",
+              "nivel_alvo": 3,
+              "competencia": "Orientação a Metas e Resultados",
+              "nivel_atual": 1.75,
+              "descritores_cobertos": [
+                "REP10-D03 — Ação baseada em dados"
+              ]
+            },
+            {
+              "tipo": "aplicacao",
+              "missao": {
+                "texto": "```json\n{\n  \"missao_texto\": \"Escolha um indicador comercial que está abaixo do esperado — taxa de conversão, volume de propostas ou ticket médio — e identifique, com base nos seus próprios registros, o que explica esse resultado. A partir disso, ajuste uma etapa específica do seu processo de vendas e execute essa versão ajustada em pelo menos três abordagens reais antes do fim da semana.\",\n  \"acao_principal\": \"Diagnosticar um indicador próprio abaixo da meta, identificar a causa com base em dados e aplicar um ajuste concreto no processo comercial em abordagens reais da semana\",\n  \"contexto_de_aplicacao\": \"Situações cotidianas da rotina comercial — ligações de prospecção, reuniões com clientes, envio de propostas ou follow-ups — em que o representante tem controle direto sobre como conduz cada etapa\",\n  \"criterio_de_execucao\": \"A missão foi executada quando o representante consegue nomear qual indicador analisou, qual causa identificou nos próprios dados, qual ajuste fez no processo e em quais três abordagens aplicou esse ajuste — com capacidade de relatar o que mudou na prática\",\n  \"integracao_descritores\": [\n    {\n      \"descritor\": \"REP10-D02 — Acompanhamento de indicadores próprios\",\n      \"como_aparece\": \"O ponto de partida da missão é olhar para os próprios números — o representante precisa ter ou levantar registros reais de pelo menos um indicador antes de qualquer ação\"\n    },\n    {\n      \"descritor\": \"REP10-D03 — Ação baseada em dados\",\n      \"como_aparece\": \"O ajuste no processo não pode ser intuitivo: ele precisa ser justificado pelo que os dados mostraram, conectando causa identificada e mudança aplicada\"\n    },\n    {\n      \"descritor\": \"REP10-D01 — Foco e compromisso com a meta\",\n      \"como_aparece\": \"A escolha do indicador analisado é guiada pela meta — o representante foca no que está impactando diretamente o resultado esperado, não em qualquer ponto do processo\"\n    },\n    {\n      \"descritor\": \"REP10-D06 — Cumprimento de processo e disciplina comercial\",\n      \"como_"
+              },
+              "semana": 12,
+              "status": "bloqueada",
+              "cenario": {
+                "texto": "```json\n{\n  \"contexto\": \"Você é representante comercial em uma empresa B2B de soluções de software corporativo. Faltam 11 dias para o fechamento do trimestre e você está em 67% da meta. Para bater, precisa fechar R$ 84.000 em novos contratos. Você tem dois caminhos claros na sua carteira: o primeiro é a Conta A, um prospect que está em fase avançada de negociação há 6 semanas, com proposta de R$ 71.000 enviada, mas o decisor principal está em silêncio há 8 dias. O segundo é a Conta B, um cliente ativo que demonstrou interesse informal em expandir o contrato atual — potencial estimado de R$ 38.000 — mas que exige uma visita presencial para avançar, e o executivo de contas responsável por esse cliente pediu que você não aborde expansão comercial com ele até que uma pendência de suporte seja resolvida pela equipe técnica. A previsão de resolução dessa pendência é incerta: pode ser 3 dias, pode ser 10. Você revisou seus registros das últimas 8 semanas e identificou que, historicamente, prospects em silêncio por mais de 7 dias após proposta têm taxa de conversão de 22% no seu funil. Clientes ativos com interesse informal, quando abordados no momento certo, fecham a 61%. O tempo está correndo e nenhum dos dois caminhos está limpo.\",\n  \"tensao_central\": \"Bater a meta exige agir agora, mas os dois caminhos disponíveis têm bloqueios reais: um prospect em silêncio com baixa probabilidade histórica de conversão e um cliente ativo com potencial mais alto, mas com uma restrição explícita de outro colega que protege o relacionamento.\",\n  \"fator_complicador\": \"A restrição sobre a Conta B não é uma política vaga — é um pedido direto de um colega com responsabilidade sobre aquele cliente. Ignorar essa orientação para salvar a meta individual pode resolver o trimestre, mas compromete o relacionamento interno e com o cliente. Ao mesmo tempo, apostar apenas na Conta A significa depender de um prospect com histórico desfavorável, sem plano alternativo.\",\n  \"stakeholders\": [\n    \"Executivo de contas responsável pela Conta B\",\n    \"Decisor da Conta A (prospect em silêncio)\"\n  ],\n  \"tradeoff_testado\": \"Respeitar o processo e os acordos internos — mesmo que isso reduza as chances de bater a meta — versus agir por conta própria sobre a Conta B para maximizar o resultado do trimestre, violando uma orientação direta de um colega.\",\n  \"armadilha_resposta_generica\": \"Dizer que 'alinharia com todos e buscaria o melhor caminho' não resolve porque o tempo é curto, o colega já deu uma orientação clara e a Conta A tem probabilidade historicamente baixa. A resposta precisa mostrar critério concreto de priorização, uso dos dados disponíveis e uma postura definida diante da restrição — não intenção de conversar.\",\n  \"pergunta\": \"Diante d",
+                "complexidade": "completo"
+              },
+              "descritor": null,
+              "descritores_cobertos": [
+                "REP10-D03 — Ação baseada em dados",
+                "REP10-D02 — Acompanhamento de indicadores próprios",
+                "REP10-D01 — Foco e compromisso com a meta",
+                "REP10-D06 — Cumprimento de processo e disciplina comercial",
+                "REP10-D05 — Busca por melhoria contínua",
+                "REP10-D04 — Responsabilidade pelos resultados"
+              ]
+            },
+            {
+              "tipo": "avaliacao",
+              "semana": 13,
+              "status": "bloqueada",
+              "descritor": null,
+              "descritores_cobertos": [
+                "REP10-D03 — Ação baseada em dados",
+                "REP10-D02 — Acompanhamento de indicadores próprios",
+                "REP10-D01 — Foco e compromisso com a meta",
+                "REP10-D06 — Cumprimento de processo e disciplina comercial",
+                "REP10-D05 — Busca por melhoria contínua",
+                "REP10-D04 — Responsabilidade pelos resultados"
+              ]
+            },
+            {
+              "tipo": "avaliacao",
+              "semana": 14,
+              "status": "bloqueada",
+              "descritor": null,
+              "descritores_cobertos": [
+                "REP10-D03 — Ação baseada em dados",
+                "REP10-D02 — Acompanhamento de indicadores próprios",
+                "REP10-D01 — Foco e compromisso com a meta",
+                "REP10-D06 — Cumprimento de processo e disciplina comercial",
+                "REP10-D05 — Busca por melhoria contínua",
+                "REP10-D04 — Responsabilidade pelos resultados"
+              ]
+            }
+          ],
+          "descritores_selecionados": [
+            {
+              "gap": 1.25,
+              "descritor": "REP10-D03 — Ação baseada em dados",
+              "nota_atual": 1.75,
+              "semanas_ids": [
+                1,
+                2,
+                11
+              ],
+              "semanas_alocadas": 3
+            },
+            {
+              "gap": 1.25,
+              "descritor": "REP10-D02 — Acompanhamento de indicadores próprios",
+              "nota_atual": 1.75,
+              "semanas_ids": [
+                3,
+                10
+              ],
+              "semanas_alocadas": 2
+            },
+            {
+              "gap": 1,
+              "descritor": "REP10-D01 — Foco e compromisso com a meta",
+              "nota_atual": 2,
+              "semanas_ids": [
+                5
+              ],
+              "semanas_alocadas": 1
+            },
+            {
+              "gap": 0.75,
+              "descritor": "REP10-D06 — Cumprimento de processo e disciplina comercial",
+              "nota_atual": 2.25,
+              "semanas_ids": [
+                6
+              ],
+              "semanas_alocadas": 1
+            },
+            {
+              "gap": 0.75,
+              "descritor": "REP10-D05 — Busca por melhoria contínua",
+              "nota_atual": 2.25,
+              "semanas_ids": [
+                7
+              ],
+              "semanas_alocadas": 1
+            },
+            {
+              "gap": 0.75,
+              "descritor": "REP10-D04 — Responsabilidade pelos resultados",
+              "nota_atual": 2.25,
+              "semanas_ids": [
+                9
+              ],
+              "semanas_alocadas": 1
+            }
+          ],
+          "numero_temporada": 1,
+          "evolution_report": null,
+          "evolution_generated_at": null,
+          "data_inicio": "2026-07-06",
+          "competencias_foco": [
+            "Orientação a Metas e Resultados"
+          ],
+          "programa_modo": "regular_single"
+        },
+        "progress": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "status": "em_andamento",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 4,
+            "tipo": "aplicacao",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 6,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 7,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 8,
+            "tipo": "aplicacao",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 9,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 10,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 11,
+            "tipo": "conteudo",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 12,
+            "tipo": "aplicacao",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 13,
+            "tipo": "avaliacao",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          },
+          {
+            "semana": 14,
+            "tipo": "avaliacao",
+            "status": "pendente",
+            "conteudo_consumido": false,
+            "reflexao": null,
+            "feedback": null,
+            "iniciado_em": null,
+            "concluido_em": null,
+            "tira_duvidas": null
+          }
+        ]
       }
     },
     "carla.demo@vertho.ai": {
