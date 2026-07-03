@@ -16,7 +16,7 @@ import { describe, it } from 'vitest';
  * Heurística do scan (mesma da varredura que gerou a allowlist):
  *  - tabela tenant-owned + .update(/.delete( logo após o .from(...)
  *  - trecho de 1400 chars sem .eq/.is('empresa_id'
- *  - prefixo de 40 chars sem "tdb" (wrapper) nem "mutacaoConteudo" (helper sancionado)
+ *  - prefixo de 40 chars sem "tdb" (wrapper) nem "escopoTenantDaLinha" (repo sancionado)
  */
 
 const config = JSON.parse(readFileSync('config/tenant-mutation-allowlist.json', 'utf-8'));
@@ -55,8 +55,8 @@ function scanDir(dir: string, counts: Record<string, number>) {
       const trecho = content.slice(m.index, m.index + 1400); // janela cobre payloads longos
       const prefixo = content.slice(Math.max(0, m.index - 40), m.index);
       // .eq = tenant; .is('empresa_id', null) = catálogo GLOBAL (tabelas mistas)
-      // 'mutacaoConteudo(' = helper sancionado que aplica o predicado internamente
-      if (!/\.(eq|is)\('empresa_id'/.test(trecho) && !prefixo.includes('tdb') && !prefixo.includes('mutacaoConteudo')) n++;
+      // 'escopoTenantDaLinha(' = camada sancionada (lib/repositories/conteudos-repo) que aplica o predicado
+      if (!/\.(eq|is)\('empresa_id'/.test(trecho) && !prefixo.includes('tdb') && !prefixo.includes('escopoTenantDaLinha')) n++;
     }
     if (n > 0) counts[rel] = n;
   }

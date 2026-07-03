@@ -1,6 +1,7 @@
 'use server';
 
 import { callAI, type AIConfig } from '@/actions/ai-client';
+import { escopoTenantDaLinha, updateConteudoInTenantDaLinha, deleteConteudoInTenantDaLinha } from '@/lib/repositories/conteudos-repo';
 import { promptVideoScript } from '@/lib/season-engine/prompts/video-script';
 import { promptPodcastScript } from '@/lib/season-engine/prompts/podcast-script';
 import { promptTextContent } from '@/lib/season-engine/prompts/text-content';
@@ -95,18 +96,6 @@ interface GerarConteudoParams {
 }
 
 
-/**
- * Predicado de tenant EXPLÍCITO pra mutação em micro_conteudos (tabela MISTA:
- * da empresa OU catálogo global com empresa_id NULL). Lê o tenant da linha e
- * devolve o builder já escopado — a mutação só afeta a linha no tenant em que
- * ela foi lida (guard tenant-mutation).
- */
-async function mutacaoConteudo(sb: any, id: string, builder: any): Promise<{ escopo: any } | { erro: string }> {
-  const { data: linha } = await sb.from('micro_conteudos').select('empresa_id').eq('id', id).maybeSingle();
-  if (!linha) return { erro: 'Conteúdo não encontrado' };
-  const q = builder.eq('id', id);
-  return { escopo: linha.empresa_id ? q.eq('empresa_id', linha.empresa_id) : q.is('empresa_id', null) };
-}
 
 export async function gerarConteudoIA({
   formato, competencia, descritor, nivelMin = 1.0, nivelMax = 2.0,
@@ -622,10 +611,8 @@ export async function atualizarConteudo(id: string, patch: any) {
                      'tipo_conteudo','contexto','cargo','setor','apresentador','ativo','duracao_min'];
     const clean: Record<string, any> = {};
     for (const k of allowed) if (k in patch) clean[k] = patch[k];
-    const r = await mutacaoConteudo(sb, id, sb.from('micro_conteudos').update(clean));
-    if ('erro' in r) return { error: r.erro };
-    const { error } = await r.escopo;
-    if (error) return { error: error.message };
+    const upd = await updateConteudoInTenantDaLinha(sb, id, clean);
+    if (upd === null) return { error: 'Conteúdo não encontrado' };
     return { ok: true };
   } catch (err) {
     return { error: err?.message || 'Erro' };
@@ -737,9 +724,7 @@ export async function gerarConteudoFinal(id: string) {
       const expandido = await garantirMinimoPdf(conteudoMd, system, undefined, model);
       if (expandido.length > conteudoMd.length) {
         conteudoMd = expandido;
-        let qExp = sb.from('micro_conteudos').update({ conteudo_inline: conteudoMd }).eq('id', id);
-        qExp = c.empresa_id ? qExp.eq('empresa_id', c.empresa_id) : qExp.is('empresa_id', null);
-        await qExp;
+        await escopoTenantDaLinha(sb.from('micro_conteudos').update({ conteudo_inline: conteudoMd }).eq('id', id), c);
       }
     }
 
@@ -790,11 +775,8 @@ export async function gerarConteudoFinal(id: string) {
     if (upErr) return { success: false, error: `Upload falhou: ${upErr.message}` };
 
     const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(path);
-    let qUrl = sb.from('micro_conteudos')
-      .update({ url: publicUrl, storage_path: path })
-      .eq('id', id);
-    qUrl = c.empresa_id ? qUrl.eq('empresa_id', c.empresa_id) : qUrl.is('empresa_id', null);
-    const { error: updErr } = await qUrl;
+    const { error: updErr } = await escopoTenantDaLinha(
+      sb.from('micro_conteudos').update({ url: publicUrl, storage_path: path }).eq('id', id), c);
     if (updErr) return { success: false, error: updErr.message };
 
     const layoutMsg = plan
@@ -1012,11 +994,8 @@ export async function gerarPodcastAudio(id: string) {
     if (upErr) return { success: false, error: `Upload falhou: ${upErr.message}` };
 
     const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(path);
-    const rAud = await mutacaoConteudo(sb, id, sb.from('micro_conteudos')
-      .update({ url: publicUrl, storage_path: path, ativo: true }));
-    if ('erro' in rAud) return { success: false, error: rAud.erro };
-    const { error: updErr } = await rAud.escopo;
-    if (updErr) return { success: false, error: updErr.message };
+    const updAud = await updateConteudoInTenantDaLinha(sb, id, { url: publicUrl, storage_path: path, ativo: true });
+    if (updAud === null) return { success: false, error: 'Conteúdo não encontrado' };
 
     return { success: true, url: publicUrl, message: `Áudio com vinheta gerado para "${c.titulo}"` };
   } catch (err) {
@@ -1047,12 +1026,8 @@ export async function aprovarRoteiroPodcastEGerarAudio(id: string, roteiro: stri
       return { success: false, error: 'Aprovação de roteiro disponível apenas para podcast' };
     }
 
-    const rRot = await mutacaoConteudo(sb, id, sb
-      .from('micro_conteudos')
-      .update({ conteudo_inline: roteiro.trim() }));
-    if ('erro' in rRot) return { success: false, error: rRot.erro };
-    const { error: updErr } = await rRot.escopo;
-    if (updErr) return { success: false, error: updErr.message };
+    const updRot = await updateConteudoInTenantDaLinha(sb, id, { conteudo_inline: roteiro.trim() });
+    if (updRot === null) return { success: false, error: 'Conteúdo não encontrado' };
 
     return await gerarPodcastAudio(id);
   } catch (err) {
@@ -1098,16 +1073,11 @@ export async function excluirConteudoFinal(id: string) {
     if (rmErr) console.warn('[excluirConteudoFinal] remove storage:', rmErr.message);
 
     if (ehGerado(c.storage_path)) {
-      const rExc = await mutacaoConteudo(sb, id, sb.from('micro_conteudos')
-        .update({ url: null, storage_path: null, video_render_status: null, video_render_error: null }));
-      if ('erro' in rExc) return { success: false, error: rExc.erro };
-      const { error: updErr } = await rExc.escopo;
-      if (updErr) return { success: false, error: updErr.message };
+      const updExc = await updateConteudoInTenantDaLinha(sb, id, { url: null, storage_path: null, video_render_status: null, video_render_error: null });
+      if (updExc === null) return { success: false, error: 'Conteúdo não encontrado' };
     } else {
       // Pode ter ficado um render travado em "processing/error" sem MP4 ainda.
-      const rTrav = await mutacaoConteudo(sb, id, sb.from('micro_conteudos')
-        .update({ video_render_status: null, video_render_error: null }));
-      if (!('erro' in rTrav)) await rTrav.escopo;
+      await updateConteudoInTenantDaLinha(sb, id, { video_render_status: null, video_render_error: null }).catch(() => null);
     }
 
     return { success: true, message: 'Entregável final excluído' };
@@ -1120,10 +1090,7 @@ export async function excluirConteudoFinal(id: string) {
 export async function deletarConteudo(id: string) {
   try {
     const sb = await requireAdminSupabase('content.manage');
-    const rDel = await mutacaoConteudo(sb, id, sb.from('micro_conteudos').delete());
-    if ('erro' in rDel) return { ok: true }; // já não existe — delete idempotente
-    const { error } = await rDel.escopo;
-    if (error) return { error: error.message };
+    await deleteConteudoInTenantDaLinha(sb, id); // false = já não existia (delete idempotente)
     return { ok: true };
   } catch (err) {
     return { error: err?.message || 'Erro' };

@@ -1,6 +1,7 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { escopoTenantDaLinha } from '@/lib/repositories/conteudos-repo';
 
 /**
  * Recalcula `impacto_medio_delta` e `impacto_amostras` de cada micro_conteudo.
@@ -65,14 +66,11 @@ export async function recalcularImpactoConteudo(email: string) {
     if (!tenantPorConteudo.has(coreId)) continue; // conteúdo não existe mais
     const amostras = stats.deltas.length;
     const media = stats.deltas.reduce((a, b) => a + b, 0) / amostras;
-    const empresaLinha = tenantPorConteudo.get(coreId);
-    let qImp = sb.from('micro_conteudos').update({
+    await escopoTenantDaLinha(sb.from('micro_conteudos').update({
       impacto_medio_delta: Number(media.toFixed(2)),
       impacto_amostras: amostras,
       impacto_atualizado_em: new Date().toISOString(),
-    }).eq('id', coreId);
-    qImp = empresaLinha ? qImp.eq('empresa_id', empresaLinha) : qImp.is('empresa_id', null);
-    await qImp;
+    }).eq('id', coreId), { empresa_id: tenantPorConteudo.get(coreId) });
     atualizados++;
   }
 
