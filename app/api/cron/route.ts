@@ -60,6 +60,20 @@ export async function GET(req) {
         break;
       }
 
+      // Reset noturno do ambiente de demonstração (tenant acme-demo) ao estado
+      // inicial. Falha → 500 (observável no log do Vercel). Tenant-safe.
+      case 'reset_demo': {
+        const { resetAcmeDemo } = await import('@/lib/demo/reset-acme-demo');
+        const r = await resetAcmeDemo();
+        try {
+          const { logAdminAction } = await import('@/lib/audit');
+          await logAdminAction({ adminEmail: 'system:cron', acao: 'demo.reset', alvo: 'acme-demo', detalhes: r.ok ? { counts: r.counts } : { error: r.error } });
+        } catch { /* auditoria best-effort */ }
+        if (!r.ok) throw new Error(r.error || 'reset do demo falhou');
+        result = { message: `demo resetada · ${JSON.stringify(r.counts)}`, counts: r.counts };
+        break;
+      }
+
       // Motor único da cadência (lê dia da pílula 1/2/evidência por empresa).
       case 'trigger_diario':
         result = await triggerDiario();

@@ -11,6 +11,10 @@
     {
       "path": "/api/cron?action=backup_diario",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron?action=reset_demo",
+      "schedule": "0 7 * * *"
     }
   ]
 }
