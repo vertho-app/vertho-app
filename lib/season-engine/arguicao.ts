@@ -281,6 +281,9 @@ PRINCÍPIOS:
 2. Marque se a defesa CONFIRMOU o que o escrito mostrava, APROFUNDOU (revelou
    profundidade nova), FRAGILIZOU (não sustentou sob sondagem) ou ficou SEM SINAL.
 3. Não produza nota nem complete lacunas. Toda evidência tem citação curta.
+4. EXATAMENTE UMA entrada por descritor — NUNCA repita o mesmo descritor. Se a
+   defesa teve sinais mistos para um descritor, escolha a classificação que
+   melhor representa o CONJUNTO (uma fragilidade real pesa mais que um acerto).
 
 RETORNE APENAS JSON, sem markdown.`;
 

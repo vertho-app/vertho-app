@@ -65,6 +65,21 @@ describe('fundirArguicao — modulação determinística (±0,5 no código)', ()
     expect(ajustados).toBe(0);
   });
 
+  it('descritor DUPLICADO conflitante → mantém o ajuste mais conservador (independe da ordem)', () => {
+    // Extrator emitiu D1 duas vezes: aprofundou/forte (+0,5) e fragilizou/fraca (−0,2).
+    // Determinístico: fica o de menor magnitude (−0,2), nas duas ordens.
+    const ordemA = fundirArguicao(parsedBase(), extracao([
+      { descritor: 'D1', sustentou: 'aprofundou', forca: 'forte' },
+      { descritor: 'D1', sustentou: 'fragilizou', forca: 'fraca' },
+    ]));
+    const ordemB = fundirArguicao(parsedBase(), extracao([
+      { descritor: 'D1', sustentou: 'fragilizou', forca: 'fraca' },
+      { descritor: 'D1', sustentou: 'aprofundou', forca: 'forte' },
+    ]));
+    expect(ordemA.parsed.avaliacao_por_descritor[0].ajuste_arguicao).toBe(-0.2);
+    expect(ordemB.parsed.avaliacao_por_descritor[0].ajuste_arguicao).toBe(-0.2);
+  });
+
   it('match é case/space-insensitive', () => {
     const { parsed } = fundirArguicao(parsedBase(), extracao([
       { descritor: '  d1  ', sustentou: 'aprofundou', forca: 'moderada' },

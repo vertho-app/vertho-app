@@ -55,9 +55,17 @@ export function fundirArguicao(parsed: any, extracao: ArguicaoExtracao | null | 
   }
 
   // Índice das evidências da arguição por nome de descritor (normalizado).
+  // A extração deve emitir 1 entrada por descritor; se emitir DUPLICATAS
+  // conflitantes (visto no E2E), NÃO deixa a ordem decidir o ajuste — mantém a
+  // mais CONSERVADORA (menor |ajuste|), pra um sinal contraditório não inflar
+  // nem afundar a nota por sorte de ordenação.
+  const magnitude = (ev: any) => Math.abs(AJUSTE_POR_SUSTENTACAO[norm(ev?.sustentou)]?.[norm(ev?.forca)] ?? 0);
   const evPorDescritor = new Map<string, any>();
   for (const ev of extracao.evidencias_por_descritor) {
-    if (ev?.descritor) evPorDescritor.set(norm(ev.descritor), ev);
+    if (!ev?.descritor) continue;
+    const chave = norm(ev.descritor);
+    const atual = evPorDescritor.get(chave);
+    if (!atual || magnitude(ev) < magnitude(atual)) evPorDescritor.set(chave, ev);
   }
 
   let ajustados = 0;
