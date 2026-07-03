@@ -719,6 +719,16 @@
       "viewReport": "Ver informe completo →",
       "demoScore": "Nota de la demostración",
       "pilotNote": "En el piloto, la evaluación demuestra el método de la temporada completa — no mide evolución en 2 semanas."
+    },
+    "arguicao": {
+      "badge": "Argumentación · defensa oral",
+      "title": "Argumentación — defensa oral",
+      "intro": "Vamos a profundizar en tu respuesta con una conversación breve. Sostén lo que respondiste al escenario — no hay respuesta correcta, se trata de tu razonamiento.",
+      "placeholder": "Escribe tu respuesta...",
+      "send": "Enviar",
+      "sending": "Enviando...",
+      "turnHint": "Turno {turno} · responde con naturalidad",
+      "seeResult": "Ver resultado de la evaluación"
     }
   },
   "SeasonWeek": {

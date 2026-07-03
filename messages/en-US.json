@@ -719,6 +719,16 @@
       "viewReport": "See full report →",
       "demoScore": "Demonstration score",
       "pilotNote": "In the pilot, the assessment demonstrates the full-season method — it does not measure growth over 2 weeks."
+    },
+    "arguicao": {
+      "badge": "Defense · oral argument",
+      "title": "Oral defense",
+      "intro": "Let us dig into your answer with a short conversation. Support what you answered to the scenario — there is no right answer, it is about your reasoning.",
+      "placeholder": "Write your answer...",
+      "send": "Send",
+      "sending": "Sending...",
+      "turnHint": "Turn {turno} · answer naturally",
+      "seeResult": "See assessment result"
     }
   },
   "SeasonWeek": {

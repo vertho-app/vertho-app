@@ -12,6 +12,19 @@ import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 
 const MIN_CHARS = 20;
+const MIN_CHARS_ARG = 3; // arguição é conversa — respostas curtas são válidas
+
+/** Remove o bloco [META] das falas da IA (só a mensagem visível fica). */
+const stripMetaCli = (s) => String(s || '').replace(/\[META\][\s\S]*?\[\/META\]/g, '').trim();
+
+/** Reconstrói o chat da arguição a partir do histórico persistido: descarta a
+ *  semente (bloco ═══ CENÁRIO) e limpa o [META] das falas do Mentor. */
+function argMsgsFromHistorico(hist) {
+  return (hist || [])
+    .filter(m => m?.content && !String(m.content).startsWith('═══ CENÁRIO'))
+    .map(m => ({ role: m.role, content: stripMetaCli(m.content) }))
+    .filter(m => m.content);
+}
 
 /**
  * Avaliação Final da Temporada (semana do cenário B — regular=14, onboarding=10).
@@ -33,11 +46,19 @@ export default function Sem14Page() {
   const [cenario, setCenario] = useState('');
   const [perguntas, setPerguntas] = useState([]);
   const [respostas, setRespostas] = useState(['', '', '', '']);
-  const [step, setStep] = useState(-1); // -1 = loading, 0 = cenário, 1..4 = pergunta, 5 = submit, 6 = finalizada
+  const [step, setStep] = useState(-1); // -1 = loading, 0 = cenário, 1..4 = pergunta, 6 = finalizada, 7 = arguição (chat)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [avaliacao, setAvaliacao] = useState(null);
   const [semCenarioB, setSemCenarioB] = useState(14); // derivado do plano
+
+  // Arguição (defesa oral) — modo CHAT turn-by-turn após as 4 perguntas.
+  const [argMsgs, setArgMsgs] = useState([]); // { role: 'assistant'|'user', content }
+  const [argInput, setArgInput] = useState('');
+  const [argTurno, setArgTurno] = useState(0);
+  const [argBusy, setArgBusy] = useState(false);
+  const [argConcluida, setArgConcluida] = useState(false);
+  const argEndRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -82,6 +103,19 @@ export default function Sem14Page() {
         return;
       }
 
+      // Arguição em andamento (colab reabriu no meio da defesa oral): entra
+      // direto no chat, reconstruindo do histórico persistido (feedback.arguicao).
+      if (fb.arguicao && !fb.arguicao.concluida && prog?.status !== 'concluido') {
+        setCenario(fb.cenario || '');
+        setPerguntas(fb.perguntas || []);
+        const respostasExistentes = (fb.transcript_completo || []).filter(m => m.role === 'user').map(m => m.content);
+        setRespostas(prev => { const next = [...prev]; respostasExistentes.forEach((r, i) => { if (i < 4) next[i] = r; }); return next; });
+        setArgMsgs(argMsgsFromHistorico(fb.arguicao.historico));
+        setArgTurno(fb.arguicao.turno || 1);
+        setStep(7);
+        return;
+      }
+
       // Carrega cenário + perguntas (faz init se não tem)
       if (fb.cenario && fb.perguntas) {
         setCenario(fb.cenario);
@@ -113,6 +147,11 @@ export default function Sem14Page() {
     })();
   }, [router, sb]);
 
+  // Auto-scroll do chat da arguição ao chegar mensagem nova / IA "pensando".
+  useEffect(() => {
+    if (step === 7) argEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [argMsgs, argBusy, step]);
+
   function setResposta(i, val) {
     setRespostas(prev => prev.map((r, idx) => idx === i ? val : r));
   }
@@ -138,11 +177,56 @@ export default function Sem14Page() {
       }
       if (i === respostas.length - 1) {
         const data = await r.json();
+        // Arguição ligada: a última resposta ABRE a defesa oral (não pontua ainda).
+        // Troca do formulário para o modo CHAT turn-by-turn.
+        if (data.arguindo) {
+          setArgMsgs([{ role: 'assistant', content: stripMetaCli(data.message) }]);
+          setArgTurno(data.turno || 1);
+          setBusy(false);
+          setStep(7);
+          return;
+        }
         if (data.finished && data.avaliacao) setAvaliacao(data.avaliacao);
       }
     }
     setBusy(false);
     setStep(6);
+  }
+
+  async function enviarArguicao() {
+    const msg = argInput.trim();
+    if (msg.length < MIN_CHARS_ARG) return;
+    setArgMsgs(prev => [...prev, { role: 'user', content: msg }]);
+    setArgInput('');
+    micRef.current?.stop();
+    setArgBusy(true);
+    try {
+      const r = await fetchAuth('/api/temporada/evaluation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trilhaId, semana: semCenarioB, action: 'arguir', message: msg }),
+      });
+      if (!r.ok) {
+        const err = await r.json();
+        alert(t('alerts.error', { error: err.error || t('alerts.sendFailure') }));
+        setArgBusy(false);
+        return;
+      }
+      const data = await r.json();
+      if (data.message) setArgMsgs(prev => [...prev, { role: 'assistant', content: stripMetaCli(data.message) }]);
+      // Encerrou a arguição → o scorer já rodou no backend (com a fusão da defesa).
+      // Mostra o fecho da IA + botão para ver o resultado.
+      if (data.arguicaoConcluida) {
+        if (data.avaliacao) setAvaliacao(data.avaliacao);
+        setArgConcluida(true);
+      } else {
+        setArgTurno(data.turno || argTurno + 1);
+      }
+    } catch (e) {
+      alert(t('alerts.error', { error: e?.message || t('alerts.sendFailure') }));
+    } finally {
+      setArgBusy(false);
+    }
   }
 
   if (error) return (
@@ -169,15 +253,15 @@ export default function Sem14Page() {
             <p className="text-xs text-gray-400">{cargo}</p>
           </div>
           <p className="text-xs font-bold text-brand-400">
-            {step <= 0 ? '0%' : step === 6 ? '100%' : `${Math.round(((step - 1) / 4) * 100)}%`}
+            {step <= 0 ? '0%' : (step === 6 || step === 7) ? '100%' : `${Math.round(((step - 1) / 4) * 100)}%`}
           </p>
         </div>
         <div className="mt-3 h-1.5 rounded-full bg-white/5 overflow-hidden">
           <div className="h-full bg-gradient-to-r from-brand-500 to-emerald-500 transition-all"
-            style={{ width: step === 6 ? '100%' : step > 0 ? `${((step - 1) / 4) * 100}%` : '0%' }} />
+            style={{ width: (step === 6 || step === 7) ? '100%' : step > 0 ? `${((step - 1) / 4) * 100}%` : '0%' }} />
         </div>
         <p className="text-[10px] text-gray-500 mt-2">
-          {step === 6 ? t('progress.done') : t('progress.weekCompetency', { week: semCenarioB, competency: competencia })}
+          {step === 7 ? t('arguicao.badge') : step === 6 ? t('progress.done') : t('progress.weekCompetency', { week: semCenarioB, competency: competencia })}
         </p>
       </div>
 
@@ -257,6 +341,67 @@ export default function Sem14Page() {
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* STEP 7 — Arguição (defesa oral, chat turn-by-turn) */}
+      {step === 7 && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+          <div className="flex items-center gap-2 mb-1">
+            <Mic size={16} className="text-brand-400" />
+            <p className="text-xs uppercase tracking-widest text-brand-400 font-bold">{t('arguicao.title')}</p>
+          </div>
+          <p className="text-[11px] text-gray-500 mb-4">{t('arguicao.intro')}</p>
+
+          {/* Fluxo da conversa */}
+          <div className="space-y-3 mb-4 max-h-[46dvh] overflow-y-auto pr-1">
+            {argMsgs.map((m, i) => (
+              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm ${
+                  m.role === 'user'
+                    ? 'bg-brand-500/15 border border-brand-500/25 text-white rounded-br-sm'
+                    : 'bg-white/[0.04] border border-white/10 text-gray-200 rounded-bl-sm'
+                }`}>
+                  <div className="prose prose-invert prose-sm max-w-none leading-relaxed">
+                    <ReactMarkdown>{m.content}</ReactMarkdown>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {argBusy && (
+              <div className="flex justify-start">
+                <div className="rounded-2xl rounded-bl-sm bg-white/[0.04] border border-white/10 px-3.5 py-2.5">
+                  <Loader2 size={14} className="animate-spin text-brand-400" />
+                </div>
+              </div>
+            )}
+            <div ref={argEndRef} />
+          </div>
+
+          {argConcluida ? (
+            <button onClick={() => setStep(6)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#091D35] font-bold text-sm">
+              <CheckCircle2 size={16} /> {t('arguicao.seeResult')}
+            </button>
+          ) : (
+            <>
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <p className="text-[11px] text-gray-500 flex-1">{t('arguicao.turnHint', { turno: argTurno })}</p>
+                <MicInput ref={micRef} value={argInput} onChange={setArgInput} disabled={argBusy} />
+              </div>
+              <textarea value={argInput}
+                onChange={e => setArgInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); enviarArguicao(); } }}
+                placeholder={t('arguicao.placeholder')}
+                rows={3}
+                disabled={argBusy}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500 resize-vertical" />
+              <button onClick={enviarArguicao} disabled={argBusy || argInput.trim().length < MIN_CHARS_ARG}
+                className="mt-2 w-full py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-[#091D35] font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                {argBusy ? <><Loader2 size={14} className="animate-spin" /> {t('arguicao.sending')}</> : t('arguicao.send')}
+              </button>
+            </>
+          )}
         </div>
       )}
 

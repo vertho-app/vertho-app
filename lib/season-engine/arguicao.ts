@@ -18,6 +18,23 @@
 
 import { callAIChat, callAI, type AIConfig } from '@/actions/ai-client';
 import { parseJsonIA } from '@/lib/ai-json';
+import { maskTextPII, unmaskPII } from '@/lib/pii-masker';
+
+/**
+ * PII da arguição (Fase C): a conversa é COM o colaborador (chat vivo). A
+ * política segue o padrão das rotas de chat do colab (tira-duvidas): armazena
+ * o histórico CRU (o colab vê o próprio texto e o nome real ao reabrir) e
+ * mascara SÓ em-voo, antes de cada chamada de IA — nome real → alias +
+ * e-mails/telefones/CPF genéricos. As respostas da IA voltam despersonalizadas
+ * (unmask) antes de exibir/persistir. Sem `pii` (ex.: testes unitários) o
+ * comportamento é idêntico ao anterior — nada é mascarado.
+ */
+export interface ArguicaoPII {
+  /** Map do maskColaborador (real→alias e alias→real). */
+  map: Record<string, string>;
+  /** Alias do primeiro nome (colabMasked.nome) — substitui ctx.nomeColab. */
+  nomeMasked?: string;
+}
 
 export interface ArguicaoContexto {
   nomeColab: string;
@@ -139,6 +156,26 @@ function mensagemContexto(ctx: ArguicaoContexto): ArguicaoMsg {
   };
 }
 
+/** Ctx com nome/cenário/resposta mascarados para as chamadas de IA (não muda
+ *  o ctx cru usado no histórico persistido). Sem `pii`, devolve o ctx intacto. */
+function ctxParaIA(ctx: ArguicaoContexto, pii?: ArguicaoPII): ArguicaoContexto {
+  if (!pii) return ctx;
+  return {
+    ...ctx,
+    nomeColab: pii.nomeMasked || ctx.nomeColab,
+    cenario: maskTextPII(ctx.cenario, pii.map),
+    respostaCenario: maskTextPII(ctx.respostaCenario, pii.map),
+  };
+}
+
+/** Mascara o conteúdo do histórico só para o payload da IA. */
+function histParaIA(hist: ArguicaoMsg[], pii?: ArguicaoPII): ArguicaoMsg[] {
+  if (!pii) return hist;
+  return hist.map(m => ({ ...m, content: maskTextPII(m.content, pii.map) }));
+}
+
+const desmascarar = (texto: string, pii?: ArguicaoPII) => (pii ? unmaskPII(texto, pii.map) : texto);
+
 /**
  * Abre a arguição: primeira pergunta da IA, partindo da resposta ao cenário.
  * Retorna o estado inicial (turno 1) + a fala visível.
@@ -147,16 +184,19 @@ export async function abrirArguicao(
   ctx: ArguicaoContexto,
   maxTurnos: number,
   aiConfig: AIConfig = {},
+  pii?: ArguicaoPII,
 ): Promise<{ estado: ArguicaoEstado; reply: string }> {
-  const system = buildArguicaoSystemPrompt(ctx, maxTurnos, 1);
+  const aiCtx = ctxParaIA(ctx, pii);
+  const system = buildArguicaoSystemPrompt(aiCtx, maxTurnos, 1);
   // Semente: o contexto da tese como turno inicial "do sistema" no histórico
-  // de chat, para a IA formular a 1ª pergunta olhando a resposta.
-  const seed: ArguicaoMsg[] = [mensagemContexto(ctx)];
-  const raw = await callAIChat(system, seed, aiConfig, 2048, { temperature: 0.4 });
-  const reply = stripMeta(raw);
+  // de chat, para a IA formular a 1ª pergunta olhando a resposta. Para a IA vai
+  // mascarado; no histórico persistido guardamos a versão CRUA (colab reabre).
+  const seedAI: ArguicaoMsg[] = [mensagemContexto(aiCtx)];
+  const raw = await callAIChat(system, seedAI, aiConfig, 2048, { temperature: 0.4 });
+  const reply = desmascarar(stripMeta(raw), pii);
   const historico: ArguicaoMsg[] = [
-    ...seed,
-    { role: 'assistant', content: raw, turn: 1 },
+    mensagemContexto(ctx),
+    { role: 'assistant', content: desmascarar(raw, pii), turn: 1 },
   ];
   return { estado: { historico, turno: 1, concluida: false }, reply };
 }
@@ -172,17 +212,19 @@ export async function turnoArguicao(
   mensagem: string,
   maxTurnos: number,
   aiConfig: AIConfig = {},
+  pii?: ArguicaoPII,
 ): Promise<{ estado: ArguicaoEstado; reply: string; concluida: boolean }> {
   if (estado.concluida) {
     return { estado, reply: '', concluida: true };
   }
   const teto = Math.min(maxTurnos, MAX_TURNOS_HARD);
+  // Histórico CRU (persistido) vs. payload da IA (mascarado em-voo).
   const historico = [...estado.historico, { role: 'user' as const, content: mensagem }];
   const novoTurno = estado.turno + 1;
 
-  const system = buildArguicaoSystemPrompt(ctx, teto, novoTurno);
-  const raw = await callAIChat(system, historico, aiConfig, 2048, { temperature: 0.4 });
-  const reply = stripMeta(raw);
+  const system = buildArguicaoSystemPrompt(ctxParaIA(ctx, pii), teto, novoTurno);
+  const raw = await callAIChat(system, histParaIA(historico, pii), aiConfig, 2048, { temperature: 0.4 });
+  const reply = desmascarar(stripMeta(raw), pii);
 
   const meta = lerMeta(raw);
   const riscoPrematuro = meta.risco_de_encerramento_prematuro === true;
@@ -193,7 +235,7 @@ export async function turnoArguicao(
     meta.encerrar === true ||
     (suficiente && !riscoPrematuro && meta.sondagem_atual === 'encerramento');
 
-  historico.push({ role: 'assistant', content: raw, turn: novoTurno });
+  historico.push({ role: 'assistant', content: desmascarar(raw, pii), turn: novoTurno });
 
   return {
     estado: { historico, turno: novoTurno, concluida },
@@ -221,11 +263,14 @@ export async function extrairEvidenciasArguicao(
   ctx: ArguicaoContexto,
   estado: ArguicaoEstado,
   aiConfig: AIConfig = {},
+  pii?: ArguicaoPII,
 ): Promise<ArguicaoExtracao | null> {
-  const conversa = estado.historico
+  const conversaCrua = estado.historico
     .filter(h => h.content && !h.content.startsWith('═══ CENÁRIO'))
     .map(h => `${h.role === 'user' ? 'COLABORADOR' : 'MENTOR'}: ${stripMeta(h.content)}`)
     .join('\n\n');
+  // Extrator é chamada de IA externa → mascara a conversa antes de enviar.
+  const conversa = pii ? maskTextPII(conversaCrua, pii.map) : conversaCrua;
 
   const system = `Você é um extrator de evidências da ARGUIÇÃO (defesa oral) da Vertho.
 Analise a conversa em que o colaborador defendeu a resposta que deu ao cenário.
@@ -253,7 +298,23 @@ FORMATO (JSON):
 
   const raw = await callAI(system, user, aiConfig, 4096, { temperature: 0.2 });
   try {
-    return parseJsonIA(raw) as ArguicaoExtracao;
+    const ext = parseJsonIA(raw) as ArguicaoExtracao;
+    // Despersonaliza os campos textuais (citações/resumo) antes de persistir.
+    // O consumo pela fusão (Fase B) é por classificação (sustentou×forca), mas
+    // as citações são exibidas/auditadas — voltam com o nome real.
+    if (pii && ext) {
+      if (ext.resumo) {
+        ext.resumo.leitura_geral = desmascarar(ext.resumo.leitura_geral || '', pii);
+        ext.resumo.sustentacao_mais_forte = desmascarar(ext.resumo.sustentacao_mais_forte || '', pii);
+        ext.resumo.fragilidade_mais_relevante = desmascarar(ext.resumo.fragilidade_mais_relevante || '', pii);
+      }
+      if (Array.isArray(ext.evidencias_por_descritor)) {
+        ext.evidencias_por_descritor = ext.evidencias_por_descritor.map(e => ({
+          ...e, citacao: desmascarar(e.citacao || '', pii),
+        }));
+      }
+    }
+    return ext;
   } catch {
     return null;
   }

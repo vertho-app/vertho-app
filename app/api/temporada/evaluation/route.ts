@@ -196,6 +196,102 @@ export async function POST(request) {
         { key: 'p4', label: 'AUTOSSENSIBILIDADE' },
       ];
 
+      // PII masking compartilhado por arguição (chat) e scorer (pontuação).
+      const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
+      const piiArg = { map: piiMap, nomeMasked: colabMasked?.nome };
+
+      /**
+       * Pontua o fechamento a partir das 4 respostas ao cenário (+ arguição, se
+       * concluída). Amarração da Fase C: extraído do branch 'send' para ser
+       * reusado pelo fim da ARGUIÇÃO — quando a defesa oral encerra, é AQUI que
+       * a nota sai (o motor da arguição, Fase A, deixava isso solto). Devolve
+       * `{ status, json }` para o caller montar a resposta HTTP.
+       */
+      const finalizarComScorer = async (
+        { cenario, perguntas, historico, dados }:
+        { cenario: string; perguntas: any[]; historico: any[]; dados: any },
+      ): Promise<{ status: number; json: any }> => {
+        // Monta "resposta" como concatenação das 4 respostas rotuladas por dimensão
+        const respostasUser = historico.filter((m: any) => m.role === 'user');
+        const respostaAgregada = perguntas.map((p: any, i: number) =>
+          `[${p.dimensao}] ${p.texto}\n→ ${respostasUser[i]?.content || '(sem resposta)'}`
+        ).join('\n\n');
+
+        // Enriquece descritores com a régua de maturidade (n1-n4) + nota_pre FRESH
+        // de descriptor_assessments (não do snapshot JSONB, que pode estar desatualizado).
+        const enriquecidos = await enriquecerComRegua({
+          db: sb, sbGlobal: sb, empresaId: trilha.empresa_id,
+          competencia: trilha.competencia_foco, descritores,
+        });
+        const descritoresComRegua = await sobreporNotaFresh(sb, trilha.colaborador_id, trilha.competencia_foco, enriquecidos);
+
+        // Carrega avaliação acumulada (se já calculada no fim da semana da acumulada).
+        const { data: progAcum } = await sb.from('temporada_semana_progresso')
+          .select('feedback').eq('trilha_id', trilhaId).eq('semana', semAcumulada).maybeSingle();
+        const acumuladoPrimaria = normalizarAcumuladoPrimaria(progAcum?.feedback?.acumulado);
+
+        // Agrega evidências de TODAS as semanas até a acumulada. A nota_pos NUNCA
+        // sai só do cenário. Piloto: a reflexão da semana evidencia os 2 descritores.
+        const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, semAcumulada, programaConfig.modo === 'piloto');
+
+        // PII masking pra chamadas IA externas (map compartilhado do bloco).
+        const respostaMasked = maskTextPII(respostaAgregada, piiMap);
+        const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
+
+        // Scorer + trava + check — NÚCLEO compartilhado com a auditoria-sem14.
+        const resultadoScorer = await pontuarFechamento({
+          competencia: competenciasLabel,
+          descritores: descritoresComRegua,
+          cenario,
+          resposta: respostaMasked,
+          nomeColab: colabMasked.nome,
+          perfilDominante: colab?.perfil_dominante,
+          evidenciasAcumuladas: evidenciasMasked,
+          acumuladoPrimaria,
+          config: programaConfig,
+          // Fusão da arguição (Fase B): modula a nota se a defesa oral concluiu.
+          evidenciasArguicao: dados.arguicao?.concluida ? dados.arguicao.extracao : null,
+        });
+        if (resultadoScorer.meta.warnings.length) {
+          console.warn('[VERTHO] fechamento warnings:', resultadoScorer.meta.warnings.join(' | '));
+        }
+        // Guard: parse vazio ou narrativa piloto inválida → NÃO finaliza. Erro
+        // recuperável — a última resposta não foi persistida, reenviar reprocessa.
+        if (!resultadoScorer.ok) {
+          return { status: 502, json: {
+            error: 'A avaliação automática falhou ao processar sua resposta. Nada foi perdido — envie a última resposta novamente para reprocessar.',
+          } };
+        }
+        const parsed = resultadoScorer.parsed;
+        const auditoria = resultadoScorer.auditoria;
+
+        // Despersonaliza campos textuais do output (primária)
+        if (parsed?.resumo_avaliacao?.mensagem_geral) parsed.resumo_avaliacao.mensagem_geral = unmaskPII(parsed.resumo_avaliacao.mensagem_geral, piiMap);
+        if (Array.isArray(parsed?.avaliacao_por_descritor)) {
+          parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => ({
+            ...d, justificativa: unmaskPII(d.justificativa, piiMap),
+          }));
+        }
+        if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
+
+        const novoSlot = {
+          ...dados, ...parsed,
+          auditoria, // { nota_auditoria, status, ajustes_sugeridos, alertas, resumo_auditoria }
+          cenario, transcript_completo: historico, cenario_resposta: respostaAgregada,
+        };
+        await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: true });
+
+        // Gera Evolution Report automático (internal: sessão é do colab)
+        const report = await gerarEvolutionReport(trilhaId, true);
+
+        return { status: 200, json: {
+          finished: true,
+          avaliacao: parsed,
+          auditoria,
+          evolution_report: report.evolution_report,
+        } };
+      };
+
       if (action === 'init') {
         let cenario = dados.cenario;
         let perguntas = dados.perguntas;
@@ -239,20 +335,28 @@ export async function POST(request) {
       }
 
       // action === 'arguir': turno da ARGUIÇÃO (defesa oral) — só quando ligada.
-      // Fase A: conduz a conversa e persiste em feedback.arguicao; NÃO pontua
-      // (a fusão da nota é Fase B). Gate off (default) = branch nunca entra.
+      // Conduz a conversa (Fase A), persiste em feedback.arguicao e, ao ENCERRAR,
+      // dispara o scorer (Fase C) já com a fusão da defesa oral (Fase B). Gate
+      // off (default) = branch nunca entra.
       if (action === 'arguir') {
         if (!programaConfig.arguicao?.ativa) return NextResponse.json({ error: 'arguição desativada' }, { status: 400 });
         if (!message) return NextResponse.json({ error: 'message obrigatório' }, { status: 400 });
         const estadoArg = dados.arguicao as ArguicaoEstado | undefined;
         if (!estadoArg || estadoArg.concluida) return NextResponse.json({ error: 'arguição não está em andamento' }, { status: 400 });
         const ctxArg = montarCtxArguicao({ cenario: dados.cenario, perguntas: dados.perguntas || [], historico, colab, competenciasLabel, descritores, isPiloto: programaConfig.modo === 'piloto' });
-        const { estado, reply, concluida } = await turnoArguicao(ctxArg, estadoArg, message, programaConfig.arguicao.maxTurnos, aiConfig);
+        const { estado, reply, concluida } = await turnoArguicao(ctxArg, estadoArg, message, programaConfig.arguicao.maxTurnos, aiConfig, piiArg);
         const arguicao: any = estado;
-        if (concluida) arguicao.extracao = await extrairEvidenciasArguicao(ctxArg, estado, aiConfig);
+        if (concluida) arguicao.extracao = await extrairEvidenciasArguicao(ctxArg, estado, aiConfig, piiArg);
         const novoSlot = { ...dados, arguicao };
         await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: false });
-        return NextResponse.json({ arguindo: !concluida, arguicaoConcluida: concluida, message: reply, turno: estado.turno, finished: false });
+        // AMARRAÇÃO (Fase C): ao encerrar a defesa oral, a nota sai AGORA — o
+        // scorer roda com a extração da arguição (Fase B funde no pontuarFechamento).
+        // A resposta última mensagem da IA (reply) vem junto pro colab ver o fecho.
+        if (concluida) {
+          const r = await finalizarComScorer({ cenario: dados.cenario, perguntas: dados.perguntas || [], historico, dados: novoSlot });
+          return NextResponse.json({ ...r.json, arguicaoConcluida: true, message: reply, turno: estado.turno }, { status: r.status });
+        }
+        return NextResponse.json({ arguindo: true, arguicaoConcluida: false, message: reply, turno: estado.turno, finished: false });
       }
 
       // action === 'send': colab respondeu. Pode ser pergunta 1-3 (faz próxima) ou pergunta 4 (scorer).
@@ -280,99 +384,16 @@ export async function POST(request) {
       // off (default) → cai direto no scorer, fechamento atual byte-igual.
       if (programaConfig.arguicao?.ativa && !dados.arguicao) {
         const ctxArg = montarCtxArguicao({ cenario, perguntas, historico, colab, competenciasLabel, descritores, isPiloto: programaConfig.modo === 'piloto' });
-        const { estado, reply } = await abrirArguicao(ctxArg, programaConfig.arguicao.maxTurnos, aiConfig);
+        const { estado, reply } = await abrirArguicao(ctxArg, programaConfig.arguicao.maxTurnos, aiConfig, piiArg);
         const novoSlot = { ...dados, transcript_completo: historico, cenario, perguntas, arguicao: estado };
         await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: false });
-        return NextResponse.json({ arguindo: true, message: reply, turno: 1, finished: false });
+        return NextResponse.json({ arguindo: true, arguicaoConcluida: false, message: reply, turno: 1, finished: false });
       }
 
-      // Colab respondeu à última pergunta → scorer
-      // Monta "resposta" como concatenação das 4 respostas rotuladas por dimensão
-      const respostasUser = historico.filter(m => m.role === 'user');
-      const respostaAgregada = perguntas.map((p, i) =>
-        `[${p.dimensao}] ${p.texto}\n→ ${respostasUser[i]?.content || '(sem resposta)'}`
-      ).join('\n\n');
-
-      // Enriquece descritores com a régua de maturidade (n1-n4) + nota_pre FRESH
-      // de descriptor_assessments (não do snapshot JSONB, que pode estar desatualizado).
-      const enriquecidos = await enriquecerComRegua({
-        db: sb, sbGlobal: sb, empresaId: trilha.empresa_id,
-        competencia: trilha.competencia_foco, descritores,
-      });
-      const descritoresComRegua = await sobreporNotaFresh(sb, trilha.colaborador_id, trilha.competencia_foco, enriquecidos);
-
-      // Carrega avaliação acumulada (se já calculada no fim da semana da acumulada).
-      // Prioridade pro scorer: nota_acumulada por descritor (estruturada).
-      // Fallback: evidências textuais agregadas.
-      const { data: progAcum } = await sb.from('temporada_semana_progresso')
-        .select('feedback').eq('trilha_id', trilhaId).eq('semana', semAcumulada).maybeSingle();
-      const acumuladoPrimaria = normalizarAcumuladoPrimaria(progAcum?.feedback?.acumulado);
-
-      // Agrega evidências de TODAS as semanas até a acumulada (conteúdo + prática
-      // + sem acumulada) pra triangulação. A nota_pos NUNCA sai só do cenário.
-      // Piloto: a reflexão da semana evidencia os 2 descritores da semana.
-      const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, semAcumulada, programaConfig.modo === 'piloto');
-
-      // PII masking pra chamadas IA externas — substitui nome real + sanitiza
-      // texto livre (emails/telefones/menções) antes de enviar.
-      const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
-      const respostaMasked = maskTextPII(respostaAgregada, piiMap);
-      const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
-
-      // Scorer + trava + check — NÚCLEO compartilhado com a auditoria-sem14
-      // (lib/season-engine/fechamento-scorer). Inputs mascarados; unmask abaixo.
-      const resultadoScorer = await pontuarFechamento({
-        competencia: competenciasLabel,
-        descritores: descritoresComRegua,
-        cenario,
-        resposta: respostaMasked,
-        nomeColab: colabMasked.nome,
-        perfilDominante: colab?.perfil_dominante,
-        evidenciasAcumuladas: evidenciasMasked,
-        acumuladoPrimaria,
-        config: programaConfig,
-        // Fusão da arguição (Fase B): modula a nota se a defesa oral concluiu.
-        evidenciasArguicao: dados.arguicao?.concluida ? dados.arguicao.extracao : null,
-      });
-      if (resultadoScorer.meta.warnings.length) {
-        console.warn('[VERTHO] fechamento warnings:', resultadoScorer.meta.warnings.join(' | '));
-      }
-      // Guard: parse vazio ou narrativa piloto inválida → NÃO finaliza. Erro
-      // recuperável — a última resposta não foi persistida, reenviar reprocessa.
-      if (!resultadoScorer.ok) {
-        return NextResponse.json({
-          error: 'A avaliação automática falhou ao processar sua resposta. Nada foi perdido — envie a última resposta novamente para reprocessar.',
-        }, { status: 502 });
-      }
-      const parsed = resultadoScorer.parsed;
-      const auditoria = resultadoScorer.auditoria;
-
-      // Despersonaliza campos textuais do output (primária)
-      if (parsed?.resumo_avaliacao?.mensagem_geral) parsed.resumo_avaliacao.mensagem_geral = unmaskPII(parsed.resumo_avaliacao.mensagem_geral, piiMap);
-      if (Array.isArray(parsed?.avaliacao_por_descritor)) {
-        parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => ({
-          ...d, justificativa: unmaskPII(d.justificativa, piiMap),
-        }));
-      }
-
-      if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
-
-      const novoSlot = {
-        ...dados, ...parsed,
-        auditoria, // { nota_auditoria, status, ajustes_sugeridos, alertas, resumo_auditoria }
-        cenario, transcript_completo: historico, cenario_resposta: respostaAgregada,
-      };
-      await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: true });
-
-      // Gera Evolution Report automático (internal: sessão é do colab)
-      const report = await gerarEvolutionReport(trilhaId, true);
-
-      return NextResponse.json({
-        finished: true,
-        avaliacao: parsed,
-        auditoria,
-        evolution_report: report.evolution_report,
-      });
+      // Colab respondeu à última pergunta (e arguição off, ou já concluída) →
+      // scorer. Núcleo extraído em finalizarComScorer (reusado pela arguição).
+      const r = await finalizarComScorer({ cenario, perguntas, historico, dados });
+      return NextResponse.json(r.json, { status: r.status });
     }
 
     return NextResponse.json({ error: `Semana ${semana} inválida pra /evaluation — esperado ${semAcumulada} ou ${semCenarioB}` }, { status: 400 });

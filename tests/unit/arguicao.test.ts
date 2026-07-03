@@ -138,3 +138,72 @@ describe('arguição — motor', () => {
     expect(ext).toBeNull();
   });
 });
+
+describe('arguição — PII masking (Fase C)', () => {
+  // Espelha a ORDEM do maskColaborador: alias→primeiroNome ANTES de
+  // nomeCompleto→alias (senão as duas entradas se cancelam no maskTextPII).
+  const PII = { map: { 'COLAB_1A2B': 'Rodrigo', 'Rodrigo Naves': 'COLAB_1A2B' }, nomeMasked: 'COLAB_1A2B' };
+  const CTX_PII: ArguicaoContexto = {
+    ...CTX,
+    nomeColab: 'Rodrigo',
+    respostaCenario: '[SITUAÇÃO] ...\n→ Sou Rodrigo Naves e meu email é rodrigo@acme.com, tel (11) 99999-8888.',
+  };
+
+  it('mascara nome/email/telefone no payload da IA e desmascara o reply', async () => {
+    mockChat.mockResolvedValueOnce(reply('COLAB_1A2B, que critério você usou?'));
+    const { estado, reply: r } = await abrirArguicao(CTX_PII, 4, {}, PII);
+    // Payload enviado à IA: mascarado
+    const seed = mockChat.mock.calls[0][1] as any[];
+    expect(seed[0].content).toContain('COLAB_1A2B');
+    expect(seed[0].content).not.toContain('Rodrigo Naves');
+    expect(seed[0].content).toContain('[email]');
+    expect(seed[0].content).toContain('[telefone]');
+    // Reply visível: despersonalizado (alias → nome real)
+    expect(r).toContain('Rodrigo,');
+    expect(r).not.toContain('COLAB_1A2B');
+    // Histórico persistido guarda a semente CRUA (colab reabre e vê o próprio texto)
+    expect(estado.historico[0].content).toContain('Rodrigo Naves');
+  });
+
+  it('turnoArguicao mascara em-voo mas persiste a resposta do colab CRUA', async () => {
+    const estado: ArguicaoEstado = { historico: [{ role: 'assistant', content: 'q1', turn: 1 }], turno: 1, concluida: false };
+    mockChat.mockResolvedValueOnce(reply('Entendi. E se mudasse?'));
+    const r = await turnoArguicao(CTX_PII, estado, 'Meu email é rodrigo@acme.com', 4, {}, PII);
+    const payload = mockChat.mock.calls[0][1] as any[];
+    expect(JSON.stringify(payload)).toContain('[email]');
+    expect(JSON.stringify(payload)).not.toContain('rodrigo@acme.com');
+    // persistido cru
+    expect(r.estado.historico.some(h => h.content === 'Meu email é rodrigo@acme.com')).toBe(true);
+  });
+
+  it('extração mascara a conversa e desmascara as citações no retorno', async () => {
+    const estado: ArguicaoEstado = {
+      historico: [
+        { role: 'assistant', content: 'pergunta' },
+        { role: 'user', content: 'Eu, Rodrigo Naves, escolhi ligar.' },
+      ],
+      turno: 1, concluida: true,
+    };
+    mockAI.mockResolvedValueOnce(JSON.stringify({
+      resumo: { leitura_geral: 'COLAB_1A2B sustentou', sustentacao_mais_forte: 'x', fragilidade_mais_relevante: 'y' },
+      evidencias_por_descritor: [{ descritor: 'Traduz técnica em benefício', sustentou: 'aprofundou', citacao: 'COLAB_1A2B disse Z', forca: 'forte' }],
+    }));
+    const ext = await extrairEvidenciasArguicao(CTX_PII, estado, {}, PII);
+    // Conversa enviada à IA: mascarada
+    const userPrompt = String(mockAI.mock.calls[0][1]);
+    expect(userPrompt).toContain('COLAB_1A2B');
+    expect(userPrompt).not.toContain('Rodrigo Naves');
+    // Retorno: citações/resumo despersonalizados
+    expect(ext?.resumo.leitura_geral).toContain('Rodrigo');
+    expect(ext?.evidencias_por_descritor[0].citacao).toContain('Rodrigo');
+    expect(ext?.evidencias_por_descritor[0].citacao).not.toContain('COLAB_1A2B');
+  });
+
+  it('sem pii → comportamento idêntico (nada mascarado)', async () => {
+    mockChat.mockResolvedValueOnce(reply('pergunta'));
+    const { estado } = await abrirArguicao(CTX_PII, 4);
+    const seed = mockChat.mock.calls[0][1] as any[];
+    expect(seed[0].content).toContain('rodrigo@acme.com'); // cru, sem masking
+    expect(estado.historico[0].content).toContain('rodrigo@acme.com');
+  });
+});
