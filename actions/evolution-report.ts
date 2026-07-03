@@ -3,7 +3,7 @@
 import { tenantDb } from '@/lib/tenant-db';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { getProgramaConfig, getProgramaConfigByModo } from '@/lib/season-engine/programa-config';
+import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { PILOTO_SPEC_VERSION } from '@/lib/season-engine/piloto-trava';
 
 /**
@@ -42,16 +42,8 @@ export async function gerarEvolutionReport(trilhaId: string, internal: boolean =
     const tdb = tenantDb(trilha.empresa_id);
 
     // Semanas da qualitativa/cenário vêm da config do programa (regular/DUO =
-    // 13/14, byte-idêntico ao hardcode anterior; piloto = 2/3). Fonte =
-    // CARIMBO da trilha (mig 154); legado sem carimbo → sys_config.
-    let programaConfig;
-    if (trilha.programa_modo) {
-      programaConfig = getProgramaConfigByModo(trilha.programa_modo);
-    } else {
-      const { data: empConf } = await sbRaw.from('empresas')
-        .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
-      programaConfig = getProgramaConfig(empConf?.sys_config);
-    }
+    // 13/14; piloto = 2/3), pela FONTE ÚNICA (carimbo da trilha → sys_config).
+    const programaConfig = await resolverConfigDaTrilha(sbRaw, trilha);
     const isPiloto = programaConfig.modo === 'piloto';
 
     const { data: prog13 } = await tdb.from('temporada_semana_progresso')

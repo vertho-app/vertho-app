@@ -9,7 +9,7 @@ import { promptAnalytic } from '@/lib/season-engine/prompts/analytic';
 import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedback';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
-import { getProgramaConfig, getProgramaConfigByModo } from '@/lib/season-engine/programa-config';
+import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 
 function parseExtracaoResponse(raw: string): any {
   let cleaned = raw.trim();
@@ -222,24 +222,9 @@ export async function POST(request) {
     const guard = await assertColabAccess(auth, trilha.colaborador_id);
     if (guard) return guard;
 
-    // Gate temporal: semana só libera na segunda às 03:00 BRT correspondente.
-    const { semanaLiberadaPorData, formatarLiberacao } = await import('@/lib/season-engine/week-gating');
-    // Piloto: slot com calendário espelhado carrega calendario_semana no plano
-    const _planoGate = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
-    const _semCal = _planoGate.find((x: any) => x?.semana === Number(semana))?.calendario_semana ?? semana;
-    if (!semanaLiberadaPorData(trilha.data_inicio, _semCal)) {
-      return NextResponse.json({
-        error: `Semana ${semana} ainda bloqueada. Libera ${formatarLiberacao(trilha.data_inicio, _semCal)}.`,
-      }, { status: 403 });
-    }
-    // Gate de progressão: anterior precisa estar concluída.
-    if (Number(semana) > 1) {
-      const { data: prev } = await sb.from('temporada_semana_progresso')
-        .select('status').eq('trilha_id', trilhaId).eq('semana', Number(semana) - 1).maybeSingle();
-      if (prev?.status !== 'concluido') {
-        return NextResponse.json({ error: `Conclua a semana ${Number(semana) - 1} antes.` }, { status: 403 });
-      }
-    }
+    // Gates (temporal com espelho + progressão) — fonte única em trilha-runtime
+    const gate = await checarGatesSemana(sb, trilha, semana);
+    if (gate) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
     const { data: colab } = await sb.from('colaboradores')
       .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
@@ -412,16 +397,8 @@ export async function POST(request) {
       await sb.from('temporada_semana_progresso').insert(upsertPayload);
     }
 
-    // Resolve programaConfig pra parametrizar transição + auto-triggers.
-    // Fonte = CARIMBO da trilha (mig 154); legado sem carimbo → sys_config.
-    let programaConfig;
-    if (trilha.programa_modo) {
-      programaConfig = getProgramaConfigByModo(trilha.programa_modo);
-    } else {
-      const { data: empConf } = await sb.from('empresas')
-        .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
-      programaConfig = getProgramaConfig(empConf?.sys_config);
-    }
+    // Config pela FONTE ÚNICA (carimbo da trilha → fallback sys_config)
+    const programaConfig = await resolverConfigDaTrilha(sb, trilha);
 
     // Se concluiu, libera próxima semana (status pendente → em_andamento na UI fica visível)
     if (finished && Number(semana) < programaConfig.semanas) {

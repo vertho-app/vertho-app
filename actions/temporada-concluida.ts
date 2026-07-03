@@ -22,7 +22,7 @@ export async function loadTemporadaConcluida(email: string) {
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   const { data: trilha } = await sb.from('trilhas')
-    .select('id, competencia_foco, competencias_foco, numero_temporada, status, evolution_report, descritores_selecionados')
+    .select('id, competencia_foco, competencias_foco, numero_temporada, status, evolution_report, descritores_selecionados, temporada_plano')
     .eq('colaborador_id', colab.id)
     .order('criado_em', { ascending: false })
     .limit(1).maybeSingle();
@@ -36,9 +36,7 @@ export async function loadTemporadaConcluida(email: string) {
     .order('semana');
 
   const descritorPorSem: Record<string, string> = {}; // map: semana -> descritor (pra conteudo)
-  // Como temporada_plano está em trilhas, preciso puxar separado
-  const { data: planRow } = await sb.from('trilhas').select('temporada_plano').eq('id', trilha.id).maybeSingle();
-  const plano = Array.isArray(planRow?.temporada_plano) ? planRow.temporada_plano : [];
+  const plano = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
   for (const s of plano) descritorPorSem[s.semana] = s.descritor;
 
   // Momentos = 3-5 insights das sems 1-12 priorizados por qualidade_reflexao=alta

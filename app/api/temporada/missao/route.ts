@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
+import { checarGatesSemana } from '@/lib/season-engine/trilha-runtime';
 
 /**
  * POST /api/temporada/missao
@@ -57,23 +58,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missão só se aplica a semanas 4/8/12' }, { status: 400 });
     }
 
-    // Gates temporais + progressão idênticos a reflection
-    const { semanaLiberadaPorData, formatarLiberacao } = await import('@/lib/season-engine/week-gating');
-    // Piloto: slot com calendário espelhado carrega calendario_semana no plano
-    const _planoGate = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
-    const _semCal = _planoGate.find((x: any) => x?.semana === Number(semana))?.calendario_semana ?? semana;
-    if (!semanaLiberadaPorData(trilha.data_inicio, _semCal)) {
-      return NextResponse.json({
-        error: `Semana ${semana} ainda bloqueada. Libera ${formatarLiberacao(trilha.data_inicio, _semCal)}.`,
-      }, { status: 403 });
-    }
-    if (Number(semana) > 1) {
-      const { data: prev } = await sb.from('temporada_semana_progresso')
-        .select('status').eq('trilha_id', trilhaId).eq('semana', Number(semana) - 1).maybeSingle();
-      if (prev?.status !== 'concluido') {
-        return NextResponse.json({ error: `Conclua a semana ${Number(semana) - 1} antes.` }, { status: 403 });
-      }
-    }
+    // Gates (temporal com espelho + progressão) — fonte única em trilha-runtime
+    const gate = await checarGatesSemana(sb, trilha, semana);
+    if (gate) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
     const { data: prog } = await sb.from('temporada_semana_progresso')
       .select('*').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();

@@ -168,60 +168,22 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
       programaConfig,
     });
 
-    // 7) Persiste em trilhas (estende registro existente ou cria novo)
-    // (semanas é o output de buildSeason — array de SemanaPlan)
-    const { data: existente } = await tdb.from('trilhas')
-      .select('id, numero_temporada')
-      .eq('colaborador_id', colaboradorId)
-      .order('criado_em', { ascending: false }).limit(1).maybeSingle();
-
-    // Com UPDATE na mesma row, regenerar não deve inflar o contador.
-    // Mantém o número da temporada existente; só começa em 1 se for primeira vez.
-    const numeroTemporada = existente?.numero_temporada || 1;
-    const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
-    // empresa_id é injetado pelo tdb.insert/upsert/update — não precisa repetir aqui.
-    const payload = {
-      colaborador_id: colaboradorId,
-      competencia_foco: competenciaAlvo,
-      competencias_foco: [competenciaAlvo], // uniformiza com DUO (Fase 3 lê sempre o array)
-      numero_temporada: numeroTemporada,
-      temporada_plano: semanas,
-      descritores_selecionados: descritoresSelecionados,
-      // Carimbo do runtime: trilha single-comp roda com as regras do single
-      // (inclui o fallback DUO→single — o plano gerado É single).
-      programa_modo: 'regular_single' satisfies ProgramaModoLabel,
-      status: 'ativa',
-      data_inicio: nextMondayISO(), // semana 1 libera na próxima segunda às 03:00 BRT
-      cursos: [], // campo legado, conteúdo agora vive em temporada_plano
-    };
-
-    // Constraint única: 1 trilha por (empresa, colab). Sempre UPDATE se existe.
-    let trilhaId: string;
-    if (existente) {
-      const { error } = await tdb.from('trilhas').update(payload).eq('id', existente.id);
-      if (error) return { error: error.message };
-      trilhaId = existente.id;
-    } else {
-      const { data: nova, error } = await tdb.from('trilhas').insert(payload).select('id').maybeSingle();
-      if (error) return { error: error.message };
-      trilhaId = nova.id;
-    }
-
-    // 8) Cria registros de progresso (semana 1 = disponível, demais = bloqueada)
-    const progressos = semanas.map((s: any) => ({
-      trilha_id: trilhaId,
-      colaborador_id: colaboradorId,
-      semana: s.semana,
-      tipo: s.tipo,
-      status: s.semana === 1 ? 'em_andamento' : 'pendente',
-    }));
-    await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
-    await tdb.from('temporada_semana_progresso').insert(progressos);
+    // 7) Persiste trilha + progresso (fonte única dos 4 modos)
+    const persist = await persistirTrilha(tdb, {
+      colaboradorId,
+      competenciaFoco: competenciaAlvo,
+      competenciasFoco: [competenciaAlvo], // uniformiza com DUO (Fase 3 lê sempre o array)
+      // Fallback DUO→single também aterrissa aqui: o plano gerado É single.
+      programaModo: 'regular_single',
+      semanas,
+      descritoresSelecionados,
+    });
+    if ('error' in persist) return { error: persist.error };
 
     return {
       ok: true,
-      trilhaId,
-      numeroTemporada,
+      trilhaId: persist.trilhaId,
+      numeroTemporada: persist.numeroTemporada,
       competencia: competenciaAlvo,
       descritores: descritoresSelecionados.length,
       semanas: semanas.length,
@@ -323,45 +285,16 @@ async function gerarTemporadaOnboarding(args: {
   });
 
   // 5) Persiste em `trilhas` (UPDATE se existir, INSERT senão)
-  const { data: existente } = await tdb.from('trilhas')
-    .select('id, numero_temporada')
-    .eq('colaborador_id', colab.id)
-    .order('criado_em', { ascending: false }).limit(1).maybeSingle();
-  const numeroTemporada = existente?.numero_temporada || 1;
-  const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
-  const payload = {
-    colaborador_id: colab.id,
-    competencia_foco: competencias[0],            // compat — guarda âncora
-    competencias_foco: competencias,              // multi (migration 091)
-    numero_temporada: numeroTemporada,
-    temporada_plano: semanas,
-    descritores_selecionados: descritoresSelecionados,
-    programa_modo: 'onboarding' satisfies ProgramaModoLabel, // carimbo do runtime
-    status: 'ativa',
-    data_inicio: nextMondayISO(),
-    cursos: [],
-  };
-  let trilhaId: string;
-  if (existente) {
-    const { error } = await tdb.from('trilhas').update(payload).eq('id', existente.id);
-    if (error) return { error: error.message };
-    trilhaId = existente.id;
-  } else {
-    const { data: nova, error } = await tdb.from('trilhas').insert(payload).select('id').maybeSingle();
-    if (error) return { error: error.message };
-    trilhaId = nova.id;
-  }
-
-  // 6) Progresso
-  const progressos = semanas.map((s: any) => ({
-    trilha_id: trilhaId,
-    colaborador_id: colab.id,
-    semana: s.semana,
-    tipo: s.tipo,
-    status: s.semana === 1 ? 'em_andamento' : 'pendente',
-  }));
-  await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
-  await tdb.from('temporada_semana_progresso').insert(progressos);
+  const persist = await persistirTrilha(tdb, {
+    colaboradorId: colab.id,
+    competenciaFoco: competencias[0],
+    competenciasFoco: competencias,
+    programaModo: 'onboarding',
+    semanas,
+    descritoresSelecionados,
+  });
+  if ('error' in persist) return { error: persist.error };
+  const { trilhaId, numeroTemporada } = persist;
 
   return {
     ok: true,
@@ -464,44 +397,16 @@ async function gerarTemporadaRegularDuo(args: {
   });
 
   // 5) Persiste (UPDATE se existir, INSERT senão)
-  const { data: existente } = await tdb.from('trilhas')
-    .select('id, numero_temporada')
-    .eq('colaborador_id', colab.id)
-    .order('criado_em', { ascending: false }).limit(1).maybeSingle();
-  const numeroTemporada = existente?.numero_temporada || 1;
-  const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
-  const payload = {
-    colaborador_id: colab.id,
-    competencia_foco: comps[0],       // compat — âncora
-    competencias_foco: comps,         // multi (migration 091)
-    numero_temporada: numeroTemporada,
-    temporada_plano: semanas,
-    descritores_selecionados: descritoresSelecionados,
-    programa_modo: 'regular_duo' satisfies ProgramaModoLabel, // carimbo do runtime
-    status: 'ativa',
-    data_inicio: nextMondayISO(),
-    cursos: [],
-  };
-  let trilhaId: string;
-  if (existente) {
-    const { error } = await tdb.from('trilhas').update(payload).eq('id', existente.id);
-    if (error) return { error: error.message };
-    trilhaId = existente.id;
-  } else {
-    const { data: nova, error } = await tdb.from('trilhas').insert(payload).select('id').maybeSingle();
-    if (error) return { error: error.message };
-    trilhaId = nova.id;
-  }
-
-  const progressos = semanas.map((s: any) => ({
-    trilha_id: trilhaId,
-    colaborador_id: colab.id,
-    semana: s.semana,
-    tipo: s.tipo,
-    status: s.semana === 1 ? 'em_andamento' : 'pendente',
-  }));
-  await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
-  await tdb.from('temporada_semana_progresso').insert(progressos);
+  const persist = await persistirTrilha(tdb, {
+    colaboradorId: colab.id,
+    competenciaFoco: comps[0],
+    competenciasFoco: comps,
+    programaModo: 'regular_duo',
+    semanas,
+    descritoresSelecionados,
+  });
+  if ('error' in persist) return { error: persist.error };
+  const { trilhaId, numeroTemporada } = persist;
 
   return {
     ok: true,
@@ -570,44 +475,16 @@ async function gerarTemporadaPiloto(args: {
   });
 
   // 4) Persiste (UPDATE se existir, INSERT senão) — idêntico aos demais modos
-  const { data: existente } = await tdb.from('trilhas')
-    .select('id, numero_temporada')
-    .eq('colaborador_id', colab.id)
-    .order('criado_em', { ascending: false }).limit(1).maybeSingle();
-  const numeroTemporada = existente?.numero_temporada || 1;
-  const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
-  const payload = {
-    colaborador_id: colab.id,
-    competencia_foco: competenciaAlvo,
-    competencias_foco: [competenciaAlvo],
-    numero_temporada: numeroTemporada,
-    temporada_plano: semanas,
-    descritores_selecionados: descritoresSelecionados,
-    programa_modo: 'piloto' satisfies ProgramaModoLabel, // carimbo do runtime
-    status: 'ativa',
-    data_inicio: nextMondayISO(),
-    cursos: [],
-  };
-  let trilhaId: string;
-  if (existente) {
-    const { error } = await tdb.from('trilhas').update(payload).eq('id', existente.id);
-    if (error) return { error: error.message };
-    trilhaId = existente.id;
-  } else {
-    const { data: nova, error } = await tdb.from('trilhas').insert(payload).select('id').maybeSingle();
-    if (error) return { error: error.message };
-    trilhaId = nova.id;
-  }
-
-  const progressos = semanas.map((s: any) => ({
-    trilha_id: trilhaId,
-    colaborador_id: colab.id,
-    semana: s.semana,
-    tipo: s.tipo,
-    status: s.semana === 1 ? 'em_andamento' : 'pendente',
-  }));
-  await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
-  await tdb.from('temporada_semana_progresso').insert(progressos);
+  const persist = await persistirTrilha(tdb, {
+    colaboradorId: colab.id,
+    competenciaFoco: competenciaAlvo,
+    competenciasFoco: [competenciaAlvo],
+    programaModo: 'piloto',
+    semanas,
+    descritoresSelecionados,
+  });
+  if ('error' in persist) return { error: persist.error };
+  const { trilhaId, numeroTemporada } = persist;
 
   return {
     ok: true,
@@ -663,18 +540,25 @@ export async function verificarProntidaoPiloto(empresaId: string) {
     const resultados: any[] = [];
     const conteudoCache: Record<string, any[]> = {};
 
+    // Batch (era 2 queries POR colaborador): trilhas mais recentes + cargos
+    const colabIds = colabs.map((c: any) => c.id);
+    const { data: trilhasTodas } = await tdb.from('trilhas')
+      .select('colaborador_id, competencia_foco, criado_em')
+      .in('colaborador_id', colabIds)
+      .order('criado_em', { ascending: false });
+    const compPorColab = new Map<string, string>();
+    for (const t of (trilhasTodas || []) as any[]) {
+      if (!compPorColab.has(t.colaborador_id) && t.competencia_foco) compPorColab.set(t.colaborador_id, t.competencia_foco);
+    }
+    const cargosNomes = [...new Set(colabs.map((c: any) => c.cargo).filter(Boolean))];
+    const { data: cargosRows } = cargosNomes.length
+      ? await tdb.from('cargos_empresa').select('nome, competencia_foco').in('nome', cargosNomes)
+      : { data: [] as any[] };
+    const compPorCargo = new Map<string, string>((cargosRows || []).map((c: any) => [c.nome, c.competencia_foco]));
+
     for (const colab of colabs as any[]) {
       // Competência âncora — MESMA resolução da geração (trilha → cargo)
-      let comp: string | undefined;
-      const { data: trilhaExist } = await tdb.from('trilhas')
-        .select('competencia_foco').eq('colaborador_id', colab.id)
-        .order('criado_em', { ascending: false }).limit(1).maybeSingle();
-      comp = trilhaExist?.competencia_foco;
-      if (!comp && colab.cargo) {
-        const { data: cargoEmp } = await tdb.from('cargos_empresa')
-          .select('competencia_foco').eq('nome', colab.cargo).maybeSingle();
-        comp = cargoEmp?.competencia_foco;
-      }
+      const comp: string | undefined = compPorColab.get(colab.id) || (colab.cargo ? compPorCargo.get(colab.cargo) : undefined);
       if (!comp) {
         resultados.push({ colaborador: colab.nome_completo, pronto: false, bloqueadores: ['Sem competência foco resolvível (trilha/cargo)'] });
         continue;
@@ -736,6 +620,69 @@ export async function verificarProntidaoPiloto(empresaId: string) {
     console.error('[verificarProntidaoPiloto]', err);
     return { error: err?.message || 'Erro' };
   }
+}
+
+/**
+ * Persistência de trilha + progresso — FONTE ÚNICA dos 4 modos (single, DUO,
+ * onboarding, piloto), que mantinham 4 cópias byte-quase-idênticas deste
+ * bloco. Regras preservadas: 1 trilha por (empresa, colab) → UPDATE se
+ * existe (numero_temporada mantido); semana 1 nasce em_andamento; progresso
+ * é recriado do zero (delete+insert).
+ */
+async function persistirTrilha(tdb: any, args: {
+  colaboradorId: string;
+  competenciaFoco: string;
+  competenciasFoco: string[];
+  programaModo: ProgramaModoLabel;
+  semanas: any[];
+  descritoresSelecionados: any[];
+}): Promise<{ trilhaId: string; numeroTemporada: number } | { error: string }> {
+  const { colaboradorId, competenciaFoco, competenciasFoco, programaModo, semanas, descritoresSelecionados } = args;
+
+  const { data: existente } = await tdb.from('trilhas')
+    .select('id, numero_temporada')
+    .eq('colaborador_id', colaboradorId)
+    .order('criado_em', { ascending: false }).limit(1).maybeSingle();
+
+  // Com UPDATE na mesma row, regenerar não infla o contador.
+  const numeroTemporada = existente?.numero_temporada || 1;
+  const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
+  // empresa_id é injetado pelo tdb.insert/update — não precisa repetir aqui.
+  const payload = {
+    colaborador_id: colaboradorId,
+    competencia_foco: competenciaFoco,          // compat — âncora
+    competencias_foco: competenciasFoco,        // array (migration 091)
+    numero_temporada: numeroTemporada,
+    temporada_plano: semanas,
+    descritores_selecionados: descritoresSelecionados,
+    programa_modo: programaModo,                // carimbo do runtime (mig 154)
+    status: 'ativa',
+    data_inicio: nextMondayISO(),               // sem 1 libera na próxima segunda 03:00 BRT
+    cursos: [],                                 // legado — conteúdo vive em temporada_plano
+  };
+
+  let trilhaId: string;
+  if (existente) {
+    const { error } = await tdb.from('trilhas').update(payload).eq('id', existente.id);
+    if (error) return { error: error.message };
+    trilhaId = existente.id;
+  } else {
+    const { data: nova, error } = await tdb.from('trilhas').insert(payload).select('id').maybeSingle();
+    if (error) return { error: error.message };
+    trilhaId = nova.id;
+  }
+
+  const progressos = semanas.map((sem: any) => ({
+    trilha_id: trilhaId,
+    colaborador_id: colaboradorId,
+    semana: sem.semana,
+    tipo: sem.tipo,
+    status: sem.semana === 1 ? 'em_andamento' : 'pendente',
+  }));
+  await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
+  await tdb.from('temporada_semana_progresso').insert(progressos);
+
+  return { trilhaId, numeroTemporada };
 }
 
 function derivarPrioridadeFormatos(colab: any): string[] {

@@ -6,7 +6,9 @@ import { callAI } from './ai-client';
 import { promptAvaliacaoAcumulada, promptAvaliacaoAcumuladaCheck, validateAvaliacaoAcumulada, validateAvaliacaoAcumuladaCheck } from '@/lib/season-engine/prompts/acumulado';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { requireAdminAction } from '@/lib/auth/action-context';
-import { getProgramaConfig, getProgramaConfigByModo, type ProgramaConfig } from '@/lib/season-engine/programa-config';
+import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { parseJsonIA } from '@/lib/ai-json';
+import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 /**
@@ -126,8 +128,8 @@ async function avaliarCompAcumulada(
   evidenciaPorCobertos: boolean = false,
 ): Promise<{ primaria?: any; auditoria?: any; error?: string }> {
   // Enriquece com régua + nota_atual fresh (por competência → régua correta)
-  const descritoresComRegua = await enriquecerComRegua(tdb, sbRaw, competencia, descritores);
-  const descritoresFresh = await atualizarNotaAtualFresh(tdb, trilha.colaborador_id, competencia, descritoresComRegua);
+  const descritoresComRegua = await enriquecerComRegua({ db: tdb, sbGlobal: sbRaw, competencia, descritores });
+  const descritoresFresh = await sobreporNotaFresh(tdb, trilha.colaborador_id, competencia, descritoresComRegua);
 
   // Agrega evidências até a semana de acumulada (regular=13)
   const evidenciasAcumuladas = await agregarEvidencias(tdb, trilha.id, descritoresFresh, trilha.temporada_plano, semanaAcumulada, evidenciaPorCobertos);
@@ -147,9 +149,7 @@ async function avaliarCompAcumulada(
       nivelMetaAlvo,
     });
     const r = await callAI(system, user, {}, 8000);
-    let cleaned = r.trim();
-    if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-    primaria = validateAvaliacaoAcumulada(JSON.parse(cleaned));
+    primaria = validateAvaliacaoAcumulada(parseJsonIA(r));
     if (primaria?.resumo_geral) primaria.resumo_geral = unmaskPII(primaria.resumo_geral, piiMap);
     if (Array.isArray(primaria?.avaliacao_acumulada)) {
       primaria.avaliacao_acumulada = primaria.avaliacao_acumulada.map((d: any) => ({
@@ -172,9 +172,7 @@ async function avaliarCompAcumulada(
       avaliacaoPrimaria: primariaMask,
     });
     const r = await callAI(system, user, {}, 6000);
-    let cleanedCheck = r.trim();
-    if (cleanedCheck.startsWith('```')) cleanedCheck = cleanedCheck.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-    auditoria = validateAvaliacaoAcumuladaCheck(JSON.parse(cleanedCheck));
+    auditoria = validateAvaliacaoAcumuladaCheck(parseJsonIA(r));
     if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
   } catch (err) {
     console.error(`[acumulado check ${competencia}]`, err);
@@ -227,8 +225,8 @@ export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenc
   for (const comp of competenciasFiltro) {
     const descsComp = descritores.filter((d: any) => d.competencia === comp);
     if (!descsComp.length) continue;
-    const descritoresComRegua = await enriquecerComRegua(tdb, sbRaw, comp, descsComp);
-    const descritoresFresh = await atualizarNotaAtualFresh(tdb, trilha.colaborador_id, comp, descritoresComRegua);
+    const descritoresComRegua = await enriquecerComRegua({ db: tdb, sbGlobal: sbRaw, competencia: comp, descritores: descsComp });
+    const descritoresFresh = await sobreporNotaFresh(tdb, trilha.colaborador_id, comp, descritoresComRegua);
     const evidenciasAcumuladas = await agregarEvidencias(tdb, trilhaId, descritoresFresh, trilha.temporada_plano, semFim);
 
     const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
@@ -243,9 +241,7 @@ export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenc
         nivelMetaAlvo,
       });
       const r = await callAI(system, user, {}, 8000);
-      let cleaned = r.trim();
-      if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-      const primaria = validateAvaliacaoAcumulada(JSON.parse(cleaned));
+      const primaria = validateAvaliacaoAcumulada(parseJsonIA(r));
       if (primaria?.resumo_geral) primaria.resumo_geral = unmaskPII(primaria.resumo_geral, piiMap);
       acumuladosPorComp.push({ competencia: comp, primaria });
     } catch (err: any) {
@@ -280,41 +276,7 @@ export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenc
 
 // ── Helpers ──
 
-/** Config pelo CARIMBO da trilha (mig 154); legado sem carimbo → sys_config. */
-async function resolverConfigDaTrilha(sbRaw: any, trilha: { programa_modo?: string | null; empresa_id: string }): Promise<ProgramaConfig> {
-  if (trilha.programa_modo) return getProgramaConfigByModo(trilha.programa_modo);
-  const { data: empresa } = await sbRaw.from('empresas')
-    .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
-  return getProgramaConfig(empresa?.sys_config);
-}
 
-async function enriquecerComRegua(tdb: any, sbRaw: any, competencia: string, descritores: any[]) {
-  const nomesCurtos = descritores.map((d: any) => d.descritor);
-  let { data: rows } = await tdb.from('competencias')
-    .select('nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-    .eq('nome', competencia).in('nome_curto', nomesCurtos);
-  if (!rows || rows.length === 0) {
-    // competencias_base é GLOBAL (catálogo nacional) → raw
-    const { data: base } = await sbRaw.from('competencias_base')
-      .select('nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-      .eq('nome', competencia).in('nome_curto', nomesCurtos);
-    rows = base || [];
-  }
-  const mapa = Object.fromEntries((rows || []).map(r => [r.nome_curto, r]));
-  return descritores.map(d => ({ ...d, ...(mapa[d.descritor] || {}) }));
-}
-
-async function atualizarNotaAtualFresh(tdb: any, colaboradorId: string, competencia: string, descritores: any[]) {
-  const nomes = descritores.map(d => d.descritor);
-  const { data } = await tdb.from('descriptor_assessments')
-    .select('descritor, nota')
-    .eq('colaborador_id', colaboradorId).eq('competencia', competencia).in('descritor', nomes);
-  const mapa = Object.fromEntries((data || []).map(a => [a.descritor, Number(a.nota)]));
-  return descritores.map(d => ({
-    ...d,
-    nota_atual: mapa[d.descritor] != null ? mapa[d.descritor] : d.nota_atual,
-  }));
-}
 
 async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[], plano: any, semanaLimite: number = 13, evidenciaPorCobertos: boolean = false) {
   const { data: progressos } = await tdb.from('temporada_semana_progresso')

@@ -8,9 +8,11 @@ import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validate
 import { promptEvolutionScenarioScore, validateEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
 import { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { parseJsonIA } from '@/lib/ai-json';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
-import { getProgramaConfig, getProgramaConfigByModo, semanaCalendario } from '@/lib/season-engine/programa-config';
+import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { aplicarTravaPiloto, sanitizarNarrativaPiloto } from '@/lib/season-engine/piloto-trava';
+import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 
 /**
  * POST /api/temporada/evaluation
@@ -45,17 +47,8 @@ export async function POST(request) {
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha' }, { status: 404 });
 
-    // Regras da trilha vêm do CARIMBO da geração (programa_modo, mig 154) —
-    // trocar o modo da empresa não afeta trilha em andamento. Legado sem
-    // carimbo → fallback pro sys_config da empresa (comportamento antigo).
-    let programaConfig;
-    if (trilha.programa_modo) {
-      programaConfig = getProgramaConfigByModo(trilha.programa_modo);
-    } else {
-      const { data: empConf } = await sb.from('empresas')
-        .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
-      programaConfig = getProgramaConfig(empConf?.sys_config);
-    }
+    // Config pela FONTE ÚNICA (carimbo da trilha, mig 154 → fallback sys_config)
+    const programaConfig = await resolverConfigDaTrilha(sb, trilha);
     const semAcumulada = programaConfig.semanaAcumulada;     // regular = 13
     const semCenarioB = programaConfig.semanaCenarioB;       // regular = 14
 
@@ -73,24 +66,11 @@ export async function POST(request) {
       return NextResponse.json(r);
     }
 
-    // Gate temporal + progressão (idem reflection). O calendário passa pelo
-    // espelho da config: no piloto o fechamento (sem 3) herda o calendário da
-    // sem 2 — o gate real é a progressão logo abaixo ("anterior concluída").
-    // Nos demais modos semanaCalendario é identidade (vanilla inalterado).
-    const { semanaLiberadaPorData, formatarLiberacao } = await import('@/lib/season-engine/week-gating');
-    const semanaCal = semanaCalendario(programaConfig, Number(semana));
-    if (!semanaLiberadaPorData(trilha.data_inicio, semanaCal)) {
-      return NextResponse.json({
-        error: `Semana ${semana} ainda bloqueada. Libera ${formatarLiberacao(trilha.data_inicio, semanaCal)}.`,
-      }, { status: 403 });
-    }
-    if (Number(semana) > 1) {
-      const { data: prev } = await sb.from('temporada_semana_progresso')
-        .select('status').eq('trilha_id', trilhaId).eq('semana', Number(semana) - 1).maybeSingle();
-      if (prev?.status !== 'concluido') {
-        return NextResponse.json({ error: `Conclua a semana ${Number(semana) - 1} antes.` }, { status: 403 });
-      }
-    }
+    // Gates (temporal com espelho do plano + progressão) — fonte única em
+    // trilha-runtime. No piloto o fechamento (sem 3) herda o calendário da
+    // sem 2 (calendario_semana no snapshot); o gate real é a progressão.
+    const gate = await checarGatesSemana(sb, trilha, semana);
+    if (gate) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
     const { data: colab } = await sb.from('colaboradores')
       .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
@@ -154,9 +134,7 @@ export async function POST(request) {
           const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
           const { system: s2, user: u2 } = promptEvolutionQualitativeExtract({ descritores, transcript });
           const r = await callAI(s2, u2, {}, 8000);
-          let cleaned = r.trim();
-          if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-          const parsed = validateEvolutionExtract(JSON.parse(cleaned), descritores);
+          const parsed = validateEvolutionExtract(parseJsonIA(r), descritores);
           Object.assign(novoSlot, parsed);
         } catch (e) { console.error('[VERTHO] extract sem13:', e.message); }
       }
@@ -266,9 +244,11 @@ export async function POST(request) {
 
       // Enriquece descritores com a régua de maturidade (n1-n4) + nota_pre FRESH
       // de descriptor_assessments (não do snapshot JSONB, que pode estar desatualizado).
-      const descritoresComRegua = await enriquecerComReguaENotaPre(
-        sb, trilha.empresa_id, trilha.colaborador_id, trilha.competencia_foco, descritores
-      );
+      const enriquecidos = await enriquecerComRegua({
+        db: sb, sbGlobal: sb, empresaId: trilha.empresa_id,
+        competencia: trilha.competencia_foco, descritores,
+      });
+      const descritoresComRegua = await sobreporNotaFresh(sb, trilha.colaborador_id, trilha.competencia_foco, enriquecidos);
 
       // Carrega avaliação acumulada (se já calculada no fim da semana da acumulada).
       // Prioridade pro scorer: nota_acumulada por descritor (estruturada).
@@ -315,9 +295,7 @@ export async function POST(request) {
       for (let tentativa = 1; tentativa <= 2; tentativa++) {
         const r = await callAI(system, user, {}, 10000);
         try {
-          let cleaned14 = r.trim();
-          if (cleaned14.startsWith('```')) cleaned14 = cleaned14.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-          parsed = validateEvolutionScenarioScore(JSON.parse(cleaned14));
+          parsed = validateEvolutionScenarioScore(parseJsonIA(r));
         } catch (e) {
           console.error(`[VERTHO] parse sem${semCenarioB} (tentativa ${tentativa}):`, e.message);
           parsed = {};
@@ -374,9 +352,7 @@ export async function POST(request) {
           notaPrograma: promptTempo.notaPrograma,
         });
         const rCheck = await callAI(sCheck, uCheck, {}, 8000);
-        let cleanedChk = rCheck.trim();
-        if (cleanedChk.startsWith('```')) cleanedChk = cleanedChk.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-        auditoria = validateEvolutionScenarioCheck(JSON.parse(cleanedChk));
+        auditoria = validateEvolutionScenarioCheck(parseJsonIA(rCheck));
         if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
       } catch (e) {
         console.error('[VERTHO] check sem14:', e.message);
@@ -407,66 +383,6 @@ export async function POST(request) {
   }
 }
 
-async function enriquecerComRegua(sb, empresaId, competencia, descritores) {
-  const grupos = new Map();
-  for (const d of descritores) {
-    const comp = d.competencia || competencia;
-    if (!grupos.has(comp)) grupos.set(comp, []);
-    grupos.get(comp).push(d);
-  }
-  if (grupos.size > 1) {
-    const enriquecidos = [];
-    for (const [comp, descs] of grupos.entries()) {
-      enriquecidos.push(...await enriquecerComRegua(sb, empresaId, comp, descs));
-    }
-    return enriquecidos;
-  }
-
-  // Tenta competencias (empresa), fallback competencias_base
-  const nomesCurtos = descritores.map(d => d.descritor);
-  let { data: rows } = await sb.from('competencias')
-    .select('nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-    .eq('empresa_id', empresaId).eq('nome', competencia)
-    .in('nome_curto', nomesCurtos);
-  if (!rows || rows.length === 0) {
-    const { data: base } = await sb.from('competencias_base')
-      .select('nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-      .eq('nome', competencia).in('nome_curto', nomesCurtos);
-    rows = base || [];
-  }
-  const mapa = Object.fromEntries((rows || []).map(r => [r.nome_curto, r]));
-  return descritores.map(d => ({ ...d, ...(mapa[d.descritor] || {}) }));
-}
-
-/**
- * Como enriquecerComRegua, mas também sobrescreve nota_atual com a nota FRESH
- * de descriptor_assessments (em caso de remapeamento posterior à criação da trilha).
- * Se não houver registro fresh, mantém o snapshot (nota_atual original).
- */
-async function enriquecerComReguaENotaPre(sb, empresaId, colaboradorId, competencia, descritores) {
-  const base = await enriquecerComRegua(sb, empresaId, competencia, descritores);
-  const mapaNota = new Map();
-  const grupos = new Map();
-  for (const d of base) {
-    const comp = d.competencia || competencia;
-    if (!grupos.has(comp)) grupos.set(comp, []);
-    grupos.get(comp).push(d.descritor);
-  }
-  for (const [comp, nomes] of grupos.entries()) {
-    const { data: assessments } = await sb.from('descriptor_assessments')
-      .select('descritor, nota')
-      .eq('colaborador_id', colaboradorId)
-      .eq('competencia', comp)
-      .in('descritor', nomes);
-    for (const a of assessments || []) mapaNota.set(`${comp}|${a.descritor}`, Number(a.nota));
-  }
-  return base.map(d => ({
-    ...d,
-    nota_atual: mapaNota.has(`${d.competencia || competencia}|${d.descritor}`)
-      ? mapaNota.get(`${d.competencia || competencia}|${d.descritor}`)
-      : d.nota_atual,
-  }));
-}
 
 function normalizarAcumuladoPrimaria(acumulado) {
   if (!acumulado) return null;
