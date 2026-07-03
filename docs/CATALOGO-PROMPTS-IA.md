@@ -1031,6 +1031,28 @@
 - **Output**: JSON `{ nota_auditoria:0-100, status:"aprovado|aprovado_com_ajustes|revisar", erro_grave:bool, criterios:{ancoragem_regua, coerencia_delta, qualidade_justificativa, triangulacao_com_acumulado, prudencia_metodologica, coerencia_devolutiva}, ajustes_sugeridos[{descritor, nota_pos_sugerida, motivo}], ponto_mais_confiavel, ponto_mais_fragil, alertas[], resumo_auditoria }`. Validacao: `validateEvolutionScenarioCheck`.
 - **Consumido por**: `feedback.auditoria`.
 
+### 6.14 Arguição — defesa oral do fechamento (2º instrumento)
+> `ATIVO` (LIGADO só no PILOTO; regular/DUO/onboarding OFF) · Fases A→D concluídas 03/07
+
+Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma **defesa oral** por turnos — sonda a resposta pra expor profundidade ou fragilidade que o texto não captura. Triangulação de método: o cenário escrito (resposta preparada) vs. a sustentação ao vivo. A conversa **modula a nota** (não soma) via regra de CÓDIGO. Gate por modo: `arguicao:{ativa,maxTurnos}` em `programa-config.ts` — piloto 4 turnos (ativo), regular/DUO 8, onboarding 6 (todos OFF).
+
+**(a) Condução da arguição** — `lib/season-engine/arguicao.ts::buildArguicaoSystemPrompt` (via `abrirArguicao`/`turnoArguicao`)
+- **Caller**: `app/api/temporada/evaluation/route.ts` — `action:'send'` da 4ª resposta ABRE a arguição (quando `programaConfig.arguicao.ativa`); `action:'arguir'` conduz cada turno.
+- **Modelo**: default do chat · **Max tokens**: 2048 · **Temperature**: 0.4
+- **PII masking**: Sim, em-voo (`ArguicaoPII`) — histórico persistido CRU (o colab reabre e vê o próprio texto/nome); mascara só o payload da IA (nome→alias + email/tel/CPF); reply/citações voltam despersonalizados. Payload à IA é SÓ `{role,content}` (a API rejeita campos extras como `turn`).
+- **System prompt** (resumo): Mentor conduz a defesa oral da resposta ao cenário. NÃO ensina/avalia/dá nota; SONDA — testa se o critério se justifica, se o raciocínio aguenta variação do cenário, onde há profundidade não escrita e qual o limite reconhecido. 1 pergunta por turno; microacolhimento ok, elogio/interpretação proibidos; nunca cita código de descritor; parte SEMPRE da resposta dada. Bloco `[META]` obrigatório (turno, sondagem_atual, evidencias_coletadas, risco_de_encerramento_prematuro, encerrar). Encerra por: teto de turnos, `encerrar:true`, ou evidências suficientes + sondagem=encerramento sem risco de corte prematuro. Piloto herda proibição de falar em "evolução" (é sustentação, não evolução — janela de 2 semanas).
+- **Output visível**: fala do Mentor (sem o `[META]`). **Estado**: `feedback.arguicao={historico,turno,concluida}`.
+
+**(b) Extração de evidências** — `lib/season-engine/arguicao.ts::extrairEvidenciasArguicao`
+- **Quando**: ao concluir a arguição (uma chamada). **Max tokens**: 4096 · **Temperature**: 0.2 · **PII**: conversa mascarada; citações desmascaradas no retorno.
+- **System prompt** (resumo): extrator fiel/prudente — por descritor, marca se a defesa CONFIRMOU o escrito, APROFUNDOU (revelou profundidade nova), FRAGILIZOU (não sustentou sob sondagem) ou ficou SEM SINAL; toda evidência com citação curta; teoria não vale como forte; NÃO produz nota. **EXATAMENTE uma entrada por descritor** (evita duplicatas conflitantes).
+- **Output**: JSON `{ resumo:{leitura_geral, sustentacao_mais_forte, fragilidade_mais_relevante}, evidencias_por_descritor[{descritor, sustentou:"confirmou|aprofundou|fragilizou|sem_sinal", citacao, forca:"fraca|moderada|forte"}] }`. Persistido em `feedback.arguicao.extracao`.
+
+**(c) Fusão na nota (CÓDIGO, sem IA)** — `lib/season-engine/fusao-arguicao.ts::fundirArguicao`
+- O `ajuste_arguicao` NÃO vem de IA — é DERIVADO da classificação (`sustentou×forca`) por MAPA determinístico: aprofundou +0,2/0,35/0,5; fragilizou simétrico; confirmou/sem_sinal 0 — tudo dentro de ±0,5 (clamp de salvaguarda). Por descritor: `nota_base_cenario`=nota do scorer; `nota_pos=clamp(base+ajuste,1,4)`; recalcula médias e delta. Descritor DUPLICADO na extração → mantém o ajuste de MENOR magnitude (conservador, independe da ordem).
+- **Ordem no fechamento**: scorer (6.12) → **fusão** → trava piloto. `pontuarFechamento` recebe `evidenciasArguicao` e funde ENTRE scorer e trava. Carimba `nota_base_cenario`+`ajuste_arguicao`+`sustentacao_arguicao` por descritor.
+- **Amarração**: ao concluir a arguição, a rota dispara `finalizarComScorer()` (mesmo núcleo do `send` da 4ª resposta) — a nota sai já fundida. UI: tela `sem14` troca do formulário para modo CHAT turn-by-turn.
+
 ---
 
 ## Relatórios (Individual / Gestor / RH)

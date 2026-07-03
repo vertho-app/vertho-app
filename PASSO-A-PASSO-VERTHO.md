@@ -263,6 +263,12 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
   - Gera **4 notas por descritor**: pré, acumulada, cenário, final
   - `nota_cenario` isolada + `nota_pos` triangulada
 - **DISC** usado apenas no tom da devolutiva (não influencia nota)
+- **Arguição (defesa oral) — 2º instrumento, LIGADA só no PILOTO** (regular/DUO/onboarding OFF):
+  quando `arguicao.ativa` (por modo), a 4ª resposta ABRE uma conversa por turnos (a UI troca do
+  wizard para modo CHAT). A IA sonda a resposta (critério, robustez sob variação, limite); ao
+  encerrar, extrai `sustentou×forca` por descritor e **modula a nota** via mapa determinístico
+  (±0,5 no CÓDIGO, `fusao-arguicao.ts`) — ordem: scorer → fusão → trava. Histórico persistido cru;
+  PII mascarada só em-voo. Detalhe: `docs/MODO-PILOTO.md` + `CATALOGO-PROMPTS-IA.md` §6.14
 - **Evolution Report** gerado automaticamente ao concluir
 
 ### 24. Temporada Concluída + Evolution Report
@@ -343,7 +349,7 @@ Todos com back button context-aware.
 2. **Prontidão**: `/admin/temporadas` → "Prontidão piloto" → resolver bloqueadores (conteúdo core dos top-4 descritores; Cenário B do cargo — gerar na Fase 4 do pipeline "Cenários B + Check")
 3. **Gerar temporada** (mesmo botão do passo 16): 1 competência âncora, top-4 descritores por gap, 2 conteúdos/semana (sems 1-2), fechamento no slot 3 com **calendário espelhado na sem 2**
 4. **Colaborador**: diagnóstico completo inalterado (DISC/mapeamento/DNA/Fit) → sems 1-2 com 2 conteúdos + reflexão socrática cada (a IA cobra os DOIS desafios) → ao concluir a sem 2, a acumulada single-comp roda automática em background
-5. **Fechamento** (libera assim que a sem 2 conclui, sem esperar dia 14): wizard Cenário B (4 perguntas) → scorer com **trava de piso** (`nota_pos = max(bruto, baseline)`, bruto + `piso_aplicado` preservados, `spec_version='piloto-v1'`) → auditoria 2ª IA → Evolution Report variante piloto
+5. **Fechamento** (libera assim que a sem 2 conclui, sem esperar dia 14): wizard Cenário B (4 perguntas) → **arguição/defesa oral** (LIGADA no piloto, 4 turnos — a UI vira chat) → scorer com **fusão da arguição** (±0,5 no código) e **trava de piso** (`nota_pos = max(bruto, baseline)`, bruto + `piso_aplicado` preservados, `spec_version='piloto-v1'`) → auditoria 2ª IA → Evolution Report variante piloto
 6. **Relatório**: tela/PDF SEM delta antes→depois — competência como ponto de partida, fechamento como demonstração da avaliação
 7. **Conversão**: fechou → trocar o modo do colaborador → regerar temporada (diagnóstico é reaproveitado; o plano piloto é sobrescrito na mesma trilha)
 

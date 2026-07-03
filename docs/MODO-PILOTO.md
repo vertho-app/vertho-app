@@ -44,6 +44,23 @@ do scorer em `/api/temporada/evaluation`:
 - `nota_media_pos_bruto` preservada; média exibida recalculada
 - `spec_version = 'piloto-v1'` carimbado — um pós de piloto é **inconfundível** com pós real
 
+## Arguição — defesa oral (LIGADA no piloto)
+
+O piloto é o **testbed** da arguição (2º instrumento do fechamento): `PROGRAMA_PILOTO.arguicao =
+{ativa:true, maxTurnos:4}` em `programa-config.ts`. Regular/DUO/onboarding seguem **OFF** até
+validar aqui. Como o runtime resolve a config do piloto pela **constante de código** (o carimbo é
+só o rótulo `programa_modo`), ligar no código vale pra todas as trilhas piloto — sem migração.
+
+- Depois das 4 perguntas do Cenário B, a IA abre uma **defesa oral** por até 4 turnos (`arguicao.ts`),
+  sonda a resposta e, ao encerrar, extrai evidências por descritor (`sustentou×forca`).
+- A conversa **modula a nota** via `fusao-arguicao.ts` (mapa determinístico ±0,5, no CÓDIGO) **antes**
+  da trava de piso — ordem: scorer → fusão → trava. A trava incide sobre a nota já fundida.
+- UI: `sem14` troca do formulário para modo CHAT turn-by-turn; reconstrói no reload.
+- PII: histórico persistido CRU; mascara só em-voo. Detalhes em `CATALOGO-PROMPTS-IA.md` §6.14.
+- Validado E2E em prod 03/07 (ACME/rdnaves, trilha `3d3f303a`): abertura → 3 turnos → conclusão →
+  scorer+fusão+trava. O E2E expôs 2 bugs latentes (campo `turn` no payload da IA; dedup de descritor
+  duplicado na fusão) — ambos corrigidos.
+
 ## Relatório sem delta
 
 `gerarEvolutionReport` detecta o modo (carimbo da trilha) e produz o shape piloto:
@@ -91,8 +108,10 @@ lib/season-engine/programa-config.ts       PROGRAMA_PILOTO · semanaCalendario �
 lib/season-engine/select-descriptors.ts    selectDescriptorsPiloto (top-4 gap, 1 slot cada, sem doubling)
 lib/season-engine/build-season.ts          branch isPilotoContentWeek (conteudos_dia por descritor) + calendario_semana
 lib/season-engine/piloto-trava.ts          aplicarTravaPiloto + PILOTO_SPEC_VERSION
+lib/season-engine/arguicao.ts              defesa oral: abrir/turno/extrair (+ PII em-voo) — LIGADA no piloto
+lib/season-engine/fusao-arguicao.ts        fundirArguicao (mapa sustentou×forca → ±0,5 no código)
 actions/temporadas.ts                      gerarTemporadaPiloto · verificarProntidaoPiloto
-app/api/temporada/evaluation/route.ts      fechamento sem 3 (espelho + trava + report internal)
+app/api/temporada/evaluation/route.ts      fechamento sem 3 (espelho + arguição + fusão + trava + report internal)
 app/api/temporada/reflection/route.ts      trigger acumulada ao concluir sem 2 (after + internal)
 app/dashboard/temporada/*                  timeline (espelho + rótulo Fechamento) · sem14 (sem delta) · concluida (variante piloto)
 lib/temporada-concluida-pdf.ts             TemporadaPilotoPDF (sem delta)
