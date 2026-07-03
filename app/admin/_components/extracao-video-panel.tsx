@@ -81,8 +81,13 @@ export default function ExtracaoVideoPanel({
   }
   useEffect(() => {
     carregarExtracoes();
-    const t = setInterval(carregarExtracoes, 15000);
-    return () => clearInterval(t);
+    // Poll a cada 15s, mas PULA quando a aba está oculta (economiza requests
+    // ociosos em background) e atualiza ao voltar pra aba. Não altera a lógica
+    // de refresh — só evita o fetch quando ninguém está olhando.
+    const t = setInterval(() => { if (!document.hidden) carregarExtracoes(); }, 15000);
+    const onVis = () => { if (!document.hidden) carregarExtracoes(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origemEmpresaId]);
 
