@@ -1,6 +1,7 @@
 'use server';
 
 import { tenantDb } from '@/lib/tenant-db';
+import { mapComLimite } from '@/lib/concurrency';
 import { tenantEmailFrom, tenantUrl } from '@/lib/domain';
 import { callAI, type AIConfig } from '../ai-client';
 import { extractJSON } from '../utils';
@@ -238,8 +239,8 @@ export async function enviarLinksPerfil(empresaId: string) {
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);
-    let enviados = 0;
-    for (const colab of colaboradores) {
+    // E-mails em paralelo (limite 5 — rate limit do Resend)
+    const envios = await mapComLimite(colaboradores as any[], 5, async (colab: any) => {
       try {
         await resend.emails.send({
           from: tenantEmailFrom(empresa.slug, 'Vertho Mentor'),
@@ -247,9 +248,10 @@ export async function enviarLinksPerfil(empresaId: string) {
           subject: `[${empresa.nome}] Seu Perfil de Evolução`,
           html: `<p>Olá ${colab.nome_completo}!</p><p>Seu perfil está disponível.</p><p><a href="${tenantUrl(empresa.slug, '/dashboard/evolucao')}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;">Acessar Perfil</a></p>`,
         });
-        enviados++;
-      } catch {}
-    }
+        return true;
+      } catch { return false; }
+    });
+    const enviados = envios.filter(Boolean).length;
     return { success: true, message: `${enviados} links enviados` };
   } catch (err) { return { success: false, error: err.message }; }
 }

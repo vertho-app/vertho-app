@@ -347,13 +347,14 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
     const pppResumoCheck = await fetchPppResumo(tdb);
 
     const checkModel = aiConfig?.checkModel;
-    let gerados = 0, aprovados = 0, revisar = 0, skipJaTemB = 0, skipSemComp = 0;
-    for (const cenA of cenariosA) {
+    // GERAÇÃO em paralelo (limite 3 — TPM de IA); cada item devolve um
+    // marcador e os contadores são derivados no fim (semântica preservada).
+    const marcadores = await mapComLimite(cenariosA as any[], 3, async (cenA: any) => {
       const key = `${cenA.competencia_id}::${cenA.cargo}`;
-      if (jaTemB.has(key)) { skipJaTemB++; continue; }
+      if (jaTemB.has(key)) { return 'skip_ja_tem'; }
 
       const comp = compMap[cenA.competencia_id];
-      if (!comp) { skipSemComp++; continue; }
+      if (!comp) { return 'skip_sem_comp'; }
 
       const descritoresTexto = descritoresMap[cenA.competencia_id] || '';
       const { system, user } = buildCenBPrompts(empresa, cenA, comp, descritoresTexto, pppContexto);
@@ -384,7 +385,7 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
         }
       }
 
-      if (!cenarioData?.titulo) continue;
+      if (!cenarioData?.titulo) return 'falha';
 
       // Persistência enriquecida
       const { data: inserted, error: insErr } = await tdb.from('banco_cenarios').insert({
@@ -415,19 +416,23 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
         },
         tipo_cenario: 'cenario_b',
       }).select('id, titulo, descricao, cargo, alternativas').single();
-      if (insErr) { console.error('[cenarioB insert]', insErr.message); continue; }
-      gerados++;
+      if (insErr) { console.error('[cenarioB insert]', insErr.message); return 'falha'; }
 
       // Check inline se modelo foi informado
       if (checkModel && inserted) {
         try {
           const chk = await runCheckOnCenB(sbRaw, inserted, comp, descritoresTexto, pppResumoCheck, checkModel, cenA);
           if (chk.success) {
-            if (chk.status === 'aprovado') aprovados++; else revisar++;
+            return chk.status === 'aprovado' ? 'gerado_aprovado' : 'gerado_revisar';
           }
         } catch (e) { console.error('[cenarioB check]', e.message); }
       }
-    }
+      return 'gerado';
+    });
+
+    const gerados = marcadores.filter(m => m.startsWith('gerado')).length;
+    const aprovados = marcadores.filter(m => m === 'gerado_aprovado').length;
+    const revisar = marcadores.filter(m => m === 'gerado_revisar').length;
 
     let msg = `${gerados} cenários B gerados`;
     if (checkModel) msg += ` | ${aprovados} aprovados, ${revisar} para revisar`;
@@ -688,19 +693,22 @@ export async function regenerarERecheckarCenariosBLote(empresaId: string, aiConf
     if (!cenarios?.length) return { success: true, message: 'Nenhum cenário B para regenerar' };
 
     const checkModel = aiConfig?.checkModel || 'gemini-3.1-flash-lite';
-    let regenerados = 0, aprovados = 0, revisar = 0, erros = 0;
-
-    for (const c of cenarios) {
+    // Regenerar+recheck em paralelo (limite 3 — cada item já são 2 chamadas IA)
+    const marcadoresRg = await mapComLimite(cenarios as any[], 3, async (c: any) => {
       try {
         const r1 = await regenerarCenarioB(c.id, { model: aiConfig?.model });
-        if (!r1.success) { erros++; continue; }
-        regenerados++;
+        if (!r1.success) { return 'erro'; }
         const r2 = await checkCenarioBUm(c.id, checkModel);
         if (r2.success) {
-          if (r2.status === 'aprovado') aprovados++; else revisar++;
+          return r2.status === 'aprovado' ? 'regen_aprovado' : 'regen_revisar';
         }
-      } catch { erros++; }
-    }
+        return 'regenerado';
+      } catch { return 'erro'; }
+    });
+    const regenerados = marcadoresRg.filter(m => m.startsWith('regen')).length;
+    const aprovados = marcadoresRg.filter(m => m === 'regen_aprovado').length;
+    const revisar = marcadoresRg.filter(m => m === 'regen_revisar').length;
+    const erros = marcadoresRg.filter(m => m === 'erro').length;
 
     return { success: true, message: `${regenerados} regenerados | ${aprovados} aprovados, ${revisar} ainda para revisar${erros ? `, ${erros} erros` : ''}` };
   } catch (err) {

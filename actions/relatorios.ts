@@ -1,6 +1,7 @@
 'use server';
 
 import { tenantDb } from '@/lib/tenant-db';
+import { mapComLimite } from '@/lib/concurrency';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { callAI, type AIConfig } from './ai-client';
@@ -511,10 +512,9 @@ export async function gerarRelatorioGestor(
       respPorColab[r.colaborador_id].push(r);
     }
 
-    let gerados = 0, erros = 0;
-    const detalhes: GestorDetalhe[] = [];
-
-    for (const [gestorEmail, equipe] of Object.entries(equipesPorGestor)) {
+    // Relatórios por gestor em paralelo (limite 2 — callAI de 64k tokens);
+    // detalhes preservam a ORDEM dos gestores (mapComLimite garante).
+    const resultadosGestor = await mapComLimite(Object.entries(equipesPorGestor), 2, async ([gestorEmail, equipe]): Promise<GestorDetalhe> => {
       try {
         // Identifica o gestor (pode estar em colaboradores ou só ser um email externo)
         const gestorColab = (todosColabs || []).find((c: any) => (c.email || '').toLowerCase() === gestorEmail);
@@ -551,7 +551,7 @@ export async function gerarRelatorioGestor(
         const resultado = await callAI(RELATORIO_GESTOR_SYSTEM, user, aiConfig, 64000);
         const relatorio: any = await extractJSON(resultado);
 
-        if (!relatorio) { erros++; detalhes.push({ gestor: gestorNome, erro: 'IA não retornou JSON' }); continue; }
+        if (!relatorio) { return { gestor: gestorNome, erro: 'IA não retornou JSON' }; }
 
         // PDF
         let pdfPath: string | null = null;
@@ -570,13 +570,14 @@ export async function gerarRelatorioGestor(
           gerado_em: new Date().toISOString(),
         }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
 
-        gerados++;
-        detalhes.push({ gestor: gestorNome, equipe: equipe.length, ok: true });
+        return { gestor: gestorNome, equipe: equipe.length, ok: true };
       } catch (e: any) {
-        erros++;
-        detalhes.push({ gestor: gestorEmail, erro: e.message });
+        return { gestor: gestorEmail, erro: e.message };
       }
-    }
+    });
+    const detalhes: GestorDetalhe[] = resultadosGestor;
+    const gerados = detalhes.filter(d => (d as any).ok).length;
+    const erros = detalhes.filter(d => (d as any).erro).length;
 
     return {
       success: true,
