@@ -1,0 +1,116 @@
+# Modo Piloto — degustação de 2 semanas
+
+> **Não é produto novo — só config.** `programa_modo = 'piloto'` na mesma engine de trilha
+> (ver `ARQUITETURA.md §17`). Objetivo: o lead roda o **fluxo inteiro** (diagnóstico completo →
+> conteúdo personalizado → fechamento com cenário + avaliação IA) em 2 semanas.
+> O piloto **NÃO demonstra evolução na competência** — demonstra o método.
+
+Implementado em 02/07/2026 (`28e831e` → `d48012d`). E2E completo validado em produção
+(tenant ACME, 1 colaborador com override individual).
+
+## Estrutura
+
+| | |
+|---|---|
+| Duração | 2 semanas de conteúdo + fechamento |
+| Competências | 1 (âncora pela resolução existente: competência explícita → trilha → cargo) |
+| Conteúdos | 4 — 2/semana, cada um sobre **1 descritor distinto** (top-4 por gap decrescente, `selectDescriptorsPiloto`, núcleo de ordenação compartilhado com o single) |
+| Resolução de conteúdo | A **existente** (`montarSemanaConteudo`: formato-core por preferência×taxa + opcionais no switch). Zero IA na geração |
+| Missões | Nenhuma |
+| Diagnóstico | Completo e **inalterado** (DISC, mapeamento, DNA, Fit v2) |
+| Fechamento | Completo: Cenário B (`banco_cenarios`, cargo) + scorer + check 2ª IA + Evolution Report |
+
+### O plano tem 3 entradas ("2 semanas" de calendário)
+
+```
+sem 1  conteudo   2 entregas (conteudos_dia, shape do DUO — mesma comp, descritores distintos)
+sem 2  conteudo   2 entregas · ao concluir: acumulada single-comp dispara em background
+sem 3  avaliacao  FECHAMENTO — calendario_semana=2 (espelho): libera no CALENDÁRIO da
+                  sem 2 (dia 7); o gate real é progressão ("sem 2 concluída"). Nunca espera dia 14.
+```
+
+O espelho vive em `ProgramaConfig.semanaEspelhoCalendario` ({3:2}) **e** gravado no próprio
+plano (`calendario_semana` no slot de avaliação — snapshot é o contrato da UI/rotas).
+`semanaAcumulada=2` é só o **endereço de persistência** do acumulado (não há semana de
+conversa qualitativa no piloto — branch guard na rota `/evaluation`).
+
+## Trava de piso (piloto-only)
+
+`lib/season-engine/piloto-trava.ts` (função pura, testada). Aplicada **só** no branch piloto
+do scorer em `/api/temporada/evaluation`:
+
+- `nota_pos` exibida = `max(bruto, baseline)` por descritor
+- `nota_pos_bruto` + `piso_aplicado` **preservados no snapshot** (nunca mutação silenciosa)
+- `nota_media_pos_bruto` preservada; média exibida recalculada
+- `spec_version = 'piloto-v1'` carimbado — um pós de piloto é **inconfundível** com pós real
+
+## Relatório sem delta
+
+`gerarEvolutionReport` detecta o modo (carimbo da trilha) e produz o shape piloto:
+`{modo:'piloto', descritores:[{baseline, nota_avaliacao, nota_avaliacao_bruta, piso_aplicado}]}` —
+**sem** convergência/antes→depois. Tela `/dashboard/temporada/concluida` e PDF têm variante
+piloto: competência = ponto de partida, fechamento = "demonstração da avaliação".
+A agregação do gestor (`loadEvolutionReportsEmpresa`) **exclui** relatórios piloto.
+Os prompts do scorer/check recebem `semanaFinal`/`semanasEvidencia` da config (regular = 14/13,
+byte-idêntico) + `notaPrograma` no piloto (a devolutiva não fala em "14 semanas").
+
+## Como ativar
+
+O modo resolve por **precedência de geração** (fonte única: `resolverModoColab`):
+
+1. `colaboradores.programa_modo` (override individual — Configurações → Equipe, select por pessoa)
+2. `empresas.sys_config.programa_modo` (default do tenant — Configurações → Programa)
+3. ausente → Regular DUO
+
+O rótulo resolvido é **carimbado** em `trilhas.programa_modo` na geração; o runtime
+(reflexão/fechamento/acumulada/report) lê **do carimbo** — trocar o modo da empresa não
+afeta trilha em andamento. Rótulos: `regular_duo` | `regular_single` | `onboarding` | `piloto`.
+Migrations: **153** (COMMENT sys_config) e **154** (colunas + COMMENTs).
+
+Fluxo típico de conversão: colaborador marcado `piloto` → roda a degustação → cliente fecha →
+troca o override (ou o default) → **regerar a temporada** (sobrescreve o plano na mesma trilha;
+o diagnóstico é reaproveitado, não se refaz).
+
+## Prontidão (antes de liberar)
+
+Botão **"Prontidão piloto"** em `/admin/temporadas?empresa=...` (`verificarProntidaoPiloto`),
+por colaborador cujo modo resolvido é piloto:
+
+- ⛔ **Bloqueador**: descritor do top-4 sem NENHUM conteúdo utilizável (nem próprio, nem pool
+  da competência) — a semana nasceria com fallback templated
+- ⛔ **Bloqueador**: sem Cenário B pro cargo (`tipo_cenario='cenario_b'`) — o fechamento
+  retornaria 424. Gerar na Fase 4 do pipeline da empresa ("Cenários B + Check")
+- ⚠️ Aviso: sem conteúdo próprio do descritor (reusa pool) ou formatos opcionais faltando
+  (o switch degrada) — ok
+- ⛔ Menos de 4 descritores avaliados distintos — completar o mapeamento
+
+## Arquivos-chave
+
+```
+lib/season-engine/programa-config.ts       PROGRAMA_PILOTO · semanaCalendario · resolverModoColab · getProgramaConfigDaTrilha
+lib/season-engine/select-descriptors.ts    selectDescriptorsPiloto (top-4 gap, 1 slot cada, sem doubling)
+lib/season-engine/build-season.ts          branch isPilotoContentWeek (conteudos_dia por descritor) + calendario_semana
+lib/season-engine/piloto-trava.ts          aplicarTravaPiloto + PILOTO_SPEC_VERSION
+actions/temporadas.ts                      gerarTemporadaPiloto · verificarProntidaoPiloto
+app/api/temporada/evaluation/route.ts      fechamento sem 3 (espelho + trava + report internal)
+app/api/temporada/reflection/route.ts      trigger acumulada ao concluir sem 2 (after + internal)
+app/dashboard/temporada/*                  timeline (espelho + rótulo Fechamento) · sem14 (sem delta) · concluida (variante piloto)
+lib/temporada-concluida-pdf.ts             TemporadaPilotoPDF (sem delta)
+tests/unit/piloto/*                        config · seleção · trava · buildSeason (+ regressão DUO)
+migrations/153 + 154
+```
+
+## Lições do E2E (02/07/2026) — valem pra TODA a engine
+
+O E2E do piloto expôs e corrigiu **4 bugs latentes do regular**:
+
+1. **Triggers automáticos com sessão de colab**: `gerarAvaliacaoAcumulada` e
+   `gerarEvolutionReport` exigem admin, mas os auto-triggers rodam na sessão do colaborador →
+   FORBIDDEN/UNAUTHORIZED silencioso. Fix: flag `internal=true` (só callers de servidor,
+   após `assertColabAccess`).
+2. **Fire-and-forget morre no freeze da Vercel**: `(async () => {...})()` solto é morto quando a
+   lambda congela após o response. **Todo trabalho pós-response em rota DEVE usar `after()`**
+   (next/server). Aplicado nos 4 triggers (piloto, sem 13, onboarding parcial, notify tutor).
+3. **Multi-tenant**: `loadTemporadaConcluida` buscava colab com `.eq('email').maybeSingle()`
+   direto — usuário em 2+ empresas → null. Usar sempre `findColabByEmail` (resolve o tenant).
+4. **Prompts com régua hardcoded**: scorer/check falavam "14 semanas" para qualquer modo.

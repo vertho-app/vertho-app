@@ -1031,37 +1031,40 @@ Z-API: WhatsApp gateway
 
 ---
 
-## 17. Modos da engine (Regular DUO · Regular single · Onboarding)
+## 17. Modos da engine (Regular DUO · Regular single · Onboarding · Piloto)
 
-> A mesma engine de trilha serve três modos, resolvidos por empresa via `sys_config.programa_modo`. **Não são produtos diferentes** — só configuração (`getProgramaConfig`). **Default global = Regular DUO** (2 competências em blocos paralelos). Single-comp virou escape hatch (`regular_single`). Onboarding (recém-formados) inalterado.
+> A mesma engine de trilha serve **quatro** modos. **Não são produtos diferentes** — só configuração. **Default global = Regular DUO** (2 competências em blocos paralelos). Single-comp virou escape hatch (`regular_single`). Onboarding (recém-formados) inalterado. **Piloto** (degustação de 2 semanas) em `docs/MODO-PILOTO.md`.
+>
+> **Resolução (mig 154, 02/07/2026)**: precedência de GERAÇÃO = `colaboradores.programa_modo` (override individual, NULL herda) → `sys_config.programa_modo` (default do tenant) → DUO, via `resolverModoColab` (fonte única). O rótulo resolvido é **carimbado** em `trilhas.programa_modo`; o RUNTIME (reflexão/fechamento/acumulada/report) resolve a config **do carimbo** (`getProgramaConfigDaTrilha`) — trocar o modo da empresa não afeta trilha em andamento; trilha legada sem carimbo cai no sys_config. Permite **misturar modos no mesmo tenant** (novatos em onboarding, veteranos em regular, lead em piloto).
 
 ### 17.1 Como diferem
 
-| Dimensão | **Regular DUO** *(default)* | Regular single *(`regular_single`)* | Onboarding *(`onboarding`)* |
-|---|---|---|---|
-| Duração | 14 semanas | 14 semanas | **10 semanas** |
-| Competências por trilha | **2 (em blocos paralelos)** | 1 (aprofundada) | **5 (em espiral)** |
-| Nível-meta na régua | 3 (proficiente) | 3 (proficiente) | **2 (autonomia supervisionada)** |
-| Missões | Sem 4, 8, 12 (**integradoras das 2 comps**) | Sem 4, 8, 12 (uni-competência) | **Sem 4, 7, 9 (multi-competência integradora)** |
-| Avaliação Acumulada | Sem 13 (auto-trigger, **por competência**) | Sem 13 (auto-trigger) | **Embutida nas missões 4/7/9 (parcial cumulativa)** |
-| Cenário B (wizard final) | Sem 14 | Sem 14 | **Sem 10** |
-| Slots de conteúdo | `[1,2,3,5,6,7,9,10,11]` (3 blocos de 3) | `[1,2,3,5,6,7,9,10,11]` | `[2,3,5,6,8]` — sem 1 = calibragem |
-| Acompanhamento | Gestor (por `gestor_email`) | Gestor | **Tutor** (por `tutorados_ids[]`) |
-| Push automatizado | — | — | **WhatsApp pro tutor nas sems 4 e 7** (sugestão de pauta) |
+| Dimensão | **Regular DUO** *(default)* | Regular single *(`regular_single`)* | Onboarding *(`onboarding`)* | Piloto *(`piloto`)* |
+|---|---|---|---|---|
+| Duração | 14 semanas | 14 semanas | **10 semanas** | **2 semanas** + fechamento |
+| Competências por trilha | **2 (em blocos paralelos)** | 1 (aprofundada) | **5 (em espiral)** | 1 (top-4 descritores por gap, 2 entregas/sem) |
+| Nível-meta na régua | 3 (proficiente) | 3 (proficiente) | **2 (autonomia supervisionada)** | 3 |
+| Missões | Sem 4, 8, 12 (**integradoras das 2 comps**) | Sem 4, 8, 12 (uni-competência) | **Sem 4, 7, 9 (multi-competência integradora)** | **nenhuma** |
+| Avaliação Acumulada | Sem 13 (auto-trigger, **por competência**) | Sem 13 (auto-trigger) | **Embutida nas missões 4/7/9 (parcial cumulativa)** | Auto ao concluir a sem 2 (persiste na sem 2) |
+| Cenário B (wizard final) | Sem 14 | Sem 14 | **Sem 10** | **Slot 3, calendário espelhado na sem 2** + trava de piso (`piloto-v1`) |
+| Slots de conteúdo | `[1,2,3,5,6,7,9,10,11]` (3 blocos de 3) | `[1,2,3,5,6,7,9,10,11]` | `[2,3,5,6,8]` — sem 1 = calibragem | `[1,2]` (2 entregas cada) |
+| Acompanhamento | Gestor (por `gestor_email`) | Gestor | **Tutor** (por `tutorados_ids[]`) | Gestor |
+| Push automatizado | — | — | **WhatsApp pro tutor nas sems 4 e 7** (sugestão de pauta) | — |
 
 > Trilhas já persistidas (single-comp) **não são regeradas** — o plano salvo é servido como está; só nova geração usa DUO. Detalhe do DUO em **17.11**.
 
 ### 17.2 Arquivos-chave
 
 ```
-lib/season-engine/programa-config.ts   # PROGRAMA_REGULAR_DUO (default) + REGULAR + ONBOARDING + getProgramaConfig
+lib/season-engine/programa-config.ts   # templates (DUO/REGULAR/ONBOARDING/PILOTO) + getProgramaConfig[ByModo] + resolverModoColab + getProgramaConfigDaTrilha + semanaCalendario
 lib/season-engine/build-season.ts      # buildSeason recebe programaConfig + competencias[] (isMulti = DUO|Onboarding)
 lib/season-engine/select-descriptors.ts # selectDescriptors (single) + selectDescriptorsDuo (Regular DUO, profundo) + selectDescriptorsMulti (onboarding, raso)
 lib/season-engine/prompts/scenario.ts  # aceita cenarioTipo='integrador' + competenciasIntegradas[]
 lib/season-engine/prompts/missao.ts    # aceita missaoTipo='integradora' + competenciasIntegradas[]
 lib/season-engine/prompts/acumulado.ts # aceita nivelMetaAlvo: 2|3 (régua condicional)
 lib/notify-tutor.ts                    # notifyTutorMissaoConcluida (Z-API push)
-actions/temporadas.ts                  # gerarTemporada (single) + gerarTemporadaRegularDuo (2 comps) + gerarTemporadaOnboarding (multi)
+actions/temporadas.ts                  # gerarTemporada (single) + gerarTemporadaRegularDuo + gerarTemporadaOnboarding + gerarTemporadaPiloto + verificarProntidaoPiloto
+lib/season-engine/piloto-trava.ts      # trava de piso do fechamento do piloto (aplicarTravaPiloto, spec 'piloto-v1')
 actions/avaliacao-acumulada.ts         # gerarAvaliacaoAcumulada (single + multi-comp DUO via avaliarCompAcumulada) + gerarAvaliacaoAcumuladaParcial (Onboarding)
 app/api/temporada/reflection/route.ts  # auto-trigger acumulada parcial + notify tutor ao concluir missão
 app/admin/empresas/[id]/configuracoes  # tab "Programa" (toggle modo + fase_carreira)
@@ -1072,7 +1075,7 @@ lib/authz.ts                           # isTutor, getTutorados, canTutorAccess
 
 ```jsonc
 {
-  "programa_modo": "onboarding" | "regular_single",    // ausente/outro = Regular DUO (default global)
+  "programa_modo": "onboarding" | "regular_single" | "piloto",  // ausente/outro = Regular DUO. Override por COLABORADOR em colaboradores.programa_modo (mig 154)
   "competencias_regular_duo": ["CompA", "CompB"],      // override das 2 comps do DUO (senão top-2 do cargo, âncora 1º)
   "fase_carreira_default": "junior" | "pleno" | "senior", // viés da IA1
   "nivel_meta_alvo": 2 | 3,                            // default 3
@@ -1090,6 +1093,8 @@ Documentação enforced via migration 090 (`COMMENT ON COLUMN`).
 - **090** — `empresas.sys_config` COMMENT documentando chaves novas. Sem DDL.
 - **091** — `trilhas.competencias_foco TEXT[]` + backfill `ARRAY[competencia_foco]`.
 - **092** — `colaboradores.tutorados_ids UUID[]` + GIN index.
+- **153** — COMMENT sys_config: valor `'piloto'`. Sem DDL.
+- **154** — `colaboradores.programa_modo` (override de geração, NULL herda) + `trilhas.programa_modo` (carimbo do runtime).
 
 ### 17.5 RBAC do papel Tutor
 
@@ -1102,7 +1107,11 @@ Documentação enforced via migration 090 (`COMMENT ON COLUMN`).
 
 ### 17.6 Auto-trigger acumulada parcial
 
-Em `/api/temporada/reflection/route.ts` (linha ~390): ao concluir missão integradora em modo Onboarding, dispara `gerarAvaliacaoAcumuladaParcial(trilhaId, compsCobertas, semana, internal=true)` em background. Não bloqueia resposta ao colab. A flag `internal=true` pula `requireAdminAction` porque o caller é o próprio colaborador.
+Em `/api/temporada/reflection/route.ts`: ao concluir missão integradora em modo Onboarding, dispara `gerarAvaliacaoAcumuladaParcial(trilhaId, compsCobertas, semana, internal=true)` em background. Não bloqueia resposta ao colab. A flag `internal=true` pula o gate de admin porque o caller é o próprio colaborador.
+
+> ⚠️ **Dois padrões OBRIGATÓRIOS pra trabalho pós-response** (lições do E2E do piloto, 02/07/2026 — `7fcbe88`/`dc0ffe2`/`7220797`):
+> 1. **`after()` de next/server**, nunca IIFE solta — `(async () => {...})()` morre quando a lambda da Vercel congela após o response (a acumulada/report automáticos do REGULAR nunca rodavam por isso).
+> 2. **Flag `internal=true`** em toda action com gate de admin chamada por rota com sessão de colaborador (`gerarAvaliacaoAcumulada`, `gerarAvaliacaoAcumuladaParcial`, `gerarEvolutionReport`) — senão morre em UNAUTHORIZED silencioso. Validar o dono antes (`assertColabAccess`).
 
 Janela cumulativa vem de `programaConfig.competenciasNaMissao`:
 - Sem 4 → Comps 0-1 (índices)
