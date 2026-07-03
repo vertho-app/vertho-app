@@ -60,6 +60,14 @@ export function BettLeadModal({
     }
   }, [open, pre?.scopeLabel]);
 
+  // Fecha com Esc (a11y — padrão dos demais modais).
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const passo1Valido = nome.trim().length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && cargo.trim().length >= 2;
@@ -150,6 +158,9 @@ export function BettLeadModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(6,23,44,0.8)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bett-lead-modal-title"
         className="w-full max-w-[520px] rounded-2xl border overflow-hidden"
         style={{
           background: 'linear-gradient(180deg, #0c2848, #091D35)',
@@ -165,7 +176,7 @@ export function BettLeadModal({
             <p className="text-[10px] tracking-[0.25em] uppercase font-mono mb-1" style={{ color: '#9ae2e6' }}>
               {step === 'done' ? 'Diagnóstico solicitado' : `Passo ${step} de 2`}
             </p>
-            <h3 className="text-white text-lg font-bold leading-tight">
+            <h3 id="bett-lead-modal-title" className="text-white text-lg font-bold leading-tight">
               {step === 1 && 'Receba o diagnóstico inicial'}
               {step === 2 && 'Sua escola ou rede'}
               {step === 'done' && 'Tudo certo!'}
@@ -180,8 +191,8 @@ export function BettLeadModal({
               </p>
             )}
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-white/55 hover:bg-white/10 hover:text-white transition-colors flex-shrink-0">
-            <X size={16} />
+          <button onClick={onClose} aria-label="Fechar" className="p-1.5 rounded-lg text-white/55 hover:bg-white/10 hover:text-white transition-colors flex-shrink-0">
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
 
@@ -200,7 +211,7 @@ export function BettLeadModal({
               <Field label="E-mail profissional" type="email" value={email} onChange={setEmail} required />
               <Field label="WhatsApp (opcional)" value={whatsapp} onChange={setWhatsapp} placeholder="(11) 99999-9999" />
               <Field label="Cargo" value={cargo} onChange={setCargo} required placeholder="ex: diretor(a), secretário(a), gestor de rede" />
-              {error && <p className="text-[11px] text-red-300">{error}</p>}
+              {error && <p role="alert" className="text-[11px] text-red-300">{error}</p>}
               <button
                 type="submit"
                 disabled={!passo1Valido}
@@ -250,7 +261,7 @@ export function BettLeadModal({
                   diagnóstico e contato comercial pela Vertho.
                 </span>
               </label>
-              {error && <p className="text-[11px] text-red-300">{error}</p>}
+              {error && <p role="alert" className="text-[11px] text-red-300">{error}</p>}
               <div className="flex gap-2">
                 <button type="button" onClick={() => setStep(1)}
                   className="px-4 py-3 rounded-full text-xs text-white/65 hover:text-white inline-flex items-center gap-1.5">

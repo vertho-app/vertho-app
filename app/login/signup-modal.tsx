@@ -137,6 +137,9 @@ export default function SignupModal({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="signup-modal-title"
         className="w-full max-w-[400px] rounded-2xl p-6 sm:p-7 border"
         style={{
           background: 'linear-gradient(180deg,#0f1d33,#091d33)',
@@ -159,7 +162,7 @@ export default function SignupModal({
           </button>
         </div>
 
-        <h2 className="text-[20px] font-bold mb-1" style={{ color: fontColor || '#FFFFFF' }}>
+        <h2 id="signup-modal-title" className="text-[20px] font-bold mb-1" style={{ color: fontColor || '#FFFFFF' }}>
           {t('title')}
         </h2>
         <p className="text-[13px] mb-5" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
@@ -272,7 +275,7 @@ export default function SignupModal({
           </button>
 
           {status === 'error' && errorMsg && (
-            <p className="text-[12.5px] mt-1" style={{ color: '#fca5a5' }}>{errorMsg}</p>
+            <p role="alert" className="text-[12.5px] mt-1" style={{ color: '#fca5a5' }}>{errorMsg}</p>
           )}
 
           <p className="text-[11px] text-center mt-3" style={{ color: fontColorSecondary || '#FFFFFF66' }}>

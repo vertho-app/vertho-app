@@ -161,16 +161,19 @@ export default function VideoModal({ libraryId, videoId, title, onClose, colabor
       style={{ background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(8px)' }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || 'Vídeo'}
         onClick={e => e.stopPropagation()}
         className="relative w-full max-w-[1100px] rounded-2xl overflow-hidden border border-white/10"
         style={{ background: '#0A1D35', boxShadow: '0 0 60px rgba(0,180,216,0.15)' }}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
           <p className="text-sm font-semibold text-white truncate">{title || 'Vídeo'}</p>
-          <button onClick={onClose}
+          <button onClick={onClose} aria-label="Fechar"
             className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
             title="Fechar (Esc)">
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
         <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
