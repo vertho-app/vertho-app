@@ -10,7 +10,7 @@ import { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } from '@/
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
 import { getProgramaConfig, getProgramaConfigByModo, semanaCalendario } from '@/lib/season-engine/programa-config';
-import { aplicarTravaPiloto } from '@/lib/season-engine/piloto-trava';
+import { aplicarTravaPiloto, sanitizarNarrativaPiloto } from '@/lib/season-engine/piloto-trava';
 
 /**
  * POST /api/temporada/evaluation
@@ -307,21 +307,48 @@ export async function POST(request) {
         acumuladoPrimaria,
         ...promptTempo,
       });
-      const r = await callAI(system, user, {}, 10000);
+      // Até 2 tentativas: a 2ª só roda se o parse falhou OU (piloto) a
+      // narrativa saiu com régua temporal errada e a sanitização cirúrgica
+      // não resolveu ("14 semanas" numa degustação de 2).
       let parsed: any = {};
-      try {
-        let cleaned14 = r.trim();
-        if (cleaned14.startsWith('```')) cleaned14 = cleaned14.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-        parsed = validateEvolutionScenarioScore(JSON.parse(cleaned14));
-      } catch (e) {
-        console.error('[VERTHO] parse sem14:', e.message);
+      let narrativaOk = true;
+      for (let tentativa = 1; tentativa <= 2; tentativa++) {
+        const r = await callAI(system, user, {}, 10000);
+        try {
+          let cleaned14 = r.trim();
+          if (cleaned14.startsWith('```')) cleaned14 = cleaned14.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+          parsed = validateEvolutionScenarioScore(JSON.parse(cleaned14));
+        } catch (e) {
+          console.error(`[VERTHO] parse sem${semCenarioB} (tentativa ${tentativa}):`, e.message);
+          parsed = {};
+          continue;
+        }
+        if (isPiloto) {
+          const san = sanitizarNarrativaPiloto(parsed);
+          parsed = san.parsed;
+          narrativaOk = san.ok;
+          if (!narrativaOk) {
+            console.warn(`[VERTHO] narrativa piloto com régua errada (tentativa ${tentativa}) — ${tentativa === 1 ? 'retry' : 'abortando'}`);
+            continue;
+          }
+        }
+        break;
+      }
+
+      // Guard: avaliação vazia (parse falhou 2x) ou narrativa piloto ainda
+      // inválida → NÃO finaliza. Erro recuperável — a última resposta não
+      // foi persistida, o colab reenvia e o scorer roda de novo.
+      if (!Array.isArray(parsed?.avaliacao_por_descritor) || parsed.avaliacao_por_descritor.length === 0 || !narrativaOk) {
+        return NextResponse.json({
+          error: 'A avaliação automática falhou ao processar sua resposta. Nada foi perdido — envie a última resposta novamente para reprocessar.',
+        }, { status: 502 });
       }
 
       // TRAVA piloto-only (piso no baseline): nota_pos exibida = max(bruto,
       // baseline), bruto preservado, piso_aplicado marcado, spec_version
       // 'piloto-v1' carimbada. Vive SÓ neste caminho — o scorer dos outros
       // modos passa reto (parsed intocado).
-      if (programaConfig.modo === 'piloto') {
+      if (isPiloto) {
         parsed = aplicarTravaPiloto(parsed, descritoresComRegua);
       }
 
@@ -344,6 +371,7 @@ export async function POST(request) {
           evidenciasAcumuladas: evidenciasMasked,
           semanaFinal: semCenarioB,
           semanasEvidencia: semAcumulada,
+          notaPrograma: promptTempo.notaPrograma,
         });
         const rCheck = await callAI(sCheck, uCheck, {}, 8000);
         let cleanedChk = rCheck.trim();

@@ -3884,7 +3884,9 @@
       "careerHint": "En modo Onboarding el default razonable es <b>junior</b>. En modo Regular normalmente queda vacío.",
       "pilot": "Piloto",
       "pilotDesc": "Degustación: 2 semanas, 1 competencia, 4 contenidos + cierre completo",
-      "pilotNote": "Piloto: el diagnóstico completo (DISC, mapeo, ADN, Fit) corre sin cambios. Ruta de 2 semanas con 2 contenidos/semana (top-4 descriptores por brecha) y cierre con escenario + evaluación IA. La nota mostrada nunca queda por debajo del baseline (tope mínimo, bruto preservado en el snapshot). Objetivo: recorrer el flujo completo, no demostrar evolución."
+      "pilotNote": "Piloto: el diagnóstico completo (DISC, mapeo, ADN, Fit) corre sin cambios. Ruta de 2 semanas con 2 contenidos/semana (top-4 descriptores por brecha) y cierre con escenario + evaluación IA. La nota mostrada nunca queda por debajo del baseline (tope mínimo, bruto preservado en el snapshot). Objetivo: recorrer el flujo completo, no demostrar evolución.",
+      "regularSingle": "Regular (single)",
+      "regularSingleDesc": "14 semanas, 1 competencia en profundidad — escape/rollback del DUO"
     },
     "language": {
       "title": "Idioma predeterminado de la empresa",

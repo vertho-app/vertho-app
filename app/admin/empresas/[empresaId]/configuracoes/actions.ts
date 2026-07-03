@@ -189,19 +189,23 @@ export async function loadEquipe(empresaId) {
  * empresa (sys_config.programa_modo). Só afeta a PRÓXIMA geração de trilha —
  * trilha em andamento roda pelo carimbo dela (trilhas.programa_modo).
  */
-export async function atualizarProgramaModo(colaboradorId, novoModo) {
+export async function atualizarProgramaModo(colaboradorId, novoModo, empresaId) {
   const sb = await requireAdminSupabase('users.manage');
-  if (!colaboradorId) return { success: false, error: 'colaboradorId obrigatório' };
+  if (!colaboradorId || !empresaId) return { success: false, error: 'colaboradorId e empresaId obrigatórios' };
   const modo = novoModo || null;
   const validos = [null, 'regular_duo', 'regular_single', 'onboarding', 'piloto'];
   if (!validos.includes(modo)) return { success: false, error: 'Modo inválido. Use: herdar (vazio), regular_duo, regular_single, onboarding, piloto' };
 
+  // Update TENANT-SCOPED: o id sozinho permitiria mexer em colaborador de
+  // outra empresa (defense-in-depth mesmo sendo gate de platform admin).
   const { data: upd, error } = await sb.from('colaboradores')
     .update({ programa_modo: modo })
     .eq('id', colaboradorId)
+    .eq('empresa_id', empresaId)
     .select('empresa_id, nome_completo')
     .maybeSingle();
   if (error) return { success: false, error: error.message };
+  if (!upd) return { success: false, error: 'Colaborador não encontrado nesta empresa' };
   await logAdminAction({
     adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
     acao: 'equipe.editar_programa', empresaId: upd?.empresa_id,
@@ -211,18 +215,21 @@ export async function atualizarProgramaModo(colaboradorId, novoModo) {
   return { success: true, message: modo ? `Programa: ${modo} (vale pra próxima geração)` : 'Programa: herda o default da empresa' };
 }
 
-export async function atualizarRole(colaboradorId, novoRole) {
+export async function atualizarRole(colaboradorId, novoRole, empresaId = null) {
   const sb = await requireAdminSupabase('users.manage');
   if (!colaboradorId || !novoRole) return { success: false, error: 'Dados obrigatorios' };
   const validRoles = ['colaborador', 'gestor', 'rh', 'tutor'];
   if (!validRoles.includes(novoRole)) return { success: false, error: `Role invalido. Use: ${validRoles.join(', ')}` };
 
-  const { data: upd, error } = await sb.from('colaboradores')
+  // Tenant-scoped quando o caller informa a empresa (a tela sempre informa;
+  // empresaId opcional só por retrocompat de callers antigos).
+  let q = sb.from('colaboradores')
     .update({ role: novoRole })
-    .eq('id', colaboradorId)
-    .select('empresa_id, nome_completo')
-    .maybeSingle();
+    .eq('id', colaboradorId);
+  if (empresaId) q = q.eq('empresa_id', empresaId);
+  const { data: upd, error } = await q.select('empresa_id, nome_completo').maybeSingle();
   if (error) return { success: false, error: error.message };
+  if (empresaId && !upd) return { success: false, error: 'Colaborador não encontrado nesta empresa' };
   await logAdminAction({
     adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
     acao: 'equipe.editar_role', empresaId: upd?.empresa_id,

@@ -1031,7 +1031,7 @@ export async function prepararEntregasJornada(empresaId: string, opts: { colabor
 
     for (const s of plano) {
       if (s?.tipo !== 'conteudo') continue;
-      if (!semanaLiberadaPorData(trilha.data_inicio, s.semana)) continue; // só liberadas
+      if (!semanaLiberadaPorData(trilha.data_inicio, s.calendario_semana ?? s.semana)) continue; // só liberadas (espelho do piloto respeitado)
       semanas++;
       const conteudos = Array.isArray(s.conteudos_dia) && s.conteudos_dia.length
         ? s.conteudos_dia.map((e: any) => e.conteudo).filter(Boolean)

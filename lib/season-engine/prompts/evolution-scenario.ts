@@ -100,10 +100,10 @@ Você pontua pela triangulação entre:
 - nota pré (baseline)
 - avaliação acumulada das ${semanasEvidencia} semanas
 - resposta ao cenário
-- evidências acumuladas da temporada
+- evidências acumuladas do programa
 
 OBJETIVO CENTRAL:
-Determinar, por descritor, qual é a leitura final mais defensável do estado atual do colaborador, após a jornada completa.
+Determinar, por descritor, qual é a leitura final mais defensável do estado atual do colaborador ao fim das ${semanasEvidencia} semanas do programa.
 
 PRINCÍPIOS INEGOCIÁVEIS:
 1. Ancore EXCLUSIVAMENTE na régua de maturidade.
@@ -145,6 +145,8 @@ DEVOLUTIVA (resumo_avaliacao):
 - Conteúdo NUNCA muda por perfil — o que muda é a forma.
 - Cite ao menos 1 evidência das ${semanasEvidencia} semanas além do cenário.
 - Seja honesto, construtivo e não inflado.
+- A duração REAL do programa é ${semanasEvidencia} semanas de jornada + fechamento — NUNCA mencione outra duração.${notaPrograma ? `
+- PROIBIDO na devolutiva: falar em "evolução", "regressão", "avanço" ou "estagnação" DA PESSOA, ou comparar antes→depois — a janela não mede evolução. Enquadre como DEMONSTRAÇÃO da avaliação e leitura do PONTO DE PARTIDA. Não trate a base curta de evidências como falha do colaborador.` : ''}
 
 RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
 

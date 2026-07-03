@@ -224,9 +224,12 @@ export async function POST(request) {
 
     // Gate temporal: semana só libera na segunda às 03:00 BRT correspondente.
     const { semanaLiberadaPorData, formatarLiberacao } = await import('@/lib/season-engine/week-gating');
-    if (!semanaLiberadaPorData(trilha.data_inicio, semana)) {
+    // Piloto: slot com calendário espelhado carrega calendario_semana no plano
+    const _planoGate = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
+    const _semCal = _planoGate.find((x: any) => x?.semana === Number(semana))?.calendario_semana ?? semana;
+    if (!semanaLiberadaPorData(trilha.data_inicio, _semCal)) {
       return NextResponse.json({
-        error: `Semana ${semana} ainda bloqueada. Libera ${formatarLiberacao(trilha.data_inicio, semana)}.`,
+        error: `Semana ${semana} ainda bloqueada. Libera ${formatarLiberacao(trilha.data_inicio, _semCal)}.`,
       }, { status: 403 });
     }
     // Gate de progressão: anterior precisa estar concluída.

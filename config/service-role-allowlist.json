@@ -14,7 +14,7 @@
     "lib/audit.ts": 1,
     "lib/i18n-server.ts": 2,
     "lib/permissions.ts": 1,
-    "actions/avaliacao-acumulada.ts": 1,
+    "actions/avaliacao-acumulada.ts": 2,
     "actions/backup.ts": 1,
     "actions/conteudos-metrics.ts": 1,
     "actions/conteudos.ts": 2,
@@ -101,6 +101,7 @@
     "lib/tenant-db.ts": 2,
     "lib/tenant-resolver.ts": 1,
     "lib/versioning.ts": 2,
-    "app/admin/vertho/knowledge-base/actions.ts": 3
+    "app/admin/vertho/knowledge-base/actions.ts": 3,
+    "actions/evolution-report.ts": 1
   }
 }

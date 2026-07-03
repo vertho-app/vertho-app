@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
   ai: { modelo_padrao: 'claude-sonnet-4-6', modelos: {}, anthropic_key: null, gemini_key: null, openai_key: null, thinking: false },
   cadencia: { fase4_dia_pilula: 1, fase4_dia_pilula2: 2, fase4_dia_evidencia: 4, fase4_hora: 8, email_ativo: true, whatsapp_ativo: true },
   envios: { email_remetente: null, email_alias: null },
-  programa_modo: 'regular' as 'regular' | 'onboarding' | 'piloto',
+  programa_modo: 'regular_duo' as 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto',
   fase_carreira_default: null as null | 'junior' | 'pleno' | 'senior',
 };
 
@@ -68,7 +68,10 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
     loadConfig(empresaId).then(r => {
       if (r.success) {
         setEmpresa(r.empresa);
-        setConfig({ ...DEFAULT_CONFIG, ...(r.empresa.sys_config || {}) });
+        const sysConf = { ...(r.empresa.sys_config || {}) };
+        // Normaliza o legado: 'regular'/ausente = Regular DUO (contrato do motor)
+        if (!sysConf.programa_modo || sysConf.programa_modo === 'regular') sysConf.programa_modo = 'regular_duo';
+        setConfig({ ...DEFAULT_CONFIG, ...sysConf });
         setDefaultLocale(r.empresa.default_locale || 'pt-BR');
         const ui = r.empresa.ui_config || {};
         setBranding(prev => ({ ...prev, ...ui }));
@@ -85,7 +88,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
 
   async function handleRoleChange(colaboradorId, novoRole) {
     setRoleUpdating(colaboradorId);
-    const r = await atualizarRole(colaboradorId, novoRole);
+    const r = await atualizarRole(colaboradorId, novoRole, empresaId);
     if (r.success) {
       setEquipe(prev => prev.map(c => c.id === colaboradorId ? { ...c, role: novoRole } : c));
       setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);
@@ -95,7 +98,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
 
   async function handleProgramaChange(colaboradorId, novoModo) {
     setRoleUpdating(colaboradorId);
-    const r = await atualizarProgramaModo(colaboradorId, novoModo || null);
+    const r = await atualizarProgramaModo(colaboradorId, novoModo || null, empresaId);
     if (r.success) {
       setEquipe(prev => prev.map(c => c.id === colaboradorId ? { ...c, programa_modo: novoModo || null } : c));
       setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);
@@ -287,7 +290,8 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
             </p>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { id: 'regular', label: t('program.regular'), desc: t('program.regularDesc') },
+                { id: 'regular_duo', label: t('program.regular'), desc: t('program.regularDesc') },
+                { id: 'regular_single', label: t('program.regularSingle'), desc: t('program.regularSingleDesc') },
                 { id: 'onboarding', label: t('program.onboarding'), desc: t('program.onboardingDesc') },
                 { id: 'piloto', label: t('program.pilot'), desc: t('program.pilotDesc') },
               ].map(opt => (

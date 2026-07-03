@@ -21,13 +21,15 @@ interface PromptEvolutionScenarioCheckParams {
   semanaFinal?: number;
   /** Janela de evidências em semanas (regular=13, piloto=2). Default 13. */
   semanasEvidencia?: number;
+  /** Nota de contexto do programa (ex.: aviso do piloto). Vazio no regular. */
+  notaPrograma?: string;
 }
 
-export function promptEvolutionScenarioCheck({ competencia, descritores, cenario, resposta, avaliacaoPrimaria, evidenciasAcumuladas, semanaFinal = 14, semanasEvidencia = 13 }: PromptEvolutionScenarioCheckParams) {
+export function promptEvolutionScenarioCheck({ competencia, descritores, cenario, resposta, avaliacaoPrimaria, evidenciasAcumuladas, semanaFinal = 14, semanasEvidencia = 13, notaPrograma = '' }: PromptEvolutionScenarioCheckParams) {
   const system = `Você é um auditor de qualidade da avaliação final da semana ${semanaFinal} da Vertho.
 
 Sua tarefa é auditar se a avaliação final triangulada por descritor está metodologicamente DEFENSÁVEL.
-
+${notaPrograma ? `\nCONTEXTO DO PROGRAMA: ${notaPrograma}\nCRITÉRIO EXTRA: sinalize como fragilidade qualquer trecho da avaliação que trate a janela curta como evolução/regressão da pessoa ou mencione duração diferente de ${semanasEvidencia} semanas.\n` : ''}
 ATENÇÃO:
 Você NÃO está refazendo toda a avaliação do zero.
 Você está verificando se a leitura final se sustenta com base em:

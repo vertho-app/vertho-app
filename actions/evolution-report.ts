@@ -57,11 +57,27 @@ export async function gerarEvolutionReport(trilhaId: string, internal: boolean =
     const { data: prog13 } = await tdb.from('temporada_semana_progresso')
       .select('reflexao').eq('trilha_id', trilhaId).eq('semana', programaConfig.semanaAcumulada).maybeSingle();
     const { data: prog14 } = await tdb.from('temporada_semana_progresso')
-      .select('feedback').eq('trilha_id', trilhaId).eq('semana', programaConfig.semanaCenarioB).maybeSingle();
+      .select('feedback, status').eq('trilha_id', trilhaId).eq('semana', programaConfig.semanaCenarioB).maybeSingle();
 
     const qualitativa = prog13?.reflexao?.evolucao_percebida || [];
     const quantitativa = prog14?.feedback?.avaliacao_por_descritor || [];
     const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
+
+    // GUARDS — o report é o ato que marca a trilha como 'concluida'; nunca
+    // concluir sobre fechamento inexistente/incompleto (generate_report é
+    // chamável a qualquer momento pela rota):
+    if (prog14?.status !== 'concluido') {
+      return { success: false, error: `Fechamento (semana ${programaConfig.semanaCenarioB}) ainda não concluído — report não gerado.` };
+    }
+    if (!Array.isArray(quantitativa) || quantitativa.length === 0) {
+      return { success: false, error: 'Fechamento sem avaliação por descritor (scorer não persistiu) — report não gerado.' };
+    }
+    if (isPiloto && prog14?.feedback?.spec_version !== PILOTO_SPEC_VERSION) {
+      return { success: false, error: `Fechamento do piloto sem spec_version='${PILOTO_SPEC_VERSION}' (trava não aplicada?) — report não gerado.` };
+    }
+    if (isPiloto && quantitativa.length < descritores.length) {
+      return { success: false, error: `Fechamento do piloto avaliou ${quantitativa.length}/${descritores.length} descritores — report não gerado.` };
+    }
 
     // ── Piloto: relatório SEM delta/evolução ─────────────────────────────
     // 2 semanas não medem evolução. A competência entra como PONTO DE

@@ -15,6 +15,54 @@
 
 export const PILOTO_SPEC_VERSION = 'piloto-v1';
 
+// Menções de duração que invalidam a narrativa do piloto (o programa tem 2
+// semanas — "14 semanas"/"13 semanas" é a régua do REGULAR vazando).
+const DURACAO_ERRADA = /\b1[0-4]\s+semanas\b/i;
+// Formas em que dá pra corrigir com segurança (frase de duração isolada).
+const DURACAO_CORRIGIVEL = /\b(ao final de|ao longo de|após|depois de|durante|em)\s+1[0-4]\s+semanas\b/gi;
+// (?<!\d\s) — NÃO corrigir quando há contagem antes ("11 das 13 semanas"):
+// trocar a janela ali quebraria a frase; fica pro DURACAO_ERRADA invalidar.
+const JANELA_CORRIGIVEL = /(?<!\d\s)\b(das?|nas?|pelas?)\s+1[0-4]\s+semanas\b/gi;
+
+function corrigirTexto(t: string): string {
+  return t
+    .replace(DURACAO_CORRIGIVEL, (m, prep) => `${prep} 2 semanas`)
+    .replace(JANELA_CORRIGIVEL, () => 'da degustação de 2 semanas');
+}
+
+/**
+ * Sanitização CIRÚRGICA da narrativa do fechamento do piloto: corrige só as
+ * frases de duração seguras ("ao final de 14 semanas" → "ao final de 2
+ * semanas"; "das 13 semanas" → "da degustação de 2 semanas"). NÃO reescreve
+ * conteúdo. Retorna `ok=false` se restou menção de duração errada que não
+ * deu pra corrigir com segurança — o caller trata como narrativa inválida
+ * (retry/erro recuperável), nunca publica.
+ */
+export function sanitizarNarrativaPiloto(parsed: any): { parsed: any; ok: boolean } {
+  if (!parsed || typeof parsed !== 'object') return { parsed, ok: true };
+  const out = { ...parsed };
+
+  const campos: Array<[any, string]> = [];
+  if (out.resumo_avaliacao && typeof out.resumo_avaliacao === 'object') {
+    out.resumo_avaliacao = { ...out.resumo_avaliacao };
+    for (const k of ['mensagem_geral', 'principal_avanco', 'principal_ponto_de_atencao']) {
+      campos.push([out.resumo_avaliacao, k]);
+    }
+  }
+  if (Array.isArray(out.avaliacao_por_descritor)) {
+    out.avaliacao_por_descritor = out.avaliacao_por_descritor.map((d: any) => ({ ...d }));
+    for (const d of out.avaliacao_por_descritor) campos.push([d, 'justificativa']);
+  }
+
+  let restou = false;
+  for (const [obj, k] of campos) {
+    if (typeof obj[k] !== 'string' || !obj[k]) continue;
+    if (DURACAO_ERRADA.test(obj[k])) obj[k] = corrigirTexto(obj[k]);
+    if (DURACAO_ERRADA.test(obj[k])) restou = true;
+  }
+  return { parsed: out, ok: !restou };
+}
+
 interface DescritorBaseline {
   descritor: string;
   nota_atual?: number | string;
