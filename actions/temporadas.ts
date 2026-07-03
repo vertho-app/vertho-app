@@ -512,10 +512,11 @@ async function gerarTemporadaPiloto(args: {
  *   - Cenário B (bloqueador do fechamento): sem banco_cenarios tipo
  *     'cenario_b' pro cargo → fechamento retornaria 424. Gerar via Fase 5.
  */
-export async function verificarProntidaoPiloto(empresaId: string) {
-  try {
+const ProntidaoInput = z.object({ empresaId: z.string().min(1) });
+
+const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput, async (ctx, { empresaId }) => {
+    await assertTenantAccessAction(ctx, empresaId);
     const sbRaw = await requireAdminSupabase();
-    if (!empresaId) return { error: 'empresaId obrigatório' };
 
     const { data: empresa } = await sbRaw.from('empresas')
       .select('sys_config').eq('id', empresaId).maybeSingle();
@@ -523,7 +524,7 @@ export async function verificarProntidaoPiloto(empresaId: string) {
     const tdb = tenantDb(empresaId);
     const { data: todosColabs } = await tdb.from('colaboradores')
       .select('id, nome_completo, cargo, programa_modo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso');
-    if (!todosColabs?.length) return { error: 'Sem colaboradores' };
+    if (!todosColabs?.length) throw new Error('Sem colaboradores');
 
     // O modo é por COLABORADOR (override) com default da empresa — o check
     // cobre só quem RESOLVERIA pra piloto na geração (fonte única de precedência).
@@ -531,7 +532,7 @@ export async function verificarProntidaoPiloto(empresaId: string) {
       c => resolverModoColab(c, empresa?.sys_config) === 'piloto',
     );
     if (!colabs.length) {
-      return { error: `Nenhum colaborador resolveria pra piloto (default da empresa: ${empresa?.sys_config?.programa_modo || 'regular DUO'}; nenhum override individual 'piloto'). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.` };
+      throw new Error(`Nenhum colaborador resolveria pra piloto (default da empresa: ${empresa?.sys_config?.programa_modo || 'regular DUO'}; nenhum override individual 'piloto'). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.`);
     }
     const programaConfig = getProgramaConfigByModo('piloto');
 
@@ -619,11 +620,10 @@ export async function verificarProntidaoPiloto(empresaId: string) {
     }
 
     const prontos = resultados.filter(r => r.pronto).length;
-    return { ok: true, total: resultados.length, prontos, resultados };
-  } catch (err: any) {
-    console.error('[verificarProntidaoPiloto]', err);
-    return { error: err?.message || 'Erro' };
-  }
+    return { total: resultados.length, prontos, resultados };
+});
+export async function verificarProntidaoPiloto(input: z.infer<typeof ProntidaoInput>) {
+  return _verificarProntidaoPiloto(input);
 }
 
 /**
@@ -740,39 +740,47 @@ function inferirContexto(segmento?: string | null): string {
  * Gera temporadas para todos os colaboradores de uma empresa que têm
  * competência foco definida (em trilhas existentes ou no parametro).
  */
-export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig) {
-  try {
-    const sb = await requireAdminSupabase('ai.audit.regenerate');
-    if (!empresaId) return { error: 'empresaId obrigatório' };
-    const { data: colabs } = await sb.from('colaboradores')
-      .select('id, nome_completo').eq('empresa_id', empresaId);
-    if (!colabs?.length) return { error: 'Sem colaboradores' };
+const GerarLoteInput = z.object({
+  empresaId: z.string().min(1),
+  aiConfig: z.record(z.string(), z.any()).optional(),
+});
 
-    const resultados: any[] = [];
-    for (const c of colabs) {
-      const r = await gerarTemporada({ colaboradorId: c.id, aiConfig });
-      resultados.push({ colab: c.nome_completo, ...r });
-    }
-    const ok = resultados.filter(r => r.ok).length;
-    const errosUnicos = [...new Set(resultados.filter(r => !r.ok).map(r => r.error))].slice(0, 3);
-    await logAdminAction({
-      adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
-      acao: 'temporada.gerar_lote', empresaId,
-      alvo: `${colabs.length} colaboradores`,
-      detalhes: { total: colabs.length, gerados: ok, erros: colabs.length - ok, errosUnicos },
-      resultado: ok === 0 ? 'erro' : ok < colabs.length ? 'parcial' : 'ok',
-    });
-    return {
-      success: true,
-      total: colabs.length,
-      gerados: ok,
-      resultados,
-      message: `${ok}/${colabs.length} temporadas geradas${errosUnicos.length ? ` · erros: ${errosUnicos.join('; ')}` : ''}`,
-    };
-  } catch (err: any) {
-    console.error('[gerarTemporadasLote]', err);
-    return { success: false, error: err?.message || 'Erro' };
+const _gerarTemporadasLote = protectedAction('ai.audit.regenerate', GerarLoteInput, async (ctx, { empresaId, aiConfig }) => {
+  await assertTenantAccessAction(ctx, empresaId);
+  const sb = await requireAdminSupabase();
+  const { data: colabs } = await sb.from('colaboradores')
+    .select('id, nome_completo').eq('empresa_id', empresaId);
+  if (!colabs?.length) throw new Error('Sem colaboradores');
+
+  const resultados: any[] = [];
+  for (const c of colabs) {
+    const r = await gerarTemporada({ colaboradorId: c.id, aiConfig });
+    resultados.push({ colab: c.nome_completo, ...r });
   }
+  const ok = resultados.filter(r => r.ok).length;
+  const errosUnicos = [...new Set(resultados.filter(r => !r.ok).map(r => r.error))].slice(0, 3);
+  await logAdminAction({
+    adminEmail: ctx.email || 'desconhecido',
+    acao: 'temporada.gerar_lote', empresaId,
+    alvo: `${colabs.length} colaboradores`,
+    detalhes: { total: colabs.length, gerados: ok, erros: colabs.length - ok, errosUnicos },
+    resultado: ok === 0 ? 'erro' : ok < colabs.length ? 'parcial' : 'ok',
+  });
+  return {
+    total: colabs.length,
+    gerados: ok,
+    resultados,
+    message: `${ok}/${colabs.length} temporadas geradas${errosUnicos.length ? ` · erros: ${errosUnicos.join('; ')}` : ''}`,
+  };
+});
+/**
+ * Wrapper POSICIONAL achatador: o dispatcher genérico do pipeline
+ * (ACTION_MAP) e actions/fase4.ts chamam `(empresaId, aiConfig)` e leem
+ * success/message no TOPO — o envelope do protectedAction fica interno.
+ */
+export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig) {
+  const r = await _gerarTemporadasLote({ empresaId, aiConfig });
+  return r.success ? { success: true, ...(r.data as object) } : r;
 }
 
 /**
@@ -967,9 +975,14 @@ async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { co
  * gerar on-demand no 1º clique). Idempotente: pula o que já está cacheado.
  * Limita às semanas liberadas (não as 14) p/ não gerar o que ninguém vai abrir já.
  */
-export async function prepararEntregasJornada(empresaId: string, opts: { colaboradorId?: string } = {}) {
-  await requireAdminAction('content.manage');
-  if (!empresaId) return { error: 'empresaId obrigatório' as const };
+const PrepararEntregasInput = z.object({
+  empresaId: z.string().min(1),
+  colaboradorId: z.string().optional(),
+});
+
+const _prepararEntregasJornada = protectedAction('content.manage', PrepararEntregasInput, async (ctx, { empresaId, colaboradorId }) => {
+  await assertTenantAccessAction(ctx, empresaId);
+  const opts = { colaboradorId };
   const { gerarConteudoFinalPersonalizado, prepararAudioPersonalizado } = await import('@/actions/conteudos');
   const { semanaLiberadaPorData } = await import('@/lib/season-engine/week-gating');
   const tdb = tenantDb(empresaId);
@@ -978,7 +991,7 @@ export async function prepararEntregasJornada(empresaId: string, opts: { colabor
   let cq = tdb.from('colaboradores').select(colCols);
   if (opts.colaboradorId) cq = cq.eq('id', opts.colaboradorId);
   const { data: colabs } = await cq;
-  if (!colabs?.length) return { error: 'Sem colaboradores' as const };
+  if (!colabs?.length) throw new Error('Sem colaboradores');
 
   let preparadas = 0, jaProntas = 0, falhas = 0, semanas = 0;
   for (const colab of colabs as any[]) {
@@ -1014,7 +1027,10 @@ export async function prepararEntregasJornada(empresaId: string, opts: { colabor
       }
     }
   }
-  return { ok: true as const, colaboradores: colabs.length, semanas, preparadas, jaProntas, falhas };
+  return { colaboradores: colabs.length, semanas, preparadas, jaProntas, falhas };
+});
+export async function prepararEntregasJornada(input: z.infer<typeof PrepararEntregasInput>) {
+  return _prepararEntregasJornada(input);
 }
 
 export async function listarTemporadasEmpresa(empresaId: string) {

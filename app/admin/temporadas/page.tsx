@@ -65,10 +65,10 @@ export default function TemporadasAdminPage() {
     if (!empresaId) { alert('Abra esta tela no contexto de uma empresa (?empresa=...).'); return; }
     if (!confirm(`Pré-gerar as entregas (PDF/áudio personalizados) das semanas já liberadas de ${nome || 'colaborador'}? Abre instantâneo depois.`)) return;
     setBusy(true);
-    const r = await prepararEntregasJornada(empresaId, { colaboradorId });
+    const r = await prepararEntregasJornada({ empresaId, colaboradorId });
     setBusy(false);
-    if (r.error) alert(r.error);
-    else alert(`Entregas: ${r.preparadas} geradas · ${r.jaProntas} já prontas · ${r.falhas} falhas (${r.semanas} semana(s) liberada(s))`);
+    if (!r.success) alert(r.error);
+    else alert(`Entregas: ${r.data.preparadas} geradas · ${r.data.jaProntas} já prontas · ${r.data.falhas} falhas (${r.data.semanas} semana(s) liberada(s))`);
   }
 
   async function handleLiberar(trilhaId, nome) {
@@ -103,10 +103,10 @@ export default function TemporadasAdminPage() {
   async function handleProntidaoPiloto() {
     if (!empresaId) { alert('Abra esta tela no contexto de uma empresa (?empresa=...).'); return; }
     setBusy(true);
-    const r = await verificarProntidaoPiloto(empresaId);
+    const r = await verificarProntidaoPiloto({ empresaId });
     setBusy(false);
-    if (r.error) { alert(r.error); return; }
-    setProntidao(r);
+    if (!r.success) { alert(r.error); return; }
+    setProntidao(r.data);
   }
 
   async function handleSimular(trilhaId: any, nome: string) {
