@@ -9,7 +9,10 @@ import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { getProgramaConfig, getProgramaConfigByModo, resolverModoColab, type ProgramaModoLabel } from '@/lib/season-engine/programa-config';
 import type { AIConfig } from './ai-client';
-import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
+import { z } from 'zod';
+import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction, assertTenantAccessAction } from '@/lib/auth/action-context';
+import { protectedAction } from '@/lib/auth/protected-action';
+import { findTrilhaComTenant, updateTrilhaInTenant, updateSemanaProgressoInTenant } from '@/lib/repositories/trilhas-repo';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { logAdminAction } from '@/lib/audit';
 import { PROGRESSO, TRILHA } from '@/lib/status';
@@ -775,18 +778,20 @@ export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig
 /**
  * Pausa/retoma uma temporada (toggle baseado no status atual).
  */
-export async function pausarRetomarTemporada(trilhaId: string) {
-  try {
-    const sb = await requireAdminSupabase('content.manage');
-    const { data: t } = await sb.from('trilhas').select('status, empresa_id').eq('id', trilhaId).maybeSingle();
-    if (!t) return { success: false, error: 'Trilha não encontrada' };
-    const novo = t.status === TRILHA.PAUSADA ? TRILHA.ATIVA : TRILHA.PAUSADA;
-    const { error } = await sb.from('trilhas').update({ status: novo }).eq('id', trilhaId).eq('empresa_id', t.empresa_id);
-    if (error) return { success: false, error: error.message };
-    return { success: true, status: novo, message: `Temporada ${novo}` };
-  } catch (err: any) {
-    return { success: false, error: err?.message };
-  }
+const TrilhaIdInput = z.object({ trilhaId: z.string().min(1) });
+
+const _pausarRetomarTemporada = protectedAction('content.manage', TrilhaIdInput, async (ctx, { trilhaId }) => {
+  const sb = await requireAdminSupabase();
+  const trilha = await findTrilhaComTenant(sb, trilhaId);
+  if (!trilha) throw new Error('Trilha não encontrada');
+  await assertTenantAccessAction(ctx, trilha.empresa_id); // defense-in-depth (no-op p/ platform admin)
+  const novo = trilha.status === TRILHA.PAUSADA ? TRILHA.ATIVA : TRILHA.PAUSADA;
+  const upd = await updateTrilhaInTenant(sb, trilha.empresa_id, trilhaId, { status: novo });
+  if (!upd) throw new Error('Trilha não encontrada nesta empresa');
+  return { status: novo, message: `Temporada ${novo}` };
+});
+export async function pausarRetomarTemporada(input: z.infer<typeof TrilhaIdInput>) {
+  return _pausarRetomarTemporada(input);
 }
 
 /**
@@ -794,55 +799,61 @@ export async function pausarRetomarTemporada(trilhaId: string) {
  * Seta data_inicio para a segunda-feira corrente (SP) — semana 1 libera na hora e as
  * seguintes mantêm o ritmo de 7 dias. Em produção, data_inicio nasce na próxima segunda.
  */
-export async function anteciparInicioTemporada(trilhaId: string) {
-  try {
-    const sb = await requireAdminSupabase('content.manage');
-    if (!trilhaId) return { success: false, error: 'trilhaId obrigatório' };
-    // Segunda-feira corrente em SP (BRT, UTC-3): a segunda <= hoje.
-    const SP_OFFSET_H = 3;
-    const sp = new Date(Date.now() - SP_OFFSET_H * 3600 * 1000);
-    const dow = sp.getUTCDay(); // 0=dom..6=sab
-    const diasDesdeSegunda = (dow + 6) % 7; // seg=0, ter=1, ..., dom=6
-    const segunda = new Date(Date.UTC(sp.getUTCFullYear(), sp.getUTCMonth(), sp.getUTCDate() - diasDesdeSegunda));
-    const dataInicio = segunda.toISOString().slice(0, 10);
-    const { data: t } = await sb.from('trilhas').select('empresa_id').eq('id', trilhaId).maybeSingle();
-    if (!t) return { success: false, error: 'Trilha não encontrada' };
-    const { error } = await sb.from('trilhas').update({ data_inicio: dataInicio }).eq('id', trilhaId).eq('empresa_id', t.empresa_id);
-    if (error) return { success: false, error: error.message };
-    return { success: true, dataInicio, message: `Semanas liberadas (início ${dataInicio})` };
-  } catch (err: any) {
-    return { success: false, error: err?.message };
-  }
+const _anteciparInicioTemporada = protectedAction('content.manage', TrilhaIdInput, async (ctx, { trilhaId }) => {
+  const sb = await requireAdminSupabase();
+  // Segunda-feira corrente em SP (BRT, UTC-3): a segunda <= hoje.
+  const SP_OFFSET_H = 3;
+  const sp = new Date(Date.now() - SP_OFFSET_H * 3600 * 1000);
+  const dow = sp.getUTCDay(); // 0=dom..6=sab
+  const diasDesdeSegunda = (dow + 6) % 7; // seg=0, ter=1, ..., dom=6
+  const segunda = new Date(Date.UTC(sp.getUTCFullYear(), sp.getUTCMonth(), sp.getUTCDate() - diasDesdeSegunda));
+  const dataInicio = segunda.toISOString().slice(0, 10);
+  const trilha = await findTrilhaComTenant(sb, trilhaId);
+  if (!trilha) throw new Error('Trilha não encontrada');
+  await assertTenantAccessAction(ctx, trilha.empresa_id);
+  const upd = await updateTrilhaInTenant(sb, trilha.empresa_id, trilhaId, { data_inicio: dataInicio });
+  if (!upd) throw new Error('Trilha não encontrada nesta empresa');
+  return { dataInicio, message: `Semanas liberadas (início ${dataInicio})` };
+});
+export async function anteciparInicioTemporada(input: z.infer<typeof TrilhaIdInput>) {
+  return _anteciparInicioTemporada(input);
 }
 
-export async function arquivarTemporada(trilhaId: string) {
-  try {
-    const sb = await requireAdminSupabase('content.manage');
-    const { data: t } = await sb.from('trilhas').select('empresa_id').eq('id', trilhaId).maybeSingle();
-    if (!t) return { success: false, error: 'Trilha não encontrada' };
-    const { error } = await sb.from('trilhas').update({ status: TRILHA.ARQUIVADA }).eq('id', trilhaId).eq('empresa_id', t.empresa_id);
-    if (error) return { success: false, error: error.message };
-    return { success: true, message: 'Arquivada' };
-  } catch (err: any) {
-    return { success: false, error: err?.message };
-  }
+const _arquivarTemporada = protectedAction('content.manage', TrilhaIdInput, async (ctx, { trilhaId }) => {
+  const sb = await requireAdminSupabase();
+  const trilha = await findTrilhaComTenant(sb, trilhaId);
+  if (!trilha) throw new Error('Trilha não encontrada');
+  await assertTenantAccessAction(ctx, trilha.empresa_id);
+  const upd = await updateTrilhaInTenant(sb, trilha.empresa_id, trilhaId, { status: TRILHA.ARQUIVADA });
+  if (!upd) throw new Error('Trilha não encontrada nesta empresa');
+  return { message: 'Arquivada' };
+});
+export async function arquivarTemporada(input: z.infer<typeof TrilhaIdInput>) {
+  return _arquivarTemporada(input);
 }
 
 /**
  * Regera desafio (semana de conteúdo) OU cenário (semana de aplicação)
  * para uma semana específica. Reseta o progresso.
  */
-export async function regerarSemana(trilhaId: string, semana: number, aiConfig: AIConfig = {}) {
-  try {
-    const sb = await requireAdminSupabase('ai.audit.regenerate');
-    const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados')
-      .eq('id', trilhaId).maybeSingle();
-    if (!trilha) return { success: false, error: 'Trilha não encontrada' };
+const RegerarSemanaInput = z.object({
+  trilhaId: z.string().min(1),
+  semana: z.coerce.number().int().min(1),
+  aiConfig: z.record(z.string(), z.any()).optional(),
+});
+
+const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput, async (ctx, { trilhaId, semana, aiConfig = {} }) => {
+    const sb = await requireAdminSupabase();
+    const trilha = await findTrilhaComTenant(
+      sb, trilhaId,
+      'id, colaborador_id, empresa_id, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados',
+    );
+    if (!trilha) throw new Error('Trilha não encontrada');
+    await assertTenantAccessAction(ctx, trilha.empresa_id);
 
     const plano: any[] = Array.isArray(trilha.temporada_plano) ? [...trilha.temporada_plano] : [];
     const idx = plano.findIndex((s: any) => s.semana === Number(semana));
-    if (idx < 0) return { success: false, error: 'Semana não encontrada no plano' };
+    if (idx < 0) throw new Error('Semana não encontrada no plano');
 
     const { data: colab } = await sb.from('colaboradores')
       .select('cargo, empresa_id').eq('id', trilha.colaborador_id).maybeSingle();
@@ -907,21 +918,20 @@ export async function regerarSemana(trilhaId: string, semana: number, aiConfig: 
 
       plano[idx] = { ...slot, missao: missaoObj, cenario: cenarioObj };
     } else {
-      return { success: false, error: 'Semana de avaliação não pode ser regerada' };
+      throw new Error('Semana de avaliação não pode ser regerada');
     }
 
-    await sb.from('trilhas').update({ temporada_plano: plano }).eq('id', trilhaId).eq('empresa_id', trilha.empresa_id);
+    await updateTrilhaInTenant(sb, trilha.empresa_id, trilhaId, { temporada_plano: plano });
 
     // Reseta progresso da semana
-    await sb.from('temporada_semana_progresso')
-      .update({ status: PROGRESSO.PENDENTE, conteudo_consumido: false, reflexao: null, feedback: null, iniciado_em: null, concluido_em: null })
-      .eq('trilha_id', trilhaId).eq('empresa_id', trilha.empresa_id).eq('semana', Number(semana));
+    await updateSemanaProgressoInTenant(sb, trilha.empresa_id, trilhaId, Number(semana), {
+      status: PROGRESSO.PENDENTE, conteudo_consumido: false, reflexao: null, feedback: null, iniciado_em: null, concluido_em: null,
+    });
 
-    return { success: true, message: `Semana ${semana} regerada` };
-  } catch (err: any) {
-    console.error('[VERTHO] regerarSemana:', err);
-    return { success: false, error: err?.message };
-  }
+    return { message: `Semana ${semana} regerada` };
+});
+export async function regerarSemana(input: z.infer<typeof RegerarSemanaInput>) {
+  return _regerarSemana(input);
 }
 
 /**

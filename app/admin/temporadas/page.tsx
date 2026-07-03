@@ -46,7 +46,7 @@ export default function TemporadasAdminPage() {
 
   async function handlePausar(trilhaId) {
     setBusy(true);
-    await pausarRetomarTemporada(trilhaId);
+    await pausarRetomarTemporada({ trilhaId });
     await recarregar();
     setBusy(false);
   }
@@ -74,7 +74,7 @@ export default function TemporadasAdminPage() {
   async function handleLiberar(trilhaId, nome) {
     if (!confirm(`Liberar todas as semanas já liberáveis de ${nome || 'colaborador'} agora? (antecipa o início para esta segunda — uso em teste/demo)`)) return;
     setBusy(true);
-    const r = await anteciparInicioTemporada(trilhaId);
+    const r = await anteciparInicioTemporada({ trilhaId });
     if (!r.success) alert(r.error);
     await recarregar();
     setBusy(false);
@@ -83,7 +83,7 @@ export default function TemporadasAdminPage() {
   async function handleArquivar(trilhaId, nome) {
     if (!confirm(t('confirm.archive', { name: nome || t('fallback.collaborator') }))) return;
     setBusy(true);
-    await arquivarTemporada(trilhaId);
+    await arquivarTemporada({ trilhaId });
     await recarregar();
     setBusy(false);
   }
@@ -91,7 +91,7 @@ export default function TemporadasAdminPage() {
   async function handleRegerar(trilhaId, semana) {
     if (!confirm(t('confirm.regenerateWeek', { week: semana }))) return;
     setBusy(true);
-    const r = await regerarSemana(trilhaId, semana);
+    const r = await regerarSemana({ trilhaId, semana });
     if (!r.success) alert(r.error);
     await recarregar();
     setBusy(false);
