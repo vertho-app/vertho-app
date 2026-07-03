@@ -184,6 +184,10 @@ export async function gerarEsalvarRelatorioComportamental({ colab: inputColab, c
  */
 export async function pregerarPdfsEmpresa(empresaId) {
   try {
+    // Gate admin — sem isto, qualquer autenticado dispararia geração de PDFs +
+    // chamadas LLM de todos os colabs de qualquer empresa (IDOR + abuso de custo).
+    const { requireAdminAction } = await import('@/lib/auth/action-context');
+    await requireAdminAction('assessments.dispatch');
     if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
     const { createSupabaseAdmin } = await import('@/lib/supabase');
     const sb = createSupabaseAdmin();
@@ -272,6 +276,11 @@ export async function baixarRelatorioComportamentalPdf() {
  */
 export async function baixarRelatorioComportamentalPdfPorId(colabId) {
   try {
+    // Gate admin — sem isto, qualquer autenticado baixava o PDF DISC de
+    // qualquer colab (fetchColabPorId não filtra empresa). Mesmo padrão das
+    // irmãs ouvir/enviarDevolutivaPorId; callers são só telas admin.
+    const { requireAdminAction } = await import('@/lib/auth/action-context');
+    await requireAdminAction();
     if (!colabId) return { error: 'colabId obrigatório' };
     const colab = await fetchColabPorId(colabId);
     if (!colab) return { error: 'Colaborador não encontrado' };
