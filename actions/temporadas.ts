@@ -11,7 +11,7 @@ import { getProgramaConfig, getProgramaConfigByModo, resolverModoColab, type Pro
 import type { AIConfig } from './ai-client';
 import { z } from 'zod';
 import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction, assertTenantAccessAction } from '@/lib/auth/action-context';
-import { protectedAction } from '@/lib/auth/protected-action';
+import { protectedAction, DomainError } from '@/lib/auth/protected-action';
 import { findTrilhaComTenant, updateTrilhaInTenant, updateSemanaProgressoInTenant } from '@/lib/repositories/trilhas-repo';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { logAdminAction } from '@/lib/audit';
@@ -37,12 +37,38 @@ export async function loadTemporadaPorEmail(email: string, opts: { semanaTranscr
   }
 }
 
+const GerarTemporadaInput = z.object({
+  colaboradorId: z.string().min(1),
+  competencia: z.string().optional(),
+  aiConfig: z.record(z.string(), z.any()).optional(),
+});
+
+const _gerarTemporada = protectedAction('ai.audit.regenerate', GerarTemporadaInput, async (_ctx, input) => {
+  const r: any = await gerarTemporadaCore(input);
+  // Core devolve shapes legados; erro de domínio vira DomainError (a factory
+  // transporta o `codigo` — sem_assessment etc. — pros agregadores).
+  if (r?.error) throw new DomainError(r.error, r.codigo);
+  return r; // { ok: true, trilhaId, ... } — o wrapper devolve como está
+});
+
+/**
+ * Wrapper ACHATADOR: callers legados (lote, dispatcher do pipeline, tela
+ * admin/temporadas) leem ok/error/codigo no TOPO — o envelope fica interno.
+ */
+export async function gerarTemporada(input: z.infer<typeof GerarTemporadaInput>) {
+  const res = await _gerarTemporada(input);
+  return res.success
+    ? (res.data as any)
+    : { error: res.error, ...(res.codigo ? { codigo: res.codigo } : {}) };
+}
+
 /**
  * Gera uma temporada pra um colaborador, focada em 1 competência.
  * Duração e cadência vêm de `empresas.sys_config` via `getProgramaConfig`
- * (default = regular 14 semanas).
+ * (default = regular 14 semanas). CORE legado — contrato {ok|error,codigo};
+ * o export público passa pela factory acima.
  */
-export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: GerarTemporadaParams = {}) {
+async function gerarTemporadaCore({ colaboradorId, competencia, aiConfig }: GerarTemporadaParams = {}) {
   try {
     const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };

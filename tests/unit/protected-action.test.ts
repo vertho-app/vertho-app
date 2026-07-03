@@ -4,7 +4,7 @@ import { z } from 'zod';
 const requireAdminMock = vi.fn();
 vi.mock('@/lib/auth/action-context', () => ({ requireAdminAction: (...a: any[]) => requireAdminMock(...a) }));
 
-import { protectedAction } from '@/lib/auth/protected-action';
+import { protectedAction, DomainError } from '@/lib/auth/protected-action';
 
 const ctx = { email: 'a@b.com', isPlatformAdmin: true } as any;
 const Schema = z.object({ nome: z.string().min(1) });
@@ -47,5 +47,20 @@ describe('protectedAction', () => {
     expect(r.success).toBe(false);
     expect(r.code).toBe('FORBIDDEN');
     expect(r.error).toBe('sem acesso a esta empresa');
+  });
+
+  it('DomainError transporta `codigo` de domínio no ActionResult', async () => {
+    const fn = vi.fn(async () => { throw new DomainError('Colaborador sem avaliação', 'sem_assessment'); });
+    const r = await protectedAction('companies.manage', Schema, fn)({ nome: 'X' });
+    expect(r.success).toBe(false);
+    expect(r.error).toBe('Colaborador sem avaliação');
+    expect(r.codigo).toBe('sem_assessment');
+  });
+
+  it('Error comum NÃO carrega codigo (só DomainError)', async () => {
+    const fn = vi.fn(async () => { throw new Error('boom'); });
+    const r = await protectedAction('companies.manage', Schema, fn)({ nome: 'X' });
+    expect(r.success).toBe(false);
+    expect(r.codigo).toBeUndefined();
   });
 });
