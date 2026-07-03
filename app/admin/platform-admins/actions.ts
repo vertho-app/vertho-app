@@ -42,6 +42,11 @@ export async function definirRoleAdmin(id: any, role: any) {
   const sb = await requireAdminSupabase();
   if (!id) return { success: false, error: 'ID obrigatório' };
   const { data: alvoAdmin } = await sb.from('platform_admins').select('email, role').eq('id', id).maybeSingle();
+  // Self-protection: um master não pode rebaixar a si mesmo (se-lockout). Como
+  // só é possível agir sobre OUTROS, o último master sempre sobrevive.
+  if ((alvoAdmin as any)?.email && (alvoAdmin as any).email.toLowerCase() === ctx.email?.toLowerCase()) {
+    return { success: false, error: 'Você não pode alterar o próprio papel de admin.' };
+  }
   const novo = normalizeRole(role);
   const { error } = await sb.from('platform_admins').update({ role: novo }).eq('id', id);
   if (error) return { success: false, error: error.message };
@@ -54,6 +59,10 @@ export async function removerAdmin(id: any) {
   const sb = await requireAdminSupabase();
   if (!id) return { success: false, error: 'ID obrigatorio' };
   const { data: alvoAdmin } = await sb.from('platform_admins').select('email, role').eq('id', id).maybeSingle();
+  // Self-protection: um master não pode remover a si mesmo (se-lockout).
+  if ((alvoAdmin as any)?.email && (alvoAdmin as any).email.toLowerCase() === ctx.email?.toLowerCase()) {
+    return { success: false, error: 'Você não pode remover a si mesmo.' };
+  }
   const { error } = await sb.from('platform_admins').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
   await logAdminAction({ adminEmail: ctx.email, acao: 'platform_admin.remover', alvo: (alvoAdmin as any)?.email || id, detalhes: { role: (alvoAdmin as any)?.role } });
