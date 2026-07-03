@@ -91,7 +91,8 @@ export const PROGRAMA_REGULAR: ProgramaConfig = Object.freeze({
   complexidadeMap: { 4: 'simples', 8: 'intermediario', 12: 'completo' },
   nivelMetaAlvo: 3,
   numCompetencias: 1,
-  arguicao: { ativa: false, maxTurnos: 8 },
+  // Fase D+ (03/07): arguição LIGADA no regular (single) — validada no piloto.
+  arguicao: { ativa: true, maxTurnos: 8 },
 }) as ProgramaConfig;
 
 /**
@@ -168,7 +169,9 @@ export const PROGRAMA_REGULAR_DUO: ProgramaConfig = Object.freeze({
   // SEM semanaParaCompetenciaIdx: a competência de cada semana de conteúdo
   // vem do descritor (selectDescriptorsDuo grava .competencia). O mapa
   // semana→comp é exclusivo do onboarding (espiral raso).
-  arguicao: { ativa: false, maxTurnos: 8 },
+  // Fase D+ (03/07): arguição LIGADA no Regular DUO (default global) — validada
+  // no piloto. Onboarding segue OFF (modo à parte; ligar sob demanda).
+  arguicao: { ativa: true, maxTurnos: 8 },
 }) as ProgramaConfig;
 
 /**
