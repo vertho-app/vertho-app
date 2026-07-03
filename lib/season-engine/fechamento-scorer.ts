@@ -18,8 +18,10 @@ import { callAI } from '@/actions/ai-client';
 import { promptEvolutionScenarioScore, validateEvolutionScenarioScore } from './prompts/evolution-scenario';
 import { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } from './prompts/evolution-scenario-check';
 import { aplicarTravaPiloto, sanitizarNarrativaPiloto } from './piloto-trava';
+import { fundirArguicao } from './fusao-arguicao';
 import { parseJsonIA } from '@/lib/ai-json';
 import type { ProgramaConfig } from './programa-config';
+import type { ArguicaoExtracao } from './arguicao';
 
 export interface PontuarFechamentoArgs {
   competencia: string;
@@ -40,6 +42,12 @@ export interface PontuarFechamentoArgs {
   regeracao?: {
     feedbackAuditoria: string;
   };
+  /**
+   * Extração da ARGUIÇÃO (Fase A). Quando presente, a nota do cenário é
+   * MODULADA (fusão determinística, ±0,5 no código) ANTES da trava piloto.
+   * Ausente = fechamento sem arguição (nota do cenário direta).
+   */
+  evidenciasArguicao?: ArguicaoExtracao | null;
 }
 
 export interface PontuarFechamentoMeta {
@@ -47,6 +55,8 @@ export interface PontuarFechamentoMeta {
   sanitizacaoAplicada: boolean;
   narrativaPilotoOk: boolean;
   specVersion: string | null;
+  /** Quantos descritores a arguição modulou (Fase B). 0 = sem arguição/sem ajuste. */
+  arguicaoAjustados?: number;
   warnings: string[];
 }
 
@@ -115,7 +125,7 @@ EXPECTATIVA DESTA RODADA:
 - Reconheça melhora real quando ela aconteceu`;
 
 export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<PontuarFechamentoResultado> {
-  const { competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria, config, regeracao } = args;
+  const { competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria, config, regeracao, evidenciasArguicao } = args;
   const { isPiloto, semanaFinal, semanasEvidencia, notaPrograma } = reguaTemporalDoPrograma(config);
 
   const meta: PontuarFechamentoMeta = {
@@ -165,8 +175,17 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
     return { ok: false, erro: 'A avaliação automática falhou ao processar a resposta (parse/narrativa inválida).', meta };
   }
 
+  // FUSÃO da arguição (Fase B) — MODULA a nota do cenário (±0,5, clamp no
+  // código; derivada da classificação da extração, sem IA nova). Roda ANTES
+  // da trava piloto. Sem evidências → no-op (nota do cenário intacta).
+  if (evidenciasArguicao) {
+    const fus = fundirArguicao(parsed, evidenciasArguicao);
+    parsed = fus.parsed;
+    meta.arguicaoAjustados = fus.ajustados;
+  }
+
   // TRAVA piloto-only (piso no baseline; bruto + piso_aplicado preservados;
-  // spec_version carimbada). Scorer dos demais modos passa reto.
+  // spec_version carimbada). Aplica sobre a nota FUNDIDA. Demais modos: reto.
   if (isPiloto) {
     parsed = aplicarTravaPiloto(parsed, descritores);
   }

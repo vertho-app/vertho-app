@@ -122,4 +122,42 @@ describe('fechamento-scorer — núcleo compartilhado', () => {
     expect(r.parsed.spec_version).toBeUndefined();    // sem carimbo
     expect(r.meta.sanitizacaoAplicada).toBe(false);   // sanitização é piloto-only
   });
+
+  const extracaoArg = (evs: any[]) => ({
+    resumo: { leitura_geral: '', sustentacao_mais_forte: '', fragilidade_mais_relevante: '' },
+    evidencias_por_descritor: evs,
+  });
+
+  it('arguição (regular): modula a nota do cenário antes de finalizar', async () => {
+    mockAI.mockResolvedValueOnce(scoreOk('após 14 semanas.')).mockResolvedValueOnce(checkOk);
+    const r = await pontuarFechamento({
+      ...argsBase, config: PROGRAMA_REGULAR_DUO,
+      evidenciasArguicao: extracaoArg([
+        { descritor: 'D1', sustentou: 'aprofundou', forca: 'forte' },   // 1.5 → 2.0
+        { descritor: 'D2', sustentou: 'fragilizou', forca: 'moderada' }, // 2.8 → 2.45→2.5
+      ]),
+    } as any);
+    expect(r.ok).toBe(true);
+    if (r.ok !== true) return;
+    const d1 = r.parsed.avaliacao_por_descritor.find((d: any) => d.descritor === 'D1');
+    expect(d1.nota_base_cenario).toBe(1.5);
+    expect(d1.ajuste_arguicao).toBe(0.5);
+    expect(d1.nota_pos).toBe(2.0);            // modulada
+    expect(r.meta.arguicaoAjustados).toBe(2);
+  });
+
+  it('arguição (piloto): fusão roda ANTES da trava — piso aplica sobre a nota fundida', async () => {
+    mockAI.mockResolvedValueOnce(scoreOk()).mockResolvedValueOnce(checkOk);
+    // D1 bruto 1.5, fragilizado −0.5 → 1.0; baseline (nota_atual) = 2.0 → trava para 2.0
+    const r = await pontuarFechamento({
+      ...argsBase,
+      evidenciasArguicao: extracaoArg([{ descritor: 'D1', sustentou: 'fragilizou', forca: 'forte' }]),
+    } as any);
+    expect(r.ok).toBe(true);
+    if (r.ok !== true) return;
+    const d1 = r.parsed.avaliacao_por_descritor.find((d: any) => d.descritor === 'D1');
+    expect(d1.nota_base_cenario).toBe(1.5);
+    expect(d1.nota_pos_bruto).toBe(1.0);     // fundido (1.5−0.5) preservado como bruto
+    expect(d1.nota_pos).toBe(2.0);           // trava de piso sobre a nota fundida
+  });
 });

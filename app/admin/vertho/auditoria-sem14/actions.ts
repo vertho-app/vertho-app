@@ -173,6 +173,8 @@ ${ajustesTexto}`;
     acumuladoPrimaria,
     config: programaConfig,
     regeracao: { feedbackAuditoria },
+    // Regeneração respeita a arguição já feita (fb.arguicao) — mesma modulação.
+    evidenciasArguicao: fb.arguicao?.concluida ? fb.arguicao.extracao : null,
   });
   if (resultado.ok !== true) return { error: `Scorer falhou: ${resultado.erro}`, meta: resultado.meta };
 

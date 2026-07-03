@@ -331,6 +331,8 @@ export async function POST(request) {
         evidenciasAcumuladas: evidenciasMasked,
         acumuladoPrimaria,
         config: programaConfig,
+        // Fusão da arguição (Fase B): modula a nota se a defesa oral concluiu.
+        evidenciasArguicao: dados.arguicao?.concluida ? dados.arguicao.extracao : null,
       });
       if (resultadoScorer.meta.warnings.length) {
         console.warn('[VERTHO] fechamento warnings:', resultadoScorer.meta.warnings.join(' | '));
