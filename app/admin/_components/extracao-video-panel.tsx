@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Loader2, Sparkles, FileText, CheckCircle2, Clock, AlertCircle, Send, Layers, ExternalLink, Upload, CircleSlash, X, Trash2 } from 'lucide-react';
 import { extrairVideo, gerarModuloBaseDoVideo, submeterExtracaoAsync, listarExtracoesAndamento, submeterMaterialAsync, submeterTextoBaseAsync, listarDirecionadoresExtracao, excluirExtracao, limparHistoricoExtracoes } from '@/actions/extracao-video';
 import type { DirecionamentoExtracao } from '@/actions/extracao-video';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 
 /**
  * Painel de extração de vídeo → Módulo-Base, compartilhado por:
@@ -26,6 +27,7 @@ export default function ExtracaoVideoPanel({
   modoVertho?: boolean;
   empresas?: { id: string; nome: string }[];
 }) {
+  const confirmDialog = useConfirm();
   // Alcance: 'global' (canônico) | 'empresa' (exclusivo).
   const [alcance, setAlcance] = useState<'global' | 'empresa'>(modoVertho ? 'global' : 'empresa');
   const [empresaPick, setEmpresaPick] = useState<string>(''); // só no modo Vertho
@@ -71,7 +73,12 @@ export default function ExtracaoVideoPanel({
   async function limparConcluidas() {
     const concluidas = extracoes.filter((e) => e.status !== 'processing').length;
     if (!concluidas) { flash('Nada para limpar.'); return; }
-    if (!window.confirm(`Limpar ${concluidas} entrada(s) concluída(s) do histórico? Os módulos já gerados NÃO são apagados.`)) return;
+    const ok = await confirmDialog({
+      title: 'Limpar histórico',
+      message: `Limpar ${concluidas} entrada(s) concluída(s) do histórico? Os módulos já gerados NÃO são apagados.`,
+      severity: 'danger',
+    });
+    if (!ok) return;
     setLimpando(true);
     const r = await limparHistoricoExtracoes(origemEmpresaId);
     setLimpando(false);

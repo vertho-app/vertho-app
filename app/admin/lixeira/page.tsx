@@ -2,15 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { Trash2, RotateCcw, Loader2, AlertTriangle } from 'lucide-react';
 import { listarLixeira, restaurarDaLixeira, esvaziarLixeira } from '@/app/admin/empresas/[empresaId]/actions';
 import { listarBackups, executarBackupDiario } from '@/actions/backup';
-import BackButton from '@/components/back-button';
+import AdminPageHeader from '@/components/admin/page-header';
+import { useConfirm } from '@/components/admin/confirm-dialog';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 
 export default function LixeiraPage() {
   const locale = useLocale();
   const t = useTranslations('AdminTrash');
-  const [empresaId, setEmpresaId] = useState(null);
+  const confirmDialog = useConfirm();
+  const { empresaId } = useEmpresaContexto();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selecionados, setSelecionados] = useState(new Set());
@@ -18,10 +22,6 @@ export default function LixeiraPage() {
   const [filtroTabela, setFiltroTabela] = useState('');
   const [backups, setBackups] = useState([]);
   const [showBackups, setShowBackups] = useState(false);
-
-  useEffect(() => {
-    setEmpresaId(new URLSearchParams(window.location.search).get('empresa'));
-  }, []);
 
   const carregar = async () => {
     setLoading(true);
@@ -40,7 +40,7 @@ export default function LixeiraPage() {
     setBusy(true);
     const r = await executarBackupDiario();
     setBusy(false);
-    alert(r.message || r.error);
+    if (r.error) toast.error(r.error); else toast.success(r.message);
     await carregar();
   }
 
@@ -54,44 +54,58 @@ export default function LixeiraPage() {
 
   async function handleRestaurar() {
     if (selecionados.size === 0) return;
-    if (!confirm(t('confirm.restore', { count: selecionados.size }))) return;
+    const ok = await confirmDialog({
+      title: t('actions.restoreSelected'),
+      message: t('confirm.restore', { count: selecionados.size }),
+      severity: 'danger',
+    });
+    if (!ok) return;
     setBusy(true);
     const r = await restaurarDaLixeira([...selecionados]);
     setBusy(false);
-    alert(r.message || r.error);
+    if (r.error) toast.error(r.error); else toast.success(r.message);
     setSelecionados(new Set());
     await carregar();
   }
 
   async function handleEsvaziar() {
-    if (!confirm(t('confirm.empty'))) return;
+    // purge é irrecuperável (remove da própria lixeira) → nível crítico com digitação
+    const ok = await confirmDialog({
+      title: t('actions.emptyOld'),
+      message: t('confirm.empty'),
+      severity: 'critical',
+      typedConfirmation: t('confirm.emptyWord'),
+    });
+    if (!ok) return;
     setBusy(true);
     const r = await esvaziarLixeira(empresaId);
     setBusy(false);
-    alert(r.message || r.error);
+    if (r.error) toast.error(r.error); else toast.success(r.message);
     await carregar();
   }
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
+    <div className="min-h-full text-white">
       <div className="max-w-5xl mx-auto p-6">
-        <BackButton />
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Trash2 size={22} className="text-red-400" /> {t('title')}
-            </h1>
-            <p className="text-xs text-gray-400">{empresaId ? t('scope.company') : t('scope.all')} · {t('records', { count: items.length })}</p>
-          </div>
-          <button onClick={() => setShowBackups(!showBackups)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10">
-            {t('backups.button', { count: backups.length })}
-          </button>
-          <button onClick={handleEsvaziar} disabled={busy}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50">
-            <Trash2 size={14} /> {t('actions.emptyOld')}
-          </button>
-        </div>
+        <AdminPageHeader
+          icon={Trash2}
+          iconClassName="text-red-400"
+          title={t('title')}
+          subtitle={`${empresaId ? t('scope.company') : t('scope.all')} · ${t('records', { count: items.length })}`}
+          backHref="/admin/dashboard"
+          actions={
+            <>
+              <button onClick={() => setShowBackups(!showBackups)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10">
+                {t('backups.button', { count: backups.length })}
+              </button>
+              <button onClick={handleEsvaziar} disabled={busy}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50">
+                <Trash2 size={14} /> {t('actions.emptyOld')}
+              </button>
+            </>
+          }
+        />
 
         {/* Painel de backups */}
         {showBackups && (

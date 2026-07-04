@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { RefreshCw, Loader2, AlertTriangle } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 import { resetarDemoAcme } from '@/actions/demo';
 
 /**
@@ -11,11 +12,18 @@ import { resetarDemoAcme } from '@/actions/demo';
  * demo limpa na hora, sem esperar o reset noturno). Tenant-safe.
  */
 export default function AdminDemoPage() {
+  const confirmDialog = useConfirm();
   const [busy, setBusy] = useState(false);
   const [ultimo, setUltimo] = useState<Record<string, number | null> | null>(null);
 
   async function resetar() {
-    if (!confirm('Resetar o ambiente ACME Demo ao estado inicial? Todos os dados de demonstração criados hoje serão apagados e recriados.')) return;
+    const ok = await confirmDialog({
+      title: 'Resetar ambiente de demonstração',
+      message: 'Resetar o ambiente ACME Demo ao estado inicial? Todos os dados de demonstração criados hoje serão apagados e recriados.',
+      severity: 'danger',
+      scopeNote: 'Só afeta o tenant acme-demo',
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       const r = await resetarDemoAcme();

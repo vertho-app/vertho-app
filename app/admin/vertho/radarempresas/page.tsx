@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import {
   Loader2, Building2, Filter, Search, TrendingUp, MapPin, Target, Download, List, Network,
 } from 'lucide-react';
@@ -58,11 +59,11 @@ export default function RadarEmpresasPage() {
   }, []);
 
   async function baixarCidade(c: CidadeAgg) {
-    if (!c.xlsx_path) { alert(t('alerts.noCityXlsx')); return; }
+    if (!c.xlsx_path) { toast.warning(t('alerts.noCityXlsx')); return; }
     setBaixandoCid(c.municipio_ibge);
     const url = await getCidadeXlsxUrl(c.xlsx_path);
     setBaixandoCid(null);
-    if (!url) { alert(t('alerts.linkFailed')); return; }
+    if (!url) { toast.error(t('alerts.linkFailed')); return; }
     window.open(url, '_blank');
   }
 
@@ -88,14 +89,14 @@ export default function RadarEmpresasPage() {
     setExportando('csv');
     const r = await exportarCSV({ filtros: f });
     setExportando(null);
-    if (r.ok === false) { alert(r.error); return; }
+    if (r.ok === false) { toast.error(r.error); return; }
     baixar(new Blob(['﻿' + r.csv], { type: 'text/csv;charset=utf-8' }), 'csv');
   }
   async function handleExportXLSX() {
     setExportando('xlsx');
     const r = await exportarXLSX({ filtros: f });
     setExportando(null);
-    if (r.ok === false) { alert(r.error); return; }
+    if (r.ok === false) { toast.error(r.error); return; }
     const bytes = Uint8Array.from(atob(r.base64), c => c.charCodeAt(0));
     baixar(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'xlsx');
   }

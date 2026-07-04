@@ -2,7 +2,6 @@
 import { toast } from 'sonner';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
   Loader2, BarChart3, Trophy, Target, Users, Zap, ChevronDown,
@@ -16,6 +15,7 @@ import {
 } from '@/actions/fit-v2';
 import { baixarRelatorioComportamentalPdfPorId } from '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions';
 import { gerarRelatorioAdequacao } from '@/actions/adequacao-cargo';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 
 const FAIXA_COLORS = {
   excelente: { bg: 'bg-green-400/15', text: 'text-green-400' },
@@ -134,8 +134,8 @@ function ForcaItem({ f }) {
 
 export default function FitPage() {
   const t = useTranslations('AdminFit');
-  const searchParams = useSearchParams();
-  const empresaId = searchParams.get('empresa');
+  // Contexto de empresa unificado (path → ?empresa= → filtro do header)
+  const { empresaId } = useEmpresaContexto();
 
   const [cargos, setCargos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -230,7 +230,7 @@ export default function FitPage() {
         console.group('[Fit lote] Erros:');
         r.erros_detalhados.forEach(e => console.error(e.nome, '→', e.erro));
         console.groupEnd();
-        alert(t('messages.batchErrors', {
+        toast.error(t('messages.batchErrors', {
           count: r.erros_detalhados.length,
           summary: resumo,
           remaining: r.erros_detalhados.length > 5 ? t('messages.moreErrors', { count: r.erros_detalhados.length - 5 }) : '',

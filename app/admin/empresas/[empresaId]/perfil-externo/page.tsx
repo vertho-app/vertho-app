@@ -9,6 +9,7 @@ import {
   CheckCircle, AlertTriangle, FileQuestion,
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 import {
   listarPerfisExternos,
   uploadPerfilPdf,
@@ -24,6 +25,7 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
   const t = useTranslations('AdminExternalProfile');
   const { empresaId } = use(params);
   const router = useRouter();
+  const confirmDialog = useConfirm();
 
   const [loading, setLoading] = useState(true);
   const [colabs, setColabs] = useState<ColaboradorPerfilExterno[]>([]);
@@ -52,7 +54,11 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
   }
 
   async function desativarFonte() {
-    if (!confirm(t('confirm.disableSource'))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.disableSource'),
+      severity: 'normal',
+    });
+    if (!ok) return;
     setAcao({ id: '_global', tipo: 'fonte' });
     const r = await setEmpresaFonteExterna(empresaId, null);
     setAcao(null);
@@ -86,7 +92,11 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
   }
 
   async function handleDelete(colab: ColaboradorPerfilExterno) {
-    if (!confirm(t('confirm.removePdf', { name: colab.nome_completo }))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.removePdf', { name: colab.nome_completo }),
+      severity: 'danger',
+    });
+    if (!ok) return;
     setAcao({ id: colab.id, tipo: 'delete' });
     const r = await deletarPerfilExterno(empresaId, colab.id);
     setAcao(null);

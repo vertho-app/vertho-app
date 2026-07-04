@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
@@ -79,6 +80,7 @@ const PHASE_CONFIG = [
     { key: 'perfil-ext',  label: 'Perfil Externo (OPQ32)',      icon: FileText,     hrefFn: (id: string) => `/admin/empresas/${id}/perfil-externo` },
     { key: 'ia2',         label: 'IA2 — Perfil Ideal',          icon: Zap,          ai: true },
     { key: 'ia3',         label: 'IA3 — Cenários + Check',      icon: Zap,          ai: 'dual' },
+    { key: 'cenarios-cur', label: 'Curadoria de Cenários',      icon: FileText,     hrefFn: (id: string) => `/admin/empresas/${id}/fase1?tab=cenarios` },
     { key: 'fit',         label: 'Fit Cargo Ideal',             icon: BarChart3,    href: '/admin/fit' },
     { key: 'simular-disc',label: 'Simular Mapeamento DISC',     icon: MessageSquare,ai: false },
     { key: 'perfis-disc', label: 'Perfis Comportamentais',      icon: Brain,        hrefFn: (id: string) => `/admin/empresas/${id}/perfis-comportamentais` },
@@ -147,10 +149,13 @@ const serif: React.CSSProperties = {
 
 export default function EmpresaPipelinePage({ params }: { params: Promise<{ empresaId: string }> }) {
   const t = useTranslations('AdminCompanyPipeline');
+  const confirmDialog = useConfirm();
   const locale = useLocale();
   const { empresaId } = use(params);
   const router = useRouter();
-  const { registerRefresh } = useAdminShell();
+  const { registerRefresh, podeVer } = useAdminShell();
+  const podeExecutarIA = podeVer('ai.audit.regenerate');
+  const podeGerenciarEmpresa = podeVer('companies.manage');
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -225,7 +230,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
     // Confirmação extra pra ações destrutivas / massivas em lote
     const DANGEROUS_CONFIRMS = t.raw('feedback.confirms') as Record<string, string>;
     if (DANGEROUS_CONFIRMS[actionKey]) {
-      if (!window.confirm(DANGEROUS_CONFIRMS[actionKey])) return;
+      const ok = await confirmDialog({ title: label, message: DANGEROUS_CONFIRMS[actionKey], severity: 'danger' });
+      if (!ok) return;
     }
     const fn = ACTION_MAP[actionKey];
     setPendingAction(actionKey);
@@ -355,7 +361,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         const r = await listarColabsParaTrilha(empresaId);
         const colabs = r?.colabs || [];
         if (!colabs.length) { addLog('Nenhum colaborador encontrado', 'error'); setPendingAction(null); return; }
-        if (r?.trilhasExistentes > 0 && !window.confirm(t('feedback.existingTracksConfirm', { count: r.trilhasExistentes }))) { addLog(t('feedback.cancelLog'), 'info'); setPendingAction(null); return; }
+        if (r?.trilhasExistentes > 0 && !(await confirmDialog({ title: label, message: t('feedback.existingTracksConfirm', { count: r.trilhasExistentes }), severity: 'danger' }))) { addLog(t('feedback.cancelLog'), 'info'); setPendingAction(null); return; }
         addLog(`📋 Gerando temporada para ${colabs.length} colab(s)`, 'info');
         let ok = 0, erros = 0;
         for (let i = 0; i < colabs.length; i++) {
@@ -676,7 +682,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                                 {visible.map((a: any) => (
                                   <ActionBtn key={a.key} action={a} fase={fase} config={config}
                                     pending={pendingAction} isActive={isActive}
-                                    onAction={onActionClick} empresaId={empresaId} uiConfig={uiConfig} t={t} />
+                                    onAction={onActionClick} empresaId={empresaId} uiConfig={uiConfig} t={t}
+                                    podeExecutarIA={podeExecutarIA} />
                                 ))}
                               </div>
                             </div>
@@ -687,7 +694,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                           {((config as any).actions ?? []).filter((a: any) => !isHidden(`btn-fase${fase.num}-${a.key}`, uiConfig)).map((a: any) => (
                             <ActionBtn key={a.key} action={a} fase={fase} config={config}
                               pending={pendingAction} isActive={isActive}
-                              onAction={onActionClick} empresaId={empresaId} uiConfig={uiConfig} t={t} />
+                              onAction={onActionClick} empresaId={empresaId} uiConfig={uiConfig} t={t}
+                              podeExecutarIA={podeExecutarIA} />
                           ))}
                         </div>
                       )}
@@ -753,7 +761,9 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
               </div>
             )}
 
-            {/* Danger zone */}
+            {/* Danger zone — oculta para papéis sem companies.manage (sócio):
+                todas as ações aqui exigem esse poder no server (Fase 5) */}
+            {podeGerenciarEmpresa && (
             <div className="rounded-2xl overflow-hidden" style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.07)' }}>
               <button
                 onClick={() => setShowDanger(!showDanger)}
@@ -772,7 +782,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                   <p className="text-[9px] font-bold uppercase tracking-widest mt-3 mb-2" style={{ fontFamily: 'var(--font-mono, monospace)', color: 'rgba(52,197,204,.7)' }}>{t('danger.testTools')}</p>
                   <button disabled={dangerLoading}
                     onClick={async () => {
-                      if (!confirm(t('danger.confirmTestPassword'))) return;
+                      if (!(await confirmDialog({ title: t('danger.setTestPassword'), message: t('danger.confirmTestPassword'), severity: 'normal' }))) return;
                       setDangerLoading(true);
                       const r = await definirSenhaTesteEmpresa(empresaId);
                       if (r.success) addLog(`🔑 ${r.message}`, 'success'); else addLog(`❌ ${r.error}`, 'error');
@@ -818,7 +828,16 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                       return (
                         <button key={item.label} disabled={dangerLoading}
                           onClick={async () => {
-                            if (!confirm(t('danger.confirmClear', { item: item.label, scope }))) return;
+                            // itens marcados como `danger` (colaboradores, limpar tudo) são
+                            // irrecuperáveis em massa → nível crítico com digitação do nome
+                            const ok = await confirmDialog({
+                              title: item.label,
+                              message: t('danger.confirmClear', { item: item.label, scope }),
+                              severity: item.danger ? 'critical' : 'danger',
+                              scopeNote: scope,
+                              typedConfirmation: item.danger ? empresa.nome : undefined,
+                            });
+                            if (!ok) return;
                             setDangerLoading(true);
                             let r: any;
                             if (item.action === 'mapeamento') r = await limparMapeamento(empresaId, dangerColabId || null);
@@ -846,7 +865,13 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
 
                   <button disabled={dangerLoading}
                     onClick={async () => {
-                      if (!confirm(t('danger.confirmDeleteCompany', { name: empresa.nome }))) return;
+                      const ok = await confirmDialog({
+                        title: t('danger.deleteCompany'),
+                        message: t('danger.confirmDeleteCompany', { name: empresa.nome }),
+                        severity: 'critical',
+                        typedConfirmation: empresa.nome,
+                      });
+                      if (!ok) return;
                       setDangerLoading(true);
                       const r = await excluirEmpresa(empresaId);
                       if (r.success) router.push('/admin/dashboard');
@@ -860,6 +885,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                 </div>
               )}
             </div>
+            )}
 
           </div>
         </div>
@@ -916,12 +942,16 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
 }
 
 // ── ActionBtn — 3 variantes: nav / ai / cta ──────────────────────────────
-function ActionBtn({ action, fase, config, pending, isActive, onAction, empresaId, uiConfig, t }: {
+function ActionBtn({ action, fase, config, pending, isActive, onAction, empresaId, uiConfig, t, podeExecutarIA = true }: {
   action: any; fase: any; config: any; pending: string | null;
   isActive: boolean; onAction: Function; empresaId: string; uiConfig: any; t: any;
+  podeExecutarIA?: boolean;
 }) {
   const isPending = pending === action.key;
-  const isDisabled = !!pending;
+  // Sócio (read-mostly) não pode disparar ações de IA — desabilita com tooltip
+  // em vez de deixar o clique estourar FORBIDDEN na server action (Fase 5).
+  const semPermissao = !!action.ai && !podeExecutarIA;
+  const isDisabled = !!pending || semPermissao;
   const AIcon = action.icon;
   const label = getCustomLabel(`btn-fase${fase.num}-${action.key}`, t(`actions.${action.key}`), uiConfig);
 
@@ -982,6 +1012,7 @@ function ActionBtn({ action, fase, config, pending, isActive, onAction, empresaI
   return (
     <button onClick={() => !isDisabled && onAction(action.key, label, action.ai)}
       disabled={isDisabled}
+      title={semPermissao ? t('actions.requiresMaster') : undefined}
       style={currentStyle}>
       {isPending
         ? <Loader2 size={12} className="animate-spin shrink-0" style={{ color: isCTA ? '#062032' : config.color }} />

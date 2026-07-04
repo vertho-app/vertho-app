@@ -62,7 +62,28 @@
 
 ## Fase 2 — Padrões transversais
 
-_(em execução)_
+### Componentes novos
+
+| Arquivo | O que é |
+|---|---|
+| `components/admin/confirm-dialog.tsx` | `ConfirmDialogProvider` + hook `useConfirm()`. Confirmação em 3 níveis: `normal` (decisão comum), `danger` (destrutiva recuperável / operação cara de IA, accent #F97354), `critical` (irrecuperável/em massa, accent vermelho, pode exigir `typedConfirmation` — digitar o nome da empresa etc.). Suporta `scopeNote` para destacar escopo/custo. A11y: `role="alertdialog"`, ESC cancela, foco inicial no cancelar (ou input). Provider montado no `AdminShell`. |
+| `components/admin/page-header.tsx` | `AdminPageHeader` — consolida as 4 variantes de header em uma: h1 `text-xl` + ícone lucide, subtítulo, `BackButton` opcional, slot de ações à direita. Adoção progressiva (Fase 4). |
+| `app/admin/_shell/useEmpresaContexto.ts` | Hook único do "qual empresa?": resolve na ordem **path param → `?empresa=` → filtro do header**. Elimina os 4 mecanismos concorrentes; qualquer porta de entrada (sidebar, hub, URL direta) passa a funcionar. |
+
+### Aplicações
+
+- **Hub da empresa** (`empresas/[empresaId]/page.tsx`): "Excluir empresa" e itens marcados como perigosos na danger zone ("Colaboradores", "Limpar TUDO") agora são `critical` com **digitação do nome da empresa**; demais limpezas são `danger` com escopo destacado; senha de teste é `normal`.
+- **Lixeira**: purge ("esvaziar antigos") é `critical` com digitação de palavra (`AdminTrash.confirm.emptyWord`, por locale); restore é `danger`; `alert()` de resultado → sonner. Também perdeu o fundo near-black próprio e adotou `AdminPageHeader` + `useEmpresaContexto` (antecipando Fase 4).
+- **Demo**: reset vira `danger` com `scopeNote` ("só afeta o tenant acme-demo").
+- **Varredura completa** (por agente, revisada): todo `alert()` de app/admin → sonner (`success`/`error`/`warning`); todo `confirm()` restante → `useConfirm` com severidade conforme a regra acima; páginas com `URLSearchParams` cru ou `useSearchParams('empresa')` → `useEmpresaContexto`.
+- **i18n**: `Common.actions.cancel/confirm` + `Common.confirmDialog.typeToConfirm` nos 4 locales.
+
+### Decisões e racional
+
+1. **Hook `useConfirm` via provider** (e não modal controlado por página) — adoção em 1 linha por call-site, sem estado local; o dialog é um só, consistente, com a11y correta num único lugar.
+2. **`typedConfirmation` só quando existe um nome óbvio a digitar** (nome da empresa, palavra fixa localizada) — digitação genérica ("CONFIRMAR" em tudo) treina o usuário a digitar no automático e anula a proteção.
+3. **Operações caras de IA usam `danger` + `scopeNote`**, não `critical` — o custo é dinheiro/tempo, não perda de dados; a fricção certa é informar o escopo, não travar.
+4. **Ordem path → query → filtro no `useEmpresaContexto`** — contexto explícito (rota/link compartilhado) sempre vence o implícito (filtro persistido em localStorage), evitando operar na empresa errada ao abrir um link.
 
 ## Fase 3 — Fusões de workspace
 
@@ -74,4 +95,20 @@ _(pendente)_
 
 ## Fase 5 — Permission-aware UI + curadoria Cenário A
 
-_(pendente)_
+> Executada junto com a Fase 2 (mesmos arquivos de shell); listada aqui pela ordem lógica do plano.
+
+### Alterações
+
+| Arquivo | Mudança |
+|---|---|
+| `app/admin/_shell/actions.ts` | Nova action `loadAdminShellPermissoes()` → papel (`platform_admin`/`socio`) + permissões efetivas (`getEffectivePermissionKeys`, respeita overrides). |
+| `app/admin/_shell/AdminShellContext.tsx` + `AdminShell.tsx` | Contexto expõe `adminRole` e `podeVer(permission)`. Carregado no mount do shell. |
+| `AdminSidebar.tsx` / `AdminMobileNav.tsx` | Itens com `permission` (radar admin, comercial, custos, lixeira, demo) somem para quem não tem a permissão. |
+| `empresas/[empresaId]/page.tsx` (hub) | Botões de **IA** desabilitados com tooltip "Requer papel Admin Master" quando falta `ai.audit.regenerate`; **danger zone inteira oculta** sem `companies.manage`. Novo link F1 "Curadoria de Cenários" → `fase1?tab=cenarios`. |
+| i18n (4 locales) | `AdminCompanyPipeline.actions.requiresMaster` + `actions.cenarios-cur`. |
+
+### Decisões e racional
+
+1. **`podeVer` é default-open durante carregamento/erro** — se as permissões não carregarem, a UI se comporta como antes (mostra tudo). O custo é um flash cosmético para o sócio num hard reload; a alternativa (default-closed) esconderia menu do Master em falha transitória. O enforcement real segue 100% server-side (`requireAdminAction`), então não há risco de segurança.
+2. **Botões de IA: desabilitar com tooltip, não esconder** — o sócio precisa VER que o pipeline tem essas ações (transparência do processo); só não pode dispará-las. Danger zone: esconder, porque ali nada é aproveitável em leitura.
+3. **Curadoria de Cenário A NÃO precisou de tela nova** — a auditoria apontava assimetria A/B, mas `fase1?tab=cenarios` já tem regenerar/check/excluir por item e em lote. O problema era descoberta: o hub gerava (IA3) sem linkar a curadoria. Resolvido com o link "Curadoria de Cenários" na F1 (espelha o padrão da F4, que sempre linkou a curadoria do Cenário B).

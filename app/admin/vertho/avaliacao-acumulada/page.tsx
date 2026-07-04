@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ChevronRight, X, RefreshCw } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { listarAvaliacoesAcumuladas, loadAvaliacaoAcumuladaDetalhe, regerarAvaliacaoAcumulada } from './actions';
 
 const STATUS_COR = {
@@ -25,11 +27,8 @@ export default function AvaliacaoAcumuladaPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
-  const [empresaId, setEmpresaId] = useState(null);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setEmpresaId(new URLSearchParams(window.location.search).get('empresa'));
-  }, []);
+  // Contexto de empresa unificado (path → ?empresa= → filtro do header)
+  const { empresaId } = useEmpresaContexto();
   const [detalhe, setDetalhe] = useState(null);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
   const [regerando, setRegerando] = useState(null);
@@ -59,7 +58,7 @@ export default function AvaliacaoAcumuladaPage() {
     setRegerando(trilhaId);
     const r = await regerarAvaliacaoAcumulada(trilhaId);
     setRegerando(null);
-    if (r.error) alert(r.error);
+    if (r.error) toast.error(r.error);
     else { await carregar(); if (detalhe?.trilhaId === trilhaId) await abrirDetalhe(detalhe.id); }
   }
 

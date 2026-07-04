@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { TrendingUp, ChevronDown, ChevronRight } from 'lucide-react';
 import { loadEvolutionReportsEmpresa } from '@/actions/evolution-report';
 import BackButton from '@/components/back-button';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 
 const CONV = {
   evolucao_confirmada: { cor: 'emerald' },
@@ -15,14 +16,11 @@ const CONV = {
 
 export default function EvolucaoAdminPage() {
   const t = useTranslations('AdminEvolution');
-  const [empresaId, setEmpresaId] = useState(null);
+  // Contexto de empresa unificado (path → ?empresa= → filtro do header)
+  const { empresaId } = useEmpresaContexto();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
-
-  useEffect(() => {
-    setEmpresaId(new URLSearchParams(window.location.search).get('empresa'));
-  }, []);
 
   useEffect(() => {
     (async () => {

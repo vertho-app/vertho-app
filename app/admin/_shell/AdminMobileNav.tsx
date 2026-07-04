@@ -17,7 +17,7 @@ export default function AdminMobileNav() {
   const t = useTranslations('AdminDashboard');
   const router = useRouter();
   const pathname = usePathname();
-  const { empresaSelecionada } = useAdminShell();
+  const { empresaSelecionada, podeVer } = useAdminShell();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -39,9 +39,10 @@ export default function AdminMobileNav() {
     };
   }, [open]);
 
-  const visibleNavItems = NAV_ITEMS.filter((item) =>
-    empresaSelecionada ? item.showWhenEmpresa !== false : item.showWhenAll !== false,
-  );
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (!podeVer(item.permission)) return false;
+    return empresaSelecionada ? item.showWhenEmpresa !== false : item.showWhenAll !== false;
+  });
   const groups = GROUP_ORDER
     .map((g) => ({ key: g, items: visibleNavItems.filter((i) => i.group === g) }))
     .filter((g) => g.items.length > 0);

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import {
   Loader2, Send, ChevronDown, CheckCircle, AlertCircle,
   Mail, MessageCircle, FileBarChart, Filter, Eye, Tag, Users,
@@ -10,6 +11,8 @@ import {
 } from 'lucide-react';
 import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio, dispararMensagemCustomizada, enviarMagicLinksWhatsApp } from './actions';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { dispararLinksCIS, dispararRelatoriosLote } from '@/actions/whatsapp-lote';
 import { dispararEmails } from '@/actions/fase2';
 import { Key } from 'lucide-react';
@@ -57,9 +60,11 @@ Acesse: {{link}}`,
 
 export default function EnviosPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const t = useTranslations('AdminWhatsapp');
-  const empresaParam = searchParams.get('empresa');
+  const confirmDialog = useConfirm();
+  // Contexto de empresa (path → ?empresa= → filtro do header); a tela tem seletor
+  // próprio, então o contexto entra só como valor inicial/fallback do estado local.
+  const { empresaId: empresaParam } = useEmpresaContexto();
   const defaultMsgs = {
     email: t('defaultMessages.email'),
     whatsapp: t('defaultMessages.whatsapp'),
@@ -205,7 +210,7 @@ export default function EnviosPage() {
     e.target.value = ''; // permite re-selecionar o mesmo arquivo
     if (!file) return;
     if (file.size > ANEXO_MAX_MB * 1024 * 1024) {
-      alert(t('alerts.fileTooLarge', { max: ANEXO_MAX_MB }));
+      toast.warning(t('alerts.fileTooLarge', { max: ANEXO_MAX_MB }));
       return;
     }
     const base64 = await new Promise((resolve, reject) => {
@@ -228,7 +233,12 @@ export default function EnviosPage() {
     const canal = (tab === 'email' || tab === 'relatorios-email') ? 'email' : 'whatsapp';
     const total = destinatarios.length;
     const canalLabel = canal === 'email' ? 'EMAIL' : 'WHATSAPP';
-    if (!window.confirm(t('confirm.send', { channel: canalLabel, total }))) return;
+    const ok = await confirmDialog({
+      title: t('sendButton', { count: total }),
+      message: t('confirm.send', { channel: canalLabel, total }),
+      severity: 'normal',
+    });
+    if (!ok) return;
 
     setSending(true);
     setResult(null);
@@ -342,7 +352,12 @@ export default function EnviosPage() {
                 disabled={sending || !empresaId}
                 onClick={async () => {
                   const totalElegivel = destinatarios.filter((c: any) => c.telefone && c.email).length;
-                  if (!window.confirm(t('confirm.magicLink', { total: totalElegivel }))) return;
+                  const ok = await confirmDialog({
+                    title: t('magic.send'),
+                    message: t('confirm.magicLink', { total: totalElegivel }),
+                    severity: 'normal',
+                  });
+                  if (!ok) return;
                   setSending(true); setResult(null);
                   const filtros: any = {};
     if (filtroCargo) filtros.cargo = filtroCargo;

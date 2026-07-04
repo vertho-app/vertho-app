@@ -2,12 +2,14 @@
 import { toast } from 'sonner';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, FileText, Link2, Plus, Sparkles, Upload, Eye, Trash2, RefreshCw } from 'lucide-react';
 import { loadEmpresa, loadPPPs, excluirPPP } from './actions';
 import { extrairPPP } from '@/actions/ppp';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 // Mapa de nomes de form fields do template Vertho → seções legíveis
 const FIELD_LABELS: Record<string, string> = {
   'desafios_estrat_gicos_atuais__desafios': 'DESAFIOS ESTRATÉGICOS ATUAIS',
@@ -82,8 +84,9 @@ export default function PPPPage() {
   const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('AdminPPP');
-  const searchParams = useSearchParams();
-  const empresaIdParam = searchParams.get('empresa');
+  const confirmDialog = useConfirm();
+  // Contexto de empresa unificado (path → ?empresa= → filtro do header)
+  const { empresaId: empresaIdParam } = useEmpresaContexto();
 
   const [empresa, setEmpresa] = useState(null);
   const [ppps, setPpps] = useState([]);
@@ -175,7 +178,11 @@ export default function PPPPage() {
   }, [files, nomeEscola]);
 
   async function handleExcluir(id, nome) {
-    if (!confirm(t('confirm.delete', { name: nome || id }))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.delete', { name: nome || id }),
+      severity: 'danger',
+    });
+    if (!ok) return;
     const r = await excluirPPP(id);
     if (r.success) { flash(t('messages.deleted')); refresh(); }
     else flash(t('messages.error', { error: r.error }));

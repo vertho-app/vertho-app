@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Loader2, Plus, Sparkles, Star, X, Trash2, Film, ShieldCheck, Send, CheckCircle2, Wand2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 import { listarModulos, listarCompetenciasBase, rascunharModuloBase, setPreferido, excluirModulo, auditarModulosBaseEmLote, refinarModulosEmLote, submeterRevisaoEmLote, aprovarPublicarEmLote, listarFiltrosModulos } from '@/actions/modulos-base';
 
 type Modulo = any;
@@ -29,6 +31,7 @@ function corNota(n: number) {
 
 export default function ModulosBaseListPage() {
   const router = useRouter();
+  const confirmDialog = useConfirm();
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [competencias, setCompetencias] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +87,13 @@ export default function ModulosBaseListPage() {
   }
   async function excluirSelecionados() {
     if (!sel.size) return;
-    if (!window.confirm(`Excluir ${sel.size} módulo(s)? Publicados são ignorados. Não pode ser desfeito.`)) return;
+    // Deleção em massa irrecuperável → nível crítico (sem digitação: não há um nome óbvio)
+    const confirmado = await confirmDialog({
+      title: `Excluir ${sel.size} módulo(s)`,
+      message: `Excluir ${sel.size} módulo(s)? Publicados são ignorados. Não pode ser desfeito.`,
+      severity: 'critical',
+    });
+    if (!confirmado) return;
     setLoteBusy('excluir'); setErro(''); setAviso('');
     const ids = [...sel];
     let ok = 0, err = 0;
@@ -319,10 +328,14 @@ export default function ModulosBaseListPage() {
                         </button>
                         <button onClick={async e => {
                           e.stopPropagation();
-                          const ok = window.confirm(`Excluir "${m.titulo}"? Esta ação não pode ser desfeita.`);
+                          const ok = await confirmDialog({
+                            title: 'Excluir módulo',
+                            message: `Excluir "${m.titulo}"? Esta ação não pode ser desfeita.`,
+                            severity: 'danger',
+                          });
                           if (!ok) return;
                           const r = await excluirModulo(m.id);
-                          if ('error' in r && r.error) alert(r.error);
+                          if ('error' in r && r.error) toast.error(r.error);
                           else carregar();
                         }}
                           title="Excluir módulo"

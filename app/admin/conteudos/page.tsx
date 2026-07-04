@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload, FileDown, ExternalLink, FileX, Loader2, Clapperboard, User, Users } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
@@ -10,6 +11,7 @@ import {
   deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio, aprovarRoteiroPodcastEGerarAudio,
 } from '@/actions/conteudos';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 
 const FORMAT_ICONS = {
   video: Video, audio: Headphones, texto: FileText, case: BookOpen, pdf: FileType,
@@ -46,6 +48,7 @@ function isUnclassified(value: any) {
 export default function ConteudosAdminPage() {
   const t = useTranslations('AdminContent');
   const { empresaFiltro } = useAdminShell();
+  const confirmDialog = useConfirm();
   const router = useRouter();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -188,7 +191,12 @@ export default function ConteudosAdminPage() {
   }
 
   async function handleExcluirFinal(c) {
-    if (!confirm(t('confirm.deleteFinal', { title: c.titulo }))) return;
+    const ok = await confirmDialog({
+      title: t('actions.deleteFinal'),
+      message: t('confirm.deleteFinal', { title: c.titulo }),
+      severity: 'danger',
+    });
+    if (!ok) return;
     setBusy(true);
     const r = await excluirConteudoFinal(c.id);
     if (r.success) {
@@ -201,7 +209,12 @@ export default function ConteudosAdminPage() {
   }
 
   async function handleDeletar(c) {
-    if (!confirm(t('confirm.delete', { title: c.titulo }))) return;
+    const ok = await confirmDialog({
+      title: t('actions.delete'),
+      message: t('confirm.delete', { title: c.titulo }),
+      severity: 'danger',
+    });
+    if (!ok) return;
     const r = await deletarConteudo(c.id);
     if (r.ok) {
       addLog(`✅ ${t('logs.deleted')}`, 'success');
@@ -258,7 +271,7 @@ export default function ConteudosAdminPage() {
           </button>
           <button
             onClick={() => {
-              if (!empresaFiltro) { alert('Selecione uma empresa no topo para extrair vídeo.'); return; }
+              if (!empresaFiltro) { toast.warning('Selecione uma empresa no topo para extrair vídeo.'); return; }
               router.push(`/admin/empresas/${empresaFiltro}/extracao-video`);
             }}
             disabled={busy}

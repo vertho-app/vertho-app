@@ -10,9 +10,10 @@ export default function AdminSidebar() {
   const t = useTranslations('AdminDashboard');
   const router = useRouter();
   const pathname = usePathname();
-  const { collapsed, setCollapsed, empresaSelecionada } = useAdminShell();
+  const { collapsed, setCollapsed, empresaSelecionada, podeVer } = useAdminShell();
 
   const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (!podeVer(item.permission)) return false;
     if (empresaSelecionada) return item.showWhenEmpresa !== false;
     return item.showWhenAll !== false;
   });

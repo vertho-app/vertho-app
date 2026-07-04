@@ -3,11 +3,13 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import {
   Send, Loader2, MessageCircle, Mail, Activity,
   Users, AlertCircle, CheckCircle, RefreshCw,
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 import { enviarConvitesPulso, statusEnviosCiclo, type EnvioStats } from '@/actions/pulse/envio';
 import { listarCiclos } from '@/actions/pulse/admin';
 
@@ -19,6 +21,7 @@ export default function EnviarPulsoPage({
   const { empresaId, cicloId } = use(params);
   const router = useRouter();
   const t = useTranslations('AdminPulse.sendPage');
+  const confirmDialog = useConfirm();
 
   const [loading, setLoading] = useState(true);
   const [ciclo, setCiclo] = useState<any>(null);
@@ -43,9 +46,12 @@ export default function EnviarPulsoPage({
   useEffect(() => { load(); }, [empresaId, cicloId, moment]);
 
   async function handleEnviar() {
-    if (!window.confirm(
-      t('confirm.send', { moment, channel: canal.toUpperCase() })
-    )) return;
+    const ok = await confirmDialog({
+      title: t('title'),
+      message: t('confirm.send', { moment, channel: canal.toUpperCase() }),
+      severity: 'normal',
+    });
+    if (!ok) return;
 
     setSending(true); setResult(null);
     const r = await enviarConvitesPulso(empresaId, cicloId, {
@@ -55,7 +61,7 @@ export default function EnviarPulsoPage({
       force_resend: forceResend,
     });
     setSending(false);
-    if (r.ok === false) { alert(r.error); return; }
+    if (r.ok === false) { toast.error(r.error); return; }
     setResult(r.stats);
     await load();
   }

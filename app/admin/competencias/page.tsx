@@ -2,7 +2,7 @@
 import { toast } from 'sonner';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
   Loader2, BookMarked, Plus, Pencil, Trash2, Copy, ChevronDown, X, Save, Upload, Filter
@@ -13,14 +13,18 @@ import {
   salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa, importarCompetenciasCSV, loadCargosEmpresa
 } from './actions';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
+import { useConfirm } from '@/components/admin/confirm-dialog';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 
 const EMPTY_COMP = { nome: '', descricao: '', cargo: '', cod_comp: '', pilar: '' };
 
 export default function CompetenciasPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const t = useTranslations('AdminCompetencies');
-  const empresaParam = searchParams.get('empresa');
+  const confirmDialog = useConfirm();
+  // Contexto de empresa (path → ?empresa= → filtro do header); a tela tem seletor
+  // próprio, então o contexto entra só como valor inicial/fallback do estado local.
+  const { empresaId: empresaParam } = useEmpresaContexto();
   const [empresas, setEmpresas] = useState<any[]>([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
   const [empresaNome, setEmpresaNome] = useState('');
@@ -91,7 +95,11 @@ export default function CompetenciasPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm(t('confirm.delete'))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.delete'),
+      severity: 'danger',
+    });
+    if (!ok) return;
     const r = await excluirCompetencia(id);
     if (r.success) {
       flash(t('messages.deleted'));
@@ -104,9 +112,12 @@ export default function CompetenciasPage() {
   async function handleCopy(baseId: string) {
     const base = baselist.find((b: any) => b.id === baseId);
     const nomeBase = base?.nome || t('fallbackCompetency');
-    if (!window.confirm(
-      t('confirm.copyBase', { name: nomeBase, role: cargoParaCopiar })
-    )) return;
+    const ok = await confirmDialog({
+      title: t('actions.copy'),
+      message: t('confirm.copyBase', { name: nomeBase, role: cargoParaCopiar }),
+      severity: 'normal',
+    });
+    if (!ok) return;
     const r = await copiarBaseParaEmpresa(empresaId, baseId, cargoParaCopiar || null);
     if (r.success) {
       flash(r.message!);
@@ -290,8 +301,12 @@ export default function CompetenciasPage() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => openEdit(c)} className="w-7 h-7 flex items-center justify-center rounded text-gray-500 hover:text-cyan-400"><Pencil size={13} /></button>
-                    <button onClick={() => {
-                      if (!confirm(t('confirm.deleteWithDescriptors', { name: c.nome }))) return;
+                    <button onClick={async () => {
+                      const ok = await confirmDialog({
+                        title: t('confirm.deleteWithDescriptors', { name: c.nome }),
+                        severity: 'danger',
+                      });
+                      if (!ok) return;
                       Promise.all(descritores.map((d: any) => excluirCompetencia(d.id))).then(() => {
                         flash(t('messages.competencyDeleted'));
                         handleSelectEmpresa(empresaId);

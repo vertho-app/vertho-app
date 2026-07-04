@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save, Link2, Download } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
 import {
   loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador,
@@ -24,6 +25,7 @@ const CARGO_FIELDS = [
 export default function GerenciarPage() {
   const t = useTranslations('AdminCollaborators');
   const router = useRouter();
+  const confirmDialog = useConfirm();
   const searchParams = useSearchParams();
   const empresaParam = searchParams.get('empresa');
   const [empresas, setEmpresas] = useState([]);
@@ -208,7 +210,11 @@ export default function GerenciarPage() {
   }
 
   async function handleDelete(id, nome) {
-    if (!confirm(t('confirm.deleteCollaborator', { name: nome || t('fallback.collaborator') }))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.deleteCollaborator', { name: nome || t('fallback.collaborator') }),
+      severity: 'danger',
+    });
+    if (!ok) return;
     const r = await excluirColaborador({ empresaId: tenantId, id });
     if (r.success) { refresh(); setMsg(t('messages.collaboratorDeleted')); }
     else setMsg(t('messages.error', { error: r.error }));
@@ -258,7 +264,11 @@ export default function GerenciarPage() {
   }
 
   async function handleDeleteCargo(id, nome) {
-    if (!confirm(t('confirm.deleteRole', { name: nome }))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.deleteRole', { name: nome }),
+      severity: 'danger',
+    });
+    if (!ok) return;
     const r = await excluirCargo({ empresaId: tenantId, id });
     if (r.success) { refreshCargos(); setMsg(t('messages.roleDeleted')); }
     else setMsg(t('messages.error', { error: r.error }));

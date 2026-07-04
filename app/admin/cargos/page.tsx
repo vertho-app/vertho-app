@@ -2,17 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Loader2, Briefcase, Check, Save, ChevronDown, AlertTriangle, Link2, X } from 'lucide-react';
 import { loadEmpresas, loadCargos, salvarTop5, salvarEhLideranca, renomearTop10Cargo } from './actions';
 import BackButton from '@/components/back-button';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 
 export default function CargosPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const t = useTranslations('AdminRoles');
-  const empresaParam = searchParams.get('empresa');
+  // Contexto de empresa (path → ?empresa= → filtro do header); a tela tem seletor
+  // próprio, então o contexto entra só como valor inicial/fallback do estado local.
+  const { empresaId: empresaParam } = useEmpresaContexto();
   const [empresas, setEmpresas] = useState<any[]>([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
   const [empresaNome, setEmpresaNome] = useState('');

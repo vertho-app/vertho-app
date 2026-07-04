@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocale, useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import {
   Loader2, RefreshCw, Filter, Building2, Users, School,
   TrendingUp, MapPin, AlertTriangle, ChevronDown, ChevronUp, X,
@@ -100,8 +101,8 @@ export default function MercadoPotencialPage() {
     setRefreshing(true);
     const r = await refreshMercadoPotencial();
     setRefreshing(false);
-    if ((r as any).error) alert(t('alerts.error', { message: (r as any).error }));
-    else { alert(t('alerts.updated')); carregar(); }
+    if ((r as any).error) toast.error(t('alerts.error', { message: (r as any).error }));
+    else { toast.success(t('alerts.updated')); carregar(); }
   }
 
   function toggleSort(coluna: string) {

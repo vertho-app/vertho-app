@@ -8,6 +8,8 @@ import {
   Loader2, BookOpen, Plus, Search, Trash2, Pencil, X, Save, Upload,
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import {
   listarEmpresas, listarDocsKB, carregarDocKB,
   criarDocKB, atualizarDocKB, desativarDocKB, testarBuscaKB, uploadDocsArquivo, seedKB,
@@ -26,6 +28,10 @@ export default function KnowledgeBasePage() {
   const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('AdminKnowledgeBase');
+  const confirmDialog = useConfirm();
+  // Contexto de empresa (path → ?empresa= → filtro do header); a tela tem seletor
+  // próprio, então o contexto entra só como valor inicial/fallback do estado local.
+  const { empresaId: empresaCtx } = useEmpresaContexto();
   const sb = getSupabase();
   const [user, setUser] = useState(null);
   const [empresas, setEmpresas] = useState([]);
@@ -48,9 +54,8 @@ export default function KnowledgeBasePage() {
       const r = await listarEmpresas();
       if (r.error) { setError(r.error); setLoading(false); return; }
       setEmpresas(r.empresas);
-      const urlEmpresa = new URLSearchParams(window.location.search).get('empresa');
-      if (urlEmpresa && r.empresas.some(e => e.id === urlEmpresa)) {
-        setEmpresaId(urlEmpresa);
+      if (empresaCtx && r.empresas.some(e => e.id === empresaCtx)) {
+        setEmpresaId(empresaCtx);
       } else if (r.empresas[0]) {
         setEmpresaId(r.empresas[0].id);
       }
@@ -111,7 +116,11 @@ export default function KnowledgeBasePage() {
   }
 
   async function desativar(docId) {
-    if (!confirm(t('confirm.deactivate'))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.deactivate'),
+      severity: 'danger',
+    });
+    if (!ok) return;
     const r = await desativarDocKB(empresaId, docId);
     if (r.error) { setError(r.error); return; }
     carregar();

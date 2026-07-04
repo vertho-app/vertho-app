@@ -27,7 +27,12 @@
     "actions": {
       "back": "Voltar",
       "enter": "Entrar",
-      "close": "Fechar"
+      "close": "Fechar",
+      "cancel": "Cancelar",
+      "confirm": "Confirmar"
+    },
+    "confirmDialog": {
+      "typeToConfirm": "Digite <b>{text}</b> para confirmar:"
     }
   },
   "Login": {
@@ -2377,7 +2382,8 @@
     },
     "confirm": {
       "restore": "Restaurar {count, plural, one {# registro} other {# registros}} para suas tabelas originais?",
-      "empty": "Apagar permanentemente itens com mais de 30 dias na lixeira?"
+      "empty": "Apagar permanentemente itens com mais de 30 dias na lixeira?",
+      "emptyWord": "ESVAZIAR"
     }
   },
   "AdminVoting": {
@@ -2609,7 +2615,9 @@
       "evolucao-temp": "Evolution Report (Temporadas)",
       "evolucao": "Evolução (Fusão 3 Fontes)",
       "plenaria": "Plenária Evolução",
-      "processing": "Processando..."
+      "processing": "Processando...",
+      "requiresMaster": "Requer papel Admin Master",
+      "cenarios-cur": "Curadoria de Cenários"
     },
     "phaseExtras": {
       "competenciesShort": "{count} comp",

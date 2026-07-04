@@ -11,6 +11,7 @@ import { loadBunnyVideosStats, loadBunnyHeatmap, loadBunnyLibraryStats } from '@
 import BackButton from '@/components/back-button';
 import { loadEngajamentoEmpresa, loadAlertasInatividade, loadEmpresaInfo } from '@/actions/video-analytics';
 import VideoModal from '@/components/video-modal';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 
 const BUNNY_LIBRARY = 636615; // Coincide com /app/dashboard/page.js
 
@@ -83,7 +84,8 @@ export default function AdminVideosPage() {
   const router = useRouter();
   const t = useTranslations('AdminVideos');
   const locale = useLocale();
-  const [empresaId, setEmpresaId] = useState(null);
+  // Contexto de empresa unificado (path → ?empresa= → filtro do header)
+  const { empresaId } = useEmpresaContexto();
   const [empresa, setEmpresa] = useState(null);
   const [stats, setStats] = useState(null);
   const [library, setLibrary] = useState(null);
@@ -129,14 +131,6 @@ export default function AdminVideosPage() {
     if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortBy(col); setSortDir(col === 'nome' || col === 'cargo' ? 'asc' : 'desc'); }
   }
-
-  // Lê ?empresa= da URL (sem useSearchParams pra evitar Suspense boundary)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const eid = params.get('empresa');
-    setEmpresaId(eid || null);
-  }, []);
 
   useEffect(() => {
     async function init() {

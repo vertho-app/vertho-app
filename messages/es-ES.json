@@ -27,7 +27,12 @@
     "actions": {
       "back": "Volver",
       "enter": "Entrar",
-      "close": "Cerrar"
+      "close": "Cerrar",
+      "cancel": "Cancelar",
+      "confirm": "Confirmar"
+    },
+    "confirmDialog": {
+      "typeToConfirm": "Escribe <b>{text}</b> para confirmar:"
     }
   },
   "Login": {
@@ -2377,7 +2382,8 @@
     },
     "confirm": {
       "restore": "¿Restaurar {count, plural, one {# registro} other {# registros}} a sus tablas originales?",
-      "empty": "¿Eliminar permanentemente los elementos con más de 30 días en la papelera?"
+      "empty": "¿Eliminar permanentemente los elementos con más de 30 días en la papelera?",
+      "emptyWord": "VACIAR"
     }
   },
   "AdminVoting": {
@@ -2609,7 +2615,9 @@
       "evolucao-temp": "Evolution Report (Temporadas)",
       "evolucao": "Evolución (Fusión 3 Fuentes)",
       "plenaria": "Plenaria de Evolución",
-      "processing": "Procesando..."
+      "processing": "Procesando...",
+      "requiresMaster": "Requiere rol Admin Master",
+      "cenarios-cur": "Curaduría de Escenarios"
     },
     "phaseExtras": {
       "competenciesShort": "{count} comp",

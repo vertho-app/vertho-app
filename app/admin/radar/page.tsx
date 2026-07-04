@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { CircleStop, Loader2, Upload, RefreshCw, FileText, FileSpreadsheet, Trash2, Terminal } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 import {
   loadRadarStats,
   ingestIcaFromUpload,
@@ -50,6 +51,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
 export default function AdminRadarPage() {
   const locale = useLocale();
   const t = useTranslations('AdminRadarIngestion');
+  const confirmDialog = useConfirm();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [uploadingIca, setUploadingIca] = useState(false);
@@ -188,13 +190,21 @@ export default function AdminRadarPage() {
   }
 
   async function handleDeleteRun(id: string) {
-    if (!confirm(t('confirm.deleteRun'))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.deleteRun'),
+      severity: 'danger',
+    });
+    if (!ok) return;
     await deleteIngestRun(id);
     refresh();
   }
 
   async function handleInterruptRun(id: string) {
-    if (!confirm(t('confirm.interruptRun'))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.interruptRun'),
+      severity: 'normal',
+    });
+    if (!ok) return;
     const r = await interruptIngestRun(id);
     addLog(r.success ? t('logs.runInterrupted') : t('logs.interruptFailed', { error: r.error }));
     refresh();
@@ -209,7 +219,11 @@ export default function AdminRadarPage() {
   }
 
   async function handleMarkStale() {
-    if (!confirm(t('confirm.markStale'))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.markStale'),
+      severity: 'normal',
+    });
+    if (!ok) return;
     setMarkingStale(true);
     const r = await markStaleIngestRuns(12);
     addLog(r.success ? t('logs.staleMarked', { count: r.count || 0 }) : t('logs.staleFailed', { error: r.error }));

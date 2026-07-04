@@ -3,8 +3,10 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { Activity, Plus, Send, CheckCircle, Loader2, Pencil, Trash2, X } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 import {
   listarCiclos, criarCiclo, editarCiclo, excluirCiclo, dispararPulso, fecharMomento, listarAssignmentsCiclo,
   type PulseCicloStatus,
@@ -14,6 +16,7 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
   const t = useTranslations('AdminPulse');
   const { empresaId } = use(params);
   const router = useRouter();
+  const confirmDialog = useConfirm();
 
   const [loading, setLoading] = useState(true);
   const [ciclos, setCiclos] = useState<PulseCicloStatus[]>([]);
@@ -41,7 +44,7 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
     setBusy('criar');
     const r = await criarCiclo(empresaId, { nome: novoNome, descricao: novaDesc || null });
     setBusy(null);
-    if (r.ok === false) { alert(r.error); return; }
+    if (r.ok === false) { toast.error(r.error); return; }
     setNovoNome(''); setNovaDesc(''); setCriando(false);
     await reload();
   }
@@ -63,44 +66,55 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
     setBusy(`${cicloId}-editar`);
     const r = await editarCiclo(empresaId, cicloId, { nome: editNome, descricao: editDesc || null });
     setBusy(null);
-    if (r.ok === false) { alert(r.error); return; }
+    if (r.ok === false) { toast.error(r.error); return; }
     cancelarEdicao();
     await reload();
   }
 
   async function handleExcluir(ciclo: PulseCicloStatus) {
-    if (!window.confirm(
-      t('confirm.deleteCycle', {
+    const ok = await confirmDialog({
+      title: t('links.delete'),
+      message: t('confirm.deleteCycle', {
         name: ciclo.nome,
         total: ciclo.t0_total + ciclo.t2_total,
-      })
-    )) return;
+      }),
+      severity: 'danger',
+    });
+    if (!ok) return;
     setBusy(`${ciclo.id}-excluir`);
     const r = await excluirCiclo(empresaId, ciclo.id);
     setBusy(null);
-    if (r.ok === false) { alert(r.error); return; }
+    if (r.ok === false) { toast.error(r.error); return; }
     if (detalheId === ciclo.id) setDetalheId(null);
     await reload();
   }
 
   async function handleDisparar(cicloId: string, momento: 'T0' | 'T2') {
-    if (!window.confirm(
-      t('confirm.createAssignments', { moment: momento })
-    )) return;
+    const ok = await confirmDialog({
+      title: t('moments.dispatch'),
+      message: t('confirm.createAssignments', { moment: momento }),
+      severity: 'normal',
+    });
+    if (!ok) return;
     setBusy(`${cicloId}-${momento}`);
     const r = await dispararPulso(empresaId, cicloId, momento);
     setBusy(null);
-    if (r.ok === false) { alert(r.error); return; }
-    alert(t('messages.assignmentsCreated', { count: r.criados }));
+    if (r.ok === false) { toast.error(r.error); return; }
+    toast.success(t('messages.assignmentsCreated', { count: r.criados }));
     await reload();
   }
 
   async function handleFechar(cicloId: string, momento: 'T0' | 'T2') {
-    if (!window.confirm(t('confirm.closeMoment', { moment: momento }))) return;
+    const ok = await confirmDialog({
+      title: t('moments.close'),
+      message: t('confirm.closeMoment', { moment: momento }),
+      severity: 'normal',
+    });
+    if (!ok) return;
     setBusy(`${cicloId}-fechar-${momento}`);
     const r = await fecharMomento(empresaId, cicloId, momento);
     setBusy(null);
-    if (r.ok === false) { alert(r.error); return; }
+    if (r.ok === false) { toast.error(r.error); return; }
     await reload();
   }
 

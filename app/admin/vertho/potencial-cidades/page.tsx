@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { Loader2, Layers, Download, Target, GraduationCap } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { loadPotencialCidades, type PotencialCidadeRow } from './actions';
@@ -42,7 +43,7 @@ export default function PotencialCidadesPage() {
     setBaixando(c.municipio_ibge);
     const url = await getCidadeXlsxUrl(c.emp.xlsx_path);
     setBaixando(null);
-    if (url) window.open(url, '_blank'); else alert(t('messages.linkUnavailable'));
+    if (url) window.open(url, '_blank'); else toast.error(t('messages.linkUnavailable'));
   }
 
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;

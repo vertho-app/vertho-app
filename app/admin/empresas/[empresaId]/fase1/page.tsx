@@ -16,11 +16,13 @@ import {
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { avisosSpecClinica } from '@/lib/scoring/spec-warnings';
 import { loadCargos, salvarTop5 } from '@/app/admin/cargos/actions';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 
 export default function Fase1Page({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const confirmDialog = useConfirm();
   const tr = useTranslations('AdminPhase1');
   const initialTab = searchParams.get('tab');
 
@@ -876,7 +878,12 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                 </button>
                               )}
                               <button disabled={isActing} onClick={async () => {
-                                if (!confirm(`Excluir o cenário "${c.titulo || 'sem título'}"? Esta ação não pode ser desfeita.`)) return;
+                                const ok = await confirmDialog({
+                                  title: 'Excluir cenário',
+                                  message: `Excluir o cenário "${c.titulo || 'sem título'}"? Esta ação não pode ser desfeita.`,
+                                  severity: 'danger',
+                                });
+                                if (!ok) return;
                                 setCenAction({ id: c.id, type: 'delete' });
                                 const r = await excluirCenario(c.id);
                                 setCenAction(null);

@@ -3,9 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ChevronRight, X } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { listarAuditoriasSem14, loadAuditoriaSem14Detalhe, regerarScoringComFeedback } from './actions';
 
 const STATUS_COR = {
@@ -24,11 +27,8 @@ export default function AuditoriaSem14Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
-  const [empresaId, setEmpresaId] = useState(null);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setEmpresaId(new URLSearchParams(window.location.search).get('empresa'));
-  }, []);
+  // Contexto de empresa unificado (path → ?empresa= → filtro do header)
+  const { empresaId } = useEmpresaContexto();
   const [detalheId, setDetalheId] = useState(null);
   const [detalhe, setDetalhe] = useState(null);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
@@ -166,15 +166,22 @@ function Card({ label, valor, cor }) {
 }
 
 function BotaoRegerar({ progressoId, onRevisado, t }) {
+  const confirmDialog = useConfirm();
   const [busy, setBusy] = useState(false);
   return (
     <button onClick={async () => {
-      if (!confirm(t('confirm.regenerate'))) return;
+      const ok = await confirmDialog({
+        title: t('regenerateWithFeedback'),
+        message: t('confirm.regenerate'),
+        severity: 'danger',
+        scopeNote: 'Operação cara de IA — regera o scoring da semana 14 com o feedback',
+      });
+      if (!ok) return;
       setBusy(true);
       const r = await regerarScoringComFeedback(progressoId);
       setBusy(false);
-      if (r.error) alert(t('errorPrefix', { error: r.error }));
-      else { alert(t('regenerated', { score: r.novaNota, status: r.novoStatus })); onRevisado?.(); }
+      if (r.error) toast.error(t('errorPrefix', { error: r.error }));
+      else { toast.success(t('regenerated', { score: r.novaNota, status: r.novoStatus })); onRevisado?.(); }
     }} disabled={busy}
       className="mt-3 w-full py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-sm font-bold flex items-center justify-center gap-2">
       {busy ? <><Loader2 size={14} className="animate-spin" /> {t('regenerating')}</> : t('regenerateWithFeedback')}

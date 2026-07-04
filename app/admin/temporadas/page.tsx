@@ -3,8 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
+import { toast } from 'sonner';
 import { ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X, Unlock, Download } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado, anteciparInicioTemporada, prepararEntregasJornada, gerarTemporada, verificarProntidaoPiloto } from '@/actions/temporadas';
 import { simularUmaSemanaSimulacao } from '@/actions/simulador-temporada';
 import { getSupabase } from '@/lib/supabase-browser';
@@ -22,9 +25,10 @@ const FORMAT_COLOR = { video: '#06B6D4', audio: '#A78BFA', texto: '#10B981', cas
 const TIPO_COLOR = { conteudo: '#3B82F6', aplicacao: '#F59E0B', avaliacao: '#A78BFA' };
 export default function TemporadasAdminPage() {
   const t = useTranslations('AdminSeasons');
+  const confirmDialog = useConfirm();
+  const { empresaId } = useEmpresaContexto();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [empresaId, setEmpresaId] = useState(null);
   const [expanded, setExpanded] = useState(null);
   const [statusFiltro, setStatusFiltro] = useState('ativa');
   const [busy, setBusy] = useState(false);
@@ -52,36 +56,57 @@ export default function TemporadasAdminPage() {
   }
 
   async function handleRegerarTemporada(colaboradorId, nome) {
-    if (!confirm(`Regerar a temporada inteira de ${nome || 'colaborador'}? Reaplica o modo atual (DUO/single) e sobrescreve o plano. Operação cara (IA).`)) return;
+    const ok = await confirmDialog({
+      title: 'Regerar temporada inteira',
+      message: `Regerar a temporada inteira de ${nome || 'colaborador'}? Reaplica o modo atual (DUO/single) e sobrescreve o plano.`,
+      severity: 'danger',
+      scopeNote: 'Operação cara de IA — regenera a temporada inteira',
+    });
+    if (!ok) return;
     setBusy(true);
     const r = await gerarTemporada({ colaboradorId });
     setBusy(false);
-    if (r.error) alert(r.error);
-    else alert(`Temporada regerada: ${(r as any).competencias?.join(' + ') || (r as any).competencia} · ${(r as any).semanas} semanas · modo ${(r as any).modo || 'single'}`);
+    if (r.error) toast.error(r.error);
+    else toast.success(`Temporada regerada: ${(r as any).competencias?.join(' + ') || (r as any).competencia} · ${(r as any).semanas} semanas · modo ${(r as any).modo || 'single'}`);
     await recarregar();
   }
 
   async function handlePreparar(colaboradorId, nome) {
-    if (!empresaId) { alert('Abra esta tela no contexto de uma empresa (?empresa=...).'); return; }
-    if (!confirm(`Pré-gerar as entregas (PDF/áudio personalizados) das semanas já liberadas de ${nome || 'colaborador'}? Abre instantâneo depois.`)) return;
+    if (!empresaId) { toast.warning('Selecione uma empresa (filtro do topo ou ?empresa=...).'); return; }
+    const ok = await confirmDialog({
+      title: 'Pré-gerar entregas',
+      message: `Pré-gerar as entregas (PDF/áudio personalizados) das semanas já liberadas de ${nome || 'colaborador'}? Abre instantâneo depois.`,
+      severity: 'normal',
+    });
+    if (!ok) return;
     setBusy(true);
     const r = await prepararEntregasJornada({ empresaId, colaboradorId });
     setBusy(false);
-    if (!r.success) alert(r.error);
-    else alert(`Entregas: ${r.data.preparadas} geradas · ${r.data.jaProntas} já prontas · ${r.data.falhas} falhas (${r.data.semanas} semana(s) liberada(s))`);
+    if (!r.success) toast.error(r.error);
+    else toast.success(`Entregas: ${r.data.preparadas} geradas · ${r.data.jaProntas} já prontas · ${r.data.falhas} falhas (${r.data.semanas} semana(s) liberada(s))`);
   }
 
   async function handleLiberar(trilhaId, nome) {
-    if (!confirm(`Liberar todas as semanas já liberáveis de ${nome || 'colaborador'} agora? (antecipa o início para esta segunda — uso em teste/demo)`)) return;
+    const ok = await confirmDialog({
+      title: 'Liberar semanas agora',
+      message: `Liberar todas as semanas já liberáveis de ${nome || 'colaborador'} agora? (antecipa o início para esta segunda — uso em teste/demo)`,
+      severity: 'normal',
+    });
+    if (!ok) return;
     setBusy(true);
     const r = await anteciparInicioTemporada({ trilhaId });
-    if (!r.success) alert(r.error);
+    if (!r.success) toast.error(r.error);
     await recarregar();
     setBusy(false);
   }
 
   async function handleArquivar(trilhaId, nome) {
-    if (!confirm(t('confirm.archive', { name: nome || t('fallback.collaborator') }))) return;
+    const ok = await confirmDialog({
+      title: t('card.archive'),
+      message: t('confirm.archive', { name: nome || t('fallback.collaborator') }),
+      severity: 'normal',
+    });
+    if (!ok) return;
     setBusy(true);
     await arquivarTemporada({ trilhaId });
     await recarregar();
@@ -89,10 +114,16 @@ export default function TemporadasAdminPage() {
   }
 
   async function handleRegerar(trilhaId, semana) {
-    if (!confirm(t('confirm.regenerateWeek', { week: semana }))) return;
+    const ok = await confirmDialog({
+      title: t('card.regenerateWeek', { week: semana }),
+      message: t('confirm.regenerateWeek', { week: semana }),
+      severity: 'danger',
+      scopeNote: 'Operação cara de IA — regenera a semana e apaga o progresso dela',
+    });
+    if (!ok) return;
     setBusy(true);
     const r = await regerarSemana({ trilhaId, semana });
-    if (!r.success) alert(r.error);
+    if (!r.success) toast.error(r.error);
     await recarregar();
     setBusy(false);
   }
@@ -101,11 +132,11 @@ export default function TemporadasAdminPage() {
   const [prontidao, setProntidao] = useState(null); // resultado do check do piloto
 
   async function handleProntidaoPiloto() {
-    if (!empresaId) { alert('Abra esta tela no contexto de uma empresa (?empresa=...).'); return; }
+    if (!empresaId) { toast.warning('Selecione uma empresa (filtro do topo ou ?empresa=...).'); return; }
     setBusy(true);
     const r = await verificarProntidaoPiloto({ empresaId });
     setBusy(false);
-    if (!r.success) { alert(r.error); return; }
+    if (!r.success) { toast.error(r.error); return; }
     setProntidao(r.data);
   }
 
@@ -117,7 +148,13 @@ export default function TemporadasAdminPage() {
     if (!perfil) return;
     const mapa = { 1: 'evolucao_confirmada', 2: 'evolucao_parcial', 3: 'estagnacao', 4: 'regressao' };
     const perfilEvolucao = mapa[perfil.trim()] || 'evolucao_parcial';
-    if (!confirm(t('simulation.confirmProfile', { profile: perfilEvolucao }))) return;
+    const ok = await confirmDialog({
+      title: t('card.simulateTitle'),
+      message: t('simulation.confirmProfile', { profile: perfilEvolucao }),
+      severity: 'danger',
+      scopeNote: 'Operação cara de IA — simula as 14 semanas e apaga o progresso existente',
+    });
+    if (!ok) return;
 
     setBusy(true);
     const sb = getSupabase();
@@ -134,14 +171,9 @@ export default function TemporadasAdminPage() {
     setSimProgress(null);
     setBusy(false);
     await recarregar();
-    if (erros.length) alert(t('simulation.finishedWithErrors', { count: erros.length, errors: erros.join('\n') }));
-    else alert(t('simulation.finished'));
+    if (erros.length) toast.error(t('simulation.finishedWithErrors', { count: erros.length, errors: erros.join('\n') }));
+    else toast.success(t('simulation.finished'));
   }
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setEmpresaId(params.get('empresa'));
-  }, []);
 
   useEffect(() => { recarregar(); }, [empresaId]);
 

@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { AdminShellContext } from './AdminShellContext';
-import { loadAdminShellEmpresas, type EmpresaLite } from './actions';
+import { loadAdminShellEmpresas, loadAdminShellPermissoes, type EmpresaLite, type AdminShellPermissoes } from './actions';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
+import { ConfirmDialogProvider } from '@/components/admin/confirm-dialog';
 
 const FILTER_KEY = 'vertho-admin-filter-empresa';
 
@@ -18,16 +19,26 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [empresaFiltro, setEmpresaFiltroState] = useState<string>('all');
   const [collapsed, setCollapsed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [permissoes, setPermissoes] = useState<AdminShellPermissoes | null>(null);
   const refreshHandlerRef = useRef<(() => void | Promise<void>) | null>(null);
 
-  // Carrega filtro persistido + lista de empresas no mount.
+  // Carrega filtro persistido + lista de empresas + permissões no mount.
   useEffect(() => {
     try {
       const saved = localStorage.getItem(FILTER_KEY);
       if (saved) setEmpresaFiltroState(saved);
     } catch {}
     loadAdminShellEmpresas().then(setEmpresas).catch(() => {});
+    loadAdminShellPermissoes().then(setPermissoes).catch(() => {});
   }, []);
+
+  // Enquanto carrega (ou em erro), comporta-se como antes (mostra tudo) —
+  // o enforcement real é server-side; aqui é só UX.
+  const podeVer = useCallback((permission?: string) => {
+    if (!permission) return true;
+    if (!permissoes?.role) return true;
+    return permissoes.permissions.includes(permission as any);
+  }, [permissoes]);
 
   // Persiste o filtro (mesma chave que as páginas já leem) e, se estamos numa rota
   // escopada por empresa, NAVEGA pra mesma subpágina da nova empresa. Fix num LUGAR SÓ:
@@ -81,6 +92,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       value={{
         empresas, empresaFiltro, setEmpresaFiltro, empresaSelecionada,
         collapsed, setCollapsed, registerRefresh, triggerRefresh, refreshing,
+        adminRole: permissoes?.role ?? null, podeVer,
       }}
     >
       <div
@@ -96,7 +108,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <AdminSidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <AdminHeader />
-          <main className="flex-1 overflow-y-auto">{children}</main>
+          <main className="flex-1 overflow-y-auto">
+            <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
+          </main>
         </div>
       </div>
     </AdminShellContext.Provider>

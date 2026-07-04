@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Save, Loader2 } from 'lucide-react';
 import { loadAssessmentGrid, salvarNotaAssessment, deletarNotaAssessment } from '@/actions/assessment-descritores';
 import BackButton from '@/components/back-button';
+import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 
 const NIVEL_COR = {
   1: 'bg-red-500/10 border-red-500/30 text-red-400',
@@ -15,16 +16,13 @@ const NIVEL_COR = {
 
 export default function AssessmentDescritoresPage() {
   const t = useTranslations('AdminAssessmentDescriptors');
-  const [empresaId, setEmpresaId] = useState(null);
+  // Contexto de empresa unificado (path → ?empresa= → filtro do header)
+  const { empresaId } = useEmpresaContexto();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [competenciaSel, setCompetenciaSel] = useState('');
   const [savingCell, setSavingCell] = useState(null);
   const [log, setLog] = useState('');
-
-  useEffect(() => {
-    setEmpresaId(new URLSearchParams(window.location.search).get('empresa'));
-  }, []);
 
   useEffect(() => {
     if (!empresaId) return;

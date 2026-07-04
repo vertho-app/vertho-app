@@ -4,10 +4,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { Loader2, School, Wand2, Building2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 import { loadEscolas, normalizarEscolasDaEmpresa, definirEscolaColaborador, atualizarEscola } from '@/actions/escolas';
 
 export default function EscolasPage() {
   const { empresaId } = useParams<{ empresaId: string }>();
+  const confirmDialog = useConfirm();
   const [escolas, setEscolas] = useState<any[]>([]);
   const [colabs, setColabs] = useState<any[]>([]);
   const [ppps, setPpps] = useState<any[]>([]);
@@ -23,7 +25,12 @@ export default function EscolasPage() {
   useEffect(() => { refresh(); }, [empresaId]);
 
   async function normalizar() {
-    if (!confirm('Normalizar area_depto → escolas e sugerir o vínculo de cada colaborador? Você revisa depois. (Idempotente)')) return;
+    const ok = await confirmDialog({
+      title: 'Normalizar escolas',
+      message: 'Normalizar area_depto → escolas e sugerir o vínculo de cada colaborador? Você revisa depois. (Idempotente)',
+      severity: 'normal',
+    });
+    if (!ok) return;
     setBusy(true); setMsg('');
     const r = await normalizarEscolasDaEmpresa(empresaId);
     setMsg(r.success ? `${r.escolas} escolas (${r.comPPP} com PPP). Revise abaixo.` : (r.error || 'Erro'));

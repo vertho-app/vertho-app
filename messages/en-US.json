@@ -27,7 +27,12 @@
     "actions": {
       "back": "Back",
       "enter": "Enter",
-      "close": "Close"
+      "close": "Close",
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    },
+    "confirmDialog": {
+      "typeToConfirm": "Type <b>{text}</b> to confirm:"
     }
   },
   "Login": {
@@ -2377,7 +2382,8 @@
     },
     "confirm": {
       "restore": "Restore {count, plural, one {# registro} other {# registros}} to their original tables?",
-      "empty": "Permanently delete items that are more than 30 days old in the trash?"
+      "empty": "Permanently delete items that are more than 30 days old in the trash?",
+      "emptyWord": "EMPTY"
     }
   },
   "AdminVoting": {
@@ -2609,7 +2615,9 @@
       "evolucao-temp": "Evolution Report (Seasons)",
       "evolucao": "Evolution (Fusion 3 Sources)",
       "plenaria": "Evolution Plenary",
-      "processing": "Processing..."
+      "processing": "Processing...",
+      "requiresMaster": "Requires Admin Master role",
+      "cenarios-cur": "Scenario Curation"
     },
     "phaseExtras": {
       "competenciesShort": "{count} comp",

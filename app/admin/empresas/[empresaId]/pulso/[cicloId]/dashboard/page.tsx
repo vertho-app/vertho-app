@@ -3,8 +3,10 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { Activity, Users, TrendingUp, RefreshCw, Loader2, Filter, Sparkles, Download, FileText } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 import { loadPulseDashboard, refreshPulseAggregates, type GroupType, type PulseDashboardData } from '@/actions/pulse/dashboard';
 import { loadPulseSignals } from '@/actions/pulse/signals';
 import { classificarRespostasAbertas, obterTemasCiclo, type ThemeAggregate } from '@/actions/pulse/classify';
@@ -32,6 +34,7 @@ export default function PulseDashboardPage({
   const { empresaId, cicloId } = use(params);
   const router = useRouter();
   const t = useTranslations('AdminPulse.dashboard');
+  const confirmDialog = useConfirm();
 
   const [state, setState] = useState<State>({ tag: 'loading' });
   const [groupType, setGroupType] = useState<GroupType>('company');
@@ -75,20 +78,25 @@ export default function PulseDashboardPage({
     setClassificando(true);
     const r = await classificarRespostasAbertas(empresaId, cicloId, { maxRespostas: 100 });
     setClassificando(false);
-    if (r.ok === false) { alert(r.error); return; }
-    alert(t('messages.classified', { processed: r.processadas, existing: r.ja_classificadas, errors: r.erros }));
+    if (r.ok === false) { toast.error(r.error); return; }
+    toast.success(t('messages.classified', { processed: r.processadas, existing: r.ja_classificadas, errors: r.erros }));
     await load();
   }
 
   const [exportingKind, setExportingKind] = useState<PulseReportKind | null>(null);
   async function handleExport(kind: PulseReportKind) {
-    if (kind === 'pulso_complementar_nr1' && !window.confirm(
-      t('confirm.nr1Report')
-    )) return;
+    if (kind === 'pulso_complementar_nr1') {
+      const ok = await confirmDialog({
+        title: t('actions.nr1Pdf'),
+        message: t('confirm.nr1Report'),
+        severity: 'normal',
+      });
+      if (!ok) return;
+    }
     setExportingKind(kind);
     const r = await exportarRelatorioPulso(empresaId, cicloId, kind, { group_type: groupType, group_key: groupKey });
     setExportingKind(null);
-    if (r.ok === false) { alert(r.error); return; }
+    if (r.ok === false) { toast.error(r.error); return; }
     window.open(`/api/relatorios/pdf?id=${r.relatorio_id}`, '_blank');
   }
 

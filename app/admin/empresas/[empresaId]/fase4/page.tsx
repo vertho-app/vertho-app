@@ -9,6 +9,7 @@ import {
   CheckCircle, AlertTriangle, RefreshCw, Zap,
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 import { loadCenariosB } from '@/actions/fase5';
 import { checkCenarioBUm, regenerarCenarioB, regenerarERecheckarCenariosBLote } from '../actions';
 
@@ -54,6 +55,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
   const { empresaId } = use(params);
   const router = useRouter();
   const t = useTranslations('AdminPhase4');
+  const confirmDialog = useConfirm();
 
   const [cenariosB, setCenariosB] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +100,12 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
   async function handleRegenerarLote() {
     const abaixoDe90 = cenariosB.filter(c => c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas').length;
     if (!abaixoDe90) { flash(t('messages.noneToRegenerate')); return; }
-    if (!confirm(t('confirm.regenerateBatch', { count: abaixoDe90 }))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.regenerateBatch', { count: abaixoDe90 }),
+      severity: 'danger',
+      scopeNote: `Operação cara de IA — regenera e re-checa ${abaixoDe90} cenário(s) B em lote`,
+    });
+    if (!ok) return;
     setActionId('lote');
     flash(t('messages.processing', { count: abaixoDe90 }));
     const r = await regenerarERecheckarCenariosBLote(empresaId, { model: genModel, checkModel });

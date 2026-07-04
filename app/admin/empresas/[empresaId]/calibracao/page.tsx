@@ -9,12 +9,15 @@
  */
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { toast } from 'sonner';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 import { listarCargosCalibracao, diagnosticarCalibracao, simularMudancaRegua, aplicarMudancaRegua } from '@/actions/calibracao';
 
 // Sincronia com o filtro de empresa do header vive no AdminShell (vale p/ todas as rotas
 // [empresaId]) — não precisa mais assinar aqui.
 export default function CalibracaoPage() {
   const { empresaId } = useParams() as { empresaId: string };
+  const confirmDialog = useConfirm();
   const [cargos, setCargos] = useState<string[]>([]);
   const [sel, setSel] = useState('');
   const [diag, setDiag] = useState<any>(null);
@@ -29,9 +32,14 @@ export default function CalibracaoPage() {
   function mudancaDe(l: any) { return l.quadrante === 'tensao-de-autoria' ? { tipo: 'direcao', para: 'target' } : { tipo: 'ombro' }; }
   async function simular(l: any) { setBusy('sim:' + l.key); const r = await simularMudancaRegua(empresaId, sel, l.key, mudancaDe(l) as any); setSims((s) => ({ ...s, [l.key]: r })); setBusy(''); }
   async function aplicar(l: any) {
-    if (!window.confirm(`Aplicar mudança de régua em "${l.traco}" (vira faixa-alvo, com teto)? Isto altera o scoring do cargo. Confirme só após revisar o e-se.`)) return;
+    const ok = await confirmDialog({
+      title: 'Aplicar mudança de régua',
+      message: `Aplicar mudança de régua em "${l.traco}" (vira faixa-alvo, com teto)? Isto altera o scoring do cargo. Confirme só após revisar o e-se.`,
+      severity: 'danger',
+    });
+    if (!ok) return;
     setBusy('apl:' + l.key); const r = await aplicarMudancaRegua(empresaId, sel, l.key, mudancaDe(l) as any); setBusy('');
-    if (r.success) { alert(`Régua de "${r.alvo}" → ${r.para}. Reabrindo diagnóstico.`); run(sel); } else alert('Erro: ' + r.error);
+    if (r.success) { toast.success(`Régua de "${r.alvo}" → ${r.para}. Reabrindo diagnóstico.`); run(sel); } else toast.error('Erro: ' + r.error);
   }
 
   const blockers = diag?.success ? diag.higiene.filter((i: any) => i.tipo !== 'sem_disc') : [];

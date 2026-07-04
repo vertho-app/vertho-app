@@ -14,6 +14,7 @@ import {
   savePermissionOverride,
 } from './actions';
 import type { PermissionKey, PermissionOverride, PermissionRisk, SystemRole } from '@/lib/permissions';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 
 const riskClass: Record<PermissionRisk, string> = {
   low: 'border-emerald-400/20 text-emerald-300 bg-emerald-400/10',
@@ -26,6 +27,7 @@ type ConsoleData = Awaited<ReturnType<typeof loadPermissionsConsole>>;
 
 export default function PermissionsPage() {
   const t = useTranslations('AdminPermissions');
+  const confirmDialog = useConfirm();
   const [data, setData] = useState<ConsoleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -102,7 +104,11 @@ export default function PermissionsPage() {
   }
 
   async function removeOverride(id: string) {
-    if (!confirm(t('confirm.removeOverride'))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.removeOverride'),
+      severity: 'danger',
+    });
+    if (!ok) return;
     const result = await removePermissionOverride(id);
     if (!result.success) {
       setMessage(result.error || t('messages.removeFailed'));

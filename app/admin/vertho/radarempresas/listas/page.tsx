@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { Loader2, Plus, Download, List, X } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { listarListas, criarLista, exportarCSV } from '@/actions/radarempresas/listas';
@@ -27,7 +28,7 @@ export default function RadarListasPage() {
     setBusy('criar');
     const r = await criarLista({ nome, descricao: desc });
     setBusy(null);
-    if (r.ok === false) { alert(r.error); return; }
+    if (r.ok === false) { toast.error(r.error); return; }
     setNome(''); setDesc(''); setCriando(false);
     await reload();
   }
@@ -36,7 +37,7 @@ export default function RadarListasPage() {
     setBusy(listaId);
     const r = await exportarCSV({ listaId });
     setBusy(null);
-    if (r.ok === false) { alert(r.error); return; }
+    if (r.ok === false) { toast.error(r.error); return; }
     const blob = new Blob(['﻿' + r.csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

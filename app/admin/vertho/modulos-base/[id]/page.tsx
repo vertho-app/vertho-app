@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Save, Send, CheckCircle2, Archive, Languages, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, RotateCcw, Wand2, Trash2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 import VideoGeradorCard from './_video-gerador';
 import KitGeradorCard from './_kit-gerador';
 import {
@@ -19,6 +20,7 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
   const { id } = use(params);
   const isNovo = id === 'novo';
   const router = useRouter();
+  const confirmDialog = useConfirm();
   const [m, setM] = useState<any>(null);
   const [competencias, setCompetencias] = useState<any[]>([]);
   const [variantes, setVariantes] = useState<any[]>([]);
@@ -114,7 +116,12 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
   }
 
   async function excluir() {
-    if (!window.confirm(`Excluir o módulo "${m?.titulo || ''}"? Esta ação não pode ser desfeita.`)) return;
+    const ok = await confirmDialog({
+      title: 'Excluir módulo',
+      message: `Excluir o módulo "${m?.titulo || ''}"? Esta ação não pode ser desfeita.`,
+      severity: 'danger',
+    });
+    if (!ok) return;
     setErro(''); setAviso(''); setSaving(true);
     const r = await excluirModulo(id);
     setSaving(false);

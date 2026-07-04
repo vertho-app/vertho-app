@@ -5,10 +5,12 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Plus, Trash2, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { loadPlatformAdmins, adicionarAdmin, removerAdmin, definirRoleAdmin } from './actions';
 import BackButton from '@/components/back-button';
+import { useConfirm } from '@/components/admin/confirm-dialog';
 
 export default function PlatformAdminsPage() {
   const locale = useLocale();
   const t = useTranslations('AdminPlatformAdmins');
+  const confirmDialog = useConfirm();
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
@@ -48,7 +50,11 @@ export default function PlatformAdminsPage() {
   }
 
   async function handleRemove(id: any, adminEmail: any) {
-    if (!confirm(t('confirm.remove', { email: adminEmail }))) return;
+    const ok = await confirmDialog({
+      title: t('confirm.remove', { email: adminEmail }),
+      severity: 'danger',
+    });
+    if (!ok) return;
     setRemoving(id);
     const r = await removerAdmin(id);
     if (r.success) {
