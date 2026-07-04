@@ -1,7 +1,7 @@
 import {
-  Building2, Activity, Vote, Brain, Zap, FileText, ClipboardCheck, ShieldCheck,
+  Building2, Activity, Brain, Zap, FileText, ClipboardCheck,
   BookMarked, BookOpen, Video, Database, GraduationCap as GradIcon, BarChart2,
-  Calculator, LayoutDashboard, TrendingUp, Target, Globe, Shield, LockKeyhole,
+  Calculator, LayoutDashboard, TrendingUp, Target, Shield, LockKeyhole,
   ScrollText, Trash2, CalendarDays, Send, Package, School, Settings,
   FileBarChart, Crosshair, FlaskConical,
 } from 'lucide-react';
@@ -58,8 +58,8 @@ export const NAV_ITEMS: NavItem[] = [
 
   // ── Configuração (tenant) ─────────────────────────────────────────────────
   { key: 'competencias', labelKey: 'competencies',   subKey: 'baseByRole',    group: 'setup', icon: BookMarked, hrefFn: (id) => id ? `/admin/competencias?empresa=${id}` : '/admin/competencias' },
+  // votação virou tab do workspace de cargos (Fase 3) — item próprio removido
   { key: 'cargos',       labelKey: 'roleCompetencies', subKey: 'roleCompSub', group: 'setup', icon: Target,     hrefFn: (id) => `/admin/cargos?empresa=${id}`,          showWhenAll: false },
-  { key: 'votacao',      labelKey: 'voting',          subKey: 'top5Collaborators', group: 'setup', icon: Vote,   hrefFn: (id) => `/admin/empresas/${id}/votacao`,        showWhenAll: false },
   { key: 'escolas-ppp',  labelKey: 'schoolsPpp',      subKey: 'schoolsPppSub', group: 'setup', icon: School,    hrefFn: (id) => `/admin/ppp?empresa=${id}`,             showWhenAll: false },
   { key: 'configuracoes', labelKey: 'companySettings', subKey: 'companySettingsSub', group: 'setup', icon: Settings, hrefFn: (id) => `/admin/empresas/${id}/configuracoes`, showWhenAll: false },
 
@@ -78,18 +78,18 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'evolucao',    labelKey: 'evolution',          subKey: 'evolutionSub',      group: 'results', icon: TrendingUp,   hrefFn: (id) => `/admin/evolucao?empresa=${id}`,                showWhenAll: false },
 
   // ── Auditoria Vertho (tenant, qualidade interna) ──────────────────────────
-  { key: 'evidencias', labelKey: 'evidence',              subKey: 'socraticSessions', group: 'verthoAudit', icon: FileText,       hrefFn: (id) => `/admin/vertho/evidencias?empresa=${id}`,          showWhenAll: false },
-  { key: 'acumulada',  labelKey: 'accumulatedAssessment', subKey: 'week13Audit',      group: 'verthoAudit', icon: ClipboardCheck, hrefFn: (id) => `/admin/vertho/avaliacao-acumulada?empresa=${id}`, showWhenAll: false },
-  { key: 'sem14',      labelKey: 'week14',                subKey: 'finalAudit',       group: 'verthoAudit', icon: ShieldCheck,    hrefFn: (id) => `/admin/vertho/auditoria-sem14?empresa=${id}`,     showWhenAll: false },
+  { key: 'evidencias', labelKey: 'evidence',  subKey: 'socraticSessions', group: 'verthoAudit', icon: FileText,       hrefFn: (id) => `/admin/vertho/evidencias?empresa=${id}`,  showWhenAll: false },
+  // sem13 + sem14 fundidas no workspace de auditorias (Fase 3)
+  { key: 'auditorias', labelKey: 'audits',    subKey: 'auditsSub',        group: 'verthoAudit', icon: ClipboardCheck, hrefFn: (id) => `/admin/vertho/auditorias?empresa=${id}`,  showWhenAll: false },
 
   // ── Dados educacionais (admin-wide) ───────────────────────────────────────
   { key: 'radar',           labelKey: 'radarIngestion', subKey: 'saebIcaCensus', group: 'data', icon: BarChart2, hrefFn: () => '/admin/radar',                 showWhenEmpresa: false, permission: 'radar.admin.access' },
   { key: 'qualidade-dados', labelKey: 'dataQuality',    subKey: 'radarQuality',  group: 'data', icon: Database,  hrefFn: () => '/admin/radar/qualidade-dados', showWhenEmpresa: false, permission: 'radar.admin.access' },
 
   // ── Comercial (admin-wide, interno Vertho) ────────────────────────────────
-  { key: 'radar-empresas',    labelKey: 'companyRadar',    subKey: 'b2bIntelligence',        group: 'commercial', icon: Target,     hrefFn: () => '/admin/vertho/radarempresas',    showWhenEmpresa: false, permission: 'radar_empresas.access' },
-  { key: 'mercado',           labelKey: 'potentialMarket', subKey: 'citiesNetworksSchools',  group: 'commercial', icon: TrendingUp, hrefFn: () => '/admin/vertho/mercado-potencial', showWhenEmpresa: false, permission: 'radar_empresas.access' },
-  { key: 'potencial-cidades', labelKey: 'cityPotential',   subKey: 'companiesSchoolsUnified', group: 'commercial', icon: Globe,     hrefFn: () => '/admin/vertho/potencial-cidades', showWhenEmpresa: false, permission: 'radar_empresas.access' },
+  { key: 'radar-empresas', labelKey: 'companyRadar',    subKey: 'b2bIntelligence',       group: 'commercial', icon: Target,     hrefFn: () => '/admin/vertho/radarempresas',    showWhenEmpresa: false, permission: 'radar_empresas.access' },
+  // potencial-cidades virou tab "unificado" do mercado-potencial (Fase 3)
+  { key: 'mercado',        labelKey: 'potentialMarket', subKey: 'citiesNetworksSchools', group: 'commercial', icon: TrendingUp, hrefFn: () => '/admin/vertho/mercado-potencial', showWhenEmpresa: false, permission: 'radar_empresas.access' },
 
   // ── Custos ────────────────────────────────────────────────────────────────
   { key: 'custo-ia',  labelKey: 'aiCost', subKey: 'callCatalog',    group: 'costs', icon: BarChart2,  hrefFn: () => '/admin/vertho/simulador-custo', permission: 'ai.costs.view' },

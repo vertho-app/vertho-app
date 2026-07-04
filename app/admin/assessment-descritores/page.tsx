@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Save, Loader2 } from 'lucide-react';
+import { Save, Loader2, ClipboardCheck } from 'lucide-react';
 import { loadAssessmentGrid, salvarNotaAssessment, deletarNotaAssessment } from '@/actions/assessment-descritores';
 import BackButton from '@/components/back-button';
+import AdminPageHeader from '@/components/admin/page-header';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 
 const NIVEL_COR = {
@@ -71,19 +72,20 @@ export default function AssessmentDescritoresPage() {
   const descritores = compAtual?.descritores || [];
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
+    <div className="min-h-full text-white">
       <div className="max-w-[1600px] mx-auto p-6">
         <BackButton />
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">{t('title')}</h1>
-            <p className="text-xs text-gray-400">{t('subtitle')}</p>
-          </div>
-          <select value={competenciaSel} onChange={e => setCompetenciaSel(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
-            {data.competencias.map(c => <option key={c.nome} value={c.nome} className="bg-[#0d1426]">{c.nome}</option>)}
-          </select>
-        </div>
+        <AdminPageHeader
+          icon={ClipboardCheck}
+          title={t('title')}
+          subtitle={t('subtitle')}
+          actions={
+            <select value={competenciaSel} onChange={e => setCompetenciaSel(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
+              {data.competencias.map(c => <option key={c.nome} value={c.nome} className="bg-[#0d1426]">{c.nome}</option>)}
+            </select>
+          }
+        />
 
         {/* Legenda */}
         <div className="flex items-center gap-3 mb-4 text-[11px]">
@@ -156,7 +158,7 @@ export default function AssessmentDescritoresPage() {
 }
 
 function Center({ children }) {
-  return <div className="min-h-full flex items-center justify-center bg-[#0a0e1a] text-white">{children}</div>;
+  return <div className="min-h-full flex items-center justify-center text-white">{children}</div>;
 }
 
 function LegendBadge({ nivel, label }) {

@@ -357,7 +357,8 @@
         "reports": "Reports",
         "fitAdequacy": "Fit",
         "evolution": "Evolution",
-        "demoEnv": "Demo Environment"
+        "demoEnv": "Demo Environment",
+        "audits": "Audits (13/14)"
       },
       "subs": {
         "overview": "Overview",
@@ -378,7 +379,7 @@
         "radarQuality": "Radar quality",
         "callCatalog": "Call book",
         "costTableFinal": "Cost / Table / Final",
-        "citiesNetworksSchools": "Municipalities · Networks · Schools",
+        "citiesNetworksSchools": "Cities · Networks · Unified",
         "b2bIntelligence": "B2B commercial intelligence",
         "companiesSchoolsUnified": "Companies + Schools unified",
         "platformAdmins": "Platform admins",
@@ -389,14 +390,15 @@
         "seasonsSub": "Journeys & weeks",
         "dispatchSub": "WhatsApp · E-mail · Links",
         "pulseSub": "Development cycles",
-        "roleCompSub": "Top 10 · Top 5 · Answer key",
+        "roleCompSub": "Top 5 · Voting",
         "schoolsPppSub": "Institutional context",
         "companySettingsSub": "Branding · AI · Language",
         "kitsSub": "One-off & by cohort",
         "reportsSub": "PDI · Manager · DNA",
-        "fitSub": "Ranking by role",
+        "fitSub": "Fit · Ranking · Calibration",
         "evolutionSub": "Evolution reports",
-        "demoEnvSub": "ACME demo reset"
+        "demoEnvSub": "ACME demo reset",
+        "auditsSub": "Week 13 · Week 14"
       },
       "groups": {
         "overview": "Overview",
@@ -1717,6 +1719,10 @@
     "messages": {
       "top5Saved": "Top 5 saved!",
       "error": "Error: {error}"
+    },
+    "tabs": {
+      "top5": "Workshop Top 5",
+      "votacao": "Voting"
     }
   },
   "AdminCompetencies": {
@@ -2116,6 +2122,13 @@
       "unexpectedError": "Unexpected error: {error}",
       "batchErrors": "{count, plural, one {# team member with error} other {# team members with errors}}:\n\n{summary}{remaining}",
       "moreErrors": "...and more {count}"
+    },
+    "workspaceTitle": "Adequacy",
+    "tabs": {
+      "fit": "Fit v2",
+      "ranking": "Ranking (manager preview)",
+      "calibracao": "Calibration",
+      "devBadge": "dev/internal"
     }
   },
   "AdminPPP": {
@@ -2153,7 +2166,9 @@
     },
     "tabs": {
       "files": "Files + Website",
-      "text": "Import Text"
+      "text": "Import Text",
+      "ppps": "PPPs",
+      "escolas": "Schools & links"
     },
     "upload": {
       "click": "Click to upload files",
@@ -4107,5 +4122,11 @@
     "unknown": "Unexpected error.",
     "back": "Back",
     "retry": "Try again"
+  },
+  "AdminAuditorias": {
+    "tabs": {
+      "sem13": "Wk 13 — Accumulated Assessment",
+      "sem14": "Wk 14 — Final Audit"
+    }
   }
 }

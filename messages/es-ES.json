@@ -357,7 +357,8 @@
         "reports": "Informes",
         "fitAdequacy": "Adecuación (Fit)",
         "evolution": "Evolución",
-        "demoEnv": "Entorno Demo"
+        "demoEnv": "Entorno Demo",
+        "audits": "Auditorías (13/14)"
       },
       "subs": {
         "overview": "Visión general",
@@ -378,7 +379,7 @@
         "radarQuality": "Calidad Radar",
         "callCatalog": "Catálogo de llamadas",
         "costTableFinal": "Costo / Tabla / Final",
-        "citiesNetworksSchools": "Municipios · Redes · Escuelas",
+        "citiesNetworksSchools": "Municipios · Redes · Unificado",
         "b2bIntelligence": "Inteligencia comercial B2B",
         "companiesSchoolsUnified": "Empresas + Escuelas unificado",
         "platformAdmins": "Platform admins",
@@ -389,14 +390,15 @@
         "seasonsSub": "Jornadas y semanas",
         "dispatchSub": "WhatsApp · E-mail · Links",
         "pulseSub": "Ciclos de desarrollo",
-        "roleCompSub": "Top 10 · Top 5 · Plantilla",
+        "roleCompSub": "Top 5 · Votación",
         "schoolsPppSub": "Contexto institucional",
         "companySettingsSub": "Branding · IA · Idioma",
         "kitsSub": "Individual y por cohorte",
         "reportsSub": "PDI · Gestor · ADN",
-        "fitSub": "Ranking por cargo",
+        "fitSub": "Fit · Ranking · Calibración",
         "evolutionSub": "Evolution reports",
-        "demoEnvSub": "Reset ACME demo"
+        "demoEnvSub": "Reset ACME demo",
+        "auditsSub": "Semana 13 · Semana 14"
       },
       "groups": {
         "overview": "Visión general",
@@ -1717,6 +1719,10 @@
     "messages": {
       "top5Saved": "Top 5 guardado!",
       "error": "Error: {error}"
+    },
+    "tabs": {
+      "top5": "Top 5 del Workshop",
+      "votacao": "Votación"
     }
   },
   "AdminCompetencies": {
@@ -2116,6 +2122,13 @@
       "unexpectedError": "Error inesperado: {error}",
       "batchErrors": "{count, plural, one {# colaborador con error} other {# colaboradores con error}}:\n\n{summary}{remaining}",
       "moreErrors": "\n\n... y {count} más"
+    },
+    "workspaceTitle": "Adecuación",
+    "tabs": {
+      "fit": "Fit v2",
+      "ranking": "Ranking (vista del gestor)",
+      "calibracao": "Calibración",
+      "devBadge": "dev/interno"
     }
   },
   "AdminPPP": {
@@ -2153,7 +2166,9 @@
     },
     "tabs": {
       "files": "Archivos + Sitio",
-      "text": "Importar texto"
+      "text": "Importar texto",
+      "ppps": "PPPs",
+      "escolas": "Escuelas y vínculos"
     },
     "upload": {
       "click": "Haz clic para subir archivos",
@@ -4107,5 +4122,11 @@
     "unknown": "Error inesperado.",
     "back": "Volver",
     "retry": "Intentar de nuevo"
+  },
+  "AdminAuditorias": {
+    "tabs": {
+      "sem13": "Sem 13 — Ev. Acumulada",
+      "sem14": "Sem 14 — Auditoría Final"
+    }
   }
 }

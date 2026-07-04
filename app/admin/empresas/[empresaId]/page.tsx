@@ -75,7 +75,7 @@ const PHASE_CONFIG = [
   ]},
   { num: 1, icon: Brain, color: '#3B82F6', actions: [
     { key: 'ia1',         label: 'IA1 — Top 10',               icon: Zap,          ai: true },
-    { key: 'votacao',     label: 'Votação Colaboradores',       icon: Users,        hrefFn: (id: string) => `/admin/empresas/${id}/votacao` },
+    { key: 'votacao',     label: 'Votação Colaboradores',       icon: Users,        hrefFn: (id: string) => `/admin/cargos?empresa=${id}&tab=votacao` },
     { key: 'cargos-top5', label: 'Top 5',                       icon: Target,       href: '/admin/cargos' },
     { key: 'perfil-ext',  label: 'Perfil Externo (OPQ32)',      icon: FileText,     hrefFn: (id: string) => `/admin/empresas/${id}/perfil-externo` },
     { key: 'ia2',         label: 'IA2 — Perfil Ideal',          icon: Zap,          ai: true },
@@ -118,8 +118,8 @@ const PHASE_CONFIG = [
     ]},
     { label: 'Auditoria Vertho (interna)', actions: [
       { key: 'vertho-evidencias', label: 'Evidências Semanais',  icon: Sparkles,      hrefFn: (id: string) => `/admin/vertho/evidencias?empresa=${id}` },
-      { key: 'vertho-acumulada',  label: 'Avaliação Acumulada', icon: ClipboardCheck, hrefFn: (id: string) => `/admin/vertho/avaliacao-acumulada?empresa=${id}` },
-      { key: 'vertho-sem14',      label: 'Auditoria Sem 14',    icon: ClipboardCheck, hrefFn: (id: string) => `/admin/vertho/auditoria-sem14?empresa=${id}` },
+      { key: 'vertho-acumulada',  label: 'Avaliação Acumulada', icon: ClipboardCheck, hrefFn: (id: string) => `/admin/vertho/auditorias?empresa=${id}&tab=sem13` },
+      { key: 'vertho-sem14',      label: 'Auditoria Sem 14',    icon: ClipboardCheck, hrefFn: (id: string) => `/admin/vertho/auditorias?empresa=${id}&tab=sem14` },
     ]},
     { label: 'Evolução', actions: [
       { key: 'evolucao-temp', label: 'Evolution Report (Temporadas)', icon: TrendingUp,   hrefFn: (id: string) => `/admin/evolucao?empresa=${id}` },
@@ -632,8 +632,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                           <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase2`)} className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300">{t('phaseExtras.diagnosis')}</button>
                           <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase2?tab=trilhas`)} className="text-[10px] font-bold text-amber-400 hover:text-amber-300">{t('phaseExtras.trails')}</button>
                           <button onClick={() => router.push(`/admin/empresas/${empresaId}/relatorios`)} className="text-[10px] font-bold" style={{ color: '#A78BFA' }}>{t('phaseExtras.reports')}</button>
-                          <button onClick={() => router.push(`/admin/empresas/${empresaId}/calibracao`)} className="text-[10px] font-bold text-slate-400 hover:text-slate-200" title="Diagnóstico interno de calibração do gabarito — dev-only, não vai pro cliente">Calibração ⚙</button>
-                          <button onClick={() => router.push(`/admin/empresas/${empresaId}/ranking`)} className="text-[10px] font-bold text-slate-400 hover:text-slate-200" title="Preview do ranking de adequação que o gestor do cliente vê">Ranking 📊</button>
+                          <button onClick={() => router.push(`/admin/fit?empresa=${empresaId}&tab=calibracao`)} className="text-[10px] font-bold text-slate-400 hover:text-slate-200" title="Diagnóstico interno de calibração do gabarito — dev-only, não vai pro cliente">Calibração ⚙</button>
+                          <button onClick={() => router.push(`/admin/fit?empresa=${empresaId}&tab=ranking`)} className="text-[10px] font-bold text-slate-400 hover:text-slate-200" title="Preview do ranking de adequação que o gestor do cliente vê">Ranking 📊</button>
                         </div>
                       )}
                       {fase.num === 4 && (

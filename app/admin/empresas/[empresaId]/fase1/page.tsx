@@ -282,7 +282,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
               <strong className="text-cyan-100/90">{tr('workshop.anyQuantity')}</strong>
               {tr('workshop.afterQuantity')}{' '}
             </span>
-            <button onClick={() => router.push(`/admin/empresas/${empresaId}/votacao`)}
+            <button onClick={() => router.push(`/admin/cargos?empresa=${empresaId}&tab=votacao`)}
               className="underline text-cyan-300 hover:text-cyan-200">
               {tr('workshop.voting')}
             </button>

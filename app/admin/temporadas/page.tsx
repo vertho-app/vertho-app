@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
-import { ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X, Unlock, Download } from 'lucide-react';
+import { ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X, Unlock, Download, CalendarDays } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import AdminPageHeader from '@/components/admin/page-header';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado, anteciparInicioTemporada, prepararEntregasJornada, gerarTemporada, verificarProntidaoPiloto } from '@/actions/temporadas';
@@ -182,30 +183,33 @@ export default function TemporadasAdminPage() {
     : items.filter(t => (t.status || 'ativa') === statusFiltro);
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
+    <div className="min-h-full text-white">
       <div className="max-w-6xl mx-auto p-6">
         <BackButton />
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">{t('title')}</h1>
-            <p className="text-xs text-gray-400">{empresaId ? t('scope.company') : t('scope.allCompanies')} · {itemsFiltrados.length}/{items.length}</p>
-          </div>
-          {empresaId && (
-            <button onClick={handleProntidaoPiloto} disabled={busy}
-              title="Piloto: verifica formato-core dos top-4 descritores + Cenário B do cargo ANTES de liberar"
-              className="bg-white/5 border border-white/10 hover:border-cyan-400/40 rounded-lg px-3 py-1.5 text-xs text-cyan-300 disabled:opacity-50">
-              Prontidão piloto
-            </button>
-          )}
-          <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white">
-            <option value="ativa" className="bg-[#0d1426]">{t('filters.active')}</option>
-            <option value="pausada" className="bg-[#0d1426]">{t('filters.paused')}</option>
-            <option value="concluida" className="bg-[#0d1426]">{t('filters.completed')}</option>
-            <option value="arquivada" className="bg-[#0d1426]">{t('filters.archived')}</option>
-            <option value="todas" className="bg-[#0d1426]">{t('filters.all')}</option>
-          </select>
-        </div>
+        <AdminPageHeader
+          icon={CalendarDays}
+          title={t('title')}
+          subtitle={<>{empresaId ? t('scope.company') : t('scope.allCompanies')} · {itemsFiltrados.length}/{items.length}</>}
+          actions={
+            <>
+              {empresaId && (
+                <button onClick={handleProntidaoPiloto} disabled={busy}
+                  title="Piloto: verifica formato-core dos top-4 descritores + Cenário B do cargo ANTES de liberar"
+                  className="bg-white/5 border border-white/10 hover:border-cyan-400/40 rounded-lg px-3 py-1.5 text-xs text-cyan-300 disabled:opacity-50">
+                  Prontidão piloto
+                </button>
+              )}
+              <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white">
+                <option value="ativa" className="bg-[#0d1426]">{t('filters.active')}</option>
+                <option value="pausada" className="bg-[#0d1426]">{t('filters.paused')}</option>
+                <option value="concluida" className="bg-[#0d1426]">{t('filters.completed')}</option>
+                <option value="arquivada" className="bg-[#0d1426]">{t('filters.archived')}</option>
+                <option value="todas" className="bg-[#0d1426]">{t('filters.all')}</option>
+              </select>
+            </>
+          }
+        />
 
         {prontidao && (
           <div className="mb-6 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.04] p-4">

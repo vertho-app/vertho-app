@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload, FileDown, ExternalLink, FileX, Loader2, Clapperboard, User, Users } from 'lucide-react';
+import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload, FileDown, ExternalLink, FileX, Loader2, Clapperboard, User, Users, ArrowRight } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import AdminPageHeader from '@/components/admin/page-header';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
   deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio, aprovarRoteiroPodcastEGerarAudio,
@@ -227,60 +228,66 @@ export default function ConteudosAdminPage() {
   const naoClassificados = items.filter(i => isUnclassified(i.competencia)).length;
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
+    <div className="min-h-full text-white">
       <div className="max-w-7xl mx-auto p-6">
         <BackButton />
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">{t('title')}</h1>
-            <p className="text-xs text-gray-400">{t('subtitle')}</p>
-          </div>
-          <button
-            onClick={() => setShowUpload(true)}
-            disabled={busy}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/20 hover:bg-white/10 disabled:opacity-50 text-sm font-bold"
-          >
-            <Plus size={16} />
-            {t('actions.addManual')}
-          </button>
-          <button
-            onClick={() => setShowGerar(true)}
-            disabled={busy}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-sm font-bold"
-          >
-            <Wand2 size={16} />
-            {t('actions.generateAi')}
-          </button>
-          <button
-            onClick={() => router.push('/admin/conteudos/kit')}
-            disabled={busy}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-sm font-bold"
-            title="1 núcleo → 4 formatos coesos + desafio por DISC"
-          >
-            <Wand2 size={16} />
-            Gerar Kit
-          </button>
-          <button
-            onClick={handleImportar}
-            disabled={busy}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-sm font-bold"
-          >
-            <Download size={16} />
-            {t('actions.importBunny')}
-          </button>
-          <button
-            onClick={() => {
-              if (!empresaFiltro) { toast.warning('Selecione uma empresa no topo para extrair vídeo.'); return; }
-              router.push(`/admin/empresas/${empresaFiltro}/extracao-video`);
-            }}
-            disabled={busy}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-700 disabled:opacity-50 text-sm font-bold"
-          >
-            <Clapperboard size={16} />
-            Extrair de vídeo
-          </button>
-        </div>
+        {/* Header padronizado — ações reais sólidas na paleta teal; navegação vira ghost/outline */}
+        <AdminPageHeader
+          icon={BookOpen}
+          title={t('title')}
+          subtitle={t('subtitle')}
+          actions={
+            <>
+              <button
+                onClick={() => setShowUpload(true)}
+                disabled={busy}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/20 hover:bg-white/10 disabled:opacity-50 text-sm font-bold"
+              >
+                <Plus size={16} />
+                {t('actions.addManual')}
+              </button>
+              <button
+                onClick={() => setShowGerar(true)}
+                disabled={busy}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-sm font-bold"
+              >
+                <Wand2 size={16} />
+                {t('actions.generateAi')}
+              </button>
+              <button
+                onClick={handleImportar}
+                disabled={busy}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-sm font-bold"
+              >
+                <Download size={16} />
+                {t('actions.importBunny')}
+              </button>
+              {/* Navegação (leva a outra tela) — outline com ArrowRight, não parece ação */}
+              <button
+                onClick={() => router.push('/admin/conteudos/kit')}
+                disabled={busy}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-50 text-sm font-bold"
+                title="1 núcleo → 4 formatos coesos + desafio por DISC"
+              >
+                <Wand2 size={16} />
+                Gerar Kit
+                <ArrowRight size={14} />
+              </button>
+              <button
+                onClick={() => {
+                  if (!empresaFiltro) { toast.warning('Selecione uma empresa no topo para extrair vídeo.'); return; }
+                  router.push(`/admin/empresas/${empresaFiltro}/extracao-video`);
+                }}
+                disabled={busy}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-50 text-sm font-bold"
+              >
+                <Clapperboard size={16} />
+                Extrair de vídeo
+                <ArrowRight size={14} />
+              </button>
+            </>
+          }
+        />
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">

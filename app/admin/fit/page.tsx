@@ -2,6 +2,7 @@
 import { toast } from 'sonner';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
   Loader2, BarChart3, Trophy, Target, Users, Zap, ChevronDown,
@@ -16,6 +17,8 @@ import {
 import { baixarRelatorioComportamentalPdfPorId } from '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions';
 import { gerarRelatorioAdequacao } from '@/actions/adequacao-cargo';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
+import RankingTab from './_components/ranking-tab';
+import CalibracaoTab from './_components/calibracao-tab';
 
 const FAIXA_COLORS = {
   excelente: { bg: 'bg-green-400/15', text: 'text-green-400' },
@@ -132,10 +135,84 @@ function ForcaItem({ f }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Workspace "Adequação" — as 3 lentes de adequação num lugar só (Reorganização
+// do admin, Fase 3), navegadas por ?tab= (mesmo padrão do fase1):
+//   fit        → Fit v2, ranking por cargo (oficial)
+//   ranking    → preview interno do Ranking de Adequação que o gestor vê
+//   calibracao → ferramenta DEV de calibração do gabarito (badge dev/interno)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TAB_KEYS = ['fit', 'ranking', 'calibracao'];
+
 export default function FitPage() {
   const t = useTranslations('AdminFit');
+  const searchParams = useSearchParams();
   // Contexto de empresa unificado (path → ?empresa= → filtro do header)
   const { empresaId } = useEmpresaContexto();
+
+  const initialTab = searchParams.get('tab');
+  const [tab, setTab] = useState(
+    TAB_KEYS.includes(initialTab || '') ? (initialTab as string) : 'fit'
+  );
+
+  // Os redirects das rotas legadas podem chegar via client-nav com a página já
+  // montada — sincroniza o estado quando ?tab= muda (o fase1 só lê o inicial).
+  useEffect(() => {
+    const q = searchParams.get('tab');
+    if (q && TAB_KEYS.includes(q)) setTab(q);
+  }, [searchParams]);
+
+  const TABS = [
+    { key: 'fit', label: t('tabs.fit'), icon: BarChart3, color: 'text-cyan-400', dev: false },
+    { key: 'ranking', label: t('tabs.ranking'), icon: Trophy, color: 'text-amber-400', dev: false },
+    { key: 'calibracao', label: t('tabs.calibracao'), icon: Target, color: 'text-emerald-400', dev: true },
+  ];
+
+  return (
+    <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+
+      <BackButton />
+      {/* Header do workspace */}
+      <div className="flex items-center gap-3 mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-white flex items-center gap-2"><BarChart3 size={20} className="text-cyan-400" /> {t('workspaceTitle')}</h1>
+          <p className="text-xs text-gray-500">{t('subtitle')}</p>
+        </div>
+      </div>
+
+      {/* Tabs (mesmo padrão visual do fase1) */}
+      <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
+        {TABS.map(tb => (
+          <button key={tb.key} onClick={() => setTab(tb.key)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+              tab === tb.key ? 'bg-white/[0.06] text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}>
+            <tb.icon size={14} className={tab === tb.key ? tb.color : ''} />
+            {tb.label}
+            {/* Pill âmbar marcando lente de uso interno (ferramenta DEV) */}
+            {tb.dev && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 uppercase tracking-wider">{t('tabs.devBadge')}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Conteúdo — todas as lentes dependem de empresa selecionada */}
+      {!empresaId ? (
+        <div className="text-center py-10"><p className="text-gray-400">{t('missingCompany')}</p></div>
+      ) : tab === 'ranking' ? (
+        <RankingTab empresaId={empresaId} />
+      ) : tab === 'calibracao' ? (
+        <CalibracaoTab empresaId={empresaId} />
+      ) : (
+        <FitV2Tab empresaId={empresaId} />
+      )}
+    </div>
+  );
+}
+
+/** Tab "Fit v2" — conteúdo original de /admin/fit (ranking por cargo, oficial). */
+function FitV2Tab({ empresaId }: { empresaId: string }) {
+  const t = useTranslations('AdminFit');
 
   const [cargos, setCargos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -206,7 +283,6 @@ export default function FitPage() {
   }
 
   useEffect(() => {
-    if (!empresaId) { setLoading(false); return; }
     loadCargosComFit(empresaId).then(d => { setCargos(d); setLoading(false); });
   }, [empresaId]);
 
@@ -249,20 +325,11 @@ export default function FitPage() {
     }
   }
 
-  if (!empresaId) return <div className="max-w-[1100px] mx-auto px-4 py-6 text-center"><p className="text-gray-400">{t('missingCompany')}</p></div>;
-  if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
+  // Guard de empresa vive na página (workspace); aqui empresaId é sempre string.
+  if (loading) return <div className="flex justify-center py-16"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
   return (
-    <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
-
-      <BackButton />
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2"><BarChart3 size={20} className="text-cyan-400" /> {t('title')}</h1>
-          <p className="text-xs text-gray-500">{t('subtitle')}</p>
-        </div>
-      </div>
+    <div>
 
       {/* Cargos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">

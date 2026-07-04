@@ -212,7 +212,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
         <div className="flex flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
             <button onClick={handleGerarPerfilOrg} disabled={poBusy}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap">
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap">
               {poBusy ? <Loader2 size={14} className="animate-spin" /> : <Fingerprint size={14} />}
               {poBusy ? t('po.generating') : t('po.button')}
             </button>

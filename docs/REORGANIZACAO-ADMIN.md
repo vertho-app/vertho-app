@@ -3,6 +3,14 @@
 > Execução em 5 fases (04/07/2026), a partir da auditoria de navegação/layout/fluxos.
 > Este documento é o registro vivo: cada fase lista o que mudou, onde e **por quê**.
 
+## Débitos assumidos / follow-ups
+
+- i18n da tab Escolas (conteúdo interno segue hardcoded pt-BR, herdado da tela original órfã).
+- Modal compartilhado (23 hand-rolled), `EmptyDataState`/`FilterBar` nas demais páginas, `#0F2A4A`→`Surface` em `gerenciar`/`configuracoes`/`relatorios`.
+- Troca de tab nos workspaces não reescreve a URL (padrão herdado do fase1); deep-link via `?tab=` funciona.
+- Remoção definitiva das rotas-redirect (top10, relatorios global, funnel-bett, escolas, votacao, ranking, calibracao, avaliacao-acumulada, auditoria-sem14, potencial-cidades) em release futura, após confirmar que ninguém mais as acessa (logs Vercel).
+- `prompt()` nativo remanescente na escolha de perfil do simulador de temporadas (fora do escopo alert/confirm).
+
 ## Diagnóstico que motivou o trabalho (resumo)
 
 - Menu lateral plano com 26 itens sem agrupamento (`app/admin/_shell/nav-items.ts`); 31 de 64 páginas só alcançáveis via hub do pipeline; 1 tela órfã (`escolas`), 3 legadas navegáveis (`top10`, `relatorios` global, `radar/funnel-bett`).
@@ -87,11 +95,46 @@
 
 ## Fase 3 — Fusões de workspace
 
-_(pendente)_
+Cinco fusões, todas no mesmo padrão: workspace com tabs (`?tab=`, padrão visual do `fase1`), conteúdo movido para `_components/*-tab.tsx` **sem mudança de comportamento**, `actions.ts` ficam onde estavam, e as rotas antigas viram **redirect server-side** (bookmarks e links antigos seguem funcionando).
+
+| Workspace | Rota | Tabs | Rotas aposentadas (→ redirect) |
+|---|---|---|---|
+| **Escolas & PPP** | `/admin/ppp` | PPPs · Escolas & vínculos | `empresas/[id]/escolas` (era órfã!) |
+| **Competências do Cargo** | `/admin/cargos` | Top 5 do Workshop · Votação | `empresas/[id]/votacao` |
+| **Adequação** | `/admin/fit` | Fit v2 · Ranking (preview gestor) · Calibração `dev/interno` | `empresas/[id]/ranking`, `empresas/[id]/calibracao` |
+| **Auditorias (13/14)** | `/admin/vertho/auditorias` (novo) | Sem 13 — Av. Acumulada · Sem 14 — Auditoria Final | `vertho/avaliacao-acumulada`, `vertho/auditoria-sem14` |
+| **Potencial de Mercado** | `/admin/vertho/mercado-potencial` | Mercado · Unificado (empresas+escolas) | `vertho/potencial-cidades` |
+
+Ajustes de amarração (nav/hub/i18n):
+- `nav-items.ts`: itens `votacao`, `acumulada`+`sem14` e `potencial-cidades` removidos/fundidos (menu passa a refletir os workspaces); subs atualizados ("Top 5 · Votação", "Fit · Ranking · Calibração", "Semana 13 · Semana 14", "Municípios · Redes · Unificado").
+- Hub (`PHASE_CONFIG`): F1 Votação → `cargos?tab=votacao`; F2 Calibração/Ranking → `fit?tab=...`; F4 auditorias → `auditorias?tab=sem13|sem14`.
+- Dashboard QuickActions e link do `fase1` atualizados para os novos destinos.
+- Novas chaves i18n de tab nos 4 locales: `AdminRoles.tabs.*`, `AdminAuditorias.tabs.*`, `AdminFit.workspaceTitle`/`tabs.*`, `AdminPPP.tabs.*`.
+- `AdminShell.setEmpresaFiltro` agora também **sincroniza o `?empresa=` das páginas globais** ao trocar empresa no header (e remove o parâmetro ao voltar para "Todas") — sem isso, o query param "prendia" a tela na empresa antiga por ter precedência no `useEmpresaContexto`.
+
+### Decisões e racional
+
+1. **Workspaces vivem nas rotas GLOBAIS (`?empresa=`), não na subárvore `[empresaId]`** — com o `useEmpresaContexto` + sincronização do filtro, a rota global funciona por qualquer porta; a subárvore fica reservada ao que é intrinsecamente do pipeline (fases, configurações, pulso).
+2. **Top 10 NÃO virou tab do workspace de cargos** — a edição do Top 10 permanece exclusiva do `fase1?tab=top10` (contexto do pipeline, onde a IA1 roda). Motivo: era a função mais duplicada do app (3 telas); a fusão consolidou em UMA (fase1), e o workspace de cargos cobre a decisão humana (Top 5/votação).
+3. **Calibração ficou como tab com badge `dev/interno`** em vez de escondida — quem opera precisa achá-la; o badge + permissão futura resolve o risco de uso indevido.
+4. **Potencial de Mercado**: fusão de `mercado-potencial`+`potencial-cidades` (mesma pergunta comercial, dados complementares); `radarempresas` ficou fora por ter subtree própria (redes/listas/CNPJ) — seria um mega-merge com risco alto e ganho baixo.
+5. **Redirects preservam `?empresa=` e apontam para a tab certa** — nenhum link antigo quebra (docs, testes, bookmarks, WhatsApp de operadores).
 
 ## Fase 4 — Convergência visual
 
-_(pendente)_
+### Alterações
+
+- **Fundos near-black próprios eliminados** (as 5 páginas que pintavam `from-[#0a0e1a]` por cima do navy do shell): `conteudos`, `lixeira` (na Fase 2), `temporadas`, `evolucao`, `assessment-descritores`. O conteúdo agora assenta no fundo do shell.
+- **`AdminPageHeader` adotado** nessas páginas (título text-xl + ícone lucide + subtítulo + ações à direita) — fim dos headers text-2xl/emoji.
+- **`conteudos`**: os 6 botões "arco-íris" (purple/indigo/fuchsia) normalizados — ações reais em `bg-cyan-600` sólido; **navegação disfarçada de ação** ("Gerar Kit", "Extrair de vídeo") virou outline com `ArrowRight`, sinalizando que leva a outra tela.
+- **`empresas/[id]/relatorios`**: botão indigo→purple fora da paleta trocado por cyan.
+- Fundos opacos funcionais (células sticky de tabela) foram preservados de propósito — não são fundo de página.
+
+### Decisões e racional
+
+1. **Convergência começa pelo que grita** (dupla camada de fundo + botões fora da paleta), não por reescrever tudo em `Surface` — as ~300 ocorrências de `#0F2A4A` sólido são harmônicas com o shell e migram página a página em manutenções futuras (baixo custo, zero pressa).
+2. **Vocabulário de botão**: sólido = executa aqui; outline+seta = navega. Essa distinção era a maior fonte de "botão fora de lugar" do admin.
+3. Fica como **débito assumido** (não bloqueia): Modal compartilhado (23 hand-rolled), `EmptyDataState`/`FilterBar` nas demais páginas, migração `#0F2A4A`→`Surface` em `gerenciar`/`configuracoes`.
 
 ## Fase 5 — Permission-aware UI + curadoria Cenário A
 

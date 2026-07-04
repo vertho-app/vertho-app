@@ -49,9 +49,29 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const setEmpresaFiltro = useCallback((id: string) => {
     setEmpresaFiltroState(id);
     try { localStorage.setItem(FILTER_KEY, id); } catch {}
-    if (id && id !== 'all' && pathname) {
-      const m = pathname.match(/^\/admin\/empresas\/([^/]+)(\/[^/]+)?/);
-      if (m && m[1] !== id) router.replace(`/admin/empresas/${id}${m[2] || ''}`);
+    if (!pathname) return;
+    const m = pathname.match(/^\/admin\/empresas\/([^/]+)(\/[^/]+)?/);
+    if (id && id !== 'all') {
+      if (m && m[1] !== id) {
+        router.replace(`/admin/empresas/${id}${m[2] || ''}`);
+      } else if (!m) {
+        // Páginas globais com ?empresa= na URL: o query param tem precedência no
+        // useEmpresaContexto, então precisa acompanhar o filtro do header —
+        // senão a tela ficaria presa na empresa antiga.
+        const sp = new URLSearchParams(window.location.search);
+        if (sp.get('empresa') && sp.get('empresa') !== id) {
+          sp.set('empresa', id);
+          router.replace(`${pathname}?${sp.toString()}`);
+        }
+      }
+    } else if (id === 'all' && !m) {
+      // "Todas as empresas": remove o ?empresa= para o contexto voltar a null.
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get('empresa')) {
+        sp.delete('empresa');
+        const qs = sp.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname);
+      }
     }
   }, [pathname, router]);
 

@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { TrendingUp, ChevronDown, ChevronRight } from 'lucide-react';
 import { loadEvolutionReportsEmpresa } from '@/actions/evolution-report';
 import BackButton from '@/components/back-button';
+import AdminPageHeader from '@/components/admin/page-header';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 
 const CONV = {
@@ -81,7 +82,7 @@ export default function EvolucaoAdminPage() {
 
 function Wrapper({ children }) {
   return (
-    <div className="min-h-full bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
+    <div className="min-h-full text-white">
       <div className="max-w-6xl mx-auto p-6">{children}</div>
     </div>
   );
@@ -95,16 +96,8 @@ function Header({ total }) {
   const t = useTranslations('AdminEvolution');
   return (
     <>
-    <BackButton />
-    <div className="flex items-center gap-3 mb-6">
-      <div className="flex-1">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <TrendingUp size={22} className="text-cyan-400" />
-          {t('title')}
-        </h1>
-        <p className="text-xs text-gray-400">{t('subtitle', { count: total })}</p>
-      </div>
-    </div>
+      <BackButton />
+      <AdminPageHeader icon={TrendingUp} title={t('title')} subtitle={t('subtitle', { count: total })} />
     </>
   );
 }

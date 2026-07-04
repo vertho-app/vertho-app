@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Loader2, Briefcase, Check, Save, ChevronDown, AlertTriangle, Link2, X } from 'lucide-react';
+import { Loader2, Briefcase, Check, Save, ChevronDown, AlertTriangle, Link2, X, Target, BarChart3 } from 'lucide-react';
 import { loadEmpresas, loadCargos, salvarTop5, salvarEhLideranca, renomearTop10Cargo } from './actions';
 import BackButton from '@/components/back-button';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
+import VotacaoTab from './_components/votacao-tab';
 
 export default function CargosPage() {
   const router = useRouter();
@@ -15,6 +16,12 @@ export default function CargosPage() {
   // Contexto de empresa (path → ?empresa= → filtro do header); a tela tem seletor
   // próprio, então o contexto entra só como valor inicial/fallback do estado local.
   const { empresaId: empresaParam } = useEmpresaContexto();
+  // Tabs do workspace (reorganização do admin, Fase 3): top5 (curadoria) + votacao (movida de empresas/[id]/votacao)
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab');
+  const [tab, setTab] = useState(
+    ['top5', 'votacao'].includes(initialTab || '') ? (initialTab as string) : 'top5'
+  );
   const [empresas, setEmpresas] = useState<any[]>([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
   const [empresaNome, setEmpresaNome] = useState('');
@@ -125,6 +132,36 @@ export default function CargosPage() {
         </div>
       )}
 
+      {/* Tabs do workspace (padrão de fase1/page.tsx) */}
+      <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
+        {[
+          { key: 'top5', label: t('tabs.top5'), icon: Target, color: 'text-orange-400' },
+          { key: 'votacao', label: t('tabs.votacao'), icon: BarChart3, color: 'text-cyan-400' },
+        ].map(tb => (
+          <button key={tb.key} onClick={() => setTab(tb.key)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+              tab === tb.key ? 'bg-white/[0.06] text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}>
+            <tb.icon size={14} className={tab === tb.key ? tb.color : ''} />
+            {tb.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ══════════════ TAB: VOTAÇÃO (movida de empresas/[id]/votacao) ══════════════ */}
+      {tab === 'votacao' && (
+        empresaId ? (
+          <VotacaoTab empresaId={empresaId} />
+        ) : (
+          <div className="text-center py-12">
+            <BarChart3 size={32} className="text-gray-600 mx-auto mb-3" />
+            <p className="text-sm text-gray-500">{t('selectCompany')}</p>
+          </div>
+        )
+      )}
+
+      {/* ══════════════ TAB: TOP 5 (curadoria por cargo) ══════════════ */}
+      {tab === 'top5' && (<>
       {/* Toast */}
       {/* Loading */}
       {loadingCargos && (
@@ -150,7 +187,8 @@ export default function CargosPage() {
             <strong className="text-cyan-100/90">{t('workshop.anyQuantity')}</strong>
             {t('workshop.afterQuantity')}{' '}
           </span>
-          <button onClick={() => router.push(`/admin/empresas/${empresaId}/votacao`)}
+          {/* A votação agora é tab deste workspace — troca de tab em vez de navegar */}
+          <button onClick={() => setTab('votacao')}
             className="underline text-cyan-300 hover:text-cyan-200">
             {t('workshop.voting')}
           </button>
@@ -295,6 +333,7 @@ export default function CargosPage() {
           </div>
         </div>
       )}
+      </>)}
     </div>
   );
 }

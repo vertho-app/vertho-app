@@ -2,14 +2,15 @@
 import { toast } from 'sonner';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { Loader2, FileText, Link2, Plus, Sparkles, Upload, Eye, Trash2, RefreshCw } from 'lucide-react';
+import { Loader2, FileText, Link2, Plus, Sparkles, Upload, Eye, Trash2, RefreshCw, School } from 'lucide-react';
 import { loadEmpresa, loadPPPs, excluirPPP } from './actions';
 import { extrairPPP } from '@/actions/ppp';
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
+import EscolasTab from './_components/escolas-tab';
 // Mapa de nomes de form fields do template Vertho → seções legíveis
 const FIELD_LABELS: Record<string, string> = {
   'desafios_estrat_gicos_atuais__desafios': 'DESAFIOS ESTRATÉGICOS ATUAIS',
@@ -84,9 +85,17 @@ export default function PPPPage() {
   const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('AdminPPP');
+  // Rótulo da tab de escolas reusa a chave do item de navegação "Escolas & PPP"
   const confirmDialog = useConfirm();
+  const searchParams = useSearchParams();
   // Contexto de empresa unificado (path → ?empresa= → filtro do header)
   const { empresaId: empresaIdParam } = useEmpresaContexto();
+
+  // Workspace "Escolas & PPP" (Reorganização Fase 3): tabs ppps | escolas via ?tab=
+  const initialTab = searchParams.get('tab');
+  const [mainTab, setMainTab] = useState(
+    ['ppps', 'escolas'].includes(initialTab || '') ? (initialTab as string) : 'ppps'
+  );
 
   const [empresa, setEmpresa] = useState(null);
   const [ppps, setPpps] = useState([]);
@@ -212,6 +221,28 @@ export default function PPPPage() {
         </div>
       </div>
 
+      {/* Tabs do workspace (padrão fase1: array key/label/icon) */}
+      <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
+        {[
+          { key: 'ppps', label: t('tabs.ppps'), icon: FileText, color: 'text-cyan-400', count: ppps.length },
+          { key: 'escolas', label: t('tabs.escolas'), icon: School, color: 'text-green-400', count: 0 },
+        ].map(tb => (
+          <button key={tb.key} onClick={() => setMainTab(tb.key)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+              mainTab === tb.key ? 'bg-white/[0.06] text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}>
+            <tb.icon size={14} className={mainTab === tb.key ? tb.color : ''} />
+            {tb.label}
+            {tb.count > 0 && <span className="text-[9px] bg-white/[0.08] px-1.5 py-0.5 rounded">{tb.count}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* ══════════════ TAB: ESCOLAS ══════════════ */}
+      {mainTab === 'escolas' && <EscolasTab empresaId={empresaIdParam} />}
+
+      {/* ══════════════ TAB: PPPS ══════════════ */}
+      {mainTab === 'ppps' && (<>
       {/* Nova Extração + Template */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <button onClick={novaExtracao}
@@ -805,6 +836,7 @@ export default function PPPPage() {
           </div>
         );
       })()}
+      </>)}
     </div>
   );
 }

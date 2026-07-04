@@ -1,22 +1,8 @@
-'use client';
-/** Ranking de Adequação — PREVIEW de admin. Mesma tela do gestor, mas escopada pela
- *  empresa da ROTA (admin escolhe qualquer empresa), gated p/ platform_admin. Dev/staff. */
-import { useCallback } from 'react';
-import { useParams } from 'next/navigation';
-import RankingAdequacaoView from '@/components/ranking-adequacao-view';
-import { listarCargosComRankingAdmin, getRankingAdequacaoAdmin, exportarRankingPDFAdmin } from '@/actions/ranking-adequacao';
+import { redirect } from 'next/navigation';
 
-// A sincronia com o filtro de empresa do header é feita no AdminShell (setEmpresaFiltro +
-// route→filtro) — vale p/ todas as rotas [empresaId], não precisa mais assinar aqui.
-export default function AdminRankingPage() {
-  const { empresaId } = useParams() as { empresaId: string };
-  const listar = useCallback(() => listarCargosComRankingAdmin(empresaId), [empresaId]);
-  const carregar = useCallback((c: string) => getRankingAdequacaoAdmin(empresaId, c), [empresaId]);
-  const exportar = useCallback((c: string) => exportarRankingPDFAdmin(empresaId, c), [empresaId]);
-  return (
-    <div className="p-6 max-w-4xl mx-auto text-slate-200">
-      <div className="mb-3 text-[11px] text-amber-400/80">Preview interno — é a tela que o gestor do cliente vê (`/dashboard/gestor/ranking`), escopada pela empresa da rota.</div>
-      <RankingAdequacaoView listar={listar} carregar={carregar} exportar={exportar} />
-    </div>
-  );
+// Rota legada (Reorganização do admin, Fase 3): o preview do Ranking de Adequação
+// agora vive como tab do workspace "Adequação" em /admin/fit.
+export default async function RankingRedirect({ params }: { params: Promise<{ empresaId: string }> }) {
+  const { empresaId } = await params;
+  redirect(`/admin/fit?empresa=${empresaId}&tab=ranking`);
 }

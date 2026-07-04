@@ -2,17 +2,19 @@
 
 import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
   Loader2, RefreshCw, Filter, Building2, Users, School,
-  TrendingUp, MapPin, AlertTriangle, ChevronDown, ChevronUp, X,
+  TrendingUp, MapPin, AlertTriangle, ChevronDown, ChevronUp, X, Layers,
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
   loadMercadoMunicipios, loadMercadoRedes, loadMercadoEscolas,
   refreshMercadoPotencial, type MercadoFilters,
 } from './actions';
+import UnificadoTab from './_components/unificado-tab';
 
 type Tab = 'municipio' | 'rede' | 'escola';
 
@@ -34,7 +36,54 @@ const REDE_COR: Record<string, string> = {
   PRIVADA: '#D97706',
 };
 
+/**
+ * Workspace único "Mercado Potencial" (Fase 3 da reorganização do admin):
+ *  - tab `mercado`   → conteúdo original (municípios/redes/escolas)
+ *  - tab `unificado` → "Potencial por Cidade" (empresas+escolas), movido de
+ *                      /admin/vertho/potencial-cidades (rota antiga = redirect)
+ * Tab inicial via `?tab=`, mesmo padrão de empresas/[empresaId]/fase1.
+ */
+type SecaoWorkspace = 'mercado' | 'unificado';
+
 export default function MercadoPotencialPage() {
+  const searchParams = useSearchParams();
+  const tNav = useTranslations('AdminDashboard.nav.labels');
+  const initialTab = searchParams.get('tab');
+  const [secao, setSecao] = useState<SecaoWorkspace>(initialTab === 'unificado' ? 'unificado' : 'mercado');
+
+  return (
+    <div className="min-h-full"
+      style={{ background: 'linear-gradient(180deg,#06172C 0%,#091D35 50%,#0a1f3a 100%)' }}>
+      <div className="max-w-[1400px] mx-auto px-5 py-6">
+
+        <BackButton href="/admin/dashboard" />
+
+        {/* Tabs do workspace */}
+        <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
+          {([
+            { key: 'mercado', label: tNav('potentialMarket'), icon: TrendingUp, color: 'text-cyan-400' },
+            { key: 'unificado', label: tNav('cityPotential'), icon: Layers, color: 'text-violet-400' },
+          ] as { key: SecaoWorkspace; label: string; icon: any; color: string }[]).map(tb => (
+            <button key={tb.key} onClick={() => setSecao(tb.key)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+                secao === tb.key ? 'bg-white/[0.06] text-white' : 'text-gray-500 hover:text-gray-300'
+              }`}>
+              <tb.icon size={14} className={secao === tb.key ? tb.color : ''} />
+              {tb.label}
+            </button>
+          ))}
+        </div>
+
+        {secao === 'mercado'
+          ? <MercadoTab />
+          : <UnificadoTab onOpenMercado={() => setSecao('mercado')} />}
+      </div>
+    </div>
+  );
+}
+
+// ── Tab "mercado": conteúdo original da tela (municípios/redes/escolas) ─────
+function MercadoTab() {
   const locale = useLocale();
   const t = useTranslations('AdminMarketPotential');
   const [tab, setTab] = useState<Tab>('municipio');
@@ -135,11 +184,7 @@ export default function MercadoPotencialPage() {
   const idadeLabel = idadeOnboarding <= 24 ? t('age.until24') : t('age.until29');
 
   return (
-    <div className="min-h-full"
-      style={{ background: 'linear-gradient(180deg,#06172C 0%,#091D35 50%,#0a1f3a 100%)' }}>
-      <div className="max-w-[1400px] mx-auto px-5 py-6">
-
-        <BackButton href="/admin/dashboard" />
+    <div>
         {/* Header */}
         <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">
           <div className="flex items-center gap-3">
@@ -370,7 +415,6 @@ export default function MercadoPotencialPage() {
             strong: (chunks) => <b>{chunks}</b>,
           })}
         </p>
-      </div>
     </div>
   );
 }

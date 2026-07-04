@@ -203,7 +203,7 @@ export default function AdminDashboardPage() {
                 <>
                   <QuickAction onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}`)} icon={<Activity size={16} />} accent="#34c5cc"
                     title={t('quickActions.pipeline.title')} desc={t('quickActions.pipeline.descCompany', { name: empresaSelecionada.nome })} />
-                  <QuickAction onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}/votacao`)} icon={<Vote size={16} />} accent="#9e4edd"
+                  <QuickAction onClick={() => router.push(`/admin/cargos?empresa=${empresaSelecionada.id}&tab=votacao`)} icon={<Vote size={16} />} accent="#9e4edd"
                     title={t('quickActions.voting.title')} desc={t('quickActions.voting.desc')} />
                   <QuickAction onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}/perfis-comportamentais`)} icon={<Brain size={16} />} accent="#f4b740"
                     title={t('quickActions.disc.title')} desc={t('quickActions.disc.desc')} />
@@ -218,7 +218,7 @@ export default function AdminDashboardPage() {
                     title={t('quickActions.market.title')} desc={t('quickActions.market.desc')} />
                   <QuickAction onClick={() => router.push('/admin/vertho/radarempresas')} icon={<Target size={16} />} accent="#34c5cc"
                     title={t('quickActions.companyRadar.title')} desc={t('quickActions.companyRadar.desc')} />
-                  <QuickAction onClick={() => router.push('/admin/vertho/potencial-cidades')} icon={<Globe size={16} />} accent="#9e7bff"
+                  <QuickAction onClick={() => router.push('/admin/vertho/mercado-potencial?tab=unificado')} icon={<Globe size={16} />} accent="#9e7bff"
                     title={t('quickActions.cityPotential.title')} desc={t('quickActions.cityPotential.desc')} />
                   <QuickAction onClick={() => router.push('/admin/radar')} icon={<BarChart2 size={16} />} accent="#9e4edd"
                     title={t('quickActions.radar.title')} desc={t('quickActions.radar.desc')} />
