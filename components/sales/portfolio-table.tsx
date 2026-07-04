@@ -1,6 +1,8 @@
 'use client';
 
 // Tabela da carteira ativa do RC (contas com contrato vigente).
+import { useRouter } from 'next/navigation';
+import { TrendingUp } from 'lucide-react';
 import { PRODUCT_PACKAGE_LABELS } from '@/lib/sales/constants';
 import { fmtBRL, fmtDate } from '@/lib/sales/formatters';
 import type { SalesAccount } from '@/lib/sales/types';
@@ -15,6 +17,9 @@ export type PortfolioEntry = {
   renewal_date: string | null;
   commission_phase: 'recorrente_12' | 'renovacao_6';
   churn_risk: 'baixo' | 'medio' | 'alto' | null;
+  expansion_potential?: boolean;
+  next_followup_date?: string | null;
+  days_to_renewal?: number | null;
 };
 
 /** Dias até a renovação (null se não houver data). */
@@ -51,6 +56,7 @@ const th = 'px-3 py-2 text-left text-[10px] uppercase font-bold whitespace-nowra
 const td = 'px-3 py-2.5 text-xs whitespace-nowrap';
 
 export default function PortfolioTable({ data }: { data: PortfolioEntry[] }) {
+  const router = useRouter();
   if (data.length === 0) return null;
 
   return (
@@ -81,8 +87,22 @@ export default function PortfolioTable({ data }: { data: PortfolioEntry[] }) {
               const dias = daysToRenewal(row.renewal_date);
               const renovacaoProxima = dias !== null && dias >= 0 && dias <= 90;
               return (
-                <tr key={row.account.id} style={{ borderBottom: i < data.length - 1 ? '1px solid rgba(255,255,255,.05)' : 'none' }}>
-                  <td className={`${td} font-semibold text-white max-w-[220px] truncate`} title={cliente}>{cliente}</td>
+                <tr
+                  key={row.account.id}
+                  onClick={() => router.push(`/representante/carteira/${row.account.id}`)}
+                  className="cursor-pointer hover:bg-white/[0.03] transition-colors"
+                  style={{ borderBottom: i < data.length - 1 ? '1px solid rgba(255,255,255,.05)' : 'none' }}
+                >
+                  <td className={`${td} font-semibold text-white max-w-[220px]`} title={cliente}>
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate">{cliente}</span>
+                      {row.expansion_potential && (
+                        <span title="Potencial de expansão" style={{ color: '#8B5CF6' }}>
+                          <TrendingUp size={13} />
+                        </span>
+                      )}
+                    </span>
+                  </td>
                   <td className={td} style={{ color: 'rgba(255,255,255,.7)' }}>
                     {row.product_package ? (PRODUCT_PACKAGE_LABELS[row.product_package] || row.product_package) : '—'}
                   </td>

@@ -121,6 +121,19 @@ export const ACCOUNT_STATUS_LABELS: Record<string, string> = {
   prospect: 'Prospect', active_client: 'Cliente ativo', inactive: 'Inativa', lost: 'Perdida',
 };
 
+export const CHURN_RISK_LABELS: Record<string, string> = { baixo: 'Baixo', medio: 'Médio', alto: 'Alto' };
+export const CHURN_RISK_COLORS: Record<string, string> = { baixo: '#22C55E', medio: '#F59E0B', alto: '#EF4444' };
+
+// Categorias do histórico de acompanhamento da conta (pós-venda)
+export const ACTIVITY_KIND_LABELS: Record<string, string> = {
+  nota: 'Nota', followup: 'Acompanhamento', renovacao: 'Renovação', risco: 'Risco', expansao: 'Expansão',
+};
+export const ACTIVITY_KIND_COLORS: Record<string, string> = {
+  nota: '#6B7280', followup: '#06B6D4', renovacao: '#22C55E', risco: '#EF4444', expansao: '#8B5CF6',
+};
+
+export const RENEWAL_SOON_DAYS = 90; // "renovação próxima" quando faltam ≤ 90 dias
+
 export const CONTRACT_DURATIONS = [12, 24, 36] as const;
 
 // ── Comissão (política vigente do canal) ────────────────────────────────────

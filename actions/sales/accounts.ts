@@ -51,9 +51,10 @@ export async function getSalesAccount(accountId: string) {
     return { success: false as const, error: 'FORBIDDEN: conta de outro representante' };
   }
 
-  const [{ data: contacts }, { data: opportunities }] = await Promise.all([
+  const [{ data: contacts }, { data: opportunities }, { data: followups }] = await Promise.all([
     sb.from('sales_contacts').select('*').eq('account_id', accountId).order('is_primary', { ascending: false }).order('name'),
-    sb.from('sales_opportunities').select('id, opportunity_name, stage, status, estimated_value').eq('account_id', accountId).order('updated_at', { ascending: false }),
+    sb.from('sales_opportunities').select('id, opportunity_name, stage, status, estimated_value, origin').eq('account_id', accountId).order('updated_at', { ascending: false }),
+    sb.from('sales_activity_notes').select('*').eq('account_id', accountId).order('created_at', { ascending: false }),
   ]);
 
   return {
@@ -61,6 +62,7 @@ export async function getSalesAccount(accountId: string) {
     data: data as SalesAccount,
     contacts: contacts || [],
     opportunities: opportunities || [],
+    followups: followups || [],
   };
 }
 
@@ -125,11 +127,107 @@ export async function updateSalesAccount(accountId: string, input: Record<string
     patch.churn_risk = input.churn_risk ?? null;
   }
   if ('renewal_date' in input) patch.renewal_date = input.renewal_date || null;
+  if ('next_followup_date' in input) patch.next_followup_date = input.next_followup_date || null;
+  if ('expansion_potential' in input) patch.expansion_potential = !!input.expansion_potential;
 
   patch.updated_at = new Date().toISOString();
   const { error } = await sb.from('sales_accounts').update(patch).eq('id', accountId);
   if (error) return { success: false as const, error: error.message };
   return { success: true as const };
+}
+
+// ── Pós-venda / carteira (MVP 3) ────────────────────────────────────────────
+
+const FOLLOWUP_KINDS = ['nota', 'followup', 'renovacao', 'risco', 'expansao'] as const;
+
+/** Confirma que a conta é do RC do contexto e devolve o registro. */
+async function ownAccount(sb: ReturnType<typeof createSupabaseAdmin>, ctx: any, accountId: string) {
+  const { data } = await sb.from('sales_accounts').select('*').eq('id', accountId).maybeSingle();
+  if (!data) return { error: 'Conta não encontrada' as const };
+  if (data.representante_id !== ctx.rep.id) return { error: 'FORBIDDEN: conta de outro representante' as const };
+  return { account: data as SalesAccount };
+}
+
+/** Registra um acompanhamento na timeline da conta (pós-venda). */
+export async function addAccountFollowup(accountId: string, note: string, kind: string = 'followup') {
+  const ctx = await requireRepresentativeAction();
+  const text = String(note || '').trim();
+  if (!text) return { success: false as const, error: 'Descreva o acompanhamento' };
+  if (!FOLLOWUP_KINDS.includes(kind as any)) kind = 'followup';
+  const sb = createSupabaseAdmin();
+  const r = await ownAccount(sb, ctx, accountId);
+  if ('error' in r) return { success: false as const, error: r.error };
+  const { error } = await sb.from('sales_activity_notes').insert({
+    representante_id: ctx.rep.id, account_id: accountId, opportunity_id: null,
+    note: text, kind, created_by_email: ctx.email,
+  });
+  if (error) return { success: false as const, error: error.message };
+  return { success: true as const };
+}
+
+/** Define o risco de churn + registra na timeline (risco). */
+export async function definirRiscoChurn(accountId: string, risco: 'baixo' | 'medio' | 'alto' | null, motivo?: string) {
+  const ctx = await requireRepresentativeAction();
+  if (risco != null && !CHURN_RISKS.includes(risco)) return { success: false as const, error: 'Risco inválido' };
+  const sb = createSupabaseAdmin();
+  const r = await ownAccount(sb, ctx, accountId);
+  if ('error' in r) return { success: false as const, error: r.error };
+  const { error } = await sb.from('sales_accounts')
+    .update({ churn_risk: risco, updated_at: new Date().toISOString() }).eq('id', accountId);
+  if (error) return { success: false as const, error: error.message };
+  await sb.from('sales_activity_notes').insert({
+    representante_id: ctx.rep.id, account_id: accountId, opportunity_id: null, kind: 'risco',
+    note: `Risco de churn: ${risco ?? 'nenhum'}${motivo?.trim() ? ` — ${motivo.trim()}` : ''}`,
+    created_by_email: ctx.email,
+  });
+  return { success: true as const };
+}
+
+/**
+ * Cria uma oportunidade de EXPANSÃO a partir de uma conta ativa (upsell). Nova
+ * oportunidade no funil (origem 'expansao'), pré-ligada à conta e ao contato
+ * principal. Ao fechar/aceitar, segue a política de comissão do canal.
+ */
+export async function criarOportunidadeExpansao(accountId: string, nome?: string) {
+  const ctx = await requireRepresentativeAction();
+  const sb = createSupabaseAdmin();
+  const r = await ownAccount(sb, ctx, accountId);
+  if ('error' in r) return { success: false as const, error: r.error };
+  const account = r.account;
+
+  // contato principal (se houver) + produto da proposta aceita mais recente
+  const [{ data: contato }, { data: prop }] = await Promise.all([
+    sb.from('sales_contacts').select('id').eq('account_id', accountId).eq('is_primary', true).maybeSingle(),
+    sb.from('sales_proposals').select('product_package').eq('account_id', accountId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+  ]);
+
+  const { computeProtectionWindow } = await import('@/lib/sales/protection');
+  const protection = computeProtectionWindow(new Date());
+  const nomeConta = account.trade_name || account.legal_name;
+  const { data, error } = await sb.from('sales_opportunities').insert({
+    representante_id: ctx.rep.id,
+    account_id: accountId,
+    primary_contact_id: contato?.id ?? null,
+    opportunity_name: nome?.trim() || `Expansão — ${nomeConta}`,
+    origin: 'expansao',
+    product_interest: prop?.product_package ?? null,
+    identified_need: 'Expansão/upsell de cliente ativo.',
+    stage: 'lead_identificado',
+    protection_start_date: protection.start,
+    protection_end_date: protection.end,
+    protection_status: 'active',
+    status: 'open',
+  }).select('id').single();
+  if (error) return { success: false as const, error: error.message };
+
+  await sb.from('sales_activity_notes').insert({
+    representante_id: ctx.rep.id, account_id: accountId, opportunity_id: data.id, kind: 'expansao',
+    note: 'Oportunidade de expansão aberta a partir da carteira.', created_by_email: ctx.email,
+  });
+  // marca a conta como tendo potencial de expansão (sinal na carteira)
+  await sb.from('sales_accounts').update({ expansion_potential: true, updated_at: new Date().toISOString() }).eq('id', accountId);
+
+  return { success: true as const, opportunityId: data.id };
 }
 
 export type PortfolioRow = {
@@ -142,7 +240,17 @@ export type PortfolioRow = {
   /** 12% durante a vigência inicial; 6% após (manutenção/renovação). */
   commission_phase: 'recorrente_12' | 'renovacao_6';
   churn_risk: SalesAccount['churn_risk'];
+  expansion_potential: boolean;
+  next_followup_date: string | null;
+  /** dias até a renovação (negativo = vencida); null se sem data. */
+  days_to_renewal: number | null;
 };
+
+function daysBetween(dateStr: string | null | undefined, today: Date): number | null {
+  if (!dateStr) return null;
+  const d = new Date(`${dateStr.slice(0, 10)}T00:00:00Z`);
+  return Math.ceil((d.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+}
 
 /** Carteira do RC: clientes ativos + dados da proposta aceita mais recente. */
 export async function getPortfolio() {
@@ -185,8 +293,40 @@ export async function getPortfolio() {
       renewal_date: account.renewal_date,
       commission_phase: phase,
       churn_risk: account.churn_risk,
+      expansion_potential: !!account.expansion_potential,
+      next_followup_date: account.next_followup_date,
+      days_to_renewal: daysBetween(account.renewal_date, today),
     };
   });
 
   return { success: true as const, rows };
+}
+
+/** Visão de canal da carteira (admin): clientes ativos + renovações + risco por RC. */
+export async function getPortfolioAdmin(filters?: { representanteId?: string }) {
+  const { requireCommercialAdminAction } = await import('@/lib/sales/permissions');
+  await requireCommercialAdminAction(false);
+  const sb = createSupabaseAdmin();
+  let q = sb.from('sales_accounts')
+    .select('*, representante:sales_representatives (id, name)')
+    .eq('status', 'active_client').order('renewal_date', { ascending: true, nullsFirst: false });
+  if (filters?.representanteId) q = q.eq('representante_id', filters.representanteId);
+  const { data, error } = await q;
+  if (error) return { success: false as const, error: error.message };
+  const today = new Date();
+  const rows = (data || []).map((a: any) => ({
+    account: a as SalesAccount,
+    repName: a.representante?.name ?? '—',
+    churn_risk: a.churn_risk,
+    expansion_potential: !!a.expansion_potential,
+    renewal_date: a.renewal_date,
+    days_to_renewal: daysBetween(a.renewal_date, today),
+  }));
+  const totals = {
+    clientesAtivos: rows.length,
+    renovacoesProximas: rows.filter((r) => r.days_to_renewal != null && r.days_to_renewal >= 0 && r.days_to_renewal <= 90).length,
+    riscoAlto: rows.filter((r) => r.churn_risk === 'alto').length,
+    comExpansao: rows.filter((r) => r.expansion_potential).length,
+  };
+  return { success: true as const, rows, totals };
 }

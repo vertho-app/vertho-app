@@ -17,6 +17,7 @@ type DashboardData = Extract<DashboardResult, { success: true }>;
 
 const QUICK_LINKS = [
   { href: '/admin/comercial/representantes', label: 'Representantes', Icon: Users },
+  { href: '/admin/comercial/carteira', label: 'Carteira', Icon: Briefcase },
   { href: '/admin/comercial/propostas', label: 'Propostas', Icon: FileText },
   { href: '/admin/comercial/comissoes', label: 'Comissões', Icon: Coins },
   { href: '/admin/comercial/materiais', label: 'Materiais', Icon: FolderOpen },

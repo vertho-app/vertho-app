@@ -32,6 +32,8 @@ export type SalesAccount = {
   contract_start_date: string | null;
   renewal_date: string | null;
   churn_risk: 'baixo' | 'medio' | 'alto' | null;
+  expansion_potential: boolean;
+  next_followup_date: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -154,12 +156,15 @@ export type SalesMaterial = {
   updated_at: string;
 };
 
+export type ActivityNoteKind = 'nota' | 'followup' | 'renovacao' | 'risco' | 'expansao';
+
 export type SalesActivityNote = {
   id: string;
   representante_id: string;
   opportunity_id: string | null;
   account_id: string | null;
   note: string;
+  kind: ActivityNoteKind;
   created_by_email: string;
   created_at: string;
 };

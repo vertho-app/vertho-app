@@ -145,9 +145,27 @@ Ciclo de vida completo em `sales_commission_events`:
   "Comissões" no menu do RC e atalho no dashboard `/admin/comercial`.
 - Regra preservada: RC nunca muda status nem paga a si mesmo — só emite NF.
 
-## MVP 3-4 (hooks prontos, não implementados)
+## MVP 3 — Carteira / pós-venda (IMPLEMENTADO 04/07)
 
-- MVP 3: `sales_accounts` tem contract_start/renewal_date/churn_risk; carteira
-  já deriva fase 12%/6% — falta histórico de follow-up e upsell guiado.
+Gestão dos clientes ativos depois do fechamento.
+
+- **Schema** (mig 162): `sales_accounts.expansion_potential` + `next_followup_date`;
+  `sales_activity_notes.kind` (nota/followup/renovacao/risco/expansao) para a
+  timeline da conta.
+- **Actions** (`actions/sales/accounts.ts`): `getSalesAccount` agora traz os
+  `followups`; `addAccountFollowup` (timeline), `definirRiscoChurn` (grava risco
+  + nota), `criarOportunidadeExpansao` (nova oportunidade `origin='expansao'`
+  pré-ligada à conta ativa → segue a política de comissão ao fechar),
+  `getPortfolio` enriquecido (expansion/next_followup/days_to_renewal),
+  `getPortfolioAdmin` (visão de canal: ativos, renovações ≤90d, risco alto, expansão).
+- **Telas**: `/representante/carteira` (faixa "Renovações próximas" + linhas
+  clicáveis) → `/representante/carteira/[accountId]` (contrato, fase 12%/6%,
+  gestão de risco/renovação/próxima-ação, oportunidades + "Nova expansão",
+  timeline de acompanhamento). Admin: `/admin/comercial/carteira` (visão de canal,
+  read-mostly) + atalho no dashboard.
+- Visão 12%/6% já existia na carteira; MVP 3 adiciona a operação em volta.
+
+## MVP 4 (hooks prontos, não implementado)
+
 - MVP 4: playbook por segmento já é dado (`sales_materials.segment`); IA de
   proposta/preparação de reunião/benchmark ficam para o assistente.

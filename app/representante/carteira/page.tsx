@@ -3,10 +3,11 @@
 // Portal do Representante — Carteira ativa (contas com contrato vigente).
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Briefcase } from 'lucide-react';
+import { Briefcase, CalendarClock, ChevronRight } from 'lucide-react';
 import { getPortfolio } from '@/actions/sales/accounts';
+import { RENEWAL_SOON_DAYS } from '@/lib/sales/constants';
 import PortfolioSummaryCards from '@/components/sales/portfolio-summary-cards';
-import PortfolioTable, { type PortfolioEntry } from '@/components/sales/portfolio-table';
+import PortfolioTable, { daysToRenewal, type PortfolioEntry } from '@/components/sales/portfolio-table';
 
 function Skeleton() {
   return (
@@ -18,6 +19,56 @@ function Skeleton() {
         ))}
       </div>
       <div className="h-72 rounded-2xl" style={{ background: 'rgba(255,255,255,.04)' }} />
+    </div>
+  );
+}
+
+/** Faixa "Renovações próximas": contas com renovação em 0–90 dias. */
+function RenewalsBand({ data }: { data: PortfolioEntry[] }) {
+  const soon = data
+    .map((r) => ({ row: r, dias: r.days_to_renewal ?? daysToRenewal(r.renewal_date) }))
+    .filter((x) => x.dias != null && x.dias >= 0 && x.dias <= RENEWAL_SOON_DAYS)
+    .sort((a, b) => (a.dias! - b.dias!));
+
+  if (soon.length === 0) return null;
+
+  return (
+    <div
+      className="rounded-2xl p-4"
+      style={{ background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.28)' }}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(245,158,11,.14)', color: '#F59E0B' }}>
+          <CalendarClock size={15} />
+        </span>
+        <div>
+          <p className="text-sm font-bold text-white">Renovações próximas</p>
+          <p className="text-[11px]" style={{ color: 'rgba(255,255,255,.55)' }}>
+            {soon.length} conta{soon.length === 1 ? '' : 's'} com renovação nos próximos {RENEWAL_SOON_DAYS} dias
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {soon.map(({ row, dias }) => {
+          const nome = row.account.trade_name || row.account.legal_name;
+          return (
+            <Link
+              key={row.account.id}
+              href={`/representante/carteira/${row.account.id}`}
+              className="group flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors"
+              style={{ background: 'rgba(255,255,255,.03)' }}
+            >
+              <span className="text-sm font-semibold text-white truncate">{nome}</span>
+              <span className="flex items-center gap-2 shrink-0">
+                <span className="text-xs font-bold" style={{ color: dias! <= 30 ? '#EF4444' : '#F59E0B' }}>
+                  {dias === 0 ? 'hoje' : `${dias} dia${dias === 1 ? '' : 's'}`}
+                </span>
+                <ChevronRight size={14} className="text-gray-500 group-hover:text-white transition-colors" />
+              </span>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -83,6 +134,7 @@ export default function CarteiraPage() {
       ) : (
         <>
           <PortfolioSummaryCards data={data} />
+          <RenewalsBand data={data} />
           <PortfolioTable data={data} />
         </>
       )}
