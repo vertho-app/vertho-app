@@ -27,6 +27,8 @@ export type PermissionKey =
   | 'ai.costs.view'
   | 'radar.admin.access'
   | 'radar_empresas.access'
+  | 'sales_channel.view'
+  | 'sales_channel.manage'
   | 'exports.run'
   | 'trash.manage';
 
@@ -73,6 +75,8 @@ export const PERMISSIONS: PermissionDefinition[] = [
   { key: 'ai.costs.view', domain: 'IA', label: 'Ver custos de IA', description: 'Acessar orçamento, simulador de custo e catálogo de chamadas.', risk: 'high' },
   { key: 'radar.admin.access', domain: 'Radar', label: 'Acessar Radar admin', description: 'Gerenciar ingestão, qualidade e dados do Radar.', risk: 'critical' },
   { key: 'radar_empresas.access', domain: 'Radar Empresas', label: 'Acessar Radar Empresas', description: 'Usar inteligência comercial B2B interna.', risk: 'high' },
+  { key: 'sales_channel.view', domain: 'Canal Comercial', label: 'Ver canal de representantes', description: 'Visualizar pipeline, propostas e comissões dos RCs.', risk: 'medium' },
+  { key: 'sales_channel.manage', domain: 'Canal Comercial', label: 'Gerenciar canal de representantes', description: 'Aprovar propostas, gerenciar RCs, materiais e eventos de comissão.', risk: 'critical' },
   { key: 'exports.run', domain: 'Dados', label: 'Exportar dados', description: 'Gerar planilhas, PDFs e saídas em lote.', risk: 'high' },
   { key: 'trash.manage', domain: 'Dados', label: 'Gerenciar lixeira', description: 'Visualizar e restaurar/remover registros excluídos.', risk: 'critical' },
 ];
@@ -96,6 +100,7 @@ export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
     'ai.costs.view',
     'exports.run',
     'radar_empresas.access',
+    'sales_channel.view',
     'settings.locale.manage',
   ],
   rh: [

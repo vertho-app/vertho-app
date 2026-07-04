@@ -358,7 +358,8 @@
         "fitAdequacy": "Adequação (Fit)",
         "evolution": "Evolução",
         "demoEnv": "Ambiente Demo",
-        "audits": "Auditorias (13/14)"
+        "audits": "Auditorias (13/14)",
+        "salesChannel": "Canal Comercial"
       },
       "subs": {
         "overview": "Visão geral",
@@ -398,7 +399,8 @@
         "fitSub": "Fit · Ranking · Calibração",
         "evolutionSub": "Evolution reports",
         "demoEnvSub": "Reset ACME demo",
-        "auditsSub": "Semana 13 · Semana 14"
+        "auditsSub": "Semana 13 · Semana 14",
+        "salesChannelSub": "Representantes e propostas"
       },
       "groups": {
         "overview": "Visão geral",

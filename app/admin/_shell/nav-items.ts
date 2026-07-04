@@ -3,7 +3,7 @@ import {
   BookMarked, BookOpen, Video, Database, GraduationCap as GradIcon, BarChart2,
   Calculator, LayoutDashboard, TrendingUp, Target, Shield, LockKeyhole,
   ScrollText, Trash2, CalendarDays, Send, Package, School, Settings,
-  FileBarChart, Crosshair, FlaskConical,
+  FileBarChart, Crosshair, FlaskConical, Briefcase,
 } from 'lucide-react';
 
 // ── nav items (sidebar) ─────────────────────────────────────────────────────
@@ -87,6 +87,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'qualidade-dados', labelKey: 'dataQuality',    subKey: 'radarQuality',  group: 'data', icon: Database,  hrefFn: () => '/admin/radar/qualidade-dados', showWhenEmpresa: false, permission: 'radar.admin.access' },
 
   // ── Comercial (admin-wide, interno Vertho) ────────────────────────────────
+  { key: 'canal-comercial', labelKey: 'salesChannel',  subKey: 'salesChannelSub',       group: 'commercial', icon: Briefcase,  hrefFn: () => '/admin/comercial',               showWhenEmpresa: false, permission: 'sales_channel.view' },
   { key: 'radar-empresas', labelKey: 'companyRadar',    subKey: 'b2bIntelligence',       group: 'commercial', icon: Target,     hrefFn: () => '/admin/vertho/radarempresas',    showWhenEmpresa: false, permission: 'radar_empresas.access' },
   // potencial-cidades virou tab "unificado" do mercado-potencial (Fase 3)
   { key: 'mercado',        labelKey: 'potentialMarket', subKey: 'citiesNetworksSchools', group: 'commercial', icon: TrendingUp, hrefFn: () => '/admin/vertho/mercado-potencial', showWhenEmpresa: false, permission: 'radar_empresas.access' },
