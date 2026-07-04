@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ChevronRight, LogOut } from 'lucide-react';
-import { NAV_ITEMS, activeNavKey, empresaGlyph, serifStyle as serif } from './nav-items';
+import { NAV_ITEMS, GROUP_ORDER, activeNavKey, empresaGlyph, serifStyle as serif } from './nav-items';
 import { useAdminShell } from './AdminShellContext';
 
 export default function AdminSidebar() {
@@ -16,6 +16,10 @@ export default function AdminSidebar() {
     if (empresaSelecionada) return item.showWhenEmpresa !== false;
     return item.showWhenAll !== false;
   });
+
+  const groups = GROUP_ORDER
+    .map((g) => ({ key: g, items: visibleNavItems.filter((i) => i.group === g) }))
+    .filter((g) => g.items.length > 0);
 
   const activeKey = activeNavKey(pathname, empresaSelecionada?.id);
 
@@ -64,7 +68,19 @@ export default function AdminSidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 flex flex-col gap-0.5">
-        {visibleNavItems.map((item) => {
+        {groups.map((group, gi) => (
+          <div key={group.key} className="flex flex-col gap-0.5">
+            {collapsed ? (
+              gi > 0 && <div className="my-2 mx-2" style={{ borderTop: '1px solid rgba(255,255,255,.08)' }} />
+            ) : (
+              <p
+                className={`px-3 ${gi > 0 ? 'pt-4' : 'pt-1'} pb-1 text-[9px] uppercase truncate`}
+                style={{ color: 'rgba(255,255,255,.32)', letterSpacing: '.18em' }}
+              >
+                {t(`nav.groups.${group.key}`)}
+              </p>
+            )}
+            {group.items.map((item) => {
           const Icon = item.icon;
           const active = item.key === activeKey;
           const href = item.hrefFn(empresaSelecionada?.id);
@@ -101,7 +117,9 @@ export default function AdminSidebar() {
               )}
             </button>
           );
-        })}
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}
