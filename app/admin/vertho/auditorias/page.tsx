@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ShieldCheck, ClipboardCheck } from 'lucide-react';
@@ -14,7 +14,14 @@ import Sem14Tab from './_components/sem14-tab';
  * Funde as antigas telas /admin/vertho/avaliacao-acumulada (sem 13) e
  * /admin/vertho/auditoria-sem14 (sem 14) em tabs (?tab=sem13|sem14).
  */
+// Wrapper com Suspense: AuditoriasPageInner usa useSearchParams. Sem o boundary,
+// chegar via redirect() (ex.: /vertho/avaliacao-acumulada → ?tab=sem13) causava
+// hydration mismatch de hooks (React #310). (Reorganização, Fase 3.)
 export default function AuditoriasPage() {
+  return <Suspense fallback={<div className="min-h-dvh" />}><AuditoriasPageInner /></Suspense>;
+}
+
+function AuditoriasPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tTabs = useTranslations('AdminAuditorias');

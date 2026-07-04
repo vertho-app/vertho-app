@@ -1,7 +1,7 @@
 'use client';
 import { toast } from 'sonner';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, FileText, Link2, Plus, Sparkles, Upload, Eye, Trash2, RefreshCw, School } from 'lucide-react';
@@ -81,7 +81,14 @@ async function extractPdfText(file) {
   return { text: formText || staticText, numPages };
 }
 
+// Wrapper com Suspense: PPPPageInner usa useSearchParams. Sem o boundary, chegar
+// nesta rota via redirect() (ex.: /empresas/[id]/escolas → /ppp?tab=escolas)
+// causava hydration mismatch de hooks (React #310). (Reorganização, Fase 3.)
 export default function PPPPage() {
+  return <Suspense fallback={<div className="min-h-dvh" />}><PPPPageInner /></Suspense>;
+}
+
+function PPPPageInner() {
   const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('AdminPPP');

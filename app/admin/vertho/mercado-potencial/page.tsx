@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
+import { useState, useEffect, useTransition, useMemo, useRef, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -45,7 +45,14 @@ const REDE_COR: Record<string, string> = {
  */
 type SecaoWorkspace = 'mercado' | 'unificado';
 
+// Wrapper com Suspense: MercadoPotencialPageInner usa useSearchParams. Sem o
+// boundary, chegar via redirect() (ex.: /vertho/potencial-cidades → ?tab=unificado)
+// causava hydration mismatch de hooks (React #310). (Reorganização, Fase 3.)
 export default function MercadoPotencialPage() {
+  return <Suspense fallback={<div className="min-h-dvh" />}><MercadoPotencialPageInner /></Suspense>;
+}
+
+function MercadoPotencialPageInner() {
   const searchParams = useSearchParams();
   const tNav = useTranslations('AdminDashboard.nav.labels');
   const initialTab = searchParams.get('tab');

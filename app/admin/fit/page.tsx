@@ -1,7 +1,7 @@
 'use client';
 import { toast } from 'sonner';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
@@ -145,7 +145,14 @@ function ForcaItem({ f }) {
 
 const TAB_KEYS = ['fit', 'ranking', 'calibracao'];
 
+// Wrapper com Suspense: FitPageInner usa useSearchParams. Sem o boundary, chegar
+// via redirect() (ex.: /empresas/[id]/calibracao → /fit?tab=calibracao) causava
+// hydration mismatch de hooks (React #310). (Reorganização, Fase 3.)
 export default function FitPage() {
+  return <Suspense fallback={<div className="min-h-dvh" />}><FitPageInner /></Suspense>;
+}
+
+function FitPageInner() {
   const t = useTranslations('AdminFit');
   const searchParams = useSearchParams();
   // Contexto de empresa unificado (path → ?empresa= → filtro do header)

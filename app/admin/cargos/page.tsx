@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -10,7 +10,14 @@ import BackButton from '@/components/back-button';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import VotacaoTab from './_components/votacao-tab';
 
+// Wrapper com Suspense: CargosPageInner usa useSearchParams. Sem o boundary,
+// chegar via redirect() (ex.: /empresas/[id]/votacao → /cargos?tab=votacao)
+// causava hydration mismatch de hooks (React #310). (Reorganização, Fase 3.)
 export default function CargosPage() {
+  return <Suspense fallback={<div className="min-h-dvh" />}><CargosPageInner /></Suspense>;
+}
+
+function CargosPageInner() {
   const router = useRouter();
   const t = useTranslations('AdminRoles');
   // Contexto de empresa (path → ?empresa= → filtro do header); a tela tem seletor
