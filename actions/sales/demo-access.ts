@@ -17,19 +17,9 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantUrl } from '@/lib/domain';
 import { requireRepresentativeAction } from '@/lib/sales/permissions';
+import { DEMO_PERSONAS } from '@/lib/sales/demo-personas';
 
 const DEMO_SLUG = 'acme-demo';
-
-// Personas do acme-demo que o RC pode "assumir" para apresentar/treinar.
-// Espelham as personas do fixture (lib/demo/reset-acme-demo.ts).
-export const DEMO_PERSONAS = [
-  { key: 'bruna', email: 'bruna.demo@vertho.ai', nome: 'Bruna Costa',    papel: 'Colaboradora', cenario: 'Jornada completa', disc: 'CS', hint: 'Mostra a experiência completa do colaborador — trilha, Mentor IA, relatório e evolução.' },
-  { key: 'ana',   email: 'ana.demo@vertho.ai',   nome: 'Ana Martins',    papel: 'Colaboradora', cenario: 'Início da jornada', disc: 'I',  hint: 'Ideal para mostrar o onboarding e os primeiros passos.' },
-  { key: 'paulo', email: 'paulo.demo@vertho.ai', nome: 'Paulo Demo',     papel: 'Colaborador',  cenario: 'Jornada parcial',  disc: 'ID', hint: 'Meio da jornada — bom para mostrar progresso e diagnóstico.' },
-  { key: 'carla', email: 'carla.demo@vertho.ai', nome: 'Carla Menezes',  papel: 'Gestora',      cenario: 'Visão de equipe',  disc: 'D',  hint: 'Visão de gestão — dashboards de equipe, ranking e adequação.' },
-] as const;
-
-export type DemoPersona = typeof DEMO_PERSONAS[number];
 
 /** Lista as personas disponíveis para o RC (sem tokens). */
 export async function listarPersonasDemo() {
