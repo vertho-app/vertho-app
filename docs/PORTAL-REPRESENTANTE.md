@@ -26,6 +26,12 @@ Demonstração"** no portal. Decisões:
 4. **Compartilhado + reset noturno**: ambiente único, reiniciado toda madrugada
    (+ on-demand pelo admin). Colisão simultânea mitigada pelo reset; "um demo por
    RC" fica como follow-up se a interação simultânea virar gargalo.
+5. **Subdomínio `acme-demo.vertho.ai` REGISTRADO no Vercel** (04/07): estava
+   faltando — o tenant demo nunca foi web-acessível (host retornava 000). Agora
+   registrado (via `vincularDominioVercel`) E **self-healing**: o reset chama
+   `addVercelDomain('acme-demo')` (best-effort, idempotente) a cada execução.
+   Validado E2E: RC entra como Bruna → cai em `acme-demo.vertho.ai/dashboard`
+   (jornada 40%, fase 3/5); sessão do portal permanece ativa em paralelo.
 
 ### Gate de envio (pré-requisito de segurança — mig 160)
 

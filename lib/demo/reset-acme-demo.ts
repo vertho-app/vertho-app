@@ -469,6 +469,16 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
   try {
     const demo = await upsertEmpresaDemo((fixture as any).empresa);
 
+    // Garante que o subdomínio acme-demo.vertho.ai está registrado no Vercel
+    // (sem isso o host não é servido → demo inacessível). Best-effort e
+    // idempotente (409 = já existe). Self-healing a cada reset.
+    try {
+      const { addVercelDomain } = await import('@/lib/vercel-domain');
+      await addVercelDomain(DEMO_SLUG);
+    } catch (e: any) {
+      console.warn('[reset-demo] addVercelDomain best-effort:', e?.message);
+    }
+
     await resetTenant(demo.id);
     const compMap = await seedCompetencias((fixture as any).competencias, demo.id);
     await seedCargos((fixture as any).cargos, demo.id);
