@@ -4,6 +4,43 @@
 > comerciais autônomos): CRM/pipeline, proteção de oportunidade, propostas com
 > aprovação interna Vertho, comissão estimada, carteira e materiais aprovados.
 
+## Ambiente de Demonstração (para o RC treinar/apresentar) — 04/07
+
+O RC acessa o tenant de demonstração (`acme-demo`) pelo item **"Ambiente de
+Demonstração"** no portal. Decisões:
+
+1. **Entra COMO uma persona**, não como um colaborador-sombra. O RC escolhe
+   Bruna (jornada completa), Ana (início), Paulo (parcial) ou Carla (gestora)
+   e abre a demo **em nova aba**. Como os cookies de auth são **host-scoped**
+   (`app.vertho.ai` ≠ `acme-demo.vertho.ai`), a sessão do portal do RC
+   permanece ativa — ele alterna entre portal e demo livremente.
+2. **Mecanismo**: `actions/sales/demo-access.ts` → `entrarNoDemoComoPersona()`
+   (gated a RC ativo, personas allowlistadas, só se `acme-demo.is_demo`) gera um
+   `token_hash` de magic link server-side (SEM enviar nada) e devolve a URL de
+   `/auth/callback` no host do demo. Reusa o fluxo de callback existente — zero
+   invenção de "token de impersonation". A persona vira sessão normal de
+   colaborador/gestor no acme-demo. Cria o auth user da persona lazy (idempotente).
+3. **Present + interagir**: como o RC É a persona, mostra a experiência real do
+   colaborador E **interage ao vivo com o Mentor IA** (o diferencial pedido).
+   Gestora (Carla) abre direto em `/dashboard/gestor` (visão de equipe).
+4. **Compartilhado + reset noturno**: ambiente único, reiniciado toda madrugada
+   (+ on-demand pelo admin). Colisão simultânea mitigada pelo reset; "um demo por
+   RC" fica como follow-up se a interação simultânea virar gargalo.
+
+### Gate de envio (pré-requisito de segurança — mig 160)
+
+`empresas.is_demo` é a fonte única de "tenant de demonstração" (antes os flags
+`sys_config.cadencia.*_ativo` eram cosméticos). `lib/demo/envio-guard.ts`
+(`isTenantDemo`/`gateEnvioDemo`) bloqueia **todo disparo real** em tenant demo:
+
+- Dispatchers em lote: `dispararMensagemCustomizada`, `enviarMagicLinksWhatsApp`,
+  `dispararEmails`, `enviarConvitesPulso`, `enviarLinksPerfil`.
+- Caminho de access-link (central): `sendAccessLink` recebe `empresaId` e bloqueia
+  — cobre o **auto-cadastro aberto** (`allow_open_signup`, o vetor de envio a
+  contato REAL durante a demo) + todos os magic-links de login.
+- A sessão de demo é mintada server-side (não passa pelo sender) → não é afetada.
+- Defesa em profundidade: personas @vertho.ai sem telefone permanecem.
+
 ## Arquitetura (decisões-chave)
 
 1. **Não é tenant.** Isolamento por `representante_id` em TODAS as queries,

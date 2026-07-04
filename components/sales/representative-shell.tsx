@@ -7,7 +7,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Briefcase, FileText, LayoutDashboard, Lightbulb, LogOut, Menu, Target, X,
+  Briefcase, FileText, LayoutDashboard, Lightbulb, LogOut, Menu, MonitorPlay, Target, X,
 } from 'lucide-react';
 import { ConfirmDialogProvider } from '@/components/admin/confirm-dialog';
 
@@ -23,6 +23,7 @@ const NAV = [
   { key: 'propostas', label: 'Propostas', sub: 'Aprovação e envio', href: '/representante/propostas', icon: FileText },
   { key: 'carteira', label: 'Carteira', sub: 'Carteira ativa', href: '/representante/carteira', icon: Briefcase },
   { key: 'inteligencia', label: 'Inteligência Comercial', sub: 'Materiais e playbooks', href: '/representante/inteligencia-comercial', icon: Lightbulb },
+  { key: 'demo', label: 'Ambiente de Demonstração', sub: 'Treinar e apresentar', href: '/representante/demo', icon: MonitorPlay },
 ] as const;
 
 /** Item ativo = prefixo mais longo que casa com o pathname. */
