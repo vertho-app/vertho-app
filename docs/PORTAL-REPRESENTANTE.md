@@ -165,7 +165,25 @@ Gestão dos clientes ativos depois do fechamento.
   read-mostly) + atalho no dashboard.
 - Visão 12%/6% já existia na carteira; MVP 3 adiciona a operação em volta.
 
-## MVP 4 (hooks prontos, não implementado)
+## MVP 4 — Assistente Comercial (IA) (IMPLEMENTADO 04/07)
 
-- MVP 4: playbook por segmento já é dado (`sales_materials.segment`); IA de
-  proposta/preparação de reunião/benchmark ficam para o assistente.
+Reusa a infra central de IA do app (`actions/ai-client.callAI` — roteador
+multi-provedor Claude/Gemini/GPT com retry+fallback; default `claude-sonnet-4-6`).
+Cada função aterra o prompt no CONTEXTO real (conta/oportunidade) + nos MATERIAIS
+aprovados (`sales_materials` playbook/objeções/case), então a saída é específica,
+não genérica. Sempre com o rótulo "Gerado por IA — revise antes de usar".
+
+- **Actions** (`actions/sales/ai-assistant.ts`, RC-scoped): `prepararReuniao`
+  (briefing: resumo, perguntas de diagnóstico, objeções prováveis, próximo passo),
+  `assistirProposta` (proposta de valor, escopo sugerido, pontos comerciais,
+  objeções), `analisarObjecao` (respostas ancoradas no playbook + pergunta de
+  retorno + dica). Todas retornam JSON via `extractJSON`, com erro gracioso.
+- **Benchmark** (`actions/sales/benchmark.ts`, NÃO-IA): `getBenchmarkSegmento`
+  — conversão, ticket médio e ciclo médio por segmento; RC vê o próprio funil,
+  admin vê o canal.
+- **Integrações**: detalhe da oportunidade → "Preparar reunião (IA)"; detalhe da
+  proposta → "Sugerir com IA" (com copiar escopo); Inteligência Comercial →
+  "Assistente de Objeções (IA)" + tabela de "Benchmark por segmento", acima da
+  biblioteca de materiais.
+- **Playbook por segmento**: os materiais já têm `segment`; o grounding do
+  assistente filtra por segmento da conta (geral + do segmento).

@@ -6,8 +6,9 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { FileText, Loader2, Pencil, Plus, Shield, X } from 'lucide-react';
+import { FileText, Loader2, Pencil, Plus, RefreshCw, Shield, Sparkles, X } from 'lucide-react';
 import { addActivityNote, getOpportunity, moveOpportunityStage, updateOpportunity } from '@/actions/sales/opportunities';
+import { prepararReuniao } from '@/actions/sales/ai-assistant';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import BackButton from '@/components/back-button';
 import OpportunityStageBadge from '@/components/sales/opportunity-stage-badge';
@@ -35,6 +36,13 @@ type RelatedProposal = {
   total_contract_value: number | null;
   estimated_total_commission: number | null;
   created_at: string;
+};
+
+type ReuniaoBriefing = {
+  resumo_contexto: string;
+  perguntas_diagnostico: string[];
+  objecoes_provaveis: { objecao: string; resposta: string }[];
+  proximo_passo_sugerido: string;
 };
 
 const SELECT_CLS = 'px-3 py-2 rounded-lg text-xs text-white border border-white/10 bg-[#091D35] outline-none focus:border-cyan-400/60';
@@ -69,6 +77,10 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
 
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+
+  const [preparingReuniao, setPreparingReuniao] = useState(false);
+  const [reuniao, setReuniao] = useState<ReuniaoBriefing | null>(null);
+  const [reuniaoOpen, setReuniaoOpen] = useState(false);
 
   const load = useCallback(async () => {
     const r = await getOpportunity(opportunityId);
@@ -158,6 +170,19 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
     await load();
   }
 
+  async function handlePrepararReuniao() {
+    setPreparingReuniao(true);
+    setReuniaoOpen(true);
+    const r = await prepararReuniao(opportunityId);
+    setPreparingReuniao(false);
+    if (!r.success) {
+      setReuniaoOpen(false);
+      toast.error(r.error);
+      return;
+    }
+    setReuniao(r.data as ReuniaoBriefing);
+  }
+
   if (loading) {
     return (
       <div className="max-w-[1100px] mx-auto px-4 py-6 text-center">
@@ -202,13 +227,25 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
             <p className="mt-2 text-[11px] text-red-300">Motivo da perda: {opp.loss_reason}</p>
           )}
         </div>
-        {isOpen && !editing && (
-          <button
-            onClick={() => setEditing(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10"
-          >
-            <Pencil size={14} /> Editar
-          </button>
+        {!editing && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handlePrepararReuniao}
+              disabled={preparingReuniao}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 disabled:opacity-60"
+            >
+              {preparingReuniao ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {preparingReuniao ? 'Preparando…' : 'Preparar reunião (IA)'}
+            </button>
+            {isOpen && (
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10"
+              >
+                <Pencil size={14} /> Editar
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -431,6 +468,113 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
                 interaction_evidence: opp.interaction_evidence,
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Painel: preparação de reunião (IA) */}
+      {reuniaoOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:p-6"
+          onClick={() => setReuniaoOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl my-4 rounded-2xl bg-[#0B2138] border border-white/10 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabeçalho do painel */}
+            <div className="flex items-start justify-between gap-3 p-5 border-b border-white/10">
+              <div className="min-w-0">
+                <h2 className="text-base font-bold flex items-center gap-2">
+                  <Sparkles size={16} className="text-cyan-400" /> Preparação de reunião
+                </h2>
+                <p className="text-[11px] text-gray-400 mt-0.5 truncate">{opp.opportunity_name}</p>
+              </div>
+              <button
+                onClick={() => setReuniaoOpen(false)}
+                className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10"
+                aria-label="Fechar"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5">
+              <p className="text-[10px] uppercase tracking-wide text-amber-300/80 mb-4">
+                Gerado por IA — revise antes de usar
+              </p>
+
+              {preparingReuniao || !reuniao ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Loader2 size={28} className="animate-spin text-cyan-400" />
+                  <p className="text-sm text-gray-300 mt-3">Preparando…</p>
+                  <p className="text-[11px] text-gray-500 mt-1">A IA está montando o briefing desta conta.</p>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {/* Resumo do contexto */}
+                  <section>
+                    <h3 className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Resumo do contexto</h3>
+                    <p className="text-sm text-gray-200 whitespace-pre-wrap">{reuniao.resumo_contexto}</p>
+                  </section>
+
+                  {/* Perguntas de diagnóstico */}
+                  {reuniao.perguntas_diagnostico?.length > 0 && (
+                    <section>
+                      <h3 className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Perguntas de diagnóstico</h3>
+                      <ul className="space-y-1.5">
+                        {reuniao.perguntas_diagnostico.map((p, i) => (
+                          <li key={i} className="flex gap-2 text-sm text-gray-200">
+                            <span className="text-cyan-400 shrink-0">{i + 1}.</span>
+                            <span>{p}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+
+                  {/* Objeções prováveis */}
+                  {reuniao.objecoes_provaveis?.length > 0 && (
+                    <section>
+                      <h3 className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Objeções prováveis</h3>
+                      <ul className="space-y-2.5">
+                        {reuniao.objecoes_provaveis.map((o, i) => (
+                          <li key={i} className="rounded-lg bg-white/[0.03] border border-white/5 px-3 py-2">
+                            <p className="text-sm font-bold text-white">{o.objecao}</p>
+                            <p className="text-sm text-gray-300 mt-1">{o.resposta}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+
+                  {/* Próximo passo sugerido */}
+                  {reuniao.proximo_passo_sugerido && (
+                    <section className="rounded-lg bg-cyan-400/10 border border-cyan-400/30 px-3 py-3">
+                      <h3 className="text-[11px] font-bold uppercase tracking-wide text-cyan-300 mb-1">Próximo passo sugerido</h3>
+                      <p className="text-sm text-white">{reuniao.proximo_passo_sugerido}</p>
+                    </section>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Rodapé com ações */}
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-white/10">
+              <button
+                onClick={handlePrepararReuniao}
+                disabled={preparingReuniao}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={preparingReuniao ? 'animate-spin' : ''} /> Regenerar
+              </button>
+              <button
+                onClick={() => setReuniaoOpen(false)}
+                className="px-3 py-2 rounded-lg text-xs font-bold text-gray-300 border border-white/10 hover:bg-white/5"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -6,7 +6,7 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { AlertTriangle, CheckCircle2, Loader2, Send, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, Loader2, Send, Sparkles, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import {
   getProposal,
   markProposalAccepted,
@@ -15,6 +15,7 @@ import {
   submitProposalForApproval,
   updateProposalDraft,
 } from '@/actions/sales/proposals';
+import { assistirProposta } from '@/actions/sales/ai-assistant';
 import { validateProposalForSubmission } from '@/lib/sales/validation';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import BackButton from '@/components/back-button';
@@ -26,6 +27,13 @@ import { fmtBRLExact, fmtDateTime } from '@/lib/sales/formatters';
 import type { SalesProposal } from '@/lib/sales/types';
 
 const RC_EDITABLE = ['draft', 'changes_requested'];
+
+type PropostaAssist = {
+  proposta_de_valor: string;
+  escopo_sugerido: string[];
+  pontos_comerciais: string[];
+  objecoes_provaveis: { objecao: string; resposta: string }[];
+};
 
 function Info({ label, children }: { label: string; children?: React.ReactNode }) {
   return (
@@ -48,6 +56,10 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
   const [acting, setActing] = useState(false);
   const [showLostForm, setShowLostForm] = useState(false);
   const [lostReason, setLostReason] = useState('');
+
+  const [assistOpen, setAssistOpen] = useState(false);
+  const [assisting, setAssisting] = useState(false);
+  const [assist, setAssist] = useState<PropostaAssist | null>(null);
 
   const load = useCallback(async () => {
     const r = await getProposal(proposalId);
@@ -155,6 +167,30 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
     await load();
   }
 
+  async function handleAssistir() {
+    if (!proposal?.opportunity_id) return;
+    setAssist(null);
+    setAssisting(true);
+    setAssistOpen(true);
+    const r = await assistirProposta(proposal.opportunity_id);
+    setAssisting(false);
+    if (!r.success) {
+      setAssistOpen(false);
+      toast.error(r.error);
+      return;
+    }
+    setAssist(r.data as PropostaAssist);
+  }
+
+  async function copyText(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copiado');
+    } catch {
+      toast.error('Não foi possível copiar');
+    }
+  }
+
   if (loading) {
     return (
       <div className="max-w-[1100px] mx-auto px-4 py-6 text-center">
@@ -208,6 +244,15 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
 
         {/* Ações por status */}
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleAssistir}
+            disabled={!p.opportunity_id || assisting}
+            title={p.opportunity_id ? undefined : 'Vincule uma oportunidade para usar o assistente'}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {assisting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            Sugerir com IA
+          </button>
           {editable && (
             <button
               onClick={handleSubmitForApproval}
@@ -358,6 +403,110 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
             }}
             className="lg:sticky lg:top-6"
           />
+        </div>
+      )}
+
+      {/* Assistente de proposta (IA) */}
+      {assistOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8"
+          onClick={() => { if (!assisting) setAssistOpen(false); }}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl bg-[#071426] border border-white/10 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/10">
+              <div className="flex items-center gap-2 min-w-0">
+                <Sparkles size={18} className="text-cyan-400 shrink-0" />
+                <div className="min-w-0">
+                  <h2 className="text-sm font-bold text-white truncate">Assistente de proposta</h2>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-500">Gerado por IA — revise antes de usar</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {assist && (
+                  <button
+                    onClick={handleAssistir}
+                    disabled={assisting}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50"
+                  >
+                    <Sparkles size={12} /> Regenerar
+                  </button>
+                )}
+                <button
+                  onClick={() => { if (!assisting) setAssistOpen(false); }}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10"
+                  aria-label="Fechar"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-5 py-5">
+              {assisting ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                  <Loader2 size={28} className="animate-spin text-cyan-400" />
+                  <p className="text-sm text-gray-300">Analisando…</p>
+                  <p className="text-[11px] text-gray-500">A IA está estudando o contexto da oportunidade. Isso leva alguns segundos.</p>
+                </div>
+              ) : assist ? (
+                <div className="space-y-5">
+                  <section>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Proposta de valor</h3>
+                    <p className="text-sm text-gray-200 whitespace-pre-wrap">{assist.proposta_de_valor}</p>
+                  </section>
+
+                  <section>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400">Escopo sugerido</h3>
+                      {assist.escopo_sugerido?.length > 0 && (
+                        <button
+                          onClick={() => copyText(assist.escopo_sugerido.map((s) => `• ${s}`).join('\n'))}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10"
+                        >
+                          <Copy size={12} /> Copiar
+                        </button>
+                      )}
+                    </div>
+                    <ul className="space-y-1.5">
+                      {(assist.escopo_sugerido || []).map((s, i) => (
+                        <li key={i} className="flex gap-2 text-sm text-gray-200">
+                          <span className="text-cyan-400 mt-0.5">•</span>
+                          <span className="whitespace-pre-wrap">{s}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  <section>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Pontos comerciais</h3>
+                    <ul className="space-y-1.5">
+                      {(assist.pontos_comerciais || []).map((s, i) => (
+                        <li key={i} className="flex gap-2 text-sm text-gray-200">
+                          <span className="text-cyan-400 mt-0.5">•</span>
+                          <span className="whitespace-pre-wrap">{s}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  <section>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Objeções prováveis</h3>
+                    <ul className="space-y-3">
+                      {(assist.objecoes_provaveis || []).map((o, i) => (
+                        <li key={i} className="rounded-lg bg-white/[0.03] border border-white/5 px-3 py-2.5">
+                          <p className="text-sm font-bold text-white whitespace-pre-wrap">{o.objecao}</p>
+                          <p className="text-sm text-gray-300 mt-1 whitespace-pre-wrap">{o.resposta}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
       )}
     </div>
