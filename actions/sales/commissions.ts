@@ -116,3 +116,59 @@ export async function listCommissionEvents(filters?: { status?: string }) {
   if (error) return { success: false as const, error: error.message };
   return { success: true as const, data: (data || []) as SalesCommissionEvent[] };
 }
+
+// ── Extrato de comissões do RC (MVP 2) ──────────────────────────────────────
+
+const EVENT_SELECT = `*,
+  account:sales_accounts (id, legal_name, trade_name),
+  proposal:sales_proposals (id, proposal_number)`;
+
+/** Somatórios por estágio do ciclo (previsto/a receber/pago) — chargeback abate. */
+function totalsByStatus(events: SalesCommissionEvent[]) {
+  const sum = (pred: (e: SalesCommissionEvent) => boolean) =>
+    events.filter(pred).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  return {
+    previsto: sum((e) => e.status === 'forecast' || e.status === 'potencial'),
+    aReceber: sum((e) => e.status === 'accrued'),
+    pago: sum((e) => e.status === 'paid'),
+    // "a emitir NF": a receber, ainda sem nota
+    aEmitirNota: events.filter((e) => e.status === 'accrued' && !e.invoice_issued_at).reduce((s, e) => s + (Number(e.amount) || 0), 0),
+  };
+}
+
+/** Extrato completo de comissões do RC (eventos reais) + totais por estágio. */
+export async function getMinhaComissaoLedger(filters?: { status?: string; tipo?: string }) {
+  const ctx = await requireRepresentativeAction();
+  const sb = createSupabaseAdmin();
+  let q = sb.from('sales_commission_events').select(EVENT_SELECT)
+    .eq('representante_id', ctx.rep.id)
+    .order('reference_month', { ascending: true, nullsFirst: true })
+    .order('created_at', { ascending: true });
+  if (filters?.status) q = q.eq('status', filters.status);
+  if (filters?.tipo) q = q.eq('type', filters.tipo);
+  const { data, error } = await q;
+  if (error) return { success: false as const, error: error.message };
+  const events = (data || []) as SalesCommissionEvent[];
+  return { success: true as const, data: events, totals: totalsByStatus(events) };
+}
+
+/**
+ * RC registra a NOTA FISCAL de uma comissão "a receber" (accrued). Só o dono,
+ * só em evento accrued (não faz sentido emitir NF de forecast/pago).
+ */
+export async function marcarNotaFiscalEmitida(eventId: string, invoiceNumber: string) {
+  const ctx = await requireRepresentativeAction();
+  const num = String(invoiceNumber || '').trim();
+  if (!num) return { success: false as const, error: 'Informe o número da nota fiscal' };
+  const sb = createSupabaseAdmin();
+  const { data: ev } = await sb.from('sales_commission_events')
+    .select('id, representante_id, status').eq('id', eventId).maybeSingle();
+  if (!ev) return { success: false as const, error: 'Comissão não encontrada' };
+  if (ev.representante_id !== ctx.rep.id) return { success: false as const, error: 'FORBIDDEN: comissão de outro representante' };
+  if (ev.status !== 'accrued') return { success: false as const, error: 'Só é possível emitir NF de comissões "a receber"' };
+  const { error } = await sb.from('sales_commission_events')
+    .update({ invoice_number: num, invoice_issued_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', eventId);
+  if (error) return { success: false as const, error: error.message };
+  return { success: true as const };
+}

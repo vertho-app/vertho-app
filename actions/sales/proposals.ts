@@ -18,7 +18,7 @@ import {
   assertRepresentativeOwnership,
 } from '@/lib/sales/permissions';
 import { validateProposalDraft, validateProposalForSubmission, numOrNull } from '@/lib/sales/validation';
-import { calculateProposalFinancials, draftAcquisitionEvent, draftRecurringEvent } from '@/lib/sales/commissions';
+import { calculateProposalFinancials, draftAcquisitionEvent, expandRecurringMonthly } from '@/lib/sales/commissions';
 import type { SalesProposal } from '@/lib/sales/types';
 
 const PROPOSAL_SELECT = `*,
@@ -253,18 +253,17 @@ export async function markProposalAccepted(proposalId: string) {
     }).eq('id', p.account_id);
   }
 
-  // Eventos de comissão (forecast) — aquisição única + recorrente da estimativa.
+  // Eventos de comissão (forecast): aquisição única (9%) + recorrente mês a mês
+  // (12%/mês da vigência). A granularidade mensal permite ao financeiro
+  // reconhecer/pagar cada competência e o RC emitir NF por parcela (MVP 2).
+  const start = new Date();
+  const base = { representante_id: p.representante_id, proposal_id: p.id, account_id: p.account_id };
   const acq = draftAcquisitionEvent(Number(p.total_contract_value) || 0, 'forecast');
-  const rec = draftRecurringEvent(Number(p.monthly_value) || 0, new Date().toISOString().slice(0, 8) + '01', 'forecast');
+  const acqExpected = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1)).toISOString().slice(0, 10);
+  const mensais = expandRecurringMonthly(Number(p.monthly_value) || 0, Number(p.contract_duration_months) || 0, start);
   await sb.from('sales_commission_events').insert([
-    { representante_id: p.representante_id, proposal_id: p.id, account_id: p.account_id, ...acq },
-    {
-      representante_id: p.representante_id, proposal_id: p.id, account_id: p.account_id, ...rec,
-      // total recorrente estimado da vigência (evento agregado; MVP 2 quebra por competência)
-      amount: Number(p.estimated_recurring_commission) || rec.amount,
-      base_value: (Number(p.monthly_value) || 0) * (Number(p.contract_duration_months) || 0),
-      notes: `Recorrente estimado da vigência (${p.contract_duration_months} meses)`,
-    },
+    { ...base, ...acq, expected_payment_date: acqExpected },
+    ...mensais.map((m) => ({ ...base, ...m })),
   ]);
 
   return { success: true as const };

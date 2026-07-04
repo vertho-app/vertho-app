@@ -7,7 +7,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Briefcase, FileText, LayoutDashboard, Lightbulb, LogOut, Menu, MonitorPlay, Target, X,
+  Briefcase, Coins, FileText, LayoutDashboard, Lightbulb, LogOut, Menu, MonitorPlay, Target, X,
 } from 'lucide-react';
 import { ConfirmDialogProvider } from '@/components/admin/confirm-dialog';
 
@@ -21,6 +21,7 @@ const NAV = [
   { key: 'inicio', label: 'Início', sub: 'Visão geral', href: '/representante', icon: LayoutDashboard },
   { key: 'crm', label: 'CRM', sub: 'Pipeline qualificado', href: '/representante/crm', icon: Target },
   { key: 'propostas', label: 'Propostas', sub: 'Aprovação e envio', href: '/representante/propostas', icon: FileText },
+  { key: 'comissoes', label: 'Comissões', sub: 'A receber e pagas', href: '/representante/comissoes', icon: Coins },
   { key: 'carteira', label: 'Carteira', sub: 'Carteira ativa', href: '/representante/carteira', icon: Briefcase },
   { key: 'inteligencia', label: 'Inteligência Comercial', sub: 'Materiais e playbooks', href: '/representante/inteligencia-comercial', icon: Lightbulb },
   { key: 'demo', label: 'Ambiente de Demonstração', sub: 'Treinar e apresentar', href: '/representante/demo', icon: MonitorPlay },

@@ -90,3 +90,32 @@ export function draftExpansionEvent(incrementalContractValue: number, status: Co
 export function draftChargebackEvent(amount: number, notes?: string): CommissionEventDraft & { notes?: string } {
   return { type: 'chargeback', status: 'accrued', base_value: Math.abs(amount), percent: 0, amount: -Math.abs(round2(amount)), ...(notes ? { notes } : {}) };
 }
+
+/**
+ * Expande a comissão recorrente da vigência inicial em UM evento por competência
+ * (mês) — granularidade que o financeiro precisa para reconhecer/pagar mês a mês.
+ * Cada mês: 12% da mensalidade recebida, status 'forecast', reference_month no
+ * 1º dia e expected_payment_date ~30 dias depois (política simples do MVP).
+ */
+export function expandRecurringMonthly(
+  monthlyValue: number,
+  months: number,
+  startDate: Date | string,
+): Array<CommissionEventDraft & { reference_month: string; expected_payment_date: string }> {
+  const monthly = Math.max(0, Number(monthlyValue) || 0);
+  const n = Math.max(0, Number(months) || 0);
+  const start = typeof startDate === 'string' ? new Date(`${startDate.slice(0, 10)}T00:00:00Z`) : startDate;
+  const events: Array<CommissionEventDraft & { reference_month: string; expected_payment_date: string }> = [];
+  const amount = round2(monthly * COMMISSION_RATES.recurring);
+  for (let i = 0; i < n; i++) {
+    const ref = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1));
+    const pay = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i + 1, 1)); // ~mês seguinte
+    events.push({
+      type: 'recorrente', status: 'forecast',
+      base_value: monthly, percent: COMMISSION_RATES.recurring * 100, amount,
+      reference_month: ref.toISOString().slice(0, 10),
+      expected_payment_date: pay.toISOString().slice(0, 10),
+    });
+  }
+  return events;
+}

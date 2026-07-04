@@ -140,6 +140,10 @@ export const COMMISSION_STATUS_LABELS: Record<string, string> = {
   potencial: 'Potencial', forecast: 'Prevista', accrued: 'A receber', paid: 'Paga', cancelled: 'Cancelada',
 };
 
+export const COMMISSION_STATUS_COLORS: Record<string, string> = {
+  potencial: '#6B7280', forecast: '#F59E0B', accrued: '#06B6D4', paid: '#10B981', cancelled: '#64748B',
+};
+
 export const MATERIAL_CATEGORIES = ['material', 'playbook', 'diagnostico', 'objecoes', 'politica', 'case'] as const;
 export const MATERIAL_CATEGORY_LABELS: Record<string, string> = {
   material: 'Biblioteca de materiais', playbook: 'Playbook por segmento',

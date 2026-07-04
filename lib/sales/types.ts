@@ -114,22 +114,31 @@ export type SalesProposal = {
   opportunity?: Pick<SalesOpportunity, 'id' | 'opportunity_name' | 'stage'> | null;
 };
 
+export type CommissionType = 'aquisicao' | 'recorrente' | 'renovacao' | 'expansao' | 'chargeback';
+export type CommissionStatus = 'potencial' | 'forecast' | 'accrued' | 'paid' | 'cancelled';
+
 export type SalesCommissionEvent = {
   id: string;
   representante_id: string;
   proposal_id: string | null;
   account_id: string | null;
-  type: 'aquisicao' | 'recorrente' | 'renovacao' | 'expansao' | 'chargeback';
-  status: 'potencial' | 'forecast' | 'accrued' | 'paid' | 'cancelled';
+  type: CommissionType;
+  status: CommissionStatus;
   base_value: number | null;
   percent: number | null;
   amount: number;
   reference_month: string | null;
   expected_payment_date: string | null;
   paid_at: string | null;
+  invoice_number: string | null;
+  invoice_issued_at: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
+  // joins opcionais
+  account?: Pick<SalesAccount, 'id' | 'legal_name' | 'trade_name'> | null;
+  proposal?: Pick<SalesProposal, 'id' | 'proposal_number'> | null;
+  representante?: Pick<SalesRepresentative, 'id' | 'name'> | null;
 };
 
 export type SalesMaterial = {

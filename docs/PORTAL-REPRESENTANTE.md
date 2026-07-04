@@ -121,10 +121,32 @@ Admin (master) em `/admin/comercial/representantes` → "Novo representante"
 (e-mail + nome). O RC entra por `/login` (magic link/OTP do Supabase) e acessa
 `/representante`. Se o e-mail ainda não tem usuário auth, o primeiro login cria.
 
-## MVP 2-4 (hooks prontos, não implementados)
+## MVP 2 — Comissões financeiras (IMPLEMENTADO 04/07)
 
-- MVP 2: `sales_commission_events` cobre forecast/accrued/paid/chargeback;
-  falta UI financeira + export + status de NF do RC.
+Ciclo de vida completo em `sales_commission_events`:
+**forecast (previsto) → accrued (a receber) → paid (pago)**, + `cancelled` e
+`chargeback` (estorno, valor negativo).
+
+- **Expansão mensal**: ao aceitar a proposta (`markProposalAccepted`), além da
+  comissão de aquisição (9%, evento único), a recorrente (12%) é expandida em
+  **UM evento por competência (mês)** da vigência (`expandRecurringMonthly`) —
+  granularidade que o financeiro precisa para reconhecer/pagar mês a mês.
+- **Nota fiscal do RC** (mig 161: `invoice_number`, `invoice_issued_at`): o RC
+  emite NF numa comissão "a receber" (`marcarNotaFiscalEmitida`) para agilizar o
+  pagamento; "emitida" = `invoice_issued_at` preenchido.
+- **Actions**: RC — `getMinhaComissaoLedger` (extrato + totais por estágio),
+  `marcarNotaFiscalEmitida`. Admin (`actions/sales/commissions-admin.ts`, gated
+  `sales_channel.manage`) — `getCommissionEventsAdmin`, `getCommissionAdminSummary`,
+  `marcarComissaoAReceber`, `marcarComissaoPaga`, `cancelarComissao`,
+  `registrarEstorno`, `exportComissoesCSV`.
+- **Telas**: `/representante/comissoes` (extrato do RC + emitir NF, 4 cards de
+  estágio) e `/admin/comercial/comissoes` (gestão financeira: reconhecer/pagar/
+  cancelar/estornar, filtros por RC/status/competência, export CSV). Item
+  "Comissões" no menu do RC e atalho no dashboard `/admin/comercial`.
+- Regra preservada: RC nunca muda status nem paga a si mesmo — só emite NF.
+
+## MVP 3-4 (hooks prontos, não implementados)
+
 - MVP 3: `sales_accounts` tem contract_start/renewal_date/churn_risk; carteira
   já deriva fase 12%/6% — falta histórico de follow-up e upsell guiado.
 - MVP 4: playbook por segmento já é dado (`sales_materials.segment`); IA de

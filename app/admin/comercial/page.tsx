@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Briefcase, FileText, FolderOpen, Loader2, ShieldAlert, Users,
+  Briefcase, Coins, FileText, FolderOpen, Loader2, ShieldAlert, Users,
 } from 'lucide-react';
 import { getCommercialAdminDashboard } from '@/actions/sales/admin-dashboard';
 import AdminPageHeader from '@/components/admin/page-header';
@@ -18,6 +18,7 @@ type DashboardData = Extract<DashboardResult, { success: true }>;
 const QUICK_LINKS = [
   { href: '/admin/comercial/representantes', label: 'Representantes', Icon: Users },
   { href: '/admin/comercial/propostas', label: 'Propostas', Icon: FileText },
+  { href: '/admin/comercial/comissoes', label: 'Comissões', Icon: Coins },
   { href: '/admin/comercial/materiais', label: 'Materiais', Icon: FolderOpen },
 ];
 
