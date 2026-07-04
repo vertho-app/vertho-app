@@ -3,6 +3,7 @@ import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
 import type { AppLocale } from '@/i18n/routing';
 import { magicLinkEmail, magicLinkWhatsapp, signupEmail, signupWhatsapp } from '@/lib/i18n-auth-templates';
 import { sendWhatsapp } from '@/lib/whatsapp';
+import { isTenantDemo } from '@/lib/demo/envio-guard';
 
 /**
  * Serviço CENTRAL de envio de link de acesso (magic link) por canal.
@@ -34,6 +35,8 @@ export type SendAccessLinkInput = {
   telefone?: string | null;
   nome: string;
   empresaNome: string;
+  /** tenant de origem — quando é demo (is_demo), o envio real é bloqueado. */
+  empresaId?: string | null;
   locale: AppLocale;
   /** link já montado para o corpo do email (callback com token_hash ou action_link) */
   emailLink?: string | null;
@@ -115,6 +118,18 @@ export function recipientFromLookup(
 export async function sendAccessLink(p: SendAccessLinkInput): Promise<SendAccessLinkResult> {
   const channels = p.channels ?? ['email', 'whatsapp'];
   const out: SendAccessLinkResult = { email: 'skipped', whatsapp: 'skipped', anySent: false };
+
+  // Gate de tenant-demo: em ambiente de demonstração, nunca sai link real
+  // (cobre o auto-cadastro aberto — allow_open_signup — que era o vetor de
+  // envio a contato REAL durante uma demo). Sessão de demo é mintada
+  // server-side sem passar por aqui, então este gate não a afeta.
+  if (p.empresaId && (await isTenantDemo(p.empresaId))) {
+    out.email = 'skipped';
+    out.whatsapp = 'skipped';
+    out.emailReason = out.whatsappReason = 'ambiente de demonstração (envio desligado)';
+    out.anySent = false;
+    return out;
+  }
 
   if (channels.includes('email')) await enviarEmail(p, out);
   if (channels.includes('whatsapp')) await enviarWhatsapp(p, out);

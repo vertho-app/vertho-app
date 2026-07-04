@@ -120,6 +120,13 @@ export default function EnviosPage() {
   }, []);
 
   useEffect(() => {
+    if (loading || !empresaParam || empresaParam === empresaId) return;
+    const emp = empresas.find(e => e.id === empresaParam);
+    setEmpresaNome(emp?.nome || '');
+    handleSelectEmpresa(empresaParam);
+  }, [empresaParam, empresas, loading, empresaId]);
+
+  useEffect(() => {
     setMensagem(defaultMsgs[tab] || '');
     setAssunto(tab === 'email' ? t('subjects.assessment') : tab === 'relatorios-email' ? t('subjects.report') : '');
     setResult(null);

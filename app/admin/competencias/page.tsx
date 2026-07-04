@@ -58,6 +58,13 @@ export default function CompetenciasPage() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (loading || !empresaParam || empresaParam === empresaId) return;
+    const emp = empresas.find((e: any) => e.id === empresaParam);
+    setEmpresaNome(emp?.nome || '');
+    handleSelectEmpresa(empresaParam);
+  }, [empresaParam, empresas, loading, empresaId]);
+
   function flash(msg) { toast(msg); }
 
   async function handleSelectEmpresa(id: string) {

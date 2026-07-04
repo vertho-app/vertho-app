@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
       telefone: recipient.telefone,
       nome: recipient.nome,
       empresaNome,
+      empresaId: colab?.empresa_id ?? null, // gate de tenant-demo
       locale,
       emailLink: callbackLink || actionLink,
       whatsappLink: callbackLink,

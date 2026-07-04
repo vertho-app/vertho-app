@@ -3,6 +3,7 @@
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 import crypto from 'crypto';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { hasDiscMapeado } from '@/lib/disc-status';
 import { assertWhatsappAvailable } from '@/lib/whatsapp';
 
@@ -10,6 +11,9 @@ import { assertWhatsappAvailable } from '@/lib/whatsapp';
 
 export async function dispararEmails(empresaId: string) {
   const sb = await requireAdminSupabase('assessments.dispatch');
+  // Tenant de demonstração: bloqueia disparo real antes de tocar colaboradores.
+  const gate = await gateEnvioDemo(empresaId);
+  if (gate.blocked) return { success: false, error: gate.motivo };
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug')

@@ -13,6 +13,7 @@ import { readFileSync } from 'fs';
 const SOURCE_SLUG = 'acme';
 const DEMO_SLUG = 'acme-demo';
 const DEMO_NAME = 'ACME Demo';
+const DEMO_EXCLUDED_ROLES = new Set(['Diretor Geral']);
 
 const REPRESENTANTE_TOP5 = [
   'Comunicação e Apresentação de Valor',
@@ -28,6 +29,54 @@ const DEMO_MANAGER = {
   email: 'carla.demo@vertho.ai',
   whatsapp: null,
 };
+
+const ACME_DEMO_PPP = {
+  perfil_instituicao: {
+    nome: 'ACME Demo - Cultura e Operação',
+    tipo: 'Empresa corporativa fictícia',
+    segmento: 'Tecnologia B2B e serviços consultivos',
+    porte: 'Médio porte',
+    localizacao: 'Operação distribuída no Brasil',
+  },
+  comunidade_contexto: 'A ACME Demo representa uma empresa B2B em crescimento, com áreas comercial, financeira e operacional trabalhando em ciclos curtos de planejamento, execução e aprendizado. O ambiente combina metas comerciais ambiciosas, pressão por previsibilidade financeira e necessidade de coordenação operacional entre áreas.',
+  identidade: {
+    missao: 'Ajudar clientes corporativos a resolver problemas complexos com soluções simples, confiáveis e orientadas a resultado.',
+    visao: 'Ser reconhecida como uma empresa de execução consistente, relacionamento consultivo e melhoria contínua.',
+    principios: ['Cliente no centro', 'Clareza e responsabilidade', 'Colaboração entre áreas', 'Aprendizado contínuo', 'Ética nas decisões', 'Simplicidade operacional'],
+    concepcao: 'A empresa entende desempenho como a combinação entre resultado, qualidade da execução e maturidade comportamental. Valoriza pessoas que comunicam riscos cedo, sustentam acordos, aprendem com dados e colaboram além das fronteiras da própria área.',
+  },
+  praticas_descritas: [
+    { nome: 'Rito semanal de prioridades', descricao: 'Reunião curta para alinhar foco, riscos e dependências entre Comercial, Operações e Financeiro.', frequencia: 'semanal' },
+    { nome: 'Revisão mensal de indicadores', descricao: 'Leitura conjunta de pipeline, margem, inadimplência, capacidade operacional e satisfação do cliente.', frequencia: 'mensal' },
+    { nome: 'Retrospectiva de aprendizados', descricao: 'Registro de decisões, erros, boas práticas e ajustes de processo após ciclos críticos.', frequencia: 'quinzenal' },
+  ],
+  gestao_participacao: 'A gestão é participativa e orientada por dados. Lideranças definem prioridades, mas esperam que cada pessoa assuma responsabilidade por decisões no seu escopo, sinalize bloqueios e proponha melhorias práticas.',
+  desafios_metas: {
+    desafios: ['Aumentar receita sem deteriorar margem', 'Evitar ruídos entre vendas, finanças e operação', 'Manter dados confiáveis para decisão', 'Crescer sem perder qualidade de entrega'],
+    metas: ['Elevar previsibilidade do pipeline', 'Reduzir retrabalho operacional', 'Melhorar comunicação entre áreas', 'Fortalecer postura consultiva com clientes'],
+  },
+  vocabulario: [
+    { termo: 'Forecast', significado: 'Previsão de vendas e receita esperada para o período.' },
+    { termo: 'SLA', significado: 'Acordo de prazo e qualidade para uma entrega ou atendimento.' },
+    { termo: 'Margem', significado: 'Resultado financeiro preservado depois de custos e concessões comerciais.' },
+    { termo: 'Rito de prioridades', significado: 'Momento de alinhamento do que será feito, por quem e com quais riscos.' },
+  ],
+  competencias_priorizadas: [
+    { nome: 'Comunicação objetiva', justificativa: 'Reduz ruídos entre áreas e acelera decisões.', relevancia: 'alta' },
+    { nome: 'Responsabilidade por resultados', justificativa: 'Sustenta metas sem abrir mão de qualidade e ética.', relevancia: 'alta' },
+    { nome: 'Colaboração interáreas', justificativa: 'A operação depende de passagem de bastão clara entre Comercial, Financeiro e Operações.', relevancia: 'alta' },
+    { nome: 'Disciplina de execução', justificativa: 'Garante previsibilidade em ambiente de crescimento.', relevancia: 'alta' },
+    { nome: 'Aprendizado contínuo', justificativa: 'Permite ajustar processos rapidamente sem culpabilização.', relevancia: 'media' },
+  ],
+  valores_institucionais: ['Cliente no centro', 'Responsabilidade', 'Colaboração', 'Ética', 'Simplicidade', 'Aprendizado contínuo'],
+  competencias: [
+    { nome: 'Comunicação objetiva', justificativa: 'Reduz ruídos entre áreas e acelera decisões.', relevancia: 'alta' },
+    { nome: 'Responsabilidade por resultados', justificativa: 'Sustenta metas sem abrir mão de qualidade e ética.', relevancia: 'alta' },
+    { nome: 'Colaboração interáreas', justificativa: 'A operação depende de passagem de bastão clara entre Comercial, Financeiro e Operações.', relevancia: 'alta' },
+  ],
+};
+
+const ACME_DEMO_VALUES = ['Cliente no centro', 'Responsabilidade', 'Colaboração', 'Ética', 'Simplicidade', 'Aprendizado contínuo'];
 
 const DEMO_EXTRA_ROLES = [
   {
@@ -257,6 +306,7 @@ async function cloneCompetencias(sourceId, destId) {
   const idMap = new Map();
   if (!rows?.length) return idMap;
   for (const row of rows) {
+    if (DEMO_EXCLUDED_ROLES.has(row.cargo)) continue;
     const inserted = await must('insert competencia',
       sb.from('competencias').insert({ ...strip(row), empresa_id: destId }).select('id').single());
     idMap.set(row.id, inserted.id);
@@ -268,7 +318,7 @@ async function cloneCargos(sourceId, destId) {
   const rows = await must('load cargos',
     sb.from('cargos_empresa').select('*').eq('empresa_id', sourceId).order('nome'));
   if (!rows?.length) return;
-  const payload = rows.map((row) => {
+  const payload = rows.filter((row) => !DEMO_EXCLUDED_ROLES.has(row.nome)).map((row) => {
     let top5 = Array.isArray(row.top5_workshop) ? row.top5_workshop : [];
     if (row.nome === 'Representante Comercial') top5 = REPRESENTANTE_TOP5;
     else if (top5.length > 5) top5 = top5.slice(0, 5);
@@ -328,6 +378,39 @@ function demoScenarioFor(cargo, compNome) {
   };
 }
 
+function demoDescriptorsFor(compNome, descricao) {
+  return [
+    ['D01', 'Leitura do contexto e identificação do problema', `Capacidade de entender a situação, separar fatos de suposições e reconhecer onde ${compNome.toLowerCase()} é exigida.`],
+    ['D02', 'Critério de priorização e tomada de decisão', `Capacidade de escolher uma linha de ação coerente, considerando impacto, urgência, risco e qualidade da entrega em ${compNome.toLowerCase()}.`],
+    ['D03', 'Execução com método e acompanhamento', `Capacidade de transformar a decisão em passos claros, acompanhar evolução e corrigir desvios relacionados a ${compNome.toLowerCase()}.`],
+    ['D04', 'Comunicação com stakeholders', `Capacidade de comunicar decisões, riscos e combinados de forma clara para as pessoas impactadas por ${compNome.toLowerCase()}.`],
+    ['D05', 'Colaboração e negociação de dependências', `Capacidade de articular áreas, negociar prioridades e reduzir atritos quando ${compNome.toLowerCase()} depende de outras pessoas.`],
+    ['D06', 'Aprendizado, ética e melhoria contínua', `Capacidade de aprender com a situação, preservar responsabilidade ética e melhorar práticas futuras de ${compNome.toLowerCase()}.`],
+  ].map(([suffix, nomeCurto, descritor]) => ({
+    suffix,
+    nome_curto: nomeCurto,
+    descritor_completo: `${descritor} ${descricao}`,
+    n1_gap: 'Age de forma reativa, sem critério claro, evidências suficientes ou responsabilidade sobre os impactos.',
+    n2_desenvolvimento: 'Reconhece o que precisa ser feito, mas aplica a competência de forma parcial, tardia ou dependente de cobrança externa.',
+    n3_meta: 'Aplica a competência com consistência, usando critérios claros, comunicando riscos e acompanhando resultados.',
+    n4_referencia: 'Serve de referência para o time, antecipa riscos, melhora práticas e ajuda outras pessoas a elevar o padrão de atuação.',
+    evidencias_esperadas: 'Exemplos concretos, critérios usados, registros, comunicação feita, acompanhamento e aprendizado gerado.',
+    perguntas_alvo: 'Conte uma situação recente em que essa competência foi exigida. | Que critérios você usou para decidir? | Como acompanhou o resultado? | O que mudou depois da experiência?',
+  }));
+}
+
+async function insertDemoPPP(destId) {
+  await must('insert ppp demo', sb.from('ppp_escolas').insert({
+    empresa_id: destId,
+    escola: 'ACME Demo - Cultura e Operação',
+    fonte: 'json',
+    status: 'extraido',
+    extracao: JSON.stringify(ACME_DEMO_PPP),
+    valores: ACME_DEMO_VALUES,
+    extracted_at: new Date().toISOString(),
+  }));
+}
+
 async function insertDemoExtraRoles(destId) {
   for (const role of DEMO_EXTRA_ROLES) {
     await must(`insert cargo ${role.nome}`, sb.from('cargos_empresa').insert({
@@ -346,28 +429,34 @@ async function insertDemoExtraRoles(destId) {
     }));
 
     for (const [idx, [nome, descricao]] of role.competencias.entries()) {
-      const comp = await must(`insert competencia ${role.nome} ${nome}`, sb.from('competencias').insert({
-        empresa_id: destId,
-        cargo: role.nome,
-        pilar: role.pilar,
-        cod_comp: `${role.nome.startsWith('Analista') ? 'FIN' : 'OPS'}${String(idx + 1).padStart(2, '0')}`,
-        nome,
-        descricao,
-        cod_desc: null,
-        nome_curto: nome,
-        descritor_completo: descricao,
-        n1_gap: 'Age de forma reativa, sem critério claro ou evidências suficientes.',
-        n2_desenvolvimento: 'Reconhece a necessidade da competência, mas aplica de forma irregular.',
-        n3_meta: 'Aplica a competência com consistência nas situações relevantes do cargo.',
-        n4_referencia: 'Serve de referência para o time e melhora práticas relacionadas à competência.',
-        evidencias_esperadas: 'Exemplos concretos, critérios usados, registros, acompanhamento e aprendizado.',
-        perguntas_alvo: 'Conte uma situação recente em que essa competência foi exigida. | Que critérios você usou para decidir? | Como acompanhou o resultado?',
-      }).select('id').single());
+      const codComp = `${role.nome.startsWith('Analista') ? 'FIN' : 'OPS'}${String(idx + 1).padStart(2, '0')}`;
+      let firstComp = null;
+      for (const d of demoDescriptorsFor(nome, descricao)) {
+        const comp = await must(`insert competencia ${role.nome} ${nome} ${d.suffix}`, sb.from('competencias').insert({
+          empresa_id: destId,
+          cargo: role.nome,
+          pilar: role.pilar,
+          cod_comp: codComp,
+          nome,
+          descricao,
+          cod_desc: `${codComp}-${d.suffix}`,
+          nome_curto: d.nome_curto,
+          descritor_completo: d.descritor_completo,
+          n1_gap: d.n1_gap,
+          n2_desenvolvimento: d.n2_desenvolvimento,
+          n3_meta: d.n3_meta,
+          n4_referencia: d.n4_referencia,
+          evidencias_esperadas: d.evidencias_esperadas,
+          perguntas_alvo: d.perguntas_alvo,
+        }).select('id').single());
+        if (!firstComp) firstComp = comp;
+      }
+      if (!firstComp) continue;
 
       await must(`insert top10 ${role.nome} ${idx + 1}`, sb.from('top10_cargos').insert({
         empresa_id: destId,
         cargo: role.nome,
-        competencia_id: comp.id,
+        competencia_id: firstComp.id,
         posicao: idx + 1,
         evidencias: [],
       }));
@@ -375,7 +464,7 @@ async function insertDemoExtraRoles(destId) {
       await must(`insert cenario ${role.nome} ${nome}`, sb.from('banco_cenarios').insert({
         empresa_id: destId,
         cargo: role.nome,
-        competencia_id: comp.id,
+        competencia_id: firstComp.id,
         ...demoScenarioFor(role.nome, nome),
       }));
     }
@@ -479,6 +568,7 @@ async function main() {
   await cloneCargos(source.id, demo.id);
   await cloneTop10(source.id, demo.id, compMap);
   await cloneCenarios(source.id, demo.id, compMap);
+  await insertDemoPPP(demo.id);
   await insertDemoExtraRoles(demo.id);
   const personaMap = await insertPersonas(demo.id);
   await seedRespostas(demo.id, personaMap);

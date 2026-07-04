@@ -120,6 +120,7 @@ export async function POST(req: NextRequest) {
       telefone: telefoneE164,
       nome: nomeCompleto.split(' ')[0] || '',
       empresaNome: empresa.nome || 'Vertho',
+      empresaId: empresa.id, // gate: bloqueia envio real se o tenant for demo
       locale,
       emailLink: callbackLink || linkData.properties.action_link,
       whatsappLink: callbackLink,

@@ -53,6 +53,13 @@ function CargosPageInner() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (loading || !empresaParam || empresaParam === empresaId) return;
+    const emp = empresas.find((e: any) => e.id === empresaParam);
+    setEmpresaNome(emp?.nome || '');
+    handleSelectEmpresa(empresaParam);
+  }, [empresaParam, empresas, loading, empresaId]);
+
   async function handleSelectEmpresa(id: string) {
     setEmpresaId(id);
     if (!id) { setCargos([]); return; }

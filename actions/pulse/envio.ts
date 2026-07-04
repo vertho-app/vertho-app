@@ -1,6 +1,7 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { EMAIL_FROM_DEFAULT, tenantUrl } from '@/lib/domain';
@@ -66,6 +67,10 @@ export async function enviarConvitesPulso(
 ): Promise<{ ok: true; stats: EnvioStats } | { ok: false; error: string }> {
   const sb = await requireAdminSupabase('assessments.dispatch');
   const adminEmail = (await getAuthenticatedEmailFromAction()) || 'desconhecido';
+
+  // Tenant de demonstração: bloqueia disparo real antes de tocar assignments.
+  const gate = await gateEnvioDemo(empresaId);
+  if (gate.blocked) return { ok: false, error: gate.motivo as string };
 
   const { data: empresa } = await sb.from('empresas')
     .select('id, nome, slug').eq('id', empresaId).single();

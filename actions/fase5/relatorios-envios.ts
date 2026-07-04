@@ -7,6 +7,7 @@ import { callAI, type AIConfig } from '../ai-client';
 import { extractJSON } from '../utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { TEMP, upsertRelatorioAgregado } from './_shared';
 import { gerarEvolucaoFusao } from './evolucao';
 
@@ -232,6 +233,9 @@ REGRAS:
 export async function enviarLinksPerfil(empresaId: string) {
   const sbRaw = await requireAdminSupabase('assessments.dispatch');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  // Tenant de demonstração: bloqueia disparo real antes de tocar colaboradores.
+  const gate = await gateEnvioDemo(empresaId);
+  if (gate.blocked) return { success: false, error: gate.motivo };
   const tdb = tenantDb(empresaId);
   try {
     const { data: empresa } = await sbRaw.from('empresas').select('nome, slug').eq('id', empresaId).single();

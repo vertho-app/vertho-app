@@ -68,6 +68,15 @@ export default function KnowledgeBasePage() {
     carregar();
   }, [user, empresaId]);
 
+  useEffect(() => {
+    if (loading || !empresaCtx || empresaCtx === empresaId) return;
+    if (!empresas.some(e => e.id === empresaCtx)) return;
+    setEmpresaId(empresaCtx);
+    setEditor(null);
+    setResultadosBusca(null);
+    setError('');
+  }, [empresaCtx, empresas, loading, empresaId]);
+
   async function carregar() {
     setLoading(true);
     const r = await listarDocsKB(empresaId);

@@ -54,12 +54,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     if (id && id !== 'all') {
       if (m && m[1] !== id) {
         router.replace(`/admin/empresas/${id}${m[2] || ''}`);
+      } else if (pathname === '/admin/dashboard') {
+        router.replace(`/admin/empresas/${id}`);
       } else if (!m) {
         // Páginas globais com ?empresa= na URL: o query param tem precedência no
         // useEmpresaContexto, então precisa acompanhar o filtro do header —
         // senão a tela ficaria presa na empresa antiga.
         const sp = new URLSearchParams(window.location.search);
-        if (sp.get('empresa') && sp.get('empresa') !== id) {
+        if (sp.get('empresa') !== id) {
           sp.set('empresa', id);
           router.replace(`${pathname}?${sp.toString()}`);
         }

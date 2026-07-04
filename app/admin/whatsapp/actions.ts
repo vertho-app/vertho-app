@@ -2,6 +2,7 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { logAdminAction } from '@/lib/audit';
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
 import { assertZapiConnected, getZapiConfig } from '@/lib/zapi';
@@ -187,6 +188,9 @@ async function deletarAnexoTemporario(sb, path) {
 export async function dispararMensagemCustomizada(empresaId, template, canal, filtros: any = {}, assuntoTemplate = '', comPDF = false, anexoExtra: any = null) {
   const ctx = await requireAdminAction('assessments.dispatch');
   const sb = await requireAdminSupabase('assessments.dispatch');
+  // Tenant de demonstração: bloqueia disparo real antes de tocar colaboradores.
+  const gate = await gateEnvioDemo(empresaId);
+  if (gate.blocked) return { success: false, error: gate.motivo };
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug').eq('id', empresaId).single();
@@ -514,6 +518,9 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any = {}) {
   const ctx = await requireAdminAction('assessments.dispatch');
   const sb = await requireAdminSupabase('assessments.dispatch');
+  // Tenant de demonstração: bloqueia disparo real antes de tocar colaboradores.
+  const gate = await gateEnvioDemo(empresaId);
+  if (gate.blocked) return { success: false, error: gate.motivo };
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug').eq('id', empresaId).single();

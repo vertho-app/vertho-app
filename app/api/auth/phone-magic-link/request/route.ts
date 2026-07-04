@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
       telefone: e164,
       nome: colab.nome_completo?.split(' ')[0] || '',
       empresaNome: empresa.nome || 'Vertho',
+      empresaId: empresa.id, // gate de tenant-demo
       locale,
       whatsappLink: link,
       channels: ['whatsapp'],
