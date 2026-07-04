@@ -7,7 +7,7 @@
 
 Rodado com sessão admin master real (`generate_link`+`verify`, cookie SSR no Playwright) sobre o deploy `eb99d78`. Verificado: menu agrupado nas 10 seções; workspace Adequação com as 3 tabs; workspaces Auditorias e Potencial de Mercado; redirects legados (`votacao`→cargos, `escolas`→ppp?tab=escolas, `calibracao`/`ranking`→fit) chegando na tab certa; **ConfirmDialog crítico de "Excluir empresa"** — trava validada (nome errado mantém Confirmar desabilitado, nome certo habilita), cancelado sem excluir; Fase 4 visual em `conteudos` (fundo do shell, botões cyan/outline).
 
-**Bug encontrado e corrigido no smoke:** chegar a um workspace **via `redirect()`** (link/bookmark antigo) disparava React #310 (hydration mismatch de hooks) porque as páginas de workspace leem `useSearchParams()` sem `<Suspense>`. Só afetava a chegada por rota redirecionada (o menu navega client-side, sem erro), e a tela auto-recuperava — mas é regressão que os próprios redirects expõem. Corrigido envolvendo `PPP/Fit/Cargos/Auditorias/MercadoPotencial` num boundary `<Suspense>` (`*PageInner`), padrão canônico do Next para `useSearchParams`. Commit `<pending>`.
+**Bug encontrado e corrigido no smoke:** chegar a um workspace **via `redirect()`** (link/bookmark antigo) disparava React #310 (hydration mismatch de hooks) porque as páginas de workspace leem `useSearchParams()` sem `<Suspense>`. Só afetava a chegada por rota redirecionada (o menu navega client-side, sem erro), e a tela auto-recuperava — mas é regressão que os próprios redirects expõem. Corrigido envolvendo `PPP/Fit/Cargos/Auditorias/MercadoPotencial` num boundary `<Suspense>` (`*PageInner`), padrão canônico do Next para `useSearchParams`. Commit `d3177d3`, re-testado verde em prod.
 
 ## Débitos assumidos / follow-ups
 
