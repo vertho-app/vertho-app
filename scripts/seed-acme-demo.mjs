@@ -22,12 +22,63 @@ const REPRESENTANTE_TOP5 = [
   'Orientação a Metas e Resultados',
 ];
 
+const COMERCIAL_AREA = 'Comercial';
+const DEMO_MANAGER = {
+  nome: 'Carla Menezes',
+  email: 'carla.demo@vertho.ai',
+  whatsapp: null,
+};
+
+const DEMO_EXTRA_ROLES = [
+  {
+    nome: 'Analista Financeiro',
+    area_depto: 'Financeiro',
+    pilar: 'Finanças',
+    descricao: 'Profissional responsável por organizar informações financeiras, apoiar o fechamento mensal, acompanhar orçamento, analisar variações e produzir insumos confiáveis para decisões de gestão.',
+    principais_entregas: 'Relatórios financeiros confiáveis; conciliações e fechamentos no prazo; análise de desvios orçamentários; apoio a decisões de custo, margem e caixa; comunicação clara de riscos e oportunidades.',
+    stakeholders: 'Controladoria, contabilidade, gestores de área, diretoria, compras, comercial e auditoria.',
+    decisoes_recorrentes: 'Quais variações investigar primeiro; quando escalar inconsistências; como priorizar demandas de fechamento versus análises gerenciais; que premissas usar em projeções.',
+    tensoes_comuns: 'Prazos curtos de fechamento; dados incompletos; pressão por respostas rápidas; divergências entre áreas; necessidade de precisão sem travar a operação.',
+    contexto_cultural: 'Ambiente orientado a dados, prazos e confiabilidade, com forte necessidade de organização, critério técnico e comunicação objetiva.',
+    competencias: [
+      ['Controle, Precisão e Confiabilidade dos Dados', 'Capacidade de revisar informações financeiras, identificar inconsistências e garantir bases confiáveis antes de reportar números.'],
+      ['Análise de Indicadores Financeiros', 'Capacidade de interpretar variações, margens, custos e tendências para apoiar decisões de gestão.'],
+      ['Organização de Rotinas e Prazos', 'Capacidade de cumprir ciclos de fechamento, conciliação e reporte sem perder qualidade.'],
+      ['Comunicação Financeira para Não Especialistas', 'Capacidade de explicar números, riscos e premissas de forma clara para gestores de outras áreas.'],
+      ['Critério e Ética no Tratamento de Informações', 'Capacidade de lidar com dados sensíveis com confidencialidade, responsabilidade e independência técnica.'],
+    ],
+  },
+  {
+    nome: 'Coordenador de Operações',
+    area_depto: 'Operações',
+    pilar: 'Operações',
+    descricao: 'Profissional responsável por coordenar rotinas operacionais, organizar prioridades do time, resolver gargalos do dia a dia e garantir que processos, prazos e padrões de qualidade sejam cumpridos.',
+    principais_entregas: 'Execução operacional dentro do prazo; redução de gargalos; priorização clara do time; melhoria contínua dos processos; comunicação fluida entre áreas.',
+    stakeholders: 'Equipe operacional, gerência, comercial, atendimento, fornecedores, logística, financeiro e clientes internos.',
+    decisoes_recorrentes: 'Como redistribuir demandas; que urgência atender primeiro; quando escalar desvios; como equilibrar qualidade, prazo e capacidade do time.',
+    tensoes_comuns: 'Mudanças de prioridade; sobrecarga do time; falhas de comunicação entre áreas; urgências simultâneas; pressão por produtividade sem perda de qualidade.',
+    contexto_cultural: 'Ambiente prático, dinâmico e orientado à execução, no qual liderança próxima, previsibilidade e solução rápida de problemas fazem diferença.',
+    competencias: [
+      ['Priorização e Gestão da Rotina Operacional', 'Capacidade de organizar demandas, sequenciar atividades e manter o time focado no que gera mais impacto.'],
+      ['Resolução de Problemas e Gargalos', 'Capacidade de diagnosticar causas, agir rapidamente e prevenir recorrência de problemas operacionais.'],
+      ['Liderança de Equipe e Alinhamento Diário', 'Capacidade de orientar pessoas, distribuir responsabilidades e manter cadência de execução.'],
+      ['Melhoria Contínua de Processos', 'Capacidade de revisar fluxos, eliminar desperdícios e padronizar boas práticas.'],
+      ['Comunicação entre Áreas', 'Capacidade de alinhar expectativas, negociar prioridades e evitar ruídos entre operação, comercial e atendimento.'],
+    ],
+  },
+];
+
 const PERSONAS = [
   {
     key: 'ana',
     nome_completo: 'Ana Martins',
     email: 'ana.demo@vertho.ai',
     cargo: 'Representante Comercial',
+    role: 'colaborador',
+    area_depto: COMERCIAL_AREA,
+    gestor_nome: DEMO_MANAGER.nome,
+    gestor_email: DEMO_MANAGER.email,
+    gestor_whatsapp: DEMO_MANAGER.whatsapp,
     perfil_dominante: 'I',
     d_natural: 28, i_natural: 72, s_natural: 46, c_natural: 34,
     scenario: 'novo',
@@ -38,6 +89,11 @@ const PERSONAS = [
     nome_completo: 'Paulo Demo',
     email: 'paulo.demo@vertho.ai',
     cargo: 'Representante Comercial',
+    role: 'colaborador',
+    area_depto: COMERCIAL_AREA,
+    gestor_nome: DEMO_MANAGER.nome,
+    gestor_email: DEMO_MANAGER.email,
+    gestor_whatsapp: DEMO_MANAGER.whatsapp,
     perfil_dominante: 'ID',
     d_natural: 66, i_natural: 61, s_natural: 24, c_natural: 31,
     scenario: 'parcial',
@@ -48,6 +104,11 @@ const PERSONAS = [
     nome_completo: 'Bruna Costa',
     email: 'bruna.demo@vertho.ai',
     cargo: 'Representante Comercial',
+    role: 'colaborador',
+    area_depto: COMERCIAL_AREA,
+    gestor_nome: DEMO_MANAGER.nome,
+    gestor_email: DEMO_MANAGER.email,
+    gestor_whatsapp: DEMO_MANAGER.whatsapp,
     perfil_dominante: 'CS',
     d_natural: 24, i_natural: 32, s_natural: 68, c_natural: 74,
     scenario: 'completo',
@@ -58,9 +119,44 @@ const PERSONAS = [
     nome_completo: 'Carla Menezes',
     email: 'carla.demo@vertho.ai',
     cargo: 'Gerente Comercial',
+    role: 'gestor',
+    area_depto: COMERCIAL_AREA,
+    gestor_nome: null,
+    gestor_email: null,
+    gestor_whatsapp: null,
     perfil_dominante: 'D',
     d_natural: 76, i_natural: 48, s_natural: 28, c_natural: 42,
     scenario: 'gestor-parcial',
+    responder: [],
+  },
+  {
+    key: 'mariana',
+    nome_completo: 'Mariana Lopes',
+    email: 'mariana.demo@vertho.ai',
+    cargo: 'Analista Financeiro',
+    role: 'colaborador',
+    area_depto: 'Financeiro',
+    gestor_nome: null,
+    gestor_email: null,
+    gestor_whatsapp: null,
+    perfil_dominante: 'CS',
+    d_natural: 22, i_natural: 34, s_natural: 64, c_natural: 78,
+    scenario: 'novo',
+    responder: [],
+  },
+  {
+    key: 'renato',
+    nome_completo: 'Renato Alves',
+    email: 'renato.demo@vertho.ai',
+    cargo: 'Coordenador de Operações',
+    role: 'colaborador',
+    area_depto: 'Operações',
+    gestor_nome: null,
+    gestor_email: null,
+    gestor_whatsapp: null,
+    perfil_dominante: 'DS',
+    d_natural: 62, i_natural: 38, s_natural: 58, c_natural: 46,
+    scenario: 'novo',
     responder: [],
   },
 ];
@@ -213,6 +309,79 @@ async function cloneCenarios(sourceId, destId, compMap) {
   return idMap;
 }
 
+function demoScenarioFor(cargo, compNome) {
+  return {
+    titulo: `${compNome} em uma situação real de ${cargo}`,
+    descricao: `Você atua como ${cargo} na ACME Demo. Durante uma semana crítica, surge uma situação que exige ${compNome.toLowerCase()}. Há pressão de prazo, informações incompletas e impacto para outras áreas. Você precisa decidir como agir, o que comunicar e como acompanhar o resultado sem perder qualidade nem responsabilidade.`,
+    alternativas: {
+      perguntas: [
+        { numero: 1, texto: 'Qual é o problema principal que você identificaria antes de agir?' },
+        { numero: 2, texto: 'Que ação concreta você tomaria nas próximas horas?' },
+        { numero: 3, texto: 'Como você equilibraria prazo, qualidade e relacionamento com as áreas envolvidas?' },
+        { numero: 4, texto: 'Como você avaliaria depois se sua decisão funcionou?' },
+      ],
+    },
+    nota_check: 85,
+    status_check: 'aprovado',
+    tipo_cenario: null,
+    ppp_escola_id: null,
+  };
+}
+
+async function insertDemoExtraRoles(destId) {
+  for (const role of DEMO_EXTRA_ROLES) {
+    await must(`insert cargo ${role.nome}`, sb.from('cargos_empresa').insert({
+      empresa_id: destId,
+      nome: role.nome,
+      area_depto: role.area_depto,
+      descricao: role.descricao,
+      principais_entregas: role.principais_entregas,
+      stakeholders: role.stakeholders,
+      decisoes_recorrentes: role.decisoes_recorrentes,
+      tensoes_comuns: role.tensoes_comuns,
+      contexto_cultural: role.contexto_cultural,
+      top5_workshop: role.competencias.map(([nome]) => nome),
+      fit_versao: '2.0',
+      eh_lideranca: role.nome.includes('Coordenador'),
+    }));
+
+    for (const [idx, [nome, descricao]] of role.competencias.entries()) {
+      const comp = await must(`insert competencia ${role.nome} ${nome}`, sb.from('competencias').insert({
+        empresa_id: destId,
+        cargo: role.nome,
+        pilar: role.pilar,
+        cod_comp: `${role.nome.startsWith('Analista') ? 'FIN' : 'OPS'}${String(idx + 1).padStart(2, '0')}`,
+        nome,
+        descricao,
+        cod_desc: null,
+        nome_curto: nome,
+        descritor_completo: descricao,
+        n1_gap: 'Age de forma reativa, sem critério claro ou evidências suficientes.',
+        n2_desenvolvimento: 'Reconhece a necessidade da competência, mas aplica de forma irregular.',
+        n3_meta: 'Aplica a competência com consistência nas situações relevantes do cargo.',
+        n4_referencia: 'Serve de referência para o time e melhora práticas relacionadas à competência.',
+        evidencias_esperadas: 'Exemplos concretos, critérios usados, registros, acompanhamento e aprendizado.',
+        perguntas_alvo: 'Conte uma situação recente em que essa competência foi exigida. | Que critérios você usou para decidir? | Como acompanhou o resultado?',
+      }).select('id').single());
+
+      await must(`insert top10 ${role.nome} ${idx + 1}`, sb.from('top10_cargos').insert({
+        empresa_id: destId,
+        cargo: role.nome,
+        competencia_id: comp.id,
+        posicao: idx + 1,
+        evidencias: [],
+      }));
+
+      await must(`insert cenario ${role.nome} ${nome}`, sb.from('banco_cenarios').insert({
+        empresa_id: destId,
+        cargo: role.nome,
+        competencia_id: comp.id,
+        ...demoScenarioFor(role.nome, nome),
+      }));
+    }
+  }
+}
+
 async function insertPersonas(destId) {
   const idMap = new Map();
   for (const p of PERSONAS) {
@@ -222,7 +391,11 @@ async function insertPersonas(destId) {
         nome_completo: p.nome_completo,
         email: p.email,
         cargo: p.cargo,
-        role: 'colaborador',
+        role: p.role,
+        area_depto: p.area_depto,
+        gestor_nome: p.gestor_nome,
+        gestor_email: p.gestor_email,
+        gestor_whatsapp: p.gestor_whatsapp,
         perfil_dominante: p.perfil_dominante,
         d_natural: p.d_natural,
         i_natural: p.i_natural,
@@ -306,6 +479,7 @@ async function main() {
   await cloneCargos(source.id, demo.id);
   await cloneTop10(source.id, demo.id, compMap);
   await cloneCenarios(source.id, demo.id, compMap);
+  await insertDemoExtraRoles(demo.id);
   const personaMap = await insertPersonas(demo.id);
   await seedRespostas(demo.id, personaMap);
 
