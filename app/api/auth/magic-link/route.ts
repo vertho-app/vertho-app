@@ -56,8 +56,23 @@ export async function POST(req: NextRequest) {
       platformAdmin = admin as typeof platformAdmin;
     }
 
-    const recipient = recipientFromLookup(colab, platformAdmin);
-    // Não é colaborador nem admin → sucesso genérico SEM enviar (anti-enumeração).
+    // Representante comercial (RC): não é colaborador de tenant nem platform
+    // admin, mas é um login legítimo (Portal do Representante). Elegível quando
+    // ativo. Sem tenant/telefone → link por e-mail, redirect para /representante.
+    let rep: { name: string | null } | null = null;
+    if (!colab && !platformAdmin) {
+      const { data } = await sb.from('sales_representatives')
+        .select('name').eq('email', trimmed).eq('status', 'active').maybeSingle();
+      rep = data as typeof rep;
+    }
+
+    const baseRecipient = recipientFromLookup(colab, platformAdmin);
+    const recipient = baseRecipient.eligible
+      ? baseRecipient
+      : rep
+        ? { eligible: true, nome: (rep.name || '').split(' ')[0] || '', telefone: null as string | null }
+        : baseRecipient;
+    // Não é colaborador, admin nem RC → sucesso genérico SEM enviar (anti-enumeração).
     if (!recipient.eligible) {
       return NextResponse.json({ success: true });
     }
@@ -83,10 +98,16 @@ export async function POST(req: NextRequest) {
       : null;
     const empresaNome = empresa?.nome || 'Vertho';
 
+    // RC vai direto ao Portal do Representante (evita o flash no /dashboard, que
+    // de todo modo redirecionaria via guard). Deep-links /representante/* passam.
+    const isRep = !colab && !platformAdmin && !!rep;
+    const nextPath = isRep && !redirect.nextPath.startsWith('/representante')
+      ? '/representante' : redirect.nextPath;
+
     // Callback server-side com token_hash — evita PKCE quebrar quando o link é
     // aberto em outro navegador (email) ou no app do WhatsApp.
     const callbackLink = tokenHash
-      ? `${redirect.origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(redirect.nextPath)}`
+      ? `${redirect.origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`
       : null;
 
     const result = await sendAccessLink({
