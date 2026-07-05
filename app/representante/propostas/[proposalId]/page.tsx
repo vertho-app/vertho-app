@@ -6,7 +6,7 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { AlertTriangle, CheckCircle2, Copy, Loader2, Send, Sparkles, ThumbsDown, ThumbsUp, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, Download, ExternalLink, Eye, Link2, Loader2, Send, Sparkles, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import {
   getProposal,
   markProposalAccepted,
@@ -16,6 +16,7 @@ import {
   updateProposalDraft,
 } from '@/actions/sales/proposals';
 import { assistirProposta } from '@/actions/sales/ai-assistant';
+import { gerarLinkProposta } from '@/actions/sales/proposal-share';
 import { validateProposalForSubmission } from '@/lib/sales/validation';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import BackButton from '@/components/back-button';
@@ -23,10 +24,11 @@ import ProposalStatusBadge from '@/components/sales/proposal-status-badge';
 import ProposalForm, { type ProposalFormValues } from '@/components/sales/proposal-form';
 import ProposalFinancialSummary from '@/components/sales/proposal-financial-summary';
 import { CUSTOMER_TYPE_LABELS, PRODUCT_PACKAGE_LABELS } from '@/lib/sales/constants';
-import { fmtBRLExact, fmtDateTime } from '@/lib/sales/formatters';
+import { fmtBRLExact, fmtDate, fmtDateTime } from '@/lib/sales/formatters';
 import type { SalesProposal } from '@/lib/sales/types';
 
 const RC_EDITABLE = ['draft', 'changes_requested'];
+const SHAREABLE_STATUSES = ['approved', 'sent_to_client', 'accepted'];
 
 type PropostaAssist = {
   proposta_de_valor: string;
@@ -60,6 +62,8 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
   const [assistOpen, setAssistOpen] = useState(false);
   const [assisting, setAssisting] = useState(false);
   const [assist, setAssist] = useState<PropostaAssist | null>(null);
+
+  const [sharing, setSharing] = useState<null | 'copy' | 'pdf' | 'preview'>(null);
 
   const load = useCallback(async () => {
     const r = await getProposal(proposalId);
@@ -180,6 +184,26 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
       return;
     }
     setAssist(r.data as PropostaAssist);
+  }
+
+  async function handleShare(action: 'copy' | 'pdf' | 'preview') {
+    setSharing(action);
+    const r = await gerarLinkProposta(proposalId);
+    setSharing(null);
+    if (!r.success) { toast.error(r.error); return; }
+    const origin = window.location.origin;
+    if (action === 'copy') {
+      try {
+        await navigator.clipboard.writeText(`${origin}/proposta/${r.token}`);
+        toast.success('Link copiado');
+      } catch {
+        toast.error('Não foi possível copiar');
+      }
+    } else if (action === 'pdf') {
+      window.open(`/proposta/${r.token}/pdf`, '_blank');
+    } else {
+      window.open(`${origin}/proposta/${r.token}`, '_blank');
+    }
   }
 
   async function copyText(text: string) {
@@ -339,6 +363,56 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
         <div className="mb-5 flex items-center gap-2.5 rounded-xl p-4 bg-emerald-500/10 border border-emerald-400/30 text-xs text-emerald-200">
           <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
           <p className="font-semibold">Proposta aceita pelo cliente — comissões estimadas registradas.</p>
+        </div>
+      )}
+
+      {/* Documento da proposta (link para o cliente) */}
+      {SHAREABLE_STATUSES.includes(p.status) && (
+        <div className="mb-5 rounded-xl bg-white/[0.03] border border-white/10 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Link2 size={16} className="text-cyan-400 shrink-0" />
+            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400">Documento da proposta</h2>
+          </div>
+          <p className="text-sm text-gray-300 mb-3">
+            Envie este documento ao cliente. O link abre uma página com o design da proposta e um botão de baixar PDF.
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => handleShare('copy')}
+              disabled={sharing !== null}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-[#04121F] bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50"
+            >
+              {sharing === 'copy' ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
+              Copiar link do cliente
+            </button>
+            <button
+              onClick={() => handleShare('pdf')}
+              disabled={sharing !== null}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50"
+            >
+              {sharing === 'pdf' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Baixar PDF
+            </button>
+            <button
+              onClick={() => handleShare('preview')}
+              disabled={sharing !== null}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-gray-300 border border-white/10 hover:bg-white/5 disabled:opacity-50"
+            >
+              {sharing === 'preview' ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+              Abrir prévia
+            </button>
+          </div>
+          <div className="mt-3 text-xs">
+            {p.first_viewed_at ? (
+              <p className="flex items-center gap-1.5 text-emerald-300">
+                <Eye size={13} className="shrink-0" />
+                Visualizada pelo cliente em {fmtDate(p.first_viewed_at)}
+                {p.view_count > 1 && <span className="text-gray-400">· {p.view_count} aberturas</span>}
+              </p>
+            ) : (
+              <p className="text-gray-500">Ainda não visualizada pelo cliente.</p>
+            )}
+          </div>
         </div>
       )}
 

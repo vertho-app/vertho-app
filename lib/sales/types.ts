@@ -110,6 +110,10 @@ export type SalesProposal = {
   approved_by: string | null;
   approved_at: string | null;
   rejection_reason: string | null;
+  public_token: string | null;
+  first_viewed_at: string | null;
+  last_viewed_at: string | null;
+  view_count: number;
   created_at: string;
   updated_at: string;
   account?: Pick<SalesAccount, 'id' | 'legal_name' | 'trade_name'> | null;
