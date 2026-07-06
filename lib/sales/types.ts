@@ -101,6 +101,8 @@ export type SalesProposal = {
   included_scope: string | null;
   commercial_notes: string | null;
   monthly_value: number | null;
+  contract_value_gross: number | null;
+  discount_amount: number | null;
   total_contract_value: number | null;
   estimated_acquisition_commission: number | null;
   estimated_recurring_commission: number | null;

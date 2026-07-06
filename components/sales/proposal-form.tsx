@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { validateProposalDraft } from '@/lib/sales/validation';
 import { simularMensalidade } from '@/lib/sales/pricing';
+import { fmtBRLExact } from '@/lib/sales/formatters';
 import {
   CONTRACT_DURATIONS,
   CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS,
@@ -69,6 +70,19 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
   };
 
   const num = (v: any) => (v === '' || v == null ? null : Number(v));
+
+  // Campo monetário: exibe R$ #.###,## e guarda o número (em reais). Digitação
+  // preenche os centavos da direita p/ a esquerda (máscara padrão de moeda).
+  const brlDisplay = (raw: any) => {
+    const n = Number(raw);
+    return raw === '' || raw == null || isNaN(n) ? '' : fmtBRLExact(n);
+  };
+  const parseBRL = (str: string) => {
+    const digits = str.replace(/\D/g, '');
+    return digits ? String(Number(digits) / 100) : '';
+  };
+  const mensalComDesconto =
+    (Number(values.monthly_value) || 0) * (1 - (Number(values.discount_requested) || 0) / 100);
 
   // Valor mensal vem da tabela de preço quando as variáveis mudam (pacote,
   // usuários, cargos). Pula o primeiro render para não sobrescrever o valor
@@ -161,11 +175,17 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
             </div>
           </Field>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Valor mensal (R$)" error={fieldErrors.monthly_value}
               hint="Sugerido pela tabela (pacote × usuários × cargos). Ajustável. 'Custom' é manual.">
-              <input type="number" min={0} step="0.01" value={values.monthly_value}
-                onChange={(e) => set('monthly_value', e.target.value)} className={INPUT_CLS} />
+              <input type="text" inputMode="numeric" value={brlDisplay(values.monthly_value)}
+                onChange={(e) => set('monthly_value', parseBRL(e.target.value))}
+                placeholder="R$ 0,00" className={INPUT_CLS} />
+            </Field>
+            <Field label="Valor mensal com desconto"
+              hint="Mensal já com o desconto aplicado.">
+              <input type="text" readOnly value={brlDisplay(mensalComDesconto)}
+                className={`${INPUT_CLS} text-gray-300 cursor-default`} />
             </Field>
             <Field label="Desconto solicitado (%)" error={fieldErrors.discount_requested}
               hint="Acima de 15% passa por análise de margem">
