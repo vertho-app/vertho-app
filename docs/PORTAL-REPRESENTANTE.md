@@ -196,3 +196,31 @@ não genérica. Sempre com o rótulo "Gerado por IA — revise antes de usar".
   `contract_start_date`/`renewal_date` em negócio novo/renovação; quando a
   oportunidade é `origin='expansao'` numa conta já ativa, preserva as datas
   vigentes (a renovação do contrato-base não pula para frente).
+
+## Kit de sales enablement + template completo de proposta (06/07)
+
+Ingestão do kit de materiais gerado externamente (battlecard, scripts,
+one-pagers, etc.) para dentro do Portal — para o RC acessar in-product E a IA
+aterrar neles.
+
+- **Mig 164**: `sales_materials.content` (corpo rico; `description` continua
+  teaser — o card faz `line-clamp-3`).
+- **`scripts/seed-sales-kit.mjs`** (idempotente): arquiva os 12 placeholders
+  genéricos (mantém os 2 de `politica`) e ingere 12 materiais ricos —
+  Battlecard (13 objeções + posicionamento vs. concorrentes), 3 scripts de
+  qualificação por segmento, 7 etapas, cheat sheet do acme-demo, mapa da
+  jornada, modelo de proposta e 3 one-pagers. **Mapa GTM → `segment`**: escola
+  privada→`escola`, RH/T&D→`empresa`, secretaria/rede pública→`rede_ensino`,
+  transversais→`geral` (⚠️ `fundacao` sem material próprio; herda os gerais).
+- **Grounding da IA** (`materiaisGrounding`): passa a ler `content` (truncado a
+  1400 chars/material). O assistente de objeções/proposta/reunião agora cita o
+  battlecard e os scripts calibrados, não os teasers. Validado E2E: objeção
+  "substitui nine-box?" → resposta ancorada ("o nine-box é uma fotografia; a
+  Vertho começa onde ele termina").
+- **Card**: `content` com "Ver conteúdo" (expand) para o RC ler o material.
+
+**Template completo da proposta** (o doc gerado passa a espelhar o Modelo de
+Proposta do kit): o VM (`buildProposalDocument`) ganhou `contexto` (da
+`identified_need` da oportunidade), `cronograma`, `premissas`, `naoIncluso` e
+`proximosPassos` (seções-padrão). Página pública e PDF renderizam as novas
+seções. **Validade 15 → 30 dias** (`PROPOSAL_VALIDITY_DAYS`), alinhando ao material.
