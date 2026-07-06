@@ -218,6 +218,14 @@ aterrar neles.
   "substitui nine-box?" → resposta ancorada ("o nine-box é uma fotografia; a
   Vertho começa onde ele termina").
 - **Card**: `content` com "Ver conteúdo" (expand) para o RC ler o material.
+- **PDFs originais como download** (mig 165 `storage_path`): os 8 PDFs do kit
+  vivem num bucket **privado** `sales-materials` (`kit/*.pdf`). O download é
+  servido pela rota **gated** `GET /api/sales/materials/[id]/download`
+  (`requireRepresentativeOrAdminAction` → 403 anônimo; stream via service role)
+  — materiais internos (battlecard, scripts) não vazam por URL pública.
+  `file_url` aponta para essa rota; o card mostra "Baixar". Validado E2E
+  (anônimo 403, RC 200 %PDF). Reingerir: `seed-sales-kit.mjs` (texto) +
+  re-subir os PDFs/relinkar `file_url` (upload é passo local, fora do repo).
 
 **Template completo da proposta** (o doc gerado passa a espelhar o Modelo de
 Proposta do kit): o VM (`buildProposalDocument`) ganhou `contexto` (da
