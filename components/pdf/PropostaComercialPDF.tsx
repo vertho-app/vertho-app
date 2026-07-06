@@ -306,8 +306,8 @@ export default function PropostaComercialPDF({
           <SectionLabel>// Investimento</SectionLabel>
           <View style={s.invRow}>
             <View style={{ ...s.invCard, marginRight: 10 }}>
-              <Text style={s.invCardLabel}>Valor mensal</Text>
-              <Text style={s.invCardValue}>{fmtBRL(investimento.mensal)}</Text>
+              <Text style={s.invCardLabel}>Valor total do contrato</Text>
+              <Text style={s.invCardValue}>{fmtBRL(investimento.total)}</Text>
             </View>
             <View style={{ ...s.invCard, marginRight: temDesconto ? 10 : 0 }}>
               <Text style={s.invCardLabel}>Vigência</Text>
@@ -324,12 +324,12 @@ export default function PropostaComercialPDF({
           </View>
           <View style={s.totalBar} wrap={false}>
             <View style={{ flex: 1 }}>
-              <Text style={s.totalLabel}>Valor total do contrato</Text>
+              <Text style={s.totalLabel}>Valor mensal</Text>
               {investimento.condicoesPagamento && (
                 <Text style={s.totalCond}>{investimento.condicoesPagamento}</Text>
               )}
             </View>
-            <Text style={s.totalValue}>{fmtBRL(investimento.total)}</Text>
+            <Text style={s.totalValue}>{fmtBRL(investimento.mensal)}</Text>
           </View>
         </View>
 

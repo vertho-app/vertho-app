@@ -156,7 +156,7 @@ export default async function PropostaPublicaPage(
 
   // Cards de investimento (Desconto só entra se houver desconto real).
   const invCards: { label: string; value: string }[] = [
-    { label: 'Valor mensal', value: fmtBRL(inv.mensal) },
+    { label: 'Valor total do contrato', value: fmtBRL(inv.total) },
     { label: 'Vigência', value: inv.meses != null ? `${inv.meses} meses` : '—' },
   ];
   if (inv.descontoPercent != null && inv.descontoPercent > 0) {
@@ -431,7 +431,7 @@ export default async function PropostaPublicaPage(
                   color: C.accentSubtle,
                 }}
               >
-                Valor total do contrato
+                Valor mensal
               </div>
               {inv.condicoesPagamento && (
                 <div style={{ fontSize: 12, color: C.accentSubtle, marginTop: 6 }}>
@@ -443,7 +443,7 @@ export default async function PropostaPublicaPage(
               className="prop-total-value"
               style={{ fontFamily: FONT_DISPLAY, fontSize: 38, fontWeight: 700, letterSpacing: '-.01em', whiteSpace: 'nowrap' }}
             >
-              {fmtBRL(inv.total)}
+              {fmtBRL(inv.mensal)}
             </div>
           </div>
         </div>
