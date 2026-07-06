@@ -20,6 +20,12 @@ const ymd = (d) => d.toISOString().slice(0, 10);
 const monthsAgo = (m) => { const d = new Date(); d.setMonth(d.getMonth() - m); return d; };
 const daysFromNow = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d; };
 const firstOfMonthPlus = (i) => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + i, 1)); };
+// 'completo' saiu da oferta → 'custom'; oportunidade "Piloto — ..." usa 'piloto'.
+const resolvePkg = (raw, oppName) => {
+  if (oppName && oppName.startsWith('Piloto')) return 'piloto';
+  if (raw === 'completo') return 'custom';
+  return raw ?? null;
+};
 
 const REPS = [
   { email: 'rodrigo@vertho.ai', name: 'Rodrigo Naves', region: 'SP', hero: true },
@@ -35,17 +41,17 @@ const DATA = {
       { legal: 'Colégio Nova Geração LTDA', trade: 'Colégio Nova Geração', seg: 'escola', city: 'Campinas', uf: 'SP', emp: 45, units: 1,
         status: 'active_client', startM: 8, renewalD: 28, churn: 'medio', expansion: true, contact: ['Fernanda Alves', 'Diretora Pedagógica'],
         followups: [['risco', 'Coordenação sinalizou sobrecarga; monitorar engajamento dos professores.'], ['followup', 'Reunião de acompanhamento do 2º trimestre agendada.']],
-        opp: { name: 'Programa completo — Colégio Nova Geração', stage: 'fechado_ganho', st: 'won', product: 'completo', value: 45600 },
+        opp: { name: 'Programa —Colégio Nova Geração', stage: 'fechado_ganho', st: 'won', product: 'completo', value: 45600 },
         proposal: { status: 'accepted', package: 'completo', months: 12, monthly: 3800, comm: 'paid', doc: true } },
       { legal: 'Rede Aprender Mais S/A', trade: 'Rede Aprender+', seg: 'rede_ensino', city: 'São Paulo', uf: 'SP', emp: 320, units: 12,
         status: 'active_client', startM: 3, renewalD: 250, churn: 'baixo', expansion: true, contact: ['Carlos Menezes', 'Diretor de Ensino'],
         followups: [['expansao', 'Interesse em estender o programa para coordenadores das 12 unidades.']],
-        opp: { name: 'Programa completo — Rede Aprender+', stage: 'fechado_ganho', st: 'won', product: 'completo', value: 115200 },
+        opp: { name: 'Programa —Rede Aprender+', stage: 'fechado_ganho', st: 'won', product: 'completo', value: 115200 },
         proposal: { status: 'accepted', package: 'completo', months: 24, monthly: 4800, comm: 'accrued', doc: true } },
       { legal: 'Instituto Horizonte de Educação', trade: 'Instituto Horizonte', seg: 'rede_ensino', city: 'Sorocaba', uf: 'SP', emp: 90, units: 4,
         status: 'active_client', startM: 14, renewalD: 60, churn: 'alto', expansion: false, contact: ['Patrícia Gomes', 'Coordenadora Geral'],
         followups: [['risco', 'Uso caiu no último mês; diretora trocou. Agendar conversa de retenção URGENTE.'], ['renovacao', 'Renovação em 60 dias — preparar proposta de continuidade.']],
-        opp: { name: 'Programa completo — Instituto Horizonte', stage: 'fechado_ganho', st: 'won', product: 'completo', value: 42000 },
+        opp: { name: 'Programa —Instituto Horizonte', stage: 'fechado_ganho', st: 'won', product: 'completo', value: 42000 },
         proposal: { status: 'accepted', package: 'completo', months: 12, monthly: 3500, comm: 'forecast', doc: false } },
       { legal: 'TechNova Sistemas LTDA', trade: 'TechNova Sistemas', seg: 'empresa', city: 'São Paulo', uf: 'SP', emp: 210, units: 1,
         status: 'active_client', startM: 5, renewalD: 180, churn: 'baixo', expansion: false, contact: ['Juliana Rocha', 'Head de T&D'],
@@ -55,7 +61,7 @@ const DATA = {
       // ── PIPELINE / PROPOSTAS (vários status) ────────────────────────────
       { legal: 'Grupo Educacional Vértice LTDA', trade: 'Grupo Educacional Vértice', seg: 'escola', city: 'Jundiaí', uf: 'SP', emp: 130, units: 3,
         status: 'prospect', contact: ['Roberto Dias', 'Mantenedor'],
-        opp: { name: 'Programa completo — Grupo Vértice', stage: 'negociacao', st: 'open', product: 'completo', value: 96000, score: 82,
+        opp: { name: 'Programa —Grupo Vértice', stage: 'negociacao', st: 'open', product: 'completo', value: 96000, score: 82,
                competitors: 'Qulture Rocks', objections: 'Preço acima do orçamento previsto', need: 'Padronizar desenvolvimento de coordenadores das 3 unidades.', protD: 62 },
         proposal: { status: 'submitted_for_approval', package: 'completo', months: 24, monthly: 4000, comm: null, doc: false } },
       { legal: 'Secretaria Municipal de Educação de Valinhos', trade: 'SME Valinhos', seg: 'rede_ensino', city: 'Valinhos', uf: 'SP', emp: 400, units: 22,
@@ -68,14 +74,14 @@ const DATA = {
         opp: { name: 'Mentor IA — Laticínios Bela Vista', stage: 'contrato_enviado', st: 'open', product: 'completo', value: 54000, score: 88,
                need: 'Desenvolver líderes de produção com base em perfil.', protD: 40 },
         proposal: { status: 'sent_to_client', package: 'completo', months: 12, monthly: 4500, comm: null, doc: true } },
-      { legal: 'Fundação Semear', trade: 'Fundação Semear', seg: 'fundacao', city: 'São Paulo', uf: 'SP', emp: 70, units: 1,
-        status: 'prospect', contact: ['Lúcia Ferreira', 'Diretora Executiva'],
-        opp: { name: 'Piloto — Fundação Semear', stage: 'negociacao', st: 'open', product: 'mentor_ia', value: 21000, score: 70,
-               need: 'Desenvolver coordenadores de projetos sociais.', protD: 55 },
+      { legal: 'Rede de Farmácias Bem Estar LTDA', trade: 'Farmácias Bem Estar', seg: 'comercio', city: 'São Paulo', uf: 'SP', emp: 120, units: 8,
+        status: 'prospect', contact: ['Lúcia Ferreira', 'Gerente de RH'],
+        opp: { name: 'Piloto — Farmácias Bem Estar', stage: 'negociacao', st: 'open', product: 'mentor_ia', value: 21000, score: 70,
+               need: 'Desenvolver gerentes de loja com base em perfil.', protD: 55 },
         proposal: { status: 'approved', package: 'mentor_ia', months: 12, monthly: 1750, comm: null, doc: true } },
       { legal: 'Colégio São Bento LTDA', trade: 'Colégio São Bento', seg: 'escola', city: 'Ribeirão Preto', uf: 'SP', emp: 85, units: 1,
         status: 'prospect', contact: ['Eduardo Nunes', 'Diretor Geral'],
-        opp: { name: 'Programa completo — Colégio São Bento', stage: 'proposta_enviada', st: 'open', product: 'completo', value: 60000, score: 65,
+        opp: { name: 'Programa —Colégio São Bento', stage: 'proposta_enviada', st: 'open', product: 'completo', value: 60000, score: 65,
                objections: 'Professores resistentes a nova plataforma', need: 'Reduzir rotatividade docente.', protD: 70 },
         proposal: { status: 'changes_requested', package: 'completo', months: 12, monthly: 5000, comm: null, doc: false, rejection: 'Rever escopo: incluir só coordenação no piloto.' } },
       { legal: 'MetalTech Indústria LTDA', trade: 'MetalTech', seg: 'empresa', city: 'São Bernardo', uf: 'SP', emp: 500, units: 1,
@@ -93,11 +99,11 @@ const DATA = {
     accounts: [
       { legal: 'Colégio Farol do Saber LTDA', trade: 'Colégio Farol', seg: 'escola', city: 'Curitiba', uf: 'PR', emp: 60, units: 1,
         status: 'active_client', startM: 4, renewalD: 120, churn: 'baixo', expansion: false, contact: ['Beatriz Lima', 'Diretora'],
-        opp: { name: 'Programa completo — Colégio Farol', stage: 'fechado_ganho', st: 'won', product: 'completo', value: 45600 },
+        opp: { name: 'Programa —Colégio Farol', stage: 'fechado_ganho', st: 'won', product: 'completo', value: 45600 },
         proposal: { status: 'accepted', package: 'completo', months: 12, monthly: 3800, comm: 'accrued', doc: false } },
       { legal: 'Rede Conhecer S/A', trade: 'Rede Conhecer', seg: 'rede_ensino', city: 'Londrina', uf: 'PR', emp: 180, units: 6,
         status: 'active_client', startM: 2, renewalD: 300, churn: 'baixo', expansion: true, contact: ['André Souza', 'Diretor Pedagógico'],
-        opp: { name: 'Programa completo — Rede Conhecer', stage: 'fechado_ganho', st: 'won', product: 'completo', value: 100800 },
+        opp: { name: 'Programa —Rede Conhecer', stage: 'fechado_ganho', st: 'won', product: 'completo', value: 100800 },
         proposal: { status: 'accepted', package: 'completo', months: 24, monthly: 4200, comm: 'forecast', doc: false } },
       { legal: 'Indústria Alfa LTDA', trade: 'Indústria Alfa', seg: 'empresa', city: 'Joinville', uf: 'SC', emp: 240, units: 1,
         status: 'prospect', contact: ['Renata Dias', 'Gerente de RH'],
@@ -115,7 +121,7 @@ const DATA = {
       { legal: 'Grupo Educacional Atlântico S/A', trade: 'Grupo Atlântico', seg: 'escola', city: 'Rio de Janeiro', uf: 'RJ', emp: 260, units: 5,
         status: 'active_client', startM: 6, renewalD: 40, churn: 'medio', expansion: true, contact: ['Vanessa Cardoso', 'Head de Pessoas'],
         followups: [['renovacao', 'Renovação em 40 dias; grupo satisfeito, propor expansão junto.']],
-        opp: { name: 'Programa completo — Grupo Atlântico', stage: 'fechado_ganho', st: 'won', product: 'completo', value: 108000 },
+        opp: { name: 'Programa —Grupo Atlântico', stage: 'fechado_ganho', st: 'won', product: 'completo', value: 108000 },
         proposal: { status: 'accepted', package: 'completo', months: 24, monthly: 4500, comm: 'paid', doc: true } },
       { legal: 'Secretaria de Educação de Niterói', trade: 'SME Niterói', seg: 'rede_ensino', city: 'Niterói', uf: 'RJ', emp: 350, units: 18,
         status: 'prospect', contact: ['Gustavo Pinto', 'Secretário Adjunto'],
@@ -209,7 +215,7 @@ async function run() {
           oppId = (await client.query(
             `INSERT INTO sales_opportunities (representante_id,account_id,primary_contact_id,opportunity_name,origin,product_interest,identified_need,stage,status,estimated_value,quality_score,protection_start_date,protection_end_date,protection_status,competitors,objections,loss_reason)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
-            [repId, acc.id, contactId, o.name, o.st === 'won' ? 'indicacao' : 'prospeccao', o.product ?? null, o.need ?? null, o.stage, o.st, o.value ?? null, o.score ?? 100, protStart, protEnd, protStatus, o.competitors ?? null, o.objections ?? null, o.loss ?? null])).rows[0].id;
+            [repId, acc.id, contactId, o.name, o.st === 'won' ? 'indicacao' : 'prospeccao', resolvePkg(o.product, o.name), o.need ?? null, o.stage, o.st, o.value ?? null, o.score ?? 100, protStart, protEnd, protStatus, o.competitors ?? null, o.objections ?? null, o.loss ?? null])).rows[0].id;
           oppN++;
         }
 
@@ -224,7 +230,7 @@ async function run() {
           const prop = (await client.query(
             `INSERT INTO sales_proposals (representante_id,opportunity_id,account_id,proposal_number,customer_type,product_package,contract_duration_months,monthly_value,total_contract_value,included_scope,commercial_notes,estimated_acquisition_commission,estimated_recurring_commission,estimated_total_commission,status,approved_by,approved_at,rejection_reason,public_token,first_viewed_at,view_count)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING id`,
-            [repId, oppId, acc.id, `PROP-2026-D${String(propSeq).padStart(3, '0')}`, a.seg, p.package, p.months, p.monthly, total,
+            [repId, oppId, acc.id, `PROP-2026-D${String(propSeq).padStart(3, '0')}`, a.seg, resolvePkg(p.package, a.opp?.name), p.months, p.monthly, total,
              'Diagnóstico individual + trilha personalizada + Mentor IA + Evolution Report', p.notes ?? null,
              acq, recTot, round2(acq + recTot), p.status, approvedBy, approvedAt, p.rejection ?? null, token, firstViewed, firstViewed ? 2 : 0])).rows[0];
           propSeq++; propN++;

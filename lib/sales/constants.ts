@@ -101,14 +101,17 @@ export const PROPOSAL_STATUS_COLORS: Record<ProposalStatus, string> = {
   lost: '#64748B',
 };
 
-export const PRODUCT_PACKAGES = ['onboarding', 'completo', 'mentor_ia', 'pulso', 'custom'] as const;
+// Pacotes oferecidos no dropdown. 'completo'/'pulso' saíram da oferta mas
+// seguem no LABELS para renderizar dados legados/históricos sem quebrar.
+export const PRODUCT_PACKAGES = ['onboarding', 'mentor_ia', 'piloto', 'custom'] as const;
 export const PRODUCT_PACKAGE_LABELS: Record<string, string> = {
-  onboarding: 'Onboarding', completo: 'Completo', mentor_ia: 'Mentor IA', pulso: 'Pulso', custom: 'Custom',
+  onboarding: 'Onboarding', mentor_ia: 'Mentor IA', piloto: 'Piloto', custom: 'Custom',
+  completo: 'Completo', pulso: 'Pulso',
 };
 
-export const CUSTOMER_TYPES = ['escola', 'empresa', 'rede_ensino', 'fundacao', 'outro'] as const;
+export const CUSTOMER_TYPES = ['escola', 'empresa', 'rede_ensino', 'comercio', 'outro'] as const;
 export const CUSTOMER_TYPE_LABELS: Record<string, string> = {
-  escola: 'Escola', empresa: 'Empresa', rede_ensino: 'Rede de ensino', fundacao: 'Fundação', outro: 'Outro',
+  escola: 'Escola', empresa: 'Empresa', rede_ensino: 'Rede de ensino', comercio: 'Comércio', outro: 'Outro',
 };
 
 export const OPPORTUNITY_ORIGINS = ['indicacao', 'prospeccao', 'evento', 'inbound', 'rede_relacionamento', 'outro'] as const;
