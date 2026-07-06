@@ -155,6 +155,7 @@ export type SalesMaterial = {
   description: string | null;
   content: string | null;
   file_url: string | null;
+  storage_path: string | null;
   external_url: string | null;
   is_active: boolean;
   created_at: string;
