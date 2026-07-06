@@ -1,6 +1,10 @@
 // Validação de domínio do portal — usada no CLIENT (feedback imediato) e
 // SEMPRE re-executada no SERVER (fonte de verdade).
-import { CONTRACT_DURATIONS, CUSTOMER_TYPES, PIPELINE_STAGES, PRODUCT_PACKAGES } from './constants';
+import { CONTRACT_DURATIONS, CUSTOMER_TYPES, PIPELINE_STAGES, PRODUCT_PACKAGE_LABELS } from './constants';
+
+// Valida contra TODOS os pacotes conhecidos (inclui legado completo/pulso que
+// saíram do dropdown, mas seguem válidos em propostas antigas).
+const KNOWN_PACKAGES = Object.keys(PRODUCT_PACKAGE_LABELS);
 
 export type ValidationResult = { valid: boolean; errors: Record<string, string> };
 
@@ -48,7 +52,7 @@ export function validateProposalForSubmission(input: Record<string, any>): Valid
   else if (!CUSTOMER_TYPES.includes(input.customer_type)) errors.customer_type = 'Tipo de cliente inválido';
   if (input.number_of_users == null || Number(input.number_of_users) <= 0) errors.number_of_users = 'Informe o número de usuários (> 0)';
   if (!req(input.product_package)) errors.product_package = 'Selecione o pacote';
-  else if (!PRODUCT_PACKAGES.includes(input.product_package)) errors.product_package = 'Pacote inválido';
+  else if (!KNOWN_PACKAGES.includes(input.product_package)) errors.product_package = 'Pacote inválido';
   if (input.contract_duration_months == null) errors.contract_duration_months = 'Selecione a vigência';
   if (!req(input.payment_terms)) errors.payment_terms = 'Informe as condições de pagamento';
   if (!req(input.included_scope)) errors.included_scope = 'Descreva o escopo incluído';

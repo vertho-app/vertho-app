@@ -10,6 +10,7 @@ import {
   Briefcase, Coins, FileText, LayoutDashboard, Lightbulb, LogOut, Menu, MonitorPlay, Target, X,
 } from 'lucide-react';
 import { ConfirmDialogProvider } from '@/components/admin/confirm-dialog';
+import { Toaster } from 'sonner';
 
 const serif: CSSProperties = {
   fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
@@ -254,6 +255,8 @@ export default function RepresentativeShell({
           <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
         </main>
       </div>
+      {/* Toaster próprio do portal — o do layout raiz não cobre esta área. */}
+      <Toaster position="top-right" theme="dark" richColors closeButton />
     </div>
   );
 }
