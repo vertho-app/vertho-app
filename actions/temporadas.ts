@@ -596,6 +596,18 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
       : { data: [] as any[] };
     const compPorCargo = new Map<string, string>((cargosRows || []).map((c: any) => [c.nome, c.competencia_foco]));
 
+    // Batch (era 1 query POR colab): todas as avaliações dos colabs de uma vez,
+    // indexadas por (colaborador_id | competencia).
+    const { data: assessmentsTodos } = await tdb.from('descriptor_assessments')
+      .select('colaborador_id, competencia, descritor, nota')
+      .in('colaborador_id', colabIds);
+    const assessmentsPorColabComp = new Map<string, any[]>();
+    for (const a of (assessmentsTodos || []) as any[]) {
+      const key = `${a.colaborador_id}|${a.competencia}`;
+      const arr = assessmentsPorColabComp.get(key);
+      if (arr) arr.push(a); else assessmentsPorColabComp.set(key, [a]);
+    }
+
     for (const colab of colabs as any[]) {
       // Competência âncora — MESMA resolução da geração (trilha → cargo)
       const comp: string | undefined = compPorColab.get(colab.id) || (colab.cargo ? compPorCargo.get(colab.cargo) : undefined);
@@ -604,9 +616,8 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
         continue;
       }
 
-      const { data: assessment } = await tdb.from('descriptor_assessments')
-        .select('descritor, nota').eq('colaborador_id', colab.id).eq('competencia', comp);
-      const top = selectDescriptorsPiloto(comp, assessment || [], programaConfig.slotsConteudo, programaConfig.conteudosPorSemana);
+      const assessment = assessmentsPorColabComp.get(`${colab.id}|${comp}`) || [];
+      const top = selectDescriptorsPiloto(comp, assessment, programaConfig.slotsConteudo, programaConfig.conteudosPorSemana);
 
       const bloqueadores: string[] = [];
       const avisos: string[] = [];

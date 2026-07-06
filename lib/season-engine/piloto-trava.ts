@@ -15,14 +15,16 @@
 
 export const PILOTO_SPEC_VERSION = 'piloto-v1';
 
-// Menções de duração que invalidam a narrativa do piloto (o programa tem 2
-// semanas — "14 semanas"/"13 semanas" é a régua do REGULAR vazando).
-const DURACAO_ERRADA = /\b1[0-4]\s+semanas\b/i;
+// Menções de duração que invalidam a narrativa do piloto: a degustação tem 2
+// semanas, então QUALQUER contagem 3-14 é erro — "14/13 semanas" é a régua do
+// REGULAR vazando, e "3 semanas" é a contagem de SLOTS (sem 1/2/fechamento)
+// vazando. Só "2 semanas" (e "1 semana", singular) passam.
+const DURACAO_ERRADA = /\b([3-9]|1[0-4])\s+semanas\b/i;
 // Formas em que dá pra corrigir com segurança (frase de duração isolada).
-const DURACAO_CORRIGIVEL = /\b(ao final de|ao longo de|após|depois de|durante|em)\s+1[0-4]\s+semanas\b/gi;
+const DURACAO_CORRIGIVEL = /\b(ao final de|ao longo de|após|depois de|durante|em)\s+([3-9]|1[0-4])\s+semanas\b/gi;
 // (?<!\d\s) — NÃO corrigir quando há contagem antes ("11 das 13 semanas"):
 // trocar a janela ali quebraria a frase; fica pro DURACAO_ERRADA invalidar.
-const JANELA_CORRIGIVEL = /(?<!\d\s)\b(das?|nas?|pelas?)\s+1[0-4]\s+semanas\b/gi;
+const JANELA_CORRIGIVEL = /(?<!\d\s)\b(das?|nas?|pelas?)\s+([3-9]|1[0-4])\s+semanas\b/gi;
 
 function corrigirTexto(t: string): string {
   return t

@@ -188,11 +188,17 @@ export async function buildSeason({
           descritores_cobertos: [],
           status: 'bloqueada',
         };
-      } else if (isPilotoContentWeek(programaConfig, descritoresDaSemana)) {
+      } else if (isPilotoContentWeek(programaConfig)) {
         // Piloto: N entregas na MESMA competência (1 descritor DISTINTO cada),
         // resolvidas pela via existente (formato-core + opcionais). Mesmo shape
         // conteudos_dia do DUO → UI/reflection/kit-overlay funcionam sem mudança.
         const ordenados = descritoresDaSemana.slice(0, programaConfig.conteudosPorSemana);
+        // Invariante: cada semana de conteúdo do piloto deve ter conteudosPorSemana
+        // descritores (distribuição 2+2). Se vier menos, avisa ALTO (não degrada
+        // em silêncio) — a semana sai com o que há, na shape piloto.
+        if (ordenados.length < (programaConfig.conteudosPorSemana || 1)) {
+          console.warn(`[piloto] semana ${semana}: ${ordenados.length} descritor(es) para ${programaConfig.conteudosPorSemana} entregas esperadas — distribuição incompleta.`);
+        }
         const entregas: NonNullable<SemanaConteudo['conteudos_dia']> = [];
 
         for (const [idx, d] of ordenados.entries()) {
@@ -274,11 +280,13 @@ export async function buildSeason({
 
 function isPilotoContentWeek(
   programaConfig: ProgramaConfig,
-  descritoresDaSemana: SelectedDescriptor[],
 ): boolean {
   // Só o Piloto define conteudosPorSemana > 1 — nos demais modos a chave é
-  // undefined e este branch nunca dispara (garantia por construção).
-  return (programaConfig.conteudosPorSemana || 1) > 1 && descritoresDaSemana.length > 1;
+  // undefined e este branch nunca dispara (garantia por construção). Chave é a
+  // CONFIG, não a contagem de descritores: o caso length===0 já vira 'bloqueada'
+  // antes, e uma semana com 1 descritor (redistribuição futura) segue no branch
+  // piloto (mesma shape) com aviso — em vez de degradar em silêncio pro single.
+  return (programaConfig.conteudosPorSemana || 1) > 1;
 }
 
 function isRegularDuoContentWeek(
