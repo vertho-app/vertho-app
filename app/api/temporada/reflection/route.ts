@@ -12,6 +12,10 @@ import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { PROGRESSO } from '@/lib/status';
 
+// Conclusão de semana pode disparar a acumulada (após IA) e o chat usa callAI —
+// dá margem além dos 60s default. Fluid até 300s.
+export const maxDuration = 300;
+
 function parseExtracaoResponse(raw: string): any {
   let cleaned = raw.trim();
   if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');

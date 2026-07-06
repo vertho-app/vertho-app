@@ -15,6 +15,10 @@ import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoC
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { PROGRESSO } from '@/lib/status';
 
+// Fechamento encadeia arguição (até 4 turnos) + extração + scorer + check 2ª IA
+// + Evolution Report num único request — passa dos 60s default. Fluid até 300s.
+export const maxDuration = 300;
+
 /**
  * POST /api/temporada/evaluation
  * Body: { trilhaId, semana, message?, action: 'init'|'send'|'generate_report' }
@@ -298,16 +302,24 @@ export async function POST(request) {
         let cenario_b_id = dados.cenario_b_id || null;
 
         if (!cenario || !perguntas) {
-          const { data: cenB } = await sb.from('banco_cenarios')
+          const cargoColab = colab?.cargo || 'todos';
+          const buscarCenB = (cargo: string) => sb.from('banco_cenarios')
             .select('id, titulo, descricao, alternativas')
             .eq('empresa_id', trilha.empresa_id)
-            .eq('cargo', colab?.cargo || 'todos')
+            .eq('cargo', cargo)
             .eq('tipo_cenario', 'cenario_b')
             .limit(1).maybeSingle();
 
+          let { data: cenB } = await buscarCenB(cargoColab);
+          // Fallback: cenário B genérico ('todos') quando não há um do cargo
+          // específico — alinha com a prontidão, que já aceita 'todos'.
+          if (!cenB?.descricao && cargoColab !== 'todos') {
+            ({ data: cenB } = await buscarCenB('todos'));
+          }
+
           if (!cenB?.descricao) {
             return NextResponse.json({
-              error: `Cenário B não cadastrado para ${competenciasLabel} + cargo ${colab?.cargo || 'todos'}.`,
+              error: `Cenário B não cadastrado para ${competenciasLabel} + cargo ${cargoColab}.`,
             }, { status: 424 });
           }
           cenario = `## ${cenB.titulo || 'Cenário final'}\n\n${cenB.descricao}`;
