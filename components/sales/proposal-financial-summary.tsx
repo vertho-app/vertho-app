@@ -22,12 +22,19 @@ export default function ProposalFinancialSummary({ input, className }: {
 }) {
   const fin = calculateProposalFinancials(input);
   const months = Number(input.contract_duration_months) || 0;
+  const monthly = Math.max(0, Number(input.monthly_value) || 0);
+  const discount = Number(input.discount_requested) || 0;
 
   return (
     <div className={`rounded-xl bg-white/[0.03] border border-white/10 p-4 ${className ?? ''}`}>
       <h3 className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Resumo financeiro</h3>
       <div className="divide-y divide-white/5">
-        <Row label="Valor total do contrato" value={fmtBRLExact(fin.total_contract_value)} />
+        <Row label={`Valor mensal${months ? ` × ${months} meses` : ''}`} value={fmtBRLExact(monthly)} />
+        <Row label="Valor do contrato (bruto)" value={fmtBRLExact(fin.contract_value_gross)} />
+        {discount > 0 && (
+          <Row label={`Desconto (${discount}%)`} value={`− ${fmtBRLExact(fin.discount_amount)}`} />
+        )}
+        <Row label="Valor final do contrato" value={fmtBRLExact(fin.total_contract_value)} highlight />
         <Row
           label={`Comissão de aquisição (${Math.round(COMMISSION_RATES.acquisition * 100)}%)`}
           value={fmtBRLExact(fin.estimated_acquisition_commission)}

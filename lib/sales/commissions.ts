@@ -12,13 +12,15 @@
 import { COMMISSION_RATES } from './constants';
 
 export type ProposalFinancialInput = {
-  monthly_value: number | null | undefined;
+  monthly_value: number | null | undefined;      // mensalidade de tabela (bruta)
   contract_duration_months: number | null | undefined;
-  discount_requested?: number | null; // % já refletido no monthly_value informado
+  discount_requested?: number | null;            // % de desconto aplicado ao total
 };
 
 export type ProposalFinancials = {
-  total_contract_value: number;
+  contract_value_gross: number;      // mensal × vigência (antes do desconto)
+  discount_amount: number;           // valor do desconto em R$
+  total_contract_value: number;      // VALOR FINAL (após o desconto)
   estimated_acquisition_commission: number;
   estimated_recurring_commission: number;
   estimated_total_commission: number;
@@ -35,17 +37,23 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export function calculateProposalFinancials(input: ProposalFinancialInput): ProposalFinancials {
   const monthly = Math.max(0, Number(input.monthly_value) || 0);
   const months = Number(input.contract_duration_months) || 0;
-  const total = round2(monthly * months);
+  const discount = Math.min(100, Math.max(0, Number(input.discount_requested) || 0));
 
+  const gross = round2(monthly * months);
+  const total = round2(gross * (1 - discount / 100)); // valor final (após desconto)
+
+  // Comissões incidem sobre o valor final do contrato.
   const acquisition = round2(total * COMMISSION_RATES.acquisition);
-  const recurring = round2(monthly * months * COMMISSION_RATES.recurring);
+  const recurring = round2(total * COMMISSION_RATES.recurring);
 
   return {
+    contract_value_gross: gross,
+    discount_amount: round2(gross - total),
     total_contract_value: total,
     estimated_acquisition_commission: acquisition,
     estimated_recurring_commission: recurring,
     estimated_total_commission: round2(acquisition + recurring),
-    margin_alert: (Number(input.discount_requested) || 0) > 15,
+    margin_alert: discount > 15,
   };
 }
 

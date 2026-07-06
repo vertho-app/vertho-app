@@ -3,10 +3,11 @@
 // Portal do Representante — simulador/form de proposta comercial.
 // O resumo financeiro recalcula AO VIVO; a validação client usa
 // validateProposalDraft (o server sempre revalida e recalcula o financeiro).
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { validateProposalDraft } from '@/lib/sales/validation';
+import { simularMensalidade } from '@/lib/sales/pricing';
 import {
   CONTRACT_DURATIONS,
   CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS,
@@ -68,6 +69,21 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
   };
 
   const num = (v: any) => (v === '' || v == null ? null : Number(v));
+
+  // Valor mensal vem da tabela de preço quando as variáveis mudam (pacote,
+  // usuários, cargos). Pula o primeiro render para não sobrescrever o valor
+  // salvo de uma proposta em edição. 'Custom' (sem fórmula) fica manual.
+  const skipAuto = useRef(true);
+  useEffect(() => {
+    if (skipAuto.current) { skipAuto.current = false; return; }
+    const sug = simularMensalidade({
+      product_package: values.product_package,
+      number_of_users: num(values.number_of_users),
+      number_of_roles_mapped: num(values.number_of_roles_mapped),
+    });
+    if (sug != null) setValues((prev) => ({ ...prev, monthly_value: String(sug) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.product_package, values.number_of_users, values.number_of_roles_mapped]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -146,7 +162,8 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Valor mensal (R$)" error={fieldErrors.monthly_value}>
+            <Field label="Valor mensal (R$)" error={fieldErrors.monthly_value}
+              hint="Sugerido pela tabela (pacote × usuários × cargos). Ajustável. 'Custom' é manual.">
               <input type="number" min={0} step="0.01" value={values.monthly_value}
                 onChange={(e) => set('monthly_value', e.target.value)} className={INPUT_CLS} />
             </Field>

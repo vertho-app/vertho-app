@@ -270,7 +270,10 @@ export async function markProposalAccepted(proposalId: string) {
   const base = { representante_id: p.representante_id, proposal_id: p.id, account_id: p.account_id };
   const acq = draftAcquisitionEvent(Number(p.total_contract_value) || 0, 'forecast');
   const acqExpected = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1)).toISOString().slice(0, 10);
-  const mensais = expandRecurringMonthly(Number(p.monthly_value) || 0, Number(p.contract_duration_months) || 0, start);
+  // Recorrente sobre o mensal LÍQUIDO (valor final ÷ vigência), não o bruto.
+  const meses = Number(p.contract_duration_months) || 0;
+  const mensalLiquido = meses ? (Number(p.total_contract_value) || 0) / meses : (Number(p.monthly_value) || 0);
+  const mensais = expandRecurringMonthly(mensalLiquido, meses, start);
   await sb.from('sales_commission_events').insert([
     { ...base, ...acq, expected_payment_date: acqExpected },
     ...mensais.map((m) => ({ ...base, ...m })),
