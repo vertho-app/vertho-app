@@ -52,6 +52,7 @@ export default function Sem14Page() {
   const [error, setError] = useState('');
   const [avaliacao, setAvaliacao] = useState(null);
   const [semCenarioB, setSemCenarioB] = useState(14); // derivado do plano
+  const [preparando, setPreparando] = useState(false); // piloto: acumulada em Trigger.dev
 
   // Arguição (defesa oral) — modo CHAT turn-by-turn após as 4 perguntas.
   const [argMsgs, setArgMsgs] = useState([]); // { role: 'assistant'|'user', content }
@@ -60,6 +61,8 @@ export default function Sem14Page() {
   const [argBusy, setArgBusy] = useState(false);
   const [argConcluida, setArgConcluida] = useState(false);
   const argEndRef = useRef(null);
+  const pollRef = useRef(true);
+  useEffect(() => () => { pollRef.current = false; }, []); // cancela polling no unmount
 
   useEffect(() => {
     (async () => {
@@ -130,23 +133,53 @@ export default function Sem14Page() {
         });
         setStep(0);
       } else {
-        const initResp = await fetchAuth('/api/temporada/evaluation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trilhaId: r.trilha.id, semana: semCB, action: 'init' }),
-        });
-        if (!initResp.ok) {
-          const err = await initResp.json();
-          setError(err.error || t('errors.startWeek', { week: semCB }));
-          return;
-        }
-        const data = await initResp.json();
-        setCenario(data.cenario || '');
-        setPerguntas(data.perguntas || []);
-        setStep(0);
+        await doInit(r.trilha.id, semCB);
       }
     })();
   }, [router, sb]);
+
+  // Abre o fechamento. No piloto, se a avaliação acumulada (Trigger.dev) ainda
+  // não terminou, a rota responde { processando:true } (202) → mostramos
+  // "preparando avaliação…" e fazemos polling até liberar. Mata a race B2.
+  async function doInit(tid, semCB) {
+    const initResp = await fetchAuth('/api/temporada/evaluation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trilhaId: tid, semana: semCB, action: 'init' }),
+    });
+    if (!initResp.ok && initResp.status !== 202) {
+      const err = await initResp.json().catch(() => ({}));
+      setError(err.error || t('errors.startWeek', { week: semCB }));
+      return;
+    }
+    const data = await initResp.json().catch(() => ({}));
+    if (data.processando) {
+      setPreparando(true);
+      setStep(-1);
+      pollAcumulada(tid, semCB);
+      return;
+    }
+    setPreparando(false);
+    setCenario(data.cenario || '');
+    setPerguntas(data.perguntas || []);
+    setStep(0);
+  }
+
+  // Polling do status da acumulada (o gate self-heal já re-dispara se travar).
+  async function pollAcumulada(tid, semCB) {
+    for (let i = 0; i < 120 && pollRef.current; i++) {
+      await new Promise((res) => setTimeout(res, 3000));
+      if (!pollRef.current) return;
+      const resp = await fetchAuth('/api/temporada/evaluation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trilhaId: tid, semana: semCB, action: 'status' }),
+      });
+      if (!resp.ok) continue;
+      const s = await resp.json().catch(() => ({}));
+      if (s.acumulada_status === 'done') { await doInit(tid, semCB); return; }
+    }
+  }
 
   // Auto-scroll do chat da arguição ao chegar mensagem nova / IA "pensando".
   useEffect(() => {
@@ -240,7 +273,21 @@ export default function Sem14Page() {
     </div>
   );
 
-  if (step < 0) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-brand-400" /></div>;
+  if (step < 0) return (
+    <div className="flex items-center justify-center h-[60dvh]">
+      <div className="text-center max-w-sm px-4">
+        <Loader2 size={32} className="animate-spin text-brand-400 mx-auto" />
+        {preparando && (
+          <>
+            <p className="text-sm font-semibold text-white mt-4">Preparando sua avaliação…</p>
+            <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
+              Estamos consolidando toda a sua jornada para uma avaliação justa. Isso leva alguns instantes — a tela abre sozinha.
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">

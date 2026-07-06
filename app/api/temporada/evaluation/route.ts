@@ -14,6 +14,9 @@ import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/t
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { PROGRESSO } from '@/lib/status';
+import { tasks } from '@trigger.dev/sdk';
+import { regionOpts } from '@/lib/trigger-region';
+import type { acumuladaPilotoTask } from '@/trigger/acumulada-piloto';
 
 // Fechamento encadeia arguição (até 4 turnos) + extração + scorer + check 2ª IA
 // + Evolution Report num único request — passa dos 60s default. Fluid até 300s.
@@ -91,6 +94,18 @@ export async function POST(request) {
       // dono da trilha acima) — sem o flag morria em FORBIDDEN silencioso.
       const r = await gerarEvolutionReport(trilhaId, true);
       return NextResponse.json(r);
+    }
+
+    // Polling do piloto: o client consulta o status da acumulada (disparada em
+    // Trigger.dev no fim da sem 2) enquanto mostra "preparando avaliação…".
+    if (action === 'status') {
+      const { data: acumRow } = await sb.from('temporada_semana_progresso')
+        .select('acumulada_status, acumulada_erro')
+        .eq('trilha_id', trilhaId).eq('semana', semAcumulada).maybeSingle();
+      return NextResponse.json({
+        acumulada_status: acumRow?.acumulada_status ?? null,
+        acumulada_erro: acumRow?.acumulada_erro ?? null,
+      });
     }
 
     // Gates (temporal com espelho do plano + progressão) — fonte única em
@@ -297,6 +312,49 @@ export async function POST(request) {
       };
 
       if (action === 'init') {
+        // Gate do piloto: o fechamento só abre quando a avaliação acumulada
+        // (disparada no fim da sem 2, em Trigger.dev) terminou — evita o scorer
+        // rodar sem triangulação (B2). Self-heal: re-dispara se falhou ou travou.
+        if (programaConfig.modo === 'piloto') {
+          const { data: acumRow } = await sb.from('temporada_semana_progresso')
+            .select('acumulada_status, acumulada_started_at')
+            .eq('trilha_id', trilhaId).eq('semana', semAcumulada).maybeSingle();
+          const st = acumRow?.acumulada_status;
+          if (st !== 'done') {
+            const iniciadoMs = acumRow?.acumulada_started_at ? Date.parse(acumRow.acumulada_started_at) : 0;
+            const travado = !st || st === 'error' || (st === 'processing' && Date.now() - iniciadoMs > 5 * 60_000);
+            if (travado) {
+              await sb.from('temporada_semana_progresso')
+                .update({ acumulada_status: 'processing', acumulada_erro: null, acumulada_started_at: new Date().toISOString() })
+                .eq('trilha_id', trilhaId).eq('semana', semAcumulada);
+              try {
+                await tasks.trigger<typeof acumuladaPilotoTask>(
+                  'acumulada-piloto', { trilhaId, semanaAcumulada: semAcumulada }, regionOpts(),
+                );
+              } catch (e: any) {
+                // Trigger indisponível → fallback inline (mesmo padrão da reflection).
+                console.error('[piloto acumulada re-trigger; fallback after()]', e?.message);
+                after(async () => {
+                  try {
+                    const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
+                    await gerarAvaliacaoAcumulada(trilhaId, true);
+                    await sb.from('temporada_semana_progresso')
+                      .update({ acumulada_status: 'done', acumulada_erro: null })
+                      .eq('trilha_id', trilhaId).eq('semana', semAcumulada);
+                  } catch (e2: any) {
+                    await sb.from('temporada_semana_progresso')
+                      .update({ acumulada_status: 'error', acumulada_erro: String(e2?.message || e2).slice(0, 500) })
+                      .eq('trilha_id', trilhaId).eq('semana', semAcumulada);
+                  }
+                });
+              }
+            }
+            return NextResponse.json({
+              processando: true,
+              message: 'Estamos preparando sua avaliação com base em toda a sua jornada. Isso leva alguns instantes…',
+            }, { status: 202 });
+          }
+        }
         let cenario = dados.cenario;
         let perguntas = dados.perguntas;
         let cenario_b_id = dados.cenario_b_id || null;

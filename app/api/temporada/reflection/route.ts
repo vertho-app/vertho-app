@@ -11,6 +11,9 @@ import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { PROGRESSO } from '@/lib/status';
+import { tasks } from '@trigger.dev/sdk';
+import { regionOpts } from '@/lib/trigger-region';
+import type { acumuladaPilotoTask } from '@/trigger/acumulada-piloto';
 
 // Conclusão de semana pode disparar a acumulada (após IA) e o chat usa callAI —
 // dá margem além dos 60s default. Fluid até 300s.
@@ -414,26 +417,44 @@ export async function POST(request) {
     }
 
     // Modo Piloto: ao concluir a ÚLTIMA semana de conteúdo (sem 2), dispara a
-    // avaliação acumulada single-comp em background (mesmo padrão do trigger
-    // da sem 13 no regular). Persiste em sem 2.feedback.acumulado — insumo de
-    // triangulação do scorer no fechamento (sem 3). Não bloqueia a resposta.
+    // avaliação acumulada single-comp em BACKGROUND via Trigger.dev (não mais
+    // after() — que morria no freeze da Vercel e gerava race com o fechamento).
+    // Marca a linha da semana da acumulada como 'processing'; o fechamento (sem
+    // 3) faz gate nesse status. Persiste em sem 2.feedback.acumulado — insumo de
+    // triangulação do scorer. Ver análise piloto (M8).
     if (
       finished &&
       programaConfig.modo === 'piloto' &&
       semanaPlan.tipo === 'conteudo' &&
       Number(semana) === programaConfig.semanaAcumulada
     ) {
-      // after(): fire-and-forget solto MORRE quando a lambda congela após o
-      // response — after() mantém a função viva até o trabalho terminar.
-      after(async () => {
-        try {
-          const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
-          // internal=true: sessão é do COLAB — mesmo padrão da parcial.
-          await gerarAvaliacaoAcumulada(trilhaId, true);
-        } catch (e: any) {
-          console.error('[piloto acumulada sem 2]', e?.message);
-        }
-      });
+      const semAcum = programaConfig.semanaAcumulada;
+      await sb.from('temporada_semana_progresso')
+        .update({ acumulada_status: 'processing', acumulada_erro: null, acumulada_started_at: new Date().toISOString() })
+        .eq('trilha_id', trilhaId).eq('semana', semAcum);
+      try {
+        await tasks.trigger<typeof acumuladaPilotoTask>(
+          'acumulada-piloto', { trilhaId, semanaAcumulada: semAcum }, regionOpts(),
+        );
+      } catch (e: any) {
+        // Trigger indisponível (ex.: task ainda não deployada) → FALLBACK: roda a
+        // acumulada inline via after() e marca o status, pra o gate destravar do
+        // mesmo jeito. Não pode derrubar a conclusão da semana.
+        console.error('[piloto acumulada trigger; fallback after()]', e?.message);
+        after(async () => {
+          try {
+            const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
+            await gerarAvaliacaoAcumulada(trilhaId, true);
+            await sb.from('temporada_semana_progresso')
+              .update({ acumulada_status: 'done', acumulada_erro: null })
+              .eq('trilha_id', trilhaId).eq('semana', semAcum);
+          } catch (e2: any) {
+            await sb.from('temporada_semana_progresso')
+              .update({ acumulada_status: 'error', acumulada_erro: String(e2?.message || e2).slice(0, 500) })
+              .eq('trilha_id', trilhaId).eq('semana', semAcum);
+          }
+        });
+      }
     }
 
     // Modo Onboarding: ao concluir missão integradora (4/7/9), dispara acumulada
