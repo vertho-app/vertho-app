@@ -25,12 +25,14 @@ function classificarConvergencia({ nota_pre, nota_pos, nivel_percebido }: { nota
  * Consolida semana 13 (qualitativa) + semana 14 (quantitativa) num Evolution Report.
  * Salva em trilhas.evolution_report e marca status=TRILHA.CONCLUIDA.
  *
- * Auth: `internal=true` pula o gate de admin — usado pela rota /evaluation ao
- * FINALIZAR o cenário B (a sessão é do PRÓPRIO COLAB; sem o flag o report
- * automático morria em FORBIDDEN silencioso). Mesmo padrão da acumulada.
- * Path restrito a callers no servidor.
+ * Auth: passar `internal={ empresaId }` pula o gate de admin — usado pela rota
+ * /evaluation ao FINALIZAR o cenário B (a sessão é do PRÓPRIO COLAB; sem isso o
+ * report automático morria em FORBIDDEN silencioso). Mesmo padrão da acumulada.
+ * O `empresaId` é o tenant da SESSÃO do caller: a função revalida que a trilha
+ * pertence a ele (B5 — defense-in-depth contra trilhaId forjado cross-tenant).
+ * Sem `internal` → gate de admin. Path restrito a callers no servidor.
  */
-export async function gerarEvolutionReport(trilhaId: string, internal: boolean = false) {
+export async function gerarEvolutionReport(trilhaId: string, internal?: { empresaId: string | null }) {
   try {
     // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
     const { createSupabaseAdmin } = await import('@/lib/supabase');
@@ -39,6 +41,13 @@ export async function gerarEvolutionReport(trilhaId: string, internal: boolean =
       .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados, programa_modo')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return { success: false, error: 'Trilha não encontrada' };
+
+    // B5: caller interno usa service-role (bypassa RLS) → EXIGE prova do tenant
+    // e rejeita trilha de outro tenant. Impede escalonamento horizontal se um
+    // caller futuro esquecer o assertColabAccess antes de passar o trilhaId.
+    if (internal && internal.empresaId && trilha.empresa_id !== internal.empresaId) {
+      return { success: false, error: 'Trilha de outro tenant — acesso negado.' };
+    }
 
     const tdb = tenantDb(trilha.empresa_id);
 
@@ -68,9 +77,11 @@ export async function gerarEvolutionReport(trilhaId: string, internal: boolean =
     if (isPiloto && prog14?.feedback?.spec_version !== PILOTO_SPEC_VERSION) {
       return { success: false, error: `Fechamento do piloto sem spec_version='${PILOTO_SPEC_VERSION}' (trava não aplicada?) — report não gerado.` };
     }
-    if (isPiloto && quantitativa.length < descritores.length) {
-      return { success: false, error: `Fechamento do piloto avaliou ${quantitativa.length}/${descritores.length} descritores — report não gerado.` };
-    }
+    // B4: NÃO bloqueia mais se o scorer avaliou N-1 descritores. Antes isso
+    // PRENDIA a trilha (o colab via a avaliação mas a temporada nunca concluía,
+    // e regerar relia o mesmo persistido). Agora gera com o que há (faltantes
+    // ficam nulos no consolidado) + flag `incompleto` pro admin regerar/re-scorar.
+    const pilotoIncompleto = isPiloto && quantitativa.length < descritores.length;
 
     // ── Piloto: relatório SEM delta/evolução ─────────────────────────────
     // 2 semanas não medem evolução. A competência entra como PONTO DE
@@ -97,6 +108,10 @@ export async function gerarEvolutionReport(trilhaId: string, internal: boolean =
         resumo_avaliacao: prog14?.feedback?.resumo_avaliacao || null,
         nota_media_pos: prog14?.feedback?.nota_media_pos ?? null,
         piso_aplicado: !!prog14?.feedback?.piso_aplicado,
+        // B4: sinaliza fechamento incompleto (scorer avaliou < N descritores).
+        incompleto: pilotoIncompleto,
+        descritores_avaliados: quantitativa.length,
+        descritores_esperados: descritores.length,
       };
       await tdb.from('trilhas').update({
         evolution_report,

@@ -19,18 +19,25 @@ import { PROGRESSO } from '@/lib/status';
  * Trigger: chamada no fim da semana de acumulada (regular=13) e no fim da
  * sem 2 do piloto. Também pode ser chamada manualmente pelo admin Vertho.
  *
- * Auth: `internal=true` pula o gate de admin — usado pelos AUTO-TRIGGERS das
- * rotas (o usuário da sessão é o PRÓPRIO COLAB que terminou a semana, não um
- * admin; sem o flag o trigger morria em FORBIDDEN silencioso). Mesmo padrão
- * do gerarAvaliacaoAcumuladaParcial. Path restrito a callers no servidor.
+ * Auth: passar `internal={ empresaId }` (tenant da SESSÃO do caller) pula o gate
+ * de admin — usado pelos AUTO-TRIGGERS das rotas (a sessão é do PRÓPRIO COLAB;
+ * sem isso o trigger morria em FORBIDDEN silencioso). A função revalida que a
+ * trilha pertence a esse tenant (B5 — defense-in-depth). Sem `internal` → gate
+ * de admin. Path restrito a callers no servidor.
  */
-export async function gerarAvaliacaoAcumulada(trilhaId: string, internal: boolean = false) {
+export async function gerarAvaliacaoAcumulada(trilhaId: string, internal?: { empresaId: string | null }) {
   // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
   const sbRaw = internal ? createSupabaseAdmin() : await requireAdminSupabase('ai.audit.regenerate');
   const { data: trilha } = await sbRaw.from('trilhas')
     .select('id, empresa_id, colaborador_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano, programa_modo')
     .eq('id', trilhaId).maybeSingle();
   if (!trilha) return { error: 'trilha não encontrada' };
+
+  // B5: caller interno (service-role) DEVE provar o tenant; rejeita trilha de
+  // outro tenant (trilhaId forjado) — defense-in-depth contra escalonamento.
+  if (internal && internal.empresaId && trilha.empresa_id !== internal.empresaId) {
+    return { error: 'trilha de outro tenant — acesso negado' };
+  }
 
   const tdb = tenantDb(trilha.empresa_id);
 
@@ -196,7 +203,7 @@ async function avaliarCompAcumulada(
  * o usuário é o próprio colab que terminou a missão. Por isso `internal=true`
  * pula `requireAdminAction`. Esse path é restrito a callers no servidor.
  */
-export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenciasFiltro: string[], semFim: number, internal: boolean = false) {
+export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenciasFiltro: string[], semFim: number, internal?: { empresaId: string | null }) {
   if (!internal) await requireAdminAction('ai.audit.regenerate');
   if (!Array.isArray(competenciasFiltro) || competenciasFiltro.length === 0) {
     return { error: 'competenciasFiltro obrigatório' };
@@ -206,6 +213,10 @@ export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenc
     .select('id, empresa_id, colaborador_id, competencia_foco, descritores_selecionados, temporada_plano, programa_modo')
     .eq('id', trilhaId).maybeSingle();
   if (!trilha) return { error: 'trilha não encontrada' };
+  // B5: caller interno prova o tenant; rejeita trilha de outro tenant.
+  if (internal && internal.empresaId && trilha.empresa_id !== internal.empresaId) {
+    return { error: 'trilha de outro tenant — acesso negado' };
+  }
 
   const tdb = tenantDb(trilha.empresa_id);
   const { data: colab } = await tdb.from('colaboradores')

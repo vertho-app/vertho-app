@@ -16,7 +16,7 @@ export const acumuladaPilotoTask = task({
   id: 'acumulada-piloto',
   maxDuration: 600,               // 2 chamadas de IA sequenciais (8k + 6k)
   retry: { maxAttempts: 3 },
-  run: async (payload: { trilhaId: string; semanaAcumulada: number }) => {
+  run: async (payload: { trilhaId: string; semanaAcumulada: number; empresaId: string | null }) => {
     const sb = createSupabaseAdmin();
     const patch = (f: Record<string, unknown>) =>
       sb.from('temporada_semana_progresso').update(f)
@@ -25,8 +25,9 @@ export const acumuladaPilotoTask = task({
     try {
       // dynamic import: evita ciclo de tipos e mantém a task leve.
       const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
-      // internal=true: a acumulada é do dono da trilha (o caller já validou acesso).
-      const r = await gerarAvaliacaoAcumulada(payload.trilhaId, true);
+      // internal={empresaId}: tenant validado pela reflection (dono da trilha);
+      // a função revalida que a trilha pertence a esse tenant (B5).
+      const r = await gerarAvaliacaoAcumulada(payload.trilhaId, { empresaId: payload.empresaId });
       if (!r?.ok) throw new Error('gerarAvaliacaoAcumulada retornou !ok');
       await patch({ acumulada_status: 'done', acumulada_erro: null });
       return { ok: true, trilhaId: payload.trilhaId };

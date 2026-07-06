@@ -14,9 +14,6 @@ import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/t
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { PROGRESSO } from '@/lib/status';
-import { tasks } from '@trigger.dev/sdk';
-import { regionOpts } from '@/lib/trigger-region';
-import type { acumuladaPilotoTask } from '@/trigger/acumulada-piloto';
 
 // Fechamento encadeia arguição (até 4 turnos) + extração + scorer + check 2ª IA
 // + Evolution Report num único request — passa dos 60s default. Fluid até 300s.
@@ -92,7 +89,7 @@ export async function POST(request) {
     if (action === 'generate_report') {
       // internal=true: a sessão é do COLAB (assertColabAccess já validou o
       // dono da trilha acima) — sem o flag morria em FORBIDDEN silencioso.
-      const r = await gerarEvolutionReport(trilhaId, true);
+      const r = await gerarEvolutionReport(trilhaId, { empresaId: auth.empresaId });
       return NextResponse.json(r);
     }
 
@@ -194,7 +191,7 @@ export async function POST(request) {
             const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
             // internal=true: o usuário da sessão é o COLAB (não admin) — sem
             // o flag o trigger morria em FORBIDDEN silencioso.
-            await gerarAvaliacaoAcumulada(trilhaId, true);
+            await gerarAvaliacaoAcumulada(trilhaId, { empresaId: auth.empresaId });
           } catch (e) {
             console.error('[VERTHO] avaliação acumulada sem 13:', e?.message);
           }
@@ -301,7 +298,7 @@ export async function POST(request) {
         await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: true });
 
         // Gera Evolution Report automático (internal: sessão é do colab)
-        const report = await gerarEvolutionReport(trilhaId, true);
+        const report = await gerarEvolutionReport(trilhaId, { empresaId: auth.empresaId });
 
         return { status: 200, json: {
           finished: true,
@@ -314,7 +311,7 @@ export async function POST(request) {
       if (action === 'init') {
         // Gate do piloto: o fechamento só abre quando a avaliação acumulada
         // (disparada no fim da sem 2, em Trigger.dev) terminou — evita o scorer
-        // rodar sem triangulação (B2). Self-heal: re-dispara se falhou ou travou.
+        // rodar sem triangulação (B2).
         if (programaConfig.modo === 'piloto') {
           const { data: acumRow } = await sb.from('temporada_semana_progresso')
             .select('acumulada_status, acumulada_started_at')
@@ -324,30 +321,26 @@ export async function POST(request) {
             const iniciadoMs = acumRow?.acumulada_started_at ? Date.parse(acumRow.acumulada_started_at) : 0;
             const travado = !st || st === 'error' || (st === 'processing' && Date.now() - iniciadoMs > 5 * 60_000);
             if (travado) {
+              // Self-heal: NÃO re-dispara a Trigger — se ela FALHOU no runtime
+              // (ex.: env faltando), re-disparar falharia de novo e prenderia o
+              // colab. Roda a acumulada INLINE (after) no ambiente da Vercel, que
+              // tem env conhecido. Cobre task perdida/travada E falha de runtime.
               await sb.from('temporada_semana_progresso')
                 .update({ acumulada_status: 'processing', acumulada_erro: null, acumulada_started_at: new Date().toISOString() })
                 .eq('trilha_id', trilhaId).eq('semana', semAcumulada);
-              try {
-                await tasks.trigger<typeof acumuladaPilotoTask>(
-                  'acumulada-piloto', { trilhaId, semanaAcumulada: semAcumulada }, regionOpts(),
-                );
-              } catch (e: any) {
-                // Trigger indisponível → fallback inline (mesmo padrão da reflection).
-                console.error('[piloto acumulada re-trigger; fallback after()]', e?.message);
-                after(async () => {
-                  try {
-                    const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
-                    await gerarAvaliacaoAcumulada(trilhaId, true);
-                    await sb.from('temporada_semana_progresso')
-                      .update({ acumulada_status: 'done', acumulada_erro: null })
-                      .eq('trilha_id', trilhaId).eq('semana', semAcumulada);
-                  } catch (e2: any) {
-                    await sb.from('temporada_semana_progresso')
-                      .update({ acumulada_status: 'error', acumulada_erro: String(e2?.message || e2).slice(0, 500) })
-                      .eq('trilha_id', trilhaId).eq('semana', semAcumulada);
-                  }
-                });
-              }
+              after(async () => {
+                try {
+                  const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
+                  await gerarAvaliacaoAcumulada(trilhaId, { empresaId: auth.empresaId });
+                  await sb.from('temporada_semana_progresso')
+                    .update({ acumulada_status: 'done', acumulada_erro: null })
+                    .eq('trilha_id', trilhaId).eq('semana', semAcumulada);
+                } catch (e2: any) {
+                  await sb.from('temporada_semana_progresso')
+                    .update({ acumulada_status: 'error', acumulada_erro: String(e2?.message || e2).slice(0, 500) })
+                    .eq('trilha_id', trilhaId).eq('semana', semAcumulada);
+                }
+              });
             }
             return NextResponse.json({
               processando: true,

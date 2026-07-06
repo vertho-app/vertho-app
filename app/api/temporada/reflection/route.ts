@@ -434,7 +434,7 @@ export async function POST(request) {
         .eq('trilha_id', trilhaId).eq('semana', semAcum);
       try {
         await tasks.trigger<typeof acumuladaPilotoTask>(
-          'acumulada-piloto', { trilhaId, semanaAcumulada: semAcum }, regionOpts(),
+          'acumulada-piloto', { trilhaId, semanaAcumulada: semAcum, empresaId: auth.empresaId }, regionOpts(),
         );
       } catch (e: any) {
         // Trigger indisponível (ex.: task ainda não deployada) → FALLBACK: roda a
@@ -444,7 +444,7 @@ export async function POST(request) {
         after(async () => {
           try {
             const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
-            await gerarAvaliacaoAcumulada(trilhaId, true);
+            await gerarAvaliacaoAcumulada(trilhaId, { empresaId: auth.empresaId });
             await sb.from('temporada_semana_progresso')
               .update({ acumulada_status: 'done', acumulada_erro: null })
               .eq('trilha_id', trilhaId).eq('semana', semAcum);
@@ -478,7 +478,7 @@ export async function POST(request) {
         after(async () => {
           try {
             const { gerarAvaliacaoAcumuladaParcial } = await import('@/actions/avaliacao-acumulada');
-            await gerarAvaliacaoAcumuladaParcial(trilhaId, compsCobertas, Number(semana), true);
+            await gerarAvaliacaoAcumuladaParcial(trilhaId, compsCobertas, Number(semana), { empresaId: auth.empresaId });
           } catch (e: any) {
             console.error('[onboarding acumulada parcial]', e?.message);
           }
