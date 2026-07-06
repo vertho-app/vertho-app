@@ -242,15 +242,25 @@ export async function markProposalAccepted(proposalId: string) {
       .eq('id', p.opportunity_id).eq('status', 'open');
   }
   if (p.account_id) {
-    const start = new Date();
-    const renewal = new Date(start);
-    renewal.setMonth(renewal.getMonth() + (Number(p.contract_duration_months) || 12));
-    await sb.from('sales_accounts').update({
-      status: 'active_client',
-      contract_start_date: start.toISOString().slice(0, 10),
-      renewal_date: renewal.toISOString().slice(0, 10),
-      updated_at: new Date().toISOString(),
-    }).eq('id', p.account_id);
+    // Expansão (upsell em cliente já ativo) NÃO reseta o contrato-base: preserva
+    // início e renovação vigentes. Negócio novo ou renovação carimba as datas.
+    let ehExpansao = false;
+    if (p.opportunity_id) {
+      const { data: opp } = await sb.from('sales_opportunities').select('origin').eq('id', p.opportunity_id).maybeSingle();
+      ehExpansao = opp?.origin === 'expansao';
+    }
+    const { data: acc } = await sb.from('sales_accounts').select('contract_start_date').eq('id', p.account_id).maybeSingle();
+    const preservarContrato = ehExpansao && !!acc?.contract_start_date;
+
+    const patch: Record<string, any> = { status: 'active_client', updated_at: new Date().toISOString() };
+    if (!preservarContrato) {
+      const start = new Date();
+      const renewal = new Date(start);
+      renewal.setMonth(renewal.getMonth() + (Number(p.contract_duration_months) || 12));
+      patch.contract_start_date = start.toISOString().slice(0, 10);
+      patch.renewal_date = renewal.toISOString().slice(0, 10);
+    }
+    await sb.from('sales_accounts').update(patch).eq('id', p.account_id);
   }
 
   // Eventos de comissão (forecast): aquisição única (9%) + recorrente mês a mês

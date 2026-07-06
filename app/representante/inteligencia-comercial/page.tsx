@@ -3,7 +3,7 @@
 // Portal do Representante — Inteligência Comercial (assistente de objeções IA, benchmark, materiais).
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Lightbulb, Loader2, MessageSquare, Sparkles, BarChart3 } from 'lucide-react';
+import { Lightbulb, Loader2, MessageSquare, Sparkles, BarChart3, BookMarked } from 'lucide-react';
 import { listActiveSalesMaterials } from '@/actions/sales/materials';
 import { analisarObjecao } from '@/actions/sales/ai-assistant';
 import { getBenchmarkSegmento, type SegmentBenchmark } from '@/actions/sales/benchmark';
@@ -233,6 +233,103 @@ function BenchmarkSection() {
   );
 }
 
+// ── Biblioteca de materiais — Playbook por segmento ─────────────────────────
+const isGeneralSegment = (m: SalesMaterial) => !m.segment || m.segment === 'geral';
+
+function MaterialsLibrary({ materials }: { materials: SalesMaterial[] }) {
+  const [segmento, setSegmento] = useState<string>('todos');
+
+  const filtered =
+    segmento === 'todos'
+      ? materials
+      : materials.filter((m) => m.segment === segmento || isGeneralSegment(m));
+
+  // Quantos materiais são especificamente do segmento escolhido (fora os gerais).
+  const specificCount = segmento === 'todos' ? 0 : materials.filter((m) => m.segment === segmento).length;
+  const segLabel = segmento === 'todos' ? '' : (CUSTOMER_TYPE_LABELS[segmento] || segmento);
+
+  const chips: { value: string; label: string }[] = [
+    { value: 'todos', label: 'Todos os segmentos' },
+    ...CUSTOMER_TYPES.map((t) => ({ value: t, label: CUSTOMER_TYPE_LABELS[t] })),
+  ];
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(52,197,204,.1)', color: '#34c5cc' }}>
+            <BookMarked size={16} />
+          </span>
+          <h2 className="text-sm font-bold text-white">Playbook por segmento</h2>
+          {segmento !== 'todos' && (
+            <span
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
+              style={{ background: 'rgba(52,197,204,.14)', border: '1px solid rgba(52,197,204,.4)', color: '#34c5cc' }}
+            >
+              Lente: {segLabel}
+            </span>
+          )}
+        </div>
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,.55)' }}>
+          Escolha o segmento do cliente para ver os materiais mais relevantes. Os materiais gerais aparecem em qualquer segmento.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {chips.map((c) => {
+          const active = c.value === segmento;
+          return (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => setSegmento(c.value)}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
+              style={
+                active
+                  ? { background: 'rgba(52,197,204,.15)', border: '1px solid rgba(52,197,204,.5)', color: '#34c5cc' }
+                  : { background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.1)', color: 'rgba(255,255,255,.65)' }
+              }
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {segmento !== 'todos' && specificCount === 0 && (
+        <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,.55)' }}>
+          Nenhum material específico para {segLabel} ainda — veja os materiais gerais.
+        </p>
+      )}
+
+      {filtered.length === 0 ? (
+        <div
+          className="rounded-2xl p-8 text-center flex flex-col items-center gap-3"
+          style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)' }}
+        >
+          <span className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(52,197,204,.1)', color: '#34c5cc' }}>
+            <Lightbulb size={18} />
+          </span>
+          <p className="text-sm font-bold text-white">Nenhum material para este segmento</p>
+          <p className="text-xs max-w-sm leading-relaxed" style={{ color: 'rgba(255,255,255,.55)' }}>
+            Ainda não há materiais publicados para {segLabel || 'este filtro'}. Veja os outros segmentos ou volte em breve.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          {MATERIAL_CATEGORIES.map((category) => (
+            <PlaybookSection
+              key={category}
+              category={category}
+              materials={filtered.filter((m) => m.category === category)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function InteligenciaComercialPage() {
   const [materials, setMaterials] = useState<SalesMaterial[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -288,13 +385,7 @@ export default function InteligenciaComercialPage() {
           </p>
         </div>
       ) : (
-        MATERIAL_CATEGORIES.map((category) => (
-          <PlaybookSection
-            key={category}
-            category={category}
-            materials={materials.filter((m) => m.category === category)}
-          />
-        ))
+        <MaterialsLibrary materials={materials} />
       )}
     </div>
   );

@@ -186,4 +186,13 @@ não genérica. Sempre com o rótulo "Gerado por IA — revise antes de usar".
   "Assistente de Objeções (IA)" + tabela de "Benchmark por segmento", acima da
   biblioteca de materiais.
 - **Playbook por segmento**: os materiais já têm `segment`; o grounding do
-  assistente filtra por segmento da conta (geral + do segmento).
+  assistente filtra por segmento da conta (geral + do segmento). A Inteligência
+  Comercial expõe a lente por segmento (chips escola/empresa/rede_ensino/
+  fundacao/outro → filtra materiais do segmento + gerais).
+
+## Correções pós-MVP (05/07)
+
+- **Expansão não reseta o contrato-base**: `markProposalAccepted` só carimba
+  `contract_start_date`/`renewal_date` em negócio novo/renovação; quando a
+  oportunidade é `origin='expansao'` numa conta já ativa, preserva as datas
+  vigentes (a renovação do contrato-base não pula para frente).
