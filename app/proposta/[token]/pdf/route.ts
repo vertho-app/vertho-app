@@ -26,17 +26,20 @@ export async function GET(
     return new NextResponse('Proposta não encontrada', { status: 404 });
   }
 
-  // 2) Conta + representante (para o VM cliente-facing)
-  const [{ data: account }, { data: rep }] = await Promise.all([
+  // 2) Conta + representante + contexto da oportunidade (para o VM cliente-facing)
+  const [{ data: account }, { data: rep }, { data: opp }] = await Promise.all([
     proposal.account_id
       ? sb.from('sales_accounts').select('legal_name,trade_name').eq('id', proposal.account_id).maybeSingle()
       : Promise.resolve({ data: null }),
     proposal.representante_id
       ? sb.from('sales_representatives').select('name,email,phone').eq('id', proposal.representante_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    proposal.opportunity_id
+      ? sb.from('sales_opportunities').select('identified_need').eq('id', proposal.opportunity_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
-  const doc = buildProposalDocument(proposal, account, rep);
+  const doc = buildProposalDocument(proposal, account, rep, { contexto: (opp as any)?.identified_need ?? null });
 
   const buffer = await renderToBuffer(
     // @ts-ignore - JSX em route handler com renderToBuffer

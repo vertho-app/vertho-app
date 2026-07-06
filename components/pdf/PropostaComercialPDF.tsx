@@ -43,6 +43,32 @@ const s = StyleSheet.create({
   listItem: { flexDirection: 'row', marginBottom: 4 },
   listPrefix: { fontSize: fonts.body, fontWeight: 700, color: colors.cyan, width: 12 },
   listText: { fontSize: fonts.body, color: colors.textPrimary, flex: 1, lineHeight: 1.55 },
+  // Bloco de contexto (dor / necessidade)
+  contextoBlock: {
+    backgroundColor: colors.perfilBg,
+    borderLeftWidth: 3, borderLeftColor: colors.cyan,
+    borderRadius: 3, padding: 12,
+  },
+  contextoText: { fontSize: fonts.body, color: colors.textSecondary, lineHeight: 1.65 },
+  // Lista com marcador neutro (não incluso / premissas)
+  bulletItem: { flexDirection: 'row', marginBottom: 4 },
+  bulletPrefix: { fontSize: fonts.body, fontWeight: 700, color: colors.gray400, width: 12 },
+  bulletText: { fontSize: fonts.body, color: colors.textSecondary, flex: 1, lineHeight: 1.55 },
+  // Cronograma (fase + descrição)
+  cronoItem: { flexDirection: 'row', marginBottom: 6 },
+  cronoFase: {
+    fontSize: fonts.small, fontWeight: 700, color: colors.navy,
+    width: 78, marginRight: 4,
+  },
+  cronoDesc: { fontSize: fonts.body, color: colors.textSecondary, flex: 1, lineHeight: 1.55 },
+  // Lista numerada (próximos passos)
+  numItem: { flexDirection: 'row', marginBottom: 5, alignItems: 'flex-start' },
+  numBadge: {
+    width: 16, height: 16, borderRadius: 8, backgroundColor: colors.navy,
+    color: colors.white, fontSize: 8, fontWeight: 700,
+    textAlign: 'center', marginRight: 8, paddingTop: 3.5,
+  },
+  numText: { fontSize: fonts.body, color: colors.textPrimary, flex: 1, lineHeight: 1.55, paddingTop: 1.5 },
   // Tabela de investimento
   table: { width: '100%', marginTop: 4 },
   tableRow: {
@@ -149,6 +175,16 @@ export default function PropostaComercialPDF({
           {cliente.tipo && <Text style={s.paraTipo}>{cliente.tipo}</Text>}
         </View>
 
+        {/* CONTEXTO (dor / necessidade) */}
+        {doc.contexto && (
+          <View style={s.section}>
+            <SectionTitle>Contexto</SectionTitle>
+            <View style={s.contextoBlock}>
+              <Text style={s.contextoText}>{doc.contexto}</Text>
+            </View>
+          </View>
+        )}
+
         {/* PARÁGRAFO INSTITUCIONAL */}
         <View style={s.section}>
           <Text style={s.text}>
@@ -199,11 +235,63 @@ export default function PropostaComercialPDF({
           </View>
         </View>
 
+        {/* CRONOGRAMA */}
+        {doc.cronograma.length > 0 && (
+          <View style={s.section}>
+            <SectionTitle>Cronograma</SectionTitle>
+            {doc.cronograma.map((fase, i) => (
+              <View key={i} style={s.cronoItem} wrap={false}>
+                <Text style={s.cronoFase}>{fase.fase}</Text>
+                <Text style={s.cronoDesc}>{fase.descricao}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* O QUE NÃO ESTÁ INCLUSO */}
+        {doc.naoIncluso.length > 0 && (
+          <View style={s.section}>
+            <SectionTitle>O que não está incluso</SectionTitle>
+            {doc.naoIncluso.map((item, i) => (
+              <View key={i} style={s.bulletItem}>
+                <Text style={s.bulletPrefix}>–</Text>
+                <Text style={s.bulletText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* PREMISSAS */}
+        {doc.premissas.length > 0 && (
+          <View style={s.section}>
+            <SectionTitle>Premissas</SectionTitle>
+            {doc.premissas.map((item, i) => (
+              <View key={i} style={s.bulletItem}>
+                <Text style={s.bulletPrefix}>–</Text>
+                <Text style={s.bulletText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* OBSERVAÇÕES */}
         {doc.notasComerciais && (
           <View style={s.section}>
             <SectionTitle>Observações</SectionTitle>
             <Text style={s.text}>{doc.notasComerciais}</Text>
+          </View>
+        )}
+
+        {/* PRÓXIMOS PASSOS */}
+        {doc.proximosPassos.length > 0 && (
+          <View style={s.section}>
+            <SectionTitle>Próximos passos</SectionTitle>
+            {doc.proximosPassos.map((passo, i) => (
+              <View key={i} style={s.numItem} wrap={false}>
+                <Text style={s.numBadge}>{i + 1}</Text>
+                <Text style={s.numText}>{passo}</Text>
+              </View>
+            ))}
           </View>
         )}
 

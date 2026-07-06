@@ -226,6 +226,16 @@ export default async function PropostaPublicaPage(
             )}
           </section>
 
+          {/* Contexto (opcional) */}
+          {doc.contexto && (
+            <section style={{ marginBottom: 28 }}>
+              <SectionTitle>Contexto</SectionTitle>
+              <p style={{ fontSize: 15, lineHeight: 1.7, color: BRAND.ink, margin: 0, whiteSpace: 'pre-wrap' }}>
+                {doc.contexto}
+              </p>
+            </section>
+          )}
+
           {/* 4. Apresentação */}
           <section style={{ marginBottom: 28 }}>
             <p style={{ fontSize: 15, lineHeight: 1.7, color: BRAND.ink, margin: 0 }}>
@@ -322,6 +332,118 @@ export default async function PropostaPublicaPage(
             )}
           </section>
 
+          {/* Cronograma */}
+          {doc.cronograma.length > 0 && (
+            <section style={{ marginBottom: 28 }}>
+              <SectionTitle>Cronograma</SectionTitle>
+              <ol style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                {doc.cronograma.map((etapa, i) => (
+                  <li
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      gap: 14,
+                      alignItems: 'flex-start',
+                      paddingBottom: i < doc.cronograma.length - 1 ? 16 : 0,
+                      position: 'relative',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        flexShrink: 0,
+                        alignSelf: 'stretch',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: '50%',
+                          background: BRAND.navy,
+                          color: '#fff',
+                          fontSize: 13,
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {i + 1}
+                      </span>
+                      {i < doc.cronograma.length - 1 && (
+                        <span style={{ flex: 1, width: 2, background: BRAND.line, marginTop: 4 }} />
+                      )}
+                    </div>
+                    <div style={{ paddingTop: 2 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: BRAND.navy }}>
+                        {etapa.fase}
+                      </div>
+                      <div style={{ fontSize: 14, lineHeight: 1.6, color: BRAND.ink, marginTop: 2 }}>
+                        {etapa.descricao}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+
+          {/* O que não está incluso */}
+          {doc.naoIncluso.length > 0 && (
+            <section style={{ marginBottom: 28 }}>
+              <SectionTitle>O que não está incluso</SectionTitle>
+              <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
+                {doc.naoIncluso.map((item, i) => (
+                  <li
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      gap: 10,
+                      alignItems: 'flex-start',
+                      padding: '8px 0',
+                      borderBottom: i < doc.naoIncluso.length - 1 ? `1px solid ${BRAND.line}` : 'none',
+                      fontSize: 15,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <span style={{ color: BRAND.muted, fontWeight: 800, flexShrink: 0 }}>×</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Premissas */}
+          {doc.premissas.length > 0 && (
+            <section style={{ marginBottom: 28 }}>
+              <SectionTitle>Premissas</SectionTitle>
+              <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
+                {doc.premissas.map((item, i) => (
+                  <li
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      gap: 10,
+                      alignItems: 'flex-start',
+                      padding: '8px 0',
+                      borderBottom: i < doc.premissas.length - 1 ? `1px solid ${BRAND.line}` : 'none',
+                      fontSize: 15,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <span style={{ color: BRAND.teal, fontWeight: 800, flexShrink: 0 }}>•</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {/* 7. Observações */}
           {doc.notasComerciais && (
             <section style={{ marginBottom: 28 }}>
@@ -329,6 +451,48 @@ export default async function PropostaPublicaPage(
               <p style={{ fontSize: 15, lineHeight: 1.7, color: BRAND.ink, margin: 0, whiteSpace: 'pre-wrap' }}>
                 {doc.notasComerciais}
               </p>
+            </section>
+          )}
+
+          {/* Próximos passos */}
+          {doc.proximosPassos.length > 0 && (
+            <section style={{ marginBottom: 28 }}>
+              <SectionTitle>Próximos passos</SectionTitle>
+              <ol style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
+                {doc.proximosPassos.map((item, i) => (
+                  <li
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      gap: 12,
+                      alignItems: 'flex-start',
+                      padding: '8px 0',
+                      borderBottom: i < doc.proximosPassos.length - 1 ? `1px solid ${BRAND.line}` : 'none',
+                      fontSize: 15,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: '50%',
+                        background: BRAND.teal,
+                        color: BRAND.navy,
+                        fontSize: 13,
+                        fontWeight: 800,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span style={{ paddingTop: 1 }}>{item}</span>
+                  </li>
+                ))}
+              </ol>
             </section>
           )}
 

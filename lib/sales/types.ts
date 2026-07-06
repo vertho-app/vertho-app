@@ -153,6 +153,7 @@ export type SalesMaterial = {
   category: 'material' | 'playbook' | 'diagnostico' | 'objecoes' | 'politica' | 'case';
   segment: string | null;
   description: string | null;
+  content: string | null;
   file_url: string | null;
   external_url: string | null;
   is_active: boolean;

@@ -20,13 +20,19 @@ A Vertho vende desenvolvimento de competências por IA: diagnóstico por cargo, 
 Seja PRÁTICO, específico ao cliente e à situação dados no contexto, e honesto (nunca invente números, cases ou promessas). Linguagem comercial-consultiva em português do Brasil.
 Responda SEMPRE em JSON válido no formato pedido, sem texto fora do JSON.`;
 
-/** Materiais aprovados como grounding (playbook/diagnóstico/objeções/política). */
+/** Materiais aprovados como grounding (playbook/diagnóstico/objeções/política).
+ *  Usa o corpo (`content`) quando houver — é onde vive o battlecard, os scripts
+ *  de qualificação e as objeções calibradas. Cada material é truncado para
+ *  manter o prompt limitado. */
 async function materiaisGrounding(sb: ReturnType<typeof createSupabaseAdmin>, categorias: string[], segmento?: string | null): Promise<string> {
-  let q = sb.from('sales_materials').select('title, category, segment, description').eq('is_active', true).in('category', categorias);
+  const q = sb.from('sales_materials').select('title, category, segment, description, content').eq('is_active', true).in('category', categorias);
   const { data } = await q;
   const list = (data || []).filter((m: any) => !segmento || !m.segment || m.segment === 'geral' || m.segment === segmento);
   if (!list.length) return 'Sem materiais cadastrados.';
-  return list.map((m: any) => `- [${m.category}${m.segment ? '/' + m.segment : ''}] ${m.title}: ${m.description || ''}`).join('\n');
+  return list.map((m: any) => {
+    const corpo = String(m.content || m.description || '').replace(/\s+/g, ' ').trim().slice(0, 1400);
+    return `### [${m.category}${m.segment ? '/' + m.segment : ''}] ${m.title}\n${corpo}`;
+  }).join('\n\n');
 }
 
 async function loadOppContext(sb: ReturnType<typeof createSupabaseAdmin>, opportunityId: string, repId: string) {

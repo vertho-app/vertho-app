@@ -47,11 +47,14 @@ export async function getPropostaPublica(token: string): Promise<ProposalDocumen
   const { data: p } = await sb.from('sales_proposals').select('*').eq('public_token', token).maybeSingle();
   if (!p) return null;
 
-  const [{ data: account }, { data: rep }] = await Promise.all([
+  const [{ data: account }, { data: rep }, { data: opp }] = await Promise.all([
     p.account_id
       ? sb.from('sales_accounts').select('legal_name, trade_name').eq('id', p.account_id).maybeSingle()
       : Promise.resolve({ data: null }),
     sb.from('sales_representatives').select('name, email, phone').eq('id', p.representante_id).maybeSingle(),
+    p.opportunity_id
+      ? sb.from('sales_opportunities').select('identified_need').eq('id', p.opportunity_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   // Registra a abertura (best-effort — não bloqueia a exibição).
@@ -61,5 +64,5 @@ export async function getPropostaPublica(token: string): Promise<ProposalDocumen
     view_count: (p.view_count || 0) + 1,
   }).eq('id', p.id);
 
-  return buildProposalDocument(p as SalesProposal, account, rep);
+  return buildProposalDocument(p as SalesProposal, account, rep, { contexto: (opp as any)?.identified_need ?? null });
 }
