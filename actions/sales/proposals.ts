@@ -223,6 +223,58 @@ export async function markProposalSentToClient(proposalId: string) {
 }
 
 /**
+ * Nova versão de uma proposta já aprovada/enviada: cria uma CÓPIA editável
+ * (draft, número -Rn) que segue de novo pelo fluxo (aprovação → reenvio). A
+ * original vira 'superseded' (histórico). Vínculo por version + supersedes_id.
+ */
+export async function revisarProposta(proposalId: string) {
+  const ctx = await requireRepresentativeAction();
+  const sb = createSupabaseAdmin();
+  const { data: p } = await sb.from('sales_proposals').select('*').eq('id', proposalId).maybeSingle();
+  if (!p) return { success: false as const, error: 'Proposta não encontrada' };
+  assertRepresentativeOwnership(ctx, p.representante_id);
+  if (!['approved', 'sent_to_client'].includes(p.status)) {
+    return { success: false as const, error: 'Só dá para revisar propostas aprovadas ou já enviadas ao cliente.' };
+  }
+
+  const newVersion = (Number(p.version) || 1) + 1;
+  const base = String(p.proposal_number).replace(/-R\d+$/, '');
+  const newNumber = `${base}-R${newVersion}`;
+
+  const fin = calculateProposalFinancials({
+    monthly_value: p.monthly_value,
+    contract_duration_months: p.contract_duration_months,
+    discount_requested: p.discount_requested,
+  });
+
+  const { data: nova, error } = await sb.from('sales_proposals').insert({
+    representante_id: p.representante_id,
+    opportunity_id: p.opportunity_id,
+    account_id: p.account_id,
+    proposal_number: newNumber,
+    version: newVersion,
+    supersedes_id: p.id,
+    customer_type: p.customer_type,
+    number_of_users: p.number_of_users,
+    number_of_roles_mapped: p.number_of_roles_mapped,
+    product_package: p.product_package,
+    contract_duration_months: p.contract_duration_months,
+    discount_requested: p.discount_requested,
+    payment_terms: p.payment_terms,
+    included_scope: p.included_scope,
+    commercial_notes: p.commercial_notes,
+    monthly_value: p.monthly_value,
+    ...fin,
+    status: 'draft',
+  }).select('id').single();
+  if (error) return { success: false as const, error: error.message };
+
+  await sb.from('sales_proposals').update({ status: 'superseded', updated_at: new Date().toISOString() }).eq('id', p.id);
+
+  return { success: true as const, proposalId: nova.id };
+}
+
+/**
  * Aceite do cliente: fecha a oportunidade como ganha, ativa a conta na carteira
  * e materializa os eventos de comissão estimada (hook do MVP 2 — status forecast).
  */

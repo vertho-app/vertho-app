@@ -75,7 +75,7 @@ export const PROTECTION_ALERT_DAYS = [15, 10, 5] as const;
 
 export const PROPOSAL_STATUSES = [
   'draft', 'submitted_for_approval', 'approved', 'changes_requested',
-  'rejected', 'sent_to_client', 'accepted', 'lost',
+  'rejected', 'sent_to_client', 'accepted', 'lost', 'superseded',
 ] as const;
 export type ProposalStatus = typeof PROPOSAL_STATUSES[number];
 
@@ -88,6 +88,7 @@ export const PROPOSAL_STATUS_LABELS: Record<ProposalStatus, string> = {
   sent_to_client: 'Enviada ao cliente',
   accepted: 'Aceita pelo cliente',
   lost: 'Perdida',
+  superseded: 'Substituída',
 };
 
 export const PROPOSAL_STATUS_COLORS: Record<ProposalStatus, string> = {
@@ -99,6 +100,7 @@ export const PROPOSAL_STATUS_COLORS: Record<ProposalStatus, string> = {
   sent_to_client: '#06B6D4',
   accepted: '#10B981',
   lost: '#64748B',
+  superseded: '#8B5CF6',
 };
 
 // Pacotes oferecidos no dropdown. 'completo'/'pulso' saíram da oferta mas

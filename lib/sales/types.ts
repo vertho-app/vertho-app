@@ -112,6 +112,8 @@ export type SalesProposal = {
   approved_by: string | null;
   approved_at: string | null;
   rejection_reason: string | null;
+  version: number;
+  supersedes_id: string | null;
   public_token: string | null;
   first_viewed_at: string | null;
   last_viewed_at: string | null;

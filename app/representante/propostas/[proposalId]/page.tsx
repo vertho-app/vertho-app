@@ -6,12 +6,13 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { AlertTriangle, CheckCircle2, Copy, Download, ExternalLink, Eye, Link2, Loader2, Send, Sparkles, ThumbsDown, ThumbsUp, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, Download, ExternalLink, Eye, FilePlus2, Link2, Loader2, Send, Sparkles, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import {
   getProposal,
   markProposalAccepted,
   markProposalLost,
   markProposalSentToClient,
+  revisarProposta,
   submitProposalForApproval,
   updateProposalDraft,
 } from '@/actions/sales/proposals';
@@ -112,6 +113,29 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
     if (!r.success) { toast.error(r.error); return; }
     toast.success('Proposta submetida para aprovação Vertho');
     await load();
+  }
+
+  async function handleRevisar() {
+    if (!proposal) return;
+    const ok = await confirm({
+      title: 'Criar nova versão',
+      message: (
+        <>
+          Vamos criar uma <b className="text-white">cópia editável</b> da proposta{' '}
+          <b className="text-white">{proposal.proposal_number}</b>. A atual vira histórico
+          (&quot;Substituída&quot;) e a nova segue de novo pela aprovação da Vertho antes do reenvio.
+        </>
+      ),
+      severity: 'normal',
+      confirmLabel: 'Criar nova versão',
+    });
+    if (!ok) return;
+    setActing(true);
+    const r = await revisarProposta(proposalId);
+    setActing(false);
+    if (!r.success) { toast.error(r.error); return; }
+    toast.success('Nova versão criada — ajuste e submeta novamente');
+    window.location.href = `/representante/propostas/${r.proposalId}`;
   }
 
   async function handleMarkSent() {
@@ -247,6 +271,11 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-xl font-bold">Proposta {p.proposal_number}</h1>
             <ProposalStatusBadge status={p.status} size="md" />
+            {p.version > 1 && (
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full text-violet-300 bg-violet-500/10 border border-violet-400/30">
+                Versão {p.version}
+              </span>
+            )}
           </div>
           <p className="text-xs text-gray-400 mt-1.5">
             {p.account?.trade_name || p.account?.legal_name || '—'}
@@ -314,6 +343,15 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
                 <ThumbsDown size={14} /> Perdida
               </button>
             </>
+          )}
+          {(p.status === 'approved' || p.status === 'sent_to_client') && (
+            <button
+              onClick={handleRevisar}
+              disabled={acting}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50"
+            >
+              <FilePlus2 size={14} /> Revisar (nova versão)
+            </button>
           )}
         </div>
       </div>
