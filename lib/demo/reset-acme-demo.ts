@@ -218,6 +218,12 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
     const payload = rows.filter((row: any) => !DEMO_EXCLUDED_ROLES.has(row.nome)).map((row: any) => {
       let top5 = Array.isArray(row.top5_workshop) ? row.top5_workshop : [];
       if (row.nome === 'Representante Comercial') top5 = REPRESENTANTE_TOP5;
+      // Gerente Comercial = persona de VISÃO DE EQUIPE (Carla): o valor demo é o
+      // dashboard do time (dados dos Representantes), não a jornada própria dela.
+      // O fixture trouxe um Top5 mas o acme não tinha competências/cenários do
+      // cargo → Top5 sem cenários viraria "cenário não gerado". Zeramos p/ ser
+      // um cargo de gestão honesto (sem jornada pendente).
+      else if (row.nome === 'Gerente Comercial') top5 = [];
       else if (top5.length > 5) top5 = top5.slice(0, 5);
       return { ...strip(row), empresa_id: destId, top5_workshop: top5 };
     });
