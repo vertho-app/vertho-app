@@ -113,7 +113,7 @@ lib/season-engine/arguicao.ts              defesa oral: abrir/turno/extrair (+ P
 lib/season-engine/fusao-arguicao.ts        fundirArguicao (mapa sustentou×forca → ±0,5 no código)
 actions/temporadas.ts                      gerarTemporadaPiloto · verificarProntidaoPiloto
 app/api/temporada/evaluation/route.ts      fechamento sem 3 (espelho + arguição + fusão + trava + report internal)
-app/api/temporada/reflection/route.ts      trigger acumulada ao concluir sem 2 (after + internal)
+app/api/temporada/reflection/route.ts      dispara task Trigger.dev acumulada-piloto ao concluir sem 2 (M8: gate/self-heal no fechamento + fallback after; internal={empresaId})
 app/dashboard/temporada/*                  timeline (espelho + rótulo Fechamento) · sem14 (sem delta) · concluida (variante piloto)
 lib/temporada-concluida-pdf.ts             TemporadaPilotoPDF (sem delta)
 tests/unit/piloto/*                        config · seleção · trava · buildSeason (+ regressão DUO)
@@ -131,6 +131,9 @@ O E2E do piloto expôs e corrigiu **4 bugs latentes do regular**:
 2. **Fire-and-forget morre no freeze da Vercel**: `(async () => {...})()` solto é morto quando a
    lambda congela após o response. **Todo trabalho pós-response em rota DEVE usar `after()`**
    (next/server). Aplicado nos 4 triggers (piloto, sem 13, onboarding parcial, notify tutor).
+   **Atualização M8 (06/07)**: o trigger da acumulada do PILOTO migrou de `after()` para uma
+   task **Trigger.dev** (`acumulada-piloto`, retry+status) + gate/self-heal no fechamento, com
+   `after()` só como fallback. Sem 13 / onboarding / notify seguem em `after()`.
 3. **Multi-tenant**: `loadTemporadaConcluida` buscava colab com `.eq('email').maybeSingle()`
    direto — usuário em 2+ empresas → null. Usar sempre `findColabByEmail` (resolve o tenant).
 4. **Prompts com régua hardcoded**: scorer/check falavam "14 semanas" para qualquer modo.

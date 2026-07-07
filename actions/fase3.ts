@@ -133,6 +133,8 @@ REGRAS DO JSON:
 - sustentacao: "forte" | "fraca" | "insuficiente"
 - NÃO calcule media_descritores, nivel_geral, gap ou travas — isso é feito em código`;
 
+const IA4_CALL_OPTIONS = { timeoutMs: 240000, maxRetries: 0 } as const;
+
 async function _avaliarUmaResposta(tdb: any, sbRaw: any, resp: any, colab: any, empresa: any, contextoPPP: string, aiConfig: AIConfig) {
   let cenarioTexto = '', perguntasTexto = '';
   if (resp.cenario_id) {
@@ -202,13 +204,13 @@ R4: ${resp.r4 || '(sem resposta)'}`);
 7. Gere insumos — a consolidação matemática é feita depois`);
 
   const user = userBlocks.join('\n\n');
-  let resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8192);
+  let resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8192, IA4_CALL_OPTIONS);
   let avaliacao = await extractJSON(resultado);
 
   if (!avaliacao) {
     console.warn(`[IA4] retry para ${colab.nome_completo}: primeira resposta sem JSON`);
     const userRetry = `${user}\n\n=== ATENÇÃO ===\nSua resposta anterior não foi um JSON válido. Retorne APENAS o JSON, sem texto antes ou depois, sem markdown.`;
-    resultado = await callAI(IA4_SYSTEM, userRetry, aiConfig, 8192);
+    resultado = await callAI(IA4_SYSTEM, userRetry, aiConfig, 8192, IA4_CALL_OPTIONS);
     avaliacao = await extractJSON(resultado);
   }
 
@@ -604,7 +606,7 @@ ${resumoAnterior || '(formato legado — sem detalhamento por descritor)'}`);
 6. Documente mudanças E preservações no tratamento_do_feedback`);
 
     const user = userBlocks.join('\n\n');
-    const resultado = await callAI(IA4_REVIEW_SYSTEM, user, aiConfig, 8192);
+    const resultado = await callAI(IA4_REVIEW_SYSTEM, user, aiConfig, 8192, IA4_CALL_OPTIONS);
     let revisao = await extractJSON(resultado);
 
     if (!revisao) return { success: false, error: 'IA não retornou revisão válida' };

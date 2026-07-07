@@ -950,7 +950,7 @@
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/acumulado.ts::promptAvaliacaoAcumulada`
-- **Caller**: `actions/avaliacao-acumulada.ts::gerarAvaliacaoAcumulada(trilhaId, internal?)` — auto-trigger no fim da sem 13 (rota `/evaluation`, regular) e no fim da sem 2 (rota `/reflection`, **piloto**). Ambos com `internal=true` (sessão é do colab) e dentro de **`after()`** — a IIFE solta morria no freeze pós-response da Vercel (fix 02/07, `7fcbe88`+`dc0ffe2`). Caller admin (tela auditoria) e simulador mantêm o gate.
+- **Caller**: `actions/avaliacao-acumulada.ts::gerarAvaliacaoAcumulada(trilhaId, internal?: {empresaId})` — auto-trigger no fim da sem 13 (rota `/evaluation`, regular, via `after()`) e no fim da sem 2 (rota `/reflection`, **piloto**). O `internal` prova o tenant (B5, 06/07) — a função rejeita trilha de outro tenant. **Piloto (M8, 06/07, `1d1279eb`)**: SAIU do `after()` → task **Trigger.dev `acumulada-piloto`** (retry + status rastreável); o fechamento (sem 3) faz **GATE** nesse status (`{processando}` 202 + polling no `sem14`) e **self-heal inline** se travar; **fallback `after()`** se o Trigger estiver indisponível. Regular/onboarding seguem em `after()` (fix 02/07, `7fcbe88`+`dc0ffe2` — a IIFE solta morria no freeze pós-response da Vercel). Caller admin (tela auditoria) e simulador mantêm o gate de admin.
 - **Max tokens**: 8000
 - **PII masking**: Sim — nome do colab vira alias, evidências passam pelo sanitizador.
 - **System prompt** (resumo editorial do prompt real em `acumulado.ts`):

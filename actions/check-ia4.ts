@@ -88,6 +88,8 @@ Sua tarefa: verificar se a avaliação gerada por uma IA é DEFENSÁVEL como pro
 REGRA: Prefira rigor metodológico a elegância. Se a avaliação for razoável
 mas imprudente, penalize. Se for conservadora e bem ancorada, premie.`;
 
+const IA4_CHECK_CALL_OPTIONS = { timeoutMs: 180000, maxRetries: 0 } as const;
+
 function buildCheckUser(colab: any, compNome: string, perfilCIS: string, resp: any, reguaTexto: string, cenarioTexto: string, perguntasTexto: string): string {
   const blocks: string[] = [];
 
@@ -195,7 +197,7 @@ export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}
         const perfilCIS = formatPerfilContext(colab);
 
         const user = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
-        const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192);
+        const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192, IA4_CHECK_CALL_OPTIONS);
         const raw = await extractJSON(resultado);
         const { status, check } = processCheckResult(raw);
 
@@ -273,7 +275,7 @@ export async function checarUmaResposta(respostaId: string, aiConfig: AIConfig =
     const perfilCIS = formatPerfilContext(colab as any);
 
     const user = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
-    const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192);
+    const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192, IA4_CHECK_CALL_OPTIONS);
     const raw = await extractJSON(resultado);
     const { status, check } = processCheckResult(raw);
 
