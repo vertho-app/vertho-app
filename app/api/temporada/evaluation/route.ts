@@ -228,6 +228,18 @@ export async function POST(request) {
         { cenario, perguntas, historico, dados }:
         { cenario: string; perguntas: any[]; historico: any[]; dados: any },
       ): Promise<{ status: number; json: any }> => {
+        // N1 (belts-and-suspenders): o gate vive no `action:'init'`. Se por algum
+        // caminho o fechamento chegar aqui sem passar por ele (ex.: cenário já
+        // persistido de antes do gate, ou chamada direta send/arguir), NUNCA
+        // pontuar o piloto sem a acumulada pronta — devolve "processando".
+        if (programaConfig.modo === 'piloto') {
+          const { data: acumChk } = await sb.from('temporada_semana_progresso')
+            .select('acumulada_status, acumulada_started_at')
+            .eq('trilha_id', trilhaId).eq('semana', semAcumulada).maybeSingle();
+          if (!gateAcumuladaPiloto(acumChk, Date.now()).pronto) {
+            return { status: 202, json: { processando: true, message: 'Estamos preparando sua avaliação com base em toda a sua jornada. Isso leva alguns instantes…' } };
+          }
+        }
         // Monta "resposta" como concatenação das 4 respostas rotuladas por dimensão
         const respostasUser = historico.filter((m: any) => m.role === 'user');
         const respostaAgregada = perguntas.map((p: any, i: number) =>
@@ -324,11 +336,20 @@ export async function POST(request) {
               // (ex.: env faltando), re-disparar falharia de novo e prenderia o
               // colab. Roda a acumulada INLINE (after) no ambiente da Vercel, que
               // tem env conhecido. Cobre task perdida/travada E falha de runtime.
+              const claimStamp = new Date().toISOString();
               await sb.from('temporada_semana_progresso')
-                .update({ acumulada_status: 'processing', acumulada_erro: null, acumulada_started_at: new Date().toISOString() })
+                .update({ acumulada_status: 'processing', acumulada_erro: null, acumulada_started_at: claimStamp })
                 .eq('trilha_id', trilhaId).eq('semana', semAcumulada);
               after(async () => {
                 try {
+                  // N2 (fail-safe): se já concluiu (Trigger/outra req) ou se outra
+                  // requisição re-claimou DEPOIS de mim, não recomputa (evita
+                  // double-run). Errar aqui só faz rodar 2x — nunca prende.
+                  const { data: cur } = await sb.from('temporada_semana_progresso')
+                    .select('acumulada_status, acumulada_started_at')
+                    .eq('trilha_id', trilhaId).eq('semana', semAcumulada).maybeSingle();
+                  if (cur?.acumulada_status === 'done') return;
+                  if (cur?.acumulada_started_at && cur.acumulada_started_at > claimStamp) return;
                   const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
                   await gerarAvaliacaoAcumulada(trilhaId, { empresaId: auth.empresaId });
                   await sb.from('temporada_semana_progresso')
