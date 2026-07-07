@@ -16,7 +16,7 @@ Três caminhos, uma fonte única (`lib/demo/reset-acme-demo.ts::resetAcmeDemo`, 
 |---|---|---|
 | **Sob demanda** | Botão "Resetar demo agora" em `/admin/demo` (server action `resetarDemoAcme`, gated a platform admin + `admin_audit_log`) | Vendedor prepara demo limpa na hora |
 | **Noturno** | `/api/cron?action=reset_demo` (gated CRON_SECRET) + `vercel.json` `0 7 * * *` (04h BRT). Falha → 500 (log Vercel) + audit | Automático |
-| **Manual** | `node scripts/seed-acme-demo.mjs` (legado — clona o acme VIVO) | Fallback |
+| **Manual (CLI)** | `npm run reset:demo` (= `npx tsx scripts/seed-acme-demo.ts`) — DELEGA ao reset canônico (mesmo fixture + artefatos do botão/cron) | CLI/scripts/CI |
 
 ## Fixture congelado
 O reset semeia de `lib/demo/acme-demo-fixture.json` (golden state VERSIONADO), **não** do acme vivo → a demo é estável e imune a mexidas no `acme`. O fixture guarda:
@@ -28,7 +28,7 @@ Os artefatos pesados são **gerados 1x e congelados**, replicados no reset sem c
 ## Como ATUALIZAR o golden state
 Quando quiser um novo estado de referência (ex.: após mudar competências no acme, ou melhorar as personas):
 
-1. Resetar o acme-demo (estado base): botão `/admin/demo` ou `node scripts/seed-acme-demo.mjs`.
+1. Resetar o acme-demo (estado base): botão `/admin/demo` ou `npm run reset:demo`.
 2. Rodar os pipelines pesados no acme-demo (usam a flag `internal` — sem UI):
    - **IA4** (mapeamento avaliado): `rodarIA4(demoEmpresaId, {}, { internal: true })` — ~100s/resposta.
    - **Relatórios DISC**: `gerarEsalvarRelatorioComportamental({ colabId })` por persona.

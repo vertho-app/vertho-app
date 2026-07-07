@@ -22,6 +22,7 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "smoke": "node scripts/smoke-test.js",
+    "reset:demo": "npx --yes tsx scripts/seed-acme-demo.ts",
     "i18n:audit": "node scripts/i18n-audit.mjs",
     "i18n:check": "node scripts/i18n-check-keys.mjs",
     "video:probe": "node video-spike/remotion/data/probe-durations.mjs",
