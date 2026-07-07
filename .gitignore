@@ -67,7 +67,9 @@ playwright/.auth/
 
 # Agent / assistant local state (contém preferências pessoais, logs e artefatos locais)
 /.agents/
-/.claude/
+/.claude/*
+# exceção: skills compartilhadas com o time (procedimentos versionados)
+!/.claude/skills/
 /.codex/
 
 # python bytecode
