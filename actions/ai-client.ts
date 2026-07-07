@@ -1,6 +1,7 @@
 'use server';
 
 import Anthropic from '@anthropic-ai/sdk';
+import { AnthropicVertex } from '@anthropic-ai/vertex-sdk';
 import { cookies } from 'next/headers';
 import { AppLocale, defaultLocale } from '@/i18n/routing';
 import { localeCookieName, localeLanguageName, resolveAppLocale } from '@/lib/i18n';
@@ -176,6 +177,49 @@ function extractClaudeText(content: any[]): string {
   return textBlock?.text || '';
 }
 
+// ── Backend do Claude: API direta (default) ou Vertex AI / GCP ───────────────
+// `CLAUDE_BACKEND=vertex` roteia o Claude pelo Vertex (Anthropic no Model Garden)
+// em vez da API direta. Só o CLAUDE muda — Gemini e o fallback GPT-5.4 seguem na
+// OpenAI/Google AI. A API `.messages` é IDÊNTICA nos dois (system, cache_control,
+// thinking, streaming), então nada mais no arquivo precisa saber do backend.
+//
+// Para ligar o Vertex:
+//   1. Habilitar Sonnet 4.6 e Opus 4.6 no Model Garden do projeto GCP.
+//   2. Auth ADC (a MESMA do TTS) + a SA com role roles/aiplatform.user.
+//   3. Envs: CLAUDE_BACKEND=vertex, CLAUDE_VERTEX_PROJECT, CLAUDE_VERTEX_REGION.
+//   4. PREENCHER os IDs exatos abaixo (Model Garden mostra o formato `nome@AAAAMMDD`).
+const CLAUDE_BACKEND = (process.env.CLAUDE_BACKEND || 'api').toLowerCase();
+
+// Mapa ID-do-app → ID-do-Vertex. No Vertex o ID leva sufixo de versão com `@`
+// (ex.: 'claude-sonnet-4-5@20250929'). Enquanto estiver '@REPLACE', o backend
+// vertex FALHA DE PROPÓSITO (não silencia com um ID inválido). Preencha após
+// habilitar no Model Garden — ou sobrescreva por env sem editar o código.
+const CLAUDE_VERTEX_MODEL_MAP: Record<string, string> = {
+  'claude-sonnet-4-6': process.env.CLAUDE_VERTEX_SONNET || 'claude-sonnet-4-6@REPLACE',
+  'claude-opus-4-6':   process.env.CLAUDE_VERTEX_OPUS   || 'claude-opus-4-6@REPLACE',
+};
+
+/** Devolve o client Claude e o model resolvido conforme o backend (api|vertex). */
+function resolveClaude(model: string, options: AICallOptions): { client: any; model: string } {
+  const timeout = options.timeoutMs ?? AI_TIMEOUT_MS;
+  const maxRetries = options.maxRetries ?? 1;
+  if (CLAUDE_BACKEND === 'vertex') {
+    const vertexModel = CLAUDE_VERTEX_MODEL_MAP[model] || model;
+    if (vertexModel.includes('@REPLACE')) {
+      throw new Error(`[callClaude] CLAUDE_BACKEND=vertex, mas o ID do Vertex para "${model}" não foi preenchido em CLAUDE_VERTEX_MODEL_MAP. Habilite o modelo no Model Garden e defina o ID exato (ou a env correspondente).`);
+    }
+    const client = new AnthropicVertex({
+      projectId: process.env.CLAUDE_VERTEX_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
+      region: process.env.CLAUDE_VERTEX_REGION || 'us-east5',
+      timeout,
+      maxRetries,
+    });
+    return { client, model: vertexModel };
+  }
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout, maxRetries });
+  return { client, model };
+}
+
 async function callClaude(
   system: string,
   user: string,
@@ -183,11 +227,7 @@ async function callClaude(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const client = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    timeout: options.timeoutMs ?? AI_TIMEOUT_MS,
-    maxRetries: options.maxRetries ?? 1,
-  });
+  const { client, model: resolvedModel } = resolveClaude(model, options);
 
   const systemBlock: any = typeof system === 'string' && system.length > 4000
     ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
@@ -204,7 +244,7 @@ async function callClaude(
     : (options.cachedUserPrefix ? `${options.cachedUserPrefix}\n\n${user}` : user);
 
   const params: any = {
-    model,
+    model: resolvedModel,
     max_tokens: maxTokens,
     system: systemBlock,
     messages: [{ role: 'user', content: userContent }],
@@ -243,7 +283,7 @@ async function callClaudeChat(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: AI_TIMEOUT_MS, maxRetries: 1 });
+  const { client, model: resolvedModel } = resolveClaude(model, options);
 
   // Prompt Caching: se system é grande (>1024 tokens ≈ 4000 chars), marca como
   // cache_control ephemeral. Chamadas subsequentes em 5 min com mesmo system
@@ -253,7 +293,7 @@ async function callClaudeChat(
     : system;
 
   const params: any = {
-    model,
+    model: resolvedModel,
     max_tokens: maxTokens,
     system: systemBlock,
     messages,
