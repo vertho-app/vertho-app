@@ -22,7 +22,10 @@ import fixture from '@/lib/demo/acme-demo-fixture.json';
 
 const DEMO_SLUG = 'acme-demo';
 const DEMO_NAME = 'ACME Demo';
-const DEMO_EXCLUDED_ROLES = new Set(['Diretor Geral']);
+// Gerente Comercial sai do FIXTURE (o acme não tinha competências/cenários do
+// cargo — só o cargo+Top5) e é construído fresco em DEMO_EXTRA_ROLES (pacote
+// completo). Diretor Geral segue removido da demo.
+const DEMO_EXCLUDED_ROLES = new Set(['Diretor Geral', 'Gerente Comercial']);
 
 const REPRESENTANTE_TOP5 = [
   'Comunicação e Apresentação de Valor',
@@ -124,6 +127,24 @@ const DEMO_EXTRA_ROLES = [
       ['Comunicação entre Áreas', 'Capacidade de alinhar expectativas, negociar prioridades e evitar ruídos entre operação, comercial e atendimento.'],
     ],
   },
+  {
+    nome: 'Gerente Comercial',
+    area_depto: 'Comercial',
+    pilar: 'Comercial',
+    descricao: 'Profissional responsável por liderar a equipe de vendas, traduzir metas em estratégia executável, desenvolver vendedores, acompanhar indicadores e destravar negociações críticas para garantir previsibilidade e crescimento da receita.',
+    principais_entregas: 'Atingimento consistente da meta do time; pipeline previsível e saudável; vendedores em evolução; forecast confiável; suporte a deals estratégicos; leitura de mercado traduzida em prioridades.',
+    stakeholders: 'Equipe de vendas, diretoria comercial, marketing, produto, financeiro, clientes estratégicos e RH.',
+    decisoes_recorrentes: 'Onde concentrar esforço (contas/territórios); em quem investir desenvolvimento; quando entrar pessoalmente num deal; como redistribuir metas; que indicadores cobrar primeiro.',
+    tensoes_comuns: 'Pressão por meta versus desenvolvimento do time; deals travados; forecast otimista versus realidade; sobrecarga entre gerir e executar; conflito entre volume e qualidade de pipeline.',
+    contexto_cultural: 'Ambiente de alta cobrança por resultado, ritmo acelerado e remuneração variável, no qual liderança próxima, previsibilidade e desenvolvimento de pessoas fazem a diferença.',
+    competencias: [
+      ['Coaching e Desenvolvimento de Vendedores', 'Capacidade de desenvolver a equipe por meio de feedback, acompanhamento individual e planos de evolução que elevam a performance de cada vendedor.'],
+      ['Inteligência de Mercado e Visão Competitiva', 'Capacidade de ler o mercado, monitorar concorrência e traduzir tendências em posicionamento e prioridades comerciais.'],
+      ['Negociação Estratégica e Suporte a Deals', 'Capacidade de entrar em negociações complexas, destravar deals críticos e orientar o time em condições, concessões e fechamento.'],
+      ['Planejamento Comercial, Priorização e Execução de Estratégia', 'Capacidade de traduzir metas em plano de ação, priorizar territórios e contas e garantir execução consistente da estratégia comercial.'],
+      ['Gestão de Performance, Indicadores e Accountability', 'Capacidade de acompanhar indicadores, cobrar resultados com clareza e sustentar uma cultura de responsabilidade e previsibilidade no funil.'],
+    ],
+  },
 ];
 
 const PERSONAS = [
@@ -218,12 +239,6 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
     const payload = rows.filter((row: any) => !DEMO_EXCLUDED_ROLES.has(row.nome)).map((row: any) => {
       let top5 = Array.isArray(row.top5_workshop) ? row.top5_workshop : [];
       if (row.nome === 'Representante Comercial') top5 = REPRESENTANTE_TOP5;
-      // Gerente Comercial = persona de VISÃO DE EQUIPE (Carla): o valor demo é o
-      // dashboard do time (dados dos Representantes), não a jornada própria dela.
-      // O fixture trouxe um Top5 mas o acme não tinha competências/cenários do
-      // cargo → Top5 sem cenários viraria "cenário não gerado". Zeramos p/ ser
-      // um cargo de gestão honesto (sem jornada pendente).
-      else if (row.nome === 'Gerente Comercial') top5 = [];
       else if (top5.length > 5) top5 = top5.slice(0, 5);
       return { ...strip(row), empresa_id: destId, top5_workshop: top5 };
     });
@@ -318,11 +333,14 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
         contexto_cultural: role.contexto_cultural,
         top5_workshop: role.competencias.map(([nome]) => nome),
         fit_versao: '2.0',
-        eh_lideranca: role.nome.includes('Coordenador'),
+        eh_lideranca: role.nome.includes('Coordenador') || role.nome.includes('Gerente'),
       }));
 
+      // Prefixo do código da competência por cargo (evita colisão entre cargos).
+      const codPrefix = role.nome.startsWith('Analista') ? 'FIN'
+        : role.nome.startsWith('Coordenador') ? 'OPS' : 'GER';
       for (const [idx, [nome, descricao]] of role.competencias.entries()) {
-        const codComp = `${role.nome.startsWith('Analista') ? 'FIN' : 'OPS'}${String(idx + 1).padStart(2, '0')}`;
+        const codComp = `${codPrefix}${String(idx + 1).padStart(2, '0')}`;
         let firstComp: any = null;
         for (const d of demoDescriptorsFor(nome, descricao)) {
           const comp = await must(`insert competencia ${role.nome} ${nome} ${d.suffix}`, sb.from('competencias').insert({
