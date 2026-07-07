@@ -90,36 +90,35 @@ mas imprudente, penalize. Se for conservadora e bem ancorada, premie.`;
 
 const IA4_CHECK_CALL_OPTIONS = { timeoutMs: 180000, maxRetries: 0 } as const;
 
-function buildCheckUser(colab: any, compNome: string, perfilCIS: string, resp: any, reguaTexto: string, cenarioTexto: string, perguntasTexto: string): string {
-  const blocks: string[] = [];
+// Retorna o prompt em duas partes p/ prompt caching (mesmo lote da IA4): o
+// PREFIXO estável por (competência, cenário) — régua/cenário/perguntas, idêntico
+// entre os colabs do lote → bloco cacheável; e o USER variável (colab/respostas/
+// avaliação a auditar). Seções rotuladas ═══ → a reordenação não muda a leitura.
+function buildCheckUser(colab: any, compNome: string, perfilCIS: string, resp: any, reguaTexto: string, cenarioTexto: string, perguntasTexto: string): { prefix: string; user: string } {
+  const estavel: string[] = [];
+  estavel.push(`═══ COMPETÊNCIA ═══\n${compNome}`);
+  if (reguaTexto) estavel.push(`═══ RÉGUA DE MATURIDADE ═══\n${reguaTexto}`);
+  if (cenarioTexto) estavel.push(`═══ CENÁRIO ═══\n${cenarioTexto}`);
+  if (perguntasTexto) estavel.push(`═══ PERGUNTAS ═══\n${perguntasTexto}`);
 
-  blocks.push(`═══ PROFISSIONAL ═══
+  const variavel: string[] = [];
+  variavel.push(`═══ PROFISSIONAL ═══
 ${colab?.nome_completo || '—'} · ${colab?.cargo || '—'}`);
-
-  blocks.push(`═══ COMPETÊNCIA ═══\n${compNome}`);
-
-  if (perfilCIS) blocks.push(`═══ PERFIL CIS ═══\n${perfilCIS}`);
-
-  blocks.push(`═══ RESPOSTAS DO PROFISSIONAL ═══
+  if (perfilCIS) variavel.push(`═══ PERFIL CIS ═══\n${perfilCIS}`);
+  variavel.push(`═══ RESPOSTAS DO PROFISSIONAL ═══
 R1: ${resp.r1 || '—'}
 R2: ${resp.r2 || '—'}
 R3: ${resp.r3 || '—'}
 R4: ${resp.r4 || '—'}`);
-
-  if (reguaTexto) blocks.push(`═══ RÉGUA DE MATURIDADE ═══\n${reguaTexto}`);
-  if (cenarioTexto) blocks.push(`═══ CENÁRIO ═══\n${cenarioTexto}`);
-  if (perguntasTexto) blocks.push(`═══ PERGUNTAS ═══\n${perguntasTexto}`);
-
   // Avaliação a auditar — incluir campos enriquecidos se disponíveis
   const av = typeof resp.avaliacao_ia === 'string' ? JSON.parse(resp.avaliacao_ia) : resp.avaliacao_ia;
-  blocks.push(`═══ AVALIAÇÃO A AUDITAR ═══\n${JSON.stringify(av, null, 2)}`);
-
-  blocks.push(`═══ INSTRUÇÃO ═══
+  variavel.push(`═══ AVALIAÇÃO A AUDITAR ═══\n${JSON.stringify(av, null, 2)}`);
+  variavel.push(`═══ INSTRUÇÃO ═══
 Verifique se esta avaliação é DEFENSÁVEL como produto Vertho.
 Se for bem escrita mas metodologicamente fraca, PENALIZE.
 Prefira rigor a elegância.`);
 
-  return blocks.join('\n\n');
+  return { prefix: estavel.join('\n\n'), user: variavel.join('\n\n') };
 }
 
 function processCheckResult(check: any): { status: string; check: any } {
@@ -196,8 +195,8 @@ export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}
 
         const perfilCIS = formatPerfilContext(colab);
 
-        const user = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
-        const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192, IA4_CHECK_CALL_OPTIONS);
+        const { prefix, user } = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
+        const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix });
         const raw = await extractJSON(resultado);
         const { status, check } = processCheckResult(raw);
 
@@ -274,8 +273,8 @@ export async function checarUmaResposta(respostaId: string, aiConfig: AIConfig =
 
     const perfilCIS = formatPerfilContext(colab as any);
 
-    const user = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
-    const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192, IA4_CHECK_CALL_OPTIONS);
+    const { prefix, user } = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
+    const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix });
     const raw = await extractJSON(resultado);
     const { status, check } = processCheckResult(raw);
 
