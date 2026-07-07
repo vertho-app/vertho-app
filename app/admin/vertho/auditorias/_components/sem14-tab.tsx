@@ -13,9 +13,8 @@ import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ChevronRight, X, Ref
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import {
   listarAuditoriasSem14, loadAuditoriaSem14Detalhe, regerarScoringComFeedback,
-  iniciarReavaliacaoLote, statusReavaliacaoLote,
+  iniciarReavaliacaoLote, statusReavaliacaoLote, REAVALIACAO_LOTE_CAP,
 } from '@/app/admin/vertho/auditoria-sem14/actions';
-import { REAVALIACAO_LOTE_CAP } from '@/app/admin/vertho/auditoria-sem14/constants';
 
 // Bandas de nota de check (auditoria.nota_auditoria 0-100). 'sem_nota' = sem
 // auditoria registrada (checkbox desabilitado — regerar exige auditoria anterior).
