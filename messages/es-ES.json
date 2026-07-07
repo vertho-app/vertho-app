@@ -1606,7 +1606,12 @@
       "reevaluateAll": "Reevaluar todos ({count})",
       "reevaluateAndRecheck": "Reevaluar + Rechecar",
       "validate": "Validar",
-      "editApprove": "Editar/Aprobar"
+      "editApprove": "Editar/Aprobar",
+      "reevaluateSelected": "Reevaluar seleccionados ({count})",
+      "selected": "{count} seleccionada(s)",
+      "selectAll": "Seleccionar visibles",
+      "clear": "Limpiar",
+      "toggleSelect": "Seleccionar para reevaluar"
     },
     "progress": {
       "reevaluating": "Reevaluando {current} de {total}...",
@@ -1617,7 +1622,12 @@
     "filters": {
       "allRoles": "Todos los puestos",
       "allCollaborators": "Todos los colaboradores",
-      "allStatuses": "Todos los estados"
+      "allStatuses": "Todos los estados",
+      "checkNotaAll": "Todas las notas de check",
+      "checkNotaAlto": "Check ≥90 (aprobado)",
+      "checkNotaMedio": "Check 80–89 (con ajustes)",
+      "checkNotaBaixo": "Check <80 (revisar)",
+      "checkNotaSem": "Sin check"
     },
     "status": {
       "pending": "Pendiente",

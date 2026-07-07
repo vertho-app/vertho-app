@@ -180,6 +180,25 @@ const CHECK_DIM_LABELS: Record<string, string> = {
   evidencias_niveis: 'Evidências', consolidacao: 'Consolidação', feedback_especificidade: 'Feedback', desenvolvimento: 'Recomend.',
 };
 
+// Bandas do filtro de nota de check (IA4). Alinhadas às cores da própria tela:
+// ≥90 verde (alto), 80–89 cyan (medio), <80 amber (baixo), sem check (sem).
+type NotaBanda = '' | 'alto' | 'medio' | 'baixo' | 'sem';
+const NOTA_BANDAS: NotaBanda[] = ['', 'alto', 'medio', 'baixo', 'sem'];
+function getCheck(r: any): any {
+  if (!r) return null;
+  try { return typeof r.payload_ia4 === 'string' ? JSON.parse(r.payload_ia4) : r.payload_ia4; }
+  catch { return null; }
+}
+function notaBanda(r: any): NotaBanda {
+  const check = getCheck(r);
+  if (!check || check.nota === undefined || check.nota === null) return 'sem';
+  const n = Number(check.nota);
+  if (!Number.isFinite(n)) return 'sem';
+  if (n >= 90) return 'alto';
+  if (n >= 80) return 'medio';
+  return 'baixo';
+}
+
 export default function Fase2Page({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
   const router = useRouter();
@@ -197,23 +216,28 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   const [filtroColab, setFiltroColab] = useState('');
   const [filtroCargo, setFiltroCargo] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
+  const [filtroNota, setFiltroNota] = useState<NotaBanda>('');
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [actionId, setActionId] = useState(null);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, ok: 0, erros: 0 });
   const [activeVideo, setActiveVideo] = useState(null); // { libraryId, videoId, title }
   function flash(msg) { toast(msg); }
 
-  async function handleRevisarTodos() {
-    const paraRevisar = respostas.filter(r => r.status_ia4 === 'revisar' || r.status_ia4 === 'aprovado_com_ajustes');
-    if (!paraRevisar.length) { flash(tr('messages.noneToReview')); return; }
+  // Núcleo compartilhado do lote de reavaliação (reavalia + recheca cada item,
+  // sequencial, com progresso). Usado por "reavaliar todos revisar" e por
+  // "reavaliar selecionados".
+  async function reavaliarLote(lista: any[]) {
+    if (!lista.length) { flash(tr('messages.noneToReview')); return; }
     setBatchRunning(true);
-    setBatchProgress({ current: 0, total: paraRevisar.length, ok: 0, erros: 0 });
+    setSelecionados(new Set());
+    setBatchProgress({ current: 0, total: lista.length, ok: 0, erros: 0 });
     let ok = 0, erros = 0;
-    for (let i = 0; i < paraRevisar.length; i++) {
+    for (let i = 0; i < lista.length; i++) {
       setBatchProgress(p => ({ ...p, current: i + 1 }));
-      const r1 = await reavaliarResposta(paraRevisar[i].id);
+      const r1 = await reavaliarResposta(lista[i].id);
       if (r1.success) {
-        await rechecarResposta(paraRevisar[i].id);
+        await rechecarResposta(lista[i].id);
         ok++;
       } else { erros++; }
       setBatchProgress(p => ({ ...p, ok, erros }));
@@ -221,6 +245,31 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
     setBatchRunning(false);
     flash(tr('messages.reevaluatedBatch', { ok, errors: erros }));
     refresh();
+  }
+
+  async function handleRevisarTodos() {
+    const paraRevisar = respostas.filter(r => r.status_ia4 === 'revisar' || r.status_ia4 === 'aprovado_com_ajustes');
+    await reavaliarLote(paraRevisar);
+  }
+
+  async function handleReavaliarSelecionados() {
+    const lista = respostas.filter(r => selecionados.has(r.id));
+    await reavaliarLote(lista);
+  }
+
+  function toggleSel(id: string) {
+    setSelecionados(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+  function toggleTodosVisiveis() {
+    const elegiveis = filtered.filter(r => r.avaliacao_ia).map(r => r.id);
+    setSelecionados(prev => {
+      const todosSel = elegiveis.length > 0 && elegiveis.every(id => prev.has(id));
+      return todosSel ? new Set() : new Set(elegiveis);
+    });
   }
 
   async function refresh() {
@@ -249,6 +298,9 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
     if (filtroColab && !colaboradores.includes(filtroColab)) setFiltroColab('');
   }, [filtroCargo]);
 
+  // Limpa a seleção ao trocar filtros (uma resposta pode sair do conjunto visível).
+  useEffect(() => { setSelecionados(new Set()); }, [filtroCargo, filtroColab, filtroStatus, filtroNota]);
+
   const filtered = respostas.filter(r => {
     if (filtroColab && r.colaborador_nome !== filtroColab) return false;
     if (filtroCargo && r.colaborador_cargo !== filtroCargo) return false;
@@ -257,6 +309,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
     if (filtroStatus === 'aprovado' && r.status_ia4 !== 'aprovado') return false;
     if (filtroStatus === 'aprovado_com_ajustes' && r.status_ia4 !== 'aprovado_com_ajustes') return false;
     if (filtroStatus === 'revisar' && r.status_ia4 !== 'revisar') return false;
+    if (filtroNota && notaBanda(r) !== filtroNota) return false;
     return true;
   });
 
@@ -428,7 +481,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
       )}
 
       {/* Filtros */}
-      <div className="flex items-center gap-3 mb-5">
+      <div className="flex items-center gap-3 mb-5 flex-wrap">
         <Filter size={14} className="text-gray-500" />
         <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
           className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
@@ -449,7 +502,29 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
           <option value="aprovado_com_ajustes">{tr('status.withAdjustments')}</option>
           <option value="revisar">{tr('status.review')}</option>
         </select>
+        <select value={filtroNota} onChange={e => setFiltroNota(e.target.value as NotaBanda)}
+          className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+          <option value="">{tr('filters.checkNotaAll')}</option>
+          <option value="alto">{tr('filters.checkNotaAlto')}</option>
+          <option value="medio">{tr('filters.checkNotaMedio')}</option>
+          <option value="baixo">{tr('filters.checkNotaBaixo')}</option>
+          <option value="sem">{tr('filters.checkNotaSem')}</option>
+        </select>
       </div>
+
+      {/* Barra de seleção — aparece quando há respostas selecionadas. */}
+      {selecionados.size > 0 && !batchRunning && (
+        <div className="flex items-center gap-3 mb-4 rounded-xl border border-cyan-400/30 p-3 flex-wrap" style={{ background: '#0F2A4A' }}>
+          <span className="text-xs text-white font-bold">{tr('actions.selected', { count: selecionados.size })}</span>
+          <button onClick={toggleTodosVisiveis} className="text-[10px] text-cyan-400 hover:underline">{tr('actions.selectAll')}</button>
+          <button onClick={() => setSelecionados(new Set())} className="text-[10px] text-gray-400 hover:underline">{tr('actions.clear')}</button>
+          <div className="flex-1" />
+          <button onClick={handleReavaliarSelecionados} disabled={batchRunning}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
+            <RefreshCw size={11} /> {tr('actions.reevaluateSelected', { count: selecionados.size })}
+          </button>
+        </div>
+      )}
 
       {/* Lista */}
       {respostas.length === 0 ? (
@@ -480,8 +555,15 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                 }`} style={{ background: '#0F2A4A' }}>
 
                   {/* Header */}
+                  <div className="flex items-center">
+                    {r.avaliacao_ia && (
+                      <input type="checkbox" checked={selecionados.has(r.id)}
+                        onChange={() => toggleSel(r.id)} onClick={e => e.stopPropagation()}
+                        title={tr('actions.toggleSelect', { defaultValue: 'Selecionar para reavaliar' })}
+                        className="ml-3 w-4 h-4 accent-cyan-500 shrink-0 cursor-pointer" />
+                    )}
                   <button onClick={() => setOpenId(isOpen ? null : r.id)}
-                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
+                    className="flex-1 flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
                     <div className="flex-1 min-w-0 flex items-center gap-2">
                       {r.status_ia4 === 'aprovado' && <CheckCircle size={14} className="text-green-400 shrink-0" />}
                       {r.status_ia4 === 'aprovado_com_ajustes' && <CheckCircle size={14} className="text-cyan-400 shrink-0" />}
@@ -514,6 +596,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                       <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                     </div>
                   </button>
+                  </div>
 
                   {isOpen && (
                     <div className="px-4 pb-4 border-t border-white/[0.04] space-y-4">
