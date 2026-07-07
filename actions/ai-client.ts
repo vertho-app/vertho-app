@@ -184,24 +184,26 @@ function extractClaudeText(content: any[]): string {
 // thinking, streaming), então nada mais no arquivo precisa saber do backend.
 //
 // Para ligar o Vertex:
-//   1. Habilitar Sonnet 4.6 e Opus 4.6 no Model Garden do projeto GCP.
+//   1. Habilitar os modelos no Model Garden do projeto GCP (Sonnet 4.6 / Opus 4.6).
 //   2. Auth ADC (a MESMA do TTS) + a SA com role roles/aiplatform.user.
-//   3. Envs: CLAUDE_BACKEND=vertex, CLAUDE_VERTEX_PROJECT, CLAUDE_VERTEX_REGION.
-//   4. PREENCHER os IDs exatos abaixo (Model Garden mostra o formato `nome@AAAAMMDD`).
+//   3. **PEDIR QUOTA** — habilitar ≠ quota. Sem aumento de
+//      `aiplatform.googleapis.com/global_online_prediction_requests_per_base_model`
+//      a chamada volta 429 (quota=0). É o passo que trava (validado 07/07).
+//   4. Envs: CLAUDE_BACKEND=vertex, CLAUDE_VERTEX_PROJECT (+ CLAUDE_VERTEX_REGION
+//      só se NÃO for global). Os modelos 4.6/4.8/5 vivem SÓ no endpoint `global`
+//      (regionais têm só modelos antigos) — por isso o default aqui é `global`.
 const CLAUDE_BACKEND = (process.env.CLAUDE_BACKEND || 'api').toLowerCase();
 
-// Mapa ID-do-app → ID-do-Vertex. No Vertex o ID leva sufixo de versão com `@`;
-// `@default` aponta pro release padrão do modelo no Model Garden. Sobrescrevível
-// por env sem editar código. Modelo pedido pelo app que NÃO esteja aqui passa
-// cru (sem `@versão`) → no Vertex provavelmente falha; adicione-o ao mapa.
-// Habilitados no Model Garden do projeto GCP (07/07).
+// Mapa ID-do-app → ID-do-Vertex. Nome do publisher Anthropic no Vertex (bare —
+// validado que rotea no endpoint global; `@default`/`@data` também servem via
+// env). Modelo pedido que NÃO esteja aqui passa cru. Habilitados 07/07.
 const CLAUDE_VERTEX_MODEL_MAP: Record<string, string> = {
   // Em uso hoje pelo app:
-  'claude-sonnet-4-6': process.env.CLAUDE_VERTEX_SONNET   || 'claude-sonnet-4-6@default',
-  'claude-opus-4-6':   process.env.CLAUDE_VERTEX_OPUS     || 'claude-opus-4-6@default',
+  'claude-sonnet-4-6': process.env.CLAUDE_VERTEX_SONNET   || 'claude-sonnet-4-6',
+  'claude-opus-4-6':   process.env.CLAUDE_VERTEX_OPUS     || 'claude-opus-4-6',
   // Habilitados para troca futura (o app ainda não os chama):
-  'claude-opus-4-8':   process.env.CLAUDE_VERTEX_OPUS_48  || 'claude-opus-4-8@default',
-  'claude-sonnet-5':   process.env.CLAUDE_VERTEX_SONNET_5 || 'claude-sonnet-5@default',
+  'claude-opus-4-8':   process.env.CLAUDE_VERTEX_OPUS_48  || 'claude-opus-4-8',
+  'claude-sonnet-5':   process.env.CLAUDE_VERTEX_SONNET_5 || 'claude-sonnet-5',
 };
 
 /** Devolve o client Claude e o model resolvido conforme o backend (api|vertex). */
@@ -209,13 +211,19 @@ function resolveClaude(model: string, options: AICallOptions): { client: any; mo
   const timeout = options.timeoutMs ?? AI_TIMEOUT_MS;
   const maxRetries = options.maxRetries ?? 1;
   if (CLAUDE_BACKEND === 'vertex') {
+    // ⚠️ NÃO pronto p/ produção (validado 07/07, auth da SA do TTS OK):
+    //   (1) QUOTA — habilitar no Model Garden NÃO dá quota; sem aumento de
+    //       `global_online_prediction_requests_per_base_model` a chamada volta 429.
+    //       É o passo que trava. Pedir no console (IAM & Admin → Quotas).
+    //   (2) SDK — @anthropic-ai/vertex-sdk 0.19 não reescreve a URL do endpoint
+    //       `global` (dispara `/v1/v1/messages` → 404). Os modelos 4.6/4.8/5 só
+    //       existem no `global`. rawPredict via REST rotea certo (dá o 429 acima).
+    //       Finalizar (SDK corrigido OU rawPredict REST) quando a quota liberar.
     const vertexModel = CLAUDE_VERTEX_MODEL_MAP[model] || model;
-    if (vertexModel.includes('@REPLACE')) {
-      throw new Error(`[callClaude] CLAUDE_BACKEND=vertex, mas o ID do Vertex para "${model}" não foi preenchido em CLAUDE_VERTEX_MODEL_MAP. Habilite o modelo no Model Garden e defina o ID exato (ou a env correspondente).`);
-    }
+    const region = process.env.CLAUDE_VERTEX_REGION || 'global';
     const client = new AnthropicVertex({
       projectId: process.env.CLAUDE_VERTEX_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
-      region: process.env.CLAUDE_VERTEX_REGION || 'us-east5',
+      region,
       timeout,
       maxRetries,
     });
