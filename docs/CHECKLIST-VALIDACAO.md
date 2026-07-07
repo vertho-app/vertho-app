@@ -266,6 +266,25 @@
 - [ ] `knowledge_base` tem docs indexados
 - [ ] `temporada_semana_progresso` persiste reflexao/feedback/tira_duvidas
 
+### Modo Piloto (degustação de 2 semanas)
+- [ ] Ao concluir a sem 2, a acumulada é marcada `processing` e a task `trigger/acumulada-piloto.ts` dispara (migration 169)
+- [ ] Task Trigger.dev deployada MANUALMENTE (`npx trigger.dev deploy`) — git push NÃO a deploya
+- [ ] Fechamento fica em "Preparando sua avaliação…" com polling enquanto a acumulada processa (gate); abre só quando `done`
+- [ ] Self-heal do gate cobre falha da task (fechamento não fica preso)
+- [ ] Fechamento não trava por Cenário B faltando; report não trava por avaliação parcial (tolera N-1 descritores)
+- [ ] **E2E ao vivo em prod validado** (gate + task Trigger executando)
+- [ ] **73 testes unit/integração do piloto verdes** (inclui integração B1/B2/B4/B5)
+
+### Portal do Representante + ACME Demo
+- [ ] Documento da proposta em `/proposta/[token]` (página pública) + PDF renderiza no visual claro/editorial
+- [ ] Simulador de preço calcula valor mensal automático (variáveis) + valor final após desconto, com o mensal em destaque
+- [ ] **Versionamento**: de uma proposta enviada/aprovada, "Nova versão" cria cópia editável `-Rn`; segue de novo pela aprovação; original vira **"Substituída"** (`superseded`) — **E2E validado** (migration 168)
+- [ ] Toasts do portal do RC aparecem (ex.: "submeter para aprovação" dá feedback)
+- [ ] ACME Demo: reset via `npm run reset:demo` (ou botão em `/admin/demo`) recria o estado inicial
+- [ ] 6 personas aparecem no portal `/representante/demo` e no ranking/estatísticas (Mariana, Renato inclusas)
+- [ ] **Após reset, clicar "Calcular Fit" 1× por cargo em `/admin/fit`** (fit NÃO é pré-computado no reset) — só então o ranking aparece
+- [ ] Ranking de Adequação diferenciado: Mariana 92 "Alta"; Renato 88 e Carla 88 "Excelente"; Bruna 50 "Baixa" (visual da Mariana renderizado em `/admin/fit`)
+
 ---
 
 > Referência: `PASSO-A-PASSO-VERTHO.md` para detalhes de cada passo.

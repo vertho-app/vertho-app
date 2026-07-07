@@ -51,6 +51,49 @@ V cyan (`#34C5CC`) sobre navy (`#0F2B54`) — `app/icon.svg`
 
 ---
 
+# Documento da proposta comercial (tema claro/editorial)
+
+> Sub-sistema visual distinto do design system da UI web acima. Aplica-se **apenas** ao documento que o cliente do RC recebe: a página pública `app/proposta/[token]/page.tsx` e o PDF `components/pdf/PropostaComercialPDF.tsx`. Redesenhado em 06/07/2026 (commit `3316392f`) a partir de um template "visualmente claro" fornecido pelo Rodrigo. **Não** usa a paleta escura da marca — é claro/editorial por design (documento formal impresso/enviado ao cliente).
+
+## Paleta
+
+| Swatch | Hex | Uso |
+|--------|-----|-----|
+| ⬜ | `#FFFFFF` | Fundo (branco) |
+| 🟪 | `#4F46E5` | **Acento índigo** — brand, títulos de destaque, barra de investimento, marcadores `›` |
+| 🟦 | `#EEF0FE` | Índigo-claro — chips do escopo incluído |
+| 🩷 | `#C4488A` | Rosa — marcador `✕` de "O que não está incluso" |
+| ⬛ | `#A2A8B8` | Cinza do footer / meta |
+
+## Tipografia
+
+| Fonte | Uso |
+|-------|-----|
+| **Space Grotesk** | Títulos, hero, números (valores) |
+| **IBM Plex Sans** | Corpo do texto |
+| **IBM Plex Mono** | Rótulos de seção (`// Contexto`), meta, footer |
+
+Na página: variáveis `--font-prop-display/body/mono` (com fallback às famílias). No PDF as fontes são registradas localmente via **fontsource** (`Font.register`, CDN jsdelivr) dentro do próprio `PropostaComercialPDF.tsx` — **não** mexe no `styles.ts` compartilhado dos outros PDFs.
+
+## Estrutura (mesma na página e no PDF)
+
+| Seção | Tratamento |
+|-------|------------|
+| Brand | Quadradinho índigo + wordmark "vertho" + pill "Proposta Comercial" |
+| Hero | Título grande (Space Grotesk, tracking negativo) |
+| Para | Card do destinatário |
+| `// Contexto` | Rótulo mono + texto |
+| `// Escopo incluído` | Chips índigo-claro (`#EEF0FE`) |
+| `// Investimento` | Cards + **barra índigo grande com o VALOR MENSAL** (invertido em `2de61dd2`); total do contrato em card menor |
+| `// Cronograma` | Timeline com bolinhas |
+| `// O que não está incluso` | Lista com `✕` rosa (`#C4488A`) |
+| `// Premissas` | Lista com `›` índigo |
+| `// Próximos passos` | Cards numerados 01-04 |
+| Contato | Avatar de iniciais + dados do RC |
+| Footer | Texto mono, cinza |
+
+---
+
 # Templates de cena de vídeo (Remotion)
 
 > Sub-sistema visual distinto do design system da UI web acima. Aplica-se **apenas** aos vídeos de microlearning (avatar + cenas animadas via Remotion), em `video-spike/remotion/scenes/*.tsx`.

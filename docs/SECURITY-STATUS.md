@@ -1,6 +1,6 @@
 # Estado atual de seguranca — Vertho Mentor IA
 
-> Ultima revisao: 2026-07-03 (auditoria de segurança — RCE/RLS/IDOR/search_path/MVs fechados; ver seção "Auditoria de segurança 03/07")
+> Ultima revisao: 2026-07-07 (defense-in-depth de tenant nas ações internas + filtro de contas internas demo-aware; ver seção "Endurecimento 06-07/07"). Antes: 2026-07-03 (auditoria de segurança — RCE/RLS/IDOR/search_path/MVs fechados; ver seção "Auditoria de segurança 03/07")
 
 ## Camadas de protecao implementadas
 
@@ -142,6 +142,12 @@ Quatro vetores ATIVOS (exploráveis em prod) + achados de endurecimento, todos c
 - **Path-traversal** no `/api/upload/signed-url` (`formato` do body virava segmento de path) → allowlist estrita.
 - **Compare de secret timing-unsafe** (`!==`) em webhooks bunny/cron/radar-lead-pdf → `lib/secure-compare.safeSecretEqual`. `modulo-from-video` passa a aceitar `INTERNAL_API_KEY` (desacopla do service-role).
 - **Self-protection no platform-admins**: master não pode se rebaixar/remover (self-lockout).
+
+## Endurecimento 06-07/07 — defense-in-depth de tenant + filtro demo-aware
+
+- **B5 (prova de tenant nas ações internas)** (`e19acc04`): `gerarEvolutionReport` / `gerarAvaliacaoAcumulada` / `gerarAvaliacaoAcumuladaParcial` trocaram o argumento `internal: boolean` por `internal?: { empresaId }`. O caller interno (rota/Trigger com service-role, que **bypassa RLS**) agora PROVA o tenant da sessão, e a função REJEITA trilha de outro tenant (`trilha.empresa_id !== internal.empresaId` → erro), fechando um `trilhaId` forjado cross-tenant. `empresaId` null (platform admin) pula o assert. Callers de admin continuam sem 2º arg (seguem no `requireAdminAction`). `actions/evolution-report.ts:35`, `actions/avaliacao-acumulada.ts:28` e `:206`.
+- **Flag `internal` tenant-scoped em fase1/fase3** (`e19acc04`): `rodarIA2` / `rodarIA3Uma` (`actions/fase1.ts:741`, `:1196`) e `rodarIA4` (`actions/fase3.ts:372`) ganharam a opção `internal` (service-role) para tooling/golden-update do acme-demo, que roda por um caminho já gated (botão admin do reset do demo).
+- **Filtro de contas internas demo-aware** (`1fc29497`, `lib/internal-emails.ts`): `isInternalEmail` / `excludeInternalEmails` passaram a EXEMPTAR `*.demo@vertho.ai` — personas de demonstração são o CONTEÚDO do tenant de demo, não staff Vertho. Antes o filtro excluía TODO `@vertho.ai` de ranking/DNA/perfil org, deixando as views do tenant de demo vazias. `excludeInternalEmails` virou `.or('email.not.ilike.*@vertho.ai,email.ilike.*.demo@vertho.ai')`; novo helper `isDemoPersonaEmail`. **O guardrail de ENVIO do demo NÃO muda**: continua sendo o `is_demo` (envio-guard), não este filtro de agregação — então segue intacto. Staff (ex.: `rodrigo@vertho.ai`) permanece excluído.
 
 ## O que NAO esta coberto
 - Rate limiting distribuido (so por Lambda instance — `lib/rate-limit.ts`; teto efetivo × N lambdas; migrar p/ Upstash Redis)

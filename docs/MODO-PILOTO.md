@@ -8,6 +8,14 @@
 Implementado em 02/07/2026 (`28e831e` → `d48012d`). E2E completo validado em produção
 (tenant ACME, 1 colaborador com override individual).
 
+**Endurecimento 06–07/07/2026** (sprint pós-drift): a acumulada migrou pro Trigger.dev com
+gate no fechamento (M8, ver seção própria); mais uma leva de robustez — fallback do Cenário B
+(B1), `maxDuration=300` nas rotas (B3), report tolerante a N−1 descritores (B4), authz interna
+por tenant (B5), prontidão batchada (B6), `isPilotoContentWeek` config-only (B7), sanitizer de
+duração que pega qualquer 3–14 semanas (B8, era só 10–14), gate espelhado + self-heal fail-safe
+(N1/N2) — e testes de integração B1/B2/B4/B5 (73 verdes, `7a6ef4e7`). Commits: `ce30c46d` ·
+`e19acc04` · `76de153e` · `1d1279eb` · `83c8092a`.
+
 ## Estrutura
 
 | | |
@@ -24,7 +32,7 @@ Implementado em 02/07/2026 (`28e831e` → `d48012d`). E2E completo validado em p
 
 ```
 sem 1  conteudo   2 entregas (conteudos_dia, shape do DUO — mesma comp, descritores distintos)
-sem 2  conteudo   2 entregas · ao concluir: acumulada single-comp dispara em background
+sem 2  conteudo   2 entregas · ao concluir: acumulada single-comp dispara (task Trigger.dev)
 sem 3  avaliacao  FECHAMENTO — calendario_semana=2 (espelho): libera no CALENDÁRIO da
                   sem 2 (dia 7); o gate real é progressão ("sem 2 concluída"). Nunca espera dia 14.
 ```
@@ -33,6 +41,32 @@ O espelho vive em `ProgramaConfig.semanaEspelhoCalendario` ({3:2}) **e** gravado
 plano (`calendario_semana` no slot de avaliação — snapshot é o contrato da UI/rotas).
 `semanaAcumulada=2` é só o **endereço de persistência** do acumulado (não há semana de
 conversa qualitativa no piloto — branch guard na rota `/evaluation`).
+
+## Acumulada em background + gate do fechamento (M8)
+
+A avaliação **acumulada** (single-comp, gerada ao concluir a sem 2) saiu do `after()` frágil e
+passou a rodar numa **task Trigger.dev** `acumulada-piloto` (`trigger/acumulada-piloto.ts`,
+retry 3, `maxDuration 600`), com status rastreável. Colunas em `temporada_semana_progresso`
+(mig **169**): `acumulada_status` (`processing`|`done`|`error`), `acumulada_erro`,
+`acumulada_started_at`.
+
+- **Disparo** (`/reflection`, ao concluir a sem 2): marca `processing` e chama `tasks.trigger`
+  (era `after()`).
+- **Gate no fechamento** (`/evaluation`, `action:'init'`): `gateAcumuladaPiloto` (helper puro em
+  `trilha-runtime.ts`) — se a acumulada não está `done`, devolve **202 `{processando}`** em vez de
+  pontuar. Espelhado no início de `finalizarComScorer` (**N1**), pra nunca pontuar sem a acumulada
+  mesmo por caminho alternativo (cenário já persistido de antes do gate, chamada direta send/arguir).
+- **UI**: `sem14` mostra "preparando avaliação…" e faz **polling** via `action:'status'` até liberar.
+- **Self-heal** inline: se a acumulada travou/errou (> 5 min sem `done`), a rota re-dispara — via
+  `after()` no ambiente da Vercel. Carimba um claim; **N2** (fail-safe): o self-heal pula se já
+  ficou `done` (Trigger ou outra req) ou se outra requisição re-claimou depois — no pior caso roda
+  2×, nunca prende.
+- **Fallback**: se o Trigger estiver indisponível (ex.: task não deployada), a acumulada roda inline
+  via `after()` e marca o status — seguro publicar em qualquer ordem; o caminho Trigger fica latente
+  até o **deploy MANUAL do trigger** (versões `20260706.1`/`.2`).
+
+Elimina a race **B2** (scorer sem acumulado) e a fragilidade do `after()` (**R1**). E2E ao vivo
+PASS em prod (a task executou; gate + self-heal validados). Commits `1d1279eb` · `83c8092a`.
 
 ## Trava de piso (piloto-only)
 
@@ -58,6 +92,10 @@ as trilhas do modo — sem migração.
   da trava de piso — ordem: scorer → fusão → trava. A trava incide sobre a nota já fundida.
 - UI: `sem14` troca do formulário para modo CHAT turn-by-turn; reconstrói no reload.
 - PII: histórico persistido CRU; mascara só em-voo. Detalhes em `CATALOGO-PROMPTS-IA.md` §6.14.
+  **R5 (revisto 07/07)**: cru é **by-design** — o colab reabre o histórico; a fronteira sensível (o
+  payload da IA, mascarado em `arguicao.ts::histParaIA`) já é protegida; mascarar em repouso seria
+  inconsistente com reflexão/respostas, também cruas. Arguição **mantida ligada** no piloto (decisão
+  de produto, B9).
 - Validado E2E em prod 03/07 (ACME/rdnaves, trilha `3d3f303a`): abertura → 3 turnos → conclusão →
   scorer+fusão+trava. O E2E expôs 2 bugs latentes (campo `turn` no payload da IA; dedup de descritor
   duplicado na fusão) — ambos corrigidos.
@@ -71,6 +109,9 @@ piloto: competência = ponto de partida, fechamento = "demonstração da avalia�
 A agregação do gestor (`loadEvolutionReportsEmpresa`) **exclui** relatórios piloto.
 Os prompts do scorer/check recebem `semanaFinal`/`semanasEvidencia` da config (regular = 14/13,
 byte-idêntico) + `notaPrograma` no piloto (a devolutiva não fala em "14 semanas").
+Se o scorer avaliou **N−1 descritores** (algum sem resposta), o report **não trava mais** (B4):
+gera com o que há e sinaliza `incompleto` + `descritores_avaliados`/`descritores_esperados` pro
+admin regerar (mantidos os guards de `spec_version` e avaliação-vazia).
 
 ## Como ativar
 
@@ -91,13 +132,16 @@ o diagnóstico é reaproveitado, não se refaz).
 
 ## Prontidão (antes de liberar)
 
-Botão **"Prontidão piloto"** em `/admin/temporadas?empresa=...` (`verificarProntidaoPiloto`),
-por colaborador cujo modo resolvido é piloto:
+Botão **"Prontidão piloto"** em `/admin/temporadas?empresa=...` (`verificarProntidaoPiloto`,
+com `descriptor_assessments` batchado por colab — B6, sem N+1), por colaborador cujo modo
+resolvido é piloto:
 
 - ⛔ **Bloqueador**: descritor do top-4 sem NENHUM conteúdo utilizável (nem próprio, nem pool
   da competência) — a semana nasceria com fallback templated
-- ⛔ **Bloqueador**: sem Cenário B pro cargo (`tipo_cenario='cenario_b'`) — o fechamento
-  retornaria 424. Gerar na Fase 4 do pipeline da empresa ("Cenários B + Check")
+- ⛔ **Bloqueador**: sem Cenário B pro cargo **nem genérico** (`cargo='todos'`,
+  `tipo_cenario='cenario_b'`) — o fechamento retornaria 424. A rota `/evaluation` prioriza o
+  cenário do cargo e **cai pro `'todos'`** quando não há do cargo (`buscarCenarioBComFallback`, B1),
+  alinhando com a prontidão (que já aceitava 'todos'). Gerar na Fase 4 do pipeline ("Cenários B + Check")
 - ⚠️ Aviso: sem conteúdo próprio do descritor (reusa pool) ou formatos opcionais faltando
   (o switch degrada) — ok
 - ⛔ Menos de 4 descritores avaliados distintos — completar o mapeamento
@@ -111,13 +155,16 @@ lib/season-engine/build-season.ts          branch isPilotoContentWeek (conteudos
 lib/season-engine/piloto-trava.ts          aplicarTravaPiloto + PILOTO_SPEC_VERSION
 lib/season-engine/arguicao.ts              defesa oral: abrir/turno/extrair (+ PII em-voo) — LIGADA no piloto
 lib/season-engine/fusao-arguicao.ts        fundirArguicao (mapa sustentou×forca → ±0,5 no código)
+lib/season-engine/cenario-b.ts             buscarCenarioBComFallback (cargo → 'todos', B1)
+lib/season-engine/trilha-runtime.ts        gateAcumuladaPiloto (helper puro do gate da acumulada, M8/N1)
+trigger/acumulada-piloto.ts                task Trigger.dev da acumulada (retry 3, status; deploy MANUAL)
 actions/temporadas.ts                      gerarTemporadaPiloto · verificarProntidaoPiloto
-app/api/temporada/evaluation/route.ts      fechamento sem 3 (espelho + arguição + fusão + trava + report internal)
+app/api/temporada/evaluation/route.ts      fechamento sem 3 (espelho + gate acumulada M8/N1 + arguição + fusão + trava + report internal; maxDuration 300)
 app/api/temporada/reflection/route.ts      dispara task Trigger.dev acumulada-piloto ao concluir sem 2 (M8: gate/self-heal no fechamento + fallback after; internal={empresaId})
-app/dashboard/temporada/*                  timeline (espelho + rótulo Fechamento) · sem14 (sem delta) · concluida (variante piloto)
+app/dashboard/temporada/*                  timeline (espelho + rótulo Fechamento) · sem14 (sem delta + polling "preparando…") · concluida (variante piloto)
 lib/temporada-concluida-pdf.ts             TemporadaPilotoPDF (sem delta)
-tests/unit/piloto/*                        config · seleção · trava · buildSeason (+ regressão DUO)
-migrations/153 + 154
+tests/unit/piloto/*                        config · seleção · trava · buildSeason · gate-cenariob · report-tenant (integração B1/B2/B4/B5, 73 verdes) (+ regressão DUO)
+migrations/153 + 154 + 169
 ```
 
 ## Lições do E2E (02/07/2026) — valem pra TODA a engine
@@ -127,7 +174,9 @@ O E2E do piloto expôs e corrigiu **4 bugs latentes do regular**:
 1. **Triggers automáticos com sessão de colab**: `gerarAvaliacaoAcumulada` e
    `gerarEvolutionReport` exigem admin, mas os auto-triggers rodam na sessão do colaborador →
    FORBIDDEN/UNAUTHORIZED silencioso. Fix: flag `internal=true` (só callers de servidor,
-   após `assertColabAccess`).
+   após `assertColabAccess`). **B5 (06/07)**: `internal` deixou de ser `boolean` e virou
+   `{empresaId}` — o caller passa o tenant da SESSÃO e a action rejeita trilha de outro
+   tenant (`gerarEvolutionReport`/`gerarAvaliacaoAcumulada`/`Parcial`, defense-in-depth).
 2. **Fire-and-forget morre no freeze da Vercel**: `(async () => {...})()` solto é morto quando a
    lambda congela após o response. **Todo trabalho pós-response em rota DEVE usar `after()`**
    (next/server). Aplicado nos 4 triggers (piloto, sem 13, onboarding parcial, notify tutor).

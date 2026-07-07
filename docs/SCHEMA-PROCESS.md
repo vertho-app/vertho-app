@@ -1,6 +1,6 @@
 # Processo de Alteração de Schema
 
-> Revisão: 2026-04-17
+> Revisão: 2026-07-07 (receita de aplicação + faixa 022-169). Antes: 2026-04-17
 
 ## Regra principal
 
@@ -25,6 +25,22 @@ Quando o banco de produção divergir das migrations rastreadas:
 2. [ ] Criar migration de reconciliação idempotente (não destrutiva)
 3. [ ] Atualizar `ARQUITETURA.md` seção de modelagem
 4. [ ] Se a divergência não puder ser corrigida com segurança, documentar explicitamente
+
+## Como aplicar uma migration em produção
+
+O **MCP Supabase é read-only** neste projeto (`apply_migration` não grava). A aplicação
+real é feita por um script Node com o driver `pg`, lendo a `DATABASE_URL` do `.env.local`:
+
+1. Escreva a migration idempotente em `migrations/NNN-nome.sql` (ver checklist acima).
+2. Rode um script Node que conecta via `pg` (`DATABASE_URL` do `.env.local`), executa o
+   SQL do arquivo e, ao final, emite `NOTIFY pgrst, 'reload schema'` para o PostgREST
+   recarregar o cache de schema (senão a coluna nova não aparece na API REST).
+3. Confirme o resultado (coluna/constraint) antes de dar a feature por concluída.
+
+Migrations com `CHECK`/enum: dropar o constraint **antes** do `UPDATE` de dados (via
+`pg_constraint` pelo nome real, não hardcoded), migrar os dados e **recriar** o constraint
+já com os valores novos — senão o `UPDATE` viola o CHECK antigo. Ver `166-segmento-comercio.sql`
+e `168-proposta-versao.sql` como referência.
 
 ## Como verificar drift
 
@@ -61,4 +77,13 @@ Tabelas criadas via Dashboard antes do sistema de migrations e agora formalizada
 ## Numeração
 
 Migrations usam numeração sequencial: `NNN-nome-descritivo.sql`.
-Faixa atual: 022-051 (30 migrations).
+Faixa atual: 022-169.
+
+Últimas desta sessão (06-07/07/2026):
+
+| Migration | O que faz |
+|-----------|-----------|
+| `166-segmento-comercio.sql` | Segmento "Comércio" (troca 'fundacao'→'comercio' em `customer_type`/`segment`) + pacote 'piloto'. Drop robusto dos CHECK antes do UPDATE, recria com os valores novos. |
+| `167-proposta-bruto-desconto.sql` | `sales_proposals.contract_value_gross` + `discount_amount` (valor bruto e desconto em R$ da proposta). |
+| `168-proposta-versao.sql` | `sales_proposals.version` + `supersedes_id` + status `superseded` (versionamento: revisar e reenviar proposta). |
+| `169-acumulada-piloto-status.sql` | `temporada_semana_progresso.acumulada_status`/`acumulada_erro`/`acumulada_started_at` (status rastreável da acumulada do piloto na Trigger.dev, com gate no fechamento). |

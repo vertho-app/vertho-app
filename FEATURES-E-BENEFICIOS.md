@@ -22,6 +22,8 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 
 > **Ferramenta interna (não comercializada):** *RadarEmpresas* — inteligência comercial B2B que ranqueia empresas brasileiras por oportunidade (Receita Federal + CAGED + RAIS), usada pelo próprio time de vendas da Vertho. Detalhada na seção 12. Não é feature de cliente.
 >
+> **Ferramenta interna (não comercializada):** *Portal do Representante* — canal comercial dos RCs parceiros (funil de oportunidades + propostas comerciais + aprovação Vertho), em `/representante`. Detalhado na seção 13. Não é feature de cliente.
+>
 > **Descontinuado:** *Radar Bett* (`radarbett.vertho.ai`) — site do Bett Brasil 2026 foi encerrado pós-evento; agora redireciona (301) pro Radar/site institucional. As frentes "Onde a Vertho pode ajudar" migraram pro Radar Vertho.
 
 ---
@@ -331,6 +333,22 @@ Mapeia empresas brasileiras a partir de dados públicos (Receita Federal + CAGED
 
 Disclaimer de uso (proprietário): os sinais são **hipóteses comerciais**, não afirmações — comunicação deve usar "sinais sugerem", "empresas desse perfil costumam".
 
+## 13. Portal do Representante — canal comercial dos RCs *(ferramenta interna)*
+
+> **Uso interno dos Representantes Comerciais parceiros — não é produto de cliente, não vai pro site.** Canal autônomo em `/representante`, fora do multi-tenant (isolado por `representante_id`; tabelas `sales_*`).
+
+Dá ao RC um funil próprio de ponta a ponta: registra e qualifica oportunidades (score 0-100, **proteção de 90 dias** a partir do registro/aceite), acompanha o pipeline por estágio, e gera **propostas comerciais** que passam por **aprovação da Vertho** antes de ir ao cliente. Curadoria e visão consolidada em `/admin/comercial`.
+
+| Capacidade | O que entrega |
+|---|---|
+| **Funil de oportunidades** | Registro/qualificação com score 0-100, proteção de 90 dias, pipeline por estágio + KPIs (qualificado = score ≥ 70). |
+| **Proposta comercial** | Documento público (`/proposta/[token]`) + PDF em tema claro/editorial da marca: escopo, investimento (**valor mensal em destaque**), cronograma, próximos passos. Simulador de preço (valor mensal automático + desconto). |
+| **Versionamento** | De uma proposta enviada/aprovada, o RC gera uma **nova versão** ajustada (`-Rn`) que reentra no fluxo de aprovação; a original vira "Substituída". |
+| **Aprovação Vertho** | Nada vai ao cliente sem curadoria interna (`/admin/comercial`); comissão por tipo (aquisição 9% · recorrente 12% · renovação 6%). |
+| **Ambiente de demo** | `/representante/demo` + tenant `acme-demo` com personas prontas para a demonstração ao cliente. |
+
+Docs: `docs/PORTAL-REPRESENTANTE.md` (canal + proposta) · `docs/AMBIENTE-DEMO.md` (demo).
+
 ---
 
 *Inventário gerado a partir do código-fonte; atualizado em 01/06/2026 (HEAD `f1fb87c`). Sempre que entrar feature nova, atualizar aqui antes de virar copy de site.*
@@ -338,3 +356,5 @@ Disclaimer de uso (proprietário): os sinais são **hipóteses comerciais**, nã
 > **Novidades 26/05–01/06/2026:** PDF de conteúdo premium (publicação editorial diagramada por IA) + personalização por DISC e PPP; cenários de avaliação por escola (PPP local) com entrega roteada pela escola do colaborador; votação define o cenário (sem pré-filtro Top 10); papel **Admin Sócio** + permissões aplicadas de verdade no backend; Beto no idioma do colaborador; podcast/vídeo de conteúdo gerados por IA com produção de marca.
 >
 > **Novidades 10/06/2026:** novo **gerador de vídeos de microlearning personalizados** — vídeo de 3-5 min com avatar apresentador (HeyGen) + cenas animadas (Remotion) + narração própria e legendas, feito sob medida por cargo × perfil DISC × PPP da escola e reaproveitado por célula. Substitui a antiga geração via Veo/TTS (descontinuada).
+>
+> **Novidades 06-07/07/2026 (ferramenta interna):** **Portal do Representante** (seção 13) ganhou o **documento de proposta comercial** redesenhado (página pública + PDF em tema claro/editorial da marca, valor mensal em destaque), **simulador de preço** e **versionamento** de propostas ("nova versão" `-Rn` reentrando na aprovação). Não é feature de cliente.

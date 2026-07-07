@@ -1,7 +1,7 @@
 # Vertho Mentor IA — Arquitetura do Sistema
 
 > Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
-> Ultima atualizacao: 25/05/2026 (HEAD `2730cd7` — RadarEmpresas + i18n + auditoria/permissoes + OTP WhatsApp + hardening RLS)
+> Ultima atualizacao: 07/07/2026 (HEAD `83c8092a` — padroes pos-response via Trigger.dev + tenant de demo/contas internas; base 25/05: RadarEmpresas + i18n + auditoria/permissoes + OTP WhatsApp + hardening RLS)
 > Revisado contra o codigo-fonte local e estado atual do workspace
 > Metodo: auditoria automatizada + revisao manual
 
@@ -59,7 +59,7 @@
 
 Contexto rapido para reinicializacao da maquina:
 
-- Branch atual: `master`. Migrations 022-158 aplicadas em prod (com gaps de numeração). Recentes (03/07): 153-154 (modo piloto por colab/trilha), 155/157 (revoga+DROP exec_sql, search_path em SECURITY DEFINER), 156 (fecha RLS permissivas anon cross-tenant), 158 (revoga MVs anon-readable) — ver `docs/SECURITY-STATUS.md`.
+- Branch atual: `master`. Migrations 022-169 aplicadas em prod (com gaps de numeração). Recentes (03/07): 153-154 (modo piloto por colab/trilha), 155/157 (revoga+DROP exec_sql, search_path em SECURITY DEFINER), 156 (fecha RLS permissivas anon cross-tenant), 158 (revoga MVs anon-readable) — ver `docs/SECURITY-STATUS.md`. **Sessão 06-07/07**: 159-165 (Portal do Representante + tenant de demo), 166-168 (proposta comercial: segmento Comércio/pacotes, bruto+desconto, versionamento) e 169 (`acumulada_status` do piloto em `temporada_semana_progresso` — ver 17.6).
 - **Frentes 27/05** (sessao de UX + qualidade):
   - **Video de instrucoes no mapeamento** — capa clicavel (thumbnail Bunny) na tela de instrucoes do DISC abre o `VideoModal` (lib 636615, guid `e235d703-…`) com tracking de view por colaborador. Endpoint `/api/bunny-thumb` passou a resolver `thumbnailFileName` (thumbnails customizados ganham nome com hash, nao `thumbnail.jpg`).
   - **Botao "Voltar" padronizado** — `components/back-button.tsx` no topo-direito, substituindo botoes inline inconsistentes em ~55 telas (dashboard + admin).
@@ -386,10 +386,14 @@ nextjs-app/
 │   ├── checkpoint.ps1
 │   ├── auto-backup-diario.ps1
 │   └── instalar-backup-automatico.ps1
-├── trigger/                      # NOVO: Jobs trigger.dev (gerador de video — secao 23)
-│   ├── gerar-video-modulo.ts     # Orquestra o pipeline do video do Modulo-Base
+├── trigger/                      # NOVO: Jobs trigger.dev (deploy MANUAL — nao sai no git push)
+│   ├── gerar-video-modulo.ts     # Orquestra o pipeline do video do Modulo-Base (secao 23)
 │   ├── render-video.ts           # Render Remotion
-│   └── render-chunk.ts           # Render chunked (large-2x)
+│   ├── render-chunk.ts           # Render chunked (large-2x)
+│   ├── acumulada-piloto.ts       # NOVO: acumulada do piloto com status rastreavel (secao 17.6, mig 169)
+│   ├── gerar-kit.ts              # Kit Semanal
+│   ├── estruturar-material.ts    # Sales enablement
+│   └── extracao-video.ts         # Extracao p/ video
 ├── worker-hetzner/               # NOVO: Worker de render alternativo (RENDER_BACKEND=hetzner)
 │   └── worker.mjs                # Pull/poll + claim atomico (FOR UPDATE SKIP LOCKED)
 ├── video-spike/                  # NOVO: Composicao Remotion VerthoVideo (13 templates de cena)
@@ -1109,9 +1113,9 @@ Documentação enforced via migration 090 (`COMMENT ON COLUMN`).
 
 Em `/api/temporada/reflection/route.ts`: ao concluir missão integradora em modo Onboarding, dispara `gerarAvaliacaoAcumuladaParcial(trilhaId, compsCobertas, semana, internal=true)` em background. Não bloqueia resposta ao colab. A flag `internal=true` pula o gate de admin porque o caller é o próprio colaborador.
 
-> ⚠️ **Dois padrões OBRIGATÓRIOS pra trabalho pós-response** (lições do E2E do piloto, 02/07/2026 — `7fcbe88`/`dc0ffe2`/`7220797`):
-> 1. **`after()` de next/server**, nunca IIFE solta — `(async () => {...})()` morre quando a lambda da Vercel congela após o response (a acumulada/report automáticos do REGULAR nunca rodavam por isso).
-> 2. **Flag `internal=true`** em toda action com gate de admin chamada por rota com sessão de colaborador (`gerarAvaliacaoAcumulada`, `gerarAvaliacaoAcumuladaParcial`, `gerarEvolutionReport`) — senão morre em UNAUTHORIZED silencioso. Validar o dono antes (`assertColabAccess`).
+> ⚠️ **Padrões OBRIGATÓRIOS pra trabalho pós-response** (lições do E2E do piloto, 02/07 — `7fcbe88`/`dc0ffe2`/`7220797`; refinados 06-07/07 — `1d1279eb`/`e19acc04`):
+> 1. **`after()` de next/server**, nunca IIFE solta — `(async () => {...})()` morre quando a lambda da Vercel congela após o response (a acumulada/report automáticos do REGULAR nunca rodavam por isso). **Se o trabalho precisa de retry/status rastreável** (não pode se perder num freeze/race), promova pra uma **task Trigger.dev** com status persistido em tabela + **gate/polling no client** + `after()` só como **fallback/self-heal**. Ex.: a acumulada do PILOTO (`trigger/acumulada-piloto.ts`, mig 169) — a reflection da sem 2 marca `temporada_semana_progresso.acumulada_status='processing'` e dispara a task (`retry 3×`); o fechamento (sem 3) só abre com `acumulada_status='done'`, com self-heal inline se travou. *(Deploy das tasks Trigger.dev é MANUAL — não sai no git push.)*
+> 2. **Flag `internal`** em toda action service-role com gate de admin chamada por rota com sessão de colaborador (`gerarAvaliacaoAcumulada`, `gerarAvaliacaoAcumuladaParcial`, `gerarEvolutionReport`) — senão morre em FORBIDDEN silencioso. **É `internal?: { empresaId }` (não mais boolean)**: a action REVALIDA que a trilha pertence a esse tenant antes de rodar (B5 — defense-in-depth contra `trilhaId` forjado de outro tenant), em vez de confiar cegamente no caller.
 
 Janela cumulativa vem de `programaConfig.competenciasNaMissao`:
 - Sem 4 → Comps 0-1 (índices)
@@ -1482,6 +1486,23 @@ Modelo do roteiro: `claude-opus-4-8` (default da task `conteudo_video` em `lib/a
 
 ---
 
-*Documento validado contra o codigo-fonte local em 25/05/2026.*
-*~429 arquivos TS/TSX + ~72 JS/MJS | 103 arquivos SQL (022-121) | 38 arquivos de teste (21 vitest + 17 playwright) | vertho.ai*
-*Revisao: 25/05/2026 (HEAD `2730cd7` — RadarEmpresas + i18n + auditoria/permissões + OTP WhatsApp + hardening RLS)*
+## 24. Contas internas e tenant de demonstração
+
+### 24.1 Filtro de contas internas (`lib/internal-emails.ts`)
+
+Rankings, DNA organizacional, estatísticas e relatórios excluem a **staff Vertho** (`@vertho.ai`) para não poluir os números do cliente. **Exceção deliberada**: as personas de DEMONSTRAÇÃO usam e-mail `<nome>.demo@vertho.ai` e SÃO o conteúdo do tenant de demo — logo DEVEM aparecer. `isInternalEmail()` e o helper de query (`.or(...)`) exemptam `*.demo@vertho.ai` explicitamente (`isDemoPersonaEmail`). O bloqueio de ENVIO do demo é outra camada (`empresas.is_demo` + `lib/demo/envio-guard.ts`), não este filtro.
+
+### 24.2 Reset do tenant de demo — fonte única (`lib/demo/reset-acme-demo.ts`)
+
+O ambiente de demonstração dos vendedores (`acme-demo`) tem UM reset canônico, `resetAcmeDemo()`. Todos os gatilhos DELEGAM a ele — fim da divergência entre seeds:
+- **Botão** em `/admin/demo` (`actions/demo.ts`);
+- **Cron noturno** 04h BRT (`app/api/cron/route.ts`);
+- **CLI** `npm run reset:demo` (`scripts/seed-acme-demo.ts` → `resetAcmeDemo`).
+
+Reconstrói personas DISC (Mariana/Renato/Carla/Bruna + Gerente Comercial), gabaritos (IA2) e cenários (IA3) congelados. As colunas comportamentais que alimentam o motor de fit/adequação (`comp_*`/`lid_*`) são DETERMINÍSTICAS a partir do DISC e populadas no próprio `insertPersonas` (não em `descriptor_assessments`) — é isso que faz as personas aparecerem no ranking de adequação.
+
+---
+
+*Documento validado contra o codigo-fonte local em 25/05/2026 (patches pós-response/demo em 07/07/2026).*
+*~429 arquivos TS/TSX + ~72 JS/MJS | arquivos SQL 022-169 (com gaps) | vertho.ai*
+*Revisao: 07/07/2026 (HEAD `83c8092a` — padroes pos-response Trigger.dev + tenant de demo/contas internas; base 25/05 `2730cd7`)*

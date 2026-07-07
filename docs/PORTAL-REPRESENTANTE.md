@@ -232,3 +232,52 @@ Proposta do kit): o VM (`buildProposalDocument`) ganhou `contexto` (da
 `identified_need` da oportunidade), `cronograma`, `premissas`, `naoIncluso` e
 `proximosPassos` (seções-padrão). Página pública e PDF renderizam as novas
 seções. **Validade 15 → 30 dias** (`PROPOSAL_VALIDITY_DAYS`), alinhando ao material.
+
+## Redesign do documento da proposta (06-07/07)
+
+O documento visto pelo cliente — página pública `app/proposta/[token]/page.tsx`
+e o PDF `components/pdf/PropostaComercialPDF.tsx` — foi redesenhado para um tema
+**claro/editorial** (fundo branco, acento índigo), substituindo o visual escuro
+anterior. A linguagem visual está documentada em `docs/DESIGN-SYSTEM.md`; aqui
+ficam o fluxo e as seções. Commit `3316392f`.
+
+- **Seções** (mesma ordem na página e no PDF): brand + pill "Proposta Comercial",
+  hero, card "Para", `// Contexto`, `// Escopo incluído` (chips), `// Investimento`,
+  `// Cronograma` (timeline), `// O que não está incluso`, `// Premissas`,
+  `// Próximos passos` (cards 01-04), Contato (avatar de iniciais) e footer.
+- **Inversão do destaque** (`2de61dd2`): a barra grande de investimento passou a
+  mostrar o **valor mensal** (recorrência é a decisão comercial), e o total do
+  contrato virou card menor ao lado.
+
+## Correções e simulador de preço (06/07)
+
+- **Toaster montado no `RepresentativeShell`** (`components/sales/representative-shell.tsx:259`):
+  o portal não tinha `<Toaster>` do sonner — todos os toasts eram invisíveis, então
+  "Submeter para aprovação não fazia nada" (o erro de validação era mudo). Agora
+  há um `<Toaster>` próprio (`position="top-right"`, tema escuro, richColors).
+  Commit `f2e08540`. + a validação de submissão passou a aceitar **pacotes legados**
+  (`KNOWN_PACKAGES` = chaves de `PRODUCT_PACKAGE_LABELS`, em `lib/sales/validation.ts`),
+  para não travar propostas antigas.
+- **Simulador de preço** (`lib/sales/pricing.ts`, `simularMensalidade`): o valor
+  mensal vem automático das variáveis (pacote / nº de usuários / nº de cargos); o
+  form ganhou "Valor mensal com desconto" (máscara de moeda R$ #.###,##) e mostra o
+  valor final do contrato após desconto. `calculateProposalFinancials` passou a
+  devolver bruto + desconto em R$; a **mig 167** adicionou
+  `sales_proposals.contract_value_gross` + `discount_amount` (o server grava o
+  financeiro inteiro). Commit `d6fe08a9`. ⚠️ **A tabela `PRICING` em `pricing.ts` é
+  PLACEHOLDER** (números de exemplo — ajustar com os valores reais da Vertho).
+- **Segmento e pacotes** (**mig 166**): segmento "Fundação" → **"Comércio"**
+  (`comercio` no `customer_type`/`segment`); pacotes do dropdown passam a ser
+  `onboarding` / `mentor_ia` / `piloto` / `custom` (`completo`/`pulso` mantidos como
+  legado no CHECK).
+
+## Versionamento de proposta (06/07)
+
+De uma proposta **Aprovada** ou **Enviada ao cliente**, o RC clica **"Revisar
+(nova versão)"** → cria uma **cópia editável** (draft, número `-Rn`, financeiro
+recalculado, **token novo**); a original vira status `superseded` ("Substituída")
+e o doc mostra o selo "Versão N". A nova versão segue de novo pelo fluxo normal
+(aprovação Vertho → reenvio ao cliente). Action `revisarProposta`
+(`actions/sales/proposals.ts:230`). **Mig 168** adicionou `sales_proposals.version`
++ `supersedes_id` + o status `'superseded'` no CHECK. Commit `8bbcbf1b`. Validado
+E2E ao vivo.
