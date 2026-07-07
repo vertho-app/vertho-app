@@ -180,15 +180,22 @@ N4 (Referência): ${d.n4_referencia || 'Não definido'}`;
     perfilCIS += `\nLiderança: Executor=${colab.lid_executivo || 0}% | Motivador=${colab.lid_motivador || 0}% | Metódico=${colab.lid_metodico || 0}% | Sistemático=${colab.lid_sistematico || 0}%`;
   }
 
+  // Prompt caching: os blocos ESTÁVEIS por (empresa, competência, cenário) —
+  // idênticos entre TODOS os colabs do lote — viram o prefixo cacheável; só o
+  // PROFISSIONAL/PERFIL/RESPOSTAS (variáveis) ficam frescos. Seções rotuladas
+  // (═══ … ═══) → a reordenação não muda o que a IA lê por seção.
+  const contextoBlocks: string[] = [];
+  contextoBlocks.push(`═══ EMPRESA ═══\n${empresa?.nome || '—'} (${empresa?.segmento || '—'})`);
+  if (contextoPPP) contextoBlocks.push(`═══ CONTEXTO INSTITUCIONAL ═══\n${contextoPPP}`);
+  contextoBlocks.push(`═══ COMPETÊNCIA AVALIADA ═══\nCódigo: ${compCod}\nNome: ${compNome}`);
+  contextoBlocks.push(`═══ RÉGUA DE MATURIDADE ═══\n${descritoresTexto || '(descritores não disponíveis)'}`);
+  if (cenarioTexto) contextoBlocks.push(`═══ CENÁRIO APRESENTADO ═══\n${cenarioTexto}`);
+  if (perguntasTexto) contextoBlocks.push(`═══ PERGUNTAS E MAPEAMENTO ═══\n${perguntasTexto}`);
+  const cachedUserPrefix = contextoBlocks.join('\n\n');
+
   const userBlocks: string[] = [];
   userBlocks.push(`═══ PROFISSIONAL ═══\nNome: ${colab.nome_completo || '—'}\nCargo: ${colab.cargo || '—'}`);
-  userBlocks.push(`═══ EMPRESA ═══\n${empresa?.nome || '—'} (${empresa?.segmento || '—'})`);
-  if (contextoPPP) userBlocks.push(`═══ CONTEXTO INSTITUCIONAL ═══\n${contextoPPP}`);
   if (perfilCIS) userBlocks.push(`═══ PERFIL COMPORTAMENTAL ═══\n${perfilCIS}\nNOTA: O perfil NÃO altera a nota. Influencia APENAS o tom do feedback.`);
-  userBlocks.push(`═══ COMPETÊNCIA AVALIADA ═══\nCódigo: ${compCod}\nNome: ${compNome}`);
-  userBlocks.push(`═══ RÉGUA DE MATURIDADE ═══\n${descritoresTexto || '(descritores não disponíveis)'}`);
-  if (cenarioTexto) userBlocks.push(`═══ CENÁRIO APRESENTADO ═══\n${cenarioTexto}`);
-  if (perguntasTexto) userBlocks.push(`═══ PERGUNTAS E MAPEAMENTO ═══\n${perguntasTexto}`);
   userBlocks.push(`═══ RESPOSTAS DO PROFISSIONAL ═══
 R1: ${resp.r1 || '(sem resposta)'}
 R2: ${resp.r2 || '(sem resposta)'}
@@ -204,13 +211,14 @@ R4: ${resp.r4 || '(sem resposta)'}`);
 7. Gere insumos — a consolidação matemática é feita depois`);
 
   const user = userBlocks.join('\n\n');
-  let resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8192, IA4_CALL_OPTIONS);
+  const ia4Opts = { ...IA4_CALL_OPTIONS, cachedUserPrefix };
+  let resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8192, ia4Opts);
   let avaliacao = await extractJSON(resultado);
 
   if (!avaliacao) {
     console.warn(`[IA4] retry para ${colab.nome_completo}: primeira resposta sem JSON`);
     const userRetry = `${user}\n\n=== ATENÇÃO ===\nSua resposta anterior não foi um JSON válido. Retorne APENAS o JSON, sem texto antes ou depois, sem markdown.`;
-    resultado = await callAI(IA4_SYSTEM, userRetry, aiConfig, 8192, IA4_CALL_OPTIONS);
+    resultado = await callAI(IA4_SYSTEM, userRetry, aiConfig, 8192, ia4Opts);
     avaliacao = await extractJSON(resultado);
   }
 

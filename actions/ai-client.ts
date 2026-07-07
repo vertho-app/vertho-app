@@ -27,6 +27,12 @@ export interface AICallOptions {
   // default sem disparar o retry do SDK (que dobra o tempo e estoura a rota).
   timeoutMs?: number;
   maxRetries?: number;
+  // Prefixo GRANDE e ESTÁVEL do user message (ex.: régua + cenário + rubrica,
+  // idênticos entre os colaboradores do MESMO lote) — vira um bloco com
+  // `cache_control` próprio no Claude (2º breakpoint, além do system). Em lote
+  // (ex.: IA4 sobre N colabs da mesma competência) as chamadas seguintes em 5min
+  // pagam ~10% nesse trecho. Gemini/OpenAI: concatenado ao user (sem cache).
+  cachedUserPrefix?: string;
 }
 
 export interface ChatMessage {
@@ -98,9 +104,11 @@ export async function callAI(
   const locale = await resolveAILocale(options.locale);
   const localizedSystem = withLanguageInstruction(system, locale);
 
+  // Providers sem prompt caching (Gemini/OpenAI) recebem o prefixo concatenado.
+  const combinedUser = options.cachedUserPrefix ? `${options.cachedUserPrefix}\n\n${user}` : user;
   const dispatch = (m: string) => {
-    if (m.startsWith('gemini')) return callGemini(localizedSystem, user, m, maxTokens);
-    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAI(localizedSystem, user, m, maxTokens);
+    if (m.startsWith('gemini')) return callGemini(localizedSystem, combinedUser, m, maxTokens);
+    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAI(localizedSystem, combinedUser, m, maxTokens);
     return callClaude(localizedSystem, user, m, maxTokens, options);
   };
 
@@ -185,11 +193,21 @@ async function callClaude(
     ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
     : system;
 
+  // 2º breakpoint: prefixo estável do user (régua/cenário) num bloco próprio com
+  // cache_control quando vale a pena (> ~1024 tokens ≈ 4000 chars). Abaixo disso
+  // o cache é no-op → só concatena (evita write inútil).
+  const userContent: any = options.cachedUserPrefix && options.cachedUserPrefix.length > 4000
+    ? [
+        { type: 'text', text: options.cachedUserPrefix, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: user },
+      ]
+    : (options.cachedUserPrefix ? `${options.cachedUserPrefix}\n\n${user}` : user);
+
   const params: any = {
     model,
     max_tokens: maxTokens,
     system: systemBlock,
-    messages: [{ role: 'user', content: user }],
+    messages: [{ role: 'user', content: userContent }],
     ...(options.temperature != null ? { temperature: options.temperature } : {}),
   };
 
