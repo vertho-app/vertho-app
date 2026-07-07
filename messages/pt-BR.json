@@ -3270,7 +3270,17 @@
       "noAudit": "Sem auditoria"
     },
     "filters": {
-      "all": "Todos"
+      "all": "Todos",
+      "statusLabel": "Status",
+      "noteLabel": "Nota de check",
+      "note": {
+        "todos": "Todas",
+        "alto": "≥80",
+        "medio": "60–79",
+        "baixo": "40–59",
+        "critico": "<40",
+        "sem_nota": "Sem nota"
+      }
     },
     "status": {
       "aprovado": "Aprovado",
@@ -3294,6 +3304,22 @@
       "scenario": "Cenário",
       "audit": "Auditoria 2ª IA",
       "collaboratorAnswer": "Resposta do Colaborador"
+    },
+    "bulk": {
+      "selected": "{count} selecionada(s)",
+      "selectAll": "Selecionar todos (filtrados)",
+      "clear": "Limpar",
+      "reavaliar": "Reavaliar lote ({count})",
+      "capWarn": "Lote de até {cap} — divida em lotes menores.",
+      "queued": "Lote enfileirado ({count} avaliações). Você pode sair da tela.",
+      "running": "Reavaliando {atual}/{total}…",
+      "done": "{ok} reavaliada(s) · {errors} falha(s)",
+      "noAudit": "Sem auditoria anterior — não pode ser regenerada",
+      "scopeNote": "Operação cara de IA em lote ({count} avaliações, ~2-3 min cada).",
+      "confirm": {
+        "title": "Reavaliar lote em background",
+        "message": "Regerar o scoring de {count} avaliação(ões) com o feedback da auditoria? Cada uma custa ~2 chamadas de IA. O lote roda em background (Trigger.dev) — você pode continuar usando a tela."
+      }
     }
   },
   "AdminCompanyRadar": {
