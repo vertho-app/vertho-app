@@ -99,7 +99,7 @@ Prerequisito para migracao real: RLS policies por tabela + testes de enforcement
 - `capacitacao`: formalizado via migration 049 (codigo tratava ausencia com try/catch)
 - Divergencias conhecidas e aceitas: colaborador_id nullable, FKs ausentes, indice duplicado
 - Processo anti-drift: `docs/SCHEMA-PROCESS.md`
-- Total na epoca desta secao (2026-04-17): 30 migrations (022-051). **Atualmente: 103 (022-121, com gaps)** — ver `ARQUITETURA.md` secao 8.
+- Total na epoca desta secao (2026-04-17): 30 migrations (022-051). **Atualmente (2026-07-07): 150 (022-169, com gaps)** — ver `ARQUITETURA.md` secao 8.
 
 ### Cobertura de testes
 - **297 testes vitest** (21 arquivos) + 17 specs Playwright (E2E)
