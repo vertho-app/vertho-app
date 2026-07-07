@@ -1,7 +1,6 @@
 'use server';
 
 import Anthropic from '@anthropic-ai/sdk';
-import { AnthropicVertex } from '@anthropic-ai/vertex-sdk';
 import { cookies } from 'next/headers';
 import { AppLocale, defaultLocale } from '@/i18n/routing';
 import { localeCookieName, localeLanguageName, resolveAppLocale } from '@/lib/i18n';
@@ -177,62 +176,6 @@ function extractClaudeText(content: any[]): string {
   return textBlock?.text || '';
 }
 
-// ── Backend do Claude: API direta (default) ou Vertex AI / GCP ───────────────
-// `CLAUDE_BACKEND=vertex` roteia o Claude pelo Vertex (Anthropic no Model Garden)
-// em vez da API direta. Só o CLAUDE muda — Gemini e o fallback GPT-5.4 seguem na
-// OpenAI/Google AI. A API `.messages` é IDÊNTICA nos dois (system, cache_control,
-// thinking, streaming), então nada mais no arquivo precisa saber do backend.
-//
-// Para ligar o Vertex:
-//   1. Habilitar os modelos no Model Garden do projeto GCP (Sonnet 4.6 / Opus 4.6).
-//   2. Auth ADC (a MESMA do TTS) + a SA com role roles/aiplatform.user.
-//   3. **PEDIR QUOTA** — habilitar ≠ quota. Sem aumento de
-//      `aiplatform.googleapis.com/global_online_prediction_requests_per_base_model`
-//      a chamada volta 429 (quota=0). É o passo que trava (validado 07/07).
-//   4. Envs: CLAUDE_BACKEND=vertex, CLAUDE_VERTEX_PROJECT (+ CLAUDE_VERTEX_REGION
-//      só se NÃO for global). Os modelos 4.6/4.8/5 vivem SÓ no endpoint `global`
-//      (regionais têm só modelos antigos) — por isso o default aqui é `global`.
-const CLAUDE_BACKEND = (process.env.CLAUDE_BACKEND || 'api').toLowerCase();
-
-// Mapa ID-do-app → ID-do-Vertex. Nome do publisher Anthropic no Vertex (bare —
-// validado que rotea no endpoint global; `@default`/`@data` também servem via
-// env). Modelo pedido que NÃO esteja aqui passa cru. Habilitados 07/07.
-const CLAUDE_VERTEX_MODEL_MAP: Record<string, string> = {
-  // Em uso hoje pelo app:
-  'claude-sonnet-4-6': process.env.CLAUDE_VERTEX_SONNET   || 'claude-sonnet-4-6',
-  'claude-opus-4-6':   process.env.CLAUDE_VERTEX_OPUS     || 'claude-opus-4-6',
-  // Habilitados para troca futura (o app ainda não os chama):
-  'claude-opus-4-8':   process.env.CLAUDE_VERTEX_OPUS_48  || 'claude-opus-4-8',
-  'claude-sonnet-5':   process.env.CLAUDE_VERTEX_SONNET_5 || 'claude-sonnet-5',
-};
-
-/** Devolve o client Claude e o model resolvido conforme o backend (api|vertex). */
-function resolveClaude(model: string, options: AICallOptions): { client: any; model: string } {
-  const timeout = options.timeoutMs ?? AI_TIMEOUT_MS;
-  const maxRetries = options.maxRetries ?? 1;
-  if (CLAUDE_BACKEND === 'vertex') {
-    // ⚠️ NÃO pronto p/ produção (validado 07/07, auth da SA do TTS OK):
-    //   (1) QUOTA — habilitar no Model Garden NÃO dá quota; sem aumento de
-    //       `global_online_prediction_requests_per_base_model` a chamada volta 429.
-    //       É o passo que trava. Pedir no console (IAM & Admin → Quotas).
-    //   (2) SDK — @anthropic-ai/vertex-sdk 0.19 não reescreve a URL do endpoint
-    //       `global` (dispara `/v1/v1/messages` → 404). Os modelos 4.6/4.8/5 só
-    //       existem no `global`. rawPredict via REST rotea certo (dá o 429 acima).
-    //       Finalizar (SDK corrigido OU rawPredict REST) quando a quota liberar.
-    const vertexModel = CLAUDE_VERTEX_MODEL_MAP[model] || model;
-    const region = process.env.CLAUDE_VERTEX_REGION || 'global';
-    const client = new AnthropicVertex({
-      projectId: process.env.CLAUDE_VERTEX_PROJECT || process.env.GOOGLE_CLOUD_PROJECT,
-      region,
-      timeout,
-      maxRetries,
-    });
-    return { client, model: vertexModel };
-  }
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout, maxRetries });
-  return { client, model };
-}
-
 async function callClaude(
   system: string,
   user: string,
@@ -240,7 +183,11 @@ async function callClaude(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const { client, model: resolvedModel } = resolveClaude(model, options);
+  const client = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    timeout: options.timeoutMs ?? AI_TIMEOUT_MS,
+    maxRetries: options.maxRetries ?? 1,
+  });
 
   const systemBlock: any = typeof system === 'string' && system.length > 4000
     ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
@@ -257,7 +204,7 @@ async function callClaude(
     : (options.cachedUserPrefix ? `${options.cachedUserPrefix}\n\n${user}` : user);
 
   const params: any = {
-    model: resolvedModel,
+    model,
     max_tokens: maxTokens,
     system: systemBlock,
     messages: [{ role: 'user', content: userContent }],
@@ -296,7 +243,7 @@ async function callClaudeChat(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const { client, model: resolvedModel } = resolveClaude(model, options);
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: AI_TIMEOUT_MS, maxRetries: 1 });
 
   // Prompt Caching: se system é grande (>1024 tokens ≈ 4000 chars), marca como
   // cache_control ephemeral. Chamadas subsequentes em 5 min com mesmo system
@@ -306,7 +253,7 @@ async function callClaudeChat(
     : system;
 
   const params: any = {
-    model: resolvedModel,
+    model,
     max_tokens: maxTokens,
     system: systemBlock,
     messages,
