@@ -190,13 +190,18 @@ function extractClaudeText(content: any[]): string {
 //   4. PREENCHER os IDs exatos abaixo (Model Garden mostra o formato `nome@AAAAMMDD`).
 const CLAUDE_BACKEND = (process.env.CLAUDE_BACKEND || 'api').toLowerCase();
 
-// Mapa ID-do-app → ID-do-Vertex. No Vertex o ID leva sufixo de versão com `@`
-// (ex.: 'claude-sonnet-4-5@20250929'). Enquanto estiver '@REPLACE', o backend
-// vertex FALHA DE PROPÓSITO (não silencia com um ID inválido). Preencha após
-// habilitar no Model Garden — ou sobrescreva por env sem editar o código.
+// Mapa ID-do-app → ID-do-Vertex. No Vertex o ID leva sufixo de versão com `@`;
+// `@default` aponta pro release padrão do modelo no Model Garden. Sobrescrevível
+// por env sem editar código. Modelo pedido pelo app que NÃO esteja aqui passa
+// cru (sem `@versão`) → no Vertex provavelmente falha; adicione-o ao mapa.
+// Habilitados no Model Garden do projeto GCP (07/07).
 const CLAUDE_VERTEX_MODEL_MAP: Record<string, string> = {
-  'claude-sonnet-4-6': process.env.CLAUDE_VERTEX_SONNET || 'claude-sonnet-4-6@REPLACE',
-  'claude-opus-4-6':   process.env.CLAUDE_VERTEX_OPUS   || 'claude-opus-4-6@REPLACE',
+  // Em uso hoje pelo app:
+  'claude-sonnet-4-6': process.env.CLAUDE_VERTEX_SONNET   || 'claude-sonnet-4-6@default',
+  'claude-opus-4-6':   process.env.CLAUDE_VERTEX_OPUS     || 'claude-opus-4-6@default',
+  // Habilitados para troca futura (o app ainda não os chama):
+  'claude-opus-4-8':   process.env.CLAUDE_VERTEX_OPUS_48  || 'claude-opus-4-8@default',
+  'claude-sonnet-5':   process.env.CLAUDE_VERTEX_SONNET_5 || 'claude-sonnet-5@default',
 };
 
 /** Devolve o client Claude e o model resolvido conforme o backend (api|vertex). */
