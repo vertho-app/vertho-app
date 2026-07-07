@@ -3270,17 +3270,7 @@
       "noAudit": "No audit"
     },
     "filters": {
-      "all": "All",
-      "statusLabel": "Status",
-      "noteLabel": "Check score",
-      "note": {
-        "todos": "All",
-        "alto": "≥80",
-        "medio": "60–79",
-        "baixo": "40–59",
-        "critico": "<40",
-        "sem_nota": "No score"
-      }
+      "all": "All"
     },
     "status": {
       "aprovado": "Approved",
@@ -3304,22 +3294,6 @@
       "scenario": "Scenario",
       "audit": "2nd AI Audit",
       "collaboratorAnswer": "Team member Response"
-    },
-    "bulk": {
-      "selected": "{count} selected",
-      "selectAll": "Select all (filtered)",
-      "clear": "Clear",
-      "reavaliar": "Re-evaluate batch ({count})",
-      "capWarn": "Batch of up to {cap} — split into smaller batches.",
-      "queued": "Batch queued ({count} evaluations). You can leave the screen.",
-      "running": "Re-evaluating {atual}/{total}…",
-      "done": "{ok} re-evaluated · {errors} failed",
-      "noAudit": "No prior audit — cannot be regenerated",
-      "scopeNote": "Expensive IA batch operation ({count} evaluations, ~2-3 min each).",
-      "confirm": {
-        "title": "Re-evaluate batch in background",
-        "message": "Regenerate scoring for {count} evaluation(s) with the audit feedback? Each costs ~2 IA calls. The batch runs in the background (Trigger.dev) — you can keep using the screen."
-      }
     }
   },
   "AdminCompanyRadar": {

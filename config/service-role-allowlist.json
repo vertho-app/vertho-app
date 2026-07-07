@@ -122,9 +122,6 @@
     "app/proposta/[token]/pdf/route.ts": 1,
     "lib/demo/envio-guard.ts": 1,
     "lib/demo/reset-acme-demo.ts": 1,
-    "lib/sales/permissions.ts": 1,
-    "trigger/acumulada-piloto.ts": 1,
-    "trigger/reavaliar-lote-sem14.ts": 1,
-    "app/admin/vertho/auditoria-sem14/actions.ts": 1
+    "lib/sales/permissions.ts": 1
   }
 }

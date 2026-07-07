@@ -4,31 +4,14 @@
 // /admin/vertho/auditoria-sem14 (Reorganização do admin, Fase 3).
 // As actions permanecem no diretório original.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ChevronRight, X, RefreshCw } from 'lucide-react';
+import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ChevronRight, X } from 'lucide-react';
 import { useConfirm } from '@/components/admin/confirm-dialog';
-import {
-  listarAuditoriasSem14, loadAuditoriaSem14Detalhe, regerarScoringComFeedback,
-  iniciarReavaliacaoLote, statusReavaliacaoLote, REAVALIACAO_LOTE_CAP,
-} from '@/app/admin/vertho/auditoria-sem14/actions';
-
-// Bandas de nota de check (auditoria.nota_auditoria 0-100). 'sem_nota' = sem
-// auditoria registrada (checkbox desabilitado — regerar exige auditoria anterior).
-type NotaBanda = 'todos' | 'alto' | 'medio' | 'baixo' | 'critico' | 'sem_nota';
-function notaBanda(n: number | null | undefined): NotaBanda {
-  if (n == null) return 'sem_nota';
-  const x = Number(n);
-  if (!Number.isFinite(x)) return 'sem_nota';
-  if (x >= 80) return 'alto';
-  if (x >= 60) return 'medio';
-  if (x >= 40) return 'baixo';
-  return 'critico';
-}
-const NOTA_BANDAS: NotaBanda[] = ['todos', 'alto', 'medio', 'baixo', 'critico', 'sem_nota'];
+import { listarAuditoriasSem14, loadAuditoriaSem14Detalhe, regerarScoringComFeedback } from '@/app/admin/vertho/auditoria-sem14/actions';
 
 const STATUS_COR = {
   aprovado: { bg: 'bg-emerald-500/15', text: 'text-emerald-300', border: 'border-emerald-500/30', icon: CheckCircle2, label: 'Aprovado' },
@@ -41,23 +24,14 @@ export default function Sem14Tab({ empresaId }: { empresaId: string | null }) {
   const t = useTranslations('AdminWeek14Audit');
   const locale = useLocale();
   const sb = getSupabase();
-  const confirmDialog = useConfirm();
   const [rows, setRows] = useState([]);
   const [resumo, setResumo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
-  const [filtroNota, setFiltroNota] = useState<NotaBanda>('todos');
-  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
-  const [lote, setLote] = useState<{ loteId: string; status: string; total: number; processados: number; erros: any[] } | null>(null);
-  const [loteBusy, setLoteBusy] = useState(false);
   const [detalheId, setDetalheId] = useState(null);
   const [detalhe, setDetalhe] = useState(null);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
-
-  // Filtragem por nota é client-side (rows já vêm com auditoriaNota). Combina
-  // com o filtro de status (que a action já aplica, mas mantemos por segurança).
-  const filtrados = rows.filter(r => filtroNota === 'todos' || notaBanda(r.auditoriaNota) === filtroNota);
 
   async function carregar() {
     setLoading(true);
@@ -70,70 +44,6 @@ export default function Sem14Tab({ empresaId }: { empresaId: string | null }) {
   }
 
   useEffect(() => { carregar(); }, [filtroStatus, empresaId]);
-
-  // Limpa seleção ao trocar filtros (uma row pode sair do conjunto visível).
-  useEffect(() => { setSelecionados(new Set()); }, [filtroStatus, filtroNota, empresaId]);
-
-  function toggleSel(id: string) {
-    setSelecionados(prev => {
-      const n = new Set(prev);
-      if (n.has(id)) n.delete(id); else n.add(id);
-      return n;
-    });
-  }
-  function toggleTodos() {
-    setSelecionados(prev => {
-      const elegiveis = filtrados.filter(r => r.auditoriaNota != null).map(r => r.id);
-      const todosSel = elegiveis.length > 0 && elegiveis.every(id => prev.has(id));
-      return todosSel ? new Set() : new Set(elegiveis);
-    });
-  }
-
-  const lotePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(() => {
-    if (!lote?.loteId) return;
-    const tick = async () => {
-      try {
-        const r = await statusReavaliacaoLote(lote.loteId);
-        if (!('ok' in r)) return; // erro transiente — mantém polling
-        setLote({ loteId: lote.loteId, status: r.status, total: r.total, processados: r.processados, erros: r.erros || [] });
-        if (r.status === 'done') {
-          if (lotePollRef.current) { clearInterval(lotePollRef.current); lotePollRef.current = null; }
-          setLoteBusy(false);
-          const ok = r.total - (r.erros?.length || 0);
-          if (r.erros?.length) toast.warning(t('bulk.done', { ok, errors: r.erros.length }));
-          else toast.success(t('bulk.done', { ok, errors: 0 }));
-          setSelecionados(new Set());
-          await carregar();
-        }
-      } catch { /* transiente — próxima tick tenta de novo */ }
-    };
-    tick(); // dispara imediatamente
-    lotePollRef.current = setInterval(tick, 5000);
-    return () => { if (lotePollRef.current) { clearInterval(lotePollRef.current); lotePollRef.current = null; } };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lote?.loteId]);
-
-  async function iniciarLote() {
-    const ids = [...selecionados];
-    if (!ids.length) return;
-    const ok = await confirmDialog({
-      title: t('bulk.confirm.title'),
-      message: t('bulk.confirm.message', { count: ids.length }),
-      severity: 'danger',
-      scopeNote: t('bulk.scopeNote', { count: ids.length }),
-    });
-    if (!ok) return;
-    setLoteBusy(true);
-    const r = await iniciarReavaliacaoLote(ids, empresaId);
-    if (r.error) {
-      setLoteBusy(false);
-      toast.error(t('errorPrefix', { error: r.error }));
-      return;
-    }
-    setLote({ loteId: r.loteId, status: 'processing', total: ids.length, processados: 0, erros: [] });
-    toast.success(t('bulk.queued', { count: ids.length }));
-  }
 
   async function abrirDetalhe(id) {
     setDetalheId(id);
@@ -177,8 +87,7 @@ export default function Sem14Tab({ empresaId }: { empresaId: string | null }) {
         </div>
       )}
 
-      <div className="flex gap-2 mb-2 flex-wrap items-center">
-        <span className="text-[10px] uppercase tracking-widest text-gray-500 mr-1">{t('filters.statusLabel')}</span>
+      <div className="flex gap-2 mb-4 flex-wrap">
         {['todos', 'aprovado', 'revisar', 'sem_auditoria'].map(s => (
           <button key={s} onClick={() => setFiltroStatus(s)}
             className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
@@ -191,105 +100,42 @@ export default function Sem14Tab({ empresaId }: { empresaId: string | null }) {
         ))}
       </div>
 
-      <div className="flex gap-2 mb-4 flex-wrap items-center">
-        <span className="text-[10px] uppercase tracking-widest text-gray-500 mr-1">{t('filters.noteLabel')}</span>
-        {NOTA_BANDAS.map(b => (
-          <button key={b} onClick={() => setFiltroNota(b)}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
-              filtroNota === b
-                ? 'bg-purple-500/20 border-purple-400/50 text-purple-300'
-                : 'border-white/10 text-gray-400 hover:text-white'
-            }`}>
-            {t(`filters.note.${b}`)}
-          </button>
-        ))}
-      </div>
-
-      {/* Barra de lote — aparece quando há seleção ou lote em andamento. */}
-      {(selecionados.size > 0 || lote) && (
-        <div className="sticky top-0 z-20 mb-4 rounded-xl border border-cyan-500/30 bg-[#0a0e1a]/95 backdrop-blur p-3 flex items-center gap-3 flex-wrap">
-          {lote ? (
-            <>
-              <Loader2 size={16} className="animate-spin text-cyan-400" />
-              <span className="text-xs text-white font-bold">
-                {lote.status === 'done'
-                  ? t('bulk.done', { ok: lote.total - (lote.erros?.length || 0), errors: lote.erros?.length || 0 })
-                  : t('bulk.running', { atual: lote.processados, total: lote.total })}
-              </span>
-              {lote.erros?.length > 0 && lote.status === 'done' && (
-                <span className="text-[10px] text-amber-300">
-                  {lote.erros.map((e: any) => `${e.colaborador || e.progressoId}: ${e.error}`).slice(0, 3).join(' · ')}
-                  {lote.erros.length > 3 ? ` +${lote.erros.length - 3}` : ''}
-                </span>
-              )}
-            </>
-          ) : (
-            <>
-              <span className="text-xs text-white font-bold">{t('bulk.selected', { count: selecionados.size })}</span>
-              <button onClick={toggleTodos} className="text-[10px] text-cyan-400 hover:underline">
-                {t('bulk.selectAll')}
-              </button>
-              <button onClick={() => setSelecionados(new Set())} className="text-[10px] text-gray-400 hover:underline">
-                {t('bulk.clear')}
-              </button>
-              <div className="flex-1" />
-              <button onClick={iniciarLote} disabled={loteBusy || selecionados.size === 0 || selecionados.size > REAVALIACAO_LOTE_CAP}
-                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-xs font-bold flex items-center gap-2">
-                {loteBusy ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                {t('bulk.reavaliar', { count: selecionados.size })}
-              </button>
-            </>
-          )}
-        </div>
-      )}
-      {selecionados.size > REAVALIACAO_LOTE_CAP && !lote && (
-        <p className="text-[10px] text-amber-300 mb-3">{t('bulk.capWarn', { cap: REAVALIACAO_LOTE_CAP })}</p>
-      )}
-
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 size={28} className="animate-spin text-cyan-400" />
         </div>
-      ) : filtrados.length === 0 ? (
+      ) : rows.length === 0 ? (
         <p className="text-center py-12 text-sm text-gray-500">{t('empty')}</p>
       ) : (
         <div className="space-y-2">
-          {filtrados.map(r => {
+          {rows.map(r => {
             const cfg = STATUS_COR[r.auditoriaStatus] || STATUS_COR.sem_auditoria;
             const Icon = cfg.icon;
-            const sel = selecionados.has(r.id);
-            const semAuditoria = r.auditoriaNota == null;
             return (
-              <div key={r.id}
-                onClick={() => abrirDetalhe(r.id)}
-                className={`w-full text-left rounded-xl border ${cfg.border} ${cfg.bg} hover:brightness-110 transition-all p-4 flex items-center gap-3 cursor-pointer ${sel ? 'ring-1 ring-cyan-400/60' : ''}`}>
-                <input type="checkbox"
-                  checked={sel}
-                  disabled={semAuditoria}
-                  title={semAuditoria ? t('bulk.noAudit') : ''}
-                  onClick={e => e.stopPropagation()}
-                  onChange={() => toggleSel(r.id)}
-                  className="accent-cyan-500 w-4 h-4 shrink-0 disabled:opacity-30" />
-                <Icon size={18} className={cfg.text + ' shrink-0'} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-bold text-white truncate">{r.colaborador}</p>
-                    <span className="text-[10px] text-gray-400">· {r.cargo}</span>
-                    <span className="text-[10px] text-gray-500">· {r.empresa}</span>
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-0.5 truncate">
-                    {r.competencia} · T{r.temporada}
-                    {r.deltaMedio != null && <> · Δ médio <span className="text-cyan-400 font-bold">{Number(r.deltaMedio).toFixed(2)}</span></>}
-                    {r.auditoriaNota != null && <> · Auditoria <span className={cfg.text + ' font-bold'}>{r.auditoriaNota}/100</span></>}
-                  </p>
-                  {r.auditoriaAlertas.length > 0 && (
-                    <p className="text-[10px] text-amber-300 mt-1 truncate">
-                      ⚠ {r.auditoriaAlertas.slice(0, 2).map(a => typeof a === 'string' ? a : (a.detalhe || a.descricao || a.tipo || '')).join(' · ')}
+              <button key={r.id} onClick={() => abrirDetalhe(r.id)}
+                className={`w-full text-left rounded-xl border ${cfg.border} ${cfg.bg} hover:brightness-110 transition-all p-4`}>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Icon size={18} className={cfg.text} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-bold text-white truncate">{r.colaborador}</p>
+                      <span className="text-[10px] text-gray-400">· {r.cargo}</span>
+                      <span className="text-[10px] text-gray-500">· {r.empresa}</span>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                      {r.competencia} · T{r.temporada}
+                      {r.deltaMedio != null && <> · Δ médio <span className="text-cyan-400 font-bold">{Number(r.deltaMedio).toFixed(2)}</span></>}
+                      {r.auditoriaNota != null && <> · Auditoria <span className={cfg.text + ' font-bold'}>{r.auditoriaNota}/100</span></>}
                     </p>
-                  )}
+                    {r.auditoriaAlertas.length > 0 && (
+                      <p className="text-[10px] text-amber-300 mt-1 truncate">
+                        ⚠ {r.auditoriaAlertas.slice(0, 2).map(a => typeof a === 'string' ? a : (a.detalhe || a.descricao || a.tipo || '')).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                  <ChevronRight size={14} className="text-gray-500 shrink-0" />
                 </div>
-                <ChevronRight size={14} className="text-gray-500 shrink-0" />
-              </div>
+              </button>
             );
           })}
         </div>

@@ -1,16 +1,12 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
 import { pontuarFechamento } from '@/lib/season-engine/fechamento-scorer';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
-import { tasks } from '@trigger.dev/sdk';
-import { regionOpts } from '@/lib/trigger-region';
-import type { reavaliarLoteSem14Task } from '@/trigger/reavaliar-lote-sem14';
 
 /**
  * Lista auditorias da semana 14 de todas as empresas.
@@ -93,27 +89,15 @@ export async function listarAuditoriasSem14(filtros: any = {}) {
  * Regera o scoring da sem 14 injetando o feedback da auditoria anterior
  * no prompt do scorer — a IA corrige com base nos alertas.
  * Depois roda check de novo.
- *
- * Auth: passar `internal={ empresaId }` pula o gate de admin — usado pela task
- * Trigger.dev do lote (sem sessão). `empresaId` null (platform admin Vertho)
- * pula o assert de tenant (lote inter-tenant); setado rejeita trilha de outro
- * tenant. Mesmo padrão B5 de gerarEvolutionReport/gerarAvaliacaoAcumulada.
- * Sem `internal` → gate de admin (caller do modal).
  */
-export async function regerarScoringComFeedback(progressoId, internal?: { empresaId: string | null }) {
-  if (!internal) await requireAdminAction('ai.audit.regenerate');
+export async function regerarScoringComFeedback(progressoId) {
+  await requireAdminAction('ai.audit.regenerate');
 
-  const sb = internal ? createSupabaseAdmin() : await requireAdminSupabase();
+  const sb = await requireAdminSupabase();
   const { data: prog } = await sb.from('temporada_semana_progresso')
     .select('id, trilha_id, empresa_id, colaborador_id, feedback')
     .eq('id', progressoId).maybeSingle();
   if (!prog) return { error: 'Registro não encontrado' };
-
-  // B5: caller interno (service-role) prova o tenant; rejeita trilha de outro
-  // tenant (trilhaId forjado). empresaId null = platform admin → pula.
-  if (internal && internal.empresaId && prog.empresa_id !== internal.empresaId) {
-    return { error: 'Registro de outro tenant — acesso negado' };
-  }
 
   const fb = prog.feedback || {};
   const auditoriaAnterior = fb.auditoria;
@@ -216,11 +200,10 @@ ${ajustesTexto}`;
   };
   await sb.from('temporada_semana_progresso').update({ feedback: novoFb }).eq('id', prog.id).eq('empresa_id', prog.empresa_id);
 
-  // Regenera Evolution Report — repassa `internal` (sem isso, no worker Trigger
-  // cairia no gate de admin → FORBIDDEN silencioso, mesmo bug do piloto pré-B5).
+  // Regenera Evolution Report
   try {
     const { gerarEvolutionReport } = await import('@/actions/evolution-report');
-    await gerarEvolutionReport(prog.trilha_id, internal);
+    await gerarEvolutionReport(prog.trilha_id);
   } catch (e) { console.warn('[regerar ER]', e.message); }
 
   return { ok: true, novaNota: auditoria?.nota_auditoria, novoStatus: auditoria?.status, meta: resultado.meta };
@@ -275,90 +258,4 @@ export async function loadAuditoriaSem14Detalhe(progressoId) {
       auditoria: fb.auditoria,
     },
   };
-}
-
-/**
- * Capacidade máxima de um lote. Cada regeneração custa ~2 chamadas de IA
- * (~2-3 min); a task Trigger tem maxDuration 1800s (30 min). 10×~3min cabe
- * com folga. Acima disso o caller (UI) desabilita o botão e pede pra dividir.
- */
-export const REAVALIACAO_LOTE_CAP = 10;
-
-/**
- * Inicia um lote de reavaliação da Sem 14 em background (Trigger.dev).
- * Cria a row de rastreio (status='processing') e dispara a task.
- *
- * @param progressoIds ids de temporada_semana_progresso (Sem 14) — todos devem
- *                     ter auditoria anterior (senão regerarScoringComFeedback rejeita).
- * @param empresaId    tenant do caller (null = platform admin Vertho, lote inter-tenant).
- */
-export async function iniciarReavaliacaoLote(progressoIds: string[], empresaId: string | null = null) {
-  await requireAdminAction('ai.audit.regenerate');
-
-  if (!Array.isArray(progressoIds) || progressoIds.length === 0) {
-    return { error: 'Selecione ao menos uma avaliação.' };
-  }
-  if (progressoIds.length > REAVALIACAO_LOTE_CAP) {
-    return { error: `Lote de até ${REAVALIACAO_LOTE_CAP} avaliações por vez (divida em lotes menores).` };
-  }
-
-  const sb = await requireAdminSupabase();
-
-  // Valida que todos têm auditoria anterior (regerar exige) — 1 query batch.
-  const { data: progs, error: eProgs } = await sb.from('temporada_semana_progresso')
-    .select('id, feedback->auditoria, empresa_id')
-    .in('id', progressoIds);
-  if (eProgs) return { error: eProgs.message };
-  const semAuditoria = (progs || []).filter((p: any) => !p.auditoria);
-  if (semAuditoria.length) {
-    return { error: `${semAuditoria.length} avaliação(ões) selecionada(s) sem auditoria anterior — remova-as do lote.` };
-  }
-  // Tenant admin só pode regenerar itens da própria empresa.
-  if (empresaId) {
-    const fora = (progs || []).filter((p: any) => p.empresa_id !== empresaId);
-    if (fora.length) return { error: 'Lote contém avaliações de outra empresa.' };
-  }
-
-  const { data: lote, error: eLote } = await sb.from('auditoria_reavaliacao_lote')
-    .insert({
-      progresso_ids: progressoIds,
-      total: progressoIds.length,
-      status: 'processing',
-      empresa_id: empresaId,
-    })
-    .select('id').single();
-  if (eLote) return { error: eLote.message };
-
-  try {
-    await tasks.trigger<typeof reavaliarLoteSem14Task>(
-      'reavaliar-lote-sem14',
-      { loteId: lote.id, progressoIds, empresaId },
-      regionOpts(),
-    );
-  } catch (e: any) {
-    // Task não deployada / Trigger indisponível → marca erro e sinaliza. Não há
-    // fallback inline viável (N×~2-3min excede maxDuration de server action); o
-    // caller mostra a mensagem e aponta pra regeneração individual pelo modal.
-    await sb.from('auditoria_reavaliacao_lote')
-      .update({ status: 'done', erros: [{ error: `Trigger indisponível: ${String(e?.message || e).slice(0, 300)}` }] })
-      .eq('id', lote.id);
-    return { error: 'Lote exige o worker Trigger.dev (task reavaliar-lote-sem14). Verifique o deploy ou regenere individualmente pelo modal de detalhe.' };
-  }
-
-  return { ok: true, loteId: lote.id };
-}
-
-/**
- * Status do lote pra polling do admin ver progresso ("Reavaliando X/Y") e
- * resultado ao final (ok/erros).
- */
-export async function statusReavaliacaoLote(loteId: string) {
-  await requireAdminAction();
-  const sb = await requireAdminSupabase();
-  const { data, error } = await sb.from('auditoria_reavaliacao_lote')
-    .select('status, total, processados, erros')
-    .eq('id', loteId).maybeSingle();
-  if (error) return { error: error.message };
-  if (!data) return { error: 'Lote não encontrado' };
-  return { ok: true, ...data };
 }

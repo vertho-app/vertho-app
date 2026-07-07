@@ -3717,17 +3717,7 @@
       "noAudit": "Sem auditoria"
     },
     "filters": {
-      "all": "Todos",
-      "statusLabel": "Estado",
-      "noteLabel": "Nota de check",
-      "note": {
-        "todos": "Todas",
-        "alto": "≥80",
-        "medio": "60–79",
-        "baixo": "40–59",
-        "critico": "<40",
-        "sem_nota": "Sin nota"
-      }
+      "all": "Todos"
     },
     "status": {
       "aprovado": "Aprovado",
@@ -3751,22 +3741,6 @@
       "scenario": "Cenário",
       "audit": "Auditoria 2ª IA",
       "collaboratorAnswer": "Resposta do Colaborador"
-    },
-    "bulk": {
-      "selected": "{count} seleccionada(s)",
-      "selectAll": "Seleccionar todos (filtrados)",
-      "clear": "Limpiar",
-      "reavaliar": "Reevaluar lote ({count})",
-      "capWarn": "Lote de hasta {cap} — divida en lotes más pequeños.",
-      "queued": "Lote en cola ({count} evaluaciones). Puede salir de la pantalla.",
-      "running": "Reevaluando {atual}/{total}…",
-      "done": "{ok} reevaluada(s) · {errors} fallo(s)",
-      "noAudit": "Sin auditoría previa — no se puede regenerar",
-      "scopeNote": "Operación costosa de IA en lote ({count} evaluaciones, ~2-3 min c/u).",
-      "confirm": {
-        "title": "Reevaluar lote en segundo plano",
-        "message": "¿Regenerar el scoring de {count} evaluación(es) con el feedback de la auditoría? Cada una cuesta ~2 llamadas de IA. El lote corre en segundo plano (Trigger.dev) — puede seguir usando la pantalla."
-      }
     }
   },
   "AdminMarketPotential": {
