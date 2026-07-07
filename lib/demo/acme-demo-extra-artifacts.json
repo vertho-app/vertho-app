@@ -2334,5 +2334,2298 @@
       "sugestao_check": null,
       "alertas_check": []
     }
-  ]
+  ],
+  "personaArtifacts": {
+    "mariana.demo@vertho.ai": {
+      "respostas": [
+        {
+          "competencia_nome": "Controle, Precisão e Confiabilidade dos Dados",
+          "avaliacao_ia": {
+            "cargo": "Analista Financeiro",
+            "feedback": {
+              "tom_base": "acolhedor e estruturado — perfil CS valoriza reconhecimento de cuidado com qualidade e método; feedback construtivo deve ser específico e apresentado como oportunidade de evolução, não como crítica",
+              "resumo_geral": "Mariana demonstra maturidade técnica consistente nas dimensões de execução, priorização e aprendizado contínuo, com uma postura de controle que reflete comprometimento genuíno com a qualidade dos dados. Há um gap relevante na dimensão de colaboração e negociação com outras áreas, que pode limitar sua efetividade em cenários de fechamento interdependente. O próximo passo natural é tornar visível, para além da própria área, o rigor que já aplica internamente.",
+              "recomendacoes": [
+                "Na próxima situação em que precisar de dados de outra área para fechar um relatório, documente brevemente: quem você acionou, o que negociou e qual foi o resultado — isso constrói evidência concreta para D05.",
+                "Ao compartilhar aprendizados com a área (algo que você já faz), experimente estruturar em formato de mini-retrospectiva com causa, ajuste feito e próximo passo — isso eleva o impacto do que você já pratica e aproxima do nível N4 em D06.",
+                "Nas comunicações com stakeholders, experimente incluir explicitamente o que ainda está em verificação e quando vai ter a informação consolidada — isso torna sua comunicação ainda mais confiável e reduz ansiedade em quem depende dos seus números."
+              ],
+              "mensagem_positiva": "Você demonstrou uma sequência de execução cuidadosa e bem fundamentada: corrigir na origem, deixar rastro auditável, registrar premissas e comunicar impactos antes do fechamento. Isso é exatamente o padrão que garante confiabilidade nos dados e proteção às decisões da gestão. Seu ciclo de aprendizado — medir correções, atualizar o checklist na causa-raiz e compartilhar o aprendizado com a área — mostra que você não apenas resolve problemas, mas trabalha para que eles não se repitam.",
+              "mensagem_construtiva": "Um ponto de crescimento importante é ampliar a visibilidade da sua atuação nas negociações com outras áreas. Quando a precisão de um dado depende de informações que vêm do Comercial ou de Operações, como você aciona esse fluxo? Como você negocia prazo ou qualidade com quem está do outro lado? Trazer esse tipo de evidência — situacional, com interlocutores e resultado — vai mostrar que seu rigor técnico não fica limitado ao Financeiro, mas se traduz em coordenação efetiva com o restante da empresa."
+            },
+            "competencia": {
+              "nome": "Controle, Precisão e Confiabilidade dos Dados",
+              "codigo": "FIN01"
+            },
+            "consolidacao": {
+              "gap": 0,
+              "nivel_geral": 3,
+              "confianca_geral": 0.78,
+              "travas_aplicadas": [
+                "Nenhuma"
+              ],
+              "media_descritores": 3.22,
+              "notas_por_descritor": {
+                "D1": {
+                  "nome": "FIN01-D02 — Critério de priorização e tomada de decisão",
+                  "nivel": 3,
+                  "confianca": 0.82,
+                  "sustentacao": "forte",
+                  "nota_decimal": 3.23
+                },
+                "D2": {
+                  "nome": "FIN01-D03 — Execução com método e acompanhamento",
+                  "nivel": 3,
+                  "confianca": 0.85,
+                  "sustentacao": "forte",
+                  "nota_decimal": 3.5
+                },
+                "D3": {
+                  "nome": "FIN01-D04 — Comunicação com stakeholders",
+                  "nivel": 3,
+                  "confianca": 0.75,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 3.07
+                },
+                "D4": {
+                  "nome": "FIN01-D05 — Colaboração e negociação de dependências",
+                  "nivel": 2,
+                  "confianca": 0.65,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.93
+                },
+                "D5": {
+                  "nome": "FIN01-D06 — Aprendizado, ética e melhoria contínua",
+                  "nivel": 3,
+                  "confianca": 0.82,
+                  "sustentacao": "forte",
+                  "nota_decimal": 3.5
+                },
+                "D6": {
+                  "nome": "FIN01-D01 — Leitura do contexto e identificação do problema",
+                  "nivel": 3,
+                  "confianca": 0.77,
+                  "sustentacao": "forte",
+                  "nota_decimal": 3.1
+                }
+              }
+            },
+            "profissional": "Mariana Lopes",
+            "recomendacoes_pdi": [
+              {
+                "acao": "Mapear as dependências de dados do processo de fechamento (quais informações vêm de quais áreas) e estabelecer um ritual de acionamento antecipado — com prazo, critério de qualidade esperado e canal definido para cada dependência.",
+                "nivel_meta": 3,
+                "descritor_foco": "FIN01-D05",
+                "por_que_importa": "Fechamentos com dependências não gerenciadas são a principal fonte de retrabalho e atraso; dominar essa articulação eleva a confiabilidade do processo como um todo.",
+                "barreira_provavel": "Perfil CS tende a preferir resolver internamente antes de acionar outros — pode postergar o contato com áreas parceiras até que o problema já seja urgente.",
+                "nivel_atual_sugerido": 2
+              },
+              {
+                "acao": "Estruturar um modelo breve de comunicação de status para stakeholders-chave durante o fechamento: o que está confirmado, o que está em verificação, qual o impacto potencial e quando haverá atualização.",
+                "nivel_meta": 3,
+                "descritor_foco": "FIN01-D04",
+                "por_que_importa": "Comunicação estruturada reduz retrabalho causado por decisões tomadas com dados incompletos e constrói credibilidade junto à liderança.",
+                "barreira_provavel": "O cuidado com a precisão pode levar a postergar a comunicação até ter certeza absoluta — o modelo de status parcial ajuda a superar essa resistência sem comprometer o rigor.",
+                "nivel_atual_sugerido": 3
+              },
+              {
+                "acao": "Registrar os aprendizados de fechamento em formato compartilhável (ex.: nota curta na retrospectiva quinzenal da empresa) e propor ao menos uma melhoria de processo por ciclo que possa ser adotada pela área.",
+                "nivel_meta": 4,
+                "descritor_foco": "FIN01-D06",
+                "por_que_importa": "Elevar o padrão do time — não apenas o próprio — é o que diferencia um N3 sólido de uma referência N4.",
+                "barreira_provavel": "Compartilhar erros e ajustes publicamente pode gerar desconforto para perfis de alto C — enquadrar como 'melhoria de processo' (não como falha pessoal) facilita a adoção.",
+                "nivel_atual_sugerido": 3
+              }
+            ],
+            "descritores_destaque": {
+              "pontos_fortes": [
+                {
+                  "nivel": 3,
+                  "descritor": "FIN01-D03 — Execução com método e acompanhamento",
+                  "evidencia_resumida": "Descreveu sequência encadeada de execução (correção na origem, rastro auditável, reconciliação, registro, comunicação) e ciclo de acompanhamento pós-ciclo com métrica própria."
+                },
+                {
+                  "nivel": 3,
+                  "descritor": "FIN01-D06 — Aprendizado, ética e melhoria contínua",
+                  "evidencia_resumida": "Demonstrou ciclo completo: medir correções, identificar causa-raiz, atualizar checklist e compartilhar aprendizado com a área."
+                },
+                {
+                  "nivel": 3,
+                  "descritor": "FIN01-D02 — Critério de priorização e tomada de decisão",
+                  "evidencia_resumida": "Critério hierárquico explícito e consistente em três respostas: confiabilidade acima de velocidade, priorizando o que trava decisão da gestão."
+                }
+              ],
+              "gaps_prioritarios": [
+                {
+                  "nivel": 2,
+                  "descritor": "FIN01-D05 — Colaboração e negociação de dependências",
+                  "o_que_faltou": "Não descreveu como articula dependências com outras áreas (Comercial, Operações), como conduz negociações em situações de bloqueio ou como aciona a cadeia quando a precisão dos dados depende de terceiros."
+                },
+                {
+                  "nivel": 3,
+                  "descritor": "FIN01-D04 — Comunicação com stakeholders",
+                  "o_que_faltou": "Comunicação proativa está presente, mas sem detalhe de audiência, formato, frequência ou gestão de reações adversas — sustentação fraca para um N3 consolidado."
+                }
+              ]
+            },
+            "insumos_consolidacao": {
+              "alertas_metodologicos": [
+                "Todas as respostas são descrições de método em primeira pessoa sem ancoragem em casos reais vividos — aumenta risco de avaliação baseada em intenção declarada, não em comportamento verificado",
+                "FIN01-D05 (Colaboração e negociação de dependências) apresenta evidência muito fragmentária; o nível sugerido (N2) deve ser tratado com cautela — recomenda-se triangulação com avaliação de liderança ou pares",
+                "Perfil CS (alto C e S) é consistente com o padrão de respostas: foco em método, precisão, rastreabilidade e compartilhamento cuidadoso — não compromete a avaliação, mas explica ausência de elementos mais assertivos em D05"
+              ],
+              "descritores_sem_sustentacao": [],
+              "descritores_com_evidencia_forte": [
+                "FIN01-D02",
+                "FIN01-D03",
+                "FIN01-D06",
+                "FIN01-D01"
+              ],
+              "descritores_com_evidencia_fraca": [
+                "FIN01-D04",
+                "FIN01-D05"
+              ]
+            },
+            "avaliacao_por_resposta": {
+              "R1": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "FIN01-D01 — Leitura do contexto e identificação do problema",
+                    "numero": 6,
+                    "limites": "A resposta descreve método com clareza e conecta à consequência decisória (não reportar número que induza decisão errada). Não há contexto de caso real vivido nem resultado mensurado, o que impede N4. Mas a lógica de diagnóstico é estruturada e vai além do superficial.",
+                    "confianca": 0.8,
+                    "evidencia": "Isolo o problema central e valido a base. Cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio.",
+                    "nota_decimal": 3.2
+                  },
+                  {
+                    "nome": "FIN01-D02 — Critério de priorização e tomada de decisão",
+                    "numero": 1,
+                    "limites": "Há critério claro de priorização (impacto decisório), mas não há descrição de como aplica esse critério operacionalmente em múltiplos contextos ou como escalaria/priorizaria em disputa de urgências. Suficiente para N3, não para N4.",
+                    "confianca": 0.75,
+                    "evidencia": "Separo erro de lançamento de efeito real de negócio — para não reportar um número que induza a diretoria a uma decisão errada.",
+                    "nota_decimal": 3
+                  }
+                ]
+              },
+              "R2": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "FIN01-D03 — Execução com método e acompanhamento",
+                    "numero": 2,
+                    "limites": "Sequência de ações bem encadeada (correção na origem, reconciliação, registro, comunicação, prazo). Vocabulário técnico adequado. Falta evidência de resultado verificável ou de como monitora se a correção foi efetiva após o ciclo. Próximo de N4 pelo encadeamento sistemático, mas sem evidência de revisão posterior dentro desta resposta.",
+                    "confianca": 0.85,
+                    "evidencia": "Corrijo na origem e deixo rastro auditável: reconcilio contra o razão, ajusto o lançamento, registro a premissa e comunico o impacto na margem antes do fechamento. Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo.",
+                    "nota_decimal": 3.5
+                  },
+                  {
+                    "nome": "FIN01-D02 — Critério de priorização e tomada de decisão",
+                    "numero": 1,
+                    "limites": "Critério explícito e funcional. Sem descrição de como resolve conflitos de prioridade entre múltiplas demandas simultâneas.",
+                    "confianca": 0.8,
+                    "evidencia": "Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo.",
+                    "nota_decimal": 3.2
+                  },
+                  {
+                    "nome": "FIN01-D04 — Comunicação com stakeholders",
+                    "numero": 3,
+                    "limites": "Menciona comunicação proativa antes do fechamento e conecta ao impacto (margem). Não detalha forma, frequência, audiência específica ou como lida com reação dos stakeholders.",
+                    "confianca": 0.75,
+                    "evidencia": "Comunico o impacto na margem antes do fechamento.",
+                    "nota_decimal": 3
+                  }
+                ]
+              },
+              "R3": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "FIN01-D02 — Critério de priorização e tomada de decisão",
+                    "numero": 1,
+                    "limites": "Critério hierárquico explicitado com clareza (confiabilidade > velocidade). Demonstra maturidade decisória. Não há exemplo de situação real em que esse trade-off foi testado, o que limita a N3 sólido, não N4.",
+                    "confianca": 0.85,
+                    "evidencia": "Meu critério é confiabilidade acima de velocidade: prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro.",
+                    "nota_decimal": 3.5
+                  },
+                  {
+                    "nome": "FIN01-D04 — Comunicação com stakeholders",
+                    "numero": 3,
+                    "limites": "Comunicação proativa e negociação de prazo mencionadas. Falta detalhe sobre como conduz essa negociação, quem são os interlocutores, e qual o desfecho típico.",
+                    "confianca": 0.8,
+                    "evidencia": "Sinalizo cedo o que ainda está em verificação e negocio prazo quando a precisão exige.",
+                    "nota_decimal": 3.2
+                  },
+                  {
+                    "nome": "FIN01-D05 — Colaboração e negociação de dependências",
+                    "numero": 4,
+                    "limites": "A negociação de prazo implica colaboração com outros, mas é mencionada de forma muito breve e sem contexto de dependências entre áreas ou de como articula essa negociação com diferentes partes.",
+                    "confianca": 0.65,
+                    "evidencia": "Negocio prazo quando a precisão exige.",
+                    "nota_decimal": 2.8
+                  }
+                ]
+              },
+              "R4": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "FIN01-D03 — Execução com método e acompanhamento",
+                    "numero": 2,
+                    "limites": "Evidência de acompanhamento pós-ciclo com métrica própria (número de correções). Atualização do checklist na causa-raiz demonstra sistemática de controle. Falta mencionar partilha com outros para caracterizar N4 pleno.",
+                    "confianca": 0.85,
+                    "evidencia": "Comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz.",
+                    "nota_decimal": 3.5
+                  },
+                  {
+                    "nome": "FIN01-D06 — Aprendizado, ética e melhoria contínua",
+                    "numero": 5,
+                    "limites": "Ciclo completo de aprendizado: identificar gap, ajustar controle, comunicar à área. O compartilhamento com a área toca em N4 (ajudar outros a elevar o padrão), mas o nível de detalhamento não permite confirmar sistematicidade.",
+                    "confianca": 0.85,
+                    "evidencia": "Atualizo o checklist de fechamento na causa-raiz. Se algo passou, ajusto o controle para não repetir e explico o aprendizado para a área.",
+                    "nota_decimal": 3.5
+                  },
+                  {
+                    "nome": "FIN01-D05 — Colaboração e negociação de dependências",
+                    "numero": 4,
+                    "limites": "Colaboração aparece como disseminação de aprendizado. Não há evidência de como negocia dependências com outras áreas (ex.: Comercial, Operações) no processo de fechamento ou de como aciona bloqueios.",
+                    "confianca": 0.7,
+                    "evidencia": "Explico o aprendizado para a área.",
+                    "nota_decimal": 3
+                  },
+                  {
+                    "nome": "FIN01-D01 — Leitura do contexto e identificação do problema",
+                    "numero": 6,
+                    "limites": "Uso de métrica para entender o padrão de erros demonstra leitura analítica do contexto. Mas não há descrição de como interpreta o ambiente institucional ou sinaliza riscos contextuais além dos técnicos.",
+                    "confianca": 0.7,
+                    "evidencia": "Meço quantas correções vieram da minha revisão.",
+                    "nota_decimal": 3
+                  }
+                ]
+              }
+            },
+            "avaliacao_por_descritor": [
+              {
+                "nome": "FIN01-D02 — Critério de priorização e tomada de decisão",
+                "numero": 1,
+                "racional": "Critério hierárquico consistente e explícito em três respostas distintas, demonstrando aplicação com consciência — N3 sólido; N4 exigiria evidência de influência sobre o padrão alheio.",
+                "confianca": 0.82,
+                "evidencias": [
+                  {
+                    "trecho": "Separo erro de lançamento de efeito real de negócio — para não reportar um número que induza a diretoria a uma decisão errada.",
+                    "resposta": "R1",
+                    "forca_evidencia": "forte"
+                  },
+                  {
+                    "trecho": "Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo.",
+                    "resposta": "R2",
+                    "forca_evidencia": "forte"
+                  },
+                  {
+                    "trecho": "Meu critério é confiabilidade acima de velocidade: prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro.",
+                    "resposta": "R3",
+                    "forca_evidencia": "forte"
+                  }
+                ],
+                "sustentacao": "forte",
+                "nota_decimal": 3.23,
+                "nivel_sugerido": 3,
+                "limites_da_evidencia": [
+                  "Não há relato de situação real em que o critério foi testado sob pressão",
+                  "Não descreve como resolve conflito de prioridades simultâneas",
+                  "Não há evidência de disseminação do critério para o time (requisito N4)"
+                ]
+              },
+              {
+                "nome": "FIN01-D03 — Execução com método e acompanhamento",
+                "numero": 2,
+                "racional": "Sequência de execução bem estruturada em R2 e ciclo de acompanhamento pós-ciclo em R4 demonstram método consistente — está no topo do N3, beirando N4 pela sistematicidade, mas sem evidência de impacto além do próprio escopo.",
+                "confianca": 0.85,
+                "evidencias": [
+                  {
+                    "trecho": "Corrijo na origem e deixo rastro auditável: reconcilio contra o razão, ajusto o lançamento, registro a premissa e comunico o impacto na margem antes do fechamento.",
+                    "resposta": "R2",
+                    "forca_evidencia": "forte"
+                  },
+                  {
+                    "trecho": "Comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz.",
+                    "resposta": "R4",
+                    "forca_evidencia": "forte"
+                  }
+                ],
+                "sustentacao": "forte",
+                "nota_decimal": 3.5,
+                "nivel_sugerido": 3,
+                "limites_da_evidencia": [
+                  "Não há resultado verificável externo (ex.: redução de retrabalho medida ao longo do tempo)",
+                  "Não há evidência de que ajuda outros a adotar o mesmo método (requisito N4 pleno)"
+                ]
+              },
+              {
+                "nome": "FIN01-D04 — Comunicação com stakeholders",
+                "numero": 3,
+                "racional": "As ações de comunicação proativa estão presentes (sinalizar cedo, comunicar impacto antes do fechamento), mas a evidência é breve e sem contexto operacional — N3 com confiança moderada; sustentação fraca impede pontuação mais alta.",
+                "confianca": 0.75,
+                "evidencias": [
+                  {
+                    "trecho": "Comunico o impacto na margem antes do fechamento.",
+                    "resposta": "R2",
+                    "forca_evidencia": "moderada"
+                  },
+                  {
+                    "trecho": "Sinalizo cedo o que ainda está em verificação e negocio prazo quando a precisão exige.",
+                    "resposta": "R3",
+                    "forca_evidencia": "moderada"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 3.07,
+                "nivel_sugerido": 3,
+                "limites_da_evidencia": [
+                  "Não descreve a audiência (quem são os stakeholders específicos)",
+                  "Não detalha formato, frequência ou canal de comunicação",
+                  "Não relata como lida com reação adversa ou resistência dos interlocutores",
+                  "Ausência de exemplo situacional concreto"
+                ]
+              },
+              {
+                "nome": "FIN01-D05 — Colaboração e negociação de dependências",
+                "numero": 4,
+                "racional": "As menções são fragmentárias e sem sustentação contextual — indicam reconhecimento da necessidade de colaborar (N2), mas não demonstram condução consistente de negociações com dependências entre áreas (N3).",
+                "confianca": 0.65,
+                "evidencias": [
+                  {
+                    "trecho": "Negocio prazo quando a precisão exige.",
+                    "resposta": "R3",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "Explico o aprendizado para a área.",
+                    "resposta": "R4",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.93,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Não há descrição de como aciona ou negocia dependências com outras áreas (Comercial, Operações)",
+                  "Negociação de prazo é mencionada sem contexto de quem, como e com qual resultado",
+                  "Disseminação de aprendizado para 'a área' é vaga — não indica com quem, como ou qual impacto",
+                  "Não há evidência de articulação em situações de bloqueio interdepartamental"
+                ]
+              },
+              {
+                "nome": "FIN01-D06 — Aprendizado, ética e melhoria contínua",
+                "numero": 5,
+                "racional": "Ciclo completo de melhoria contínua demonstrado: medir, identificar causa, ajustar controle e compartilhar — N3 sólido com traço de N4 não suficientemente sustentado para elevar o nível.",
+                "confianca": 0.82,
+                "evidencias": [
+                  {
+                    "trecho": "Atualizo o checklist de fechamento na causa-raiz. Se algo passou, ajusto o controle para não repetir e explico o aprendizado para a área.",
+                    "resposta": "R4",
+                    "forca_evidencia": "forte"
+                  },
+                  {
+                    "trecho": "Meço quantas correções vieram da minha revisão.",
+                    "resposta": "R4",
+                    "forca_evidencia": "moderada"
+                  }
+                ],
+                "sustentacao": "forte",
+                "nota_decimal": 3.5,
+                "nivel_sugerido": 3,
+                "limites_da_evidencia": [
+                  "O compartilhamento com 'a área' toca em N4, mas sem detalhe de sistematicidade ou impacto verificável",
+                  "Não há evidência de registro formal de aprendizados em processos institucionais (ex.: retrospectiva)",
+                  "Aspecto ético não foi explicitamente abordado"
+                ]
+              },
+              {
+                "nome": "FIN01-D01 — Leitura do contexto e identificação do problema",
+                "numero": 6,
+                "racional": "Diagnóstico técnico estruturado e com critério de causa-raiz — demonstra leitura analítica consistente do problema, caracterizando N3; ausência de antecipação proativa impede N4.",
+                "confianca": 0.77,
+                "evidencias": [
+                  {
+                    "trecho": "Isolo o problema central e valido a base. Cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio.",
+                    "resposta": "R1",
+                    "forca_evidencia": "forte"
+                  },
+                  {
+                    "trecho": "Meço quantas correções vieram da minha revisão.",
+                    "resposta": "R4",
+                    "forca_evidencia": "moderada"
+                  }
+                ],
+                "sustentacao": "forte",
+                "nota_decimal": 3.1,
+                "nivel_sugerido": 3,
+                "limites_da_evidencia": [
+                  "Leitura de contexto está focada no dado técnico; não há evidência de leitura do ambiente organizacional mais amplo (ex.: pressões de ciclo, sinais de risco sistêmico)",
+                  "Não demonstra antecipação de problemas antes que se manifestem (requisito N4)"
+                ]
+              }
+            ]
+          },
+          "nivel_ia4": 3,
+          "nota_ia4": "3.22",
+          "pontos_fortes": "FIN01-D03 — Execução com método e acompanhamento; FIN01-D06 — Aprendizado, ética e melhoria contínua; FIN01-D02 — Critério de priorização e tomada de decisão",
+          "pontos_atencao": "FIN01-D05 — Colaboração e negociação de dependências; FIN01-D04 — Comunicação com stakeholders",
+          "feedback_ia4": "Mariana demonstra maturidade técnica consistente nas dimensões de execução, priorização e aprendizado contínuo, com uma postura de controle que reflete comprometimento genuíno com a qualidade dos dados. Há um gap relevante na dimensão de colaboração e negociação com outras áreas, que pode limitar sua efetividade em cenários de fechamento interdependente. O próximo passo natural é tornar visível, para além da própria área, o rigor que já aplica internamente.\nVocê demonstrou uma sequência de execução cuidadosa e bem fundamentada: corrigir na origem, deixar rastro auditável, registrar premissas e comunicar impactos antes do fechamento. Isso é exatamente o padrão que garante confiabilidade nos dados e proteção às decisões da gestão. Seu ciclo de aprendizado — medir correções, atualizar o checklist na causa-raiz e compartilhar o aprendizado com a área — mostra que você não apenas resolve problemas, mas trabalha para que eles não se repitam.\nUm ponto de crescimento importante é ampliar a visibilidade da sua atuação nas negociações com outras áreas. Quando a precisão de um dado depende de informações que vêm do Comercial ou de Operações, como você aciona esse fluxo? Como você negocia prazo ou qualidade com quem está do outro lado? Trazer esse tipo de evidência — situacional, com interlocutores e resultado — vai mostrar que seu rigor técnico não fica limitado ao Financeiro, mas se traduz em coordenação efetiva com o restante da empresa.",
+          "payload_ia4": null,
+          "status_ia4": null
+        },
+        {
+          "competencia_nome": "Critério e Ética no Tratamento de Informações",
+          "avaliacao_ia": {
+            "cargo": "Analista Financeiro",
+            "feedback": {
+              "tom_base": "acolhedor e estruturado — perfil CS valoriza estabilidade, clareza de critérios e ambiente de confiança; feedback deve reconhecer o esforço metodológico e apresentar gaps com precisão e encorajamento, sem confronto direto",
+              "resumo_geral": "Mariana demonstra uma base técnica sólida no que se refere a método de trabalho financeiro: sabe cruzar fontes, manter rastreabilidade e revisar processos após ciclos. O princípio ético que declara — 'confiabilidade acima de velocidade' — é exatamente o que a competência FIN05 espera. O desafio identificado é que as respostas descrevem a rotina técnica habitual, mas não respondem ao dilema situacional específico que o cenário apresenta: uma pressão explícita para registrar receita sem base documental, com nome, prazo e risco real.",
+              "recomendacoes": [
+                "Na próxima situação de pressão de fechamento, experimente nomear explicitamente o trade-off antes de agir: 'Aqui há uma escolha entre X e Y — meu critério para decidir é Z.' Isso torna a lógica ética visível para todos.",
+                "Treine a comunicação estruturada com gestores em situações de risco: ao acionar Raquel, use o formato: valor envolvido / origem da divergência / risco do precedente / prazo / sua recomendação. Isso demonstra protagonismo, não apenas aviso.",
+                "Após episódios de pressão sobre fechamentos, traga o caso (despersonalizado) para a retrospectiva quinzenal da empresa — é exatamente para isso que o rito existe, e essa ação transforma aprendizado individual em maturidade coletiva.",
+                "Ao responder cenários situacionais, procure ancorar a resposta nos personagens e fatos do caso (Rodrigo, Raquel, R$87k, prazo das 18h) — isso demonstra leitura contextual, não apenas metodologia abstrata."
+              ],
+              "mensagem_positiva": "Você demonstrou consistência metodológica: a lógica de reconciliar contra o razão, registrar premissa e comunicar impacto antes do fechamento é exatamente o que um Analista Financeiro proficiente deve fazer. E a frase 'prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro' expressa com muita clareza o princípio ético que diferencia profissionais confiáveis. Isso é uma base excelente para evoluir.",
+              "mensagem_construtiva": "O que ficou como ponto de atenção é que as respostas abordaram o método geral de trabalho financeiro, mas deixaram sem resposta o núcleo do cenário: o que fazer quando alguém com poder (Rodrigo, gerente comercial) pede diretamente para incluir um número sem base documental — e você assina a conciliação? A competência FIN05 não avalia apenas se você sabe reconciliar dados — avalia se você consegue sustentar uma posição ética sob pressão real, comunicar isso com clareza para quem precisa ouvir (Rodrigo e Raquel), e transformar o episódio em melhoria sistêmica. Esses são os próximos passos para consolidar N3."
+            },
+            "competencia": {
+              "nome": "Critério e Ética no Tratamento de Informações",
+              "codigo": "FIN05"
+            },
+            "consolidacao": {
+              "gap": 1,
+              "nivel_geral": 2,
+              "confianca_geral": 0.7,
+              "travas_aplicadas": [
+                "Nenhuma"
+              ],
+              "media_descritores": 2.17,
+              "notas_por_descritor": {
+                "D1": {
+                  "nome": "Leitura do contexto e identificação do problema",
+                  "nivel": 2,
+                  "confianca": 0.75,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2
+                },
+                "D2": {
+                  "nome": "Critério de priorização e tomada de decisão",
+                  "nivel": 2,
+                  "confianca": 0.72,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.33
+                },
+                "D3": {
+                  "nome": "Execução com método e acompanhamento",
+                  "nivel": 2,
+                  "confianca": 0.7,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.33
+                },
+                "D4": {
+                  "nome": "Comunicação com stakeholders",
+                  "nivel": 2,
+                  "confianca": 0.65,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2
+                },
+                "D5": {
+                  "nome": "Colaboração e negociação de dependências",
+                  "nivel": 2,
+                  "confianca": 0.65,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2
+                },
+                "D6": {
+                  "nome": "Aprendizado, ética e melhoria contínua",
+                  "nivel": 2,
+                  "confianca": 0.72,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.33
+                }
+              }
+            },
+            "profissional": "Mariana Lopes",
+            "recomendacoes_pdi": [
+              {
+                "acao": "Praticar análise de casos reais ou simulados onde o dilema não é apenas técnico, mas envolve pressão relacional ou ética — identificando explicitamente os trade-offs antes de agir",
+                "nivel_meta": 3,
+                "descritor_foco": "D1 — Leitura do contexto e identificação do problema",
+                "por_que_importa": "Sem ler o contexto ético da situação, as ações técnicas corretas podem ser tomadas pelas razões erradas ou sem articular o critério para quem precisa entender",
+                "barreira_provavel": "Tendência a resolver o problema pelo ângulo técnico antes de nomear o componente ético — o que é uma virtude de execução, mas pode mascarar a dimensão do dilema",
+                "nivel_atual_sugerido": 2
+              },
+              {
+                "acao": "Desenvolver o hábito de estruturar comunicações de risco com o formato: contexto / valor / origem / risco do precedente / prazo / recomendação — especialmente ao acionar a gestora em situações críticas",
+                "nivel_meta": 3,
+                "descritor_foco": "D4 — Comunicação com stakeholders",
+                "por_que_importa": "A comunicação estruturada transforma um 'aviso' em protagonismo — e é o que diferencia um analista que informa de um analista que ajuda a gestão a decidir com segurança",
+                "barreira_provavel": "Perfil CS pode ter tendência a comunicar de forma cautelosa e incompleta para evitar conflito — o que, em situações de risco, pode ser lido como omissão",
+                "nivel_atual_sugerido": 2
+              },
+              {
+                "acao": "Simular cenários de pressão com pares ou gestor, praticando como sustentar uma posição técnica com firmeza e abertura — reconhecendo a frustração do interlocutor sem recuar do critério",
+                "nivel_meta": 3,
+                "descritor_foco": "D5 — Colaboração e negociação de dependências",
+                "por_que_importa": "A capacidade de manter o critério técnico-ético sob pressão relacional é o que distingue um profissional confiável de um flexível por conveniência",
+                "barreira_provavel": "Perfil CS tende a evitar confronto — o que pode se manifestar como resposta técnica sem endereçar a tensão relacional, deixando o conflito sem resolução real",
+                "nivel_atual_sugerido": 2
+              },
+              {
+                "acao": "Após episódios críticos de fechamento, levar o caso (despersonalizado) à retrospectiva quinzenal com proposta concreta de protocolo — ex.: critério formal de corte de competência de receita com base documental",
+                "nivel_meta": 3,
+                "descritor_foco": "D6 — Aprendizado, ética e melhoria contínua",
+                "por_que_importa": "O aprendizado que fica restrito ao checklist pessoal não protege a empresa — o que protege é quando o critério se torna coletivo e não depende da postura individual do analista de plantão",
+                "barreira_provavel": "Tendência a internalizar aprendizados sem compartilhar, seja por modéstia ou por evitar exposição — o que limita o impacto sistêmico da própria maturidade",
+                "nivel_atual_sugerido": 2
+              }
+            ],
+            "descritores_destaque": {
+              "pontos_fortes": [
+                {
+                  "nivel": 2,
+                  "descritor": "Aprendizado, ética e melhoria contínua (D6)",
+                  "evidencia_resumida": "Declaração clara de princípio ético ('confiabilidade acima de velocidade', 'número auditável com ressalva explícita') e método de revisão pós-ciclo com métricas (previsto vs. realizado, volume de correções, atualização de checklist)"
+                },
+                {
+                  "nivel": 2,
+                  "descritor": "Execução com método e acompanhamento (D3)",
+                  "evidencia_resumida": "Descrição de método de reconciliação (cruzar fontes, reconciliar contra razão, registrar premissa) demonstra consciência de rastreabilidade contábil"
+                }
+              ],
+              "gaps_prioritarios": [
+                {
+                  "nivel": 2,
+                  "descritor": "Leitura do contexto e identificação do problema (D1)",
+                  "o_que_faltou": "Reconhecer o dilema ético central: a solicitação de Rodrigo para registrar receita sem base documental e o trade-off entre integridade do fechamento e pressão de meta"
+                },
+                {
+                  "nivel": 2,
+                  "descritor": "Comunicação com stakeholders (D4)",
+                  "o_que_faltou": "Demonstrar comunicação estruturada com destinatários específicos — como comunicaria a Rodrigo sua posição com clareza e sem julgamento, e como acionaria Raquel com problema estruturado (valor, risco, prazo, recomendação)"
+                },
+                {
+                  "nivel": 2,
+                  "descritor": "Colaboração e negociação de dependências (D5)",
+                  "o_que_faltou": "Evidenciar como sustentaria a posição técnica diante da pressão e da reação adversa de Rodrigo, sem recuar e sem escalar o conflito desnecessariamente, propondo alternativa concreta"
+                }
+              ]
+            },
+            "insumos_consolidacao": {
+              "alertas_metodologicos": [
+                "As 4 respostas foram formuladas em linguagem procedimental e abstrata, desvinculadas do cenário específico — avaliando o método genérico de trabalho ao invés de responder à situação apresentada (Rodrigo, Raquel, prazo das 18h, solicitação ética).",
+                "Nenhuma resposta menciona Rodrigo, Raquel, o valor de R$87k, o prazo de 18h ou qualquer elemento nominal do cenário — isso reduz fortemente a confiança em todas as avaliações.",
+                "A ausência de engajamento com o dilema ético central (incluir ou não incluir sem base documental, assinar a conciliação) é a limitação mais grave e afeta D1, D2, D3 e D6 de forma direta.",
+                "Risco de resposta preparada/genérica: as respostas parecem descrever uma rotina habitual de trabalho financeiro, não uma decisão diante de um dilema situacional específico."
+              ],
+              "descritores_sem_sustentacao": [],
+              "descritores_com_evidencia_forte": [],
+              "descritores_com_evidencia_fraca": [
+                "D1",
+                "D2",
+                "D3",
+                "D4",
+                "D5",
+                "D6"
+              ]
+            },
+            "avaliacao_por_resposta": {
+              "R1": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Leitura do contexto e identificação do problema",
+                    "numero": 1,
+                    "limites": "A resposta descreve um método genérico de diagnóstico financeiro, sem referenciar o dilema ético central do cenário (solicitação de Rodrigo, pressão de meta, precedente do ano anterior). Não há reconhecimento explícito do trade-off entre integridade do fechamento e a relação com Comercial/meta. O critério ético e técnico que sustentaria a decisão de não incluir os R$87k não foi articulado. Resposta mais procedimental que situacional.",
+                    "confianca": 0.75,
+                    "evidencia": "'isolo o problema central e valido a base', 'cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio'",
+                    "nota_decimal": 2
+                  },
+                  {
+                    "nome": "Execução com método e acompanhamento",
+                    "numero": 3,
+                    "limites": "Há descrição de método de verificação, mas sem concretude sobre o que faz com o resultado: não menciona a recusa em registrar sem base documental, nem articula o encaminhamento dado à situação (escalar, aguardar, registrar). A frase sobre 'não induzir a diretoria' sugere consciência de impacto, mas fica no nível da intenção, não da ação.",
+                    "confianca": 0.7,
+                    "evidencia": "'cruzo as fontes', 'separo erro de lançamento de efeito real de negócio', 'para não reportar um número que induza a diretoria a uma decisão errada'",
+                    "nota_decimal": 2.33
+                  }
+                ]
+              },
+              "R2": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Critério de priorização e tomada de decisão",
+                    "numero": 2,
+                    "limites": "A resposta apresenta critério técnico claro (rastreabilidade, registro de premissa, comunicação de impacto antes do fechamento) e priorização funcional. Contudo, não endereça a dimensão ética do cenário: não há menção à decisão de não incluir os R$87k sem base documental, nem ao conflito com a solicitação de Rodrigo. A decisão descrita parece assumir que a correção técnica já é suficiente, ignorando que o cenário exige uma posição ética explícita.",
+                    "confianca": 0.72,
+                    "evidencia": "'Corrijo na origem e deixo rastro auditável: reconcilio contra o razão, ajusto o lançamento, registro a premissa e comunico o impacto na margem antes do fechamento'",
+                    "nota_decimal": 2.5
+                  },
+                  {
+                    "nome": "Comunicação com stakeholders",
+                    "numero": 4,
+                    "limites": "Comunicação mencionada de forma muito genérica e sem destinatário explícito. Não há evidência de como Rodrigo seria comunicado (clareza, sem julgamento pessoal), nem de como Raquel seria acionada com o problema estruturado (valor, origem, risco, prazo, recomendação). A régua de N3 exige comunicação estruturada com stakeholders específicos — o que não foi demonstrado.",
+                    "confianca": 0.65,
+                    "evidencia": "'comunico o impacto na margem antes do fechamento'",
+                    "nota_decimal": 2
+                  }
+                ]
+              },
+              "R3": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Colaboração e negociação de dependências",
+                    "numero": 5,
+                    "limites": "Há indício de disposição para negociar condições (prazo), mas sem contexto situacional: não menciona como lidaria com a reação adversa de Rodrigo ('Financeiro sempre trava o Comercial'), não demonstra capacidade de reconhecer a tensão sem recuar, nem propõe encaminhamento concreto para o impasse. A postura de 'sinalizar cedo' é positiva, mas insuficiente para N3 considerando a profundidade exigida pela pergunta.",
+                    "confianca": 0.65,
+                    "evidencia": "'negocio prazo quando a precisão exige', 'Sinalizo cedo o que ainda está em verificação'",
+                    "nota_decimal": 2
+                  },
+                  {
+                    "nome": "Aprendizado, ética e melhoria contínua",
+                    "numero": 6,
+                    "limites": "A frase expressa um princípio ético com clareza e é a evidência mais robusta de postura ética em toda a avaliação. Porém, permanece declarativa: não há descrição de como este princípio foi aplicado no episódio concreto do cenário, nem de ação de melhoria sistêmica gerada a partir do aprendizado. Fica no nível de valor pessoal, não de prática institucionalizada.",
+                    "confianca": 0.7,
+                    "evidencia": "'Meu critério é confiabilidade acima de velocidade: prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro'",
+                    "nota_decimal": 2.33
+                  }
+                ]
+              },
+              "R4": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Comunicação com stakeholders",
+                    "numero": 4,
+                    "limites": "Menção muito superficial. Não há descrição de como o aprendizado seria comunicado, para quem, em qual rito (ex.: retrospectiva), com qual estrutura. Não evidencia comunicação estruturada com Raquel ou com Comercial. A frase é genérica e não atende ao critério de N3 para comunicação com stakeholders.",
+                    "confianca": 0.6,
+                    "evidencia": "'explico o aprendizado para a área'",
+                    "nota_decimal": 2
+                  },
+                  {
+                    "nome": "Aprendizado, ética e melhoria contínua",
+                    "numero": 6,
+                    "limites": "Há método de revisão pós-ciclo com indicadores próprios (previsto vs. realizado, volume de correções) e menção a atualização de checklist. Isso é positivo. Porém, o aprendizado descrito é técnico-operacional (checklist, controle) e privado/da área imediata — não há menção a levar o caso à retrospectiva institucional, propor protocolo formal com Controladoria ou abordar o precedente ético gerado pela solicitação de Rodrigo. A melhoria fica aquém do esperado para N3 no contexto do cenário apresentado.",
+                    "confianca": 0.72,
+                    "evidencia": "'comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz. Se algo passou, ajusto o controle para não repetir e explico o aprendizado para a área'",
+                    "nota_decimal": 2.33
+                  }
+                ]
+              }
+            },
+            "avaliacao_por_descritor": [
+              {
+                "nome": "Leitura do contexto e identificação do problema",
+                "numero": 1,
+                "racional": "Demonstra habilidade de diagnóstico técnico (cruzamento de fontes, isolamento de inconsistência), mas não demonstra leitura do contexto ético e de pressão situacional que é o núcleo do cenário — o que limita a avaliação a N2.",
+                "confianca": 0.75,
+                "evidencias": [
+                  {
+                    "trecho": "'isolo o problema central e valido a base', 'cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio'",
+                    "resposta": "R1",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Não reconhece o dilema ético central: a solicitação de Rodrigo para registrar receita sem base documental",
+                  "Não nomeia o trade-off entre integridade do fechamento e pressão de meta/relação com Comercial",
+                  "Não menciona o precedente do ano anterior como risco sistêmico",
+                  "Não articula o critério técnico-ético que sustentaria a recusa de incluir os R$87k",
+                  "Leitura de contexto limitada à dimensão técnica, sem a dimensão ética exigida pelo cenário"
+                ]
+              },
+              {
+                "nome": "Critério de priorização e tomada de decisão",
+                "numero": 2,
+                "racional": "Apresenta critério técnico de priorização (rastreabilidade, prazo, impacto na gestão), mas a dimensão ética da tomada de decisão — central para o cenário — não foi abordada, impedindo N3.",
+                "confianca": 0.72,
+                "evidencias": [
+                  {
+                    "trecho": "'Corrijo na origem e deixo rastro auditável: reconcilio contra o razão, ajusto o lançamento, registro a premissa e comunico o impacto na margem antes do fechamento. Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo'",
+                    "resposta": "R2",
+                    "forca_evidencia": "moderada"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.33,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Não demonstra a decisão explícita de não incluir os R$87k sem base documental",
+                  "Ignora a solicitação de Rodrigo como variável de decisão",
+                  "Critério de priorização descrito é técnico-operacional, sem dimensão ética da escolha",
+                  "Não evidencia consciência de que assinar a conciliação com informação sem base implica risco pessoal e institucional"
+                ]
+              },
+              {
+                "nome": "Execução com método e acompanhamento",
+                "numero": 3,
+                "racional": "Há método de execução descrito (reconciliação, registro de premissa, rastreabilidade), mas falta concretude situacional e acompanhamento de resultado — fica em N2 por ser parcial e descontextualizado.",
+                "confianca": 0.7,
+                "evidencias": [
+                  {
+                    "trecho": "'cruzo as fontes, encontro a inconsistência na origem', 'para não reportar um número que induza a diretoria a uma decisão errada'",
+                    "resposta": "R1",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'reconcilio contra o razão, ajusto o lançamento, registro a premissa'",
+                    "resposta": "R2",
+                    "forca_evidencia": "moderada"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.33,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Execução descrita de forma genérica/procedimental, sem ancoragem no cenário específico",
+                  "Não descreve como lida com o prazo de 18h e a ausência de Raquel até as 16h",
+                  "Não evidencia acompanhamento do resultado da decisão nem da comunicação gerada",
+                  "Metodologia presente, mas sem evidência de execução contextualizada ao dilema"
+                ]
+              },
+              {
+                "nome": "Comunicação com stakeholders",
+                "numero": 4,
+                "racional": "As menções a comunicação são pontuais e genéricas — sem evidência de comunicação estruturada com stakeholders específicos como exige N3, configurando N2.",
+                "confianca": 0.65,
+                "evidencias": [
+                  {
+                    "trecho": "'comunico o impacto na margem antes do fechamento'",
+                    "resposta": "R2",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'explico o aprendizado para a área'",
+                    "resposta": "R4",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Não evidencia comunicação estruturada com Rodrigo (clareza sobre o que não pode fazer e por quê, sem julgamento)",
+                  "Não evidencia como acionaria Raquel com o problema estruturado: valor, origem, risco, prazo, recomendação",
+                  "Comunicação mencionada sem destinatário específico, sem formato, sem conteúdo",
+                  "Não menciona registro escrito para rastreabilidade da comunicação",
+                  "Ausência de evidência de como comunicaria resultado do aprendizado institucional"
+                ]
+              },
+              {
+                "nome": "Colaboração e negociação de dependências",
+                "numero": 5,
+                "racional": "Há indício de disposição para sinalizar e negociar condições, mas sem evidência de como gere a tensão relacional e o conflito concreto com Rodrigo — insuficiente para N3.",
+                "confianca": 0.65,
+                "evidencias": [
+                  {
+                    "trecho": "'negocio prazo quando a precisão exige', 'Sinalizo cedo o que ainda está em verificação'",
+                    "resposta": "R3",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Não demonstra como lidaria com a reação adversa de Rodrigo ('inflexível', 'Financeiro trava o Comercial')",
+                  "Não evidencia reconhecimento da tensão sem recuar da posição técnica",
+                  "Não propõe encaminhamento concreto para o impasse (ex.: nota de receita a realizar em novembro)",
+                  "Negociação de prazo é mencionada mas sem contexto situacional aplicado ao cenário",
+                  "Colaboração com Comercial não foi descrita em nenhum momento"
+                ]
+              },
+              {
+                "nome": "Aprendizado, ética e melhoria contínua",
+                "numero": 6,
+                "racional": "Expressa princípio ético relevante e método de revisão pós-ciclo, mas o aprendizado fica restrito ao técnico-individual, sem institucionalização — aquém de N3.",
+                "confianca": 0.72,
+                "evidencias": [
+                  {
+                    "trecho": "'Meu critério é confiabilidade acima de velocidade: prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro'",
+                    "resposta": "R3",
+                    "forca_evidencia": "moderada"
+                  },
+                  {
+                    "trecho": "'comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz. Se algo passou, ajusto o controle para não repetir e explico o aprendizado para a área'",
+                    "resposta": "R4",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.33,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Princípio ético declarado, mas não aplicado ao episódio concreto do cenário",
+                  "Melhoria descrita é técnica (checklist, controle) e de escopo individual/área imediata",
+                  "Não menciona levar o caso à retrospectiva institucional prevista na empresa",
+                  "Não propõe protocolo formal de corte de competência de receita com base documental",
+                  "Não aborda o precedente ético (prática do ano anterior citada por Rodrigo) como objeto de aprendizado sistêmico",
+                  "Melhoria não é compartilhada com Controladoria ou Comercial de forma estruturada"
+                ]
+              }
+            ]
+          },
+          "nivel_ia4": 2,
+          "nota_ia4": "2.17",
+          "pontos_fortes": "Aprendizado, ética e melhoria contínua (D6); Execução com método e acompanhamento (D3)",
+          "pontos_atencao": "Leitura do contexto e identificação do problema (D1); Comunicação com stakeholders (D4); Colaboração e negociação de dependências (D5)",
+          "feedback_ia4": "Mariana demonstra uma base técnica sólida no que se refere a método de trabalho financeiro: sabe cruzar fontes, manter rastreabilidade e revisar processos após ciclos. O princípio ético que declara — 'confiabilidade acima de velocidade' — é exatamente o que a competência FIN05 espera. O desafio identificado é que as respostas descrevem a rotina técnica habitual, mas não respondem ao dilema situacional específico que o cenário apresenta: uma pressão explícita para registrar receita sem base documental, com nome, prazo e risco real.\nVocê demonstrou consistência metodológica: a lógica de reconciliar contra o razão, registrar premissa e comunicar impacto antes do fechamento é exatamente o que um Analista Financeiro proficiente deve fazer. E a frase 'prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro' expressa com muita clareza o princípio ético que diferencia profissionais confiáveis. Isso é uma base excelente para evoluir.\nO que ficou como ponto de atenção é que as respostas abordaram o método geral de trabalho financeiro, mas deixaram sem resposta o núcleo do cenário: o que fazer quando alguém com poder (Rodrigo, gerente comercial) pede diretamente para incluir um número sem base documental — e você assina a conciliação? A competência FIN05 não avalia apenas se você sabe reconciliar dados — avalia se você consegue sustentar uma posição ética sob pressão real, comunicar isso com clareza para quem precisa ouvir (Rodrigo e Raquel), e transformar o episódio em melhoria sistêmica. Esses são os próximos passos para consolidar N3.",
+          "payload_ia4": null,
+          "status_ia4": null
+        },
+        {
+          "competencia_nome": "Comunicação Financeira para Não Especialistas",
+          "avaliacao_ia": {
+            "cargo": "Analista Financeiro",
+            "feedback": {
+              "tom_base": "acolhedor e estruturado — perfil CS valoriza segurança, clareza e consistência; o feedback deve reconhecer o rigor técnico enquanto abre espaço seguro para reflexão sobre lacunas de comunicação interpessoal",
+              "resumo_geral": "Mariana demonstra sólida base técnica e orientação a método — especialmente na forma como estrutura revisões, atualiza checklists e valoriza auditabilidade. O principal gap identificado nesta avaliação é que as respostas não se conectaram ao cenário situacional apresentado: a competência FIN04 avalia especificamente a habilidade de comunicar dados financeiros para não especialistas e gerenciar riscos junto a interlocutores de outras áreas — dimensão que não apareceu nas respostas. Isso não significa ausência da competência, mas sinaliza uma oportunidade importante de desenvolvimento na ponte entre o rigor técnico e a comunicação orientada a decisão.",
+              "recomendacoes": [
+                "Pratique a 'tradução de impacto': antes de apresentar qualquer dado financeiro a um gestor de outra área, pergunte-se 'o que isso significa para a decisão dele hoje?' e construa a comunicação a partir dessa resposta.",
+                "Desenvolva o hábito de formalizar alertas por escrito quando há risco financeiro relevante e o gestor responsável minimiza ou ignora — um e-mail curto registrando o dado, o risco e a decisão tomada protege todas as partes.",
+                "Na próxima retrospectiva de ciclo, proponha incluir um item específico sobre 'comunicação de alertas financeiros para outras áreas': o que funcionou, o que gerou ruído, o que poderia ser sinalizado de forma mais clara desde o relatório."
+              ],
+              "mensagem_positiva": "O comprometimento com auditabilidade é genuíno e valioso: a preocupação com 'número auditável com ressalva explícita', a prática de atualizar o checklist na causa-raiz e medir quantas correções vieram da revisão própria mostram um padrão de trabalho consistente e confiável. Esse rigor é a base certa para evoluir na comunicação financeira.",
+              "mensagem_construtiva": "O desafio central aqui é a translação: pegar esse mesmo rigor técnico e traduzi-lo para o impacto que o gestor de outra área precisa entender para tomar uma boa decisão. No cenário do Projeto Beta, Renata não precisava entender 'margem de contribuição ajustada por rateio de overhead' — ela precisava ouvir 'cada real faturado nesse projeto custa R$ 1,47 à empresa, e aprovar a expansão agora aprofunda o prejuízo'. Além disso, quando um alerta é ignorado, o papel do financeiro não termina na explicação — registrar o risco formalmente, informar a Controladoria e documentar que a decisão foi tomada com ciência dos dados são ações que protegem a empresa e a própria analista."
+            },
+            "competencia": {
+              "nome": "Comunicação Financeira para Não Especialistas",
+              "codigo": "FIN04"
+            },
+            "consolidacao": {
+              "gap": 2,
+              "nivel_geral": 1,
+              "confianca_geral": 0.78,
+              "travas_aplicadas": [
+                "4 descritores N1 → nível geral máximo N1"
+              ],
+              "media_descritores": 1.67,
+              "notas_por_descritor": {
+                "D1": {
+                  "nome": "Leitura do contexto e identificação do problema",
+                  "nivel": 1,
+                  "confianca": 0.8,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 1.5
+                },
+                "D2": {
+                  "nome": "Critério de priorização e tomada de decisão",
+                  "nivel": 1,
+                  "confianca": 0.8,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 1.5
+                },
+                "D3": {
+                  "nome": "Execução com método e acompanhamento",
+                  "nivel": 2,
+                  "confianca": 0.75,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2
+                },
+                "D4": {
+                  "nome": "Comunicação com stakeholders",
+                  "nivel": 1,
+                  "confianca": 0.85,
+                  "sustentacao": "insuficiente",
+                  "nota_decimal": 1.5
+                },
+                "D5": {
+                  "nome": "Colaboração e negociação de dependências",
+                  "nivel": 1,
+                  "confianca": 0.75,
+                  "sustentacao": "insuficiente",
+                  "nota_decimal": 1.5
+                },
+                "D6": {
+                  "nome": "Aprendizado, ética e melhoria contínua",
+                  "nivel": 2,
+                  "confianca": 0.7,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2
+                }
+              }
+            },
+            "profissional": "Mariana Lopes",
+            "recomendacoes_pdi": [
+              {
+                "acao": "Criar um glossário de 5 a 8 indicadores financeiros com tradução para linguagem de negócio (ex.: 'margem negativa = a empresa perde dinheiro a cada real faturado nesse projeto') e usar em apresentações para gestores de outras áreas, validando entendimento ao final com uma pergunta direta.",
+                "nivel_meta": 3,
+                "descritor_foco": "D4",
+                "por_que_importa": "A competência FIN04 é sobre decisão, não sobre cálculo — e decisões de qualidade dependem de gestores que entendem os dados.",
+                "barreira_provavel": "Perfil CS tende a preferir a precisão técnica e pode sentir desconforto em 'simplificar demais' — o desafio é entender que simplificar não é perder rigor, é ampliar impacto.",
+                "nivel_atual_sugerido": 1
+              },
+              {
+                "acao": "Desenvolver um critério pessoal de triagem de prioridade baseado em risco financeiro e irreversibilidade de decisão (ex.: 'se a demanda envolve decisão irreversível com impacto acima de X em 48 horas, tem prioridade sobre demandas internas — e comunico isso proativamente a quem será impactado').",
+                "nivel_meta": 3,
+                "descritor_foco": "D2",
+                "por_que_importa": "Saber priorizar com critério e comunicar o trade-off é o que diferencia um analista reativo de um parceiro estratégico.",
+                "barreira_provavel": "Hesitação em desapontar ou renegociar prazos com hierarquia superior (Controladoria/diretoria) — o perfil CS tende a evitar conflito; praticar essa comunicação em situações de baixo risco ajuda a construir confiança.",
+                "nivel_atual_sugerido": 1
+              },
+              {
+                "acao": "Participar ativamente do rito semanal de prioridades da ACME Demo trazendo pelo menos um alerta financeiro traduzido para linguagem de negócio, e propor à Controladoria um protocolo simples de escalada quando gestores de outras áreas tomam decisões com risco financeiro confirmado.",
+                "nivel_meta": 3,
+                "descritor_foco": "D5",
+                "por_que_importa": "Colaboração financeira além da área própria é o que transforma dados em decisões melhores para o negócio inteiro.",
+                "barreira_provavel": "Perfil CS pode preferir trabalhar de forma independente e estruturada antes de envolver outras áreas — iniciar com agenda definida e pauta clara reduz a ambiguidade e aumenta o conforto para colaborar.",
+                "nivel_atual_sugerido": 1
+              },
+              {
+                "acao": "Após o encerramento do próximo ciclo crítico, conduzir uma retrospectiva estruturada que inclua não apenas ajustes de checklist contábil, mas também avaliação da qualidade da comunicação de riscos: 'o alerta foi entendido? chegou cedo o suficiente? o formato foi adequado para o interlocutor?'",
+                "nivel_meta": 3,
+                "descritor_foco": "D6",
+                "por_que_importa": "O aprendizado mais valioso neste episódio não é técnico — é comunicacional, e incorporá-lo ao processo eleva o padrão coletivo da área.",
+                "barreira_provavel": "Tendência a focar no que é mensurável e controlável (checklists, correções, erros contábeis) em detrimento do que é mais subjetivo (qualidade da comunicação interpessoal) — estruturar perguntas objetivas para a retrospectiva ajuda a tornar esse aspecto concreto.",
+                "nivel_atual_sugerido": 2
+              }
+            ],
+            "descritores_destaque": {
+              "pontos_fortes": [
+                {
+                  "nivel": 2,
+                  "descritor": "Execução com método e acompanhamento (D3)",
+                  "evidencia_resumida": "Em R4, descreve método de comparação previsto vs. realizado, mensuração de correções e atualização de checklist na causa-raiz — a resposta mais concreta e estruturada do conjunto."
+                },
+                {
+                  "nivel": 2,
+                  "descritor": "Aprendizado, ética e melhoria contínua (D6)",
+                  "evidencia_resumida": "Demonstra disposição para ajustar controles após erro e compartilhar aprendizado, além de declarar critério de confiabilidade acima de velocidade."
+                }
+              ],
+              "gaps_prioritarios": [
+                {
+                  "nivel": 1,
+                  "descritor": "Comunicação com stakeholders (D4)",
+                  "o_que_faltou": "Nenhuma resposta demonstrou adaptação de linguagem para não especialistas, verificação de entendimento, âncora em impacto concreto ou formalização de alerta após resistência — que é o núcleo da competência FIN04."
+                },
+                {
+                  "nivel": 1,
+                  "descritor": "Critério de priorização e tomada de decisão (D2)",
+                  "o_que_faltou": "Não há decisão explícita de priorizar Renata vs. Controladoria com base em risco financeiro concreto, nem comunicação ativa do trade-off para nenhuma das partes."
+                },
+                {
+                  "nivel": 1,
+                  "descritor": "Colaboração e negociação de dependências (D5)",
+                  "o_que_faltou": "Nenhuma evidência de negociação com a Controladoria, colaboração com Operações ou construção conjunta de solução — o único elemento colaborativo ('explico o aprendizado para a área') é genérico e descontextualizado."
+                }
+              ]
+            },
+            "insumos_consolidacao": {
+              "alertas_metodologicos": [
+                "ALERTA CRÍTICO: As 4 respostas não abordam o cenário situacional apresentado. A profissional respondeu a um problema técnico-contábil diferente do cenário descrito (comunicação com não especialista, dilema de priorização, decisão de Renata).",
+                "ALERTA: Nenhuma resposta menciona Renata, o Projeto Beta, os R$ 47 mil de margem negativa, a expansão iminente ou a Controladoria — elementos centrais do cenário.",
+                "ALERTA: O padrão de resposta sugere que a profissional pode ter respondido a partir de um template genérico de competência financeira, não ao cenário específico apresentado.",
+                "ALERTA: Pela regra metodológica 'RESPOSTA VAGA / CURTA / GENÉRICA → máximo N1', todas as respostas se enquadram nessa categoria em relação ao cenário apresentado, o que impacta todos os descritores.",
+                "ALERTA: Confiança geral moderada-baixa devido ao desalinhamento entre as respostas e o cenário — a avaliação pode não refletir a competência real da profissional, apenas sua resposta a este instrumento específico."
+              ],
+              "descritores_sem_sustentacao": [
+                "D1",
+                "D2",
+                "D4",
+                "D5"
+              ],
+              "descritores_com_evidencia_forte": [],
+              "descritores_com_evidencia_fraca": [
+                "D3",
+                "D6"
+              ]
+            },
+            "avaliacao_por_resposta": {
+              "R1": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Leitura do contexto e identificação do problema",
+                    "numero": 1,
+                    "limites": "A resposta não aborda o dilema de priorização entre Renata e a Controladoria. Não há menção ao prazo de 48 horas, ao risco de R$ 47 mil, nem ao impacto iminente da decisão de expansão. O raciocínio é genérico e técnico-contábil, sem reconhecimento do contexto situacional apresentado. Intenção declarada ('para não reportar um número que induza a diretoria a uma decisão errada') não é acompanhada de ação concreta situada.",
+                    "confianca": 0.8,
+                    "evidencia": "'isolo o problema central e valido a base', 'cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio'",
+                    "nota_decimal": 1.5
+                  },
+                  {
+                    "nome": "Execução com método e acompanhamento",
+                    "numero": 3,
+                    "limites": "Descreve método geral de análise financeira, mas não responde à pergunta sobre como executa com o cenário de duas demandas simultâneas e prazo restrito. Não há critério de priorização explícito, nem comunicação ativa de trade-off. A resposta não aborda acompanhamento de resultados ou negociação de escopo.",
+                    "confianca": 0.75,
+                    "evidencia": "'cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio'",
+                    "nota_decimal": 1.5
+                  }
+                ]
+              },
+              "R2": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Critério de priorização e tomada de decisão",
+                    "numero": 2,
+                    "limites": "A priorização mencionada é abstrata. Não há menção a Renata, ao risco específico de R$ 47 mil, à expansão iminente ou ao critério baseado em impacto financeiro concreto. A resposta trata de reconciliação contábil e auditabilidade — não da decisão de qual demanda atender primeiro. Não há trade-off explicitado nem comunicação à Controladoria.",
+                    "confianca": 0.75,
+                    "evidencia": "'Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo'",
+                    "nota_decimal": 1.5
+                  },
+                  {
+                    "nome": "Comunicação com stakeholders",
+                    "numero": 4,
+                    "limites": "A comunicação descrita é técnica e unidirecional (ajuste contábil → comunicação de impacto). Não há adaptação de linguagem para não especialistas, nenhuma verificação de entendimento de Renata, nenhuma âncora em impacto operacional concreto. A resposta não aborda como explicar margem negativa para alguém que não sabe interpretar o conceito.",
+                    "confianca": 0.7,
+                    "evidencia": "'comunico o impacto na margem antes do fechamento', 'registro a premissa'",
+                    "nota_decimal": 1.5
+                  }
+                ]
+              },
+              "R3": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Comunicação com stakeholders",
+                    "numero": 4,
+                    "limites": "Continua no plano técnico-contábil. Não há resposta ao que fazer após Renata insistir na aprovação. Não menciona formalização do alerta, escalada, documentação da decisão ou qualquer ação protetiva. A sinalização de ressalva é genérica e não situada no contexto de Renata.",
+                    "confianca": 0.75,
+                    "evidencia": "'Sinalizo cedo o que ainda está em verificação e negocio prazo quando a precisão exige', 'prefiro entregar um número auditável com uma ressalva explícita'",
+                    "nota_decimal": 1.5
+                  },
+                  {
+                    "nome": "Aprendizado, ética e melhoria contínua",
+                    "numero": 6,
+                    "limites": "Este é um princípio declarado, não uma evidência de ação ética situada. A pergunta era sobre o que fazer após Renata ignorar o alerta — não há menção a registro formal, escalada à Controladoria, documentação da decisão ou postura ética diante da resistência da gestora.",
+                    "confianca": 0.65,
+                    "evidencia": "'Meu critério é confiabilidade acima de velocidade'",
+                    "nota_decimal": 1.5
+                  }
+                ]
+              },
+              "R4": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Colaboração e negociação de dependências",
+                    "numero": 5,
+                    "limites": "Há uma menção a compartilhar aprendizado com a área, o que sugere alguma colaboração. Porém, é vaga — não especifica qual área, como, em que formato, nem se envolve outras áreas (Operações, Controladoria). Não há proposta de retrospectiva, protocolo conjunto ou coconstrução de melhoria com outras áreas.",
+                    "confianca": 0.7,
+                    "evidencia": "'explico o aprendizado para a área'",
+                    "nota_decimal": 2
+                  },
+                  {
+                    "nome": "Execução com método e acompanhamento",
+                    "numero": 3,
+                    "limites": "Esta é a resposta mais concreta da profissional. Há método descrito (previsto vs. realizado, métricas de revisão, atualização de checklist). Porém, o aprendizado fica restrito ao processo contábil interno, não aborda comunicação financeira para não especialistas (que é o foco da competência) nem propõe ajuste de processo de alerta ou sinalização visual para gestores. A causa-raiz endereçada parece ser técnica, não comunicacional.",
+                    "confianca": 0.75,
+                    "evidencia": "'comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz. Se algo passou, ajusto o controle para não repetir'",
+                    "nota_decimal": 2.5
+                  },
+                  {
+                    "nome": "Aprendizado, ética e melhoria contínua",
+                    "numero": 6,
+                    "limites": "Demonstra disposição para aprendizado e alguma propagação. Mas o ajuste é de controle interno, não de processo comunicacional. Não há reflexão sobre a própria atuação na comunicação com Renata, nem proposta de mudança estrutural no relatório ou nos alertas para não especialistas. Limita-se ao plano contábil.",
+                    "confianca": 0.7,
+                    "evidencia": "'ajusto o controle para não repetir e explico o aprendizado para a área'",
+                    "nota_decimal": 2
+                  }
+                ]
+              }
+            },
+            "avaliacao_por_descritor": [
+              {
+                "nome": "Leitura do contexto e identificação do problema",
+                "numero": 1,
+                "racional": "A profissional descreve um processo genérico de validação técnica, sem demonstrar leitura do contexto situacional específico — que exige priorização, comunicação de risco e ação com critério diante de duas demandas simultâneas.",
+                "confianca": 0.8,
+                "evidencias": [
+                  {
+                    "trecho": "'isolo o problema central e valido a base', 'cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio'",
+                    "resposta": "R1",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 1.5,
+                "nivel_sugerido": 1,
+                "limites_da_evidencia": [
+                  "Nenhuma resposta aborda o dilema situacional concreto: prazo de 48 horas, risco de R$ 47 mil, expansão iminente do Projeto Beta",
+                  "A leitura de contexto descrita é técnico-contábil (separar erro de lançamento de efeito real), não estratégica nem orientada a impacto de negócio",
+                  "Não há reconhecimento explícito da urgência ou da gravidade da decisão de Renata"
+                ]
+              },
+              {
+                "nome": "Critério de priorização e tomada de decisão",
+                "numero": 2,
+                "racional": "O enunciado menciona priorizar 'o que trava a decisão da gestão', mas esse princípio não é conectado ao cenário específico, não há critério explícito baseado em risco financeiro nem comunicação proativa do trade-off — requisitos mínimos de N3.",
+                "confianca": 0.8,
+                "evidencias": [
+                  {
+                    "trecho": "'Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo'",
+                    "resposta": "R2",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 1.5,
+                "nivel_sugerido": 1,
+                "limites_da_evidencia": [
+                  "O critério de priorização não é aplicado ao dilema Renata vs. Controladoria",
+                  "Não há menção ao impacto financeiro concreto (R$ 47 mil + expansão) como fator de decisão",
+                  "Não há comunicação ativa de trade-off para nenhuma das partes",
+                  "A resposta permanece no plano abstrato e contábil"
+                ]
+              },
+              {
+                "nome": "Execução com método e acompanhamento",
+                "numero": 3,
+                "racional": "Há elementos de método (checklist, previsto vs. realizado, auditabilidade) que indicam N2, mas nenhum é situado no contexto da comunicação financeira para não especialistas — foco central da competência avaliada.",
+                "confianca": 0.75,
+                "evidencias": [
+                  {
+                    "trecho": "'cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio'",
+                    "resposta": "R1",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz'",
+                    "resposta": "R4",
+                    "forca_evidencia": "moderada"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "A execução descrita em R4 é a mais concreta, mas foca em controle contábil interno, não em comunicação de risco para não especialistas",
+                  "Não há acompanhamento do impacto das ações tomadas no contexto do cenário",
+                  "A resposta em R3 menciona método de entrega (número auditável com ressalva), mas não descreve execução no cenário situacional"
+                ]
+              },
+              {
+                "nome": "Comunicação com stakeholders",
+                "numero": 4,
+                "racional": "A comunicação descrita é interna e técnica — não há evidência de adaptação de linguagem, confirmação de entendimento ou gestão da comunicação com stakeholder não especialista, que é o núcleo desta competência.",
+                "confianca": 0.85,
+                "evidencias": [
+                  {
+                    "trecho": "'comunico o impacto na margem antes do fechamento'",
+                    "resposta": "R2",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'Sinalizo cedo o que ainda está em verificação e negocio prazo quando a precisão exige'",
+                    "resposta": "R3",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "insuficiente",
+                "nota_decimal": 1.5,
+                "nivel_sugerido": 1,
+                "limites_da_evidencia": [
+                  "Nenhuma resposta demonstra adaptação de linguagem para não especialistas (requisito central da competência FIN04)",
+                  "Não há verificação de entendimento do interlocutor",
+                  "Não há âncora em impacto operacional concreto para Renata",
+                  "A comunicação descrita é técnica e unidirecional",
+                  "Após Renata insistir na aprovação (P3), não há formalização, escalada ou documentação descrita"
+                ]
+              },
+              {
+                "nome": "Colaboração e negociação de dependências",
+                "numero": 5,
+                "racional": "A única evidência de colaboração é uma menção genérica a compartilhar aprendizado — insuficiente para N2 (que requereria pelo menos reconhecimento do que precisa ser feito em colaboração com outras áreas), sendo classificado em N1 pela ausência de ação concreta de negociação ou colaboração situada.",
+                "confianca": 0.75,
+                "evidencias": [
+                  {
+                    "trecho": "'explico o aprendizado para a área'",
+                    "resposta": "R4",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "insuficiente",
+                "nota_decimal": 1.5,
+                "nivel_sugerido": 1,
+                "limites_da_evidencia": [
+                  "Nenhuma resposta menciona negociação com a Controladoria sobre o trade-off de prazo",
+                  "Não há colaboração descrita com Renata ou com Operações",
+                  "A menção a 'explicar o aprendizado para a área' é genérica e não situa qual área, como, quando ou com que objetivo",
+                  "Não há proposta de retrospectiva ou protocolo conjunto"
+                ]
+              },
+              {
+                "nome": "Aprendizado, ética e melhoria contínua",
+                "numero": 6,
+                "racional": "Há disposição para aprendizado e ajuste (N2), mas limitada ao domínio contábil interno. Não há evidência de melhoria voltada à comunicação financeira para não especialistas nem de postura ética ativa diante da resistência de Renata.",
+                "confianca": 0.7,
+                "evidencias": [
+                  {
+                    "trecho": "'ajusto o controle para não repetir e explico o aprendizado para a área'",
+                    "resposta": "R4",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'Meu critério é confiabilidade acima de velocidade'",
+                    "resposta": "R3",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "O aprendizado descrito foca em controle contábil interno, não em comunicação com não especialistas",
+                  "Não há reflexão sobre a própria atuação na gestão do risco com Renata",
+                  "Não há proposta de mudança de processo no relatório (ex.: sinalização visual de margem negativa)",
+                  "A dimensão ética — registrar alerta, documentar ciência da decisão — não aparece em nenhuma resposta",
+                  "O princípio de 'confiabilidade acima de velocidade' é declarado, não demonstrado em situação"
+                ]
+              }
+            ]
+          },
+          "nivel_ia4": 1,
+          "nota_ia4": "1.67",
+          "pontos_fortes": "Execução com método e acompanhamento (D3); Aprendizado, ética e melhoria contínua (D6)",
+          "pontos_atencao": "Comunicação com stakeholders (D4); Critério de priorização e tomada de decisão (D2); Colaboração e negociação de dependências (D5)",
+          "feedback_ia4": "Mariana demonstra sólida base técnica e orientação a método — especialmente na forma como estrutura revisões, atualiza checklists e valoriza auditabilidade. O principal gap identificado nesta avaliação é que as respostas não se conectaram ao cenário situacional apresentado: a competência FIN04 avalia especificamente a habilidade de comunicar dados financeiros para não especialistas e gerenciar riscos junto a interlocutores de outras áreas — dimensão que não apareceu nas respostas. Isso não significa ausência da competência, mas sinaliza uma oportunidade importante de desenvolvimento na ponte entre o rigor técnico e a comunicação orientada a decisão.\nO comprometimento com auditabilidade é genuíno e valioso: a preocupação com 'número auditável com ressalva explícita', a prática de atualizar o checklist na causa-raiz e medir quantas correções vieram da revisão própria mostram um padrão de trabalho consistente e confiável. Esse rigor é a base certa para evoluir na comunicação financeira.\nO desafio central aqui é a translação: pegar esse mesmo rigor técnico e traduzi-lo para o impacto que o gestor de outra área precisa entender para tomar uma boa decisão. No cenário do Projeto Beta, Renata não precisava entender 'margem de contribuição ajustada por rateio de overhead' — ela precisava ouvir 'cada real faturado nesse projeto custa R$ 1,47 à empresa, e aprovar a expansão agora aprofunda o prejuízo'. Além disso, quando um alerta é ignorado, o papel do financeiro não termina na explicação — registrar o risco formalmente, informar a Controladoria e documentar que a decisão foi tomada com ciência dos dados são ações que protegem a empresa e a própria analista.",
+          "payload_ia4": null,
+          "status_ia4": null
+        },
+        {
+          "competencia_nome": "Análise de Indicadores Financeiros",
+          "avaliacao_ia": {
+            "cargo": "Analista Financeiro",
+            "feedback": {
+              "tom_base": "acolhedor e estruturado — perfil CS valoriza consistência, segurança e clareza; feedback deve reconhecer a solidez dos valores demonstrados antes de indicar os gaps, evitando tom crítico direto",
+              "resumo_geral": "Mariana demonstra base técnica sólida e princípios éticos bem internalizados — a preferência por dados auditáveis e a disposição para sinalizar riscos são ativos reais. O principal espaço de crescimento está em traduzir esses princípios em ações concretas e comunicadas nos momentos de pressão: o cenário exigia decisões aplicadas, diálogos específicos e negociações visíveis, e as respostas permaneceram majoritariamente no campo dos valores e métodos gerais.",
+              "recomendacoes": [
+                "Nos próximos fechamentos, antes de responder a uma pressão de prazo, escreva em um parágrafo: qual é o risco concreto para a diretoria, o que preciso de quem e até quando, e qual alternativa proponho — isso treina a articulação de critério explícito que ainda está implícito nas suas respostas.",
+                "Simule mentalmente (ou em conversa com seu gestor) como conduziria o diálogo com Rodrigo no cenário dado: que argumentos usaria, que alternativa proporia (nota explicativa, prazo de 48h para confirmar uma linha), e como encerraria a conversa mantendo o relacionamento e a integridade do dado.",
+                "Na próxima retrospectiva de fechamento, inclua pelo menos um indicador de resultado final (ex.: 'nenhuma linha do relatório da diretoria foi questionada em reunião de revisão') além dos indicadores de processo — isso conecta sua execução ao impacto que a gestão realmente mede."
+              ],
+              "mensagem_positiva": "Você demonstrou algo que não é trivial: uma posição ética clara sob pressão. Frases como 'prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro' e a disposição para atualizar o checklist na causa-raiz mostram maturidade analítica e compromisso com a integridade do dado — qualidades que a ACME valoriza e que fazem diferença real no ciclo financeiro.",
+              "mensagem_construtiva": "O gap mais importante a desenvolver é a passagem do princípio para a ação visível: quando Rodrigo pede para registrar como 'desvio pontual', o que você diria a ele, palavra por palavra? Que alternativa concreta proporia? E quando a Controladoria precisa do pacote às 18h, que informação específica levaria para negociar um prazo parcial ou uma ressalva formal? Essas situações pedem que você saia do 'como penso sobre o problema' e entre no 'o que faço, com quem, e o que digo' — e é exatamente aí que as respostas ficaram em aberto. Isso não é ausência de competência; é o próximo passo natural para quem já tem os valores no lugar certo."
+            },
+            "competencia": {
+              "nome": "Análise de Indicadores Financeiros",
+              "codigo": "FIN02"
+            },
+            "consolidacao": {
+              "gap": 1,
+              "nivel_geral": 2,
+              "confianca_geral": 0.67,
+              "travas_aplicadas": [
+                "Nenhuma"
+              ],
+              "media_descritores": 2.21,
+              "notas_por_descritor": {
+                "D1": {
+                  "nome": "Leitura do contexto e identificação do problema",
+                  "nivel": 2,
+                  "confianca": 0.7,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2
+                },
+                "D2": {
+                  "nome": "Critério de priorização e tomada de decisão",
+                  "nivel": 2,
+                  "confianca": 0.65,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2
+                },
+                "D3": {
+                  "nome": "Execução com método e acompanhamento",
+                  "nivel": 2,
+                  "confianca": 0.68,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.5
+                },
+                "D4": {
+                  "nome": "Comunicação com stakeholders",
+                  "nivel": 2,
+                  "confianca": 0.65,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2
+                },
+                "D5": {
+                  "nome": "Colaboração e negociação de dependências",
+                  "nivel": 2,
+                  "confianca": 0.62,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2
+                },
+                "D6": {
+                  "nome": "Aprendizado, ética e melhoria contínua",
+                  "nivel": 2,
+                  "confianca": 0.72,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.75
+                }
+              }
+            },
+            "profissional": "Mariana Lopes",
+            "recomendacoes_pdi": [
+              {
+                "acao": "Criar um modelo de comunicação de risco para o fechamento: uma mensagem-padrão com três elementos — dado concreto (valor e natureza do desvio), o que precisa para confirmar (quem, quanto tempo), e a alternativa proposta (ressalva formal, prazo parcial). Usar no próximo fechamento e revisar depois.",
+                "nivel_meta": 3,
+                "descritor_foco": "D4",
+                "por_que_importa": "A Controladoria e a diretoria tomam decisões com base no pacote que você entrega — comunicar risco com clareza e antecedência é o que diferencia um analista que executa de um que é referência.",
+                "barreira_provavel": "Perfil CS tende a evitar conversas difíceis e a preferir resolver internamente antes de comunicar — o modelo estruturado reduz a ansiedade de 'não ter tudo pronto' antes de falar.",
+                "nivel_atual_sugerido": 2
+              },
+              {
+                "acao": "Mapear as dependências do fechamento (Contabilidade, Comercial, Controladoria) e definir um ponto de contato e prazo para cada uma antes do D+1 — tornar esse mapeamento parte do checklist de início de ciclo.",
+                "nivel_meta": 3,
+                "descritor_foco": "D5",
+                "por_que_importa": "A situação com as três planilhas e a Contabilidade mostrou que a dependência existia mas não estava gerenciada — antecipar essas amarrações evita o dilema 'investigar ou cumprir prazo'.",
+                "barreira_provavel": "Acionar outras áreas antecipadamente pode parecer 'pressionar' — enquadrar como coordenação de ciclo (não como cobrança) facilita a adoção.",
+                "nivel_atual_sugerido": 2
+              },
+              {
+                "acao": "Definir e documentar um critério de triagem para variações no fechamento: ex. 'variações acima de 5% do orçado ou R$ 50 mil são investigadas antes do fechamento; abaixo disso, registra-se premissa e confirma em D+5'. Aplicar no próximo ciclo e revisar o threshold com o gestor.",
+                "nivel_meta": 3,
+                "descritor_foco": "D2",
+                "por_que_importa": "Ter o critério escrito transforma uma boa intuição em método replicável — e permite comunicar a decisão de priorização para a Controladoria com base objetiva, não subjetiva.",
+                "barreira_provavel": "Definir um threshold pode parecer 'aceitar risco' — enquadrar como gestão explícita de incerteza (com nota de ressalva) facilita a aceitação interna.",
+                "nivel_atual_sugerido": 2
+              },
+              {
+                "acao": "Na próxima situação de pressão de Rodrigo ou similar, escrever o argumento que usaria para explicar o risco concreto para ele (impacto na leitura da margem da própria área dele em auditoria ou revisão de diretoria) e propor uma alternativa que não comprometa a integridade — praticar o argumento antes, não no calor do momento.",
+                "nivel_meta": 3,
+                "descritor_foco": "D6",
+                "por_que_importa": "A posição ética já existe — o que falta é a operacionalização dela em diálogo real sob pressão, que é o momento em que a integridade do dado é testada.",
+                "barreira_provavel": "Confrontar um gestor sênior vai contra o padrão CS de evitar conflito — preparar o argumento com antecedência reduz a probabilidade de ceder por desconforto.",
+                "nivel_atual_sugerido": 2
+              }
+            ],
+            "descritores_destaque": {
+              "pontos_fortes": [
+                {
+                  "nivel": 2,
+                  "descritor": "Aprendizado, ética e melhoria contínua (D6)",
+                  "evidencia_resumida": "Posição ética clara ('confiabilidade acima de velocidade', 'número auditável com ressalva explícita') e menção a atualizar checklist na causa-raiz após o ciclo."
+                },
+                {
+                  "nivel": 2,
+                  "descritor": "Execução com método e acompanhamento (D3)",
+                  "evidencia_resumida": "Cita passos concretos de execução (reconciliar contra razão, registrar premissa, comunicar antes do fechamento) e métricas de acompanhamento (previsto vs. realizado, volume de correções)."
+                }
+              ],
+              "gaps_prioritarios": [
+                {
+                  "nivel": 2,
+                  "descritor": "Colaboração e negociação de dependências (D5)",
+                  "o_que_faltou": "Nenhuma menção a acionar Contabilidade, negociar com Controladoria ou gerenciar dependências entre áreas durante o fechamento — colaboração aparece apenas como ação pós-ciclo genérica."
+                },
+                {
+                  "nivel": 2,
+                  "descritor": "Comunicação com stakeholders (D4)",
+                  "o_que_faltou": "Não descreve o conteúdo, timing ou formato da comunicação com Controladoria ou com Rodrigo — faltam dado concreto, natureza da suspeita, alternativa proposta e condução do diálogo sob pressão."
+                },
+                {
+                  "nivel": 2,
+                  "descritor": "Critério de priorização e tomada de decisão (D2)",
+                  "o_que_faltou": "Não articula critério explícito de materialidade nem descreve o que deixaria para depois com registro formal — a decisão frente às 48h reais não é demonstrada."
+                }
+              ]
+            },
+            "insumos_consolidacao": {
+              "alertas_metodologicos": [
+                "Todas as respostas operam majoritariamente no nível de princípio declarado — Mariana enuncia critérios e valores, mas raramente os aplica ao cenário concreto (R$ 87 mil, prazo de 48h, Rodrigo, Controladoria).",
+                "A pergunta P2 (comunicação com Controladoria) foi respondida de forma deslocada — R2 trata de execução individual, não de comunicação com stakeholder. Isso cria lacuna de evidência em D4 e D5.",
+                "A pergunta P3 (confronto com Rodrigo) foi respondida em R3 sem mencionar Rodrigo nominalmente nem descrever o diálogo — avaliador deve registrar que o cenário de pressão direta não foi endereçado.",
+                "Nota 2.75 em D6 está próxima da fronteira N2/N3 — recomenda-se conservar em N2 pela regra de dúvida (nível inferior) dado que a aplicação sob pressão não foi demonstrada.",
+                "Ausência de indicadores concretos de sucesso do fechamento em R4 (integridade da linha de margem, retrabalho zero) — a diferenciação N3 exige esses marcos, que não foram citados."
+              ],
+              "descritores_sem_sustentacao": [],
+              "descritores_com_evidencia_forte": [],
+              "descritores_com_evidencia_fraca": [
+                "D1",
+                "D2",
+                "D3",
+                "D4",
+                "D5",
+                "D6"
+              ]
+            },
+            "avaliacao_por_resposta": {
+              "R1": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Leitura do contexto e identificação do problema",
+                    "numero": 1,
+                    "limites": "A resposta descreve intenção e método geral, mas não articula critério explícito de materialidade (ex.: R$ 87 mil vs. impacto no relatório da diretoria) nem separa o que priorizaria antes vs. depois do fechamento — exatamente o que a pergunta pede. Não há contexto aplicado ao cenário concreto.",
+                    "confianca": 0.7,
+                    "evidencia": "'isolo o problema central e valido a base', 'cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio'",
+                    "nota_decimal": 2
+                  },
+                  {
+                    "nome": "Critério de priorização e tomada de decisão",
+                    "numero": 2,
+                    "limites": "Há uma lógica implícita de priorização (risco de indução a erro na diretoria), mas o critério não é explicitado com clareza — não menciona materialidade, não define o que fica para depois, não descreve ação concreta frente às 48h. Parece intenção mais do que método aplicado.",
+                    "confianca": 0.65,
+                    "evidencia": "'separo erro de lançamento de efeito real de negócio — para não reportar um número que induza a diretoria a uma decisão errada'",
+                    "nota_decimal": 2
+                  }
+                ]
+              },
+              "R2": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Execução com método e acompanhamento",
+                    "numero": 3,
+                    "limites": "Descreve passos de execução com alguma concretude (razão, premissa, comunicação antes do fechamento), mas permanece genérico — não cita o que faria especificamente com as três planilhas mencionadas no cenário, nem como gerencia o tempo de 48h. 'Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo' é declaração de intenção sem detalhamento de como resolve o conflito real.",
+                    "confianca": 0.72,
+                    "evidencia": "'reconcilio contra o razão, ajusto o lançamento, registro a premissa e comunico o impacto na margem antes do fechamento'",
+                    "nota_decimal": 2.5
+                  },
+                  {
+                    "nome": "Colaboração e negociação de dependências",
+                    "numero": 5,
+                    "limites": "A pergunta P2 é central sobre como se comunicaria com a Controladoria — Mariana não responde esse ponto em R2. Ausência total de menção a stakeholders nesta resposta.",
+                    "confianca": 0.6,
+                    "evidencia": "Não há menção a acionar Contabilidade, negociar prazo com Controladoria ou coordenar dependências entre áreas. A resposta trata a execução como individual.",
+                    "nota_decimal": 1.5
+                  }
+                ]
+              },
+              "R3": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Aprendizado, ética e melhoria contínua",
+                    "numero": 6,
+                    "limites": "Há posição ética clara e consistente ('confiabilidade acima de velocidade', 'número auditável'). Porém não descreve como lida concretamente com Rodrigo nesse momento — não menciona explicar o risco para ele, propor alternativa (nota explicativa), nem negociar sem abrir mão da integridade. A resposta evita o confronto específico do cenário.",
+                    "confianca": 0.75,
+                    "evidencia": "'Meu critério é confiabilidade acima de velocidade: prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro. Sinalizo cedo o que ainda está em verificação e negocio prazo quando a precisão exige.'",
+                    "nota_decimal": 2.5
+                  },
+                  {
+                    "nome": "Comunicação com stakeholders",
+                    "numero": 4,
+                    "limites": "Cita sinalizar cedo e negociar prazo, mas não descreve o que diria a Rodrigo, como conduziria a conversa, que argumentos usaria, nem como protege a integridade do dado frente à pressão direta. Permanece em nível de princípio declarado, não de ação demonstrada.",
+                    "confianca": 0.65,
+                    "evidencia": "'Sinalizo cedo o que ainda está em verificação e negocio prazo quando a precisão exige'",
+                    "nota_decimal": 2
+                  }
+                ]
+              },
+              "R4": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Comunicação com stakeholders",
+                    "numero": 4,
+                    "limites": "Menção muito breve e genérica. Não especifica com quem fala, que formato usa, que dado apresenta. Não configura evidência robusta de comunicação estruturada com stakeholders.",
+                    "confianca": 0.6,
+                    "evidencia": "'explico o aprendizado para a área'",
+                    "nota_decimal": 2
+                  },
+                  {
+                    "nome": "Colaboração e negociação de dependências",
+                    "numero": 5,
+                    "limites": "Sugere ajuste de processo e compartilhamento com a área — indício de colaboração pós-ciclo. Porém não menciona envolvimento de outras áreas (Contabilidade, Controladoria) na melhoria, nem como negocia essas dependências estruturalmente. 'Explico o aprendizado para a área' é genérico demais para N3.",
+                    "confianca": 0.68,
+                    "evidencia": "'atualizo o checklist de fechamento na causa-raiz', 'Se algo passou, ajusto o controle para não repetir e explico o aprendizado para a área'",
+                    "nota_decimal": 2.5
+                  },
+                  {
+                    "nome": "Execução com método e acompanhamento",
+                    "numero": 3,
+                    "limites": "Há indicadores concretos de acompanhamento (previsto vs. realizado, volume de correções, causa-raiz). Porém não define indicadores de sucesso do fechamento em si (ex.: integridade da linha de margem confirmada, nenhum retrabalho pós-auditoria) — foca no próprio processo de revisão, não no resultado final para a gestão.",
+                    "confianca": 0.7,
+                    "evidencia": "'comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz'",
+                    "nota_decimal": 2.5
+                  }
+                ]
+              }
+            },
+            "avaliacao_por_descritor": [
+              {
+                "nome": "Leitura do contexto e identificação do problema",
+                "numero": 1,
+                "racional": "Reconhece a necessidade de validar a base e separar tipos de problema, mas sem articular critério de impacto aplicado ao cenário — N2 é o nível mais sustentado.",
+                "confianca": 0.7,
+                "evidencias": [
+                  {
+                    "trecho": "'isolo o problema central e valido a base', 'cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio'",
+                    "resposta": "R1",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Não aplica o raciocínio ao cenário concreto (R$ 87 mil, 48h, relatório da diretoria)",
+                  "Não distingue o que priorizaria antes vs. depois do fechamento",
+                  "Não menciona a justificativa de Rodrigo como variável a considerar",
+                  "Descreve método genérico, não decisão contextualizada"
+                ]
+              },
+              {
+                "nome": "Critério de priorização e tomada de decisão",
+                "numero": 2,
+                "racional": "Há lógica de priorização implícita (impacto na decisão da diretoria), mas sem critério explícito e sem aplicação ao cenário — insuficiente para N3, adequado a N2.",
+                "confianca": 0.65,
+                "evidencias": [
+                  {
+                    "trecho": "'separo erro de lançamento de efeito real de negócio — para não reportar um número que induza a diretoria a uma decisão errada'",
+                    "resposta": "R1",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo'",
+                    "resposta": "R2",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Nenhuma das respostas apresenta critério explícito (materialidade + risco de distorção)",
+                  "Não descreve o que deixaria para depois com registro formal",
+                  "Não demonstra como resolve o conflito real entre investigar e cumprir o prazo",
+                  "Frases funcionam como declarações de princípio, não como decisão aplicada"
+                ]
+              },
+              {
+                "nome": "Execução com método e acompanhamento",
+                "numero": 3,
+                "racional": "Há passos concretos de execução e acompanhamento, mas sem consistência suficiente para N3 — o conflito real de prazo vs. qualidade não é endereçado com método claro.",
+                "confianca": 0.68,
+                "evidencias": [
+                  {
+                    "trecho": "'reconcilio contra o razão, ajusto o lançamento, registro a premissa e comunico o impacto na margem antes do fechamento'",
+                    "resposta": "R2",
+                    "forca_evidencia": "moderada"
+                  },
+                  {
+                    "trecho": "'comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz'",
+                    "resposta": "R4",
+                    "forca_evidencia": "moderada"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.5,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Não demonstra como gerencia o tempo de 48h com as três planilhas do cenário",
+                  "Indicadores de acompanhamento (R4) focam no processo próprio, não no resultado final do ciclo",
+                  "Não há evidência de acompanhamento do impacto na leitura da diretoria"
+                ]
+              },
+              {
+                "nome": "Comunicação com stakeholders",
+                "numero": 4,
+                "racional": "Reconhece a necessidade de comunicar cedo, mas sem demonstrar como — ausente o conteúdo, o timing preciso e a proposta alternativa exigidos pelo N3.",
+                "confianca": 0.65,
+                "evidencias": [
+                  {
+                    "trecho": "'Sinalizo cedo o que ainda está em verificação e negocio prazo quando a precisão exige'",
+                    "resposta": "R3",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'explico o aprendizado para a área'",
+                    "resposta": "R4",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Não descreve o conteúdo da comunicação com a Controladoria (dado concreto, natureza da suspeita, alternativa proposta)",
+                  "Não demonstra como conduz a conversa com Rodrigo sob pressão",
+                  "Não menciona o que levaria à reunião, quando avisaria, que formato usaria",
+                  "Frases são declarações genéricas de intenção"
+                ]
+              },
+              {
+                "nome": "Colaboração e negociação de dependências",
+                "numero": 5,
+                "racional": "A colaboração aparece de forma marginal e apenas no pós-fechamento — sem evidência de negociação de dependências no momento crítico, o que é o núcleo do descritor.",
+                "confianca": 0.62,
+                "evidencias": [
+                  {
+                    "trecho": "'atualizo o checklist de fechamento na causa-raiz', 'explico o aprendizado para a área'",
+                    "resposta": "R4",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Não menciona acionamento da Contabilidade ou negociação com Controladoria",
+                  "Não demonstra como gerencia a dependência entre áreas durante o fechamento",
+                  "Colaboração aparece apenas como ação pós-ciclo (explicar aprendizado), não como gestão de dependência em tempo real",
+                  "Ausência quase total em R1, R2 e R3"
+                ]
+              },
+              {
+                "nome": "Aprendizado, ética e melhoria contínua",
+                "numero": 6,
+                "racional": "É o descritor mais próximo de N3 — há posição ética clara e indício de ciclo de melhoria, mas a aplicação sob pressão real (confronto com Rodrigo) não é demonstrada, o que impede N3 pleno.",
+                "confianca": 0.72,
+                "evidencias": [
+                  {
+                    "trecho": "'Meu critério é confiabilidade acima de velocidade: prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro'",
+                    "resposta": "R3",
+                    "forca_evidencia": "moderada"
+                  },
+                  {
+                    "trecho": "'atualizo o checklist de fechamento na causa-raiz. Se algo passou, ajusto o controle para não repetir'",
+                    "resposta": "R4",
+                    "forca_evidencia": "moderada"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.75,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Posição ética está declarada, mas não é demonstrada em ação frente à pressão de Rodrigo",
+                  "Não descreve como lida com Rodrigo especificamente — não propõe nota explicativa, não negocia",
+                  "Melhoria contínua citada (checklist, causa-raiz) mas sem detalhe do que ajustaria, quais controles, qual gatilho"
+                ]
+              }
+            ]
+          },
+          "nivel_ia4": 2,
+          "nota_ia4": "2.21",
+          "pontos_fortes": "Aprendizado, ética e melhoria contínua (D6); Execução com método e acompanhamento (D3)",
+          "pontos_atencao": "Colaboração e negociação de dependências (D5); Comunicação com stakeholders (D4); Critério de priorização e tomada de decisão (D2)",
+          "feedback_ia4": "Mariana demonstra base técnica sólida e princípios éticos bem internalizados — a preferência por dados auditáveis e a disposição para sinalizar riscos são ativos reais. O principal espaço de crescimento está em traduzir esses princípios em ações concretas e comunicadas nos momentos de pressão: o cenário exigia decisões aplicadas, diálogos específicos e negociações visíveis, e as respostas permaneceram majoritariamente no campo dos valores e métodos gerais.\nVocê demonstrou algo que não é trivial: uma posição ética clara sob pressão. Frases como 'prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro' e a disposição para atualizar o checklist na causa-raiz mostram maturidade analítica e compromisso com a integridade do dado — qualidades que a ACME valoriza e que fazem diferença real no ciclo financeiro.\nO gap mais importante a desenvolver é a passagem do princípio para a ação visível: quando Rodrigo pede para registrar como 'desvio pontual', o que você diria a ele, palavra por palavra? Que alternativa concreta proporia? E quando a Controladoria precisa do pacote às 18h, que informação específica levaria para negociar um prazo parcial ou uma ressalva formal? Essas situações pedem que você saia do 'como penso sobre o problema' e entre no 'o que faço, com quem, e o que digo' — e é exatamente aí que as respostas ficaram em aberto. Isso não é ausência de competência; é o próximo passo natural para quem já tem os valores no lugar certo.",
+          "payload_ia4": null,
+          "status_ia4": null
+        },
+        {
+          "competencia_nome": "Organização de Rotinas e Prazos",
+          "avaliacao_ia": {
+            "cargo": "Analista Financeiro",
+            "feedback": {
+              "tom_base": "acolhedor e estruturado — perfil CS valoriza segurança, clareza e consistência; o feedback deve reconhecer o rigor metodológico natural do perfil e apresentar os gaps como oportunidades de estruturação, não como críticas",
+              "resumo_geral": "Mariana demonstra consciência metodológica e senso de responsabilidade sobre a qualidade da informação financeira — traços valiosos para um analista de fechamento. Ao mesmo tempo, as respostas ficaram no campo dos princípios e intenções, sem mergulhar nas variáveis concretas do cenário, o que limitou a evidência de aplicação real da competência. O gap mais relevante está na colaboração com outras áreas, especialmente na negociação de dependências externas.",
+              "recomendacoes": [
+                "Ao responder cenários ou comunicar riscos, ancore sempre nas variáveis numéricas disponíveis (ex: 'dada a variação histórica de 12% e o peso de 18% no custo, meu limiar para usar estimativa seria X'). Isso transforma princípios em critérios auditáveis.",
+                "Antes do próximo fechamento, mapeie quais fornecedores representam mais de 10% do custo operacional e defina com Compras um gatilho de alerta em D-7 para NFs em risco de atraso — isso elimina o problema na raiz, sem depender de uma crise.",
+                "Na próxima vez que uma área parceira disser 'não há nada que eu possa fazer', liste em voz alta as alternativas que você vê (contrato, histórico, documento parcial) e convide a outra pessoa a avaliar com você. Essa postura colaborativa é o que diferencia um analista que resolve de um que registra pendências."
+              ],
+              "mensagem_positiva": "Você mostrou consistência ao valorizar a auditabilidade do número acima da velocidade — 'prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro' — e ao mencionar o ciclo de previsto vs. realizado com atualização de checklist e compartilhamento de aprendizado com a área. Isso reflete um perfil que se preocupa com a integridade da informação e com a melhoria do processo, o que é exatamente o que se espera de um analista financeiro em ambiente de pressão.",
+              "mensagem_construtiva": "O desafio central está em tornar esses princípios visíveis nas situações específicas. Quando o cenário traz variáveis concretas — variação histórica de 12%, um fornecedor que representa 18% do custo, um prazo fixo com consequências reais — a diretoria e a gestora precisam ver que você ancorou sua decisão nesses dados, não em regras gerais. Da mesma forma, a situação com Rodrigo pede uma postura ativa de co-construção de alternativas: explorar o contrato vigente, uma NF anterior como referência, um e-mail do fornecedor com valores — esse é o tipo de colaboração que reduz o risco e fortalece a relação com Compras."
+            },
+            "competencia": {
+              "nome": "Organização de Rotinas e Prazos",
+              "codigo": "FIN03"
+            },
+            "consolidacao": {
+              "gap": 1,
+              "nivel_geral": 2,
+              "confianca_geral": 0.73,
+              "travas_aplicadas": [
+                "Nenhuma"
+              ],
+              "media_descritores": 2.16,
+              "notas_por_descritor": {
+                "D1": {
+                  "nome": "Leitura do contexto e identificação do problema",
+                  "nivel": 2,
+                  "confianca": 0.72,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.17
+                },
+                "D2": {
+                  "nome": "Critério de priorização e tomada de decisão",
+                  "nivel": 2,
+                  "confianca": 0.68,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.33
+                },
+                "D3": {
+                  "nome": "Execução com método e acompanhamento",
+                  "nivel": 2,
+                  "confianca": 0.7,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.17
+                },
+                "D4": {
+                  "nome": "Comunicação com stakeholders",
+                  "nivel": 2,
+                  "confianca": 0.73,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.11
+                },
+                "D5": {
+                  "nome": "Colaboração e negociação de dependências",
+                  "nivel": 1,
+                  "confianca": 0.82,
+                  "sustentacao": "insuficiente",
+                  "nota_decimal": 1.5
+                },
+                "D6": {
+                  "nome": "Aprendizado, ética e melhoria contínua",
+                  "nivel": 2,
+                  "confianca": 0.75,
+                  "sustentacao": "fraca",
+                  "nota_decimal": 2.67
+                }
+              }
+            },
+            "profissional": "Mariana Lopes",
+            "recomendacoes_pdi": [
+              {
+                "acao": "Antes do próximo ciclo de fechamento, agende uma conversa com a área de Compras para mapear fornecedores estratégicos (>10% do custo) e definir conjuntamente um protocolo de alerta em D-7 para documentação em risco de atraso. No momento da crise, pratique listar alternativas concretas em voz alta antes de aceitar 'não é possível'.",
+                "nivel_meta": 3,
+                "descritor_foco": "D5",
+                "por_que_importa": "Dependências externas são recorrentes no fechamento contábil — resolver colaborativamente reduz o risco de estimativas e fortalece a credibilidade da área financeira.",
+                "barreira_provavel": "Perfil CS tende a evitar confronto e pode interpretar a negociação como intromissão na área do outro — reencadrar como colaboração estruturada, não pressão.",
+                "nivel_atual_sugerido": 1
+              },
+              {
+                "acao": "Elabore um modelo padrão de comunicação para situações de dado provisório: destinatário (gestora + diretoria), valor estimado, variação histórica percentual, impacto potencial na margem, prazo de confirmação e orientação de uso cauteloso. Use esse modelo no próximo fechamento que envolver estimativa.",
+                "nivel_meta": 3,
+                "descritor_foco": "D4",
+                "por_que_importa": "A diretoria toma decisões comerciais com base no relatório — uma comunicação estruturada protege a empresa e demonstra maturidade do analista.",
+                "barreira_provavel": "Comunicar incerteza pode parecer expor vulnerabilidade — reencadrar como transparência proativa, que é sinal de competência, não de falha.",
+                "nivel_atual_sugerido": 2
+              },
+              {
+                "acao": "Ao enfrentar qualquer decisão de fechamento com dado incompleto, documente explicitamente: qual variável está em aberto, qual sua magnitude, qual o impacto estimado na métrica-chave e qual o limiar acima do qual você escalaria para a gestora — mesmo que ela esteja em viagem.",
+                "nivel_meta": 3,
+                "descritor_foco": "D1",
+                "por_que_importa": "A leitura contextualizada com critério explícito é o que torna a decisão defensável em auditoria e reconhecida pela liderança.",
+                "barreira_provavel": "O hábito de agir por princípios internalizados ('eu sempre faço assim') pode reduzir a necessidade percebida de tornar o raciocínio visível — mas a visibilidade é o que constrói confiança com stakeholders.",
+                "nivel_atual_sugerido": 2
+              },
+              {
+                "acao": "Após cada fechamento com desvio relevante (>5% entre estimativa e real), formalize um registro de uma página: o que foi estimado, o desvio confirmado, o impacto comunicado à diretoria e a ação de processo proposta para o próximo ciclo. Compartilhe na retrospectiva quinzenal da equipe.",
+                "nivel_meta": 3,
+                "descritor_foco": "D6",
+                "por_que_importa": "O aprendizado individual que não é comunicado e sistematizado não muda o processo — e o próximo analista que assumir o fechamento incorrerá nos mesmos riscos.",
+                "barreira_provavel": "Perfil CS pode subestimar o valor de formalizar o que já faz internamente — o registro e o compartilhamento são o que eleva o padrão do time, não apenas o da própria atuação.",
+                "nivel_atual_sugerido": 2
+              }
+            ],
+            "descritores_destaque": {
+              "pontos_fortes": [
+                {
+                  "nivel": 2,
+                  "descritor": "Aprendizado, ética e melhoria contínua",
+                  "evidencia_resumida": "Demonstra ciclo de análise previsto vs. realizado, atualização de checklist na causa-raiz e compartilhamento do aprendizado com a área — o padrão mais desenvolvido entre as respostas."
+                }
+              ],
+              "gaps_prioritarios": [
+                {
+                  "nivel": 1,
+                  "descritor": "Colaboração e negociação de dependências",
+                  "o_que_faltou": "A resposta à P3 ignorou completamente a negociação com Rodrigo e a exploração de alternativas concretas (contrato, NF de referência, e-mail do fornecedor). É o gap mais crítico, pois dependências externas são recorrentes no ciclo de fechamento."
+                },
+                {
+                  "nivel": 2,
+                  "descritor": "Comunicação com stakeholders",
+                  "o_que_faltou": "Cita intenção de comunicar, mas sem identificar destinatários, quantificar o risco (12% de variação), propor adendo pós-dados reais ou orientar a diretoria sobre o uso cauteloso do relatório provisório."
+                }
+              ]
+            },
+            "insumos_consolidacao": {
+              "alertas_metodologicos": [
+                "As 4 respostas apresentam padrão consistente de linguagem de princípio (como a profissional costuma agir) em vez de relato de ação concreta contextualizada no cenário — isso limita a confiança em todos os descritores",
+                "Nenhuma resposta menciona as variáveis numéricas centrais do cenário (12% de variação histórica, 18% do custo, prazo fixo do dia 5 às 18h), sugerindo resposta desconectada do caso apresentado",
+                "D5 recebeu nota_decimal 1.50 — abaixo de N2 — por ausência quase total de evidência; o nível_sugerido 1 reflete postura passiva implícita frente à situação com Rodrigo",
+                "D6 recebeu a nota_decimal mais alta (2.67), próxima da fronteira N3, mas não confirmada por ausência de elementos de sistematização e comunicação corretiva formal"
+              ],
+              "descritores_sem_sustentacao": [
+                "D5"
+              ],
+              "descritores_com_evidencia_forte": [],
+              "descritores_com_evidencia_fraca": [
+                "D1",
+                "D2",
+                "D3",
+                "D4",
+                "D6"
+              ]
+            },
+            "avaliacao_por_resposta": {
+              "R1": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Leitura do contexto e identificação do problema",
+                    "numero": 1,
+                    "limites": "A resposta descreve um método de leitura genérico, sem aplicar ao cenário específico: não menciona a variação histórica de 12%, o peso do fornecedor estratégico (18% do custo), nem a opcao A vs. B. Não há decisão concreta articulada com critério explícito.",
+                    "confianca": 0.75,
+                    "evidencia": "'isolo o problema central e valido a base', 'cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio'",
+                    "nota_decimal": 2
+                  },
+                  {
+                    "nome": "Execução com método e acompanhamento",
+                    "numero": 3,
+                    "limites": "Intenção declarada, mas sem ação concreta descrita no contexto do cenário. Não indica o que faz com a estimativa, como documenta, como acompanha. É linguagem de princípio, não de execução.",
+                    "confianca": 0.7,
+                    "evidencia": "'separo erro de lançamento de efeito real de negócio — para não reportar um número que induza a diretoria a uma decisão errada'",
+                    "nota_decimal": 2
+                  }
+                ]
+              },
+              "R2": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Critério de priorização e tomada de decisão",
+                    "numero": 2,
+                    "limites": "O critério de priorização é mencionado de forma abstrata — não está ancorado no cenário (prazo fixo do conselho vs. risco de distorção de margem, variação de 12%). Não há análise explícita de trade-off.",
+                    "confianca": 0.7,
+                    "evidencia": "'Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo'",
+                    "nota_decimal": 2.33
+                  },
+                  {
+                    "nome": "Comunicação com stakeholders",
+                    "numero": 4,
+                    "limites": "Cita comunicação e registro, mas sem especificar: a quem (Fernanda? diretoria?), em qual formato, com qual nível de detalhe, como quantifica o risco. Não menciona o adendo pós-dados reais, nem como orienta o uso do relatório provisório pela diretoria.",
+                    "confianca": 0.72,
+                    "evidencia": "'comunico o impacto na margem antes do fechamento', 'registro a premissa'",
+                    "nota_decimal": 2.33
+                  }
+                ]
+              },
+              "R3": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Colaboração e negociação de dependências",
+                    "numero": 5,
+                    "limites": "A resposta não aborda Rodrigo nem a negociação de alternativas concretas (contrato, NF anterior, e-mail do fornecedor). Ignora completamente a dimensão colaborativa com Compras descrita na pergunta. A frase sobre 'negociar prazo' é genérica e não resolve o cenário onde o prazo não é negociável.",
+                    "confianca": 0.8,
+                    "evidencia": "'Sinalizo cedo o que ainda está em verificação e negocio prazo quando a precisão exige'",
+                    "nota_decimal": 1.5
+                  },
+                  {
+                    "nome": "Comunicação com stakeholders",
+                    "numero": 4,
+                    "limites": "Citação isolada e genérica. Não contextualiza o que sinaliza, para quem, com que antecedência ou formato.",
+                    "confianca": 0.65,
+                    "evidencia": "'Sinalizo cedo o que ainda está em verificação'",
+                    "nota_decimal": 2
+                  }
+                ]
+              },
+              "R4": {
+                "descritores_avaliados": [
+                  {
+                    "nome": "Aprendizado, ética e melhoria contínua",
+                    "numero": 6,
+                    "limites": "Demonstra ação de melhoria e compartilhamento com a área — indícios de N3. Porém faltam: comunicação formal à diretoria sobre a correção (desvio de 9%), proposta de prazo interno estruturado (ex: D-3 para NFs estratégicas), e sistematização do gatilho de alerta no processo de fechamento. O 'explico o aprendizado para a área' é positivo mas vago.",
+                    "confianca": 0.75,
+                    "evidencia": "'comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz', 'Se algo passou, ajusto o controle para não repetir e explico o aprendizado para a área'",
+                    "nota_decimal": 2.67
+                  },
+                  {
+                    "nome": "Leitura do contexto e identificação do problema",
+                    "numero": 1,
+                    "limites": "Sinaliza leitura retroativa do problema, mas sem detalhar qual foi a causa-raiz identificada, o que ela revela sobre o processo de conciliação e como isso muda a abordagem prospectiva.",
+                    "confianca": 0.65,
+                    "evidencia": "'atualizo o checklist de fechamento na causa-raiz'",
+                    "nota_decimal": 2.33
+                  }
+                ]
+              }
+            },
+            "avaliacao_por_descritor": [
+              {
+                "nome": "Leitura do contexto e identificação do problema",
+                "numero": 1,
+                "racional": "Demonstra consciência metodológica genérica, mas sem ancorar a leitura no cenário específico — insuficiente para N3, que exige critério explícito com variáveis do contexto.",
+                "confianca": 0.72,
+                "evidencias": [
+                  {
+                    "trecho": "'isolo o problema central e valido a base', 'cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio'",
+                    "resposta": "R1",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'atualizo o checklist de fechamento na causa-raiz'",
+                    "resposta": "R4",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.17,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Nunca aplica a leitura ao cenário concreto: não menciona a variação de 12%, o peso de 18% do fornecedor, nem a opção A vs. B",
+                  "Linguagem de princípio (como costuma agir) e não de evidência de ação no contexto dado",
+                  "Não articula o que tornou o problema crítico neste ciclo específico"
+                ]
+              },
+              {
+                "nome": "Critério de priorização e tomada de decisão",
+                "numero": 2,
+                "racional": "A resposta em R3 é a mais próxima de um critério articulado, mas permanece declarativa e descontextualizada — N2 por não aplicar ao cenário real com as variáveis disponíveis.",
+                "confianca": 0.68,
+                "evidencias": [
+                  {
+                    "trecho": "'Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo'",
+                    "resposta": "R2",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'Meu critério é confiabilidade acima de velocidade: prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro'",
+                    "resposta": "R3",
+                    "forca_evidencia": "moderada"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.33,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Enuncia princípios de priorização (confiabilidade > velocidade), mas não os aplica aos dados do cenário",
+                  "Não menciona a variação histórica de 12% como variável de decisão",
+                  "Não estabelece limiar de tolerância explícito para sinalizar quando escalaria a gestora",
+                  "Não demonstra análise de trade-off entre as opções A e B"
+                ]
+              },
+              {
+                "nome": "Execução com método e acompanhamento",
+                "numero": 3,
+                "racional": "Menciona ações de reconciliação e registro, mas sem detalhe operacional suficiente para confirmar método consistente — mantém-se em N2.",
+                "confianca": 0.7,
+                "evidencias": [
+                  {
+                    "trecho": "'separo erro de lançamento de efeito real de negócio — para não reportar um número que induza a diretoria a uma decisão errada'",
+                    "resposta": "R1",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'reconcilio contra o razão, ajusto o lançamento, registro a premissa'",
+                    "resposta": "R2",
+                    "forca_evidencia": "moderada"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.17,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Não descreve como constrói a estimativa (qual base histórica, qual método, qual documento de referência)",
+                  "Não menciona o acompanhamento após entrega — o que faz quando os dados reais chegam no dia 5",
+                  "Não evidencia controle de status de pendências durante o ciclo de fechamento"
+                ]
+              },
+              {
+                "nome": "Comunicação com stakeholders",
+                "numero": 4,
+                "racional": "Demonstra intenção de comunicar e sinalizar, mas sem evidência de que a comunicação seria suficientemente estruturada e contextualizada para N3.",
+                "confianca": 0.73,
+                "evidencias": [
+                  {
+                    "trecho": "'comunico o impacto na margem antes do fechamento', 'registro a premissa'",
+                    "resposta": "R2",
+                    "forca_evidencia": "fraca"
+                  },
+                  {
+                    "trecho": "'Sinalizo cedo o que ainda está em verificação'",
+                    "resposta": "R3",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.11,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Não identifica os destinatários da comunicação (Fernanda em viagem? diretoria? conselho?)",
+                  "Não quantifica o risco na comunicação (não menciona 12% de variação histórica ou impacto potencial na margem)",
+                  "Não propõe adendo ou atualização após chegada dos dados reais",
+                  "Não orienta a diretoria sobre como usar o relatório provisório com cautela"
+                ]
+              },
+              {
+                "nome": "Colaboração e negociação de dependências",
+                "numero": 5,
+                "racional": "Ausência quase total de evidência sobre colaboração e negociação de dependências — o cenário pede ação com Rodrigo e alternativas concretas, nenhuma foi demonstrada; N1 por postura passiva implícita.",
+                "confianca": 0.82,
+                "evidencias": [
+                  {
+                    "trecho": "'Sinalizo cedo o que ainda está em verificação e negocio prazo quando a precisão exige'",
+                    "resposta": "R3",
+                    "forca_evidencia": "fraca"
+                  }
+                ],
+                "sustentacao": "insuficiente",
+                "nota_decimal": 1.5,
+                "nivel_sugerido": 1,
+                "limites_da_evidencia": [
+                  "A pergunta P3 é diretamente sobre a conversa com Rodrigo — a resposta não menciona Rodrigo, Compras ou o fornecedor",
+                  "Não explora nenhuma alternativa concreta (contrato, NF anterior, e-mail do fornecedor, aprovação parcial)",
+                  "Não demonstra postura colaborativa na negociação de dependências externas",
+                  "A frase sobre 'negociar prazo' contradiz o cenário onde o prazo é fixo e não negociável"
+                ]
+              },
+              {
+                "nome": "Aprendizado, ética e melhoria contínua",
+                "numero": 6,
+                "racional": "Demonstra ciclo de aprendizado e ajuste — o mais robusto entre os descritores — mas sem os elementos de sistematização e comunicação corretiva necessários para confirmar N3 com confiança.",
+                "confianca": 0.75,
+                "evidencias": [
+                  {
+                    "trecho": "'comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz'",
+                    "resposta": "R4",
+                    "forca_evidencia": "moderada"
+                  },
+                  {
+                    "trecho": "'Se algo passou, ajusto o controle para não repetir e explico o aprendizado para a área'",
+                    "resposta": "R4",
+                    "forca_evidencia": "moderada"
+                  }
+                ],
+                "sustentacao": "fraca",
+                "nota_decimal": 2.67,
+                "nivel_sugerido": 2,
+                "limites_da_evidencia": [
+                  "Não menciona comunicação formal à diretoria sobre a correção (desvio de 9% confirmado)",
+                  "Não propõe prazo interno estruturado (ex: D-3 para NFs de fornecedores estratégicos acima de X% do custo)",
+                  "O 'explico o aprendizado para a área' é positivo mas vago — não referencia a retrospectiva quinzenal da ACME nem formato de registro",
+                  "Nota decimal sugere transição para N3 mas faltam elementos de sistematização e comunicação corretiva para confirmar"
+                ]
+              }
+            ]
+          },
+          "nivel_ia4": 2,
+          "nota_ia4": "2.16",
+          "pontos_fortes": "Aprendizado, ética e melhoria contínua",
+          "pontos_atencao": "Colaboração e negociação de dependências; Comunicação com stakeholders",
+          "feedback_ia4": "Mariana demonstra consciência metodológica e senso de responsabilidade sobre a qualidade da informação financeira — traços valiosos para um analista de fechamento. Ao mesmo tempo, as respostas ficaram no campo dos princípios e intenções, sem mergulhar nas variáveis concretas do cenário, o que limitou a evidência de aplicação real da competência. O gap mais relevante está na colaboração com outras áreas, especialmente na negociação de dependências externas.\nVocê mostrou consistência ao valorizar a auditabilidade do número acima da velocidade — 'prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro' — e ao mencionar o ciclo de previsto vs. realizado com atualização de checklist e compartilhamento de aprendizado com a área. Isso reflete um perfil que se preocupa com a integridade da informação e com a melhoria do processo, o que é exatamente o que se espera de um analista financeiro em ambiente de pressão.\nO desafio central está em tornar esses princípios visíveis nas situações específicas. Quando o cenário traz variáveis concretas — variação histórica de 12%, um fornecedor que representa 18% do custo, um prazo fixo com consequências reais — a diretoria e a gestora precisam ver que você ancorou sua decisão nesses dados, não em regras gerais. Da mesma forma, a situação com Rodrigo pede uma postura ativa de co-construção de alternativas: explorar o contrato vigente, uma NF anterior como referência, um e-mail do fornecedor com valores — esse é o tipo de colaboração que reduz o risco e fortalece a relação com Compras.",
+          "payload_ia4": null,
+          "status_ia4": null
+        }
+      ],
+      "descriptor_assessments": [
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Análise de Indicadores Financeiros",
+          "descritor": "Aprendizado, ética e melhoria contínua",
+          "nota": "2.75",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:48:50.531Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Análise de Indicadores Financeiros",
+          "descritor": "Colaboração e negociação de dependências",
+          "nota": "2",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:48:50.531Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Análise de Indicadores Financeiros",
+          "descritor": "Comunicação com stakeholders",
+          "nota": "2",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:48:50.531Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Análise de Indicadores Financeiros",
+          "descritor": "Critério de priorização e tomada de decisão",
+          "nota": "2",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:48:50.531Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Análise de Indicadores Financeiros",
+          "descritor": "Execução com método e acompanhamento",
+          "nota": "2.5",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:48:50.531Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Análise de Indicadores Financeiros",
+          "descritor": "Leitura do contexto e identificação do problema",
+          "nota": "2",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:48:50.531Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Comunicação Financeira para Não Especialistas",
+          "descritor": "Aprendizado, ética e melhoria contínua",
+          "nota": "2",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:43:11.512Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Comunicação Financeira para Não Especialistas",
+          "descritor": "Colaboração e negociação de dependências",
+          "nota": "1.5",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:43:11.512Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Comunicação Financeira para Não Especialistas",
+          "descritor": "Comunicação com stakeholders",
+          "nota": "1.5",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:43:11.512Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Comunicação Financeira para Não Especialistas",
+          "descritor": "Critério de priorização e tomada de decisão",
+          "nota": "1.5",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:43:11.511Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Comunicação Financeira para Não Especialistas",
+          "descritor": "Execução com método e acompanhamento",
+          "nota": "2",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:43:11.511Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Comunicação Financeira para Não Especialistas",
+          "descritor": "Leitura do contexto e identificação do problema",
+          "nota": "1.5",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:43:11.511Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Controle, Precisão e Confiabilidade dos Dados",
+          "descritor": "FIN01-D01 — Leitura do contexto e identificação do problema",
+          "nota": "3.1",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:46:54.307Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Controle, Precisão e Confiabilidade dos Dados",
+          "descritor": "FIN01-D02 — Critério de priorização e tomada de decisão",
+          "nota": "3.23",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:46:54.307Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Controle, Precisão e Confiabilidade dos Dados",
+          "descritor": "FIN01-D03 — Execução com método e acompanhamento",
+          "nota": "3.5",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:46:54.307Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Controle, Precisão e Confiabilidade dos Dados",
+          "descritor": "FIN01-D04 — Comunicação com stakeholders",
+          "nota": "3.07",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:46:54.307Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Controle, Precisão e Confiabilidade dos Dados",
+          "descritor": "FIN01-D05 — Colaboração e negociação de dependências",
+          "nota": "2.93",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:46:54.307Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Controle, Precisão e Confiabilidade dos Dados",
+          "descritor": "FIN01-D06 — Aprendizado, ética e melhoria contínua",
+          "nota": "3.5",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:46:54.307Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Critério e Ética no Tratamento de Informações",
+          "descritor": "Aprendizado, ética e melhoria contínua",
+          "nota": "2.33",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:45:08.650Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Critério e Ética no Tratamento de Informações",
+          "descritor": "Colaboração e negociação de dependências",
+          "nota": "2",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:45:08.650Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Critério e Ética no Tratamento de Informações",
+          "descritor": "Comunicação com stakeholders",
+          "nota": "2",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:45:08.650Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Critério e Ética no Tratamento de Informações",
+          "descritor": "Critério de priorização e tomada de decisão",
+          "nota": "2.33",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:45:08.650Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Critério e Ética no Tratamento de Informações",
+          "descritor": "Execução com método e acompanhamento",
+          "nota": "2.33",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:45:08.650Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Critério e Ética no Tratamento de Informações",
+          "descritor": "Leitura do contexto e identificação do problema",
+          "nota": "2",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:45:08.650Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Organização de Rotinas e Prazos",
+          "descritor": "Aprendizado, ética e melhoria contínua",
+          "nota": "2.67",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:39:11.723Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Organização de Rotinas e Prazos",
+          "descritor": "Colaboração e negociação de dependências",
+          "nota": "1.5",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:39:11.723Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Organização de Rotinas e Prazos",
+          "descritor": "Comunicação com stakeholders",
+          "nota": "2.11",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:39:11.723Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Organização de Rotinas e Prazos",
+          "descritor": "Critério de priorização e tomada de decisão",
+          "nota": "2.33",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:39:11.723Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Organização de Rotinas e Prazos",
+          "descritor": "Execução com método e acompanhamento",
+          "nota": "2.17",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:39:11.723Z"
+        },
+        {
+          "cargo": "Analista Financeiro",
+          "competencia": "Organização de Rotinas e Prazos",
+          "descritor": "Leitura do contexto e identificação do problema",
+          "nota": "2.17",
+          "origem": "ia4",
+          "assessment_date": "2026-07-07T11:39:11.723Z"
+        }
+      ]
+    }
+  }
 }

@@ -156,9 +156,33 @@ const PERSONAS = [
   { key: 'paulo', nome_completo: 'Paulo Demo', email: 'paulo.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'ID', d_natural: 66, i_natural: 61, s_natural: 24, c_natural: 31, scenario: 'parcial', responder: ['Negociação e Fechamento', 'Orientação a Metas e Resultados'] },
   { key: 'bruna', nome_completo: 'Bruna Costa', email: 'bruna.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'CS', d_natural: 24, i_natural: 32, s_natural: 68, c_natural: 74, scenario: 'completo', responder: REPRESENTANTE_TOP5 },
   { key: 'carla', nome_completo: 'Carla Menezes', email: 'carla.demo@vertho.ai', cargo: 'Gerente Comercial', role: 'gestor', area_depto: COMERCIAL_AREA, gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'D', d_natural: 76, i_natural: 48, s_natural: 28, c_natural: 42, scenario: 'gestor-parcial', responder: [] as string[] },
-  { key: 'mariana', nome_completo: 'Mariana Lopes', email: 'mariana.demo@vertho.ai', cargo: 'Analista Financeiro', role: 'colaborador', area_depto: 'Financeiro', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'CS', d_natural: 22, i_natural: 34, s_natural: 64, c_natural: 78, scenario: 'novo', responder: [] as string[] },
+  { key: 'mariana', nome_completo: 'Mariana Lopes', email: 'mariana.demo@vertho.ai', cargo: 'Analista Financeiro', role: 'colaborador', area_depto: 'Financeiro', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'CS', d_natural: 22, i_natural: 34, s_natural: 64, c_natural: 78, scenario: 'completo', responder: [
+    'Controle, Precisão e Confiabilidade dos Dados',
+    'Análise de Indicadores Financeiros',
+    'Organização de Rotinas e Prazos',
+    'Comunicação Financeira para Não Especialistas',
+    'Critério e Ética no Tratamento de Informações',
+  ] },
   { key: 'renato', nome_completo: 'Renato Alves', email: 'renato.demo@vertho.ai', cargo: 'Coordenador de Operações', role: 'colaborador', area_depto: 'Operações', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'DS', d_natural: 62, i_natural: 38, s_natural: 58, c_natural: 46, scenario: 'novo', responder: [] as string[] },
 ];
+
+// Colunas comportamentais (comp_*/lid_*) DETERMINÍSTICAS a partir do DISC — mesma
+// fórmula do simulador-disc, sem o ruído aleatório (reproduzível a cada reset). O
+// motor de Adequação (fit v2) LÊ essas colunas do colaborador; sem elas o bloco
+// competências/liderança fica 0 e os knockouts de traço (ex.: Organização,
+// Prudência) reprovam mesmo com DISC perfeito. Ver [[project_ranking_adequacao]].
+function comportamentosDoDisc(D: number, I: number, S: number, C: number) {
+  const cl = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
+  return {
+    lid_executivo: cl(D * 0.7 + C * 0.3), lid_motivador: cl(I * 0.8 + D * 0.2),
+    lid_metodico: cl(S * 0.5 + C * 0.5), lid_sistematico: cl(C * 0.7 + S * 0.3),
+    comp_ousadia: cl(D), comp_comando: cl(D), comp_objetividade: cl(D),
+    comp_assertividade: cl((D + I) / 2), comp_persuasao: cl(I), comp_extroversao: cl(I),
+    comp_entusiasmo: cl(I), comp_sociabilidade: cl((I + S) / 2), comp_empatia: cl(S),
+    comp_paciencia: cl(S), comp_persistencia: cl(S), comp_planejamento: cl((S + C) / 2),
+    comp_organizacao: cl(C), comp_detalhismo: cl(C), comp_prudencia: cl(C), comp_concentracao: cl(C),
+  };
+}
 
 const strip = (row: any, extra: string[] = []) => {
   const out = { ...row };
@@ -408,11 +432,25 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
         perfil_dominante: p.perfil_dominante,
         d_natural: p.d_natural, i_natural: p.i_natural, s_natural: p.s_natural, c_natural: p.c_natural,
         d_adaptado: p.d_natural, i_adaptado: p.i_natural, s_adaptado: p.s_natural, c_adaptado: p.c_natural,
+        ...comportamentosDoDisc(p.d_natural, p.i_natural, p.s_natural, p.c_natural),
         disc_resultados: { demo: true, estado_demo: p.scenario },
       }).select('id').single());
       idMap.set(p.key, inserted.id);
     }
     return idMap;
+  }
+
+  // Respostas FORTES (nível 3-4) da Mariana no Financeiro — para a demo mostrar
+  // um candidato REALMENTE avaliado com fit positivo (o IA4 pontua alto).
+  function respostasFortesFinanceiro(compNome: string) {
+    const c = compNome.toLowerCase();
+    return {
+      r1: `Antes de agir eu isolo o problema central e valido a base. Em ${c}, cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio — para não reportar um número que induza a diretoria a uma decisão errada.`,
+      r2: `Corrijo na origem e deixo rastro auditável: reconcilio contra o razão, ajusto o lançamento, registro a premissa e comunico o impacto na margem antes do fechamento. Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo.`,
+      r3: `Meu critério é confiabilidade acima de velocidade: prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro. Sinalizo cedo o que ainda está em verificação e negocio prazo quando a precisão exige.`,
+      r4: `Depois comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz. Se algo passou, ajusto o controle para não repetir e explico o aprendizado para a área.`,
+      representatividade: 9,
+    };
   }
 
   function respostasPara(compNome: string, personaNome: string) {
@@ -446,7 +484,9 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
       for (const compNome of p.responder || []) {
         const comp = compByCargoNome.get(`${p.cargo}::${compNome}`);
         if (!comp) continue;
-        const respostas = respostasPara(compNome, p.nome_completo);
+        const respostas = p.key === 'mariana'
+          ? respostasFortesFinanceiro(compNome)
+          : respostasPara(compNome, p.nome_completo);
         payload.push({
           empresa_id: destId, colaborador_id: colabId, email_colaborador: p.email,
           nome_colaborador: p.nome_completo, cargo: p.cargo,
@@ -463,7 +503,12 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
   // reset). BEST-EFFORT: falha aqui NÃO derruba o reset — a demo só fica com o
   // mapeamento não-avaliado (sem regressão). Chaveado por e-mail da persona.
   async function applyPersonaArtifacts(destId: string, personaMap: Map<string, string>) {
-    const artifacts: any = (fixture as any).personaArtifacts || {};
+    // Artefatos avaliados: do fixture principal (acme) + do fixture extra
+    // (personas demo-only, ex.: Mariana no Financeiro). Chaveados por e-mail.
+    const artifacts: any = {
+      ...((fixture as any).personaArtifacts || {}),
+      ...((extraArtifacts as any).personaArtifacts || {}),
+    };
     for (const p of PERSONAS) {
       const colabId = personaMap.get(p.key);
       const a = artifacts[p.email];
