@@ -10,7 +10,8 @@ import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/li
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { parseJsonIA } from '@/lib/ai-json';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
-import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { buscarCenarioBComFallback } from '@/lib/season-engine/cenario-b';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { PROGRESSO } from '@/lib/status';
@@ -316,11 +317,9 @@ export async function POST(request) {
           const { data: acumRow } = await sb.from('temporada_semana_progresso')
             .select('acumulada_status, acumulada_started_at')
             .eq('trilha_id', trilhaId).eq('semana', semAcumulada).maybeSingle();
-          const st = acumRow?.acumulada_status;
-          if (st !== 'done') {
-            const iniciadoMs = acumRow?.acumulada_started_at ? Date.parse(acumRow.acumulada_started_at) : 0;
-            const travado = !st || st === 'error' || (st === 'processing' && Date.now() - iniciadoMs > 5 * 60_000);
-            if (travado) {
+          const gate = gateAcumuladaPiloto(acumRow, Date.now());
+          if (!gate.pronto) {
+            if (gate.redisparar) {
               // Self-heal: NÃO re-dispara a Trigger — se ela FALHOU no runtime
               // (ex.: env faltando), re-disparar falharia de novo e prenderia o
               // colab. Roda a acumulada INLINE (after) no ambiente da Vercel, que
@@ -354,19 +353,7 @@ export async function POST(request) {
 
         if (!cenario || !perguntas) {
           const cargoColab = colab?.cargo || 'todos';
-          const buscarCenB = (cargo: string) => sb.from('banco_cenarios')
-            .select('id, titulo, descricao, alternativas')
-            .eq('empresa_id', trilha.empresa_id)
-            .eq('cargo', cargo)
-            .eq('tipo_cenario', 'cenario_b')
-            .limit(1).maybeSingle();
-
-          let { data: cenB } = await buscarCenB(cargoColab);
-          // Fallback: cenário B genérico ('todos') quando não há um do cargo
-          // específico — alinha com a prontidão, que já aceita 'todos'.
-          if (!cenB?.descricao && cargoColab !== 'todos') {
-            ({ data: cenB } = await buscarCenB('todos'));
-          }
+          const cenB = await buscarCenarioBComFallback(sb, trilha.empresa_id, cargoColab);
 
           if (!cenB?.descricao) {
             return NextResponse.json({

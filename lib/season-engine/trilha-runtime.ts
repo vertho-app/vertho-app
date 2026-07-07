@@ -75,3 +75,24 @@ export async function checarGatesSemana(
   }
   return null;
 }
+
+/**
+ * Gate da acumulada do PILOTO (B2): decide se o fechamento (sem 3) pode abrir a
+ * partir do status da acumulada (disparada em Trigger.dev no fim da sem 2).
+ *   - status 'done'          → pronto (libera o fechamento).
+ *   - senão                  → NÃO pronto (rota devolve 202 "processando").
+ *   - `redisparar`=true quando está TRAVADO (nunca disparou / erro / 'processing'
+ *     stale > staleMs) → o caller re-dispara (self-heal). 'processing' recente
+ *     apenas aguarda (redisparar=false). Função PURA p/ testabilidade.
+ */
+export function gateAcumuladaPiloto(
+  acumRow: { acumulada_status?: string | null; acumulada_started_at?: string | null } | null | undefined,
+  nowMs: number,
+  staleMs = 5 * 60_000,
+): { pronto: boolean; redisparar: boolean } {
+  const st = acumRow?.acumulada_status;
+  if (st === 'done') return { pronto: true, redisparar: false };
+  const iniciadoMs = acumRow?.acumulada_started_at ? Date.parse(acumRow.acumulada_started_at) : 0;
+  const travado = !st || st === 'error' || (st === 'processing' && nowMs - iniciadoMs > staleMs);
+  return { pronto: false, redisparar: travado };
+}
