@@ -1,0 +1,2338 @@
+{
+  "_meta": {
+    "capturado_em": "MANUAL",
+    "fonte": "IA2/IA3 no acme-demo"
+  },
+  "gabaritos": {
+    "Analista Financeiro": {
+      "tela1": {
+        "confianca": 0.86,
+        "caracteristicas": [
+          {
+            "par": "Generalista × Detalhista",
+            "confianca": 0.92,
+            "intensidade": "alta",
+            "justificativa": "Conciliações, fechamentos e análise de desvios exigem atenção minuciosa a dados e inconsistências.",
+            "polo_escolhido": "Detalhista"
+          },
+          {
+            "par": "Casual × Formal",
+            "confianca": 0.85,
+            "intensidade": "moderada",
+            "justificativa": "Relatórios para diretoria e auditoria demandam rigor formal, mas o cargo também interage com gestores de área em linguagem acessível.",
+            "polo_escolhido": "Formal"
+          },
+          {
+            "par": "Orientação a Resultados × Orientação a Processos",
+            "confianca": 0.88,
+            "intensidade": "moderada",
+            "justificativa": "Fechamento mensal, conciliações e controle orçamentário são entregas baseadas em processos confiáveis e repetíveis.",
+            "polo_escolhido": "Orientação a Processos"
+          },
+          {
+            "par": "Assume Riscos × Prudente",
+            "confianca": 0.9,
+            "intensidade": "alta",
+            "justificativa": "Critério e ética no tratamento de informações e a necessidade de precisão sustentam perfil prudente em decisões e premissas.",
+            "polo_escolhido": "Prudente"
+          },
+          {
+            "par": "Age com Velocidade × Age com Planejamento",
+            "confianca": 0.82,
+            "intensidade": "moderada",
+            "justificativa": "Mesmo sob prazos curtos, o analista deve estruturar prioridades antes de agir para não comprometer a confiabilidade dos dados.",
+            "polo_escolhido": "Age com Planejamento"
+          },
+          {
+            "par": "Objetivo × Sistemático",
+            "confianca": 0.9,
+            "intensidade": "alta",
+            "justificativa": "A rotina de fechamento e análise de variações exige método consistente e não apenas rapidez na entrega.",
+            "polo_escolhido": "Sistemático"
+          },
+          {
+            "par": "Emocional × Racional",
+            "confianca": 0.93,
+            "intensidade": "alta",
+            "justificativa": "Divergências entre áreas e pressão por respostas rápidas requerem análise fria e decisões baseadas em dados, não em pressão emocional.",
+            "polo_escolhido": "Racional"
+          },
+          {
+            "par": "Otimista × Realista",
+            "confianca": 0.84,
+            "intensidade": "moderada",
+            "justificativa": "Comunicar riscos e oportunidades com credibilidade exige leitura realista do cenário financeiro, sem viés positivo distorcido.",
+            "polo_escolhido": "Realista"
+          },
+          {
+            "par": "Avesso a Rotina × Rotineiro",
+            "confianca": 0.87,
+            "intensidade": "moderada",
+            "justificativa": "Fechamentos mensais, conciliações periódicas e acompanhamento orçamentário são ciclos repetitivos que demandam conforto com rotina.",
+            "polo_escolhido": "Rotineiro"
+          },
+          {
+            "par": "Comunicativo × Analista",
+            "confianca": 0.78,
+            "intensidade": "moderada",
+            "justificativa": "O trabalho é predominantemente analítico, embora a comunicação financeira para não especialistas exija capacidade de traduzir dados — equilíbrio com leve polo analítico.",
+            "polo_escolhido": "Analista"
+          },
+          {
+            "par": "Multitarefas × Especialista",
+            "confianca": 0.8,
+            "intensidade": "moderada",
+            "justificativa": "O cargo demanda aprofundamento técnico em finanças, orçamento e controle, mais do que dispersão em múltiplas frentes.",
+            "polo_escolhido": "Especialista"
+          },
+          {
+            "par": "Cria do Zero × Aprimora o que já Existe",
+            "confianca": 0.82,
+            "intensidade": "moderada",
+            "justificativa": "O papel é de manutenção e melhoria de processos de controle existentes, não de criação de novos modelos do zero.",
+            "polo_escolhido": "Aprimora o que já Existe"
+          },
+          {
+            "par": "Estilo Agressivo × Estilo Consultivo",
+            "confianca": 0.83,
+            "intensidade": "moderada",
+            "justificativa": "Apoio a decisões de gestão e comunicação com diversas áreas requerem postura consultiva, não impositiva.",
+            "polo_escolhido": "Estilo Consultivo"
+          },
+          {
+            "par": "Foco em Relacionamentos × Foco nas Tarefas",
+            "confianca": 0.85,
+            "intensidade": "moderada",
+            "justificativa": "Entrega de relatórios confiáveis e fechamentos no prazo colocam as tarefas como centro, com relacionamento como meio.",
+            "polo_escolhido": "Foco nas Tarefas"
+          }
+        ]
+      },
+      "tela2": {
+        "confianca": 0.84,
+        "subcompetencias": [
+          {
+            "nome": "Organização",
+            "direcao": "floor",
+            "dimensao": "C",
+            "faixa_max": "Extremamente alto (81-100)",
+            "faixa_min": "Muito alto (61-80)",
+            "prioridade": "alta",
+            "justificativa": "Organização de rotinas e prazos é a primeira competência priorizada. Fechamentos, conciliações e controle orçamentário exigem estrutura pessoal elevada."
+          },
+          {
+            "nome": "Detalhismo",
+            "direcao": "floor",
+            "dimensao": "C",
+            "faixa_max": "Extremamente alto (81-100)",
+            "faixa_min": "Muito alto (61-80)",
+            "prioridade": "alta",
+            "justificativa": "Controle, precisão e confiabilidade dos dados são competências centrais. Erros de detalhe em dados financeiros comprometem toda a cadeia de decisão."
+          },
+          {
+            "nome": "Prudência",
+            "direcao": "floor",
+            "dimensao": "C",
+            "faixa_max": "Extremamente alto (81-100)",
+            "faixa_min": "Muito alto (61-80)",
+            "prioridade": "alta",
+            "justificativa": "Critério e ética no tratamento de informações e a decisão de quando escalar inconsistências exigem cautela e responsabilidade antes de comunicar conclusões."
+          },
+          {
+            "nome": "Concentração",
+            "direcao": "floor",
+            "dimensao": "C",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Análise de variações, investigação de desvios e trabalho com dados incompletos sob pressão exigem capacidade de foco sustentado."
+          },
+          {
+            "nome": "Planejamento",
+            "direcao": "floor",
+            "dimensao": "S",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Priorizar demandas de fechamento versus análises gerenciais e usar premissas consistentes em projeções demandam capacidade de planejamento estruturado."
+          },
+          {
+            "nome": "Persistência",
+            "direcao": "floor",
+            "dimensao": "S",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "media",
+            "justificativa": "Investigar variações com dados incompletos, sustentar precisão sob pressão de prazos curtos e não abandonar inconsistências sem resolução exigem persistência."
+          },
+          {
+            "nome": "Objetividade",
+            "direcao": "floor",
+            "dimensao": "D",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "media",
+            "justificativa": "Comunicação financeira para não especialistas e respostas rápidas a gestores e diretoria exigem síntese objetiva, sem rodeios técnicos desnecessários."
+          },
+          {
+            "nome": "Assertividade",
+            "direcao": "target",
+            "dimensao": "D",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "media",
+            "justificativa": "Escalar inconsistências, comunicar riscos e sustentar posição técnica ante pressão de áreas requerem assertividade moderada — sem excesso que gere conflito desnecessário."
+          },
+          {
+            "nome": "Empatia",
+            "direcao": "floor",
+            "dimensao": "S",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "baixa",
+            "justificativa": "Interação com gestores de área, comercial e compras exige sensibilidade ao contexto do interlocutor para comunicar informações financeiras de forma compreensível."
+          }
+        ]
+      },
+      "tela3": {
+        "executor": 20,
+        "metodico": 45,
+        "confianca": 0.85,
+        "motivador": 10,
+        "sistematico": 25,
+        "justificativa": "O cargo é baseado em ciclos recorrentes de fechamento, conciliação e análise de variações. O estilo Metódico (processo, consistência, qualidade técnica) é o eixo central. Sistemático complementa com rigor analítico e estrutura de dados. Executor aparece para garantir entrega nos prazos e respostas ágeis sob pressão. Motivador tem peso mínimo — não há liderança de equipes nem papel de engajamento de pessoas como entrega principal.",
+        "estilo_predominante": "Metódico"
+      },
+      "tela4": {
+        "C": {
+          "max": "Extremamente alto (81-100)",
+          "min": "Muito alto (61-80)",
+          "direcao": "floor",
+          "justificativa": "Conformidade alta é o fator mais crítico: precisão, rigor técnico, ética na informação e adesão a processos de controle são o núcleo do cargo. C elevado é essencial e não prejudica nesta função."
+        },
+        "D": {
+          "max": "Alto (41-60)",
+          "min": "Baixo (21-40)",
+          "direcao": "target",
+          "justificativa": "Dominância moderada sustenta assertividade para escalar problemas e sustentar posições técnicas, mas excesso de D gera impaciência com processos e atropelamento de rigor analítico."
+        },
+        "I": {
+          "max": "Alto (41-60)",
+          "min": "Muito baixo (0-20)",
+          "direcao": "ceiling",
+          "justificativa": "Influência alta demais conflita com o perfil analítico e metódico. Uma dose moderada é suficiente para comunicar dados a não especialistas. I excessivo sinaliza foco em relacionamento acima de precisão."
+        },
+        "S": {
+          "max": "Extremamente alto (81-100)",
+          "min": "Alto (41-60)",
+          "direcao": "floor",
+          "justificativa": "Estabilidade elevada sustenta constância nos ciclos de fechamento, paciência com dados incompletos, persistência na investigação de desvios e previsibilidade nos entregáveis."
+        },
+        "confianca": 0.87,
+        "justificativa": "Perfil SC predominante com D moderado. C alto garante precisão e processo; S alto garante consistência e paciência; D moderado garante assertividade sem atropelar o método; I contido evita dispersão relacional em detrimento do rigor técnico."
+      },
+      "knockouts": [
+        {
+          "key": "Organização",
+          "min": 0.4,
+          "label": "Organização insuficiente para sustentar rotinas de fechamento e controle",
+          "scope": "trait"
+        },
+        {
+          "key": "Prudência",
+          "min": 0.4,
+          "label": "Prudência insuficiente compromete critério ético e confiabilidade das informações financeiras",
+          "scope": "trait"
+        },
+        {
+          "key": "disc",
+          "min": 0.35,
+          "label": "Perfil DISC incompatível com o rigor analítico e processual exigido pelo cargo",
+          "scope": "block"
+        }
+      ],
+      "pesos_blocos": {
+        "disc": 0.35,
+        "lideranca": 0,
+        "mapeamento": 0.2,
+        "competencia": 0.45
+      },
+      "spec_version": 4,
+      "metrica_colinearidade": {
+        "n": 0,
+        "map_disc": null,
+        "medido_em": "2026-07-07T01:52:23.278Z"
+      }
+    },
+    "Coordenador de Operações": {
+      "tela1": {
+        "confianca": 0.82,
+        "caracteristicas": [
+          {
+            "par": "Otimista × Realista",
+            "confianca": 0.82,
+            "intensidade": "moderada",
+            "justificativa": "Coordenação operacional exige leitura precisa de capacidade do time, prazos e riscos; otimismo excessivo gera comprometimentos irreais.",
+            "polo_escolhido": "Realista"
+          },
+          {
+            "par": "Comunicativo × Analista",
+            "confianca": 0.88,
+            "intensidade": "moderada",
+            "justificativa": "Múltiplos stakeholders (equipe, gerência, comercial, atendimento, logística) exigem comunicação fluida e constante entre áreas.",
+            "polo_escolhido": "Comunicativo"
+          },
+          {
+            "par": "Generalista × Detalhista",
+            "confianca": 0.8,
+            "intensidade": "moderada",
+            "justificativa": "Gestão de processos, prazos e padrões de qualidade requer atenção ao detalhe; excesso pode travar decisões, por isso intensidade moderada.",
+            "polo_escolhido": "Detalhista"
+          },
+          {
+            "par": "Estilo Agressivo × Estilo Consultivo",
+            "confianca": 0.84,
+            "intensidade": "moderada",
+            "justificativa": "Coordenação de equipe operacional e comunicação entre áreas pedem influência por convencimento e alinhamento, não imposição.",
+            "polo_escolhido": "Estilo Consultivo"
+          },
+          {
+            "par": "Avesso a Rotina × Rotineiro",
+            "confianca": 0.85,
+            "intensidade": "moderada",
+            "justificativa": "Gestão de rotinas operacionais, ritos semanais e revisões mensais são pilares do cargo; conforto com repetição estruturada é necessário.",
+            "polo_escolhido": "Rotineiro"
+          },
+          {
+            "par": "Delega × Centraliza",
+            "confianca": 0.78,
+            "intensidade": "moderada",
+            "justificativa": "Coordenar um time operacional requer redistribuir demandas e empoderar a equipe; centralizar gera gargalo na própria função.",
+            "polo_escolhido": "Delega"
+          },
+          {
+            "par": "Foco em Relacionamentos × Foco nas Tarefas",
+            "confianca": 0.8,
+            "intensidade": "moderada",
+            "justificativa": "Execução dentro do prazo e redução de gargalos são entregas primárias; relacionamento é meio, não fim para este cargo.",
+            "polo_escolhido": "Foco nas Tarefas"
+          },
+          {
+            "par": "Orientação a Resultados × Orientação a Processos",
+            "confianca": 0.83,
+            "intensidade": "moderada",
+            "justificativa": "Melhoria contínua de processos e garantia de padrões de qualidade indicam forte orientação processual; resultado é consequência.",
+            "polo_escolhido": "Orientação a Processos"
+          },
+          {
+            "par": "Emocional × Racional",
+            "confianca": 0.81,
+            "intensidade": "moderada",
+            "justificativa": "Decisões recorrentes (priorização, escalonamento, equilíbrio qualidade/prazo) pedem análise objetiva, especialmente sob pressão.",
+            "polo_escolhido": "Racional"
+          },
+          {
+            "par": "Dinâmico × Estável",
+            "confianca": 0.79,
+            "intensidade": "moderada",
+            "justificativa": "Ambiente operacional sob pressão beneficia-se de coordenador que transmite previsibilidade e constância ao time.",
+            "polo_escolhido": "Estável"
+          },
+          {
+            "par": "Age com Firmeza × Age com Consentimento",
+            "confianca": 0.76,
+            "intensidade": "moderada",
+            "justificativa": "Urgências simultâneas e redistribuição de demandas exigem decisão rápida; esperar consenso em todo momento geraria paralisia operacional.",
+            "polo_escolhido": "Age com Firmeza"
+          },
+          {
+            "par": "Assume Riscos × Prudente",
+            "confianca": 0.82,
+            "intensidade": "moderada",
+            "justificativa": "Escalar desvios no momento certo e equilibrar qualidade com prazo indica perfil cauteloso; imprudência gera falhas de processo.",
+            "polo_escolhido": "Prudente"
+          },
+          {
+            "par": "Objetivo × Sistemático",
+            "confianca": 0.84,
+            "intensidade": "moderada",
+            "justificativa": "Melhoria contínua, padrões de qualidade e ritos estruturados da empresa (retrospectivas, revisões mensais) requerem método.",
+            "polo_escolhido": "Sistemático"
+          },
+          {
+            "par": "Cria do Zero × Aprimora o que já Existe",
+            "confianca": 0.87,
+            "intensidade": "alta",
+            "justificativa": "A entrega de melhoria contínua de processos e o contexto de 'simplicidade operacional' indicam perfil que otimiza, não reinventa.",
+            "polo_escolhido": "Aprimora o que já Existe"
+          },
+          {
+            "par": "Multitarefas × Especialista",
+            "confianca": 0.83,
+            "intensidade": "moderada",
+            "justificativa": "Gerenciar urgências simultâneas e múltiplos stakeholders ao mesmo tempo é sinal explícito de necessidade de multitarefa.",
+            "polo_escolhido": "Multitarefas"
+          }
+        ]
+      },
+      "tela2": {
+        "confianca": 0.8,
+        "subcompetencias": [
+          {
+            "nome": "Assertividade",
+            "direcao": "floor",
+            "dimensao": "D",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Redistribuir demandas, definir urgências e escalar desvios requerem posicionamento claro e firme. Assertividade é insumo direto para coordenação eficaz sob pressão."
+          },
+          {
+            "nome": "Objetividade",
+            "direcao": "floor",
+            "dimensao": "D",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Decisões recorrentes de priorização e equilíbrio qualidade/prazo demandam comunicação e raciocínio direto, sem rodeios."
+          },
+          {
+            "nome": "Planejamento",
+            "direcao": "floor",
+            "dimensao": "S",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Gestão de rotinas, priorização do time e cumprimento de prazos exigem capacidade consistente de antecipar e estruturar a execução."
+          },
+          {
+            "nome": "Organização",
+            "direcao": "floor",
+            "dimensao": "C",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Execução operacional dentro do prazo e padrões de qualidade dependem de organização pessoal elevada. Desordem no coordenador propaga-se para o time."
+          },
+          {
+            "nome": "Persistência",
+            "direcao": "floor",
+            "dimensao": "S",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Melhoria contínua de processos e sustentação de acordos em ambiente de pressão exigem perseverança consistente diante de obstáculos recorrentes."
+          },
+          {
+            "nome": "Empatia",
+            "direcao": "floor",
+            "dimensao": "S",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "media",
+            "justificativa": "Liderança próxima de equipe operacional e gestão de sobrecarga do time requerem sensibilidade às condições reais das pessoas."
+          },
+          {
+            "nome": "Prudência",
+            "direcao": "target",
+            "dimensao": "C",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "media",
+            "justificativa": "Escalar desvios no momento certo e equilibrar riscos é sinal de prudência funcional. Excesso de prudência pode atrasar decisões urgentes, justificando 'target'."
+          },
+          {
+            "nome": "Concentração",
+            "direcao": "target",
+            "dimensao": "C",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "media",
+            "justificativa": "Ambiente de urgências simultâneas exige foco, mas também transição ágil entre contextos; concentração excessiva pode prejudicar gestão multitarefa."
+          },
+          {
+            "nome": "Comando",
+            "direcao": "floor",
+            "dimensao": "D",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "media",
+            "justificativa": "Alinhamento diário do time e decisão em situações de sobrecarga requerem autoridade funcional clara. Sem mínimo de comando, coordenação vira sugestão."
+          },
+          {
+            "nome": "Sociabilidade",
+            "direcao": "floor",
+            "dimensao": "I",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "baixa",
+            "justificativa": "Comunicação fluida entre áreas e múltiplos stakeholders requer facilidade de relacionamento; não é o traço mais crítico, mas sustenta a ponte entre departamentos."
+          }
+        ]
+      },
+      "tela3": {
+        "executor": 35,
+        "metodico": 30,
+        "confianca": 0.81,
+        "motivador": 20,
+        "sistematico": 15,
+        "justificativa": "O cargo é primariamente de execução operacional (35%): entregas centradas em prazos, gargalos e priorização do time. Metódico (30%) reflete a necessidade de processos, rotinas e melhoria contínua que a empresa valoriza. Motivador (20%) sustenta a liderança próxima e o alinhamento diário. Sistemático (15%) cobre a análise de indicadores e revisões periódicas, mas sem peso excessivo dado que o cargo não tem perfil analítico-estratégico preponderante.",
+        "estilo_predominante": "Executor"
+      },
+      "tela4": {
+        "C": {
+          "max": "Muito alto (61-80)",
+          "min": "Alto (41-60)",
+          "direcao": "target",
+          "justificativa_fator": "Padrões de qualidade e organização de processos requerem C relevante. 'Target' pois C extremamente alto pode travar decisões rápidas em urgências, que são centrais no cargo."
+        },
+        "D": {
+          "max": "Muito alto (61-80)",
+          "min": "Alto (41-60)",
+          "direcao": "floor",
+          "justificativa_fator": "Dominância suficiente para priorizar, redirecionar e agir com firmeza; 'floor' pois ausência de D compromete a função; excesso extremo seria contraproducente no perfil consultivo, mas sem teto rígido dado que o cargo não é de liderança estratégica de alta dominância."
+        },
+        "I": {
+          "max": "Muito alto (61-80)",
+          "min": "Alto (41-60)",
+          "direcao": "target",
+          "justificativa_fator": "Comunicação entre áreas e liderança próxima exigem influência relacional moderada-alta. 'Target' pois I extremamente alto pode gerar dispersão e priorização de relacionamento sobre execução."
+        },
+        "S": {
+          "max": "Muito alto (61-80)",
+          "min": "Alto (41-60)",
+          "direcao": "floor",
+          "justificativa_fator": "Estabilidade é sinal explícito do cargo: previsibilidade, persistência, planejamento e suporte ao time sob pressão. 'Floor' pois S baixo comprometeria a consistência operacional esperada."
+        },
+        "confianca": 0.79,
+        "justificativa": "Perfil DISC equilibrado com leve preponderância em D e S: executa com firmeza (D moderado-alto), sustenta processos e relacionamentos com estabilidade (S alto), comunica entre áreas (I moderado) e respeita padrões sem paralisar (C moderado-alto). Nenhum fator deve ser extremamente alto ou muito baixo — o cargo é de coordenação de média liderança, não de alta dominância ou alta influência."
+      },
+      "knockouts": [
+        {
+          "key": "lideranca",
+          "min": 0.4,
+          "label": "Aderência de liderança insuficiente: cargo exige coordenação ativa de equipe operacional; candidato sem mínimo de aderência ao estilo Executor ou Metódico não sustenta o papel.",
+          "scope": "block"
+        },
+        {
+          "key": "Organização",
+          "min": 0.35,
+          "label": "Organização abaixo do mínimo operacional: coordenador desorganizado propaga caos ao time e compromete entregas de prazo e qualidade.",
+          "scope": "trait"
+        }
+      ],
+      "pesos_blocos": {
+        "disc": 0.2,
+        "lideranca": 0.25,
+        "mapeamento": 0.15,
+        "competencia": 0.4
+      },
+      "spec_version": 4,
+      "metrica_colinearidade": {
+        "n": 0,
+        "map_disc": null,
+        "medido_em": "2026-07-07T01:53:53.685Z"
+      }
+    },
+    "Gerente Comercial": {
+      "tela1": {
+        "confianca": 0.83,
+        "caracteristicas": [
+          {
+            "par": "Orientação a Resultados × Orientação a Processos",
+            "confianca": 0.92,
+            "intensidade": "alta",
+            "justificativa": "Atingimento consistente de meta e forecast confiável são entregas centrais; o cargo existe para garantir número, não apenas para estruturar processo.",
+            "polo_escolhido": "Orientação a Resultados"
+          },
+          {
+            "par": "Comandante × Conciliador",
+            "confianca": 0.85,
+            "intensidade": "moderada",
+            "justificativa": "Precisa cobrar performance, redistribuir metas e entrar pessoalmente em deals; mas também deve desenvolver vendedores e negociar internamente com marketing, produto e financeiro — equilíbrio é necessário.",
+            "polo_escolhido": "Comandante"
+          },
+          {
+            "par": "Estilo Agressivo × Estilo Consultivo",
+            "confianca": 0.88,
+            "intensidade": "moderada",
+            "justificativa": "Segmento B2B consultivo e cultura de 'relacionamento consultivo' exigem abordagem de suporte a deals estratégicos, não venda de pressão.",
+            "polo_escolhido": "Estilo Consultivo"
+          },
+          {
+            "par": "Delega × Centraliza",
+            "confianca": 0.82,
+            "intensidade": "moderada",
+            "justificativa": "Tensão explícita entre gerir e executar exige saber delegar para não ser sugado pela operação; mas centraliza em deals críticos e decisões de prioridade.",
+            "polo_escolhido": "Delega"
+          },
+          {
+            "par": "Dinâmico × Estável",
+            "confianca": 0.8,
+            "intensidade": "moderada",
+            "justificativa": "Ciclos curtos de planejamento-execução-aprendizado e ritmo acelerado demandam capacidade de ajuste rápido, não postura estática.",
+            "polo_escolhido": "Dinâmico"
+          },
+          {
+            "par": "Objetivo × Sistemático",
+            "confianca": 0.83,
+            "intensidade": "moderada",
+            "justificativa": "Decisões recorrentes de priorização (contas, esforço, indicadores) pedem foco e clareza; sistemático demais cria lentidão incompatível com o ritmo.",
+            "polo_escolhido": "Objetivo"
+          },
+          {
+            "par": "Comunicativo × Analista",
+            "confianca": 0.78,
+            "intensidade": "moderada",
+            "justificativa": "Interface ampla (vendedores, diretoria, marketing, produto, financeiro, clientes) requer comunicação clara e frequente; mas análise de indicadores e forecast também é crítica.",
+            "polo_escolhido": "Comunicativo"
+          },
+          {
+            "par": "Assume Riscos × Prudente",
+            "confianca": 0.84,
+            "intensidade": "moderada",
+            "justificativa": "Forecast deve ser confiável, não otimista; tensão explícita entre forecast otimista e realidade indica que prudência calibrada é mais valorizada do que ousadia irresponsável.",
+            "polo_escolhido": "Prudente"
+          },
+          {
+            "par": "Inspirador × Técnico",
+            "confianca": 0.77,
+            "intensidade": "moderada",
+            "justificativa": "Desenvolvimento de vendedores e manutenção de energia do time em ambiente de alta pressão exigem capacidade de inspirar; mas contexto técnico B2B requer suporte em deals.",
+            "polo_escolhido": "Inspirador"
+          },
+          {
+            "par": "Foco em Relacionamentos × Foco nas Tarefas",
+            "confianca": 0.72,
+            "intensidade": "leve",
+            "justificativa": "O cargo é orientado a entrega de resultados mensuráveis, mas relacionamento com time e clientes estratégicos é igualmente relevante — ponto próximo ao equilíbrio, leve inclinação para tarefas.",
+            "polo_escolhido": "Foco nas Tarefas"
+          },
+          {
+            "par": "Age com Velocidade × Age com Planejamento",
+            "confianca": 0.7,
+            "intensidade": "leve",
+            "justificativa": "Ritmo acelerado e ciclos curtos favorecem velocidade de decisão, mas planejamento comercial é competência priorizada — ponto de equilíbrio com leve inclinação para velocidade.",
+            "polo_escolhido": "Age com Velocidade"
+          },
+          {
+            "par": "Multitarefas × Especialista",
+            "confianca": 0.8,
+            "intensidade": "moderada",
+            "justificativa": "Interface com múltiplos stakeholders, gestão simultânea de pipeline, desenvolvimento de pessoas e suporte a deals exigem capacidade de alternar contextos.",
+            "polo_escolhido": "Multitarefas"
+          },
+          {
+            "par": "Generalista × Detalhista",
+            "confianca": 0.75,
+            "intensidade": "leve",
+            "justificativa": "Visão de mercado, priorização estratégica e leitura de indicadores pedem visão ampla; detalhismo excessivo compromete o papel de liderança e priorização.",
+            "polo_escolhido": "Generalista"
+          }
+        ]
+      },
+      "tela2": {
+        "confianca": 0.84,
+        "subcompetencias": [
+          {
+            "nome": "Comando",
+            "direcao": "floor",
+            "dimensao": "D",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Liderar equipe de vendas em ambiente de alta cobrança, redistribuir metas e entrar em deals críticos exigem comando claro; ausência compromete o papel de gestão, mas extremo autoritário prejudica desenvolvimento do time."
+          },
+          {
+            "nome": "Assertividade",
+            "direcao": "floor",
+            "dimensao": "D",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Cobrar forecast, dar feedback de performance e destravar negociações críticas requerem assertividade; imprescindível para accountability do time."
+          },
+          {
+            "nome": "Objetividade",
+            "direcao": "floor",
+            "dimensao": "D",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Decisões recorrentes de priorização (contas, esforço, indicadores a cobrar primeiro) exigem foco e clareza; objetividade é habilitadora da priorização estratégica."
+          },
+          {
+            "nome": "Persuasão",
+            "direcao": "floor",
+            "dimensao": "I",
+            "faixa_max": "Extremamente alto (81-100)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Suporte a deals estratégicos e alinhamento interno com múltiplos stakeholders (marketing, produto, financeiro) exigem capacidade persuasiva consistente."
+          },
+          {
+            "nome": "Entusiasmo",
+            "direcao": "floor",
+            "dimensao": "I",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "media",
+            "justificativa": "Manter energia e motivação da equipe em ambiente de alta pressão por meta requer entusiasmo genuíno; vendedores respondem ao tom do gestor."
+          },
+          {
+            "nome": "Empatia",
+            "direcao": "floor",
+            "dimensao": "S",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Coaching e desenvolvimento de vendedores exigem leitura das necessidades individuais de cada membro do time; empatia habilita feedbacks que de fato geram evolução."
+          },
+          {
+            "nome": "Persistência",
+            "direcao": "floor",
+            "dimensao": "S",
+            "faixa_max": "Extremamente alto (81-100)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Atingimento consistente de metas ao longo do tempo em ambiente de pressão requer resiliência e persistência; não pode desistir frente a deals travados ou períodos de underperformance."
+          },
+          {
+            "nome": "Planejamento",
+            "direcao": "floor",
+            "dimensao": "S",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "alta",
+            "justificativa": "Planejamento Comercial é competência priorizada; pipeline previsível e forecast confiável são entregas centrais que dependem de capacidade de planejamento estruturado."
+          },
+          {
+            "nome": "Organização",
+            "direcao": "target",
+            "dimensao": "C",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "media",
+            "justificativa": "Gestão de indicadores, acompanhamento de pipeline e coordenação entre áreas requerem organização consistente; excesso pode engessar o ritmo dinâmico do cargo."
+          },
+          {
+            "nome": "Prudência",
+            "direcao": "target",
+            "dimensao": "C",
+            "faixa_max": "Muito alto (61-80)",
+            "faixa_min": "Alto (41-60)",
+            "prioridade": "media",
+            "justificativa": "Tensão explícita entre forecast otimista e realidade; prudência no comprometimento de números é valorizada, mas excesso pode paralisar decisões em ambiente dinâmico."
+          }
+        ]
+      },
+      "tela3": {
+        "executor": 30,
+        "metodico": 20,
+        "confianca": 0.82,
+        "motivador": 35,
+        "sistematico": 15,
+        "justificativa": "O cargo exige forte componente Motivador para engajar e desenvolver vendedores em ambiente de alta pressão (coaching, entusiasmo, evolução do time). O Executor é o segundo estilo mais relevante — atingimento de meta, suporte a deals e accountability demandam orientação direta a resultado e ação. O Metódico sustenta planejamento comercial, gestão de pipeline e forecast previsível. O Sistemático existe mas em menor grau: processos e qualidade analítica são instrumentais, não dominantes neste papel.",
+        "estilo_predominante": "Motivador"
+      },
+      "tela4": {
+        "C": {
+          "max": "Alto (41-60)",
+          "min": "Baixo (21-40)",
+          "direcao": "ceiling",
+          "justificativa_fator": "Conformidade suficiente para garantir rigor em forecast e indicadores, mas C alto demais tende a paralisar o gestor em análise e perfeccionismo, comprometendo velocidade de decisão e o estilo consultivo-ousado que o cargo exige."
+        },
+        "D": {
+          "max": "Muito alto (61-80)",
+          "min": "Alto (41-60)",
+          "direcao": "floor",
+          "justificativa_fator": "Dominância necessária para cobrar resultados, redistribuir metas e entrar em negociações críticas; extremamente alto poderia comprometer o relacionamento consultivo e o desenvolvimento do time."
+        },
+        "I": {
+          "max": "Muito alto (61-80)",
+          "min": "Alto (41-60)",
+          "direcao": "floor",
+          "justificativa_fator": "Influência é habilitadora central: engajar time, alinhar stakeholders internos e suportar deals estratégicos requerem perfil influente; I muito baixo compromete o desenvolvimento de vendedores."
+        },
+        "S": {
+          "max": "Muito alto (61-80)",
+          "min": "Alto (41-60)",
+          "direcao": "target",
+          "justificativa_fator": "Estabilidade moderada-alta sustenta persistência, paciência com desenvolvimento de pessoas e planejamento; S extremamente alto poderia gerar resistência às mudanças de prioridade inerentes ao cargo dinâmico."
+        },
+        "confianca": 0.85,
+        "justificativa": "Perfil D+I predominante com S de suporte: dominância e influência equilibradas são o núcleo do Gerente Comercial B2B que precisa tanto de autoridade e resultado quanto de engajamento relacional e desenvolvimento de time. C moderado garante rigor analítico sem engessar a operação. Coerente com estilos Motivador-Executor na Tela 3 e com o predomínio de sub-competências de persuasão, comando e persistência na Tela 2."
+      },
+      "knockouts": [
+        {
+          "key": "lideranca",
+          "min": 0.45,
+          "label": "Aderência de liderança insuficiente para cargo de gestão de equipe comercial",
+          "scope": "block"
+        },
+        {
+          "key": "Persistência",
+          "min": 0.4,
+          "label": "Persistência abaixo do mínimo compromete consistência de resultados em ambiente de alta pressão",
+          "scope": "trait"
+        },
+        {
+          "key": "Planejamento",
+          "min": 0.4,
+          "label": "Planejamento insuficiente inviabiliza forecast confiável e pipeline saudável — entregas centrais do cargo",
+          "scope": "trait"
+        }
+      ],
+      "pesos_blocos": {
+        "disc": 0.2,
+        "lideranca": 0.3,
+        "mapeamento": 0.15,
+        "competencia": 0.35
+      },
+      "spec_version": 4,
+      "metrica_colinearidade": {
+        "n": 0,
+        "map_disc": null,
+        "medido_em": "2026-07-07T01:55:24.941Z"
+      }
+    }
+  },
+  "cenarios": [
+    {
+      "cargo": "Analista Financeiro",
+      "cod_comp": "FIN01",
+      "titulo": "Fechamento com base suja: publicar ou segurar?",
+      "descricao": "É dia 3 do mês. O fechamento de outubro precisa ser entregue à diretoria até as 18h de hoje — prazo inegociável para a reunião de conselho amanhã. Você é o analista responsável pela consolidação. Às 14h, durante a conciliação final, identifica uma divergência de R$ 87 mil na conta de receita de serviços: o lançamento aparece duplicado no ERP, provavelmente por erro de input da área Comercial na última semana de outubro. Se a duplicidade existir de fato, o resultado do mês está R$ 87 mil inflado — margem operacional sobe de 11,2% para 12,9%, cruzando a meta trimestral da diretoria. Rodrigo, gerente Comercial, já enviou o resultado para o time dele comemorando o atingimento. Carla, controladora, está em reunião externa e só responde por mensagem. Você tem 4 horas. Para confirmar a origem do lançamento, precisa de acesso a um relatório do ERP que só o time de Comercial consegue extrair — e Rodrigo está visivelmente animado com o número. Publicar o fechamento agora mantém o prazo e não quebra a comemoração do time. Segurar para investigar arrisca atrasar o relatório que a diretoria aguarda para o conselho.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "O que você faz nas próximas 2 horas? Descreva as ações, a ordem e o que você prioriza — sabendo que investigar pode não caber no prazo.",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado tem critério estruturado para identificar o problema, avaliar sua materialidade e tomar decisão de priorização com base em risco — ou se age por impulso, por comodidade ou por pressão de prazo.",
+            "descritores_primarios": [
+              1,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: publica o fechamento sem investigar, ou trava sem agir; não articula critério. | N2: reconhece o problema mas aguarda resposta de Carla sem acionar alternativas; ação dependente de terceiro. | N3: define critério de materialidade (R$ 87k sobre a base total), aciona Rodrigo com pedido específico e documentado, registra o risco para Carla por escrito, define ponto de corte de decisão. | N4: faz tudo do N3 e já mapeia o impacto de cada cenário (publicar com ressalva, atrasar, publicar com ajuste provisório documentado), apresentando a Carla uma recomendação estruturada quando ela sair da reunião.",
+            "resposta_generica_falha_porque": "Dizer 'investigaria antes de publicar' sem detalhar como, com quem e o que faz se não conseguir a informação a tempo não discrimina N2 de N3 — o cenário exige execução concreta, não intenção."
+          },
+          {
+            "texto": "Você consegue acesso ao relatório do ERP e confirma: o lançamento é duplicado. Como você conduz a correção e garante que o fechamento entregue é confiável?",
+            "numero": 2,
+            "objetivo_diagnostico": "Avaliar se o avaliado executa a correção com método rastreável — registro, evidência, trilha de auditoria — ou apenas ajusta o número sem garantir que o processo esteja protegido para o futuro.",
+            "descritores_primarios": [
+              2,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: corrige o número no arquivo e entrega; sem registro, sem comunicação formal. | N2: corrige e avisa Carla, mas sem documentar a origem do erro nem propor revisão do processo. | N3: corrige com registro formal (print do ERP antes/depois, e-mail de confirmação com Rodrigo), comunica Carla com evidência e entrega o fechamento com nota explicativa sobre o ajuste. | N4: além do N3, registra o incidente na retrospectiva do ciclo, propõe checklist de conciliação para lançamentos de receita de Comercial e quantifica o risco sistêmico se o erro não tivesse sido capturado.",
+            "resposta_generica_falha_porque": "Dizer 'documentaria tudo' é vago — o cenário exige que o avaliado descreva o que documenta, para quem envia e como garante que a correção não gere um novo problema na contabilidade ou na auditoria."
+          },
+          {
+            "texto": "Rodrigo reage mal: diz que o lançamento é correto, que você está atrasando o fechamento e que vai levar o caso para a diretoria. Como você lida com ele?",
+            "numero": 3,
+            "objetivo_diagnostico": "Testar se o avaliado sustenta a posição técnica sob pressão social e hierárquica — especialmente quando o erro beneficiava o interlocutor — ou cede para preservar o relacionamento e o prazo.",
+            "descritores_primarios": [
+              3,
+              5
+            ],
+            "o_que_diferencia_niveis": "N1: recua diante da resistência, reinsere o lançamento ou delega a decisão para Carla sem posição própria. | N2: mantém a posição mas com argumentação emocional ou pouco estruturada; não consegue conduzir o diálogo de forma produtiva. | N3: apresenta a evidência objetivamente (print do ERP, data e origem do lançamento duplicado), propõe que Rodrigo valide junto com o time dele antes de qualquer decisão, escala para Carla com os dois lados registrados — sem drama, sem recuo. | N4: além do N3, transforma o conflito em colaboração: propõe a Rodrigo uma revisão conjunta rápida que protege o Comercial de reportar meta atingida com base incorreta, reencuadrando o risco como risco do Rodrigo também.",
+            "resposta_generica_falha_porque": "Dizer 'buscaria consenso' não funciona: não há consenso possível sobre um dado factual. O cenário exige que o avaliado mostre como sustenta a integridade do número sem destruir o relacionamento — duas coisas que aqui conflitam diretamente."
+          },
+          {
+            "texto": "Um mês depois, a situação se repetiu em outra conta. O que isso diz sobre o processo e o que você faz diferente a partir daqui?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar se o avaliado aprende sistemicamente com incidentes de qualidade de dados — e se converte esse aprendizado em mudança de prática — ou trata cada ocorrência como caso isolado sem geração de conhecimento.",
+            "descritores_primarios": [
+              6,
+              2
+            ],
+            "o_que_diferencia_niveis": "N1: atribui o erro ao Comercial, sem questionar o próprio processo de conciliação. | N2: reconhece que o processo tem falha, mas aguarda iniciativa da Controladoria para mudar. | N3: mapeia o padrão (conta de receita, lançamentos tardios do Comercial), propõe uma rotina de pré-conciliação parcial antes do fechamento e apresenta a Carla com evidência dos dois casos. | N4: além do N3, quantifica o risco acumulado se o padrão continuar (probabilidade × impacto), propõe SLA de validação entre Comercial e Financeiro para lançamentos acima de determinado valor, e assume a condução da implementação junto com Rodrigo.",
+            "resposta_generica_falha_porque": "Dizer 'melhoraria o processo' sem descrever qual processo, o que muda concretamente e quem é responsável pela mudança é resposta de N2 — o cenário exige que o avaliado demonstre pensamento sistêmico e protagonismo na melhoria, não só reconhecimento do problema."
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Sinalizar imediatamente a inconsistência para Carla por escrito, comunicar o risco ao processo de fechamento e negociar ativamente — com prazo e responsável definidos — a confirmação do lançamento antes de publicar o número.",
+          "caminho_facil": "Publicar o fechamento dentro do prazo, assumindo que a duplicidade pode ser ajustada depois, sem confrontar Rodrigo nem atrasar a diretoria.",
+          "valor_testado": "Ética e responsabilidade: reportar números confiáveis independentemente do impacto político ou emocional do resultado."
+        },
+        "tradeoff_testado": "Publicar o fechamento no prazo (preservando a meta aparente, a comemoração do Comercial e a entrega à diretoria) versus segurar ou sinalizar a inconsistência (arriscando atraso, conflito com Rodrigo e a responsabilidade de desfazer uma comemoração prematura).",
+        "confianca_cenario": 0.91,
+        "fator_complicador": "A inconsistência favorece a empresa e o Comercial — não é um erro que prejudica ninguém visivelmente no curto prazo. Isso torna o caminho ético muito menos óbvio e revela se o analista tem o mesmo rigor quando o erro 'beneficia' quanto quando prejudica.",
+        "riscos_do_cenario": [
+          "Avaliado com perfil muito alto em C (sistemático) pode travar em análise sem chegar a decisão — a pergunta precisa forçar a escolha, não só o processo.",
+          "Cenário pode parecer simples demais para quem já viveu situação similar — calibrar com o entrevistador para explorar variações na pergunta 3."
+        ],
+        "faceta_testada_principal": "Integridade dos dados sob pressão de prazo e conflito de interesse: a capacidade de não publicar um número suspeito mesmo quando isso contraria expectativas internas já formadas e coloca o analista em posição desconfortável com pares.",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1
+          ],
+          "D2": [
+            2,
+            4
+          ],
+          "D3": [
+            3
+          ],
+          "D4": [
+            1
+          ],
+          "D5": [
+            3
+          ],
+          "D6": [
+            2,
+            4
+          ]
+        },
+        "armadilha_de_resposta_generica": "Dizer 'conversaria com Carla e Rodrigo para alinhar' não resolve: Carla está inacessível, Rodrigo tem interesse direto no número e o prazo é real. A resposta precisa revelar o que o avaliado faz concretamente nas próximas 4 horas, com quem, em que ordem e o que publica ou não publica."
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Analista Financeiro",
+      "cod_comp": "FIN02",
+      "titulo": "Margem sob pressão: investigar fundo ou fechar no prazo?",
+      "descricao": "É dia 4 do mês. O fechamento mensal vence em 48 horas. Você, Analista Financeiro da empresa, está consolidando os dados de outubro quando identifica uma variação negativa de 11% na margem bruta da área de Serviços Consultivos — desvio de R$ 87 mil em relação ao orçado. O gestor da área, Rodrigo, atribui o desvio a 'custos atípicos de mobilização em dois projetos' e pede que você registre como 'desvio pontual' para não travar o fechamento. A Controladoria quer o pacote fechado até amanhã às 18h para consolidar o relatório da diretoria. Ao verificar as notas de custo, você percebe que parte dos lançamentos pode ter sido classificada em categoria errada — mas confirmar isso exige reconciliar três planilhas e acionar a Contabilidade, o que provavelmente estouraria o prazo. Se o fechamento sair com a classificação atual, o relatório da diretoria terá uma linha de margem distorcida. Se você segurar para investigar, o pacote não entra no prazo e a Controladoria precisará justificar o atraso. Não há como fazer as duas coisas com a mesma qualidade no tempo disponível.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Diante da variação de R$ 87 mil e do prazo de 48h, o que você priorizaria investigar primeiro e o que ficaria para depois? Como chegou a essa ordem?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado tem critério explícito de triagem de variações (materialidade, risco de impacto na decisão da diretoria) ou age por instinto/urgência de prazo",
+            "descritores_primarios": [
+              1,
+              2
+            ],
+            "o_que_diferencia_niveis": "N1: Age pelo prazo — aceita a justificativa de Rodrigo ou investiga tudo sem critério, sem ponderar risco do erro. | N2: Reconhece que há problema, mas prioriza por reação (o que está mais 'na cara') sem articular critério de impacto. | N3: Define critério claro (materialidade + risco de distorção no relatório da diretoria) e separa o que precisa ser resolvido antes do fechamento do que pode ser endereçado depois com nota. | N4: Além do critério, propõe um protocolo de triagem replicável para variações futuras e comunica proativamente o risco antes de ser cobrado.",
+            "resposta_generica_falha_porque": "Dizer 'investigaria tudo antes de fechar' ignora o prazo real. Dizer 'priorizaria o prazo' ignora o risco de integridade. Qualquer resposta que não nomeie o critério de priorização e o risco específico de R$ 87 mil no relatório da diretoria é vaga demais para discriminar nível."
+          },
+          {
+            "texto": "Como você comunicaria essa situação à Controladoria — o que diria, quando diria e que informação levaria nessa conversa?",
+            "numero": 2,
+            "objetivo_diagnostico": "Avaliar se o avaliado sabe comunicar risco com precisão e no momento certo, sem esperar ser cobrado — e se consegue separar 'comunicar incerteza' de 'dar resposta definitiva'",
+            "descritores_primarios": [
+              3,
+              5
+            ],
+            "o_que_diferencia_niveis": "N1: Não comunica — fecha o pacote e espera ver o que acontece, ou só fala se for perguntado. | N2: Comunica, mas tarde (depois do prazo estourar ou após questionamento) ou de forma vaga ('tem uma inconsistência aí'). | N3: Comunica antes do prazo, com dado concreto (R$ 87 mil, natureza da suspeita, o que precisa para confirmar), propõe alternativa viável (fechar com ressalva ou prazo parcial para aquela linha). | N4: Antecipa o impacto na leitura da diretoria, sugere como apresentar a incerteza de forma transparente e propõe ajuste de processo para evitar recorrência.",
+            "resposta_generica_falha_porque": "Dizer 'avisaria a Controladoria sobre o problema' sem especificar o quê, quando e com qual proposta de encaminhamento não revela capacidade de comunicação de risco — revela apenas que o avaliado sabe que deve comunicar."
+          },
+          {
+            "texto": "Rodrigo insiste que é desvio pontual e pede que você registre assim. O que você faz a partir daí — e como lida com ele nesse momento?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar como o avaliado sustenta uma posição técnica diante de pressão de um gestor de área — se cede, negocia com critério ou escala sem tentar resolver",
+            "descritores_primarios": [
+              6,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: Cede imediatamente para evitar conflito, registra como Rodrigo pediu sem ressalva. | N2: Discorda internamente mas registra do jeito de Rodrigo, talvez com um e-mail genérico de cobertura. | N3: Explica a Rodrigo o risco concreto (informação distorcida na diretoria, possível retrabalho em auditoria), propõe alternativa (nota explicativa no pacote, prazo de confirmação) e negocia sem abrir mão da integridade do dado. | N4: Usa o momento para ajudar Rodrigo a entender o impacto de classificações incorretas no próprio resultado da área dele, transformando conflito em aprendizado e fortalecendo o processo conjunto.",
+            "resposta_generica_falha_porque": "Dizer 'conversaria com respeito e chegaria a um acordo' não revela qual posição o avaliado sustentaria nem o que estaria disposto a ceder. O cenário exige que o avaliado indique se mantém ou abre mão da integridade do dado — resposta diplomática sem conteúdo técnico é N1 disfarçado."
+          },
+          {
+            "texto": "Duas semanas depois, como você saberia se sua decisão foi acertada — e o que faria diferente no próximo fechamento para não chegar nessa situação de novo?",
+            "numero": 4,
+            "objetivo_diagnostico": "Avaliar se o avaliado aprende com ciclos críticos, define métricas de resultado e melhora processo — ou apenas reage e esquece",
+            "descritores_primarios": [
+              4,
+              5
+            ],
+            "o_que_diferencia_niveis": "N1: Não tem critério — 'se não reclamaram, funcionou'. Não propõe mudança. | N2: Cita aprendizado genérico ('da próxima vez vou começar antes') sem identificar a causa raiz nem o ponto de falha específico. | N3: Define indicadores concretos de sucesso (integridade da linha de margem confirmada, nenhum retrabalho pós-fechamento, Controladoria validou o pacote sem ressalvas) e propõe ajuste de processo (ex.: checklist de classificação de custos antes do D+3, alerta automático para variações acima de X%). | N4: Formaliza o aprendizado na retrospectiva de ciclo, compartilha com o time, propõe protocolo que beneficia outros analistas e reduz a probabilidade de recorrência estrutural.",
+            "resposta_generica_falha_porque": "Dizer 'aprenderia com a experiência e melhoraria os processos' sem nomear o que seria medido, quando e como é resposta de manual — não revela se o avaliado tem capacidade de extrair aprendizado estruturado de um ciclo crítico real."
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Comunicar proativamente à Controladoria a existência de um dado com integridade incerta, propor uma solução intermediária (fechar com nota de ressalva ou prazo parcial) e investigar a classificação antes de validar o número",
+          "caminho_facil": "Aceitar a justificativa de Rodrigo, registrar como desvio pontual e entregar o fechamento no prazo sem escalar a inconsistência",
+          "valor_testado": "Ética nas decisões e Clareza e responsabilidade"
+        },
+        "tradeoff_testado": "Fechar no prazo com dado provavelmente errado vs. segurar o fechamento para garantir a integridade da informação que vai à diretoria",
+        "confianca_cenario": 0.88,
+        "fator_complicador": "O gestor Rodrigo já deu uma justificativa que 'fecha' o problema narrativamente — aceitá-la é o caminho de menor resistência e não levanta suspeitas imediatas. A pressão vem de duas direções (prazo da Controladoria + conforto do gestor), tornando difícil distinguir se ceder é colaboração ou omissão.",
+        "riscos_do_cenario": [
+          "Avaliados com alto C (sistemático) podem se perder em detalhes técnicos de reconciliação e não chegar à decisão central — o avaliador precisará redirecionar para o dilema de priorização",
+          "A situação pode parecer resolvível com 'falar com o gestor antes' — o facilitador deve reforçar que Rodrigo já deu a resposta dele e não vai mudar de posição"
+        ],
+        "faceta_testada_principal": "Critério de priorização sob pressão de prazo com dado incompleto e risco de comunicação imprecisa à diretoria",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1
+          ],
+          "D2": [
+            1,
+            2
+          ],
+          "D3": [
+            2
+          ],
+          "D4": [
+            3,
+            4
+          ],
+          "D5": [
+            2,
+            4
+          ],
+          "D6": [
+            3
+          ]
+        },
+        "armadilha_de_resposta_generica": "Dizer 'alinharia com todas as partes e encontraria um meio-termo' não resolve porque o prazo é real, a Controladoria não pode esperar indefinidamente e aceitar o número sem ressalva já constitui uma decisão — a resposta genérica apaga o trade-off e não revela se o avaliado entende que omissão também é uma escolha com consequência."
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Analista Financeiro",
+      "cod_comp": "FIN03",
+      "titulo": "Fechamento em Risco: Dados Incompletos, Prazo Não Negocia",
+      "descricao": "É dia 3 do mês. O fechamento contábil da empresa precisa ser entregue à diretoria até o dia 5, às 18h — prazo fixo, não negociável, pois a reunião de resultados com o conselho está agendada para o dia 6. Você é o analista financeiro responsável pela consolidação.\n\nDurante a conciliação da tarde do dia 3, você identifica que as notas fiscais de serviços de um fornecedor estratégico — responsável por aproximadamente 18% do custo operacional do mês — ainda não foram lançadas pela área de Compras. Rodrigo, analista de Compras que deveria alimentar o sistema, informa que os dados só estarão disponíveis no dia 5 à tarde, porque o fornecedor entregou a documentação com atraso.\n\nVocê tem duas opções principais: (A) usar uma estimativa baseada no contrato vigente e no histórico dos últimos três meses, sinalizando o valor como provisório no relatório; ou (B) segurar o fechamento, aguardar os dados reais e entregar fora do prazo — o que comprometeria a reunião do conselho.\n\nO complicador: a variação entre o valor estimado e o real nos últimos fechamentos chegou a 12%. Se isso se repetir agora, o relatório pode distorcer a leitura de margem — e a diretoria pode tomar decisões comerciais baseadas em número errado. Sua gestora, Fernanda, está em viagem e responde mensagens com atraso.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Diante do impasse entre prazo e completude dos dados, qual seria sua decisão concreta e qual critério você usou para chegar a ela?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado tem critério explícito de priorização ou age por instinto/pressão. Distingue quem decide com método de quem decide por default (o que chegar primeiro).",
+            "descritores_primarios": [
+              1,
+              3
+            ],
+            "o_que_diferencia_niveis": "N1: decide sem critério claro, ou fica paralisado aguardando alguém resolver. Pode aguardar Rodrigo ou Fernanda sem agir. | N2: decide usar a estimativa, mas não articula por quê — age por pressão do prazo, não por análise de risco/impacto. | N3: articula a decisão com critério explícito: avalia variação histórica de 12%, impacto na margem, relevância do dado para a decisão do conselho, e define o que é aceitável sinalizar como provisório. | N4: além do critério, já estabelece um limiar de tolerância (ex: 'se a variação histórica fosse acima de X%, eu escalaria mesmo sem Fernanda') e documenta o raciocínio para auditoria futura.",
+            "resposta_generica_falha_porque": "Dizer 'avaliaria o impacto e tomaria a melhor decisão' não revela nenhum critério real. O cenário exige que o avaliado explicite o que pesou mais e por quê — sem isso, não há diagnóstico."
+          },
+          {
+            "texto": "Como você comunicaria essa situação à diretoria e a Fernanda, dado que o relatório conterá um valor estimado com risco de distorção de até 12% na margem?",
+            "numero": 2,
+            "objetivo_diagnostico": "Revelar a qualidade da comunicação de risco: se o avaliado minimiza, omite, escala de forma vaga ou comunica com precisão cirúrgica — incluindo o que é provisório, qual o risco e o que será feito para confirmar.",
+            "descritores_primarios": [
+              2,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: não comunica o risco ou menciona de forma genérica ('há uma pendência em Compras'), sem quantificar o impacto. | N2: avisa que tem um valor estimado, mas não detalha a variação histórica, não quantifica o risco na margem e não indica prazo de confirmação. | N3: comunica com clareza o valor estimado, a variação histórica de até 12%, o impacto potencial na leitura de margem, e propõe um adendo ou ajuste assim que os dados reais chegarem — antes da reunião do conselho, se possível. | N4: além disso, sugere à diretoria como usar o relatório provisório com cautela em decisões de alto impacto e propõe um protocolo para situações similares.",
+            "resposta_generica_falha_porque": "'Comunicaria o risco à gestora' não serve: Fernanda está inacessível e a diretoria precisa receber o relatório de qualquer forma. A pergunta força o avaliado a mostrar como comunica risco a quem vai usar a informação — não apenas a quem tem autoridade."
+          },
+          {
+            "texto": "Rodrigo diz que não há nada que ele possa fazer — os dados dependem do fornecedor. Como você conduziria essa conversa para resolver ou reduzir o problema?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar como o avaliado negocia dependências com quem não tem autoridade hierárquica sobre ele. Distingue quem aceita passivamente o bloqueio de quem explora alternativas sem confronto desnecessário.",
+            "descritores_primarios": [
+              5,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: aceita a resposta de Rodrigo sem explorar alternativas — registra como pendência de Compras e segue. | N2: tenta pressionar Rodrigo, mas sem oferecer alternativa ou saída prática. Foca no problema, não na solução conjunta. | N3: explora com Rodrigo alternativas concretas — contrato assinado, NF anterior de referência, e-mail do fornecedor com valores, aprovação parcial da nota — e negocia uma estimativa mais fundamentada do que a do histórico puro. Mantém o tom colaborativo. | N4: além de resolver o imediato, propõe a Rodrigo um gatilho de alerta para os próximos fechamentos (ex: aviso em D-7 quando houver risco de atraso de NF de fornecedor estratégico), sem esperar que o processo mude formalmente.",
+            "resposta_generica_falha_porque": "'Conversaria com Rodrigo para ver o que é possível' não revela nenhuma habilidade de negociação. O cenário exige que o avaliado mostre quais alavancas usaria e como manteria a relação sem criar atrito desnecessário."
+          },
+          {
+            "texto": "Após o fechamento, os dados reais chegam e confirmam desvio de 9% sobre a estimativa usada. O que você faria com isso e o que mudaria no processo para o próximo ciclo?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar se o avaliado aprende com o ciclo, registra o aprendizado e muda algo concreto — ou apenas resolve o imediato e segue. Testa maturidade em melhoria contínua e ética (corrigir o registro, não apenas arquivar).",
+            "descritores_primarios": [
+              6,
+              1
+            ],
+            "o_que_diferencia_niveis": "N1: atualiza o dado no sistema e considera o caso encerrado. Não comunica a correção nem propõe mudança alguma. | N2: corrige o dado e avisa a gestora, mas não formaliza o aprendizado nem propõe alteração de processo. | N3: corrige o registro, comunica a revisão à diretoria com clareza (inclusive o impacto real vs. estimado), registra o episódio como aprendizado e propõe uma ação concreta para o próximo ciclo — por exemplo, definir prazo interno de D-3 para confirmação de NFs de fornecedores que representem mais de 10% do custo. | N4: além disso, sistematiza o gatilho de alerta para a planilha de controle de fechamento, compartilha o aprendizado na retrospectiva quinzenal da equipe e documenta o critério de tolerância para estimativas futuras — tornando o conhecimento acessível ao time.",
+            "resposta_generica_falha_porque": "'Aprenderia com a situação e melhoraria o processo' é vazio sem especificar o quê, como e quando. O desvio de 9% é concreto — a resposta precisa ser igualmente concreta para discriminar níveis."
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Usar a estimativa, mas documentar explicitamente o risco, a variação histórica de 12% e o impacto potencial na leitura de margem — mesmo que isso exponha a fragilidade do processo de Compras e gere desconforto com a diretoria",
+          "caminho_facil": "Usar a estimativa sem sinalizar adequadamente a incerteza no relatório, para não parecer que o fechamento está incompleto — evitando constrangimento próprio ou da área",
+          "valor_testado": "Ética nas decisões e responsabilidade sobre a confiabilidade da informação"
+        },
+        "tradeoff_testado": "Entregar no prazo com dado estimado (mantendo o ciclo operacional) versus segurar o fechamento por integridade dos números (protegendo a decisão, mas quebrando o prazo do conselho). Não há opção que preserve ambos sem custo.",
+        "confianca_cenario": 0.89,
+        "fator_complicador": "A variação histórica de até 12% torna a estimativa arriscada o suficiente para distorcer leitura de margem — o que significa que a 'saída segura' de estimar também carrega risco real. A gestora está inacessível, o que elimina a opção de escalar e esperar autorização.",
+        "riscos_do_cenario": [
+          "Avaliados com perfil muito técnico podem focar excessivamente na metodologia de estimativa e não revelar como comunicariam o risco — as perguntas precisam forçar esse ponto",
+          "O cenário pode parecer resolvível com 'uso a estimativa e aviso' sem que o avaliado detalhe o critério de decisão, o nível de transparência na comunicação e o que faria após o fechamento — as perguntas 3 e 4 precisam compensar isso"
+        ],
+        "faceta_testada_principal": "Priorização sob pressão de prazo com dados incompletos: como o analista decide o que é suficientemente confiável para avançar, sem abrir mão da integridade da informação — e como comunica esse risco proativamente.",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1,
+            4
+          ],
+          "D2": [
+            2,
+            3
+          ],
+          "D3": [
+            1
+          ],
+          "D4": [
+            2,
+            3
+          ],
+          "D5": [
+            3
+          ],
+          "D6": [
+            4
+          ]
+        },
+        "armadilha_de_resposta_generica": "Dizer 'alinharia com a gestora e com Compras para decidir juntos' não resolve: Fernanda está inacessível, Rodrigo já informou que os dados chegam tarde demais, e o prazo não espera consenso. Quem responde assim evita a decisão — e é exatamente isso que o cenário testa."
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Analista Financeiro",
+      "cod_comp": "FIN04",
+      "titulo": "O Relatório que o Gestor Não Consegue Ler",
+      "descricao": "Você é Analista Financeiro em uma empresa B2B de tecnologia e serviços consultivos de médio porte. No fechamento de outubro, o relatório gerencial mensal foi enviado para Renata, gestora de Operações, com os dados de margem por projeto. Renata respondeu por e-mail: 'Não entendi nada. Você pode me explicar?' Você liga para ela e descobre que ela não sabe interpretar a coluna de 'margem de contribuição ajustada', não entende por que o Projeto Beta aparece com margem negativa de R$ 47 mil e está prestes a aprovar uma expansão desse projeto para o cliente, com prazo de resposta ao cliente em 48 horas. Ao mesmo tempo, a Controladoria acaba de te cobrar uma análise adicional de inadimplência para a reunião do dia seguinte com a diretoria — análise que vai consumir pelo menos 4 horas do seu dia. Você tem duas demandas simultâneas com prazos distintos: ajudar Renata a entender os dados antes que ela tome uma decisão equivocada, ou entregar a análise de inadimplência para a diretoria. Fazer as duas com a mesma qualidade e no prazo não é viável. Renata não reconhece a gravidade da situação e acha que a margem negativa 'é só uma questão de lançamento contábil'.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Você tem 48 horas e não consegue fazer tudo com qualidade. O que você decide priorizar — ajudar Renata ou entregar a análise para a diretoria — e por quê?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado tem critério claro de priorização baseado em impacto financeiro real, ou se decide por visibilidade hierárquica, por pressão ou sem critério explícito",
+            "descritores_primarios": [
+              1,
+              3
+            ],
+            "o_que_diferencia_niveis": "N1: escolhe pela pressão mais recente ou pela hierarquia sem analisar impacto — 'a diretoria pediu, então faço isso primeiro' | N2: reconhece o dilema mas hesita, tenta fazer os dois pela metade ou espera alguém decidir por ele | N3: prioriza com base no risco financeiro concreto (R$ 47 mil + expansão iminente), justifica o critério e comunica ativamente o trade-off à Controladoria | N4: além de decidir com critério, estrutura o raciocínio de forma que a Controladoria entenda o risco e colabore — negocia escopo, não apenas prazo",
+            "resposta_generica_falha_porque": "Dizer 'tentaria fazer os dois' ou 'faria uma triagem' não responde qual critério define a prioridade nem assume o custo da escolha — exatamente o que o cenário força"
+          },
+          {
+            "texto": "Renata acha que a margem negativa é 'só lançamento contábil' e está inclinada a aprovar a expansão. Como você explicaria o risco para ela, de forma que ela entenda e leve a sério?",
+            "numero": 2,
+            "objetivo_diagnostico": "Revelar se o avaliado consegue traduzir dado financeiro em linguagem de decisão para não especialista, calibrando nível de detalhe sem distorcer o risco — e se usa método ou improvisa",
+            "descritores_primarios": [
+              2,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: explica em jargão técnico ('é margem de contribuição ajustada por rateio de overhead'), não verifica se Renata entendeu, ou minimiza o risco para evitar conflito | N2: tenta simplificar mas perde a gravidade — 'existe um problema, mas pode ser resolvido depois' — sem ancorar em impacto concreto | N3: traduz para impacto operacional ('cada real que a empresa fatura nesse projeto custa R$ 1,47 — expandir agora aprofunda o prejuízo'), usa um exemplo concreto, confirma entendimento e registra o alerta por escrito | N4: além de explicar, propõe um enquadramento que Renata pode usar sozinha futuramente para interpretar margem — eleva o nível de leitura da interlocutora",
+            "resposta_generica_falha_porque": "Dizer 'explicaria de forma simples e clara' não revela nenhum método — o cenário exige que o avaliado demonstre O QUE diria e COMO verificaria se Renata realmente entendeu"
+          },
+          {
+            "texto": "Após sua conversa, Renata diz: 'Obrigada, mas vou aprovar mesmo assim — o cliente não pode esperar.' O que você faz a partir desse momento?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar como o avaliado lida com resistência após comunicar o risco — se registra formalmente, escala com critério, recua ou abandona a responsabilidade de quem detém a informação",
+            "descritores_primarios": [
+              4,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: aceita a decisão sem registro, não escala, não assume nenhuma responsabilidade sobre o desdobramento | N2: manifesta discordância verbalmente mas não formaliza, não sabe até onde é seu papel ir | N3: registra o alerta por escrito (e-mail ou sistema), informa a Controladoria sobre o risco em aberto e documenta que a decisão foi tomada com ciência do dado — sem ser passivo-agressivo | N4: além de registrar, propõe uma solução alternativa que preserve o relacionamento com o cliente e reduza a exposição financeira — colabora na saída, não apenas no alerta",
+            "resposta_generica_falha_porque": "Dizer 'respeitaria a decisão dela, pois é gestora' ignora a responsabilidade do analista financeiro de registrar e escalar riscos — e dizer 'escalaria imediatamente para a diretoria' sem critério revela falta de senso de proporção e de colaboração"
+          },
+          {
+            "texto": "Dois meses depois, o Projeto Beta é encerrado com prejuízo confirmado. O que você faria diferente — e como usaria esse episódio para melhorar a forma como a área financeira comunica riscos no futuro?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar se o avaliado aprende com a situação de forma estruturada e propõe mudança sistêmica, ou se atribui o erro ao outro e não extrai aprendizado aplicável",
+            "descritores_primarios": [
+              5,
+              3
+            ],
+            "o_que_diferencia_niveis": "N1: atribui o fracasso exclusivamente a Renata ('ela não quis ouvir'), não identifica nenhum ponto de melhora próprio | N2: reconhece que poderia ter comunicado melhor, mas o aprendizado fica no nível individual e não propõe mudança de processo | N3: identifica pontos de melhora concretos na própria atuação (ex.: comunicar margem negativa com sinalização visual padronizada desde o fechamento) e propõe ajuste de processo — ex.: incluir alerta automático no relatório quando margem cair abaixo de zero | N4: lidera a retrospectiva com outras áreas, documenta o caso como referência, propõe protocolo de alerta que o time financeiro possa replicar — eleva o padrão coletivo, não apenas o próprio",
+            "resposta_generica_falha_porque": "Dizer 'comunicaria melhor da próxima vez' é vago demais — o cenário exige que o avaliado aponte O QUE mudaria, COMO implementaria e SE consegue transformar um erro individual em aprendizado de processo"
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Comunicar com clareza o risco financeiro do Projeto Beta para Renata, mesmo que isso consuma tempo da análise de inadimplência, e negociar prazo ou escopo com a Controladoria de forma transparente",
+          "caminho_facil": "Responder superficialmente a Renata ('é uma questão de rateio, pode aprovar'), concentrar esforço na análise da diretoria e deixar a decisão operacional correr",
+          "valor_testado": "Responsabilidade e Clareza — comunicar o risco real mesmo que isso gere conflito ou atraso em outra entrega"
+        },
+        "tradeoff_testado": "Priorizar a explicação imediata para Renata (evitar decisão equivocada de alto impacto) versus entregar a análise de inadimplência para a diretoria (demanda institucional com visibilidade alta). Não há como fazer os dois com qualidade no prazo disponível.",
+        "confianca_cenario": 0.88,
+        "fator_complicador": "Renata não reconhece que há um problema — ela já racionalizou a margem negativa como 'erro contábil' e está inclinada a aprovar a expansão. Convencê-la exige mais do que enviar um número: exige construir entendimento em menos de 48 horas com alguém resistente à urgência.",
+        "riscos_do_cenario": [
+          "Avaliado pode focar demais no aspecto de priorização de tarefas e pouco na qualidade da comunicação financeira em si, deslocando o foco da competência FIN04",
+          "A resistência de Renata pode ser subestimada como elemento diagnóstico se o entrevistador não aprofundar a pergunta sobre como o avaliado lidaria com a descrença dela"
+        ],
+        "faceta_testada_principal": "Capacidade de traduzir informação financeira complexa para um interlocutor não especialista em contexto de decisão urgente — sem simplificar a ponto de distorcer o risco real",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1,
+            2
+          ],
+          "D2": [
+            2,
+            4
+          ],
+          "D3": [
+            1,
+            4
+          ],
+          "D4": [
+            2,
+            3
+          ],
+          "D5": [
+            4
+          ],
+          "D6": [
+            3,
+            4
+          ]
+        },
+        "armadilha_de_resposta_generica": "Dizer 'vou alinhar com todos os stakeholders e encontrar uma solução equilibrada' não resolve porque o tempo não permite alinhamento amplo — alguém ficará sem o que precisa. A resposta genérica ignora que Renata já está resistente e que a Controladoria tem prazo fixo. O cenário exige escolha explícita de prioridade com custo assumido."
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Analista Financeiro",
+      "cod_comp": "FIN05",
+      "titulo": "O Número que Não Fecha — e Alguém Quer que Feche",
+      "descricao": "É o terceiro dia útil do mês. Você, Analista Financeiro, está finalizando o fechamento de outubro quando identifica uma divergência de R$ 87 mil entre o relatório de receita reconhecida enviado pelo Comercial e os dados que você extraiu do sistema de faturamento. Investigando, percebe que três contratos foram classificados como 'faturados' no forecast do Comercial, mas o faturamento ainda não foi emitido — os documentos estão presos numa aprovação interna que não ocorreu até o fechamento.\n\nRodrigo, gerente comercial, entra em contato antes que você escale: ele já sabe da divergência. Explica que a diretoria acompanha de perto a meta de receita deste mês (o time está a 94% do target) e sugere que você 'registre como competência de outubro com ajuste posterior em novembro', argumentando que 'é uma questão de timing, não de erro'. A prática, segundo ele, foi feita uma vez no ano anterior sem maiores consequências.\n\nA Controladoria fecha o consolidado amanhã às 18h. Se você não incluir os R$ 87 mil, o resultado de outubro ficará abaixo da meta. Se incluir sem base documental, o relatório sairá com informação que não reflete a realidade contábil do período — e você assina a conciliação. Raquel, sua gestora na Controladoria, ainda não foi informada e está em reunião externa até às 16h.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Diante da solicitação de Rodrigo e do prazo de fechamento, o que você decide fazer — e o que você abre mão ao tomar essa decisão?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado consegue identificar com clareza o problema real (não é só técnico — é ético), nomear o trade-off sem evasão e tomar posição com critério explícito, mesmo sob pressão de prazo e relação",
+            "descritores_primarios": [
+              1,
+              3
+            ],
+            "o_que_diferencia_niveis": "N1: Decide sem nomear o trade-off — ou inclui os R$87k 'para não travar', ou recusa sem articular critério. Não reconhece a dimensão ética. | N2: Identifica que há problema, mas busca uma saída que evite a escolha — 'aguardar Raquel' sem se posicionar, ou 'verificar mais dados' como procrastinação. | N3: Nomeia o trade-off (integridade do fechamento vs. relação com Comercial/meta), decide não incluir sem base documental e articula o critério técnico e ético que sustenta a decisão. | N4: Além de decidir com critério, antecipa o que Rodrigo precisará ouvir, o que Raquel precisará saber e o que o precedente citado representa como risco sistêmico — age antes de ser cobrado.",
+            "resposta_generica_falha_porque": "Dizer 'analisaria as duas opções com calma' ignora que já há informação suficiente para decidir e que o prazo torna a neutralidade uma forma de omissão"
+          },
+          {
+            "texto": "Como você comunica sua posição a Rodrigo — e o que você faz para acionar Raquel antes do fechamento do consolidado?",
+            "numero": 2,
+            "objetivo_diagnostico": "Avaliar se o avaliado sabe comunicar discordância técnica com clareza e sem agressividade, e se tem iniciativa de escalar para a gestão com o conteúdo certo — não apenas 'informar', mas posicionar o risco de forma que habilite decisão",
+            "descritores_primarios": [
+              2,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: Evita o confronto com Rodrigo (cede ou silencia) e não aciona Raquel por conta própria — espera ser perguntado. | N2: Comunica desconforto a Rodrigo, mas de forma vaga. Aciona Raquel, mas apenas para 'avisar' — sem estruturar o problema ou propor encaminhamento. | N3: Comunica a Rodrigo com clareza o que não pode fazer e por quê, sem julgamento pessoal. Aciona Raquel com o problema estruturado: valor, origem, risco do precedente, prazo e sua recomendação. | N4: Registra a comunicação por escrito (e-mail ou mensagem), antecipando que poderá ser questionado depois. Oferece a Rodrigo uma alternativa válida (ex.: nota de receita a realizar em novembro com transparência) para não deixar o impasse sem saída.",
+            "resposta_generica_falha_porque": "Dizer 'comunicaria de forma respeitosa e profissional' não revela nem o conteúdo da comunicação, nem se o avaliado teria coragem de sustentar a posição diante de pressão adicional"
+          },
+          {
+            "texto": "Rodrigo reage mal: diz que você está sendo 'inflexível' e que 'o Financeiro sempre trava o Comercial'. Como você lida com essa reação sem recuar da sua posição técnica?",
+            "numero": 3,
+            "objetivo_diagnostico": "Testar se o avaliado mantém independência técnica sob pressão relacional direta — e se consegue separar o conflito interpessoal do mérito da questão, sem se tornar defensivo nem ceder por desconforto",
+            "descritores_primarios": [
+              5,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: Recua parcialmente ('posso ver o que é possível fazer') ou parte para postura defensiva e acusatória, gerando escalada do conflito. | N2: Sustenta a posição, mas de forma rígida e sem reconhecer a frustração de Rodrigo — o tom piora a relação sem necessidade. | N3: Reconhece a tensão sem validar a crítica genérica. Reafirma o critério técnico com objetividade, propõe um encaminhamento concreto para a questão de Rodrigo dentro das regras, e mantém o canal aberto. | N4: Usa o momento para nomear o padrão ('quando há pressão de meta, esse tipo de solicitação tende a aparecer — vale a gente pensar em como evitar isso no futuro') — sem paternalismos, mas gerando aprendizado sistêmico a partir do conflito.",
+            "resposta_generica_falha_porque": "Dizer 'manteria o diálogo aberto e buscaria o consenso' é contraditório — não há consenso possível entre registrar ou não um valor sem base documental; a resposta revela evasão do conflito real"
+          },
+          {
+            "texto": "O fechamento de outubro passa. Como você usa esse episódio para reduzir a chance de que a mesma pressão volte no próximo mês — sem depender de que Rodrigo mude por conta própria?",
+            "numero": 4,
+            "objetivo_diagnostico": "Avaliar maturidade de aprendizado e melhoria contínua: se o avaliado apenas 'resolve o caso' ou transforma o episódio em informação para o sistema — critério para mudança de processo, comunicação proativa de regras, ou construção de acordos que previnam recorrência",
+            "descritores_primarios": [
+              4,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: Encerra o episódio como resolvido. Não faz nada estrutural. Espera que o problema não volte. | N2: Documenta o que aconteceu para uso próprio, mas não compartilha nem propõe ajuste de processo — a melhoria fica privada. | N3: Leva o caso (sem exposição pessoal de Rodrigo) para a retrospectiva de aprendizados, propõe critério formal de corte de competência de receita com base documental e alinha com Raquel um protocolo para situações similares. | N4: Propõe, junto com Controladoria e Comercial, um SLA de documentação de contratos antes do fechamento — com antecedência mínima — tornando o critério coletivo e não dependente de postura individual do Analista.",
+            "resposta_generica_falha_porque": "Dizer 'conversaria com a equipe para evitar situações assim' não é ação — é intenção. A pergunta exige o que especificamente o avaliado faria, com quem, em qual fórum e com qual produto concreto"
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Manter o fechamento fiel à realidade documental, comunicar a divergência a Raquel antes do consolidado e formalizar o risco para que a decisão — se houver — seja tomada pela gestão com plena ciência, não absorvida silenciosamente pelo Analista",
+          "caminho_facil": "Registrar os R$ 87 mil como receita de outubro com nota de 'ajuste futuro', evitando conflito com Rodrigo e entregando o fechamento no prazo sem acionar Raquel",
+          "valor_testado": "Ética nas decisões — a informação financeira deve refletir a realidade do período, independentemente da pressão por resultado"
+        },
+        "tradeoff_testado": "Preservar a acurácia do fechamento (valor técnico e ético) versus acomodar a solicitação do Comercial para não prejudicar o atingimento de meta — sabendo que a decisão tem prazo, assina o seu nome e não há uma terceira saída limpa",
+        "confianca_cenario": 0.91,
+        "fator_complicador": "Rodrigo não está agindo de má-fé explícita — usa linguagem técnica plausível ('competência', 'timing') e cita precedente interno real. Isso torna o pedido difícil de recusar sem parecer inflexível, e o avaliado pode sentir que 'alinhar com a área' é a postura colaborativa esperada",
+        "riscos_do_cenario": [
+          "Avaliados com perfil muito metódico podem se fixar no aspecto técnico-contábil e não revelar como lidariam com a dimensão relacional e humana do conflito com Rodrigo",
+          "O prazo até às 16h (chegada de Raquel) pode ser interpretado como permissão para aguardar — o que enfraquece o teste de iniciativa se o avaliado se apoiar apenas nessa saída"
+        ],
+        "faceta_testada_principal": "Independência técnica sob pressão de stakeholder com interesse no resultado — a capacidade de manter a integridade da informação mesmo quando há custo relacional e institucional direto para o Analista Financeiro",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1,
+            2
+          ],
+          "D2": [
+            2,
+            3
+          ],
+          "D3": [
+            1,
+            3
+          ],
+          "D4": [
+            2,
+            4
+          ],
+          "D5": [
+            3
+          ],
+          "D6": [
+            3,
+            4
+          ]
+        },
+        "armadilha_de_resposta_generica": "Responder 'conversaria com todas as partes para alinhar a melhor solução' não funciona aqui porque: (1) o prazo é real e curto, (2) a solicitação já está feita e tem conteúdo antiético claro, (3) 'alinhar' com Rodrigo significaria validar a prática, e (4) o avaliado assina a conciliação — não é decisão compartilhável sem posicionamento prévio"
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Coordenador de Operações",
+      "cod_comp": "OPS01",
+      "titulo": "Dois clientes, um time, uma semana",
+      "descricao": "Você é Coordenador de Operações em uma empresa B2B de médio porte. Na segunda-feira, seu time de 6 pessoas começa a semana com capacidade operacional já no limite: dois analistas estão alocados em entregas recorrentes e um terceiro retornou de licença há dois dias, ainda em curva de retomada.\n\nNessa manhã, chegam duas demandas simultâneas:\n\n1. Rafael, gerente comercial, informa que o cliente Alfa — que representa 18% da receita mensal — exige a entrega de um relatório de desempenho customizado até quinta-feira. Rafael já prometeu ao cliente. O relatório demanda em torno de 12 horas de trabalho operacional e depende de dados que o time de financeiro ainda não consolidou.\n\n2. Daniela, da área de atendimento, escala uma falha recorrente no processo de ativação de novos clientes: 3 contratos fechados na semana anterior ainda não foram ativados, gerando risco de churn e uma reclamação formal em aberto. Corrigir o gargalo exige pelo menos 8 horas do time nesta semana.\n\nAs duas demandas somadas ultrapassam a capacidade disponível do time em pelo menos 40%. Você não tem aprovação para contratar reforço externo e a gerência está em reunião estratégica até quarta-feira.\n\nUm dos dois entregáveis vai atrasar ou ser entregue com padrão reduzido. Não há saída em que os dois sejam concluídos no prazo e com qualidade.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Diante da restrição de capacidade, qual entrega você prioriza essa semana e por quê? O que deixa em segundo plano e quais são os critérios dessa escolha?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado consegue fazer uma escolha real com critério explícito — impacto, risco, reversibilidade — ou se evita a decisão com respostas vagas, tenta fazer os dois ou transfere a escolha para cima.",
+            "descritores_primarios": [
+              1,
+              3
+            ],
+            "o_que_diferencia_niveis": "N1: Não escolhe ou escolhe por conveniência/pressão sem critério ('Rafael pediu primeiro', 'é o maior cliente'); tenta fazer os dois sem reconhecer a restrição. | N2: Reconhece que precisa priorizar, mas o critério é impreciso ou depende de validação da gerência antes de qualquer movimento. | N3: Nomeia a escolha, explicita o critério (ex.: risco de churn vs. receita existente, reversibilidade do impacto), aponta o custo da prioridade e o que será comunicado para o segundo plano. | N4: Além do N3, antecipa qual informação faltante precisa ser obtida primeiro (ex.: dado do financeiro) para confirmar se a prioridade é viável, e já estrutura um plano B caso a dependência não seja resolvida.",
+            "resposta_generica_falha_porque": "Resposta como 'vou avaliar o impacto de cada um com a equipe' não revela critério — revela postergação da decisão. O cenário exige que o avaliado chegue a uma escolha, não apenas ao processo de chegar a ela."
+          },
+          {
+            "texto": "Como você vai executar a entrega priorizada com o time no limite? Quais checkpoints define, o que monitora e como percebe se está saindo do trilho antes do prazo?",
+            "numero": 2,
+            "objetivo_diagnostico": "Revelar se o avaliado tem método de acompanhamento operacional ou apenas delega e aguarda — se consegue criar visibilidade do progresso e agir preventivamente antes que o desvio vire problema.",
+            "descritores_primarios": [
+              4,
+              3
+            ],
+            "o_que_diferencia_niveis": "N1: Delega e aguarda o resultado; não define marcos intermediários; só percebe o desvio quando o prazo já passou. | N2: Define algum acompanhamento, mas reativo — só age quando alguém aponta o problema ou o prazo está próximo. | N3: Estabelece checkpoints concretos (ex.: 'conferência na terça ao meio-dia e na quarta às 17h'), define o que vai observar em cada ponto e já determina o gatilho de escalonamento. | N4: Além do N3, ajusta a alocação de quem faz o quê com base na curva de retomada do analista que voltou de licença, gerenciando risco de capacidade real — não apenas teórico.",
+            "resposta_generica_falha_porque": "'Vou acompanhar de perto e manter o time alinhado' não revela método. O diagnóstico exige que o avaliado descreva o que vai observar, quando e o que fará se detectar desvio — não apenas intenção de acompanhar."
+          },
+          {
+            "texto": "Rafael ficará insatisfeito se a entrega dele for para segundo plano. Como você conduz essa conversa com ele? O que fala, o que não cede e o que negocia?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar como o avaliado lida com pressão de stakeholder comercial quando a decisão operacional contraria o interesse imediato dele — se sustenta a posição com clareza ou cede para evitar conflito.",
+            "descritores_primarios": [
+              2,
+              5
+            ],
+            "o_que_diferencia_niveis": "N1: Evita a conversa, promete o que não pode cumprir ou deixa Rafael descobrir o atraso sozinho. | N2: Comunica o problema, mas de forma genérica e sem proposta concreta; espera que Rafael decida o que fazer. | N3: Antecipa a conversa (não espera Rafael cobrar), explica a restrição com dados, apresenta o que é possível entregar (ex.: versão parcial do relatório até quinta), negocia prazo ou escopo com transparência e sem prometer o impossível. | N4: Além do N3, propõe a Rafael que entrem juntos em contato com o cliente Alfa para renegociar o prazo, transformando a restrição interna em uma comunicação consultiva com o cliente — protegendo a relação e a credibilidade da empresa.",
+            "resposta_generica_falha_porque": "'Vou explicar a situação para o Rafael e alinhar as expectativas' é vago demais. O diagnóstico exige que o avaliado demonstre o que sustenta, o que negocia e o que não abre mão — revelando se tem posição ou apenas boa intenção de comunicar."
+          },
+          {
+            "texto": "Passada a semana, o que você registra e o que muda no processo para que esse acúmulo de demandas simultâneas não volte a travar o time da mesma forma?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar se o avaliado tem postura de aprendizado sistêmico — se extrai lição operacional do episódio e propõe ajuste de processo — ou se trata o evento como caso isolado, sem gerar mudança.",
+            "descritores_primarios": [
+              6,
+              2
+            ],
+            "o_que_diferencia_niveis": "N1: Não registra nada; considera que 'já passou' e segue para a próxima semana sem modificar nada. | N2: Reconhece que algo precisa mudar, mas a análise é superficial ('preciso me organizar melhor') e não resulta em ação concreta. | N3: Identifica a causa-raiz (ex.: ausência de buffer de capacidade, falta de visibilidade antecipada das demandas comerciais), registra na retrospectiva quinzenal, propõe ao menos uma mudança de processo com responsável e prazo. | N4: Além do N3, leva o aprendizado para o rito semanal de prioridades envolvendo Comercial e Atendimento — propondo um mecanismo de sinalização antecipada de demandas urgentes que reduza o risco de colisão de prioridades para o time todo.",
+            "resposta_generica_falha_porque": "'Vou conversar com o time para entender o que podemos melhorar' não revela maturidade de melhoria contínua. O diagnóstico exige que o avaliado aponte o que mudaria concretamente no processo — não apenas a intenção de refletir."
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Comunicar com clareza a restrição, explicitar o custo de cada escolha aos stakeholders envolvidos e assumir a decisão de priorização com responsabilidade — mesmo que isso gere desconforto comercial ou insatisfação imediata.",
+          "caminho_facil": "Aceitar as duas demandas sem sinalizar o risco, tentar fazer os dois e deixar que a qualidade ou o prazo se deteriore silenciosamente — evitando o conflito com Rafael e Daniela no curto prazo.",
+          "valor_testado": "Responsabilidade e cliente no centro"
+        },
+        "tradeoff_testado": "Atender a demanda do cliente de alto valor (receita imediata, relação comercial) versus corrigir a falha de processo que gera risco de churn em clientes recém-contratados (saúde operacional, qualidade de entrega). Qualquer escolha tem um custo concreto.",
+        "confianca_cenario": 0.91,
+        "fator_complicador": "O dado financeiro que o relatório do cliente Alfa precisa ainda não existe — depende do financeiro, que é uma área fora do controle direto do Coordenador. Ou seja, mesmo priorizando o relatório, há uma dependência externa que pode tornar a prioridade inviável.",
+        "riscos_do_cenario": [
+          "Avaliado pode tentar resolver via horas extras do time, contornando o trade-off — o entrevistador deve estar preparado para fechar essa saída com 'não é possível autorizar horas extras nesta semana'.",
+          "A dependência do financeiro pode desviar o foco para 'resolver a dependência' em vez de lidar com a priorização em si — o foco diagnóstico deve ser mantido na decisão com restrição, não na negociação com o financeiro."
+        ],
+        "faceta_testada_principal": "Priorização sob restrição real de capacidade: capacidade de escolher, justificar e comunicar uma decisão com custo visível — não apenas organizar tarefas.",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1,
+            2
+          ],
+          "D2": [
+            3,
+            4
+          ],
+          "D3": [
+            1,
+            2
+          ],
+          "D4": [
+            2
+          ],
+          "D5": [
+            3
+          ],
+          "D6": [
+            4
+          ]
+        },
+        "armadilha_de_resposta_generica": "Dizer 'vou alinhar com Rafael e Daniela e ver como distribuir melhor as tarefas' não resolve: a restrição de capacidade é objetiva (40% acima do disponível), não é um problema de comunicação ou organização de agenda. Quem responde assim evita a escolha e demonstra incapacidade de priorizar com critério."
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Coordenador de Operações",
+      "cod_comp": "OPS02",
+      "titulo": "Dois Gargalos, Uma Equipe, Nenhuma Folga",
+      "descricao": "A empresa opera com ciclos curtos de execução e um rito semanal de prioridades entre Comercial, Operações e Financeiro. Na segunda-feira de uma semana crítica — com fechamento de ciclo em sexta —, você, Coordenador de Operações, recebe dois alertas simultâneos antes das 9h.\n\nPrimeiro: Rafael, analista sênior da sua equipe, informa que o processo de faturamento de três clientes corporativos está travado há dois dias por um campo incorreto no sistema de gestão. O erro impede a emissão das notas e compromete R$ 180 mil em recebíveis previstos no forecast da semana. A área financeira já cobrou posição. Rafael diz que consegue resolver, mas vai precisar parar tudo que está fazendo e demandar apoio do time de TI — que tem fila.\n\nSegundo: Camila, da área comercial, envia mensagem urgente: um cliente novo, com contrato assinado na sexta anterior, está aguardando o onboarding há três dias sem retorno da operação. Ela avisa que o cliente ameaçou acionar o jurídico por descumprimento do prazo contratual de 48h para início da implementação. O responsável pelo onboarding na sua equipe está alocado na mesma entrega que Rafael.\n\nVocê tem, neste momento, dois analistas disponíveis — ambos juniores, sem histórico nessas rotinas. Rafael e o responsável pelo onboarding são os únicos com conhecimento técnico para resolver cada problema. Redirecionar um deles para o outro problema é inviável sem custo real em prazo ou qualidade. A gerência ainda não foi acionada.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Antes de qualquer ação, o que você precisa saber para decidir qual problema atacar primeiro — e como obtém essa informação em menos de 15 minutos?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado tem critério diagnóstico estruturado (impacto, urgência, reversibilidade) ou age pelo problema mais barulhento. Testa se sabe o que não sabe e como preenche essa lacuna com velocidade.",
+            "descritores_primarios": [
+              1,
+              3
+            ],
+            "o_que_diferencia_niveis": "N1: Age pelo problema que chegou primeiro ou pelo mais visível (faturamento, porque tem número); não formula perguntas diagnósticas. | N2: Lista informações que quer levantar, mas sem critério de prioridade entre elas ou método para obtê-las rapidamente. | N3: Define 2-3 variáveis críticas (impacto financeiro real, risco contratual, reversibilidade do dano) e descreve como acessa cada uma em tempo útil (ligação direta, dado no sistema, pergunta objetiva a Rafael ou Camila). | N4: Além do N3, já antecipa qual informação vai ser difícil de obter e prepara uma hipótese de decisão para o caso de não conseguir — decide mesmo sob incerteza residual, com critério explícito.",
+            "resposta_generica_falha_porque": "Dizer 'vou levantar todas as informações com as áreas envolvidas' não especifica quais informações, por que elas importam e em quanto tempo — não discrimina quem tem método de quem improvisa."
+          },
+          {
+            "texto": "Você decidiu qual problema prioriza. Descreva o que faz nas próximas 2 horas: quem aciona, o que pede, como acompanha e qual é o gatilho para mudar o plano.",
+            "numero": 2,
+            "objetivo_diagnostico": "Revelar se o avaliado executa com método (responsável, prazo, critério de acompanhamento, ponto de revisão) ou delega e esquece. Testa se consegue manter controle operacional sem centralizar tudo em si mesmo.",
+            "descritores_primarios": [
+              2,
+              3
+            ],
+            "o_que_diferencia_niveis": "N1: Descreve ações genéricas ('vou falar com o Rafael e monitar a situação'); não define prazo de retorno nem critério para escalar. | N2: Define quem aciona, mas sem checkpoint claro ou critério objetivo para mudar o plano — acompanha por cobrança, não por indicador. | N3: Estrutura ações com responsável, prazo de retorno definido (ex.: 'Rafael me retorna em 45 min com status do contato com TI'), critério explícito de pivot ('se em 1h não tiver previsão de resolução do TI, aciono a gerência e communico o Financeiro sobre o risco no forecast'). | N4: Além do N3, instrumentaliza os juniores disponíveis em pelo menos uma tarefa periférica de cada frente, reduzindo gargalo sem transferir risco técnico — demonstra capacidade de extrair capacidade latente do time.",
+            "resposta_generica_falha_porque": "Resposta do tipo 'monto um plano de ação com todas as partes' não revela como o avaliado acompanha execução em tempo real nem como trata desvios — oculta exatamente o que o descritor de execução com método quer capturar."
+          },
+          {
+            "texto": "Camila (Comercial) pressiona você para inverter a prioridade que você definiu. Ela diz que o cliente novo 'não pode esperar mais um minuto'. Como você conduz essa conversa?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar como o avaliado negocia sob pressão de stakeholder com agenda própria: se mantém o critério com clareza, se cede sem argumento ou se esquiva com promessas vagas. Testa comunicação de risco e sustentação de decisão.",
+            "descritores_primarios": [
+              4,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: Cede à pressão de Camila e inverte a prioridade sem reanalisar o custo — ou evita a conversa e promete 'resolver os dois ao mesmo tempo'. | N2: Explica a situação para Camila, mas de forma defensiva ou técnica demais; não propõe saída concreta para o problema do cliente — termina a conversa sem acordo claro. | N3: Apresenta a Camila o critério usado na decisão, o custo real de inverter a prioridade agora, e negocia uma ação intermediária (ex.: contato direto com o cliente para gestão de expectativa, com prazo comprometido para início do onboarding). Fecha a conversa com um acordo documentado. | N4: Além do N3, usa a conversa com Camila para mapear se há recurso na área dela ou em outra que possa mitigar o risco do cliente novo — transforma o conflito em colaboração sem abrir mão do critério operacional.",
+            "resposta_generica_falha_porque": "Dizer 'vou explicar a situação e buscar o melhor para todos' não revela se o avaliado sustenta o critério sob pressão real ou se capitula — e é exatamente essa sustentação (ou ausência dela) que discrimina os níveis."
+          },
+          {
+            "texto": "Na sexta-feira, ao fechar o ciclo, como você sabe se tomou a decisão certa na segunda? Que evidências usa e o que registra para que isso não se repita?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar se o avaliado aprende com dados ou apenas com sensações ('deu certo, então foi certo'). Testa se há ciclo de aprendizado real e se o avaliado atua na causa ou apenas no sintoma — competência de melhoria contínua e prevenção de recorrência.",
+            "descritores_primarios": [
+              5,
+              1
+            ],
+            "o_que_diferencia_niveis": "N1: Avalia o resultado pelo desfecho visível ('o cliente ficou satisfeito, o faturamento saiu'); não registra nada e não identifica o que gerou o problema original. | N2: Reconhece que deveria registrar aprendizados, mas o faz de forma genérica ('foi falta de comunicação'); não identifica causa-raiz nem propõe mudança estrutural. | N3: Usa 2-3 indicadores concretos para avaliar a decisão (ex.: SLA do onboarding cumprido, valor efetivamente faturado no ciclo, satisfação do cliente novo); registra na retrospectiva a causa que gerou os dois gargalos simultâneos e propõe ajuste de processo (ex.: protocolo de onboarding com buffer de 24h, checklist de faturamento revisado semanalmente). | N4: Além do N3, apresenta o caso na retrospectiva quinzenal como referência para o time aprender a diagnosticar conflitos de prioridade — transforma o episódio em prática institucionalizada, não em lição individual.",
+            "resposta_generica_falha_porque": "Responder 'vou avaliar se os clientes ficaram satisfeitos e ajustar o processo' não demonstra critério de avaliação nem método de registro — qualquer pessoa diz isso; o que diferencia é a especificidade do indicador e a profundidade da causa identificada."
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Decidir com critério explícito, comunicar proativamente ambos os stakeholders (Financeiro e Comercial/cliente) sobre o risco real de cada frente, assumir a responsabilidade pela escolha feita e registrar o ocorrido para prevenção futura — mesmo que isso exponha uma falha de dimensionamento operacional.",
+          "caminho_facil": "Priorizar o faturamento (pressão interna visível e mensurável) e comunicar ao comercial que o onboarding 'está sendo tratado', sem informar o cliente sobre o atraso real — gerindo a aparência em vez da realidade.",
+          "valor_testado": "Cliente no centro vs. Responsabilidade financeira interna"
+        },
+        "tradeoff_testado": "Priorizar o faturamento protege a saúde financeira do ciclo (R$ 180 mil, pressão do Financeiro), mas aprofunda o risco jurídico e relacional com o cliente novo. Priorizar o onboarding protege o contrato e a relação comercial, mas compromete o forecast e gera atrito com o Financeiro. Não há como resolver ambos com a mesma velocidade e qualidade — qualquer escolha tem custo.",
+        "confianca_cenario": 0.88,
+        "fator_complicador": "Os dois únicos analistas com conhecimento técnico estão alocados na mesma entrega, tornando qualquer redistribuição uma escolha real com consequência imediata — não um ajuste de agenda. Além disso, a gerência ainda não foi acionada, o que coloca sobre o avaliado a decisão de quando (e se) escalar, com risco de ser visto como omisso se escalar tarde ou como incapaz de gerir se escalar cedo demais.",
+        "riscos_do_cenario": [
+          "Avaliados com perfil alto em 'C' (metódico/sistemático) podem se perder pedindo mais dados antes de decidir, e o cenário pode parecer 'falta de informação' em vez de 'decisão sob incerteza' — o avaliador precisa estar preparado para distinguir cautela legítima de paralisia",
+          "O componente jurídico (ameaça do cliente novo) pode desviar o foco para gestão de crise reputacional em vez de critério operacional de priorização — monitorar se o avaliado trata o sintoma ou a causa"
+        ],
+        "faceta_testada_principal": "Critério de priorização sob restrição real de capacidade: a faceta central é a capacidade de diagnosticar rapidamente qual problema tem maior impacto sistêmico, decidir com critério explícito — mesmo sem informação completa — e executar com método sem paralisar o time nem transferir o custo da decisão para outros.",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1,
+            4
+          ],
+          "D2": [
+            2
+          ],
+          "D3": [
+            1,
+            2
+          ],
+          "D4": [
+            3
+          ],
+          "D5": [
+            4
+          ],
+          "D6": [
+            3
+          ]
+        },
+        "armadilha_de_resposta_generica": "Dizer 'vou alinhar com todos os envolvidos e montar um plano de ação' não resolve este cenário porque o recurso escasso (analistas com conhecimento técnico) não permite atender as duas frentes simultaneamente. A resposta genérica evita a escolha — e é exatamente a escolha, com critério explícito e consciência do custo, que diferencia os níveis. Qualquer resposta que não nomeie o que será sacrificado e por quê é diagnóstico de N1 ou N2."
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Coordenador de Operações",
+      "cod_comp": "OPS03",
+      "titulo": "Dois Clientes, Uma Equipe, Prazo Impossível",
+      "descricao": "É segunda-feira, 8h30. Você coordena uma equipe operacional de 6 pessoas. Às 9h começa o rito semanal de prioridades. No domingo à noite, chegaram dois alertas simultâneos: (1) A área Comercial confirmou que o cliente Braxton — responsável por 18% da receita do mês — entrou em contato pedindo antecipação da entrega do projeto de integração, de quinta para terça-feira. O gerente comercial, Paulo, já prometeu ao cliente que 'verá o que pode fazer'. (2) Fernanda, sua analista mais sênior e única com domínio técnico do projeto Braxton, avisou que está com sobrecarga crítica: ela já conduz outras duas entregas com SLA vencendo na quarta-feira e disse, por escrito, que 'não tem como pegar mais nada essa semana sem comprometer tudo'. Você tem 3 analistas disponíveis, mas nenhum com o conhecimento técnico necessário para assumir Braxton sozinho — poderiam apoiar com orientação intensiva de Fernanda, mas isso consumiria tempo dela. Paulo espera sua resposta antes do rito. Fernanda espera que você a proteja. A gerência quer saber se o compromisso com Braxton será honrado. Você não pode atender os dois prazos sem sacrificar algo real.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Antes do rito de prioridades, você precisa dar uma resposta a Paulo. O que você decide e com base em qual critério?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado tem critério explícito de priorização ou reage à pressão do mais urgente/barulhento; verificar se assume a decisão ou transfere para cima",
+            "descritores_primarios": [
+              1,
+              3
+            ],
+            "o_que_diferencia_niveis": "N1: Cede à pressão de Paulo sem analisar impactos, ou paralisa esperando que a gerência decida | N2: Reconhece o conflito, mas busca 'meio-termo' sem critério claro, postergando a decisão real | N3: Define critério explícito (ex.: impacto nos SLAs vigentes versus receita em risco), comunica a Paulo com clareza qual é o limite operacional real e propõe alternativa concreta | N4: Antecipa que a resposta a Paulo é também uma sinalização de como Operações funcionará daqui em diante, usa o momento para estabelecer protocolo de validação de capacidade antes de promessas comerciais",
+            "resposta_generica_falha_porque": "Dizer 'vou avaliar com o time e retorno' não responde o que Paulo precisa antes do rito — o cenário exige que o avaliado mostre o critério, não apenas a intenção de buscar um"
+          },
+          {
+            "texto": "Você decidiu o que fazer. Como comunica isso a Paulo e à gerência, sabendo que sua resposta pode desagradar um dos dois lados?",
+            "numero": 2,
+            "objetivo_diagnostico": "Avaliar se o avaliado comunica riscos de forma proativa e estruturada ou apenas repassa a decisão; verificar se adapta o discurso ao interlocutor sem perder coerência",
+            "descritores_primarios": [
+              2,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: Evita o conflito, comunica de forma vaga ou espera que o problema se resolva sozinho | N2: Comunica a decisão, mas sem dados, sem alternativa e de forma reativa — apenas quando pressionado | N3: Comunica a Paulo com fatos (capacidade disponível, SLAs em risco, impacto estimado), propõe alternativa viável (ex.: entrega parcial na terça, conclusão na quinta) e registra o alinhamento | N4: Usa a comunicação para criar um precedente claro de como Operações valida demandas, documenta o acordo e envolve a gerência como parte do processo, não como árbitro de último recurso",
+            "resposta_generica_falha_porque": "Dizer 'vou ser transparente e alinhar com todos' não revela como o avaliado estrutura a comunicação sob pressão — o cenário exige conteúdo concreto: o que exatamente diz, a quem, em que sequência e com quais dados"
+          },
+          {
+            "texto": "Fernanda ficou sabendo que você cogitou redistribuir parte do trabalho para ela apoiar os analistas em Braxton. Ela reagiu mal. O que você faz?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar como o avaliado lida com resistência legítima de alguém que tem razão técnica e emocional; verificar se consegue sustentar a decisão sem perder a relação ou ignorar o sofrimento",
+            "descritores_primarios": [
+              2,
+              5
+            ],
+            "o_que_diferencia_niveis": "N1: Recua completamente para evitar conflito, ou ignora a reação de Fernanda e impõe a decisão sem conversa | N2: Ouve Fernanda, mas não tem resposta clara — tenta negociar sem critério, gerando mais insegurança | N3: Reconhece a legitimidade da reação de Fernanda, explica o critério da decisão, negocia o que é negociável (ex.: o quanto de orientação é viável sem comprometer as entregas dela) e garante que ela não seja penalizada pelo esforço adicional | N4: Usa a conversa com Fernanda para mapear o risco real da decisão, ajusta o plano com base no que ela aponta e transforma o episódio em dado para o rito de prioridades — tornando visível para o time como sobrecarga é tratada com responsabilidade",
+            "resposta_generica_falha_porque": "Dizer 'vou conversar com ela e ouvir suas preocupações' não discrimina níveis — o cenário exige que o avaliado mostre o que faz depois de ouvir, especialmente se a posição de Fernanda for incompatível com a decisão já tomada"
+          },
+          {
+            "texto": "Uma semana depois, a situação foi resolvida de alguma forma. Como você sabe se a sua decisão foi boa? O que você olha e o que muda no processo?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar se o avaliado aprende com ciclos operacionais ou apenas conclui tarefas; verificar se usa dados e retrospectiva para melhorar o processo — não só para justificar a decisão passada",
+            "descritores_primarios": [
+              4,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: Considera boa a decisão se não houve reclamação — sem indicadores, sem registro, sem aprendizado | N2: Avalia pelo resultado imediato (entregou ou não entregou), sem olhar custo humano, qualidade ou impacto em outras entregas | N3: Verifica múltiplas dimensões — SLAs cumpridos, estado de Fernanda, qualidade da entrega ao cliente Braxton, relação com Paulo — e registra o que funcionou e o que criaria o mesmo problema de novo | N4: Propõe ajuste de processo concreto para o rito de prioridades (ex.: campo de validação de capacidade antes de promessas comerciais), compartilha o aprendizado com Paulo e com a gerência e transforma o episódio em prática — não em história",
+            "resposta_generica_falha_porque": "Dizer 'vou fazer uma retrospectiva com o time' não revela o que o avaliado realmente olha — o cenário exige que ele indique métricas, perguntas concretas e mudanças de processo, não apenas a intenção de aprender"
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Ser transparente com Paulo sobre o custo real da antecipação, propor alternativas concretas com risco mapeado e proteger Fernanda de uma sobrecarga que comprometeria entregas já acordadas",
+          "caminho_facil": "Pressionar Fernanda a absorver a demanda adicional sem questionar Paulo, preservando a relação com o Comercial e evitando o desconforto de contrariar uma promessa já feita",
+          "valor_testado": "Responsabilidade — assumir as consequências de uma decisão honesta versus transferi-las silenciosamente para quem não tem poder de recusar"
+        },
+        "tradeoff_testado": "Proteger a capacidade e saúde operacional de Fernanda (e a qualidade das entregas em curso) versus honrar o compromisso comercial com Braxton (e a relação com Paulo e o cliente) — não é possível maximizar os dois ao mesmo tempo",
+        "confianca_cenario": 0.91,
+        "fator_complicador": "Paulo já sinalizou algo ao cliente antes de consultar Operações, criando uma expectativa que o coordenador não validou — desfazê-la tem custo relacional com o Comercial e risco de imagem com o cliente; aceitá-la tem custo humano e operacional direto",
+        "riscos_do_cenario": [
+          "Avaliado pode propor solução criativa (ex.: contratar recurso externo) que contorna o trade-off — avaliador deve pressionar: 'Desconsiderando essa opção, como você decide?'",
+          "Fernanda pode ser tratada como variável técnica e não como pessoa — o cenário precisa que o avaliador observe se o avaliado reconhece a dimensão humana da sobrecarga"
+        ],
+        "faceta_testada_principal": "Priorização sob pressão com impacto humano e comercial simultâneos — capacidade de definir critério explícito, comunicar risco proativamente e sustentar a decisão perante stakeholders com interesses opostos",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1,
+            2
+          ],
+          "D2": [
+            2,
+            3
+          ],
+          "D3": [
+            1,
+            3
+          ],
+          "D4": [
+            2,
+            4
+          ],
+          "D5": [
+            3,
+            4
+          ],
+          "D6": [
+            4
+          ]
+        },
+        "armadilha_de_resposta_generica": "Dizer 'vou alinhar com Paulo e Fernanda para encontrar uma solução' não resolve porque o cenário não tem solução que agrade a todos — o avaliado precisa mostrar qual critério usa para escolher o que sacrifica, como comunica isso com clareza e quem assume responsabilidade pela decisão"
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Coordenador de Operações",
+      "cod_comp": "OPS04",
+      "titulo": "O Atalho que Todo Mundo Usa",
+      "descricao": "Você é o Coordenador de Operações de uma empresa B2B de médio porte. Há três meses, a área comercial fechou um volume acima do previsto no forecast — 40% a mais de contratos do que a capacidade operacional havia absorvido no trimestre anterior. Para dar conta, o time começou a pular a etapa de validação técnica antes de abrir o chamado no sistema, ganhando em média dois dias por entrega. Ninguém formalizou isso. Virou prática informal.\n\nO resultado imediato foi positivo: os SLAs foram cumpridos e o comercial ficou satisfeito. Mas nos últimos 15 dias, o retrabalho aumentou 28% — clientes devolvendo chamados por inconsistência na entrega, e o time sobrecarregado refazendo o que entregou errado na primeira vez. Flaviana, analista sênior e referência informal do time, defende o atalho abertamente: 'A validação tomava tempo e ninguém reclamava antes.' Rodrigo, gerente da área, ainda não sabe da prática informal e acredita que os SLAs estão sendo cumpridos com o processo padrão.\n\nVocê precisa decidir o que fazer com esse processo improvisado — antes que o próximo ciclo de revisão mensal de indicadores exponha os números de retrabalho para a liderança. Abandonar o atalho significa risco real de descumprimento de SLA. Mantê-lo significa continuar acumulando retrabalho e ocultando um desvio de processo da gerência.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Com base nos dados disponíveis — 40% de aumento de volume, 28% de retrabalho nos últimos 15 dias e SLAs cumpridos —, o que você conclui sobre o processo atual e o que priorizaria corrigir primeiro?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado usa evidências para diagnosticar o problema real (qualidade deteriorando) ou se permanece na superfície do SLA cumprido como sinal de sucesso.",
+            "descritores_primarios": [
+              1,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: Conclui que está tudo bem porque o SLA foi cumprido, ou age sem dados, apenas pela percepção do time | N2: Reconhece o retrabalho como problema, mas não conecta ao atalho de processo ou prioriza de forma vaga | N3: Conecta o retrabalho à supressão da validação técnica, quantifica o impacto real e define o que precisa ser corrigido primeiro com critério claro | N4: Além do diagnóstico preciso, antecipa o que o próximo ciclo de escala de volume faria com esse desvio e nomeia o risco sistêmico antes de ser perguntado",
+            "resposta_generica_falha_porque": "Dizer 'preciso entender melhor o cenário' ou 'vou conversar com o time' ignora que os dados já estão disponíveis — o avaliado precisa interpretar e concluir, não adiar."
+          },
+          {
+            "texto": "Você decide corrigir o processo. Como estruturaria essa correção operacionalmente — quais etapas, em qual sequência e com qual critério para saber se está funcionando?",
+            "numero": 2,
+            "objetivo_diagnostico": "Revelar se o avaliado tem método para implementar melhoria de processo ou apenas intenção genérica de 'melhorar'.",
+            "descritores_primarios": [
+              2,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: Descreve ações isoladas e sem sequência lógica, sem critério de acompanhamento | N2: Define etapas, mas sem métricas de verificação ou sem considerar o risco de descumprimento de SLA durante a transição | N3: Estrutura a correção em fases (ex.: retomada gradual da validação, redistribuição de carga, indicador de retrabalho como termômetro semanal) e nomeia o critério de sucesso | N4: Além do plano estruturado, constrói um mecanismo de revisão que permite ajuste rápido caso a capacidade não acompanhe — sem depender de nova crise para perceber",
+            "resposta_generica_falha_porque": "Dizer 'vou retomar o processo padrão e monitorar' é insuficiente porque não há critério de monitoramento, não trata o risco de SLA durante a transição e não define quem faz o quê."
+          },
+          {
+            "texto": "Flaviana, referência do time, resiste à correção e diz que o atalho funcionou. Como você lida com ela — e o que faz se ela continuar defendendo a prática após sua decisão?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar como o avaliado gerencia resistência de um par influente quando a decisão correta conflita com a aprovação do grupo.",
+            "descritores_primarios": [
+              3,
+              5
+            ],
+            "o_que_diferencia_niveis": "N1: Cede à pressão de Flaviana, posterga a decisão ou tenta contornar sem enfrentar a divergência | N2: Mantém a decisão, mas aborda Flaviana de forma impositiva ou sem reconhecer o argumento dela, gerando tensão desnecessária | N3: Reconhece o que funcionou no período (cumprimento de SLA), apresenta os dados de deterioração de forma objetiva, negocia com Flaviana e define o que é inegociável — mantendo o limite mesmo diante da resistência | N4: Usa Flaviana como aliada na construção da solução, transformando a resistência em co-autoria da nova prática sem abrir mão do critério correto",
+            "resposta_generica_falha_porque": "Dizer 'vou explicar a importância do processo e esperar que ela entenda' ignora que Flaviana já tem um argumento e que a resistência pode continuar — o avaliado precisa dizer o que faz se ela não mudar."
+          },
+          {
+            "texto": "Rodrigo ainda não sabe do atalho informal. Como e quando você o informa — e o que registra para garantir que esse tipo de desvio não se repita silenciosamente?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar a postura ética diante de um desvio que o avaliado poderia omitir, e se há mecanismo real de aprendizado institucionalizado ou apenas intenção declarada.",
+            "descritores_primarios": [
+              5,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: Posterga ou omite a informação a Rodrigo, ou registra apenas para 'cumprir protocolo' sem real intenção de aprendizado | N2: Informa Rodrigo, mas de forma reativa (só quando perguntado) ou sem trazer o plano de correção junto — repassando o problema sem protagonismo | N3: Comunica a Rodrigo de forma proativa, com contexto, dados de impacto e plano de ação já estruturado; registra o aprendizado na retrospectiva com critério claro para identificar desvios informais no futuro | N4: Além da comunicação estruturada, propõe mecanismo sistêmico (ex.: checklist de aderência ao processo padrão no rito semanal) que reduz a chance de novos atalhos invisíveis se instalarem",
+            "resposta_generica_falha_porque": "Dizer 'vou ser transparente com a gerência' sem especificar quando, como e o que propõe junto é resposta de intenção, não de maturidade — não discrimina N2 de N3."
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Comunicar o desvio à gerência antes da revisão, com os dados de retrabalho e um plano de correção — mesmo que isso exponha a própria gestão do período.",
+          "caminho_facil": "Continuar com o atalho até a revisão mensal, ajustar o discurso para a liderança e atribuir o retrabalho a outros fatores.",
+          "valor_testado": "Ética nas decisões e Responsabilidade"
+        },
+        "tradeoff_testado": "Corrigir o processo agora (com risco de descumprir SLA e expor o desvio à gerência) versus manter o atalho (preservando prazo e aprovação do comercial, mas acumulando retrabalho e sonegando informação).",
+        "confianca_cenario": 0.89,
+        "fator_complicador": "A pessoa de maior influência informal no time (Flaviana) legitima o atalho com argumento aparentemente razoável, o que torna a correção politicamente custosa — e o avaliado pode ceder à pressão do grupo em vez de agir pelo critério correto.",
+        "riscos_do_cenario": [
+          "Avaliado pode focar excessivamente na gestão de pessoas (Flaviana) e deixar a decisão sobre o processo em segundo plano, desviando do foco diagnóstico.",
+          "O trade-off SLA vs. qualidade pode parecer técnico demais para avaliados que não têm familiaridade com operações, reduzindo a discriminância em contextos mistos."
+        ],
+        "faceta_testada_principal": "Capacidade de revisar um processo que está tecnicamente funcionando (SLA cumprido) mas deteriorando qualidade e ocultando risco — exigindo diagnóstico baseado em evidência, não em percepção do time.",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1
+          ],
+          "D2": [
+            2
+          ],
+          "D3": [
+            3
+          ],
+          "D4": [
+            1,
+            2
+          ],
+          "D5": [
+            3,
+            4
+          ],
+          "D6": [
+            4
+          ]
+        },
+        "armadilha_de_resposta_generica": "Dizer 'vou alinhar com o time e a gerência para encontrar uma solução em conjunto' não resolve porque: (1) há um desvio de processo ativo que precisa de decisão unilateral imediata sobre continuidade; (2) Flaviana já está resistindo; (3) Rodrigo ainda não sabe — o avaliado precisa decidir quando e como revelar, não apenas 'alinhar'."
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Coordenador de Operações",
+      "cod_comp": "OPS05",
+      "titulo": "Forecast Prometido, Operação Sem Capacidade",
+      "descricao": "A área comercial fechou um contrato com um novo cliente corporativo, com entrega prevista para daqui a 18 dias. O gerente comercial, Rafael, comunicou ao time de atendimento e ao cliente que o prazo seria cumprido — sem antes consultar operações. Você, Coordenador de Operações, descobre isso no rito semanal de prioridades: sua equipe está com 87% da capacidade comprometida com outros projetos em andamento, e absorver essa demanda no prazo prometido exigiria ou atrasar uma entrega já em curso para outro cliente, ou acionar horas extras por cinco dias consecutivos — o que o financeiro não aprovou preventivamente. Rafael argumenta que recuar agora pode comprometer o relacionamento com o novo cliente e prejudicar o forecast do mês. Sua equipe já está sobrecarregada e dois analistas sinalizaram exaustão nas últimas semanas. Não há como atender tudo dentro do prazo sem abrir mão de algo: ou você protege a entrega já comprometida, ou absorve a nova demanda com risco real de qualidade e saúde do time, ou negocia repactuação com o cliente — o que Rafael resiste a fazer.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Você tem 87% da capacidade comprometida e 18 dias de prazo. O que você decide fazer — e o que você abre mão para tomar essa decisão?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado consegue identificar o problema real (conflito entre capacidade e promessa comercial), usar critério explícito de priorização e assumir responsabilidade pela decisão — ou se evita a escolha e dispersa para 'levantar mais informações'",
+            "descritores_primarios": [
+              1,
+              3
+            ],
+            "o_que_diferencia_niveis": "N1: Tenta atender tudo ou delega a decisão para a gerência sem critério próprio | N2: Reconhece o conflito mas propõe solução vaga ('ver o que é possível') sem definir o que sacrifica | N3: Nomeia o trade-off, usa critério claro (impacto no cliente já comprometido vs. novo) e decide com responsabilidade explícita | N4: Decide com critério, comunica o risco antes mesmo de ser cobrado e propõe alternativa estruturada que protege ambos os lados com o menor custo possível",
+            "resposta_generica_falha_porque": "Dizer 'vou mapear a capacidade e ver o que cabe' não revela critério de priorização: o cenário já deu os dados — a pergunta exige que o avaliado mostre por qual lógica decide, não que ele peça mais tempo para decidir"
+          },
+          {
+            "texto": "Como você comunica ao Rafael que o prazo prometido ao cliente não é viável? O que você apresenta, como conduz essa conversa e o que faz se ele resistir?",
+            "numero": 2,
+            "objetivo_diagnostico": "Revelar se o avaliado sabe conduzir um alinhamento difícil com pares — se usa evidências, se mantém a posição sob pressão ou cede sem critério, e se trata Rafael como adversário ou como parceiro com erro a corrigir",
+            "descritores_primarios": [
+              4,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: Evita a conversa direta, escala para a gerência sem tentar resolver ou aceita a pressão de Rafael sem questionar | N2: Conversa com Rafael, mas cede quando há resistência ou não tem evidências para sustentar a posição | N3: Apresenta dados concretos (capacidade, risco de qualidade, impacto no cliente atual), propõe alternativa real e sustenta a posição mesmo com pressão | N4: Conduz a conversa posicionando Rafael como coautor da solução, antecipa os argumentos de resistência e transforma o conflito em protocolo de decisão conjunta para o futuro",
+            "resposta_generica_falha_porque": "'Vou conversar com o Rafael e buscar um acordo' não revela nada: a pergunta exige que o avaliado mostre o que apresenta, como sustenta e o que faz quando a resistência é real — a conversa fácil não existe neste cenário"
+          },
+          {
+            "texto": "Dois analistas da sua equipe já sinalizaram exaustão. Como você lida com eles diante dessa pressão — e o que não faz, mesmo que resolva o problema imediato?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar como o avaliado equilibra pressão por resultado com responsabilidade sobre o time — se naturaliza a sobrecarga como solução operacional ou se sustenta um limite ético mesmo quando isso complica a entrega",
+            "descritores_primarios": [
+              5,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: Pede horas extras sem questionar, usando a exaustão do time como recurso disponível | N2: Reconhece o problema de saúde do time mas cede à pressão e não protege os analistas de forma concreta | N3: Nomeia explicitamente o que não fará (ex.: não vai acionar horas extras consecutivas sem aprovação e compensação), comunica ao time com transparência e busca alternativa que não use exaustão como solução | N4: Transforma a situação em dado para a retrospectiva, propõe ajuste de processo que evite que o time chegue nesse ponto novamente e comunica isso tanto para o time quanto para a gerência",
+            "resposta_generica_falha_porque": "'Vou conversar com o time e redistribuir as tarefas' não revela o valor em jogo: a pergunta exige que o avaliado mostre o que recusa fazer — a armadilha é a solução fácil (horas extras) que resolve o prazo e prejudica o time"
+          },
+          {
+            "texto": "Passadas 3 semanas, como você avalia se o que foi decidido funcionou — e o que muda no processo para que esse cenário não se repite?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar se o avaliado fecha o ciclo com dados e melhoria real ou apenas registra o aprendizado de forma retórica — e se consegue transformar um conflito entre áreas em protocolo sustentável",
+            "descritores_primarios": [
+              2,
+              5
+            ],
+            "o_que_diferencia_niveis": "N1: Não define indicador nenhum ou considera 'entregou no prazo' como evidência suficiente de sucesso | N2: Cita indicadores genéricos (satisfação do cliente, prazo) sem rastrear o processo que gerou o problema | N3: Define métricas específicas (capacidade comprometida no momento da venda, tempo de comunicação entre comercial e operações, retrabalho gerado) e propõe ajuste concreto no rito de prioridades | N4: Propõe um protocolo formalizado de gate operacional antes de qualquer compromisso comercial com prazo, apresenta para a gerência com dados do episódio e acompanha a adoção — reduzindo a dependência da sua intervenção individual",
+            "resposta_generica_falha_porque": "'Vou fazer uma retrospectiva e registrar os aprendizados' é o comportamento mínimo esperado — a pergunta exige que o avaliado mostre qual métrica usa, o que muda de forma concreta no processo e como garante que a mudança persista sem depender de ele estar presente"
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Nomear o risco com evidências claras, propor alternativas concretas de repactuação e sustentar o limite operacional mesmo com pressão comercial — protegendo o cliente, o time e a credibilidade da empresa",
+          "caminho_facil": "Aceitar a demanda sem escalar, tentar absorver com o time sobrecarregado e esperar que dê certo para não criar atrito com Rafael e não parecer inflexível",
+          "valor_testado": "Responsabilidade — comunicar riscos reais ao invés de prometer o que não pode ser entregue"
+        },
+        "tradeoff_testado": "Proteger a entrega já comprometida (e o time) versus absorver a nova demanda para preservar o relacionamento comercial e o forecast — qualquer escolha tem custo visível para alguém",
+        "confianca_cenario": 0.88,
+        "fator_complicador": "Rafael não agiu de má-fé: cometeu um erro de processo comum na empresa, e confrontá-lo publicamente pode gerar resistência futura à colaboração entre áreas — mas não confrontar perpetua o problema",
+        "riscos_do_cenario": [
+          "Avaliados com perfil muito alto em 'S' podem responder focando apenas na proteção do time, sem demonstrar a dimensão de negociação com stakeholders",
+          "O cenário pode induzir respostas focadas em processo (criar fluxo de aprovação) sem revelar como o avaliado age no conflito real e imediato"
+        ],
+        "faceta_testada_principal": "Negociação de prioridades entre áreas sob pressão comercial — capacidade de sustentar um limite operacional real sem fugir do conflito e sem ceder sem critério",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1
+          ],
+          "D2": [
+            4
+          ],
+          "D3": [
+            1
+          ],
+          "D4": [
+            2
+          ],
+          "D5": [
+            3,
+            4
+          ],
+          "D6": [
+            2,
+            3
+          ]
+        },
+        "armadilha_de_resposta_generica": "Dizer 'vou alinhar com Rafael e buscar uma solução conjunta' não resolve: o cenário exige que o avaliado explicite qual critério usa para decidir, o que propõe como alternativa real e como sustenta a posição quando há resistência — 'alinhar' sem decisão é exatamente o comportamento N1/N2"
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Gerente Comercial",
+      "cod_comp": "GER01",
+      "titulo": "O Vendedor Sênior que Não Evolui — e a Meta que Não Espera",
+      "descricao": "Rafael tem 4 anos na empresa e é o segundo maior gerador de receita do time. Nas últimas três revisões mensais de indicadores, seu pipeline mostra o mesmo padrão: muitas oportunidades antigas paradas, poucas entradas novas e um forecast que sistematicamente superestima o fechamento em 30–40%. O gerente comercial (avaliado) já mencionou o tema duas vezes em 1:1, mas de forma genérica, sem estrutura. Rafael ouve, concorda no momento e não muda. Ele tem relacionamento forte com clientes legados e histórico de bater meta nos anos anteriores, o que o deixa confortável e resistente a qualquer crítica mais direta. O problema é que a meta do time para o trimestre foi revisada para cima em 15% pela diretoria. Dos 6 vendedores, outros 2 estão em rampa (abaixo de 6 meses) e um terceiro acaba de receber uma proposta de outro cargo interno. O gerente tem 8 semanas para fechar o trimestre. Nesse contexto, Luciana, diretora comercial, pediu um forecast revisado e confiável para sexta-feira — e deixou claro que espera leitura honesta, não número otimista. O caminho mais fácil seria proteger Rafael do desconforto, usar o histórico dele para justificar o forecast e absorver o gap com pressão nos demais.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Antes de conversar com Rafael, que evidências você levantaria para entender se o problema é de comportamento, habilidade ou motivação — e como isso mudaria sua abordagem?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado sabe distinguir causas de baixa performance antes de agir, ou se parte direto para a solução sem diagnóstico. Mede rigor analítico e uso de dados como base do desenvolvimento.",
+            "descritores_primarios": [
+              1,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: Vai 'conversar' sem critério ou evidência específica, baseado em percepção geral | N2: Cita dados do pipeline, mas não diferencia as causas possíveis nem diz como o diagnóstico muda a intervenção | N3: Separa hipóteses (habilidade vs. vontade vs. método), identifica evidências concretas (pipeline aging, taxa de conversão, ticket, histórico de 1:1), e explicita como cada causa levaria a abordagens diferentes | N4: Além do N3, descreve um critério de corte claro — o que confirma cada hipótese — e antecipa o que Rafael provavelmente vai dizer, preparando contra-argumentos baseados em dados.",
+            "resposta_generica_falha_porque": "Dizer 'vou analisar os indicadores e conversar com ele' não diferencia as três causas possíveis nem mostra que o avaliado sabe o que fazer de diferente dependendo do diagnóstico — que é exatamente o que o cargo exige."
+          },
+          {
+            "texto": "Você decide ter uma conversa diferente das duas anteriores com Rafael. O que muda concretamente nessa conversa — e como você garante que ela gera comprometimento real, não só concordância no momento?",
+            "numero": 2,
+            "objetivo_diagnostico": "Revelar se o avaliado tem método de feedback estruturado e sabe criar consequência comportamental, não apenas alinhamento superficial. Mede execução com método e capacidade de gerar mudança duradoura.",
+            "descritores_primarios": [
+              2,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: Repete o mesmo modelo das conversas anteriores com intenção de ser 'mais firme' — sem mudar estrutura, evidência ou consequência | N2: Leva dados para a conversa e define uma meta, mas não estabelece frequência de acompanhamento nem consequência clara para não mudança | N3: Estrutura a conversa com dados específicos (não percepção), nomeia o padrão de comportamento, define acordos mensuráveis com prazo e ritmo de check-in, e deixa claro o que acontece se não mudar | N4: Além do N3, descreve como vai monitorar a mudança de comportamento (não só o resultado), o que fará se Rafael resistir no momento, e como registrará os acordos para responsabilização futura.",
+            "resposta_generica_falha_porque": "Falar em 'feedback mais direto' ou 'plano de ação conjunto' sem especificar o que muda na estrutura da conversa e como será acompanhado reproduz exatamente o que já falhou duas vezes — e não revela maturidade de execução."
+          },
+          {
+            "texto": "Rafael reage mal: diz que seus números históricos falam por si e que você está pressionando ele por causa da meta do trimestre, não do desenvolvimento dele. Como você conduz a partir daqui?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar como o avaliado lida com resistência emocional de um profissional sênior sem recuar da mensagem nem perder o vínculo. Mede capacidade de sustentar feedback sob pressão relacional e de separar a tensão do mérito da questão.",
+            "descritores_primarios": [
+              3,
+              5
+            ],
+            "o_que_diferencia_niveis": "N1: Recua, valida o argumento de Rafael e adia a conversa — ou vai para o extremo oposto e confronta de forma agressiva | N2: Segura a posição, mas entra na defesa ou na justificativa da meta, perdendo o fio do desenvolvimento | N3: Reconhece o desconforto de Rafael sem validar a interpretação dele, retorna para os dados concretos, separa 'pressão de meta' de 'padrão de comportamento recorrente' e mantém o foco no que é negociável e o que não é | N4: Além do N3, usa a resistência de Rafael como dado diagnóstico ('sua reação me diz algo sobre como você está se sentindo nesse momento — quero entender isso também'), transforma o conflito em abertura, e ainda comunica claramente o que segue independentemente da concordância dele.",
+            "resposta_generica_falha_porque": "Dizer 'escutaria ele, mostraria empatia e reforçaria a mensagem' não revela o que o avaliado faz quando a conversa escalona de verdade — qualquer resposta que não mostre como sustenta a posição sob tensão real é diagnóstico insuficiente."
+          },
+          {
+            "texto": "Duas semanas depois da conversa com Rafael, o que você estaria observando para saber se o desenvolvimento está acontecendo — e o que te faria mudar de rota antes do fim do trimestre?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar se o avaliado tem critérios de acompanhamento de desenvolvimento além do resultado de vendas, e se consegue distinguir sinal de mudança real de sinal de conformidade superficial. Mede sustentabilidade da intervenção e uso de indicadores comportamentais.",
+            "descritores_primarios": [
+              2,
+              3,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: Monitora só o número de fechamentos ou aguarda o fim do trimestre para avaliar | N2: Acompanha pipeline, mas sem distinguir mudança de comportamento de mudança de resultado — só percebe o problema se o número piorar | N3: Define indicadores comportamentais intermediários (novas entradas no pipeline, atualização de oportunidades paradas, qualidade do forecast por conta), estabelece frequência de check-in, e nomeia o critério de decisão para escalar ou mudar abordagem antes do prazo | N4: Além do N3, descreve como vai usar os dados das duas semanas para calibrar se o plano com Rafael é suficiente ou se precisa de apoio adicional (ex.: par mais experiente, redução de carteira), e como comunicará a Luciana o status de forma honesta independentemente do resultado.",
+            "resposta_generica_falha_porque": "Dizer 'vou acompanhar de perto e dar suporte' não revela nenhum critério de avaliação de progresso — é impossível saber, com essa resposta, se o avaliado diferencia evolução real de comportamento adaptado superficialmente."
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Apresentar um forecast honesto a Luciana, mesmo que abaixo do esperado, e iniciar com Rafael uma conversa direta, baseada em dados, com expectativas e consequências claras — assumindo o risco da tensão e a responsabilidade pelo gap.",
+          "caminho_facil": "Incluir as oportunidades antigas de Rafael no forecast com probabilidade inflada para sustentar um número mais próximo da meta, evitando o atrito com ele e com a diretora no curto prazo.",
+          "valor_testado": "Responsabilidade e Ética nas decisões"
+        },
+        "tradeoff_testado": "Aprofundar o desenvolvimento de Rafael com feedback estruturado e consequências claras (arriscando tensão, possível perda de relação ou saída do vendedor) versus preservar o conforto do relacionamento e usar o nome dele para sustentar um forecast otimista que protege o gerente no curto prazo.",
+        "confianca_cenario": 0.88,
+        "fator_complicador": "Rafael não é um vendedor em crise — ele ainda entrega. O problema é oculto nos padrões do pipeline e no forecast inflado. Qualquer intervenção vai parecer injusta para ele e para o time, a menos que o gerente tenha evidências claras e critério explícito. Além disso, a diretora quer o número revisado em 48 horas, o que comprime o tempo de análise e aumenta a tentação de entregar o número que agrada em vez do número real.",
+        "riscos_do_cenario": [
+          "Avaliado pode focar excessivamente na pressão de meta e ignorar o eixo de desenvolvimento, respondendo como Gerente de Vendas operacional, não como Coach — o facilitador deve redirecionar se necessário.",
+          "A tensão com Luciana pode dominar as respostas, desviando o foco do diagnóstico de Rafael para a gestão para cima — o cenário precisa ser ancorado no eixo desenvolvimento."
+        ],
+        "faceta_testada_principal": "Capacidade de diagnosticar a causa raiz de baixa performance de um vendedor sênior e estruturar uma intervenção de desenvolvimento com consequência real — mesmo sob pressão de meta e risco de perder um gerador de receita estabelecido.",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1
+          ],
+          "D2": [
+            2,
+            4
+          ],
+          "D3": [
+            3,
+            4
+          ],
+          "D4": [
+            1
+          ],
+          "D5": [
+            3
+          ],
+          "D6": [
+            2,
+            4
+          ]
+        },
+        "armadilha_de_resposta_generica": "Dizer 'vou conversar com Rafael, alinhar expectativas e montar um plano de desenvolvimento' não resolve nada neste cenário: o gerente já fez isso duas vezes sem resultado. A resposta genérica ignora que é necessário escolher entre forecast honesto ou proteger a relação, definir o que muda concretamente no comportamento de Rafael e em qual prazo, e comunicar a Luciana um número que pode gerar questionamento. Qualquer resposta que 'cuide de tudo sem perder nada' deve ser tratada como N1 ou N2."
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Gerente Comercial",
+      "cod_comp": "GER02",
+      "titulo": "Concorrente agressivo, forecast comprometido e time na defensiva",
+      "descricao": "Você é o Gerente Comercial de uma empresa de tecnologia B2B de médio porte. No ciclo de revisão mensal de indicadores, você identifica que três deals estratégicos — que juntos representam 38% do forecast do trimestre — estão em risco. O motivo comum: um concorrente lançou há 45 dias uma oferta com preço 20% mais baixo e prazo de implantação prometido de 30 dias (metade do seu SLA padrão). Dois dos três clientes já sinalizaram que estão em conversa com o concorrente. O terceiro ainda não se manifestou, mas seu vendedor, Rafael, acredita que 'o deal está fechado' e resistiu a qualquer reabertura de diagnóstico com o cliente.\n\nVocê ainda não tem clareza sobre se o concorrente está praticando dumping para ganhar mercado, se a entrega dele é real ou se é um posicionamento de curto prazo. O que você sabe: a margem do seu produto já está apertada, o financeiro sinalizou que qualquer desconto acima de 12% compromete o resultado do trimestre, e a diretoria comercial espera um forecast confiável em 5 dias úteis.\n\nDentro do seu time, Carla — a vendedora responsável pelos dois deals em risco declarados — está sobrecarregada e começou a pressionar por flexibilidade de desconto 'para não perder tudo'. Rafael, por sua vez, está confiante, mas possivelmente cego para o risco real do seu deal. Você precisa decidir onde investir seu tempo, com que argumento reposicionar o time e o que de fato comunicar para a diretoria — sabendo que otimismo fácil pode comprometer sua credibilidade e pessimismo excessivo pode gerar reação desproporcional.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Com 5 dias para entregar o forecast e três deals em risco por um movimento do concorrente que você ainda não compreende bem, o que você prioriza primeiro e por quê?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado age por urgência emocional (salvar o deal mais gritante) ou por critério estruturado de leitura de contexto e priorização com custo explícito — e se consegue nomear o que abre mão.",
+            "descritores_primarios": [
+              4,
+              1
+            ],
+            "o_que_diferencia_niveis": "N1: Age pelo deal mais barulhento (Carla), sem critério explícito, não nomeia o que sacrifica | N2: Tenta cobrir os dois fronts sem assumir o custo do trade-off, resposta vaga sobre 'mapear tudo primeiro' | N3: Define critério claro (ex.: risco de margem vs. risco de pipeline), escolhe onde concentrar energia e nomeia o custo da escolha | N4: Além de priorizar com critério, já vincula a decisão à necessidade de produzir inteligência sobre o concorrente antes de agir — distingue sinal confiável de ruído e antecipa o que a decisão vai exigir de cada stakeholder",
+            "resposta_generica_falha_porque": "Dizer 'vou mapear todos os deals e entender o contexto' não revela critério de priorização nem assume custo — qualquer gerente diria isso, e é exatamente o que o tempo não permite."
+          },
+          {
+            "texto": "Rafael está convicto de que o deal está fechado, mas você tem razão para suspeitar que há risco oculto. Como você age com ele — e o que comunica à diretoria sobre esse deal no forecast?",
+            "numero": 2,
+            "objetivo_diagnostico": "Revelar se o avaliado consegue separar a gestão da relação com o vendedor da responsabilidade de comunicar risco real para cima — e se usa critério ou evita o desconforto das duas conversas difíceis.",
+            "descritores_primarios": [
+              2,
+              1
+            ],
+            "o_que_diferencia_niveis": "N1: Mantém o deal no forecast como está para não 'desmotivar Rafael' ou gerar conflito com a diretoria | N2: Conversa com Rafael mas evita a confrontação direta; comunica forecast com ressalva genérica ('pode haver risco') sem dado concreto | N3: Faz uma pergunta diagnóstica direta a Rafael com critério (ex.: 'quando foi o último contato ativo do cliente?'), registra o risco com evidência e comunica à diretoria com flag explícito e plano de ação | N4: Usa o caso de Rafael para introduzir uma prática de qualificação de pipeline no time, transforma o episódio em aprendizado coletivo sem expor Rafael publicamente",
+            "resposta_generica_falha_porque": "Responder 'vou conversar com Rafael e alinhar com a diretoria' não revela como o avaliado lida com viés de otimismo, nem o que de fato comunica — a tensão real está em como manter credibilidade com a diretoria sem destruir a relação com o vendedor."
+          },
+          {
+            "texto": "Carla está pressionando por desconto acima do teto autorizado para não perder os deals. Você não tem clareza se o concorrente entrega o que promete. Como você conduz essa negociação interna com Carla?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar se o avaliado cede à pressão imediata (sacrificando margem e critério) ou sustenta o posicionamento com argumento competitivo real — e se consegue redirecionar Carla de 'preço' para 'valor diferenciado'.",
+            "descritores_primarios": [
+              6,
+              5
+            ],
+            "o_que_diferencia_niveis": "N1: Autoriza desconto acima do teto 'para não perder' sem investigar o concorrente ou reposicionar o argumento comercial | N2: Nega o desconto mas não oferece a Carla nenhuma ferramenta alternativa — deixa a vendedora sem saída e sem argumento | N3: Propõe a Carla um roteiro de requalificação com o cliente (o que o concorrente realmente entrega, SLA real, risco de implantação) antes de qualquer concessão; define teto de concessão com critério de margem, não de pressão emocional | N4: Usa a situação para construir com Carla uma narrativa competitiva baseada em evidências, que pode ser replicada pelo time para outros deals ameaçados — e propõe levar o aprendizado ao rito semanal de prioridades",
+            "resposta_generica_falha_porque": "Dizer 'vou analisar caso a caso e ver o que é possível fazer' não revela se o avaliado tem critério de decisão sobre margem, nem como lida com a pressão de um vendedor sobrecarregado sem ceder por desgaste."
+          },
+          {
+            "texto": "Três meses depois, o movimento do concorrente se confirma como padrão no mercado, não um episódio isolado. O que você faz diferente no seu processo de gestão comercial a partir disso?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar se o avaliado extrai aprendizado sistemático de um evento competitivo e converte isso em mudança de prática — ou apenas reage episodicamente, sem institucionalizar o que aprendeu.",
+            "descritores_primarios": [
+              3,
+              5
+            ],
+            "o_que_diferencia_niveis": "N1: Não muda nada estrutural — aguarda o próximo sinal do mercado para reagir novamente | N2: Menciona 'ficar de olho no concorrente' ou 'monitorar melhor', mas sem mecanismo concreto, responsável ou frequência definida | N3: Define uma rotina de coleta de inteligência competitiva (ex.: campo do vendedor no CRM, pauta fixa no rito semanal, critério de qualificação de deal atualizado); comunica a mudança com clareza para o time e para a diretoria | N4: Propõe que o aprendizado gere um repositório vivo de inteligência competitiva compartilhado entre Comercial, Produto e Marketing; lidera a construção desse processo e forma o time para alimentá-lo com disciplina — elevando o padrão coletivo da organização",
+            "resposta_generica_falha_porque": "Responder 'vou monitorar melhor o mercado e manter o time informado' não revela mecanismo, frequência, responsável ou como isso muda a prática — é uma intenção, não uma competência demonstrada."
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Comunicar o risco real com a evidência disponível, mesmo que isso force uma conversa incômoda com a diretoria e exija revisão do forecast antes do prazo",
+          "caminho_facil": "Manter o forecast otimista para não gerar alarme, ganhar tempo e postergar a decisão difícil sobre os deals até a próxima semana",
+          "valor_testado": "Responsabilidade e clareza na comunicação com a diretoria"
+        },
+        "tradeoff_testado": "Priorizar Carla (risco declarado, desconto como saída rápida, resultado imediato do trimestre) versus investir tempo em Rafael (risco latente negado, preservação de pipeline, credibilidade do forecast) — sabendo que fazer os dois a fundo é inviável em 5 dias úteis.",
+        "confianca_cenario": 0.91,
+        "fator_complicador": "A ausência de dados confiáveis sobre o concorrente força uma decisão sob incerteza real: ceder no preço pode sinalizar fraqueza e deteriorar margem sem garantia de fechamento; não ceder pode perder o deal. Ao mesmo tempo, o otimismo de Rafael não é só um problema de percepção — é um dado de risco que precisa entrar no forecast sem destruir a relação com o vendedor.",
+        "riscos_do_cenario": [
+          "Avaliado pode focar exclusivamente na questão de desconto e tratar o cenário como negociação comercial, esquivando-se da dimensão de inteligência competitiva",
+          "O prazo de 5 dias úteis pode ser percebido como artificialmente curto, reduzindo a percepção de realismo por avaliados com contextos de ciclo de vendas mais longo"
+        ],
+        "faceta_testada_principal": "Tradução de sinal competitivo em decisão de priorização e posicionamento — distinguindo o gerente que age por pressão imediata daquele que lê o contexto, filtra ruído e converte inteligência de mercado em escolha estratégica deliberada.",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1,
+            2
+          ],
+          "D2": [
+            2
+          ],
+          "D3": [
+            4
+          ],
+          "D4": [
+            1,
+            2
+          ],
+          "D5": [
+            3,
+            4
+          ],
+          "D6": [
+            3
+          ]
+        },
+        "armadilha_de_resposta_generica": "Responder 'vou conversar com Carla e Rafael, entender o contexto de cada deal e alinhar com a diretoria' não resolve o cenário porque não revela critério de priorização, não enfrenta o trade-off de tempo, não explicita como lidar com o viés de Rafael e não define o que comunicar à diretoria com o nível de incerteza existente. A resposta genérica ignora que alinhar com todos é exatamente o que o tempo não permite."
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Gerente Comercial",
+      "cod_comp": "GER03",
+      "titulo": "O Deal de R$ 480 mil e o Vendedor que Não Quer Ajuda",
+      "descricao": "A ACME está no último mês do trimestre. Faltam 18 dias para fechar o período e o time está em 71% da meta. Há um deal de R$ 480 mil em negociação com a Construtora Horizonte, conduzido por Rafael, seu vendedor mais sênior — 6 anos de casa, alto produtor histórico, mas que nas últimas semanas têm entregado um forecast otimista sem evolução real nas etapas. Rafael acredita que o deal fecha 'na semana que vem' há 30 dias. Hoje, em reunião de pipeline, você descobriu que o decisor-chave da Construtora está pedindo um desconto de 22% e um SLA de implantação que Operações disse que não consegue cumprir no prazo solicitado pelo cliente. Rafael insistiu que 'já está resolvendo' e pediu que você não entre na conta — 'o cliente é meu, eu conheço a relação'. Ao mesmo tempo, há outros dois deals menores (R$ 90 mil cada) com outros vendedores que podem fechar com ação agora, mas vão exigir sua atenção direta nas próximas 48 horas. Você não consegue fazer tudo ao mesmo tempo. A diretoria espera o forecast que você vai reportar amanhã.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Você precisa decidir agora: entra no deal da Construtora Horizonte ou foca nos dois deals menores? O que você decide e por quê?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado tem critério estruturado de priorização em condições de escassez de tempo — ou se age por impulso, pelo maior valor nominal ou por evitar conflito com Rafael.",
+            "descritores_primarios": [
+              3,
+              1
+            ],
+            "o_que_diferencia_niveis": "N1: Escolhe pelo maior número (R$ 480 mil) sem analisar risco ou probabilidade real, ou transfere a decisão para Rafael sem critério | N2: Reconhece o dilema mas não consegue articular um critério claro — hesita, quer 'equilibrar os dois lados' sem escolher | N3: Define critério explícito (probabilidade x impacto x travamento), decide com base em evidências do pipeline e assume o custo da escolha | N4: Além do critério, articula como vai monitorar os dois caminhos, prepara plano de contingência e usa o caso para gerar aprendizado estruturado para o time",
+            "resposta_generica_falha_porque": "Responder 'analisaria todos os fatores e priorizaria o que tem mais chance de fechar' não revela qual critério é usado, como lida com a pressão do maior deal e o que abre mão conscientemente."
+          },
+          {
+            "texto": "Rafael pediu pra você não entrar na conta. Se você decidir intervir mesmo assim, como faz isso sem destruir a relação com ele e sem assumir o deal no lugar dele?",
+            "numero": 2,
+            "objetivo_diagnostico": "Revelar como o avaliado executa uma intervenção em deal com resistência do vendedor — se tem método para entrar como apoio sem infantilizar, e se consegue manter o vendedor como protagonista enquanto resolve o travamento.",
+            "descritores_primarios": [
+              2,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: Entra no deal ignorando Rafael ou evita entrar por medo do conflito — nenhum dos dois com critério | N2: Conversa com Rafael mas cede ao argumento de autonomia sem estruturar a intervenção — entra tarde ou de forma ineficaz | N3: Nomeia o problema com Rafael sem julgamento, propõe um papel específico para si (ex.: reunião conjunta com decisor para tratar SLA com Operações) e mantém Rafael como dono da conta | N4: Usa a situação para desenvolver Rafael em tempo real — transforma a intervenção em coaching de deal, documenta o aprendizado e cria modelo replicável para o time",
+            "resposta_generica_falha_porque": "Dizer 'conversaria com Rafael e deixaria claro que estou aqui para ajudar' não revela como lida com a resistência concreta, qual papel assume na negociação e como evita o efeito de 'tomar o deal'."
+          },
+          {
+            "texto": "O desconto pedido corrói margem e o SLA solicitado é inviável para Operações. Como você comunica isso à diretoria no forecast de amanhã?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar como o avaliado trata a tensão entre forecast verdadeiro e pressão por meta — se tem coragem de comunicar risco real à diretoria ou se suaviza o cenário para proteger a própria posição.",
+            "descritores_primarios": [
+              4,
+              5
+            ],
+            "o_que_diferencia_niveis": "N1: Mantém o deal como 'provável' no forecast sem sinalizar risco — ou exclui sem comunicar o impacto na meta | N2: Sinaliza alguma incerteza mas de forma vaga, sem dado concreto ou proposta de mitigação | N3: Reporta o risco com clareza (probabilidade ajustada, valor em risco, dependência com Operações), apresenta cenário alternativo com os deals menores e propõe ação imediata | N4: Além de reportar com precisão, usa o momento para propor melhoria no processo de qualificação de forecast e evitar recorrência — transforma o problema em protocolo",
+            "resposta_generica_falha_porque": "Responder 'seria transparente com a diretoria sobre os riscos' não revela o que exatamente comunica, como quantifica o risco real e se tem proposta concreta de mitigação ou apenas transfere o problema para cima."
+          },
+          {
+            "texto": "Em 30 dias, como você vai saber se a decisão que tomou hoje foi a certa — e o que muda no seu processo de gestão de pipeline a partir disso?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar se o avaliado aprende estruturalmente com decisões em condições de pressão ou apenas avalia pelo resultado final — e se consegue transformar o episódio em melhoria de processo.",
+            "descritores_primarios": [
+              5,
+              2
+            ],
+            "o_que_diferencia_niveis": "N1: Avalia só pelo resultado (meta batida ou não) — sem critério de processo ou aprendizado estruturado | N2: Reconhece que deveria fazer retrospectiva mas não sabe o que exatamente mediria ou mudaria | N3: Define indicadores de processo (ex.: critério de entrada em deals travados, prazo máximo sem evolução de etapa, padrão de qualificação de SLA com Operações) e compromete revisão na reunião mensal | N4: Formaliza o aprendizado como prática do time — cria protocolo de qualificação de deals críticos, compartilha com o time na retrospectiva quinzenal e melhora o padrão de forecast coletivo",
+            "resposta_generica_falha_porque": "Dizer 'faria uma retrospectiva para ver o que funcionou' não revela quais métricas de processo seriam usadas, o que especificamente mudaria na gestão de pipeline e como evitaria que o mesmo padrão se repetisse com outros vendedores."
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Reportar à diretoria o risco real do deal, ajustar o forecast com base em evidências concretas e tomar uma decisão de priorização com critério — mesmo que isso signifique confrontar Rafael e expor o risco de atingimento do trimestre",
+          "caminho_facil": "Manter o deal de R$ 480 mil no forecast como 'provável' para não gerar alerta interno, respeitar o pedido de Rafael e ganhar tempo — relatando à diretoria um cenário mais otimista do que a realidade",
+          "valor_testado": "Ética e Responsabilidade — o forecast que será entregue à diretoria amanhã"
+        },
+        "tradeoff_testado": "Entrar no deal de R$ 480 mil (desrespeitando a autonomia do Rafael e arriscando o relacionamento com ele) versus respeitar o espaço do vendedor e concentrar energia nos dois deals menores que têm maior probabilidade de fechar — sabendo que a escolha impacta diretamente o forecast reportado à diretoria.",
+        "confianca_cenario": 0.91,
+        "fator_complicador": "Rafael não é um vendedor fraco — é o mais sênior do time. Intervir sem critério pode parecer microgestão e comprometer a confiança dele. Mas não intervir com um deal travado em desconto inviável e SLA impossível pode custar o trimestre. A resistência do vendedor tem aparência de maturidade, mas pode ser ego protegendo um deal que ele não sabe mais conduzir.",
+        "riscos_do_cenario": [
+          "Avaliado pode focar excessivamente na gestão de Rafael e ignorar a pergunta de priorização, tornando a P1 menos discriminante se o entrevistador não aprofundar",
+          "O deal de R$ 480 mil pode parecer óbvio de priorizar pelo tamanho, mascarando o real trade-off — o entrevistador deve pressionar sobre o custo relacional e o risco de forecast"
+        ],
+        "faceta_testada_principal": "Critério de priorização e entrada em deals críticos: quando e como o gerente decide intervir em uma negociação conduzida por outro, assumindo o custo relacional com o vendedor e o risco de forecast para a diretoria.",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1,
+            3
+          ],
+          "D2": [
+            2,
+            4
+          ],
+          "D3": [
+            1,
+            3
+          ],
+          "D4": [
+            3
+          ],
+          "D5": [
+            3,
+            4
+          ],
+          "D6": [
+            2
+          ]
+        },
+        "armadilha_de_resposta_generica": "Dizer 'vou conversar com Rafael, alinhar com Operações e comunicar à diretoria' não resolve o cenário porque não há tempo, não há como fazer tudo e a resposta não revela critério de priorização, postura diante da resistência do vendedor nem como o avaliado trata o trade-off entre forecast verdadeiro e pressão por meta."
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Gerente Comercial",
+      "cod_comp": "GER04",
+      "titulo": "Pipeline Inflado, Meta Ameaçada e Dois Caminhos Impossíveis",
+      "descricao": "Faltam 23 dias para o fechamento do trimestre. Você é o Gerente Comercial de uma empresa de tecnologia B2B de médio porte. Seu forecast atual aponta R$ 1,4M comprometidos para o período, mas na revisão de pipeline desta semana você identificou que ao menos R$ 380 mil desse valor estão em oportunidades com baixíssima probabilidade real de fechamento — dois deals grandes que os vendedores classificam como 'quase fechados' mas que, na sua leitura, têm objeções não resolvidas e interlocutores sem poder de decisão. Seu diretor comercial, Paulo, já comunicou ao financeiro esse número como meta executável e está planejando o orçamento do próximo trimestre com base nele. Renata, sua vendedora mais experiente, é responsável por R$ 220 mil dos R$ 380 mil questionáveis. Ela tem histórico sólido, mas está claramente superestimando o avanço desses deals — provavelmente por pressão emocional de fechar um trimestre forte. Se você corrigir o forecast agora, o número entregue à diretoria cai para aproximadamente R$ 1,02M, expõe uma lacuna significativa e obriga o time a renegociar prioridades com menos de quatro semanas. Se você mantiver o número, compra tempo mas embute risco real de miss e prejudica a confiabilidade do seu forecast com o financeiro. Não há ação mágica que feche esse gap no prazo.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Com base no que você identificou no pipeline, qual decisão você toma sobre o forecast — e o que você abre mão ao tomá-la?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado consegue ler o problema com clareza, nomear o trade-off real e tomar uma posição com critério — ou se evita a escolha difícil com respostas de 'esperar mais dados' ou 'tentar os dois caminhos'",
+            "descritores_primarios": [
+              3,
+              1
+            ],
+            "o_que_diferencia_niveis": "N1: mantém o forecast ou adia a decisão sem critério claro, não nomeia o que está em jogo | N2: reconhece que o forecast está inflado mas propõe ações de recuperação antes de corrigir o número, postergando a decisão | N3: corrige o forecast com base nos dados, nomeia o que abre mão (conforto com Paulo, tempo de Renata) e define critério de priorização explícito | N4: além de corrigir, antecipa o impacto da decisão no planejamento do trimestre seguinte e propõe ajuste de processo de forecast para evitar recorrência",
+            "resposta_generica_falha_porque": "Dizer 'vou revisar os dados com Renata antes de decidir' ignora que os dados já estão disponíveis e que a decisão tem custo de tempo — cada dia sem correção aumenta o risco de miss e consolida o número errado na cabeça de Paulo"
+          },
+          {
+            "texto": "Como você comunica a Paulo que o forecast que ele já levou ao financeiro precisa ser revisado — e o que você faz para não apenas entregar o problema?",
+            "numero": 2,
+            "objetivo_diagnostico": "Revelar como o avaliado estrutura comunicação ascendente com dado negativo: se apresenta só o problema, se apresenta com plano, se suaviza ao ponto de desvirtuar a mensagem ou se é claro mesmo com o risco de desgaste",
+            "descritores_primarios": [
+              2,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: evita ou adia a conversa com Paulo, ou comunica de forma vaga para não gerar conflito | N2: comunica o gap mas sem plano estruturado, ou enquadra de forma que minimiza a gravidade para proteger a própria imagem | N3: comunica o número real, o risco e apresenta um plano de contingência com ações concretas e prazo — assumindo responsabilidade pela lacuna sem transferi-la para Renata | N4: além de comunicar com clareza, usa o episódio para propor um ajuste no rito de forecast com Paulo, prevenindo que o problema se repita",
+            "resposta_generica_falha_porque": "'Vou alinhar com Paulo' não resolve porque o alinhamento aqui exige rever um número que já foi comprometido para cima — a dificuldade está em contrariar o que já foi dito, não em abrir um diálogo novo"
+          },
+          {
+            "texto": "Renata acredita genuinamente que seus deals vão fechar. Como você conduz a conversa com ela sem destruir sua motivação e sem validar um forecast que você sabe que está errado?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar como o avaliado navega tensão humana real: se consegue separar o vínculo com Renata da responsabilidade de corrigir o dado, e se usa a conversa para desenvolver ou apenas para cobrar",
+            "descritores_primarios": [
+              5,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: evita a conversa direta ou valida o otimismo de Renata para não gerar conflito, mantendo o forecast errado | N2: confronta Renata com o dado mas sem método — a conversa vira cobrança e não desenvolve a leitura dela sobre o pipeline | N3: separa a avaliação do deal da avaliação de Renata, usa dados concretos para mostrar o gap de leitura, define junto com ela próximos passos realistas e mantém o vínculo | N4: transforma o episódio em desenvolvimento — usa os deals de Renata como caso de aprendizado sobre critério de qualificação, sem expô-la perante o time",
+            "resposta_generica_falha_porque": "'Vou conversar e motivá-la a fechar' não resolve porque motivação não é o problema — o problema é que ela está qualificando mal as oportunidades e o gestor precisa corrigir a leitura sem perder a vendedora"
+          },
+          {
+            "texto": "Daqui a 60 dias, como você saberá se o que você fez nessa situação funcionou — e o que você mudaria no seu processo para que esse tipo de problema não chegue tão tarde?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar se o avaliado pensa em execução com método e fechamento de ciclo: se consegue definir indicadores de sucesso claros, se extrai aprendizado estruturado do episódio e se melhora o processo ou apenas resolve o incêndio",
+            "descritores_primarios": [
+              6,
+              3
+            ],
+            "o_que_diferencia_niveis": "N1: responde em termos de resultado ('se batermos a meta, funcionou') sem olhar para o processo que gerou o problema | N2: identifica que precisa melhorar o forecast mas não define como nem quando — fica no nível da intenção | N3: define indicadores de qualidade do pipeline (ex.: percentual de deals com interlocutor decisor identificado, tempo médio de permanência em cada estágio), propõe ajuste no rito semanal e estabelece quando vai revisar | N4: além dos indicadores, propõe compartilhar o aprendizado deste episódio com o time como prática de retrospectiva — sem expor Renata — e documenta a mudança de critério de forecast",
+            "resposta_generica_falha_porque": "'Vou acompanhar de perto' não discrimina porque não define o que será acompanhado, com qual frequência e o que vai mudar no método — é exatamente a resposta de quem age reativamente e resolve problema por problema"
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Corrigir o forecast para o número real, comunicar o gap a Paulo com clareza e propor um plano de contingência factível, mesmo que isso exponha a fragilidade do pipeline atual",
+          "caminho_facil": "Manter o forecast em R$ 1,4M, torcer por uma virada nos deals e evitar o desgaste com Paulo e Renata — transferindo o risco para o fechamento",
+          "valor_testado": "Ética e responsabilidade: comunicar a realidade mesmo quando é inconveniente para a imagem do próprio gestor"
+        },
+        "tradeoff_testado": "Corrigir o forecast agora (preserva integridade e previsibilidade, mas expõe gap e gera desgaste com a diretoria e com Renata) versus manter o número inflado (compra conforto de curto prazo, mas deteriora confiabilidade e pode resultar em miss público no fechamento)",
+        "confianca_cenario": 0.91,
+        "fator_complicador": "Renata não está mentindo conscientemente — ela acredita nos deals. Confrontá-la exige separar dados de ego sem destruir o vínculo com a vendedora mais valiosa do time, num momento em que ela precisa de energia para eventualmente recuperar parte do gap",
+        "riscos_do_cenario": [
+          "Avaliado pode focar apenas na gestão de Renata e desviar da decisão central sobre o forecast para Paulo",
+          "O prazo de 23 dias pode ser interpretado como suficiente para 'tentar fechar os deals', criando uma terceira saída que ameniza o trade-off real"
+        ],
+        "faceta_testada_principal": "Priorização com custo real: a capacidade de corrigir o plano com base em dados, mesmo quando isso expõe gaps, constranja pares e contrarie o que já foi comunicado para cima",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1,
+            2
+          ],
+          "D2": [
+            2
+          ],
+          "D3": [
+            1,
+            4
+          ],
+          "D4": [
+            2,
+            3
+          ],
+          "D5": [
+            3
+          ],
+          "D6": [
+            4
+          ]
+        },
+        "armadilha_de_resposta_generica": "Dizer 'vou conversar com Renata e alinhar com Paulo para encontrarmos um caminho juntos' não resolve o cenário porque o problema não é falta de diálogo — é que o número está errado e alguém já o comunicou para cima como verdade. A resposta genérica evita a escolha entre corrigir ou proteger, que é exatamente o que o cenário força."
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    },
+    {
+      "cargo": "Gerente Comercial",
+      "cod_comp": "GER05",
+      "titulo": "Forecast Inflado, Meta em Risco e Vendedor Resistente",
+      "descricao": "Faltam 18 dias para o fechamento do trimestre. Você é o Gerente Comercial de uma empresa B2B de médio porte, operação distribuída. O forecast consolidado aponta R$ 1,2M de receita esperada para o período. Após revisar o CRM com cuidado, você identifica que pelo menos R$ 380K desse valor está concentrado em 3 oportunidades com sinais claros de risco: decisores trocados, sem retorno há mais de 15 dias e ausência de next steps concretos. O forecast real, na sua leitura, é de R$ 820K — 32% abaixo da meta trimestral de R$ 1,2M.\n\nMarcelo, seu melhor vendedor em volume histórico, é o dono dessas 3 oportunidades. Ele defende que os negócios 'ainda têm chances' e que sua intervenção vai 'queimar a relação com os clientes'. A diretoria tem reunião de resultado em 5 dias e espera um número confiável. Você sabe que, se confirmar o forecast otimista agora, compra tempo — mas entrega um dado falso. Se corrigir o número hoje, a diretoria vai questionar como o risco ficou invisível por tanto tempo e Marcelo pode se sentir exposto publicamente.\n\nHá também uma pressão lateral: o financeiro precisa do forecast para liberar headcount aprovado no Q4. Se o número cair, a contratação trava.",
+      "alternativas": {
+        "perguntas": [
+          {
+            "texto": "Diante do que você identificou no CRM, qual número você leva para a reunião da diretoria em 5 dias — e o que te faz ter certeza de que esse é o número certo?",
+            "numero": 1,
+            "objetivo_diagnostico": "Revelar se o avaliado usa critério claro e baseado em evidências para ler o pipeline, ou se cede à pressão do contexto político para manter um número confortável. Testa a qualidade da leitura diagnóstica e a disposição de assumir a responsabilidade pelo dado.",
+            "descritores_primarios": [
+              1,
+              2
+            ],
+            "o_que_diferencia_niveis": "N1: Mantém R$ 1,2M ou diz 'vou esperar mais alguns dias para ver o que acontece', sem critério. | N2: Reconhece o risco mas hesita — sugere 'revisar junto com Marcelo' antes de decidir, adiando a correção. | N3: Define R$ 820K com base nos sinais objetivos do CRM, nomeia os critérios usados (sem next step, decisor trocado, sem retorno há 15 dias) e assume a responsabilidade pelo ajuste. | N4: Além de corrigir, já estrutura uma leitura probabilística das 3 oportunidades (ex.: qual tem alguma chance real, qual deve ser baixada) e leva à diretoria um número com faixa e premissas explícitas.",
+            "resposta_generica_falha_porque": "Dizer 'vou analisar melhor o pipeline com o time' não responde à pergunta — o avaliado já tem os dados. A omissão de uma decisão clara expõe o padrão reativo."
+          },
+          {
+            "texto": "Você precisa corrigir o forecast antes da reunião. Como você conduz isso com Marcelo, sabendo que ele resiste e que expô-lo pode afetar o time?",
+            "numero": 2,
+            "objetivo_diagnostico": "Revelar como o avaliado executa accountability com um vendedor de alta performance que resiste à correção. Testa se consegue sustentar a cobrança com método sem evitar o conflito nem personalizar a crítica.",
+            "descritores_primarios": [
+              5,
+              6
+            ],
+            "o_que_diferencia_niveis": "N1: Evita o confronto com Marcelo, decide sozinho ou comunica a correção sem envolvê-lo — gerando ruptura ou omissão. | N2: Conversa com Marcelo mas cede à narrativa dele ('vou dar mais uma semana'), adiando a correção. | N3: Conduz uma conversa direta com Marcelo antes da reunião, separando o julgamento das oportunidades dos dados do CRM, e chega a um acordo sobre o que entra ou sai do forecast com critério explícito e prazo. | N4: Usa a conversa com Marcelo como oportunidade de desenvolvimento — mostra o padrão dos dados, co-constrói o critério de revisão de forecast e propõe um plano de recuperação que Marcelo mesmo lidera, preservando a autonomia e a responsabilidade dele.",
+            "resposta_generica_falha_porque": "Dizer 'vou ter uma conversa honesta e empática com Marcelo' não revela nada sobre critério, método ou o que acontece se ele continuar resistindo. O cenário exige que o avaliado descreva como sustenta a decisão quando há resistência real."
+          },
+          {
+            "texto": "A diretoria vai perguntar como esse risco ficou invisível por tanto tempo no forecast. O que você diz — e o que muda no seu processo a partir de agora?",
+            "numero": 3,
+            "objetivo_diagnostico": "Revelar se o avaliado assume responsabilidade pelo sistema de acompanhamento que permitiu o risco acumular, ou se distribui a culpa. Testa comunicação de risco com stakeholders de nível acima e capacidade de propor ajuste de processo com base no aprendizado.",
+            "descritores_primarios": [
+              3,
+              4
+            ],
+            "o_que_diferencia_niveis": "N1: Atribui o problema ao vendedor ('Marcelo não atualizava o CRM') ou ao processo ('o sistema não avisa automaticamente'), sem assumir responsabilidade de gestão. | N2: Reconhece que o acompanhamento foi insuficiente, mas não nomeia o que mudará — resposta vaga sobre 'melhorar o processo'. | N3: Assume que o critério de revisão de forecast não estava claro o suficiente, comunica isso com objetividade à diretoria, e apresenta um ajuste concreto de processo (ex.: revisão semanal de oportunidades sem next step há mais de 10 dias). | N4: Além de corrigir o processo, propõe um novo padrão de forecast review que serve de referência para o time — com critério documentado, frequência definida e indicador de confiabilidade do pipeline.",
+            "resposta_generica_falha_porque": "Responder 'vou implementar um processo de revisão mais rigoroso' sem especificar o que mudará, quem faz o quê e como será medido é uma resposta N2 disfarçada de N3."
+          },
+          {
+            "texto": "Em 60 dias, como você saberá se o que mudou no forecast e no acompanhamento do time realmente funcionou — e o que faria diferente se não funcionar?",
+            "numero": 4,
+            "objetivo_diagnostico": "Revelar se o avaliado pensa em sustentabilidade da mudança com indicadores concretos ou apenas em boa intenção declarada. Testa se consegue definir critério de sucesso e antecipar o que fazer se o ajuste não resolver.",
+            "descritores_primarios": [
+              4,
+              5
+            ],
+            "o_que_diferencia_niveis": "N1: Responde com intenção ('vou acompanhar de perto') sem nomear nenhum indicador ou critério verificável. | N2: Nomeia algum indicador (ex.: 'ver se o forecast ficou mais próximo do realizado') mas não define o que seria aceitável nem o que dispara uma ação corretiva. | N3: Define métricas concretas de verificação (ex.: desvio forecast vs. realizado abaixo de 15%, zero oportunidade sem next step há mais de 10 dias), frequência de revisão e o que faria diferente se os indicadores não melhorarem. | N4: Antecipa cenários alternativos — se o problema for de processo, ajusta o rito; se for de comportamento do vendedor, aciona desenvolvimento individual; se for de critério de qualificação, revisa o funil upstream — demonstrando capacidade de diagnóstico diferenciado antes mesmo de o problema reaparecer.",
+            "resposta_generica_falha_porque": "Dizer 'vou monitorar os resultados nas próximas semanas' não revela critério de avaliação nem prontidão para agir. Resposta sem número, sem prazo ou sem plano B é sempre N1/N2 neste contexto."
+          }
+        ],
+        "dilema_etico": {
+          "caminho_etico": "Corrigir o forecast para R$ 820K imediatamente, comunicar o risco com contexto e critério à diretoria, e alinhar com Marcelo um plano de recuperação com prazo e responsabilidade claros — mesmo que isso gere desconforto no curto prazo.",
+          "caminho_facil": "Manter o forecast em R$ 1,2M por mais alguns dias, deixar Marcelo trabalhar as oportunidades e só corrigir o número se elas de fato não fecharem — evitando conflito interno e pressão da diretoria agora.",
+          "valor_testado": "Responsabilidade e Clareza — entregar dados confiáveis mesmo quando a verdade é inconveniente."
+        },
+        "tradeoff_testado": "Corrigir o forecast agora (preservar previsibilidade e ética, mas expor o risco acumulado e travar decisões dependentes) versus manter o número inflado por mais alguns dias (ganhar tempo político, mas comprometer a confiabilidade do dado e a cultura de accountability).",
+        "confianca_cenario": 0.91,
+        "fator_complicador": "Marcelo não é um vendedor qualquer — é o maior gerador de volume histórico do time. Confrontá-lo publicamente ou corrigir o forecast sem alinhá-lo antes pode gerar desmotivação em quem o time usa como referência, criando um efeito colateral maior do que o problema original.",
+        "riscos_do_cenario": [
+          "Avaliado experiente pode deslocar a resposta para 'como conversar com Marcelo' e evitar responder sobre o forecast em si, esvaziando o trade-off central.",
+          "O elemento do headcount (financeiro travado) pode dispersar o foco para gestão de stakeholders secundários, diluindo a tensão principal de integridade do dado."
+        ],
+        "faceta_testada_principal": "Sustentação de accountability com dados reais sob pressão de curto prazo — a capacidade de manter a integridade do forecast mesmo quando corrigi-lo tem custo político, relacional e operacional imediato.",
+        "mapa_cobertura_descritores": {
+          "D1": [
+            1,
+            3
+          ],
+          "D2": [
+            1,
+            2
+          ],
+          "D3": [
+            3
+          ],
+          "D4": [
+            3,
+            4
+          ],
+          "D5": [
+            2,
+            4
+          ],
+          "D6": [
+            2,
+            3
+          ]
+        },
+        "armadilha_de_resposta_generica": "Responder 'vou alinhar com todos os stakeholders e encontrar um meio-termo' não funciona aqui porque o problema central é binário: o dado está certo ou está errado. Não há meio-termo ético no forecast. Qualquer resposta que adie a decisão ou distribua a responsabilidade sem nomear a escolha do avaliado revela exatamente o padrão N1/N2 que o cenário quer identificar."
+      },
+      "nota_check": null,
+      "status_check": null,
+      "tipo_cenario": null,
+      "p1": null,
+      "p2": null,
+      "p3": null,
+      "p4": null,
+      "dimensoes_check": null,
+      "justificativa_check": null,
+      "sugestao_check": null,
+      "alertas_check": []
+    }
+  ]
+}

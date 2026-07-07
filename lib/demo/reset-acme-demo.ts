@@ -1,5 +1,9 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import fixture from '@/lib/demo/acme-demo-fixture.json';
+// Artefatos de IA CONGELADOS dos cargos extra (Financeiro/Operações/Gerente):
+// gabaritos (IA2) + cenários ricos com rubrica N1-N4 (IA3). Gerados 1x no
+// acme-demo (scripts/_capture-*) e replicados no reset SEM rodar IA.
+import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
 
 /**
  * Reset/seed do tenant ACME Demo (slug `acme-demo`) — versão IN-APP da lógica
@@ -334,6 +338,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
         top5_workshop: role.competencias.map(([nome]) => nome),
         fit_versao: '2.0',
         eh_lideranca: role.nome.includes('Coordenador') || role.nome.includes('Gerente'),
+        gabarito: (extraArtifacts.gabaritos as Record<string, any>)?.[role.nome] ?? null,
       }));
 
       // Prefixo do código da competência por cargo (evita colisão entre cargos).
@@ -372,11 +377,23 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
           evidencias: [],
         }));
 
+        // Cenário RICO capturado do IA3 (rubrica N1-N4 + descritores-alvo), por
+        // (cargo, codComp); fallback ao gerador genérico se faltar no fixture.
+        const capt = (extraArtifacts.cenarios as any[]).find((x) => x.cargo === role.nome && x.cod_comp === codComp);
+        const cenarioData = capt
+          ? {
+              titulo: capt.titulo, descricao: capt.descricao, alternativas: capt.alternativas,
+              nota_check: capt.nota_check, status_check: capt.status_check, tipo_cenario: capt.tipo_cenario,
+              p1: capt.p1, p2: capt.p2, p3: capt.p3, p4: capt.p4,
+              dimensoes_check: capt.dimensoes_check, justificativa_check: capt.justificativa_check,
+              sugestao_check: capt.sugestao_check, alertas_check: capt.alertas_check, ppp_escola_id: null,
+            }
+          : demoScenarioFor(role.nome, nome);
         await must(`insert cenario ${role.nome} ${nome}`, sb.from('banco_cenarios').insert({
           empresa_id: destId,
           cargo: role.nome,
           competencia_id: firstComp.id,
-          ...demoScenarioFor(role.nome, nome),
+          ...cenarioData,
         }));
       }
     }

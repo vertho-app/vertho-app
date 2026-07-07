@@ -738,9 +738,14 @@ export async function listarCargosParaIA2(empresaId: string): Promise<{ cargos: 
   } catch { return { cargos: [] }; }
 }
 
-export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}, opts: { cargoNome?: string } = {}) {
+export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}, opts: { cargoNome?: string; internal?: boolean } = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const sbRaw = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+  // internal=true: pula o gate de admin (service-role) — restrito a callers de
+  // servidor confiáveis (tooling/golden-update do acme-demo). Tudo já é
+  // escopado por empresaId, então o bypass só afeta o tenant informado.
+  const sbRaw = opts.internal
+    ? (await import('@/lib/supabase')).createSupabaseAdmin()
+    : await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
   const tdb = tenantDb(empresaId);
   try {
     // 1. Buscar empresa (id é tenant — raw)
@@ -1188,12 +1193,16 @@ export async function listarFilaIA3(empresaId: string) {
 }
 
 // Gera cenário para UMA competência (cabe em 60s)
-export async function rodarIA3Uma(empresaId: string, cargoNome: string, competenciaId: string, pppEscolaId: string | null = null, aiConfig: AIConfig = {}) {
+export async function rodarIA3Uma(empresaId: string, cargoNome: string, competenciaId: string, pppEscolaId: string | null = null, aiConfig: AIConfig = {}, internal = false) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   try {
     // Auth DENTRO do try: qualquer falha (permissão, sessão) vira erro legível
     // em vez de derrubar a server action ("unexpected response from server").
-    const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
+    // internal=true: service-role (tooling/golden-update do acme-demo); a função
+    // já é escopada por empresaId (tdb = tenantDb(empresaId)).
+    const sbRaw = internal
+      ? (await import('@/lib/supabase')).createSupabaseAdmin()
+      : await requireAdminSupabase('ai.audit.regenerate');
     const tdb = tenantDb(empresaId);
     // Empresa (id é tenant — raw)
     let empresa;
