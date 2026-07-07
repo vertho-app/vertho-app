@@ -11,6 +11,7 @@ import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
 import type { reavaliarLoteSem14Task } from '@/trigger/reavaliar-lote-sem14';
+import { REAVALIACAO_LOTE_CAP } from './constants';
 
 /**
  * Lista auditorias da semana 14 de todas as empresas.
@@ -276,13 +277,6 @@ export async function loadAuditoriaSem14Detalhe(progressoId) {
     },
   };
 }
-
-/**
- * Capacidade máxima de um lote. Cada regeneração custa ~2 chamadas de IA
- * (~2-3 min); a task Trigger tem maxDuration 1800s (30 min). 10×~3min cabe
- * com folga. Acima disso o caller (UI) desabilita o botão e pede pra dividir.
- */
-export const REAVALIACAO_LOTE_CAP = 10;
 
 /**
  * Inicia um lote de reavaliação da Sem 14 em background (Trigger.dev).
