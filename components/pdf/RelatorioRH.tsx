@@ -131,6 +131,16 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
   const treinoByComp = new Map<string, any>();
   (c?.treinamentos_sugeridos || []).forEach((tr: any) => { const k = normComp(tr.competencia); if (k && !treinoByComp.has(k)) treinoByComp.set(k, tr); });
   const treinosCasados = new Set((c?.competencias_criticas || []).map((x: any) => normComp(x.competencia)).filter((k: string) => treinoByComp.has(k)));
+  // "Talentos a Potencializar" = só destaques POSITIVOS. O prompt novo já gera
+  // assim, mas relatórios legados misturam casos de atenção — filtramos aqui
+  // (corta nível 1 / abaixo da média; mantém referências/nível 3+).
+  const ehTalento = (d: any) => {
+    const txt = `${d?.situacao || ''} ${d?.acao || ''}`.toLowerCase();
+    const positivo = /n[íi]vel\s*[34]|refer[êe]ncia|destac|mentor|multiplicad|destoa positiv/.test(txt);
+    const atencao = /n[íi]vel\s*1|abaixo da m[eé]dia|barreira|incluir.*treinamento|acompanhar evolu|fragilidad/.test(txt);
+    return positivo || !atencao;
+  };
+  const talentos = (c?.decisoes_chave || []).filter(ehTalento);
   if (!c) return null;
   const resumoExecutivo = getResumoExecutivo(c.resumo_executivo);
 
@@ -325,11 +335,11 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
       <Page size="A4" style={pageStyles.page} wrap>
         <PageHeader logoBase64={logoBase64} label={'Relatório RH / T&D'} />
 
-        {c.decisoes_chave?.length > 0 && (
+        {talentos.length > 0 && (
           <View style={s.section}>
             <ReportSectionTitle>{'Talentos a Potencializar'}</ReportSectionTitle>
             <Text style={{ ...s.textIt, marginBottom: 8 }}>{'Pessoas que se destacaram \u2014 e como potencializ\u00e1-las.'}</Text>
-            {c.decisoes_chave.map((d: any, i: number) => (
+            {talentos.map((d: any, i: number) => (
               <View key={i} style={s.decCard} wrap={false}>
                 <View style={s.decHeader}><Text style={s.decHeaderText}>{d.colaborador}</Text></View>
                 <View style={{ ...s.decRow, backgroundColor: '#F5F3FF' }}>
