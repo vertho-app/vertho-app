@@ -185,7 +185,7 @@ export default function ModulosBaseListPage() {
             <select value={filtroComp} onChange={e => setFiltroComp(e.target.value)}
               className="bg-white/[0.05] border border-white/10 rounded-lg px-3 py-2 text-sm text-white min-w-[220px]">
               <option value="">Todas</option>
-              {(filtroEmpresa ? (opcoesFiltro.competencias || []) : competencias).map((c: any) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              {((filtroEmpresa && filtroEmpresa !== 'global') ? (opcoesFiltro.competencias || []) : competencias).map((c: any) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-white/45">

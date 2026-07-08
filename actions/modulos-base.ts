@@ -121,8 +121,28 @@ export async function listarModulos(filtros: {
   let q = sb.from('modulos_base_conteudo').select(COLS).order('updated_at', { ascending: false });
   if (filtros.status) q = q.eq('status', filtros.status);
   if (filtros.locale) q = q.eq('locale', filtros.locale);
-  // Competência: casa nos DOIS catálogos (canônico competencia_base_id OU da empresa competencia_id).
-  if (filtros.competencia_base_id) q = q.or(`competencia_base_id.eq.${filtros.competencia_base_id},competencia_id.eq.${filtros.competencia_base_id}`);
+  // Competência: valor uuid (catálogo global) filtra por id; valor nome (modelo da empresa)
+  // filtra por nome resolvido nos DOIS catálogos (canônico competencia_base_id OU empresa competencia_id).
+  if (filtros.competencia_base_id) {
+    const cf = filtros.competencia_base_id;
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cf)) {
+      q = q.or(`competencia_base_id.eq.${cf},competencia_id.eq.${cf}`);
+    } else {
+      const empQ = sb.from('competencias').select('id').eq('nome', cf);
+      if (filtros.empresa_id && filtros.empresa_id !== 'global') empQ.eq('empresa_id', filtros.empresa_id);
+      const [{ data: cb }, { data: ce }] = await Promise.all([
+        sb.from('competencias_base').select('id').eq('nome', cf),
+        empQ,
+      ]);
+      const ors: string[] = [];
+      const baseIds = (cb || []).map((c: any) => c.id);
+      const empIds = (ce || []).map((c: any) => c.id);
+      if (baseIds.length) ors.push(`competencia_base_id.in.(${baseIds.join(',')})`);
+      if (empIds.length) ors.push(`competencia_id.in.(${empIds.join(',')})`);
+      if (!ors.length) return { modulos: [] };
+      q = q.or(ors.join(','));
+    }
+  }
   if (filtros.contexto_pedagogico) q = q.eq('contexto_pedagogico', filtros.contexto_pedagogico);
   if (filtros.busca) q = q.ilike('titulo', `%${filtros.busca}%`);
   if (filtros.empresa_id === 'global') q = q.is('empresa_id', null);
@@ -180,35 +200,39 @@ export async function listarFiltrosModulos(empresaId?: string) {
     empresas = ((emp || []) as any[]).sort((a, b) => String(a.nome).localeCompare(String(b.nome)));
   }
 
-  // Escopo: 'global' = canônicos (empresa_id null); uuid = só dessa empresa; undefined = todos.
-  // Pilares e competências vêm SOMENTE da empresa selecionada (alfabético).
-  let rows = allRows;
-  if (empresaId === 'global') rows = allRows.filter((m) => !m.empresa_id);
-  else if (empresaId) rows = allRows.filter((m) => m.empresa_id === empresaId);
+  // Empresa específica: pilares + competências vêm do MODELO dela (tabela competencias),
+  // NÃO do catálogo global (competencias_base) nem derivado dos módulos. Dedup por nome
+  // (a tabela é nível-descritor, com linhas dup por cargo); alfabético. O id do option é
+  // o nome — listarModulos filtra por nome nesse caso (casa nos 2 catálogos).
+  if (empresaId && empresaId !== 'global') {
+    const { data: comps } = await sb.from('competencias')
+      .select('nome, pilar')
+      .eq('empresa_id', empresaId);
+    const seen = new Set<string>();
+    const competencias: { id: string; nome: string; pilar: string | null }[] = [];
+    const pilares = new Set<string>();
+    for (const c of (comps || []) as any[]) {
+      if (c.nome && !seen.has(c.nome)) { seen.add(c.nome); competencias.push({ id: c.nome, nome: c.nome, pilar: c.pilar ?? null }); }
+      if (c.pilar) pilares.add(c.pilar);
+    }
+    competencias.sort((a, b) => a.nome.localeCompare(b.nome));
+    return { empresas, hasGlobal, pilares: [...pilares].sort((a, b) => a.localeCompare(b)), competencias };
+  }
 
+  // Sem empresa (Todas) ou 'global': pilares resolvidos dos módulos (canônico + empresa).
+  const rows = empresaId === 'global' ? allRows.filter((m) => !m.empresa_id) : allRows;
   const baseIds = [...new Set(rows.map((m) => m.competencia_base_id).filter(Boolean))];
   const compIds = [...new Set(rows.map((m) => m.competencia_id).filter(Boolean))];
   const pilares = new Set<string>();
-  const compMap = new Map<string, { id: string; nome: string; pilar: string | null }>();
   if (baseIds.length) {
-    const { data: cb } = await sb.from('competencias_base').select('id, nome, pilar').in('id', baseIds);
-    for (const c of (cb || []) as any[]) {
-      if (c.pilar) pilares.add(c.pilar);
-      if (c.id && !compMap.has(c.id)) compMap.set(c.id, { id: c.id, nome: c.nome, pilar: c.pilar ?? null });
-    }
+    const { data: cb } = await sb.from('competencias_base').select('pilar').in('id', baseIds);
+    for (const c of (cb || []) as any[]) if (c.pilar) pilares.add(c.pilar);
   }
   if (compIds.length) {
-    const { data: ce } = await sb.from('competencias').select('id, nome, pilar').in('id', compIds);
-    for (const c of (ce || []) as any[]) {
-      if (c.pilar) pilares.add(c.pilar);
-      if (c.id && !compMap.has(c.id)) compMap.set(c.id, { id: c.id, nome: c.nome, pilar: c.pilar ?? null });
-    }
+    const { data: ce } = await sb.from('competencias').select('pilar').in('id', compIds);
+    for (const c of (ce || []) as any[]) if (c.pilar) pilares.add(c.pilar);
   }
-  // competencias só faz sentido escopado (sem empresa, a UI usa o catálogo global).
-  const competencias = empresaId
-    ? [...compMap.values()].sort((a, b) => String(a.nome).localeCompare(String(b.nome)))
-    : [];
-  return { empresas, hasGlobal, pilares: [...pilares].sort((a, b) => a.localeCompare(b)), competencias };
+  return { empresas, hasGlobal, pilares: [...pilares].sort((a, b) => a.localeCompare(b)), competencias: [] };
 }
 
 // ── Cobertura por descritor (matriz competência × descritor × módulos) ──────
