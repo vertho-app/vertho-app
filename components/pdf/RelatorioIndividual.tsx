@@ -122,6 +122,13 @@ const s = StyleSheet.create({
     marginTop: 8, fontSize: 8.5, color: colors.gray600, fontStyle: 'italic',
     textAlign: 'center', lineHeight: 1.5,
   },
+  // ── Binding real (blueprint) — badges de missão/avaliação ────────────
+  tlMeta: { flexDirection: 'row', gap: 4, marginTop: 4 },
+  tlBadge: {
+    fontSize: 6.5, fontWeight: 700, color: colors.cyan, backgroundColor: colors.navy,
+    paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 2,
+    textTransform: 'uppercase', letterSpacing: 0.5,
+  },
   // Mensagem final
   finalBox: {
     backgroundColor: colors.navy, borderRadius: 4, padding: 22,
@@ -208,6 +215,48 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       { fase: 'Semanas 9–12', titulo: 'Aprofundamento', detalhe: 'Aprofundar a prática em situações mais complexas do dia a dia.' },
       { fase: 'Semanas 13–14', titulo: 'Avaliação', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
     );
+  }
+
+  // ── Binding REAL "vira trilha" (Estágio 2) ──────────────────────────────
+  // Quando o PDI veio de um Development Blueprint, `conteudo.trilha_mapa` traz as
+  // semanas com `conexao_com_pdi` (ids de objetivo) e `conteudo.blueprint_objetivos`
+  // resolve id → ação do PDI. Agrupa semanas consecutivas por competência_foco e
+  // mostra o vínculo real. Sem trilha_mapa, cai na timeline computada acima.
+  const blueprintObjetivos: Record<string, any> = c.blueprint_objetivos || {};
+  const semanasMapa: any[] = Array.isArray(c.trilha_mapa?.semanas) ? c.trilha_mapa.semanas : [];
+  const hasBinding = semanasMapa.length > 0;
+  type BindingBloco = { faseLabel: string; titulo: string; acoes: string[]; temMissao: boolean; temAvaliacao: boolean };
+  const bindingBlocos: BindingBloco[] = [];
+  if (hasBinding) {
+    type Acc = { nums: number[]; comps: string[]; acoes: Set<string>; temMissao: boolean; temAvaliacao: boolean };
+    const grupos: Acc[] = [];
+    let curSig: string | null = null;
+    for (const sem of semanasMapa) {
+      const comps: string[] = Array.isArray(sem.competencia_foco) ? sem.competencia_foco.filter(Boolean) : [];
+      const sig = [...comps].sort().join('|');
+      let g = grupos[grupos.length - 1];
+      if (curSig === null || sig !== curSig || !g) {
+        g = { nums: [], comps: [], acoes: new Set<string>(), temMissao: false, temAvaliacao: false };
+        grupos.push(g);
+        curSig = sig;
+      }
+      if (typeof sem.semana === 'number') g.nums.push(sem.semana);
+      for (const cp of comps) if (!g.comps.includes(cp)) g.comps.push(cp);
+      if (sem.tipo === 'missao') g.temMissao = true;
+      if (sem.tipo === 'avaliacao') g.temAvaliacao = true;
+      const conex: string[] = Array.isArray(sem.conexao_com_pdi) ? sem.conexao_com_pdi : [];
+      for (const id of conex) {
+        const acao = blueprintObjetivos[id]?.acao_principal;
+        if (acao) g.acoes.add(acao);
+      }
+    }
+    for (const g of grupos) {
+      const min = g.nums.length ? Math.min(...g.nums) : 0;
+      const max = g.nums.length ? Math.max(...g.nums) : 0;
+      const faseLabel = g.nums.length > 1 ? `Semanas ${min}–${max}` : `Semana ${min}`;
+      const titulo = g.comps.length ? g.comps.join(' + ') : (g.temAvaliacao ? 'Avaliação' : 'Prática integrada');
+      bindingBlocos.push({ faseLabel, titulo, acoes: [...g.acoes], temMissao: g.temMissao, temAvaliacao: g.temAvaliacao });
+    }
   }
 
   return (
@@ -373,15 +422,42 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
           <Text style={s.trilhaIntro}>
             {'O que está no seu PDI é exatamente o que você vai praticar na trilha. Veja como os próximos meses se organizam.'}
           </Text>
-          {trilhaFases.map((f, i) => (
-            <View key={i} style={s.tlRow} wrap={false}>
-              <View style={s.tlPhase}><Text style={s.tlPhaseText}>{f.fase}</Text></View>
-              <View style={s.tlBody}>
-                <Text style={s.tlTitle}>{f.titulo}</Text>
-                <Text style={s.tlDetail}>{f.detalhe}</Text>
+          {hasBinding ? (
+            bindingBlocos.map((b, i) => (
+              <View key={i} style={s.tlRow} wrap={false}>
+                <View style={s.tlPhase}><Text style={s.tlPhaseText}>{b.faseLabel}</Text></View>
+                <View style={s.tlBody}>
+                  <Text style={s.tlTitle}>{b.titulo}</Text>
+                  {b.acoes.length > 0 && (
+                    <View style={s.mapLine}>
+                      <Text style={s.mapLineLabel}>Sustenta</Text>
+                      <View style={{ flex: 1 }}>
+                        {b.acoes.map((a, j) => (
+                          <Text key={j} style={s.tlDetail}>{a}</Text>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                  {(b.temMissao || b.temAvaliacao) && (
+                    <View style={s.tlMeta}>
+                      {b.temMissao && <Text style={s.tlBadge}>Missão prática</Text>}
+                      {b.temAvaliacao && <Text style={s.tlBadge}>Avaliação</Text>}
+                    </View>
+                  )}
+                </View>
               </View>
-            </View>
-          ))}
+            ))
+          ) : (
+            trilhaFases.map((f, i) => (
+              <View key={i} style={s.tlRow} wrap={false}>
+                <View style={s.tlPhase}><Text style={s.tlPhaseText}>{f.fase}</Text></View>
+                <View style={s.tlBody}>
+                  <Text style={s.tlTitle}>{f.titulo}</Text>
+                  <Text style={s.tlDetail}>{f.detalhe}</Text>
+                </View>
+              </View>
+            ))
+          )}
           <Text style={s.trilhaFooterNote}>
             {'Cada passo do PDI vira uma semana de prática — o plano e a trilha são o mesmo caminho.'}
           </Text>

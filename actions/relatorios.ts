@@ -5,6 +5,7 @@ import { mapComLimite } from '@/lib/concurrency';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { focoDoCargo } from '@/lib/foco-cargo';
+import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
@@ -258,6 +259,17 @@ export async function gerarRelatorioIndividual(
       return { success: false, error: 'Selecione as competências foco do cargo (tela de Cargos) antes de gerar o PDI.' };
     }
 
+    // Development Blueprint (Fase 1, Estágio 2): fonte ÚNICA do plano. Quando existe,
+    // o SPRINT do PDI vem DELE (coerência com a trilha) e a página "vira trilha"
+    // mostra o binding real. Sem blueprint → comportamento atual (fallback).
+    const { data: bpRow } = await tdb.from('development_blueprints')
+      .select('blueprint')
+      .eq('colaborador_id', colaboradorId)
+      .order('gerado_em', { ascending: false })
+      .limit(1).maybeSingle();
+    const blueprint: DevelopmentBlueprint | null = (bpRow?.blueprint as DevelopmentBlueprint) || null;
+    const blueprintComps = (blueprint?.competencias || []).map((c) => c.nome).filter(Boolean);
+
     if (!respostas?.length && !top5Esperado.length) {
       return { success: false, error: 'Nenhuma resposta nem top5 configurado para este colaborador' };
     }
@@ -284,15 +296,19 @@ export async function gerarRelatorioIndividual(
       nomeToId[normKey(c.nome)] = c.id;
     }
 
-    // Lista alvo (ordem de prioridade): competências FOCO do cargo (fonte única,
-    // item D) → foco da trilha (caso de regeneração) → top5 → respondidas.
-    const competenciasAlvo: string[] = focoCargo.length > 0
-      ? focoCargo
-      : focoTrilha.length > 0
-        ? focoTrilha
-        : top5Esperado.length > 0
-          ? top5Esperado
-          : [...new Set((respostas || []).map(r => r.competencia_nome).filter(Boolean))] as string[];
+    // Lista alvo (ordem de prioridade): BLUEPRINT (fonte única do plano, Estágio 2)
+    // → competências FOCO do cargo (fonte única, item D) → foco da trilha (caso de
+    // regeneração) → top5 → respondidas. Com blueprint, as competências do PDI são
+    // EXATAMENTE as dele (mesmos nomes/ordem).
+    const competenciasAlvo: string[] = blueprintComps.length > 0
+      ? blueprintComps
+      : focoCargo.length > 0
+        ? focoCargo
+        : focoTrilha.length > 0
+          ? focoTrilha
+          : top5Esperado.length > 0
+            ? top5Esperado
+            : [...new Set((respostas || []).map(r => r.competencia_nome).filter(Boolean))] as string[];
 
     // Mapa competencia → meta (id, cod_comp)
     const compIds = [...new Set((respostas || []).map(r => r.competencia_id).filter(Boolean))];
@@ -374,9 +390,26 @@ export async function gerarRelatorioIndividual(
       }
     } catch {}
 
+    // BLUEPRINT como FONTE DO PLANO (Estágio 2): quando existe, o sprint de cada
+    // competência é DERIVADO dos objetivos_30_dias do blueprint — a IA não inventa
+    // ações novas. A IA ainda escreve acolhimento, perfil, análise e tom.
+    let blueprintBlock = '';
+    if (blueprint) {
+      const compBlocos = (blueprint.competencias || []).map((comp) => {
+        const descr = (comp.descritores_foco || []).map((d) =>
+          `    - ${d.nome}: gap=${d.gap_observado} | esperado=${d.comportamento_esperado} | evidência=${d.evidencia_esperada}`,
+        ).join('\n');
+        const objs = (comp.objetivos_30_dias || []).map((o) =>
+          `    • [${o.id}] objetivo: ${o.objetivo}\n      acao_principal: ${o.acao_principal}\n      acao_apoio: ${o.acao_apoio || '—'}\n      evidencia_de_execucao: ${o.evidencia_de_execucao}\n      ritual: ${o.ritual || '—'}\n      criterio_de_sucesso: ${o.criterio_de_sucesso}`,
+        ).join('\n');
+        return `COMPETÊNCIA: ${comp.nome} (nível atual ${comp.nivel_atual})\n  Leitura: ${comp.leitura}\n  Descritores foco:\n${descr || '    (nenhum)'}\n  Objetivos de 30 dias:\n${objs || '    (nenhum)'}`;
+      }).join('\n\n');
+      blueprintBlock = `\n\n=== BLUEPRINT (fonte única do plano — NÃO invente ações novas) ===\n${compBlocos}\n\nINSTRUÇÕES DE USO DO BLUEPRINT (obrigatórias):\n- O array 'competencias' do output DEVE conter EXATAMENTE as competências acima, com os MESMOS nomes e na MESMA ordem. NÃO crie competências fora do blueprint.\n- O 'sprint' de cada competência DEVE ser DERIVADO dos objetivos_30_dias da MESMA competência no blueprint: sprint.foco_30_dias ← objetivo; sprint.acao_principal ← acao_principal (igual); sprint.acao_apoio ← acao_apoio (igual); sprint.ritual ← ritual (igual); sprint.evidencia_esperada ← evidencia_de_execucao; sprint.checklist = EXATAMENTE 3 itens curtos e verificáveis derivados do criterio_de_sucesso/evidência. NÃO invente ações fora do blueprint.\n- Você AINDA escreve, com a sua voz humana: o acolhimento, o resumo_geral, o perfil_comportamental, e por competência a análise (feedback, fez_bem, melhorar), as dicas e o tom. Apenas as AÇÕES (sprint) são fixadas pelo blueprint.`;
+    }
+
     const totalComps = dadosComps.length;
     const pendentes = dadosComps.filter(c => c.nivel === 'pendente').length;
-    const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\n=== ATENCAO ===\nO array DADOS POR COMPETENCIA contem ${totalComps} competencia(s) do TOP 5 do cargo. ${pendentes > 0 ? `${pendentes} esta(o) marcadas como 'pendente' (sem avaliacao IA4) — voce DEVE incluir essas tambem no output, com flag=true e plano placeholder.` : ''} O array 'competencias' do output DEVE ter EXATAMENTE ${totalComps} itens, na MESMA ordem.\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}${trilhaTexto}`;
+    const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\n=== ATENCAO ===\nO array DADOS POR COMPETENCIA contem ${totalComps} competencia(s) do TOP 5 do cargo. ${pendentes > 0 ? `${pendentes} esta(o) marcadas como 'pendente' (sem avaliacao IA4) — voce DEVE incluir essas tambem no output, com flag=true e plano placeholder.` : ''} O array 'competencias' do output DEVE ter EXATAMENTE ${totalComps} itens, na MESMA ordem.\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}${trilhaTexto}${blueprintBlock}`;
 
     const resultado = await callAI(RELATORIO_IND_SYSTEM, user, aiConfig, 64000);
     const relatorio: any = await extractJSON(resultado);
@@ -397,6 +430,28 @@ export async function gerarRelatorioIndividual(
     };
     if (Array.isArray(relatorio.competencias)) relatorio.competencias = relatorio.competencias.map((c: any) => overlay(c, 'nome'));
     if (Array.isArray(relatorio.resumo_desempenho)) relatorio.resumo_desempenho = relatorio.resumo_desempenho.map((c: any) => overlay(c, 'competencia'));
+
+    // Binding real "vira trilha" (Estágio 2): LIDO DO BLUEPRINT, não da IA. Persiste
+    // no `conteudo` pra a página "Como este PDI vira trilha" mostrar o vínculo real
+    // (cada semana → ação do PDI). Sem blueprint, ambos ficam ausentes (fallback).
+    if (blueprint) {
+      // trilha_mapa: as semanas com competencia_foco + conexao_com_pdi (ids dos objetivos).
+      relatorio.trilha_mapa = blueprint.trilha;
+      // blueprint_objetivos: mapa { [objetivoId]: { competencia, objetivo, acao_principal } }
+      // pra a página resolver conexao_com_pdi → ação do PDI que a semana sustenta.
+      const blueprintObjetivos: Record<string, { competencia: string; objetivo: string; acao_principal: string }> = {};
+      for (const comp of (blueprint.competencias || [])) {
+        for (const obj of (comp.objetivos_30_dias || [])) {
+          if (!obj?.id) continue;
+          blueprintObjetivos[obj.id] = {
+            competencia: comp.nome,
+            objetivo: obj.objetivo,
+            acao_principal: obj.acao_principal,
+          };
+        }
+      }
+      relatorio.blueprint_objetivos = blueprintObjetivos;
+    }
 
     // Gerar PDF
     let pdfPath: string | null = null;
