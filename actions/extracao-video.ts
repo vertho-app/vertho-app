@@ -310,30 +310,56 @@ export async function listarDirecionadoresExtracao(empresaId?: string | null) {
     await requireAdminAction('content.manage');
     const sb = await requireAdminSupabase();
 
+    if (empresaId) {
+      const { data } = await sb.from('competencias')
+        .select('nome, pilar, cargo, descritor_completo')
+        .eq('empresa_id', empresaId)
+        .order('nome')
+        .limit(1000);
+
+      const competencias: {
+        nome: string;
+        pilar: string | null;
+        competenciaBaseId: string | null;
+        origem: 'empresa' | 'base';
+        detalhe?: string | null;
+      }[] = [];
+      const seen = new Set<string>();
+      const pilares = new Set<string>();
+
+      for (const row of (data || []) as any[]) {
+        const nome = String(row.nome || '').trim();
+        if (!nome) continue;
+        const pilar = String(row.pilar || '').trim() || null;
+        const key = `${pilar || ''}|${nome.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          competencias.push({
+            nome,
+            pilar,
+            competenciaBaseId: null,
+            origem: 'empresa',
+            detalhe: row.cargo || row.descritor_completo || null,
+          });
+        }
+        if (pilar) pilares.add(pilar);
+      }
+
+      competencias.sort((a, b) => a.nome.localeCompare(b.nome));
+      return {
+        data: {
+          pilares: [...pilares].sort((a, b) => a.localeCompare(b)),
+          competencias,
+        },
+      };
+    }
+
     const { data: baseRows } = await sb.from('competencias_base')
       .select('id, nome, nome_curto, pilar, segmento, descritor_completo')
-      .order('pilar').order('nome')
+      .order('nome')
       .limit(1000);
 
     const bases = (baseRows || []) as any[];
-    const baseByName = new Map<string, any>();
-    for (const b of bases) {
-      const key = String(b.nome || '').trim().toLowerCase();
-      if (key && !baseByName.has(key)) baseByName.set(key, b);
-      const shortKey = String(b.nome_curto || '').trim().toLowerCase();
-      if (shortKey && !baseByName.has(shortKey)) baseByName.set(shortKey, b);
-    }
-
-    let empresaRows: any[] = [];
-    if (empresaId) {
-      const { data } = await sb.from('competencias')
-        .select('nome, nome_curto, pilar, cargo, descritor_completo')
-        .eq('empresa_id', empresaId)
-        .order('pilar').order('nome')
-        .limit(1000);
-      empresaRows = (data || []) as any[];
-    }
-
     const competencias: {
       nome: string;
       pilar: string | null;
@@ -342,27 +368,24 @@ export async function listarDirecionadoresExtracao(empresaId?: string | null) {
       detalhe?: string | null;
     }[] = [];
     const seen = new Set<string>();
-    const add = (row: any, origem: 'empresa' | 'base') => {
-      const nome = String(row.nome_curto || row.nome || '').trim();
+    const add = (row: any) => {
+      const nome = String(row.nome || row.nome_curto || '').trim();
       if (!nome) return;
       const pilar = String(row.pilar || '').trim() || null;
-      const match = origem === 'base'
-        ? row
-        : baseByName.get(nome.toLowerCase()) || baseByName.get(String(row.nome || '').trim().toLowerCase());
-      const key = `${origem}|${pilar || ''}|${nome.toLowerCase()}|${match?.id || ''}`;
+      const key = `${pilar || ''}|${nome.toLowerCase()}|${row.id || ''}`;
       if (seen.has(key)) return;
       seen.add(key);
       competencias.push({
         nome,
         pilar,
-        competenciaBaseId: match?.id || null,
-        origem,
+        competenciaBaseId: row.id || null,
+        origem: 'base',
         detalhe: row.descritor_completo || row.cargo || row.segmento || null,
       });
     };
 
-    empresaRows.forEach((r) => add(r, 'empresa'));
-    bases.forEach((r) => add(r, 'base'));
+    bases.forEach((r) => add(r));
+    competencias.sort((a, b) => a.nome.localeCompare(b.nome));
 
     const pilares = Array.from(new Set(competencias.map((c) => c.pilar).filter(Boolean) as string[]))
       .sort((a, b) => a.localeCompare(b));
