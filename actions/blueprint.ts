@@ -92,7 +92,9 @@ export async function gerarBlueprint(
       const media = notas.length ? notas.reduce((s, v) => s + v, 0) / notas.length : null;
       competenciasFoco.push({
         nome: nomeComp,
-        nivel: media == null ? null : Math.max(1, Math.min(4, Math.round(media))),
+        // floor, não round: a pessoa é N1 até CONSOLIDAR o 2.0 (média 1.6 = N1,
+        // não N2). Conservador e alinhado com o nível que o PDI mostra.
+        nivel: media == null ? null : Math.max(1, Math.min(4, Math.floor(media))),
         nota_decimal: media == null ? null : Number(media.toFixed(2)),
         descritores,
       });
@@ -133,6 +135,18 @@ export async function gerarBlueprint(
     );
     if (semanaSemPdi) {
       return { error: `Semana ${semanaSemPdi.semana} sem conexao_com_pdi (regra dura: toda semana referencia ≥1 objetivo)` };
+    }
+
+    // Nível autoritativo = calculado das notas de assessment (a IA tende a
+    // arredondar pra cima; N1 real não pode virar N2 no output). Casa por nome.
+    const nivelCalc = new Map(
+      competenciasFoco
+        .filter((c) => c.nivel != null)
+        .map((c) => [c.nome.trim().toLowerCase(), c.nivel as number]),
+    );
+    for (const comp of blueprint.competencias) {
+      const calc = nivelCalc.get((comp.nome || '').trim().toLowerCase());
+      if (calc != null) comp.nivel_atual = `N${calc}` as DevelopmentBlueprint['competencias'][number]['nivel_atual'];
     }
 
     blueprint.spec_version = BLUEPRINT_SPEC_VERSION;
