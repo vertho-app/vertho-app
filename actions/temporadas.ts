@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsDuo, selectDescriptorsPiloto, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
+import { focoDoCargo } from '@/lib/foco-cargo';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { getProgramaConfig, getProgramaConfigByModo, resolverModoColab, type ProgramaModoLabel } from '@/lib/season-engine/programa-config';
@@ -365,10 +366,14 @@ async function gerarTemporadaRegularDuo(args: {
 }): Promise<any> {
   const { colab, empresa, tdb, contexto, programaConfig, aiConfig, competenciaAncora } = args;
 
-  // 1) Resolve 2 competências
-  let comps: string[] = Array.isArray(empresa?.sys_config?.competencias_regular_duo)
-    ? empresa.sys_config.competencias_regular_duo.slice(0, 2)
-    : [];
+  // 1) Resolve 2 competências — prioridade (item D): FOCO do cargo (fonte única
+  // com o PDI, mig 174) → sys_config override → top-2 do top10 (âncora primeiro).
+  const { data: cargoFocoRow } = await tdb.from('cargos_empresa')
+    .select('competencia_foco, competencias_foco').eq('nome', colab.cargo || '').maybeSingle();
+  let comps: string[] = focoDoCargo(cargoFocoRow).slice(0, 2);
+  if (comps.length < 2 && Array.isArray(empresa?.sys_config?.competencias_regular_duo)) {
+    comps = empresa.sys_config.competencias_regular_duo.slice(0, 2);
+  }
   if (comps.length < 2) {
     const { data: top10 } = await tdb.from('top10_cargos')
       .select('competencia_id, posicao')

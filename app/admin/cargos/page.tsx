@@ -4,8 +4,8 @@ import { useState, useEffect, Suspense } from 'react';
 import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Loader2, Briefcase, Check, Save, ChevronDown, AlertTriangle, Link2, X, Target, BarChart3 } from 'lucide-react';
-import { loadEmpresas, loadCargos, salvarTop5, salvarEhLideranca, renomearTop10Cargo } from './actions';
+import { Loader2, Briefcase, Check, Save, ChevronDown, AlertTriangle, Link2, X, Target, BarChart3, Star } from 'lucide-react';
+import { loadEmpresas, loadCargos, salvarTop5, salvarCompetenciasFoco, salvarEhLideranca, renomearTop10Cargo } from './actions';
 import BackButton from '@/components/back-button';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import VotacaoTab from './_components/votacao-tab';
@@ -37,6 +37,7 @@ function CargosPageInner() {
   const [loadingCargos, setLoadingCargos] = useState(false);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [top5Edits, setTop5Edits] = useState<Record<string, string[]>>({});
+  const [focoEdits, setFocoEdits] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     (async () => {
@@ -68,8 +69,10 @@ function CargosPageInner() {
     if (r.success) {
       setCargos(r.data || []);
       const edits: Record<string, string[]> = {};
-      (r.data || []).forEach((c: any) => { edits[c.id] = c.top5_workshop || []; });
+      const focos: Record<string, string[]> = {};
+      (r.data || []).forEach((c: any) => { edits[c.id] = c.top5_workshop || []; focos[c.id] = c.competencias_foco || []; });
       setTop5Edits(edits);
+      setFocoEdits(focos);
     }
     setLoadingCargos(false);
   }
@@ -80,6 +83,16 @@ function CargosPageInner() {
       const exists = current.includes(comp);
       const next = exists ? current.filter(c => c !== comp) : [...current, comp];
       return { ...prev, [cargoId]: next };
+    });
+  }
+
+  // Foco: máx. 2 (trilha DUO é o padrão). Fonte única que PDI e trilha leem.
+  function toggleFoco(cargoId: string, comp: string) {
+    setFocoEdits(prev => {
+      const current = prev[cargoId] || [];
+      if (current.includes(comp)) return { ...prev, [cargoId]: current.filter(c => c !== comp) };
+      if (current.length >= 2) { toast.error('Máximo 2 competências foco (trilha DUO).'); return prev; }
+      return { ...prev, [cargoId]: [...current, comp] };
     });
   }
 
@@ -107,11 +120,12 @@ function CargosPageInner() {
   async function handleSave(cargoId: string) {
     setSaving(prev => ({ ...prev, [cargoId]: true }));
     const r = await salvarTop5(cargoId, top5Edits[cargoId] || []);
+    const rf = await salvarCompetenciasFoco(cargoId, focoEdits[cargoId] || []);
     setSaving(prev => ({ ...prev, [cargoId]: false }));
-    if (r.success) {
+    if (r.success && rf.success) {
       toast.success(t('messages.top5Saved'));
     } else {
-      toast.error(t('messages.error', { error: r.error }));
+      toast.error(t('messages.error', { error: r.error || rf.error }));
     }
   }
 
@@ -207,6 +221,9 @@ function CargosPageInner() {
             {t('workshop.voting')}
           </button>
           <span className="text-cyan-100/70">.</span>
+          <div className="mt-1.5 text-amber-200/80">
+            <Star size={11} className="inline -mt-0.5" fill="currentColor" /> Marque <strong>até 2</strong> competências como <strong>foco</strong> (a estrela): é o que a trilha DUO e o PDI vão trabalhar. Obrigatório pra gerar o PDI.
+          </div>
         </div>
       )}
 
@@ -239,6 +256,7 @@ function CargosPageInner() {
                     </div>
                     <p className="text-xs text-gray-500">
                       {t('summary', { total: lista.length, selected: selected.length })}
+                      {` · ⭐ Foco: ${(focoEdits[cargo.id] || []).length}/2`}
                       {cargo.eh_lideranca === false ? ` · ${t('badges.nonLeader')}` : ''}
                     </p>
                   </div>
@@ -275,6 +293,7 @@ function CargosPageInner() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {lista.map((comp: string, i: number) => {
                         const isSelected = selected.includes(comp);
+                        const isFoco = (focoEdits[cargo.id] || []).includes(comp);
                         return (
                           <button key={i} onClick={() => toggleCompetencia(cargo.id, comp)}
                             disabled={!isUuid}
@@ -292,9 +311,17 @@ function CargosPageInner() {
                               {isSelected && <Check size={12} strokeWidth={3} />}
                             </div>
                             <span className="truncate">{comp}</span>
-                            {votadaSet.has(comp) && (
-                              <span className="ml-auto shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-400/15 text-cyan-300 border border-cyan-400/25">votação</span>
-                            )}
+                            <span className="ml-auto shrink-0 flex items-center gap-1.5">
+                              {votadaSet.has(comp) && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-400/15 text-cyan-300 border border-cyan-400/25">votação</span>
+                              )}
+                              <span
+                                title={isFoco ? 'Competência foco — clique pra remover' : 'Marcar como foco (máx. 2 — trilha DUO + PDI)'}
+                                onClick={(e) => { e.stopPropagation(); if (isUuid) toggleFoco(cargo.id, comp); }}
+                                className={`cursor-pointer p-0.5 rounded ${isFoco ? 'text-amber-300' : 'text-gray-600 hover:text-amber-300'}`}>
+                                <Star size={13} strokeWidth={2.5} fill={isFoco ? 'currentColor' : 'none'} />
+                              </span>
+                            </span>
                           </button>
                         );
                       })}

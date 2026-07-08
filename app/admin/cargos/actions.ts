@@ -1,6 +1,7 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { focoDoCargo, MAX_FOCO } from '@/lib/foco-cargo';
 
 export async function loadEmpresas() {
   const sb = await requireAdminSupabase();
@@ -15,7 +16,7 @@ export async function loadCargos(empresaId: string) {
     // 1. cargos_empresa (com top5 quando coluna existe)
     let cargosEmpresa: any[] | null = null;
     const { data: ce1, error: err1 } = await sb.from('cargos_empresa')
-      .select('id, nome, area_depto, descricao, top5_workshop, eh_lideranca')
+      .select('id, nome, area_depto, descricao, top5_workshop, eh_lideranca, competencia_foco, competencias_foco')
       .eq('empresa_id', empresaId)
       .order('nome');
     if (!err1) {
@@ -104,6 +105,7 @@ export async function loadCargos(empresaId: string) {
         area_depto: ce?.area_depto || null,
         eh_lideranca: ce?.eh_lideranca !== false,
         top5_workshop: ce?.top5_workshop || [],
+        competencias_foco: focoDoCargo(ce),
         competencias_top10: top10Names,
         competencias_votadas_extra,
         // Flags pra UI: cargo órfão = só existe em top10_cargos (IA gerou
@@ -157,6 +159,31 @@ export async function salvarTop5(cargoId: string, top5: any) {
       if (error) return { success: false, error: error.message };
     }
     return { success: true, message: 'Top 5 salvo com sucesso' };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Salva as competências FOCO do cargo (máx. 2 — a trilha padrão é DUO). Fonte
+ * única que PDI e trilha leem (ver lib/foco-cargo). Escreve `competencias_foco`
+ * (array) + `competencia_foco` (1ª, backward-compat).
+ */
+export async function salvarCompetenciasFoco(cargoId: string, foco: string[]) {
+  const sb = await requireAdminSupabase('companies.manage');
+  try {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
+    if (!uuidRegex.test(cargoId)) return { success: false, error: 'Cargo precisa estar em cargos_empresa' };
+    const limpa = [...new Set((Array.isArray(foco) ? foco : []).map((s) => (s || '').toString().trim()).filter(Boolean))].slice(0, MAX_FOCO);
+    // Predicado de tenant explícito: mutação restrita ao tenant da linha lida
+    const { data: cargoLinha } = await sb.from('cargos_empresa').select('empresa_id').eq('id', cargoId).maybeSingle();
+    if (!cargoLinha) return { success: false, error: 'Cargo não encontrado' };
+    const { error } = await sb.from('cargos_empresa')
+      .update({ competencias_foco: limpa, competencia_foco: limpa[0] || null })
+      .eq('id', cargoId)
+      .eq('empresa_id', cargoLinha.empresa_id);
+    if (error) return { success: false, error: error.message };
+    return { success: true, message: 'Competências foco salvas' };
   } catch (err: any) {
     return { success: false, error: err.message };
   }

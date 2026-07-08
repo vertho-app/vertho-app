@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { mapComLimite } from '@/lib/concurrency';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { focoDoCargo } from '@/lib/foco-cargo';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
@@ -225,8 +226,10 @@ export async function gerarRelatorioIndividual(
 
     // Top 5 esperado do cargo (fonte de verdade)
     const { data: cargoEmp } = await tdb.from('cargos_empresa')
-      .select('top5_workshop').eq('nome', colab.cargo).maybeSingle();
+      .select('top5_workshop, competencia_foco, competencias_foco').eq('nome', colab.cargo).maybeSingle();
     const top5Esperado: string[] = cargoEmp?.top5_workshop || [];
+    // Competências FOCO do cargo (fonte única PDI↔trilha, item D).
+    const focoCargo: string[] = focoDoCargo(cargoEmp);
 
     // Coerência PDI↔trilha (Fase 0, item 1): o PDI deve focar EXATAMENTE as
     // competências que a trilha do colaborador trabalha. Lê competencias_foco
@@ -242,6 +245,12 @@ export async function gerarRelatorioIndividual(
         ? trilhaColab!.competencias_foco
         : (trilhaColab?.competencia_foco ? [trilhaColab.competencia_foco] : [])
     ).filter(Boolean);
+
+    // Foco é OBRIGATÓRIO pra gerar o PDI (item D): sem foco, o PDI não teria
+    // como bater com a trilha. Cargo é a fonte; trilha existente também serve.
+    if (focoCargo.length === 0 && focoTrilha.length === 0) {
+      return { success: false, error: 'Selecione as competências foco do cargo (tela de Cargos) antes de gerar o PDI.' };
+    }
 
     if (!respostas?.length && !top5Esperado.length) {
       return { success: false, error: 'Nenhuma resposta nem top5 configurado para este colaborador' };
@@ -269,13 +278,15 @@ export async function gerarRelatorioIndividual(
       nomeToId[normKey(c.nome)] = c.id;
     }
 
-    // Lista alvo (ordem de prioridade): competências da TRILHA do colaborador
-    // (garante coerência PDI↔trilha) → top5 do cargo → competências respondidas.
-    const competenciasAlvo: string[] = focoTrilha.length > 0
-      ? focoTrilha
-      : top5Esperado.length > 0
-        ? top5Esperado
-        : [...new Set((respostas || []).map(r => r.competencia_nome).filter(Boolean))] as string[];
+    // Lista alvo (ordem de prioridade): competências FOCO do cargo (fonte única,
+    // item D) → foco da trilha (caso de regeneração) → top5 → respondidas.
+    const competenciasAlvo: string[] = focoCargo.length > 0
+      ? focoCargo
+      : focoTrilha.length > 0
+        ? focoTrilha
+        : top5Esperado.length > 0
+          ? top5Esperado
+          : [...new Set((respostas || []).map(r => r.competencia_nome).filter(Boolean))] as string[];
 
     // Mapa competencia → meta (id, cod_comp)
     const compIds = [...new Set((respostas || []).map(r => r.competencia_id).filter(Boolean))];
