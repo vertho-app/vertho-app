@@ -41,7 +41,7 @@ export default function ModulosBaseListPage() {
   const [filtroPilar, setFiltroPilar] = useState('');
   const [filtroComp, setFiltroComp] = useState('');
   const [busca, setBusca] = useState('');
-  const [opcoesFiltro, setOpcoesFiltro] = useState<{ empresas: { id: string; nome: string }[]; hasGlobal: boolean; pilares: string[] }>({ empresas: [], hasGlobal: false, pilares: [] });
+  const [opcoesFiltro, setOpcoesFiltro] = useState<{ empresas: { id: string; nome: string }[]; hasGlobal: boolean; pilares: string[]; competencias?: { id: string; nome: string; pilar: string | null }[] }>({ empresas: [], hasGlobal: false, pilares: [] });
   const [modal, setModal] = useState<null | 'novo' | 'ia'>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [loteBusy, setLoteBusy] = useState<'' | 'auditar' | 'submeter' | 'aprovar' | 'excluir' | 'refinar'>('');
@@ -126,7 +126,7 @@ export default function ModulosBaseListPage() {
   }
 
   useEffect(() => { carregar(); }, [filtroStatus, filtroEmpresa, filtroPilar, filtroComp]);
-  useEffect(() => { listarFiltrosModulos().then((r) => { if (!('error' in r)) setOpcoesFiltro(r as any); }); }, []);
+  useEffect(() => { listarFiltrosModulos(filtroEmpresa || undefined).then((r) => { if (!('error' in r)) setOpcoesFiltro(r as any); }); }, [filtroEmpresa]);
 
   const compMap = useMemo(() => Object.fromEntries(competencias.map((c: any) => [c.id, c])), [competencias]);
 
@@ -165,7 +165,7 @@ export default function ModulosBaseListPage() {
           <Select label="Status" value={filtroStatus} onChange={setFiltroStatus} options={STATUS} />
           <div className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-white/45">
             Empresa
-            <select value={filtroEmpresa} onChange={e => setFiltroEmpresa(e.target.value)}
+            <select value={filtroEmpresa} onChange={e => { setFiltroEmpresa(e.target.value); setFiltroPilar(''); setFiltroComp(''); }}
               className="bg-white/[0.05] border border-white/10 rounded-lg px-3 py-2 text-sm text-white min-w-[200px]">
               <option value="">Todas</option>
               {opcoesFiltro.hasGlobal && <option value="global">Global (canônico)</option>}
@@ -185,7 +185,7 @@ export default function ModulosBaseListPage() {
             <select value={filtroComp} onChange={e => setFiltroComp(e.target.value)}
               className="bg-white/[0.05] border border-white/10 rounded-lg px-3 py-2 text-sm text-white min-w-[220px]">
               <option value="">Todas</option>
-              {competencias.map((c: any) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              {(filtroEmpresa ? (opcoesFiltro.competencias || []) : competencias).map((c: any) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-white/45">
