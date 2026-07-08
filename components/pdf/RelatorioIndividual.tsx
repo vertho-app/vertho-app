@@ -1,8 +1,9 @@
 import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { colors, fonts, tableStyles, pageStyles, nivelColor, nivelBgColor, nivelLabel } from './styles';
-import PdfCover, { PdfBackCover } from './PdfCover';
-import { SectionTitle } from './SectionTitle';
+import { PdfBackCover } from './PdfCover';
+import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
+import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import { LevelDots } from './StatusBadge';
 import CompetencyBlock from './CompetencyBlock';
 
@@ -152,12 +153,12 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
   return (
     <Document title={`PDI - ${nome}`}>
       {/* ═══════════════════ CAPA NAVY ═══════════════════ */}
-      <PdfCover
+      <PdfReportCover
+        bgBase64={getReportCoverBgBase64()}
         logoBase64={logoBase64}
         nome={nome}
         cargo={data.colaborador_cargo}
         empresa={empresaNome}
-        data={data.gerado_em}
       />
 
       {/* ═══════════════════ PERFIL + RESUMO DE DESEMPENHO ═══════════════════ */}
@@ -170,7 +171,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
         {/* Perfil Comportamental — texto introdutório em azul claro */}
         {c.perfil_comportamental && (
           <View style={s.section} wrap={false}>
-            <SectionTitle>Perfil Comportamental</SectionTitle>
+            <ReportSectionTitle>Perfil Comportamental</ReportSectionTitle>
             <Text style={s.perfilText}>{c.perfil_comportamental.descricao}</Text>
           </View>
         )}
@@ -202,7 +203,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
         {/* Resumo de Desempenho — tabela premium navy */}
         {(c.resumo_desempenho || competencias)?.length > 0 && (
           <View style={s.section} wrap={false}>
-            <SectionTitle>Resumo de Desempenho</SectionTitle>
+            <ReportSectionTitle>Resumo de Desempenho</ReportSectionTitle>
             <View style={s.table}>
               <View style={s.tableHead}>
                 <Text style={{ ...s.tableHeadCell, flex: 3 }}>Competência</Text>
@@ -239,7 +240,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
         {/* Trilha de Cursos */}
         {c.trilha_cursos?.length > 0 && (
           <View style={s.section} wrap={false}>
-            <SectionTitle>Trilha de Desenvolvimento</SectionTitle>
+            <ReportSectionTitle>Trilha de Desenvolvimento</ReportSectionTitle>
             <View style={s.trilhaBox}>
               <Text style={s.trilhaLabel}>Cursos Recomendados</Text>
               {c.trilha_cursos.map((curso: any, i: number) => (

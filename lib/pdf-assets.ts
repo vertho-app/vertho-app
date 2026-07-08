@@ -25,6 +25,30 @@ export function getLogoCoverBase64(): string | null {
   return cachedLogoCover;
 }
 
+let cachedReportCoverBg: string | null = null;
+let cachedReportCoverBgTried = false;
+
+/**
+ * Fundo decorativo da capa dos relatórios (PDI etc.) como data URI: card navy
+ * arredondado + onda gradiente cyan→purple + glow + textura de pontos. Assado
+ * do CSS do design system (radial-gradient/blur/mask que o @react-pdf não faz)
+ * por `scripts/_bake-cover-bg.mjs`. O texto é renderizado vivo por cima.
+ */
+export function getReportCoverBgBase64(): string | null {
+  if (cachedReportCoverBgTried) return cachedReportCoverBg;
+  cachedReportCoverBgTried = true;
+  const dir = join(process.cwd(), 'public', 'report');
+  // JPEG otimizado (~47KB) preferido; PNG (~937KB) como fallback.
+  for (const [file, mime] of [['pdi-cover-bg.jpg', 'jpeg'], ['pdi-cover-bg.png', 'png']] as const) {
+    try {
+      cachedReportCoverBg = `data:image/${mime};base64,${readFileSync(join(dir, file)).toString('base64')}`;
+      return cachedReportCoverBg;
+    } catch { /* tenta próximo */ }
+  }
+  cachedReportCoverBg = null;
+  return cachedReportCoverBg;
+}
+
 let cachedLogoDark: string | null = null;
 let cachedLogoDarkTried = false;
 
