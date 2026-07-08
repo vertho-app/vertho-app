@@ -228,6 +228,21 @@ export async function gerarRelatorioIndividual(
       .select('top5_workshop').eq('nome', colab.cargo).maybeSingle();
     const top5Esperado: string[] = cargoEmp?.top5_workshop || [];
 
+    // Coerência PDI↔trilha (Fase 0, item 1): o PDI deve focar EXATAMENTE as
+    // competências que a trilha do colaborador trabalha. Lê competencias_foco
+    // (par DUO, mig 091) ou competencia_foco (single). Sem trilha → cai no
+    // top5/respostas. Garante que o que está no PDI é o que a pessoa vai praticar.
+    const { data: trilhaColab } = await tdb.from('trilhas')
+      .select('competencias_foco, competencia_foco, criado_em')
+      .eq('colaborador_id', colaboradorId)
+      .order('criado_em', { ascending: false })
+      .limit(1).maybeSingle();
+    const focoTrilha: string[] = (
+      Array.isArray(trilhaColab?.competencias_foco) && trilhaColab!.competencias_foco.length
+        ? trilhaColab!.competencias_foco
+        : (trilhaColab?.competencia_foco ? [trilhaColab.competencia_foco] : [])
+    ).filter(Boolean);
+
     if (!respostas?.length && !top5Esperado.length) {
       return { success: false, error: 'Nenhuma resposta nem top5 configurado para este colaborador' };
     }
@@ -254,10 +269,13 @@ export async function gerarRelatorioIndividual(
       nomeToId[normKey(c.nome)] = c.id;
     }
 
-    // Lista alvo: top5 do cargo se existe, senão usa as competências respondidas
-    const competenciasAlvo: string[] = top5Esperado.length > 0
-      ? top5Esperado
-      : [...new Set((respostas || []).map(r => r.competencia_nome).filter(Boolean))] as string[];
+    // Lista alvo (ordem de prioridade): competências da TRILHA do colaborador
+    // (garante coerência PDI↔trilha) → top5 do cargo → competências respondidas.
+    const competenciasAlvo: string[] = focoTrilha.length > 0
+      ? focoTrilha
+      : top5Esperado.length > 0
+        ? top5Esperado
+        : [...new Set((respostas || []).map(r => r.competencia_nome).filter(Boolean))] as string[];
 
     // Mapa competencia → meta (id, cod_comp)
     const compIds = [...new Set((respostas || []).map(r => r.competencia_id).filter(Boolean))];
