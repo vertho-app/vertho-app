@@ -1,0 +1,27 @@
+<!-- @dsCard group="Type" viewport="700x210" name="UI — Plus Jakarta Sans" subtitle="Botões, rótulos, navegação e subtítulos" -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; padding: 24px; font-family: var(--font-ui); background: var(--surface-card); color: var(--text-strong); }
+  .row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .btn { background: var(--action); color: #fff; border-radius: var(--radius-pill); padding: 10px 20px; font-weight: 600; font-size: 14px; }
+  .chip { background: var(--accent-soft); color: var(--vh-cyan-700); border-radius: var(--radius-pill); padding: 5px 14px; font-weight: 600; font-size: 12px; }
+  .nav { display: flex; gap: 20px; margin-top: 18px; font-weight: 600; font-size: 14px; color: var(--text-muted); }
+  .h { font-weight: 700; font-size: 20px; margin: 0 0 4px; }
+  .lbl { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <p class="lbl">Plus Jakarta Sans · interface</p>
+  <p class="h">Sua trilha desta semana</p>
+  <div class="row">
+    <span class="btn">Continuar trilha</span>
+    <span class="chip">DISC · Comunicador</span>
+    <span class="chip">Nível 3</span>
+  </div>
+  <div class="nav"><span>Início</span><span>Trilhas</span><span>Mentor IA</span><span>Relatórios</span></div>
+</body>
+</html>

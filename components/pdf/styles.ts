@@ -1,4 +1,5 @@
 import { StyleSheet, Font } from '@react-pdf/renderer';
+import { brand, neutralRamps, statusPalettes, NEUTRAL_RAMP, STATUS_PALETTE } from './tokens';
 
 // ── Fonte dos PDFs (registrada sob o alias 'NotoSans' — os relatórios referenciam
 //    esse nome). Usamos INTER: o subset NotoSans do fontsource "comia" as ligaduras
@@ -21,20 +22,25 @@ Font.register({
 Font.registerHyphenationCallback((word: string) => [word]);
 
 // ── Paleta Vertho Premium ───────────────────────────────────────────────────
-// Alinhada ao mockup PDI Rodrigo (v2) — usa o cyan oficial da marca
-// (#34C5CC) em vez do neon. Navy profundo + cyan vibrante,
-// blocos coloridos com BG suave + borda fina (estilo print premium).
+// Derivada de `tokens.ts` (Vertho Design System). Marca (navy/cyan/purple) vem
+// dos tokens; a rampa neutra e os status seguem as FLAGS do tokens.ts
+// (NEUTRAL_RAMP / STATUS_PALETTE) — padrão = look atual (slate + status vivo).
+// BGs pastel de seção e cores de nível são camada SEMÂNTICA de conteúdo do
+// relatório (migração pro vocabulário do DS é um passo à parte).
+const N = neutralRamps[NEUTRAL_RAMP];
+const S = statusPalettes[STATUS_PALETTE];
+
 export const colors = {
-  // Primárias
-  navy: '#0F2B54',
+  // Primárias (marca — tokens)
+  navy: brand.navy[500],
   navy2: '#1A3A6E',
   navyLight: '#1A3A6B',
-  cyan: '#34C5CC',
-  cyanLight: '#9AE2E6',
-  cyan2: '#34C5CC',          // alias mantido p/ compat
+  cyan: brand.cyan[500],
+  cyanLight: brand.cyan[300],
+  cyan2: brand.cyan[500],    // alias mantido p/ compat
   teal: '#0D9488',
-  white: '#FFFFFF',
-  // Fundos de seção (BG suave + borda)
+  white: brand.white,
+  // Fundos de seção (BG suave + borda) — semântica de conteúdo
   perfilBg: '#F0F9FF',       // azul muito claro (análise / perfil)
   perfilBorder: '#BAE6FD',
   fezBemBg: '#F0FDF4',
@@ -46,16 +52,16 @@ export const colors = {
   planoBg: '#F8FAFC',
   estudoBg: '#F5F0FF',       // purple
   estudoBorder: '#DDD6FE',
-  purpleDark: '#3B0A6D',
+  purpleDark: brand.purple[700],
   dicasBg: '#F0FDF4',
   dicasBorder: '#BBF7D0',
   summaryBg: '#F8FAFC',
-  coverAccent: '#3EF0E2',
-  // Texto
-  textPrimary: '#1E293B',
-  textSecondary: '#475569',
-  textMuted: '#64748B',
-  flagRed: '#B91C1C',
+  coverAccent: '#3EF0E2',    // ⚠️ neon legado — fora do DS; candidato a remoção
+  // Texto (rampa neutra — flag NEUTRAL_RAMP)
+  textPrimary: N.textStrong,
+  textSecondary: N.textBody,
+  textMuted: N.textMuted,
+  flagRed: S.danger,
   descritorTitle: '#D97706',
   yellowText: '#78350F',
   greenText: '#14532D',
@@ -63,24 +69,24 @@ export const colors = {
   blueText: '#0C4A6E',
   purpleText: '#4C1D95',
   linkBlue: '#1565C0',
-  // Status escolhidos pra texto colorido nos labels
-  green: '#16A34A',
-  orange: '#EA580C',
+  // Status canônicos (flag STATUS_PALETTE)
+  green: S.success,
+  orange: S.warning,
   yellow: '#D97706',
-  purple: '#9E4EDD',
-  // Grays
-  gray100: '#F8FAFC',
-  gray200: '#E2E8F0',
-  gray300: '#CBD5E1',
-  gray400: '#94A3B8',
-  gray500: '#64748B',
-  gray600: '#475569',
-  gray700: '#334155',
-  gray800: '#1E293B',
-  // Borders
-  borderLight: '#E2E8F0',
-  borderMedium: '#CBD5E1',
-  // Nível
+  purple: brand.purple[500],
+  // Grays (rampa neutra — flag NEUTRAL_RAMP)
+  gray100: N.bgLight,
+  gray200: N.border,
+  gray300: N.borderStrong,
+  gray400: N.g400,
+  gray500: N.g500,
+  gray600: N.g600,
+  gray700: N.g700,
+  gray800: N.g800,
+  // Borders (rampa neutra)
+  borderLight: N.border,
+  borderMedium: N.borderStrong,
+  // Nível — semântica de conteúdo
   nivelGreen: '#065F46',
   nivelCyan: '#155E75',
   nivelAmber: '#92400E',

@@ -1,0 +1,27 @@
+<!-- @dsCard group="Spacing" viewport="700x170" name="Radius & shadow" subtitle="Corner radii and the indigo-tinted shadow set" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; padding: 24px; font-family: var(--font-body); background: var(--surface-page); display:flex; gap:30px; align-items:center; }
+  .grp { display:flex; gap:14px; align-items:flex-end; }
+  .box { width: 58px; height: 58px; background: var(--surface-card); border:1px solid var(--border-subtle); display:flex; align-items:flex-end; justify-content:center; padding-bottom:4px; }
+  .lbl { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div class="grp">
+    <div class="box" style="border-radius:var(--radius-sm)"><span class="lbl">sm 8</span></div>
+    <div class="box" style="border-radius:var(--radius-md)"><span class="lbl">md 12</span></div>
+    <div class="box" style="border-radius:var(--radius-lg)"><span class="lbl">lg 16</span></div>
+    <div class="box" style="border-radius:var(--radius-pill)"><span class="lbl">pill</span></div>
+  </div>
+  <div class="grp">
+    <div class="box" style="border-radius:var(--radius-md);border:none;box-shadow:var(--shadow-sm)"><span class="lbl">sm</span></div>
+    <div class="box" style="border-radius:var(--radius-md);border:none;box-shadow:var(--shadow-md)"><span class="lbl">md</span></div>
+    <div class="box" style="border-radius:var(--radius-md);border:none;box-shadow:var(--shadow-lg)"><span class="lbl">lg</span></div>
+  </div>
+</body>
+</html>

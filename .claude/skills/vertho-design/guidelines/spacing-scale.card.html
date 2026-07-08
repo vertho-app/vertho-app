@@ -1,0 +1,27 @@
+<!-- @dsCard group="Spacing" viewport="700x160" name="Spacing scale" subtitle="4px base — space-1 → space-8" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; padding: 22px 24px; font-family: var(--font-body); background: var(--surface-card); }
+  .r { display: flex; align-items: flex-end; gap: 14px; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .bar { background: var(--vh-gradient); border-radius: var(--radius-xs); width: 20px; }
+  .lbl { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div class="r">
+    <div class="col"><div class="bar" style="height:4px"></div><span class="lbl">1·4</span></div>
+    <div class="col"><div class="bar" style="height:8px"></div><span class="lbl">2·8</span></div>
+    <div class="col"><div class="bar" style="height:12px"></div><span class="lbl">3·12</span></div>
+    <div class="col"><div class="bar" style="height:16px"></div><span class="lbl">4·16</span></div>
+    <div class="col"><div class="bar" style="height:24px"></div><span class="lbl">5·24</span></div>
+    <div class="col"><div class="bar" style="height:32px"></div><span class="lbl">6·32</span></div>
+    <div class="col"><div class="bar" style="height:48px"></div><span class="lbl">7·48</span></div>
+    <div class="col"><div class="bar" style="height:64px"></div><span class="lbl">8·64</span></div>
+  </div>
+</body>
+</html>

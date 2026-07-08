@@ -1,0 +1,39 @@
+/* Vertho — Typography tokens
+   The product's real type system: Fraunces (editorial serif) for display,
+   Inter for body/UI (the app + PDF default), Plus Jakarta Sans for UI chrome,
+   labels and subheads. Codec Cold is reserved for the LOGO/wordmark only. */
+
+:root {
+  --font-display: "Fraunces", "Georgia", "Times New Roman", serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-ui: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-wordmark: "Codec Cold", "Plus Jakarta Sans", sans-serif; /* logo lockups only */
+
+  /* Type scale (1.25 major-third-ish, tuned) */
+  --text-xs:  0.75rem;   /* 12 */
+  --text-sm:  0.875rem;  /* 14 */
+  --text-base:1rem;      /* 16 */
+  --text-md:  1.125rem;  /* 18 */
+  --text-lg:  1.375rem;  /* 22 */
+  --text-xl:  1.75rem;   /* 28 */
+  --text-2xl: 2.25rem;   /* 36 */
+  --text-3xl: 3rem;      /* 48 */
+  --text-4xl: 4rem;      /* 64 */
+
+  /* Weights */
+  --fw-regular: 400; /* @kind other */
+  --fw-medium: 500; /* @kind other */
+  --fw-semibold: 600; /* @kind other */
+  --fw-bold: 700; /* @kind other */
+
+  /* Line heights */
+  --lh-tight: 1.08; /* @kind other */
+  --lh-snug: 1.28; /* @kind other */
+  --lh-normal: 1.6; /* @kind other */
+
+  /* Tracking */
+  --tracking-tight: -0.01em; /* @kind other */
+  --tracking-normal: 0; /* @kind other */
+  --tracking-wide: 0.08em; /* @kind other */
+}

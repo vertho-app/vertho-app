@@ -1,0 +1,24 @@
+<!-- @dsCard group="Colors" viewport="700x140" name="Status & gradient" subtitle="Semantic colors + signature cyan→purple gradient" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; padding: 20px; font-family: var(--font-body); background: var(--surface-card); display:flex; gap:16px; }
+  .status { display:flex; gap:10px; flex:1; }
+  .sw { flex: 1; border-radius: var(--radius-md); height: 90px; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px; color:#fff; }
+  .grad { flex: 1.1; border-radius: var(--radius-md); height:90px; background: var(--vh-gradient); display:flex; align-items:flex-end; padding:10px; color:#fff; }
+  .name { font-size: 11px; font-weight: 600; }
+  .hex { font-family: var(--font-mono); font-size: 10px; opacity: 0.9; }
+</style>
+</head>
+<body>
+<div class="status">
+  <div class="sw" style="background:var(--vh-success)"><span class="name">success</span><span class="hex">#1f9d6b</span></div>
+  <div class="sw" style="background:var(--vh-warning)"><span class="name">warning</span><span class="hex">#d9932b</span></div>
+  <div class="sw" style="background:var(--vh-danger)"><span class="name">danger</span><span class="hex">#d6455c</span></div>
+</div>
+<div class="grad"><span class="name">--vh-gradient · cyan → purple</span></div>
+</body>
+</html>

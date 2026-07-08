@@ -1,0 +1,82 @@
+/* Vertho — Color tokens
+   Navy (#0F2B54) is the PRIMARY text/action color — it's what the live app and
+   PDFs lead with. Indigo (#3c385f, sampled from the logo) is the LOGO/wordmark
+   ink only. Cyan + purple accents come from the brand palette. */
+
+:root {
+  /* ---- Brand navy — PRIMARY text/action ---- */
+  --vh-navy-900: #06152b;   /* deepest surface */
+  --vh-navy-700: #0a1f3f;   /* action hover */
+  --vh-navy-500: #0f2b54;   /* PRIMARY navy (app + PDF lead) */
+  --vh-navy-300: #2f568c;   /* lighter navy */
+
+  /* ---- Logo indigo (wordmark ink only, NOT a UI text color) ---- */
+  --vh-indigo-900: #1c1a33;
+  --vh-indigo-800: #2a2749;
+  --vh-indigo-700: #3c385f;   /* logo ink */
+  --vh-indigo-600: #504b78;
+  --vh-indigo-500: #6b6598;
+  --ink-logo: var(--vh-indigo-700);
+
+  /* Cyan — the on-dark logo color; primary accent */
+  --vh-cyan-100: #dbf6f7;
+  --vh-cyan-300: #9ae2e6;
+  --vh-cyan-500: #34c5cc;
+  --vh-cyan-700: #1c8a90;
+
+  /* Purple — secondary accent */
+  --vh-purple-100: #f3e3ff;
+  --vh-purple-300: #e1aaff;
+  --vh-purple-500: #9e4edd;
+  --vh-purple-700: #3b0a6d;
+
+  /* ---- Neutral ramp ---- */
+  --vh-white:  #ffffff;
+  --vh-gray-50:  #f7f7fb;
+  --vh-gray-100: #eeedf4;
+  --vh-gray-200: #e0dee9;
+  --vh-gray-300: #c9c6d6;
+  --vh-gray-400: #a4a0b8;
+  --vh-gray-500: #7d7994;
+  --vh-gray-600: #5a566f;
+  --vh-gray-700: #403c56;
+  --vh-gray-800: #2a2740;
+  --vh-gray-900: #1c1a2e;
+
+  /* ---- Semantic status ---- */
+  --vh-success: #1f9d6b;
+  --vh-warning: #d9932b;
+  --vh-danger:  #d6455c;
+  --vh-info:    var(--vh-cyan-700);
+
+  /* ---- Semantic aliases (use these in UI) ---- */
+  --text-strong:   var(--vh-navy-500);
+  --text-body:     var(--vh-gray-700);
+  --text-muted:    var(--vh-gray-500);
+  --text-inverse:  var(--vh-white);
+  --text-on-accent:var(--vh-white);
+
+  --surface-page:   var(--vh-gray-50);
+  --surface-card:   var(--vh-white);
+  --surface-sunken: var(--vh-gray-100);
+  --surface-inverse:var(--vh-navy-500);
+  --surface-inverse-deep: var(--vh-navy-900);
+
+  --border-subtle: var(--vh-gray-200);
+  --border-strong: var(--vh-gray-300);
+  --border-focus:  var(--vh-cyan-500);
+
+  --accent:        var(--vh-cyan-500);
+  --accent-hover:  var(--vh-cyan-700);
+  --accent-soft:   var(--vh-cyan-100);
+  --accent-alt:    var(--vh-purple-500);
+  --accent-alt-soft: var(--vh-purple-100);
+
+  --action:        var(--vh-navy-500);
+  --action-hover:  var(--vh-navy-700);
+  --action-active: var(--vh-navy-900);
+
+  /* Signature brand gradient (cyan → purple) */
+  --vh-gradient: linear-gradient(120deg, var(--vh-cyan-500) 0%, var(--vh-purple-500) 100%);
+  --vh-gradient-soft: linear-gradient(120deg, var(--vh-cyan-300) 0%, var(--vh-purple-300) 100%);
+}

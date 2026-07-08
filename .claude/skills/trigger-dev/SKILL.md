@@ -45,12 +45,12 @@ npx trigger.dev@4.4.6 deploy
 
 - CLI precisa casar com os packages pinados (`@4.4.6`).
 - Trigger project: `proj_wunoneqnozqrfzlvpqjv`.
-- Receita detalhada: memória `vertho-deploy-gotchas` (ponto 2) e skill `deploy`.
+- Receita detalhada: memória `reference_trigger_deploy` e skill `deploy`.
 
 ## Ao editar uma task
 
 - Mudou `trigger/*.ts`? Avise o usuário que **é preciso deploy manual** do Trigger (o `git push` não cobre).
-- Tasks dependem de `trigger.config.mjs` e de envs configurados no painel do Trigger (não no `.env.local`).
+- Tasks dependem de `trigger.config.ts` e de envs configurados no painel do Trigger (não no `.env.local`).
 - `RENDER_SNAPSHOT_ID` referencia o bundle do worker Hetzner (o ID **muda a cada rebuild** — não fixe) — ao mudar `worker-hetzner/*`, reconstruir e atualizar o snapshot no Trigger.
 
 ## NUNCA
@@ -61,6 +61,6 @@ npx trigger.dev@4.4.6 deploy
 
 ## Fontes
 
-- `trigger/` · `trigger.config.mjs` · `lib/trigger-region.ts`
+- `trigger/` · `trigger.config.ts` · `lib/trigger-region.ts`
 - `docs/GERADOR-VIDEO-MODULO.md`, `docs/CHECKLIST-VALIDACAO.md`
 - Skill `deploy` (§ Trigger.dev) · memória `reference_trigger_deploy`
