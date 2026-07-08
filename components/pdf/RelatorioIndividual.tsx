@@ -268,11 +268,9 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       {c.mensagem_final && (
         <Page size="A4" style={pageStyles.page}>
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
-          <View style={{ flex: 1, justifyContent: 'center' }}>
-            <View style={s.finalBox}>
-              <Text style={s.finalLabel}>Mensagem Final</Text>
-              <Text style={s.finalText}>{c.mensagem_final}</Text>
-            </View>
+          <View style={s.finalBox}>
+            <Text style={s.finalLabel}>Mensagem Final</Text>
+            <Text style={s.finalText}>{c.mensagem_final}</Text>
           </View>
           <PageFooter />
         </Page>
