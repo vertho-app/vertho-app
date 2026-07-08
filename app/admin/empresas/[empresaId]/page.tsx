@@ -19,6 +19,7 @@ import { useConfirm } from '@/components/admin/confirm-dialog';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
+import { enqueueIA2Batch, statusIAJob, cancelIAJob } from '@/actions/ia-pipeline-batch';
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
@@ -31,6 +32,8 @@ import {
   montarTrilhasLote, salvarCompetenciaFoco, loadCompetenciasFoco,
   gerarCenariosBLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
 } from './actions';
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // ── AI Models ──────────────────────────────────────────────────────────────
 const AI_MODELS = [
@@ -184,6 +187,11 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   // iteração e dão break → a fase para de emitir novos itens. O item em andamento
   // termina (server action não recebe abort do client), depois interrompe.
   const cancelRef = useRef(false);
+  // Modo lote (IA2): job assíncrono via Trigger + polling (padrão do Kit).
+  const pollRef = useRef(0);
+  const runningModeRef = useRef<'sync' | 'batch'>('sync');
+  const activeJobIdRef = useRef<string | null>(null);
+  const [modo, setModo] = useState<'agora' | 'lote'>('agora');
 
   const refreshTop10 = useCallback(async () => {
     const [t, c, g] = await Promise.all([
@@ -221,6 +229,31 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   }, [empresaId]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => () => { pollRef.current++; }, []); // cancela polling ao desmontar
+
+  // Poll de job de IA em lote (clone do Kit): a cada 3s, até done/error/cancelled.
+  async function poll(jobId: string) {
+    const myRun = ++pollRef.current;
+    let lastDone = -1;
+    for (let i = 0; i < 800 && myRun === pollRef.current; i++) {
+      const s = await statusIAJob(jobId);
+      if (myRun !== pollRef.current) return;
+      const p: any = s?.progress || {};
+      if (typeof p.done === 'number' && p.done !== lastDone) {
+        lastDone = p.done;
+        addLog(`⏳ Lote: ${p.done}/${p.total}${p.current ? ` · ${p.current}` : ''}`, 'info');
+      }
+      if (s && (s.status === 'done' || s.status === 'error' || s.status === 'cancelled')) {
+        const res: any[] = p.resultados || [];
+        const ok = res.filter((r) => r.ok).length, errs = res.filter((r) => !r.ok).length;
+        if (s.status === 'error') addLog(`❌ Lote falhou: ${s.error || ''}`, 'error');
+        else if (s.status === 'cancelled') addLog(`⏹ Lote cancelado (${ok} gravado(s))`, 'info');
+        else addLog(`✅ Lote IA2: ${ok} gabarito(s)${errs ? ` | ${errs}❌` : ''}`, ok > 0 ? 'success' : 'error');
+        return;
+      }
+      await sleep(3000);
+    }
+  }
 
   // Liga o refresh desta página ao botão de refresh do header do shell (evita
   // um segundo botão de refresh / top-bar redundante na página).
@@ -240,6 +273,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
     const fn = ACTION_MAP[actionKey];
     setPendingAction(actionKey);
     cancelRef.current = false;
+    runningModeRef.current = 'sync';
     const modelLabel = aiConfig ? ` [${AI_MODELS.find(m => m.id === aiConfig.model)?.label || aiConfig.model}]` : '';
     addLog(`▶ ${label}${modelLabel}`, 'info');
 
@@ -332,6 +366,19 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         loadData(); refreshTop10(); setPendingAction(null); return;
       }
       if (actionKey === 'ia2') {
+        // ── Em lote: Batch API via task Trigger + polling (assíncrono, −50%) ──
+        if (aiConfig?.modo === 'lote') {
+          runningModeRef.current = 'batch';
+          addLog('📦 Em lote (Batch API −50%, assíncrono — pode demorar).', 'info');
+          const r: any = await enqueueIA2Batch(empresaId, aiConfig);
+          if (!r.success) { addLog(`❌ ${r.error}`, 'error'); setPendingAction(null); return; }
+          if (!r.jobId) { addLog(`✅ ${r.message || 'Nada pendente'}`, 'success'); loadData(); refreshTop10(); setPendingAction(null); return; }
+          activeJobIdRef.current = r.jobId;
+          addLog(`📋 ${r.total} cargo(s) no lote ${String(r.jobId).slice(0, 8)}…`, 'info');
+          await poll(r.jobId);
+          activeJobIdRef.current = null;
+          loadData(); refreshTop10(); setPendingAction(null); return;
+        }
         // Gera 1 cargo por request (evita timeout da Vercel em tenants com vários cargos).
         const { listarCargosParaIA2 } = await import('@/actions/fase1');
         const lr = await listarCargosParaIA2(empresaId);
@@ -393,7 +440,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
 
   function onActionClick(actionKey: string, label: string, isAI?: any) {
     if (pendingAction) return;
-    if (isAI) setModelPicker({ actionKey, label, dual: isAI === 'dual' });
+    if (isAI) { setModo('agora'); setModelPicker({ actionKey, label, dual: isAI === 'dual' }); }
     else handleAction(actionKey, label);
   }
 
@@ -756,7 +803,10 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                   <div className="flex items-center gap-2">
                     {pendingAction && (
                       <button
-                        onClick={() => { cancelRef.current = true; addLog('⏹ Cancelando após o item atual…', 'info'); }}
+                        onClick={() => {
+                          if (runningModeRef.current === 'batch' && activeJobIdRef.current) { cancelIAJob(activeJobIdRef.current); addLog('⏹ Cancelando lote…', 'info'); }
+                          else { cancelRef.current = true; addLog('⏹ Cancelando após o item atual…', 'info'); }
+                        }}
                         className="px-2.5 py-1 rounded-lg text-xs font-bold"
                         style={{ background: 'rgba(249,115,84,.15)', color: '#F97354', border: '1px solid rgba(249,115,84,.3)' }}
                       >⏹ Parar</button>
@@ -939,11 +989,27 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
               </>
             ) : (
               <>
+                {modelPicker.actionKey === 'ia2' && (
+                  <div className="flex gap-2 mb-3">
+                    {(['agora', 'lote'] as const).map((mo) => (
+                      <button key={mo} onClick={() => setModo(mo)}
+                        className="flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-colors"
+                        style={modo === mo
+                          ? { background: 'rgba(52,197,204,.15)', color: '#34c5cc', borderColor: 'rgba(52,197,204,.4)' }
+                          : { background: '#091D35', color: 'rgba(255,255,255,.5)', borderColor: 'rgba(255,255,255,.08)' }}>
+                        {mo === 'agora' ? 'Agora' : 'Em lote −50%'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {modelPicker.actionKey === 'ia2' && modo === 'lote' && (
+                  <p className="text-[9px] leading-snug mb-3" style={{ color: 'rgba(245,158,11,.85)' }}>Batch API: mais barato, porém assíncrono — pode demorar. Só modelos Claude.</p>
+                )}
                 <p className="text-[10px] text-gray-500 mb-4">{t('modelPicker.selectModel')}</p>
                 <div className="space-y-2 mb-4">
-                  {AI_MODELS.map(m => (
+                  {(modo === 'lote' ? AI_MODELS.filter((m) => m.id.startsWith('claude')) : AI_MODELS).map(m => (
                     <button key={m.id}
-                      onClick={() => { const { actionKey, label } = modelPicker; setModelPicker(null); handleAction(actionKey, label, { model: m.id }); }}
+                      onClick={() => { const { actionKey, label } = modelPicker; setModelPicker(null); handleAction(actionKey, label, { model: m.id, modo }); }}
                       className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-gray-300 border border-white/[0.07] hover:border-cyan-400/30 hover:bg-cyan-400/5 transition-all"
                       style={{ background: '#091D35' }}>
                       <Zap size={12} className="text-cyan-400" /> {m.label}
