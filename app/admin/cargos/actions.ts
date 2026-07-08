@@ -58,6 +58,23 @@ export async function loadCargos(empresaId: string) {
       top10ByCargo.get(t.cargo)!.push(nome);
     }
 
+    // 3b. Competências VOTADAS por cargo (votacao_competencias). O workshop deve
+    // permitir selecionar também as escolhidas na votação que NÃO ficaram na Top
+    // 10 da IA — senão ficam inacessíveis (bug reportado).
+    const votadasByCargo = new Map<string, Set<string>>();
+    try {
+      const { data: votos } = await (sb.from('votacao_competencias') as any)
+        .select('cargo, competencias_escolhidas')
+        .eq('empresa_id', empresaId);
+      for (const v of (votos || [])) {
+        if (!v.cargo) continue;
+        const arr = Array.isArray(v.competencias_escolhidas) ? v.competencias_escolhidas : [];
+        if (!votadasByCargo.has(v.cargo)) votadasByCargo.set(v.cargo, new Set());
+        const set = votadasByCargo.get(v.cargo)!;
+        for (const nm of arr) if (nm) set.add(String(nm));
+      }
+    } catch { /* tabela pode não existir ainda */ }
+
     // 4. Merge: união de todas as fontes
     const cargosNomes = [
       ...new Set([
@@ -77,6 +94,9 @@ export async function loadCargos(empresaId: string) {
       const isOrfao = !ce && !cargosColab.includes(nome) && cargosTop10.includes(nome);
       const semColabs = !ce && !cargosColab.includes(nome);
       const top10Names = top10ByCargo.get(nome) || [];
+      const top10Set = new Set(top10Names);
+      const competencias_votadas_extra = [...(votadasByCargo.get(nome) || [])]
+        .filter((v) => !top10Set.has(v)).sort();
 
       result.push({
         id: ce?.id || nome,
@@ -85,6 +105,7 @@ export async function loadCargos(empresaId: string) {
         eh_lideranca: ce?.eh_lideranca !== false,
         top5_workshop: ce?.top5_workshop || [],
         competencias_top10: top10Names,
+        competencias_votadas_extra,
         // Flags pra UI: cargo órfão = só existe em top10_cargos (IA gerou
         // nome diferente do oficial). Admin pode "vincular" a um nome
         // válido de cargos_empresa via renomearTop10Cargo.

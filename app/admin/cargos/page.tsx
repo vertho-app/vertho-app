@@ -215,7 +215,12 @@ function CargosPageInner() {
         <div className="space-y-4">
           {cargos.map((cargo: any) => {
             const top10 = cargo.competencias_top10 || [];
+            const votadasExtra = cargo.competencias_votadas_extra || [];
             const selected = top5Edits[cargo.id] || [];
+            // Lista do workshop = Top 10 da IA ∪ votadas fora da Top 10 ∪ já selecionadas.
+            const lista: string[] = [...top10, ...votadasExtra];
+            for (const s of selected) if (!lista.includes(s)) lista.push(s);
+            const votadaSet = new Set(votadasExtra);
             const isOrfao = !!cargo.is_orfao;
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(cargo.id);
             const cargosValidos = cargos.filter((c: any) => /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(c.id));
@@ -233,7 +238,7 @@ function CargosPageInner() {
                       )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {t('summary', { total: top10.length, selected: selected.length })}
+                      {t('summary', { total: lista.length, selected: selected.length })}
                       {cargo.eh_lideranca === false ? ` · ${t('badges.nonLeader')}` : ''}
                     </p>
                   </div>
@@ -264,11 +269,11 @@ function CargosPageInner() {
                 )}
 
                 <div className="p-5">
-                  {top10.length === 0 ? (
+                  {lista.length === 0 ? (
                     <p className="text-xs text-gray-500">{t('emptyTop10')}</p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {top10.map((comp: string, i: number) => {
+                      {lista.map((comp: string, i: number) => {
                         const isSelected = selected.includes(comp);
                         return (
                           <button key={i} onClick={() => toggleCompetencia(cargo.id, comp)}
@@ -287,6 +292,9 @@ function CargosPageInner() {
                               {isSelected && <Check size={12} strokeWidth={3} />}
                             </div>
                             <span className="truncate">{comp}</span>
+                            {votadaSet.has(comp) && (
+                              <span className="ml-auto shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-400/15 text-cyan-300 border border-cyan-400/25">votação</span>
+                            )}
                           </button>
                         );
                       })}
