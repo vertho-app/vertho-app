@@ -8,7 +8,8 @@
 import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet, Svg, Circle, renderToBuffer } from '@react-pdf/renderer';
 import '@/components/pdf/styles';
-import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import PdfReportCover from '@/components/pdf/PdfReportCover';
+import { getLogoCoverBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import type { AdequacaoCargo, PessoaAdequacao, SubScore, Classe } from './adequacao-cargo/aggregate';
 import { formatLinhaBloqueio } from './adequacao-cargo/evidencia';
 import { formatFaixaPorDirecao } from './scoring/faixa-display';
@@ -49,7 +50,7 @@ const s = StyleSheet.create({
   body: { paddingHorizontal: 34, paddingTop: 6 },
   secBar: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 },
   secBarV: { width: 5, height: 16, backgroundColor: C.cyan, marginRight: 7, borderRadius: 2 },
-  secBarT: { fontSize: 13, fontWeight: 700, color: C.navy },
+  secBarT: { fontFamily: 'Fraunces', fontSize: 14, fontWeight: 600, color: C.navy, letterSpacing: -0.15 },
   // legenda
   legendBox: { borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 10, marginBottom: 10 },
   legendRow: { flexDirection: 'row', gap: 18, flexWrap: 'wrap', marginTop: 4 },
@@ -255,7 +256,6 @@ function TabelaResultados({ pessoas, startPos }: { pessoas: PessoaAdequacao[]; s
 export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas, mostrarCalibracao = false }: {
   data: AdequacaoCargo; empresaNome: string; dataISO: string; narrativas: Record<string, string>; mostrarCalibracao?: boolean;
 }) {
-  const dataBR = (() => { const [y, m, d] = dataISO.slice(0, 10).split('-'); return `${d}/${m}/${y}`; })();
   const pi = data.perfilIdeal;
   // n ≤ 10 → cards (8/página). n > 10 → tabela ranqueada (cards não escalam).
   const usarTabela = data.pessoas.length > 10;
@@ -270,17 +270,16 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas, most
   // por conteúdo). O PDF reproduzido carrega a data do ORIGINAL.
   return (
     <Document creationDate={new Date(dataISO)} modificationDate={new Date(dataISO)} producer="Vertho" creator="Vertho">
-      {/* Capa */}
-      <Page size="A4" style={s.page}>
-        <View style={s.cover}>
-          <Image style={s.coverLogo} src={getLogoCoverBase64()} />
-          <Text style={s.coverTitle}>Relatório de{'\n'}Adequação ao Cargo</Text>
-          <Text style={s.coverKicker}>INSIGHT DE ADEQUAÇÃO DE</Text>
-          <Text style={s.coverCargo}>{(data.cargo || '').toUpperCase()}</Text>
-          <Text style={s.coverMeta}>SOLICITADO POR: {(empresaNome || 'VERTHO.AI').toUpperCase()}</Text>
-          <Text style={s.coverMeta}>REALIZADO EM: {dataBR}</Text>
-        </View>
-      </Page>
+      {/* Capa editorial */}
+      <PdfReportCover
+        bgBase64={getReportCoverBgBase64()}
+        logoBase64={getLogoCoverBase64()}
+        overline={'Adequação ao Cargo'}
+        titulo={['Adequação', 'ao Cargo']}
+        nome={data.cargo || undefined}
+        empresa={empresaNome}
+        tagline={'Do perfil ideal à decisão sobre pessoas.'}
+      />
 
       {/* Filtros e Mapeamento (perfil ideal do cargo) */}
       <Page size="A4" style={s.page}>

@@ -8,7 +8,8 @@
 import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import '@/components/pdf/styles'; // registra NotoSans (efeito colateral)
-import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import PdfReportCover from '@/components/pdf/PdfReportCover'; // capa editorial + registra Fraunces
+import { getLogoCoverBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import type { DnaAggregate, CompetenciaStat, Dist } from './dna-organizacional/aggregate';
 import type { DnaNarrative } from './dna-organizacional/narrative';
 
@@ -38,7 +39,7 @@ const s = StyleSheet.create({
   intro: { fontStyle: 'italic', color: '#2A3B55', fontSize: 10, lineHeight: 1.5, marginBottom: 18 },
   secTitleRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, marginBottom: 10 },
   secBar: { width: 5, height: 18, backgroundColor: C.cyan, marginRight: 8, borderRadius: 2 },
-  secTitle: { fontSize: 15, fontWeight: 700, color: C.navy, letterSpacing: 0.3 },
+  secTitle: { fontFamily: 'Fraunces', fontWeight: 600, fontSize: 15, color: C.navy, letterSpacing: 0.3 },
   forcaCard: { backgroundColor: C.cardTeal, borderLeftWidth: 4, borderLeftColor: C.cyan, borderRadius: 4, padding: 12, marginBottom: 9 },
   forcaTit: { color: '#0F6B70', fontSize: 10, fontWeight: 700 },
   forcaDest: { color: C.navy, fontSize: 19, fontWeight: 700, marginVertical: 3 },
@@ -148,6 +149,14 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
   const logo = getLogoCoverBase64();
   return (
     <Document title={`DNA Organizacional — ${empresaNome}`} author="Vertho">
+      <PdfReportCover
+        bgBase64={getReportCoverBgBase64()}
+        logoBase64={logo}
+        overline={'Retrato de Competências'}
+        titulo={['Retrato de', 'Competências']}
+        nome={empresaNome}
+        tagline={'Do dado coletivo à ação de desenvolvimento.'}
+      />
       <Page size="A4" style={s.page}>
         <View style={s.header}>
           <View style={{ flex: 1 }}>

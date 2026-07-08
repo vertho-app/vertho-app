@@ -1,8 +1,8 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { colors, pageStyles } from './styles';
-import PdfCover from './PdfCover';
-import { SectionTitle } from './SectionTitle';
+import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
+import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 
 /**
  * Relatório Complementar — Subsídios Organizacionais para Gestão de Fatores Psicossociais.
@@ -87,13 +87,15 @@ export default function RelatorioPulsoNR1PDF({
 
   return (
     <Document>
-      <PdfCover
+      <PdfReportCover
+        bgBase64={getReportCoverBgBase64()}
         logoBase64={logoBase64}
+        overline={'Pulso · Subsídios NR-1'}
+        titulo={['Fatores', 'Psicossociais']}
         nome={c.empresa?.nome || empresaNome || ''}
         cargo={c.ciclo?.nome || ''}
         empresa={c.group_label || 'Empresa toda'}
-        data={c.generated_at}
-        tipo={'Subsídios Organizacionais para Gestão de Fatores Psicossociais'}
+        tagline={'Subsídios para a gestão de fatores psicossociais.'}
       />
 
       <Page size="A4" style={pageStyles.page} wrap>
@@ -103,7 +105,7 @@ export default function RelatorioPulsoNR1PDF({
             <Text style={s.disclaimerText}>{DISCLAIMER_OFICIAL}</Text>
           </View>
 
-          <SectionTitle>Sobre este relatório</SectionTitle>
+          <ReportSectionTitle>Sobre este relatório</ReportSectionTitle>
           <Text style={s.text}>
             Este documento é um <Text style={{ fontWeight: 700 }}>insumo complementar</Text> produzido a partir
             da pesquisa Pulso de Desenvolvimento. Ele apresenta sinais agregados sobre o ambiente percebido
@@ -116,7 +118,7 @@ export default function RelatorioPulsoNR1PDF({
             especialistas técnicos possam dialogar com evidências organizacionais ao tomar decisões.
           </Text>
 
-          <SectionTitle>Mapeamento Conceitual</SectionTitle>
+          <ReportSectionTitle>Mapeamento Conceitual</ReportSectionTitle>
           <Text style={s.textSm}>
             Tradução das dimensões do Pulso em conceitos de gestão organizacional. Não usar como diagnóstico.
           </Text>
@@ -129,7 +131,7 @@ export default function RelatorioPulsoNR1PDF({
             ))}
           </View>
 
-          <SectionTitle>Índice Agregado</SectionTitle>
+          <ReportSectionTitle>Índice Agregado</ReportSectionTitle>
           <Text style={s.text}>
             Índice Geral: <Text style={{ fontWeight: 700, color: bandColor(scoreVigente) }}>
               {scoreVigente != null ? scoreVigente.toFixed(2) : '—'} / 5.00
@@ -157,7 +159,7 @@ export default function RelatorioPulsoNR1PDF({
 
       <Page size="A4" style={pageStyles.page} wrap>
         <View>
-          <SectionTitle>Sinais Organizacionais Identificados</SectionTitle>
+          <ReportSectionTitle>Sinais Organizacionais Identificados</ReportSectionTitle>
           <Text style={s.textSm}>
             Listagem agregada para apoiar leitura técnica. Não constituem diagnóstico individual.
           </Text>
@@ -198,7 +200,7 @@ export default function RelatorioPulsoNR1PDF({
             </>
           )}
 
-          <SectionTitle>Encaminhamentos Sugeridos</SectionTitle>
+          <ReportSectionTitle>Encaminhamentos Sugeridos</ReportSectionTitle>
           {(c.triangulation?.recommendations || []).length === 0 ? (
             <Text style={s.textSm}>Aguardando mais dados para gerar encaminhamentos.</Text>
           ) : (c.triangulation.recommendations as any[]).map((it: any, i: number) => (

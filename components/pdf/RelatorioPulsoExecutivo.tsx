@@ -1,8 +1,8 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { colors, pageStyles, fonts } from './styles';
-import PdfCover from './PdfCover';
-import { SectionTitle } from './SectionTitle';
+import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
+import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 
 const s = StyleSheet.create({
   text: { fontFamily: 'NotoSans', fontSize: 10, color: colors.textPrimary, lineHeight: 1.6, marginBottom: 4 },
@@ -98,18 +98,20 @@ export default function RelatorioPulsoExecutivoPDF({
 
   return (
     <Document>
-      <PdfCover
+      <PdfReportCover
+        bgBase64={getReportCoverBgBase64()}
         logoBase64={logoBase64}
+        overline={'Pulso de Desenvolvimento · Executivo'}
+        titulo={['Pulso de', 'Desenvolvimento']}
         nome={c.empresa.nome || empresaNome || ''}
         cargo={c.ciclo.nome}
         empresa={c.group_label}
-        data={c.generated_at}
-        tipo={'Pulso de Desenvolvimento — Relatório Executivo'}
+        tagline={'O ambiente que sustenta o desenvolvimento.'}
       />
 
       <Page size="A4" style={pageStyles.page} wrap>
         <View>
-          <SectionTitle>Visão Geral</SectionTitle>
+          <ReportSectionTitle>Visão Geral</ReportSectionTitle>
 
           <View style={s.cardsRow}>
             <View style={s.kpiCard}>
@@ -143,10 +145,10 @@ export default function RelatorioPulsoExecutivoPDF({
             </Text>
           </View>
 
-          <SectionTitle>Resumo da Leitura</SectionTitle>
+          <ReportSectionTitle>Resumo da Leitura</ReportSectionTitle>
           <Text style={s.text}>{c.triangulation.summary || 'Dados ainda insuficientes para leitura consolidada.'}</Text>
 
-          <SectionTitle>Médias por Dimensão</SectionTitle>
+          <ReportSectionTitle>Médias por Dimensão</ReportSectionTitle>
           <View>
             {c.dimensions.map(d => (
               <View key={d.dimension_name} style={s.dimRow}>
@@ -172,7 +174,7 @@ export default function RelatorioPulsoExecutivoPDF({
 
           {c.signals && c.signals.length > 0 && (
             <>
-              <SectionTitle>Sinais da Jornada</SectionTitle>
+              <ReportSectionTitle>Sinais da Jornada</ReportSectionTitle>
               <Text style={s.textSm}>
                 Indicadores comportamentais derivados de uso da MentorIA, respostas e completude.
                 Linguagem cautelosa — complementam, não substituem, a leitura do pulso declarado.
@@ -190,7 +192,7 @@ export default function RelatorioPulsoExecutivoPDF({
 
           {c.themes && c.themes.length > 0 && (
             <>
-              <SectionTitle>Temas Dominantes — Respostas Abertas</SectionTitle>
+              <ReportSectionTitle>Temas Dominantes — Respostas Abertas</ReportSectionTitle>
               <Text style={s.textSm}>
                 Temas classificados por IA (Dual-IA com auditoria). Respostas brutas não são exibidas
                 para preservar anonimato.
@@ -216,7 +218,7 @@ export default function RelatorioPulsoExecutivoPDF({
 
       <Page size="A4" style={pageStyles.page} wrap>
         <View>
-          <SectionTitle>Aceleradores</SectionTitle>
+          <ReportSectionTitle>Aceleradores</ReportSectionTitle>
           {c.triangulation.accelerators.length === 0 ? (
             <Text style={s.textSm}>Sem aceleradores identificados nesta leitura.</Text>
           ) : c.triangulation.accelerators.map((it, i) => (
@@ -226,7 +228,7 @@ export default function RelatorioPulsoExecutivoPDF({
             </View>
           ))}
 
-          <SectionTitle>Bloqueadores</SectionTitle>
+          <ReportSectionTitle>Bloqueadores</ReportSectionTitle>
           {c.triangulation.blockers.length === 0 ? (
             <Text style={s.textSm}>Sem bloqueadores significativos.</Text>
           ) : c.triangulation.blockers.map((it, i) => (
@@ -238,7 +240,7 @@ export default function RelatorioPulsoExecutivoPDF({
 
           {c.triangulation.alerts.length > 0 && (
             <>
-              <SectionTitle>Alertas</SectionTitle>
+              <ReportSectionTitle>Alertas</ReportSectionTitle>
               {c.triangulation.alerts.map((it, i) => (
                 <View key={i} style={[s.itemBlock, { borderLeftColor: colors.flagRed }]}>
                   <Text style={s.itemTitle}>{it.title}</Text>
@@ -250,7 +252,7 @@ export default function RelatorioPulsoExecutivoPDF({
 
           {c.triangulation.divergences.length > 0 && (
             <>
-              <SectionTitle>Divergências (Declarado vs Comportamental)</SectionTitle>
+              <ReportSectionTitle>Divergências (Declarado vs Comportamental)</ReportSectionTitle>
               {c.triangulation.divergences.map((it, i) => (
                 <View key={i} style={[s.itemBlock, { borderLeftColor: colors.purple }]}>
                   <Text style={s.itemTitle}>{it.title}</Text>
@@ -260,7 +262,7 @@ export default function RelatorioPulsoExecutivoPDF({
             </>
           )}
 
-          <SectionTitle>Recomendações para Liderança e RH</SectionTitle>
+          <ReportSectionTitle>Recomendações para Liderança e RH</ReportSectionTitle>
           {c.triangulation.recommendations.length === 0 ? (
             <Text style={s.textSm}>Aguardando mais dados para gerar recomendações.</Text>
           ) : c.triangulation.recommendations.map((it, i) => (

@@ -8,7 +8,8 @@
 import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Polygon, Line } from '@react-pdf/renderer';
 import '@/components/pdf/styles';
-import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import PdfReportCover from '@/components/pdf/PdfReportCover'; // registra Fraunces globalmente
+import { getLogoCoverBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import type { PerfilOrg, DiscMedia, Fator } from './perfil-organizacional/aggregate';
 
 const C = {
@@ -36,7 +37,7 @@ const s = StyleSheet.create({
   p: { fontSize: 9.5, color: '#3A4658', lineHeight: 1.5, marginBottom: 8 },
   secBar: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 },
   secBarV: { width: 5, height: 16, backgroundColor: C.cyan, marginRight: 7, borderRadius: 2 },
-  secBarT: { fontSize: 13, fontWeight: 700, color: C.navy },
+  secBarT: { fontFamily: 'Fraunces', fontWeight: 600, fontSize: 13, color: C.navy },
   twoCol: { flexDirection: 'row', gap: 16 },
   col: { flex: 1 },
   // DISC capsule chart
@@ -201,22 +202,20 @@ function Footer() {
 
 interface Params { empresaNome: string; dataRef: string; solicitadoPor?: string | null; p: PerfilOrg }
 
-function PerfilOrgDoc({ empresaNome, dataRef, solicitadoPor, p }: Params) {
+function PerfilOrgDoc({ empresaNome, p }: Params) {
   const logo = getLogoCoverBase64();
   const badge = p.perfilDominante;
   return (
     <Document title={`Perfil Organizacional — ${empresaNome}`} author="Vertho">
-      {/* Capa */}
-      <Page size="A4" style={s.page}>
-        <View style={s.cover}>
-          {logo ? <Image src={logo} style={s.coverLogo} /> : null}
-          <Text style={s.coverKicker}>Relatório de</Text>
-          <Text style={s.coverTitle}>Perfil Organizacional</Text>
-          <Text style={s.coverMeta}>{empresaNome.toUpperCase()}</Text>
-          {solicitadoPor ? <Text style={s.coverSub}>SOLICITADO POR: {solicitadoPor}</Text> : null}
-          <Text style={s.coverSub}>REALIZADO EM: {dataRef}  ·  {p.avaliados} PROFISSIONAIS</Text>
-        </View>
-      </Page>
+      {/* Capa editorial */}
+      <PdfReportCover
+        bgBase64={getReportCoverBgBase64()}
+        logoBase64={logo}
+        overline={'Perfil Organizacional · DISC'}
+        titulo={['Perfil', 'Organizacional']}
+        nome={empresaNome}
+        tagline={'O DNA comportamental da sua equipe.'}
+      />
 
       {/* Visão Panorâmica */}
       <Page size="A4" style={s.page}>
