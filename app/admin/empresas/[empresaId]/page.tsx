@@ -11,7 +11,7 @@ import {
   Building2, Users, Brain, Mail, Bot, GraduationCap, TrendingUp, Activity,
   Zap, Database, FileText, Send, ClipboardCheck, BarChart3, Target, Clock,
   Play, BookOpen, Layers, MessageSquare, FileBarChart, CheckCircle,
-  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, Film, Sparkles, Briefcase
+  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, Film, Sparkles, Briefcase, Compass
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
@@ -24,6 +24,7 @@ import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { gerarTemporadasLote } from '@/actions/temporadas';
+import { gerarBlueprintsLote } from '@/actions/blueprint';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
@@ -46,7 +47,7 @@ const AI_MODELS = [
 ];
 
 const AI_ACTIONS = new Set([
-  'ia1','ia2','ia3','ia4','rel-ind','rel-gestor','rel-rh',
+  'ia1','ia2','ia3','ia4','blueprint','rel-ind','rel-gestor','rel-rh',
   'pdis','evolucao','plenaria','rh-rel','rh-plen','rh-dossie','rh-check','temporadas',
 ]);
 
@@ -99,6 +100,7 @@ const PHASE_CONFIG = [
       { key: 'foco', label: 'Competências Foco', icon: Target },
     ]},
     { label: 'Relatórios', actions: [
+      { key: 'blueprint',  label: 'Gerar Blueprint', icon: Compass, ai: true },
       { key: 'rel-ind',    label: 'Gerar PDI', icon: FileText,   ai: true },
       { key: 'rel-gestor', label: 'Gestor',    icon: FileBarChart, ai: true },
       { key: 'rel-rh',     label: 'RH',        icon: FileBarChart, ai: true },
@@ -282,6 +284,17 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         const r = await loadCompetenciasFoco(empresaId);
         if (r.success) { setFocoData(r.data || []); addLog(t('feedback.focusLoaded', { count: (r.data || []).length }), 'info'); }
         else addLog(`❌ ${r.error || t('feedback.focusLoadError')}`, 'error');
+        setPendingAction(null); return;
+      }
+      if (actionKey === 'blueprint') {
+        addLog('📋 Gerando blueprints (foco + assessments + DISC)...', 'info');
+        const r = await gerarBlueprintsLote(empresaId, undefined, aiConfig || undefined);
+        if (!r?.success) { addLog(`❌ ${r?.error || 'Falha ao gerar blueprints'}`, 'error'); setPendingAction(null); return; }
+        for (const d of (r.detalhes || [])) {
+          if (d.ok) addLog(`✅ ${d.colaborador}`, 'success');
+          else addLog(`⚠ ${d.colaborador}: ${d.erro}`, 'error');
+        }
+        addLog(`🎉 ${r.message}`, (r.erros || 0) === 0 ? 'success' : 'info');
         setPendingAction(null); return;
       }
       if (actionKey === 'rel-ind') {
