@@ -14,6 +14,7 @@ import { promptCenario, parseCenarioResponse, cenarioToMarkdown } from '@/lib/se
 import { promptMissao, parseMissaoResponse, missaoToMarkdown } from '@/lib/season-engine/prompts/missao';
 import type { SelectedDescriptor } from './select-descriptors';
 import { PROGRAMA_REGULAR, descritoresCobertosNaMissao, type ProgramaConfig } from './programa-config';
+import type { BlueprintBindingSemana } from '@/lib/blueprint/to-descriptors';
 
 interface MicroConteudo {
   id: string;
@@ -101,7 +102,12 @@ interface SemanaAvaliacao {
   status: 'disponivel' | 'bloqueada';
 }
 
-export type SemanaPlan = SemanaConteudo | SemanaAplicacao | SemanaAvaliacao;
+/**
+ * Binding com o PDI (Fase 1, Estágio 3): quando a trilha é dirigida pelo
+ * blueprint, cada semana carrega o objetivo pedagógico e a ação do PDI que ela
+ * sustenta. Opcional/aditivo — ausente no caminho legado (backward-compat).
+ */
+export type SemanaPlan = (SemanaConteudo | SemanaAplicacao | SemanaAvaliacao) & BlueprintBindingSemana;
 
 export interface AIConfigOpt {
   model?: string;
@@ -119,6 +125,14 @@ export interface BuildSeasonInput {
   empresaId?: string | null;
   aiConfig?: AIConfigOpt;
   programaConfig?: ProgramaConfig;
+  /**
+   * Fase 1, Estágio 3: quando presente, a trilha é DIRIGIDA pelo blueprint —
+   * cada semana recebe o binding com o PDI, e as semanas de conteúdo renderizam
+   * as N entregas dos descritores da semana (mesma OU 2 competências), sem o
+   * agrupamento por competência do caminho DUO paralelo. Ausente = comportamento
+   * legado (paralelo/single), byte-igual ao atual.
+   */
+  blueprintBinding?: Record<number, BlueprintBindingSemana>;
 }
 
 /**
@@ -146,8 +160,10 @@ export async function buildSeason({
   empresaId = null,
   aiConfig = {},
   programaConfig = PROGRAMA_REGULAR,
+  blueprintBinding,
 }: BuildSeasonInput): Promise<SemanaPlan[]> {
   const semanas: SemanaPlan[] = [];
+  const blueprintDriven = !!blueprintBinding;
   // Multi-comp dispara quando há mapa semana→comp (Onboarding espiral) OU
   // missões integradoras configuradas (Regular DUO) — sempre com >1 comp.
   const isMulti = (!!programaConfig.semanaParaCompetenciaIdx || !!programaConfig.competenciasNaMissao)
@@ -229,6 +245,47 @@ export async function buildSeason({
           conteudos_dia: entregas,
           status: 'bloqueada',
         };
+      } else if (blueprintDriven) {
+        // Semana de conteúdo DIRIGIDA pelo blueprint: renderiza as N entregas
+        // dos descritores que o blueprint alocou nesta semana (mesma OU 2
+        // competências, na ordem sequencial do blueprint), SEM o agrupamento
+        // por competência do DUO paralelo. Mesma shape conteudos_dia → UI/kit/
+        // reflection funcionam sem mudança. Descritores já vêm na ordem do
+        // blueprint (semanaParaDescritores preserva a ordem de descritoresSelecionados).
+        const ordenados = descritoresDaSemana.slice(0, 2);
+        const entregas: NonNullable<SemanaConteudo['conteudos_dia']> = [];
+
+        for (const [idx, d] of ordenados.entries()) {
+          const compDaEntrega = d.competencia || competencia;
+          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados);
+          if (entrega.conteudo?.core_id) idsJaUsados.add(entrega.conteudo.core_id);
+          entregas.push({
+            dia: idx === 0 ? 'segunda' : 'terca',
+            label: idx === 0 ? 'Segunda-feira' : 'Terça-feira',
+            competencia: compDaEntrega,
+            descritor: entrega.descritor,
+            nivel_alvo: entrega.nivel_alvo,
+            nivel_atual: entrega.nivel_atual,
+            conteudo: entrega.conteudo,
+          });
+        }
+
+        const primeiro = entregas[0];
+        // Competência da semana = comps distintas das entregas (1 → mono; 2 → duo).
+        const compsDistintas = [...new Set(entregas.map(e => e.competencia).filter(Boolean))] as string[];
+        plan = {
+          semana,
+          tipo: 'conteudo',
+          competencia: compsDistintas.join(' + ') || competencia,
+          descritor: primeiro?.descritor || null,
+          descritores_cobertos: entregas.map(e => e.descritor).filter(Boolean) as string[],
+          nivel_alvo: 3.0,
+          nivel_atual: primeiro?.nivel_atual,
+          conteudo: primeiro?.conteudo,
+          // 1 entrega → sem conteudos_dia (shape single); 2 → conteudos_dia (shape duo).
+          ...(entregas.length > 1 ? { conteudos_dia: entregas } : {}),
+          status: 'bloqueada',
+        };
       } else if (isRegularDuoContentWeek(programaConfig, compsArray, descritoresDaSemana)) {
         const ordenados = [...descritoresDaSemana]
           .sort((a, b) => compsArray.indexOf(a.competencia || '') - compsArray.indexOf(b.competencia || ''))
@@ -270,6 +327,14 @@ export async function buildSeason({
         plan = await montarSemanaConteudo(semana, d, compDaSemana, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados);
         if (plan.tipo === 'conteudo' && plan.conteudo?.core_id) idsJaUsados.add(plan.conteudo.core_id);
       }
+    }
+    // Binding com o PDI (Estágio 3): carrega objetivo da semana + ação do PDI
+    // que ela sustenta. Cobre TODAS as semanas (conteúdo/missão/avaliação).
+    const bind = blueprintBinding?.[semana];
+    if (bind) {
+      if (bind.objetivo_da_semana) plan.objetivo_da_semana = bind.objetivo_da_semana;
+      if (bind.conexao_com_pdi) plan.conexao_com_pdi = bind.conexao_com_pdi;
+      if (bind.acao_pdi) plan.acao_pdi = bind.acao_pdi;
     }
     plan.status = semana === 1 ? 'disponivel' : 'bloqueada';
     semanas.push(plan);

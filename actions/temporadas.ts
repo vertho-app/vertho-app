@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsDuo, selectDescriptorsPiloto, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
+import { blueprintToTrilhaInputs, type BlueprintTrilhaInputs } from '@/lib/blueprint/to-descriptors';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
@@ -416,12 +417,36 @@ async function gerarTemporadaRegularDuo(args: {
     return { _fallbackSingle: true, degradou: true, motivo: `sem assessment pra ${semAssessment.join(', ')} — rode o mapeamento dessa competência` };
   }
 
-  // 3) Seleção PROFUNDA de descritores para as 2 comps (blocos paralelos)
-  const descritoresSelecionados = selectDescriptorsDuo(
-    comps[0], assessmentPorComp[comps[0]],
-    comps[1], assessmentPorComp[comps[1]],
-    programaConfig.slotsConteudo,
-  );
+  // 3) Seleção de descritores. Estágio 3 (Fase 1): atrás da flag
+  // BLUEPRINT_DRIVES_TRILHA, a trilha CONSOME o Development Blueprint —
+  // semanas/descritores/binding-do-PDI vêm de `blueprint.trilha.semanas` (fonte
+  // única com o PDI) em vez de `selectDescriptorsDuo`. Sem blueprint OU adapter
+  // não-aproveitável OU flag off → fallback pro caminho paralelo atual (byte-igual).
+  let blueprintInputs: BlueprintTrilhaInputs | null = null;
+  if (process.env.BLUEPRINT_DRIVES_TRILHA === '1') {
+    const { data: bpRow } = await tdb.from('development_blueprints')
+      .select('blueprint')
+      .eq('colaborador_id', colab.id)
+      .order('gerado_em', { ascending: false })
+      .limit(1).maybeSingle();
+    if (bpRow?.blueprint) {
+      const r = blueprintToTrilhaInputs(bpRow.blueprint, assessmentPorComp, programaConfig);
+      if ('error' in r) {
+        console.warn(`[DUO] blueprint→trilha indisponível (${r.error}) — fallback selectDescriptorsDuo`);
+      } else {
+        blueprintInputs = r;
+        if (r.avisos.length) console.warn(`[DUO] blueprint→trilha avisos:`, r.avisos);
+      }
+    }
+  }
+
+  const descritoresSelecionados = blueprintInputs
+    ? blueprintInputs.descritoresSelecionados
+    : selectDescriptorsDuo(
+        comps[0], assessmentPorComp[comps[0]],
+        comps[1], assessmentPorComp[comps[1]],
+        programaConfig.slotsConteudo,
+      );
   if (descritoresSelecionados.length === 0) {
     return { _fallbackSingle: true, motivo: 'nenhum descritor selecionado nas 2 comps' };
   }
@@ -438,6 +463,7 @@ async function gerarTemporadaRegularDuo(args: {
     empresaId: colab.empresa_id,
     aiConfig,
     programaConfig,
+    blueprintBinding: blueprintInputs?.bindingPorSemana,
   });
 
   // 5) Persiste (UPDATE se existir, INSERT senão)

@@ -92,9 +92,27 @@ final mede o que o PDI prometeu? Falhou → marca drift (e, opcionalmente, re-ge
   **não mudam ainda**. Entregável: blueprints gerados, salvos e inspecionáveis.
 - **Estágio 2 — PDI consome:** `rel-ind` deriva o sprint + o binding "vira trilha"
   do blueprint. Fallback: sem blueprint → comportamento atual (backward-compat).
-- **Estágio 3 — Trilha consome (maior risco, motor maduro):** `buildSeason`/
-  `gerarTemporada` usa `blueprint.trilha.semanas`; cada semana referencia a ação
-  do PDI. A página "vira trilha" vira o binding real.
+- **Estágio 3 — Trilha consome (maior risco, motor maduro) — ✅ FEITO (atrás de flag):**
+  Atrás da flag `BLUEPRINT_DRIVES_TRILHA=1`, `gerarTemporadaRegularDuo` lê o
+  blueprint (`development_blueprints` via `tdb`) e o adapter puro
+  `lib/blueprint/to-descriptors.ts::blueprintToTrilhaInputs` converte
+  `blueprint.trilha.semanas` em `SelectedDescriptor[]` (semanas_ids das semanas de
+  conteúdo do config) + `bindingPorSemana` (objetivo + ação do PDI por semana). O
+  `buildSeason` ganhou um caminho ADITIVO de "semana de conteúdo do blueprint"
+  (renderiza N entregas dos `descritores_foco` na ordem SEQUENCIAL do blueprint —
+  comp A → comp B → integra, 2 descritores/semana da mesma comp inclusive) e
+  carimba o binding do PDI em TODA semana (tipos: `SemanaPlan & BlueprintBindingSemana`).
+  O `ProgramaConfig` segue autoritativo sobre missão/avaliação (protege
+  fechamento/arguição/scoring). Match de descritor é TOLERANTE (tira prefixo
+  `CÓDIGO —` + acentos; emite o nome do assessment pra busca de `micro_conteudos`
+  seguir idêntica). Sem blueprint / adapter não-aproveitável / flag off → fallback
+  `selectDescriptorsDuo` (byte-igual ao paralelo atual). Validado E2E na Elizângela
+  (Ibipeba): 14 sem, missões 4/8/12 e avaliação 13/14 intactas, binding em todas,
+  9/9 semanas de conteúdo com 2 entregas, estrutura sequencial honrada; flag off
+  reproduz o paralelo sem binding. **Ligar por empresa/global é uma decisão de
+  produto** (flag ainda OFF em prod). Falta: página "vira trilha" mostrar o binding
+  real a partir do plano (hoje o binding está no `temporada_plano`, o render ainda
+  não o consome).
 - **Estágio 4 — Auditoria + PDI 2 níveis:** `auditarBlueprint` (2ª IA) + separar
   PDI **executivo** (humano) do **estruturado** (o blueprint, pra engine).
 
