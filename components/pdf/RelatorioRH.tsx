@@ -203,14 +203,22 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
         {c.visao_por_cargo?.length > 0 && (
           <View style={s.section}>
             <ReportSectionTitle>{'Vis\u00e3o por Cargo'}</ReportSectionTitle>
-            {c.visao_por_cargo.map((v: any, i: number) => (
+            {c.visao_por_cargo.map((v: any, i: number) => {
+              // A IA renomeou os campos (media_nivel/leitura/principais_forcas/
+              // principais_riscos); mantemos fallback pros nomes antigos.
+              const mediaRaw = v.media_nivel ?? v.media;
+              const media = mediaRaw == null ? '\u2014' : (typeof mediaRaw === 'number' ? mediaRaw.toFixed(1) : String(mediaRaw));
+              const forte = v.ponto_forte || (Array.isArray(v.principais_forcas) ? v.principais_forcas.join(' \u00b7 ') : v.principais_forcas);
+              const critico = v.ponto_critico || (Array.isArray(v.principais_riscos) ? v.principais_riscos.join(' \u00b7 ') : v.principais_riscos);
+              return (
               <View key={i} style={s.cargoCard} wrap={false}>
-                <Text style={s.cargoTitle}>{v.cargo} {'\u2014'} {'M\u00e9dia'}: {v.media || '\u2014'}</Text>
-                <Text style={s.text}>{v.analise}</Text>
-                {v.ponto_forte && <View style={s.hlPositive}><Text style={{ ...s.hlText, color: '#166534' }}>+ {v.ponto_forte}</Text></View>}
-                {v.ponto_critico && <View style={s.hlAttention}><Text style={{ ...s.hlText, color: '#92400E' }}>! {v.ponto_critico}</Text></View>}
+                <Text style={s.cargoTitle}>{v.cargo} {'\u2014'} {'M\u00e9dia'}: {media}</Text>
+                <Text style={s.text}>{v.leitura || v.analise}</Text>
+                {forte && <View style={s.hlPositive}><Text style={{ ...s.hlText, color: '#166534' }}>+ {forte}</Text></View>}
+                {critico && <View style={s.hlAttention}><Text style={{ ...s.hlText, color: '#92400E' }}>! {critico}</Text></View>}
               </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
@@ -249,8 +257,8 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
                     <Text style={s.critHeaderText}>{comp.competencia} {'\u2014'} {comp.criticidade}</Text>
                   </View>
                   <View style={{ ...s.critContent, backgroundColor: cc.contentBg }}>
-                    <Text style={s.text}>{comp.motivo}</Text>
-                    {(comp.impacto || comp.impacto_alunos) && <Text style={s.critImpacto}>{comp.impacto || comp.impacto_alunos}</Text>}
+                    <Text style={s.text}>{comp.justificativa || comp.motivo}</Text>
+                    {(comp.impacto_organizacional || comp.impacto || comp.impacto_alunos) && <Text style={s.critImpacto}>{comp.impacto_organizacional || comp.impacto || comp.impacto_alunos}</Text>}
                   </View>
                 </View>
               );
