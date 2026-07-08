@@ -85,6 +85,25 @@ const s = StyleSheet.create({
   stepSpan: {
     fontSize: 8.5, color: colors.gray500, lineHeight: 1.55,
   },
+  // ── Sprint de 30 dias (enxuto, escaneável) ───────────────────────────
+  sprintFoco: {
+    backgroundColor: colors.navy, borderRadius: 4, padding: 10, marginBottom: 6,
+  },
+  sprintFocoLabel: {
+    fontSize: 7, fontWeight: 700, color: colors.cyan,
+    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3,
+  },
+  sprintFocoText: { fontSize: 10, fontWeight: 700, color: colors.white, lineHeight: 1.4 },
+  sprintRow: { flexDirection: 'row', gap: 6, marginBottom: 6 },
+  sprintCard: {
+    flex: 1, borderWidth: 0.5, borderRadius: 3, padding: 8,
+    backgroundColor: colors.gray100, borderColor: colors.borderLight,
+  },
+  sprintCardLabel: {
+    fontSize: 7, fontWeight: 700, textTransform: 'uppercase',
+    letterSpacing: 0.6, marginBottom: 2,
+  },
+  sprintCardText: { fontSize: 8.5, color: colors.textPrimary, lineHeight: 1.5 },
   // Bottom row: dicas (green) + estudo (purple)
   bottomRow: { flexDirection: 'row', marginBottom: 8, gap: 6 },
   dicasBox: {
@@ -146,7 +165,7 @@ export default function CompetencyBlock({ comp, index, total }: { comp: any; ind
         <View style={s.descritorBox} wrap={false}>
           <Text style={{ ...s.blockLabel, color: colors.yellow }}>Descritores em Desenvolvimento</Text>
           {comp.descritores_desenvolvimento.map((d: any, i: number) => (
-            <PrefixedItem key={i} prefix="→" color={colors.yellow} text={d} textColor={colors.yellowText} />
+            <PrefixedItem key={i} prefix="•" color={colors.yellow} text={d} textColor={colors.yellowText} />
           ))}
         </View>
       )}
@@ -181,8 +200,49 @@ export default function CompetencyBlock({ comp, index, total }: { comp: any; ind
         </View>
       )}
 
-      {/* ── Plano 30 dias (steps numerados) ── */}
-      {!isStrong && comp.plano_30_dias && (
+      {/* ── Sprint de 30 dias (novo — enxuto). Fallback: plano_30_dias antigo ── */}
+      {!isStrong && comp.sprint ? (
+        <View>
+          <Text style={s.planoTitle}>Sprint de 30 Dias</Text>
+          {comp.sprint.foco_30_dias && (
+            <View style={s.sprintFoco} wrap={false}>
+              <Text style={s.sprintFocoLabel}>Foco dos 30 dias</Text>
+              <Text style={s.sprintFocoText}>{comp.sprint.foco_30_dias}</Text>
+            </View>
+          )}
+          <View style={s.sprintRow} wrap={false}>
+            {comp.sprint.acao_principal && (
+              <View style={{ ...s.sprintCard, backgroundColor: colors.perfilBg, borderColor: colors.perfilBorder }}>
+                <Text style={{ ...s.sprintCardLabel, color: '#0369A1' }}>Ação Principal</Text>
+                <Text style={{ ...s.sprintCardText, color: colors.blueText }}>{comp.sprint.acao_principal}</Text>
+              </View>
+            )}
+            {comp.sprint.acao_apoio && (
+              <View style={s.sprintCard}>
+                <Text style={{ ...s.sprintCardLabel, color: colors.gray600 }}>Ação de Apoio</Text>
+                <Text style={s.sprintCardText}>{comp.sprint.acao_apoio}</Text>
+              </View>
+            )}
+          </View>
+          <View style={s.sprintRow} wrap={false}>
+            {comp.sprint.evidencia_esperada && (
+              <View style={{ ...s.sprintCard, backgroundColor: colors.fezBemBg, borderColor: colors.fezBemBorder }}>
+                <Text style={{ ...s.sprintCardLabel, color: colors.green }}>Evidência Esperada</Text>
+                <Text style={{ ...s.sprintCardText, color: colors.greenText }}>{comp.sprint.evidencia_esperada}</Text>
+              </View>
+            )}
+            {comp.sprint.ritual && (
+              <View style={{ ...s.sprintCard, backgroundColor: colors.melhorarBg, borderColor: colors.melhorarBorder }}>
+                <Text style={{ ...s.sprintCardLabel, color: colors.orange }}>Ritual</Text>
+                <Text style={{ ...s.sprintCardText, color: colors.orangeText }}>{comp.sprint.ritual}</Text>
+              </View>
+            )}
+          </View>
+          {comp.sprint.checklist?.length > 0 && (
+            <ChecklistBox items={comp.sprint.checklist} title="Checklist do Sprint" />
+          )}
+        </View>
+      ) : !isStrong && comp.plano_30_dias ? (
         <View>
           <Text style={s.planoTitle}>Plano de Desenvolvimento — 30 Dias</Text>
           <View style={s.steps}>
@@ -204,7 +264,7 @@ export default function CompetencyBlock({ comp, index, total }: { comp: any; ind
             })}
           </View>
         </View>
-      )}
+      ) : null}
 
       {/* ── Bottom: Dicas (green) + Estudo (purple) ── */}
       {(comp.dicas_desenvolvimento?.length > 0 || comp.estudo_recomendado?.length > 0) && (

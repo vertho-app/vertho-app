@@ -86,6 +86,42 @@ const s = StyleSheet.create({
   trilhaItem: { fontSize: 8.5, color: colors.greenText, marginBottom: 2, lineHeight: 1.5 },
   // Competency divider
   compDivider: { borderBottomWidth: 0.5, borderBottomColor: colors.borderLight, marginTop: 14, marginBottom: 14 },
+  // ── One-pager: Mapa de foco dos 30 dias ──────────────────────────────
+  mapIntro: { fontSize: 9, color: colors.textSecondary, lineHeight: 1.6, marginBottom: 12 },
+  mapCard: {
+    borderWidth: 0.5, borderColor: colors.borderLight, borderRadius: 4,
+    padding: 12, marginBottom: 10, backgroundColor: colors.summaryBg,
+  },
+  mapCardHead: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 6 },
+  mapCardNum: {
+    width: 18, height: 18, borderRadius: 9, backgroundColor: colors.navy,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  mapCardNumText: { fontSize: 8, fontWeight: 700, color: colors.white },
+  mapCardName: { fontSize: 11, fontWeight: 700, color: colors.navy, flex: 1 },
+  mapFoco: { fontSize: 9.5, color: colors.textPrimary, lineHeight: 1.5, marginBottom: 6, fontStyle: 'italic' },
+  mapLine: { flexDirection: 'row', marginBottom: 3 },
+  mapLineLabel: { fontSize: 7.5, fontWeight: 700, color: colors.gray600, textTransform: 'uppercase', letterSpacing: 0.5, width: 78, flexShrink: 0 },
+  mapLineText: { fontSize: 8.5, color: colors.textSecondary, lineHeight: 1.5, flex: 1 },
+  // ── Como este PDI vira trilha (timeline) ─────────────────────────────
+  trilhaIntro: { fontSize: 9.5, color: colors.textPrimary, lineHeight: 1.6, marginBottom: 14, fontStyle: 'italic' },
+  tlRow: { flexDirection: 'row', marginBottom: 8 },
+  tlPhase: {
+    width: 92, flexShrink: 0, backgroundColor: colors.navy, borderRadius: 3,
+    paddingVertical: 8, paddingHorizontal: 8, marginRight: 8,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  tlPhaseText: { fontSize: 8.5, fontWeight: 700, color: colors.cyan, textAlign: 'center', letterSpacing: 0.4 },
+  tlBody: {
+    flex: 1, borderWidth: 0.5, borderColor: colors.borderLight, borderRadius: 3,
+    padding: 9, backgroundColor: colors.summaryBg, justifyContent: 'center',
+  },
+  tlTitle: { fontSize: 9.5, fontWeight: 700, color: colors.navy, marginBottom: 2 },
+  tlDetail: { fontSize: 8.5, color: colors.textSecondary, lineHeight: 1.5 },
+  trilhaFooterNote: {
+    marginTop: 8, fontSize: 8.5, color: colors.gray600, fontStyle: 'italic',
+    textAlign: 'center', lineHeight: 1.5,
+  },
   // Mensagem final
   finalBox: {
     backgroundColor: colors.navy, borderRadius: 4, padding: 22,
@@ -149,6 +185,30 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
   const competencias = c.competencias || [];
   const nome = data.colaborador_nome || '';
   const headerLabel = `Plano de Desenvolvimento Individual${nome ? ` · ${(nome.split(' ')[0]) || nome}` : ''}`;
+
+  // Competências que já têm sprint (novo modelo) — dirige o one-pager.
+  const sprintComps = competencias.filter((comp: any) => comp && comp.sprint);
+
+  // ── Timeline "vira trilha" (COMPUTADA no render, determinística) ──
+  // Base: Regular DUO (14 semanas, missões 4/8/12, avaliação 13/14). Se houver
+  // 1 competência, adapta. Deriva a ação de cada fase do sprint da competência.
+  const acaoDe = (comp: any): string =>
+    (comp?.sprint?.acao_principal || comp?.melhorar?.[0] || 'mapear e praticar os descritores prioritários');
+  const trilhaFases: { fase: string; titulo: string; detalhe: string }[] = [];
+  if (competencias.length >= 2) {
+    trilhaFases.push(
+      { fase: 'Semanas 1–4', titulo: competencias[0].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[0])}` },
+      { fase: 'Semanas 5–8', titulo: competencias[1].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[1])}` },
+      { fase: 'Semanas 9–12', titulo: 'Integração + missão prática', detalhe: 'Aplicar as duas competências juntas em uma missão prática de complexidade crescente.' },
+      { fase: 'Semanas 13–14', titulo: 'Avaliação', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
+    );
+  } else if (competencias.length === 1) {
+    trilhaFases.push(
+      { fase: 'Semanas 1–8', titulo: competencias[0].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[0])}` },
+      { fase: 'Semanas 9–12', titulo: 'Aprofundamento', detalhe: 'Aprofundar a prática em situações mais complexas do dia a dia.' },
+      { fase: 'Semanas 13–14', titulo: 'Avaliação', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
+    );
+  }
 
   return (
     <Document title={`PDI - ${nome}`}>
@@ -255,6 +315,45 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
         <PageFooter />
       </Page>
 
+      {/* ═══════════════════ MAPA DE FOCO DOS 30 DIAS (one-pager) ═══════════════════ */}
+      {sprintComps.length > 0 && (
+        <Page size="A4" style={pageStyles.page} wrap>
+          <PageHeader logoBase64={logoBase64} label={headerLabel} />
+          <ReportSectionTitle>Plano de 30 dias</ReportSectionTitle>
+          <Text style={s.mapIntro}>
+            {'O mapa abaixo resume onde concentrar energia nos próximos 30 dias. Um movimento por competência — o restante é detalhado nas páginas seguintes.'}
+          </Text>
+          {sprintComps.map((comp: any, i: number) => (
+            <View key={i} style={s.mapCard} wrap={false}>
+              <View style={s.mapCardHead}>
+                <View style={s.mapCardNum}><Text style={s.mapCardNumText}>{i + 1}</Text></View>
+                <Text style={s.mapCardName}>{comp.nome}</Text>
+              </View>
+              {comp.sprint?.foco_30_dias && <Text style={s.mapFoco}>{comp.sprint.foco_30_dias}</Text>}
+              {comp.sprint?.acao_principal && (
+                <View style={s.mapLine}>
+                  <Text style={s.mapLineLabel}>Ação principal</Text>
+                  <Text style={s.mapLineText}>{comp.sprint.acao_principal}</Text>
+                </View>
+              )}
+              {comp.sprint?.evidencia_esperada && (
+                <View style={s.mapLine}>
+                  <Text style={s.mapLineLabel}>Evidência</Text>
+                  <Text style={s.mapLineText}>{comp.sprint.evidencia_esperada}</Text>
+                </View>
+              )}
+              {comp.sprint?.ritual && (
+                <View style={s.mapLine}>
+                  <Text style={s.mapLineLabel}>Ritual</Text>
+                  <Text style={s.mapLineText}>{comp.sprint.ritual}</Text>
+                </View>
+              )}
+            </View>
+          ))}
+          <PageFooter />
+        </Page>
+      )}
+
       {/* ═══════════════════ COMPETÊNCIAS — uma página por competência ═══════════════════ */}
       {/* A mensagem final flui logo após o último checklist (fim da última
           competência); só cai pra página seguinte, no topo, se não couber. */}
@@ -262,15 +361,39 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
         <Page key={idx} size="A4" style={pageStyles.page} wrap>
           <PageHeader logoBase64={logoBase64} label={`Competência ${idx + 1} de ${competencias.length}`} />
           <CompetencyBlock comp={comp} index={idx} total={competencias.length} />
-          {idx === competencias.length - 1 && c.mensagem_final && (
-            <View style={[s.finalBox, { marginTop: 14 }]} wrap={false}>
+          <PageFooter />
+        </Page>
+      ))}
+
+      {/* ═══════════════════ COMO ESTE PDI VIRA TRILHA + MENSAGEM FINAL ═══════════════════ */}
+      {competencias.length >= 1 && (
+        <Page size="A4" style={pageStyles.page} wrap>
+          <PageHeader logoBase64={logoBase64} label={headerLabel} />
+          <ReportSectionTitle>Como este PDI vira trilha</ReportSectionTitle>
+          <Text style={s.trilhaIntro}>
+            {'O que está no seu PDI é exatamente o que você vai praticar na trilha. Veja como os próximos meses se organizam.'}
+          </Text>
+          {trilhaFases.map((f, i) => (
+            <View key={i} style={s.tlRow} wrap={false}>
+              <View style={s.tlPhase}><Text style={s.tlPhaseText}>{f.fase}</Text></View>
+              <View style={s.tlBody}>
+                <Text style={s.tlTitle}>{f.titulo}</Text>
+                <Text style={s.tlDetail}>{f.detalhe}</Text>
+              </View>
+            </View>
+          ))}
+          <Text style={s.trilhaFooterNote}>
+            {'Cada passo do PDI vira uma semana de prática — o plano e a trilha são o mesmo caminho.'}
+          </Text>
+          {c.mensagem_final && (
+            <View style={[s.finalBox, { marginTop: 18 }]} wrap={false}>
               <Text style={s.finalLabel}>Mensagem Final</Text>
               <Text style={s.finalText}>{c.mensagem_final}</Text>
             </View>
           )}
           <PageFooter />
         </Page>
-      ))}
+      )}
 
       {/* Fallback: sem competências, a mensagem final ganha página própria (topo). */}
       {c.mensagem_final && competencias.length === 0 && (
