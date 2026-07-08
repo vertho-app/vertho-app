@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, use } from 'react';
+import { useState, useEffect, useCallback, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 
@@ -180,6 +180,10 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   const [gabExpanded, setGabExpanded] = useState<any>(null);
   const [envioStatus, setEnvioStatus] = useState<any>(null);
   const [focoData, setFocoData] = useState<any>(null);
+  // Cancelamento de fase (sync): os loops de handleAction checam no topo de cada
+  // iteração e dão break → a fase para de emitir novos itens. O item em andamento
+  // termina (server action não recebe abort do client), depois interrompe.
+  const cancelRef = useRef(false);
 
   const refreshTop10 = useCallback(async () => {
     const [t, c, g] = await Promise.all([
@@ -235,6 +239,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
     }
     const fn = ACTION_MAP[actionKey];
     setPendingAction(actionKey);
+    cancelRef.current = false;
     const modelLabel = aiConfig ? ` [${AI_MODELS.find(m => m.id === aiConfig.model)?.label || aiConfig.model}]` : '';
     addLog(`▶ ${label}${modelLabel}`, 'info');
 
@@ -251,6 +256,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         addLog(`📋 ${t('feedback.reportsQueue', { count: fila.data.length })}`, 'info');
         let ok = 0, erros = 0;
         for (let i = 0; i < fila.data.length; i++) {
+          if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }
           addLog(`⏳ ${t('feedback.generatingReport', { current: i + 1, total: fila.data.length })}`, 'info');
           const r = await gerarRelatorioIndividual(empresaId, fila.data[i], aiConfig || undefined);
           if (r.success) { ok++; addLog(`✅ ${r.message}`, 'success'); } else { erros++; addLog(`⚠ ${r.error}`, 'error'); }
@@ -266,6 +272,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         addLog(`📋 ${fila.data.length} respostas pendentes. Avaliando uma por vez...`, 'info');
         let ok = 0, erros = 0;
         for (let i = 0; i < fila.data.length; i++) {
+          if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }
           addLog(`⏳ [${i + 1}/${fila.data.length}] Avaliando...`, 'info');
           const r = await rodarIA4Uma(empresaId, fila.data[i].id, aiConfig || undefined);
           if (r.success) { ok++; addLog(`✅ ${r.message}`, 'success'); } else { erros++; addLog(`⚠ ${r.error}`, 'error'); }
@@ -282,7 +289,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         const items = fila.data.filter((f: any) => !f.jaRespondido).length > 0 ? fila.data.filter((f: any) => !f.jaRespondido) : fila.data;
         addLog(`📋 ${items.length} respostas para simular`, 'info');
         let ok = 0, erros = 0;
-        for (let i = 0; i < items.length; i++) { const item = items[i]; addLog(`⏳ [${i + 1}/${items.length}] ${item.nome} — ${item.cenario_titulo}`, 'info'); const r = await simularUmaResposta(empresaId, item.colaborador_id, item.cenario_id, aiConfig || undefined); if (r.success) { ok++; addLog(`✅ ${r.message}`, 'success'); } else { erros++; addLog(`⚠ ${item.nome}: ${r.error}`, 'error'); } }
+        for (let i = 0; i < items.length; i++) { if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; } const item = items[i]; addLog(`⏳ [${i + 1}/${items.length}] ${item.nome} — ${item.cenario_titulo}`, 'info'); const r = await simularUmaResposta(empresaId, item.colaborador_id, item.cenario_id, aiConfig || undefined); if (r.success) { ok++; addLog(`✅ ${r.message}`, 'success'); } else { erros++; addLog(`⚠ ${item.nome}: ${r.error}`, 'error'); } }
         addLog(`✅ Simulação: ${ok} respostas${erros ? `, ${erros} erros` : ''}`, 'success');
         loadData(); setPendingAction(null); return;
       }
@@ -307,6 +314,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         };
         let gerados = 0, aprovados = 0, revisar = 0, erros = 0;
         for (let i = 0; i < items.length; i++) {
+          if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }
           const item = items[i];
           const escolaLbl = item.ppp_nome ? ` · ${item.ppp_nome}` : '';
           addLog(`⏳ [${i + 1}/${items.length}] Gerando: ${item.nome} (${item.cargo}${escolaLbl})`, 'info');
@@ -347,6 +355,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         };
         let ok = 0, erros = 0;
         for (let i = 0; i < cargos.length; i++) {
+          if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }
           addLog(`⏳ [${i + 1}/${cargos.length}] ${cargos[i]}...`, 'info');
           const r = await tentar(() => rodarIA2(empresaId, aiConfig || undefined, { cargoNome: cargos[i] }));
           if (r.success) { ok++; addLog(`✅ ${cargos[i]}: ${r.message || 'gabarito gerado'}`, 'success'); }
@@ -365,6 +374,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         addLog(`📋 Gerando temporada para ${colabs.length} colab(s)`, 'info');
         let ok = 0, erros = 0;
         for (let i = 0; i < colabs.length; i++) {
+          if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }
           const c = colabs[i];
           addLog(`[${i + 1}/${colabs.length}] ${c.nome_completo}...`, 'info');
           try { const r2: any = await gerarTemporada({ colaboradorId: c.id, aiConfig }); if (r2?.ok) { ok++; addLog(`  ✅ ${c.nome_completo}`, 'success'); } else { erros++; addLog(`  ❌ ${c.nome_completo}: ${r2?.error}`, 'error'); } }
@@ -743,7 +753,16 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                     <span className="text-xs font-bold text-white">Log</span>
                     <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, color: 'rgba(255,255,255,.3)' }}>{logs.length}</span>
                   </div>
-                  <button onClick={() => setLogs([])} style={{ color: 'rgba(255,255,255,.3)' }}><X size={12} /></button>
+                  <div className="flex items-center gap-2">
+                    {pendingAction && (
+                      <button
+                        onClick={() => { cancelRef.current = true; addLog('⏹ Cancelando após o item atual…', 'info'); }}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold"
+                        style={{ background: 'rgba(249,115,84,.15)', color: '#F97354', border: '1px solid rgba(249,115,84,.3)' }}
+                      >⏹ Parar</button>
+                    )}
+                    <button onClick={() => setLogs([])} style={{ color: 'rgba(255,255,255,.3)' }}><X size={12} /></button>
+                  </div>
                 </div>
                 <div className="overflow-y-auto" style={{ maxHeight: 'calc(50vh - 42px)' }}>
                   {logs.map((l: any) => (
