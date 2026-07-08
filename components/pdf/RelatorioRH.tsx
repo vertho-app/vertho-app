@@ -125,6 +125,12 @@ function getResumoExecutivo(v: any) {
 
 export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data: any; empresaNome?: string; logoBase64?: string }) {
   const c = data.conteudo;
+  // Opção A: "Onde Investir" funde Competências Críticas + Formações — cada
+  // competência crítica mostra a formação que a resolve (casada por nome).
+  const normComp = (x: any) => String(x || '').trim().toLowerCase();
+  const treinoByComp = new Map<string, any>();
+  (c?.treinamentos_sugeridos || []).forEach((tr: any) => { const k = normComp(tr.competencia); if (k && !treinoByComp.has(k)) treinoByComp.set(k, tr); });
+  const treinosCasados = new Set((c?.competencias_criticas || []).map((x: any) => normComp(x.competencia)).filter((k: string) => treinoByComp.has(k)));
   if (!c) return null;
   const resumoExecutivo = getResumoExecutivo(c.resumo_executivo);
 
@@ -248,7 +254,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
         {c.competencias_criticas?.length > 0 && (
           <View style={s.section}>
-            <ReportSectionTitle>{'Compet\u00eancias Cr\u00edticas \u2014 Onde Investir'}</ReportSectionTitle>
+            <ReportSectionTitle>{'Onde Investir'}</ReportSectionTitle>
             {c.competencias_criticas.map((comp: any, i: number) => {
               const cc = (critColors as any)[comp.criticidade] || critColors.ESTAVEL;
               return (
@@ -259,6 +265,13 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
                   <View style={{ ...s.critContent, backgroundColor: cc.contentBg }}>
                     <Text style={s.text}>{comp.justificativa || comp.motivo}</Text>
                     {(comp.impacto_organizacional || comp.impacto || comp.impacto_alunos) && <Text style={s.critImpacto}>{comp.impacto_organizacional || comp.impacto || comp.impacto_alunos}</Text>}
+                    {treinoByComp.get(normComp(comp.competencia)) && (() => { const tr = treinoByComp.get(normComp(comp.competencia)); return (
+                      <View style={{ marginTop: 8, borderTopWidth: 0.5, borderTopColor: 'rgba(0,0,0,0.10)', paddingTop: 6 }}>
+                        <Text style={{ fontFamily: 'NotoSans', fontSize: 7.5, fontWeight: 700, color: '#0D9488', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>{'Formação recomendada'}</Text>
+                        <Text style={{ ...s.text, fontWeight: 600 }}>{tr.titulo}{tr.prioridade ? ` [${tr.prioridade}]` : ''}</Text>
+                        <Text style={s.trainMeta}>{'Público'}: {tr.publico} | Formato: {tr.formato} | Carga: {tr.carga_horaria} | Custo: {tr.custo || tr.custo_relativo}</Text>
+                      </View>
+                    ); })()}
                   </View>
                 </View>
               );
@@ -266,10 +279,10 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
           </View>
         )}
 
-        {c.treinamentos_sugeridos?.length > 0 && (
+        {(c.treinamentos_sugeridos || []).filter((t: any) => !treinosCasados.has(normComp(t.competencia))).length > 0 && (
           <View style={s.section}>
-            <ReportSectionTitle>{'Forma\u00e7\u00f5es e Treinamentos'}</ReportSectionTitle>
-            {c.treinamentos_sugeridos.map((t: any, i: number) => {
+            <ReportSectionTitle>{'Outras Forma\u00e7\u00f5es Sugeridas'}</ReportSectionTitle>
+            {(c.treinamentos_sugeridos || []).filter((t: any) => !treinosCasados.has(normComp(t.competencia))).map((t: any, i: number) => {
               const pc = (prioColors as any)[t.prioridade] || prioColors.DESEJAVEL;
               return (
                 <View key={i} style={s.trainCard} wrap={false}>
@@ -314,8 +327,8 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
         {c.decisoes_chave?.length > 0 && (
           <View style={s.section}>
-            <ReportSectionTitle>{'Decis\u00f5es-Chave'}</ReportSectionTitle>
-            <Text style={{ ...s.textIt, marginBottom: 8 }}>{'Estas decis\u00f5es exigem a\u00e7\u00e3o imediata e crit\u00e9rios claros de reavalia\u00e7\u00e3o.'}</Text>
+            <ReportSectionTitle>{'Talentos a Potencializar'}</ReportSectionTitle>
+            <Text style={{ ...s.textIt, marginBottom: 8 }}>{'Pessoas que se destacaram \u2014 e como potencializ\u00e1-las.'}</Text>
             {c.decisoes_chave.map((d: any, i: number) => (
               <View key={i} style={s.decCard} wrap={false}>
                 <View style={s.decHeader}><Text style={s.decHeaderText}>{d.colaborador}</Text></View>

@@ -680,7 +680,7 @@ FORMATO OBRIGATÓRIO:
     "risco_coletivo": "texto curto"
   },
   "decisoes_chave": [
-    {"colaborador": "nome", "situacao": "texto curto", "acao": "ação concreta", "criterio_reavaliacao": "quando reavaliar"}
+    {"colaborador": "nome", "situacao": "por que se destacou (positivo)", "acao": "como potencializar/alavancar essa pessoa", "criterio_reavaliacao": "quando reavaliar"}
   ],
   "plano_acao": {
     "curto_prazo": ["ação 1", "ação 2", "ação 3"],
@@ -698,6 +698,9 @@ REGRAS:
 - cada treinamento com prioridade e justificativa
 - cada risco relevante com ação concreta
 - para cada cargo, exatamente 1 competência foco
+- decisoes_chave ("Talentos a Potencializar"): liste APENAS pessoas que se DESTACARAM POSITIVAMENTE (referências internas, alto desempenho, potencial claro) e a ação para potencializá-las. NÃO inclua fragilidade/risco individual — isso é do relatório do gestor. Se ninguém se destacar claramente, retorne [].
+- cada competência em competencias_criticas deve ter um item correspondente em treinamentos_sugeridos com o MESMO nome de competência (eles são exibidos juntos na seção "Onde Investir": gap → formação que resolve).
+- plano_acao é uma LINHA DO TEMPO (curto/médio/longo) que REFERENCIA as formações/iniciativas pelo nome e adiciona ações que NÃO são treinamento (rituais, comunicação, follow-up, decisões). NÃO re-descreva os treinamentos já detalhados em "Onde Investir".
 - evitar linguagem genérica que serviria para qualquer empresa`;
 
 export async function gerarRelatorioRH(
