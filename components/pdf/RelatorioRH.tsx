@@ -1,9 +1,9 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { colors, pageStyles } from './styles';
-import PdfCover from './PdfCover';
-import PageBackground from './PageBackground';
-import { SectionTitle } from './SectionTitle';
+import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
+import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
+// SectionTitle → ReportSectionTitle (Fraunces) e PageBackground → PageHeader fino, de PdfReportCover
 
 const s = StyleSheet.create({
   section: { marginBottom: 14 },
@@ -65,6 +65,18 @@ function PageFooter() {
   );
 }
 
+// Header fino unificado (mesmo padr\u00e3o do PDI) \u2014 substitui o antigo fundo de
+// p\u00e1gina inteira (template-fundo-relatorios.png), unificando o look e cortando
+// o PDF de ~1,7MB para ~200KB.
+function PageHeader({ logoBase64, label }: { logoBase64?: string; label: string }) {
+  return (
+    <View style={pageStyles.header} fixed>
+      {logoBase64 ? <Image src={logoBase64} style={pageStyles.headerLogo} /> : <View />}
+      <Text style={pageStyles.headerLabel}>{label}</Text>
+    </View>
+  );
+}
+
 const critColors = {
   CRITICA: { bg: '#B91C1C', contentBg: '#FEF2F2' },
   ATENCAO: { bg: '#D97706', contentBg: '#FFFBEB' },
@@ -119,15 +131,22 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
   return (
     <Document>
       {/* Capa */}
-      <PdfCover logoBase64={logoBase64} nome={empresaNome} cargo={'Relat\u00f3rio Consolidado \u2014 RH / T&D'} empresa={''} data={data.gerado_em} tipo={'Relat\u00f3rio RH / T&D'} />
+      <PdfReportCover
+        bgBase64={getReportCoverBgBase64()}
+        logoBase64={logoBase64}
+        overline={'Relat\u00f3rio consolidado \u00b7 RH / T&D'}
+        titulo={['Panorama', 'Organizacional']}
+        nome={empresaNome}
+        tagline={'Do dado \u00e0 decis\u00e3o sobre pessoas.'}
+      />
 
       {/* Resumo + Indicadores */}
       <Page size="A4" style={pageStyles.page} wrap>
-        <PageBackground />
+        <PageHeader logoBase64={logoBase64} label={'Relatório RH / T&D'} />
 
         {c.resumo_executivo && (
           <View style={s.section} wrap={false}>
-            <SectionTitle>Resumo Executivo</SectionTitle>
+            <ReportSectionTitle>Resumo Executivo</ReportSectionTitle>
             <View style={s.box}>
               <Text style={s.text}>{textOf(resumoExecutivo?.leitura || c.resumo_executivo)}</Text>
               {(resumoExecutivo?.principalForca || c.resumo_executivo?.principal_forca_organizacional) && (
@@ -142,7 +161,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
         {c.indicadores && (
           <View style={s.section} wrap={false}>
-            <SectionTitle>Indicadores Quantitativos</SectionTitle>
+            <ReportSectionTitle>Indicadores Quantitativos</ReportSectionTitle>
             <View style={{ borderWidth: 1, borderColor: colors.gray200, borderRadius: 8, overflow: 'hidden', marginBottom: 8 }}>
               {[['Colaboradores avaliados', c.indicadores.total_avaliados],
                 ['Avalia\u00e7\u00f5es realizadas', c.indicadores.total_avaliacoes],
@@ -170,7 +189,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
         {c.comparativo_f1_f3 && (
           <View style={s.section} wrap={false}>
-            <SectionTitle>Comparativo</SectionTitle>
+            <ReportSectionTitle>Comparativo</ReportSectionTitle>
             <View style={s.box}><Text style={s.text}>{c.comparativo_f1_f3.analise}</Text></View>
             {c.comparativo_f1_f3.destaque_positivo && (
               <View style={s.hlPositive}><Text style={{ ...s.hlText, color: '#166534' }}>+ {c.comparativo_f1_f3.destaque_positivo}</Text></View>
@@ -183,7 +202,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
         {c.visao_por_cargo?.length > 0 && (
           <View style={s.section}>
-            <SectionTitle>{'Vis\u00e3o por Cargo'}</SectionTitle>
+            <ReportSectionTitle>{'Vis\u00e3o por Cargo'}</ReportSectionTitle>
             {c.visao_por_cargo.map((v: any, i: number) => (
               <View key={i} style={s.cargoCard} wrap={false}>
                 <Text style={s.cargoTitle}>{v.cargo} {'\u2014'} {'M\u00e9dia'}: {v.media || '\u2014'}</Text>
@@ -200,11 +219,11 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
       {/* Competências Críticas + Treinamentos */}
       <Page size="A4" style={pageStyles.page} wrap>
-        <PageBackground />
+        <PageHeader logoBase64={logoBase64} label={'Relatório RH / T&D'} />
 
         {c.competencia_foco_por_cargo?.length > 0 && (
           <View style={s.section}>
-            <SectionTitle>{'Compet\u00eancia Foco Sugerida por Cargo'}</SectionTitle>
+            <ReportSectionTitle>{'Compet\u00eancia Foco Sugerida por Cargo'}</ReportSectionTitle>
             {c.competencia_foco_por_cargo.map((f: any, i: number) => (
               <View key={i} style={{ ...s.critCard, marginBottom: 8 }} wrap={false}>
                 <View style={{ ...s.critHeader, backgroundColor: '#0D9488' }}>
@@ -221,7 +240,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
         {c.competencias_criticas?.length > 0 && (
           <View style={s.section}>
-            <SectionTitle>{'Compet\u00eancias Cr\u00edticas \u2014 Onde Investir'}</SectionTitle>
+            <ReportSectionTitle>{'Compet\u00eancias Cr\u00edticas \u2014 Onde Investir'}</ReportSectionTitle>
             {c.competencias_criticas.map((comp: any, i: number) => {
               const cc = (critColors as any)[comp.criticidade] || critColors.ESTAVEL;
               return (
@@ -241,7 +260,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
         {c.treinamentos_sugeridos?.length > 0 && (
           <View style={s.section}>
-            <SectionTitle>{'Forma\u00e7\u00f5es e Treinamentos'}</SectionTitle>
+            <ReportSectionTitle>{'Forma\u00e7\u00f5es e Treinamentos'}</ReportSectionTitle>
             {c.treinamentos_sugeridos.map((t: any, i: number) => {
               const pc = (prioColors as any)[t.prioridade] || prioColors.DESEJAVEL;
               return (
@@ -261,7 +280,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
         {c.perfil_disc_organizacional && (
           <View style={s.section} wrap={false}>
-            <SectionTitle>Perfil DISC Organizacional</SectionTitle>
+            <ReportSectionTitle>Perfil DISC Organizacional</ReportSectionTitle>
             <View style={s.box}><Text style={s.text}>{c.perfil_disc_organizacional.descricao}</Text></View>
             {c.perfil_disc_organizacional.forca_coletiva && (
               <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 6, padding: 10 }}>
@@ -283,11 +302,11 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
       {/* Decisões + Plano */}
       <Page size="A4" style={pageStyles.page} wrap>
-        <PageBackground />
+        <PageHeader logoBase64={logoBase64} label={'Relatório RH / T&D'} />
 
         {c.decisoes_chave?.length > 0 && (
           <View style={s.section}>
-            <SectionTitle>{'Decis\u00f5es-Chave'}</SectionTitle>
+            <ReportSectionTitle>{'Decis\u00f5es-Chave'}</ReportSectionTitle>
             <Text style={{ ...s.textIt, marginBottom: 8 }}>{'Estas decis\u00f5es exigem a\u00e7\u00e3o imediata e crit\u00e9rios claros de reavalia\u00e7\u00e3o.'}</Text>
             {c.decisoes_chave.map((d: any, i: number) => (
               <View key={i} style={s.decCard} wrap={false}>
@@ -319,7 +338,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
         {c.plano_acao && (
           <View style={s.section}>
-            <SectionTitle>{'Plano de A\u00e7\u00e3o \u2014 RH / T&D'}</SectionTitle>
+            <ReportSectionTitle>{'Plano de A\u00e7\u00e3o \u2014 RH / T&D'}</ReportSectionTitle>
             {acaoHorizontes.map(({ key, label, bg, contentBg }) => {
               const a = c.plano_acao[key];
               if (!a) return null;

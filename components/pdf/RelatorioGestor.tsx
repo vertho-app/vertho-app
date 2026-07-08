@@ -1,9 +1,9 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { colors, pageStyles } from './styles';
-import PdfCover from './PdfCover';
-import PageBackground from './PageBackground';
-import { SectionTitle } from './SectionTitle';
+import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
+import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
+// SectionTitle → ReportSectionTitle (Fraunces) e PageBackground → PageHeader fino, de PdfReportCover
 
 const s = StyleSheet.create({
   section: { marginBottom: 14 },
@@ -49,6 +49,18 @@ function PageFooter() {
     <View style={pageStyles.footer} fixed>
       <Text style={pageStyles.footerText}>{'Vertho Mentor IA \u2014 Confidencial'}</Text>
       <Text style={pageStyles.footerText} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
+    </View>
+  );
+}
+
+// Header fino unificado (mesmo padr\u00e3o do PDI) \u2014 substitui o antigo fundo de
+// p\u00e1gina inteira (template-fundo-relatorios.png), unificando o look e cortando
+// o PDF de ~1,7MB para ~200KB.
+function PageHeader({ logoBase64, label }: { logoBase64?: string; label: string }) {
+  return (
+    <View style={pageStyles.header} fixed>
+      {logoBase64 ? <Image src={logoBase64} style={pageStyles.headerLogo} /> : <View />}
+      <Text style={pageStyles.headerLabel}>{label}</Text>
     </View>
   );
 }
@@ -117,15 +129,24 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
   return (
     <Document>
       {/* Capa */}
-      <PdfCover logoBase64={logoBase64} nome={empresaNome} cargo={'Relat\u00f3rio do Gestor'} empresa={''} data={data.gerado_em} tipo={'Relat\u00f3rio do Gestor \u2014 Fase 3'} />
+      <PdfReportCover
+        bgBase64={getReportCoverBgBase64()}
+        logoBase64={logoBase64}
+        overline={'Relat\u00f3rio do gestor'}
+        titulo={['An\u00e1lise da', 'Equipe']}
+        nome={data.gestor_nome}
+        cargo="Gestor"
+        empresa={empresaNome}
+        tagline={'Do diagn\u00f3stico \u00e0 conversa de desenvolvimento.'}
+      />
 
       {/* Resumo + Evolução + Ranking */}
       <Page size="A4" style={pageStyles.page} wrap>
-        <PageBackground />
+        <PageHeader logoBase64={logoBase64} label={'Relatório do Gestor'} />
 
         {c.resumo_executivo && (
           <View style={s.section} wrap={false}>
-            <SectionTitle>Resumo Executivo</SectionTitle>
+            <ReportSectionTitle>Resumo Executivo</ReportSectionTitle>
             <View style={s.box}>
               <Text style={s.text}>{textOf(resumoExecutivo?.leitura || c.resumo_executivo)}</Text>
               {(resumoExecutivo?.principalAvanco || c.resumo_executivo?.principal_avanco) && (
@@ -140,7 +161,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {c.destaques_evolucao?.length > 0 && (
           <View style={s.section} wrap={false}>
-            <SectionTitle>{'Destaques de Evolu\u00e7\u00e3o'}</SectionTitle>
+            <ReportSectionTitle>{'Destaques de Evolu\u00e7\u00e3o'}</ReportSectionTitle>
             <View style={s.evolBox}>
               {c.destaques_evolucao.map((d: any, i: number) => (
                 <View key={i} style={{ marginBottom: 4 }}>
@@ -160,7 +181,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {(c.ranking_atencao || c.ranking_qualificado)?.length > 0 && (
           <View style={s.section}>
-            <SectionTitle>{'Ranking de Aten\u00e7\u00e3o'}</SectionTitle>
+            <ReportSectionTitle>{'Ranking de Aten\u00e7\u00e3o'}</ReportSectionTitle>
             {(c.ranking_atencao || c.ranking_qualificado).map((r: any, i: number) => {
               const urg = urgenciaLabel(r.urgencia);
               const bgStyle = urg === 'URGENTE' ? s.rankUrgente : urg === 'IMPORTANTE' ? s.rankImportante : s.rankOutro;
@@ -185,11 +206,11 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
       {/* Análise + DISC + Ações */}
       <Page size="A4" style={pageStyles.page} wrap>
-        <PageBackground />
+        <PageHeader logoBase64={logoBase64} label={'Relatório do Gestor'} />
 
         {c.analise_por_competencia?.length > 0 && (
           <View style={s.section}>
-            <SectionTitle>{'An\u00e1lise por Compet\u00eancia'}</SectionTitle>
+            <ReportSectionTitle>{'An\u00e1lise por Compet\u00eancia'}</ReportSectionTitle>
             {c.analise_por_competencia.map((a: any, i: number) => (
               <View key={i} wrap={false} style={{ marginBottom: 10 }}>
                 <Text style={s.h3}>{a.competencia} {'\u2014'} {'M\u00e9dia'}: {a.media_nivel || a.media}</Text>
@@ -209,7 +230,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {c.perfil_disc_equipe && (
           <View style={s.section} wrap={false}>
-            <SectionTitle>Perfil DISC da Equipe</SectionTitle>
+            <ReportSectionTitle>Perfil DISC da Equipe</ReportSectionTitle>
             <View style={s.box}><Text style={s.text}>{c.perfil_disc_equipe.descricao}</Text></View>
             {c.perfil_disc_equipe.forca_coletiva && (
               <View style={s.discForce}>
@@ -228,7 +249,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {c.acoes && (
           <View style={s.section}>
-            <SectionTitle>{'Plano de A\u00e7\u00e3o'}</SectionTitle>
+            <ReportSectionTitle>{'Plano de A\u00e7\u00e3o'}</ReportSectionTitle>
             {c.acoes.acao_principal && (
               <View style={s.acaoPrincipal} wrap={false}>
                 <Text style={s.acaoPrincipalText}>{'COMECE POR AQUI: '}{typeof c.acoes.acao_principal === 'string' ? c.acoes.acao_principal : c.acoes.acao_principal.titulo}</Text>
@@ -266,7 +287,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {c.papel_do_gestor && (
           <View style={s.section}>
-            <SectionTitle>Papel do Gestor</SectionTitle>
+            <ReportSectionTitle>Papel do Gestor</ReportSectionTitle>
             {[{ label: 'Semanal', val: c.papel_do_gestor.semanal },
               { label: 'Quinzenal', val: c.papel_do_gestor.quinzenal },
               { label: 'Pr\u00f3ximo ciclo', val: c.papel_do_gestor.proximo_ciclo },
