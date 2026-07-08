@@ -256,16 +256,24 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       </Page>
 
       {/* ═══════════════════ COMPETÊNCIAS — uma página por competência ═══════════════════ */}
+      {/* A mensagem final flui logo após o último checklist (fim da última
+          competência); só cai pra página seguinte, no topo, se não couber. */}
       {competencias.map((comp: any, idx: number) => (
         <Page key={idx} size="A4" style={pageStyles.page} wrap>
           <PageHeader logoBase64={logoBase64} label={`Competência ${idx + 1} de ${competencias.length}`} />
           <CompetencyBlock comp={comp} index={idx} total={competencias.length} />
+          {idx === competencias.length - 1 && c.mensagem_final && (
+            <View style={[s.finalBox, { marginTop: 14 }]} wrap={false}>
+              <Text style={s.finalLabel}>Mensagem Final</Text>
+              <Text style={s.finalText}>{c.mensagem_final}</Text>
+            </View>
+          )}
           <PageFooter />
         </Page>
       ))}
 
-      {/* ═══════════════════ MENSAGEM FINAL (navy box) ═══════════════════ */}
-      {c.mensagem_final && (
+      {/* Fallback: sem competências, a mensagem final ganha página própria (topo). */}
+      {c.mensagem_final && competencias.length === 0 && (
         <Page size="A4" style={pageStyles.page}>
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
           <View style={s.finalBox}>
