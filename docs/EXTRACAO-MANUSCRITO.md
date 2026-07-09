@@ -17,8 +17,13 @@ Status: **parser, autoria e orquestrador prontos e verificados.** Falta a UI.
   `enqueueManuscritoBatch`.
 - `trigger/gerar-modulos-manuscrito.ts` — 18 chamadas num batch Claude (−50%).
 
+- `app/admin/vertho/modulos-base/importar-manuscrito/page.tsx` — upload, preview
+  (matriz descritor × transição) e progresso.
+
 > ⚠️ Tasks do Trigger.dev **não sobem no `git push`**. Depois de deployar a Vercel,
-> rodar `npx trigger.dev deploy` manualmente, ou o enqueue falha no dispatch.
+> rodar `npx trigger.dev deploy` manualmente, ou o enqueue falha no dispatch. O
+> path `C:\GAS\Vertho App` tem espaço e quebra o CLI — receita robocopy+junction
+> na memória do projeto. Task deployada em 09/07, versão `20260709.1` (9 tasks).
 
 ---
 
