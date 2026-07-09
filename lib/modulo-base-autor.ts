@@ -1,0 +1,188 @@
+/**
+ * Núcleo da IA-autora de Módulos-Base: prompt de sistema, montagem do user prompt
+ * e validação do corpo devolvido.
+ *
+ * Vive em `lib/` — e não em `actions/modulos-base.ts` — porque as tasks do
+ * Trigger.dev precisam do MESMO prompt (batch de manuscrito), e um arquivo
+ * `'use server'` não pode ser importado por elas sem transformar cada export
+ * num endpoint HTTP. Mesmo motivo de `lib/ia2-gabarito.ts`.
+ *
+ * Sem I/O, sem guard, sem Supabase: só texto puro.
+ */
+
+export type Nivel = 'N1' | 'N2' | 'N3' | 'N4';
+
+// ── Parsing tolerante do JSON do corpo ────────────────────────────────────────
+// Aceita JSON parcial (mesmo que falte 1 dos 4 blocos — o ausente vira {} e
+// a revisão humana / IA-auditora pega depois). Antes, qualquer ausência
+// rejeitava a resposta inteira, derrubando o import quando o output era
+// grande demais e a IA truncava no fim.
+export function extractCorpo(raw: string | null | undefined): any | null {
+  const text = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+  if (!text) return null;
+  const candidatos = [text];
+  const obj = text.match(/\{[\s\S]*\}/);
+  if (obj) candidatos.push(obj[0]);
+  for (const c of candidatos) {
+    try {
+      const parsed = JSON.parse(c);
+      if (parsed && typeof parsed === 'object') {
+        // Pelo menos UM bloco precisa estar presente pra valer a pena salvar.
+        const temAlgo = parsed.conteudo_central || parsed.conteudo_aplicavel
+          || parsed.guarda_corpos || parsed.adaptacao_por_formato;
+        if (!temAlgo) continue;
+        return {
+          conteudo_central: parsed.conteudo_central || {},
+          conteudo_aplicavel: parsed.conteudo_aplicavel || {},
+          guarda_corpos: parsed.guarda_corpos || {},
+          adaptacao_por_formato: parsed.adaptacao_por_formato || {},
+        };
+      }
+    } catch { /* tenta próximo */ }
+  }
+  return null;
+}
+
+// ── Validação mínima do corpo (não substitui revisão humana) ──────────────────
+export function validarCorpo(corpo: any): string[] {
+  const erros: string[] = [];
+  if (!corpo?.conteudo_central?.ideia_principal) erros.push('conteudo_central.ideia_principal ausente');
+  if (!corpo?.conteudo_central?.explicacao_expandida) erros.push('conteudo_central.explicacao_expandida ausente');
+  if (!Array.isArray(corpo?.conteudo_central?.principios) || corpo.conteudo_central.principios.length < 3) {
+    erros.push('conteudo_central.principios precisa de pelo menos 3 itens');
+  }
+  if (!corpo?.conteudo_central?.sintese_executiva) erros.push('conteudo_central.sintese_executiva ausente');
+  if (!Array.isArray(corpo?.conteudo_aplicavel?.situacoes_tipicas) || corpo.conteudo_aplicavel.situacoes_tipicas.length < 3) {
+    erros.push('conteudo_aplicavel.situacoes_tipicas precisa de pelo menos 3 itens');
+  }
+  if (!corpo?.guarda_corpos?.preservar || !corpo?.guarda_corpos?.evitar) {
+    erros.push('guarda_corpos.preservar e .evitar são obrigatórios');
+  }
+  return erros;
+}
+// ════════════════════════════════════════════════════════════════════════════
+// IA-as-autor — rascunhar do zero
+// ════════════════════════════════════════════════════════════════════════════
+
+export const SYSTEM_AUTOR = `Você é um designer instrucional sênior da Vertho. Sua tarefa é preencher um Módulo-Base de Conteúdo seguindo o template oficial.
+
+REGRAS INTRANSPONÍVEIS:
+- O módulo é matéria-prima pedagógica para a IA gerar conteúdos depois (texto, podcast, vídeo). NÃO é roteiro final, NÃO é régua de maturidade, NÃO é aula pro colaborador.
+- PROIBIDO mencionar NÍVEIS de maturidade no conteúdo: não escreva "N1", "N2", "estágio inicial/avançado", "transição de nível", "maturidade", nem descreva a evolução por nível DENTRO dos campos. A transição de nível serve SÓ para VOCÊ calibrar a profundidade/escopo — NUNCA aparece no texto gerado. (Esse é o erro mais grave: módulo que vira régua.)
+- DISTILE em matéria-prima: conceitos, princípios e exemplos reutilizáveis. NÃO copie a estrutura de AULA do material-fonte — sem títulos markdown (##) dentro dos campos, sem sequência didática "passo 1, passo 2", sem prosa pronta para o leitor final. Se o fonte vier formatado como aula, EXTRAIA o conhecimento e descarte a forma.
+- CALIBRE a LINGUAGEM ao PÚBLICO informado. Se o público for microempreendedor/MEI/iniciante, use linguagem SIMPLES e concreta; evite jargão corporativo ("homologar fornecedores", "taxa de conversão", "prospecção fria", "testes estatísticos", "conversão histórica") — explique sem pressupor conhecimento técnico.
+- Não use nomes próprios reais. Não invente leis, normas ou estatísticas. Não faça diagnóstico psicológico. Não trate DISC como determinismo.
+- Exemplos devem ser UNIVERSAIS (sem cargo específico, salvo se for explicitamente um módulo de contexto específico).
+- repertorio_linguagem DEVE ter as 6 categorias (frases_uteis, perguntas_poderosas, abertura, conducao_situacao_dificil, fechamento_com_compromisso, frases_a_evitar) — nenhuma vazia.
+
+FORMATO DE SAÍDA: APENAS JSON válido com a estrutura especificada. Sem markdown, sem comentários, sem texto antes ou depois.`;
+
+/** Teto do texto-fonte injetado no prompt. As fatias de manuscrito têm ~64k. */
+export const LIMITE_FONTE_PADRAO = 60000;
+
+export interface OpcoesPrompt {
+  contexto?: string;
+  referencia?: any;
+  docxTexto?: string;
+  /**
+   * Como nomear o profissional ("o técnico", "o gestor"). Sem isto a autora
+   * alterna sinônimos aleatoriamente entre módulos do mesmo descritor.
+   */
+  termoCanonico?: string;
+  /** Sobrescreve LIMITE_FONTE_PADRAO. Fatias de manuscrito precisam de ~70k. */
+  limiteFonte?: number;
+}
+
+export function montarUserPrompt(comp: any, nivel_entrada: Nivel, nivel_destino: Nivel, o: OpcoesPrompt = {}) {
+  const { contexto, referencia, docxTexto, termoCanonico } = o;
+  const nivelTextos: Record<string, string> = {
+    N1: comp.n1_gap || '',
+    N2: comp.n2_desenvolvimento || '',
+    N3: comp.n3_meta || '',
+    N4: comp.n4_referencia || '',
+  };
+
+  const blocoReferencia = referencia
+    ? `\n\n## MÓDULO DE REFERÊNCIA (use como base — adapte para o novo locale):\n${JSON.stringify({
+        conteudo_central: referencia.conteudo_central,
+        conteudo_aplicavel: referencia.conteudo_aplicavel,
+        guarda_corpos: referencia.guarda_corpos,
+        adaptacao_por_formato: referencia.adaptacao_por_formato,
+      }, null, 2)}`
+    : '';
+
+  const blocoDocx = docxTexto
+    ? `\n\n## TEXTO EXTRAÍDO DO DOCX (estruture-o no JSON do módulo — adapte o que estiver fora do padrão):\n${docxTexto.slice(0, o.limiteFonte ?? LIMITE_FONTE_PADRAO)}`
+    : '';
+
+  const blocoTermo = termoCanonico
+    ? `\n- TERMO CANÔNICO: refira-se ao profissional SEMPRE como "${termoCanonico}". Não alterne sinônimos (ex.: "acompanhador", "supervisor", "monitor") — use o mesmo termo do início ao fim.`
+    : '';
+
+  return `## COMPETÊNCIA CANÔNICA
+- Nome: ${comp.nome}
+- Pilar: ${comp.pilar || '—'}
+- Segmento: ${comp.segmento}
+- Descritor: ${comp.descritor_completo || comp.descricao || '—'}
+
+## PÚBLICO (calibre a linguagem para ele)
+${comp.cargo || contexto || 'profissional generalista'} — escreva no nível de quem vai aplicar isto no dia a dia, sem jargão técnico desnecessário.${blocoTermo}
+
+## PROFUNDIDADE-ALVO (use APENAS para calibrar o escopo — NÃO escreva sobre níveis no conteúdo)
+- Ponto de partida típico: ${nivelTextos[nivel_entrada]}
+- Onde deve chegar: ${nivelTextos[nivel_destino]}
+Lembrete: jamais cite "${nivel_entrada}", "${nivel_destino}", "transição" ou "maturidade" nos campos de saída.
+
+## CONTEXTO PEDAGÓGICO
+${contexto || 'transversal — não específico de um contexto'}
+
+## EVIDÊNCIAS ESPERADAS (referência)
+${comp.evidencias_esperadas || '—'}
+${blocoReferencia}
+${blocoDocx}
+
+## ESTRUTURA EXIGIDA DA SAÍDA (JSON):
+{
+  "conteudo_central": {
+    "ideia_principal": "string markdown 3-5 linhas (300-500 chars)",
+    "explicacao_expandida": "string markdown 400-1200 palavras",
+    "principios": [
+      { "nome": "≤60 chars", "explicacao": "1-2 frases", "implicacao_pratica": "1 frase aplicada" }
+    ],
+    "sintese_executiva": "string markdown 5-8 linhas"
+  },
+  "conteudo_aplicavel": {
+    "situacoes_tipicas": [
+      { "contexto": "...", "desafio": "...", "risco_comum": "...", "boa_abordagem": "..." }
+    ],
+    "exemplos_universais": {
+      "simples": "...", "intermediario": "...", "complexo": "...",
+      "aplicacao_inadequada": "...", "aplicacao_adequada": "..."
+    },
+    "erros_comuns": [
+      { "erro": "...", "por_que_acontece": "...", "impacto": "...", "como_corrigir": "..." }
+    ],
+    "repertorio_linguagem": {
+      "frases_uteis": ["..."], "perguntas_poderosas": ["..."],
+      "abertura": ["..."], "conducao_situacao_dificil": ["..."],
+      "fechamento_com_compromisso": ["..."], "frases_a_evitar": ["..."]
+    },
+    "boas_praticas": [
+      { "o_que_fazer": "...", "por_que": "...", "como_aplicar": "...", "evidencia_boa_aplicacao": "..." }
+    ]
+  },
+  "guarda_corpos": {
+    "preservar": ["..."], "evitar": ["..."],
+    "pode_adaptar_livremente": ["cargo","contexto institucional","formato","tom","exemplos concretos"],
+    "nao_pode_adaptar": ["conceito central","profundidade pedagógica","princípios","limites éticos"],
+    "cuidados_eticos": ["..."], "cuidados_linguagem": ["..."]
+  },
+  "adaptacao_por_formato": {
+    "texto": "orientação específica para texto de apoio",
+    "podcast_roteiro": "orientação específica para roteiro de podcast",
+    "video_roteiro": "orientação específica para roteiro de vídeo"
+  }
+}
+
+QUANTIDADES (faixa fechada — não ultrapasse o teto): 5 a 6 princípios, 4 a 5 situações típicas, 4 a 5 erros comuns, 4 a 5 boas práticas. Densidade vale mais que volume: prefira 5 itens afiados a 9 diluídos. Responda APENAS com o JSON.`;
+}
