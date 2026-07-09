@@ -130,6 +130,61 @@ final mede o que o PDI prometeu? Falhou → marca drift (e, opcionalmente, re-ge
 - **Estágio 4b (pendente) — PDI 2 níveis:** separar PDI **executivo** (humano) do
   **estruturado** (o blueprint, pra engine). Não iniciado.
 
+## Frente A — UI da trilha exibe o binding do PDI (✅ FEITO)
+
+A metade que faltava do Estágio 3: o binding (`objetivo_da_semana`/`conexao_com_pdi`/
+`acao_pdi`) já ia no `temporada_plano`, mas o render da trilha não mostrava. A tela de
+detalhe da semana (`app/dashboard/temporada/semana/[week]/page.tsx`) ganhou um bloco
+"NO SEU PDI" (objetivo da semana + "Esta semana sustenta: <ação>"), só quando
+`semana.acao_pdi` existe (backward-compat). i18n `SeasonWeek.pdi.*`. Verificado ao
+vivo em prod. Timeline mantida limpa (todas as semanas bindam → selo em todas = ruído).
+
+## Refinamentos pós-piloto Ibipeba (09/07)
+
+- **Prompt do gerador endurecido** (`lib/blueprint/prompt.ts`): anti-clínico FORTE
+  (lista de termos proibidos — "esgotamento/sobrecarga/regulação emocional/bem-estar"
+  — + reformular p/ prática de trabalho); semanas de avaliação medem UMA competência
+  (13→comp1, 14→comp2) com descritores/evidência do próprio blueprint e evidência
+  OBSERVÁVEL (não autoavaliação/portfólio); N1 integra COM ANDAIME; anti-genérico
+  (ação cita artefato/rotina do cargo).
+- **Auditoria calibrada** (`lib/blueprint/audit.ts`): `tom-saude` julga o TEXTO
+  AUTORAL, NÃO os NOMES de competência/descritor (vêm do modelo — o blueprint não os
+  escolheu; ex.: "Autocuidado e resiliência emocional" é clínico mas não é culpa do
+  blueprint) + reserva warn/fail p/ problema real. **Lição: auditar só o que o
+  gerador CONTROLA (texto), não o INPUT (nomes).** Efeito medido: drift 8→0, score
+  74→87 nos casos-problema.
+- **PDI — sprint por ciclo + teoria:** "Plano de 30 dias" → **"Seu plano, ciclo a
+  ciclo"** (o "30 dias" global conflitava com 14 sem sequenciais → cada competência
+  mostra sua janela real "Ciclo N · Semanas X-Y", derivada do `trilha_mapa` excluindo
+  a avaliação). Página "vira trilha" passou a mostrar **APRENDE** (temas de
+  `conteudos_recomendados` do blueprint) + **PRÁTICA** (missão) por ciclo — o ritmo
+  aprende→aplica. Novo campo persistido `conteudo.blueprint_conteudos`.
+- **Fix storage do PDF:** slug do nome de arquivo vira ASCII (NFD + tira acento) —
+  nome com acento quebrava o upload (`Invalid key` → `pdf_path` null), bloqueando a
+  maioria dos nomes BR.
+
+## Gating (segurança)
+
+Cada export de `actions/blueprint.ts` e `actions/relatorios.ts` é um endpoint HTTP
+(`'use server'`) → **nenhum aceita flag de bypass** (`internal`); o gate
+`ai.audit.regenerate` roda sempre. Os LOTES aplicam o gate uma vez e chamam o núcleo
+privado (`gerarBlueprintCore`/`auditarBlueprintCore` em `lib/blueprint/core`), que
+revalida o tenant por colaborador (defesa em profundidade). NÃO recriar caminhos
+`internal` sem gate (foram removidos de propósito). Geração headless por script usa
+o caminho gated (rodar no app) ou o núcleo, não um bypass.
+
+## Piloto Ibipeba — status (09/07)
+
+- **37/37 blueprints** gerados + auditados com o prompt novo: **0 drift, score médio
+  88** (8×92, 23×88, 6×83). Estrutura 100% pass.
+- **1 PDI regenerado** (Elizângela, consumindo o blueprint, com sprint-por-ciclo +
+  teoria) — exemplo verificado. **Os outros 36 PDIs ainda são pré-blueprint** (de
+  08/07, sem `trilha_mapa`) → regenerar.
+- **Falta pro go-live:** (2) regenerar os 36 PDIs; (3) ligar o toggle da Ibipeba
+  (Config→Programa OU `sys_config.blueprint_drives_trilha=true`); (4) gerar as 37
+  trilhas (flag só vale pra próxima geração). Não há trilha ativa (só a da Elizângela,
+  0 progresso) → baixo risco. Decisão de produto do dono.
+
 ## Backward-compat / risco
 
 Tudo aditivo: sem blueprint, PDI e trilha seguem como na Fase 0. O gate de foco
