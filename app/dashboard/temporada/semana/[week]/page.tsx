@@ -219,6 +219,21 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
         <h1 className="text-2xl font-bold text-white">{descritoresLabel}</h1>
       </div>
 
+      {/* Vínculo com o PDI (Blueprint) — só quando a trilha é dirigida pelo blueprint. */}
+      {semana.acao_pdi && (
+        <div className="mb-6 rounded-xl border border-brand-400/30 bg-brand-400/5 px-4 py-3">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-brand-400 font-bold mb-1">
+            <Target size={12} /> {t('pdi.badge')}
+          </div>
+          {semana.objetivo_da_semana && (
+            <p className="text-sm text-gray-200 mb-1.5">{semana.objetivo_da_semana}</p>
+          )}
+          <p className="text-xs text-gray-400">
+            <span className="text-gray-500">{t('pdi.sustains')}: </span>{semana.acao_pdi}
+          </p>
+        </div>
+      )}
+
       {/* Conteúdo da semana */}
       {!isAplicacao && !isAvaliacao && entregasConteudo.length > 0 && (
         <>
