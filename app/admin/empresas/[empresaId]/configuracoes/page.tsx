@@ -22,6 +22,7 @@ const DEFAULT_CONFIG = {
   envios: { email_remetente: null, email_alias: null },
   programa_modo: 'regular_duo' as 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto',
   fase_carreira_default: null as null | 'junior' | 'pleno' | 'senior',
+  blueprint_drives_trilha: false,
 };
 
 export default function ConfigPage({ params }: { params: Promise<{ empresaId: string }> }) {
@@ -344,6 +345,34 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
             <p className="text-[10px] text-gray-600 mt-2">
               {t.rich('program.careerHint', { b: (chunks) => <b>{chunks}</b> })}
             </p>
+          </Panel>
+
+          <Panel title={t('program.blueprintTitle')}>
+            <p className="text-[10px] text-gray-500 mb-3">
+              {t.rich('program.blueprintDesc', { b: (chunks) => <b>{chunks}</b> })}
+            </p>
+            <button
+              onClick={() => setConfig(prev => ({ ...prev, blueprint_drives_trilha: !(prev as any).blueprint_drives_trilha }))}
+              className={`flex items-center gap-3 w-full p-3 rounded-lg border text-left transition-colors ${
+                (config as any).blueprint_drives_trilha
+                  ? 'border-cyan-400/50 bg-cyan-400/10'
+                  : 'border-white/10 hover:border-white/30'
+              }`}
+              style={{ background: (config as any).blueprint_drives_trilha ? undefined : '#091D35' }}>
+              <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                (config as any).blueprint_drives_trilha ? 'bg-cyan-400' : 'bg-white/15'
+              }`}>
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  (config as any).blueprint_drives_trilha ? 'translate-x-4' : 'translate-x-0.5'
+                }`} />
+              </span>
+              <span className="flex flex-col">
+                <span className="text-sm font-bold text-white">
+                  {(config as any).blueprint_drives_trilha ? t('program.blueprintOn') : t('program.blueprintOff')}
+                </span>
+                <span className="text-[10px] text-gray-400">{t('program.blueprintHint')}</span>
+              </span>
+            </button>
           </Panel>
         </div>
       )}

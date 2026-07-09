@@ -423,7 +423,10 @@ async function gerarTemporadaRegularDuo(args: {
   // única com o PDI) em vez de `selectDescriptorsDuo`. Sem blueprint OU adapter
   // não-aproveitável OU flag off → fallback pro caminho paralelo atual (byte-igual).
   let blueprintInputs: BlueprintTrilhaInputs | null = null;
-  if (process.env.BLUEPRINT_DRIVES_TRILHA === '1') {
+  // Flag: env global (todos os tenants) OU por empresa (sys_config, p/ piloto).
+  const blueprintDrivesTrilha = process.env.BLUEPRINT_DRIVES_TRILHA === '1'
+    || empresa?.sys_config?.blueprint_drives_trilha === true;
+  if (blueprintDrivesTrilha) {
     const { data: bpRow } = await tdb.from('development_blueprints')
       .select('blueprint')
       .eq('colaborador_id', colab.id)

@@ -109,10 +109,10 @@ final mede o que o PDI prometeu? Falhou → marca drift (e, opcionalmente, re-ge
   `selectDescriptorsDuo` (byte-igual ao paralelo atual). Validado E2E na Elizângela
   (Ibipeba): 14 sem, missões 4/8/12 e avaliação 13/14 intactas, binding em todas,
   9/9 semanas de conteúdo com 2 entregas, estrutura sequencial honrada; flag off
-  reproduz o paralelo sem binding. **Ligar por empresa/global é uma decisão de
-  produto** (flag ainda OFF em prod). Falta: página "vira trilha" mostrar o binding
-  real a partir do plano (hoje o binding está no `temporada_plano`, o render ainda
-  não o consome).
+  reproduz o paralelo sem binding. **Flag resolvida por env `BLUEPRINT_DRIVES_TRILHA=1`
+  (global) OU `empresas.sys_config.blueprint_drives_trilha === true` (por empresa,
+  p/ piloto)** — toggle na tela de Configurações da empresa (aba Programa). Ainda
+  OFF por padrão. A UI da trilha já exibe o binding (Frente A, ver abaixo).
 - **Estágio 4 — Auditoria — ✅ FEITO (auditarBlueprint):** `lib/blueprint/audit.ts`
   (puro) = camada ESTRUTURAL (6 checks determinísticos por PRESENÇA nominal: toda
   ação do PDI sustentada? refs de objetivo existem? semana órfã? fora do foco?
