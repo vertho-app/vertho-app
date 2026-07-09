@@ -55,7 +55,13 @@ tests/unit/          vitest
 - O app roda **100% service-role** (`createSupabaseAdmin` **bypassa RLS**). O isolamento entre tenants depende do **código**, não do banco.
 - Todo acesso a dado de tenant vai por **`tenantDb(empresaId)`** (escopa por `empresa_id`).
 - Resolver colaborador SEMPRE com **`findColabByEmail`** (resolve o tenant pelo header) — NUNCA `.eq('email')` direto (usuário em 2+ empresas → quebra).
-- Actions internas que pulam a sessão (reset de demo, crons, auto-triggers) recebem **`internal?: { empresaId }`** e **revalidam o tenant** (defesa em profundidade) — não um `boolean`.
+
+### Server Actions são endpoints HTTP (autorização)
+- Num arquivo `'use server'`, **todo export vira um endpoint HTTP**. Logo, um parâmetro que pula o gate é escolhido pelo **cliente**, não pelo servidor.
+- **NÃO existe flag `internal` numa action.** O padrão antigo (`internal: boolean` ou `internal?: { empresaId }`) foi um furo de autorização — o action id de `gerarBlueprint` estava no bundle público, e o bypass era chamável sem sessão. Removido de `blueprint.ts`, `relatorios.ts`, `temporadas.ts` (09/07).
+- **Caminho headless** (script, seed, task Trigger, cron): extrair um **núcleo sem gate** para `lib/`, fora de `'use server'`, e chamá-lo direto. Modelos: `lib/blueprint/core.ts`, `lib/modulo-base-auditor.ts`. A action `'use server'` aplica o gate **sempre** e delega ao núcleo; lotes aplicam o gate uma vez e o núcleo revalida o tenant por item (`empresaIdEsperado`).
+- Auditar o que está exposto: `.next/server/server-reference-manifest.json` = ids que o servidor **aceita**; grep do id em `.next/static/chunks/` = ids que o browser **publica**.
+- ⚠️ Resíduo conhecido (não corrigido): `actions/whatsapp.ts` (`enviarWhatsApp`/`enviarAudio`), `actions/fase3.ts` (`rodarIA4`), `actions/avaliacao-acumulada.ts`, `actions/evolution-report.ts`. Não copiar esse padrão.
 
 ### Trabalho pós-response numa rota
 - DEVE usar **`after()`** (`next/server`). Uma IIFE solta (`(async()=>{})()`) morre no freeze da lambda pós-response.
@@ -94,7 +100,13 @@ tests/unit/          vitest
 - Scoring: `lib/scoring::calcularFitUnificado` (Adequação + Fit v2), knockouts como gate, `spec_version` versiona a régua (congela histórico).
 
 ## Testes
-`npm run test:unit` (vitest). Preferir extrair lógica pura + testar helpers; para actions com Supabase, mock encadeável (ver `tests/unit/piloto/report-tenant-piloto.test.ts`).
+`npm run test:unit` (vitest) — **roda no CI** (`typecheck.yml`, passo "Security tests + service-role guard"). Preferir extrair lógica pura + testar helpers; para actions com Supabase, mock encadeável (ver `tests/unit/piloto/report-tenant-piloto.test.ts`).
+
+- **Integrações externas** (IA, HeyGen, Bunny, WhatsApp): testar o CONTRATO do wrapper em `tests/unit/integrations/` — herda o `include` do `vitest.config.ts` e o CI, sem config nova. Modelo: `tests/unit/integrations/whatsapp-failover.test.ts` (adapters stubados, `fetch` real lança). **NUNCA chamar API real.**
+- Mock testa o NOSSO código, nunca o do fornecedor: se a API externa mudar, o teste passa feliz. Para isso, canary/health check — não `.test.ts`.
+- Teste que nunca falhou não prova nada: **validar por mutação** (quebrar a invariante no código de produção e confirmar que o teste correspondente falha) antes de considerar pronto.
+
+⚠️ Não rodar `npm run build | tail` — o pipe fecha e deixa um `next build` órfão segurando o lock ("Another next build process is already running", `.next` sem `BUILD_ID`). Redirecionar pra arquivo: `npm run build > log 2>&1`.
 
 ## Ferramentas: MCP + Skills
 
