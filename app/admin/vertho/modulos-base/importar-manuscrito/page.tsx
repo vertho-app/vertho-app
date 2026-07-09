@@ -121,9 +121,9 @@ export default function ImportarManuscritoPage() {
         .filter((d) => selecionados.has(d.indice))
         .reduce((n, d) => n + d.celulas.filter((c) => substituir || !c.jaExiste).length, 0)
     : 0;
-  // Autoria medida em $0,197/módulo (Sonnet 4.6). Auditora GPT-5.4 ~$0,10/módulo,
-  // fora do batch — e por AMOSTRA (1 por transição), salvo escalada.
-  const custoAudit = auditar ? Math.min(aGerar, 3) * 0.10 : 0;
+  // Autoria medida em $0,197/módulo (Sonnet 4.6); auditora GPT-5.4 ~$0,10/módulo,
+  // fora do batch (cross-provider por design).
+  const custoAudit = auditar ? aGerar * 0.10 : 0;
   const custoEstimado = (aGerar * 0.197 + custoAudit).toFixed(2);
   const custoBatch = (aGerar * 0.197 * 0.5 + custoAudit).toFixed(2);
 
@@ -245,7 +245,7 @@ export default function ImportarManuscritoPage() {
 
           <label className="flex items-center gap-2 text-[11px] text-gray-300 mb-3">
             <input type="checkbox" checked={auditar} onChange={(e) => setAuditar(e.target.checked)} />
-            Auditoria Dual-IA (GPT-5.4) por amostra — 1 módulo por transição; se algum não passar, audita todos. Auditados sobem de rascunho para revisão
+            Auditoria Dual-IA (GPT-5.4) em todos os módulos — auditados sobem de rascunho para revisão
           </label>
 
           {preview.recursos.length > 0 && (

@@ -209,28 +209,3 @@ export async function modulosExistentes(
 }
 
 export const chaveModulo = (compId: string, ne: string, nd: string) => `${compId}|${ne}|${nd}`;
-
-/**
- * Escolhe a amostra a auditar num lote de manuscrito.
- *
- * Auditar os 18 módulos custa ~US$1,80 e informa pouco: eles saem do MESMO prompt,
- * da MESMA fonte, com o MESMO fatiamento determinístico. As falhas aqui são
- * SISTÊMICAS (a autora virou régua, copiou a forma de aula, inventou dado), não
- * idiossincráticas — e uma falha sistêmica aparece em qualquer módulo.
- *
- * Então: um por FAIXA DE TRANSIÇÃO (N1→N2, N2→N3, N3→N4), porque é aí que o
- * prompt varia. Se algum não vier "aprovado", o chamador escala para 100%.
- *
- * Determinístico (pega o primeiro de cada faixa): dois imports do mesmo manuscrito
- * auditam os mesmos módulos, e o resultado é reproduzível.
- */
-export function amostraParaAuditoria(
-  itens: Array<{ id: string; nivel_entrada: string; nivel_destino: string }>,
-): string[] {
-  const porTransicao = new Map<string, string>();
-  for (const it of itens) {
-    const k = `${it.nivel_entrada}${it.nivel_destino}`;
-    if (!porTransicao.has(k)) porTransicao.set(k, it.id);
-  }
-  return [...porTransicao.values()];
-}

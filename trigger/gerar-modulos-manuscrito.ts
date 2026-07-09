@@ -8,7 +8,6 @@ import {
   persistirModuloDeManuscrito,
   modulosExistentes,
   chaveModulo,
-  amostraParaAuditoria,
 } from '@/lib/manuscrito-modulos';
 import { extractCorpo, validarCorpo } from '@/lib/modulo-base-autor';
 import { auditarModulosCore } from '@/lib/modulo-base-auditor';
@@ -28,8 +27,8 @@ import { auditarModulosCore } from '@/lib/modulo-base-auditor';
  *  - Falha POR-ITEM → registra em progress.resultados[] e SEGUE.
  *  - Falha do BATCH inteiro → FALLBACK SÍNCRONO por módulo. Nunca perde conteúdo.
  *  - Persiste À MEDIDA que cada módulo fica pronto: um timeout perde só o resto.
- *  - Auditoria Dual-IA no fim (GPT-5.4, fora do batch — batch só aceita Claude),
- *    POR AMOSTRA com escalada. Falhar ali não invalida o conteúdo.
+ *  - Auditoria Dual-IA no fim (GPT-5.4, fora do batch — batch só aceita Claude).
+ *    Falhar ali não invalida o conteúdo; o módulo só fica sem nota.
  *
  * O DOCX viaja em `params.docxBase64` (~360KB) e é RE-PARSEADO aqui. O parser é
  * determinístico, então re-parsear é mais barato e mais seguro que serializar as
@@ -155,52 +154,23 @@ export const gerarModulosManuscritoTask = task({
       const okCount = resultados.filter((r) => r.ok).length;
       const errCount = resultados.length - okCount;
 
-      // 5) Auditoria Dual-IA (GPT-5.4) sobre os módulos recém-criados. Best-effort:
-      // falhar aqui não invalida o conteúdo — o módulo só fica sem nota, auditável
-      // depois pela UI. Fica FORA do batch de propósito: o batch da Anthropic só
-      // aceita Claude, e a auditora é cross-provider por design.
-      //
-      // AMOSTRA COM ESCALADA. Auditar os 18 custa ~US$1,80 e informa pouco: mesmo
-      // prompt, mesma fonte, mesmo fatiamento. Audita 1 por faixa de transição
-      // (é onde o prompt varia); se algum não vier "aprovado", audita o resto.
-      // Custo típico ~US$0,30; a rede de segurança continua inteira quando falha.
+      // 5) Auditoria Dual-IA (GPT-5.4) sobre TODOS os módulos recém-criados. Fica
+      // FORA do batch de propósito: o batch da Anthropic só aceita Claude, e a
+      // auditora é cross-provider por design. ~US$0,10/módulo — barato para um
+      // gate que de fato reprova (o veredito é derivado em código dos problemas).
+      // Best-effort: falhar aqui não invalida o conteúdo, o módulo só fica sem nota.
       let auditados = 0;
-      let escalou = false;
       if (idsCriados.length && pp.auditar !== false) {
         try {
-          const criados = pendentes
-            .map((r, i) => ({ r, id: resultados[i]?.id }))
-            .filter((x) => x.id)
-            .map((x) => ({ id: x.id!, nivel_entrada: x.r.nivel_entrada, nivel_destino: x.r.nivel_destino }));
-
-          const amostraCompleta = pp.auditarTudo === true || criados.length <= 3;
-          const amostra = amostraCompleta ? criados.map((c) => c.id) : amostraParaAuditoria(criados);
-
-          const rodar = async (ids: string[]) => auditarModulosCore(sb, ids, {
+          await pushProgress(`auditando ${idsCriados.length} módulo(s)…`);
+          const r = await auditarModulosCore(sb, idsCriados, {
             promoverParaRevisao: true,
             onItem: async (_id, bom) => {
               if (bom) auditados++;
-              await pushProgress(`auditando ${auditados}…`);
+              await pushProgress(`auditando ${auditados}/${idsCriados.length}…`);
             },
           });
-
-          await pushProgress(`auditando amostra de ${amostra.length}…`);
-          const r1 = await rodar(amostra);
-          if (r1.falhas.length) console.warn('[gerar-modulos-manuscrito] auditoria:', r1.falhas.join(' · '));
-
-          // Escala para 100% se a amostra revelou qualquer coisa fora de "aprovado".
-          if (!amostraCompleta) {
-            const { data: vistos } = await sb.from('modulos_base_conteudo')
-              .select('id, auditoria_ia').in('id', amostra);
-            const limpo = (vistos || []).every((m: any) => m.auditoria_ia?.veredito === 'aprovado');
-            if (!limpo) {
-              escalou = true;
-              const resto = criados.map((c) => c.id).filter((id) => !amostra.includes(id));
-              await pushProgress(`amostra acusou problema — auditando os ${resto.length} restantes…`);
-              const r2 = await rodar(resto);
-              if (r2.falhas.length) console.warn('[gerar-modulos-manuscrito] auditoria (escalada):', r2.falhas.join(' · '));
-            }
-          }
+          if (r.falhas.length) console.warn('[gerar-modulos-manuscrito] auditoria:', r.falhas.join(' · '));
         } catch (e: any) {
           console.warn('[gerar-modulos-manuscrito] auditoria falhou inteira:', e?.message);
         }
@@ -215,12 +185,12 @@ export const gerarModulosManuscritoTask = task({
         params: paramsSemDocx,
         result_ids: idsCriados,
         progress: {
-          done: total, total, pulados, resultados, auditados, escalou,
+          done: total, total, pulados, resultados, auditados,
           current: `concluído: ${okCount} ok, ${errCount} erro(s)${pulados ? `, ${pulados} pulado(s)` : ''}`
-            + (auditados ? ` · ${auditados} auditado(s)${escalou ? ' (amostra acusou — auditou tudo)' : ''}` : ''),
+            + (auditados ? ` · ${auditados}/${idsCriados.length} auditado(s)` : ''),
         },
       });
-      return { ok: true, jobId: payload.jobId, okCount, errCount, pulados, auditados, escalou };
+      return { ok: true, jobId: payload.jobId, okCount, errCount, pulados, auditados };
     } catch (e: any) {
       await patch({ status: 'error', error: String(e?.message || e).slice(0, 500) });
       throw e;
