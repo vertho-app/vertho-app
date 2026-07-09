@@ -11,6 +11,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from '@/actions/ai-client';
 import { getModelForTask } from '@/lib/ai-tasks';
+import { validarCorpo } from '@/lib/modulo-base-autor';
 
 export const COLS_MODULO = `
   id, grupo_id, locale, competencia_base_id, competencia_id, nivel_entrada, nivel_destino,
@@ -77,10 +78,9 @@ COMO CLASSIFICAR GRAVIDADE (seja honesta — a maioria dos achados de um módulo
 - BAIXA: polimento / preferência. Se o achado é "poderia ser um pouco mais X", é BAIXA — ou não é problema.
 - NUNCA classifique preferência subjetiva como MEDIA. Na dúvida entre média e baixa, escolha BAIXA.
 
-RETORNE APENAS JSON válido:
+RETORNE APENAS JSON válido. NÃO calcule nota nem veredito — o sistema os deriva
+dos problemas que você listar. Sua tarefa é ACHAR e CLASSIFICAR, com evidência:
 {
-  "nota": 0 a 10 (com 1 casa decimal),
-  "veredito": "aprovado" | "aprovado_com_ressalvas" | "reprovado",
   "problemas": [
     {
       "categoria": "estrutura" | "regua-vs-base" | "aula-vs-base" | "exemplos" | "invencao" | "etica" | "auto-consistencia" | "profundidade" | "linguagem",
@@ -93,25 +93,46 @@ RETORNE APENAS JSON válido:
   "confianca": 0.0 a 1.0
 }
 
-NOTA (0-10, 1 casa decimal) — ANCORE assim, não chute:
-- Comece em 10.0. Subtraia por problema: ALTA −2.5 · MEDIA −0.6 · BAIXA −0.1.
-- PISO 7.0: se os 4 blocos estão completos (mínimos atendidos) e NÃO há nenhum problema ALTA, a nota NÃO cai abaixo de 7.0 — defeitos média/baixa são polimento, não inviabilizam um insumo sólido.
-- TETO 4.9: qualquer problema ALTA limita a nota a no máximo 4.9.
-- Sem o PISO (estrutura furada / mínimos não atendidos / conceito frágil) a nota pode cair a 5.0-6.9 mesmo sem ALTA.
-- Arredonde a 1 casa decimal, entre 0.0 e 10.0.
+GRAVIDADE É O QUE IMPORTA. O sistema converte assim, e você não pode contorná-lo:
+qualquer problema ALTA reprova o módulo. Portanto NÃO marque ALTA por polimento —
+e NÃO rebaixe para MEDIA um defeito que de fato inviabiliza o uso (invenção
+factual, violação ética, cópia da régua, bloco essencial ausente, contradição com
+o próprio guarda-corpo, conceito central errado). Chame o que é.
 
-Bandas de referência (devem casar com a conta acima):
-- 9.0-10: modelar — sem defeito relevante.
-- 7.0-8.9: bom — só ajustes de polimento (média/baixa), estrutura completa.
-- 5.0-6.9: precisa de trabalho — estrutura furada OU conceito frágil (sem chegar a defeito grave).
-- 3.0-4.9: insuficiente — ≥1 problema ALTA ou bloco essencial fraco.
-- 0.0-2.9: inservível.
+- "confianca" = sua certeza nos achados (0-1).`;
 
-REGRA DE VEREDITO (deve casar com a nota):
-- "reprovado" se houver ≥1 problema de gravidade ALTA OU nota < 5.0.
-- "aprovado" se nota ≥ 9.0 e nenhum problema de gravidade média ou alta (só baixas, ou nenhum).
-- "aprovado_com_ressalvas" nos demais casos (nota 5.0-8.9, sem ALTA).
-- "confianca" = sua certeza no próprio veredito (0-1).`;
+
+/**
+ * Deriva nota e veredito dos PROBLEMAS, em código.
+ *
+ * Antes isto era pedido ao próprio modelo. Ele desobedecia: 7 módulos com
+ * problema de gravidade ALTA saíram como "aprovado_com_ressalvas" (a régua manda
+ * reprovar), e 3 chegaram a ser publicados — um deles com invenção factual. A
+ * nota, por sua vez, é pura aritmética sobre os problemas: pedi-la ao LLM só
+ * adicionava ruído (batia com a fórmula em 89% dos casos).
+ *
+ * `estruturaCompleta` vem do `validarCorpo` — checagem determinística e de graça.
+ * Sem ela não há piso: estrutura furada pode cair abaixo de 7,0 mesmo sem ALTA.
+ */
+export function derivarVeredito(
+  problemas: Array<{ gravidade?: string }>,
+  estruturaCompleta: boolean,
+): { nota: number; veredito: 'aprovado' | 'aprovado_com_ressalvas' | 'reprovado' } {
+  const conta = (g: string) => problemas.filter((p) => p?.gravidade === g).length;
+  const alta = conta('alta'), media = conta('media'), baixa = conta('baixa');
+
+  let nota = 10 - 2.5 * alta - 0.6 * media - 0.1 * baixa;
+  if (alta > 0) nota = Math.min(nota, 4.9);          // teto: defeito que inviabiliza
+  else if (estruturaCompleta) nota = Math.max(nota, 7.0); // piso: insumo sólido
+  nota = Math.round(Math.max(0, Math.min(10, nota)) * 10) / 10;
+
+  const veredito = (alta > 0 || nota < 5.0)
+    ? 'reprovado' as const
+    : (nota >= 9.0 && media === 0)
+      ? 'aprovado' as const
+      : 'aprovado_com_ressalvas' as const;
+  return { nota, veredito };
+}
 
 export async function auditarModuloCore(sb: ReturnType<typeof createSupabaseAdmin>, id: string) {
   const { data: m } = await sb.from('modulos_base_conteudo').select(COLS_MODULO).eq('id', id).maybeSingle();
@@ -150,9 +171,9 @@ Responda APENAS com o JSON do veredito.`;
       for (const c of candidatos) {
         try {
           const p = JSON.parse(c);
-          if (p && ['aprovado', 'aprovado_com_ressalvas', 'reprovado'].includes(p.veredito)) {
-            auditoria = p; break;
-          }
+          // O contrato agora é `problemas` (array, possivelmente vazio). Aceita
+          // resposta legada com `veredito` — ele é ignorado na derivação.
+          if (p && Array.isArray(p.problemas)) { auditoria = p; break; }
         } catch { /* tenta próximo */ }
       }
     } catch (e: any) {
@@ -165,9 +186,19 @@ Responda APENAS com o JSON do veredito.`;
   auditoria.problemas = Array.isArray(auditoria.problemas) ? auditoria.problemas : [];
   auditoria.recomendacoes = Array.isArray(auditoria.recomendacoes) ? auditoria.recomendacoes : [];
   auditoria.confianca = typeof auditoria.confianca === 'number' ? auditoria.confianca : 0.5;
-  auditoria.nota = typeof auditoria.nota === 'number'
-    ? Math.round(Math.max(0, Math.min(10, auditoria.nota)) * 10) / 10
-    : null;
+
+  // Nota e veredito são DERIVADOS dos problemas, não pedidos ao modelo. Guarda o
+  // palpite dele quando vier, pra medir o quanto ele desviaria da régua.
+  if (auditoria.veredito) auditoria.veredito_sugerido_pelo_modelo = auditoria.veredito;
+  const estruturaCompleta = validarCorpo({
+    conteudo_central: m.conteudo_central,
+    conteudo_aplicavel: m.conteudo_aplicavel,
+    guarda_corpos: m.guarda_corpos,
+    adaptacao_por_formato: m.adaptacao_por_formato,
+  }).length === 0;
+  const derivado = derivarVeredito(auditoria.problemas, estruturaCompleta);
+  auditoria.nota = derivado.nota;
+  auditoria.veredito = derivado.veredito;
 
   const { error } = await sb.from('modulos_base_conteudo').update({
     auditoria_ia: auditoria,
