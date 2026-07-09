@@ -459,6 +459,18 @@ export async function gerarRelatorioIndividual(
         }
       }
       relatorio.blueprint_objetivos = blueprintObjetivos;
+      // blueprint_conteudos: mapa { [competenciaNome]: [{ tema, formato }] } — a TEORIA
+      // (o que a pessoa vai APRENDER por competência). A página "vira trilha" mostra
+      // aprende+aplica, não só a prática. Temas do blueprint (sempre presentes); o
+      // micro-conteúdo REAL só existe quando a trilha é gerada (refinamento futuro).
+      const blueprintConteudos: Record<string, { tema: string; formato?: string }[]> = {};
+      for (const comp of (blueprint.competencias || [])) {
+        const temas = (comp.conteudos_recomendados || [])
+          .map((cr: any) => ({ tema: cr?.tema, formato: cr?.formato_preferencial }))
+          .filter((t: any) => t.tema);
+        if (temas.length) blueprintConteudos[comp.nome] = temas;
+      }
+      relatorio.blueprint_conteudos = blueprintConteudos;
     }
 
     // Gerar PDF

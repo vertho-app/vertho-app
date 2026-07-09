@@ -223,9 +223,27 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
   // resolve id → ação do PDI. Agrupa semanas consecutivas por competência_foco e
   // mostra o vínculo real. Sem trilha_mapa, cai na timeline computada acima.
   const blueprintObjetivos: Record<string, any> = c.blueprint_objetivos || {};
+  const blueprintConteudos: Record<string, { tema: string; formato?: string }[]> = c.blueprint_conteudos || {};
   const semanasMapa: any[] = Array.isArray(c.trilha_mapa?.semanas) ? c.trilha_mapa.semanas : [];
   const hasBinding = semanasMapa.length > 0;
-  type BindingBloco = { faseLabel: string; titulo: string; acoes: string[]; temMissao: boolean; temAvaliacao: boolean };
+  // Janela de cada competência na trilha (semanas de foco ÚNICO) — pro sprint mostrar
+  // "Ciclo N · Semanas X–Y" em vez de um "30 dias" que conflita com a jornada de 14 sem.
+  const cicloPorComp: Record<string, { min: number; max: number }> = {};
+  for (const sem of semanasMapa) {
+    const comps: string[] = Array.isArray(sem.competencia_foco) ? sem.competencia_foco.filter(Boolean) : [];
+    // Só o BLOCO de desenvolvimento (foco único), excluindo a avaliação final
+    // (sem 13/14 também têm foco único e inflavam a janela p/ "1–13").
+    if (comps.length !== 1 || typeof sem.semana !== 'number' || sem.tipo === 'avaliacao') continue;
+    const cp = comps[0]; const w = sem.semana;
+    const cur = cicloPorComp[cp];
+    if (!cur) cicloPorComp[cp] = { min: w, max: w };
+    else { cur.min = Math.min(cur.min, w); cur.max = Math.max(cur.max, w); }
+  }
+  const cicloLabel = (nome: string): string | null => {
+    const cw = cicloPorComp[nome];
+    return cw ? `Semanas ${cw.min}–${cw.max}` : null;
+  };
+  type BindingBloco = { faseLabel: string; titulo: string; acoes: string[]; conteudos: string[]; temMissao: boolean; temAvaliacao: boolean };
   const bindingBlocos: BindingBloco[] = [];
   if (hasBinding) {
     type Acc = { nums: number[]; comps: string[]; acoes: Set<string>; temMissao: boolean; temAvaliacao: boolean };
@@ -255,7 +273,10 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       const max = g.nums.length ? Math.max(...g.nums) : 0;
       const faseLabel = g.nums.length > 1 ? `Semanas ${min}–${max}` : `Semana ${min}`;
       const titulo = g.comps.length ? g.comps.join(' + ') : (g.temAvaliacao ? 'Avaliação' : 'Prática integrada');
-      bindingBlocos.push({ faseLabel, titulo, acoes: [...g.acoes], temMissao: g.temMissao, temAvaliacao: g.temAvaliacao });
+      // Teoria: temas de conteúdo das competências do bloco (o que a pessoa APRENDE).
+      const temas: string[] = [];
+      for (const cp of g.comps) for (const t of (blueprintConteudos[cp] || [])) if (t.tema && !temas.includes(t.tema)) temas.push(t.tema);
+      bindingBlocos.push({ faseLabel, titulo, acoes: [...g.acoes], conteudos: temas, temMissao: g.temMissao, temAvaliacao: g.temAvaliacao });
     }
   }
 
@@ -368,9 +389,9 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       {sprintComps.length > 0 && (
         <Page size="A4" style={pageStyles.page} wrap>
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
-          <ReportSectionTitle>Plano de 30 dias</ReportSectionTitle>
+          <ReportSectionTitle>Seu plano, ciclo a ciclo</ReportSectionTitle>
           <Text style={s.mapIntro}>
-            {'O mapa abaixo resume onde concentrar energia nos próximos 30 dias. Um movimento por competência — o restante é detalhado nas páginas seguintes.'}
+            {'Sua trilha tem 14 semanas e você trabalha uma competência por vez. Abaixo, o foco de cada ciclo — comece pelo primeiro; o segundo entra na sequência.'}
           </Text>
           {sprintComps.map((comp: any, i: number) => (
             <View key={i} style={s.mapCard} wrap={false}>
@@ -378,6 +399,9 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
                 <View style={s.mapCardNum}><Text style={s.mapCardNumText}>{i + 1}</Text></View>
                 <Text style={s.mapCardName}>{comp.nome}</Text>
               </View>
+              <Text style={{ fontSize: 8, color: colors.cyan, letterSpacing: 1, marginBottom: 5, textTransform: 'uppercase' }}>
+                {`Ciclo ${i + 1}${cicloLabel(comp.nome) ? ` · ${cicloLabel(comp.nome)}` : ''}`}
+              </Text>
               {comp.sprint?.foco_30_dias && <Text style={s.mapFoco}>{comp.sprint.foco_30_dias}</Text>}
               {comp.sprint?.acao_principal && (
                 <View style={s.mapLine}>
@@ -420,7 +444,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
           <ReportSectionTitle>Como este PDI vira trilha</ReportSectionTitle>
           <Text style={s.trilhaIntro}>
-            {'O que está no seu PDI é exatamente o que você vai praticar na trilha. Veja como os próximos meses se organizam.'}
+            {'O que está no seu PDI é exatamente o que você vai aprender e praticar na trilha. Cada ciclo tem conteúdo (o que você estuda) e prática (o que você aplica).'}
           </Text>
           {hasBinding ? (
             bindingBlocos.map((b, i) => (
@@ -428,9 +452,19 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
                 <View style={s.tlPhase}><Text style={s.tlPhaseText}>{b.faseLabel}</Text></View>
                 <View style={s.tlBody}>
                   <Text style={s.tlTitle}>{b.titulo}</Text>
+                  {b.conteudos.length > 0 && !b.temAvaliacao && (
+                    <View style={s.mapLine}>
+                      <Text style={s.mapLineLabel}>Aprende</Text>
+                      <View style={{ flex: 1 }}>
+                        {b.conteudos.map((t, j) => (
+                          <Text key={j} style={s.tlDetail}>{t}</Text>
+                        ))}
+                      </View>
+                    </View>
+                  )}
                   {b.acoes.length > 0 && (
                     <View style={s.mapLine}>
-                      <Text style={s.mapLineLabel}>Sustenta</Text>
+                      <Text style={s.mapLineLabel}>{b.temAvaliacao ? 'Avalia' : 'Prática'}</Text>
                       <View style={{ flex: 1 }}>
                         {b.acoes.map((a, j) => (
                           <Text key={j} style={s.tlDetail}>{a}</Text>
