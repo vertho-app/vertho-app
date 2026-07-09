@@ -14,35 +14,85 @@ import { callAI } from '@/actions/ai-client';
 
 export type Nivel = 'N1' | 'N2' | 'N3' | 'N4';
 
+const BLOCOS = ['conteudo_central', 'conteudo_aplicavel', 'guarda_corpos', 'adaptacao_por_formato'] as const;
+
+/**
+ * Extrai UM bloco de topo pelo nome, varrendo chaves balanceadas a partir do
+ * `{` que segue `"chave":`. Ciente de strings e escapes, então `}` dentro de
+ * texto não conta.
+ *
+ * Existe porque o JSON do topo pode estar quebrado enquanto os blocos, isolados,
+ * são válidos.
+ */
+function extrairBloco(text: string, chave: string): any | null {
+  const marca = text.indexOf(`"${chave}"`);
+  if (marca < 0) return null;
+  const abre = text.indexOf('{', marca + chave.length + 2);
+  if (abre < 0) return null;
+
+  let profundidade = 0;
+  let emString = false;
+  let escapado = false;
+  for (let i = abre; i < text.length; i++) {
+    const c = text[i];
+    if (emString) {
+      if (escapado) escapado = false;
+      else if (c === '\\') escapado = true;
+      else if (c === '"') emString = false;
+      continue;
+    }
+    if (c === '"') emString = true;
+    else if (c === '{') profundidade++;
+    else if (c === '}') {
+      profundidade--;
+      if (profundidade === 0) {
+        try { return JSON.parse(text.slice(abre, i + 1)); } catch { return null; }
+      }
+    }
+  }
+  return null;
+}
+
 // ── Parsing tolerante do JSON do corpo ────────────────────────────────────────
 // Aceita JSON parcial (mesmo que falte 1 dos 4 blocos — o ausente vira {} e
 // a revisão humana / IA-auditora pega depois). Antes, qualquer ausência
 // rejeitava a resposta inteira, derrubando o import quando o output era
 // grande demais e a IA truncava no fim.
+//
+// 3º nível de resgate (RESGATE POR BLOCO): a IA às vezes fecha a chave raiz cedo
+// demais — `..."]}}},"guarda_corpos":{...` — e aí tanto o JSON.parse do texto
+// inteiro quanto o regex ganancioso `/\{[\s\S]*\}/` falham, embora os 4 blocos
+// estejam íntegros. Um refino real morreu assim, duas tentativas seguidas, com
+// 26k chars de conteúdo bom no lixo. Agora cada bloco é resgatado por conta.
 export function extractCorpo(raw: string | null | undefined): any | null {
   const text = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
   if (!text) return null;
+
+  const montar = (p: any) => ({
+    conteudo_central: p.conteudo_central || {},
+    conteudo_aplicavel: p.conteudo_aplicavel || {},
+    guarda_corpos: p.guarda_corpos || {},
+    adaptacao_por_formato: p.adaptacao_por_formato || {},
+  });
+  const temAlgo = (p: any) => BLOCOS.some((b) => p?.[b]);
+
   const candidatos = [text];
   const obj = text.match(/\{[\s\S]*\}/);
   if (obj) candidatos.push(obj[0]);
   for (const c of candidatos) {
     try {
       const parsed = JSON.parse(c);
-      if (parsed && typeof parsed === 'object') {
-        // Pelo menos UM bloco precisa estar presente pra valer a pena salvar.
-        const temAlgo = parsed.conteudo_central || parsed.conteudo_aplicavel
-          || parsed.guarda_corpos || parsed.adaptacao_por_formato;
-        if (!temAlgo) continue;
-        return {
-          conteudo_central: parsed.conteudo_central || {},
-          conteudo_aplicavel: parsed.conteudo_aplicavel || {},
-          guarda_corpos: parsed.guarda_corpos || {},
-          adaptacao_por_formato: parsed.adaptacao_por_formato || {},
-        };
-      }
+      if (parsed && typeof parsed === 'object' && temAlgo(parsed)) return montar(parsed);
     } catch { /* tenta próximo */ }
   }
-  return null;
+
+  // Resgate por bloco.
+  const resgatado: any = {};
+  for (const b of BLOCOS) {
+    const v = extrairBloco(text, b);
+    if (v) resgatado[b] = v;
+  }
+  return temAlgo(resgatado) ? montar(resgatado) : null;
 }
 
 // ── Validação mínima do corpo (não substitui revisão humana) ──────────────────
