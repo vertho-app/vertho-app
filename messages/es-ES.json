@@ -2631,6 +2631,8 @@
       "simular": "Simular Respuestas",
       "ia4": "IA4 — Evaluar + Check",
       "foco": "Competencias Foco",
+      "blueprint": "Generar Blueprint",
+      "audit-blueprint": "Auditar Blueprint",
       "rel-ind": "Generar PDI",
       "rel-gestor": "Gestor",
       "rel-rh": "RR. HH.",
