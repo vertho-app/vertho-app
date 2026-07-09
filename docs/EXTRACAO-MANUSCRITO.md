@@ -7,7 +7,9 @@ Esta spec **substitui** `PROMPT-EXTRACAO-MANUSCRITO.md`, que foi escrita contra 
 modelo mental do banco que não corresponde ao schema real. As divergências estão
 listadas no fim, para quem tiver lido a versão anterior.
 
-Status: **parser, autoria e orquestrador prontos e verificados.** Falta a UI.
+Status: **pipeline completo, verificado ponta a ponta em produção.** O SED08
+(18 módulos) foi importado, auditado e aprovado. Falta dirigir a tela por um
+humano — o E2E entrou pelo lado do serviço.
 
 - `lib/manuscrito-parser.ts` — conferido contra SED08 e SED05 (54/54 microblocos
   cada) e contra um DOCX não-manuscrito (falha alto, como deve).
@@ -19,6 +21,8 @@ Status: **parser, autoria e orquestrador prontos e verificados.** Falta a UI.
 
 - `app/admin/vertho/modulos-base/importar-manuscrito/page.tsx` — upload, preview
   (matriz descritor × transição) e progresso.
+- `lib/modulo-base-auditor.ts` / `lib/modulo-base-refino.ts` — auditoria Dual-IA e
+  refino, também em `lib/` pelo mesmo motivo (tasks não importam `'use server'`).
 
 > ⚠️ Tasks do Trigger.dev **não sobem no `git push`**. Depois de deployar a Vercel,
 > rodar `npx trigger.dev deploy` manualmente, ou o enqueue falha no dispatch. O
@@ -201,7 +205,20 @@ Storage.
 - **Progresso**: polling de `ia_jobs.progress`. Ao final, tabela com veredito da
   auditoria e link para cada módulo.
 
-### 4.6 Bônus: recursos do apêndice
+### 4.6 Auditoria Dual-IA — **FEITA, e o gate foi consertado**
+
+A task audita 100% dos módulos gerados (GPT-5.4, ~US$0,10 cada) e promove
+`rascunho → revisão` quem recebe veredito. Fica **fora do batch** de propósito:
+`submitClaudeBatch` só fala Claude, e ser cross-provider é o ponto do Dual-IA.
+Best-effort — falhar ali não invalida o conteúdo, o módulo só fica sem nota.
+
+No caminho, descobrimos que **o veredito estava sendo decidido pelo próprio
+modelo, e ele violava a régua**: 7 módulos com problema de gravidade ALTA saíram
+como `aprovado_com_ressalvas` (que é publicável), e 3 chegaram a produção. Agora
+`nota` e `veredito` são derivados em código a partir dos `problemas`. Ver
+`docs/MODULOS-BASE-CONTEUDO.md`.
+
+### 4.7 Bônus: recursos do apêndice
 
 30 recursos curados, com link, extraídos e validados. `formatoDoRecurso()` já mapeia
 para o CHECK de `micro_conteudos.formato` (`video|audio|texto|case|pdf`).
@@ -224,12 +241,17 @@ Por chamada Sonnet 4.6, com ~65k chars de fonte. Tudo abaixo é **medido**:
 **Prompt caching não ajuda.** A entrada é ~30% do custo, e as três fatias de um
 descritor são disjuntas — não há prefixo literal comum para cachear.
 
-| | Síncrono | Otimizado |
+| | Síncrono | Com Batch |
 |---|---|---|
 | Autoria (18 × Sonnet) | $3,55 | $1,77 |
-| Auditoria (18 × GPT-5.4) | $1,44 | $0,72 |
-| **Por manuscrito** | **$4,99** | **~$2,49** |
-| Cargo inteiro (12 comps, 216 módulos) | ~$60 | **~$30** |
+| Auditoria (18 × GPT-5.4, ~$0,10 cada) | $1,80 | $0,90¹ |
+| **Por manuscrito** | **$5,35** | **~$2,67** |
+| Cargo inteiro (12 comps, 216 módulos) | ~$64 | **~$32** |
+
+¹ Depende do `submitOpenAIBatch`, ainda não escrito. Hoje a auditoria roda síncrona.
+
+Medido em produção: o SED08 inteiro (18 módulos, autoria em batch + auditoria
+síncrona) levou ~10 min de autoria e saiu por ~US$3,60.
 
 As alavancas, em ordem de retorno:
 
@@ -242,7 +264,11 @@ As alavancas, em ordem de retorno:
    encosta exatamente no teto de cada categoria — lê a faixa como alvo, não como
    limite. Apertar mais é possível, mas não testado.
 3. **`submitOpenAIBatch`** — *pendente*. `submitClaudeBatch` só fala Claude; a
-   auditoria GPT-5.4 cai no fallback síncrono.
+   auditoria GPT-5.4 cai no fallback síncrono. Cortaria ~US$0,90 por manuscrito.
+
+Não trocar o Sonnet por Haiku, e **não reduzir a cobertura da auditoria**: ela
+custa ~US$1,80 por manuscrito e agora reprova de verdade. Chegamos a implementar
+auditoria por amostra e revertemos — estava otimizando o custo de um gate quebrado.
 
 > Esta mudança de prompt é **global**: vale também para a extração de vídeo e para
 > `rascunharModuloBase`. Módulos novos saem com 5-6 princípios em vez de 7-9.

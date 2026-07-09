@@ -1687,7 +1687,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 ### 15.1 Rascunhar Módulo-Base (autor assistido + import docx)
 > `ATIVO` desde 2026-05-28 · Frente 2/3 dos Módulos-Base (ver `docs/MODULOS-BASE-CONTEUDO.md`).
 
-- **Arquivo**: `actions/modulos-base.ts::rascunharModuloBase` (e `importarModuloDocx` — mesmo system + user prompt).
+- **Arquivo**: prompt em `lib/modulo-base-autor.ts` (`SYSTEM_AUTOR`, `montarUserPrompt`). Callers: `actions/modulos-base.ts::rascunharModuloBase`, `importarModuloDocx`, `criarModuloBaseDeManuscrito`, e a task `trigger/gerar-modulos-manuscrito.ts`. Moveu pra `lib/` porque um `'use server'` não pode ser importado por tasks sem virar endpoint HTTP.
 - **Modelo**: Via `getModelForTask(null, 'modulo_base_autor')` — default `claude-sonnet-4-6`, configurável.
 - **Max tokens**: 64000 (output). Sonnet 4.6/4.7 aguenta — necessário porque docs do template podem ter conteúdo expandido em todos os 4 blocos. Antes era 6000 e truncava no fim do JSON em docs grandes.
 - **Slice do docx no input**: 60000 chars (~15k tokens) — bem dentro do 1M context.
@@ -1708,7 +1708,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 ### 15.2 IA-Auditora de Módulo-Base (padrão Dual-IA)
 > `ATIVO` desde 2026-05-28 · Substitui a regra de revisão humana cruzada (criador-vs-aprovador).
 
-- **Arquivo**: `actions/modulos-base.ts::auditarModuloBase`. Disparada automaticamente por `submeterRevisao`; pelo botão "Reauditar"; e dentro de `refinarComFeedback` após a autora regerar.
+- **Arquivo**: prompt em `lib/modulo-base-auditor.ts` (`SYSTEM_AUDITOR`, `auditarModuloCore`). Disparada por `submeterRevisao`; pelo botão "Reauditar"; dentro do refino; e ao fim da task de manuscrito. ⚠️ O modelo **não** devolve mais `nota`/`veredito` — só `problemas`. A conversão é `derivarVeredito()`, em código.
 - **Modelo**: Via `getModelForTask(null, 'modulo_base_auditor')` — default **`gpt-5.4`** (configurado em `lib/ai-tasks::DEFAULT_TASK_MODELS`). Configurável por sys_config global Vertho. Modelo diferente da autora (Claude Sonnet) **de propósito** — Dual-IA com perspectivas distintas, mesmo padrão de IA4+Check (Claude+Gemini Flash) e Pulso classifier+auditor.
 - **Max tokens**: 16000 (output) — confortável pra veredito + lista detalhada de problemas com gravidade.
 - **System prompt** (resumo editorial):
@@ -1738,7 +1738,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 ### 15.3 Refinador (autora consome feedback da auditora — fecha o loop Dual-IA)
 > `ATIVO` desde 2026-05-28 · Loop manual disparado pelo autor humano (decisão B — controle do humano sobre quantas iterações).
 
-- **Arquivo**: `actions/modulos-base.ts::refinarComFeedback` (helper `montarPromptRefinador`).
+- **Arquivo**: `lib/modulo-base-refino.ts` (`montarPromptRefinador`, `refinarModuloCore`); wrapper com guard em `actions/modulos-base.ts::refinarComFeedback`.
 - **Modelo**: a **MESMA IA-autora** (15.1) — `getModelForTask(null, 'modulo_base_autor')`, default Claude Sonnet 4.6. Consistência de estilo entre versões.
 - **Max tokens**: 64000 (mesmos do autor original).
 - **System prompt**: reutiliza o `SYSTEM_AUTOR` (15.1).
