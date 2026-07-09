@@ -7,10 +7,18 @@ Esta spec **substitui** `PROMPT-EXTRACAO-MANUSCRITO.md`, que foi escrita contra 
 modelo mental do banco que não corresponde ao schema real. As divergências estão
 listadas no fim, para quem tiver lido a versão anterior.
 
-Status: **Fase 1 (parser) e Fase 2 (autoria por fatia) prontas e validadas** —
-`lib/manuscrito-parser.ts` + `criarModuloBaseDeManuscrito`. Parser conferido contra
-SED08 e SED05 (54/54 microblocos cada) e contra um DOCX não-manuscrito (falha alto).
-Pendentes: orquestrador em job (`ia_jobs` + Trigger + Batch), migration de log, UI.
+Status: **parser, autoria e orquestrador prontos e verificados.** Falta a UI.
+
+- `lib/manuscrito-parser.ts` — conferido contra SED08 e SED05 (54/54 microblocos
+  cada) e contra um DOCX não-manuscrito (falha alto, como deve).
+- `lib/modulo-base-autor.ts` / `lib/manuscrito-modulos.ts` — prompt e persistência,
+  compartilhados entre a action e a task.
+- `actions/manuscrito-batch.ts` — `analisarManuscrito` (preview, zero IA) e
+  `enqueueManuscritoBatch`.
+- `trigger/gerar-modulos-manuscrito.ts` — 18 chamadas num batch Claude (−50%).
+
+> ⚠️ Tasks do Trigger.dev **não sobem no `git push`**. Depois de deployar a Vercel,
+> rodar `npx trigger.dev deploy` manualmente, ou o enqueue falha no dispatch.
 
 ---
 
@@ -90,7 +98,8 @@ Upload DOCX (base64 via server action; 260KB → 0,36MB, cabe no bodySizeLimit)
   2) PREVIEW — matriz 6×3 na UI, antes de comprometer custo de IA
   │
   3) AUTHOR — 18 chamadas Sonnet 4.6, em ia_jobs + task Trigger + Batch API
-  │    reusa montarUserPrompt(comp, ne, nd, ..., textoFonte)
+  │    enqueueManuscritoBatch → gerar-modulos-manuscrito → submitClaudeBatch
+  │    idempotente por (competência, nivel_entrada, nivel_destino, locale)
   │
   4) AUDIT — auditarModuloBase (GPT-5.4), Dual-IA cross-provider
   │
@@ -162,13 +171,21 @@ default `comp.cargo`, passado como `termoCanonico`.
 (`limiteFonte`), com 80.000 no caminho do manuscrito e 60.000 de default nos
 demais.
 
-### 4.4 Tabela `manuscritos_importados`
+### 4.4 Job e rastreabilidade — **FEITO, sem tabela nova**
 
-Log de rastreabilidade. **FK para `competencias(id)`, não `competencias_base(id)`**
-(ou só `cod_comp text` + `empresa_id`). Guarda `parse_stats`, `descritores_detectados`,
-`modulos_gerados`, `recursos_extraidos`, `status`, `created_by`.
+A spec original pedia uma tabela `manuscritos_importados`. Não é preciso: `ia_jobs`
+(mig 172) **já nasceu com `fase` aberto a outras fases**, e guarda tudo que aquela
+tabela guardaria — `params` (cod_comp, cargo, título, termo canônico, `parse_stats`,
+`recursos`, `created_by`), `progress` (done/total/current/resultados), `result_ids`
+(módulos criados), `status`, `error`.
 
-Não precisa de Storage: o DOCX é processado on-the-fly.
+Ganho de brinde: o polling da tela é o `statusIAJob`/`cancelIAJob` que
+`actions/ia-pipeline-batch.ts` já expõe para o IA2. Nada de clonar.
+
+O DOCX viaja em `params.docxBase64` (~360KB) e a task **re-parseia**. O parser é
+determinístico, então re-parsear é mais barato e mais seguro que serializar as 18
+fatias de ~65k chars no jsonb. A task **descarta o base64** ao concluir. Nada de
+Storage.
 
 ### 4.5 UI — `/admin/vertho/modulos-base/importar-manuscrito`
 
