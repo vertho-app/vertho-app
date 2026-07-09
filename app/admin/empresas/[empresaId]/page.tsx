@@ -146,6 +146,18 @@ const ACTION_MAP: Record<string, Function> = {
   'rh-links': enviarLinksPerfil, 'rh-dossie': gerarDossieGestor, 'rh-check': checkCenarios,
 };
 
+// Retry p/ loops de lote no cliente: uma chamada de IA longa (~2min o blueprint)
+// pode falhar por blip de rede ("Failed to fetch"). Tenta N vezes com espera
+// antes de desistir — o caller trata a rejeição final e SEGUE pro próximo item.
+async function comRetry<T>(fn: () => Promise<T>, tentativas = 3, esperaMs = 6000): Promise<T> {
+  let ultimo: any;
+  for (let t = 0; t < tentativas; t++) {
+    try { return await fn(); }
+    catch (e) { ultimo = e; if (t < tentativas - 1) await new Promise(r => setTimeout(r, esperaMs)); }
+  }
+  throw ultimo;
+}
+
 // ── Serif italic shorthand ─────────────────────────────────────────────────
 const serif: React.CSSProperties = {
   fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
@@ -299,9 +311,13 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
           if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }
           const c = fila.data[i];
           addLog(`⏳ ${i + 1}/${fila.data.length} ${c.nome}...`, 'info');
-          const r = await gerarBlueprint({ colaboradorId: c.id, aiConfig: aiConfig || undefined });
-          if (r.ok) { ok++; addLog(`✅ ${c.nome}`, 'success'); }
-          else { erros++; addLog(`⚠ ${c.nome}: ${r.error}`, 'error'); }
+          try {
+            const r = await comRetry(() => gerarBlueprint({ colaboradorId: c.id, aiConfig: aiConfig || undefined }));
+            if (r.ok) { ok++; addLog(`✅ ${c.nome}`, 'success'); }
+            else { erros++; addLog(`⚠ ${c.nome}: ${r.error}`, 'error'); }
+          } catch (e: any) {
+            erros++; addLog(`❌ ${c.nome}: ${e?.message || 'falha de rede'} — pulando`, 'error');
+          }
         }
         addLog(`🎉 ${ok} blueprint(s) gerado(s)${erros ? ` · ${erros} erro(s)` : ''}`, erros === 0 ? 'success' : 'info');
         setPendingAction(null); return;
@@ -316,9 +332,13 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
           if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }
           const c = fila.data[i];
           addLog(`⏳ ${i + 1}/${fila.data.length} ${c.nome}...`, 'info');
-          const r = await auditarBlueprint({ colaboradorId: c.id, aiConfig: aiConfig || undefined });
-          if (r.ok && r.relatorio) { ok++; if (r.relatorio.drift) drift++; addLog(`${r.relatorio.drift ? '⚠' : '✅'} ${c.nome} — score ${r.relatorio.score}${r.relatorio.drift ? ' · DRIFT' : ''}`, r.relatorio.drift ? 'error' : 'success'); }
-          else { erros++; addLog(`❌ ${c.nome}: ${r.error}`, 'error'); }
+          try {
+            const r = await comRetry(() => auditarBlueprint({ colaboradorId: c.id, aiConfig: aiConfig || undefined }));
+            if (r.ok && r.relatorio) { ok++; if (r.relatorio.drift) drift++; addLog(`${r.relatorio.drift ? '⚠' : '✅'} ${c.nome} — score ${r.relatorio.score}${r.relatorio.drift ? ' · DRIFT' : ''}`, r.relatorio.drift ? 'error' : 'success'); }
+            else { erros++; addLog(`❌ ${c.nome}: ${r.error}`, 'error'); }
+          } catch (e: any) {
+            erros++; addLog(`❌ ${c.nome}: ${e?.message || 'falha de rede'} — pulando`, 'error');
+          }
         }
         addLog(`🎉 ${ok} auditado(s)${drift ? ` · ${drift} com drift` : ''}${erros ? ` · ${erros} erro(s)` : ''}`, (erros === 0 && drift === 0) ? 'success' : 'info');
         setPendingAction(null); return;
