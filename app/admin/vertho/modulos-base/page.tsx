@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Plus, Sparkles, Star, X, Trash2, Film, ShieldCheck, Send, CheckCircle2, Wand2 } from 'lucide-react';
+import { Loader2, Plus, Sparkles, Star, X, Trash2, Film, ShieldCheck, Send, CheckCircle2, Wand2, BookOpen } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { listarModulos, listarCompetenciasBase, rascunharModuloBase, setPreferido, excluirModulo, auditarModulosBaseEmLote, refinarModulosEmLote, submeterRevisaoEmLote, aprovarPublicarEmLote, listarFiltrosModulos } from '@/actions/modulos-base';
@@ -140,6 +140,10 @@ export default function ModulosBaseListPage() {
             <p className="text-sm text-white/55">Matéria-prima pedagógica canônica. Spec: <code className="text-cyan-300">docs/MODULOS-BASE-CONTEUDO.md</code></p>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => router.push('/admin/vertho/modulos-base/importar-manuscrito')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-emerald-400/30 text-emerald-300 hover:bg-emerald-400/10">
+              <BookOpen size={14} /> Importar manuscrito
+            </button>
             <button onClick={() => router.push('/admin/vertho/modulos-base/extracao-video')}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-purple-400/30 text-purple-300 hover:bg-purple-400/10">
               <Film size={14} /> Extrair / Importar material
