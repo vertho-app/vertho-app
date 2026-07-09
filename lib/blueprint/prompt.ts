@@ -71,9 +71,9 @@ PRINCÍPIOS INEGOCIÁVEIS:
 1. Níveis SEMPRE em N1..N4 (numéricos 1-4). N3 = META (proficiente). N1 = lacuna, N4 = referência.
 2. Nunca mencione scores DISC numéricos. Descreva o perfil em linguagem acessível, como HIPÓTESE contextual ("tende a favorecer"), nunca diagnóstico fechado.
 3. Objetivos e ações em PRIMEIRA PESSOA e com horizonte claro.
-4. Não invente comportamento, resultado ou contexto que não esteja sustentado pelos dados fornecidos.
-5. Rigor COMPATÍVEL com o nível avaliado: não sobrecarregue quem está em N1 (poucos objetivos, executáveis); quem está em N3/N4 recebe refinamento/ampliação, não plano pesado.
-6. Sem linguagem clínica ou de saúde. Trate como desenvolvimento profissional (ex.: "reconhecer limites e buscar apoio", nunca "burnout/estresse").
+4. Não invente comportamento, resultado ou contexto que não esteja sustentado pelos dados fornecidos. E NÃO seja genérico: cada objetivo e ação deve citar um ARTEFATO ou ROTINA REAL do cargo (ex.: conselho de classe, devolutiva às escolas, visita técnica, reunião pedagógica, plano de aula) — recuse qualquer ação que serviria a "qualquer profissional" (ex.: "reservar 15 min toda sexta para anotar demandas").
+5. Rigor COMPATÍVEL com o nível avaliado: não sobrecarregue quem está em N1 (poucos objetivos, executáveis); quem está em N3/N4 recebe refinamento/ampliação, não plano pesado. Nas semanas de INTEGRAÇÃO (as finais), quem está em N1 integra COM APOIO/ROTEIRO (andaime explícito: "com um roteiro", "com apoio da coordenação") — NUNCA "integre de forma autônoma" (autonomia plena é N3+).
+6. LINGUAGEM DE TRABALHO, NUNCA CLÍNICA — mesmo em competências de bem-estar/resiliência. Fale de PRÁTICAS DE TRABALHO observáveis, não de estados internos. PROIBIDO: "esgotamento", "sobrecarga", "burnout", "regulação emocional", "estado interno", "repor energia", "o que você sentiu", "bem-estar", "custo pessoal". USE no lugar: "sustentar o ritmo ao longo do período", "reconhecer o limite da própria agenda e redistribuir ou pedir apoio", "organizar a carga da semana", "combinar prioridades com a chefia". O foco é o que a pessoa FAZ no trabalho, não como se sente.
 
 REGRAS DURAS DA TRILHA (obedeça exatamente):
 - "trilha.duracao_semanas" = DURACAO_SEMANAS (valor informado no input).
@@ -82,7 +82,7 @@ REGRAS DURAS DA TRILHA (obedeça exatamente):
   * DUAS competências foco: competência 1 nas semanas 1-4, competência 2 nas semanas 5-8, INTEGRAÇÃO das duas nas 9-12.
   * UMA competência foco: a competência ocupa as semanas 1-8, com APROFUNDAMENTO nas 9-12.
 - Semanas de MISSÃO prática: exatamente as semanas em SEMANAS_MISSAO (tipo "missao").
-- Semanas de AVALIAÇÃO: exatamente as semanas em SEMANAS_AVALIACAO (tipo "avaliacao") — o cenário final mede o que o PDI prometeu.
+- Semanas de AVALIAÇÃO: exatamente as semanas em SEMANAS_AVALIACAO (tipo "avaliacao"). Cada uma mede UMA competência específica: com 2 competências, a 1ª semana de avaliação mede a competência 1 (seu "conexao_com_pdi" = objetivos da competência 1, e "descritores_foco" = descritores DA competência 1) e a 2ª mede a competência 2. Os "descritores_foco" e a "evidencia_esperada" SAEM das competências/descritores DESTE blueprint — NUNCA invente descritor novo (ex.: "Entrega de resultados", "Corresponsabilidade" fora do foco). A evidência da avaliação é uma DEMONSTRAÇÃO OBSERVÁVEL do que foi praticado (uma entrega/ação verificável por terceiros) — NUNCA autoavaliação, portfólio, "síntese pessoal" ou "o que aprendi".
 - As demais semanas são "conteudo" (ou "reflexao" quando fizer sentido).
 - REGRA MÁXIMA: TODA semana referencia ≥1 id de "objetivos_30_dias" no campo "conexao_com_pdi" (array não-vazio). Nenhuma semana pode ficar sem vínculo com o PDI.
 - "competencia_foco" de cada semana usa nomes EXATOS das competências do input; "descritores_foco" usa descritores reais do input.

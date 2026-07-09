@@ -200,9 +200,9 @@ Julgue APENAS o que exige leitura semântica (o que um verificador de código n�
 3. EXIGÊNCIA ↔ NÍVEL: a exigência das ações/missões cabe em quem está no nível avaliado (N1 não pode receber tarefa de N3)? Aponte exageros.
 4. AVALIAÇÃO FINAL MEDE O PROMETIDO: as semanas de avaliação medem o que o PDI prometeu desenvolver?
 5. GENÉRICO: há objetivo/ação/leitura que serviria para QUALQUER pessoa (sem ancoragem no cargo/dados)? Aponte.
-6. TOM/SAÚDE: alguma linguagem clínica ou de saúde (deveria ser desenvolvimento profissional)?
+6. TOM/SAÚDE: a linguagem que o BLUEPRINT ESCREVE (foco_geral, leitura, objetivos, ações, evidências) usa registro clínico/de saúde em vez de prática de trabalho? IMPORTANTE: NÃO penalize os NOMES de competência e de descritores (ex.: "Autocuidado e resiliência emocional", "Regulação sob pressão") — eles vêm do modelo de competências (dado de entrada), o blueprint NÃO os escolheu e é obrigado a citá-los. Se o nome da competência é clínico mas o texto autoral do blueprint fala de práticas de trabalho observáveis, é "pass". Só marque "warn"/"fail" quando o TEXTO AUTORAL (não os nomes recebidos) escorrega pro registro clínico ("esgotamento", "estado interno", "o que sentiu").
 
-Para CADA item, dê status: "pass" (coerente), "warn" (fraco/ambíguo, não quebra) ou "fail" (incoerência real). Seja concreto: cite a semana/objetivo/competência.
+Para CADA item, dê status: "pass" (coerente), "warn" (fraco/ambíguo, não quebra) ou "fail" (incoerência real). Seja concreto: cite a semana/objetivo/competência. Reserve "warn"/"fail" para problemas REAIS — se o item está adequado, dê "pass" (não invente ressalva pra parecer rigoroso).
 
 RETORNE APENAS JSON VÁLIDO (sem markdown):
 {
