@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { mapComLimite } from '@/lib/concurrency';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { createSupabaseAdmin } from '@/lib/supabase';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import { callAI, type AIConfig } from './ai-client';
@@ -82,7 +83,13 @@ async function salvarPDFStorage(
   colaboradorNome: string,
   buffer: Buffer,
 ): Promise<string | null> {
-  const slug = (colaboradorNome || tipo).replace(/\s+/g, '-').toLowerCase();
+  // Chave de storage TEM que ser ASCII/URL-safe — nome com acento (ex.: "Elizângela")
+  // quebrava o upload ("Invalid key") e o PDF não era salvo (pdf_path null).
+  const slug = (colaboradorNome || tipo)
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // remove acentos
+    .replace(/[^a-zA-Z0-9]+/g, '-')            // qualquer não-alfanumérico → hífen
+    .replace(/^-+|-+$/g, '')                    // trim hífens
+    .toLowerCase() || tipo;
   const path = `${empresaId}/${tipo}-${slug}-${Date.now()}.pdf`;
   const { error } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
     contentType: 'application/pdf',
@@ -208,8 +215,12 @@ export async function gerarRelatorioIndividual(
   empresaId: string,
   colaboradorId: string,
   aiConfig: AIConfig = {},
+  // internal=true: caminho já gated (lote/script/regeneração headless) — usa
+  // service_role sem exigir sessão. O tenant é EXPLÍCITO (empresaId) e o tdb
+  // escopa as queries, então o isolamento não depende do gate de sessão.
+  internal: boolean = false,
 ): Promise<ServerResult> {
-  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
+  const sbRaw = internal ? createSupabaseAdmin() : await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
