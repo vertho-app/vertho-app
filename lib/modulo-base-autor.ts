@@ -7,8 +7,10 @@
  * `'use server'` não pode ser importado por elas sem transformar cada export
  * num endpoint HTTP. Mesmo motivo de `lib/ia2-gabarito.ts`.
  *
- * Sem I/O, sem guard, sem Supabase: só texto puro.
+ * Sem guard e sem Supabase. A única chamada externa é a `callAI` — o mesmo wrapper
+ * único de IA que o resto do app usa.
  */
+import { callAI } from '@/actions/ai-client';
 
 export type Nivel = 'N1' | 'N2' | 'N3' | 'N4';
 
@@ -185,4 +187,25 @@ ${blocoDocx}
 }
 
 QUANTIDADES (faixa fechada — não ultrapasse o teto): 5 a 6 princípios, 4 a 5 situações típicas, 4 a 5 erros comuns, 4 a 5 boas práticas. Densidade vale mais que volume: prefira 5 itens afiados a 9 diluídos. Responda APENAS com o JSON.`;
+}
+
+export async function chamarIAComRetry(systemPrompt: string, userPrompt: string, model: string, maxTokens = 64000) {
+  let corpo: any = null;
+  for (let tentativa = 1; tentativa <= 2 && !corpo; tentativa++) {
+    try {
+      const raw = await callAI(systemPrompt, userPrompt, { model }, maxTokens);
+      corpo = extractCorpo(raw);
+      if (!corpo) {
+        const txt = String(raw || '');
+        console.warn(
+          `[modulo_base_autor] tentativa ${tentativa}: JSON inválido. ` +
+          `raw=${txt.length}chars · início="${txt.slice(0, 200).replace(/\n/g, ' ')}" · ` +
+          `fim="${txt.slice(-200).replace(/\n/g, ' ')}"`,
+        );
+      }
+    } catch (e: any) {
+      console.warn(`[modulo_base_autor] tentativa ${tentativa} falhou:`, e?.message);
+    }
+  }
+  return corpo;
 }
