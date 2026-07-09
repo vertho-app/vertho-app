@@ -7,8 +7,10 @@ Esta spec **substitui** `PROMPT-EXTRACAO-MANUSCRITO.md`, que foi escrita contra 
 modelo mental do banco que não corresponde ao schema real. As divergências estão
 listadas no fim, para quem tiver lido a versão anterior.
 
-Status: **Fase 1 (parser) pronta e validada** — `lib/manuscrito-parser.ts`.
-Fases 2-4 pendentes.
+Status: **Fase 1 (parser) e Fase 2 (autoria por fatia) prontas e validadas** —
+`lib/manuscrito-parser.ts` + `criarModuloBaseDeManuscrito`. Parser conferido contra
+SED08 e SED05 (54/54 microblocos cada) e contra um DOCX não-manuscrito (falha alto).
+Pendentes: orquestrador em job (`ia_jobs` + Trigger + Batch), migration de log, UI.
 
 ---
 
@@ -111,22 +113,31 @@ progresso da UI é polling de `ia_jobs.progress`, como a tela do IA2 já faz.
 
 ## 4. O que falta construir
 
-### 4.1 Caminho polimórfico na autoria — **bloqueante**
+### 4.1 Autoria a partir de fatia — **FEITO**
 
 `modulos_base_conteudo` aceita `competencia_base_id` **ou** `competencia_id`
-(polimórfico desde a mig 149). Mas `rascunharModuloBase` e `importarModuloDocx`
-(`actions/modulos-base.ts`) **só aceitam `competencia_base_id`**.
+(polimórfico desde a mig 149). E o núcleo de autoria polimórfico **já existia**:
+`estruturarEInserirModulo` (privado, `actions/modulos-base.ts`) resolve os dois
+catálogos via `carregarCompetenciaEmpresa`/`carregarCompetenciaBase`, recebe um
+texto-base e insere o rascunho. É o mesmo caminho que a extração de vídeo usa.
 
-Isso bloqueia o SED08, que **não está no catálogo canônico**: `competencias_base`
+Isso importa porque o SED08 **não está no catálogo canônico**: `competencias_base`
 tem 24 competências, todas com um único descritor. O SED08 vive em `competencias`,
 empresa Secretaria Municipal de Ibipeba/BA, com `cod_desc` de `SED08_D1` a
-`SED08_D6` — casando exatamente com os cabeçalhos do manuscrito.
+`SED08_D6` — casando exatamente com os cabeçalhos do manuscrito (6/6, em ordem,
+conferido também no SED05).
 
-Extrair um `_rascunharComTextoCore(sb, { competencia, ne, nd, textoFonte, ... })`
-sem guard, no mesmo padrão que `_auditarModuloCore` já usa, e resolver a
-competência via `carregarCompetenciaDoModulo` (que já é polimórfica).
+O que faltava era só o wrapper exportado com guard, hoje
+`criarModuloBaseDeManuscrito` (`content.manage`): recebe a competência e a
+transição já resolvidas pelo parser, sem detecção nem inferência, e tagueia como
+`importado-manuscrito`.
 
-### 4.2 Termo canônico no prompt — **defeito real, fix validado**
+> ⚠️ `estruturarEInserirModulo` é **privado de propósito**. Num arquivo `'use server'`,
+> todo export vira endpoint HTTP público — um núcleo sem guard exportado seria um
+> IDOR. O padrão da casa (ver `_auditarModuloCore`) é: núcleo privado, wrappers
+> exportados com `requireAdminAction`.
+
+### 4.2 Termo canônico no prompt — **FEITO, fix validado**
 
 A autora alterna "o técnico" e "o acompanhador" **aleatoriamente**, dentro do mesmo
 descritor. Não é um problema do módulo mais avançado; aparece em qualquer transição.
@@ -140,12 +151,16 @@ Fix, no bloco `## PÚBLICO` de `montarUserPrompt`:
 
 Medido: `"acompanhador"` cai de 24 ocorrências para 1; `"o técnico"` sobe de 7
 para 67. O termo **não está no banco** (`cargo` = "Gestão Educacional", o
-manuscrito diz "técnico") → vira campo do import, default `comp.cargo`.
+manuscrito diz "técnico"; e o próprio SED08 escreve "Gestor Educacional" no
+cabeçalho enquanto o SED05 escreve "Gestão Educacional") → é campo do import,
+default `comp.cargo`, passado como `termoCanonico`.
 
-### 4.3 Slice de 60k chars
+### 4.3 Limite do texto-fonte — **FEITO**
 
-`montarUserPrompt:653` trunca o texto-fonte em 60.000 chars. As fatias têm
-~64.000. Corta ~7% do fim de **cada** módulo. Parametrizar o limite.
+`montarUserPrompt` truncava o texto-fonte em 60.000 chars fixos, e as fatias têm
+~64.000 — cortava ~7% do fim de **cada** módulo. Agora o limite é parâmetro
+(`limiteFonte`), com 80.000 no caminho do manuscrito e 60.000 de default nos
+demais.
 
 ### 4.4 Tabela `manuscritos_importados`
 
@@ -176,34 +191,39 @@ recurso sugerido entra com `ativo = false`.
 
 ## 5. Custo (medido, não estimado)
 
-Por chamada Sonnet 4.6, com 65k chars de fonte:
+Por chamada Sonnet 4.6, com ~65k chars de fonte. Tudo abaixo é **medido**:
 
 | | tokens | custo | fatia |
 |---|---|---|---|
-| Entrada | 20.391 | $0,061 | 28% |
-| Saída (JSON do módulo) | 10.684 | $0,160 | **72%** |
-| **Total** | | **$0,222** | |
+| Entrada | 20.351 | $0,061 | 31% |
+| Saída (JSON do módulo) | 9.085 | $0,136 | **69%** |
+| **Total** | | **$0,197** | |
 
-**Prompt caching não ajuda.** A entrada é 28% do custo, e as três fatias de um
+**Prompt caching não ajuda.** A entrada é ~30% do custo, e as três fatias de um
 descritor são disjuntas — não há prefixo literal comum para cachear.
 
 | | Síncrono | Otimizado |
 |---|---|---|
-| Autoria (18 × Sonnet) | $3,99 | $1,63 |
+| Autoria (18 × Sonnet) | $3,55 | $1,77 |
 | Auditoria (18 × GPT-5.4) | $1,44 | $0,72 |
-| **Por manuscrito** | **$5,42** | **~$2,35** |
-| Cargo inteiro (12 comps, 216 módulos) | ~$65 | **~$28** |
+| **Por manuscrito** | **$4,99** | **~$2,49** |
+| Cargo inteiro (12 comps, 216 módulos) | ~$60 | **~$30** |
 
-As três alavancas, em ordem de retorno:
+As alavancas, em ordem de retorno:
 
 1. **Batch API (−50%) na autoria.** Zero custo de qualidade, e obrigatório de
    qualquer forma pelos 66 minutos.
-2. **Faixa fechada no lugar de "Mínimo:".** O prompt termina com *"Mínimo: 5
-   princípios, 4 situações típicas, 4 erros comuns, 4 boas práticas"* — e o modelo
-   entrega consistentemente ~30% acima (7-9 princípios, 6 erros). Trocar por "5 a 6
-   princípios" corta ~20% da saída.
-3. **`submitOpenAIBatch`.** `submitClaudeBatch` só fala Claude; a auditoria
-   GPT-5.4 cai no fallback síncrono.
+2. **Faixa fechada no lugar de "Mínimo:"** — *já aplicado*. O prompt terminava com
+   *"Mínimo: 5 princípios, 4 situações típicas..."*, e o modelo entregava
+   consistentemente ~30% acima (7-9 princípios, 6 erros). Com a faixa fechada a
+   saída caiu **15%** (10.684 → 9.085 tokens) sem perda de qualidade. O modelo
+   encosta exatamente no teto de cada categoria — lê a faixa como alvo, não como
+   limite. Apertar mais é possível, mas não testado.
+3. **`submitOpenAIBatch`** — *pendente*. `submitClaudeBatch` só fala Claude; a
+   auditoria GPT-5.4 cai no fallback síncrono.
+
+> Esta mudança de prompt é **global**: vale também para a extração de vídeo e para
+> `rascunharModuloBase`. Módulos novos saem com 5-6 princípios em vez de 7-9.
 
 Não trocar Sonnet por Haiku: a autora migrou de Gemini Flash para Sonnet 4.6 por
 qualidade pedagógica. Economizar $2 num cargo inteiro não paga a regressão.

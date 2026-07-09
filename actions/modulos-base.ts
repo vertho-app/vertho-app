@@ -632,7 +632,24 @@ REGRAS INTRANSPONÍVEIS:
 
 FORMATO DE SAÍDA: APENAS JSON válido com a estrutura especificada. Sem markdown, sem comentários, sem texto antes ou depois.`;
 
-function montarUserPrompt(comp: any, nivel_entrada: Nivel, nivel_destino: Nivel, contexto?: string, referencia?: any, docxTexto?: string) {
+/** Teto do texto-fonte injetado no prompt. As fatias de manuscrito têm ~64k. */
+const LIMITE_FONTE_PADRAO = 60000;
+
+interface OpcoesPrompt {
+  contexto?: string;
+  referencia?: any;
+  docxTexto?: string;
+  /**
+   * Como nomear o profissional ("o técnico", "o gestor"). Sem isto a autora
+   * alterna sinônimos aleatoriamente entre módulos do mesmo descritor.
+   */
+  termoCanonico?: string;
+  /** Sobrescreve LIMITE_FONTE_PADRAO. Fatias de manuscrito precisam de ~70k. */
+  limiteFonte?: number;
+}
+
+function montarUserPrompt(comp: any, nivel_entrada: Nivel, nivel_destino: Nivel, o: OpcoesPrompt = {}) {
+  const { contexto, referencia, docxTexto, termoCanonico } = o;
   const nivelTextos: Record<string, string> = {
     N1: comp.n1_gap || '',
     N2: comp.n2_desenvolvimento || '',
@@ -650,7 +667,11 @@ function montarUserPrompt(comp: any, nivel_entrada: Nivel, nivel_destino: Nivel,
     : '';
 
   const blocoDocx = docxTexto
-    ? `\n\n## TEXTO EXTRAÍDO DO DOCX (estruture-o no JSON do módulo — adapte o que estiver fora do padrão):\n${docxTexto.slice(0, 60000)}`
+    ? `\n\n## TEXTO EXTRAÍDO DO DOCX (estruture-o no JSON do módulo — adapte o que estiver fora do padrão):\n${docxTexto.slice(0, o.limiteFonte ?? LIMITE_FONTE_PADRAO)}`
+    : '';
+
+  const blocoTermo = termoCanonico
+    ? `\n- TERMO CANÔNICO: refira-se ao profissional SEMPRE como "${termoCanonico}". Não alterne sinônimos (ex.: "acompanhador", "supervisor", "monitor") — use o mesmo termo do início ao fim.`
     : '';
 
   return `## COMPETÊNCIA CANÔNICA
@@ -660,7 +681,7 @@ function montarUserPrompt(comp: any, nivel_entrada: Nivel, nivel_destino: Nivel,
 - Descritor: ${comp.descritor_completo || comp.descricao || '—'}
 
 ## PÚBLICO (calibre a linguagem para ele)
-${comp.cargo || contexto || 'profissional generalista'} — escreva no nível de quem vai aplicar isto no dia a dia, sem jargão técnico desnecessário.
+${comp.cargo || contexto || 'profissional generalista'} — escreva no nível de quem vai aplicar isto no dia a dia, sem jargão técnico desnecessário.${blocoTermo}
 
 ## PROFUNDIDADE-ALVO (use APENAS para calibrar o escopo — NÃO escreva sobre níveis no conteúdo)
 - Ponto de partida típico: ${nivelTextos[nivel_entrada]}
@@ -718,7 +739,7 @@ ${blocoDocx}
   }
 }
 
-Mínimo: 5 princípios, 4 situações típicas, 4 erros comuns, 4 boas práticas. Responda APENAS com o JSON.`;
+QUANTIDADES (faixa fechada — não ultrapasse o teto): 5 a 6 princípios, 4 a 5 situações típicas, 4 a 5 erros comuns, 4 a 5 boas práticas. Densidade vale mais que volume: prefira 5 itens afiados a 9 diluídos. Responda APENAS com o JSON.`;
 }
 
 async function chamarIAComRetry(systemPrompt: string, userPrompt: string, model: string, maxTokens = 64000) {
@@ -766,7 +787,7 @@ export async function rascunharModuloBase(opts: {
     referencia = data;
   }
 
-  const userPrompt = montarUserPrompt(comp, opts.nivel_entrada, opts.nivel_destino, opts.contexto_pedagogico, referencia);
+  const userPrompt = montarUserPrompt(comp, opts.nivel_entrada, opts.nivel_destino, { contexto: opts.contexto_pedagogico, referencia });
   const model = await getModelForTask(null as any, 'modulo_base_autor');
 
   const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
@@ -928,7 +949,7 @@ export async function importarModuloDocx(opts: {
   const comp = await carregarCompetenciaBase(opts.competencia_base_id);
   if (!comp) return { error: 'Competência base não encontrada' };
 
-  const userPrompt = montarUserPrompt(comp, opts.nivel_entrada, opts.nivel_destino, opts.contexto_pedagogico, null, texto);
+  const userPrompt = montarUserPrompt(comp, opts.nivel_entrada, opts.nivel_destino, { contexto: opts.contexto_pedagogico, docxTexto: texto });
   const model = await getModelForTask(null as any, 'modulo_base_autor');
   const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
   if (!corpo) return { error: 'A IA não conseguiu estruturar o conteúdo do .docx. Verifique o arquivo ou edite manualmente.' };
@@ -1116,7 +1137,17 @@ function montarCorpoFallback(comp: any, meta: MetaModulo, textoBase: string) {
 async function estruturarEInserirModulo(
   meta: MetaModulo,
   textoBase: string,
-  opts: { empresaId?: string | null; urlOrigem?: string; createdBy?: string },
+  opts: {
+    empresaId?: string | null;
+    urlOrigem?: string;
+    createdBy?: string;
+    /** Sobrescreve as tags padrão ('extraido-video'). */
+    tags?: string[];
+    /** Ver OpcoesPrompt.termoCanonico. */
+    termoCanonico?: string;
+    /** Ver OpcoesPrompt.limiteFonte. */
+    limiteFonte?: number;
+  },
 ): Promise<{ id?: string; grupo_id?: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel; avisos?: string[]; error?: string }> {
   const isEmpresa = !!meta.competencia_id;
   const comp = isEmpresa
@@ -1126,7 +1157,12 @@ async function estruturarEInserirModulo(
 
   // Estrutura os 4 blocos tratando o texto-base como matéria-prima (igual ao docx).
   const contextoPedagogico = normalizeContextoPedagogico(meta.contexto_pedagogico);
-  const userPrompt = montarUserPrompt(comp, meta.nivel_entrada, meta.nivel_destino, contextoPedagogico || undefined, null, textoBase);
+  const userPrompt = montarUserPrompt(comp, meta.nivel_entrada, meta.nivel_destino, {
+    contexto: contextoPedagogico || undefined,
+    docxTexto: textoBase,
+    termoCanonico: opts.termoCanonico,
+    limiteFonte: opts.limiteFonte,
+  });
   const model = await getModelForTask(null as any, 'modulo_base_autor');
   let corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
   const usouFallback = !corpo && contextoPedagogico === 'fallback-material';
@@ -1146,7 +1182,7 @@ async function estruturarEInserirModulo(
     descritor: meta.descritor ? String(meta.descritor).slice(0, 200) : null,
     finalidade: (meta.finalidade || `Matéria-prima pedagógica extraída de vídeo para a transição ${meta.nivel_entrada}→${meta.nivel_destino} em "${comp.nome}".`).slice(0, 400),
     contexto_pedagogico: contextoPedagogico,
-    tags: opts.urlOrigem ? ['extraido-video', opts.urlOrigem.slice(0, 80)] : ['extraido-video'],
+    tags: opts.tags ?? (opts.urlOrigem ? ['extraido-video', opts.urlOrigem.slice(0, 80)] : ['extraido-video']),
     conteudo_central: corpo.conteudo_central,
     conteudo_aplicavel: corpo.conteudo_aplicavel,
     guarda_corpos: corpo.guarda_corpos,
@@ -1179,6 +1215,64 @@ export async function criarModuloBaseDeTextoExtraido(opts: {
     return { error: 'Não foi possível mapear o vídeo a uma competência canônica com confiança. Mapeie manualmente.' };
   }
   return estruturarEInserirModulo(meta as MetaModulo, opts.textoBase, opts);
+}
+
+/**
+ * Cria UM Módulo-Base a partir de uma fatia de manuscrito autoral (uma transição
+ * de um descritor). A competência e a transição JÁ vêm resolvidas pelo parser
+ * determinístico (`lib/manuscrito-parser`) — aqui não há detecção nem inferência.
+ *
+ * Aceita competência CANÔNICA ou da EMPRESA: os manuscritos da rede (SED01-SED12)
+ * vivem em `competencias`, não em `competencias_base`.
+ *
+ * A fatia tem ~64k chars, acima do teto padrão de 60k — daí o `limiteFonte`.
+ */
+export async function criarModuloBaseDeManuscrito(opts: {
+  competencia_base_id?: string | null;
+  competencia_id?: string | null;
+  empresaId?: string | null;
+  nivel_entrada: Nivel;
+  nivel_destino: Nivel;
+  locale?: Locale;
+  textoFonte: string;
+  descritor?: string | null;
+  titulo?: string | null;
+  /** Como a autora deve nomear o profissional. Sem isto, ela alterna sinônimos. */
+  termoCanonico?: string;
+  /** Rastreabilidade: "SED08" + IDs dos microblocos usados. */
+  codManuscrito?: string;
+}) {
+  const ctx = await requireAdminAction('content.manage');
+  if (!opts.competencia_base_id && !opts.competencia_id) {
+    return { error: 'Informe competencia_base_id OU competencia_id' };
+  }
+  if (!opts.textoFonte?.trim()) return { error: 'textoFonte vazio' };
+  if (!nivelGreater(opts.nivel_destino, opts.nivel_entrada)) {
+    return { error: 'nivel_destino deve ser maior que nivel_entrada' };
+  }
+
+  const tags = ['importado-manuscrito', ...(opts.codManuscrito ? [opts.codManuscrito.slice(0, 40)] : [])];
+
+  return estruturarEInserirModulo(
+    {
+      competencia_base_id: opts.competencia_base_id ?? null,
+      competencia_id: opts.competencia_id ?? null,
+      nivel_entrada: opts.nivel_entrada,
+      nivel_destino: opts.nivel_destino,
+      locale: (opts.locale || 'pt-BR') as Locale,
+      titulo: opts.titulo ?? null,
+      descritor: opts.descritor ?? null,
+    },
+    opts.textoFonte,
+    {
+      empresaId: opts.empresaId ?? null,
+      createdBy: ctx.email,
+      tags,
+      termoCanonico: opts.termoCanonico,
+      // As fatias por transição chegam a ~68k chars; 80k dá folga sem risco.
+      limiteFonte: 80000,
+    },
+  );
 }
 
 type SegSecao = Omit<MetaModulo, 'locale'> & { texto_base: string };
