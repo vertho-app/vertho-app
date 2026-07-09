@@ -11,7 +11,7 @@ import {
   Building2, Users, Brain, Mail, Bot, GraduationCap, TrendingUp, Activity,
   Zap, Database, FileText, Send, ClipboardCheck, BarChart3, Target, Clock,
   Play, BookOpen, Layers, MessageSquare, FileBarChart, CheckCircle,
-  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, Film, Sparkles, Briefcase, Compass
+  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, Film, Sparkles, Briefcase, Compass, ShieldCheck
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
@@ -24,7 +24,7 @@ import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { gerarTemporadasLote } from '@/actions/temporadas';
-import { gerarBlueprintsLote } from '@/actions/blueprint';
+import { gerarBlueprintsLote, auditarBlueprintsLote } from '@/actions/blueprint';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
@@ -101,6 +101,7 @@ const PHASE_CONFIG = [
     ]},
     { label: 'Relatórios', actions: [
       { key: 'blueprint',  label: 'Gerar Blueprint', icon: Compass, ai: true },
+      { key: 'audit-blueprint', label: 'Auditar Blueprint', icon: ShieldCheck, ai: true },
       { key: 'rel-ind',    label: 'Gerar PDI', icon: FileText,   ai: true },
       { key: 'rel-gestor', label: 'Gestor',    icon: FileBarChart, ai: true },
       { key: 'rel-rh',     label: 'RH',        icon: FileBarChart, ai: true },
@@ -295,6 +296,17 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
           else addLog(`⚠ ${d.colaborador}: ${d.erro}`, 'error');
         }
         addLog(`🎉 ${r.message}`, (r.erros || 0) === 0 ? 'success' : 'info');
+        setPendingAction(null); return;
+      }
+      if (actionKey === 'audit-blueprint') {
+        addLog('🛡 Auditando blueprints (coerência estrutural + 2ª IA)...', 'info');
+        const r = await auditarBlueprintsLote(empresaId, undefined, aiConfig || undefined);
+        if (!r?.success) { addLog(`❌ ${r?.error || 'Falha ao auditar blueprints'}`, 'error'); setPendingAction(null); return; }
+        for (const d of (r.detalhes || [])) {
+          if (d.ok) addLog(`${d.drift ? '⚠' : '✅'} ${d.colaborador} — score ${d.score}${d.drift ? ' · DRIFT' : ''}`, d.drift ? 'error' : 'success');
+          else addLog(`❌ ${d.colaborador}: ${d.erro}`, 'error');
+        }
+        addLog(`🎉 ${r.message}`, (r.erros || 0) === 0 && (r.comDrift || 0) === 0 ? 'success' : 'info');
         setPendingAction(null); return;
       }
       if (actionKey === 'rel-ind') {

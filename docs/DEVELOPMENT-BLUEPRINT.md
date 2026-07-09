@@ -113,8 +113,22 @@ final mede o que o PDI prometeu? Falhou → marca drift (e, opcionalmente, re-ge
   produto** (flag ainda OFF em prod). Falta: página "vira trilha" mostrar o binding
   real a partir do plano (hoje o binding está no `temporada_plano`, o render ainda
   não o consome).
-- **Estágio 4 — Auditoria + PDI 2 níveis:** `auditarBlueprint` (2ª IA) + separar
-  PDI **executivo** (humano) do **estruturado** (o blueprint, pra engine).
+- **Estágio 4 — Auditoria — ✅ FEITO (auditarBlueprint):** `lib/blueprint/audit.ts`
+  (puro) = camada ESTRUTURAL (6 checks determinísticos por PRESENÇA nominal: toda
+  ação do PDI sustentada? refs de objetivo existem? semana órfã? fora do foco?
+  calendário bate? carga N1≤2?) + camada SEMÂNTICA (2ª IA adversarial: a trilha
+  cobre o que promete? missão coleta a evidência certa? exigência cabe em N1? a
+  avaliação mede o prometido? genérico? tom clínico?). `actions/blueprint.ts::
+  auditarBlueprint` orquestra (estrutural + IA → `montarRelatorioAuditoria` com
+  drift/score) e PERSISTE em `development_blueprints.auditoria/auditado_em`
+  (mig 176). Lote `auditarBlueprintsLote` + botão "Auditar Blueprint" no runner
+  (grupo Relatórios). `drift` = ≥1 `fail`; score = (pass + 0,5·warn)/total. Falha
+  da 2ª IA não derruba a auditoria (estrutural sozinho vale). Validado na Elizângela:
+  6/6 estrutural pass, 6 warns semânticos concretos (ex.: descritor "Limites
+  profissionais" sem missão que colete a evidência; avaliação 13/14 com descritor
+  da competência ERRADA; densidade de linguagem clínica), score 75, drift=false.
+- **Estágio 4b (pendente) — PDI 2 níveis:** separar PDI **executivo** (humano) do
+  **estruturado** (o blueprint, pra engine). Não iniciado.
 
 ## Backward-compat / risco
 

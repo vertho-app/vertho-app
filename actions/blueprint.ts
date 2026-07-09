@@ -19,6 +19,10 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import { PROGRAMA_REGULAR_DUO } from '@/lib/season-engine/programa-config';
 import { buildBlueprintPrompt, type BlueprintCompetenciaInput } from '@/lib/blueprint/prompt';
+import {
+  auditEstrutural, buildBlueprintAuditPrompt, parseAuditResponse, montarRelatorioAuditoria,
+  type BlueprintAuditReport,
+} from '@/lib/blueprint/audit';
 import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
@@ -243,5 +247,144 @@ export async function getBlueprint(empresaId: string, colaboradorId: string): Pr
     return { ok: true, id: data.id, blueprint: data.blueprint, spec_version: data.spec_version, gerado_em: data.gerado_em };
   } catch (err: any) {
     return { error: err.message };
+  }
+}
+
+export interface AuditarBlueprintResult {
+  ok?: true;
+  relatorio?: BlueprintAuditReport;
+  error?: string;
+}
+
+/**
+ * Auditoria de coerência (Fase 1, Estágio 4): roda os checks ESTRUTURAIS
+ * (código, por presença nominal) + um passe SEMÂNTICO da 2ª IA (adversarial),
+ * funde num relatório e PERSISTE o drift no blueprint (`auditoria`/`auditado_em`).
+ *
+ * ADITIVO: não muda a geração nem o consumo do blueprint — é um selo de qualidade.
+ * `internal.empresaId` (lote/cron) pula o gate e revalida o tenant (defense-in-depth).
+ */
+export async function auditarBlueprint(
+  { colaboradorId, aiConfig, internal }: {
+    colaboradorId: string;
+    aiConfig?: AIConfig;
+    internal?: { empresaId: string };
+  },
+): Promise<AuditarBlueprintResult> {
+  if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
+  const sbRaw = internal ? createSupabaseAdmin() : await requireAdminSupabase('ai.audit.regenerate');
+  try {
+    const { data: colab } = await sbRaw.from('colaboradores')
+      .select('id, empresa_id').eq('id', colaboradorId).maybeSingle();
+    if (!colab) return { error: 'Colaborador não encontrado' };
+    if (internal?.empresaId && colab.empresa_id !== internal.empresaId) {
+      return { error: 'Colaborador de outro tenant — acesso negado' };
+    }
+    const empresaId: string = colab.empresa_id;
+    if (!empresaId) return { error: 'Colaborador sem empresa_id' };
+    const tdb = tenantDb(empresaId);
+
+    const { data: bpRow } = await tdb.from('development_blueprints')
+      .select('id, blueprint')
+      .eq('colaborador_id', colaboradorId)
+      .order('gerado_em', { ascending: false })
+      .limit(1).maybeSingle();
+    if (!bpRow?.blueprint) return { error: 'Blueprint não encontrado — gere o blueprint antes de auditar.' };
+    const blueprint = bpRow.blueprint as DevelopmentBlueprint;
+
+    // 1) Estrutural (determinístico). Parâmetros = Regular DUO (mesma régua da geração).
+    const cfg = PROGRAMA_REGULAR_DUO;
+    const estrutural = auditEstrutural(blueprint, {
+      duracaoSemanas: cfg.semanas,
+      semanasMissao: cfg.semanasMissao,
+      semanasAvaliacao: cfg.semanasAvaliacao,
+    });
+
+    // 2) Semântico (2ª IA, adversarial). Falha da IA não derruba a auditoria —
+    //    o estrutural sozinho já é um relatório válido.
+    let semantico = { checks: [] as BlueprintAuditReport['checks'], resumo: '' };
+    try {
+      const { system, user } = buildBlueprintAuditPrompt(blueprint);
+      const resp = await callAI(system, user, aiConfig || {}, 4000);
+      const parsed = await extractJSON(resp);
+      if (parsed) semantico = parseAuditResponse(parsed);
+    } catch (err: any) {
+      console.warn('[auditarBlueprint] passe semântico falhou — relatório só com estrutural:', err?.message ?? err);
+    }
+
+    const relatorio = montarRelatorioAuditoria(estrutural, semantico, new Date().toISOString());
+
+    const { error: saveErr } = await tdb.from('development_blueprints')
+      .update({ auditoria: relatorio, auditado_em: relatorio.auditado_em })
+      .eq('id', bpRow.id);
+    if (saveErr) return { error: saveErr.message };
+
+    return { ok: true, relatorio };
+  } catch (err: any) {
+    return { error: err.message };
+  }
+}
+
+export interface AuditarLoteDetalhe {
+  colaborador: string;
+  ok?: boolean;
+  drift?: boolean;
+  score?: number;
+  erro?: string;
+}
+
+export interface AuditarBlueprintsLoteResult {
+  success: boolean;
+  error?: string;
+  message?: string;
+  ok?: number;
+  comDrift?: number;
+  erros?: number;
+  detalhes?: AuditarLoteDetalhe[];
+}
+
+/**
+ * Audita em LOTE os colaboradores que JÁ têm blueprint (o audit precisa de um
+ * blueprint gerado). Padrão de `gerarBlueprintsLote`.
+ */
+export async function auditarBlueprintsLote(
+  empresaId: string,
+  colaboradorIds?: string[],
+  aiConfig?: AIConfig,
+): Promise<AuditarBlueprintsLoteResult> {
+  await requireAdminAction('ai.audit.regenerate');
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
+  try {
+    // Fila = quem tem blueprint (pré-requisito do audit).
+    const { data: bps } = await tdb.from('development_blueprints').select('colaborador_id');
+    const ids = colaboradorIds?.length
+      ? colaboradorIds
+      : [...new Set((bps || []).map((b: any) => b.colaborador_id).filter(Boolean))] as string[];
+    if (!ids.length) return { success: false, error: 'Nenhum colaborador com blueprint (gere o blueprint primeiro)' };
+
+    const { data: colabs } = await tdb.from('colaboradores').select('id, nome_completo').in('id', ids);
+    const nomePorId = new Map<string, string>((colabs || []).map((c: any) => [c.id, c.nome_completo]));
+
+    let ok = 0, erros = 0, comDrift = 0;
+    const detalhes: AuditarLoteDetalhe[] = [];
+    for (const id of ids) {
+      const nome = nomePorId.get(id) || id;
+      const r = await auditarBlueprint({ colaboradorId: id, aiConfig, internal: { empresaId } });
+      if (r.ok && r.relatorio) {
+        ok++;
+        if (r.relatorio.drift) comDrift++;
+        detalhes.push({ colaborador: nome, ok: true, drift: r.relatorio.drift, score: r.relatorio.score });
+      } else {
+        erros++;
+        detalhes.push({ colaborador: nome, erro: r.error });
+      }
+    }
+    return {
+      success: true, ok, comDrift, erros, detalhes,
+      message: `${ok} auditado(s)${comDrift ? ` · ${comDrift} com drift` : ''}${erros ? ` · ${erros} erro(s)` : ''}`,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 }
