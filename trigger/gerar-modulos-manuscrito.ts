@@ -10,6 +10,7 @@ import {
   chaveModulo,
 } from '@/lib/manuscrito-modulos';
 import { extractCorpo, validarCorpo } from '@/lib/modulo-base-autor';
+import { auditarModulosCore } from '@/lib/modulo-base-auditor';
 
 /**
  * Manuscrito autoral (DOCX) → N Módulos-Base, em BACKGROUND.
@@ -26,6 +27,8 @@ import { extractCorpo, validarCorpo } from '@/lib/modulo-base-autor';
  *  - Falha POR-ITEM → registra em progress.resultados[] e SEGUE.
  *  - Falha do BATCH inteiro → FALLBACK SÍNCRONO por módulo. Nunca perde conteúdo.
  *  - Persiste À MEDIDA que cada módulo fica pronto: um timeout perde só o resto.
+ *  - Auditoria Dual-IA no fim (GPT-5.4, fora do batch — batch só aceita Claude).
+ *    Falhar ali não invalida o conteúdo; o módulo fica sem nota.
  *
  * O DOCX viaja em `params.docxBase64` (~360KB) e é RE-PARSEADO aqui. O parser é
  * determinístico, então re-parsear é mais barato e mais seguro que serializar as
@@ -151,7 +154,28 @@ export const gerarModulosManuscritoTask = task({
       const okCount = resultados.filter((r) => r.ok).length;
       const errCount = resultados.length - okCount;
 
-      // 5) Descarta o DOCX do job — 360KB de base64 não precisam viver pra sempre.
+      // 5) Auditoria Dual-IA (GPT-5.4) sobre os módulos recém-criados. Best-effort:
+      // falhar aqui não invalida o conteúdo — o módulo só fica sem nota, auditável
+      // depois pela UI. Fica FORA do batch de propósito: o batch da Anthropic só
+      // aceita Claude, e a auditora é cross-provider por design.
+      let auditados = 0;
+      if (idsCriados.length && pp.auditar !== false) {
+        await pushProgress(`auditando ${idsCriados.length} módulo(s)…`);
+        try {
+          const r = await auditarModulosCore(sb, idsCriados, {
+            promoverParaRevisao: true,
+            onItem: async (_id, bom) => {
+              if (bom) auditados++;
+              await pushProgress(`auditando ${auditados}/${idsCriados.length}…`);
+            },
+          });
+          if (r.falhas.length) console.warn('[gerar-modulos-manuscrito] auditoria:', r.falhas.join(' · '));
+        } catch (e: any) {
+          console.warn('[gerar-modulos-manuscrito] auditoria falhou inteira:', e?.message);
+        }
+      }
+
+      // 6) Descarta o DOCX do job — 360KB de base64 não precisam viver pra sempre.
       const { docxBase64: _descartado, ...paramsSemDocx } = pp;
 
       await patch({
@@ -160,11 +184,12 @@ export const gerarModulosManuscritoTask = task({
         params: paramsSemDocx,
         result_ids: idsCriados,
         progress: {
-          done: total, total, pulados, resultados,
-          current: `concluído: ${okCount} ok, ${errCount} erro(s)${pulados ? `, ${pulados} pulado(s)` : ''}`,
+          done: total, total, pulados, resultados, auditados,
+          current: `concluído: ${okCount} ok, ${errCount} erro(s)${pulados ? `, ${pulados} pulado(s)` : ''}`
+            + (idsCriados.length ? ` · ${auditados}/${idsCriados.length} auditado(s)` : ''),
         },
       });
-      return { ok: true, jobId: payload.jobId, okCount, errCount, pulados };
+      return { ok: true, jobId: payload.jobId, okCount, errCount, pulados, auditados };
     } catch (e: any) {
       await patch({ status: 'error', error: String(e?.message || e).slice(0, 500) });
       throw e;

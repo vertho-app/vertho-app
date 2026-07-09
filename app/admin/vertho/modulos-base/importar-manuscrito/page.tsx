@@ -31,6 +31,7 @@ export default function ImportarManuscritoPage() {
   const [preview, setPreview] = useState<PreviewManuscrito | null>(null);
   const [termo, setTermo] = useState('');
   const [substituir, setSubstituir] = useState(false);
+  const [auditar, setAuditar] = useState(true);
   const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
 
   const [jobId, setJobId] = useState<string | null>(null);
@@ -44,7 +45,7 @@ export default function ImportarManuscritoPage() {
 
   function reset() {
     setPreview(null); setJobId(null); setProg(null); setResultados([]); setStatusJob('');
-    setSelecionados(new Set()); setSubstituir(false);
+    setSelecionados(new Set()); setSubstituir(false); setAuditar(true);
   }
 
   async function handleArquivo(file: File) {
@@ -100,6 +101,7 @@ export default function ImportarManuscritoPage() {
       termoCanonico: termo.trim() || undefined,
       apenasDescritores: apenas,
       substituirExistentes: substituir,
+      auditar,
     });
     if (!r.success) { toast.error(r.error); return; }
     setJobId(r.jobId!); setStatusJob('running');
@@ -119,8 +121,10 @@ export default function ImportarManuscritoPage() {
         .filter((d) => selecionados.has(d.indice))
         .reduce((n, d) => n + d.celulas.filter((c) => substituir || !c.jaExiste).length, 0)
     : 0;
-  const custoEstimado = (aGerar * 0.197).toFixed(2);
-  const custoBatch = (aGerar * 0.197 * 0.5).toFixed(2);
+  // Autoria medida em $0,197/módulo (Sonnet 4.6); auditora GPT-5.4 ~$0,08, fora do batch.
+  const custoAudit = auditar ? aGerar * 0.08 : 0;
+  const custoEstimado = (aGerar * 0.197 + custoAudit).toFixed(2);
+  const custoBatch = (aGerar * 0.197 * 0.5 + custoAudit).toFixed(2);
 
   return (
     <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
@@ -237,6 +241,11 @@ export default function ImportarManuscritoPage() {
               Regerar os {preview.jaExistem} módulo(s) que já existem
             </label>
           )}
+
+          <label className="flex items-center gap-2 text-[11px] text-gray-300 mb-3">
+            <input type="checkbox" checked={auditar} onChange={(e) => setAuditar(e.target.checked)} />
+            Auditoria Dual-IA (GPT-5.4) ao final — auditados sobem de rascunho para revisão
+          </label>
 
           {preview.recursos.length > 0 && (
             <p className="text-[11px] text-gray-500 mb-3 flex items-center gap-1.5">

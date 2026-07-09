@@ -163,6 +163,8 @@ export async function enqueueManuscritoBatch(opts: {
   apenasDescritores?: number[];
   /** Regera módulos que já existem para a mesma transição. */
   substituirExistentes?: boolean;
+  /** Auditoria Dual-IA (GPT-5.4) sobre os módulos gerados. Default: true. */
+  auditar?: boolean;
 }) {
   try {
     const ctx = await requireAdminAction('content.manage');
@@ -194,6 +196,7 @@ export async function enqueueManuscritoBatch(opts: {
       termoCanonico: opts.termoCanonico || null,
       apenasDescritores: opts.apenasDescritores || null,
       substituirExistentes: !!opts.substituirExistentes,
+      auditar: opts.auditar !== false,
       createdBy: ctx.email,
       parseStats: parse.stats,
       recursos: parse.recursos,
