@@ -23,9 +23,6 @@ interface GerarTemporadaParams {
   colaboradorId?: string;
   competencia?: string;
   aiConfig?: AIConfig;
-  /** internal=true: chamado por caminho já gated (ex.: pré-geração do demo) —
-   *  usa service_role sem exigir sessão admin. */
-  internal?: boolean;
 }
 
 /**
@@ -67,21 +64,20 @@ export async function gerarTemporada(input: z.infer<typeof GerarTemporadaInput>)
     : { error: res.error, ...(res.codigo ? { codigo: res.codigo } : {}) };
 }
 
-/** Geração HEADLESS (pré-geração do demo) — bypassa a sessão admin via internal.
- *  Só usar em caminhos já gated (ex.: seed/reset do acme-demo). */
-export async function gerarTemporadaInternal(colaboradorId: string, competencia?: string, aiConfig: AIConfig = {}) {
-  return gerarTemporadaCore({ colaboradorId, competencia, aiConfig, internal: true });
-}
-
 /**
  * Gera uma temporada pra um colaborador, focada em 1 competência.
  * Duração e cadência vêm de `empresas.sys_config` via `getProgramaConfig`
  * (default = regular 14 semanas). CORE legado — contrato {ok|error,codigo};
  * o export público passa pela factory acima.
+ *
+ * Sem escape hatch de sessão: num arquivo `'use server'` todo export é endpoint
+ * HTTP, então uma flag de bypass seria escolhida pelo cliente. Geração headless
+ * (seed/reset de demo) deve extrair um núcleo pra `lib/`, como
+ * `lib/blueprint/core.ts`.
  */
-async function gerarTemporadaCore({ colaboradorId, competencia, aiConfig, internal }: GerarTemporadaParams = {}) {
+async function gerarTemporadaCore({ colaboradorId, competencia, aiConfig }: GerarTemporadaParams = {}) {
   try {
-    const sbRaw = internal ? createSupabaseAdmin() : await requireAdminSupabase('ai.audit.regenerate');
+    const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
 
     // Busca raw porque colaboradores é root de tenancy (descobre o tenant aqui).

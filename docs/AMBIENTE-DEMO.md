@@ -48,7 +48,7 @@ Quando quiser um novo estado de referência (ex.: após mudar competências no a
    - **IA4** (mapeamento avaliado): `rodarIA4(demoEmpresaId, {}, { internal: true })` — ~100s/resposta.
    - **IA2** (gabaritos) / **IA3** (cenários ricos) dos cargos extra: `rodarIA2(empresaId, {}, { internal: true })` e `rodarIA3Uma(empresaId, cargo, competenciaId, ..., true)` (`actions/fase1.ts`) — para o golden update dos artefatos congelados.
    - **Relatórios DISC**: `gerarEsalvarRelatorioComportamental({ colabId })` por persona.
-   - **Trilhas**: `gerarTemporadaInternal(colabId, 'Competência COM descriptor_assessments')` — a competência PRECISA ter avaliação, senão erra.
+   - **Trilhas**: gerar pela tela de admin (`gerarTemporada`, com sessão) — a competência PRECISA ter avaliação (`descriptor_assessments`), senão erra. O antigo `gerarTemporadaInternal` foi REMOVIDO: era um export `'use server'` que rodava service-role incondicionalmente, ou seja, um endpoint HTTP sem gate. Se a geração headless voltar a ser necessária, extrair um núcleo sem gate pra `lib/` (modelo: `lib/blueprint/core.ts`) em vez de reabrir a flag.
 3. Capturar:
    - `node scripts/capture-acme-fixture.mjs` (dumpa estrutura do acme + artefatos do acme-demo → `acme-demo-fixture.json`).
    - `scripts/_capture-fixture-extra.mjs` / `scripts/_capture-demo-extra.mts` (gabaritos + cenários dos cargos extra → `acme-demo-extra-artifacts.json`).

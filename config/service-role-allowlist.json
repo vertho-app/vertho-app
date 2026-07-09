@@ -28,7 +28,7 @@
     "actions/pulse/responder.ts": 4,
     "actions/pulse/signals.ts": 1,
     "actions/temporada-concluida.ts": 1,
-    "actions/temporadas.ts": 5,
+    "actions/temporadas.ts": 4,
     "actions/tutor-evidencia.ts": 1,
     "actions/video-analytics.ts": 2,
     "actions/video-tracking.ts": 2,
