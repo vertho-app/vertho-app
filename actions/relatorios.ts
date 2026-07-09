@@ -4,7 +4,6 @@ import { tenantDb } from '@/lib/tenant-db';
 import { mapComLimite } from '@/lib/concurrency';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import { callAI, type AIConfig } from './ai-client';
@@ -215,12 +214,10 @@ export async function gerarRelatorioIndividual(
   empresaId: string,
   colaboradorId: string,
   aiConfig: AIConfig = {},
-  // internal=true: caminho já gated (lote/script/regeneração headless) — usa
-  // service_role sem exigir sessão. O tenant é EXPLÍCITO (empresaId) e o tdb
-  // escopa as queries, então o isolamento não depende do gate de sessão.
-  internal: boolean = false,
 ): Promise<ServerResult> {
-  const sbRaw = internal ? createSupabaseAdmin() : await requireAdminSupabase('ai.audit.regenerate');
+  // Sem escape hatch: `empresaId` vem do caller, então um bypass de gate aqui
+  // leria/escreveria QUALQUER tenant. O gate roda sempre.
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {

@@ -1,4 +1,5 @@
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
+import { execFileSync } from 'child_process';
 import { join, extname } from 'path';
 import { describe, it } from 'vitest';
 
@@ -47,8 +48,48 @@ function scanDir(dir: string, counts: Record<string, number>) {
   }
 }
 
+/**
+ * Só arquivos VERSIONADOS entram no guard — é o que vai pro deploy.
+ *
+ * Escanear o working tree fazia scripts de rascunho locais (`_corrigir.ts`,
+ * `scripts/_*.ts`, nunca commitados) quebrarem o guard só na máquina do dev.
+ * Vermelho crônico local = sinal ignorado, e foi assim que 5 violações REAIS
+ * chegaram no master sem ninguém ver. No CI o resultado é idêntico (lá tudo é
+ * versionado); o que muda é o guard voltar a significar alguma coisa localmente.
+ *
+ * Fallback pro scan de diretório se `git` não estiver disponível.
+ */
+function trackedFiles(): string[] | null {
+  try {
+    const out = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const files = out.split('\0').filter(Boolean);
+    return files.length ? files : null;
+  } catch {
+    return null;
+  }
+}
+
+function countTracked(files: string[], counts: Record<string, number>) {
+  for (const rel of files) {
+    if (!EXTENSIONS.has(extname(rel))) continue;
+    if (rel.includes('/tests/') || rel.startsWith('tests/') || rel.includes('vitest.config')) continue;
+    let content: string;
+    try { content = readFileSync(rel, 'utf-8'); } catch { continue; }
+
+    let idx = 0;
+    let n = 0;
+    while ((idx = content.indexOf(SEARCH_PATTERN, idx)) !== -1) {
+      n++;
+      idx += SEARCH_PATTERN.length;
+    }
+    if (n > 0) counts[rel] = n;
+  }
+}
+
 const realCounts: Record<string, number> = {};
-scanDir('.', realCounts);
+const tracked = trackedFiles();
+if (tracked) countTracked(tracked, realCounts);
+else scanDir('.', realCounts);
 
 describe('Guard: createSupabaseAdmin() allowlist com contagem', () => {
   it('nenhum arquivo fora da allowlist', () => {

@@ -123,6 +123,10 @@
     "lib/demo/envio-guard.ts": 1,
     "lib/demo/reset-acme-demo.ts": 1,
     "lib/sales/permissions.ts": 1,
-    "trigger/acumulada-piloto.ts": 1
+    "trigger/acumulada-piloto.ts": 1,
+    "actions/blueprint.ts": 2,
+    "lib/modulo-base-auditor.ts": 2,
+    "trigger/gerar-ia2-batch.ts": 1,
+    "trigger/gerar-modulos-manuscrito.ts": 1
   }
 }
