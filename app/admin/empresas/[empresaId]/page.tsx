@@ -24,7 +24,7 @@ import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { gerarTemporadasLote } from '@/actions/temporadas';
-import { gerarBlueprintsLote, auditarBlueprintsLote } from '@/actions/blueprint';
+import { gerarBlueprint, auditarBlueprint, filaBlueprint, filaAuditBlueprint } from '@/actions/blueprint';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
@@ -288,25 +288,39 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         setPendingAction(null); return;
       }
       if (actionKey === 'blueprint') {
-        addLog('📋 Gerando blueprints (foco + assessments + DISC)...', 'info');
-        const r = await gerarBlueprintsLote(empresaId, undefined, aiConfig || undefined);
-        if (!r?.success) { addLog(`❌ ${r?.error || 'Falha ao gerar blueprints'}`, 'error'); setPendingAction(null); return; }
-        for (const d of (r.detalhes || [])) {
-          if (d.ok) addLog(`✅ ${d.colaborador}`, 'success');
-          else addLog(`⚠ ${d.colaborador}: ${d.erro}`, 'error');
+        // Fila + loop no CLIENTE (1 server action por colab): o lote síncrono de
+        // 37 chamadas de IA estourava o timeout de 300s da Vercel (504).
+        addLog('📋 Listando colaboradores (foco + assessments)...', 'info');
+        const fila = await filaBlueprint(empresaId);
+        if (!fila?.success || !fila.data?.length) { addLog(`${fila?.error || 'Nenhum colaborador com assessments'}`, fila?.success ? 'success' : 'error'); setPendingAction(null); return; }
+        addLog(`📋 ${fila.data.length} colaborador(es) na fila`, 'info');
+        let ok = 0, erros = 0;
+        for (let i = 0; i < fila.data.length; i++) {
+          if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }
+          const c = fila.data[i];
+          addLog(`⏳ ${i + 1}/${fila.data.length} ${c.nome}...`, 'info');
+          const r = await gerarBlueprint({ colaboradorId: c.id, aiConfig: aiConfig || undefined });
+          if (r.ok) { ok++; addLog(`✅ ${c.nome}`, 'success'); }
+          else { erros++; addLog(`⚠ ${c.nome}: ${r.error}`, 'error'); }
         }
-        addLog(`🎉 ${r.message}`, (r.erros || 0) === 0 ? 'success' : 'info');
+        addLog(`🎉 ${ok} blueprint(s) gerado(s)${erros ? ` · ${erros} erro(s)` : ''}`, erros === 0 ? 'success' : 'info');
         setPendingAction(null); return;
       }
       if (actionKey === 'audit-blueprint') {
-        addLog('🛡 Auditando blueprints (coerência estrutural + 2ª IA)...', 'info');
-        const r = await auditarBlueprintsLote(empresaId, undefined, aiConfig || undefined);
-        if (!r?.success) { addLog(`❌ ${r?.error || 'Falha ao auditar blueprints'}`, 'error'); setPendingAction(null); return; }
-        for (const d of (r.detalhes || [])) {
-          if (d.ok) addLog(`${d.drift ? '⚠' : '✅'} ${d.colaborador} — score ${d.score}${d.drift ? ' · DRIFT' : ''}`, d.drift ? 'error' : 'success');
-          else addLog(`❌ ${d.colaborador}: ${d.erro}`, 'error');
+        addLog('🛡 Listando blueprints para auditar...', 'info');
+        const fila = await filaAuditBlueprint(empresaId);
+        if (!fila?.success || !fila.data?.length) { addLog(`${fila?.error || 'Nenhum blueprint gerado'}`, fila?.success ? 'success' : 'error'); setPendingAction(null); return; }
+        addLog(`📋 ${fila.data.length} blueprint(s) na fila`, 'info');
+        let ok = 0, erros = 0, drift = 0;
+        for (let i = 0; i < fila.data.length; i++) {
+          if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }
+          const c = fila.data[i];
+          addLog(`⏳ ${i + 1}/${fila.data.length} ${c.nome}...`, 'info');
+          const r = await auditarBlueprint({ colaboradorId: c.id, aiConfig: aiConfig || undefined });
+          if (r.ok && r.relatorio) { ok++; if (r.relatorio.drift) drift++; addLog(`${r.relatorio.drift ? '⚠' : '✅'} ${c.nome} — score ${r.relatorio.score}${r.relatorio.drift ? ' · DRIFT' : ''}`, r.relatorio.drift ? 'error' : 'success'); }
+          else { erros++; addLog(`❌ ${c.nome}: ${r.error}`, 'error'); }
         }
-        addLog(`🎉 ${r.message}`, (r.erros || 0) === 0 && (r.comDrift || 0) === 0 ? 'success' : 'info');
+        addLog(`🎉 ${ok} auditado(s)${drift ? ` · ${drift} com drift` : ''}${erros ? ` · ${erros} erro(s)` : ''}`, (erros === 0 && drift === 0) ? 'success' : 'info');
         setPendingAction(null); return;
       }
       if (actionKey === 'rel-ind') {

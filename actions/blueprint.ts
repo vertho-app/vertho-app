@@ -230,6 +230,48 @@ export async function gerarBlueprintsLote(
   }
 }
 
+export interface FilaBlueprintItem { id: string; nome: string; }
+export interface FilaBlueprintResult { success: boolean; error?: string; data?: FilaBlueprintItem[]; }
+
+/**
+ * Fila de GERAÇÃO de blueprint: colaboradores com assessments IA4 (pré-requisito).
+ * Rápida (sem IA) — o cliente itera chamando `gerarBlueprint` por colaborador,
+ * evitando o timeout de 300s da Vercel que estourava no lote síncrono.
+ */
+export async function filaBlueprint(empresaId: string): Promise<FilaBlueprintResult> {
+  await requireAdminAction('ai.audit.regenerate');
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
+  try {
+    const { data: assess } = await tdb.from('descriptor_assessments').select('colaborador_id');
+    const ids = [...new Set((assess || []).map((a: any) => a.colaborador_id).filter(Boolean))] as string[];
+    if (!ids.length) return { success: false, error: 'Nenhum colaborador com assessments (rode IA4 primeiro)' };
+    const { data } = await tdb.from('colaboradores').select('id, nome_completo').in('id', ids).order('nome_completo');
+    return { success: true, data: (data || []).map((c: any) => ({ id: c.id, nome: c.nome_completo })) };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Fila de AUDITORIA: colaboradores que JÁ têm blueprint. Rápida (sem IA) — o
+ * cliente itera chamando `auditarBlueprint` por colaborador (mesma razão do timeout).
+ */
+export async function filaAuditBlueprint(empresaId: string): Promise<FilaBlueprintResult> {
+  await requireAdminAction('ai.audit.regenerate');
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
+  try {
+    const { data: bps } = await tdb.from('development_blueprints').select('colaborador_id');
+    const ids = [...new Set((bps || []).map((b: any) => b.colaborador_id).filter(Boolean))] as string[];
+    if (!ids.length) return { success: false, error: 'Nenhum colaborador com blueprint (gere o blueprint primeiro)' };
+    const { data } = await tdb.from('colaboradores').select('id, nome_completo').in('id', ids).order('nome_completo');
+    return { success: true, data: (data || []).map((c: any) => ({ id: c.id, nome: c.nome_completo })) };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 /** Retorna o blueprint salvo de um colaborador (inspeção). */
 export async function getBlueprint(empresaId: string, colaboradorId: string): Promise<
   { ok: true; id: string; blueprint: DevelopmentBlueprint; spec_version: number; gerado_em: string } | { error: string }
