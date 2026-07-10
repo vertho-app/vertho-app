@@ -152,7 +152,7 @@ function PageHeader({ logoBase64, label }: { logoBase64?: string; label: string 
 function PageFooter() {
   return (
     <View style={pageStyles.footer} fixed>
-      <Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text>
+      <Text style={pageStyles.footerText}>vertho.ai — Confidencial</Text>
       <Text style={pageStyles.footerText}
         render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </View>
