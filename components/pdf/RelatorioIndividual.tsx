@@ -303,6 +303,9 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       <PdfReportCover
         bgBase64={getReportCoverBgBase64()}
         logoBase64={logoBase64}
+        titulo={['Plano de Desenvolvimento Individual', '(PDI)']}
+        overline={null}
+        mentorLabel={null}
         nome={nome}
         cargo={data.colaborador_cargo}
         empresa={empresaNome}
@@ -566,7 +569,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       )}
 
       {/* ═══════════════════ CONTRACAPA NAVY ═══════════════════ */}
-      <PdfBackCover logoBase64={logoBase64} />
+      <PdfBackCover logoBase64={logoBase64} linha={null} />
     </Document>
   );
 }

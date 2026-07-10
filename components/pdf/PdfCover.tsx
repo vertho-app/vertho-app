@@ -162,7 +162,11 @@ export default function PdfCover({
 }
 
 // Contracapa: navy com logo grande + linha de status
-export function PdfBackCover({ logoBase64 }: { logoBase64?: string }) {
+export function PdfBackCover({ logoBase64, linha = 'Vertho Mentor IA · vertho.ai' }: {
+  logoBase64?: string;
+  /** Linha sob o logo. Passar null/'' deixa só o logo (ex.: PDI). */
+  linha?: string | null;
+}) {
   const bs = StyleSheet.create({
     page: {
       flexDirection: 'column',
@@ -186,7 +190,7 @@ export function PdfBackCover({ logoBase64 }: { logoBase64?: string }) {
   return (
     <Page size="A4" style={bs.page}>
       {logoBase64 && <Image src={logoBase64} style={bs.logo} />}
-      <Text style={bs.line}>Vertho Mentor IA · vertho.ai</Text>
+      {linha ? <Text style={bs.line}>{linha}</Text> : null}
     </Page>
   );
 }

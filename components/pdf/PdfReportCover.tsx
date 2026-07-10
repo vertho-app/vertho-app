@@ -59,16 +59,18 @@ function Divider() {
 
 export default function PdfReportCover({
   bgBase64, logoBase64, titulo = ['Plano de', 'Desenvolvimento'], overline = 'Plano de desenvolvimento individual',
-  nome, cargo, empresa, tagline = 'Pequenos ajustes, grande impacto.',
+  nome, cargo, empresa, tagline = 'Pequenos ajustes, grande impacto.', mentorLabel = 'Mentor IA',
 }: {
   bgBase64?: string | null;
   logoBase64?: string | null;
   titulo?: [string, string];
-  overline?: string;
+  overline?: string | null;
   nome?: string;
   cargo?: string;
   empresa?: string;
   tagline?: string;
+  /** Selo "Mentor IA" no topo. Passar null/'' esconde (ex.: PDI). */
+  mentorLabel?: string | null;
 }) {
   const subtitulo = [cargo, empresa].filter(Boolean).join(' · ');
   return (
@@ -77,11 +79,11 @@ export default function PdfReportCover({
       <View style={s.content}>
         <View style={s.topRow}>
           {logoBase64 ? <Image src={logoBase64} style={s.logo} /> : <Text style={{ ...s.mentor, fontSize: 12 }}>vertho.ai</Text>}
-          <Text style={s.mentor}>Mentor IA</Text>
+          {mentorLabel ? <Text style={s.mentor}>{mentorLabel}</Text> : null}
         </View>
 
         <View style={s.block}>
-          <Text style={s.overline}>{overline}</Text>
+          {overline ? <Text style={s.overline}>{overline}</Text> : null}
           <Text style={s.h1}>{titulo[0]}</Text>
           <Text style={s.h1b}>{titulo[1]}</Text>
           <Divider />
