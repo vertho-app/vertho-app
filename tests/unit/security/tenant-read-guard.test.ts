@@ -15,8 +15,18 @@
  * BYPASSRLS. Ou seja: o isolamento é responsabilidade do CÓDIGO, e este guard é
  * quem cobra.
  *
- * Escopo deliberado: as 5 tabelas de PII/assessment. Não é a lista completa de
- * tabelas tenant-owned — é onde um vazamento é evento de LGPD. Expandir depois.
+ * Escopo deliberado: as 4 tabelas de PII/assessment que TÊM coluna `empresa_id`.
+ * Não é a lista completa de tabelas tenant-owned — é onde um vazamento é evento
+ * de LGPD. Expandir depois.
+ *
+ * `mensagens_chat` fica de FORA de propósito: ela não tem coluna `empresa_id`
+ * (verificado: `tdb.from('mensagens_chat').select()` devolve `42703 column
+ * mensagens_chat.empresa_id does not exist`). O escopo dela é indireto, via
+ * `sessao_id` → `sessoes_avaliacao.empresa_id`, e é assim que a policy do banco
+ * a protege. Exigir `.eq('empresa_id')` ali seria uma regra impossível de
+ * satisfazer — e uma regra impossível vira allowlist permanente, isto é, ruído.
+ * O que protege `mensagens_chat` é o `sessao_id` vir de uma sessão já validada
+ * como do tenant; isso um guard estático não consegue provar.
  *
  * Como SAIR da allowlist (em ordem de preferência):
  *   1. `tenantDb(empresaId).from(...)` — filtro injetado, impossível esquecer;
@@ -38,7 +48,7 @@ import { execFileSync } from 'child_process';
 import ts from 'typescript';
 import { describe, it } from 'vitest';
 
-const TABELAS = ['colaboradores', 'respostas', 'relatorios', 'mensagens_chat', 'sessoes_avaliacao'] as const;
+const TABELAS = ['colaboradores', 'respostas', 'relatorios', 'sessoes_avaliacao'] as const;
 const FILTROS_TENANT = new Set(['eq', 'is', 'in', 'match', 'filter']);
 const MUTACOES = new Set(['insert', 'update', 'delete', 'upsert']);
 
@@ -56,6 +66,20 @@ function trackedTsFiles(): string[] {
 
 interface Achado { file: string; line: number; tabela: string }
 
+/**
+ * Componente de browser (`'use client'`) NÃO é escopo deste guard: lá o client
+ * é o anon (`NEXT_PUBLIC_SUPABASE_ANON_KEY` + sessão do usuário), sujeito a RLS
+ * — a service-role key nem existe no bundle. As policies tenant-scoped de
+ * `sessoes_avaliacao`/`mensagens_chat` cobrem esse caminho. Marcá-los como
+ * violação seria falso positivo, e allowlist com ruído é allowlist ignorada.
+ */
+function isUseClient(sf: ts.SourceFile): boolean {
+  const first = sf.statements[0];
+  if (!first || !ts.isExpressionStatement(first)) return false;
+  const e = first.expression;
+  return ts.isStringLiteral(e) && e.text === 'use client';
+}
+
 function varrer(): Achado[] {
   const achados: Achado[] = [];
   for (const file of trackedTsFiles()) {
@@ -64,6 +88,7 @@ function varrer(): Achado[] {
     if (!TABELAS.some((t) => src.includes(`'${t}'`))) continue; // filtro barato
 
     const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    if (isUseClient(sf)) continue;
 
     const visit = (node: ts.Node): void => {
       if (
