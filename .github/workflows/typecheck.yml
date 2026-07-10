@@ -34,3 +34,38 @@ jobs:
       - name: Report result
         if: failure()
         run: echo "::error::TypeScript check or security tests failed. Run 'npm run typecheck' and 'npm run test:unit' locally to see errors."
+
+  # Guard de BUNDLE: nenhuma action com flag `internal` pode ter o action id
+  # publicado no JS que o browser baixa (= endpoint sem gate, chamável por
+  # qualquer um). Exige `next build`, por isso vive em job separado — no
+  # `test:unit` acima o teste SKIPA por falta de build.
+  action-ids:
+    name: action ids não vazam pro bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.13.1'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # O build não fala com o banco (todas as rotas são dinâmicas); só precisa
+      # das envs existirem. Valores dummy bastam — nada aqui é secreto.
+      - name: Build + guard
+        run: npm run test:action-ids
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+
+      - name: Report result
+        if: failure()
+        run: echo "::error::Um action id de action com flag 'internal' foi publicado no bundle do cliente, ou o guard ficou cego. Rode 'npm run test:action-ids' localmente."

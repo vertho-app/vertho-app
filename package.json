@@ -30,7 +30,8 @@
     "video:preview": "npm run video:probe && npm run video:captions:v3 && remotion studio video-spike/remotion/index.ts",
     "video:render": "npm run video:probe && remotion render video-spike/remotion/index.ts VerthoVideoSpike outputs/vertho-video-spike.mp4",
     "video:render:v2": "npm run video:probe && remotion render video-spike/remotion/index.ts VerthoVideoSpikeV2 outputs/vertho-video-spike-v2.mp4",
-    "video:render:v3": "npm run video:probe && npm run video:captions:v3 && remotion render video-spike/remotion/index.ts VerthoVideoSpikeV3 outputs/vertho-video-spike-v3.mp4"
+    "video:render:v3": "npm run video:probe && npm run video:captions:v3 && remotion render video-spike/remotion/index.ts VerthoVideoSpikeV3 outputs/vertho-video-spike-v3.mp4",
+    "test:action-ids": "next build && vitest run tests/unit/security/action-id-exposure.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
