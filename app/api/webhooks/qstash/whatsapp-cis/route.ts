@@ -13,6 +13,10 @@ const whatsappPayloadSchema = z.object({
   telefone: z.string().trim().min(8).max(32),
   mensagem: z.string().trim().min(1).max(4000),
   envioId: z.string().uuid().optional(),
+  // Anexo opcional (ex.: PDF do relatório individual no disparo em lote).
+  // Vai por URL assinada — o documento é enviado após o texto, best-effort.
+  documentoUrl: z.string().url().max(2000).optional(),
+  documentoNome: z.string().trim().min(1).max(200).optional(),
 }).strict();
 
 async function verifyQStashSignature(req, body) {
@@ -108,7 +112,7 @@ export async function POST(req) {
       return NextResponse.json({ error: detalhe || 'Payload inválido' }, { status: 400 });
     }
 
-    const { telefone, mensagem, envioId } = payload;
+    const { telefone, mensagem, envioId, documentoUrl, documentoNome } = payload;
 
     if (!telefone || !mensagem) {
       return NextResponse.json({ error: 'telefone e mensagem obrigatórios' }, { status: 400 });
@@ -127,6 +131,25 @@ export async function POST(req) {
     );
     if (!r.ok) {
       return NextResponse.json({ error: r.reason || 'WhatsApp indisponível' }, { status: 503 });
+    }
+
+    // Anexo (PDF do relatório): best-effort APÓS o texto entregue. NÃO pode
+    // devolver 503/500 aqui — o texto já foi enviado e o retry do QStash
+    // reenviaria a mensagem inteira, duplicando o texto. Falha só loga.
+    if (documentoUrl) {
+      try {
+        const rDoc = await sendWhatsapp({
+          kind: 'document',
+          phone: telefone,
+          url: documentoUrl,
+          filename: documentoNome || 'relatorio.pdf',
+        });
+        if (!rDoc.ok) {
+          console.warn(`[qstash/whatsapp-cis] documento não enviado: ${rDoc.reason ?? '-'}`);
+        }
+      } catch (e) {
+        console.warn('[qstash/whatsapp-cis] erro ao enviar documento:', e instanceof Error ? e.message : String(e));
+      }
     }
 
     const statusAtualizado = await marcarEnvioWhatsAppEntregue(envioId);

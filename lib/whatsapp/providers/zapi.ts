@@ -58,10 +58,15 @@ export const zapiProvider: WaProvider = {
           title: msg.title || 'Vertho Mentor IA',
           linkDescription: '',
         });
-      case 'document':
-        return post(`/send-document/${phone}`, msg.base64
-          ? { phone, document: `data:application/pdf;base64,${msg.base64}`, fileName: msg.filename }
+      case 'document': {
+        // Z-API espera a EXTENSÃO no path (/send-document/pdf), não o telefone —
+        // é o que o app usa no envio direto (≤50 destinatários).
+        const ext = (msg.filename?.split('.').pop() || 'pdf').toLowerCase();
+        const mime = ext === 'pdf' ? 'application/pdf' : 'application/octet-stream';
+        return post(`/send-document/${ext}`, msg.base64
+          ? { phone, document: `data:${mime};base64,${msg.base64}`, fileName: msg.filename }
           : { phone, document: msg.url, fileName: msg.filename });
+      }
       case 'audio':
         return post('/send-audio', { phone, audio: msg.url });
     }

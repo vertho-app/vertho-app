@@ -157,6 +157,26 @@ async function buscarPDFColaborador(sb, empresaId, colaboradorId) {
   return { buffer, filename, url: signed?.signedUrl || null };
 }
 
+// Variante leve pro caminho QStash (>50 destinatários): só a signed URL, SEM
+// baixar o buffer. O documento vai por URL no payload (não base64), então
+// baixar o PDF de cada colab só pra descartar seria desperdício em lote.
+// Expiry maior (2h) pra cobrir o atraso escalonado do QStash + retries.
+async function buscarPDFUrlColaborador(sb, empresaId, colaboradorId) {
+  const { data: rel } = await sb.from('relatorios')
+    .select('pdf_path')
+    .eq('empresa_id', empresaId)
+    .eq('colaborador_id', colaboradorId)
+    .eq('tipo', 'individual')
+    .not('pdf_path', 'is', null)
+    .maybeSingle();
+  if (!rel?.pdf_path) return null;
+  const filename = rel.pdf_path.split('/').pop();
+  const { data: signed } = await sb.storage.from('relatorios-pdf')
+    .createSignedUrl(rel.pdf_path, 60 * 60 * 2); // 2h
+  if (!signed?.signedUrl) return null;
+  return { url: signed.signedUrl, filename };
+}
+
 // Sobe o anexo extra (que veio em base64 da UI) como arquivo temporário
 // pra obter uma signed URL. O arquivo fica no bucket; limpamos no fim.
 async function subirAnexoTemporario(sb, empresaId, anexoExtra) {
@@ -293,6 +313,14 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
           .replace(/\{\{link_disc\}\}/g, linkDisc);
         let phone = colab.telefone.replace(/\D/g, '');
         if (phone.length <= 11) phone = `55${phone}`;
+        // Relatório: anexa o PDF individual via signed URL (o webhook envia o
+        // documento depois do texto). URL em vez de base64 pra não inchar o
+        // payload do QStash em lote.
+        const body: any = { telefone: phone, mensagem: msg };
+        if (comPDF && colab.id) {
+          const pdf = await buscarPDFUrlColaborador(sb, empresaId, colab.id);
+          if (pdf?.url) { body.documentoUrl = pdf.url; body.documentoNome = pdf.filename; }
+        }
         try {
           const rQ = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
             method: 'POST',
@@ -301,7 +329,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
               Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
               'Upstash-Delay': `${idx * 2}s`,
             },
-            body: JSON.stringify({ telefone: phone, mensagem: msg }),
+            body: JSON.stringify(body),
           });
           if (!rQ.ok) {
             const detail = await rQ.text();
@@ -474,6 +502,13 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
             if (enviados === 0) {
               console.log(`[dispararMensagemCustomizada] QStash base=${QSTASH_BASE_URL} webhook=${webhookUrl}`);
             }
+            // Relatório: anexa o PDF individual via signed URL (webhook envia o
+            // documento depois do texto).
+            const bodyQ: any = { telefone: phone, mensagem: msg };
+            if (isRelatorio && colab.id) {
+              const pdf = await buscarPDFUrlColaborador(sb, empresaId, colab.id);
+              if (pdf?.url) { bodyQ.documentoUrl = pdf.url; bodyQ.documentoNome = pdf.filename; }
+            }
             // QStash exige URL raw no path (sem encodeURIComponent) — encoded dá "invalid scheme"
             const rQ = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
               method: 'POST',
@@ -482,7 +517,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
                 Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
                 'Upstash-Delay': `${enviados * 2}s`,
               },
-              body: JSON.stringify({ telefone: phone, mensagem: msg }),
+              body: JSON.stringify(bodyQ),
             });
             if (!rQ.ok) {
               const detail = await rQ.text();

@@ -90,6 +90,7 @@ vi.mock('@/lib/whatsapp', () => ({
 }));
 
 const { POST } = await import('@/app/api/webhooks/qstash/whatsapp-cis/route');
+const { sendWhatsapp } = await import('@/lib/whatsapp');
 
 function makeReq(body: any) {
   return mockPOST('http://localhost:3000/api/webhooks/qstash/whatsapp-cis', body);
@@ -167,5 +168,40 @@ describe('qstash whatsapp-cis webhook', () => {
       status: 'enviado',
       canal: 'email_whatsapp',
     });
+  });
+
+  it('sends the attached document after the text when documentoUrl is present', async () => {
+    const res = await POST(makeReq({
+      telefone: '11999999999',
+      mensagem: 'Seu relatório está pronto',
+      documentoUrl: 'https://example.com/rel.pdf?token=abc',
+      documentoNome: 'relatorio-maria.pdf',
+    }));
+
+    expect(res.status).toBe(200);
+    expect(sendWhatsapp).toHaveBeenCalledTimes(2);
+    expect(sendWhatsapp).toHaveBeenNthCalledWith(1, expect.objectContaining({ kind: 'text' }));
+    expect(sendWhatsapp).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      kind: 'document',
+      url: 'https://example.com/rel.pdf?token=abc',
+      filename: 'relatorio-maria.pdf',
+    }));
+  });
+
+  it('still returns 200 when the document fails but the text was delivered', async () => {
+    // texto OK; documento falha → não pode virar 5xx (retry duplicaria o texto)
+    (sendWhatsapp as any)
+      .mockResolvedValueOnce({ ok: true, provider: 'zapi', attempts: [{ provider: 'zapi', ok: true }] })
+      .mockResolvedValueOnce({ ok: false, reason: 'documento indisponível', attempts: [{ provider: 'zapi', ok: false }] });
+
+    const res = await POST(makeReq({
+      telefone: '11999999999',
+      mensagem: 'Seu relatório está pronto',
+      documentoUrl: 'https://example.com/rel.pdf',
+    }));
+    const body = await json(res);
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
   });
 });
