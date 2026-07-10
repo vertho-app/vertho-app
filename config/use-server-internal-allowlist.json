@@ -1,0 +1,20 @@
+{
+  "description": "DÍVIDA, não permissão. Server actions que ainda aceitam flag `internal`. Em arquivo 'use server' todo export é endpoint HTTP → a flag é escolhida pelo CLIENTE, não pelo servidor. Esta lista só pode ENCOLHER: para tirar a flag, extraia um núcleo sem gate pra lib/ (modelo: lib/blueprint/core.ts) e deixe a action sempre gatada. NÃO adicione entradas para fazer o CI passar — a entrada nova é justamente o bug que este guard existe pra pegar. Contexto: CLAUDE.md, seção 'Server Actions são endpoints HTTP'.",
+  "risco": {
+    "actions/whatsapp.ts": "MAIOR RISCO. Bypass boolean, sem revalidação de tenant. Se o id vazar pro bundle (basta um client component importar), vira relay de WhatsApp arbitrário pelo número da Vertho → ban do número mata o canal de TODOS os tenants.",
+    "actions/fase1.ts": "Bypass boolean (rodarIA2 via opts.internal, rodarIA3Uma posicional). Sem revalidação de tenant; empresaId vem do caller. Abuso de LLM + escrita cross-tenant.",
+    "actions/fase3.ts": "Bypass boolean via opts.internal. Sem revalidação de tenant; empresaId vem do caller.",
+    "actions/avaliacao-acumulada.ts": "Forma `{ empresaId }` — REVALIDA o tenant, então não é cross-tenant. Pula só o gate de permissão.",
+    "actions/evolution-report.ts": "Forma `{ empresaId }` — REVALIDA o tenant. Pula só o gate de permissão."
+  },
+  "allowlist": [
+    "actions/whatsapp.ts::enviarWhatsApp",
+    "actions/whatsapp.ts::enviarAudio",
+    "actions/fase1.ts::rodarIA2",
+    "actions/fase1.ts::rodarIA3Uma",
+    "actions/fase3.ts::rodarIA4",
+    "actions/avaliacao-acumulada.ts::gerarAvaliacaoAcumulada",
+    "actions/avaliacao-acumulada.ts::gerarAvaliacaoAcumuladaParcial",
+    "actions/evolution-report.ts::gerarEvolutionReport"
+  ]
+}
