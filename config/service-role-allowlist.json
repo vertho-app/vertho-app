@@ -103,8 +103,6 @@
     "lib/versioning.ts": 2,
     "app/admin/vertho/knowledge-base/actions.ts": 3,
     "actions/evolution-report.ts": 1,
-    "actions/fase1.ts": 2,
-    "actions/fase3.ts": 1,
     "actions/sales/accounts.ts": 9,
     "actions/sales/admin-dashboard.ts": 1,
     "actions/sales/ai-assistant.ts": 3,

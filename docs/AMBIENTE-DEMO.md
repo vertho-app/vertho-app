@@ -45,8 +45,9 @@ Quando quiser um novo estado de referência (ex.: após mudar competências no a
 
 1. Resetar o acme-demo (estado base): botão `/admin/demo` ou `npm run reset:demo`.
 2. Rodar os pipelines pesados no acme-demo (usam a flag `internal` — service-role, sem UI/gate de admin):
-   - **IA4** (mapeamento avaliado): `rodarIA4(demoEmpresaId, {}, { internal: true })` — ~100s/resposta.
-   - **IA2** (gabaritos) / **IA3** (cenários ricos) dos cargos extra: `rodarIA2(empresaId, {}, { internal: true })` e `rodarIA3Uma(empresaId, cargo, competenciaId, ..., true)` (`actions/fase1.ts`) — para o golden update dos artefatos congelados.
+   - **IA4** (mapeamento avaliado): `rodarIA4(demoEmpresaId, {})` pela tela de admin (com sessão) — ~100s/resposta.
+   - **IA2** (gabaritos) / **IA3** (cenários ricos) dos cargos extra: `rodarIA2(empresaId, {}, { cargoNome })` e `rodarIA3Uma(empresaId, cargo, competenciaId, ...)` (`actions/fase1.ts`), pela tela de admin — para o golden update dos artefatos congelados.
+   - ⚠️ A flag `internal` destas três foi REMOVIDA em 10/07: o action id delas estava publicado no bundle do browser, e o bypass era chamável sem sessão. Se a execução headless voltar a ser necessária, extrair núcleo sem gate pra `lib/` (modelo `lib/blueprint/core.ts`) — nunca reabrir a flag.
    - **Relatórios DISC**: `gerarEsalvarRelatorioComportamental({ colabId })` por persona.
    - **Trilhas**: gerar pela tela de admin (`gerarTemporada`, com sessão) — a competência PRECISA ter avaliação (`descriptor_assessments`), senão erra. O antigo `gerarTemporadaInternal` foi REMOVIDO: era um export `'use server'` que rodava service-role incondicionalmente, ou seja, um endpoint HTTP sem gate. Se a geração headless voltar a ser necessária, extrair um núcleo sem gate pra `lib/` (modelo: `lib/blueprint/core.ts`) em vez de reabrir a flag.
 3. Capturar:
