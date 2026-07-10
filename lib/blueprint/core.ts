@@ -78,136 +78,134 @@ export interface AuditarBlueprintResult {
   error?: string;
 }
 
+/** Request de blueprint pronto pra IA (sync OU batch). Carrega o meta que o
+ *  persist precisa (empresaId + competenciasFoco pro nível autoritativo). */
+export interface BlueprintReqBuilt {
+  customId: string;   // = colaboradorId
+  system: string;
+  user: string;
+  maxTokens: number;
+  empresaId: string;
+  competenciasFoco: BlueprintCompetenciaInput[];
+}
+
 /**
- * Gera e persiste o Development Blueprint de UM colaborador. SEM gate — o caller
- * autoriza e passa o client. `empresaIdEsperado` revalida o tenant do colaborador.
+ * Monta o prompt do blueprint de UM colaborador (foco+assessments+DISC → system/
+ * user), aplicando os gates (foco definido + regra dos 100%). NÃO chama IA — o
+ * caller (sync ou batch) decide como executar. SEM gate de sessão.
+ */
+export async function buildBlueprintReq(
+  sbRaw: ReturnType<typeof createSupabaseAdmin>,
+  { colaboradorId, empresaIdEsperado }: { colaboradorId: string; empresaIdEsperado?: string },
+): Promise<BlueprintReqBuilt | { error: string }> {
+  if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
+  const { data: colab } = await sbRaw.from('colaboradores')
+    .select('id, empresa_id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, lid_executivo, lid_motivador, lid_metodico, lid_sistematico')
+    .eq('id', colaboradorId).maybeSingle();
+  if (!colab) return { error: 'Colaborador não encontrado' };
+  if (empresaIdEsperado && colab.empresa_id !== empresaIdEsperado) {
+    return { error: 'Colaborador de outro tenant — acesso negado' };
+  }
+  const empresaId: string = colab.empresa_id;
+  if (!empresaId) return { error: 'Colaborador sem empresa_id' };
+  const tdb = tenantDb(empresaId);
+
+  const { data: empresa } = await sbRaw.from('empresas').select('nome, segmento').eq('id', empresaId).single();
+  if (!empresa) return { error: 'Empresa não encontrada' };
+
+  // Foco do cargo (fonte única PDI↔trilha). Gate: sem foco, não gera.
+  const { data: cargoEmp } = await tdb.from('cargos_empresa')
+    .select('competencia_foco, competencias_foco').eq('nome', colab.cargo).maybeSingle();
+  const focoCargo = focoDoCargo(cargoEmp);
+  if (focoCargo.length === 0) {
+    return { error: 'Selecione as competências foco do cargo antes de gerar o blueprint.' };
+  }
+
+  // Assessments (IA4) por competência foco → nível/nota consolidados.
+  const competenciasFoco: BlueprintCompetenciaInput[] = [];
+  for (const nomeComp of focoCargo) {
+    const { data: assess } = await tdb.from('descriptor_assessments')
+      .select('descritor, nota').eq('colaborador_id', colaboradorId).eq('competencia', nomeComp);
+    const descritores = (assess || []).map((a: any) => ({ descritor: a.descritor, nota: a.nota == null ? null : Number(a.nota) }));
+    const notas = descritores.map((d) => d.nota).filter((n): n is number => typeof n === 'number');
+    const media = notas.length ? notas.reduce((s, v) => s + v, 0) / notas.length : null;
+    competenciasFoco.push({
+      nome: nomeComp,
+      // floor, não round: N1 até CONSOLIDAR o 2.0. Alinhado com o nível do PDI.
+      nivel: media == null ? null : Math.max(1, Math.min(4, Math.floor(media))),
+      nota_decimal: media == null ? null : Number(media.toFixed(2)),
+      descritores,
+    });
+  }
+
+  // Regra dos 100%: só gera com TODAS as foco mapeadas (defesa em profundidade —
+  // a fila já filtra, mas um colaboradorId avulso passaria sem este gate).
+  const semMapeamento = competenciasFoco.filter((c) => c.descritores.length === 0);
+  if (semMapeamento.length > 0) {
+    return { error: `Mapeamento incompleto — falta avaliar: ${semMapeamento.map((c) => c.nome).join(', ')}. O blueprint só é gerado com todas as competências foco mapeadas.` };
+  }
+
+  let perfilComportamental: string | undefined;
+  if (colab.d_natural != null) {
+    perfilComportamental = `DISC: D=${colab.d_natural} | I=${colab.i_natural} | S=${colab.s_natural} | C=${colab.c_natural}\nDominante: ${colab.perfil_dominante || '—'}\nLiderança: Executor=${colab.lid_executivo || 0}% | Motivador=${colab.lid_motivador || 0}% | Metódico=${colab.lid_metodico || 0}% | Sistemático=${colab.lid_sistematico || 0}%`;
+  }
+
+  const cfg = PROGRAMA_REGULAR_DUO;
+  const { system, user } = buildBlueprintPrompt({
+    colaborador: { nome: colab.nome_completo, cargo: colab.cargo },
+    empresa: { nome: empresa.nome, segmento: empresa.segmento },
+    perfilComportamental, competenciasFoco,
+    duracaoSemanas: cfg.semanas, semanasMissao: cfg.semanasMissao, semanasAvaliacao: cfg.semanasAvaliacao,
+  });
+  return { customId: colaboradorId, system, user, maxTokens: 64000, empresaId, competenciasFoco };
+}
+
+/**
+ * Parseia o texto da IA, valida, aplica o nível autoritativo e PERSISTE (UPSERT).
+ * Reusado pelo sync e pelo batch. `competenciasFoco` vem do `buildBlueprintReq`.
+ */
+export async function persistBlueprintFromText(
+  empresaId: string, colaboradorId: string,
+  competenciasFoco: BlueprintCompetenciaInput[], text: string,
+): Promise<GerarBlueprintResult> {
+  const blueprint: DevelopmentBlueprint | null = await extractJSON(text);
+  if (!blueprint) return { error: 'IA não retornou blueprint válido' };
+
+  if (!Array.isArray(blueprint.competencias) || blueprint.competencias.length === 0) return { error: 'Blueprint sem competências' };
+  const semanas = blueprint.trilha?.semanas;
+  if (!Array.isArray(semanas) || semanas.length === 0) return { error: 'Blueprint sem trilha' };
+  const semanaSemPdi = semanas.find((s) => !Array.isArray(s.conexao_com_pdi) || s.conexao_com_pdi.length === 0);
+  if (semanaSemPdi) return { error: `Semana ${semanaSemPdi.semana} sem conexao_com_pdi (regra dura)` };
+
+  // Nível autoritativo (floor das notas) — a IA tende a arredondar pra cima.
+  const nivelCalc = new Map(competenciasFoco.filter((c) => c.nivel != null).map((c) => [c.nome.trim().toLowerCase(), c.nivel as number]));
+  for (const comp of blueprint.competencias) {
+    const calc = nivelCalc.get((comp.nome || '').trim().toLowerCase());
+    if (calc != null) comp.nivel_atual = `N${calc}` as DevelopmentBlueprint['competencias'][number]['nivel_atual'];
+  }
+  blueprint.spec_version = BLUEPRINT_SPEC_VERSION;
+
+  const tdb = tenantDb(empresaId);
+  const { data: saved, error: saveErr } = await tdb.from('development_blueprints').upsert({
+    colaborador_id: colaboradorId, blueprint, spec_version: BLUEPRINT_SPEC_VERSION, gerado_em: new Date().toISOString(),
+  }, { onConflict: 'empresa_id,colaborador_id' }).select('id').maybeSingle();
+  if (saveErr) return { error: saveErr.message };
+  return { ok: true, blueprintId: saved?.id };
+}
+
+/**
+ * Gera e persiste o Development Blueprint de UM colaborador (SÍNCRONO). SEM gate —
+ * o caller autoriza. = buildBlueprintReq + callAI + persistBlueprintFromText.
  */
 export async function gerarBlueprintCore(
   sbRaw: ReturnType<typeof createSupabaseAdmin>,
-  { colaboradorId, aiConfig, empresaIdEsperado }: {
-    colaboradorId: string;
-    aiConfig?: AIConfig;
-    empresaIdEsperado?: string;
-  },
+  { colaboradorId, aiConfig, empresaIdEsperado }: { colaboradorId: string; aiConfig?: AIConfig; empresaIdEsperado?: string },
 ): Promise<GerarBlueprintResult> {
-  if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
   try {
-    const { data: colab } = await sbRaw.from('colaboradores')
-      .select('id, empresa_id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, lid_executivo, lid_motivador, lid_metodico, lid_sistematico')
-      .eq('id', colaboradorId).maybeSingle();
-    if (!colab) return { error: 'Colaborador não encontrado' };
-
-    if (empresaIdEsperado && colab.empresa_id !== empresaIdEsperado) {
-      return { error: 'Colaborador de outro tenant — acesso negado' };
-    }
-    const empresaId: string = colab.empresa_id;
-    if (!empresaId) return { error: 'Colaborador sem empresa_id' };
-    const tdb = tenantDb(empresaId);
-
-    // empresas: id é o tenant — sem empresa_id; usar raw.
-    const { data: empresa } = await sbRaw.from('empresas')
-      .select('nome, segmento').eq('id', empresaId).single();
-    if (!empresa) return { error: 'Empresa não encontrada' };
-
-    // Foco do cargo (fonte única PDI↔trilha). Gate: sem foco, não gera.
-    const { data: cargoEmp } = await tdb.from('cargos_empresa')
-      .select('competencia_foco, competencias_foco').eq('nome', colab.cargo).maybeSingle();
-    const focoCargo = focoDoCargo(cargoEmp);
-    if (focoCargo.length === 0) {
-      return { error: 'Selecione as competências foco do cargo antes de gerar o blueprint.' };
-    }
-
-    // Assessments (IA4) por competência foco → nível/nota consolidados.
-    const competenciasFoco: BlueprintCompetenciaInput[] = [];
-    for (const nomeComp of focoCargo) {
-      const { data: assess } = await tdb.from('descriptor_assessments')
-        .select('descritor, nota')
-        .eq('colaborador_id', colaboradorId)
-        .eq('competencia', nomeComp);
-      const descritores = (assess || []).map((a: any) => ({
-        descritor: a.descritor,
-        nota: a.nota == null ? null : Number(a.nota),
-      }));
-      const notas = descritores.map((d) => d.nota).filter((n): n is number => typeof n === 'number');
-      const media = notas.length ? notas.reduce((s, v) => s + v, 0) / notas.length : null;
-      competenciasFoco.push({
-        nome: nomeComp,
-        // floor, não round: a pessoa é N1 até CONSOLIDAR o 2.0 (média 1.6 = N1,
-        // não N2). Conservador e alinhado com o nível que o PDI mostra.
-        nivel: media == null ? null : Math.max(1, Math.min(4, Math.floor(media))),
-        nota_decimal: media == null ? null : Number(media.toFixed(2)),
-        descritores,
-      });
-    }
-
-    // Regra dos 100%: só gera com TODAS as foco mapeadas. Parcial → não gera
-    // (evita competência inventada sem lastro + incoerência com a trilha single).
-    const semMapeamento = competenciasFoco.filter((c) => c.descritores.length === 0);
-    if (semMapeamento.length > 0) {
-      return { error: `Mapeamento incompleto — falta avaliar: ${semMapeamento.map((c) => c.nome).join(', ')}. O blueprint só é gerado com todas as competências foco mapeadas.` };
-    }
-
-    // Perfil comportamental (DISC) — vira leitura textual (sem scores no output).
-    let perfilComportamental: string | undefined;
-    if (colab.d_natural != null) {
-      perfilComportamental = `DISC: D=${colab.d_natural} | I=${colab.i_natural} | S=${colab.s_natural} | C=${colab.c_natural}\nDominante: ${colab.perfil_dominante || '—'}\nLiderança: Executor=${colab.lid_executivo || 0}% | Motivador=${colab.lid_motivador || 0}% | Metódico=${colab.lid_metodico || 0}% | Sistemático=${colab.lid_sistematico || 0}%`;
-    }
-
-    // Parâmetros da trilha: Regular DUO (14 semanas, missões 4/8/12, avaliação 13/14).
-    const cfg = PROGRAMA_REGULAR_DUO;
-    const { system, user } = buildBlueprintPrompt({
-      colaborador: { nome: colab.nome_completo, cargo: colab.cargo },
-      empresa: { nome: empresa.nome, segmento: empresa.segmento },
-      perfilComportamental,
-      competenciasFoco,
-      duracaoSemanas: cfg.semanas,
-      semanasMissao: cfg.semanasMissao,
-      semanasAvaliacao: cfg.semanasAvaliacao,
-    });
-
-    const resultado = await callAI(system, user, aiConfig || {}, 64000);
-    const blueprint: DevelopmentBlueprint | null = await extractJSON(resultado);
-    if (!blueprint) return { error: 'IA não retornou blueprint válido' };
-
-    // Validação: competências não-vazio + toda semana com conexao_com_pdi não-vazio.
-    if (!Array.isArray(blueprint.competencias) || blueprint.competencias.length === 0) {
-      return { error: 'Blueprint sem competências' };
-    }
-    const semanas = blueprint.trilha?.semanas;
-    if (!Array.isArray(semanas) || semanas.length === 0) {
-      return { error: 'Blueprint sem trilha' };
-    }
-    const semanaSemPdi = semanas.find(
-      (s) => !Array.isArray(s.conexao_com_pdi) || s.conexao_com_pdi.length === 0,
-    );
-    if (semanaSemPdi) {
-      return { error: `Semana ${semanaSemPdi.semana} sem conexao_com_pdi (regra dura: toda semana referencia ≥1 objetivo)` };
-    }
-
-    // Nível autoritativo = calculado das notas de assessment (a IA tende a
-    // arredondar pra cima; N1 real não pode virar N2 no output). Casa por nome.
-    const nivelCalc = new Map(
-      competenciasFoco
-        .filter((c) => c.nivel != null)
-        .map((c) => [c.nome.trim().toLowerCase(), c.nivel as number]),
-    );
-    for (const comp of blueprint.competencias) {
-      const calc = nivelCalc.get((comp.nome || '').trim().toLowerCase());
-      if (calc != null) comp.nivel_atual = `N${calc}` as DevelopmentBlueprint['competencias'][number]['nivel_atual'];
-    }
-
-    blueprint.spec_version = BLUEPRINT_SPEC_VERSION;
-
-    // UPSERT por colaborador (substitui o anterior). empresa_id é injetado pelo tdb.
-    const { data: saved, error: saveErr } = await tdb.from('development_blueprints').upsert({
-      colaborador_id: colaboradorId,
-      blueprint,
-      spec_version: BLUEPRINT_SPEC_VERSION,
-      gerado_em: new Date().toISOString(),
-    }, { onConflict: 'empresa_id,colaborador_id' }).select('id').maybeSingle();
-
-    if (saveErr) return { error: saveErr.message };
-    return { ok: true, blueprintId: saved?.id };
+    const req = await buildBlueprintReq(sbRaw, { colaboradorId, empresaIdEsperado });
+    if ('error' in req) return req;
+    const text = await callAI(req.system, req.user, aiConfig || {}, req.maxTokens);
+    return await persistBlueprintFromText(req.empresaId, colaboradorId, req.competenciasFoco, text);
   } catch (err: any) {
     return { error: err.message };
   }

@@ -9,9 +9,12 @@
 import { tasks, runs } from '@trigger.dev/sdk';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { regionOpts } from '@/lib/trigger-region';
+import { tenantDb } from '@/lib/tenant-db';
 import type { AIConfig } from '@/actions/ai-client';
 import { listarCargosParaIA2 } from '@/actions/fase1';
+import { resolverFilaBlueprint100 } from '@/lib/blueprint/core';
 import type { gerarIA2BatchTask } from '@/trigger/gerar-ia2-batch';
+import type { gerarBlueprintBatchTask } from '@/trigger/gerar-blueprint-batch';
 
 /**
  * Cria o job em `ia_jobs` com os cargos PENDENTES (sem gabarito) e dispara a task
@@ -49,6 +52,45 @@ export async function enqueueIA2Batch(empresaId: string, aiConfig: AIConfig = {}
     }
 
     return { success: true as const, jobId: job.id, total: pendentes.length };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || 'Erro' };
+  }
+}
+
+/**
+ * Development Blueprint em LOTE (Batch API, −50%). Enfileira um job com a FILA
+ * 100% (colabs com todas as competências foco mapeadas) e dispara a task
+ * `gerar-blueprint-batch`. Gate de tenant AQUI; a task roda service-role.
+ */
+export async function enqueueBlueprintBatch(empresaId: string, aiConfig: AIConfig = {}) {
+  try {
+    if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
+    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+    const tdb = tenantDb(empresaId);
+
+    const fila = await resolverFilaBlueprint100(tdb);
+    if (!fila.length) {
+      return { success: true as const, jobId: null, total: 0, message: 'Nenhum colaborador com as competências foco 100% mapeadas' };
+    }
+    const colabIds = fila.map((c) => c.id);
+
+    const { data: job, error } = await sb.from('ia_jobs').insert({
+      empresa_id: empresaId,
+      fase: 'blueprint',
+      params: { aiConfig, colabIds },
+      status: 'queued',
+      progress: { done: 0, total: colabIds.length, current: 'na fila', resultados: [] },
+    }).select('id').single();
+    if (error) return { success: false as const, error: error.message };
+
+    try {
+      const handle = await tasks.trigger<typeof gerarBlueprintBatchTask>('gerar-blueprint-batch', { jobId: job.id }, regionOpts());
+      await sb.from('ia_jobs').update({ params: { aiConfig, colabIds, runId: handle.id } }).eq('id', job.id);
+    } catch (e: any) {
+      await sb.from('ia_jobs').update({ status: 'error', error: 'dispatch: ' + (e?.message || e) }).eq('id', job.id);
+      return { success: false as const, error: 'Não foi possível enfileirar: ' + (e?.message || e) };
+    }
+    return { success: true as const, jobId: job.id, total: colabIds.length };
   } catch (err: any) {
     return { success: false as const, error: err?.message || 'Erro' };
   }

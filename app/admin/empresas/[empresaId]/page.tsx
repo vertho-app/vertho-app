@@ -19,7 +19,7 @@ import { useConfirm } from '@/components/admin/confirm-dialog';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
-import { enqueueIA2Batch, statusIAJob, cancelIAJob } from '@/actions/ia-pipeline-batch';
+import { enqueueIA2Batch, enqueueBlueprintBatch, statusIAJob, cancelIAJob } from '@/actions/ia-pipeline-batch';
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
@@ -263,7 +263,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         const ok = res.filter((r) => r.ok).length, errs = res.filter((r) => !r.ok).length;
         if (s.status === 'error') addLog(`❌ Lote falhou: ${s.error || ''}`, 'error');
         else if (s.status === 'cancelled') addLog(`⏹ Lote cancelado (${ok} gravado(s))`, 'info');
-        else addLog(`✅ Lote IA2: ${ok} gabarito(s)${errs ? ` | ${errs}❌` : ''}`, ok > 0 ? 'success' : 'error');
+        else addLog(`✅ Lote: ${ok} concluído(s)${errs ? ` | ${errs}❌` : ''}`, ok > 0 ? 'success' : 'error');
         return;
       }
       await sleep(3000);
@@ -300,9 +300,21 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         setPendingAction(null); return;
       }
       if (actionKey === 'blueprint') {
-        // Fila + loop no CLIENTE (1 server action por colab): o lote síncrono de
-        // 37 chamadas de IA estourava o timeout de 300s da Vercel (504).
-        addLog('📋 Listando colaboradores (foco + assessments)...', 'info');
+        // ── Em lote: Batch API via task Trigger + polling (assíncrono, −50%) ──
+        if (aiConfig?.modo === 'lote') {
+          runningModeRef.current = 'batch';
+          addLog('📦 Blueprints em lote (Batch API −50%, assíncrono — pode demorar).', 'info');
+          const r: any = await enqueueBlueprintBatch(empresaId, aiConfig);
+          if (!r?.success) { addLog(`❌ ${r?.error || 'Falha ao enfileirar'}`, 'error'); setPendingAction(null); return; }
+          if (!r.jobId) { addLog(`${r.message || 'Nada na fila'}`, 'info'); setPendingAction(null); return; }
+          activeJobIdRef.current = r.jobId;
+          addLog(`📦 ${r.total} blueprint(s) na fila (foco 100% mapeada) ${String(r.jobId).slice(0, 8)}…`, 'info');
+          await poll(r.jobId);
+          activeJobIdRef.current = null;
+          setPendingAction(null); return;
+        }
+        // ── Agora: fila + loop no CLIENTE (1 server action por colab) ──
+        addLog('📋 Listando colaboradores (foco 100% mapeada)...', 'info');
         const fila = await filaBlueprint(empresaId);
         if (!fila?.success || !fila.data?.length) { addLog(`${fila?.error || 'Nenhum colaborador com assessments'}`, fila?.success ? 'success' : 'error'); setPendingAction(null); return; }
         addLog(`📋 ${fila.data.length} colaborador(es) na fila`, 'info');
@@ -1048,7 +1060,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
               </>
             ) : (
               <>
-                {modelPicker.actionKey === 'ia2' && (
+                {['ia2', 'blueprint'].includes(modelPicker.actionKey) && (
                   <div className="flex gap-2 mb-3">
                     {(['agora', 'lote'] as const).map((mo) => (
                       <button key={mo} onClick={() => setModo(mo)}
@@ -1061,7 +1073,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                     ))}
                   </div>
                 )}
-                {modelPicker.actionKey === 'ia2' && modo === 'lote' && (
+                {['ia2', 'blueprint'].includes(modelPicker.actionKey) && modo === 'lote' && (
                   <p className="text-[9px] leading-snug mb-3" style={{ color: 'rgba(245,158,11,.85)' }}>Batch API: mais barato, porém assíncrono — pode demorar. Só modelos Claude.</p>
                 )}
                 <p className="text-[10px] text-gray-500 mb-4">{t('modelPicker.selectModel')}</p>
