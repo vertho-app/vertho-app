@@ -20,7 +20,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import {
-  gerarBlueprintCore, auditarBlueprintCore,
+  gerarBlueprintCore, auditarBlueprintCore, resolverFilaBlueprint100,
   type GerarBlueprintResult, type AuditarBlueprintResult,
 } from '@/lib/blueprint/core';
 import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
@@ -71,12 +71,11 @@ export async function gerarBlueprintsLote(
         .select('id, nome_completo').in('id', colaboradorIds);
       fila = data || [];
     } else {
-      // Pré-requisito real do blueprint: assessments IA4. Sem eles, não há o que ler.
-      const { data: assess } = await tdb.from('descriptor_assessments').select('colaborador_id');
-      const ids = [...new Set((assess || []).map((a: any) => a.colaborador_id).filter(Boolean))] as string[];
-      if (!ids.length) return { success: false, error: 'Nenhum colaborador com assessments (rode IA4 primeiro)' };
-      const { data } = await tdb.from('colaboradores').select('id, nome_completo').in('id', ids);
-      fila = data || [];
+      // Regra dos 100%: só colabs com TODAS as competências foco mapeadas
+      // (parcial/zero fica de fora — o núcleo também barra por defesa em profundidade).
+      const fila100 = await resolverFilaBlueprint100(tdb);
+      if (!fila100.length) return { success: false, error: 'Nenhum colaborador com as competências foco 100% mapeadas' };
+      fila = fila100.map((c) => ({ id: c.id, nome_completo: c.nome }));
     }
     if (!fila.length) return { success: false, error: 'Nenhum colaborador na fila' };
 
@@ -111,11 +110,10 @@ export async function filaBlueprint(empresaId: string): Promise<FilaBlueprintRes
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
-    const { data: assess } = await tdb.from('descriptor_assessments').select('colaborador_id');
-    const ids = [...new Set((assess || []).map((a: any) => a.colaborador_id).filter(Boolean))] as string[];
-    if (!ids.length) return { success: false, error: 'Nenhum colaborador com assessments (rode IA4 primeiro)' };
-    const { data } = await tdb.from('colaboradores').select('id, nome_completo').in('id', ids).order('nome_completo');
-    return { success: true, data: (data || []).map((c: any) => ({ id: c.id, nome: c.nome_completo })) };
+    // Regra dos 100%: só colabs com TODAS as competências foco mapeadas.
+    const fila = await resolverFilaBlueprint100(tdb);
+    if (!fila.length) return { success: false, error: 'Nenhum colaborador com as competências foco 100% mapeadas (complete o mapeamento primeiro)' };
+    return { success: true, data: fila.map((c) => ({ id: c.id, nome: c.nome })).sort((a, b) => a.nome.localeCompare(b.nome)) };
   } catch (err: any) {
     return { success: false, error: err.message };
   }

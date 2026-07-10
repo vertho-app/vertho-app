@@ -28,6 +28,44 @@ import { extractJSON } from '@/actions/utils';
 
 export const BLUEPRINT_SPEC_VERSION = 1;
 
+const normNome = (s: any): string => (s || '').toString().trim().toLowerCase();
+
+export interface FilaBlueprintItem { id: string; nome: string; foco: string[]; }
+
+/**
+ * Fila de geração de blueprint: colaboradores cujas TODAS as competências foco do
+ * cargo têm `descriptor_assessments` (mapeamento 100%). Parcial ou zero fica de
+ * FORA — evita blueprint/PDI com uma competência INVENTADA (sem lastro no
+ * diagnóstico) e incoerente com a trilha (que degrada pra single sem assessment).
+ * A pessoa entra na fila assim que completa o mapeamento das foco.
+ *
+ * Recebe `tdb` (tenant-scoped). PURO em relação a autorização — o caller autoriza.
+ */
+export async function resolverFilaBlueprint100(tdb: any): Promise<FilaBlueprintItem[]> {
+  const { data: colabs } = await tdb.from('colaboradores').select('id, nome_completo, cargo');
+  if (!colabs?.length) return [];
+  const { data: assess } = await tdb.from('descriptor_assessments').select('colaborador_id, competencia');
+  const mapPorColab = new Map<string, Set<string>>();
+  for (const a of assess || []) {
+    if (!mapPorColab.has(a.colaborador_id)) mapPorColab.set(a.colaborador_id, new Set());
+    mapPorColab.get(a.colaborador_id)!.add(normNome(a.competencia));
+  }
+  const cargos = [...new Set(colabs.map((c: any) => c.cargo).filter(Boolean))];
+  const { data: cargoRows } = cargos.length
+    ? await tdb.from('cargos_empresa').select('nome, competencia_foco, competencias_foco').in('nome', cargos)
+    : { data: [] };
+  const focoPorCargo = new Map<string, string[]>((cargoRows || []).map((r: any) => [r.nome, focoDoCargo(r)]));
+  const fila: FilaBlueprintItem[] = [];
+  for (const c of colabs) {
+    const foco = focoPorCargo.get(c.cargo) || [];
+    if (foco.length === 0) continue; // sem foco definido → não gera
+    const tem = mapPorColab.get(c.id) || new Set<string>();
+    const todasMapeadas = foco.every((f) => tem.has(normNome(f)));
+    if (todasMapeadas) fila.push({ id: c.id, nome: c.nome_completo, foco });
+  }
+  return fila;
+}
+
 export interface GerarBlueprintResult {
   ok?: true;
   blueprintId?: string;
@@ -100,6 +138,13 @@ export async function gerarBlueprintCore(
         nota_decimal: media == null ? null : Number(media.toFixed(2)),
         descritores,
       });
+    }
+
+    // Regra dos 100%: só gera com TODAS as foco mapeadas. Parcial → não gera
+    // (evita competência inventada sem lastro + incoerência com a trilha single).
+    const semMapeamento = competenciasFoco.filter((c) => c.descritores.length === 0);
+    if (semMapeamento.length > 0) {
+      return { error: `Mapeamento incompleto — falta avaliar: ${semMapeamento.map((c) => c.nome).join(', ')}. O blueprint só é gerado com todas as competências foco mapeadas.` };
     }
 
     // Perfil comportamental (DISC) — vira leitura textual (sem scores no output).
