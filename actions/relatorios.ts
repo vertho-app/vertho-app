@@ -349,7 +349,9 @@ export async function gerarRelatorioIndividual(
       const arr = assessByComp[normKey(nomeComp)];
       if (!arr || arr.length === 0) return null;
       const media = arr.reduce((s, v) => s + v, 0) / arr.length;
-      return { nivel: Math.max(1, Math.min(4, Math.round(media))), nota_decimal: Number(media.toFixed(2)) };
+      // floor, não round — igual ao blueprint: a pessoa é N-x até CONSOLIDAR o x+1
+      // (média 1.9 = N1, não N2). Mantém o nível do PDI coerente com o do blueprint.
+      return { nivel: Math.max(1, Math.min(4, Math.floor(media))), nota_decimal: Number(media.toFixed(2)) };
     };
 
     // Fuzzy fallback: includes-match para nomes próximos.
@@ -359,6 +361,14 @@ export async function gerarRelatorioIndividual(
       const hit = all.find(rn => rn.includes(k) || k.includes(rn));
       return hit ? respPorNome[hit] : null;
     };
+
+    // Nível AUTORITATIVO do blueprint (fonte única): quando existe, o PDI usa o
+    // MESMO nível que o blueprint (N1/N2...), pra não divergir (blueprint N1 vs PDI N2).
+    const nivelBlueprint = new Map<string, number>();
+    for (const c of (blueprint?.competencias || [])) {
+      const n = parseInt(String(c.nivel_atual).replace(/\D/g, ''), 10);
+      if (c.nome && n >= 1 && n <= 4) nivelBlueprint.set(normKey(c.nome), n);
+    }
 
     const dadosComps: DadoComp[] = competenciasAlvo.map((nomeComp): DadoComp => {
       const k = normKey(nomeComp);
@@ -376,7 +386,8 @@ export async function gerarRelatorioIndividual(
         };
       }
       const av = r ? (typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia) : null;
-      const nivelEff = av?.consolidacao?.nivel_geral || r?.nivel_ia4 || fromAssess?.nivel || 'pendente';
+      // Blueprint tem precedência (fonte única) → PDI e blueprint mostram o mesmo nível.
+      const nivelEff = nivelBlueprint.get(k) ?? (av?.consolidacao?.nivel_geral || r?.nivel_ia4 || fromAssess?.nivel || 'pendente');
       const notaEff = av?.consolidacao?.media_descritores || r?.nota_ia4 || fromAssess?.nota_decimal || 'pendente';
       return {
         competencia: nomeComp,
