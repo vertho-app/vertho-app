@@ -120,9 +120,15 @@ export interface ManuscritoParseResult {
   avisos: string[];
 }
 
-/** Cabeçalho canônico do microbloco. Os separadores toleram espaçamento variável. */
+/**
+ * Cabeçalho do microbloco. Tolera as convenções observadas nos manuscritos:
+ *  - separador `|` (SED) ou `·` (DIR/COO)
+ *  - ação após ` | `/` · ` (SED), COLADA no ID (`ID: DIR09_MB01Reconhecer…`),
+ *    ou ausente na linha (COO03 — a ação vem no corpo). Por isso o 5º grupo é
+ *    opcional; quando vazio, cai-se no título editorial da linha anterior.
+ */
 const RE_CABECALHO =
-  /^(.+?)\s*\|\s*([A-Z]{2,5}\d{2})\s*\|\s*(.+?)\s*\|\s*ID:\s*([A-Z]{2,5}\d{2}_MB\d{2,3})\s*\|\s*(.+)$/gm;
+  /^(.+?)\s*[|·]\s*([A-Z]{2,5}\d{2})\s*[|·]\s*(.+?)\s*[|·]\s*ID:\s*([A-Z]{2,5}\d{2}_MB\d{2,3})\s*(?:[|·]\s*)?(.*)$/gim;
 
 /** "Manuscrito-base · Gestor Educacional · SED08" (· ou - ou |). */
 const RE_CAPA = /Manuscrito[- ]base\s*[·\-|]\s*(.+?)\s*[·\-|]\s*([A-Z]{2,5}\d{2})\s*$/im;
@@ -178,61 +184,82 @@ export async function parsearManuscrito(buffer: Buffer): Promise<ManuscritoParse
       num: Number(m[4].split('_MB')[1]),
       titulo: antes[antes.length - 1] || '',
       descritor: m[3].trim(),
-      acao: m[5].trim(),
+      acao: (m[5] || '').trim(),
       texto: raw.slice(m.index!, Math.max(inicioCorpo, fimCorpo)),
     };
   });
 
-  const nomesDescritores = [...new Set(parciais.map((p) => p.descritor))];
-  const nDesc = nomesDescritores.length;
   const total = parciais.length;
 
-  // ── Deriva o tamanho da faixa a partir da contagem ────────────────────────
-  // total = 4 faixas × nDesc × mbsPorFaixa + nDesc sínteses
-  const restante = total - nDesc;
-  if (restante <= 0 || restante % (4 * nDesc) !== 0) {
-    throw new Error(
-      `Numeração inconsistente: ${total} microblocos para ${nDesc} descritores não fecha ` +
-        `no padrão (4 faixas × nDesc × k) + nDesc sínteses. Verifique o DOCX.`,
-    );
+  // ── Agrupa por rótulo de descritor (ordem de aparição) ────────────────────
+  const grupos = new Map<string, typeof parciais>();
+  for (const p of parciais) {
+    if (!grupos.has(p.descritor)) grupos.set(p.descritor, []);
+    grupos.get(p.descritor)!.push(p);
   }
-  const mbsPorFaixa = restante / (4 * nDesc);
-  const tamanhoFaixa = nDesc * mbsPorFaixa;
+  const contiguo = (nums: number[]) => Math.max(...nums) - Math.min(...nums) + 1 === nums.length;
 
-  const faixaDe = (num: number): Faixa => {
-    if (num > 4 * tamanhoFaixa) return 'SINTESE';
-    return (['N1', 'N2', 'N3', 'N4'] as const)[Math.ceil(num / tamanhoFaixa) - 1];
-  };
-
-  const microblocos: Microbloco[] = parciais.map((p) => ({
-    ...p,
-    faixa: faixaDe(p.num),
-    chars: p.texto.length,
+  // ── Esquema de numeração ──────────────────────────────────────────────────
+  // SEQUENCIAL (COO06): cada descritor é um intervalo contíguo de MBs (1-9, 10-18…).
+  //   O último MB do bloco é a síntese daquele descritor.
+  // POR-FAIXA (SED08/DIR09/COO03): os MBs de um descritor saltam entre faixas
+  //   (1,2,13,14,25,26,37,38) — o grupo NÃO é contíguo. A síntese (49-54) pode
+  //   vir junto (SED08, rótulo = descritor) ou como seção "INTEGRAÇÃO" à parte
+  //   (DIR09/COO03, grupo contíguo no topo, rótulo distinto → excluída).
+  const gruposArr = [...grupos.entries()].map(([nome, mbs]) => ({
+    nome, mbs, nums: mbs.map((m) => m.num), cont: contiguo(mbs.map((m) => m.num)),
   }));
+  const sequencial = gruposArr.every((g) => g.cont);
 
-  // ── Confere a numeração inteira contra a fórmula ──────────────────────────
-  // Um MB fora do lugar significa que a convenção mudou; fatiar seria errado.
-  const indiceDe = new Map(nomesDescritores.map((n, i) => [n, i + 1]));
-  for (const mb of microblocos) {
-    const d = indiceDe.get(mb.descritor)!;
-    const esperados =
-      mb.faixa === 'SINTESE'
-        ? [4 * tamanhoFaixa + d]
-        : Array.from(
-            { length: mbsPorFaixa },
-            (_, k) => (['N1', 'N2', 'N3', 'N4'].indexOf(mb.faixa) * tamanhoFaixa) + (d - 1) * mbsPorFaixa + k + 1,
-          );
-    if (!esperados.includes(mb.num)) {
-      throw new Error(
-        `Microbloco ${mb.id} (descritor "${mb.descritor}", faixa ${mb.faixa}) está fora da numeração ` +
-          `esperada (${esperados.join(' ou ')}). O manuscrito não segue a convenção de faixas.`,
-      );
+  // Descritores principais vs seção de integração.
+  let principais: typeof gruposArr;
+  if (sequencial) {
+    principais = gruposArr;
+  } else {
+    // Por-faixa: a seção de integração é um grupo contíguo cujos números ficam
+    // TODOS acima dos MBs de faixa dos descritores reais.
+    const maxFaixa = Math.max(...gruposArr.filter((g) => !g.cont).flatMap((g) => g.nums));
+    principais = gruposArr.filter((g) => !(g.cont && Math.min(...g.nums) > maxFaixa));
+    const integracao = gruposArr.filter((g) => g.cont && Math.min(...g.nums) > maxFaixa);
+    if (integracao.length) {
+      avisos.push(`Seção de integração ("${integracao.map((g) => g.nome).join('", "')}", ${integracao.reduce((n, g) => n + g.mbs.length, 0)} MBs) tratada como nível-competência — não entra nas transições por descritor.`);
     }
   }
 
+  const nDesc = principais.length;
+  if (nDesc < 4) throw new Error(`Apenas ${nDesc} descritores principais encontrados (esperado ~6). O DOCX foge da convenção.`);
+
+  // ── Faixa por POSIÇÃO dentro do descritor (unifica os dois esquemas) ───────
+  // Ordenados: ranks 0..7 = N1,N1,N2,N2,N3,N3,N4,N4; rank 8 (se houver) = síntese.
+  const tamanhos = [...new Set(principais.map((g) => g.mbs.length))];
+  if (tamanhos.length !== 1) {
+    throw new Error(`Descritores com nº de MBs diferentes (${tamanhos.join(',')}). A convenção do manuscrito não é uniforme.`);
+  }
+  const perDesc = tamanhos[0];
+  const temSintese = perDesc % 4 === 1;                 // 9 = 8 faixa + 1 síntese; 8 = sem
+  if (!temSintese && perDesc % 4 !== 0) {
+    throw new Error(`Cada descritor tem ${perDesc} MBs — não fecha em (4 faixas × k) [+1 síntese]. Verifique o DOCX.`);
+  }
+  const mbsPorFaixa = Math.floor(perDesc / 4);
+  const FAIXAS = ['N1', 'N2', 'N3', 'N4'] as const;
+
+  const microblocos: Microbloco[] = [];
+  const doDescOrdenado = new Map<string, Microbloco[]>();
+  principais.forEach((g) => {
+    const ordenados = [...g.mbs].sort((a, b) => a.num - b.num);
+    const lista: Microbloco[] = ordenados.map((p, rank) => ({
+      ...p,
+      faixa: (temSintese && rank === perDesc - 1 ? 'SINTESE' : FAIXAS[Math.floor(rank / mbsPorFaixa)]) as Faixa,
+      chars: p.texto.length,
+    }));
+    doDescOrdenado.set(g.nome, lista);
+    microblocos.push(...lista);
+  });
+
   // ── Agrupa por descritor e monta as três transições ───────────────────────
-  const descritores: DescritorGroup[] = nomesDescritores.map((nome, i) => {
-    const doDesc = microblocos.filter((m) => m.descritor === nome);
+  const descritores: DescritorGroup[] = principais.map((g, i) => {
+    const nome = g.nome;
+    const doDesc = doDescOrdenado.get(nome)!;
     const transicoes = TRANSICOES.map(([ne, nd]) => {
       // Faixa de entrada + faixa de destino + a síntese (âncora do exemplo integrado).
       const sel = doDesc.filter((m) => m.faixa === ne || m.faixa === nd || m.faixa === 'SINTESE');
@@ -249,7 +276,8 @@ export async function parsearManuscrito(buffer: Buffer): Promise<ManuscritoParse
   });
 
   // ── Avisos (não bloqueiam) ────────────────────────────────────────────────
-  if (nDesc < 4) avisos.push(`Apenas ${nDesc} descritores encontrados (esperado: 6).`);
+  if (nDesc !== 6) avisos.push(`${nDesc} descritores principais (esperado: 6).`);
+  avisos.push(`Esquema ${sequencial ? 'sequencial' : 'por-faixa'}, ${perDesc} MBs/descritor${temSintese ? ' (c/ síntese)' : ' (s/ síntese própria)'}.`);
   for (const g of descritores) {
     const magra = g.transicoes.find((t) => t.chars < 2000);
     if (magra) avisos.push(`Descritor "${g.descritor}" tem pouco conteúdo em ${magra.nivel_entrada}→${magra.nivel_destino} (${magra.chars} chars).`);
@@ -266,7 +294,7 @@ export async function parsearManuscrito(buffer: Buffer): Promise<ManuscritoParse
     sintese: cauda ? raw.slice(fimConteudo, fimDaSintese).trim() : '',
     recursos: await parsearRecursos(buffer),
     stats: {
-      totalMicroblocos: total,
+      totalMicroblocos: microblocos.length,
       totalDescritores: nDesc,
       mbsPorFaixa,
       modulosPrevistos: nDesc * TRANSICOES.length,
