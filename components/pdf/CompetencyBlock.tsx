@@ -166,7 +166,7 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
       {/* ── Descritores em desenvolvimento (amber) ── */}
       {!isStrong && comp.descritores_desenvolvimento?.length > 0 && (
         <View style={s.descritorBox} wrap={false}>
-          <Text style={{ ...s.blockLabel, color: colors.yellow }}>Descritores em Desenvolvimento</Text>
+          <Text style={{ ...s.blockLabel, color: colors.yellow }}>Comportamentos em Desenvolvimento</Text>
           {comp.descritores_desenvolvimento.map((d: any, i: number) => (
             <PrefixedItem key={i} prefix="•" color={colors.yellow} text={d} textColor={colors.yellowText} />
           ))}
@@ -254,7 +254,7 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
             )}
           </View>
           {comp.sprint.checklist?.length > 0 && (
-            <ChecklistBox items={comp.sprint.checklist} title="Checklist do Sprint" />
+            <ChecklistBox items={comp.sprint.checklist} title="Guia de execução" />
           )}
         </View>
       ) : !isStrong && comp.plano_30_dias ? (
@@ -294,7 +294,10 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
           )}
           {comp.estudo_recomendado?.length > 0 && (
             <View style={s.estudoBox}>
-              <Text style={{ ...s.blockLabel, color: colors.purple }}>Estudo Recomendado</Text>
+              <Text style={{ ...s.blockLabel, color: colors.purple }}>Conteúdos da jornada</Text>
+              <Text style={{ fontSize: 7.5, color: colors.purpleText, fontStyle: 'italic', lineHeight: 1.5, marginBottom: 5 }}>
+                {'Você recebe estes temas ao longo da trilha, resumidos toda semana — não precisa buscar por conta própria.'}
+              </Text>
               {comp.estudo_recomendado.map((e: any, i: number) => (
                 <Text key={i} style={{ fontSize: 8, color: colors.purpleText, lineHeight: 1.6, marginBottom: 2 }}>
                   {typeof e === 'string' ? e : `${e.titulo}${e.por_que_ajuda ? ' — ' + e.por_que_ajuda : ''}`}

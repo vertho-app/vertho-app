@@ -122,6 +122,8 @@ DIRETRIZES DE TOM:
 5. Menos "você é capaz", mais "este é o próximo movimento". NÃO repetir frases do tipo "você chegou até aqui porque se importa".
 6. Ser honesto sem desmotivar; reconhecer contexto antes de apontar gaps.
 7. Evitar frases genéricas que serviriam para qualquer pessoa.
+8. Português claro, SEM termos em inglês (use 'devolutiva' não 'feedback', 'estudo de caso' não 'case', 'habilidade' não 'skill'). Prefira "comportamento" a "descritor".
+9. "estudo_recomendado" NÃO é dever de casa — são os TEMAS que a própria jornada ENTREGA à pessoa, resumidos toda semana (microaprendizagem). Escreva como algo que ela VAI RECEBER, não que precisa buscar.
 
 PRINCÍPIOS INEGOCIÁVEIS:
 1. Níveis SEMPRE numéricos (1-4). Nível 3 = META.
@@ -170,7 +172,7 @@ FORMATO OBRIGATÓRIO:
     "principal_ponto_de_atencao": "texto curto"
   },
   "perfil_comportamental": {
-    "descricao": "Como o perfil influencia o desempenho (2-3 parágrafos). SEM scores numéricos.",
+    "descricao": "Fale DIRETO com a pessoa, em 2ª pessoa e tom de conversa — ex.: 'Elizângela, seu perfil combina...'. NUNCA em 3ª pessoa ('O perfil de Elizângela...'). Como o seu perfil influencia o seu desempenho (2-3 parágrafos). SEM scores numéricos.",
     "pontos_forca": ["2-3 forças do perfil"],
     "pontos_atencao": ["2-3 áreas de atenção do perfil"]
   },
@@ -183,7 +185,7 @@ FORMATO OBRIGATÓRIO:
       "nivel": 0,
       "nota_decimal": 0.0,
       "flag": false,
-      "descritores_desenvolvimento": ["descritores que precisam de atenção"],
+      "descritores_desenvolvimento": ["comportamentos que precisam de atenção (linguagem de comportamento, não jargão)"],
       "fez_bem": ["2-3 comportamentos positivos observados"],
       "melhorar": ["2-3 pontos concretos para melhorar"],
       "feedback": "Parágrafo com análise construtiva",
@@ -198,9 +200,9 @@ FORMATO OBRIGATÓRIO:
       "dicas_desenvolvimento": ["Quando [gatilho], [ação]. Ex: Quando sentir resistência, diga: Me ajuda a entender..."],
       "estudo_recomendado": [
         {
-          "titulo": "nome do conteúdo",
-          "formato": "video|texto|podcast|case",
-          "por_que_ajuda": "conexão com o gap",
+          "titulo": "TEMA do conteúdo, em português claro, SEM termos em inglês (evite 'feedback', 'case', 'skill'... use 'devolutiva', 'estudo de caso', 'habilidade')",
+          "formato": "vídeo|texto|áudio|estudo de caso",
+          "por_que_ajuda": "conexão com o comportamento a desenvolver",
           "url": "URL ou referência"
         }
       ]

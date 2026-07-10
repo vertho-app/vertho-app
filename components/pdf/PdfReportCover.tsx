@@ -38,6 +38,7 @@ const s = StyleSheet.create({
   h1b: { fontFamily: 'Fraunces', fontWeight: 600, fontSize: 42, color: '#FFFFFF', lineHeight: 1.02 },
   name: { fontFamily: 'Jakarta', fontWeight: 500, fontSize: 12.75, color: brand.cyan[500], marginTop: 15 },
   sub: { fontFamily: 'NotoSans', fontSize: 9.4, color: SUB, marginTop: 3 },
+  jornada: { fontFamily: 'Jakarta', fontWeight: 500, fontSize: 9, color: CYAN_LIGHT, marginTop: 12 },
   spacer: { flex: 1 },
   tagline: { fontFamily: 'Fraunces', fontStyle: 'italic', fontSize: 11.25, color: '#FFFFFF' },
   confid: { fontFamily: 'Jakarta', fontWeight: 500, fontSize: 7.5, letterSpacing: 1, textTransform: 'uppercase', color: SUB, marginTop: 5 },
@@ -59,7 +60,7 @@ function Divider() {
 
 export default function PdfReportCover({
   bgBase64, logoBase64, titulo = ['Plano de', 'Desenvolvimento'], overline = 'Plano de desenvolvimento individual',
-  nome, cargo, empresa, tagline = 'Pequenos ajustes, grande impacto.', mentorLabel = 'Mentor IA',
+  nome, cargo, empresa, tagline = 'Pequenos ajustes, grande impacto.', mentorLabel = 'Mentor IA', jornada,
 }: {
   bgBase64?: string | null;
   logoBase64?: string | null;
@@ -71,6 +72,8 @@ export default function PdfReportCover({
   tagline?: string;
   /** Selo "Mentor IA" no topo. Passar null/'' esconde (ex.: PDI). */
   mentorLabel?: string | null;
+  /** Linha descritiva sob o nome (ex.: "Uma jornada de 14 semanas de aprendizagem"). */
+  jornada?: string | null;
 }) {
   const subtitulo = [cargo, empresa].filter(Boolean).join(' · ');
   return (
@@ -89,6 +92,7 @@ export default function PdfReportCover({
           <Divider />
           {nome ? <Text style={s.name}>{nome}</Text> : null}
           {subtitulo ? <Text style={s.sub}>{subtitulo}</Text> : null}
+          {jornada ? <Text style={s.jornada}>{jornada}</Text> : null}
         </View>
 
         <View style={s.spacer} />

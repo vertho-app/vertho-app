@@ -200,7 +200,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
   // Base: Regular DUO (14 semanas, missões 4/8/12, avaliação 13/14). Se houver
   // 1 competência, adapta. Deriva a ação de cada fase do sprint da competência.
   const acaoDe = (comp: any): string =>
-    (comp?.sprint?.acao_principal || comp?.melhorar?.[0] || 'mapear e praticar os descritores prioritários');
+    (comp?.sprint?.acao_principal || comp?.melhorar?.[0] || 'mapear e praticar os comportamentos prioritários');
   const trilhaFases: { fase: string; titulo: string; detalhe: string }[] = [];
   if (competencias.length >= 2) {
     trilhaFases.push(
@@ -306,6 +306,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
         titulo={['Plano de Desenvolvimento Individual', '(PDI)']}
         overline={null}
         mentorLabel={null}
+        jornada={'Uma jornada de 14 semanas de aprendizagem'}
         nome={nome}
         cargo={data.colaborador_cargo}
         empresa={empresaNome}
@@ -474,7 +475,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
           <ReportSectionTitle>{hasBinding ? 'Sua jornada, ciclo a ciclo' : 'Como este PDI vira trilha'}</ReportSectionTitle>
           <Text style={s.trilhaIntro}>
             {hasBinding
-              ? 'Sua trilha tem 14 semanas, uma competência por vez. Cada ciclo tem um objetivo (o que muda no seu trabalho), o que você aprende e o que pratica — o objetivo é o destino, as atividades semanais são o caminho até ele, não trabalho a mais. Comece pelo Ciclo 1: o segundo só começa quando ele terminar, e a trilha te guia semana a semana.'
+              ? 'Sua trilha tem 14 semanas, uma competência por vez. Cada ciclo tem um objetivo (o que muda no seu trabalho), o que você aprende e o que pratica — o objetivo é o destino, as atividades semanais são o caminho até ele, não trabalho a mais. Você recebe o conteúdo resumido toda semana (microaprendizagem), não precisa buscar por conta própria. Comece pelo Ciclo 1: o segundo só começa quando ele terminar, e a trilha te guia semana a semana.'
               : 'O que está no seu PDI é exatamente o que você vai aprender e praticar na trilha. Cada ciclo tem conteúdo (o que você estuda) e prática (o que você aplica).'}
           </Text>
           {hasBinding ? (

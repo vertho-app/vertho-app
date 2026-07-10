@@ -112,7 +112,7 @@ FORMATO OBRIGATÓRIO (DevelopmentBlueprint):
         { "id": "obj-1", "objetivo": "em 1ª pessoa, com horizonte", "acao_principal": "1 ação concreta e realista", "acao_apoio": "1 ação de apoio (opcional)", "evidencia_de_execucao": "1 evidência observável", "criterio_de_sucesso": "como saber que deu certo", "ritual": "1 ritual curto de acompanhamento (opcional)" }
       ],
       "conteudos_recomendados": [
-        { "tema": "", "formato_preferencial": "video|texto|podcast|case", "objetivo": "conexão com o gap" }
+        { "tema": "tema em português claro, SEM termos em inglês (use 'devolutiva' não 'feedback', 'estudo de caso' não 'case')", "formato_preferencial": "vídeo|texto|áudio|estudo de caso", "objetivo": "conexão com o gap" }
       ],
       "missoes_sugeridas": [
         { "semana_sugerida": 4, "titulo": "", "descricao": "", "evidencia_a_coletar": "" }
