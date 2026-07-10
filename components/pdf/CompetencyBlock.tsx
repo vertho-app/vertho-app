@@ -132,7 +132,10 @@ function PrefixedItem({ prefix, color, text, textColor }: {
   );
 }
 
-export default function CompetencyBlock({ comp, index, total }: { comp: any; index: number; total: number }) {
+export default function CompetencyBlock({ comp, index, total, ciclo }: {
+  comp: any; index: number; total: number;
+  ciclo?: { numero: number; janela: string | null; inicioSemana?: number; comecaAgora: boolean };
+}) {
   const nivel = comp.nivel || comp.nivel_atual || 0;
   const isFlag = comp.flag || nivel <= 1;
   const isStrong = nivel >= 3;
@@ -203,10 +206,22 @@ export default function CompetencyBlock({ comp, index, total }: { comp: any; ind
       {/* ── Sprint de 30 dias (novo — enxuto). Fallback: plano_30_dias antigo ── */}
       {!isStrong && comp.sprint ? (
         <View>
-          <Text style={s.planoTitle}>Sprint de 30 Dias</Text>
+          <Text style={s.planoTitle}>{ciclo ? `Objetivo do Ciclo ${ciclo.numero}` : 'Sprint de 30 Dias'}</Text>
+          {ciclo && (
+            <Text style={{ fontSize: 8.5, fontWeight: 700, marginBottom: 4, color: ciclo.comecaAgora ? colors.cyan : colors.gray600 }}>
+              {ciclo.comecaAgora
+                ? `Começa agora${ciclo.janela ? ` · ${ciclo.janela}` : ''}`
+                : `Só começa depois do Ciclo 1${ciclo.inicioSemana ? ` — a partir da Semana ${ciclo.inicioSemana}` : ''}`}
+            </Text>
+          )}
+          {ciclo && (
+            <Text style={{ fontSize: 8, fontStyle: 'italic', color: colors.gray600, lineHeight: 1.5, marginBottom: 8 }}>
+              {'Este é o objetivo do ciclo — o destino que as suas atividades semanais da trilha constroem. Não é trabalho a mais.'}
+            </Text>
+          )}
           {comp.sprint.foco_30_dias && (
             <View style={s.sprintFoco} wrap={false}>
-              <Text style={s.sprintFocoLabel}>Foco dos 30 dias</Text>
+              <Text style={s.sprintFocoLabel}>{ciclo ? 'Foco do ciclo' : 'Foco dos 30 dias'}</Text>
               <Text style={s.sprintFocoText}>{comp.sprint.foco_30_dias}</Text>
             </View>
           )}

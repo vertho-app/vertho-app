@@ -448,13 +448,21 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       {/* ═══════════════════ COMPETÊNCIAS — uma página por competência ═══════════════════ */}
       {/* A mensagem final flui logo após o último checklist (fim da última
           competência); só cai pra página seguinte, no topo, se não couber. */}
-      {competencias.map((comp: any, idx: number) => (
-        <Page key={idx} size="A4" style={pageStyles.page} wrap>
-          <PageHeader logoBase64={logoBase64} label={`Competência ${idx + 1} de ${competencias.length}`} />
-          <CompetencyBlock comp={comp} index={idx} total={competencias.length} />
-          <PageFooter />
-        </Page>
-      ))}
+      {competencias.map((comp: any, idx: number) => {
+        // Ciclo do sprint (quando há blueprint): deixa CLARO que a 2ª competência só
+        // começa depois da 1ª (Semana X), não em paralelo.
+        const cw = cicloPorComp[comp.nome];
+        const ciclo = hasBinding && cw
+          ? { numero: idx + 1, janela: cicloLabel(comp.nome), inicioSemana: cw.min, comecaAgora: idx === 0 }
+          : undefined;
+        return (
+          <Page key={idx} size="A4" style={pageStyles.page} wrap>
+            <PageHeader logoBase64={logoBase64} label={`Competência ${idx + 1} de ${competencias.length}`} />
+            <CompetencyBlock comp={comp} index={idx} total={competencias.length} ciclo={ciclo} />
+            <PageFooter />
+          </Page>
+        );
+      })}
 
       {/* ═══════════════════ COMO ESTE PDI VIRA TRILHA + MENSAGEM FINAL ═══════════════════ */}
       {competencias.length >= 1 && (
@@ -463,7 +471,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
           <ReportSectionTitle>{hasBinding ? 'Sua jornada, ciclo a ciclo' : 'Como este PDI vira trilha'}</ReportSectionTitle>
           <Text style={s.trilhaIntro}>
             {hasBinding
-              ? 'Sua trilha tem 14 semanas, uma competência por vez. Cada ciclo tem um objetivo (o que muda no seu trabalho), o que você aprende e o que pratica. Comece pelo Ciclo 1 — o resto vem na sequência, e a trilha te guia semana a semana.'
+              ? 'Sua trilha tem 14 semanas, uma competência por vez. Cada ciclo tem um objetivo (o que muda no seu trabalho), o que você aprende e o que pratica — o objetivo é o destino, as atividades semanais são o caminho até ele, não trabalho a mais. Comece pelo Ciclo 1: o segundo só começa quando ele terminar, e a trilha te guia semana a semana.'
               : 'O que está no seu PDI é exatamente o que você vai aprender e praticar na trilha. Cada ciclo tem conteúdo (o que você estuda) e prática (o que você aplica).'}
           </Text>
           {hasBinding ? (
