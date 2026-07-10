@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 
 export async function loadEvolucao() {
@@ -11,23 +11,25 @@ export async function loadEvolucao() {
   const colab = await findColabByEmail(email, 'id, nome_completo, empresa_id');
   if (!colab) return { error: 'Colaborador não encontrado' };
 
-  const sb = createSupabaseAdmin();
+  // tenantDb injeta .eq('empresa_id') em toda query: `colaborador_id` sozinho
+  // não isola tenant (um id de outra empresa devolveria a linha dele).
+  const tdb = tenantDb(colab.empresa_id);
 
   // Buscar sessões concluídas (avaliação inicial)
-  const { data: sessoes } = await sb.from('sessoes_avaliacao')
+  const { data: sessoes } = await tdb.from('sessoes_avaliacao')
     .select('id, competencia_id, competencia_nome, nivel, nota_decimal, lacuna, avaliacao_final, created_at')
     .eq('colaborador_id', colab.id)
     .eq('status', 'concluido')
     .order('created_at');
 
   // Buscar evolução por descritor (se existir)
-  const { data: descritores } = await sb.from('evolucao_descritores')
+  const { data: descritores } = await tdb.from('evolucao_descritores')
     .select('*')
     .eq('colaborador_id', colab.id)
     .order('created_at');
 
   // Buscar evolução consolidada (se existir)
-  const { data: evolucao } = await sb.from('evolucao')
+  const { data: evolucao } = await tdb.from('evolucao')
     .select('*')
     .eq('colaborador_id', colab.id)
     .order('created_at');

@@ -4,6 +4,7 @@ import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { tenantDb } from '@/lib/tenant-db';
 
 /**
  * Gera um Cenario B alternativo para uma sessao de avaliacao.
@@ -18,7 +19,8 @@ export async function gerarCenarioB(sessaoId: string, aiConfig: AIConfig = {}) {
   const sb = await requireAdminSupabase('ai.audit.regenerate');
 
   try {
-    // 1. Load sessao_avaliacao
+    // 1. Load sessao_avaliacao — RAIZ DA TENANCY: o tenant só é conhecido depois
+    //    de ler a sessão, então esta query é necessariamente raw.
     const { data: sessao, error: sessaoErr } = await sb
       .from('sessoes_avaliacao')
       .select('id, empresa_id, colaborador_id, competencia_id, avaliacao_final, cenario_id')
@@ -29,8 +31,12 @@ export async function gerarCenarioB(sessaoId: string, aiConfig: AIConfig = {}) {
       return { success: false, error: `Sessao nao encontrada: ${sessaoErr?.message || 'ID invalido'}` };
     }
 
+    // Descoberto o tenant, tudo abaixo passa por ele.
+    const tdb = tenantDb(sessao.empresa_id);
+
     // 2. Load colaborador with profile (DISC nativo OU perfil externo OPQ32)
-    const { data: colaborador, error: colabErr } = await sb
+    //    tdb: garante que o colaborador é do MESMO tenant da sessão.
+    const { data: colaborador, error: colabErr } = await tdb
       .from('colaboradores')
       .select('id, nome_completo, cargo, empresa_id, perfil_dominante, d_natural, i_natural, s_natural, c_natural, perfil_externo_fonte, perfil_externo_dados')
       .eq('id', sessao.colaborador_id)

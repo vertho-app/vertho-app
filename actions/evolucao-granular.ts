@@ -4,6 +4,7 @@ import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { tenantDb } from '@/lib/tenant-db';
 
 /**
  * Gera evolucao granular por descritor, comparando avaliacao inicial vs reavaliacao.
@@ -17,6 +18,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
  */
 export async function gerarEvolucaoDescritores(empresaId: string, colaboradorId: string, aiConfig: AIConfig = {}) {
   const sb = await requireAdminSupabase('ai.audit.regenerate');
+  const tdb = tenantDb(empresaId);
 
   try {
     // 1. Load colaborador with DISC profile
@@ -32,7 +34,8 @@ export async function gerarEvolucaoDescritores(empresaId: string, colaboradorId:
     }
 
     // 2. Load all sessoes_avaliacao for this colaborador (initial + reavaliacao)
-    const { data: sessoes, error: sessErr } = await sb
+    //    tdb: `colaborador_id` sozinho não isola tenant.
+    const { data: sessoes, error: sessErr } = await tdb
       .from('sessoes_avaliacao')
       .select('id, competencia_id, avaliacao_final, tipo, created_at, cenario_id')
       .eq('colaborador_id', colaboradorId)

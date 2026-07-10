@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { callAIChat, callAI } from '@/actions/ai-client';
 import { extractBlock, stripBlocks } from '@/actions/utils';
 import { getOrCreatePromptVersion } from '@/lib/versioning';
@@ -53,6 +54,11 @@ export async function POST(req) {
     }
 
     const sb = createSupabaseAdmin();
+    // `empresaId` já passou por assertTenantAccess acima. tdb escopa as leituras
+    // de tabelas tenant-owned: `colaborador_id`/`sessaoId` sozinhos não isolam
+    // tenant, e o app roda service-role (o banco não barra — service_role tem
+    // BYPASSRLS). Tabelas globais (empresas, competencias, escolas) seguem no raw.
+    const tdb = tenantDb(empresaId);
     const { data: empresaGate } = await sb.from('empresas')
       .select('sys_config')
       .eq('id', empresaId)
@@ -67,7 +73,7 @@ export async function POST(req) {
     let sessao;
 
     if (sessaoId) {
-      const { data, error } = await sb.from('sessoes_avaliacao')
+      const { data, error } = await tdb.from('sessoes_avaliacao')
         .select('*').eq('id', sessaoId).single();
       if (error || !data) return NextResponse.json({ ok: false, error: 'Sessão não encontrada' }, { status: 404 });
       if (data.status === 'concluido') {
@@ -76,6 +82,9 @@ export async function POST(req) {
       // Sessão é fonte de verdade: validar ownership contra o contexto autenticado
       const sessaoColabGuard = await assertColabAccess(auth, data.colaborador_id);
       if (sessaoColabGuard) return sessaoColabGuard;
+      // Defesa em profundidade: com tdb acima, sessão de outro tenant já saiu
+      // como 404 (o filtro empresa_id não casa). Mantido para o caso de a query
+      // voltar a ser raw.
       if (data.empresa_id && data.empresa_id !== empresaId) {
         return NextResponse.json({ ok: false, error: 'sessaoId inconsistente com empresaId' }, { status: 403 });
       }
@@ -85,7 +94,7 @@ export async function POST(req) {
       sessao = data;
     } else {
       // Busca sessão ativa existente para esta competência
-      const { data: existente } = await sb.from('sessoes_avaliacao')
+      const { data: existente } = await tdb.from('sessoes_avaliacao')
         .select('*')
         .eq('colaborador_id', colaboradorId)
         .eq('competencia_id', competenciaId)
@@ -102,7 +111,7 @@ export async function POST(req) {
           .select('nome').eq('id', competenciaId).single();
 
         // Cenário roteado pelo PPP do colaborador (via escola) > rede > mais recente.
-        const { data: colabEsc } = await sb.from('colaboradores')
+        const { data: colabEsc } = await tdb.from('colaboradores')
           .select('escola_id').eq('id', colaboradorId).maybeSingle();
         let pppEscolaId: string | null = null;
         if (colabEsc?.escola_id) {
