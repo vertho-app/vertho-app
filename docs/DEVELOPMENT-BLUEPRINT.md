@@ -153,12 +153,17 @@ vivo em prod. Timeline mantida limpa (todas as semanas bindam → selo em todas 
   blueprint) + reserva warn/fail p/ problema real. **Lição: auditar só o que o
   gerador CONTROLA (texto), não o INPUT (nomes).** Efeito medido: drift 8→0, score
   74→87 nos casos-problema.
-- **PDI — sprint por ciclo + teoria:** "Plano de 30 dias" → **"Seu plano, ciclo a
-  ciclo"** (o "30 dias" global conflitava com 14 sem sequenciais → cada competência
-  mostra sua janela real "Ciclo N · Semanas X-Y", derivada do `trilha_mapa` excluindo
-  a avaliação). Página "vira trilha" passou a mostrar **APRENDE** (temas de
-  `conteudos_recomendados` do blueprint) + **PRÁTICA** (missão) por ciclo — o ritmo
-  aprende→aplica. Novo campo persistido `conteudo.blueprint_conteudos`.
+- **PDI — jornada única, ciclo a ciclo:** o "Plano de 30 dias" e a página "vira
+  trilha" se sobrepunham e o sprint das 2 competências junto confundia (trilha é
+  sequencial). Com blueprint, os dois viraram UMA seção **"Sua jornada, ciclo a
+  ciclo"**: por ciclo mostra OBJETIVO (o norte = `sprint.foco_30_dias`) + APRENDE
+  (temas de `conteudos_recomendados`) + PRÁTICA (missão). O PRIMEIRO ciclo de
+  desenvolvimento leva selo **"FOCO AGORA"** + detalhe completo (evidência + ritual);
+  os demais ficam leves (preview) — foco no ciclo atual, o resto é sequência.
+  Integração (9-12) sem objetivo próprio; avaliação (13/14) só "Avalia" + badge.
+  Janela "Semanas X-Y" derivada do `trilha_mapa` (foco único, excl. avaliação). Novo
+  campo `conteudo.blueprint_conteudos`. PDI SEM blueprint = one-pager de sprint antigo
+  (backward-compat, intocado).
 - **Fix storage do PDF:** slug do nome de arquivo vira ASCII (NFD + tira acento) —
   nome com acento quebrava o upload (`Invalid key` → `pdf_path` null), bloqueando a
   maioria dos nomes BR.
