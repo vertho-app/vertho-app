@@ -53,7 +53,9 @@ tests/unit/          vitest
 
 ### Multi-tenant (segurança)
 - O app roda **100% service-role** (`createSupabaseAdmin` **bypassa RLS**). O isolamento entre tenants depende do **código**, não do banco.
+  - Isso é literal, não retórico: `service_role` tem `rolbypassrls = true`. As tabelas de PII **já têm RLS ligada com policies tenant-scoped**, e mesmo assim a service-role lê cross-tenant (medido: 207 linhas / 8 empresas em `colaboradores`; `anon` lê 0). `ALTER TABLE … FORCE ROW LEVEL SECURITY` **não** resolve — `FORCE` afeta o dono da tabela, não roles com `BYPASSRLS`. Adicionar policy não protege o app; só protegeria se as queries saíssem como `authenticated` (JWT com claim `empresa_id`, que `get_empresa_id()` já lê).
 - Todo acesso a dado de tenant vai por **`tenantDb(empresaId)`** (escopa por `empresa_id`).
+- **Guards de tenant no CI** (allowlists que só encolhem): `tenant-mutation-guard` (update/delete raw) e `tenant-read-guard` (select raw nas 5 tabelas de PII: colaboradores, respostas, relatorios, mensagens_chat, sessoes_avaliacao). Para sair da allowlist: `tenantDb(...)` ou `.eq('empresa_id', empresaId)` na mesma cadeia. Ambos veem que **há** filtro, não que o **valor** é o tenant certo.
 - Resolver colaborador SEMPRE com **`findColabByEmail`** (resolve o tenant pelo header) — NUNCA `.eq('email')` direto (usuário em 2+ empresas → quebra).
 
 ### Server Actions são endpoints HTTP (autorização)
