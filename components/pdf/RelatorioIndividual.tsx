@@ -243,8 +243,12 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
     const cw = cicloPorComp[nome];
     return cw ? `Semanas ${cw.min}–${cw.max}` : null;
   };
-  type BindingBloco = { faseLabel: string; titulo: string; acoes: string[]; conteudos: string[]; temMissao: boolean; temAvaliacao: boolean };
+  // Sprint (objetivo comportamental) por competência — pra fundir na jornada.
+  const sprintPorComp: Record<string, any> = {};
+  for (const cc of sprintComps) if (cc?.nome) sprintPorComp[cc.nome] = cc.sprint;
+  type BindingBloco = { faseLabel: string; cicloWin: string | null; titulo: string; objetivo?: string; evidencia?: string; ritual?: string; acoes: string[]; conteudos: string[]; temMissao: boolean; temAvaliacao: boolean; focoAgora: boolean };
   const bindingBlocos: BindingBloco[] = [];
+  let focoUsado = false;
   if (hasBinding) {
     type Acc = { nums: number[]; comps: string[]; acoes: Set<string>; temMissao: boolean; temAvaliacao: boolean };
     const grupos: Acc[] = [];
@@ -276,7 +280,20 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       // Teoria: temas de conteúdo das competências do bloco (o que a pessoa APRENDE).
       const temas: string[] = [];
       for (const cp of g.comps) for (const t of (blueprintConteudos[cp] || [])) if (t.tema && !temas.includes(t.tema)) temas.push(t.tema);
-      bindingBlocos.push({ faseLabel, titulo, acoes: [...g.acoes], conteudos: temas, temMissao: g.temMissao, temAvaliacao: g.temAvaliacao });
+      // Objetivo do ciclo (sprint) quando o bloco é de UMA competência (não integração/avaliação).
+      const spr = (g.comps.length === 1 && !g.temAvaliacao) ? sprintPorComp[g.comps[0]] : undefined;
+      const objetivo = spr?.foco_30_dias || undefined;
+      const cicloWin = g.comps.length === 1 ? cicloLabel(g.comps[0]) : null;
+      // "Foco agora" = o PRIMEIRO ciclo de desenvolvimento (o resto é sequência/preview).
+      const focoAgora = !!objetivo && !focoUsado;
+      if (focoAgora) focoUsado = true;
+      bindingBlocos.push({
+        faseLabel, cicloWin, titulo, objetivo,
+        // Detalhe extra (evidência/ritual) só no ciclo em foco — os demais ficam leves (preview).
+        evidencia: focoAgora ? spr?.evidencia_esperada : undefined,
+        ritual: focoAgora ? spr?.ritual : undefined,
+        acoes: [...g.acoes], conteudos: temas, temMissao: g.temMissao, temAvaliacao: g.temAvaliacao, focoAgora,
+      });
     }
   }
 
@@ -385,8 +402,9 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
         <PageFooter />
       </Page>
 
-      {/* ═══════════════════ MAPA DE FOCO DOS 30 DIAS (one-pager) ═══════════════════ */}
-      {sprintComps.length > 0 && (
+      {/* ═══ SPRINT ONE-PAGER (LEGADO — só sem blueprint; com blueprint, tudo vira
+             a seção única "Sua jornada, ciclo a ciclo" abaixo) ═══ */}
+      {!hasBinding && sprintComps.length > 0 && (
         <Page size="A4" style={pageStyles.page} wrap>
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
           <ReportSectionTitle>Seu plano, ciclo a ciclo</ReportSectionTitle>
@@ -442,16 +460,26 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       {competencias.length >= 1 && (
         <Page size="A4" style={pageStyles.page} wrap>
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
-          <ReportSectionTitle>Como este PDI vira trilha</ReportSectionTitle>
+          <ReportSectionTitle>{hasBinding ? 'Sua jornada, ciclo a ciclo' : 'Como este PDI vira trilha'}</ReportSectionTitle>
           <Text style={s.trilhaIntro}>
-            {'O que está no seu PDI é exatamente o que você vai aprender e praticar na trilha. Cada ciclo tem conteúdo (o que você estuda) e prática (o que você aplica).'}
+            {hasBinding
+              ? 'Sua trilha tem 14 semanas, uma competência por vez. Cada ciclo tem um objetivo (o que muda no seu trabalho), o que você aprende e o que pratica. Comece pelo Ciclo 1 — o resto vem na sequência, e a trilha te guia semana a semana.'
+              : 'O que está no seu PDI é exatamente o que você vai aprender e praticar na trilha. Cada ciclo tem conteúdo (o que você estuda) e prática (o que você aplica).'}
           </Text>
           {hasBinding ? (
             bindingBlocos.map((b, i) => (
               <View key={i} style={s.tlRow} wrap={false}>
-                <View style={s.tlPhase}><Text style={s.tlPhaseText}>{b.faseLabel}</Text></View>
+                <View style={s.tlPhase}>
+                  <Text style={s.tlPhaseText}>{b.faseLabel}</Text>
+                  {b.focoAgora && (
+                    <Text style={{ fontSize: 7, color: colors.cyan, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 3 }}>Foco agora</Text>
+                  )}
+                </View>
                 <View style={s.tlBody}>
                   <Text style={s.tlTitle}>{b.titulo}</Text>
+                  {b.objetivo && (
+                    <Text style={[s.tlDetail, { fontStyle: 'italic', color: colors.navy, marginBottom: 4 }]}>{b.objetivo}</Text>
+                  )}
                   {b.conteudos.length > 0 && !b.temAvaliacao && (
                     <View style={s.mapLine}>
                       <Text style={s.mapLineLabel}>Aprende</Text>
@@ -470,6 +498,18 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
                           <Text key={j} style={s.tlDetail}>{a}</Text>
                         ))}
                       </View>
+                    </View>
+                  )}
+                  {b.evidencia && (
+                    <View style={s.mapLine}>
+                      <Text style={s.mapLineLabel}>Evidência</Text>
+                      <Text style={[s.tlDetail, { flex: 1 }]}>{b.evidencia}</Text>
+                    </View>
+                  )}
+                  {b.ritual && (
+                    <View style={s.mapLine}>
+                      <Text style={s.mapLineLabel}>Ritual</Text>
+                      <Text style={[s.tlDetail, { flex: 1 }]}>{b.ritual}</Text>
                     </View>
                   )}
                   {(b.temMissao || b.temAvaliacao) && (
