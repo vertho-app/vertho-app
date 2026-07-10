@@ -315,11 +315,14 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         if (phone.length <= 11) phone = `55${phone}`;
         // Relatório: anexa o PDF individual via signed URL (o webhook envia o
         // documento depois do texto). URL em vez de base64 pra não inchar o
-        // payload do QStash em lote.
+        // payload do QStash em lote. Sem relatório gerado, NÃO envia nada
+        // (nem o texto) — pular em vez de mandar uma mensagem órfã.
         const body: any = { telefone: phone, mensagem: msg };
-        if (comPDF && colab.id) {
-          const pdf = await buscarPDFUrlColaborador(sb, empresaId, colab.id);
-          if (pdf?.url) { body.documentoUrl = pdf.url; body.documentoNome = pdf.filename; }
+        if (comPDF) {
+          const pdf = colab.id ? await buscarPDFUrlColaborador(sb, empresaId, colab.id) : null;
+          if (!pdf?.url) return { ok: false, skip: true };
+          body.documentoUrl = pdf.url;
+          body.documentoNome = pdf.filename;
         }
         try {
           const rQ = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
@@ -341,15 +344,17 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         }
       }));
       const ok = results.filter(r => r.ok).length;
-      const fail = results.filter(r => !r.ok).length;
-      const firstErr = results.find(r => !r.ok)?.err || '';
-      const txt = `${ok} WhatsApp agendados via QStash, ${fail} erros${firstErr ? ` — ${firstErr}` : ''}`;
+      const pulados = results.filter(r => (r as any).skip).length;
+      const fail = results.filter(r => !r.ok && !(r as any).skip).length;
+      const firstErr = results.find(r => !r.ok && !(r as any).skip)?.err || '';
+      const puladosTxt = pulados ? `, ${pulados} sem relatório (não enviados)` : '';
+      const txt = `${ok} WhatsApp agendados via QStash, ${fail} erros${puladosTxt}${firstErr ? ` — ${firstErr}` : ''}`;
       console.log(`[dispararMensagemCustomizada] paralelo: ${txt}`);
       await logAdminAction({
         adminEmail: ctx.email, acao: 'whatsapp.broadcast', empresaId, empresaSlug: empresa.slug,
         alvo: `${colabs.length} colaboradores`,
-        detalhes: { canal, via: 'qstash_paralelo', filtros, agendados: ok, erros: fail, comPDF, anexo: !!anexoExtra?.base64 },
-        resultado: ok === 0 ? 'erro' : fail > 0 ? 'parcial' : 'ok',
+        detalhes: { canal, via: 'qstash_paralelo', filtros, agendados: ok, erros: fail, pulados, comPDF, anexo: !!anexoExtra?.base64 },
+        resultado: ok === 0 ? 'erro' : (fail > 0 || pulados > 0) ? 'parcial' : 'ok',
       });
       return { success: ok > 0, message: txt, error: ok === 0 ? txt : undefined };
     }
@@ -360,7 +365,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     const hasQStash = !!process.env.QSTASH_TOKEN;
     const isRelatorio = comPDF;
     const resendThrottle = { lastSentAt: 0 };
-    let enviados = 0, erros = 0, erroDetalhe = '';
+    let enviados = 0, erros = 0, pulados = 0, erroDetalhe = '';
 
     // Anexo extra: usamos sempre base64 no endpoint /send-document/{ext}.
     // Essa abordagem resolve o problema de abertura (o WhatsApp usa a
@@ -370,6 +375,14 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     for (const colab of colabs) {
       const nome = colab.nome_completo?.split(' ')[0] || '';
       const link = `https://${empresa.slug}.${domain}/login`;
+
+      // Envio de relatório: sem PDF gerado, PULA o colaborador inteiro (não
+      // manda texto/e-mail órfão). Busca uma vez e reusa nos branches abaixo.
+      let pdfRel: Awaited<ReturnType<typeof buscarPDFColaborador>> = null;
+      if (isRelatorio) {
+        pdfRel = colab.id ? await buscarPDFColaborador(sb, empresaId, colab.id) : null;
+        if (!pdfRel) { pulados++; continue; }
+      }
 
       // Substituir variáveis no template
       const linkDisc = `https://${empresa.slug}.${domain}/dashboard/perfil-comportamental/mapeamento`;
@@ -385,13 +398,11 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         try {
           const htmlMsg = msg.replace(/\n/g, '<br>').replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/_([^_]+)_/g, '<em>$1</em>');
 
-          // Buscar PDF se envio de relatório
+          // PDF do relatório (já resolvido no topo do loop; colabs sem PDF
+          // nem chegam aqui).
           const attachments = [];
-          if (isRelatorio && colab.id) {
-            const pdf = await buscarPDFColaborador(sb, empresaId, colab.id);
-            if (pdf) {
-              attachments.push({ filename: pdf.filename, content: pdf.buffer.toString('base64') });
-            }
+          if (pdfRel) {
+            attachments.push({ filename: pdfRel.filename, content: pdfRel.buffer.toString('base64') });
           }
           // Anexo adicional enviado pelo gestor na UI
           if (anexoExtra?.base64) {
@@ -438,25 +449,23 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
             });
 
             // Se relatório, enviar PDF do relatório individual via base64
-            // no endpoint /send-document/pdf (mime correto).
-            if (res.ok && isRelatorio && colab.id) {
-              const pdf = await buscarPDFColaborador(sb, empresaId, colab.id);
-              if (pdf?.buffer) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-                const rPdf = await fetch(`${zapi.baseUrl}/send-document/pdf`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
-                  body: JSON.stringify({
-                    phone,
-                    document: `data:application/pdf;base64,${pdf.buffer.toString('base64')}`,
-                    fileName: pdf.filename,
-                  }),
-                });
-                if (!rPdf.ok) {
-                  const txt = await rPdf.text();
-                  console.warn('[ZAPI send-document/pdf]', rPdf.status, txt.slice(0, 300));
-                  erroDetalhe = `PDF não enviado: ${rPdf.status} ${txt.slice(0, 120)}`;
-                }
+            // no endpoint /send-document/pdf (mime correto). PDF já resolvido
+            // no topo do loop.
+            if (res.ok && pdfRel?.buffer) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+              const rPdf = await fetch(`${zapi.baseUrl}/send-document/pdf`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
+                body: JSON.stringify({
+                  phone,
+                  document: `data:application/pdf;base64,${pdfRel.buffer.toString('base64')}`,
+                  fileName: pdfRel.filename,
+                }),
+              });
+              if (!rPdf.ok) {
+                const txt = await rPdf.text();
+                console.warn('[ZAPI send-document/pdf]', rPdf.status, txt.slice(0, 300));
+                erroDetalhe = `PDF não enviado: ${rPdf.status} ${txt.slice(0, 120)}`;
               }
             }
 
@@ -503,12 +512,9 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
               console.log(`[dispararMensagemCustomizada] QStash base=${QSTASH_BASE_URL} webhook=${webhookUrl}`);
             }
             // Relatório: anexa o PDF individual via signed URL (webhook envia o
-            // documento depois do texto).
+            // documento depois do texto). PDF já resolvido no topo do loop.
             const bodyQ: any = { telefone: phone, mensagem: msg };
-            if (isRelatorio && colab.id) {
-              const pdf = await buscarPDFUrlColaborador(sb, empresaId, colab.id);
-              if (pdf?.url) { bodyQ.documentoUrl = pdf.url; bodyQ.documentoNome = pdf.filename; }
-            }
+            if (pdfRel?.url) { bodyQ.documentoUrl = pdfRel.url; bodyQ.documentoNome = pdfRel.filename; }
             // QStash exige URL raw no path (sem encodeURIComponent) — encoded dá "invalid scheme"
             const rQ = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
               method: 'POST',
@@ -537,12 +543,13 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
       }
     }
 
-    const msg2 = `${enviados} ${canal === 'email' ? 'emails' : 'WhatsApp'} enviados${erros ? `, ${erros} erros` : ''}${erroDetalhe ? ` — ${erroDetalhe}` : ''}`;
+    const puladosTxt = pulados ? `, ${pulados} sem relatório (não enviados)` : '';
+    const msg2 = `${enviados} ${canal === 'email' ? 'emails' : 'WhatsApp'} enviados${erros ? `, ${erros} erros` : ''}${puladosTxt}${erroDetalhe ? ` — ${erroDetalhe}` : ''}`;
     await logAdminAction({
       adminEmail: ctx.email, acao: 'whatsapp.broadcast', empresaId, empresaSlug: empresa.slug,
       alvo: `${colabs.length} colaboradores`,
-      detalhes: { canal, via: 'direto', filtros, enviados, erros, comPDF, anexo: !!anexoExtra?.base64, erroDetalhe: erroDetalhe || undefined },
-      resultado: enviados === 0 ? 'erro' : erros > 0 ? 'parcial' : 'ok',
+      detalhes: { canal, via: 'direto', filtros, enviados, erros, pulados, comPDF, anexo: !!anexoExtra?.base64, erroDetalhe: erroDetalhe || undefined },
+      resultado: enviados === 0 ? 'erro' : (erros > 0 || pulados > 0) ? 'parcial' : 'ok',
     });
     return { success: enviados > 0, message: msg2, error: enviados === 0 ? msg2 : undefined };
   } catch (err) {
