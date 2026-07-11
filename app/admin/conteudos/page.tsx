@@ -596,38 +596,38 @@ export default function ConteudosAdminPage() {
           onGenerate={async (params) => {
             setBusy(true);
             try {
-              // empresaId do filtro escopa o conteúdo ao tenant (era GLOBAL antes).
-              const comEmpresa = { ...params, empresaId: empresaFiltro };
-              if (params.descritor) {
-                // single
-                addLog(t('logs.generatingSingle', { format: params.formato, descriptor: params.descritor }), 'info');
-                const r = await gerarConteudoIA(comEmpresa);
-                if (r.success) {
-                  addLog(`✅ ${r.message}`, 'success');
-                  if (r.roteiro) setRoteiroGerado({ ...r, formato: params.formato });
-                  setShowGerar(false);
-                  await carregar();
+              // Múltiplos formatos: cada um é uma REQUISIÇÃO própria (não estoura os
+              // 300s de uma só). empresaId do filtro escopa ao tenant (era GLOBAL antes).
+              const formatos = (params.formatos?.length ? params.formatos : [params.formato]).filter(Boolean);
+              let houveErro = false;
+              for (const formato of formatos) {
+                const comEmpresa = { ...params, formato, empresaId: empresaFiltro };
+                if (params.descritor) {
+                  // single (1 descritor × este formato)
+                  addLog(t('logs.generatingSingle', { format: formato, descriptor: params.descritor }), 'info');
+                  const r = await gerarConteudoIA(comEmpresa);
+                  if (r.success) {
+                    addLog(`✅ ${r.message}`, 'success');
+                    if (r.roteiro) setRoteiroGerado({ ...r, formato });
+                  } else { houveErro = true; addLog(`❌ ${r.error}`, 'error'); }
                 } else {
-                  addLog(`❌ ${r.error}`, 'error');
+                  // LOTE: roteado pelo servidor gerarConteudoLote — cargo-safe (enumera
+                  // descritores por empresa+cargo, sourceia MB do cargo). NÃO reimplementar
+                  // no client (era a origem do vazamento entre cargos).
+                  addLog(t('logs.batchWillGenerate', { count: '', format: formato, competency: params.competencia }), 'info');
+                  const r = await gerarConteudoLote(comEmpresa);
+                  if (r.success) {
+                    for (const it of (r.resultados || [])) {
+                      if (it.error) addLog(`  ❌ [${formato}] ${it.descritor}: ${it.error}`, 'error');
+                      else addLog(`  ✅ [${formato}] ${it.descritor}`, 'success');
+                    }
+                    addLog(`✅ ${r.message}`, r.erros ? 'info' : 'success');
+                    if (r.erros) houveErro = true;
+                  } else { houveErro = true; addLog(`❌ ${r.error}`, 'error'); }
                 }
-              } else {
-                // LOTE: roteado pelo servidor gerarConteudoLote — cargo-safe (enumera
-                // descritores por empresa+cargo, sourceia MB do cargo). NÃO reimplementar
-                // no client (era a origem do vazamento entre cargos).
-                addLog(t('logs.batchWillGenerate', { count: '', format: params.formato, competency: params.competencia }), 'info');
-                const r = await gerarConteudoLote(comEmpresa);
-                if (r.success) {
-                  for (const it of (r.resultados || [])) {
-                    if (it.error) addLog(`  ❌ ${it.descritor}: ${it.error}`, 'error');
-                    else addLog(`  ✅ ${it.descritor}`, 'success');
-                  }
-                  addLog(`✅ ${r.message}`, r.erros ? 'info' : 'success');
-                  await carregar();
-                  setShowGerar(false);
-                } else {
-                  addLog(`❌ ${r.error}`, 'error');
-                }
+                await carregar();
               }
+              if (!houveErro) setShowGerar(false);
             } catch (e) {
               addLog(t('logs.unexpectedError', { error: e.message }), 'error');
             } finally {
@@ -940,7 +940,7 @@ function UploadModal({ onClose, onSave, busy }) {
 function GerarModal({ empresaFiltro, onClose, onGenerate, busy }) {
   const t = useTranslations('AdminContent');
   const [form, setForm] = useState({
-    formato: 'texto',
+    formatos: ['texto'],
     competencia: '',
     descritor: '',
     nivelMin: 1.0,
@@ -951,34 +951,40 @@ function GerarModal({ empresaFiltro, onClose, onGenerate, busy }) {
     duracaoSeg: 0,
     podcastFormato: 'solo',
   });
+  const toggleFormato = (v) => setForm(f => ({
+    ...f, formatos: f.formatos.includes(v) ? f.formatos.filter(x => x !== v) : [...f.formatos, v],
+  }));
   const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [] });
 
   useEffect(() => {
     loadOpcoesGerar(empresaFiltro).then(setOpcoes);
   }, [empresaFiltro]);
 
-  const formatos = [
+  const formatoOpts = [
     { v: 'texto', label: t('generate.formats.text'), icon: FileText, cor: '#10B981', nota: t('generate.notes.ready') },
     { v: 'case', label: t('generate.formats.case'), icon: BookOpen, cor: '#F59E0B', nota: t('generate.notes.ready') },
     { v: 'video', label: t('generate.formats.video'), icon: Video, cor: '#06B6D4', nota: t('generate.notes.recordLater') },
     { v: 'audio', label: t('generate.formats.audio'), icon: Headphones, cor: '#A78BFA', nota: t('generate.notes.recordLater') },
   ];
 
-  const precisaDuracao = form.formato === 'video' || form.formato === 'audio';
+  const precisaDuracao = form.formatos.some(v => v === 'video' || v === 'audio');
   const competenciaSel = opcoes.competencias.find(c => c.nome === form.competencia);
-  // REGRA cargo-único: com um cargo específico escolhido, oferece SÓ os descritores
-  // daquele cargo (nunca a união entre cargos). 'todos' = lista genérica/união.
+  // REGRA cargo-único: com um cargo específico escolhido, tanto as COMPETÊNCIAS quanto
+  // os DESCRITORES ofertados são SÓ os daquele cargo (nunca a união entre cargos).
   const cargoEsp = form.cargo && form.cargo !== 'todos';
+  const competenciasDisp = cargoEsp
+    ? opcoes.competencias.filter(c => (c.porCargo?.[form.cargo] || []).length > 0)
+    : opcoes.competencias;
   const descritoresDisp = cargoEsp
     ? (competenciaSel?.porCargo?.[form.cargo] || [])   // só os do cargo — nunca a união
     : (competenciaSel?.descritores || []);             // 'todos' = genérico/união
-  const podeGerar = form.competencia && !busy;
-  const totalGerar = form.descritor ? 1 : descritoresDisp.length;
+  const podeGerar = form.competencia && form.formatos.length > 0 && !busy;
+  const totalGerar = (form.descritor ? 1 : descritoresDisp.length) * form.formatos.length;
 
   function handleSubmit() {
     const duracaoSegundos = precisaDuracao ? (Number(form.duracaoMin) * 60 + Number(form.duracaoSeg)) : null;
     const { duracaoMin, duracaoSeg, podcastFormato, ...rest } = form;
-    onGenerate({ ...rest, duracaoSegundos, ...(rest.formato === 'audio' ? { podcastFormato } : {}) });
+    onGenerate({ ...rest, duracaoSegundos, ...(rest.formatos.includes('audio') ? { podcastFormato } : {}) });
   }
 
   return (
@@ -996,14 +1002,17 @@ function GerarModal({ empresaFiltro, onClose, onGenerate, busy }) {
           <div>
             <label className="block text-[10px] uppercase text-gray-500 mb-2">{t('fields.format')}</label>
             <div className="grid grid-cols-2 gap-2">
-              {formatos.map(f => {
+              {formatoOpts.map(f => {
                 const Icon = f.icon;
-                const ativo = form.formato === f.v;
+                const ativo = form.formatos.includes(f.v);
                 return (
-                  <button key={f.v} onClick={() => setForm({ ...form, formato: f.v })}
+                  <button key={f.v} type="button" onClick={() => toggleFormato(f.v)}
                     className={`flex items-start gap-2 p-3 rounded-lg border text-left ${
                       ativo ? 'border-purple-400 bg-purple-500/10' : 'border-white/10 bg-white/5 hover:border-white/20'
                     }`}>
+                    <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                      ativo ? 'bg-purple-500 border-purple-400' : 'border-white/30'
+                    }`}>{ativo && <Check size={11} className="text-white" />}</div>
                     <Icon size={16} style={{ color: f.cor }} className="mt-0.5" />
                     <div>
                       <div className="text-xs font-bold text-white">{f.label}</div>
@@ -1015,9 +1024,18 @@ function GerarModal({ empresaFiltro, onClose, onGenerate, busy }) {
             </div>
           </div>
 
+          {/* Cargo PRIMEIRO — competências e descritores filtram por ele (regra cargo-único). */}
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField label={t('fields.targetRole')} value={form.cargo}
+              onChange={v => setForm({ ...form, cargo: v, competencia: '', descritor: '' })}
+              options={['todos', ...opcoes.cargos]} />
+            <SelectField label={t('fields.context')} value={form.contexto} onChange={v => setForm({ ...form, contexto: v })}
+              options={['educacional', 'corporativo', 'generico']} />
+          </div>
+
           <SelectField label={t('fields.competency')} value={form.competencia}
             onChange={v => setForm({ ...form, competencia: v, descritor: '' })}
-            options={['', ...opcoes.competencias.map(c => c.nome)]} />
+            options={['', ...competenciasDisp.map(c => c.nome)]} />
           <div>
             <label className="block text-[10px] uppercase text-gray-500 mb-1">
               {t('generate.descriptorOptional', { count: descritoresDisp.length })}
@@ -1034,13 +1052,6 @@ function GerarModal({ empresaFiltro, onClose, onGenerate, busy }) {
             <Field label={t('fields.levelMin')} type="number" step="0.1" value={form.nivelMin} onChange={v => setForm({ ...form, nivelMin: Number(v) })} />
             <Field label={t('fields.levelMax')} type="number" step="0.1" value={form.nivelMax} onChange={v => setForm({ ...form, nivelMax: Number(v) })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <SelectField label={t('fields.targetRole')} value={form.cargo}
-              onChange={v => setForm({ ...form, cargo: v })}
-              options={['todos', ...opcoes.cargos]} />
-            <SelectField label={t('fields.context')} value={form.contexto} onChange={v => setForm({ ...form, contexto: v })}
-              options={['educacional', 'corporativo', 'generico']} />
-          </div>
           {precisaDuracao && (
             <div>
               <label className="block text-[10px] uppercase text-gray-500 mb-1">{t('fields.duration')}</label>
@@ -1056,7 +1067,7 @@ function GerarModal({ empresaFiltro, onClose, onGenerate, busy }) {
               </div>
             </div>
           )}
-          {form.formato === 'audio' && (
+          {form.formatos.includes('audio') && (
             <div>
               <label className="block text-[10px] uppercase text-gray-500 mb-2">{t('fields.podcastFormat')}</label>
               <div className="grid grid-cols-2 gap-2">
