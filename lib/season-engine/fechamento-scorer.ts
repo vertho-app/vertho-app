@@ -20,6 +20,7 @@ import { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } from './
 import { aplicarTravaPiloto, sanitizarNarrativaPiloto } from './piloto-trava';
 import { fundirArguicao } from './fusao-arguicao';
 import { parseJsonIA } from '@/lib/ai-json';
+import { DEFAULT_TASK_MODELS } from '@/lib/ai-tasks';
 import type { ProgramaConfig } from './programa-config';
 import type { ArguicaoExtracao } from './arguicao';
 
@@ -48,6 +49,12 @@ export interface PontuarFechamentoArgs {
    * Ausente = fechamento sem arguição (nota do cenário direta).
    */
   evidenciasArguicao?: ArguicaoExtracao | null;
+  /**
+   * Modelo da 2ª IA (auditor) do sem14. Opcional — se ausente, cai no default
+   * da task (`DEFAULT_TASK_MODELS.sem14_check`). Passe o resolvido por empresa
+   * (getModelForTask) para override por tenant.
+   */
+  checkModel?: string;
 }
 
 export interface PontuarFechamentoMeta {
@@ -125,7 +132,7 @@ EXPECTATIVA DESTA RODADA:
 - Reconheça melhora real quando ela aconteceu`;
 
 export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<PontuarFechamentoResultado> {
-  const { competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria, config, regeracao, evidenciasArguicao } = args;
+  const { competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria, config, regeracao, evidenciasArguicao, checkModel } = args;
   const { isPiloto, semanaFinal, semanasEvidencia, notaPrograma } = reguaTemporalDoPrograma(config);
 
   const meta: PontuarFechamentoMeta = {
@@ -207,7 +214,10 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
       semanaFinal, semanasEvidencia, notaPrograma,
     });
     const systemCheck = regeracao ? sCheck + APPENDIX_CHECK_REGEN(regeracao.feedbackAuditoria) : sCheck;
-    const rCheck = await callAI(systemCheck, uCheck, {}, 8000);
+    // 2ª IA (auditor) configurável — default GPT 5.6 Luna (DEFAULT_TASK_MODELS.sem14_check).
+    // Caller pode passar checkModel resolvido por empresa; senão cai no default da task.
+    const sem14CheckModel = checkModel || DEFAULT_TASK_MODELS['sem14_check'];
+    const rCheck = await callAI(systemCheck, uCheck, sem14CheckModel ? { model: sem14CheckModel } : {}, 8000);
     auditoria = validateEvolutionScenarioCheck(parseJsonIA(rCheck));
 
     if (regeracao && auditoria?.resumo_auditoria) {

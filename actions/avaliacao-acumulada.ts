@@ -10,6 +10,7 @@ import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { parseJsonIA } from '@/lib/ai-json';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { getModelForTask } from '@/lib/ai-tasks';
 import { PROGRESSO } from '@/lib/status';
 
 /**
@@ -179,7 +180,9 @@ async function avaliarCompAcumulada(
       evidenciasAcumuladas: evidenciasMasked,
       avaliacaoPrimaria: primariaMask,
     });
-    const r = await callAI(system, user, {}, 6000);
+    // 2ª IA (auditor) configurável — default GPT 5.6 Luna (cross-família, barato).
+    const checkModel = await getModelForTask(trilha.empresa_id, 'acumulada_check');
+    const r = await callAI(system, user, { model: checkModel }, 6000);
     auditoria = validateAvaliacaoAcumuladaCheck(parseJsonIA(r));
     if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
   } catch (err) {
