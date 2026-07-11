@@ -62,10 +62,10 @@ POSTURA — rigorosa com DEFEITO REAL, justa com o resto:
 - Um módulo com estrutura completa e sem defeito grave MERECE nota alta. Se está bom, diga que está bom.
 
 CRITÉRIOS DE AUDITORIA (verifique TODOS):
-1. ESTRUTURA — 4 blocos presentes? conteudo_central com ideia/explicação/≥5 princípios/síntese? conteudo_aplicavel com ≥4 situações/exemplos universais (5 chaves)/≥4 erros/repertório (≥6 categorias)/≥4 boas práticas? guarda_corpos com preservar/evitar/cuidados? adaptacao_por_formato com texto/podcast_roteiro/video_roteiro? — Subcampos EXTRAS além do mínimo NÃO são problema. Só conta o que está ABAIXO do mínimo.
+1. ESTRUTURA — 4 blocos presentes? conteudo_central com ideia/explicação/≥5 princípios/síntese? conteudo_aplicavel com ≥4 situações/exemplos universais (5 chaves)/≥4 erros/repertório (≥6 categorias)/≥4 boas práticas? guarda_corpos com preservar/evitar/cuidados_eticos/cuidados_linguagem (nomes EXATOS do template — NÃO exija um campo "cuidados" genérico)? adaptacao_por_formato com texto/podcast_roteiro/video_roteiro? — Subcampos EXTRAS além do mínimo NÃO são problema. Só conta o que está ABAIXO do mínimo.
 2. NÃO É RÉGUA DE MATURIDADE — o conteúdo descreve conhecimento aplicável, não comportamentos observáveis por nível. Repetir a régua de maturidade é problema GRAVE.
 3. NÃO É AULA FINAL — o módulo é matéria-prima pedagógica pra IA gerar conteúdo depois, não é texto pronto pra colaborador ler.
-4. EXEMPLOS UNIVERSAIS — sem cargo específico (salvo se módulo é declaradamente exclusivo de um contexto); sem nomes próprios reais. Um exemplo CONCRETO é desejável; só marque se for tão específico que não transfere pra outros contextos.
+4. EXEMPLOS — sem nomes próprios reais. Sobre CARGO: se o "Contexto pedagógico" (no bloco CONTEXTO acima) nomeia um cargo/função específica, então o módulo é DECLARADAMENTE de contexto de cargo e exemplos ancorados nesse cargo são ESPERADOS e desejáveis — NÃO marque isso como falta de universalidade. Só exija universalidade quando o contexto for "transversal". Um exemplo CONCRETO é sempre desejável.
 5. NADA INVENTADO — leis, normas, estatísticas, citações fabricadas. Gravidade alta.
 6. SEM DIAGNÓSTICO PSICOLÓGICO. SEM DISC determinista. Linguagem evita rotular pessoa.
 7. AUTO-CONSISTÊNCIA — exemplos e linguagem respeitam os guarda_corpos do PRÓPRIO módulo (não contradizem).

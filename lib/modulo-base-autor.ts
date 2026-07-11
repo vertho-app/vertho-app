@@ -143,10 +143,17 @@ export interface OpcoesPrompt {
   termoCanonico?: string;
   /** Sobrescreve LIMITE_FONTE_PADRAO. Fatias de manuscrito precisam de ~70k. */
   limiteFonte?: number;
+  /**
+   * Cargo/função quando o módulo é DECLARADAMENTE de contexto de cargo (ex.:
+   * manuscrito da rede — "Coordenação Pedagógica"). Ativa o gancho de escape da
+   * regra de universalidade: exemplos ancorados no cargo passam a ser esperados,
+   * na autora E na auditora (que lê o mesmo sinal via contexto_pedagogico).
+   */
+  contextoCargo?: string;
 }
 
 export function montarUserPrompt(comp: any, nivel_entrada: Nivel, nivel_destino: Nivel, o: OpcoesPrompt = {}) {
-  const { contexto, referencia, docxTexto, termoCanonico } = o;
+  const { contexto, referencia, docxTexto, termoCanonico, contextoCargo } = o;
   const nivelTextos: Record<string, string> = {
     N1: comp.n1_gap || '',
     N2: comp.n2_desenvolvimento || '',
@@ -171,6 +178,10 @@ export function montarUserPrompt(comp: any, nivel_entrada: Nivel, nivel_destino:
     ? `\n- TERMO CANÔNICO: refira-se ao profissional SEMPRE como "${termoCanonico}". Não alterne sinônimos (ex.: "acompanhador", "supervisor", "monitor") — use o mesmo termo do início ao fim.`
     : '';
 
+  const blocoCargo = contextoCargo
+    ? `\n- CONTEXTO DE CARGO: este módulo é do cargo "${contextoCargo}". Exemplos e situações ancorados na realidade desse cargo são APROPRIADOS e desejáveis — NÃO precisa universalizar para outros cargos.`
+    : '';
+
   return `## COMPETÊNCIA CANÔNICA
 - Nome: ${comp.nome}
 - Pilar: ${comp.pilar || '—'}
@@ -178,7 +189,7 @@ export function montarUserPrompt(comp: any, nivel_entrada: Nivel, nivel_destino:
 - Descritor: ${comp.descritor_completo || comp.descricao || '—'}
 
 ## PÚBLICO (calibre a linguagem para ele)
-${comp.cargo || contexto || 'profissional generalista'} — escreva no nível de quem vai aplicar isto no dia a dia, sem jargão técnico desnecessário.${blocoTermo}
+${comp.cargo || contexto || 'profissional generalista'} — escreva no nível de quem vai aplicar isto no dia a dia, sem jargão técnico desnecessário.${blocoTermo}${blocoCargo}
 
 ## PROFUNDIDADE-ALVO (use APENAS para calibrar o escopo — NÃO escreva sobre níveis no conteúdo)
 - Ponto de partida típico: ${nivelTextos[nivel_entrada]}

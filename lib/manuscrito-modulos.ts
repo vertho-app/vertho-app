@@ -135,6 +135,7 @@ export function montarReqsManuscrito(opts: {
           docxTexto: t.textoFonte,
           termoCanonico,
           limiteFonte: LIMITE_FONTE_MANUSCRITO,
+          contextoCargo: comp.cargo || undefined,
         }),
       });
     });
@@ -175,7 +176,9 @@ export async function persistirModuloDeManuscrito(
     titulo: `${args.descritor} · ${args.nivel_entrada}→${args.nivel_destino}`.slice(0, 120),
     descritor: args.descritor.slice(0, 200),
     finalidade: `Matéria-prima pedagógica do manuscrito ${args.codManuscrito} para a transição ${args.nivel_entrada}→${args.nivel_destino} em "${args.comp.nome}".`.slice(0, 400),
-    contexto_pedagogico: null,
+    // Nomeia o cargo → a auditora aplica o gancho de contexto de cargo (exemplos
+    // ancorados no cargo deixam de ser "falta de universalidade").
+    contexto_pedagogico: (args.comp.cargo || '').slice(0, 80) || null,
     tags: ['importado-manuscrito', args.codManuscrito.slice(0, 40), ...args.microblocos.slice(0, 8)],
     conteudo_central: args.corpo.conteudo_central,
     conteudo_aplicavel: args.corpo.conteudo_aplicavel,

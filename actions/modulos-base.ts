@@ -1038,6 +1038,7 @@ export async function criarModuloBaseDeManuscrito(opts: {
     docxTexto: opts.textoFonte,
     termoCanonico: opts.termoCanonico,
     limiteFonte: LIMITE_FONTE_MANUSCRITO,
+    contextoCargo: comp.cargo || undefined,
   });
   const model = await getModelForTask(null as any, 'modulo_base_autor');
   const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model, 32000);
