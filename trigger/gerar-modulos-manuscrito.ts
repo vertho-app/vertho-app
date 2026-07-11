@@ -92,16 +92,27 @@ export const gerarModulosManuscritoTask = task({
       await patch({ progress: { done: 0, total, current: `lote (batch) — ${total} módulo(s)…`, resultados: [], pulados } });
 
       // 3) Submete o batch (−50%). Falha total → mapa vazio → cada item cai no síncrono.
+      //
+      // budgetMs curto DE PROPÓSITO: quando a Batch API está congestionada (medido:
+      // >50 min sem retornar), esperar o orçamento inteiro consome o maxDuration da
+      // task e o fallback síncrono não cabe. Com 12 min de teto, um batch saudável
+      // (~9 min) ainda passa, e um congestionado falha cedo, deixando ~48 min de
+      // maxDuration para o síncrono (~15 módulos a ~190s). `pularBatch` ignora o
+      // batch de vez — para rodar quando a Batch API está sabidamente ruim.
       const model = String(pp.model || 'claude-sonnet-4-6');
       const MAX_TOKENS = 32000; // saída medida ~9,1k tokens; 32k dá folga sem desperdício
       let respostas = new Map<string, string>();
-      try {
-        const batch: BatchReq[] = pendentes.map((r) => ({
-          customId: r.customId, system: r.system, user: r.user, model, maxTokens: MAX_TOKENS,
-        }));
-        respostas = await submitClaudeBatch(batch, { budgetMs: 50 * 60_000 });
-      } catch (e: any) {
-        console.warn(`[gerar-modulos-manuscrito] batch falhou (${e?.message}) — fallback síncrono por módulo`);
+      if (pp.pularBatch !== true) {
+        try {
+          const batch: BatchReq[] = pendentes.map((r) => ({
+            customId: r.customId, system: r.system, user: r.user, model, maxTokens: MAX_TOKENS,
+          }));
+          respostas = await submitClaudeBatch(batch, { budgetMs: 12 * 60_000 });
+        } catch (e: any) {
+          console.warn(`[gerar-modulos-manuscrito] batch falhou (${e?.message}) — fallback síncrono por módulo`);
+        }
+      } else {
+        await pushProgress(`síncrono (batch pulado) — ${total} módulo(s)…`);
       }
 
       // 4) Um módulo por vez: resposta do batch OU síncrono; valida; persiste.
