@@ -83,6 +83,10 @@ interface GerarConteudoParams {
   podcastFormato?: 'solo' | 'mentor_campo';
   empresaId?: string | null;
   aiConfig?: AIConfig;
+  // Idempotência: por padrão, se já existir conteúdo para (empresa, competência,
+  // descritor, cargo, formato), NÃO regenera (pula) — evita duplicar em re-run
+  // (ex.: após timeout de lote). `forcar: true` regenera mesmo assim.
+  forcar?: boolean;
   // Kit Semanal: quando presente, semeia o prompt com a espinha (núcleo + lente
   // DISC + desafio) e amarra o conteúdo ao kit. Ver docs/KIT-SEMANAL.md.
   kit?: import('@/lib/season-engine/kit/enrich').KitSeed & { kitId: string };
@@ -101,12 +105,26 @@ export async function gerarConteudoIA({
   formato, competencia, descritor, nivelMin = 1.0, nivelMax = 2.0,
   cargo = 'todos', contexto = 'generico', duracaoSegundos = null,
   podcastFormato = 'solo',
-  empresaId = null, aiConfig = {}, kit, sb: sbIn, aiRun,
+  empresaId = null, aiConfig = {}, kit, sb: sbIn, aiRun, forcar = false,
 }: GerarConteudoParams) {
   try {
     const sb = sbIn || await requireAdminSupabase('content.manage');
     if (!formato || !competencia || !descritor) {
       return { success: false, error: 'formato, competencia e descritor obrigatórios' };
+    }
+
+    // Idempotência: se já existe conteúdo para (empresa, competência, descritor,
+    // cargo, formato), NÃO regenera — evita duplicar em re-run (ex.: após timeout de
+    // lote, onde parte já foi salva). `forcar` ignora. Kit tem variantes por DISC.
+    if (!forcar && !kit) {
+      let exq = sb.from('micro_conteudos').select('id')
+        .eq('competencia', competencia).eq('descritor', descritor)
+        .eq('formato', formato).eq('cargo', cargo);
+      exq = empresaId ? exq.eq('empresa_id', empresaId) : exq.is('empresa_id', null);
+      const { data: jaTem } = await exq.limit(1);
+      if (jaTem && jaTem.length) {
+        return { success: true, skipped: true, conteudoId: jaTem[0].id, message: `já existe (${formato} · ${descritor})` };
+      }
     }
 
     // Registro/domínio por PÚBLICO (cargo-primeiro; segmento da empresa = fallback).

@@ -9,7 +9,7 @@ import BackButton from '@/components/back-button';
 import AdminPageHeader from '@/components/admin/page-header';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
-  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, gerarConteudoLote, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio, aprovarRoteiroPodcastEGerarAudio,
+  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio, aprovarRoteiroPodcastEGerarAudio,
 } from '@/actions/conteudos';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 import { useConfirm } from '@/components/admin/confirm-dialog';
@@ -609,23 +609,31 @@ export default function ConteudosAdminPage() {
                   if (r.success) {
                     addLog(`✅ ${r.message}`, 'success');
                     if (r.roteiro) setRoteiroGerado({ ...r, formato });
+                    await carregar();
                   } else { houveErro = true; addLog(`❌ ${r.error}`, 'error'); }
                 } else {
-                  // LOTE: roteado pelo servidor gerarConteudoLote — cargo-safe (enumera
-                  // descritores por empresa+cargo, sourceia MB do cargo). NÃO reimplementar
-                  // no client (era a origem do vazamento entre cargos).
-                  addLog(t('logs.batchWillGenerate', { count: '', format: formato, competency: params.competencia }), 'info');
-                  const r = await gerarConteudoLote(comEmpresa);
-                  if (r.success) {
-                    for (const it of (r.resultados || [])) {
-                      if (it.error) addLog(`  ❌ [${formato}] ${it.descritor}: ${it.error}`, 'error');
-                      else addLog(`  ✅ [${formato}] ${it.descritor}`, 'success');
-                    }
-                    addLog(`✅ ${r.message}`, r.erros ? 'info' : 'success');
-                    if (r.erros) houveErro = true;
-                  } else { houveErro = true; addLog(`❌ ${r.error}`, 'error'); }
+                  // LOTE no CLIENT: 1 requisição por descritor (~90s cada < 300s) — o
+                  // lote no servidor estourava o maxDuration (6×90s). Cargo-safe: os
+                  // descritores vêm do porCargo (só do cargo); gerarConteudoIA é
+                  // idempotente (pula o que já existe → re-run após falha não duplica).
+                  const descritores = params.descritoresLote || [];
+                  if (!descritores.length) {
+                    addLog(t('logs.noDescriptors', { competency: params.competencia }), 'error');
+                    continue;
+                  }
+                  addLog(t('logs.batchWillGenerate', { count: descritores.length, format: formato, competency: params.competencia }), 'info');
+                  let ok = 0, pulados = 0, erros = 0;
+                  for (let i = 0; i < descritores.length; i++) {
+                    const desc = descritores[i];
+                    addLog(`[${formato} ${i + 1}/${descritores.length}] ${desc}…`, 'info');
+                    const r = await gerarConteudoIA({ ...comEmpresa, descritor: desc });
+                    if (r.success && r.skipped) { pulados++; addLog(`  ⏭️ ${desc} (já existe)`, 'info'); }
+                    else if (r.success) { ok++; addLog(`  ✅ ${desc}`, 'success'); }
+                    else { erros++; houveErro = true; addLog(`  ❌ ${desc}: ${r.error}`, 'error'); }
+                    await carregar();
+                  }
+                  addLog(`✅ ${formato}: ${ok} gerado(s)${pulados ? `, ${pulados} já existiam` : ''}${erros ? `, ${erros} erro(s)` : ''}`, erros ? 'info' : 'success');
                 }
-                await carregar();
               }
               if (!houveErro) setShowGerar(false);
             } catch (e) {
@@ -984,7 +992,13 @@ function GerarModal({ empresaFiltro, onClose, onGenerate, busy }) {
   function handleSubmit() {
     const duracaoSegundos = precisaDuracao ? (Number(form.duracaoMin) * 60 + Number(form.duracaoSeg)) : null;
     const { duracaoMin, duracaoSeg, podcastFormato, ...rest } = form;
-    onGenerate({ ...rest, duracaoSegundos, ...(rest.formatos.includes('audio') ? { podcastFormato } : {}) });
+    // Descritores do LOTE já resolvidos por cargo (porCargo) — o loop no client usa
+    // esta lista (1 requisição por descritor, sem estourar o maxDuration).
+    onGenerate({
+      ...rest, duracaoSegundos,
+      descritoresLote: form.descritor ? null : descritoresDisp,
+      ...(rest.formatos.includes('audio') ? { podcastFormato } : {}),
+    });
   }
 
   return (
