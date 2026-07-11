@@ -41,7 +41,7 @@ export const gerarBlueprintBatchTask = task({
       await patch({ progress: { done: 0, total, current: `lote (batch) — ${total} blueprint(s)…`, resultados: [] } });
 
       // Nomes (pro progress legível).
-      const { data: colabs } = await sb.from('colaboradores').select('id, nome_completo').in('id', colabIds);
+      const { data: colabs } = await sb.from('colaboradores').select('id, nome_completo').in('id', colabIds).eq('empresa_id', empresaId);
       const nomeById = new Map<string, string>((colabs || []).map((c: any) => [c.id, c.nome_completo]));
       const nome = (id: string) => nomeById.get(id) || id;
 
