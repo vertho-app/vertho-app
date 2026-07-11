@@ -1,6 +1,6 @@
-import { task } from '@trigger.dev/sdk';
+import { task, wait } from '@trigger.dev/sdk';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { submitClaudeBatch, type BatchReq } from '@/lib/ai-batch';
+import { createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults, type BatchReq } from '@/lib/ai-batch';
 import { parsearManuscrito } from '@/lib/manuscrito-parser';
 import {
   resolverDescritores,
@@ -91,28 +91,43 @@ export const gerarModulosManuscritoTask = task({
 
       await patch({ progress: { done: 0, total, current: `lote (batch) — ${total} módulo(s)…`, resultados: [], pulados } });
 
-      // 3) Submete o batch (−50%). Falha total → mapa vazio → cada item cai no síncrono.
-      //
-      // budgetMs curto DE PROPÓSITO: quando a Batch API está congestionada (medido:
-      // >50 min sem retornar), esperar o orçamento inteiro consome o maxDuration da
-      // task e o fallback síncrono não cabe. Com 12 min de teto, um batch saudável
-      // (~9 min) ainda passa, e um congestionado falha cedo, deixando ~48 min de
-      // maxDuration para o síncrono (~15 módulos a ~190s). `pularBatch` ignora o
-      // batch de vez — para rodar quando a Batch API está sabidamente ruim.
+      // 3) Batch DESTACADO (−50%, mantido SEMPRE — não há penalidade de custo por
+      //    congestão). O padrão antigo segurava a run aberta fazendo polling, o que
+      //    consumia o maxDuration: um batch >50 min matava a task e empurrava tudo
+      //    pro síncrono (2× o custo). Agora: cria o batch, guarda o id, e faz
+      //    `wait.for` entre as consultas — a espera é CHECKPOINTADA (não consome
+      //    compute nem maxDuration), então um batch lento só termina mais tarde.
+      //    Resumível: se a run reiniciar, retoma o batchId já criado (não recria).
+      //    `pularBatch` = botão de emergência manual (vai direto ao síncrono).
       const model = String(pp.model || 'claude-sonnet-4-6');
       const MAX_TOKENS = 32000; // saída medida ~9,1k tokens; 32k dá folga sem desperdício
       let respostas = new Map<string, string>();
-      if (pp.pularBatch !== true) {
+
+      if (pp.pularBatch === true) {
+        await pushProgress(`síncrono (batch pulado) — ${total} módulo(s)…`);
+      } else {
         try {
-          const batch: BatchReq[] = pendentes.map((r) => ({
-            customId: r.customId, system: r.system, user: r.user, model, maxTokens: MAX_TOKENS,
-          }));
-          respostas = await submitClaudeBatch(batch, { budgetMs: 12 * 60_000 });
+          let batchId: string = pp.batchId;
+          if (!batchId) {
+            const batch: BatchReq[] = pendentes.map((r) => ({
+              customId: r.customId, system: r.system, user: r.user, model, maxTokens: MAX_TOKENS,
+            }));
+            batchId = await createClaudeBatch(batch);
+            await patch({ params: { ...pp, batchId }, progress: { done: 0, total, current: `batch criado (${total}) — aguardando…`, resultados: [], pulados } });
+          }
+          // Espera destacada. Cada wait.for é checkpointado; horas de fila não
+          // consomem maxDuration. Teto generoso de 24h (limite do próprio batch).
+          const MAX_ESPERAS = 24 * 60; // 24h em passos de 60s
+          for (let i = 0; i < MAX_ESPERAS; i++) {
+            const st = await pollClaudeBatch(batchId);
+            if (st.ended) break;
+            await pushProgress(`batch: ${st.counts.succeeded}/${total} prontos, ${st.counts.processing} na fila…`);
+            await wait.for({ seconds: 60 });
+          }
+          respostas = await fetchClaudeBatchResults(batchId);
         } catch (e: any) {
           console.warn(`[gerar-modulos-manuscrito] batch falhou (${e?.message}) — fallback síncrono por módulo`);
         }
-      } else {
-        await pushProgress(`síncrono (batch pulado) — ${total} módulo(s)…`);
       }
 
       // 4) Um módulo por vez: resposta do batch OU síncrono; valida; persiste.

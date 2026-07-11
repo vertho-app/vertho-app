@@ -36,17 +36,18 @@ export interface BatchReq {
   maxTokens: number;
 }
 
-/**
- * Submete N requests como UM batch Claude, faz polling até terminar e devolve o
- * texto por customId. Lança se estourar o orçamento de tempo (→ fallback síncrono).
- */
-export async function submitClaudeBatch(
-  reqs: BatchReq[],
-  opts: { pollMs?: number; budgetMs?: number; locale?: AppLocale } = {},
-): Promise<Map<string, string>> {
-  const locale = opts.locale || defaultLocale;
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: AI_TIMEOUT_MS, maxRetries: 2 });
+function anthropicClient() {
+  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: AI_TIMEOUT_MS, maxRetries: 2 });
+}
 
+/**
+ * Cria o batch e devolve só o `id`. Não faz polling — é a metade "submeter" do
+ * padrão DESTACADO: quem chama guarda o id, encerra o trabalho ativo e volta a
+ * consultar depois (com `wait.for` numa task, ou noutra invocação). Assim um
+ * batch lento não segura a run aberta nem consome `maxDuration`.
+ */
+export async function createClaudeBatch(reqs: BatchReq[], opts: { locale?: AppLocale } = {}): Promise<string> {
+  const locale = opts.locale || defaultLocale;
   const requests = reqs.map((r) => {
     const system = withLanguageInstruction(r.system, locale);
     const systemBlock: any = system.length > 4000
@@ -57,28 +58,65 @@ export async function submitClaudeBatch(
       params: { model: r.model, max_tokens: r.maxTokens, system: systemBlock, messages: [{ role: 'user', content: r.user }] },
     };
   });
+  const created = await anthropicClient().messages.batches.create({ requests: requests as any });
+  return created.id;
+}
 
-  const created = await client.messages.batches.create({ requests: requests as any });
-  const budgetMs = opts.budgetMs ?? 40 * 60_000; // 40 min — abaixo do maxDuration 1h do job
-  const pollMs = opts.pollMs ?? 5000;
-  const deadline = Date.now() + budgetMs;
+export interface BatchStatus {
+  ended: boolean;
+  counts: { processing: number; succeeded: number; errored: number; canceled: number; expired: number };
+}
 
-  let status = created;
-  while (status.processing_status !== 'ended') {
-    if (Date.now() > deadline) throw new Error(`batch ${created.id} excedeu ${Math.round(budgetMs / 60000)}min`);
-    await sleep(pollMs);
-    status = await client.messages.batches.retrieve(created.id);
-  }
+/** Uma consulta ao estado do batch. `counts` revela congestão (succeeded parado em 0). */
+export async function pollClaudeBatch(batchId: string): Promise<BatchStatus> {
+  const s = await anthropicClient().messages.batches.retrieve(batchId);
+  const c: any = s.request_counts || {};
+  return {
+    ended: s.processing_status === 'ended',
+    counts: {
+      processing: c.processing ?? 0, succeeded: c.succeeded ?? 0,
+      errored: c.errored ?? 0, canceled: c.canceled ?? 0, expired: c.expired ?? 0,
+    },
+  };
+}
 
+/** Colhe os textos de um batch já `ended`, por customId. */
+export async function fetchClaudeBatchResults(batchId: string): Promise<Map<string, string>> {
   const out = new Map<string, string>();
-  for await (const entry of await client.messages.batches.results(created.id)) {
+  for await (const entry of await anthropicClient().messages.batches.results(batchId)) {
     if (entry.result?.type === 'succeeded') {
       const content = (entry.result.message?.content || []) as any[];
-      const text = content.find((b) => b.type === 'text')?.text || '';
-      out.set(entry.custom_id, text);
+      out.set(entry.custom_id, content.find((b) => b.type === 'text')?.text || '');
     }
   }
   return out;
+}
+
+/**
+ * Submete N requests como UM batch Claude, faz polling INLINE até terminar e
+ * devolve o texto por customId. Lança se estourar o orçamento de tempo.
+ *
+ * ⚠️ Segura a run aberta durante o polling — logo CONSOME o `maxDuration` da task.
+ * Bom para batches pequenos/rápidos (IA2, kit). Para lotes que podem demorar (e
+ * sob congestão da Batch API), prefira o padrão DESTACADO acima
+ * (`createClaudeBatch` + `wait.for` + `pollClaudeBatch`).
+ */
+export async function submitClaudeBatch(
+  reqs: BatchReq[],
+  opts: { pollMs?: number; budgetMs?: number; locale?: AppLocale } = {},
+): Promise<Map<string, string>> {
+  const batchId = await createClaudeBatch(reqs, { locale: opts.locale });
+  const budgetMs = opts.budgetMs ?? 40 * 60_000;
+  const pollMs = opts.pollMs ?? 5000;
+  const deadline = Date.now() + budgetMs;
+
+  for (;;) {
+    const { ended } = await pollClaudeBatch(batchId);
+    if (ended) break;
+    if (Date.now() > deadline) throw new Error(`batch ${batchId} excedeu ${Math.round(budgetMs / 60000)}min`);
+    await sleep(pollMs);
+  }
+  return fetchClaudeBatchResults(batchId);
 }
 
 /** Assinatura compatível com callAI (primeiros 4 args) — drop-in como `aiRun`. */
