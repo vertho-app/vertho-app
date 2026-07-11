@@ -9,7 +9,7 @@ import BackButton from '@/components/back-button';
 import AdminPageHeader from '@/components/admin/page-header';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
-  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio, aprovarRoteiroPodcastEGerarAudio,
+  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, gerarConteudoLote, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio, aprovarRoteiroPodcastEGerarAudio,
 } from '@/actions/conteudos';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 import { useConfirm } from '@/components/admin/confirm-dialog';
@@ -591,14 +591,17 @@ export default function ConteudosAdminPage() {
       {/* Modal gerar com IA — single OU lote (1 descritor por vez no client) */}
       {showGerar && (
         <GerarModal
+          empresaFiltro={empresaFiltro}
           onClose={() => !busy && setShowGerar(false)}
           onGenerate={async (params) => {
             setBusy(true);
             try {
+              // empresaId do filtro escopa o conteúdo ao tenant (era GLOBAL antes).
+              const comEmpresa = { ...params, empresaId: empresaFiltro };
               if (params.descritor) {
                 // single
                 addLog(t('logs.generatingSingle', { format: params.formato, descriptor: params.descritor }), 'info');
-                const r = await gerarConteudoIA(params);
+                const r = await gerarConteudoIA(comEmpresa);
                 if (r.success) {
                   addLog(`✅ ${r.message}`, 'success');
                   if (r.roteiro) setRoteiroGerado({ ...r, formato: params.formato });
@@ -608,26 +611,22 @@ export default function ConteudosAdminPage() {
                   addLog(`❌ ${r.error}`, 'error');
                 }
               } else {
-                // lote no client: descobre descritores e itera 1 por 1
-                const opcoes = await loadOpcoesGerar(empresaFiltro);
-                const comp = opcoes.competencias.find(c => c.nome === params.competencia);
-                const descritores = comp?.descritores || [];
-                if (descritores.length === 0) {
-                  addLog(t('logs.noDescriptors', { competency: params.competencia }), 'error');
-                  return;
+                // LOTE: roteado pelo servidor gerarConteudoLote — cargo-safe (enumera
+                // descritores por empresa+cargo, sourceia MB do cargo). NÃO reimplementar
+                // no client (era a origem do vazamento entre cargos).
+                addLog(t('logs.batchWillGenerate', { count: '', format: params.formato, competency: params.competencia }), 'info');
+                const r = await gerarConteudoLote(comEmpresa);
+                if (r.success) {
+                  for (const it of (r.resultados || [])) {
+                    if (it.error) addLog(`  ❌ ${it.descritor}: ${it.error}`, 'error');
+                    else addLog(`  ✅ ${it.descritor}`, 'success');
+                  }
+                  addLog(`✅ ${r.message}`, r.erros ? 'info' : 'success');
+                  await carregar();
+                  setShowGerar(false);
+                } else {
+                  addLog(`❌ ${r.error}`, 'error');
                 }
-                addLog(t('logs.batchWillGenerate', { count: descritores.length, format: params.formato, competency: params.competencia }), 'info');
-                let ok = 0, erros = 0;
-                for (let i = 0; i < descritores.length; i++) {
-                  const desc = descritores[i];
-                  addLog(`[${i + 1}/${descritores.length}] ${desc}...`, 'info');
-                  const r = await gerarConteudoIA({ ...params, descritor: desc });
-                  if (r.success) { ok++; addLog(`  ✅ ${desc}`, 'success'); }
-                  else { erros++; addLog(`  ❌ ${desc}: ${r.error}`, 'error'); }
-                  await carregar(); // atualiza lista a cada um
-                }
-                addLog(t('logs.batchDone', { ok, total: descritores.length, errors: erros ? t('logs.errorCount', { count: erros }) : '' }), ok === descritores.length ? 'success' : 'info');
-                setShowGerar(false);
               }
             } catch (e) {
               addLog(t('logs.unexpectedError', { error: e.message }), 'error');
@@ -938,7 +937,7 @@ function UploadModal({ onClose, onSave, busy }) {
   );
 }
 
-function GerarModal({ onClose, onGenerate, busy }) {
+function GerarModal({ empresaFiltro, onClose, onGenerate, busy }) {
   const t = useTranslations('AdminContent');
   const [form, setForm] = useState({
     formato: 'texto',
@@ -955,8 +954,8 @@ function GerarModal({ onClose, onGenerate, busy }) {
   const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [] });
 
   useEffect(() => {
-    loadOpcoesGerar().then(setOpcoes);
-  }, []);
+    loadOpcoesGerar(empresaFiltro).then(setOpcoes);
+  }, [empresaFiltro]);
 
   const formatos = [
     { v: 'texto', label: t('generate.formats.text'), icon: FileText, cor: '#10B981', nota: t('generate.notes.ready') },
@@ -967,7 +966,12 @@ function GerarModal({ onClose, onGenerate, busy }) {
 
   const precisaDuracao = form.formato === 'video' || form.formato === 'audio';
   const competenciaSel = opcoes.competencias.find(c => c.nome === form.competencia);
-  const descritoresDisp = competenciaSel?.descritores || [];
+  // REGRA cargo-único: com um cargo específico escolhido, oferece SÓ os descritores
+  // daquele cargo (nunca a união entre cargos). 'todos' = lista genérica/união.
+  const cargoEsp = form.cargo && form.cargo !== 'todos';
+  const descritoresDisp = cargoEsp
+    ? (competenciaSel?.porCargo?.[form.cargo] || [])   // só os do cargo — nunca a união
+    : (competenciaSel?.descritores || []);             // 'todos' = genérico/união
   const podeGerar = form.competencia && !busy;
   const totalGerar = form.descritor ? 1 : descritoresDisp.length;
 

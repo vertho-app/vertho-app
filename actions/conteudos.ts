@@ -444,19 +444,31 @@ export async function loadOpcoesGerar(empresaId?: string | null) {
       .select('nome, nome_curto')
       .not('nome_curto', 'is', null);
 
-    // Agrupa: competencia -> descritores + pilares
-    const mapa: Record<string, { descritores: Set<string>; pilares: Set<string> }> = {};
-    [...(comps || []), ...(baseComps || [])].forEach(c => {
+    // Agrupa: competencia -> descritores + pilares + descritores POR CARGO.
+    // REGRA: competência é única por cargo. `porCargo` deixa o modal oferecer só os
+    // descritores do cargo escolhido — nunca a UNIÃO entre cargos (que geraria
+    // conteúdo de descritor de outro cargo). Só `competencias` (empresa) têm cargo;
+    // `competencias_base` (catálogo) é cargo-agnóstico e entra só na lista genérica.
+    const mapa: Record<string, { descritores: Set<string>; pilares: Set<string>; porCargo: Record<string, Set<string>> }> = {};
+    const add = (c: any, comCargo: boolean) => {
       if (!c.nome) return;
-      if (!mapa[c.nome]) mapa[c.nome] = { descritores: new Set(), pilares: new Set() };
+      if (!mapa[c.nome]) mapa[c.nome] = { descritores: new Set(), pilares: new Set(), porCargo: {} };
       if (c.nome_curto) mapa[c.nome].descritores.add(c.nome_curto);
-      if ((c as any).pilar) mapa[c.nome].pilares.add((c as any).pilar);
-    });
+      if (c.pilar) mapa[c.nome].pilares.add(c.pilar);
+      if (comCargo && c.cargo && c.nome_curto) {
+        (mapa[c.nome].porCargo[c.cargo] ||= new Set<string>()).add(c.nome_curto);
+      }
+    };
+    (comps || []).forEach(c => add(c, true));
+    (baseComps || []).forEach(c => add(c, false));
 
     const competencias = Object.keys(mapa).sort().map(nome => ({
       nome,
       descritores: ([...mapa[nome].descritores] as string[]).sort(),
       pilares: ([...mapa[nome].pilares] as string[]).sort(),
+      porCargo: Object.fromEntries(
+        Object.entries(mapa[nome].porCargo).map(([cg, set]) => [cg, [...set].sort()]),
+      ) as Record<string, string[]>,
     }));
 
     // Cargos distintos — só da empresa filtrada (competencias_base não tem cargo
