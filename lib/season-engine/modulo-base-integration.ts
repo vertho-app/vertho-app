@@ -69,8 +69,15 @@ export async function resolverModuloBaseParaConteudo(
 
   let competencia_ids: string[] = [];
   if (opts.empresaId) {
-    const { data: ec } = await sb.from('competencias')
+    let cq = sb.from('competencias')
       .select('id').eq('empresa_id', opts.empresaId).ilike('nome', opts.competenciaNome);
+    // REGRA: competência é ÚNICA POR CARGO — "Autocuidado" de Coordenação ≠ de Gestão
+    // Escolar (descritores/níveis/contexto próprios). Quando um cargo específico é
+    // pedido, casa SÓ com as linhas daquele cargo; nunca sourceia do MB de outro cargo.
+    // (Os módulos canônicos por `competencia_base_id` seguem valendo como base genérica.)
+    const cargoEsp = String(opts.cargo || '').trim();
+    if (cargoEsp && cargoEsp.toLowerCase() !== 'todos') cq = cq.eq('cargo', cargoEsp);
+    const { data: ec } = await cq;
     competencia_ids = (ec || []).map((c: any) => c.id);
   }
   if (!competencia_base_ids.length && !competencia_ids.length) return null;

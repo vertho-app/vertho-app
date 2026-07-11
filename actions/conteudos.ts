@@ -371,9 +371,16 @@ export async function gerarConteudoLote({
     if (descritor) {
       descritores = [descritor];
     } else {
-      // Tenta competencias da empresa, fallback competencias_base
-      const { data: emp } = await sb.from('competencias')
+      // Tenta competencias da empresa, fallback competencias_base.
+      // REGRA: competência é ÚNICA POR CARGO — ao gerar p/ um cargo específico,
+      // enumera SÓ os descritores daquele cargo (não a união entre cargos, que
+      // carregaria descritores de outro cargo de mesmo nome de competência).
+      let empQ = sb.from('competencias')
         .select('nome_curto').eq('nome', competencia).not('nome_curto', 'is', null);
+      if (empresaId) empQ = empQ.eq('empresa_id', empresaId);
+      const cargoEsp = String(cargo || '').trim();
+      if (cargoEsp && cargoEsp.toLowerCase() !== 'todos') empQ = empQ.eq('cargo', cargoEsp);
+      const { data: emp } = await empQ;
       let lista = [...new Set((emp || []).map(c => c.nome_curto))] as string[];
       if (lista.length === 0) {
         const { data: base } = await sb.from('competencias_base')

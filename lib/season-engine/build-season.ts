@@ -23,6 +23,7 @@ interface MicroConteudo {
   formato: string;
   competencia: string;
   descritor?: string;
+  cargo?: string | null;
   empresa_id?: string | null;
   ativo: boolean;
   versao?: number;
@@ -141,6 +142,29 @@ export interface BuildSeasonInput {
  *   - 30% taxa_conclusao
  * Com menos de 5 amostras de impacto, usa só taxa_conclusao (dado insuficiente).
  */
+const normCargoStr = (s?: string | null) => String(s || '').trim().toLowerCase();
+
+/** True se o conteúdo é do CARGO alvo (comparação normalizada). */
+export function ehMesmoCargo(cargoConteudo?: string | null, cargoAlvo?: string | null): boolean {
+  return normCargoStr(cargoConteudo) === normCargoStr(cargoAlvo);
+}
+
+/**
+ * REGRA DE ISOLAMENTO POR CARGO: competência é ÚNICA POR CARGO (Autocuidado de
+ * Coordenação ≠ de Gestão Escolar). Retorna só os conteúdos SERVÍVEIS a `cargoAlvo`
+ * — os do próprio cargo + os genéricos (cargo null/''/'todos') — descartando os de
+ * QUALQUER outro cargo específico. É o que impede vazamento de conteúdo entre cargos.
+ */
+export function conteudosServiveisPorCargo<T extends { cargo?: string | null }>(
+  itens: T[], cargoAlvo?: string | null,
+): T[] {
+  const alvo = normCargoStr(cargoAlvo);
+  return itens.filter((c) => {
+    const cc = normCargoStr(c.cargo);
+    return cc === alvo || cc === '' || cc === 'todos';
+  });
+}
+
 function computarScoreConteudo(c: MicroConteudo): number {
   const taxa = c.taxa_conclusao ?? 0;
   const amostras = c.impacto_amostras ?? 0;
@@ -396,17 +420,25 @@ async function montarSemanaConteudo(
   }
 
   const candidatosTyped = (candidatos || []) as MicroConteudo[];
-  const matchDescritor = candidatosTyped.filter(c => c.descritor === descritorSel.descritor);
-  const todosComp = candidatosTyped;
+  // REGRA: competência é ÚNICA POR CARGO — nunca servir conteúdo de OUTRO cargo
+  // específico (Autocuidado de Coordenação ≠ de Gestão Escolar, mesmo nome). Só o do
+  // próprio cargo ou o genérico, sempre preferindo o do cargo (ver ordenação abaixo).
+  const permitidos = conteudosServiveisPorCargo(candidatosTyped, cargo);
+  const mesmoCargo = (c: MicroConteudo) => ehMesmoCargo(c.cargo, cargo);
+
+  const matchDescritor = permitidos.filter(c => c.descritor === descritorSel.descritor);
   const poolDescDisp = matchDescritor.filter(c => !idsJaUsados.has(c.id));
-  const poolCompDisp = todosComp.filter(c => !idsJaUsados.has(c.id));
+  const poolCompDisp = permitidos.filter(c => !idsJaUsados.has(c.id));
   const pool: MicroConteudo[] = poolDescDisp.length > 0
     ? poolDescDisp
-    : (poolCompDisp.length > 0 ? poolCompDisp : (matchDescritor.length > 0 ? matchDescritor : todosComp));
+    : (poolCompDisp.length > 0 ? poolCompDisp : (matchDescritor.length > 0 ? matchDescritor : permitidos));
 
-  // Dentro de cada formato, escolhe o conteúdo com melhor SCORE.
+  // Dentro de cada formato, escolhe o melhor: MESMO CARGO antes de genérico, depois SCORE.
   const formatosDisponiveis: Record<string, MicroConteudo> = {};
   const ordenadoPorQualidade = [...pool].sort((a, b) => {
+    const ca = mesmoCargo(a) ? 0 : 1;
+    const cb = mesmoCargo(b) ? 0 : 1;
+    if (ca !== cb) return ca - cb;
     const scoreA = computarScoreConteudo(a);
     const scoreB = computarScoreConteudo(b);
     if (scoreB !== scoreA) return scoreB - scoreA;
