@@ -176,6 +176,20 @@ function extractClaudeText(content: any[]): string {
   return textBlock?.text || '';
 }
 
+// Instrumentação de prompt caching (Onda 1): mede o hit-rate real em produção.
+// Só loga quando há cache envolvido (evita ruído nas chamadas sem cache).
+// Ler em prod: grep "[ai-cache]" nos runtime logs da Vercel.
+function logCacheUsage(model: string, usage: any, tag?: string) {
+  if (!usage) return;
+  const read = usage.cache_read_input_tokens || 0;
+  const write = usage.cache_creation_input_tokens || 0;
+  const fresh = usage.input_tokens || 0;
+  if (!read && !write) return;
+  const base = read + write + fresh;
+  const hit = base ? Math.round((read / base) * 100) : 0;
+  console.log(`[ai-cache]${tag ? ` ${tag}` : ''} ${model} hit=${hit}% read=${read} write=${write} fresh=${fresh}`);
+}
+
 async function callClaude(
   system: string,
   user: string,
@@ -231,6 +245,7 @@ async function callClaude(
   }
 
   const response = await client.messages.create(params);
+  logCacheUsage(model, (response as any).usage);
   return options.thinking
     ? extractClaudeText(response.content as any[])
     : (response.content as any[])[0].text;
@@ -280,6 +295,7 @@ async function callClaudeChat(
   }
 
   const response = await client.messages.create(params);
+  logCacheUsage(model, (response as any).usage);
   return options.thinking
     ? extractClaudeText(response.content as any[])
     : (response.content as any[])[0].text;
