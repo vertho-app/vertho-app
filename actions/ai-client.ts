@@ -324,11 +324,27 @@ async function callClaudeChat(
     ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
     : system;
 
+  // S3/L1 — caching do HISTÓRICO da conversa (o maior lever, saída byte-idêntica).
+  // No multi-turn da Anthropic, marcar cache_control na ÚLTIMA mensagem faz o
+  // prefixo (todo o histórico até ali) ser lido a 0,1x no turno seguinte. Só
+  // vale no fluxo DENSO (turnos em minutos < TTL 5min); esparso vira write inútil.
+  // Atrás de flag CHAT_HISTORY_CACHE para manter o baseline da S2 limpo (OFF)
+  // até a medição justificar ligar (ON). TTL 5min (default ephemeral) primeiro.
+  const historyCache = process.env.CHAT_HISTORY_CACHE === '1';
+  let msgs: any = messages;
+  if (historyCache && messages.length > 1) {
+    msgs = messages.map((m, i) =>
+      i === messages.length - 1
+        ? { role: m.role, content: [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }] }
+        : m,
+    );
+  }
+
   const params: any = {
     model,
     max_tokens: maxTokens,
     system: systemBlock,
-    messages,
+    messages: msgs,
     ...(options.temperature != null ? { temperature: options.temperature } : {}),
   };
 
