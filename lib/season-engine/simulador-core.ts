@@ -19,6 +19,9 @@ import { PROGRESSO } from '@/lib/status';
 export const MENTOR_MODEL_SONNET_46 = 'claude-sonnet-4-6';
 export const MENTOR_MODEL_SONNET_5 = 'claude-sonnet-5';
 
+// History caching (S3) atrás de flag até a qualidade ser validada (ia-sinais/goldens).
+const CACHE_HISTORY_ON = process.env.IA_CACHE_HISTORY === '1';
+
 const SIM_EXTRACTOR_SYSTEM = `Você é um extrator de dados estruturados da Vertho.
 
 Sua tarefa é analisar uma CONVERSA SIMULADA e transformá-la em JSON estruturado, fiel ao que foi dito.
@@ -204,7 +207,7 @@ async function simularSocratico(sb: any, trilha: any, colab: any, s: any, perfil
 
   for (let turnIA = 1; turnIA <= maxIA; turnIA++) {
     // IA fala (mentor)
-    const { system, systemSuffix, messages } = promptSocratic({
+    const { system, userSuffix, messages } = promptSocratic({
       nomeColab: nome,
       cargo: colab?.cargo,
       perfilDominante: colab?.perfil_dominante,
@@ -215,7 +218,7 @@ async function simularSocratico(sb: any, trilha: any, colab: any, s: any, perfil
       turnIA,
     });
     const mensagensPayload = messages.length ? messages : [{ role: 'user', content: '[INICIE]' }];
-    const respIA = (await callAIChat(system, mensagensPayload as any, { model: mentorModel }, 2000, { ...simOpts(trilha, 'evidencias_socratic'), systemSuffix })).trim();
+    const respIA = (await callAIChat(system, mensagensPayload as any, { model: mentorModel }, 2000, { ...simOpts(trilha, 'evidencias_socratic'), userSuffix, cacheHistory: CACHE_HISTORY_ON })).trim();
     historico.push({ role: 'assistant', content: respIA, timestamp: new Date().toISOString(), turn: turnIA });
 
     if (turnIA >= maxIA) break;

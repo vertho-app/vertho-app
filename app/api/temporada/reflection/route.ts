@@ -363,9 +363,12 @@ export async function POST(request) {
     try {
       respostaIA = await callAIChat(promptData.system, promptData.messages, {}, 2000, {
         taskKey: 'evidencias_socratic', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
-        // Sufixo volátil (instrução do turno) fora do prefixo cacheado. undefined
-        // p/ fluxos ainda não migrados (missao/analytic) → comportamento inalterado.
+        // Voláteis (grounding+instrução do turno) fora do prefixo cacheado.
+        // socratic usa userSuffix (history caching, atrás de flag); missao usa
+        // systemSuffix (2 blocos); analytic não usa nenhum → inalterado.
         systemSuffix: (promptData as any).systemSuffix,
+        userSuffix: (promptData as any).userSuffix,
+        cacheHistory: !!(promptData as any).userSuffix && process.env.IA_CACHE_HISTORY === '1',
       });
       respostaIA = (respostaIA || '').trim();
     } catch (err) {

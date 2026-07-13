@@ -52,6 +52,15 @@ export interface AICallOptions {
   // resposta é byte-idêntica, só muda o billing. (Claude: 2 blocos de system;
   // Gemini/OpenAI: concatenado, sem cache.)
   systemSuffix?: string;
+  // Parte VOLÁTIL de um chat multi-turn (grounding + instrução do turno) que
+  // deve ficar FORA do prefixo cacheado. Com cacheHistory=true (Claude): migra
+  // p/ a cauda da última mensagem do usuário e cache_control vai na última
+  // assistant → cacheia system+histórico. Sem cacheHistory: volta pro system
+  // (byte-idêntico). Gemini/OpenAI: sempre concatenado ao system.
+  userSuffix?: string;
+  // Liga o history caching (relocação do userSuffix + cache_control). Só Claude.
+  // O caller gateia por flag (IA_CACHE_HISTORY) até a qualidade ser validada.
+  cacheHistory?: boolean;
 }
 
 export interface ChatMessage {
@@ -165,10 +174,10 @@ export async function callAIChat(
   const locale = await resolveAILocale(options.locale);
   const localizedSystem = withLanguageInstruction(system, locale);
 
-  // Gemini/OpenAI não têm o breakpoint de 2 blocos: o sufixo volátil é
-  // concatenado ao system (sem cache). Claude recebe o sufixo em options e
-  // monta os 2 blocos (estável cacheado + volátil).
-  const suffixConcat = options.systemSuffix ? `${localizedSystem}\n\n${options.systemSuffix}` : localizedSystem;
+  // Gemini/OpenAI não têm caching por breakpoint: os sufixos voláteis
+  // (systemSuffix e userSuffix) são concatenados ao system. Claude recebe os
+  // sufixos em options e decide (2 blocos / history caching).
+  const suffixConcat = [localizedSystem, options.systemSuffix, options.userSuffix].filter(Boolean).join('\n\n');
   const dispatch = (m: string) => {
     if (m.startsWith('gemini')) return callGeminiChat(suffixConcat, messages, m, maxTokens, options);
     if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAIChat(suffixConcat, messages, m, maxTokens, options);
@@ -343,30 +352,47 @@ async function callClaudeChat(
 ): Promise<string> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: AI_TIMEOUT_MS, maxRetries: 1 });
 
-  // Prompt Caching: se system é grande (>1024 tokens ≈ 4000 chars), marca como
-  // cache_control ephemeral. Chamadas subsequentes em 5 min com mesmo system
-  // pagam só 10% do custo normal no cached tier.
-  // Com systemSuffix: 2 blocos — [estável cacheado] + [volátil sem cache]. O
-  // prefixo estável (>1024 tok) é lido a 0,1× nas chamadas seguintes; o sufixo
-  // (ex.: instrução do turno) não quebra o cache. Sem suffix: igual a antes.
+  // HISTORY CACHING (S3, o lever medido como o maior): cacheia o prefixo
+  // `system + histórico congelado`, lido a 0,1× nos turnos seguintes. O piloto
+  // provou que o cache estava MORTO porque a parte VOLÁTIL (grounding + instrução
+  // do turno) ficava DENTRO do prefixo cacheado e o envenenava. A correção:
+  //  - a parte volátil vem em `options.userSuffix`;
+  //  - com cacheHistory: migra p/ a cauda da ÚLTIMA mensagem do usuário, e o
+  //    cache_control vai na ÚLTIMA mensagem ASSISTANT (congelada) → o prefixo não
+  //    inclui o volátil e é lido a 0,1× no turno seguinte (validado por probe:
+  //    turno 2 leu 2073 tok, turno 3 leu 2479);
+  //  - sem cacheHistory: o userSuffix volta pro system (posição original) →
+  //    saída BYTE-IDÊNTICA. É um behavior-change (posição system→mensagem), por
+  //    isso atrás de flag no caller até validar qualidade (ia-sinais/goldens).
+  const cacheHistory = options.cacheHistory === true;
+  const sysText = options.userSuffix && !cacheHistory ? `${system}\n\n${options.userSuffix}` : system;
+
+  // Bloco de system (com systemSuffix: 2 blocos estável/volátil — feature à parte).
   const systemBlock: any = options.systemSuffix
     ? [
-        { type: 'text', text: system, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: sysText, cache_control: { type: 'ephemeral' } },
         { type: 'text', text: options.systemSuffix },
       ]
-    : (typeof system === 'string' && system.length > 4000
-        ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
-        : system);
+    : (cacheHistory || (typeof sysText === 'string' && sysText.length > 4000)
+        ? [{ type: 'text', text: sysText, cache_control: { type: 'ephemeral' } }]
+        : sysText);
 
-  // S3/L1 — caching do HISTÓRICO da conversa (o maior lever, saída byte-idêntica).
-  // No multi-turn da Anthropic, marcar cache_control na ÚLTIMA mensagem faz o
-  // prefixo (todo o histórico até ali) ser lido a 0,1x no turno seguinte. Só
-  // vale no fluxo DENSO (turnos em minutos < TTL 5min); esparso vira write inútil.
-  // Atrás de flag CHAT_HISTORY_CACHE para manter o baseline da S2 limpo (OFF)
-  // até a medição justificar ligar (ON). TTL 5min (default ephemeral) primeiro.
-  const historyCache = process.env.CHAT_HISTORY_CACHE === '1';
+  const legacyHistoryCache = process.env.CHAT_HISTORY_CACHE === '1';
   let msgs: any = messages;
-  if (historyCache && messages.length > 1) {
+  if (cacheHistory) {
+    const arr = messages.map((m) => ({ role: m.role, content: m.content as any }));
+    // sufixo volátil (grounding+instrução) na cauda da última mensagem do usuário
+    if (options.userSuffix) {
+      for (let i = arr.length - 1; i >= 0; i--) {
+        if (arr[i].role === 'user') { arr[i] = { role: 'user', content: `${arr[i].content}\n\n${options.userSuffix}` }; break; }
+      }
+    }
+    // cache_control na última mensagem ASSISTANT (prefixo congelado, sem o volátil)
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (arr[i].role === 'assistant') { arr[i] = { role: 'assistant', content: [{ type: 'text', text: arr[i].content, cache_control: { type: 'ephemeral' } }] }; break; }
+    }
+    msgs = arr;
+  } else if (legacyHistoryCache && messages.length > 1) {
     msgs = messages.map((m, i) =>
       i === messages.length - 1
         ? { role: m.role, content: [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }] }

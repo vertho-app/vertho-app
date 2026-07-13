@@ -168,9 +168,13 @@ SE A RESPOSTA VIER VAGA OU GENÉRICA:
 - Peça contraste entre "como era antes" e "como foi agora"
 - NÃO aceite respostas vagas — aprofunde com gentileza
 
-Se ${nomeColab} disser que não fez o desafio: acolha sem culpa, pergunte o que impediu, e continue a exploração socrática sobre as circunstâncias.
+Se ${nomeColab} disser que não fez o desafio: acolha sem culpa, pergunte o que impediu, e continue a exploração socrática sobre as circunstâncias.`;
 
-${groundingContext ? `GROUNDING (base de conhecimento):
+  // VOLÁTEIS (mudam a cada turno) fora do system → `userSuffix`, para o prefixo
+  // system+histórico ser cacheável (history caching, S3). São o grounding (varia
+  // com a conversa) + a instrução do turno. Sem o flag cacheHistory, o wrapper
+  // reconcatena o userSuffix ao system (mesma posição do original → equivalente).
+  const groundingBloco = groundingContext ? `GROUNDING (base de conhecimento):
 ${groundingContext}
 
 REGRAS DE USO DO GROUNDING:
@@ -178,12 +182,8 @@ REGRAS DE USO DO GROUNDING:
 - Use como apoio breve, não como centro da conversa.
 - Não despeje conteúdo.
 - Não substitua a reflexão do colaborador pela base.
-- Quando usar, conecte ao que a pessoa já trouxe.` : ''}`;
-
-  // instrucaoTurn é o único trecho VOLÁTIL (muda a cada turno). Sai do system
-  // como `systemSuffix` → o prefixo estável (persona/contexto/DISC) é cacheado e
-  // lido a 0,1× nos turnos 2..N. Prompt caching é output-neutral: o modelo
-  // recebe system + suffix concatenados (idêntico ao de antes). Ver [[ai-client]].
+- Quando usar, conecte ao que a pessoa já trouxe.` : '';
+  const userSuffix = [groundingBloco, instrucaoTurn].filter(Boolean).join('\n\n');
 
   const messages: ChatMessage[] = [];
   if (historico && historico.length > 0) {
@@ -193,5 +193,5 @@ REGRAS DE USO DO GROUNDING:
     messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme as regras do TURN 1]' });
   }
 
-  return { system, systemSuffix: instrucaoTurn, messages };
+  return { system, userSuffix, messages };
 }
