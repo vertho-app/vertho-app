@@ -62,7 +62,7 @@ export function promptSocratic({ nomeColab, cargo, perfilDominante, competencia,
   const lista = (desafios && desafios.length ? desafios : [{ competencia, desafio_texto: desafio }]).filter((d) => d.desafio_texto?.trim());
   const multi = lista.length > 1;
   const desafiosBloco = lista.map((d, i) => `${multi ? `(${i + 1}/${lista.length}) [${d.competencia}] ` : ''}"${d.desafio_texto}"`).join('\n');
-  const instrucaoTurn: Record<number, string> = {
+  const instrucaoTurn: string = ({
     1: `ESTE É O TURN 1 — ABERTURA / CONVITE À REFLEXÃO.
 - Cumprimente ${nomeColab} pelo primeiro nome.
 ${multi
@@ -110,7 +110,7 @@ ${multi
 - Finalize com 1 frase breve de reconhecimento genuíno (sem elogio vazio).
 - Máximo 100 palavras totais.
 - NÃO adicione "dica", "sugestão" ou conselho extra.`,
-  }[turnIA] || '';
+  })[turnIA] || '';
 
   const system = `Você é um mentor de desenvolvimento de competências da Vertho, com postura socrática: curiosa, acolhedora, respeitosa e não-diretiva.
 
@@ -178,9 +178,12 @@ REGRAS DE USO DO GROUNDING:
 - Use como apoio breve, não como centro da conversa.
 - Não despeje conteúdo.
 - Não substitua a reflexão do colaborador pela base.
-- Quando usar, conecte ao que a pessoa já trouxe.` : ''}
+- Quando usar, conecte ao que a pessoa já trouxe.` : ''}`;
 
-${instrucaoTurn}`;
+  // instrucaoTurn é o único trecho VOLÁTIL (muda a cada turno). Sai do system
+  // como `systemSuffix` → o prefixo estável (persona/contexto/DISC) é cacheado e
+  // lido a 0,1× nos turnos 2..N. Prompt caching é output-neutral: o modelo
+  // recebe system + suffix concatenados (idêntico ao de antes). Ver [[ai-client]].
 
   const messages: ChatMessage[] = [];
   if (historico && historico.length > 0) {
@@ -190,5 +193,5 @@ ${instrucaoTurn}`;
     messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme as regras do TURN 1]' });
   }
 
-  return { system, messages };
+  return { system, systemSuffix: instrucaoTurn, messages };
 }

@@ -148,7 +148,7 @@ export async function POST(request) {
       const insightsAnterioresMask = (insightsAnteriores || []).map(i => maskTextPII(i, piiMapQ));
       const historicoMaskQ = historico.map(m => ({ ...m, content: maskTextPII(m.content, piiMapQ) }));
 
-      const { system } = promptEvolutionQualitative({
+      const { system, systemSuffix } = promptEvolutionQualitative({
         nomeColab: colabMaskedQ.nome,
         cargo: colab?.cargo,
         perfilDominante: colab?.perfil_dominante,
@@ -161,7 +161,7 @@ export async function POST(request) {
       if (proximoTurnIA === 1 && messages.length === 0) {
         messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme o TURN 1]' });
       }
-      let respostaIA = (await callAIChat(system, messages, {}, 4000, { taskKey: 'sem13_qualitativa' })).trim();
+      let respostaIA = (await callAIChat(system, messages, {}, 4000, { taskKey: 'sem13_qualitativa', systemSuffix })).trim();
       // Despersonaliza output antes de persistir
       respostaIA = unmaskPII(respostaIA, piiMapQ);
       historico.push({ role: 'assistant', content: respostaIA, timestamp: new Date().toISOString(), turn: proximoTurnIA });

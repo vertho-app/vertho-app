@@ -363,6 +363,9 @@ export async function POST(request) {
     try {
       respostaIA = await callAIChat(promptData.system, promptData.messages, {}, 2000, {
         taskKey: 'evidencias_socratic', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+        // Sufixo volátil (instrução do turno) fora do prefixo cacheado. undefined
+        // p/ fluxos ainda não migrados (missao/analytic) → comportamento inalterado.
+        systemSuffix: (promptData as any).systemSuffix,
       });
       respostaIA = (respostaIA || '').trim();
     } catch (err) {

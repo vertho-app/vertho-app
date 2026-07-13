@@ -45,6 +45,13 @@ export interface AICallOptions {
   // O simulador de temporada marca 'simulator' para que as rodadas de medição
   // sejam isoláveis do tráfego real e o overhead do "aluno" seja netável.
   source?: string;
+  // Sufixo VOLÁTIL do system (ex.: instrução do turno no chat socrático), que
+  // muda a cada chamada. Fica DEPOIS do breakpoint de cache → o prefixo estável
+  // (persona/régua/contexto) é cacheado e lido a 0,1× nos turnos seguintes,
+  // enquanto o sufixo não quebra o cache. Prompt caching é output-neutral: a
+  // resposta é byte-idêntica, só muda o billing. (Claude: 2 blocos de system;
+  // Gemini/OpenAI: concatenado, sem cache.)
+  systemSuffix?: string;
 }
 
 export interface ChatMessage {
@@ -118,9 +125,12 @@ export async function callAI(
 
   // Providers sem prompt caching (Gemini/OpenAI) recebem o prefixo concatenado.
   const combinedUser = options.cachedUserPrefix ? `${options.cachedUserPrefix}\n\n${user}` : user;
+  // Gemini/OpenAI: sufixo volátil concatenado ao system (sem cache). Claude: via
+  // options (2 blocos). Sem systemSuffix, comportamento inalterado.
+  const sysForConcat = options.systemSuffix ? `${localizedSystem}\n\n${options.systemSuffix}` : localizedSystem;
   const dispatch = (m: string) => {
-    if (m.startsWith('gemini')) return callGemini(localizedSystem, combinedUser, m, maxTokens, options);
-    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAI(localizedSystem, combinedUser, m, maxTokens, options);
+    if (m.startsWith('gemini')) return callGemini(sysForConcat, combinedUser, m, maxTokens, options);
+    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAI(sysForConcat, combinedUser, m, maxTokens, options);
     return callClaude(localizedSystem, user, m, maxTokens, options);
   };
 
@@ -155,9 +165,13 @@ export async function callAIChat(
   const locale = await resolveAILocale(options.locale);
   const localizedSystem = withLanguageInstruction(system, locale);
 
+  // Gemini/OpenAI não têm o breakpoint de 2 blocos: o sufixo volátil é
+  // concatenado ao system (sem cache). Claude recebe o sufixo em options e
+  // monta os 2 blocos (estável cacheado + volátil).
+  const suffixConcat = options.systemSuffix ? `${localizedSystem}\n\n${options.systemSuffix}` : localizedSystem;
   const dispatch = (m: string) => {
-    if (m.startsWith('gemini')) return callGeminiChat(localizedSystem, messages, m, maxTokens, options);
-    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAIChat(localizedSystem, messages, m, maxTokens, options);
+    if (m.startsWith('gemini')) return callGeminiChat(suffixConcat, messages, m, maxTokens, options);
+    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAIChat(suffixConcat, messages, m, maxTokens, options);
     return callClaudeChat(localizedSystem, messages, m, maxTokens, options);
   };
 
@@ -251,9 +265,17 @@ async function callClaude(
     maxRetries: options.maxRetries ?? 1,
   });
 
-  const systemBlock: any = typeof system === 'string' && system.length > 4000
-    ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
-    : system;
+  // Com systemSuffix: 2 blocos — [estável cacheado] + [volátil sem cache]. O
+  // prefixo estável (>1024 tok) é lido a 0,1× nas chamadas seguintes; o sufixo
+  // (ex.: instrução do turno) não quebra o cache. Sem suffix: igual a antes.
+  const systemBlock: any = options.systemSuffix
+    ? [
+        { type: 'text', text: system, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: options.systemSuffix },
+      ]
+    : (typeof system === 'string' && system.length > 4000
+        ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+        : system);
 
   // 2º breakpoint: prefixo estável do user (régua/cenário) num bloco próprio com
   // cache_control quando vale a pena (> ~1024 tokens ≈ 4000 chars). Abaixo disso
@@ -324,9 +346,17 @@ async function callClaudeChat(
   // Prompt Caching: se system é grande (>1024 tokens ≈ 4000 chars), marca como
   // cache_control ephemeral. Chamadas subsequentes em 5 min com mesmo system
   // pagam só 10% do custo normal no cached tier.
-  const systemBlock: any = typeof system === 'string' && system.length > 4000
-    ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
-    : system;
+  // Com systemSuffix: 2 blocos — [estável cacheado] + [volátil sem cache]. O
+  // prefixo estável (>1024 tok) é lido a 0,1× nas chamadas seguintes; o sufixo
+  // (ex.: instrução do turno) não quebra o cache. Sem suffix: igual a antes.
+  const systemBlock: any = options.systemSuffix
+    ? [
+        { type: 'text', text: system, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: options.systemSuffix },
+      ]
+    : (typeof system === 'string' && system.length > 4000
+        ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+        : system);
 
   // S3/L1 — caching do HISTÓRICO da conversa (o maior lever, saída byte-idêntica).
   // No multi-turn da Anthropic, marcar cache_control na ÚLTIMA mensagem faz o

@@ -37,7 +37,7 @@ export function promptMissaoFeedback({
   const d2 = descritoresCobertos[1] || d1;
   const d3 = descritoresCobertos[2] || d2;
 
-  const instrucaoTurn: Record<number, string> = {
+  const instrucaoTurn: string = ({
     1: `TURN 1 — O QUE FOI FEITO DE FATO.
 - Reconheça que ${nomeColab} executou a missão.
 - Peça 1 detalhe aberto do QUE ACONTECEU — "Me conta o que aconteceu no momento em que você [ação mencionada]?"
@@ -104,7 +104,7 @@ export function promptMissaoFeedback({
 - NÃO dê gabarito. NÃO diga "a melhor forma seria...".
 - NÃO faça perguntas. NÃO peça confirmação.
 - Máximo 150 palavras totais.`,
-  }[turnIA] || '';
+  })[turnIA] || '';
 
   const system = `Você é um avaliador-mentor da Vertho analisando a EVIDÊNCIA REAL trazida por um colaborador sobre a execução de uma missão prática no trabalho.
 
@@ -183,10 +183,11 @@ REGRAS DE USO DO GROUNDING:
 - Use como apoio breve, não como centro da conversa.
 - Não despeje conteúdo.
 - Não substitua o relato real do colaborador pela base.
-- Quando usar, conecte ao que a pessoa efetivamente trouxe.` : ''}
+- Quando usar, conecte ao que a pessoa efetivamente trouxe.` : ''}`;
 
-${instrucaoTurn}`;
+  // instrucaoTurn (volátil por turno) sai do system → systemSuffix, para o
+  // prefixo estável ser cacheado e lido a 0,1× nos turnos 2..N. Output-neutral.
 
   const messages = (historico || []).map(m => ({ role: m.role, content: m.content }));
-  return { system, messages };
+  return { system, systemSuffix: instrucaoTurn, messages };
 }

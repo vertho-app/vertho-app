@@ -242,11 +242,12 @@ ESTILO:
 - Curioso, respeitoso, analítico
 - Sem jargão de coaching
 - Sem tom professoral
-- Sem parecer prova oral hostil
+- Sem parecer prova oral hostil`;
 
-${instrucao}`;
-
-  return { system, instrucao };
+  // instrucao (volátil por turno) sai do system → systemSuffix, p/ o prefixo
+  // estável ser cacheado e lido a 0,1× nos turnos 2..N. Output-neutral. Mantém
+  // `instrucao` no retorno p/ compat (callers antigos ignoram).
+  return { system, systemSuffix: instrucao, instrucao };
 }
 
 /**

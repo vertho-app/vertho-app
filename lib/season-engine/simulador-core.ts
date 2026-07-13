@@ -204,7 +204,7 @@ async function simularSocratico(sb: any, trilha: any, colab: any, s: any, perfil
 
   for (let turnIA = 1; turnIA <= maxIA; turnIA++) {
     // IA fala (mentor)
-    const { system, messages } = promptSocratic({
+    const { system, systemSuffix, messages } = promptSocratic({
       nomeColab: nome,
       cargo: colab?.cargo,
       perfilDominante: colab?.perfil_dominante,
@@ -215,7 +215,7 @@ async function simularSocratico(sb: any, trilha: any, colab: any, s: any, perfil
       turnIA,
     });
     const mensagensPayload = messages.length ? messages : [{ role: 'user', content: '[INICIE]' }];
-    const respIA = (await callAIChat(system, mensagensPayload as any, { model: mentorModel }, 2000, simOpts(trilha, 'evidencias_socratic'))).trim();
+    const respIA = (await callAIChat(system, mensagensPayload as any, { model: mentorModel }, 2000, { ...simOpts(trilha, 'evidencias_socratic'), systemSuffix })).trim();
     historico.push({ role: 'assistant', content: respIA, timestamp: new Date().toISOString(), turn: turnIA });
 
     if (turnIA >= maxIA) break;
@@ -315,14 +315,14 @@ async function simularMissaoPratica(sb: any, trilha: any, colab: any, s: any, pe
   historico.push({ role: 'user', content: relatoInicial, timestamp: new Date().toISOString() });
 
   for (let turnIA = 1; turnIA <= maxIA; turnIA++) {
-    const { system, messages } = promptMissaoFeedback({
+    const { system, systemSuffix, messages } = promptMissaoFeedback({
       nomeColab: nome, cargo: colab?.cargo,
       competencia: trilha.competencia_foco,
       descritoresCobertos: cobertos,
       missao: missaoTexto, compromisso,
       historico, turnIA,
     });
-    const respIA = (await callAIChat(system, messages as any, { model: mentorModel }, 2000, simOpts(trilha, 'missao_feedback'))).trim();
+    const respIA = (await callAIChat(system, messages as any, { model: mentorModel }, 2000, { ...simOpts(trilha, 'missao_feedback'), systemSuffix })).trim();
     historico.push({ role: 'assistant', content: respIA, timestamp: new Date().toISOString(), turn: turnIA });
 
     if (turnIA >= maxIA) break;
@@ -401,7 +401,7 @@ async function simularQualitativa(sb: any, trilha: any, colab: any, s: any, perf
   const maxIA = MAX_TURNS.qualitativa;
 
   for (let turnIA = 1; turnIA <= maxIA; turnIA++) {
-    const { system } = promptEvolutionQualitative({
+    const { system, systemSuffix } = promptEvolutionQualitative({
       nomeColab: nome, cargo: colab?.cargo,
       perfilDominante: colab?.perfil_dominante,
       competencia: trilha.competencia_foco,
@@ -410,7 +410,7 @@ async function simularQualitativa(sb: any, trilha: any, colab: any, s: any, perf
     });
     const messages = historico.map(m => ({ role: m.role, content: m.content }));
     if (turnIA === 1 && !messages.length) messages.push({ role: 'user', content: '[INICIE]' });
-    const respIA = (await callAIChat(system, messages, { model: mentorModel }, 2500, simOpts(trilha, 'sem13_qualitativa'))).trim();
+    const respIA = (await callAIChat(system, messages, { model: mentorModel }, 2500, { ...simOpts(trilha, 'sem13_qualitativa'), systemSuffix })).trim();
     historico.push({ role: 'assistant', content: respIA, timestamp: new Date().toISOString(), turn: turnIA });
 
     if (turnIA >= maxIA) break;
