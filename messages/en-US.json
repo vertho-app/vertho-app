@@ -3629,6 +3629,25 @@
   "AdminCostSimulator": {
     "title": "Cost Simulator — AI",
     "subtitle": "Estimate of spending on AI calls per scale unit (team member, Radar school, lead, company). Prices May/2026.",
+    "real": {
+      "heading": "Measured (ledger)",
+      "sub": "Real cost of calls recorded in ia_usage_log. Compare with the estimate above.",
+      "window": "Window",
+      "loading": "Loading…",
+      "empty": "No calls in this period — expected until a track/closing runs.",
+      "error": "Error reading the ledger: {message}",
+      "totalCost": "Real cost",
+      "calls": "{count} calls",
+      "cacheHit": "cache hit {rate}%",
+      "unknownCost": "{pct}% of calls use a model outside the catalog — real cost understated.",
+      "colFeature": "Task",
+      "colModel": "Model",
+      "colCalls": "Calls",
+      "colTokens": "Tokens in/out",
+      "colCache": "Cache r/w",
+      "colCost": "USD",
+      "refresh": "Refresh"
+    },
     "scale": {
       "colab": {
         "label": "Team members",

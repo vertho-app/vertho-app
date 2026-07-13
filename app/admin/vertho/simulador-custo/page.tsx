@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { DollarSign, Users, School, FileText, Building2, Clapperboard, UploadCloud } from 'lucide-react';
+import { DollarSign, Users, School, FileText, Building2, Clapperboard, UploadCloud, Activity, RefreshCw } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { CALLS, MODELS, MODEL_IDS, PRESETS, SCALE_LABEL, calcCost } from '@/lib/ia-cost-catalog';
+import { getUsoRealIA, type UsoRealLinha } from '@/actions/ia-uso';
 import type { AppLocale } from '@/i18n/routing';
 
 type ScaleType = 'colab' | 'conteudo' | 'extracao' | 'video_gerado' | 'pagina_radar' | 'lead_radar' | 'empresa';
@@ -158,6 +159,9 @@ export default function SimuladorCustoPage() {
         </div>
       </div>
 
+      {/* Real medido (ledger) */}
+      <RealPanel locale={locale} />
+
       {/* Tabela detalhada */}
       <div className="space-y-2">
         <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-2">{t('catalog.title')}</h2>
@@ -221,6 +225,137 @@ export default function SimuladorCustoPage() {
           ))}
         </ul>
       </div>
+    </div>
+  );
+}
+
+const WINDOWS = [7, 30, 90] as const;
+
+function RealPanel({ locale }: { locale: AppLocale }) {
+  const t = useTranslations('AdminCostSimulator');
+  const [dias, setDias] = useState<number>(30);
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [linhas, setLinhas] = useState<UsoRealLinha[] | null>(null);
+
+  const carregar = useCallback(async (d: number) => {
+    setLoading(true);
+    setErro(null);
+    try {
+      const r = await getUsoRealIA(d);
+      if ('erro' in r) { setErro(r.erro); setLinhas(null); }
+      else { setLinhas(r.linhas); }
+    } catch (e: any) {
+      setErro(e?.message || 'erro');
+      setLinhas(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { carregar(dias); }, [dias, carregar]);
+
+  const tot = useMemo(() => {
+    const ls = linhas || [];
+    let custo = 0, chamadas = 0, inTok = 0, outTok = 0, cacheR = 0, cacheW = 0, fracPeso = 0;
+    for (const l of ls) {
+      custo += l.custo_usd;
+      chamadas += l.chamadas;
+      inTok += l.input_tokens;
+      outTok += l.output_tokens;
+      cacheR += l.cache_read_tokens;
+      cacheW += l.cache_write_tokens;
+      fracPeso += l.custo_conhecido_frac * l.chamadas;
+    }
+    const cacheHit = cacheR + inTok > 0 ? (cacheR / (cacheR + inTok)) * 100 : 0;
+    const desconhecidoPct = chamadas > 0 ? (1 - fracPeso / chamadas) * 100 : 0;
+    return { custo, chamadas, inTok, outTok, cacheR, cacheW, cacheHit, desconhecidoPct };
+  }, [linhas]);
+
+  const nf = (n: number) => n.toLocaleString(locale);
+
+  return (
+    <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 mb-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <div>
+          <p className="text-sm font-bold text-cyan-200 flex items-center gap-2">
+            <Activity size={16} /> {t('real.heading')}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">{t('real.sub')}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-widest text-gray-500">{t('real.window')}</span>
+          <div className="flex gap-1">
+            {WINDOWS.map(w => (
+              <button key={w} onClick={() => setDias(w)}
+                className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                  dias === w ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300' : 'border-white/10 text-gray-400 hover:text-white'
+                }`}>
+                {w}d
+              </button>
+            ))}
+          </div>
+          <button onClick={() => carregar(dias)} disabled={loading}
+            className="p-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white disabled:opacity-40"
+            title={t('real.refresh')}>
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
+
+      {erro && <p className="text-xs text-red-300">{t('real.error', { message: erro })}</p>}
+      {loading && !linhas && <p className="text-xs text-gray-400">{t('real.loading')}</p>}
+      {linhas && linhas.length === 0 && <p className="text-xs text-gray-400">{t('real.empty')}</p>}
+
+      {linhas && linhas.length > 0 && (
+        <>
+          <div className="flex items-baseline justify-between flex-wrap gap-3 mb-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-cyan-400">{t('real.totalCost')}</p>
+              <p className="text-4xl font-extrabold text-cyan-300">USD {tot.custo.toFixed(2)}</p>
+              <p className="text-xs text-gray-400">
+                {t('real.calls', { count: nf(tot.chamadas) })} · {t('real.cacheHit', { rate: tot.cacheHit.toFixed(0) })}
+              </p>
+            </div>
+            <p className="text-xs text-gray-400 text-right">
+              {(tot.inTok / 1_000_000).toFixed(2)}M in + {(tot.outTok / 1_000_000).toFixed(2)}M out
+            </p>
+          </div>
+
+          {tot.desconhecidoPct > 0.5 && (
+            <p className="text-[11px] text-amber-300 mb-3">
+              ⚠ {t('real.unknownCost', { pct: tot.desconhecidoPct.toFixed(0) })}
+            </p>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wider text-gray-500 text-left">
+                  <th className="py-1.5 pr-3">{t('real.colFeature')}</th>
+                  <th className="py-1.5 pr-3">{t('real.colModel')}</th>
+                  <th className="py-1.5 pr-3 text-right">{t('real.colCalls')}</th>
+                  <th className="py-1.5 pr-3 text-right">{t('real.colTokens')}</th>
+                  <th className="py-1.5 pr-3 text-right">{t('real.colCache')}</th>
+                  <th className="py-1.5 text-right">{t('real.colCost')}</th>
+                </tr>
+              </thead>
+              <tbody className="text-gray-300" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {linhas.map((l, i) => (
+                  <tr key={`${l.feature}-${l.model}-${i}`} className="border-t border-white/[0.06]">
+                    <td className="py-1.5 pr-3 font-medium text-white">{l.feature}</td>
+                    <td className="py-1.5 pr-3 text-gray-400">{l.model}</td>
+                    <td className="py-1.5 pr-3 text-right">{nf(l.chamadas)}</td>
+                    <td className="py-1.5 pr-3 text-right">{nf(l.input_tokens)} / {nf(l.output_tokens)}</td>
+                    <td className="py-1.5 pr-3 text-right text-gray-500">{nf(l.cache_read_tokens)} / {nf(l.cache_write_tokens)}</td>
+                    <td className="py-1.5 text-right font-bold text-cyan-300">{l.custo_usd.toFixed(3)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 }

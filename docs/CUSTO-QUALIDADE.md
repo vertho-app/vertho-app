@@ -71,6 +71,23 @@ disciplina.
   (linha do route); a do wrapper é `source='wrapper'`. Sem isso o limite
   diário contaria 2× por resposta.
 
+**S1.3 (commit desta rodada) — ENTREGUE: estimado × real na mesma tela.**
+- O simulador de custo (`/admin/vertho/simulador-custo`) mostrava só o custo
+  ESTIMADO pelo catálogo. Agora tem um painel **Real medido (ledger)** logo
+  abaixo, lendo `ia_usage_log` por janela (7/30/90 dias): custo real, cache
+  hit-rate, tokens, e breakdown por (tarefa × modelo).
+- *Decisão MELHOR-não-fácil #1 — agregar no banco:* a soma é uma função SQL
+  (`ia_uso_resumo`, mig 178), não um fetch de linhas cruas pro Node. Escala com
+  o ledger crescendo; o Node só recebe ~N-tarefas linhas.
+- *Decisão #2 — fechar a exposição:* custo é dado sensível de plataforma.
+  `REVOKE ALL ... FROM PUBLIC` + `GRANT EXECUTE ... TO service_role` na função,
+  e a action `getUsoRealIA` gateada por `requireAdminAction` (platform admin).
+  Defesa em profundidade coerente com a postura do projeto.
+- *Decisão #3 — sinalizar o subestimado:* `custo_conhecido_frac` < 1 = chamadas
+  cujo modelo não está no catálogo (`cost_usd` NULL); a UI avisa que o real está
+  subestimado, em vez de mentir um número "completo". Torna a S2 observável: o
+  ledger deixou de ser write-only.
+
 ### S2 · Medição — NÃO fabricável numa sessão (por design)
 Precisa de ~7 dias de tráfego real. **Decisão:** ledger já no ar coletando; as
 projeções só se fixam com dado medido. Reconciliação com billing do provedor
@@ -143,6 +160,7 @@ qualidade".
 |---|---|---|
 | S1.1 | ✅ prod | Luna + ledger + pinned + preços (042396eb, f1d1c6aa) |
 | S1.2 | ✅ prod | taskKey + batch ledger + custo fonte única (fd6b3a16) |
+| S1.3 | ✅ prod | painel real×estimado no simulador + `ia_uso_resumo` (mig 178) |
 | S3/L1 | ✅ prod (flag OFF) | caching do histórico (aa6aae3d) |
 | S4 núcleo | ✅ ferramenta | ia-sinais + eval-harness (validado por mutação) |
 | S2, S3-resto, S5, S6, S7 | 🔒 desenhado/gated | gates de tempo (S2), medição (S3-resto), harness+goldens (S5), conteúdo+humano (S6), evidência (S7) |

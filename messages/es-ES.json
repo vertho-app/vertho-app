@@ -2881,6 +2881,25 @@
   "AdminCostSimulator": {
     "title": "Simulador de Coste — IA",
     "subtitle": "Estimación de gasto con llamadas de IA por unidad de escala (colaborador, escuela Radar, lead, empresa). Precios may/2026.",
+    "real": {
+      "heading": "Real medido (ledger)",
+      "sub": "Coste real de las llamadas registradas en ia_usage_log. Compara con la estimación de arriba.",
+      "window": "Ventana",
+      "loading": "Cargando…",
+      "empty": "Sin llamadas en el período — esperado hasta que corra una ruta/cierre.",
+      "error": "Error al leer el ledger: {message}",
+      "totalCost": "Coste real",
+      "calls": "{count} llamadas",
+      "cacheHit": "cache hit {rate}%",
+      "unknownCost": "{pct}% de las llamadas usan un modelo fuera del catálogo — coste real subestimado.",
+      "colFeature": "Tarea",
+      "colModel": "Modelo",
+      "colCalls": "Llam.",
+      "colTokens": "Tokens in/out",
+      "colCache": "Cache r/w",
+      "colCost": "USD",
+      "refresh": "Actualizar"
+    },
     "scale": {
       "colab": {
         "label": "Colaboradores",
