@@ -21,7 +21,9 @@
  *   - `costMultiplier` aplica desconto operacional conhecido (ex.: batch API).
  */
 
-// Preços por 1M tokens (USD) — atualizados em jun/2026.
+// Preços por 1M tokens (USD) — revisados em jul/2026.
+// ⚠️ gpt-5.4 estava $10/$30 aqui (superestimava ~4x/2x); corrigido para o preço
+// OFICIAL da doc OpenAI ($2,50/$15, cached $0,25) em 12/07/2026.
 export const MODELS = {
   // Anthropic
   'claude-opus-4-8':            { label: 'Claude Opus 4.8',     inUsd: 5,    outUsd: 25 },
@@ -32,8 +34,9 @@ export const MODELS = {
   'gemini-3.1-flash-lite':     { label: 'Gemini 3.1 Flash Lite',      inUsd: 0.25, outUsd: 1.50 },
   'gemini-3.5-flash':     { label: 'Gemini 3.5 Flash',      inUsd: 1.50, outUsd: 9 },
   // OpenAI
+  'gpt-5.6-luna':               { label: 'GPT 5.6 Luna',        inUsd: 1,    outUsd: 6 },
   'gpt-5.5':                    { label: 'GPT 5.5',             inUsd: 12,   outUsd: 36 },
-  'gpt-5.4':                    { label: 'GPT 5.4',             inUsd: 10,   outUsd: 30 },
+  'gpt-5.4':                    { label: 'GPT 5.4',             inUsd: 2.5,  outUsd: 15 },
   'gpt-5.4-mini':               { label: 'GPT 5.4 Mini',        inUsd: 1,    outUsd: 4 },
   'gpt-5.1':                    { label: 'GPT 5.1 (fallback)',  inUsd: 5,    outUsd: 15 },
   // Embeddings (sem custo de output)
@@ -82,7 +85,7 @@ export const CALLS = [
     inTokens: 4500,
     outTokens: 600,
     exec: 5,
-    defaultModel: 'gpt-5.4',
+    defaultModel: 'gemini-3.1-flash-lite', // = default real do código (check-ia4.ts)
     critical: true,
   },
 
@@ -289,7 +292,7 @@ export const CALLS = [
     inTokens: 6500,
     outTokens: 600,
     exec: 1,
-    defaultModel: 'gpt-5.4',
+    defaultModel: 'gpt-5.6-luna', // Onda 0 (DEFAULT_TASK_MODELS.acumulada_check)
     critical: true,
   },
 
@@ -315,7 +318,7 @@ export const CALLS = [
     inTokens: 9000,
     outTokens: 700,
     exec: 1,
-    defaultModel: 'gpt-5.4',
+    defaultModel: 'gpt-5.6-luna', // Onda 0 (DEFAULT_TASK_MODELS.sem14_check)
     critical: true,
   },
 
@@ -441,7 +444,7 @@ export const CALLS = [
     inTokens: 3500,
     outTokens: 600,
     exec: 4 * 5,
-    defaultModel: 'gpt-5.4',
+    defaultModel: 'gemini-3.1-flash-lite', // = default real do código (cenarios-b.ts)
     critical: false,
   },
 
@@ -627,11 +630,11 @@ export const CALLS = [
     fase: 'Extração de Vídeo',
     scaleType: 'extracao',
     nome: 'Auditoria Dual-IA (ao submeter à revisão)',
-    descricao: 'IA-auditora (GPT-5.4) valida os 4 blocos quando o módulo é submetido à revisão. Opcional — só conta se publicar via workflow.',
+    descricao: 'IA-auditora (GPT 5.6 Luna desde a Onda 0) valida os 4 blocos quando o módulo é submetido à revisão. Opcional — só conta se publicar via workflow.',
     inTokens: 9000,
     outTokens: 2000,
     exec: 1,
-    defaultModel: 'gpt-5.4',
+    defaultModel: 'gpt-5.6-luna', // Onda 0 (DEFAULT_TASK_MODELS.modulo_base_auditor)
     critical: false,
     opcional: true,
   },

@@ -14,6 +14,7 @@
     "lib/audit.ts": 1,
     "lib/i18n-server.ts": 2,
     "lib/permissions.ts": 1,
+    "actions/ai-client.ts": 1,
     "actions/avaliacao-acumulada.ts": 2,
     "actions/backup.ts": 1,
     "actions/conteudos-metrics.ts": 1,

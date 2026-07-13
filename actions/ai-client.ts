@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
 import { AppLocale, defaultLocale } from '@/i18n/routing';
 import { localeCookieName, localeLanguageName, resolveAppLocale } from '@/lib/i18n';
+import { MODELS } from '@/lib/ia-cost-catalog';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -33,6 +34,9 @@ export interface AICallOptions {
   // (ex.: IA4 sobre N colabs da mesma competência) as chamadas seguintes em 5min
   // pagam ~10% nesse trecho. Gemini/OpenAI: concatenado ao user (sem cache).
   cachedUserPrefix?: string;
+  // Etiqueta da tarefa no ledger de IA (ia_usage_log.feature). Sem ela a
+  // chamada é registrada como 'untagged' — adoção incremental pelos call-sites.
+  taskKey?: string;
 }
 
 export interface ChatMessage {
@@ -107,8 +111,8 @@ export async function callAI(
   // Providers sem prompt caching (Gemini/OpenAI) recebem o prefixo concatenado.
   const combinedUser = options.cachedUserPrefix ? `${options.cachedUserPrefix}\n\n${user}` : user;
   const dispatch = (m: string) => {
-    if (m.startsWith('gemini')) return callGemini(localizedSystem, combinedUser, m, maxTokens);
-    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAI(localizedSystem, combinedUser, m, maxTokens);
+    if (m.startsWith('gemini')) return callGemini(localizedSystem, combinedUser, m, maxTokens, options);
+    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAI(localizedSystem, combinedUser, m, maxTokens, options);
     return callClaude(localizedSystem, user, m, maxTokens, options);
   };
 
@@ -144,8 +148,8 @@ export async function callAIChat(
   const localizedSystem = withLanguageInstruction(system, locale);
 
   const dispatch = (m: string) => {
-    if (m.startsWith('gemini')) return callGeminiChat(localizedSystem, messages, m, maxTokens);
-    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAIChat(localizedSystem, messages, m, maxTokens);
+    if (m.startsWith('gemini')) return callGeminiChat(localizedSystem, messages, m, maxTokens, options);
+    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAIChat(localizedSystem, messages, m, maxTokens, options);
     return callClaudeChat(localizedSystem, messages, m, maxTokens, options);
   };
 
@@ -176,18 +180,66 @@ function extractClaudeText(content: any[]): string {
   return textBlock?.text || '';
 }
 
-// Instrumentação de prompt caching (Onda 1): mede o hit-rate real em produção.
-// Só loga quando há cache envolvido (evita ruído nas chamadas sem cache).
-// Ler em prod: grep "[ai-cache]" nos runtime logs da Vercel.
-function logCacheUsage(model: string, usage: any, tag?: string) {
-  if (!usage) return;
-  const read = usage.cache_read_input_tokens || 0;
-  const write = usage.cache_creation_input_tokens || 0;
-  const fresh = usage.input_tokens || 0;
-  if (!read && !write) return;
-  const base = read + write + fresh;
-  const hit = base ? Math.round((read / base) * 100) : 0;
-  console.log(`[ai-cache]${tag ? ` ${tag}` : ''} ${model} hit=${hit}% read=${read} write=${write} fresh=${fresh}`);
+// ── Ledger central de IA (Sprint 1) ─────────────────────────────────────────
+// Toda chamada de IA que passa pelo wrapper grava usage REAL em ia_usage_log
+// (mig 177): tokens in/out/cache, custo na tabela vigente, latência, provider.
+// Cobertura por construção: o log vive AQUI, não nos call-sites. Falha de log
+// nunca derruba a chamada (try/catch). `feature` = options.taskKey || 'untagged'.
+// ⚠️ Batch API (lib/ai-batch) não passa por aqui — ledger do batch é fatia S1.2.
+
+interface LedgerUsage {
+  inTokens: number;
+  outTokens: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+}
+
+function custoUsd(model: string, u: LedgerUsage): number | null {
+  const m = (MODELS as Record<string, { inUsd: number; outUsd: number }>)[model];
+  if (!m) return null;
+  // Cache read = 0,1x input; cache write = 1,25x (TTL 5min). input_tokens da
+  // Anthropic já EXCLUI os tokens de cache (campos separados); no OpenAI o
+  // caller desconta cached de prompt_tokens antes de chamar aqui.
+  return (
+    (u.inTokens * m.inUsd +
+      u.outTokens * m.outUsd +
+      (u.cacheRead || 0) * m.inUsd * 0.1 +
+      (u.cacheWrite || 0) * m.inUsd * 1.25) / 1_000_000
+  );
+}
+
+async function registrarUsoIA(
+  provider: 'anthropic' | 'gemini' | 'openai',
+  model: string,
+  u: LedgerUsage | null,
+  latencyMs: number,
+  options: AICallOptions,
+) {
+  try {
+    if (!u) return;
+    // Mantém a linha grep-ável [ai-cache] quando há cache (contrato da 1ª instrumentação).
+    const read = u.cacheRead || 0, write = u.cacheWrite || 0;
+    if (read || write) {
+      const base = read + write + u.inTokens;
+      console.log(`[ai-cache] ${model} hit=${base ? Math.round((read / base) * 100) : 0}% read=${read} write=${write} fresh=${u.inTokens}`);
+    }
+    const { createSupabaseAdmin } = await import('@/lib/supabase');
+    await createSupabaseAdmin().from('ia_usage_log').insert({
+      feature: options.taskKey || 'untagged',
+      provider,
+      model,
+      input_tokens: u.inTokens,
+      output_tokens: u.outTokens,
+      cache_read_tokens: read || null,
+      cache_write_tokens: write || null,
+      cost_usd: custoUsd(model, u),
+      latency_ms: latencyMs,
+      status: 'ok',
+      source: 'wrapper',
+    });
+  } catch (e: any) {
+    console.warn('[ia-ledger] falha ao registrar uso:', e?.message);
+  }
 }
 
 async function callClaude(
@@ -233,19 +285,32 @@ async function callClaude(
     }
   }
 
+  const t0 = Date.now();
   if (maxTokens > 8192) {
     let text = '';
+    const uso: LedgerUsage = { inTokens: 0, outTokens: 0, cacheRead: 0, cacheWrite: 0 };
     const stream = await client.messages.stream(params);
     for await (const event of stream as any) {
       if (event.type === 'content_block_delta' && event.delta?.text) {
         text += event.delta.text;
+      } else if (event.type === 'message_start' && event.message?.usage) {
+        uso.inTokens = event.message.usage.input_tokens || 0;
+        uso.cacheRead = event.message.usage.cache_read_input_tokens || 0;
+        uso.cacheWrite = event.message.usage.cache_creation_input_tokens || 0;
+      } else if (event.type === 'message_delta' && event.usage?.output_tokens != null) {
+        uso.outTokens = event.usage.output_tokens;
       }
     }
+    await registrarUsoIA('anthropic', model, uso, Date.now() - t0, options);
     return text;
   }
 
   const response = await client.messages.create(params);
-  logCacheUsage(model, (response as any).usage);
+  const u = (response as any).usage;
+  await registrarUsoIA('anthropic', model, u ? {
+    inTokens: u.input_tokens || 0, outTokens: u.output_tokens || 0,
+    cacheRead: u.cache_read_input_tokens || 0, cacheWrite: u.cache_creation_input_tokens || 0,
+  } : null, Date.now() - t0, options);
   return options.thinking
     ? extractClaudeText(response.content as any[])
     : (response.content as any[])[0].text;
@@ -283,19 +348,32 @@ async function callClaudeChat(
     }
   }
 
+  const t0 = Date.now();
   if (maxTokens > 8192) {
     let text = '';
+    const uso: LedgerUsage = { inTokens: 0, outTokens: 0, cacheRead: 0, cacheWrite: 0 };
     const stream = await client.messages.stream(params);
     for await (const event of stream as any) {
       if (event.type === 'content_block_delta' && event.delta?.text) {
         text += event.delta.text;
+      } else if (event.type === 'message_start' && event.message?.usage) {
+        uso.inTokens = event.message.usage.input_tokens || 0;
+        uso.cacheRead = event.message.usage.cache_read_input_tokens || 0;
+        uso.cacheWrite = event.message.usage.cache_creation_input_tokens || 0;
+      } else if (event.type === 'message_delta' && event.usage?.output_tokens != null) {
+        uso.outTokens = event.usage.output_tokens;
       }
     }
+    await registrarUsoIA('anthropic', model, uso, Date.now() - t0, options);
     return text;
   }
 
   const response = await client.messages.create(params);
-  logCacheUsage(model, (response as any).usage);
+  const u = (response as any).usage;
+  await registrarUsoIA('anthropic', model, u ? {
+    inTokens: u.input_tokens || 0, outTokens: u.output_tokens || 0,
+    cacheRead: u.cache_read_input_tokens || 0, cacheWrite: u.cache_creation_input_tokens || 0,
+  } : null, Date.now() - t0, options);
   return options.thinking
     ? extractClaudeText(response.content as any[])
     : (response.content as any[])[0].text;
@@ -308,9 +386,11 @@ async function callGemini(
   user: string,
   model: string,
   maxTokens: number,
+  options: AICallOptions = {},
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+  const t0 = Date.now();
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -333,6 +413,12 @@ async function callGemini(
   }
 
   const data = await res.json();
+  const um = data.usageMetadata;
+  await registrarUsoIA('gemini', model, um ? {
+    inTokens: (um.promptTokenCount || 0) - (um.cachedContentTokenCount || 0),
+    outTokens: um.candidatesTokenCount || 0,
+    cacheRead: um.cachedContentTokenCount || 0,
+  } : null, Date.now() - t0, options);
   return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
@@ -343,9 +429,11 @@ async function callOpenAI(
   user: string,
   model: string,
   maxTokens: number,
+  options: AICallOptions = {},
 ): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY not set');
+  const t0 = Date.now();
 
   const url = 'https://api.openai.com/v1/chat/completions';
 
@@ -375,6 +463,13 @@ async function callOpenAI(
   }
 
   const data = await res.json();
+  const uo = data.usage;
+  const cachedIn = uo?.prompt_tokens_details?.cached_tokens || 0;
+  await registrarUsoIA('openai', model, uo ? {
+    inTokens: (uo.prompt_tokens || 0) - cachedIn,
+    outTokens: uo.completion_tokens || 0,
+    cacheRead: cachedIn,
+  } : null, Date.now() - t0, options);
   return data.choices?.[0]?.message?.content || '';
 }
 
@@ -385,9 +480,11 @@ async function callGeminiChat(
   messages: ChatMessage[],
   model: string,
   maxTokens: number,
+  options: AICallOptions = {},
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+  const t0 = Date.now();
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -415,6 +512,12 @@ async function callGeminiChat(
   }
 
   const data = await res.json();
+  const um = data.usageMetadata;
+  await registrarUsoIA('gemini', model, um ? {
+    inTokens: (um.promptTokenCount || 0) - (um.cachedContentTokenCount || 0),
+    outTokens: um.candidatesTokenCount || 0,
+    cacheRead: um.cachedContentTokenCount || 0,
+  } : null, Date.now() - t0, options);
   return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
@@ -423,9 +526,11 @@ async function callOpenAIChat(
   messages: ChatMessage[],
   model: string,
   maxTokens: number,
+  options: AICallOptions = {},
 ): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY not set');
+  const t0 = Date.now();
 
   const isNew = model.startsWith('gpt-5') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
   const body: any = {
@@ -450,5 +555,12 @@ async function callOpenAIChat(
   }
 
   const data = await res.json();
+  const uo = data.usage;
+  const cachedIn = uo?.prompt_tokens_details?.cached_tokens || 0;
+  await registrarUsoIA('openai', model, uo ? {
+    inTokens: (uo.prompt_tokens || 0) - cachedIn,
+    outTokens: uo.completion_tokens || 0,
+    cacheRead: cachedIn,
+  } : null, Date.now() - t0, options);
   return data.choices?.[0]?.message?.content || '';
 }

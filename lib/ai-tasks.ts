@@ -95,9 +95,24 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
 const FALLBACK_GLOBAL = 'claude-sonnet-4-6';
 
 /**
+ * Tasks PINNED: imunes ao `modelo_padrao` genérico do tenant.
+ *
+ * Sem isto, uma empresa que setasse `sys_config.ai.modelo_padrao` (ex.: um
+ * Flash barato pro chat) rebaixaria SILENCIOSAMENTE as auditorias críticas —
+ * o genérico do tenant vencia o default por-task. O override EXPLÍCITO por
+ * task (`ai.modelos[taskKey]`) continua valendo: quem configura a task
+ * específica sabe o que está fazendo; o pin só barra o genérico.
+ */
+export const PINNED_TASKS = new Set([
+  'modulo_base_auditor',
+  'acumulada_check',
+  'sem14_check',
+]);
+
+/**
  * Resolve o modelo configurado para uma tarefa:
  *   1. sys_config.ai.modelos[taskKey] (específico, configurável por empresa)
- *   2. sys_config.ai.modelo_padrao (fallback da empresa)
+ *   2. sys_config.ai.modelo_padrao (fallback da empresa — IGNORADO se a task é pinned)
  *   3. DEFAULT_TASK_MODELS[taskKey] (default por task)
  *   4. 'claude-sonnet-4-6' (default absoluto)
  */
@@ -105,7 +120,7 @@ export function resolveTaskModel(sysConfig, taskKey) {
   const ai = sysConfig?.ai || {};
   const especifico = ai.modelos?.[taskKey];
   if (especifico) return especifico;
-  if (ai.modelo_padrao) return ai.modelo_padrao;
+  if (ai.modelo_padrao && !PINNED_TASKS.has(taskKey)) return ai.modelo_padrao;
   return DEFAULT_TASK_MODELS[taskKey] || FALLBACK_GLOBAL;
 }
 
