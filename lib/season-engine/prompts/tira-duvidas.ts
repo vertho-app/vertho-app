@@ -21,6 +21,10 @@ interface PromptTiraDuvidasParams {
   conhecimentoDescritor?: string;
   /** Contexto da função do colaborador (cargos_empresa). */
   cargoContexto?: string;
+  /** Resumo do blueprint (escopado à competência da semana) — personaliza. */
+  blueprintResumo?: string;
+  /** "Saiba mais" — outros conteúdos catalogados sobre o descritor da semana. */
+  conteudosRelacionados?: string;
 }
 
 function blocoDisc(perfil: string | null | undefined): string {
@@ -43,6 +47,8 @@ export function promptTiraDuvidas({
   groundingContext = '',
   conhecimentoDescritor = '',
   cargoContexto = '',
+  blueprintResumo = '',
+  conteudosRelacionados = '',
 }: PromptTiraDuvidasParams) {
   const nome = nomeColab || 'o colaborador';
 
@@ -136,6 +142,10 @@ NUNCA:
 - Assumir detalhes não trazidos pela pergunta
 
 ${cargoContexto ? `${cargoContexto}
+
+` : ''}${blueprintResumo ? `${blueprintResumo}
+
+` : ''}${conteudosRelacionados ? `${conteudosRelacionados}
 
 ` : ''}${conhecimentoDescritor ? `${conhecimentoDescritor}
 

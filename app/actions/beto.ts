@@ -7,6 +7,8 @@ import { CIS_COLUMNS } from '@/lib/supabase/mapCISProfile';
 import { DISC_DOUTRINA, buildPerfilComportamentalBlock } from '@/lib/disc-doutrina';
 import { carregarConhecimentoDescritorPorId, formatBlocoConhecimentoDescritor, carregarModuloBaseParaTutor } from '@/lib/competencia-conhecimento';
 import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
+import { carregarBlueprintResumo } from '@/lib/blueprint/resumo';
+import { buscarConteudosRelacionados, formatConteudosRelacionadosBloco } from '@/lib/conteudos-relacionados';
 
 const SYSTEM_PROMPT_BASE = `Você é o BETO (Business Evolution & Talent Optimizer), um mentor de desenvolvimento profissional acolhedor e empático da plataforma Vertho Mentor IA.
 
@@ -57,6 +59,14 @@ export async function chatWithBeto(userMessage: string, history: Array<{ role: s
 
         // Contexto da função (cargos_empresa) — entregas, stakeholders, decisões, tensões.
         if (ctx.cargoBloco) systemPrompt += `\n\n${ctx.cargoBloco}`;
+
+        // Plano de desenvolvimento (blueprint) — personaliza a orientação ao foco
+        // e aos objetivos de 30 dias do colaborador.
+        if (ctx.blueprintResumo) systemPrompt += `\n\n${ctx.blueprintResumo}`;
+
+        // Saiba mais — outros conteúdos catalogados sobre o tema em foco, para o
+        // Beto sugerir quando o colaborador pedir (sem inventar).
+        if (ctx.conteudosBloco) systemPrompt += `\n\n${ctx.conteudosBloco}`;
 
         systemPrompt += `\n\nCONTEXTO DO COLABORADOR:
 Nome: ${ctx.nome}
@@ -118,7 +128,10 @@ async function getBetoContext(email: string): Promise<any> {
     .limit(1)
     .single();
 
-  if (!envio) return { nome: colab.nome_completo, cargo: colab.cargo, cargoBloco, colab };
+  // Blueprint independe de Fase 4 — carrega já para valer nos dois caminhos.
+  const blueprintResumo = await carregarBlueprintResumo(sb, colab.id);
+
+  if (!envio) return { nome: colab.nome_completo, cargo: colab.cargo, cargoBloco, blueprintResumo, colab };
 
   let pilulaAtual = null;
   try {
@@ -132,15 +145,29 @@ async function getBetoContext(email: string): Promise<any> {
   // Competência em foco + conhecimento curado (SÓ definição — rubrica fica de
   // fora por segurança) + Módulo-Base pedagógico (quando autorado).
   let competenciaFoco = null;
+  let descritorFoco: string | null = null;
   let conhecimentoDescritor = '';
   if (envio.competencia_id) {
     const conhecimento = await carregarConhecimentoDescritorPorId(sb, envio.competencia_id);
     competenciaFoco = conhecimento?.competencia || null;
+    descritorFoco = conhecimento?.descritor || null;
     const blocoDescritor = formatBlocoConhecimentoDescritor(conhecimento);
     const blocoModulo = conhecimento?.competencia
       ? await carregarModuloBaseParaTutor(sb, { competenciaNome: conhecimento.competencia, empresaId: colab?.empresa_id })
       : '';
     conhecimentoDescritor = [blocoDescritor, blocoModulo].filter(Boolean).join('\n\n');
+  }
+
+  // Saiba mais — conteúdos catalogados sobre a competência/descritor em foco.
+  let conteudosBloco = '';
+  if (competenciaFoco) {
+    try {
+      const rel = await buscarConteudosRelacionados(sb, {
+        competencia: competenciaFoco, descritor: descritorFoco,
+        cargo: colab.cargo, empresaId: colab.empresa_id,
+      });
+      conteudosBloco = formatConteudosRelacionadosBloco(rel);
+    } catch { /* best-effort */ }
   }
 
   return {
@@ -151,6 +178,8 @@ async function getBetoContext(email: string): Promise<any> {
     competenciaFoco,
     conhecimentoDescritor,
     cargoBloco,
+    blueprintResumo,
+    conteudosBloco,
     colab,
   };
 }

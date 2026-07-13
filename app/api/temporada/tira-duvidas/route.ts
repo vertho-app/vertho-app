@@ -10,6 +10,8 @@ import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { carregarConhecimentoDescritor, formatBlocoConhecimentoDescritor, carregarModuloBaseParaTutor } from '@/lib/competencia-conhecimento';
 import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
+import { carregarBlueprintResumo } from '@/lib/blueprint/resumo';
+import { buscarConteudosRelacionados, formatConteudosRelacionadosBloco } from '@/lib/conteudos-relacionados';
 
 /**
  * POST /api/temporada/tira-duvidas
@@ -159,6 +161,28 @@ export async function POST(request) {
       console.warn('[tira-duvidas] contexto de cargo falhou (seguindo sem):', err?.message);
     }
 
+    // Plano de desenvolvimento — escopado à competência DA SEMANA (escopo travado).
+    let blueprintResumo = '';
+    try {
+      blueprintResumo = await carregarBlueprintResumo(sb, trilha.colaborador_id, { competenciaFoco: competenciaSemana });
+    } catch (err) {
+      console.warn('[tira-duvidas] blueprint falhou (seguindo sem):', err?.message);
+    }
+
+    // Saiba mais — outros conteúdos do descritor da semana (exclui o já consumido).
+    let conteudosRelacionados = '';
+    try {
+      const nivelC = typeof semanaPlan.nivel_atual === 'number' ? semanaPlan.nivel_atual : 1.5;
+      const rel = await buscarConteudosRelacionados(sb, {
+        competencia: competenciaSemana, descritor: semanaPlan.descritor,
+        nivel: nivelC, cargo: colab.cargo, empresaId: trilha.empresa_id,
+        excluirIds: c.core_id ? [c.core_id] : [],
+      });
+      conteudosRelacionados = formatConteudosRelacionadosBloco(rel);
+    } catch (err) {
+      console.warn('[tira-duvidas] conteúdos relacionados falhou (seguindo sem):', err?.message);
+    }
+
     // PII masking: substitui nome real por alias opaco antes de mandar pra IA
     const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
     // Sanitiza histórico (substitui PII do texto + nome do colab por alias)
@@ -178,6 +202,10 @@ export async function POST(request) {
       groundingContext: groundingBlock,
       conhecimentoDescritor,
       cargoContexto,
+      // Blueprint pode citar o nome do colab (foco_geral) → mascara. Conteúdos
+      // são títulos/links do catálogo, sem PII.
+      blueprintResumo: blueprintResumo ? maskTextPII(blueprintResumo, piiMap) : '',
+      conteudosRelacionados,
     });
 
     let respostaIA;
