@@ -47,6 +47,27 @@ export const MODELS = {
 
 export const MODEL_IDS = Object.keys(MODELS);
 
+/**
+ * Custo em USD a partir de tokens REAIS (ledger de IA). Fonte única usada pelo
+ * wrapper (callAI) e pelo batch. cache read = 0,1× input; write = 1,25× (TTL
+ * 5min). Batch API = −50%: passe `batch: true`. Retorna null se o modelo não
+ * está no catálogo (a linha do ledger fica sem custo, sinalizando gap).
+ */
+export function costFromTokens(
+  modelId: string,
+  t: { inTokens: number; outTokens: number; cacheRead?: number; cacheWrite?: number },
+  opts: { batch?: boolean } = {},
+): number | null {
+  const m = (MODELS as Record<string, { inUsd: number; outUsd: number }>)[modelId];
+  if (!m) return null;
+  const usd =
+    (t.inTokens * m.inUsd +
+      t.outTokens * m.outUsd +
+      (t.cacheRead || 0) * m.inUsd * 0.1 +
+      (t.cacheWrite || 0) * m.inUsd * 1.25) / 1_000_000;
+  return opts.batch ? usd * 0.5 : usd;
+}
+
 export const SCALE_LABEL = {
   colab: 'por colaborador',
   conteudo: 'por peça de conteúdo autorada',

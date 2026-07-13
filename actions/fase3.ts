@@ -210,7 +210,7 @@ R4: ${resp.r4 || '(sem resposta)'}`);
 7. Gere insumos — a consolidação matemática é feita depois`);
 
   const user = userBlocks.join('\n\n');
-  const ia4Opts = { ...IA4_CALL_OPTIONS, cachedUserPrefix };
+  const ia4Opts = { ...IA4_CALL_OPTIONS, cachedUserPrefix, taskKey: 'ia4_avaliacao' };
   let resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8192, ia4Opts);
   let avaliacao = await extractJSON(resultado);
 

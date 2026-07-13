@@ -156,7 +156,7 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
   let parsed: any = {};
   for (let tentativa = 1; tentativa <= 2; tentativa++) {
     meta.tentativas = tentativa;
-    const r = await callAI(systemScore, user, {}, 10000);
+    const r = await callAI(systemScore, user, {}, 10000, { taskKey: 'sem14_scorer' });
     try {
       parsed = validateEvolutionScenarioScore(parseJsonIA(r));
     } catch (e: any) {
@@ -217,7 +217,7 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
     // 2ª IA (auditor) configurável — default GPT 5.6 Luna (DEFAULT_TASK_MODELS.sem14_check).
     // Caller pode passar checkModel resolvido por empresa; senão cai no default da task.
     const sem14CheckModel = checkModel || DEFAULT_TASK_MODELS['sem14_check'];
-    const rCheck = await callAI(systemCheck, uCheck, sem14CheckModel ? { model: sem14CheckModel } : {}, 8000);
+    const rCheck = await callAI(systemCheck, uCheck, sem14CheckModel ? { model: sem14CheckModel } : {}, 8000, { taskKey: 'sem14_check' });
     auditoria = validateEvolutionScenarioCheck(parseJsonIA(rCheck));
 
     if (regeracao && auditoria?.resumo_auditoria) {

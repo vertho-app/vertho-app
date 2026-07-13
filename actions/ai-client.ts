@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
 import { AppLocale, defaultLocale } from '@/i18n/routing';
 import { localeCookieName, localeLanguageName, resolveAppLocale } from '@/lib/i18n';
-import { MODELS } from '@/lib/ia-cost-catalog';
+import { costFromTokens } from '@/lib/ia-cost-catalog';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -37,6 +37,10 @@ export interface AICallOptions {
   // Etiqueta da tarefa no ledger de IA (ia_usage_log.feature). Sem ela a
   // chamada é registrada como 'untagged' — adoção incremental pelos call-sites.
   taskKey?: string;
+  // Atribuição opcional (para custo por empresa/colaborador no ledger).
+  // Não obrigatório: o eixo primário do ledger é feature × modelo × tokens.
+  empresaId?: string | null;
+  colaboradorId?: string | null;
 }
 
 export interface ChatMessage {
@@ -194,20 +198,6 @@ interface LedgerUsage {
   cacheWrite?: number;
 }
 
-function custoUsd(model: string, u: LedgerUsage): number | null {
-  const m = (MODELS as Record<string, { inUsd: number; outUsd: number }>)[model];
-  if (!m) return null;
-  // Cache read = 0,1x input; cache write = 1,25x (TTL 5min). input_tokens da
-  // Anthropic já EXCLUI os tokens de cache (campos separados); no OpenAI o
-  // caller desconta cached de prompt_tokens antes de chamar aqui.
-  return (
-    (u.inTokens * m.inUsd +
-      u.outTokens * m.outUsd +
-      (u.cacheRead || 0) * m.inUsd * 0.1 +
-      (u.cacheWrite || 0) * m.inUsd * 1.25) / 1_000_000
-  );
-}
-
 async function registrarUsoIA(
   provider: 'anthropic' | 'gemini' | 'openai',
   model: string,
@@ -226,13 +216,15 @@ async function registrarUsoIA(
     const { createSupabaseAdmin } = await import('@/lib/supabase');
     await createSupabaseAdmin().from('ia_usage_log').insert({
       feature: options.taskKey || 'untagged',
+      empresa_id: options.empresaId ?? null,
+      colaborador_id: options.colaboradorId ?? null,
       provider,
       model,
       input_tokens: u.inTokens,
       output_tokens: u.outTokens,
       cache_read_tokens: read || null,
       cache_write_tokens: write || null,
-      cost_usd: custoUsd(model, u),
+      cost_usd: costFromTokens(model, u),
       latency_ms: latencyMs,
       status: 'ok',
       source: 'wrapper',

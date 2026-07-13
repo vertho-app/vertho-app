@@ -161,7 +161,7 @@ export async function POST(request) {
       if (proximoTurnIA === 1 && messages.length === 0) {
         messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme o TURN 1]' });
       }
-      let respostaIA = (await callAIChat(system, messages, {}, 4000)).trim();
+      let respostaIA = (await callAIChat(system, messages, {}, 4000, { taskKey: 'sem13_qualitativa' })).trim();
       // Despersonaliza output antes de persistir
       respostaIA = unmaskPII(respostaIA, piiMapQ);
       historico.push({ role: 'assistant', content: respostaIA, timestamp: new Date().toISOString(), turn: proximoTurnIA });

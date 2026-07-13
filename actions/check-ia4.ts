@@ -196,7 +196,7 @@ export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}
         const perfilCIS = formatPerfilContext(colab);
 
         const { prefix, user } = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
-        const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix });
+        const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check' });
         const raw = await extractJSON(resultado);
         const { status, check } = processCheckResult(raw);
 
@@ -274,7 +274,7 @@ export async function checarUmaResposta(respostaId: string, aiConfig: AIConfig =
     const perfilCIS = formatPerfilContext(colab as any);
 
     const { prefix, user } = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
-    const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix });
+    const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check' });
     const raw = await extractJSON(resultado);
     const { status, check } = processCheckResult(raw);
 

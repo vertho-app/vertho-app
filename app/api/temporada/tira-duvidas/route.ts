@@ -77,6 +77,7 @@ export async function POST(request) {
       .select('id', { count: 'exact', head: true })
       .eq('colaborador_id', trilha.colaborador_id)
       .eq('feature', 'tira_duvidas')
+      .is('source', null) // conta só as linhas do próprio route (1/resposta); a do wrapper é source='wrapper'
       .gte('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString());
     if ((usoHoje || 0) >= 10) {
       return NextResponse.json({
@@ -183,7 +184,9 @@ export async function POST(request) {
     try {
       // Sonnet 4.6: mais capaz para ancorar a explicação no conhecimento do
       // descritor + conteúdo recebido + módulo-base, mantendo o escopo.
-      respostaIA = (await callAIChat(system, messages as any, { model: 'claude-sonnet-4-6' }, 1500)).trim();
+      respostaIA = (await callAIChat(system, messages as any, { model: 'claude-sonnet-4-6' }, 1500, {
+        taskKey: 'tira_duvidas', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+      })).trim();
     } catch (err) {
       console.error('[tira-duvidas] callAIChat:', err);
       return NextResponse.json({ error: 'Erro na IA' }, { status: 500 });

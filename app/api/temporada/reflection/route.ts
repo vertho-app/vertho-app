@@ -361,7 +361,9 @@ export async function POST(request) {
 
     let respostaIA;
     try {
-      respostaIA = await callAIChat(promptData.system, promptData.messages, {}, 2000);
+      respostaIA = await callAIChat(promptData.system, promptData.messages, {}, 2000, {
+        taskKey: 'evidencias_socratic', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+      });
       respostaIA = (respostaIA || '').trim();
     } catch (err) {
       console.error('[reflection] callAIChat:', err);

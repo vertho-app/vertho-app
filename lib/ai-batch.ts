@@ -12,6 +12,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { AppLocale, defaultLocale } from '@/i18n/routing';
 import { localeLanguageName } from '@/lib/i18n';
 import { callAI } from '@/actions/ai-client';
+import { costFromTokens } from '@/lib/ia-cost-catalog';
 
 const AI_TIMEOUT_MS = 120000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -80,13 +81,48 @@ export async function pollClaudeBatch(batchId: string): Promise<BatchStatus> {
   };
 }
 
-/** Colhe os textos de um batch já `ended`, por customId. */
-export async function fetchClaudeBatchResults(batchId: string): Promise<Map<string, string>> {
+/**
+ * Colhe os textos de um batch já `ended`, por customId. Registra o usage REAL
+ * de cada item no ledger (ia_usage_log, source='batch', custo já com −50% do
+ * batch) — o batch não passa pelo wrapper callAI, então o log é aqui.
+ * `feature` etiqueta a fase (ex.: 'modulo_base_autor'); default 'batch'.
+ */
+export async function fetchClaudeBatchResults(
+  batchId: string,
+  ledger: { feature?: string; empresaId?: string | null } = {},
+): Promise<Map<string, string>> {
   const out = new Map<string, string>();
+  const linhas: any[] = [];
   for await (const entry of await anthropicClient().messages.batches.results(batchId)) {
     if (entry.result?.type === 'succeeded') {
-      const content = (entry.result.message?.content || []) as any[];
+      const msg = entry.result.message as any;
+      const content = (msg?.content || []) as any[];
       out.set(entry.custom_id, content.find((b) => b.type === 'text')?.text || '');
+      const u = msg?.usage;
+      if (u) {
+        const inTok = u.input_tokens || 0, outTok = u.output_tokens || 0;
+        const cr = u.cache_read_input_tokens || 0, cw = u.cache_creation_input_tokens || 0;
+        linhas.push({
+          feature: ledger.feature || 'batch',
+          empresa_id: ledger.empresaId ?? null,
+          provider: 'anthropic',
+          model: msg?.model || null,
+          input_tokens: inTok, output_tokens: outTok,
+          cache_read_tokens: cr || null, cache_write_tokens: cw || null,
+          cost_usd: msg?.model
+            ? costFromTokens(msg.model, { inTokens: inTok, outTokens: outTok, cacheRead: cr, cacheWrite: cw }, { batch: true })
+            : null,
+          status: 'ok', source: 'batch',
+        });
+      }
+    }
+  }
+  if (linhas.length) {
+    try {
+      const { createSupabaseAdmin } = await import('@/lib/supabase');
+      await createSupabaseAdmin().from('ia_usage_log').insert(linhas);
+    } catch (e: any) {
+      console.warn('[ia-ledger] falha ao registrar batch:', e?.message);
     }
   }
   return out;

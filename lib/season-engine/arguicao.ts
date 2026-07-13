@@ -192,7 +192,7 @@ export async function abrirArguicao(
   // de chat, para a IA formular a 1ª pergunta olhando a resposta. Para a IA vai
   // mascarado; no histórico persistido guardamos a versão CRUA (colab reabre).
   const seedAI: ArguicaoMsg[] = [mensagemContexto(aiCtx)];
-  const raw = await callAIChat(system, seedAI, aiConfig, 2048, { temperature: 0.4 });
+  const raw = await callAIChat(system, seedAI, aiConfig, 2048, { temperature: 0.4, taskKey: 'arguicao' });
   const reply = desmascarar(stripMeta(raw), pii);
   const historico: ArguicaoMsg[] = [
     mensagemContexto(ctx),
@@ -223,7 +223,7 @@ export async function turnoArguicao(
   const novoTurno = estado.turno + 1;
 
   const system = buildArguicaoSystemPrompt(ctxParaIA(ctx, pii), teto, novoTurno);
-  const raw = await callAIChat(system, histParaIA(historico, pii), aiConfig, 2048, { temperature: 0.4 });
+  const raw = await callAIChat(system, histParaIA(historico, pii), aiConfig, 2048, { temperature: 0.4, taskKey: 'arguicao' });
   const reply = desmascarar(stripMeta(raw), pii);
 
   const meta = lerMeta(raw);
