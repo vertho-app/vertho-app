@@ -30,6 +30,11 @@ export const MODELS = {
   'claude-opus-4-7':            { label: 'Claude Opus 4.7',     inUsd: 5,    outUsd: 25 },
   'claude-opus-4-6':            { label: 'Claude Opus 4.6',     inUsd: 5,    outUsd: 25 },
   'claude-sonnet-4-6':          { label: 'Claude Sonnet 4.6',   inUsd: 3,    outUsd: 15 },
+  // Sonnet 5 a preço INTRO (até 31/08/2026). GA = $3/$15. O ledger reflete o que
+  // pagamos hoje; a projeção GA do piloto de custo é calculada à parte.
+  'claude-sonnet-5':            { label: 'Claude Sonnet 5 (intro)', inUsd: 2, outUsd: 10 },
+  'claude-haiku-4-5':          { label: 'Claude Haiku 4.5',    inUsd: 1,    outUsd: 5 },
+  'claude-haiku-4-5-20251001': { label: 'Claude Haiku 4.5',    inUsd: 1,    outUsd: 5 },
   // Google
   'gemini-3.1-flash-lite':     { label: 'Gemini 3.1 Flash Lite',      inUsd: 0.25, outUsd: 1.50 },
   'gemini-3.5-flash':     { label: 'Gemini 3.5 Flash',      inUsd: 1.50, outUsd: 9 },

@@ -41,6 +41,10 @@ export interface AICallOptions {
   // Não obrigatório: o eixo primário do ledger é feature × modelo × tokens.
   empresaId?: string | null;
   colaboradorId?: string | null;
+  // Origem da chamada no ledger (ia_usage_log.source). Default 'wrapper'.
+  // O simulador de temporada marca 'simulator' para que as rodadas de medição
+  // sejam isoláveis do tráfego real e o overhead do "aluno" seja netável.
+  source?: string;
 }
 
 export interface ChatMessage {
@@ -227,7 +231,7 @@ async function registrarUsoIA(
       cost_usd: costFromTokens(model, u),
       latency_ms: latencyMs,
       status: 'ok',
-      source: 'wrapper',
+      source: options.source || 'wrapper',
     });
   } catch (e: any) {
     console.warn('[ia-ledger] falha ao registrar uso:', e?.message);
@@ -303,9 +307,9 @@ async function callClaude(
     inTokens: u.input_tokens || 0, outTokens: u.output_tokens || 0,
     cacheRead: u.cache_read_input_tokens || 0, cacheWrite: u.cache_creation_input_tokens || 0,
   } : null, Date.now() - t0, options);
-  return options.thinking
-    ? extractClaudeText(response.content as any[])
-    : (response.content as any[])[0].text;
+  // Sempre extrai o bloco de texto (não content[0]): modelos com adaptive
+  // thinking por padrão (Sonnet 5, Opus 4.8+) devolvem `thinking` em content[0].
+  return extractClaudeText(response.content as any[]);
 }
 
 async function callClaudeChat(
@@ -382,9 +386,10 @@ async function callClaudeChat(
     inTokens: u.input_tokens || 0, outTokens: u.output_tokens || 0,
     cacheRead: u.cache_read_input_tokens || 0, cacheWrite: u.cache_creation_input_tokens || 0,
   } : null, Date.now() - t0, options);
-  return options.thinking
-    ? extractClaudeText(response.content as any[])
-    : (response.content as any[])[0].text;
+  // Sempre extrai o bloco de texto (não content[0]): modelos com adaptive
+  // thinking por padrão (Sonnet 5, Opus 4.8+) devolvem um bloco `thinking` em
+  // content[0], sem `.text` → content[0].text seria undefined.
+  return extractClaudeText(response.content as any[]);
 }
 
 // ── Gemini (Google AI REST) ─────────────────────────────────────────────────
