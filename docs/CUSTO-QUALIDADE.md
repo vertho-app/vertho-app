@@ -88,10 +88,68 @@ disciplina.
   subestimado, em vez de mentir um número "completo". Torna a S2 observável: o
   ledger deixou de ser write-only.
 
-### S2 · Medição — NÃO fabricável numa sessão (por design)
-Precisa de ~7 dias de tráfego real. **Decisão:** ledger já no ar coletando; as
-projeções só se fixam com dado medido. Reconciliação com billing do provedor
-(≤5%) é o gate — feito quando houver 1 dia de volume.
+### S2 · Medição — PILOTO DE COORTE SINTÉTICA (sem esperar tráfego orgânico)
+
+Sem volume real, **geramos a carga**: 10 colabs sintéticos no acme-demo (5
+arquétipos DISC × 2 braços) rodando o simulador de temporada headless
+(`lib/season-engine/simulador-core.ts`), populando o ledger com `source='simulator'`.
+Custo é determinístico dado o input → tokens/cache/custo são REAIS. Aluno em
+Haiku (overhead netável, `sim_aluno`); mentor no modelo do braço.
+
+**O piloto pagou por si antes de terminar — 2 bugs de produção latentes:**
+1. **Wrapper quebrava com adaptive-thinking-default** (Sonnet 5/Opus 4.8+):
+   retornava `content[0].text`, mas o bloco `thinking` vem em `content[0]` →
+   `undefined.trim()`. Corrigido (`extractClaudeText`) e **deployado** (`9909b534`).
+   Teria quebrado QUALQUER roteamento p/ Sonnet 5 em prod.
+2. **`gpt-5.6-luna` 401 intermitente** (4/6) com a chave sk-proj → o
+   `acumulada_check` (Onda 0) falharia nos fechamentos reais sem ninguém ver.
+   Aluno voltou p/ Haiku; **`acumulada_check` precisa de correção à parte** (é
+   uma DECISÃO em aberto — ver abaixo).
+
+**Resultado 1 — custo real dos fluxos de chat (mentor+extração, só tokens):**
+- Sonnet 4.6 = **$1,44/colab** (socrático+missão+qualitativa+extrações; exclui
+  Tira-Dúvidas/BETO, que o simulador não dispara).
+- Estimativa do catálogo p/ os mesmos fluxos ≈ $1,33 → catálogo estava ~8% BAIXO.
+  Calibração boa; o `$3,07/usuário` do modelo se sustenta.
+
+**Resultado 2 — o cache está MORTO (`cacheRead=0` em 100% das chamadas).**
+- *Causa-raiz medida:* o system prompt do socrático/missão/qualitativa **embute
+  a instrução do turno** (`instrucaoTurn[turnIA]`) → o bloco marcado com
+  `cache_control` muda a cada turno → escreve cache novo toda vez, nunca lê.
+- *Efeito hoje:* ~5% de desperdício puro (write a 1,25× sem read). Pequeno.
+- *Oportunidade perdida (grande):* nessas chamadas o INPUT domina (socrático
+  in≈2800/out≈250). Um prefixo estável (persona+régua+desafio+nome, ~1500 tok)
+  cacheado ao longo dos 6-12 turnos de UMA conversa leria a 0,1× nos turnos 2..N.
+- **Ação S3 (a de maior valor medido):** reestruturar os prompts de chat —
+  prefixo estável no system cacheado, instrução volátil do turno movida para a
+  mensagem do usuário. Depois re-medir (o piloto vira o teste de regressão do
+  cache: `cacheRead` tem que sair de 0). NÃO é "ligar `CHAT_HISTORY_CACHE`" — é
+  consertar a ESTRUTURA antes.
+
+**Resultado 3 — veredito Sonnet 5 (braço do piloto, sob preço intro):**
+- **Tokens/tarefa +40% a +68%** vs 4.6 (o "+30% do tokenizer" era otimista) +
+  **output ~2×** (tokens de *thinking* entram como output).
+- Custo: **intro ($2/$10) ≈ empata** (+7%/colab); **GA ($3/$15) = +60%/colab**.
+- **Confiabilidade PIOR:** 9 falhas "Unterminated string in JSON" no braço 5 vs
+  **0** no 4.6 — o thinking come o budget de `max_tokens` e **trunca o JSON
+  estruturado** das extrações.
+- **Decisão: NÃO trocar para Sonnet 5.** Pior em custo (GA) E em confiabilidade
+  de saída estruturada. O preço intro é isca. Só reconsiderar se um teste com
+  goldens REAIS (S4, Ibipeba) mostrar ganho qualitativo grande E as extrações
+  ganharem budget de tokens. ⚠️ A qualidade em colab SINTÉTICO é evidência fraca
+  (o aluno é sintético) — o veredito de custo/confiabilidade é sólido; o de
+  qualidade fina fica p/ os goldens reais.
+
+**Decisão em aberto p/ o dono — `acumulada_check` (Luna 401):**
+(a) consertar a permissão da chave sk-proj no dashboard OpenAI; (b) repointar o
+check p/ um modelo confiável (muda o custo da Onda 0); (c) fallback no 401. É
+decisão porque afeta a economia da Onda 0.
+
+### S2 (orgânico) — ainda pendente
+O piloto dá o baseline dos fluxos guiados pelo mentor. Falta o tráfego real p/
+Tira-Dúvidas/BETO (iniciados pelo usuário) e p/ a densidade temporal do cache
+(a coorte roda em sequência = melhor caso). Reconciliação com billing ≤5% quando
+houver 1 dia de volume real.
 
 ### S3 · Desperdício sem trocar modelo
 
@@ -162,6 +220,7 @@ qualidade".
 | S1.2 | ✅ prod | taskKey + batch ledger + custo fonte única (fd6b3a16) |
 | S1.3 | ✅ prod | painel real×estimado no simulador + `ia_uso_resumo` (mig 178) |
 | S3/L1 | ✅ prod (flag OFF) | caching do histórico (aa6aae3d) |
+| S2 piloto | ✅ medido | coorte 10 no simulador → custo real $1,44/colab, cache MORTO (cacheR=0), Sonnet 5 GA +60% + trunca JSON, 2 bugs prod (9909b534) |
 | S4 núcleo | ✅ ferramenta | ia-sinais + eval-harness (validado por mutação) |
 | S2, S3-resto, S5, S6, S7 | 🔒 desenhado/gated | gates de tempo (S2), medição (S3-resto), harness+goldens (S5), conteúdo+humano (S6), evidência (S7) |
 
