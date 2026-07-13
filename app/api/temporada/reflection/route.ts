@@ -288,14 +288,17 @@ export async function POST(request) {
       content: maskTextPII(m.content, piiMap),
     }));
 
-    // RAG/grounding: query usa o tema da semana (descritor + competência) +
-    // últimas mensagens do colab pra captar contexto da conversa atual.
+    // RAG/grounding: query pelo TEMA da semana (competência + descritor), ESTÁVEL
+    // por conversa. Antes incluía as últimas mensagens do colab (adaptativo), o que
+    // fazia o grounding variar a cada turno e ENVENENAR o cache do system (medido
+    // na S4: cacheRead=0). Como grounding fica no bloco 1 cacheável, ele precisa ser
+    // idêntico entre turnos p/ ser lido a 0,1×. O tema é o mesmo da conversa toda,
+    // então a perda de adaptatividade é mínima; o ganho de cache é grande.
     let groundingBlock = '';
     try {
       const queryParts = [
         competenciaSemana.label,
         semanaPlan.descritor || (semanaPlan.descritores_cobertos || []).join(' '),
-        ...historico.filter(m => m.role === 'user').slice(-2).map(m => maskTextPII(m.content, piiMap).slice(0, 200)),
       ].filter(Boolean);
       const chunks = await retrieveContext(trilha.empresa_id, queryParts.join(' '), 4);
       groundingBlock = formatGroundingBlock(chunks);
@@ -363,12 +366,10 @@ export async function POST(request) {
     try {
       respostaIA = await callAIChat(promptData.system, promptData.messages, {}, 2000, {
         taskKey: 'evidencias_socratic', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
-        // Voláteis (grounding+instrução do turno) fora do prefixo cacheado.
-        // socratic usa userSuffix (history caching, atrás de flag); missao usa
-        // systemSuffix (2 blocos); analytic não usa nenhum → inalterado.
+        // Instrução do turno (volátil) no bloco 2 do system; persona+grounding no
+        // bloco 1 cacheado. Estratégia validada na S4 (não-inferior por perfil).
+        // socratic e missao usam systemSuffix; analytic não usa → inalterado.
         systemSuffix: (promptData as any).systemSuffix,
-        userSuffix: (promptData as any).userSuffix,
-        cacheHistory: !!(promptData as any).userSuffix && process.env.IA_CACHE_HISTORY === '1',
       });
       respostaIA = (respostaIA || '').trim();
     } catch (err) {

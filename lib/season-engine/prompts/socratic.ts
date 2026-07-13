@@ -170,10 +170,6 @@ SE A RESPOSTA VIER VAGA OU GENÉRICA:
 
 Se ${nomeColab} disser que não fez o desafio: acolha sem culpa, pergunte o que impediu, e continue a exploração socrática sobre as circunstâncias.`;
 
-  // VOLÁTEIS (mudam a cada turno) fora do system → `userSuffix`, para o prefixo
-  // system+histórico ser cacheável (history caching, S3). São o grounding (varia
-  // com a conversa) + a instrução do turno. Sem o flag cacheHistory, o wrapper
-  // reconcatena o userSuffix ao system (mesma posição do original → equivalente).
   const groundingBloco = groundingContext ? `GROUNDING (base de conhecimento):
 ${groundingContext}
 
@@ -183,7 +179,14 @@ REGRAS DE USO DO GROUNDING:
 - Não despeje conteúdo.
 - Não substitua a reflexão do colaborador pela base.
 - Quando usar, conecte ao que a pessoa já trouxe.` : '';
-  const userSuffix = [groundingBloco, instrucaoTurn].filter(Boolean).join('\n\n');
+
+  // Estratégia de cache VALIDADA na S4 (painel cego, não-inferioridade por perfil):
+  // grounding fica no SYSTEM (bloco 1 cacheável); só a instrução do turno (volátil)
+  // vai p/ `systemSuffix` (bloco 2, AINDA no system → mantém autoridade). Relocar a
+  // instrução p/ a mensagem (history caching) foi REPROVADO — degradava o perfil D.
+  // O cache do bloco 1 só rende se o grounding for ESTÁVEL por conversa (o caller
+  // deve consultar RAG por competência+descritor, não pelas últimas mensagens).
+  const systemComGrounding = groundingBloco ? `${system}\n\n${groundingBloco}` : system;
 
   const messages: ChatMessage[] = [];
   if (historico && historico.length > 0) {
@@ -193,5 +196,5 @@ REGRAS DE USO DO GROUNDING:
     messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme as regras do TURN 1]' });
   }
 
-  return { system, userSuffix, messages };
+  return { system: systemComGrounding, systemSuffix: instrucaoTurn, messages };
 }

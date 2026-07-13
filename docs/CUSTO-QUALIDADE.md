@@ -145,6 +145,32 @@ Haiku (overhead netável, `sim_aluno`); mentor no modelo do braço.
 check p/ um modelo confiável (muda o custo da Onda 0); (c) fallback no 401. É
 decisão porque afeta a economia da Onda 0.
 
+### S3+S4 · Cache do chat socrático — VALIDADO pelo harness (a S4 fez o trabalho)
+
+O piloto mediu que o cache do chat estava MORTO (a instrução do turno e o
+grounding, voláteis, ficavam no prefixo cacheado e o envenenavam). Duas
+tentativas de correção, e a S4 (painel cego de juízes) foi o juiz:
+
+1. **History caching** (instrução+grounding → cauda da mensagem, cachear
+   system+histórico): a medição de CUSTO adorou (−34% input, cacheR cresce). Mas
+   a **S4 REPROVOU** — A/B com painel Gemini+Haiku, não-inferioridade POR PERFIL,
+   pegou **degradação sistemática do perfil D** (ON 3,0 vs OFF 3,75). Mover a
+   instrução p/ a mensagem tira a autoridade dela. *Lição:* o custo não veria
+   isso; só o painel viu (juiz ÚNICO tinha até dito "ON melhor" — mascarou).
+2. **systemSuffix** (instrução FICA no system, bloco 2; grounding no bloco 1
+   cacheado): **S4 PROMOVEU** — 24 casos, 4 perfis DISC, ON não-inferior em
+   CS/D/I/S (total OFF 3,42 → ON 3,65). A degradação do D sumiu.
+
+**Entregue:** o socrático usa systemSuffix (`socratic.ts` devolve system[persona+
+grounding] + systemSuffix[instrução]); o grounding virou ESTÁVEL por conversa
+(query por competência+descritor, sem as últimas mensagens) para o bloco 1
+cachear. O ganho materializa em produção quando o RAG tem conteúdo (grounding não
+vazio → bloco 1 > 1024). Missão/qualitativa já estavam em systemSuffix.
+
+*Decisão-chave documentada:* a alavanca de custo só entra se a S4 aprovar. Aqui
+ela BARROU a versão mais econômica e aprovou a que preserva qualidade. É
+literalmente o "sem perder qualidade" em ação.
+
 ### S2 (orgânico) — ainda pendente
 O piloto dá o baseline dos fluxos guiados pelo mentor. Falta o tráfego real p/
 Tira-Dúvidas/BETO (iniciados pelo usuário) e p/ a densidade temporal do cache
