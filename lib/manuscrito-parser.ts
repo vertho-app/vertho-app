@@ -139,6 +139,12 @@ const RE_CAUDA = /^\s*S[íi]ntese\b.*$/gim;
 /** Fim da síntese: o que vem depois é bibliografia/apêndice. */
 const RE_POS_SINTESE = /^\s*(Bibliografia|Refer[êe]ncias|Ap[êe]ndice)\b.*$/gim;
 
+/** Títulos de capítulo ("Capítulo 1 — Ler os Próprios Sinais" → "Ler os Próprios Sinais"). */
+function extrairCapitulos(raw: string): string[] {
+  const re = /^\s*Cap[íi]tulo\s+\d+\s*[—–:-]\s*(.+?)\s*$/gim;
+  return [...raw.matchAll(re)].map((m) => m[1].trim());
+}
+
 export async function parsearManuscrito(buffer: Buffer): Promise<ManuscritoParseResult> {
   const { default: mammoth } = await import('mammoth');
   const raw = (await mammoth.extractRawText({ buffer })).value || '';
@@ -190,6 +196,7 @@ export async function parsearManuscrito(buffer: Buffer): Promise<ManuscritoParse
   });
 
   const total = parciais.length;
+  const contiguo = (nums: number[]) => Math.max(...nums) - Math.min(...nums) + 1 === nums.length;
 
   // ── Agrupa por rótulo de descritor (ordem de aparição) ────────────────────
   const grupos = new Map<string, typeof parciais>();
@@ -197,7 +204,6 @@ export async function parsearManuscrito(buffer: Buffer): Promise<ManuscritoParse
     if (!grupos.has(p.descritor)) grupos.set(p.descritor, []);
     grupos.get(p.descritor)!.push(p);
   }
-  const contiguo = (nums: number[]) => Math.max(...nums) - Math.min(...nums) + 1 === nums.length;
 
   // ── Esquema de numeração ──────────────────────────────────────────────────
   // SEQUENCIAL (COO06): cada descritor é um intervalo contíguo de MBs (1-9, 10-18…).
@@ -206,9 +212,33 @@ export async function parsearManuscrito(buffer: Buffer): Promise<ManuscritoParse
   //   (1,2,13,14,25,26,37,38) — o grupo NÃO é contíguo. A síntese (49-54) pode
   //   vir junto (SED08, rótulo = descritor) ou como seção "INTEGRAÇÃO" à parte
   //   (DIR09/COO03, grupo contíguo no topo, rótulo distinto → excluída).
-  const gruposArr = [...grupos.entries()].map(([nome, mbs]) => ({
-    nome, mbs, nums: mbs.map((m) => m.num), cont: contiguo(mbs.map((m) => m.num)),
-  }));
+  let gruposArr: { nome: string; mbs: typeof parciais; nums: number[]; cont: boolean }[];
+
+  if (grupos.size < 4) {
+    // RÓTULO CONSTANTE (DIR02): o cabeçalho repete o nome da COMPETÊNCIA, não os
+    // descritores — estes são os capítulos. Em ordem de documento, cada descritor
+    // é um bloco cujos números CRESCEM (1,2,13,14,25,26,37,38,49) e CAEM na virada
+    // pro próximo (…49 → 3). Fatia nesses pontos de queda; nomeia pelos capítulos.
+    const blocos: (typeof parciais)[] = [];
+    let atual: typeof parciais = [];
+    let prev = -Infinity;
+    for (const p of parciais) {
+      if (p.num < prev && atual.length) { blocos.push(atual); atual = []; }
+      atual.push(p); prev = p.num;
+    }
+    if (atual.length) blocos.push(atual);
+
+    const capitulos = extrairCapitulos(raw);
+    gruposArr = blocos.map((mbs, i) => ({
+      nome: capitulos[i] || `Descritor ${i + 1}`,
+      mbs, nums: mbs.map((m) => m.num), cont: contiguo(mbs.map((m) => m.num)),
+    }));
+    avisos.push(`Cabeçalho com rótulo único ("${[...grupos.keys()][0]}"); ${blocos.length} descritores derivados por capítulo/numeração.`);
+  } else {
+    gruposArr = [...grupos.entries()].map(([nome, mbs]) => ({
+      nome, mbs, nums: mbs.map((m) => m.num), cont: contiguo(mbs.map((m) => m.num)),
+    }));
+  }
   const sequencial = gruposArr.every((g) => g.cont);
 
   // Descritores principais vs seção de integração.

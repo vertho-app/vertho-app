@@ -124,7 +124,7 @@ export const gerarModulosManuscritoTask = task({
             await pushProgress(`batch: ${st.counts.succeeded}/${total} prontos, ${st.counts.processing} na fila…`);
             await wait.for({ seconds: 60 });
           }
-          respostas = await fetchClaudeBatchResults(batchId);
+          respostas = await fetchClaudeBatchResults(batchId, { feature: 'modulo_base_autor', empresaId });
         } catch (e: any) {
           console.warn(`[gerar-modulos-manuscrito] batch falhou (${e?.message}) — fallback síncrono por módulo`);
         }

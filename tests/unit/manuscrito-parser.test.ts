@@ -32,7 +32,15 @@ function manuscrito(opts: { scheme: string; sep?: string; glue?: boolean; cod?: 
     linhas.push(`Corpo do microbloco ${num}. `.repeat(200)); // ~5k chars
   };
 
-  if (scheme === 'sequencial') {
+  if (scheme === 'faixa-capitulo') {
+    // DIR02: rótulo do cabeçalho = nome da COMPETÊNCIA (constante); descritores são
+    // capítulos; numeração por-faixa em ORDEM DE DOCUMENTO por descritor.
+    for (let d = 0; d < D; d++) {
+      linhas.push(`Capítulo ${d + 1} — ${descNomes[d]}`);
+      const nums = [d * 2 + 1, d * 2 + 2, 12 + d * 2 + 1, 12 + d * 2 + 2, 24 + d * 2 + 1, 24 + d * 2 + 2, 36 + d * 2 + 1, 36 + d * 2 + 2, 48 + d + 1];
+      for (const n of nums) bloco('Autocuidado e resiliência', n, `Ação ${n}`);
+    }
+  } else if (scheme === 'sequencial') {
     // desc1 = 1..9, desc2 = 10..18, …
     for (let d = 0; d < D; d++) for (let k = 1; k <= 9; k++) bloco(descNomes[d], d * 9 + k, `Ação ${d}-${k}`);
   } else {
@@ -88,6 +96,19 @@ describe('parsearManuscrito — convenções', () => {
     expect(d1.microblocos.map((m) => m.faixa)).toEqual(['N1', 'N1', 'N2', 'N2', 'N3', 'N3', 'N4', 'N4']);
     expect(d1.transicoes[0].microblocos).toHaveLength(4); // sem síntese
     expect(r.avisos.some((a) => /INTEGRAÇÃO/.test(a))).toBe(true);
+  });
+
+  it('DIR02: rótulo constante (competência), descritores derivados dos capítulos', async () => {
+    const r = await parse(manuscrito({ scheme: 'faixa-capitulo' }));
+    expect(r.stats.totalDescritores).toBe(6);
+    expect(r.stats.modulosPrevistos).toBe(18);
+    // nomes vêm dos capítulos, não do rótulo do cabeçalho
+    expect(r.descritores[0].descritor).toBe('Descritor 1');
+    expect(r.descritores.map((d) => d.descritor)).not.toContain('Autocuidado e resiliência');
+    const d1 = r.descritores[0];
+    expect(d1.microblocos.map((m) => Number(m.id.split('_MB')[1]))).toEqual([1, 2, 13, 14, 25, 26, 37, 38, 49]);
+    expect(d1.microblocos.map((m) => m.faixa)).toEqual(['N1', 'N1', 'N2', 'N2', 'N3', 'N3', 'N4', 'N4', 'SINTESE']);
+    expect(r.avisos.some((a) => /rótulo único/.test(a))).toBe(true);
   });
 
   it('falha alto quando não há microbloco', async () => {
