@@ -333,7 +333,7 @@ export interface PlanoCoorteItem {
 
 export async function planejarKitsCoorte(
   empresaId: string,
-  opts: { executar?: boolean; incluirVideo?: boolean; contexto?: string; nivelMin?: number; nivelMax?: number } = {},
+  opts: { executar?: boolean; incluirVideo?: boolean; contexto?: string; nivelMin?: number; nivelMax?: number; semanaMax?: number } = {},
 ) {
   try {
     const sb = await requireAdminSupabase('content.manage');
@@ -370,10 +370,14 @@ export async function planejarKitsCoorte(
       const e = demanda.get(key)!;
       e.discs.add(disc); e.pessoas.add(colabId);
     };
+    // semanaMax: escopa a demanda às primeiras N semanas (ex.: 1 = só a semana 1).
+    // Sem semanaMax → todas as semanas de conteúdo (comportamento original).
+    const semanaMax = Number.isFinite(opts.semanaMax) ? Number(opts.semanaMax) : null;
     for (const [colabId, t] of ultima) {
       const disc = discDe.get(colabId) || '';
       for (const semana of Array.isArray(t.temporada_plano) ? t.temporada_plano : []) {
         if (semana?.tipo !== 'conteudo') continue;
+        if (semanaMax != null && Number(semana?.semana ?? 0) > semanaMax) continue;
         if (Array.isArray(semana.conteudos_dia) && semana.conteudos_dia.length) {
           for (const cd of semana.conteudos_dia) add(colabId, cd.competencia || t.competencia_foco, cd.descritor, disc);
         } else {

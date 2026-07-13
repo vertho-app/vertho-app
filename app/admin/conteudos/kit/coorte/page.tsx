@@ -17,6 +17,7 @@ export default function CoorteKitPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [res, setRes] = useState<any>(null);
   const [incluirVideo, setIncluirVideo] = useState(true);
+  const [semanaMax, setSemanaMax] = useState<string>('');
   const [jobStatus, setJobStatus] = useState<Record<string, any>>({});
 
   const semEmpresa = !empresaFiltro || empresaFiltro === 'all';
@@ -26,7 +27,7 @@ export default function CoorteKitPage() {
     setBusy(true); setErro(null);
     if (!executar) { setRes(null); setJobStatus({}); }
     try {
-      const r: any = await planejarKitsCoorte(empresaFiltro, { executar, incluirVideo });
+      const r: any = await planejarKitsCoorte(empresaFiltro, { executar, incluirVideo, semanaMax: semanaMax ? Number(semanaMax) : undefined });
       if (r.error) { setErro(r.error); setBusy(false); return; }
       setRes(r);
       if (executar) pollJobs(r.plano.filter((p: any) => p.jobId).map((p: any) => p.jobId));
@@ -73,6 +74,11 @@ export default function CoorteKitPage() {
           <label className="text-xs text-white/60 flex items-center gap-2">
             <input type="checkbox" checked={incluirVideo} onChange={(e) => setIncluirVideo(e.target.checked)} disabled={busy} />
             incluir vídeo (HeyGen/render — custo de GPU)
+          </label>
+          <label className="text-xs text-white/60 flex items-center gap-2">
+            até a semana
+            <input type="number" min="1" max="14" value={semanaMax} onChange={(e) => setSemanaMax(e.target.value)} disabled={busy}
+              placeholder="todas" className="w-16 bg-white/5 border border-white/15 rounded px-2 py-1 text-white text-center outline-none" />
           </label>
           {resumo && resumo.totalFaltantes > 0 && (
             <button onClick={() => analisar(true)} disabled={busy}
