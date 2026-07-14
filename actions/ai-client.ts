@@ -118,7 +118,10 @@ async function withAIRetry<T>(fn: () => Promise<T>, label: string, max = 4): Pro
 
 // Fallback de PROVEDOR quando o primário (Claude) fica sobrecarregado mesmo após
 // retries (ex.: outage de 529 da Anthropic). Gera por GPT-5.4 (OpenAI) em vez de
-// falhar. Sobrescreva com a env AI_FALLBACK_MODEL.
+// falhar. Sobrescreva com a env AI_FALLBACK_MODEL (já setada no Vercel = gpt-5.4).
+// ⚠️ NÃO é a mesma coisa que OPENAI_FALLBACK_MODEL: essa outra é knob EXCLUSIVA do
+// Radar (lib/radar/*, default gpt-5.1) e NÃO afeta este fallback central. Manter
+// os dois nomes separados de propósito — são fallbacks de subsistemas diferentes.
 const AI_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gpt-5.4';
 
 export async function callAI(

@@ -1,10 +1,13 @@
 'use server';
 
 import { enviarPDF } from './whatsapp';
-import { APP_URL } from '@/lib/domain';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
+import { renderToBuffer } from '@react-pdf/renderer';
+import RelatorioIndividualPDF from '@/components/pdf/RelatorioIndividual';
+import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import React from 'react';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -19,7 +22,7 @@ export async function enviarPDFsLote(empresaId: string) {
 
     // Fetch individual reports that have collaborators with phone numbers
     const { data: relatorios } = await sb.from('relatorios')
-      .select('id, conteudo, colaborador_id, colaboradores!inner(nome_completo, telefone)')
+      .select('id, conteudo, colaborador_id, colaboradores!inner(nome_completo, telefone, cargo)')
       .eq('empresa_id', empresaId)
       .eq('tipo', 'individual')
       .not('colaboradores.telefone', 'is', null);
@@ -34,20 +37,25 @@ export async function enviarPDFsLote(empresaId: string) {
       if (!telefone) continue;
 
       try {
-        // Generate PDF via internal API
-        const pdfRes = await fetch(`${APP_URL}/api/relatorio-pdf/${rel.id}`, {
-          method: 'GET',
-          headers: {
-            'x-api-key': process.env.INTERNAL_API_KEY || '',
-          },
-        });
-
-        if (!pdfRes.ok) {
-          erros++;
-          continue;
-        }
-
-        const pdfBuffer = await pdfRes.arrayBuffer();
+        // Renderiza o PDF EM PROCESSO. O action já roda server-side com privilégio
+        // admin e o `rel` veio de uma query escopada por empresa_id (tenant-safe),
+        // então dispensa self-fetch HTTP (a rota /api/relatorio-pdf/{id} nunca
+        // existiu — a real é /api/relatorios/pdf?id=, e exige sessão de usuário que
+        // este fetch server-to-server não tem). Mesmo componente da rota.
+        const conteudo = typeof rel.conteudo === 'string' ? JSON.parse(rel.conteudo) : rel.conteudo;
+        const data = {
+          ...rel,
+          conteudo,
+          colaborador_nome: rel.colaboradores.nome_completo,
+          colaborador_cargo: rel.colaboradores.cargo || '',
+        };
+        const pdfBuffer = await renderToBuffer(
+          React.createElement(RelatorioIndividualPDF, {
+            data,
+            empresaNome: empresa?.nome || '',
+            logoBase64: getLogoCoverBase64(),
+          }) as any,
+        );
         const pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
         const filename = `Relatorio_${rel.colaboradores.nome_completo.replace(/\s+/g, '_')}.pdf`;
 
