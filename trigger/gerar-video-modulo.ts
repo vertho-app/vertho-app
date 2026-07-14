@@ -71,6 +71,19 @@ async function patchVideo(videoId: string, fields: Record<string, unknown>): Pro
   if (!r.ok) throw new Error(`patch video ${videoId}: ${r.status} ${(await r.text()).slice(0, 150)}`);
 }
 
+/** Assets já persistidos no registro (RESUME: retry/re-render NÃO re-gera narração
+ *  nem avatar/HeyGen — reusa o que já foi feito). Vazio no 1º processamento. */
+async function getVideoAssets(videoId: string): Promise<AssetMap> {
+  try {
+    const r = await fetch(`${SUPA}/rest/v1/videos_gerados?id=eq.${videoId}&select=assets`, {
+      headers: { apikey: KEY, Authorization: `Bearer ${KEY}` },
+    });
+    if (!r.ok) return {};
+    const j = await r.json().catch(() => []);
+    return (j?.[0]?.assets as AssetMap) || {};
+  } catch { return {}; }
+}
+
 /**
  * Re-encoda o mp4 do avatar para CFR no fps-alvo da composição. O HeyGen entrega
  * 25fps; sem isso o OffthreadVideo (30fps) reamostra e descasa o lip-sync. Mantém
@@ -162,12 +175,15 @@ export const gerarVideoModuloTask = task({
   }) => {
     const { videoId, roteiro } = p;
     try {
-      const assets: AssetMap = {};
+      // RESUME: parte dos assets já persistidos (retry do Trigger ou re-render de um
+      // render_queued que não achou box) → NÃO re-gera narração/avatar/HeyGen.
+      const assets: AssetMap = await getVideoAssets(videoId);
 
       // 1) NARRAÇÃO — uma voz (Callirrhoe, ritmo ágil) em todo o vídeo. Paralela
       // (pool) — antes era sequencial (~3s × N cenas). Saída idêntica (assets por id).
+      // Pula cenas cujo áudio já existe (resume).
       await patchVideo(videoId, { etapa: 'narracao' });
-      const comNarracao = roteiro.scenes.filter((s) => s.narration?.trim());
+      const comNarracao = roteiro.scenes.filter((s) => s.narration?.trim() && !assets[s.id]?.src);
       await mapPool(comNarracao, NARRACAO_CONCURRENCY, async (s) => {
         const audio = await generateNarrationAudio(aplicarPronuncia(s.narration as string), { voice: VOICE, style: styleForScene(s.type) });
         // Corta a cauda muda do TTS → avatar termina junto com a fala + Whisper não alucina no silêncio.
@@ -181,7 +197,9 @@ export const gerarVideoModuloTask = task({
       // 2) AVATAR — HeyGen faz lip-sync do NOSSO mp3; re-hospedamos o mp4 (URL HeyGen
       // expira). Cenas de avatar em paralelo (intro + outro).
       await patchVideo(videoId, { etapa: 'avatar' });
-      const avatares = roteiro.scenes.filter((s) => s.type.startsWith('avatar') && assets[s.id]?.src);
+      // Pula avatares já renderizados: `audioSrc` só é setado APÓS o HeyGen (resume →
+      // não re-chama o HeyGen, que é a etapa cara/lenta).
+      const avatares = roteiro.scenes.filter((s) => s.type.startsWith('avatar') && assets[s.id]?.src && !assets[s.id]?.audioSrc);
       await mapPool(avatares, 2, async (s) => {
         const audioUrl = assets[s.id].src;
         const heygenId = await gerarClipHeyGen(audioUrl, { width: 1920, height: 1080 });
