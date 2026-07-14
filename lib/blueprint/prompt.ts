@@ -84,6 +84,8 @@ REGRAS DURAS DA TRILHA (obedeça exatamente):
 - Semanas de MISSÃO prática: exatamente as semanas em SEMANAS_MISSAO (tipo "missao").
 - Semanas de AVALIAÇÃO: exatamente as semanas em SEMANAS_AVALIACAO (tipo "avaliacao"). Cada uma mede UMA competência específica: com 2 competências, a 1ª semana de avaliação mede a competência 1 (seu "conexao_com_pdi" = objetivos da competência 1, e "descritores_foco" = descritores DA competência 1) e a 2ª mede a competência 2. Os "descritores_foco" e a "evidencia_esperada" SAEM das competências/descritores DESTE blueprint — NUNCA invente descritor novo (ex.: "Entrega de resultados", "Corresponsabilidade" fora do foco). A evidência da avaliação é uma DEMONSTRAÇÃO OBSERVÁVEL do que foi praticado (uma entrega/ação verificável por terceiros) — NUNCA autoavaliação, portfólio, "síntese pessoal" ou "o que aprendi".
 - As demais semanas são "conteudo" (ou "reflexao" quando fizer sentido).
+- DENSIDADE (regra dura): TODA semana "tipo": "conteudo" DEVE ter EXATAMENTE 2 descritores_foco DISTINTOS da MESMA competência foco daquela semana — nunca 1. (2 descritores da mesma competência por semana forma hábito melhor que 1.)
+  * Se a competência da semana tiver poucos descritores com gap, complete os 2 com os descritores de MENOR nota (maior gap) da MESMA competência — mas jamais entregue uma semana de conteúdo com 1 descritor.
 - REGRA MÁXIMA: TODA semana referencia ≥1 id de "objetivos_30_dias" no campo "conexao_com_pdi" (array não-vazio). Nenhuma semana pode ficar sem vínculo com o PDI.
 - "competencia_foco" de cada semana usa nomes EXATOS das competências do input; "descritores_foco" usa descritores reais do input.
 
@@ -122,7 +124,7 @@ FORMATO OBRIGATÓRIO (DevelopmentBlueprint):
   "trilha": {
     "duracao_semanas": 0,
     "semanas": [
-      { "semana": 1, "tipo": "conteudo|missao|reflexao|avaliacao", "competencia_foco": ["nome"], "descritores_foco": ["descritor"], "objetivo_da_semana": "", "conexao_com_pdi": ["obj-1"], "evidencia_esperada": "", "criterio_de_sucesso": "" }
+      { "semana": 1, "tipo": "conteudo|missao|reflexao|avaliacao", "competencia_foco": ["nome"], "descritores_foco": ["descritor 1", "descritor 2"], "objetivo_da_semana": "", "conexao_com_pdi": ["obj-1"], "evidencia_esperada": "", "criterio_de_sucesso": "" }
     ]
   }
 }
