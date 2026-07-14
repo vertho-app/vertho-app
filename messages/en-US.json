@@ -2631,6 +2631,8 @@
       "rel-gestor": "Manager",
       "rel-rh": "HR",
       "envios-rel": "Send Reports",
+      "iniciar-envios": "Start Sends",
+      "pausar-envios": "Pause Sends",
       "assessment": "Assessment Descriptors",
       "temporadas": "Generate Seasons",
       "kits-jornada": "Generate Journey Kits",
@@ -2733,7 +2735,8 @@
         "evolucao": "Evolution will GENERATE 3-source fusion reports for EVERY collaborator.\n\nExpensive (AI) operation and overwrites previous reports. Confirm?",
         "plenaria": "Evolution Plenary will GENERATE the aggregated report for the whole company.\n\nExpensive (AI) operation and overwrites the previous plenary. Confirm?",
         "rh-links": "Send Profile Links will SEND messages (WhatsApp/email) to every collaborator who has not accessed the external profile yet.\n\nMessages cannot be unsent. Confirm?",
-        "rh-dossie": "Generate Manager Dossier will PRODUCE an aggregated document for the whole company.\n\nExpensive (AI) operation and overwrites the previous dossier. Confirm?"
+        "rh-dossie": "Generate Manager Dossier will PRODUCE an aggregated document for the whole company.\n\nExpensive (AI) operation and overwrites the previous dossier. Confirm?",
+        "iniciar-envios": "Start Sends will ENABLE the weekly automatic WhatsApp delivery (pills and challenges) for ALL collaborators with an active track.\n\nMessages will start firing on the company's cadence. Confirm?"
       }
     }
   },

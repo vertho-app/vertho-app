@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { formatarLiberacao } from '@/lib/season-engine/week-gating';
@@ -46,6 +46,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const { week } = use(params);
   const semanaNum = Number(week);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const sb = getSupabase();
 
   const [data, setData] = useState(null);
@@ -80,7 +81,10 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
       if (!r.error) {
         setData(r);
         const semana = (r.trilha?.temporada_plano || []).find(s => s.semana === semanaNum);
-        setFormatoAtivo(semana?.conteudo?.formato_core || null);
+        // Deep-link da pílula (?formato=video|audio|texto|case) abre a semana já
+        // no formato preferido do colab; senão, cai no formato_core da semana.
+        const fmtParam = searchParams.get('formato');
+        setFormatoAtivo(fmtParam || semana?.conteudo?.formato_core || null);
         const prog = (r.progresso || []).find(p => p.semana === semanaNum);
         // Sem 14 guarda dados em `feedback`, mesmo sendo tipo='avaliacao'.
         // Sem 13 em `reflexao`. Aplicação (4/8/12) em `feedback`. Conteúdo em `reflexao`.

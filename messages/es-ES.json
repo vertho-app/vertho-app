@@ -2637,6 +2637,8 @@
       "rel-gestor": "Gestor",
       "rel-rh": "RR. HH.",
       "envios-rel": "Enviar Informes",
+      "iniciar-envios": "Iniciar Envíos",
+      "pausar-envios": "Pausar Envíos",
       "assessment": "Descriptores de Assessment",
       "temporadas": "Generar Temporadas",
       "kits-jornada": "Generar Kits de la Jornada",
@@ -2739,7 +2741,8 @@
         "evolucao": "Evolución generará informes de fusión (3 fuentes) para TODOS los colaboradores.\n\nOperación costosa (IA) y sobrescribe informes anteriores. ¿Confirmas?",
         "plenaria": "Plenaria Evolución generará el informe agregado para toda la empresa.\n\nOperación costosa (IA) y sobrescribe la plenaria anterior. ¿Confirmas?",
         "rh-links": "Enviar links de perfil DISPARARÁ mensajes (WhatsApp/email) a todos los colaboradores que aún no accedieron al perfil externo.\n\nLos mensajes no se pueden deshacer. ¿Confirmas?",
-        "rh-dossie": "Generar dossier del gestor producirá un documento agregado para toda la empresa.\n\nOperación costosa (IA) y sobrescribe el dossier anterior. ¿Confirmas?"
+        "rh-dossie": "Generar dossier del gestor producirá un documento agregado para toda la empresa.\n\nOperación costosa (IA) y sobrescribe el dossier anterior. ¿Confirmas?",
+        "iniciar-envios": "Iniciar Envíos ACTIVARÁ el envío automático semanal por WhatsApp (píldoras y retos) para TODOS los colaboradores con itinerario activo.\n\nLos mensajes pasan a dispararse según la cadencia de la empresa. ¿Confirmas?"
       }
     }
   },

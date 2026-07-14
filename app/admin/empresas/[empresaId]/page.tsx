@@ -24,6 +24,7 @@ import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { gerarTemporadasLote } from '@/actions/temporadas';
+import { iniciarEnviosTemporada, pausarEnviosTemporada } from '@/actions/envios-temporada';
 import { gerarBlueprint, auditarBlueprint, filaBlueprint, filaAuditBlueprint } from '@/actions/blueprint';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
@@ -108,6 +109,8 @@ const PHASE_CONFIG = [
     ]},
     { label: 'Enviar', actions: [
       { key: 'envios-rel', label: 'Enviar Relatórios', icon: Send, href: '/admin/whatsapp' },
+      { key: 'iniciar-envios', label: 'Iniciar Envios', icon: Play },
+      { key: 'pausar-envios', label: 'Pausar Envios', icon: Clock },
     ]},
   ]},
   { num: 3, icon: GraduationCap, color: '#22C55E', groups: [
@@ -297,6 +300,16 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         const r = await loadCompetenciasFoco(empresaId);
         if (r.success) { setFocoData(r.data || []); addLog(t('feedback.focusLoaded', { count: (r.data || []).length }), 'info'); }
         else addLog(`❌ ${r.error || t('feedback.focusLoadError')}`, 'error');
+        setPendingAction(null); return;
+      }
+      if (actionKey === 'iniciar-envios') {
+        const r = await iniciarEnviosTemporada(empresaId);
+        addLog(r.success ? `✅ ${r.message}` : `❌ ${r.message}`, r.success ? 'success' : 'error');
+        setPendingAction(null); return;
+      }
+      if (actionKey === 'pausar-envios') {
+        const r = await pausarEnviosTemporada(empresaId);
+        addLog(r.success ? `✅ ${r.message}` : `❌ ${r.message}`, r.success ? 'success' : 'error');
         setPendingAction(null); return;
       }
       if (actionKey === 'blueprint') {

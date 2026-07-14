@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppDesafioQuinta } from '@/lib/notifications';
 import { resolverDesafioDoKit } from '@/lib/season-engine/kit/desafio-semana';
+import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
 import { assertWhatsappAvailable } from '@/lib/whatsapp';
 
@@ -286,12 +287,31 @@ export async function triggerQuinta() {
 const mesmoDiaUTC = (ts: string | null, hojeUTC: string) =>
   !!ts && new Date(ts).toISOString().slice(0, 10) === hojeUTC;
 
-/** Texto curto da pílula a partir de um item de conteudos_dia (ou conteúdo único). */
-function textoPilula(e: any): string {
+/** Rótulo humano (com ícone) do formato preferido do colab. */
+function labelFormato(formato?: string | null): string {
+  switch (formato) {
+    case 'video': return 'vídeo 🎬';
+    case 'audio': return 'áudio 🎧';
+    case 'texto': return 'texto 📖';
+    case 'case':  return 'estudo de caso 📋';
+    default:      return 'conteúdo';
+  }
+}
+
+/**
+ * Texto curto da pílula a partir de um item de conteudos_dia (ou conteúdo único).
+ * `opts.formato` = formato preferido do colab (deriva o hook + o deep-link com
+ * `?formato=`); `opts.semana` = nº da semana (deep-link direto pra semana).
+ */
+function textoPilula(e: any, opts?: { formato?: string | null; semana?: number }): string {
   const comp = e?.competencia ? String(e.competencia).trim() : '';
   const desc = e?.descritor ? String(e.descritor).trim() : '';
   const titulo = e?.conteudo?.core_titulo || e?.conteudo?.titulo || '';
   const linha = [comp, desc].filter(Boolean).join(' — ') || titulo || 'novo conteúdo da semana';
+  if (opts?.formato && opts?.semana) {
+    const link = `${APP_URL}/dashboard/temporada/semana/${opts.semana}?formato=${opts.formato}`;
+    return `Seu ${labelFormato(opts.formato)} de hoje: *${linha}*.\n\n👉 ${link}`;
+  }
   return `Tema de hoje: *${linha}*. Acesse a plataforma para a sua pílula.`;
 }
 
@@ -314,7 +334,7 @@ export async function triggerDiario() {
 
     const tdb = tenantDb(empresa.id);
     const { data: envios } = await tdb.from('fase4_envios')
-      .select('id, colaborador_id, semana_atual, status, ultimo_envio, ultima_evidencia_em, ultima_pilula1_em, ultima_pilula2_em, colaboradores!inner(nome_completo, whatsapp, perfil_dominante, cargo)')
+      .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_pilula1_em, ultima_pilula2_em, colaboradores!inner(nome_completo, whatsapp, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
       .eq('status', 'ativo');
     if (!envios?.length) continue;
 
@@ -329,6 +349,11 @@ export async function triggerDiario() {
       const cargo = envio.colaboradores.cargo;
       const disc = String(envio.colaboradores.perfil_dominante || '').trim().charAt(0).toUpperCase();
       const ehImpl = SEMANAS_IMPL.includes(semana);
+      // Formato preferido do colab (deep-link da pílula abre a semana já nesse formato).
+      const formatoPref = derivarPrioridadeFormatos(envio.colaboradores)[0];
+      // ultimo_envio DERIVADO em JS (não existe coluna): o mais recente dos 3 carimbos.
+      const ultimoEnvio = [envio.ultima_pilula1_em, envio.ultima_pilula2_em, envio.ultima_evidencia_em]
+        .filter(Boolean).map((d: any) => new Date(d).getTime()).sort((a, b) => b - a)[0] || null;
 
       // Plano da semana (temporada_plano) → conteúdos do dia (DUO) p/ pílula e desafio.
       let plan: any = null, conteudosDia: any[] = [], competenciaFoco: any = null;
@@ -351,20 +376,20 @@ export async function triggerDiario() {
 
       // ── 1ª PÍLULA ──
       if (hoje === diaP1 && !ehImpl && conteudosDia[0] && !mesmoDiaUTC(envio.ultima_pilula1_em, hojeUTC) && telefone) {
-        try { await publishToQStash({ telefone, mensagem: templateWhatsAppPilula(nome, semana, textoPilula(conteudosDia[0])) }, delay()); pilulas++; } catch { erros++; }
-        await tdb.from('fase4_envios').update({ ultima_pilula1_em: new Date().toISOString(), ultimo_envio: new Date().toISOString() }).eq('id', envio.id);
+        try { await publishToQStash({ telefone, mensagem: templateWhatsAppPilula(nome, semana, textoPilula(conteudosDia[0], { formato: formatoPref, semana })) }, delay()); pilulas++; } catch { erros++; }
+        await tdb.from('fase4_envios').update({ ultima_pilula1_em: new Date().toISOString() }).eq('id', envio.id);
       }
 
       // ── 2ª PÍLULA (DUO) ──
       if (hoje === diaP2 && !ehImpl && conteudosDia[1] && !mesmoDiaUTC(envio.ultima_pilula2_em, hojeUTC) && telefone) {
-        try { await publishToQStash({ telefone, mensagem: templateWhatsAppPilula(nome, semana, textoPilula(conteudosDia[1])) }, delay()); pilulas++; } catch { erros++; }
-        await tdb.from('fase4_envios').update({ ultima_pilula2_em: new Date().toISOString(), ultimo_envio: new Date().toISOString() }).eq('id', envio.id);
+        try { await publishToQStash({ telefone, mensagem: templateWhatsAppPilula(nome, semana, textoPilula(conteudosDia[1], { formato: formatoPref, semana })) }, delay()); pilulas++; } catch { erros++; }
+        await tdb.from('fase4_envios').update({ ultima_pilula2_em: new Date().toISOString() }).eq('id', envio.id);
       }
 
       // ── EVIDÊNCIA + avanço de semana ──
       if (hoje === diaEv && !mesmoDiaUTC(envio.ultima_evidencia_em, hojeUTC)) {
         // Nudge de inatividade (2+ semanas sem envio) — não avança semana.
-        if (envio.ultimo_envio && (Date.now() - new Date(envio.ultimo_envio).getTime()) / 86_400_000 >= 14) {
+        if (ultimoEnvio && (Date.now() - ultimoEnvio) / 86_400_000 >= 14) {
           if (telefone) {
             const nudgeMsg = `Olá, ${nome}! 👋\n\nNotamos que você está há mais de 2 semanas sem interagir com sua trilha.\n\nQue tal retomar hoje?\n\n— Vertho Mentor IA`;
             try { await publishToQStash({ telefone, mensagem: nudgeMsg }, delay()); nudges++; } catch {}
