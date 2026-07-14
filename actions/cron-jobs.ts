@@ -2,8 +2,9 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
-import { APP_URL, APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
+import { APP_URL, APP_WEBHOOK_URL, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppDesafioQuinta } from '@/lib/notifications';
+import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula } from '@/lib/notifications/pilula-envio';
 import { resolverDesafioDoKit } from '@/lib/season-engine/kit/desafio-semana';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
@@ -287,43 +288,15 @@ export async function triggerQuinta() {
 const mesmoDiaUTC = (ts: string | null, hojeUTC: string) =>
   !!ts && new Date(ts).toISOString().slice(0, 10) === hojeUTC;
 
-/** Rótulo humano (com ícone) do formato preferido do colab. */
-function labelFormato(formato?: string | null): string {
-  switch (formato) {
-    case 'video': return 'vídeo 🎬';
-    case 'audio': return 'áudio 🎧';
-    case 'texto': return 'texto 📖';
-    case 'case':  return 'estudo de caso 📋';
-    default:      return 'conteúdo';
-  }
-}
-
-/**
- * Texto curto da pílula a partir de um item de conteudos_dia (ou conteúdo único).
- * `opts.formato` = formato preferido do colab (deriva o hook + o deep-link com
- * `?formato=`); `opts.semana` = nº da semana (deep-link direto pra semana).
- */
-function textoPilula(e: any, opts?: { formato?: string | null; semana?: number }): string {
-  const comp = e?.competencia ? String(e.competencia).trim() : '';
-  const desc = e?.descritor ? String(e.descritor).trim() : '';
-  const titulo = e?.conteudo?.core_titulo || e?.conteudo?.titulo || '';
-  const linha = [comp, desc].filter(Boolean).join(' — ') || titulo || 'novo conteúdo da semana';
-  if (opts?.formato && opts?.semana) {
-    const link = `${APP_URL}/dashboard/temporada/semana/${opts.semana}?formato=${opts.formato}`;
-    return `Seu ${labelFormato(opts.formato)} de hoje: *${linha}*.\n\n👉 ${link}`;
-  }
-  return `Tema de hoje: *${linha}*. Acesse a plataforma para a sua pílula.`;
-}
-
 export async function triggerDiario() {
   await requireAdminOrCronAction();
   const sbRaw = createSupabaseAdmin();
-  const { data: empresas } = await sbRaw.from('empresas').select('id, nome, slug, sys_config');
+  const { data: empresas } = await sbRaw.from('empresas').select('id, nome, slug, is_demo, sys_config');
   if (!empresas?.length) return { pilulas: 0, evidencias: 0, message: 'Nenhuma empresa encontrada' };
 
   const hoje = new Date().getUTCDay();          // 0=dom..6=sáb (= índice da config)
   const hojeUTC = new Date().toISOString().slice(0, 10);
-  let pilulas = 0, evidencias = 0, nudges = 0, erros = 0;
+  let pilulas = 0, emails = 0, evidencias = 0, nudges = 0, erros = 0;
 
   for (const empresa of empresas) {
     const cadencia = (empresa as any).sys_config?.cadencia || {};
@@ -332,9 +305,14 @@ export async function triggerDiario() {
     const diaEv = cadencia.fase4_dia_evidencia ?? 4;         // default quinta
     if (hoje !== diaP1 && hoje !== diaP2 && hoje !== diaEv) continue; // empresa sem nada hoje
 
+    // Deep-link da pílula = URL do TENANT (ibipeba.vertho.ai), não a genérica.
+    const baseUrl = (empresa as any).slug ? tenantUrl((empresa as any).slug) : APP_URL;
+    // Demo NÃO envia comunicação real (e-mail); WhatsApp já não vai por falta de telefone.
+    const ehDemo = !!(empresa as any).is_demo;
+
     const tdb = tenantDb(empresa.id);
     const { data: envios } = await tdb.from('fase4_envios')
-      .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_pilula1_em, ultima_pilula2_em, colaboradores!inner(nome_completo, whatsapp, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
+      .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_pilula1_em, ultima_pilula2_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
       .eq('status', 'ativo');
     if (!envios?.length) continue;
 
@@ -345,7 +323,9 @@ export async function triggerDiario() {
         continue;
       }
       const nome = envio.colaboradores.nome_completo || 'Colaborador';
-      const telefone = envio.colaboradores.whatsapp;
+      // Telefone: coluna `whatsapp` ou, no fallback, `telefone` (muitos tenants só têm este).
+      const telefone = envio.colaboradores.whatsapp || envio.colaboradores.telefone;
+      const email = !ehDemo ? (envio.colaboradores.email || null) : null;
       const cargo = envio.colaboradores.cargo;
       const disc = String(envio.colaboradores.perfil_dominante || '').trim().charAt(0).toUpperCase();
       const ehImpl = SEMANAS_IMPL.includes(semana);
@@ -374,16 +354,29 @@ export async function triggerDiario() {
 
       const delay = () => (pilulas + evidencias + nudges) * 2;
 
+      // Envia a pílula do dia por WhatsApp E e-mail (cada canal best-effort), no
+      // formato preferido + deep-link do tenant. Carimba o timestamp da pílula.
+      const enviarPilulaDia = async (item: any, stampCol: 'ultima_pilula1_em' | 'ultima_pilula2_em') => {
+        const opts = { formato: formatoPref, semana, baseUrl };
+        if (telefone) {
+          try { await publishToQStash({ telefone, mensagem: templateWhatsAppPilula(nome, semana, textoPilulaWhatsapp(item, opts)) }, delay()); pilulas++; } catch { erros++; }
+        }
+        if (email) {
+          const { subject, html } = emailPilula(nome, item, opts);
+          const r = await enviarEmailPilula(email, subject, html);
+          if (r.ok) emails++; else erros++;
+        }
+        await tdb.from('fase4_envios').update({ [stampCol]: new Date().toISOString() }).eq('id', envio.id);
+      };
+
       // ── 1ª PÍLULA ──
-      if (hoje === diaP1 && !ehImpl && conteudosDia[0] && !mesmoDiaUTC(envio.ultima_pilula1_em, hojeUTC) && telefone) {
-        try { await publishToQStash({ telefone, mensagem: templateWhatsAppPilula(nome, semana, textoPilula(conteudosDia[0], { formato: formatoPref, semana })) }, delay()); pilulas++; } catch { erros++; }
-        await tdb.from('fase4_envios').update({ ultima_pilula1_em: new Date().toISOString() }).eq('id', envio.id);
+      if (hoje === diaP1 && !ehImpl && conteudosDia[0] && !mesmoDiaUTC(envio.ultima_pilula1_em, hojeUTC) && (telefone || email)) {
+        await enviarPilulaDia(conteudosDia[0], 'ultima_pilula1_em');
       }
 
       // ── 2ª PÍLULA (DUO) ──
-      if (hoje === diaP2 && !ehImpl && conteudosDia[1] && !mesmoDiaUTC(envio.ultima_pilula2_em, hojeUTC) && telefone) {
-        try { await publishToQStash({ telefone, mensagem: templateWhatsAppPilula(nome, semana, textoPilula(conteudosDia[1], { formato: formatoPref, semana })) }, delay()); pilulas++; } catch { erros++; }
-        await tdb.from('fase4_envios').update({ ultima_pilula2_em: new Date().toISOString() }).eq('id', envio.id);
+      if (hoje === diaP2 && !ehImpl && conteudosDia[1] && !mesmoDiaUTC(envio.ultima_pilula2_em, hojeUTC) && (telefone || email)) {
+        await enviarPilulaDia(conteudosDia[1], 'ultima_pilula2_em');
       }
 
       // ── EVIDÊNCIA + avanço de semana ──
@@ -417,7 +410,7 @@ export async function triggerDiario() {
     }
   }
 
-  return { pilulas, evidencias, nudges, erros, message: `Diário: ${pilulas} pílulas, ${evidencias} evidências, ${nudges} nudges` };
+  return { pilulas, emails, evidencias, nudges, erros, message: `Diário: ${pilulas} pílulas WhatsApp, ${emails} e-mails, ${evidencias} evidências, ${nudges} nudges` };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
