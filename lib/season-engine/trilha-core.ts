@@ -527,6 +527,12 @@ export async function persistirTrilha(tdb: any, args: {
 }): Promise<{ trilhaId: string; numeroTemporada: number } | { error: string }> {
   const { colaboradorId, competenciaFoco, competenciasFoco, programaModo, semanas, descritoresSelecionados } = args;
 
+  // Normaliza campos DERIVADOS de conteudos_dia antes de salvar (chokepoint dos 4
+  // modos): garante que descritores_cobertos/descritor/label/dia SEMPRE reflitam os
+  // conteudos_dia reais. Reorder/merge da regeneração podia desincronizar (título ≠
+  // blocos, dias errados). Idempotente.
+  normalizarSemanas(semanas);
+
   const { data: existente } = await tdb.from('trilhas')
     .select('id, numero_temporada')
     .eq('colaborador_id', colaboradorId)
@@ -571,6 +577,26 @@ export async function persistirTrilha(tdb: any, args: {
   await tdb.from('temporada_semana_progresso').insert(progressos);
 
   return { trilhaId, numeroTemporada };
+}
+
+/**
+ * Reconcilia os campos DERIVADOS de `conteudos_dia` numa lista de semanas:
+ * descritores_cobertos, descritor (topo), label ("Pílula N") e dia — que a UI e o
+ * cron esperam consistentes com o que está de fato em conteudos_dia. Idempotente.
+ * (Function declaration → hoisted, pode ser chamada antes da definição.)
+ */
+export function normalizarSemanas(semanas: any[]): any[] {
+  for (const s of (semanas || [])) {
+    const cd = Array.isArray(s?.conteudos_dia) ? s.conteudos_dia : null;
+    if (!cd || !cd.length) continue;
+    cd.forEach((e: any, i: number) => {
+      e.label = `Pílula ${i + 1}`;
+      e.dia = i === 0 ? 'segunda' : 'terca';
+    });
+    s.descritores_cobertos = cd.map((e: any) => e.descritor).filter(Boolean);
+    s.descritor = cd[0]?.descritor ?? s.descritor ?? null;
+  }
+  return semanas;
 }
 
 export function inferirContexto(segmento?: string | null): string {

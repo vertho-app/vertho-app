@@ -247,7 +247,7 @@ export async function buildSeason({
           if (entrega.conteudo?.core_id) idsJaUsados.add(entrega.conteudo.core_id);
           entregas.push({
             dia: idx === 0 ? 'segunda' : 'terca',
-            label: idx === 0 ? 'Segunda-feira' : 'Terça-feira',
+            label: `Pílula ${idx + 1}`,
             competencia: compDaEntrega,
             descritor: entrega.descritor,
             nivel_alvo: entrega.nivel_alvo,
@@ -285,7 +285,7 @@ export async function buildSeason({
           if (entrega.conteudo?.core_id) idsJaUsados.add(entrega.conteudo.core_id);
           entregas.push({
             dia: idx === 0 ? 'segunda' : 'terca',
-            label: idx === 0 ? 'Segunda-feira' : 'Terça-feira',
+            label: `Pílula ${idx + 1}`,
             competencia: compDaEntrega,
             descritor: entrega.descritor,
             nivel_alvo: entrega.nivel_alvo,
@@ -322,7 +322,7 @@ export async function buildSeason({
           if (entrega.conteudo?.core_id) idsJaUsados.add(entrega.conteudo.core_id);
           entregas.push({
             dia: idx === 0 ? 'segunda' : 'terca',
-            label: idx === 0 ? 'Segunda-feira' : 'Terça-feira',
+            label: `Pílula ${idx + 1}`,
             competencia: compDaEntrega,
             descritor: entrega.descritor,
             nivel_alvo: entrega.nivel_alvo,
