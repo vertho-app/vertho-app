@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/auth/request-context';
 import { extractNarration, generatePersonalizedPodcastAudio } from '@/lib/gemini-tts';
 
 export const runtime = 'nodejs';
-export const maxDuration = 120;
+export const maxDuration = 300; // fallback on-demand p/ colab sem cache pré-aquecido
 
 function redirectTo(url: string) {
   return NextResponse.redirect(url, { status: 302 });
@@ -46,12 +46,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: 'sem acesso a este conteúdo' }, { status: 403 });
   }
 
-  // Áudio-base PRÉ-GERADO (via /api/internal/pregerar-podcast): serve INSTANTÂNEO,
-  // sem TTS on-demand (que estourava o maxDuration). Caminho normal agora.
-  if (content.url) return redirectTo(content.url);
-
   const nome = auth.colaborador?.nome_completo?.trim();
   if (!nome) {
+    // Sem colaborador (ex.: admin): serve o áudio-base pré-gerado (sem nome).
     return content.url
       ? redirectTo(content.url)
       : NextResponse.json({ error: 'Podcast ainda não gerado' }, { status: 404 });
