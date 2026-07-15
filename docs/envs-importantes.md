@@ -14,6 +14,8 @@
 | `OPENAI_FALLBACK_MODEL` | ⚠️ Fallback do RADAR só (`lib/radar/*`) — NÃO o central | Não | Produção |
 | `EMBEDDING_PROVIDER` | Provider de embeddings/RAG: `openai`\|`voyage`\|`none` (prod=voyage; none→FTS) | Não | Produção |
 | `VOYAGE_API_KEY` | Embeddings Voyage (quando `EMBEDDING_PROVIDER=voyage`) | Não | Produção |
+| `TTS_BACKEND` | TTS do podcast: `aistudio` (GEMINI_API_KEY, teto 100/dia) ou `vertex` (cota alta) | Não | Produção |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | SA (base64) do Vertex — ⚠️ OBRIGATÓRIA no Vercel se `TTS_BACKEND=vertex` | Não | Produção/Trigger |
 | `NEXT_PUBLIC_SENTRY_DSN` | Error tracking (chave pública, inlined no build) | Não | Produção |
 | `NEXT_PUBLIC_APP_URL` | URL base da app | Sim | Produção |
 | `RESEND_API_KEY` | Emails (Fase 2) | Sim | Produção |
@@ -54,3 +56,7 @@
   `/api/webhooks/bunny` (`BUNNY_WEBHOOK_SECRET`). Ausência ⇒ o fluxo silenciosamente para.
 - **Preview ≠ Production:** falta `NEXT_PUBLIC_APP_URL` no Preview → cai no default
   `app.vertho.ai` (risco de link/callback de preview apontar pra prod).
+- **Vertex TTS no Vercel exige `GOOGLE_SERVICE_ACCOUNT_JSON` (15/07).** O podcast roda TTS
+  no runtime da Vercel (`/api/conteudo/{id}/podcast`); com `TTS_BACKEND=vertex` e sem a SA →
+  500 "GOOGLE_SERVICE_ACCOUNT_JSON não definido". A SA estava só no Trigger.dev — precisou ir
+  pro Vercel. AI Studio tem teto 100/dia (preview) → Vertex é o de volume.
