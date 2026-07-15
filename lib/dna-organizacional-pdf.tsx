@@ -6,7 +6,7 @@
  * cobre) — usa barras/cores e marcadores textuais.
  */
 import React from 'react';
-import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
 import '@/components/pdf/styles'; // registra NotoSans (efeito colateral)
 import PdfReportCover from '@/components/pdf/PdfReportCover'; // capa editorial + registra Fraunces
 import { getLogoCoverBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
@@ -145,6 +145,38 @@ function SecTitle({ children }: { children: string }) {
   return <View style={s.secTitleRow}><View style={s.secBar} /><Text style={s.secTitle}>{children}</Text></View>;
 }
 
+// ── Bloco compacto do DNA de um cargo (distribuição N1-N4 + maior gap) ───────
+function CargoDnaBlock({ cargo, avaliados, dna }: { cargo: string; avaliados: number; dna: DnaAggregate }) {
+  const p = dna.distGeralPct;
+  const segs: [string, number, string][] = [['N1', p.n1, C.n1Tx], ['N2', p.n2, C.n2Tx], ['N3', p.n3, C.n3Tx], ['N4', p.n4, C.n4Tx]];
+  const gap = dna.topGaps[0];
+  return (
+    <View style={{ borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 11, marginBottom: 9 }} wrap={false}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 7 }}>
+        <Text style={{ fontSize: 11.5, fontWeight: 700, color: C.navy, flex: 1 }}>{cargo}</Text>
+        <Text style={{ fontSize: 8.5, color: C.sub }}>{avaliados} avaliado{avaliados === 1 ? '' : 's'} · {dna.competencias.length} competência{dna.competencias.length === 1 ? '' : 's'}</Text>
+      </View>
+      {/* barra empilhada N1..N4 */}
+      <View style={{ flexDirection: 'row', height: 15, borderRadius: 4, overflow: 'hidden', marginBottom: 4 }}>
+        {segs.map(([lbl, v, col]) => v > 0 ? (
+          <View key={lbl} style={{ width: `${v}%`, backgroundColor: col, justifyContent: 'center', alignItems: 'center' }}>
+            {v >= 8 ? <Text style={{ fontSize: 7, color: C.white, fontWeight: 700 }}>{v}%</Text> : null}
+          </View>
+        ) : null)}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 5 }}>
+        {segs.map(([lbl, v, col]) => (
+          <View key={lbl} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: col }} />
+            <Text style={{ fontSize: 7, color: C.sub }}>{lbl} {v}%</Text>
+          </View>
+        ))}
+      </View>
+      {gap ? <Text style={{ fontSize: 8, color: C.sub }}>Maior gap: <Text style={{ fontWeight: 700, color: C.n1Tx }}>{gap.descritor}</Text> ({gap.competencia}) — {gap.n1pct}% em N1</Text> : null}
+    </View>
+  );
+}
+
 function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
   const logo = getLogoCoverBase64();
   return (
@@ -190,6 +222,14 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
               <Text style={s.tdSig}>{n.sig}</Text>
             </View>
           ))}
+
+          {dna.porCargo && dna.porCargo.length > 0 && (
+            <>
+              <SecTitle>RETRATO POR CARGO</SecTitle>
+              <Text style={s.anon}>A mesma distribuição de níveis, recortada por cargo. Cargos com menos de 3 avaliados não aparecem.</Text>
+              {dna.porCargo.map((pc) => <CargoDnaBlock key={pc.cargo} cargo={pc.cargo} avaliados={pc.avaliados} dna={pc.dna} />)}
+            </>
+          )}
 
           <SecTitle>DESCRITORES POR COMPETÊNCIA</SecTitle>
           {dna.competencias.map((c, i) => <CompetenciaBlock key={i} c={c} />)}
@@ -250,6 +290,5 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
 }
 
 export async function renderDnaPDF(params: Params): Promise<Uint8Array> {
-  const { renderToBuffer } = await import('@react-pdf/renderer');
   return renderToBuffer(<DnaDoc {...params} />);
 }

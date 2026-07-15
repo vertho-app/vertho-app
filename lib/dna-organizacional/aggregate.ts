@@ -42,6 +42,14 @@ export interface DnaAggregate {
   topGaps: { competencia: string; descritor: string; n1pct: number; media: number }[];
   forcas: { competencia: string; descritor: string; bucket: NBucket; pct: number }[];
   semDados: boolean;
+  /** Recorte por cargo (só no agregado da REDE; os DNAs aninhados não o têm). */
+  porCargo?: DnaPorCargo[];
+}
+
+export interface DnaPorCargo {
+  cargo: string;
+  avaliados: number;
+  dna: DnaAggregate;
 }
 
 const NIVEL_BUCKET: Record<string, NBucket> = {
@@ -65,23 +73,26 @@ function pct(d: Dist): Dist {
   return { n1: Math.round((d.n1 / t) * 100), n2: Math.round((d.n2 / t) * 100), n3: Math.round((d.n3 / t) * 100), n4: Math.round((d.n4 / t) * 100) };
 }
 
+const MIN_POR_CARGO_DNA = 3; // cargos com menos avaliados que isso não viram seção
+
 export async function aggregateDna(sb: SupabaseClient, empresaId: string): Promise<DnaAggregate> {
   const { data: rawRows } = await sb
     .from('descriptor_assessments')
     .select('colaborador_id, competencia, descritor, nota, nivel, assessment_date')
     .eq('empresa_id', empresaId);
   // exclui contas internas @vertho.ai das estatísticas (colab interno → fora)
-  const { data: colabs } = await sb.from('colaboradores').select('id, email').eq('empresa_id', empresaId);
+  const { data: colabs } = await sb.from('colaboradores').select('id, email, cargo').eq('empresa_id', empresaId);
   const internalIds = new Set((colabs || []).filter((x: any) => isInternalEmail(x.email)).map((x: any) => x.id as string));
   const totalColaboradores = (colabs || []).length - internalIds.size;
   const rows = (rawRows || []).filter((r: any) => !internalIds.has(r.colaborador_id));
 
-  const empty = (): DnaAggregate => ({
-    totalColaboradores: totalColaboradores || 0, avaliados: 0, participacaoPct: 0, totalAvaliacoes: 0,
-    distGeral: { n1: 0, n2: 0, n3: 0, n4: 0, total: 0 }, distGeralPct: { n1: 0, n2: 0, n3: 0, n4: 0 },
-    competencias: [], topGaps: [], forcas: [], semDados: true,
-  });
-  if (!rows || !rows.length) return empty();
+  if (!rows || !rows.length) {
+    return {
+      totalColaboradores: totalColaboradores || 0, avaliados: 0, participacaoPct: 0, totalAvaliacoes: 0,
+      distGeral: { n1: 0, n2: 0, n3: 0, n4: 0, total: 0 }, distGeralPct: { n1: 0, n2: 0, n3: 0, n4: 0 },
+      competencias: [], topGaps: [], forcas: [], semDados: true,
+    };
+  }
 
   // dedup: 1 avaliação por (colaborador, competência, descritor) — mais recente
   const latest = new Map<string, any>();
@@ -93,6 +104,34 @@ export async function aggregateDna(sb: SupabaseClient, empresaId: string): Promi
   }
   const assess = [...latest.values()];
 
+  const geral = computeDna(assess, totalColaboradores);
+
+  // Recorte por cargo: cada avaliação herda o cargo do seu colaborador.
+  const cargoById = new Map<string, string>();
+  const totalPorCargo = new Map<string, number>();
+  for (const col of colabs || []) {
+    if (internalIds.has((col as any).id)) continue;
+    const cg = (((col as any).cargo as string) || '').trim() || '(sem cargo)';
+    cargoById.set((col as any).id, cg);
+    totalPorCargo.set(cg, (totalPorCargo.get(cg) || 0) + 1);
+  }
+  const porGrupo = new Map<string, any[]>();
+  for (const a of assess) {
+    const cg = cargoById.get(a.colaborador_id) || '(sem cargo)';
+    if (!porGrupo.has(cg)) porGrupo.set(cg, []);
+    porGrupo.get(cg)!.push(a);
+  }
+  const porCargo: DnaPorCargo[] = [...porGrupo.entries()]
+    .map(([cargo, arr]) => ({ cargo, avaliados: new Set(arr.map((a) => a.colaborador_id)).size, arr }))
+    .filter((g) => g.avaliados >= MIN_POR_CARGO_DNA)
+    .sort((a, b) => b.avaliados - a.avaliados)
+    .map((g) => ({ cargo: g.cargo, avaliados: g.avaliados, dna: computeDna(g.arr, totalPorCargo.get(g.cargo) || g.avaliados) }));
+
+  return { ...geral, porCargo };
+}
+
+/** Agrega uma lista de avaliações (já dedupada) num DnaAggregate. Puro. */
+function computeDna(assess: any[], totalColaboradores: number): DnaAggregate {
   const avaliados = new Set(assess.map((a) => a.colaborador_id)).size;
   const distGeral: Dist = { n1: 0, n2: 0, n3: 0, n4: 0 };
 
