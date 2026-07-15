@@ -40,7 +40,8 @@ export default function LoginForm({ branding }: { branding: any }) {
   } = branding;
 
   // Detect redirect param
-  const [redirectTo, setRedirectTo] = useState('/dashboard');
+  // Default = /inicio (rota server-side que decide admin→/admin, colab→/dashboard).
+  const [redirectTo, setRedirectTo] = useState('/inicio');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
