@@ -1,0 +1,47 @@
+import { NextResponse } from 'next/server';
+import { createSupabaseAdmin } from '@/lib/supabase';
+import { safeSecretEqual } from '@/lib/secure-compare';
+import { extractNarration, generatePersonalizedPodcastAudio } from '@/lib/gemini-tts';
+
+/**
+ * Pré-geração do áudio-BASE (sem personalização por nome) de um micro_conteudo de
+ * podcast. Roda no runtime da Vercel (onde o lamejs/encoder MP3 funciona; não roda
+ * no tsx). TTS o roteiro → MP3 → storage → grava a `url` no micro_conteudo, pra a
+ * rota /api/conteudo/{id}/podcast servir INSTANTÂNEO (fim do TTS on-demand lento).
+ *
+ * Auth: header `x-internal-secret` (INTERNAL_API_KEY dedicada OU service-role de
+ * compat). Chamado em lote por scripts/_pregerar-podcasts-ibipeba.mjs.
+ */
+export const runtime = 'nodejs';
+export const maxDuration = 300; // TTS de roteiro longo (~100s) + margem
+
+export async function POST(req: Request) {
+  const secret = req.headers.get('x-internal-secret') || '';
+  const ok = safeSecretEqual(secret, process.env.INTERNAL_API_KEY)
+    || safeSecretEqual(secret, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!ok) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  let body: any;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'json inválido' }, { status: 400 }); }
+  const id = body?.id;
+  if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
+
+  const sb = createSupabaseAdmin();
+  const { data: content } = await sb.from('micro_conteudos')
+    .select('id, formato, conteudo_inline, url').eq('id', id).maybeSingle();
+  if (!content) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
+  if (content.formato !== 'audio') return NextResponse.json({ error: 'não é áudio' }, { status: 400 });
+
+  const narracao = extractNarration(content.conteudo_inline || '');
+  if (narracao.length < 20) return NextResponse.json({ error: 'narração insuficiente' }, { status: 422 });
+
+  const audio = await generatePersonalizedPodcastAudio(narracao, ''); // '' = base, sem nome
+  const path = `final/podcast-base/${id}.mp3`;
+  const { error: upErr } = await sb.storage.from('conteudos')
+    .upload(path, audio.buffer, { contentType: audio.contentType, upsert: true });
+  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+
+  const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(path);
+  await sb.from('micro_conteudos').update({ url: publicUrl }).eq('id', id);
+  return NextResponse.json({ ok: true, url: publicUrl, bytes: audio.buffer.length });
+}

@@ -46,6 +46,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: 'sem acesso a este conteúdo' }, { status: 403 });
   }
 
+  // Áudio-base PRÉ-GERADO (via /api/internal/pregerar-podcast): serve INSTANTÂNEO,
+  // sem TTS on-demand (que estourava o maxDuration). Caminho normal agora.
+  if (content.url) return redirectTo(content.url);
+
   const nome = auth.colaborador?.nome_completo?.trim();
   if (!nome) {
     return content.url
