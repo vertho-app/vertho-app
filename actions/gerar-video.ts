@@ -188,7 +188,7 @@ export async function resolverCelulaVideo(moduloBaseId: string, empresaId: strin
  * o vídeo da célula. `gerar=false` (default) só REUSA prontos/em-andamento — não
  * dispara geração (controle de custo); a geração é feita pelo admin / pré-aquecimento.
  */
-export async function resolverVideoDaSemana(competencia: string, descritor: string | null = null, gerar = false) {
+export async function resolverVideoDaSemana(competencia: string, descritor: string | null = null, gerar = false, opts: { coreId?: string | null } = {}) {
   try {
     await requireUserAction();
     const email = await getAuthenticatedEmailFromAction();
@@ -200,19 +200,32 @@ export async function resolverVideoDaSemana(competencia: string, descritor: stri
     const disc = (colab.perfil_dominante || '').trim().charAt(0).toUpperCase();
     if (!['D', 'I', 'S', 'C'].includes(disc)) return { available: false, reason: 'sem-disc' };
 
-    // nível do colab na competência (média do assessment) → transição N→N
-    let aq = sb.from('descriptor_assessments').select('nota').eq('colaborador_id', colab.id).eq('competencia', competencia);
-    if (descritor) aq = aq.eq('descritor', descritor);
-    const { data: assess } = await aq;
-    const notas = (assess || []).map((a: any) => Number(a.nota)).filter((n: number) => n > 0);
-    const nivelMin = notas.length ? notas.reduce((s: number, n: number) => s + n, 0) / notas.length : 1.5;
+    // ESTRUTURAL: o vídeo segue o MESMO módulo-base do CONTEÚDO (texto/case) que a
+    // trilha já resolveu — via `core_id` do micro-conteúdo. Isso mantém vídeo↔texto
+    // consistentes (mesmo módulo/nível) E ESTÁVEL: não re-resolve por embedding/
+    // anti-repetição a cada acesso (que orfanava o vídeo em regen). Fallback pra
+    // resolução por competência+nível só quando não há core_id / módulo no conteúdo.
+    let moduloId: string | null = null;
+    if (opts.coreId) {
+      const { data: mc } = await sb.from('micro_conteudos')
+        .select('modulo_base_id').eq('id', opts.coreId).eq('empresa_id', colab.empresa_id).maybeSingle();
+      if (mc?.modulo_base_id) moduloId = mc.modulo_base_id;
+    }
+    if (!moduloId) {
+      // nível do colab na competência (média do assessment) → transição N→N
+      let aq = sb.from('descriptor_assessments').select('nota').eq('colaborador_id', colab.id).eq('competencia', competencia);
+      if (descritor) aq = aq.eq('descritor', descritor);
+      const { data: assess } = await aq;
+      const notas = (assess || []).map((a: any) => Number(a.nota)).filter((n: number) => n > 0);
+      const nivelMin = notas.length ? notas.reduce((s: number, n: number) => s + n, 0) / notas.length : 1.5;
+      const escolha = await resolverModuloBaseParaConteudo(sb, { competenciaNome: competencia, descritor: descritor || undefined, nivelMin, locale: colab.locale || 'pt-BR', cargo: colab.cargo, empresaId: colab.empresa_id });
+      if (!escolha?.modulo?.id) return { available: false, reason: 'sem-modulo' };
+      moduloId = escolha.modulo.id;
+    }
 
-    const escolha = await resolverModuloBaseParaConteudo(sb, { competenciaNome: competencia, nivelMin, locale: colab.locale || 'pt-BR', empresaId: colab.empresa_id });
-    if (!escolha?.modulo?.id) return { available: false, reason: 'sem-modulo' };
-
-    const cel = await resolverCelulaVideo(escolha.modulo.id, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`, { sb, gerar, colaboradorId: colab.id });
+    const cel = await resolverCelulaVideo(moduloId, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`, { sb, gerar, colaboradorId: colab.id });
     if ((cel as any).error) return { available: false, reason: (cel as any).error };
-    return { available: true, moduloId: escolha.modulo.id, colaboradorId: colab.id, ...cel };
+    return { available: true, moduloId, colaboradorId: colab.id, ...cel };
   } catch (err: any) {
     console.error('[resolverVideoDaSemana]', err);
     return { available: false };

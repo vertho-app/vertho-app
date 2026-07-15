@@ -631,11 +631,11 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
   useEffect(() => {
     if (!competencia) return;
     let alive = true;
-    resolverVideoDaSemana(competencia, descritor || null, false)
+    resolverVideoDaSemana(competencia, descritor || null, false, { coreId: conteudo?.core_id || null })
       .then((r) => { if (alive) setVid(r); })
       .catch(() => { if (alive) setVid({ available: false }); });
     return () => { alive = false; };
-  }, [competencia, descritor]);
+  }, [competencia, descritor, conteudo?.core_id]);
   const videoPronto = !!(vid?.available && vid?.status === 'done' && vid?.bunny_video_id && vid?.bunny_library);
   const videoPreparando = !!(vid?.available && ['processing', 'render_queued', 'rendering'].includes(vid?.status));
   const temVideo = videoPronto || videoPreparando;
