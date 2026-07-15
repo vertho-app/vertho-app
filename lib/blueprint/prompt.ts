@@ -86,6 +86,7 @@ REGRAS DURAS DA TRILHA (obedeça exatamente):
 - As demais semanas são "conteudo" (ou "reflexao" quando fizer sentido).
 - DENSIDADE (regra dura): TODA semana "tipo": "conteudo" DEVE ter EXATAMENTE 2 descritores_foco DISTINTOS da MESMA competência foco daquela semana — nunca 1. (2 descritores da mesma competência por semana forma hábito melhor que 1.)
   * Se a competência da semana tiver poucos descritores com gap, complete os 2 com os descritores de MENOR nota (maior gap) da MESMA competência — mas jamais entregue uma semana de conteúdo com 1 descritor.
+- COBERTURA DOS GAPS (regra dura): ao longo das semanas de conteúdo de CADA competência, os descritores_foco escolhidos devem cobrir TODOS os descritores dela que têm lacuna (gap: nota < 3.0 / nível abaixo do esperado) ao menos 1× ANTES de repetir qualquer descritor. NENHUM descritor com gap pode ficar de fora enquanto outro se repete. Ordem: comece pelos de MAIOR gap (menor nota); só depois de TODOS os descritores com gap aparecerem 1× é que se repete (e a repetição vai pro de maior gap). Descritores já proficientes (sem gap / N4) PODEM ficar de fora. Há semanas suficientes: cada competência tem ~4 semanas × 2 = 8 vagas para no máximo 6 descritores — cobrir todos os gaps É possível.
 - REGRA MÁXIMA: TODA semana referencia ≥1 id de "objetivos_30_dias" no campo "conexao_com_pdi" (array não-vazio). Nenhuma semana pode ficar sem vínculo com o PDI.
 - "competencia_foco" de cada semana usa nomes EXATOS das competências do input; "descritores_foco" usa descritores reais do input.
 

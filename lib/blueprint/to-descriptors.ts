@@ -173,6 +173,34 @@ export function blueprintToTrilhaInputs(
     }
   }
 
+  // ── COBERTURA DETERMINÍSTICA DOS GAPS ─────────────────────────────────────
+  // O blueprint (IA) às vezes repete descritores e deixa gaps de fora. Aqui
+  // garantimos que TODO descritor com gap (nota < 3.0) apareça em ≥1 semana de
+  // conteúdo: cada gap não-coberto ROUBA a vaga de um descritor REPETIDO (de
+  // MENOR gap) da MESMA competência. Só age quando há repeat pra roubar (i.e.,
+  // há vagas suficientes: nº semanas × 2 ≥ nº descritores da competência).
+  // Mantém 2 descritores/semana e a competência da semana. Determinístico.
+  const GAP_LIMITE = 3.0;
+  for (const [comp, m] of Object.entries(idxPorComp)) {
+    const gaps = [...m.values()].filter((d) => d.nota < GAP_LIMITE).sort((a, b) => a.nota - b.nota);
+    for (const g of gaps) {
+      const key = `${comp}||${g.descritor}`;
+      if (selMap.has(key)) continue; // já coberto
+      const repeats = [...selMap.values()]
+        .filter((d) => d.competencia === comp && d.semanas_ids.length > 1)
+        .sort((a, b) => b.nota_atual - a.nota_atual); // rouba do repeat de MENOR gap
+      if (!repeats.length) continue; // sem repeat → sem vaga na competência (raro)
+      const r = repeats[0];
+      const semana = r.semanas_ids.pop() as number;
+      r.semanas_alocadas = r.semanas_ids.length;
+      selMap.set(key, {
+        descritor: g.descritor, competencia: comp, nota_atual: g.nota,
+        gap: GAP_LIMITE - g.nota, semanas_alocadas: 1, semanas_ids: [semana],
+      });
+      avisos.push(`cobertura: "${g.descritor}" (gap ${g.nota}) → semana ${semana} (roubou repeat de "${r.descritor}")`);
+    }
+  }
+
   const descritoresSelecionados = [...selMap.values()];
   if (descritoresSelecionados.length === 0) {
     return { error: 'nenhum descritor resolvido do blueprint' };
