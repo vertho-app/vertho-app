@@ -30,24 +30,31 @@ export function temaPilula(e: any): string {
   return [comp, desc].filter(Boolean).join(' — ') || titulo || 'novo conteúdo da semana';
 }
 
-/** Deep-link da semana no tenant, já no formato preferido. `baseUrl` = ex. https://ibipeba.vertho.ai */
-export function deepLinkSemana(baseUrl: string, semana: number, formato?: string | null): string {
-  const f = formato ? `?formato=${formato}` : '';
-  return `${baseUrl}/dashboard/temporada/semana/${semana}${f}`;
+/**
+ * Deep-link da semana no tenant, já no formato preferido. `baseUrl` = ex.
+ * https://ibipeba.vertho.ai. `pilula` (1|2) marca de qual pílula DUO veio o clique,
+ * pra atribuição de abertura (`?p=`); ausente = abertura direta/navegação.
+ */
+export function deepLinkSemana(baseUrl: string, semana: number, formato?: string | null, pilula?: number | null): string {
+  const params = new URLSearchParams();
+  if (formato) params.set('formato', formato);
+  if (pilula) params.set('p', String(pilula));
+  const qs = params.toString();
+  return `${baseUrl}/dashboard/temporada/semana/${semana}${qs ? `?${qs}` : ''}`;
 }
 
-type PilulaOpts = { formato?: string | null; semana: number; baseUrl: string };
+type PilulaOpts = { formato?: string | null; semana: number; baseUrl: string; pilula?: number | null };
 
 /** Corpo (sem saudação) do texto WhatsApp da pílula, com deep-link no formato preferido. */
 export function textoPilulaWhatsapp(e: any, opts: PilulaOpts): string {
-  const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato);
+  const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato, opts.pilula);
   return `Seu ${labelFormato(opts.formato)} de hoje: *${temaPilula(e)}*.\n\n👉 ${link}`;
 }
 
 /** Assunto + HTML do e-mail da pílula (espelho do WhatsApp, com botão pro deep-link). */
 export function emailPilula(nome: string, e: any, opts: PilulaOpts): { subject: string; html: string } {
   const tema = temaPilula(e);
-  const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato);
+  const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato, opts.pilula);
   const primeiro = (nome || 'Colaborador').split(' ')[0];
   const subject = `Sua pílula da Semana ${opts.semana} — ${tema}`;
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">

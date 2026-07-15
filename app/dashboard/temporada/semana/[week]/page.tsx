@@ -14,6 +14,7 @@ import { useBunnyTracking } from '@/lib/use-bunny-tracking';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
+import { registrarAberturaSemana } from '@/actions/engajamento';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 
@@ -57,6 +58,19 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const [chatBusy, setChatBusy] = useState(false);
   const [chatFinished, setChatFinished] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
+
+  // Telemetria: loga a ABERTURA do conteúdo (uma vez), com atribuição por pílula
+  // (?p=1|2) e formato (?formato=) vindos do deep-link. Best-effort, nunca quebra.
+  const aberturaLogada = useRef(false);
+  useEffect(() => {
+    const trilhaId = data?.trilha?.id;
+    if (!trilhaId || aberturaLogada.current) return;
+    aberturaLogada.current = true;
+    const pRaw = Number(searchParams.get('p'));
+    const pilula = pRaw === 1 || pRaw === 2 ? pRaw : null;
+    registrarAberturaSemana({ trilhaId, semana: semanaNum, pilula, formato: searchParams.get('formato') }).catch(() => {});
+  }, [data?.trilha?.id, semanaNum]);
+
   // Só libera "Marcar como realizado" depois que o colab abriu o link do conteúdo
   // (ou, pra vídeo, o auto-consumido dispara no 80% via postMessage).
   const [abriuConteudo, setAbriuConteudo] = useState(false);

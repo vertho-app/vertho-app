@@ -53,6 +53,7 @@ export const NAV_ITEMS: NavItem[] = [
   // ── Operação (tenant) ─────────────────────────────────────────────────────
   { key: 'pipeline',   labelKey: 'companyPipeline', subKey: 'phase0to5',    group: 'operation', icon: Activity,     hrefFn: (id) => `/admin/empresas/${id}`,            showWhenAll: false },
   { key: 'temporadas', labelKey: 'seasons',          subKey: 'seasonsSub',   group: 'operation', icon: CalendarDays, hrefFn: (id) => `/admin/temporadas?empresa=${id}`,  showWhenAll: false },
+  { key: 'engajamento', labelKey: 'engagement',      subKey: 'engagementSub', group: 'operation', icon: BarChart2,   hrefFn: (id) => `/admin/engajamento?empresa=${id}`, showWhenAll: false },
   { key: 'envios',     labelKey: 'dispatch',         subKey: 'dispatchSub',  group: 'operation', icon: Send,         hrefFn: (id) => `/admin/whatsapp?empresa=${id}`,    showWhenAll: false },
   { key: 'pulso',      labelKey: 'pulse',            subKey: 'pulseSub',     group: 'operation', icon: Activity,     hrefFn: (id) => `/admin/empresas/${id}/pulso`,      showWhenAll: false },
 

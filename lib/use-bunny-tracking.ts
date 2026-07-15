@@ -37,7 +37,18 @@ export function useBunnyTracking(iframeRef: RefObject<HTMLIFrameElement | null>,
     if (!colaboradorId || !videoId || !iframeRef.current) return;
     let cancelled = false;
     let player: any = null;
-    let started = false, finished = false, dur = 0, time = 0;
+    let started = false, finished = false, dur = 0, time = 0, ultimoMarco = 0;
+
+    // Loga % assistido em marcos de 25% (25/50/75) — sem spam, pra ter progresso
+    // de quem NÃO termina o vídeo (o 'ended' cobre os que terminam).
+    function marcarProgresso() {
+      if (finished || dur <= 0) return;
+      const marco = Math.floor(((time / dur) * 100) / 25) * 25;
+      if (marco > ultimoMarco && marco >= 25 && marco < 100) {
+        ultimoMarco = marco;
+        registrarVideoWatched({ colaboradorId, videoId, eventType: 'play_progress', secondsWatched: Math.round(time), videoLength: Math.round(dur) }).catch(() => {});
+      }
+    }
 
     function setup(pj: any) {
       if (cancelled || !iframeRef.current) return;
@@ -51,6 +62,7 @@ export function useBunnyTracking(iframeRef: RefObject<HTMLIFrameElement | null>,
         player.on('timeupdate', ({ seconds, duration }: { seconds?: number; duration?: number } = {}) => {
           if (Number.isFinite(seconds)) time = seconds as number;
           if (Number.isFinite(duration)) dur = duration as number;
+          marcarProgresso();
         });
         player.on('ended', () => {
           if (finished) return; finished = true;
@@ -69,6 +81,10 @@ export function useBunnyTracking(iframeRef: RefObject<HTMLIFrameElement | null>,
 
     return () => {
       cancelled = true;
+      // Flush: se começou e não terminou, registra até onde assistiu (SPA nav / fechou).
+      if (started && !finished && time > 0 && dur > 0) {
+        registrarVideoWatched({ colaboradorId, videoId, eventType: 'play_progress', secondsWatched: Math.round(time), videoLength: Math.round(dur) }).catch(() => {});
+      }
       if (player) ['play', 'ended', 'timeupdate', 'ready'].forEach((e) => { try { player.off(e); } catch {} });
     };
   }, [colaboradorId, videoId]);

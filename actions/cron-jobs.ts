@@ -357,7 +357,8 @@ export async function triggerDiario() {
       // Envia a pílula do dia por WhatsApp E e-mail (cada canal best-effort), no
       // formato preferido + deep-link do tenant. Carimba o timestamp da pílula.
       const enviarPilulaDia = async (item: any, stampCol: 'ultima_pilula1_em' | 'ultima_pilula2_em') => {
-        const opts = { formato: formatoPref, semana, baseUrl };
+        const pilula = stampCol === 'ultima_pilula1_em' ? 1 : 2;   // atribuição de abertura (?p=)
+        const opts = { formato: formatoPref, semana, baseUrl, pilula };
         if (telefone) {
           try { await publishToQStash({ telefone, mensagem: templateWhatsAppPilula(nome, semana, textoPilulaWhatsapp(item, opts)) }, delay()); pilulas++; } catch { erros++; }
         }
