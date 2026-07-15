@@ -33,7 +33,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // (admin pode testar a visão do colaborador).
   if (!tenant) {
     const email = await getAuthenticatedEmailFromAction();
-    if (email && (await isPlatformAdmin(email))) redirect('/admin/dashboard');
+    if (email && (await isPlatformAdmin(email))) redirect('/admin');
   }
 
   const theme = resolveTheme(tenant?.ui_config);
