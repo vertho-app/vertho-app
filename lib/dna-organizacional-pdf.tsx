@@ -28,8 +28,11 @@ const NIVEIS = [
 ] as const;
 
 const s = StyleSheet.create({
-  page: { fontFamily: 'NotoSans', fontSize: 9, color: C.text, paddingBottom: 48 },
-  header: { backgroundColor: C.navy, paddingHorizontal: 36, paddingTop: 34, paddingBottom: 26, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  // paddingTop dá a margem superior às páginas de CONTINUAÇÃO (o header navy só
+  // existe na 1ª página de conteúdo). O header é puxado de volta ao topo com
+  // marginTop negativo, pra continuar coladinho na borda da página 1.
+  page: { fontFamily: 'NotoSans', fontSize: 9, color: C.text, paddingTop: 30, paddingBottom: 48 },
+  header: { backgroundColor: C.navy, marginTop: -30, paddingHorizontal: 36, paddingTop: 34, paddingBottom: 26, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   hTitle: { color: C.white, fontSize: 26, fontWeight: 700, lineHeight: 1.05, letterSpacing: 0.5 },
   hEmpresa: { color: C.cyan, fontSize: 15, fontWeight: 700, marginTop: 8 },
   hMeta: { color: '#B9C4D4', fontSize: 9, marginTop: 4 },
@@ -223,16 +226,25 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
             </View>
           ))}
 
-          {dna.porCargo && dna.porCargo.length > 0 && (
+          {dna.porCargo && dna.porCargo.length > 0 ? (
             <>
-              <SecTitle>RETRATO POR CARGO</SecTitle>
-              <Text style={s.anon}>A mesma distribuição de níveis, recortada por cargo. Cargos com menos de 3 avaliados não aparecem.</Text>
-              {dna.porCargo.map((pc) => <CargoDnaBlock key={pc.cargo} cargo={pc.cargo} avaliados={pc.avaliados} dna={pc.dna} />)}
+              <SecTitle>DESCRITORES POR COMPETÊNCIA — POR CARGO</SecTitle>
+              <Text style={s.anon}>A distribuição de níveis e os descritores de cada competência, recortados por cargo. Cargos com menos de 3 avaliados não aparecem.</Text>
+              {dna.porCargo.map((pc) => (
+                <View key={pc.cargo} style={{ marginBottom: 6 }}>
+                  <CargoDnaBlock cargo={pc.cargo} avaliados={pc.avaliados} dna={pc.dna} />
+                  <View style={{ marginLeft: 8, marginBottom: 10 }}>
+                    {pc.dna.competencias.map((c, i) => <CompetenciaBlock key={i} c={c} />)}
+                  </View>
+                </View>
+              ))}
+            </>
+          ) : (
+            <>
+              <SecTitle>DESCRITORES POR COMPETÊNCIA</SecTitle>
+              {dna.competencias.map((c, i) => <CompetenciaBlock key={i} c={c} />)}
             </>
           )}
-
-          <SecTitle>DESCRITORES POR COMPETÊNCIA</SecTitle>
-          {dna.competencias.map((c, i) => <CompetenciaBlock key={i} c={c} />)}
 
           {narrativa.leituraGeral ? <Text style={[s.intro, { marginTop: 12 }]}>{narrativa.leituraGeral}</Text> : null}
 
