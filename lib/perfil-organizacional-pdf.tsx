@@ -6,7 +6,7 @@
  * individual. Reusa NotoSans + paleta Vertho. Sem emoji.
  */
 import React from 'react';
-import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Polygon, Line } from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Polygon, Line, renderToBuffer } from '@react-pdf/renderer';
 import '@/components/pdf/styles';
 import PdfReportCover from '@/components/pdf/PdfReportCover'; // registra Fraunces globalmente
 import { getLogoCoverBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
@@ -191,6 +191,51 @@ function CompCompare({ c, temAdapt }: { c: PerfilOrg['competencias'][number]; te
 
 function SecTitle({ children }: { children: string }) {
   return <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>{children}</Text></View>;
+}
+
+// ── Bloco compacto de um cargo (recorte por cargo) ───────────────────────────
+function MiniDisc({ m }: { m: DiscMedia }) {
+  const bars: [string, number, string][] = [['D', m.d, C.d], ['I', m.i, C.i], ['S', m.s, C.s], ['C', m.c, C.c]];
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: 48, width: 96 }}>
+      {bars.map(([f, v, col]) => (
+        <View key={f} style={{ alignItems: 'center' }}>
+          <Text style={{ fontSize: 7, fontWeight: 700, color: C.navy }}>{Math.round(v)}</Text>
+          <View style={{ width: 11, height: Math.max(4, (v / 100) * 38), backgroundColor: col, borderRadius: 6 }} />
+          <Text style={{ fontSize: 6.5, color: C.sub }}>{f}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function CargoBlock({ cargo, n, perfil }: { cargo: string; n: number; perfil: PerfilOrg }) {
+  return (
+    <View style={{ borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 11, marginBottom: 10 }} wrap={false}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        <Text style={{ fontSize: 12, fontWeight: 700, color: C.navy, flex: 1 }}>{cargo}</Text>
+        <Text style={{ fontSize: 8.5, color: C.sub, marginRight: 8 }}>{n} pessoa{n === 1 ? '' : 's'}</Text>
+        <Text style={{ backgroundColor: C.s, color: C.white, fontSize: 9, fontWeight: 700, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 3 }}>{perfil.perfilDominante}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={{ alignItems: 'center' }}>
+          <MiniDisc m={perfil.natural} />
+          <Text style={{ fontSize: 7, color: C.sub, marginTop: 2 }}>DISC natural</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 8, fontWeight: 700, color: C.navy }}>{perfil.arquetipo.nome}</Text>
+          <Text style={{ fontSize: 8, color: C.sub, marginTop: 3 }}>Liderança: <Text style={{ fontWeight: 700, color: C.navy }}>O {perfil.lideranca.nome}</Text> ({perfil.lideranca.pct}%)</Text>
+          <Text style={{ fontSize: 8, color: C.sub, marginTop: 3 }}>Talentos: <Text style={{ fontWeight: 700, color: C.navy }}>{perfil.talentos.slice(0, 2).map((t) => t.nome).join(', ')}</Text></Text>
+        </View>
+        <View style={{ width: 150 }}>
+          <Text style={{ fontSize: 7.5, fontWeight: 700, color: C.navy, marginBottom: 3 }}>Mais desenvolvidas</Text>
+          {perfil.compMais.slice(0, 3).map((c, i) => <Text key={i} style={{ backgroundColor: C.s, color: C.white, fontSize: 7.5, borderRadius: 5, paddingVertical: 3, paddingHorizontal: 7, marginBottom: 3 }}>{c.nome}</Text>)}
+          <Text style={{ fontSize: 7.5, fontWeight: 700, color: C.navy, marginTop: 3, marginBottom: 3 }}>Menos desenvolvidas</Text>
+          {perfil.compMenos.slice(0, 2).map((c, i) => <Text key={i} style={{ backgroundColor: C.d, color: C.white, fontSize: 7.5, borderRadius: 5, paddingVertical: 3, paddingHorizontal: 7, marginBottom: 3 }}>{c.nome}</Text>)}
+        </View>
+      </View>
+    </View>
+  );
 }
 function PageHeader({ title }: { title: string }) {
   const logo = getLogoCoverBase64();
@@ -389,11 +434,24 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
         </View>
         <Footer />
       </Page>
+
+      {/* Perfil por Cargo — recorte da rede por função */}
+      {p.porCargo && p.porCargo.length > 0 && (
+        <Page size="A4" style={s.page} wrap>
+          <PageHeader title="Perfil por Cargo" />
+          <View style={s.body}>
+            <Text style={s.p}>O mesmo mapeamento comportamental, agora recortado por cargo. Compara como cada função da rede se diferencia em DISC, estilo de liderança, talentos e competências. Cargos com menos de 3 pessoas não aparecem, para preservar o anonimato e a validade estatística.</Text>
+            {p.porCargo.map((pc) => (
+              <CargoBlock key={pc.cargo} cargo={pc.cargo} n={pc.n} perfil={pc.perfil} />
+            ))}
+          </View>
+          <Footer />
+        </Page>
+      )}
     </Document>
   );
 }
 
 export async function renderPerfilOrgPDF(params: Params): Promise<Uint8Array> {
-  const { renderToBuffer } = await import('@react-pdf/renderer');
   return renderToBuffer(<PerfilOrgDoc {...params} />);
 }

@@ -95,6 +95,14 @@ export interface PerfilOrg {
   destaques: DestaqueBipolar[];
   pessoas: PessoaDisc[];
   semDados: boolean;
+  /** Recorte por cargo (só no agregado da REDE; os perfis aninhados não o têm). */
+  porCargo?: PerfilPorCargo[];
+}
+
+export interface PerfilPorCargo {
+  cargo: string;
+  n: number;
+  perfil: PerfilOrg;
 }
 
 const n = (v: any) => Number(v) || 0;
@@ -139,27 +147,19 @@ export function destaquesBipolares(m: DiscMedia): DestaqueBipolar[] {
   return pares.map(([e, d, l]) => ({ esquerda: e, direita: d, ladoEsquerdo: l }));
 }
 
-export async function aggregatePerfilOrg(sb: SupabaseClient, empresaId: string): Promise<PerfilOrg> {
-  const cols = [
-    'nome_completo', 'perfil_dominante',
-    'd_natural', 'i_natural', 's_natural', 'c_natural',
-    'd_adaptado', 'i_adaptado', 's_adaptado', 'c_adaptado',
-    ...Object.keys(VALOR_LABEL),
-    ...Object.keys(LIDERANCA),
-    ...COMP_LABEL.map((c) => c.key), ...COMP_LABEL.map((c) => c.key + '_adapt'),
-  ].join(', ');
-  const { data: rows } = await excludeInternalEmails(
-    sb.from('colaboradores').select(cols).eq('empresa_id', empresaId).not('d_natural', 'is', null),
-  ).order('nome_completo'); // exclui contas internas @vertho.ai das estatísticas
+const EMPTY_PERFIL: PerfilOrg = {
+  avaliados: 0, natural: { d: 0, i: 0, s: 0, c: 0 }, adaptado: { d: 0, i: 0, s: 0, c: 0 },
+  perfilDominante: '', arquetipo: { nome: '', desc: '' }, fatoresOrdem: [], valores: [],
+  lideranca: { nome: '', vinculo: '', pct: 0, dist: [] }, competencias: [], compMais: [], compMenos: [], temCompAdapt: false,
+  fatoresAltoBaixo: [], talentos: [], destaques: [], pessoas: [], semDados: true,
+};
 
-  const empty: PerfilOrg = {
-    avaliados: 0, natural: { d: 0, i: 0, s: 0, c: 0 }, adaptado: { d: 0, i: 0, s: 0, c: 0 },
-    perfilDominante: '', arquetipo: { nome: '', desc: '' }, fatoresOrdem: [], valores: [],
-    lideranca: { nome: '', vinculo: '', pct: 0, dist: [] }, competencias: [], compMais: [], compMenos: [], temCompAdapt: false,
-    fatoresAltoBaixo: [], talentos: [], destaques: [], pessoas: [], semDados: true,
-  };
-  if (!rows || !rows.length) return empty;
-  const R = rows as any[];
+/**
+ * Agrega uma LISTA de colaboradores (linhas com colunas DISC) num PerfilOrg.
+ * Pura — sem I/O. `aggregatePerfilOrg` a chama para a rede toda e por cargo.
+ */
+export function computePerfilOrg(R: any[]): PerfilOrg {
+  if (!R.length) return EMPTY_PERFIL;
 
   const natural: DiscMedia = { d: r2(avg(R.map((x) => n(x.d_natural)))), i: r2(avg(R.map((x) => n(x.i_natural)))), s: r2(avg(R.map((x) => n(x.s_natural)))), c: r2(avg(R.map((x) => n(x.c_natural)))) };
   const adaptado: DiscMedia = { d: r2(avg(R.map((x) => n(x.d_adaptado)))), i: r2(avg(R.map((x) => n(x.i_adaptado)))), s: r2(avg(R.map((x) => n(x.s_adaptado)))), c: r2(avg(R.map((x) => n(x.c_adaptado)))) };
@@ -222,4 +222,44 @@ export async function aggregatePerfilOrg(sb: SupabaseClient, empresaId: string):
     fatoresAltoBaixo, talentos,
     destaques: destaquesBipolares(natural), pessoas, semDados: false,
   };
+}
+
+/**
+ * Perfil DISC da EMPRESA (rede toda) + recorte POR CARGO. O agregado geral é o
+ * mesmo de antes; `porCargo` acrescenta uma seção por cargo (só cargos com ≥ MIN
+ * colaboradores, pra não expor grupos minúsculos nem gerar ruído estatístico).
+ */
+const MIN_POR_CARGO = 3;
+
+export async function aggregatePerfilOrg(sb: SupabaseClient, empresaId: string): Promise<PerfilOrg> {
+  const cols = [
+    'nome_completo', 'cargo', 'perfil_dominante',
+    'd_natural', 'i_natural', 's_natural', 'c_natural',
+    'd_adaptado', 'i_adaptado', 's_adaptado', 'c_adaptado',
+    ...Object.keys(VALOR_LABEL),
+    ...Object.keys(LIDERANCA),
+    ...COMP_LABEL.map((c) => c.key), ...COMP_LABEL.map((c) => c.key + '_adapt'),
+  ].join(', ');
+  const { data: rows } = await excludeInternalEmails(
+    sb.from('colaboradores').select(cols).eq('empresa_id', empresaId).not('d_natural', 'is', null),
+  ).order('nome_completo'); // exclui contas internas @vertho.ai das estatísticas
+
+  if (!rows || !rows.length) return EMPTY_PERFIL;
+  const R = rows as any[];
+
+  const geral = computePerfilOrg(R);
+
+  // Recorte por cargo.
+  const grupos = new Map<string, any[]>();
+  for (const x of R) {
+    const cg = (x.cargo || '').trim() || '(sem cargo)';
+    if (!grupos.has(cg)) grupos.set(cg, []);
+    grupos.get(cg)!.push(x);
+  }
+  const porCargo: PerfilPorCargo[] = [...grupos.entries()]
+    .filter(([, arr]) => arr.length >= MIN_POR_CARGO)
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([cargo, arr]) => ({ cargo, n: arr.length, perfil: computePerfilOrg(arr) }));
+
+  return { ...geral, porCargo };
 }
