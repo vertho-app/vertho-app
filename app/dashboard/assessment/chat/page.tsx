@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Send, Loader2, CheckCircle, AlertTriangle, ArrowLeft, Shield } from 'lucide-react';
@@ -11,6 +11,7 @@ import { fetchAuth } from '@/lib/auth/fetch-auth';
 export default function ChatPage() {
   const t = useTranslations('AssessmentChat');
   const searchParams = useSearchParams();
+  const router = useRouter();
   const competenciaId = searchParams.get('competencia');
   const supabase = getSupabase();
 
@@ -33,6 +34,14 @@ export default function ChatPage() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
+
+  // Sem ?competencia esta tela não tem porta de entrada no produto (o assessment
+  // atual roda em /dashboard/temporada); abrir direto dava erro. Redireciona pro
+  // hub de avaliação em vez de mostrar o erro. Com ?competencia, o chat funciona
+  // normalmente (usado pelos testes E2E e por deep-links legados).
+  useEffect(() => {
+    if (!competenciaId) router.replace('/dashboard/assessment');
+  }, [competenciaId, router]);
 
   // Init: carregar user + colaborador + sessão existente
   useEffect(() => {
