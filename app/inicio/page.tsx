@@ -15,6 +15,6 @@ export const dynamic = 'force-dynamic';
 export default async function InicioPage() {
   const email = await getAuthenticatedEmailFromAction();
   if (!email) redirect('/login');
-  if (await isPlatformAdmin(email)) redirect('/admin');
+  if (await isPlatformAdmin(email)) redirect('/admin/dashboard');
   redirect('/dashboard');
 }
