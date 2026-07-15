@@ -18,6 +18,7 @@ interface VideoWatchedParams {
   eventType: string;
   secondsWatched?: number | string;
   videoLength?: number | string;
+  semana?: number | string;
 }
 
 export async function registrarVideoWatched({
@@ -26,6 +27,7 @@ export async function registrarVideoWatched({
   eventType,
   secondsWatched,
   videoLength,
+  semana,
 }: VideoWatchedParams = {} as any) {
   try {
     await requireUserAction();
@@ -47,6 +49,7 @@ export async function registrarVideoWatched({
       event_type: eventType,
       seconds_watched: Math.round(Number(secondsWatched) || 0) || null,
       video_length: Math.round(Number(videoLength) || 0) || null,
+      semana: Number.isFinite(Number(semana)) && Number(semana) > 0 ? Number(semana) : null,
       raw_payload: { source: 'iframe-postmessage' },
     });
     if (error) {

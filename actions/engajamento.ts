@@ -66,8 +66,8 @@ const fmtsDistintos = (evs: any[], pilula: number | null) =>
 /**
  * Roll-up de engajamento por colaborador. `semana` filtra os eventos de abertura/
  * formato/consumo; se null, agrega todas. Retorna { resumo, colaboradores, semanas }.
- * ⚠️ Stats de VÍDEO (play/%/terminou) são all-time e por colaborador — videos_watched
- * não carrega semana, então NÃO filtram por semana (nota na tela).
+ * Stats de VÍDEO (play/%/terminou) filtram por semana quando há filtro; eventos de
+ * vídeo legados (sem semana=NULL) contam em qualquer filtro.
  */
 export async function getEngajamentoEmpresa(empresaId: string, semana?: number | null) {
   await requireAdminAction();
@@ -87,10 +87,13 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
   if (semFiltro) evQuery = evQuery.eq('semana', semFiltro);
   const { data: eventos } = await evQuery;
 
-  // 3) Playback de vídeo (all-time; sem semana).
-  const { data: videos } = await sb.from('videos_watched')
+  // 3) Playback de vídeo — escopado por semana quando há filtro; eventos legados
+  //    sem semana (NULL) contam em qualquer filtro.
+  let vidQuery = sb.from('videos_watched')
     .select('colaborador_id, event_type, seconds_watched, video_length')
     .eq('empresa_id', empresaId).in('event_type', ['play_started', 'play_progress', 'play_finished']);
+  if (semFiltro) vidQuery = vidQuery.or(`semana.eq.${semFiltro},semana.is.null`);
+  const { data: videos } = await vidQuery;
 
   // 4) Consumo explícito (opcionalmente por semana).
   let progQuery = sb.from('temporada_semana_progresso')

@@ -171,7 +171,7 @@ export default function EngajamentoPage() {
 
           <p className="text-xs text-gray-600 mt-3 leading-relaxed">
             <strong>Pílula 1 / Pílula 2</strong>: ● = abriu o link daquela pílula; ícones = formatos abertos do descritor (🎬 vídeo · 🎧 áudio · 📖 texto · 📋 caso).
-            <strong> Terminou vídeo / % vídeo / Consumiu</strong> são do vídeo personalizado (nível semana) — e por isso <strong>não filtram por semana</strong> (videos_watched não carrega semana); o filtro afeta abertura/formato/concluído.
+            <strong> Terminou vídeo / % vídeo / Consumiu</strong> vêm do vídeo personalizado e <strong>agora também filtram por semana</strong>; eventos de vídeo legados (antes de 15/07, sem semana) aparecem em todos os filtros.
             “Abriram conteúdo” já inclui quem deu play no vídeo. Atribuição por pílula vale para envios com <code>?p=</code> (a partir de 15/07).
           </p>
         </>

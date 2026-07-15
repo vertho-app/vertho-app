@@ -35,6 +35,8 @@ function loadPlayerJs(): Promise<any> {
 export function useBunnyTracking(iframeRef: RefObject<HTMLIFrameElement | null>, colaboradorId?: string | null, videoId?: string | null) {
   useEffect(() => {
     if (!colaboradorId || !videoId || !iframeRef.current) return;
+    // semana vem do metaData do embed (trilha-X_semana-N) — evita prop extra na página.
+    const semana = (() => { const m = (iframeRef.current.src || '').match(/semana-(\d+)/); return m ? Number(m[1]) : null; })();
     let cancelled = false;
     let player: any = null;
     let started = false, finished = false, dur = 0, time = 0, ultimoMarco = 0;
@@ -46,7 +48,7 @@ export function useBunnyTracking(iframeRef: RefObject<HTMLIFrameElement | null>,
       const marco = Math.floor(((time / dur) * 100) / 25) * 25;
       if (marco > ultimoMarco && marco >= 25 && marco < 100) {
         ultimoMarco = marco;
-        registrarVideoWatched({ colaboradorId, videoId, eventType: 'play_progress', secondsWatched: Math.round(time), videoLength: Math.round(dur) }).catch(() => {});
+        registrarVideoWatched({ colaboradorId, videoId, eventType: 'play_progress', secondsWatched: Math.round(time), videoLength: Math.round(dur), semana }).catch(() => {});
       }
     }
 
@@ -57,7 +59,7 @@ export function useBunnyTracking(iframeRef: RefObject<HTMLIFrameElement | null>,
         player.getDuration((d: any) => { dur = Number(d) || 0; });
         player.on('play', () => {
           if (started) return; started = true;
-          registrarVideoWatched({ colaboradorId, videoId, eventType: 'play_started', secondsWatched: Math.round(time), videoLength: Math.round(dur) }).catch(() => {});
+          registrarVideoWatched({ colaboradorId, videoId, eventType: 'play_started', secondsWatched: Math.round(time), videoLength: Math.round(dur), semana }).catch(() => {});
         });
         player.on('timeupdate', ({ seconds, duration }: { seconds?: number; duration?: number } = {}) => {
           if (Number.isFinite(seconds)) time = seconds as number;
@@ -67,7 +69,7 @@ export function useBunnyTracking(iframeRef: RefObject<HTMLIFrameElement | null>,
         player.on('ended', () => {
           if (finished) return; finished = true;
           const d = Math.round(dur || time);
-          registrarVideoWatched({ colaboradorId, videoId, eventType: 'play_finished', secondsWatched: d, videoLength: d }).catch(() => {});
+          registrarVideoWatched({ colaboradorId, videoId, eventType: 'play_finished', secondsWatched: d, videoLength: d, semana }).catch(() => {});
         });
       });
     }
@@ -83,7 +85,7 @@ export function useBunnyTracking(iframeRef: RefObject<HTMLIFrameElement | null>,
       cancelled = true;
       // Flush: se começou e não terminou, registra até onde assistiu (SPA nav / fechou).
       if (started && !finished && time > 0 && dur > 0) {
-        registrarVideoWatched({ colaboradorId, videoId, eventType: 'play_progress', secondsWatched: Math.round(time), videoLength: Math.round(dur) }).catch(() => {});
+        registrarVideoWatched({ colaboradorId, videoId, eventType: 'play_progress', secondsWatched: Math.round(time), videoLength: Math.round(dur), semana }).catch(() => {});
       }
       if (player) ['play', 'ended', 'timeupdate', 'ready'].forEach((e) => { try { player.off(e); } catch {} });
     };
