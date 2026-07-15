@@ -14,7 +14,7 @@ import { useBunnyTracking } from '@/lib/use-bunny-tracking';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
-import { registrarAberturaSemana } from '@/actions/engajamento';
+import { registrarEventoTrilha } from '@/actions/engajamento';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 
@@ -68,7 +68,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     aberturaLogada.current = true;
     const pRaw = Number(searchParams.get('p'));
     const pilula = pRaw === 1 || pRaw === 2 ? pRaw : null;
-    registrarAberturaSemana({ trilhaId, semana: semanaNum, pilula, formato: searchParams.get('formato') }).catch(() => {});
+    registrarEventoTrilha({ trilhaId, semana: semanaNum, pilula, formato: searchParams.get('formato'), tipo: 'abertura' }).catch(() => {});
   }, [data?.trilha?.id, semanaNum]);
 
   // Só libera "Marcar como realizado" depois que o colab abriu o link do conteúdo
@@ -267,6 +267,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                   conteudo={entrega.conteudo}
                   competencia={entrega.competencia || semana.competencia}
                   descritor={entrega.descritor}
+                  pilula={idx + 1}
                   formatoAtivo={typeof formatoAtivo === 'object' && formatoAtivo !== null ? formatoAtivo[idx] : (idx === 0 ? formatoAtivo : null)}
                   setFormatoAtivo={(formato) => setFormatoAtivo(prev => ({ ...(typeof prev === 'object' && prev !== null ? prev : {}), [idx]: formato }))}
                   trilhaId={data.trilha.id}
@@ -621,7 +622,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   );
 }
 
-function ConteudoViewer({ conteudo, competencia, descritor, formatoAtivo, setFormatoAtivo, onAutoConsumido, onAbrirConteudo, trilhaId, semana, t }) {
+function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo, setFormatoAtivo, onAutoConsumido, onAbrirConteudo, trilhaId, semana, t }) {
   // Vídeo da CÉLULA (cargo × DISC × PPP), resolvido pela competência da semana.
   // Aparece como um formato a mais (chip clicável); o player abre inline igual
   // aos outros. Não dispara geração (gerar=false) — só reusa pronto/em-preparo.
@@ -695,6 +696,11 @@ function ConteudoViewer({ conteudo, competencia, descritor, formatoAtivo, setFor
     return { info, fid, tem };
   };
 
+  // Telemetria: loga qual formato o colab abriu (atribuído à pílula deste descritor).
+  const logFormato = (f) => {
+    registrarEventoTrilha({ trilhaId, semana, pilula, formato: f, tipo: 'formato' }).catch(() => {});
+  };
+
   return (
     <div>
       {/* Formatos como LINKS/ações diretas: texto/case abrem o PDF em nova aba;
@@ -711,7 +717,7 @@ function ConteudoViewer({ conteudo, competencia, descritor, formatoAtivo, setFor
             return (
               <a key={f} href={fid ? `/api/conteudo/${fid}/pdf` : info?.url}
                 target="_blank" rel="noopener"
-                onClick={() => { setFormatoAtivo(f); onAbrirConteudo?.(); }}
+                onClick={() => { setFormatoAtivo(f); onAbrirConteudo?.(); logFormato(f); }}
                 className={cls}>
                 <Icon size={12} /> {f}
               </a>
@@ -719,7 +725,7 @@ function ConteudoViewer({ conteudo, competencia, descritor, formatoAtivo, setFor
           }
           // áudio/vídeo → seleciona e toca inline abaixo
           return (
-            <button key={f} onClick={() => tem && setFormatoAtivo(f)} disabled={!tem} className={cls}>
+            <button key={f} onClick={() => { if (tem) { setFormatoAtivo(f); logFormato(f); } }} disabled={!tem} className={cls}>
               <Icon size={12} /> {f}
             </button>
           );
@@ -748,6 +754,7 @@ function ConteudoViewer({ conteudo, competencia, descritor, formatoAtivo, setFor
           controls
           className="w-full"
           src={fonteId ? `/api/conteudo/${fonteId}/podcast` : item.url}
+          onEnded={() => registrarEventoTrilha({ trilhaId, semana, pilula, formato: 'audio', tipo: 'audio_fim' }).catch(() => {})}
         />
       )}
     </div>

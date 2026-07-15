@@ -1,10 +1,17 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { BarChart3, Eye, Play, CheckCircle2, Film, RefreshCw, MousePointerClick, Loader2 } from 'lucide-react';
+import { BarChart3, Eye, Film, RefreshCw, MousePointerClick, Loader2, CheckCircle2, LayoutGrid, Video, Headphones, FileText, BookOpen } from 'lucide-react';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { getEngajamentoEmpresa } from '@/actions/engajamento';
+
+const FMT = {
+  video: { Icon: Video, cor: 'text-cyan-400', label: 'vídeo' },
+  audio: { Icon: Headphones, cor: 'text-violet-400', label: 'áudio' },
+  texto: { Icon: FileText, cor: 'text-emerald-400', label: 'texto' },
+  case: { Icon: BookOpen, cor: 'text-amber-400', label: 'caso' },
+};
 
 function Tile({ icon: Icon, label, value, sub, color }: any) {
   return (
@@ -19,9 +26,19 @@ function Tile({ icon: Icon, label, value, sub, color }: any) {
 }
 
 function Bool({ v }: { v: boolean }) {
-  return v
-    ? <span className="text-emerald-400">✓</span>
-    : <span className="text-gray-600">—</span>;
+  return v ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>;
+}
+
+function Formatos({ lista }: { lista: string[] }) {
+  if (!lista?.length) return <span className="text-gray-600">—</span>;
+  return (
+    <div className="flex items-center gap-1.5">
+      {(['video', 'audio', 'texto', 'case'] as const).filter((f) => lista.includes(f)).map((f) => {
+        const { Icon, cor, label } = FMT[f];
+        return <span key={f} title={label}><Icon size={14} className={cor} /></span>;
+      })}
+    </div>
+  );
 }
 
 function PctBar({ pct }: { pct: number }) {
@@ -45,8 +62,7 @@ export default function EngajamentoPage() {
     if (!empresaId) { setData(null); return; }
     setLoading(true);
     try {
-      const r = await getEngajamentoEmpresa(empresaId);
-      setData(r);
+      setData(await getEngajamentoEmpresa(empresaId));
     } finally {
       setLoading(false);
     }
@@ -63,7 +79,7 @@ export default function EngajamentoPage() {
         icon={BarChart3}
         iconClassName="text-cyan-400"
         title="Engajamento da trilha"
-        subtitle={empresa?.nome ? `${empresa.nome} — quem abriu, assistiu e concluiu` : 'Selecione uma empresa no filtro do topo'}
+        subtitle={empresa?.nome ? `${empresa.nome} — abriu · formato · vídeo · concluiu` : 'Selecione uma empresa no filtro do topo'}
         actions={
           <button onClick={carregar} disabled={loading || !empresaId}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 disabled:opacity-40">
@@ -83,10 +99,10 @@ export default function EngajamentoPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             <Tile icon={Eye} color="text-gray-400" label="Inscritos" value={resumo.inscritos} />
             <Tile icon={MousePointerClick} color="text-cyan-400" label="Abriram o link" value={resumo.abriramLink} sub={`de ${resumo.inscritos}`} />
-            <Tile icon={Play} color="text-violet-400" label="Deram play" value={resumo.deramPlay} sub={`de ${resumo.inscritos}`} />
+            <Tile icon={LayoutGrid} color="text-teal-400" label="Abriram conteúdo" value={resumo.abriramAlgumFormato} sub="algum formato" />
             <Tile icon={Film} color="text-emerald-400" label="Terminaram o vídeo" value={resumo.terminaramVideo} sub={`de ${resumo.inscritos}`} />
-            <Tile icon={BarChart3} color="text-amber-400" label="% médio assistido" value={`${resumo.pctMedioAssistido}%`} />
-            <Tile icon={CheckCircle2} color="text-emerald-400" label="Marcaram concluído" value={resumo.marcaramConcluido} sub={`de ${resumo.inscritos}`} />
+            <Tile icon={CheckCircle2} color="text-emerald-400" label="Consumiram" value={resumo.consumiram} sub="vídeo/áudio/marcou" />
+            <Tile icon={BarChart3} color="text-amber-400" label="% médio (vídeo)" value={`${resumo.pctMedioVideo}%`} />
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
@@ -97,10 +113,10 @@ export default function EngajamentoPage() {
                     <th className="px-4 py-2.5 font-medium">Colaborador</th>
                     <th className="px-3 py-2.5 font-medium text-center">Recebeu P1/P2</th>
                     <th className="px-3 py-2.5 font-medium text-center">Abriu link</th>
-                    <th className="px-3 py-2.5 font-medium text-center">Play</th>
+                    <th className="px-3 py-2.5 font-medium">Formatos abertos</th>
                     <th className="px-3 py-2.5 font-medium text-center">Terminou vídeo</th>
-                    <th className="px-3 py-2.5 font-medium">% assistido</th>
-                    <th className="px-3 py-2.5 font-medium text-center">Concluído</th>
+                    <th className="px-3 py-2.5 font-medium">% vídeo</th>
+                    <th className="px-3 py-2.5 font-medium text-center">Consumiu</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -122,10 +138,14 @@ export default function EngajamentoPage() {
                           </span>
                         ) : <span className="text-gray-600">—</span>}
                       </td>
-                      <td className="px-3 py-2.5 text-center"><Bool v={c.deuPlay} /></td>
+                      <td className="px-3 py-2.5"><Formatos lista={c.formatosAbertos} /></td>
                       <td className="px-3 py-2.5 text-center"><Bool v={c.terminouVideo} /></td>
-                      <td className="px-3 py-2.5"><PctBar pct={c.pctAssistido} /></td>
-                      <td className="px-3 py-2.5 text-center"><Bool v={c.marcouConcluido} /></td>
+                      <td className="px-3 py-2.5"><PctBar pct={c.pctVideo} /></td>
+                      <td className="px-3 py-2.5 text-center">
+                        {c.consumiu
+                          ? <span className="text-emerald-400" title={[c.terminouVideo && 'vídeo', c.audioTerminou && 'áudio', c.marcouConcluido && 'marcou'].filter(Boolean).join(' · ')}>✓</span>
+                          : <span className="text-gray-600">—</span>}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -134,10 +154,9 @@ export default function EngajamentoPage() {
           </div>
 
           <p className="text-xs text-gray-600 mt-3 leading-relaxed">
-            <strong>Abriu link</strong> = abriu o deep-link da pílula (contagem P1/P2/direto). A atribuição por pílula (P1/P2)
-            vale para envios <em>a partir de agora</em>; aberturas de pílulas já enviadas contam como “direto”.
-            <strong> Play / Terminou / % assistido</strong> vêm do player de vídeo (vídeo personalizado do colaborador).
-            <strong> Concluído</strong> = marcou manualmente como realizado na tela da semana.
+            <strong>Formatos abertos</strong> = quais formatos o colaborador de fato abriu na tela (vídeo 🎬 · áudio 🎧 · texto 📖 · caso 📋) — resolve o viés de só medir vídeo.
+            <strong> Terminou vídeo / % vídeo</strong> só existem para vídeo (player Bunny). <strong> Consumiu</strong> = terminou o vídeo OU o áudio OU marcou como concluído.
+            Atribuição por pílula (P1/P2) vale para envios a partir de agora (deep-links com <code>?p=</code>); os já enviados contam como “direto”.
           </p>
         </>
       )}
