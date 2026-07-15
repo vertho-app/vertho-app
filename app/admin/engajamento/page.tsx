@@ -29,14 +29,24 @@ function Bool({ v }: { v: boolean }) {
   return v ? <span className="text-emerald-400">✓</span> : <span className="text-gray-600">—</span>;
 }
 
-function Formatos({ lista }: { lista: string[] }) {
-  if (!lista?.length) return <span className="text-gray-600">—</span>;
+function FormatosIcons({ lista }: { lista: string[] }) {
   return (
-    <div className="flex items-center gap-1.5">
-      {(['video', 'audio', 'texto', 'case'] as const).filter((f) => lista.includes(f)).map((f) => {
+    <>
+      {(['video', 'audio', 'texto', 'case'] as const).filter((f) => lista?.includes(f)).map((f) => {
         const { Icon, cor, label } = FMT[f];
         return <span key={f} title={label}><Icon size={14} className={cor} /></span>;
       })}
+    </>
+  );
+}
+
+/** Célula de uma pílula: bolinha = abriu o link; ícones = formatos abertos daquele descritor. */
+function PilulaCell({ abriu, formatos }: { abriu: boolean; formatos: string[] }) {
+  if (!abriu && !formatos?.length) return <span className="text-gray-600">—</span>;
+  return (
+    <div className="flex items-center gap-2">
+      <span title={abriu ? 'abriu o link' : 'não abriu o link'} className={abriu ? 'text-cyan-400 text-lg leading-none' : 'text-gray-700 text-lg leading-none'}>●</span>
+      <FormatosIcons lista={formatos} />
     </div>
   );
 }
@@ -57,21 +67,23 @@ export default function EngajamentoPage() {
   const { empresaId, empresa } = useEmpresaContexto();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
+  const [semanaSel, setSemanaSel] = useState<number | null>(null);
 
   const carregar = useCallback(async () => {
     if (!empresaId) { setData(null); return; }
     setLoading(true);
     try {
-      setData(await getEngajamentoEmpresa(empresaId));
+      setData(await getEngajamentoEmpresa(empresaId, semanaSel));
     } finally {
       setLoading(false);
     }
-  }, [empresaId]);
+  }, [empresaId, semanaSel]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
   const resumo = data?.resumo;
   const colabs = data?.colaboradores || [];
+  const semanas: number[] = data?.semanas || [1];
 
   return (
     <div>
@@ -81,10 +93,20 @@ export default function EngajamentoPage() {
         title="Engajamento da trilha"
         subtitle={empresa?.nome ? `${empresa.nome} — abriu · formato · vídeo · concluiu` : 'Selecione uma empresa no filtro do topo'}
         actions={
-          <button onClick={carregar} disabled={loading || !empresaId}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 disabled:opacity-40">
-            {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Atualizar
-          </button>
+          <div className="flex items-center gap-2">
+            <select
+              value={semanaSel ?? ''}
+              onChange={(e) => setSemanaSel(e.target.value ? Number(e.target.value) : null)}
+              disabled={!empresaId}
+              className="text-xs px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 disabled:opacity-40">
+              <option value="">Todas as semanas</option>
+              {semanas.map((s) => <option key={s} value={s}>Semana {s}</option>)}
+            </select>
+            <button onClick={carregar} disabled={loading || !empresaId}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 disabled:opacity-40">
+              {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Atualizar
+            </button>
+          </div>
         }
       />
 
@@ -111,9 +133,9 @@ export default function EngajamentoPage() {
                 <thead>
                   <tr className="text-left text-xs text-gray-500 border-b border-white/10">
                     <th className="px-4 py-2.5 font-medium">Colaborador</th>
-                    <th className="px-3 py-2.5 font-medium text-center">Recebeu P1/P2</th>
-                    <th className="px-3 py-2.5 font-medium text-center">Abriu link</th>
-                    <th className="px-3 py-2.5 font-medium">Formatos abertos</th>
+                    <th className="px-3 py-2.5 font-medium text-center">Recebeu</th>
+                    <th className="px-3 py-2.5 font-medium">Pílula 1</th>
+                    <th className="px-3 py-2.5 font-medium">Pílula 2</th>
                     <th className="px-3 py-2.5 font-medium text-center">Terminou vídeo</th>
                     <th className="px-3 py-2.5 font-medium">% vídeo</th>
                     <th className="px-3 py-2.5 font-medium text-center">Consumiu</th>
@@ -131,14 +153,8 @@ export default function EngajamentoPage() {
                         {' / '}
                         <span className={c.recebeuP2 ? 'text-emerald-400' : 'text-gray-600'}>P2</span>
                       </td>
-                      <td className="px-3 py-2.5 text-center">
-                        {c.abriuLink ? (
-                          <span className="text-xs text-gray-300" title={`P1: ${c.aberturasP1} · P2: ${c.aberturasP2} · direto: ${c.aberturasDireto}`}>
-                            ✓ <span className="text-gray-500">({c.aberturasP1}/{c.aberturasP2}{c.aberturasDireto ? `/${c.aberturasDireto}d` : ''})</span>
-                          </span>
-                        ) : <span className="text-gray-600">—</span>}
-                      </td>
-                      <td className="px-3 py-2.5"><Formatos lista={c.formatosAbertos} /></td>
+                      <td className="px-3 py-2.5"><PilulaCell abriu={c.abriuP1} formatos={c.formatosP1} /></td>
+                      <td className="px-3 py-2.5"><PilulaCell abriu={c.abriuP2} formatos={c.formatosP2} /></td>
                       <td className="px-3 py-2.5 text-center"><Bool v={c.terminouVideo} /></td>
                       <td className="px-3 py-2.5"><PctBar pct={c.pctVideo} /></td>
                       <td className="px-3 py-2.5 text-center">
@@ -154,9 +170,9 @@ export default function EngajamentoPage() {
           </div>
 
           <p className="text-xs text-gray-600 mt-3 leading-relaxed">
-            <strong>Formatos abertos</strong> = quais formatos o colaborador de fato abriu na tela (vídeo 🎬 · áudio 🎧 · texto 📖 · caso 📋) — resolve o viés de só medir vídeo.
-            <strong> Terminou vídeo / % vídeo</strong> só existem para vídeo (player Bunny). <strong> Consumiu</strong> = terminou o vídeo OU o áudio OU marcou como concluído.
-            Atribuição por pílula (P1/P2) vale para envios a partir de agora (deep-links com <code>?p=</code>); os já enviados contam como “direto”.
+            <strong>Pílula 1 / Pílula 2</strong>: ● = abriu o link daquela pílula; ícones = formatos abertos do descritor (🎬 vídeo · 🎧 áudio · 📖 texto · 📋 caso).
+            <strong> Terminou vídeo / % vídeo / Consumiu</strong> são do vídeo personalizado (nível semana) — e por isso <strong>não filtram por semana</strong> (videos_watched não carrega semana); o filtro afeta abertura/formato/concluído.
+            “Abriram conteúdo” já inclui quem deu play no vídeo. Atribuição por pílula vale para envios com <code>?p=</code> (a partir de 15/07).
           </p>
         </>
       )}
