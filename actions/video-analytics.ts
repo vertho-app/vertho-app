@@ -2,7 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
-import { requireUserAction } from '@/lib/auth/action-context';
+import { requireUserAction, requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 const DIAS_INATIVO = 14;
@@ -12,7 +12,10 @@ const DIAS_INATIVO = 14;
  */
 export async function loadEmpresaInfo(empresaId: string | null | undefined) {
   try {
-    await requireUserAction();
+    // `empresaId` vem do CLIENTE e o único caller é a tela /admin/videos —
+    // gate de admin em vez de "qualquer autenticado", que devolvia nome/slug
+    // de qualquer empresa. Leitura → admin.access basta (sócio enxerga).
+    await requireAdminAction();
     if (!empresaId) return null;
     const sb = createSupabaseAdmin();
     const { data } = await sb.from('empresas').select('id, nome, slug').eq('id', empresaId).maybeSingle();

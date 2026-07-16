@@ -141,6 +141,38 @@ export function canViewOwnJourney(ctx: UserContext | null | undefined): boolean 
   return !!ctx?.colaborador;
 }
 
+/**
+ * Quem pode ver a JORNADA de `colab` (temporada, progresso, transcripts): o
+ * PRÓPRIO, o RH do mesmo tenant, o gestor da mesma área, o tutor de quem ele
+ * tutora, ou o platform admin. Cross-tenant nunca — exceto platform admin.
+ *
+ * Existe porque `'use server'` torna todo export um endpoint HTTP e o id do
+ * colaborador vem do CLIENTE: um gate que só exige sessão (`requireUserAction`)
+ * deixa qualquer autenticado pedir a jornada de qualquer pessoa de qualquer
+ * tenant. Ter a regra em UM lugar evita que cada action a reinvente — e divirja.
+ *
+ * Cuidado ao usar: passe o `colab` LIDO DO BANCO, nunca dados vindos do cliente.
+ */
+export function canViewColabJourney(
+  ctx: UserContext | null | undefined,
+  colab: { id: string; empresa_id?: string | null; area_depto?: string | null } | null | undefined,
+): boolean {
+  if (!ctx || !colab?.id) return false;
+  if (ctx.isPlatformAdmin) return true;
+  if (ctx.colaborador?.id === colab.id) return true;
+
+  // Daqui pra baixo é dado de OUTRA pessoa: exige mesmo tenant, sempre.
+  if (!ctx.empresaId || !colab.empresa_id || ctx.empresaId !== colab.empresa_id) return false;
+
+  if (ctx.role === 'rh') return true;
+  if (ctx.role === 'gestor') {
+    const areaGestor = ctx.colaborador?.area_depto;
+    return !!areaGestor && !!colab.area_depto && colab.area_depto === areaGestor;
+  }
+  if (ctx.role === 'tutor') return canTutorAccess(ctx, colab.id);
+  return false;
+}
+
 export type DashboardView = 'rh' | 'gestor' | 'tutor' | 'colaborador';
 
 export function getDashboardView(ctx: UserContext | null | undefined): DashboardView {

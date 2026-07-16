@@ -2,7 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
-import { findColabByEmail } from '@/lib/authz';
+import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
 import { selectDescriptorsPiloto } from '@/lib/season-engine/select-descriptors';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
@@ -631,10 +631,18 @@ export async function listarTemporadasEmpresa(empresaId: string) {
  */
 export async function marcarConteudoConsumido(trilhaId: string, semana: number) {
   try {
-    await requireUserAction();
+    const ctx = await requireUserAction();
     const sb = createSupabaseAdmin();
     const { data: t } = await sb.from('trilhas').select('empresa_id, colaborador_id, temporada_plano').eq('id', trilhaId).maybeSingle();
     if (!t) return { error: 'Trilha não encontrada' };
+
+    // SÓ O DONO marca o próprio progresso: `trilhaId` vem do CLIENTE, e sem
+    // isto qualquer autenticado marca semana como consumida na trilha alheia
+    // (de qualquer tenant). Marcar progresso de outro não é caso de uso de
+    // ninguém — nem de gestor/RH, que só LEEM a jornada do liderado.
+    if (!ctx.colaborador?.id || t.colaborador_id !== ctx.colaborador.id) {
+      return { error: 'não autorizado' };
+    }
     const { data: existente } = await sb.from('temporada_semana_progresso')
       .select('id, iniciado_em').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
     const payload = {
@@ -696,16 +704,23 @@ export async function loadProgressoDetalhado(trilhaId: string) {
  */
 export async function loadTemporada(colaboradorId: string, opts: { semanaTranscrito?: number } = {}) {
   try {
-    await requireUserAction();
+    const ctx = await requireUserAction();
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
 
     // Descobre empresa_id do colab pra poder usar tenantDb (que força filtro).
     // Uso raw aqui porque colaboradores busca é a fonte do tenantId.
     const sbRaw = createSupabaseAdmin();
     const { data: colaborador } = await sbRaw.from('colaboradores')
-      .select('id, nome_completo, cargo, email, perfil_dominante, empresa_id, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso')
+      .select('id, nome_completo, cargo, email, perfil_dominante, empresa_id, area_depto, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso')
       .eq('id', colaboradorId).maybeSingle();
     if (!colaborador?.empresa_id) return { error: 'Colab sem empresa_id' };
+
+    // GATE DE POSSE. O tenantDb abaixo escopa pelo empresa_id DESTE colaborador
+    // — que é o que o CLIENTE pediu. Isso garante consistência do escopo, não
+    // autorização: sem esta checagem, qualquer autenticado lê a temporada de
+    // qualquer pessoa de qualquer tenant, transcripts inclusive. Dono, RH,
+    // gestor da área, tutor do tutorado e platform admin passam.
+    if (!canViewColabJourney(ctx, colaborador)) return { error: 'não autorizado' };
 
     // A partir daqui, todas queries em tabelas tenant-owned passam por tenantDb.
     // Se alguém adicionar .from('trilhas').select() sem .eq('empresa_id'),

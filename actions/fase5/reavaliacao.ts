@@ -321,7 +321,7 @@ A mensagem visível ao colaborador deve vir ANTES do [META].`;
 }
 
 export async function processarReavaliacao(sessaoId: string, mensagem: string, aiConfig: AIConfig = {}) {
-  await requireUserAction();
+  const ctx = await requireUserAction();
   const sbRaw = createSupabaseAdmin();
   try {
     // Descobre tenant via sessão (raw — query inicial)
@@ -332,6 +332,14 @@ export async function processarReavaliacao(sessaoId: string, mensagem: string, a
     if (sessaoErr) return { success: false, error: sessaoErr.message };
     if (!sessao) return { success: false, error: 'Sessão não encontrada' };
     if (sessao.status === 'concluida') return { success: false, error: 'Sessão já concluída' };
+
+    // SÓ O DONO conversa na própria reavaliação: `sessaoId` vem do CLIENTE e o
+    // `tenantDb` abaixo escopa pelo tenant DA SESSÃO PEDIDA — consistência, não
+    // autorização. Sem isto, qualquer autenticado lê a sessão de outro tenant,
+    // ESCREVE no histórico dela e queima IA. Platform admin passa (operação).
+    if (!ctx.isPlatformAdmin && (!ctx.colaborador?.id || sessao.colaborador_id !== ctx.colaborador.id)) {
+      return { success: false, error: 'não autorizado' };
+    }
 
     const tdb = tenantDb(sessao.empresa_id);
 

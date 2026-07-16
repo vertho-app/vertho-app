@@ -57,6 +57,13 @@ export async function loadPulseDashboard(
   const ctx = await requireUserAction();
   const canSee = ctx.isPlatformAdmin || ctx.role === 'rh' || ctx.role === 'gestor';
   if (!canSee) return { ok: false, error: 'Sem permissão' };
+  // `empresaId` vem do CLIENTE. A checagem `ciclo.empresa_id !== empresaId`
+  // logo abaixo compara o pedido com o próprio pedido — prova consistência, não
+  // autorização. Sem amarrar ao tenant do usuário, um RH do tenant A lê o clima
+  // do tenant B inteiro. Platform admin é global por definição.
+  if (!ctx.isPlatformAdmin && ctx.empresaId !== empresaId) {
+    return { ok: false, error: 'Sem permissão' };
+  }
   if (ctx.role === 'gestor' && !ctx.isPlatformAdmin) {
     const area = ctx.colaborador?.area_depto;
     const cargo = ctx.colaborador?.cargo;

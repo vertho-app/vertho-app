@@ -16,7 +16,20 @@ import { requireUserAction } from '@/lib/auth/action-context';
  * @returns {{ success, feedback, pontos, avaliacao }}
  */
 export async function avaliarEvidencia(colaboradorId: string, empresaId: string, semana: number, evidenciaTexto: string) {
-  await requireUserAction();
+  const ctx = await requireUserAction();
+
+  // `colaboradorId`/`empresaId` vêm do CLIENTE (este export é `'use server'` =
+  // endpoint HTTP). O caller legítimo (`registrarEvidencia`) já os resolve pela
+  // sessão via findColabByEmail — mas o export é chamável direto, e sem isto
+  // qualquer autenticado lê colaborador de outro tenant E queima chamada de IA.
+  // A evidência é a prática do PRÓPRIO colaborador: só o dono avalia a sua.
+  if (!ctx.colaborador?.id || ctx.colaborador.id !== colaboradorId) {
+    throw new Error('FORBIDDEN: não autorizado');
+  }
+  if (!ctx.empresaId || ctx.empresaId !== empresaId) {
+    throw new Error('FORBIDDEN: não autorizado');
+  }
+
   const sb = createSupabaseAdmin();
 
   try {
