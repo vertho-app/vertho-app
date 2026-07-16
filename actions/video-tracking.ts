@@ -30,9 +30,21 @@ export async function registrarVideoWatched({
   semana,
 }: VideoWatchedParams = {} as any) {
   try {
-    await requireUserAction();
+    const ctx = await requireUserAction();
     if (!colaboradorId || !videoId || !eventType) {
       return { error: 'Dados incompletos' };
+    }
+
+    // SÓ O DONO registra o próprio playback: este export é `'use server'` (=
+    // endpoint HTTP) e o `colaboradorId` vem do CLIENTE. Sem isto, qualquer
+    // autenticado forja playback de qualquer colaborador de qualquer tenant —
+    // e `videos_watched.play_finished` é o sinal de engajamento em que a
+    // /admin/engajamento realmente confia. Pior: 'play_finished' dispara
+    // concluirPilulaSeMapeada(), que marca a trilha do alvo como consumida.
+    // O admin monta o player sem colaboradorId (não gera telemetria) — nada
+    // legítimo depende de registrar em nome de outro.
+    if (!ctx.colaborador?.id || ctx.colaborador.id !== colaboradorId) {
+      return { error: 'não autorizado' };
     }
 
     const sb = createSupabaseAdmin();
