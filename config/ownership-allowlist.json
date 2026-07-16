@@ -1,0 +1,4 @@
+{
+  "description": "DÍVIDA congelada, não permissão. Exports 'use server' que recebem um id do CLIENTE e gateiam só a SESSÃO (requireUserAction/requireRoleAction), sem nenhum sinal de checagem de POSSE do recurso pedido. Todo export 'use server' é endpoint HTTP: gate de sessão prova que existe ALGUÉM logado, não que esse alguém é dono do id que ele mandou. Foi essa a classe dos 9 IDORs de 16/07/2026 (registrarEventoTrilha, registrarVideoWatched, loadTemporada, pulse x3, avaliarEvidencia, processarReavaliacao, marcarConteudoConsumido) — 4 deles vazavam PII cross-tenant. A lista está VAZIA e só deve encolher: para sair dela, cheque a posse (canViewColabJourney(ctx, colab) p/ jornada, ctx.colaborador.id === <id> p/ escrita do dono, ctx.empresaId === empresaId p/ recorte de tenant, ou assertTenantAccess*). Se a entrada é legítima, o motivo vai NO CÓDIGO, não aqui.",
+  "allowlist": {}
+}
