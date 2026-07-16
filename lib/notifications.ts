@@ -139,6 +139,7 @@ Acesse a plataforma Vertho e registre sua evidência hoje!
 
 // Quinta: cobra o DESAFIO específico da semana (do kit, por DISC). A pessoa sabe
 // exatamente o que praticar e sobre o que vai conversar com a IA. Ver Fase 3.
+// (LEGADO — usado só por triggerQuinta manual; o cron diário usa o NUDGE abaixo.)
 export function templateWhatsAppDesafioQuinta(nome, desafioTexto) {
   return `Olá, ${nome}! 🎯
 
@@ -147,5 +148,19 @@ export function templateWhatsAppDesafioQuinta(nome, desafioTexto) {
 _${desafioTexto}_
 
 Já conseguiu fazer? Conta pra Mentora IA na plataforma como foi (e o que você percebeu). Se ainda não deu, dá tempo até o fim da semana!
+— Equipe Vertho`;
+}
+
+// Quinta (NUDGE): a pessoa já viu o desafio no conteúdo E no card "Desafio" do week
+// page durante a semana. Aqui é só a cobrança de prática + link pra rever e relatar
+// à Mentora IA — SEM repetir o texto do desafio (evita a redundância do 3º envio).
+export function templateWhatsAppNudgeDesafio(nome, link) {
+  return `Olá, ${nome}! 🎯
+
+É quinta — dia de fechar a prática da semana. Você já fez seu desafio?
+
+👉 ${link}
+
+Abra sua semana pra rever o desafio e conta pra Mentora IA como foi. Se ainda não deu, dá tempo até o fim da semana!
 — Equipe Vertho`;
 }

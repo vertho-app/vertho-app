@@ -3,8 +3,8 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, APP_WEBHOOK_URL, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
-import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppDesafioQuinta } from '@/lib/notifications';
-import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula } from '@/lib/notifications/pilula-envio';
+import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppDesafioQuinta, templateWhatsAppNudgeDesafio } from '@/lib/notifications';
+import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula, deepLinkSemana } from '@/lib/notifications/pilula-envio';
 import { resolverDesafioDoKit } from '@/lib/season-engine/kit/desafio-semana';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
@@ -391,19 +391,16 @@ export async function triggerDiario() {
           await tdb.from('fase4_envios').update({ ultima_evidencia_em: new Date().toISOString() }).eq('id', envio.id);
           continue;
         }
-        // Cobra o DESAFIO do kit (por DISC + cargo), cobrindo os 2 descritores DUO.
-        let desafioTexto = '';
-        if (telefone && plan && plan.tipo !== 'aplicacao' && disc && conteudosDia.length) {
-          try {
-            const linhas = await Promise.all(conteudosDia.map(async (e: any) => {
-              const k = await resolverDesafioDoKit(sbRaw, { empresaId: empresa.id, competencia: e.competencia || competenciaFoco, descritor: e.descritor, disc, cargo }).catch(() => null);
-              return k?.desafio_texto || e.conteudo?.desafio_texto;
-            }));
-            desafioTexto = linhas.filter(Boolean).join('\n\n');
-          } catch (e: any) { console.warn('[triggerDiario] desafio:', e?.message); }
-        }
+        // Quinta = NUDGE de prática. O desafio JÁ está no conteúdo da semana (cada
+        // formato aterrissa nele) E no card "Desafio" do week page — re-mandar o texto
+        // inteiro seria o 3º envio redundante. Aqui só cobramos + linkamos a semana
+        // (rever o desafio + relatar à Mentora IA). Aplicação/missão (4/8/12) → lembrete
+        // de evidência clássico.
         if (telefone) {
-          const mensagem = desafioTexto ? templateWhatsAppDesafioQuinta(nome, desafioTexto) : templateWhatsAppEvidencia(nome, semana);
+          const ehDesafio = plan && plan.tipo !== 'aplicacao' && !ehImpl && conteudosDia.length;
+          const mensagem = ehDesafio
+            ? templateWhatsAppNudgeDesafio(nome, deepLinkSemana(baseUrl, semana))
+            : templateWhatsAppEvidencia(nome, semana);
           try { await publishToQStash({ telefone, mensagem }, delay()); evidencias++; } catch { erros++; }
         }
         await tdb.from('fase4_envios').update({ semana_atual: semana + 1, ultima_evidencia_em: new Date().toISOString() }).eq('id', envio.id);
