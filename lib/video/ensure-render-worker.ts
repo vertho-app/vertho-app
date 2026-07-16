@@ -18,15 +18,16 @@
  * Envs necessárias (no ambiente do orquestrador / trigger.dev):
  *   HCLOUD_TOKEN, RENDER_SNAPSHOT_ID, DATABASE_URL, BUNNY_LIBRARY_ID,
  *   BUNNY_STREAM_API_KEY, GEMINI_API_KEY (opcional → liga personalização).
- *   Opcionais: RENDER_SERVER_TYPE (tipo PRIMÁRIO, default cx33 — shared Intel, barato,
- *   NÃO usa cota dedicada), RENDER_FALLBACK_TYPE (default cx43 — 16GB, +RAM/rápido, p/
- *   quando o primário não tem estoque), RENDER_LOCATIONS (lista CSV que o LADDER varre,
- *   default 'nbg1,hel1,fsn1'), RENDER_LOCATION (location preferida — tentada 1º).
- *   FALLBACK: em resource_unavailable (412), varre primário × todas as locations, depois
- *   fallback × todas — só falha se NENHUM (tipo × location) tiver capacidade.
- *   RENDER_CONCURRENCY (auto por RAM: cx33→2, cx43→4), RENDER_SSH_KEY_ID,
- *   RENDER_IDLE_SHUTDOWN_MS (300000), VIDEO_RENDER_SCALE (0.6667), MAX_RENDER_BOXES (4),
- *   RENDER_JOBS_PER_BOX (3).
+ *   Opcionais: RENDER_SERVER_TYPES (lista CSV de tipos EM ORDEM que o LADDER varre,
+ *   ex. 'cx43,cx53,cx33,cpx32,cpx22,ccx13' — CX primeiro, CPX shared depois, CCX
+ *   dedicada por último; precede o par abaixo), RENDER_SERVER_TYPE/RENDER_FALLBACK_TYPE
+ *   (par de compat quando RENDER_SERVER_TYPES não está setado), RENDER_LOCATIONS (CSV de
+ *   locations, default 'nbg1,hel1,fsn1'), RENDER_LOCATION (location preferida — tentada 1º).
+ *   FALLBACK: em resource_unavailable (412), varre cada tipo × todas as locations na ordem
+ *   — só falha se NENHUM (tipo × location) tiver capacidade.
+ *   RENDER_CONCURRENCY (senão auto por RAM do tipo: 4GB→1, 8GB→2, 16GB+→4), RENDER_SSH_KEY_ID,
+ *   RENDER_IDLE_SHUTDOWN_MS (300000), VIDEO_RENDER_SCALE (0.6667), MAX_RENDER_BOXES (default 4),
+ *   RENDER_JOBS_PER_BOX (default 3), MAX_RENDER_MS (watchdog, default 40min).
  */
 import { SUPA, KEY } from './render-helpers';
 
@@ -69,20 +70,29 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
 
   // ── LADDER de fallback (tipo × location) ──────────────────────────────────
   // resource_unavailable (412) é comum no CX shared: um tipo/location fica sem
-  // estoque por horas. Em vez de desistir, tenta o PRIMÁRIO (cx33, barato) em TODAS
-  // as locations e, esgotado, o FALLBACK (cx43, +RAM) em todas. Só falha se nenhum
-  // (tipo × location) tiver capacidade.
-  const primaryType = process.env.RENDER_SERVER_TYPE || 'cx33';
-  const fallbackType = process.env.RENDER_FALLBACK_TYPE || 'cx43';
+  // estoque por horas. Em vez de desistir, varre uma LISTA de tipos EM ORDEM,
+  // cada tipo em TODAS as locations, antes de passar ao próximo. Só falha se
+  // nenhum (tipo × location) tiver capacidade.
+  // Ordem via RENDER_SERVER_TYPES (CSV, precedência); ex.: cx43,cx53,cx33,cpx32,cpx22,ccx13
+  // (CX primeiro = foco/confiável; CPX shared depois; CCX dedicada por último).
+  // Compat: sem RENDER_SERVER_TYPES cai no par RENDER_SERVER_TYPE + RENDER_FALLBACK_TYPE.
+  const typesEnv = (process.env.RENDER_SERVER_TYPES || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const types = typesEnv.length
+    ? [...new Set(typesEnv)]
+    : [...new Set([process.env.RENDER_SERVER_TYPE || 'cx33', process.env.RENDER_FALLBACK_TYPE || 'cx43'])];
   const allLocs = (process.env.RENDER_LOCATIONS || 'nbg1,hel1,fsn1').split(',').map((s) => s.trim()).filter(Boolean);
   const primaryLoc = process.env.RENDER_LOCATION;
   const locs = primaryLoc ? [primaryLoc, ...allLocs.filter((l) => l !== primaryLoc)] : allLocs;
-  const types = [...new Set([primaryType, fallbackType])];
   const ladder: Array<{ type: string; loc: string }> = types.flatMap((t) => locs.map((loc) => ({ type: t, loc })));
 
-  // Concorrência por RAM: cx33/cpx31/cax31 (~8GB) OOMam com 4 em 720p → 2; cx43 (16GB) → 4.
-  const SMALL_RAM = new Set(['cx33', 'cpx31', 'cax31']);
-  const concFor = (t: string) => process.env.RENDER_CONCURRENCY || (SMALL_RAM.has(t) ? '2' : '4');
+  // Concorrência por RAM do tipo (render 720p + Chrome/swangle sem GPU): 4GB só
+  // aguenta 1; 8GB → 2; 16GB+ → 4. RENDER_CONCURRENCY sobrepõe. Default conservador 2.
+  const CONC_BY_TYPE: Record<string, string> = {
+    cpx22: '1',                                                 // 4GB
+    cx33: '2', cpx31: '2', cpx32: '2', ccx13: '2', cax31: '2',  // 8GB
+    cx43: '4', cx53: '4', ccx23: '4', cpx41: '4',               // 16GB+
+  };
+  const concFor = (t: string) => process.env.RENDER_CONCURRENCY || CONC_BY_TYPE[t] || '2';
 
   const buildEnv = (conc: string) => [
     `DATABASE_URL=${process.env.DATABASE_URL}`,
