@@ -75,9 +75,15 @@ export async function gerarKitBriefNucleo(sb: any, p: GerarBriefParams): Promise
   let moduloTxt = '';
   let moduloBaseId: string | null = null;
   try {
+    // cargo + descritor são OBRIGATÓRIOS aqui. Sem `cargo`, o resolver não aplica o
+    // filtro da regra "competência é ÚNICA POR CARGO" (4faa0130) e o brief ancora no
+    // MB de OUTRO cargo — medido: Autocuidado sem cargo → MB da Gestão Escolar
+    // ("Ninguém Conduz Sozinho"), servindo também a Coordenação Pedagógica, cujo MB
+    // certo é outro ("BUSCA DE APOIO"). Sem `descritor`, o score semântico não
+    // diferencia os descritores da competência e os 6 caem no MESMO módulo-base.
     const escolhido = await resolverModuloBaseParaConteudo(sb, {
-      competenciaNome: p.competencia, nivelMin: p.nivelMin ?? 1.0,
-      locale: p.aiConfig?.locale, contexto_pedagogico: p.contexto, empresaId: p.empresaId,
+      competenciaNome: p.competencia, descritor: p.descritor, nivelMin: p.nivelMin ?? 1.0,
+      locale: p.aiConfig?.locale, contexto_pedagogico: p.contexto, cargo: p.cargo, empresaId: p.empresaId,
     });
     if (escolhido) {
       moduloBaseId = escolhido.modulo.id;
