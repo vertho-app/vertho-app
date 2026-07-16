@@ -102,6 +102,30 @@ tests/unit/          vitest
   - Fechamento (sem 14 / espelho no piloto): Cenário B + **scorer** + **check** (2ª IA) + **arguição** (defesa oral) + **trava** (piloto) + **Evolution Report**.
 - Scoring: `lib/scoring::calcularFitUnificado` (Adequação + Fit v2), knockouts como gate, `spec_version` versiona a régua (congela histórico).
 
+## ⚠️ A forma GRAVADA ≠ o que é ENTREGUE — leia o CONSUMIDOR
+
+Várias camadas desta base resolvem a entrega na **LEITURA**, não no que está gravado.
+Antes de afirmar o que a pessoa recebe, **leia quem consome** — não a tabela/campo:
+
+- **`conteudo.formatos_disponiveis` NÃO contém vídeo.** O `ConteudoViewer` (week page) compõe
+  `[...keys(formatos_disponiveis).filter(≠'video'), ...(temVideo?['video']:[])]`, com `temVideo`
+  vindo de `resolverVideoDaSemana` AO VIVO. `kit/entrega-semana` faz `if (formato==='video') continue`.
+- **`videos_gerados` é o deck GENÉRICO da célula.** O que a pessoa assiste é `videos_personalizados`
+  (COM "Olá,{nome}") — `resolverCelulaVideo` prefere por `(cell_video_id, colaborador_id)` e só cai
+  no deck se não existir.
+- **`conteudo.desafio_texto` gravado é PLACEHOLDER** ("Aplique {descritor}…", sem custo de IA). O
+  desafio real vem do Kit via `overlayKitNaSemana`, por **(DISC × cargo)**, na leitura. `aplicarOverlayKit`
+  já roda em `listarTemporadasEmpresa` → a tela admin já mostra o real.
+- **`regerarSemana` NÃO re-seleciona conteúdo** — só refaz desafio/missão/cenário por IA e reseta o
+  progresso da semana. A seleção de conteúdo vive em `buildSeason::montarSemanaConteudo`.
+- **Conteúdo de KIT é DISC-específico e sai SÓ pelo overlay.** O build é cego a DISC → `conteudosDoBuild()`
+  + `.is('kit_id', null)` o excluem. Ver `tests/unit/conteudo-isolamento-disc`.
+
+**Por que isto está aqui:** ignorar essa distinção custou 4 correções em cadeia numa única sessão
+(16/07) — e escondeu um vazamento de DISC em produção (23 de 648 entregas) por semanas, porque
+nenhuma tela mostrava o que era entregue. Ao investigar entrega, a pergunta é **"quem lê isso?"**,
+nunca **"o que está gravado aqui?"**.
+
 ## Testes
 `npm run test:unit` (vitest) — **roda no CI** (`typecheck.yml`, passo "Security tests + service-role guard"). Preferir extrair lógica pura + testar helpers; para actions com Supabase, mock encadeável (ver `tests/unit/piloto/report-tenant-piloto.test.ts`).
 
