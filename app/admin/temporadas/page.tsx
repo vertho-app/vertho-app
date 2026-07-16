@@ -486,14 +486,27 @@ function SemanaModal({ det, onClose }) {
                     <span className="text-[10px] text-gray-500">recebe:</span>
                     {formatos.length ? formatos.map(f => {
                       const FIcon = FORMAT_ICON[f] || FileText;
-                      return (
-                        <span key={f} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border"
-                          style={{ color: FORMAT_COLOR[f], borderColor: `${FORMAT_COLOR[f]}55`, background: `${FORMAT_COLOR[f]}12` }}>
+                      const fid = c.formatos_disponiveis?.[f]?.id || (f === c.formato_core ? c.core_id : null);
+                      // texto/case → PDF; audio → podcast; video → player Bunny. Mesmas rotas do week page.
+                      const href = f === 'video' ? c.video_embed
+                        : f === 'audio' ? (fid ? `/api/conteudo/${fid}/podcast` : null)
+                        : (fid ? `/api/conteudo/${fid}/pdf` : c.formatos_disponiveis?.[f]?.url || null);
+                      const style = { color: FORMAT_COLOR[f], borderColor: `${FORMAT_COLOR[f]}55`, background: `${FORMAT_COLOR[f]}12` };
+                      const cls = 'inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition-opacity';
+                      return href ? (
+                        <a key={f} href={href} target="_blank" rel="noopener"
+                          title={f === 'video' ? 'Abrir o vídeo desta célula' : f === 'audio' ? 'Abrir o podcast (versão base, sem a saudação nominal)' : 'Abrir o PDF (versão genérica — a personalização por DISC resolve pela sessão do colaborador)'}
+                          className={`${cls} hover:opacity-100 opacity-90 hover:underline`} style={style}>
                           <FIcon size={9} />{f}
-                        </span>
+                        </a>
+                      ) : (
+                        <span key={f} className={`${cls} opacity-40`} style={style} title="sem link — conteúdo sem id/url"><FIcon size={9} />{f}</span>
                       );
                     }) : <span className="text-[10px] text-gray-600">—</span>}
                     {!formatos.includes('video') && <span className="text-[10px] text-gray-600 italic">sem vídeo p/ esta célula</span>}
+                  </div>
+                  <div className="text-[9px] text-gray-600 mt-1">
+                    PDF abre a versão genérica · podcast abre o áudio-base (sem o nome) — a personalização resolve pela sessão do colaborador
                   </div>
                   {c.desafio_texto && (
                     <div className="mt-3 rounded bg-cyan-500/5 border border-cyan-500/20 p-2.5">

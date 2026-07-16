@@ -554,7 +554,7 @@ async function anotarOrigemDisc(sb: any, items: any[], empresaId: string) {
   try {
     const [{ data: mcs }, { data: vids }] = await Promise.all([
       sb.from('micro_conteudos').select('id, kit_id, modulo_base_id').or(`empresa_id.eq.${empresaId},empresa_id.is.null`),
-      sb.from('videos_gerados').select('modulo_base_id, cargo, disc_dominante').eq('empresa_id', empresaId).eq('status', 'done'),
+      sb.from('videos_gerados').select('modulo_base_id, cargo, disc_dominante, bunny_video_id, bunny_library').eq('empresa_id', empresaId).eq('status', 'done'),
     ]);
     const coreInfo = new Map<string, { kit_id: string | null; mb: string | null }>(
       (mcs || []).map((m: any) => [m.id, { kit_id: m.kit_id || null, mb: m.modulo_base_id || null }]),
@@ -562,7 +562,7 @@ async function anotarOrigemDisc(sb: any, items: any[], empresaId: string) {
     const kitIds = [...new Set((mcs || []).map((m: any) => m.kit_id).filter(Boolean))];
     const { data: kitsRows } = kitIds.length ? await sb.from('kits').select('id, disc').in('id', kitIds) : { data: [] as any[] };
     const discByKit = new Map<string, string>((kitsRows || []).map((k: any) => [k.id, k.disc]));
-    const vidCell = new Set((vids || []).map((v: any) => `${v.modulo_base_id}|${v.cargo}|${String(v.disc_dominante || '').toUpperCase()}`));
+    const vidCell = new Map<string, any>((vids || []).map((v: any) => [`${v.modulo_base_id}|${v.cargo}|${String(v.disc_dominante || '').toUpperCase()}`, v]));
 
     for (const t of items) {
       const disc = String(t.colab?.perfil_dominante || '').charAt(0).toUpperCase();
@@ -573,7 +573,11 @@ async function anotarOrigemDisc(sb: any, items: any[], empresaId: string) {
         const dc = info?.kit_id ? (discByKit.get(info.kit_id) || null) : null;
         e.conteudo.disc_do_conteudo = dc;
         e.conteudo.vaza_disc = !!dc && !!disc && dc !== disc;
-        e.conteudo.tem_video = !!(info?.mb && cargo && disc && vidCell.has(`${info.mb}|${cargo}|${disc}`));
+        const vid = info?.mb && cargo && disc ? vidCell.get(`${info.mb}|${cargo}|${disc}`) : null;
+        e.conteudo.tem_video = !!vid;
+        e.conteudo.video_embed = vid?.bunny_video_id && vid?.bunny_library
+          ? `https://iframe.mediadelivery.net/embed/${vid.bunny_library}/${vid.bunny_video_id}?autoplay=false&responsive=true`
+          : null;
       }
     }
   } catch { /* best-effort — nunca quebra a tela */ }
