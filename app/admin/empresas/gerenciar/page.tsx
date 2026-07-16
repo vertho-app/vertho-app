@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save, Link2, Download } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
@@ -56,6 +57,16 @@ export default function GerenciarPage() {
   const [editData, setEditData] = useState<any>({});
   const [saving, setSaving] = useState(false);
   const [exportando, setExportando] = useState(false);
+
+  // `msg` renderiza no rodapé, DEPOIS da tabela inteira — numa empresa com
+  // centenas de colaboradores o retorno da ação cai fora da viewport e o erro
+  // some (o usuário vê o botão girar e nada acontecer). O toast garante que a
+  // resposta apareça onde ele está olhando; o rodapé fica como histórico.
+  function notify(text: string, tipo: 'success' | 'error' = 'success') {
+    setMsg(text);
+    if (!text) return;
+    if (tipo === 'error') toast.error(text); else toast.success(text);
+  }
 
   // Cargos state
   const [cargos, setCargos] = useState([]);
@@ -122,12 +133,12 @@ export default function GerenciarPage() {
     }));
 
     if (parsed.length === 0) {
-      setMsg(t('messages.noRows'));
+      notify(t('messages.noRows'), 'error');
       setImporting(false); return;
     }
 
     const r = await importarColaboradoresLote({ empresaId: tenantId, colabs: parsed });
-    setMsg(r.success ? r.data?.message : r.error);
+    notify(r.success ? r.data?.message : r.error, r.success ? 'success' : 'error');
     setImporting(false);
     e.target.value = '';
     if (r.success) refresh();
@@ -152,12 +163,12 @@ export default function GerenciarPage() {
     })).filter(c => c.nome);
 
     if (parsed.length === 0) {
-      setMsg(t('messages.noValidRoles'));
+      notify(t('messages.noValidRoles'), 'error');
       setImporting(false); return;
     }
 
     const r = await importarCargosLote(tenantId, parsed);
-    setMsg(r.success ? r.message : r.error);
+    notify(r.success ? r.message : r.error, r.success ? 'success' : 'error');
     setImporting(false);
     e.target.value = '';
     if (r.success) { const cr = await loadCargos(tenantId); setCargos(cr as any); }
@@ -186,9 +197,9 @@ export default function GerenciarPage() {
     if (r.success) {
       setEditId(null);
       refresh();
-      setMsg(editId === 'new' ? t('messages.collaboratorAdded') : t('messages.collaboratorUpdated'));
+      notify(editId === 'new' ? t('messages.collaboratorAdded') : t('messages.collaboratorUpdated'));
     } else {
-      setMsg(t('messages.error', { error: r.error }));
+      notify(t('messages.error', { error: r.error }), 'error');
     }
   }
 
@@ -197,7 +208,7 @@ export default function GerenciarPage() {
     setExportando(true);
     const r = await exportarColaboradoresXLSX(tenantId);
     setExportando(false);
-    if (r.ok === false) { setMsg(t('messages.error', { error: r.error })); return; }
+    if (r.ok === false) { notify(t('messages.error', { error: r.error }), 'error'); return; }
     const bytes = Uint8Array.from(atob(r.base64), c => c.charCodeAt(0));
     const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const a = document.createElement('a');
@@ -206,7 +217,7 @@ export default function GerenciarPage() {
     a.download = `colaboradores-${slug}-${new Date().toISOString().slice(0, 10)}.xlsx`;
     a.click();
     URL.revokeObjectURL(a.href);
-    setMsg(t('messages.exported', { count: r.n }));
+    notify(t('messages.exported', { count: r.n }));
   }
 
   async function handleDelete(id, nome) {
@@ -216,8 +227,8 @@ export default function GerenciarPage() {
     });
     if (!ok) return;
     const r = await excluirColaborador({ empresaId: tenantId, id });
-    if (r.success) { refresh(); setMsg(t('messages.collaboratorDeleted')); }
-    else setMsg(t('messages.error', { error: r.error }));
+    if (r.success) { refresh(); notify(t('messages.collaboratorDeleted')); }
+    else notify(t('messages.error', { error: r.error }), 'error');
   }
 
   async function handleSyncCargos() {
@@ -225,7 +236,7 @@ export default function GerenciarPage() {
     setSyncing(true);
     const r = await sincronizarCargosDeColaboradores(tenantId);
     setSyncing(false);
-    setMsg(r.success ? r.message : t('messages.error', { error: r.error }));
+    notify(r.success ? r.message : t('messages.error', { error: r.error }), r.success ? 'success' : 'error');
     if (r.success) refreshCargos();
   }
 
@@ -234,7 +245,7 @@ export default function GerenciarPage() {
     setVinculandoGestores(true);
     const r = await derivarGestorEmailPorNome(tenantId);
     setVinculandoGestores(false);
-    if (!r.success) { setMsg(t('messages.error', { error: r.error })); return; }
+    if (!r.success) { notify(t('messages.error', { error: r.error }), 'error'); return; }
     const partes = [t('messages.linkedManagers', { count: r.vinculados })];
     if (r.naoEncontrados.length > 0) {
       partes.push(t('messages.managersNoMatch', {
@@ -245,7 +256,7 @@ export default function GerenciarPage() {
     if (r.ambiguos.length > 0) {
       partes.push(t('messages.managersAmbiguous', { count: r.ambiguos.length }));
     }
-    setMsg(partes.join(t('messages.separator')));
+    notify(partes.join(t('messages.separator')));
     refresh();
   }
 
@@ -257,9 +268,9 @@ export default function GerenciarPage() {
     if (r.success) {
       setEditCargo(null);
       refreshCargos();
-      setMsg(t('messages.roleSaved'));
+      notify(t('messages.roleSaved'));
     } else {
-      setMsg(t('messages.error', { error: r.error }));
+      notify(t('messages.error', { error: r.error }), 'error');
     }
   }
 
@@ -270,8 +281,8 @@ export default function GerenciarPage() {
     });
     if (!ok) return;
     const r = await excluirCargo({ empresaId: tenantId, id });
-    if (r.success) { refreshCargos(); setMsg(t('messages.roleDeleted')); }
-    else setMsg(t('messages.error', { error: r.error }));
+    if (r.success) { refreshCargos(); notify(t('messages.roleDeleted')); }
+    else notify(t('messages.error', { error: r.error }), 'error');
   }
 
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
