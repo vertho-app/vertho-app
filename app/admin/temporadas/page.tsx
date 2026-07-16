@@ -504,9 +504,13 @@ function SemanaModal({ det, onClose }) {
                       );
                     }) : <span className="text-[10px] text-gray-600">—</span>}
                     {!formatos.includes('video') && <span className="text-[10px] text-gray-600 italic">sem vídeo p/ esta célula</span>}
+                    {c.tem_video && (c.video_personalizado
+                      ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">vídeo com saudação</span>
+                      : <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">⚠ deck genérico — sem a saudação nominal</span>
+                    )}
                   </div>
                   <div className="text-[9px] text-gray-600 mt-1">
-                    PDF abre a versão genérica · podcast abre o áudio-base (sem o nome) — a personalização resolve pela sessão do colaborador
+                    Vídeo abre o que a pessoa vê (personalizado quando existe). PDF abre a versão genérica e o podcast, o áudio-base sem o nome — essa personalização resolve pela sessão do colaborador.
                   </div>
                   {c.desafio_texto && (
                     <div className="mt-3 rounded bg-cyan-500/5 border border-cyan-500/20 p-2.5">

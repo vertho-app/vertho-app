@@ -554,8 +554,15 @@ async function anotarOrigemDisc(sb: any, items: any[], empresaId: string) {
   try {
     const [{ data: mcs }, { data: vids }] = await Promise.all([
       sb.from('micro_conteudos').select('id, kit_id, modulo_base_id').or(`empresa_id.eq.${empresaId},empresa_id.is.null`),
-      sb.from('videos_gerados').select('modulo_base_id, cargo, disc_dominante, bunny_video_id, bunny_library').eq('empresa_id', empresaId).eq('status', 'done'),
+      sb.from('videos_gerados').select('id, modulo_base_id, cargo, disc_dominante, bunny_video_id, bunny_library').eq('empresa_id', empresaId).eq('status', 'done'),
     ]);
+    // O que a pessoa REALMENTE vê é o videos_personalizados (COM saudação nominal);
+    // o deck da célula é só o fallback. Espelha resolverCelulaVideo L166-172.
+    const cellIds = (vids || []).map((v: any) => v.id);
+    const { data: persos } = cellIds.length
+      ? await sb.from('videos_personalizados').select('cell_video_id, colaborador_id, bunny_video_id, bunny_library').eq('status', 'done').in('cell_video_id', cellIds)
+      : { data: [] as any[] };
+    const persoBy = new Map<string, any>((persos || []).map((p: any) => [`${p.cell_video_id}|${p.colaborador_id}`, p]));
     const coreInfo = new Map<string, { kit_id: string | null; mb: string | null }>(
       (mcs || []).map((m: any) => [m.id, { kit_id: m.kit_id || null, mb: m.modulo_base_id || null }]),
     );
@@ -574,9 +581,12 @@ async function anotarOrigemDisc(sb: any, items: any[], empresaId: string) {
         e.conteudo.disc_do_conteudo = dc;
         e.conteudo.vaza_disc = !!dc && !!disc && dc !== disc;
         const vid = info?.mb && cargo && disc ? vidCell.get(`${info.mb}|${cargo}|${disc}`) : null;
+        const perso = vid ? persoBy.get(`${vid.id}|${t.colaborador_id}`) : null;
+        const fonte = perso || vid; // personalizado (com saudação) > deck da célula
         e.conteudo.tem_video = !!vid;
-        e.conteudo.video_embed = vid?.bunny_video_id && vid?.bunny_library
-          ? `https://iframe.mediadelivery.net/embed/${vid.bunny_library}/${vid.bunny_video_id}?autoplay=false&responsive=true`
+        e.conteudo.video_personalizado = !!perso; // false = a pessoa vê o deck SEM o nome dela
+        e.conteudo.video_embed = fonte?.bunny_video_id && fonte?.bunny_library
+          ? `https://iframe.mediadelivery.net/embed/${fonte.bunny_library}/${fonte.bunny_video_id}?autoplay=false&responsive=true`
           : null;
       }
     }
