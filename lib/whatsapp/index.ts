@@ -12,7 +12,7 @@
 // mesmo número brigam pela sessão). Z-API e WaSender são ambos QR/não-oficiais:
 // isso cobre queda de FORNECEDOR e ban por-número, não a fragilidade do QR em si
 // — para isso, a primária deveria migrar para a Cloud API oficial (novo adapter).
-import { normalizePhoneBR } from '@/lib/phone';
+import { normalizePhone } from '@/lib/phone';
 import { zapiProvider } from './providers/zapi';
 import { wasenderProvider } from './providers/wasender';
 import type { WaKind, WaMessage, WaProvider, WaProviderId, WaSendResult } from './types';
@@ -62,7 +62,7 @@ function markDown(id: WaProviderId, reason: string) {
  * automático. Nunca lança — sempre devolve `WaSendResult` com a trilha.
  */
 export async function sendWhatsapp(input: WaMessage): Promise<WaSendResult> {
-  const phone = normalizePhoneBR(input.phone);
+  const phone = normalizePhone(input.phone);
   if (!phone) return { ok: false, attempts: [], reason: `telefone inválido: ${input.phone}` };
   const msg = { ...input, phone } as WaMessage;
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
-import { validateWhatsAppBR } from '@/lib/phone';
+import { validateWhatsApp } from '@/lib/phone';
 import { isProxyEmail, proxyEmailFromPhone } from '@/lib/phone-otp';
 import { resolveAppLocale } from '@/lib/i18n';
 import { sendAccessLink } from '@/lib/notifications/access-link-service';
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     const { telefone, redirectTo, locale: bodyLocale } = await req.json();
     const locale = resolveAppLocale(bodyLocale, req.cookies.get('vertho-locale')?.value);
 
-    const check = validateWhatsAppBR(telefone);
+    const check = validateWhatsApp(telefone);
     if (check.valid === false) {
       return NextResponse.json({ error: check.error }, { status: 400 });
     }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
-import { validateWhatsAppBR } from '@/lib/phone';
+import { validateWhatsApp } from '@/lib/phone';
 import { resolveAppLocale } from '@/lib/i18n';
 import { authLimiter } from '@/lib/rate-limit';
 import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     }
     // Valida e normaliza pra E.164 ("5511912345678" — 13 dígitos com 55). Convenção:
     // SEMPRE salvar com country code, pra Z-API consumir direto sem prefixar em runtime.
-    const phoneCheck = validateWhatsAppBR(telefoneRaw);
+    const phoneCheck = validateWhatsApp(telefoneRaw);
     if (phoneCheck.valid === false) {
       return NextResponse.json({ error: phoneCheck.error }, { status: 400 });
     }

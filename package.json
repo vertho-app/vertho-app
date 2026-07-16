@@ -44,6 +44,7 @@
     "@upstash/qstash": "^2.10.1",
     "@vercel/functions": "^3.6.1",
     "exceljs": "^4.4.0",
+    "libphonenumber-js": "^1.13.8",
     "lucide-react": "^1.7.0",
     "mammoth": "^1.12.0",
     "next": "^16.2.4",

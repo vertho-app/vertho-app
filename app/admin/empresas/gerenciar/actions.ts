@@ -8,7 +8,7 @@ import { updateColaboradorInTenant, deleteColaboradorInTenant, emailExistsInTena
 import { upsertCargoInTenant, deleteCargoInTenant } from '@/lib/repositories/cargos-empresa-repo';
 import { logAdminAction } from '@/lib/audit';
 import { excludeInternalEmails } from '@/lib/internal-emails';
-import { validateWhatsAppBR } from '@/lib/phone';
+import { validateWhatsApp, normalizePhone } from '@/lib/phone';
 import { proxyEmailFromPhone, isProxyEmail } from '@/lib/phone-otp';
 import { getLocale } from 'next-intl/server';
 
@@ -29,17 +29,6 @@ function isValidEmail(email: string | null) {
   return Boolean(email && email.length <= 254 && EMAIL_RE.test(email));
 }
 
-function normalizePhone(value: any) {
-  let digits = value?.toString().replace(/\D/g, '') || '';
-  if (!digits) return null;
-  if (digits.startsWith('00')) digits = digits.slice(2);
-  if (!digits.startsWith('55') && digits.startsWith('0') && (digits.length === 11 || digits.length === 12)) {
-    digits = digits.slice(1);
-  }
-  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) return digits;
-  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
-  return null;
-}
 
 function hasValue(value: any) {
   return Boolean(value?.toString().trim());
@@ -98,7 +87,7 @@ const _importarColaboradoresLote = protectedAction('users.manage', ImportarLoteS
     const linha = index + 2;
     const nome = normalizeText(c.nome);
     let email = normalizeEmail(c.email);
-    const wa = validateWhatsAppBR(c.telefone);
+    const wa = validateWhatsApp(c.telefone);
     let loginPorWhatsapp = false;
     let telefone: string | null;
 
@@ -113,7 +102,7 @@ const _importarColaboradoresLote = protectedAction('users.manage', ImportarLoteS
       telefone = wa.e164;
       loginPorWhatsapp = true;
     } else {
-      erros.push({ linha, nome, campo: 'email', valor: c.email, motivo: 'sem e-mail válido e sem WhatsApp válido (DDD + 9 + 8 dígitos); linha não importada' });
+      erros.push({ linha, nome, campo: 'email', valor: c.email, motivo: 'sem e-mail válido e sem WhatsApp válido (com indicativo do país, ou DDD + 9 + 8 dígitos no Brasil); linha não importada' });
       return acc;
     }
 
@@ -265,13 +254,13 @@ const _criarColaborador = protectedAction('users.manage', CriarColaboradorSchema
   await assertTenantAccessAction(ctx, empresaId); // defense-in-depth (no-op p/ platform admin)
 
   let email = normalizeEmail(campos?.email);
-  const wa = validateWhatsAppBR(campos?.telefone);
+  const wa = validateWhatsApp(campos?.telefone);
   let loginPorWhatsapp = false;
   let telefone: string | null;
 
   if (isValidEmail(email)) {
     telefone = normalizePhone(campos.telefone);
-    if (hasValue(campos.telefone) && !telefone) throw new Error('telefone/celular inválido. Use DDD, ex.: 11999998888 ou 5511999998888');
+    if (hasValue(campos.telefone) && !telefone) throw new Error('telefone/celular inválido. Use o indicativo do país (ex.: +351926360862) ou, no Brasil, DDD + número (ex.: 11999998888).');
     // Tem e-mail REAL + telefone → loga pelos DOIS (e-mail E WhatsApp). Sem
     // telefone, só e-mail. O auth.users é criado no 1º login (verify/magic-link).
     loginPorWhatsapp = !!telefone;
@@ -281,13 +270,13 @@ const _criarColaborador = protectedAction('users.manage', CriarColaboradorSchema
     telefone = wa.e164;
     loginPorWhatsapp = true;
   } else {
-    throw new Error('informe um e-mail válido OU um WhatsApp válido (DDD + 9 + 8 dígitos)');
+    throw new Error('informe um e-mail válido OU um WhatsApp válido (com indicativo do país, ex.: +351926360862; no Brasil, DDD + 9 + 8 dígitos)');
   }
 
   const gestorEmail = normalizeEmail(campos.gestor_email);
   if (hasValue(campos.gestor_email) && !isValidEmail(gestorEmail)) throw new Error('email do gestor inválido');
   const gestorWhatsapp = normalizePhone(campos.gestor_whatsapp);
-  if (hasValue(campos.gestor_whatsapp) && !gestorWhatsapp) throw new Error('whatsapp do gestor inválido. Use DDD, ex.: 11999998888 ou 5511999998888');
+  if (hasValue(campos.gestor_whatsapp) && !gestorWhatsapp) throw new Error('whatsapp do gestor inválido. Use o indicativo do país (ex.: +351926360862) ou, no Brasil, DDD + número (ex.: 11999998888).');
 
   const sb = await requireAdminSupabase();
   if (await emailExistsInTenant(sb, empresaId, email)) {
@@ -357,7 +346,7 @@ const _atualizarColaborador = protectedAction('users.manage', AtualizarColaborad
   if (campos.area_depto !== undefined) update.area_depto = campos.area_depto?.trim() || null;
   if (campos.telefone !== undefined) {
     const telefone = normalizePhone(campos.telefone);
-    if (hasValue(campos.telefone) && !telefone) throw new Error('telefone/celular inválido. Use DDD, ex.: 11999998888 ou 5511999998888');
+    if (hasValue(campos.telefone) && !telefone) throw new Error('telefone/celular inválido. Use o indicativo do país (ex.: +351926360862) ou, no Brasil, DDD + número (ex.: 11999998888).');
     update.telefone = telefone;
   }
   if (campos.gestor_nome !== undefined) update.gestor_nome = campos.gestor_nome?.trim() || null;
@@ -368,7 +357,7 @@ const _atualizarColaborador = protectedAction('users.manage', AtualizarColaborad
   }
   if (campos.gestor_whatsapp !== undefined) {
     const gestorWhatsapp = normalizePhone(campos.gestor_whatsapp);
-    if (hasValue(campos.gestor_whatsapp) && !gestorWhatsapp) throw new Error('whatsapp do gestor inválido. Use DDD, ex.: 11999998888 ou 5511999998888');
+    if (hasValue(campos.gestor_whatsapp) && !gestorWhatsapp) throw new Error('whatsapp do gestor inválido. Use o indicativo do país (ex.: +351926360862) ou, no Brasil, DDD + número (ex.: 11999998888).');
     update.gestor_whatsapp = gestorWhatsapp;
   }
   if (campos.role !== undefined && VALID_ROLES.includes(campos.role as string)) update.role = campos.role;

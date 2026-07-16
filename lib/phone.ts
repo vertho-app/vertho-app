@@ -1,77 +1,97 @@
+import { parsePhoneNumberFromString, type PhoneNumber } from 'libphonenumber-js/max';
+
 /**
- * Normaliza um telefone brasileiro para formato E.164 sem o "+":
- *   "5511912345678" (móvel) ou "551112345678" (fixo)
+ * Telefone em E.164 INTERNACIONAL, persistido sem o "+" (convenção do banco e
+ * exigência da Z-API): "5511912345678" (BR), "351926360862" (PT).
  *
- * Convenção do app: TODOS os telefones em `colaboradores.telefone` devem
- * ser salvos com o country code 55 — Z-API exige isso para envio.
+ * Histórico: era BR-only por regex de comprimento. Isso rejeitava qualquer
+ * número estrangeiro (o app roda em pt-PT desde a mig 114) e — pior — corrompia
+ * calado: um celular dos EUA "12025550143" tem 11 dígitos, então caía na regra
+ * "10-11 dígitos = nacional" e virava "5512025550143", um BR inexistente que
+ * passava na validação e sumia no envio. Agora a validação é a do libphonenumber
+ * (port oficial do Google), que conhece comprimento e faixa de cada país.
  *
- * Aceita inputs nos seguintes formatos:
- *   - "(11) 91234-5678"           → "5511912345678"
- *   - "11912345678"               → "5511912345678"
- *   - "+55 11 91234-5678"         → "5511912345678"
- *   - "5511912345678"             → "5511912345678" (já normalizado)
- *   - "0011 11 91234-5678"        → "5511912345678" (00 internacional)
- *   - "011912345678"              → "5511912345678" (0 prefixo operadora)
- *
- * Retorna `null` se o input for inválido (formato/comprimento errado).
- *
- * Use sempre antes de salvar telefone no banco e antes de enviar pra Z-API.
+ * O Brasil segue sendo o país DEFAULT: número sem indicativo é interpretado
+ * como BR, então tudo que era digitado antes ("11912345678", "(11) 91234-5678")
+ * continua valendo.
  */
-export function normalizePhoneBR(value: unknown): string | null {
-  let digits = String(value ?? '').replace(/\D/g, '');
-  if (!digits) return null;
+const DEFAULT_COUNTRY = 'BR' as const;
 
-  // Prefixo internacional 00 → remove
-  if (digits.startsWith('00')) digits = digits.slice(2);
-
-  // Prefixo operadora "0" antes de DDD → remove
-  if (
-    !digits.startsWith('55') &&
-    digits.startsWith('0') &&
-    (digits.length === 11 || digits.length === 12)
-  ) {
-    digits = digits.slice(1);
+function tryParse(input: string, country?: typeof DEFAULT_COUNTRY): PhoneNumber | null {
+  try {
+    return parsePhoneNumberFromString(input, country) || null;
+  } catch {
+    return null;
   }
-
-  // Já tem 55 e tamanho válido (12 fixo / 13 móvel) → mantém
-  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
-    return digits;
-  }
-
-  // 10 ou 11 dígitos (DDD + número) → prefixa 55
-  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
-
-  return null;
 }
 
 /**
- * Valida especificamente um WhatsApp móvel BR no formato E.164:
- *   - 13 dígitos (55 + DDD + 9 + 8 dígitos)
- *   - DDD entre 11–99
- *   - Primeiro dígito após DDD = 9 (móvel pós-2017)
- *
- * Retorna { valid: true, e164 } ou { valid: false, error }.
+ * Interpreta a entrada do usuário. A ORDEM importa: um número nacional de 10-11
+ * dígitos ("11912345678") precisa ser lido como BR antes de qualquer tentativa
+ * de E.164, senão o "1" inicial vira o indicativo dos EUA.
  */
-export function validateWhatsAppBR(value: unknown): { valid: true; e164: string } | { valid: false; error: string } {
-  const digits = String(value ?? '').replace(/\D/g, '');
-  if (digits.length === 0) return { valid: false, error: 'WhatsApp obrigatório' };
+function parseAny(value: unknown): PhoneNumber | null {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
 
-  const e164 = normalizePhoneBR(digits);
-  if (!e164) {
-    return { valid: false, error: `WhatsApp inválido. Esperado: DDD + 9 + 8 dígitos (ex: 11912345678).` };
+  const hadPlus = raw.startsWith('+');
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return null;
+
+  // "+55 11 ..." → E.164 explícito, respeita o país que o usuário declarou.
+  if (hadPlus) return tryParse(`+${digits}`);
+
+  // "0055 11 ..." → prefixo internacional discado.
+  if (digits.startsWith('00')) return tryParse(`+${digits.slice(2)}`);
+
+  // "011912345678" → prefixo de operadora antes do DDD.
+  if (digits.startsWith('0') && (digits.length === 11 || digits.length === 12)) {
+    return tryParse(digits.slice(1), DEFAULT_COUNTRY);
   }
 
-  // E164 do BR móvel: "55" + DDD (2) + "9" + número (8) = 13 dígitos
-  if (e164.length !== 13) {
-    return { valid: false, error: `WhatsApp móvel deve ter 11 dígitos (DDD + 9 + número).` };
+  // Nacional sem indicativo → BR.
+  if (digits.length === 10 || digits.length === 11) return tryParse(digits, DEFAULT_COUNTRY);
+
+  // Resto: E.164 sem o "+" ("351926360862", "5511912345678").
+  return tryParse(`+${digits}`);
+}
+
+/**
+ * Normaliza para E.164 sem "+", ou `null` se o número não existir no plano de
+ * numeração do país. Use SEMPRE antes de gravar telefone ou chamar a Z-API.
+ */
+export function normalizePhone(value: unknown): string | null {
+  const parsed = parseAny(value);
+  if (!parsed || !parsed.isValid()) return null;
+  return parsed.number.replace('+', '');
+}
+
+/** Tipos que podem ter WhatsApp. Vários países não separam fixo de móvel. */
+const MOBILE_TYPES = new Set(['MOBILE', 'FIXED_LINE_OR_MOBILE']);
+
+/**
+ * Valida um WhatsApp em qualquer país: precisa ser um número válido E capaz de
+ * ser móvel. Retorna { valid: true, e164 } (sem "+") ou { valid: false, error }.
+ */
+export function validateWhatsApp(value: unknown): { valid: true; e164: string } | { valid: false; error: string } {
+  if (String(value ?? '').replace(/\D/g, '').length === 0) {
+    return { valid: false, error: 'WhatsApp obrigatório' };
   }
 
-  const ddd = parseInt(e164.slice(2, 4), 10);
-  if (ddd < 11 || ddd > 99) return { valid: false, error: 'DDD inválido' };
-
-  if (e164[4] !== '9') {
-    return { valid: false, error: 'WhatsApp móvel deve começar com 9 após o DDD' };
+  const parsed = parseAny(value);
+  if (!parsed || !parsed.isValid()) {
+    return {
+      valid: false,
+      error: 'WhatsApp inválido. Use o número com indicativo do país (ex.: +351 926 360 862) ou, no Brasil, DDD + 9 + 8 dígitos (ex.: 11912345678).',
+    };
   }
 
-  return { valid: true, e164 };
+  // getType() é undefined quando o país não permite deduzir o tipo — nesse caso
+  // aceitamos: rejeitar seria pior que deixar o envio falhar.
+  const type = parsed.getType();
+  if (type && !MOBILE_TYPES.has(type)) {
+    return { valid: false, error: 'Esse número não é de celular — o WhatsApp precisa de um número móvel.' };
+  }
+
+  return { valid: true, e164: parsed.number.replace('+', '') };
 }

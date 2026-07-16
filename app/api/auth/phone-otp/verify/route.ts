@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
-import { validateWhatsAppBR } from '@/lib/phone';
+import { validateWhatsApp } from '@/lib/phone';
 import { checkOtp, proxyEmailFromPhone, isProxyEmail } from '@/lib/phone-otp';
 import { authLimiter } from '@/lib/rate-limit';
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   try {
     const { telefone, code, redirectTo } = await req.json();
 
-    const check = validateWhatsAppBR(telefone);
+    const check = validateWhatsApp(telefone);
     if (check.valid === false) {
       return NextResponse.json({ error: check.error }, { status: 400 });
     }
