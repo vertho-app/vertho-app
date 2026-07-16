@@ -464,7 +464,9 @@ function SemanaModal({ det, onClose }) {
               const c = e.conteudo || {};
               const vaza = !!c.vaza_disc;
               const doKit = !!c.kit_id;
-              const formatos = Object.keys(c.formatos_disponiveis || {});
+              // Espelha o week page (ConteudoViewer L644): o snapshot NÃO carrega vídeo —
+              // ele é resolvido ao vivo por célula (mb × cargo × DISC), aqui pré-anotado.
+              const formatos = [...Object.keys(c.formatos_disponiveis || {}).filter(f => f !== 'video'), ...(c.tem_video ? ['video'] : [])];
               return (
                 <div key={i} className={`rounded-lg border p-4 ${vaza ? 'border-red-500/50 bg-red-500/[0.06]' : 'border-white/10 bg-white/[0.03]'}`}>
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -480,7 +482,19 @@ function SemanaModal({ det, onClose }) {
                   <div className="text-sm text-white font-semibold">{e.descritor || '—'}</div>
                   {e.competencia && <div className="text-[11px] text-gray-500">{e.competencia}</div>}
                   {c.core_titulo && <div className="text-xs text-gray-400 italic mt-1">“{c.core_titulo}”</div>}
-                  {!!formatos.length && <div className="text-[10px] text-gray-500 mt-2">formatos disponíveis: {formatos.join(' · ')}</div>}
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <span className="text-[10px] text-gray-500">recebe:</span>
+                    {formatos.length ? formatos.map(f => {
+                      const FIcon = FORMAT_ICON[f] || FileText;
+                      return (
+                        <span key={f} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border"
+                          style={{ color: FORMAT_COLOR[f], borderColor: `${FORMAT_COLOR[f]}55`, background: `${FORMAT_COLOR[f]}12` }}>
+                          <FIcon size={9} />{f}
+                        </span>
+                      );
+                    }) : <span className="text-[10px] text-gray-600">—</span>}
+                    {!formatos.includes('video') && <span className="text-[10px] text-gray-600 italic">sem vídeo p/ esta célula</span>}
+                  </div>
                   {c.desafio_texto && (
                     <div className="mt-3 rounded bg-cyan-500/5 border border-cyan-500/20 p-2.5">
                       <div className="text-[9px] uppercase text-cyan-400 mb-1 tracking-wider">
