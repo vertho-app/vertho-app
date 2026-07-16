@@ -93,7 +93,13 @@ export async function precarregarKits(
     const formatos: Record<string, { id: string; url: string | null; titulo: string }> = {};
     for (const c of conteudosByKit.get(kit.id) || []) {
       if (c.formato === 'video') continue;
-      if (c.formato === 'audio' || c.url) formatos[c.formato] = { id: c.id, url: c.url ?? null, titulo: c.titulo };
+      // A entrega é por ID, não por url: a tela abre `/api/conteudo/{id}/pdf` (que
+      // renderiza personalizado no runtime) e só cai no `url` como fallback. Exigir
+      // `url` aqui EXCLUÍA conteúdo válido — `gerarConteudoIA` grava url=null quando o
+      // PDF headless falha (pegadinha do tsx: fonte registrada em outra instância), e
+      // aí o overlay não servia texto/case do kit. Medido 16/07: deixou 6 pessoas SEM
+      // core na semana 2 (o core_id antigo apontava p/ conteúdo já apagado).
+      formatos[c.formato] = { id: c.id, url: c.url ?? null, titulo: c.titulo };
     }
     out.set(key, { kitId: kit.id, desafio: kit.desafio || {}, formatos });
   }
