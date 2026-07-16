@@ -50,7 +50,7 @@ export interface BlueprintTrilhaInputs {
 }
 
 /** Normaliza um nome de descritor pra match tolerante. */
-function normDescritor(s: string): string {
+export function normDescritor(s: string): string {
   return String(s || '')
     // tira prefixo de código: "COO03_D5 — ", "ABC_D1 -", etc. (— ou -)
     .replace(/^[A-Z0-9][A-Z0-9_.-]*\s*[—-]\s*/i, '')

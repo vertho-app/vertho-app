@@ -5,6 +5,8 @@
  * — o chamador usa o desafio antigo (buildSeason) como fallback. Ver
  * docs/KIT-SEMANAL.md (Fase 3: cobrança de quinta cobra o desafio do kit).
  */
+import { normDescritor } from '@/lib/blueprint/to-descriptors';
+
 export async function resolverDesafioDoKit(
   sb: any,
   args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null },
@@ -13,10 +15,17 @@ export async function resolverDesafioDoKit(
   const disc = String(args.disc).trim().charAt(0).toUpperCase();
   if (!['D', 'I', 'S', 'C'].includes(disc)) return null;
 
-  let q = sb.from('kit_briefs').select('id, empresa_id, cargo').eq('competencia', args.competencia).eq('descritor', args.descritor);
+  // Match do descritor TOLERANTE: o conteúdo da trilha às vezes guarda o descritor com
+  // prefixo de código ("COO03_D5 — Nome"), enquanto o Kit foi criado com o nome LIMPO.
+  // .eq exato deixava esses caírem no genérico apesar do Kit existir. Busca por
+  // competência e casa por normDescritor (tira prefixo CÓDIGO —, acentos, caixa).
+  let q = sb.from('kit_briefs').select('id, empresa_id, cargo, descritor').eq('competencia', args.competencia);
   q = args.empresaId ? q.or(`empresa_id.eq.${args.empresaId},empresa_id.is.null`) : q.is('empresa_id', null);
-  const { data: briefs } = await q;
-  if (!briefs?.length) return null;
+  const { data: briefsRaw } = await q;
+  if (!briefsRaw?.length) return null;
+  const alvo = normDescritor(args.descritor);
+  const briefs = (briefsRaw as any[]).filter((b) => normDescritor(b.descritor) === alvo);
+  if (!briefs.length) return null;
 
   // Preferência: (1) brief do CARGO do colaborador (registro certo p/ MEI vs
   // Empregabilidade), (2) brief EXCLUSIVO da empresa, (3) global/qualquer (fallback —
