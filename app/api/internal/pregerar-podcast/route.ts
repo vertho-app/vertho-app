@@ -44,6 +44,10 @@ export async function POST(req: Request) {
 
   // ── PERSONALIZADO (com nome) → pré-aquece o cache por colaborador ──────────────
   if (colaboradorId) {
+    // Leitura RAW (sem empresa_id) allowlistada: rota interna sem sessão, atrás
+    // do x-internal-secret — o chamador é o nosso próprio worker e o segredo já
+    // vale por qualquer tenant, então filtrar por tenant aqui não acrescenta
+    // barreira. Lê só nome_completo, para a saudação do TTS.
     const { data: colab } = await sb.from('colaboradores')
       .select('nome_completo').eq('id', colaboradorId).maybeSingle();
     const nome = colab?.nome_completo?.trim() || '';

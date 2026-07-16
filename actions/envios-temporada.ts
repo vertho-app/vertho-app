@@ -13,7 +13,7 @@
 
 import { tenantDb } from '@/lib/tenant-db';
 import { requireAdminAction } from '@/lib/auth/action-context';
-import { TRILHA } from '@/lib/status';
+import { TRILHA, ENVIO } from '@/lib/status';
 
 /** Data de hoje em YYYY-MM-DD (UTC). */
 function hojeYMD(): string {
@@ -65,7 +65,7 @@ export async function iniciarEnviosTemporada(empresaId: string, colabIds?: strin
       whatsapp: c.whatsapp || null,
       data_inicio: hoje,
       semana_atual: 1,
-      status: 'ativo', // MINÚSCULO — a query do cron filtra .eq('status','ativo')
+      status: ENVIO.ATIVO, // MINÚSCULO — a query do cron filtra .eq('status','ativo')
     }));
 
   if (!rows.length) {
@@ -92,15 +92,15 @@ export async function pausarEnviosTemporada(empresaId: string) {
 
   const { data: ativos, error: errSel } = await tdb.from('fase4_envios')
     .select('id')
-    .eq('status', 'ativo');
+    .eq('status', ENVIO.ATIVO);
   if (errSel) return { success: false, pausados: 0, message: errSel.message };
 
   const n = (ativos || []).length;
   if (!n) return { success: true, pausados: 0, message: 'Nenhum envio ativo para pausar' };
 
   const { error: errUp } = await tdb.from('fase4_envios')
-    .update({ status: 'pausado' })
-    .eq('status', 'ativo');
+    .update({ status: ENVIO.PAUSADO })
+    .eq('status', ENVIO.ATIVO);
   if (errUp) return { success: false, pausados: 0, message: errUp.message };
 
   return { success: true, pausados: n, message: `${n} envio(s) pausado(s)` };
@@ -123,9 +123,9 @@ export async function statusEnviosTemporada(empresaId: string) {
   const semanaMap = new Map<number, number>();
   for (const e of (data || []) as any[]) {
     const st = String(e.status || '').toLowerCase();
-    if (st === 'ativo') ativos++;
-    else if (st === 'pausado') pausados++;
-    else if (st === 'concluido') concluidos++;
+    if (st === ENVIO.ATIVO) ativos++;
+    else if (st === ENVIO.PAUSADO) pausados++;
+    else if (st === ENVIO.CONCLUIDO) concluidos++;
     const sem = Number(e.semana_atual || 0);
     semanaMap.set(sem, (semanaMap.get(sem) || 0) + 1);
   }

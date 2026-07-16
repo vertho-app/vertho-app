@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { requireUserAction, requireAdminAction } from '@/lib/auth/action-context';
 
 /**
@@ -19,14 +20,20 @@ const TIPOS = ['abertura', 'formato', 'audio_fim'];
 
 /**
  * Loga um evento do colaborador na tela da semana. Best-effort: NUNCA lança pro
- * client. empresa/colaborador vêm da TRILHA (não do client) → nunca atribuído a
- * outro tenant. `pilula` (1|2) vem do ?p= ou do índice do descritor.
+ * client. empresa/colaborador vêm da TRILHA (não do client) → o evento nunca é
+ * atribuído a outro tenant. `pilula` (1|2) vem do ?p= ou do índice do descritor.
+ *
+ * SÓ O DONO registra a própria telemetria: este export é `'use server'`, ou seja,
+ * um endpoint HTTP, e o `trilhaId` é escolhido pelo CLIENTE. Sem comparar a trilha
+ * com o colaborador da sessão, qualquer autenticado (de qualquer tenant) poderia
+ * injetar eventos na trilha alheia — atribuídos corretamente ao dono dela, o que
+ * torna o lixo indistinguível do dado real na /admin/engajamento.
  */
 export async function registrarEventoTrilha(input: {
   trilhaId: string; semana: number; pilula?: number | null; formato?: string | null; tipo?: string;
 }) {
   try {
-    await requireUserAction();
+    const ctx = await requireUserAction();
     const trilhaId = input?.trilhaId;
     const semana = Number(input?.semana);
     if (!trilhaId || !Number.isFinite(semana)) return { ok: false };
@@ -35,6 +42,7 @@ export async function registrarEventoTrilha(input: {
     const { data: t } = await sb.from('trilhas')
       .select('empresa_id, colaborador_id').eq('id', trilhaId).maybeSingle();
     if (!t?.empresa_id) return { ok: false };
+    if (!ctx.colaborador?.id || t.colaborador_id !== ctx.colaborador.id) return { ok: false };
 
     const pilula = input.pilula === 1 || input.pilula === 2 ? input.pilula : null;
     const formato = FORMATOS.includes(String(input.formato)) ? input.formato : null;
@@ -72,32 +80,33 @@ const fmtsDistintos = (evs: any[], pilula: number | null) =>
 export async function getEngajamentoEmpresa(empresaId: string, semana?: number | null) {
   await requireAdminAction();
   if (!empresaId) return { resumo: null, colaboradores: [], semanas: [] };
-  const sb = createSupabaseAdmin();
+  // tenantDb embute o empresa_id no WHERE — o escopo deixa de depender de
+  // lembrar do .eq() em cada uma das 4 queries.
+  const tdb = tenantDb(empresaId);
   const semFiltro = Number.isFinite(Number(semana)) && Number(semana) > 0 ? Number(semana) : null;
 
   // 1) População = inscritos na cadência.
-  const { data: envios } = await sb.from('fase4_envios')
-    .select('colaborador_id, semana_atual, status, ultima_pilula1_em, ultima_pilula2_em, colaboradores!inner(nome_completo, cargo)')
-    .eq('empresa_id', empresaId);
+  const { data: envios } = await tdb.from('fase4_envios')
+    .select('colaborador_id, semana_atual, status, ultima_pilula1_em, ultima_pilula2_em, colaboradores!inner(nome_completo, cargo)');
   if (!envios?.length) return { resumo: { inscritos: 0 }, colaboradores: [], semanas: [1] };
 
   // 2) Eventos (opcionalmente escopados por semana).
-  let evQuery = sb.from('trilha_eventos')
-    .select('colaborador_id, pilula, semana, formato, tipo, criado_em').eq('empresa_id', empresaId);
+  let evQuery = tdb.from('trilha_eventos')
+    .select('colaborador_id, pilula, semana, formato, tipo, criado_em');
   if (semFiltro) evQuery = evQuery.eq('semana', semFiltro);
   const { data: eventos } = await evQuery;
 
   // 3) Playback de vídeo — escopado por semana quando há filtro; eventos legados
   //    sem semana (NULL) contam em qualquer filtro.
-  let vidQuery = sb.from('videos_watched')
+  let vidQuery = tdb.from('videos_watched')
     .select('colaborador_id, event_type, seconds_watched, video_length')
-    .eq('empresa_id', empresaId).in('event_type', ['play_started', 'play_progress', 'play_finished']);
+    .in('event_type', ['play_started', 'play_progress', 'play_finished']);
   if (semFiltro) vidQuery = vidQuery.or(`semana.eq.${semFiltro},semana.is.null`);
   const { data: videos } = await vidQuery;
 
   // 4) Consumo explícito (opcionalmente por semana).
-  let progQuery = sb.from('temporada_semana_progresso')
-    .select('colaborador_id, semana, conteudo_consumido').eq('empresa_id', empresaId);
+  let progQuery = tdb.from('temporada_semana_progresso')
+    .select('colaborador_id, semana, conteudo_consumido');
   if (semFiltro) progQuery = progQuery.eq('semana', semFiltro);
   const { data: progresso } = await progQuery;
 

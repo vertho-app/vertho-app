@@ -25,3 +25,19 @@ export const TRILHA = {
   ARQUIVADA: 'arquivada',
 } as const;
 export type TrilhaStatus = (typeof TRILHA)[keyof typeof TRILHA];
+
+/**
+ * fase4_envios.status — inscrição na cadência semanal (o cron `triggerDiario`
+ * só envia pra quem está ATIVO).
+ *
+ * TERCEIRO domínio, distinto dos de cima: 'concluido' aqui é o envio que chegou
+ * ao fim da temporada, e coincide em VALOR com PROGRESSO.CONCLUIDO por acaso —
+ * são tabelas diferentes. Trocar um pelo outro no código passa no compilador e
+ * amarra dois conceitos que podem divergir; daí terem constantes separadas.
+ */
+export const ENVIO = {
+  ATIVO: 'ativo',
+  PAUSADO: 'pausado',
+  CONCLUIDO: 'concluido',
+} as const;
+export type EnvioStatus = (typeof ENVIO)[keyof typeof ENVIO];

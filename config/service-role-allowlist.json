@@ -128,6 +128,8 @@
     "lib/modulo-base-auditor.ts": 2,
     "trigger/gerar-ia2-batch.ts": 1,
     "trigger/gerar-modulos-manuscrito.ts": 1,
-    "trigger/gerar-blueprint-batch.ts": 1
+    "trigger/gerar-blueprint-batch.ts": 1,
+    "actions/engajamento.ts": 1,
+    "app/api/internal/pregerar-podcast/route.ts": 1
   }
 }
