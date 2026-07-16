@@ -531,6 +531,47 @@ export async function prepararEntregasJornada(input: z.infer<typeof PrepararEntr
   return _prepararEntregasJornada(input);
 }
 
+/** Entregas de conteúdo de um plano (DUO via conteudos_dia; single via conteudo). */
+function entregasDoPlano(plano: any[]): any[] {
+  return (plano || []).flatMap((s: any) => s?.tipo !== 'conteudo' ? []
+    : (Array.isArray(s.conteudos_dia) && s.conteudos_dia.length ? s.conteudos_dia : (s.conteudo ? [{ conteudo: s.conteudo }] : [])));
+}
+
+/**
+ * Anota cada entrega com o DISC de quem o conteúdo servido foi ESCRITO (`disc_do_conteudo`)
+ * e sinaliza `vaza_disc` quando não é o DISC da pessoa.
+ *
+ * Por que existe: `montarSemanaConteudo` (build) filtra por competência + cargo mas
+ * NÃO por DISC, e enxerga os micro_conteudos do Kit (mesma tabela, com competência/
+ * descritor/cargo preenchidos). O overlay só conserta na leitura quando existe kit do
+ * DISC da pessoa — com cobertura parcial de DISC, a pessoa lê conteúdo escrito pra
+ * outro perfil e ninguém vê. Consulta só os conteúdos COM kit (conjunto pequeno).
+ */
+async function anotarOrigemDisc(sb: any, items: any[], empresaId: string) {
+  try {
+    const { data: mcs } = await sb.from('micro_conteudos')
+      .select('id, kit_id')
+      .or(`empresa_id.eq.${empresaId},empresa_id.is.null`)
+      .not('kit_id', 'is', null);
+    if (!mcs?.length) return;
+    const kitByCore = new Map<string, string>((mcs as any[]).map((m) => [m.id, m.kit_id]));
+    const kitIds = [...new Set((mcs as any[]).map((m) => m.kit_id))];
+    const { data: kitsRows } = await sb.from('kits').select('id, disc').in('id', kitIds);
+    const discByKit = new Map<string, string>((kitsRows || []).map((k: any) => [k.id, k.disc]));
+
+    for (const t of items) {
+      const disc = String(t.colab?.perfil_dominante || '').charAt(0).toUpperCase();
+      for (const e of entregasDoPlano(t.temporada_plano)) {
+        if (!e?.conteudo?.core_id) continue;
+        const kitId = kitByCore.get(e.conteudo.core_id);
+        const dc = kitId ? (discByKit.get(kitId) || null) : null;
+        e.conteudo.disc_do_conteudo = dc;
+        e.conteudo.vaza_disc = !!dc && !!disc && dc !== disc;
+      }
+    }
+  } catch { /* best-effort — nunca quebra a tela */ }
+}
+
 export async function listarTemporadasEmpresa(empresaId: string) {
   try {
     await requireAdminAction();
@@ -547,14 +588,17 @@ export async function listarTemporadasEmpresa(empresaId: string) {
       .select('id, nome_completo, cargo, empresa_id, perfil_dominante, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso').in('id', ids);
     const colabMap = Object.fromEntries((colabs || []).map((c: any) => [c.id, c]));
 
+    // Client RAW: resolverKitDaSemana usa .or(empresa OR global), incompatível com o
+    // wrapper tenant-scoped. Criado 1× e reusado (overlay + anotação de origem).
+    const sbRaw = createSupabaseAdmin();
     const items = await Promise.all((data || []).map(async (t: any) => {
       const plano = normalizeTemporadaPlano(t.temporada_plano);
       const colab = colabMap[t.colaborador_id] || null;
-      // Overlay do Kit (client RAW: resolverKitDaSemana usa .or(empresa OR global),
-      // incompatível com o wrapper tenant-scoped). Mostra o conteúdo REAL.
-      if (colab) await aplicarOverlayKit(createSupabaseAdmin(), plano, colab, t);
+      // Overlay do Kit — mostra o conteúdo REAL.
+      if (colab) await aplicarOverlayKit(sbRaw, plano, colab, t);
       return { ...t, temporada_plano: plano, colab };
     }));
+    await anotarOrigemDisc(sbRaw, items, empresaId);
     return { items };
   } catch (err: any) {
     return { error: err?.message || 'Erro' };

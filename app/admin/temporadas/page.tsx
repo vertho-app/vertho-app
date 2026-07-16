@@ -34,6 +34,7 @@ export default function TemporadasAdminPage() {
   const [statusFiltro, setStatusFiltro] = useState('ativa');
   const [busy, setBusy] = useState(false);
   const [detalhe, setDetalhe] = useState(null);
+  const [semanaDet, setSemanaDet] = useState(null); // { t, semana } — entregas da semana (plano já vem pós-overlay + anotado)
 
   async function handleVerDetalhe(trilhaId) {
     setBusy(true);
@@ -256,6 +257,7 @@ export default function TemporadasAdminPage() {
               <TemporadaCard key={t.id} t={t}
                 expanded={expanded === t.id}
                 onToggle={() => setExpanded(expanded === t.id ? null : t.id)}
+                onVerSemana={(semana) => setSemanaDet({ t, semana })}
                 onPausar={() => handlePausar(t.id)}
                 onLiberar={() => handleLiberar(t.id, t.colab?.nome_completo)}
                 onPreparar={() => handlePreparar(t.colaborador_id, t.colab?.nome_completo)}
@@ -271,6 +273,7 @@ export default function TemporadasAdminPage() {
       </div>
 
       {detalhe && <DetalheModal detalhe={detalhe} onClose={() => setDetalhe(null)} />}
+      {semanaDet && <SemanaModal det={semanaDet} onClose={() => setSemanaDet(null)} />}
 
       {simProgress && (
         <div className="fixed bottom-4 right-4 z-40 rounded-xl border border-purple-500/30 bg-[#0a0e1a]/95 backdrop-blur p-4 shadow-xl min-w-[260px]">
@@ -294,7 +297,7 @@ export default function TemporadasAdminPage() {
   );
 }
 
-function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onPreparar, onRegerarTemporada, onArquivar, onRegerar, onSimular, onVerDetalhe, busy }) {
+function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onPreparar, onRegerarTemporada, onArquivar, onRegerar, onSimular, onVerDetalhe, onVerSemana, busy }) {
   const tr = useTranslations('AdminSeasons');
   const colab = t.colab || {};
   const semanas = Array.isArray(t.temporada_plano) ? t.temporada_plano : [];
@@ -370,7 +373,12 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onPreparar,
                 const Icon = s.tipo === 'aplicacao' ? Target : s.tipo === 'avaliacao' ? Sparkles : (FORMAT_ICON[s.conteudo?.formato_core] || BookOpen);
                 const cor = TIPO_COLOR[s.tipo];
                 return (
-                  <div key={s.semana} className="rounded-lg bg-white/5 border border-white/10 p-2">
+                  <div key={s.semana}
+                    onClick={() => onVerSemana?.(s.semana)}
+                    role="button" tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onVerSemana?.(s.semana); } }}
+                    title="Ver o que foi entregue nesta semana"
+                    className="rounded-lg bg-white/5 border border-white/10 p-2 cursor-pointer hover:bg-white/10 hover:border-cyan-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 transition-colors">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[10px] text-gray-400">{tr('week.short', { week: s.semana })}</span>
                       <Icon size={12} style={{ color: cor }} />
@@ -407,6 +415,87 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onPreparar,
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+const DISC_CLS = {
+  D: 'bg-red-500/15 text-red-300 border-red-500/30',
+  I: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  S: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  C: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+};
+
+/**
+ * O que a pessoa REALMENTE recebe numa semana: as 2 pílulas do DUO (a timeline mostra
+ * só o label derivado), o conteúdo servido pós-overlay do Kit e o desafio efetivo.
+ * Sinaliza quando o conteúdo foi escrito pra OUTRO perfil DISC.
+ */
+function SemanaModal({ det, onClose }) {
+  const { t, semana } = det;
+  const plano = Array.isArray(t.temporada_plano) ? t.temporada_plano : [];
+  const s = plano.find(x => Number(x.semana) === Number(semana)) || {};
+  const disc = String(t.colab?.perfil_dominante || '').charAt(0).toUpperCase();
+  const entregas = (Array.isArray(s.conteudos_dia) && s.conteudos_dia.length)
+    ? s.conteudos_dia
+    : (s.conteudo ? [{ competencia: t.competencia_foco, descritor: s.descritor, conteudo: s.conteudo }] : []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="bg-[#12131a] border border-white/10 rounded-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-[#12131a] border-b border-white/10 px-5 py-3 flex items-center gap-3">
+          <div className="flex-1">
+            <div className="text-sm font-bold text-white">Semana {semana} · o que foi entregue</div>
+            <div className="text-[11px] text-gray-400">
+              {t.colab?.nome_completo || '—'}
+              {disc && <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded border ${DISC_CLS[disc] || ''}`}>perfil {disc}</span>}
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded hover:bg-white/10 text-gray-400"><X size={16} /></button>
+        </div>
+
+        {!entregas.length ? (
+          <div className="p-8 text-center text-gray-500 text-sm">
+            Semana de {s.tipo === 'aplicacao' ? 'aplicação (missão)' : s.tipo === 'avaliacao' ? 'avaliação' : 'sem entregas'} — não há pílulas de conteúdo.
+          </div>
+        ) : (
+          <div className="p-5 space-y-4">
+            {entregas.map((e, i) => {
+              const c = e.conteudo || {};
+              const vaza = !!c.vaza_disc;
+              const doKit = !!c.kit_id;
+              const formatos = Object.keys(c.formatos_disponiveis || {});
+              return (
+                <div key={i} className={`rounded-lg border p-4 ${vaza ? 'border-red-500/50 bg-red-500/[0.06]' : 'border-white/10 bg-white/[0.03]'}`}>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Pílula {i + 1}</span>
+                    {c.formato_core && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-white/10 text-gray-300">{c.formato_core}</span>}
+                    {doKit && !vaza && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">kit do perfil {disc}</span>}
+                    {vaza && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500 text-white">
+                        ⚠ conteúdo escrito p/ o perfil {c.disc_do_conteudo} — esta pessoa é {disc}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-white font-semibold">{e.descritor || '—'}</div>
+                  {e.competencia && <div className="text-[11px] text-gray-500">{e.competencia}</div>}
+                  {c.core_titulo && <div className="text-xs text-gray-400 italic mt-1">“{c.core_titulo}”</div>}
+                  {!!formatos.length && <div className="text-[10px] text-gray-500 mt-2">formatos disponíveis: {formatos.join(' · ')}</div>}
+                  {c.desafio_texto && (
+                    <div className="mt-3 rounded bg-cyan-500/5 border border-cyan-500/20 p-2.5">
+                      <div className="text-[9px] uppercase text-cyan-400 mb-1 tracking-wider">
+                        Desafio {doKit ? `(kit · perfil ${disc})` : '(genérico — não há kit deste perfil)'}
+                      </div>
+                      <div className="text-xs text-gray-300 italic">"{c.desafio_texto}"</div>
+                      {c.acao_observavel && <div className="text-[11px] text-gray-500 mt-1.5">Ação observável: {c.acao_observavel}</div>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
