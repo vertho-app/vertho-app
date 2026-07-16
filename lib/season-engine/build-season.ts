@@ -25,6 +25,8 @@ interface MicroConteudo {
   descritor?: string;
   cargo?: string | null;
   empresa_id?: string | null;
+  /** Preenchido = conteúdo de KIT (escrito p/ UM DISC) → entregue só pelo overlay. */
+  kit_id?: string | null;
   ativo: boolean;
   versao?: number;
   taxa_conclusao?: number | null;
@@ -155,6 +157,18 @@ export function ehMesmoCargo(cargoConteudo?: string | null, cargoAlvo?: string |
  * — os do próprio cargo + os genéricos (cargo null/''/'todos') — descartando os de
  * QUALQUER outro cargo específico. É o que impede vazamento de conteúdo entre cargos.
  */
+/**
+ * INVARIANTE: conteúdo de KIT (`kit_id` preenchido) é escrito para UM perfil DISC e é
+ * entregue EXCLUSIVAMENTE pelo overlay (`overlayKitNaSemana`), que resolve por
+ * (DISC × cargo) na LEITURA. O buildSeason é CEGO A DISC — se servir conteúdo de kit,
+ * entrega o perfil de outra pessoa. O overlay só corrige quando existe kit do DISC de
+ * quem lê; com cobertura parcial de DISC, escapa (medido: 23 de 648 entregas no
+ * Ibipeba, 16/07). Irmã de `conteudosServiveisPorCargo` — mesma classe de isolamento.
+ */
+export function conteudosDoBuild<T extends { kit_id?: string | null }>(itens: T[]): T[] {
+  return (itens || []).filter((c) => !c.kit_id);
+}
+
 export function conteudosServiveisPorCargo<T extends { cargo?: string | null }>(
   itens: T[], cargoAlvo?: string | null,
 ): T[] {
@@ -404,9 +418,17 @@ async function montarSemanaConteudo(
   const nivelMedio = (descritorSel.nota_atual + 3.0) / 2;
 
   // Busca conteúdos pra esse descritor com fallback gradual.
+  // ⚠️ `kit_id IS NULL`: conteúdo de KIT é específico de UM DISC e é entregue SÓ pelo
+  // overlay (overlayKitNaSemana, que resolve por DISC×cargo na LEITURA). Este build é
+  // CEGO A DISC — sem o filtro ele enxerga os micro_conteudos do kit (mesma tabela, com
+  // competencia/descritor/cargo preenchidos), escolhe por score e serve o conteúdo de
+  // OUTRO perfil. O overlay só conserta quando existe kit do DISC da pessoa; com
+  // cobertura parcial, escapava. Medido no Ibipeba: 23 de 648 entregas liam o DISC
+  // errado. Mesma classe do vazamento por CARGO (conteudosServiveisPorCargo, 4faa0130).
   const buildQ = (withNivel: boolean) => {
     let q = sb.from('micro_conteudos').select('*')
       .eq('ativo', true)
+      .is('kit_id', null)
       .eq('competencia', competencia);
     if (withNivel) q = q.lte('nivel_min', nivelMedio).gte('nivel_max', nivelMedio);
     if (empresaId) q = q.or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
@@ -423,7 +445,10 @@ async function montarSemanaConteudo(
   // REGRA: competência é ÚNICA POR CARGO — nunca servir conteúdo de OUTRO cargo
   // específico (Autocuidado de Coordenação ≠ de Gestão Escolar, mesmo nome). Só o do
   // próprio cargo ou o genérico, sempre preferindo o do cargo (ver ordenação abaixo).
-  const permitidos = conteudosServiveisPorCargo(candidatosTyped, cargo);
+  // + REGRA: conteúdo de KIT nunca sai daqui (é de UM DISC; quem entrega é o overlay).
+  // Redundante com o `.is('kit_id', null)` da query — de propósito: é a regra em CÓDIGO,
+  // testável por mutação, e sobrevive se alguém afrouxar a query.
+  const permitidos = conteudosServiveisPorCargo(conteudosDoBuild(candidatosTyped), cargo);
   const mesmoCargo = (c: MicroConteudo) => ehMesmoCargo(c.cargo, cargo);
 
   const matchDescritor = permitidos.filter(c => c.descritor === descritorSel.descritor);
