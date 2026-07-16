@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireUser } from '@/lib/auth/request-context';
+import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { extractNarration, generatePersonalizedPodcastAudio } from '@/lib/gemini-tts';
 
 export const runtime = 'nodejs';
@@ -46,7 +46,27 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: 'sem acesso a este conteúdo' }, { status: 403 });
   }
 
-  const nome = auth.colaborador?.nome_completo?.trim();
+  // AUDITORIA (admin/rh/gestor): `?colaboradorId=` serve o áudio COM a saudação da
+  // PESSOA — o mesmo que ela ouve. O parâmetro é AUTORIZADO por assertColabAccess
+  // (que já cobre platform admin, o próprio colab e rh/gestor do tenant), nunca
+  // confiado em silêncio. NÃO é o padrão de bypass em que o chamador passa a
+  // identidade e o gate é PULADO (ver `gerarConteudoFinalPersonalizado({colab})`).
+  let alvo: { id: string; nome_completo?: string | null } | null = auth.colaborador || null;
+  const pedido = new URL(req.url).searchParams.get('colaboradorId');
+  if (pedido && pedido !== auth.colaborador?.id) {
+    const denied = await assertColabAccess(auth, pedido);
+    if (denied) return denied;
+    const { data: outro } = await sb
+      .from('colaboradores')
+      .select('id, nome_completo')
+      .eq('id', pedido)
+      .eq('empresa_id', content.empresa_id)
+      .maybeSingle();
+    if (!outro) return NextResponse.json({ error: 'colaborador não encontrado neste conteúdo' }, { status: 404 });
+    alvo = outro;
+  }
+
+  const nome = alvo?.nome_completo?.trim();
   if (!nome) {
     // Sem colaborador (ex.: admin): serve o áudio-base pré-gerado (sem nome).
     return content.url
@@ -58,7 +78,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     'final',
     'audio-personalizado',
     sanitizeSegment(content.id),
-    `${sanitizeSegment(auth.colaborador!.id)}.mp3`,
+    `${sanitizeSegment(alvo!.id)}.mp3`,
   ].join('/');
 
   const cached = await sb.storage.from('conteudos').download(cachePath);

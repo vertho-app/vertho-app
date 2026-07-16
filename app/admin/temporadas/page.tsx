@@ -488,14 +488,16 @@ function SemanaModal({ det, onClose }) {
                       const FIcon = FORMAT_ICON[f] || FileText;
                       const fid = c.formatos_disponiveis?.[f]?.id || (f === c.formato_core ? c.core_id : null);
                       // texto/case → PDF; audio → podcast; video → player Bunny. Mesmas rotas do week page.
+                      // audio → rota ADMIN (gated), que serve o mesmo áudio personalizado
+                      // que a pessoa ouve; a rota do colaborador daria o base sem o nome.
                       const href = f === 'video' ? c.video_embed
-                        : f === 'audio' ? (fid ? `/api/conteudo/${fid}/podcast` : null)
+                        : f === 'audio' ? (fid ? `/api/admin/conteudo/${fid}/podcast?colaboradorId=${t.colaborador_id}` : null)
                         : (fid ? `/api/conteudo/${fid}/pdf` : c.formatos_disponiveis?.[f]?.url || null);
                       const style = { color: FORMAT_COLOR[f], borderColor: `${FORMAT_COLOR[f]}55`, background: `${FORMAT_COLOR[f]}12` };
                       const cls = 'inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition-opacity';
                       return href ? (
                         <a key={f} href={href} target="_blank" rel="noopener"
-                          title={f === 'video' ? 'Abrir o vídeo desta célula' : f === 'audio' ? 'Abrir o podcast (versão base, sem a saudação nominal)' : 'Abrir o PDF (versão genérica — a personalização por DISC resolve pela sessão do colaborador)'}
+                          title={f === 'video' ? 'Abrir o vídeo que a pessoa vê' : f === 'audio' ? 'Abrir o podcast COM a saudação nominal (o mesmo que a pessoa ouve)' : 'Abrir o PDF (versão genérica — a personalização por DISC resolve pela sessão do colaborador)'}
                           className={`${cls} hover:opacity-100 opacity-90 hover:underline`} style={style}>
                           <FIcon size={9} />{f}
                         </a>
@@ -510,7 +512,7 @@ function SemanaModal({ det, onClose }) {
                     )}
                   </div>
                   <div className="text-[9px] text-gray-600 mt-1">
-                    Vídeo abre o que a pessoa vê (personalizado quando existe). PDF abre a versão genérica e o podcast, o áudio-base sem o nome — essa personalização resolve pela sessão do colaborador.
+                    Vídeo e podcast abrem o que a pessoa recebe, com a saudação nominal (podcast com cache frio leva ~2min na 1ª vez). PDF abre a versão genérica — a personalização por DISC resolve pela sessão do colaborador.
                   </div>
                   {c.desafio_texto && (
                     <div className="mt-3 rounded bg-cyan-500/5 border border-cyan-500/20 p-2.5">
