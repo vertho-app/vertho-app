@@ -508,9 +508,11 @@ function SemanaModal({ det, onClose }) {
                       );
                     }) : <span className="text-[10px] text-gray-600">—</span>}
                     {!formatos.includes('video') && <span className="text-[10px] text-gray-600 italic">sem vídeo p/ esta célula</span>}
-                    {c.tem_video && (c.video_personalizado
-                      ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">vídeo com saudação</span>
-                      : <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">⚠ deck genérico — sem a saudação nominal</span>
+                    {/* Só a EXCEÇÃO ganha selo. Vídeo com saudação é o esperado (o chip
+                        "video" já abre o personalizado) — sinalizar o normal vira ruído
+                        e faz o alerta abaixo se perder no meio. */}
+                    {c.tem_video && !c.video_personalizado && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">⚠ deck genérico — sem a saudação nominal</span>
                     )}
                   </div>
                   <div className="text-[9px] text-gray-600 mt-1">
