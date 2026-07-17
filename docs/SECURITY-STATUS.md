@@ -157,3 +157,47 @@ Quatro vetores ATIVOS (exploráveis em prod) + achados de endurecimento, todos c
 - Policies tenant-scoped explícitas nas ~60 tabelas deny-by-default (fechadas, mas implícito)
 - CSRF em server actions (Next.js tem protecao built-in mas nao auditamos)
 - Testes E2E de isolamento real (requer 2 tenants em test env)
+
+## Atualizacao 16/07/2026 — mecanica do `'use server'` CORRIGIDA + bypass com outro nome
+
+### ⚠️ Correcao factual: o registro e por EXPORT ALCANCAVEL, nao pelo modulo inteiro
+A doc/memoria afirmava que, se um modulo `'use server'` entra no grafo do cliente, o Next
+registra **todos** os seus exports como endpoint. **Medido no build (Next 16) e falso:**
+`actions/conteudos.ts` esta no grafo do cliente (`app/admin/conteudos/page.tsx` e
+`.../kit/page.tsx` sao `'use client'` e o importam) e mesmo assim so **13 de 16 exports**
+entraram no `server-reference-manifest.json`. Os 3 de fora sao exatamente os que **nenhum
+client component chama** (`gerarConteudoLote`, `gerarConteudoFinalPersonalizado`,
+`prepararAudioPersonalizado`) — o servidor **rejeita** chamada a eles.
+
+Consequencia: a protecao de um export nao-chamado-pelo-cliente e mais forte do que se
+pensava (o servidor nem aceita), **mas segue ACIDENTAL** — um `import { x }` + chamada num
+client component registra E publica, abrindo o endpoint.
+
+Como medir: contar `exportedName` no manifest por modulo x exports do arquivo. Exige `next
+build`; use canario (>50 ids resolvidos) antes de confiar no veredito — "id nao resolvido"
+e o estado seguro, entao um regex quebrado passaria em silencio.
+
+### 🟡 Bypass que os guards NAO pegam: parametro com outro NOME
+`actions/conteudos.ts` (`'use server'`) exporta
+`gerarConteudoFinalPersonalizado({ contentId, colab })`. Quando `colab` vem preenchido, o
+lookup por sessao (`getAuthenticatedEmailFromAction` + `findColabByEmail`) e **PULADO** —
+mesmo padrao do `internal` fechado em 09/07. Esse `colab` define `empresa_id` (contexto PPP
++ chave de cache) e `perfil_dominante`. `prepararAudioPersonalizado` tem a mesma forma.
+
+- **NAO exploravel hoje** (nenhum dos dois esta no manifest — sem caller de cliente).
+- **Os guards nao pegam:** `use-server-internal-guard` varre por AST procurando o
+  identificador literal **`internal`**. Esta calibrado pro NOME, nao pro COMPORTAMENTO
+  ("parametro que substitui a identidade da sessao"). Procurar outros nomes: `colab`,
+  `colaborador`, `empresaId`, `email`, `userId`.
+- **Caller legitimo:** `prepararEntregasJornada` (`actions/temporadas.ts`) —
+  `protectedAction('content.manage')` + `assertTenantAccessAction` + colabs via `tenantDb`,
+  entao o `colab` que ele passa e confiavel. **Nao e "zero callers → deleta o param".**
+- **Fix correto (pendente):** padrao documentado — nucleo sem gate em `lib/`, a action
+  `'use server'` gata sempre (resolve o colab da sessao) e o lote chama o nucleo direto.
+
+### Rota do podcast: parametro de identidade AUTORIZADO (contraexemplo do padrao correto)
+`/api/conteudo/[id]/podcast?colaboradorId=` serve o audio COM a saudacao da pessoa para
+auditoria do admin. O parametro so vale **depois** do gate (`assertColabAccess`, que cobre
+platform admin, o proprio colab e rh/gestor do tenant) + o colab e lido com
+`.eq('empresa_id', content.empresa_id)`. E o oposto do bypass acima: aqui o parametro e
+autorizado, nao confiado.

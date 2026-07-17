@@ -117,3 +117,48 @@ QUINTA 11:00: IA cobra o desafio (check-in focado) → avalia → rastreia
 **Performance (escala):** `precarregarKits` (`entrega-semana.ts`) carrega todos os kits da trilha em **3 queries** e casa em memória — antes o overlay fazia 2-3 queries POR semana (~30/load). Ver `docs/ESCALA-50K.md`.
 
 Validado: kit "Gestão Financeira Básica › Formação básica de preço" com `cargo='MEI'` → case "Cláudia e o mês que não fechou" (marmitas/WhatsApp), texto ~5,3k chars, registro do dia a dia.
+
+## Atualização 16/07/2026 — ⚠️ LEIA ANTES DE MEXER EM KIT (5 armadilhas, todas mordidas)
+
+Regenerar 2 temas de kit por script fechou o vazamento de DISC **e deixou 6 pessoas SEM
+CONTEÚDO** na semana seguinte. As 5 armadilhas, na ordem em que aparecem:
+
+**1. Conteúdo de kit NUNCA sai do build — só do overlay.** `montarSemanaConteudo` filtra
+competência + cargo mas **não DISC**, e os `micro_conteudos` do kit vivem na MESMA tabela
+com competência/descritor/cargo preenchidos. Sem filtro, o build servia conteúdo escrito
+para OUTRO perfil (medido: 23 de 648 entregas). Fechado com `.is('kit_id', null)` na query
+**+** `conteudosDoBuild()` no código (defesa em profundidade, testado por mutação em
+`tests/unit/conteudo-isolamento-disc`). O overlay só corrige quando existe kit do DISC da
+pessoa — com cobertura parcial de DISC, escapa.
+
+**2. `resolverOuCriarBrief` é idempotente e NÃO tem opção de forçar.** Casa por
+`(competencia, descritor, nivel_min, nivel_max, cargo, contexto, empresa_id)`. Para regerar
+um brief é preciso apagá-lo antes.
+
+**3. `contexto` default = `'generico'`, mas os tenants usam `'educacional'`.** Não passar
+`contexto` cria um brief DUPLICADO em vez de reusar → quebra a espinha compartilhada (o
+ponto do Kit é os 4 DISC dizerem a mesma coisa). **Sempre passar `contexto` explícito.**
+
+**4. FK: `micro_conteudos.kit_id` é `ON DELETE SET NULL`** (e `kits.brief_id` é `CASCADE`).
+Apagar o brief antes do conteúdo transforma conteúdo DISC-específico em **genérico**
+(`kit_id = null`) — e o build, que serve exatamente o genérico, passa a entregá-lo a
+QUALQUER perfil. **Ordem obrigatória: conteúdo → kits → brief.**
+
+**5. `gerarConteudoIA` grava `url = null` quando o PDF headless falha** (fonte NotoSans não
+registrada no tsx). Isso é inofensivo para o build (a entrega é por ID: `/api/conteudo/{id}/pdf`
+renderiza no runtime), mas o overlay exigia `url` e escondia texto/case do kit novo — o
+`core_id` do plano seguia apontando para o conteúdo antigo, já apagado. Corrigido: o overlay
+não exige mais `url`.
+
+**Ao mexer em kit, medir PÓS-OVERLAY.** O raio-x que lê o `core_id` gravado dizia
+"68/72 core, 0 formato não servido" e escondia as 6 pessoas quebradas. Ver `CLAUDE.md`
+("a forma GRAVADA ≠ o que é ENTREGUE").
+
+**Reparar plano gravado:** use `selecionarConteudoDaSemana` (exportada de `build-season`) —
+é a MESMA função do motor. Reimplementar o scoring num script dessincroniza os campos
+derivados (`formato_core`/`formatos_disponiveis`/`core_titulo`) do `core_id`.
+
+**⚠️ Dívida conhecida:** os briefs criados antes de `7258c0a3` foram ancorados no módulo-base
+**cego a cargo e a descritor** — o resolver escolhia UM módulo por competência e servia os 6
+descritores dela. Ex.: o kit de "Troca de práticas" foi destilado do material de "Aprendizagem
+entre pares". Ao regerar um tema antigo, o brief novo já nasce com o módulo correto.
