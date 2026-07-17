@@ -2,7 +2,7 @@
 
 Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e empresas). Colaboradores passam por diagnóstico comportamental (DISC), recebem cenários situacionais por competência, conversam com IA avaliativa e seguem trilhas (**Temporadas**) com micro-conteúdos personalizados. Inclui geração de vídeo de microlearning, um **Portal do Representante** (canal comercial dos RCs) e ambientes de demonstração.
 
-> Docs canônicas em `docs/` (ARQUITETURA, MODO-PILOTO, CATALOGO-PROMPTS-IA, SECURITY-STATUS, SCHEMA-PROCESS, AMBIENTE-DEMO, PORTAL-REPRESENTANTE, DESIGN-SYSTEM…). Este arquivo é o resumo operacional.
+> Docs canônicas em `docs/` (**PIPELINE-TRILHA** ← mapa ponta a ponta do produto, ARQUITETURA, MODO-PILOTO, CATALOGO-PROMPTS-IA, SECURITY-STATUS, SCHEMA-PROCESS, AMBIENTE-DEMO, PORTAL-REPRESENTANTE, DESIGN-SYSTEM…). Este arquivo é o resumo operacional.
 
 ## Stack (real)
 
@@ -94,6 +94,10 @@ tests/unit/          vitest
 - **Trigger.dev**: tasks em `trigger/` **NÃO** sobem no push — precisam de `npx trigger.dev deploy` manual (path com espaço quebra o CLI; receita em `docs`/memória).
 
 ## Domínio: modelo de competências & Temporadas
+
+> **Pipeline completo (assessment → blueprint → trilha → conteúdo → kit → entrega → envio):
+> `docs/PIPELINE-TRILHA.md`** — pré-requisitos, fontes, produto e onde cada coisa persiste,
+> com `arquivo:linha`. Leia antes de mexer em qualquer camada do motor.
 
 - Competências (por cargo) × descritores × **4 níveis** (N1 lacuna → N4 referência). Ética é camada de valores (Alinhado/Tensão/Violação), não competência.
 - **DISC** → o perfil comportamental vira colunas `comp_*`/`lid_*` em `colaboradores`. O **motor de fit lê essas colunas** (não `descriptor_assessments`).
