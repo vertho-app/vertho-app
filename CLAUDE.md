@@ -98,6 +98,8 @@ tests/unit/          vitest
 > **Pipeline completo (assessment → blueprint → trilha → conteúdo → kit → entrega → envio):
 > `docs/PIPELINE-TRILHA.md`** — pré-requisitos, fontes, produto e onde cada coisa persiste,
 > com `arquivo:linha`. Leia antes de mexer em qualquer camada do motor.
+> **Modos de falha (27 catalogados, corrida/integridade/escala): `docs/FMEA-PIPELINE.md`** —
+> cada um com gatilho `arquivo:linha`, status (já-observado/provável/raro/só-em-escala) e correção.
 
 - Competências (por cargo) × descritores × **4 níveis** (N1 lacuna → N4 referência). Ética é camada de valores (Alinhado/Tensão/Violação), não competência.
 - **DISC** → o perfil comportamental vira colunas `comp_*`/`lid_*` em `colaboradores`. O **motor de fit lê essas colunas** (não `descriptor_assessments`).
