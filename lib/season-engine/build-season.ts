@@ -158,6 +158,59 @@ export function ehMesmoCargo(cargoConteudo?: string | null, cargoAlvo?: string |
  * QUALQUER outro cargo específico. É o que impede vazamento de conteúdo entre cargos.
  */
 /**
+ * SELEÇÃO do conteúdo de uma semana — PURA (recebe os candidatos já buscados).
+ *
+ * Extraída de `montarSemanaConteudo` para ter UMA implementação só: scripts de
+ * manutenção (ex.: reparar `core_id` órfão num plano gravado) precisam escolher o
+ * MESMO conteúdo que o motor escolheria. Reimplementar o scoring num script é a
+ * origem da classe de bug "título ≠ blocos" (campos derivados dessincronizados).
+ *
+ * Aplica, nesta ordem: (1) fora conteúdo de KIT (`conteudosDoBuild` — é DISC-específico,
+ * entregue só pelo overlay), (2) fora cargo alheio (`conteudosServiveisPorCargo`),
+ * (3) prefere match do descritor e ids não usados, (4) dentro de cada formato escolhe
+ * MESMO CARGO > score > versão. `formatoCore` segue `prioridadeFormatos` do colaborador.
+ */
+export function selecionarConteudoDaSemana(
+  candidatos: MicroConteudo[],
+  opts: { cargo: string; descritor: string; prioridadeFormatos: string[]; idsJaUsados?: Set<string> },
+): { pool: MicroConteudo[]; formatosDisponiveis: Record<string, MicroConteudo>; formatoCore: string | null; coreContent: MicroConteudo | null } {
+  const { cargo, descritor, prioridadeFormatos } = opts;
+  const idsJaUsados = opts.idsJaUsados ?? new Set<string>();
+
+  // REGRA: competência é ÚNICA POR CARGO — nunca servir conteúdo de OUTRO cargo
+  // específico (Autocuidado de Coordenação ≠ de Gestão Escolar, mesmo nome).
+  // + REGRA: conteúdo de KIT nunca sai daqui (é de UM DISC; quem entrega é o overlay).
+  const permitidos = conteudosServiveisPorCargo(conteudosDoBuild(candidatos || []), cargo);
+  const mesmoCargo = (c: MicroConteudo) => ehMesmoCargo(c.cargo, cargo);
+
+  const matchDescritor = permitidos.filter((c) => c.descritor === descritor);
+  const poolDescDisp = matchDescritor.filter((c) => !idsJaUsados.has(c.id));
+  const poolCompDisp = permitidos.filter((c) => !idsJaUsados.has(c.id));
+  const pool: MicroConteudo[] = poolDescDisp.length > 0
+    ? poolDescDisp
+    : (poolCompDisp.length > 0 ? poolCompDisp : (matchDescritor.length > 0 ? matchDescritor : permitidos));
+
+  // Dentro de cada formato, escolhe o melhor: MESMO CARGO antes de genérico, depois SCORE.
+  const formatosDisponiveis: Record<string, MicroConteudo> = {};
+  const ordenadoPorQualidade = [...pool].sort((a, b) => {
+    const ca = mesmoCargo(a) ? 0 : 1;
+    const cb = mesmoCargo(b) ? 0 : 1;
+    if (ca !== cb) return ca - cb;
+    const scoreA = computarScoreConteudo(a);
+    const scoreB = computarScoreConteudo(b);
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    return (b.versao || 0) - (a.versao || 0);
+  });
+  for (const c of ordenadoPorQualidade) {
+    if (!formatosDisponiveis[c.formato]) formatosDisponiveis[c.formato] = c;
+  }
+
+  const formatoCore: string | null = prioridadeFormatos.find((f) => formatosDisponiveis[f]) || null;
+  const coreContent: MicroConteudo | null = formatoCore ? formatosDisponiveis[formatoCore] : null;
+  return { pool, formatosDisponiveis, formatoCore: coreContent ? formatoCore : 'texto', coreContent };
+}
+
+/**
  * INVARIANTE: conteúdo de KIT (`kit_id` preenchido) é escrito para UM perfil DISC e é
  * entregue EXCLUSIVAMENTE pelo overlay (`overlayKitNaSemana`), que resolve por
  * (DISC × cargo) na LEITURA. O buildSeason é CEGO A DISC — se servir conteúdo de kit,
@@ -442,43 +495,11 @@ async function montarSemanaConteudo(
   }
 
   const candidatosTyped = (candidatos || []) as MicroConteudo[];
-  // REGRA: competência é ÚNICA POR CARGO — nunca servir conteúdo de OUTRO cargo
-  // específico (Autocuidado de Coordenação ≠ de Gestão Escolar, mesmo nome). Só o do
-  // próprio cargo ou o genérico, sempre preferindo o do cargo (ver ordenação abaixo).
-  // + REGRA: conteúdo de KIT nunca sai daqui (é de UM DISC; quem entrega é o overlay).
-  // Redundante com o `.is('kit_id', null)` da query — de propósito: é a regra em CÓDIGO,
-  // testável por mutação, e sobrevive se alguém afrouxar a query.
-  const permitidos = conteudosServiveisPorCargo(conteudosDoBuild(candidatosTyped), cargo);
-  const mesmoCargo = (c: MicroConteudo) => ehMesmoCargo(c.cargo, cargo);
-
-  const matchDescritor = permitidos.filter(c => c.descritor === descritorSel.descritor);
-  const poolDescDisp = matchDescritor.filter(c => !idsJaUsados.has(c.id));
-  const poolCompDisp = permitidos.filter(c => !idsJaUsados.has(c.id));
-  const pool: MicroConteudo[] = poolDescDisp.length > 0
-    ? poolDescDisp
-    : (poolCompDisp.length > 0 ? poolCompDisp : (matchDescritor.length > 0 ? matchDescritor : permitidos));
-
-  // Dentro de cada formato, escolhe o melhor: MESMO CARGO antes de genérico, depois SCORE.
-  const formatosDisponiveis: Record<string, MicroConteudo> = {};
-  const ordenadoPorQualidade = [...pool].sort((a, b) => {
-    const ca = mesmoCargo(a) ? 0 : 1;
-    const cb = mesmoCargo(b) ? 0 : 1;
-    if (ca !== cb) return ca - cb;
-    const scoreA = computarScoreConteudo(a);
-    const scoreB = computarScoreConteudo(b);
-    if (scoreB !== scoreA) return scoreB - scoreA;
-    return (b.versao || 0) - (a.versao || 0);
+  const sel = selecionarConteudoDaSemana(candidatosTyped, {
+    cargo, descritor: descritorSel.descritor, prioridadeFormatos, idsJaUsados,
   });
-  for (const c of ordenadoPorQualidade) {
-    if (!formatosDisponiveis[c.formato]) formatosDisponiveis[c.formato] = c;
-  }
-
-  let formatoCore: string | null = prioridadeFormatos.find(f => formatosDisponiveis[f]) || null;
-  let coreContent: MicroConteudo | null = formatoCore ? formatosDisponiveis[formatoCore] : null;
-
-  if (!coreContent) {
-    formatoCore = 'texto';
-  }
+  const { formatosDisponiveis, coreContent } = sel;
+  let formatoCore = sel.formatoCore;
 
   // DESAFIO: a fonte canônica é o KIT (sob demanda, por DISC) — o overlayKitNaSemana
   // preenche o desafio na LEITURA da semana. Aqui só deixamos um FALLBACK templated
