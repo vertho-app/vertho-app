@@ -6,13 +6,22 @@
  *
  * Fluxo: generate → poll status → URL do mp4. O mp4 vira input das cenas
  * avatar_intro / avatar_outro do Remotion (OffthreadVideo via inputProps).
+ *
+ * ⏳ PRAZO: `/v2/video/generate` e `/v1/video_status.get` são LEGACY — a HeyGen
+ * retira v1/v2 em **31/10/2026** (verificado 16/07). Substitutos: `POST /v3/videos`
+ * e `GET /v3/videos/{id}`; o v3 aceita `audio_url`, então o lip-sync do nosso TTS
+ * sobrevive, e photo avatar vira `avatar_id`.
+ * ⚠️ NÃO migrar sem passar `engine` EXPLÍCITO: o v3 usa **Avatar IV por default**
+ * ($0.05/s p/ foto) e hoje pagamos $0.0167/s (Talking Photo v2, medido por delta de
+ * quota em 19/06). O piso p/ foto no v3 é `avatar_iii` ($0.0433/s = 2,5×). Contexto,
+ * tabela de preços e o método de medição: docs/GERADOR-VIDEO-MODULO.md.
  */
 const KEY = process.env.HEYGEN_API_KEY || '';
 const AVATAR = process.env.HEYGEN_AVATAR_ID || 'Abigail_expressive_2024112501';
 // Avatar da marca "Mentora Vertho": se HEYGEN_TALKING_PHOTO_ID estiver setado, usa
 // um Talking Photo (foto custom, photoreal, mesmo custo ~$0,017/s) no lugar do
 // avatar preset. Sem ele, cai no avatar_id (Abigail). Avatar IV (v3) é ~3× mais
-// caro — não usado.
+// caro — não usado (ver o PRAZO de 31/10/2026 no topo: isso vira decisão forçada).
 // Avatar "Mentora Vertho" (Talking Photo aberto, navy) é o DEFAULT — validado
 // 17/06. Env var só sobrescreve (ex.: testar outra foto). Não é segredo (id de asset).
 const TALKING_PHOTO = process.env.HEYGEN_TALKING_PHOTO_ID || 'd160ea51f4124514b94aa1cf8e56eb42';

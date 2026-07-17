@@ -100,6 +100,43 @@ micro_conteudo final: `formato='video'`, `origem='video_gerado'`, `url`/campo Bu
 
 ## Integração HeyGen (assíncrona) — avatar com lip-sync do NOSSO áudio
 
+> ### ⏳ PRAZO DURO: a API que usamos morre em **31/10/2026**
+>
+> `POST /v2/video/generate` e `GET /v1/video_status.get` (os dois abaixo) são **legacy**.
+> A doc oficial diz que v1/v2 "remain fully operational" até **31/10/2026** e depois
+> "will be retired". Substitutos: **`POST /v3/videos`** e **`GET /v3/videos/{id}`**.
+> Verificado em 16/07/2026 (`developers.heygen.com/endpoint-version-comparison`).
+>
+> **O que sobrevive:** o v3 aceita `audio_url` → o lip-sync do NOSSO mp3 (TTS Gemini)
+> continua igual, sem voz do HeyGen. Photo avatar passa a ser referenciado pelo mesmo
+> campo `avatar_id` (some o `talking_photo_id`).
+>
+> **⚠️ A ARMADILHA — migrar do jeito óbvio ~3× o custo do avatar.** O v3 usa
+> **Avatar IV por DEFAULT** quando `engine` é omitido. Preços de tabela (medidos na doc,
+> 16/07 — self-serve, $/s):
+>
+> | engine | Photo Avatar | Digital Twin |
+> |---|---|---|
+> | `avatar_iii` | $0.0433/s | **$0.0167/s** |
+> | `avatar_iv` (default) | $0.05/s | $0.0667/s |
+> | `avatar_v` | não suporta | $0.0667/s |
+>
+> Hoje pagamos **$0.0167/s** (Talking Photo v2 = "standard generation" = $1/min ≈ 1 crédito/s
+> — **medido** em 19/06 por delta de quota, job `710538a8`, e confirmado no billing).
+> **Não há equivalente barato p/ FOTO no v3**: o piso é `avatar_iii` a $0.0433/s (2,5×).
+> O único preço igual ao de hoje é **Digital Twin no `avatar_iii`** — mas Digital Twin exige
+> footage real de uma pessoa + consent, e a Mentora Vertho é uma FOTO. Manter o custo depois
+> de outubro provavelmente significa **gravar alguém de verdade** (cruza com a estratégia de avatar).
+>
+> **NÃO MEDIDO ainda:** o v3 nunca foi testado aqui. O teste de 19/06 comparou **720p vs 1080p**
+> (deu idêntico — resolução não muda consumo), não v2 vs v3. Há divergência a resolver: a
+> anotação de 19/06 registra Avatar IV a **$4/min ($0.0667/s)**, que é o preço do **twin** na
+> tabela atual; a tabela de hoje põe **photo no IV a $0.05/s ($3/min)**. Ou o preço mudou, ou
+> comparou-se com a linha errada.
+> **Como medir (método já validado nesta casa):** gerar o mesmo clip de intro em `avatar_iii`
+> e `avatar_iv` e cravar o **delta de quota** antes/depois — foi assim que os $0.0167/s saíram.
+> Custa centavos. Fazer isso ANTES de decidir a migração.
+
 Header `X-Api-Key`. Para CADA clip (intro e outro):
 
 ```jsonc
