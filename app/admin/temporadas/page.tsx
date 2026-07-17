@@ -488,10 +488,12 @@ function SemanaModal({ det, onClose }) {
                       const FIcon = FORMAT_ICON[f] || FileText;
                       const fid = c.formatos_disponiveis?.[f]?.id || (f === c.formato_core ? c.core_id : null);
                       // texto/case → PDF; audio → podcast; video → player Bunny. Mesmas rotas do week page.
-                      // audio → rota ADMIN (gated), que serve o mesmo áudio personalizado
-                      // que a pessoa ouve; a rota do colaborador daria o base sem o nome.
+                      // audio → a MESMA rota do colaborador + `?colaboradorId=`: ela serve o áudio
+                      // COM a saudação da pessoa (o parâmetro é autorizado por assertColabAccess,
+                      // não confiado). NÃO existe /api/admin/conteudo/... — foi a abordagem
+                      // descartada em 57f83b6b (arquivo novo somaria 2 violações aos guards).
                       const href = f === 'video' ? c.video_embed
-                        : f === 'audio' ? (fid ? `/api/admin/conteudo/${fid}/podcast?colaboradorId=${t.colaborador_id}` : null)
+                        : f === 'audio' ? (fid ? `/api/conteudo/${fid}/podcast?colaboradorId=${t.colaborador_id}` : null)
                         : (fid ? `/api/conteudo/${fid}/pdf` : c.formatos_disponiveis?.[f]?.url || null);
                       const style = { color: FORMAT_COLOR[f], borderColor: `${FORMAT_COLOR[f]}55`, background: `${FORMAT_COLOR[f]}12` };
                       const cls = 'inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition-opacity';
