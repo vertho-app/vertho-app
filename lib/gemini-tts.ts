@@ -113,7 +113,16 @@ async function ttsGenerate(body: unknown, attempt = 0): Promise<{ pcm: Buffer; s
   try {
     res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl.signal });
   } catch (e: any) {
-    if (e?.name === 'AbortError') throw new Error('Gemini TTS: timeout (170s)');
+    if (e?.name === 'AbortError') {
+      // Timeout (170s): retentar SEM backoff extra (a espera já foi o próprio
+      // timeout) e com orçamento MENOR que o do 429/503 — cada tentativa custa
+      // até 170s, e timeout repetido indica problema não-transitório.
+      if (attempt < Math.min(2, TTS_MAX_RETRIES)) {
+        console.warn(`TTS timeout 170s (${TTS_BACKEND}) — retry imediato (tentativa ${attempt + 1}/2)`);
+        return ttsGenerate(body, attempt + 1);
+      }
+      throw new Error(`Gemini TTS: timeout (170s) após ${attempt + 1} tentativas`);
+    }
     throw e;
   } finally {
     clearTimeout(timer);

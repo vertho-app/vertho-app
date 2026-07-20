@@ -47,6 +47,33 @@ function errCode(e: any): string | undefined {
  *
  * Uso: `export const salvarX = protectedAction('perm', Schema, async (ctx, input) => {...})`.
  */
+/**
+ * Gate de auth para loaders admin (e actions legadas com contrato de retorno
+ * próprio, onde o envelope {success,data} do protectedAction quebraria os
+ * callers). Mesma porta do protectedAction, mas falha ESPERADA de auth (sem
+ * sessão / sem permissão) devolve `fallback` em vez de lançar — server action
+ * que lança vira erro no Sentry (on_request_error) + rejection não tratada no
+ * client. O gate de página (app/admin/layout.tsx) já redireciona anônimo pro
+ * login; aqui só chegam sessão expirada no meio da página e POST direto de
+ * bot — ambos recebem o fallback. Erro de NEGÓCIO dentro de `fn` continua
+ * lançando (bug real deve ir ao Sentry).
+ */
+export function protectedLoader<A extends unknown[], O>(
+  fallback: O,
+  fn: (ctx: AuthenticatedContext, ...args: A) => Promise<O>,
+  permission?: PermissionKey,
+): (...args: A) => Promise<O> {
+  return async (...args: A): Promise<O> => {
+    let ctx: AuthenticatedContext;
+    try {
+      ctx = await requireAdminAction(permission);
+    } catch {
+      return fallback;
+    }
+    return fn(ctx, ...args);
+  };
+}
+
 export function protectedAction<I, O>(
   permission: PermissionKey,
   schema: z.ZodType<I>,

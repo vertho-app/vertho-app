@@ -22,5 +22,9 @@ Sentry.init({
     'NetworkError',
     'AbortError',
     'ChunkLoadError',
+    // Chrome Android reporta falha de rede com esta string (não casa com as acima)
+    'network error',
+    // Navigator LockManager do supabase auth: disputa de lock entre abas — benigno
+    /Lock "lock:sb-.+-auth-token"/,
   ],
 });

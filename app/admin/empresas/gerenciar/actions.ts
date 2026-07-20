@@ -2,8 +2,8 @@
 
 import { z } from 'zod';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { requireAdminAction, assertTenantAccessAction } from '@/lib/auth/action-context';
-import { protectedAction } from '@/lib/auth/protected-action';
+import { assertTenantAccessAction } from '@/lib/auth/action-context';
+import { protectedAction, protectedLoader } from '@/lib/auth/protected-action';
 import { updateColaboradorInTenant, deleteColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant, listEmailsInTenant, createColaboradoresLoteInTenant } from '@/lib/repositories/colaboradores-repo';
 import { upsertCargoInTenant, deleteCargoInTenant } from '@/lib/repositories/cargos-empresa-repo';
 import { logAdminAction } from '@/lib/audit';
@@ -52,21 +52,29 @@ function buildImportMessage(importados: number, duplicados: number, erros: any[]
   return `${parts.join(' · ')}\n${detalhes.join('\n')}${extra > 0 ? `\n... mais ${extra} ocorrência${extra === 1 ? '' : 's'}` : ''}`;
 }
 
-export async function loadEmpresas() {
-  await requireAdminAction();
+// Loaders chamados no mount de client components: gate via protectedLoader —
+// sessão expirada/bot recebe o fallback em vez de estourar erro no Sentry.
+const _loadEmpresas = protectedLoader<[], any[]>([], async () => {
   const sb = await requireAdminSupabase();
   const { data } = await sb.from('empresas').select('id, nome, segmento').order('nome');
   return data || [];
+});
+
+export async function loadEmpresas() {
+  return _loadEmpresas();
 }
 
-export async function loadResumoEmpresa(empresaId: any) {
-  await requireAdminAction();
+const _loadResumoEmpresa = protectedLoader({ colabs: 0, competencias: 0 }, async (_ctx, empresaId: any) => {
   const sb = await requireAdminSupabase();
   const { count: colabs } = await excludeInternalEmails(sb.from('colaboradores')
     .select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId)); // exclui internos @vertho.ai
   const { data: comps } = await sb.from('competencias')
     .select('cod_comp').eq('empresa_id', empresaId);
   return { colabs: colabs || 0, competencias: comps?.length || 0 };
+});
+
+export async function loadResumoEmpresa(empresaId: any) {
+  return _loadResumoEmpresa(empresaId);
 }
 
 const ImportarLoteSchema = z.object({
@@ -150,9 +158,7 @@ export async function importarColaboradoresLote(input: z.infer<typeof ImportarLo
   return _importarColaboradoresLote(input);
 }
 
-export async function loadColaboradores(empresaId: any) {
-  await requireAdminAction();
-
+const _loadColaboradores = protectedLoader<[any], any[]>([], async (_ctx, empresaId) => {
   const sb = await requireAdminSupabase();
   const { data: d1, error: e1 } = await sb.from('colaboradores')
     .select('id, nome_completo, email, cargo, role, area_depto, telefone, gestor_nome, gestor_email, gestor_whatsapp, mapeamento_em, login_por_whatsapp')
@@ -167,13 +173,16 @@ export async function loadColaboradores(empresaId: any) {
     .eq('empresa_id', empresaId)
     .order('nome_completo');
   return (d2 || []).map((c: any) => ({ ...c, telefone: null, gestor_nome: null, gestor_email: null, gestor_whatsapp: null, login_por_whatsapp: false, sem_email_real: isProxyEmail(c.email) }));
+});
+
+export async function loadColaboradores(empresaId: any) {
+  return _loadColaboradores(empresaId);
 }
 
 /** Export XLSX da base de colaboradores da empresa (base64). Client decodifica → Blob → download. */
-export async function exportarColaboradoresXLSX(empresaId: any): Promise<
-  { ok: true; base64: string; n: number } | { ok: false; error: string }
-> {
-  const ctx = await requireAdminAction('exports.run');
+const _exportarColaboradoresXLSX = protectedLoader<[any], { ok: true; base64: string; n: number } | { ok: false; error: string }>(
+  { ok: false, error: 'Sessão expirada ou sem permissão' },
+  async (ctx, empresaId) => {
   if (!empresaId) return { ok: false, error: 'empresa obrigatória' };
   const locale = await getLocale();
 
@@ -233,6 +242,10 @@ export async function exportarColaboradoresXLSX(empresaId: any): Promise<
     alvo: `${colabs.length} colaboradores`, detalhes: { empresa: emp?.nome, formato: 'xlsx', n: colabs.length },
   });
   return { ok: true, base64: Buffer.from(buf as any).toString('base64'), n: colabs.length };
+}, 'exports.run');
+
+export async function exportarColaboradoresXLSX(empresaId: any) {
+  return _exportarColaboradoresXLSX(empresaId);
 }
 
 const CriarColaboradorSchema = z.object({
@@ -390,8 +403,7 @@ export async function excluirColaborador(input: z.infer<typeof ExcluirColaborado
 
 // ── Cargos ──────────────────────────────────────────────────────────────────
 
-export async function loadCargos(empresaId: any) {
-  await requireAdminAction();
+const _loadCargos = protectedLoader<[any], any[]>([], async (_ctx, empresaId) => {
   const sb = await requireAdminSupabase();
   const { data, error } = await sb.from('cargos_empresa')
     .select('*')
@@ -400,6 +412,10 @@ export async function loadCargos(empresaId: any) {
     .order('nome');
   if (error) return [];
   return data || [];
+});
+
+export async function loadCargos(empresaId: any) {
+  return _loadCargos(empresaId);
 }
 
 // PILOTO Fase 2 — primeira action sobre `protectedAction`: a factory força
@@ -471,9 +487,9 @@ export async function excluirCargo(input: z.infer<typeof ExcluirCargoSchema>) {
   return _excluirCargo(input);
 }
 
-export async function sincronizarCargosDeColaboradores(empresaId: any) {
-  await requireAdminAction('companies.manage');
-
+const _sincronizarCargosDeColaboradores = protectedLoader<[any], { success: boolean; message?: string; error?: string }>(
+  { success: false, error: 'Sessão expirada ou sem permissão' },
+  async (_ctx, empresaId) => {
   const sb = await requireAdminSupabase();
   const { data: colabs } = await sb.from('colaboradores')
     .select('cargo, area_depto')
@@ -504,10 +520,15 @@ export async function sincronizarCargosDeColaboradores(empresaId: any) {
   const { error } = await sb.from('cargos_empresa').insert(novos);
   if (error) return { success: false, error: error.message };
   return { success: true, message: `${novos.length} cargos sincronizados dos colaboradores` };
+}, 'companies.manage');
+
+export async function sincronizarCargosDeColaboradores(empresaId: any) {
+  return _sincronizarCargosDeColaboradores(empresaId);
 }
 
-export async function importarCargosLote(empresaId: any, cargos: any[]) {
-  await requireAdminAction('companies.manage');
+const _importarCargosLote = protectedLoader<[any, any[]], { success: boolean; message?: string; error?: string }>(
+  { success: false, error: 'Sessão expirada ou sem permissão' },
+  async (_ctx, empresaId, cargos) => {
   if (!empresaId || !cargos?.length) return { success: false, error: 'Dados incompletos' };
 
   const sb = await requireAdminSupabase();
@@ -535,6 +556,10 @@ export async function importarCargosLote(empresaId: any, cargos: any[]) {
   const { error } = await sb.from('cargos_empresa').insert(novos);
   if (error) return { success: false, error: error.message };
   return { success: true, message: `${novos.length} cargos importados (${cargos.length - novos.length} duplicatas ignoradas)` };
+}, 'companies.manage');
+
+export async function importarCargosLote(empresaId: any, cargos: any[]) {
+  return _importarCargosLote(empresaId, cargos);
 }
 
 /**
@@ -546,14 +571,17 @@ export async function importarCargosLote(empresaId: any, cargos: any[]) {
  *
  * Retorna relatório com vinculados / não-encontrados / ambíguos (mais de 1 match).
  */
-export async function derivarGestorEmailPorNome(empresaId: string): Promise<{
+type DerivarGestorResult = {
   success: boolean;
   error?: string;
   vinculados: number;
   naoEncontrados: { colab: string; gestor_nome: string }[];
   ambiguos: { colab: string; gestor_nome: string; matches: number }[];
-}> {
-  await requireAdminAction('users.manage');
+};
+
+const _derivarGestorEmailPorNome = protectedLoader<[string], DerivarGestorResult>(
+  { success: false, error: 'Sessão expirada ou sem permissão', vinculados: 0, naoEncontrados: [], ambiguos: [] },
+  async (_ctx, empresaId) => {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório', vinculados: 0, naoEncontrados: [], ambiguos: [] };
   const sb = await requireAdminSupabase();
 
@@ -617,4 +645,8 @@ export async function derivarGestorEmailPorNome(empresaId: string): Promise<{
     naoEncontrados,
     ambiguos,
   };
+}, 'users.manage');
+
+export async function derivarGestorEmailPorNome(empresaId: string): Promise<DerivarGestorResult> {
+  return _derivarGestorEmailPorNome(empresaId);
 }
