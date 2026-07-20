@@ -38,6 +38,8 @@ export const MODELS = {
   // Google
   'gemini-3.1-flash-lite':     { label: 'Gemini 3.1 Flash Lite',      inUsd: 0.25, outUsd: 1.50 },
   'gemini-3.5-flash':     { label: 'Gemini 3.5 Flash',      inUsd: 1.50, outUsd: 9 },
+  'gemini-3.1-pro-preview': { label: 'Gemini 3.1 Pro',      inUsd: 2,    outUsd: 12 },
+  'gemini-3.1-pro':       { label: 'Gemini 3.1 Pro',        inUsd: 2,    outUsd: 12 },
   // OpenAI
   'gpt-5.6-luna':               { label: 'GPT 5.6 Luna',        inUsd: 1,    outUsd: 6 },
   'gpt-5.6-sol':                { label: 'GPT 5.6 Sol',         inUsd: 5,    outUsd: 30 },
