@@ -245,6 +245,15 @@ export async function gerarRelatorioIndividual(
     const { data: cargoEmp } = await tdb.from('cargos_empresa')
       .select('top5_workshop, competencia_foco, competencias_foco').eq('nome', colab.cargo).maybeSingle();
     const top5Esperado: string[] = cargoEmp?.top5_workshop || [];
+    // Gate "PDI completo": com top5 configurado, só gera quando TODAS as
+    // competências esperadas têm resposta AVALIADA pela IA — avaliação parcial
+    // gerava PDI capado (ex.: 1/2 respondida chegava a entrar na fila do lote).
+    if (top5Esperado.length > 0) {
+      const avaliadas = (respostas || []).filter((r) => r.avaliacao_ia != null).length;
+      if (avaliadas < top5Esperado.length) {
+        return { success: false, error: `Avaliação incompleta: ${avaliadas}/${top5Esperado.length} competências avaliadas — o PDI só é gerado com a avaliação completa` };
+      }
+    }
     // Competências FOCO do cargo (fonte única PDI↔trilha, item D).
     const focoCargo: string[] = focoDoCargo(cargoEmp);
 
@@ -980,13 +989,42 @@ export async function gerarRelatoriosIndividuaisLote(
       .eq('tipo', 'individual');
     const jaGerados = new Set((existentes || []).map((r: any) => r.colaborador_id));
 
-    const pendentes = colabIds.filter(id => !jaGerados.has(id));
-    if (!pendentes.length) return { success: true, message: 'Todos os relatórios já foram gerados' };
+    // PDI COMPLETO: a fila só inclui quem concluiu TODAS as competências do top5
+    // do cargo com avaliação da IA (antes bastava 1 resposta avaliada → PDI
+    // parcial). Cargo sem top5 configurado não tem como medir "completo" →
+    // mantém a regra antiga. Mesmo critério do gate em gerarRelatorioIndividual.
+    const avaliadasPorColab = new Map<string, number>();
+    for (const r of respostas || []) {
+      if (!r.colaborador_id) continue;
+      avaliadasPorColab.set(r.colaborador_id, (avaliadasPorColab.get(r.colaborador_id) || 0) + 1);
+    }
+    const { data: colabs } = await tdb.from('colaboradores').select('id, cargo').in('id', colabIds);
+    const { data: cargosEmp } = await tdb.from('cargos_empresa').select('nome, top5_workshop');
+    const top5PorCargo = new Map<string, number>((cargosEmp || []).map((c: any) => [c.nome, (c.top5_workshop || []).length]));
+    const completos = new Set(
+      (colabs || [])
+        .filter((c: any) => {
+          const esperado = top5PorCargo.get(c.cargo) || 0;
+          return esperado === 0 || (avaliadasPorColab.get(c.id) || 0) >= esperado;
+        })
+        .map((c: any) => c.id),
+    );
+
+    const pendentes = colabIds.filter(id => !jaGerados.has(id) && completos.has(id));
+    const incompletos = colabIds.filter(id => !jaGerados.has(id) && !completos.has(id)).length;
+    if (!pendentes.length) {
+      return {
+        success: true,
+        message: incompletos
+          ? `Nenhum relatório pendente com avaliação completa (${incompletos} com avaliação incompleta)`
+          : 'Todos os relatórios já foram gerados',
+      };
+    }
 
     return {
       success: true,
       data: pendentes,
-      message: `${pendentes.length} relatórios pendentes de ${colabIds.length} colaboradores`,
+      message: `${pendentes.length} relatórios pendentes${incompletos ? ` · ${incompletos} com avaliação incompleta ignorados` : ''}`,
     };
   } catch (err: any) {
     return { success: false, error: err.message };
