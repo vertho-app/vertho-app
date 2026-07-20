@@ -43,7 +43,9 @@ const AI_MODELS = [
   { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6',   provider: 'claude' },
   { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite',    provider: 'gemini' },
   { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash',    provider: 'gemini' },
-  { id: 'gpt-5.4',                label: 'GPT 5.4',           provider: 'openai' },
+  // Snapshot datado: o alias `gpt-5.4` retorna model_not_found para a chave
+  // OpenAI do projeto (medido 20/07/2026) — só o snapshot e o mini existem.
+  { id: 'gpt-5.4-2026-03-05',     label: 'GPT 5.4',           provider: 'openai' },
   { id: 'gpt-5.4-mini',           label: 'GPT 5.4 Mini',      provider: 'openai' },
 ];
 

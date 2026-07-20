@@ -42,6 +42,9 @@ export const MODELS = {
   'gpt-5.6-luna':               { label: 'GPT 5.6 Luna',        inUsd: 1,    outUsd: 6 },
   'gpt-5.5':                    { label: 'GPT 5.5',             inUsd: 12,   outUsd: 36 },
   'gpt-5.4':                    { label: 'GPT 5.4',             inUsd: 2.5,  outUsd: 15 },
+  // Snapshot datado = o único id de 5.4 full que a chave do projeto acessa
+  // (o alias puro retorna model_not_found desde ~jul/2026). Mesmo preço.
+  'gpt-5.4-2026-03-05':         { label: 'GPT 5.4',             inUsd: 2.5,  outUsd: 15 },
   'gpt-5.4-mini':               { label: 'GPT 5.4 Mini',        inUsd: 1,    outUsd: 4 },
   'gpt-5.1':                    { label: 'GPT 5.1 (fallback)',  inUsd: 5,    outUsd: 15 },
   // Embeddings (sem custo de output)
@@ -446,7 +449,7 @@ export const CALLS = [
     inTokens: 3500,
     outTokens: 600,
     exec: 4 * 5,
-    defaultModel: 'gpt-5.4',
+    defaultModel: 'gpt-5.4-2026-03-05',
     critical: false,
   },
   {
@@ -739,11 +742,12 @@ function crossLlmCheck(primaryModel) {
   const map = {
     'claude-opus-4-7':         'gpt-5.5',
     'claude-opus-4-6':         'gpt-5.5',
-    'claude-sonnet-4-6':       'gpt-5.4',
+    'claude-sonnet-4-6':       'gpt-5.4-2026-03-05', // alias puro morreu p/ a chave do projeto
     'gemini-3.5-flash':  'gpt-5.5',
     'gemini-3.1-flash-lite':  'gpt-5.4-mini',
     'gpt-5.5':                 'claude-opus-4-7',
     'gpt-5.4':                 'claude-sonnet-4-6',
+    'gpt-5.4-2026-03-05':      'claude-sonnet-4-6',
     'gpt-5.4-mini':            'gemini-3.1-flash-lite',
   };
   return map[primaryModel] || primaryModel;

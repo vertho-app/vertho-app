@@ -47,7 +47,7 @@ const AI_MODELS = [
   { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
   { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
   { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
-  { id: 'gpt-5.4', label: 'GPT 5.4' },
+  { id: 'gpt-5.4-2026-03-05', label: 'GPT 5.4' },
   { id: 'gpt-5.4-mini', label: 'GPT 5.4 Mini' },
 ];
 

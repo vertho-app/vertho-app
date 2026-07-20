@@ -422,7 +422,7 @@ function PPPPageInner() {
               <option value="claude-opus-4-6">Claude Opus 4.6</option>
               <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
               <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-              <option value="gpt-5.4">GPT 5.4</option>
+              <option value="gpt-5.4-2026-03-05">GPT 5.4</option>
               <option value="gpt-5.4-mini">GPT 5.4 Mini</option>
             </select>
           </div>
