@@ -74,6 +74,11 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   // Só libera "Marcar como realizado" depois que o colab abriu o link do conteúdo
   // (ou, pra vídeo, o auto-consumido dispara no 80% via postMessage).
   const [abriuConteudo, setAbriuConteudo] = useState(false);
+  // Pílulas SEM nenhuma fonte abrível (sem formato com url/id e sem vídeo): o
+  // viewer reporta por índice. Se TODAS estiverem sem fonte, o gate "abra antes
+  // de marcar" é insatisfazível — libera o marcar (senão a semana trava em
+  // cadeia: marcar → Tira-Dúvidas → Evidências).
+  const [semFonte, setSemFonte] = useState<Record<number, boolean>>({});
   // Tira-Dúvidas — estado independente do chat de Evidências.
   const [tdHistory, setTdHistory] = useState([]);
   const [tdInput, setTdInput] = useState('');
@@ -138,6 +143,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     ? semana.conteudos_dia.filter(e => e?.conteudo)
     : (conteudo ? [{ dia: 'semana', label: t('type.episode'), competencia: semana.competencia, descritor: semana.descritor, conteudo }] : []);
   const cenario = semana.cenario;
+  const nadaParaAbrir = entregasConteudo.length > 0 && entregasConteudo.every((_, i) => semFonte[i]);
   const progressoSemana = (data.progresso || []).find(p => p.semana === semanaNum);
   const conteudoConsumido = progressoSemana?.conteudo_consumido;
 
@@ -274,18 +280,19 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                   semana={semanaNum}
                   onAbrirConteudo={() => setAbriuConteudo(true)}
                   onAutoConsumido={() => !conteudoConsumido && handleConsumido()}
+                  onSemFonte={() => setSemFonte((p) => (p[idx] ? p : { ...p, [idx]: true }))}
                   t={t}
                 />
               </div>
             ))}
             {!conteudoConsumido && (
               <div className="mt-4">
-                <button onClick={handleConsumido} disabled={!abriuConteudo}
-                  title={!abriuConteudo ? t('content.openBeforeComplete') : ''}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${abriuConteudo ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-white/10 text-gray-500 cursor-not-allowed'}`}>
+                <button onClick={handleConsumido} disabled={!abriuConteudo && !nadaParaAbrir}
+                  title={!abriuConteudo && !nadaParaAbrir ? t('content.openBeforeComplete') : ''}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${abriuConteudo || nadaParaAbrir ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-white/10 text-gray-500 cursor-not-allowed'}`}>
                   <Check size={14} /> {t('content.markDone')}
                 </button>
-                {!abriuConteudo && (
+                {!abriuConteudo && !nadaParaAbrir && (
                   <p className="mt-2 text-xs text-amber-300/80">{t('content.openBeforeComplete')}</p>
                 )}
               </div>
@@ -622,7 +629,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   );
 }
 
-function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo, setFormatoAtivo, onAutoConsumido, onAbrirConteudo, trilhaId, semana, t }) {
+function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo, setFormatoAtivo, onAutoConsumido, onAbrirConteudo, onSemFonte, trilhaId, semana, t }) {
   // Vídeo da CÉLULA (cargo × DISC × PPP), resolvido pela competência da semana.
   // Aparece como um formato a mais (chip clicável); o player abre inline igual
   // aos outros. Não dispara geração (gerar=false) — só reusa pronto/em-preparo.
@@ -700,6 +707,17 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
   const logFormato = (f) => {
     registrarEventoTrilha({ trilhaId, semana, pilula, formato: f, tipo: 'formato' }).catch(() => {});
   };
+
+  // NADA abrível nesta pílula (nenhum formato com fonte e nem vídeo): reporta ao
+  // pai — se todas as pílulas estiverem assim, o gate "abra antes de marcar" é
+  // insatisfazível e o pai libera o marcar. Espera o vídeo RESOLVER (vid !== null)
+  // pra não reportar durante o carregamento.
+  const videoResolvido = !competencia || vid !== null;
+  const algumAbrivel = formatos.some((f) => fonteDoFormato(f).tem);
+  useEffect(() => {
+    if (videoResolvido && !algumAbrivel) onSemFonte?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onSemFonte muda a cada render do pai
+  }, [videoResolvido, algumAbrivel]);
 
   return (
     <div>
