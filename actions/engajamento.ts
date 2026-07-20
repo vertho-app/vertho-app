@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { requireUserAction, requireAdminAction } from '@/lib/auth/action-context';
+import { formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 
 /**
  * Telemetria de engajamento da trilha. Duas frentes:
@@ -85,9 +86,10 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
   const tdb = tenantDb(empresaId);
   const semFiltro = Number.isFinite(Number(semana)) && Number(semana) > 0 ? Number(semana) : null;
 
-  // 1) População = inscritos na cadência.
+  // 1) População = inscritos na cadência. Traz as prefs p/ derivar o formato PRINCIPAL
+  //    de cada colab (o denominador das métricas por formato).
   const { data: envios } = await tdb.from('fase4_envios')
-    .select('colaborador_id, semana_atual, status, ultima_pilula1_em, ultima_pilula2_em, colaboradores!inner(nome_completo, cargo)');
+    .select('colaborador_id, semana_atual, status, ultima_pilula1_em, ultima_pilula2_em, colaboradores!inner(nome_completo, cargo, pref_video_curto, pref_video_longo, pref_audio, pref_texto, pref_estudo_caso)');
   if (!envios?.length) return { resumo: { inscritos: 0 }, colaboradores: [], semanas: [1] };
 
   // 2) Eventos (opcionalmente escopados por semana).
@@ -123,8 +125,12 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
     const evs = evPorColab[e.colaborador_id] || [];
     const vids = vidPorColab[e.colaborador_id] || [];
 
-    const abriuP1 = evs.some((x) => x.tipo === 'abertura' && x.pilula === 1);
-    const abriuP2 = evs.some((x) => x.tipo === 'abertura' && x.pilula === 2);
+    // ● = engajou com a pílula: abertura COM ?p= OU qualquer evento (formato/áudio)
+    // atribuído a ela. Antes exigia só 'abertura', mas a abertura raramente carrega
+    // a pílula (o ?p= falta em navegação direta / links pré-15/07), então o ● ficava
+    // apagado mesmo quando a pessoa clicou um formato daquela pílula (que É atribuído).
+    const abriuP1 = evs.some((x) => x.pilula === 1);
+    const abriuP2 = evs.some((x) => x.pilula === 2);
     const abriuDireto = evs.some((x) => x.tipo === 'abertura' && !x.pilula);
     const formatosP1 = fmtsDistintos(evs, 1);
     const formatosP2 = fmtsDistintos(evs, 2);
@@ -145,6 +151,12 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
 
     const marcouConcluido = !!consumoPorColab[e.colaborador_id];
     const consumiu = terminouVideo || audioTerminou || marcouConcluido;
+    // Formato PRINCIPAL = o preferido do colab (o overlay do kit usa como core).
+    const formatoPrincipal = formatoPreferido(e.colaboradores);
+    // "engajou com o principal": se vídeo, terminou; senão, abriu aquele formato.
+    const engajouPrincipal = formatoPrincipal === 'video'
+      ? terminouVideo
+      : formatosAbertos.includes(formatoPrincipal);
 
     return {
       colaboradorId: e.colaborador_id,
@@ -155,12 +167,38 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
       recebeuP1: !!e.ultima_pilula1_em,
       recebeuP2: !!e.ultima_pilula2_em,
       abriuP1, abriuP2, abriuDireto,
-      abriuLink: abriuP1 || abriuP2 || abriuDireto,
+      // Tile "Abriram o link" = ESTRITAMENTE o evento de abertura (novo, ?p= a
+      // partir de 15/07). O ● por pílula (abriuP1/P2) é mais largo de propósito.
+      abriuLink: evs.some((x) => x.tipo === 'abertura'),
       formatosP1, formatosP2, formatosAbertos,
       deuPlay, terminouVideo, audioTerminou, pctVideo,
       marcouConcluido, consumiu,
+      formatoPrincipal, engajouPrincipal,
     };
   }).sort((a, b) => a.nome.localeCompare(b.nome));
+
+  // ── Quebra por PÍLULA (2 linhas) ────────────────────────────────────────────
+  const linhaPilula = (n: 1 | 2) => {
+    const recebeu = colaboradores.filter((c) => (n === 1 ? c.recebeuP1 : c.recebeuP2)).length;
+    const abriu = colaboradores.filter((c) => (n === 1 ? c.abriuP1 : c.abriuP2)).length;
+    const abriuFormato = colaboradores.filter((c) => (n === 1 ? c.formatosP1 : c.formatosP2).length > 0).length;
+    return { pilula: n, recebeu, abriu, abriuFormato };
+  };
+  const porPilula = [linhaPilula(1), linhaPilula(2)];
+
+  // ── Métricas por FORMATO PRINCIPAL (denominador = quem tem aquele formato como
+  //    preferido, não o total). Vídeo: numerador = terminou o vídeo; demais: abriu
+  //    aquele formato. `pctMedio` do vídeo é a média SÓ entre os vídeo-principal. ──
+  const FORMATOS_PRINC = ['video', 'audio', 'texto', 'case'] as const;
+  const porFormato = FORMATOS_PRINC.map((f) => {
+    const doFormato = colaboradores.filter((c) => c.formatoPrincipal === f);
+    if (!doFormato.length) return null;
+    const engajou = doFormato.filter((c) => c.engajouPrincipal).length;
+    const pctMedio = f === 'video'
+      ? Math.round(doFormato.reduce((s, c) => s + c.pctVideo, 0) / doFormato.length)
+      : null;
+    return { formato: f, principal: doFormato.length, engajou, pctMedio };
+  }).filter(Boolean);
 
   const resumo = {
     inscritos: colaboradores.length,
@@ -169,8 +207,13 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
     abriramAlgumFormato: colaboradores.filter((c) => c.formatosAbertos.length > 0).length,
     terminaramVideo: colaboradores.filter((c) => c.terminouVideo).length,
     consumiram: colaboradores.filter((c) => c.consumiu).length,
-    pctMedioVideo: colaboradores.length
-      ? Math.round(colaboradores.reduce((s, c) => s + c.pctVideo, 0) / colaboradores.length) : 0,
+    // % médio de vídeo agora entre os VÍDEO-principal (denominador correto).
+    pctMedioVideo: (() => {
+      const vids = colaboradores.filter((c) => c.formatoPrincipal === 'video');
+      return vids.length ? Math.round(vids.reduce((s, c) => s + c.pctVideo, 0) / vids.length) : 0;
+    })(),
+    porPilula,
+    porFormato,
   };
 
   const maxSemana = Math.max(1, ...(envios || []).map((e: any) => Number(e.semana_atual) || 1));

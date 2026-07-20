@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { BarChart3, Eye, Film, RefreshCw, MousePointerClick, Loader2, CheckCircle2, LayoutGrid, Video, Headphones, FileText, BookOpen } from 'lucide-react';
+import { BarChart3, Eye, RefreshCw, MousePointerClick, Loader2, CheckCircle2, LayoutGrid, Video, Headphones, FileText, BookOpen } from 'lucide-react';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { getEngajamentoEmpresa } from '@/actions/engajamento';
@@ -118,13 +118,54 @@ export default function EngajamentoPage() {
 
       {empresaId && resumo && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <Tile icon={Eye} color="text-gray-400" label="Inscritos" value={resumo.inscritos} />
-            <Tile icon={MousePointerClick} color="text-cyan-400" label="Abriram o link" value={resumo.abriramLink} sub={`de ${resumo.inscritos}`} />
-            <Tile icon={LayoutGrid} color="text-teal-400" label="Abriram conteúdo" value={resumo.abriramAlgumFormato} sub="algum formato" />
-            <Tile icon={Film} color="text-emerald-400" label="Terminaram o vídeo" value={resumo.terminaramVideo} sub={`de ${resumo.inscritos}`} />
+            <Tile icon={LayoutGrid} color="text-teal-400" label="Abriram conteúdo" value={resumo.abriramAlgumFormato} sub={`de ${resumo.inscritos}`} />
             <Tile icon={CheckCircle2} color="text-emerald-400" label="Consumiram" value={resumo.consumiram} sub="vídeo/áudio/marcou" />
-            <Tile icon={BarChart3} color="text-amber-400" label="% médio (vídeo)" value={`${resumo.pctMedioVideo}%`} />
+            <Tile icon={MousePointerClick} color="text-cyan-400" label="Abriram o link" value={resumo.abriramLink} sub={`de ${resumo.inscritos}`} />
+          </div>
+
+          {/* Quebra por PÍLULA (2 linhas) e por FORMATO PRINCIPAL (denominador correto) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-6">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="text-xs uppercase tracking-wide text-gray-500 mb-2">Por pílula</div>
+              <table className="w-full text-sm">
+                <thead><tr className="text-left text-[11px] text-gray-500">
+                  <th className="font-medium pb-1"></th><th className="font-medium pb-1 text-center">Recebeu</th>
+                  <th className="font-medium pb-1 text-center">Abriu</th><th className="font-medium pb-1 text-center">Abriu formato</th>
+                </tr></thead>
+                <tbody>
+                  {(resumo.porPilula || []).map((p: any) => (
+                    <tr key={p.pilula} className="border-t border-white/5">
+                      <td className="py-1.5 text-gray-300 font-medium">Pílula {p.pilula}</td>
+                      <td className="py-1.5 text-center text-gray-300">{p.recebeu}</td>
+                      <td className="py-1.5 text-center text-cyan-400">{p.abriu}</td>
+                      <td className="py-1.5 text-center text-teal-400">{p.abriuFormato}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="text-xs uppercase tracking-wide text-gray-500 mb-2">Por formato principal <span className="normal-case text-gray-600">(engajou / preferido)</span></div>
+              <table className="w-full text-sm">
+                <tbody>
+                  {(resumo.porFormato || []).map((f: any) => {
+                    const meta = (FMT as any)[f.formato] || { Icon: FileText, cor: 'text-gray-400', label: f.formato };
+                    const FmtIcon = meta.Icon;
+                    const pct = f.principal ? Math.round((f.engajou / f.principal) * 100) : 0;
+                    return (
+                      <tr key={f.formato} className="border-t border-white/5 first:border-t-0">
+                        <td className="py-1.5"><span className={`inline-flex items-center gap-1.5 ${meta.cor}`}><FmtIcon size={13} />{meta.label}</span></td>
+                        <td className="py-1.5 text-center text-white font-medium">{f.engajou}<span className="text-gray-500 font-normal"> / {f.principal}</span></td>
+                        <td className="py-1.5 text-center text-gray-400 text-xs">{pct}%</td>
+                        <td className="py-1.5 text-right text-gray-400 text-xs">{f.pctMedio != null ? `${f.pctMedio}% médio vídeo` : ''}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
@@ -170,9 +211,9 @@ export default function EngajamentoPage() {
           </div>
 
           <p className="text-xs text-gray-600 mt-3 leading-relaxed">
-            <strong>Pílula 1 / Pílula 2</strong>: ● = abriu o link daquela pílula; ícones = formatos abertos do descritor (🎬 vídeo · 🎧 áudio · 📖 texto · 📋 caso).
-            <strong> Terminou vídeo / % vídeo / Consumiu</strong> vêm do vídeo personalizado e <strong>agora também filtram por semana</strong>; eventos de vídeo legados (antes de 15/07, sem semana) aparecem em todos os filtros.
-            “Abriram conteúdo” já inclui quem deu play no vídeo. Atribuição por pílula vale para envios com <code>?p=</code> (a partir de 15/07).
+            <strong>Pílula 1 / Pílula 2</strong>: ● = engajou com a pílula (abriu o link com <code>?p=</code> OU clicou um formato dela); ícones = formatos abertos (🎬 vídeo · 🎧 áudio · 📖 texto · 📋 caso). “—” não quer dizer que não viu — o play de vídeo é contado à parte (via <code>videos_watched</code>).
+            <strong> Por formato principal</strong>: o denominador é quem tem aquele formato como <em>preferido</em> (não o total); vídeo = terminou o vídeo, demais = abriu o formato.
+            <strong> Abriram o link</strong> conta só o evento de abertura (novo, a partir de 15/07) — subconta; “Abriram conteúdo” inclui quem deu play no vídeo e reflete melhor a realidade.
           </p>
         </>
       )}
