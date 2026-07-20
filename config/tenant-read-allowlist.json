@@ -35,6 +35,7 @@
     "app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts": 3,
     "app/dashboard/perfil/perfil-actions.ts": 1,
     "lib/auth/request-context.ts": 1,
+    "lib/check-ia4-core.ts": 1,
     "lib/authz.ts": 1,
     "lib/i18n-server.ts": 1,
     "lib/notify-tutor.ts": 1,
