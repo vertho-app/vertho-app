@@ -70,35 +70,13 @@ function bucketOf(nivel: string | null, nota: number | null): NBucket {
 }
 const PRIORIDADE_MEDIA = 2.0; // média abaixo disso = competência prioritária
 
-// Remove prefixo de código (ex.: "G09.6 — ", "V02.4 - ", "COO03_D6 — ") pra
-// deduplicar descritores que aparecem com e sem código no mesmo diagnóstico.
-//
-// Dois gravadores alimentam `descriptor_assessments` com rótulos diferentes para
-// o MESMO descritor: a IA4 grava "COO03_D6 — Busca de apoio" (actions/fase3.ts:314,
-// vindo do prompt em fase3.ts:166) e o grid admin grava "Busca de apoio"
-// (actions/assessment-descritores.ts:74). O upsert é por
-// (colaborador_id, competencia, descritor), então as duas versões coexistem.
-//
-// O regex anterior era `^[A-Z]?\d+(\.\d+)*` — no máximo UMA letra antes dos
-// dígitos. Contra "COO03_D6" ele casava o "C" e então exigia dígito, encontrando
-// "O": nenhum strip acontecia e o descritor aparecia DUAS vezes na tabela do PDF,
-// com percentuais diferentes (observado em Coordenação, 20/07/2026).
-// Alinhado com `normDescritor` (lib/blueprint/to-descriptors.ts:53), que já
-// tratava esse formato corretamente na camada de Kit.
-export function stripCodigoDescritor(s: string): string {
-  return String(s || '').replace(/^[A-Z0-9][A-Z0-9_.-]*\s*[—–-]\s*/i, '').trim();
-}
-
-/**
- * Chave canônica de agrupamento: sem prefixo, sem acento, minúscula, espaços
- * colapsados. Só para AGRUPAR — nunca para exibir, senão o PDF mostraria
- * "consciencia de limites". O rótulo exibido continua sendo o texto legível.
- */
-export function chaveDescritor(s: string): string {
-  return stripCodigoDescritor(s)
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/\s+/g, ' ').trim();
-}
+// Normalização de descritor (strip de código prefixo/sufixo + chave canônica)
+// veio de lib/descritores — fonte única compartilhada com o persist da IA4.
+// Histórico do bug (2 rodadas no MESMO dia, 20/07/2026): a IA4 persiste o nome
+// ecoado pelo modelo, que alternou "COO03_D6 — Busca de apoio" e
+// "Busca de apoio (COO03_D6)" — cada variante virava linha nova na tabela.
+export { stripCodigoDescritor, chaveDescritor } from '@/lib/descritores';
+import { stripCodigoDescritor, chaveDescritor } from '@/lib/descritores';
 
 function pct(d: Dist): Dist {
   const t = d.n1 + d.n2 + d.n3 + d.n4 || 1;

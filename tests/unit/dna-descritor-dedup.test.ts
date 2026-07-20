@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { stripCodigoDescritor, chaveDescritor } from '@/lib/dna-organizacional/aggregate';
+import { resolverNomeOficial } from '@/lib/descritores';
 
 /**
  * Regressão 20/07/2026 — "Retrato de Competências" (Coordenação) mostrava cada
@@ -27,6 +28,42 @@ describe('stripCodigoDescritor', () => {
   it('não come um travessão que faz parte do texto', () => {
     // Sem prefixo de código antes do travessão, nada deve ser removido.
     expect(stripCodigoDescritor('Escuta ativa — e empática')).toBe('Escuta ativa — e empática');
+  });
+
+  it('REGRESSÃO 20/07 (2ª rodada): remove código em SUFIXO parentético', () => {
+    // O eco da IA4 alternou formato NO MESMO DIA: prefixo às 13:09, sufixo às
+    // 13:02. O strip só de prefixo deixou "Busca de apoio (COO03_D6)" passar.
+    expect(stripCodigoDescritor('Busca de apoio (COO03_D6)')).toBe('Busca de apoio');
+    expect(stripCodigoDescritor('Consciência de limites (COO03_D1)')).toBe('Consciência de limites');
+  });
+
+  it('não come parêntese legítimo de conteúdo (sem dígito = não é código)', () => {
+    expect(stripCodigoDescritor('Comunicação (escrita)')).toBe('Comunicação (escrita)');
+  });
+});
+
+describe('resolverNomeOficial', () => {
+  const REGUA = [
+    { cod_desc: 'COO03_D6', nome_curto: 'Busca de apoio' },
+    { cod_desc: 'COO03_D1', nome_curto: 'Consciência de limites' },
+  ];
+
+  it('resolve pelo CÓDIGO presente no eco, em qualquer formato', () => {
+    expect(resolverNomeOficial('COO03_D6 — Busca de apoio', REGUA)).toBe('Busca de apoio');
+    expect(resolverNomeOficial('Busca de apoio (COO03_D6)', REGUA)).toBe('Busca de apoio');
+  });
+
+  it('o código VENCE o texto ecoado (modelo trocou o nome, código certo)', () => {
+    // Caso real apontado pelo check: "nomes/códigos trocados" na avaliação.
+    expect(resolverNomeOficial('COO03_D1 — Busca de apoio e rede', REGUA)).toBe('Consciência de limites');
+  });
+
+  it('sem código, resolve pela chave canônica do nome', () => {
+    expect(resolverNomeOficial('busca de APOIO', REGUA)).toBe('Busca de apoio');
+  });
+
+  it('sem match algum, devolve o eco sem código (nunca perde a avaliação)', () => {
+    expect(resolverNomeOficial('Descritor novo (XYZ01_D9)', REGUA)).toBe('Descritor novo');
   });
 });
 

@@ -54,6 +54,10 @@ export function normDescritor(s: string): string {
   return String(s || '')
     // tira prefixo de código: "COO03_D5 — ", "ABC_D1 -", etc. (— ou -)
     .replace(/^[A-Z0-9][A-Z0-9_.-]*\s*[—-]\s*/i, '')
+    // tira sufixo parentético: "Busca de apoio (COO03_D6)" — o eco da IA4
+    // também produz esse formato (visto em 20/07); dígito obrigatório no
+    // código pra não comer parênteses legítimos de conteúdo.
+    .replace(/\s*\(\s*[A-Z][A-Z0-9_.-]*\d[A-Z0-9_.-]*\s*\)\s*$/i, '')
     .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove acentos
     .toLowerCase()
     .replace(/\s+/g, ' ')

@@ -8,6 +8,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { hasDiscMapeado } from '@/lib/disc-status';
+import { resolverNomeOficial } from '@/lib/descritores';
 
 // ── IA4: Avaliar respostas (fiel ao GAS — modelo temático) ──────────────────
 
@@ -152,6 +153,7 @@ async function _avaliarUmaResposta(tdb: any, sbRaw: any, resp: any, colab: any, 
   }
 
   let compNome = '', compCod = '', descritoresTexto = '';
+  let descsOficiais: any[] = []; // régua oficial — usada também p/ resolver o nome persistido
   if (resp.competencia_id) {
     const { data: comp } = await tdb.from('competencias')
       .select('nome, cod_comp, descricao').eq('id', resp.competencia_id).maybeSingle();
@@ -161,6 +163,7 @@ async function _avaliarUmaResposta(tdb: any, sbRaw: any, resp: any, colab: any, 
       .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
       .eq('cod_comp', comp?.cod_comp)
       .not('cod_desc', 'is', null);
+    descsOficiais = descs || [];
     if (descs?.length) {
       descritoresTexto = descs.map((d: any, i: number) => {
         return `DESCRITOR ${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo || ''}
@@ -305,13 +308,17 @@ R4: ${resp.r4 || '(sem resposta)'}`);
       }
     }
     if (competenciaNome && resp.colaborador_id) {
+      // `descritor` é CHAVE (upsert + dedup dos relatórios) — nunca persistir o
+      // eco do modelo: no mesmo dia ele devolveu "COO03_D6 — Busca de apoio" e
+      // "Busca de apoio (COO03_D6)", e cada variante virava linha duplicada no
+      // Retrato de Competências. Resolve contra a régua oficial (código→nome).
       const rows = descPorDescritor
         .filter((d: any) => d.nome && typeof d.nota_decimal === 'number')
         .map((d: any) => ({
           colaborador_id: resp.colaborador_id,
           cargo: resp.cargo,
           competencia: competenciaNome,
-          descritor: d.nome,
+          descritor: resolverNomeOficial(d.nome, descsOficiais),
           nota: Math.max(1.0, Math.min(4.0, d.nota_decimal)),
           origem: 'ia4',
           assessment_date: new Date().toISOString(),

@@ -97,7 +97,6 @@ const s = StyleSheet.create({
   refBox: { backgroundColor: C.cardGold, borderRadius: 4, padding: 12, marginTop: 8, marginBottom: 14 },
   refTxt: { fontSize: 9, color: '#5A4A1E', lineHeight: 1.5 },
   fechoBox: { backgroundColor: C.navy, borderRadius: 6, borderWidth: 1.5, borderColor: C.gold, padding: 20, marginTop: 6 },
-  fechoStars: { color: C.gold, fontSize: 11, textAlign: 'center', marginBottom: 8, letterSpacing: 4 },
   fechoTxt: { color: '#E8EEF6', fontSize: 10, fontStyle: 'italic', textAlign: 'center', lineHeight: 1.55 },
   footer: { position: 'absolute', bottom: 18, left: 36, right: 36, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7.5, color: '#94A3B8' },
 });
@@ -304,9 +303,14 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
           <View style={s.refBox}><Text style={s.refTxt}>{narrativa.profissionaisReferencia}</Text></View>
 
           <View style={s.fechoBox} wrap={false}>
-            <Text style={s.fechoStars}>{'❖  ❖  ❖'}</Text>
+            {/* Logo no lugar dos ❖ — o glifo não existe na subset da fonte e
+                renderizava como "V V V" dourado (mesma classe do "→" vira tofu). */}
+            {logo ? (
+              <View style={{ alignItems: 'center', marginBottom: 10 }}>
+                <Image src={logo} style={{ width: 76, height: 18 }} />
+              </View>
+            ) : null}
             <Text style={s.fechoTxt}>{narrativa.fecho}</Text>
-            <Text style={[s.fechoStars, { marginTop: 8, marginBottom: 0 }]}>{'❖  ❖  ❖'}</Text>
           </View>
         </View>
 
