@@ -480,7 +480,7 @@ async function callGemini(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+    signal: AbortSignal.timeout(options.timeoutMs ?? AI_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -534,7 +534,7 @@ async function callOpenAI(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+    signal: AbortSignal.timeout(options.timeoutMs ?? AI_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -583,7 +583,7 @@ async function callGeminiChat(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+    signal: AbortSignal.timeout(options.timeoutMs ?? AI_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -627,7 +627,7 @@ async function callOpenAIChat(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+    signal: AbortSignal.timeout(options.timeoutMs ?? AI_TIMEOUT_MS),
   });
 
   if (!res.ok) {
