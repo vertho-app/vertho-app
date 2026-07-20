@@ -40,6 +40,8 @@ export const MODELS = {
   'gemini-3.5-flash':     { label: 'Gemini 3.5 Flash',      inUsd: 1.50, outUsd: 9 },
   // OpenAI
   'gpt-5.6-luna':               { label: 'GPT 5.6 Luna',        inUsd: 1,    outUsd: 6 },
+  'gpt-5.6-sol':                { label: 'GPT 5.6 Sol',         inUsd: 5,    outUsd: 30 },
+  'gpt-5.6-terra':              { label: 'GPT 5.6 Terra',       inUsd: 2.5,  outUsd: 15 },
   'gpt-5.5':                    { label: 'GPT 5.5',             inUsd: 12,   outUsd: 36 },
   'gpt-5.4':                    { label: 'GPT 5.4',             inUsd: 2.5,  outUsd: 15 },
   // Snapshot datado = o único id de 5.4 full que a chave do projeto acessa
@@ -47,6 +49,8 @@ export const MODELS = {
   'gpt-5.4-2026-03-05':         { label: 'GPT 5.4',             inUsd: 2.5,  outUsd: 15 },
   'gpt-5.4-mini':               { label: 'GPT 5.4 Mini',        inUsd: 1,    outUsd: 4 },
   'gpt-5.1':                    { label: 'GPT 5.1 (fallback)',  inUsd: 5,    outUsd: 15 },
+  // Moonshot (provider kimi no ai-client). Reasoning: o out inclui o thinking.
+  'kimi-k3':                    { label: 'Kimi K3',             inUsd: 3,    outUsd: 15 },
   // Embeddings (sem custo de output)
   'voyage-3-large':             { label: 'Voyage-3-large (embed)', inUsd: 0.18, outUsd: 0 },
   // TTS — por token. Input = texto; Output = tokens de áudio (custo dominante).
