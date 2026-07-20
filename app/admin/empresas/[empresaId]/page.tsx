@@ -397,6 +397,9 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         }
         addLog(`✅ IA4: ${ok} avaliadas${erros ? `, ${erros} erros` : ''}`, 'success');
         if (ok > 0 && checkModel) { addLog(`🔍 Validando com ${checkModel}...`, 'info'); const r2 = await checkAvaliacoes(empresaId, { model: checkModel }); addLog(r2.success ? `✅ ${r2.message}` : `⚠ Check falhou: ${r2.error}`, r2.success ? 'success' : 'error'); }
+        // Skip do check NUNCA pode ser silencioso: em 20/07 4 avaliações saíram
+        // sem check e ninguém soube até auditar o ledger (zero `ia4_check` no dia).
+        else if (ok > 0) { addLog(`⚠ Check PULADO: nenhum modelo de validação selecionado — as ${ok} avaliações ficaram sem auditoria da 2ª IA (status_ia4 vazio)`, 'error'); }
         loadData(); setPendingAction(null); return;
       }
       if (actionKey === 'rel-gestor') { const r = await gerarRelGestor(empresaId, aiConfig || undefined); addLog(r.success ? `✅ ${r.message}` : `❌ ${r.error}`, r.success ? 'success' : 'error'); setPendingAction(null); return; }
