@@ -382,7 +382,8 @@ function PerfilOrgDoc({ empresaNome, p: pIn }: Params) {
         <Footer />
       </Page>
 
-      {/* Perfil Médio (só NATURAL — o adaptado saiu do relatório) */}
+      {/* Perfil Médio (só NATURAL) + Estilo de Liderança — mesma página: depois
+          que o Adaptado saiu do relatório, cada uma sozinha ficava 2/3 vazia. */}
       <Page size="A4" style={s.page}>
         <PageHeader title="Perfil Médio do Grupo" />
         <View style={s.body}>
@@ -391,14 +392,8 @@ function PerfilOrgDoc({ empresaNome, p: pIn }: Params) {
             <View style={s.col}><DiscChart m={p.natural} label="NATURAL" badge={badge} /></View>
             <View style={s.col}><FocoCards p={p} /></View>
           </View>
-        </View>
-        <Footer />
-      </Page>
 
-      {/* Estilo de Liderança */}
-      <Page size="A4" style={s.page}>
-        <PageHeader title="Estilo de Liderança" />
-        <View style={s.body}>
+          <View style={[s.secBar, { marginTop: 18 }]}><View style={s.secBarV} /><Text style={s.secBarT}>Estilo de Liderança</Text></View>
           <Text style={s.p}>A média do estilo de liderança considera todos os perfis (não apenas gestores) e indica como o grupo tende a conduzir processos e o que valoriza numa liderança.</Text>
           <View style={[s.twoCol, { alignItems: 'center' }]}>
             <View style={{ width: 170, alignItems: 'center' }}><LiderancaPie p={p} /></View>
