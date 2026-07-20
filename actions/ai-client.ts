@@ -145,7 +145,8 @@ export async function callAI(
   const sysForConcat = options.systemSuffix ? `${localizedSystem}\n\n${options.systemSuffix}` : localizedSystem;
   const dispatch = (m: string) => {
     if (m.startsWith('gemini')) return callGemini(sysForConcat, combinedUser, m, maxTokens, options);
-    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAI(sysForConcat, combinedUser, m, maxTokens, options);
+    // kimi* (Moonshot) é OpenAI-compatible — mesmo caminho REST, base/chave próprias.
+    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4') || m.startsWith('kimi')) return callOpenAI(sysForConcat, combinedUser, m, maxTokens, options);
     return callClaude(localizedSystem, user, m, maxTokens, options);
   };
 
@@ -186,7 +187,7 @@ export async function callAIChat(
   const suffixConcat = [localizedSystem, options.systemSuffix, options.userSuffix].filter(Boolean).join('\n\n');
   const dispatch = (m: string) => {
     if (m.startsWith('gemini')) return callGeminiChat(suffixConcat, messages, m, maxTokens, options);
-    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAIChat(suffixConcat, messages, m, maxTokens, options);
+    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4') || m.startsWith('kimi')) return callOpenAIChat(suffixConcat, messages, m, maxTokens, options);
     return callClaudeChat(localizedSystem, messages, m, maxTokens, options);
   };
 
@@ -232,7 +233,7 @@ interface LedgerUsage {
 }
 
 async function registrarUsoIA(
-  provider: 'anthropic' | 'gemini' | 'openai',
+  provider: 'anthropic' | 'gemini' | 'openai' | 'kimi',
   model: string,
   u: LedgerUsage | null,
   latencyMs: number,
@@ -506,11 +507,15 @@ async function callOpenAI(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY not set');
+  // kimi* (Moonshot) fala o MESMO protocolo chat/completions — só muda base + chave.
+  const isKimi = model.startsWith('kimi');
+  const apiKey = isKimi ? process.env.KIMI_API_KEY : process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error(isKimi ? 'KIMI_API_KEY not set' : 'OPENAI_API_KEY not set');
   const t0 = Date.now();
 
-  const url = 'https://api.openai.com/v1/chat/completions';
+  const url = isKimi
+    ? 'https://api.moonshot.ai/v1/chat/completions'
+    : 'https://api.openai.com/v1/chat/completions';
 
   const isNew = model.startsWith('gpt-5') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
   const body: any = {
@@ -540,7 +545,7 @@ async function callOpenAI(
   const data = await res.json();
   const uo = data.usage;
   const cachedIn = uo?.prompt_tokens_details?.cached_tokens || 0;
-  await registrarUsoIA('openai', model, uo ? {
+  await registrarUsoIA(isKimi ? 'kimi' : 'openai', model, uo ? {
     inTokens: (uo.prompt_tokens || 0) - cachedIn,
     outTokens: uo.completion_tokens || 0,
     cacheRead: cachedIn,
@@ -603,8 +608,9 @@ async function callOpenAIChat(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY not set');
+  const isKimi = model.startsWith('kimi');
+  const apiKey = isKimi ? process.env.KIMI_API_KEY : process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error(isKimi ? 'KIMI_API_KEY not set' : 'OPENAI_API_KEY not set');
   const t0 = Date.now();
 
   const isNew = model.startsWith('gpt-5') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
@@ -614,7 +620,7 @@ async function callOpenAIChat(
     messages: [{ role: 'system', content: system }, ...messages],
   };
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch(isKimi ? 'https://api.moonshot.ai/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -632,7 +638,7 @@ async function callOpenAIChat(
   const data = await res.json();
   const uo = data.usage;
   const cachedIn = uo?.prompt_tokens_details?.cached_tokens || 0;
-  await registrarUsoIA('openai', model, uo ? {
+  await registrarUsoIA(isKimi ? 'kimi' : 'openai', model, uo ? {
     inTokens: (uo.prompt_tokens || 0) - cachedIn,
     outTokens: uo.completion_tokens || 0,
     cacheRead: cachedIn,
