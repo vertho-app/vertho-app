@@ -364,12 +364,18 @@ export async function POST(request) {
 
     let respostaIA;
     try {
+      // HISTORY CACHING (S3/L1) LIGADO 20/07: prefixo system+histórico lido a
+      // 0,1× nos turnos seguintes. A instrução volátil do turno vai como
+      // userSuffix (cauda da última mensagem do usuário) — como systemSuffix
+      // (bloco 2 do system) ela envenenaria o cache do histórico, porque o
+      // system PRECEDE as mensagens no prefixo. Kill switch sem deploy:
+      // IA_CACHE_HISTORY=0 (volta ao comportamento anterior, byte-idêntico).
+      const cacheHist = process.env.IA_CACHE_HISTORY !== '0';
       respostaIA = await callAIChat(promptData.system, promptData.messages, {}, 2000, {
         taskKey: 'evidencias_socratic', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
-        // Instrução do turno (volátil) no bloco 2 do system; persona+grounding no
-        // bloco 1 cacheado. Estratégia validada na S4 (não-inferior por perfil).
-        // socratic e missao usam systemSuffix; analytic não usa → inalterado.
-        systemSuffix: (promptData as any).systemSuffix,
+        ...(cacheHist
+          ? { cacheHistory: true, userSuffix: (promptData as any).systemSuffix }
+          : { systemSuffix: (promptData as any).systemSuffix }),
       });
       respostaIA = (respostaIA || '').trim();
     } catch (err) {

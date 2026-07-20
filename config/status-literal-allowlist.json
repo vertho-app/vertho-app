@@ -8,7 +8,7 @@
     "actions/fase5/evolucao.ts": 1,
     "actions/fase5/reavaliacao.ts": 3,
     "actions/recalcular-impacto-conteudo.ts": 1,
-    "actions/relatorios.ts": 11,
+    "actions/relatorios.ts": 3,
     "actions/temporada-concluida.ts": 1,
     "actions/whatsapp-lote.ts": 1,
     "app/admin/empresas/[empresaId]/actions.ts": 9,
@@ -35,6 +35,7 @@
     "app/dashboard/temporada/semana/[week]/page.tsx": 1,
     "app/radar/actions.ts": 1,
     "lib/radar/censo-importer.ts": 1,
-    "lib/radar/pdde-importer.ts": 1
+    "lib/radar/pdde-importer.ts": 1,
+    "lib/relatorio-individual-prompt.ts": 8
   }
 }
