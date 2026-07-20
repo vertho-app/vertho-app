@@ -44,6 +44,12 @@ function resumoDados(dna: DnaAggregate, empresaNome: string, segmento: string | 
     `\nCompetências (ordenadas por prioridade):\n${comps}`,
     `\nMaiores gaps: ${dna.topGaps.slice(0, 5).map((g) => `${g.descritor} (${g.competencia}, ${g.n1pct}% em N1)`).join(' · ')}`,
     `Forças (presença de N3/N4): ${dna.forcas.slice(0, 5).map((f) => `${f.descritor} (${f.competencia}, ${f.pct}%)`).join(' · ') || 'praticamente ausentes'}`,
+    `\nPROFISSIONAIS REFERÊNCIA (agregado anônimo — pessoas distintas em N3/N4 por cargo e competência):\n${
+      (dna.referencias || []).length
+        ? (dna.referencias || []).map((r) => `- ${r.pessoas} ${r.pessoas === 1 ? 'profissional' : 'profissionais'} de ${r.cargo} em ${r.competencia} (topo: ${r.bucketTopo.toUpperCase()})`).join('\n')
+        : 'NENHUM profissional atingiu N3 ou N4.'
+    }`,
+    `Existe alguém em N4? ${dna.distGeralPct.n4 > 0 ? 'SIM' : 'NÃO — não afirme que há profissionais em N4.'}`,
   ].join('\n');
 }
 
@@ -51,7 +57,8 @@ const SYSTEM = `Você é um consultor sênior de desenvolvimento organizacional 
 
 REGRAS INVIOLÁVEIS:
 - NUNCA invente números. Use APENAS as estatísticas fornecidas. Pode citar percentuais e médias que estão nos dados.
-- NUNCA identifique pessoas. O tom é coletivo ("nosso grupo", "a equipe").
+- NUNCA identifique pessoas. O tom é coletivo ("nosso grupo", "a equipe"). Reconhecer quem já chegou ao nível é feito por CONTAGEM + cargo + competência ("3 profissionais de Gestão Escolar em Planejamento e Organização"), nunca por nome.
+- NUNCA afirme que existem profissionais num nível que os dados não mostram. Se N4=0%, não cite N4 como algo já alcançado.
 - Tom: encorajador, honesto, profissional — celebra forças reais e nomeia gaps sem culpar. Gaps são "degraus", não fracassos.
 - Adapte o vocabulário ao SEGMENTO informado (educação: escola/professores/alunos; corporativo: organização/times/clientes).
 - Cada prioridade e ação deve derivar diretamente dos maiores gaps dos dados.
@@ -64,7 +71,7 @@ Responda SOMENTE com JSON válido (sem markdown, sem cercas) neste formato exato
   "padroes": [ { "titulo": "...", "texto": "2-3 frases sobre um padrão sistêmico observado nos gaps" } ],
   "prioridades": [ { "descritor": "nome exato do descritor", "competencia": "nome exato", "dado": "o stat (ex: '88% em N1')", "porque": "por que importa (impacto no negócio/aprendizagem)", "acao": "ação formativa sugerida, concreta" } ],
   "acoes": [ { "titulo": "ação coletiva concreta", "quando": "momento/ritual", "quem": "público", "resultado": "resultado mensurável em 30 dias" } ],
-  "profissionaisReferencia": "2 frases reconhecendo (anonimamente) quem já está em N3/N4 como referência e ponte.",
+  "profissionaisReferencia": "2-3 frases reconhecendo quem já está em N3/N4 como referência e ponte, CITANDO os agregados de PROFISSIONAIS REFERÊNCIA no formato 'N profissionais de <cargo> em <competência>'. Sem nomes. Se a lista vier vazia, diga que o grupo ainda não tem referências consolidadas e trate isso como ponto de partida — não invente.",
   "fecho": "1 parágrafo inspirador de fechamento — diagnóstico é ponto de partida."
 }
 Quantidades: forcas 3, padroes 2, prioridades 3 (os 3 maiores gaps), acoes 3.`;

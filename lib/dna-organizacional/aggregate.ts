@@ -44,6 +44,14 @@ export interface DnaAggregate {
   semDados: boolean;
   /** Recorte por cargo (só no agregado da REDE; os DNAs aninhados não o têm). */
   porCargo?: DnaPorCargo[];
+  /**
+   * "Profissionais referência" AGREGADOS e ANÔNIMOS: quantas pessoas distintas
+   * atingiram N3/N4, por (cargo × competência). Existe para o relatório poder
+   * reconhecer quem já está no nível SEM identificar ninguém — o documento
+   * promete, no próprio corpo, que "nenhum profissional é identificado".
+   * Contagem de PESSOAS distintas, não de avaliações.
+   */
+  referencias?: { cargo: string; competencia: string; pessoas: number; bucketTopo: NBucket }[];
 }
 
 export interface DnaPorCargo {
@@ -152,7 +160,28 @@ export async function aggregateDna(sb: SupabaseClient, empresaId: string): Promi
     .sort((a, b) => b.avaliados - a.avaliados)
     .map((g) => ({ cargo: g.cargo, avaliados: g.avaliados, dna: computeDna(g.arr, totalPorCargo.get(g.cargo) || g.avaliados) }));
 
-  return { ...geral, porCargo };
+  // Referências anônimas: pessoas DISTINTAS em N3/N4 por (cargo × competência).
+  // Agregado, nunca nominal — ver o comentário de `referencias` na interface.
+  const refPessoas = new Map<string, Set<string>>();
+  const refTopo = new Map<string, NBucket>();
+  for (const a of assess) {
+    const b = bucketOf(a.nivel, a.nota);
+    if (b !== 'n3' && b !== 'n4') continue;
+    const cg = cargoById.get(a.colaborador_id) || '(sem cargo)';
+    const k = `${cg}|||${a.competencia}`;
+    if (!refPessoas.has(k)) refPessoas.set(k, new Set());
+    refPessoas.get(k)!.add(a.colaborador_id);
+    if (b === 'n4' || refTopo.get(k) !== 'n4') refTopo.set(k, b);
+  }
+  const referencias = [...refPessoas.entries()]
+    .map(([k, set]) => {
+      const [cargo, competencia] = k.split('|||');
+      return { cargo, competencia, pessoas: set.size, bucketTopo: refTopo.get(k) || ('n3' as NBucket) };
+    })
+    .sort((a, b) => b.pessoas - a.pessoas)
+    .slice(0, 8);
+
+  return { ...geral, porCargo, referencias };
 }
 
 /** Agrega uma lista de avaliações (já dedupada) num DnaAggregate. Puro. */
