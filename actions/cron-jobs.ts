@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { mesmoDiaUTC, pilulaPendente } from '@/lib/notifications/carimbo-canal';
 import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, APP_WEBHOOK_URL, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppDesafioQuinta, templateWhatsAppNudgeDesafio } from '@/lib/notifications';
@@ -285,8 +286,6 @@ export async function triggerQuinta() {
 // continua na evidência. Dia: getUTCDay() (0=dom..6=sáb) = mesmo índice da tela.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const mesmoDiaUTC = (ts: string | null, hojeUTC: string) =>
-  !!ts && new Date(ts).toISOString().slice(0, 10) === hojeUTC;
 
 export async function triggerDiario() {
   await requireAdminOrCronAction();
@@ -312,7 +311,7 @@ export async function triggerDiario() {
 
     const tdb = tenantDb(empresa.id);
     const { data: envios } = await tdb.from('fase4_envios')
-      .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_pilula1_em, ultima_pilula2_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
+      .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
       .eq('status', 'ativo');
     if (!envios?.length) continue;
 
@@ -358,25 +357,56 @@ export async function triggerDiario() {
       // formato preferido + deep-link do tenant. Carimba o timestamp da pílula.
       const enviarPilulaDia = async (item: any, stampCol: 'ultima_pilula1_em' | 'ultima_pilula2_em') => {
         const pilula = stampCol === 'ultima_pilula1_em' ? 1 : 2;   // atribuição de abertura (?p=)
+        const wppCol = pilula === 1 ? 'ultima_pilula1_whatsapp_em' : 'ultima_pilula2_whatsapp_em';
+        const mailCol = pilula === 1 ? 'ultima_pilula1_email_em' : 'ultima_pilula2_email_em';
         const opts = { formato: formatoPref, semana, baseUrl, pilula };
-        if (telefone) {
-          try { await publishToQStash({ telefone, mensagem: templateWhatsAppPilula(nome, semana, textoPilulaWhatsapp(item, opts)) }, delay()); pilulas++; } catch { erros++; }
+        const agora = new Date().toISOString();
+        const stamp: Record<string, string> = {};
+
+        // CARIMBO POR CANAL: cada canal só se carimba se DEU CERTO, e cada um tem
+        // a sua guarda de idempotência. Antes o update era incondicional e ficava
+        // fora do try/catch — numa queda da Z-API o banco afirmava "pílula enviada"
+        // com ZERO WhatsApp entregue, o mesmoDiaUTC bloqueava o reenvio e a
+        // /admin/engajamento reportava 100%. Observado em prod 20/07/2026 (Ibipeba:
+        // 36 carimbos, 0 WhatsApp). Com a guarda por canal, um disparo extra no
+        // mesmo dia recupera SÓ o canal que faltou, sem duplicar o que já saiu.
+        // ⚠️ O carimbo de WhatsApp prova ENFILEIRAMENTO com provedor saudável, não
+        // entrega: quem entrega é o webhook whatsapp-cis. Se o provedor cair entre
+        // o publish e o consumo, o QStash retenta e, esgotando, a perda volta a ser
+        // silenciosa. Entrega real exige o webhook carimbar de volta (payload sem
+        // referência do envio hoje — ver FMEA F-C4).
+        if (telefone && !mesmoDiaUTC(envio[wppCol], hojeUTC)) {
+          try {
+            await publishToQStash({ telefone, mensagem: templateWhatsAppPilula(nome, semana, textoPilulaWhatsapp(item, opts)) }, delay());
+            pilulas++; stamp[wppCol] = agora;
+          } catch { erros++; }
         }
-        if (email) {
+        if (email && !mesmoDiaUTC(envio[mailCol], hojeUTC)) {
           const { subject, html } = emailPilula(nome, item, opts);
           const r = await enviarEmailPilula(email, subject, html);
-          if (r.ok) emails++; else erros++;
+          if (r.ok) { emails++; stamp[mailCol] = agora; } else erros++;
         }
-        await tdb.from('fase4_envios').update({ [stampCol]: new Date().toISOString() }).eq('id', envio.id);
+        // O ciclo só fecha se ALGUM canal entregou. Nada saiu → sem carimbo, o
+        // gate do dia continua aberto e a falha fica visível no banco.
+        if (Object.keys(stamp).length) {
+          await tdb.from('fase4_envios').update({ ...stamp, [stampCol]: agora }).eq('id', envio.id);
+        }
       };
 
+      // Há canal PENDENTE hoje? Ver lib/notifications/carimbo-canal.
+      const pendente = (wppCol: string, mailCol: string) =>
+        pilulaPendente({
+          temTelefone: !!telefone, temEmail: !!email,
+          carimboWhatsapp: envio[wppCol], carimboEmail: envio[mailCol], hojeUTC,
+        });
+
       // ── 1ª PÍLULA ──
-      if (hoje === diaP1 && !ehImpl && conteudosDia[0] && !mesmoDiaUTC(envio.ultima_pilula1_em, hojeUTC) && (telefone || email)) {
+      if (hoje === diaP1 && !ehImpl && conteudosDia[0] && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em')) {
         await enviarPilulaDia(conteudosDia[0], 'ultima_pilula1_em');
       }
 
       // ── 2ª PÍLULA (DUO) ──
-      if (hoje === diaP2 && !ehImpl && conteudosDia[1] && !mesmoDiaUTC(envio.ultima_pilula2_em, hojeUTC) && (telefone || email)) {
+      if (hoje === diaP2 && !ehImpl && conteudosDia[1] && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em')) {
         await enviarPilulaDia(conteudosDia[1], 'ultima_pilula2_em');
       }
 
