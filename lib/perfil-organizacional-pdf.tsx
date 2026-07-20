@@ -9,7 +9,7 @@ import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Polygon, Line, renderToBuffer } from '@react-pdf/renderer';
 import '@/components/pdf/styles';
 import PdfReportCover from '@/components/pdf/PdfReportCover'; // registra Fraunces globalmente
-import { getLogoCoverBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
+import { getLogoCoverBase64, getLogoDarkBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import type { PerfilOrg, DiscMedia, Fator } from './perfil-organizacional/aggregate';
 
 const C = {
@@ -238,7 +238,9 @@ function CargoBlock({ cargo, n, perfil }: { cargo: string; n: number; perfil: Pe
   );
 }
 function PageHeader({ title }: { title: string }) {
-  const logo = getLogoCoverBase64();
+  // Logo ESCURA: o header das páginas de conteúdo é branco. A `cover` é a versão
+  // clara (transparente, feita pro navy da capa) e some no branco.
+  const logo = getLogoDarkBase64();
   return <View style={s.header}><Text style={s.hTitle}>{title}</Text>{logo ? <Image src={logo} style={s.hLogo} /> : null}</View>;
 }
 function Footer() {
@@ -247,7 +249,11 @@ function Footer() {
 
 interface Params { empresaNome: string; dataRef: string; solicitadoPor?: string | null; p: PerfilOrg }
 
-function PerfilOrgDoc({ empresaNome, p }: Params) {
+function PerfilOrgDoc({ empresaNome, p: pIn }: Params) {
+  // O perfil ADAPTADO saiu do relatório (20/07/2026). `temCompAdapt` é o gate que
+  // já governava polígono do radar, legenda e coluna comparativa — desligá-lo na
+  // origem remove o adaptado de tudo de uma vez, sem editar cada call site.
+  const p = { ...pIn, temCompAdapt: false };
   const logo = getLogoCoverBase64();
   const badge = p.perfilDominante;
   return (
@@ -258,6 +264,7 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
         logoBase64={logo}
         overline={'Perfil Organizacional · DISC'}
         titulo={['Perfil', 'Organizacional']}
+        mentorLabel={null}
         nome={empresaNome}
         tagline={'O DNA comportamental da sua equipe.'}
       />
@@ -297,18 +304,14 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
         <Footer />
       </Page>
 
-      {/* Perfil Médio: Natural e Adaptado */}
+      {/* Perfil Médio (só NATURAL — o adaptado saiu do relatório) */}
       <Page size="A4" style={s.page}>
-        <PageHeader title="Perfil Médio: Natural e Adaptado" />
+        <PageHeader title="Perfil Médio do Grupo" />
         <View style={s.body}>
-          <Text style={s.p}>Compara o perfil comportamental natural (mais espontâneo) com o adaptado (o que o grupo percebe que precisaria demonstrar neste ambiente). A diferença indica o nível de adaptação, conforto ou esforço percebido.</Text>
+          <Text style={s.p}>Perfil comportamental natural médio do grupo — a tendência mais espontânea, como as pessoas agem quando não estão sob pressão de adequação.</Text>
           <View style={s.twoCol}>
             <View style={s.col}><DiscChart m={p.natural} label="NATURAL" badge={badge} /></View>
-            <View style={s.col}><DiscChart m={p.adaptado} label="ADAPTADO" badge={badge} /></View>
-          </View>
-          <View style={[s.twoCol, { marginTop: 12 }]}>
             <View style={s.col}><FocoCards p={p} /></View>
-            <View style={s.col} />
           </View>
         </View>
         <Footer />
@@ -341,7 +344,7 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
       <Page size="A4" style={s.page}>
         <PageHeader title="Mapa de Competências" />
         <View style={s.body}>
-          <Text style={s.p}>Nível médio de 16 competências do grupo — tendências comportamentais mais ou menos presentes. Compara o perfil natural com o adaptado.</Text>
+          <Text style={s.p}>Nível médio de 16 competências do grupo — tendências comportamentais mais ou menos presentes, no perfil natural.</Text>
           <View style={{ alignItems: 'center' }}><CompRadar p={p} /></View>
           <View style={s.legendRow}>
             <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.natural }]} /><Text style={s.legendTx}>Natural</Text></View>

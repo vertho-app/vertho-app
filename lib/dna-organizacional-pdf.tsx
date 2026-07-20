@@ -189,6 +189,7 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
         logoBase64={logo}
         overline={'Retrato de Competências'}
         titulo={['Retrato de', 'Competências']}
+        mentorLabel={null}
         nome={empresaNome}
         tagline={'Do dado coletivo à ação de desenvolvimento.'}
       />

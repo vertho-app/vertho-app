@@ -62,10 +62,34 @@ function bucketOf(nivel: string | null, nota: number | null): NBucket {
 }
 const PRIORIDADE_MEDIA = 2.0; // média abaixo disso = competência prioritária
 
-// Remove prefixo de código (ex.: "G09.6 — ", "V02.4 - ") pra deduplicar
-// descritores que aparecem com e sem código no mesmo diagnóstico.
-function normalizeDescritor(s: string): string {
-  return String(s || '').replace(/^[A-Z]?\d+(\.\d+)*\s*[—–-]\s*/, '').trim();
+// Remove prefixo de código (ex.: "G09.6 — ", "V02.4 - ", "COO03_D6 — ") pra
+// deduplicar descritores que aparecem com e sem código no mesmo diagnóstico.
+//
+// Dois gravadores alimentam `descriptor_assessments` com rótulos diferentes para
+// o MESMO descritor: a IA4 grava "COO03_D6 — Busca de apoio" (actions/fase3.ts:314,
+// vindo do prompt em fase3.ts:166) e o grid admin grava "Busca de apoio"
+// (actions/assessment-descritores.ts:74). O upsert é por
+// (colaborador_id, competencia, descritor), então as duas versões coexistem.
+//
+// O regex anterior era `^[A-Z]?\d+(\.\d+)*` — no máximo UMA letra antes dos
+// dígitos. Contra "COO03_D6" ele casava o "C" e então exigia dígito, encontrando
+// "O": nenhum strip acontecia e o descritor aparecia DUAS vezes na tabela do PDF,
+// com percentuais diferentes (observado em Coordenação, 20/07/2026).
+// Alinhado com `normDescritor` (lib/blueprint/to-descriptors.ts:53), que já
+// tratava esse formato corretamente na camada de Kit.
+export function stripCodigoDescritor(s: string): string {
+  return String(s || '').replace(/^[A-Z0-9][A-Z0-9_.-]*\s*[—–-]\s*/i, '').trim();
+}
+
+/**
+ * Chave canônica de agrupamento: sem prefixo, sem acento, minúscula, espaços
+ * colapsados. Só para AGRUPAR — nunca para exibir, senão o PDF mostraria
+ * "consciencia de limites". O rótulo exibido continua sendo o texto legível.
+ */
+export function chaveDescritor(s: string): string {
+  return stripCodigoDescritor(s)
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 function pct(d: Dist): Dist {
@@ -94,11 +118,12 @@ export async function aggregateDna(sb: SupabaseClient, empresaId: string): Promi
     };
   }
 
-  // dedup: 1 avaliação por (colaborador, competência, descritor) — mais recente
+  // dedup: 1 avaliação por (colaborador, competência, descritor) — mais recente.
+  // Agrupa pela chave CANÔNICA e guarda o rótulo legível (só sem o código).
   const latest = new Map<string, any>();
   for (const r of rows) {
-    const descritor = normalizeDescritor(r.descritor);
-    const k = `${r.colaborador_id}|${r.competencia}|${descritor}`;
+    const descritor = stripCodigoDescritor(r.descritor);
+    const k = `${r.colaborador_id}|${r.competencia}|${chaveDescritor(r.descritor)}`;
     const prev = latest.get(k);
     if (!prev || String(r.assessment_date || '') > String(prev.assessment_date || '')) latest.set(k, { ...r, descritor });
   }
@@ -135,15 +160,18 @@ function computeDna(assess: any[], totalColaboradores: number): DnaAggregate {
   const avaliados = new Set(assess.map((a) => a.colaborador_id)).size;
   const distGeral: Dist = { n1: 0, n2: 0, n3: 0, n4: 0 };
 
-  // agrupa por competência → descritor
-  const byComp = new Map<string, Map<string, { dist: Dist; notas: number[] }>>();
+  // agrupa por competência → descritor. A chave é CANÔNICA (sem código, sem
+  // acento, minúscula) e o `label` guarda o texto legível para exibir — agrupar
+  // pelo texto cru era o que fazia o mesmo descritor virar duas linhas.
+  const byComp = new Map<string, Map<string, { label: string; dist: Dist; notas: number[] }>>();
   for (const a of assess) {
     const b = bucketOf(a.nivel, a.nota);
     distGeral[b]++;
     if (!byComp.has(a.competencia)) byComp.set(a.competencia, new Map());
     const dmap = byComp.get(a.competencia)!;
-    if (!dmap.has(a.descritor)) dmap.set(a.descritor, { dist: { n1: 0, n2: 0, n3: 0, n4: 0 }, notas: [] });
-    const d = dmap.get(a.descritor)!;
+    const dk = chaveDescritor(a.descritor);
+    if (!dmap.has(dk)) dmap.set(dk, { label: stripCodigoDescritor(a.descritor), dist: { n1: 0, n2: 0, n3: 0, n4: 0 }, notas: [] });
+    const d = dmap.get(dk)!;
     d.dist[b]++;
     d.notas.push(Number(a.nota) || (['', '1', '2', '3', '4'][['n1', 'n2', 'n3', 'n4'].indexOf(b) + 1] as any) || 1);
   }
@@ -157,7 +185,8 @@ function computeDna(assess: any[], totalColaboradores: number): DnaAggregate {
     const compDist: Dist = { n1: 0, n2: 0, n3: 0, n4: 0 };
     const compNotas: number[] = [];
     const descritores: DescritorStat[] = [];
-    for (const [descritor, d] of dmap) {
+    for (const [, d] of dmap) {
+      const descritor = d.label;
       (Object.keys(d.dist) as NBucket[]).forEach((k) => (compDist[k] += d.dist[k]));
       compNotas.push(...d.notas);
       const p = pct(d.dist);
