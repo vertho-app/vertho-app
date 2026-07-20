@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { BarChart3, Eye, RefreshCw, MousePointerClick, Loader2, CheckCircle2, LayoutGrid, Video, Headphones, FileText, BookOpen } from 'lucide-react';
+import { BarChart3, Eye, RefreshCw, MousePointerClick, Loader2, CheckCircle2, LayoutGrid, Video, Headphones, FileText, BookOpen, ClipboardCheck, MessagesSquare } from 'lucide-react';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { getEngajamentoEmpresa } from '@/actions/engajamento';
@@ -91,7 +91,7 @@ export default function EngajamentoPage() {
         icon={BarChart3}
         iconClassName="text-cyan-400"
         title="Engajamento da trilha"
-        subtitle={empresa?.nome ? `${empresa.nome} — abriu · formato · vídeo · concluiu` : 'Selecione uma empresa no filtro do topo'}
+        subtitle={empresa?.nome ? `${empresa.nome} — abriu · formato · vídeo · concluiu · evidência · tutor` : 'Selecione uma empresa no filtro do topo'}
         actions={
           <div className="flex items-center gap-2">
             <select
@@ -118,11 +118,13 @@ export default function EngajamentoPage() {
 
       {empresaId && resumo && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
             <Tile icon={Eye} color="text-gray-400" label="Inscritos" value={resumo.inscritos} />
             <Tile icon={LayoutGrid} color="text-teal-400" label="Abriram conteúdo" value={resumo.abriramAlgumFormato} sub={`de ${resumo.inscritos}`} />
             <Tile icon={CheckCircle2} color="text-emerald-400" label="Consumiram" value={resumo.consumiram} sub="vídeo/áudio/marcou" />
             <Tile icon={MousePointerClick} color="text-cyan-400" label="Abriram o link" value={resumo.abriramLink} sub={`de ${resumo.inscritos}`} />
+            <Tile icon={ClipboardCheck} color="text-amber-400" label="Evidência" value={resumo.enviaramEvidencia} sub="concluíram a semana" />
+            <Tile icon={MessagesSquare} color="text-violet-400" label="Tira-Dúvidas" value={resumo.conversaramTutor} sub="conversaram com o tutor" />
           </div>
 
           {/* Quebra por PÍLULA (2 linhas) e por FORMATO PRINCIPAL (denominador correto) */}
@@ -180,6 +182,8 @@ export default function EngajamentoPage() {
                     <th className="px-3 py-2.5 font-medium text-center">Terminou vídeo</th>
                     <th className="px-3 py-2.5 font-medium">% vídeo</th>
                     <th className="px-3 py-2.5 font-medium text-center">Consumiu</th>
+                    <th className="px-3 py-2.5 font-medium text-center">Evidência</th>
+                    <th className="px-3 py-2.5 font-medium text-center">Tutor</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -203,6 +207,16 @@ export default function EngajamentoPage() {
                           ? <span className="text-emerald-400" title={[c.terminouVideo && 'vídeo', c.audioTerminou && 'áudio', c.marcouConcluido && 'marcou'].filter(Boolean).join(' · ')}>✓</span>
                           : <span className="text-gray-600">—</span>}
                       </td>
+                      <td className="px-3 py-2.5 text-center">
+                        {c.enviouEvidencia
+                          ? <span className="text-amber-400" title="enviou a evidência (semana concluída)">✓</span>
+                          : <span className="text-gray-600">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        {c.conversouTutor
+                          ? <span className="text-violet-400" title="usou o Tira-Dúvidas da semana">💬</span>
+                          : <span className="text-gray-600">—</span>}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -214,6 +228,8 @@ export default function EngajamentoPage() {
             <strong>Pílula 1 / Pílula 2</strong>: ● = engajou com a pílula (abriu o link com <code>?p=</code> OU clicou um formato dela); ícones = formatos abertos (🎬 vídeo · 🎧 áudio · 📖 texto · 📋 caso). “—” não quer dizer que não viu — o play de vídeo é contado à parte (via <code>videos_watched</code>).
             <strong> Por formato principal</strong>: o denominador é quem tem aquele formato como <em>preferido</em> (não o total); vídeo = terminou o vídeo, demais = abriu o formato.
             <strong> Abriram o link</strong> conta só o evento de abertura (novo, a partir de 15/07) — subconta; “Abriram conteúdo” inclui quem deu play no vídeo e reflete melhor a realidade.
+            <strong> Evidência</strong> = concluiu a semana enviando a reflexão (o texto completo fica em Vertho → Evidências).
+            <strong> Tutor</strong> = abriu conversa no Tira-Dúvidas da página da semana.
           </p>
         </>
       )}

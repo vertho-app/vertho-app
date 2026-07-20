@@ -11,8 +11,9 @@ import { formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
  *    'abertura' (deep-link da pílula), 'formato' (abriu um formato: vídeo/áudio/
  *    texto/caso) e 'audio_fim' (terminou o áudio). Atribuição por pílula/formato.
  *  - getEngajamentoEmpresa: junta esses eventos + playback de vídeo (videos_watched)
- *    + consumo explícito (temporada_semana_progresso) num roll-up por colaborador,
- *    pra tela /admin/engajamento. Filtrável por semana; abertura/formato quebrados
+ *    + consumo explícito, evidência (semana concluída) e uso do Tira-Dúvidas
+ *    (temporada_semana_progresso) num roll-up por colaborador, pra tela
+ *    /admin/engajamento. Filtrável por semana; abertura/formato quebrados
  *    por pílula (P1/P2).
  */
 
@@ -106,20 +107,34 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
   if (semFiltro) vidQuery = vidQuery.or(`semana.eq.${semFiltro},semana.is.null`);
   const { data: videos } = await vidQuery;
 
-  // 4) Consumo explícito (opcionalmente por semana).
+  // 4) Consumo explícito + evidência (status) — opcionalmente por semana.
   let progQuery = tdb.from('temporada_semana_progresso')
-    .select('colaborador_id, semana, conteudo_consumido');
+    .select('colaborador_id, semana, tipo, status, conteudo_consumido');
   if (semFiltro) progQuery = progQuery.eq('semana', semFiltro);
   const { data: progresso } = await progQuery;
+
+  // 5) Tira-Dúvidas (tutor): só ids das linhas COM conversa — o JSONB do
+  //    transcript pesa e aqui só interessa o "usou/não usou".
+  let tutorQuery = tdb.from('temporada_semana_progresso')
+    .select('colaborador_id, semana')
+    .not('tira_duvidas', 'is', null);
+  if (semFiltro) tutorQuery = tutorQuery.eq('semana', semFiltro);
+  const { data: tutorRows } = await tutorQuery;
 
   const evPorColab: Record<string, any[]> = {};
   for (const a of (eventos || [])) (evPorColab[a.colaborador_id] ||= []).push(a);
   const vidPorColab: Record<string, any[]> = {};
   for (const v of (videos || [])) (vidPorColab[v.colaborador_id] ||= []).push(v);
   const consumoPorColab: Record<string, boolean> = {};
+  // Evidência = semana de CONTEÚDO concluída (enviar a reflexão socrática é o que
+  // conclui a semana — mesmo critério da tela /admin/vertho/evidencias).
+  const evidenciaPorColab: Record<string, boolean> = {};
   for (const p of (progresso || [])) {
     if (consumiuFlag(p.conteudo_consumido)) consumoPorColab[p.colaborador_id] = true;
+    if (p.tipo === 'conteudo' && p.status === 'concluido') evidenciaPorColab[p.colaborador_id] = true;
   }
+  const tutorPorColab: Record<string, boolean> = {};
+  for (const t of (tutorRows || [])) tutorPorColab[t.colaborador_id] = true;
 
   const colaboradores = (envios || []).map((e: any) => {
     const evs = evPorColab[e.colaborador_id] || [];
@@ -174,6 +189,8 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
       deuPlay, terminouVideo, audioTerminou, pctVideo,
       marcouConcluido, consumiu,
       formatoPrincipal, engajouPrincipal,
+      enviouEvidencia: !!evidenciaPorColab[e.colaborador_id],
+      conversouTutor: !!tutorPorColab[e.colaborador_id],
     };
   }).sort((a, b) => a.nome.localeCompare(b.nome));
 
@@ -212,6 +229,8 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
       const vids = colaboradores.filter((c) => c.formatoPrincipal === 'video');
       return vids.length ? Math.round(vids.reduce((s, c) => s + c.pctVideo, 0) / vids.length) : 0;
     })(),
+    enviaramEvidencia: colaboradores.filter((c) => c.enviouEvidencia).length,
+    conversaramTutor: colaboradores.filter((c) => c.conversouTutor).length,
     porPilula,
     porFormato,
   };
