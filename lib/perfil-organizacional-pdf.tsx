@@ -437,13 +437,14 @@ function PerfilOrgDoc({ empresaNome, p: pIn }: Params) {
         <Footer />
       </Page>
 
-      {/* Fatores Altos e Baixos */}
+      {/* Fatores Altos e Baixos + Distribuição de Talentos — mesma página:
+          cada uma sozinha ocupava metade e sobrava meia página em branco. */}
       <Page size="A4" style={s.page}>
         <PageHeader title="Fatores Altos e Baixos" />
         <View style={s.body}>
           <Text style={s.p}>Para cada fator DISC, o percentual de perfis com presença Alta (acima de 50 pontos) versus Baixa, considerando todo o grupo.</Text>
           {p.fatoresAltoBaixo.map((f) => (
-            <View key={f.fator} style={{ marginBottom: 10 }}>
+            <View key={f.fator} style={{ marginBottom: 8 }}>
               <View style={s.fbBar}>
                 <View style={[s.fbLeft, { width: `${f.pctAlto}%`, backgroundColor: FAT_COLOR[f.fator] }]}><Text style={s.fbPct}>{f.pctAlto}%</Text><Text style={s.fbLbl}>{f.nome} Alto</Text></View>
                 <View style={[s.fbRight, { width: `${f.pctBaixo}%`, backgroundColor: FAT_COLOR[f.fator], opacity: 0.4 }]}><Text style={s.fbPct}>{f.pctBaixo}%</Text><Text style={s.fbLbl}>{f.nome} Baixo</Text></View>
@@ -451,14 +452,8 @@ function PerfilOrgDoc({ empresaNome, p: pIn }: Params) {
               <View style={s.fbCounts}><Text style={s.fbCount}>{f.nAlto} <Text style={{ fontSize: 8, color: C.sub, fontWeight: 400 }}>perfis acima de 50</Text></Text><Text style={s.fbCount}>{f.nBaixo} <Text style={{ fontSize: 8, color: C.sub, fontWeight: 400 }}>até 50</Text></Text></View>
             </View>
           ))}
-        </View>
-        <Footer />
-      </Page>
 
-      {/* Talentos */}
-      <Page size="A4" style={s.page}>
-        <PageHeader title="Distribuição de Talentos" />
-        <View style={s.body}>
+          <View style={[s.secBar, { marginTop: 14 }]}><View style={s.secBarV} /><Text style={s.secBarT}>Distribuição de Talentos</Text></View>
           <Text style={s.p}>O Octógono de Talentos combina os fatores DISC em 8 talentos. A distribuição mostra a predominância das tendências comportamentais no grupo (% de perfis com cada fator em evidência).</Text>
           {p.talentos.map((t) => (
             <View key={t.nome} style={s.talRow}>
