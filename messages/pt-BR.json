@@ -490,6 +490,10 @@
       "knowledge": {
         "title": "Knowledge Base",
         "desc": "RAG per-tenant"
+      },
+      "costPlan": {
+        "title": "Plano de custo IA",
+        "desc": "Centro de controle: custeio, evals e sprints"
       }
     }
   },

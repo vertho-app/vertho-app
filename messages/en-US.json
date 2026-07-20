@@ -490,6 +490,10 @@
       "knowledge": {
         "title": "Knowledge Base",
         "desc": "RAG per-tenant"
+      },
+      "costPlan": {
+        "title": "AI cost plan",
+        "desc": "Control center: costing, evals and sprints"
       }
     }
   },

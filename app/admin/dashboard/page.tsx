@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import {
   Building2, Users, ClipboardCheck, Plus, Zap, ShieldCheck,
   BarChart2, Brain, Activity, CheckCircle2, Globe, Vote,
-  TrendingUp, Target, Calculator,
+  TrendingUp, Target, Calculator, DollarSign,
 } from 'lucide-react';
 import { LoadingState, MetricCard, Surface } from '@/components/ui';
 import { loadAdminDashboard } from './actions';
@@ -226,6 +226,9 @@ export default function AdminDashboardPage() {
                     title={t('quickActions.budget.title')} desc={t('quickActions.budget.desc')} />
                   <QuickAction onClick={() => router.push('/admin/vertho/knowledge-base')} icon={<Brain size={16} />} accent="#2ecc71"
                     title={t('quickActions.knowledge.title')} desc={t('quickActions.knowledge.desc')} />
+                  {/* Artefato-centro-de-controle do plano de custo IA (claude.ai, externo) */}
+                  <QuickAction onClick={() => window.open('https://claude.ai/code/artifact/889943d5-3aca-42d2-acad-39346f9cc076', '_blank', 'noopener')} icon={<DollarSign size={16} />} accent="#38bdf8"
+                    title={t('quickActions.costPlan.title')} desc={t('quickActions.costPlan.desc')} />
                 </>
               )}
             </div>
