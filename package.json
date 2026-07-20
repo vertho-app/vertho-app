@@ -39,7 +39,7 @@
     "@react-pdf/renderer": "^4.4.0",
     "@sentry/nextjs": "^10.53.1",
     "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.49.4",
+    "@supabase/supabase-js": "^2.110.7",
     "@trigger.dev/sdk": "4.4.6",
     "@upstash/qstash": "^2.10.1",
     "@vercel/functions": "^3.6.1",

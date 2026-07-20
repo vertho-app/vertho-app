@@ -186,7 +186,8 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
   let q = sb.from('colaboradores').select(cols).eq('empresa_id', empresaId).not('d_natural', 'is', null);
   if (opts.poolCargos && opts.poolCargos.length) q = q.in('cargo', opts.poolCargos);
   else if (!opts.poolCompleto) q = q.eq('cargo', cargo);
-  const { data: rows } = await excludeInternalEmails(q).order('nome_completo');
+  // cast: o parser de select do supabase-js ≥2.110 estoura TS2589 com string dinâmica
+  const { data: rows } = await excludeInternalEmails(q as any).order('nome_completo');
   if (!rows?.length) return { ...base, perfilIdeal, semColaboradores: true };
 
   // Guardião de calibração BILATERAL: conta, por traço (band, exceto Mapeamento),

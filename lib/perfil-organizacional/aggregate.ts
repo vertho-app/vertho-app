@@ -241,7 +241,8 @@ export async function aggregatePerfilOrg(sb: SupabaseClient, empresaId: string):
     ...COMP_LABEL.map((c) => c.key), ...COMP_LABEL.map((c) => c.key + '_adapt'),
   ].join(', ');
   const { data: rows } = await excludeInternalEmails(
-    sb.from('colaboradores').select(cols).eq('empresa_id', empresaId).not('d_natural', 'is', null),
+    // cast: o parser de select do supabase-js ≥2.110 estoura TS2589 com string dinâmica
+    sb.from('colaboradores').select(cols).eq('empresa_id', empresaId).not('d_natural', 'is', null) as any,
   ).order('nome_completo'); // exclui contas internas @vertho.ai das estatísticas
 
   if (!rows || !rows.length) return EMPTY_PERFIL;

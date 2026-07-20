@@ -397,7 +397,9 @@ export async function POST(request) {
       }
     }
 
-    const upsertPayload = {
+    // Record<string,any>: o spread condicional (concluido_em|iniciado_em) gera um
+    // tipo-união que o typing estrito do supabase-js ≥2.110 rejeita no insert.
+    const upsertPayload: Record<string, any> = {
       trilha_id: trilhaId,
       empresa_id: prog?.empresa_id || (await sb.from('trilhas').select('empresa_id').eq('id', trilhaId).maybeSingle()).data?.empresa_id,
       colaborador_id: trilha.colaborador_id,
