@@ -229,16 +229,33 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
 
           {dna.porCargo && dna.porCargo.length > 0 ? (
             <>
-              <SecTitle>DESCRITORES POR COMPETÊNCIA — POR CARGO</SecTitle>
-              <Text style={s.anon}>A distribuição de níveis e os descritores de cada competência, recortados por cargo. Cargos com menos de 3 avaliados não aparecem.</Text>
-              {dna.porCargo.map((pc) => (
-                <View key={pc.cargo} style={{ marginBottom: 6 }}>
-                  <CargoDnaBlock cargo={pc.cargo} avaliados={pc.avaliados} dna={pc.dna} />
-                  <View style={{ marginLeft: 8, marginBottom: 10 }}>
-                    {pc.dna.competencias.map((c, i) => <CompetenciaBlock key={i} c={c} />)}
+              {/* Cada cargo abre em página própria. `break` fica só em elementos
+                  PEQUENOS (título da seção / card do cargo): um wrapper grande
+                  com `break` contendo filhos wrap={false} força quebra interna
+                  e o react-pdf DUPLICA o filho na fronteira (visto no render:
+                  card do cargo 2× + página quase vazia). As tabelas fluem como
+                  irmãs — cada CompetenciaBlock já é wrap={false} e se move
+                  inteiro sozinho. */}
+              {dna.porCargo.flatMap((pc, idx) => [
+                idx === 0 ? (
+                  <View key="sec-cargo" break>
+                    <SecTitle>DESCRITORES POR COMPETÊNCIA — POR CARGO</SecTitle>
+                    <Text style={s.anon}>A distribuição de níveis e os descritores de cada competência, recortados por cargo — cada cargo abre em página própria. Cargos com menos de 3 avaliados não aparecem.</Text>
                   </View>
-                </View>
-              ))}
+                ) : null,
+                <View key={pc.cargo} break={idx > 0}>
+                  <CargoDnaBlock cargo={pc.cargo} avaliados={pc.avaliados} dna={pc.dna} />
+                </View>,
+                // Tabelas como IRMÃS diretas (sem wrapper): um View envolvendo
+                // todas se move em bloco quando o cargo não cabe na página,
+                // deixando-a semi-vazia. Cada tabela é wrap={false} e decide
+                // sozinha se cabe ou vai pra próxima.
+                ...pc.dna.competencias.map((c, i) => (
+                  <View key={`${pc.cargo}-comp-${i}`} style={{ marginLeft: 8, marginBottom: i === pc.dna.competencias.length - 1 ? 10 : 0 }}>
+                    <CompetenciaBlock c={c} />
+                  </View>
+                )),
+              ]).filter(Boolean)}
             </>
           ) : (
             <>

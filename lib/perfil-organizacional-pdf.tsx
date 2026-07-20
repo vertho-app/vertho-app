@@ -9,7 +9,7 @@ import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Polygon, Line, renderToBuffer } from '@react-pdf/renderer';
 import '@/components/pdf/styles';
 import PdfReportCover from '@/components/pdf/PdfReportCover'; // registra Fraunces globalmente
-import { getLogoCoverBase64, getLogoDarkBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
+import { getLogoCoverBase64, getLogoDarkHBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import type { PerfilOrg, DiscMedia, Fator } from './perfil-organizacional/aggregate';
 
 const C = {
@@ -32,7 +32,7 @@ const s = StyleSheet.create({
   // header páginas internas
   header: { paddingHorizontal: 34, paddingTop: 26, paddingBottom: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   hTitle: { color: '#5B7BC4', fontSize: 23, fontWeight: 700 },
-  hLogo: { width: 92, height: 22 }, // ratio natural ~4.23
+  hLogo: { width: 87, height: 22 }, // ratio do H ESCURO ~3.94 (3148×800) — dimensão errada = logo esticado
   body: { paddingHorizontal: 34, paddingTop: 6 },
   p: { fontSize: 9.5, color: '#3A4658', lineHeight: 1.5, marginBottom: 8 },
   secBar: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 },
@@ -62,6 +62,19 @@ const s = StyleSheet.create({
   grpLabel: { fontSize: 9, fontWeight: 700, color: C.navy, marginTop: 6, marginBottom: 2 },
   grpDesc: { fontSize: 7.5, color: C.sub, marginBottom: 4 },
   chip: { color: C.white, fontSize: 9, fontWeight: 700, borderRadius: 6, paddingVertical: 6, paddingHorizontal: 10, marginBottom: 5 },
+  // anexo DISC
+  axIntro: { fontSize: 9.5, color: '#3A4658', lineHeight: 1.5, marginBottom: 10 },
+  axGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  axCard: { width: '48.5%', borderWidth: 1, borderColor: C.border, borderRadius: 8, overflow: 'hidden', marginBottom: 2 },
+  axHead: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10, gap: 8 },
+  axLetter: { color: C.white, fontSize: 15, fontWeight: 700, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.25)', textAlign: 'center', paddingTop: 4 },
+  axNome: { color: C.white, fontSize: 11, fontWeight: 700 },
+  axTagline: { color: C.white, fontSize: 7.5, opacity: 0.9 },
+  axBody: { paddingVertical: 8, paddingHorizontal: 10 },
+  axEss: { fontSize: 8.5, color: '#3A4658', lineHeight: 1.45, marginBottom: 6 },
+  axLbl: { fontSize: 7.5, fontWeight: 700, color: C.navy, marginBottom: 1 },
+  axTxt: { fontSize: 8, color: C.sub, lineHeight: 1.4, marginBottom: 5 },
+  axNota: { fontSize: 8.5, color: C.sub, lineHeight: 1.5, marginTop: 10, backgroundColor: C.bg, borderRadius: 6, padding: 10 },
   // fatores alto/baixo
   fbBar: { flexDirection: 'row', height: 34, borderRadius: 6, overflow: 'hidden', marginTop: 12 },
   fbLeft: { justifyContent: 'center', paddingHorizontal: 10 },
@@ -238,13 +251,78 @@ function CargoBlock({ cargo, n, perfil }: { cargo: string; n: number; perfil: Pe
   );
 }
 function PageHeader({ title }: { title: string }) {
-  // Logo ESCURA: o header das páginas de conteúdo é branco. A `cover` é a versão
-  // clara (transparente, feita pro navy da capa) e some no branco.
-  const logo = getLogoDarkBase64();
+  // Logo ESCURA HORIZONTAL: o header das páginas de conteúdo é branco (a clara
+  // some) e a caixa é fina (a AC ~quadrada estica). Ver getLogoDarkHBase64.
+  const logo = getLogoDarkHBase64();
   return <View style={s.header}><Text style={s.hTitle}>{title}</Text>{logo ? <Image src={logo} style={s.hLogo} /> : null}</View>;
 }
 function Footer() {
   return <View style={s.footer} fixed><Text>Vertho — Perfil Organizacional</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>;
+}
+
+/** Anexo fixo: os 4 fatores DISC explicados. Conteúdo estático — sem IA. */
+const DISC_ANEXO: { fator: Fator; nome: string; tagline: string; essencia: string; alta: string; baixa: string }[] = [
+  {
+    fator: 'D', nome: 'Dominância', tagline: 'resultados · decisão',
+    essencia: 'Mede como a pessoa lida com desafios e exerce poder pessoal. É a energia de fazer acontecer: assumir a frente, decidir e enfrentar obstáculos.',
+    alta: 'Direta, competitiva e rápida na decisão. Assume riscos, gosta de autonomia e responde bem à pressão por resultado.',
+    baixa: 'Colaborativa e ponderada. Prefere decidir com o grupo, evita confronto desnecessário e constrói consenso antes de agir.',
+  },
+  {
+    fator: 'I', nome: 'Influência', tagline: 'comunicação · entusiasmo',
+    essencia: 'Mede como a pessoa se relaciona e influencia os outros. É a energia social: comunicar, entusiasmar e conectar pessoas.',
+    alta: 'Expressiva, otimista e persuasiva. Constrói rede com facilidade, energiza o ambiente e prefere interação a trabalho isolado.',
+    baixa: 'Reservada e sóbria. Convence por fatos e consistência, prefere conversas objetivas e círculos menores de confiança.',
+  },
+  {
+    fator: 'S', nome: 'Estabilidade', tagline: 'constância · cooperação',
+    essencia: 'Mede como a pessoa responde ao ritmo e às mudanças do ambiente. É a energia da consistência: sustentar rotinas, apoiar pessoas e concluir o que começou.',
+    alta: 'Paciente, leal e boa ouvinte. Dá previsibilidade ao time, sustenta processos longos e prefere mudanças planejadas.',
+    baixa: 'Flexível e inquieta. Adapta-se rápido, gosta de variedade e de alternar entre frentes diferentes de trabalho.',
+  },
+  {
+    fator: 'C', nome: 'Conformidade', tagline: 'precisão · qualidade',
+    essencia: 'Mede como a pessoa lida com normas, métodos e detalhes. É a energia do rigor: analisar, verificar e garantir a qualidade do que é entregue.',
+    alta: 'Metódica, criteriosa e orientada a padrões. Antecipa riscos, documenta bem e eleva a régua de qualidade do grupo.',
+    baixa: 'Pragmática e tolerante à ambiguidade. Foca no essencial, decide com a informação disponível e simplifica processos.',
+  },
+];
+
+function AnexoDisc() {
+  return (
+    <Page size="A4" style={s.page}>
+      <PageHeader title="Anexo — Os 4 Fatores DISC" />
+      <View style={s.body}>
+        <Text style={s.axIntro}>
+          O DISC descreve tendências de comportamento observáveis — como cada pessoa tende a agir, decidir e se relacionar.
+          Todo perfil combina os quatro fatores em intensidades diferentes; os gráficos deste relatório mostram essa intensidade de 0 a 100.
+        </Text>
+        <View style={s.axGrid}>
+          {DISC_ANEXO.map((f) => (
+            <View key={f.fator} style={s.axCard} wrap={false}>
+              <View style={[s.axHead, { backgroundColor: FAT_COLOR[f.fator] }]}>
+                <Text style={s.axLetter}>{f.fator}</Text>
+                <View><Text style={s.axNome}>{f.nome}</Text><Text style={s.axTagline}>{f.tagline}</Text></View>
+              </View>
+              <View style={s.axBody}>
+                <Text style={s.axEss}>{f.essencia}</Text>
+                <Text style={s.axLbl}>EM ALTA INTENSIDADE</Text>
+                <Text style={s.axTxt}>{f.alta}</Text>
+                <Text style={s.axLbl}>EM BAIXA INTENSIDADE</Text>
+                <Text style={s.axTxt}>{f.baixa}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+        <Text style={s.axNota}>
+          Nenhum fator é melhor que outro — cada um resolve um tipo de problema que o grupo enfrenta.
+          Um time saudável combina as quatro energias: quem acelera, quem conecta, quem sustenta e quem garante a qualidade.
+          O perfil indica tendência, não limite: comportamento se desenvolve com consciência e prática.
+        </Text>
+      </View>
+      <Footer />
+    </Page>
+  );
 }
 
 interface Params { empresaNome: string; dataRef: string; solicitadoPor?: string | null; p: PerfilOrg }
@@ -451,6 +529,9 @@ function PerfilOrgDoc({ empresaNome, p: pIn }: Params) {
           <Footer />
         </Page>
       )}
+
+      {/* Anexo: explicação dos 4 fatores DISC (estático) */}
+      <AnexoDisc />
     </Document>
   );
 }

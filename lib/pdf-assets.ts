@@ -49,6 +49,30 @@ export function getReportCoverBgBase64(): string | null {
   return cachedReportCoverBg;
 }
 
+let cachedLogoDarkH: string | null = null;
+let cachedLogoDarkHTried = false;
+
+/**
+ * Logo ESCURO HORIZONTAL (Vertho H escuro, 3148×800, ratio ~3.94) para headers
+ * de página com fundo BRANCO. Diferente do `getLogoDarkBase64` (versão AC,
+ * ~quadrada 2080×1956): num header fino a AC espremida estica/deforma — foi o
+ * caso do Perfil Organizacional em 20/07/2026.
+ * ⚠️ Nome do arquivo engana: `logo-vertho-cover.png` é o H ESCURO (conferido
+ * visualmente — idêntico a "Logo Vertho H escuro fundo transparente (1).png");
+ * quem serve a capa navy é o CLARO em `getLogoCoverBase64` (logo-vertho.png).
+ */
+export function getLogoDarkHBase64(): string | null {
+  if (cachedLogoDarkHTried) return cachedLogoDarkH;
+  cachedLogoDarkHTried = true;
+  try {
+    const logoPath = join(process.cwd(), 'public', 'logo-vertho-cover.png');
+    cachedLogoDarkH = `data:image/png;base64,${readFileSync(logoPath).toString('base64')}`;
+  } catch {
+    cachedLogoDarkH = null;
+  }
+  return cachedLogoDarkH;
+}
+
 let cachedLogoDark: string | null = null;
 let cachedLogoDarkTried = false;
 
