@@ -194,9 +194,16 @@ export default function EngajamentoPage() {
                         <div className="text-xs text-gray-500">{c.cargo}</div>
                       </td>
                       <td className="px-3 py-2.5 text-center text-xs">
-                        <span className={c.recebeuP1 ? 'text-emerald-400' : 'text-gray-600'}>P1</span>
+                        {/* null = sem registro POR SEMANA (o carimbo é só do último envio) */}
+                        <span title={c.recebeuP1 === null ? 'sem registro por semana — só o último envio fica carimbado' : ''}
+                          className={c.recebeuP1 === true ? 'text-emerald-400' : c.recebeuP1 === null ? 'text-gray-700' : 'text-gray-600'}>
+                          {c.recebeuP1 === null ? '·' : 'P1'}
+                        </span>
                         {' / '}
-                        <span className={c.recebeuP2 ? 'text-emerald-400' : 'text-gray-600'}>P2</span>
+                        <span title={c.recebeuP2 === null ? 'sem registro por semana — só o último envio fica carimbado' : ''}
+                          className={c.recebeuP2 === true ? 'text-emerald-400' : c.recebeuP2 === null ? 'text-gray-700' : 'text-gray-600'}>
+                          {c.recebeuP2 === null ? '·' : 'P2'}
+                        </span>
                       </td>
                       <td className="px-3 py-2.5"><PilulaCell abriu={c.abriuP1} formatos={c.formatosP1} /></td>
                       <td className="px-3 py-2.5"><PilulaCell abriu={c.abriuP2} formatos={c.formatosP2} /></td>
@@ -230,6 +237,7 @@ export default function EngajamentoPage() {
             <strong> Abriram o link</strong> conta só o evento de abertura (novo, a partir de 15/07) — subconta; “Abriram conteúdo” inclui quem deu play no vídeo e reflete melhor a realidade.
             <strong> Evidência</strong> = concluiu a semana enviando a reflexão (o texto completo fica em Vertho → Evidências).
             <strong> Tutor</strong> = abriu conversa no Tira-Dúvidas da página da semana.
+            <strong> Com filtro de semana</strong>: Recebeu = envio DENTRO daquela semana (o banco só guarda o último carimbo — semana passada vira “·” sem registro); vídeos antigos sem semana (pré-15/07) contam só em “Todas as semanas”.
           </p>
         </>
       )}

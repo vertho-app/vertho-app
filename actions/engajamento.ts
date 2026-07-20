@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { requireUserAction, requireAdminAction } from '@/lib/auth/action-context';
 import { formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
+import { PROGRESSO } from '@/lib/status';
 
 /**
  * Telemetria de engajamento da trilha. Duas frentes:
@@ -76,8 +77,16 @@ const fmtsDistintos = (evs: any[], pilula: number | null) =>
 /**
  * Roll-up de engajamento por colaborador. `semana` filtra os eventos de abertura/
  * formato/consumo; se null, agrega todas. Retorna { resumo, colaboradores, semanas }.
- * Stats de VÍDEO (play/%/terminou) filtram por semana quando há filtro; eventos de
- * vídeo legados (sem semana=NULL) contam em qualquer filtro.
+ *
+ * COM filtro de semana, cada sinal é estrito àquela semana:
+ * - Vídeo: só eventos com a semana exata. Legados (semana=NULL, pré-15/07) contam
+ *   apenas em "Todas as semanas" — antes vazavam pra qualquer filtro e a semana 2
+ *   mostrava os plays da semana 1.
+ * - Recebeu: os carimbos ultima_pilulaN_em PERSISTEM entre semanas (só o ÚLTIMO
+ *   envio fica registrado). O carimbo pertence à semana FILTRADA apenas quando ela
+ *   é a semana ATUAL do colaborador E o carimbo é posterior ao último avanço de
+ *   semana (ultima_evidencia_em — o avanço é atômico com ele, cron-jobs:436).
+ *   Semana passada → null ("sem registro por semana"), nunca um ✓/✗ inventado.
  */
 export async function getEngajamentoEmpresa(empresaId: string, semana?: number | null) {
   await requireAdminAction();
@@ -90,7 +99,7 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
   // 1) População = inscritos na cadência. Traz as prefs p/ derivar o formato PRINCIPAL
   //    de cada colab (o denominador das métricas por formato).
   const { data: envios } = await tdb.from('fase4_envios')
-    .select('colaborador_id, semana_atual, status, ultima_pilula1_em, ultima_pilula2_em, colaboradores!inner(nome_completo, cargo, pref_video_curto, pref_video_longo, pref_audio, pref_texto, pref_estudo_caso)');
+    .select('colaborador_id, semana_atual, status, data_inicio, ultima_evidencia_em, ultima_pilula1_em, ultima_pilula2_em, colaboradores!inner(nome_completo, cargo, pref_video_curto, pref_video_longo, pref_audio, pref_texto, pref_estudo_caso)');
   if (!envios?.length) return { resumo: { inscritos: 0 }, colaboradores: [], semanas: [1] };
 
   // 2) Eventos (opcionalmente escopados por semana).
@@ -99,12 +108,13 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
   if (semFiltro) evQuery = evQuery.eq('semana', semFiltro);
   const { data: eventos } = await evQuery;
 
-  // 3) Playback de vídeo — escopado por semana quando há filtro; eventos legados
-  //    sem semana (NULL) contam em qualquer filtro.
+  // 3) Playback de vídeo — com filtro, SÓ a semana exata. Legados (semana NULL,
+  //    pré-15/07) entram apenas na visão "Todas as semanas": o `.or(is.null)`
+  //    anterior fazia a semana 2 exibir os plays da semana 1.
   let vidQuery = tdb.from('videos_watched')
     .select('colaborador_id, event_type, seconds_watched, video_length')
     .in('event_type', ['play_started', 'play_progress', 'play_finished']);
-  if (semFiltro) vidQuery = vidQuery.or(`semana.eq.${semFiltro},semana.is.null`);
+  if (semFiltro) vidQuery = vidQuery.eq('semana', semFiltro);
   const { data: videos } = await vidQuery;
 
   // 4) Consumo explícito + evidência (status) — opcionalmente por semana.
@@ -131,10 +141,21 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
   const evidenciaPorColab: Record<string, boolean> = {};
   for (const p of (progresso || [])) {
     if (consumiuFlag(p.conteudo_consumido)) consumoPorColab[p.colaborador_id] = true;
-    if (p.tipo === 'conteudo' && p.status === 'concluido') evidenciaPorColab[p.colaborador_id] = true;
+    if (p.tipo === 'conteudo' && p.status === PROGRESSO.CONCLUIDO) evidenciaPorColab[p.colaborador_id] = true;
   }
   const tutorPorColab: Record<string, boolean> = {};
   for (const t of (tutorRows || [])) tutorPorColab[t.colaborador_id] = true;
+
+  // Atribui o carimbo de pílula à semana filtrada. true/false só quando dá pra
+  // AFIRMAR (semana atual do colab, carimbo depois do último avanço); semana
+  // passada devolve null — o carimbo é só do último envio, não há registro.
+  const recebeuNaSemana = (carimbo: string | null, e: any): boolean | null => {
+    if (!semFiltro) return !!carimbo;
+    if (semFiltro !== (Number(e.semana_atual) || 1)) return null;
+    if (!carimbo) return false;
+    const inicioSemana = e.ultima_evidencia_em || e.data_inicio;
+    return inicioSemana ? String(carimbo) > String(inicioSemana) : true;
+  };
 
   const colaboradores = (envios || []).map((e: any) => {
     const evs = evPorColab[e.colaborador_id] || [];
@@ -179,8 +200,8 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
       cargo: e.colaboradores?.cargo || '',
       semanaAtual: e.semana_atual || 1,
       status: e.status,
-      recebeuP1: !!e.ultima_pilula1_em,
-      recebeuP2: !!e.ultima_pilula2_em,
+      recebeuP1: recebeuNaSemana(e.ultima_pilula1_em, e),
+      recebeuP2: recebeuNaSemana(e.ultima_pilula2_em, e),
       abriuP1, abriuP2, abriuDireto,
       // Tile "Abriram o link" = ESTRITAMENTE o evento de abertura (novo, ?p= a
       // partir de 15/07). O ● por pílula (abriuP1/P2) é mais largo de propósito.
@@ -196,7 +217,7 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
 
   // ── Quebra por PÍLULA (2 linhas) ────────────────────────────────────────────
   const linhaPilula = (n: 1 | 2) => {
-    const recebeu = colaboradores.filter((c) => (n === 1 ? c.recebeuP1 : c.recebeuP2)).length;
+    const recebeu = colaboradores.filter((c) => (n === 1 ? c.recebeuP1 : c.recebeuP2) === true).length;
     const abriu = colaboradores.filter((c) => (n === 1 ? c.abriuP1 : c.abriuP2)).length;
     const abriuFormato = colaboradores.filter((c) => (n === 1 ? c.formatosP1 : c.formatosP2).length > 0).length;
     return { pilula: n, recebeu, abriu, abriuFormato };
