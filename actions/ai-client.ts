@@ -61,6 +61,11 @@ export interface AICallOptions {
   // Liga o history caching (relocação do userSuffix + cache_control). Só Claude.
   // O caller gateia por flag (IA_CACHE_HISTORY) até a qualidade ser validada.
   cacheHistory?: boolean;
+  // Esforço de raciocínio p/ modelos reasoning OpenAI-compatible (kimi-k3,
+  // gpt-5.x reasoning): vira `reasoning_effort` no body. Medido no kimi-k3
+  // (20/07): low=7 tokens de thinking vs high=62 no mesmo prompt — em tarefa de
+  // redação, low corta o custo dominante. Ignorado pelos caminhos Claude/Gemini.
+  reasoningEffort?: 'low' | 'medium' | 'high' | 'max';
 }
 
 export interface ChatMessage {
@@ -521,6 +526,7 @@ async function callOpenAI(
   const body: any = {
     model,
     ...(isNew ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
+    ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user },
@@ -617,6 +623,7 @@ async function callOpenAIChat(
   const body: any = {
     model,
     ...(isNew ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
+    ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
     messages: [{ role: 'system', content: system }, ...messages],
   };
 
