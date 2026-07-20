@@ -234,7 +234,7 @@ export default function EngajamentoPage() {
           <p className="text-xs text-gray-600 mt-3 leading-relaxed">
             <strong>Pílula 1 / Pílula 2</strong>: ● = engajou com a pílula (abriu o link com <code>?p=</code> OU clicou um formato dela); ícones = formatos abertos (🎬 vídeo · 🎧 áudio · 📖 texto · 📋 caso). “—” não quer dizer que não viu — o play de vídeo é contado à parte (via <code>videos_watched</code>).
             <strong> Por formato principal</strong>: o denominador é quem tem aquele formato como <em>preferido</em> (não o total); vídeo = terminou o vídeo, demais = abriu o formato.
-            <strong> Abriram o link</strong> conta só o evento de abertura (novo, a partir de 15/07) — subconta; “Abriram conteúdo” inclui quem deu play no vídeo e reflete melhor a realidade.
+            <strong> Abriram o link</strong> = abriu a PÁGINA da semana; “Abriram conteúdo” = clicou/tocou um formato dentro dela. Da semana 2 em diante o funil é normal (link ≥ conteúdo; a diferença é quem abriu e não clicou nada). Na semana 1 o link SUBCONTA (rastreio de abertura só existe desde 15/07) e pode ficar menor que o conteúdo.
             <strong> Evidência</strong> = concluiu a semana enviando a reflexão (o texto completo fica em Vertho → Evidências).
             <strong> Tutor</strong> = abriu conversa no Tira-Dúvidas da página da semana.
             <strong> Com filtro de semana</strong>: Recebeu = envio DENTRO daquela semana (o banco só guarda o último carimbo — semana passada vira “·” sem registro); vídeos antigos sem semana (pré-15/07) contam só em “Todas as semanas”.
