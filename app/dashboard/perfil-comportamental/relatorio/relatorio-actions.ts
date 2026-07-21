@@ -366,14 +366,15 @@ export async function gerarEsalvarDevolutivaComportamental({ colab: inputColab, 
     const roteiro = await callAI(system, user, { model }, 1500);
     if (!roteiro?.trim()) return { error: 'Roteiro vazio' };
 
-    // TTS → MP3. Voz Vindemiatrix (feminina, acolhedora) — unifica com o pipeline
-    // de vídeo. Override por env GEMINI_TTS_DEVOLUTIVA_VOICE. Estilo feminino p/
-    // casar com a voz (o default de generateNarrationAudio é genérico/masculino).
+    // TTS → MP3. Voz Achird = a voz do BETO (masculina), a mesma persona que
+    // assina o roteiro acima. Override por env GEMINI_TTS_DEVOLUTIVA_VOICE.
+    // ⚠️ Voz e estilo andam JUNTOS: o prompt de estilo dirige a prosódia, então
+    // trocar só o `voice` deixa a narração com prosódia do gênero anterior.
     const { extractNarration, generateNarrationAudio } = await import('@/lib/gemini-tts');
     const narracao = extractNarration(roteiro);
     const audio = await generateNarrationAudio(narracao, {
-      voice: process.env.GEMINI_TTS_DEVOLUTIVA_VOICE || 'Vindemiatrix',
-      style: 'Narre em português do Brasil, com voz feminina acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como uma mentora falando diretamente com a pessoa',
+      voice: process.env.GEMINI_TTS_DEVOLUTIVA_VOICE || 'Achird',
+      style: 'Narre em português do Brasil, com voz masculina brasileira acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa',
     });
 
     // Upload + persiste path
