@@ -24,9 +24,11 @@ export { buildPersonalizedPodcastNarration, extractNarration, ensurePodcastBrand
 export { exportPodcastMp3FromPcm } from './tts/audio-dsp';
 
 const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
-const VOICE = process.env.GEMINI_TTS_VOICE || 'Vindemiatrix'; // feminina, acolhedora (mentora — unificada com vídeo/devolutiva)
-const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || 'Charon';
-const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Kore';
+// Elenco de vozes da marca: BETO (mentor, masculino) = Achird; a voz feminina
+// da plataforma = Vindemiatrix (narração de vídeo, alinhada ao avatar Abigail).
+const VOICE = process.env.GEMINI_TTS_VOICE || 'Vindemiatrix'; // narração single-speaker (vídeo/podcast)
+const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || 'Achird';       // speaker "Mentor" = Beto
+const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Vindemiatrix';   // speaker "Campo"
 const brandStingCache = new Map<string, Buffer>();
 
 // ── BACKEND: AI Studio (API key) × Vertex AI (OAuth de service account) ───────
@@ -273,7 +275,9 @@ export async function generatePodcastAudio(texto: string): Promise<PodcastAudioF
   const multiSpeaker = isMultiSpeakerText(textoComMarca);
   // Direção de estilo (não é falada — orienta a entrega da voz prebuilt).
   const styled = multiSpeaker
-    ? `TTS the following conversation in Brazilian Portuguese. Speaker Mentor is calm, consultative, experienced and clear. Speaker Campo is practical, direct and grounded in field reality. Keep a professional, adult tone and natural turn-taking:\n\n${textoComMarca}`
+    // O gênero vai EXPLÍCITO na direção: o prompt de estilo dirige a prosódia e,
+    // sem ele, a entrega não acompanha a troca da voz prebuilt.
+    ? `TTS the following conversation in Brazilian Portuguese. Speaker Mentor is a man — calm, consultative, experienced and clear. Speaker Campo is a woman — practical, direct and grounded in field reality. Keep a professional, adult tone and natural turn-taking:\n\n${textoComMarca}`
     : `Narre em português do Brasil, com voz feminina, tom acolhedor, seguro e íntimo, ritmo moderado e pausas reflexivas naturais:\n\n${textoComMarca}`;
 
   const body = {
