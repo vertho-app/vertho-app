@@ -2,14 +2,14 @@
 
 Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e empresas). Colaboradores passam por diagnóstico comportamental (DISC), recebem cenários situacionais por competência, conversam com IA avaliativa e seguem trilhas (**Temporadas**) com micro-conteúdos personalizados. Inclui geração de vídeo de microlearning, um **Portal do Representante** (canal comercial dos RCs) e ambientes de demonstração.
 
-> Docs canônicas em `docs/` (**PIPELINE-TRILHA** ← mapa ponta a ponta do produto, ARQUITETURA, MODO-PILOTO, CATALOGO-PROMPTS-IA, SECURITY-STATUS, SCHEMA-PROCESS, AMBIENTE-DEMO, PORTAL-REPRESENTANTE, DESIGN-SYSTEM…). Este arquivo é o resumo operacional.
+> Docs canônicas em `docs/` (**PIPELINE-TRILHA** ← mapa ponta a ponta do produto, ARQUITETURA, MODO-PILOTO, CATALOGO-PROMPTS-IA, SECURITY-STATUS, SCHEMA-PROCESS, AMBIENTE-DEMO, PORTAL-REPRESENTANTE, DESIGN-SYSTEM, **LEVANTAMENTO-2026-07** ← auditoria geral 17/07 (fluxos/UX/segurança/arquitetura), **ANALISE-RISCOS-PIPELINE-TRILHA** ← riscos do pipeline 17/07…). Este arquivo é o resumo operacional.
 
 ## Stack (real)
 
 - **Runtime**: Next.js 16 (App Router) + React — **TypeScript em todo o projeto** (~670 arquivos `.ts/.tsx`). NÃO escrever JavaScript.
 - **Banco**: Supabase (PostgreSQL). O app acessa via **supabase-js/PostgREST** (não `pg` direto, exceto scripts).
 - **Estilo**: Tailwind CSS.
-- **LLM**: **Claude API** via `@anthropic-ai/sdk` — sempre por `callAI`/`callAIChat` (`actions/ai-client.ts`). Default `claude-sonnet-4-6`; `claude-opus-4-6` só para roteiros de vídeo. Fallback de provedor `gpt-5.4` (OpenAI); Gemini também suportado.
+- **LLM**: **Claude API** via `@anthropic-ai/sdk` — sempre por `callAI`/`callAIChat` (`actions/ai-client.ts`). Default `claude-sonnet-4-6`; `claude-opus-4-6` só para roteiros de vídeo. Fallback de provedor `gpt-5.4-2026-03-05` (OpenAI — o alias puro morreu p/ a chave); Gemini e **Kimi/Moonshot (`kimi*`, OpenAI-compatible)** também suportados. Modelos reasoning: `options.reasoningEffort` (kimi-k3, gpt-5.x).
 - **Jobs de fundo**: Trigger.dev v4 (`trigger/`).
 - **Deploy**: Vercel (via `git push`).
 - **Vídeo**: Bunny Stream (hosting) + HeyGen (avatar) + Remotion (render, `RENDER_BACKEND=hetzner`).
@@ -64,7 +64,7 @@ tests/unit/          vitest
 - **Caminho headless** (script, seed, task Trigger, cron): extrair um **núcleo sem gate** para `lib/`, fora de `'use server'`, e chamá-lo direto. Modelos: `lib/blueprint/core.ts`, `lib/modulo-base-auditor.ts`. A action `'use server'` aplica o gate **sempre** e delega ao núcleo; lotes aplicam o gate uma vez e o núcleo revalida o tenant por item (`empresaIdEsperado`).
 - Auditar o que está exposto: `.next/server/server-reference-manifest.json` = ids que o servidor **aceita**; grep do id em `.next/static/chunks/` = ids que o browser **publica**.
 - **Guard no CI**: `tests/unit/security/use-server-internal-guard.test.ts` + `config/use-server-internal-allowlist.json`. Varre por AST os arquivos `'use server'` versionados e falha se um export novo aceitar `internal` (nos 3 formatos: identificador, destructuring, membro do tipo de `opts`). A allowlist é **dívida declarada, só pode encolher** — adicionar entrada pra "passar o CI" é exatamente o bug que ele existe pra pegar.
-- ⚠️ Resíduo conhecido (8 entradas na allowlist): `actions/whatsapp.ts` (`enviarWhatsApp`/`enviarAudio` — maior risco: relay de WhatsApp = ban do número mata o canal de todos os tenants), `actions/fase1.ts` (`rodarIA2`/`rodarIA3Uma`), `actions/fase3.ts` (`rodarIA4`), `actions/avaliacao-acumulada.ts` (×2), `actions/evolution-report.ts`. Não copiar esse padrão.
+- ⚠️ Resíduo conhecido (**5 entradas** na allowlist, verificado 17/07): `actions/whatsapp.ts` (`enviarWhatsApp`/`enviarAudio` — **boolean, sem revalidação de tenant**; maior risco: relay de WhatsApp = ban do número mata o canal de todos os tenants; ids hoje NÃO publicados no bundle — proteção acidental monitorada pelo CI), `actions/avaliacao-acumulada.ts` (×2) e `actions/evolution-report.ts` (forma `{empresaId}` — revalidam o tenant). `fase1`/`fase3` removidos em 10/07. Não copiar esse padrão.
 
 ### Trabalho pós-response numa rota
 - DEVE usar **`after()`** (`next/server`). Uma IIFE solta (`(async()=>{})()`) morre no freeze da lambda pós-response.

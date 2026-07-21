@@ -13,7 +13,7 @@ import { callAI } from '@/actions/ai-client';
 const txt = await callAI(system, user, { model? }, maxTokens?, options?);
 ```
 
-- Roteia por **prefixo do model**: `claude*` → Anthropic · `gemini*` → Gemini · `gpt*`/`o1*`/`o3*`/`o4*` → OpenAI.
+- Roteia por **prefixo do model**: `claude*` → Anthropic · `gemini*` → Gemini · `gpt*`/`o1*`/`o3*`/`o4*` → OpenAI · `kimi*` → Moonshot (OpenAI-compatible, `KIMI_API_KEY`).
 - **Model default: `claude-sonnet-4-6`.** `claude-opus-4-6` **só** para roteiros de vídeo.
 - **Fallback de provedor**: Claude sobrecarregado após retries → gera com `gpt-5.4` (`AI_FALLBACK_MODEL`). Retry com backoff+jitter em erros transitórios (429/503/529/overloaded). Timeout default **120s** (`AI_TIMEOUT_MS`).
 - **Locale** é resolvido do cookie automaticamente e injeta a instrução de idioma — não traduza manualmente; passe `options.locale` só quando precisar forçar.
@@ -33,7 +33,7 @@ Peça JSON no prompt e parseie (helpers em `lib/ai-json.ts`). Campos/enum/códig
 
 ## Opções de `callAI` (`AICallOptions`)
 
-`temperature`, `thinking`, `thinkingBudget`, `locale`, `timeoutMs`, `maxRetries`, `cachedUserPrefix`.
+`temperature`, `thinking`, `thinkingBudget`, `locale`, `timeoutMs` (honrado em TODOS os provedores desde 20/07 — antes só Claude), `maxRetries`, `cachedUserPrefix`, `reasoningEffort` (`low|medium|high|max` → `reasoning_effort` p/ kimi-k3/gpt reasoning; em redação estruturada use `low` — o thinking é cobrado como output).
 
 ## ⚠️ Regra de BUILD do `'use server'`
 
