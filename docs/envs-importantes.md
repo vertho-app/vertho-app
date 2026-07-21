@@ -31,7 +31,10 @@
 | `FIRECRAWL_API_KEY` | Scraping fallback (quando Jina falha) | Não | Produção |
 | `BUNNY_STREAM_API_KEY` | Bunny Stream (upload/playback de vídeo) | Sim | Produção |
 | `BUNNY_WEBHOOK_SECRET` | Proteção do webhook de status Bunny (via `?token=` na URL) | Não | Produção |
-| `WASENDER_API_KEY` | Failover WhatsApp (backup do Z-API) | Não | Produção |
+| `WASENDER_API_KEY` | Failover WhatsApp (backup do Z-API) — ⚠️ chave da **SESSÃO**, não o token de conta (ver nota) | Não | Produção |
+| `WASENDER_ACCOUNT_TOKEN` | Token de CONTA WaSender (gerência de sessões via API; o app NÃO lê) | Não | Local |
+| `WASENDER_BASE_URL` | Override do host WaSender (default `https://www.wasenderapi.com`) | Não | — |
+| `WHATSAPP_PRIMARY` | Provedor primário do failover: `zapi` (default) \| `wasender` | Não | Produção |
 | `INTERNAL_API_KEY` | Auth de chamadas internas server-to-server | Não | Produção |
 | `INTERNAL_DISPATCH_SECRET` | Segredo de dispatch interno (after/QStash) | Sim | Produção |
 | `CRON_SECRET` | Auth cron jobs (⚠️ sem espaço/newline — ver nota) | Sim | Produção |
@@ -60,3 +63,10 @@
   no runtime da Vercel (`/api/conteudo/{id}/podcast`); com `TTS_BACKEND=vertex` e sem a SA →
   500 "GOOGLE_SERVICE_ACCOUNT_JSON não definido". A SA estava só no Trigger.dev — precisou ir
   pro Vercel. AI Studio tem teto 100/dia (preview) → Vertex é o de volume.
+- **WaSender tem DOIS níveis de chave (21/07).** O token de CONTA (formato `NNNN|...`, do
+  painel) só serve pra API de gerência (`/api/whatsapp-sessions`); a chave que o adapter
+  (`lib/whatsapp/providers/wasender.ts`) usa é a **`api_key` da SESSÃO**, que só existe
+  depois de criar a sessão e conectar um número via QR. Com o token de conta no
+  `WASENDER_API_KEY`, o health devolve 401 "Session not found" e o failover fica morto.
+  O número da sessão WaSender deve ser **DIFERENTE** do número do Z-API (duas APIs de QR
+  no mesmo número brigam pela sessão).
