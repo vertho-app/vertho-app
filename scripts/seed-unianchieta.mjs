@@ -43,15 +43,34 @@ const UI_CONFIG = {
   hidden_elements: [],
 };
 
-// Detalhe do cargo — insumo do IA3 (cenários ricos e situados).
+// Detalhe do cargo — insumo do IA3 (cenários ricos e situados). Calibrado ao
+// perfil REAL da direção que participa do programa (direção geral/acadêmica
+// com agenda de inovação pedagógica, formação docente e IA na educação —
+// atuação do ensino básico ao superior), SEM citar pessoa (cenário situacional
+// não nomeia gente real; o contexto é do PAPEL).
 const CARGO_DETALHE = {
-  area: 'Gestão Acadêmica',
-  descricao: 'Dirige uma unidade/centro universitário: responde pela qualidade acadêmica, pela sustentação financeira da unidade, pelo corpo docente e pela experiência do aluno, em articulação com a reitoria e as coordenações de curso.',
-  principais_entregas: 'Indicadores acadêmicos da unidade (captação, permanência/evasão, desempenho, avaliação MEC); orçamento e ocupação; desenvolvimento do corpo docente; portfólio de cursos atualizado.',
-  stakeholders: 'Reitoria/mantenedora, coordenadores de curso, corpo docente, secretaria acadêmica, alunos e famílias, MEC/avaliadores, parceiros do mercado local.',
-  decisoes_recorrentes: 'Priorizar investimentos entre cursos; abrir/reformular/descontinuar turmas; responder a quedas de captação e evasão; arbitrar conflitos entre coordenações; adotar (ou não) novas plataformas e ferramentas de IA.',
-  tensoes_comuns: 'Qualidade acadêmica vs. sustentabilidade financeira; autonomia docente vs. padronização institucional; inovação tecnológica vs. capacidade real de adoção; agilidade de decisão vs. colegialidade.',
+  area: 'Direção Geral / Acadêmica',
+  descricao: 'Direção geral e acadêmica de instituição de ensino que atua do básico ao superior: responde pela qualidade acadêmica, pela formação continuada do corpo docente, pela agenda de inovação pedagógica (tecnologias digitais e IA na educação) e pela experiência do aluno, em articulação com a mantenedora e as coordenações.',
+  principais_entregas: 'Indicadores acadêmicos (captação, permanência/evasão, desempenho, avaliação MEC); programa de formação docente em tecnologias digitais, IA na educação e metodologias ativas; agenda de inovação pedagógica traduzida em prática de sala; representação institucional em eventos e na comunidade educacional.',
+  stakeholders: 'Mantenedora, coordenações de curso e de segmento, corpo docente do básico e do superior, alunos e famílias, MEC/avaliadores, comunidade e mercado de Jundiaí e região, redes e eventos de educação.',
+  decisoes_recorrentes: 'Priorizar as frentes de formação docente do semestre; adotar (ou barrar) plataformas e ferramentas de IA com critério pedagógico e ético; equilibrar investimento entre inovação e operação; responder a captação/evasão; arbitrar ritmos diferentes de adoção entre coordenações e segmentos.',
+  tensoes_comuns: 'Direção entusiasta da inovação vs. ritmo real de adoção do corpo docente; entusiasmo com IA vs. critério ético e proteção de dados; profundidade pedagógica vs. escala da formação; inovação vs. sustentação financeira; agenda externa (palestras, representação) vs. presença na gestão cotidiana.',
 };
+
+// Contexto institucional (PPP de rede) — o IA3 lê ppp_escolas.extracao
+// (status 'extraido') pra situar os cenários. Seções = as chaves que
+// buscarContextoPPP formata; valores alimentam a camada de ética.
+const PPP_ESCOLA = 'UniAnchieta — contexto institucional';
+const PPP_EXTRACAO = {
+  perfil_instituicao: 'UniAnchieta (Centro Universitário Padre Anchieta), Jundiaí/SP — instituição de ensino com atuação do ensino básico ao ensino superior (colégio, graduação e pós-graduação), com forte presença na cidade e na região.',
+  comunidade_contexto: 'Comunidade de Jundiaí/SP e região: alunos do básico ao superior, famílias e empregadores locais. A instituição é referência regional e dialoga com o mercado de trabalho e com a rede educacional da cidade.',
+  identidade_cultura: 'Direção acadêmica orientada por uma educação conectada ao seu tempo — ética, crítica, humana e inovadora. Aposta na formação docente continuada como motor de transformação e trata tecnologia como meio para uma educação mais significativa, inclusiva e transformadora, nunca como fim.',
+  praticas_descritas: 'Formação docente com foco em tecnologias digitais e inteligência artificial na educação; neuroeducação; metodologias ativas; cultura digital. Workshops, palestras e participação ativa em eventos e redes nacionais de educação.',
+  desafios_metas: 'Escalar a adoção criteriosa de tecnologias e IA pelo corpo docente do básico e do superior; traduzir a agenda de inovação em prática cotidiana de sala de aula; equilibrar entusiasmo com critério ético e proteção de dados; consolidar uma cultura digital institucional que sobreviva à rotatividade e ao ritmo desigual de adesão.',
+  vocabulario: 'Educação significativa, inclusiva e transformadora; cultura digital; metodologias ativas; IA na educação; neuroeducação; formação docente; escola conectada ao seu tempo.',
+  modelo_pessoas: 'Docentes como protagonistas da transformação — a direção forma formadores. Desenvolvimento contínuo, abertura crítica ao novo e coerência entre discurso e prática pedagógica.',
+};
+const PPP_VALORES = ['Ética', 'Pensamento crítico', 'Humanização', 'Inovação', 'Inclusão'];
 
 // 6 descritores — facetas distintas; fórmula verbo+comportamento+contexto+resultado;
 // progressão reativo → intencional → autônomo → multiplicador.
@@ -180,6 +199,15 @@ async function main() {
     const cnt = await client.query(
       'SELECT count(*)::int AS n FROM competencias WHERE empresa_id = $1 AND cod_comp = $2', [empresa.id, COD_COMP]);
     console.log(`✅ régua: ${cnt.rows[0].n} descritores de "${COMP}" pro cargo ${CARGO}`);
+
+    // 4) PPP institucional (rede) — insumo do IA3/IA2 (DELETE+INSERT idempotente)
+    await client.query('DELETE FROM ppp_escolas WHERE empresa_id = $1 AND escola = $2', [empresa.id, PPP_ESCOLA]);
+    await client.query(
+      `INSERT INTO ppp_escolas (empresa_id, escola, fonte, url_site, status, extracao, valores, extracted_at)
+       VALUES ($1, $2, 'json', 'https://anchieta.br', 'extraido', $3, $4::jsonb, now())`,
+      [empresa.id, PPP_ESCOLA, JSON.stringify(PPP_EXTRACAO), JSON.stringify(PPP_VALORES)],
+    );
+    console.log(`✅ PPP institucional: "${PPP_ESCOLA}" (extraido, ${Object.keys(PPP_EXTRACAO).length} seções + ${PPP_VALORES.length} valores)`);
     console.log('\nPróximos: vincular domínio no Vercel (botão em Configurações→Branding) · IA3 (cenários) · criar os 3 diretores.');
   } finally {
     await client.end();
