@@ -8,7 +8,7 @@ import {
   Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users, GraduationCap, Film, Sparkles
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, atualizarProgramaModo, vincularDominioVercel, salvarLocaleEmpresa, resumirPPPEscola, listarPPPEscolas, gerarBriefDoPPP, extrairPaletaDoSite } from './actions';
+import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, atualizarProgramaModo, vincularDominioVercel, salvarLocaleEmpresa, resumirPPPEscola, listarPPPEscolas, gerarBriefDoPPP, extrairPaletaDoSite, removerLogo } from './actions';
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { ROOT_DOMAIN } from '@/lib/domain';
@@ -580,7 +580,16 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                   <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" disabled={uploading} />
                 </label>
                 {branding.logo_url && (
-                  <button onClick={() => updateBranding('logo_url', null)} className="flex items-center gap-1.5 text-[10px] text-red-400/70 hover:text-red-400"><Trash2 size={10} /> {t('branding.removeLogo')}</button>
+                  <button
+                    onClick={async () => {
+                      const r = await removerLogo(empresaId);
+                      if (r.success) {
+                        updateBranding('logo_url', null);
+                        setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);
+                      } else setError(r.error);
+                    }}
+                    className="flex items-center gap-1.5 text-[10px] text-red-400/70 hover:text-red-400"
+                  ><Trash2 size={10} /> {t('branding.removeLogo')}</button>
                 )}
                 <p className="text-[10px] text-gray-600">{t('branding.logoHint')}</p>
               </div>

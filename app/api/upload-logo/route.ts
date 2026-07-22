@@ -36,32 +36,53 @@ export async function POST(req) {
 
     const sb = createSupabaseAdmin();
 
-    // Gerar nome único: logos/{empresaId}/logo.{ext}
+    // Path VERSIONADO: logo-{timestamp}.{ext}. Path fixo (logo.png) mantinha a
+    // URL pública idêntica entre uploads → CDN/browser serviam o logo ANTIGO
+    // por até 1h (cache default do Storage) e o <img> nem refazia o fetch —
+    // "troquei o logo e voltou o mesmo". URL nova a cada upload = zero cache
+    // stale, e o cache pode ser LONGO (o conteúdo de uma URL nunca muda).
     const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
-    const path = `${empresaId}/logo.${ext}`;
+    const path = `${empresaId}/logo-${Date.now()}.${ext}`;
 
-    // Remover logo anterior (qualquer extensão)
-    const { data: existing } = await sb.storage.from('logos').list(empresaId);
-    if (existing?.length) {
-      const toRemove = existing.map(f => `${empresaId}/${f.name}`);
-      await sb.storage.from('logos').remove(toRemove);
-    }
-
-    // Upload
+    // Upload PRIMEIRO, limpeza depois — nunca deletar antes de ter o novo no ar.
     const buffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await sb.storage
       .from('logos')
       .upload(path, buffer, {
         contentType: file.type,
         upsert: true,
+        cacheControl: '31536000',
       });
 
     if (uploadError) {
       return NextResponse.json({ error: uploadError.message }, { status: 500 });
     }
 
-    // URL pública
     const { data: urlData } = sb.storage.from('logos').getPublicUrl(path);
+
+    // Persiste DIRETO no ui_config: com path versionado, "subiu mas não clicou
+    // Salvar" deixaria o login apontando pro arquivo antigo (que vai ser
+    // removido abaixo). Upload de logo é operação completa por si só; o botão
+    // Salvar segue cuidando das cores.
+    const { data: emp } = await sb.from('empresas')
+      .select('ui_config').eq('id', String(empresaId)).maybeSingle();
+    const { error: cfgError } = await sb.from('empresas')
+      .update({ ui_config: { ...(emp?.ui_config || {}), logo_url: urlData.publicUrl } })
+      .eq('id', String(empresaId));
+    if (cfgError) {
+      return NextResponse.json({ error: cfgError.message }, { status: 500 });
+    }
+
+    // Limpeza best-effort dos logos anteriores (o novo já está persistido).
+    try {
+      const { data: existing } = await sb.storage.from('logos').list(String(empresaId));
+      const toRemove = (existing || [])
+        .filter(f => `${empresaId}/${f.name}` !== path)
+        .map(f => `${empresaId}/${f.name}`);
+      if (toRemove.length) await sb.storage.from('logos').remove(toRemove);
+    } catch (e) {
+      console.warn('[upload-logo] limpeza de logos antigos falhou:', e?.message);
+    }
 
     return NextResponse.json({
       success: true,

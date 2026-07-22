@@ -80,6 +80,36 @@ export async function salvarBranding(empresaId, branding) {
 }
 
 /**
+ * Remove o logo do tenant DE VERDADE: apaga os arquivos do bucket e limpa
+ * ui_config.logo_url. Antes o botão só limpava o estado local (exigia Salvar)
+ * e o storage ficava intacto — assimétrico com o upload, que grava na hora.
+ */
+export async function removerLogo(empresaId: string) {
+  const sb = await requireAdminSupabase('companies.manage');
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  try {
+    const { data: existing } = await sb.storage.from('logos').list(empresaId);
+    if (existing?.length) {
+      await sb.storage.from('logos').remove(existing.map((f: any) => `${empresaId}/${f.name}`));
+    }
+    const { data: emp } = await sb.from('empresas')
+      .select('ui_config').eq('id', empresaId).maybeSingle();
+    const { error } = await sb.from('empresas')
+      .update({ ui_config: { ...(emp?.ui_config || {}), logo_url: null } })
+      .eq('id', empresaId);
+    if (error) return { success: false, error: error.message };
+    await logAdminAction({
+      adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+      acao: 'empresa.editar', empresaId, alvo: 'branding (logo removido)',
+      detalhes: { arquivos_removidos: existing?.length || 0 },
+    });
+    return { success: true, message: 'Logo removido' };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Falha ao remover o logo' };
+  }
+}
+
+/**
  * Extrai a paleta de cores do SITE do cliente e propõe as 7 cores da tela de
  * login. Núcleo headless em lib/site-palette (fetch anti-SSRF + extração de
  * CSS/meta/manifest + IA mapeia + contraste garantido em código). NÃO salva —
