@@ -162,3 +162,26 @@ derivados (`formato_core`/`formatos_disponiveis`/`core_titulo`) do `core_id`.
 **cego a cargo e a descritor** — o resolver escolhia UM módulo por competência e servia os 6
 descritores dela. Ex.: o kit de "Troca de práticas" foi destilado do material de "Aprendizagem
 entre pares". Ao regerar um tema antigo, o brief novo já nasce com o módulo correto.
+
+## Atualização 22/07/2026 — vídeo avulso de kit antigo + podcast órfão de MP3 (2 armadilhas novas)
+
+Caso real: completar o kit MEI×D "Formação básica de preço" (projetomacae) que tinha só
+texto/case — faltavam vídeo e o MP3 do podcast.
+
+**6. Vídeo de kit ANTIGO: o brief aponta pro módulo errado — ancorar no módulo do CONTEÚDO.**
+`gerarKit` dispara o vídeo com o `modulo_base_id` do BRIEF, mas a entrega
+(`resolverVideoDaSemana({coreId})`) resolve a célula pelo módulo do **conteúdo core pós-overlay**
+(= o texto do kit, que o resolver cargo-aware escolheu). Num brief pré-`7258c0a3` os dois
+divergem → o vídeo nasce numa célula que o painel NUNCA consulta (vídeo órfão; foi o caso dos
+4 vídeos de 25/06, em `(módulo do brief × cargo 'todos')`). Receita: chamar `dispararVideoDoKit`
+DIRETO com o `modulo_base_id` do micro-conteúdo texto do kit (molde `scripts/_video-kit-mei-d.ts`).
+**NÃO regerar o kit inteiro** para "ganhar o vídeo": upsert do kit TROCA o desafio que os
+colaboradores já veem e os formatos saem como micro_conteudos NOVOS (duplicatas — não há UNIQUE).
+
+**7. Kit gerado com `renderAudio=false` fica com podcast SEM MP3 — e a entrega NÃO cura.**
+O micro_conteúdo `audio` nasce só com o roteiro (`conteudo_inline`), `url=null`, `ativo=false`;
+o player da semana carrega vazio (0:00) e nada renderiza on-demand. Curar com
+`gerarPodcastAudio(id)` (admin) ou headless `scripts/_render-podcast-kit.ts [conteudoId]`
+(núcleo sem gate; TTS+upload+update). Pré-requisito headless: o fix de interop do lamejs em
+`lib/tts/audio-dsp.ts::resolveLamejs` (`70b77b74`) — sem ele, tsx quebra em
+"Mp3Encoder is not a constructor" (o `require` do pacote cai no build IIFE vazio).
