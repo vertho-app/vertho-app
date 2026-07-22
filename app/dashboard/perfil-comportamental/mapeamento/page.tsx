@@ -82,9 +82,10 @@ const TOTAL_STEPS = 29;
 
 // Vídeo de instruções do mapeamento (Bunny Stream, library 636615).
 const BUNNY_LIBRARY = 636615;
-const INSTRUCTIONS_VIDEO_ID = 'f51586d2-6fb5-4d0d-9750-cefdf9442acf';
+// v3 HD (1232x720): mesma edição da v2, em 1500 kbps. Capa GLOBAL (sem município).
+const INSTRUCTIONS_VIDEO_ID = 'ab190728-e2ae-4cd6-9080-174c2ed2a91e';
 // Bump quando trocar o thumbnail no Bunny (busta o cache de edge da capa).
-const INSTRUCTIONS_THUMB_V = '4';
+const INSTRUCTIONS_THUMB_V = '5';
 
 function shuffle(arr) {
   const a = [...arr];
