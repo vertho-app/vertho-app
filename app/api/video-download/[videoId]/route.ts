@@ -8,6 +8,7 @@
 // Content-Disposition: attachment pro browser baixar com nome amigável.
 
 import { ROOT_DOMAIN } from '@/lib/domain';
+import { requirePermission } from '@/lib/auth/request-context';
 
 const REFERER = `https://www.${ROOT_DOMAIN}/`;
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -49,6 +50,13 @@ function sanitizeName(raw: string | null): string {
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ videoId: string }> }) {
+  // A library do Bunny é COMPARTILHADA entre tenants e recebe os vídeos
+  // personalizados (título = "<primeiro nome> · <cellVideoId>"). Sem gate, o
+  // GUID vira download anônimo de conteúdo nominal. Único caller é o
+  // /admin/conteudos, que já exige `content.manage`.
+  const auth = await requirePermission(req, 'content.manage');
+  if (auth instanceof Response) return auth;
+
   const { videoId } = await params;
 
   if (!videoId || !GUID_RE.test(videoId)) {

@@ -123,6 +123,20 @@ export function resolveRadarbettRedirect(hostname, pathname) {
   return hasEquivalent ? `https://radar.vertho.ai${pathname}` : RADARBETT_HOME_TARGET;
 }
 
+/**
+ * Remove o cookie `vertho-tenant-slug` de um header Cookie.
+ * Retorna a string limpa, ou null se não sobrar cookie nenhum.
+ */
+export function stripTenantCookie(cookieHeader) {
+  if (!cookieHeader) return null;
+  const restantes = cookieHeader
+    .split(';')
+    .filter((par) => par.split('=')[0].trim() !== 'vertho-tenant-slug')
+    .map((par) => par.trim())
+    .filter(Boolean);
+  return restantes.length ? restantes.join('; ') : null;
+}
+
 export function proxy(request) {
   const hostname = request.headers.get('host') || '';
 
@@ -149,15 +163,28 @@ export function proxy(request) {
   // 2) Tenant por subdomínio (fluxo existente)
   const slug = extractTenantSlug(hostname);
 
-  // Sem tenant — fluxo normal, não faz nada
-  if (!slug) return NextResponse.next();
+  // O tenant é decidido AQUI, pelo hostname — nunca pelo cliente. Quem consome
+  // (`lib/tenant-resolver.ts`, `lib/authz.ts`) confia no header/cookie, então
+  // um `x-tenant-slug` (ou o cookie) que venha na request é sempre descartado
+  // antes de seguir. Sem isso, o apex e os previews *.vercel.app aceitavam o
+  // header forjado e davam contexto de qualquer tenant a um cliente anônimo.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete('x-tenant-slug');
+
+  // Sem tenant no host: também limpa o cookie de tenant, que só um cliente HTTP
+  // forjaria aqui (é host-only — o browser não o manda para o apex).
+  if (!slug) {
+    const limpo = stripTenantCookie(requestHeaders.get('cookie'));
+    if (limpo === null) requestHeaders.delete('cookie');
+    else requestHeaders.set('cookie', limpo);
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
 
   // Injeta o slug em DOIS lugares:
   //   1. Header x-tenant-slug — para Server Components (page.js) que rodam
   //      no mesmo ciclo da request original.
   //   2. Cookie vertho-tenant-slug — para Server Actions, que são POSTs
   //      separados onde o header injetado pelo middleware nem sempre chega.
-  const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-tenant-slug', slug);
 
   const response = NextResponse.next({

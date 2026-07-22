@@ -1,7 +1,16 @@
 # Estado atual de seguranca — Vertho Mentor IA
 
-> Ultima revisao: 2026-07-17 (auditoria geral — detalhes em `docs/LEVANTAMENTO-2026-07.md` §4. **3 achados altos NOVOS, abertos**: (1) `api/bunny-videos` + `api/video-download` sem auth — enumeracao + download anonimo de videos, PII potencial nos personalizados; (2) header `x-tenant-slug` forjavel no apex/vercel.app — enumeracao de e-mails cross-tenant e signup em tenant alheio; (3) open redirect de `token_hash` de sessao em `api/auth/phone-otp/verify`. Numeros corrigidos: service-role = **130 arquivos / 299 usos** (nao 91/168); residuo `internal` = **5 entradas** (nao 8; fase1/fase3 removidos 10/07). As 4 classes criticas de 03/07 seguem confirmadas fechadas.)
-> Antes: 2026-07-07 (defense-in-depth de tenant nas ações internas + filtro de contas internas demo-aware; ver seção "Endurecimento 06-07/07"). Anterior: 2026-07-03 (auditoria de segurança — RCE/RLS/IDOR/search_path/MVs fechados; ver seção "Auditoria de segurança 03/07")
+> Ultima revisao: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
+> Antes: 2026-07-17 (auditoria geral — detalhes em `docs/LEVANTAMENTO-2026-07.md` §4. **3 achados altos NOVOS**, hoje fechados: (1) `api/bunny-videos` + `api/video-download` sem auth — enumeracao + download anonimo de videos, PII potencial nos personalizados; (2) header `x-tenant-slug` forjavel no apex/vercel.app — enumeracao de e-mails cross-tenant e signup em tenant alheio; (3) open redirect de `token_hash` de sessao em `api/auth/phone-otp/verify`. Numeros corrigidos: service-role = **130 arquivos / 299 usos** (nao 91/168); residuo `internal` = **5 entradas** (nao 8; fase1/fase3 removidos 10/07). As 4 classes criticas de 03/07 seguem confirmadas fechadas.)
+> Anterior: 2026-07-07 (defense-in-depth de tenant nas ações internas + filtro de contas internas demo-aware; ver seção "Endurecimento 06-07/07"). Anterior: 2026-07-03 (auditoria de segurança — RCE/RLS/IDOR/search_path/MVs fechados; ver seção "Auditoria de segurança 03/07")
+
+## Fechamento dos altos 22/07
+
+| Achado (17/07) | Correcao |
+|---|---|
+| Enumeracao + download anonimo de video | `api/bunny-videos` **removida** (rota sem nenhum caller no app — listava GUID+titulo dos 50 videos recentes da library COMPARTILHADA entre tenants, e o titulo dos personalizados carrega o primeiro nome). `api/video-download/[videoId]` passa a exigir `requirePermission(req, 'content.manage')` — o unico caller e o `/admin/conteudos`, que ja exigia essa permissao. |
+| `x-tenant-slug` forjavel | `proxy.js` agora **descarta sempre** o `x-tenant-slug` que chega na request antes de decidir, e nos hosts sem tenant (apex, `*.vercel.app`) tambem remove o cookie `vertho-tenant-slug` — que ali so pode ter vindo de um cliente HTTP forjando (o cookie e host-only, o browser nao o envia pro apex). O tenant passa a ser funcao exclusiva do hostname. Guardado por `tests/unit/security/proxy-tenant-forge.test.ts` (validado por mutacao: sem a correcao, 3 dos 6 testes falham). |
+| Open redirect de `token_hash` | `api/auth/phone-otp/verify` passa a usar `resolveSafeAuthRedirect` (allowlist de host, `lib/auth/redirect.ts`) — o mesmo helper das rotas irmas de auth. O `callbackUrl` carrega um token que ESTABELECE SESSAO; antes ia para dominio arbitrario escolhido pelo cliente. |
 
 ## Camadas de protecao implementadas
 

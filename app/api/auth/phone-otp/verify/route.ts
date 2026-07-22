@@ -4,6 +4,7 @@ import { getTenantSlug } from '@/lib/tenant-resolver';
 import { validateWhatsApp } from '@/lib/phone';
 import { checkOtp, proxyEmailFromPhone, isProxyEmail } from '@/lib/phone-otp';
 import { authLimiter } from '@/lib/rate-limit';
+import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,17 +84,12 @@ export async function POST(req: NextRequest) {
       await sb.from('colaboradores').update({ email: authEmail }).eq('id', colab.id);
     }
 
-    // Redirect destino (path do próprio host informado pelo client).
-    let nextPath = '/dashboard';
-    let origin = req.nextUrl.origin;
-    if (typeof redirectTo === 'string' && redirectTo) {
-      try {
-        const parsed = new URL(redirectTo);
-        origin = parsed.origin;
-        nextPath = `${parsed.pathname}${parsed.search}${parsed.hash}` || '/dashboard';
-      } catch { /* ignora redirect inválido */ }
-    }
-    if (!nextPath.startsWith('/')) nextPath = '/dashboard';
+    // Redirect destino — allowlist de host (mesmo helper das rotas irmãs de
+    // auth). O callbackUrl carrega um `token_hash` que ESTABELECE SESSÃO: aceitar
+    // o `redirectTo` do cliente sem validar entregava o token a um domínio
+    // arbitrário (open redirect com sequestro de sessão).
+    const { origin, nextPath: safeNextPath } = resolveSafeAuthRedirect(req, redirectTo);
+    const nextPath = safeNextPath.startsWith('/') ? safeNextPath : '/dashboard';
 
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',
