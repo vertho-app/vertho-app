@@ -120,7 +120,7 @@ export const CALLS = [
     inTokens: 4500,
     outTokens: 600,
     exec: 5,
-    defaultModel: 'gemini-3.1-flash-lite', // = default real do código (check-ia4.ts)
+    defaultModel: 'gpt-5.6-terra', // 22/07: todas as checagens no Terra (DEFAULT_TASK_MODELS.ia4_check)
     critical: true,
   },
 
@@ -327,7 +327,7 @@ export const CALLS = [
     inTokens: 6500,
     outTokens: 600,
     exec: 1,
-    defaultModel: 'gpt-5.6-luna', // Onda 0 (DEFAULT_TASK_MODELS.acumulada_check)
+    defaultModel: 'gpt-5.6-terra', // 22/07: todas as checagens no Terra (DEFAULT_TASK_MODELS.acumulada_check)
     critical: true,
   },
 
@@ -353,7 +353,7 @@ export const CALLS = [
     inTokens: 9000,
     outTokens: 700,
     exec: 1,
-    defaultModel: 'gpt-5.6-luna', // Onda 0 (DEFAULT_TASK_MODELS.sem14_check)
+    defaultModel: 'gpt-5.6-terra', // 22/07: todas as checagens no Terra (DEFAULT_TASK_MODELS.sem14_check)
     critical: true,
   },
 
@@ -455,7 +455,7 @@ export const CALLS = [
     inTokens: 3500,
     outTokens: 600,
     exec: 4 * 5,
-    defaultModel: 'gpt-5.4-2026-03-05',
+    defaultModel: 'gpt-5.6-terra', // 22/07: todas as checagens no Terra (DEFAULT_TASK_MODELS.ia3_check)
     critical: false,
   },
   {
@@ -479,7 +479,7 @@ export const CALLS = [
     inTokens: 3500,
     outTokens: 600,
     exec: 4 * 5,
-    defaultModel: 'gemini-3.1-flash-lite', // = default real do código (cenarios-b.ts)
+    defaultModel: 'gpt-5.6-terra', // 22/07: todas as checagens no Terra (DEFAULT_TASK_MODELS.cenarios_b_check)
     critical: false,
   },
 
@@ -669,7 +669,7 @@ export const CALLS = [
     inTokens: 9000,
     outTokens: 2000,
     exec: 1,
-    defaultModel: 'gpt-5.6-luna', // Onda 0 (DEFAULT_TASK_MODELS.modulo_base_auditor)
+    defaultModel: 'gpt-5.6-terra', // 22/07: todas as checagens no Terra (DEFAULT_TASK_MODELS.modulo_base_auditor)
     critical: false,
     opcional: true,
   },

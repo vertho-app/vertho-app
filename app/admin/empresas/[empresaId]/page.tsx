@@ -22,6 +22,7 @@ import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulado
 import { enqueueIA2Batch, enqueueBlueprintBatch, statusIAJob, cancelIAJob } from '@/actions/ia-pipeline-batch';
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
+import { resolveTaskModel } from '@/lib/ai-tasks';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { gerarTemporadasLote } from '@/actions/temporadas';
 import { iniciarEnviosTemporada, pausarEnviosTemporada } from '@/actions/envios-temporada';
@@ -47,7 +48,19 @@ const AI_MODELS = [
   // OpenAI do projeto (medido 20/07/2026) — só o snapshot e o mini existem.
   { id: 'gpt-5.4-2026-03-05',     label: 'GPT 5.4',           provider: 'openai' },
   { id: 'gpt-5.4-mini',           label: 'GPT 5.4 Mini',      provider: 'openai' },
+  { id: 'gpt-5.6-luna',           label: 'GPT 5.6 Luna',      provider: 'openai' },
+  { id: 'gpt-5.6-terra',          label: 'GPT 5.6 Terra',     provider: 'openai' },
 ];
+
+// Ações duais → (task de geração, task de checagem) no registro central. O
+// picker abre com os modelos RESOLVIDOS da config (override da empresa →
+// default por task) — antes os defaults eram hardcoded aqui e o override de
+// check salvo em Configurações → IA era config MORTA (nada o lia).
+const DUAL_TASK_KEYS: Record<string, [string, string]> = {
+  'ia3': ['ia3_cenarios', 'ia3_check'],
+  'ia4': ['ia4_avaliar', 'ia4_check'],
+  'cenarios-b': ['cenarios_b', 'cenarios_b_check'],
+};
 
 const AI_ACTIONS = new Set([
   'ia1','ia2','ia3','ia4','blueprint','rel-ind','rel-gestor','rel-rh',
@@ -529,7 +542,17 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
 
   function onActionClick(actionKey: string, label: string, isAI?: any) {
     if (pendingAction) return;
-    if (isAI) { setModo('agora'); setModelPicker({ actionKey, label, dual: isAI === 'dual' }); }
+    if (isAI) {
+      setModo('agora');
+      // Dual: abre o picker já com os modelos RESOLVIDOS da config da empresa
+      // (override por task → default por task) — a config deixa de ser morta.
+      if (isAI === 'dual' && DUAL_TASK_KEYS[actionKey]) {
+        const [genKey, checkKey] = DUAL_TASK_KEYS[actionKey];
+        setDualModel1(resolveTaskModel(data?.empresa?.sys_config, genKey));
+        setDualModel2(resolveTaskModel(data?.empresa?.sys_config, checkKey));
+      }
+      setModelPicker({ actionKey, label, dual: isAI === 'dual' });
+    }
     else handleAction(actionKey, label);
   }
 

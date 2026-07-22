@@ -40,4 +40,24 @@ describe('resolveTaskModel — tasks pinned', () => {
       expect(DEFAULT_TASK_MODELS[task], `PINNED task sem default: ${task}`).toBeTruthy();
     }
   });
+
+  // Decisão 22/07: TODAS as dupla-checagens (2ª IA auditando a 1ª) no GPT 5.6
+  // Terra, e todas pinned — nenhuma auditoria pode ser rebaixada pelo genérico
+  // do tenant nem divergir de modelo por drift de default.
+  const CHECKS_DUAIS = [
+    'ia3_check', 'ia4_check', 'cenarios_b_check',
+    'acumulada_check', 'sem14_check', 'pulse_audit', 'modulo_base_auditor',
+  ];
+
+  it('todas as dupla-checagens têm default GPT 5.6 Terra', () => {
+    for (const task of CHECKS_DUAIS) {
+      expect(DEFAULT_TASK_MODELS[task], task).toBe('gpt-5.6-terra');
+    }
+  });
+
+  it('todas as dupla-checagens são pinned', () => {
+    for (const task of CHECKS_DUAIS) {
+      expect(PINNED_TASKS.has(task), task).toBe(true);
+    }
+  });
 });

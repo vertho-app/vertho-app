@@ -6,6 +6,7 @@ import { callAI, type AIConfig } from '../ai-client';
 import { extractJSON } from '../utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { getModelForTask, DEFAULT_TASK_MODELS } from '@/lib/ai-tasks';
 import { TEMP, type Fase5Config } from './_shared';
 
 // System prompt do check de cenário B — harmonizado com o check do cenário A
@@ -262,7 +263,7 @@ async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: st
 
   const user = blocks.join('\n\n');
 
-  const resposta = await callAI(CHECK_CEN_B_SYSTEM, user, { model: modelo || 'gemini-3.1-flash-lite' }, 4096, { temperature: TEMP });
+  const resposta = await callAI(CHECK_CEN_B_SYSTEM, user, { model: modelo || DEFAULT_TASK_MODELS['cenarios_b_check'] }, 4096, { temperature: TEMP });
   const resultado = await extractJSON(resposta);
   if (!resultado?.nota) return { success: false, error: 'Check não retornou nota' };
 
@@ -472,7 +473,8 @@ export async function checkCenarioBUm(cenarioId: string, modelo: string | null =
       .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
       .limit(1).maybeSingle();
 
-    const r = await runCheckOnCenB(sbRaw, cen, comp, descritoresTexto, pppResumo, modelo, cenA || undefined);
+    const modeloResolvido = modelo || await getModelForTask(cen.empresa_id, 'cenarios_b_check');
+    const r = await runCheckOnCenB(sbRaw, cen, comp, descritoresTexto, pppResumo, modeloResolvido, cenA || undefined);
     if (!r.success) return r;
     return { success: true, message: `Check: ${r.nota}pts — ${r.status}`, nota: r.nota, status: r.status };
   } catch (err) {
@@ -642,7 +644,7 @@ export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Confi
     const pendentes = cenarios.filter(c => c.nota_check == null);
     if (!pendentes.length) return { success: true, message: `Todos os ${cenarios.length} cenários B já foram checados` };
 
-    const modelo = aiConfig?.checkModel || aiConfig?.model || 'gemini-3.1-flash-lite';
+    const modelo = aiConfig?.checkModel || aiConfig?.model || await getModelForTask(empresaId, 'cenarios_b_check');
     const pppResumo = await fetchPppResumo(tdb);
 
     // Pré-carga em BATCH (elimina o cache incremental) e checks IA em
@@ -692,7 +694,8 @@ export async function regenerarERecheckarCenariosBLote(empresaId: string, aiConf
 
     if (!cenarios?.length) return { success: true, message: 'Nenhum cenário B para regenerar' };
 
-    const checkModel = aiConfig?.checkModel || 'gemini-3.1-flash-lite';
+    // null → checkCenarioBUm resolve pela task (cenarios_b_check, pinned).
+    const checkModel = aiConfig?.checkModel || null;
     // Regenerar+recheck em paralelo (limite 3 — cada item já são 2 chamadas IA)
     const marcadoresRg = await mapComLimite(cenarios as any[], 3, async (c: any) => {
       try {

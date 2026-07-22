@@ -42,6 +42,7 @@ export const AI_TASKS = [
 
   // ── Fase 5 — Reavaliação ─────────────────────────────────
   { key: 'cenarios_b', label: 'Geração de Cenários B', fase: 'Fase 5' },
+  { key: 'cenarios_b_check', label: 'Cenários B — Validação (check dual)', fase: 'Fase 5' },
   { key: 'evolucao_fusao', label: 'Evolução (fusão 3 fontes)', fase: 'Fase 5' },
 
   // ── Pulso de Desenvolvimento (Dual-IA) ───────────────────
@@ -61,6 +62,8 @@ export const MODELOS_DISPONIVEIS = [
   // Snapshot datado: o alias puro `gpt-5.4` morreu p/ a chave do projeto (20/07).
   { id: 'gpt-5.4-2026-03-05', label: 'GPT 5.4' },
   { id: 'gpt-5.4-mini', label: 'GPT 5.4 mini' },
+  { id: 'gpt-5.6-luna', label: 'GPT 5.6 Luna' },
+  { id: 'gpt-5.6-terra', label: 'GPT 5.6 Terra' },
 ];
 
 /**
@@ -76,16 +79,19 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // (24/06): qualidade pedagógica e aderência ao spec acima do Gemini Flash, que
   // entregava segmentação/estruturação mais rasa. Custo/latência maiores, aceitos
   // pela alavancagem (módulo-base é matéria-prima reaproveitada).
-  // Auditora em GPT 5.6 Luna (família OpenAI) para manter a perspectiva cruzada
-  // do Dual-IA a custo baixo ($1/$6 vs GPT-5.4 $10/$30). Trocado do gpt-5.4 na
-  // Onda 0 de redução de custo (auditoria = onde o modelo caro rende menos; o
-  // veredito é derivado em código, não pedido ao modelo).
   modulo_base_autor:   'claude-sonnet-4-6',
-  modulo_base_auditor: 'gpt-5.6-luna',
-  // Auditores 2ª-IA do fechamento (antes caíam no default Sonnet por config
-  // vazia): mesmo racional — cross-família OpenAI barato auditando o Sonnet.
-  acumulada_check:     'gpt-5.6-luna',
-  sem14_check:         'gpt-5.6-luna',
+  // ── TODAS as dupla-checagens (2ª IA auditando a 1ª) em GPT 5.6 Terra ──
+  // Decisão do Rodrigo 22/07: padroniza os auditores no Terra ($2,50/$15) —
+  // cross-família OpenAI auditando o Sonnet, qualidade acima do Luna ($1/$6,
+  // Onda 0) e 4× mais barato que o gpt-5.4 ($10/$30) que ia3/ia4 usavam.
+  // O veredito continua derivado EM CÓDIGO, não pedido ao modelo.
+  modulo_base_auditor: 'gpt-5.6-terra',
+  acumulada_check:     'gpt-5.6-terra',
+  sem14_check:         'gpt-5.6-terra',
+  ia3_check:           'gpt-5.6-terra',
+  ia4_check:           'gpt-5.6-terra',
+  cenarios_b_check:    'gpt-5.6-terra',
+  pulse_audit:         'gpt-5.6-terra',
   // Roteiro de vídeo — peça criativa de alta alavancagem (reaproveitada por
   // célula): Opus 4.6 + extended thinking (mesmo preço do 4.8, $5/$25) pela
   // aderência a muitas regras + fidelidade pedagógica. Thinking é ativado no
@@ -108,6 +114,10 @@ export const PINNED_TASKS = new Set([
   'modulo_base_auditor',
   'acumulada_check',
   'sem14_check',
+  'ia3_check',
+  'ia4_check',
+  'cenarios_b_check',
+  'pulse_audit',
 ]);
 
 /**

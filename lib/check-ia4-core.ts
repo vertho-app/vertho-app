@@ -16,6 +16,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { callAI, type AIConfig } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
+import { getModelForTask } from '@/lib/ai-tasks';
 
 const CHECK_SYSTEM = `Você é um auditor de qualidade de Assessment Comportamental da Vertho.
 Sua tarefa: verificar se a avaliação gerada por uma IA é DEFENSÁVEL como produto Vertho.
@@ -170,7 +171,7 @@ export async function checkAvaliacoesCore(sb: SupabaseClient, empresaId: string,
     const colabMap: Record<string, any> = {};
     (colabs || []).forEach((c: any) => { colabMap[c.id] = c; });
 
-    const model = aiConfig?.model || 'gemini-3.1-flash-lite';
+    const model = aiConfig?.model || await getModelForTask(empresaId, 'ia4_check');
     let checados = 0, erros = 0, ultimoErro = '';
 
     for (const resp of respostas) {
@@ -257,7 +258,7 @@ export async function checarUmaRespostaCore(sb: SupabaseClient, respostaId: stri
       .eq('empresa_id', resp.empresa_id)
       .eq('id', resp.colaborador_id).maybeSingle();
 
-    const model = aiConfig?.model || 'gemini-3.1-flash-lite';
+    const model = aiConfig?.model || await getModelForTask(resp.empresa_id, 'ia4_check');
 
     let cenarioTexto = '', perguntasTexto = '';
     if (resp.cenario_id) {
