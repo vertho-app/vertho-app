@@ -214,3 +214,127 @@ export function createAIBatchCollector(
 
   return { run };
 }
+
+// ── OpenAI Batch API (−50%) ─────────────────────────────────────────────────
+// Mesmo contrato do submitClaudeBatch, para modelos OpenAI (gpt-*): JSONL →
+// /v1/files → /v1/batches → polling → download dos resultados por customId.
+// Usado pelos CHECKS duais em lote (auditor GPT 5.6 Terra) — o gerador Claude
+// batcha pelo caminho Anthropic acima.
+
+const OPENAI_BASE = 'https://api.openai.com/v1';
+
+function openaiHeaders(): Record<string, string> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error('OPENAI_API_KEY not set');
+  return { Authorization: `Bearer ${key}` };
+}
+
+/** Sobe o JSONL e cria o batch; devolve o id (metade "submeter" do padrão destacado). */
+export async function createOpenAIBatch(reqs: BatchReq[], opts: { locale?: AppLocale } = {}): Promise<string> {
+  const locale = opts.locale || defaultLocale;
+  const jsonl = reqs.map((r) => JSON.stringify({
+    custom_id: r.customId,
+    method: 'POST',
+    url: '/v1/chat/completions',
+    body: {
+      model: r.model,
+      // gpt-5.x (reasoning) exige max_completion_tokens; margem p/ o thinking.
+      max_completion_tokens: r.maxTokens,
+      messages: [
+        { role: 'system', content: withLanguageInstruction(r.system, locale) },
+        { role: 'user', content: r.user },
+      ],
+    },
+  })).join('\n');
+
+  const fd = new FormData();
+  fd.append('purpose', 'batch');
+  fd.append('file', new Blob([jsonl], { type: 'application/jsonl' }), 'batch.jsonl');
+  const upRes = await fetch(`${OPENAI_BASE}/files`, { method: 'POST', headers: openaiHeaders(), body: fd });
+  if (!upRes.ok) throw new Error(`OpenAI files upload ${upRes.status}: ${(await upRes.text()).slice(0, 300)}`);
+  const file = await upRes.json();
+
+  const bRes = await fetch(`${OPENAI_BASE}/batches`, {
+    method: 'POST',
+    headers: { ...openaiHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input_file_id: file.id, endpoint: '/v1/chat/completions', completion_window: '24h' }),
+  });
+  if (!bRes.ok) throw new Error(`OpenAI batch create ${bRes.status}: ${(await bRes.text()).slice(0, 300)}`);
+  const batch = await bRes.json();
+  return batch.id;
+}
+
+/** Uma consulta ao estado do batch OpenAI. */
+export async function pollOpenAIBatch(batchId: string): Promise<{ ended: boolean; status: string; outputFileId: string | null; errorFileId: string | null }> {
+  const res = await fetch(`${OPENAI_BASE}/batches/${batchId}`, { headers: openaiHeaders() });
+  if (!res.ok) throw new Error(`OpenAI batch retrieve ${res.status}`);
+  const b = await res.json();
+  const ended = ['completed', 'failed', 'expired', 'cancelled'].includes(b.status);
+  return { ended, status: b.status, outputFileId: b.output_file_id || null, errorFileId: b.error_file_id || null };
+}
+
+/** Colhe os textos por customId + registra o usage no ledger (source='batch', −50%). */
+export async function fetchOpenAIBatchResults(
+  outputFileId: string,
+  ledger: { feature?: string; empresaId?: string | null } = {},
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const res = await fetch(`${OPENAI_BASE}/files/${outputFileId}/content`, { headers: openaiHeaders() });
+  if (!res.ok) throw new Error(`OpenAI batch results ${res.status}`);
+  const linhasLedger: any[] = [];
+  for (const line of (await res.text()).split('\n')) {
+    if (!line.trim()) continue;
+    let entry: any;
+    try { entry = JSON.parse(line); } catch { continue; }
+    const body = entry?.response?.body;
+    if (entry?.response?.status_code !== 200 || !body) continue;
+    out.set(entry.custom_id, body.choices?.[0]?.message?.content || '');
+    const u = body.usage;
+    if (u) {
+      const inTok = u.prompt_tokens || 0, outTok = u.completion_tokens || 0;
+      linhasLedger.push({
+        feature: ledger.feature || 'batch',
+        empresa_id: ledger.empresaId ?? null,
+        provider: 'openai',
+        model: body.model || null,
+        input_tokens: inTok, output_tokens: outTok,
+        cost_usd: body.model ? costFromTokens(body.model, { inTokens: inTok, outTokens: outTok }, { batch: true }) : null,
+        status: 'ok', source: 'batch',
+      });
+    }
+  }
+  if (linhasLedger.length) {
+    try {
+      const { createSupabaseAdmin } = await import('@/lib/supabase');
+      await createSupabaseAdmin().from('ia_usage_log').insert(linhasLedger);
+    } catch (e: any) {
+      console.warn('[ia-ledger] falha ao registrar batch openai:', e?.message);
+    }
+  }
+  return out;
+}
+
+/**
+ * Submete N requests como UM batch OpenAI, polling inline até terminar.
+ * Mesmos avisos do submitClaudeBatch (segura a run; bom p/ lotes pequenos).
+ */
+export async function submitOpenAIBatch(
+  reqs: BatchReq[],
+  opts: { pollMs?: number; budgetMs?: number; locale?: AppLocale; ledger?: { feature?: string; empresaId?: string | null } } = {},
+): Promise<Map<string, string>> {
+  const batchId = await createOpenAIBatch(reqs, { locale: opts.locale });
+  const budgetMs = opts.budgetMs ?? 40 * 60_000;
+  const pollMs = opts.pollMs ?? 10_000;
+  const deadline = Date.now() + budgetMs;
+
+  for (;;) {
+    const st = await pollOpenAIBatch(batchId);
+    if (st.ended) {
+      if (st.status !== 'completed') throw new Error(`OpenAI batch ${batchId} terminou como ${st.status}`);
+      if (!st.outputFileId) throw new Error(`OpenAI batch ${batchId} sem output_file_id`);
+      return fetchOpenAIBatchResults(st.outputFileId, opts.ledger || {});
+    }
+    if (Date.now() > deadline) throw new Error(`OpenAI batch ${batchId} excedeu ${Math.round(budgetMs / 60000)}min`);
+    await sleep(pollMs);
+  }
+}

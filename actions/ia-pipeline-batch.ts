@@ -11,9 +11,10 @@ import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supaba
 import { regionOpts } from '@/lib/trigger-region';
 import { tenantDb } from '@/lib/tenant-db';
 import type { AIConfig } from '@/actions/ai-client';
-import { listarCargosParaIA2 } from '@/actions/fase1';
+import { listarCargosParaIA2, listarFilaIA3 } from '@/actions/fase1';
 import { resolverFilaBlueprint100 } from '@/lib/blueprint/core';
 import type { gerarIA2BatchTask } from '@/trigger/gerar-ia2-batch';
+import type { gerarIA3BatchTask } from '@/trigger/gerar-ia3-batch';
 import type { gerarBlueprintBatchTask } from '@/trigger/gerar-blueprint-batch';
 
 /**
@@ -52,6 +53,52 @@ export async function enqueueIA2Batch(empresaId: string, aiConfig: AIConfig = {}
     }
 
     return { success: true as const, jobId: job.id, total: pendentes.length };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || 'Erro' };
+  }
+}
+
+/**
+ * IA3 (cenários A + check dual) em LOTE — Claude −50% na geração, OpenAI −50%
+ * no check quando o modelo é gpt-*. Enfileira a fila do IA3 (mesma fonte do
+ * runner síncrono: pendentes; se tudo já gerado, regenera tudo) e dispara a
+ * task `gerar-ia3-batch`. Gate de tenant AQUI; a task roda service-role.
+ */
+export async function enqueueIA3Batch(empresaId: string, aiConfig: AIConfig & { checkModel?: string } = {}) {
+  try {
+    if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
+    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+
+    const fila = await listarFilaIA3(empresaId);
+    if (!fila?.success || !fila.data?.length) {
+      return { success: false as const, error: fila?.error || 'Nenhuma competência na fila do IA3' };
+    }
+    // Mesma seleção do runner síncrono: pendentes primeiro; tudo gerado → todos.
+    const pendentes = fila.data.filter((f: any) => !f.jaGerado);
+    const escolhidos = pendentes.length ? pendentes : fila.data;
+    const items = escolhidos.map((f: any) => ({
+      cargo: f.cargo, competencia_id: f.competencia_id,
+      ppp_escola_id: f.ppp_escola_id ?? null, nome: f.nome,
+    }));
+
+    const { data: job, error } = await sb.from('ia_jobs').insert({
+      empresa_id: empresaId,
+      fase: 'ia3',
+      params: { aiConfig, items },
+      status: 'queued',
+      progress: { done: 0, total: items.length * (aiConfig?.checkModel ? 2 : 1), current: 'na fila', resultados: [] },
+    }).select('id').single();
+    if (error) return { success: false as const, error: error.message };
+
+    try {
+      const handle = await tasks.trigger<typeof gerarIA3BatchTask>('gerar-ia3-batch', { jobId: job.id }, regionOpts());
+      await sb.from('ia_jobs').update({ params: { aiConfig, items, runId: handle.id } }).eq('id', job.id);
+    } catch (e: any) {
+      await sb.from('ia_jobs').update({ status: 'error', error: 'dispatch: ' + (e?.message || e) }).eq('id', job.id);
+      return { success: false as const, error: 'Não foi possível enfileirar: ' + (e?.message || e) };
+    }
+
+    return { success: true as const, jobId: job.id, total: items.length };
   } catch (err: any) {
     return { success: false as const, error: err?.message || 'Erro' };
   }

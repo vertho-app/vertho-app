@@ -15,7 +15,7 @@
     "lib/i18n-server.ts": 2,
     "lib/permissions.ts": 1,
     "actions/ai-client.ts": 1,
-    "lib/ai-batch.ts": 1,
+    "lib/ai-batch.ts": 2,
     "actions/ia-uso.ts": 1,
     "actions/avaliacao-acumulada.ts": 2,
     "actions/backup.ts": 1,

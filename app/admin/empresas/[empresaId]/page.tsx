@@ -19,7 +19,7 @@ import { useConfirm } from '@/components/admin/confirm-dialog';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
-import { enqueueIA2Batch, enqueueBlueprintBatch, statusIAJob, cancelIAJob } from '@/actions/ia-pipeline-batch';
+import { enqueueIA2Batch, enqueueIA3Batch, enqueueBlueprintBatch, statusIAJob, cancelIAJob } from '@/actions/ia-pipeline-batch';
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { resolveTaskModel } from '@/lib/ai-tasks';
@@ -430,6 +430,19 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         loadData(); setPendingAction(null); return;
       }
       if (actionKey === 'ia3') {
+        // ── Em lote: Batch API (geração Claude −50% + check OpenAI −50%) ──
+        if (aiConfig?.modo === 'lote') {
+          runningModeRef.current = 'batch';
+          addLog('📦 IA3 em lote (Batch API −50%, assíncrono — pode demorar).', 'info');
+          const r: any = await enqueueIA3Batch(empresaId, aiConfig);
+          if (!r.success) { addLog(`❌ ${r.error}`, 'error'); setPendingAction(null); return; }
+          if (!r.jobId) { addLog(`✅ ${r.message || 'Nada pendente'}`, 'success'); loadData(); refreshTop10(); setPendingAction(null); return; }
+          activeJobIdRef.current = r.jobId;
+          addLog(`📋 ${r.total} cenário(s) no lote ${String(r.jobId).slice(0, 8)}…`, 'info');
+          await poll(r.jobId);
+          activeJobIdRef.current = null;
+          loadData(); refreshTop10(); setPendingAction(null); return;
+        }
         const fila = await listarFilaIA3(empresaId);
         if (!fila?.success || !fila.data?.length) { addLog(`❌ ${fila?.error || 'Nenhuma competência na fila'}`, 'error'); setPendingAction(null); return; }
         const items = fila.data.filter((f: any) => !f.jaGerado).length > 0 ? fila.data.filter((f: any) => !f.jaGerado) : fila.data;
@@ -1079,22 +1092,46 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
             <h3 className="text-sm font-bold text-white mb-1">{modelPicker.label}</h3>
             {modelPicker.dual ? (
               <>
+                {/* Em lote (Batch API −50%): geração Claude + check OpenAI. Por ora só o IA3 tem task de lote. */}
+                {modelPicker.actionKey === 'ia3' && (
+                  <div className="flex gap-2 mb-3">
+                    {(['agora', 'lote'] as const).map((mo) => (
+                      <button key={mo} onClick={() => setModo(mo)}
+                        className="flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-colors"
+                        style={modo === mo
+                          ? { background: 'rgba(52,197,204,.15)', color: '#34c5cc', borderColor: 'rgba(52,197,204,.4)' }
+                          : { background: '#091D35', color: 'rgba(255,255,255,.5)', borderColor: 'rgba(255,255,255,.08)' }}>
+                        {mo === 'agora' ? 'Agora' : 'Em lote −50%'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {modelPicker.actionKey === 'ia3' && modo === 'lote' && (
+                  <p className="text-[9px] leading-snug mb-3" style={{ color: 'rgba(245,158,11,.85)' }}>Batch API: mais barato, porém assíncrono — pode demorar. Geração: modelos Claude · Validação: modelos OpenAI (GPT).</p>
+                )}
                 <p className="text-[10px] text-gray-500 mb-3">{t('modelPicker.selectEachStep')}</p>
                 <div className="mb-3">
                   <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-1">{t('modelPicker.generation')}</p>
                   <select value={dualModel1} onChange={e => setDualModel1(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                    {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                    {(modo === 'lote' ? AI_MODELS.filter((m) => m.id.startsWith('claude')) : AI_MODELS).map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                   </select>
                 </div>
                 <div className="mb-4">
                   <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">{t('modelPicker.validation')}</p>
                   <select value={dualModel2} onChange={e => setDualModel2(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                    {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                    {(modo === 'lote' ? AI_MODELS.filter((m) => m.id.startsWith('gpt')) : AI_MODELS).map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                   </select>
                 </div>
-                <button onClick={() => { const { actionKey, label } = modelPicker; setModelPicker(null); handleAction(actionKey, label, { model: dualModel1, checkModel: dualModel2 }); }}
+                <button onClick={() => {
+                  const { actionKey, label } = modelPicker; setModelPicker(null);
+                  // No lote, garante modelos batcháveis mesmo se o select não foi tocado
+                  // (value fora das options filtradas fica no estado anterior).
+                  const gen = modo === 'lote' && !dualModel1.startsWith('claude') ? 'claude-sonnet-4-6' : dualModel1;
+                  const chk = modo === 'lote' && !dualModel2.startsWith('gpt') ? 'gpt-5.6-terra' : dualModel2;
+                  handleAction(actionKey, label, { model: gen, checkModel: chk, modo });
+                }}
                   className="w-full py-2.5 rounded-lg text-xs font-bold text-white mb-2" style={{ background: '#0D9488' }}>
                   {t('modelPicker.run')}
                 </button>
