@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
 /**
  * Multi-tenant subdomain proxy.
@@ -137,7 +138,74 @@ export function stripTenantCookie(cookieHeader) {
   return restantes.length ? restantes.join('; ') : null;
 }
 
-export function proxy(request) {
+// Rotas que nunca carregam sessão de browser — cron/webhook/task não pagam refresh.
+const ROTAS_SEM_SESSAO = ['/api/cron', '/api/webhooks', '/api/trigger'];
+
+/** Só vale renovar se a request traz cookie de sessão do Supabase. */
+function temCookieDeSessao(request) {
+  return /(?:^|;\s*)sb-[^=;\s]*=/.test(request.headers.get('cookie') || '');
+}
+
+function precisaRenovarSessao(request) {
+  // Bearer (cron/serviço) não usa cookie
+  if (request.headers.get('authorization')) return false;
+  if (!temCookieDeSessao(request)) return false;
+  const p = request.nextUrl?.pathname || '';
+  return !ROTAS_SEM_SESSAO.some((rota) => p.startsWith(rota));
+}
+
+/**
+ * Renova a sessão do Supabase AQUI — o proxy é o único ponto da request onde o
+ * cookie é GRAVÁVEL.
+ *
+ * Por que isto existe (bug de 22/07, pisca-pisca /admin/dashboard ↔ /login):
+ * `auth.getUser()` num Server Component dispara o refresh quando o access token
+ * expira, mas o `cookies()` de RSC é READ-ONLY — o `store.set` de
+ * `lib/auth/supabase-server.ts` cai no catch e o token novo é PERDIDO. O refresh
+ * token, porém, já foi rotacionado no servidor do Supabase: o browser fica com o
+ * token velho (agora inválido) e a sessão morre no meio da navegação. Daí o
+ * servidor vê anônimo e manda pro /login, enquanto o cliente ainda tem a sessão
+ * em memória e manda de volta pra rota protegida — laço infinito.
+ *
+ * `getSession()` e não `getUser()`: aqui só queremos o REFRESH (ele não vai à
+ * rede enquanto o token é válido, e rotaciona quando expirou). A AUTORIZAÇÃO
+ * continua sendo feita com `getUser()` na camada de app, que valida o JWT.
+ */
+async function renovarSessao(request, cookiesPendentes) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key || !request.cookies?.getAll) return;
+
+  const supabase = createServerClient(url, key, {
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll: (cookiesToSet) => {
+        for (const { name, value, options } of cookiesToSet) {
+          // 1) request: o render DESTA request já enxerga o token novo
+          request.cookies.set(name, value);
+          // 2) response: o browser recebe o token rotacionado
+          cookiesPendentes.push({ name, value, options });
+        }
+      },
+    },
+  });
+
+  try {
+    await supabase.auth.getSession();
+  } catch {
+    // Refresh falhou (token morto, rede) — segue anônimo; quem decide é o gate.
+  }
+}
+
+/** Aplica na response os cookies rotacionados pelo refresh. */
+function aplicarCookiesDeSessao(response, cookiesPendentes) {
+  for (const { name, value, options } of cookiesPendentes) {
+    response.cookies.set(name, value, options);
+  }
+  return response;
+}
+
+export async function proxy(request) {
   const hostname = request.headers.get('host') || '';
 
   // 0) radarbett descontinuado → redirect 301 permanente
@@ -160,7 +228,12 @@ export function proxy(request) {
     return NextResponse.rewrite(url);
   }
 
-  // 2) Tenant por subdomínio (fluxo existente)
+  // 2) Refresh da sessão (antes de montar os headers repassados — o cookie novo
+  //    precisa chegar ao render desta mesma request).
+  const cookiesPendentes = [];
+  if (precisaRenovarSessao(request)) await renovarSessao(request, cookiesPendentes);
+
+  // 3) Tenant por subdomínio (fluxo existente)
   const slug = extractTenantSlug(hostname);
 
   // O tenant é decidido AQUI, pelo hostname — nunca pelo cliente. Quem consome
@@ -177,7 +250,10 @@ export function proxy(request) {
     const limpo = stripTenantCookie(requestHeaders.get('cookie'));
     if (limpo === null) requestHeaders.delete('cookie');
     else requestHeaders.set('cookie', limpo);
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    return aplicarCookiesDeSessao(
+      NextResponse.next({ request: { headers: requestHeaders } }),
+      cookiesPendentes,
+    );
   }
 
   // Injeta o slug em DOIS lugares:
@@ -198,7 +274,7 @@ export function proxy(request) {
     path: '/',
   });
 
-  return response;
+  return aplicarCookiesDeSessao(response, cookiesPendentes);
 }
 
 export const config = {

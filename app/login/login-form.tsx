@@ -53,10 +53,28 @@ export default function LoginForm({ branding }: { branding: any }) {
     window.location.reload();
   }
 
-  // Se já está logado, redireciona
+  // Se já está logado, redireciona.
+  //
+  // ⚠️ getUser() (valida o token na rede) e NÃO getSession(): getSession devolve
+  // a sessão que o client guarda em MEMÓRIA, que sobrevive ao cookie morto. Com
+  // ela, o /login mandava de volta pra rota protegida, cujo gate server-side via
+  // anônimo e mandava de novo pro /login — o pisca-pisca de 22/07. Aqui a
+  // pergunta é a MESMA que o servidor faz, então os dois lados não divergem.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace(redirectTo);
+    let vivo = true;
+
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+      if (!vivo) return;
+      if (user) {
+        router.replace(redirectTo);
+        return;
+      }
+      // 4xx = o servidor de auth recusou o token (morto/ausente): limpa o
+      // resíduo local pra não reencenar o laço. 0/5xx = rede — NÃO desloga.
+      const status = (error as any)?.status;
+      if (typeof status === 'number' && status >= 400 && status < 500) {
+        supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -67,7 +85,7 @@ export default function LoginForm({ branding }: { branding: any }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => { vivo = false; subscription.unsubscribe(); };
   }, [redirectTo]);
 
   // Fluxo de e-mail: senha (se mode==='password') ou check-email → magic-link/signup.

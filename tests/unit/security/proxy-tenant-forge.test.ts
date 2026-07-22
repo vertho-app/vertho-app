@@ -22,25 +22,25 @@ function headerRepassado(res: Response, nome: string) {
 }
 
 describe('proxy — tenant não pode vir do cliente', () => {
-  it('descarta x-tenant-slug forjado no apex', () => {
-    const res = proxy(fakeRequest('vertho.ai', { 'x-tenant-slug': 'macae' }));
+  it('descarta x-tenant-slug forjado no apex', async () => {
+    const res = await proxy(fakeRequest('vertho.ai', { 'x-tenant-slug': 'macae' }));
     expect(headerRepassado(res, 'x-tenant-slug')).toBeNull();
   });
 
-  it('descarta x-tenant-slug forjado em preview *.vercel.app', () => {
-    const res = proxy(fakeRequest('vertho-abc123.vercel.app', { 'x-tenant-slug': 'macae' }));
+  it('descarta x-tenant-slug forjado em preview *.vercel.app', async () => {
+    const res = await proxy(fakeRequest('vertho-abc123.vercel.app', { 'x-tenant-slug': 'macae' }));
     expect(headerRepassado(res, 'x-tenant-slug')).toBeNull();
   });
 
-  it('descarta cookie de tenant forjado no apex, preservando os demais cookies', () => {
-    const res = proxy(fakeRequest('vertho.ai', { cookie: 'sb-x-auth-token=abc; vertho-tenant-slug=macae' }));
+  it('descarta cookie de tenant forjado no apex, preservando os demais cookies', async () => {
+    const res = await proxy(fakeRequest('vertho.ai', { cookie: 'sb-x-auth-token=abc; vertho-tenant-slug=macae' }));
     const cookie = headerRepassado(res, 'cookie') || '';
     expect(cookie).not.toContain('vertho-tenant-slug');
     expect(cookie).toContain('sb-x-auth-token=abc');
   });
 
-  it('no subdomínio, o slug do HOST vence o header forjado', () => {
-    const res = proxy(fakeRequest('ibipeba.vertho.ai', { 'x-tenant-slug': 'macae' }));
+  it('no subdomínio, o slug do HOST vence o header forjado', async () => {
+    const res = await proxy(fakeRequest('ibipeba.vertho.ai', { 'x-tenant-slug': 'macae' }));
     expect(headerRepassado(res, 'x-tenant-slug')).toBe('ibipeba');
   });
 });
