@@ -80,6 +80,29 @@ export async function salvarBranding(empresaId, branding) {
 }
 
 /**
+ * Extrai a paleta de cores do SITE do cliente e propõe as 7 cores da tela de
+ * login. Núcleo headless em lib/site-palette (fetch anti-SSRF + extração de
+ * CSS/meta/manifest + IA mapeia + contraste garantido em código). NÃO salva —
+ * devolve a proposta; o admin revisa no form e clica Salvar.
+ */
+export async function extrairPaletaDoSite(empresaId: string, siteUrl: string) {
+  await requireAdminSupabase('companies.manage');
+  if (!empresaId || !siteUrl?.trim()) return { success: false, error: 'empresaId e URL do site obrigatórios' };
+  try {
+    const { extrairPaletaDoSiteCore } = await import('@/lib/site-palette');
+    const r = await extrairPaletaDoSiteCore(siteUrl.trim());
+    await logAdminAction({
+      adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+      acao: 'empresa.editar', empresaId, alvo: 'branding (paleta do site)',
+      detalhes: { url: siteUrl.trim(), css_arquivos: r.fontes.cssArquivos, ajustes: r.ajustes },
+    });
+    return { success: true, paleta: r.paleta, racional: r.racional, ajustes: r.ajustes, candidatos: r.candidatos.slice(0, 12) };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Falha ao extrair a paleta do site' };
+  }
+}
+
+/**
  * Resume o PPP (ou descrição livre) da escola num brief estruturado e o salva
  * em sys_config.video_escola. O brief ancora a bíblia visual e o tom do
  * voice-over no render de vídeo IA (ver lib/escola-brief + lib/video-plan).

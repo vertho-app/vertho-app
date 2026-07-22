@@ -8,7 +8,7 @@ import {
   Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users, GraduationCap, Film, Sparkles
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, atualizarProgramaModo, vincularDominioVercel, salvarLocaleEmpresa, resumirPPPEscola, listarPPPEscolas, gerarBriefDoPPP } from './actions';
+import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, atualizarProgramaModo, vincularDominioVercel, salvarLocaleEmpresa, resumirPPPEscola, listarPPPEscolas, gerarBriefDoPPP, extrairPaletaDoSite } from './actions';
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { ROOT_DOMAIN } from '@/lib/domain';
@@ -62,6 +62,10 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
   const [roleUpdating, setRoleUpdating] = useState(null);
   const [ppp, setPpp] = useState('');
   const [resumindo, setResumindo] = useState(false);
+  const [siteUrl, setSiteUrl] = useState('');
+  const [puxandoPaleta, setPuxandoPaleta] = useState(false);
+  const [paletaMsg, setPaletaMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [paletaCandidatos, setPaletaCandidatos] = useState<any[]>([]);
   const [pppEscolas, setPppEscolas] = useState<any[]>([]);
   const [pppEscolaSel, setPppEscolaSel] = useState('');
   const [gerandoPpp, setGerandoPpp] = useState(false);
@@ -114,6 +118,20 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
   function updateBranding(field, value) { setBranding(prev => ({ ...prev, [field]: value })); }
   function updateBriefEscola(field, value) {
     setConfig(prev => ({ ...prev, video_escola: { ...(prev as any).video_escola, [field]: value } }));
+  }
+
+  async function handlePuxarPaleta() {
+    setPuxandoPaleta(true); setPaletaMsg(null); setPaletaCandidatos([]);
+    const r = await extrairPaletaDoSite(empresaId, siteUrl);
+    if (r.success && r.paleta) {
+      setBranding(prev => ({ ...prev, ...r.paleta }));
+      setPaletaCandidatos(r.candidatos || []);
+      const extras = [r.racional, ...(r.ajustes || [])].filter(Boolean).join(' · ');
+      setPaletaMsg({ ok: true, text: `${t('branding.palette.applied')}${extras ? ` — ${extras}` : ''}` });
+    } else {
+      setPaletaMsg({ ok: false, text: r.error || t('branding.palette.failed') });
+    }
+    setPuxandoPaleta(false);
   }
 
   async function handleResumirPPP() {
@@ -570,6 +588,41 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
           </Panel>
 
           <Panel title={t('branding.colorsTitle')}>
+            {/* Puxar cores do site do cliente (IA + contraste garantido em código) */}
+            <div className="mb-4 p-3 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(6,182,212,0.06)' }}>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('branding.palette.title')}</p>
+              <div className="flex items-center gap-2">
+                <input
+                  value={siteUrl}
+                  onChange={e => setSiteUrl(e.target.value)}
+                  placeholder={t('branding.palette.placeholder')}
+                  className="flex-1 px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
+                  style={{ background: '#091D35' }}
+                />
+                <button
+                  type="button"
+                  disabled={puxandoPaleta || !siteUrl.trim()}
+                  onClick={handlePuxarPaleta}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-50 transition-colors whitespace-nowrap"
+                >
+                  {puxandoPaleta ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  {puxandoPaleta ? t('branding.palette.pulling') : t('branding.palette.pull')}
+                </button>
+              </div>
+              {paletaMsg && (
+                <p className={`text-[11px] mt-2 ${paletaMsg.ok ? 'text-emerald-300/85' : 'text-red-300/85'}`}>{paletaMsg.text}</p>
+              )}
+              {paletaCandidatos.length > 0 && (
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  <span className="text-[10px] text-gray-500">{t('branding.palette.found')}</span>
+                  {paletaCandidatos.map((c: any) => (
+                    <span key={c.hex} title={`${c.hex} ×${c.count}`}
+                      className="w-5 h-5 rounded-md border border-white/15 cursor-default"
+                      style={{ background: c.hex }} />
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-3">
               {[
                 { key: 'font_color', label: t('branding.labels.font_color') },

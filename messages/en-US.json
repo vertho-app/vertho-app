@@ -4045,6 +4045,15 @@
         "accent_color": "Accent color",
         "bg_gradient_start": "Background (top)",
         "bg_gradient_end": "Background (bottom)"
+      },
+      "palette": {
+        "title": "Pull colors from the client's website",
+        "placeholder": "https://www.client.com",
+        "pull": "Pull colors",
+        "pulling": "Analyzing site…",
+        "applied": "Palette applied to the fields — review and save.",
+        "failed": "Failed to extract the palette",
+        "found": "Colors found:"
       }
     },
     "ai": {

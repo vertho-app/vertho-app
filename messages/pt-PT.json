@@ -4056,6 +4056,15 @@
         "accent_color": "Cor de Destaque",
         "bg_gradient_start": "Fundo (topo)",
         "bg_gradient_end": "Fundo (base)"
+      },
+      "palette": {
+        "title": "Obter cores do site do cliente",
+        "placeholder": "https://www.cliente.pt",
+        "pull": "Obter cores",
+        "pulling": "A analisar o site…",
+        "applied": "Paleta aplicada aos campos — reveja e guarde.",
+        "failed": "Falha ao extrair a paleta",
+        "found": "Cores encontradas:"
       }
     },
     "ai": {

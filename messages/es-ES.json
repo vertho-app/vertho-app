@@ -4056,6 +4056,15 @@
         "accent_color": "Color de destaque",
         "bg_gradient_start": "Fondo (arriba)",
         "bg_gradient_end": "Fondo (abajo)"
+      },
+      "palette": {
+        "title": "Extraer colores del sitio del cliente",
+        "placeholder": "https://www.cliente.es",
+        "pull": "Extraer colores",
+        "pulling": "Analizando el sitio…",
+        "applied": "Paleta aplicada a los campos — revisa y guarda.",
+        "failed": "Error al extraer la paleta",
+        "found": "Colores encontrados:"
       }
     },
     "ai": {
