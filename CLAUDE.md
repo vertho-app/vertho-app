@@ -66,6 +66,11 @@ tests/unit/          vitest
 - **Guard no CI**: `tests/unit/security/use-server-internal-guard.test.ts` + `config/use-server-internal-allowlist.json`. Varre por AST os arquivos `'use server'` versionados e falha se um export novo aceitar `internal` (nos 3 formatos: identificador, destructuring, membro do tipo de `opts`). A allowlist é **dívida declarada, só pode encolher** — adicionar entrada pra "passar o CI" é exatamente o bug que ele existe pra pegar.
 - ⚠️ Resíduo conhecido (**5 entradas** na allowlist, verificado 17/07): `actions/whatsapp.ts` (`enviarWhatsApp`/`enviarAudio` — **boolean, sem revalidação de tenant**; maior risco: relay de WhatsApp = ban do número mata o canal de todos os tenants; ids hoje NÃO publicados no bundle — proteção acidental monitorada pelo CI), `actions/avaliacao-acumulada.ts` (×2) e `actions/evolution-report.ts` (forma `{empresaId}` — revalidam o tenant). `fase1`/`fase3` removidos em 10/07. Não copiar esse padrão.
 
+### Sessão (auth): quem renova ≠ quem decide
+- O **refresh** da sessão do Supabase vive no **`proxy.js`** — é o único ponto da request onde o cookie é gravável. O `cookies()` de um Server Component é **read-only**: um refresh disparado lá rotaciona o token no Supabase e **perde** o par novo no catch → o browser fica com o refresh token já consumido e a sessão morre no meio da navegação.
+- Gate de auth **no cliente** usa **`getUser()`** (valida na rede), NUNCA `getSession()` — `getSession` devolve a sessão em MEMÓRIA, que sobrevive ao cookie morto. Servidor perguntando `getUser` e cliente perguntando `getSession` = as duas pontas divergem e o app entra em **laço `/rota-protegida` ↔ `/login`** (medido em prod 22/07: ~3 req/s). `getSession` só serve pra RENOVAR, nunca pra DECIDIR.
+- Detalhe e testes: `ARQUITETURA.md` §3.1.1 + `tests/unit/security/proxy-session-refresh.test.ts`.
+
 ### Trabalho pós-response numa rota
 - DEVE usar **`after()`** (`next/server`). Uma IIFE solta (`(async()=>{})()`) morre no freeze da lambda pós-response.
 - Trabalho pesado que precisa de **retry/status** → **task Trigger.dev** + coluna de status na tabela + gate/polling no client, com `after()` só como fallback/self-heal (ex.: acumulada do piloto, `trigger/acumulada-piloto.ts`).
@@ -156,6 +161,7 @@ nunca **"o que está gravado aqui?"**.
 - NÃO `git add -A`, `vercel --prod`, `cd && git`.
 - NÃO query de colaborador por email direto — usar `findColabByEmail`.
 - NÃO trabalho pós-response sem `after()`.
+- NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
 - NÃO commitar secrets / instalar dependência desnecessária sem necessidade clara.
 - O backend legado em **Google Apps Script** (GAS) é **dormant** — o app evoluiu muito além dele; NÃO tentar manter paridade.

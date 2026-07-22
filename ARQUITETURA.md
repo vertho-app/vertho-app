@@ -433,6 +433,31 @@ nextjs-app/
   → app.vertho.ai       → app principal (auth/admin)
 ```
 
+### 3.1.1 Refresh da sessao — vive NO PROXY (22/07)
+
+O `proxy.js` tambem **renova a sessao do Supabase**. Nao e detalhe de performance: e o unico ponto da request onde o cookie de auth e **gravavel**.
+
+```
+proxy.js
+  → pula quem nao tem cookie sb-*, quem manda Bearer e /api/cron|webhooks|trigger
+  → createServerClient({ getAll: request.cookies, setAll: request + response })
+  → auth.getSession()   // SO o refresh: nao vai a rede enquanto o token vale
+  → par rotacionado vai p/ a REQUEST (o render desta request ja ve o token novo)
+                     e p/ a RESPONSE (o browser recebe)
+```
+
+**Por que existe** — `getUser()` num Server Component dispara o refresh quando o access token expira, mas o `cookies()` de RSC e **read-only**: o `store.set` de `lib/auth/supabase-server.ts` caia num catch mudo e o par novo era PERDIDO. O refresh token ja tinha sido rotacionado no Supabase, entao o browser ficava com o token velho (agora "already used") e **a sessao morria no meio da navegacao**. Sintoma medido em prod (22/07): pisca-pisca `/admin/dashboard` ↔ `/login` a ~3 req/s, porque as duas pontas perguntavam coisas DIFERENTES —
+
+| ponta | pergunta | resposta |
+|---|---|---|
+| servidor (`app/admin/layout.tsx`) | `getUser()` — valida na rede | anonimo → `/login?redirect=…` |
+| cliente (`app/login/login-form.tsx`) | `getSession()` — sessao em **memoria**, sobrevive ao cookie morto | "tem sessao" → `router.replace(rota protegida)` |
+
+**Regras que sairam disso:**
+- Gate de auth no cliente usa **`getUser()`**, nunca `getSession()` — tem que ser a mesma pergunta do servidor, senao os dois lados divergem e o laco reaparece. `getSession()` so serve pra "renovar", nunca pra "decidir".
+- O catch de `supabase-server.ts` agora **loga** (`[auth] refresh perdido: cookie store read-only`) — cair ali significa caminho de auth escapando do proxy.
+- Guardado por `tests/unit/security/proxy-session-refresh.test.ts` (6 testes, validados por mutacao: sem a chamada de refresh, os 3 positivos falham).
+
 **Apex `vertho.ai`**: hospedado no Gamma (home institucional). `next.config.mjs` tem rewrite condicional via `GAMMA_HOME_URL` caso o apex migre pro Vercel. `imprensa.vertho.ai` ja e nativa da Next (`app/imprensa/page.tsx`).
 
 **Vincular subdominio ao Vercel**: a partir de 2026-04, o registro NAO eh mais automatico em `criarNovaEmpresa`. Existe botao **"Vincular ao Vercel"** em `/admin/empresas/{id}/configuracoes` (aba Branding) — usa `lib/vercel-domain.ts`. Razao: cliente Ibipeba falhou silenciosamente no auto-registro.
@@ -659,9 +684,10 @@ Import, thumbnails, embed, analytics, webhook. Status: ✅
 ### Fluxo A: Login + Tenant + Dashboard
 ```
 1. Usuario acessa {slug}.vertho.ai/login
-2. middleware.js extrai slug → header x-tenant-slug
+2. proxy.js extrai slug → header x-tenant-slug + renova a sessao (secao 3.1.1)
 3. tenant-resolver.js busca empresa por slug (cache 5min)
 4. LoginForm: email + senha/Magic Link → Supabase Auth
+   (se ja logado: getUser() valida na rede — NUNCA getSession, ver 3.1.1)
 5. Redirect para /dashboard
 6. authz.js: getUserContext → getDashboardView → rh|gestor|colaborador
 7. Dashboard renderiza Hero + Proximo Passo + Acesso Rapido + KPIs
