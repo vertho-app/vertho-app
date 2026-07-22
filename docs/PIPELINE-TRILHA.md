@@ -8,6 +8,15 @@ carrega `arquivo:linha`. Onde o código não decide, está marcado **não determ
 > não no que está gravado. Ao investigar "o que a pessoa recebe", leia **quem consome** — não
 > a tabela. Ver `CLAUDE.md` › "a forma GRAVADA ≠ o que é ENTREGUE".
 
+> **Errata 17/07/2026** (verificação completa: `docs/ANALISE-RISCOS-PIPELINE-TRILHA.md` §4):
+> 1. Kit gera **3 formatos** (`['audio','texto','case']`, `actions/kits.ts:23`), não 4 — o vídeo do kit não é micro_conteudo (é `dispararVideoDoKit` → `videos_gerados`). Real: **12 micro_conteudos + 4 vídeos de célula** por brief.
+> 2. O "gate real na leitura" (`checarGatesSemana`) só existe nas 4 rotas de chat — `loadTemporada` e a week page **não gateiam**: semana futura é legível por URL direta.
+> 3. "Idempotente por dia" omite: o carimbo `ultima_pilulaN_em` grava **mesmo com os 2 canais falhando** (`cron-jobs.ts:370`) — perda permanente, sem retry.
+> 4. "Nunca quebra a entrega" tem exceções: PDF sem genérico → JSON 404 cru; podcast sem TTS → 404 player mudo.
+> 5. Caminhos: `lib/kit/*` → `lib/season-engine/kit/*`. Linhas defasadas: overlay `:127`→`entrega-semana.ts:133`; merge de formatos `:112`→`:118`; filtros MB `:107-108`→`modulo-base-integration.ts:106-107`; cron `cron-jobs.ts:291`.
+> 6. `evolucao-granular.ts:303` não escreve DISC (é projeção de leitura).
+> 7. WhatsApp tem failover Z-API→WaSender; `drift = fails > 0` está em `audit.ts:280`.
+
 ---
 
 ## Mapa geral
