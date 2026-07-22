@@ -15,21 +15,33 @@
 
 export const PILOTO_SPEC_VERSION = 'piloto-v1';
 
-// Menções de duração que invalidam a narrativa do piloto: a degustação tem 2
-// semanas, então QUALQUER contagem 3-14 é erro — "14/13 semanas" é a régua do
-// REGULAR vazando, e "3 semanas" é a contagem de SLOTS (sem 1/2/fechamento)
-// vazando. Só "2 semanas" (e "1 semana", singular) passam.
-const DURACAO_ERRADA = /\b([3-9]|1[0-4])\s+semanas\b/i;
+// Menções de duração que invalidam a narrativa da degustação: a duração REAL
+// (semanas de conteúdo, `semanasCerto`) é a única contagem plural válida —
+// qualquer outra 2-14 é a régua do REGULAR (14/13) ou a contagem de SLOTS
+// (conteúdo + fechamento) vazando. "1 semana" (singular) sempre passa.
+// Parametrizado pro modo custom (1–4 semanas); default 2 = piloto, byte-igual.
+const DURACAO_QUALQUER = /\b([2-9]|1[0-4])\s+semanas\b/gi;
 // Formas em que dá pra corrigir com segurança (frase de duração isolada).
-const DURACAO_CORRIGIVEL = /\b(ao final de|ao longo de|após|depois de|durante|em)\s+([3-9]|1[0-4])\s+semanas\b/gi;
+const DURACAO_CORRIGIVEL = /\b(ao final de|ao longo de|após|depois de|durante|em)\s+([2-9]|1[0-4])\s+semanas\b/gi;
 // (?<!\d\s) — NÃO corrigir quando há contagem antes ("11 das 13 semanas"):
-// trocar a janela ali quebraria a frase; fica pro DURACAO_ERRADA invalidar.
-const JANELA_CORRIGIVEL = /(?<!\d\s)\b(das?|nas?|pelas?)\s+([3-9]|1[0-4])\s+semanas\b/gi;
+// trocar a janela ali quebraria a frase; fica pro temDuracaoErrada invalidar.
+const JANELA_CORRIGIVEL = /(?<!\d\s)\b(das?|nas?|pelas?)\s+([2-9]|1[0-4])\s+semanas\b/gi;
 
-function corrigirTexto(t: string): string {
+function plural(n: number): string {
+  return n === 1 ? '1 semana' : `${n} semanas`;
+}
+
+function temDuracaoErrada(t: string, semanasCerto: number): boolean {
+  for (const m of t.matchAll(DURACAO_QUALQUER)) {
+    if (Number(m[1]) !== semanasCerto) return true;
+  }
+  return false;
+}
+
+function corrigirTexto(t: string, semanasCerto: number): string {
   return t
-    .replace(DURACAO_CORRIGIVEL, (m, prep) => `${prep} 2 semanas`)
-    .replace(JANELA_CORRIGIVEL, () => 'da degustação de 2 semanas');
+    .replace(DURACAO_CORRIGIVEL, (m, prep, n) => Number(n) === semanasCerto ? m : `${prep} ${plural(semanasCerto)}`)
+    .replace(JANELA_CORRIGIVEL, (m, _prep, n) => Number(n) === semanasCerto ? m : `da degustação de ${plural(semanasCerto)}`);
 }
 
 /**
@@ -39,8 +51,10 @@ function corrigirTexto(t: string): string {
  * conteúdo. Retorna `ok=false` se restou menção de duração errada que não
  * deu pra corrigir com segurança — o caller trata como narrativa inválida
  * (retry/erro recuperável), nunca publica.
+ * `semanasCerto` = semanas de CONTEÚDO da degustação (piloto = 2; custom =
+ * slotsConteudo.length).
  */
-export function sanitizarNarrativaPiloto(parsed: any): { parsed: any; ok: boolean; alterou: boolean } {
+export function sanitizarNarrativaPiloto(parsed: any, semanasCerto = 2): { parsed: any; ok: boolean; alterou: boolean } {
   if (!parsed || typeof parsed !== 'object') return { parsed, ok: true, alterou: false };
   const out = { ...parsed };
   let alterou = false;
@@ -60,12 +74,12 @@ export function sanitizarNarrativaPiloto(parsed: any): { parsed: any; ok: boolea
   let restou = false;
   for (const [obj, k] of campos) {
     if (typeof obj[k] !== 'string' || !obj[k]) continue;
-    if (DURACAO_ERRADA.test(obj[k])) {
+    if (temDuracaoErrada(obj[k], semanasCerto)) {
       const antes = obj[k];
-      obj[k] = corrigirTexto(obj[k]);
+      obj[k] = corrigirTexto(obj[k], semanasCerto);
       if (obj[k] !== antes) alterou = true;
     }
-    if (DURACAO_ERRADA.test(obj[k])) restou = true;
+    if (temDuracaoErrada(obj[k], semanasCerto)) restou = true;
   }
   return { parsed: out, ok: !restou, alterou };
 }

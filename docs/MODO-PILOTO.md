@@ -186,3 +186,46 @@ O E2E do piloto expôs e corrigiu **4 bugs latentes do regular**:
 3. **Multi-tenant**: `loadTemporadaConcluida` buscava colab com `.eq('email').maybeSingle()`
    direto — usuário em 2+ empresas → null. Usar sempre `findColabByEmail` (resolve o tenant).
 4. **Prompts com régua hardcoded**: scorer/check falavam "14 semanas" para qualquer modo.
+
+## Modo PERSONALIZADO — builder de degustação (22/07/2026)
+
+O que era preset virou **dado**: a tela Configurações → Programa ganhou o card
+**Personalizado**, que deriva uma degustação sob medida de 3 inputs —
+`{semanas: 1–4, numCompetencias: 1–2, fechamento: S/N}` — sem deploy por demanda
+nova (motivação: demo UniAnchieta, 3 pessoas, 1 semana, sem avaliação final).
+
+**Arquitetura (as 3 decisões que importam):**
+
+1. **Snapshot congela a config** (mig 182): a geração deriva a `ProgramaConfig`
+   completa (`derivarConfigCustom`) e grava em `trilhas.programa_config`;
+   `resolverConfigDaTrilha` lê o snapshot com precedência MÁXIMA. Editar o
+   builder NÃO afeta trilha em andamento — mesma invariante do carimbo (154).
+   Presets seguem sem snapshot (config pela constante; "ligar flag no código
+   vale pro modo inteiro" preservado).
+2. **Config derivada, não campos livres**: a família é a degustação (sem
+   missões; mapeamentos DISC+técnico sempre ativos). A config derivada usa
+   `modo:'piloto'` internamente — herda seleção top-N por gap, entrega dupla,
+   e (com fechamento) acumulada + espelho + trava + arguição(4). O rótulo
+   carimbado é `custom`.
+3. **Sem fechamento** (`semanasAvaliacao: []`): a trilha CONCLUI ao concluir a
+   última semana de conteúdo (rota `/reflection`, `deveEncerrarSemFechamento` +
+   `montarReportDegustacao` — report modo piloto com `sem_fechamento:true`,
+   spec `degustacao-v1`, baseline sem notas). Tela de conclusão reusa a
+   variante piloto (PDF oculto); agregação do gestor já exclui.
+
+**2 competências**: 2ª comp pela MESMA prioridade do DUO (foco do cargo →
+sys_config → top10, âncora 1º); top-(semanas) POR comp, 1 entrega de cada por
+semana (segunda=A, terça=B). Sem 2ª comp viável/avaliada → degrada pra 1 (não
+bloqueia). Prontidão verifica a âncora e avisa.
+
+**Efeitos colaterais pagos junto (valem pra todos os modos):**
+- Cron de envios agora pára no fim REAL do plano (`totalSemanasDoPlano`,
+  espelho-aware) — antes avançava cego até 14 nudgeando semanas inexistentes.
+- Prontidão é config-driven: Cenário B só é exigido quando o modo TEM fechamento.
+- Sanitizer de duração (`sanitizarNarrativaPiloto`) e `notaPrograma` do scorer
+  parametrizados por `slotsConteudo.length` (piloto=2 byte-igual).
+
+**Arquivos:** `lib/season-engine/programa-custom.ts` (derivação + parse +
+encerramento + report) · `trilha-core.ts` (`gerarTemporadaCustom`) ·
+`trilha-runtime.ts` (snapshot-aware + `totalSemanasDoPlano`) · migração 182 ·
+`tests/unit/custom/programa-custom.test.ts` (25 testes, validados por mutação).

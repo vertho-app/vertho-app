@@ -4004,7 +4004,20 @@
       "pilotDesc": "Degustación: 2 semanas, 1 competencia, 4 contenidos + cierre completo",
       "pilotNote": "Piloto: el diagnóstico completo (DISC, mapeo, ADN, Fit) corre sin cambios. Ruta de 2 semanas con 2 contenidos/semana (top-4 descriptores por brecha) y cierre con escenario + evaluación IA. La nota mostrada nunca queda por debajo del baseline (tope mínimo, bruto preservado en el snapshot). Objetivo: recorrer el flujo completo, no demostrar evolución.",
       "regularSingle": "Regular (single)",
-      "regularSingleDesc": "14 semanas, 1 competencia en profundidad — escape/rollback del DUO"
+      "regularSingleDesc": "14 semanas, 1 competencia en profundidad — escape/rollback del DUO",
+      "custom": "Personalizado",
+      "customDesc": "Degustación a medida: 1–4 semanas, 1–2 competencias, con o sin cierre",
+      "customSemanas": "Semanas",
+      "customComps": "Competencias",
+      "customFechamento": "Cierre",
+      "customFechamentoOn": "Con cierre",
+      "customFechamentoOff": "Sin cierre",
+      "customMapeamentos": "Mapeos conductual (DISC) y técnico: siempre activos — el diagnóstico es la puerta de entrada del método.",
+      "customPreview": "Calendario derivado",
+      "customPreviewConteudo": "Sem {week} · Contenido (2 píldoras)",
+      "customPreviewFechamento": "Cierre — se libera con la semana {week}",
+      "customPreviewEncerramento": "Termina al concluir la semana {week}",
+      "customNote": "Personalizado: la generación deriva y CONGELA la configuración en la ruta — cambiar aquí después no afecta rutas en curso. Con cierre: Escenario B + evaluación IA + tope de piso (como en el Piloto). Sin cierre: la ruta concluye al terminar la última semana de contenido, sin evaluación final."
     },
     "language": {
       "title": "Idioma predeterminado de la empresa",

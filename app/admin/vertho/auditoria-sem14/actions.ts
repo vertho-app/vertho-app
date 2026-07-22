@@ -104,7 +104,7 @@ export async function regerarScoringComFeedback(progressoId) {
   if (!auditoriaAnterior) return { error: 'Sem auditoria anterior pra usar como feedback' };
 
   const { data: trilha } = await sb.from('trilhas')
-    .select('id, empresa_id, colaborador_id, competencia_foco, competencias_foco, descritores_selecionados, programa_modo')
+    .select('id, empresa_id, colaborador_id, competencia_foco, competencias_foco, descritores_selecionados, programa_modo, programa_config')
     .eq('id', prog.trilha_id).maybeSingle();
   if (!trilha) return { error: 'Trilha não encontrada' };
 

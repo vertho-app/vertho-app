@@ -215,14 +215,19 @@ export const PROGRAMA_PILOTO: ProgramaConfig = Object.freeze({
 
 /**
  * Rótulos persistíveis de modo (colaboradores.programa_modo e
- * trilhas.programa_modo — migration 154). Distintos de ProgramaModo:
- * 'regular' ambíguo vira 'regular_duo' | 'regular_single'.
+ * trilhas.programa_modo — migrations 154/182). Distintos de ProgramaModo:
+ * 'regular' ambíguo vira 'regular_duo' | 'regular_single'. 'custom' = builder
+ * de degustação — a config NÃO vem de constante: geração deriva de
+ * `sys_config.programa_custom` e o runtime lê o snapshot
+ * `trilhas.programa_config` (ver lib/season-engine/programa-custom.ts).
  */
-export type ProgramaModoLabel = 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto';
+export type ProgramaModoLabel = 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto' | 'custom';
 
 /**
  * Mapeia um rótulo de modo → template. Desconhecido/ausente → DUO
  * (fail-safe do default global, mesmo contrato do sys_config).
+ * ⚠️ 'custom' NÃO resolve aqui (não há constante) — geração e runtime tratam
+ * o label ANTES de chamar esta função (trilha-core / resolverConfigDaTrilha).
  */
 export function getProgramaConfigByModo(modo?: string | null): ProgramaConfig {
   if (modo === 'onboarding') return PROGRAMA_ONBOARDING;
@@ -257,7 +262,7 @@ export function resolverModoColab(
   sysConfig?: { programa_modo?: string } | null,
 ): ProgramaModoLabel {
   const bruto = colab?.programa_modo || sysConfig?.programa_modo;
-  if (bruto === 'onboarding' || bruto === 'regular_single' || bruto === 'piloto') return bruto;
+  if (bruto === 'onboarding' || bruto === 'regular_single' || bruto === 'piloto' || bruto === 'custom') return bruto;
   if (bruto === 'regular_duo' || bruto === 'regular') return 'regular_duo';
   return 'regular_duo';
 }

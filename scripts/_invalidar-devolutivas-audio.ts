@@ -15,12 +15,21 @@ const sb = createClient(
 );
 
 async function main() {
-  const { data, error } = await sb
-    .from('colaboradores')
-    .select('id, nome_completo, empresa_id, comportamental_audio_path, comportamental_audio_at')
-    .not('comportamental_audio_path', 'is', null);
-  if (error) throw new Error(error.message);
-  const alvos = data || [];
+  // Manutenção deliberadamente cross-tenant (a voz mudou pra TODOS) — mas o
+  // guard de leitura raw exige filtro de empresa_id na cadeia, então a
+  // varredura itera POR empresa em vez de um select global.
+  const { data: empresas, error: empErr } = await sb.from('empresas').select('id, slug');
+  if (empErr) throw new Error(empErr.message);
+  const alvos: any[] = [];
+  for (const e of empresas || []) {
+    const { data, error } = await sb
+      .from('colaboradores')
+      .select('id, nome_completo, empresa_id, comportamental_audio_path, comportamental_audio_at')
+      .eq('empresa_id', e.id)
+      .not('comportamental_audio_path', 'is', null);
+    if (error) throw new Error(`${e.slug}: ${error.message}`);
+    alvos.push(...(data || []));
+  }
 
   console.log(`${alvos.length} devolutiva(s) em cache${APPLY ? '' : '  (DRY-RUN — use --apply)'}`);
   for (const c of alvos) console.log(`  · ${c.nome_completo} — ${c.comportamental_audio_at}`);

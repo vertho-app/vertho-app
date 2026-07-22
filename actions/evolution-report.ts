@@ -38,7 +38,7 @@ export async function gerarEvolutionReport(trilhaId: string, internal?: { empres
     const { createSupabaseAdmin } = await import('@/lib/supabase');
     const sbRaw = internal ? createSupabaseAdmin() : await requireAdminSupabase('ai.audit.regenerate');
     const { data: trilha } = await sbRaw.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados, programa_modo')
+      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados, programa_modo, programa_config')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return { success: false, error: 'Trilha não encontrada' };
 

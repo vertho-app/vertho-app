@@ -50,9 +50,12 @@ export default function TemporadaConcluidaPage() {
     return (
       <PageContainer>
         <BackButton href="/dashboard/temporada" />
-        <div className="flex items-center justify-end mb-4">
-          <PdfButton sb={sb} numeroTemporada={trilha.numeroTemporada} label={t('downloadPdf')} errorLabel={t('pdfError')} />
-        </div>
+        {/* Degustação SEM fechamento: não há avaliação → PDF do piloto não se aplica */}
+        {!evolutionReport?.sem_fechamento && (
+          <div className="flex items-center justify-end mb-4">
+            <PdfButton sb={sb} numeroTemporada={trilha.numeroTemporada} label={t('downloadPdf')} errorLabel={t('pdfError')} />
+          </div>
+        )}
 
         {/* Hero */}
         <div className="mb-8">

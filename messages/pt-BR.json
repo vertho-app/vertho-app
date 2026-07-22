@@ -4004,7 +4004,20 @@
       "pilotDesc": "Degustação: 2 semanas, 1 competência, 4 conteúdos + fechamento completo",
       "pilotNote": "Piloto: diagnóstico completo (DISC, mapeamento, DNA, Fit) roda inalterado. Trilha de 2 semanas com 2 conteúdos/semana (top-4 descritores por gap) e fechamento com cenário + avaliação IA. A nota exibida nunca fica abaixo do baseline (trava de piso, bruto preservado no snapshot). Objetivo: rodar o fluxo inteiro, não demonstrar evolução.",
       "regularSingle": "Regular (single)",
-      "regularSingleDesc": "14 semanas, 1 competência aprofundada — escape hatch/rollback do DUO"
+      "regularSingleDesc": "14 semanas, 1 competência aprofundada — escape hatch/rollback do DUO",
+      "custom": "Personalizado",
+      "customDesc": "Degustação sob medida: 1–4 semanas, 1–2 competências, com ou sem fechamento",
+      "customSemanas": "Semanas",
+      "customComps": "Competências",
+      "customFechamento": "Fechamento",
+      "customFechamentoOn": "Com fechamento",
+      "customFechamentoOff": "Sem fechamento",
+      "customMapeamentos": "Mapeamentos comportamental (DISC) e técnico: sempre ativos — o diagnóstico é a porta de entrada do método.",
+      "customPreview": "Calendário derivado",
+      "customPreviewConteudo": "Sem {week} · Conteúdo (2 pílulas)",
+      "customPreviewFechamento": "Fechamento — libera com a semana {week}",
+      "customPreviewEncerramento": "Encerra ao concluir a semana {week}",
+      "customNote": "Personalizado: a geração deriva e CONGELA a configuração na trilha — mudar aqui depois não afeta trilha em andamento. Com fechamento: Cenário B + avaliação IA + trava de piso (como no Piloto). Sem fechamento: a trilha conclui ao terminar a última semana de conteúdo, sem avaliação final."
     },
     "language": {
       "title": "Idioma padrão da empresa",

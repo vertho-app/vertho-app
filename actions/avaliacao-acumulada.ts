@@ -30,7 +30,7 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string, internal?: { emp
   // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
   const sbRaw = internal ? createSupabaseAdmin() : await requireAdminSupabase('ai.audit.regenerate');
   const { data: trilha } = await sbRaw.from('trilhas')
-    .select('id, empresa_id, colaborador_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano, programa_modo')
+    .select('id, empresa_id, colaborador_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano, programa_modo, programa_config')
     .eq('id', trilhaId).maybeSingle();
   if (!trilha) return { error: 'trilha não encontrada' };
 
@@ -213,7 +213,7 @@ export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenc
   }
   const sbRaw = createSupabaseAdmin();
   const { data: trilha } = await sbRaw.from('trilhas')
-    .select('id, empresa_id, colaborador_id, competencia_foco, descritores_selecionados, temporada_plano, programa_modo')
+    .select('id, empresa_id, colaborador_id, competencia_foco, descritores_selecionados, temporada_plano, programa_modo, programa_config')
     .eq('id', trilhaId).maybeSingle();
   if (!trilha) return { error: 'trilha não encontrada' };
   // B5: caller interno prova o tenant; rejeita trilha de outro tenant.

@@ -3993,7 +3993,20 @@
       "pilotDesc": "Tasting: 2 weeks, 1 competency, 4 content pieces + full closing",
       "pilotNote": "Pilot: the full diagnostic (DISC, mapping, DNA, Fit) runs unchanged. A 2-week track with 2 content pieces/week (top-4 descriptors by gap) and a closing with scenario + AI assessment. The displayed score never drops below baseline (floor lock, raw score preserved in the snapshot). Goal: run the whole flow, not demonstrate growth.",
       "regularSingle": "Regular (single)",
-      "regularSingleDesc": "14 weeks, 1 competency in depth — DUO escape hatch/rollback"
+      "regularSingleDesc": "14 weeks, 1 competency in depth — DUO escape hatch/rollback",
+      "custom": "Custom",
+      "customDesc": "Tailored tasting: 1–4 weeks, 1–2 competencies, with or without final assessment",
+      "customSemanas": "Weeks",
+      "customComps": "Competencies",
+      "customFechamento": "Final assessment",
+      "customFechamentoOn": "With final assessment",
+      "customFechamentoOff": "Without final assessment",
+      "customMapeamentos": "Behavioral (DISC) and technical mappings: always on — the diagnostic is the entry point of the method.",
+      "customPreview": "Derived calendar",
+      "customPreviewConteudo": "Wk {week} · Content (2 pills)",
+      "customPreviewFechamento": "Final assessment — unlocks with week {week}",
+      "customPreviewEncerramento": "Ends when week {week} is completed",
+      "customNote": "Custom: generation derives and FREEZES the configuration on the track — later edits here do not affect tracks in progress. With final assessment: Scenario B + AI scoring + floor lock (as in Pilot). Without it: the track completes when the last content week is done, with no final assessment."
     },
     "language": {
       "title": "Company default language",

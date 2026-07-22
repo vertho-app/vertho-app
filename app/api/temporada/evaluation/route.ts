@@ -71,7 +71,7 @@ export async function POST(request) {
 
     const sb = createSupabaseAdmin();
     const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados, data_inicio, programa_modo')
+      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados, data_inicio, programa_modo, programa_config')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha' }, { status: 404 });
 

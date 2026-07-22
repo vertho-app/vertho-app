@@ -14,6 +14,7 @@
  */
 
 import { getProgramaConfig, getProgramaConfigByModo, type ProgramaConfig } from './programa-config';
+import { parseConfigSnapshot, parseProgramaCustom, derivarConfigCustom } from './programa-custom';
 import { semanaLiberadaPorData, formatarLiberacao } from './week-gating';
 import { PROGRESSO } from '@/lib/status';
 
@@ -21,19 +22,59 @@ interface TrilhaRuntime {
   id: string;
   empresa_id: string;
   programa_modo?: string | null;
+  programa_config?: any;
   data_inicio?: string | null;
   temporada_plano?: any;
 }
 
-/** Config da trilha: carimbo (mig 154) → fallback sys_config (legado). */
+/**
+ * Config da trilha: snapshot congelado na geração (modo custom, mig 182) →
+ * carimbo (mig 154) → fallback sys_config (legado). O snapshot tem precedência
+ * MÁXIMA: é o que garante que editar o builder não muda trilha em andamento.
+ */
 export async function resolverConfigDaTrilha(
   sb: any,
-  trilha: Pick<TrilhaRuntime, 'programa_modo' | 'empresa_id'>,
+  trilha: Pick<TrilhaRuntime, 'programa_modo' | 'empresa_id'> & Partial<Pick<TrilhaRuntime, 'id' | 'programa_config'>>,
 ): Promise<ProgramaConfig> {
+  const snap = parseConfigSnapshot(trilha.programa_config);
+  if (snap) return snap;
+  if (trilha.programa_modo === 'custom') {
+    // Caller não selecionou programa_config → busca pelo id (custa 1 query, SÓ
+    // em trilha custom; os presets nunca entram aqui).
+    if (trilha.id) {
+      const { data } = await sb.from('trilhas')
+        .select('programa_config').eq('id', trilha.id).maybeSingle();
+      const doBanco = parseConfigSnapshot(data?.programa_config);
+      if (doBanco) return doBanco;
+    }
+    // Último recurso: re-deriva do sys_config atual da empresa. Loga ALTO — a
+    // config pode ter mudado desde a geração. NUNCA cair calado no DUO de 14
+    // semanas (seria o modo errado com cara de sucesso).
+    const { data: empresa } = await sb.from('empresas')
+      .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
+    const inputs = parseProgramaCustom(empresa?.sys_config?.programa_custom);
+    if (inputs) {
+      console.error('[resolverConfigDaTrilha] trilha custom SEM snapshot programa_config — re-derivando do sys_config da empresa (pode divergir da geração)');
+      return derivarConfigCustom(inputs);
+    }
+    throw new Error('Trilha em modo custom sem snapshot (trilhas.programa_config) e empresa sem programa_custom válido — regere a trilha.');
+  }
   if (trilha.programa_modo) return getProgramaConfigByModo(trilha.programa_modo);
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
   return getProgramaConfig(empresa?.sys_config);
+}
+
+/**
+ * Última semana de CALENDÁRIO do plano persistido — slots espelhados
+ * (`calendario_semana`, ex.: fechamento do piloto) contam pela semana que os
+ * governa. Plano vazio/ausente → fallback (colabs legados sem temporada_plano).
+ * Consumidor: cron de envios (avanço de semana pára no fim REAL do plano).
+ */
+export function totalSemanasDoPlano(plano: any, fallback: number): number {
+  if (!Array.isArray(plano) || plano.length === 0) return fallback;
+  const max = Math.max(...plano.map((s: any) => Number(s?.calendario_semana ?? s?.semana) || 0));
+  return max > 0 ? max : fallback;
 }
 
 /**

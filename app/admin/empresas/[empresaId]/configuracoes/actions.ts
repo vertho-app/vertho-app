@@ -193,8 +193,8 @@ export async function atualizarProgramaModo(colaboradorId, novoModo, empresaId) 
   const sb = await requireAdminSupabase('users.manage');
   if (!colaboradorId || !empresaId) return { success: false, error: 'colaboradorId e empresaId obrigatórios' };
   const modo = novoModo || null;
-  const validos = [null, 'regular_duo', 'regular_single', 'onboarding', 'piloto'];
-  if (!validos.includes(modo)) return { success: false, error: 'Modo inválido. Use: herdar (vazio), regular_duo, regular_single, onboarding, piloto' };
+  const validos = [null, 'regular_duo', 'regular_single', 'onboarding', 'piloto', 'custom'];
+  if (!validos.includes(modo)) return { success: false, error: 'Modo inválido. Use: herdar (vazio), regular_duo, regular_single, onboarding, piloto, custom' };
 
   // Update TENANT-SCOPED: o id sozinho permitiria mexer em colaborador de
   // outra empresa (defense-in-depth mesmo sendo gate de platform admin).

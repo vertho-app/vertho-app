@@ -8,6 +8,7 @@ import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppDesa
 import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula, deepLinkSemana } from '@/lib/notifications/pilula-envio';
 import { resolverDesafioDoKit } from '@/lib/season-engine/kit/desafio-semana';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
+import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
 import { assertWhatsappAvailable } from '@/lib/whatsapp';
 
@@ -317,7 +318,31 @@ export async function triggerDiario() {
 
     for (const envio of (envios as any[])) {
       const semana = envio.semana_atual || 1;
-      if (semana > TOTAL_SEMANAS) {
+
+      // Plano da semana (temporada_plano) → conteúdos do dia (DUO) p/ pílula e
+      // desafio + TAMANHO REAL do plano. O avanço de semana pára no fim do
+      // plano (piloto/custom têm 1–4 semanas — antes o cron avançava cego até
+      // 14, nudgeando semanas que não existem). Sem trilha/plano → fallback 14
+      // (colabs legados, byte-igual ao comportamento anterior).
+      let plan: any = null, conteudosDia: any[] = [], competenciaFoco: any = null;
+      let totalSemanas = TOTAL_SEMANAS;
+      try {
+        const { data: trilha } = await tdb.from('trilhas')
+          .select('temporada_plano, competencia_foco')
+          .eq('colaborador_id', envio.colaborador_id)
+          .order('numero_temporada', { ascending: false }).limit(1).maybeSingle();
+        competenciaFoco = trilha?.competencia_foco;
+        const plano = (trilha?.temporada_plano || []) as any[];
+        totalSemanas = totalSemanasDoPlano(plano, TOTAL_SEMANAS);
+        plan = plano.find((s: any) => Number(s.semana) === Number(semana)) || plano[semana - 1] || null;
+        if (plan) {
+          conteudosDia = (Array.isArray(plan.conteudos_dia) && plan.conteudos_dia.length)
+            ? plan.conteudos_dia
+            : (plan.conteudo ? [{ competencia: competenciaFoco, descritor: plan.descritor, conteudo: plan.conteudo }] : []);
+        }
+      } catch (e: any) { console.warn('[triggerDiario] plano:', e?.message); }
+
+      if (semana > totalSemanas) {
         if (hoje === diaEv) await tdb.from('fase4_envios').update({ status: 'concluido' }).eq('id', envio.id);
         continue;
       }
@@ -333,23 +358,6 @@ export async function triggerDiario() {
       // ultimo_envio DERIVADO em JS (não existe coluna): o mais recente dos 3 carimbos.
       const ultimoEnvio = [envio.ultima_pilula1_em, envio.ultima_pilula2_em, envio.ultima_evidencia_em]
         .filter(Boolean).map((d: any) => new Date(d).getTime()).sort((a, b) => b - a)[0] || null;
-
-      // Plano da semana (temporada_plano) → conteúdos do dia (DUO) p/ pílula e desafio.
-      let plan: any = null, conteudosDia: any[] = [], competenciaFoco: any = null;
-      try {
-        const { data: trilha } = await tdb.from('trilhas')
-          .select('temporada_plano, competencia_foco')
-          .eq('colaborador_id', envio.colaborador_id)
-          .order('numero_temporada', { ascending: false }).limit(1).maybeSingle();
-        competenciaFoco = trilha?.competencia_foco;
-        const plano = (trilha?.temporada_plano || []) as any[];
-        plan = plano.find((s: any) => Number(s.semana) === Number(semana)) || plano[semana - 1] || null;
-        if (plan) {
-          conteudosDia = (Array.isArray(plan.conteudos_dia) && plan.conteudos_dia.length)
-            ? plan.conteudos_dia
-            : (plan.conteudo ? [{ competencia: competenciaFoco, descritor: plan.descritor, conteudo: plan.conteudo }] : []);
-        }
-      } catch (e: any) { console.warn('[triggerDiario] plano:', e?.message); }
 
       const delay = () => (pilulas + evidencias + nudges) * 2;
 

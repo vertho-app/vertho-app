@@ -20,7 +20,8 @@ const DEFAULT_CONFIG = {
   ai: { modelo_padrao: 'claude-sonnet-4-6', modelos: {}, anthropic_key: null, gemini_key: null, openai_key: null, thinking: false },
   cadencia: { fase4_dia_pilula: 1, fase4_dia_pilula2: 2, fase4_dia_evidencia: 4, fase4_hora: 8, email_ativo: true, whatsapp_ativo: true },
   envios: { email_remetente: null, email_alias: null },
-  programa_modo: 'regular_duo' as 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto',
+  programa_modo: 'regular_duo' as 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto' | 'custom',
+  programa_custom: { semanas: 1, numCompetencias: 1, fechamento: false },
   fase_carreira_default: null as null | 'junior' | 'pleno' | 'senior',
   blueprint_drives_trilha: false,
 };
@@ -272,6 +273,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                       <option value="regular_single">Regular single</option>
                       <option value="onboarding">Onboarding</option>
                       <option value="piloto">{t('program.pilot')}</option>
+                      <option value="custom">{t('program.custom')}</option>
                     </select>
                     {roleUpdating === c.id && <Loader2 size={14} className="animate-spin text-cyan-400 shrink-0" />}
                   </div>
@@ -295,6 +297,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                 { id: 'regular_single', label: t('program.regularSingle'), desc: t('program.regularSingleDesc') },
                 { id: 'onboarding', label: t('program.onboarding'), desc: t('program.onboardingDesc') },
                 { id: 'piloto', label: t('program.pilot'), desc: t('program.pilotDesc') },
+                { id: 'custom', label: t('program.custom'), desc: t('program.customDesc') },
               ].map(opt => (
                 <button key={opt.id}
                   onClick={() => setConfig(prev => ({ ...prev, programa_modo: opt.id as any }))}
@@ -326,6 +329,13 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                   {t('program.pilotNote')}
                 </p>
               </div>
+            )}
+            {config.programa_modo === 'custom' && (
+              <CustomBuilder
+                value={config.programa_custom}
+                onChange={(v) => setConfig(prev => ({ ...prev, programa_custom: v }))}
+                t={t}
+              />
             )}
           </Panel>
 
@@ -739,6 +749,77 @@ function Panel({ title, children }) {
         <h3 className="text-sm font-semibold text-gray-300">{title}</h3>
       </div>
       <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Builder do modo Personalizado (família degustação): 3 inputs → preview do
+ * calendário derivado. Os mapeamentos (DISC + técnico) são sempre ativos na
+ * Fase 1 — mostrados travados. A validação REAL é na geração
+ * (derivarConfigCustom); aqui os controles já restringem aos limites.
+ */
+function CustomBuilder({ value, onChange, t }: {
+  value: { semanas: number; numCompetencias: number; fechamento: boolean };
+  onChange: (v: { semanas: number; numCompetencias: number; fechamento: boolean }) => void;
+  t: any;
+}) {
+  const v = {
+    semanas: value?.semanas ?? 1,
+    numCompetencias: value?.numCompetencias ?? 1,
+    fechamento: !!value?.fechamento,
+  };
+  const set = (patch: Partial<typeof v>) => onChange({ ...v, ...patch });
+  const semanasPreview = Array.from({ length: v.semanas }, (_, i) => i + 1);
+
+  const selectCls = 'px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40';
+  return (
+    <div className="mt-3 p-3 rounded-lg border border-cyan-400/20 space-y-3" style={{ background: 'rgba(6,182,212,0.06)' }}>
+      <div className="grid grid-cols-3 gap-2">
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wide text-gray-400">{t('program.customSemanas')}</span>
+          <select value={v.semanas} onChange={e => set({ semanas: Number(e.target.value) })}
+            className={selectCls} style={{ background: '#091D35' }}>
+            {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wide text-gray-400">{t('program.customComps')}</span>
+          <select value={v.numCompetencias} onChange={e => set({ numCompetencias: Number(e.target.value) })}
+            className={selectCls} style={{ background: '#091D35' }}>
+            {[1, 2].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wide text-gray-400">{t('program.customFechamento')}</span>
+          <select value={v.fechamento ? '1' : '0'} onChange={e => set({ fechamento: e.target.value === '1' })}
+            className={selectCls} style={{ background: '#091D35' }}>
+            <option value="1">{t('program.customFechamentoOn')}</option>
+            <option value="0">{t('program.customFechamentoOff')}</option>
+          </select>
+        </label>
+      </div>
+
+      <p className="text-[10px] text-gray-500">{t('program.customMapeamentos')}</p>
+
+      {/* Preview do calendário derivado */}
+      <div>
+        <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1.5">{t('program.customPreview')}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {semanasPreview.map(s => (
+            <span key={s} className="px-2 py-1 rounded-md text-[10px] font-semibold border border-white/10 text-gray-300" style={{ background: '#091D35' }}>
+              {t('program.customPreviewConteudo', { week: s })}
+            </span>
+          ))}
+          <span className={`px-2 py-1 rounded-md text-[10px] font-semibold border ${v.fechamento ? 'border-purple-400/30 text-purple-300' : 'border-emerald-400/30 text-emerald-300'}`} style={{ background: '#091D35' }}>
+            {v.fechamento
+              ? t('program.customPreviewFechamento', { week: v.semanas })
+              : t('program.customPreviewEncerramento', { week: v.semanas })}
+          </span>
+        </div>
+      </div>
+
+      <p className="text-[11px] text-cyan-300/85 leading-relaxed">{t('program.customNote')}</p>
     </div>
   );
 }

@@ -4,7 +4,8 @@ import { buildSeason } from '@/lib/season-engine/build-season';
 import { blueprintToTrilhaInputs, type BlueprintTrilhaInputs } from '@/lib/blueprint/to-descriptors';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
-import { getProgramaConfigByModo, resolverModoColab, type ProgramaModoLabel } from '@/lib/season-engine/programa-config';
+import { getProgramaConfigByModo, resolverModoColab, type ProgramaConfig, type ProgramaModoLabel } from '@/lib/season-engine/programa-config';
+import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
 import type { AIConfig } from '@/actions/ai-client';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 
@@ -61,6 +62,23 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     // default da empresa → DUO. O rótulo resolvido é CARIMBADO na trilha
     // (programa_modo) — o runtime passa a ler de lá, congelando as regras.
     const modoResolvido = resolverModoColab(colab, empresa?.sys_config);
+
+    // ── Modo Personalizado (builder de degustação): config vem de DADO ────
+    // getProgramaConfigByModo NÃO resolve 'custom' (cairia no DUO de 14
+    // semanas) — deriva de sys_config.programa_custom, com erro explícito.
+    if (modoResolvido === 'custom') {
+      const inputs = parseProgramaCustom(empresa?.sys_config?.programa_custom);
+      if (!inputs) {
+        return {
+          error: 'Modo Personalizado sem configuração válida (sys_config.programa_custom) — defina semanas/competências/fechamento em Configurações → Programa antes de gerar.',
+          codigo: 'custom_sem_config',
+        };
+      }
+      return await gerarTemporadaCustom({
+        colab, empresa, tdb, contexto, programaConfig: derivarConfigCustom(inputs), aiConfig, competenciaAlvo,
+      });
+    }
+
     const programaConfig = getProgramaConfigByModo(modoResolvido);
     const isOnboarding = programaConfig.modo === 'onboarding';
 
@@ -447,8 +465,10 @@ export async function gerarTemporadaRegularDuo(args: {
 export async function gerarTemporadaPiloto(args: {
   colab: any; tdb: any; contexto: string;
   programaConfig: any; aiConfig?: AIConfig; competenciaAlvo: string;
+  /** Modo custom reusa esta maquinaria: carimba 'custom' + congela o snapshot. */
+  carimbo?: ProgramaModoLabel; snapshotConfig?: ProgramaConfig;
 }) {
-  const { colab, tdb, contexto, programaConfig, aiConfig, competenciaAlvo } = args;
+  const { colab, tdb, contexto, programaConfig, aiConfig, competenciaAlvo, carimbo = 'piloto', snapshotConfig } = args;
 
   // 1) Assessment da competência âncora (anti-viés: sem default 1.5)
   const { data: assessment } = await tdb.from('descriptor_assessments')
@@ -492,9 +512,10 @@ export async function gerarTemporadaPiloto(args: {
     colaboradorId: colab.id,
     competenciaFoco: competenciaAlvo,
     competenciasFoco: [competenciaAlvo],
-    programaModo: 'piloto',
+    programaModo: carimbo,
     semanas,
     descritoresSelecionados,
+    programaConfig: snapshotConfig,
   });
   if ('error' in persist) return { error: persist.error };
   const { trilhaId, numeroTemporada } = persist;
@@ -506,7 +527,132 @@ export async function gerarTemporadaPiloto(args: {
     competencia: competenciaAlvo,
     descritores: descritoresSelecionados.length,
     semanas: semanas.length,
-    modo: 'piloto',
+    modo: carimbo,
+  };
+}
+
+/**
+ * Modo PERSONALIZADO (builder de degustação — 1–4 semanas, 1–2 comps, com/sem
+ * fechamento). A config já chega DERIVADA e validada (derivarConfigCustom);
+ * aqui só se resolve a seleção e se persiste com carimbo 'custom' + SNAPSHOT
+ * da config (trilhas.programa_config, mig 182 — congela as regras).
+ *
+ * 1 competência → delega direto à maquinaria do piloto (top-N por gap,
+ * 2 entregas/semana da MESMA comp).
+ * 2 competências → 2ª comp pela MESMA prioridade do DUO (foco do cargo →
+ * sys_config → top10, âncora primeiro); top-(semanas) POR comp, 1 entrega de
+ * cada por semana (segunda = comp A, terça = comp B). Sem 2ª comp viável ou
+ * sem assessment/descritores dela → degrada pra 1 comp (avisa, não bloqueia —
+ * mesmo contrato do fallback DUO→single).
+ */
+export async function gerarTemporadaCustom(args: {
+  colab: any; empresa: any; tdb: any; contexto: string;
+  programaConfig: ProgramaConfig; aiConfig?: AIConfig; competenciaAlvo: string;
+}): Promise<any> {
+  const { colab, empresa, tdb, contexto, programaConfig, aiConfig, competenciaAlvo } = args;
+
+  const degradarParaSingle = (motivo: string) => {
+    console.warn(`[gerarTemporadaCustom] 2 comps indisponível → degrada pra 1 (${competenciaAlvo}):`, motivo);
+    const configSingle = { ...programaConfig, numCompetencias: 1 };
+    return gerarTemporadaPiloto({
+      colab, tdb, contexto, programaConfig: configSingle, aiConfig, competenciaAlvo,
+      carimbo: 'custom', snapshotConfig: configSingle,
+    });
+  };
+
+  if ((programaConfig.numCompetencias || 1) < 2) {
+    return gerarTemporadaPiloto({
+      colab, tdb, contexto, programaConfig, aiConfig, competenciaAlvo,
+      carimbo: 'custom', snapshotConfig: programaConfig,
+    });
+  }
+
+  // 2ª competência — prioridade espelhada do DUO, com a âncora SEMPRE em 1º.
+  const { data: cargoFocoRow } = await tdb.from('cargos_empresa')
+    .select('competencia_foco, competencias_foco').eq('nome', colab.cargo || '').maybeSingle();
+  let candidatas: string[] = [competenciaAlvo, ...focoDoCargo(cargoFocoRow)];
+  if (Array.isArray(empresa?.sys_config?.competencias_regular_duo)) {
+    candidatas = [...candidatas, ...empresa.sys_config.competencias_regular_duo];
+  }
+  let comps = [...new Set<string>(candidatas.filter(Boolean))].slice(0, 2);
+  if (comps.length < 2) {
+    const { data: top10 } = await tdb.from('top10_cargos')
+      .select('competencia_id, posicao')
+      .eq('cargo', colab.cargo || '')
+      .order('posicao')
+      .limit(10);
+    if (top10?.length) {
+      const ids = top10.map((t: any) => t.competencia_id);
+      const { data: cc } = await tdb.from('competencias').select('id, nome').in('id', ids);
+      const mapa = Object.fromEntries((cc || []).map((c: any) => [c.id, c.nome]));
+      const nomesTop = top10.map((t: any) => mapa[t.competencia_id]).filter(Boolean);
+      comps = [...new Set<string>([competenciaAlvo, ...nomesTop].filter(Boolean))].slice(0, 2);
+    }
+  }
+  if (comps.length < 2) return degradarParaSingle('cargo sem 2ª competência resolvível');
+
+  // Assessment por comp (anti-viés: sem default 1.5). Âncora sem assessment =
+  // erro explícito (mesma mensagem do piloto); 2ª comp sem assessment = degrada.
+  const assessmentPorComp: Record<string, any[]> = {};
+  for (const c of comps) {
+    const { data } = await tdb.from('descriptor_assessments')
+      .select('descritor, nota')
+      .eq('colaborador_id', colab.id)
+      .eq('competencia', c);
+    assessmentPorComp[c] = data || [];
+  }
+  if (assessmentPorComp[comps[0]].length === 0) {
+    return {
+      error: `Colaborador ainda não tem avaliação (descriptor_assessments) para "${comps[0]}". Rode a rodada de mapeamento antes de gerar a degustação.`,
+      codigo: 'sem_assessment',
+    };
+  }
+  if (assessmentPorComp[comps[1]].length === 0) return degradarParaSingle(`sem assessment pra ${comps[1]}`);
+
+  // Top-(semanas) por comp, 1 slot cada: semana i = [A_i, B_i] (segunda/terça).
+  const slots = programaConfig.slotsConteudo;
+  const selA = selectDescriptorsPiloto(comps[0], assessmentPorComp[comps[0]], slots, 1);
+  const selB = selectDescriptorsPiloto(comps[1], assessmentPorComp[comps[1]], slots, 1);
+  if (selA.length < slots.length) {
+    return {
+      error: `Degustação com 2 competências precisa de ${slots.length} descritores avaliados distintos em "${comps[0]}" — o colaborador tem ${selA.length}. Complete o mapeamento ou reduza as semanas.`,
+      codigo: 'piloto_descritores_insuficientes',
+    };
+  }
+  if (selB.length < slots.length) return degradarParaSingle(`só ${selB.length}/${slots.length} descritores avaliados em ${comps[1]}`);
+  const descritoresSelecionados = [...selA, ...selB];
+
+  const prioridadeFormatos = derivarPrioridadeFormatos(colab);
+  const semanas = await buildSeason({
+    descritoresSelecionados,
+    competencia: comps[0],
+    cargo: colab.cargo,
+    contexto,
+    prioridadeFormatos,
+    empresaId: colab.empresa_id,
+    aiConfig,
+    programaConfig,
+  });
+
+  const persist = await persistirTrilha(tdb, {
+    colaboradorId: colab.id,
+    competenciaFoco: comps[0],
+    competenciasFoco: comps,
+    programaModo: 'custom',
+    semanas,
+    descritoresSelecionados,
+    programaConfig,
+  });
+  if ('error' in persist) return { error: persist.error };
+
+  return {
+    ok: true,
+    trilhaId: persist.trilhaId,
+    numeroTemporada: persist.numeroTemporada,
+    competencia: comps.join(' + '),
+    descritores: descritoresSelecionados.length,
+    semanas: semanas.length,
+    modo: 'custom',
   };
 }
 
@@ -524,8 +670,10 @@ export async function persistirTrilha(tdb: any, args: {
   programaModo: ProgramaModoLabel;
   semanas: any[];
   descritoresSelecionados: any[];
+  /** Modo custom: snapshot da config derivada (mig 182). Presets: undefined → null. */
+  programaConfig?: ProgramaConfig;
 }): Promise<{ trilhaId: string; numeroTemporada: number } | { error: string }> {
-  const { colaboradorId, competenciaFoco, competenciasFoco, programaModo, semanas, descritoresSelecionados } = args;
+  const { colaboradorId, competenciaFoco, competenciasFoco, programaModo, semanas, descritoresSelecionados, programaConfig } = args;
 
   // Normaliza campos DERIVADOS de conteudos_dia antes de salvar (chokepoint dos 4
   // modos): garante que descritores_cobertos/descritor/label/dia SEMPRE reflitam os
@@ -550,6 +698,9 @@ export async function persistirTrilha(tdb: any, args: {
     temporada_plano: semanas,
     descritores_selecionados: descritoresSelecionados,
     programa_modo: programaModo,                // carimbo do runtime (mig 154)
+    // Snapshot da config (mig 182): só o modo custom grava; sempre presente no
+    // payload pra LIMPAR snapshot antigo ao regenerar a mesma trilha em preset.
+    programa_config: programaConfig ?? null,
     status: TRILHA.ATIVA,
     data_inicio: nextMondayISO(),               // sem 1 libera na próxima segunda 03:00 BRT
     cursos: [],                                 // legado — conteúdo vive em temporada_plano

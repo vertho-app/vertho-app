@@ -74,13 +74,19 @@ export type PontuarFechamentoResultado =
 /** Régua temporal + contexto de programa pros prompts (regular = 14/13). */
 export function reguaTemporalDoPrograma(config: ProgramaConfig) {
   const isPiloto = config.modo === 'piloto';
+  // Semanas de CONTEÚDO da degustação (piloto = 2; custom = 1–4) — dirige a
+  // narrativa do scorer e o sanitizer de duração.
+  const semanasDegustacao = config.slotsConteudo?.length || 2;
   return {
     isPiloto,
+    semanasDegustacao,
     semanaFinal: config.semanaCenarioB,
     semanasEvidencia: config.semanaAcumulada,
-    notaPrograma: isPiloto
-      ? 'Este é um PILOTO de 2 semanas (degustação). O fechamento demonstra o método de avaliação — NÃO mede evolução. Não trate a janela curta de evidências como falha do colaborador; avalie o que as 2 semanas sustentam.'
-      : '',
+    notaPrograma: !isPiloto
+      ? ''
+      : semanasDegustacao === 1
+        ? 'Este é um PILOTO de 1 semana (degustação). O fechamento demonstra o método de avaliação — NÃO mede evolução. Não trate a janela curta de evidências como falha do colaborador; avalie o que a semana única sustenta.'
+        : `Este é um PILOTO de ${semanasDegustacao} semanas (degustação). O fechamento demonstra o método de avaliação — NÃO mede evolução. Não trate a janela curta de evidências como falha do colaborador; avalie o que as ${semanasDegustacao} semanas sustentam.`,
   };
 }
 
@@ -165,7 +171,7 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
       continue;
     }
     if (isPiloto) {
-      const san = sanitizarNarrativaPiloto(parsed);
+      const san = sanitizarNarrativaPiloto(parsed, config.slotsConteudo?.length || 2);
       parsed = san.parsed;
       meta.narrativaPilotoOk = san.ok;
       if (san.alterou) meta.sanitizacaoAplicada = true;

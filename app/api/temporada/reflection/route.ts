@@ -10,7 +10,8 @@ import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedbac
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
-import { PROGRESSO } from '@/lib/status';
+import { deveEncerrarSemFechamento, montarReportDegustacao } from '@/lib/season-engine/programa-custom';
+import { PROGRESSO, TRILHA } from '@/lib/status';
 import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
 import type { acumuladaPilotoTask } from '@/trigger/acumulada-piloto';
@@ -219,7 +220,7 @@ export async function POST(request) {
     const sb = createSupabaseAdmin();
 
     const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano, data_inicio, programa_modo')
+      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano, data_inicio, programa_modo, programa_config')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
 
@@ -429,6 +430,20 @@ export async function POST(request) {
       await sb.from('temporada_semana_progresso')
         .update({ status: PROGRESSO.EM_ANDAMENTO })
         .eq('trilha_id', trilhaId).eq('semana', proxima).eq('status', PROGRESSO.PENDENTE);
+    }
+
+    // Modo custom SEM fechamento (degustação): concluir a ÚLTIMA semana de
+    // conteúdo ENCERRA a trilha aqui — não existe slot de avaliação, então o
+    // caminho normal de conclusão (gerarEvolutionReport, que EXIGE fechamento
+    // pontuado) nunca roda. Report sem notas (baseline do diagnóstico) na
+    // variante piloto da tela de conclusão. Presets nunca entram (todos têm
+    // semanasAvaliacao não-vazia — ver deveEncerrarSemFechamento).
+    if (finished && deveEncerrarSemFechamento(programaConfig, Number(semana))) {
+      await sb.from('trilhas').update({
+        evolution_report: montarReportDegustacao(trilha),
+        evolution_generated_at: new Date().toISOString(),
+        status: TRILHA.CONCLUIDA,
+      }).eq('id', trilhaId);
     }
 
     // Modo Piloto: ao concluir a ÚLTIMA semana de conteúdo (sem 2), dispara a

@@ -7,6 +7,7 @@ import { selectDescriptorsPiloto } from '@/lib/season-engine/select-descriptors'
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { getProgramaConfigByModo, resolverModoColab } from '@/lib/season-engine/programa-config';
+import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
 import { gerarTemporadaCoreHeadless } from '@/lib/season-engine/trilha-core';
 import type { AIConfig } from './ai-client';
 import { z } from 'zod';
@@ -99,21 +100,28 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
     if (!todosColabs?.length) throw new Error('Sem colaboradores');
 
     // O modo é por COLABORADOR (override) com default da empresa — o check
-    // cobre só quem RESOLVERIA pra piloto na geração (fonte única de precedência).
+    // cobre quem RESOLVERIA pra degustação na geração (fonte única de
+    // precedência): 'piloto' (preset) OU 'custom' (builder).
+    const modoPorColab = new Map<string, string>(
+      (todosColabs as any[]).map(c => [c.id, resolverModoColab(c, empresa?.sys_config)]),
+    );
     const colabs = (todosColabs as any[]).filter(
-      c => resolverModoColab(c, empresa?.sys_config) === 'piloto',
+      c => modoPorColab.get(c.id) === 'piloto' || modoPorColab.get(c.id) === 'custom',
     );
     if (!colabs.length) {
-      throw new Error(`Nenhum colaborador resolveria pra piloto (default da empresa: ${empresa?.sys_config?.programa_modo || 'regular DUO'}; nenhum override individual 'piloto'). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.`);
+      throw new Error(`Nenhum colaborador resolveria pra piloto/personalizado (default da empresa: ${empresa?.sys_config?.programa_modo || 'regular DUO'}; nenhum override individual). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.`);
     }
-    const programaConfig = getProgramaConfigByModo('piloto');
+    const configPiloto = getProgramaConfigByModo('piloto');
+    // Config do modo custom (builder) — derivada uma vez do sys_config da
+    // empresa. Inválida/ausente → bloqueador por colaborador custom (abaixo).
+    const inputsCustom = parseProgramaCustom(empresa?.sys_config?.programa_custom);
+    const configCustom = inputsCustom ? derivarConfigCustom(inputsCustom) : null;
 
     // Cenários B disponíveis por cargo (fechamento)
     const { data: cenariosB } = await tdb.from('banco_cenarios')
       .select('cargo').eq('tipo_cenario', 'cenario_b');
     const cargosComCenarioB = new Set((cenariosB || []).map((c: any) => c.cargo));
 
-    const esperado = (programaConfig.slotsConteudo?.length || 2) * (programaConfig.conteudosPorSemana || 2);
     const resultados: any[] = [];
     const conteudoCache: Record<string, any[]> = {};
 
@@ -146,6 +154,13 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
     }
 
     for (const colab of colabs as any[]) {
+      const modoColab = modoPorColab.get(colab.id);
+      const cfg = modoColab === 'custom' ? configCustom : configPiloto;
+      if (!cfg) {
+        resultados.push({ colaborador: colab.nome_completo, pronto: false, bloqueadores: ['Modo Personalizado sem configuração válida (sys_config.programa_custom) — defina em Configurações → Programa'] });
+        continue;
+      }
+
       // Competência âncora — MESMA resolução da geração (trilha → cargo)
       const comp: string | undefined = compPorColab.get(colab.id) || (colab.cargo ? compPorCargo.get(colab.cargo) : undefined);
       if (!comp) {
@@ -153,11 +168,20 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
         continue;
       }
 
+      // Custom com 2 comps: cada semana leva 1 descritor POR comp — na âncora o
+      // esperado é 1/semana. Piloto/custom-single: conteudosPorSemana da mesma comp.
+      const duasComps = (cfg.numCompetencias || 1) >= 2;
+      const porSemana = duasComps ? 1 : (cfg.conteudosPorSemana || 2);
+      const esperado = (cfg.slotsConteudo?.length || 2) * porSemana;
+
       const assessment = assessmentsPorColabComp.get(`${colab.id}|${comp}`) || [];
-      const top = selectDescriptorsPiloto(comp, assessment, programaConfig.slotsConteudo, programaConfig.conteudosPorSemana);
+      const top = selectDescriptorsPiloto(comp, assessment, cfg.slotsConteudo, porSemana);
 
       const bloqueadores: string[] = [];
       const avisos: string[] = [];
+      if (duasComps) {
+        avisos.push('2 competências: a prontidão verifica a comp âncora; sem a 2ª viável, a geração degrada pra 1 comp (não bloqueia)');
+      }
       if (top.length < esperado) {
         bloqueadores.push(`Só ${top.length}/${esperado} descritores avaliados distintos em "${comp}" — complete o mapeamento`);
       }
@@ -186,8 +210,10 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
         }
       }
 
-      // Fechamento: cenário B do cargo (a rota busca cargo do colab || 'todos')
-      if (!cargosComCenarioB.has(colab.cargo || 'todos') && !cargosComCenarioB.has('todos')) {
+      // Fechamento: cenário B do cargo (a rota busca cargo do colab || 'todos').
+      // Modo SEM fechamento (custom, semanasAvaliacao=[]) não precisa de Cenário B.
+      if (cfg.semanasAvaliacao.length > 0
+          && !cargosComCenarioB.has(colab.cargo || 'todos') && !cargosComCenarioB.has('todos')) {
         bloqueadores.push(`Fechamento sem Cenário B pro cargo "${colab.cargo || 'todos'}" — gere na Fase 5 (Cenários B em lote)`);
       }
 
@@ -195,6 +221,7 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
         colaborador: colab.nome_completo,
         cargo: colab.cargo,
         competencia: comp,
+        modo: modoColab,
         descritores: top.map(d => d.descritor),
         pronto: bloqueadores.length === 0,
         bloqueadores,
