@@ -4,7 +4,22 @@
  * Extraído de `lib/gemini-tts.ts` (M1) para isolar a manipulação de áudio do
  * orquestrador de TTS.
  */
-import * as lamejs from '@breezystack/lamejs';
+import * as lamejsNs from '@breezystack/lamejs';
+import { createRequire } from 'node:module';
+
+// Interop CJS/ESM: no bundle do Next (ESM) o namespace expõe Mp3Encoder direto.
+// Sob tsx os scripts compilam p/ CJS e o require do pacote cai no build IIFE
+// (module.exports VAZIO — a condição "require" do exports aponta pro iife).
+// Fallback: carrega o build ESM por caminho — Node ≥22 suporta require(esm).
+function resolveLamejs(): typeof lamejsNs {
+  const cand: any = (lamejsNs as any).default ?? lamejsNs;
+  if (typeof cand?.Mp3Encoder === 'function') return cand;
+  const base = typeof __filename !== 'undefined' ? __filename : (import.meta as any).url;
+  const req = createRequire(base);
+  const esm: any = req(req.resolve('@breezystack/lamejs').replace(/lamejs\.iife\.js$/, 'lamejs.js'));
+  return typeof esm.Mp3Encoder === 'function' ? esm : esm.default;
+}
+const lamejs = resolveLamejs();
 
 const MP3_SAMPLE_RATE = 44100;
 const MP3_BITRATE_KBPS = 192;
