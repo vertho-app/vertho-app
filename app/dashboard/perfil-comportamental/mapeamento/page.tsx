@@ -82,9 +82,9 @@ const TOTAL_STEPS = 29;
 
 // Vídeo de instruções do mapeamento (Bunny Stream, library 636615).
 const BUNNY_LIBRARY = 636615;
-const INSTRUCTIONS_VIDEO_ID = 'e235d703-1a4b-40c0-ae6d-44bbb09445c5';
+const INSTRUCTIONS_VIDEO_ID = 'f51586d2-6fb5-4d0d-9750-cefdf9442acf';
 // Bump quando trocar o thumbnail no Bunny (busta o cache de edge da capa).
-const INSTRUCTIONS_THUMB_V = '3';
+const INSTRUCTIONS_THUMB_V = '4';
 
 function shuffle(arr) {
   const a = [...arr];
