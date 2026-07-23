@@ -51,7 +51,12 @@ function installYtDlp(): any {
 
 export default defineConfig({
   project: 'proj_wunoneqnozqrfzlvpqjv',
-  runtime: 'node',
+  // node-22: o supabase-js ≥2.108 (realtime-js) exige WebSocket NATIVO — no
+  // node 21 do runtime 'node' qualquer createSupabaseAdmin() explode na
+  // construção ("native WebSocket not found"; medido no run_06foofcl…,
+  // 22/07). Quebrou TODAS as tasks que tocam Supabase após o redeploy
+  // 20260722.1 rebundlar com o supabase-js novo.
+  runtime: 'node-22',
   logLevel: 'info',
   maxDuration: 1800, // 30 min — cobre vídeos longos e o render do Remotion
   dirs: ['./trigger'],
