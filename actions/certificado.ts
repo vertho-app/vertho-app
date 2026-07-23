@@ -49,25 +49,12 @@ export async function loadCertificadoData(email: string) {
   }
 
   const { data: empresa } = await sb.from('empresas')
-    .select('nome, ui_config, default_locale')
+    .select('nome, default_locale')
     .eq('id', trilha.empresa_id).maybeSingle();
 
-  // Branding dupla: logo do tenant (ui_config.logo_url) → data URI. react-pdf
-  // em Node não resolve URL remota direito — o padrão do repo é base64
-  // (lib/pdf-assets.ts). Falha/ausência → null (layout cai pro nome em texto).
-  let logoEmpresaBase64: string | null = null;
-  const logoUrl = (empresa?.ui_config as any)?.logo_url;
-  if (logoUrl && typeof logoUrl === 'string') {
-    try {
-      const res = await fetch(logoUrl);
-      if (res.ok) {
-        const mime = res.headers.get('content-type') || 'image/png';
-        const buf = Buffer.from(await res.arrayBuffer());
-        logoEmpresaBase64 = `data:${mime};base64,${buf.toString('base64')}`;
-      }
-    } catch { /* fallback: nome da empresa em texto */ }
-  }
-
+  // Padrão Vertho (design bundle 23/07): a instituição aparece como TEXTO no
+  // rodapé (sem logo do tenant) — cert de marca única. Por isso não buscamos
+  // mais `ui_config.logo_url`.
   return {
     ok: true,
     colab: { nome: colab.nome_completo, cargo: colab.cargo },
@@ -81,6 +68,5 @@ export async function loadCertificadoData(email: string) {
     },
     empresa: { nome: empresa?.nome || '', locale: empresa?.default_locale || 'pt-BR' },
     participacao,
-    logoEmpresaBase64,
   };
 }

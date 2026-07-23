@@ -17,10 +17,6 @@ async function save(nome: string, bytes: Uint8Array | Buffer) {
   console.log('OK', p, (Buffer.from(bytes).length / 1024 | 0) + 'KB');
 }
 
-// Logo fake do tenant (PNG local do public/) pra validar a branding dupla
-const fakeLogo = fs.readFileSync(path.join(process.cwd(), 'public', 'beto-avatar.jpg'));
-const logoEmpresaBase64 = `data:image/jpeg;base64,${fakeLogo.toString('base64')}`;
-
 const participacao = { semanasComEntrega: 12, totalSemanas: 14, pct: 12 / 14, elegivel: true };
 
 const base = {
@@ -35,16 +31,11 @@ const base = {
   participacao,
 };
 
-// 1) pt-BR com logo do tenant (branding dupla completa)
 async function main() {
-  await save('certificado-ptbr-com-logo', await renderCertificadoPDF({ ...base, logoEmpresaBase64 }));
-  // 2) pt-BR SEM logo (fallback: nome da empresa em texto)
-  await save('certificado-ptbr-sem-logo', await renderCertificadoPDF({ ...base, logoEmpresaBase64: null }));
-  // 3) en-US com logo
+  await save('certificado-ptbr', await renderCertificadoPDF(base));
   await save('certificado-enus', await renderCertificadoPDF({
     ...base,
     empresa: { nome: 'Acme School', locale: 'en-US' },
-    logoEmpresaBase64,
   }));
 }
 

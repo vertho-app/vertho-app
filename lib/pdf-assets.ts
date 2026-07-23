@@ -73,6 +73,26 @@ export function getLogoDarkHBase64(): string | null {
   return cachedLogoDarkH;
 }
 
+let cachedIconDark: string | null = null;
+let cachedIconDarkTried = false;
+
+/**
+ * Ícone Vertho (marca "V", tinta escura ~1740×1812) para uso sobre fundo CLARO —
+ * ex.: selo/medalhão do Certificado de Conclusão. Origem: design bundle
+ * "Certificado Jornada Vertho" (assets/icone-escuro.png). Cache por cold start.
+ */
+export function getIconDarkBase64(): string | null {
+  if (cachedIconDarkTried) return cachedIconDark;
+  cachedIconDarkTried = true;
+  try {
+    const p = join(process.cwd(), 'public', 'vertho-icone-escuro.png');
+    cachedIconDark = `data:image/png;base64,${readFileSync(p).toString('base64')}`;
+  } catch {
+    cachedIconDark = null;
+  }
+  return cachedIconDark;
+}
+
 let cachedLogoDark: string | null = null;
 let cachedLogoDarkTried = false;
 
