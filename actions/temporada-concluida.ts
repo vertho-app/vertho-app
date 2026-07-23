@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUserAction } from '@/lib/auth/action-context';
 import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
+import { calcularParticipacao } from '@/lib/season-engine/participacao';
 
 /**
  * Carrega dados pra tela "Temporada Concluída" do colaborador.
@@ -84,6 +85,9 @@ export async function loadTemporadaConcluida(email: string) {
   } : null;
 
   // Insight geral + próximo passo (do evolution_report já consolidado)
+  // Elegibilidade do certificado (≥75% das semanas com entrega) — a emissão
+  // em si fica na rota /api/temporada/certificado/pdf, que revalida tudo.
+  const participacao = calcularParticipacao(plano, progressos || []);
   return {
     ok: true,
     colab: { nome: colab.nome_completo, cargo: colab.cargo, perfilDominante: colab.perfil_dominante },
@@ -96,6 +100,7 @@ export async function loadTemporadaConcluida(email: string) {
       totalSemanas: plano.length || 14,
     },
     evolutionReport: trilha.evolution_report,
+    certificado: { elegivel: participacao.elegivel, pct: Math.round(participacao.pct * 100) },
     momentos,
     missoes,
     sem14,

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, Sparkles, Trophy, Target, MessageSquare, CheckCircle2, TrendingUp, TrendingDown, Minus, Download } from 'lucide-react';
+import { Loader2, Sparkles, Trophy, Target, MessageSquare, CheckCircle2, TrendingUp, TrendingDown, Minus, Download, Award } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import ReactMarkdown from 'react-markdown';
@@ -157,7 +157,15 @@ export default function TemporadaConcluidaPage() {
   return (
     <PageContainer>
       <BackButton href="/dashboard/temporada" />
-      <div className="flex items-center justify-end mb-4">
+      <div className="flex items-center justify-end mb-4 gap-2">
+        <CertificadoButton
+          sb={sb}
+          numeroTemporada={trilha.numeroTemporada}
+          certificado={data.certificado}
+          label={t('downloadCertificate')}
+          errorLabel={t('certificateError')}
+          notEligibleLabel={(pct) => t('certificateNotEligible', { pct })}
+        />
         <button onClick={async () => {
           const { data: { session } } = await sb.auth.getSession();
           const res = await fetch('/api/temporada/concluida/pdf', {
@@ -345,6 +353,48 @@ export default function TemporadaConcluidaPage() {
         </GlassCard>
       )}
     </PageContainer>
+  );
+}
+
+function CertificadoButton({ sb, numeroTemporada, certificado, label, errorLabel, notEligibleLabel }) {
+  const inelegivel = certificado && !certificado.elegivel;
+  return (
+    <div className="flex flex-col items-end">
+      <button
+        disabled={inelegivel}
+        title={inelegivel ? notEligibleLabel(certificado.pct) : undefined}
+        onClick={async () => {
+          const { data: { session } } = await sb.auth.getSession();
+          const res = await fetch('/api/temporada/certificado/pdf', {
+            headers: { Authorization: `Bearer ${session?.access_token}` },
+          });
+          if (!res.ok) {
+            let msg = errorLabel;
+            try {
+              const j = await res.json();
+              if (j?.motivo === 'participacao' && j?.participacao) {
+                msg = notEligibleLabel(Math.round(j.participacao.pct * 100));
+              }
+            } catch { /* resposta não-JSON → erro genérico */ }
+            alert(msg);
+            return;
+          }
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `certificado-temporada-${numeroTemporada}.pdf`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+        className={`flex items-center gap-2 text-xs rounded-full px-3 py-1.5 border ${inelegivel
+          ? 'text-gray-500 border-gray-600/30 cursor-not-allowed'
+          : 'text-amber-400 border-amber-400/30 hover:bg-amber-400/10'}`}
+      >
+        <Award size={12} /> {label}
+      </button>
+      {inelegivel && <p className="text-[10px] text-gray-500 mt-1">{notEligibleLabel(certificado.pct)}</p>}
+    </div>
   );
 }
 
