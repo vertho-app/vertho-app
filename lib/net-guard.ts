@@ -88,7 +88,8 @@ export async function assertDestinoPublico(url: URL): Promise<void> {
  * Lookup customizado do Agent: valida os registros no CONNECT e devolve um
  * endereço já validado — sem janela de rebinding entre check e conexão.
  */
-function lookupPublico(hostname: string, opts: any, cb: (err: any, address?: any, family?: number) => void): void {
+// Exportado p/ teste do contrato do callback (Happy Eyeballs) — não usar fora do Agent.
+export function lookupPublico(hostname: string, opts: any, cb: (err: any, address?: any, family?: number) => void): void {
   lookup(hostname, { all: true, verbatim: true }).then((addrs) => {
     if (!addrs.length) return cb(new Error(`DNS não resolveu ${hostname}`));
     if (addrs.some((a) => ehIpPrivado(a.address))) return cb(new Error('Destino privado bloqueado'));
