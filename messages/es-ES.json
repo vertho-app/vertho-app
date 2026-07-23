@@ -156,7 +156,8 @@
       "waitingScenarios": "Esperando liberación del mapeo de escenarios",
       "behavioral": "Hacer diagnóstico comportamental",
       "continueAssessment": "Continuar evaluación",
-      "startAssessment": "Iniciar evaluación"
+      "startAssessment": "Iniciar evaluación",
+      "viewResult": "Ver mi resultado"
     },
     "header": {
       "hello": "Hola, {name}",
@@ -657,6 +658,14 @@
     "calculating": {
       "title": "Calculando tu perfil...",
       "subtitle": "Analizando tus respuestas y generando competencias."
+    },
+    "closing": {
+      "tag": "Etapa completada",
+      "title": "¡Mapeaste tu perfil!",
+      "subtitle": "Conocerse a uno mismo es el primer paso para relacionarnos mejor — con nosotros mismos y con los demás. Y también es la base de una buena gestión de personas.",
+      "watchVideo": "Mira el vídeo de cierre",
+      "devolutiva": "En la siguiente pantalla está tu devolutiva: reserva un momento para escucharla con atención y apertura.",
+      "viewProfile": "Ver mi perfil"
     }
   },
   "BehavioralProfile": {
@@ -948,6 +957,10 @@
     }
   },
   "Season": {
+    "video": {
+      "label": "Cómo funciona tu recorrido",
+      "title": "Tu recorrido semanal"
+    },
     "empty": {
       "title": "Tu temporada aún no se ha generado",
       "subtitle": "Espera a que RR. HH. o tu gestor la libere."
@@ -979,6 +992,10 @@
     "pilotClosing": "Cierre"
   },
   "Pdi": {
+    "video": {
+      "label": "Cómo funciona tu PDI",
+      "title": "Tu Plan de Desarrollo Individual"
+    },
     "eyebrowShort": "MI PDI",
     "eyebrowFull": "PLAN DE DESARROLLO INDIVIDUAL",
     "generatedAt": "Generado el {date}",
@@ -3011,7 +3028,7 @@
       "minChars": "{count} / mín. 20 caracteres",
       "previous": "← Anterior",
       "next": "Siguiente →",
-      "representativity": "Representatividad →"
+      "representativity": "Siguiente →"
     },
     "representativity": {
       "prompt": "En una escala de 1 a 10, ¿qué grado de representatividad tiene esta situación en tu día a día?",
@@ -3033,7 +3050,8 @@
     },
     "done": {
       "title": "¡Felicidades, {name}!",
-      "description": "Has completado todas las evaluaciones de competencias.<br></br>Pronto recibirás tu informe personalizado."
+      "description": "Has completado todas las evaluaciones de competencias.<br></br>Pronto recibirás tu informe personalizado.",
+      "watchVideo": "Mira: agradecimiento y próximos pasos (PDI y Temporada)"
     }
   },
   "AdminRadarFunnel": {

@@ -8,6 +8,10 @@ import { Loader2, BookOpen, Target, Sparkles, Lock, Check, Play, Video, FileText
 import { loadTemporadaPorEmail } from '@/actions/temporadas';
 import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 import { semanaLiberadaPorData, formatarLiberacao } from '@/lib/season-engine/week-gating';
+import FirstViewVideo from '@/components/first-view-video';
+
+// Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a temporada.
+const JORNADA_VIDEO_ID = '4d17fac6-2dda-4c34-8436-bfe4c7f32f62';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 const TIPO_LABEL_KEY = { conteudo: 'episode', aplicacao: 'practice', avaliacao: 'assessment' };
@@ -91,6 +95,10 @@ export default function TemporadaPage() {
             </span>
           }
         />
+
+        <div className="mb-6">
+          <FirstViewVideo videoId={JORNADA_VIDEO_ID} title={t('video.title')} label={t('video.label')} sectionKey="jornada" colabId={trilha.colaborador_id} />
+        </div>
 
         {pausada && (
           <GlassCard className="mb-4 border-amber-500/30 bg-amber-500/5">

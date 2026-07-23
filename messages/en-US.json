@@ -156,7 +156,8 @@
       "waitingScenarios": "Waiting for scenario mapping release",
       "behavioral": "Start behavioral assessment",
       "continueAssessment": "Continue review",
-      "startAssessment": "Start assessment"
+      "startAssessment": "Start assessment",
+      "viewResult": "View my result"
     },
     "header": {
       "hello": "Hello, {name}",
@@ -657,6 +658,14 @@
     "calculating": {
       "title": "Calculating your profile...",
       "subtitle": "Analyzing your answers and generating skills."
+    },
+    "closing": {
+      "tag": "Step completed",
+      "title": "You've mapped your profile!",
+      "subtitle": "Knowing yourself is the first step to relating better — with ourselves and with others. It is also the foundation of good people management.",
+      "watchVideo": "Watch the closing video",
+      "devolutiva": "Your feedback is on the next screen: take a moment to listen to it with attention and openness.",
+      "viewProfile": "View my profile"
     }
   },
   "BehavioralProfile": {
@@ -944,6 +953,10 @@
     }
   },
   "Season": {
+    "video": {
+      "label": "How your journey works",
+      "title": "Your weekly journey"
+    },
     "empty": {
       "title": "Your season has not yet been generated",
       "subtitle": "Wait for HR/manager to release it."
@@ -975,6 +988,10 @@
     "pilotClosing": "Closing"
   },
   "Pdi": {
+    "video": {
+      "label": "How your development plan works",
+      "title": "Your Individual Development Plan"
+    },
     "eyebrowShort": "MY IDP",
     "eyebrowFull": "INDIVIDUAL DEVELOPMENT PLAN",
     "generatedAt": "Generated in {date}",
@@ -3829,7 +3846,7 @@
       "minChars": "{count} / min. 20 characters",
       "previous": "← Previous",
       "next": "Next →",
-      "representativity": "Representativeness →"
+      "representativity": "Next →"
     },
     "representativity": {
       "prompt": "On a scale of 1 to 10, how representative is this situation in your daily life?",
@@ -3851,7 +3868,8 @@
     },
     "done": {
       "title": "Congratulations, {name}!",
-      "description": "You have completed all competency assessments.<br></br>You will soon receive your personalized report."
+      "description": "You have completed all competency assessments.<br></br>You will soon receive your personalized report.",
+      "watchVideo": "Watch: thank you and next steps (PDI and Season)"
     }
   },
   "ManagerDashboard": {

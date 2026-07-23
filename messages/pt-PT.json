@@ -156,7 +156,8 @@
       "waitingScenarios": "A aguardar libertação do mapeamento de cenários",
       "behavioral": "Fazer diagnóstico comportamental",
       "continueAssessment": "Continuar avaliação",
-      "startAssessment": "Iniciar avaliação"
+      "startAssessment": "Iniciar avaliação",
+      "viewResult": "Ver o meu resultado"
     },
     "header": {
       "hello": "Olá, {name}",
@@ -657,6 +658,14 @@
     "calculating": {
       "title": "A calcular o seu perfil...",
       "subtitle": "A analisar as suas respostas e a gerar competências."
+    },
+    "closing": {
+      "tag": "Etapa concluída",
+      "title": "Mapeou o seu perfil!",
+      "subtitle": "Conhecer-se a si mesmo é o primeiro passo para nos relacionarmos melhor — connosco mesmos e com os outros. E é também a base de uma boa gestão de pessoas.",
+      "watchVideo": "Veja o vídeo de encerramento",
+      "devolutiva": "No ecrã seguinte está a sua devolutiva: reserve um momento para a ouvir com atenção e abertura.",
+      "viewProfile": "Ver o meu perfil"
     }
   },
   "BehavioralProfile": {
@@ -948,6 +957,10 @@
     }
   },
   "Season": {
+    "video": {
+      "label": "Como funciona a sua jornada",
+      "title": "A sua jornada semanal"
+    },
     "empty": {
       "title": "A sua temporada ainda não foi gerada",
       "subtitle": "Aguarde a libertação pelo RH/gestor."
@@ -979,6 +992,10 @@
     "pilotClosing": "Fecho"
   },
   "Pdi": {
+    "video": {
+      "label": "Como funciona o seu PDI",
+      "title": "O seu Plano de Desenvolvimento Individual"
+    },
     "eyebrowShort": "O MEU PDI",
     "eyebrowFull": "PLANO DE DESENVOLVIMENTO INDIVIDUAL",
     "generatedAt": "Gerado em {date}",
@@ -3011,7 +3028,7 @@
       "minChars": "{count} / mín. 20 caracteres",
       "previous": "← Anterior",
       "next": "Próxima →",
-      "representativity": "Representatividade →"
+      "representativity": "Avançar →"
     },
     "representativity": {
       "prompt": "Numa escala de 1 a 10, qual é o grau de representatividade desta situação no seu quotidiano?",
@@ -3033,7 +3050,8 @@
     },
     "done": {
       "title": "Parabéns, {name}!",
-      "description": "Concluiu todas as avaliações de competências.<br></br>Em breve receberá o seu relatório personalizado."
+      "description": "Concluiu todas as avaliações de competências.<br></br>Em breve receberá o seu relatório personalizado.",
+      "watchVideo": "Veja: agradecimento e próximas etapas (PDI e Temporada)"
     }
   },
   "AdminRadarFunnel": {

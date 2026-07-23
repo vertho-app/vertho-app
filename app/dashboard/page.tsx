@@ -182,6 +182,10 @@ export default function DashboardHomePage() {
     }
     if (precisaMapeamentoDISC) return t('mainCta.behavioral');
     if (mapeamentoCenariosBloqueado) return t('mainCta.waitingScenarios');
+    // Avaliação 100% concluída: CTA deixa de sugerir "continuar" e vira "ver resultado".
+    if ((colaborador.totalComp || 0) > 0 && (colaborador.respondidas || 0) >= colaborador.totalComp) {
+      return t('mainCta.viewResult');
+    }
     return (colaborador.respondidas || 0) > 0 ? t('mainCta.continueAssessment') : t('mainCta.startAssessment');
   }
 

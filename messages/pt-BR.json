@@ -156,7 +156,8 @@
       "waitingScenarios": "Aguardando liberação do mapeamento de cenários",
       "behavioral": "Fazer diagnóstico comportamental",
       "continueAssessment": "Continuar avaliação",
-      "startAssessment": "Iniciar avaliação"
+      "startAssessment": "Iniciar avaliação",
+      "viewResult": "Ver meu resultado"
     },
     "header": {
       "hello": "Olá, {name}",
@@ -657,6 +658,14 @@
     "calculating": {
       "title": "Calculando seu perfil...",
       "subtitle": "Analisando suas respostas e gerando competências."
+    },
+    "closing": {
+      "tag": "Etapa concluída",
+      "title": "Você mapeou o seu perfil!",
+      "subtitle": "Conhecer a si mesmo é o primeiro passo para nos relacionarmos melhor — com nós mesmos e com os outros. E é também a base de uma boa gestão de pessoas.",
+      "watchVideo": "Assista ao vídeo de encerramento",
+      "devolutiva": "Na próxima tela está a sua devolutiva: reserve um momento para ouvi-la com atenção e abertura.",
+      "viewProfile": "Ver meu perfil"
     }
   },
   "BehavioralProfile": {
@@ -948,6 +957,10 @@
     }
   },
   "Season": {
+    "video": {
+      "label": "Como funciona a sua jornada",
+      "title": "Sua jornada semanal"
+    },
     "empty": {
       "title": "Sua temporada ainda não foi gerada",
       "subtitle": "Aguarde o RH/gestor liberar."
@@ -979,6 +992,10 @@
     "pilotClosing": "Fechamento"
   },
   "Pdi": {
+    "video": {
+      "label": "Como funciona o seu PDI",
+      "title": "Seu Plano de Desenvolvimento Individual"
+    },
     "eyebrowShort": "MEU PDI",
     "eyebrowFull": "PLANO DE DESENVOLVIMENTO INDIVIDUAL",
     "generatedAt": "Gerado em {date}",
@@ -3835,7 +3852,7 @@
       "minChars": "{count} / mín. 20 caracteres",
       "previous": "← Anterior",
       "next": "Próxima →",
-      "representativity": "Representatividade →"
+      "representativity": "Avançar →"
     },
     "representativity": {
       "prompt": "Em uma escala de 1 a 10, qual o grau de representatividade desta situação no seu cotidiano?",
@@ -3857,7 +3874,8 @@
     },
     "done": {
       "title": "Parabéns, {name}!",
-      "description": "Você completou todas as avaliações de competências.<br></br>Em breve você receberá seu relatório personalizado."
+      "description": "Você completou todas as avaliações de competências.<br></br>Em breve você receberá seu relatório personalizado.",
+      "watchVideo": "Assista: agradecimento e próximas etapas (PDI e Temporada)"
     }
   },
   "ManagerDashboard": {

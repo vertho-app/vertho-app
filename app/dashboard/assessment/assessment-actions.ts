@@ -123,7 +123,7 @@ async function _getDiagnosticoDoDia() {
   const pct = top5.length > 0 ? Math.round((respondidas / top5.length) * 100) : 0;
 
   const progresso = { pct, total: top5.length, respondidas };
-  const colaboradorPayload = { nome: colab.nome_completo, cargo: colab.cargo };
+  const colaboradorPayload = { id: colab.id, nome: colab.nome_completo, cargo: colab.cargo };
 
   // Se não há Top 5 configurado, mostra aviso (não falso 'concluiu tudo')
   if (top5.length === 0) {

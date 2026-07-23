@@ -64,9 +64,14 @@ const TOTAL_STEPS = RANKING_GROUPS.length + FORCED_PAIRS.length + 1;
 // Vídeo de instruções do mapeamento (Bunny Stream, library 636615).
 const BUNNY_LIBRARY = 636615;
 // v3 HD (1232x720): mesma edição da v2, em 1500 kbps. Capa GLOBAL (sem município).
-const INSTRUCTIONS_VIDEO_ID = 'ab190728-e2ae-4cd6-9080-174c2ed2a91e';
+const INSTRUCTIONS_VIDEO_ID = 'a352dbdf-4515-45ba-8797-72f62798402c'; // Tutorial DISC completo (Bunny 636615)
 // Bump quando trocar o thumbnail no Bunny (busta o cache de edge da capa).
 const INSTRUCTIONS_THUMB_V = '5';
+
+// Vídeo de encerramento do mapeamento (pedido do deck "Experiência do usuário - Elo"):
+// reflexões sobre autoconhecimento, vínculo com gestão de pessoas e a devolutiva.
+// TODO: vídeo em produção — trocar pelo ID real do Bunny Stream quando estiver pronto.
+const CLOSING_VIDEO_ID = 'TROCAR_PELO_ID_DO_VIDEO_DE_ENCERRAMENTO';
 
 function shuffle(arr) {
   const a = [...arr];
@@ -190,6 +195,7 @@ const PHASE = {
   PAIRS1: 'pairs1',
   LEARNING: 'learning',
   CALCULATING: 'calculating',
+  CLOSING: 'closing',
   RESULTS: 'results',
 };
 
@@ -208,6 +214,8 @@ export default function MapeamentoPage() {
 
   // Vídeo de instruções (capa clicável → modal com tracking)
   const [showVideo, setShowVideo] = useState(false);
+  // Vídeo de encerramento (tela CLOSING → modal com tracking)
+  const [showClosingVideo, setShowClosingVideo] = useState(false);
 
   // Flow — começa na tela de instruções (ONBOARDING)
   const [phase, setPhase] = useState(PHASE.ONBOARDING);
@@ -319,10 +327,10 @@ export default function MapeamentoPage() {
     }
     setSaving(false);
 
-    // Pequeno delay pra garantir que a gravação terminou de propagar, então
-    // REDIRECIONA pra tela consolidada. replace evita voltar pra essa tela.
-    setTimeout(() => router.replace('/dashboard/perfil-comportamental'), 800);
-  }, [rank1, pairs1, learnPrefs, formName, formGender, router, t]);
+    // Em vez de ir direto pro relatório, mostra a tela de encerramento com o
+    // vídeo da etapa. O botão dela leva pra tela consolidada (devolutiva).
+    setPhase(PHASE.CLOSING);
+  }, [rank1, pairs1, learnPrefs, formName, formGender, t]);
 
   /* ─── Navigation helpers ─── */
   const nextRankGroup = () => {
@@ -809,6 +817,55 @@ export default function MapeamentoPage() {
         <Loader2 size={48} className="animate-spin text-brand-400 mb-4" />
         <h2 className="text-lg font-bold text-white mb-1">{t('calculating.title')}</h2>
         <p className="text-sm text-gray-400">{t('calculating.subtitle')}</p>
+      </div>
+    );
+  }
+
+  /* ═══════════════════ CLOSING (vídeo de encerramento) ═══════════════════ */
+  if (phase === PHASE.CLOSING) {
+    return (
+      <div className="max-w-[480px] mx-auto px-4 py-6">
+        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{t('closing.tag')}</p>
+        <h1 className="text-[26px] font-black text-white leading-tight mb-2" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{t('closing.title')}</h1>
+        <p className="text-[14px] text-gray-400 leading-relaxed mb-6">{t('closing.subtitle')}</p>
+
+        {/* Capa do vídeo de encerramento (sem thumbnail enquanto o ID é placeholder) */}
+        <button
+          onClick={() => setShowClosingVideo(true)}
+          className="group relative block w-full aspect-video rounded-2xl overflow-hidden border border-white/10 mb-3 active:scale-[0.99] transition-transform"
+          aria-label={t('closing.watchVideo')}
+        >
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #0F2A4A 0%, #123B63 55%, #0C1829 100%)' }} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="w-16 h-16 rounded-full flex items-center justify-center transition-transform group-hover:scale-110"
+              style={{ background: 'rgba(45,212,191,0.15)', border: '1.5px solid rgba(45,212,191,0.5)' }}>
+              <Play size={26} className="text-brand-400 ml-1" fill="currentColor" />
+            </span>
+          </div>
+        </button>
+        <p className="text-center text-[12px] text-gray-500 mb-6">{t('closing.watchVideo')}</p>
+
+        <p className="text-[13px] text-gray-300 leading-relaxed mb-6 px-4 py-3 rounded-xl border border-white/10 bg-white/[0.03]">
+          {t('closing.devolutiva')}
+        </p>
+
+        <button
+          onClick={() => router.replace('/dashboard/perfil-comportamental')}
+          className="w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase transition-all"
+          style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
+        >
+          {t('closing.viewProfile')}
+        </button>
+
+        {showClosingVideo && (
+          <VideoModal
+            libraryId={BUNNY_LIBRARY}
+            videoId={CLOSING_VIDEO_ID}
+            title={t('closing.watchVideo')}
+            colaboradorId={colabId}
+            onClose={() => setShowClosingVideo(false)}
+          />
+        )}
       </div>
     );
   }
