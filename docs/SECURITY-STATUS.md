@@ -19,7 +19,7 @@ Auditoria multi-agente (223 arquivos de alto risco; 29 achados confirmados por v
 
 Padrão de remediação: **exports `'use server'` sempre gatados; caminho headless (auto-trigger/rota/task) importa um núcleo em `lib/` que revalida o tenant por item (`opts.empresaId`, "B5")**. Guardas de CI que sustentam: `use-server-internal-guard` (allowlist só encolhe — hoje 2 entradas), `service-role-guard` (allowlist de `createSupabaseAdmin()`, só arquivos versionados), `tenant-read/mutation-guard`, `dashboard-isolation`.
 
-**Aberto (operacional, não-código):** redeploy MANUAL das tasks Trigger.dev (acumulada-piloto, extracao-video, estruturar-material) — os fixes de B/D no worker + a dependência nova `undici` só entram com `npx trigger.dev deploy`.
+**Operacional — FEITO (23/07):** redeploy do Trigger.dev `20260723.2` (11 tasks) — o fix do Grupo D em `trigger/extracao-video.ts` (revalida URL+DNS antes do `yt-dlp`) + a dep `undici` + `runtime:'node-22'` estão no worker de prod. **Auditoria 23/07 encerrada de ponta a ponta (Vercel + Trigger); nada aberto.**
 
 ## Fechamento dos altos 22/07
 
