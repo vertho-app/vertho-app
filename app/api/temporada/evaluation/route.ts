@@ -9,7 +9,7 @@ import { pontuarFechamento } from '@/lib/season-engine/fechamento-scorer';
 import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { parseJsonIA } from '@/lib/ai-json';
-import { gerarEvolutionReport } from '@/actions/evolution-report';
+import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
 import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { buscarCenarioBComFallback } from '@/lib/season-engine/cenario-b';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
@@ -88,9 +88,9 @@ export async function POST(request) {
     if (guard) return guard;
 
     if (action === 'generate_report') {
-      // internal=true: a sessão é do COLAB (assertColabAccess já validou o
-      // dono da trilha acima) — sem o flag morria em FORBIDDEN silencioso.
-      const r = await gerarEvolutionReport(trilhaId, { empresaId: auth.empresaId });
+      // Núcleo headless: a sessão é do COLAB (assertColabAccess já validou o dono
+      // da trilha acima) — passa o tenant da SESSÃO (B5), sem endpoint gatado.
+      const r = await gerarEvolutionReportCore(trilhaId, { empresaId: auth.empresaId });
       return NextResponse.json(r);
     }
 
@@ -310,8 +310,8 @@ export async function POST(request) {
         };
         await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: true });
 
-        // Gera Evolution Report automático (internal: sessão é do colab)
-        const report = await gerarEvolutionReport(trilhaId, { empresaId: auth.empresaId });
+        // Gera Evolution Report automático (núcleo headless: sessão do colab, tenant via B5)
+        const report = await gerarEvolutionReportCore(trilhaId, { empresaId: auth.empresaId });
 
         return { status: 200, json: {
           finished: true,

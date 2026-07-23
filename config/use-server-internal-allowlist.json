@@ -1,16 +1,15 @@
 {
   "description": "DÍVIDA, não permissão. Server actions que ainda aceitam flag `internal`. Em arquivo 'use server' todo export é endpoint HTTP → a flag é escolhida pelo CLIENTE, não pelo servidor. Esta lista só pode ENCOLHER: para tirar a flag, extraia um núcleo sem gate pra lib/ (modelo: lib/blueprint/core.ts) e deixe a action sempre gatada. NÃO adicione entradas para fazer o CI passar — a entrada nova é justamente o bug que este guard existe pra pegar. Contexto: CLAUDE.md, seção 'Server Actions são endpoints HTTP'.",
   "risco": {
-    "actions/whatsapp.ts": "MAIOR RISCO. Bypass boolean, sem revalidação de tenant. Se o id vazar pro bundle (basta um client component importar), vira relay de WhatsApp arbitrário pelo número da Vertho → ban do número mata o canal de TODOS os tenants. Hoje o id NÃO está publicado (verificado por action-id-exposure.test.ts).",
-    "actions/evolution-report.ts": "Forma `{ empresaId }` — REVALIDA o tenant. Pula só o gate de permissão."
+    "actions/whatsapp.ts": "MAIOR RISCO. Bypass boolean, sem revalidação de tenant. Se o id vazar pro bundle (basta um client component importar), vira relay de WhatsApp arbitrário pelo número da Vertho → ban do número mata o canal de TODOS os tenants. Hoje o id NÃO está publicado (verificado por action-id-exposure.test.ts)."
   },
   "removidos": {
     "actions/fase1.ts::rodarIA2 + ::rodarIA3Uma, actions/fase3.ts::rodarIA4": "Removidos 10/07: o guard de bundle (action-id-exposure.test.ts) provou que os 3 tinham o action id PUBLICADO no JS do browser E o servidor aceitava — bypass explorável sem sessão, não latente. Zero callers usavam a flag: deleção pura.",
-    "actions/avaliacao-acumulada.ts::gerarAvaliacaoAcumulada + ::gerarAvaliacaoAcumuladaParcial": "Removidos 23/07: a forma `{ empresaId: null }` pulava o gate E o recheck B5 (o recheck exigia empresaId truthy). Núcleo extraído pra lib/season-engine/avaliacao-acumulada-core.ts (headless, opts.empresaId opcional com recheck B5); actions viraram wrappers sempre gatados; rotas reflection/evaluation, task acumulada-piloto e simulador-core importam o core direto."
+    "actions/avaliacao-acumulada.ts::gerarAvaliacaoAcumulada + ::gerarAvaliacaoAcumuladaParcial": "Removidos 23/07: a forma `{ empresaId: null }` pulava o gate E o recheck B5 (o recheck exigia empresaId truthy). Núcleo extraído pra lib/season-engine/avaliacao-acumulada-core.ts (headless, opts.empresaId opcional com recheck B5); actions viraram wrappers sempre gatados; rotas reflection/evaluation, task acumulada-piloto e simulador-core importam o core direto.",
+    "actions/evolution-report.ts::gerarEvolutionReport": "Removido 23/07 (grupo E backlog): mesma classe da acumulada — `{ empresaId: null }` pulava o gate de admin E o recheck B5 (short-circuit no empresaId truthy) → auth bypass + escrita cross-tenant (marcava trilha alheia CONCLUIDA, sobrescrevia evolution_report). Núcleo em lib/season-engine/evolution-report-core.ts (headless, opts.empresaId com recheck B5); action sempre gatada (requireAdminSupabase); a rota evaluation importa o core direto."
   },
   "allowlist": [
     "actions/whatsapp.ts::enviarWhatsApp",
-    "actions/whatsapp.ts::enviarAudio",
-    "actions/evolution-report.ts::gerarEvolutionReport"
+    "actions/whatsapp.ts::enviarAudio"
   ]
 }

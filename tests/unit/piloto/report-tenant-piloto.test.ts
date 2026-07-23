@@ -32,7 +32,7 @@ vi.mock('@/lib/auth/action-context', () => ({ requireAdminAction: async () => ({
 vi.mock('@/lib/season-engine/trilha-runtime', () => ({ resolverConfigDaTrilha: async () => PROGRAMA_PILOTO }));
 vi.mock('@/actions/ai-client', () => ({ callAI: vi.fn() }));
 
-import { gerarEvolutionReport } from '@/actions/evolution-report';
+import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
 import { gerarAvaliacaoAcumuladaCore } from '@/lib/season-engine/avaliacao-acumulada-core';
 
 beforeEach(() => { updates.length = 0; resolver = () => null; });
@@ -49,10 +49,10 @@ const prog14 = (avaliacao: any[], spec = PILOTO_SPEC_VERSION, status = PROGRESSO
   status, feedback: { spec_version: spec, avaliacao_por_descritor: avaliacao, resumo_avaliacao: {}, nota_media_pos: 2.4 },
 });
 
-describe('gerarEvolutionReport — B4 (não trava por N-1) + B5 (tenant)', () => {
-  it('B5: rejeita trilha de OUTRO tenant (internal.empresaId ≠ trilha.empresa_id)', async () => {
+describe('gerarEvolutionReportCore — B4 (não trava por N-1) + B5 (tenant)', () => {
+  it('B5: rejeita trilha de OUTRO tenant (opts.empresaId ≠ trilha.empresa_id)', async () => {
     resolver = (t) => (t === 'trilhas' ? trilhaPiloto('emp-A') : null);
-    const r = await gerarEvolutionReport('tr1', { empresaId: 'emp-B' });
+    const r = await gerarEvolutionReportCore('tr1', { empresaId: 'emp-B' });
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/outro tenant/i);
     expect(updates.length).toBe(0); // nunca chega a persistir
@@ -65,7 +65,7 @@ describe('gerarEvolutionReport — B4 (não trava por N-1) + B5 (tenant)', () =>
       if (t === 'temporada_semana_progresso' && cols.includes('feedback')) return prog14([{ descritor: 'D1', nota_pos: 2.5, nota_pre: 2.0 }]); // 1 de 2
       return null;
     };
-    const r = await gerarEvolutionReport('tr1', { empresaId: 'emp-A' });
+    const r = await gerarEvolutionReportCore('tr1', { empresaId: 'emp-A' });
     expect(r.success).toBe(true);
     const er = r.evolution_report as any;
     expect(er.incompleto).toBe(true);
@@ -81,7 +81,7 @@ describe('gerarEvolutionReport — B4 (não trava por N-1) + B5 (tenant)', () =>
       if (t === 'temporada_semana_progresso' && cols.includes('feedback')) return prog14([{ descritor: 'D1', nota_pos: 2.5 }, { descritor: 'D2', nota_pos: 3.0 }]);
       return null;
     };
-    const r = await gerarEvolutionReport('tr1', { empresaId: 'emp-A' });
+    const r = await gerarEvolutionReportCore('tr1', { empresaId: 'emp-A' });
     expect(r.success).toBe(true);
     expect((r.evolution_report as any).incompleto).toBe(false);
   });
@@ -93,7 +93,7 @@ describe('gerarEvolutionReport — B4 (não trava por N-1) + B5 (tenant)', () =>
       if (t === 'temporada_semana_progresso' && cols.includes('feedback')) return prog14([]); // vazio
       return null;
     };
-    const r = await gerarEvolutionReport('tr1', { empresaId: 'emp-A' });
+    const r = await gerarEvolutionReportCore('tr1', { empresaId: 'emp-A' });
     expect(r.success).toBe(false);
     expect(updates.length).toBe(0);
   });
@@ -105,7 +105,7 @@ describe('gerarEvolutionReport — B4 (não trava por N-1) + B5 (tenant)', () =>
       if (t === 'temporada_semana_progresso' && cols.includes('feedback')) return prog14([{ descritor: 'D1', nota_pos: 2.5 }], 'spec-errada');
       return null;
     };
-    const r = await gerarEvolutionReport('tr1', { empresaId: 'emp-A' });
+    const r = await gerarEvolutionReportCore('tr1', { empresaId: 'emp-A' });
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/spec_version/i);
   });
