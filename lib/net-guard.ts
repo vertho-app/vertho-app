@@ -88,12 +88,18 @@ export async function assertDestinoPublico(url: URL): Promise<void> {
  * Lookup customizado do Agent: valida os registros no CONNECT e devolve um
  * endereço já validado — sem janela de rebinding entre check e conexão.
  */
-function lookupPublico(hostname: string, _opts: any, cb: (err: any, address: string, family: number) => void): void {
+function lookupPublico(hostname: string, opts: any, cb: (err: any, address?: any, family?: number) => void): void {
   lookup(hostname, { all: true, verbatim: true }).then((addrs) => {
-    if (!addrs.length) return cb(new Error(`DNS não resolveu ${hostname}`), '', 4);
-    if (addrs.some((a) => ehIpPrivado(a.address))) return cb(new Error('Destino privado bloqueado'), '', 4);
+    if (!addrs.length) return cb(new Error(`DNS não resolveu ${hostname}`));
+    if (addrs.some((a) => ehIpPrivado(a.address))) return cb(new Error('Destino privado bloqueado'));
+    // Happy Eyeballs (`autoSelectFamily`, default no Node ≥20): o net chama o
+    // lookup com `{ all: true }` e espera o callback no formato ARRAY
+    // `[{address, family}]`. Devolver a forma single `(err, address, family)`
+    // fazia o net ler a STRING do address como array → `addresses[0].address`
+    // = undefined → ERR_INVALID_IP_ADDRESS (quebrava TODO fetchPublico).
+    if (opts && opts.all) return cb(null, addrs as any);
     cb(null, addrs[0].address, addrs[0].family);
-  }, (e) => cb(e, '', 4));
+  }, (e) => cb(e));
 }
 
 /**

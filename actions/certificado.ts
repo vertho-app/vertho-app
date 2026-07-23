@@ -5,8 +5,10 @@ import { requireUserAction } from '@/lib/auth/action-context';
 import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
 import { calcularParticipacao, isTrilhaPiloto } from '@/lib/season-engine/participacao';
 import { TRILHA } from '@/lib/status';
+import { fetchPublico } from '@/lib/net-guard';
 
 const LOGO_MAX_BYTES = 3 * 1024 * 1024;
+const LOGO_MAX_DIM = 600; // px — cap da conversão (logo de rodapé é pequeno)
 
 /** Host do Supabase Storage — único destino permitido pro logo do tenant. */
 function hostSupabaseStorage(): string | null {
@@ -14,31 +16,52 @@ function hostSupabaseStorage(): string | null {
 }
 
 /**
- * Baixa o logo do tenant como data URI raster (PNG/JPEG) ou null. Anti-SSRF em
- * camadas (ver comentário no chamador). NÃO é export — arquivo 'use server',
- * export viraria endpoint HTTP.
+ * Rasteriza qualquer imagem (webp/svg/…) pra PNG — `@react-pdf` `<Image>` só
+ * renderiza PNG/JPEG. `sharp` vem com o Next (`next → sharp`); import dinâmico
+ * com fallback (ausente → null → nome em texto). SVG precisa de `density` p/ sair
+ * nítido; `resize inside` limita o raster.
+ */
+async function paraPngDataUri(buf: Buffer, mime: string): Promise<string | null> {
+  try {
+    const sharp = (await import('sharp')).default;
+    const png = await sharp(buf, mime.includes('svg') ? { density: 220 } : undefined)
+      .resize({ width: LOGO_MAX_DIM, height: LOGO_MAX_DIM, fit: 'inside', withoutEnlargement: true })
+      .png()
+      .toBuffer();
+    return `data:image/png;base64,${png.toString('base64')}`;
+  } catch { return null; }
+}
+
+/**
+ * Baixa o logo do tenant como data URI PNG/JPEG (convertendo webp/svg quando
+ * preciso) ou null. NÃO é export — arquivo 'use server', export viraria endpoint.
+ *
+ * SSRF (logo_url é config do admin do tenant → destino atacável), defesa em
+ * camadas: (1) allowlist ao host do nosso Supabase Storage — trava o destino no
+ * nosso domínio (não alcança localhost/metadata/rede interna); (2) `fetchPublico`
+ * (lib/net-guard) bloqueia IP privado/rebinding no connect; (3) `redirect:'error'`
+ * impede um redirect fugir do host; (4) timeout + cap de tamanho.
  */
 async function carregarLogoTenant(logoUrl: unknown): Promise<string | null> {
   if (!logoUrl || typeof logoUrl !== 'string') return null;
   const permitido = hostSupabaseStorage();
   let host: string;
   try { host = new URL(logoUrl).host; } catch { return null; }
-  // SSRF: a allowlist ao nosso Supabase Storage é o controle LOAD-BEARING — trava
-  // o destino no nosso domínio (não alcança localhost/metadata/rede interna) e o
-  // `redirect:'error'` impede um redirect fugir do host. Não usamos fetchPublico/
-  // net-guard: o connector undici dele quebra no runtime atual (ERR_INVALID_IP_
-  // ADDRESS até p/ IP válido) → faria todo logo cair pro texto.
   if (!permitido || host !== permitido) return null; // só o nosso Storage
   try {
-    const res = await fetch(logoUrl, { redirect: 'error', signal: AbortSignal.timeout(6000) });
+    const res = await fetchPublico(logoUrl, { redirect: 'error', signal: AbortSignal.timeout(6000) });
     if (!res.ok) return null;
     const mime = (res.headers.get('content-type') || '').toLowerCase();
-    if (!(mime.includes('png') || mime.includes('jpeg') || mime.includes('jpg'))) return null;
+    if (!mime.startsWith('image/')) return null;
     const declarado = Number(res.headers.get('content-length') || 0);
     if (declarado && declarado > LOGO_MAX_BYTES) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length > LOGO_MAX_BYTES) return null;
-    return `data:${mime};base64,${buf.toString('base64')}`;
+    // PNG/JPEG: react-pdf renderiza direto. webp/svg/outros: rasteriza pra PNG.
+    if (mime.includes('png') || mime.includes('jpeg') || mime.includes('jpg')) {
+      return `data:${mime};base64,${buf.toString('base64')}`;
+    }
+    return await paraPngDataUri(buf, mime);
   } catch { return null; }
 }
 
