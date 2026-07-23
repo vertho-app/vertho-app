@@ -109,12 +109,22 @@ export async function loadDashboardData() {
 
 export async function loadAvatarData(emailHint?: string) {
   try {
-    let email = emailHint;
-    if (!email) {
-      const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
-      email = await getAuthenticatedEmailFromAction();
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const emailSessao = await getAuthenticatedEmailFromAction();
+    if (!emailSessao) return null;
+
+    let email = emailSessao;
+    // Gate de POSSE (auditoria 23/07, grupo C): o hint vinha do client — qualquer
+    // autenticado consultava nome/foto/avatar de qualquer pessoa. Fora do self,
+    // só com posse (gestor da área, RH/tutor do tenant, platform admin).
+    if (emailHint && emailHint.trim().toLowerCase() !== emailSessao) {
+      const { canViewColabJourney } = await import('@/lib/authz');
+      const ctx = await getUserContext(emailSessao);
+      const alvo = await findColabByEmail(emailHint, 'id, empresa_id, area_depto');
+      if (!canViewColabJourney(ctx, alvo)) return null;
+      email = emailHint.trim().toLowerCase();
     }
-    if (!email) return null;
+
     const data = await findColabByEmail(email, 'nome_completo, foto_url, avatar_preset');
     return data || { nome_completo: email, foto_url: null, avatar_preset: null };
   } catch (err) {

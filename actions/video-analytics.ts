@@ -32,9 +32,11 @@ export async function loadEmpresaInfo(empresaId: string | null | undefined) {
  */
 export async function loadUltimosVideosColab(email: string, limit: number = 3) {
   try {
-    await requireUserAction();
-    if (!email) return { error: 'email obrigatório' };
-    const colab = await findColabByEmail(email, 'id');
+    // Gate (auditoria 23/07, grupo C): o email vinha do client — qualquer
+    // autenticado via o histórico de vídeos de qualquer colab. A identidade
+    // agora vem da sessão (o param é ignorado, mantido p/ compatibilidade).
+    const ctx = await requireUserAction();
+    const colab = await findColabByEmail(ctx.email, 'id');
     if (!colab) return { error: 'Colab não encontrado' };
 
     const sb = createSupabaseAdmin();

@@ -2,7 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUserAction } from '@/lib/auth/action-context';
-import { findColabByEmail } from '@/lib/authz';
+import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
 
 /**
  * Carrega dados pra tela "Temporada Concluída" do colaborador.
@@ -10,7 +10,7 @@ import { findColabByEmail } from '@/lib/authz';
  * cenário B (semana final de avaliação) + resposta + devolutiva.
  */
 export async function loadTemporadaConcluida(email: string) {
-  await requireUserAction();
+  const ctx = await requireUserAction();
   if (!email) return { error: 'Não autenticado' };
 
   const sb = createSupabaseAdmin();
@@ -18,8 +18,13 @@ export async function loadTemporadaConcluida(email: string) {
   // findColabByEmail resolve o TENANT (cookie/header do host) — a query
   // direta com .maybeSingle() quebrava pra usuário presente em 2+ empresas
   // (multi-tenant → múltiplas rows → null → "Colaborador não encontrado").
-  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, perfil_dominante, empresa_id') as any;
+  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, area_depto, perfil_dominante, empresa_id') as any;
   if (!colab) return { error: 'Colaborador não encontrado' };
+
+  // Gate de POSSE (auditoria 23/07, grupo C): o email vem do CLIENTE — qualquer
+  // autenticado lia a temporada concluída de qualquer pessoa. Passam: o próprio
+  // colab, gestor da mesma área, RH/tutor do tenant e platform admin.
+  if (!canViewColabJourney(ctx, colab)) return { error: 'Sem permissão' };
 
   const { data: trilha } = await sb.from('trilhas')
     .select('id, competencia_foco, competencias_foco, numero_temporada, status, evolution_report, descritores_selecionados, temporada_plano')

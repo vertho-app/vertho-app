@@ -16,9 +16,15 @@ import { findColabByEmail } from '@/lib/authz';
  * - progresso existe              → capacitação em andamento, mostra semana atual e cursos
  */
 export async function loadTrilhaAtual(email) {
-  if (!email) return { error: 'Não autenticado' };
+  // Gate (auditoria 23/07, grupo C): a action NÃO tinha auth e o email vinha do
+  // client — qualquer um, mesmo sem sessão, lia a trilha de qualquer colab.
+  // A identidade agora vem SEMPRE da sessão (o param é ignorado, mantido só
+  // pra compatibilidade de assinatura com os callers).
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const emailSessao = await getAuthenticatedEmailFromAction();
+  if (!emailSessao) return { error: 'Não autenticado' };
 
-  const colab = await findColabByEmail(email, 'id, nome_completo, email, cargo, area_depto, empresa_id');
+  const colab = await findColabByEmail(emailSessao, 'id, nome_completo, email, cargo, area_depto, empresa_id');
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   const sb = createSupabaseAdmin();
