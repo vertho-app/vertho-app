@@ -4,6 +4,7 @@ import { CIS_COLUMNS, mapSupabaseToCISRawData } from '@/lib/supabase/mapCISProfi
 import { buildBehavioralReportPrompt } from '@/lib/prompts/behavioral-report-prompt';
 import { callAI } from '@/actions/ai-client';
 import { BEHAVIORAL_REPORT_SCHEMA_VERSION, isCurrentBehavioralReport } from '@/lib/behavioral-report-schema';
+import { storageSlug } from '@/lib/storage-slug';
 
 /**
  * Núcleo HEADLESS do relatório comportamental — SEM gate e SEM endpoint HTTP.
@@ -70,12 +71,7 @@ async function renderPdfBuffer(data) {
 }
 
 function pdfPathFor(colab) {
-  // Key do Storage precisa ser ASCII — acentos (ex.: "corrêa") são rejeitados no upload.
-  const slug = (colab.nome_completo || 'relatorio')
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '') || 'relatorio';
+  const slug = storageSlug(colab.nome_completo, 'relatorio');
   return {
     path: `${colab.empresa_id}/comportamental-${slug}-${Date.now()}.pdf`,
     filename: `vertho-comportamental-${slug}.pdf`,

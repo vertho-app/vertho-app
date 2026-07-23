@@ -7,6 +7,7 @@ import RelatorioRHPDF from '@/components/pdf/RelatorioRH';
 import RelatorioPulsoExecutivoPDF from '@/components/pdf/RelatorioPulsoExecutivo';
 import RelatorioPulsoNR1PDF from '@/components/pdf/RelatorioPulsoNR1';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import { storageSlug } from '@/lib/storage-slug';
 import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 import React from 'react';
 
@@ -102,12 +103,7 @@ export async function GET(request) {
 
     // Salvar no storage para próximos downloads
     try {
-      // Chave de storage precisa ser ASCII/URL-safe — nome com acento quebra o upload ("Invalid key").
-      const slug = (baseName || rel.tipo)
-        .normalize('NFD').replace(/[̀-ͯ]/g, '')
-        .replace(/[^a-zA-Z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .toLowerCase() || rel.tipo;
+      const slug = storageSlug(baseName, rel.tipo);
       const path = `${rel.empresa_id}/${rel.tipo}-${slug}-${Date.now()}.pdf`;
       const { error: upErr } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
         contentType: 'application/pdf',

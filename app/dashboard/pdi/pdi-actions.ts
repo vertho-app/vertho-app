@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import { storageSlug } from '@/lib/storage-slug';
 
 /**
  * Carrega o PDI ativo do colaborador.
@@ -86,12 +87,7 @@ export async function baixarMeuPdiPdf() {
       .maybeSingle();
     if (!rel) return { error: 'PDI não encontrado' };
 
-    // Key do Storage precisa ser ASCII — acentos no nome são rejeitados no upload.
-    const slug = (colab.nome_completo || 'pdi')
-      .toLowerCase()
-      .normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') || 'pdi';
+    const slug = storageSlug(colab.nome_completo, 'pdi');
     const filename = `vertho-pdi-${slug}.pdf`;
 
     // Se ainda não tem PDF salvo, gera e sobe antes de criar a signed URL

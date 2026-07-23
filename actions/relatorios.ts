@@ -12,6 +12,7 @@ import { buildRelatorioIndividualPrompt, normKey } from '@/lib/relatorio-individ
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import { storageSlug } from '@/lib/storage-slug';
 import React from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -71,13 +72,7 @@ async function salvarPDFStorage(
   colaboradorNome: string,
   buffer: Buffer,
 ): Promise<string | null> {
-  // Chave de storage TEM que ser ASCII/URL-safe — nome com acento (ex.: "Elizângela")
-  // quebrava o upload ("Invalid key") e o PDF não era salvo (pdf_path null).
-  const slug = (colaboradorNome || tipo)
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // remove acentos
-    .replace(/[^a-zA-Z0-9]+/g, '-')            // qualquer não-alfanumérico → hífen
-    .replace(/^-+|-+$/g, '')                    // trim hífens
-    .toLowerCase() || tipo;
+  const slug = storageSlug(colaboradorNome, tipo);
   const path = `${empresaId}/${tipo}-${slug}-${Date.now()}.pdf`;
   const { error } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
     contentType: 'application/pdf',

@@ -5,6 +5,7 @@ import { findColabByEmail } from '@/lib/authz';
 import { CIS_COLUMNS, mapSupabaseToCISRawData } from '@/lib/supabase/mapCISProfile';
 import { callAI } from '@/actions/ai-client';
 import { isCurrentBehavioralReport } from '@/lib/behavioral-report-schema';
+import { storageSlug } from '@/lib/storage-slug';
 import {
   CACHE_MAX_AGE_MS,
   BUCKET,
@@ -283,12 +284,7 @@ async function gerarEsalvarDevolutivaComportamental({ colab: inputColab, colabId
 
     // Upload + persiste path
     const sb = createSupabaseAdmin();
-    // Key do Storage precisa ser ASCII — acentos no nome são rejeitados no upload.
-    const slug = String(colab.nome_completo || 'colab')
-      .normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .replace(/[^a-zA-Z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .toLowerCase() || 'colab';
+    const slug = storageSlug(colab.nome_completo, 'colab');
     const path = `${colab.empresa_id}/devolutiva-${slug}-${Date.now()}.mp3`;
     const { error: upErr } = await sb.storage.from(AUDIO_BUCKET)
       .upload(path, audio.buffer, { contentType: audio.contentType, upsert: true });
