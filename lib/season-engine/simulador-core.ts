@@ -447,11 +447,11 @@ async function simularQualitativa(sb: any, trilha: any, colab: any, s: any, perf
 
   // Dispara avaliação acumulada (mesmo hook do endpoint real). Propaga erro
   // pra cima se falhar — antes silenciava e a acumulada ficava sem ser gerada.
-  // Passa `internal` (empresaId) para o núcleo headless: o gate já foi aplicado
-  // pela action externa (ou é uma rodada de medição headless intencional). Sem
-  // isto, gerarAvaliacaoAcumulada exigiria sessão e quebraria o piloto de custo.
-  const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
-  const r = await gerarAvaliacaoAcumulada(trilha.id, { empresaId: trilha.empresa_id });
+  // Chama o núcleo headless da lib (sem endpoint HTTP): o gate já foi aplicado
+  // pela action externa (ou é uma rodada de medição headless intencional) —
+  // sessão aqui quebraria o piloto de custo.
+  const { gerarAvaliacaoAcumuladaCore } = await import('@/lib/season-engine/avaliacao-acumulada-core');
+  const r = await gerarAvaliacaoAcumuladaCore(trilha.id, { empresaId: trilha.empresa_id });
   if (r?.error) throw new Error(`Acumulada falhou: ${r.error}`);
 }
 

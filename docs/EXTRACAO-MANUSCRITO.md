@@ -135,7 +135,7 @@ progresso da UI é polling de `ia_jobs.progress`, como a tela do IA2 já faz.
 
 `modulos_base_conteudo` aceita `competencia_base_id` **ou** `competencia_id`
 (polimórfico desde a mig 149). E o núcleo de autoria polimórfico **já existia**:
-`estruturarEInserirModulo` (privado, `actions/modulos-base.ts`) resolve os dois
+`estruturarEInserirModulo` (`lib/modulos-base/pipeline.ts`, sem guard) resolve os dois
 catálogos via `carregarCompetenciaEmpresa`/`carregarCompetenciaBase`, recebe um
 texto-base e insere o rascunho. É o mesmo caminho que a extração de vídeo usa.
 
@@ -150,10 +150,11 @@ O que faltava era só o wrapper exportado com guard, hoje
 transição já resolvidas pelo parser, sem detecção nem inferência, e tagueia como
 `importado-manuscrito`.
 
-> ⚠️ `estruturarEInserirModulo` é **privado de propósito**. Num arquivo `'use server'`,
-> todo export vira endpoint HTTP público — um núcleo sem guard exportado seria um
-> IDOR. O padrão da casa (ver `_auditarModuloCore`) é: núcleo privado, wrappers
-> exportados com `requireAdminAction`.
+> ⚠️ `estruturarEInserirModulo` é **sem guard de propósito** — por isso vive em
+> `lib/`, não num arquivo `'use server'` (onde todo export vira endpoint HTTP
+> público e um núcleo sem guard exportado seria um IDOR). O padrão da casa
+> (ver `_auditarModuloCore`) é: núcleo em `lib/` sem guard, wrappers exportados
+> como actions com `requireAdminAction`.
 
 ### 4.2 Termo canônico no prompt — **FEITO, fix validado**
 

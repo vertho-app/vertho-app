@@ -16,7 +16,7 @@ export const estruturarMaterialTask = task({
   maxDuration: 3600, // 1h — segmentação + estruturação de N módulos roda in-task (sem 800s)
   retry: { maxAttempts: 2 },
   run: async (payload: { extracaoId: string }) => {
-    const { segmentarEEstruturarExtracao } = await import('@/actions/modulos-base');
+    const { segmentarEEstruturarExtracao } = await import('@/lib/modulos-base/pipeline');
     const r = await segmentarEEstruturarExtracao(payload.extracaoId);
     // segmentarEEstruturarExtracao já gravou status 'done'/'error' no registro.
     // Idempotente: re-run após 'done' devolve o existente sem duplicar.

@@ -1095,7 +1095,7 @@ lib/season-engine/prompts/acumulado.ts # aceita nivelMetaAlvo: 2|3 (régua condi
 lib/notify-tutor.ts                    # notifyTutorMissaoConcluida (Z-API push)
 actions/temporadas.ts                  # gerarTemporada (single) + gerarTemporadaRegularDuo + gerarTemporadaOnboarding + gerarTemporadaPiloto + verificarProntidaoPiloto
 lib/season-engine/piloto-trava.ts      # trava de piso do fechamento do piloto (aplicarTravaPiloto, spec 'piloto-v1')
-actions/avaliacao-acumulada.ts         # gerarAvaliacaoAcumulada (single + multi-comp DUO via avaliarCompAcumulada) + gerarAvaliacaoAcumuladaParcial (Onboarding)
+actions/avaliacao-acumulada.ts         # wrappers SEMPRE gatados (admin) → núcleo headless em lib/season-engine/avaliacao-acumulada-core.ts (gerarAvaliacaoAcumuladaCore single + multi-comp DUO via avaliarCompAcumulada + gerarAvaliacaoAcumuladaParcialCore Onboarding, B5 via opts.empresaId)
 app/api/temporada/reflection/route.ts  # auto-trigger acumulada parcial + notify tutor ao concluir missão
 app/admin/empresas/[id]/configuracoes  # tab "Programa" (toggle modo + fase_carreira)
 lib/authz.ts                           # isTutor, getTutorados, canTutorAccess
@@ -1137,11 +1137,11 @@ Documentação enforced via migration 090 (`COMMENT ON COLUMN`).
 
 ### 17.6 Auto-trigger acumulada parcial
 
-Em `/api/temporada/reflection/route.ts`: ao concluir missão integradora em modo Onboarding, dispara `gerarAvaliacaoAcumuladaParcial(trilhaId, compsCobertas, semana, internal=true)` em background. Não bloqueia resposta ao colab. A flag `internal=true` pula o gate de admin porque o caller é o próprio colaborador.
+Em `/api/temporada/reflection/route.ts`: ao concluir missão integradora em modo Onboarding, dispara `gerarAvaliacaoAcumuladaParcialCore(trilhaId, compsCobertas, semana, { empresaId })` em background (núcleo headless de `lib/season-engine/avaliacao-acumulada-core.ts`, empresaId = tenant da sessão). Não bloqueia resposta ao colab. O caller é o próprio colaborador, então NÃO passa pela action gatada de admin.
 
 > ⚠️ **Padrões OBRIGATÓRIOS pra trabalho pós-response** (lições do E2E do piloto, 02/07 — `7fcbe88`/`dc0ffe2`/`7220797`; refinados 06-07/07 — `1d1279eb`/`e19acc04`):
 > 1. **`after()` de next/server**, nunca IIFE solta — `(async () => {...})()` morre quando a lambda da Vercel congela após o response (a acumulada/report automáticos do REGULAR nunca rodavam por isso). **Se o trabalho precisa de retry/status rastreável** (não pode se perder num freeze/race), promova pra uma **task Trigger.dev** com status persistido em tabela + **gate/polling no client** + `after()` só como **fallback/self-heal**. Ex.: a acumulada do PILOTO (`trigger/acumulada-piloto.ts`, mig 169) — a reflection da sem 2 marca `temporada_semana_progresso.acumulada_status='processing'` e dispara a task (`retry 3×`); o fechamento (sem 3) só abre com `acumulada_status='done'`, com self-heal inline se travou. *(Deploy das tasks Trigger.dev é MANUAL — não sai no git push.)*
-> 2. **Flag `internal`** em toda action service-role com gate de admin chamada por rota com sessão de colaborador (`gerarAvaliacaoAcumulada`, `gerarAvaliacaoAcumuladaParcial`, `gerarEvolutionReport`) — senão morre em FORBIDDEN silencioso. **É `internal?: { empresaId }` (não mais boolean)**: a action REVALIDA que a trilha pertence a esse tenant antes de rodar (B5 — defense-in-depth contra `trilhaId` forjado de outro tenant), em vez de confiar cegamente no caller.
+> 2. **Flag `internal`** em action service-role com gate de admin chamada por rota com sessão de colaborador (`gerarEvolutionReport`) — senão morre em FORBIDDEN silencioso. **É `internal?: { empresaId }` (não mais boolean)**: a action REVALIDA que a trilha pertence a esse tenant antes de rodar (B5 — defense-in-depth contra `trilhaId` forjado de outro tenant), em vez de confiar cegamente no caller. **Padrão NOVO preferido (23/07)**: em vez da flag, extrair o núcleo headless pra `lib/` e deixar a action sempre gatada — foi o que `gerarAvaliacaoAcumulada`/`Parcial` viraram (`lib/season-engine/avaliacao-acumulada-core.ts`); `gerarEvolutionReport` segue na allowlist como dívida.
 
 Janela cumulativa vem de `programaConfig.competenciasNaMissao`:
 - Sem 4 → Comps 0-1 (índices)

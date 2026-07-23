@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { segmentarEEstruturarExtracao } from '@/actions/modulos-base';
+import { segmentarEEstruturarExtracao } from '@/lib/modulos-base/pipeline';
 import { safeSecretEqual } from '@/lib/secure-compare';
 
 /**

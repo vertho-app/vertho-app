@@ -23,11 +23,11 @@ export const acumuladaPilotoTask = task({
         .eq('trilha_id', payload.trilhaId).eq('semana', payload.semanaAcumulada);
 
     try {
-      // dynamic import: evita ciclo de tipos e mantém a task leve.
-      const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
-      // internal={empresaId}: tenant validado pela reflection (dono da trilha);
-      // a função revalida que a trilha pertence a esse tenant (B5).
-      const r = await gerarAvaliacaoAcumulada(payload.trilhaId, { empresaId: payload.empresaId });
+      // dynamic import: evita ciclo de tipos e mantém a task leve. Núcleo headless
+      // (sem endpoint); empresaId validado pela reflection (dono da trilha) e
+      // revalidado contra a trilha no core (B5).
+      const { gerarAvaliacaoAcumuladaCore } = await import('@/lib/season-engine/avaliacao-acumulada-core');
+      const r = await gerarAvaliacaoAcumuladaCore(payload.trilhaId, { empresaId: payload.empresaId });
       if (!r?.ok) throw new Error('gerarAvaliacaoAcumulada retornou !ok');
       await patch({ acumulada_status: 'done', acumulada_erro: null });
       return { ok: true, trilhaId: payload.trilhaId };

@@ -189,10 +189,10 @@ export async function POST(request) {
         // o response — after() mantém a função viva até o trabalho terminar.
         after(async () => {
           try {
-            const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
-            // internal=true: o usuário da sessão é o COLAB (não admin) — sem
-            // o flag o trigger morria em FORBIDDEN silencioso.
-            await gerarAvaliacaoAcumulada(trilhaId, { empresaId: auth.empresaId });
+            // Núcleo headless (sem endpoint): o usuário da sessão é o COLAB
+            // (não admin) — a action gatada morreria em FORBIDDEN silencioso.
+            const { gerarAvaliacaoAcumuladaCore } = await import('@/lib/season-engine/avaliacao-acumulada-core');
+            await gerarAvaliacaoAcumuladaCore(trilhaId, { empresaId: auth.empresaId });
           } catch (e) {
             console.error('[VERTHO] avaliação acumulada sem 13:', e?.message);
           }
@@ -350,8 +350,8 @@ export async function POST(request) {
                     .eq('trilha_id', trilhaId).eq('semana', semAcumulada).maybeSingle();
                   if (cur?.acumulada_status === 'done') return;
                   if (cur?.acumulada_started_at && cur.acumulada_started_at > claimStamp) return;
-                  const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
-                  await gerarAvaliacaoAcumulada(trilhaId, { empresaId: auth.empresaId });
+                  const { gerarAvaliacaoAcumuladaCore } = await import('@/lib/season-engine/avaliacao-acumulada-core');
+                  await gerarAvaliacaoAcumuladaCore(trilhaId, { empresaId: auth.empresaId });
                   await sb.from('temporada_semana_progresso')
                     .update({ acumulada_status: 'done', acumulada_erro: null })
                     .eq('trilha_id', trilhaId).eq('semana', semAcumulada);

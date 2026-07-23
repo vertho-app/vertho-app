@@ -33,7 +33,7 @@ vi.mock('@/lib/season-engine/trilha-runtime', () => ({ resolverConfigDaTrilha: a
 vi.mock('@/actions/ai-client', () => ({ callAI: vi.fn() }));
 
 import { gerarEvolutionReport } from '@/actions/evolution-report';
-import { gerarAvaliacaoAcumulada } from '@/actions/avaliacao-acumulada';
+import { gerarAvaliacaoAcumuladaCore } from '@/lib/season-engine/avaliacao-acumulada-core';
 
 beforeEach(() => { updates.length = 0; resolver = () => null; });
 
@@ -111,10 +111,10 @@ describe('gerarEvolutionReport — B4 (não trava por N-1) + B5 (tenant)', () =>
   });
 });
 
-describe('gerarAvaliacaoAcumulada — B5 (tenant)', () => {
+describe('gerarAvaliacaoAcumuladaCore — B5 (tenant)', () => {
   it('B5: rejeita trilha de outro tenant antes de qualquer IA', async () => {
     resolver = (t) => (t === 'trilhas' ? trilhaPiloto('emp-A') : null);
-    const r: any = await gerarAvaliacaoAcumulada('tr1', { empresaId: 'emp-B' });
+    const r: any = await gerarAvaliacaoAcumuladaCore('tr1', { empresaId: 'emp-B' });
     expect(r.error).toMatch(/outro tenant/i);
   });
 });

@@ -473,8 +473,8 @@ export async function POST(request) {
         console.error('[piloto acumulada trigger; fallback after()]', e?.message);
         after(async () => {
           try {
-            const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
-            await gerarAvaliacaoAcumulada(trilhaId, { empresaId: auth.empresaId });
+            const { gerarAvaliacaoAcumuladaCore } = await import('@/lib/season-engine/avaliacao-acumulada-core');
+            await gerarAvaliacaoAcumuladaCore(trilhaId, { empresaId: auth.empresaId });
             await sb.from('temporada_semana_progresso')
               .update({ acumulada_status: 'done', acumulada_erro: null })
               .eq('trilha_id', trilhaId).eq('semana', semAcum);
@@ -507,8 +507,8 @@ export async function POST(request) {
         // after(): idem — o IIFE solto morre no freeze pós-response da Vercel.
         after(async () => {
           try {
-            const { gerarAvaliacaoAcumuladaParcial } = await import('@/actions/avaliacao-acumulada');
-            await gerarAvaliacaoAcumuladaParcial(trilhaId, compsCobertas, Number(semana), { empresaId: auth.empresaId });
+            const { gerarAvaliacaoAcumuladaParcialCore } = await import('@/lib/season-engine/avaliacao-acumulada-core');
+            await gerarAvaliacaoAcumuladaParcialCore(trilhaId, compsCobertas, Number(semana), { empresaId: auth.empresaId });
           } catch (e: any) {
             console.error('[onboarding acumulada parcial]', e?.message);
           }

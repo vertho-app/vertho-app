@@ -173,10 +173,13 @@ O E2E do piloto expôs e corrigiu **4 bugs latentes do regular**:
 
 1. **Triggers automáticos com sessão de colab**: `gerarAvaliacaoAcumulada` e
    `gerarEvolutionReport` exigem admin, mas os auto-triggers rodam na sessão do colaborador →
-   FORBIDDEN/UNAUTHORIZED silencioso. Fix: flag `internal=true` (só callers de servidor,
+   FORBIDDEN/UNAUTHORIZED silencioso. Fix original: flag `internal=true` (só callers de servidor,
    após `assertColabAccess`). **B5 (06/07)**: `internal` deixou de ser `boolean` e virou
    `{empresaId}` — o caller passa o tenant da SESSÃO e a action rejeita trilha de outro
-   tenant (`gerarEvolutionReport`/`gerarAvaliacaoAcumulada`/`Parcial`, defense-in-depth).
+   tenant (defense-in-depth). **Fix definitivo (23/07)**: a acumulada saiu da flag — núcleo
+   headless em `lib/season-engine/avaliacao-acumulada-core.ts` (com recheck B5 via
+   `opts.empresaId`), actions sempre gatadas; `gerarEvolutionReport` segue com a flag
+   (dívida declarada na use-server-internal-allowlist).
 2. **Fire-and-forget morre no freeze da Vercel**: `(async () => {...})()` solto é morto quando a
    lambda congela após o response. **Todo trabalho pós-response em rota DEVE usar `after()`**
    (next/server). Aplicado nos 4 triggers (piloto, sem 13, onboarding parcial, notify tutor).

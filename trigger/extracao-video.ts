@@ -138,7 +138,7 @@ export const extrairVideoTask = task({
 
     // 4) Segmenta em temas e estrutura N módulos-base rascunho — IN-TASK (sem a rota
     //    de 800s da Vercel; a transcrição já está em mãos).
-    const { segmentarEEstruturarExtracao } = await import('@/actions/modulos-base');
+    const { segmentarEEstruturarExtracao } = await import('@/lib/modulos-base/pipeline');
     const res = await segmentarEEstruturarExtracao(id, { transcricao, locale });
     if (res.error && !res.idempotente) return fail(res.error);
     return { ok: true, extracaoId: id, moduloIds: res.moduloIds, n: res.n, blocos: blocos.length };

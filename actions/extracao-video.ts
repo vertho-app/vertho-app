@@ -3,7 +3,7 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { extrairConteudoDeVideo } from '@/lib/gemini-video';
-import { criarModulosDeTranscricao } from '@/actions/modulos-base';
+import { criarModulosDeTranscricao } from '@/lib/modulos-base/pipeline';
 import { parseDocument } from '@/lib/rag-ingest';
 import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
