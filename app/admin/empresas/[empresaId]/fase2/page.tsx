@@ -43,6 +43,14 @@ function safeText(v: any): string {
   try { return JSON.stringify(v); } catch { return String(v); }
 }
 
+// Normaliza para array — dados legados (migração GAS) guardam pontos_fortes
+// como string solta em vez de array.
+function asArray(v: any): any[] {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string' && v.trim()) return [v];
+  return [];
+}
+
 function tryParseJsonLike(v: any) {
   if (v == null || typeof v !== 'string') return v;
   const trimmed = v.trim();
@@ -749,19 +757,19 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                               </div>
                             )}
 
-                            {(pontos.pontos_fortes || avaliacao.pontos_fortes)?.length > 0 && (
+                            {asArray(pontos.pontos_fortes || avaliacao.pontos_fortes).length > 0 && (
                               <div>
                                 <p className="text-[9px] text-green-400 font-bold">{tr('detail.strengths')}</p>
-                                {(pontos.pontos_fortes || avaliacao.pontos_fortes).map((p, i) => (
+                                {asArray(pontos.pontos_fortes || avaliacao.pontos_fortes).map((p, i) => (
                                   <p key={i} className="text-[10px] text-gray-400">• {typeof p === 'string' ? p : `${safeText(p.descritor || p.nome)}: ${safeText(p.evidencia_resumida)}`}</p>
                                 ))}
                               </div>
                             )}
 
-                            {(pontos.gaps_prioritarios || avaliacao.pontos_desenvolvimento)?.length > 0 && (
+                            {asArray(pontos.gaps_prioritarios || avaliacao.pontos_desenvolvimento).length > 0 && (
                               <div>
                                 <p className="text-[9px] text-amber-400 font-bold">{tr('detail.gapsDevelopment')}</p>
-                                {(pontos.gaps_prioritarios || avaliacao.pontos_desenvolvimento).map((p, i) => (
+                                {asArray(pontos.gaps_prioritarios || avaliacao.pontos_desenvolvimento).map((p, i) => (
                                   <p key={i} className="text-[10px] text-gray-400">• {typeof p === 'string' ? p : `${safeText(p.descritor || p.nome)}: ${safeText(p.o_que_faltou)}`}</p>
                                 ))}
                               </div>

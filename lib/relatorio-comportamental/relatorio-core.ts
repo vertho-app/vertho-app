@@ -70,7 +70,12 @@ async function renderPdfBuffer(data) {
 }
 
 function pdfPathFor(colab) {
-  const slug = (colab.nome_completo || 'relatorio').replace(/\s+/g, '-').toLowerCase();
+  // Key do Storage precisa ser ASCII — acentos (ex.: "corrêa") são rejeitados no upload.
+  const slug = (colab.nome_completo || 'relatorio')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || 'relatorio';
   return {
     path: `${colab.empresa_id}/comportamental-${slug}-${Date.now()}.pdf`,
     filename: `vertho-comportamental-${slug}.pdf`,

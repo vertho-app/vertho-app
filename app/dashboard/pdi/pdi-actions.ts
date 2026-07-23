@@ -86,7 +86,12 @@ export async function baixarMeuPdiPdf() {
       .maybeSingle();
     if (!rel) return { error: 'PDI não encontrado' };
 
-    const slug = (colab.nome_completo || 'pdi').replace(/\s+/g, '-').toLowerCase();
+    // Key do Storage precisa ser ASCII — acentos no nome são rejeitados no upload.
+    const slug = (colab.nome_completo || 'pdi')
+      .toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'pdi';
     const filename = `vertho-pdi-${slug}.pdf`;
 
     // Se ainda não tem PDF salvo, gera e sobe antes de criar a signed URL
