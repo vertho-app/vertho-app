@@ -5,7 +5,7 @@ import { mapComLimite } from '@/lib/concurrency';
 import { callAI, type AIConfig } from '../ai-client';
 import { extractJSON } from '../utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { getModelForTask, DEFAULT_TASK_MODELS } from '@/lib/ai-tasks';
 import { travaRegeneracao } from '@/lib/ia3-cenarios';
 import { TEMP, type Fase5Config } from './_shared';
@@ -315,7 +315,9 @@ async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: st
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Config = {}) {
-  const sbRaw = await requireAdminSupabase('content.manage');
+  // Gate TENANT-SCOPED (auditoria 23/07): lê PPP e escreve cenários — empresaId
+  // do client precisa bater com o tenant da sessão.
+  const sbRaw = await requireEmpresaSupabase(empresaId, 'content.manage');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {

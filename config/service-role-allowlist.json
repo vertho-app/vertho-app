@@ -2,6 +2,9 @@
   "description": "Arquivos autorizados a usar createSupabaseAdmin(). Inclui contagem esperada por arquivo. Qualquer uso novo fora desta lista falha no CI.",
   "allowlist": {
     "actions/modulos-base.ts": 24,
+    "actions/assessment-descritores.ts": 1,
+    "app/admin/competencias/actions.ts": 1,
+    "app/admin/ppp/actions.ts": 1,
     "actions/ranking-adequacao.ts": 3,
     "trigger/gerar-kit.ts": 1,
     "app/api/internal/modulo-from-video/route.ts": 1,

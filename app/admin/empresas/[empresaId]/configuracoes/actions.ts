@@ -1,6 +1,6 @@
 'use server';
 
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { addVercelDomain, removeVercelDomain } from '@/lib/vercel-domain';
@@ -24,7 +24,8 @@ export async function loadConfig(empresaId) {
 }
 
 export async function salvarConfig(empresaId, sysConfig) {
-  const sb = await requireAdminSupabase('settings.company.manage');
+  // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
+  const sb = await requireEmpresaSupabase(empresaId, 'settings.company.manage');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const { error } = await sb.from('empresas')
     .update({ sys_config: sysConfig })
@@ -39,7 +40,10 @@ export async function salvarConfig(empresaId, sysConfig) {
 }
 
 export async function salvarLocaleEmpresa(empresaId, defaultLocale) {
-  const sb = await requireAdminSupabase('settings.locale.manage');
+  // Gate TENANT-SCOPED (auditoria 23/07): settings.locale.manage existe até no
+  // role colaborador — sem amarrar ao tenant, qualquer colab mudava o idioma
+  // padrão de OUTRA empresa.
+  const sb = await requireEmpresaSupabase(empresaId, 'settings.locale.manage');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   if (!isAppLocale(defaultLocale)) {
     return { success: false, error: `Locale inválido. Use: ${locales.join(', ')}` };
@@ -243,7 +247,8 @@ export async function loadEquipe(empresaId) {
  * trilha em andamento roda pelo carimbo dela (trilhas.programa_modo).
  */
 export async function atualizarProgramaModo(colaboradorId, novoModo, empresaId) {
-  const sb = await requireAdminSupabase('users.manage');
+  // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
+  const sb = await requireEmpresaSupabase(empresaId, 'users.manage');
   if (!colaboradorId || !empresaId) return { success: false, error: 'colaboradorId e empresaId obrigatórios' };
   const modo = novoModo || null;
   const validos = [null, 'regular_duo', 'regular_single', 'onboarding', 'piloto', 'custom'];
@@ -269,7 +274,9 @@ export async function atualizarProgramaModo(colaboradorId, novoModo, empresaId) 
 }
 
 export async function atualizarRole(colaboradorId, novoRole, empresaId) {
-  const sb = await requireAdminSupabase('users.manage');
+  // Gate TENANT-SCOPED (auditoria 23/07): RH de um tenant promovia/rebaixava
+  // colaborador de OUTRO tenant (escalada) — empresaId precisa bater com a sessão.
+  const sb = await requireEmpresaSupabase(empresaId, 'users.manage');
   if (!colaboradorId || !novoRole || !empresaId) return { success: false, error: 'colaboradorId, novoRole e empresaId obrigatórios' };
   const validRoles = ['colaborador', 'gestor', 'rh', 'tutor'];
   if (!validRoles.includes(novoRole)) return { success: false, error: `Role invalido. Use: ${validRoles.join(', ')}` };

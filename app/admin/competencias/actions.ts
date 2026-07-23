@@ -1,6 +1,8 @@
 'use server';
 
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
+import { requirePermissionAction, assertTenantAccessAction } from '@/lib/auth/action-context';
+import { createSupabaseAdmin } from '@/lib/supabase';
 
 export async function loadEmpresas() {
   const sb = await requireAdminSupabase();
@@ -39,7 +41,8 @@ export async function loadCompetenciasBase(segmento: string | null) {
 }
 
 export async function salvarCompetencia(empresaId: string, comp: any) {
-  const sb = await requireAdminSupabase('content.manage');
+  // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
+  const sb = await requireEmpresaSupabase(empresaId, 'content.manage');
   try {
     const registro = {
       empresa_id: empresaId,
@@ -71,11 +74,15 @@ export async function salvarCompetencia(empresaId: string, comp: any) {
 }
 
 export async function excluirCompetencia(id: string) {
-  const sb = await requireAdminSupabase('content.manage');
+  // Gate TENANT-SCOPED (auditoria 23/07): o payload não traz empresaId — o
+  // tenant é derivado da LINHA (lê, prova posse, apaga).
+  const ctx = await requirePermissionAction('content.manage');
+  const sb = createSupabaseAdmin();
   try {
     // Predicado de tenant explícito: mutação restrita ao tenant da linha lida
     const { data: compLinha } = await sb.from('competencias').select('empresa_id').eq('id', id).maybeSingle();
     if (!compLinha) return { success: false, error: 'Competência não encontrada' };
+    await assertTenantAccessAction(ctx, compLinha.empresa_id);
     const { error } = await sb.from('competencias').delete().eq('id', id).eq('empresa_id', compLinha.empresa_id);
     if (error) return { success: false, error: error.message };
     return { success: true, message: 'Excluida' };
@@ -85,7 +92,8 @@ export async function excluirCompetencia(id: string) {
 }
 
 export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
-  const sb = await requireAdminSupabase('content.manage');
+  // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
+  const sb = await requireEmpresaSupabase(empresaId, 'content.manage');
   const { data: existentes } = await sb.from('competencias')
     .select('cod_comp, cod_desc, nome_curto, nome, cargo').eq('empresa_id', empresaId);
   // Dedup por cod_comp+cod_desc (ou cod_comp+nome_curto se cod_desc vazio)
@@ -131,7 +139,8 @@ export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
 }
 
 export async function copiarBaseParaEmpresa(empresaId: string, baseId: string, cargo: string | null = null) {
-  const sb = await requireAdminSupabase('content.manage');
+  // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
+  const sb = await requireEmpresaSupabase(empresaId, 'content.manage');
   try {
     const { data: base, error: errBase } = await sb.from('competencias_base')
       .select('*').eq('id', baseId).single();

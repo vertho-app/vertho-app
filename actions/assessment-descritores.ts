@@ -1,6 +1,8 @@
 'use server';
 
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
+import { requirePermissionAction, assertTenantAccessAction } from '@/lib/auth/action-context';
+import { createSupabaseAdmin } from '@/lib/supabase';
 
 /**
  * Carrega assessment de descritores por colaborador de uma empresa.
@@ -72,7 +74,8 @@ interface SalvarNotaParams {
 }
 
 export async function salvarNotaAssessment({ empresaId, colaboradorId, competencia, descritor, nota, cargo }: SalvarNotaParams) {
-  const sb = await requireAdminSupabase('users.manage');
+  // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
+  const sb = await requireEmpresaSupabase(empresaId, 'users.manage');
   try {
     const { error } = await sb.from('descriptor_assessments').upsert({
       empresa_id: empresaId,
@@ -95,7 +98,13 @@ export async function salvarNotaAssessment({ empresaId, colaboradorId, competenc
  * Apaga um assessment (ex: ao limpar uma célula).
  */
 export async function deletarNotaAssessment({ colaboradorId, competencia, descritor }: { colaboradorId: string; competencia: string; descritor: string }) {
-  const sb = await requireAdminSupabase('users.manage');
+  // Gate TENANT-SCOPED (auditoria 23/07): o payload não traz empresaId — o
+  // tenant é derivado do COLABORADOR (lê, prova posse, apaga).
+  const ctx = await requirePermissionAction('users.manage');
+  const sb = createSupabaseAdmin();
+  const { data: colab } = await sb.from('colaboradores').select('empresa_id').eq('id', colaboradorId).maybeSingle();
+  if (!colab) return { success: false, error: 'Colaborador não encontrado' };
+  await assertTenantAccessAction(ctx, colab.empresa_id);
   try {
     const { error } = await sb.from('descriptor_assessments').delete()
       .eq('colaborador_id', colaboradorId)

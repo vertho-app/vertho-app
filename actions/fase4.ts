@@ -3,7 +3,7 @@
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 
 // ── Gerar PDIs (Planos de Desenvolvimento Individual) ───────────────────────
 
@@ -182,7 +182,9 @@ export async function montarTrilhasLote(empresaId: string) {
 // Função antiga preservada como fallback caso queira a lógica simples
 // de dump-tudo (sem alocação por slot/descritor).
 export async function _montarTrilhasLote_legacy(empresaId: string) {
-  const sb = await requireAdminSupabase('content.manage');
+  // Gate TENANT-SCOPED (auditoria 23/07): apaga+recria trilhas — empresaId do
+  // client precisa bater com o tenant da sessão.
+  const sb = await requireEmpresaSupabase(empresaId, 'content.manage');
   try {
     // Buscar respostas avaliadas (gaps identificados pela IA4)
     const { data: respostas } = await sb.from('respostas')
