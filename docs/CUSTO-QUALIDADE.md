@@ -255,3 +255,39 @@ o que muda comportamento do modelo ficou atrás do harness; o que depende de
 tempo/dados/conteúdo humano foi honestamente marcado como tal. Rodar as 7
 sprints "de verdade" = construir a maquinaria e respeitar os gates que nós
 mesmos definimos para não perder qualidade.
+
+---
+
+## 22-23/07 · Dupla-checagens → GPT 5.6 Terra (decisão do dono) + trava de regeneração
+
+**O quê:** os 7 auditores 2ª-IA (ia3_check, ia4_check, cenarios_b_check,
+acumulada_check, sem14_check, pulse_audit, modulo_base_auditor) padronizados em
+**GPT 5.6 Terra ($2,50/$15)** — decisão de QUALIDADE do dono (22/07), não de
+custo. Todos com default por task + **pinned** em `lib/ai-tasks.ts`; sweep nos
+5 tenants com override antigo (incluía o alias morto `gpt-5.4` do acme-demo).
+
+**Achado no caminho:** o override ia3/ia4_check salvo em Configurações → IA era
+**config morta** — o runner usava um picker com defaults hardcoded e nada lia o
+sys_config. Agora o picker dual hidrata de `resolveTaskModel` e os fallbacks
+hardcoded dos cores (check-ia4, cenários B) resolvem pela task.
+
+**Δ custo (rotulado):** IA3/IA4 check ≈ neutro (Terra = preço do GPT-5.4 REAL,
+$2,50/$15); acumulada+sem14 Luna→Terra ≈ **+$0,04/colab** sobre os $3,07;
+auditoria de módulo $0,65→$0,68 (108 mods ≈ $74). Encerra a exposição ao 401
+intermitente do Luna. Espelhos (painel interno + artefato) atualizados 23/07.
+
+**Trava de regeneração (23/07, classe de bug):** "regenerar com feedback"
+SOBRESCREVIA a versão boa antes de conhecer a nota da nova (88pts→58pts com um
+clique, medido na UniAnchieta). Agora champion/challenger nos cenários A E B:
+candidata gerada em memória → auditada → **só aplica se nota ≥ atual**
+(`travaRegeneracao`, validada por mutação). Prompt de regen ganhou regras
+anti-inflação (o gerador corrige crítica ADICIONANDO conteúdo — 2ª rodada do
+refino estourou contenção por isso). Corolário p/ qualquer loop de refino
+nosso: **quem regenera nunca pode destruir a campeã sem medir a candidata.**
+
+**Batch dos dois lados (22/07):** `lib/ai-batch.ts` ganhou a Batch API da
+OPENAI (−50%) — IA3 em lote roda geração em batch Claude e checks em batch
+GPT; molde pronto pro IA4. Trigger: runtime **node-22** obrigatório
+(supabase-js ≥2.108 exige WebSocket nativo; redeploy rebundla as tasks com o
+node_modules ATUAL — upgrade de dependência do app pode quebrar task que nem
+mudou).

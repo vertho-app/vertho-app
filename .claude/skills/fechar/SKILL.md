@@ -5,6 +5,9 @@ description: Fecha uma rodada de trabalho — destila o aprendizado, grava na me
 
 # Fechar a rodada
 
+<!-- Registro: skills aninhadas só são descobertas quando um arquivo desta
+     pasta é editado na sessão — este comentário forçou a 1ª descoberta. -->
+
 Deploy sozinho é `/deploy`. **Esta skill é pro que o commit NÃO conta**: o aprendizado que não está legível no diff.
 
 Repo: `C:\GAS\Vertho App\nextjs-app` (sempre `git -C "<repo>"`, nunca `cd ... && git`).
