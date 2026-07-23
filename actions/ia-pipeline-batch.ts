@@ -18,6 +18,39 @@ import type { gerarIA3BatchTask } from '@/trigger/gerar-ia3-batch';
 import type { gerarBlueprintBatchTask } from '@/trigger/gerar-blueprint-batch';
 
 /**
+ * Guard anti-duplicata: um lote POR FASE por empresa. Lotes de fases
+ * DIFERENTES rodam em paralelo (a UI agora libera o runner após enfileirar);
+ * dois lotes da MESMA fase processariam a mesma fila em corrida.
+ */
+async function jaTemLoteAtivo(sb: any, empresaId: string, fase: string): Promise<string | null> {
+  const { data } = await sb.from('ia_jobs')
+    .select('id')
+    .eq('empresa_id', empresaId).eq('fase', fase)
+    .in('status', ['queued', 'running'])
+    .limit(1).maybeSingle();
+  return data?.id || null;
+}
+
+/**
+ * Lotes ATIVOS da empresa (queued/running) — a tela re-adota o acompanhamento
+ * ao carregar (o job vive no Trigger; fechar/recarregar a página não o perde).
+ */
+export async function listarJobsAtivosIA(empresaId: string) {
+  try {
+    if (!empresaId) return [];
+    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+    const { data } = await sb.from('ia_jobs')
+      .select('id, fase, status, progress, created_at')
+      .eq('empresa_id', empresaId)
+      .in('status', ['queued', 'running'])
+      .order('created_at', { ascending: false });
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Cria o job em `ia_jobs` com os cargos PENDENTES (sem gabarito) e dispara a task
  * de lote. O gate de tenant fica AQUI (requireEmpresaSupabase); a task roda
  * service-role sem gate de request. Retorna o jobId p/ polling.
@@ -26,6 +59,8 @@ export async function enqueueIA2Batch(empresaId: string, aiConfig: AIConfig = {}
   try {
     if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
     const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+    const dup = await jaTemLoteAtivo(sb, empresaId, 'ia2');
+    if (dup) return { success: false as const, error: `Já existe um lote de IA2 em andamento (${dup.slice(0, 8)}…) — aguarde ou cancele antes de disparar outro.` };
 
     // Cargos pendentes (só os sem gabarito) — mesma fonte do runner síncrono.
     const { cargos } = await listarCargosParaIA2(empresaId);
@@ -68,6 +103,8 @@ export async function enqueueIA3Batch(empresaId: string, aiConfig: AIConfig & { 
   try {
     if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
     const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+    const dup = await jaTemLoteAtivo(sb, empresaId, 'ia3');
+    if (dup) return { success: false as const, error: `Já existe um lote de IA3 em andamento (${dup.slice(0, 8)}…) — aguarde ou cancele antes de disparar outro.` };
 
     const fila = await listarFilaIA3(empresaId);
     if (!fila?.success || !fila.data?.length) {
@@ -113,6 +150,8 @@ export async function enqueueBlueprintBatch(empresaId: string, aiConfig: AIConfi
   try {
     if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
     const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+    const dup = await jaTemLoteAtivo(sb, empresaId, 'blueprint');
+    if (dup) return { success: false as const, error: `Já existe um lote de Blueprints em andamento (${dup.slice(0, 8)}…) — aguarde ou cancele antes de disparar outro.` };
     const tdb = tenantDb(empresaId);
 
     const fila = await resolverFilaBlueprint100(tdb);
