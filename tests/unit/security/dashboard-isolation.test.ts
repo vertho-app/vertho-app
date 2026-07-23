@@ -36,7 +36,7 @@ describe('Dashboard actions — identidade não vem por parâmetro', () => {
     { file: 'app/dashboard/assessment/assessment-actions.ts', functions: ['getDiagnosticoDoDia', 'salvarRespostaDiagnostico', 'loadAssessmentData'] },
     { file: 'app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts', functions: ['loadPerfilCIS', 'gerarInsightsExecutivos'] },
     { file: 'app/dashboard/perfil-comportamental/mapeamento/mapeamento-actions.ts', functions: ['salvarPerfilComportamental'] },
-    { file: 'app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts', functions: ['loadBehavioralReport', 'baixarRelatorioComportamentalPdf', 'gerarEsalvarRelatorioComportamental', 'regenerarRelatorioComportamental'] },
+    { file: 'app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts', functions: ['loadBehavioralReport', 'baixarRelatorioComportamentalPdf', 'regenerarRelatorioComportamental'] },
     { file: 'app/dashboard/evolucao/evolucao-actions.ts', functions: ['loadEvolucao'] },
     { file: 'app/dashboard/colab-action.ts', functions: ['getColabByEmail'] },
   ];

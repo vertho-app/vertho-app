@@ -178,10 +178,10 @@ export async function salvarPerfilComportamental(resultados) {
   // por isso os mapeamentos novos não saíam com o PDF pré-gerado.
   after(async () => {
     try {
-      const { gerarEsalvarRelatorioComportamental } = await import(
-        '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions'
+      const { gerarEsalvarRelatorioComportamentalCore } = await import(
+        '@/lib/relatorio-comportamental/relatorio-core'
       );
-      const result = await gerarEsalvarRelatorioComportamental({ colabId: colab.id });
+      const result = await gerarEsalvarRelatorioComportamentalCore({ colabId: colab.id });
       if (result?.error) {
         console.warn('[salvarPerfilComportamental] pré-geração falhou:', result.error);
       }

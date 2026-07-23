@@ -3,77 +3,23 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 import { CIS_COLUMNS, mapSupabaseToCISRawData } from '@/lib/supabase/mapCISProfile';
-import { buildBehavioralReportPrompt } from '@/lib/prompts/behavioral-report-prompt';
 import { callAI } from '@/actions/ai-client';
+import { isCurrentBehavioralReport } from '@/lib/behavioral-report-schema';
 import {
-  BEHAVIORAL_REPORT_SCHEMA_VERSION,
-  isCurrentBehavioralReport,
-} from '@/lib/behavioral-report-schema';
-
-const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
-const BUCKET = 'relatorios-pdf';
+  CACHE_MAX_AGE_MS,
+  BUCKET,
+  gerarTextosLLM,
+  isFreshReportCache,
+  persistReportTexts,
+  fetchColabPorId,
+  gerarEsalvarRelatorioComportamentalCore,
+} from '@/lib/relatorio-comportamental/relatorio-core';
 
 // ── Helpers internos ────────────────────────────────────────────────────────
-
-async function gerarTextosLLM(raw, empresaId) {
-  const prompt = buildBehavioralReportPrompt(raw);
-  const system = 'Você é um analista comportamental sênior da Vertho. DISC é tendência, não sentença. Nunca use linguagem determinista. Responda APENAS com JSON válido, sem markdown nem comentários.';
-  const { getModelForTask } = await import('@/lib/ai-tasks');
-  const model = await getModelForTask(empresaId, 'relatorio_comportamental');
-  const rawAnswer = await callAI(system, prompt, { model }, 4096);
-
-  const cleaned = String(rawAnswer || '')
-    .replace(/```json\s*/gi, '')
-    .replace(/```/g, '')
-    .trim();
-
-  return {
-    ...JSON.parse(cleaned),
-    _schema_version: BEHAVIORAL_REPORT_SCHEMA_VERSION,
-  };
-}
-
-function isFreshReportCache(texts: unknown, generatedAt: unknown): boolean {
-  if (!isCurrentBehavioralReport(texts) || !generatedAt) return false;
-  return Date.now() - new Date(String(generatedAt)).getTime() < CACHE_MAX_AGE_MS;
-}
 
 function isArtifactCurrent(artifactAt: unknown, reportAt: unknown): boolean {
   if (!artifactAt || !reportAt) return false;
   return new Date(String(artifactAt)).getTime() >= new Date(String(reportAt)).getTime();
-}
-
-async function persistReportTexts(sb: any, colabId: string, texts: any) {
-  const generatedAt = new Date().toISOString();
-  await sb.from('colaboradores')
-    .update({
-      report_texts: texts,
-      report_generated_at: generatedAt,
-      comportamental_pdf_path: null,
-      comportamental_audio_path: null,
-      comportamental_audio_at: null,
-    })
-    .eq('id', colabId);
-  return generatedAt;
-}
-
-async function renderPdfBuffer(data) {
-  const { renderToBuffer } = await import('@react-pdf/renderer');
-  const React = (await import('react')).default;
-  const { default: RelatorioComportamentalPDF } = await import('@/components/pdf/RelatorioComportamental');
-
-  return renderToBuffer(
-    React.createElement(RelatorioComportamentalPDF, { data }) as any
-  );
-}
-
-function pdfPathFor(colab) {
-  const slug = (colab.nome_completo || 'relatorio').replace(/\s+/g, '-').toLowerCase();
-  return {
-    path: `${colab.empresa_id}/comportamental-${slug}-${Date.now()}.pdf`,
-    filename: `vertho-comportamental-${slug}.pdf`,
-    slug,
-  };
 }
 
 // ── Public actions ──────────────────────────────────────────────────────────
@@ -125,80 +71,6 @@ export async function loadBehavioralReport(opts: any = {}) {
   }
 }
 
-async function fetchColabPorId(colabId) {
-  if (!colabId) return null;
-  const sb = createSupabaseAdmin();
-  const { data } = await sb.from('colaboradores')
-    .select(CIS_COLUMNS)
-    .eq('id', colabId)
-    .maybeSingle();
-  return data || null;
-}
-
-/**
- * Gera textos LLM (se faltar) + renderiza PDF + upa pro bucket + salva path
- * em `colaboradores.comportamental_pdf_path`. Usado tanto pelo fire-and-forget
- * do fim do mapeamento quanto pelo fluxo de download.
- *
- * Aceita o colab inteiro (caller já consultou), um email, OU um colabId.
- */
-export async function gerarEsalvarRelatorioComportamental({ colab: inputColab, colabId }: any = {}) {
-  try {
-    let colab: any = inputColab;
-    if (!colab && !colabId) {
-      const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
-      const email = await getAuthenticatedEmailFromAction();
-      if (email) colab = await findColabByEmail(email, CIS_COLUMNS);
-    }
-    if (!colab && colabId) {
-      colab = await fetchColabPorId(colabId);
-    }
-    if (!colab) return { error: 'Colaborador não encontrado' };
-
-    const hasDISC = colab.perfil_dominante && (colab.d_natural || colab.i_natural || colab.s_natural || colab.c_natural);
-    if (!hasDISC) return { error: 'Mapeamento comportamental ainda não realizado' };
-
-    const sb = createSupabaseAdmin();
-    const raw = mapSupabaseToCISRawData(colab);
-
-    // 1) Textos LLM — reusa cache se válido
-    let texts = null;
-    if (isFreshReportCache(colab.report_texts, colab.report_generated_at)) texts = colab.report_texts;
-    if (!texts) {
-      texts = await gerarTextosLLM(raw, colab.empresa_id);
-      await persistReportTexts(sb, colab.id, texts);
-    }
-
-    // 1.5) Resumo executivo (arquétipo + tags + insights) — vindos do mesmo lib da tela
-    const { derivarArquetipo, derivarTagsExecutivas, insightsHardcoded } = await import('@/lib/disc-arquetipos');
-    const arquetipo = derivarArquetipo(colab.perfil_dominante);
-    const tags = derivarTagsExecutivas(colab);
-    const insights = Array.isArray(colab.insights_executivos) && colab.insights_executivos.length
-      ? colab.insights_executivos
-      : insightsHardcoded(colab.perfil_dominante);
-
-    // 2) Renderiza PDF
-    const buffer = await renderPdfBuffer({ raw, texts, arquetipo, tags, insights });
-
-    // 3) Upload no bucket
-    const { path, filename } = pdfPathFor(colab);
-    const { error: upErr } = await sb.storage
-      .from(BUCKET)
-      .upload(path, buffer, { contentType: 'application/pdf', upsert: true });
-    if (upErr) return { error: `Falha ao salvar PDF: ${upErr.message}` };
-
-    // 4) Salva path
-    await sb.from('colaboradores')
-      .update({ comportamental_pdf_path: path })
-      .eq('id', colab.id);
-
-    return { success: true, path, filename };
-  } catch (err) {
-    console.error('[gerarEsalvarRelatorioComportamental]', err);
-    return { error: err?.message || 'Erro ao gerar relatório' };
-  }
-}
-
 /**
  * Pré-gera PDFs comportamentais para todos os colabs de uma empresa que
  * ainda não têm `comportamental_pdf_path`. Serial pra evitar timeout.
@@ -210,7 +82,6 @@ export async function pregerarPdfsEmpresa(empresaId) {
     const { requireAdminAction } = await import('@/lib/auth/action-context');
     await requireAdminAction('assessments.dispatch');
     if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-    const { createSupabaseAdmin } = await import('@/lib/supabase');
     const sb = createSupabaseAdmin();
     const { data: colabs } = await sb.from('colaboradores')
       .select('id, nome_completo, comportamental_pdf_path, report_texts')
@@ -224,7 +95,7 @@ export async function pregerarPdfsEmpresa(empresaId) {
     let gerados = 0, erros = 0;
     for (const c of pendentes) {
       try {
-        const r = await gerarEsalvarRelatorioComportamental({ colabId: c.id });
+        const r = await gerarEsalvarRelatorioComportamentalCore({ colabId: c.id });
         if (r.success) gerados++; else erros++;
       } catch (e) {
         console.error('[VERTHO] pregerarPdfsEmpresa', c.id, e.message);
@@ -244,7 +115,7 @@ export async function regenerarRelatorioComportamental() {
   const result = await loadBehavioralReport({ force: true });
   if (result.error) return result;
   // re-gera o PDF com os novos textos
-  await gerarEsalvarRelatorioComportamental({});
+  await gerarEsalvarRelatorioComportamentalCore({});
   return result;
 }
 
@@ -264,7 +135,7 @@ async function _baixarPdfParaColab(colab) {
 
   // Se não tem, gera na hora
   if (!path) {
-    const result = await gerarEsalvarRelatorioComportamental({ colab });
+    const result = await gerarEsalvarRelatorioComportamentalCore({ colab });
     if (result.error) return { error: result.error };
     path = result.path;
   }
@@ -341,8 +212,12 @@ async function _ensureTextos(colab: any) {
  * Gera (roteiro IA → TTS Gemini → MP3) e salva a devolutiva em voz no bucket
  * privado; persiste comportamental_audio_path. Reusa se já houver áudio < 30d
  * (a menos de force). Aceita colab inteiro, colabId ou cai no email da sessão.
+ *
+ * NÃO exportado: é helper interno das actions gatadas/de sessão abaixo. Antes era
+ * export 'use server' (endpoint client-reachable) e o `colabId` do cliente batia
+ * em fetchColabPorId (sem filtro de empresa) → IDOR cross-tenant + abuso de TTS.
  */
-export async function gerarEsalvarDevolutivaComportamental({ colab: inputColab, colabId, force }: any = {}) {
+async function gerarEsalvarDevolutivaComportamental({ colab: inputColab, colabId, force }: any = {}) {
   try {
     let colab: any = inputColab;
     if (!colab && !colabId) {
