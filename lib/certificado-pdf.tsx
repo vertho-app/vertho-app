@@ -150,8 +150,6 @@ const STRINGS: Record<Locale, {
   periodo: (i: string, f: string) => string;
   cargaLabel: string;
   cargaValue: (h: number) => string;
-  participacaoLabel: string;
-  participacaoValue: (s: number, t: number, pct: number) => string;
   emitidoLabel: string;
   instituicaoLabel: string;
   socioLabel: string;
@@ -166,8 +164,6 @@ const STRINGS: Record<Locale, {
     periodo: (i, f) => `no período de ${i} a ${f}`,
     cargaLabel: 'Carga horária',
     cargaValue: (h) => `${h} horas`,
-    participacaoLabel: 'Participação',
-    participacaoValue: (s, t, pct) => `${s} de ${t} semanas · ${pct}%`,
     emitidoLabel: 'Emitido em',
     instituicaoLabel: 'Instituição',
     socioLabel: 'Sócio',
@@ -182,8 +178,6 @@ const STRINGS: Record<Locale, {
     periodo: (i, f) => `no período de ${i} a ${f}`,
     cargaLabel: 'Carga horária',
     cargaValue: (h) => `${h} horas`,
-    participacaoLabel: 'Participação',
-    participacaoValue: (s, t, pct) => `${s} de ${t} semanas · ${pct}%`,
     emitidoLabel: 'Emitido em',
     instituicaoLabel: 'Instituição',
     socioLabel: 'Sócio',
@@ -198,8 +192,6 @@ const STRINGS: Record<Locale, {
     periodo: (i, f) => `del ${i} al ${f}`,
     cargaLabel: 'Carga horaria',
     cargaValue: (h) => `${h} horas`,
-    participacaoLabel: 'Participación',
-    participacaoValue: (s, t, pct) => `${s} de ${t} semanas · ${pct}%`,
     emitidoLabel: 'Emitido el',
     instituicaoLabel: 'Institución',
     socioLabel: 'Socio',
@@ -214,8 +206,6 @@ const STRINGS: Record<Locale, {
     periodo: (i, f) => `from ${i} to ${f}`,
     cargaLabel: 'Course hours',
     cargaValue: (h) => `${h} hours`,
-    participacaoLabel: 'Participation',
-    participacaoValue: (s, t, pct) => `${s} of ${t} weeks · ${pct}%`,
     emitidoLabel: 'Issued on',
     instituicaoLabel: 'Institution',
     socioLabel: 'Partner',
@@ -249,9 +239,6 @@ export function CertificadoPDF({ dados }: { dados: CertificadoDados }) {
   const comps = sanitize((dados.trilha.competencias || []).filter(Boolean).join(' + '));
   const inicio = fmtData(dados.trilha.dataInicio, locale);
   const fim = fmtData(dados.trilha.dataConclusao, locale);
-  const semanas = dados.participacao.semanasComEntrega;
-  const total = dados.participacao.totalSemanas;
-  const pct = Math.round(dados.participacao.pct * 100);
   const hoje = fmtData(new Date().toISOString(), locale);
 
   const logoVertho = getLogoDarkHBase64();
@@ -303,11 +290,6 @@ export function CertificadoPDF({ dados }: { dados: CertificadoDados }) {
             <View style={styles.metaCell}>
               <Text style={styles.metaLabel}>{S.cargaLabel}</Text>
               <Text style={styles.metaValue}>{S.cargaValue(CARGA_HORARIA)}</Text>
-            </View>
-            <View style={styles.metaDivider} />
-            <View style={styles.metaCell}>
-              <Text style={styles.metaLabel}>{S.participacaoLabel}</Text>
-              <Text style={styles.metaValue}>{sanitize(S.participacaoValue(semanas, total, pct))}</Text>
             </View>
             <View style={styles.metaDivider} />
             <View style={styles.metaCell}>
