@@ -89,6 +89,7 @@ tests/unit/          vitest
 - Telefone sempre em **E.164**.
 - `async` sempre com `try/catch`; componentes funcionais com hooks.
 - Não commitar secrets — tudo em `.env.local`.
+- **Key de Storage SEMPRE via `storageSlug()`** (`lib/storage-slug.ts`) ao derivar de nome livre (pessoa, cargo) — Storage rejeita não-ASCII ("Invalid key"; já quebrou 2×: "Elizângela", "Corrêa"). Guarda: `tests/unit/storage-slug.test.ts`. O `filename` de download pode manter acento — só a key não.
 
 ## Deploy (ver a skill `/deploy`)
 
