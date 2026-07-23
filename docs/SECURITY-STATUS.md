@@ -21,6 +21,11 @@ Padrão de remediação: **exports `'use server'` sempre gatados; caminho headle
 
 **Operacional — FEITO (23/07):** redeploy do Trigger.dev `20260723.2` (11 tasks) — o fix do Grupo D em `trigger/extracao-video.ts` (revalida URL+DNS antes do `yt-dlp`) + a dep `undici` + `runtime:'node-22'` estão no worker de prod. **Auditoria 23/07 encerrada de ponta a ponta (Vercel + Trigger); nada aberto.**
 
+### Manutenção pós-auditoria (23/07, Certificado de Conclusão)
+
+- **SSRF novo, FECHADO:** o fetch do logo do tenant no Certificado (`actions/certificado.ts`) usa `logo_url` do `ui_config` — config do admin do tenant, logo destino atacável. Defesa em camadas: **allowlist ao host do nosso Supabase Storage** (onde 100% dos logos vivem — trava o destino no nosso domínio) + `fetchPublico` (net-guard) + `redirect:'error'` + timeout 6s + cap 3MB. Commits `896ad76d`→`2834c68f`.
+- 🐞 **`lib/net-guard` `fetchPublico` estava FALHANDO-FECHADO** (regressão, medida 23/07): lançava `ERR_INVALID_IP_ADDRESS` para QUALQUER host (inclusive públicos legítimos) → sobre-bloqueio, quebrando o Certificado E o `site-palette` ("puxar cores"). Causa: o connector `lookupPublico` não honrava `{ all: true }` do **Happy Eyeballs** (`autoSelectFamily`, default Node ≥20), que espera o callback no formato ARRAY `[{address,family}]`. Corrigido em `2834c68f`. **Lacuna de teste que deixou passar:** `net-guard.test.ts` só exercita o BLOQUEIO (todos os casos esperam `/privado/i`), nunca o caminho-feliz (host público conectando). Guarda nova: `tests/unit/security/net-guard-lookup.test.ts` (contrato do callback, dns mockado, **validada por mutação**).
+
 ## Fechamento dos altos 22/07
 
 | Achado (17/07) | Correcao |
