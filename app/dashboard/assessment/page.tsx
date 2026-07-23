@@ -5,9 +5,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, CheckCircle, ArrowRight, Target, Calendar, FileText, Trophy, Play } from 'lucide-react';
+import { Loader2, CheckCircle, ArrowRight, Target, Calendar, FileText, Trophy } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import VideoModal from '@/components/video-modal';
 import { getDiagnosticoDoDia, salvarRespostaDiagnostico } from './assessment-actions';
 import MicInput from '@/components/mic-input';
 
@@ -33,8 +32,6 @@ const PROMPT_P = [
 // Vídeo de encerramento da avaliação (pedido do deck "Experiência do usuário - Elo"):
 // agradecimento + próximas etapas (PDI e Temporada).
 // TODO: vídeo em produção — trocar pelo ID real do Bunny Stream quando estiver pronto.
-const BUNNY_LIBRARY = 636615;
-const CLOSING_VIDEO_ID = 'TROCAR_PELO_ID_DO_VIDEO_DE_ENCERRAMENTO_AVALIACAO';
 
 export default function AssessmentPage() {
   const t = useTranslations('Assessment');
@@ -50,8 +47,6 @@ export default function AssessmentPage() {
   const [repr, setRepr] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState(null);
-  // Vídeo de encerramento (tela CONCLUIDO → modal com tracking)
-  const [showClosingVideo, setShowClosingVideo] = useState(false);
 
   function flash(msg) { toast.error(msg); }
 
@@ -342,34 +337,10 @@ export default function AssessmentPage() {
             {t.rich('done.description', { br: () => <br /> })}
           </p>
 
-          {/* Vídeo de agradecimento + próximas etapas (PDI e Temporada) */}
-          <button onClick={() => setShowClosingVideo(true)}
-            className="group relative block w-full aspect-video rounded-2xl overflow-hidden border border-white/10 mb-2 active:scale-[0.99] transition-transform"
-            aria-label={t('done.watchVideo')}>
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #0F2A4A 0%, #123B63 55%, #0C1829 100%)' }} />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="w-16 h-16 rounded-full flex items-center justify-center transition-transform group-hover:scale-110"
-                style={{ background: 'rgba(45,212,191,0.15)', border: '1.5px solid rgba(45,212,191,0.5)' }}>
-                <Play size={26} className="text-brand-400 ml-1" fill="currentColor" />
-              </span>
-            </div>
-          </button>
-          <p className="text-[12px] text-gray-400 mb-5">{t('done.watchVideo')}</p>
-
           <button onClick={() => router.push('/dashboard')}
             className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition">
             {t('confirm.dashboard')}
           </button>
-
-          {showClosingVideo && (
-            <VideoModal
-              libraryId={BUNNY_LIBRARY}
-              videoId={CLOSING_VIDEO_ID}
-              title={t('done.watchVideo')}
-              colaboradorId={data?.colaborador?.id || null}
-              onClose={() => setShowClosingVideo(false)}
-            />
-          )}
         </div>
       )}
     </div>
