@@ -17,7 +17,7 @@ function makeClient() {
   const from = () => {
     const b: any = {
       select: () => b, eq: () => b, in: () => b, not: () => b, order: () => b, limit: () => b,
-      single: async () => ({ data: { id: 'x', nome: 'Empresa', slug: 'emp', status: 'ativo' }, error: null }),
+      single: async () => ({ data: { id: 'x', nome: 'Empresa', slug: 'emp', status: 'ativo', empresa_id: 'emp-B' }, error: null }),
       maybeSingle: async () => ({ data: { id: 'x', empresa_id: 'emp-B' }, error: null }),
       then: undefined,
     };
@@ -61,6 +61,16 @@ describe('gate de tenant nos envios com efeito externo', () => {
     await expect(
       enviarConvitesPulso(OUTRO_TENANT, 'ciclo-1', { pulse_moment: 'T0', canal: 'email' }),
     ).rejects.toThrow(/acesso restrito|FORBIDDEN/i);
+  });
+
+  it('RH NÃO dispara Pulse com cicloId de outro tenant (mesmo passando o PRÓPRIO empresaId)', async () => {
+    // O gate de empresaId passa (emp-A === sessão), mas o ciclo pertence a emp-B.
+    // Sem o cross-check ciclo.empresa_id === empresaId, os convites (magic links +
+    // WhatsApp/email) iriam pro roster de B. Auditoria 23/07, resíduo do Grupo A.
+    sessao = rhEmpA;
+    const r: any = await enviarConvitesPulso('emp-A', 'ciclo-de-B', { pulse_moment: 'T0', canal: 'email' });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/Ciclo não encontrado/i);
   });
 
   it('RH NÃO envia links de perfil pro roster de outro tenant', async () => {

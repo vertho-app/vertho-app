@@ -78,13 +78,18 @@ export async function enviarConvitesPulso(
     .select('id, nome, slug').eq('id', empresaId).single();
   if (!empresa) return { ok: false, error: 'Empresa não encontrada' };
 
+  // Cross-check de tenant (auditoria 23/07): o cicloId vem do client e o gate
+  // acima só prova que empresaId === sessão. Sem amarrar o ciclo ao empresaId,
+  // um RH do tenant A passaria um cicloId do tenant B e dispararia convites
+  // (magic links + WhatsApp/email) pros colaboradores de B. Espelha loadPulseDashboard.
   const { data: ciclo } = await sb.from('pulse_ciclos')
-    .select('id, nome, status').eq('id', cicloId).single();
-  if (!ciclo) return { ok: false, error: 'Ciclo não encontrado' };
+    .select('id, nome, status, empresa_id').eq('id', cicloId).single();
+  if (!ciclo || (ciclo as any).empresa_id !== empresaId) return { ok: false, error: 'Ciclo não encontrado' };
 
-  // Assignments do momento
+  // Assignments do momento — escopados por empresa_id (defesa em profundidade)
   let { data: assignments } = await sb.from('pulse_assignments')
     .select('id, colaborador_id, status, pulse_moment')
+    .eq('empresa_id', empresaId)
     .eq('ciclo_id', cicloId)
     .eq('pulse_moment', opts.pulse_moment);
   if (!assignments?.length) return { ok: false, error: 'Nenhum assignment no ciclo+momento' };
