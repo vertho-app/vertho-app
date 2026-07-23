@@ -7,6 +7,7 @@ import { extractJSON } from '../utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { getModelForTask, DEFAULT_TASK_MODELS } from '@/lib/ai-tasks';
+import { travaRegeneracao } from '@/lib/ia3-cenarios';
 import { TEMP, type Fase5Config } from './_shared';
 
 // System prompt do check de cenário B — harmonizado com o check do cenário A
@@ -222,7 +223,7 @@ async function fetchPppResumo(tdb) {
 
 // Helper: roda check em 1 cenário B e persiste resultado.
 // cenarioA é opcional — se passado, o auditor compara B vs A.
-async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: string, pppResumo: string, modelo: string | null, cenarioA?: any) {
+async function avaliarCenB(sb: any, cen: any, comp: any, descritoresTexto: string, pppResumo: string, modelo: string | null, cenarioA?: any) {
   const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
   const perguntas = [alt.p1 || cen.p1, alt.p2 || cen.p2, alt.p3 || cen.p3, alt.p4 || cen.p4].filter(Boolean);
   const perguntasTexto = perguntas.map((p: any, i: number) => {
@@ -267,14 +268,19 @@ async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: st
   const resultado = await extractJSON(resposta);
   if (!resultado?.nota) return { success: false, error: 'Check não retornou nota' };
 
-  // Validar coerência erro_grave × nota
+  // Validar coerência erro_grave × nota (veredito EM CÓDIGO)
   if (resultado.erro_grave && resultado.nota > 60) resultado.nota = 60;
 
   const statusCheck = resultado.nota >= 90 ? 'aprovado'
     : resultado.nota >= 80 ? 'aprovado_com_ressalvas'
     : 'revisar';
 
-  const { data: cenLinha } = await sb.from('banco_cenarios').select('empresa_id').eq('id', cen.id).maybeSingle();
+  return { success: true as const, resultado, statusCheck };
+}
+
+/** Persiste o resultado do check numa row existente (shape do Cenário B). */
+async function persistirCheckCenB(sb: any, cenId: string, resultado: any, statusCheck: string) {
+  const { data: cenLinha } = await sb.from('banco_cenarios').select('empresa_id').eq('id', cenId).maybeSingle();
   const qChk0 = sb.from('banco_cenarios').update({
     nota_check: resultado.nota,
     status_check: statusCheck,
@@ -290,10 +296,16 @@ async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: st
       perguntas_com_risco: resultado.perguntas_com_risco || [],
     },
     checked_at: new Date().toISOString(),
-  }).eq('id', cen.id);
+  }).eq('id', cenId);
   await (cenLinha?.empresa_id ? qChk0.eq('empresa_id', cenLinha.empresa_id) : qChk0.is('empresa_id', null));
+}
 
-  return { success: true, nota: resultado.nota, status: statusCheck };
+/** Avalia E persiste (contrato original — checks avulsos/lote usam este). */
+async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: string, pppResumo: string, modelo: string | null, cenarioA?: any) {
+  const av = await avaliarCenB(sb, cen, comp, descritoresTexto, pppResumo, modelo, cenarioA);
+  if (!av.success) return av as any;
+  await persistirCheckCenB(sb, cen.id, av.resultado, av.statusCheck);
+  return { success: true, nota: av.resultado.nota, status: av.statusCheck };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -491,7 +503,7 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
   try {
     // banco_cenarios é misto → raw por id
     const { data: cen } = await sbRaw.from('banco_cenarios')
-      .select('id, empresa_id, competencia_id, cargo, titulo, descricao, justificativa_check, sugestao_check')
+      .select('id, empresa_id, competencia_id, cargo, titulo, descricao, nota_check, justificativa_check, sugestao_check')
       .eq('id', cenarioId).single();
     if (!cen) return { success: false, error: 'Cenário não encontrado' };
 
@@ -543,45 +555,64 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
     const cenarioData = await extractJSON(resposta);
     if (!cenarioData?.titulo) return { success: false, error: 'IA não retornou cenário válido' };
 
+    const alternativasB = {
+      p1: cenarioData.p1,
+      p2: cenarioData.p2,
+      p3: cenarioData.p3,
+      p4: cenarioData.p4,
+      faceta_avaliada: cenarioData.faceta_avaliada || null,
+      facetas_secundarias: cenarioData.facetas_secundarias || [],
+      diferenca_estrutural_vs_cenario_a: cenarioData.diferenca_estrutural_vs_cenario_a || null,
+      por_que_essa_variacao_importa: cenarioData.por_que_essa_variacao_importa || null,
+      tradeoff_testado: cenarioData.tradeoff_testado || null,
+      armadilha_de_resposta_generica: cenarioData.armadilha_de_resposta_generica || null,
+      objetivo_diagnostico: cenarioData.objetivo_diagnostico || null,
+      referencia_avaliacao: cenarioData.referencia_avaliacao || null,
+      dilema_etico: cenarioData.dilema_etico_embutido || null,
+      confianca_cenario: typeof cenarioData.confianca_cenario === 'number' ? Math.max(0, Math.min(1, cenarioData.confianca_cenario)) : null,
+      riscos_do_cenario: cenarioData.riscos_do_cenario || [],
+    };
+
+    // TRAVA champion/challenger (mesma do IA3, 23/07): audita a CANDIDATA em
+    // memória e SÓ aplica se a nota não piorar — regenerar nunca destrói uma
+    // versão melhor. Falha de auditoria = NADA muda.
+    const candidato = {
+      id: cen.id, empresa_id: cen.empresa_id, competencia_id: cen.competencia_id,
+      cargo: cen.cargo, titulo: cenarioData.titulo, descricao: cenarioData.descricao,
+      alternativas: alternativasB,
+    };
+    const pppResumoChk = await fetchPppResumo(tdb);
+    const modeloCheck = (aiConfig as any)?.checkModel || await getModelForTask(cen.empresa_id, 'cenarios_b_check');
+    const av: any = await avaliarCenB(sbRaw, candidato, comp, descritoresTexto, pppResumoChk, modeloCheck, cenA || undefined);
+    if (!av.success) return { success: false, error: `Auditoria da candidata falhou (${av.error}) — NADA foi alterado` };
+
+    const notaAnterior: number | null = typeof (cen as any).nota_check === 'number' ? (cen as any).nota_check : null;
+    if (!travaRegeneracao((cen as any).nota_check, av.resultado.nota)) {
+      return {
+        success: true, aplicado: false, nota: av.resultado.nota, notaAnterior, status: av.statusCheck,
+        message: `Regeneração DESCARTADA: candidata ${av.resultado.nota}pts < atual ${notaAnterior}pts — mantida a versão atual (trava: nunca piora).`,
+      };
+    }
+
     const { data: cenLinhaRg } = await sbRaw.from('banco_cenarios').select('empresa_id').eq('id', cenarioId).maybeSingle();
-    const payloadRg = {
+    let qRg = sbRaw.from('banco_cenarios').update({
       titulo: cenarioData.titulo,
       descricao: cenarioData.descricao,
       p1: cenarioData.p1,
       p2: cenarioData.p2,
       p3: cenarioData.p3,
       p4: cenarioData.p4,
-      alternativas: {
-        p1: cenarioData.p1,
-        p2: cenarioData.p2,
-        p3: cenarioData.p3,
-        p4: cenarioData.p4,
-        faceta_avaliada: cenarioData.faceta_avaliada || null,
-        facetas_secundarias: cenarioData.facetas_secundarias || [],
-        diferenca_estrutural_vs_cenario_a: cenarioData.diferenca_estrutural_vs_cenario_a || null,
-        por_que_essa_variacao_importa: cenarioData.por_que_essa_variacao_importa || null,
-        tradeoff_testado: cenarioData.tradeoff_testado || null,
-        armadilha_de_resposta_generica: cenarioData.armadilha_de_resposta_generica || null,
-        objetivo_diagnostico: cenarioData.objetivo_diagnostico || null,
-        referencia_avaliacao: cenarioData.referencia_avaliacao || null,
-        dilema_etico: cenarioData.dilema_etico_embutido || null,
-        confianca_cenario: typeof cenarioData.confianca_cenario === 'number' ? Math.max(0, Math.min(1, cenarioData.confianca_cenario)) : null,
-        riscos_do_cenario: cenarioData.riscos_do_cenario || [],
-      },
-      nota_check: null,
-      status_check: null,
-      dimensoes_check: null,
-      justificativa_check: null,
-      sugestao_check: null,
-      alertas_check: null,
-      checked_at: null,
-    };
-    let qRg = sbRaw.from('banco_cenarios').update(payloadRg).eq('id', cenarioId);
+      alternativas: alternativasB,
+    }).eq('id', cenarioId);
     qRg = cenLinhaRg?.empresa_id ? qRg.eq('empresa_id', cenLinhaRg.empresa_id) : qRg.is('empresa_id', null);
     const { error: updErr } = await qRg;
+    if (updErr) return { success: false, error: `${updErr.message} — versão anterior preservada` };
+    await persistirCheckCenB(sbRaw, cenarioId, av.resultado, av.statusCheck);
 
-    if (updErr) return { success: false, error: updErr.message };
-    return { success: true, message: `Cenário B regenerado: ${comp.nome}` };
+    return {
+      success: true, aplicado: true, nota: av.resultado.nota, notaAnterior, status: av.statusCheck,
+      message: `Cenário B regenerado: ${av.resultado.nota}pts (${av.statusCheck})${notaAnterior != null ? ` — antes ${notaAnterior}pts` : ''}.`,
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -699,21 +730,20 @@ export async function regenerarERecheckarCenariosBLote(empresaId: string, aiConf
     // Regenerar+recheck em paralelo (limite 3 — cada item já são 2 chamadas IA)
     const marcadoresRg = await mapComLimite(cenarios as any[], 3, async (c: any) => {
       try {
-        const r1 = await regenerarCenarioB(c.id, { model: aiConfig?.model });
+        // O regen já audita a candidata e aplica só se não piorar (trava).
+        const r1: any = await regenerarCenarioB(c.id, { model: aiConfig?.model, checkModel } as any);
         if (!r1.success) { return 'erro'; }
-        const r2 = await checkCenarioBUm(c.id, checkModel);
-        if (r2.success) {
-          return r2.status === 'aprovado' ? 'regen_aprovado' : 'regen_revisar';
-        }
-        return 'regenerado';
+        if (r1.aplicado === false) return 'regen_mantido';
+        return r1.status === 'aprovado' ? 'regen_aprovado' : 'regen_revisar';
       } catch { return 'erro'; }
     });
     const regenerados = marcadoresRg.filter(m => m.startsWith('regen')).length;
     const aprovados = marcadoresRg.filter(m => m === 'regen_aprovado').length;
     const revisar = marcadoresRg.filter(m => m === 'regen_revisar').length;
+    const mantidos = marcadoresRg.filter(m => m === 'regen_mantido').length;
     const erros = marcadoresRg.filter(m => m === 'erro').length;
 
-    return { success: true, message: `${regenerados} regenerados | ${aprovados} aprovados, ${revisar} ainda para revisar${erros ? `, ${erros} erros` : ''}` };
+    return { success: true, message: `${regenerados} regenerados | ${aprovados} aprovados, ${revisar} ainda para revisar${mantidos ? `, ${mantidos} mantidos (trava)` : ''}${erros ? `, ${erros} erros` : ''}` };
   } catch (err) {
     return { success: false, error: err.message };
   }

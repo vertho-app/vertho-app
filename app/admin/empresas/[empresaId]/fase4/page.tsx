@@ -85,14 +85,10 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
   async function handleRegenerar(id: string) {
     setActionId(id);
     flash(t('messages.regenerating'));
-    const r1 = await regenerarCenarioB(id, { model: genModel });
-    if (r1.success) {
-      flash(t('messages.rechecking'));
-      const r2 = await checkCenarioBUm(id, checkModel);
-      flash(r2.success ? t('messages.regenerated', { message: (r2 as any).message }) : t('messages.regeneratedCheckError', { error: (r2 as any).error }));
-    } else {
-      flash(t('messages.error', { error: (r1 as any).error }));
-    }
+    // O regen já audita a candidata e só aplica se a nota não piorar (trava
+    // champion/challenger) — a mensagem traz o veredito; sem re-check por fora.
+    const r1: any = await regenerarCenarioB(id, { model: genModel, checkModel } as any);
+    flash(r1.success ? (r1.message || t('messages.regenerated', { message: '' })) : t('messages.error', { error: r1.error }));
     setActionId(null);
     refresh();
   }
