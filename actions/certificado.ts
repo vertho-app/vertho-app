@@ -5,7 +5,6 @@ import { requireUserAction } from '@/lib/auth/action-context';
 import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
 import { calcularParticipacao, isTrilhaPiloto } from '@/lib/season-engine/participacao';
 import { TRILHA } from '@/lib/status';
-import { fetchPublico } from '@/lib/net-guard';
 
 const LOGO_MAX_BYTES = 3 * 1024 * 1024;
 
@@ -24,9 +23,14 @@ async function carregarLogoTenant(logoUrl: unknown): Promise<string | null> {
   const permitido = hostSupabaseStorage();
   let host: string;
   try { host = new URL(logoUrl).host; } catch { return null; }
+  // SSRF: a allowlist ao nosso Supabase Storage é o controle LOAD-BEARING — trava
+  // o destino no nosso domínio (não alcança localhost/metadata/rede interna) e o
+  // `redirect:'error'` impede um redirect fugir do host. Não usamos fetchPublico/
+  // net-guard: o connector undici dele quebra no runtime atual (ERR_INVALID_IP_
+  // ADDRESS até p/ IP válido) → faria todo logo cair pro texto.
   if (!permitido || host !== permitido) return null; // só o nosso Storage
   try {
-    const res = await fetchPublico(logoUrl, { redirect: 'error', signal: AbortSignal.timeout(6000) });
+    const res = await fetch(logoUrl, { redirect: 'error', signal: AbortSignal.timeout(6000) });
     if (!res.ok) return null;
     const mime = (res.headers.get('content-type') || '').toLowerCase();
     if (!(mime.includes('png') || mime.includes('jpeg') || mime.includes('jpg'))) return null;
