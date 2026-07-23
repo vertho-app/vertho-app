@@ -5,6 +5,38 @@ import { requireUserAction } from '@/lib/auth/action-context';
 import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
 import { calcularParticipacao, isTrilhaPiloto } from '@/lib/season-engine/participacao';
 import { TRILHA } from '@/lib/status';
+import { fetchPublico } from '@/lib/net-guard';
+
+const LOGO_MAX_BYTES = 3 * 1024 * 1024;
+
+/** Host do Supabase Storage — único destino permitido pro logo do tenant. */
+function hostSupabaseStorage(): string | null {
+  try { return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).host; } catch { return null; }
+}
+
+/**
+ * Baixa o logo do tenant como data URI raster (PNG/JPEG) ou null. Anti-SSRF em
+ * camadas (ver comentário no chamador). NÃO é export — arquivo 'use server',
+ * export viraria endpoint HTTP.
+ */
+async function carregarLogoTenant(logoUrl: unknown): Promise<string | null> {
+  if (!logoUrl || typeof logoUrl !== 'string') return null;
+  const permitido = hostSupabaseStorage();
+  let host: string;
+  try { host = new URL(logoUrl).host; } catch { return null; }
+  if (!permitido || host !== permitido) return null; // só o nosso Storage
+  try {
+    const res = await fetchPublico(logoUrl, { redirect: 'error', signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return null;
+    const mime = (res.headers.get('content-type') || '').toLowerCase();
+    if (!(mime.includes('png') || mime.includes('jpeg') || mime.includes('jpg'))) return null;
+    const declarado = Number(res.headers.get('content-length') || 0);
+    if (declarado && declarado > LOGO_MAX_BYTES) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > LOGO_MAX_BYTES) return null;
+    return `data:${mime};base64,${buf.toString('base64')}`;
+  } catch { return null; }
+}
 
 /**
  * Carrega os dados do Certificado de Conclusão da temporada mais recente do
@@ -55,18 +87,14 @@ export async function loadCertificadoData(email: string) {
   // Logo do tenant (branding em `ui_config.logo_url`) → data URI. react-pdf em
   // Node não resolve URL remota + só rasteriza PNG/JPEG (SVG/webp NÃO renderiza
   // como <Image>) → só embutimos raster; senão o rodapé cai pro nome em texto.
-  let logoEmpresaBase64: string | null = null;
-  const logoUrl = (empresa?.ui_config as any)?.logo_url;
-  if (logoUrl && typeof logoUrl === 'string') {
-    try {
-      const res = await fetch(logoUrl);
-      const mime = (res.headers.get('content-type') || '').toLowerCase();
-      if (res.ok && (mime.includes('png') || mime.includes('jpeg') || mime.includes('jpg'))) {
-        const buf = Buffer.from(await res.arrayBuffer());
-        logoEmpresaBase64 = `data:${mime};base64,${buf.toString('base64')}`;
-      }
-    } catch { /* fallback: nome da empresa em texto */ }
-  }
+  //
+  // SSRF: `logo_url` é config do admin do tenant → destino atacável. Defesa em
+  // camadas: (1) allowlist ao host do próprio Supabase Storage — onde 100% dos
+  // logos vivem hoje (upload no branding), elimina o fetch arbitrário; (2)
+  // `fetchPublico` (bloqueia IP privado/metadata/rebinding) como backstop se a
+  // allowlist for afrouxada; (3) `redirect: 'error'` pra um redirect não fugir
+  // da allowlist; (4) timeout. Host externo → cai pro nome em texto.
+  const logoEmpresaBase64 = await carregarLogoTenant((empresa?.ui_config as any)?.logo_url);
 
   return {
     ok: true,
