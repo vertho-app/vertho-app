@@ -3,6 +3,7 @@ import youtubedl from 'youtube-dl-exec';
 import { readFile, rm, mkdir, readdir } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { validarUrlPublica, assertDestinoPublico } from '@/lib/net-guard';
 
 const exec = promisify(execFile);
 
@@ -80,6 +81,19 @@ export const extrairVideoTask = task({
     const ext = await rGetOne('extracoes_video', `id=eq.${id}&select=id,origem_empresa_id,url`);
     if (!ext?.url) return fail('extração ou URL não encontrada');
 
+    // Guarda anti-SSRF/injeção de flag (auditoria 23/07, grupo D): a URL vai como
+    // argumento pro yt-dlp. A borda (action submeterExtracaoAsync) já valida no
+    // submit; aqui é defense-in-depth — rejeita host com '-' (flag), esquema ≠
+    // http(s) e destino privado (DNS) ANTES de executar o subprocesso.
+    const vu = validarUrlPublica(ext.url);
+    if (vu.ok === false) return fail(`URL inválida: ${vu.erro}`);
+    try {
+      await assertDestinoPublico(vu.url);
+    } catch (e: any) {
+      return fail(`Destino bloqueado: ${e?.message || e}`);
+    }
+    const videoUrl = vu.url.toString();
+
     let locale = 'pt-BR';
     if (ext.origem_empresa_id) {
       const emp = await rGetOne('empresas', `id=eq.${ext.origem_empresa_id}&select=default_locale`);
@@ -90,7 +104,7 @@ export const extrairVideoTask = task({
     // 1) yt-dlp → áudio leve (mono 16kHz 48kbps).
     const out = `/tmp/audio-${id}.mp3`;
     try {
-      await ytdlp(ext.url, {
+      await ytdlp(videoUrl, {
         extractAudio: true, audioFormat: 'mp3',
         output: `/tmp/audio-${id}.%(ext)s`,
         noPlaylist: true, noWarnings: true,

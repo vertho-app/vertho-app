@@ -11,10 +11,9 @@
  * app/admin/.../configuracoes/actions.ts aplica o gate e delega.
  */
 
-import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
 import { callAI } from '@/actions/ai-client';
 import { parseJsonIA } from '@/lib/ai-json';
+import { ehIpPrivado as _ehIpPrivado, validarUrlPublica, fetchPublico } from '@/lib/net-guard';
 
 export interface PaletaLogin {
   font_color: string;
@@ -41,61 +40,15 @@ const MAX_REDIRECTS = 3;
 const UA = 'Mozilla/5.0 (compatible; VerthoBrandBot/1.0; +https://vertho.ai)';
 
 // ── URL + anti-SSRF ─────────────────────────────────────────────────────────
+// A guarda mora em lib/net-guard.ts (compartilhada: gemini-video, extracao-video).
+// Aqui ficam só os aliases pra não quebrar os imports/testes existentes.
 
 /** Faixas privadas/reservadas — request pra cá é SSRF, nunca site de cliente. */
-export function ehIpPrivado(ip: string): boolean {
-  if (ip.includes(':')) {
-    const v6 = ip.toLowerCase();
-    // ::1 loopback · fc00::/7 ULA · fe80::/10 link-local · ::ffff:x.x.x.x mapeado
-    if (v6 === '::1' || v6 === '::') return true;
-    if (v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe8') || v6.startsWith('fe9') || v6.startsWith('fea') || v6.startsWith('feb')) return true;
-    const mapped = v6.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    return mapped ? ehIpPrivado(mapped[1]) : false;
-  }
-  const p = ip.split('.').map(Number);
-  if (p.length !== 4 || p.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true; // malformado = rejeita
-  if (p[0] === 0 || p[0] === 10 || p[0] === 127) return true;
-  if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;
-  if (p[0] === 192 && p[1] === 168) return true;
-  if (p[0] === 169 && p[1] === 254) return true;      // link-local / metadata (169.254.169.254)
-  if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return true; // CGNAT
-  return false;
-}
+export const ehIpPrivado = _ehIpPrivado;
 
 /** Sintaxe + esquema + hosts obviamente internos. NÃO faz DNS (síncrona, testável). */
 export function validarUrlSite(raw: string): { ok: true; url: URL } | { ok: false; erro: string } {
-  const limpo = raw.trim();
-  // Esquema explícito ≠ http(s) → rejeita ANTES de completar (senão "ftp://x"
-  // viraria "https://ftp://x", que parseia com host lixo e passaria).
-  const temEsquema = /^[a-z][a-z0-9+.-]*:\/\//i.test(limpo);
-  if (temEsquema && !/^https?:\/\//i.test(limpo)) return { ok: false, erro: 'Só http(s)' };
-  let url: URL;
-  try {
-    url = new URL(temEsquema ? limpo : `https://${limpo}`);
-  } catch {
-    return { ok: false, erro: 'URL inválida' };
-  }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return { ok: false, erro: 'Só http(s)' };
-  const host = url.hostname.toLowerCase();
-  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) {
-    return { ok: false, erro: 'Host interno não permitido' };
-  }
-  if (isIP(host.replace(/^\[|\]$/g, '')) && ehIpPrivado(host.replace(/^\[|\]$/g, ''))) {
-    return { ok: false, erro: 'IP privado não permitido' };
-  }
-  return { ok: true, url };
-}
-
-/** Resolve o DNS e rejeita destino privado (async; roda a CADA hop de redirect). */
-async function assertDestinoPublico(url: URL): Promise<void> {
-  const host = url.hostname.replace(/^\[|\]$/g, '');
-  if (isIP(host)) {
-    if (ehIpPrivado(host)) throw new Error('Destino privado bloqueado');
-    return;
-  }
-  const addrs = await lookup(host, { all: true, verbatim: true }).catch(() => []);
-  if (!addrs.length) throw new Error(`DNS não resolveu ${host}`);
-  if (addrs.some((a) => ehIpPrivado(a.address))) throw new Error('Destino privado bloqueado');
+  return validarUrlPublica(raw);
 }
 
 /** GET com timeout, teto de bytes e redirects validados hop a hop. */
@@ -104,10 +57,11 @@ async function fetchTexto(rawUrl: string, maxBytes: number, accept: string): Pro
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     const v = validarUrlSite(atual);
     if (!v.ok) return null;
-    await assertDestinoPublico(v.url);
     let res: Response;
     try {
-      res = await fetch(v.url.toString(), {
+      // fetchPublico: o lookup do Agent valida o IP NO CONNECT (anti-TOCTOU/
+      // rebinding) — o DNS-check prévio sozinho deixava janela entre check e fetch.
+      res = await fetchPublico(v.url.toString(), {
         redirect: 'manual',
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         headers: { 'User-Agent': UA, Accept: accept, 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.5' },

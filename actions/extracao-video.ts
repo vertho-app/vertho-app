@@ -4,6 +4,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { extrairConteudoDeVideo } from '@/lib/gemini-video';
 import { criarModulosDeTranscricao } from '@/lib/modulos-base/pipeline';
+import { validarUrlPublica, assertDestinoPublico } from '@/lib/net-guard';
 import { parseDocument } from '@/lib/rag-ingest';
 import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
@@ -263,13 +264,23 @@ export async function submeterExtracaoAsync(origemEmpresaId: string | null, url:
     const sb = await requireAdminSupabase('content.manage');
     if (!url?.trim()) return { error: 'Informe a URL do vídeo' };
     const ctx = await requireAdminAction('content.manage');
+    // Guarda anti-SSRF/injeção de flag (auditoria 23/07, grupo D): esta URL vai
+    // direta pro yt-dlp no worker — valida esquema/host/IP aqui (borda) e o
+    // worker revalida antes de executar (defense-in-depth).
+    const vu = validarUrlPublica(url);
+    if (vu.ok === false) return { error: `URL inválida: ${vu.erro}` };
+    try {
+      await assertDestinoPublico(vu.url);
+    } catch (e: any) {
+      return { error: e?.message || 'Destino não permitido' };
+    }
     const direcionamento = limparDirecionamento(direcionamentoRaw);
 
     const { data: novo, error } = await sb.from('extracoes_video').insert({
       origem_empresa_id: origemEmpresaId,
       escopo_empresa_id: escopoEmpresaId,
       escopo_global: !escopoEmpresaId,
-      url: url.trim(),
+      url: vu.url.toString(),
       status: 'processing',
       created_by: (ctx as any)?.email || null,
       pilar_direcionador: direcionamento?.pilar || null,

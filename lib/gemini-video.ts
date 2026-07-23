@@ -12,6 +12,8 @@
  * Spec: docs/EXTRACAO-VIDEO-CONTEUDO.md
  */
 
+import { validarUrlPublica, fetchPublico } from '@/lib/net-guard';
+
 const VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.5-flash';
 const MAX_INLINE_BYTES = 20 * 1024 * 1024; // 20MB: acima disso precisa de Files API (Fase 3)
 
@@ -44,14 +46,21 @@ function guessMime(url: string, contentType?: string | null): string {
 
 /** Monta a "part" de mídia do Gemini conforme a fonte. Lança em fonte não suportada. */
 async function buildMediaPart(url: string): Promise<any> {
-  // YouTube: o Gemini aceita a URL diretamente como fileData (nativo).
+  // YouTube: o Gemini aceita a URL diretamente como fileData (nativo) — quem
+  // busca é o Google, não o nosso servidor (sem SSRF nosso).
   if (isYouTube(url)) {
     return { fileData: { fileUri: url } };
   }
+  // Guarda anti-SSRF (auditoria 23/07, grupo D): a URL vem do client (action
+  // content.manage) e o fetch baixa os bytes NO NOSSO servidor. Valida sintaxe/
+  // host e força a conexão pelo dispatcher cujo lookup rejeita IP privado no
+  // connect (anti-TOCTOU/rebinding; redirects automáticos passam pelo mesmo lookup).
+  const v = validarUrlPublica(url);
+  if (v.ok === false) throw new Error(`URL inválida: ${v.erro}`);
   // Páginas de plataformas (TED, Vimeo, LMS...) são HTML, não arquivo de vídeo.
   const pareceArquivoDireto = /\.(mp4|webm|mov|m4a|mp3)(\?|$)/i.test(url);
   // URL direta de mídia: baixa os bytes e manda inline (cap de tamanho).
-  const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+  const res = await fetchPublico(v.url.toString(), { signal: AbortSignal.timeout(60_000) });
   if (!res.ok) throw new Error(`Não foi possível acessar a URL (${res.status}).`);
   const ct = res.headers.get('content-type') || '';
   const ehMidia = /^(video|audio)\//i.test(ct) || pareceArquivoDireto;
