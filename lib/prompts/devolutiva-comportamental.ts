@@ -53,7 +53,6 @@ function blocoCargo(cargo?: CargoInfo | null, empresaNome?: string | null): stri
 
 export function promptDevolutivaComportamental({ primeiroNome, arquetipo, raw, texts, cargo, empresaNome }: DevolutivaParams) {
   const d = raw?.disc_natural || {};
-  const a = raw?.disc_adaptado || {};
   const tp = raw?.tipo_psicologico || {};
   const forcas = topNomes(texts?.top5_forcas, 3);
   const desenvolver = topNomes(texts?.top5_desenvolver, 2);
@@ -80,7 +79,6 @@ TÍTULO: Sua devolutiva comportamental
 - Arquétipo: ${arquetipo.nome} — ${arquetipo.desc}
 - Perfil dominante: ${raw?.perfil_dominante || '—'}
 - Tendência natural (como é à vontade): D=${Math.round(d.D || 0)}, I=${Math.round(d.I || 0)}, S=${Math.round(d.S || 0)}, C=${Math.round(d.C || 0)}
-- Tendência adaptada (como se molda no trabalho): D=${Math.round(a.D || 0)}, I=${Math.round(a.I || 0)}, S=${Math.round(a.S || 0)}, C=${Math.round(a.C || 0)}
 - Tipo psicológico: ${tp.tipo || '—'}
 ${texts?.sintese_perfil ? `\nSíntese do relatório: ${texts.sintese_perfil}` : ''}
 ${forcas ? `\nForças naturais: ${forcas}` : ''}

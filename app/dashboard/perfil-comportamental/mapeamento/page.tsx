@@ -10,6 +10,7 @@ import { ChevronUp, ChevronDown, Loader2, Check, Star, Play } from 'lucide-react
 import Image from 'next/image';
 import VideoModal from '@/components/video-modal';
 import BackButton from '@/components/back-button';
+import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 
 /* ───────────────────── DATA ───────────────────── */
 
@@ -46,25 +47,6 @@ const FORMATS = [
 
 const RANK_WEIGHTS = [10, 6, 3, 1];
 
-const COMPETENCY_COEFFICIENTS = {
-  'Ousadia': [.0027, .48532, .38013, -.132, -.193, .150, .126, .152, .112],
-  'Comando': [.003, .976, -.139, -.151, -.137, .151, .130, .130, .137],
-  'Objetividade': [.003, .547, -.154, -.169, .360, .120, .182, .136, .145],
-  'Assertividade': [.003, .418, -.136, -.179, .446, .138, .141, .148, .122],
-  'Persuasão': [.003, -.126, .947, -.133, -.142, .154, .144, .135, .114],
-  'Extroversão': [.003, -.138, .965, -.150, -.122, .120, .153, .138, .143],
-  'Entusiasmo': [.003, -.138, .984, -.154, -.148, .130, .131, .138, .145],
-  'Sociabilidade': [.003, -.162, .467, .357, -.108, .120, .167, .136, .131],
-  'Empatia': [.003, -.172, .433, .404, -.110, .132, .143, .141, .138],
-  'Paciência': [.003, -.153, -.136, .981, -.151, .096, .178, .093, .174],
-  'Persistência': [.003, .401, -.117, .440, -.176, .177, .115, .171, .085],
-  'Planejamento': [.003, -.116, -.144, .404, .430, .128, .138, .120, .186],
-  'Organização': [.003, .176, -.130, .222, .287, .112, .140, .109, .195],
-  'Detalhismo': [.003, .345, -.143, -.135, .499, .171, .121, .151, .124],
-  'Prudência': [.003, -.171, -.142, .399, .462, .137, .133, .150, .128],
-  'Concentração': [.003, .383, -.142, -.142, .449, .135, .145, .142, .125],
-};
-
 const COMP_GROUPS = {
   D: ['Ousadia', 'Comando', 'Objetividade', 'Assertividade'],
   I: ['Persuasão', 'Extroversão', 'Entusiasmo', 'Sociabilidade'],
@@ -77,8 +59,7 @@ const DISC_COLORS = { D: '#EAB308', I: '#94A3B8', S: '#10B981', C: '#3B82F6' };
 const DISC_LABELS = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 'Conformidade' };
 const LEAD_LABELS = { Executivo: 'D', Motivador: 'I', Metódico: 'S', Sistemático: 'C' };
 
-// Total steps for progress: 8 rank groups * 2 + 6 pairs * 2 + 1 learning = 29
-const TOTAL_STEPS = 29;
+const TOTAL_STEPS = RANKING_GROUPS.length + FORCED_PAIRS.length + 1;
 
 // Vídeo de instruções do mapeamento (Bunny Stream, library 636615).
 const BUNNY_LIBRARY = 636615;
@@ -111,22 +92,14 @@ function InstructionCard({ numero, titulo, descricao }) {
   );
 }
 
-function BlockContextHeader({ isNatural, etapa, t }) {
-  const block = isNatural
-    ? {
-        numero: '1',
-        titulo: t('blocks.natural.title'),
-        cor: '#2DD4BF',
-        resumo: t('blocks.natural.summary'),
-        reforco: t('blocks.natural.reinforcement'),
-      }
-    : {
-        numero: '2',
-        titulo: t('blocks.adapted.title'),
-        cor: '#FCD34D',
-        resumo: t('blocks.adapted.summary'),
-        reforco: t('blocks.adapted.reinforcement'),
-      };
+function BlockContextHeader({ etapa, t }) {
+  const block = {
+    numero: '1',
+    titulo: t('blocks.natural.title'),
+    cor: '#2DD4BF',
+    resumo: t('blocks.natural.summary'),
+    reforco: t('blocks.natural.reinforcement'),
+  };
 
   const etapaTexto = etapa === 'ranking'
     ? t('blocks.rankingInstruction')
@@ -203,18 +176,6 @@ function computeLeadership(disc) {
   };
 }
 
-function computeCompetencies(disc, dA) {
-  // Vetor usa valores ABSOLUTOS do adaptado (não deltas) — compatível com regressão GAS
-  const vec = [1, disc.D, disc.I, disc.S, disc.C, dA.D, dA.I, dA.S, dA.C];
-  const result = {};
-  for (const [name, coefs] of Object.entries(COMPETENCY_COEFFICIENTS)) {
-    let val = 0;
-    for (let i = 0; i < coefs.length; i++) val += coefs[i] * vec[i];
-    result[name] = Math.round(Math.max(0, Math.min(100, val)) * 10) / 10;
-  }
-  return result;
-}
-
 function deriveProfile(disc: any) {
   const sorted = Object.entries(disc).sort((a: any, b: any) => b[1] - a[1]);
   const acima = sorted.filter(([, v]: [string, any]) => v >= 50).map(([k]) => k).join('');
@@ -228,8 +189,6 @@ const PHASE = {
   WELCOME: 'welcome',
   RANK1: 'rank1',
   PAIRS1: 'pairs1',
-  RANK2: 'rank2',
-  PAIRS2: 'pairs2',
   LEARNING: 'learning',
   CALCULATING: 'calculating',
   RESULTS: 'results',
@@ -263,17 +222,14 @@ export default function MapeamentoPage() {
 
   // Rankings: arrays of [group][position] = item
   const [rank1, setRank1] = useState(() => RANKING_GROUPS.map(g => shuffle([...g])));
-  const [rank2, setRank2] = useState(() => RANKING_GROUPS.map(g => shuffle([...g])));
 
   // Pairs answers: array of chosen factor per pair
   const [pairs1, setPairs1] = useState(() => Array(6).fill(null));
-  const [pairs2, setPairs2] = useState(() => Array(6).fill(null));
 
   // Learning preferences
   const [learnPrefs, setLearnPrefs] = useState(() => Object.fromEntries(FORMATS.map(f => [f.id, 0])));
 
   // Results
-  const [results, setResults] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
@@ -306,11 +262,9 @@ export default function MapeamentoPage() {
       case PHASE.WELCOME: return 0;
       case PHASE.RANK1: return groupIdx;
       case PHASE.PAIRS1: return 8 + pairIdx;
-      case PHASE.RANK2: return 14 + groupIdx;
-      case PHASE.PAIRS2: return 22 + pairIdx;
-      case PHASE.LEARNING: return 28;
+      case PHASE.LEARNING: return RANKING_GROUPS.length + FORCED_PAIRS.length;
       case PHASE.CALCULATING:
-      case PHASE.RESULTS: return 29;
+      case PHASE.RESULTS: return TOTAL_STEPS;
       default: return 0;
     }
   }, [phase, groupIdx, pairIdx]);
@@ -318,9 +272,8 @@ export default function MapeamentoPage() {
   const progressPct = Math.round((currentStep / TOTAL_STEPS) * 100);
 
   /* ─── Ranking reorder ─── */
-  const moveItem = useCallback((phaseKey, gIdx, fromIdx, direction) => {
-    const setter = phaseKey === 'rank1' ? setRank1 : setRank2;
-    setter(prev => {
+  const moveItem = useCallback((gIdx, fromIdx, direction) => {
+    setRank1(prev => {
       const next = prev.map(g => [...g]);
       const toIdx = fromIdx + direction;
       if (toIdx < 0 || toIdx > 3) return prev;
@@ -330,9 +283,8 @@ export default function MapeamentoPage() {
   }, []);
 
   /* ─── Pairs select ─── */
-  const selectPair = useCallback((phaseKey, idx, factor) => {
-    const setter = phaseKey === 'pairs1' ? setPairs1 : setPairs2;
-    setter(prev => {
+  const selectPair = useCallback((idx, factor) => {
+    setPairs1(prev => {
       const next = [...prev];
       next[idx] = factor;
       return next;
@@ -349,22 +301,14 @@ export default function MapeamentoPage() {
     const raw1 = { D: rankScores1.D + pairBonus1.D, I: rankScores1.I + pairBonus1.I, S: rankScores1.S + pairBonus1.S, C: rankScores1.C + pairBonus1.C };
     const disc = normalize(raw1);
 
-    // Score adapted
-    const rankScores2 = scoreRankings(rank2);
-    const pairBonus2 = scorePairs(pairs2);
-    const raw2 = { D: rankScores2.D + pairBonus2.D, I: rankScores2.I + pairBonus2.I, S: rankScores2.S + pairBonus2.S, C: rankScores2.C + pairBonus2.C };
-    const dA = normalize(raw2);
-
     const lead = computeLeadership(disc);
-    const comp = computeCompetencies(disc, dA);
+    const comp = computeDiscCompetenciesNatural(disc);
     const profile = deriveProfile(disc);
 
     const resultData = {
-      disc, dA, lead, comp, profile, learnPrefs,
-      rawData: { rank1, rank2, pairs1, pairs2, formName, formGender },
+      disc, lead, comp, profile, learnPrefs,
+      rawData: { rank1, pairs1, formName, formGender },
     };
-
-    setResults(resultData);
 
     // Save
     setSaving(true);
@@ -379,30 +323,26 @@ export default function MapeamentoPage() {
     // Pequeno delay pra garantir que a gravação terminou de propagar, então
     // REDIRECIONA pra tela consolidada. replace evita voltar pra essa tela.
     setTimeout(() => router.replace('/dashboard/perfil-comportamental'), 800);
-  }, [rank1, rank2, pairs1, pairs2, learnPrefs, formName, formGender, router, t]);
+  }, [rank1, pairs1, learnPrefs, formName, formGender, router, t]);
 
   /* ─── Navigation helpers ─── */
-  const nextRankGroup = (phaseKey) => {
+  const nextRankGroup = () => {
     if (groupIdx < 7) {
       setGroupIdx(groupIdx + 1);
     } else {
       setGroupIdx(0);
       setPairIdx(0);
-      setPhase(phaseKey === 'rank1' ? PHASE.PAIRS1 : PHASE.PAIRS2);
+      setPhase(PHASE.PAIRS1);
     }
   };
 
-  const nextPair = (phaseKey) => {
+  const nextPair = () => {
     if (pairIdx < 5) {
       setPairIdx(pairIdx + 1);
     } else {
       setPairIdx(0);
       setGroupIdx(0);
-      if (phaseKey === 'pairs1') {
-        setPhase(PHASE.RANK2);
-      } else {
-        setPhase(PHASE.LEARNING);
-      }
+      setPhase(PHASE.LEARNING);
     }
   };
 
@@ -471,11 +411,6 @@ export default function MapeamentoPage() {
           />
           <InstructionCard
             numero={2}
-            titulo={<>{t('blocks.block', { number: 2 })} — <span className="text-amber-400">{t('blocks.adapted.title')}</span></>}
-            descricao={t.rich('onboarding.adaptedDescription', { strong: (chunks) => <b>{chunks}</b> })}
-          />
-          <InstructionCard
-            numero={3}
             titulo={t('onboarding.learningTitle')}
             descricao={t.rich('onboarding.learningDescription', { strong: (chunks) => <b>{chunks}</b> })}
           />
@@ -605,12 +540,9 @@ export default function MapeamentoPage() {
   );
 
   /* ═══════════════════ RANKING PHASE ═══════════════════ */
-  if (phase === PHASE.RANK1 || phase === PHASE.RANK2) {
-    const isNatural = phase === PHASE.RANK1;
-    const phaseKey = isNatural ? 'rank1' : 'rank2';
-    const currentRank = isNatural ? rank1 : rank2;
-    const group = currentRank[groupIdx];
-    const label = isNatural ? t('labels.natural') : t('labels.adapted');
+  if (phase === PHASE.RANK1) {
+    const group = rank1[groupIdx];
+    const label = t('labels.natural');
 
     // Drag state
     const handleDragStart = (e, idx) => { e.dataTransfer.setData('text/plain', idx); };
@@ -618,7 +550,7 @@ export default function MapeamentoPage() {
     const handleDrop = (e, toIdx) => {
       e.preventDefault();
       const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
-      if (!isNaN(fromIdx) && fromIdx !== toIdx) moveItem(phaseKey, groupIdx, fromIdx, toIdx - fromIdx);
+      if (!isNaN(fromIdx) && fromIdx !== toIdx) moveItem(groupIdx, fromIdx, toIdx - fromIdx);
     };
 
     return (
@@ -629,7 +561,7 @@ export default function MapeamentoPage() {
           <span>{progressPct}%</span>
         </div>
 
-        <BlockContextHeader isNatural={isNatural} etapa="ranking" t={t} />
+        <BlockContextHeader etapa="ranking" t={t} />
 
         {/* Phase tag + title */}
         <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{label}</p>
@@ -665,7 +597,7 @@ export default function MapeamentoPage() {
               <div className="flex gap-1">
                 <button
                   disabled={idx === 0}
-                  onClick={() => moveItem(phaseKey, groupIdx, idx, -1)}
+                  onClick={() => moveItem(groupIdx, idx, -1)}
                   className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-brand-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
                   style={{ background: 'rgba(255,255,255,0.04)' }}
                 >
@@ -673,7 +605,7 @@ export default function MapeamentoPage() {
                 </button>
                 <button
                   disabled={idx === 3}
-                  onClick={() => moveItem(phaseKey, groupIdx, idx, 1)}
+                  onClick={() => moveItem(groupIdx, idx, 1)}
                   className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-brand-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
                   style={{ background: 'rgba(255,255,255,0.04)' }}
                 >
@@ -689,7 +621,7 @@ export default function MapeamentoPage() {
 
         {/* Advance button */}
         <button
-          onClick={() => nextRankGroup(phaseKey)}
+          onClick={nextRankGroup}
           className="w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase"
           style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
         >
@@ -700,13 +632,10 @@ export default function MapeamentoPage() {
   }
 
   /* ═══════════════════ PAIRS PHASE ═══════════════════ */
-  if (phase === PHASE.PAIRS1 || phase === PHASE.PAIRS2) {
-    const isNatural = phase === PHASE.PAIRS1;
-    const phaseKey = isNatural ? 'pairs1' : 'pairs2';
-    const currentPairs = isNatural ? pairs1 : pairs2;
+  if (phase === PHASE.PAIRS1) {
     const pair = FORCED_PAIRS[pairIdx];
-    const selected = currentPairs[pairIdx];
-    const label = isNatural ? t('labels.natural') : t('labels.adapted');
+    const selected = pairs1[pairIdx];
+    const label = t('labels.natural');
 
     return (
       <div className="max-w-[560px] mx-auto px-4 py-6">
@@ -719,7 +648,7 @@ export default function MapeamentoPage() {
           <div className="h-full rounded-full transition-all" style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg, #2DD4BF, #FCD34D)' }} />
         </div>
 
-        <BlockContextHeader isNatural={isNatural} etapa="pares" t={t} />
+        <BlockContextHeader etapa="pares" t={t} />
 
         {/* Phase tag + title */}
         <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{label} — {t('pairs.quickChoice')}</p>
@@ -737,7 +666,7 @@ export default function MapeamentoPage() {
 
         {/* Option A */}
         <button
-          onClick={() => selectPair(phaseKey, pairIdx, pair.fa)}
+          onClick={() => selectPair(pairIdx, pair.fa)}
           className="w-full text-center px-5 py-5 rounded-2xl border-2 transition-all mb-2"
           style={{
             background: selected === pair.fa ? 'rgba(45,212,191,0.08)' : '#182B48',
@@ -753,7 +682,7 @@ export default function MapeamentoPage() {
 
         {/* Option B */}
         <button
-          onClick={() => selectPair(phaseKey, pairIdx, pair.fb)}
+          onClick={() => selectPair(pairIdx, pair.fb)}
           className="w-full text-center px-5 py-5 rounded-2xl border-2 transition-all"
           style={{
             background: selected === pair.fb ? 'rgba(45,212,191,0.08)' : '#182B48',
@@ -767,7 +696,7 @@ export default function MapeamentoPage() {
         {/* Advance */}
         <button
           disabled={!selected}
-          onClick={() => nextPair(phaseKey)}
+          onClick={nextPair}
           className="mt-5 w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase disabled:opacity-30 transition-all"
           style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
         >

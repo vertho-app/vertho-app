@@ -25,9 +25,7 @@ function compFromDISC(d, i, s, c) {
     comp_planejamento: c, comp_organizacao: c, comp_detalhismo: c, comp_prudencia: r((c + s) / 2), comp_concentracao: r((c + s) / 2),
   };
 }
-const adapt = (comp) => Object.fromEntries(Object.entries(comp).map(([k, v]) => [k + '_adapt', Math.max(0, Math.min(100, v + ((k.length % 7) - 3)))]));
-
-// d,i,s,c naturais por persona; adaptado = leve variação contextual.
+// d,i,s,c naturais por persona.
 const PERSONAS = [
   {
     email: 'mariana.torres@grupomeridiano.com.br', nome: 'Mariana Torres',
@@ -79,14 +77,12 @@ async function main() {
 
     for (const p of PERSONAS) {
       const comp = compFromDISC(p.d, p.i, p.s, p.c);
-      const compA = adapt(compFromDISC(p.da, p.ia, p.sa, p.ca));
       const cols = {
         empresa_id: empresaId, email: p.email, nome_completo: p.nome, cargo: p.cargo, area_depto: p.area,
         role: 'colaborador', locale: 'pt-BR', gestor_nome: p.gestor, mapeamento_em: new Date().toISOString(),
         perfil_dominante: p.perfil,
         d_natural: p.d, i_natural: p.i, s_natural: p.s, c_natural: p.c,
-        d_adaptado: p.da, i_adaptado: p.ia, s_adaptado: p.sa, c_adaptado: p.ca,
-        ...comp, ...compA, ...p.val, ...p.lid, ...p.pref, ...p.tp,
+        ...comp, ...p.val, ...p.lid, ...p.pref, ...p.tp,
       };
       const keys = Object.keys(cols);
       const vals = Object.values(cols);

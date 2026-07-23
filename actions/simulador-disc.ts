@@ -5,7 +5,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
  * Simula o mapeamento comportamental DISC de colaboradores que ainda não fizeram.
- * Gera valores aleatórios coerentes (soma D+I+S+C ~= 100 para Natural e Adaptado)
+ * Gera valores aleatórios coerentes (soma D+I+S+C ~= 100)
  * + perfil dominante derivado + competências + liderança + preferências médias.
  *
  * Útil pra testes e demos — NÃO substitui o mapeamento real.
@@ -39,8 +39,6 @@ export async function simularMapeamentoDISCLote(empresaId: string) {
 function gerarMapeamentoRandomico() {
   // DISC Natural (soma ~100, uma dimensão dominante)
   const natural = gerarDISCComDominante();
-  const adaptado = gerarDISCComDominante(natural);
-
   const perfil = derivarPerfilDominante(natural);
 
   // Liderança derivada do DISC (4 estilos, soma ~100)
@@ -86,7 +84,6 @@ function gerarMapeamentoRandomico() {
   return {
     perfil_dominante: perfil,
     d_natural: natural.D, i_natural: natural.I, s_natural: natural.S, c_natural: natural.C,
-    d_adaptado: adaptado.D, i_adaptado: adaptado.I, s_adaptado: adaptado.S, c_adaptado: adaptado.C,
     lid_executivo: lideranca.executivo,
     lid_motivador: lideranca.motivador,
     lid_metodico: lideranca.metodico,
@@ -94,7 +91,7 @@ function gerarMapeamentoRandomico() {
     ...comps,
     ...prefs,
     mapeamento_em: new Date().toISOString(),
-    disc_resultados: JSON.stringify({ origem: 'simulado', natural, adaptado }),
+    disc_resultados: JSON.stringify({ origem: 'simulado', natural }),
     // Invalida caches de relatório
     comportamental_pdf_path: null,
     report_texts: null,

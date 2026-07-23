@@ -80,8 +80,6 @@ const colabs = dataRows.map(row => {
     perfil_dominante: safe(row[12]),
     // DISC natural (cols 13-16)
     d_natural: num(row[13]), i_natural: num(row[14]), s_natural: num(row[15]), c_natural: num(row[16]),
-    // DISC adaptado (cols 17-20)
-    d_adaptado: num(row[17]), i_adaptado: num(row[18]), s_adaptado: num(row[19]), c_adaptado: num(row[20]),
     // Traços CIS (cols 21+)
     lid_executivo: num(row[21]), lid_motivador: num(row[22]),
     lid_metodico: num(row[23]), lid_sistematico: num(row[24]),
@@ -141,7 +139,6 @@ for (const c of colabsDedup) {
     cargo: c.cargo, area_depto: c.area_depto, telefone: c.telefone,
     perfil_dominante: c.perfil_dominante, role: 'colaborador',
     d_natural: c.d_natural, i_natural: c.i_natural, s_natural: c.s_natural, c_natural: c.c_natural,
-    d_adaptado: c.d_adaptado, i_adaptado: c.i_adaptado, s_adaptado: c.s_adaptado, c_adaptado: c.c_adaptado,
     lid_executivo: c.lid_executivo, lid_motivador: c.lid_motivador,
     lid_metodico: c.lid_metodico, lid_sistematico: c.lid_sistematico,
     val_estetico: c.val_estetico, val_economico: c.val_economico,

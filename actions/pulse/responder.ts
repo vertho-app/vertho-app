@@ -3,7 +3,23 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { requireUserAction } from '@/lib/auth/action-context';
-import { getPulseQuestions, PulseMoment, PulseQuestion } from '@/lib/pulse/template';
+import {
+  getPulseQuestions,
+  PULSE_LEGACY_TEMPLATE_VERSION,
+  PulseMoment,
+  PulseQuestion,
+} from '@/lib/pulse/template';
+import {
+  computeContextualDisc,
+  hasRequiredAnswer,
+  sanitizeContextualAnswer,
+} from '@/lib/pulse/contextual-disc';
+
+interface StoredResponse {
+  numeric_answer: number | null;
+  text_answer: string | null;
+  answer_json: unknown;
+}
 
 export interface AssignmentDetail {
   assignment: {
@@ -14,11 +30,13 @@ export interface AssignmentDetail {
     status: string;
     completed_at: string | null;
     due_date: string | null;
+    template_version: string;
+    contextual_disc: unknown;
   };
   ciclo: { nome: string; descricao: string | null };
   empresa: { nome: string };
   perguntas: PulseQuestion[];
-  respostasExistentes: Record<string, { numeric_answer: number | null; text_answer: string | null }>;
+  respostasExistentes: Record<string, StoredResponse>;
 }
 
 /**
@@ -32,7 +50,7 @@ export async function loadAssignment(assignmentId: string): Promise<
   const sb = createSupabaseAdmin();
 
   const { data: a } = await sb.from('pulse_assignments')
-    .select('id, empresa_id, ciclo_id, colaborador_id, pulse_moment, status, completed_at, due_date')
+    .select('id, empresa_id, ciclo_id, colaborador_id, pulse_moment, status, completed_at, due_date, template_version, contextual_disc')
     .eq('id', assignmentId).single();
   if (!a) return { ok: false, error: 'Assignment não encontrado' };
 
@@ -50,22 +68,24 @@ export async function loadAssignment(assignmentId: string): Promise<
     .select('nome').eq('id', (a as any).empresa_id).single();
 
   const { data: resps } = await sb.from('pulse_responses')
-    .select('question_id, numeric_answer, text_answer').eq('assignment_id', assignmentId);
+    .select('question_id, numeric_answer, text_answer, answer_json').eq('assignment_id', assignmentId);
 
   const respostasExistentes: Record<string, any> = {};
   for (const r of (resps || [])) {
     respostasExistentes[(r as any).question_id] = {
       numeric_answer: (r as any).numeric_answer,
       text_answer: (r as any).text_answer,
+      answer_json: (r as any).answer_json,
     };
   }
 
-  const perguntas = getPulseQuestions((a as any).pulse_moment);
+  const templateVersion = (a as any).template_version || PULSE_LEGACY_TEMPLATE_VERSION;
+  const perguntas = getPulseQuestions((a as any).pulse_moment, templateVersion);
 
   return {
     ok: true,
     data: {
-      assignment: a as any,
+      assignment: { ...(a as any), template_version: templateVersion },
       ciclo: { nome: (ciclo as any)?.nome || 'Pulso', descricao: (ciclo as any)?.descricao || null },
       empresa: { nome: (empresa as any)?.nome || '' },
       perguntas,
@@ -108,13 +128,13 @@ async function validateAssignmentOpen(sb: any, assignment: any): Promise<string 
 export async function saveResponse(
   assignmentId: string,
   questionId: string,
-  value: { numeric?: number | null; text?: string | null },
+  value: { numeric?: number | null; text?: string | null; json?: unknown },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const ctx = await requireUserAction();
   const sb = createSupabaseAdmin();
 
   const { data: a } = await sb.from('pulse_assignments')
-    .select('id, empresa_id, ciclo_id, colaborador_id, pulse_moment, status, due_date').eq('id', assignmentId).single();
+    .select('id, empresa_id, ciclo_id, colaborador_id, pulse_moment, status, due_date, template_version').eq('id', assignmentId).single();
   if (!a) return { ok: false, error: 'Assignment não encontrado' };
   if (!ctx.isPlatformAdmin && ctx.colaborador?.id !== (a as any).colaborador_id) {
     return { ok: false, error: 'Sem acesso' };
@@ -122,7 +142,10 @@ export async function saveResponse(
   const closedReason = await validateAssignmentOpen(sb, a as any);
   if (closedReason) return { ok: false, error: closedReason };
 
-  const perguntas = getPulseQuestions((a as any).pulse_moment);
+  const perguntas = getPulseQuestions(
+    (a as any).pulse_moment,
+    (a as any).template_version || PULSE_LEGACY_TEMPLATE_VERSION,
+  );
   const pergunta = perguntas.find(p => p.id === questionId);
   if (!pergunta) return { ok: false, error: 'Pergunta inválida' };
 
@@ -131,6 +154,17 @@ export async function saveResponse(
     if (value.numeric == null || value.numeric < 1 || value.numeric > 5) {
       return { ok: false, error: 'Valor Likert deve estar entre 1 e 5' };
     }
+  }
+  const contextualAnswer = (
+    pergunta.question_type === 'disc_ranking' || pergunta.question_type === 'disc_pair'
+  )
+    ? sanitizeContextualAnswer(pergunta, value.json)
+    : null;
+  if (
+    (pergunta.question_type === 'disc_ranking' || pergunta.question_type === 'disc_pair')
+    && !contextualAnswer
+  ) {
+    return { ok: false, error: 'Resposta contextual inválida' };
   }
 
   const tdb = tenantDb((a as any).empresa_id);
@@ -143,6 +177,7 @@ export async function saveResponse(
     dimension_key: pergunta.dimension_key,
     numeric_answer: pergunta.question_type === 'likert_1_5' ? value.numeric : null,
     text_answer: pergunta.question_type === 'open_text' ? (value.text || null) : null,
+    answer_json: contextualAnswer,
     updated_at: new Date().toISOString(),
   } as any, { onConflict: 'assignment_id,question_id' });
   if (error) return { ok: false, error: error.message };
@@ -168,7 +203,7 @@ export async function finishAssignment(
   const sb = createSupabaseAdmin();
 
   const { data: a } = await sb.from('pulse_assignments')
-    .select('id, empresa_id, ciclo_id, colaborador_id, pulse_moment, status, due_date').eq('id', assignmentId).single();
+    .select('id, empresa_id, ciclo_id, colaborador_id, pulse_moment, status, due_date, template_version').eq('id', assignmentId).single();
   if (!a) return { ok: false, error: 'Assignment não encontrado' };
   if (!ctx.isPlatformAdmin && ctx.colaborador?.id !== (a as any).colaborador_id) {
     return { ok: false, error: 'Sem acesso' };
@@ -176,19 +211,35 @@ export async function finishAssignment(
   const closedReason = await validateAssignmentOpen(sb, a as any);
   if (closedReason) return { ok: false, error: closedReason };
 
-  const perguntas = getPulseQuestions((a as any).pulse_moment);
-  const obrigatorias = perguntas.filter(p => p.is_required).map(p => p.id);
+  const templateVersion = (a as any).template_version || PULSE_LEGACY_TEMPLATE_VERSION;
+  const perguntas = getPulseQuestions((a as any).pulse_moment, templateVersion);
+  const obrigatorias = perguntas.filter(p => p.is_required);
 
   const { data: resps } = await sb.from('pulse_responses')
-    .select('question_id, numeric_answer').eq('assignment_id', assignmentId);
-  const respondidas = new Set(
-    (resps || []).filter((r: any) => r.numeric_answer != null).map((r: any) => r.question_id),
-  );
-  const faltam = obrigatorias.filter(id => !respondidas.has(id));
+    .select('question_id, numeric_answer, text_answer, answer_json').eq('assignment_id', assignmentId);
+  const responsesByQuestion: Record<string, StoredResponse> = {};
+  for (const response of (resps || []) as any[]) {
+    responsesByQuestion[response.question_id] = {
+      numeric_answer: response.numeric_answer,
+      text_answer: response.text_answer,
+      answer_json: response.answer_json,
+    };
+  }
+  const faltam = obrigatorias
+    .filter(question => !hasRequiredAnswer(question, responsesByQuestion[question.id]))
+    .map(question => question.id);
   if (faltam.length) return { ok: false, error: 'Há perguntas obrigatórias sem resposta', faltam };
 
+  const completedAt = new Date().toISOString();
+  const contextualDisc = computeContextualDisc(perguntas, responsesByQuestion);
   const { error } = await sb.from('pulse_assignments')
-    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .update({
+      status: 'completed',
+      completed_at: completedAt,
+      contextual_disc: contextualDisc
+        ? { ...contextualDisc, templateVersion, completedAt }
+        : null,
+    })
     .eq('id', assignmentId);
   if (error) return { ok: false, error: error.message };
 

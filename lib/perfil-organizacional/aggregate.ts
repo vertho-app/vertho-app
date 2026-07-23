@@ -2,7 +2,7 @@
  * Perfil Organizacional (DNA comportamental DISC) — agregação coletiva.
  *
  * Consolida o mapeamento DISC de todos os colaboradores de uma empresa:
- * perfil médio natural/adaptado, foco por fator, valores motivadores,
+ * perfil médio natural, foco por fator, valores motivadores,
  * estilo de liderança, mapa de 16 competências, fatores altos/baixos,
  * distribuição de talentos (octógono) e destaques comportamentais.
  * Puro (sem IA, sem Next) — recebe um SupabaseClient. O PDF consome este output.
@@ -70,17 +70,33 @@ export const LIDERANCA = {
 };
 
 export interface ValorStat { key: string; nome: string; motivacao: string; media: number; classe: 'significativo' | 'circunstancial' | 'menor' }
-export interface CompStat { key: string; nome: string; desc: string; natural: number; adaptado: number }
+export interface CompStat {
+  key: string;
+  nome: string;
+  desc: string;
+  natural: number;
+  /** @deprecated Mantido apenas para compatibilidade com fixtures históricas. */
+  adaptado?: number;
+}
 export interface TalentoStat { nome: string; foco: string; pct: number }
 export interface FatorAltoBaixo { fator: Fator; nome: string; foco: string; pctAlto: number; pctBaixo: number; nAlto: number; nBaixo: number }
-export interface PessoaDisc { numero: number; nome: string; perfil: string; arquetipo: string; natural: DiscMedia; adaptado: DiscMedia }
+export interface PessoaDisc {
+  numero: number;
+  nome: string;
+  perfil: string;
+  arquetipo: string;
+  natural: DiscMedia;
+  /** @deprecated Mantido apenas para compatibilidade com fixtures históricas. */
+  adaptado?: DiscMedia;
+}
 export interface DestaqueBipolar { esquerda: string; direita: string; ladoEsquerdo: boolean }
 export interface LiderancaStat { nome: string; vinculo: string; pct: number; dist: { nome: string; pct: number }[] }
 
 export interface PerfilOrg {
   avaliados: number;
   natural: DiscMedia;
-  adaptado: DiscMedia;
+  /** @deprecated Mantido apenas para compatibilidade com fixtures históricas. */
+  adaptado?: DiscMedia;
   perfilDominante: string;
   arquetipo: { nome: string; desc: string };
   fatoresOrdem: { fator: Fator; nome: string; foco: string; media: number }[];
@@ -89,7 +105,8 @@ export interface PerfilOrg {
   competencias: CompStat[];
   compMais: CompStat[];
   compMenos: CompStat[];
-  temCompAdapt: boolean;
+  /** @deprecated Mantido apenas para compatibilidade com fixtures históricas. */
+  temCompAdapt?: boolean;
   fatoresAltoBaixo: FatorAltoBaixo[];
   talentos: TalentoStat[];
   destaques: DestaqueBipolar[];
@@ -148,9 +165,9 @@ export function destaquesBipolares(m: DiscMedia): DestaqueBipolar[] {
 }
 
 const EMPTY_PERFIL: PerfilOrg = {
-  avaliados: 0, natural: { d: 0, i: 0, s: 0, c: 0 }, adaptado: { d: 0, i: 0, s: 0, c: 0 },
+  avaliados: 0, natural: { d: 0, i: 0, s: 0, c: 0 },
   perfilDominante: '', arquetipo: { nome: '', desc: '' }, fatoresOrdem: [], valores: [],
-  lideranca: { nome: '', vinculo: '', pct: 0, dist: [] }, competencias: [], compMais: [], compMenos: [], temCompAdapt: false,
+  lideranca: { nome: '', vinculo: '', pct: 0, dist: [] }, competencias: [], compMais: [], compMenos: [],
   fatoresAltoBaixo: [], talentos: [], destaques: [], pessoas: [], semDados: true,
 };
 
@@ -162,7 +179,6 @@ export function computePerfilOrg(R: any[]): PerfilOrg {
   if (!R.length) return EMPTY_PERFIL;
 
   const natural: DiscMedia = { d: r2(avg(R.map((x) => n(x.d_natural)))), i: r2(avg(R.map((x) => n(x.i_natural)))), s: r2(avg(R.map((x) => n(x.s_natural)))), c: r2(avg(R.map((x) => n(x.c_natural)))) };
-  const adaptado: DiscMedia = { d: r2(avg(R.map((x) => n(x.d_adaptado)))), i: r2(avg(R.map((x) => n(x.i_adaptado)))), s: r2(avg(R.map((x) => n(x.s_adaptado)))), c: r2(avg(R.map((x) => n(x.c_adaptado)))) };
   const perfilDominante = dominanteFromDisc(natural);
 
   const fatoresOrdem = (['D', 'I', 'S', 'C'] as Fator[])
@@ -181,8 +197,13 @@ export function computePerfilOrg(R: any[]): PerfilOrg {
   const lidTop = [...lidMed].sort((a, b) => b.media - a.media)[0];
   const lideranca: LiderancaStat = { nome: (LIDERANCA as any)[lidTop.k].nome, vinculo: (LIDERANCA as any)[lidTop.k].vinculo, pct: r2((lidTop.media / lidTotal) * 100), dist: lidDist };
 
-  // competências (natural + adaptado)
-  const competencias: CompStat[] = COMP_LABEL.map((c) => ({ key: c.key, nome: c.nome, desc: c.desc, natural: r2(avg(R.map((x) => n(x[c.key])))), adaptado: r2(avg(R.map((x) => n(x[c.key + '_adapt'])))) }));
+  // competências naturais
+  const competencias: CompStat[] = COMP_LABEL.map((c) => ({
+    key: c.key,
+    nome: c.nome,
+    desc: c.desc,
+    natural: r2(avg(R.map((x) => n(x[c.key])))),
+  }));
   const byNat = [...competencias].sort((a, b) => b.natural - a.natural);
   const compMais = byNat.slice(0, 3);
   const compMenos = byNat.slice(-3).reverse();
@@ -210,15 +231,13 @@ export function computePerfilOrg(R: any[]): PerfilOrg {
   // pessoas (anonimizável; numeradas na ordem alfabética)
   const pessoas: PessoaDisc[] = R.map((x, idx) => {
     const nat: DiscMedia = { d: n(x.d_natural), i: n(x.i_natural), s: n(x.s_natural), c: n(x.c_natural) };
-    const adp: DiscMedia = { d: n(x.d_adaptado), i: n(x.i_adaptado), s: n(x.s_adaptado), c: n(x.c_adaptado) };
     const perfil = x.perfil_dominante || dominanteFromDisc(nat);
-    return { numero: idx + 1, nome: x.nome_completo || `Colaborador ${idx + 1}`, perfil, arquetipo: derivarArquetipo(perfil).nome, natural: nat, adaptado: adp };
+    return { numero: idx + 1, nome: x.nome_completo || `Colaborador ${idx + 1}`, perfil, arquetipo: derivarArquetipo(perfil).nome, natural: nat };
   });
 
   return {
-    avaliados: R.length, natural, adaptado, perfilDominante, arquetipo: derivarArquetipo(perfilDominante),
+    avaliados: R.length, natural, perfilDominante, arquetipo: derivarArquetipo(perfilDominante),
     fatoresOrdem, valores, lideranca, competencias, compMais, compMenos,
-    temCompAdapt: competencias.some((c) => c.adaptado > 0),
     fatoresAltoBaixo, talentos,
     destaques: destaquesBipolares(natural), pessoas, semDados: false,
   };
@@ -235,10 +254,9 @@ export async function aggregatePerfilOrg(sb: SupabaseClient, empresaId: string):
   const cols = [
     'nome_completo', 'cargo', 'perfil_dominante',
     'd_natural', 'i_natural', 's_natural', 'c_natural',
-    'd_adaptado', 'i_adaptado', 's_adaptado', 'c_adaptado',
     ...Object.keys(VALOR_LABEL),
     ...Object.keys(LIDERANCA),
-    ...COMP_LABEL.map((c) => c.key), ...COMP_LABEL.map((c) => c.key + '_adapt'),
+    ...COMP_LABEL.map((c) => c.key),
   ].join(', ');
   const { data: rows } = await excludeInternalEmails(
     // cast: o parser de select do supabase-js ≥2.110 estoura TS2589 com string dinâmica

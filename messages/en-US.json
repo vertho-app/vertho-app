@@ -525,8 +525,7 @@
       "save": "Error when saving"
     },
     "labels": {
-      "natural": "natural",
-      "adapted": "Adapted"
+      "natural": "natural"
     },
     "blocks": {
       "block": "Block {number}",
@@ -535,17 +534,12 @@
         "summary": "8 rankings + 6 quick pairs answered thinking about what you are like when you are at ease, outside of work.",
         "reinforcement": "It's your natural way, without adjustments."
       },
-      "adapted": {
-        "title": "Adapted Profile",
-        "summary": "The same questions as block 1, but thinking about how you act at work.",
-        "reinforcement": "It reveals how well you fit into the professional context."
-      },
       "rankingInstruction": "On this screen, order the items from most similar to you to least similar.",
       "pairsInstruction": "On this screen, choose the phrase that instinctively best describes you."
     },
     "onboarding": {
       "title": "Behavioral Mapping",
-      "subtitle": "Takes ~8 minutes. You will answer in <strong>2 blocks</strong>: Natural and Adapted.",
+      "subtitle": "Takes ~5 minutes. You will answer about your <strong>natural profile</strong> and learning preferences.",
       "chips": {
         "discProfile": "DISC Profile",
         "leadershipStyle": "Leadership style",
@@ -553,7 +547,6 @@
       },
       "watchVideo": "Watch the instructions video (2 min)",
       "naturalDescription": "8 rankings + 6 quick pairs answered thinking about <strong>what you are like when you are at ease, outside of work</strong>. It's your natural way, without adjustments.",
-      "adaptedDescription": "The same questions as block 1, but thinking about <strong>how you act at work</strong>. It reveals how well you adapt to the professional context.",
       "learningTitle": "Learning Preferences",
       "learningDescription": "Select the content formats that <strong>work best for how you learn</strong> (video, text, audio, case study, etc.). This helps personalize your journey.",
       "howQuestionsWork": "How the questions work",
@@ -662,8 +655,7 @@
     "dominant": "Dominant",
     "actionableInsights": "Actionable insights",
     "labels": {
-      "natural": "natural",
-      "adapted": "Adapted"
+      "natural": "natural"
     },
     "external": {
       "receivedTitle": "Behavioral profile received",
@@ -682,7 +674,7 @@
     },
     "notMapped": {
       "title": "Mapping not yet carried out",
-      "subtitle": "Your behavioral profile has not yet been mapped. It takes about 8 minutes.",
+      "subtitle": "Your behavioral profile has not yet been mapped. It takes about 5 minutes.",
       "description": "The mapping identifies your DISC profile, leadership style and learning preferences.",
       "start": "Start Mapping"
     },
@@ -708,15 +700,12 @@
       "detailed": "Detailed Analysis",
       "strengths": "Strengths",
       "development": "Development",
-      "adaptedDisc": "Adapted DISC",
-      "adaptedDiscSubtitle": "How people expect you to be",
       "leadership": "Leadership",
       "competencies": "Skills"
     },
     "narrative": {
       "profileSynthesis": "Profile summary",
       "naturalWhoYouAre": "Natural — who you are",
-      "adaptedEnvironment": "Adapted — environmental requirements",
       "howYouWork": "How You Work",
       "topStrengths": "5 greatest strengths",
       "topOpportunities": "5 opportunities",

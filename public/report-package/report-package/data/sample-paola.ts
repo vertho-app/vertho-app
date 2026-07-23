@@ -9,27 +9,26 @@ export const samplePaola: BehavioralReportData = {
     data_realizacao: "2026-03-17",
     perfil_dominante: "DI",
     disc_natural: { D: 58, I: 53, S: 47, C: 42 },
-    disc_adaptado: { D: 63, I: 30, S: 54, C: 53 },
     indices: { positividade: 0.70, estima: 0.47, flexibilidade: 0.73 },
     lideranca: { executivo: 29, motivador: 26.5, metodico: 23.5, sistematico: 21 },
     tipo_psicologico: { tipo: "ENT", extroversao: 55.8, intuicao: 55.5, pensamento: 50 },
     competencias: [
-      { nome: "Ousadia", natural: 57, adaptado: 49.5 },
-      { nome: "Comando", natural: 63, adaptado: 68.5 },
-      { nome: "Objetividade", natural: 65, adaptado: 66 },
-      { nome: "Assertividade", natural: 53, adaptado: 60 },
-      { nome: "Persuasão", natural: 58, adaptado: 33.5 },
-      { nome: "Extroversão", natural: 60, adaptado: 34.5 },
-      { nome: "Entusiasmo", natural: 54, adaptado: 33 },
-      { nome: "Sociabilidade", natural: 60, adaptado: 48 },
-      { nome: "Empatia", natural: 56, adaptado: 48 },
-      { nome: "Paciência", natural: 53, adaptado: 64 },
-      { nome: "Persistência", natural: 56, adaptado: 59.5 },
-      { nome: "Planejamento", natural: 55, adaptado: 63.5 },
-      { nome: "Organização", natural: 57, adaptado: 63.17 },
-      { nome: "Detalhismo", natural: 51, adaptado: 68 },
-      { nome: "Prudência", natural: 48, adaptado: 54.5 },
-      { nome: "Concentração", natural: 53, adaptado: 62.67 },
+      { nome: "Ousadia", natural: 57 },
+      { nome: "Comando", natural: 63 },
+      { nome: "Objetividade", natural: 65 },
+      { nome: "Assertividade", natural: 53 },
+      { nome: "Persuasão", natural: 58 },
+      { nome: "Extroversão", natural: 60 },
+      { nome: "Entusiasmo", natural: 54 },
+      { nome: "Sociabilidade", natural: 60 },
+      { nome: "Empatia", natural: 56 },
+      { nome: "Paciência", natural: 53 },
+      { nome: "Persistência", natural: 56 },
+      { nome: "Planejamento", natural: 55 },
+      { nome: "Organização", natural: 57 },
+      { nome: "Detalhismo", natural: 51 },
+      { nome: "Prudência", natural: 48 },
+      { nome: "Concentração", natural: 53 },
     ],
   },
 
@@ -39,23 +38,19 @@ export const samplePaola: BehavioralReportData = {
 
     quadrante_D: {
       titulo_traco: "Diretor",
-      descricao: "Paola encara desafios de frente, com determinação e foco em resultados. Gosta de ter autonomia para agir e se motiva com situações que exigem tomada de decisão rápida e ousadia.",
-      adaptacao: "Sente que o ambiente atual exige ainda mais assertividade e disposição para correr riscos do que seu estilo natural."
+      descricao: "Paola encara desafios de frente, com determinação e foco em resultados. Gosta de ter autonomia para agir e se motiva com situações que exigem tomada de decisão rápida e ousadia."
     },
     quadrante_I: {
       titulo_traco: "Comunicador",
-      descricao: "Valoriza relações interpessoais e usa sua comunicação para engajar e convencer. Otimista por natureza, prefere ambientes dinâmicos onde pode expressar suas ideias livremente.",
-      adaptacao: "Percebe que o momento exige mais formalidade e disciplina, reduzindo temporariamente sua expressividade natural."
+      descricao: "Valoriza relações interpessoais e usa sua comunicação para engajar e convencer. Otimista por natureza, prefere ambientes dinâmicos onde pode expressar suas ideias livremente."
     },
     quadrante_S: {
       titulo_traco: "Executor",
-      descricao: "Possui ritmo acelerado e prefere ambientes com mudanças constantes. Lida bem com múltiplas demandas simultâneas e não se incomoda com imprevistos ou alterações de cronograma.",
-      adaptacao: "Sente necessidade de desacelerar um pouco e estabelecer prioridades com mais planejamento."
+      descricao: "Possui ritmo acelerado e prefere ambientes com mudanças constantes. Lida bem com múltiplas demandas simultâneas e não se incomoda com imprevistos ou alterações de cronograma."
     },
     quadrante_C: {
       titulo_traco: "Criador",
-      descricao: "Prefere liberdade e flexibilidade em vez de processos rígidos. Tem visão global e imaginativa, enxergando possibilidades onde outros veem limitações. Age com informalidade.",
-      adaptacao: "Percebe que precisa desenvolver mais foco em detalhes e agir com mais cautela e organização."
+      descricao: "Prefere liberdade e flexibilidade em vez de processos rígidos. Tem visão global e imaginativa, enxergando possibilidades onde outros veem limitações. Age com informalidade."
     },
 
     top5_forcas: [

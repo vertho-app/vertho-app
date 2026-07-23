@@ -90,7 +90,7 @@ const DISC_QUAD = {
   C: { bar: '#3B82F6', bg: 'rgba(59,130,246,0.10)', text: '#93C5FD' },
 };
 
-function DiscBars({ scores, mutedColor }: { scores: any; mutedColor?: any }) {
+function DiscBars({ scores }: { scores: any }) {
   return (
     <div className="space-y-2">
       {['D', 'I', 'S', 'C'].map(d => {
@@ -99,7 +99,7 @@ function DiscBars({ scores, mutedColor }: { scores: any; mutedColor?: any }) {
           <div key={d} className="flex items-center gap-2">
             <span className="w-4 text-xs font-extrabold text-gray-400">{d}</span>
             <div className="flex-1 h-3 rounded-full overflow-hidden relative" style={{ background: 'rgba(255,255,255,0.06)' }}>
-              <div className="h-full rounded-full" style={{ width: `${v}%`, background: mutedColor || DISC_QUAD[d].bar }} />
+              <div className="h-full rounded-full" style={{ width: `${v}%`, background: DISC_QUAD[d].bar }} />
             </div>
             <span className="w-7 text-right text-[11px] font-bold text-gray-300">{Math.round(v)}</span>
           </div>
@@ -109,7 +109,7 @@ function DiscBars({ scores, mutedColor }: { scores: any; mutedColor?: any }) {
   );
 }
 
-function QuadrantCard({ letter, title, n, a, traco, descricao, adaptacao, t }) {
+function QuadrantCard({ letter, title, n, traco, descricao, t }) {
   const q = DISC_QUAD[letter];
   return (
     <div className="rounded-xl p-4 border" style={{ background: q.bg, borderColor: 'rgba(255,255,255,0.08)', borderLeft: `4px solid ${q.bar}` }}>
@@ -124,11 +124,6 @@ function QuadrantCard({ letter, title, n, a, traco, descricao, adaptacao, t }) {
         </div>
       </div>
       <p className="text-xs text-gray-300 leading-relaxed">{descricao}</p>
-      {adaptacao && (
-        <p className="text-[10px] text-gray-400 italic mt-2 pt-2 border-t border-white/10">
-          {t('labels.adapted')} {Math.round(a)} — {adaptacao}
-        </p>
-      )}
     </div>
   );
 }
@@ -146,20 +141,14 @@ function AnaliseNarrativa({ data, t }) {
         <p className="text-sm text-gray-200 leading-relaxed">{texts.sintese_perfil}</p>
       </div>
 
-      {/* Snapshot DISC natural vs adaptado */}
-      <div className="rounded-2xl p-5 border border-white/[0.06] grid grid-cols-1 md:grid-cols-2 gap-5"
+      {/* Snapshot DISC natural */}
+      <div className="rounded-2xl p-5 border border-white/[0.06]"
         style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
         <div>
           <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 mb-3 text-center">
             {t('narrative.naturalWhoYouAre')}
           </p>
           <DiscBars scores={raw.disc_natural} />
-        </div>
-        <div>
-          <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 mb-3 text-center">
-            {t('narrative.adaptedEnvironment')}
-          </p>
-          <DiscBars scores={raw.disc_adaptado} mutedColor="#94A3B8" />
         </div>
       </div>
 
@@ -168,17 +157,17 @@ function AnaliseNarrativa({ data, t }) {
         <h2 className="text-base font-extrabold text-white mb-3">{t('narrative.howYouWork')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <QuadrantCard letter="D" title={t('quadrants.challenges')}
-            n={raw.disc_natural.D} a={raw.disc_adaptado.D}
-            traco={texts.quadrante_D?.titulo_traco} descricao={texts.quadrante_D?.descricao} adaptacao={texts.quadrante_D?.adaptacao} t={t} />
+            n={raw.disc_natural.D}
+            traco={texts.quadrante_D?.titulo_traco} descricao={texts.quadrante_D?.descricao} t={t} />
           <QuadrantCard letter="I" title={t('quadrants.people')}
-            n={raw.disc_natural.I} a={raw.disc_adaptado.I}
-            traco={texts.quadrante_I?.titulo_traco} descricao={texts.quadrante_I?.descricao} adaptacao={texts.quadrante_I?.adaptacao} t={t} />
+            n={raw.disc_natural.I}
+            traco={texts.quadrante_I?.titulo_traco} descricao={texts.quadrante_I?.descricao} t={t} />
           <QuadrantCard letter="S" title={t('quadrants.pace')}
-            n={raw.disc_natural.S} a={raw.disc_adaptado.S}
-            traco={texts.quadrante_S?.titulo_traco} descricao={texts.quadrante_S?.descricao} adaptacao={texts.quadrante_S?.adaptacao} t={t} />
+            n={raw.disc_natural.S}
+            traco={texts.quadrante_S?.titulo_traco} descricao={texts.quadrante_S?.descricao} t={t} />
           <QuadrantCard letter="C" title={t('quadrants.rules')}
-            n={raw.disc_natural.C} a={raw.disc_adaptado.C}
-            traco={texts.quadrante_C?.titulo_traco} descricao={texts.quadrante_C?.descricao} adaptacao={texts.quadrante_C?.adaptacao} t={t} />
+            n={raw.disc_natural.C}
+            traco={texts.quadrante_C?.titulo_traco} descricao={texts.quadrante_C?.descricao} t={t} />
         </div>
       </div>
 
@@ -565,7 +554,6 @@ export default function PerfilComportamentalPage() {
 
   // Montar estruturas a partir das colunas planas
   const disc = { D: c.d_natural || 0, I: c.i_natural || 0, S: c.s_natural || 0, C: c.c_natural || 0 };
-  const dA = { D: c.d_adaptado || 0, I: c.i_adaptado || 0, S: c.s_adaptado || 0, C: c.c_adaptado || 0 };
   const lead = [
     { label: 'Executivo', value: c.lid_executivo || 0, color: DISC_COLORS.D },
     { label: 'Motivador', value: c.lid_motivador || 0, color: DISC_COLORS.I },
@@ -659,12 +647,10 @@ export default function PerfilComportamentalPage() {
             <line key={i} x1="100" y1="100" x2={x} y2={y} stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
           ))}
           <polygon points={discRadarPoints(disc)} fill="rgba(45,212,191,0.12)" stroke="#2DD4BF" strokeWidth="2" />
-          <polygon points={discRadarPoints(dA)} fill="rgba(252,211,77,0.08)" stroke="#FCD34D" strokeWidth="1.5" />
           {[{ f: 'D', x: 100, y: v => 100 - v }, { f: 'I', x: v => 100 + v, y: 100 }, { f: 'S', x: 100, y: v => 100 + v }, { f: 'C', x: v => 100 - v, y: 100 }].map(p => {
-            const nv = disc[p.f], av = dA[p.f];
+            const nv = disc[p.f];
             const nx = typeof p.x === 'function' ? p.x(nv) : p.x, ny = typeof p.y === 'function' ? p.y(nv) : p.y;
-            const ax = typeof p.x === 'function' ? p.x(av) : p.x, ay = typeof p.y === 'function' ? p.y(av) : p.y;
-            return <g key={p.f}><circle cx={nx} cy={ny} r="3.5" fill="#2DD4BF" /><circle cx={ax} cy={ay} r="3.5" fill="#FCD34D" /></g>;
+            return <circle key={p.f} cx={nx} cy={ny} r="3.5" fill="#2DD4BF" />;
           })}
           <text x="100" y="10" textAnchor="middle" fill="#CBD5E1" fontSize="13" fontWeight="700">D</text>
           <text x="195" y="105" textAnchor="start" fill="#CBD5E1" fontSize="13" fontWeight="700">I</text>
@@ -673,7 +659,6 @@ export default function PerfilComportamentalPage() {
         </svg>
         <div className="flex justify-center gap-5 mt-3">
           <span className="text-xs font-bold text-gray-300"><span className="inline-block w-2.5 h-2.5 rounded-full bg-[#2DD4BF] mr-1.5" />{t('labels.natural')}</span>
-          <span className="text-xs font-bold text-gray-300"><span className="inline-block w-2.5 h-2.5 rounded-full bg-[#FCD34D] mr-1.5" />{t('labels.adapted')}</span>
         </div>
       </div>
 
@@ -697,15 +682,6 @@ export default function PerfilComportamentalPage() {
       <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
         <p className="text-xs font-extrabold uppercase tracking-[2px] text-gray-400 mb-4">DISC Natural</p>
         {[['Dominância', disc.D, DISC_COLORS.D], ['Influência', disc.I, DISC_COLORS.I], ['Estabilidade', disc.S, DISC_COLORS.S], ['Conformidade', disc.C, DISC_COLORS.C]].map(([l, v, col]) => (
-          <Bar key={l} label={l} value={v} max={100} color={col} />
-        ))}
-      </div>
-
-      {/* ── DISC Adaptado ── */}
-      <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
-        <p className="text-xs font-extrabold uppercase tracking-[2px] text-amber-400 mb-1">{t('sections.adaptedDisc')}</p>
-        <p className="text-xs text-gray-400 mb-4">{t('sections.adaptedDiscSubtitle')}</p>
-        {[['Dominância', dA.D, DISC_COLORS.D], ['Influência', dA.I, DISC_COLORS.I], ['Estabilidade', dA.S, DISC_COLORS.S], ['Conformidade', dA.C, DISC_COLORS.C]].map(([l, v, col]) => (
           <Bar key={l} label={l} value={v} max={100} color={col} />
         ))}
       </div>

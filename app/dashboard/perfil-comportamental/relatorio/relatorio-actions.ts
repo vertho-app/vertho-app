@@ -5,6 +5,10 @@ import { findColabByEmail } from '@/lib/authz';
 import { CIS_COLUMNS, mapSupabaseToCISRawData } from '@/lib/supabase/mapCISProfile';
 import { buildBehavioralReportPrompt } from '@/lib/prompts/behavioral-report-prompt';
 import { callAI } from '@/actions/ai-client';
+import {
+  BEHAVIORAL_REPORT_SCHEMA_VERSION,
+  isCurrentBehavioralReport,
+} from '@/lib/behavioral-report-schema';
 
 const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 const BUCKET = 'relatorios-pdf';
@@ -23,7 +27,34 @@ async function gerarTextosLLM(raw, empresaId) {
     .replace(/```/g, '')
     .trim();
 
-  return JSON.parse(cleaned);
+  return {
+    ...JSON.parse(cleaned),
+    _schema_version: BEHAVIORAL_REPORT_SCHEMA_VERSION,
+  };
+}
+
+function isFreshReportCache(texts: unknown, generatedAt: unknown): boolean {
+  if (!isCurrentBehavioralReport(texts) || !generatedAt) return false;
+  return Date.now() - new Date(String(generatedAt)).getTime() < CACHE_MAX_AGE_MS;
+}
+
+function isArtifactCurrent(artifactAt: unknown, reportAt: unknown): boolean {
+  if (!artifactAt || !reportAt) return false;
+  return new Date(String(artifactAt)).getTime() >= new Date(String(reportAt)).getTime();
+}
+
+async function persistReportTexts(sb: any, colabId: string, texts: any) {
+  const generatedAt = new Date().toISOString();
+  await sb.from('colaboradores')
+    .update({
+      report_texts: texts,
+      report_generated_at: generatedAt,
+      comportamental_pdf_path: null,
+      comportamental_audio_path: null,
+      comportamental_audio_at: null,
+    })
+    .eq('id', colabId);
+  return generatedAt;
 }
 
 async function renderPdfBuffer(data) {
@@ -70,11 +101,8 @@ export async function loadBehavioralReport(opts: any = {}) {
 
     // 1) Cache válido?
     const force = !!opts.force;
-    if (!force && colab.report_texts && colab.report_generated_at) {
-      const age = Date.now() - new Date(colab.report_generated_at).getTime();
-      if (age < CACHE_MAX_AGE_MS) {
-        return { raw, texts: colab.report_texts, cached: true };
-      }
+    if (!force && isFreshReportCache(colab.report_texts, colab.report_generated_at)) {
+      return { raw, texts: colab.report_texts, cached: true };
     }
 
     // 2) Gera via LLM
@@ -88,9 +116,7 @@ export async function loadBehavioralReport(opts: any = {}) {
 
     // 3) Salva cache
     const sb = createSupabaseAdmin();
-    await sb.from('colaboradores')
-      .update({ report_texts: texts, report_generated_at: new Date().toISOString() })
-      .eq('id', colab.id);
+    await persistReportTexts(sb, colab.id, texts);
 
     return { raw, texts, cached: false };
   } catch (err) {
@@ -137,15 +163,10 @@ export async function gerarEsalvarRelatorioComportamental({ colab: inputColab, c
 
     // 1) Textos LLM — reusa cache se válido
     let texts = null;
-    if (colab.report_texts && colab.report_generated_at) {
-      const age = Date.now() - new Date(colab.report_generated_at).getTime();
-      if (age < CACHE_MAX_AGE_MS) texts = colab.report_texts;
-    }
+    if (isFreshReportCache(colab.report_texts, colab.report_generated_at)) texts = colab.report_texts;
     if (!texts) {
       texts = await gerarTextosLLM(raw, colab.empresa_id);
-      await sb.from('colaboradores')
-        .update({ report_texts: texts, report_generated_at: new Date().toISOString() })
-        .eq('id', colab.id);
+      await persistReportTexts(sb, colab.id, texts);
     }
 
     // 1.5) Resumo executivo (arquétipo + tags + insights) — vindos do mesmo lib da tela
@@ -192,10 +213,12 @@ export async function pregerarPdfsEmpresa(empresaId) {
     const { createSupabaseAdmin } = await import('@/lib/supabase');
     const sb = createSupabaseAdmin();
     const { data: colabs } = await sb.from('colaboradores')
-      .select('id, nome_completo, comportamental_pdf_path')
+      .select('id, nome_completo, comportamental_pdf_path, report_texts')
       .eq('empresa_id', empresaId);
 
-    const pendentes = (colabs || []).filter(c => !c.comportamental_pdf_path);
+    const pendentes = (colabs || []).filter(
+      c => !c.comportamental_pdf_path || !isCurrentBehavioralReport(c.report_texts),
+    );
     if (pendentes.length === 0) return { success: true, message: 'Todos já têm PDF', gerados: 0, total: colabs?.length || 0 };
 
     let gerados = 0, erros = 0;
@@ -235,7 +258,9 @@ async function _baixarPdfParaColab(colab) {
   const filename = `vertho-comportamental-${slug}.pdf`;
 
   // Caminho já salvo? Reusa.
-  let path = colab.comportamental_pdf_path;
+  let path = isCurrentBehavioralReport(colab.report_texts)
+    ? colab.comportamental_pdf_path
+    : null;
 
   // Se não tem, gera na hora
   if (!path) {
@@ -299,16 +324,15 @@ const AUDIO_BUCKET = 'relatorios-pdf'; // bucket privado (signed URL), mesmo dos
 async function _ensureTextos(colab: any) {
   const raw = mapSupabaseToCISRawData(colab);
   let texts = null;
-  if (colab.report_texts && colab.report_generated_at) {
-    const age = Date.now() - new Date(colab.report_generated_at).getTime();
-    if (age < CACHE_MAX_AGE_MS) texts = colab.report_texts;
-  }
+  if (isFreshReportCache(colab.report_texts, colab.report_generated_at)) texts = colab.report_texts;
   if (!texts) {
     texts = await gerarTextosLLM(raw, colab.empresa_id);
     const sb = createSupabaseAdmin();
-    await sb.from('colaboradores')
-      .update({ report_texts: texts, report_generated_at: new Date().toISOString() })
-      .eq('id', colab.id);
+    const reportGeneratedAt = await persistReportTexts(sb, colab.id, texts);
+    colab.report_texts = texts;
+    colab.report_generated_at = reportGeneratedAt;
+    colab.comportamental_audio_path = null;
+    colab.comportamental_audio_at = null;
   }
   return { raw, texts };
 }
@@ -333,7 +357,12 @@ export async function gerarEsalvarDevolutivaComportamental({ colab: inputColab, 
     if (!hasDISC) return { error: 'Mapeamento comportamental ainda não realizado' };
 
     // Reusa cache de áudio se válido
-    if (!force && colab.comportamental_audio_path && colab.comportamental_audio_at) {
+    if (
+      !force
+      && isFreshReportCache(colab.report_texts, colab.report_generated_at)
+      && colab.comportamental_audio_path
+      && isArtifactCurrent(colab.comportamental_audio_at, colab.report_generated_at)
+    ) {
       const age = Date.now() - new Date(colab.comportamental_audio_at).getTime();
       if (age < CACHE_MAX_AGE_MS) return { success: true, path: colab.comportamental_audio_path, cached: true };
     }
@@ -400,7 +429,11 @@ export async function gerarEsalvarDevolutivaComportamental({ colab: inputColab, 
 async function _devolutivaSignedUrl(colab: any, ttlSec = 300) {
   let path = colab.comportamental_audio_path;
   let stale = true;
-  if (path && colab.comportamental_audio_at) {
+  if (
+    path
+    && isFreshReportCache(colab.report_texts, colab.report_generated_at)
+    && isArtifactCurrent(colab.comportamental_audio_at, colab.report_generated_at)
+  ) {
     stale = (Date.now() - new Date(colab.comportamental_audio_at).getTime()) >= CACHE_MAX_AGE_MS;
   }
   if (!path || stale) {

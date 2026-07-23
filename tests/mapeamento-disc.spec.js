@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test');
 const { login } = require('./helpers/auth');
 
 /**
- * DISC Behavioral Assessment — full 29-step flow as serial test.
+ * DISC Behavioral Assessment — natural-only 15-step flow as serial test.
  * Uses test.describe.serial to maintain state between steps.
  */
 test.describe.serial('Mapeamento DISC — fluxo completo', () => {
@@ -55,33 +55,6 @@ test.describe.serial('Mapeamento DISC — fluxo completo', () => {
   });
 
   test('pairs 1: completa 6 pares', async () => {
-    const avancar = page.locator('button:has-text("AVANÇAR")');
-    for (let i = 0; i < 6; i++) {
-      await page.locator('button.rounded-2xl').first().click();
-      await page.waitForTimeout(200);
-      await avancar.click();
-      await page.waitForTimeout(400);
-    }
-  });
-
-  // ── Rank Phase 2 (Adaptado) ──
-
-  test('rank 2: mostra Adaptado', async () => {
-    await expect(page.locator('text=/ADAPTADO|Adaptado/i').first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test('rank 2: completa 8 grupos', async () => {
-    const avancar = page.locator('button:has-text("AVANÇAR")');
-    for (let i = 0; i < 8; i++) {
-      await expect(avancar).toBeVisible({ timeout: 5000 });
-      await avancar.click();
-      await page.waitForTimeout(300);
-    }
-  });
-
-  // ── Pairs Phase 2 ──
-
-  test('pairs 2: completa 6 pares', async () => {
     const avancar = page.locator('button:has-text("AVANÇAR")');
     for (let i = 0; i < 6; i++) {
       await page.locator('button.rounded-2xl').first().click();

@@ -525,8 +525,7 @@
       "save": "Erro ao guardar"
     },
     "labels": {
-      "natural": "Natural",
-      "adapted": "Adaptado"
+      "natural": "Natural"
     },
     "blocks": {
       "block": "Bloco {number}",
@@ -535,17 +534,12 @@
         "summary": "8 rankings + 6 pares rápidos respondidos pensando em como é quando está à vontade, fora do trabalho.",
         "reinforcement": "É o seu jeito natural, sem ajustes."
       },
-      "adapted": {
-        "title": "Perfil Adaptado",
-        "summary": "As mesmas perguntas do bloco 1, mas pensando em como age no trabalho.",
-        "reinforcement": "Revela o quanto se ajusta ao contexto profissional."
-      },
       "rankingInstruction": "Nesta tela, ordene os itens do mais parecido consigo ao menos parecido.",
       "pairsInstruction": "Nesta tela, escolha a frase que melhor o descreve de forma instintiva."
     },
     "onboarding": {
       "title": "Mapeamento Comportamental",
-      "subtitle": "Leva ~8 minutos. Vai responder em <strong>2 blocos</strong>: Natural e Adaptado.",
+      "subtitle": "Leva ~5 minutos. Vai responder sobre o seu <strong>perfil natural</strong> e as suas preferências de aprendizagem.",
       "chips": {
         "discProfile": "Perfil DISC",
         "leadershipStyle": "Estilo de liderança",
@@ -553,7 +547,6 @@
       },
       "watchVideo": "Veja o vídeo de instruções (2 min)",
       "naturalDescription": "8 rankings + 6 pares rápidos respondidos pensando em <strong>como é quando está à vontade, fora do trabalho</strong>. É o seu jeito natural, sem ajustes.",
-      "adaptedDescription": "As mesmas perguntas do bloco 1, mas pensando em <strong>como age no trabalho</strong>. Revela o quanto se ajusta ao contexto profissional.",
       "learningTitle": "Preferências de aprendizagem",
       "learningDescription": "Marque os formatos de conteúdo que <strong>funcionam melhor para si</strong> aprender (vídeo, texto, áudio, case, etc.). Ajuda a personalizar a sua jornada.",
       "howQuestionsWork": "Como funcionam as perguntas",
@@ -662,8 +655,7 @@
     "dominant": "Dominante",
     "actionableInsights": "Insights acionáveis",
     "labels": {
-      "natural": "Natural",
-      "adapted": "Adaptado"
+      "natural": "Natural"
     },
     "external": {
       "receivedTitle": "Perfil comportamental recebido",
@@ -682,7 +674,7 @@
     },
     "notMapped": {
       "title": "Mapeamento ainda não realizado",
-      "subtitle": "O seu perfil comportamental ainda não foi mapeado. Leva cerca de 8 minutos.",
+      "subtitle": "O seu perfil comportamental ainda não foi mapeado. Leva cerca de 5 minutos.",
       "description": "O mapeamento identifica o seu perfil DISC, estilo de liderança e preferências de aprendizagem.",
       "start": "Iniciar Mapeamento"
     },
@@ -708,15 +700,12 @@
       "detailed": "Análise detalhada",
       "strengths": "Forças",
       "development": "Desenvolvimento",
-      "adaptedDisc": "DISC Adaptado",
-      "adaptedDiscSubtitle": "Como as pessoas esperam que seja",
       "leadership": "Liderança",
       "competencies": "Competências"
     },
     "narrative": {
       "profileSynthesis": "Síntese do perfil",
       "naturalWhoYouAre": "Natural — quem é",
-      "adaptedEnvironment": "Adaptado — exigência do ambiente",
       "howYouWork": "Como Funciona",
       "topStrengths": "5 maiores forças",
       "topOpportunities": "5 oportunidades",

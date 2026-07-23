@@ -186,7 +186,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
    - **6 turnos com progressão explícita** (abertura → aprofundamento → motivações → aprendizado → integração → fechamento)
    - Turn 6: fechamento com bullets Desafio / Insight / Compromisso
    - **Grounding RAG disciplinado**: regras explícitas de uso do contexto recuperado
-   - **Tom adaptado ao perfil DISC** do colab
+   - **Tom personalizado pelo perfil DISC natural** do colab
    - **Regra anti-alucinação**: IA não inventa dados do colab
    - **Input por voz** disponível (Web Speech API, botão microfone)
 5. Ao finalizar Evidências → próxima semana liberada (respeitando gate calendário)
@@ -222,7 +222,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
   4. **Microcaso**: IA apresenta cenário curto + 2 follow-ups
   5. **Integração de descritores**: 2 ângulos diferentes
   6. **Maior avanço + síntese final**
-- **DISC adaptado** ao perfil do colab
+- **Conteúdo personalizado** pelo perfil DISC natural do colab
 - **10 princípios anti-inflação** na condução
 - **Regra anti-alucinação**
 - Ao final, Claude extrai via JSON:

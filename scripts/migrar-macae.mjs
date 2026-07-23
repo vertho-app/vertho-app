@@ -116,8 +116,6 @@ function parseColaboradores() {
     perfil_dominante: safe(c[12]),
     // DISC natural (cols 13-16)
     d_natural: num(c[13]), i_natural: num(c[14]), s_natural: num(c[15]), c_natural: num(c[16]),
-    // DISC adaptado (cols 17-20)
-    d_adaptado: num(c[17]), i_adaptado: num(c[18]), s_adaptado: num(c[19]), c_adaptado: num(c[20]),
     // Traços CIS (cols 21-36+, mapping abaixo)
     lid_executivo: num(c[21]),
     lid_motivador: num(c[22]),
@@ -331,7 +329,6 @@ for (const c of colaboradores) {
     cargo: c.cargo, area_depto: c.area_depto, telefone: c.telefone,
     perfil_dominante: c.perfil_dominante, role: 'colaborador',
     d_natural: c.d_natural, i_natural: c.i_natural, s_natural: c.s_natural, c_natural: c.c_natural,
-    d_adaptado: c.d_adaptado, i_adaptado: c.i_adaptado, s_adaptado: c.s_adaptado, c_adaptado: c.c_adaptado,
     lid_executivo: c.lid_executivo, lid_motivador: c.lid_motivador,
     lid_metodico: c.lid_metodico, lid_sistematico: c.lid_sistematico,
     val_estetico: c.val_estetico, val_economico: c.val_economico,

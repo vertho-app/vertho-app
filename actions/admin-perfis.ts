@@ -8,7 +8,6 @@ const SELECT_COLS = `
   id, nome_completo, email, cargo, area_depto, role,
   perfil_dominante, mapeamento_em,
   d_natural, i_natural, s_natural, c_natural,
-  d_adaptado, i_adaptado, s_adaptado, c_adaptado,
   lid_executivo, lid_motivador, lid_metodico, lid_sistematico,
   tp_introvertido_extrovertido, tp_sensor_intuitivo, tp_racional_emocional,
   comportamental_pdf_path, report_generated_at,
@@ -45,7 +44,6 @@ export async function loadPerfisComportamentaisEmpresa(empresaId: string) {
         tags: hasDisc ? derivarTagsExecutivas(c) : [],
         disc: hasDisc ? {
           natural: { d: Number(c.d_natural) || 0, i: Number(c.i_natural) || 0, s: Number(c.s_natural) || 0, c: Number(c.c_natural) || 0 },
-          adaptado: { d: Number(c.d_adaptado) || 0, i: Number(c.i_adaptado) || 0, s: Number(c.s_adaptado) || 0, c: Number(c.c_adaptado) || 0 },
         } : null,
         lideranca: hasDisc ? {
           exec: Number(c.lid_executivo) || 0,

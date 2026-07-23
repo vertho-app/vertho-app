@@ -18,7 +18,6 @@ export interface LeadershipDistribution {
 export interface CompetencyScore {
   nome: string;
   natural: number;    // 0-100
-  adaptado: number;   // 0-100
 }
 
 export interface PsychologicalType {
@@ -40,7 +39,6 @@ export interface CISRawData {
   data_realizacao: string;           // ISO date
   perfil_dominante: string;          // ex: "DI", "SC", "ID"
   disc_natural: DISCScores;
-  disc_adaptado: DISCScores;
   indices: Indices;
   lideranca: LeadershipDistribution;
   tipo_psicologico: PsychologicalType;
@@ -53,22 +51,18 @@ export interface LLMGeneratedTexts {
   quadrante_D: {
     titulo_traço: string;            // ex: "Diretor", "Cooperador"
     descricao: string;               // 2-3 frases
-    adaptacao: string | null;        // frase sobre adaptação crescente/decrescente, ou null
   };
   quadrante_I: {
     titulo_traço: string;
     descricao: string;
-    adaptacao: string | null;
   };
   quadrante_S: {
     titulo_traço: string;
     descricao: string;
-    adaptacao: string | null;
   };
   quadrante_C: {
     titulo_traço: string;
     descricao: string;
-    adaptacao: string | null;
   };
   top5_forcas: {
     competencia: string;

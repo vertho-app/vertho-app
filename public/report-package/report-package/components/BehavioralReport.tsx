@@ -28,7 +28,7 @@ function DISCBar({ label, value, color, maxWidth = 100 }: {
   );
 }
 
-function RadarChart({ competencias }: { competencias: { nome: string; natural: number; adaptado: number }[] }) {
+function RadarChart({ competencias }: { competencias: { nome: string; natural: number }[] }) {
   const size = 280;
   const cx = size / 2;
   const cy = size / 2;
@@ -56,11 +56,6 @@ function RadarChart({ competencias }: { competencias: { nome: string; natural: n
     return `${p.x},${p.y}`;
   }).join(' ');
 
-  const adaptadoPath = competencias.map((c, i) => {
-    const p = getPoint(i, c.adaptado);
-    return `${p.x},${p.y}`;
-  }).join(' ');
-
   const labels = competencias.map((c, i) => {
     const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
     const lr = size / 2 - 8;
@@ -85,8 +80,6 @@ function RadarChart({ competencias }: { competencias: { nome: string; natural: n
       })}
       {/* Natural (blue) */}
       <polygon points={naturalPath} fill="rgba(59,130,246,0.15)" stroke="#3b82f6" strokeWidth="1.5" />
-      {/* Adaptado (red) */}
-      <polygon points={adaptadoPath} fill="rgba(239,68,68,0.08)" stroke="#ef4444" strokeWidth="1" strokeDasharray="4,3" />
       {labels}
     </svg>
   );
@@ -237,8 +230,8 @@ function Page1({ data }: { data: BehavioralReportData }) {
         </div>
       </div>
 
-      {/* DISC Natural + Adaptado bars */}
-      <div className="grid grid-cols-2 gap-4 mb-5">
+      {/* DISC Natural */}
+      <div className="mb-5 max-w-md mx-auto">
         <div>
           <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 text-center">
             Natural <span className="text-gray-400 font-normal">— quem você é</span>
@@ -247,17 +240,6 @@ function Page1({ data }: { data: BehavioralReportData }) {
             {(['D','I','S','C'] as const).map(d => (
               <DISCBar key={d} label={d} value={raw.disc_natural[d]} 
                 color={discColors[d].bar} />
-            ))}
-          </div>
-        </div>
-        <div>
-          <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 text-center">
-            Adaptado <span className="text-gray-400 font-normal">— como o ambiente te exige</span>
-          </h3>
-          <div className="space-y-1.5">
-            {(['D','I','S','C'] as const).map(d => (
-              <DISCBar key={d} label={d} value={raw.disc_adaptado[d]} 
-                color="bg-gray-400" />
             ))}
           </div>
         </div>
@@ -275,10 +257,10 @@ function Page1({ data }: { data: BehavioralReportData }) {
 function Page2({ data }: { data: BehavioralReportData }) {
   const { raw, texts } = data;
   const quadrants = [
-    { key: 'D', title: 'Como lida com desafios', data: texts.quadrante_D, natural: raw.disc_natural.D, adaptado: raw.disc_adaptado.D, color: 'border-l-red-400', bg: 'bg-red-50' },
-    { key: 'I', title: 'Como lida com pessoas', data: texts.quadrante_I, natural: raw.disc_natural.I, adaptado: raw.disc_adaptado.I, color: 'border-l-amber-400', bg: 'bg-amber-50' },
-    { key: 'S', title: 'Como dita o ritmo', data: texts.quadrante_S, natural: raw.disc_natural.S, adaptado: raw.disc_adaptado.S, color: 'border-l-green-400', bg: 'bg-green-50' },
-    { key: 'C', title: 'Como lida com regras', data: texts.quadrante_C, natural: raw.disc_natural.C, adaptado: raw.disc_adaptado.C, color: 'border-l-teal-400', bg: 'bg-teal-50' },
+    { key: 'D', title: 'Como lida com desafios', data: texts.quadrante_D, natural: raw.disc_natural.D, color: 'border-l-red-400', bg: 'bg-red-50' },
+    { key: 'I', title: 'Como lida com pessoas', data: texts.quadrante_I, natural: raw.disc_natural.I, color: 'border-l-amber-400', bg: 'bg-amber-50' },
+    { key: 'S', title: 'Como dita o ritmo', data: texts.quadrante_S, natural: raw.disc_natural.S, color: 'border-l-green-400', bg: 'bg-green-50' },
+    { key: 'C', title: 'Como lida com regras', data: texts.quadrante_C, natural: raw.disc_natural.C, color: 'border-l-teal-400', bg: 'bg-teal-50' },
   ];
 
   return (
@@ -300,11 +282,6 @@ function Page2({ data }: { data: BehavioralReportData }) {
               </div>
             </div>
             <p className="text-[10px] text-gray-600 leading-relaxed mb-1.5">{q.data.descricao}</p>
-            {q.data.adaptacao && (
-              <p className="text-[9px] text-gray-500 italic border-t border-gray-200 pt-1.5 mt-1.5">
-                <span className="font-semibold not-italic">Adaptado: {q.adaptado}</span> — {q.data.adaptacao}
-              </p>
-            )}
           </div>
         ))}
       </div>
@@ -319,7 +296,7 @@ function Page3({ data }: { data: BehavioralReportData }) {
   return (
     <PageWrapper pageNum={3}>
       <h2 className="text-lg font-bold text-[#1C2E4A] mb-1">Mapa de Competências</h2>
-      <p className="text-[10px] text-gray-400 mb-3">16 competências comportamentais — natural (azul) e adaptado (vermelho tracejado)</p>
+      <p className="text-[10px] text-gray-400 mb-3">16 competências comportamentais do perfil natural</p>
 
       {/* Radar chart */}
       <div className="flex justify-center mb-3">
@@ -331,10 +308,6 @@ function Page3({ data }: { data: BehavioralReportData }) {
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-1 bg-blue-500 rounded" />
           <span className="text-[9px] text-gray-500">Natural</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-1 bg-red-400 rounded border-dashed" />
-          <span className="text-[9px] text-gray-500">Adaptado</span>
         </div>
       </div>
 

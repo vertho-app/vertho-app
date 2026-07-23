@@ -13,6 +13,7 @@
 
 import { mapSupabaseToCISRawData } from '@/lib/supabase/mapCISProfile';
 import { derivarArquetipo, derivarTagsExecutivas } from '@/lib/disc-arquetipos';
+import { isCurrentBehavioralReport } from '@/lib/behavioral-report-schema';
 
 /** Teoria DISC + Jung, em linguagem de referência (para o modelo, não para o usuário final). */
 export const DISC_DOUTRINA = `═══ DOUTRINA COMPORTAMENTAL VERTHO (referência teórica) ═══
@@ -49,13 +50,10 @@ corte é em 50. Para cada fator há uma motivação central e um medo central:
   Medo central: ERRAR / ser criticado (é o maior crítico de si mesmo).
   Faixa: C 51+ = "Analista" · C ≤50 = "Criador".
 
-▸ NATURAL vs ADAPTADO
-- Natural = como a pessoa É quando está à vontade (perfil de base).
-- Adaptado = como ela se MODULA no ambiente de trabalho atual.
-- Adaptado bem acima do natural numa dimensão = o ambiente exige mais dela ali
-  (pode gerar desgaste). Bem abaixo = o ambiente pede menos. Diferença pequena
-  (≤5) = sem adaptação significativa. A distância natural↔adaptado revela
-  esforço/tensão de adaptação, não defeito.
+▸ PERFIL NATURAL
+- Natural = como a pessoa tende a agir quando está à vontade (perfil de base).
+- O contexto pode modular comportamentos, mas o mapeamento não presume nem mede
+  essa modulação como um segundo perfil.
 
 ▸ ARQUÉTIPOS — a combinação das 1-2 dimensões DISC dominantes recebe um nome
 curto (ex: D=Comandante, I=Inspirador, DI=Empreendedor, SC=Analista Crítico).
@@ -122,7 +120,6 @@ export function buildPerfilComportamentalBlock(colab: any): string | null {
   const arq = derivarArquetipo(colab.perfil_dominante);
   const tags = derivarTagsExecutivas(colab);
   const { D, I, S, C } = raw.disc_natural;
-  const a = raw.disc_adaptado;
   const tp = raw.tipo_psicologico;
 
   const linhas: string[] = [
@@ -130,15 +127,14 @@ export function buildPerfilComportamentalBlock(colab: any): string | null {
     `Arquétipo: ${arq.nome} — ${arq.desc} (perfil dominante: ${colab.perfil_dominante})`,
     tags.length ? `Tags: ${tags.join(' · ')}` : '',
     `DISC Natural: D=${num(D)} (${faixaTraco('D', num(D))}), I=${num(I)} (${faixaTraco('I', num(I))}), S=${num(S)} (${faixaTraco('S', num(S))}), C=${num(C)} (${faixaTraco('C', num(C))})`,
-    `DISC Adaptado: D=${num(a.D)}, I=${num(a.I)}, S=${num(a.S)}, C=${num(a.C)}`,
     `Tipo Psicológico: ${tp.tipo} (Extroversão ${num(tp.extroversao)}%, Intuição ${num(tp.intuicao)}%, Pensamento ${num(tp.pensamento)}%)`,
     `Liderança: Executivo ${num(raw.lideranca.executivo)}%, Motivador ${num(raw.lideranca.motivador)}%, Metódico ${num(raw.lideranca.metodico)}%, Sistemático ${num(raw.lideranca.sistematico)}%`,
   ];
 
   // Síntese textual do relatório (cache report_texts) — para o Beto responder
   // alinhado ao que o colaborador leu no PDF, sem recomputar nada.
-  const rt = colab.report_texts;
-  if (rt && typeof rt === 'object') {
+  const rt = isCurrentBehavioralReport(colab.report_texts) ? colab.report_texts : null;
+  if (rt) {
     if (rt.sintese_perfil) linhas.push(`\nSíntese do relatório: ${rt.sintese_perfil}`);
     const forcas = Array.isArray(rt.top5_forcas)
       ? rt.top5_forcas.map((f: any) => f?.competencia).filter(Boolean).slice(0, 5)

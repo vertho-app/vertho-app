@@ -1235,8 +1235,8 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
   9. Diferencie: força natural vs risco de excesso; adaptação vs tensão interna; maturidade vs padrão automático
   10. Não cite score numérico no texto final; não use termos clínicos
 
-- **Output**: JSON `{ sintese_perfil, quadrante_D:{titulo_traco, descricao, adaptacao}, quadrante_I, quadrante_S, quadrante_C, top5_forcas[{competencia, frase}], top5_desenvolver[{competencia, frase}], lideranca_sintese, lideranca_trabalhar, pontos_desenvolver_pressao[6 itens], relacoes_e_comunicacao, modo_de_trabalho, frases_chave[2-4] }`.
-- **Inputs user**: Output de `buildBehavioralReportPrompt(raw)` — nome, perfil dominante, DISC natural + adaptado, liderança (4 estilos %), tipo psicológico, 16 competências (natural + adaptado). Inclui referência interna DISC por faixa e regras de adaptação (crescente/decrescente).
+- **Output**: JSON `{ sintese_perfil, quadrante_D:{titulo_traco, descricao}, quadrante_I, quadrante_S, quadrante_C, top5_forcas[{competencia, frase}], top5_desenvolver[{competencia, frase}], lideranca_sintese, lideranca_trabalhar, pontos_desenvolver_pressao[6 itens], relacoes_e_comunicacao, modo_de_trabalho, frases_chave[2-4] }`.
+- **Inputs user**: Output de `buildBehavioralReportPrompt(raw)` — nome, perfil dominante, DISC natural, liderança (4 estilos %), tipo psicológico e 16 competências naturais. Inclui referência interna DISC por faixa.
 - **Consumido por**: `colaboradores.report_texts` + renderização PDF (`RelatorioComportamental.tsx`) em `relatorios-pdf`.
 
 ### 9.2 Insights Executivos

@@ -6,14 +6,13 @@ export function buildBehavioralReportPrompt(data: {
   nome: string;
   perfil_dominante: string;
   disc_natural: { D: number; I: number; S: number; C: number };
-  disc_adaptado: { D: number; I: number; S: number; C: number };
   lideranca: { executivo: number; motivador: number; metodico: number; sistematico: number };
   tipo_psicologico: { tipo: string; extroversao: number; intuicao: number; pensamento: number };
-  competencias: { nome: string; natural: number; adaptado: number }[];
+  competencias: { nome: string; natural: number }[];
 }): string {
 
   const compList = data.competencias
-    .map(c => `${c.nome}: Natural=${c.natural}, Adaptado=${c.adaptado}`)
+    .map(c => `${c.nome}: ${c.natural}`)
     .join('\n');
 
   return `Você é um especialista em análise comportamental DISC e desenvolvimento humano.
@@ -24,7 +23,6 @@ DADOS DO COLABORADOR:
 - Nome: ${data.nome}
 - Perfil dominante: ${data.perfil_dominante}
 - DISC Natural: D=${data.disc_natural.D}, I=${data.disc_natural.I}, S=${data.disc_natural.S}, C=${data.disc_natural.C}
-- DISC Adaptado: D=${data.disc_adaptado.D}, I=${data.disc_adaptado.I}, S=${data.disc_adaptado.S}, C=${data.disc_adaptado.C}
 - Liderança: Executivo=${data.lideranca.executivo}%, Motivador=${data.lideranca.motivador}%, Metódico=${data.lideranca.metodico}%, Sistemático=${data.lideranca.sistematico}%
 - Tipo Psicológico: ${data.tipo_psicologico.tipo} (Extroversão=${data.tipo_psicologico.extroversao}%, Intuição=${data.tipo_psicologico.intuicao}%, Pensamento=${data.tipo_psicologico.pensamento}%)
 - Competências:
@@ -41,11 +39,6 @@ TRAÇOS POR FAIXA (referência para títulos):
 - I 51+: Comunicador | I ≤50: Pesquisador
 - S 51+: Planejador | S ≤50: Executor
 - C 51+: Analista | C ≤50: Criador
-
-ADAPTAÇÃO:
-- Se adaptado > natural + 5: adaptação CRESCENTE (a pessoa sente que o ambiente exige mais dessa dimensão)
-- Se adaptado < natural - 5: adaptação DECRESCENTE (a pessoa sente que o ambiente exige menos dessa dimensão)
-- Se diferença ≤ 5: sem adaptação significativa (não mencionar)
 
 REGRAS:
 1. Linguagem acessível — o público é o próprio colaborador, não RH. Evite jargões técnicos.
@@ -65,23 +58,19 @@ FORMATO DE SAÍDA — Retorne APENAS o JSON abaixo, sem markdown, sem backticks,
 
   "quadrante_D": {
     "titulo_traco": "STRING — nome do traço (Diretor/Cooperador)",
-    "descricao": "STRING — 2 a 3 frases descrevendo como a pessoa lida com desafios e problemas. Específico ao score.",
-    "adaptacao": "STRING ou null — 1 frase sobre adaptação crescente/decrescente, ou null se não houver"
+    "descricao": "STRING — 2 a 3 frases descrevendo como a pessoa lida com desafios e problemas. Específico ao score."
   },
   "quadrante_I": {
     "titulo_traco": "STRING",
-    "descricao": "STRING — como lida com pessoas e as influencia",
-    "adaptacao": "STRING ou null"
+    "descricao": "STRING — como lida com pessoas e as influencia"
   },
   "quadrante_S": {
     "titulo_traco": "STRING",
-    "descricao": "STRING — como dita ritmo e consistência das atividades",
-    "adaptacao": "STRING ou null"
+    "descricao": "STRING — como dita ritmo e consistência das atividades"
   },
   "quadrante_C": {
     "titulo_traco": "STRING",
-    "descricao": "STRING — como lida com regras e procedimentos",
-    "adaptacao": "STRING ou null"
+    "descricao": "STRING — como lida com regras e procedimentos"
   },
 
   "top5_forcas": [
@@ -109,12 +98,11 @@ FORMATO DE SAÍDA — Retorne APENAS o JSON abaixo, sem markdown, sem backticks,
 //   nome: "Paola de Souza Pissolato",
 //   perfil_dominante: "DI",
 //   disc_natural: { D: 58, I: 53, S: 47, C: 42 },
-//   disc_adaptado: { D: 63, I: 30, S: 54, C: 53 },
 //   lideranca: { executivo: 29, motivador: 26.5, metodico: 23.5, sistematico: 21 },
 //   tipo_psicologico: { tipo: "ENT", extroversao: 55.8, intuicao: 55.5, pensamento: 50 },
 //   competencias: [
-//     { nome: "Ousadia", natural: 57, adaptado: 49.5 },
-//     { nome: "Comando", natural: 63, adaptado: 68.5 },
+//     { nome: "Ousadia", natural: 57 },
+//     { nome: "Comando", natural: 63 },
 //     // ... todas as 16
 //   ]
 // });

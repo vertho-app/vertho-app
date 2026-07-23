@@ -4,6 +4,10 @@ import { after } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 import { canAccessPerfilComportamental } from '@/lib/access-gates';
+import {
+  computeDiscCompetenciesNatural,
+  DISC_COMPETENCY_MODEL_VERSION,
+} from '@/lib/disc-competencias';
 
 /**
  * Verifica se o colaborador pode responder o DISC nativo.
@@ -84,7 +88,8 @@ export async function salvarPerfilComportamental(resultados) {
     };
   }
 
-  const { disc, dA, lead, comp, profile, learnPrefs } = resultados;
+  const { disc, lead, profile, learnPrefs } = resultados;
+  const comp = computeDiscCompetenciesNatural(disc);
 
   // Antes de sobrescrever, deleta PDF antigo no Storage (se existir)
   const { data: colabAtual } = await sb.from('colaboradores')
@@ -107,12 +112,6 @@ export async function salvarPerfilComportamental(resultados) {
       i_natural: Math.round(disc.I),
       s_natural: Math.round(disc.S),
       c_natural: Math.round(disc.C),
-
-      // DISC Adaptado
-      d_adaptado: Math.round(dA.D),
-      i_adaptado: Math.round(dA.I),
-      s_adaptado: Math.round(dA.S),
-      c_adaptado: Math.round(dA.C),
 
       // Liderança
       lid_executivo: Math.round(lead.Executivo * 10) / 10,
@@ -152,6 +151,7 @@ export async function salvarPerfilComportamental(resultados) {
       mapeamento_em: new Date().toISOString(),
       disc_resultados: JSON.stringify({
         lead, comp, learnPrefs,
+        competencyModelVersion: DISC_COMPETENCY_MODEL_VERSION,
         rawData: resultados.rawData,
       }),
 
@@ -159,6 +159,8 @@ export async function salvarPerfilComportamental(resultados) {
       comportamental_pdf_path: null,
       report_texts: null,
       report_generated_at: null,
+      comportamental_audio_path: null,
+      comportamental_audio_at: null,
       insights_executivos: null,
       insights_executivos_at: null,
     })

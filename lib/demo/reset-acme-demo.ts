@@ -431,7 +431,6 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
         area_depto: p.area_depto, gestor_nome: p.gestor_nome, gestor_email: p.gestor_email, gestor_whatsapp: p.gestor_whatsapp,
         perfil_dominante: p.perfil_dominante,
         d_natural: p.d_natural, i_natural: p.i_natural, s_natural: p.s_natural, c_natural: p.c_natural,
-        d_adaptado: p.d_natural, i_adaptado: p.i_natural, s_adaptado: p.s_natural, c_adaptado: p.c_natural,
         ...comportamentosDoDisc(p.d_natural, p.i_natural, p.s_natural, p.c_natural),
         disc_resultados: { demo: true, estado_demo: p.scenario },
       }).select('id').single());

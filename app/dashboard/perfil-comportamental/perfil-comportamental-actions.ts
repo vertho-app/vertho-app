@@ -13,8 +13,6 @@ const COLS = [
   'id', 'nome_completo', 'perfil_dominante', 'mapeamento_em',
   // DISC Natural
   'd_natural', 'i_natural', 's_natural', 'c_natural',
-  // DISC Adaptado
-  'd_adaptado', 'i_adaptado', 's_adaptado', 'c_adaptado',
   // Liderança
   'lid_executivo', 'lid_motivador', 'lid_metodico', 'lid_sistematico',
   // Tipo psicológico textual (legado, mas alimenta as tags executivas)
@@ -30,7 +28,7 @@ const COLS = [
 
 /**
  * Carrega todos os dados do perfil comportamental do colaborador:
- * DISC natural + adaptado, liderança, 16 competências e perfil dominante.
+ * DISC natural, liderança, 16 competências e perfil dominante.
  */
 export async function loadPerfilCIS() {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');

@@ -1,7 +1,9 @@
 /**
  * Template do Pulso de Desenvolvimento.
  *
- * 6 dimensões × 2 perguntas = 12 Likert + 1 aberta por momento (T0/T2).
+ * v1: 6 dimensões × 2 perguntas = 12 Likert + 1 aberta por momento (T0/T2).
+ * v2: mantém o pulso v1 e acrescenta 8 rankings + 6 escolhas forçadas
+ * para registrar o perfil comportamental no contexto de trabalho.
  * Hardcoded: enquanto não houver customização por empresa, vive em código.
  *
  * Convenção de IDs: `{T0|T2}_{D1..D6}_{Q1..Q2|QA}` (QA = aberta).
@@ -9,7 +11,13 @@
  */
 
 export type PulseMoment = 'T0' | 'T2';
-export type QuestionType = 'likert_1_5' | 'open_text';
+export type QuestionType = 'likert_1_5' | 'open_text' | 'disc_ranking' | 'disc_pair';
+export type DiscFactor = 'D' | 'I' | 'S' | 'C';
+
+export interface DiscQuestionOption {
+  key: string;
+  factor: DiscFactor;
+}
 
 export type DimensionKey =
   | 'clareza'
@@ -19,16 +27,19 @@ export type DimensionKey =
   | 'aplicacao_pratica'
   | 'futuro_permanencia';
 
+export type QuestionDimensionKey = DimensionKey | 'contexto_comportamental';
+
 export interface PulseQuestion {
   id: string;
   pulse_moment: PulseMoment;
-  dimension_key: DimensionKey;
+  dimension_key: QuestionDimensionKey;
   dimension_name: string;
   dimension_order: number;
   question_order: number;
   question_text: string;
   question_type: QuestionType;
   is_required: boolean;
+  disc_options?: DiscQuestionOption[];
 }
 
 export const LIKERT_LABELS: Record<number, string> = {
@@ -107,7 +118,27 @@ const OPEN_QUESTIONS: Record<PulseMoment, string> = {
   T2: 'O que mais ajudou ou dificultou sua evolução ao longo da jornada?',
 };
 
-function buildQuestions(moment: PulseMoment): PulseQuestion[] {
+const CONTEXTUAL_RANKING_GROUPS: DiscQuestionOption[][] = [
+  [{ key: 'driver', factor: 'D' }, { key: 'captivating', factor: 'I' }, { key: 'careful', factor: 'C' }, { key: 'constant', factor: 'S' }],
+  [{ key: 'welcoming', factor: 'S' }, { key: 'articulate', factor: 'I' }, { key: 'incisive', factor: 'D' }, { key: 'meticulous', factor: 'C' }],
+  [{ key: 'rational', factor: 'C' }, { key: 'animated', factor: 'I' }, { key: 'tolerant', factor: 'S' }, { key: 'firm', factor: 'D' }],
+  [{ key: 'motivator', factor: 'I' }, { key: 'methodical', factor: 'C' }, { key: 'achiever', factor: 'D' }, { key: 'resilient', factor: 'S' }],
+  [{ key: 'objective', factor: 'D' }, { key: 'adaptable', factor: 'I' }, { key: 'balanced', factor: 'S' }, { key: 'rigorous', factor: 'C' }],
+  [{ key: 'structured', factor: 'C' }, { key: 'calm', factor: 'S' }, { key: 'proactive', factor: 'D' }, { key: 'vibrant', factor: 'I' }],
+  [{ key: 'communicative', factor: 'I' }, { key: 'analytical', factor: 'C' }, { key: 'collaborative', factor: 'S' }, { key: 'decisive', factor: 'D' }],
+  [{ key: 'fearless', factor: 'D' }, { key: 'cautious', factor: 'C' }, { key: 'engaging', factor: 'I' }, { key: 'persevering', factor: 'S' }],
+];
+
+const CONTEXTUAL_FORCED_PAIRS: DiscQuestionOption[][] = [
+  [{ key: 'actFast', factor: 'D' }, { key: 'involvePeople', factor: 'I' }],
+  [{ key: 'changeBroken', factor: 'D' }, { key: 'keepWorking', factor: 'S' }],
+  [{ key: 'decideAvailable', factor: 'D' }, { key: 'analyzeAll', factor: 'C' }],
+  [{ key: 'meetPeople', factor: 'I' }, { key: 'deepenRelations', factor: 'S' }],
+  [{ key: 'improvise', factor: 'I' }, { key: 'routine', factor: 'C' }],
+  [{ key: 'teamWellbeing', factor: 'S' }, { key: 'deliveryQuality', factor: 'C' }],
+];
+
+function buildBaseQuestions(moment: PulseMoment): PulseQuestion[] {
   const texts = moment === 'T0' ? T0_TEXTS : T2_TEXTS;
   const out: PulseQuestion[] = [];
   let order = 1;
@@ -126,21 +157,82 @@ function buildQuestions(moment: PulseMoment): PulseQuestion[] {
       question_text: t2, question_type: 'likert_1_5', is_required: true,
     });
   }
-  // Pergunta aberta — não obrigatória
-  out.push({
+  return out;
+}
+
+function buildOpenQuestion(moment: PulseMoment, order: number): PulseQuestion {
+  return {
     id: `${moment}_OPEN`,
     pulse_moment: moment, dimension_key: 'futuro_permanencia', dimension_name: 'Aberta',
     dimension_order: 99, question_order: order,
     question_text: OPEN_QUESTIONS[moment], question_type: 'open_text', is_required: false,
+  };
+}
+
+function buildLegacyQuestions(moment: PulseMoment): PulseQuestion[] {
+  const out = buildBaseQuestions(moment);
+  out.push(buildOpenQuestion(moment, out.length + 1));
+  return out;
+}
+
+function buildCurrentQuestions(moment: PulseMoment): PulseQuestion[] {
+  const out = buildBaseQuestions(moment);
+  let order = out.length + 1;
+  const rankingText = moment === 'T0'
+    ? 'Ordene as palavras pensando em como você age no trabalho hoje.'
+    : 'Ordene as palavras pensando em como você agiu no trabalho ao longo desta jornada.';
+  const pairText = moment === 'T0'
+    ? 'Escolha a alternativa que mais representa como você age no trabalho hoje.'
+    : 'Escolha a alternativa que mais representa como você agiu no trabalho ao longo desta jornada.';
+
+  CONTEXTUAL_RANKING_GROUPS.forEach((options, index) => {
+    out.push({
+      id: `${moment}_CTX_R${index + 1}`,
+      pulse_moment: moment,
+      dimension_key: 'contexto_comportamental',
+      dimension_name: 'Contexto de trabalho',
+      dimension_order: 7,
+      question_order: order++,
+      question_text: rankingText,
+      question_type: 'disc_ranking',
+      is_required: true,
+      disc_options: options,
+    });
+  });
+
+  CONTEXTUAL_FORCED_PAIRS.forEach((options, index) => {
+    out.push({
+      id: `${moment}_CTX_P${index + 1}`,
+      pulse_moment: moment,
+      dimension_key: 'contexto_comportamental',
+      dimension_name: 'Contexto de trabalho',
+      dimension_order: 7,
+      question_order: order++,
+      question_text: pairText,
+      question_type: 'disc_pair',
+      is_required: true,
+      disc_options: options,
+    });
+  });
+
+  out.push({
+    ...buildOpenQuestion(moment, order),
   });
   return out;
 }
 
-export const PULSE_T0_QUESTIONS = buildQuestions('T0');
-export const PULSE_T2_QUESTIONS = buildQuestions('T2');
+export const PULSE_LEGACY_TEMPLATE_VERSION = '1.0.0';
+export const PULSE_TEMPLATE_VERSION = '2.0.0';
 
-export function getPulseQuestions(moment: PulseMoment): PulseQuestion[] {
+export const PULSE_T0_QUESTIONS = buildCurrentQuestions('T0');
+export const PULSE_T2_QUESTIONS = buildCurrentQuestions('T2');
+
+export function getPulseQuestions(
+  moment: PulseMoment,
+  templateVersion = PULSE_TEMPLATE_VERSION,
+): PulseQuestion[] {
+  if (templateVersion === PULSE_LEGACY_TEMPLATE_VERSION) {
+    return buildLegacyQuestions(moment);
+  }
   return moment === 'T0' ? PULSE_T0_QUESTIONS : PULSE_T2_QUESTIONS;
 }
-
-export const PULSE_TEMPLATE_VERSION = '1.0.0';

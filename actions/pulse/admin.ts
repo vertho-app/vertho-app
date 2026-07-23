@@ -2,7 +2,7 @@
 
 import { tenantDb } from '@/lib/tenant-db';
 import { requireAdminAction } from '@/lib/auth/action-context';
-import { PulseMoment } from '@/lib/pulse/template';
+import { PULSE_TEMPLATE_VERSION, PulseMoment } from '@/lib/pulse/template';
 
 export interface PulseCiclo {
   id: string;
@@ -147,6 +147,7 @@ export async function dispararPulso(
     ciclo_id: cicloId,
     colaborador_id: c.id,
     pulse_moment: pulseMoment,
+    template_version: PULSE_TEMPLATE_VERSION,
     due_date: dueDate,
     status: 'pending',
   }));

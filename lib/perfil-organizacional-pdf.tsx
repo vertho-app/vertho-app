@@ -16,7 +16,7 @@ const C = {
   navy: '#142F57', cyan: '#34C5CC', gold: '#C8941F', white: '#FFFFFF',
   text: '#142F57', sub: '#5F6B7A', border: '#E2E8F0', bg: '#F4F7FA',
   d: '#E5484D', i: '#F0922B', s: '#3FA66A', c: '#2BA3A8',
-  natural: '#34C5CC', adaptado: '#E5484D',
+  natural: '#34C5CC',
 };
 const FAT_COLOR: Record<Fator, string> = { D: C.d, I: C.i, S: C.s, C: C.c };
 
@@ -168,23 +168,20 @@ function CompRadar({ p }: { p: PerfilOrg }) {
     const r = (val / 100) * R;
     return [cx + r * Math.cos(ang), cy + r * Math.sin(ang)];
   };
-  const poly = (key: 'natural' | 'adaptado') => p.competencias.map((c, i) => pt(c[key], i).join(',')).join(' ');
+  const poly = () => p.competencias.map((c, i) => pt(c.natural, i).join(',')).join(' ');
   const rings = [25, 50, 75, 100];
   return (
     <Svg width={300} height={300}>
       {rings.map((rg, i) => <Polygon key={i} points={p.competencias.map((_, idx) => pt(rg, idx).join(',')).join(' ')} stroke="#CBD5E1" strokeWidth={0.5} fill="none" />)}
       {p.competencias.map((c, i) => { const [x, y] = pt(100, i); return <Line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="#E2E8F0" strokeWidth={0.5} />; })}
-      {p.temCompAdapt ? <Polygon points={poly('adaptado')} stroke={C.adaptado} strokeWidth={1.5} fill={C.adaptado} fillOpacity={0.12} /> : null}
-      <Polygon points={poly('natural')} stroke={C.natural} strokeWidth={1.5} fill={C.natural} fillOpacity={0.18} />
+      <Polygon points={poly()} stroke={C.natural} strokeWidth={1.5} fill={C.natural} fillOpacity={0.18} />
       {p.competencias.map((c, i) => { const [x, y] = pt(112, i); return <Text key={i} x={x} y={y} style={{ fontSize: 5.5 }} fill={C.sub} textAnchor="middle">{c.nome}</Text>; })}
     </Svg>
   );
 }
 
-function CompCompare({ c, temAdapt }: { c: PerfilOrg['competencias'][number]; temAdapt: boolean }) {
-  const linhas: [string, number, string][] = temAdapt
-    ? [['Natural', c.natural, C.natural], ['Adaptado', c.adaptado, C.adaptado]]
-    : [['Natural', c.natural, C.natural]];
+function CompCompare({ c }: { c: PerfilOrg['competencias'][number] }) {
+  const linhas: [string, number, string][] = [['Natural', c.natural, C.natural]];
   return (
     <View style={{ marginBottom: 7 }}>
       <Text style={{ fontSize: 9, fontWeight: 700, color: C.navy }}>{c.nome.toUpperCase()}</Text>
@@ -327,11 +324,7 @@ function AnexoDisc() {
 
 interface Params { empresaNome: string; dataRef: string; solicitadoPor?: string | null; p: PerfilOrg }
 
-function PerfilOrgDoc({ empresaNome, p: pIn }: Params) {
-  // O perfil ADAPTADO saiu do relatório (20/07/2026). `temCompAdapt` é o gate que
-  // já governava polígono do radar, legenda e coluna comparativa — desligá-lo na
-  // origem remove o adaptado de tudo de uma vez, sem editar cada call site.
-  const p = { ...pIn, temCompAdapt: false };
+function PerfilOrgDoc({ empresaNome, p }: Params) {
   const logo = getLogoCoverBase64();
   const badge = p.perfilDominante;
   return (
@@ -382,8 +375,7 @@ function PerfilOrgDoc({ empresaNome, p: pIn }: Params) {
         <Footer />
       </Page>
 
-      {/* Perfil Médio (só NATURAL) + Estilo de Liderança — mesma página: depois
-          que o Adaptado saiu do relatório, cada uma sozinha ficava 2/3 vazia. */}
+      {/* Perfil Médio natural + Estilo de Liderança */}
       <Page size="A4" style={s.page}>
         <PageHeader title="Perfil Médio do Grupo" />
         <View style={s.body}>
@@ -421,16 +413,15 @@ function PerfilOrgDoc({ empresaNome, p: pIn }: Params) {
           <View style={{ alignItems: 'center' }}><CompRadar p={p} /></View>
           <View style={s.legendRow}>
             <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.natural }]} /><Text style={s.legendTx}>Natural</Text></View>
-            {p.temCompAdapt ? <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.adaptado }]} /><Text style={s.legendTx}>Adaptado</Text></View> : null}
           </View>
           <View style={s.twoCol}>
             <View style={s.col}>
               <Text style={s.grpLabel}>As 3 Mais Desenvolvidas (Natural)</Text>
-              {p.compMais.map((c, i) => <CompCompare key={i} c={c} temAdapt={p.temCompAdapt} />)}
+              {p.compMais.map((c, i) => <CompCompare key={i} c={c} />)}
             </View>
             <View style={s.col}>
               <Text style={s.grpLabel}>As 3 Menos Desenvolvidas (Natural)</Text>
-              {p.compMenos.map((c, i) => <CompCompare key={i} c={c} temAdapt={p.temCompAdapt} />)}
+              {p.compMenos.map((c, i) => <CompCompare key={i} c={c} />)}
             </View>
           </View>
         </View>

@@ -92,7 +92,7 @@ function PageFrame({ children, pageNum, total }: { children: React.ReactNode; pa
   );
 }
 
-// ── Sub: barra DISC (para listas Natural / Adaptado) ────────────────────────
+// ── Sub: barra DISC ─────────────────────────────────────────────────────────
 function DISCBar({ label, value, barColor = '#94A3B8' }: { label: string; value: number; barColor?: string }) {
   const pct = Math.max(0, Math.min(100, value));
   return (
@@ -250,22 +250,14 @@ function Page1({ raw, texts, locale }: { raw: any; texts: any; locale: string })
         ))}
       </View>
 
-      {/* DISC Natural / Adaptado lado a lado */}
-      <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-        <View style={{ flex: 1, marginRight: 8 }}>
+      {/* DISC Natural */}
+      <View style={{ marginBottom: 12, paddingHorizontal: 70 }}>
+        <View>
           <Text style={{ ...s.h3, textAlign: 'center', marginBottom: 6 }}>
             Natural — quem você é
           </Text>
           {['D', 'I', 'S', 'C'].map((d: string) => (
             <DISCBar key={`n${d}`} label={d} value={raw.disc_natural[d]} barColor={(DISC as any)[d].bar} />
-          ))}
-        </View>
-        <View style={{ flex: 1, marginLeft: 8 }}>
-          <Text style={{ ...s.h3, textAlign: 'center', marginBottom: 6 }}>
-            Adaptado — exigência do ambiente
-          </Text>
-          {['D', 'I', 'S', 'C'].map((d: string) => (
-            <DISCBar key={`a${d}`} label={d} value={raw.disc_adaptado[d]} barColor="#94A3B8" />
           ))}
         </View>
       </View>
@@ -285,10 +277,10 @@ function Page1({ raw, texts, locale }: { raw: any; texts: any; locale: string })
 // ============================================================
 function Page2({ raw, texts }: { raw: any; texts: any }) {
   const quadrants = [
-    { key: 'D', title: 'Como lida com desafios', data: texts.quadrante_D, n: raw.disc_natural.D, a: raw.disc_adaptado.D },
-    { key: 'I', title: 'Como lida com pessoas', data: texts.quadrante_I, n: raw.disc_natural.I, a: raw.disc_adaptado.I },
-    { key: 'S', title: 'Como dita o ritmo', data: texts.quadrante_S, n: raw.disc_natural.S, a: raw.disc_adaptado.S },
-    { key: 'C', title: 'Como lida com regras', data: texts.quadrante_C, n: raw.disc_natural.C, a: raw.disc_adaptado.C },
+    { key: 'D', title: 'Como lida com desafios', data: texts.quadrante_D, n: raw.disc_natural.D },
+    { key: 'I', title: 'Como lida com pessoas', data: texts.quadrante_I, n: raw.disc_natural.I },
+    { key: 'S', title: 'Como dita o ritmo', data: texts.quadrante_S, n: raw.disc_natural.S },
+    { key: 'C', title: 'Como lida com regras', data: texts.quadrante_C, n: raw.disc_natural.C },
   ];
 
   return (
@@ -329,11 +321,6 @@ function Page2({ raw, texts }: { raw: any; texts: any }) {
                 <Text style={{ fontSize: 8.5, color: TXT_MUTED, lineHeight: 1.5, marginBottom: 4 }}>
                   {q.data?.descricao || ''}
                 </Text>
-                {q.data?.adaptacao ? (
-                  <Text style={{ fontSize: 7.5, color: TXT_LIGHT, fontStyle: 'italic', borderTopWidth: 0.5, borderTopColor: BORDER, paddingTop: 4 }}>
-                    Adaptado {Math.round(q.a)} — {q.data.adaptacao}
-                  </Text>
-                ) : null}
               </View>
             );
           })}

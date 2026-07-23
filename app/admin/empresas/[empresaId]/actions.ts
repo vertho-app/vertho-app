@@ -381,7 +381,6 @@ export async function limparMapeamento(empresaId, colaboradorId = null) {
   const campos = {
     perfil_dominante: null,
     d_natural: null, i_natural: null, s_natural: null, c_natural: null,
-    d_adaptado: null, i_adaptado: null, s_adaptado: null, c_adaptado: null,
     lid_executivo: null, lid_motivador: null, lid_metodico: null, lid_sistematico: null,
     comp_ousadia: null, comp_comando: null, comp_objetividade: null, comp_assertividade: null,
     comp_persuasao: null, comp_extroversao: null, comp_entusiasmo: null, comp_sociabilidade: null,
