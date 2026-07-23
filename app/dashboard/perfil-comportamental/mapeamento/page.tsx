@@ -109,14 +109,12 @@ function BlockContextHeader({ etapa, t }) {
     <section className="mb-5 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-4 shadow-[0_18px_45px_rgba(0,0,0,0.12)]">
       <div className="flex gap-3">
         <div
-          className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black"
-          style={{ background: 'rgba(0,180,216,0.14)', color: block.cor }}
-        >
-          {block.numero}
-        </div>
+          className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ background: block.cor, boxShadow: `0 0 12px ${block.cor}` }}
+        />
         <div className="min-w-0">
-          <h2 className="text-base font-black leading-snug text-white">
-            {t('blocks.block', { number: block.numero })} — <span style={{ color: block.cor }}>{block.titulo}</span>
+          <h2 className="text-base font-black leading-snug" style={{ color: block.cor }}>
+            {block.titulo}
           </h2>
           <p className="mt-1 text-sm leading-relaxed text-slate-300">
             {block.resumo} <span className="text-slate-400">{block.reforco}</span>
@@ -187,6 +185,7 @@ function deriveProfile(disc: any) {
 const PHASE = {
   ONBOARDING: 'onboarding',
   WELCOME: 'welcome',
+  NATURAL_INTRO: 'naturalIntro',
   RANK1: 'rank1',
   PAIRS1: 'pairs1',
   LEARNING: 'learning',
@@ -361,7 +360,7 @@ export default function MapeamentoPage() {
   if (phase === PHASE.ONBOARDING) {
     // Se colab já está logado (tem email), pula WELCOME (já temos os dados)
     const pularWelcome = !!userEmail;
-    const irPra = pularWelcome ? PHASE.RANK1 : PHASE.WELCOME;
+    const irPra = pularWelcome ? PHASE.NATURAL_INTRO : PHASE.WELCOME;
     return (
       <div className="max-w-[560px] mx-auto px-4 py-8">
         <BackButton href="/dashboard/perfil-comportamental" className="mb-6" />
@@ -406,7 +405,7 @@ export default function MapeamentoPage() {
         <div className="space-y-4 mb-8">
           <InstructionCard
             numero={1}
-            titulo={<>{t('blocks.block', { number: 1 })} — <span className="text-teal-400">{t('blocks.natural.title')}</span></>}
+            titulo={<span className="text-teal-400">{t('blocks.natural.title')}</span>}
             descricao={t.rich('onboarding.naturalDescription', { strong: (chunks) => <b>{chunks}</b> })}
           />
           <InstructionCard
@@ -497,11 +496,52 @@ export default function MapeamentoPage() {
 
         <button
           disabled={!canStart}
-          onClick={() => { setGroupIdx(0); setPhase(PHASE.RANK1); }}
+          onClick={() => setPhase(PHASE.NATURAL_INTRO)}
           className="mt-8 w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide transition-all disabled:opacity-40"
           style={{ background: canStart ? 'linear-gradient(135deg, #00B4D8, #0D9488)' : '#374151' }}
         >
           {t('welcome.start')}
+        </button>
+      </div>
+    );
+  }
+
+  /* ═══════════════════ ABERTURA DO BLOCO NATURAL ═══════════════════ */
+  if (phase === PHASE.NATURAL_INTRO) {
+    return (
+      <div className="max-w-[520px] mx-auto px-4 py-10">
+        <BackButton onClick={() => setPhase(PHASE.ONBOARDING)} className="mb-8" />
+
+        <div className="flex items-center gap-2 mb-4">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#2DD4BF', boxShadow: '0 0 14px rgba(45,212,191,0.7)' }} />
+          <span className="text-xs font-bold uppercase tracking-[3px] text-teal-400">{t('blocks.natural.title')}</span>
+        </div>
+
+        <h1 className="text-2xl md:text-3xl font-bold text-white leading-snug mb-5">{t('naturalIntro.title')}</h1>
+
+        <div className="space-y-4 text-sm md:text-[15px] text-gray-300 leading-relaxed">
+          <p>{t('naturalIntro.p1')}</p>
+          <p>{t('naturalIntro.p2')}</p>
+          <div>
+            <p className="mb-2">{t('naturalIntro.listIntro')}</p>
+            <ul className="space-y-1.5">
+              {['li1', 'li2', 'li3'].map((li) => (
+                <li key={li} className="flex gap-2">
+                  <span className="mt-0.5 text-teal-400">•</span>
+                  <span>{t(`naturalIntro.${li}`)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="text-gray-400">{t('naturalIntro.p3')}</p>
+        </div>
+
+        <button
+          onClick={() => { setGroupIdx(0); setPhase(PHASE.RANK1); }}
+          className="mt-8 w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide transition-all hover:opacity-90 active:scale-[0.99]"
+          style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)' }}
+        >
+          {t('naturalIntro.start')}
         </button>
       </div>
     );

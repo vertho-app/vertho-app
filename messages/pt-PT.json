@@ -527,11 +527,22 @@
     "labels": {
       "natural": "Natural"
     },
+    "naturalIntro": {
+      "title": "Primeiro, pense na sua forma mais espontânea",
+      "p1": "Neste bloco, responda considerando como tende a agir quando não precisa de se controlar — a forma que lhe surge sem esforço.",
+      "p2": "Não importa o lugar: pode ser em casa, com amigos ou no próprio trabalho. O que define este bloco não é onde está, mas o que surge naturalmente de si.",
+      "listIntro": "Escolha as respostas que mais o representam:",
+      "li1": "o que lhe surge naturalmente;",
+      "li2": "como prefere agir;",
+      "li3": "os comportamentos que exigem menos esforço ou adaptação.",
+      "p3": "Não existem respostas certas ou erradas. Responda de forma espontânea, sem pensar no que seria mais adequado ou esperado.",
+      "start": "Começar"
+    },
     "blocks": {
       "block": "Bloco {number}",
       "natural": {
-        "title": "Perfil Natural",
-        "summary": "8 rankings + 6 pares rápidos respondidos pensando em como é quando está à vontade, fora do trabalho.",
+        "title": "A minha forma mais espontânea",
+        "summary": "8 rankings + 6 pares rápidos sobre a sua forma mais espontânea — como age sem esforço.",
         "reinforcement": "É o seu jeito natural, sem ajustes."
       },
       "rankingInstruction": "Nesta tela, ordene os itens do mais parecido consigo ao menos parecido.",
@@ -546,7 +557,7 @@
         "learningPreferences": "Preferências de aprendizagem"
       },
       "watchVideo": "Veja o vídeo de instruções (2 min)",
-      "naturalDescription": "8 rankings + 6 pares rápidos respondidos pensando em <strong>como é quando está à vontade, fora do trabalho</strong>. É o seu jeito natural, sem ajustes.",
+      "naturalDescription": "8 rankings + 6 pares rápidos sobre <strong>a sua forma mais espontânea</strong> — como age sem esforço, sem se controlar.",
       "learningTitle": "Preferências de aprendizagem",
       "learningDescription": "Marque os formatos de conteúdo que <strong>funcionam melhor para si</strong> aprender (vídeo, texto, áudio, case, etc.). Ajuda a personalizar a sua jornada.",
       "howQuestionsWork": "Como funcionam as perguntas",

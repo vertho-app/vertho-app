@@ -527,11 +527,22 @@
     "labels": {
       "natural": "Natural"
     },
+    "naturalIntro": {
+      "title": "Primeiro, pense no seu jeito mais espontâneo",
+      "p1": "Neste bloco, responda considerando como você tende a agir quando não precisa se policiar — o jeito que vem de você sem esforço.",
+      "p2": "Não importa o lugar: pode ser em casa, com amigos ou no próprio trabalho. O que define este bloco não é onde você está, mas o que surge naturalmente de você.",
+      "listIntro": "Escolha as respostas que mais representam:",
+      "li1": "o que surge naturalmente para você;",
+      "li2": "como você prefere agir;",
+      "li3": "os comportamentos que exigem menos esforço ou adaptação.",
+      "p3": "Não existem respostas certas ou erradas. Responda de forma espontânea, sem pensar no que seria mais adequado ou esperado.",
+      "start": "Começar"
+    },
     "blocks": {
       "block": "Bloco {number}",
       "natural": {
-        "title": "Perfil Natural",
-        "summary": "8 rankings + 6 pares rápidos respondidos pensando em como você é quando está à vontade, fora do trabalho.",
+        "title": "Meu jeito mais espontâneo",
+        "summary": "8 rankings + 6 pares rápidos sobre o seu jeito mais espontâneo — como você age sem esforço.",
         "reinforcement": "É o seu jeito natural, sem ajustes."
       },
       "rankingInstruction": "Nesta tela, ordene os itens do mais parecido com você ao menos parecido.",
@@ -546,7 +557,7 @@
         "learningPreferences": "Preferências de aprendizagem"
       },
       "watchVideo": "Assista ao vídeo de instruções (2 min)",
-      "naturalDescription": "8 rankings + 6 pares rápidos respondidos pensando em <strong>como você é quando está à vontade, fora do trabalho</strong>. É o seu jeito natural, sem ajustes.",
+      "naturalDescription": "8 rankings + 6 pares rápidos sobre <strong>o seu jeito mais espontâneo</strong> — como você age sem esforço, sem se policiar.",
       "learningTitle": "Preferências de aprendizagem",
       "learningDescription": "Marque os formatos de conteúdo que <strong>funcionam melhor pra você</strong> aprender (vídeo, texto, áudio, case, etc.). Ajuda a personalizar sua jornada.",
       "howQuestionsWork": "Como funcionam as perguntas",

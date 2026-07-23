@@ -527,11 +527,22 @@
     "labels": {
       "natural": "natural"
     },
+    "naturalIntro": {
+      "title": "First, think about your most spontaneous self",
+      "p1": "In this block, answer based on how you tend to act when you don't have to hold back — the way that comes to you effortlessly.",
+      "p2": "The setting doesn't matter: at home, with friends, or at work itself. What defines this block isn't where you are, but what comes naturally from you.",
+      "listIntro": "Choose the answers that best represent:",
+      "li1": "what comes naturally to you;",
+      "li2": "how you prefer to act;",
+      "li3": "the behaviors that take the least effort or adaptation.",
+      "p3": "There are no right or wrong answers. Answer spontaneously, without thinking about what would be most appropriate or expected.",
+      "start": "Start"
+    },
     "blocks": {
       "block": "Block {number}",
       "natural": {
-        "title": "Natural Profile",
-        "summary": "8 rankings + 6 quick pairs answered thinking about what you are like when you are at ease, outside of work.",
+        "title": "My most spontaneous self",
+        "summary": "8 rankings + 6 quick pairs about your most spontaneous self — how you act effortlessly.",
         "reinforcement": "It's your natural way, without adjustments."
       },
       "rankingInstruction": "On this screen, order the items from most similar to you to least similar.",
@@ -546,7 +557,7 @@
         "learningPreferences": "Learning Preferences"
       },
       "watchVideo": "Watch the instructions video (2 min)",
-      "naturalDescription": "8 rankings + 6 quick pairs answered thinking about <strong>what you are like when you are at ease, outside of work</strong>. It's your natural way, without adjustments.",
+      "naturalDescription": "8 rankings + 6 quick pairs about <strong>your most spontaneous self</strong> — how you act effortlessly, without holding back.",
       "learningTitle": "Learning Preferences",
       "learningDescription": "Select the content formats that <strong>work best for how you learn</strong> (video, text, audio, case study, etc.). This helps personalize your journey.",
       "howQuestionsWork": "How the questions work",

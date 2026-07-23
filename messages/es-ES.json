@@ -527,11 +527,22 @@
     "labels": {
       "natural": "Natural"
     },
+    "naturalIntro": {
+      "title": "Primero, piensa en tu forma más espontánea",
+      "p1": "En este bloque, responde pensando en cómo sueles actuar cuando no necesitas contenerte: la forma que te sale sin esfuerzo.",
+      "p2": "No importa el lugar: puede ser en casa, con amigos o en el propio trabajo. Lo que define este bloque no es dónde estás, sino lo que surge de ti con naturalidad.",
+      "listIntro": "Elige las respuestas que mejor te representan:",
+      "li1": "lo que te sale de forma natural;",
+      "li2": "cómo prefieres actuar;",
+      "li3": "los comportamientos que exigen menos esfuerzo o adaptación.",
+      "p3": "No hay respuestas correctas o incorrectas. Responde de forma espontánea, sin pensar en lo que sería más adecuado o esperado.",
+      "start": "Empezar"
+    },
     "blocks": {
       "block": "Bloque {number}",
       "natural": {
-        "title": "Perfil Natural",
-        "summary": "8 rankings + 6 pares rápidos respondidos pensando en cómo eres cuando estás cómodo, fuera del trabajo.",
+        "title": "Mi forma más espontánea",
+        "summary": "8 rankings + 6 pares rápidos sobre tu forma más espontánea: cómo actúas sin esfuerzo.",
         "reinforcement": "Es tu forma natural, sin ajustes."
       },
       "rankingInstruction": "En esta pantalla, ordena los elementos del más parecido a ti al menos parecido.",
@@ -546,7 +557,7 @@
         "learningPreferences": "Preferencias de aprendizaje"
       },
       "watchVideo": "Mira el vídeo de instrucciones (2 min)",
-      "naturalDescription": "8 rankings + 6 pares rápidos respondidos pensando en <strong>cómo eres cuando estás cómodo, fuera del trabajo</strong>. Es tu forma natural, sin ajustes.",
+      "naturalDescription": "8 rankings + 6 pares rápidos sobre <strong>tu forma más espontánea</strong>: cómo actúas sin esfuerzo, sin contenerte.",
       "learningTitle": "Preferencias de aprendizaje",
       "learningDescription": "Marca los formatos de contenido que <strong>funcionan mejor para ti</strong> al aprender (vídeo, texto, audio, caso, etc.). Ayuda a personalizar tu jornada.",
       "howQuestionsWork": "Cómo funcionan las preguntas",
