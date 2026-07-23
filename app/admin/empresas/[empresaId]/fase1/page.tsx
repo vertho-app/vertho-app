@@ -67,9 +67,10 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
       setCenAction({ id: c.id, type: 'regen' });
       setCenProgress({ current: idx + 1, total: lista.length, label: c.titulo || `Cenário ${idx + 1}`, cargo });
       try {
+        // O regenerar já audita a candidata e aplica SÓ se a nota não piorar
+        // (trava champion/challenger) — não re-checar por fora.
         const r = await regenerarCenario(c.id);
-        if (r.success) { const r2 = await checkCenarioUm(c.id); if (r2.success) ok++; else semCheck++; }
-        else semCheck++;
+        if (r.success) ok++; else semCheck++;
       } catch (e: any) { console.warn('regen lote:', e?.message); semCheck++; }
     }
     setCenAction(null);
@@ -614,11 +615,10 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                           setCenAction({ id: c.id, type: 'regen' });
                           setCenProgress({ current: idx + 1, total: paraRevisar.length, label: c.titulo || tr('fallbackScenarioWithIndex', { index: idx + 1 }), cargo });
                           try {
+                            // Trava champion/challenger: o regenerar já audita e
+                            // aplica só se não piorar — sem re-check por fora.
                             const r = await regenerarCenario(c.id);
-                            if (r.success) {
-                              const r2 = await checkCenarioUm(c.id);
-                              if (r2.success) ok++; else semCheck++;
-                            }
+                            if (r.success) ok++; else semCheck++;
                           } catch (e) {
                             console.warn('regen lote:', e.message);
                             semCheck++;
@@ -849,14 +849,13 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                               {(c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas') && (
                                 <button disabled={isActing} onClick={async () => {
                                   setCenAction({ id: c.id, type: 'regen' });
-                                  // 1. Regenerar
+                                  // Regenera com TRAVA: a candidata é auditada e só
+                                  // substitui a atual se a nota não piorar. A mensagem
+                                  // já traz o veredito (aplicado/descartado + notas).
                                   const r = await regenerarCenario(c.id);
-                                  if (!r.success) { setCenAction(null); flash(tr('messages.error', { error: r.error })); return; }
-                                  flash(r.message);
-                                  // 2. Re-checar automaticamente
-                                  const r2 = await checkCenarioUm(c.id);
                                   setCenAction(null);
-                                  if (r2.success) flash(tr('messages.recheckResult', { score: r2.nota, status: r2.nota >= 90 ? tr('status.approvedLower') : tr('status.reviewLower') }));
+                                  if (!r.success) { flash(tr('messages.error', { error: r.error })); return; }
+                                  flash(r.message);
                                   refresh();
                                 }}
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">

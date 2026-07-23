@@ -610,3 +610,115 @@ export async function checkCenarioIA3Core(sbRaw: any, args: {
     status: normed.statusCheck,
   };
 }
+
+// ── Regeneração com TRAVA (champion/challenger) ─────────────────────────────
+// Lição de 23/07 (UniAnchieta): regenerar SOBRESCREVIA a versão boa antes de
+// conhecer a nota da nova — um 88pts virou 58pts com um clique. A regeneração
+// agora gera a CANDIDATA em memória, audita, e só aplica se nota >= atual.
+
+/** Trava (pura): regeneração NUNCA piora a nota medida. Sem nota atual → aplica. */
+export function travaRegeneracao(notaAtual: unknown, notaCandidata: number): boolean {
+  if (typeof notaAtual !== 'number') return true;
+  return notaCandidata >= notaAtual;
+}
+
+export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
+  cenarioId: string; aiConfig?: AIConfig;
+}): Promise<{
+  success: boolean; error?: string; message?: string;
+  aplicado?: boolean; nota?: number; notaAnterior?: number | null; status?: string;
+}> {
+  const { cenarioId, aiConfig = {} } = args;
+
+  const { data: cen } = await sbRaw.from('banco_cenarios').select('*').eq('id', cenarioId).single();
+  if (!cen) return { success: false, error: 'Cenário não encontrado' };
+  if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional)' };
+
+  // Feedback enriquecido do check atual (mesma montagem histórica)
+  const alertas = typeof cen.alertas_check === 'object' ? (cen.alertas_check || {}) : {};
+  const feedbackParts = [cen.justificativa_check, cen.sugestao_check];
+  if (alertas.ponto_mais_fraco) feedbackParts.push(`Ponto mais fraco: ${alertas.ponto_mais_fraco}`);
+  if (Array.isArray(alertas.descritores_sem_cobertura) && alertas.descritores_sem_cobertura.length) {
+    feedbackParts.push(`Descritores sem cobertura: ${alertas.descritores_sem_cobertura.join(', ')}`);
+  }
+  if (Array.isArray(alertas.perguntas_com_risco)) {
+    alertas.perguntas_com_risco.forEach((p: any) => {
+      feedbackParts.push(`P${p.numero}: ${p.problema}. Sugestão: ${p.correcao_recomendada}`);
+    });
+  }
+  const feedbackExtra = feedbackParts.filter(Boolean).join('\n');
+
+  const mc = await montarContextoIA3(sbRaw, cen.empresa_id, cen.cargo, cen.competencia_id, cen.ppp_escola_id ?? null);
+  if (!('ctx' in mc)) return { success: false, error: mc.error };
+  const { empresa, comp, descritores, contextoPPP, valores, cargoDetalhe, gabCIS } = mc.ctx;
+
+  const system = buildIA3SystemPrompt();
+  let user = buildIA3UserPrompt(empresa, cen.cargo, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS);
+  if (feedbackExtra) user += `\n\nFEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS):\n${feedbackExtra}`;
+  // Anti-inflação (medido 23/07: a 2ª rodada estourou contenção ao "corrigir
+  // adicionando"): os limites de sobriedade valem MESMO cobrindo críticas.
+  user += `\n\n═══ REGRAS DA REGENERAÇÃO ═══
+1. Corrigir NÃO é adicionar: prefira REMOVER/enxugar a acrescentar.
+2. Os limites de sobriedade são inegociáveis: contexto ≤900 caracteres (conte antes de finalizar), máx 2 tensões, máx 2 stakeholders.
+3. Se o feedback pedir mais cobertura, obtenha-a REFORMULANDO perguntas — nunca inflando o contexto.`;
+
+  const resposta = await callAI(system, user, aiConfig, 6144);
+  const resultado = await extractJSON(resposta);
+  const norm = resultado ? validarRespostaIA3(resultado, descritores.length) : null;
+  if (!norm) return { success: false, error: 'IA não retornou cenário válido — NADA foi alterado (a versão atual continua valendo)' };
+
+  const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas);
+  const candidato = {
+    empresa_id: cen.empresa_id,
+    competencia_id: cen.competencia_id,
+    cargo: cen.cargo,
+    titulo: norm.cen.titulo || norm.titulo,
+    descricao: norm.cen.contexto || norm.contexto,
+    alternativas,
+  };
+
+  // Audita a CANDIDATA em memória (2ª IA, modelo da task ia3_check)
+  const { system: sysChk, user: userChk } = await montarCheckIA3Prompt(sbRaw, candidato);
+  const { getModelForTask } = await import('@/lib/ai-tasks');
+  const checkModelo = await getModelForTask(cen.empresa_id, 'ia3_check');
+  const respChk = await callAI(sysChk, userChk, { model: checkModelo }, 4096, { taskKey: 'ia3_check', empresaId: cen.empresa_id });
+  const normed = normalizarResultadoCheckIA3(await extractJSON(respChk));
+  if (!normed) return { success: false, error: 'Auditoria da candidata falhou — NADA foi alterado (a versão atual continua valendo)' };
+
+  const notaAnterior: number | null = typeof cen.nota_check === 'number' ? cen.nota_check : null;
+  const notaCandidata = normed.resultado.nota;
+
+  if (!travaRegeneracao(cen.nota_check, notaCandidata)) {
+    return {
+      success: true, aplicado: false, nota: notaCandidata, notaAnterior,
+      message: `Regeneração DESCARTADA: candidata ${notaCandidata}pts < atual ${notaAnterior}pts — mantida a versão atual (trava: nunca piora).`,
+    };
+  }
+
+  // Aplica: conteúdo + auditoria da candidata numa escrita só (tenant-scoped)
+  const r = normed.resultado;
+  const { error: updErr } = await sbRaw.from('banco_cenarios').update({
+    titulo: candidato.titulo,
+    descricao: candidato.descricao,
+    alternativas,
+    nota_check: r.nota,
+    status_check: normed.statusCheck,
+    dimensoes_check: r.dimensoes || null,
+    justificativa_check: r.justificativa || null,
+    sugestao_check: r.sugestao || null,
+    alertas_check: {
+      alertas: r.alertas || [],
+      ponto_mais_forte: r.ponto_mais_forte || null,
+      ponto_mais_fraco: r.ponto_mais_fraco || null,
+      descritores_sem_cobertura: r.descritores_sem_cobertura || [],
+      perguntas_com_risco: r.perguntas_com_risco || [],
+    },
+    checked_at: new Date().toISOString(),
+  }).eq('id', cen.id).eq('empresa_id', cen.empresa_id);
+  if (updErr) return { success: false, error: `Regeneração: UPDATE falhou (${updErr.message}) — versão anterior preservada` };
+
+  return {
+    success: true, aplicado: true, nota: notaCandidata, notaAnterior, status: normed.statusCheck,
+    message: `Regenerado: ${notaCandidata}pts (${normed.statusCheck})${notaAnterior != null ? ` — antes ${notaAnterior}pts` : ''}.`,
+  };
+}

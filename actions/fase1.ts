@@ -11,7 +11,7 @@ import {
   buscarContextoPPP, buscarValores,
   carregarContextoIA2, montarPromptIA2, validarGabaritoIA2, persistirGabaritoIA2,
 } from '@/lib/ia2-gabarito';
-import { gerarCenarioIA3Core, checkCenarioIA3Core, buildIA3SystemPrompt, buildIA3UserPrompt } from '@/lib/ia3-cenarios';
+import { gerarCenarioIA3Core, checkCenarioIA3Core, regenerarCenarioIA3ComTrava } from '@/lib/ia3-cenarios';
 
 // ── IA1: Selecionar top 10 competências por cargo ───────────────────────────
 // Seleciona das competências JÁ CADASTRADAS na empresa (tabela competencias).
@@ -818,102 +818,15 @@ export async function rodarIA3(empresaId: string, aiConfig: AIConfig = {}) {
   return listarFilaIA3(empresaId);
 }
 
-// Regenerar cenário com base no feedback do check
-export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
+// Regenerar cenário com base no feedback do check — com TRAVA champion/
+// challenger (lib/ia3-cenarios): a candidata é gerada em memória, auditada
+// pela 2ª IA e SÓ substitui a atual se a nota não piorar. O retorno já traz
+// nota/status — a UI NÃO deve re-checar depois (re-check sobrescreveria a
+// auditoria e poderia regravar nota pior).
+export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {}): Promise<{ success: boolean; error?: string; message?: string; aplicado?: boolean; nota?: number; notaAnterior?: number | null; status?: string }> {
   try {
-    // banco_cenarios é misto → raw por id
-    const { data: cen } = await sbRaw.from('banco_cenarios')
-      .select('empresa_id, competencia_id, cargo, ppp_escola_id, sugestao_check, justificativa_check, alertas_check')
-      .eq('id', cenarioId).single();
-    if (!cen) return { success: false, error: 'Cenário não encontrado' };
-    if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional)' };
-
-    const tdb = tenantDb(cen.empresa_id);
-
-    // Regenerar passando feedback enriquecido
-    const alertas = typeof cen.alertas_check === 'object' ? cen.alertas_check : {};
-    const feedbackParts = [cen.justificativa_check, cen.sugestao_check];
-    if (alertas.ponto_mais_fraco) feedbackParts.push(`Ponto mais fraco: ${alertas.ponto_mais_fraco}`);
-    if (Array.isArray(alertas.descritores_sem_cobertura) && alertas.descritores_sem_cobertura.length) {
-      feedbackParts.push(`Descritores sem cobertura: ${alertas.descritores_sem_cobertura.join(', ')}`);
-    }
-    if (Array.isArray(alertas.perguntas_com_risco)) {
-      alertas.perguntas_com_risco.forEach((p: any) => {
-        feedbackParts.push(`P${p.numero}: ${p.problema}. Sugestão: ${p.correcao_recomendada}`);
-      });
-    }
-    const feedbackExtra = feedbackParts.filter(Boolean).join('\n');
-
-    // Buscar dados necessários (como rodarIA3Uma)
-    let empresa;
-    const { data: emp1 } = await sbRaw.from('empresas')
-      .select('nome, segmento, ppp_texto').eq('id', cen.empresa_id).single();
-    empresa = emp1 || (await sbRaw.from('empresas').select('nome, segmento').eq('id', cen.empresa_id).single()).data;
-
-    const { data: comp } = await tdb.from('competencias')
-      .select('id, nome, cod_comp, pilar, descricao, cargo')
-      .eq('id', cen.competencia_id).single();
-    if (!comp) return { success: false, error: 'Competência não encontrada' };
-
-    const { data: descritores } = await tdb.from('competencias')
-      .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-      .eq('cod_comp', comp.cod_comp).not('cod_desc', 'is', null);
-
-    const contextoPPP = await buscarContextoPPP(tdb, empresa.nome, cen.ppp_escola_id);
-    const valores = await buscarValores(tdb, empresa.nome);
-
-    const { data: cargoEmp } = await tdb.from('cargos_empresa')
-      .select('gabarito, descricao, principais_entregas, stakeholders, decisoes_recorrentes, tensoes_comuns')
-      .eq('nome', cen.cargo).maybeSingle();
-    const cargoDetalhe = cargoEmp || {};
-    const gabCIS = cargoDetalhe.gabarito ? (typeof cargoDetalhe.gabarito === 'string' ? JSON.parse(cargoDetalhe.gabarito) : cargoDetalhe.gabarito) : null;
-
-    // Gerar com instrução extra do feedback
-    const system = buildIA3SystemPrompt();
-    let user = buildIA3UserPrompt(empresa, cen.cargo, cargoDetalhe, comp, descritores || [], valores, contextoPPP, gabCIS);
-    if (feedbackExtra) {
-      user += `\n\nFEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS):\n${feedbackExtra}`;
-    }
-
-    const resposta = await callAI(system, user, aiConfig, 6144);
-    const resultado = await extractJSON(resposta);
-    if (!resultado) return { success: false, error: 'IA não retornou JSON válido' };
-
-    const cen2 = resultado.cenario || resultado.scenario || resultado;
-    const titulo = cen2.titulo || cen2.title || resultado.titulo || 'Cenário';
-    const contexto = cen2.contexto || cen2.context || cen2.descricao || resultado.contexto || '';
-
-    const alternativasEnriquecidas = {
-      perguntas: (resultado.perguntas || resultado.questions || cen2.perguntas || []),
-      faceta_testada_principal: cen2.faceta_testada_principal || null,
-      tradeoff_testado: cen2.tradeoff_testado || null,
-      fator_complicador: cen2.fator_complicador || null,
-      dilema_etico: cen2.dilema_etico || resultado.dilema_etico || null,
-      armadilha_de_resposta_generica: cen2.armadilha_de_resposta_generica || null,
-      confianca_cenario: typeof cen2.confianca_cenario === 'number' ? Math.max(0, Math.min(1, cen2.confianca_cenario)) : null,
-      riscos_do_cenario: cen2.riscos_do_cenario || null,
-      mapa_cobertura_descritores: resultado.mapa_cobertura_descritores || null,
-    };
-
-    const { data: cenLinha } = await sbRaw.from('banco_cenarios').select('empresa_id').eq('id', cenarioId).maybeSingle();
-    let qUpd = sbRaw.from('banco_cenarios').update({
-      titulo,
-      descricao: contexto,
-      alternativas: alternativasEnriquecidas,
-      nota_check: null,
-      status_check: null,
-      dimensoes_check: null,
-      justificativa_check: null,
-      sugestao_check: null,
-      alertas_check: null,
-      checked_at: null,
-    }).eq('id', cenarioId);
-    qUpd = cenLinha?.empresa_id ? qUpd.eq('empresa_id', cenLinha.empresa_id) : qUpd.is('empresa_id', null);
-    const { error: updErr } = await qUpd;
-
-    if (updErr) return { success: false, error: updErr.message };
-    return { success: true, message: `Cenário regenerado: ${comp.nome}` };
+    const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
+    return await regenerarCenarioIA3ComTrava(sbRaw, { cenarioId, aiConfig });
   } catch (err) {
     return { success: false, error: err.message };
   }
