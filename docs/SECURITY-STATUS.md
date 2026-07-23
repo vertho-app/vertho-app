@@ -1,8 +1,25 @@
 # Estado atual de seguranca — Vertho Mentor IA
 
-> Ultima revisao: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
+> Ultima revisao: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
 > Antes: 2026-07-17 (auditoria geral — detalhes em `docs/LEVANTAMENTO-2026-07.md` §4. **3 achados altos NOVOS**, hoje fechados: (1) `api/bunny-videos` + `api/video-download` sem auth — enumeracao + download anonimo de videos, PII potencial nos personalizados; (2) header `x-tenant-slug` forjavel no apex/vercel.app — enumeracao de e-mails cross-tenant e signup em tenant alheio; (3) open redirect de `token_hash` de sessao em `api/auth/phone-otp/verify`. Numeros corrigidos: service-role = **130 arquivos / 299 usos** (nao 91/168); residuo `internal` = **5 entradas** (nao 8; fase1/fase3 removidos 10/07). As 4 classes criticas de 03/07 seguem confirmadas fechadas.)
 > Anterior: 2026-07-07 (defense-in-depth de tenant nas ações internas + filtro de contas internas demo-aware; ver seção "Endurecimento 06-07/07"). Anterior: 2026-07-03 (auditoria de segurança — RCE/RLS/IDOR/search_path/MVs fechados; ver seção "Auditoria de segurança 03/07")
+
+## Fechamento da auditoria 23/07
+
+Auditoria multi-agente (223 arquivos de alto risco; 29 achados confirmados por verificação adversarial). Relatório detalhado FORA do git (repo é público). **Todos os grupos remediados**; classe dominante = gate de permissão que não liga o `empresaId`/`colabId` (vindos do client) ao tenant da sessão.
+
+| Grupo | Classe | Correção | Commit |
+|---|---|---|---|
+| B — auth quebrada (4) | action sem gate / `internal` bypass | núcleo headless em `lib/`, wrappers sempre gatados; rota interna com `x-internal-secret` timing-safe | `50db7e73` |
+| A — IDOR cross-tenant (16) | `requireAdminSupabase`/`requirePermissionAction` sem bind de tenant + perm tenant-scoped no `rh` | `requireEmpresaSupabase(empresaId, perm)`; ou lê a linha + `assertTenantAccessAction(ctx, row.empresa_id)` | `5f971c9c` `a8680caa` `6b9622a2` |
+| C — IDOR cross-colab (6) | export `'use server'` aceitando `colabId`/email do client | `canViewColabJourney`/`ctx.email`; helpers de report/devolutiva viraram núcleo headless (`lib/relatorio-comportamental/relatorio-core.ts`) fora de `'use server'` | `d483b2c5` `bcaed8a9` |
+| D — SSRF / arg-injection (3) | DNS-rebinding/TOCTOU + yt-dlp `--exec` | guarda anti-SSRF compartilhada `lib/net-guard.ts` (sintaxe + DNS pré-check + enforcement no connect, incl. IP literal); host começando com `-` rejeitado | `4d16bdf4` |
+| E — vazamento cross-tenant | `empresa_id` omitido → sem filtro de tenant | tenant derivado da sessão quando omitido, `assertTenantAccess` quando presente, trava UUID no filtro `.or` | `24475b94` |
+| backlog — evolution-report | `internal:{empresaId:null}` pulava gate + recheck B5 | núcleo headless `lib/season-engine/evolution-report-core.ts`, action sempre gatada | `44235a0e` |
+
+Padrão de remediação: **exports `'use server'` sempre gatados; caminho headless (auto-trigger/rota/task) importa um núcleo em `lib/` que revalida o tenant por item (`opts.empresaId`, "B5")**. Guardas de CI que sustentam: `use-server-internal-guard` (allowlist só encolhe — hoje 2 entradas), `service-role-guard` (allowlist de `createSupabaseAdmin()`, só arquivos versionados), `tenant-read/mutation-guard`, `dashboard-isolation`.
+
+**Aberto (operacional, não-código):** redeploy MANUAL das tasks Trigger.dev (acumulada-piloto, extracao-video, estruturar-material) — os fixes de B/D no worker + a dependência nova `undici` só entram com `npx trigger.dev deploy`.
 
 ## Fechamento dos altos 22/07
 
