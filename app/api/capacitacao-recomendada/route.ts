@@ -20,15 +20,23 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const competencia = searchParams.get('competencia');
-    const empresaId = searchParams.get('empresa_id');
+    const empresaParam = searchParams.get('empresa_id');
     const limit = Math.min(Number(searchParams.get('limit') || 12), 30);
 
     if (!competencia) return NextResponse.json({ items: [] });
 
-    // Se empresa_id foi passado, validar tenant access
-    if (empresaId) {
-      const guard = assertTenantAccess(auth, empresaId);
+    // Tenant scope: NUNCA confiar no cliente pra OMITIR o filtro. Se empresa_id
+    // vier, valida o acesso; senão, deriva do tenant do PRÓPRIO usuário. Sem
+    // isso, omitir empresa_id devolvia micro_conteudos de TODOS os tenants.
+    if (empresaParam) {
+      const guard = assertTenantAccess(auth, empresaParam);
       if (guard) return guard;
+    }
+    const empresaId = empresaParam || auth.empresaId || null;
+    // empresaId entra numa string de filtro PostgREST (.or) — trava em UUID pra
+    // um valor de admin não conseguir injetar no filtro.
+    if (empresaId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(empresaId)) {
+      return NextResponse.json({ error: 'empresa_id inválido' }, { status: 400 });
     }
 
     const sb = createSupabaseAdmin();
@@ -40,9 +48,11 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (empresaId) {
-      q = q.or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
-    }
+    // Sempre escopa: tenant do usuário + conteúdo global (NULL). Sem tenant
+    // (ex.: platform admin sem empresa_id) → só o conteúdo global.
+    q = empresaId
+      ? q.or(`empresa_id.eq.${empresaId},empresa_id.is.null`)
+      : q.is('empresa_id', null);
 
     const { data, error } = await q;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
