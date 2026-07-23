@@ -49,12 +49,25 @@ export async function loadCertificadoData(email: string) {
   }
 
   const { data: empresa } = await sb.from('empresas')
-    .select('nome, default_locale')
+    .select('nome, ui_config, default_locale')
     .eq('id', trilha.empresa_id).maybeSingle();
 
-  // Padrão Vertho (design bundle 23/07): a instituição aparece como TEXTO no
-  // rodapé (sem logo do tenant) — cert de marca única. Por isso não buscamos
-  // mais `ui_config.logo_url`.
+  // Logo do tenant (branding em `ui_config.logo_url`) → data URI. react-pdf em
+  // Node não resolve URL remota + só rasteriza PNG/JPEG (SVG/webp NÃO renderiza
+  // como <Image>) → só embutimos raster; senão o rodapé cai pro nome em texto.
+  let logoEmpresaBase64: string | null = null;
+  const logoUrl = (empresa?.ui_config as any)?.logo_url;
+  if (logoUrl && typeof logoUrl === 'string') {
+    try {
+      const res = await fetch(logoUrl);
+      const mime = (res.headers.get('content-type') || '').toLowerCase();
+      if (res.ok && (mime.includes('png') || mime.includes('jpeg') || mime.includes('jpg'))) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        logoEmpresaBase64 = `data:${mime};base64,${buf.toString('base64')}`;
+      }
+    } catch { /* fallback: nome da empresa em texto */ }
+  }
+
   return {
     ok: true,
     colab: { nome: colab.nome_completo, cargo: colab.cargo },
@@ -68,5 +81,6 @@ export async function loadCertificadoData(email: string) {
     },
     empresa: { nome: empresa?.nome || '', locale: empresa?.default_locale || 'pt-BR' },
     participacao,
+    logoEmpresaBase64,
   };
 }

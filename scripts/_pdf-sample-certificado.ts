@@ -17,6 +17,10 @@ async function save(nome: string, bytes: Uint8Array | Buffer) {
   console.log('OK', p, (Buffer.from(bytes).length / 1024 | 0) + 'KB');
 }
 
+// Logo raster fake do tenant (PNG local) pra validar o rodapé co-branded.
+const fakeLogo = fs.readFileSync(path.join(process.cwd(), 'public', 'logo-vertho-cover.png'));
+const logoEmpresaBase64 = `data:image/png;base64,${fakeLogo.toString('base64')}`;
+
 const participacao = { semanasComEntrega: 12, totalSemanas: 14, pct: 12 / 14, elegivel: true };
 
 const base = {
@@ -33,6 +37,7 @@ const base = {
 
 async function main() {
   await save('certificado-ptbr', await renderCertificadoPDF(base));
+  await save('certificado-ptbr-com-logo', await renderCertificadoPDF({ ...base, logoEmpresaBase64 }));
   await save('certificado-enus', await renderCertificadoPDF({
     ...base,
     empresa: { nome: 'Acme School', locale: 'en-US' },

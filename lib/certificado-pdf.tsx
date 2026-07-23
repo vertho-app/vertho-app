@@ -56,6 +56,8 @@ Font.registerHyphenationCallback((w: string) => [w]);
 
 // Assinatura institucional (Vertho) — o certificado é co-emitido pela plataforma.
 const SIGNATARIO = { nome: 'Samuel Protetti' };
+// Carga horária certificada — total fixo por temporada (decisão de produto 23/07).
+const CARGA_HORARIA = 48;
 
 const styles = StyleSheet.create({
   page: { backgroundColor: BG, fontFamily: 'Inter', color: INK, position: 'relative' },
@@ -80,10 +82,10 @@ const styles = StyleSheet.create({
   periodo: { fontFamily: 'Inter', fontSize: 10.5, lineHeight: 1.6, color: MUTED, marginTop: 9, textAlign: 'center' },
 
   metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 19.5 },
-  metaCell: { alignItems: 'center' },
+  metaCell: { alignItems: 'center', paddingHorizontal: 4 },
   metaLabel: { fontFamily: 'Jakarta', fontSize: 8.25, fontWeight: 600, letterSpacing: 1.3, textTransform: 'uppercase', color: MUTED },
   metaValue: { fontFamily: 'Inter', fontSize: 11.25, fontWeight: 500, color: INK, marginTop: 5.25 },
-  metaDivider: { width: 0.75, height: 34.5, backgroundColor: FRAME, marginHorizontal: 23 },
+  metaDivider: { width: 0.75, height: 34.5, backgroundColor: FRAME, marginHorizontal: 18 },
 
   spacer: { flexGrow: 1 },
 
@@ -93,6 +95,7 @@ const styles = StyleSheet.create({
   footerDivider: { width: 0.75, height: 22.5, backgroundColor: FRAME, marginHorizontal: 10.5 },
   instLabel: { fontFamily: 'Jakarta', fontSize: 7.5, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: MUTED },
   instValue: { fontFamily: 'Inter', fontSize: 10.5, fontWeight: 600, color: INK, marginTop: 3 },
+  logoEmpresa: { maxHeight: 21, maxWidth: 120, objectFit: 'contain' },
 
   sigWrap: { alignItems: 'center' },
   sigCursive: { fontFamily: 'Dancing', fontSize: 25.5, color: INK },
@@ -145,6 +148,8 @@ const STRINGS: Record<Locale, {
   temporada: (n: number | string) => string;
   bodyAfter: string;
   periodo: (i: string, f: string) => string;
+  cargaLabel: string;
+  cargaValue: (h: number) => string;
   participacaoLabel: string;
   participacaoValue: (s: number, t: number, pct: number) => string;
   emitidoLabel: string;
@@ -159,6 +164,8 @@ const STRINGS: Record<Locale, {
     temporada: (n) => `Temporada ${n}`,
     bodyAfter: 'da Jornada de Desenvolvimento, dedicada a',
     periodo: (i, f) => `no período de ${i} a ${f}`,
+    cargaLabel: 'Carga horária',
+    cargaValue: (h) => `${h} horas`,
     participacaoLabel: 'Participação',
     participacaoValue: (s, t, pct) => `${s} de ${t} semanas · ${pct}%`,
     emitidoLabel: 'Emitido em',
@@ -173,6 +180,8 @@ const STRINGS: Record<Locale, {
     temporada: (n) => `Temporada ${n}`,
     bodyAfter: 'da Jornada de Desenvolvimento, dedicada a',
     periodo: (i, f) => `no período de ${i} a ${f}`,
+    cargaLabel: 'Carga horária',
+    cargaValue: (h) => `${h} horas`,
     participacaoLabel: 'Participação',
     participacaoValue: (s, t, pct) => `${s} de ${t} semanas · ${pct}%`,
     emitidoLabel: 'Emitido em',
@@ -187,6 +196,8 @@ const STRINGS: Record<Locale, {
     temporada: (n) => `Temporada ${n}`,
     bodyAfter: 'del Programa de Desarrollo, dedicada a',
     periodo: (i, f) => `del ${i} al ${f}`,
+    cargaLabel: 'Carga horaria',
+    cargaValue: (h) => `${h} horas`,
     participacaoLabel: 'Participación',
     participacaoValue: (s, t, pct) => `${s} de ${t} semanas · ${pct}%`,
     emitidoLabel: 'Emitido el',
@@ -201,6 +212,8 @@ const STRINGS: Record<Locale, {
     temporada: (n) => `Season ${n}`,
     bodyAfter: 'of the Development Journey, focused on',
     periodo: (i, f) => `from ${i} to ${f}`,
+    cargaLabel: 'Course hours',
+    cargaValue: (h) => `${h} hours`,
     participacaoLabel: 'Participation',
     participacaoValue: (s, t, pct) => `${s} of ${t} weeks · ${pct}%`,
     emitidoLabel: 'Issued on',
@@ -226,6 +239,8 @@ export interface CertificadoDados {
   };
   empresa: { nome: string; locale?: string };
   participacao: { semanasComEntrega: number; totalSemanas: number; pct: number };
+  /** Logo do tenant (data URI raster) — branding em ui_config.logo_url; null → nome em texto. */
+  logoEmpresaBase64?: string | null;
 }
 
 export function CertificadoPDF({ dados }: { dados: CertificadoDados }) {
@@ -286,6 +301,11 @@ export function CertificadoPDF({ dados }: { dados: CertificadoDados }) {
           {/* meta-row */}
           <View style={styles.metaRow}>
             <View style={styles.metaCell}>
+              <Text style={styles.metaLabel}>{S.cargaLabel}</Text>
+              <Text style={styles.metaValue}>{S.cargaValue(CARGA_HORARIA)}</Text>
+            </View>
+            <View style={styles.metaDivider} />
+            <View style={styles.metaCell}>
               <Text style={styles.metaLabel}>{S.participacaoLabel}</Text>
               <Text style={styles.metaValue}>{sanitize(S.participacaoValue(semanas, total, pct))}</Text>
             </View>
@@ -304,7 +324,9 @@ export function CertificadoPDF({ dados }: { dados: CertificadoDados }) {
               {logoVertho ? <Image src={logoVertho} style={styles.logoVertho} /> : <Text style={{ fontFamily: 'Jakarta', fontSize: 12, color: INK }}>vertho.ai</Text>}
               <View style={styles.footerDivider} />
               <View>
-                <Text style={styles.instLabel}>{S.instituicaoLabel}</Text>
+                {dados.logoEmpresaBase64
+                  ? <Image src={dados.logoEmpresaBase64} style={styles.logoEmpresa} />
+                  : <Text style={styles.instLabel}>{S.instituicaoLabel}</Text>}
                 <Text style={styles.instValue}>{sanitize(dados.empresa.nome)}</Text>
               </View>
             </View>
