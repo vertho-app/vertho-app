@@ -6,7 +6,7 @@ import { tenantEmailFrom, tenantUrl } from '@/lib/domain';
 import { callAI, type AIConfig } from '../ai-client';
 import { extractJSON } from '../utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { TEMP, upsertRelatorioAgregado } from './_shared';
 import { gerarEvolucaoFusao } from './evolucao';
@@ -231,7 +231,9 @@ REGRAS:
 }
 
 export async function enviarLinksPerfil(empresaId: string) {
-  const sbRaw = await requireAdminSupabase('assessments.dispatch');
+  // Gate TENANT-SCOPED (auditoria 23/07): dispara e-mail pro roster inteiro —
+  // o empresaId vem do client e precisa bater com o tenant da sessão.
+  const sbRaw = await requireEmpresaSupabase(empresaId, 'assessments.dispatch');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   // Tenant de demonstração: bloqueia disparo real antes de tocar colaboradores.
   const gate = await gateEnvioDemo(empresaId);

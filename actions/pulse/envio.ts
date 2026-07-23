@@ -1,6 +1,6 @@
 'use server';
 
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
@@ -65,7 +65,9 @@ export async function enviarConvitesPulso(
     apenas_status?: 'pending' | 'started';
   },
 ): Promise<{ ok: true; stats: EnvioStats } | { ok: false; error: string }> {
-  const sb = await requireAdminSupabase('assessments.dispatch');
+  // Gate TENANT-SCOPED (auditoria 23/07): disparo real de WhatsApp/email — o
+  // empresaId vem do client e precisa bater com o tenant da sessão.
+  const sb = await requireEmpresaSupabase(empresaId, 'assessments.dispatch');
   const adminEmail = (await getAuthenticatedEmailFromAction()) || 'desconhecido';
 
   // Tenant de demonstração: bloqueia disparo real antes de tocar assignments.

@@ -1,7 +1,7 @@
 'use server';
 
 import { enviarPDF } from './whatsapp';
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { renderToBuffer } from '@react-pdf/renderer';
@@ -14,7 +14,9 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // ── Enviar PDFs em lote via WhatsApp ────────────────────────────────────────
 
 export async function enviarPDFsLote(empresaId: string) {
-  const sb = await requireAdminSupabase('assessments.dispatch');
+  // Gate TENANT-SCOPED (auditoria 23/07): envia PDFs DISC confidenciais via
+  // WhatsApp — o empresaId vem do client e precisa bater com o tenant da sessão.
+  const sb = await requireEmpresaSupabase(empresaId, 'assessments.dispatch');
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug')

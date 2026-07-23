@@ -1,7 +1,7 @@
 {
   "description": "Arquivos autorizados a usar createSupabaseAdmin(). Inclui contagem esperada por arquivo. Qualquer uso novo fora desta lista falha no CI.",
   "allowlist": {
-    "actions/modulos-base.ts": 29,
+    "actions/modulos-base.ts": 24,
     "actions/ranking-adequacao.ts": 3,
     "trigger/gerar-kit.ts": 1,
     "app/api/internal/modulo-from-video/route.ts": 1,
@@ -17,7 +17,8 @@
     "actions/ai-client.ts": 1,
     "lib/ai-batch.ts": 2,
     "actions/ia-uso.ts": 1,
-    "actions/avaliacao-acumulada.ts": 2,
+    "lib/modulos-base/pipeline.ts": 4,
+    "lib/season-engine/avaliacao-acumulada-core.ts": 2,
     "actions/backup.ts": 1,
     "actions/conteudos-metrics.ts": 1,
     "actions/conteudos.ts": 2,
