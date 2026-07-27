@@ -9,6 +9,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { hasDiscMapeado } from '@/lib/disc-status';
 import { resolverNomeOficial } from '@/lib/descritores';
+import { buscarContextoPPP } from '@/lib/ia2-gabarito';
 
 // ── IA4: Avaliar respostas (fiel ao GAS — modelo temático) ──────────────────
 
@@ -365,16 +366,9 @@ export async function rodarIA4Uma(empresaId: string, respostaId: string, aiConfi
       .in('id', colabIds);
     const colab = colabs?.[0] || {};
 
-    let contextoPPP = '';
-    try {
-      const { data: ppp } = await tdb.from('ppp_escolas')
-        .select('extracao').eq('status', 'extraido')
-        .order('extracted_at', { ascending: false }).limit(1).maybeSingle();
-      if (ppp?.extracao) {
-        const ext = typeof ppp.extracao === 'string' ? JSON.parse(ppp.extracao) : ppp.extracao;
-        contextoPPP = JSON.stringify(ext).slice(0, 2000);
-      }
-    } catch {}
+    // Contexto institucional consolidado por empresa (F-I10 — era `.limit(1)`, uma
+    // escola sorteada da rede aplicada ao mapeamento de TODAS as respostas).
+    const contextoPPP = (await buscarContextoPPP(tdb, { empresaId })).slice(0, 2000);
 
     return await _avaliarUmaResposta(tdb, sbRaw, resp, colab, empresa, contextoPPP, aiConfig);
   } catch (err: any) {
@@ -413,17 +407,9 @@ export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
     const colabMap: Record<string, any> = {};
     (colabs || []).forEach((c: any) => { colabMap[c.id] = c; });
 
-    // Buscar PPP
-    let contextoPPP = '';
-    try {
-      const { data: ppp } = await tdb.from('ppp_escolas')
-        .select('extracao').eq('status', 'extraido')
-        .order('extracted_at', { ascending: false }).limit(1).maybeSingle();
-      if (ppp?.extracao) {
-        const ext = typeof ppp.extracao === 'string' ? JSON.parse(ppp.extracao) : ppp.extracao;
-        contextoPPP = JSON.stringify(ext).slice(0, 2000);
-      }
-    } catch {}
+    // Contexto institucional consolidado por empresa (F-I10). Vai no `cachedUserPrefix`
+    // do IA4, então é lido 1× por lote — consolidar não multiplica custo.
+    const contextoPPP = (await buscarContextoPPP(tdb, { empresaId })).slice(0, 2000);
 
     let avaliadas = 0, erros = 0, ultimoErro = '';
 

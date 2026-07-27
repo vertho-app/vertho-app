@@ -199,9 +199,11 @@ nunca **"o que está gravado aqui?"**.
 - NÃO query de colaborador por email direto — usar `findColabByEmail`.
 - NÃO `.limit(1)` em `ppp_escolas` p/ representar a empresa — empresa-rede tem **1 PPP por escola**
   (Ibipeba: 11) e isso aplica uma escola sorteada à rede inteira, em silêncio. Consolidar:
-  `resolverContextoEmpresa` (texto) ou `consolidarValoresDaRede` (valores). Os 4 consumidores conhecidos
-  já estão fechados (**F-I10** do `docs/FMEA-PIPELINE.md`) — e **nenhum guard de CI pega uma query nova
-  errada**, é regra de leitura. Para o contexto do PPP, o resolvedor é `buscarContextoPPP(tdb, {empresaId})`.
+  `buscarContextoPPP(tdb, {empresaId})` (texto), `buscarValoresDaRede`/`buscarValores` (valores) ou
+  `resolverContextoEmpresa` (contexto cru do Kit). **9 sites** dessa classe foram fechados em 26-27/07
+  (**F-I10** do `docs/FMEA-PIPELINE.md`); **guard de CI**: `tests/unit/security/ppp-rede-guard.test.ts`
+  falha em cadeia que reduz a 1 linha sem `.eq('id')`. Uma escola específica é legítima — só precisa
+  ser dita explicitamente.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.

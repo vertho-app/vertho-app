@@ -221,6 +221,17 @@ export function consolidarValoresDaRede(listas: string[][]): string[] {
  * entre escolas), sem IA: são strings curtas, não texto corrido.
  */
 export async function buscarValores(tdb: any, _empresaNome?: string): Promise<string[]> {
+  const consolidados = await buscarValoresDaRede(tdb);
+  return consolidados.length ? consolidados : VALORES_DEFAULT;
+}
+
+/**
+ * Igual a `buscarValores`, mas **devolve `[]` quando a empresa não tem valores** em vez
+ * do fallback genérico. Existe porque o Cenário B injeta contexto só se houver: cair no
+ * `VALORES_DEFAULT` lá mudaria o prompt de todo tenant sem PPP — mudança de insumo não
+ * medida. Quem quer o fallback usa `buscarValores`; quem quer saber se há dado usa esta.
+ */
+export async function buscarValoresDaRede(tdb: any): Promise<string[]> {
   try {
     const { data: ppps } = await tdb.from('ppp_escolas')
       .select('valores')
@@ -232,12 +243,10 @@ export async function buscarValores(tdb: any, _empresaNome?: string): Promise<st
       .map((p: any) => (Array.isArray(p?.valores) ? p.valores : []))
       .filter((l: string[]) => l.length > 0);
 
-    if (!listas.length) return VALORES_DEFAULT;
-
-    const consolidados = consolidarValoresDaRede(listas);
-    return consolidados.length ? consolidados : VALORES_DEFAULT;
+    if (!listas.length) return [];
+    return consolidarValoresDaRede(listas);
   } catch {
-    return VALORES_DEFAULT;
+    return [];
   }
 }
 

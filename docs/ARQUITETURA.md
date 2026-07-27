@@ -82,10 +82,13 @@
 - **26/07** — IA2 consolida os **valores da REDE** (empresa-rede tem 1 PPP por escola; `.limit(1)`
   aplicava uma escola sorteada ao municipio inteiro — F-I10 do `docs/FMEA-PIPELINE.md`). Os 2 guards
   de tenant voltaram ao verde.
-- **27/07** — **F-I10 fechado nos 4 consumidores**: `buscarContextoPPP` (IA1/IA2/IA3), o check dual do
-  IA3 e o PDF personalizado passaram a usar o resolvedor consolidado do Kit. Regra que sai daí: **uma
-  fonte de contexto institucional por empresa** (`empresas.kit_contexto`) — regua, kit e PDF na MESMA
-  lente. O PDF ganhou a assinatura do contexto na chave de cache (F-E7: colisao + invalidacao).
+- **27/07** — **F-I10 fechado em 9 sites** e virou **guard de CI**
+  (`tests/unit/security/ppp-rede-guard.test.ts`): `buscarContextoPPP` (IA1/IA2/IA3), check dual do IA3,
+  PDF personalizado, IA4 (×2) e Cenario B do fechamento (×3). Os 5 ultimos foram achados **pelo guard**,
+  depois de a classe ter sido declarada fechada por leitura — o padrao perigoso virou teste, nao
+  paragrafo. Regra: **uma fonte de contexto institucional por empresa** (`empresas.kit_contexto`) —
+  regua, cenario, kit e PDF na MESMA lente. O PDF ganhou a assinatura do contexto na chave de cache
+  (F-E7: colisao + invalidacao).
 
 **Migrations: 164 arquivos, `022` a `183`** (com gaps). Marcos recentes: 153-158 (modo piloto +
 hardening RLS/RCE), 159-168 (Portal do Representante + proposta comercial), 169 (`acumulada_status`

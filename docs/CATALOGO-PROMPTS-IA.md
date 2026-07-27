@@ -1501,8 +1501,8 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Modelo**: herdado do `aiConfig`. **Max tokens**: 1200 (saída cortada em 2500 chars).
 - **Quando roda**: só quando a empresa tem **N PPPs** (1 por escola). Com 1 PPP, usa direto — sem chamada de IA. Resultado cacheado em `empresas.kit_contexto`, invalidado quando entra PPP mais novo; falha na síntese cai no PPP mais recente **sem cachear**.
 - **System prompt**: "Você consolida o CONTEXTO PEDAGÓGICO MUNICIPAL de uma rede de ensino a partir dos PPPs de várias escolas. Extraia o que é COMPARTILHADO pela rede…, ignorando idiossincrasias de escolas específicas." Máximo 20 escolas, 1200 chars cada; **proibido citar nomes de escolas**.
-- **Por que existe**: pegar "o PPP mais recente" numa rede aplica **uma escola sorteada** ao município inteiro. Esse é o modo de falha **F-I10** (`docs/FMEA-PIPELINE.md`), fechado nos 4 consumidores (valores do IA2 em 26/07; `buscarContextoPPP`, check do IA3 e PDF personalizado em 27/07).
-- **Quem mais consome agora**: além do Kit, `buscarContextoPPP` (IA1/IA2/IA3, só quando a empresa tem **N** PPPs) e o PDF personalizado. Todos compartilham o cache `empresas.kit_contexto` — **uma** síntese por rede, e a mesma lente na régua, no kit e no PDF.
+- **Por que existe**: pegar "o PPP mais recente" numa rede aplica **uma escola sorteada** ao município inteiro. Esse é o modo de falha **F-I10** (`docs/FMEA-PIPELINE.md`), fechado em **9 sites** (26-27/07) e agora protegido por guard de CI (`tests/unit/security/ppp-rede-guard.test.ts`).
+- **Quem mais consome agora**: além do Kit — `buscarContextoPPP` (IA1/IA2/IA3, só quando a empresa tem **N** PPPs), IA4, Cenário B do fechamento e o PDF personalizado. Todos compartilham o cache `empresas.kit_contexto` — **uma** síntese por rede, e a mesma lente na régua, no cenário, no kit e no PDF.
 
 ### 13.5 Paleta de marca a partir do site do cliente
 > `ATIVO` desde 2026-07-22 · Prompt documentado como: `literal`

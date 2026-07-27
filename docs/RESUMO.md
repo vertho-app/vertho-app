@@ -25,7 +25,7 @@ Antes de considerar qualquer tarefa pronta:
 ```powershell
 npm run build          # NUNCA com `| tail` (deixa next build orfao segurando o lock)
 npx tsc --noEmit
-npm run test:unit      # vitest — 904 testes em 98 arquivos (medido 27/07), roda no CI
+npm run test:unit      # vitest — 908 testes em 99 arquivos (medido 27/07), roda no CI
 ```
 
 Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (reseta `acme-demo`).
@@ -35,8 +35,10 @@ Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (rese
 
 **26-27/07** — **Uma fonte de contexto institucional por empresa.** Empresa-rede tem 1 PPP por escola
 (Ibipeba: 11) e o `.limit(1)` aplicava uma escola sorteada ao municipio inteiro, em silencio — classe
-**F-I10** no `docs/FMEA-PIPELINE.md`. Fechada nos 4 consumidores: valores do IA2 (`062dca13`, 26/07) e,
-em 27/07, `buscarContextoPPP` (IA1/IA2/IA3), o check dual do IA3 e o PDF personalizado. Regua, kit e PDF
+**F-I10** no `docs/FMEA-PIPELINE.md`. Fechada em **9 sites** (valores do IA2 em `062dca13`; em 27/07
+`buscarContextoPPP` de IA1/IA2/IA3, check dual do IA3, PDF personalizado, IA4 ×2 e Cenario B ×3) e
+protegida por **guard de CI** (`tests/unit/security/ppp-rede-guard.test.ts`) — os 5 ultimos sites foram
+achados PELO guard, depois de a classe ter sido declarada fechada por leitura. Regua, cenario, kit e PDF
 passam a ver a MESMA lente (`empresas.kit_contexto`); a chave de cache do PDF ganhou a assinatura do
 contexto (F-E7 — fecha colisao entre escolas **e** a invalidacao quando entra PPP novo).
 Os 2 guards de tenant voltaram ao verde (`3367efb7`): `certificado.ts` por `tenantDb`, `fetchColabPorId`

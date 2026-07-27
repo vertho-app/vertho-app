@@ -8,6 +8,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { getModelForTask, DEFAULT_TASK_MODELS } from '@/lib/ai-tasks';
 import { travaRegeneracao } from '@/lib/ia3-cenarios';
+import { buscarContextoPPP, buscarValoresDaRede } from '@/lib/ia2-gabarito';
 import { TEMP, type Fase5Config } from './_shared';
 
 // System prompt do check de cenário B — harmonizado com o check do cenário A
@@ -208,17 +209,15 @@ O Cenário B deve ser útil para triangulação na semana 14.`);
   return { system, user: blocks.join('\n\n') };
 }
 
-// Helper: busca PPP resumido (mesmo padrão do check cenário A).
-// Recebe tdb tenant-scoped.
-async function fetchPppResumo(tdb) {
-  const { data: ppp } = await tdb.from('ppp_escolas')
-    .select('extracao')
-    .eq('status', 'extraido')
-    .limit(1)
-    .maybeSingle();
-  if (!ppp?.extracao) return '';
-  const ext = typeof ppp.extracao === 'string' ? JSON.parse(ppp.extracao) : ppp.extracao;
-  return JSON.stringify(ext).slice(0, 500);
+// Helper: busca PPP resumido (mesmo resolvedor do cenário A).
+//
+// Antes: `.limit(1)` SEM `order` — numa empresa-rede (1 PPP por escola) isso pegava uma
+// escola em ordem indefinida do Postgres, e o Cenário B do FECHAMENTO era gerado e
+// auditado na lente dela. F-I10 do docs/FMEA-PIPELINE.md. Agora consolida por empresa
+// (`buscarContextoPPP`), que também troca o JSON cru truncado por seções rotuladas.
+async function fetchPppResumo(tdb: any, empresaId: string) {
+  const contexto = await buscarContextoPPP(tdb, { empresaId });
+  return contexto.slice(0, 500);
 }
 
 // Helper: roda check em 1 cenário B e persiste resultado.
@@ -353,13 +352,12 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
       .eq('tipo_cenario', 'cenario_b');
     const jaTemB = new Set((cenariosB || []).map(c => `${c.competencia_id}::${c.cargo}`));
 
-    // PPP da empresa (contexto institucional para geração)
-    const { data: ppps } = await tdb.from('ppp_escolas')
-      .select('valores').limit(1);
-    const pppContexto = ppps?.[0]?.valores ? JSON.stringify(ppps[0].valores) : '';
+    // Valores institucionais da REDE (consolidados entre escolas — F-I10).
+    const valoresRede = await buscarValoresDaRede(tdb);
+    const pppContexto = valoresRede.length ? JSON.stringify(valoresRede) : '';
 
     // PPP resumo para o check (formato diferente — extração)
-    const pppResumoCheck = await fetchPppResumo(tdb);
+    const pppResumoCheck = await fetchPppResumo(tdb, empresaId);
 
     const checkModel = aiConfig?.checkModel;
     // GERAÇÃO em paralelo (limite 3 — TPM de IA); cada item devolve um
@@ -478,7 +476,7 @@ export async function checkCenarioBUm(cenarioId: string, modelo: string | null =
       .select('id, nome, cod_comp').eq('id', cen.competencia_id).maybeSingle();
 
     const descritoresTexto = comp ? await fetchDescritoresTexto(tdb, comp.cod_comp) : '';
-    const pppResumo = await fetchPppResumo(tdb);
+    const pppResumo = await fetchPppResumo(tdb, cen.empresa_id);
 
     // Buscar cenário A correspondente pra comparação
     const { data: cenA } = await tdb.from('banco_cenarios')
@@ -529,9 +527,8 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
       .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
       .limit(1).maybeSingle();
 
-    const { data: ppps } = await tdb.from('ppp_escolas')
-      .select('valores').limit(1);
-    const pppContexto = ppps?.[0]?.valores ? JSON.stringify(ppps[0].valores) : '';
+    const valoresRede = await buscarValoresDaRede(tdb);
+    const pppContexto = valoresRede.length ? JSON.stringify(valoresRede) : '';
 
     // Feedback enriquecido do check
     const feedbackParts = [cen.justificativa_check, cen.sugestao_check];
@@ -583,7 +580,7 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
       cargo: cen.cargo, titulo: cenarioData.titulo, descricao: cenarioData.descricao,
       alternativas: alternativasB,
     };
-    const pppResumoChk = await fetchPppResumo(tdb);
+    const pppResumoChk = await fetchPppResumo(tdb, cen.empresa_id);
     const modeloCheck = (aiConfig as any)?.checkModel || await getModelForTask(cen.empresa_id, 'cenarios_b_check');
     const av: any = await avaliarCenB(sbRaw, candidato, comp, descritoresTexto, pppResumoChk, modeloCheck, cenA || undefined);
     if (!av.success) return { success: false, error: `Auditoria da candidata falhou (${av.error}) — NADA foi alterado` };
@@ -678,7 +675,7 @@ export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Confi
     if (!pendentes.length) return { success: true, message: `Todos os ${cenarios.length} cenários B já foram checados` };
 
     const modelo = aiConfig?.checkModel || aiConfig?.model || await getModelForTask(empresaId, 'cenarios_b_check');
-    const pppResumo = await fetchPppResumo(tdb);
+    const pppResumo = await fetchPppResumo(tdb, empresaId);
 
     // Pré-carga em BATCH (elimina o cache incremental) e checks IA em
     // PARALELO com limite 4 — check é idempotente e barato de repetir,

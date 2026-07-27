@@ -277,9 +277,19 @@ briefs duplicados por tupla.
     **rota de PPP desconectada** do kit (item 3 da tabela de riscos do `PIPELINE-TRILHA.md`): em
     Ibipeba, 54 pessoas recebiam o PDF na lente de uma escola arbitrária enquanto o kit da mesma
     semana usava a lente municipal.
-- **Onde mais checar antes de escrever query nova:** qualquer `from('ppp_escolas')` sem
-  `pppEscolaId` explícito. Os 4 consumidores conhecidos estão fechados; o guard é a regra do
-  `CLAUDE.md`, não um teste de CI — uma query nova errada **não** falha o build.
+  - ✅ **IA4** (`actions/fase3.ts` ×2) e ✅ **Cenário B do fechamento** (`actions/fase5/cenarios-b.ts`
+    ×3) — 27/07. **Achados pelo guard, não por leitura**: eu havia declarado a classe "fechada nos 4
+    consumidores" e o guard apontou 5 sites a mais no primeiro run. Os dois de valores em `cenarios-b`
+    eram os piores da série: `.select('valores').limit(1)` **sem `order`** — escola em ordem
+    indefinida do Postgres, podendo variar entre execuções na MESMA empresa.
+- **Guard de CI:** `tests/unit/security/ppp-rede-guard.test.ts` — falha se uma cadeia de
+  `ppp_escolas` reduz a uma linha (`.limit(1)`/`.single()`/`.maybeSingle()`) **sem** dizer qual escola
+  (`.eq('id'`/`.eq('escola'`). Sem allowlist: o estoque é zero. Varre o **disco** (não `git ls-files`),
+  então arquivo novo ainda não commitado também é conferido. Recorte: `actions`, `app`, `lib`,
+  `trigger` — `scripts/` fica fora (diagnóstico one-off não entrega nada a ninguém).
+- **Lição de método:** 9 sites da mesma classe em 4 leituras humanas independentes do código. Enquanto
+  a regra era só texto no `CLAUDE.md`, cada release nova reintroduzia. **Grep de padrão perigoso vira
+  teste, não parágrafo.**
 
 ---
 
