@@ -13,7 +13,8 @@
 import { precarregarKits, overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { normalizePhone } from '@/lib/phone';
-import type { EntregaPrevista, EnvioObservado } from './regras';
+import { levantarPlanoKitsCoorte } from '@/lib/season-engine/kit/plano-coorte';
+import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte } from './regras';
 
 /** Dia da semana no fuso do envio (1=segunda … 7=domingo), como o cron calcula. */
 export function diaDaSemanaBRT(d: Date): number {
@@ -132,6 +133,91 @@ async function temDeckPronto(sb: any, empresaId: string, coreId: string | null, 
     .eq('cargo', cargo).eq('disc_dominante', d1).eq('status', 'done')
     .not('bunny_video_id', 'is', null).limit(1).maybeSingle();
   return !!deck;
+}
+
+/**
+ * Transforma o plano da coorte nas lacunas do horizonte. PURA e exportada porque a
+ * contagem é a parte fácil de errar — errei duas vezes antes de acertar (medido 27/07,
+ * Ibipeba, conferido contra um medidor independente que deu 41 temas):
+ *  · agregar o tema e rotular com a semana mais próxima → urgente inflado (68 vs 42);
+ *  · emitir por (tema × semana) sem dedup → esforço inflado (97), porque o mesmo tema
+ *    reaparece nas semanas seguintes e o kit é produzido UMA vez para todas.
+ *
+ * A unidade de esforço é **(tema × DISC)**, contada na PRIMEIRA semana que a demanda —
+ * é ela que define o prazo.
+ */
+export function montarLacunas(
+  plano: Array<{
+    competencia: string; descritor: string; cargo: string;
+    faltantes: string[]; pessoas: number;
+    discsPorSemana: Array<{ semana: number; discs: string[] }>;
+  }>,
+  diasAteSemana: (semana: number) => number,
+): LacunaKitHorizonte[] {
+  const porTemaSemana = new Map<string, LacunaKitHorizonte>();
+  for (const p of plano) {
+    if (!p.faltantes.length) continue;
+    const faltaNoTema = new Set(p.faltantes);
+    const jaAtribuido = new Set<string>();
+    for (const { semana, discs } of [...p.discsPorSemana].sort((a, b) => a.semana - b.semana)) {
+      const novos = discs.filter((d) => faltaNoTema.has(d) && !jaAtribuido.has(d));
+      if (!novos.length) continue;
+      novos.forEach((d) => jaAtribuido.add(d));
+      const chave = `${p.competencia}|${p.descritor}|${p.cargo}|${semana}`;
+      const atual = porTemaSemana.get(chave);
+      if (atual) atual.faltantes.push(...novos);
+      else {
+        porTemaSemana.set(chave, {
+          competencia: p.competencia, descritor: p.descritor, cargo: p.cargo,
+          faltantes: [...novos], pessoas: p.pessoas, semana, diasAte: diasAteSemana(semana),
+        });
+      }
+    }
+  }
+  return [...porTemaSemana.values()];
+}
+
+/**
+ * HORIZONTE: o que as próximas semanas vão demandar e ainda não existe.
+ *
+ * Reusa `levantarPlanoKitsCoorte` — o MESMO código que a tela de coorte usa para
+ * decidir o que gerar. A regra de ouro desta camada vale aqui também: reimplementar a
+ * varredura produziria um alarme que concorda consigo mesmo e diverge do que a
+ * geração faria.
+ *
+ * A janela começa na semana SEGUINTE à mais adiantada da coorte: a semana corrente é
+ * problema do pré-voo, e alarmar sobre ela aqui duplicaria o achado.
+ */
+export async function coletarHorizonteKits(
+  sb: any,
+  empresaId: string,
+  semanasAdiante: number,
+  hoje: Date = new Date(),
+): Promise<LacunaKitHorizonte[]> {
+  // Semana corrente da coorte = a MAIOR entre os ativos (quem está mais adiantado
+  // chega primeiro na semana futura, e é por ele que o prazo aperta).
+  const { data: envios } = await sb.from('fase4_envios')
+    .select('semana_atual').eq('empresa_id', empresaId).eq('status', 'ativo');
+  if (!envios?.length) return [];
+  const semanaCorrente = Math.max(1, ...((envios as any[]).map((e) => Number(e.semana_atual) || 1)));
+
+  const de = semanaCorrente + 1;
+  const ate = semanaCorrente + semanasAdiante;
+  const base = await levantarPlanoKitsCoorte(sb, empresaId, { semanaMin: de, semanaMax: ate });
+  if ('error' in base) return [];
+
+  // Data de abertura de uma semana = início mais cedo da coorte + (N-1) × 7 dias.
+  // Sem `data_inicio` não dá para datar: cai em 0 dias, que classifica como urgente —
+  // preferir o alarme falso ao silêncio, porque o silêncio aqui é indistinguível de
+  // "está tudo pronto" (foi exatamente assim que a semana 5 passou despercebida).
+  const inicio = base.inicioMaisCedo ? new Date(`${base.inicioMaisCedo}T00:00:00Z`) : null;
+  const diasAteSemana = (n: number): number => {
+    if (!inicio) return 0;
+    const abre = new Date(inicio.getTime() + (n - 1) * 7 * 86400_000);
+    return Math.round((abre.getTime() - hoje.getTime()) / 86400_000);
+  };
+
+  return montarLacunas(base.plano, diasAteSemana);
 }
 
 /** Estado dos carimbos do dia (postflight). */

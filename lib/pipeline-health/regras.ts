@@ -198,6 +198,74 @@ export function checarEntregaIncompleta(envios: EnvioObservado[]): Achado | null
   );
 }
 
+/**
+ * R7 · HORIZONTE: tema demandado por uma semana FUTURA sem kit publicado.
+ *
+ * As outras regras olham a entrega de amanhã — servem para corrigir, não para
+ * planejar. Esta olha semanas à frente, porque a produção de kit não cabe em 25h:
+ * são ~5min por DISC, e um bloco novo de competência pode significar dezenas.
+ *
+ * Real (27/07, Ibipeba): a trilha troca de BLOCO DE COMPETÊNCIAS na semana 5 — os 3
+ * pares (competência × cargo) que entram ali eram 100% novos e nenhum tinha kit, com
+ * o piloto já na semana 3. Os kits das semanas 1-3 foram gerados sob demanda, uma
+ * rodada por vez, e o bloco novo nunca entrou em rodada nenhuma. A capacidade de
+ * detectar já existia (`levantarPlanoKitsCoorte` em dry-run); faltava alguém perguntar.
+ *
+ * Corte de severidade por TEMPO, não por volume: perto demais para produzir = crítico.
+ */
+export interface LacunaKitHorizonte {
+  competencia: string;
+  descritor: string;
+  cargo: string;
+  /** DISC sem kit publicado. */
+  faltantes: string[];
+  pessoas: number;
+  /** Semana da trilha (a mais próxima) que demanda este tema. */
+  semana: number;
+  /** Dias até essa semana abrir para quem está mais adiantado na coorte. */
+  diasAte: number;
+}
+
+/** Abaixo disto não há tempo hábil de produzir e revisar: vira crítico. */
+export const HORIZONTE_CRITICO_DIAS = 14;
+
+export function checarHorizonteKits(
+  lacunas: LacunaKitHorizonte[],
+  criticoAteDias: number = HORIZONTE_CRITICO_DIAS,
+): Achado[] {
+  const comFalta = lacunas.filter((l) => l.faltantes.length > 0);
+  const rotulo = (l: LacunaKitHorizonte) =>
+    `sem${l.semana} (${l.diasAte}d) · ${l.competencia} · ${l.cargo} · ${l.descritor} · ${l.faltantes.join('')} · ${l.pessoas}p`;
+  // Ordena pelo que vence primeiro — a amostra é cortada em 8 e tem que mostrar o
+  // mais urgente, não o alfabeticamente primeiro.
+  const ordenar = (a: LacunaKitHorizonte, b: LacunaKitHorizonte) => a.diasAte - b.diasAte || b.pessoas - a.pessoas;
+
+  const urgentes = comFalta.filter((l) => l.diasAte <= criticoAteDias).sort(ordenar);
+  const futuras = comFalta.filter((l) => l.diasAte > criticoAteDias).sort(ordenar);
+
+  const somaDiscs = (ls: LacunaKitHorizonte[]) => ls.reduce((s, l) => s + l.faltantes.length, 0);
+
+  return [
+    achado(
+      'kit-horizonte-urgente', 'critico',
+      `Semana a menos de ${criticoAteDias} dias sem kit`,
+      somaDiscs(urgentes),
+      'Sem kit, a pessoa recebe conteúdo genérico e desafio placeholder — a entrega acontece, só perde a personalização por DISC, então ninguém reclama. Produzir leva ~5min por DISC e não cabe no aviso de 25h do pré-voo.',
+      {
+        amostra: urgentes.map(rotulo),
+        acao: 'planejarKitsCoorte(empresaId, { executar: true }) — ou /admin/conteudos/kit/coorte.',
+      },
+    ),
+    achado(
+      'kit-horizonte-proximo', 'aviso',
+      'Semana futura sem kit (ainda há folga)',
+      somaDiscs(futuras),
+      'Ainda dá tempo, mas entra na fila de produção agora para não virar urgência.',
+      { amostra: futuras.map(rotulo) },
+    ),
+  ].filter(Boolean) as Achado[];
+}
+
 /** Aplica todas as regras de PRÉ-VOO. */
 export function regrasPreflight(entregas: EntregaPrevista[]): Achado[] {
   return [

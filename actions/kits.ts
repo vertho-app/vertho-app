@@ -11,6 +11,7 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { resolverOuCriarBrief, gerarKitDesafio, type DiscLetter } from '@/lib/season-engine/kit/brief';
 import { resolverPerfilPublicoDaEmpresa, type RegistroPublico } from '@/lib/season-engine/perfil-publico';
+import { levantarPlanoKitsCoorte } from '@/lib/season-engine/kit/plano-coorte';
 import { gerarConteudoIA } from '@/actions/conteudos';
 import type { AIConfig } from '@/actions/ai-client';
 import { tasks } from '@trigger.dev/sdk';
@@ -318,20 +319,11 @@ export async function statusKit(jobId: string) {
 }
 
 // ── Agendador por coorte (manual por empresa) ───────────────────────────────
-// Varre o temporada_plano de TODA a coorte da empresa, deduplica os
-// (competência × descritor × DISC) que a coorte vai demandar, confere o que já
-// existe publicado (empresa OU global) e gera SÓ os faltantes — em lote (Batch).
+// A VARREDURA (leitura + dedup + faltantes) vive em `lib/season-engine/kit/plano-coorte.ts`
+// — núcleo sem gate, para que o CRON de horizonte possa usá-la (o cron não tem sessão e
+// esta action exige `content.manage`). Aqui fica o gate + a EXECUÇÃO (enfileirar).
 // `executar:false` = dry-run (preview do plano). Ver docs/KIT-SEMANAL.md.
-const DISC_OK = ['D', 'I', 'S', 'C'];
-const ckey = (...parts: string[]) => parts.filter(Boolean).join(' ::: ');
-
-export interface PlanoCoorteItem {
-  competencia: string; descritor: string; cargo: string;
-  demandadas: string[]; existentes: string[]; faltantes: string[];
-  pessoas: number; jobId?: string | null; jobErro?: string | null;
-  /** Parâmetros do brief — herdados do brief já existente do tema (ver etapa 5). */
-  contexto: string; nivelMin: number; nivelMax: number; briefExistente: boolean;
-}
+export type { PlanoCoorteItem } from '@/lib/season-engine/kit/plano-coorte';
 
 export async function planejarKitsCoorte(
   empresaId: string,
@@ -339,100 +331,9 @@ export async function planejarKitsCoorte(
 ) {
   try {
     const sb = await requireAdminSupabase('content.manage');
-    if (!empresaId) return { error: 'empresaId obrigatório' as const };
-
-    // 1) Colaboradores da empresa + DISC dominante + cargo (cargo define o público:
-    //    MEI vs Empregabilidade caem em registros diferentes — ver perfil-publico).
-    const { data: colabs } = await sb.from('colaboradores')
-      .select('id, perfil_dominante, cargo').eq('empresa_id', empresaId);
-    if (!colabs?.length) return { error: 'Empresa sem colaboradores' as const };
-    const discDe = new Map<string, string>();
-    const cargoDe = new Map<string, string>();
-    for (const c of colabs) {
-      discDe.set(c.id, String(c.perfil_dominante || '').charAt(0).toUpperCase());
-      cargoDe.set(c.id, c.cargo || 'todos');
-    }
-
-    // 2) Trilha mais recente por colaborador.
-    const { data: trilhas } = await sb.from('trilhas')
-      .select('colaborador_id, competencia_foco, temporada_plano, criado_em')
-      .in('colaborador_id', colabs.map((c) => c.id))
-      .order('criado_em', { ascending: false });
-    const ultima = new Map<string, any>();
-    for (const t of trilhas || []) if (!ultima.has(t.colaborador_id)) ultima.set(t.colaborador_id, t);
-
-    // 3) Demanda: (comp × descritor × CARGO) → { discs, pessoas }. O cargo entra na
-    //    chave para gerar o kit no registro certo de cada público.
-    const demanda = new Map<string, { competencia: string; descritor: string; cargo: string; discs: Set<string>; pessoas: Set<string> }>();
-    const add = (colabId: string, comp: any, desc: any, disc: string) => {
-      if (!comp || !desc || !DISC_OK.includes(disc)) return;
-      const cargo = cargoDe.get(colabId) || 'todos';
-      const key = ckey(comp, desc, cargo);
-      if (!demanda.has(key)) demanda.set(key, { competencia: comp, descritor: desc, cargo, discs: new Set(), pessoas: new Set() });
-      const e = demanda.get(key)!;
-      e.discs.add(disc); e.pessoas.add(colabId);
-    };
-    // semanaMax: escopa a demanda às primeiras N semanas (ex.: 1 = só a semana 1).
-    // Sem semanaMax → todas as semanas de conteúdo (comportamento original).
-    const semanaMax = Number.isFinite(opts.semanaMax) ? Number(opts.semanaMax) : null;
-    for (const [colabId, t] of ultima) {
-      const disc = discDe.get(colabId) || '';
-      for (const semana of Array.isArray(t.temporada_plano) ? t.temporada_plano : []) {
-        if (semana?.tipo !== 'conteudo') continue;
-        if (semanaMax != null && Number(semana?.semana ?? 0) > semanaMax) continue;
-        if (Array.isArray(semana.conteudos_dia) && semana.conteudos_dia.length) {
-          for (const cd of semana.conteudos_dia) add(colabId, cd.competencia || t.competencia_foco, cd.descritor, disc);
-        } else {
-          add(colabId, t.competencia_foco, semana.descritor, disc);
-        }
-      }
-    }
-    if (!demanda.size) return { error: 'Nenhuma semana de conteúdo encontrada na coorte' as const };
-
-    // 4) Existentes: kits PUBLICADOS por (comp × descritor × cargo × disc) — empresa OU global.
-    const { data: briefs } = await sb.from('kit_briefs')
-      .select('id, competencia, descritor, cargo, contexto, nivel_min, nivel_max, empresa_id')
-      .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
-    const briefById = new Map((briefs || []).map((b) => [b.id, b]));
-    const existente = new Set<string>();
-    if (briefs?.length) {
-      const { data: kitsRows } = await sb.from('kits')
-        .select('brief_id, disc, status').in('brief_id', briefs.map((b) => b.id)).eq('status', 'published');
-      for (const k of kitsRows || []) {
-        const b = briefById.get(k.brief_id);
-        if (b) existente.add(ckey(b.competencia, b.descritor, b.cargo || 'todos', k.disc));
-      }
-    }
-
-    // 5) Monta o plano (faltantes = demandadas − existentes).
-    //    Parâmetros do brief são HERDADOS do brief que já existe para o tema.
-    //    `resolverOuCriarBrief` casa por (competencia, descritor, nivel_min, nivel_max,
-    //    cargo, contexto, empresa_id): completar os DISC de um tema com um `contexto`
-    //    diferente do gravado NÃO reusa — cria um brief paralelo e quebra a espinha
-    //    compartilhada, que é o ponto do Kit (os 4 DISC dizendo a mesma coisa).
-    //    Forçar 'educacional' aqui fazia exatamente isso nos tenants cujos briefs
-    //    estão gravados como 'generico' (Ibipeba, 27/07: 13 'generico' × 10
-    //    'educacional', vários do mesmo tema). Ver docs/KIT-SEMANAL.md (armadilha 3).
-    const plano: PlanoCoorteItem[] = [];
-    for (const e of demanda.values()) {
-      const demandadas = [...e.discs].sort();
-      const existentes = demandadas.filter((d) => existente.has(ckey(e.competencia, e.descritor, e.cargo, d)));
-      const faltantes = demandadas.filter((d) => !existente.has(ckey(e.competencia, e.descritor, e.cargo, d)));
-      const briefTema = (briefs || []).find((b: any) =>
-        b.competencia === e.competencia && b.descritor === e.descritor
-        && (b.cargo || 'todos') === e.cargo && b.empresa_id === empresaId) as any;
-      plano.push({
-        competencia: e.competencia, descritor: e.descritor, cargo: e.cargo,
-        demandadas, existentes, faltantes, pessoas: e.pessoas.size,
-        contexto: briefTema?.contexto ?? opts.contexto ?? 'educacional',
-        nivelMin: Number(briefTema?.nivel_min ?? opts.nivelMin ?? 1),
-        nivelMax: Number(briefTema?.nivel_max ?? opts.nivelMax ?? 2),
-        briefExistente: !!briefTema,
-      });
-    }
-    plano.sort((a, b) => b.faltantes.length - a.faltantes.length || b.pessoas - a.pessoas);
-
-    const totalFaltantes = plano.reduce((s, p) => s + p.faltantes.length, 0);
+    const base = await levantarPlanoKitsCoorte(sb, empresaId, opts);
+    if ('error' in base) return { error: base.error as string };
+    const { plano, totalFaltantes } = base;
 
     // 6) Executa: enfileira 1 job por (comp × descritor) com os DISC faltantes.
     if (opts.executar) {
@@ -454,7 +355,7 @@ export async function planejarKitsCoorte(
     return {
       ok: true as const,
       resumo: {
-        colaboradores: colabs.length,
+        colaboradores: base.colaboradores,
         combinacoes: plano.length,
         totalFaltantes,
         jobsEnfileirados: opts.executar ? plano.filter((p) => p.jobId).length : 0,

@@ -13,9 +13,16 @@
 >
 > | Modo | Quando | O que responde |
 > |---|---|---|
-> | `preflight_entrega` | 21:00 UTC (14h antes do envio) | "a pílula de amanhã está pronta, e o que ela promete existe?" |
+> | `preflight_entrega` | 10:00 UTC (~25h antes do envio das 11:00) | "a pílula de amanhã está pronta, e o que ela promete existe?" |
 > | `postflight` | junto com `trigger_diario` | "o que dizia que ia sair, saiu?" |
 > | `health_estrutural` | 06:30 UTC | duplicatas, presos, órfãos — com **tendência**, não foto |
+> | `horizonte_kits` | segunda 09:00 UTC (semanal) | "o que as PRÓXIMAS 4 semanas vão pedir e ainda não existe?" |
+>
+> **Por que o horizonte é um modo à parte** (27/07): os outros três olham amanhã, hoje e
+> o estoque. Nenhum responde pela produção — e 25h dão tempo de reenviar um e-mail, não
+> de PRODUZIR (kit leva ~5min por DISC). A trilha troca de BLOCO DE COMPETÊNCIAS ao longo
+> do programa, e o bloco novo entra sem kit nenhum: medido no Ibipeba, 42 DISC faltando
+> para a semana 5 com o piloto na semana 3. Ver **F-I11**.
 >
 > As regras são funções puras em `regras.ts`, testadas por mutação
 > (`tests/unit/pipeline-health-regras.test.ts`). Cada uma nasceu de uma falha medida,
@@ -290,6 +297,32 @@ briefs duplicados por tupla.
 - **Lição de método:** 9 sites da mesma classe em 4 leituras humanas independentes do código. Enquanto
   a regra era só texto no `CLAUDE.md`, cada release nova reintroduzia. **Grep de padrão perigoso vira
   teste, não parágrafo.**
+
+### F-I11 · Bloco novo de competências entra sem kit — ninguém dispara o que ninguém sabe que falta ✅ (alarme 27/07)
+- **Gatilho:** o kit é gerado por **gatilho manual, uma rodada por vez**, e a trilha **troca de bloco
+  de competências** ao longo do programa. Os kits das semanas já rodadas existem; o bloco seguinte
+  nunca entrou em rodada nenhuma.
+- **Medido (27/07, Ibipeba, piloto na semana 3):** os **3 pares (competência × cargo)** que entram na
+  semana 5 eram 100% novos — Autocuidado × Coordenação (10p), Autocuidado × Gestão Escolar (15p) e
+  Apoio técnico e monitoramento × Gestão Educacional (11p). Kit em **0/36** pessoas, 42 DISC a
+  produzir, com 13 dias de prazo. **Nada do que foi autorado nas semanas 1-3 serve** — o par
+  competência×cargo muda inteiro.
+- **Efeito:** sem kit, a entrega ACONTECE — com o core genérico e desafio placeholder. Ninguém
+  reclama, nada erra, nenhuma tela mostra. Perde-se exatamente a personalização por DISC, que é o
+  valor do produto.
+- **Por que o pré-voo não bastava:** ele avalia a entrega de **amanhã**. Isso dá tempo de reenviar um
+  e-mail, não de PRODUZIR: kit leva ~5min por DISC. Detectar tarde equivale a não detectar quando a
+  correção é lenta.
+- **Resolução:** modo **`horizonte`** do health-check (`lib/pipeline-health`, cron semanal segunda
+  09:00 UTC, migration 189). Reusa `levantarPlanoKitsCoorte` — o **mesmo** código que a tela de coorte
+  usa para decidir o que gerar; a capacidade de detectar já existia, faltava alguém perguntar. Olha 4
+  semanas à frente; **crítico** a ≤14 dias, aviso além disso. O núcleo saiu de dentro da action
+  (`actions/kits.ts` só faz gate + enfileirar) porque o cron não tem sessão.
+- ⚠️ **A contagem é a parte fácil de errar** — a unidade de esforço é **(tema × DISC)**, contada na
+  PRIMEIRA semana que a demanda: um kit serve todas as semanas que pedirem aquele tema. Duas versões
+  erradas passaram por plausíveis antes de baterem contra um medidor independente (68 e 97, onde eram
+  42). Guardas: `tests/unit/pipeline-health-horizonte.test.ts` e `pipeline-health-regras.test.ts` (R7),
+  ambos validados por mutação.
 
 ---
 

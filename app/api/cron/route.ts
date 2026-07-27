@@ -100,6 +100,17 @@ export async function GET(req) {
         break;
       }
 
+      // HORIZONTE: o que as PRÓXIMAS semanas vão pedir e ainda não existe. Semanal,
+      // porque o pré-voo de 25h serve para corrigir o que existe, não para PRODUZIR:
+      // kit leva ~5min por DISC. Medido em 27/07 (Ibipeba): a trilha troca de bloco de
+      // competências na semana 5 e nenhum dos 3 pares (competência × cargo) novos tinha
+      // kit, com o piloto já na semana 3 — ninguém dispara o que ninguém sabe que falta.
+      case 'horizonte_kits': {
+        const { executarHealthCheck } = await import('@/lib/pipeline-health/core');
+        result = await executarHealthCheck('horizonte');
+        break;
+      }
+
       // Integridade estrutural (duplicatas, presos, órfãos). Independe de entrega e
       // serve para ver TENDÊNCIA: estes números crescem sozinhos onde falta constraint.
       case 'health_estrutural': {

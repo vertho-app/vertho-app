@@ -1,11 +1,16 @@
 /**
  * Health-check do pipeline — núcleo headless (sem gate; `'use server'` fica na action).
  *
- * Três modos:
+ * Quatro modos:
  *  · preflight  — roda ANTES da entrega, com folga p/ corrigir. Pergunta: "a pílula
  *                 de amanhã está pronta e o que ela promete existe?"
  *  · postflight — roda DEPOIS do envio. Pergunta: "o que dizia que ia sair, saiu?"
  *  · estrutural — integridade que independe de entrega (duplicatas, presos, órfãos).
+ *  · horizonte  — roda SEMANALMENTE e olha semanas à frente. Pergunta: "o que as
+ *                 próximas semanas vão pedir e ainda não existe?" O pré-voo avisa em
+ *                 25h, e isso basta para reenviar um e-mail — não para PRODUZIR. Kit
+ *                 leva ~5min por DISC, e um bloco novo de competência pode significar
+ *                 dezenas. Sem este modo, o alarme sempre chega tarde demais.
  *
  * Por que existe: o FMEA já catalogava 27 modos de falha e três deles morderam de
  * novo em 27/07. O gargalo nunca foi diagnóstico — era não haver nada que rodasse
@@ -13,8 +18,8 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
-import { regrasPreflight, regrasPostflight } from './regras';
-import { coletarEntregasPrevistas, coletarEnviosDoDia, diaDaSemanaBRT, pilulaDoDia } from './coleta';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits } from './regras';
+import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
 /** Empresas elegíveis a envio: exclui demo (não envia comunicação real). */
 async function empresasAtivas(sb: any) {
@@ -178,6 +183,48 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
   }
 }
 
+// ── HORIZONTE ──────────────────────────────────────────────────────────────────
+
+/** Semanas à frente que o horizonte enxerga. 4 cobre o pior caso medido (bloco novo). */
+export const HORIZONTE_SEMANAS = 4;
+
+export async function rodarHorizonte(
+  semanasAdiante: number = HORIZONTE_SEMANAS,
+  empresaIdFiltro?: string,
+): Promise<ResultadoCheck[]> {
+  const sb = createSupabaseAdmin();
+  const empresas = (await empresasAtivas(sb)).filter((e) => !empresaIdFiltro || e.id === empresaIdFiltro);
+  const out: ResultadoCheck[] = [];
+
+  for (const emp of empresas) {
+    const t0 = Date.now();
+    try {
+      const lacunas = await coletarHorizonteKits(sb, emp.id, semanasAdiante);
+      if (!lacunas.length) continue;   // coorte sem demanda futura pendente
+      const achados = checarHorizonteKits(lacunas);
+      if (!achados.length) continue;
+      out.push({
+        modo: 'horizonte', empresaId: emp.id, empresaSlug: emp.slug,
+        dataAlvo: null,   // não é uma data de entrega: é uma janela
+        severidade: severidadeGlobal(achados), achados, duracaoMs: Date.now() - t0,
+      });
+    } catch (err: any) {
+      out.push({
+        modo: 'horizonte', empresaId: emp.id, empresaSlug: emp.slug, dataAlvo: null,
+        severidade: 'critico', duracaoMs: Date.now() - t0,
+        erro: String(err?.message || err).slice(0, 300),
+        achados: [{
+          id: 'check-falhou', severidade: 'critico', titulo: 'O próprio health-check falhou',
+          contagem: 1,
+          detalhe: 'Sem resultado não há garantia nenhuma — silêncio por exceção é indistinguível de silêncio por estar tudo bem.',
+          acao: 'Ver o erro no run e corrigir; não tratar como "sem problemas".',
+        }],
+      });
+    }
+  }
+  return out;
+}
+
 // ── Persistência + alerta ──────────────────────────────────────────────────────
 
 export async function persistirResultados(resultados: ResultadoCheck[]): Promise<void> {
@@ -198,7 +245,10 @@ export function montarAlerta(resultados: ResultadoCheck[]): { assunto: string; h
   const graves = resultados.filter((r) => r.severidade === 'critico');
   if (!graves.length) return null;
   const total = graves.reduce((s, r) => s + r.achados.length, 0);
-  const quando = graves[0]?.dataAlvo || 'hoje';
+  // O horizonte não avalia uma DATA de entrega (dataAlvo é null): dizer "entrega de
+  // hoje" num alerta que fala de semanas à frente mandaria corrigir a coisa errada.
+  const soHorizonte = graves.every((r) => r.modo === 'horizonte');
+  const quando = soHorizonte ? 'próximas semanas' : (graves.find((r) => r.dataAlvo)?.dataAlvo || 'hoje');
   const linhas = graves.map((r) => {
     const itens = r.achados.map((a) => `
       <li style="margin:8px 0">
@@ -210,10 +260,12 @@ export function montarAlerta(resultados: ResultadoCheck[]): { assunto: string; h
     return `<p style="margin:16px 0 4px"><strong>${r.empresaSlug || r.empresaId || 'global'}</strong> · ${r.modo}${r.erro ? ` · <span style="color:#c00">erro: ${r.erro}</span>` : ''}</p><ul style="padding-left:18px;margin:0">${itens}</ul>`;
   }).join('');
   return {
-    assunto: `[Vertho] ${total} problema(s) na entrega de ${quando}`,
+    assunto: soHorizonte
+      ? `[Vertho] ${total} lacuna(s) de conteúdo nas próximas semanas`
+      : `[Vertho] ${total} problema(s) na entrega de ${quando}`,
     html: `<div style="font-family:system-ui,Arial,sans-serif;max-width:640px;color:#1a1a1a;line-height:1.5">
 <p>O health-check do pipeline encontrou problemas <strong>críticos</strong>.</p>${linhas}
-<p style="color:#666;font-size:12px;margin-top:20px">Pré-voo roda 14h antes do envio justamente para dar tempo de corrigir. Detalhe em /admin/vertho/pipeline-health.</p></div>`,
+<p style="color:#666;font-size:12px;margin-top:20px">Pré-voo roda ~25h antes do envio (dá tempo de corrigir o que já existe); o horizonte roda semanalmente e olha ${HORIZONTE_SEMANAS} semanas à frente, porque PRODUZIR conteúdo não cabe em 25h. Detalhe em /admin/vertho/pipeline-health.</p></div>`,
   };
 }
 
@@ -239,7 +291,7 @@ export async function alertar(resultados: ResultadoCheck[]): Promise<boolean> {
 }
 
 /** Orquestra um modo completo: roda, persiste, alerta. Usado pelo cron. */
-export async function executarHealthCheck(modo: 'preflight' | 'postflight' | 'estrutural') {
+export async function executarHealthCheck(modo: 'preflight' | 'postflight' | 'estrutural' | 'horizonte') {
   const agora = new Date();
   let resultados: ResultadoCheck[];
   if (modo === 'preflight') {
@@ -247,6 +299,8 @@ export async function executarHealthCheck(modo: 'preflight' | 'postflight' | 'es
     resultados = await rodarPreflight(new Date(agora.getTime() + 24 * 3600_000));
   } else if (modo === 'postflight') {
     resultados = await rodarPostflight(agora);
+  } else if (modo === 'horizonte') {
+    resultados = await rodarHorizonte();
   } else {
     resultados = [await rodarEstrutural()];
   }

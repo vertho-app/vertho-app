@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   checarFormatoPrometido, checarCoberturaKit, checarDesafioPlaceholder,
   checarContatos, checarCoreAusente, checarCanalZerado, checarEntregaIncompleta,
-  regrasPreflight, type EntregaPrevista, type EnvioObservado,
+  regrasPreflight, checarHorizonteKits,
+  type EntregaPrevista, type EnvioObservado, type LacunaKitHorizonte,
 } from '@/lib/pipeline-health/regras';
 import { severidadeGlobal, achado } from '@/lib/pipeline-health/types';
 
@@ -160,5 +161,68 @@ describe('agregação', () => {
     expect(ids).toContain('formato-prometido-ausente');
     expect(ids).toContain('entrega-sem-kit');
     expect(ids).toContain('telefone-invalido');
+  });
+});
+
+/**
+ * R7 · HORIZONTE. Nasceu do caso medido em 27/07 no Ibipeba: a trilha troca de BLOCO
+ * DE COMPETÊNCIAS na semana 5, os 3 pares (competência × cargo) que entram ali eram
+ * 100% novos, nenhum tinha kit, e o piloto já estava na semana 3. O pré-voo teria
+ * acusado 25h antes — tempo de reenviar um e-mail, não de produzir 41 kits.
+ */
+describe('R7 · horizonte de kits', () => {
+  const lac = (over: Partial<LacunaKitHorizonte> = {}): LacunaKitHorizonte => ({
+    competencia: 'Apoio técnico e monitoramento das unidades',
+    descritor: 'Registro e devolutiva',
+    cargo: 'Gestão Educacional',
+    faltantes: ['D', 'I', 'S', 'C'],
+    pessoas: 11,
+    semana: 5,
+    diasAte: 13,
+    ...over,
+  });
+
+  it('semana dentro do prazo de produção é CRÍTICO, e conta DISC (não temas)', () => {
+    const [a] = checarHorizonteKits([lac()]);
+    expect(a.id).toBe('kit-horizonte-urgente');
+    expect(a.severidade).toBe('critico');
+    expect(a.contagem).toBe(4);            // 4 DISC faltando, não 1 tema
+    expect(a.amostra?.[0]).toContain('sem5');
+    expect(a.amostra?.[0]).toContain('Gestão Educacional');
+  });
+
+  it('semana distante é AVISO, não crítico (senão o alarme vira ruído)', () => {
+    const achados = checarHorizonteKits([lac({ diasAte: 30, semana: 8 })]);
+    expect(achados).toHaveLength(1);
+    expect(achados[0].id).toBe('kit-horizonte-proximo');
+    expect(achados[0].severidade).toBe('aviso');
+  });
+
+  it('separa urgente de futuro no mesmo run', () => {
+    const achados = checarHorizonteKits([lac({ diasAte: 5 }), lac({ diasAte: 40, semana: 10, faltantes: ['D'] })]);
+    expect(achados.map((a) => a.id)).toEqual(['kit-horizonte-urgente', 'kit-horizonte-proximo']);
+    expect(achados[0].contagem).toBe(4);
+    expect(achados[1].contagem).toBe(1);
+  });
+
+  it('tema já coberto não gera achado — o alarme tem que poder ficar calado', () => {
+    expect(checarHorizonteKits([lac({ faltantes: [] })])).toEqual([]);
+    expect(checarHorizonteKits([])).toEqual([]);
+  });
+
+  it('a amostra mostra o que vence PRIMEIRO (ela é cortada em 8)', () => {
+    const muitos = Array.from({ length: 12 }, (_, i) =>
+      lac({ diasAte: 12 - i, descritor: `D${i}`, faltantes: ['D'] }));
+    const [a] = checarHorizonteKits(muitos);
+    expect(a.contagem).toBe(12);
+    expect(a.amostra).toHaveLength(8);
+    expect(a.amostra?.[0]).toContain('(1d)');   // o mais urgente primeiro
+  });
+
+  it('o corte de severidade é por TEMPO, e o limiar é configurável', () => {
+    // Mesmo tema, mesmo volume: só a distância decide.
+    expect(checarHorizonteKits([lac({ diasAte: 14 })])[0].id).toBe('kit-horizonte-urgente');
+    expect(checarHorizonteKits([lac({ diasAte: 15 })])[0].id).toBe('kit-horizonte-proximo');
+    expect(checarHorizonteKits([lac({ diasAte: 20 })], 21)[0].id).toBe('kit-horizonte-urgente');
   });
 });

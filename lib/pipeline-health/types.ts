@@ -26,7 +26,7 @@ export interface Achado {
 }
 
 export interface ResultadoCheck {
-  modo: 'preflight' | 'postflight' | 'estrutural';
+  modo: 'preflight' | 'postflight' | 'estrutural' | 'horizonte';
   empresaId: string | null;
   empresaSlug?: string | null;
   dataAlvo: string | null;
