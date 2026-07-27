@@ -456,12 +456,32 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
 
     await updateTrilhaInTenant(sb, trilha.empresa_id, trilhaId, { temporada_plano: plano });
 
-    // Reseta progresso da semana
+    // Reabre a semana para o conteúdo NOVO — sem apagar o que a pessoa escreveu.
+    //
+    // Antes gravava `reflexao: null, feedback: null` junto: regerar a semana de quem
+    // já tinha respondido destruía o transcript da avaliação, irreversivelmente e sem
+    // aviso. O objetivo de regerar é trocar desafio/missão/cenário, não apagar o
+    // trabalho de quem já passou por ali.
+    //
+    // O que se reseta é só o que ficou DESATUALIZADO pelo conteúdo novo: a marca de
+    // "já consumi" e os timestamps do ciclo. `reflexao`, `feedback` e `tira_duvidas`
+    // ficam intactos.
+    const { data: atual } = await sb.from('temporada_semana_progresso')
+      .select('reflexao, feedback, tira_duvidas')
+      .eq('trilha_id', trilhaId).eq('semana', Number(semana)).maybeSingle();
+    const jaTrabalhou = !!(atual?.reflexao || atual?.feedback || atual?.tira_duvidas);
+
     await updateSemanaProgressoInTenant(sb, trilha.empresa_id, trilhaId, Number(semana), {
-      status: PROGRESSO.PENDENTE, conteudo_consumido: false, reflexao: null, feedback: null, iniciado_em: null, concluido_em: null,
+      // Quem já respondeu não regride ao status inicial — isso destravaria o
+      // Tira-Dúvidas e faria a semana reaparecer como não-feita para quem a concluiu.
+      ...(jaTrabalhou ? {} : { status: PROGRESSO.PENDENTE, iniciado_em: null, concluido_em: null }),
+      conteudo_consumido: false,
     });
 
-    return { message: `Semana ${semana} regerada` };
+    return {
+      message: `Semana ${semana} regerada`
+        + (jaTrabalhou ? ' (reflexão/feedback preservados — a pessoa já havia respondido)' : ''),
+    };
 });
 export async function regerarSemana(input: z.infer<typeof RegerarSemanaInput>) {
   return _regerarSemana(input);

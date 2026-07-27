@@ -659,9 +659,12 @@ export async function gerarTemporadaCustom(args: {
 /**
  * Persistência de trilha + progresso — FONTE ÚNICA dos 4 modos (single, DUO,
  * onboarding, piloto), que mantinham 4 cópias byte-quase-idênticas deste
- * bloco. Regras preservadas: 1 trilha por (empresa, colab) → UPDATE se
- * existe (numero_temporada mantido); semana 1 nasce em_andamento; progresso
- * é recriado do zero (delete+insert).
+ * bloco. Regras: 1 trilha por (empresa, colab) → UPDATE se existe
+ * (numero_temporada e data_inicio mantidos); semana 1 NOVA nasce em_andamento.
+ *
+ * O progresso é gravado por UPSERT que PRESERVA o trabalho do colaborador
+ * (reflexão, feedback, tira-dúvidas, consumo) — antes era delete+insert, que
+ * apagava tudo isso a cada regeneração, sem backup e sem aviso.
  */
 export async function persistirTrilha(tdb: any, args: {
   colaboradorId: string;
@@ -722,25 +725,88 @@ export async function persistirTrilha(tdb: any, args: {
     trilhaId = nova.id;
   }
 
-  const progressos = semanas.map((sem: any) => ({
-    trilha_id: trilhaId,
-    colaborador_id: colaboradorId,
-    semana: sem.semana,
-    tipo: sem.tipo,
-    status: sem.semana === 1 ? PROGRESSO.EM_ANDAMENTO : PROGRESSO.PENDENTE,
-  }));
-  // F-C2: os dois statements abaixo IGNORAVAM o erro — contraste gritante com os
-  // `if (error) return` logo acima, na mesma função. Numa regeneração concorrente o
-  // interleave `A.delete → B.delete → A.insert → B.insert` faz o insert de B colidir
-  // no UNIQUE(trilha_id, semana) e falhar INTEIRO: o plano ficava do run B e o
-  // progresso do run A, com a função devolvendo sucesso. Plano ≠ progresso é pior que
-  // erro, porque nada na tela denuncia.
-  const { error: errDelete } = await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
-  if (errDelete) return { error: `progresso (limpeza): ${errDelete.message}` };
-  const { error: errInsert } = await tdb.from('temporada_semana_progresso').insert(progressos);
-  if (errInsert) return { error: `progresso (gravação): ${errInsert.message}` };
+  // ── PROGRESSO: preserva o que a PESSOA produziu ──────────────────────────────
+  //
+  // Antes isto era `delete` da trilha inteira + `insert`. O `delete` não apagava
+  // "progresso": apagava REFLEXÕES, FEEDBACKS, TRANSCRIPTS de tira-dúvidas e as
+  // marcações de conteúdo consumido — texto que o colaborador escreveu, sem backup
+  // e sem aviso. Regenerar a trilha de alguém no meio do programa destruía o
+  // registro das avaliações dele. Medido em 27/07, antes da correção: 36 linhas com
+  // reflexão/feedback/tira-dúvidas e 55 com consumo marcado, em 675.
+  //
+  // Agora: UPSERT por (trilha_id, semana) — a chave única que já existe. Grava só
+  // o que é ESTRUTURAL (tipo da semana); tudo que é da pessoa fica de fora do
+  // payload e sobrevive intacto. `status` também não é reescrito: quem já concluiu
+  // a semana 1 não deve voltar a "em andamento" porque um admin regenerou.
+  const { data: existentes, error: errLer } = await tdb.from('temporada_semana_progresso')
+    .select('semana, reflexao, feedback, tira_duvidas, conteudo_consumido, status')
+    .eq('trilha_id', trilhaId);
+  if (errLer) return { error: `progresso (leitura): ${errLer.message}` };
+  const jaExiste = new Map<number, any>((existentes || []).map((r: any) => [Number(r.semana), r]));
+
+  const progressos = semanas.map((sem: any) => {
+    const anterior = jaExiste.get(Number(sem.semana));
+    return {
+      trilha_id: trilhaId,
+      colaborador_id: colaboradorId,
+      semana: sem.semana,
+      tipo: sem.tipo,
+      // Semana nova nasce com o status inicial; semana que já existe mantém o dela.
+      status: anterior ? anterior.status : (sem.semana === 1 ? PROGRESSO.EM_ANDAMENTO : PROGRESSO.PENDENTE),
+    };
+  });
+
+  // F-C2: o erro é PROPAGADO — antes os statements de progresso ignoravam `error`,
+  // em contraste com os `if (error) return` da mesma função. Num interleave de
+  // regeneração concorrente o insert colidia no UNIQUE(trilha_id, semana) e falhava
+  // inteiro: plano de um run, progresso de outro, com a função devolvendo sucesso.
+  const { error: errUpsert } = await tdb.from('temporada_semana_progresso')
+    .upsert(progressos, { onConflict: 'trilha_id,semana' });
+  if (errUpsert) return { error: `progresso (gravação): ${errUpsert.message}` };
+
+  // Semanas que sumiram do plano (plano encolheu — ex.: 14 → 2 no modo piloto).
+  // Só se apagam as VAZIAS: uma semana órfã que guarda reflexão vale mais preservada
+  // do que limpa. Sem esta guarda, mudar o modo do programa apagaria o trabalho de
+  // quem já estava adiantado.
+  const { descartaveis, preservadas } = classificarOrfas(existentes || [], semanas);
+  if (descartaveis.length) {
+    await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId).in('semana', descartaveis);
+  }
+  if (preservadas.length) {
+    console.warn(`[persistirTrilha] trilha ${trilhaId}: semanas ${preservadas.join(',')} saíram do plano mas GUARDAM trabalho do colaborador — preservadas.`);
+  }
 
   return { trilhaId, numeroTemporada };
+}
+
+/**
+ * A linha de progresso guarda trabalho do COLABORADOR? (≠ progresso do sistema)
+ *
+ * `status` e os timestamps são estado da máquina; `reflexao`, `feedback`,
+ * `tira_duvidas` e `conteudo_consumido` são o que a pessoa produziu ou fez. A
+ * distinção existe porque regenerar uma trilha pode legitimamente reescrever o
+ * primeiro grupo — nunca o segundo.
+ */
+export function temTrabalhoDoColaborador(r: any): boolean {
+  return !!(r?.reflexao || r?.feedback || r?.tira_duvidas || r?.conteudo_consumido);
+}
+
+/**
+ * Separa as linhas de progresso que saíram do plano novo entre descartáveis e
+ * preservadas.
+ *
+ * Acontece quando o plano ENCOLHE (14 semanas → 2, ao trocar o modo do programa).
+ * A regra: só se apaga o que está vazio. Uma semana órfã que guarda reflexão vale
+ * mais preservada do que limpa — sem esta guarda, mudar o modo do programa apagaria
+ * o trabalho de quem já estava adiantado.
+ */
+export function classificarOrfas(existentes: any[], semanasDoPlano: any[]): { descartaveis: number[]; preservadas: number[] } {
+  const noPlano = new Set((semanasDoPlano || []).map((s: any) => Number(s.semana)));
+  const orfas = (existentes || []).filter((r: any) => !noPlano.has(Number(r.semana)));
+  return {
+    descartaveis: orfas.filter((r) => !temTrabalhoDoColaborador(r)).map((r: any) => Number(r.semana)),
+    preservadas: orfas.filter(temTrabalhoDoColaborador).map((r: any) => Number(r.semana)),
+  };
 }
 
 /**
