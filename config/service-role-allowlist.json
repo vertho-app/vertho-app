@@ -141,6 +141,7 @@
     "scripts/_render-podcast-kit.ts": 1,
     "scripts/_video-kit-mei-d.ts": 1,
     "lib/pipeline-health/core.ts": 4,
-    "lib/cron-lock.ts": 1
+    "lib/cron-lock.ts": 1,
+    "lib/video/reconciliar-personalizados.ts": 1
   }
 }

@@ -108,6 +108,23 @@ export async function GET(req) {
         break;
       }
 
+      // RECONCILIAÇÃO DE VÍDEO NOMINAL (F-V1): quem entrou depois do render da sua
+      // célula fica no deck genérico PARA SEMPRE — a personalização fotografa a
+      // coorte no instante do render e não há re-disparo. Aqui a lacuna é detectada
+      // e a célula volta à fila; `personalizeCell` pula quem já está 'done'.
+      // `limite` contém o custo: cada célula reconciliada custa um render de deck.
+      case 'reconciliar_videos': {
+        const { reconciliarPersonalizados } = await import('@/lib/video/reconciliar-personalizados');
+        const limite = parseInt(searchParams.get('limite') || process.env.RECONCILIAR_VIDEOS_LIMITE || '3', 10);
+        const r = await reconciliarPersonalizados({ executar: true, limite });
+        result = {
+          ...r,
+          message: `Reconciliação: ${r.pessoasSemVideoNominal} pessoa(s) sem vídeo nominal em ${r.lacunas.length} célula(s) · ${r.celulasReenfileiradas.length} re-enfileirada(s)`
+            + (r.ignoradasPorLimite ? ` · ${r.ignoradasPorLimite} adiada(s) pelo limite de ${limite}` : ''),
+        };
+        break;
+      }
+
       // Legados (disparo manual): seg = pílula única; qui = evidência. O cron
       // agora usa trigger_diario, que cobre os 2 e respeita a cadência configurada.
       case 'trigger_segunda':
