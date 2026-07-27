@@ -316,7 +316,7 @@ export async function montarContextoIA3(
     .eq('cod_comp', comp.cod_comp)
     .not('cod_desc', 'is', null);
 
-  const contextoPPP = await buscarContextoPPP(tdb, empresa.nome, pppEscolaId);
+  const contextoPPP = await buscarContextoPPP(tdb, { empresaId, pppEscolaId });
   const valores = await buscarValores(tdb, empresa.nome);
 
   const { data: cargoEmp } = await tdb.from('cargos_empresa')
@@ -482,19 +482,20 @@ export async function montarCheckIA3Prompt(sbRaw: any, cen: any): Promise<{ syst
     }
   }
 
-  // PPP resumido (filtro de empresa mesmo no fallback raw)
-  let pppQuery;
-  if (tdb) {
-    pppQuery = tdb.from('ppp_escolas').select('extracao').eq('status', 'extraido');
-  } else {
-    pppQuery = sbRaw.from('ppp_escolas').select('extracao')
-      .eq('empresa_id', cen.empresa_id).eq('status', 'extraido');
-  }
-  const { data: ppp } = await pppQuery.limit(1).maybeSingle();
+  // PPP resumido — MESMA lente com que o cenário foi gerado.
+  //
+  // Antes: `.limit(1)` sem ordem definida + `JSON.stringify` cru. Numa empresa-rede isso
+  // dava ao auditor o PPP de uma escola qualquer, possivelmente OUTRA que a do gerador —
+  // o check reprovava contexto que ele mesmo não estava vendo (F-I10 do FMEA). Agora passa
+  // pelo resolvedor único: `ppp_escola_id` da row quando o cenário é por escola, contexto
+  // municipal consolidado quando é de rede. Sem `empresa_id` não há PPP a resolver.
   let pppResumo = '';
-  if (ppp?.extracao) {
-    const ext = typeof ppp.extracao === 'string' ? JSON.parse(ppp.extracao) : ppp.extracao;
-    pppResumo = JSON.stringify(ext).slice(0, 500);
+  if (tdb && cen.empresa_id) {
+    const contexto = await buscarContextoPPP(tdb, {
+      empresaId: cen.empresa_id,
+      pppEscolaId: cen.ppp_escola_id ?? null,
+    });
+    pppResumo = contexto.slice(0, 500);   // o check é auditoria: 500 chars bastam de âncora
   }
 
   const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});

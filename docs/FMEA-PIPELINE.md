@@ -245,7 +245,7 @@ briefs duplicados por tupla.
   que slots). **Resolução:** o build poderia converter slot de conteúdo vazio em reflexão em vez de
   emitir semana bloqueada. Baixa prioridade.
 
-### F-I10 · Empresa-rede: `.limit(1)` em `ppp_escolas` aplica UMA escola à rede inteira 🟠 (parcial ✅ 26/07)
+### F-I10 · Empresa-rede: `.limit(1)` em `ppp_escolas` aplica UMA escola à rede inteira ✅ (fechado 27/07)
 - **Gatilho:** empresa-rede tem **1 PPP por escola** (Medido 26/07: Ibipeba **11 PPPs extraídos, 86
   valores**; todos os outros 5 tenants com PPP têm 1). Qualquer leitura `.eq('status','extraido')
   .order('extracted_at' desc).limit(1)` devolve **uma escola sorteada pela data de extração** e a
@@ -260,12 +260,26 @@ briefs duplicados por tupla.
   - ✅ `buscarValores` (`lib/ia2-gabarito.ts`) — corrigido 26/07 (`062dca13`): consolidação
     **determinística** por frequência entre escolas (sem IA — são strings curtas), teto de 10, ordem
     estável porque o prompt é cacheado. Guarda: `tests/unit/ia2-valores-rede.test.ts`.
-  - 🔴 **ABERTO** — `buscarContextoPPP` (`lib/ia2-gabarito.ts:57-65`) segue com `.limit(1)` quando
-    `pppEscolaId` é `undefined`/`null`, e o comentário chama isso de "proxy de rede, comportamento
-    histórico". Alimenta IA1, IA2 e o cenário de rede do IA3. É o **mesmo defeito**, num insumo maior
-    (4000 chars de contexto vs. 10 strings). Correção: reusar `resolverContextoEmpresa`.
+  - ✅ `buscarContextoPPP` (`lib/ia2-gabarito.ts`) — 27/07. Alimenta IA1, IA2 e o cenário de rede do
+    IA3; insumo maior que o de valores (4000 chars vs. 10 strings). Resolve **por número de PPPs**:
+    `pppEscolaId` → esse PPP · **1 PPP → seções curadas, idêntico ao anterior** (os 5 tenants de 1 PPP
+    não mudam de prompt nem pagam IA — trocar o formato deles seria mudança de qualidade não medida)
+    · **N → `resolverContextoEmpresa`**, a síntese municipal cacheada em `empresas.kit_contexto`
+    **compartilhada com o Kit** (a mesma pessoa passa a ver régua e kit sob a MESMA lente).
+    Assinatura virou objeto (`{empresaId, pppEscolaId?}`) de propósito: o antigo 2º parâmetro era
+    `empresaNome` **não usado**, e trocar `string` por `string` deixaria call site errado passar pelo
+    compilador. Guarda: `tests/unit/ia2-contexto-ppp-rede.test.ts` (validado por mutação).
+  - ✅ `montarCheckIA3Prompt` (`lib/ia3-cenarios.ts`) — 27/07. O check dual auditava com `.limit(1)`
+    **sem ordem definida**: numa rede o auditor podia ver o PPP de uma escola e o gerador de outra —
+    reprovando contexto que ele mesmo não estava vendo. Agora passa pelo mesmo resolvedor, com o
+    `ppp_escola_id` da row quando o cenário é por escola.
+  - ✅ `gerarConteudoFinalPersonalizado` (`actions/conteudos.ts`) — 27/07, junto com o F-E7. Era a
+    **rota de PPP desconectada** do kit (item 3 da tabela de riscos do `PIPELINE-TRILHA.md`): em
+    Ibipeba, 54 pessoas recebiam o PDF na lente de uma escola arbitrária enquanto o kit da mesma
+    semana usava a lente municipal.
 - **Onde mais checar antes de escrever query nova:** qualquer `from('ppp_escolas')` sem
-  `pppEscolaId` explícito.
+  `pppEscolaId` explícito. Os 4 consumidores conhecidos estão fechados; o guard é a regra do
+  `CLAUDE.md`, não um teste de CI — uma query nova errada **não** falha o build.
 
 ---
 
@@ -310,12 +324,17 @@ briefs duplicados por tupla.
   `gerar-modulos-manuscrito` usa. Janela lenta da Batch API → fallback síncrono serial → task expira.
 - **Resolução:** migrar blueprint para o padrão **destacado** com `wait.for`.
 
-### F-E7 · PDF cache por-arquétipo vaza PPP em empresa-rede 🔵
-- **Gatilho:** chave `final/perso/{contentId}/{empresaId}/{arquetipoSlug}.pdf` (`conteudos.ts:911`)
-  **não inclui a escola**. Numa rede multi-escola, 2 colabs de escolas diferentes mas mesmo arquétipo
-  colidem → o 2º recebe o PDF com o **PPP da escola do 1º**.
-- **Resolução:** incluir `escola_id` (ou hash do PPP) na chave de cache do PDF. Relevante para Ibipeba
-  (rede municipal) **agora**, não só em escala.
+### F-E7 · PDF cache por-arquétipo vaza PPP em empresa-rede ✅ (fechado 27/07)
+- **Gatilho:** chave `final/perso/{contentId}/{empresaId}/{arquetipoSlug}.pdf` **não incluía a
+  escola**. Numa rede multi-escola, 2 colabs de escolas diferentes mas mesmo arquétipo colidiam → o
+  2º recebia o PDF com o **PPP da escola do 1º**.
+- **Resolução (`conteudos.ts`):** a chave ganhou a **assinatura do contexto**
+  (`{arquetipoSlug}-{contextoAssinatura}`, `assinaturaCurta` em `lib/escola-brief.ts` — djb2 em
+  base36, determinística). Fecha **duas** coisas: o vazamento por colisão *e* a **invalidação** —
+  antes, um PPP novo atualizava o contexto e o cache seguia servindo o texto antigo para sempre.
+- ⚠️ **Ao mudar a fonte do contexto do PDF, garanta que `contextoAssinatura` varie com ela** — é o
+  que mantém a chave discriminante. Hoje: `brief-manual` (brief da empresa) · `sem-ppp` · hash do
+  contexto consolidado.
 
 ---
 
@@ -579,7 +598,7 @@ Qualquer script que mexa em `temporada_plano` deve rodar a mesma normalização.
 11. `triggerDiario` vira task/fan-out — F-E1
 12. Chunkar `.in()`, paginar `listarTemporadasEmpresa`, cachear `precarregarKits` — F-E2/E3
 13. Depreciar lotes síncronos de IA — F-E4
-14. `escola_id` na chave de cache do PDF — F-E7 (relevante já pro Ibipeba)
+14. ~~`escola_id` na chave de cache do PDF — F-E7~~ ✅ 27/07 (assinatura do contexto na chave)
 
 **Operação (runbook, sem código):**
 15. Nunca deletar MB publicado — despublicar (F-I3).

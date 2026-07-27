@@ -69,7 +69,7 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}, opts:
     const compsUnicas = Object.values(compMap);
 
     // 3. Buscar PPP e valores (helpers usam tdb)
-    const contextoPPP = await buscarContextoPPP(tdb, empresa.nome);
+    const contextoPPP = await buscarContextoPPP(tdb, { empresaId });
     const valores = await buscarValores(tdb, empresa.nome);
 
     // 4. Agrupar competências por cargo (usar o cargo DA COMPETÊNCIA, não do colaborador)

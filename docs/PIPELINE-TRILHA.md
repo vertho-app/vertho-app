@@ -551,7 +551,7 @@ resolverCelulaVideo / dispararVideoDoKit
 |---|---|---|---|
 | 1 | **Blueprint hardcoda `PROGRAMA_REGULAR_DUO`** — tenant Onboarding (10 sem) recebe blueprint de 14 | `blueprint/core.ts:153, 251` | Limitado: a **trilha** usa o config certo (`blueprintToTrilhaInputs` recebe `programaConfig`). O descompasso aparece no PDI e no check `calendario` (warn) |
 | 2 | **`contextoPPP` é parâmetro morto** no blueprint | `blueprint/prompt.ts:39-40` vs `core.ts:154-159` | Blueprint não vê PPP |
-| 3 | **Duas rotas de PPP desconectadas** | kit: `resolverContextoEmpresa` (consolida rede) · PDF personalizado: `ppp_escolas` direto, mais recente | Numa empresa-rede, a personalização usa o PPP de **uma escola qualquer** |
+| 3 | ~~**Duas rotas de PPP desconectadas**~~ ✅ **27/07** | rota única: `resolverContextoEmpresa` (kit, PDF personalizado, IA1/IA2/IA3 via `buscarContextoPPP`) | Era: numa empresa-rede o PDF usava o PPP de **uma escola qualquer** enquanto o kit da mesma semana usava a lente municipal. F-I10/F-E7 do FMEA |
 | 4 | **Gate dos 100% testa linha, não nota** | `blueprint/core.ts:143` | Competência com notas `null` escapa do override de nível |
 | 5 | **Override de nível é acento-sensível** | `blueprint/core.ts:181` | 3 normalizações diferentes no mesmo domínio (`core.ts:31`, `audit.ts:52`, `to-descriptors.ts:53`) |
 | 6 | **Score da auditoria tem denominador variável** | `audit.ts:277` | IA caída → 6 checks → **infla** o score |

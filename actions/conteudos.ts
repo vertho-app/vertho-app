@@ -12,7 +12,7 @@ import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { resolverModuloBaseParaConteudo, enriquecerPromptComModuloBase } from '@/lib/season-engine/modulo-base-integration';
 import { getModelForTask } from '@/lib/ai-tasks';
 import { derivarArquetipo } from '@/lib/disc-arquetipos';
-import { resumirPPP, extracaoParaTexto, briefPreenchido, type EscolaBrief } from '@/lib/escola-brief';
+import { resumirPPP, extracaoParaTexto, briefPreenchido, assinaturaCurta, type EscolaBrief } from '@/lib/escola-brief';
 import { buildPersonalizacaoPrompt } from '@/lib/season-engine/prompts/personalizacao';
 import { resolverPerfilPublicoDaEmpresa } from '@/lib/season-engine/perfil-publico';
 
@@ -879,25 +879,40 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
     const arq = derivarArquetipo(colab?.perfil_dominante);
     const arquetipoSlug = String(colab?.perfil_dominante || '').trim().toUpperCase().replace(/[^A-Z]/g, '') || 'NA';
 
-    // Brief da escola (PPP) — mesmo padrão de gerarVideo
+    // Contexto institucional (PPP) — CONSOLIDADO por empresa.
+    //
+    // Antes: `.eq('empresa_id').order('extracted_at' desc).limit(1)` — o PPP de UMA
+    // escola sorteada pela data de extração, aplicado a toda a rede. Em Ibipeba são
+    // 11 PPPs para 13 escolas: 54 pessoas recebiam a lente de uma escola arbitrária,
+    // em silêncio (nada erra; o conteúdo só fica calibrado na escola errada).
+    // É o F-I10 do docs/FMEA-PIPELINE.md, mesma classe já corrigida em `buscarValores`.
+    //
+    // Agora usa `resolverContextoEmpresa` — o MESMO resolvedor do Kit. Isso importa
+    // além de corrigir o sorteio: o kit é o conteúdo principal da semana, e ter o PDF
+    // numa lente e o kit noutra daria à mesma pessoa dois contextos divergentes para o
+    // mesmo tema. 1 PPP → usa direto; N → síntese municipal cacheada.
     let escolaBrief: EscolaBrief | null = null;
+    let contextoAssinatura = 'sem-ppp';
     if (empresaId) {
       try {
         const { data: emp } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
         const salvo = (emp?.sys_config as any)?.video_escola || null;
         if (briefPreenchido(salvo)) {
-          escolaBrief = salvo;
+          escolaBrief = salvo;                 // brief manual da empresa tem precedência
+          contextoAssinatura = 'brief-manual';
         } else {
-          const { data: ppp } = await sb.from('ppp_escolas')
-            .select('extracao').eq('empresa_id', empresaId).eq('status', 'extraido')
-            .order('extracted_at', { ascending: false }).limit(1).maybeSingle();
-          if (ppp?.extracao) {
-            const resumo = await resumirPPP(extracaoParaTexto(ppp.extracao));
-            if (briefPreenchido(resumo)) escolaBrief = resumo;
+          const { resolverContextoEmpresa } = await import('@/lib/season-engine/kit/contexto-empresa');
+          const contexto = await resolverContextoEmpresa(sb, empresaId);
+          if (contexto) {
+            const resumo = await resumirPPP(contexto);
+            if (briefPreenchido(resumo)) {
+              escolaBrief = resumo;
+              contextoAssinatura = assinaturaCurta(contexto);
+            }
           }
         }
       } catch (e: any) {
-        console.warn('[gerarConteudoFinalPersonalizado] brief da escola falhou:', e?.message);
+        console.warn('[gerarConteudoFinalPersonalizado] contexto institucional falhou:', e?.message);
       }
     }
 
@@ -907,8 +922,17 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
       return { success: true, url: generico, personalized: false };
     }
 
-    // Cache por (conteúdo, empresa, arquétipo)
-    const cachePath = `final/perso/${contentId}/${empresaId || 'global'}/${arquetipoSlug}.pdf`;
+    // Cache por (conteúdo, empresa, arquétipo, CONTEXTO).
+    //
+    // A assinatura do contexto na chave resolve duas coisas:
+    //  1. INVALIDAÇÃO — sem ela, um PPP novo (escola extraída depois) atualizava o
+    //     contexto mas os PDFs em cache seguiam servindo o texto antigo para sempre;
+    //  2. o F-E7 do FMEA — se um dia a resolução do PPP voltar a ser POR ESCOLA, duas
+    //     pessoas de escolas diferentes com o mesmo arquétipo passariam a colidir nesta
+    //     chave e a segunda receberia o PDF da escola da primeira. Com a assinatura,
+    //     contextos diferentes ocupam chaves diferentes por construção.
+    //     ⚠️ Ao mudar a fonte do contexto, garanta que `contextoAssinatura` varie com ela.
+    const cachePath = `final/perso/${contentId}/${empresaId || 'global'}/${arquetipoSlug}-${contextoAssinatura}.pdf`;
     try {
       const { data: cached } = await sb.storage.from('conteudos').download(cachePath);
       const buf = cached ? Buffer.from(await cached.arrayBuffer()) : null;

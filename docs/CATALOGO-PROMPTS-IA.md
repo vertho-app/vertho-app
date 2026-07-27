@@ -99,7 +99,7 @@
 - **Trigger**: Admin clica em "IA2 — Gabarito CIS" em `/admin/empresas/{id}` (Fase 1). Exige IA1 rodada antes.
 - **Grounding RAG**: Não. Usa contexto do PPP.
 - **Loop**: Sim — 1 chamada por cargo.
-- **Insumo "valores" (corrigido em 26/07, `062dca13`)**: `buscarValores` (`lib/ia2-gabarito.ts`) deixou de pegar `ppp_escolas.valores` do PPP mais recente e passa a **consolidar os valores de TODAS as escolas** da empresa por frequência (`consolidarValoresDaRede`, determinístico, teto de 10, ordem estável porque o prompt é cacheado). Antes, numa rede como Ibipeba (11 PPPs, 86 valores), o gabarito de **todos os cargos do município** era ancorado nos valores de uma escola sorteada pela data de extração. ⚠️ O `buscarContextoPPP` da linha acima **ainda tem o `.limit(1)`** — mesmo defeito, insumo maior (F-I10 do `docs/FMEA-PIPELINE.md`).
+- **Insumo "valores" (corrigido em 26/07, `062dca13`)**: `buscarValores` (`lib/ia2-gabarito.ts`) deixou de pegar `ppp_escolas.valores` do PPP mais recente e passa a **consolidar os valores de TODAS as escolas** da empresa por frequência (`consolidarValoresDaRede`, determinístico, teto de 10, ordem estável porque o prompt é cacheado). Antes, numa rede como Ibipeba (11 PPPs, 86 valores), o gabarito de **todos os cargos do município** era ancorado nos valores de uma escola sorteada pela data de extração. O `buscarContextoPPP` tinha o mesmo defeito com insumo maior — **fechado em 27/07** (F-I10 do `docs/FMEA-PIPELINE.md`): resolve por número de PPPs (1 → seções curadas, idêntico ao anterior; N → síntese municipal consolidada, compartilhada com o Kit).
 - **System prompt** (~2200 chars, resumo):
   ```text
   Você é um especialista em avaliação comportamental CIS/DISC.
@@ -1501,7 +1501,8 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Modelo**: herdado do `aiConfig`. **Max tokens**: 1200 (saída cortada em 2500 chars).
 - **Quando roda**: só quando a empresa tem **N PPPs** (1 por escola). Com 1 PPP, usa direto — sem chamada de IA. Resultado cacheado em `empresas.kit_contexto`, invalidado quando entra PPP mais novo; falha na síntese cai no PPP mais recente **sem cachear**.
 - **System prompt**: "Você consolida o CONTEXTO PEDAGÓGICO MUNICIPAL de uma rede de ensino a partir dos PPPs de várias escolas. Extraia o que é COMPARTILHADO pela rede…, ignorando idiossincrasias de escolas específicas." Máximo 20 escolas, 1200 chars cada; **proibido citar nomes de escolas**.
-- **Por que existe**: pegar "o PPP mais recente" numa rede aplica **uma escola sorteada** ao município inteiro. Esse é o modo de falha **F-I10** (`docs/FMEA-PIPELINE.md`) — corrigido no insumo de valores do IA2 em 26/07 e **ainda aberto em `buscarContextoPPP`**, que alimenta IA1/IA2/IA3.
+- **Por que existe**: pegar "o PPP mais recente" numa rede aplica **uma escola sorteada** ao município inteiro. Esse é o modo de falha **F-I10** (`docs/FMEA-PIPELINE.md`), fechado nos 4 consumidores (valores do IA2 em 26/07; `buscarContextoPPP`, check do IA3 e PDF personalizado em 27/07).
+- **Quem mais consome agora**: além do Kit, `buscarContextoPPP` (IA1/IA2/IA3, só quando a empresa tem **N** PPPs) e o PDF personalizado. Todos compartilham o cache `empresas.kit_contexto` — **uma** síntese por rede, e a mesma lente na régua, no kit e no PDF.
 
 ### 13.5 Paleta de marca a partir do site do cliente
 > `ATIVO` desde 2026-07-22 · Prompt documentado como: `literal`

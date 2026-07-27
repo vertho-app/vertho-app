@@ -124,6 +124,24 @@ export function extracaoParaTexto(raw: any): string {
   return texto || JSON.stringify(d);
 }
 
+/**
+ * Assinatura curta e determinística de um texto de contexto, para compor chave de
+ * cache. Não é hash criptográfico — é um discriminador: contextos diferentes têm que
+ * cair em chaves diferentes, e o MESMO contexto tem que reaproveitar o cache entre
+ * execuções (por isso determinístico, sem timestamp).
+ *
+ * Existe porque o PDF personalizado era cacheado por (conteúdo, empresa, arquétipo):
+ * um PPP novo atualizava o contexto e o cache seguia servindo o texto antigo para
+ * sempre, e uma resolução por-escola faria duas pessoas de escolas diferentes
+ * colidirem na mesma chave (F-E7 do docs/FMEA-PIPELINE.md).
+ */
+export function assinaturaCurta(texto: string): string {
+  let h = 5381;
+  const s = String(texto || '');
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36).slice(0, 8);   // só [0-9a-z] — seguro como nome de arquivo
+}
+
 /** True se o brief tem ao menos um campo preenchido (vale a pena injetar). */
 export function briefPreenchido(b?: Partial<EscolaBrief> | null): boolean {
   return !!b && Object.values(b).some((v) => typeof v === 'string' && v.trim());

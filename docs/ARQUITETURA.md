@@ -80,8 +80,12 @@
 - **Lotes de IA em segundo plano (migs 172/173)** — `ia_jobs` com progresso, botao de parar e Batch
   API dos dois lados.
 - **26/07** — IA2 consolida os **valores da REDE** (empresa-rede tem 1 PPP por escola; `.limit(1)`
-  aplicava uma escola sorteada ao municipio inteiro — F-I10 do `docs/FMEA-PIPELINE.md`, **o gemeo
-  `buscarContextoPPP` segue aberto**). Os 2 guards de tenant voltaram ao verde.
+  aplicava uma escola sorteada ao municipio inteiro — F-I10 do `docs/FMEA-PIPELINE.md`). Os 2 guards
+  de tenant voltaram ao verde.
+- **27/07** — **F-I10 fechado nos 4 consumidores**: `buscarContextoPPP` (IA1/IA2/IA3), o check dual do
+  IA3 e o PDF personalizado passaram a usar o resolvedor consolidado do Kit. Regra que sai daí: **uma
+  fonte de contexto institucional por empresa** (`empresas.kit_contexto`) — regua, kit e PDF na MESMA
+  lente. O PDF ganhou a assinatura do contexto na chave de cache (F-E7: colisao + invalidacao).
 
 **Migrations: 164 arquivos, `022` a `183`** (com gaps). Marcos recentes: 153-158 (modo piloto +
 hardening RLS/RCE), 159-168 (Portal do Representante + proposta comercial), 169 (`acumulada_status`

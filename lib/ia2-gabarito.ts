@@ -43,67 +43,100 @@ export const SUB_COMPETENCIAS_CIS = [
 export const FAIXAS_VALIDAS = ['Muito baixo (0-20)', 'Baixo (21-40)', 'Alto (41-60)', 'Muito alto (61-80)', 'Extremamente alto (81-100)'];
 export const NOMES_SUBCOMPS = new Set(SUB_COMPETENCIAS_CIS.map((s) => s.nome));
 
-// ── Gatherers de contexto (PPP/valores) — verbatim do fase1 legado ───────────
-export async function buscarContextoPPP(tdb: any, empresaNome: string, pppEscolaId: string | null | undefined = undefined) {
+// ── Gatherers de contexto (PPP/valores) ──────────────────────────────────────
+
+/** Seções do PPP que entram no prompt, na ordem, com rótulo (idêntico ao GAS). */
+const SECOES_PPP = [
+  { key: 'perfil_organizacional', label: 'PERFIL DA EMPRESA' },
+  { key: 'perfil_instituicao', label: 'PERFIL DA INSTITUIÇÃO' },
+  { key: 'comunidade_contexto', label: 'COMUNIDADE E CONTEXTO' },
+  { key: 'mercado_stakeholders', label: 'MERCADO E STAKEHOLDERS' },
+  { key: 'identidade_cultura', label: 'IDENTIDADE E CULTURA' },
+  { key: 'identidade', label: 'IDENTIDADE' },
+  { key: 'operacao_processos', label: 'OPERAÇÃO E PROCESSOS' },
+  { key: 'praticas_descritas', label: 'PRÁTICAS DESCRITAS' },
+  { key: 'desafios_estrategia', label: 'DESAFIOS E ESTRATÉGIA' },
+  { key: 'desafios_metas', label: 'DESAFIOS E METAS' },
+  { key: 'vocabulario_corporativo', label: 'VOCABULÁRIO' },
+  { key: 'vocabulario', label: 'VOCABULÁRIO' },
+  { key: 'modelo_pessoas', label: 'MODELO DE PESSOAS' },
+];
+
+/**
+ * Formata a extração de UM PPP nas seções curadas (máx 4000 chars, 800 por seção).
+ * Pura e exportada para teste — é o formato que IA1/IA2/IA3 sempre receberam.
+ */
+export function formatarSecoesPPP(extracao: any): string {
+  if (!extracao) return '';
+  const ext = typeof extracao === 'string' ? JSON.parse(extracao) : extracao;
+  const parts: string[] = [];
+  let totalChars = 0;
+  const MAX = 4000;
+
+  for (const sec of SECOES_PPP) {
+    if (totalChars >= MAX) break;
+    let val = ext[sec.key];
+    if (!val) continue;
+    // Extrair conteudo se formato novo {conteudo, origem, confianca}
+    if (val.conteudo !== undefined) val = val.conteudo;
+    const texto = typeof val === 'string' ? val : JSON.stringify(val, null, 1);
+    if (!texto || texto.length < 10) continue;
+    const truncated = texto.length > 800 ? texto.substring(0, 800) + '...' : texto;
+    const bloco = `## ${sec.label}\n${truncated}`;
+    parts.push(bloco);
+    totalChars += bloco.length;
+  }
+
+  return parts.join('\n\n');
+}
+
+/**
+ * Contexto institucional (PPP) que alimenta IA1, IA2 e IA3.
+ *
+ * Empresa-rede tem **1 PPP por escola** (Ibipeba: 11). O `.limit(1)` por
+ * `extracted_at` que vivia aqui devolvia UMA escola sorteada pela data de extração e
+ * a tratava como o município inteiro — falha silenciosa, o gabarito só saía calibrado
+ * na escola errada. É o F-I10 do `docs/FMEA-PIPELINE.md`, gêmeo do que `buscarValores`
+ * fechou em 26/07. Aqui o insumo é maior: 4000 chars de contexto, não 10 strings.
+ *
+ * Resolução por número de PPPs:
+ *  - `pppEscolaId` string → ESSE PPP (cenário por escola do IA3), seções curadas.
+ *  - 1 PPP → seções curadas desse PPP. **Idêntico ao comportamento anterior** — os 5
+ *    tenants de 1 PPP não mudam de prompt (o formato curado é o que a régua espera; o
+ *    consolidado é texto corrido, e trocá-lo sem eval seria mudança não medida).
+ *  - N PPPs → `resolverContextoEmpresa`: síntese municipal por IA, cacheada em
+ *    `empresas.kit_contexto` e **compartilhada com o Kit Semanal** — a mesma pessoa
+ *    passa a ver a régua e o kit sob a MESMA lente, em vez de duas divergentes.
+ */
+export async function buscarContextoPPP(
+  tdb: any,
+  opts: { empresaId: string; pppEscolaId?: string | null; aiConfig?: any },
+): Promise<string> {
+  const { empresaId, pppEscolaId, aiConfig = {} } = opts;
   try {
-    // Cenário por PPP: pppEscolaId é o id do ppp_escolas a usar.
-    //  - string → usa ESSE PPP.
-    //  - undefined (IA1/IA2) ou null (cenário de rede no IA3) → PPP mais recente
-    //    extraído (proxy de rede, comportamento histórico).
-    let ppp: { extracao: any } | null = null;
+    // Cenário por escola: o id manda, sem consolidar.
     if (typeof pppEscolaId === 'string' && pppEscolaId) {
       const { data } = await tdb.from('ppp_escolas').select('extracao').eq('id', pppEscolaId).maybeSingle();
-      ppp = data;
-    } else {
-      const { data } = await tdb.from('ppp_escolas')
-        .select('extracao')
-        .eq('status', 'extraido')
-        .order('extracted_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      ppp = data;
+      return formatarSecoesPPP(data?.extracao);
     }
 
-    if (!ppp?.extracao) return '';
+    const { data: ppps } = await tdb.from('ppp_escolas')
+      .select('extracao')
+      .eq('status', 'extraido')
+      .order('extracted_at', { ascending: false });
 
-    const ext = typeof ppp.extracao === 'string' ? JSON.parse(ppp.extracao) : ppp.extracao;
+    if (!ppps?.length) return '';
+    if (ppps.length === 1) return formatarSecoesPPP(ppps[0].extracao);
 
-    // Formatar as seções mais relevantes (máx 4000 chars, como no GAS)
-    const parts: string[] = [];
-    let totalChars = 0;
-    const MAX = 4000;
-
-    const secoes = [
-      { key: 'perfil_organizacional', label: 'PERFIL DA EMPRESA' },
-      { key: 'perfil_instituicao', label: 'PERFIL DA INSTITUIÇÃO' },
-      { key: 'comunidade_contexto', label: 'COMUNIDADE E CONTEXTO' },
-      { key: 'mercado_stakeholders', label: 'MERCADO E STAKEHOLDERS' },
-      { key: 'identidade_cultura', label: 'IDENTIDADE E CULTURA' },
-      { key: 'identidade', label: 'IDENTIDADE' },
-      { key: 'operacao_processos', label: 'OPERAÇÃO E PROCESSOS' },
-      { key: 'praticas_descritas', label: 'PRÁTICAS DESCRITAS' },
-      { key: 'desafios_estrategia', label: 'DESAFIOS E ESTRATÉGIA' },
-      { key: 'desafios_metas', label: 'DESAFIOS E METAS' },
-      { key: 'vocabulario_corporativo', label: 'VOCABULÁRIO' },
-      { key: 'vocabulario', label: 'VOCABULÁRIO' },
-      { key: 'modelo_pessoas', label: 'MODELO DE PESSOAS' },
-    ];
-
-    for (const sec of secoes) {
-      if (totalChars >= MAX) break;
-      let val = ext[sec.key];
-      if (!val) continue;
-      // Extrair conteudo se formato novo {conteudo, origem, confianca}
-      if (val.conteudo !== undefined) val = val.conteudo;
-      const texto = typeof val === 'string' ? val : JSON.stringify(val, null, 1);
-      if (!texto || texto.length < 10) continue;
-      const truncated = texto.length > 800 ? texto.substring(0, 800) + '...' : texto;
-      const bloco = `## ${sec.label}\n${truncated}`;
-      parts.push(bloco);
-      totalChars += bloco.length;
-    }
-
-    return parts.join('\n\n');
+    // Rede: consolida. `resolverContextoEmpresa` lê `empresas` (o id É o tenant), por
+    // isso recebe `tdb.raw` — ele mesmo filtra `ppp_escolas` por `empresa_id`.
+    const { resolverContextoEmpresa } = await import('@/lib/season-engine/kit/contexto-empresa');
+    const consolidado = await resolverContextoEmpresa(tdb.raw, empresaId, aiConfig);
+    // `resolverContextoEmpresa` já degrada sozinho se a síntese falhar (devolve o PPP mais
+    // recente em texto corrido, sem cachear). Este guarda cobre o retorno vazio: aí vale
+    // mais o formato curado de um PPP do que prompt sem contexto nenhum.
+    if (!consolidado) return formatarSecoesPPP(ppps[0].extracao);
+    return consolidado;
   } catch {
     return '';
   }
@@ -242,7 +275,7 @@ export async function carregarContextoIA2(
   if (!empresa) return { error: 'Empresa não encontrada' };
 
   // 2. PPP e valores
-  const contextoPPP = await buscarContextoPPP(tdb, empresa.nome);
+  const contextoPPP = await buscarContextoPPP(tdb, { empresaId });
   const valores = await buscarValores(tdb, empresa.nome);
 
   // 3. Buscar top10 selecionadas por cargo
