@@ -89,4 +89,34 @@ describe('gerarConteudoIA — idempotência ignora conteúdo de KIT', () => {
     expect(r?.skipped).toBeFalsy();
     expect(String(r?.error || '')).toContain('SENTINELA-PASSOU-DA-IDEMPOTENCIA');
   });
+
+  /**
+   * F-C6 (mig 190): `uq_micro_conteudos_core` = UNIQUE(empresa, competencia, descritor,
+   * formato, cargo) WHERE kit_id IS NULL. A checagem em código e a constraint têm que
+   * cobrir AS MESMAS colunas — se a query enfraquecer (alguém tirar uma coluna), o
+   * insert passa na checagem e explode na constraint (500 para o usuário); se ela for
+   * mais forte que a constraint, volta a pular geração que o banco permitiria.
+   */
+  it('a query de idempotência cobre exatamente as colunas da uq_micro_conteudos_core', async () => {
+    const { gerarConteudoIA } = await import('@/actions/conteudos');
+    const { sb, filtros } = stubSb();
+
+    await gerarConteudoIA({ ...ARGS, sb });
+
+    for (const coluna of ['competencia', 'descritor', 'formato', 'cargo', 'empresa_id']) {
+      expect(filtros.some((f) => f.startsWith(`eq:${coluna}=`) || f.startsWith(`is:${coluna}=`)),
+        `idempotência perdeu o filtro de ${coluna} — diverge da uq_micro_conteudos_core (mig 190)`).toBe(true);
+    }
+    expect(filtros).toContain('is:kit_id=null');
+  });
+
+  it('sem empresaId, filtra empresa_id IS NULL (mesma semântica do COALESCE da constraint)', async () => {
+    const { gerarConteudoIA } = await import('@/actions/conteudos');
+    const { sb, filtros } = stubSb();
+
+    await gerarConteudoIA({ ...ARGS, empresaId: null, sb });
+
+    expect(filtros).toContain('is:empresa_id=null');
+    expect(filtros.some((f) => f.startsWith('eq:empresa_id='))).toBe(false);
+  });
 });

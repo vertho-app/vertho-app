@@ -91,7 +91,8 @@ briefs duplicados por tupla.
 
 > **Re-medição de 27/07 (noite), após as correções do dia:** células `done` duplicadas: **0**
 > (F-C5 fechado, mig 188) · `videos_personalizados`: 320 done / 1 error · `micro_conteudos`
-> duplicados: **19 grupos** (13 globais/demo, 6 Ibipeba — F-C6 segue ABERTO e cresceu) ·
+> duplicados: **0** (F-C6 fechado na mesma noite, mig 190 — eram 19 grupos na auditoria da
+> tarde: dedup de 30 linhas + 17 planos reapontados + UNIQUE parcial) ·
 > `kit_briefs` duplicados: 0 (UNIQUE na mig 185). As contagens de 17/07 acima ficam como
 > histórico do episódio.
 
@@ -178,20 +179,25 @@ briefs duplicados por tupla.
   `error` são resíduo permitido pelo índice parcial e invisíveis à entrega; `videos_personalizados`:
   320 done / 1 error. Bate com o commit (113 → 76 células, 451 → 321 personalizados, 3 → 0 presos).
 
-### F-C6 · `micro_conteudos` duplicados 🔴 (**19 grupos medidos em 27/07 — cresceu**)
-- **Gatilho:** **sem UNIQUE** em `micro_conteudos` (só PK/FK/CHECK). Idempotência é só em código
-  (`gerarConteudoIA:119-128`) — e **pulada quando vem de kit**. Geração concorrente do mesmo
-  `(competência,descritor,formato,cargo,empresa)` insere 2 rows; kit apagado sem apagar conteúdo →
-  FK SET NULL cria genéricos duplicados.
-- **Efeito:** `montarSemanaConteudo` escolhe uma por score; as outras são peso morto e candidatas em
-  empate. Confunde diagnósticos.
-- **Medido (27/07, auditoria):** **19 grupos duplicados** — 13 globais/demos (ex.: "Coaching e
-  Desenvolvimento de Vendedores × Gerente Comercial", até 3×) e **6 no Ibipeba** (até 4×). O doc
-  dizia 6 tuplas em 17/07 — **cresce enquanto não houver UNIQUE**.
-- **Resolução (pendente):** **UNIQUE parcial em conteúdo NÃO-kit**:
-  `UNIQUE(empresa_id, competencia, descritor, formato, cargo) WHERE kit_id IS NULL` (conteúdo de kit
-  tem variantes por DISC → fora da constraint) + dedup dos 19 grupos. Ficou de fora da mig 185 por
-  exigir dedup prévio.
+### F-C6 · `micro_conteudos` duplicados ✅ (fechado 27/07, verificado no banco)
+- **Gatilho (histórico):** **sem UNIQUE** em `micro_conteudos`. Idempotência só em código
+  (`gerarConteudoIA:126-135`, SELECT-then-INSERT) — geração concorrente do mesmo
+  `(empresa, competência, descritor, formato, cargo)` inseria 2+ rows. Cresceu: 6 tuplas em
+  17/07 → **19 grupos** medidos na auditoria de 27/07 (13 globais/demo, 6 Ibipeba, até 4×).
+- **Correção (27/07, mig 190):** dedup ANTES da constraint (`scripts/_dedup-micro-conteudos.mjs`):
+  **30 linhas apagadas** em 19 grupos. Vencedor por **referenciada > score > versão > recente**
+  (score idêntico ao do motor, `build-season.ts:235-242`) — e **17 `temporada_plano` reapontados**
+  antes do delete, porque 10 perdedores eram referenciados como `core_id`/`formatos_disponiveis`
+  (apagar direto = core órfão). Backup: `backups/micro-conteudos-dedup-f-c6-*.json` (linhas +
+  planos originais). Depois, **`uq_micro_conteudos_core`**: UNIQUE parcial
+  `(COALESCE(empresa_id), competencia, COALESCE(descritor), formato, COALESCE(cargo))
+  WHERE kit_id IS NULL` — espelha EXATAMENTE a query de idempotência; kit tem variantes por
+  DISC no mesmo tuple e fica fora (variante ≠ duplicata).
+- **Verificado no banco (27/07 noite):** índice criado, **0 duplicados restantes**.
+- **Guarda:** `tests/unit/conteudo-idempotencia-kit.test.ts` — trava a cobertura exata das
+  colunas da constraint na query de idempotência (constraint e checagem divergindo = insert
+  que passa na checagem e explode no banco). **Validado por mutação** (remover `.eq('formato')`
+  do código derruba o teste).
 
 ### F-C7 · `kit_briefs` duplicados ✅ (fechado 27/07 — era latente, 0 medidos)
 - **Gatilho (histórico):** SELECT-then-INSERT + **sem UNIQUE**. Dois jobs do mesmo tema (lote de
