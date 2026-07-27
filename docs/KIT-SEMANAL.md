@@ -185,3 +185,37 @@ o player da semana carrega vazio (0:00) e nada renderiza on-demand. Curar com
 (núcleo sem gate; TTS+upload+update). Pré-requisito headless: o fix de interop do lamejs em
 `lib/tts/audio-dsp.ts::resolveLamejs` (`70b77b74`) — sem ele, tsx quebra em
 "Mp3Encoder is not a constructor" (o `require` do pacote cai no build IIFE vazio).
+
+> **REVISADO 27/07/2026 — o podcast sem MP3 HOJE renderiza on-demand.** Medido em
+> `scripts/_diag-narracao-kit.ts` (Ibipeba): 56/56 áudios de kit têm narração extraível
+> (2,9k–3,8k chars), inclusive os 29 com `url=null`/`ativo=false`. O player aponta para
+> `/api/conteudo/[id]/podcast` (week page), e a rota gera por TTS a partir do
+> `conteudo_inline` e cacheia em `final/audio-personalizado/{conteudoId}/{colabId}.mp3`.
+> Mais: quando há colaborador com nome, a rota **sempre** monta a versão personalizada e
+> **ignora** o `url` — o MP3 base só é servido a quem não tem colaborador (admin). Ou seja,
+> `renderAudio=true` produz um artefato que a entrega quase nunca usa. Mantenha
+> `renderAudio=false` por padrão; o custo real é a latência da 1ª reprodução.
+
+## Atualização 27/07/2026 — completar DISC faltante (2 armadilhas novas)
+
+Fechar as lacunas de kit da coorte da Ibipeba (18 kits, semanas 1–3) expôs mais duas.
+
+**8. `planejarKitsCoorte` forçava `contexto: 'educacional'` — e criava brief PARALELO.**
+`resolverOuCriarBrief` casa por (competencia, descritor, nivel_min, nivel_max, cargo,
+contexto, empresa_id). Completar os DISC de um tema cujo brief está gravado como
+`'generico'` passando `'educacional'` **não reusa**: cria um segundo brief do mesmo tema e
+quebra a espinha compartilhada — o ponto do Kit é os 4 DISC dizerem a mesma coisa. A
+Ibipeba tinha 13 briefs `'generico'` × 10 `'educacional'`, vários do mesmo tema, e o padrão
+bate com esse mecanismo. Corrigido: o plano agora **herda `contexto`/`nivel_min`/`nivel_max`
+do brief existente** do tema e só usa `opts`/default quando o brief é novo (`actions/kits.ts`,
+etapa 5). Ao gerar kit por script, herde igual — molde em `scripts/_gerar-kits-faltantes.ts`.
+
+**9. Os dois resolvedores de entrega divergiam — a correção da armadilha 5 pegou só um.**
+`overlayConteudo` usa `precarregarKits` (cache) quando o pré-carregamento deu certo e cai em
+`resolverKitDaSemana` quando não deu (`actions/temporadas.ts` chama com `.catch(() => undefined)`).
+A regra "a entrega é por ID, não por `url`" tinha sido aplicada só no primeiro; o segundo seguia
+exigindo `url` e escondia texto/case — e `gerarConteudoIA` grava `url=null` sempre que o PDF
+headless falha, o que acontece em TODA geração via tsx ("Font family not registered: NotoSans").
+Efeito: a mesma pessoa via 3 formatos ou 1 dependendo de uma query ter falhado. Travado por
+`tests/unit/kit-entrega-paridade.test.ts` (validado por mutação). **Ao mexer num dos dois
+resolvedores, mexa no outro.**

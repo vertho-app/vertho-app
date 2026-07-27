@@ -39,8 +39,14 @@ export async function resolverKitDaSemana(
   const formatos: Record<string, { id: string; url: string | null; titulo: string }> = {};
   for (const c of conteudos || []) {
     if (c.formato === 'video') continue; // vídeo é do pipeline de célula (resolverVideoDaSemana)
-    // texto/case: url = PDF. áudio: id alimenta /api/conteudo/[id]/podcast (url null ok).
-    if (c.formato === 'audio' || c.url) formatos[c.formato] = { id: c.id, url: c.url ?? null, titulo: c.titulo };
+    // A entrega é por ID, não por url — MESMA regra de `precarregarKits` (ver o
+    // comentário longo lá). Este caminho exigia `url` para texto/case e, por isso,
+    // escondia formato válido: `gerarConteudoIA` grava url=null quando o PDF headless
+    // falha, e a tela abre `/api/conteudo/{id}/pdf`, que renderiza no runtime. Os dois
+    // resolvedores precisam concordar: este é o fallback de `overlayConteudo` quando
+    // o pré-carregamento falha (temporadas.ts:488 tem `.catch(() => undefined)`), e
+    // divergir fazia a mesma pessoa ver 3 formatos ou 1 dependendo de uma query.
+    formatos[c.formato] = { id: c.id, url: c.url ?? null, titulo: c.titulo };
   }
   return { kitId: d.kitId, desafio: { desafio_texto: d.desafio_texto, acao_observavel: d.acao_observavel, criterio_de_execucao: d.criterio_de_execucao }, formatos };
 }

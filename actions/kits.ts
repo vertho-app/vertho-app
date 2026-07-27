@@ -329,6 +329,8 @@ export interface PlanoCoorteItem {
   competencia: string; descritor: string; cargo: string;
   demandadas: string[]; existentes: string[]; faltantes: string[];
   pessoas: number; jobId?: string | null; jobErro?: string | null;
+  /** Parâmetros do brief — herdados do brief já existente do tema (ver etapa 5). */
+  contexto: string; nivelMin: number; nivelMax: number; briefExistente: boolean;
 }
 
 export async function planejarKitsCoorte(
@@ -389,7 +391,7 @@ export async function planejarKitsCoorte(
 
     // 4) Existentes: kits PUBLICADOS por (comp × descritor × cargo × disc) — empresa OU global.
     const { data: briefs } = await sb.from('kit_briefs')
-      .select('id, competencia, descritor, cargo')
+      .select('id, competencia, descritor, cargo, contexto, nivel_min, nivel_max, empresa_id')
       .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
     const briefById = new Map((briefs || []).map((b) => [b.id, b]));
     const existente = new Set<string>();
@@ -403,12 +405,30 @@ export async function planejarKitsCoorte(
     }
 
     // 5) Monta o plano (faltantes = demandadas − existentes).
+    //    Parâmetros do brief são HERDADOS do brief que já existe para o tema.
+    //    `resolverOuCriarBrief` casa por (competencia, descritor, nivel_min, nivel_max,
+    //    cargo, contexto, empresa_id): completar os DISC de um tema com um `contexto`
+    //    diferente do gravado NÃO reusa — cria um brief paralelo e quebra a espinha
+    //    compartilhada, que é o ponto do Kit (os 4 DISC dizendo a mesma coisa).
+    //    Forçar 'educacional' aqui fazia exatamente isso nos tenants cujos briefs
+    //    estão gravados como 'generico' (Ibipeba, 27/07: 13 'generico' × 10
+    //    'educacional', vários do mesmo tema). Ver docs/KIT-SEMANAL.md (armadilha 3).
     const plano: PlanoCoorteItem[] = [];
     for (const e of demanda.values()) {
       const demandadas = [...e.discs].sort();
       const existentes = demandadas.filter((d) => existente.has(ckey(e.competencia, e.descritor, e.cargo, d)));
       const faltantes = demandadas.filter((d) => !existente.has(ckey(e.competencia, e.descritor, e.cargo, d)));
-      plano.push({ competencia: e.competencia, descritor: e.descritor, cargo: e.cargo, demandadas, existentes, faltantes, pessoas: e.pessoas.size });
+      const briefTema = (briefs || []).find((b: any) =>
+        b.competencia === e.competencia && b.descritor === e.descritor
+        && (b.cargo || 'todos') === e.cargo && b.empresa_id === empresaId) as any;
+      plano.push({
+        competencia: e.competencia, descritor: e.descritor, cargo: e.cargo,
+        demandadas, existentes, faltantes, pessoas: e.pessoas.size,
+        contexto: briefTema?.contexto ?? opts.contexto ?? 'educacional',
+        nivelMin: Number(briefTema?.nivel_min ?? opts.nivelMin ?? 1),
+        nivelMax: Number(briefTema?.nivel_max ?? opts.nivelMax ?? 2),
+        briefExistente: !!briefTema,
+      });
     }
     plano.sort((a, b) => b.faltantes.length - a.faltantes.length || b.pessoas - a.pessoas);
 
@@ -421,8 +441,8 @@ export async function planejarKitsCoorte(
         const r = await enqueueKit({
           competencia: item.competencia, descritor: item.descritor, empresaId,
           discs: item.faltantes as DiscLetter[],
-          nivelMin: opts.nivelMin ?? 1, nivelMax: opts.nivelMax ?? 2,
-          cargo: item.cargo, contexto: opts.contexto || 'educacional',
+          nivelMin: item.nivelMin, nivelMax: item.nivelMax,
+          cargo: item.cargo, contexto: item.contexto,
           useBatch: item.faltantes.length >= 2,
           incluirVideo: opts.incluirVideo ?? true,
         });
