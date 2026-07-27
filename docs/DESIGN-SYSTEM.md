@@ -2,6 +2,13 @@
 
 > Paleta oficial extraída do brand guide (2025-10-24)
 
+> **Dois documentos, dois escopos.** A skill **`.claude/skills/vertho-design`** é a verdade de
+> **MARCA** (rampas completas, aliases semânticos, voz do arquétipo Sábio, logos, fontes `.otf`) e
+> descreve a **superfície CLARA** — PDFs, proposta, site, slides. **Este arquivo** é a verdade da
+> **UI web rodando**, que é **ESCURA**, mais os sub-sistemas com paleta própria (proposta comercial,
+> vídeos). Onde os dois divergem em raio, sombra e status, **quem manda numa tela é este**;
+> em cor/tipo de marca, manda a skill.
+
 ## Paleta Oficial da Marca
 
 | Swatch | Hex | Token CSS | Uso |
@@ -28,11 +35,69 @@
 | `--danger` | `#E74C3C` | Crítico, reprovado |
 | `--coral` | `#F97354` | Alerta forte |
 
+⚠️ **Três paletas de status convivem, de propósito** — não "corrigir" um hex para o do DS achando
+que é bug: a do app (tabela acima), a dos PDFs (`STATUS_PALETTE = 'vivid'` em
+`components/pdf/tokens.ts` → `#16A34A`/`#EA580C`/`#B91C1C`, o default de hoje) e a sóbria da marca
+(`'ds'` → `#1F9D6B`/`#D9932B`/`#D6455C`, **opt-in**). Idem na rampa neutra: `NEUTRAL_RAMP = 'slate'`
+é o default; a rampa indigo-tinted do DS é opt-in. Detalhe menor: o lilás do app é `#E1AAEF`, o do
+bundle de marca é `#E1AAFF`.
+
+## Cor de acento é white-label — não hardcodar
+
+`app/globals.css` declara a rampa **`--brand-100..700`** em `@theme inline` (fallbacks = cyan do
+Tailwind, então a Vertho fica pixel-idêntica). `app/dashboard/dashboard-shell.tsx` **sobrescreve
+`--brand-*` em runtime** a partir do `accent` do tenant (`brandRampVars`, `color-mix` em oklab), e a
+aba Branding consegue puxar a paleta do site do cliente. Em tela de produto use `bg-brand-*` /
+`text-brand-*` / `from-brand-*`; escrever `#34C5CC` na mão **quebra o white-label**.
+
+## Tokens de fase (jornada)
+
+`[data-phase="1".."5"]` no shell da página troca `--phase-accent` / `--phase-deep` / `--phase-glow`.
+`MetricCard` usa `--phase-accent` como acento padrão e `--line-phase` deriva dele.
+
+| Fase | accent | deep |
+|---|---|---|
+| 1 | `#9ae2e6` | `#0a1a33` |
+| 2 | `#34c5cc` | `#06202a` |
+| 3 | `#7ba7e0` | `#1a1f4a` |
+| 4 | `#b888e8` | `#1a0d33` |
+| 5 | `#e1aaf0` | `#1a0220` |
+
+## Forma: raio, borda, sombra
+
+Definidos em `app/globals.css` com a regra explícita "use estes e só estes":
+
+| Grupo | Tokens |
+|---|---|
+| Raio | `--radius-sm 10px` (botões/pills/badges) · `--radius-md 16px` (cards internos/chips) · `--radius-lg 24px` (cards principais/hero/modais) |
+| Borda | `--line` `rgba(255,255,255,.08)` · `--line-strong` `.14` · `--line-phase` (cor da fase) |
+| Sombra | `--shadow-float` (modais/FAB/dropdown) · `--shadow-card` (só onde há elevação real) |
+
+⚠️ As sombras são **pretas** (`rgba(0,0,0,.42)`), não indigo. A regra "sombra tingida de indigo" do
+DS de marca vale na superfície clara — em fundo navy o indigo simplesmente some. Não é desvio.
+
 ## Tipografia
 
-| Fonte | Uso | Peso |
-|-------|-----|------|
-| **Inter** | UI, corpo, labels, botões | 400–900 |
+`app/layout.tsx` carrega 5 famílias por `next/font`. Inter é o default do `<body>`.
+
+| Fonte | Var | Uso | Peso |
+|-------|-----|-----|------|
+| **Inter** | `--font-inter` | UI, corpo, labels, botões — e corpo dos PDFs | 400–900 |
+| **Instrument Serif** | `--font-serif` | **display do produto**: `PageHero`/`SectionHeader` e ~36 telas | 400 |
+| **Fraunces** | `--font-fraunces` | display de **marca**: capas de PDF, certificado, `/radarbett`, `/imprensa` | 400–700 |
+| **Plus Jakarta Sans** | `--font-jakarta` | eyebrows/labels dos PDFs e do `/radarbett` | 400–800 |
+| **Manrope** | `--font-manrope` | eyebrows caixa-alta do radar (`.eyebrow-manrope`) | 500–800 |
+
+Fora dessas: **Dancing Script** é registrada localmente no `lib/certificado-pdf.tsx`, só para a
+assinatura. **JetBrains Mono não é carregada** em lugar nenhum e **Codec Cold não existe em código** —
+o wordmark é PNG (`lib/pdf-assets.ts`).
+
+## Componentes
+
+`components/ui/` tem só `Button`, `Surface`/`SurfaceHeader`, `MetricCard` e os estados assíncronos;
+o layout vem de `components/page-shell.tsx` (`PageContainer`/`PageHero`/`GlassCard`/`SectionHeader`)
+e toast é o `sonner`. Props e a11y: `docs/ui-components.md`. Não existem primitivos de
+Input/Select/Checkbox/Switch/Badge/Tabs/Dialog/Tooltip.
 
 ## Background
 
