@@ -62,5 +62,5 @@ npx trigger.dev@4.4.6 deploy
 ## Fontes
 
 - `trigger/` · `trigger.config.ts` · `lib/trigger-region.ts`
-- `docs/GERADOR-VIDEO-MODULO.md`, `docs/CHECKLIST-VALIDACAO.md`
+- `docs/GERADOR-VIDEO-MODULO.md`, `docs/CHECKLISTS.md`
 - Skill `deploy` (§ Trigger.dev) · memória `reference_trigger_deploy`

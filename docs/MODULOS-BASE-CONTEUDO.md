@@ -179,6 +179,39 @@ Orientação específica de **como esse módulo deve ser usado** em cada formato
 
 ---
 
+## Checklist de publicação (absorvido do TEMPLATE em 27/07/2026)
+
+> O `TEMPLATE-MODULO-BASE.md` (321 l) repetia a estrutura dos 4 blocos já especificada acima e
+> mandava "copiar este arquivo e renomear pra modulo-<id>-<locale>.md" — fluxo aposentado: hoje o
+> módulo nasce pelo **form do admin**, pela **IA-autora** ou pela **extração de material** (ver
+> "Caminhos de criação"). O que ele tinha de exclusivo era este checklist, agora aqui.
+
+### Checklist de revisão antes de publicar
+
+Antes de mover de `rascunho` → `revisao`, confira:
+
+- [ ] Cabeçalho completo (competência, descritor, níveis, locale, contexto pedagógico).
+- [ ] `nivel_destino > nivel_entrada`.
+- [ ] **Bloco 1**: ideia principal cabe em 3-5 linhas e sintetiza o conceito sem perder substância.
+- [ ] **Bloco 1**: explicação expandida tem entre 400-1200 palavras e dá matéria-prima pra IA gerar consistentemente.
+- [ ] **Bloco 1**: pelo menos 5 princípios, cada um com nome, explicação e implicação prática.
+- [ ] **Bloco 1**: síntese executiva entre 5-8 linhas.
+- [ ] **Bloco 2**: pelo menos 4 situações típicas (sem cargo específico, salvo se módulo for exclusivo).
+- [ ] **Bloco 2**: 5 exemplos universais (simples, intermediário, complexo, inadequado, adequado) sem nomes próprios.
+- [ ] **Bloco 2**: pelo menos 4 erros comuns com causa, impacto, correção.
+- [ ] **Bloco 2**: repertório de linguagem nas 6 categorias (úteis, perguntas, abertura, condução, fechamento, evitar).
+- [ ] **Bloco 2**: pelo menos 4 boas práticas com o quê / por quê / como / evidência.
+- [ ] **Bloco 3**: listas de preservar/evitar/pode adaptar/não pode adaptar preenchidas.
+- [ ] **Bloco 3**: cuidados éticos e de linguagem específicos do tema.
+- [ ] **Bloco 4**: 3 adaptações por formato (texto, podcast, vídeo).
+- [ ] Sem nomes próprios reais, sem dados inventados, sem leis/normas/estatísticas fabricadas.
+- [ ] Sem diagnóstico psicológico, sem DISC como determinismo.
+- [ ] Não escrito como "aula final pro colaborador" — é base de conhecimento pra IA.
+- [ ] Não duplica a régua de maturidade — ênfase em conceito, repertório, exemplos, orientações.
+
+Quando todos os checks passarem, mover pra `revisao` e atribuir a outro admin Vertho pra leitura cruzada.
+
+
 ## Workflow de status (Dual-IA)
 
 ```
@@ -218,7 +251,7 @@ rascunho ──(submit)──→ revisao ──(IA-auditora aprova + humano publ
 Um módulo pode ser criado por **3 caminhos**, todos resultam em `status = rascunho`:
 
 ### 1. Form web (humano direto)
-Admin Vertho preenche os campos diretamente no formulário em `/admin/vertho/modulos-base/[id]`. Usa o template em `TEMPLATE-MODULO-BASE.md` como guia.
+Admin Vertho preenche os campos diretamente no formulário em `/admin/vertho/modulos-base/[id]`. Os campos e os limites de cada bloco estão especificados acima; o checklist de publicação fecha a revisão.
 
 ### 2. IA-as-autor (rascunho assistido)
 Action `rascunharModuloBase({ competencia_base_id, nivel_entrada, nivel_destino, locale, contexto_pedagogico?, modulo_referencia_id? })`:
@@ -281,7 +314,7 @@ A lista (`/admin/vertho/modulos-base`) tem seleção múltipla (checkbox por lin
 
 ## Frentes entregues
 
-- **Frente 1** — spec consolidada (este arquivo) + template copy-fill (`TEMPLATE-MODULO-BASE.md`).
+- **Frente 1** — spec consolidada (este arquivo; o template copy-fill foi absorvido em 27/07).
 - **Frente 2** — migration 122 (`modulos_base_conteudo`, ENUMs, índices, RLS), admin Vertho-only (`/admin/vertho/modulos-base` lista+form, modais "Rascunhar com IA" e "Importar .docx" via `mammoth`), `actions/modulos-base.ts` (CRUD + workflow com bloqueio criador≠aprovador + i18n + `rascunharModuloBase` + `importarModuloDocx`), task `modulo_base_autor` no `ai-tasks`.
 - **Frente 3** — integração com o engine via `lib/season-engine/modulo-base-integration.ts`: `actions/conteudos.ts::gerarConteudoIA` resolve módulo publicado e enriquece system+user com seções canônicas. Fallback transparente: sem módulo OU erro no resolver, o engine cai pro comportamento anterior.
 - **Frente 4 (23-24/06)** — extração escalada e seleção inteligente:

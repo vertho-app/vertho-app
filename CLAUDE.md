@@ -2,7 +2,25 @@
 
 Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e empresas). Colaboradores passam por diagnóstico comportamental (DISC), recebem cenários situacionais por competência, conversam com IA avaliativa e seguem trilhas (**Temporadas**) com micro-conteúdos personalizados. Inclui geração de vídeo de microlearning, um **Portal do Representante** (canal comercial dos RCs) e ambientes de demonstração.
 
-> Docs canônicas em `docs/` (**PIPELINE-TRILHA** ← mapa ponta a ponta do produto, ARQUITETURA, MODO-PILOTO, CATALOGO-PROMPTS-IA, SECURITY-STATUS, SCHEMA-PROCESS, AMBIENTE-DEMO, PORTAL-REPRESENTANTE, DESIGN-SYSTEM, **LEVANTAMENTO-2026-07** ← auditoria geral 17/07 (fluxos/UX/segurança/arquitetura), **ANALISE-RISCOS-PIPELINE-TRILHA** ← riscos do pipeline 17/07…). Este arquivo é o resumo operacional.
+> **Um doc canônico por assunto** (consolidação de 27/07 — 21 arquivos absorvidos em 6):
+>
+> | Assunto | Doc |
+> |---|---|
+> | Mapa do produto ponta a ponta | `docs/PIPELINE-TRILHA.md` |
+> | Modos de falha + riscos + pegadinhas de conteúdo | `docs/FMEA-PIPELINE.md` (§6 verificação 17/07 · §7 pegadinhas) |
+> | Arquitetura | `ARQUITETURA.md` · plano de evolução: `docs/plano-refatoracao-final.md` |
+> | Segurança (estado + critérios de service-role) | `docs/SECURITY-STATUS.md` |
+> | Prompts de IA (70, inclui o Kit) | `docs/CATALOGO-PROMPTS-IA.md` |
+> | Custo/qualidade de IA | `docs/CUSTO-QUALIDADE.md` (espelho em `/admin/vertho/custo-ia`) |
+> | Schema e migrations | `docs/SCHEMA-PROCESS.md` |
+> | Vídeo (pipeline + 13 templates de cena) | `docs/GERADOR-VIDEO-MODULO.md` · prompt literal em `PROMPT-ROTEIRO-VIDEO.md` |
+> | Conteúdo canônico | `docs/MODULOS-BASE-CONTEUDO.md` · `docs/EXTRACAO-MANUSCRITO.md` · `docs/KIT-SEMANAL.md` |
+> | Checklists (deploy, mudança grande, go-live) | `docs/CHECKLISTS.md` |
+> | Modos da engine | `docs/MODO-PILOTO.md` (piloto e personalizado) |
+> | Comercial / demo | `docs/PORTAL-REPRESENTANTE.md` · `docs/AMBIENTE-DEMO.md` |
+> | Histórico (não é backlog) | `docs/HISTORICO-MIGRACAO.md` · `docs/HISTORICO-AUDITORIAS.md` |
+>
+> Este arquivo é o resumo operacional; `LEVANTAMENTO-2026-07.md` guarda a auditoria geral de 17/07.
 
 ## Stack (real)
 

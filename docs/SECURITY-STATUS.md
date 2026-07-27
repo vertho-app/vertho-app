@@ -37,6 +37,32 @@ O CI estava **vermelho no `master` desde `6b824de5`** (2 guards). Corrigidos na 
 
 ⚠️ **Lição operacional:** guard vermelho no `master` fica invisível se ninguém rodar a suíte inteira antes de commitar — os dois arquivos acusados estavam limpos no working tree, ou seja, chegaram vermelhos pelo commit anterior.
 
+### Service-role: como decidir se um uso é aceitável (absorvido em 27/07)
+
+`docs/service-role-allowlist.md` mantinha um **inventário manual** de 88 arquivos que já estava
+errado por larga margem — **hoje são 139 arquivos / 306 usos** (medido no
+`config/service-role-allowlist.json`, 27/07). Inventário manual ao lado de um inventário automático
+só cria a chance de citar o número errado; o `.json` é a fonte, e o guard de CI é quem cobra. O doc
+foi absorvido aqui; o que valia era o **critério**, não a lista:
+
+**Grupo 1 — aceitável.** Só entra com proteção server-side explícita (`requireAdminAction`,
+`requireRoleAction` ou equivalente — **guard de client ou de page NÃO conta**). Casos legítimos:
+infraestrutura (`lib/supabase.ts`, `lib/tenant-db.ts` — usa admin por dentro mas força o filtro),
+resolução de auth e de tenant (`lib/authz.ts`, `lib/tenant-resolver.ts` — precisam ser cross-tenant
+por definição), tabelas globais (`prompt_versions`, `ia_usage_log`), jobs internos e operações
+cross-tenant de plataforma.
+
+**Grupo 2 — deveria migrar.** Leitura user-scoped que já tem gate de auth mas segue em raw: o gate
+prova *quem é*, não *de que tenant é a linha*. Caminho: `tenantDb(empresaId)`.
+
+**Grupo 3 — ciclo posterior.** Fluxos grandes onde trocar o client tem risco real de regressão;
+migram quando alguém já estiver refatorando o arquivo.
+
+**O guard de CI** (`tests/unit/security/service-role-guard.test.ts`) falha em três situações:
+arquivo novo com `createSupabaseAdmin` fora da allowlist; **contagem aumentada** em arquivo já
+permitido; e entrada *stale* (arquivo removido do repo mas ainda na allowlist). ⚠️ Ele varre apenas
+arquivos **versionados** — um arquivo novo passa verde localmente e derruba o CI no commit.
+
 ## Fechamento dos altos 22/07
 
 | Achado (17/07) | Correcao |
@@ -104,7 +130,7 @@ O CI estava **vermelho no `master` desde `6b824de5`** (2 guards). Corrigidos na 
 - **29** candidatos a migracao para user-scoped (quando RLS estiver pronta)
 - **~17** complexos demais pra migrar sem RLS policies completas + testes
 - 8 stubs de API sem auth removidos (sprint 2026-04-17)
-- Inventario completo: `docs/service-role-allowlist.md` + `config/service-role-allowlist.json`
+- Inventario completo e auditavel: `config/service-role-allowlist.json` (139 arquivos / 306 usos em 27/07). Criterios de classificacao: secao "Service-role: como decidir se um uso e aceitavel"
 
 ### Stubs API removidos (sprint 2026-04-17)
 - `api/relatorios/route.ts`, `api/pdi/route.ts`, `api/ppp/route.ts`, `api/cargos/route.ts`, `api/academia/route.ts`, `api/generate-narratives/route.ts`, `api/relatorios/individual/route.ts`, `api/webhooks/qstash/route.ts`
@@ -173,7 +199,7 @@ Todas derivam identidade 100% server-side via `getAuthenticatedEmailFromAction()
 Nenhuma aceita mais email/colaboradorId/empresaId do client como identidade do caller.
 
 ### Go-live
-Checklist operacional: `docs/GO-LIVE-CHECKLIST.md`
+Checklist operacional: `docs/CHECKLISTS.md (§3 Go-live)`
 
 ## Auditoria de segurança 03/07 — críticos fechados (verificados no banco)
 Quatro vetores ATIVOS (exploráveis em prod) + achados de endurecimento, todos corrigidos:

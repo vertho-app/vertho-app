@@ -428,18 +428,20 @@ nextjs-app/
 │   └── worker.mjs                # Pull/poll + claim atomico (FOR UPDATE SKIP LOCKED)
 ├── video-spike/                  # NOVO: Composicao Remotion VerthoVideo (13 templates de cena)
 │   └── remotion/
-├── tests/                        # Playwright + Vitest (27 arquivos de teste)
-├── migrations/                   # 70 arquivos SQL (022 -> 089, inclui 085 v1/v2)
+├── tests/                        # Vitest (89 arquivos / 814 testes) + Playwright
+├── migrations/                   # 164 arquivos SQL (022 -> 183, com gaps)
 ├── tsconfig.json                 # TypeScript config (strict:false, allowJs, checkJs:false)
-├── docs/
-│   ├── envs-importantes.md
-│   ├── rag-architecture.md       # NOVO: Arquitetura RAG (Voyage, pgvector, backfill, pitfalls)
-│   ├── typescript-migration.md   # NOVO: Guia migracao TS (config, criterios, erros comuns)
-│   ├── tenant-db-migration.md
-│   ├── migrations-workflow.md
-│   ├── checklist-antes-de-prompt-grande.md
-│   ├── checklist-antes-de-deploy.md
-│   └── rotina-antifalha.md
+├── docs/                         # 1 doc canonico por assunto (consolidacao 27/07) — indice no CLAUDE.md
+│   ├── PIPELINE-TRILHA.md        # mapa ponta a ponta do produto
+│   ├── FMEA-PIPELINE.md          # modos de falha + verificacao 17/07 (§6) + pegadinhas (§7)
+│   ├── SECURITY-STATUS.md        # estado de seguranca + criterios de service-role
+│   ├── CATALOGO-PROMPTS-IA.md    # 70 prompts
+│   ├── CUSTO-QUALIDADE.md        # plano de custo + leitura do ledger
+│   ├── SCHEMA-PROCESS.md         # schema + migrations (receita real)
+│   ├── GERADOR-VIDEO-MODULO.md   # pipeline de video + 13 templates de cena
+│   ├── CHECKLISTS.md             # deploy / mudanca grande / go-live
+│   ├── HISTORICO-*.md            # migracoes e auditorias antigas (registro, nao backlog)
+│   └── …                         # KIT-SEMANAL, MODO-PILOTO, MODULOS-BASE, PORTAL-REPRESENTANTE…
 └── public/
     ├── logo-vertho.png
     └── pdf.worker.min.mjs
@@ -1585,7 +1587,7 @@ Modulo-Base
 ### 23.2 Estrutura do video
 
 `avatar_intro` + miolo de **6-12 cenas animadas** (voice-over) + `avatar_outro`. 13 templates de cena Remotion:
-`avatar_intro`, `avatar_outro`, `concept_reveal`, `comparison_motion`, `icon_story`, `steps_flow`, `stat_highlight`, `quote_spotlight`, `scenario_card`, `maturity_ladder`, `myth_truth`, `definition_card`, `reflection_prompt` (4 últimos add 16/06; doc canônico em `docs/templates-video-miolo.md`). Avatar dimensionado p/ ~30s (intro+outro) — custo HeyGen ~$0,51/deck.
+`avatar_intro`, `avatar_outro`, `concept_reveal`, `comparison_motion`, `icon_story`, `steps_flow`, `stat_highlight`, `quote_spotlight`, `scenario_card`, `maturity_ladder`, `myth_truth`, `definition_card`, `reflection_prompt` (4 últimos add 16/06; doc canônico em `docs/GERADOR-VIDEO-MODULO.md` (seção Templates de cena)). Avatar dimensionado p/ ~30s (intro+outro) — custo HeyGen ~$0,51/deck.
 
 ### 23.3 Personalizacao por celula
 

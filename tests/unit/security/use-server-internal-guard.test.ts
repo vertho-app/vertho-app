@@ -5,7 +5,7 @@
  * que pula o gate de autorização é escolhido pelo CLIENTE, não pelo servidor.
  * Em 09/07/2026 isso era explorável: o action id de `gerarBlueprint` estava no
  * bundle público, e `gerarBlueprint({ colaboradorId, internal: { empresaId } })`
- * rodava service-role sem sessão. Ver docs/service-role-allowlist.md e CLAUDE.md.
+ * rodava service-role sem sessão. Ver docs/SECURITY-STATUS.md e CLAUDE.md.
  *
  * Caminho headless (script/seed/task/cron) NÃO usa flag: extrai um núcleo sem
  * gate pra `lib/` (modelos: `lib/blueprint/core.ts`, `lib/modulo-base-auditor.ts`)

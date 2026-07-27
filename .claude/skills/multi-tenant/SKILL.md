@@ -47,7 +47,7 @@ Regras do guard:
 
 ## Fontes
 
-- `docs/service-role-allowlist.md`, `docs/SECURITY-STATUS.md`
+- `docs/SECURITY-STATUS.md` (critérios de service-role + estado corrente), `config/service-role-allowlist.json` (inventário auditável)
 - `lib/supabase.ts`, `lib/tenant-db.ts`, `lib/authz.ts`, `lib/demo/envio-guard.ts`
 - `config/service-role-allowlist.json` + `tests/unit/security/`
 - `CLAUDE.md` § Multi-tenant

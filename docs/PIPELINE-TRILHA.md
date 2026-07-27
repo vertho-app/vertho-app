@@ -8,7 +8,7 @@ carrega `arquivo:linha`. Onde o código não decide, está marcado **não determ
 > não no que está gravado. Ao investigar "o que a pessoa recebe", leia **quem consome** — não
 > a tabela. Ver `CLAUDE.md` › "a forma GRAVADA ≠ o que é ENTREGUE".
 
-> **Errata 17/07/2026** (verificação completa: `docs/ANALISE-RISCOS-PIPELINE-TRILHA.md` §4):
+> **Errata 17/07/2026** (verificação completa: `docs/FMEA-PIPELINE.md` §6 §4):
 > 1. Kit gera **3 formatos** (`['audio','texto','case']`, `actions/kits.ts:23`), não 4 — o vídeo do kit não é micro_conteudo (é `dispararVideoDoKit` → `videos_gerados`). Real: **12 micro_conteudos + 4 vídeos de célula** por brief.
 > 2. O "gate real na leitura" (`checarGatesSemana`) só existe nas 4 rotas de chat — `loadTemporada` e a week page **não gateiam**: semana futura é legível por URL direta.
 > 3. "Idempotente por dia" omite: o carimbo `ultima_pilulaN_em` grava **mesmo com os 2 canais falhando** (`cron-jobs.ts:370`) — perda permanente, sem retry.

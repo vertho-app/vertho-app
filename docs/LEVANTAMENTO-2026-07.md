@@ -119,7 +119,7 @@ Postura **madura e autoconsciente**: gates server-side centralizados (`requireUs
 15. CSP só com `frame-ancestors` — sem `script-src`/`style-src` (`next.config.mjs:88-102`). HSTS preload, nosniff, X-Frame-Options OK.
 16. Demo guard (`lib/demo/envio-guard.ts:31-34`) é **fail-open** em erro de leitura (proteção final = personas `*.demo@vertho.ai` sem telefone).
 17. **LGPD**: retenção/anonimização (transcripts 18 meses, anonimização 24 meses) **sem implementação encontrada** — só `cleanup_sessoes`. DPO placeholder, `admin_access_log` planejado, MFA de admins planejado e template de DPA com clientes pendente; a própria política afirma que DPAs de alguns fornecedores já existem, sem verificação externa nesta revisão. Sem mecanismo self-service de portabilidade **ou exclusão**: a lixeira é administrativa e o perfil não oferece encerramento da conta.
-18. **Docs de segurança desatualizados**: SECURITY-STATUS diz 91/168 service-role (real atual: 129 arquivos/297 ocorrências) e "8 entradas internal" (real: 5); `auditoria-tecnica-rotas-acoes.md` (Abr/2026) obsoleto inteiro; `lgpd-politica.md` §8 desalinhado.
+18. **Docs de segurança desatualizados**: SECURITY-STATUS diz 91/168 service-role (real atual: 129 arquivos/297 ocorrências) e "8 entradas internal" (real: 5); `HISTORICO-AUDITORIAS.md` (Abr/2026) obsoleto inteiro; `lgpd-politica.md` §8 desalinhado.
 
 ### O que está bom (não mexer)
 

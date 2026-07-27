@@ -592,7 +592,7 @@ repo; **não usar em material novo**.
 - **Stubs API removidos**: 8 rotas sem auth que retornavam `{status:'ok'}`
 - **Schema**: migrations 048-051 (relatorios, capacitacao, unicidade NULL, evidencia_avaliacao)
 - **Processo anti-drift**: `docs/SCHEMA-PROCESS.md`
-- **Go-live checklist**: `docs/GO-LIVE-CHECKLIST.md`
+- **Go-live checklist**: `docs/CHECKLISTS.md (§3 Go-live)`
 - **Favicon**: `app/icon.svg` (navy + cyan da marca)
 - **Remoção de legado**: `gas-antigo/`, `migrations-legacy/`, `migrate:legacy` script, stubs, compat legada de PDFs
 

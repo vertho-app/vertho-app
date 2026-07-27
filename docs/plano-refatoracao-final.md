@@ -1,8 +1,28 @@
 # Plano de Refatoração — versão final (jun/2026)
 
-> **Fonte:** consolida `docs/refatoracao-arquitetural-sugestoes.md` (roadmap incremental, ancorado em bugs reais) + `docs/auditoria-arquitetura-2026-06.md` (achados de segurança específicos + performance).
+> **Documento único da frente de refatoração.** Consolidou (e substituiu, em 27/07/2026)
+> `refatoracao-arquitetural-sugestoes.md` (750 l — diagnóstico + roadmap incremental) e
+> `auditoria-arquitetura-2026-06.md` (93 l — achados de segurança e performance de ~106k LoC).
+> Ambos já eram declarados superseded por este texto; o conteúdo integral segue no git.
 > **Princípio:** preservar o comportamento atual; tornar o caminho seguro também o caminho mais fácil.
-> **Este doc supersede os dois anteriores como plano oficial.**
+
+## Status por fase — MEDIDO em 27/07/2026
+
+Verificado no código, não no relato. O plano avançou mais do que o documento registrava.
+
+| Fase | Status | Evidência no código |
+|---|---|---|
+| **0 — Hotfixes de segurança** | ✅ **feita** (19/06) | `assertTenantAccess` em update/delete de colaborador; HMAC no webhook Z-API; `logAdminAction` em platform-admins |
+| **1 — Serviços de envio + gates** | ✅ **feita** (19/06) | `lib/notifications/access-link-service.ts` (serviço central de envio), `lib/access-gates/` com `GateResult` explícito. *Divergência:* não existe `magic-link-service.ts` separado — o magic link foi absorvido pelo access-link-service, o que é melhor do que o plano previa |
+| **2 — Tenant-safe repos + `protectedAction`** | 🟡 **parcial** | `lib/repositories/` com 4 repos (colaboradores, cargos-empresa, conteúdos, trilhas) e `lib/auth/protected-action.ts` existem e estão em uso. Falta cobrir empresas/assessment/relatórios. **Reforço vindo por outra via:** a auditoria 23/07 introduziu `requireEmpresaSupabase(empresaId, perm)`, que ataca o mesmo risco pelo lado do gate |
+| **3 — Quebrar god-files** | 🟡 **parcial** | `fase5` **foi quebrado**: virou facade de 30 linhas + 5 módulos (`actions/fase5/`). `fase1` caiu para 867 l. **Remanescentes hoje:** `lib/radar/queries.ts` (1522), `actions/conteudos.ts` (1292), `app/admin/empresas/[id]/page.tsx` (1287), `.../fase2/page.tsx` (1189), `app/admin/conteudos/page.tsx` (1185), `actions/modulos-base.ts` (1004) |
+| **4 — Observabilidade & jobs** | 🟡 **parcial** | Entregue por fora do plano: `ia_usage_log` + `ia_uso_resumo` (custo/tempo de IA por chamada), `ia_jobs` (status de lote com progresso e parada), `trilha_eventos`. **Falta:** rate-limit Upstash |
+| **5 — TypeScript & schema** | 🟡 **parcial** | Projeto 100% TS (~898 arquivos) e a regra é não escrever JS. **Falta:** `strict`/`noImplicitAny` em módulos novos, tipos gerados do Supabase, Zod nos payloads de IA |
+
+**Leitura honesta:** as fases de *segurança* e *serviços* fecharam; as de *estrutura* (repos,
+god-files, tipos) avançam por oportunidade, quando alguém já está no arquivo — e não como frente
+dedicada. O maior god-file remanescente (`lib/radar/queries.ts`) é do Radar, que não toca o motor
+do produto: prioridade menor que `actions/conteudos.ts`.
 
 ---
 

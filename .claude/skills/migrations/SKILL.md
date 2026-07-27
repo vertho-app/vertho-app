@@ -49,7 +49,7 @@ node --env-file=.env.local scripts/apply-migration.mjs migrations/NNN-nome.sql
 
 ## Fontes
 
-- `docs/migrations-workflow.md`, `docs/SCHEMA-PROCESS.md`
+- `docs/SCHEMA-PROCESS.md`, `docs/SCHEMA-PROCESS.md`
 - `scripts/apply-migration.mjs`
 - Memória `reference_trigger_deploy` (gotchas de deploy)
 - Project ref: `xwuqrgrvakxtphbmudwj` · host `db.xwuqrgrvakxtphbmudwj.supabase.co`

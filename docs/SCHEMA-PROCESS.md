@@ -1,6 +1,22 @@
 # Processo de Alteração de Schema
 
-> Revisão: 2026-07-07 (receita de aplicação + faixa 022-169). Antes: 2026-04-17
+> Revisão: 2026-07-27 — doc único de schema/migrations. Absorveu `migrations-workflow.md`, que
+> ensinava o caminho **errado** (ver "O que NÃO fazer" abaixo). Antes: 2026-07-07, 2026-04-17.
+
+## O que NÃO fazer (o doc antigo mandava fazer)
+
+`migrations-workflow.md` descrevia um fluxo via Supabase CLI que **não é o deste projeto** e que
+falha na prática. Removido para não induzir erro:
+
+| O que ele mandava | Por que está errado aqui |
+|---|---|
+| `supabase migration new` / `supabase db push` | **Não existe `supabase/migrations/`** neste repo, e `db push` não é usado. As migrations são `migrations/NNN-nome.sql`, aplicadas por script |
+| Aplicar via Management API com `curl` | O PAT da conta retorna **403** nesse endpoint |
+| `supabase link` + `db pull` como setup obrigatório | Não há ambiente local nem staging; o CLI não faz parte do fluxo |
+| MCP Supabase para aplicar DDL | O MCP é **read-only** neste projeto |
+
+O que sobreviveu dele — padrões de escrita da migration e política de rollback — está nas seções
+finais.
 
 ## Regra principal
 
@@ -74,12 +90,44 @@ Tabelas criadas via Dashboard antes do sistema de migrations e agora formalizada
 | `relatorios` | 048 | Schema inferido do código |
 | `capacitacao` | 049 | Código trata ausência com try/catch |
 
+## Padrões obrigatórios de escrita (absorvidos do doc antigo)
+
+- **`IF NOT EXISTS` / `IF EXISTS` em tudo** — idempotência não é opcional: a migration pode ser
+  reaplicada.
+- **`COMMENT ON COLUMN`** em coluna nova — é a única documentação que viaja junto com o schema.
+- **RLS habilitada** em tabela nova (mesmo que a policy seja restritiva e o acesso real venha por
+  service-role — ver `ARQUITETURA.md` §11.0 sobre o que a RLS de fato protege).
+- **Índice** em FK e em coluna de filtro frequente.
+- **`CASCADE` só com intenção explícita.** Já custou caro: `videos_gerados.modulo_base_id` é
+  `NOT NULL + CASCADE`, então deletar um Módulo-Base cascateia os decks e os vídeos personalizados
+  (F-I3 do `FMEA-PIPELINE.md`). A regra virou operacional: **não deletar MB publicado — despublicar.**
+
+## Rollback
+
+**Não confie em reversão automática.** O procedimento é:
+
+1. Backup antes (point-in-time restore do Supabase cobre o caso geral).
+2. Deu ruim → restaurar e reverter manualmente.
+3. Deixar o SQL de rollback **comentado no fim do próprio arquivo** de migration:
+   `-- Rollback: ALTER TABLE trilhas DROP COLUMN IF EXISTS nova_coluna;`
+
+## Pendências conhecidas (herdadas, sem data)
+
+- Ambiente de **staging** Supabase separado — hoje só existe produção.
+- CI que detecte **schema drift** por PR.
+- Teste de migration em banco descartável.
+
 ## Numeração
 
 Migrations usam numeração sequencial: `NNN-nome-descritivo.sql`.
-Faixa atual: 022-169.
+**Faixa atual: 022-183** (164 arquivos, com gaps).
 
-Últimas desta sessão (06-07/07/2026):
+Marcos recentes: 172/173 `ia_jobs` (lote em segundo plano + parada) · 174 competências-foco do cargo ·
+175/176 development blueprints + auditoria · 177/178 ledger de uso de IA + função de resumo ·
+179 eventos de trilha · 180 `videos_watched` por semana · 181 carimbo de pílula por canal ·
+182 config de programa na trilha (Modo Personalizado) · 183 DISC contextual no pulso.
+
+Anteriores (06-07/07/2026):
 
 | Migration | O que faz |
 |-----------|-----------|

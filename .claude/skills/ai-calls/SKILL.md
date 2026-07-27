@@ -49,5 +49,5 @@ Arquivos `'use server'` (como `ai-client.ts` e as `actions/*.ts`) **só podem ex
 ## Fontes
 
 - `actions/ai-client.ts` · `lib/ai-batch.ts` · `lib/ai-json.ts` · `lib/ia-cost-catalog.ts`
-- `docs/CATALOGO-PROMPTS-IA.md`, `docs/checklist-antes-de-prompt-grande.md`
+- `docs/CATALOGO-PROMPTS-IA.md`, `docs/CHECKLISTS.md (§2 Antes de uma mudança grande)`
 - `CLAUDE.md` § IA · memória `project_architecture`
