@@ -15,6 +15,14 @@
     {
       "path": "/api/cron?action=reset_demo",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron?action=preflight_entrega",
+      "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/cron?action=health_estrutural",
+      "schedule": "30 6 * * *"
     }
   ]
 }

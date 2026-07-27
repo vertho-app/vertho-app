@@ -77,7 +77,34 @@ export async function GET(req) {
       // Motor único da cadência (lê dia da pílula 1/2/evidência por empresa).
       case 'trigger_diario':
         result = await triggerDiario();
+        // PÓS-VOO imediato: confere se o que acabou de rodar realmente saiu. Roda
+        // depois do envio, no mesmo request, para não depender de outro agendamento.
+        // Best-effort: um problema no check NUNCA pode derrubar o envio em si.
+        try {
+          const { executarHealthCheck } = await import('@/lib/pipeline-health/core');
+          const h = await executarHealthCheck('postflight');
+          result.message = `${result.message || 'envio ok'} · saúde: ${h.message}`;
+        } catch (e) {
+          console.error('[cron] postflight falhou:', e.message);
+        }
         break;
+
+      // PRÉ-VOO: avalia a entrega de AMANHÃ. Agendado 14h antes do envio de propósito
+      // — achar o problema 5 minutos antes não serve de nada; o valor está em sobrar
+      // tempo para gerar o kit/vídeo que falta ou corrigir um cadastro.
+      case 'preflight_entrega': {
+        const { executarHealthCheck } = await import('@/lib/pipeline-health/core');
+        result = await executarHealthCheck('preflight');
+        break;
+      }
+
+      // Integridade estrutural (duplicatas, presos, órfãos). Independe de entrega e
+      // serve para ver TENDÊNCIA: estes números crescem sozinhos onde falta constraint.
+      case 'health_estrutural': {
+        const { executarHealthCheck } = await import('@/lib/pipeline-health/core');
+        result = await executarHealthCheck('estrutural');
+        break;
+      }
 
       // Legados (disparo manual): seg = pílula única; qui = evidência. O cron
       // agora usa trigger_diario, que cobre os 2 e respeita a cadência configurada.

@@ -1,5 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { normalizePhone, validateWhatsApp } from '@/lib/phone';
+import { normalizePhone, validateWhatsApp, metadataSaudavel } from '@/lib/phone';
+
+/**
+ * A metadata do libphonenumber é carregada EXPLICITAMENTE (não pelo subpath `/max`)
+ * porque, sob o interop do tsx, ela chegava como `{ default: … }`, o parse lançava e
+ * o catch devolvia `null` — todo telefone virava "inválido" em SILÊNCIO. Custou um
+ * script de reenvio quebrado e, em 27/07, 36 falsos positivos no health-check, que
+ * mandaria corrigir cadastros corretos.
+ *
+ * Este bloco é o canário: se a metadata voltar a chegar torta, ele falha antes que
+ * alguém confie num "telefone inválido" que não é.
+ */
+describe('metadata do libphonenumber (canário do interop)', () => {
+  it('carrega de verdade — countries.BR presente', () => {
+    expect(metadataSaudavel()).toBe(true);
+  });
+
+  it('distingue DDI errado de número válido (caso real: 597=Suriname vs 55=BR)', () => {
+    // Um dígito trocado no cadastro tirou uma pessoa do WhatsApp por 2 semanas.
+    expect(normalizePhone('5574988079827')).toBe('5574988079827'); // BR, DDD 74
+    expect(normalizePhone('5974988079827')).toBeNull();            // DDI 597
+  });
+});
 
 describe('normalizePhone', () => {
   it('mantém tudo que o formato BR-only já aceitava (sem regressão)', () => {

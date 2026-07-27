@@ -1,5 +1,54 @@
 # FMEA — modos de falha do pipeline da trilha
 
+> ## ⚠️ 27/07/2026 — por que este documento não bastou, e o que passou a existir
+>
+> Em 27/07 quatro problemas morderam a entrega da Ibipeba. **Três já estavam escritos
+> aqui**: o texto da pílula prometendo formato inexistente (§2, camadas 6–7), o carimbo
+> sobrevivendo à falha de envio (§1.2) e os resolvedores gêmeos divergindo em `url`
+> (§3, risco 9). O diagnóstico estava certo e completo — e não protegeu ninguém,
+> porque **nada rodava sozinho**. Um check que só um humano dispara é documentação.
+>
+> O que mudou: **`lib/pipeline-health/`** — checagens que rodam por cron, gravam série
+> histórica em `pipeline_health_runs` e alertam por e-mail.
+>
+> | Modo | Quando | O que responde |
+> |---|---|---|
+> | `preflight_entrega` | 21:00 UTC (14h antes do envio) | "a pílula de amanhã está pronta, e o que ela promete existe?" |
+> | `postflight` | junto com `trigger_diario` | "o que dizia que ia sair, saiu?" |
+> | `health_estrutural` | 06:30 UTC | duplicatas, presos, órfãos — com **tendência**, não foto |
+>
+> As regras são funções puras em `regras.ts`, testadas por mutação
+> (`tests/unit/pipeline-health-regras.test.ts`). Cada uma nasceu de uma falha medida,
+> e o teste guarda os DOIS sentidos: dispara quando o problema existe e fica calada
+> quando não existe — check que sempre acusa vira ruído e é desligado.
+>
+> **A regra de ouro da coleta:** a previsão passa pelo MESMO código da entrega
+> (`precarregarKits` + `overlayKitNaSemana`). Reimplementar "o que a pessoa vai
+> receber" produz um check que concorda consigo mesmo e diverge da realidade — erro
+> cometido nesse mesmo dia, quando um diagnóstico via `resolverKitDaSemana` acusou
+> "34 entregas só com áudio" enquanto a entrega real servia os 3 formatos.
+>
+> **Três coisas que o próprio esforço de instrumentar revelou** (todas corrigidas):
+> 1. `publishToQStash` (`cron-jobs.ts:456`) dava `return` quando faltava
+>    `QSTASH_TOKEN`, e o chamador seguia para `pilulas++` + carimbo: o WhatsApp da
+>    coorte inteira morria em silêncio com o banco dizendo que saiu. O gêmeo em
+>    `whatsapp-lote.ts:18` sempre lançou — dois caminhos, comportamentos opostos.
+> 2. `lib/phone.ts` usava `libphonenumber-js/max`, cuja metadata chega como
+>    `{default}` sob `tsx` — o parse lançava, o catch devolvia `null` e **todo**
+>    telefone virava inválido em silêncio. Deu 36 falsos positivos no primeiro
+>    pré-voo. Agora a metadata é explícita e há um canário (`metadataSaudavel()`).
+> 3. `triggerDiario` não tinha try/catch por empresa: uma exceção abortava o run e
+>    as empresas seguintes ficavam sem envio, sem retry do Vercel Cron.
+>
+> **O que foi medido e NÃO corrigido** (decisão consciente, não esquecimento): as 22
+> células de vídeo duplicadas (F-C5) carregam **125 `videos_personalizados` em
+> 'done'**. Apagar as cópias arrancaria o vídeo com nome de 125 entregas. Consolidar
+> exige migrar os personalizados para a célula vencedora tratando colisão de
+> `(cell_video_id, colaborador_id)` — trabalho próprio, não efeito colateral de uma
+> migration. O `health_estrutural` agora acompanha o número (18 em 17/07 → 22 em
+> 27/07: cresce sozinho porque não há UNIQUE).
+
+
 Análise de modos de falha, efeitos e resolução do pipeline descrito em
 `docs/PIPELINE-TRILHA.md`. **Cada falha foi lida no código** (17/07/2026), não inferida;
 onde o estado já existe em produção, está medido no tenant Ibipeba.

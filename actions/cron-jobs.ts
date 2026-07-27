@@ -297,8 +297,15 @@ export async function triggerDiario() {
   const hoje = new Date().getUTCDay();          // 0=dom..6=sáb (= índice da config)
   const hojeUTC = new Date().toISOString().slice(0, 10);
   let pilulas = 0, emails = 0, evidencias = 0, nudges = 0, erros = 0;
+  // Empresas cujo processamento explodiu — reportadas no retorno em vez de sumirem.
+  const empresasComFalha: string[] = [];
 
   for (const empresa of empresas) {
+    // ISOLAMENTO POR EMPRESA: sem este try/catch, uma exceção (carimbo, tenantDb,
+    // plano corrompido) aborta o run INTEIRO e todas as empresas seguintes do dia
+    // ficam sem envio — e o Vercel Cron não re-tenta. Uma empresa quebrada não pode
+    // calar as outras (FMEA §1.3).
+    try {
     const cadencia = (empresa as any).sys_config?.cadencia || {};
     const diaP1 = cadencia.fase4_dia_pilula ?? 1;            // default segunda
     const diaP2 = cadencia.fase4_dia_pilula2 ?? 2;           // default terça (2ª pílula DUO)
@@ -444,9 +451,18 @@ export async function triggerDiario() {
         await tdb.from('fase4_envios').update({ semana_atual: semana + 1, ultima_evidencia_em: new Date().toISOString() }).eq('id', envio.id);
       }
     }
+    } catch (e: any) {
+      erros++;
+      empresasComFalha.push((empresa as any).slug || (empresa as any).id);
+      console.error(`[triggerDiario] empresa ${(empresa as any).slug} falhou:`, e?.message);
+    }
   }
 
-  return { pilulas, emails, evidencias, nudges, erros, message: `Diário: ${pilulas} pílulas WhatsApp, ${emails} e-mails, ${evidencias} evidências, ${nudges} nudges` };
+  const alerta = empresasComFalha.length ? ` · ⚠️ falharam: ${empresasComFalha.join(', ')}` : '';
+  return {
+    pilulas, emails, evidencias, nudges, erros, empresasComFalha,
+    message: `Diário: ${pilulas} pílulas WhatsApp, ${emails} e-mails, ${evidencias} evidências, ${nudges} nudges${alerta}`,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -456,8 +472,14 @@ export async function triggerDiario() {
 async function publishToQStash(payload: any, delaySec: number = 0) {
   const qstashToken = process.env.QSTASH_TOKEN;
   if (!qstashToken) {
-    console.warn('[cron-jobs] QSTASH_TOKEN não configurado, pulando envio WhatsApp');
-    return;
+    // LANÇA — não "pula". Antes esta função dava `return` (sucesso implícito) e o
+    // chamador seguia para `pilulas++` + carimbo do canal: o WhatsApp da coorte
+    // inteira morria em silêncio, com o banco afirmando que a pílula saiu e a
+    // /admin/engajamento reportando 100%. Lançar faz o `catch` do chamador contar
+    // erro e NÃO carimbar, deixando o dia pendente e visível ao pós-voo.
+    // O gêmeo `actions/whatsapp-lote.ts:18` sempre lançou; eram dois caminhos com
+    // comportamentos opostos para a mesma falha.
+    throw new Error('QSTASH_TOKEN não configurado — canal WhatsApp indisponível');
   }
 
   await assertWhatsappAvailable();

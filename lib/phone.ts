@@ -1,4 +1,30 @@
-import { parsePhoneNumberFromString, type PhoneNumber } from 'libphonenumber-js/max';
+import { parsePhoneNumberFromString as parseComMetadata, type PhoneNumber } from 'libphonenumber-js/core';
+import metadataRaw from 'libphonenumber-js/metadata.max.json';
+
+/**
+ * ⚠️ METADATA EXPLÍCITA, DE PROPÓSITO — não trocar por `libphonenumber-js/max`.
+ *
+ * O subpath `/max` embute a metadata via um build que, sob o interop ESM/CJS do
+ * `tsx`, chega como `{ default: … }`. O parse então LANÇA, o `catch` abaixo devolve
+ * `null`, e o resultado é indistinguível de "número inválido": TODO telefone vira
+ * inválido, em silêncio. Isso já quebrou um script de reenvio e, em 27/07, fez o
+ * próprio health-check acusar 36 telefones válidos como inválidos — um check que
+ * mente é pior que nenhum, porque manda corrigir cadastro que está certo.
+ *
+ * Passando a metadata explicitamente (com o desembrulho do `.default`), o MESMO
+ * código vale no bundler do Next e no tsx. Guardado por `tests/unit/phone.test.ts`,
+ * que roda `metadataSaudavel()` e falharia se a metadata voltasse a chegar torta.
+ */
+const metadata: any = (metadataRaw as any)?.default ?? metadataRaw;
+
+/** A metadata carregou de verdade? Falso = biblioteca quebrada, não número ruim. */
+export function metadataSaudavel(): boolean {
+  return !!metadata?.countries?.BR;
+}
+
+function parsePhoneNumberFromString(input: string, country?: 'BR'): PhoneNumber | undefined {
+  return parseComMetadata(input, country, metadata);
+}
 
 /**
  * Telefone em E.164 INTERNACIONAL, persistido sem o "+" (convenção do banco e
