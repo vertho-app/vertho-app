@@ -1,6 +1,6 @@
 # Estado atual de seguranca — Vertho Mentor IA
 
-> Ultima revisao: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
+> Ultima revisao: 2026-07-26 — **os 2 guards de tenant voltaram ao verde** (`3367efb7`; ver "Manutenção 26/07"). Antes: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
 > Antes: 2026-07-17 (auditoria geral — detalhes em `docs/LEVANTAMENTO-2026-07.md` §4. **3 achados altos NOVOS**, hoje fechados: (1) `api/bunny-videos` + `api/video-download` sem auth — enumeracao + download anonimo de videos, PII potencial nos personalizados; (2) header `x-tenant-slug` forjavel no apex/vercel.app — enumeracao de e-mails cross-tenant e signup em tenant alheio; (3) open redirect de `token_hash` de sessao em `api/auth/phone-otp/verify`. Numeros corrigidos: service-role = **130 arquivos / 299 usos** (nao 91/168); residuo `internal` = **5 entradas** (nao 8; fase1/fase3 removidos 10/07). As 4 classes criticas de 03/07 seguem confirmadas fechadas.)
 > Anterior: 2026-07-07 (defense-in-depth de tenant nas ações internas + filtro de contas internas demo-aware; ver seção "Endurecimento 06-07/07"). Anterior: 2026-07-03 (auditoria de segurança — RCE/RLS/IDOR/search_path/MVs fechados; ver seção "Auditoria de segurança 03/07")
 
@@ -25,6 +25,17 @@ Padrão de remediação: **exports `'use server'` sempre gatados; caminho headle
 
 - **SSRF novo, FECHADO:** o fetch do logo do tenant no Certificado (`actions/certificado.ts`) usa `logo_url` do `ui_config` — config do admin do tenant, logo destino atacável. Defesa em camadas: **allowlist ao host do nosso Supabase Storage** (onde 100% dos logos vivem — trava o destino no nosso domínio) + `fetchPublico` (net-guard) + `redirect:'error'` + timeout 6s + cap 3MB. Commits `896ad76d`→`2834c68f`.
 - 🐞 **`lib/net-guard` `fetchPublico` estava FALHANDO-FECHADO** (regressão, medida 23/07): lançava `ERR_INVALID_IP_ADDRESS` para QUALQUER host (inclusive públicos legítimos) → sobre-bloqueio, quebrando o Certificado E o `site-palette` ("puxar cores"). Causa: o connector `lookupPublico` não honrava `{ all: true }` do **Happy Eyeballs** (`autoSelectFamily`, default Node ≥20), que espera o callback no formato ARRAY `[{address,family}]`. Corrigido em `2834c68f`. **Lacuna de teste que deixou passar:** `net-guard.test.ts` só exercita o BLOQUEIO (todos os casos esperam `/privado/i`), nunca o caminho-feliz (host público conectando). Guarda nova: `tests/unit/security/net-guard-lookup.test.ts` (contrato do callback, dns mockado, **validada por mutação**).
+
+### Manutenção 26/07 — os dois guards de tenant voltaram ao verde
+
+O CI estava **vermelho no `master` desde `6b824de5`** (2 guards). Corrigidos na FONTE, não na allowlist — entrada nova para "passar o CI" é o bug que o guard existe para pegar. Commit `3367efb7`.
+
+- **`actions/certificado.ts`** (service-role-guard): `createSupabaseAdmin()` → `tenantDb(colab.empresa_id)`. `trilhas` e `temporada_semana_progresso` passam a ser lidas escopadas ao tenant do colab (resolvido por `findColabByEmail`, não vindo do cliente). `empresas` é a **raiz da tenancy** (`id === empresa_id`, sem coluna para filtrar) → `tdb.raw`, com o id vindo da trilha já escopada.
+- **`lib/relatorio-comportamental/relatorio-core.ts`** (tenant-read-guard): `fetchColabPorId` lia `colaboradores` com service-role e **sem filtro de tenant** — resíduo do Grupo C, cujo cabeçalho já admitia o IDOR. Agora: bootstrap descobre o `empresa_id` (única leitura que não dá para filtrar por aquilo que ela existe para encontrar — padrão reconhecido pelo guard) e a leitura dos dados vai por `tenantDb`.
+- **O ganho real não é o guard, é o `empresaIdEsperado`** (mesma ideia do "B5"): quando o caller sabe de que tenant o colab DEVE ser, divergência devolve `null` em vez de dado alheio. Amarrado em dois callers que sabiam e não cobravam: o `after()` do mapeamento (tenant da sessão) e `pregerarPdfsEmpresa` (lote por empresa). Quem omite é `requireAdminAction()` — platform admin, cross-tenant por mandato, **agora explícito no contrato** em vez de acidental.
+- Guarda: `tests/unit/security/relatorio-fetch-colab-tenant.test.ts`, **validada por mutação** (remover a barreira → 1 falha; voltar a ler pelo raw → 4). Suíte: 814 testes verdes.
+
+⚠️ **Lição operacional:** guard vermelho no `master` fica invisível se ninguém rodar a suíte inteira antes de commitar — os dois arquivos acusados estavam limpos no working tree, ou seja, chegaram vermelhos pelo commit anterior.
 
 ## Fechamento dos altos 22/07
 

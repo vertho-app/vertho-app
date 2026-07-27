@@ -161,6 +161,10 @@ nunca **"o que está gravado aqui?"**.
 - NÃO escrever JavaScript — é **TypeScript**.
 - NÃO `git add -A`, `vercel --prod`, `cd && git`.
 - NÃO query de colaborador por email direto — usar `findColabByEmail`.
+- NÃO `.limit(1)` em `ppp_escolas` p/ representar a empresa — empresa-rede tem **1 PPP por escola**
+  (Ibipeba: 11) e isso aplica uma escola sorteada à rede inteira, em silêncio. Consolidar:
+  `resolverContextoEmpresa` (texto) ou `consolidarValoresDaRede` (valores). Detalhe: **F-I10** do
+  `docs/FMEA-PIPELINE.md` — inclui o caso ainda ABERTO (`buscarContextoPPP`).
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.

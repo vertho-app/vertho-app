@@ -196,6 +196,28 @@ briefs duplicados por tupla.
   que slots). **Resolução:** o build poderia converter slot de conteúdo vazio em reflexão em vez de
   emitir semana bloqueada. Baixa prioridade.
 
+### F-I10 · Empresa-rede: `.limit(1)` em `ppp_escolas` aplica UMA escola à rede inteira 🟠 (parcial ✅ 26/07)
+- **Gatilho:** empresa-rede tem **1 PPP por escola** (Medido 26/07: Ibipeba **11 PPPs extraídos, 86
+  valores**; todos os outros 5 tenants com PPP têm 1). Qualquer leitura `.eq('status','extraido')
+  .order('extracted_at' desc).limit(1)` devolve **uma escola sorteada pela data de extração** e a
+  trata como a rede.
+- **Efeito:** a régua de competências do município inteiro é autorada com o contexto/valores de uma
+  escola arbitrária. Medido: os valores que entravam no IA2 de Ibipeba eram os 8 de uma **creche**
+  ("Respeito às infâncias", "Indissociabilidade entre cuidar e educar") — aplicados a todos os cargos
+  da rede. Falha **silenciosa**: nada erra, o gabarito só fica calibrado na escola errada.
+- **Resolução (o padrão):** consolidar. `lib/season-engine/kit/contexto-empresa.ts` já fazia isso
+  para o Kit (1 PPP → direto; N → síntese municipal por IA, cacheada em `empresas.kit_contexto`).
+- **Status por consumidor:**
+  - ✅ `buscarValores` (`lib/ia2-gabarito.ts`) — corrigido 26/07 (`062dca13`): consolidação
+    **determinística** por frequência entre escolas (sem IA — são strings curtas), teto de 10, ordem
+    estável porque o prompt é cacheado. Guarda: `tests/unit/ia2-valores-rede.test.ts`.
+  - 🔴 **ABERTO** — `buscarContextoPPP` (`lib/ia2-gabarito.ts:57-65`) segue com `.limit(1)` quando
+    `pppEscolaId` é `undefined`/`null`, e o comentário chama isso de "proxy de rede, comportamento
+    histórico". Alimenta IA1, IA2 e o cenário de rede do IA3. É o **mesmo defeito**, num insumo maior
+    (4000 chars de contexto vs. 10 strings). Correção: reusar `resolverContextoEmpresa`.
+- **Onde mais checar antes de escrever query nova:** qualquer `from('ppp_escolas')` sem
+  `pppEscolaId` explícito.
+
 ---
 
 ## 3. Escala (o que quebra a partir de N) — resumo; detalhe em ESCALA-50K.md
