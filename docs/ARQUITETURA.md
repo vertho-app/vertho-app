@@ -115,6 +115,8 @@ semana, carimbo de pilula por canal), 182 (Modo Personalizado), 183 (DISC contex
 
 ```
 nextjs-app/
+├── CLAUDE.md                      # regras obrigatorias + indice de docs (raiz por convencao)
+├── AGENTS.md                      # idem, p/ outros agentes (raiz por convencao)
 ├── middleware.js                  # Roteamento multi-tenant por subdominio
 ├── sentry.client.config.js       # Sentry (browser errors)
 ├── sentry.server.config.js       # Sentry (server errors)
@@ -431,7 +433,11 @@ nextjs-app/
 ├── tests/                        # Vitest (89 arquivos / 814 testes) + Playwright
 ├── migrations/                   # 164 arquivos SQL (022 -> 183, com gaps)
 ├── tsconfig.json                 # TypeScript config (strict:false, allowJs, checkJs:false)
-├── docs/                         # 1 doc canonico por assunto (consolidacao 27/07) — indice no CLAUDE.md
+├── docs/                         # ÚNICO lugar de .md novo (27/07) — indice no CLAUDE.md
+│   ├── ARQUITETURA.md            # este arquivo (saiu da raiz em 27/07)
+│   ├── PASSO-A-PASSO-VERTHO.md   # operacao ponta a ponta (telas, ordem, quem faz)
+│   ├── RESUMO.md                 # retomada rapida (estado + comandos)
+│   ├── FEATURES-E-BENEFICIOS.md  # inventario de features com o beneficio (base p/ copy)
 │   ├── PIPELINE-TRILHA.md        # mapa ponta a ponta do produto
 │   ├── FMEA-PIPELINE.md          # modos de falha + verificacao 17/07 (§6) + pegadinhas (§7)
 │   ├── SECURITY-STATUS.md        # estado de seguranca + criterios de service-role

@@ -8,19 +8,37 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > |---|---|
 > | Mapa do produto ponta a ponta | `docs/PIPELINE-TRILHA.md` |
 > | Modos de falha + riscos + pegadinhas de conteúdo | `docs/FMEA-PIPELINE.md` (§6 verificação 17/07 · §7 pegadinhas) |
-> | Arquitetura | `ARQUITETURA.md` · plano de evolução: `docs/plano-refatoracao-final.md` |
+> | Arquitetura | `docs/ARQUITETURA.md` · plano de evolução: `docs/plano-refatoracao-final.md` |
 > | Segurança (estado + critérios de service-role) | `docs/SECURITY-STATUS.md` |
 > | Prompts de IA (70, inclui o Kit) | `docs/CATALOGO-PROMPTS-IA.md` |
 > | Custo/qualidade de IA | `docs/CUSTO-QUALIDADE.md` (espelho em `/admin/vertho/custo-ia`) |
 > | Schema e migrations | `docs/SCHEMA-PROCESS.md` |
-> | Vídeo (pipeline + 13 templates de cena) | `docs/GERADOR-VIDEO-MODULO.md` · prompt literal em `PROMPT-ROTEIRO-VIDEO.md` |
+> | Vídeo (pipeline + 13 templates de cena) | `docs/GERADOR-VIDEO-MODULO.md` · prompt literal em `docs/PROMPT-ROTEIRO-VIDEO.md` |
 > | Conteúdo canônico | `docs/MODULOS-BASE-CONTEUDO.md` · `docs/EXTRACAO-MANUSCRITO.md` · `docs/KIT-SEMANAL.md` |
 > | Checklists (deploy, mudança grande, go-live) | `docs/CHECKLISTS.md` |
 > | Modos da engine | `docs/MODO-PILOTO.md` (piloto e personalizado) |
 > | Comercial / demo | `docs/PORTAL-REPRESENTANTE.md` · `docs/AMBIENTE-DEMO.md` |
 > | Histórico (não é backlog) | `docs/HISTORICO-MIGRACAO.md` · `docs/HISTORICO-AUDITORIAS.md` |
 >
-> Este arquivo é o resumo operacional; `LEVANTAMENTO-2026-07.md` guarda a auditoria geral de 17/07.
+> Este arquivo é o resumo operacional; `docs/LEVANTAMENTO-2026-07.md` guarda a auditoria geral de 17/07.
+
+### 📁 Onde criar `.md` — **`docs/` é o único lugar**
+
+Todo documento novo nasce em **`docs/`** (27/07: a raiz foi esvaziada; `ARQUITETURA`, `PASSO-A-PASSO`,
+`RESUMO` e `FEATURES-E-BENEFICIOS` mudaram para lá). **Quatro exceções, todas por contrato técnico —
+mover qualquer uma quebra o carregamento:**
+
+| Exceção | Por quê |
+|---|---|
+| `CLAUDE.md` (raiz) | carregado automaticamente **por convenção de caminho** |
+| `AGENTS.md` (raiz) | idem, para outros agentes |
+| `.claude/skills/<nome>/SKILL.md` | o caminho **é** o identificador da skill |
+| `README.md` de subprojeto (`worker-hetzner/`, `video-spike/`, `data-pipeline/`…) | pertence à pasta que descreve |
+
+Antes de criar arquivo novo, **procure quem já cobre o assunto** — a tabela acima é o índice, e a
+regra é um doc canônico por assunto. Doc que só registra o passado vai para `docs/HISTORICO-*.md`;
+material que não é documentação de engenharia (dump de dados de tenant, notas de sessão) **não entra
+no repo** — o repositório é público.
 
 ## Stack (real)
 
@@ -87,7 +105,7 @@ tests/unit/          vitest
 ### Sessão (auth): quem renova ≠ quem decide
 - O **refresh** da sessão do Supabase vive no **`proxy.js`** — é o único ponto da request onde o cookie é gravável. O `cookies()` de um Server Component é **read-only**: um refresh disparado lá rotaciona o token no Supabase e **perde** o par novo no catch → o browser fica com o refresh token já consumido e a sessão morre no meio da navegação.
 - Gate de auth **no cliente** usa **`getUser()`** (valida na rede), NUNCA `getSession()` — `getSession` devolve a sessão em MEMÓRIA, que sobrevive ao cookie morto. Servidor perguntando `getUser` e cliente perguntando `getSession` = as duas pontas divergem e o app entra em **laço `/rota-protegida` ↔ `/login`** (medido em prod 22/07: ~3 req/s). `getSession` só serve pra RENOVAR, nunca pra DECIDIR.
-- Detalhe e testes: `ARQUITETURA.md` §3.1.1 + `tests/unit/security/proxy-session-refresh.test.ts`.
+- Detalhe e testes: `docs/ARQUITETURA.md` §3.1.1 + `tests/unit/security/proxy-session-refresh.test.ts`.
 
 ### Trabalho pós-response numa rota
 - DEVE usar **`after()`** (`next/server`). Uma IIFE solta (`(async()=>{})()`) morre no freeze da lambda pós-response.
@@ -187,4 +205,5 @@ nunca **"o que está gravado aqui?"**.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
 - NÃO commitar secrets / instalar dependência desnecessária sem necessidade clara.
+- NÃO criar `.md` fora de `docs/` (salvo as 4 exceções de contrato) nem versionar dump de dados de tenant / notas de sessão — **o repo é público**.
 - O backend legado em **Google Apps Script** (GAS) é **dormant** — o app evoluiu muito além dele; NÃO tentar manter paridade.

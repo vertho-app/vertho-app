@@ -58,7 +58,7 @@ Escolha o destino pelo tipo do aprendizado — não jogue tudo no `CLAUDE.md`:
 | Aprendizado | Destino |
 |---|---|
 | Regra que eu tenho que seguir SEMPRE ao mexer no projeto | `CLAUDE.md` (curto + link pro detalhe) e, se for proibição, também o "NÃO fazer" |
-| Como uma camada funciona / por que foi feita assim | `ARQUITETURA.md` (seção nova numerada) |
+| Como uma camada funciona / por que foi feita assim | `docs/ARQUITETURA.md` (seção nova numerada) |
 | Motor da trilha, ponta a ponta | `docs/PIPELINE-TRILHA.md` |
 | Modo de falha novo do pipeline | `docs/FMEA-PIPELINE.md` (gatilho `arquivo:linha` + status + correção) |
 | Achado/postura de segurança | `docs/SECURITY-STATUS.md` (⚠️ **repo é PÚBLICO — nunca versionar doc de vuln ABERTA**) |
@@ -73,13 +73,13 @@ Regras de escrita: o `CLAUDE.md` é resumo operacional — entrada nova ali é *
 Estes cinco estão carregados como fontes do Project no claude.ai, e **fonte de Project não se atualiza sozinha** — fica congelada na versão que foi subida:
 
 ```
-CLAUDE.md · ARQUITETURA.md · docs/PIPELINE-TRILHA.md · docs/FMEA-PIPELINE.md · PASSO-A-PASSO-VERTHO.md
+CLAUDE.md · docs/ARQUITETURA.md · docs/PIPELINE-TRILHA.md · docs/FMEA-PIPELINE.md · docs/PASSO-A-PASSO-VERTHO.md
 ```
 
 No fim da rodada, cheque se algum deles foi tocado:
 
 ```bash
-git -C "C:\GAS\Vertho App\nextjs-app" diff --name-only HEAD~1 -- CLAUDE.md ARQUITETURA.md docs/PIPELINE-TRILHA.md docs/FMEA-PIPELINE.md PASSO-A-PASSO-VERTHO.md
+git -C "C:\GAS\Vertho App\nextjs-app" diff --name-only HEAD~1 -- CLAUDE.md docs/ARQUITETURA.md docs/PIPELINE-TRILHA.md docs/FMEA-PIPELINE.md docs/PASSO-A-PASSO-VERTHO.md
 ```
 
 (ajuste o range se a rodada teve mais de um commit — `HEAD~N` ou `<sha-base>..HEAD`)
