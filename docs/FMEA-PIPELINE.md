@@ -541,6 +541,38 @@ tirado **no momento do build** da trilha. Conteúdo gerado/ativado **DEPOIS** do
 ao `formatos_disponiveis` dos planos). Aditivo, **cargo-safe** (só o formato do cargo do
 colab ou genérico — nunca de outro cargo).
 
+**Receita de 4 passos para fechar gap de formato** (rodada em 27/07 para o áudio de
+Autocuidado no Ibipeba; os scripts `scripts/_*.ts` são one-off **não versionados** — o que
+persiste é esta receita, porque os scripts da vez anterior foram perdidos e o retrabalho
+custou uma sessão):
+1. **Gerar** — `gerarConteudoIA({formato, competencia, descritor, cargo, empresaId, sb})`
+   headless, espelhando `nivel_min/max` e `contexto` do texto/case que já existe no par.
+   Confirmar antes que o **MB está `publicado`** (pegadinha 1).
+2. **Ativar** — nasce `ativo=false`.
+3. **Refrescar o snapshot** — aditivo e cargo-safe, casando por `chaveDescritor`.
+4. **Pré-gerar o MP3-base** via `POST /api/internal/pregerar-podcast` (`{id}` sem
+   `colaboradorId`), com `x-internal-secret`. ~112s e ~5 MB por áudio (medido).
+   O pré-aquecimento POR COLABORADOR (`{id, colaboradorId}`) é etapa separada, para perto
+   da abertura da semana — antes disso a trilha pode mudar e o cache viraria lixo.
+
+⚠️ **O descritor no plano vem com CÓDIGO** (`"COO03_D6 — Busca de apoio"`) e em
+`micro_conteudos` vem só o nome (`"Busca de apoio"`). Casar os dois exige
+**`chaveDescritor`** (`lib/descritores.ts`), que tira o código — uma normalização caseira
+só de acento/caixa deixou **79 de 194 slots** sem casar, em silêncio (medido 27/07).
+A `url` no snapshot pode ficar `null` sem prejuízo: o week page usa o **id**
+(`/api/conteudo/{id}/podcast`) e só cai na url se não houver id.
+
+### 2b. Idempotência de `gerarConteudoIA` confundia KIT com CORE ✅ (corrigido 27/07)
+
+A query de "já existe" casava (empresa, competência, descritor, cargo, formato) **sem
+`.is('kit_id', null)`**. Como conteúdo de kit é DISC-específico e sai só pelo overlay (o
+build o exclui com esse mesmo filtro), um kit existente fazia a geração do **core** ser
+pulada — e o retorno era **`success: true`**, então o gap nunca fechava e o operador via
+sucesso. **Medido:** o áudio de kit de "Busca de apoio e rede" (Gestão Escolar, DISC D)
+bloqueou o core do mesmo par; 13 das 15 pessoas do cargo (todo DISC ≠ D) ficariam sem
+áudio naquele descritor. Guarda: `tests/unit/conteudo-idempotencia-kit.test.ts`
+(validado por mutação).
+
 ### 3. `gerarConteudoIA` roda HEADLESS (bypassa o gate)
 
 `gerarConteudoIA({..., sb })` — passar um `createSupabaseAdmin()` em `sb` pula o

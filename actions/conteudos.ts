@@ -116,10 +116,18 @@ export async function gerarConteudoIA({
     // Idempotência: se já existe conteúdo para (empresa, competência, descritor,
     // cargo, formato), NÃO regenera — evita duplicar em re-run (ex.: após timeout de
     // lote, onde parte já foi salva). `forcar` ignora. Kit tem variantes por DISC.
+    //
+    // ⚠️ `.is('kit_id', null)`: conteúdo de KIT é DISC-específico e sai SÓ pelo overlay
+    // (o build o exclui com esse mesmo filtro). Sem ele, um kit já existente fazia esta
+    // query dizer "já existe" e o CORE nunca era gerado — falha SILENCIOSA, porque o
+    // retorno é `success: true`. Medido 27/07 no Ibipeba: o áudio de kit de
+    // "Busca de apoio e rede" (DISC D) bloqueava o áudio core do MESMO par, deixando
+    // 13 de 15 pessoas de Gestão Escolar sem áudio naquele descritor.
     if (!forcar && !kit) {
       let exq = sb.from('micro_conteudos').select('id')
         .eq('competencia', competencia).eq('descritor', descritor)
-        .eq('formato', formato).eq('cargo', cargo);
+        .eq('formato', formato).eq('cargo', cargo)
+        .is('kit_id', null);
       exq = empresaId ? exq.eq('empresa_id', empresaId) : exq.is('empresa_id', null);
       const { data: jaTem } = await exq.limit(1);
       if (jaTem && jaTem.length) {
