@@ -109,21 +109,102 @@ export async function buscarContextoPPP(tdb: any, empresaNome: string, pppEscola
   }
 }
 
-export async function buscarValores(tdb: any, _empresaNome?: string) {
+/** Fallback quando a empresa não tem nenhum PPP extraído com valores. */
+export const VALORES_DEFAULT = ['Ética e integridade', 'Respeito', 'Compromisso com resultados', 'Responsabilidade'];
+
+/** Teto de valores no prompt: uma rede de 11 escolas soma ~86 valores (Ibipeba, 26/07). */
+const MAX_VALORES_REDE = 10;
+
+/** Chave de comparação: sem acento, sem caixa, sem pontuação. "Ética" ≡ "ETICA," */
+function chaveValor(v: string): string {
+  return v.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Entre grafias da MESMA chave, qual vai para o prompt. Determinístico e nesta
+ * ordem: (1) não-gritada vence CAIXA ALTA; (2) mais curta ("Ética" > "ÉTICA,");
+ * (3) capitalizada vence minúscula ("Ética" > "etica"); (4) alfabética.
+ */
+function melhorRotulo(a: string, b: string): string {
+  const grita = (s: string) => (s === s.toUpperCase() && s !== s.toLowerCase() ? 1 : 0);
+  const minuscula = (s: string) => (s[0] === s[0]?.toLowerCase() ? 1 : 0);
+  const ga = grita(a), gb = grita(b);
+  if (ga !== gb) return ga < gb ? a : b;
+  if (a.length !== b.length) return a.length < b.length ? a : b;
+  const ma = minuscula(a), mb = minuscula(b);
+  if (ma !== mb) return ma < mb ? a : b;
+  return a <= b ? a : b;
+}
+
+/**
+ * Consolida os valores de N PPPs (1 lista por escola) no que representa a REDE.
+ *
+ * Ordena por em quantas ESCOLAS o valor aparece (o compartilhado define a rede;
+ * a idiossincrasia de uma escola só, não), com desempate pela ordem de primeira
+ * aparição — logo, para 1 PPP a saída é a lista original dedupada, e a ordem é
+ * estável entre chamadas (o prompt é cacheado; ordem instável quebraria o cache).
+ *
+ * Dedup é lexical, não semântico: "Gestão democrática" e "Gestão democrática e
+ * participativa" seguem como duas entradas. Resolver isso exigiria IA e não vale
+ * o custo aqui — o contrato é uma lista curta de valores plausíveis para a rede.
+ */
+export function consolidarValoresDaRede(listas: string[][]): string[] {
+  const acc = new Map<string, { escolas: number; rotulo: string; ordem: number }>();
+  let ordem = 0;
+
+  for (const lista of listas) {
+    const vistosNestaEscola = new Set<string>(); // uma escola não conta o mesmo valor 2×
+    for (const bruto of lista) {
+      if (typeof bruto !== 'string') continue;
+      const rotulo = bruto.trim();
+      const chave = chaveValor(rotulo);
+      if (!chave || vistosNestaEscola.has(chave)) continue;
+      vistosNestaEscola.add(chave);
+
+      const atual = acc.get(chave);
+      if (!atual) {
+        acc.set(chave, { escolas: 1, rotulo, ordem: ordem++ });
+      } else {
+        atual.escolas++;
+        atual.rotulo = melhorRotulo(atual.rotulo, rotulo);
+      }
+    }
+  }
+
+  return [...acc.values()]
+    .sort((a, b) => b.escolas - a.escolas || a.ordem - b.ordem)
+    .slice(0, MAX_VALORES_REDE)
+    .map((v) => v.rotulo);
+}
+
+/**
+ * Valores institucionais da EMPRESA (não de uma escola).
+ *
+ * Empresa-rede tem 1 PPP por escola (Ibipeba: 11). Pegar o "mais recente"
+ * autorava a régua do município inteiro com os valores de uma escola arbitrária
+ * — mesmo erro que `lib/season-engine/kit/contexto-empresa.ts` já documenta e
+ * resolve por consolidação. Aqui a consolidação é determinística (frequência
+ * entre escolas), sem IA: são strings curtas, não texto corrido.
+ */
+export async function buscarValores(tdb: any, _empresaNome?: string): Promise<string[]> {
   try {
-    const { data: ppp } = await tdb.from('ppp_escolas')
+    const { data: ppps } = await tdb.from('ppp_escolas')
       .select('valores')
       .eq('status', 'extraido')
-      .order('extracted_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order('extracted_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: true });
 
-    if (ppp?.valores && Array.isArray(ppp.valores) && ppp.valores.length > 0) {
-      return ppp.valores;
-    }
-    return ['Ética e integridade', 'Respeito', 'Compromisso com resultados', 'Responsabilidade'];
+    const listas = (ppps || [])
+      .map((p: any) => (Array.isArray(p?.valores) ? p.valores : []))
+      .filter((l: string[]) => l.length > 0);
+
+    if (!listas.length) return VALORES_DEFAULT;
+
+    const consolidados = consolidarValoresDaRede(listas);
+    return consolidados.length ? consolidados : VALORES_DEFAULT;
   } catch {
-    return ['Ética e integridade', 'Respeito', 'Compromisso com resultados', 'Responsabilidade'];
+    return VALORES_DEFAULT;
   }
 }
 
