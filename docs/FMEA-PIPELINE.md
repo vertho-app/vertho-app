@@ -47,13 +47,13 @@
 > 3. `triggerDiario` não tinha try/catch por empresa: uma exceção abortava o run e
 >    as empresas seguintes ficavam sem envio, sem retry do Vercel Cron.
 >
-> **O que foi medido e NÃO corrigido** (decisão consciente, não esquecimento): as 22
-> células de vídeo duplicadas (F-C5) carregam **125 `videos_personalizados` em
-> 'done'**. Apagar as cópias arrancaria o vídeo com nome de 125 entregas. Consolidar
-> exige migrar os personalizados para a célula vencedora tratando colisão de
-> `(cell_video_id, colaborador_id)` — trabalho próprio, não efeito colateral de uma
-> migration. O `health_estrutural` agora acompanha o número (18 em 17/07 → 22 em
-> 27/07: cresce sozinho porque não há UNIQUE).
+> **F-C5, medido de manhã e fechado à tarde** (27/07): o parágrafo que havia aqui dizia que
+> consolidar as 22 células duplicadas era "trabalho próprio, não efeito colateral de uma
+> migration" — e foi exatamente isso que a **migration 188** fez: migra os personalizados
+> para a célula vencedora com **guarda que aborta** se algum 'done' ficasse sem equivalente,
+> depois apaga as cópias e cria o UNIQUE parcial. Resultado medido: 113 → 76 células, 451 →
+> 321 personalizados, 3 → 0 presos. Re-medido na auditoria da noite: **0 duplicatas vivas**
+> (as 46 linhas `error` são resíduo permitido pelo índice parcial e invisíveis à entrega).
 
 
 Análise de modos de falha, efeitos e resolução do pipeline descrito em
@@ -89,6 +89,12 @@ Os modos de falha abaixo **não são hipóteses**. Já estão gravados:
 Limpo (0): assessments com nota null, conteúdo ungrounded, nota fora de [1,4], trilha sem plano,
 briefs duplicados por tupla.
 
+> **Re-medição de 27/07 (noite), após as correções do dia:** células `done` duplicadas: **0**
+> (F-C5 fechado, mig 188) · `videos_personalizados`: 320 done / 1 error · `micro_conteudos`
+> duplicados: **19 grupos** (13 globais/demo, 6 Ibipeba — F-C6 segue ABERTO e cresceu) ·
+> `kit_briefs` duplicados: 0 (UNIQUE na mig 185). As contagens de 17/07 acima ficam como
+> histórico do episódio.
+
 ---
 
 ## 1. Concorrência & corrida
@@ -102,93 +108,120 @@ briefs duplicados por tupla.
 - **Resolução:** **UPSERT com `onConflict:'empresa_id,colaborador_id'`** (como `development_blueprints`
   já faz), OU coluna `versao` + `.eq('versao', lido)` no UPDATE (optimistic lock). Rejeitar a 2ª
   gravação em vez de perder a 1ª.
+- **27/07:** o PROGRESSO virou upsert (F-C2 fechado) — o **header da trilha segue SELECT-then-UPDATE**
+  sem lock nem versão (`trilha-core.ts:687-726`). Este item continua aberto só na parte do header.
 
-### F-C2 · Plano e progresso de runs diferentes (delete+insert não-atômico) 🟠
-- **Gatilho:** regen concorrente. `temporada_semana_progresso` faz `delete()` + `insert()` em
-  statements separados (`trilha-core.ts:576-577`), **sem capturar erro** (contraste com `:560/:564`).
-  Interleave `A.delete→B.delete→A.insert→B.insert`: o insert de B colide no `UNIQUE(trilha_id,semana)`
-  e **falha inteiro, silenciosamente**.
-- **Efeito:** `temporada_plano` reflete run B, `temporada_semana_progresso` reflete run A — "título ≠
+### F-C2 · Plano e progresso de runs diferentes (delete+insert não-atômico) ✅ (fechado 27/07, com ressalva)
+- **Gatilho (histórico):** regen concorrente. `temporada_semana_progresso` fazia `delete()` + `insert()`
+  em statements separados, **sem capturar erro**. Interleave `A.delete→B.delete→A.insert→B.insert`: o
+  insert de B colidia no `UNIQUE(trilha_id,semana)` e **falhava inteiro, silenciosamente**.
+- **Efeito:** `temporada_plano` refletia run B, `temporada_semana_progresso` refletia run A — "título ≠
   blocos" um nível acima (plano ≠ progresso), com `ok:true`.
-- **Resolução:** capturar o erro do insert de progresso e propagar; idealmente `upsert` do progresso
-  por `(trilha_id,semana)`; a médio prazo, envolver plano+progresso numa **função RPC transacional**
-  (o único ponto do pipeline que precisa de transação multi-statement).
+- **Correção (27/07, `ab3cf043` + `5a405965`):** delete+insert virou **upsert por `(trilha_id,semana)`**
+  com erro **propagado** (`trilha-core.ts:763-765`). Bônus: o payload leva só o estrutural —
+  reflexões/feedbacks/tira-dúvidas/consumo do colaborador sobrevivem à regeneração; o `delete` que
+  sobrou (`:773`) remove só semanas órfãs **vazias** (`classificarOrfas`).
+- **Ressalva (segue em aberto, menor):** plano (`:718-726`) e progresso seguem em **statements
+  separados** — a função RPC transacional sugerida como ideal **não** foi implementada. O modo de
+  falha descrito (insert colidindo em silêncio) está fechado; atomicidade multi-statement, não.
+- **Guarda:** `tests/unit/regeneracao-nao-destrutiva.test.ts` cobre os helpers de classificação —
+  ⚠️ nenhum teste trava o **payload do upsert** em si; a garantia dele vem do código.
 
-### F-C3 · Duplo-envio de pílula (TOCTOU nos carimbos) 🟡
-- **Gatilho:** `triggerDiario` sobreposto a si mesmo (retry do Vercel num timeout, ou disparo manual
-  de `trigger_diario`/`trigger_segunda` concorrente). O check lê `ultima_pilula1_em` em T0
-  (`cron-jobs.ts:314,374`) e só carimba **depois** de publicar (`:363` publish → `:370` stamp), sem
-  `WHERE` condicional. Duas execuções leem `null`, ambas enviam.
-- **Efeito:** pílula 2× (WhatsApp + e-mail); pior, o **avanço de semana** (`semana_atual+1`, `:409`)
-  2× → **pula conteúdo** (o bug que a mig 120 só fechou pro caso sequencial). `triggerSegunda`
-  (`:86-169`) **não tem guarda nenhuma**.
-- **Resolução:** (a) **lock de execução do cron** (advisory lock / linha em `cron_runs` com
-  `INSERT ... ON CONFLICT DO NOTHING` no início); (b) carimbo **condicional**:
-  `UPDATE ... SET ultima_pilula1_em=now() WHERE id=? AND ultima_pilula1_em IS NULL` e só enviar se
-  `rowCount=1` (stamp-then-send, torna at-most-once); (c) aposentar os legados `trigger_segunda/quinta`.
+### F-C3 · Duplo-envio de pílula (TOCTOU nos carimbos) ✅ (fechado 27/07, com ressalva)
+- **Gatilho (histórico):** `triggerDiario` sobreposto a si mesmo (retry do Vercel num timeout, ou
+  disparo manual concorrente). O check lia `ultima_pilula1_em` em T0 e só carimbava **depois** de
+  publicar, sem `WHERE` condicional. Duas execuções liam `null`, ambas enviavam.
+- **Efeito:** pílula 2× (WhatsApp + e-mail); pior, o **avanço de semana** aplicado 2× → **pulava
+  conteúdo**.
+- **Correção (27/07, `ab3cf043`):** **lock diário de execução** — tabela `cron_execucoes` (mig 187,
+  `PRIMARY KEY (job, dia)`) + `lib/cron-lock.ts` (`INSERT ... ON CONFLICT DO NOTHING`; reclama lock
+  de execução morta <30min). `triggerDiario` adquire **antes** do loop (`cron-jobs.ts:296-301`).
+  Escolhido lock em vez de stamp-then-send porque inverter tornaria o envio at-most-once — trocaria
+  duplicar por PERDER, e perda silenciosa é o que sobra neste pipeline. **Fail-open deliberado** se
+  o lock falhar por infra: recusar envio por problema de infra deixaria a coorte sem pílula, pior e
+  não recuperável (cron roda 1×/dia). Provado com concorrência real em `scripts/_test-cron-lock.ts`:
+  5 tentativas simultâneas → 1 adquire.
+- **Ressalva (segue em aberto):** os legados `triggerSegunda`/`triggerQuinta` (disparo manual)
+  **não** usam o lock — seguem sem guarda nenhuma.
+- ⚠️ **Não observado em produção ainda:** `cron_execucoes` tinha **0 linhas** na auditoria da noite —
+  o `trigger_diario` de 27/07 rodou (11:00 UTC) antes do deploy do lock. Primeira aquisição real:
+  28/07 11:00 UTC.
 
-### F-C4 · Overlay desligado em silêncio → trilha inteira sem core 🟡 (causa-raiz do episódio de 16/07)
-- **Gatilho:** `precarregarKits` (`entrega-semana.ts:58-101`) **ignora o `error`** das 3 queries
-  (`:69,73,77`) e retorna `if (!briefs?.length) return out` = **Map vazio mas TRUTHY**. Se o
-  PostgREST devolve `{data:null, error}` sem lançar (timeout, pool esgotado, schema reload),
-  `overlayConteudo:113` vê cache truthy → `.get()→undefined` → `if(!kit) return` → **mantém o
-  conteúdo do build para TODAS as semanas** (desafio genérico + `core_id` stale).
-- **Efeito:** se o `core_id` do build aponta para conteúdo apagado → **todas as semanas de conteúdo
-  do colaborador ficam sem core de uma vez**, sem telemetria (o `catch` de `aplicarOverlayKit:467`
-  engole).
-- **Resolução:** `precarregarKits` deve **propagar o error** (throw) em vez de retornar Map vazio —
-  aí o overlay cai no caminho live `resolverKitDaSemana` (que degrada bem) em vez do cache vazio
-  tóxico. Distinguir "sem kits" (Map vazio legítimo) de "query falhou" (throw).
+### F-C4 · Overlay desligado em silêncio → trilha inteira sem core ✅ (fechado 27/07)
+- **Gatilho (histórico, causa-raiz do episódio de 16/07):** `precarregarKits` **ignorava o `error`**
+  das 3 queries e retornava **Map vazio mas TRUTHY**. Se o PostgREST devolvia `{data:null, error}`
+  sem lançar (timeout, pool esgotado, schema reload), o overlay via cache truthy → `.get()→undefined`
+  → **mantinha o conteúdo do build para TODAS as semanas** (desafio genérico + `core_id` stale).
+- **Efeito:** a personalização da COORTE INTEIRA sumia de uma vez, sem erro e sem telemetria (o
+  `catch` de `temporadas.ts` engolia).
+- **Correção (27/07, `ab3cf043`):** `precarregarKits` **propaga o erro** (`throw` com mensagem
+  diagnóstica, `entrega-semana.ts:87-106`) — o chamador cai no resolvedor live, que degrada por
+  semana. "Não há kits" (Map vazio legítimo) ≠ "não consegui saber se há kits" (falha de infra). O
+  `.catch` de `temporadas.ts:512-516` passou a **LOGAR** em vez de engolir.
+- **Guarda:** `tests/unit/kit-overlay-falha-fechada.test.ts` — 8 testes nos DOIS sentidos (falha em
+  cada uma das 3 tabelas → rejects; dados vazios sem erro → Map vazio sem lançar), validado por
+  mutação.
 
-### F-C5 · `videos_gerados` duplicados por célula 🔴 (18 medidos, um com 9 cópias)
-- **Gatilho:** `resolverCelulaVideo`/`dispararVideoDoKit` fazem SELECT-then-INSERT
-  (`gerar-video.ts:134-137,155-159`); **`videos_gerados` não tem UNIQUE** por célula/kit (mig
-  138/139/145 só criam índices não-únicos). 2 disparos concorrentes → 2 rows + 2 renders.
-- **Efeito:** decks duplicados; cada cópia é um render HeyGen pago; a personalização roda 2× sob
-  `cell_video_id` diferentes.
-- **Resolução:** **`UNIQUE(empresa_id, modulo_base_id, cargo, disc_dominante)` parcial
-  `WHERE status <> 'error'`** (permite reprocessar após erro, barra duplicata de sucesso) + `upsert`
-  no disparo. Limpar as 18 existentes (manter a mais recente `done` por célula).
+### F-C5 · `videos_gerados` duplicados por célula ✅ (fechado 27/07, verificado no banco)
+- **Gatilho (histórico):** `resolverCelulaVideo`/`dispararVideoDoKit` faziam SELECT-then-INSERT;
+  **`videos_gerados` não tinha UNIQUE** por célula. 2 disparos concorrentes → 2 rows + 2 renders
+  pagos. O número crescia sozinho: 18 em 17/07, 22 em 27/07 de manhã.
+- **Efeito:** decks duplicados (render HeyGen pago por cópia) e **contaminação de toda medição** —
+  as cópias eram invisíveis à entrega (`.order(created_at,desc).limit(1)`) mas seus personalizados
+  contavam, produzindo "travado há 13 dias" para quem TINHA vídeo, e inflando a reconciliação F-V1
+  (83 pessoas medidas em vez de 25).
+- **Correção (27/07, `b91b546f`, mig 188):** consolidação com **guarda que aborta** se algum
+  personalizado 'done' ficasse sem equivalente na célula vencedora (a mais recente não-error), e
+  depois **`UNIQUE(modulo_base_id, COALESCE(empresa_id), COALESCE(cargo), COALESCE(disc_dominante))
+  parcial `WHERE status <> 'error'`** — permite reprocessar após erro, barra duplicata viva.
+- **Medido na auditoria da noite (27/07):** 76 células vivas, **0 duplicadas vivas**; 46 linhas
+  `error` são resíduo permitido pelo índice parcial e invisíveis à entrega; `videos_personalizados`:
+  320 done / 1 error. Bate com o commit (113 → 76 células, 451 → 321 personalizados, 3 → 0 presos).
 
-### F-C6 · `micro_conteudos` duplicados 🔴 (6 tuplas medidas, até 4×)
+### F-C6 · `micro_conteudos` duplicados 🔴 (**19 grupos medidos em 27/07 — cresceu**)
 - **Gatilho:** **sem UNIQUE** em `micro_conteudos` (só PK/FK/CHECK). Idempotência é só em código
-  (`gerarConteudoIA:119-128`, e **pulada quando vem de kit**). Geração concorrente do mesmo
+  (`gerarConteudoIA:119-128`) — e **pulada quando vem de kit**. Geração concorrente do mesmo
   `(competência,descritor,formato,cargo,empresa)` insere 2 rows; kit apagado sem apagar conteúdo →
   FK SET NULL cria genéricos duplicados.
 - **Efeito:** `montarSemanaConteudo` escolhe uma por score; as outras são peso morto e candidatas em
-  empate. Confunde diagnósticos (contei "6 pares" que eram genéricos duplicados).
-- **Resolução:** **UNIQUE parcial em conteúdo NÃO-kit**:
+  empate. Confunde diagnósticos.
+- **Medido (27/07, auditoria):** **19 grupos duplicados** — 13 globais/demos (ex.: "Coaching e
+  Desenvolvimento de Vendedores × Gerente Comercial", até 3×) e **6 no Ibipeba** (até 4×). O doc
+  dizia 6 tuplas em 17/07 — **cresce enquanto não houver UNIQUE**.
+- **Resolução (pendente):** **UNIQUE parcial em conteúdo NÃO-kit**:
   `UNIQUE(empresa_id, competencia, descritor, formato, cargo) WHERE kit_id IS NULL` (conteúdo de kit
-  tem variantes por DISC → fora da constraint). Dedup dos 6 existentes.
+  tem variantes por DISC → fora da constraint) + dedup dos 19 grupos. Ficou de fora da mig 185 por
+  exigir dedup prévio.
 
-### F-C7 · `kit_briefs` duplicados 🔵 (0 hoje, latente)
-- **Gatilho:** SELECT-then-INSERT (`brief.ts:130-144`) + **sem UNIQUE** (só índice não-único
-  `idx_kit_briefs_tema`, mig 142:24). Dois jobs do mesmo tema (lote de coorte + ação manual) →
-  2 briefs. Protegido **dentro** de um job (`briefPreResolvido`), não entre jobs.
-- **Efeito:** 2 conjuntos de kits; `precarregarKits:89` escolhe por score com desempate arbitrário
-  → pode servir o brief errado. (`scripts/_fix-brief-duplicado.ts` existe = já ocorreu.)
-- **Resolução:** **UNIQUE(empresa_id, competencia, descritor, nivel_min, nivel_max, cargo, contexto)**
-  (promover o índice existente a único) + `upsert onConflict`.
+### F-C7 · `kit_briefs` duplicados ✅ (fechado 27/07 — era latente, 0 medidos)
+- **Gatilho (histórico):** SELECT-then-INSERT + **sem UNIQUE**. Dois jobs do mesmo tema (lote de
+  coorte + ação manual) → 2 briefs. Protegido **dentro** de um job, não entre jobs.
+- **Correção (27/07, mig 185):** UNIQUE por
+  `(empresa_id, competencia, descritor, nivel_min, nivel_max, cargo, contexto)` + upsert. Medido na
+  auditoria da noite: **0 duplicados**.
 
 ---
 
 ## 2. Integridade de dados
 
-### F-I1 · `data_inicio` resetado em toda regeneração 🟠 (o 🔴 do PIPELINE-TRILHA)
-- **Gatilho:** `data_inicio: nextMondayISO()` no payload de UPDATE **e** INSERT (`trilha-core.ts:554`).
-- **Efeito:** trilha em andamento na semana 8 volta pro calendário zero + progresso recriado.
-- **Resolução:** no UPDATE, **preservar** `existente.data_inicio`; só o INSERT (1ª vez) calcula.
-  Já mordido nesta sessão (o `_reliberar` foi paliativo).
+### F-I1 · `data_inicio` resetado em toda regeneração ✅ (fechado 27/07)
+- **Gatilho (histórico):** `data_inicio: nextMondayISO()` no payload de UPDATE **e** INSERT.
+- **Efeito:** trilha em andamento na semana 8 voltava pro calendário zero + progresso recriado.
+- **Correção (27/07, `ab3cf043`):** `data_inicio: existente?.data_inicio || nextMondayISO()`
+  (`trilha-core.ts:713`) — só a 1ª gravação calcula; o UPDATE preserva.
 
-### F-I2 · `regerarSemana` não re-seleciona conteúdo nem normaliza 🟠
-- **Gatilho:** `regerarSemana` (`temporadas.ts:373-430`) reescreve só desafio/missão/cenário por IA,
+### F-I2 · `regerarSemana` não re-seleciona conteúdo nem normaliza 🟠 (melhorou 27/07, núcleo aberto)
+- **Gatilho:** `regerarSemana` (`temporadas.ts:378-485`) reescreve só desafio/missão/cenário por IA,
   mantém `core_id`/`formatos_disponiveis`/`descritor` do slot antigo, e grava **sem passar por
   `normalizarSemanas`**.
 - **Efeito:** perpetua `core_id` órfão e "título ≠ blocos"; não conserta o que o admin acha que está
   consertando.
-- **Resolução:** rotear reparo de conteúdo por `selecionarConteudoDaSemana` (já exportada) + chamar
-  `normalizarSemanas` no fim de `regerarSemana`. E corrigir a mensagem enganosa "não pode regerar
-  avaliação" quando `descritor` é null (semana degenerada).
+- **27/07 (parcial):** passou a **preservar reflexão/feedback/tira-dúvidas e o status** de quem já
+  trabalhou (`:459-479`) — regenerar não destrói mais o registro da pessoa. O núcleo segue aberto:
+  **não** chama `selecionarConteudoDaSemana` nem `normalizarSemanas`, e a mensagem enganosa "não
+  pode regerar avaliação" (`:454`) persiste.
+- **Resolução (pendente):** rotear reparo de conteúdo por `selecionarConteudoDaSemana` (já
+  exportada) + chamar `normalizarSemanas` no fim de `regerarSemana`.
 
 ### F-I3 · FK destrutivas — deletar MB apaga os vídeos 🟡
 - **Gatilho:** `videos_gerados.modulo_base_id` é **`NOT NULL + CASCADE`** (mig 138:6) — o único do
@@ -383,12 +416,21 @@ briefs duplicados por tupla.
 
 ## 4. Vídeo / personalização
 
-### F-V1 · Colab novo (ou que muda de DISC) nunca recebe o vídeo nominal 🟠 (estrutural)
-- **Gatilho:** `personalizarCelula` fotografa os colabs de (empresa,cargo,disc) **no instante do
-  render** (`render-video.ts:92-97`) e não há re-disparo automático. Quem entra depois cai no **deck
-  genérico** (sem "Olá, {nome}") permanentemente.
-- **Resolução:** um job de **reconciliação** (cron/tarefa) que detecta `(colab × célula done)` sem
-  `videos_personalizados` e enfileira a personalização. Cobre também os 14 presos em error/processing.
+### F-V1 · Colab novo (ou que muda de DISC) nunca recebe o vídeo nominal ✅ (job criado 27/07 — 1ª execução ainda não observada)
+- **Gatilho (histórico):** `personalizarCelula` fotografa os colabs de (empresa,cargo,disc) **no
+  instante do render** e não havia re-disparo. Quem entra depois (contratado, DISC remapeado, célula
+  renderizada antes da pessoa existir) caía no **deck genérico** permanentemente. Junto sumiam os
+  falhos ('error') e os travados ('processing' sem fim — 5 parados desde 14-16/07). Degradação
+  silenciosa: a pessoa vê um vídeo, só que sem o nome.
+- **Correção (27/07, `b124947d`):** job de reconciliação `lib/video/reconciliar-personalizados.ts` —
+  detecta `(colab × célula done)` sem personalizado (ausente/error/processing travado), apaga os
+  presos e devolve a célula à fila (`render_queued`), com teto (env `RECONCILIAR_VIDEOS_LIMITE`,
+  default 3). **Agendado:** sábado 03:00 UTC (`vercel.json` → `app/api/cron/route.ts`) — não é só
+  script manual. Não prejudica quem já tem vídeo: `resolverCelulaVideo` busca com
+  `.neq('status','error')` (célula segue servida durante o re-render) e `personalizeCell` pula quem
+  está 'done'. Guarda: `tests/unit/reconciliar-personalizados.test.ts`.
+- ⚠️ **Não observado em produção ainda:** a primeira execução real é **sábado 01/08 03:00 UTC** —
+  implementado e agendado, mas nunca rodou de verdade até a auditoria de 27/07.
 
 ### F-V2 · Personalização fora do watchdog, serial por colab 🔵
 - **Gatilho:** o watchdog (`MAX_RENDER_MS`) envolve só o render do deck; `personalizeCell` roda depois
