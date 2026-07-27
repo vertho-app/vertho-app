@@ -485,7 +485,15 @@ async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { co
     // Pré-carrega TODOS os kits da trilha em 3 queries (antes: 2-3 queries POR
     // semana = ~30 numa trilha de 14 sem). Consultado em memória no overlay.
     const { precarregarKits } = await import('@/lib/season-engine/kit/entrega-semana');
-    const kitsCache = await precarregarKits(sb, { empresaId: colab.empresa_id, disc, cargo: colab.cargo }).catch(() => undefined);
+    // `undefined` (não Map vazio) faz o overlay cair no caminho LIVE, que degrada por
+    // semana. O log é o que impede a degradação de ser invisível: o cache falhar
+    // significa que a coorte inteira ia perder personalização, e antes disso não
+    // deixava rastro nenhum (F-C4).
+    const kitsCache = await precarregarKits(sb, { empresaId: colab.empresa_id, disc, cargo: colab.cargo })
+      .catch((e: any) => {
+        console.error('[overlay] precarregarKits falhou — caindo no resolvedor live:', e?.message);
+        return undefined;
+      });
     await Promise.all(
       plano.filter((s: any) => s?.tipo === 'conteudo').map((s: any) =>
         overlayKitNaSemana(sb, s, { empresaId: colab.empresa_id, disc, cargo: colab.cargo, formatoPref, competenciaFoco, kitsCache }),

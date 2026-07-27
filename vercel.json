@@ -18,7 +18,7 @@
     },
     {
       "path": "/api/cron?action=preflight_entrega",
-      "schedule": "0 21 * * *"
+      "schedule": "0 10 * * *"
     },
     {
       "path": "/api/cron?action=health_estrutural",

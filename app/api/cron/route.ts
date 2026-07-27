@@ -89,9 +89,11 @@ export async function GET(req) {
         }
         break;
 
-      // PRÉ-VOO: avalia a entrega de AMANHÃ. Agendado 14h antes do envio de propósito
-      // — achar o problema 5 minutos antes não serve de nada; o valor está em sobrar
-      // tempo para gerar o kit/vídeo que falta ou corrigir um cadastro.
+      // PRÉ-VOO: avalia a entrega de AMANHÃ. Roda 10:00 UTC = ~25h antes do envio das
+      // 11:00 UTC do dia seguinte. A folga é o ponto: achar o problema 5 minutos antes
+      // não serve de nada — gerar um kit leva ~5min por DISC e um vídeo leva ~40min de
+      // render. Não roda às 11:00 (24h exatas) só para não disputar a lambda com o
+      // envio do próprio dia, que acontece nesse minuto.
       case 'preflight_entrega': {
         const { executarHealthCheck } = await import('@/lib/pipeline-health/core');
         result = await executarHealthCheck('preflight');

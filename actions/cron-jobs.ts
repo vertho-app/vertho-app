@@ -290,9 +290,23 @@ export async function triggerQuinta() {
 
 export async function triggerDiario() {
   await requireAdminOrCronAction();
+
+  // LOCK DIÁRIO (F-C3): duas execuções sobrepostas leem os mesmos carimbos `null` e
+  // ambas enviam — pílula 2× e o avanço de semana aplicado 2×, que PULA conteúdo.
+  const { adquirirLockDiario } = await import('@/lib/cron-lock');
+  const lock = await adquirirLockDiario('trigger_diario');
+  if (!lock.adquirido) {
+    console.warn('[triggerDiario] execução ignorada:', lock.motivo);
+    return { pilulas: 0, emails: 0, evidencias: 0, nudges: 0, erros: 0, ignorado: true, message: `Ignorado: ${lock.motivo}` };
+  }
+
+  try {
   const sbRaw = createSupabaseAdmin();
   const { data: empresas } = await sbRaw.from('empresas').select('id, nome, slug, is_demo, sys_config');
-  if (!empresas?.length) return { pilulas: 0, evidencias: 0, message: 'Nenhuma empresa encontrada' };
+  if (!empresas?.length) {
+    await lock.liberar('nenhuma empresa');
+    return { pilulas: 0, evidencias: 0, message: 'Nenhuma empresa encontrada' };
+  }
 
   const hoje = new Date().getUTCDay();          // 0=dom..6=sáb (= índice da config)
   const hojeUTC = new Date().toISOString().slice(0, 10);
@@ -459,10 +473,15 @@ export async function triggerDiario() {
   }
 
   const alerta = empresasComFalha.length ? ` · ⚠️ falharam: ${empresasComFalha.join(', ')}` : '';
-  return {
-    pilulas, emails, evidencias, nudges, erros, empresasComFalha,
-    message: `Diário: ${pilulas} pílulas WhatsApp, ${emails} e-mails, ${evidencias} evidências, ${nudges} nudges${alerta}`,
-  };
+  const message = `Diário: ${pilulas} pílulas WhatsApp, ${emails} e-mails, ${evidencias} evidências, ${nudges} nudges${alerta}`;
+  await lock.liberar(message);
+  return { pilulas, emails, evidencias, nudges, erros, empresasComFalha, message };
+  } catch (err: any) {
+    // Marca a execução como encerrada mesmo em falha global — senão o lock ficaria
+    // pendurado e o retry de hoje seria recusado como "execução em andamento".
+    await lock.liberar(`ERRO: ${err?.message || err}`);
+    throw err;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -682,7 +682,7 @@ export async function persistirTrilha(tdb: any, args: {
   normalizarSemanas(semanas);
 
   const { data: existente } = await tdb.from('trilhas')
-    .select('id, numero_temporada')
+    .select('id, numero_temporada, data_inicio')
     .eq('colaborador_id', colaboradorId)
     .order('criado_em', { ascending: false }).limit(1).maybeSingle();
 
@@ -702,7 +702,12 @@ export async function persistirTrilha(tdb: any, args: {
     // payload pra LIMPAR snapshot antigo ao regenerar a mesma trilha em preset.
     programa_config: programaConfig ?? null,
     status: TRILHA.ATIVA,
-    data_inicio: nextMondayISO(),               // sem 1 libera na próxima segunda 03:00 BRT
+    // PRESERVA o calendário de quem já começou (F-I1 do docs/FMEA-PIPELINE.md).
+    // Antes gravava `nextMondayISO()` no UPDATE também: regenerar a trilha de alguém
+    // na semana 8 jogava `data_inicio` para a próxima segunda e a pessoa voltava ao
+    // calendário zero — o week-gating libera por `data_inicio`, então ela perdia
+    // acesso a 7 semanas de conteúdo de uma vez. Só a PRIMEIRA gravação calcula.
+    data_inicio: existente?.data_inicio || nextMondayISO(),
     cursos: [],                                 // legado — conteúdo vive em temporada_plano
   };
 
@@ -724,8 +729,16 @@ export async function persistirTrilha(tdb: any, args: {
     tipo: sem.tipo,
     status: sem.semana === 1 ? PROGRESSO.EM_ANDAMENTO : PROGRESSO.PENDENTE,
   }));
-  await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
-  await tdb.from('temporada_semana_progresso').insert(progressos);
+  // F-C2: os dois statements abaixo IGNORAVAM o erro — contraste gritante com os
+  // `if (error) return` logo acima, na mesma função. Numa regeneração concorrente o
+  // interleave `A.delete → B.delete → A.insert → B.insert` faz o insert de B colidir
+  // no UNIQUE(trilha_id, semana) e falhar INTEIRO: o plano ficava do run B e o
+  // progresso do run A, com a função devolvendo sucesso. Plano ≠ progresso é pior que
+  // erro, porque nada na tela denuncia.
+  const { error: errDelete } = await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
+  if (errDelete) return { error: `progresso (limpeza): ${errDelete.message}` };
+  const { error: errInsert } = await tdb.from('temporada_semana_progresso').insert(progressos);
+  if (errInsert) return { error: `progresso (gravação): ${errInsert.message}` };
 
   return { trilhaId, numeroTemporada };
 }

@@ -69,19 +69,41 @@ export async function precarregarKits(
   const disc = String(args.disc || '').trim().charAt(0).toUpperCase();
   if (!['D', 'I', 'S', 'C'].includes(disc)) return out;
 
+  // ⚠️ Os três `error` abaixo são PROPAGADOS (throw), não engolidos — F-C4 do
+  // docs/FMEA-PIPELINE.md, causa-raiz do episódio de 16/07.
+  //
+  // Antes, um `{data: null, error}` (timeout, pool esgotado, reload de schema) caía
+  // no `if (!x?.length) return out` e devolvia um Map VAZIO MAS TRUTHY. O
+  // `overlayConteudo` testa `args.kitsCache ? cache.get(...) : resolverKitDaSemana(...)`
+  // — cache truthy vence, o `.get()` devolve undefined, `if (!kit) return` mantém o
+  // conteúdo do build, e a personalização da COORTE INTEIRA some de uma vez. Sem erro,
+  // sem alerta: o `catch` de `aplicarOverlayKit` engole. Se o `core_id` do build
+  // apontasse para conteúdo já apagado, a pessoa ficava sem core em todas as semanas.
+  //
+  // Lançando, o chamador (`temporadas.ts`, que faz `.catch(() => undefined)`) recebe
+  // `undefined` e o overlay cai no caminho LIVE `resolverKitDaSemana` — que consulta
+  // de novo e degrada bem. A distinção que importa: "não há kits" (Map vazio legítimo)
+  // ≠ "não consegui saber se há kits" (falha de infraestrutura).
+  const falhou = (etapa: string, error: any) => {
+    throw new Error(`precarregarKits: ${etapa} falhou (${error?.message || error}) — cache abortado para não desligar o overlay em silêncio`);
+  };
+
   // 1) briefs (empresa + global) — conjunto pequeno por empresa.
   let bq = sb.from('kit_briefs').select('id, competencia, descritor, cargo, empresa_id');
   bq = args.empresaId ? bq.or(`empresa_id.eq.${args.empresaId},empresa_id.is.null`) : bq.is('empresa_id', null);
-  const { data: briefs } = await bq;
+  const { data: briefs, error: errBriefs } = await bq;
+  if (errBriefs) falhou('briefs', errBriefs);
   if (!briefs?.length) return out;
 
   // 2) kits publicados do DISC. 3) conteúdos desses kits.
-  const { data: kitsRows } = await sb.from('kits')
+  const { data: kitsRows, error: errKits } = await sb.from('kits')
     .select('id, brief_id, desafio').in('brief_id', briefs.map((b: any) => b.id)).eq('disc', disc).eq('status', 'published');
+  if (errKits) falhou('kits', errKits);
   if (!kitsRows?.length) return out;
   const kitByBrief = new Map(kitsRows.map((k: any) => [k.brief_id, k]));
-  const { data: conteudos } = await sb.from('micro_conteudos')
+  const { data: conteudos, error: errConteudos } = await sb.from('micro_conteudos')
     .select('id, kit_id, formato, url, titulo').in('kit_id', kitsRows.map((k: any) => k.id));
+  if (errConteudos) falhou('micro_conteudos', errConteudos);
   const conteudosByKit = new Map<string, any[]>();
   for (const c of conteudos || []) { (conteudosByKit.get(c.kit_id) || conteudosByKit.set(c.kit_id, []).get(c.kit_id))!.push(c); }
 

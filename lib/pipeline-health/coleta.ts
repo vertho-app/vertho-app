@@ -75,7 +75,11 @@ export async function coletarEntregasPrevistas(
 
     const chave = `${c.cargo}|${c.perfil_dominante}`;
     if (!cacheKits.has(chave)) {
-      cacheKits.set(chave, await precarregarKits(sb, { empresaId, disc: c.perfil_dominante, cargo: c.cargo }).catch(() => undefined));
+      // SEM `.catch` aqui, de propósito: se o pré-carregamento falhar, o health-check
+      // tem que ACUSAR (o try/catch por empresa em core.ts vira o achado
+      // 'check-falhou'). Engolir produziria uma previsão feita pelo caminho de
+      // fallback — parecendo saudável enquanto mede outra coisa.
+      cacheKits.set(chave, await precarregarKits(sb, { empresaId, disc: c.perfil_dominante, cargo: c.cargo }));
     }
     const copia = JSON.parse(JSON.stringify(plan));
     await overlayKitNaSemana(sb, copia, {
