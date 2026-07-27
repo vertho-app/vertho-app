@@ -66,6 +66,28 @@ Escolha o destino pelo tipo do aprendizado — não jogue tudo no `CLAUDE.md`:
 
 Regras de escrita: o `CLAUDE.md` é resumo operacional — entrada nova ali é **curta e aponta** pro doc canônico. No doc canônico vale o detalhe, com `arquivo:linha`.
 
+**Um doc canônico por assunto.** Antes de criar `.md` novo, procure quem já cobre o tema e escreva lá — a consolidação de 27/07 fundiu 21 arquivos em 6 justamente porque o mesmo assunto vivia em 3-5 lugares, com versões que se contradiziam. Doc novo só quando o assunto não tem dono; então acrescente a linha na tabela de índice do `CLAUDE.md`.
+
+### 3.1 As 5 FONTES DO PROJECT (claude.ai) — avisar quando desatualizarem
+
+Estes cinco estão carregados como fontes do Project no claude.ai, e **fonte de Project não se atualiza sozinha** — fica congelada na versão que foi subida:
+
+```
+CLAUDE.md · ARQUITETURA.md · docs/PIPELINE-TRILHA.md · docs/FMEA-PIPELINE.md · PASSO-A-PASSO-VERTHO.md
+```
+
+No fim da rodada, cheque se algum deles foi tocado:
+
+```bash
+git -C "C:\GAS\Vertho App\nextjs-app" diff --name-only HEAD~1 -- CLAUDE.md ARQUITETURA.md docs/PIPELINE-TRILHA.md docs/FMEA-PIPELINE.md PASSO-A-PASSO-VERTHO.md
+```
+
+(ajuste o range se a rodada teve mais de um commit — `HEAD~N` ou `<sha-base>..HEAD`)
+
+Se a saída **não** for vazia, avise no fechamento (passo 6), nomeando os arquivos e o que mudou em uma linha cada: *"⚠️ Fontes do Project desatualizadas: re-subir X e Y no claude.ai."* Não é para eu fazer nada além de avisar — subir arquivo no Project é ação do Rodrigo, fora do repo.
+
+Por que importa: uma fonte defasada é pior que fonte ausente — ela responde com autoridade sobre um sistema que já mudou, e fora do Claude Code não há repositório para conferir.
+
 ## 4. Guarda (se o aprendizado foi um bug)
 
 Aprendizado que só vive em prosa volta a acontecer. Se dá pra escrever um teste, escreva em `tests/unit/` — e **valide por mutação**: quebre a invariante no código de produção e confirme que o teste correspondente falha. Teste que nunca falhou não prova nada.
@@ -78,4 +100,11 @@ Commite **separado por natureza**: correção num commit, doc noutro. O commit d
 
 ## 6. Fechar em voz alta
 
-Termine dizendo, em uma linha cada: o que foi gravado na memória, quais .md mudaram e o que **ficou aberto** (o que você não conseguiu verificar). O que não foi medido tem que sair rotulado como não medido.
+Termine dizendo, em uma linha cada:
+
+1. o que foi gravado na memória;
+2. quais `.md` mudaram;
+3. **se alguma das 5 fontes do Project mudou** (checagem do passo 3.1) → *"⚠️ Re-subir no claude.ai: …"*;
+4. o que **ficou aberto** — o que você não conseguiu verificar.
+
+O que não foi medido tem que sair rotulado como não medido.
