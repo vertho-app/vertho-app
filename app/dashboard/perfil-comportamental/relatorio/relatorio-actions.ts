@@ -96,7 +96,7 @@ export async function pregerarPdfsEmpresa(empresaId) {
     let gerados = 0, erros = 0;
     for (const c of pendentes) {
       try {
-        const r = await gerarEsalvarRelatorioComportamentalCore({ colabId: c.id });
+        const r = await gerarEsalvarRelatorioComportamentalCore({ colabId: c.id, empresaId });
         if (r.success) gerados++; else erros++;
       } catch (e) {
         console.error('[VERTHO] pregerarPdfsEmpresa', c.id, e.message);

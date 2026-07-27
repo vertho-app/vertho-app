@@ -181,7 +181,10 @@ export async function salvarPerfilComportamental(resultados) {
       const { gerarEsalvarRelatorioComportamentalCore } = await import(
         '@/lib/relatorio-comportamental/relatorio-core'
       );
-      const result = await gerarEsalvarRelatorioComportamentalCore({ colabId: colab.id });
+      const result = await gerarEsalvarRelatorioComportamentalCore({
+        colabId: colab.id,
+        empresaId: colab.empresa_id, // tenant da sessão: barra colabId de outro tenant
+      });
       if (result?.error) {
         console.warn('[salvarPerfilComportamental] pré-geração falhou:', result.error);
       }

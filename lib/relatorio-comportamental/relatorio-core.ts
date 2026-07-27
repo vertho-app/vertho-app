@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { CIS_COLUMNS, mapSupabaseToCISRawData } from '@/lib/supabase/mapCISProfile';
 import { buildBehavioralReportPrompt } from '@/lib/prompts/behavioral-report-prompt';
@@ -79,10 +80,28 @@ function pdfPathFor(colab) {
   };
 }
 
-export async function fetchColabPorId(colabId) {
+/**
+ * Carrega o colab por id em DOIS passos: descobre o tenant (bootstrap — não dá
+ * pra filtrar por aquilo que a query existe pra encontrar) e só então lê os
+ * dados JÁ ESCOPADO por `tenantDb`.
+ *
+ * `empresaIdEsperado` é a barreira de verdade: quando o caller sabe de que
+ * tenant o colab DEVE ser (fluxo de sessão, lote por empresa), divergência
+ * devolve null em vez de dado alheio. Os callers que omitem são as actions de
+ * `requireAdminAction()` — platform admin, cross-tenant por mandato.
+ */
+export async function fetchColabPorId(colabId, empresaIdEsperado?: string | null) {
   if (!colabId) return null;
   const sb = createSupabaseAdmin();
-  const { data } = await sb.from('colaboradores')
+  const { data: raiz } = await sb.from('colaboradores')
+    .select('empresa_id')
+    .eq('id', colabId)
+    .maybeSingle();
+  const empresaId = raiz?.empresa_id;
+  if (!empresaId) return null;
+  if (empresaIdEsperado && empresaId !== empresaIdEsperado) return null;
+
+  const { data } = await tenantDb(empresaId).from('colaboradores')
     .select(CIS_COLUMNS)
     .eq('id', colabId)
     .maybeSingle();
@@ -96,8 +115,11 @@ export async function fetchColabPorId(colabId) {
  *
  * Aceita o colab inteiro (caller já consultou), um colabId, OU cai no email da
  * sessão (fallback: resolve o PRÓPRIO colab do caller — nunca alheio).
+ *
+ * `empresaId`: tenant esperado do `colabId`. Passe SEMPRE que souber (fluxo de
+ * sessão, lote por empresa) — vira barreira em `fetchColabPorId`.
  */
-export async function gerarEsalvarRelatorioComportamentalCore({ colab: inputColab, colabId }: any = {}) {
+export async function gerarEsalvarRelatorioComportamentalCore({ colab: inputColab, colabId, empresaId }: any = {}) {
   try {
     let colab: any = inputColab;
     if (!colab && !colabId) {
@@ -106,7 +128,7 @@ export async function gerarEsalvarRelatorioComportamentalCore({ colab: inputCola
       if (email) colab = await findColabByEmail(email, CIS_COLUMNS);
     }
     if (!colab && colabId) {
-      colab = await fetchColabPorId(colabId);
+      colab = await fetchColabPorId(colabId, empresaId);
     }
     if (!colab) return { error: 'Colaborador não encontrado' };
 

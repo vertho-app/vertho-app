@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { requireUserAction } from '@/lib/auth/action-context';
 import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
 import { calcularParticipacao, isTrilhaPiloto } from '@/lib/season-engine/participacao';
@@ -81,14 +81,16 @@ export async function loadCertificadoData(email: string) {
   const ctx = await requireUserAction();
   if (!email) return { error: 'Não autenticado' };
 
-  const sb = createSupabaseAdmin();
-
   // findColabByEmail resolve o TENANT (multi-tenant → query direta quebrava).
   const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id') as any;
   if (!colab) return { error: 'Colaborador não encontrado' };
   if (!canViewColabJourney(ctx, colab)) return { error: 'Sem permissão' };
 
-  const { data: trilha } = await sb.from('trilhas')
+  // Escopado ao tenant DO COLAB (resolvido acima, não vindo do cliente): o gate
+  // de posse já passou, e o filtro garante que trilha/progresso lidos são dele.
+  const tdb = tenantDb(colab.empresa_id);
+
+  const { data: trilha } = await tdb.from('trilhas')
     .select('id, numero_temporada, competencia_foco, competencias_foco, data_inicio, evolution_generated_at, temporada_plano, evolution_report, programa_modo, empresa_id, status')
     .eq('colaborador_id', colab.id)
     .order('criado_em', { ascending: false })
@@ -99,7 +101,7 @@ export async function loadCertificadoData(email: string) {
   // Piloto (degustação) não emite certificado — decisão de produto.
   if (isTrilhaPiloto(trilha)) return { error: 'Piloto não emite certificado', motivo: 'piloto' };
 
-  const { data: progressos } = await sb.from('temporada_semana_progresso')
+  const { data: progressos } = await tdb.from('temporada_semana_progresso')
     .select('semana, tipo, reflexao, feedback')
     .eq('trilha_id', trilha.id);
   const participacao = calcularParticipacao(trilha.temporada_plano, progressos || []);
@@ -107,7 +109,10 @@ export async function loadCertificadoData(email: string) {
     return { error: 'Participação abaixo do mínimo (75%)', motivo: 'participacao', participacao };
   }
 
-  const { data: empresa } = await sb.from('empresas')
+  // `empresas` é a RAIZ do tenant (id === empresa_id) → não tem coluna
+  // `empresa_id` pra tdb filtrar; vai pelo raw, com o id vindo da trilha já
+  // escopada acima.
+  const { data: empresa } = await tdb.raw.from('empresas')
     .select('nome, ui_config, default_locale')
     .eq('id', trilha.empresa_id).maybeSingle();
 
