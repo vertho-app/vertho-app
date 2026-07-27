@@ -4,6 +4,26 @@
 > comerciais autônomos): CRM/pipeline, proteção de oportunidade, propostas com
 > aprovação interna Vertho, comissão estimada, carteira e materiais aprovados.
 
+## Estado em 27/07/2026 — congelado desde 07/07, e isso é intencional
+
+**Verificado:** nenhum commit tocou `app/representante/`, `app/admin/comercial/`,
+`lib/sales/`, `actions/sales/`, `components/sales/` ou o documento da proposta
+**desde 07/07** — MVPs 1-4 + kit + versionamento estão fechados; o esforço migrou
+para o motor da trilha, vídeo e segurança. Nenhuma migration `sales_*` depois da 168.
+
+**Volume em produção (medido 27/07):** 6 representantes · 19 oportunidades ·
+21 propostas · 19 contas na carteira · 139 eventos de comissão · 26 materiais.
+
+**⚠️ Pendência que continua aberta:** a tabela `PRICING` (`lib/sales/pricing.ts:12`)
+segue **PLACEHOLDER** — R$/usuário 25/45/35 e taxa de plataforma 400/600/500 são
+números de exemplo. O simulador de preço já está no fluxo de proposta, então **todo
+valor mensal sugerido ao RC hoje sai desses números fictícios**. Trocar as constantes
+do arquivo basta; a mecânica não muda.
+
+Débitos conhecidos, sem data: i18n do portal (pt-BR hardcoded), prorrogação manual de
+proteção (`extended`, previsto no MVP 2 e não implementado), material próprio para o
+segmento `fundacao` (hoje herda os gerais).
+
 ## Ambiente de Demonstração (para o RC treinar/apresentar) — 04/07
 
 O RC acessa o tenant de demonstração (`acme-demo`) pelo item **"Ambiente de

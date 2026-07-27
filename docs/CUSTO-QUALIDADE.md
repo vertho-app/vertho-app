@@ -246,7 +246,7 @@ qualidade".
 | S1.2 | ✅ prod | taskKey + batch ledger + custo fonte única (fd6b3a16) |
 | S1.3 | ✅ prod | painel real×estimado no simulador + `ia_uso_resumo` (mig 178) |
 | S3/L1 | ✅ prod (flag OFF) | caching do histórico (aa6aae3d) |
-| S2 piloto | ✅ medido | coorte 10 no simulador → custo real $1,44/colab, cache MORTO (cacheR=0), Sonnet 5 GA +60% + trunca JSON, 2 bugs prod (9909b534) |
+| S2 piloto | ✅ medido | coorte 10 no simulador → custo real $1,44/colab, cache morto **no sintético** (cacheR≈0; no tráfego real é 19,7% — ver leitura de 27/07), Sonnet 5 GA +60% + trunca JSON, 2 bugs prod (9909b534) |
 | S4 núcleo | ✅ ferramenta | ia-sinais + eval-harness (validado por mutação) |
 | S2, S3-resto, S5, S6, S7 | 🔒 desenhado/gated | gates de tempo (S2), medição (S3-resto), harness+goldens (S5), conteúdo+humano (S6), evidência (S7) |
 
@@ -291,3 +291,41 @@ GPT; molde pronto pro IA4. Trigger: runtime **node-22** obrigatório
 (supabase-js ≥2.108 exige WebSocket nativo; redeploy rebundla as tasks com o
 node_modules ATUAL — upgrade de dependência do app pode quebrar task que nem
 mudou).
+
+---
+
+## 27/07 · Primeira leitura do ledger acumulado (S2, parcial)
+
+O ledger deixou de ser promessa: **6.345 chamadas registradas, 25/06 → 25/07,
+$100,99**. Tudo abaixo é `Medido:` (SQL direto em `ia_usage_log`, 27/07).
+
+| Origem | Chamadas | Custo | % do input lido do cache |
+|---|---|---|---|
+| `wrapper` (tráfego real) | 2.847 | **$82,02** | **19,7%** |
+| `simulator` (coorte sintética da S2) | 3.439 | $16,74 | **0,1%** |
+| `batch` | 49 | $2,23 | 0% |
+
+**Correção de leitura — "o cache está MORTO" era do piloto, não da produção.**
+O `cacheRead=0` medido na S2 vale para a coorte sintética (0,1% acima, e faz
+sentido: cada colab sintético abre conversa nova). No tráfego real o cache já
+lia antes da rodada de S3/S4: **socrático 51,1%** do input vindo de cache
+(53,3% antes de 20/07 vs 50,5% depois — ou seja, **o ganho não veio do
+`systemSuffix`**, que foi promovido por QUALIDADE, não por cache), **BETO
+90,2%**, tira-dúvidas 34,0%. As chamadas sem cache nenhum são as de autoria
+one-shot (`modulo_base_autor`, `acumulada_*`, os checks) — onde não há prefixo
+a reaproveitar mesmo.
+
+**🔴 O achado acionável: 77% do custo está `untagged`.** 2.552 chamadas sem
+`taskKey` somam **$77,80 dos $100,99**. A adoção incremental da S1.2 cobriu os
+fluxos de chat (que eram o eixo de maior $ *estimado*), mas o dinheiro real está
+concentrado fora deles — e hoje não dá para dizer em quê. **Próxima fatia da S2
+não é esperar mais tráfego: é etiquetar os call-sites de `untagged`**, senão o
+ledger responde "quanto" e nunca "onde".
+
+**Cobertura de preço:** 1.136 chamadas (18%) com `cost_usd` NULL — modelo fora do
+catálogo. O painel já sinaliza via `custo_conhecido_frac`, então **os $100,99 são
+piso, não total**. Fechar o catálogo é pré-requisito da reconciliação ≤5% com o
+billing.
+
+**Última chamada registrada: 25/07.** Sem tráfego novo desde então — o gate de
+"1 dia de volume real" continua dependendo do próximo ciclo de tenant ativo.

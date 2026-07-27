@@ -2,6 +2,9 @@
 
 Processo completo do zero até o Evolution Report, intercalando as atividades do **Admin/RH** (preparação + acompanhamento) e do **Colaborador** (jornada de 14 semanas).
 
+> **Este documento descreve o modo default (Regular DUO, 14 semanas).** Os outros três modos reusam o mesmo motor e estão nos "fluxos alternativos" no fim: **Onboarding** (10 semanas), **Piloto** (2 semanas) e **Personalizado** (1-4 semanas, configurável). O modo é resolvido por colaborador e **carimbado na trilha** na geração.
+> Atualizado em 27/07/2026.
+
 ---
 
 ## Fase 0 — Setup da Empresa e Colaboradores
@@ -174,7 +177,8 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
    - Switch de formato se existem outros disponíveis
    - Vídeo: progresso >80% marca automático como consumido via postMessage
    - Botão **"Marcar como realizado"** como fallback (gate: só libera após clicar link)
-2. **Desafio da semana**: 1 micro-ação observável gerada por Claude (card destacado, JSON estruturado: `{desafio_texto, acao_observavel, criterio_de_execucao, por_que_cabe_na_semana}`)
+2. **Desafio da semana**: 1 micro-ação observável (card destacado, JSON estruturado: `{desafio_texto, acao_observavel, criterio_de_execucao, por_que_cabe_na_semana}`)
+   - ⚠️ **O que está GRAVADO na semana é placeholder.** O desafio real — e o conteúdo de kit — entram na **leitura**, pelo overlay do **Kit Semanal**, resolvidos por **(DISC × cargo)**. Ao investigar "o que a pessoa recebeu", ler o consumidor (`overlayKitNaSemana`), nunca o campo gravado. Ver `docs/KIT-SEMANAL.md`
 3. **Tira-Dúvidas** (NOVO): chat reativo sobre o conteúdo da semana
    - Guard-rail no descritor da semana (não divaga)
    - Modelo: Haiku 4.5
@@ -282,6 +286,11 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
   4. **Missões**: resultado das missões práticas (sem 4/8/12)
   5. **Avaliação Final**: 4 notas por descritor + síntese
 - **PDF individual** via `/api/temporada/concluida/pdf` (gerado por `lib/temporada-concluida-pdf.ts`)
+- **Certificado de Conclusão** (jul/2026) via `/api/temporada/certificado/pdf`: A4 no padrão de marca
+  (selo, dupla assinatura, logo do tenant vindo de `ui_config.logo_url`, carga de 48h). **Regras de
+  emissão**: temporada concluída **e** participação ≥ 75% (`calcularParticipacao`); **piloto/degustação
+  NÃO emite**. Bloqueio devolve `motivo: 'piloto' | 'participacao'` → a UI explica o critério em vez de
+  só falhar
 - Classificação de cada descritor:
   - Evolução confirmada: nota_pos >= nota_pre + 0.5 **e** qualitativa positiva
   - Evolução parcial: nota_pos >= nota_pre + 0.2 **ou** qualitativa positiva
@@ -327,7 +336,11 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 **`/admin/vertho/auditoria-sem14`** — 4 notas (pré/acumulada/cenário/final) + delta + regerar com feedback. Filtro `?empresa=`.
 
-**`/admin/vertho/simulador-custo`** — Calculadora interativa de custo IA: catálogo 20 chamadas, 7 modelos, 3 presets.
+**`/admin/vertho/simulador-custo`** — Calculadora interativa de custo IA (catálogo de chamadas × modelos × presets) **+ painel "Real medido (ledger)"** logo abaixo, lendo `ia_usage_log` por janela de 7/30/90 dias: custo real, cache hit-rate e breakdown por tarefa × modelo. Quando parte das chamadas usa modelo fora do catálogo, a UI avisa que o real está **subestimado** em vez de mentir um total.
+
+**`/admin/vertho/custo-ia`** — Plano de custo/qualidade (espelho do doc `docs/CUSTO-QUALIDADE.md`; os dois precisam ser atualizados juntos). **`/admin/vertho/modulos-base`** — autoria e auditoria dual-IA dos Módulos-Base. **`/admin/vertho/auditorias`** e **`/admin/vertho/orcamento`** — auditoria de blueprints e orçamento.
+
+**`/admin/engajamento`** (não é vertho-only) — telemetria da trilha: quem abriu o link × quem consumiu de fato. ⚠️ `conteudo_consumido ≈ 0` **não** é falta de engajamento (o sinal real é `play_finished`), e o conteúdo da semana fica acessível desde o início — o envio é notificação, não liberação.
 
 **`/admin/vertho/knowledge-base`** — CRUD da base de conhecimento RAG per-tenant. Upload PDF/DOCX/TXT/MD (até 4MB), botão "Popular base inicial" (6 docs seed), preview de busca. Alimenta grounding em Tira-Dúvidas + Evidências + Missão Feedback + Relatórios Gestor/RH.
 
@@ -352,6 +365,18 @@ Todos com back button context-aware.
 5. **Fechamento** (libera assim que a sem 2 conclui, sem esperar dia 14): **gate** — só abre quando a acumulada está `done`; enquanto processa, a UI mostra "Preparando sua avaliação…" e faz polling (mata a race B2), com **self-heal inline** se a task falhar → wizard Cenário B (4 perguntas) → **arguição/defesa oral** (LIGADA no piloto, 4 turnos — a UI vira chat) → scorer com **fusão da arguição** (±0,5 no código) e **trava de piso** (`nota_pos = max(bruto, baseline)`, bruto + `piso_aplicado` preservados, `spec_version='piloto-v1'`) → auditoria 2ª IA → Evolution Report variante piloto. *O relatório não trava mais por avaliação parcial (report tolera N-1 descritores).*
 6. **Relatório**: tela/PDF SEM delta antes→depois — competência como ponto de partida, fechamento como demonstração da avaliação
 7. **Conversão**: fechou → trocar o modo do colaborador → regerar temporada (diagnóstico é reaproveitado; o plano piloto é sobrescrito na mesma trilha)
+
+---
+
+## Fluxo alternativo: Modo Personalizado (degustação sob medida) — jul/2026
+
+> `programa_modo='custom'`. O Piloto com os três eixos abertos: **1 a 4 semanas**, **1 ou 2 competências**, **fechamento opcional**. Mesmo motor, mesmos artefatos.
+
+1. **Configurar**: Configurações → aba **Programa** → modo "Personalizado" → definir semanas, nº de competências e se há fechamento. Grava em `sys_config.programa_custom`
+2. **Gerar temporada** (mesmo botão do passo 16): no momento da geração, a config é **congelada** em `trilhas.programa_config` (migration 182). O runtime lê o **snapshot**, não o `sys_config` — mudar o padrão da empresa depois **não** altera degustação em andamento
+3. **Sem fechamento**: a jornada **conclui na última semana de conteúdo** (não existe slot de Cenário B) e a cadência automática **pára no fim do plano** — não sai pílula de semana que não existe
+4. **Com fechamento**: idêntico ao piloto (Cenário B + arguição + scorer + trava de piso)
+5. Resolução do modo: `lib/season-engine/programa-custom.ts`. ⚠️ `'custom'` **não** resolve para uma constante de programa como os outros modos — geração e runtime o tratam pelo snapshot
 
 ---
 
@@ -452,9 +477,11 @@ Plataforma pública nacional de indicadores INEP por escola/município. Consulta
 - Admin: `/admin/radar` (ingestão Saeb/ICA/Censo) e `/admin/radar/funnel` (analytics).
 - Doc detalhada: `docs/radar/README.md`.
 
-### Radarbett (`radarbett.vertho.ai`)
-Versão para o Bett 2026 — tipografia escopada (Plus Jakarta Sans + Fraunces) e CTA "Agendar conversa" abre WhatsApp direto (mensagem varia por contexto).
-- **Modo teste pré-Bett ativo**: "Liberar leitura completa" libera imediatamente sem capturar lead. Reverter pós-evento (gating estrito).
+### Radarbett (`radarbett.vertho.ai`) — ⚠️ DESCONTINUADO em 25/05/2026
+Era a versão para o Bett Brasil 2026. Encerrado pós-evento: o host **redireciona 301**
+(`resolveRadarbettRedirect` — deep-links equivalentes vão pro Radar Vertho, o resto pro site
+institucional). As frentes "Onde a Vertho pode ajudar" migraram pro Radar. O código segue dormant no
+repo; **não usar em material novo**.
 
 ---
 
@@ -506,15 +533,27 @@ Versão para o Bett 2026 — tipografia escopada (Plus Jakarta Sans + Fraunces) 
 | Missão Feedback | sem 4, 8, 12 | 10 | Sonnet 4.6 | IA analisa relato da missão |
 | Analítica (fallback) | sem 4, 8, 12 | 10 | Sonnet 4.6 | alterna pontos fortes ↔ provocações |
 | Evolution qualitativa | sem 13 | 12 | Sonnet 4.6 | 6 etapas, microcaso, DISC |
-| Avaliação Acumulada | pós sem 13 | — (single-shot) | Sonnet 4.6 + auditor | cega p/ nota inicial, max 8000+6000 tok |
-| Evolution cenário | sem 14 | — (wizard 4 perguntas) | Sonnet 4.6 + auditor | triangulação + 4 notas, régua n1-n4 |
+| Avaliação Acumulada | pós sem 13 | — (single-shot) | Sonnet 4.6 + auditor **GPT 5.6 Terra** | cega p/ nota inicial, max 8000+6000 tok |
+| Evolution cenário | sem 14 | — (wizard 4 perguntas) | Sonnet 4.6 + auditor **GPT 5.6 Terra** | triangulação + 4 notas, régua n1-n4 |
+| Arguição (defesa oral) | fechamento | 4-8 (por modo) | Sonnet 4.6 | modula ±0,5 por regra em CÓDIGO |
 | Simulador | admin | 1 sem/chamada | Haiku | 4 perfis comportamentais |
+
+> **Auditores 2ª-IA padronizados em GPT 5.6 Terra desde 22/07** (decisão de qualidade, não de custo): `ia3_check`, `ia4_check`, `cenarios_b_check`, `acumulada_check`, `sem14_check`, `pulse_audit`, `modulo_base_auditor` — todos **pinned** em `lib/ai-tasks.ts`, imunes ao `modelo_padrao` do tenant. Detalhe em `docs/CUSTO-QUALIDADE.md`.
 
 ---
 
 ---
 
 ## Notas de manutenção
+
+### 2026-07-20/27 — Modo Personalizado, Certificado, segurança e custo
+- **Modo Personalizado** (`ec3fd527`, migration 182): o piloto virou builder (1-4 semanas, 1-2 comps, fechamento opcional) com a config **congelada na trilha**. Ver o fluxo alternativo acima.
+- **Certificado de Conclusão** (`92e16fcf` → `2834c68f`): PDF A4 no padrão de marca, participação ≥ 75%, piloto não emite. No caminho, um **SSRF** no fetch do logo do tenant foi fechado (allowlist do host do Storage + `fetchPublico` + `redirect:'error'`) e o `net-guard` foi corrigido — ele estava **falhando-fechado** (Happy Eyeballs) e derrubava também o "puxar cores" do branding.
+- **Auditoria de segurança multi-agente 23/07**: 223 arquivos, 29 achados confirmados, remediação completa (`docs/SECURITY-STATUS.md`). Classe dominante: gate que não liga o `empresaId` vindo do client ao tenant da sessão.
+- **26/07 — IA2 passa a consolidar os valores da REDE** (`062dca13`): empresa-rede tem 1 PPP por escola (Ibipeba: 11), e o `.limit(1)` autorava a régua do município inteiro com uma escola sorteada. Classe **F-I10** no `docs/FMEA-PIPELINE.md` — **o gêmeo `buscarContextoPPP` segue ABERTO**. No mesmo dia, os 2 guards de tenant voltaram ao verde (`3367efb7`).
+- **Lotes de IA em segundo plano** (`aa9c0aad`, migrations 172/173) com progresso, botão de parar e Batch API dos dois lados (Claude + OpenAI, −50%).
+- **Sessão**: o refresh mudou para o `proxy.js` (`8f5c1d1c`) — matou o laço `/admin/dashboard` ↔ `/login`. Gate no cliente usa `getUser()`, nunca `getSession()`.
+- **Pulso**: o DISC contextual passou a ser coletado no pulso (`8f987a25`, migration 183).
 
 ### 2026-07-06/07 — Piloto robusto + Portal do Representante + ACME Demo
 - **Piloto — acumulada em Trigger.dev (M8)** (`ce30c46d`, `1d1279eb`, `e19acc04`, `76de153e`, `7a6ef4e7`, `83c8092a`, `f67c195c`): a avaliação acumulada do piloto saiu do `after()` da reflection (frágil, morria no freeze da Vercel e corria com o fechamento) para a task `trigger/acumulada-piloto.ts` com retry; a reflection sem 2 marca a linha como `processing` e dispara a task, e o fechamento só abre quando `done` — gate "Preparando sua avaliação…" com polling + **self-heal inline** (migration 169). Fechamento não trava mais por Cenário B faltando nem por avaliação parcial (report tolera N-1 descritores). **Deploy da task é MANUAL** (`npx trigger.dev deploy`). Validado E2E ao vivo em prod (gate + task) + **73 testes unit/integração verdes** (inclui integração B1/B2/B4/B5).

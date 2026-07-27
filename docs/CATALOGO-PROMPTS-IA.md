@@ -1,11 +1,16 @@
 # Catálogo de Prompts da IA — Vertho Mentor IA
 
-> Revisão: 2026-07-02 | Total: 65 prompts catalogados (48 ativos + 3 wrappers/reusos + 3 legados + 5 auxiliares + demais appendix/mistos)
+> Revisão: 2026-07-27 | Total: **70** prompts catalogados (+5 nesta revisão: seção **Kit Semanal** 13.1-13.5, que estava inteira fora do catálogo)
 >
-> Roteador universal: `actions/ai-client.ts` (`callAI` single-turn + `callAIChat` multi-turn). Default = `claude-sonnet-4-6`.
-> Prompt caching automático: `system` > 4000 chars → `cache_control: ephemeral`.
-> Extended thinking: `options.thinking = true` (budget 32k-65k tokens).
+> Roteador universal: `actions/ai-client.ts` (`callAI` single-turn + `callAIChat` multi-turn). Default = `claude-sonnet-4-6`; OpenAI, Gemini e **Kimi** (`kimi*`, OpenAI-compatible) pelo mesmo wrapper.
+> Prompt caching automático: `system` > 4000 chars → `cache_control: ephemeral`. Prefixo grande e estável de lote → `options.cachedUserPrefix` (2º breakpoint).
+> Extended thinking: `options.thinking = true` (budget 32k-65k tokens). Reasoning effort: `options.reasoningEffort` (kimi-k3, gpt-5.x).
 > Streaming: automático quando `maxTokens > 8192`.
+> Geração em lote: `lib/ai-batch.ts` — Batch API da Anthropic **e** da OpenAI (−50%).
+>
+> **Auditores 2ª-IA (desde 22/07):** `ia3_check`, `ia4_check`, `cenarios_b_check`, `acumulada_check`, `sem14_check`, `pulse_audit` e `modulo_base_auditor` rodam em **GPT 5.6 Terra** e estão **pinned** em `lib/ai-tasks.ts` — o `modelo_padrao` do tenant não os rebaixa. Onde o catálogo abaixo ainda diz "auditor Gemini", leia "auditor pinned".
+>
+> **Regeneração nunca destrói a campeã (23/07):** nos cenários A e B, "regenerar com feedback" gera a candidata em memória, audita e **só aplica se a nota for ≥ a atual** (`travaRegeneracao`). O prompt de regeneração tem regras anti-inflação — o gerador tende a responder crítica **adicionando** conteúdo.
 
 ## Legenda Documental
 
@@ -36,9 +41,11 @@
 9. [Perfil Comportamental (Dashboard)](#perfil-comportamental-dashboard)
 10. [FIT v2 (Leitura Executiva)](#fit-v2-leitura-executiva)
 11. [Conteúdos e Tagging](#conteúdos-e-tagging)
-12. [Simuladores](#simuladores)
-13. [Fase 4 (PDI legado)](#fase-4-pdi-legado)
-14. [Outros (Cenário B legado, Evolução Granular, Tutor Evidência)](#outros-cenário-b-legado-evolução-granular-tutor-evidência)
+12. [Kit Semanal (competência × descritor × DISC)](#kit-semanal-conteúdo-por-competência--descritor--disc)
+13. [Simuladores](#simuladores)
+14. [Fase 4 (PDI legado)](#fase-4-pdi-legado)
+15. [Outros (Cenário B legado, Evolução Granular, Tutor Evidência)](#outros-cenário-b-legado-evolução-granular-tutor-evidência)
+16. [Módulos-Base de Conteúdo (Vertho Master)](#módulos-base-de-conteúdo-vertho-master)
 
 ---
 
@@ -92,6 +99,7 @@
 - **Trigger**: Admin clica em "IA2 — Gabarito CIS" em `/admin/empresas/{id}` (Fase 1). Exige IA1 rodada antes.
 - **Grounding RAG**: Não. Usa contexto do PPP.
 - **Loop**: Sim — 1 chamada por cargo.
+- **Insumo "valores" (corrigido em 26/07, `062dca13`)**: `buscarValores` (`lib/ia2-gabarito.ts`) deixou de pegar `ppp_escolas.valores` do PPP mais recente e passa a **consolidar os valores de TODAS as escolas** da empresa por frequência (`consolidarValoresDaRede`, determinístico, teto de 10, ordem estável porque o prompt é cacheado). Antes, numa rede como Ibipeba (11 PPPs, 86 valores), o gabarito de **todos os cargos do município** era ancorado nos valores de uma escola sorteada pela data de extração. ⚠️ O `buscarContextoPPP` da linha acima **ainda tem o `.limit(1)`** — mesmo defeito, insumo maior (F-I10 do `docs/FMEA-PIPELINE.md`).
 - **System prompt** (~2200 chars, resumo):
   ```text
   Você é um especialista em avaliação comportamental CIS/DISC.
@@ -1452,6 +1460,61 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 
 ---
 
+## Kit Semanal (conteúdo por competência × descritor × DISC)
+
+> Lacuna coberta em 27/07/2026: o Kit é hoje o principal caminho de conteúdo entregue na trilha e
+> não estava no catálogo. O contrato é "**todos os formatos dizem a mesma coisa**": um NÚCLEO neutro
+> por tema, um DESAFIO por perfil, e cada formato recebe o núcleo como appendix. Doc funcional:
+> `docs/KIT-SEMANAL.md`.
+
+### 13.1 Kit — Núcleo conceitual do tema (brief)
+> `ATIVO` · Prompt documentado como: `literal`
+
+- **Arquivo**: `lib/season-engine/kit/brief.ts::gerarKitBrief` (persistido em `kit_briefs`, idempotente por tema via `resolverOuCriarBrief`).
+- **Caller**: `actions/kits.ts` (individual e lote por DISC).
+- **Modelo**: herdado do `aiConfig`/`model` do caller. **Max tokens**: 1500. Até **3 tentativas** — se o JSON não parsear, reforça "SOMENTE JSON" e repete; falha 3× lança.
+- **System prompt**: "Você é designer instrucional da Vertho. Destile o NÚCLEO CONCEITUAL de um tema… a espinha que TODOS os formatos (vídeo, podcast, texto, estudo de caso) vão expressar para 'dizer a mesma coisa'." O núcleo é **NEUTRO de perfil (não personaliza por DISC) e NEUTRO de formato**.
+- **Output**: JSON `{ideia_central, pontos_chave[3], exemplo_ancora}` — 1 frase-síntese, exatamente 3 pilares, 1 situação concreta sem nome próprio.
+- **Inputs user**: competência, descritor, faixa de nível (1-4), cargo, contexto + **matéria-prima canônica** do Módulo-Base quando existir ("preserve as bases") + `pppBrief` como *lente de aplicação, sem citar o nome da instituição*.
+- **Consumido por**: 13.2 (desafio) e 13.3 (appendix de cada formato).
+
+### 13.2 Kit — Desafio da semana por perfil DISC
+> `ATIVO` · Prompt documentado como: `literal`
+
+- **Arquivo**: `lib/season-engine/kit/brief.ts::gerarKitDesafio` (uma chamada por letra DISC).
+- **Modelo**: mesmo do brief.
+- **System prompt**: micro-ação **prática e observável** (não conteúdo, não dica, não reflexão), 2-3 frases, viável na semana, singular. `LENTE_DISC[disc]` define **por onde a ação engaja** aquele perfil — e há regra explícita: **nunca citar DISC, siglas ou o nome do perfil no texto**.
+- **Output**: JSON `{desafio_texto, acao_observavel, criterio_de_execucao, por_que_cabe_na_semana}`.
+- ⚠️ **É este desafio que a pessoa vê** — o `conteudo.desafio_texto` gravado na semana é placeholder, substituído na leitura pelo overlay do kit.
+
+### 13.3 Kit — Appendix de enriquecimento por formato
+> `ATIVO` · Prompt documentado como: `appendix`
+
+- **Arquivo**: `lib/season-engine/kit/enrich.ts` — **não é prompt próprio**: injeta um bloco no system dos autores de conteúdo (11.1 vídeo, 11.2 podcast, 11.3 texto, 11.4 case).
+- **O que injeta**: a espinha compartilhada (ideia central obrigatória, os 3 pontos-chave a cobrir, o exemplo-âncora), a **lente de arquétipo DISC** (tom/exemplos/enquadramento, de novo com a proibição de citar o perfil), e o **desafio ao qual o conteúdo deve conduzir** — com um fecho específico por formato (`COMO_FECHA`).
+- **Efeito**: 4 formatos de uma mesma célula ficam coerentes entre si e distintos por perfil, sem reescrever os prompts-autores.
+
+### 13.4 Contexto municipal consolidado (empresa-rede)
+> `ATIVO` · Prompt documentado como: `literal`
+
+- **Arquivo**: `lib/season-engine/kit/contexto-empresa.ts::resolverContextoEmpresa`.
+- **Modelo**: herdado do `aiConfig`. **Max tokens**: 1200 (saída cortada em 2500 chars).
+- **Quando roda**: só quando a empresa tem **N PPPs** (1 por escola). Com 1 PPP, usa direto — sem chamada de IA. Resultado cacheado em `empresas.kit_contexto`, invalidado quando entra PPP mais novo; falha na síntese cai no PPP mais recente **sem cachear**.
+- **System prompt**: "Você consolida o CONTEXTO PEDAGÓGICO MUNICIPAL de uma rede de ensino a partir dos PPPs de várias escolas. Extraia o que é COMPARTILHADO pela rede…, ignorando idiossincrasias de escolas específicas." Máximo 20 escolas, 1200 chars cada; **proibido citar nomes de escolas**.
+- **Por que existe**: pegar "o PPP mais recente" numa rede aplica **uma escola sorteada** ao município inteiro. Esse é o modo de falha **F-I10** (`docs/FMEA-PIPELINE.md`) — corrigido no insumo de valores do IA2 em 26/07 e **ainda aberto em `buscarContextoPPP`**, que alimenta IA1/IA2/IA3.
+
+### 13.5 Paleta de marca a partir do site do cliente
+> `ATIVO` desde 2026-07-22 · Prompt documentado como: `literal`
+
+- **Arquivo**: `lib/site-palette.ts::SYSTEM_PALETA` (fetch da página com guarda anti-SSRF antes).
+- **Caller**: aba **Branding** da configuração da empresa ("Puxar cores").
+- **Max tokens**: 500.
+- **System prompt**: descreve a **anatomia da tela de login** (gradiente de fundo, título, botão em gradiente com texto branco, links de destaque) e manda mapear as cores encontradas nos **7 slots** do `ui_config`. Regras: usar as cores **de marca** (cinza/preto/branco são estrutura), fundo escuro e sóbrio, `primary_color_end` = mesmo matiz mais escuro, e **"fidelidade à marca vence estética própria — não 'melhore' a cor do cliente"**.
+- **Output**: JSON com os 7 hex + `racional` de 1 frase.
+- **Salvaguarda em CÓDIGO, não no prompt**: o contraste é verificado e corrigido depois da IA — o modelo escolhe a paleta, o código garante que ela é legível.
+
+---
+
 ## Simuladores
 
 ### 12.1 Simulador de Respostas (Fase 3)
@@ -1754,17 +1817,17 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 
 ## Resumo Estatístico
 
-**Total de prompts catalogados: 65**
+**Total de prompts catalogados: 70** *(65 + os 5 do Kit Semanal, incorporados em 27/07)*
 
 Por status:
 
 | Status | Qtd | Itens |
 |--------|-----|-------|
-| `ATIVO` | 48 | Prompts em uso na produção |
+| `ATIVO` | 52 | Prompts em uso na produção (inclui 13.1, 13.2, 13.4, 13.5) |
 | `WRAPPER` | 3 | Reusos: 1.4, 2.2, 5.2 |
 | `LEGADO` | 3 | Mantidos: 13.1, 14.1, 14.3 |
 | `AUXILIAR` | 5 | Simulação/teste: 3.4, 12.1–12.4 |
-| `APPENDIX` | 2 | Instruções extras: 14.4, 14.5 |
+| `APPENDIX` | 3 | Instruções extras: 14.4, 14.5, **13.3** (enriquecimento do Kit) |
 | `ATIVO + APPENDIX` | 1 | 5.10 (check lote ativo mas simplificado) |
 
 Por categoria:
@@ -1782,6 +1845,7 @@ Por categoria:
 | Dashboard Perfil | 2 | comportamental, insights |
 | FIT v2 | 1 | leitura executiva |
 | Conteúdos/Tagging | 8 | video script, podcast, texto, case, tags, planner editorial PDF, expansão mínima PDF, roteiro vídeo Módulo-Base |
+| **Kit Semanal** | **5** | núcleo/brief, desafio por DISC, appendix de enriquecimento, contexto municipal consolidado, paleta do site |
 | Simuladores | 4 | respostas, colab temporada, compromisso, extração sim |
 | Fase 4 | 1 | PDI legado |
 | Outros | 5 | cenárioB legado, evolução granular, tutor evidência, regerar sem14, check sem14 com feedback |

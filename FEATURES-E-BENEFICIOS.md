@@ -1,7 +1,7 @@
 # Vertho — Features e Benefícios
 
 > Inventário das features em produção (Mentor IA + Pulso de Desenvolvimento + Radar) com o benefício correspondente para o cliente. Base para o site, materiais comerciais e ajuste de comunicação.
-> Última atualização: 02/07/2026 — HEAD `b66aa1f`.
+> Última atualização: 27/07/2026 — HEAD `09540329`.
 
 ---
 
@@ -15,6 +15,7 @@ Produtos vivos voltados ao cliente:
   - **Programa Regular (DUO)** — 14 semanas desenvolvendo 2 competências em paralelo, em profundidade (nível-meta 3 / proficiência). É o modo default. *(Single-comp segue disponível como configuração pontual.)*
   - **Vertho Onboarding** — 10 semanas em espiral cobrindo 5 competências (nível-meta 2 / autonomia supervisionada), para profissionais recém-formados.
   - **Modo Piloto** — degustação de 2 semanas com 1 competência e fechamento completo (cenário + avaliação IA), para o lead experimentar a jornada inteira antes de fechar. Não mede evolução — demonstra o método.
+  - **Modo Personalizado** *(jul/2026)* — o piloto virou **builder**: 1 a 4 semanas, 1 ou 2 competências, fechamento opcional. A configuração é **congelada na trilha** no momento da geração, então mudar o padrão da empresa não altera degustação em andamento.
 - **Pulso de Desenvolvimento** *(mai/2026)* — Instrumento leve T0/T2 para entender se o ambiente favorece ou bloqueia o desenvolvimento. Dashboard agregado com guard de anonimato (n≥7), Dual-IA classifica respostas abertas em 12 temas, PDFs executivo + complementar NR-1.
 - **Radar Vertho** ([radar.vertho.ai](https://radar.vertho.ai)) — Inteligência pública nacional sobre escolas, municípios, redes e estados (Saeb, Ideb, ENEM, Censo, FUNDEB) com narrativa por IA.
 
@@ -51,6 +52,8 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 | **Avaliação Acumulada** | Após semana 13, 1ª IA pontua descritor por descritor (cega para nota inicial); 2ª IA audita | Avaliação rigorosa por dupla IA, sem viés ancorado na nota anterior. |
 | **Cenário B (Sem 14)** | Wizard de 4 perguntas (situação, ação, raciocínio, autossensibilidade) com cenário do banco da empresa | Avaliação final em situação realista, comparável à inicial. |
 | **Evolution Report** | Consolida semanas 13+14 em 5 blocos (hero, comparativo, insights, missões, avaliação) + PDF | Resultado tangível — colaborador leva pra casa em PDF, mostra evolução. |
+| **Certificado de Conclusão** *(jul/2026)* | PDF A4 no padrão de marca (selo, dupla assinatura, logo do tenant), emitido ao concluir a temporada com **participação ≥ 75%** e carga de 48h. Degustação (piloto) **não** emite | Reconhecimento formal que a pessoa mostra e guarda — com critério explícito, não certificado de presença. |
+| **Kit Semanal (conteúdo por perfil)** | O que a pessoa recebe na semana é montado por combinação **competência × descritor × DISC**: 4 formatos (texto, podcast, vídeo, case) + desafio próprio do perfil, resolvidos na leitura — não no que está gravado | Duas pessoas na mesma semana e no mesmo cargo recebem materiais diferentes, cada um no registro que funciona pro perfil dela. |
 | **BETO (tutor flutuante)** | Chat contextual sempre disponível em qualquer página do dashboard, **no idioma escolhido pelo colaborador** (pt-BR/pt-PT/es-ES) | Mentor permanente — dúvida operacional resolvida sem sair da tela, na língua da pessoa. |
 | **Perfil + Avatar** | DISC preview + logout simples | Identidade reconhecida desde o primeiro acesso. |
 
@@ -91,6 +94,7 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 |---|---|---|
 | **Subdomínio próprio** | `{empresa}.vertho.ai` com isolamento de dados por `empresa_id` | Identidade própria — não é "mais uma plataforma da Vertho". |
 | **Branding completo** | Logo + 7 cores + cor da fonte + subtítulo de login + esconder elementos + renomear labels (`ui_config` JSONB) | Plataforma "veste" a empresa cliente, do login ao dashboard. |
+| **Puxar cores do site do cliente** *(jul/2026)* | Cola-se a URL do site da empresa: o sistema busca a página (com guarda anti-SSRF), a IA mapeia a paleta nos 7 slots da plataforma e o **contraste é garantido em código**, não pela IA | Branding em segundos em vez de conta-gotas de hex — e sem risco de sair um tema ilegível. |
 | **Vincular ao Vercel** | Botão no painel pra registrar o subdomínio no Vercel (lib/vercel-domain.ts) | Operação técnica em 1 clique — sem ticket pra time de TI. |
 | **Configuração por tenant** | `sys_config` JSONB: modelo de IA preferido, cadência, parâmetros de envio | Cada empresa ajusta o programa ao seu ritmo. |
 | **Programa por colaborador** | Select em Configurações → Equipe: cada pessoa pode ter modo próprio (Regular DUO/single, Onboarding, Piloto) com herança do default da empresa; a trilha gerada carrega o **carimbo** do modo — trocar o default não afeta trilha em andamento | Novatos em onboarding, veteranos no regular e um lead em piloto — no MESMO tenant, sem empresa paralela. |
@@ -107,7 +111,9 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 | **Matriz de papéis e permissões** | Console `/admin/permissoes`: 6 papéis × 25 permissões nomeadas + overrides auditáveis por papel ou usuário (com motivo obrigatório). A matriz é **aplicada de verdade no backend** — cada ação administrativa (criar, editar, apagar, gerar, disparar) checa a permissão específica do domínio | Controle de acesso granular e explícito que o sistema realmente respeita — dá pra liberar/bloquear capacidade específica sem mexer em código. |
 | **Admin Sócio (admin restrito)** | Papel de administrador abaixo do Master: enxerga tudo (empresas, usuários, relatórios, auditoria, custos), pode exportar — mas **não** apaga, gera conteúdo/IA, dispara avaliações nem gerencia empresas/usuários/permissões | Dá pra abrir o painel pra sócios e parceiros sem risco de apagarem ou gerarem o que não devem. |
 | **Lixeira** | Restore de registros excluídos por 30 dias | Errou? Volta. Sem chamado pro suporte. |
-| **Painéis Admin Vertho (internos)** | Evidências, Avaliação Acumulada, Auditoria Sem 14, Simulador de Custo | Time Vertho consegue auditar/regerar qualquer avaliação, com feedback contextual. |
+| **Engajamento da trilha (telemetria)** *(jul/2026)* | Tela `/admin/engajamento`: quem abriu o link, quem consumiu conteúdo de fato (vídeo assistido até o fim, evidência entregue, Tira-Dúvidas usado), por semana e por canal de envio | Distingue "recebeu" de "engajou" — RH age sobre quem parou, não sobre a lista inteira. |
+| **Lotes de IA em segundo plano** *(jul/2026)* | Geração em massa (cenários, conteúdo, gabaritos) sai do clique-e-espera: enfileira, mostra progresso em chip e pode ser **parada** no meio. Modo "em lote" usa a Batch API (**−50% de custo**) quando o resultado não é urgente | Operação de IA não trava a tela nem a conta — e dá pra abortar antes de gastar. |
+| **Painéis Admin Vertho (internos)** | Evidências, Avaliação Acumulada, Auditoria Sem 14, Módulos-Base, Custo de IA, Simulador de Custo, Orçamento | Time Vertho consegue auditar/regerar qualquer avaliação e acompanhar custo por tenant. |
 | **System Health no dashboard admin** | KPIs operacionais em tempo real | Operação transparente — você vê o que está rodando. |
 
 ---
@@ -116,7 +122,7 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 
 | Feature | O que é | Benefício |
 |---|---|---|
-| **Multi-tenant nativo** | Isolamento por `empresa_id` + **RLS real por tenant** (policies que limitam o cliente ao próprio tenant) + guard de admin centralizado server-side + auditoria | Segurança de dados auditável e em profundidade — dados de uma empresa nunca tocam outra, nem via browser. |
+| **Multi-tenant nativo** | Isolamento por `empresa_id` aplicado em **três camadas**: cliente de banco que injeta o filtro de tenant em toda query (`tenantDb`), **guards de CI que reprovam o build** se uma leitura ou escrita escapar do filtro, e policies RLS que barram o caminho do browser. Mais guard de admin centralizado e log de auditoria | Isolamento que é **verificado a cada commit**, não prometido em slide — e o histórico de auditorias fica registrado. |
 | **Trilíngue (i18n)** | next-intl com pt-BR / pt-PT / es-ES; locale por empresa + por colaborador | Pronta pra Brasil, Portugal e mercados hispânicos — sem fork de produto. |
 | **Dual-IA (validação cruzada)** | Avaliações críticas passam por 1ª IA (geração) + 2ª IA (auditoria) — Sonnet + Gemini | Decisão de IA não é unilateral — sempre validada por modelo independente. |
 | **Extended Thinking** | Claude Sonnet com budget 32k/65k tokens em fases de avaliação e auditoria | Análise profunda — IA "pensa antes de responder" em decisões importantes. |
@@ -186,6 +192,16 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 | **Conversão sem re-trabalho** | Fechou? Troca o modo do colaborador e regenera a temporada: o diagnóstico inteiro é reaproveitado na trilha completa | O investimento do lead na degustação vira o ponto de partida do programa real. |
 
 **Mensagens-chave:** *"Experimente a jornada inteira em 2 semanas."* · *"O fechamento demonstra o método — não infla resultado."* · *"O diagnóstico da degustação já é o do programa completo."*
+
+### 5.5 Modo Personalizado — a degustação virou builder *(jul/2026)*
+
+> O Piloto era rígido (2 semanas, 1 competência, fechamento obrigatório). O Modo Personalizado abre esses três eixos para o comercial montar a degustação que o lead comprou, sem código e sem tenant paralelo.
+
+| Feature | O que é | Benefício |
+|---|---|---|
+| **Builder de degustação** | Na configuração do programa: **1 a 4 semanas**, **1 ou 2 competências**, **fechamento sim/não**. Sem fechamento, a jornada conclui na última semana de conteúdo | Cada lead recebe a amostra do tamanho que faz sentido pra ele — de uma semana de vitrine a um mês de experiência. |
+| **Configuração congelada na trilha** | O snapshot da config vai para a própria trilha na hora da geração; a cadência automática pára no fim do plano, não continua enviando | Mexer no padrão da empresa **não** altera degustação em andamento — nem manda pílula de semana que não existe. |
+| **Mesmo motor, mesmos artefatos** | Reaproveita conteúdo, kit, cenário, arguição e relatório do programa real — só a duração e o escopo mudam | Nada de demo maquiada: o lead vê o produto, em escala menor. |
 
 ---
 
@@ -351,10 +367,12 @@ Docs: `docs/PORTAL-REPRESENTANTE.md` (canal + proposta) · `docs/AMBIENTE-DEMO.m
 
 ---
 
-*Inventário gerado a partir do código-fonte; atualizado em 01/06/2026 (HEAD `f1fb87c`). Sempre que entrar feature nova, atualizar aqui antes de virar copy de site.*
+*Inventário gerado a partir do código-fonte. Sempre que entrar feature nova, atualizar aqui antes de virar copy de site.*
 
 > **Novidades 26/05–01/06/2026:** PDF de conteúdo premium (publicação editorial diagramada por IA) + personalização por DISC e PPP; cenários de avaliação por escola (PPP local) com entrega roteada pela escola do colaborador; votação define o cenário (sem pré-filtro Top 10); papel **Admin Sócio** + permissões aplicadas de verdade no backend; Beto no idioma do colaborador; podcast/vídeo de conteúdo gerados por IA com produção de marca.
 >
 > **Novidades 10/06/2026:** novo **gerador de vídeos de microlearning personalizados** — vídeo de 3-5 min com avatar apresentador (HeyGen) + cenas animadas (Remotion) + narração própria e legendas, feito sob medida por cargo × perfil DISC × PPP da escola e reaproveitado por célula. Substitui a antiga geração via Veo/TTS (descontinuada).
 >
 > **Novidades 06-07/07/2026 (ferramenta interna):** **Portal do Representante** (seção 13) ganhou o **documento de proposta comercial** redesenhado (página pública + PDF em tema claro/editorial da marca, valor mensal em destaque), **simulador de preço** e **versionamento** de propostas ("nova versão" `-Rn` reentrando na aprovação). Não é feature de cliente.
+>
+> **Novidades 20-27/07/2026:** **Modo Personalizado** (seção 5.5) — a degustação virou builder de 1-4 semanas / 1-2 competências / fechamento opcional, com a config congelada na trilha. **Certificado de Conclusão** com critério de participação ≥ 75% (piloto não emite). **Puxar cores do site do cliente** no branding. **Engajamento da trilha** — telemetria que separa "recebeu" de "engajou". **Lotes de IA em segundo plano** com Batch API (−50%) e botão de parar. Na frente de segurança: auditoria multi-agente de 223 arquivos remediada de ponta a ponta, e o isolamento multi-tenant descrito na seção 4 passou a ser **verificado por guards no CI**, não só por convenção de código.

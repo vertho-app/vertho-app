@@ -1,108 +1,112 @@
 # Resumo de Retomada — Vertho App
 
-> Atualizado em 07/07/2026.
+> Atualizado em 27/07/2026. HEAD `09540329`.
 
 ## Onde esta o projeto
 
-- Workspace: `C:\GAS\Vertho App\nextjs-app`
-- Branch Git: `master`
-- HEAD atual: `83c8092a` — `fix(piloto): fecha N1/N2 do gate da acumulada (belts-and-suspenders)`
-- Stack: Next.js 16.2.4, React 19.2.4, Supabase/Postgres, Tailwind 4, Anthropic/Gemini/Voyage, Vercel.
-- Documento detalhado: `ARQUITETURA.md` (ver secao 1.1 para o estado mais recente).
-- **Deploy**: `git push origin master` ja deploya em producao (integracao Git da Vercel). NAO rodar `vercel --prod` por cima (duplica).
+- Workspace: `C:\GAS\Vertho App\nextjs-app` (o repo Git e esta pasta, nao a pasta-pai).
+- Branch: `master`. **`git push origin master` ja deploya** na Vercel — NAO rodar `vercel --prod` por cima (duplica).
+- Stack: Next.js 16.2.4, React 19.2.4, Supabase/Postgres, Tailwind 4, TypeScript (~898 arquivos `.ts/.tsx`).
+- IA: Claude (`@anthropic-ai/sdk` 0.96) como default, com OpenAI/Gemini/Kimi pelo mesmo wrapper (`actions/ai-client.ts`).
+- Jobs de fundo: Trigger.dev v4 (`trigger/`) — **deploy MANUAL**, nao sobe no push.
+- Video: HeyGen (avatar) + Remotion 4 (render, backend Hetzner) + Bunny Stream (hosting).
+- Mapa completo: `ARQUITETURA.md`. Resumo operacional e regras obrigatorias: `CLAUDE.md`.
 
-## Estado do Git antes do reboot
-
-Arquivos rastreados estavam sem mudancas pendentes antes desta atualizacao de docs.
-
-Nao versionados presentes:
-
-- `.tmp_enem_2024/`
-- `outputs/`
-- `public/Logo sem texto.png`
-- `scripts/diag-tables-check.mjs`
-
-Apos esta atualizacao, os arquivos documentais alterados sao:
-
-- `RESUMO.md`
-- `ARQUITETURA.md`
-
-## Como retomar depois de reiniciar
+## Como retomar
 
 ```powershell
 cd "C:\GAS\Vertho App\nextjs-app"
 git status --short
-npm run dev
+npm run dev            # http://localhost:3000
 ```
 
-Abrir: `http://localhost:3000`
-
-Comandos uteis:
+Antes de considerar qualquer tarefa pronta:
 
 ```powershell
-npm run typecheck
-npm run test:unit
-npm run smoke
-npm test
-# Diagnostico E2E nivel 3 (sandbox, sem custo):
-$env:SMOKE_EMAIL="..."; $env:SMOKE_PASS="..."; $env:PLAYWRIGHT_BASE_URL="https://teste-piloto.vertho.ai"; $env:DIAG_EMPRESA_ID="<uuid>"; npx playwright test --project=nivel3
+npm run build          # NUNCA com `| tail` (deixa next build orfao segurando o lock)
+npx tsc --noEmit
+npm run test:unit      # vitest — 814 testes, roda no CI
 ```
 
-## Frentes recentes (06-07/07/2026)
+Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (reseta `acme-demo`).
+⚠️ `npm run lint` esta QUEBRADO desde o Next 16 (`next lint` removido) — usar `tsc --noEmit`.
 
-- **Portal do Representante — proposta comercial**: simulador de preço na proposta (valor mensal automático + campo de desconto, migs 166/167); segmento "Comércio" + pacotes (onboarding/mentor_ia/piloto/custom); **redesign do documento da proposta** (página pública + PDF, tema claro/editorial índigo, valor mensal em destaque, `3316392f`/`2de61dd2`); **versionamento** "Revisar (nova versão)" — cópia `-Rn` e original vira `superseded` (mig 168, `8bbcbf1b`); fix de toasts invisíveis (`f2e08540`).
-- **Modo Piloto (hardening pós-E2E)**: avaliação acumulada do fim da sem 2 migrada de `after()` frágil → **task Trigger.dev `acumulada-piloto`** com status rastreável (`temporada_semana_progresso.acumulada_status`, mig 169) + gate/self-heal no fechamento (`1d1279eb`); flag `internal={ empresaId }` revalida o tenant (rejeita trilha de outro tenant, B5); `maxDuration=300` nas rotas; cenário B com fallback; 73 testes de integração (`7a6ef4e7`). *(Deploy das tasks Trigger.dev é MANUAL.)*
-- **ACME Demo**: personas Mariana/Renato no portal + Gerente Comercial com pacote completo (5 comp + descritores + cenários); **reset unificado** — `npm run reset:demo`, botão `/admin/demo` e cron noturno delegam ao `resetAcmeDemo` canônico (fim da divergência de seeds); adequação/ranking real (motor de fit lê colunas `comp_*`/`lid_*` derivadas do DISC, populadas no seed); personas `*.demo@vertho.ai` passam a aparecer em ranking/DNA/estatísticas (exceção no `lib/internal-emails.ts`).
+## Frentes recentes
 
-## Frentes recentes (27/05/2026)
+**26/07** — IA2 passa a consolidar os **valores da REDE** em vez de pegar o PPP mais recente
+(`062dca13`): empresa-rede tem 1 PPP por escola (Ibipeba: 11), e o `.limit(1)` autorava a regua do
+municipio inteiro com uma escola sorteada. Classe catalogada como **F-I10** no `docs/FMEA-PIPELINE.md`
+— **o gemeo `buscarContextoPPP` segue ABERTO**. Os 2 guards de tenant voltaram ao verde (`3367efb7`):
+`certificado.ts` por `tenantDb`, `fetchColabPorId` descobre o tenant e cobra via `empresaIdEsperado`.
 
-- **Video de instrucoes no mapeamento DISC** (capa clicavel → VideoModal com tracking) + `/api/bunny-thumb` resolvendo `thumbnailFileName`.
-- **Botao "Voltar" padronizado** (`components/back-button.tsx`, topo-direito) em ~55 telas; **admin mobile** (drawer `AdminMobileNav` + header responsivo; engrenagem → config da empresa, sino removido).
-- **Fixes**: crash da home do gestor/RH (shadowing no `.map` da timeline); PDF comportamental 14→16 competencias; pre-geracao do PDF via `colabId`; chaves `AdminAudit.actions` sem ponto; insights executivos tolerantes a falha.
-- **Diagnostico E2E** (read-only, sem custo): crawler de ~65 rotas (`tests/diagnostico.spec.js`) + fluxos criticos + ~60 testes nivel 3 por pagina (`tests/nivel3/`), com auth compartilhada via `storageState`.
+**22-23/07** — **Auditoria de seguranca multi-agente** (223 arquivos, 29 achados confirmados)
+remediada de ponta a ponta; classe dominante = gate que nao liga o `empresaId` do client ao tenant da
+sessao (`docs/SECURITY-STATUS.md`). **Certificado de Conclusao** (PDF A4, branding duplo, minimo 75%
+de participacao, piloto nao emite). **Modo Personalizado** (`ec3fd527`, mig 182): degustacao de 1-4
+semanas, 1-2 competencias, fechamento opcional, com a config congelada na trilha. **Branding: puxar
+paleta do site do cliente** (`c885e970`) — IA mapeia 7 slots, contraste garantido em codigo.
+**Lotes de IA em segundo plano** com Batch API (−50%) e botao de parar (migs 172/173). Refresh de
+sessao movido pro `proxy.js` (`8f5c1d1c`) — matou o laco `/admin/dashboard` ↔ `/login`.
+DISC contextual movido pro Pulso (mig 183).
 
-## Frente atual do produto
+**20/07** — Telemetria de engajamento (`/admin/engajamento`), ledger de uso de IA (migs 177/178),
+eventos de trilha (mig 179), provedor Kimi e `reasoningEffort` no wrapper de IA.
 
-- App principal: Mentor IA multi-tenant em `app.vertho.ai` e subdominios de tenant.
-- Publicos: `radar.vertho.ai`, `imprensa.vertho.ai`. (**`radarbett.vertho.ai` DESCONTINUADO em 25/05** — redirect 301: deep-links -> radar, resto -> vertho.ai.)
-- Radar: paginas publicas de escola, municipio, rede, estado, comparacao, metodologia e Bett. Inclui matriculas do censo (diag_censo_infra.matriculas, 178k escolas) e secao "Onde a Vertho pode ajudar" (frentes derivadas dos dados, migrada do radarbett).
-- Admin Radar: ingestao, qualidade de dados, funnel geral e funnel Bett.
-- Mentor IA: dashboards colaborador/gestor/RH, temporadas 14 semanas (default Regular DUO: 2 competencias em blocos paralelos, missoes integradoras; single-comp via programa_modo=regular_single; piloto de 2 semanas p/ degustacao — docs/MODO-PILOTO.md; modo por colaborador com carimbo na trilha, mig 154), votacao por cargo, perfil comportamental, PDI, relatorios e RAG per-tenant.
-- **i18n (next-intl, mai/2026)**: pt-BR/pt-PT/es-ES. Locale por empresa (`default_locale`) e colaborador (`locale`). Strings via `t()` em ~80 telas. messages/*.json.
-- **Auditoria de admin (mai/2026)**: `admin_audit_log` + pagina `/admin/auditoria`. Disparos (WhatsApp/email/magic-link/Pulso) e mutacoes (empresa/cargo/role/temporada/export/exclusoes) registrados via `lib/audit.ts`.
-- **Pulso de Desenvolvimento (novo, mai/2026)**: pesquisa T0/T2 + sinais comportamentais + Dual-IA classifica texto aberto + triangulacao + PDFs Executivo + Complementar NR-1. Multi-tenant. Piloto Macae preparado (59 assignments T0 criados, ciclo fechado).
-- **Cliente Macae**: migracao GAS->Supabase concluida (59 colabs, 18 competencias, 51 PDIs migrados via Drive). Samuel Protetti setado como gestor de todos. Telefones limpos sem `+`.
-- **Portal do Representante (comercial, jul/2026)**: canal de RCs autonomos em `/representante` (nao-tenant, isolado por `representante_id`; migs 159+). Carteira/comissoes/pos-venda, propostas com documento para o cliente (link publico + PDF), simulador de preco e versionamento de proposta. Assistente comercial (IA). Doc: `docs/PORTAL-REPRESENTANTE.md`.
-- **Tenant de demonstracao (`acme-demo`)**: ambiente dos vendedores com personas DISC, gabaritos e cenarios congelados; reset canonico unico (`lib/demo/reset-acme-demo.ts`) via botao/cron/`npm run reset:demo`. Gate de envio por `empresas.is_demo`. Personas `*.demo@vertho.ai` aparecem em ranking/DNA (exceção em `lib/internal-emails.ts`).
+**06-07/07** — Portal do Representante: simulador de preco, redesign do documento de proposta,
+versionamento `-Rn` (migs 166-168). Modo Piloto: acumulada virou task Trigger.dev com status
+rastreavel (mig 169). ACME Demo: reset canonico unico.
+
+## Produto (visao rapida)
+
+- **Mentor IA** multi-tenant em `{empresa}.vertho.ai` — diagnostico (DISC + conversacional), PDI,
+  trilha por temporadas, conteudo multi-formato, fechamento com dupla IA + arguicao, certificado.
+  Modos: **Regular DUO** (14 sem, default) · **Onboarding** (10 sem) · **Piloto** (2 sem) ·
+  **Personalizado** (1-4 sem, configuravel). Modo por empresa E por colaborador, com carimbo na trilha.
+- **Pulso de Desenvolvimento** — T0/T2 + sinais + Dual-IA + PDFs (executivo e complementar NR-1).
+- **Radar Vertho** (`radar.vertho.ai`) — inteligencia publica: escola, municipio, rede, estado,
+  comparacao. Inclui matriculas do censo (178k escolas).
+- **Portal do Representante** (`/representante`, interno) — funil de RCs, propostas, comissoes.
+- **RadarEmpresas** (interno) — inteligencia comercial B2B, DuckDB local.
+- **Tenants de demo**: `acme-demo` (vendedores, reset por cron/botao) e `cbtd-demo`.
+- i18n pt-BR/pt-PT/es-ES (next-intl) + login por WhatsApp (OTP) alem do magic link.
+- **Descontinuado:** `radarbett.vertho.ai` (redirect 301 desde 25/05).
 
 ## Banco e migrations
 
-- Migrations atuais: `022` ate `169` (com gaps; recentes: 153-158 modo piloto + hardening de seguranca/RLS, 159-165 Portal do Representante + tenant de demo, 166-168 proposta comercial, 169 `acumulada_status` do piloto).
-- Ultimas frentes:
-  - `090-092`: Modo Onboarding (sys_config, multi-competencia, tutorados_ids).
-  - `093-095`: Mercado Potencial (MVs, INSE proxy, idade-corte flexivel).
-  - `096-098`: Pulso (core, MV aggregates, Dual-IA).
-  - `099-112`: Radar Empresas (core, CAGED, RAIS, score, CNAE, cidades/TAM) + colab phone login (112).
-  - `113`: fecha RLS public (frente de RLS; ficou untracked).
-  - `114`: i18n — locale por empresa/colaborador.
-  - `115`: censo matriculas (`diag_censo_infra.matriculas`).
-  - `116`: log de auditoria de admin (`admin_audit_log`).
-- **Aplicar migration**: `node --env-file=.env.local scripts/apply-migration.mjs migrations/NNN-x.sql` (conexao direta via `DATABASE_URL`; a Management API com o PAT da conta retorna 403).
+- **164 arquivos, `022` a `183`** (com gaps). Recentes: 172/173 `ia_jobs` (lote + parar),
+  174 competencias-foco do cargo, 175/176 development blueprints + auditoria, 177/178 ledger e resumo
+  de uso de IA, 179 eventos de trilha, 180 `videos_watched` por semana, 181 carimbo de pilula por
+  canal, 182 config de programa na trilha (Modo Personalizado), 183 DISC contextual no pulso.
+- **Aplicar**: `node --env-file=.env.local scripts/apply-migration.mjs migrations/NNN-x.sql`
+  (driver `pg` + `DATABASE_URL`). O MCP Supabase e **read-only**; nao existe `supabase db push`.
+  Detalhe: `docs/SCHEMA-PROCESS.md` e a skill `/migrations`.
 
 ## Pontos de atencao
 
-- RLS existe em varias tabelas, mas boa parte das queries server-side usa `service_role`; a barreira real continua sendo filtro explicito por `empresa_id` e guardas em `lib/auth/action-context.ts`.
-- `proxy.js` e o ponto de roteamento por subdominio (Next 16). Rewrites: radar/imprensa -> path interno. `radarbett.vertho.ai` redireciona 301 (`resolveRadarbettRedirect`) — descontinuado.
-- Variaveis sensiveis ficam em `.env.local` e Vercel. Nao commitar segredos.
-- Artefatos grandes/dados gerados (`outputs/`, `.tmp_enem_2024/`) estao fora do Git neste momento.
+- **RLS nao protege o app.** Ele roda 100% `service_role`, que tem `BYPASSRLS` — le cross-tenant mesmo
+  com policies ligadas. O isolamento e responsabilidade do **codigo**: `tenantDb(empresaId)` sempre, e
+  os guards de CI (`tenant-read-guard`, `tenant-mutation-guard`, `service-role-guard`,
+  `use-server-internal-guard`) cobram. Allowlist so encolhe — adicionar entrada pra "passar o CI" e
+  exatamente o bug que o guard existe pra pegar.
+- **Todo export de arquivo `'use server'` e um endpoint HTTP.** Caminho headless (script, cron, task)
+  chama um nucleo em `lib/`, nunca uma flag de bypass na action.
+- `proxy.js` roteia por subdominio **e** e o unico lugar onde o cookie de sessao e gravavel (o refresh
+  vive la; `cookies()` do RSC e read-only).
+- Secrets so em `.env.local` e Vercel. **O repo e PUBLICO** — nunca versionar relatorio de
+  vulnerabilidade ABERTA.
+- Tasks do Trigger.dev exigem `npx trigger.dev deploy` manual (o path com espaco quebra o CLI —
+  receita em `docs/`).
 
-## Arquivos mais importantes para navegar
+## Onde navegar
 
-- `app/`: rotas App Router.
-- `actions/`: server actions de negocio.
-- `lib/radar/`: queries, importadores e IA do Radar.
-- `lib/season-engine/`: motor das temporadas.
-- `lib/auth/action-context.ts`: guardas de auth para actions.
-- `migrations/`: schema Supabase.
-- `docs/`: runbooks e auditorias.
-- `ARQUITETURA.md`: mapa completo da aplicacao.
+| Caminho | O que e |
+|---|---|
+| `app/` | rotas App Router (`admin/`, `api/`, `dashboard/`, `representante/`, `proposta/`) |
+| `actions/` | server actions; `ai-client.ts` e o wrapper unico de IA |
+| `lib/tenant-db.ts` | isolamento multi-tenant (ponto de entrada obrigatorio) |
+| `lib/season-engine/` | motor das temporadas (trilha, kit, piloto, arguicao, fechamento) |
+| `lib/scoring/` | motor de fit/adequacao (`calcularFitUnificado`, `spec_version`) |
+| `lib/video/`, `trigger/`, `worker-hetzner/` | pipeline de video |
+| `migrations/` | schema (sequencial, aplicado por script) |
+| `tests/unit/` | vitest (48 arquivos), inclui os guards de seguranca |
+| `docs/` | **PIPELINE-TRILHA** (mapa do produto), **FMEA-PIPELINE** (modos de falha), SECURITY-STATUS, CATALOGO-PROMPTS-IA, CUSTO-QUALIDADE, MODO-PILOTO, KIT-SEMANAL, PORTAL-REPRESENTANTE |

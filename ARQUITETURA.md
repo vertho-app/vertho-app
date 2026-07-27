@@ -1,7 +1,7 @@
 # Vertho Mentor IA — Arquitetura do Sistema
 
 > Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
-> Ultima atualizacao: 07/07/2026 (HEAD `83c8092a` — padroes pos-response via Trigger.dev + tenant de demo/contas internas; base 25/05: RadarEmpresas + i18n + auditoria/permissoes + OTP WhatsApp + hardening RLS)
+> Ultima atualizacao: 27/07/2026 (HEAD `09540329` — auditoria de seguranca multi-agente remediada + Modo Personalizado + Certificado de Conclusao; base 07/07: pos-response via Trigger.dev + tenant de demo; 25/05: RadarEmpresas + i18n + auditoria/permissoes + OTP WhatsApp + hardening RLS)
 > Revisado contra o codigo-fonte local e estado atual do workspace
 > Metodo: auditoria automatizada + revisao manual
 
@@ -28,10 +28,13 @@
 | **Icones** | Lucide React | 1.7.0 | ✅ |
 | **Banco de Dados** | Supabase (PostgreSQL) | — | ✅ |
 | **Auth** | Supabase Auth (Magic Link + Senha) | — | ✅ |
-| **IA Principal** | Anthropic SDK (Claude Sonnet 4.6) | 0.81.0 | ✅ |
-| **IA Secundaria** | Google Gemini | via fetch nativo | ✅ |
-| **IA Validacao** | Gemini (auditor multi-LLM) | via fetch nativo | ✅ |
+| **IA Principal** | Anthropic SDK (Claude Sonnet 4.6) | 0.96.0 | ✅ |
+| **IA Secundaria** | Google Gemini · OpenAI (`gpt-5.x`) · **Kimi/Moonshot** (`kimi*`, OpenAI-compatible) | via wrapper unico | ✅ |
+| **IA Validacao** | **GPT 5.6 Terra** — 7 auditores 2a-IA `pinned` em `lib/ai-tasks.ts` (desde 22/07) | — | ✅ |
 | **IA Leve** | Claude Haiku 4.5 (Tira-Duvidas, Simulador) | via SDK | ✅ |
+| **IA em lote** | Batch API da Anthropic **e** da OpenAI (−50%) — `lib/ai-batch.ts` | — | ✅ |
+| **Jobs de fundo** | Trigger.dev (deploy **MANUAL**, nao sai no `git push`) | 4.4.6 | ✅ |
+| **Video** | HeyGen (avatar) + Remotion (render, backend Hetzner) + Bunny Stream (hosting) | Remotion 4.0 | ✅ |
 | **PDF** | @react-pdf/renderer (geracao) | 4.4.0 | ✅ |
 | **PDF Reader** | pdfjs-dist (leitura) | 5.6 | ✅ |
 | **Embeddings** | Voyage AI (voyage-3-large) | — | ✅ |
@@ -43,7 +46,7 @@
 | **Scraping Fallback** | Firecrawl | — | 🔑 |
 | **Error Tracking** | Sentry | — | 🔑 |
 | **TypeScript** | tsc --noEmit (strict: false) | 5.9 | ✅ |
-| **Testes** | Playwright + smoke-test.js | — | ✅ |
+| **Testes** | **vitest** (814 testes / 89 arquivos, roda no CI) + Playwright + smoke-test.js. ⚠️ `npm run lint` quebrado desde o Next 16 | 4.1 | ✅ |
 | **i18n** | next-intl (pt-BR / pt-PT / es-ES) | — | ✅ |
 | **Hospedagem** | Vercel (Serverless) | — | ✅ |
 | **DNS/CDN** | Cloudflare (Full Strict SSL) | — | ✅ |
@@ -55,11 +58,38 @@
 
 ---
 
-## 1.1 Estado de Retomada (27/05/2026)
+## 1.1 Estado de Retomada (27/07/2026)
 
-Contexto rapido para reinicializacao da maquina:
+> Retomada operacional do dia a dia (comandos, o que rodar antes de considerar pronto) vive no
+> `RESUMO.md`. Aqui fica o estado **arquitetural**.
 
-- Branch atual: `master`. Migrations 022-169 aplicadas em prod (com gaps de numeração). Recentes (03/07): 153-154 (modo piloto por colab/trilha), 155/157 (revoga+DROP exec_sql, search_path em SECURITY DEFINER), 156 (fecha RLS permissivas anon cross-tenant), 158 (revoga MVs anon-readable) — ver `docs/SECURITY-STATUS.md`. **Sessão 06-07/07**: 159-165 (Portal do Representante + tenant de demo), 166-168 (proposta comercial: segmento Comércio/pacotes, bruto+desconto, versionamento) e 169 (`acumulada_status` do piloto em `temporada_semana_progresso` — ver 17.6).
+**Frentes 20-27/07:**
+- **Auditoria de seguranca multi-agente (23/07)** — 223 arquivos de alto risco, 29 achados
+  confirmados por verificacao adversarial, **remediacao completa**. Classe dominante: gate de
+  permissao que **nao liga o `empresaId`/`colabId` vindos do client ao tenant da sessao**. Padrao de
+  correcao: `requireEmpresaSupabase(empresaId, perm)` ou ler a linha + `assertTenantAccessAction`.
+  Detalhe em `docs/SECURITY-STATUS.md` (relatorio completo FORA do git — o repo e publico).
+- **Modo Personalizado (mig 182)** — 5o modo da engine: 1-4 semanas, 1-2 competencias, fechamento
+  opcional, com a config **congelada** em `trilhas.programa_config`. Ver secao 17.
+- **Certificado de Conclusao** — PDF A4, participacao ≥75%, piloto nao emite. Fechou um SSRF no
+  fetch do logo do tenant e revelou que o `lib/net-guard` estava **falhando-fechado** (Happy
+  Eyeballs) — quebrava o Certificado E o "puxar cores" do branding.
+- **Sessao: refresh no `proxy.js`** — o `cookies()` do RSC e read-only, entao um refresh disparado
+  la rotaciona o token no Supabase e **perde** o par novo → laco `/rota-protegida` ↔ `/login`
+  (medido em prod, ~3 req/s). Gate no cliente usa `getUser()`, nunca `getSession()`. Ver 3.1.1.
+- **Lotes de IA em segundo plano (migs 172/173)** — `ia_jobs` com progresso, botao de parar e Batch
+  API dos dois lados.
+- **26/07** — IA2 consolida os **valores da REDE** (empresa-rede tem 1 PPP por escola; `.limit(1)`
+  aplicava uma escola sorteada ao municipio inteiro — F-I10 do `docs/FMEA-PIPELINE.md`, **o gemeo
+  `buscarContextoPPP` segue aberto**). Os 2 guards de tenant voltaram ao verde.
+
+**Migrations: 164 arquivos, `022` a `183`** (com gaps). Marcos recentes: 153-158 (modo piloto +
+hardening RLS/RCE), 159-168 (Portal do Representante + proposta comercial), 169 (`acumulada_status`
+do piloto), 172/173 (`ia_jobs`), 174-176 (competencias-foco do cargo + development blueprints),
+177/178 (ledger de uso de IA + funcao de resumo), 179-181 (eventos de trilha, `videos_watched` por
+semana, carimbo de pilula por canal), 182 (Modo Personalizado), 183 (DISC contextual no pulso).
+
+### 1.1.1 Historico (27/05/2026)
 - **Frentes 27/05** (sessao de UX + qualidade):
   - **Video de instrucoes no mapeamento** — capa clicavel (thumbnail Bunny) na tela de instrucoes do DISC abre o `VideoModal` (lib 636615, guid `ab190728-…` — v3 HD 1232x720 de 22/07/2026, capa GLOBAL sem municipio; v1 `e235d703-…` e v2 `f51586d2-…` seguem na library) com tracking de view por colaborador. Endpoint `/api/bunny-thumb` passou a resolver `thumbnailFileName` (thumbnails customizados ganham nome com hash, nao `thumbnail.jpg`).
   - **Botao "Voltar" padronizado** — `components/back-button.tsx` no topo-direito, substituindo botoes inline inconsistentes em ~55 telas (dashboard + admin).
@@ -81,7 +111,7 @@ Contexto rapido para reinicializacao da maquina:
 
 ---
 
-## 2. Estrutura de Pastas (~429 arquivos TS/TSX + ~72 .js/.mjs em scripts, tests e configs)
+## 2. Estrutura de Pastas (~898 arquivos TS/TSX versionados + scripts .mjs/.js em `scripts/`, `tests/` e configs)
 
 ```
 nextjs-app/
@@ -759,7 +789,7 @@ Tabelas: trilhas, colaboradores, temporada_semana_progresso
 
 ---
 
-## 8. Modelagem de Dados (103 arquivos SQL — 022 a 121, com gaps)
+## 8. Modelagem de Dados (164 arquivos SQL — 022 a 183, com gaps)
 
 ### Migrations 022-051 (core Mentor IA)
 Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvector 1024d) + Capacitacao + Relatorios.
@@ -920,24 +950,64 @@ Tres niveis, todos **read-only / sem custo** (nao clicam acoes de IA, envio, exc
 - Rodar nivel 3 contra o sandbox: `SMOKE_EMAIL=… SMOKE_PASS=… PLAYWRIGHT_BASE_URL=https://teste-piloto.vertho.ai DIAG_EMPRESA_ID=<uuid> npx playwright test --project=nivel3`.
 
 ### CI/CD
-`.github/workflows/smoke-test.yml` — smoke test em cada push. `typecheck.yml` — tsc + vitest (inclui guard de service-role).
+`.github/workflows/smoke-test.yml` — smoke test em cada push. `typecheck.yml` — tsc + vitest (inclui os guards de tenant/service-role).
+
+**Estado em 27/07/2026: 814 testes / 89 arquivos, verdes.** Regras que valem para teste novo:
+1. **Validar por MUTAÇÃO** — quebrar a invariante no código de produção e confirmar que o teste
+   correspondente falha. Teste que nunca falhou não prova nada; é carimbo.
+2. Mock testa o NOSSO código, nunca o do fornecedor — para API externa, canary/health check.
+3. Guard de CI varre **só arquivos versionados** (`git ls-files`): um arquivo novo passa verde local
+   e derruba o CI ao ser commitado. Testar o guard **com o arquivo já em stage**.
 
 ---
 
 ## 11. Seguranca
 
+### 11.0 Modelo de ameaça — o que protege o quê (leia antes do resto)
+
+**A RLS NÃO protege o app.** O servidor roda 100% `service_role`, que tem `rolbypassrls = true`:
+as tabelas de PII **têm** RLS ligada com policies tenant-scoped e mesmo assim a service-role lê
+cross-tenant (medido: 207 linhas / 8 empresas em `colaboradores`; `anon` lê 0). `FORCE ROW LEVEL
+SECURITY` não muda isso — `FORCE` afeta o dono da tabela, não roles com BYPASSRLS. Portanto:
+
+| Camada | Protege contra | Não protege contra |
+|---|---|---|
+| RLS + REVOKE anon/authenticated | acesso direto pelo **browser** (anon) | qualquer query do servidor |
+| `tenantDb(empresaId)` | esquecer o filtro de tenant no servidor | passar o `empresaId` **errado** |
+| Guards de CI | o filtro sumir num PR novo | valor de tenant vindo do client sem validação |
+| `requireEmpresaSupabase` / `assertTenantAccessAction` | tenant do client ≠ tenant da sessão | — |
+
+Os quatro guards que reprovam o build: `tenant-read-guard`, `tenant-mutation-guard`,
+`service-role-guard`, `use-server-internal-guard` — **allowlist só encolhe**; adicionar entrada para
+"passar o CI" é exatamente o bug que o guard existe para pegar.
+
+### 11.1 Postura
+
 - RBAC explicito: coluna `role` + tabela `platform_admins` + **matriz papel×permissao** (`lib/permissions.ts`) com overrides auditaveis (`permission_overrides`, migration 117)
 - Admin guard 100% server-side (server layout `app/admin/layout.tsx`, cookie SSR)
-- Guard centralizado `requireAdminSupabase()` + allowlist de `createSupabaseAdmin()` enforced no CI
+- **Todo export de arquivo `'use server'` é um endpoint HTTP** — caminho headless usa núcleo em `lib/` que revalida o tenant por item, nunca uma flag de bypass na action
 - **Auditoria**: `logAdminAction()` grava disparos e mutacoes admin em `admin_audit_log` (migration 116), best-effort, com IP + user-agent
-- API colaboradores: empresa_id obrigatorio
-- **RLS real por tenant** (migration 113) nas tabelas de leitura client-side (`empresas`, `colaboradores`, `sessoes_avaliacao`, `mensagens_chat`); demais tabelas sensiveis sem policy = bloqueadas pra anon/authenticated. Zero tabelas `public` sem RLS.
+- RLS (migration 113) fecha o caminho do **browser**: `empresas`, `colaboradores`, `sessoes_avaliacao`, `mensagens_chat` com policy tenant-scoped; demais tabelas sensiveis sem policy = bloqueadas pra anon/authenticated. Zero tabelas `public` sem RLS.
 - Login OTP WhatsApp: codigo em hash (sha256 + pepper), TTL 10min, max 5 tentativas, rate-limit + anti-enumeracao (seção 22)
-- Nenhuma NEXT_PUBLIC sensivel
-- Sentry para error tracking
-- **npm audit: 0 vulnerabilities** (xlsx removido, Next.js patched para 16.2.4, resend instalado)
+- SSRF: guarda compartilhada `lib/net-guard.ts` (sintaxe + DNS pré-check + enforcement no connect) em todo fetch de URL escolhida por usuário/admin
+- Nenhuma NEXT_PUBLIC sensivel · Sentry com scrub de PII
 
-### 11.1 Confirms preventivos (UX defensiva)
+### 11.2 Auditoria multi-agente 23/07 (remediada) + manutenção 26/07
+
+223 arquivos de alto risco, **29 achados confirmados** por verificação adversarial, todos os grupos
+remediados. **Classe dominante:** gate de permissão que não liga o `empresaId`/`colabId` vindos do
+client ao tenant da sessão — mais permissões tenant-scoped concedidas ao papel `rh`. Correção:
+`requireEmpresaSupabase(empresaId, perm)`, ou ler a linha e `assertTenantAccessAction(ctx, row.empresa_id)`.
+Também fechados: bypass por flag `internal`, actions sem guard, arg-injection no `yt-dlp` e SSRF.
+
+Em **26/07** os dois guards que estavam vermelhos no `master` voltaram ao verde **pela fonte, não
+pela allowlist**: `actions/certificado.ts` migrou para `tenantDb`, e `fetchColabPorId` passou a
+descobrir o tenant e **cobrá-lo** via `empresaIdEsperado` (null em vez de dado alheio quando o
+caller sabe de que tenant o colab deve ser).
+
+Relatório completo **fora do git** — o repositório é público. Estado corrente: `docs/SECURITY-STATUS.md`.
+
+### 11.3 Confirms preventivos (UX defensiva)
 
 Depois de um incidente em que admin clicou sem querer e gerou todas as avaliacoes comportamentais (commit `3730e22`), foi adicionada confirmacao explicita (`window.confirm`) em todas as acoes destrutivas/massivas do painel admin (commit `4990742`):
 
@@ -976,10 +1046,18 @@ Padrao das mensagens: explicar **o que** vai acontecer, **escopo** (todos / N it
 | Evidencias | `/admin/vertho/evidencias` | Conversas socraticas sem 1-12, extracao, transcript |
 | Avaliacao Acumulada | `/admin/vertho/avaliacao-acumulada` | Nota por descritor + auditoria + regerar |
 | Auditoria Sem 14 | `/admin/vertho/auditoria-sem14` | 4 notas (pre/acumulada/cenario/final) + delta + regerar com feedback |
-| Simulador de Custo | `/admin/vertho/simulador-custo` | Calculadora interativa: catalogo chamadas x modelos x presets |
+| Simulador de Custo | `/admin/vertho/simulador-custo` | Calculadora (catalogo x modelos x presets) **+ painel "Real medido (ledger)"** — `ia_usage_log` por janela 7/30/90d, via a funcao SQL `ia_uso_resumo` (mig 178) |
+| Custo de IA | `/admin/vertho/custo-ia` | Plano custo/qualidade — **espelho de `docs/CUSTO-QUALIDADE.md`; atualizar os DOIS** |
+| Modulos-Base | `/admin/vertho/modulos-base` | Autoria + auditoria dual-IA dos modulos canonicos de conteudo |
+| Auditorias / Orcamento | `/admin/vertho/auditorias`, `/admin/vertho/orcamento` | Auditoria de blueprints e orcamento |
 | Knowledge Base (RAG) | `/admin/vertho/knowledge-base` | CRUD + Upload PDF/DOCX + Seed + preview de busca (grounding per-tenant) |
 
 Todos com filtro `?empresa=` e back button context-aware. Dados via `lib/ia-cost-catalog.ts`.
+
+Fora do `/vertho` mas de mesma natureza operacional: **`/admin/engajamento`** — telemetria da trilha
+(link aberto × conteudo consumido de fato × evidencia entregue, por semana e canal). ⚠️
+`conteudo_consumido ≈ 0` **nao** e falta de engajamento: o sinal real e `play_finished`, e o conteudo
+da semana fica acessivel desde o inicio — o envio e notificacao, nao liberacao.
 
 ---
 
@@ -1061,25 +1139,25 @@ Z-API: WhatsApp gateway
 
 ---
 
-## 17. Modos da engine (Regular DUO · Regular single · Onboarding · Piloto)
+## 17. Modos da engine (Regular DUO · Regular single · Onboarding · Piloto · Personalizado)
 
-> A mesma engine de trilha serve **quatro** modos. **Não são produtos diferentes** — só configuração. **Default global = Regular DUO** (2 competências em blocos paralelos). Single-comp virou escape hatch (`regular_single`). Onboarding (recém-formados) inalterado. **Piloto** (degustação de 2 semanas) em `docs/MODO-PILOTO.md`.
+> A mesma engine de trilha serve **cinco** modos. **Não são produtos diferentes** — só configuração. **Default global = Regular DUO** (2 competências em blocos paralelos). Single-comp virou escape hatch (`regular_single`). Onboarding (recém-formados) inalterado. **Piloto** (degustação de 2 semanas) em `docs/MODO-PILOTO.md`. **Personalizado** (`custom`, 22/07, mig 182) abre os três eixos do piloto — ver 17.12.
 >
 > **Resolução (mig 154, 02/07/2026)**: precedência de GERAÇÃO = `colaboradores.programa_modo` (override individual, NULL herda) → `sys_config.programa_modo` (default do tenant) → DUO, via `resolverModoColab` (fonte única). O rótulo resolvido é **carimbado** em `trilhas.programa_modo`; o RUNTIME (reflexão/fechamento/acumulada/report) resolve a config **do carimbo** (`getProgramaConfigDaTrilha`) — trocar o modo da empresa não afeta trilha em andamento; trilha legada sem carimbo cai no sys_config. Permite **misturar modos no mesmo tenant** (novatos em onboarding, veteranos em regular, lead em piloto).
 
 ### 17.1 Como diferem
 
-| Dimensão | **Regular DUO** *(default)* | Regular single *(`regular_single`)* | Onboarding *(`onboarding`)* | Piloto *(`piloto`)* |
-|---|---|---|---|---|
-| Duração | 14 semanas | 14 semanas | **10 semanas** | **2 semanas** + fechamento |
-| Competências por trilha | **2 (em blocos paralelos)** | 1 (aprofundada) | **5 (em espiral)** | 1 (top-4 descritores por gap, 2 entregas/sem) |
-| Nível-meta na régua | 3 (proficiente) | 3 (proficiente) | **2 (autonomia supervisionada)** | 3 |
-| Missões | Sem 4, 8, 12 (**integradoras das 2 comps**) | Sem 4, 8, 12 (uni-competência) | **Sem 4, 7, 9 (multi-competência integradora)** | **nenhuma** |
-| Avaliação Acumulada | Sem 13 (auto-trigger, **por competência**) | Sem 13 (auto-trigger) | **Embutida nas missões 4/7/9 (parcial cumulativa)** | Auto ao concluir a sem 2 (persiste na sem 2) |
-| Cenário B (wizard final) | Sem 14 | Sem 14 | **Sem 10** | **Slot 3, calendário espelhado na sem 2** + trava de piso (`piloto-v1`) |
-| Slots de conteúdo | `[1,2,3,5,6,7,9,10,11]` (3 blocos de 3) | `[1,2,3,5,6,7,9,10,11]` | `[2,3,5,6,8]` — sem 1 = calibragem | `[1,2]` (2 entregas cada) |
-| Acompanhamento | Gestor (por `gestor_email`) | Gestor | **Tutor** (por `tutorados_ids[]`) | Gestor |
-| Push automatizado | — | — | **WhatsApp pro tutor nas sems 4 e 7** (sugestão de pauta) | — |
+| Dimensão | **Regular DUO** *(default)* | Regular single *(`regular_single`)* | Onboarding *(`onboarding`)* | Piloto *(`piloto`)* | **Personalizado** *(`custom`)* |
+|---|---|---|---|---|---|
+| Duração | 14 semanas | 14 semanas | **10 semanas** | **2 semanas** + fechamento | **1 a 4 semanas** (config) |
+| Competências por trilha | **2 (em blocos paralelos)** | 1 (aprofundada) | **5 (em espiral)** | 1 (top-4 descritores por gap, 2 entregas/sem) | **1 ou 2** (config) |
+| Nível-meta na régua | 3 (proficiente) | 3 (proficiente) | **2 (autonomia supervisionada)** | 3 | 3 |
+| Missões | Sem 4, 8, 12 (**integradoras das 2 comps**) | Sem 4, 8, 12 (uni-competência) | **Sem 4, 7, 9 (multi-competência integradora)** | **nenhuma** | **nenhuma** |
+| Avaliação Acumulada | Sem 13 (auto-trigger, **por competência**) | Sem 13 (auto-trigger) | **Embutida nas missões 4/7/9 (parcial cumulativa)** | Auto ao concluir a sem 2 (persiste na sem 2) | Como o piloto, quando há fechamento |
+| Cenário B (wizard final) | Sem 14 | Sem 14 | **Sem 10** | **Slot 3, calendário espelhado na sem 2** + trava de piso (`piloto-v1`) | **Opcional** — sem ele, conclui na última semana de conteúdo |
+| Slots de conteúdo | `[1,2,3,5,6,7,9,10,11]` (3 blocos de 3) | `[1,2,3,5,6,7,9,10,11]` | `[2,3,5,6,8]` — sem 1 = calibragem | `[1,2]` (2 entregas cada) | 1 por semana configurada |
+| Acompanhamento | Gestor (por `gestor_email`) | Gestor | **Tutor** (por `tutorados_ids[]`) | Gestor | Gestor |
+| Push automatizado | — | — | **WhatsApp pro tutor nas sems 4 e 7** (sugestão de pauta) | — | cadência **pára no fim do plano** |
 
 > Trilhas já persistidas (single-comp) **não são regeradas** — o plano salvo é servido como está; só nova geração usa DUO. Detalhe do DUO em **17.11**.
 
@@ -1194,6 +1272,22 @@ Comportamento defensivo: sem tutor vinculado → skip silencioso; tutor sem tele
 **Fallback sem viés**: cargo não resolve 2 comps, ou 2ª comp sem `descriptor_assessments` → cai pro fluxo single-comp (a comp âncora segue estrita, não preenche com default). UI da temporada exibe `"Comp A + Comp B"` quando multi (`trilhas.competencias_foco`).
 
 **Persistência**: `competencia_foco` = âncora (compat), `competencias_foco TEXT[]` = as 2 comps (migration 091). `gerarTemporada` single agora também grava `competencias_foco: [comp]` pra uniformizar a leitura.
+
+### 17.12 Modo Personalizado (`custom`, 22/07/2026 — mig 182)
+
+O Piloto com os três eixos abertos: **semanas (1-4)**, **competências (1-2)** e **fechamento (S/N)**.
+Configurado na aba Programa (`sys_config.programa_custom`) e disponível também por colaborador.
+
+**Decisão de arquitetura — snapshot em vez de referência.** `'custom'` **não resolve para uma
+constante de programa** como os outros modos: no momento da geração, a config é **congelada** em
+`trilhas.programa_config` e o runtime lê o snapshot (`lib/season-engine/programa-custom.ts`). O
+motivo é o mesmo do carimbo de `programa_modo`, um nível mais fundo: mexer no default da empresa
+**não pode** alterar uma degustação em andamento — aqui isso mudaria o próprio formato da trilha
+(número de semanas, existência do slot de fechamento), não só a régua.
+
+**Sem fechamento**: não existe slot de Cenário B; a jornada **conclui na última semana de
+conteúdo** e a cadência automática **pára no fim do plano** — o cron não emite pílula de semana
+inexistente. **Com fechamento**: idêntico ao piloto (Cenário B + arguição + trava de piso).
 
 ---
 
