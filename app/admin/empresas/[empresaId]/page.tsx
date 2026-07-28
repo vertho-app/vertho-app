@@ -429,6 +429,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         const fila = await listarPendentesIA4(empresaId);
         if (!fila.success || !fila.data?.length) { addLog(fila.data?.length === 0 ? '✅ Nenhuma resposta pendente' : `❌ ${fila.error}`, fila.data?.length === 0 ? 'success' : 'error'); setPendingAction(null); return; }
         addLog(`📋 ${fila.data.length} respostas pendentes. Avaliando uma por vez...`, 'info');
+        const presas = fila.data.filter((r: any) => r.presa_sem_notas).length;
+        if (presas) addLog(`⚠ ${presas} resposta(s) com avaliação gravada mas SEM notas de descritor (falha antiga da IA4) — serão reprocessadas agora`, 'error');
         let ok = 0, erros = 0;
         for (let i = 0; i < fila.data.length; i++) {
           if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }

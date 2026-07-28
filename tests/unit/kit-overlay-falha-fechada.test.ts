@@ -27,7 +27,7 @@ function sbMock(falharEm?: 'kit_briefs' | 'kits' | 'micro_conteudos', dados: Rec
         ? { data: null, error: { message: 'timeout: pool esgotado' } }
         : { data: rows, error: null };
       const q: any = {
-        select: () => q, eq: () => q, or: () => q, is: () => q, in: () => q,
+        select: () => q, eq: () => q, or: () => q, is: () => q, in: () => q, order: () => q,
         maybeSingle: async () => ({ ...resposta, data: rows[0] ?? null }),
         then: (res: any) => Promise.resolve(resposta).then(res),
       };

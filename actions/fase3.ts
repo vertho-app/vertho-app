@@ -229,7 +229,14 @@ R4: ${resp.r4 || '(sem resposta)'}`);
     return { success: false, error: `IA não retornou JSON válido (${colab.nome_completo || resp.colaborador_id})` };
   }
 
-  const descPorDescritor = avaliacao.avaliacao_por_descritor || [];
+  // Variante "JSON válido SEM notas" (achado 1.4 do FMEA-PIPELINE): sem
+  // avaliacao_por_descritor a média sairia 0 → nivel_ia4=1/nota_ia4=0 gravados
+  // com ZERO linhas em descriptor_assessments, e a resposta ficava presa (fora
+  // da fila, "Já avaliada", sem retry). É falha RETRYABLE, não nota N1.
+  if (!Array.isArray(avaliacao.avaliacao_por_descritor) || avaliacao.avaliacao_por_descritor.length === 0) {
+    return { success: false, error: `IA retornou JSON sem avaliacao_por_descritor (${colab.nome_completo || resp.colaborador_id}) — segue pendente para retry` };
+  }
+  const descPorDescritor = avaliacao.avaliacao_por_descritor;
   const notasPorDesc: Record<string, any> = {};
   for (const d of descPorDescritor) {
     const key = `D${d.numero}`;
@@ -286,6 +293,47 @@ R4: ${resp.r4 || '(sem resposta)'}`);
     ? [avaliacao.feedback.resumo_geral, avaliacao.feedback.mensagem_positiva, avaliacao.feedback.mensagem_construtiva].filter(Boolean).join('\n')
     : (avaliacao.feedback || '');
 
+  // ORDEM IMPORTA (achado 1.4 do FMEA-PIPELINE): as notas de descritor sobem
+  // ANTES de marcar a resposta como avaliada. Se o upsert falhar, avaliacao_ia
+  // continua null e a resposta segue na fila, retryable pelo fluxo normal — a
+  // ordem antiga (avaliação gravada primeiro, upsert em try/catch com
+  // console.warn) deixava o colaborador preso sem retry self-service.
+  let competenciaNome = resp.competencia_nome;
+  if (!competenciaNome && resp.competencia_id) {
+    const { data: cc } = await tdb.from('competencias')
+      .select('nome').eq('id', resp.competencia_id).maybeSingle();
+    if (cc?.nome) {
+      competenciaNome = cc.nome;
+      await tdb.from('respostas').update({ competencia_nome: cc.nome }).eq('id', resp.id);
+    }
+  }
+  if (competenciaNome && resp.colaborador_id) {
+    // `descritor` é CHAVE (upsert + dedup dos relatórios) — nunca persistir o
+    // eco do modelo: no mesmo dia ele devolveu "COO03_D6 — Busca de apoio" e
+    // "Busca de apoio (COO03_D6)", e cada variante virava linha duplicada no
+    // Retrato de Competências. Resolve contra a régua oficial (código→nome).
+    const rows = descPorDescritor
+      .filter((d: any) => d.nome && typeof d.nota_decimal === 'number')
+      .map((d: any) => ({
+        colaborador_id: resp.colaborador_id,
+        cargo: resp.cargo,
+        competencia: competenciaNome,
+        descritor: resolverNomeOficial(d.nome, descsOficiais),
+        nota: Math.max(1.0, Math.min(4.0, d.nota_decimal)),
+        origem: 'ia4',
+        assessment_date: new Date().toISOString(),
+      }));
+    if (rows.length === 0) {
+      return { success: false, error: `IA não retornou notas de descritor válidas para persistir (${colab.nome_completo || resp.colaborador_id}) — segue pendente para retry` };
+    }
+    const { error: upsertErr } = await tdb.from('descriptor_assessments').upsert(rows, {
+      onConflict: 'colaborador_id,competencia,descritor',
+    });
+    if (upsertErr) {
+      return { success: false, error: `descriptor_assessments upsert falhou (${colab.nome_completo || resp.colaborador_id}): ${upsertErr.message}` };
+    }
+  }
+
   const { error: updErr } = await tdb.from('respostas').update({
     avaliacao_ia: avaliacao,
     nivel_ia4: nivelGeral,
@@ -298,55 +346,57 @@ R4: ${resp.r4 || '(sem resposta)'}`);
 
   if (updErr) return { success: false, error: updErr.message };
 
-  try {
-    let competenciaNome = resp.competencia_nome;
-    if (!competenciaNome && resp.competencia_id) {
-      const { data: cc } = await tdb.from('competencias')
-        .select('nome').eq('id', resp.competencia_id).maybeSingle();
-      if (cc?.nome) {
-        competenciaNome = cc.nome;
-        await tdb.from('respostas').update({ competencia_nome: cc.nome }).eq('id', resp.id);
-      }
-    }
-    if (competenciaNome && resp.colaborador_id) {
-      // `descritor` é CHAVE (upsert + dedup dos relatórios) — nunca persistir o
-      // eco do modelo: no mesmo dia ele devolveu "COO03_D6 — Busca de apoio" e
-      // "Busca de apoio (COO03_D6)", e cada variante virava linha duplicada no
-      // Retrato de Competências. Resolve contra a régua oficial (código→nome).
-      const rows = descPorDescritor
-        .filter((d: any) => d.nome && typeof d.nota_decimal === 'number')
-        .map((d: any) => ({
-          colaborador_id: resp.colaborador_id,
-          cargo: resp.cargo,
-          competencia: competenciaNome,
-          descritor: resolverNomeOficial(d.nome, descsOficiais),
-          nota: Math.max(1.0, Math.min(4.0, d.nota_decimal)),
-          origem: 'ia4',
-          assessment_date: new Date().toISOString(),
-        }));
-      if (rows.length > 0) {
-        await tdb.from('descriptor_assessments').upsert(rows, {
-          onConflict: 'colaborador_id,competencia,descritor',
-        });
-      }
-    }
-  } catch (e: any) {
-    console.warn('[IA4] descriptor_assessments upsert falhou:', e.message);
-  }
-
   return { success: true, message: `${colab.nome_completo?.split(' ')[0] || '?'}: N${nivelGeral} — ${compNome || 'competência'}` };
+}
+
+/**
+ * Fila da IA4 = pendentes clássicas (avaliacao_ia IS NULL) + PRESAS: respostas
+ * com avaliacao_ia gravado mas ZERO linhas em descriptor_assessments para o
+ * mesmo (colaborador, competencia) — legado do bug em que a avaliação era
+ * gravada antes do upsert de notas (achado 1.4 do FMEA-PIPELINE). Incluir as
+ * presas na fila é o reparo self-service: o admin roda a IA4 normal e elas são
+ * reprocessadas (rodarIA4Uma também deixou de recusá-las).
+ *
+ * Custo: 2 queries extras por chamada (avaliadas da empresa + assessments dos
+ * colaboradores envolvidos, ambas com poucas colunas) — aceitável para a tela
+ * admin e evita um NOT EXISTS por resposta via RPC/PostgREST.
+ */
+async function _buscarFilaIA4(tdb: any): Promise<{ data?: any[]; error?: string }> {
+  const { data: pendentes, error } = await tdb.from('respostas')
+    .select('id, colaborador_id, competencia_id, competencia_nome')
+    .is('avaliacao_ia', null)
+    .not('r1', 'is', null);
+  if (error) return { error: error.message };
+
+  const { data: avaliadas, error: errAv } = await tdb.from('respostas')
+    .select('id, colaborador_id, competencia_id, competencia_nome')
+    .not('avaliacao_ia', 'is', null)
+    .not('r1', 'is', null);
+  if (errAv) return { error: errAv.message };
+
+  let presas: any[] = [];
+  const colabIds = [...new Set((avaliadas || []).map((r: any) => r.colaborador_id).filter(Boolean))] as string[];
+  if (colabIds.length) {
+    const { data: assessments, error: errAss } = await tdb.from('descriptor_assessments')
+      .select('colaborador_id, competencia')
+      .in('colaborador_id', colabIds);
+    if (errAss) return { error: errAss.message };
+    const comNotas = new Set((assessments || []).map((a: any) => `${a.colaborador_id}|${a.competencia}`));
+    presas = (avaliadas || [])
+      .filter((r: any) => r.colaborador_id && r.competencia_nome && !comNotas.has(`${r.colaborador_id}|${r.competencia_nome}`))
+      .map((r: any) => ({ ...r, presa_sem_notas: true }));
+  }
+  return { data: [...(pendentes || []), ...presas] };
 }
 
 export async function listarPendentesIA4(empresaId: string) {
   await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório', data: [] };
   const tdb = tenantDb(empresaId);
-  const { data, error } = await tdb.from('respostas')
-    .select('id, colaborador_id, competencia_id, competencia_nome')
-    .is('avaliacao_ia', null)
-    .not('r1', 'is', null);
-  if (error) return { success: false, error: error.message, data: [] };
-  return { success: true, data: data || [] };
+  const fila = await _buscarFilaIA4(tdb);
+  if (fila.error) return { success: false, error: fila.error, data: [] };
+  const presas = (fila.data || []).filter((r: any) => r.presa_sem_notas).length;
+  return { success: true, data: fila.data || [], presas };
 }
 
 export async function rodarIA4Uma(empresaId: string, respostaId: string, aiConfig: AIConfig = {}) {
@@ -357,7 +407,16 @@ export async function rodarIA4Uma(empresaId: string, respostaId: string, aiConfi
     const { data: resp, error: respErr } = await tdb.from('respostas')
       .select('*').eq('id', respostaId).single();
     if (respErr || !resp) return { success: false, error: respErr?.message || 'Resposta não encontrada' };
-    if (resp.avaliacao_ia) return { success: true, message: 'Já avaliada' };
+    if (resp.avaliacao_ia) {
+      // "Já avaliada" só vale com as notas persistidas: avaliacao_ia SEM linhas
+      // em descriptor_assessments é o estado preso do achado 1.4 — reprocessa.
+      const { count } = await tdb.from('descriptor_assessments')
+        .select('colaborador_id', { count: 'exact', head: true })
+        .eq('colaborador_id', resp.colaborador_id)
+        .eq('competencia', resp.competencia_nome || '');
+      if ((count ?? 0) > 0) return { success: true, message: 'Já avaliada' };
+      console.warn(`[IA4] resposta ${respostaId} avaliada mas SEM notas de descritor — reprocessando (achado 1.4)`);
+    }
 
     const empresa = (await sbRaw.from('empresas').select('nome, segmento').eq('id', empresaId).single()).data;
     const colabIds = [resp.colaborador_id].filter(Boolean);
@@ -386,11 +445,14 @@ export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
-    // Buscar respostas pendentes
+    // Buscar respostas pendentes — inclui as "presas" (avaliacao_ia gravado sem
+    // notas de descritor, legado do achado 1.4) via _buscarFilaIA4.
+    const fila = await _buscarFilaIA4(tdb);
+    if (fila.error) return { success: false, error: fila.error };
+    if (!fila.data?.length) return { success: true, message: 'Nenhuma resposta pendente de avaliação' };
     const { data: respostas, error: respErr } = await tdb.from('respostas')
       .select('*')
-      .is('avaliacao_ia', null)
-      .not('r1', 'is', null);
+      .in('id', fila.data.map((r: any) => r.id));
 
     if (respErr) return { success: false, error: respErr.message };
     if (!respostas?.length) return { success: true, message: 'Nenhuma resposta pendente de avaliação' };

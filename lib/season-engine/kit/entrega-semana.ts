@@ -34,11 +34,21 @@ export async function resolverKitDaSemana(
 ): Promise<{ kitId: string; desafio: any; formatos: Record<string, { id: string; url: string | null; titulo: string }> } | null> {
   const d = await resolverDesafioDoKit(sb, args);
   if (!d) return null;
+  // ORDEM DETERMINÍSTICA: re-runs de geração empilham cópias do MESMO formato sob o
+  // mesmo kit_id (a idempotência é pulada quando vem de kit — FMEA-PIPELINE 1.5), e
+  // sem ORDER BY o merge abaixo servia uma cópia ARBITRÁRIA (ordem do Postgres).
+  // Regra: a cópia mais RECENTE vence (created_at desc, desempate por id desc) — a
+  // mesma que a entrega de vídeo já usa (gerar-video.ts:136 `.order('created_at',
+  // desc).limit(1)`): a geração mais nova é a que o admin refez por último. Como o
+  // merge é "primeiro que chega fica", a ordem desc garante o mais recente. MESMA
+  // regra em `precarregarKits` — os dois resolvedores precisam escolher a mesma cópia.
   const { data: conteudos } = await sb.from('micro_conteudos')
-    .select('id, formato, url, titulo').eq('kit_id', d.kitId);
+    .select('id, formato, url, titulo').eq('kit_id', d.kitId)
+    .order('created_at', { ascending: false }).order('id', { ascending: false });
   const formatos: Record<string, { id: string; url: string | null; titulo: string }> = {};
   for (const c of conteudos || []) {
     if (c.formato === 'video') continue; // vídeo é do pipeline de célula (resolverVideoDaSemana)
+    if (formatos[c.formato]) continue; // duplicata de kit: a mais recente (1ª na ordem) já ficou
     // A entrega é por ID, não por url — MESMA regra de `precarregarKits` (ver o
     // comentário longo lá). Este caminho exigia `url` para texto/case e, por isso,
     // escondia formato válido: `gerarConteudoIA` grava url=null quando o PDF headless
@@ -102,7 +112,11 @@ export async function precarregarKits(
   if (!kitsRows?.length) return out;
   const kitByBrief = new Map(kitsRows.map((k: any) => [k.brief_id, k]));
   const { data: conteudos, error: errConteudos } = await sb.from('micro_conteudos')
-    .select('id, kit_id, formato, url, titulo').in('kit_id', kitsRows.map((k: any) => k.id));
+    .select('id, kit_id, formato, url, titulo').in('kit_id', kitsRows.map((k: any) => k.id))
+    // MESMA regra determinística de `resolverKitDaSemana` (ver o comentário longo lá):
+    // duplicatas do mesmo kit+formato (re-runs de geração) resolvem para a cópia mais
+    // RECENTE (created_at desc, desempate id desc), como a entrega de vídeo já faz.
+    .order('created_at', { ascending: false }).order('id', { ascending: false });
   if (errConteudos) falhou('micro_conteudos', errConteudos);
   const conteudosByKit = new Map<string, any[]>();
   for (const c of conteudos || []) { (conteudosByKit.get(c.kit_id) || conteudosByKit.set(c.kit_id, []).get(c.kit_id))!.push(c); }
@@ -121,6 +135,7 @@ export async function precarregarKits(
     const formatos: Record<string, { id: string; url: string | null; titulo: string }> = {};
     for (const c of conteudosByKit.get(kit.id) || []) {
       if (c.formato === 'video') continue;
+      if (formatos[c.formato]) continue; // duplicata de kit: a mais recente (1ª na ordem) já ficou
       // A entrega é por ID, não por url: a tela abre `/api/conteudo/{id}/pdf` (que
       // renderiza personalizado no runtime) e só cai no `url` como fallback. Exigir
       // `url` aqui EXCLUÍA conteúdo válido — `gerarConteudoIA` grava url=null quando o

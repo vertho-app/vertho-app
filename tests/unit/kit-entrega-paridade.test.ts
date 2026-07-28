@@ -35,7 +35,7 @@ function sbMock() {
       nome === 'kits' ? [KIT] :
       nome === 'micro_conteudos' ? CONTEUDOS : [];
     const q: any = {
-      select: () => q, eq: () => q, or: () => q, is: () => q, in: () => q,
+      select: () => q, eq: () => q, or: () => q, is: () => q, in: () => q, order: () => q,
       maybeSingle: async () => ({ data: rows[0] ?? null }),
       single: async () => ({ data: rows[0] ?? null }),
       then: (res: any) => Promise.resolve({ data: rows }).then(res),
