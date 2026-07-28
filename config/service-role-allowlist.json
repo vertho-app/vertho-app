@@ -145,6 +145,6 @@
     "lib/video/reconciliar-personalizados.ts": 1,
     "app/admin/vertho/board/page.tsx": 1,
     "app/admin/vertho/board/[id]/page.tsx": 1,
-    "app/admin/vertho/board/actions.ts": 3
+    "app/admin/vertho/board/actions.ts": 4
   }
 }

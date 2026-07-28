@@ -504,7 +504,15 @@ briefs duplicados por tupla.
 - **Gatilho:** `gerar-blueprint-batch.ts` usa o batch **inline** (budget 40min dentro da task de
   `maxDuration:3600`), não o **destacado** (`createClaudeBatch` + `wait.for`, budget 24h) que
   `gerar-modulos-manuscrito` usa. Janela lenta da Batch API → fallback síncrono serial → task expira.
-- **Resolução:** migrar blueprint para o padrão **destacado** com `wait.for`.
+- **Resolução:** migrar blueprint para o padrão **destacado** com `wait.for` — o molde exato está
+  em `trigger/gerar-modulos-manuscrito.ts:110-127`: `createClaudeBatch` grava o `batchId` nos params
+  do job (resumível se a run reiniciar), depois `pollClaudeBatch` + `wait.for({seconds:60})` em loop
+  (espera CHECKPOINTADA, não consome execução) e `fetchClaudeBatchResults` no fim.
+- **Decisão 28/07 — NÃO agora, e o motivo não é preguiça:** (a) é 🔵, não morde no volume atual
+  (37 blueprints no maior tenant); (b) mexer em `trigger/` exige **deploy manual** do Trigger.dev,
+  e ele foi feito no meio de uma rodada com **renders de vídeo em execução** nessas mesmas tasks —
+  deploy ali arrisca o que está rodando, para ganhar resiliência a uma fila lenta da Batch API que
+  não é gargalo hoje. Fazer junto do próximo deploy de Trigger que já for necessário.
 
 ### F-E7 · PDF cache por-arquétipo vaza PPP em empresa-rede ✅ (fechado 27/07)
 - **Gatilho:** chave `final/perso/{contentId}/{empresaId}/{arquetipoSlug}.pdf` **não incluía a

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { montarAlerta } from '@/lib/pipeline-health/core';
 import type { ResultadoCheck } from '@/lib/pipeline-health/types';
 
@@ -82,5 +82,36 @@ describe('montarAlerta — escopo do assunto por modo', () => {
     const a = montarAlerta([critico({ modo: 'estrutural' }), critico({ modo: 'preflight', dataAlvo: '2026-08-10' })]);
     expect(a?.assunto).toContain('entrega');
     expect(a?.assunto).toContain('6');   // 3 + 3 ocorrências
+  });
+});
+
+/**
+ * `destinosDoAlerta()` — separação de 28/07. `ADMIN_EMAILS` é usada como FALLBACK DE
+ * AUTORIZAÇÃO de platform-admin (`admin-actions.ts`, `board/actions.ts`): pôr um e-mail
+ * ali "para receber alerta" concedia acesso cross-tenant. Então o destino do alerta virou
+ * `HEALTH_ALERT_EMAILS`, com a antiga só como compatibilidade.
+ */
+describe('destinosDoAlerta — env dedicada', () => {
+  afterEach(() => { vi.unstubAllEnvs(); });
+
+  it('prefere HEALTH_ALERT_EMAILS quando as duas existem', async () => {
+    vi.stubEnv('HEALTH_ALERT_EMAILS', 'alerta@x.com');
+    vi.stubEnv('ADMIN_EMAILS', 'admin@x.com');
+    const { destinosDoAlerta } = await import('@/lib/pipeline-health/core');
+    expect(destinosDoAlerta()).toEqual(['alerta@x.com']);
+  });
+
+  it('cai em ADMIN_EMAILS só quando a dedicada está ausente (compat)', async () => {
+    vi.stubEnv('HEALTH_ALERT_EMAILS', '');
+    vi.stubEnv('ADMIN_EMAILS', 'admin@x.com, outro@x.com');
+    const { destinosDoAlerta } = await import('@/lib/pipeline-health/core');
+    expect(destinosDoAlerta()).toEqual(['admin@x.com', 'outro@x.com']);
+  });
+
+  it('sem nenhuma das duas: lista vazia (R8 acusa)', async () => {
+    vi.stubEnv('HEALTH_ALERT_EMAILS', '');
+    vi.stubEnv('ADMIN_EMAILS', '');
+    const { destinosDoAlerta } = await import('@/lib/pipeline-health/core');
+    expect(destinosDoAlerta()).toEqual([]);
   });
 });
