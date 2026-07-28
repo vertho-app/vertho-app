@@ -204,6 +204,13 @@ nunca **"o que está gravado aqui?"**.
   (**F-I10** do `docs/FMEA-PIPELINE.md`); **guard de CI**: `tests/unit/security/ppp-rede-guard.test.ts`
   falha em cadeia que reduz a 1 linha sem `.eq('id')`. Uma escola específica é legítima — só precisa
   ser dita explicitamente.
+- NÃO criar coluna/DDL novo para correção sem conferir o **schema atual** — a especificação do FMEA
+  também envelhece: F-I4 pedia coluna `origem_disc` nova e a `micro_conteudos.disc` (mig 142) já fazia
+  o papel (sobrevive ao SET NULL). E antes de deletar conteúdo, varrer **referências JSONB**
+  (`temporada_plano`: `core_id`, `formatos_disponiveis[].id`) — não há FK que avise.
+- NÃO "padronizar" o DISC dos kits/vídeos para 2 letras — a geração de conteúdo ancora na **1ª letra
+  de propósito** (4 células de custo, decisão 27/07 — F-I8). Só camadas derivadas em código
+  (relatório/PDF) usam o combo completo.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.

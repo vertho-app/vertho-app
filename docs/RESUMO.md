@@ -25,7 +25,7 @@ Antes de considerar qualquer tarefa pronta:
 ```powershell
 npm run build          # NUNCA com `| tail` (deixa next build orfao segurando o lock)
 npx tsc --noEmit
-npm run test:unit      # vitest — 908 testes em 99 arquivos (medido 27/07), roda no CI
+npm run test:unit      # vitest — 955 testes em 107 arquivos (medido 27/07), roda no CI
 ```
 
 Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (reseta `acme-demo`).
@@ -43,6 +43,17 @@ passam a ver a MESMA lente (`empresas.kit_contexto`); a chave de cache do PDF ga
 contexto (F-E7 — fecha colisao entre escolas **e** a invalidacao quando entra PPP novo).
 Os 2 guards de tenant voltaram ao verde (`3367efb7`): `certificado.ts` por `tenantDb`, `fetchColabPorId`
 descobre o tenant e cobra via `empresaIdEsperado`.
+
+**27/07 (noite)** — **Faxina do FMEA: zero 🔴/🟠 abertos** (`75764ed4` + `fc25fe36`). F-C6 (dedup de
+30 linhas em `micro_conteudos` + 17 `temporada_plano` reapontados — 10 perdedoras eram referenciadas
+via JSONB, sem FK — + UNIQUE parcial, mig 190) e os 6 laranjas: header da trilha vira upsert (F-C1),
+`regerarSemana` repara core orfao pelo MOTOR (F-I2), pool do build exige `kit_id/disc IS NULL` sem DDL
+— a `disc` da mig 142 ja sobrevivia ao SET NULL (F-I4), FKs em `development_blueprints` (F-I5, mig 191),
+descritor canonico na escrita + backfill de 122 linhas (F-I6), auditoria com denominador fixo + flag
+`parcial` (F-P1), lote sincrono de temporadas vira stub (F-E4 — a UI ja rodava fila + loop no client).
+**F-I8 virou decisao de design**: conteudo por IA ancora na 1a letra do DISC (celula de custo);
+relatorio/PDF usa o combo completo. Tudo com guarda validada por mutacao. Detalhe e follow-ups
+(blueprint loops sincronos, crons novos ainda nao observados em prod) no `docs/FMEA-PIPELINE.md`.
 
 **22-23/07** — **Auditoria de seguranca multi-agente** (223 arquivos, 29 achados confirmados)
 remediada de ponta a ponta; classe dominante = gate que nao liga o `empresaId` do client ao tenant da

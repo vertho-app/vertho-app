@@ -46,7 +46,7 @@
 | **Scraping Fallback** | Firecrawl | — | 🔑 |
 | **Error Tracking** | Sentry | — | 🔑 |
 | **TypeScript** | tsc --noEmit (strict: false) | 5.9 | ✅ |
-| **Testes** | **vitest** (814 testes / 89 arquivos, roda no CI) + Playwright + smoke-test.js. ⚠️ `npm run lint` quebrado desde o Next 16 | 4.1 | ✅ |
+| **Testes** | **vitest** (955 testes / 107 arquivos, roda no CI) + Playwright + smoke-test.js. ⚠️ `npm run lint` quebrado desde o Next 16 | 4.1 | ✅ |
 | **i18n** | next-intl (pt-BR / pt-PT / es-ES) | — | ✅ |
 | **Hospedagem** | Vercel (Serverless) | — | ✅ |
 | **DNS/CDN** | Cloudflare (Full Strict SSL) | — | ✅ |
@@ -89,6 +89,16 @@
   paragrafo. Regra: **uma fonte de contexto institucional por empresa** (`empresas.kit_contexto`) —
   regua, cenario, kit e PDF na MESMA lente. O PDF ganhou a assinatura do contexto na chave de cache
   (F-E7: colisao + invalidacao).
+- **27/07 (noite)** — **faxina do FMEA: zero 🔴/🟠** (`75764ed4`, `fc25fe36`). F-C6 (dedup de 30
+  linhas + 17 planos reapontados + UNIQUE parcial, mig 190) e os 6 laranjas de codigo: header da
+  trilha vira upsert (F-C1), `regerarSemana` repara core orfao PELO MOTOR + `normalizarSemanas`
+  (F-I2), filtro duplo `kit_id/disc IS NULL` no pool do build **sem DDL** — a coluna `disc` da mig 142
+  ja sobrevivia ao SET NULL (F-I4), FKs de `development_blueprints` (F-I5, mig 191), descritor
+  canonico na escrita + backfill de 122 linhas (F-I6), auditoria com denominador fixo + flag
+  `parcial` (F-P1), lote sincrono de temporadas vira stub — a UI ja rodava fila + loop no client
+  (F-E4). **F-I8 virou decisao de design**: conteudo por IA ancora na 1a letra do DISC (celula de
+  custo); relatorio usa o combo completo. Tudo com guarda validada por mutacao. Follow-ups no FMEA:
+  loops sincronos de blueprint, `anotarOrigemDisc` subnotifica orfaos.
 
 **Migrations: 164 arquivos, `022` a `183`** (com gaps). Marcos recentes: 153-158 (modo piloto +
 hardening RLS/RCE), 159-168 (Portal do Representante + proposta comercial), 169 (`acumulada_status`
@@ -967,7 +977,7 @@ Tres niveis, todos **read-only / sem custo** (nao clicam acoes de IA, envio, exc
 ### CI/CD
 `.github/workflows/smoke-test.yml` — smoke test em cada push. `typecheck.yml` — tsc + vitest (inclui os guards de tenant/service-role).
 
-**Estado em 27/07/2026: 814 testes / 89 arquivos, verdes.** Regras que valem para teste novo:
+**Estado em 27/07/2026 (noite): 955 testes / 107 arquivos, verdes.** Regras que valem para teste novo:
 1. **Validar por MUTAÇÃO** — quebrar a invariante no código de produção e confirmar que o teste
    correspondente falha. Teste que nunca falhou não prova nada; é carimbo.
 2. Mock testa o NOSSO código, nunca o do fornecedor — para API externa, canary/health check.
