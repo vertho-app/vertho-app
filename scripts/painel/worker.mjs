@@ -12,6 +12,9 @@
  * tela mostra isso explicitamente em vez de fingir que o painel está lento.
  */
 import { createClient } from '@supabase/supabase-js'
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { rodarPainel } from './painel.mjs'
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -57,6 +60,36 @@ async function pegarPedido() {
   return travado && travado.length ? travado[0] : null
 }
 
+/**
+ * Traz os arquivos enviados pela tela para o disco local.
+ *
+ * Quem lê o contexto são os quatro CLIs, que rodam AQUI — o arquivo no Storage
+ * não serve para eles. O nome é re-sanitizado na gravação: a chave veio do
+ * banco, e nome de arquivo com `..` ou barra escaparia da pasta.
+ */
+async function baixarArquivos(p) {
+  const lista = Array.isArray(p.arquivos) ? p.arquivos : []
+  if (!lista.length) return { dir: null, baixados: 0 }
+
+  const dir = join(tmpdir(), 'board-contexto', p.id)
+  mkdirSync(dir, { recursive: true })
+
+  let baixados = 0
+  for (const a of lista) {
+    const { data, error } = await sb.storage.from('board-contexto').download(a.path)
+    if (error) {
+      log(`  arquivo "${a.nome}" não baixou: ${error.message}`)
+      continue
+    }
+    const nome = String(a.nome).replace(/^.*[\\/]/, '').replace(/[^A-Za-z0-9._-]/g, '_') || 'arquivo.txt'
+    writeFileSync(join(dir, nome), Buffer.from(await data.arrayBuffer()))
+    baixados++
+  }
+
+  log(`  ${baixados}/${lista.length} arquivo(s) de contexto em ${dir}`)
+  return { dir, baixados }
+}
+
 async function executar(p) {
   log(`painel ${p.id.slice(0, 8)} — "${String(p.titulo || p.pergunta).slice(0, 60)}"`)
 
@@ -74,12 +107,18 @@ async function executar(p) {
     }
   }
 
+  let baixados = null
   try {
+    // Arquivos enviados pela tela têm precedência sobre a pasta local: se o
+    // pedido trouxe anexos, é sobre eles que a pergunta é.
+    baixados = await baixarArquivos(p)
+    const contextoDir = baixados.dir || p.contexto_dir
+
     const r = await rodarPainel(
       {
         pergunta: p.pergunta,
         contexto: p.contexto,
-        contexto_dir: p.contexto_dir,
+        contexto_dir: contextoDir,
         raiz: RAIZ,
         motores: p.motores,
       },
@@ -120,6 +159,15 @@ async function executar(p) {
       .update({ status: 'erro', erro: String(e && e.message ? e.message : e), progresso: eventos, concluido_em: agora() })
       .eq('id', p.id)
     log(`  EXCECAO: ${e}`)
+  } finally {
+    // a cópia local é descartável — o original fica no Storage
+    if (baixados && baixados.dir) {
+      try {
+        rmSync(baixados.dir, { recursive: true, force: true })
+      } catch {
+        /* pasta temporaria: falhar aqui nao muda o resultado do painel */
+      }
+    }
   }
 }
 

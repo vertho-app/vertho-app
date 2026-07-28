@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Send } from 'lucide-react';
-import { criarPainel } from '../actions';
+import { Loader2, Send, Upload, X, FileText, FolderGit2 } from 'lucide-react';
+import { criarPainel, subirArquivoContexto, type ArquivoContexto } from '../actions';
 
 const MOTORES = [
   { id: 'claude', letra: 'A', nome: 'Claude', via: 'assinatura Claude' },
@@ -22,10 +22,34 @@ export default function NovoPainel({ workerAtivo }: { workerAtivo: boolean }) {
   const [assunto, setAssunto] = useState('');
   const [contexto, setContexto] = useState('');
   const [escolhidos, setEscolhidos] = useState<string[]>(MOTORES.map((m) => m.id));
+  const [arquivos, setArquivos] = useState<ArquivoContexto[]>([]);
+  const [subindo, setSubindo] = useState(false);
+  const [arrastando, setArrastando] = useState(false);
+  const [lerRepo, setLerRepo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   function alternar(id: string) {
     setEscolhidos((atual) => (atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]));
+  }
+
+  async function subir(lista: FileList | File[]) {
+    setErro(null);
+    setSubindo(true);
+    const novos: ArquivoContexto[] = [];
+    const falhas: string[] = [];
+    for (const f of Array.from(lista)) {
+      try {
+        const form = new FormData();
+        form.append('file', f);
+        novos.push(await subirArquivoContexto(form));
+      } catch (e) {
+        falhas.push(e instanceof Error ? e.message : `Falhou: ${f.name}`);
+      }
+    }
+    setArquivos((a) => [...a, ...novos]);
+    if (falhas.length) setErro(falhas.join(' · '));
+    setSubindo(false);
   }
 
   function enviar() {
@@ -37,6 +61,8 @@ export default function NovoPainel({ workerAtivo }: { workerAtivo: boolean }) {
           pergunta,
           contexto,
           contextoDir: assunto.trim() ? RAIZ_CONTEXTO + assunto.trim() : undefined,
+          arquivos,
+          lerRepositorio: lerRepo,
           motores: escolhidos,
         });
         router.push(`/admin/vertho/board/${id}`);
@@ -96,6 +122,99 @@ export default function NovoPainel({ workerAtivo }: { workerAtivo: boolean }) {
             className="w-full rounded-xl bg-white/[0.03] border border-white/[0.08] px-4 py-3 text-sm text-white/90 focus:outline-none focus:border-cyan-400/50"
           />
         </div>
+
+        {/* upload — o arquivo vai para o Storage e o worker baixa para a máquina */}
+        <div>
+          <label className="block text-xs uppercase tracking-wider text-white/40 mb-1.5">
+            Arquivos <span className="normal-case tracking-normal text-white/25">— o painel lê antes de responder</span>
+          </label>
+
+          <div
+            onDragOver={(e) => { e.preventDefault(); setArrastando(true); }}
+            onDragLeave={() => setArrastando(false)}
+            onDrop={(e) => { e.preventDefault(); setArrastando(false); if (e.dataTransfer.files?.length) subir(e.dataTransfer.files); }}
+            className={`rounded-xl border border-dashed px-4 py-5 text-center transition-colors ${
+              arrastando ? 'border-cyan-400/60 bg-cyan-400/[0.06]' : 'border-white/[0.12] bg-white/[0.02]'
+            }`}
+          >
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              accept=".md,.txt,.csv,.json,.yaml,.yml,.log,.ts,.tsx,.js,.jsx,.sql,.py,.html,.css,.pdf,.docx"
+              className="hidden"
+              onChange={(e) => { if (e.target.files?.length) subir(e.target.files); e.target.value = ''; }}
+            />
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={subindo}
+              className="inline-flex items-center gap-2 text-sm text-cyan-300 hover:text-cyan-200 disabled:opacity-50"
+            >
+              {subindo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {subindo ? 'Enviando…' : 'Escolher arquivos'}
+            </button>
+            <p className="text-[11.5px] text-white/30 mt-1.5">
+              ou arraste aqui · até 20 MB · texto, código, <b className="text-white/45">PDF</b> e{' '}
+              <b className="text-white/45">DOCX</b>
+            </p>
+          </div>
+
+          {arquivos.length > 0 && (
+            <ul className="mt-2.5 flex flex-wrap gap-2">
+              {arquivos.map((a) => (
+                <li
+                  key={a.path}
+                  className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] pl-2.5 pr-1.5 py-1.5"
+                >
+                  <FileText className="w-3.5 h-3.5 text-white/35 shrink-0" />
+                  <span className="text-[13px] text-white/80 max-w-[26ch] truncate">{a.origem || a.nome}</span>
+                  {a.origem && (
+                    <span className="text-[10.5px] text-cyan-300/70 border border-cyan-400/25 rounded px-1.5 py-px">
+                      convertido em texto
+                    </span>
+                  )}
+                  <span className="text-[11px] text-white/30 font-mono tabular-nums">{Math.max(1, Math.round(a.bytes / 1024))} KB</span>
+                  <button
+                    type="button"
+                    onClick={() => setArquivos((l) => l.filter((x) => x.path !== a.path))}
+                    aria-label={`Remover ${a.nome}`}
+                    className="text-white/30 hover:text-white/80 p-0.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <p className="text-[11.5px] text-white/25 mt-2">
+            PDF e DOCX são convertidos em texto no envio, para os quatro modelos lerem exatamente o mesmo conteúdo —
+            cada CLI abre esses formatos de um jeito, e aí o painel opinaria sobre bases diferentes sem avisar. PDF
+            escaneado é recusado: sem texto extraível, o painel leria uma página em branco e responderia como se
+            tivesse lido.
+          </p>
+        </div>
+
+        {/* repositório: eles sempre alcançam o disco — isto dá a orientação */}
+        <label className="flex items-start gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={lerRepo}
+            onChange={(e) => setLerRepo(e.target.checked)}
+            className="mt-0.5 accent-cyan-400"
+          />
+          <span>
+            <span className="flex items-center gap-2 text-sm text-white/85">
+              <FolderGit2 className="w-4 h-4 text-white/40" />
+              A pergunta é sobre o código da Vertho
+            </span>
+            <span className="block text-[12px] text-white/35 mt-1">
+              Diz aos modelos onde procurar (actions, app, lib, docs) e o que não existe. Eles já alcançam o
+              repositório na sua máquina; sem isso, procuram no lugar errado.
+            </span>
+          </span>
+        </label>
 
         <div>
           <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">Quem participa</label>

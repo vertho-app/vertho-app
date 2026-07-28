@@ -125,8 +125,20 @@ export const MOTORES = {
     letra: 'A',
     nome: 'Claude',
     via: 'claude -p · assinatura Claude',
-    // stdin: prompt grande como argumento estoura o CreateProcess do Windows (~32 KB)
-    cmd: () => `${UTF8}Get-Content -LiteralPath $env:${ENV_PROMPT} -Raw | claude -p --output-format json --model opus`,
+    // stdin: prompt grande como argumento estoura o CreateProcess do Windows (~32 KB).
+    // --add-dir e OBRIGATORIO para o contexto: o CLI so le dentro do workspace,
+    // e a pasta de anexos fica em %TEMP%. Sem isto o modelo responde "nao
+    // consegui abrir" ou, pior, deduz o conteudo -- medido 28/07, quando so o
+    // Gemini (que ja tinha --add-dir) enxergou o arquivo enviado pela tela.
+    // --allowedTools e o que faz a leitura funcionar: em `-p` headless nao ha
+    // como responder a um pedido de permissao, entao pedir equivale a NEGAR --
+    // o modelo via o --add-dir e mesmo assim levava "you haven't granted it yet".
+    // So ferramentas de LEITURA: nada de Bash, Write ou Edit, que e o que
+    // sustenta a promessa de "permissao de leitura apenas" feita no prompt.
+    cmd: (f, ctx) =>
+      `${UTF8}Get-Content -LiteralPath $env:${ENV_PROMPT} -Raw | claude -p --output-format json --model opus --allowedTools Read Glob Grep` +
+      (ctx.contextoDir ? ` --add-dir $env:${ENV_CTX}` : '') +
+      (ctx.raiz ? ` --add-dir $env:${ENV_RAIZ}` : ''),
     parse: (out) => {
       const env = extrairJson(out)
       // o CLI devolve um envelope; a resposta do modelo vive em .result
@@ -143,15 +155,23 @@ export const MOTORES = {
     nome: 'gpt-5.6-sol',
     via: 'codex exec · plano ChatGPT',
     // --sandbox read-only: garantia em nivel de processo de que nao escreve
-    cmd: () => `${UTF8}Get-Content -LiteralPath $env:${ENV_PROMPT} -Raw | codex exec --skip-git-repo-check --sandbox read-only`,
+    // read-only permite LER fora do cwd, mas o agente ancora o trabalho na raiz
+    // que receber: com anexos, a raiz passa a ser a pasta deles.
+    cmd: (f, ctx) =>
+      `${UTF8}Get-Content -LiteralPath $env:${ENV_PROMPT} -Raw | codex exec --skip-git-repo-check --sandbox read-only` +
+      (ctx.contextoDir ? ` --cd $env:${ENV_CTX}` : ''),
     parse: (out) => extrairJson(out),
   },
   kimi: {
     letra: 'C',
     nome: 'Kimi K3',
     via: 'kimi -p · plano Kimi for Coding',
-    // nao le stdin (`-p -` vira o prompt literal "-"): recebe o CAMINHO
-    cmd: () => `${UTF8}kimi -p ${LER_ARQUIVO} --output-format stream-json`,
+    // nao le stdin (`-p -` vira o prompt literal "-"): recebe o CAMINHO.
+    // --add-dir pela mesma razao do claude: workspace nao alcanca %TEMP%.
+    cmd: (f, ctx) =>
+      `${UTF8}kimi -p ${LER_ARQUIVO} --output-format stream-json` +
+      (ctx.contextoDir ? ` --add-dir $env:${ENV_CTX}` : '') +
+      (ctx.raiz ? ` --add-dir $env:${ENV_RAIZ}` : ''),
     parse: (out) => {
       const linhas = String(out).split('\n').filter((l) => l.includes('"role":"assistant"'))
       for (let i = linhas.length - 1; i >= 0; i--) {
