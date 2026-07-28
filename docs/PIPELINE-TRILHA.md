@@ -314,6 +314,10 @@ SemanaConteudo
 
 **Missão + cenário:** 2 `callAI` em paralelo (600/800 tokens, `build-season.ts:611-614`), só nas
 `semanasMissao`. Falha → placeholder templated, **não aborta**.
+**Cobertura da missão (regra de 28/07):** só os descritores **já entregues** em semanas de conteúdo
+anteriores (corte por `semanas_ids` em `descritoresEntreguesNaMissao`) — a avaliação não cobra o
+bloco que ainda não começou. Antes, a semana 4 integrava a competência inteira (12 descritores no
+Ibipeba, incluindo o bloco da semana 5); as 37 trilhas do Ibipeba foram regeradas com a regra nova.
 **Avaliação: ZERO IA** (`:278-287`) — objeto literal. O Cenário B vem de `banco_cenarios`.
 **Desafio: templated por default** (`:509`); IA só com `BUILDSEASON_DESAFIO_IA=1` — porque o
 desafio canônico vem do **Kit**, aplicado na leitura.
@@ -323,11 +327,13 @@ desafio canônico vem do **Kit**, aplicado na leitura.
 ### `persistirTrilha` (`trilha-core.ts:520-580`) — fonte única dos 4 modos
 
 Grava `competencia_foco`, `competencias_foco[]`, `temporada_plano`, `descritores_selecionados`,
-`programa_modo` (carimbo), `status`, **`data_inicio`**. Progresso é **delete + insert**.
+`programa_modo` (carimbo), `status`, **`data_inicio`**. Header é **upsert** por
+`(empresa_id, colaborador_id)` (F-C1, 27/07); progresso é **upsert** por `(trilha_id, semana)`
+com payload só estrutural — reflexões/feedbacks/consumo sobrevivem à regeneração (F-C2, 27/07).
 
-> 🔴 **`data_inicio: nextMondayISO()` está no payload de UPDATE e de INSERT** (`:554`, `:560`).
-> **Toda regeneração empurra a trilha inteira para a próxima segunda** — inclusive uma trilha em
-> andamento na semana 8 — e zera o progresso. Não há branch que preserve o valor anterior.
+> ✅ **`data_inicio` preservado no UPDATE desde 27/07 (F-I1)** — só a 1ª gravação calcula
+> `nextMondayISO()` (`existente?.data_inicio || nextMondayISO()`). Antes, toda regeneração
+> empurrava a trilha para a próxima segunda e zerava o progresso.
 
 `normalizarSemanas` (`:588-600`, write-time) reconcilia os campos derivados a partir de
 `conteudos_dia`: `label` (`Pílula N`), `dia`, `descritores_cobertos`, `descritor`. É o chokepoint
