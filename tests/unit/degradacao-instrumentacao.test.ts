@@ -5,12 +5,14 @@ import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { PROGRAMA_REGULAR } from '@/lib/season-engine/programa-config';
 
 /**
- * Dois pontos instrumentados (FMEA §3.3), nos dois sentidos:
- *  · build: IA da missão fora → placeholder E registro `missao-placeholder` (crítico);
+ * Três pontos instrumentados (FMEA §3.3 + decisão de produto 28/07 "na construção,
+ * falhe alto; na entrega, degrade registrando"):
+ *  · build: IA da missão fora → REGISTRA `missao-placeholder` (crítico) E ABORTA
+ *    o build com erro acionável (nada de placeholder persistido em produção);
  *  · overlay: sem kit do DISC → mantém o build E registra `kit-ausente-disc`
  *    (e NÃO registra na prévia do health, que não identifica a pessoa).
  *
- * Validado por mutação: remover o `registrarDegradacao` do catch de
+ * Validado por mutação: remover o `registrarDegradacao` ou o `throw` do catch de
  * montarSemanaAplicacao, ou o `if (!kit)` de overlayConteudo, quebra estes testes.
  */
 
@@ -32,17 +34,17 @@ describe('buildSeason · missão com IA falhando', () => {
     { competencia: 'Autocuidado', descritor: 'Regulação sob pressão', nota_atual: 1.5, semanas_ids: [1, 2] },
   ];
 
-  it('cai no placeholder E registra missao-placeholder com severidade crítica', async () => {
-    const plan = await montarSemanaAplicacao(
-      4, descritores as any, 'Autocuidado', 'Gestão Escolar', 'generico',
-      {} as any, PROGRAMA_REGULAR, ['Autocuidado'], 'emp-1',
-    );
+  it('registra missao-placeholder (crítico) E aborta o build com erro acionável — nada de placeholder persistido', async () => {
+    // 28/07: na construção, falha alto. O catch registra E lança — a trilha
+    // NÃO é construída (antes gravava "Missão pendente…" no plano, em produção).
+    await expect(
+      montarSemanaAplicacao(
+        4, descritores as any, 'Autocuidado', 'Gestão Escolar', 'generico',
+        {} as any, PROGRAMA_REGULAR, ['Autocuidado'], 'emp-1',
+      ),
+    ).rejects.toThrow('Semana 4 sem missão/cenário (falha na IA) — trilha não construída; rode de novo');
 
-    // O fallback continua existindo (o placeholder é o comportamento de antes)…
-    expect(plan.missao?.texto).toContain('Missão pendente');
-    expect(plan.cenario?.texto).toContain('Cenário pendente');
-
-    // …mas agora deixa rastro persistido: tipo, chave de dedup e severidade.
+    // O registro continua existindo: tipo, chave de dedup e severidade.
     expect(registrarSpy).toHaveBeenCalledTimes(1);
     expect(registrarSpy).toHaveBeenCalledWith(expect.objectContaining({
       fluxo: 'build',

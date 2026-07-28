@@ -99,20 +99,23 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
 
     // ── Regular DUO (default global): 2 competências em blocos paralelos ──
     // Tenta a trilha de 2 comps; se o cargo não resolve 2 ou a 2ª comp não
-    // tem assessment, faz fallback pro fluxo single-comp abaixo (não bloqueia
-    // nem enviesa — comp âncora segue estrita).
+    // tem assessment, FALHA ALTO (decisão de produto 28/07): antes caía no
+    // fluxo single em silêncio e a pessoa recebia 1 competência em vez de 2
+    // sem ninguém saber. O escape explícito é programa_modo='regular_single'
+    // por colaborador (mig 154). O catch externo converte o throw em
+    // { error } — a mensagem chega ao admin por colaborador no lote.
     if ((programaConfig.numCompetencias || 1) >= 2) {
       const duo = await gerarTemporadaRegularDuo({
         colab, empresa, tdb, sbRaw, contexto, programaConfig, aiConfig, competenciaAncora: competenciaAlvo,
       });
       if (duo?.ok || duo?.error) return duo; // sucesso ou erro definitivo
-      console.warn(`[gerarTemporada] DUO indisponível → fallback single (${competenciaAlvo}):`, duo?.motivo);
-      // FMEA §3.3: o warn some no log da Vercel — o registro persiste (nunca lança).
+      console.warn(`[gerarTemporada] DUO indisponível (${competenciaAlvo}):`, duo?.motivo);
       await registrarDegradacao({
         fluxo: 'trilha', tipo: DEGRADACAO.DUO_PARA_SINGLE, chave: colaboradorId,
         empresaId: colab.empresa_id, colaboradorId,
         detalhe: { motivo: duo?.motivo ?? null, competencia: competenciaAlvo },
       });
+      throw new Error(`DUO indisponível (${duo?.motivo ?? 'motivo não informado'}) — rode o mapeamento da competência ou defina programa_modo='regular_single' explicitamente`);
     }
 
     // 3) Prioridade de formatos — derivada das colunas pref_* em colaboradores

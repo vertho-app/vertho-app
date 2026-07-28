@@ -17,7 +17,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 
 /** Tipos canônicos de degradação — FONTE ÚNICA (mesmo padrão de lib/status.ts). */
 export const DEGRADACAO = {
-  /** trilha-core: DUO indisponível → fluxo single (degrau final da cadeia de 4 níveis). */
+  /** trilha-core: DUO indisponível → build ABORTA (28/07); escape = programa_modo='regular_single'. */
   DUO_PARA_SINGLE: 'duo-para-single',
   /** trilha-core: descritores sem avaliação ignorados na alocação. */
   DESCRITOR_SEM_AVALIACAO: 'descritor-sem-avaliacao',
@@ -27,9 +27,9 @@ export const DEGRADACAO = {
   BLUEPRINT_ADAPTER_FALLBACK: 'blueprint-adapter-fallback',
   /** build-season: desafio por IA falhou → templated. */
   DESAFIO_PLACEHOLDER: 'desafio-placeholder',
-  /** build-season: missão/cenário por IA falhou → placeholder (a semana degrada). */
+  /** build-season: missão/cenário por IA falhou → build ABORTA (28/07; antes era placeholder). */
   MISSAO_PLACEHOLDER: 'missao-placeholder',
-  /** build-season: semana sem core de conteúdo (fallback_gerado). */
+  /** build-season: semana sem core de conteúdo → build ABORTA (28/07; antes era fallback_gerado). */
   CONTEUDO_AUSENTE: 'conteudo-ausente',
   /** build-season (piloto): semana com menos entregas que o esperado. */
   PILOTO_DISTRIBUICAO_INCOMPLETA: 'piloto-distribuicao-incompleta',

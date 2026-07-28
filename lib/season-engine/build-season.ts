@@ -657,13 +657,19 @@ async function montarSemanaConteudo(
   }
 
   const reused = !!(coreContent && idsJaUsados.has(coreContent.id));
-  // Sem core: a semana sai com título/desafio templated (`fallback_gerado`). FMEA §3.3:
-  // o sinal existia só no JSON do plano — agora também persiste (dedup por empresa:semana:descritor).
+  // Decisão de produto (28/07): na CONSTRUÇÃO falha alto — pool vazio (mesmo após
+  // o recorte por nível cair pro pool inteiro) significa que o conteúdo da célula
+  // NÃO EXISTE; antes a semana saía com `fallback_gerado` (título templated) e
+  // ninguém ficava sabendo. Registra E aborta: gera-se o conteúdo ANTES do build.
+  // NÃO confundir com o recorte por nível (fallback pro pool inteiro é seleção
+  // legítima, não ausência). O reparo (repararCoreOrfaoDaSemana) NÃO passa por
+  // aqui — reparo de plano legado nunca bloqueia.
   if (!coreContent) {
     await registrarDegradacao({
       fluxo: 'build', tipo: DEGRADACAO.CONTEUDO_AUSENTE, chave: `${empresaId || 'global'}:${semana}:${descritorSel.descritor}`,
       empresaId, detalhe: { competencia, descritor: descritorSel.descritor },
     });
+    throw new Error(`Sem conteúdo para ${competencia} × ${descritorSel.descritor} × ${cargo} (semana ${semana}) — gere o conteúdo antes de construir a trilha`);
   }
   return {
     semana,
@@ -807,14 +813,16 @@ export async function montarSemanaAplicacao(
     }
   } catch (err: any) {
     console.warn(`[buildSeason] missao/cenario sem ${semana}: ${err?.message ?? err}`);
-    // A semana INTEIRA degrada (missão + cenário viram placeholder) → severidade crítica.
+    // Decisão de produto (28/07): na CONSTRUÇÃO falha alto — placeholder de
+    // missão/cenário ia pra PRODUÇÃO e a pessoa recebia "Missão pendente…".
+    // Registra a degradação (crítica) E aborta a trilha: o admin refaz o build
+    // em vez de descobrir o placeholder na mão do colaborador.
     await registrarDegradacao({
       fluxo: 'build', tipo: DEGRADACAO.MISSAO_PLACEHOLDER, chave: `${empresaId || 'global'}:${semana}`,
       empresaId, severidade: 'critico',
       detalhe: { error: String(err?.message ?? err), competencia, descritores: cobertos },
     });
-    if (!missaoObj.texto) missaoObj.texto = `Missão pendente. Aplique os descritores ${cobertos.join(', ')} em uma situação real do seu cargo esta semana.`;
-    if (!cenarioObj.texto) cenarioObj.texto = `Cenário pendente. Descreva como você aplicaria os descritores ${cobertos.join(', ')} em uma situação típica do seu cargo.`;
+    throw new Error(`Semana ${semana} sem missão/cenário (falha na IA) — trilha não construída; rode de novo`);
   }
 
   return {
