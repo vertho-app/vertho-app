@@ -695,19 +695,22 @@ async function montarSemanaConteudo(
 /**
  * Corte "só o já entregue" da missão (regra de 28/07, decisão de produto): a
  * semana de aplicação AVALIA — e avaliação só cobra conteúdo já entregue. São
- * os descritores alocados em semanas de conteúdo ANTERIORES à missão
- * (`semanas_ids`), dentro das competências da janela. Antes, a semana 4 cobrava
- * a competência inteira — inclusive o bloco que só começava na semana 5.
+ * os descritores alocados em semanas de conteúdo dentro da JANELA
+ * [`desdeSemana`, `semana`): a missão cobre o bloco que ACABOU de fechar
+ * (semana 4 → semanas 1-3; semana 8 → semanas 5-7), e só a última é cumulativa
+ * (semana 12 → todas as 9 semanas de conteúdo). Antes, a semana 4 cobrava a
+ * competência inteira — inclusive o bloco que só começava na semana 5.
  * Pura e exportada para teste — a regra de negócio vive aqui, não no prompt.
  */
 export function descritoresEntreguesNaMissao<T extends { competencia?: string | null; semanas_ids?: number[] }>(
   descritores: T[],
   semana: number,
   competenciasJanela: string[],
+  desdeSemana = 1,
 ): T[] {
   return descritores.filter((d) =>
     d.competencia && competenciasJanela.includes(d.competencia) &&
-    (d.semanas_ids ?? []).some((s) => s < semana));
+    (d.semanas_ids ?? []).some((s) => s < semana && s >= desdeSemana));
 }
 
 export async function montarSemanaAplicacao(
@@ -734,12 +737,15 @@ export async function montarSemanaAplicacao(
       : indicesNaMissao;
     const naJanela = idxs.map(i => competenciasArray[i]).filter(Boolean);
     // Regra (28/07, decisão de produto): a missão AVALIA — e avaliação só cobra o
-    // que já foi ENTREGUE. O corte é pelos descritores alocados em semanas de
-    // conteúdo ANTERIORES à missão (`semanas_ids`), NÃO pela competência inteira:
-    // antes, a semana 4 já cobrava Autocuidado cujo conteúdo só chega na semana 5.
-    // As competências integradas são as do corte — semana 4 vira missão de bloco
-    // (1 comp), semanas 8/12 seguem integradoras (2 comps já entregues).
-    descritoresParaMissao = descritoresEntreguesNaMissao(descritores, semana, naJanela);
+    // que já foi ENTREGUE. A janela é o bloco que ACABOU de fechar: desde a missão
+    // anterior até esta (semana 4 → semanas 1-3; semana 8 → semanas 5-7). Só a
+    // ÚLTIMA missão é cumulativa (semana 12 → as 9 semanas de conteúdo). Antes, a
+    // semana 4 já cobrava Autocuidado cujo conteúdo só chega na semana 5. As
+    // competências integradas são as do corte.
+    const ultimaMissao = Math.max(...programaConfig.semanasMissao);
+    const missaoAnterior = programaConfig.semanasMissao.filter((s) => s < semana).pop();
+    const desdeSemana = semana === ultimaMissao ? 1 : (missaoAnterior ?? 0) + 1;
+    descritoresParaMissao = descritoresEntreguesNaMissao(descritores, semana, naJanela, desdeSemana);
     competenciasIntegradas = naJanela.filter(c => descritoresParaMissao.some(d => d.competencia === c));
     // Guarda: trilha sem nada entregue antes da missão (plano degenerado) cai no
     // corte antigo em vez de gerar missão sem descritor nenhum.

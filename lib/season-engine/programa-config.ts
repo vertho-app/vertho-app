@@ -166,10 +166,11 @@ export const PROGRAMA_REGULAR_DUO: ProgramaConfig = Object.freeze({
   nivelMetaAlvo: 3,
   numCompetencias: 2,
   // 2 comps ativas desde o início. (-1 = todas as comps da trilha; complexidade
-  // cresce via complexidadeMap.) ⚠️ 28/07 (decisão de produto): a missão cobre
-  // só os descritores JÁ ENTREGUES em semanas de conteúdo anteriores (corte por
-  // `semanas_ids` em montarSemanaAplicacao), NÃO a competência inteira — a
-  // semana 4 não cobra mais o bloco que só começa na semana 5.
+  // cresce via complexidadeMap.) ⚠️ 28/07 (decisão de produto): a missão cobre o
+  // BLOCO QUE ACABOU DE FECHAR — descritores desde a missão anterior (corte por
+  // `semanas_ids` em descritoresEntreguesNaMissao): semana 4 → semanas 1-3,
+  // semana 8 → semanas 5-7. Só a ÚLTIMA (semana 12) é cumulativa (as 9 semanas).
+  // Antes a semana 4 já cobrava o bloco que só começava na semana 5.
   competenciasNaMissao: { 4: [-1], 8: [-1], 12: [-1] },
   // SEM semanaParaCompetenciaIdx: a competência de cada semana de conteúdo
   // vem do descritor (selectDescriptorsDuo grava .competencia). O mapa

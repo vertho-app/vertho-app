@@ -32,7 +32,7 @@ const SELECAO = [
 
 const JANELA = ['Planejamento', 'Autocuidado'];
 
-describe('descritoresEntreguesNaMissao — a missão só cobra o já entregue', () => {
+describe('descritoresEntreguesNaMissao — a missão cobre o bloco que acabou de fechar', () => {
   it('semana 4: só o bloco 1 (semanas 1-3), nada de Autocuidado', () => {
     const out = descritoresEntreguesNaMissao(SELECAO, 4, JANELA);
     expect(out.map((d) => d.descritor)).toEqual([
@@ -41,13 +41,22 @@ describe('descritoresEntreguesNaMissao — a missão só cobra o já entregue', 
     expect(out.every((d) => d.competencia === 'Planejamento')).toBe(true);
   });
 
-  it('semana 8: blocos 1+2 (o corte atravessa as 2 competências — slice(0,6) falharia aqui)', () => {
-    const out = descritoresEntreguesNaMissao(SELECAO, 8, JANELA);
-    expect(out).toHaveLength(6);
-    expect(new Set(out.map((d) => d.competencia))).toEqual(new Set(['Planejamento', 'Autocuidado']));
+  it('semana 8 com janela desde a missão anterior (desde=5): SÓ o bloco 2 (semanas 5-7)', () => {
+    const out = descritoresEntreguesNaMissao(SELECAO, 8, JANELA, 5);
+    expect(out.map((d) => d.descritor)).toEqual([
+      'Sustentabilidade pessoal', 'Protagonismo do bem-estar', 'Regulação sob pressão',
+    ]);
+    expect(out.every((d) => d.competencia === 'Autocuidado')).toBe(true);
   });
 
-  it('semana 12: tudo que foi entregue antes dela (inclui semanas 9-11)', () => {
+  it('semana 8 sem janela (desde=1) pegaria os 2 blocos — é o comportamento que NÃO queremos', () => {
+    // Trava da decisão: o default é cumulativo, quem calcula a janela é o caller
+    // (montarSemanaAplicacao): missão do meio = bloco fechado, última = tudo.
+    const out = descritoresEntreguesNaMissao(SELECAO, 8, JANELA);
+    expect(out).toHaveLength(6);
+  });
+
+  it('semana 12 (cumulativa, desde=1): tudo que foi entregue nas 9 semanas de conteúdo', () => {
     const out = descritoresEntreguesNaMissao(SELECAO, 12, JANELA);
     expect(out).toHaveLength(12);
   });
