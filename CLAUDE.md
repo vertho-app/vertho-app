@@ -215,6 +215,11 @@ nunca **"o que está gravado aqui?"**.
 - NÃO "padronizar" o DISC dos kits/vídeos para 2 letras — a geração de conteúdo ancora na **1ª letra
   de propósito** (4 células de custo, decisão 27/07 — F-I8). Só camadas derivadas em código
   (relatório/PDF) usam o combo completo.
+- NÃO gravar TÍTULO no campo `descritor` do Módulo-Base — é por ele que o resolver casa o conteúdo.
+  Título editorial vive em `titulo`; `descritor` recebe o **`nome_curto` da régua**. Ao corrigir,
+  **recalcular `descritor_embedding`** (o vetor tem precedência sobre tokens, então o antigo continua
+  mandando). Medido 28/07: 18 MBs assim fizeram 14 conteúdos ancorarem no assunto vizinho, em
+  silêncio — **F-I12** do `docs/FMEA-PIPELINE.md`. Guarda: R9 do health estrutural.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.

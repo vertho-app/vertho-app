@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   checarFormatoPrometido, checarCoberturaKit, checarDesafioPlaceholder,
   checarContatos, checarCoreAusente, checarCanalZerado, checarEntregaIncompleta,
-  regrasPreflight, checarHorizonteKits, checarDestinoDoAlerta,
+  regrasPreflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua,
   type EntregaPrevista, type EnvioObservado, type LacunaKitHorizonte,
 } from '@/lib/pipeline-health/regras';
 import { severidadeGlobal, achado } from '@/lib/pipeline-health/types';
@@ -245,5 +245,36 @@ describe('R8 · destino do alerta', () => {
   it('fica calado quando há destinatário (inclusive com espaços)', () => {
     expect(checarDestinoDoAlerta('a@b.com')).toBeNull();
     expect(checarDestinoDoAlerta(' a@b.com , c@d.com ')).toBeNull();
+  });
+});
+
+/**
+ * R9 · MB publicado com descritor fora da régua. Medido em 28/07 (Ibipeba): 18 MBs de
+ * "Autocuidado × Gestão Escolar" guardavam o TÍTULO editorial ("A Calma que se Constrói")
+ * no campo que o resolver usa para casar — 6 descritores colapsaram em 2 módulos e 14 de
+ * 18 conteúdos core nasceram ancorados no assunto vizinho, sem erro nenhum.
+ */
+describe('R9 · MB com descritor fora da régua', () => {
+  const mb = (descritor: string) => ({
+    id: 'mb1', competencia: 'Autocuidado e resiliência emocional',
+    cargo: 'Gestão Escolar', descritor,
+  });
+
+  it('acusa como CRÍTICO e mostra cargo/competência/descritor na amostra', () => {
+    const a = checarMbForaDaRegua([mb('A Calma que se Constrói'), mb('Ler os Próprios Sinais')]);
+    expect(a?.id).toBe('mb-descritor-fora-da-regua');
+    expect(a?.severidade).toBe('critico');
+    expect(a?.contagem).toBe(2);
+    expect(a?.amostra?.[0]).toContain('Gestão Escolar');
+    expect(a?.amostra?.[0]).toContain('A Calma que se Constrói');
+  });
+
+  it('a ação lembra de recalcular o embedding — corrigir só o texto não basta', () => {
+    // O vetor antigo tem precedência sobre tokens; sem recalcular, o bug continua.
+    expect(checarMbForaDaRegua([mb('X')])?.acao).toMatch(/embedding/i);
+  });
+
+  it('acervo alinhado não gera achado', () => {
+    expect(checarMbForaDaRegua([])).toBeNull();
   });
 });

@@ -18,8 +18,8 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
-import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta } from './regras';
-import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, diaDaSemanaBRT, pilulaDoDia } from './coleta';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua } from './regras';
+import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
 /** Empresas elegíveis a envio: exclui demo (não envia comunicação real). */
 async function empresasAtivas(sb: any) {
@@ -166,6 +166,9 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
     // O alarme tem destinatário? Sem isso, todo o resto deste arquivo é decorativo
     // (R8 — medido em 27/07: a env não existia em nenhum ambiente).
     achados.push(checarDestinoDoAlerta(process.env.ADMIN_EMAILS));
+
+    // R9: MB publicado com descritor fora da régua — ancora o conteúdo no assunto vizinho.
+    achados.push(checarMbForaDaRegua(await coletarMbForaDaRegua(sb)));
 
     const ungrounded = await contar('kit_briefs', (q: any) => q.is('modulo_base_id', null));
     achados.push(achado('brief-ungrounded', 'aviso', 'Brief sem módulo-base', ungrounded,

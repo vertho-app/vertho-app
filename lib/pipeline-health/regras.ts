@@ -267,6 +267,43 @@ export function checarHorizonteKits(
 }
 
 /**
+ * R9 · Módulo-Base publicado cujo `descritor` não existe na régua da competência×cargo.
+ *
+ * O resolver casa o descritor da semana contra `modulos_base_conteudo.descritor` (por
+ * embedding, ou tokens quando não há vetor). Se o MB gravou outra coisa nesse campo —
+ * um TÍTULO editorial, por exemplo — o match nunca é exato e a escolha vira ruído:
+ * o conteúdo é gerado, ancorado no módulo do assunto VIZINHO, sem erro nenhum.
+ *
+ * **Medido em 28/07 (Ibipeba):** os 18 MBs de "Autocuidado × Gestão Escolar" guardavam o
+ * título ("A Calma que se Constrói") em vez do nome da régua ("Regulação sob pressão").
+ * Resultado: 6 descritores colapsaram em 2 módulos, 14 de 18 conteúdos core ficaram
+ * ancorados no módulo errado e 2 módulos nunca foram usados por nada. O mesmo manuscrito
+ * gravou certo em Coordenação Pedagógica — ninguém tinha como notar a diferença.
+ *
+ * Este é um check de DADOS, não de código: por isso vive no run estrutural (diário,
+ * persistido) e não num guard de CI, que só enxerga o repositório.
+ */
+export interface MbForaDaRegua {
+  id: string;
+  competencia: string;
+  cargo: string | null;
+  descritor: string;
+}
+
+export function checarMbForaDaRegua(itens: MbForaDaRegua[]): Achado | null {
+  return achado(
+    'mb-descritor-fora-da-regua', 'critico',
+    'Módulo-Base publicado com descritor que não existe na régua',
+    itens.length,
+    'O resolver casa pelo nome do descritor: com outro valor no campo, o conteúdo nasce ancorado no módulo do assunto vizinho — sem erro, sem log, sem sinal na tela.',
+    {
+      amostra: itens.map((m) => `${m.cargo || 'todos'} · ${m.competencia} · "${m.descritor}"`),
+      acao: 'Gravar o nome_curto da régua em `descritor` (o título editorial vive em `titulo`) e RECALCULAR `descritor_embedding` — o vetor antigo tem precedência sobre tokens.',
+    },
+  );
+}
+
+/**
  * R8 · O alarme tem para onde alertar?
  *
  * `alertar()` só envia se `ADMIN_EMAILS` estiver preenchida; sem ela, o alerta crítico

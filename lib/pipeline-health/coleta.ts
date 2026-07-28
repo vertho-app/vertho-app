@@ -14,7 +14,7 @@ import { precarregarKits, overlayKitNaSemana, formatoPreferido } from '@/lib/sea
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { normalizePhone } from '@/lib/phone';
 import { levantarPlanoKitsCoorte } from '@/lib/season-engine/kit/plano-coorte';
-import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte } from './regras';
+import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua } from './regras';
 
 /** Dia da semana no fuso do envio (1=segunda … 7=domingo), como o cron calcula. */
 export function diaDaSemanaBRT(d: Date): number {
@@ -218,6 +218,50 @@ export async function coletarHorizonteKits(
   };
 
   return montarLacunas(base.plano, diasAteSemana);
+}
+
+/**
+ * MBs publicados cujo `descritor` não bate com nenhum `nome_curto` da régua daquela
+ * competência × cargo (R9). Comparação normalizada (sem acento/caixa) e pelo MESMO
+ * critério do resolver: nome do descritor, não título.
+ */
+export async function coletarMbForaDaRegua(sb: any): Promise<MbForaDaRegua[]> {
+  const { data: mbs, error: errMb } = await sb.from('modulos_base_conteudo')
+    .select('id, descritor, competencia_id')
+    .eq('status', 'publicado').not('descritor', 'is', null).not('competencia_id', 'is', null);
+  // Propaga: contagem 0 por falha de query é indistinguível de "está tudo certo".
+  if (errMb) throw new Error(`modulos_base_conteudo: ${errMb.message}`);
+  if (!mbs?.length) return [];
+
+  const { data: comps, error: errC } = await sb.from('competencias')
+    .select('id, nome, cargo, cod_comp, nome_curto');
+  if (errC) throw new Error(`competencias: ${errC.message}`);
+
+  const norm = (s: any) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+
+  // (cod_comp|cargo) → conjunto de nome_curto normalizados da régua.
+  const regua = new Map<string, Set<string>>();
+  const daLinha = new Map<string, any>();
+  for (const c of (comps as any[]) || []) {
+    daLinha.set(c.id, c);
+    if (!c.nome_curto) continue;
+    const k = `${c.cod_comp}|${norm(c.cargo)}`;
+    if (!regua.has(k)) regua.set(k, new Set());
+    regua.get(k)!.add(norm(c.nome_curto));
+  }
+
+  const fora: MbForaDaRegua[] = [];
+  for (const mb of (mbs as any[])) {
+    const linha = daLinha.get(mb.competencia_id);
+    if (!linha) continue;                       // competência de outro modelo: fora do escopo
+    const nomes = regua.get(`${linha.cod_comp}|${norm(linha.cargo)}`);
+    if (!nomes || !nomes.size) continue;        // régua sem nome_curto: nada a cobrar
+    if (!nomes.has(norm(mb.descritor))) {
+      fora.push({ id: mb.id, competencia: linha.nome, cargo: linha.cargo, descritor: mb.descritor });
+    }
+  }
+  return fora;
 }
 
 /** Estado dos carimbos do dia (postflight). */

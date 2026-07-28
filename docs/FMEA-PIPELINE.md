@@ -364,6 +364,48 @@ briefs duplicados por tupla.
   a regra era só texto no `CLAUDE.md`, cada release nova reintroduzia. **Grep de padrão perigoso vira
   teste, não parágrafo.**
 
+### F-I12 · Módulo-Base com TÍTULO no lugar do descritor → conteúdo ancora no assunto vizinho ✅ (corrigido 28/07)
+- **Gatilho:** o resolver casa o descritor da semana contra `modulos_base_conteudo.descritor`
+  (embedding quando há vetor, tokens quando não). Se a extração gravou nesse campo um **título
+  editorial** em vez do `nome_curto` da régua, o match exato nunca acontece e a escolha vira ruído.
+- **Medido (28/07, Ibipeba):** os **18 MBs** de "Autocuidado × Gestão Escolar" (6 descritores × 3
+  níveis) guardavam títulos como "A Calma que se Constrói". Resultado: os 6 descritores colapsaram
+  em **2 módulos**, **14 dos 18** micro_conteudos core ficaram ancorados no módulo errado e **2
+  módulos nunca foram usados por nada**. O MESMO manuscrito (DIR02) gravou certo em Coordenação
+  Pedagógica — a varredura do acervo achou só esses 18 fora do padrão.
+- **Efeito:** silencioso e caro. O conteúdo é gerado, tem qualidade de escrita, cita o cargo — e
+  fala do assunto ao lado. Nenhuma tela, log ou teste mostra.
+- **Por que passou:** o único sinal era o critério no `console.log` do resolver
+  (`descritor-parcial-semântico(0.31)` em vez de `descritor-tokens(1.00)`) — visível em quem
+  estivesse lendo o log daquela geração.
+- **Correção:** gravar o `nome_curto` da régua em `descritor` (o título editorial pertence a
+  `titulo`) e **RECALCULAR `descritor_embedding`**. ⚠️ Corrigir só o texto NÃO resolve: o vetor
+  antigo tem **precedência absoluta** sobre tokens (`if (queryVec && emb) cosine else tokens`), então
+  o embedding do título continuaria mandando — estado pior que o original, porque o texto parece
+  certo. Mapeamento confirmado por duas fontes independentes: `conteudo_central` de cada MB e as
+  tags de extração (`DIR02_MB01..MB12`, dois por descritor, na ordem D1..D6).
+- **Guarda:** **R9** (`checarMbForaDaRegua`) no run ESTRUTURAL do health-check — é check de DADOS,
+  não de código, então não cabe num guard de CI que só vê o repositório. Teste:
+  `pipeline-health-regras.test.ts` (R9), validado por mutação.
+- **Depois de corrigir o MB, o conteúdo já gerado continua errado** — regerar usando o próprio
+  resolver como juiz (comparar `modulo_base_id` gravado com o que ele escolheria agora) para mexer
+  só no que está mal ancorado. Medido: 14 refeitos, 4 preservados.
+
+### F-I13 · Embedding do acervo nunca existiu (Voyage a 3 RPM) — seleção "semântica" era token-matching 🟠
+- **Medido (28/07):** **198 de 216** MBs publicados (91,7%) estão **sem `descritor_embedding`**. A
+  conta Voyage estava sem método de pagamento → **3 RPM / 10K TPM**; `embedText`/`embedQuery` não têm
+  cache, retry nem backoff, e o resolver engole a exceção (`catch { queryVec = null }`). Em qualquer
+  lote (42 DISC em 8 min) a seleção semântica ficava desligada **de fato**, sem erro nem telemetria.
+- **Efeito:** para descritor com nome idêntico ao do MB, tokens acerta (1.00) e ninguém nota. Para
+  paráfrase — ou para F-I12 — a escolha degrada em silêncio. Também afeta `lib/rag.ts` (busca e
+  indexação da base de conhecimento).
+- **Estado:** crédito adicionado em 28/07 (medido depois: 6 chamadas em 1,7s, 0 erro). **Os 198 MBs
+  seguem sem vetor** — backfill é barato, mas muda o critério de escolha de TODO o acervo (hoje
+  token-match exato), então precisa ser medido antes: comparar, por descritor, o MB que o resolver
+  escolhe com tokens vs. com embedding, e contar quantos mudariam.
+- **Resolução pendente:** cache por texto (o mesmo descritor repete muito no lote) + retry com
+  backoff no 429 + contador de quantas vezes a seleção caiu em tokens por falha de embedding.
+
 ### F-I11 · Bloco novo de competências entra sem kit — ninguém dispara o que ninguém sabe que falta ✅ (alarme 27/07)
 - **Gatilho:** o kit é gerado por **gatilho manual, uma rodada por vez**, e a trilha **troca de bloco
   de competências** ao longo do programa. Os kits das semanas já rodadas existem; o bloco seguinte
