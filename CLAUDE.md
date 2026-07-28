@@ -202,6 +202,10 @@ nunca **"o que está gravado aqui?"**.
   não lança. Todo await de query tem que checar o retorno (`if (error)`), senão a falha passa
   invisível. Mordeu 2× no mesmo dia (27/07): F-C4 (`precarregarKits` devolvia Map vazio truthy)
   e o upsert de notas da IA4 (falhava e o `avaliacao_ia` era carimbado mesmo assim).
+- NÃO criar fallback novo **silencioso** — fallback pode existir, nunca invisível: registre com
+  `registrarDegradacao` (`lib/degradacao.ts`, nunca lança, dedup por chave com contador). Os 10
+  pontos clássicos já estão instrumentados (28/07, mig 194) e o health estrutural lê
+  `degradacao_log` toda madrugada (R10 do `lib/pipeline-health/regras.ts`).
 - NÃO `.limit(1)` em `ppp_escolas` p/ representar a empresa — empresa-rede tem **1 PPP por escola**
   (Ibipeba: 11) e isso aplica uma escola sorteada à rede inteira, em silêncio. Consolidar:
   `buscarContextoPPP(tdb, {empresaId})` (texto), `buscarValoresDaRede`/`buscarValores` (valores) ou
