@@ -197,6 +197,10 @@ nunca **"o que está gravado aqui?"**.
 - NÃO escrever JavaScript — é **TypeScript**.
 - NÃO `git add -A`, `vercel --prod`, `cd && git`.
 - NÃO query de colaborador por email direto — usar `findColabByEmail`.
+- NÃO confiar em `try/catch` para erro de query do **supabase-js** — ele **retorna** `{ error }`,
+  não lança. Todo await de query tem que checar o retorno (`if (error)`), senão a falha passa
+  invisível. Mordeu 2× no mesmo dia (27/07): F-C4 (`precarregarKits` devolvia Map vazio truthy)
+  e o upsert de notas da IA4 (falhava e o `avaliacao_ia` era carimbado mesmo assim).
 - NÃO `.limit(1)` em `ppp_escolas` p/ representar a empresa — empresa-rede tem **1 PPP por escola**
   (Ibipeba: 11) e isso aplica uma escola sorteada à rede inteira, em silêncio. Consolidar:
   `buscarContextoPPP(tdb, {empresaId})` (texto), `buscarValoresDaRede`/`buscarValores` (valores) ou

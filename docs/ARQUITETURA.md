@@ -98,9 +98,13 @@
   `parcial` (F-P1), lote sincrono de temporadas vira stub — a UI ja rodava fila + loop no client
   (F-E4). **F-I8 virou decisao de design**: conteudo por IA ancora na 1a letra do DISC (celula de
   custo); relatorio usa o combo completo. Tudo com guarda validada por mutacao. Follow-ups no FMEA:
-  loops sincronos de blueprint, `anotarOrigemDisc` subnotifica orfaos.
+  loops sincronos de blueprint, `anotarOrigemDisc` subnotifica orfaos. Na sequencia (`02b42068` +
+  `ccba5c15`): IA4 com retry self-service (0 presas em prod), overlay deterministico (ORDER BY nos
+  2 resolvedores), §6 do FMEA sincronizada e as 7 divergencias doc×código corrigidas. Armadilha do
+  dia: `try/catch` NÃO pega erro de query do supabase-js (ele retorna `{ error }`) — regra no
+  CLAUDE.md.
 
-**Migrations: 164 arquivos, `022` a `183`** (com gaps). Marcos recentes: 153-158 (modo piloto +
+**Migrations: 172 arquivos, `022` a `191`** (com gaps). Marcos recentes: 153-158 (modo piloto +
 hardening RLS/RCE), 159-168 (Portal do Representante + proposta comercial), 169 (`acumulada_status`
 do piloto), 172/173 (`ia_jobs`), 174-176 (competencias-foco do cargo + development blueprints),
 177/178 (ledger de uso de IA + funcao de resumo), 179-181 (eventos de trilha, `videos_watched` por

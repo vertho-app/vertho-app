@@ -55,6 +55,11 @@ descritor canonico na escrita + backfill de 122 linhas (F-I6), auditoria com den
 **F-I8 virou decisao de design**: conteudo por IA ancora na 1a letra do DISC (celula de custo);
 relatorio/PDF usa o combo completo. Tudo com guarda validada por mutacao. Detalhe e follow-ups
 (blueprint loops sincronos, crons novos ainda nao observados em prod) no `docs/FMEA-PIPELINE.md`.
+Na sequencia (`02b42068` + `ccba5c15`): **IA4 com retry self-service** (resposta avaliada sem notas
+volta pra fila; 0 presas em prod), **overlay deterministico** (ORDER BY nos 2 resolvedores; 0 dup
+kit-side), **§6 do FMEA sincronizada** e as **7 divergencias doc×código** corrigidas no
+PIPELINE-TRILHA/KIT-SEMANAL. Armadilha do dia: `try/catch` NÃO pega erro de query do supabase-js
+(ele retorna `{ error }`) — regra nova no CLAUDE.md.
 
 **22-23/07** — **Auditoria de seguranca multi-agente** (223 arquivos, 29 achados confirmados)
 remediada de ponta a ponta; classe dominante = gate que nao liga o `empresaId` do client ao tenant da
