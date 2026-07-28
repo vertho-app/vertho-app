@@ -29,8 +29,23 @@ type Sintese = {
   next_steps?: string[];
   unverified_claims?: string[];
 };
+type Verificacao = {
+  resumo?: { total: number; ok: number; quebradas: number; nao_verificavel: number };
+  quebradas?: { letra: string; claim: string; source: string; status: string; detalhe?: string }[];
+  tetos?: { letra: string; declarada: number | null; teto: number; efetiva: number; estourou: boolean; motivo: string }[];
+};
+type PremissaComum = {
+  letra: string;
+  premissa: string;
+  tentativa_de_refutacao?: string;
+  sobreviveu?: boolean;
+  se_cair?: string;
+};
+
 type Resultado = {
   autores?: Autor[];
+  verificacao?: Verificacao;
+  premissas_comuns?: PremissaComum[];
   presenca?: { r1: string[]; r2: string[]; perdidos: { letra: string; nome: string; erro: string }[] };
   rodada1?: PropostaR1[];
   rodada2?: PropostaR2[];
@@ -132,6 +147,52 @@ export default async function PainelPage({ params }: { params: Promise<{ id: str
             </div>
           )}
 
+          {/* fontes conferidas em código — antes da resposta, de propósito:
+              se uma citação não existe, isso muda como se lê tudo o que vem depois */}
+          {!!r?.verificacao?.resumo?.total && (
+            <section className="mb-7">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-white/45 font-mono mb-3">
+                <span className="uppercase tracking-wider text-white/35">Fontes conferidas em código</span>
+                <span className="text-emerald-300/70">{r.verificacao.resumo.ok} conferem</span>
+                {!!r.verificacao.resumo.quebradas && (
+                  <span className="text-amber-300/80">{r.verificacao.resumo.quebradas} não existem</span>
+                )}
+                <span className="text-white/30">{r.verificacao.resumo.nao_verificavel} não são arquivo</span>
+              </div>
+
+              {!!r.verificacao.quebradas?.length && (
+                <ul className="flex flex-col gap-2 mb-3">
+                  {r.verificacao.quebradas.map((q, i) => (
+                    <li key={i} className="rounded-xl border border-amber-400/25 bg-amber-400/[0.04] px-4 py-3">
+                      <p className="text-[13px] text-amber-100/90">
+                        <span className="font-serif text-base text-amber-300 mr-1.5">{q.letra}</span>
+                        {q.claim}
+                      </p>
+                      <p className="text-[11.5px] text-amber-200/60 font-mono mt-1">
+                        {q.source} — {q.status}
+                        {q.detalhe ? `, ${q.detalhe}` : ''}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {!!r.verificacao.tetos?.filter((t) => t.estourou).length && (
+                <ul className="flex flex-col gap-1.5">
+                  {r.verificacao.tetos
+                    .filter((t) => t.estourou)
+                    .map((t) => (
+                      <li key={t.letra} className="text-[12.5px] text-white/45">
+                        <span className="font-serif text-base text-cyan-300/80 mr-1.5">{t.letra}</span>
+                        declarou <b className="text-white/70 tabular-nums">{t.declarada}</b> de confiança, mas a
+                        evidência sustenta no máximo <b className="text-white/70 tabular-nums">{t.teto}</b> — {t.motivo}
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </section>
+          )}
+
           <section className="rounded-2xl border border-cyan-400/20 px-5 sm:px-7 py-6 mb-8" style={{ background: '#08192C' }}>
             <p className="text-[11px] uppercase tracking-[0.16em] text-cyan-300/70 font-mono mb-3">A resposta</p>
             <div className={md}>
@@ -206,6 +267,41 @@ export default async function PainelPage({ params }: { params: Promise<{ id: str
               })}
             </div>
           </section>
+
+          {/* a suposição que todos compartilharam — o ponto cego coletivo */}
+          {!!r?.premissas_comuns?.length && (
+            <section className="mb-8">
+              <h2 className="text-lg font-semibold text-white mb-1">A premissa que ninguém questionou</h2>
+              <p className="text-white/40 text-[13px] mb-4 max-w-[62ch]">
+                Cada autor teve de apontar a suposição que todas as propostas assumiam sem discutir e tentar derrubá-la.
+                Quando ela sobrevive por falta de ataque, e não por força, a resposta inteira depende dela.
+              </p>
+              <ul className="flex flex-col gap-3">
+                {r.premissas_comuns.map((p) => (
+                  <li key={p.letra} className="rounded-2xl border border-white/[0.06] px-5 py-4" style={{ background: '#091D35' }}>
+                    <div className="flex items-start gap-3">
+                      <span className="font-serif text-2xl text-cyan-300 leading-none">{p.letra}</span>
+                      <div className="min-w-0">
+                        <p className="text-white/90 text-[14.5px] font-medium">{p.premissa}</p>
+                        {p.tentativa_de_refutacao && (
+                          <p className="text-white/50 text-[13px] mt-1.5">
+                            <span className="text-white/30">ataque: </span>
+                            {p.tentativa_de_refutacao}
+                          </p>
+                        )}
+                        <p className="text-[12px] mt-2">
+                          <span className={p.sobreviveu ? 'text-white/40' : 'text-amber-300/85'}>
+                            {p.sobreviveu ? 'sobreviveu ao ataque' : 'NÃO sobreviveu'}
+                          </span>
+                          {p.se_cair && <span className="text-white/40"> · se cair: {p.se_cair}</span>}
+                        </p>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {s.avaliacao_da_convergencia && (
             <section className="mb-8">

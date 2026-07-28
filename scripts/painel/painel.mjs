@@ -16,6 +16,7 @@
 import { readdirSync, statSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { chamarMotor, MOTORES } from './engine.mjs'
+import { verificarCitacoes, tetoDeConfianca, textoVerificacao } from './verificacao.mjs'
 
 const FORMATOS_DUVIDOSOS = ['.pdf', '.docx', '.xlsx', '.pptx', '.png', '.jpg', '.jpeg', '.webp']
 
@@ -51,6 +52,12 @@ Sua ultima mensagem deve ser UM UNICO objeto JSON puro, sem cercas de codigo, se
   "proposta_final": "<a sua melhor proposta possivel, completa e autossuficiente; markdown DENTRO da string>",
   "resumo": "<uma frase>",
   "o_que_mudou_desde_r1": "<o que a sua proposta ganhou E o que perdeu>",
+  "premissa_comum": {
+    "premissa": "<a suposicao que TODAS as propostas assumiram sem discutir>",
+    "tentativa_de_refutacao": "<o melhor argumento que voce consegue construir CONTRA ela>",
+    "sobreviveu": true | false,
+    "se_cair": "<o que muda na resposta se essa premissa for falsa>"
+  },
   "recusou": [ { "ideia": "<o que dos outros voce deixou de fora DE PROPOSITO>", "de": "<letra do autor>", "porque": "<o argumento>" } ],
   "ainda_em_disputa": ["<pontos em que os autores NAO convergiram de verdade>"],
   "riscos": ["<riscos da proposta final>"],
@@ -137,6 +144,11 @@ EVIDENCIAS: ${(p.evidence || []).map((e) => `(${e.provenance}) ${e.claim}${e.sou
 const fmtR2 = (p) => `--- PROPOSTA ${p.letra} FINAL (confianca ${p.confidence})
 ${p.proposta_final}
 MUDOU DESDE A R1: ${p.o_que_mudou_desde_r1 || '-'}
+PREMISSA COMUM QUE ELE ATACOU: ${
+  p.premissa_comum
+    ? `"${p.premissa_comum.premissa}" -> ${p.premissa_comum.tentativa_de_refutacao} (sobreviveu: ${p.premissa_comum.sobreviveu ? 'sim' : 'NAO'}${p.premissa_comum.se_cair ? `; se cair: ${p.premissa_comum.se_cair}` : ''})`
+    : '(nao declarou)'
+}
 RECUSOU DOS OUTROS: ${(p.recusou || []).map((r) => `${r.ideia} (de ${r.de}) -- ${r.porque}`).join(' | ') || '(nada -- possivel conformidade)'}
 AINDA EM DISPUTA: ${(p.ainda_em_disputa || []).join(' | ') || '-'}`
 
@@ -164,6 +176,16 @@ export async function sintetizar({ pergunta, contexto, contexto_dir, raiz, brief
   const PERGUNTA = `PERGUNTA:\n${pergunta}${contexto ? `\n\nCONTEXTO FORNECIDO PELO SOLICITANTE:\n${contexto}` : ''}`
   const conv = medirConvergencia(r2)
 
+  // Reverifica na sintese: as citacoes da R1 e as que apareceram na R2. O juiz
+  // recebe o apurado em codigo, nao a palavra dos autores sobre as proprias
+  // fontes.
+  const verif = verificarCitacoes([...r1, ...r2], { raiz, contextoDir: contexto_dir })
+  const tetos = r2.map((p) => ({ letra: p.letra, ...tetoDeConfianca(p, verif) }))
+  const premissas = r2
+    .filter((p) => p.premissa_comum && p.premissa_comum.premissa)
+    .map((p) => `  [${p.letra}] "${p.premissa_comum.premissa}" -- sobreviveu ao ataque: ${p.premissa_comum.sobreviveu ? 'sim' : 'NAO'}`)
+    .join('\n')
+
   const prompt = `${BASE}
 
 Voce faz a SINTESE deste painel. Os autores responderam a mesma pergunta de forma independente e depois leram uns aos outros e fecharam. Voce NAO sabe qual modelo escreveu qual proposta -- de proposito. Julgue pelo conteudo.
@@ -180,17 +202,24 @@ MEDIDO EM CODIGO SOBRE A RODADA 2: ${conv.recusas_declaradas} recusas declaradas
     conv.autores_sem_recusa.length ? ` Nao declararam nenhuma recusa: ${conv.autores_sem_recusa.join(', ')}.` : ''
   }${conv.alerta_conformidade ? ' ALERTA: ninguem recusou nada e ninguem viu disputa -- trate a convergencia como suspeita ate provar o contrario.' : ''}
 
+${textoVerificacao(verif, tetos)}
+
+${premissas ? `PREMISSAS COMUNS QUE OS AUTORES TENTARAM DERRUBAR:\n${premissas}` : ''}
+
 Sua tarefa:
 1. ENTREGUE A RESPOSTA FINAL ao solicitante. Completa e acionavel -- este e o produto. Nao e um resumo do que o painel disse; e a melhor resposta possivel construida a partir do que ele produziu.
 2. Voce recebeu R1 e R2 lado a lado por um motivo: encontre as BOAS IDEIAS QUE MORRERAM no caminho. Proposta forte da R1 que sumiu na R2 provavelmente foi abandonada por pressao de grupo, nao por refutacao.
-3. VERIFIQUE voce mesmo os 2-3 fatos que mais pesam na resposta. Refinamento cruzado propaga afirmacao rotulada como "Medido" sem reabrir -- ja aconteceu neste formato. Nao escreva nada; apenas leia.
-4. PRESERVE as divergencias reais. Consenso forcado e o modo de falha deste formato.
-5. unverified_claims: o que pesou na resposta e ninguem checou. Seja desconfortavelmente honesto.
+3. VERIFIQUE voce mesmo os 2-3 fatos que mais pesam na resposta. Refinamento cruzado propaga afirmacao rotulada como "Medido" sem reabrir -- ja aconteceu neste formato. A verificacao mecanica acima diz quais fontes EXISTEM; ela nao diz se o arquivo sustenta a afirmacao. Essa parte e sua. Nao escreva nada; apenas leia.
+4. Uma afirmacao apoiada em citacao inexistente NAO entra na resposta como fato. Se a ideia for boa, sustente-a com outra coisa ou rebaixe para hipotese -- e registre isso em unverified_claims.
+5. PRESERVE as divergencias reais. Consenso forcado e o modo de falha deste formato.
+6. A concordancia entre os autores mede origem parecida (mesmos corpora, mesmo enunciado), nao verdade. Se houver premissa comum que ninguem derrubou, diga que a resposta inteira depende dela.
+7. Sua confidence nao pode ser maior que a do fato mais fraco que sustenta a decisao.
+8. unverified_claims: o que pesou na resposta e ninguem checou. Seja desconfortavelmente honesto.
 
 ${CONTRATO_SINTESE}`
 
   const s = await chamarMotor('claude', prompt, { raiz, contextoDir: contexto_dir }, 'sintese', tentativas)
-  return { sintese: s, convergencia: conv }
+  return { sintese: s, convergencia: conv, verificacao: verif, tetos }
 }
 
 /**
@@ -243,8 +272,21 @@ ${CONTRATO_R1}`
     return { erro: 'Menos de duas propostas sobreviveram a rodada 1.', r1: r1bruto, segundos: Math.round((Date.now() - t0) / 1000) }
   }
 
+  // ------------------------------------------- verificacao mecanica das fontes
+  // Feita ANTES da rodada 2 de proposito: assim o autor ve, antes de incorporar
+  // ideia alheia, quais "Medido" dos outros nao conferem no disco. E o unico
+  // ponto do fluxo em que da para cortar a propagacao de chute vestido de
+  // medicao -- que foi o que os quatro fizeram com lead-comercial.ts.
+  const verifR1 = verificarCitacoes(r1, ctx)
+  const tetosR1 = r1.map((p) => ({ letra: p.letra, ...tetoDeConfianca(p, verifR1) }))
+  const BLOCO_VERIF = textoVerificacao(verifR1, tetosR1)
+
+  if (verifR1.resumo.quebradas) {
+    log(`Verificacao das fontes: ${verifR1.resumo.quebradas} citacao(oes) NAO conferem no disco`)
+  }
+
   // ---------------------------------------------------------------- rodada 2
-  onProgress({ fase: 'rodada2', total: r1.length })
+  onProgress({ fase: 'rodada2', total: r1.length, citacoes_quebradas: verifR1.resumo.quebradas })
 
   const r2bruto = await Promise.all(
     r1.map(async (meu) => {
@@ -262,11 +304,15 @@ ${fmtR1(meu)}
 AS PROPOSTAS DOS OUTROS (autores anonimos):
 ${outras}
 
+${BLOCO_VERIF}
+
 RODADA 2 de 2 -- a ultima. Entregue a melhor proposta que voce e capaz de escrever.
 - Adote o que for melhor que o seu e diga de quem veio. Copiar boa ideia alheia e o objetivo, nao derrota.
 - Onde a sua e superior, MANTENHA e registre em "recusou" por que a alternativa nao entra.
 - OBRIGATORIO tentar preencher "recusou". Se todas as propostas convergiram, alguem cedeu sem bom motivo e o solicitante precisa saber. Lista vazia sera lida como conformidade, nao como acordo.
 - Liste em "ainda_em_disputa" onde a convergencia foi aparente, nao real.
+- NAO adote afirmacao alheia cuja fonte a verificacao acima marcou como inexistente. Se a ideia for boa mesmo assim, adote SEM a justificativa falsa e diga que a base nao se sustenta.
+- PREMISSA COMUM (obrigatorio): quatro propostas parecidas costumam compartilhar uma suposicao que ninguem discutiu -- e ela e o ponto cego coletivo. Identifique essa suposicao, construa o MELHOR argumento contra ela e diga honestamente se ela sobrevive. Concordancia entre modelos mede origem parecida, nao verdade.
 
 ${SEM_INVESTIGAR}
 
@@ -286,7 +332,7 @@ ${CONTRATO_R2}`
   // ---------------------------------------------------------------- sintese
   onProgress({ fase: 'sintese' })
 
-  const { sintese: s, convergencia } = await sintetizar({
+  const { sintese: s, convergencia, verificacao, tetos } = await sintetizar({
     pergunta: pedido.pergunta,
     contexto: pedido.contexto,
     contexto_dir: pedido.contexto_dir,
@@ -315,6 +361,18 @@ ${CONTRATO_R2}`
     rodada1: r1,
     rodada2: r2,
     convergencia,
+    // apurado em código: quais fontes citadas existem e onde a confiança
+    // declarada passa do que a evidência sustenta
+    verificacao: {
+      resumo: verificacao.resumo,
+      quebradas: verificacao.itens.filter(
+        (i) => i.status === 'arquivo-inexistente' || i.status === 'linha-inexistente'
+      ),
+      tetos,
+    },
+    premissas_comuns: r2
+      .filter((p) => p.premissa_comum && p.premissa_comum.premissa)
+      .map((p) => ({ letra: p.letra, ...p.premissa_comum })),
     sintese: s.ok ? s.dados : null,
     sintese_erro: s.ok ? null : s.erro,
     metricas: {

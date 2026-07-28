@@ -15,6 +15,7 @@
     "app/api/auth/phone-magic-link/request/route.ts": 1,
     "app/api/me/route.ts": 1,
     "lib/audit.ts": 1,
+    "lib/degradacao.ts": 1,
     "lib/i18n-server.ts": 2,
     "lib/permissions.ts": 1,
     "actions/ai-client.ts": 1,
