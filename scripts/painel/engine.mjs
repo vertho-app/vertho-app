@@ -16,9 +16,9 @@
  * apareceram em 27/07 (limite de linha de comando, args serializado, script
  * cacheado).
  */
-import { spawn } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { spawn, execFileSync } from 'node:child_process'
+import { mkdirSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const TMP = join(tmpdir(), 'vertho-board')
@@ -26,12 +26,111 @@ mkdirSync(TMP, { recursive: true })
 
 const TIMEOUT_MS = 12 * 60 * 1000
 
+/**
+ * Qual `codex` chamar — por VERSÃO, não pelo PATH.
+ *
+ * Existem três instalados nesta máquina (app desktop, npm global e o do fnm), e
+ * o PATH decide de forma diferente conforme quem chama: o terminal do Rodrigo
+ * resolvia 0.145, a TAREFA AGENDADA resolvia 0.130. A 0.130 não conhece o modelo
+ * `gpt-5.6-sol` — ela imprime o cabeçalho, ecoa o prompt e sai em ~16s sem
+ * responder, o que na saída parece "o modelo não devolveu JSON".
+ *
+ * Custou dois painéis inteiros perdendo o autor B, com a falha aparecendo só sob
+ * o worker e nunca no terminal. Por isso a escolha é medida aqui, uma vez por
+ * processo, e o resultado é logado.
+ */
+const CANDIDATOS_CODEX = [
+  ...(process.env.BOARD_CODEX_BIN ? [process.env.BOARD_CODEX_BIN] : []),
+  // instalações do npm sob cada versão de node gerenciada pelo fnm
+  ...(() => {
+    const raiz = join(homedir(), 'AppData', 'Roaming', 'fnm', 'node-versions')
+    try {
+      return readdirSync(raiz).map((v) => join(raiz, v, 'installation', 'codex.cmd'))
+    } catch {
+      return []
+    }
+  })(),
+  join(homedir(), 'AppData', 'Roaming', 'npm', 'codex.cmd'),
+  join(homedir(), 'AppData', 'Local', 'OpenAI', 'Codex', 'bin', 'codex.exe'),
+  'codex', // último recurso: o que o PATH resolver
+]
+
+/**
+ * `.cmd` e `.ps1` não são executáveis diretos no Windows, mas a solução NÃO é
+ * montar string de shell: passa-se o caminho como ARGUMENTO do cmd.exe, com
+ * array. Assim nada é interpolado numa linha de comando — mesma disciplina do
+ * bloco SEGURANÇA lá embaixo.
+ */
+function versaoDe(bin) {
+  try {
+    const saida = execFileSync('cmd.exe', ['/c', bin, '--version'], {
+      encoding: 'utf8',
+      timeout: 20000,
+      windowsHide: true,
+    })
+    const m = String(saida).match(/(\d+)\.(\d+)\.(\d+)/)
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null
+  } catch {
+    return null
+  }
+}
+
+/** Compara semver campo a campo — string não serve: "0.145" < "0.130" na ordem
+ *  lexicográfica, que é exatamente o erro que escolheria o binário quebrado. */
+const maior = (a, b) => {
+  for (let i = 0; i < 3; i++) {
+    if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0)
+  }
+  return false
+}
+
+let _codex = null
+export function resolverCodex() {
+  if (_codex) return _codex
+  let melhor = null
+  for (const bin of CANDIDATOS_CODEX) {
+    if (bin !== 'codex' && !existsSync(bin)) continue
+    const v = versaoDe(bin)
+    if (!v) continue
+    if (!melhor || maior(v, melhor.v)) melhor = { bin, v }
+  }
+  _codex = melhor || { bin: 'codex', v: [0, 0, 0] }
+  return _codex
+}
+
+/** Versões dos CLIs, para o worker anunciar no log — divergência silenciosa foi
+ *  o que escondeu o bug do codex. */
+export function versoesDosCLIs() {
+  const c = resolverCodex()
+  const um = (nome) => {
+    try {
+      return String(
+        execFileSync('cmd.exe', ['/c', nome, '--version'], { encoding: 'utf8', timeout: 20000, windowsHide: true }),
+      ).trim().split('\n')[0]
+    } catch {
+      return '(não encontrado)'
+    }
+  }
+  return {
+    codex: `${c.v.join('.')} — ${c.bin}`,
+    claude: um('claude'),
+    kimi: um('kimi'),
+  }
+}
+
 // ---------------------------------------------------------------- shell
 function sh(comando, { timeout = TIMEOUT_MS, env = {} } = {}) {
   return new Promise((resolve) => {
     const p = spawn('pwsh', ['-NoProfile', '-NonInteractive', '-Command', comando], {
       windowsHide: true,
       env: { ...process.env, ...env },
+      // stdin FECHADO ('ignore'), não um pipe pendurado. O prompt entra pelo
+      // pipeline interno do PowerShell (Get-Content | cli); um stdin de processo
+      // aberto e nunca escrito deixa o codex esperando "additional input" e ele
+      // encerra sem responder — saída = cabeçalho + eco do prompt, em ~16s.
+      // Medido 28/07: falhava sempre no worker e nunca no terminal, porque no
+      // terminal o stdin é o console e fecha sozinho.
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     let out = ''
     let err = ''
@@ -157,8 +256,9 @@ export const MOTORES = {
     // --sandbox read-only: garantia em nivel de processo de que nao escreve
     // read-only permite LER fora do cwd, mas o agente ancora o trabalho na raiz
     // que receber: com anexos, a raiz passa a ser a pasta deles.
+    // caminho ABSOLUTO do binário mais novo — ver resolverCodex()
     cmd: (f, ctx) =>
-      `${UTF8}Get-Content -LiteralPath $env:${ENV_PROMPT} -Raw | codex exec --skip-git-repo-check --sandbox read-only` +
+      `${UTF8}Get-Content -LiteralPath $env:${ENV_PROMPT} -Raw | & '${resolverCodex().bin}' exec --skip-git-repo-check --sandbox read-only` +
       (ctx.contextoDir ? ` --cd $env:${ENV_CTX}` : ''),
     parse: (out) => extrairJson(out),
   },
@@ -203,9 +303,9 @@ export const MOTORES = {
   },
 }
 
-/** Falha de rede/servidor, que uma segunda tentativa costuma resolver — ao
- *  contrario de contrato quebrado, que vai falhar igual quantas vezes rodar. */
-function transitoria(texto) {
+/** Falha que se ANUNCIA como transitoria — usada so para logar melhor; a
+ *  decisao de retentar nao depende dela (ver chamarMotor). */
+export function transitoria(texto) {
   return /API Error|Connection closed|connection reset|ECONNRESET|ETIMEDOUT|socket hang up|502|503|504|overloaded|rate.?limit/i.test(
     String(texto || ''),
   )
@@ -265,8 +365,13 @@ export async function chamarMotor(id, prompt, ctx = {}, tag = '', tentativas = 1
       erro: r.timeout ? `timeout apos ${segundos}s` : `nenhum JSON valido na saida: ${saida}`,
     }
 
-    const vaiTentarDeNovo = n < tentativas && (r.timeout || transitoria(saida))
-    if (!vaiTentarDeNovo) break
+    // Retenta em QUALQUER falha, não só na que se anuncia como transitória.
+    // Medido 28/07: o codex morreu em 16s devolvendo apenas o eco do prompt —
+    // nada no texto casava com "API Error"/"connection reset", então o retry não
+    // disparou e o painel perdeu um autor. O MESMO prompt, repetido à mão,
+    // respondeu em 287s. Uma segunda chamada custa pouco perto de um painel
+    // inteiro com um modelo a menos.
+    if (n >= tentativas) break
     await new Promise((res) => setTimeout(res, 5000 * n))
   }
 

@@ -117,8 +117,13 @@ export function verificarCitacoes(propostas, ctx = {}) {
  * apoiado só em "Suponho" fica visível — foi o caso do Gemini no painel do
  * CONARH, o mais confiante e o que menos riscos declarou.
  */
-export function tetoDeConfianca(proposta, verificacao) {
-  const ev = proposta.evidence || []
+export function tetoDeConfianca(proposta, verificacao, evidenciaExtra = []) {
+  // A proposta FINAL não carrega `evidence` — o schema da rodada 2 não pede, e
+  // a evidência vive na rodada 1 do mesmo autor. Sem juntar as duas, o teto caía
+  // para "nenhuma evidência apresentada" em TODO mundo, e o alerta acusava os
+  // quatro autores de uma vez. Alarme que dispara sempre é ruído, e ruído treina
+  // a ignorar o alarme — foi o que aconteceu no painel de 28/07.
+  const ev = [...(proposta.evidence || []), ...(evidenciaExtra || [])]
   const minhas = (verificacao?.itens || []).filter((i) => i.letra === proposta.letra)
   const quebradas = minhas.filter((i) => i.status === STATUS.SEM_ARQUIVO || i.status === STATUS.SEM_LINHA).length
 

@@ -16,6 +16,7 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { rodarPainel } from './painel.mjs'
+import { versoesDosCLIs } from './engine.mjs'
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -25,8 +26,21 @@ if (!URL || !KEY) {
 }
 
 const sb = createClient(URL, KEY, { auth: { persistSession: false } })
-const INTERVALO_MS = Number(process.env.BOARD_POLL_MS || 5000)
 const RAIZ = process.env.BOARD_RAIZ || process.cwd()
+
+/**
+ * Polling com recuo progressivo.
+ *
+ * Este worker fica ligado o dia inteiro (tarefa agendada no logon), e a fila
+ * quase sempre está vazia: 5s fixos seriam ~17 mil consultas por dia para nada.
+ * Depois de um pedido, volta ao mínimo — quem acabou de pedir um painel
+ * provavelmente vai pedir outro.
+ */
+const INTERVALO_MIN = Number(process.env.BOARD_POLL_MS || 5000)
+// 30s de teto: a tela acusa "worker desligado" aos 2 min, então o recuo precisa
+// ficar bem abaixo disso — senão um worker vivo pareceria morto.
+const INTERVALO_MAX = Number(process.env.BOARD_POLL_MAX_MS || 30000)
+let intervalo = INTERVALO_MIN
 
 const agora = () => new Date().toISOString()
 const log = (...a) => console.log(new Date().toLocaleTimeString('pt-BR'), ...a)
@@ -171,17 +185,34 @@ async function executar(p) {
   }
 }
 
-log(`worker do /board no ar — polling a cada ${INTERVALO_MS / 1000}s`)
+log(`worker do /board no ar — polling de ${INTERVALO_MIN / 1000}s a ${INTERVALO_MAX / 1000}s`)
 log(`raiz: ${RAIZ}`)
+
+// Anunciar as versões: o worker roda sob a tarefa agendada, com PATH diferente
+// do terminal, e um CLI velho falha de um jeito que PARECE erro do modelo.
+// Em 28/07 a tarefa resolvia codex 0.130 (que não conhece gpt-5.6-sol) enquanto
+// o terminal resolvia 0.145 — dois painéis perderam o autor B por causa disso.
+for (const [nome, versao] of Object.entries(versoesDosCLIs())) {
+  log(`  ${nome}: ${versao}`)
+}
+
+const dormir = (ms) => new Promise((r) => setTimeout(r, ms))
 
 while (!encerrando) {
   try {
     const p = await pegarPedido()
-    if (p) await executar(p)
-    else await new Promise((r) => setTimeout(r, INTERVALO_MS))
+    if (p) {
+      await executar(p)
+      intervalo = INTERVALO_MIN // ficou ativo: volta a responder rápido
+    } else {
+      await dormir(intervalo)
+      intervalo = Math.min(Math.round(intervalo * 1.5), INTERVALO_MAX)
+    }
   } catch (e) {
+    // Rede caindo ou banco fora: recua igual, senão vira tempestade de retry
     log(`erro no loop: ${e && e.message ? e.message : e}`)
-    await new Promise((r) => setTimeout(r, INTERVALO_MS))
+    await dormir(intervalo)
+    intervalo = Math.min(Math.round(intervalo * 1.5), INTERVALO_MAX)
   }
 }
 

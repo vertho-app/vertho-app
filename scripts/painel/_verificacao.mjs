@@ -66,6 +66,18 @@ ok(tB.estourou && tB.teto === 0.5, 'B (citação quebrada) tem teto 0,5 e estour
 ok(tD.estourou && tD.teto === 0.7, 'D (memória não verificada) tem teto 0,7 e estoura')
 ok(!tA.estourou, 'A (tudo medido e conferido) NÃO estoura')
 
+console.log('\n2b) proposta FINAL (sem campo evidence) usa a evidência da rodada 1')
+{
+  // Regressão de 28/07: o teto era calculado só sobre a proposta final, que não
+  // repete `evidence` — e aí TODO autor caía em "nenhuma evidência", com o
+  // alerta acusando os quatro de uma vez.
+  const final = { letra: 'A', confidence: 0.9 } // sem evidence, como vem da R2
+  const semR1 = tetoDeConfianca(final, v)
+  const comR1 = tetoDeConfianca(final, v, propostas[0].evidence)
+  ok(semR1.teto === 0.6, `sem a evidência da R1 o teto despenca (${semR1.teto})`)
+  ok(comR1.teto === 0.95 && !comR1.estourou, `com a evidência da R1 o teto é ${comR1.teto} e NÃO estoura`)
+}
+
 console.log('\n3) bloco que vai para o prompt')
 const texto = textoVerificacao(v, tetos)
 console.log(texto.split('\n').map((l) => `  | ${l}`).join('\n'))

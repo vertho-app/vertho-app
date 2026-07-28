@@ -180,7 +180,11 @@ export async function sintetizar({ pergunta, contexto, contexto_dir, raiz, brief
   // recebe o apurado em codigo, nao a palavra dos autores sobre as proprias
   // fontes.
   const verif = verificarCitacoes([...r1, ...r2], { raiz, contextoDir: contexto_dir })
-  const tetos = r2.map((p) => ({ letra: p.letra, ...tetoDeConfianca(p, verif) }))
+  // a evidência do autor está na R1; a proposta final não a repete
+  const tetos = r2.map((p) => {
+    const naR1 = r1.find((x) => x.letra === p.letra)
+    return { letra: p.letra, ...tetoDeConfianca(p, verif, naR1?.evidence || []) }
+  })
   const premissas = r2
     .filter((p) => p.premissa_comum && p.premissa_comum.premissa)
     .map((p) => `  [${p.letra}] "${p.premissa_comum.premissa}" -- sobreviveu ao ataque: ${p.premissa_comum.sobreviveu ? 'sim' : 'NAO'}`)
