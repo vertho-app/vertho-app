@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   checarFormatoPrometido, checarCoberturaKit, checarDesafioPlaceholder,
   checarContatos, checarCoreAusente, checarCanalZerado, checarEntregaIncompleta,
-  regrasPreflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua,
+  regrasPreflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarCelulaVideoEmError,
   checarDegradacoes, DEGRADACAO_VOLUME_CRITICO,
-  type EntregaPrevista, type EnvioObservado, type LacunaKitHorizonte, type DegradacaoRegistro,
+  type CelulaVideoSemDeck, type EntregaPrevista, type EnvioObservado, type LacunaKitHorizonte, type DegradacaoRegistro,
 } from '@/lib/pipeline-health/regras';
 import { severidadeGlobal, achado } from '@/lib/pipeline-health/types';
 
@@ -315,5 +315,38 @@ describe('R10 · degradações das últimas 24h', () => {
     const a = checarDegradacoes([reg({ ocorrencias: DEGRADACAO_VOLUME_CRITICO + 1 })]);
     expect(a?.severidade).toBe('critico');
     expect(checarDegradacoes([reg({ ocorrencias: DEGRADACAO_VOLUME_CRITICO })])?.severidade).toBe('aviso');
+  });
+});
+
+/**
+ * R10 · célula de vídeo que falhou e segue sem deck (F-V3). Medido 28/07: num lote de 41,
+ * 6 falharam por saturação de fornecedor (TTS/HeyGen) e a entrega as ignora em silêncio,
+ * porque o resolver filtra `status<>'error'` e o `video-stale` só pega presos.
+ *
+ * O critério é "erro E nenhum deck": no mesmo dia, 35 células já tinham falhado alguma vez
+ * e 33 estavam resolvidas por tentativa posterior. Contar `error` cru viraria ruído
+ * permanente — e alarme ruidoso é alarme desligado.
+ */
+describe('R10 · célula de vídeo em error sem deck', () => {
+  const cel = (over: Partial<CelulaVideoSemDeck> = {}): CelulaVideoSemDeck => ({
+    empresaSlug: 'ibipeba', cargo: 'Gestão Educacional', disc: 'S',
+    erros: 1, ultimoErro: 'TTS: resposta sem áudio após 4 tentativas', ...over,
+  });
+
+  it('acusa e mostra tenant/cargo/DISC e a causa na amostra', () => {
+    const a = checarCelulaVideoEmError([cel(), cel({ disc: 'C', ultimoErro: 'HeyGen timeout aguardando video_id' })]);
+    expect(a?.id).toBe('celula-video-em-error');
+    expect(a?.severidade).toBe('aviso');
+    expect(a?.contagem).toBe(2);
+    expect(a?.amostra?.[0]).toContain('ibipeba');
+    expect(a?.amostra?.[0]).toContain('TTS');
+  });
+
+  it('a ação lembra de re-disparar com concorrência menor (senão satura de novo)', () => {
+    expect(checarCelulaVideoEmError([cel()])?.acao).toMatch(/concorr/i);
+  });
+
+  it('lista vazia não gera achado — célula recuperada não deve aparecer', () => {
+    expect(checarCelulaVideoEmError([])).toBeNull();
   });
 });

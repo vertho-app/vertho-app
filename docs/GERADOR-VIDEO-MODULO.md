@@ -89,3 +89,43 @@ isso o mesmo deck serve todos os perfis da célula, e só o áudio muda.
 - Watchdog `MAX_RENDER_MS` default 25→**40min** (`worker.mjs`): 25min matava render válido (um de 5,6min levou 32min em cx33). Override por env.
 - TTS resiliente (`lib/gemini-tts.ts`): re-tenta quando o Vertex responde **200 OK sem áudio** (intermitente) — antes 1 cena com hiccup derrubava o vídeo ("TTS: resposta sem áudio").
 - Snapshot atual: `401652957` (rebuildar quando `worker-hetzner/*` mudar → atualizar `RENDER_SNAPSHOT_ID` no trigger).
+
+---
+
+## Atualização 28/07/2026 — primeiro lote grande medido (42 células)
+
+Gerar o vídeo de uma semana inteira do Ibipeba (semana 5) deu o primeiro número real de
+throughput e de taxa de falha do pipeline em lote.
+
+**Medido:**
+
+| | |
+|---|---|
+| Células | **42** `(modulo_base × cargo × 1ª letra do DISC)` → **42/42** `done` com `bunny_video_id` |
+| Tempo | **~91 min** o lote (disparo `--conc 4` + renders em paralelo); **22 min** um render isolado |
+| Boxes | escalaram sozinhas até **15** (`MAX_RENDER_BOXES`), ladder cx43 → cx33 → cpx32 conforme estoque; **todas morreram** no idle shutdown (conferido por API: 0 ativas) |
+| Personalizados | **187** `videos_personalizados` nominais saíram atrás dos decks, sem intervenção |
+| Custo | **47 renders pagos para 42 células** (~12% de desperdício) ≈ $33 |
+
+**🔴 A taxa de falha do lote é de SATURAÇÃO de fornecedor, não de bug — 6 de 41 (~15%):**
+3× `TTS: resposta sem áudio após 4 tentativas` e 3× `HeyGen timeout aguardando video_id`.
+Concorrência 4 basta para saturar Vertex TTS e HeyGen ao mesmo tempo. **Recuperação é trivial e
+foi 100%:** re-rodar o mesmo disparo com `--conc 2`. A célula em `error` não conta como "tem deck"
+(o resolver da entrega filtra `status<>'error'`) e a UNIQUE parcial permite a linha nova — então
+re-disparar é seguro e idempotente.
+
+**Receita que funcionou, na ordem que importa:**
+1. **Piloto de UMA célula antes do lote.** Valida roteiro → HeyGen → Remotion → Bunny por ~$0,70
+   em vez de descobrir um caminho quebrado depois de gastar ~$29.
+2. Lote com `--conc 4`; **re-disparo dos falhos com `--conc 2`**.
+3. **Conferir boxes pela API do Hetzner no fim** — box viva é dinheiro parado.
+
+⚠️ **O combo tem de ancorar no `modulo_base` do CORE**, a mesma âncora que `resolverVideoDaSemana`
+usa na leitura. Ancorar noutro lugar (no módulo do brief do kit, por exemplo) rende vídeo que
+renderiza, custa e **não aparece** — é o vídeo órfão de `KIT-SEMANAL.md`.
+
+⚠️ **O token do Hetzner no `.env.local` tem nome COM ESPAÇOS** (`Hetzner Cloud api token`), e os
+scripts fazem o fallback `HCLOUD_TOKEN ||` esse nome. Um check de infra que lê só `HCLOUD_TOKEN`
+autentica vazio e a API responde `unauthorized` — se o script imprimir apenas `servers.length`,
+isso vira **"0 boxes"** e leva a diagnosticar "fila parada" com 9 boxes rodando (aconteceu em
+28/07). Check de infra imprime o erro da API antes da contagem.

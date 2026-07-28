@@ -14,7 +14,7 @@ import { precarregarKits, overlayKitNaSemana, formatoPreferido } from '@/lib/sea
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { normalizePhone } from '@/lib/phone';
 import { levantarPlanoKitsCoorte } from '@/lib/season-engine/kit/plano-coorte';
-import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua, DegradacaoRegistro } from './regras';
+import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua, DegradacaoRegistro, CelulaVideoSemDeck } from './regras';
 
 /** Dia da semana no fuso do envio (1=segunda … 7=domingo), como o cron calcula. */
 export function diaDaSemanaBRT(d: Date): number {
@@ -278,6 +278,44 @@ export async function coletarDegradacoes(sb: any): Promise<DegradacaoRegistro[]>
   // Propaga: 0 por falha de query é indistinguível de "nenhuma degradação".
   if (error) throw new Error(`degradacao_log: ${error.message}`);
   return (data as DegradacaoRegistro[]) || [];
+}
+
+/**
+ * Células de vídeo que falharam e seguem SEM deck assistível (R10 / F-V3).
+ *
+ * Agrupa por (módulo × empresa × cargo × DISC) — a mesma chave da UNIQUE parcial e do
+ * resolver da entrega — e só reporta quem tem `error` e ZERO `done` com Bunny. Célula que
+ * falhou e foi recuperada depois não vira achado (medido 28/07: 33 de 35 estavam nesse
+ * caso; contar `error` cru viraria ruído permanente).
+ */
+export async function coletarCelulasVideoSemDeck(sb: any): Promise<CelulaVideoSemDeck[]> {
+  const { data, error } = await sb.from('videos_gerados')
+    .select('modulo_base_id, empresa_id, cargo, disc_dominante, status, bunny_video_id, error, updated_at');
+  if (error) throw new Error(`videos_gerados: ${error.message}`);
+
+  const { data: emps } = await sb.from('empresas').select('id, slug');
+  const slugDe = Object.fromEntries((emps || []).map((e: any) => [e.id, e.slug]));
+
+  type Acc = { dones: number; erros: number; ultimoErro: string | null; quando: string; cargo: string | null; disc: string | null; empresaId: string | null };
+  const porCelula = new Map<string, Acc>();
+  for (const v of (data as any[]) || []) {
+    const k = `${v.modulo_base_id}|${v.empresa_id}|${v.cargo}|${v.disc_dominante}`;
+    const a = porCelula.get(k) || { dones: 0, erros: 0, ultimoErro: null, quando: '', cargo: v.cargo, disc: v.disc_dominante, empresaId: v.empresa_id };
+    if (v.status === 'done' && v.bunny_video_id) a.dones++;
+    if (v.status === 'error') {
+      a.erros++;
+      // Guarda o erro MAIS RECENTE — é o que explica o estado atual da célula.
+      if (String(v.updated_at || '') >= a.quando) { a.ultimoErro = v.error || null; a.quando = String(v.updated_at || ''); }
+    }
+    porCelula.set(k, a);
+  }
+
+  return [...porCelula.values()]
+    .filter((a) => a.erros > 0 && a.dones === 0)
+    .map((a) => ({
+      empresaSlug: a.empresaId ? (slugDe[a.empresaId] || null) : null,
+      cargo: a.cargo, disc: a.disc, erros: a.erros, ultimoErro: a.ultimoErro,
+    }));
 }
 
 /** Estado dos carimbos do dia (postflight). */

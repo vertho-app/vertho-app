@@ -267,6 +267,43 @@ export function checarHorizonteKits(
 }
 
 /**
+ * R10 · Célula de vídeo que FALHOU e continua sem deck (F-V3).
+ *
+ * O achado `video-stale` só pega célula presa em `processing/rendering/render_queued`.
+ * Quem termina em **`error`** sai do radar: o resolver da entrega filtra
+ * `status<>'error'`, a pessoa cai no formato não-vídeo e ninguém é avisado.
+ *
+ * **Medido 28/07:** num lote de 41 células, 6 falharam (~15%) por saturação de
+ * fornecedor — 3 TTS sem áudio, 3 HeyGen timeout. Recuperáveis re-disparando, mas só se
+ * alguém souber.
+ *
+ * ⚠️ O critério é "erro **E** nenhum deck", não "tem erro". Medido no mesmo dia: **35
+ * células já tiveram erro alguma vez e 33 delas foram resolvidas** por uma tentativa
+ * posterior. Uma regra que contasse `error` cru acusaria 35 para sempre — ruído crônico é
+ * alarme desligado.
+ */
+export interface CelulaVideoSemDeck {
+  empresaSlug: string | null;
+  cargo: string | null;
+  disc: string | null;
+  erros: number;
+  ultimoErro: string | null;
+}
+
+export function checarCelulaVideoEmError(celulas: CelulaVideoSemDeck[]): Achado | null {
+  return achado(
+    'celula-video-em-error', 'aviso',
+    'Célula de vídeo falhou e segue sem deck',
+    celulas.length,
+    'A última tentativa terminou em erro e não há deck assistível: a entrega ignora a célula e a pessoa recebe o formato não-vídeo, sem nada avisar. Costuma ser saturação de fornecedor (TTS/HeyGen) num lote, e o re-disparo resolve.',
+    {
+      amostra: celulas.map((c) => `${c.empresaSlug || '?'} · ${c.cargo || '?'} · ${c.disc || '?'} · ${c.erros}× · ${String(c.ultimoErro || '').slice(0, 50)}`),
+      acao: 'Re-disparar a célula (resolverCelulaVideo com gerar:true) — em lote, com concorrência 2 para não saturar de novo.',
+    },
+  );
+}
+
+/**
  * R9 · Módulo-Base publicado cujo `descritor` não existe na régua da competência×cargo.
  *
  * O resolver casa o descritor da semana contra `modulos_base_conteudo.descritor` (por
