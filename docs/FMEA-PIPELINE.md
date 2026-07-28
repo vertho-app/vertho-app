@@ -100,17 +100,18 @@ briefs duplicados por tupla.
 
 ## 1. Concorrência & corrida
 
-### F-C1 · Regeneração concorrente sobrescreve o plano (lost-update) 🟠
-- **Gatilho:** 2 admins, ou lote + clique, regeneram a mesma trilha. `persistirTrilha` faz
-  SELECT-then-UPDATE **sem lock nem versão** (`trilha-core.ts:536-566`). `trilhas` tem
-  `UNIQUE(empresa_id,colaborador_id)` mas o código não a usa como upsert.
+### F-C1 · Regeneração concorrente sobrescreve o plano (lost-update) ✅ (fechado 27/07)
+- **Gatilho (histórico):** 2 admins, ou lote + clique, regeneram a mesma trilha. O header fazia
+  SELECT-then-UPDATE **sem lock nem versão**; `trilhas` tem `UNIQUE(empresa_id,colaborador_id)`
+  (baseline:2035) mas o código não a usava como upsert.
 - **Efeito:** last-write-wins no `temporada_plano`; `data_inicio` reempurrado 2×; progresso zerado.
-- **Detecção:** nenhuma — retorna `ok:true`.
-- **Resolução:** **UPSERT com `onConflict:'empresa_id,colaborador_id'`** (como `development_blueprints`
-  já faz), OU coluna `versao` + `.eq('versao', lido)` no UPDATE (optimistic lock). Rejeitar a 2ª
-  gravação em vez de perder a 1ª.
-- **27/07:** o PROGRESSO virou upsert (F-C2 fechado) — o **header da trilha segue SELECT-then-UPDATE**
-  sem lock nem versão (`trilha-core.ts:687-726`). Este item continua aberto só na parte do header.
+  Retornava `ok:true`.
+- **Correção (27/07):** o header virou **upsert único com `onConflict:'empresa_id,colaborador_id'`**
+  (`trilha-core.ts:718-728`, mesmo padrão de `development_blueprints`), com erro propagado — o
+  UPDATE-talvez-0-linhas e o INSERT-que-colide silenciosos acabaram. O SELECT segue só para LER
+  `data_inicio`/`numero_temporada` (F-I1 preservado).
+- **Guarda:** `tests/unit/trilha-header-upsert.test.ts` (4) — validado por mutação (voltar para
+  UPDATE simples derruba os 4).
 
 ### F-C2 · Plano e progresso de runs diferentes (delete+insert não-atômico) ✅ (fechado 27/07, com ressalva)
 - **Gatilho (histórico):** regen concorrente. `temporada_semana_progresso` fazia `delete()` + `insert()`
@@ -216,18 +217,19 @@ briefs duplicados por tupla.
 - **Correção (27/07, `ab3cf043`):** `data_inicio: existente?.data_inicio || nextMondayISO()`
   (`trilha-core.ts:713`) — só a 1ª gravação calcula; o UPDATE preserva.
 
-### F-I2 · `regerarSemana` não re-seleciona conteúdo nem normaliza 🟠 (melhorou 27/07, núcleo aberto)
-- **Gatilho:** `regerarSemana` (`temporadas.ts:378-485`) reescreve só desafio/missão/cenário por IA,
-  mantém `core_id`/`formatos_disponiveis`/`descritor` do slot antigo, e grava **sem passar por
-  `normalizarSemanas`**.
-- **Efeito:** perpetua `core_id` órfão e "título ≠ blocos"; não conserta o que o admin acha que está
-  consertando.
-- **27/07 (parcial):** passou a **preservar reflexão/feedback/tira-dúvidas e o status** de quem já
-  trabalhou (`:459-479`) — regenerar não destrói mais o registro da pessoa. O núcleo segue aberto:
-  **não** chama `selecionarConteudoDaSemana` nem `normalizarSemanas`, e a mensagem enganosa "não
-  pode regerar avaliação" (`:454`) persiste.
-- **Resolução (pendente):** rotear reparo de conteúdo por `selecionarConteudoDaSemana` (já
-  exportada) + chamar `normalizarSemanas` no fim de `regerarSemana`.
+### F-I2 · `regerarSemana` não re-seleciona conteúdo nem normaliza ✅ (fechado 27/07)
+- **Gatilho (histórico):** `regerarSemana` reescrevia só desafio/missão/cenário por IA, mantinha
+  `core_id`/`formatos_disponiveis`/`descritor` do slot antigo e gravava o JSONB direto, sem
+  `normalizarSemanas` — perpetuava `core_id` órfão e "título ≠ blocos".
+- **Correção (27/07):** reparo de conteúdo roteado pelo MOTOR — `repararCoreOrfaoDaSemana`
+  (`build-season.ts:230-311`, vizinha da `selecionarConteudoDaSemana`, que é quem escolhe — nada de
+  reimplementar scoring). Critério: re-seleciona só quando o `core_id` é null (`fallback_gerado`)
+  ou **não está no pool servível de hoje** (ativo, não-kit, mesma competência); `core_id` válido
+  **não é trocado** — a pessoa já viu. `normalizarSemanas(plano)` roda antes de gravar; a mensagem
+  enganosa foi corrigida (descritor null ≠ "semana de avaliação"). A preservação de 27/07
+  (reflexão/feedback/tira-dúvidas/status) ficou intocada.
+- **Guarda:** `tests/unit/reparar-core-orfao.test.ts` (5) + `regerar-semana-conteudo.test.ts` (5) —
+  validado por mutação (trocar a seleção do motor por "pega o 1º candidato" derruba 3 testes).
 
 ### F-I3 · FK destrutivas — deletar MB apaga os vídeos 🟡
 - **Gatilho:** `videos_gerados.modulo_base_id` é **`NOT NULL + CASCADE`** (mig 138:6) — o único do
@@ -238,30 +240,47 @@ briefs duplicados por tupla.
 - **Vizinhos:** `micro_conteudos.modulo_base_id` → SET NULL (vira ungrounded silencioso);
   `micro_conteudos.kit_id` → SET NULL (**o vazamento de DISC**, F-I4).
 
-### F-I4 · `kit_id` SET NULL → conteúdo de DISC vaza no build 🟠 (a Armadilha #1 do KIT-SEMANAL)
-- **Gatilho:** deletar/regerar kit → `micro_conteudos.kit_id=null` (mig 142:45) → `conteudosDoBuild`
-  filtra `!kit_id` → conteúdo escrito p/ UM DISC entra no pool do build (cego a DISC).
-- **Efeito:** pessoa lê conteúdo de outro perfil (medido 16/07: 23 de 648).
-- **Resolução:** já mitigado no build; a **ordem correta ao regerar kit é conteúdo→kits→brief**
-  (script `_regerar-temas-kit`). Reforço estrutural: um `WHERE kit_id IS NULL` no build **não basta**
-  se o conteúdo órfão herda `kit_id=null` — considerar coluna `origem_disc` que sobrevive ao SET NULL
-  e um filtro `origem_disc IS NULL` no build.
+### F-I4 · `kit_id` SET NULL → conteúdo de DISC vaza no build ✅ (fechado 27/07 — sem DDL)
+- **Gatilho (histórico):** deletar/regerar kit → `micro_conteudos.kit_id=null` (mig 142:45) → o build
+  filtrava só `!kit_id` → conteúdo escrito p/ UM DISC entrava no pool (cego a DISC). Medido 16/07:
+  23 de 648 entregas.
+- **Correção (27/07):** a coluna `micro_conteudos.disc` **já existia** (mig 142:47, denormalização
+  da entrega, 1ª letra — a célula de custo da decisão F-I8) e, por não ser FK, **sobrevive ao
+  SET NULL** — verificado em produção: 243/243 conteúdos de kit a têm. O reforço estrutural virou
+  filtro DUPLO: `conteudosDoBuild` e o pool de `montarSemanaConteudo` exigem
+  **`kit_id IS NULL AND disc IS NULL`** (`build-season.ts:318-329,585-600`). Nenhuma migration
+  necessária (a especificação original pedia coluna `origem_disc` nova — redundante com `disc`).
+- **Efeito imediato no deploy:** os **3 órfãos vazando HOJE no Ibipeba** (áudio C "Priorização
+  estratégica", áudio I "Definição de metas", texto C "Priorização estratégica") saem do pool sem
+  backfill nenhum. Ressalva: trilhas já montadas (`temporada_plano` gravado) não são refeitas —
+  vale para builds novos/rebuilds.
+- **Guarda:** `tests/unit/conteudo-isolamento-disc.test.ts` (bloco F-I4) — validado por mutação.
+- **Follow-up anotado:** `anotarOrigemDisc` (`temporadas.ts:608-637`) resolve DISC via join em
+  `kits`, então subnotifica órfãos; ler `disc` ali fecharia o diagnóstico.
 
-### F-I5 · `development_blueprints` sem FK → órfãos 🟠
-- **Gatilho:** mig 175 não cria FK para `colaborador_id`/`empresa_id`. Deletar colab/empresa **não**
-  apaga o blueprint.
-- **Efeito:** lixo acumulado; `auditarBlueprint` de um órfão falha no gate "colaborador não encontrado".
-- **Resolução:** adicionar `FK(colaborador_id) ON DELETE CASCADE` + `FK(empresa_id) ON DELETE CASCADE`
-  (mig nova); limpar órfãos existentes.
+### F-I5 · `development_blueprints` sem FK → órfãos ✅ (fechado 27/07, mig 191 aplicada)
+- **Gatilho (histórico):** mig 175 não criou FK para `colaborador_id`/`empresa_id` — deletar
+  colab/empresa **não** apagava o blueprint; `auditarBlueprint` de órfão falhava no gate
+  "colaborador não encontrado".
+- **Correção (27/07, mig 191, aplicada):** `FK(colaborador_id) ON DELETE CASCADE` +
+  `FK(empresa_id) ON DELETE CASCADE`. **Medido antes de aplicar: 0 órfãos** (37 blueprints, todos
+  com colab e empresa vivos — dry-run de `scripts/_limpar-blueprints-orfaos.mjs`), então a
+  constraint entrou direto, sem delete prévio.
 
-### F-I6 · Descritor com 2 nomes — blueprint dedupa (perde nota), legado duplica (gasta slot) 🟠
-- **Gatilho:** o assessment guarda `"COO03_D5 — X"`, o blueprint guarda `"X"`. No caminho
-  blueprint→trilha, `to-descriptors.ts:89` `Map.set(normDescritor)` → a 2ª nota **sobrescreve** a 1ª.
-  No legado `select-descriptors` **não normaliza** → 2 `SelectedDescriptor` → 2 semanas no mesmo
-  descritor. A `UNIQUE(colaborador_id,competencia,descritor)` não pega (strings diferentes).
-- **Efeito:** blueprint perde uma nota; legado desperdiça slots.
-- **Resolução:** **normalizar `descritor` na ESCRITA** de `descriptor_assessments` (IA4 + manual) —
-  gravar o nome limpo, canônico. Backfill dos existentes.
+### F-I6 · Descritor com 2 nomes — blueprint dedupa (perde nota), legado duplica (gasta slot) ✅ (fechado 27/07, backfill aplicado)
+- **Gatilho (histórico):** o assessment guardava `"COO03_D5 — X"`, o blueprint `"X"`. No caminho
+  blueprint→trilha a dedup por Map **sobrescrevia** uma nota; no legado, 2 semanas no mesmo
+  descritor. A `UNIQUE(colaborador_id,competencia,descritor)` não pegava (strings diferentes).
+- **Correção (27/07):** escrita normalizada com o normalizador EXISTENTE (`stripCodigoDescritor`,
+  `lib/descritores.ts` — nenhum 4º normalizador). A IA4 (`fase3.ts:328`) **já** normalizava; o
+  buraco era o grid admin (`assessment-descritores.ts`: salvar e deletar nota). Fixture congelado
+  da demo (`reset-acme-demo.ts`) **não** foi normalizado de propósito (dado histórico congelado,
+  colidiria na UNIQUE dentro do próprio batch).
+- **Backfill (27/07, aplicado — `scripts/_backfill-descritor-canonico.mjs`):** 784 linhas, 122 com
+  prefixo → **122 updates + 6 deletes** de colisão (mesmo colab, critério: `assessment_date` mais
+  recente vence; deletes ANTES dos updates para não violar a UNIQUE). Backup:
+  `backups/descritor-canonico-backfill-f-i6-*.json`.
+- **Guarda:** `tests/unit/assessment-descritor-normalizacao.test.ts` (4) — validado por mutação.
 
 ### F-I7 · Competência acento-divergente bloqueia o blueprint em silêncio 🟡
 - **Gatilho:** 3 normalizadores divergentes: `core.ts:31` `normNome` **não tira acento**;
@@ -272,14 +291,17 @@ briefs duplicados por tupla.
 - **Resolução:** **um único normalizador acento-insensível compartilhado** (`normNome` = `normDescritor`
   sem o strip de prefixo). Consolidar os 3.
 
-### F-I8 · DISC de 1ª-letra (kit/vídeo) vs 2-letras (PDF) 🟠 (toda base com dominante composto)
-- **Gatilho:** dominante de 2 letras é o normal ("DI", "SC", "ID"). `derivarArquetipo` (PDF) usa as
-  **2 letras**; kit/desafio/áudio/vídeo usam **`charAt(0)`** (`entrega-semana.ts:63`, `gerar-video.ts:200`,
+### F-I8 · DISC de 1ª-letra (kit/vídeo) vs 2-letras (PDF) ✅ (decisão 27/07 — é design, não bug)
+- **Fenômeno:** dominante de 2 letras é o normal ("DI", "SC", "ID"). `derivarArquetipo` (PDF/relatório)
+  usa as **2 letras**; kit/desafio/áudio/vídeo usam **`charAt(0)`** (`entrega-semana.ts`, `gerar-video.ts`,
   etc.).
-- **Efeito:** a pessoa 'SC' recebe desafio/áudio/vídeo do perfil **S** mas o PDF do arquétipo
-  **Especialista (SC)** — a "personalização DISC" **diverge entre camadas**.
-- **Resolução:** decidir **uma** chave DISC canônica no pipeline (recomendo a 1ª letra em todo lugar,
-  ou o combo em todo lugar) e padronizar. Hoje é inconsistente por acidente, não por design.
+- **Decisão (27/07, Rodrigo): MANTER ASSIM.** A geração de conteúdo usa **só a 1ª letra de propósito**:
+  são 4 células DISC em vez de até 16 combos — menos kits, menos renders, menos custo. O relatório/PDF
+  usa o combo completo porque é **grátis** (derivação em código, sem geração extra) e mais preciso.
+  A divergência entre camadas deixa de ser acidente: é a política.
+- **Regra que sai daí:** ao criar qualquer camada NOVA de conteúdo gerado por IA, ancorar na **1ª letra**
+  (célula de custo); camadas derivadas em código (relatórios, arquétipos, textos estáticos) podem usar
+  o combo completo. Não "corrigir" o charAt(0) dos kits — dobraria o custo de produção.
 
 ### F-I9 · Semana degenerada sem `conteudo` — UI está protegida ✅ (verificado)
 - **Gatilho:** slot de conteúdo sem descritor alocado → `{descritor:null, status:'bloqueada'}` **sem
@@ -386,11 +408,20 @@ briefs duplicados por tupla.
 - **Resolução:** **paginar** a listagem; **cachear `precarregarKits` por (empresaId, cargo, disc)**
   (trilhas idênticas re-buscam os mesmos kits); limitar a concorrência do `Promise.all`.
 
-### F-E4 · Lotes síncronos de IA (504) 🟠 (já em 1-5 colabs)
-- **Gatilho:** `gerarTemporadasLote`/`gerarBlueprintsLote` rodam N chamadas de IA numa server action
-  serial, sem `maxDuration`. Temporada = 6 chamadas/colab → 1 colab já pode passar de 300s.
-- **Resolução:** o padrão correto **já existe** (`filaBlueprint` + loop no client; Batch API). **Depreciar
-  os loops síncronos**; `gerarTemporadasLote` precisa de uma task dedicada (hoje inexistente).
+### F-E4 · Lotes síncronos de IA (504) ✅ (fechado 27/07 para temporadas — ver ressalva)
+- **Gatilho (histórico):** `gerarTemporadasLote` rodava N gerações (~6 chamadas de IA cada) numa
+  server action serial, sem `maxDuration` — 1 colab já podia passar de 300s e o lote morria 504.
+- **Correção (27/07):** o lote síncrono virou **stub de depreciação gated** (recusa com erro claro,
+  zero IA/banco inline). Descoberta: o padrão correto **já existia e era o caminho real da UI** —
+  fila + loop no client, 1 action por colab, progresso `[i/N]`, try/catch por item e botão de parar
+  (`page.tsx:549-567` → `listarColabsParaTrilha` + `gerarTemporada`), mesmo padrão de
+  `filaBlueprint`. Os dois callers do lote eram mortos na prática (ACTION_MAP inalcançável +
+  `montarTrilhasLote` já `@deprecated`). Nenhuma task Trigger nova — duplicaria infra para um fluxo
+  manual com a tela aberta.
+- **Guarda:** `tests/unit/gerar-temporadas-lote-depreciado.test.ts` (3) — validado por mutação.
+- **Ressalva (follow-up):** `gerarBlueprintsLote`/`auditarBlueprintsLote` (`actions/blueprint.ts`)
+  **seguem com loops síncronos de IA** — mesma receita pendente (stub + a fila client que já existe
+  para ambos). Não fechados nesta rodada.
 
 ### F-E5 · Cap de conta Anthropic **não** cai no fallback 🟡
 - **Gatilho:** o fallback gpt-5.4 só dispara em erro **transitório** (`ai-client.ts:153`,
@@ -449,12 +480,18 @@ briefs duplicados por tupla.
 
 ## 5. Parse de IA / robustez
 
-### F-P1 · JSON truncado (maxTokens) → falha limpa (blueprint) ou score inflado (auditoria) 🟠
-- **Gatilho:** `extractJSON` retorna `null` em JSON incompleto. Blueprint → `{error}` (não persiste
-  lixo, bom). **Auditoria** → sem checks semânticos → denominador cai de 12 p/ 6 → **score inflado**
-  (`audit.ts:277`).
-- **Resolução:** score da auditoria deve usar **denominador fixo** (semântico ausente conta como
-  não-avaliado, não some do denominador), OU marcar o relatório como "parcial" quando a 2ª IA cai.
+### F-P1 · JSON truncado (maxTokens) → falha limpa (blueprint) ou score inflado (auditoria) ✅ (fechado 27/07)
+- **Gatilho (histórico):** `extractJSON` retorna `null` em JSON incompleto. Blueprint → `{error}`
+  (falha limpa, ok). **Auditoria** → sem checks semânticos → denominador caía de 12 p/ 6 → **score
+  inflado** (6 estruturais pass = 100 numa auditoria pela metade).
+- **Correção (27/07, `audit.ts:266-298`):** **denominador fixo** — check semântico ausente conta
+  como NÃO-AVALIADO (fica no denominador, sem pontuar): a auditoria parcial pontua no máximo o
+  estrutural (50), nunca mais que a completa. Mais o flag **`parcial: true`** no relatório
+  (persistido em `development_blueprints.auditoria`) e na superfície do admin (`page.tsx:403`
+  mostra "· PARCIAL" e marca a linha como erro).
+- **Guarda:** `tests/unit/blueprint-audit.test.ts` (6) — validado por mutação (voltar ao
+  denominador variável derruba 3). ⚠️ Comportamento muda: runs parciais que o admin via como 100
+  agora aparecem como ≤50 + PARCIAL — é a correção, não regressão.
 
 ### F-P2 · Missão/cenário formativos caem em placeholder — **não afeta o scoring** ✅ (esclarecimento)
 - Confirmado: o Cenário B da **avaliação** (13/14) vem de `banco_cenarios`, não desta geração. Missão/
