@@ -824,6 +824,10 @@
       "observe": "What to observe",
       "execution": "How to know you did it"
     },
+    "pdi": {
+      "badge": "In your IDP",
+      "sustains": "This week supports"
+    },
     "mission": {
       "title": "Mission of the Week",
       "commitmentPrompt": "What situation in your routine will you use to apply this? (1-2 sentences)",
