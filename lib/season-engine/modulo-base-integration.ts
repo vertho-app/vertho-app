@@ -172,19 +172,33 @@ export async function resolverModuloBaseParaConteudo(
 
   const relCache = new Map<string, number>();
   const semanticoCache = new Map<string, boolean>();
+  const exatoCache = new Map<string, boolean>();
   const relevancia = (m: any): number => {
     if (relCache.has(m.id)) return relCache.get(m.id)!;
     let r = 0; let semantico = false;
     const emb = parseEmb(m.descritor_embedding);
-    if (queryVec && emb) { r = Math.max(0, cosine(queryVec, emb)); semantico = true; }
-    else if (wantTok.size) {
+
+    // NOME IDÊNTICO manda, sempre — antes de qualquer cosseno.
+    //
+    // Medido em 28/07, ao preencher os embeddings do acervo: o cosseno de dois textos
+    // IGUAIS dá ~0,9, não 1,0. Isso abriu espaço para um módulo de assunto vizinho
+    // ("Identificação de custos") vencer o de match exato ("Formação básica de preço")
+    // por 0,1 de diferença na nota da auditoria — regressão que só apareceu porque a
+    // decisão foi fotografada antes e depois do backfill. Com tokens, exato valia 1.00 e
+    // era imbatível; a semântica não pode custar essa garantia. Ela serve para PARÁFRASE,
+    // não para desempatar o que já é igual.
+    let exato = false;
+    if (wantNorm && norm(m.descritor) === wantNorm) {
+      r = 1; exato = true;
+    } else if (queryVec && emb) {
+      r = Math.max(0, cosine(queryVec, emb)); semantico = true;
+    } else if (wantTok.size) {
       const have = toks(`${m.descritor || ''} ${m.titulo || ''}`);
       let hit = 0; for (const t of wantTok) if (have.has(t)) hit++;
       const overlap = Math.min(1, hit / wantTok.size);
-      const exato = wantNorm && norm(m.descritor) === wantNorm ? 1 : 0;
-      r = Math.min(1, overlap * 0.85 + exato * 0.15);
+      r = Math.min(1, overlap * 0.85);
     }
-    relCache.set(m.id, r); semanticoCache.set(m.id, semantico); return r;
+    relCache.set(m.id, r); semanticoCache.set(m.id, semantico); exatoCache.set(m.id, exato); return r;
   };
   const nota = (m: any): number => {
     const n = Number(m?.auditoria_ia?.nota);
@@ -211,7 +225,10 @@ export async function resolverModuloBaseParaConteudo(
 
   const escolhido = candidatos[0];
   const rel = relevancia(escolhido);
-  const sem = semanticoCache.get(escolhido.id) ? 'semântico' : 'tokens';
+  // Rótulo fiel ao caminho usado: 'exato' (nome idêntico, precedência), 'semântico'
+  // (cosseno) ou 'tokens' (overlap). Foi lendo este critério que o F-I12 apareceu.
+  const sem = exatoCache.get(escolhido.id) ? 'exato'
+    : semanticoCache.get(escolhido.id) ? 'semântico' : 'tokens';
   const criterio = [
     rel >= 0.55 ? `descritor-${sem}(${rel.toFixed(2)})` : rel > 0 ? `descritor-parcial-${sem}(${rel.toFixed(2)})` : null,
     escolhido.empresa_id && 'exclusivo-do-tenant',

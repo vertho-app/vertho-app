@@ -30,22 +30,68 @@ function getProvider(): EmbeddingProvider {
 }
 
 /**
+ * Cache por PROCESSO (texto → vetor). O mesmo descritor é consultado muitas vezes na
+ * mesma execução: o resolver de módulo-base chama `embedQuery(descritor)` a cada
+ * conteúdo, e um lote gera 3 formatos × N DISC do MESMO tema. Sem cache, um lote de 42
+ * DISC virava dezenas de chamadas idênticas — e num provider limitado isso é a
+ * diferença entre seleção semântica e token-matching (F-I13).
+ * Não persiste: escopo de processo basta para o padrão de uso (lote/request).
+ */
+const cacheVetor = new Map<string, EmbedResult>();
+const CACHE_MAX = 500;
+
+/** Quantas vezes o embedding falhou nesta execução — o silêncio era o problema. */
+let falhasEmbedding = 0;
+export function estatisticasEmbedding() {
+  return { falhas: falhasEmbedding, cacheSize: cacheVetor.size };
+}
+
+/** Erro que vale reesperar: rate limit e indisponibilidade momentânea. */
+function transitorio(err: unknown): boolean {
+  const m = String((err as any)?.message || err);
+  return /\b(429|500|502|503|504)\b/.test(m) || /rate limit|timeout|ETIMEDOUT|ECONNRESET/i.test(m);
+}
+
+/**
  * Gera embedding pra um texto. Retorna null se provider=none ou se quebra
- * (callers devem tolerar e cair pro FTS).
+ * (callers devem tolerar e cair pro FTS/tokens).
+ *
+ * Com cache por processo e 2 retentativas em erro TRANSITÓRIO (429 inclusive) —
+ * antes, um único 429 desligava a semântica em silêncio para o resto do lote.
  */
 export async function embedText(text: string): Promise<EmbedResult | null> {
   const provider = getProvider();
   if (provider === 'none') return null;
   if (!text || !text.trim()) return null;
 
-  try {
-    if (provider === 'openai') return await embedOpenAI(text);
-    if (provider === 'voyage') return await embedVoyage(text);
-    return null;
-  } catch (err) {
-    console.error('[embedText]', provider, err);
-    return null;
+  const chave = `${provider}:${text.slice(0, 8000)}`;
+  const emCache = cacheVetor.get(chave);
+  if (emCache) return emCache;
+
+  const TENTATIVAS = 3;
+  for (let i = 0; i < TENTATIVAS; i++) {
+    try {
+      const r = provider === 'openai' ? await embedOpenAI(text) : await embedVoyage(text);
+      if (r) {
+        // Descarte simples: mapa grande em processo longo não compensa complexidade.
+        if (cacheVetor.size >= CACHE_MAX) cacheVetor.clear();
+        cacheVetor.set(chave, r);
+      }
+      return r;
+    } catch (err) {
+      const ultima = i === TENTATIVAS - 1;
+      if (!ultima && transitorio(err)) {
+        await new Promise((r) => setTimeout(r, 1500 * Math.pow(2, i)));   // 1,5s · 3s
+        continue;
+      }
+      falhasEmbedding++;
+      // Loga ALTO: quem consome cai em tokens/FTS sem saber, e essa degradação
+      // silenciosa deixou 198 de 216 módulos-base sem vetor sem ninguém notar.
+      console.error(`[embedText] ${provider} FALHOU (${falhasEmbedding} nesta execução) — consumidor cairá em tokens/FTS:`, err);
+      return null;
+    }
   }
+  return null;
 }
 
 /**
