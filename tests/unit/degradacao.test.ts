@@ -19,11 +19,13 @@ const consoleSpy = () => vi.spyOn(console, 'error').mockImplementation(() => {})
 interface MockOpts {
   /** ocorrencias da linha existente (null = não existe) */
   existente?: number | null;
+  /** ultima_em da linha existente — default: agora (mesmo dia UTC) */
+  ultimaEm?: string;
   selectLanca?: boolean;
   upsertFalha?: boolean;
 }
 
-function mockSb({ existente = null, selectLanca = false, upsertFalha = false }: MockOpts = {}) {
+function mockSb({ existente = null, ultimaEm, selectLanca = false, upsertFalha = false }: MockOpts = {}) {
   const upserts: Array<{ payload: any; opts: any }> = [];
   const sb = {
     from: (tabela: string) => {
@@ -33,7 +35,12 @@ function mockSb({ existente = null, selectLanca = false, upsertFalha = false }: 
         eq: () => q,
         maybeSingle: async () => {
           if (selectLanca) throw new Error('pool esgotado');
-          return { data: existente != null ? { ocorrencias: existente } : null, error: null };
+          return {
+            data: existente != null
+              ? { ocorrencias: existente, ultima_em: ultimaEm ?? new Date().toISOString() }
+              : null,
+            error: null,
+          };
         },
         upsert: async (payload: any, opts: any) => {
           upserts.push({ payload, opts });
@@ -75,6 +82,16 @@ describe('registrarDegradacao · upsert com dedup', () => {
     await registrarDegradacao(input, sb);
     expect(upserts).toHaveLength(1); // upsert na MESMA chave — o UNIQUE da mig 194 é o dedup
     expect(upserts[0].payload.ocorrencias).toBe(4);
+  });
+
+  it('última ocorrência em outro dia UTC → ocorrencias REcomeça do 1 (a R10 lê volume de 24h)', async () => {
+    // Trava do fix de 28/07: sem o reset diário, chaves quentes (overlay registra
+    // a cada leitura de página) acumulavam para sempre e o volume cruzava o
+    // limiar crítico da R10 em operação normal — alarme crônico.
+    const { sb, upserts } = mockSb({ existente: 47, ultimaEm: '2026-07-27T23:59:00.000Z' });
+    await registrarDegradacao(input, sb);
+    expect(upserts).toHaveLength(1);
+    expect(upserts[0].payload.ocorrencias).toBe(1);
   });
 
   it('severidade explícita vence o default', async () => {

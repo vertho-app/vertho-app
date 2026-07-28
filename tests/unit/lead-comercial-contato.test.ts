@@ -160,6 +160,18 @@ describe('rate limit', () => {
     expect(r.success).toBe(false);
   });
 
+  it('mesmo telefone com e-mails ROTATIVOS também é barrado (limite vale pelas 2 chaves)', async () => {
+    // Trava do fix de 28/07: o limite por identidade checava só UMA chave
+    // (e-mail quando presente), então o mesmo WhatsApp furava o teto trocando
+    // de e-mail a cada envio.
+    estado.existentes = Array.from({ length: 5 }, (_, i) => ({
+      id: `y${i}`, telefone: '+5511912345678', email: `descartavel${i}@b.com`,
+    }));
+    const r = await capturarLeadComercial({ ...base, whatsapp: '11912345678', email: 'mais-um-novo@b.com' });
+    expect(r.success).toBe(false);
+    expect(estado.inseridos).toHaveLength(0);
+  });
+
   it('a mensagem de limite não diz SE o contato já existe (enumeração)', async () => {
     // limite por identidade
     estado.existentes = Array.from({ length: 5 }, (_, i) => ({ id: `y${i}`, email: 'alvo@b.com' }));

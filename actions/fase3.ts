@@ -377,8 +377,12 @@ async function _buscarFilaIA4(tdb: any): Promise<{ data?: any[]; error?: string 
   let presas: any[] = [];
   const colabIds = [...new Set((avaliadas || []).map((r: any) => r.colaborador_id).filter(Boolean))] as string[];
   if (colabIds.length) {
+    // Só nota com origem 'ia4' "desprende" a resposta: uma nota MANUAL na mesma
+    // competência não significa que a IA4 persistiu — sem o filtro, a presa saía
+    // da fila e o reparo self-service não a alcançava mais.
     const { data: assessments, error: errAss } = await tdb.from('descriptor_assessments')
       .select('colaborador_id, competencia')
+      .eq('origem', 'ia4')
       .in('colaborador_id', colabIds);
     if (errAss) return { error: errAss.message };
     const comNotas = new Set((assessments || []).map((a: any) => `${a.colaborador_id}|${a.competencia}`));
@@ -408,10 +412,12 @@ export async function rodarIA4Uma(empresaId: string, respostaId: string, aiConfi
       .select('*').eq('id', respostaId).single();
     if (respErr || !resp) return { success: false, error: respErr?.message || 'Resposta não encontrada' };
     if (resp.avaliacao_ia) {
-      // "Já avaliada" só vale com as notas persistidas: avaliacao_ia SEM linhas
-      // em descriptor_assessments é o estado preso do achado 1.4 — reprocessa.
+      // "Já avaliada" só vale com as notas persistidas PELA IA4: avaliacao_ia SEM
+      // linhas ia4 em descriptor_assessments é o estado preso do achado 1.4 —
+      // reprocessa. (Nota manual na mesma competência não conta: é outra origem.)
       const { count } = await tdb.from('descriptor_assessments')
         .select('colaborador_id', { count: 'exact', head: true })
+        .eq('origem', 'ia4')
         .eq('colaborador_id', resp.colaborador_id)
         .eq('competencia', resp.competencia_nome || '');
       if ((count ?? 0) > 0) return { success: true, message: 'Já avaliada' };

@@ -102,6 +102,13 @@ export default async function PainelPage({ params }: { params: Promise<{ id: str
         />
       )}
 
+      {data.status === PAINEL.CANCELADO && (
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-4">
+          <p className="text-white/50 font-medium text-sm">Painel cancelado antes de começar</p>
+          <p className="text-white/35 text-[13px] mt-1.5">Nenhum modelo chegou a rodar. Enfileire de novo quando quiser.</p>
+        </div>
+      )}
+
       {data.status === PAINEL.ERRO && (
         <div className="rounded-2xl border border-red-400/25 bg-red-400/[0.05] px-5 py-4">
           <p className="text-red-300 font-medium text-sm">O painel falhou</p>

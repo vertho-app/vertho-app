@@ -430,7 +430,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         if (!fila.success || !fila.data?.length) { addLog(fila.data?.length === 0 ? '✅ Nenhuma resposta pendente' : `❌ ${fila.error}`, fila.data?.length === 0 ? 'success' : 'error'); setPendingAction(null); return; }
         addLog(`📋 ${fila.data.length} respostas pendentes. Avaliando uma por vez...`, 'info');
         const presas = fila.data.filter((r: any) => r.presa_sem_notas).length;
-        if (presas) addLog(`⚠ ${presas} resposta(s) com avaliação gravada mas SEM notas de descritor (falha antiga da IA4) — serão reprocessadas agora`, 'error');
+        if (presas) addLog(`⚠ ${presas} resposta(s) com avaliação gravada mas SEM notas de descritor (falha antiga da IA4) — serão reprocessadas agora`, 'warning');
         let ok = 0, erros = 0;
         for (let i = 0; i < fila.data.length; i++) {
           if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }
@@ -979,7 +979,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                       </span>
                       <span style={{
                         fontFamily: 'var(--font-mono, monospace)', fontSize: 11,
-                        color: l.type === 'success' ? '#2ECC71' : l.type === 'error' ? '#F97354' : 'rgba(255,255,255,.62)',
+                        color: l.type === 'success' ? '#2ECC71' : l.type === 'error' ? '#F97354' : l.type === 'warning' ? '#F5C04A' : 'rgba(255,255,255,.62)',
                       }}>{l.msg}</span>
                     </div>
                   ))}

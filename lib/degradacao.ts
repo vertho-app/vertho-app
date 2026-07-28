@@ -3,7 +3,11 @@
  * fallback pode existir, mas nunca INVISÍVEL. Onde o fluxo cai no caminho
  * degradado (DUO→single, missão placeholder, overlay sem kit…), além do
  * console.warn existente registra-se UMA linha por (fluxo, tipo, chave) em
- * `degradacao_log` (mig 194); repetições só incrementam `ocorrencias`.
+ * `degradacao_log` (mig 194); repetições NO MESMO DIA incrementam `ocorrencias`
+ * — virado o dia (UTC), o contador recomeça do 1. Sem o reset, chaves quentes
+ * (o overlay registra a cada leitura de página) acumulavam para sempre e a R10,
+ * que lê "volume nas últimas 24h", cruzava o limiar crítico em operação normal:
+ * alarme crônico, que é o mesmo silêncio por excesso.
  *
  * REGRA DE OURO: esta função NUNCA lança. Ela existe exatamente para o caminho
  * de fallback — se a telemetria derrubasse o fluxo, o remédio seria pior que a
@@ -70,11 +74,15 @@ export async function registrarDegradacao(input: DegradacaoInput, sb?: any): Pro
     const client = sb ?? createSupabaseAdmin();
     const chave = input.chave ?? '';
     const { data: existente } = await client.from(TABELA)
-      .select('ocorrencias')
+      .select('ocorrencias, ultima_em')
       .eq('fluxo', input.fluxo)
       .eq('tipo', input.tipo)
       .eq('chave', chave)
       .maybeSingle();
+    // `ocorrencias` conta o DIA (UTC): a R10 lê "volume nas últimas 24h", então
+    // acumular desde a 1ª ocorrência da chave inflava o volume para sempre.
+    const hoje = new Date().toISOString().slice(0, 10);
+    const mesmoDia = String(existente?.ultima_em || '').slice(0, 10) === hoje;
     const { error } = await client.from(TABELA).upsert({
       fluxo: input.fluxo,
       tipo: input.tipo,
@@ -83,7 +91,7 @@ export async function registrarDegradacao(input: DegradacaoInput, sb?: any): Pro
       colaborador_id: input.colaboradorId ?? null,
       severidade: input.severidade ?? 'aviso',
       detalhe: input.detalhe ?? null,
-      ocorrencias: (Number(existente?.ocorrencias) || 0) + 1,
+      ocorrencias: (mesmoDia ? Number(existente?.ocorrencias) || 0 : 0) + 1,
       ultima_em: new Date().toISOString(),
     }, { onConflict: 'fluxo,tipo,chave' });
     if (error) console.error('[degradacao] upsert falhou (fallback preservado):', error.message);

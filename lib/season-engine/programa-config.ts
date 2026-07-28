@@ -129,7 +129,10 @@ export const PROGRAMA_ONBOARDING: ProgramaConfig = Object.freeze({
   numCompetencias: 5,
   // Sem 2 = Comp[0], Sem 3 = Comp[1], Sem 5 = Comp[2], Sem 6 = Comp[3], Sem 8 = Comp[4]
   semanaParaCompetenciaIdx: { 2: 0, 3: 1, 5: 2, 6: 3, 8: 4 },
-  // Missão 1 (sem 4) = Comps 0+1; Missão 2 (sem 7) = 0..3; Missão 3 (sem 9) = todas
+  // Conjunto CANDIDATO por missão — a cobertura efetiva é filtrada pela janela
+  // de entrega (28/07, em montarSemanaAplicacao): M1 (sem 4) cobre Comps 0+1
+  // (entregues sem 2-3); M2 (sem 7) cobre só Comps 2+3 (bloco fechado sem 5-6,
+  // desde a missão anterior); M3 (sem 9, última) é cumulativa = todas.
   competenciasNaMissao: { 4: [0, 1], 7: [0, 1, 2, 3], 9: [-1] },
   // Fase D+ (03/07): arguição LIGADA no onboarding (maxTurnos 6, janela mais
   // curta pra recém-formados). Todos os modos agora ON.

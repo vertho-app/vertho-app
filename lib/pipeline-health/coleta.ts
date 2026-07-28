@@ -265,10 +265,10 @@ export async function coletarMbForaDaRegua(sb: any): Promise<MbForaDaRegua[]> {
 }
 
 /**
- * Degradações tocadas nas últimas 24h (R10). `ocorrencias` acumula desde a
- * PRIMEIRA ocorrência da chave (não só do dia) — a janela filtra pelo `ultima_em`,
- * então o volume é uma aproximação para cima; o que interessa à regra é a
- * presença e a ordem de grandeza, não a contagem exata.
+ * Degradações tocadas nas últimas 24h (R10). `ocorrencias` conta só o dia UTC
+ * corrente (registrarDegradacao reseta ao virar o dia), então o volume lido
+ * aqui é próximo do real das 24h — antes do reset, o acumulado histórico da
+ * chave transformava operação normal em alerta crítico crônico.
  */
 export async function coletarDegradacoes(sb: any): Promise<DegradacaoRegistro[]> {
   const desde = new Date(Date.now() - 24 * 3600_000).toISOString();

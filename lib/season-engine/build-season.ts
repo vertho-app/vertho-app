@@ -811,6 +811,13 @@ export async function montarSemanaAplicacao(
     } else {
       cenarioObj = { texto: (cResp || '').trim(), complexidade };
     }
+
+    // Resposta 200 VAZIA é falha igual (28/07): sem este corte, a semana ia pra
+    // produção com missão/cenário em branco — o catch abaixo só cobria exceção.
+    // Cai no mesmo caminho: registra a degradação crítica e aborta o build.
+    if (!missaoObj.texto || !cenarioObj.texto) {
+      throw new Error(`IA respondeu vazio (missão: ${missaoObj.texto.length}c, cenário: ${cenarioObj.texto.length}c)`);
+    }
   } catch (err: any) {
     console.warn(`[buildSeason] missao/cenario sem ${semana}: ${err?.message ?? err}`);
     // Decisão de produto (28/07): na CONSTRUÇÃO falha alto — placeholder de

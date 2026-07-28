@@ -154,9 +154,20 @@ export async function precarregarKits(
 async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; kitsCache?: KitsCache; colaboradorId?: string; semana?: number }) {
   if (!conteudo) return;
   // Com cache pré-carregado: consulta em memória (sem query). Sem cache: resolve 1×.
-  const kit = args.kitsCache
-    ? (args.kitsCache.get(cacheKey(args.competencia, args.descritor)) || null)
-    : await resolverKitDaSemana(sb, args).catch(() => null);
+  let kit: { kitId: string; desafio: any; formatos: Record<string, { id: string; url: string | null; titulo: string }> } | null;
+  if (args.kitsCache) {
+    kit = args.kitsCache.get(cacheKey(args.competencia, args.descritor)) || null;
+  } else {
+    try {
+      kit = await resolverKitDaSemana(sb, args);
+    } catch (e: any) {
+      // Erro de INFRA (banco) não é "kit ausente": registrar como tal misturava
+      // falha de infra com ausência legítima na telemetria de degradação.
+      // Mantém o conteúdo antigo e loga — a falha de banco aparece por outros canais.
+      console.error('[overlayKit] resolverKitDaSemana falhou:', e?.message || e);
+      return;
+    }
+  }
   if (!kit) {
     // sem kit → mantém o conteúdo antigo. FMEA §3.3: a degradação NÃO pode ser
     // invisível — registra UMA vez por (colaborador × semana) (dedup da mig 194;

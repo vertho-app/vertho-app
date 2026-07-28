@@ -62,11 +62,16 @@ export default async function BoardPage() {
   // supabase-js RETORNA o erro, não lança — checar sempre, senão a falha some
   const paineis = (error ? [] : (data as Painel[])) || [];
 
-  // Worker vivo = alguém pegou um pedido na última hora. Não é ping: é a única
-  // evidência que a web tem de que a máquina está do outro lado.
+  // Worker vivo = terminou um pedido na última hora ou pegou um há pouco.
+  // Painel 'rodando' velho (>2h) é mais provável TRAVADO do que saudável —
+  // contar como evidência esconderia justamente o cenário que o aviso existe
+  // para revelar. Não é ping: é a única evidência que a web tem da máquina.
   const umaHoraAtras = Date.now() - 60 * 60 * 1000;
+  const duasHorasAtras = Date.now() - 2 * 60 * 60 * 1000;
   const workerAtivo = paineis.some(
-    (p) => (p.status === PAINEL.RODANDO || p.concluido_em) && new Date(p.concluido_em || p.criado_em).getTime() > umaHoraAtras
+    (p) =>
+      (p.concluido_em && new Date(p.concluido_em).getTime() > umaHoraAtras) ||
+      (p.status === PAINEL.RODANDO && new Date(p.criado_em).getTime() > duasHorasAtras)
   );
 
   return (

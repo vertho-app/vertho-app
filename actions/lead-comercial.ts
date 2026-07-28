@@ -137,9 +137,11 @@ async function checkRateLimit(
   const sb = createSupabaseAdmin();
   const umaHoraAtras = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-  const chave = identidade.email || identidade.telefone;
-  if (chave) {
-    const coluna = identidade.email ? 'email' : 'telefone';
+  // Contato com e-mail E WhatsApp preenchidos é limitado pelos DOIS (28/07):
+  // checar só um deixava o mesmo telefone repetir à vontade com e-mails
+  // rotativos (o dedup por telefone só vale dentro de 1h e por campanha).
+  for (const [coluna, chave] of [['email', identidade.email], ['telefone', identidade.telefone]] as const) {
+    if (!chave) continue;
     const { count, error } = await sb
       .from('diag_leads')
       .select('id', { count: 'exact', head: true })

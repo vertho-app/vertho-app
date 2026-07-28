@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, CircleDashed } from 'lucide-react';
-import { statusPainel } from '../actions';
+import { Loader2, CircleDashed, Ban } from 'lucide-react';
+import { statusPainel, cancelarPainel } from '../actions';
 import { PAINEL } from '@/lib/status';
 
 type Evento = { fase?: string; letra?: string; ok?: boolean; segundos?: number; erro?: string; total?: number; arquivos?: number };
 
-const FASE = { rodada1: 'Rodada 1 — cada um sozinho', rodada2: 'Rodada 2 — depois de ler as outras', sintese: 'Síntese' } as Record<string, string>;
+const FASE = { rodada1: 'rodada 1', rodada2: 'rodada 2', sintese: 'síntese' } as Record<string, string>;
 
 /**
  * Acompanha um painel em execução. O trabalho acontece na máquina local, então
@@ -29,6 +29,7 @@ export default function Acompanhar({
   const [status, setStatus] = useState(statusInicial);
   const [eventos, setEventos] = useState<Evento[]>(progressoInicial || []);
   const [esperando, setEsperando] = useState(0);
+  const [cancelando, setCancelando] = useState(false);
 
   useEffect(() => {
     if (status === PAINEL.CONCLUIDO || status === PAINEL.ERRO || status === PAINEL.CANCELADO) return;
@@ -39,7 +40,7 @@ export default function Acompanhar({
         setEventos((s.progresso as Evento[]) || []);
         if (s.status !== status) {
           setStatus(s.status);
-          if (s.status === PAINEL.CONCLUIDO || s.status === PAINEL.ERRO) router.refresh();
+          if (s.status === PAINEL.CONCLUIDO || s.status === PAINEL.ERRO || s.status === PAINEL.CANCELADO) router.refresh();
         }
       } catch {
         /* a próxima volta tenta de novo */
@@ -49,6 +50,18 @@ export default function Acompanhar({
 
     return () => clearInterval(t);
   }, [id, status, router]);
+
+  async function cancelar() {
+    setCancelando(true);
+    try {
+      await cancelarPainel(id);
+      setStatus(PAINEL.CANCELADO);
+      router.refresh();
+    } catch {
+      // a action só falha por auth/rede — a próxima tentativa do usuário resolve
+      setCancelando(false);
+    }
+  }
 
   const minutosNaFila = Math.floor((Date.now() - new Date(criadoEm).getTime()) / 60000);
   const paradoNaFila = status === PAINEL.PENDENTE && minutosNaFila >= 2;
@@ -60,6 +73,16 @@ export default function Acompanhar({
         <span className="text-sm font-medium">
           {status === PAINEL.PENDENTE ? 'Na fila, esperando o worker' : 'Rodando na sua máquina'}
         </span>
+        {status === PAINEL.PENDENTE && (
+          <button
+            onClick={cancelar}
+            disabled={cancelando}
+            className="ml-auto flex items-center gap-1.5 text-[12px] text-white/35 hover:text-red-300 transition-colors disabled:opacity-50"
+          >
+            <Ban className="w-3.5 h-3.5" />
+            {cancelando ? 'cancelando…' : 'cancelar'}
+          </button>
+        )}
       </div>
 
       {paradoNaFila && (
@@ -75,12 +98,12 @@ export default function Acompanhar({
         <ul className="mt-5 flex flex-col gap-1.5 font-mono text-[12.5px]">
           {eventos.map((e, i) => (
             <li key={i} className="flex items-center gap-2.5">
-              <span className="text-white/30 w-[13ch] shrink-0">{FASE[e.fase || ''] ? (e.fase === 'sintese' ? 'síntese' : e.fase) : e.fase}</span>
+              <span className="text-white/30 w-[13ch] shrink-0">{FASE[e.fase || ''] || e.fase}</span>
               {e.letra ? (
                 <>
                   <span className="text-cyan-300/80 w-[2ch]">{e.letra}</span>
                   <span className={e.ok ? 'text-emerald-300/80' : 'text-red-300/80'}>
-                    {e.ok ? `ok em ${e.segundos}s` : `falhou — ${String(e.erro).slice(0, 70)}`}
+                    {e.ok ? `ok em ${e.segundos}s` : `falhou${e.erro ? ` — ${String(e.erro).slice(0, 70)}` : ''}`}
                   </span>
                 </>
               ) : (
