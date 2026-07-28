@@ -21,10 +21,25 @@ import { registrarEvento } from '@/lib/radar/eventos';
  * individual a gerar. A equipe Vertho recebe via dashboard funnel-bett.
  */
 
+/**
+ * Campanhas conhecidas → o `scope_id` gravado. Allowlist, não campo livre: o
+ * scope_id é por onde o funil separa os leads, e um valor digitado errado (ou
+ * escolhido pelo cliente, já que toda export daqui é endpoint HTTP) some da
+ * contagem sem erro nenhum.
+ *
+ * Até a mig 195 isto era a string 'radarbett' cravada no insert — um lead de
+ * feira entrava contabilizado como Radar Bett.
+ */
+const CAMPANHAS: Record<string, string> = {
+  radarbett: 'radarbett',
+  conarh: 'conarh-2026',
+};
+const CAMPANHA_PADRAO = 'radarbett';
+
 export type CapturarLeadComercialInput = {
-  // Dados pessoais
+  // Dados pessoais — email OU whatsapp; pelo menos um
   nome: string;
-  email: string;
+  email?: string;
   whatsapp?: string;
   cargo: string;
   // Contexto institucional
@@ -35,6 +50,8 @@ export type CapturarLeadComercialInput = {
   qtd_escolas?: string;
   // Origem
   origem?: 'home' | 'header' | 'persona' | 'cta_final' | 'sticky' | 'comparar' | 'public_cta' | string;
+  /** Campanha (chave de CAMPANHAS). Define o scope_id — default: radarbett. */
+  campanha?: string;
   // Se tinha algum scope mas era inválido, registra como referência
   scope_label_original?: string;
   // LGPD
@@ -42,6 +59,28 @@ export type CapturarLeadComercialInput = {
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Limite por IP. O padrão protege o site público; num EVENTO o stand inteiro sai
+ * por um único roteador, e 10/h significaria perder todo visitante a partir do
+ * 11º da hora — em silêncio, porque o erro aparece para quem está preenchendo,
+ * não para quem está atendendo.
+ */
+const LIMITE_IP_PADRAO = 10;
+const LIMITE_IP_EVENTO = 300;
+/** Mesma pessoa reenviando: o dedup já cobre a hora; isto barra flood real. */
+const LIMITE_IDENTIDADE = 5;
+
+/** E.164 quando possível; se não der, guarda os dígitos (melhor que perder o contato). */
+function normalizarTelefone(bruto?: string): string | null {
+  const cru = (bruto || '').trim();
+  if (!cru) return null;
+  const digitos = cru.replace(/\D/g, '');
+  if (digitos.length < 10 || digitos.length > 15) return null;
+  if (cru.startsWith('+')) return `+${digitos}`;
+  // sem DDI explícito, assume Brasil — a captura é de feira brasileira
+  return digitos.length <= 11 ? `+55${digitos}` : `+${digitos}`;
+}
 
 function hashIp(ip: string): string {
   return crypto.createHash('sha256').update(ip).digest('hex').slice(0, 16);
@@ -57,16 +96,47 @@ async function getRequestFingerprint() {
   };
 }
 
-async function checkRateLimit(ipHash: string | null): Promise<{ ok: boolean; reason?: string }> {
-  if (!ipHash) return { ok: true };
+/**
+ * Rate limit em duas chaves: IDENTIDADE (quem é) e IP (de onde veio).
+ *
+ * A identidade é o que interessa contra flood — um mesmo contato repetindo. O IP
+ * é aproximação grosseira e, em evento, é literalmente compartilhado por todos
+ * os visitantes: por isso o teto sobe quando a campanha é de evento, em vez de
+ * cortar a captura no meio do dia.
+ */
+async function checkRateLimit(
+  ipHash: string | null,
+  identidade: { email: string | null; telefone: string | null },
+  limiteIp: number,
+): Promise<{ ok: boolean; reason?: string }> {
   const sb = createSupabaseAdmin();
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const { count } = await sb
-    .from('diag_leads')
-    .select('id', { count: 'exact', head: true })
-    .eq('ip_hash', ipHash)
-    .gte('criado_em', oneHourAgo);
-  if ((count || 0) >= 10) return { ok: false, reason: 'Muitos pedidos por IP em 1h. Tente em algumas horas.' };
+  const umaHoraAtras = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  const chave = identidade.email || identidade.telefone;
+  if (chave) {
+    const coluna = identidade.email ? 'email' : 'telefone';
+    const { count, error } = await sb
+      .from('diag_leads')
+      .select('id', { count: 'exact', head: true })
+      .eq(coluna, chave)
+      .gte('criado_em', umaHoraAtras);
+    // supabase-js RETORNA o erro; sem checar, a falha viraria "limite ok"
+    if (!error && (count || 0) >= LIMITE_IDENTIDADE) {
+      return { ok: false, reason: 'Já recebemos seu contato há pouco. Em breve alguém responde.' };
+    }
+  }
+
+  if (ipHash) {
+    const { count, error } = await sb
+      .from('diag_leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('ip_hash', ipHash)
+      .gte('criado_em', umaHoraAtras);
+    if (!error && (count || 0) >= limiteIp) {
+      return { ok: false, reason: 'Muitos cadastros desta rede na última hora. Tente de novo em alguns minutos.' };
+    }
+  }
+
   return { ok: true };
 }
 
@@ -77,8 +147,17 @@ export async function capturarLeadComercial(
   if (!input?.nome?.trim() || input.nome.trim().length < 2) {
     return { success: false, error: 'Nome obrigatório.' };
   }
-  if (!EMAIL_RE.test(input?.email || '') || (input.email || '').length > 200) {
+  // Contato: e-mail OU WhatsApp. Exigir e-mail era o que rejeitava todo lead de
+  // feira, onde o que se coleta é o número.
+  const emailBruto = (input?.email || '').trim().toLowerCase();
+  const emailNorm = emailBruto && EMAIL_RE.test(emailBruto) && emailBruto.length <= 200 ? emailBruto : null;
+  const telefoneNorm = normalizarTelefone(input?.whatsapp);
+
+  if (emailBruto && !emailNorm) {
     return { success: false, error: 'E-mail inválido.' };
+  }
+  if (!emailNorm && !telefoneNorm) {
+    return { success: false, error: 'Informe e-mail ou WhatsApp para retornarmos o contato.' };
   }
   if (!input?.cargo?.trim()) {
     return { success: false, error: 'Cargo obrigatório.' };
@@ -93,35 +172,41 @@ export async function capturarLeadComercial(
   const sb = createSupabaseAdmin();
   const { ipHash, userAgent, referer } = await getRequestFingerprint();
 
-  // Rate limit por IP (10 leads/h)
-  const rl = await checkRateLimit(ipHash);
+  const scopeId = CAMPANHAS[(input.campanha || CAMPANHA_PADRAO).toLowerCase()] || CAMPANHAS[CAMPANHA_PADRAO];
+  const ehEvento = scopeId !== CAMPANHAS[CAMPANHA_PADRAO];
+
+  const rl = await checkRateLimit(ipHash, { email: emailNorm, telefone: telefoneNorm }, ehEvento ? LIMITE_IP_EVENTO : LIMITE_IP_PADRAO);
   if (!rl.ok) return { success: false, error: rl.reason || 'Limite de pedidos atingido.' };
 
-  // Dedup idempotente: mesmo (email × scope=comercial) na última hora
-  // retorna o lead existente em vez de criar duplicata
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const emailNorm = input.email.trim().toLowerCase();
-  const { data: existente } = await sb
-    .from('diag_leads')
-    .select('id')
-    .eq('email', emailNorm)
-    .eq('scope_type', 'comercial')
-    .eq('scope_id', 'radarbett')
-    .gte('criado_em', oneHourAgo)
-    .limit(1)
-    .maybeSingle();
+  // Dedup idempotente na última hora, por QUALQUER uma das identidades — quem
+  // deixou o WhatsApp duas vezes não vira dois leads.
+  const umaHoraAtras = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const base = () =>
+    sb
+      .from('diag_leads')
+      .select('id')
+      .eq('scope_type', 'comercial')
+      .eq('scope_id', scopeId)
+      .gte('criado_em', umaHoraAtras)
+      .limit(1);
+
+  const { data: porEmail } = emailNorm ? await base().eq('email', emailNorm).maybeSingle() : { data: null };
+  const { data: porTelefone } =
+    !porEmail && telefoneNorm ? await base().eq('telefone', telefoneNorm).maybeSingle() : { data: null };
+
+  const existente = porEmail || porTelefone;
   if (existente?.id) {
     return { success: true, leadId: existente.id };
   }
 
-  // Consolida dados extras em organizacao
+  // Consolida dados extras em organizacao. WhatsApp e origem NÃO entram mais
+  // aqui: têm coluna própria desde a mig 195 — em texto livre, segmentar o
+  // follow-up depois era trabalho manual.
   const orgComplemento = [
     input.municipio && `Município: ${input.municipio}`,
     input.tipo && `Tipo: ${input.tipo === 'publica' ? 'pública' : 'privada'}`,
     input.qtd_alunos && `Alunos: ${input.qtd_alunos}`,
     input.qtd_escolas && `Escolas: ${input.qtd_escolas}`,
-    input.whatsapp && `WhatsApp: ${input.whatsapp}`,
-    input.origem && `Origem: ${input.origem}`,
     input.scope_label_original && `Busca anterior: ${input.scope_label_original}`,
   ].filter(Boolean).join(' · ');
   const organizacao = [input.instituicao.trim(), orgComplemento].filter(Boolean).join(' — ');
@@ -130,11 +215,13 @@ export async function capturarLeadComercial(
     .from('diag_leads')
     .insert({
       email: emailNorm,
+      telefone: telefoneNorm,
+      origem: (input.origem || '').trim().slice(0, 60) || null,
       nome: input.nome.trim().slice(0, 200),
       cargo: input.cargo.trim().slice(0, 200),
       organizacao: organizacao.slice(0, 1000),
       scope_type: 'comercial',
-      scope_id: 'radarbett',
+      scope_id: scopeId,
       scope_label: input.instituicao.trim().slice(0, 200),
       consentimento_lgpd: true,
       consentimento_em: new Date().toISOString(),
@@ -153,8 +240,8 @@ export async function capturarLeadComercial(
   // Tracking — best effort
   registrarEvento('lead_submit', {
     scopeType: 'municipio', // tipo mais "neutro" no enum existente
-    scopeId: 'radarbett',
-    extra: { leadId: lead.id, comercial: true, origem: input.origem },
+    scopeId,
+    extra: { leadId: lead.id, comercial: true, origem: input.origem, sem_email: !emailNorm },
   }).catch(() => {});
 
   return { success: true, leadId: lead.id };
