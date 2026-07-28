@@ -202,6 +202,16 @@ nunca **"o que está gravado aqui?"**.
   não lança. Todo await de query tem que checar o retorno (`if (error)`), senão a falha passa
   invisível. Mordeu 2× no mesmo dia (27/07): F-C4 (`precarregarKits` devolvia Map vazio truthy)
   e o upsert de notas da IA4 (falhava e o `avaliacao_ia` era carimbado mesmo assim).
+- NÃO interpolar valor vindo de fora em **string de comando** (shell). Server action é endpoint HTTP:
+  o valor é escolhido pelo CLIENTE. Use variável de ambiente (`$env:`) ou argv — em 28/07 um
+  `contextoDir` concatenado num comando PowerShell do worker era RCE local. E antes de "proteger com
+  token", pergunte **onde o token vai morar**: se o formulário roda no navegador, ele iria no bundle
+  público e **segredo em bundle não é segredo**. Casos e regra: `docs/SECURITY-STATUS.md` §28/07.
+- NÃO confiar em teste verde sem saber **onde ele olha**. Asserção sobre agregado (síntese, resumo,
+  total) esconde a parte quebrada: um E2E passou com 1 de 2 motores tendo lido o arquivo porque
+  conferia só o resultado final, e um mock encadeável do supabase devolvia `count: undefined`,
+  deixando dois testes de rate limit passarem sem exercitar nada. Quebre a invariante de propósito
+  antes de contar o teste como prova.
 - NÃO criar fallback novo **silencioso** — fallback pode existir, nunca invisível: registre com
   `registrarDegradacao` (`lib/degradacao.ts`, nunca lança, dedup por chave com contador). Os 10
   pontos clássicos já estão instrumentados (28/07, mig 194) e o health estrutural lê

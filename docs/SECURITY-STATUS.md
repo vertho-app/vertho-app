@@ -60,6 +60,31 @@ achado R8 do health-check aponta a env certa e diz por que não usar a outra.
 com decisão consciente de dar admin — e o caminho canônico para isso é a tabela `platform_admins`,
 não a env.
 
+### 28/07 — mais dois casos de "entrada do cliente vira decisão do servidor" (fechados)
+
+Ambos nasceram no código novo do `/board` e da captura de lead, e ambos foram apontados por
+revisão automática de commit — não por leitura minha. É a **mesma classe** dos 3 altos de 17/07.
+
+| Achado | Onde | Fix |
+|---|---|---|
+| **Command injection** (HIGH) | `criarPainel` grava `contextoDir`; o worker **concatenava** o valor num comando PowerShell executado na máquina local → RCE local com os privilégios do dono | Caminhos viajam em **variável de ambiente** e o comando referencia `$env:` — o PowerShell expande em modo de argumento, então `;`, `\|`, `$(...)` e aspas ficam inertes. Mais recusa de sintaxe de shell no engine e validação na action (`d0cfca2a`) |
+| **Bypass de rate limit** | `campanha` vinha do cliente e escolhia o teto de leads por IP (10/h × 300/h): bastava enviar `campanha:'conarh'` no formulário público | Campanha deixou de mexer em limite; teto único de 300/h (`942ee526`) |
+| **Enumeração de cadastro** | "Já recebemos seu contato" confirmava a um terceiro que aquele e-mail/telefone está na base; o dedup ainda devolvia o `leadId` — que pode ser de outra pessoa | Mensagem **única** para qualquer limite; dedup responde sem identificador (`a1b56b27`) |
+
+🔑 **Regra que sobra, e vale antes de adotar qualquer "proteção por token": pergunte ONDE o token vai
+morar.** A primeira correção do bypass foi um `campanhaToken` conferido no servidor — mas o
+formulário roda no navegador do visitante, então o token teria de viajar no bundle público.
+**Segredo em bundle não é segredo**: a proteção seria só aparente. O desenho correto seria cookie
+`httpOnly` emitido uma vez no dispositivo do stand; a decisão foi que o risco não pagava esse custo.
+
+⚠️ **Risco aceito conscientemente (Rodrigo, 28/07):** com 300/h por IP, um script insere até 300 leads
+falsos por hora por endereço. O dano é lead falso no funil — não vazamento nem indisponibilidade — e
+o sinal é fácil de ver: muitos leads do mesmo `ip_hash` em janela curta.
+
+Guarda: `tests/unit/lead-comercial-contato.test.ts` (14 testes, validados por mutação) e
+`scripts/painel/_seguranca.mjs` (prova a injeção com canário: o payload criaria um arquivo se
+passasse).
+
 ### Service-role: como decidir se um uso é aceitável (absorvido em 27/07)
 
 `docs/service-role-allowlist.md` mantinha um **inventário manual** de 88 arquivos que já estava
