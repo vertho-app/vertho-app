@@ -36,6 +36,26 @@ const CAMPANHAS: Record<string, string> = {
 };
 const CAMPANHA_PADRAO = 'radarbett';
 
+/**
+ * Campanha de evento eleva o teto de IP — e por isso NÃO pode ser escolhida só
+ * pelo cliente: esta action é um endpoint HTTP, então bastaria enviar
+ * `campanha: 'conarh'` para trocar 10/h por 300/h no site público.
+ *
+ * O formulário do stand carrega `campanhaToken`, conferido contra a env
+ * BOARD_EVENTO_TOKEN / LEAD_EVENTO_TOKEN. Sem token válido, a campanha de evento
+ * é ignorada por completo: cai no scope padrão E no limite padrão — nem o
+ * scope_id fica forjável.
+ */
+function tokenDeEventoValido(token?: string): boolean {
+  const esperado = (process.env.LEAD_EVENTO_TOKEN || '').trim();
+  const recebido = (token || '').trim();
+  if (!esperado || !recebido || esperado.length !== recebido.length) return false;
+  // comparação de tempo constante: o token é curto e a rota é pública
+  let dif = 0;
+  for (let i = 0; i < esperado.length; i++) dif |= esperado.charCodeAt(i) ^ recebido.charCodeAt(i);
+  return dif === 0;
+}
+
 export type CapturarLeadComercialInput = {
   // Dados pessoais — email OU whatsapp; pelo menos um
   nome: string;
@@ -52,6 +72,8 @@ export type CapturarLeadComercialInput = {
   origem?: 'home' | 'header' | 'persona' | 'cta_final' | 'sticky' | 'comparar' | 'public_cta' | string;
   /** Campanha (chave de CAMPANHAS). Define o scope_id — default: radarbett. */
   campanha?: string;
+  /** Token da campanha de evento; sem ele, `campanha` de evento é ignorada. */
+  campanhaToken?: string;
   // Se tinha algum scope mas era inválido, registra como referência
   scope_label_original?: string;
   // LGPD
@@ -70,6 +92,13 @@ const LIMITE_IP_PADRAO = 10;
 const LIMITE_IP_EVENTO = 300;
 /** Mesma pessoa reenviando: o dedup já cobre a hora; isto barra flood real. */
 const LIMITE_IDENTIDADE = 5;
+
+/**
+ * Uma única mensagem para QUALQUER limite atingido. Distinguir "muitos desta
+ * rede" de "já recebemos seu contato" entrega a um terceiro se determinado
+ * e-mail ou telefone existe na base — num formulário público, isso é enumeração.
+ */
+const MENSAGEM_LIMITE = 'Não foi possível registrar agora. Tente de novo em alguns minutos.';
 
 /** E.164 quando possível; se não der, guarda os dígitos (melhor que perder o contato). */
 function normalizarTelefone(bruto?: string): string | null {
@@ -122,7 +151,10 @@ async function checkRateLimit(
       .gte('criado_em', umaHoraAtras);
     // supabase-js RETORNA o erro; sem checar, a falha viraria "limite ok"
     if (!error && (count || 0) >= LIMITE_IDENTIDADE) {
-      return { ok: false, reason: 'Já recebemos seu contato há pouco. Em breve alguém responde.' };
+      // MESMA mensagem do limite por IP, de propósito: "já recebemos seu
+      // contato" confirmaria a um terceiro que aquele e-mail/telefone está na
+      // base — o formulário é público, então isso é enumeração de cadastro.
+      return { ok: false, reason: MENSAGEM_LIMITE };
     }
   }
 
@@ -133,7 +165,7 @@ async function checkRateLimit(
       .eq('ip_hash', ipHash)
       .gte('criado_em', umaHoraAtras);
     if (!error && (count || 0) >= limiteIp) {
-      return { ok: false, reason: 'Muitos cadastros desta rede na última hora. Tente de novo em alguns minutos.' };
+      return { ok: false, reason: MENSAGEM_LIMITE };
     }
   }
 
@@ -172,8 +204,11 @@ export async function capturarLeadComercial(
   const sb = createSupabaseAdmin();
   const { ipHash, userAgent, referer } = await getRequestFingerprint();
 
-  const scopeId = CAMPANHAS[(input.campanha || CAMPANHA_PADRAO).toLowerCase()] || CAMPANHAS[CAMPANHA_PADRAO];
-  const ehEvento = scopeId !== CAMPANHAS[CAMPANHA_PADRAO];
+  const pedida = (input.campanha || CAMPANHA_PADRAO).toLowerCase();
+  const scopePedido = CAMPANHAS[pedida] || CAMPANHAS[CAMPANHA_PADRAO];
+  // Evento só vale com token; senão o pedido cai inteiro no padrão.
+  const ehEvento = scopePedido !== CAMPANHAS[CAMPANHA_PADRAO] && tokenDeEventoValido(input.campanhaToken);
+  const scopeId = ehEvento ? scopePedido : CAMPANHAS[CAMPANHA_PADRAO];
 
   const rl = await checkRateLimit(ipHash, { email: emailNorm, telefone: telefoneNorm }, ehEvento ? LIMITE_IP_EVENTO : LIMITE_IP_PADRAO);
   if (!rl.ok) return { success: false, error: rl.reason || 'Limite de pedidos atingido.' };
@@ -196,7 +231,10 @@ export async function capturarLeadComercial(
 
   const existente = porEmail || porTelefone;
   if (existente?.id) {
-    return { success: true, leadId: existente.id };
+    // Sucesso SEM o id: o lead achado pode ser de outra pessoa (basta enviar o
+    // e-mail dela), e devolver o identificador dela num formulário público é
+    // vazamento. Nenhum chamador usa o leadId — o modal só olha `error`.
+    return { success: true };
   }
 
   // Consolida dados extras em organizacao. WhatsApp e origem NÃO entram mais
