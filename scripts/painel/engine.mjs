@@ -27,10 +27,11 @@ mkdirSync(TMP, { recursive: true })
 const TIMEOUT_MS = 12 * 60 * 1000
 
 // ---------------------------------------------------------------- shell
-function sh(comando, { timeout = TIMEOUT_MS } = {}) {
+function sh(comando, { timeout = TIMEOUT_MS, env = {} } = {}) {
   return new Promise((resolve) => {
     const p = spawn('pwsh', ['-NoProfile', '-NonInteractive', '-Command', comando], {
       windowsHide: true,
+      env: { ...process.env, ...env },
     })
     let out = ''
     let err = ''
@@ -90,8 +91,34 @@ export function extrairJson(texto) {
 const UTF8 = '[Console]::OutputEncoding=[Text.Encoding]::UTF8; $OutputEncoding=[Text.Encoding]::UTF8; '
 // agy nao esta no PATH herdado por processos filhos; recarregar do registro
 const PATH_AGY = "$env:Path = (Get-ItemProperty 'HKCU:\\Environment' -Name Path).Path + ';' + $env:Path; "
-const LER_ARQUIVO = (f) =>
-  `"Leia INTEGRALMENTE o arquivo ${f} e siga as instrucoes que estao nele. O arquivo e longo: leia ate o fim antes de responder."`
+
+/**
+ * SEGURANCA — caminhos NUNCA sao interpolados no texto do comando.
+ *
+ * `contexto_dir` e `raiz` chegam de `criarPainel`, que e uma server action: o
+ * VALOR e escolhido pelo cliente, nao pelo formulario. Concatenado numa string
+ * de shell, um `"; <comando>; "` viraria execucao arbitraria NESTA maquina, com
+ * os privilegios do dono. E a mesma classe da arg-injection do yt-dlp (auditoria
+ * de 23/07).
+ *
+ * Solucao: os valores viajam em VARIAVEIS DE AMBIENTE e o comando referencia
+ * `$env:...`. O PowerShell expande variavel em modo de argumento -- o conteudo
+ * vira UM argumento e nao volta a ser lido como sintaxe, entao `;`, `|`, `$(...)`
+ * e aspas dentro do valor sao inertes.
+ */
+const ENV_PROMPT = 'BOARD_PROMPT_FILE'
+const ENV_TMP = 'BOARD_TMP_DIR'
+const ENV_RAIZ = 'BOARD_ADD_RAIZ'
+const ENV_CTX = 'BOARD_ADD_CTX'
+
+const LER_ARQUIVO = `"Leia INTEGRALMENTE o arquivo $env:${ENV_PROMPT} e siga as instrucoes que estao nele. O arquivo e longo: leia ate o fim antes de responder."`
+
+/** Cinto de seguranca do lado de ca: caminho com sintaxe de shell nao passa.
+ *  Nao substitui o uso de env var -- soma a ele. */
+const PERIGOSO = /["`;|&\n\r$(){}<>]/
+export function caminhoSuspeito(p) {
+  return typeof p === 'string' && p.length > 0 && PERIGOSO.test(p)
+}
 
 export const MOTORES = {
   claude: {
@@ -99,7 +126,7 @@ export const MOTORES = {
     nome: 'Claude',
     via: 'claude -p · assinatura Claude',
     // stdin: prompt grande como argumento estoura o CreateProcess do Windows (~32 KB)
-    cmd: (f) => `${UTF8}Get-Content '${f}' -Raw | claude -p --output-format json --model opus`,
+    cmd: () => `${UTF8}Get-Content -LiteralPath $env:${ENV_PROMPT} -Raw | claude -p --output-format json --model opus`,
     parse: (out) => {
       const env = extrairJson(out)
       // o CLI devolve um envelope; a resposta do modelo vive em .result
@@ -116,7 +143,7 @@ export const MOTORES = {
     nome: 'gpt-5.6-sol',
     via: 'codex exec · plano ChatGPT',
     // --sandbox read-only: garantia em nivel de processo de que nao escreve
-    cmd: (f) => `${UTF8}Get-Content '${f}' -Raw | codex exec --skip-git-repo-check --sandbox read-only`,
+    cmd: () => `${UTF8}Get-Content -LiteralPath $env:${ENV_PROMPT} -Raw | codex exec --skip-git-repo-check --sandbox read-only`,
     parse: (out) => extrairJson(out),
   },
   kimi: {
@@ -124,7 +151,7 @@ export const MOTORES = {
     nome: 'Kimi K3',
     via: 'kimi -p · plano Kimi for Coding',
     // nao le stdin (`-p -` vira o prompt literal "-"): recebe o CAMINHO
-    cmd: (f) => `${UTF8}kimi -p ${LER_ARQUIVO(f)} --output-format stream-json`,
+    cmd: () => `${UTF8}kimi -p ${LER_ARQUIVO} --output-format stream-json`,
     parse: (out) => {
       const linhas = String(out).split('\n').filter((l) => l.includes('"role":"assistant"'))
       for (let i = linhas.length - 1; i >= 0; i--) {
@@ -144,10 +171,11 @@ export const MOTORES = {
     via: 'agy -p · conta Google',
     // --model exige o LABEL; o ID de `agy models` cai calado no default.
     // TMP precisa entrar em --add-dir ou o agy nao le o proprio prompt.
+    // Os --add-dir vem de $env: -- ver o bloco SEGURANCA acima.
     cmd: (f, ctx) =>
-      `${UTF8}${PATH_AGY}agy -p ${LER_ARQUIVO(f)} --model "Gemini 3.6 Flash (High)" --add-dir "${TMP}"` +
-      (ctx.raiz ? ` --add-dir "${ctx.raiz}"` : '') +
-      (ctx.contextoDir ? ` --add-dir "${ctx.contextoDir}"` : '') +
+      `${UTF8}${PATH_AGY}agy -p ${LER_ARQUIVO} --model "Gemini 3.6 Flash (High)" --add-dir $env:${ENV_TMP}` +
+      (ctx.raiz ? ` --add-dir $env:${ENV_RAIZ}` : '') +
+      (ctx.contextoDir ? ` --add-dir $env:${ENV_CTX}` : '') +
       ` --dangerously-skip-permissions --print-timeout 10m`,
     parse: (out) => extrairJson(out),
     dica:
@@ -175,13 +203,31 @@ export async function chamarMotor(id, prompt, ctx = {}, tag = '', tentativas = 1
   const m = MOTORES[id]
   if (!m) return { ok: false, erro: `motor desconhecido: ${id}` }
 
+  // Caminho com sintaxe de shell nao roda -- nem por env var. Barrar aqui e
+  // redundante de proposito: a defesa primaria e nao interpolar (ver SEGURANCA),
+  // esta e a segunda linha, para o caso de alguem voltar a montar comando por
+  // concatenacao um dia.
+  for (const [nome, valor] of [['raiz', ctx.raiz], ['contexto_dir', ctx.contextoDir]]) {
+    if (caminhoSuspeito(valor)) {
+      return { ok: false, erro: `caminho recusado por conter sintaxe de shell (${nome}): ${String(valor).slice(0, 120)}` }
+    }
+  }
+
   const arquivo = join(TMP, `${tag || 'p'}_${id}.txt`)
   writeFileSync(arquivo, prompt, 'utf8')
+
+  // Os caminhos viajam por ambiente; o comando so referencia $env:...
+  const env = {
+    [ENV_PROMPT]: arquivo,
+    [ENV_TMP]: TMP,
+    ...(ctx.raiz ? { [ENV_RAIZ]: ctx.raiz } : {}),
+    ...(ctx.contextoDir ? { [ENV_CTX]: ctx.contextoDir } : {}),
+  }
 
   let ultimo = null
   for (let n = 1; n <= tentativas; n++) {
     const inicio = Date.now()
-    const r = await sh(m.cmd(arquivo, ctx))
+    const r = await sh(m.cmd(arquivo, ctx), { env })
     const segundos = Math.round((Date.now() - inicio) / 1000)
 
     if (!r.timeout) {

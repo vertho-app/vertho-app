@@ -19,6 +19,28 @@ import { PAINEL } from '@/lib/status';
 const MOTORES_VALIDOS = ['claude', 'codex', 'kimi', 'gemini'] as const;
 type Motor = (typeof MOTORES_VALIDOS)[number];
 
+/**
+ * A pasta de contexto vira argumento de um comando executado na MÁQUINA LOCAL
+ * pelo worker. Esta action é um endpoint HTTP — o valor vem do cliente, não do
+ * formulário —, então caminho com sintaxe de shell nunca pode ser gravado.
+ *
+ * O worker também não interpola o valor no comando (viaja por variável de
+ * ambiente) e revalida antes de executar. Três camadas de propósito: a entrada
+ * é a única que impede o valor perigoso de existir no banco.
+ */
+const CAMINHO_OK = /^[A-Za-z]:[\\/][A-Za-z0-9 _.\-\\/À-ÿ]*$/;
+
+function validarContextoDir(valor?: string): string | null {
+  const p = (valor || '').trim();
+  if (!p) return null;
+  if (p.length > 400) throw new Error('Caminho da pasta de contexto longo demais.');
+  if (p.includes('..')) throw new Error('Caminho da pasta de contexto inválido.');
+  if (!CAMINHO_OK.test(p)) {
+    throw new Error('Caminho da pasta de contexto inválido — use só letras, números, espaço, ponto, hífen e barras.');
+  }
+  return p;
+}
+
 async function garantirAdmin(): Promise<string> {
   const email = await getAuthenticatedEmailFromAction();
   if (!email) throw new Error('Sessão expirada. Entre de novo para continuar.');
@@ -66,7 +88,7 @@ export async function criarPainel(entrada: NovoPainel): Promise<{ id: string }> 
       titulo: (entrada.titulo || '').trim() || null,
       pergunta,
       contexto: (entrada.contexto || '').trim() || null,
-      contexto_dir: (entrada.contextoDir || '').trim() || null,
+      contexto_dir: validarContextoDir(entrada.contextoDir),
       motores,
       status: PAINEL.PENDENTE,
       criado_por: email,
