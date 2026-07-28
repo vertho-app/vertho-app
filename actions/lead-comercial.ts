@@ -37,24 +37,18 @@ const CAMPANHAS: Record<string, string> = {
 const CAMPANHA_PADRAO = 'radarbett';
 
 /**
- * Campanha de evento eleva o teto de IP — e por isso NÃO pode ser escolhida só
- * pelo cliente: esta action é um endpoint HTTP, então bastaria enviar
- * `campanha: 'conarh'` para trocar 10/h por 300/h no site público.
+ * A campanha define APENAS o scope_id (rótulo do funil), nunca o rate limit.
  *
- * O formulário do stand carrega `campanhaToken`, conferido contra a env
- * BOARD_EVENTO_TOKEN / LEAD_EVENTO_TOKEN. Sem token válido, a campanha de evento
- * é ignorada por completo: cai no scope padrão E no limite padrão — nem o
- * scope_id fica forjável.
+ * Houve uma versão em que campanha de evento elevava o teto de IP, protegida por
+ * token — mas o formulário roda no navegador do visitante, então o token teria
+ * de viajar no bundle público e não seria segredo. Decisão do Rodrigo (28/07):
+ * subir o teto de IP para todo mundo e aceitar o risco de flood, que aqui custa
+ * lead falso no funil — não vazamento nem indisponibilidade.
+ *
+ * A campanha continua vindo de allowlist: o valor é escolhido pelo cliente (toda
+ * export daqui é endpoint HTTP), então o pior caso é rotular um lead na campanha
+ * errada, e não gravar texto arbitrário no scope_id.
  */
-function tokenDeEventoValido(token?: string): boolean {
-  const esperado = (process.env.LEAD_EVENTO_TOKEN || '').trim();
-  const recebido = (token || '').trim();
-  if (!esperado || !recebido || esperado.length !== recebido.length) return false;
-  // comparação de tempo constante: o token é curto e a rota é pública
-  let dif = 0;
-  for (let i = 0; i < esperado.length; i++) dif |= esperado.charCodeAt(i) ^ recebido.charCodeAt(i);
-  return dif === 0;
-}
 
 export type CapturarLeadComercialInput = {
   // Dados pessoais — email OU whatsapp; pelo menos um
@@ -72,8 +66,6 @@ export type CapturarLeadComercialInput = {
   origem?: 'home' | 'header' | 'persona' | 'cta_final' | 'sticky' | 'comparar' | 'public_cta' | string;
   /** Campanha (chave de CAMPANHAS). Define o scope_id — default: radarbett. */
   campanha?: string;
-  /** Token da campanha de evento; sem ele, `campanha` de evento é ignorada. */
-  campanhaToken?: string;
   // Se tinha algum scope mas era inválido, registra como referência
   scope_label_original?: string;
   // LGPD
@@ -83,13 +75,18 @@ export type CapturarLeadComercialInput = {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Limite por IP. O padrão protege o site público; num EVENTO o stand inteiro sai
- * por um único roteador, e 10/h significaria perder todo visitante a partir do
- * 11º da hora — em silêncio, porque o erro aparece para quem está preenchendo,
- * não para quem está atendendo.
+ * Teto por IP, igual para todo mundo.
+ *
+ * Era 10/h — o que matava a captura em feira, onde o stand inteiro sai por um
+ * roteador só e o 11º visitante da hora sumia em silêncio (o erro aparece para
+ * quem preenche, não para quem atende). 300/h cobre um dia de evento com folga e
+ * ainda barra script.
+ *
+ * O que de fato contém abuso é o limite por IDENTIDADE abaixo; o IP sempre foi
+ * aproximação grosseira, e compartilhado por construção em rede corporativa,
+ * escola ou feira.
  */
-const LIMITE_IP_PADRAO = 10;
-const LIMITE_IP_EVENTO = 300;
+const LIMITE_IP = 300;
 /** Mesma pessoa reenviando: o dedup já cobre a hora; isto barra flood real. */
 const LIMITE_IDENTIDADE = 5;
 
@@ -136,7 +133,6 @@ async function getRequestFingerprint() {
 async function checkRateLimit(
   ipHash: string | null,
   identidade: { email: string | null; telefone: string | null },
-  limiteIp: number,
 ): Promise<{ ok: boolean; reason?: string }> {
   const sb = createSupabaseAdmin();
   const umaHoraAtras = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -164,7 +160,7 @@ async function checkRateLimit(
       .select('id', { count: 'exact', head: true })
       .eq('ip_hash', ipHash)
       .gte('criado_em', umaHoraAtras);
-    if (!error && (count || 0) >= limiteIp) {
+    if (!error && (count || 0) >= LIMITE_IP) {
       return { ok: false, reason: MENSAGEM_LIMITE };
     }
   }
@@ -205,12 +201,9 @@ export async function capturarLeadComercial(
   const { ipHash, userAgent, referer } = await getRequestFingerprint();
 
   const pedida = (input.campanha || CAMPANHA_PADRAO).toLowerCase();
-  const scopePedido = CAMPANHAS[pedida] || CAMPANHAS[CAMPANHA_PADRAO];
-  // Evento só vale com token; senão o pedido cai inteiro no padrão.
-  const ehEvento = scopePedido !== CAMPANHAS[CAMPANHA_PADRAO] && tokenDeEventoValido(input.campanhaToken);
-  const scopeId = ehEvento ? scopePedido : CAMPANHAS[CAMPANHA_PADRAO];
+  const scopeId = CAMPANHAS[pedida] || CAMPANHAS[CAMPANHA_PADRAO];
 
-  const rl = await checkRateLimit(ipHash, { email: emailNorm, telefone: telefoneNorm }, ehEvento ? LIMITE_IP_EVENTO : LIMITE_IP_PADRAO);
+  const rl = await checkRateLimit(ipHash, { email: emailNorm, telefone: telefoneNorm });
   if (!rl.ok) return { success: false, error: rl.reason || 'Limite de pedidos atingido.' };
 
   // Dedup idempotente na última hora, por QUALQUER uma das identidades — quem

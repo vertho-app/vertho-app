@@ -57,10 +57,6 @@ vi.mock('next/headers', () => ({
 }));
 vi.mock('@/lib/radar/eventos', () => ({ registrarEvento: async () => {} }));
 
-/** Token do stand — precisa existir ANTES do import da action. */
-const TOKEN = 'token-do-stand-conarh';
-process.env.LEAD_EVENTO_TOKEN = TOKEN;
-
 const { capturarLeadComercial } = await import('@/actions/lead-comercial');
 
 const base = {
@@ -117,23 +113,15 @@ describe('campanha define o scope_id', () => {
     expect(estado.inseridos[0].scope_id).toBe('radarbett');
   });
 
-  it('separa o lead de evento em scope próprio QUANDO o token confere', async () => {
-    await capturarLeadComercial({ ...base, email: 'a@b.com', campanha: 'conarh', campanhaToken: TOKEN });
+  it('separa o lead de evento em scope próprio', async () => {
+    await capturarLeadComercial({ ...base, email: 'a@b.com', campanha: 'conarh' });
     expect(estado.inseridos[0].scope_id).toBe('conarh-2026');
   });
 
   it('campanha desconhecida cai no padrão, não grava valor livre', async () => {
+    // a campanha vem do cliente; a allowlist garante que o pior caso é rótulo
+    // errado, nunca texto arbitrário no scope_id
     await capturarLeadComercial({ ...base, email: 'a@b.com', campanha: 'inventada; drop' });
-    expect(estado.inseridos[0].scope_id).toBe('radarbett');
-  });
-
-  it('campanha de evento SEM token cai no padrão', async () => {
-    await capturarLeadComercial({ ...base, email: 'a@b.com', campanha: 'conarh' });
-    expect(estado.inseridos[0].scope_id).toBe('radarbett');
-  });
-
-  it('campanha de evento com token errado cai no padrão', async () => {
-    await capturarLeadComercial({ ...base, email: 'a@b.com', campanha: 'conarh', campanhaToken: 'chute-errado' });
     expect(estado.inseridos[0].scope_id).toBe('radarbett');
   });
 });
@@ -147,34 +135,28 @@ describe('rate limit', () => {
     return ip;
   }
 
-  it('no site, 10 cadastros do mesmo IP na hora bloqueiam o 11º', async () => {
+  it('um dia de stand num roteador só NÃO é bloqueado', async () => {
+    // 60 leads da mesma rede em uma hora: o cenário que o limite antigo (10/h)
+    // matava em silêncio
     const ip = await ipRealGravado();
-    estado.existentes = Array.from({ length: 10 }, (_, i) => ({ id: `x${i}`, ip_hash: ip }));
+    estado.existentes = Array.from({ length: 60 }, (_, i) => ({ id: `x${i}`, ip_hash: ip }));
+    const r = await capturarLeadComercial({ ...base, whatsapp: '11912345678' });
+    expect(r.success).toBe(true);
+    expect(estado.inseridos).toHaveLength(1);
+  });
+
+  it('script insistindo do mesmo IP é barrado no teto', async () => {
+    const ip = await ipRealGravado();
+    estado.existentes = Array.from({ length: 300 }, (_, i) => ({ id: `x${i}`, ip_hash: ip }));
     const r = await capturarLeadComercial({ ...base, email: 'outro@b.com' });
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/tente de novo/i);
     expect(estado.inseridos).toHaveLength(0);
   });
 
-  it('em evento COM token, o mesmo volume de IP NÃO bloqueia — o stand é um roteador só', async () => {
-    const ip = await ipRealGravado();
-    estado.existentes = Array.from({ length: 60 }, (_, i) => ({ id: `x${i}`, ip_hash: ip }));
-    const r = await capturarLeadComercial({ ...base, whatsapp: '11912345678', campanha: 'conarh', campanhaToken: TOKEN });
-    expect(r.success).toBe(true);
-    expect(estado.inseridos).toHaveLength(1);
-  });
-
-  it('SEM token, alegar evento não eleva o teto de IP', async () => {
-    const ip = await ipRealGravado();
-    estado.existentes = Array.from({ length: 60 }, (_, i) => ({ id: `x${i}`, ip_hash: ip }));
-    const r = await capturarLeadComercial({ ...base, whatsapp: '11912345678', campanha: 'conarh' });
-    expect(r.success).toBe(false);
-    expect(estado.inseridos).toHaveLength(0);
-  });
-
-  it('mesma pessoa reenviando muitas vezes é barrada mesmo em evento', async () => {
+  it('mesma pessoa reenviando muitas vezes é barrada', async () => {
     estado.existentes = Array.from({ length: 5 }, (_, i) => ({ id: `y${i}`, telefone: '+5511912345678' }));
-    const r = await capturarLeadComercial({ ...base, whatsapp: '11912345678', campanha: 'conarh', campanhaToken: TOKEN });
+    const r = await capturarLeadComercial({ ...base, whatsapp: '11912345678' });
     expect(r.success).toBe(false);
   });
 
@@ -185,7 +167,7 @@ describe('rate limit', () => {
 
     // limite por IP, com identidade nova
     const ip = await ipRealGravado();
-    estado.existentes = Array.from({ length: 10 }, (_, i) => ({ id: `x${i}`, ip_hash: ip }));
+    estado.existentes = Array.from({ length: 300 }, (_, i) => ({ id: `x${i}`, ip_hash: ip }));
     const porIp = await capturarLeadComercial({ ...base, email: 'novo@b.com' });
 
     expect(porIdentidade.success).toBe(false);
