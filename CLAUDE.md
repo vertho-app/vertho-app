@@ -206,6 +206,9 @@ nunca **"o que está gravado aqui?"**.
   `registrarDegradacao` (`lib/degradacao.ts`, nunca lança, dedup por chave com contador). Os 10
   pontos clássicos já estão instrumentados (28/07, mig 194) e o health estrutural lê
   `degradacao_log` toda madrugada (R10 do `lib/pipeline-health/regras.ts`).
+  **A régua (28/07): na CONSTRUÇÃO, falhe alto** (build/admin — tem humano pra consertar:
+  missão/cenário, semana sem core, DUO indisponível **abortam** com erro acionável); **na
+  ENTREGA, degrade registrando** (leitura ao vivo — falhar duro quebra a pessoa sem recuperação).
 - NÃO `.limit(1)` em `ppp_escolas` p/ representar a empresa — empresa-rede tem **1 PPP por escola**
   (Ibipeba: 11) e isso aplica uma escola sorteada à rede inteira, em silêncio. Consolidar:
   `buscarContextoPPP(tdb, {empresaId})` (texto), `buscarValoresDaRede`/`buscarValores` (valores) ou

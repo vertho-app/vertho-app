@@ -313,7 +313,9 @@ SemanaConteudo
 ```
 
 **Missão + cenário:** 2 `callAI` em paralelo (600/800 tokens, `build-season.ts:611-614`), só nas
-`semanasMissao`. Falha → placeholder templated, **não aborta**.
+`semanasMissao`. Falha → **o build ABORTA com erro acionável** (28/07, decisão de produto:
+"na construção, falhe alto" — placeholder em produção era pior que retry; registra
+`missao-placeholder` crítico no `degradacao_log` antes de lançar).
 **Cobertura da missão (regra de 28/07):** a missão cobre o **bloco que acabou de fechar** —
 descritores alocados em semanas de conteúdo desde a missão anterior (corte por `semanas_ids` em
 `descritoresEntreguesNaMissao`): semana 4 → semanas 1-3; semana 8 → semanas 5-7. Só a **última**

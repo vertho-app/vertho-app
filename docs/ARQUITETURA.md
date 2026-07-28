@@ -1292,6 +1292,8 @@ Comportamento defensivo: sem tutor vinculado → skip silencioso; tutor sem tele
 1. `sys_config.competencias_regular_duo` (override explícito), OU
 2. top-2 do cargo via `top10_cargos`, com a **competência âncora** (trilha/cargo existente) em 1º para continuidade.
 
+⚠️ **28/07 — DUO indisponível é ERRO, não downgrade**: sem assessment da 2ª competência (ou cargo sem 2 resolvíveis), o build aborta com mensagem acionável ("rode o mapeamento ou defina `programa_modo='regular_single'` explicitamente") e registra `duo-para-single` no `degradacao_log`. Antes caía para single em silêncio — a pessoa recebia 1 competência sem ninguém saber.
+
 **Alocação profunda** (`selectDescriptorsDuo`): os 9 slots viram 3 blocos contíguos de 3 — `[1,2,3]` → Comp A, `[5,6,7]` → Comp B, `[9,10,11]` → reforço da comp de **maior gap agregado** (empate → âncora). Blocos de 3 preservam a contiguidade do `selectDescriptors` (descritor de 2 semanas nunca cruza fronteira de bloco → nunca atravessa missão 4/8/12). Cada `SelectedDescriptor` sai com `.competencia` preenchida → `buildSeason` roteia a semana de conteúdo pra comp certa.
 
 **Missões integradoras**: `competenciasNaMissao = { 4:[-1], 8:[-1], 12:[-1] }` (`-1` = todas as comps da trilha), complexidade crescente via `complexidadeMap` (simples → intermediário → completo).

@@ -629,8 +629,8 @@ O `PIPELINE-TRILHA.md` é **excepcionalmente fiel** (~50 referências `arquivo:l
 ### Camadas 0–3 (Insumos → Blueprint → Trilha)
 
 - **IA com JSON inválido no blueprint** → erro "IA não retornou blueprint válido", sem retry de parse; o colaborador fica sem blueprint e ninguém é notificado; com a flag on, a trilha DUO **degrada em silêncio** para `selectDescriptorsDuo` (`lib/blueprint/core.ts:172-178`, `lib/season-engine/trilha-core.ts:378`).
-- **IA fora durante `buildSeason`** → placeholder templated gravado no plano ("Missão pendente…"), trilha vai para produção assim; sinal só em `console.warn` (`lib/season-engine/build-season.ts:600-646`).
-- **DUO sem assessment da 2ª competência** → fallback single **silencioso**; o colaborador recebe produto diferente do contratado, sem aviso ao admin (`trilha-core.ts:354-358`, carimbo `regular_single`).
+- **IA fora durante `buildSeason`** ✅ 28/07 → o build **ABORTA** com erro acionável ("trilha não construída; rode de novo") + registra `missao-placeholder` crítico no `degradacao_log`. Antes: placeholder templated gravado no plano ("Missão pendente…") ia para produção, com sinal só em `console.warn`.
+- **DUO sem assessment da 2ª competência** ✅ 28/07 → **erro acionável** ("rode o mapeamento ou defina `programa_modo='regular_single'` explicitamente") + registro `duo-para-single`. Antes: fallback single **silencioso** — o colaborador recebia produto diferente do contratado, sem aviso (a trilha `regular_single` da Érica no Ibipeba nasceu desse caminho).
 - **Sem assessment / sem foco do cargo** → erro explícito acionável (correto), mas **sem notificação proativa** — quem trava fica invisível até alguém olhar a fila (`trilha-core.ts:105-110`, `core.ts:120-122`).
 - **Blueprint regenerado depois da trilha construída** → trilha é snapshot; PDI lê o blueprint ao vivo → **PDI e trilha divergem silenciosamente** até a próxima geração (`trilha-core.ts:370-376`, `actions/relatorios.ts:275`).
 - **`regerarSemana` é read-modify-write do JSONB inteiro** → duas regens concorrentes → last-writer-wins perde uma edição; sem lock (`temporadas.ts:360-430`).
