@@ -804,7 +804,7 @@
   5. Nao pode ser generica, nao pode virar checklist de tarefas independentes
   6. Curta (max 3 frases), concreta, especifica, sem jargao/tom professoral/slogan
 - **Inputs**: Cargo, setor/contexto, competencia, descritores a integrar.
-- **Cobertura (regra de 28/07)**: os descritores passados ao prompt são só os **já entregues** em semanas de conteúdo anteriores à missão — corte por `semanas_ids` em `descritoresEntreguesNaMissao` (`build-season.ts`), não a competência inteira. Antes, a semana 4 já cobrava o bloco que só começava na semana 5 (medido no Ibipeba: missão integrando Autocuidado sem nenhum conteúdo dele entregue).
+- **Cobertura (regra de 28/07)**: os descritores passados ao prompt são os do **bloco que acabou de fechar** — alocados em semanas de conteúdo desde a missão anterior (corte por `semanas_ids` em `descritoresEntreguesNaMissao`, `build-season.ts`): semana 4 → semanas 1-3, semana 8 → semanas 5-7. Só a última missão (semana 12) é cumulativa (as 9 semanas). Antes, a semana 4 já cobrava o bloco que só começava na semana 5 (medido no Ibipeba: missão integrando Autocuidado sem nenhum conteúdo dele entregue).
 - **Output**: JSON `{ missao_texto, acao_principal, contexto_de_aplicacao, criterio_de_execucao, integracao_descritores[{descritor, como_aparece}], por_que_cabe_na_semana }`. Validacao: `parseMissaoResponse` — valida strings min 5 chars + max 4 frases + integracao_descritores obrigatorio. Renderizacao: `missaoToMarkdown`.
 - **Consumido por**: `trilhas.temporada_plano[].missao.texto`.
 

@@ -314,10 +314,12 @@ SemanaConteudo
 
 **Missão + cenário:** 2 `callAI` em paralelo (600/800 tokens, `build-season.ts:611-614`), só nas
 `semanasMissao`. Falha → placeholder templated, **não aborta**.
-**Cobertura da missão (regra de 28/07):** só os descritores **já entregues** em semanas de conteúdo
-anteriores (corte por `semanas_ids` em `descritoresEntreguesNaMissao`) — a avaliação não cobra o
-bloco que ainda não começou. Antes, a semana 4 integrava a competência inteira (12 descritores no
-Ibipeba, incluindo o bloco da semana 5); as 37 trilhas do Ibipeba foram regeradas com a regra nova.
+**Cobertura da missão (regra de 28/07):** a missão cobre o **bloco que acabou de fechar** —
+descritores alocados em semanas de conteúdo desde a missão anterior (corte por `semanas_ids` em
+`descritoresEntreguesNaMissao`): semana 4 → semanas 1-3; semana 8 → semanas 5-7. Só a **última**
+(semana 12) é cumulativa e engloba as 9 semanas de conteúdo. Antes, a semana 4 integrava a
+competência inteira (12 descritores no Ibipeba, incluindo o bloco da semana 5); as 37 trilhas do
+Ibipeba foram regeradas com a regra nova (semanas 4, 8 e 12).
 **Avaliação: ZERO IA** (`:278-287`) — objeto literal. O Cenário B vem de `banco_cenarios`.
 **Desafio: templated por default** (`:509`); IA só com `BUILDSEASON_DESAFIO_IA=1` — porque o
 desafio canônico vem do **Kit**, aplicado na leitura.
