@@ -130,7 +130,6 @@
     "lib/demo/reset-acme-demo.ts": 1,
     "lib/sales/permissions.ts": 1,
     "trigger/acumulada-piloto.ts": 1,
-    "actions/blueprint.ts": 2,
     "lib/modulo-base-auditor.ts": 2,
     "trigger/gerar-ia2-batch.ts": 1,
     "trigger/gerar-modulos-manuscrito.ts": 1,
@@ -143,6 +142,9 @@
     "scripts/_diag-orfaos-detalhe.ts": 1,
     "lib/pipeline-health/core.ts": 5,
     "lib/cron-lock.ts": 1,
-    "lib/video/reconciliar-personalizados.ts": 1
+    "lib/video/reconciliar-personalizados.ts": 1,
+    "app/admin/vertho/board/page.tsx": 1,
+    "app/admin/vertho/board/[id]/page.tsx": 1,
+    "app/admin/vertho/board/actions.ts": 3
   }
 }

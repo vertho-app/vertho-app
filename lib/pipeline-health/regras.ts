@@ -320,10 +320,10 @@ export function checarDestinoDoAlerta(adminEmails: string | undefined): Achado |
   const destinos = String(adminEmails || '').split(',').map((s) => s.trim()).filter(Boolean);
   return achado(
     'alerta-sem-destino', 'critico',
-    'ADMIN_EMAILS vazia — nenhum alerta crítico chega a ninguém',
+    'Sem destinatário de alerta — nenhum alerta crítico chega a ninguém',
     destinos.length ? 0 : 1,
     'Os checks continuam rodando e gravando, mas o e-mail nunca sai: o pipeline degrada em silêncio de novo, agora com um painel dizendo que está tudo monitorado.',
-    { acao: "Definir ADMIN_EMAILS na Vercel (Production): printf '%s' 'email@dominio' | vercel env add ADMIN_EMAILS production" },
+    { acao: "Definir HEALTH_ALERT_EMAILS na Vercel: printf '%s' 'email@dominio' | vercel env add HEALTH_ALERT_EMAILS production (NÃO usar ADMIN_EMAILS: ela também concede platform-admin)" },
   );
 }
 

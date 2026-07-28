@@ -48,3 +48,39 @@ describe('montarAlerta', () => {
     expect(a?.assunto).toContain('hoje');   // fallback explícito, não uma data falsa
   });
 });
+
+/**
+ * O ASSUNTO por MODO. Medido na prova de canal de 28/07: um run `estrutural` saiu como
+ * "1 problema(s) na entrega de hoje" — mandava olhar a entrega quando o achado era de
+ * integridade. O assunto é a única linha que a pessoa lê antes de decidir se abre.
+ */
+describe('montarAlerta — escopo do assunto por modo', () => {
+  const critico = (over: Partial<ResultadoCheck>): ResultadoCheck => ({
+    modo: 'preflight', empresaId: null, empresaSlug: 's', dataAlvo: null,
+    severidade: 'critico', duracaoMs: 0,
+    achados: [{ id: 'x', severidade: 'critico', titulo: 'T', contagem: 3, detalhe: 'd' }],
+    ...over,
+  });
+
+  it('estrutural fala de INTEGRIDADE, não de entrega', () => {
+    const a = montarAlerta([critico({ modo: 'estrutural' })]);
+    expect(a?.assunto).toContain('integridade');
+    expect(a?.assunto).not.toContain('entrega');
+  });
+
+  it('horizonte fala de próximas SEMANAS', () => {
+    const a = montarAlerta([critico({ modo: 'horizonte' })]);
+    expect(a?.assunto).toContain('próximas semanas');
+  });
+
+  it('entrega usa a DATA quando existe', () => {
+    const a = montarAlerta([critico({ modo: 'preflight', dataAlvo: '2026-08-10' })]);
+    expect(a?.assunto).toContain('2026-08-10');
+  });
+
+  it('modos MISTURADOS caem no texto de entrega (não escondem o crítico)', () => {
+    const a = montarAlerta([critico({ modo: 'estrutural' }), critico({ modo: 'preflight', dataAlvo: '2026-08-10' })]);
+    expect(a?.assunto).toContain('entrega');
+    expect(a?.assunto).toContain('6');   // 3 + 3 ocorrências
+  });
+});

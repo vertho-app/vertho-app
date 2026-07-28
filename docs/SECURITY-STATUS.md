@@ -37,6 +37,29 @@ O CI estava **vermelho no `master` desde `6b824de5`** (2 guards). Corrigidos na 
 
 ⚠️ **Lição operacional:** guard vermelho no `master` fica invisível se ninguém rodar a suíte inteira antes de commitar — os dois arquivos acusados estavam limpos no working tree, ou seja, chegaram vermelhos pelo commit anterior.
 
+### 28/07 — `ADMIN_EMAILS` é lista de AUTORIZAÇÃO, não caderno de contatos
+
+Achado ao criar a env para o alerta do health-check. `ADMIN_EMAILS` tem **três consumidores com
+dois propósitos incompatíveis**:
+
+| Consumidor | Usa a env como |
+|---|---|
+| `app/admin/admin-actions.ts` | **fallback de autorização** de platform-admin |
+| `app/admin/vertho/board/actions.ts` (`garantirAdmin`) | **fallback de autorização** de platform-admin |
+| `lib/pipeline-health/core.ts` | destino do e-mail de alerta |
+
+Consequência: **acrescentar um e-mail ali "para receber os alertas" concede acesso de
+platform-admin** — cross-tenant, por mandato. Um dia isso acontece com o e-mail de um cliente que
+pediu para acompanhar a saúde do piloto, e ninguém liga uma coisa à outra.
+
+**Correção (28/07):** o alerta passou a ler **`HEALTH_ALERT_EMAILS`**, com `ADMIN_EMAILS` só como
+fallback de compatibilidade (`destinosDoAlerta()`). As duas envs existem em Production. A ação do
+achado R8 do health-check aponta a env certa e diz por que não usar a outra.
+
+⚠️ **Regra:** quem quiser receber alerta entra em `HEALTH_ALERT_EMAILS`. `ADMIN_EMAILS` só cresce
+com decisão consciente de dar admin — e o caminho canônico para isso é a tabela `platform_admins`,
+não a env.
+
 ### Service-role: como decidir se um uso é aceitável (absorvido em 27/07)
 
 `docs/service-role-allowlist.md` mantinha um **inventário manual** de 88 arquivos que já estava

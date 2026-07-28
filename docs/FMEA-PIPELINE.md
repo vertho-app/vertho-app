@@ -482,13 +482,23 @@ briefs duplicados por tupla.
   Guarda: `tests/unit/blueprint-lote-depreciado.test.ts` (3) — validado por mutação (reintroduzir
   `createSupabaseAdmin()` no corpo derruba o teste).
 
-### F-E5 · Cap de conta Anthropic **não** cai no fallback 🟡
-- **Gatilho:** o fallback gpt-5.4 só dispara em erro **transitório** (`ai-client.ts:153`,
-  `isTransientAIError` = 429/503/529). Um cap de billing (400/403) **não** casa → re-lança → toda a
-  fase de IA falha sem degradar.
-- **Resolução:** decidir se cap deve cair no fallback (ampliar `isTransientAIError`) ou falhar limpo
-  com mensagem clara. **Não determinado** se é intencional. (Um 429 de rate-limit **sim** cai no
-  fallback — só o cap não.)
+### F-E5 · Cap de conta **não** cai no fallback ✅ (DECIDIDO 28/07 — é intencional, agora explícito)
+- **Gatilho (histórico):** o fallback de provedor só disparava em erro **transitório**
+  (`isTransientAIError` = 429/503/529). Um cap de billing (400/402/403) não casava → re-lançava como
+  falha genérica de API, e **quem lia o log não sabia que a causa era a fatura**.
+- **Decisão:** o cap **NÃO** deve cair no fallback, e isso agora é código, não acidente. Motivos:
+  (a) repetir não resolve — cap não passa com espera; (b) trocar de provedor automaticamente
+  **gastaria em outra conta sem ninguém pedir** e esconderia justamente o que precisa de ação humana.
+  O que faltava não era degradar: era **falhar etiquetado**.
+- **Implementação (`actions/ai-client.ts`):** `isCapDeContaAIError` (400/402/403 + padrão de
+  billing/quota/credit/payment) → **sem retry, sem fallback**, e erro que diz "CAP DE CONTA … Ação:
+  revisar crédito/billing do provedor". O `withAIRetry` sai na hora, sem queimar as 4 tentativas.
+- **O 429 fica de fora do cap de propósito** — é rate limit e o backoff resolve. Mas quando o 429 é
+  causado pela FATURA, o log passa a dizer isso: `isRateLimitPorBilling`. Caso real de 28/07 — a
+  Voyage devolveu **429** com *"You have not yet added your payment method… 3 RPM"*: limite
+  permanente por falta de pagamento, indistinguível de pico no classificador antigo.
+- **Guarda:** `tests/unit/ai-cap-de-conta.test.ts` (8) — validado por mutação (ignorar o status HTTP
+  e classificar só pelo texto derruba 2 testes).
 
 ### F-E6 · Batch de blueprint usa `submitClaudeBatch` INLINE (segura o maxDuration) 🔵
 - **Gatilho:** `gerar-blueprint-batch.ts` usa o batch **inline** (budget 40min dentro da task de
@@ -847,11 +857,26 @@ na IA4 · 0 duplicatas do lado do kit.
 
 **Operação (runbook, sem código) — números medidos em 27/07 à noite:**
 13. Nunca deletar MB publicado — despublicar (F-I3 🟡).
-14. **4 `kit_briefs` sem módulo-base** (ibipeba, projetomacae ×2, acme-demo) — cada um tem 1 kit
-   publicado nascido sem matéria-prima canônica. O check estrutural acusa como aviso toda
-   madrugada. Não é o "1" que a lista antiga citava.
-15. **46 `videos_gerados` em `error`** + 1 personalizado em error — resíduo permitido pelo índice
-   parcial e invisível à entrega; limpar é higiene, não correção.
+14. **4 `kit_briefs` sem módulo-base** — investigados um a um em 28/07, e **nenhum é corrigível
+   sem dependência ou risco**. Reancorar o brief SEM regerar o conteúdo seria teatro: silencia o
+   aviso e deixa o texto genérico. Por caso:
+   - `ibipeba` · Liderança pedagógica / Desenvolvimento docente → **0 MB publicado do tema**;
+     depende de extração de manuscrito.
+   - `acme-demo` · Negociação e Fechamento / Criação de senso de urgência → **0 MB**; é tenant de
+     demo com reset por cron, o brief se recria.
+   - `projetomacae` · Postura Profissional / **Respeito às regras** → o resolver só acha
+     "Comportamento em entrevista" a **0,43** (parcial-semântico). Regerar aqui **reproduziria o
+     F-I12 de propósito** — ancorar no assunto vizinho. Precisa do MB do descritor.
+   - `projetomacae` · Trabalho em Equipe / **Colaboração** → MB **exato (1.00)** existe, mas os 3
+     conteúdos do kit **são o que o plano referencia** (9 slots; não há core equivalente — resíduo
+     do F-I4). Corrigir = gerar o core, reapontar os 9 e refazer o kit — **no tenant que serve de
+     ESTÚDIO dos vídeos instrucionais**, onde mudar o plano altera a tela no meio da gravação.
+     Só com coordenação, nunca de repente.
+15. **46 `videos_gerados` em `error`** — **decisão de 28/07: não limpar.** São invisíveis à entrega
+   (índice parcial + `resolverCelulaVideo` filtra `status<>'error'`), e a limpeza não é gratuita:
+   **1 tem `videos_personalizados` vinculado e 2 têm `bunny_video_id`** (asset hospedado). O
+   histórico de falha tem valor diagnóstico e o custo de mantê-lo é zero — apagar seria trocar
+   informação por um número mais bonito no painel.
 16. **Vídeo da semana 5 do Ibipeba não foi gerado** (decisão do dono, 27-28/07): **42 células
    distintas** `(módulo × cargo × DISC)`, 0 slots sem MB. A ~$0,64-0,75 por render + box Hetzner,
    é a maior linha de custo em aberto do piloto. Hoje **ninguém tem vídeo nessa semana**, então

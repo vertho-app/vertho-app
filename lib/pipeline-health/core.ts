@@ -165,7 +165,7 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
 
     // O alarme tem destinatário? Sem isso, todo o resto deste arquivo é decorativo
     // (R8 — medido em 27/07: a env não existia em nenhum ambiente).
-    achados.push(checarDestinoDoAlerta(process.env.ADMIN_EMAILS));
+    achados.push(checarDestinoDoAlerta(destinosDoAlerta().join(',')));
 
     // R9: MB publicado com descritor fora da régua — ancora o conteúdo no assunto vizinho.
     achados.push(checarMbForaDaRegua(await coletarMbForaDaRegua(sb)));
@@ -255,10 +255,16 @@ export function montarAlerta(resultados: ResultadoCheck[]): { assunto: string; h
   // "2 lacunas" para 42 DISC de kit faltando (medido 27/07) — um alerta que subnotifica
   // não provoca ação, que é a única razão de ele existir.
   const total = graves.reduce((s, r) => s + r.achados.reduce((n, a) => n + (a.contagem || 1), 0), 0);
-  // O horizonte não avalia uma DATA de entrega (dataAlvo é null): dizer "entrega de
-  // hoje" num alerta que fala de semanas à frente mandaria corrigir a coisa errada.
-  const soHorizonte = graves.every((r) => r.modo === 'horizonte');
-  const quando = soHorizonte ? 'próximas semanas' : (graves.find((r) => r.dataAlvo)?.dataAlvo || 'hoje');
+  // O ASSUNTO tem que dizer de que o alerta trata, porque é a única linha que a pessoa lê
+  // antes de decidir se abre. Dois modos não avaliam data de entrega (`dataAlvo` null) e
+  // cair no "entrega de hoje" manda corrigir a coisa errada — medido na prova de canal de
+  // 28/07, em que um run ESTRUTURAL saiu como "1 problema na entrega de hoje".
+  const modos = new Set(graves.map((r) => r.modo));
+  const soDe = (m: ResultadoCheck['modo']) => modos.size === 1 && modos.has(m);
+  const dataAlvo = graves.find((r) => r.dataAlvo)?.dataAlvo;
+  const escopo = soDe('horizonte') ? `${total} lacuna(s) de conteúdo nas próximas semanas`
+    : soDe('estrutural') ? `${total} problema(s) de integridade`
+    : `${total} problema(s) na entrega de ${dataAlvo || 'hoje'}`;
   const linhas = graves.map((r) => {
     const itens = r.achados.map((a) => `
       <li style="margin:8px 0">
@@ -270,20 +276,33 @@ export function montarAlerta(resultados: ResultadoCheck[]): { assunto: string; h
     return `<p style="margin:16px 0 4px"><strong>${r.empresaSlug || r.empresaId || 'global'}</strong> · ${r.modo}${r.erro ? ` · <span style="color:#c00">erro: ${r.erro}</span>` : ''}</p><ul style="padding-left:18px;margin:0">${itens}</ul>`;
   }).join('');
   return {
-    assunto: soHorizonte
-      ? `[Vertho] ${total} lacuna(s) de conteúdo nas próximas semanas`
-      : `[Vertho] ${total} problema(s) na entrega de ${quando}`,
+    assunto: `[Vertho] ${escopo}`,
     html: `<div style="font-family:system-ui,Arial,sans-serif;max-width:640px;color:#1a1a1a;line-height:1.5">
 <p>O health-check do pipeline encontrou problemas <strong>críticos</strong>.</p>${linhas}
 <p style="color:#666;font-size:12px;margin-top:20px">Pré-voo roda ~25h antes do envio (dá tempo de corrigir o que já existe); o horizonte roda semanalmente e olha ${HORIZONTE_SEMANAS} semanas à frente, porque PRODUZIR conteúdo não cabe em 25h. Detalhe em /admin/vertho/pipeline-health.</p></div>`,
   };
 }
 
+/**
+ * Destinatários do alerta. `HEALTH_ALERT_EMAILS` primeiro, `ADMIN_EMAILS` como fallback.
+ *
+ * Por que duas envs (medido 28/07): `ADMIN_EMAILS` **não é só uma lista de e-mails** — é
+ * usada como **fallback de AUTORIZAÇÃO** de platform-admin em `app/admin/admin-actions.ts`
+ * e `app/admin/vertho/board/actions.ts`. Ou seja, adicionar alguém ali para que ele
+ * "receba os alertas" **concede acesso de admin da plataforma**. Um dia isso vira
+ * incidente com o e-mail de um cliente. `HEALTH_ALERT_EMAILS` existe para poder avisar
+ * gente sem promover ninguém; o fallback fica só para não quebrar o que já está posto.
+ */
+export function destinosDoAlerta(): string[] {
+  const bruto = process.env.HEALTH_ALERT_EMAILS || process.env.ADMIN_EMAILS || '';
+  return bruto.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
 /** Envia o alerta para os admins da plataforma. Nunca lança. */
 export async function alertar(resultados: ResultadoCheck[]): Promise<boolean> {
   const alerta = montarAlerta(resultados);
   if (!alerta) return false;
-  const destinos = String(process.env.ADMIN_EMAILS || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const destinos = destinosDoAlerta();
   if (!destinos.length) {
     // Sem destino, o alerta morreria em silêncio — exatamente o que este sistema
     // existe para evitar. Loga alto para aparecer no Sentry/Vercel.

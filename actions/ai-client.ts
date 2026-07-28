@@ -5,6 +5,9 @@ import { cookies } from 'next/headers';
 import { AppLocale, defaultLocale } from '@/i18n/routing';
 import { localeCookieName, localeLanguageName, resolveAppLocale } from '@/lib/i18n';
 import { costFromTokens } from '@/lib/ia-cost-catalog';
+// Predicados PUROS vivem em lib/: este arquivo é `'use server'` e todo export dele
+// precisa ser async — exportar predicado síncrono aqui passa no tsc e quebra o BUILD.
+import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -113,9 +116,11 @@ async function withAIRetry<T>(fn: () => Promise<T>, label: string, max = 4): Pro
     try {
       return await fn();
     } catch (e: any) {
-      if (i >= max || !isTransientAIError(e)) throw e;
+      // Cap de conta não se resolve esperando: sai na hora, sem queimar retries.
+      if (isCapDeContaAIError(e) || i >= max || !isTransientAIError(e)) throw e;
       const wait = Math.min(20000, 1500 * 2 ** i) + Math.floor(Math.random() * 500);
-      console.warn(`[callAI] ${label} transitório (${e?.status || ''} ${String(e?.message || '').slice(0, 60)}) — retry ${i + 1}/${max} em ${Math.round(wait / 1000)}s`);
+      const causa = isRateLimitPorBilling(e) ? 'rate limit por BILLING (não é pico)' : 'transitório';
+      console.warn(`[callAI] ${label} ${causa} (${e?.status || ''} ${String(e?.message || '').slice(0, 60)}) — retry ${i + 1}/${max} em ${Math.round(wait / 1000)}s`);
       await new Promise((r) => setTimeout(r, wait));
     }
   }
@@ -158,6 +163,16 @@ export async function callAI(
   try {
     return await withAIRetry(() => dispatch(model), model);
   } catch (err: any) {
+    // CAP DE CONTA: falha limpa e etiquetada, sem fallback (F-E5). Cair para outro
+    // provedor aqui gastaria em outra conta sem ninguém pedir e esconderia a causa.
+    if (isCapDeContaAIError(err)) {
+      console.error(`[callAI] CAP DE CONTA em ${model} — sem retry e sem fallback, de propósito:`, err?.message ?? err);
+      throw new Error(
+        `AI indisponível por CAP DE CONTA (${model}): ${err?.message ?? err}. `
+        + 'Nenhum retry ou fallback foi tentado — cap não passa com espera, e trocar de provedor '
+        + 'automaticamente gastaria em outra conta e esconderia o problema. Ação: revisar crédito/billing do provedor.',
+      );
+    }
     // Primário sobrecarregado após retries → fallback de provedor (Claude → Gemini).
     if (isTransientAIError(err) && !model.startsWith('gemini') && AI_FALLBACK_MODEL && AI_FALLBACK_MODEL !== model) {
       console.warn(`[callAI] ${model} sobrecarregado após retries — fallback p/ ${AI_FALLBACK_MODEL}`);

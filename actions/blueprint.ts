@@ -16,7 +16,6 @@
  */
 
 import { tenantDb } from '@/lib/tenant-db';
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import {
