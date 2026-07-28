@@ -566,9 +566,15 @@ briefs duplicados por tupla.
 - **Resolução (o que já funciona):** re-rodar o disparo com `--conc 2` recuperou **6/6** na primeira
   tentativa. É seguro e idempotente: `error` não conta como "tem deck" e a UNIQUE parcial permite a
   linha nova. **Custo do padrão:** 47 renders pagos para 42 células (~12% de desperdício).
-- **O que falta (não feito):** o health não tem regra para **célula de vídeo em `error`** — hoje
-  descobrir isso depende de alguém consultar. Uma regra nova (`celula-video-em-error`, por empresa e
-  semana) fecharia o buraco entre "o render falhou" e "alguém percebeu".
+- ✅ **Observabilidade fechada em 28/07 — R10 `celula-video-em-error`** (run estrutural, diário):
+  o buraco não era o render falhar, era **ninguém ver**. ⚠️ O critério é **"erro E nenhum deck"**, não
+  "tem erro": medido no mesmo dia, **35 células já falharam alguma vez e 33 estavam resolvidas** por
+  tentativa posterior — contar `error` cru acusaria 35 para sempre, e alarme crônico é alarme
+  desligado. Validado contra produção: reporta **2** (resíduos antigos — `projetomacae` box morta e
+  `ibipeba` `render_inputprops inválido`), com a causa de cada um na amostra. Guarda:
+  `pipeline-health-regras.test.ts` (R10).
+- **Segue sem retry automático:** a recuperação é o re-disparo manual com `--conc 2`. Automatizar
+  exigiria fila com backoff por fornecedor — não feito, e o alarme agora avisa quem precisa agir.
 
 ---
 
