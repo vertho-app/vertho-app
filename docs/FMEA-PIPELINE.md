@@ -391,7 +391,7 @@ briefs duplicados por tupla.
   resolver como juiz (comparar `modulo_base_id` gravado com o que ele escolheria agora) para mexer
   só no que está mal ancorado. Medido: 14 refeitos, 4 preservados.
 
-### F-I13 · Embedding do acervo nunca existiu (Voyage a 3 RPM) — seleção "semântica" era token-matching 🟠
+### F-I13 · Embedding do acervo nunca existiu (Voyage a 3 RPM) — seleção "semântica" era token-matching ✅ (fechado 28/07)
 - **Medido (28/07):** **198 de 216** MBs publicados (91,7%) estão **sem `descritor_embedding`**. A
   conta Voyage estava sem método de pagamento → **3 RPM / 10K TPM**; `embedText`/`embedQuery` não têm
   cache, retry nem backoff, e o resolver engole a exceção (`catch { queryVec = null }`). Em qualquer
@@ -399,12 +399,20 @@ briefs duplicados por tupla.
 - **Efeito:** para descritor com nome idêntico ao do MB, tokens acerta (1.00) e ninguém nota. Para
   paráfrase — ou para F-I12 — a escolha degrada em silêncio. Também afeta `lib/rag.ts` (busca e
   indexação da base de conhecimento).
-- **Estado:** crédito adicionado em 28/07 (medido depois: 6 chamadas em 1,7s, 0 erro). **Os 198 MBs
-  seguem sem vetor** — backfill é barato, mas muda o critério de escolha de TODO o acervo (hoje
-  token-match exato), então precisa ser medido antes: comparar, por descritor, o MB que o resolver
-  escolhe com tokens vs. com embedding, e contar quantos mudariam.
-- **Resolução pendente:** cache por texto (o mesmo descritor repete muito no lote) + retry com
-  backoff no 429 + contador de quantas vezes a seleção caiu em tokens por falha de embedding.
+- **Resolvido (28/07):** crédito adicionado (medido: 6 chamadas em 1,7s, 0 erro) · `embedText` ganhou
+  **cache por processo** (o mesmo descritor é reconsultado 3 formatos × N DISC por tema) + **2
+  retentativas** em erro transitório + contador de falhas com log alto · **backfill dos 198** MBs.
+  Guarda: `tests/unit/embeddings-cache-retry.test.ts`.
+- ⚠️ **O backfill revelou uma regressão que só a medição pegaria:** fotografei a decisão do resolver
+  para os 48 casos do acervo ANTES e DEPOIS. Uma mudou — "Formação básica de preço" (MEI) passou a
+  ancorar em "Identificação de custos". Causa: **o cosseno de dois textos IGUAIS dá ~0,9, não 1,0**,
+  então 0,1 de diferença na nota da auditoria passou na frente do match exato (que com tokens valia
+  1.00 e era imbatível). Corrigido na raiz: **nome idêntico normalizado → relevância 1, antes de
+  qualquer cosseno**. A semântica serve para PARÁFRASE, não para desempatar o que já é igual.
+  Depois: 48/48 decisões iguais. Guarda: `tests/unit/modulo-base-match-exato.test.ts`.
+- O rótulo do critério passou a distinguir `descritor-exato` de `descritor-semântico` e
+  `descritor-tokens` — não é cosmético: foi lendo esse log que o F-I12 apareceu, e ele dizia
+  "tokens" no caminho exato.
 
 ### F-I11 · Bloco novo de competências entra sem kit — ninguém dispara o que ninguém sabe que falta ✅ (alarme 27/07)
 - **Gatilho:** o kit é gerado por **gatilho manual, uma rodada por vez**, e a trilha **troca de bloco
@@ -466,9 +474,13 @@ briefs duplicados por tupla.
   `montarTrilhasLote` já `@deprecated`). Nenhuma task Trigger nova — duplicaria infra para um fluxo
   manual com a tela aberta.
 - **Guarda:** `tests/unit/gerar-temporadas-lote-depreciado.test.ts` (3) — validado por mutação.
-- **Ressalva (follow-up):** `gerarBlueprintsLote`/`auditarBlueprintsLote` (`actions/blueprint.ts`)
-  **seguem com loops síncronos de IA** — mesma receita pendente (stub + a fila client que já existe
-  para ambos). Não fechados nesta rodada.
+- ✅ **Ressalva fechada em 28/07:** `gerarBlueprintsLote`/`auditarBlueprintsLote`
+  (`actions/blueprint.ts`) viraram os mesmos stubs gated. Confirmado antes de mexer: **zero callers**
+  — a tela importa `filaBlueprint`/`filaAuditBlueprint` e itera no cliente com progresso e
+  cancelamento, nunca os lotes. Mantidos como stub (não removidos) porque `'use server'` publica
+  action id: export que desaparece dá erro opaco num cliente de deploy antigo; stub responde o motivo.
+  Guarda: `tests/unit/blueprint-lote-depreciado.test.ts` (3) — validado por mutação (reintroduzir
+  `createSupabaseAdmin()` no corpo derruba o teste).
 
 ### F-E5 · Cap de conta Anthropic **não** cai no fallback 🟡
 - **Gatilho:** o fallback gpt-5.4 só dispara em erro **transitório** (`ai-client.ts:153`,
@@ -817,8 +829,8 @@ na IA4 · 0 duplicatas do lado do kit.
 4. Teto de tempo próprio na personalização de vídeo — F-V2 🔵
 
 **Código (pendências reais, pequenas):**
-5. `gerarBlueprintsLote`/`auditarBlueprintsLote` seguem com loops síncronos de IA — mesma
-   receita do F-E4 (stub + a fila client que já existe). **Ressalva declarada, não fechada.**
+5. ~~`gerarBlueprintsLote`/`auditarBlueprintsLote` com loops síncronos de IA~~ ✅ **28/07** —
+   stubs gated, zero callers confirmado antes de mexer (F-E4).
 6. Decidir se cap de billing cai no fallback de provedor — F-E5 🟡 (hoje só erro transitório).
 7. **Deep-link sem `?redirect=`** (§6, prioridade 6): 4× `router.replace('/login')` na week
    page — após login a pessoa perde semana/formato. CTA principal de todo envio.
@@ -840,6 +852,16 @@ na IA4 · 0 duplicatas do lado do kit.
    madrugada. Não é o "1" que a lista antiga citava.
 15. **46 `videos_gerados` em `error`** + 1 personalizado em error — resíduo permitido pelo índice
    parcial e invisível à entrega; limpar é higiene, não correção.
+16. **Vídeo da semana 5 do Ibipeba não foi gerado** (decisão do dono, 27-28/07): **42 células
+   distintas** `(módulo × cargo × DISC)`, 0 slots sem MB. A ~$0,64-0,75 por render + box Hetzner,
+   é a maior linha de custo em aberto do piloto. Hoje **ninguém tem vídeo nessa semana**, então
+   não há regressão a evitar — é ganho novo, não reparo. Conteúdo (core + kit) está 100%.
+17. ~~20 slots com core órfão + 49 formatos órfãos~~ ✅ **28/07** — os 20 pelo motor
+   (`_reparar-core-orfao`), e os 22 slots de formato órfão com core VÁLIDO por saneamento
+   dedicado (9 substituídos pelo equivalente ativo do cargo, 20 entradas removidas por não haver
+   equivalente — anunciar formato inexistente é pior, o clique cai em 404). Origem: a dedup de
+   27/07 reapontou `core_id` e **esqueceu** `formatos_disponiveis[].id`. **Medido depois: 0 e 0.**
+   Regra que fica: quem mexe em `micro_conteudos` reaponta as DUAS referências JSONB.
 
 **Verificação da própria instrumentação (o modo de falha mais irônico):**
 16. ⚠️ Até 28/07 00:00 UTC a tabela `pipeline_health_runs` estava **VAZIA** — os quatro modos

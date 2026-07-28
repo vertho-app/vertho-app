@@ -51,50 +51,31 @@ export interface GerarBlueprintsLoteResult {
   detalhes?: BlueprintLoteDetalhe[];
 }
 
+/** Mensagem única dos lotes síncronos depreciados (F-E4). */
+const LOTE_DEPRECIADO =
+  'Lote síncrono de blueprint foi DEPRECIADO (F-E4): N chamadas de IA numa server action '
+  + 'estouram o maxDuration de 300s e o lote morre 504 no meio, sem retomada. Use a fila + '
+  + 'loop no cliente, que já é o caminho da tela: filaBlueprint/filaAuditBlueprint + '
+  + 'gerarBlueprint/auditarBlueprint por colaborador (progresso [i/N], erro por item, botão de parar).';
+
 /**
- * Gera blueprints em LOTE: resolve a fila (ids dados, ou todos os colaboradores
- * com assessments IA4) e chama o núcleo por item, acumulando ok/erros.
- * O gate roda UMA vez aqui; o núcleo revalida o tenant de cada colaborador.
+ * @deprecated STUB de depreciação (F-E4 do `docs/FMEA-PIPELINE.md`).
+ *
+ * Recusa sem tocar em IA ou banco. O padrão correto já existia e É o caminho real da
+ * tela desde antes: `filaBlueprint` + um `gerarBlueprint` por colaborador no cliente
+ * (`app/admin/empresas/[empresaId]/page.tsx`), com progresso e cancelamento. Este lote
+ * não tinha nenhum caller quando foi depreciado (28/07) — a UI nunca o importou.
+ *
+ * Mantido como stub, e não removido, porque `'use server'` publica action id: um export
+ * que desaparece dá erro opaco no cliente de um deploy antigo; um stub responde o motivo.
  */
 export async function gerarBlueprintsLote(
-  empresaId: string,
-  colaboradorIds?: string[],
-  aiConfig?: AIConfig,
+  _empresaId: string,
+  _colaboradorIds?: string[],
+  _aiConfig?: AIConfig,
 ): Promise<GerarBlueprintsLoteResult> {
   await requireAdminAction('ai.audit.regenerate');
-  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const tdb = tenantDb(empresaId);
-  try {
-    let fila: { id: string; nome_completo: string }[] = [];
-    if (colaboradorIds?.length) {
-      const { data } = await tdb.from('colaboradores')
-        .select('id, nome_completo').in('id', colaboradorIds);
-      fila = data || [];
-    } else {
-      // Regra dos 100%: só colabs com TODAS as competências foco mapeadas
-      // (parcial/zero fica de fora — o núcleo também barra por defesa em profundidade).
-      const fila100 = await resolverFilaBlueprint100(tdb);
-      if (!fila100.length) return { success: false, error: 'Nenhum colaborador com as competências foco 100% mapeadas' };
-      fila = fila100.map((c) => ({ id: c.id, nome_completo: c.nome }));
-    }
-    if (!fila.length) return { success: false, error: 'Nenhum colaborador na fila' };
-
-    let ok = 0, erros = 0;
-    const detalhes: BlueprintLoteDetalhe[] = [];
-    // Gate já aplicado no topo → service-role direto, sem re-checar sessão por item.
-    const sbRaw = createSupabaseAdmin();
-    for (const c of fila) {
-      const r = await gerarBlueprintCore(sbRaw, { colaboradorId: c.id, aiConfig, empresaIdEsperado: empresaId });
-      if (r.ok) { ok++; detalhes.push({ colaborador: c.nome_completo, ok: true }); }
-      else { erros++; detalhes.push({ colaborador: c.nome_completo, erro: r.error }); }
-    }
-    return {
-      success: true, ok, erros, detalhes,
-      message: `${ok} blueprint(s) gerado(s)${erros ? ` · ${erros} erro(s)` : ''}`,
-    };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+  return { success: false, error: LOTE_DEPRECIADO };
 }
 
 export interface FilaBlueprintItem { id: string; nome: string; }
@@ -185,49 +166,15 @@ export interface AuditarBlueprintsLoteResult {
 }
 
 /**
- * Audita em LOTE os colaboradores que JÁ têm blueprint (o audit precisa de um
- * blueprint gerado). Padrão de `gerarBlueprintsLote`.
+ * @deprecated STUB de depreciação (F-E4). Gêmeo de `gerarBlueprintsLote` — mesma
+ * mecânica, mesmo risco de 504, e também sem caller quando foi depreciado (28/07).
+ * O caminho é `filaAuditBlueprint` + `auditarBlueprint` por colaborador no cliente.
  */
 export async function auditarBlueprintsLote(
-  empresaId: string,
-  colaboradorIds?: string[],
-  aiConfig?: AIConfig,
+  _empresaId: string,
+  _colaboradorIds?: string[],
+  _aiConfig?: AIConfig,
 ): Promise<AuditarBlueprintsLoteResult> {
   await requireAdminAction('ai.audit.regenerate');
-  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const tdb = tenantDb(empresaId);
-  try {
-    // Fila = quem tem blueprint (pré-requisito do audit).
-    const { data: bps } = await tdb.from('development_blueprints').select('colaborador_id');
-    const ids = colaboradorIds?.length
-      ? colaboradorIds
-      : [...new Set((bps || []).map((b: any) => b.colaborador_id).filter(Boolean))] as string[];
-    if (!ids.length) return { success: false, error: 'Nenhum colaborador com blueprint (gere o blueprint primeiro)' };
-
-    const { data: colabs } = await tdb.from('colaboradores').select('id, nome_completo').in('id', ids);
-    const nomePorId = new Map<string, string>((colabs || []).map((c: any) => [c.id, c.nome_completo]));
-
-    let ok = 0, erros = 0, comDrift = 0;
-    const detalhes: AuditarLoteDetalhe[] = [];
-    // Gate já aplicado no topo → service-role direto, sem re-checar sessão por item.
-    const sbRaw = createSupabaseAdmin();
-    for (const id of ids) {
-      const nome = nomePorId.get(id) || id;
-      const r = await auditarBlueprintCore(sbRaw, { colaboradorId: id, aiConfig, empresaIdEsperado: empresaId });
-      if (r.ok && r.relatorio) {
-        ok++;
-        if (r.relatorio.drift) comDrift++;
-        detalhes.push({ colaborador: nome, ok: true, drift: r.relatorio.drift, score: r.relatorio.score });
-      } else {
-        erros++;
-        detalhes.push({ colaborador: nome, erro: r.error });
-      }
-    }
-    return {
-      success: true, ok, comDrift, erros, detalhes,
-      message: `${ok} auditado(s)${comDrift ? ` · ${comDrift} com drift` : ''}${erros ? ` · ${erros} erro(s)` : ''}`,
-    };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+  return { success: false, error: LOTE_DEPRECIADO };
 }
