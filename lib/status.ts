@@ -41,3 +41,23 @@ export const ENVIO = {
   CONCLUIDO: 'concluido',
 } as const;
 export type EnvioStatus = (typeof ENVIO)[keyof typeof ENVIO];
+
+/**
+ * board_paineis.status — fila do /board (painel multi-modelo).
+ *
+ * QUARTO domínio. 'pendente' e 'concluido' coincidem em VALOR com PROGRESSO,
+ * de novo por acaso: aqui descrevem a execução de um painel na máquina local
+ * (worker + CLIs por assinatura), não a semana de um colaborador. Constantes
+ * separadas para que um refactor num domínio não arraste o outro.
+ *
+ * 'pendente' tem leitura operacional própria: o pedido está no banco e o worker
+ * ainda não o pegou — normalmente porque não está rodando.
+ */
+export const PAINEL = {
+  PENDENTE: 'pendente',
+  RODANDO: 'rodando',
+  CONCLUIDO: 'concluido',
+  ERRO: 'erro',
+  CANCELADO: 'cancelado',
+} as const;
+export type PainelStatus = (typeof PAINEL)[keyof typeof PAINEL];

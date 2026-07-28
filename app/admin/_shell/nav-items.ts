@@ -3,7 +3,7 @@ import {
   BookMarked, BookOpen, Video, Database, GraduationCap as GradIcon, BarChart2,
   Calculator, LayoutDashboard, TrendingUp, Target, Shield, LockKeyhole,
   ScrollText, Trash2, CalendarDays, Send, Package, School, Settings,
-  FileBarChart, Crosshair, FlaskConical, Briefcase,
+  FileBarChart, Crosshair, FlaskConical, Briefcase, MessagesSquare,
 } from 'lucide-react';
 
 // ── nav items (sidebar) ─────────────────────────────────────────────────────
@@ -98,6 +98,9 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'orcamento', labelKey: 'budget', subKey: 'costTableFinal', group: 'costs', icon: Calculator, hrefFn: () => '/admin/vertho/orcamento',       permission: 'ai.costs.view' },
 
   // ── Sistema (governança + ferramentas internas) ───────────────────────────
+  // Board: a execução acontece na máquina local (worker + CLIs por assinatura),
+  // então o item some quando há empresa selecionada — não é ferramenta de tenant.
+  { key: 'board',      labelKey: 'boardPainel', subKey: 'boardPainelSub', group: 'system', icon: MessagesSquare, hrefFn: () => '/admin/vertho/board', showWhenEmpresa: false },
   { key: 'simulador',  labelKey: 'simulator',   subKey: 'flowTest',       group: 'system', icon: Zap,          hrefFn: () => '/admin/simulador',       showWhenAll: false },
   { key: 'admins',     labelKey: 'admins',      subKey: 'platformAdmins', group: 'system', icon: Shield,       hrefFn: () => '/admin/platform-admins', showWhenEmpresa: false },
   { key: 'permissoes', labelKey: 'permissions', subKey: 'rolesPermissions', group: 'system', icon: LockKeyhole, hrefFn: () => '/admin/permissoes',     showWhenEmpresa: false },
