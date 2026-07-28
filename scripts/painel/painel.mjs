@@ -170,7 +170,7 @@ export function medirConvergencia(r2) {
  * Exportada para poder ser REFEITA a partir de um resultado salvo — perder as
  * duas rodadas porque a ultima chamada caiu sai caro demais.
  */
-export async function sintetizar({ pergunta, contexto, contexto_dir, raiz, brief, r1, r2, tentativas = 3 }) {
+export async function sintetizar({ pergunta, contexto, contexto_dir, raiz, brief, r1, r2, tentativas = 3, chamar = chamarMotor }) {
   const inv = inventariar(contexto_dir)
   const BASE = base({ raiz, contextoDir: contexto_dir, inv, brief })
   const PERGUNTA = `PERGUNTA:\n${pergunta}${contexto ? `\n\nCONTEXTO FORNECIDO PELO SOLICITANTE:\n${contexto}` : ''}`
@@ -222,15 +222,20 @@ Sua tarefa:
 
 ${CONTRATO_SINTESE}`
 
-  const s = await chamarMotor('claude', prompt, { raiz, contextoDir: contexto_dir }, 'sintese', tentativas)
+  const s = await chamar('claude', prompt, { raiz, contextoDir: contexto_dir }, 'sintese', tentativas)
   return { sintese: s, convergencia: conv, verificacao: verif, tetos }
 }
 
 /**
  * @param {object} pedido {pergunta, contexto, contexto_dir, raiz, brief, motores}
  * @param {(evento:object)=>void} onProgress
+ * @param {{chamar?: Function}} deps  motor injetável — permite percorrer o fluxo
+ *   inteiro com CLIs falsos, em milissegundos. Sem isso, os caminhos raros só
+ *   eram exercitados em produção: um `log()` inexistente sobreviveu porque só
+ *   rodava QUANDO um autor citava fonte quebrada, e matou um painel de 20 min.
  */
-export async function rodarPainel(pedido, onProgress = () => {}) {
+export async function rodarPainel(pedido, onProgress = () => {}, deps = {}) {
+  const chamar = deps.chamar || chamarMotor
   const t0 = Date.now()
   const ids = (pedido.motores && pedido.motores.length ? pedido.motores : Object.keys(MOTORES)).filter(
     (m) => MOTORES[m],
@@ -264,7 +269,7 @@ ${CONTRATO_R1}`
   const r1bruto = await Promise.all(
     ids.map(async (id) => {
       const m = MOTORES[id]
-      const r = await chamarMotor(id, promptR1(m), ctx, 'r1', 2)
+      const r = await chamar(id, promptR1(m), ctx, 'r1', 2)
       onProgress({ fase: 'rodada1', motor: id, letra: m.letra, ok: r.ok, segundos: r.segundos, erro: r.erro })
       // achatado: o mesmo formato que vai para o banco e que a sintese consome
       return { id, letra: m.letra, nome: m.nome, via: m.via, ok: r.ok, erro: r.erro, segundos: r.segundos, custo_usd: r.custo_usd, ...(r.dados || {}) }
@@ -285,8 +290,17 @@ ${CONTRATO_R1}`
   const tetosR1 = r1.map((p) => ({ letra: p.letra, ...tetoDeConfianca(p, verifR1) }))
   const BLOCO_VERIF = textoVerificacao(verifR1, tetosR1)
 
+  // Sai por onProgress, como todo o resto: `log` é do worker, não existe aqui —
+  // e esta linha vivia dentro de um `if` que só dispara QUANDO há citação
+  // quebrada, então nenhum painel anterior passou por ela. Bug de caminho raro:
+  // o painel de 28/07 morreu com "log is not defined" na primeira vez que um
+  // autor citou fonte inexistente.
   if (verifR1.resumo.quebradas) {
-    log(`Verificacao das fontes: ${verifR1.resumo.quebradas} citacao(oes) NAO conferem no disco`)
+    onProgress({
+      fase: 'verificacao',
+      citacoes_quebradas: verifR1.resumo.quebradas,
+      detalhe: `${verifR1.resumo.quebradas} citacao(oes) nao conferem no disco`,
+    })
   }
 
   // ---------------------------------------------------------------- rodada 2
@@ -322,7 +336,7 @@ ${SEM_INVESTIGAR}
 
 ${CONTRATO_R2}`
 
-      const r = await chamarMotor(meu.id, prompt, ctx, 'r2', 2)
+      const r = await chamar(meu.id, prompt, ctx, 'r2', 2)
       onProgress({ fase: 'rodada2', motor: meu.id, letra: meu.letra, ok: r.ok, segundos: r.segundos, erro: r.erro })
       return { id: meu.id, letra: meu.letra, nome: meu.nome, via: meu.via, ok: r.ok, erro: r.erro, segundos: r.segundos, custo_usd: r.custo_usd, ...(r.dados || {}) }
     }),
@@ -344,6 +358,7 @@ ${CONTRATO_R2}`
     brief: pedido.brief,
     r1,
     r2,
+    chamar,
   })
   onProgress({ fase: 'sintese', ok: s.ok, segundos: s.segundos, erro: s.erro, tentativa: s.tentativa })
 

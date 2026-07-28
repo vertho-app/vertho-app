@@ -26,7 +26,8 @@ param(
   [switch]$Remover,
   [switch]$Status,
   [switch]$Parar,
-  [switch]$Iniciar
+  [switch]$Iniciar,
+  [switch]$Forcar
 )
 
 $ErrorActionPreference = 'Stop'
@@ -37,6 +38,27 @@ $Log     = Join-Path $env:LOCALAPPDATA 'vertho-board-worker.log'
 $Node    = (Get-Command node -ErrorAction SilentlyContinue).Source
 
 function Escrever($msg) { Write-Host $msg }
+
+<#
+Lê o log SEM disputar o arquivo com o worker.
+
+`Get-Content` abre em modo exclusivo e falha com "being used by another process"
+exatamente enquanto o worker escreve — ou seja, o diagnóstico quebrava no único
+momento em que ele importa. Abrir com FileShare ReadWrite resolve.
+#>
+function LerLog([string]$caminho, [int]$ultimas = 12) {
+  if (-not (Test-Path $caminho)) { return @() }
+  try {
+    $fs = [System.IO.File]::Open($caminho, 'Open', 'Read', 'ReadWrite')
+    $sr = New-Object System.IO.StreamReader($fs)
+    $texto = $sr.ReadToEnd()
+    $sr.Close(); $fs.Close()
+    $linhas = $texto -split "`r?`n" | Where-Object { $_ -ne '' }
+    return $linhas | Select-Object -Last $ultimas
+  } catch {
+    return @("(nao consegui ler o log: $($_.Exception.Message))")
+  }
+}
 
 if ($Status) {
   $t = Get-ScheduledTask -TaskName $Tarefa -ErrorAction SilentlyContinue
@@ -50,7 +72,7 @@ if ($Status) {
   if ($proc) { Escrever "worker RODANDO (pid $($proc.ProcessId -join ', '))" } else { Escrever "worker parado" }
   if (Test-Path $Log) {
     Escrever "`n--- ultimas linhas do log ($Log) ---"
-    Get-Content $Log -Tail 12
+    LerLog $Log 12 | ForEach-Object { Escrever $_ }
   }
   return
 }
@@ -76,23 +98,60 @@ if ($Iniciar) {
 
 if ($Instalar) {
   if (-not $Node) { throw "node nao encontrado no PATH" }
+
+  # Reinstalar substitui a definição da tarefa e pode encerrar a instância em
+  # execução — junto com o painel que ela estiver rodando (são ~16 min de
+  # trabalho e cota de quatro assinaturas). Se há painel em andamento, pare aqui.
+  $emAndamento = Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+    Where-Object { $_.CommandLine -match 'painel.worker\.mjs' }
+  if ($emAndamento -and -not $Forcar) {
+    $ultima = (LerLog $Log 1) -join ''
+    Escrever "worker em execucao (pid $($emAndamento.ProcessId -join ', ')) — pode estar no meio de um painel."
+    Escrever "ultima linha do log: $ultima"
+    Escrever "`nrode de novo com -Forcar para instalar mesmo assim, ou espere o painel terminar."
+    return
+  }
   if (-not (Test-Path (Join-Path $Repo '.env.local'))) {
     throw "nao achei $Repo\.env.local — o worker precisa da service-role key"
   }
 
   # -WindowStyle Hidden no wrapper: sem isso uma janela de console fica aberta
   # o dia inteiro. O log vai para arquivo, que é como se acompanha.
-  # UTF-8 explícito: sem isso o log grava "ÔÇö" no lugar de "—" e fica ilegível
-  # justamente no que se lê quando algo dá errado.
+  # Duas coisas no comando, além de rodar o worker:
+  #
+  # 1. TRAVA de instância única. A tarefa também dispara a cada 5 min (ver
+  #    gatilhos), para ressuscitar o worker se ele morrer — e sem esta checagem
+  #    isso viraria um worker novo a cada 5 min, todos disputando a mesma fila.
+  # 2. UTF-8 explícito: sem isso o log grava "ÔÇö" no lugar de "—" e fica
+  #    ilegível justamente no que se lê quando algo deu errado.
   $comando = "[Console]::OutputEncoding=[Text.Encoding]::UTF8; " +
              "`$OutputEncoding=[Text.Encoding]::UTF8; " +
+             "`$vivo = Get-CimInstance Win32_Process -Filter `"Name='node.exe'`" | " +
+             "Where-Object { `$_.CommandLine -match 'painel.worker\.mjs' }; " +
+             "if (`$vivo) { exit 0 }; " +
              "Set-Location '$Repo'; " +
              "node --env-file=.env.local scripts/painel/worker.mjs 2>&1 | " +
              "ForEach-Object { Add-Content -LiteralPath '$Log' -Value `$_ -Encoding utf8 }"
   $acao = New-ScheduledTaskAction -Execute 'powershell.exe' `
     -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$comando`""
 
-  $gatilho = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+  # DOIS gatilhos. Só o de logon não bastava: em 28/07 o worker subiu, rodou um
+  # painel inteiro e morreu horas depois (código 0xC000013A — provavelmente a
+  # máquina suspendendo). Ninguém o trazia de volta, e o pedido seguinte ficou
+  # parado na fila esperando alguém perceber.
+  #
+  # O segundo gatilho re-tenta a cada 5 min, para sempre; a trava de instância
+  # única no comando faz cada disparo ser inofensivo quando já há worker vivo.
+  $gatilhos = @(
+    (New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME),
+    # 3650 dias em vez de TimeSpan::MaxValue: o agendador REJEITA a duração
+    # gerada por MaxValue ("P99999999DT23H59M59S ... fora do intervalo") e o
+    # Register falha — sem abortar o script, então a tarefa fica com a definição
+    # antiga e tudo PARECE instalado.
+    (New-ScheduledTaskTrigger -Once -At (Get-Date).Date `
+      -RepetitionInterval (New-TimeSpan -Minutes 5) `
+      -RepetitionDuration (New-TimeSpan -Days 3650))
+  )
 
   # Sem limite de duração (o padrão mata em 3 dias) e reinício se cair.
   $config = New-ScheduledTaskSettingsSet `
@@ -103,11 +162,11 @@ if ($Instalar) {
   # Sessão interativa do próprio usuário: os CLIs usam as credenciais do perfil.
   $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 
-  Register-ScheduledTask -TaskName $Tarefa -Action $acao -Trigger $gatilho `
+  Register-ScheduledTask -TaskName $Tarefa -Action $acao -Trigger $gatilhos `
     -Settings $config -Principal $principal -Force `
     -Description 'Executa os paineis multi-modelo enfileirados em /admin/vertho/board. Os CLIs rodam por assinatura nesta maquina.' | Out-Null
 
-  Escrever "tarefa '$Tarefa' instalada (inicia no logon)"
+  Escrever "tarefa '$Tarefa' instalada (logon + verificacao a cada 5 min)"
   Escrever "log: $Log"
   Escrever "`npara ligar agora sem deslogar:  .\scripts\painel\worker-servico.ps1 -Iniciar"
   return
