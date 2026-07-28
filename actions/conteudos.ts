@@ -264,6 +264,8 @@ export async function gerarConteudoIA({
       versao: 1,
       ativo: formato === 'texto' || formato === 'case',
       kit_id: kit?.kitId ?? null,
+      // F-I4: `disc` (1ª letra) NÃO é FK — sobrevive ao ON DELETE SET NULL de kit_id
+      // e o build o usa como 2º filtro do pool (conteudosDoBuild).
       disc: kit?.disc ?? null,
       modulo_base_id: moduloUsado?.id ?? null, // rastreio p/ anti-repetição
     }).select('id, titulo').maybeSingle();

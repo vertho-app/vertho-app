@@ -24,7 +24,6 @@ import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { resolveTaskModel } from '@/lib/ai-tasks';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
-import { gerarTemporadasLote } from '@/actions/temporadas';
 import { iniciarEnviosTemporada, pausarEnviosTemporada } from '@/actions/envios-temporada';
 import { gerarBlueprint, auditarBlueprint, filaBlueprint, filaAuditBlueprint } from '@/actions/blueprint';
 import {
@@ -158,7 +157,8 @@ const ACTION_MAP: Record<string, Function> = {
   ia4: rodarIA4,
   'simular-disc': simularMapeamentoDISCLote,
   trilhas: montarTrilhasLote,
-  temporadas: gerarTemporadasLote,
+  // 'temporadas' NÃO entra no ACTION_MAP: o ramo dedicado em handleAction
+  // (abaixo) roda fila + loop no client (F-E4) — o lote síncrono foi descontinuado.
   'cenarios-b': gerarCenariosBLote, evolucao: gerarRelatoriosEvolucaoLote, plenaria: gerarPlenariaEvolucao,
   'rh-rel': gerarRelatorioRHManual, 'rh-plen': gerarRelatorioPlenaria,
   'rh-links': enviarLinksPerfil, 'rh-dossie': gerarDossieGestor, 'rh-check': checkCenarios,
@@ -400,7 +400,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
           addLog(`⏳ ${i + 1}/${fila.data.length} ${c.nome}...`, 'info');
           try {
             const r = await comRetry(() => auditarBlueprint({ colaboradorId: c.id, aiConfig: aiConfig || undefined }));
-            if (r.ok && r.relatorio) { ok++; if (r.relatorio.drift) drift++; addLog(`${r.relatorio.drift ? '⚠' : '✅'} ${c.nome} — score ${r.relatorio.score}${r.relatorio.drift ? ' · DRIFT' : ''}`, r.relatorio.drift ? 'error' : 'success'); }
+            if (r.ok && r.relatorio) { ok++; if (r.relatorio.drift) drift++; addLog(`${r.relatorio.drift ? '⚠' : '✅'} ${c.nome} — score ${r.relatorio.score}${r.relatorio.drift ? ' · DRIFT' : ''}${r.relatorio.parcial ? ' · PARCIAL (sem checks semânticos)' : ''}`, r.relatorio.drift || r.relatorio.parcial ? 'error' : 'success'); }
             else { erros++; addLog(`❌ ${c.nome}: ${r.error}`, 'error'); }
           } catch (e: any) {
             erros++; addLog(`❌ ${c.nome}: ${e?.message || 'falha de rede'} — pulando`, 'error');

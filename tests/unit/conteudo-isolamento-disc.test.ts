@@ -59,3 +59,35 @@ describe('isolamento de conteúdo por DISC (kit fora do build)', () => {
     expect(servivel.map((c) => c.id)).not.toContain('outro-cargo');
   });
 });
+
+/**
+ * F-I4 (docs/FMEA-PIPELINE.md): `kit_id` é FK ON DELETE SET NULL (mig 142). Deletar/
+ * regerar um kit apaga o vínculo e o conteúdo DISC-específico virava "genérico" —
+ * voltava ao pool do build, que é cego a DISC. A coluna `disc` (denormalização da
+ * mig 142, gravada no insert) NÃO é FK: sobrevive ao SET NULL e denuncia a origem.
+ * Se o filtro de `disc` for removido de `conteudosDoBuild`, o 1º teste quebra (mutação).
+ */
+describe('F-I4: órfão de kit (kit_id NULL após SET NULL) não volta ao pool do build', () => {
+  it('conteúdo com disc preenchido e kit_id null NÃO entra no pool', () => {
+    const orfaos = [
+      { id: 'orfao-D', kit_id: null, disc: 'D', cargo: 'Gestão Escolar' },
+      { id: 'orfao-C', kit_id: null, disc: 'C', cargo: 'todos' },
+      { id: 'generico', kit_id: null, disc: null, cargo: 'Gestão Escolar' },
+    ];
+    const ids = conteudosDoBuild(orfaos).map((c) => c.id);
+    expect(ids).toEqual(['generico']);
+    expect(ids).not.toContain('orfao-D');
+    expect(ids).not.toContain('orfao-C');
+  });
+
+  it('conteúdo com kit_id e disc null entra normalmente (sem regressão)', () => {
+    expect(conteudosDoBuild([{ id: 'g', kit_id: null, disc: null }])).toHaveLength(1);
+    // linhas sem a coluna no select (undefined) seguem servíveis
+    expect(conteudosDoBuild([{ id: 'h', kit_id: null } as any])).toHaveLength(1);
+  });
+
+  it('kit vivo com disc segue fora (defesa dupla)', () => {
+    const itens = [{ id: 'kit-vivo', kit_id: 'k1', disc: 'I' }];
+    expect(conteudosDoBuild(itens)).toHaveLength(0);
+  });
+});

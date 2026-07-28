@@ -3,6 +3,7 @@
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { requirePermissionAction, assertTenantAccessAction } from '@/lib/auth/action-context';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { stripCodigoDescritor } from '@/lib/descritores';
 
 /**
  * Carrega assessment de descritores por colaborador de uma empresa.
@@ -77,12 +78,17 @@ export async function salvarNotaAssessment({ empresaId, colaboradorId, competenc
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
   const sb = await requireEmpresaSupabase(empresaId, 'users.manage');
   try {
+    // F-I6: `descritor` é chave do upsert (colaborador+competencia+descritor).
+    // Gravar o nome COM prefixo de código ("COO03_D5 — X") cria uma 2ª linha
+    // pro mesmo descritor ("X" do blueprint já existe) que a UNIQUE não pega —
+    // e o legado select-descriptors não normaliza → 2 semanas no mesmo
+    // descritor. Normaliza na ESCRITA (mesmo normalizador da IA4, fase3.ts).
     const { error } = await sb.from('descriptor_assessments').upsert({
       empresa_id: empresaId,
       colaborador_id: colaboradorId,
       cargo,
       competencia,
-      descritor,
+      descritor: stripCodigoDescritor(descritor),
       nota: Number(nota),
       origem: 'manual',
       assessment_date: new Date().toISOString(),
@@ -109,7 +115,9 @@ export async function deletarNotaAssessment({ colaboradorId, competencia, descri
     const { error } = await sb.from('descriptor_assessments').delete()
       .eq('colaborador_id', colaboradorId)
       .eq('competencia', competencia)
-      .eq('descritor', descritor);
+      // Mesma normalização da escrita (salvarNotaAssessment) — senão a célula
+      // cujo rótulo veio com prefixo de código não acha a linha gravada limpa.
+      .eq('descritor', stripCodigoDescritor(descritor));
     if (error) return { success: false, error: error.message };
     return { success: true };
   } catch (err) {

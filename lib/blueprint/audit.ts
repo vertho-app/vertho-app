@@ -36,8 +36,10 @@ export interface BlueprintAuditReport {
   ok: boolean;
   /** Há ≥1 `fail` (incoerência dura). */
   drift: boolean;
-  /** #pass / #total (0-100), só como sinal rápido. */
+  /** #pass / #total (0-100), só como sinal rápido. Denominador FIXO (FMEA F-P1). */
   score: number;
+  /** True quando a 2ª IA não retornou todos os checks semânticos — auditoria incompleta. */
+  parcial: boolean;
   checks: BlueprintAuditCheck[];
   resumo: string;
   auditado_em: string;
@@ -272,13 +274,21 @@ export function montarRelatorioAuditoria(
   const fails = checks.filter((c) => c.status === 'fail').length;
   const warns = checks.filter((c) => c.status === 'warn').length;
   const pass = checks.filter((c) => c.status === 'pass').length;
+  // Denominador FIXO (FMEA F-P1): check semântico ausente conta como NÃO-AVALIADO
+  // — fica no denominador sem pontuar, nunca some. Sem isso, a 2ª IA caída
+  // (extractJSON null, resposta truncada) derrubava o denominador e INFLAVA o
+  // score: uma auditoria pela metade parecia melhor que uma completa.
+  const idsSemantico = new Set(semantico.checks.map((c) => c.id));
+  const naoAvaliados = IDS_SEMANTICOS.filter((id) => !idsSemantico.has(id)).length;
+  const denominador = checks.length + naoAvaliados;
   // warn vale meio-ponto (fraco, não quebra) — um plano sem fails mas com warns
   // não deve despencar pra 50%; fail zera o peso do check.
-  const score = checks.length ? Math.round(((pass + 0.5 * warns) / checks.length) * 100) : 0;
+  const score = denominador ? Math.round(((pass + 0.5 * warns) / denominador) * 100) : 0;
   return {
     ok: fails === 0,
     drift: fails > 0,
     score,
+    parcial: naoAvaliados > 0,
     checks,
     resumo: semantico.resumo || (fails === 0 ? 'Blueprint coerente.' : `${fails} incoerência(s) encontrada(s).`),
     auditado_em: auditadoEm,

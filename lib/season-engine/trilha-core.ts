@@ -659,8 +659,9 @@ export async function gerarTemporadaCustom(args: {
 /**
  * Persistência de trilha + progresso — FONTE ÚNICA dos 4 modos (single, DUO,
  * onboarding, piloto), que mantinham 4 cópias byte-quase-idênticas deste
- * bloco. Regras: 1 trilha por (empresa, colab) → UPDATE se existe
- * (numero_temporada e data_inicio mantidos); semana 1 NOVA nasce em_andamento.
+ * bloco. Regras: 1 trilha por (empresa, colab) → header por UPSERT no UNIQUE
+ * (empresa_id, colaborador_id) — numero_temporada e data_inicio mantidos
+ * (lidos no SELECT acima); semana 1 NOVA nasce em_andamento.
  *
  * O progresso é gravado por UPSERT que PRESERVA o trabalho do colaborador
  * (reflexão, feedback, tira-dúvidas, consumo) — antes era delete+insert, que
@@ -692,7 +693,7 @@ export async function persistirTrilha(tdb: any, args: {
   // Com UPDATE na mesma row, regenerar não infla o contador.
   const numeroTemporada = existente?.numero_temporada || 1;
   const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
-  // empresa_id é injetado pelo tdb.insert/update — não precisa repetir aqui.
+  // empresa_id é injetado pelo tdb.upsert — não precisa repetir aqui.
   const payload = {
     colaborador_id: colaboradorId,
     competencia_foco: competenciaFoco,          // compat — âncora
@@ -714,16 +715,18 @@ export async function persistirTrilha(tdb: any, args: {
     cursos: [],                                 // legado — conteúdo vive em temporada_plano
   };
 
-  let trilhaId: string;
-  if (existente) {
-    const { error } = await tdb.from('trilhas').update(payload).eq('id', existente.id);
-    if (error) return { error: error.message };
-    trilhaId = existente.id;
-  } else {
-    const { data: nova, error } = await tdb.from('trilhas').insert(payload).select('id').maybeSingle();
-    if (error) return { error: error.message };
-    trilhaId = nova.id;
-  }
+  // F-C1 (docs/FMEA-PIPELINE.md): o header vira UPSERT atômico no UNIQUE que já
+  // existe — (empresa_id, colaborador_id). O SELECT-then-write anterior tinha 2
+  // falhas silenciosas sob regeneração concorrente: UPDATE batendo em 0 linhas
+  // (a row sumiu entre o SELECT e o UPDATE) e INSERT colidindo no UNIQUE (a row
+  // nasceu entre os dois). Mesmo padrão de development_blueprints
+  // (lib/blueprint/core.ts). O SELECT acima SEGUE — lê data_inicio (F-I1) e
+  // numero_temporada da trilha atual; a gravação é que não pode mais se perder.
+  const { data: salva, error } = await tdb.from('trilhas')
+    .upsert(payload, { onConflict: 'empresa_id,colaborador_id' })
+    .select('id').maybeSingle();
+  if (error) return { error: error.message };
+  const trilhaId: string = salva.id;
 
   // ── PROGRESSO: preserva o que a PESSOA produziu ──────────────────────────────
   //

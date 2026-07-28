@@ -8,14 +8,13 @@ import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { getProgramaConfigByModo, resolverModoColab } from '@/lib/season-engine/programa-config';
 import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
-import { gerarTemporadaCoreHeadless } from '@/lib/season-engine/trilha-core';
+import { gerarTemporadaCoreHeadless, normalizarSemanas } from '@/lib/season-engine/trilha-core';
 import type { AIConfig } from './ai-client';
 import { z } from 'zod';
 import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction, assertTenantAccessAction } from '@/lib/auth/action-context';
 import { protectedAction, DomainError } from '@/lib/auth/protected-action';
 import { findTrilhaComTenant, updateTrilhaInTenant, updateSemanaProgressoInTenant } from '@/lib/repositories/trilhas-repo';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { logAdminAction } from '@/lib/audit';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 
 interface GerarTemporadaParams {
@@ -262,46 +261,31 @@ function resolveCompetenciaSlot(trilha: any, slot: any): string {
 }
 
 /**
- * Gera temporadas para todos os colaboradores de uma empresa que têm
- * competência foco definida (em trilhas existentes ou no parametro).
+ * @deprecated F-E4 (docs/FMEA-PIPELINE.md): o lote síncrono rodava N gerações
+ * de temporada (~6 chamadas de IA cada) em loop serial dentro de UMA server
+ * action — 1 colab já podia estourar o maxDuration da Vercel (300s) e o lote
+ * inteiro morria 504. O padrão vigente é FILA + LOOP NO CLIENT (1 server
+ * action por colab): `listarColabsParaTrilha` (actions/fase4.ts) +
+ * `gerarTemporada` — ver o ramo 'temporadas' em
+ * app/admin/empresas/[empresaId]/page.tsx, mesmo padrão de `filaBlueprint` +
+ * `gerarBlueprint`. Este stub gated só RECUSA o lote inline e aponta o
+ * caminho novo — nenhuma chamada de IA nem varredura de banco roda aqui.
  */
 const GerarLoteInput = z.object({
   empresaId: z.string().min(1),
   aiConfig: z.record(z.string(), z.any()).optional(),
 });
 
-const _gerarTemporadasLote = protectedAction('ai.audit.regenerate', GerarLoteInput, async (ctx, { empresaId, aiConfig }) => {
+const _gerarTemporadasLote = protectedAction('ai.audit.regenerate', GerarLoteInput, async (ctx, { empresaId }) => {
   await assertTenantAccessAction(ctx, empresaId);
-  const sb = await requireAdminSupabase();
-  const { data: colabs } = await sb.from('colaboradores')
-    .select('id, nome_completo').eq('empresa_id', empresaId);
-  if (!colabs?.length) throw new Error('Sem colaboradores');
-
-  const resultados: any[] = [];
-  for (const c of colabs) {
-    const r = await gerarTemporada({ colaboradorId: c.id, aiConfig });
-    resultados.push({ colab: c.nome_completo, ...r });
-  }
-  const ok = resultados.filter(r => r.ok).length;
-  const errosUnicos = [...new Set(resultados.filter(r => !r.ok).map(r => r.error))].slice(0, 3);
-  await logAdminAction({
-    adminEmail: ctx.email || 'desconhecido',
-    acao: 'temporada.gerar_lote', empresaId,
-    alvo: `${colabs.length} colaboradores`,
-    detalhes: { total: colabs.length, gerados: ok, erros: colabs.length - ok, errosUnicos },
-    resultado: ok === 0 ? 'erro' : ok < colabs.length ? 'parcial' : 'ok',
-  });
-  return {
-    total: colabs.length,
-    gerados: ok,
-    resultados,
-    message: `${ok}/${colabs.length} temporadas geradas${errosUnicos.length ? ` · erros: ${errosUnicos.join('; ')}` : ''}`,
-  };
+  throw new Error(
+    'gerarTemporadasLote (lote síncrono) descontinuado — F-E4: use listarColabsParaTrilha + gerarTemporada por colaborador no client',
+  );
 });
 /**
- * Wrapper POSICIONAL achatador: o dispatcher genérico do pipeline
- * (ACTION_MAP) e actions/fase4.ts chamam `(empresaId, aiConfig)` e leem
- * success/message no TOPO — o envelope do protectedAction fica interno.
+ * Wrapper POSICIONAL achatador (legado): `montarTrilhasLote`
+ * (actions/fase4.ts, também depreciado) chama `(empresaId, aiConfig)` e lê
+ * success/error no TOPO — o envelope do protectedAction fica interno.
  */
 export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig) {
   const r = await _gerarTemporadasLote({ empresaId, aiConfig });
@@ -389,7 +373,8 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
     if (idx < 0) throw new Error('Semana não encontrada no plano');
 
     const { data: colab } = await sb.from('colaboradores')
-      .select('cargo, empresa_id').eq('id', trilha.colaborador_id).maybeSingle();
+      .select('cargo, empresa_id, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso')
+      .eq('id', trilha.colaborador_id).maybeSingle();
     const { data: empresa } = await sb.from('empresas').select('segmento').eq('id', trilha.empresa_id).maybeSingle();
     const contexto = empresa?.segmento?.toLowerCase().includes('educa') ? 'educacional' : 'corporativo';
 
@@ -450,9 +435,30 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
         : { texto: (cResp || '').trim(), complexidade };
 
       plano[idx] = { ...slot, missao: missaoObj, cenario: cenarioObj };
+    } else if (slot.tipo === 'conteudo') {
+      // Era "Semana de avaliação não pode ser regerada" — mensagem enganosa:
+      // este ramo é semana de CONTEÚDO sem descritor (a de avaliação cai no else).
+      throw new Error('Semana de conteúdo sem descritor definido — sem base pra regerar o desafio');
     } else {
       throw new Error('Semana de avaliação não pode ser regerada');
     }
+
+    // F-I2 (docs/FMEA-PIPELINE.md): regerar também REPARA o conteúdo. Core órfão/
+    // stale (dedup, delete, desativação — ou fallback_gerado sem core) é re-selecionado
+    // por `selecionarConteudoDaSemana`, a MESMA função do motor — core válido não se
+    // troca (a pessoa já viu). E o plano passa por `normalizarSemanas` antes de gravar,
+    // como persistirTrilha faz: gravar o JSONB cru perpetuava "título ≠ blocos".
+    let reparados = 0;
+    if (plano[idx].tipo === 'conteudo') {
+      const { repararCoreOrfaoDaSemana } = await import('@/lib/season-engine/build-season');
+      const { derivarPrioridadeFormatos } = await import('@/lib/season-engine/formato-preferido');
+      reparados = (await repararCoreOrfaoDaSemana(sb, plano[idx], {
+        cargo: colab?.cargo,
+        prioridadeFormatos: derivarPrioridadeFormatos(colab || {}),
+        empresaId: trilha.empresa_id,
+      })).reparados;
+    }
+    normalizarSemanas(plano);
 
     await updateTrilhaInTenant(sb, trilha.empresa_id, trilhaId, { temporada_plano: plano });
 
@@ -480,6 +486,7 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
 
     return {
       message: `Semana ${semana} regerada`
+        + (reparados ? ` · ${reparados} conteúdo(s) órfão(s) re-selecionado(s)` : '')
         + (jaTrabalhou ? ' (reflexão/feedback preservados — a pessoa já havia respondido)' : ''),
     };
 });

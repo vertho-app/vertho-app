@@ -27,6 +27,8 @@ interface MicroConteudo {
   empresa_id?: string | null;
   /** Preenchido = conteúdo de KIT (escrito p/ UM DISC) → entregue só pelo overlay. */
   kit_id?: string | null;
+  /** 1ª letra do DISC do kit de origem (denormalização da mig 142) — sobrevive ao SET NULL de kit_id (F-I4). */
+  disc?: string | null;
   ativo: boolean;
   versao?: number;
   taxa_conclusao?: number | null;
@@ -211,15 +213,120 @@ export function selecionarConteudoDaSemana(
 }
 
 /**
+ * REPARO de core órfão/stale num slot de conteúdo JÁ GRAVADO no plano
+ * (F-I2 do docs/FMEA-PIPELINE.md). Usado por `regerarSemana`.
+ *
+ * Critério de órfão/stale, por entrega da semana: `core_id` ausente
+ * (fallback_gerado — o build não achou conteúdo na época) OU apontando pra um
+ * micro_conteudo que saiu do pool servível (dedup/delete/desativação — o motor
+ * não serviria mais aquele id). SÓ nesse caso re-seleciona — e sempre por
+ * `selecionarConteudoDaSemana`, a MESMA função do motor: reimplementar o
+ * scoring aqui recria a classe de bug "título ≠ blocos". Core ainda válido
+ * NUNCA é trocado — regerar não pode trocar o conteúdo que a pessoa já viu.
+ *
+ * Os campos do desafio (desafio_texto, acao_observavel, ...) NÃO são tocados —
+ * são da etapa de IA de regerarSemana. Retorna quantas entregas foram reparadas.
+ */
+export async function repararCoreOrfaoDaSemana(
+  sb: any,
+  slot: any,
+  opts: { cargo: string; prioridadeFormatos: string[]; empresaId?: string | null },
+): Promise<{ reparados: number }> {
+  if (slot?.tipo !== 'conteudo') return { reparados: 0 };
+  const { cargo, prioridadeFormatos, empresaId = null } = opts;
+
+  // Entregas da semana: shape DUO/piloto (conteudos_dia, 1 por descritor) ou
+  // single (conteudo no topo). Cada entrega tem competencia/descritor próprios.
+  const entradas: any[] = Array.isArray(slot.conteudos_dia) && slot.conteudos_dia.length
+    ? slot.conteudos_dia
+    : (slot.conteudo ? [slot] : []);
+  if (!entradas.length) return { reparados: 0 };
+
+  // Ids que já servem a semana — o reparo não repete o mesmo conteúdo nas 2 pílulas.
+  const idsEmUso = new Set<string>();
+  for (const e of entradas) if (e.conteudo?.core_id) idsEmUso.add(e.conteudo.core_id);
+
+  let reparados = 0;
+  for (const e of entradas) {
+    const cont = e.conteudo;
+    if (!cont) continue;
+    const competencia = e.competencia || slot.competencia;
+    const descritor = e.descritor || slot.descritor;
+    if (!competencia || !descritor) continue;
+
+    // Pool servível HOJE (mesma query do build: ativo, fora de kit, da
+    // competência, visível pra empresa). core_id presente aqui = o motor AINDA
+    // o serviria → válido, não troca.
+    let q = sb.from('micro_conteudos').select('*')
+      .eq('ativo', true)
+      .is('kit_id', null)
+      .eq('competencia', competencia);
+    if (empresaId) q = q.or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+    else q = q.is('empresa_id', null);
+    const { data: poolRows } = await q;
+    const pool = (poolRows || []) as MicroConteudo[];
+
+    const coreId = cont.core_id as string | null | undefined;
+    if (coreId && pool.some((c) => c.id === coreId)) continue;
+
+    // Recorte por nível como montarSemanaConteudo (fallback: pool inteiro).
+    const nivelMedio = (Number(e.nivel_atual ?? slot.nivel_atual ?? 1.5) + 3.0) / 2;
+    const comNivel = pool.filter((c: any) => (c.nivel_min ?? -Infinity) <= nivelMedio && (c.nivel_max ?? Infinity) >= nivelMedio);
+    const candidatos = comNivel.length > 1 ? comNivel : pool;
+
+    const sel = selecionarConteudoDaSemana(candidatos, {
+      cargo, descritor, prioridadeFormatos,
+      idsJaUsados: new Set([...idsEmUso].filter((id) => id !== coreId)),
+    });
+    const { formatosDisponiveis, coreContent } = sel;
+    if (coreId) idsEmUso.delete(coreId);
+    if (coreContent) idsEmUso.add(coreContent.id);
+
+    e.conteudo = {
+      ...cont, // desafio_* etc. são da etapa de IA — preservados
+      formato_core: sel.formatoCore,
+      core_id: coreContent?.id || null,
+      core_reuso: false,
+      core_titulo: coreContent?.titulo || cont.core_titulo,
+      core_url: coreContent?.url || null,
+      formatos_disponiveis: Object.fromEntries(
+        Object.entries(formatosDisponiveis).map(([f, c]) => [f, { id: c.id, url: c.url, titulo: c.titulo }])
+      ),
+      fallback_gerado: !coreContent,
+    };
+    reparados++;
+  }
+
+  // Shape DUO/piloto: o conteudo do TOPO espelha a 1ª entrega (invariante do
+  // build — após o round-trip JSONB são cópias independentes). Re-sincroniza SÓ
+  // os campos de seleção: desafio_texto & cia no topo podem ter acabado de ser
+  // regerados por IA (regerarSemana) e não podem ser sobrescritos pelo espelho.
+  if (reparados > 0 && Array.isArray(slot.conteudos_dia) && slot.conteudos_dia.length && slot.conteudo) {
+    const primeiro = slot.conteudos_dia[0]?.conteudo;
+    if (primeiro && primeiro !== slot.conteudo) {
+      for (const k of ['formato_core', 'core_id', 'core_reuso', 'core_titulo', 'core_url', 'formatos_disponiveis', 'fallback_gerado']) {
+        slot.conteudo[k] = primeiro[k];
+      }
+    }
+  }
+  return { reparados };
+}
+
+/**
  * INVARIANTE: conteúdo de KIT (`kit_id` preenchido) é escrito para UM perfil DISC e é
  * entregue EXCLUSIVAMENTE pelo overlay (`overlayKitNaSemana`), que resolve por
  * (DISC × cargo) na LEITURA. O buildSeason é CEGO A DISC — se servir conteúdo de kit,
  * entrega o perfil de outra pessoa. O overlay só corrige quando existe kit do DISC de
  * quem lê; com cobertura parcial de DISC, escapa (medido: 23 de 648 entregas no
  * Ibipeba, 16/07). Irmã de `conteudosServiveisPorCargo` — mesma classe de isolamento.
+ *
+ * F-I4: `kit_id` é FK ON DELETE SET NULL (mig 142) — deletar/regerar o kit apaga o
+ * vínculo e o conteúdo DISC-específico virava "genérico" e voltava ao pool. Por isso
+ * o filtro é DUPLO: `kit_id` (kit vivo) OU `disc` (denormalização gravada no insert,
+ * que NÃO é FK e sobrevive ao SET NULL) preenchidos → fora do build.
  */
-export function conteudosDoBuild<T extends { kit_id?: string | null }>(itens: T[]): T[] {
-  return (itens || []).filter((c) => !c.kit_id);
+export function conteudosDoBuild<T extends { kit_id?: string | null; disc?: string | null }>(itens: T[]): T[] {
+  return (itens || []).filter((c) => !c.kit_id && !c.disc);
 }
 
 export function conteudosServiveisPorCargo<T extends { cargo?: string | null }>(
@@ -471,17 +578,22 @@ async function montarSemanaConteudo(
   const nivelMedio = (descritorSel.nota_atual + 3.0) / 2;
 
   // Busca conteúdos pra esse descritor com fallback gradual.
-  // ⚠️ `kit_id IS NULL`: conteúdo de KIT é específico de UM DISC e é entregue SÓ pelo
-  // overlay (overlayKitNaSemana, que resolve por DISC×cargo na LEITURA). Este build é
-  // CEGO A DISC — sem o filtro ele enxerga os micro_conteudos do kit (mesma tabela, com
-  // competencia/descritor/cargo preenchidos), escolhe por score e serve o conteúdo de
-  // OUTRO perfil. O overlay só conserta quando existe kit do DISC da pessoa; com
-  // cobertura parcial, escapava. Medido no Ibipeba: 23 de 648 entregas liam o DISC
-  // errado. Mesma classe do vazamento por CARGO (conteudosServiveisPorCargo, 4faa0130).
+  // ⚠️ `kit_id IS NULL AND disc IS NULL`: conteúdo de KIT é específico de UM DISC e
+  // é entregue SÓ pelo overlay (overlayKitNaSemana, que resolve por DISC×cargo na
+  // LEITURA). Este build é CEGO A DISC — sem o filtro ele enxerga os micro_conteudos
+  // do kit (mesma tabela, com competencia/descritor/cargo preenchidos), escolhe por
+  // score e serve o conteúdo de OUTRO perfil. O overlay só conserta quando existe kit
+  // do DISC da pessoa; com cobertura parcial, escapava. Medido no Ibipeba: 23 de 648
+  // entregas liam o DISC errado. Mesma classe do vazamento por CARGO
+  // (conteudosServiveisPorCargo, 4faa0130).
+  // F-I4: `kit_id` é FK ON DELETE SET NULL — sem o 2º filtro, o conteúdo de um kit
+  // deletado/regerado (órfão) voltava ao pool; a coluna `disc` (denormalização da
+  // mig 142) NÃO é FK, sobrevive ao SET NULL e denuncia a origem.
   const buildQ = (withNivel: boolean) => {
     let q = sb.from('micro_conteudos').select('*')
       .eq('ativo', true)
       .is('kit_id', null)
+      .is('disc', null)
       .eq('competencia', competencia);
     if (withNivel) q = q.lte('nivel_min', nivelMedio).gte('nivel_max', nivelMedio);
     if (empresaId) q = q.or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
