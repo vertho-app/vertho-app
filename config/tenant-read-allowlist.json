@@ -39,6 +39,7 @@
     "lib/authz.ts": 1,
     "lib/i18n-server.ts": 1,
     "lib/notify-tutor.ts": 1,
-    "lib/tenant-db.ts": 1
+    "lib/tenant-db.ts": 1,
+    "scripts/_diag-orfaos-detalhe.ts": 1
   }
 }

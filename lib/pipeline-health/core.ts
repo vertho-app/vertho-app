@@ -244,7 +244,10 @@ export async function persistirResultados(resultados: ResultadoCheck[]): Promise
 export function montarAlerta(resultados: ResultadoCheck[]): { assunto: string; html: string } | null {
   const graves = resultados.filter((r) => r.severidade === 'critico');
   if (!graves.length) return null;
-  const total = graves.reduce((s, r) => s + r.achados.length, 0);
+  // Soma as OCORRÊNCIAS, não os tipos de achado. Contar achados fazia o assunto dizer
+  // "2 lacunas" para 42 DISC de kit faltando (medido 27/07) — um alerta que subnotifica
+  // não provoca ação, que é a única razão de ele existir.
+  const total = graves.reduce((s, r) => s + r.achados.reduce((n, a) => n + (a.contagem || 1), 0), 0);
   // O horizonte não avalia uma DATA de entrega (dataAlvo é null): dizer "entrega de
   // hoje" num alerta que fala de semanas à frente mandaria corrigir a coisa errada.
   const soHorizonte = graves.every((r) => r.modo === 'horizonte');

@@ -18,6 +18,11 @@
 > | `health_estrutural` | 06:30 UTC | duplicatas, presos, órfãos — com **tendência**, não foto |
 > | `horizonte_kits` | segunda 09:00 UTC (semanal) | "o que as PRÓXIMAS 4 semanas vão pedir e ainda não existe?" |
 >
+> ⚠️ **Nenhum desses crons tinha rodado até a auditoria de 27/07 à noite** (`pipeline_health_runs`
+> vazia) e **`ADMIN_EMAILS` não existia em nenhum ambiente** — o alerta cairia no
+> `console.error('ALERTA CRÍTICO SEM DESTINO')`. Env criada e os 4 modos exercitados à mão
+> (`scripts/_health-check.ts <modo>`) na mesma auditoria. Ver o item 10 da priorização.
+>
 > **Por que o horizonte é um modo à parte** (27/07): os outros três olham amanhã, hoje e
 > o estoque. Nenhum responde pela produção — e 25h dão tempo de reenviar um e-mail, não
 > de PRODUZIR (kit leva ~5min por DISC). A trilha troca de BLOCO DE COMPETÊNCIAS ao longo
@@ -660,9 +665,12 @@ ao `formatos_disponiveis` dos planos). Aditivo, **cargo-safe** (só o formato do
 colab ou genérico — nunca de outro cargo).
 
 **Receita de 4 passos para fechar gap de formato** (rodada em 27/07 para o áudio de
-Autocuidado no Ibipeba; os scripts `scripts/_*.ts` são one-off **não versionados** — o que
-persiste é esta receita, porque os scripts da vez anterior foram perdidos e o retrabalho
-custou uma sessão):
+Autocuidado no Ibipeba). O que persiste é **esta receita**, não os scripts: `scripts/_*` é
+uma mistura — 54 estão versionados e outros tantos só existem no disco de quem rodou, e os
+da vez anterior se perderam, custando uma sessão de retrabalho. Se versionar um script `_*`
+que usa `createSupabaseAdmin` ou lê tabela de PII, ele **precisa entrar nas allowlists** dos
+guards (`service-role`, `tenant-read`) no MESMO commit — senão o CI fica vermelho (aconteceu
+em `fc25fe36` com `_diag-orfaos-detalhe.ts`, corrigido em seguida):
 1. **Gerar** — `gerarConteudoIA({formato, competencia, descritor, cargo, empresaId, sb})`
    headless, espelhando `nivel_min/max` e `contexto` do texto/case que já existe no par.
    Confirmar antes que o **MB está `publicado`** (pegadinha 1).
@@ -737,30 +745,46 @@ Qualquer script que mexa em `temporada_plano` deve rodar a mesma normalização.
 ---
 
 
-## Prioridação — o que corrigir primeiro
+## Prioridação — o que ainda falta
 
-**Migrations (barram classes inteiras de duplicata/órfão):**
-1. `UNIQUE` parcial em `videos_gerados` (célula, `WHERE status<>'error'`) — F-C5 🔴
-2. `UNIQUE` parcial em `micro_conteudos` (`WHERE kit_id IS NULL`) — F-C6 🔴
-3. `UNIQUE` em `kit_briefs` (promover o índice) — F-C7
-4. FK `ON DELETE CASCADE` em `development_blueprints` — F-I5
-+ dedup dos registros já duplicados (18 vídeos, 6 conteúdos).
+> Revisada na auditoria de **27/07 (noite)**. Os itens 1-10, 13 e 16 da lista antiga foram
+> executados no mesmo dia e saíram daqui — lista de prioridade que não encolhe manda refazer
+> o que já está feito. O estado abaixo foi **medido no banco**, não herdado do texto anterior.
 
-**Código (corrigem perda de dado / silêncio):**
-5. `data_inicio` preservado no UPDATE de `persistirTrilha` — F-I1 🟠
-6. `precarregarKits` propaga erro em vez de Map vazio — F-C4 (causa-raiz dos órfãos)
-7. `persistirTrilha` vira UPSERT + progresso captura erro — F-C1/F-C2
-8. Carimbo condicional (stamp-then-send) + lock do cron — F-C3
-9. `regerarSemana` usa `selecionarConteudoDaSemana` + `normalizarSemanas` — F-I2
-10. Normalizador único acento-insensível; normalizar descritor na escrita — F-I6/F-I7
+**Feito em 26-27/07 (verificado no banco na auditoria):** UNIQUE parcial em `videos_gerados`
+(F-C5, mig 188) · UNIQUE parcial em `micro_conteudos` (F-C6, mig 190) · UNIQUE em `kit_briefs`
+(F-C7, mig 185) · FKs em `development_blueprints` (F-I5, mig 191) · `data_inicio` preservado
+(F-I1) · `precarregarKits` propaga erro (F-C4) · UPSERT do header (F-C1/F-C2) · carimbo
+condicional + lock (F-C3, mig 187) · `regerarSemana` pelo motor (F-I2) · descritor canônico na
+escrita + backfill (F-I6) · lote síncrono de temporadas depreciado (F-E4) · reconciliação de
+vídeo nominal (F-V1) · contexto de PPP consolidado (F-I10/F-E7) · alarme de horizonte (F-I11).
+**Medido agora:** 0 células de vídeo duplicadas · 0 `micro_conteudos` duplicados · 0
+`kit_briefs` duplicados · 0 blueprints órfãos · 0 kits/jobs/vídeos presos.
 
-**Escala (antes de crescer o tenant):**
-11. `triggerDiario` vira task/fan-out — F-E1
-12. Chunkar `.in()`, paginar `listarTemporadasEmpresa`, cachear `precarregarKits` — F-E2/E3
-13. Depreciar lotes síncronos de IA — F-E4
-14. ~~`escola_id` na chave de cache do PDF — F-E7~~ ✅ 27/07 (assinatura do contexto na chave)
+**Escala (antes de crescer o tenant) — nada disso morde hoje:**
+1. `triggerDiario` vira task/fan-out — F-E1 🔵
+2. Chunkar `.in()`, paginar `listarTemporadasEmpresa`, cachear `precarregarKits` — F-E2/E3 🔵
+3. Batch de blueprint no padrão destacado (`wait.for`) — F-E6 🔵
+4. Teto de tempo próprio na personalização de vídeo — F-V2 🔵
 
-**Operação (runbook, sem código):**
-15. Nunca deletar MB publicado — despublicar (F-I3).
-16. Job de reconciliação de `videos_personalizados` (F-V1) — cobre os 14 presos.
-17. Limpar os 38 `videos_gerados` em error + 1 brief ungrounded.
+**Código (pendências reais, pequenas):**
+5. `gerarBlueprintsLote`/`auditarBlueprintsLote` seguem com loops síncronos de IA — mesma
+   receita do F-E4 (stub + a fila client que já existe). **Ressalva declarada, não fechada.**
+6. Decidir se cap de billing cai no fallback de provedor — F-E5 🟡 (hoje só erro transitório).
+
+**Operação (runbook, sem código) — números medidos em 27/07 à noite:**
+7. Nunca deletar MB publicado — despublicar (F-I3 🟡).
+8. **4 `kit_briefs` sem módulo-base** (ibipeba, projetomacae ×2, acme-demo) — cada um tem 1 kit
+   publicado nascido sem matéria-prima canônica. O check estrutural acusa como aviso toda
+   madrugada. Não é o "1" que a lista antiga citava.
+9. **46 `videos_gerados` em `error`** + 1 personalizado em error — resíduo permitido pelo índice
+   parcial e invisível à entrega; limpar é higiene, não correção.
+
+**Verificação da própria instrumentação (o modo de falha mais irônico):**
+10. ⚠️ Até 28/07 00:00 UTC a tabela `pipeline_health_runs` estava **VAZIA** — os quatro modos
+    foram criados no dia e nenhum cron tinha passado ainda. Pior: **`ADMIN_EMAILS` não existia em
+    nenhum ambiente**, então `alertar()` cairia no `console.error('ALERTA CRÍTICO SEM DESTINO')`
+    e o e-mail nunca sairia. Corrigido na auditoria (env criada em Production; os modos rodados à
+    mão via `scripts/_health-check.ts`). **Lição:** instrumentação nova só conta depois de uma
+    execução observada de ponta a ponta — inclusive o canal de saída. Um alarme sem destinatário
+    é a mesma "documentação que não protege ninguém" que este documento existe para criticar.

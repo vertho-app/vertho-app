@@ -1,12 +1,13 @@
 # Resumo de Retomada — Vertho App
 
-> Atualizado em 27/07/2026. HEAD `09540329`.
+> Atualizado em 27/07/2026 (noite). O SHA de HEAD não é fixado aqui de propósito — ficava
+> obsoleto no commit seguinte e dava a impressão de que o resto do documento também estava.
 
 ## Onde esta o projeto
 
 - Workspace: `C:\GAS\Vertho App\nextjs-app` (o repo Git e esta pasta, nao a pasta-pai).
 - Branch: `master`. **`git push origin master` ja deploya** na Vercel — NAO rodar `vercel --prod` por cima (duplica).
-- Stack: Next.js 16.2.4, React 19.2.4, Supabase/Postgres, Tailwind 4, TypeScript (~898 arquivos `.ts/.tsx`).
+- Stack: Next.js 16.2.4, React 19.2.4, Supabase/Postgres, Tailwind 4, TypeScript (923 arquivos `.ts/.tsx` versionados).
 - IA: Claude (`@anthropic-ai/sdk` 0.96) como default, com OpenAI/Gemini/Kimi pelo mesmo wrapper (`actions/ai-client.ts`).
 - Jobs de fundo: Trigger.dev v4 (`trigger/`) — **deploy MANUAL**, nao sobe no push.
 - Video: HeyGen (avatar) + Remotion 4 (render, backend Hetzner) + Bunny Stream (hosting).
@@ -25,7 +26,7 @@ Antes de considerar qualquer tarefa pronta:
 ```powershell
 npm run build          # NUNCA com `| tail` (deixa next build orfao segurando o lock)
 npx tsc --noEmit
-npm run test:unit      # vitest — 955 testes em 107 arquivos (medido 27/07), roda no CI
+npm run test:unit      # vitest — 960 testes em 108 arquivos (medido 27/07 noite), roda no CI
 ```
 
 Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (reseta `acme-demo`).
@@ -89,7 +90,10 @@ rastreavel (mig 169). ACME Demo: reset canonico unico.
 
 ## Banco e migrations
 
-- **164 arquivos, `022` a `183`** (com gaps). Recentes: 172/173 `ia_jobs` (lote + parar),
+- **172 arquivos, `000` a `191`** (com gaps). Recentes: 184/186 pipeline-health (+189 modo
+  `horizonte`), 185 UNIQUE de `kit_briefs`, 187 lock do cron, 188 consolidacao de celulas de
+  video, 190 UNIQUE parcial de `micro_conteudos` nao-kit, 191 FKs de `development_blueprints`.
+  Anteriores: 172/173 `ia_jobs` (lote + parar),
   174 competencias-foco do cargo, 175/176 development blueprints + auditoria, 177/178 ledger e resumo
   de uso de IA, 179 eventos de trilha, 180 `videos_watched` por semana, 181 carimbo de pilula por
   canal, 182 config de programa na trilha (Modo Personalizado), 183 DISC contextual no pulso.
