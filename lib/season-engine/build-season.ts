@@ -675,7 +675,25 @@ async function montarSemanaConteudo(
   };
 }
 
-async function montarSemanaAplicacao(
+/**
+ * Corte "só o já entregue" da missão (regra de 28/07, decisão de produto): a
+ * semana de aplicação AVALIA — e avaliação só cobra conteúdo já entregue. São
+ * os descritores alocados em semanas de conteúdo ANTERIORES à missão
+ * (`semanas_ids`), dentro das competências da janela. Antes, a semana 4 cobrava
+ * a competência inteira — inclusive o bloco que só começava na semana 5.
+ * Pura e exportada para teste — a regra de negócio vive aqui, não no prompt.
+ */
+export function descritoresEntreguesNaMissao<T extends { competencia?: string | null; semanas_ids?: number[] }>(
+  descritores: T[],
+  semana: number,
+  competenciasJanela: string[],
+): T[] {
+  return descritores.filter((d) =>
+    d.competencia && competenciasJanela.includes(d.competencia) &&
+    (d.semanas_ids ?? []).some((s) => s < semana));
+}
+
+export async function montarSemanaAplicacao(
   semana: number,
   descritores: SelectedDescriptor[],
   competencia: string,
@@ -696,9 +714,21 @@ async function montarSemanaAplicacao(
     const idxs = indicesNaMissao.includes(-1)
       ? competenciasArray.map((_, i) => i)
       : indicesNaMissao;
-    competenciasIntegradas = idxs.map(i => competenciasArray[i]).filter(Boolean);
-    // Descritores cobertos: todos os descritores das competências envolvidas
-    descritoresParaMissao = descritores.filter(d => d.competencia && competenciasIntegradas!.includes(d.competencia));
+    const naJanela = idxs.map(i => competenciasArray[i]).filter(Boolean);
+    // Regra (28/07, decisão de produto): a missão AVALIA — e avaliação só cobra o
+    // que já foi ENTREGUE. O corte é pelos descritores alocados em semanas de
+    // conteúdo ANTERIORES à missão (`semanas_ids`), NÃO pela competência inteira:
+    // antes, a semana 4 já cobrava Autocuidado cujo conteúdo só chega na semana 5.
+    // As competências integradas são as do corte — semana 4 vira missão de bloco
+    // (1 comp), semanas 8/12 seguem integradoras (2 comps já entregues).
+    descritoresParaMissao = descritoresEntreguesNaMissao(descritores, semana, naJanela);
+    competenciasIntegradas = naJanela.filter(c => descritoresParaMissao.some(d => d.competencia === c));
+    // Guarda: trilha sem nada entregue antes da missão (plano degenerado) cai no
+    // corte antigo em vez de gerar missão sem descritor nenhum.
+    if (descritoresParaMissao.length === 0) {
+      descritoresParaMissao = descritoresCobertosNaMissao(descritores, semana, programaConfig);
+      competenciasIntegradas = naJanela;
+    }
   } else {
     // Regular: corte por blocosCobertos (3 → 6 → todos)
     descritoresParaMissao = descritoresCobertosNaMissao(descritores, semana, programaConfig);

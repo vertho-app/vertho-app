@@ -165,8 +165,11 @@ export const PROGRAMA_REGULAR_DUO: ProgramaConfig = Object.freeze({
   complexidadeMap: { 4: 'simples', 8: 'intermediario', 12: 'completo' },
   nivelMetaAlvo: 3,
   numCompetencias: 2,
-  // 2 comps ativas desde o início → toda missão integra as duas.
-  // (-1 = todas as comps da trilha; complexidade cresce via complexidadeMap.)
+  // 2 comps ativas desde o início. (-1 = todas as comps da trilha; complexidade
+  // cresce via complexidadeMap.) ⚠️ 28/07 (decisão de produto): a missão cobre
+  // só os descritores JÁ ENTREGUES em semanas de conteúdo anteriores (corte por
+  // `semanas_ids` em montarSemanaAplicacao), NÃO a competência inteira — a
+  // semana 4 não cobra mais o bloco que só começa na semana 5.
   competenciasNaMissao: { 4: [-1], 8: [-1], 12: [-1] },
   // SEM semanaParaCompetenciaIdx: a competência de cada semana de conteúdo
   // vem do descritor (selectDescriptorsDuo grava .competencia). O mapa
