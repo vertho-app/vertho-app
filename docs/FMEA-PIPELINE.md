@@ -510,6 +510,10 @@ briefs duplicados por tupla.
 > `PIPELINE-TRILHA.md` conferida linha a linha no código, por 3 frentes paralelas (camadas 0-3
 > insumos→trilha, 4-5 conteúdo→kit, 6-7 entrega→envio). Achados marcados 🆕 **não** têm entrada F-*
 > própria — são candidatos a catalogação.
+>
+> **Status sincronizado na auditoria de 27/07 (noite):** itens com ✅ foram fechados (commit entre
+> parênteses); os sem marca **seguem abertos** — os priorizáveis estão na seção "Prioridação" no fim
+> do documento.
 
 
 ### Veredito geral
@@ -518,33 +522,33 @@ O `PIPELINE-TRILHA.md` é **excepcionalmente fiel** (~50 referências `arquivo:l
 
 ### 1. Falhas de maior severidade
 
-### 1.1 Regeneração destrói dados do colaborador
+### 1.1 Regeneração destrói dados do colaborador ✅ (27/07: `5a405965` + stub do lote, F-E4)
 
 - Regenerar trilha faz `delete` da linha inteira de `temporada_semana_progresso` — apaga **reflexões, feedbacks e evidências**, não só o progresso (`lib/season-engine/trilha-core.ts:576`). O doc subestima ("reseta data_inicio e o progresso").
 - `gerarTemporadasLote` regenera **todos** sem checar trilha existente (`actions/temporadas.ts:246-273`).
 - `regerarSemana` zera `status/reflexao/feedback/conteudo_consumido` da semana — quem já concluiu perde o transcript e a semana destrava o Tira-Dúvidas (`actions/temporadas.ts:432-435`). Não re-seleciona conteúdo (armadilha 7 do doc ✓).
 
-### 1.2 Pílula perdida para sempre em qualquer falha 🆕
+### 1.2 Pílula perdida para sempre em qualquer falha 🆕 ✅ (27/07: carimbo POR CANAL — `carimbo-canal.ts`, nada saiu → sem carimbo — + `publishToQStash` lançando, `0a188172`)
 
 - O carimbo `ultima_pilulaN_em` é gravado **mesmo quando WhatsApp E e-mail falham** (`actions/cron-jobs.ts:370` — stamp incondicional ao fim de `enviarPilulaDia`). A idempotência protege de duplicado, mas converte qualquer falha em perda permanente: sem retry, sem fila morta, sem alerta (erro só num contador de retorno).
 - Agravante: `QSTASH_TOKEN` ausente → `publishToQStash` loga warn e **retorna sucesso** → `pilulas++` + carimbo, nada enviado. O canal WhatsApp inteiro morre em silêncio (`cron-jobs.ts:418-423`).
 
-### 1.3 Cron sem catch-up e sem isolamento de falha 🆕
+### 1.3 Cron sem catch-up e sem isolamento de falha 🆕 ✅ parcial (27/07: try/catch por empresa `0a188172` + lock diário F-C3 — **catch-up segue ABERTO**: perdeu o dia, perdeu a pílula)
 
 - Gates são `hoje===dia` (`cron-jobs.ts:303-306`): perdeu segunda → pílula 1 perdida; perdeu quinta (diaEv) → `semana_atual` não avança e `ultima_evidencia_em` não carimba → na semana seguinte **reenvia pílulas da mesma semana** (conteúdo repetido), e a trilha deriva do calendário porque o week-gating continua liberando por `data_inicio` (`:374-407`).
 - **Sem try/catch por empresa/envio**: exceção no carimbo (`:370`,`:406`) ou no `tdb` aborta o run inteiro → empresas restantes do dia sem envio; Vercel cron não re-tenta.
 - **Corrida**: duas invocações concorrentes passam no `mesmoDiaUTC` (check-then-act não atômico, sem lock) → envio duplicado nos 2 canais (`:288-289,374-380`).
 
-### 1.4 Colaborador preso sem retry na IA4
+### 1.4 Colaborador preso sem retry na IA4 ✅ (27/07 noite: upsert de notas ANTES do carimbo `avaliacao_ia`, variante-sem-notas vira falha retryable, fila inclui presas com aviso ao admin — **0 presas medidas em produção**)
 
 - `respostas.avaliacao_ia` é gravado **antes** do upsert de `descriptor_assessments` (`actions/fase3.ts:285-293`). Se o upsert falha, a resposta consta avaliada mas não tem notas: o colaborador some da fila dos 100%, a trilha devolve `sem_assessment`, e `rodarIA4Uma` recusa reprocessar ("Já avaliada"); `rodarIA4`/`listarPendentesIA4` filtram `.is('avaliacao_ia', null)`. Preso sem retry self-service, sem aviso a ninguém (só `console.warn`, `:320-327`).
 - Variante: IA4 retorna JSON válido **sem `avaliacao_por_descritor`** → média 0 → `nivel_ia4=1`/`nota_ia4=0` gravados, **zero** linhas em `descriptor_assessments` → mesmo aprisionamento, com nota N1 falsa de bônus (`fase3.ts:228,243-245,262,319`).
 
-### 1.5 Duplicatas de conteúdo de kit com leitura não-determinística
+### 1.5 Duplicatas de conteúdo de kit com leitura não-determinística ✅ parcial (27/07: idempotência cega `6c0f12c0` + leitura determinística `ORDER BY created_at DESC, id DESC` nos 2 resolvedores — **escrita kit-side segue latente**: idempotência pulada para kit e sem UNIQUE cobrindo `kit_id NOT NULL`; **0 duplicatas kit-side medidas em 27/07**)
 
 - `gerarConteudoIA` **pula a idempotência quando `kit` está presente** (`actions/conteudos.ts:119`) e `micro_conteudos` não tem UNIQUE (FMEA F-C6 — medido: 6 tuplas genéricas até 4×). O upsert reusa o `kitId`, então cada re-run empilha cópias; o overlay faz `formatos[c.formato] = …` **sem ORDER BY** (`lib/season-engine/kit/entrega-semana.ts:37-44,94-103`) → serve uma cópia **arbitrária**. Custo de IA + entrega não-determinística.
 
-### 1.6 Renders de vídeo duplicados (custo direto)
+### 1.6 Renders de vídeo duplicados (custo direto) ✅ (27/07: F-C5 mig 188 + F-C7 mig 185)
 
 - `dispararVideoDoKit`/`resolverCelulaVideo` são SELECT-then-INSERT sem UNIQUE em `videos_gerados` (`actions/gerar-video.ts:134-137,155-159`) → renders HeyGen duplicados. **Medido: 18 células, uma com 9 cópias** (FMEA F-C5, latente). Corrida de briefs idem: `idx_kit_briefs_tema` não-único + SELECT-then-INSERT em `resolverOuCriarBrief` (`lib/season-engine/kit/brief.ts:130-146`, FMEA F-C7).
 
@@ -558,7 +562,7 @@ O `PIPELINE-TRILHA.md` é **excepcionalmente fiel** (~50 referências `arquivo:l
 - **Sem assessment / sem foco do cargo** → erro explícito acionável (correto), mas **sem notificação proativa** — quem trava fica invisível até alguém olhar a fila (`trilha-core.ts:105-110`, `core.ts:120-122`).
 - **Blueprint regenerado depois da trilha construída** → trilha é snapshot; PDI lê o blueprint ao vivo → **PDI e trilha divergem silenciosamente** até a próxima geração (`trilha-core.ts:370-376`, `actions/relatorios.ts:275`).
 - **`regerarSemana` é read-modify-write do JSONB inteiro** → duas regens concorrentes → last-writer-wins perde uma edição; sem lock (`temporadas.ts:360-430`).
-- **Corrida na 1ª geração de trilha** → `persistirTrilha` lê-então-insere; `UNIQUE(empresa_id,colaborador_id)` faz o 2º falhar com erro cru; delete+insert de progresso não é transacional — falha entre os dois deixa a trilha sem linhas de progresso (`trilha-core.ts:536-577`).
+- **Corrida na 1ª geração de trilha** ✅ 27/07 (F-C1/F-C2: upsert do header + do progresso) → `persistirTrilha` lê-então-insere; `UNIQUE(empresa_id,colaborador_id)` faz o 2º falhar com erro cru; delete+insert de progresso não é transacional — falha entre os dois deixa a trilha sem linhas de progresso (`trilha-core.ts:536-577`).
 - **Cargo renomeado/grafia diferente** → lookup por `eq('nome')` exato; divergência de caixa/espaço derruba o gate 6 ou degrada DUO→single (`core.ts:117-118`, `trilha-core.ts:312-313`).
 - **Onboarding sem assessment de uma das 5 competências** → injeta `{descritor:'Descritor padrão', nota:1.5}` → semana busca conteúdo por descritor inexistente → fallback genérico silencioso (achado #8 do doc ✓, `trilha-core.ts:240-241`).
 - **Duplo clique em "gerar blueprint em lote"** → `enqueueBlueprintBatch` não verifica job ativo → 2 batches concorrentes, custo dobrado (resultado idempotente via UPSERT) (`actions/ia-pipeline-batch.ts:77-83`).
@@ -570,8 +574,8 @@ O `PIPELINE-TRILHA.md` é **excepcionalmente fiel** (~50 referências `arquivo:l
 - **Falha parcial de formatos (1 de 3)** → kit `error`; os micro_conteudos que saíram ficam **órfãos presos ao kit** — build não os vê (`.is('kit_id',null)`), overlay exige `published`. Lixo invisível, sem retry.
 - **Kit preso em `generating`** → crash/timeout entre o upsert inicial e o update final deixa a linha nesse estado **para sempre**; overlay ignora; re-run insere novos conteúdos no mesmo `kitId` (ver 1.5) (`kits.ts:98-101`).
 - **`kit_jobs` preso em `running`/`queued`** → sem watchdog/sweeper; polling da tela desiste após **800×3s ≈ 40min em silêncio** (`app/admin/conteudos/kit/page.tsx:51-67`). Retry da task não declarado — não determinado no código.
-- **Idempotência cega a `kit_id`** 🆕 → a checagem "já existe" (`conteudos.ts:119-127`) **não filtra `kit_id IS NULL`**: se só existe conteúdo **de kit** para a célula, gerar o **genérico** retorna `skipped` com o id do conteúdo do kit → a célula genérica nunca nasce e o build fica sem core, com o admin vendo "já existe".
-- **Overlay silenciosamente desligado** (FMEA F-C4, não corrigido) → `precarregarKits` **ignora `error` das 3 queries** e devolve Map vazio truthy; o catch de `aplicarOverlayKit` segue sem telemetria. Uma falha do Supabase tira o kit de **toda a coorte** de uma vez — falha fechada (sem vazamento), mas perda total de personalização invisível (`entrega-semana.ts:67-80`, `temporadas.ts:467`).
+- **Idempotência cega a `kit_id`** 🆕 ✅ 27/07 (`6c0f12c0` — `.is('kit_id', null)` na checagem) → a checagem "já existe" (`conteudos.ts:119-127`) **não filtra `kit_id IS NULL`**: se só existe conteúdo **de kit** para a célula, gerar o **genérico** retorna `skipped` com o id do conteúdo do kit → a célula genérica nunca nasce e o build fica sem core, com o admin vendo "já existe".
+- **Overlay silenciosamente desligado** ✅ 27/07 (F-C4 — propaga erro + catch loga) → `precarregarKits` **ignora `error` das 3 queries** e devolve Map vazio truthy; o catch de `aplicarOverlayKit` segue sem telemetria. Uma falha do Supabase tira o kit de **toda a coorte** de uma vez — falha fechada (sem vazamento), mas perda total de personalização invisível (`entrega-semana.ts:67-80`, `temporadas.ts:467`).
 - **Ungrounded silencioso ponta a ponta** → sem módulo-base publicado, degradam juntos e sem erro: micro-conteúdo (`conteudos.ts:166-169`), brief (`brief.ts:97`) e vídeo do kit (`kits.ts:127`, não conta no `okAll`). Um tema pode nascer 100% genérico e sem vídeo com job `done`/kit `published`. Medido: 1 brief ungrounded em produção.
 - **Conteúdo faltando para a célula (competência×nível)** → build degrada nível; sem nada, semana nasce com `core_id: null` — UI tolera (FMEA F-I9 ✅) (`build-season.ts:491-495,548-559`).
 
@@ -584,7 +588,7 @@ O `PIPELINE-TRILHA.md` é **excepcionalmente fiel** (~50 referências `arquivo:l
 - **PDF sem genérico** (PDF headless falhou na geração e personalização falha) → aba nova com **JSON 404 cru** (`pdf/route.ts:20-24`, `conteudos.ts:953-958`).
 - **Dois relógios sem reconciliação** 🆕 → `fase4_envios.semana_atual` (envio) × `data_inicio` (liberação): regenerar trilha empurra `data_inicio` mas **não toca** `semana_atual` → pílula linka semana N que o gate bloqueia no chat (403) mas exibe no conteúdo (`cron-jobs.ts:406` vs `trilha-core.ts:554`).
 - **Deep-link sem auto-login** 🆕 → link é URL pura; deslogado, a week page redireciona a `/login` **sem `?redirect=`** (`page.tsx:93`) → após login cai em `/dashboard` e perde semana/formato (o login suporta `?redirect=`, `login-form.tsx:43-47`). **É o CTA principal de todo o envio.**
-- **Texto da pílula promete o formato preferido** ("Seu vídeo 🎬 de hoje") mesmo quando ele **não existe** na semana → clique não encontra o prometido (`pilula-envio.ts:49-52`, `cron-jobs.ts:333,361`).
+- **Texto da pílula promete o formato preferido** ✅ 27/07 (preflight diário verifica "o que ela promete existe?") ("Seu vídeo 🎬 de hoje") mesmo quando ele **não existe** na semana → clique não encontra o prometido (`pilula-envio.ts:49-52`, `cron-jobs.ts:333,361`).
 - **Colaborador sem telefone e sem e-mail** → pílulas puladas, mas evidência carimba e `semana_atual+1` aplica → trilha avança, pessoa nunca notificada, zero telemetria (`cron-jobs.ts:374,379,406`).
 - **Tenant demo** → só o e-mail é zerado (`:328`); WhatsApp depende de o demo não ter telefone cadastrado — fail-open confirmado: demo com `whatsapp` preenchido recebe WhatsApp real.
 - **Pílula sem `envioId`** → webhook não aplica o guard anti-duplicado (`envios_diagnostico.status`); retry após falha ambígua pode duplicar (`webhooks/qstash/whatsapp-cis/route.ts:47-63`).
@@ -595,20 +599,20 @@ O `PIPELINE-TRILHA.md` é **excepcionalmente fiel** (~50 referências `arquivo:l
 
 ### 3. Riscos estruturais (design)
 
-1. **A invariante anti-vazamento DISC depende da única coluna que a FK apaga.** `micro_conteudos.kit_id` é `ON DELETE SET NULL` (`migrations/142:45`): apagar brief/kit sem apagar o conteúdo antes transforma conteúdo DISC-específico em "genérico" — e ele **volta a vazar no build**, porque o filtro SQL e `conteudosDoBuild` só olham `kit_id`. A coluna **`disc` denormalizada existe e sobreviveria ao SET NULL** (`migrations/142:48`), mas **nada a usa como filtro**; o teste de isolamento **não cobre** `{kit_id:null, disc:'D'}`. A defesa hoje é processual (ordem conteúdo→kits→brief) — e falha exatamente durante regerações, que é quando scripts mexem nessas tabelas (já mordeu: 6 pessoas sem core em 16/07).
+1. ✅ 27/07 (F-I4 — filtro duplo `kit_id/disc IS NULL`, a `disc` virou filtro de verdade): **A invariante anti-vazamento DISC depende da única coluna que a FK apaga.** `micro_conteudos.kit_id` é `ON DELETE SET NULL` (`migrations/142:45`): apagar brief/kit sem apagar o conteúdo antes transforma conteúdo DISC-específico em "genérico" — e ele **volta a vazar no build**, porque o filtro SQL e `conteudosDoBuild` só olham `kit_id`. A coluna **`disc` denormalizada existe e sobreviveria ao SET NULL** (`migrations/142:48`), mas **nada a usa como filtro**; o teste de isolamento **não cobre** `{kit_id:null, disc:'D'}`. A defesa hoje é processual (ordem conteúdo→kits→brief) — e falha exatamente durante regerações, que é quando scripts mexem nessas tabelas (já mordeu: 6 pessoas sem core em 16/07).
 2. **Snapshot congelado ponta a ponta.** `temporada_plano`, `descritores_selecionados`, `formatos_disponiveis`, binding e `programa_modo` são gravados no build; nova IA4, blueprint novo, foco alterado ou micro-conteúdo melhor **não refletem** em nada já construído. O sistema depende de disciplina operacional de "regerar na ordem certa", sem invalidação automática.
 3. **Cadeia de degradação silenciosa de 4 níveis** (flag off → sem blueprint → adapter erro → DUO sem 2ª comp → single): cada degrau é "correto" isoladamente, mas o único vestígio persistido é `programa_modo='regular_single'`. **Sem telemetria de decisões do motor** — o ledger `ia_usage_log` cobre chamadas de IA, não degradações. Medir exige grepar `console.warn`.
 4. **Match por string tolerante em ~5 fronteiras** (normalizações diferentes em `core.ts:31,181`, `to-descriptors.ts:53-61`, `audit.ts:52-53`, `desafio-semana.ts:26-27`): qualquer divergência de grafia (prefixo `CÓDIGO —`, acento, renomeação) degrada kit→genérico sem erro — já houve bug real disso.
-5. **DISC de 1 letra vs 2 letras** (FMEA F-I8, aberto): kit/overlay/vídeo usam `charAt(0)`; o PDF personalizado cacheia por slug multi-letra (`"DI"`, `"SC"`) — a mesma pessoa é "D" num formato e "DI" noutro (`entrega-semana.ts:63`, `conteudos.ts:880`).
+5. ✅ 27/07 (F-I8 — virou DECISÃO de design: 1ª letra na geração é a célula de custo, combo completo no relatório): **DISC de 1 letra vs 2 letras** (FMEA F-I8, aberto): kit/overlay/vídeo usam `charAt(0)`; o PDF personalizado cacheia por slug multi-letra (`"DI"`, `"SC"`) — a mesma pessoa é "D" num formato e "DI" noutro (`entrega-semana.ts:63`, `conteudos.ts:880`).
 6. **Build de trilha sem checkpoint**: ~6 chamadas de IA (timeout 120s cada) + N queries em memória; function morre no meio → nada persiste, retry refaz tudo (`build-season.ts:274-435`).
 7. **Gravação de kit não-transacional em 3 tabelas** (brief → upsert kits → N inserts → update de status), sem saga nem UNIQUE nas folhas — qualquer morte no meio gera os estados presos (1.5, §2).
-8. **Cron monolítico**: um loop cross-tenant sem isolamento de falha, sem lock, sem retry, dependente de 4 segredos cujos modos de ausência são silenciosos ou fail-open só em dev.
-9. **Filtros divergentes entre caminhos gêmeos**: build filtra `ativo` e `kit_id null`; overlay não filtra `ativo`; `resolverKitDaSemana` exige `url`, `precarregarKits` não; sem ORDER BY nas duplicatas. Cada par de caminhos tem um caso em que divergem (`entrega-semana.ts:43,96-102`).
+8. ✅ parcial 27/07 (lock diário F-C3 + try/catch por empresa + carimbo por canal; o loop inline cross-tenant segue = F-E1 🔵): **Cron monolítico**: um loop cross-tenant sem isolamento de falha, sem lock, sem retry, dependente de 4 segredos cujos modos de ausência são silenciosos ou fail-open só em dev.
+9. ✅ parcial 27/07 (paridade dos resolvedores `59b96755` + ORDER BY determinístico; **overlay não filtrar `ativo` segue ABERTO**): **Filtros divergentes entre caminhos gêmeos**: build filtra `ativo` e `kit_id null`; overlay não filtra `ativo`; `resolverKitDaSemana` exige `url`, `precarregarKits` não; sem ORDER BY nas duplicatas. Cada par de caminhos tem um caso em que divergem (`entrega-semana.ts:43,96-102`).
 10. **Dupla implementação de preferência de formato** (`formatoPreferido` × `derivarPrioridadeFormatos`) — mesma ideia, tie-breaking e consumidores diferentes (overlay × pílula) (`entrega-semana.ts:16`, `formato-preferido.ts:11`).
 11. **Cache `empresas.kit_contexto` com invalidação estreita** — PPP editado no mesmo timestamp ou removido não invalida; falha da síntese cai no PPP mais recente sem cachear, oscilando o tom do kit (`contexto-empresa.ts:27,44-47`).
 12. **Código morto que infla a sensação de cobertura**: check inalcançável em `trilha-core.ts:133-135`; check de auditoria `semana-vinculada` jamais falha porque o persist já barra; `normalizarSemanas` hardcoda `dia`/`label` para 2 entregas (armadilha futura para >2 pílulas/semana).
 
-### 4. Divergências doc×código (corrigir no PIPELINE-TRILHA.md)
+### 4. Divergências doc×código ✅ (corrigidas 27/07 noite — PIPELINE-TRILHA.md e KIT-SEMANAL.md atualizados item a item)
 
 1. **"4 formatos + vídeo → micro_conteudos" é falso**: default são **3 formatos** (`FORMATOS_PADRAO = ['audio','texto','case']`, `actions/kits.ts:23`); o vídeo do kit **não é micro_conteudo nem passa por `gerarConteudoIA`** (é `dispararVideoDoKit` → `videos_gerados`, `kits.ts:122-128`, `gerar-video.ts:129-145`). Real: **12 micro_conteudos + 4 vídeos de célula** por brief. `KIT-SEMANAL.md` e o comentário da mig 142 ("16 conteúdos") também defasados.
 2. **"Gate real na leitura" não existe para conteúdo** 🆕: `checarGatesSemana` (`trilha-runtime.ts:57-77`) só é chamado pelas 4 rotas de chat (reflection, evaluation, tira-duvidas, missao). `loadTemporada` e a week page **não gateiam** — semana futura é legível por URL direta; o dashboard só desabilita o clique (`temporada/page.tsx:161-162`).
@@ -626,16 +630,16 @@ O `PIPELINE-TRILHA.md` é **excepcionalmente fiel** (~50 referências `arquivo:l
 - Podcast/PDF resolvem identidade pela sessão, checam tenant, cache correto (por colab / por arquétipo), fallback genérico; `marcarConteudoConsumido` com gate de posse.
 - Webhook WhatsApp fail-closed em produção, 503-para-retry, failover de provedor; vídeo na entrega é `gerar=false` (custo contido); blueprint com UPSERT idempotente, nível autoritativo e auditoria genuinamente aditiva (nada consome `drift` como gate).
 
-### 6. Prioridades sugeridas
+### 6. Prioridades sugeridas (status 27/07 noite)
 
-1. **Envio (elo mais fraco)**: não carimbar quando ambos os canais falharem; `publishToQStash` retornar erro de verdade; try/catch por empresa; catch-up do cron; lock/claim atômico do run.
-2. **Regerar sem destruir**: trocar o `delete` de progresso por arquivamento/soft-reset que preserve reflexões e evidências (trilha inteira e `regerarSemana`).
-3. **Unicidade e determinismo**: UNIQUE em `micro_conteudos (kit_id, competencia, descritor, formato)` + ORDER BY no overlay; UNIQUE em `videos_gerados` por célula; UNIQUE em `kit_briefs(tema)`.
-4. **IA4**: permitir reprocesso quando `avaliacao_ia` existe mas não há linhas em `descriptor_assessments` (e alertar o admin).
-5. **Anti-vazamento**: migrar filtros para `disc IS NULL` (ou `origem_disc`) em vez de `kit_id IS NULL`; cobrir o caso SET NULL no teste de isolamento.
-6. **Deep-link**: week page redirecionar a `/login?redirect=<url completa>` (preserva semana/formato — CTA principal do envio).
-7. **Telemetria de degradação**: registrar decisões do motor (fallback de blueprint, DUO→single, kit ausente, ungrounded) em tabela ou log estruturado — hoje invisíveis.
-8. **Doc**: corrigir as 7 divergências do §4 no PIPELINE-TRILHA.md (e o "16 conteúdos" do KIT-SEMANAL.md).
+1. ✅ **Envio (elo mais fraco)** — carimbo por canal, `publishToQStash` lança, try/catch por empresa, lock diário. **Ressíduo ABERTO: catch-up do cron** (perdeu o dia, perdeu a pílula).
+2. ✅ **Regerar sem destruir** — upsert estrutural (`5a405965`) + `regerarSemana` preserva e repara pelo motor (F-I2).
+3. ✅ **Unicidade e determinismo** — UNIQUE em `micro_conteudos` não-kit (mig 190), `videos_gerados` (mig 188), `kit_briefs` (mig 185) + ORDER BY determinístico no overlay. Ressíduo latente: UNIQUE do lado kit.
+4. ✅ **IA4** — reprocesso self-service quando `avaliacao_ia` existe sem notas + aviso ao admin (27/07 noite; 0 presas em produção).
+5. ✅ **Anti-vazamento** — filtros migrados para `disc IS NULL` (F-I4); caso SET NULL coberto no teste de isolamento.
+6. 🔴 **Deep-link — ABERTO**: week page redireciona a `/login` **sem `?redirect=`** (4× `router.replace('/login')`); após login a pessoa perde semana/formato. É o CTA principal de todo envio.
+7. 🔴 **Telemetria de degradação — ABERTO (design)**: decisões do motor (fallback de blueprint, DUO→single, kit ausente, ungrounded) seguem invisíveis.
+8. ✅ **Doc** — as 7 divergências do §4 corrigidas em 27/07 noite (PIPELINE-TRILHA.md + KIT-SEMANAL.md).
 
 ---
 
@@ -757,9 +761,12 @@ Qualquer script que mexa em `temporada_plano` deve rodar a mesma normalização.
 (F-I1) · `precarregarKits` propaga erro (F-C4) · UPSERT do header (F-C1/F-C2) · carimbo
 condicional + lock (F-C3, mig 187) · `regerarSemana` pelo motor (F-I2) · descritor canônico na
 escrita + backfill (F-I6) · lote síncrono de temporadas depreciado (F-E4) · reconciliação de
-vídeo nominal (F-V1) · contexto de PPP consolidado (F-I10/F-E7) · alarme de horizonte (F-I11).
+vídeo nominal (F-V1) · contexto de PPP consolidado (F-I10/F-E7) · alarme de horizonte (F-I11)
+· **retry self-service da IA4 p/ resposta avaliada sem notas (§6-1.4; 0 presas em prod)** ·
+**leitura determinística do overlay com ORDER BY (§6-1.5; 0 duplicatas kit-side em prod)**.
 **Medido agora:** 0 células de vídeo duplicadas · 0 `micro_conteudos` duplicados · 0
-`kit_briefs` duplicados · 0 blueprints órfãos · 0 kits/jobs/vídeos presos.
+`kit_briefs` duplicados · 0 blueprints órfãos · 0 kits/jobs/vídeos presos · 0 respostas presas
+na IA4 · 0 duplicatas do lado do kit.
 
 **Escala (antes de crescer o tenant) — nada disso morde hoje:**
 1. `triggerDiario` vira task/fan-out — F-E1 🔵
@@ -771,17 +778,29 @@ vídeo nominal (F-V1) · contexto de PPP consolidado (F-I10/F-E7) · alarme de h
 5. `gerarBlueprintsLote`/`auditarBlueprintsLote` seguem com loops síncronos de IA — mesma
    receita do F-E4 (stub + a fila client que já existe). **Ressalva declarada, não fechada.**
 6. Decidir se cap de billing cai no fallback de provedor — F-E5 🟡 (hoje só erro transitório).
+7. **Deep-link sem `?redirect=`** (§6, prioridade 6): 4× `router.replace('/login')` na week
+   page — após login a pessoa perde semana/formato. CTA principal de todo envio.
+8. **Catch-up do cron** (§6-1.3 residual): perdeu o dia (deploy, incidente), perdeu a pílula —
+   lock e try/catch fecharam os vizinhos, isso não.
+9. **Dois relógios sem reconciliação** (§6): regenerar trilha empurra `data_inicio` mas não
+   toca `fase4_envios.semana_atual` — pílula pode linkar semana que o gate bloqueia no chat.
+10. **Watchdog de presos de kit** (§6): `kits.generating` e `kit_jobs.running/queued` ficam
+    presos para sempre (hoje 0, medido) — o estrutural acusa, mas nada destrava.
+11. **Batch de kit fecha `done` com ≥1 DISC ok** (§6): pessoas do DISC falho recebem genérico
+    em silêncio; reparo manual via `planejarKitsCoorte`.
+12. **Telemetria de degradação** (§6-3.3, design): decisões do motor (fallback de blueprint,
+    DUO→single, kit ausente, ungrounded) invisíveis — medir exige grepar `console.warn`.
 
 **Operação (runbook, sem código) — números medidos em 27/07 à noite:**
-7. Nunca deletar MB publicado — despublicar (F-I3 🟡).
-8. **4 `kit_briefs` sem módulo-base** (ibipeba, projetomacae ×2, acme-demo) — cada um tem 1 kit
+13. Nunca deletar MB publicado — despublicar (F-I3 🟡).
+14. **4 `kit_briefs` sem módulo-base** (ibipeba, projetomacae ×2, acme-demo) — cada um tem 1 kit
    publicado nascido sem matéria-prima canônica. O check estrutural acusa como aviso toda
    madrugada. Não é o "1" que a lista antiga citava.
-9. **46 `videos_gerados` em `error`** + 1 personalizado em error — resíduo permitido pelo índice
+15. **46 `videos_gerados` em `error`** + 1 personalizado em error — resíduo permitido pelo índice
    parcial e invisível à entrega; limpar é higiene, não correção.
 
 **Verificação da própria instrumentação (o modo de falha mais irônico):**
-10. ⚠️ Até 28/07 00:00 UTC a tabela `pipeline_health_runs` estava **VAZIA** — os quatro modos
+16. ⚠️ Até 28/07 00:00 UTC a tabela `pipeline_health_runs` estava **VAZIA** — os quatro modos
     foram criados no dia e nenhum cron tinha passado ainda. Pior: **`ADMIN_EMAILS` não existia em
     nenhum ambiente**, então `alertar()` cairia no `console.error('ALERTA CRÍTICO SEM DESTINO')`
     e o e-mail nunca sairia. Corrigido na auditoria (env criada em Production; os modos rodados à

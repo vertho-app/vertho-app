@@ -1,21 +1,21 @@
 # Pipeline da Trilha — do assessment ao conteúdo personalizado
 
 Mapa ponta a ponta de como uma trilha (Temporada) é construída: pré-requisitos, fontes,
-produto e onde cada coisa persiste. **Escrito lendo o código** (17/07/2026); cada afirmação
-carrega `arquivo:linha`. Onde o código não decide, está marcado **não determinado**.
+produto e onde cada coisa persiste. **Escrito lendo o código** (17/07/2026; revisto 28/07/2026);
+cada afirmação carrega `arquivo:linha`. Onde o código não decide, está marcado **não determinado**.
 
 > **A regra que governa este documento:** várias camadas resolvem a entrega na **LEITURA**,
 > não no que está gravado. Ao investigar "o que a pessoa recebe", leia **quem consome** — não
 > a tabela. Ver `CLAUDE.md` › "a forma GRAVADA ≠ o que é ENTREGUE".
 
-> **Errata 17/07/2026** (verificação completa: `docs/FMEA-PIPELINE.md` §6 §4):
-> 1. Kit gera **3 formatos** (`['audio','texto','case']`, `actions/kits.ts:23`), não 4 — o vídeo do kit não é micro_conteudo (é `dispararVideoDoKit` → `videos_gerados`). Real: **12 micro_conteudos + 4 vídeos de célula** por brief.
+> **Errata 17/07/2026** (verificação completa: `docs/FMEA-PIPELINE.md` §6) — **incorporada ao corpo em 28/07/2026**:
+> 1. Kit gera **3 formatos** (`['audio','texto','case']`, `actions/kits.ts`), não 4 — o vídeo do kit não é micro_conteudo (é `dispararVideoDoKit` → `videos_gerados`). Real: **12 micro_conteudos + 4 vídeos de célula** por brief.
 > 2. O "gate real na leitura" (`checarGatesSemana`) só existe nas 4 rotas de chat — `loadTemporada` e a week page **não gateiam**: semana futura é legível por URL direta.
-> 3. "Idempotente por dia" omite: o carimbo `ultima_pilulaN_em` grava **mesmo com os 2 canais falhando** (`cron-jobs.ts:370`) — perda permanente, sem retry.
-> 4. "Nunca quebra a entrega" tem exceções: PDF sem genérico → JSON 404 cru; podcast sem TTS → 404 player mudo.
-> 5. Caminhos: `lib/kit/*` → `lib/season-engine/kit/*`. Linhas defasadas: overlay `:127`→`entrega-semana.ts:133`; merge de formatos `:112`→`:118`; filtros MB `:107-108`→`modulo-base-integration.ts:106-107`; cron `cron-jobs.ts:291`.
-> 6. `evolucao-granular.ts:303` não escreve DISC (é projeção de leitura).
-> 7. WhatsApp tem failover Z-API→WaSender; `drift = fails > 0` está em `audit.ts:280`.
+> 3. ~~"Idempotente por dia" omite: o carimbo `ultima_pilulaN_em` grava **mesmo com os 2 canais falhando** (`cron-jobs.ts:370`) — perda permanente, sem retry~~ ✅ **27/07**: o carimbo passou a ser **POR CANAL** (`lib/notifications/carimbo-canal.ts`) — canal sem sucesso não carimba e o dia segue pendente; + lock diário de execução (mig 187).
+> 4. "Nunca quebra a entrega" tem exceções: PDF sem genérico → JSON 404 cru; podcast sem TTS nem áudio-base → 404 player mudo.
+> 5. Caminhos: `lib/kit/*` → `lib/season-engine/kit/*` (corpo já usa o caminho completo; números de linha pontuais revistos).
+> 6. `evolucao-granular.ts` não escreve DISC (lê `perfil_dominante` para projeção; o upsert é em `evolucao_descritores`). Escritores reais: `simulador-disc.ts` (demo) e import externo.
+> 7. WhatsApp tem failover Z-API→WaSender (`lib/whatsapp/index.ts`; primário via `WHATSAPP_PRIMARY`, default `zapi`); `drift = fails > 0` está em `audit.ts:289`.
 
 ---
 
@@ -51,7 +51,8 @@ flowchart TB
     subgraph C5["Camada 5 · Kit — a camada DISC"]
         G1[resolverOuCriarBrief] --> G2[(kit_briefs)]
         G2 --> G3[gerarKitDesafio por DISC] --> G4[(kits)]
-        G4 --> G5[4 formatos + vídeo] --> F2
+        G4 --> G5[3 formatos: audio/texto/case] --> F2
+        G4 -.-> G6[dispararVideoDoKit async] --> G7[(videos_gerados)]
     end
     subgraph C6["Camada 6 · Entrega (LEITURA)"]
         H1[overlayKitNaSemana<br/>DISC × cargo] --> H2[week page]
@@ -75,7 +76,7 @@ flowchart TB
 | Insumo | Onde vive | Quem produz | Obrigatório? |
 |---|---|---|---|
 | Colaborador | `colaboradores` (`nome_completo`, `cargo`, `empresa_id`) | cadastro / import | **sim** |
-| **DISC** | `colaboradores`: `perfil_dominante`, `d/i/s/c_natural`, `lid_*` | `actions/simulador-disc.ts:87`, `actions/evolucao-granular.ts:303`, import externo | **não** p/ blueprint (`lib/blueprint/core.ts:149`); **sim** p/ Kit |
+| **DISC** | `colaboradores`: `perfil_dominante`, `d/i/s/c_natural`, `lid_*` | `actions/simulador-disc.ts` (simulação demo), import externo — `actions/evolucao-granular.ts` só **lê** o DISC (projeção; o upsert dela é em `evolucao_descritores`) | **não** p/ blueprint (`lib/blueprint/core.ts:149`); **sim** p/ Kit |
 | Preferência de formato | `colaboradores.pref_*` (likert 1–5) | cadastro | não (default vídeo) |
 | **Foco do cargo** | `cargos_empresa.competencias_foco` (TEXT[], mig 174), fallback `competencia_foco` | tela de Cargos (⭐) | **sim** p/ blueprint |
 | **Assessment** | `descriptor_assessments` (`colaborador_id`, `competencia`, `descritor`, `nota` 1–4) | **IA4** (`actions/fase3.ts:320`, `origem:'ia4'`, clamp 1.0–4.0) ou nota manual (`actions/assessment-descritores.ts:77`) | **sim** |
@@ -101,8 +102,8 @@ roteiro de vídeo são **destilados a partir de um MB**, para não inventar.
 | Filtro | Linha |
 |---|---|
 | `status = 'publicado'` | `:109` |
-| `nivel_entrada` / `nivel_destino` | `:107-108` |
-| `locale` | `:109` |
+| `nivel_entrada` / `nivel_destino` | `:106-107` |
+| `locale` | `:108` |
 | competência: `competencia_base_id IN (…)` **OR** `competencia_id IN (…)` | `:113-117` |
 | tenant: `empresa_id IS NULL OR = <id>` | `:118` |
 
@@ -231,8 +232,9 @@ Batch API (−50%) em `trigger/gerar-blueprint-batch.ts`; falha do batch → fal
 `cobre-o-que-promete`, `missao-evidencia`, `exigencia-nivel`, `avaliacao-mede`, `generico`, `tom-saude`.
 
 ```
-score = round(((pass + 0.5×warn) / total) × 100)     audit.ts:277
-drift = fails > 0                                     audit.ts:281
+score = round(((pass + 0.5×warn) / denominador) × 100)     audit.ts:286
+     denominador FIXO: semântico não-avaliado (IA caída) fica no denominador, sem pontuar
+drift = fails > 0                                          audit.ts:289
 ```
 
 Falha da 2ª IA **não derruba** a auditoria (`core.ts:258-268`) — segue só com o estrutural.
@@ -337,8 +339,11 @@ contra a classe de bug "título ≠ blocos".
 unlock(N) = data_inicio + (N−1) × 7 dias, às 03:00 BRT / 06:00 UTC
 ```
 
-Gate real na leitura (`trilha-runtime.ts:57-77`): **temporal** (pela `calendario_semana` do
-snapshot do plano, não da config) **+ progressão** (semana N exige N−1 concluída).
+Gate real na leitura: `checarGatesSemana` (`lib/season-engine/trilha-runtime.ts`) — **temporal**
+(pela `calendario_semana` do snapshot do plano, não da config) **+ progressão** (semana N exige
+N−1 concluída). ⚠️ **Só roda nas 4 rotas de chat** (reflection, evaluation, tira-duvidas,
+missao). `loadTemporada` e a week page **não gateiam**: semana futura é legível por URL direta —
+o dashboard só desabilita o clique.
 
 ---
 
@@ -381,20 +386,20 @@ depois** (`:173-176`).
 
 ## Camada 5 — Kit (a camada DISC)
 
-O que faz os 4 formatos "dizerem a mesma coisa" e aterrissarem no **mesmo desafio do DISC**.
+O que faz os 3 formatos de conteúdo (+ o vídeo) "dizerem a mesma coisa" e aterrissarem no **mesmo desafio do DISC**.
 
 ```
 gerarKitSemanal(competencia, descritor, cargo, contexto, discs[])
    └── resolverOuCriarBrief ─────────► kit_briefs   (núcleo destilado do MB + PPP)
         └── por DISC:
              ├── gerarKitDesafio ────► kits.desafio  (1 por brief × DISC)
-             ├── 4 × gerarConteudoIA ► micro_conteudos (kit_id, disc)
+             ├── 3 × gerarConteudoIA ► micro_conteudos (kit_id, disc)
              └── dispararVideoDoKit ─► videos_gerados (async, não bloqueia)
 ```
 
 - **Brief idempotente** por `(competencia, descritor, nivel_min, nivel_max, cargo, contexto, empresa_id)` — **sem opção de forçar**.
-- **`enriquecerPromptComKit`** (`kit/enrich.ts`): SYSTEM recebe a espinha (ideia central, 3 pontos-chave, exemplo-âncora) + **lente DISC** (nunca citar DISC/siglas) + o desafio + **como cada formato fecha nele** (`COMO_FECHA`). USER recebe o **PPP** como lente.
-- **PPP:** `resolverContextoEmpresa` (`kit/contexto-empresa.ts`) **consolida a rede** — N PPPs de escolas viram um contexto municipal único, cacheado em `empresas.kit_contexto`.
+- **`enriquecerPromptComKit`** (`lib/season-engine/kit/enrich.ts`): SYSTEM recebe a espinha (ideia central, 3 pontos-chave, exemplo-âncora) + **lente DISC** (nunca citar DISC/siglas) + o desafio + **como cada formato fecha nele** (`COMO_FECHA`). USER recebe o **PPP** como lente.
+- **PPP:** `resolverContextoEmpresa` (`lib/season-engine/kit/contexto-empresa.ts`) **consolida a rede** — N PPPs de escolas viram um contexto municipal único, cacheado em `empresas.kit_contexto`.
 - Publica (`status='published'`) só se os **formatos de conteúdo** saírem; o vídeo é async e não bloqueia.
 
 **As 5 armadilhas de mexer em kit estão em `docs/KIT-SEMANAL.md`** — leia antes de regerar
@@ -404,12 +409,12 @@ qualquer tema (FK `SET NULL`, `contexto` default, brief idempotente, `url=null`,
 
 ## Camada 6 — Entrega (tudo acontece na LEITURA)
 
-### Overlay do Kit — `overlayKitNaSemana` (`kit/entrega-semana.ts:127`)
+### Overlay do Kit — `overlayKitNaSemana` (`lib/season-engine/kit/entrega-semana.ts`)
 
 Aplicado em `loadTemporada` e nas telas admin (`aplicarOverlayKit`). Muta o `conteudo` da semana:
 
 ```js
-conteudo.formatos_disponiveis = { ...antigos, ...kit.formatos }   // entrega-semana.ts:112
+conteudo.formatos_disponiveis = { ...antigos, ...kit.formatos }   // entrega-semana.ts
 conteudo.formato_core = preferido se disponível, senão o 1º
 conteudo.core_id / core_url / core_titulo = do formato core
 conteudo.desafio_texto = kit.desafio.desafio_texto                // ← o desafio real
@@ -434,11 +439,13 @@ Sem kit do DISC da pessoa → **mantém o conteúdo antigo** e o desafio genéri
 | **Vídeo** | **saudação nominal** (cena prepended; o deck segue reutilizável) | `videos_personalizados (cell_video_id, colaborador_id)` | **no fim do render da célula** |
 
 **Gates de saída não-personalizada:** formato ≠ texto/case, sem sessão, ou **sem DISC E sem PPP** →
-serve a versão genérica. Qualquer erro → genérica. **Nunca quebra a entrega.**
+serve a versão genérica. Erro na personalização → genérica — **mas não é "nunca quebra"**: sem o
+PDF genérico, `/api/conteudo/{id}/pdf` devolve **JSON 404 cru**; podcast sem TTS **e** sem
+áudio-base devolve **404** (player mudo).
 
 ### ⚠️ Vídeo NÃO vive no plano
 
-`formatos_disponiveis` **não contém vídeo** — `kit/entrega-semana.ts:41` faz
+`formatos_disponiveis` **não contém vídeo** — `lib/season-engine/kit/entrega-semana.ts` faz
 `if (c.formato === 'video') continue`. O week page compõe:
 
 ```js
@@ -453,7 +460,7 @@ com `temVideo` vindo de `resolverVideoDaSemana(...)` **ao vivo**. Quem ler só o
 
 ## Camada 7 — Envio
 
-**Cron único:** `trigger_diario` → `triggerDiario` (`actions/cron-jobs.ts:292`), agendado no
+**Cron único:** `trigger_diario` → `triggerDiario` (`actions/cron-jobs.ts`), agendado no
 `vercel.json` para **11 UTC (8h BRT), diário**. (`trigger_segunda`/`trigger_quinta` são legado
 manual, **não agendados**.)
 
@@ -465,10 +472,14 @@ manual, **não agendados**.)
 | `fase4_dia_pilula2` | 2 (terça) | terça |
 | `fase4_dia_evidencia` | 4 (quinta) | quinta |
 
-**Pílula** (`lib/notifications/pilula-envio.ts`): WhatsApp (via QStash → Z-API) **e** e-mail
-(Resend), ambos best-effort, com **deep-link do TENANT** no formato preferido
-(`{tenant}.vertho.ai/dashboard/temporada/semana/N?formato=…&p=N`). Idempotente por dia
-(`ultima_pilula1_em` / `ultima_pilula2_em`).
+**Pílula** (`lib/notifications/pilula-envio.ts`): WhatsApp (via QStash; Z-API primário com
+**failover WaSender** — `lib/whatsapp/index.ts`) **e** e-mail (Resend), ambos best-effort, com
+**deep-link do TENANT** no formato preferido
+(`{tenant}.vertho.ai/dashboard/temporada/semana/N?formato=…&p=N`). Idempotência **por canal**
+(`lib/notifications/carimbo-canal.ts`): cada canal só carimba o próprio sucesso
+(`ultima_pilulaN_whatsapp_em` / `ultima_pilulaN_email_em`) — nada saiu → sem carimbo, o dia
+segue pendente. `triggerDiario` tem ainda **lock diário de execução** (`lib/cron-lock`, mig 187)
+contra runs sobrepostos.
 
 **Quinta = NUDGE**, não repete o desafio: o desafio já apareceu 2× (tecido no fim do conteúdo
 via `COMO_FECHA` + card "Desafio" do week page). O 3º envio seria redundante → cobrança curta +
@@ -521,7 +532,7 @@ resolverCelulaVideo / dispararVideoDoKit
 | **Auditoria** | blueprint | blueprint | 6+6 checks, score, drift | `development_blueprints.auditoria` |
 | **Trilha** | competência foco + assessment (+ blueprint no DUO) | blueprint **ou** select-descriptors | `temporada_plano` (14 semanas) | `trilhas` + `temporada_semana_progresso` |
 | **Micro-conteúdo** | competência + descritor (MB opcional, mas sem ele = ungrounded) | MB + prompt do formato | texto/case (`ativo`), áudio/vídeo (**inativo**) | `micro_conteudos` |
-| **Kit** | MB publicado + DISC | MB + PPP consolidado | brief + desafio por DISC + 4 formatos | `kit_briefs`, `kits`, `micro_conteudos` |
+| **Kit** | MB publicado + DISC | MB + PPP consolidado | brief + desafio por DISC + 3 formatos (+ vídeo por célula) | `kit_briefs`, `kits`, `micro_conteudos` |
 | **Vídeo** | MB + célula | roteiro (Opus) | deck + personalizado | `videos_gerados`, `videos_personalizados` |
 | **Entrega** | trilha + (kit) | overlay na leitura | o que a pessoa vê | — (runtime) |
 | **Envio** | `fase4_envios` ativo + cadência | plano + kit | WhatsApp + e-mail | `fase4_envios` (carimbos) |
@@ -554,7 +565,7 @@ resolverCelulaVideo / dispararVideoDoKit
 | 3 | ~~**Duas rotas de PPP desconectadas**~~ ✅ **27/07** | rota única: `resolverContextoEmpresa` (kit, PDF personalizado, IA1/IA2/IA3 via `buscarContextoPPP`) | Era: numa empresa-rede o PDF usava o PPP de **uma escola qualquer** enquanto o kit da mesma semana usava a lente municipal. F-I10/F-E7 do FMEA |
 | 4 | **Gate dos 100% testa linha, não nota** | `blueprint/core.ts:143` | Competência com notas `null` escapa do override de nível |
 | 5 | **Override de nível é acento-sensível** | `blueprint/core.ts:181` | 3 normalizações diferentes no mesmo domínio (`core.ts:31`, `audit.ts:52`, `to-descriptors.ts:53`) |
-| 6 | **Score da auditoria tem denominador variável** | `audit.ts:277` | IA caída → 6 checks → **infla** o score |
+| 6 | ~~**Score da auditoria tem denominador variável**~~ ✅ **27/07** | denominador FIXO — semântico não-avaliado fica no denominador, sem pontuar (`audit.ts:281-286`) | Era: IA caída → 6 checks → **inflava** o score |
 | 7 | **`blocosCobertos` é morto em DUO/onboarding** | `build-season.ts:582` | Missões 4/8/12 cobrem TODOS os descritores; o corte cumulativo só vale em `regular_single` |
 | 8 | **Onboarding injeta descritor fictício** `{nota: 1.5}` | `trilha-core.ts:240-242` | Contradiz a regra anti-viés do single (`:102-110`) |
 | 9 | **`sys_config: false` não desliga a flag** sob env `=1` | `trilha-core.ts:367` (OR) | Sem kill-switch por tenant — **não determinado** se é intencional |

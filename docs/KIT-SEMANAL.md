@@ -15,7 +15,10 @@ como a parte prática da semana.
    pela coorte; a pessoa recebe SUA renderização + camada fina (nome/PPP).
 2. **Grão de produção = (competência × descritor × DISC)** → **4 kits base** por
    competência/descritor (um por DISC: D/I/S/C). Em DUO (2 competências) = 8/semana.
-3. **Todos os 4 formatos × 4 DISC** = 16 conteúdos por brief.
+3. **3 formatos de conteúdo × 4 DISC** = **12 micro_conteudos** por brief
+   (`FORMATOS_PADRAO = ['audio','texto','case']` em `actions/kits.ts`) **+ 4 vídeos de
+   célula** (um por DISC, via `dispararVideoDoKit` → `videos_gerados` — o vídeo NÃO é
+   micro_conteudo nem passa por `gerarConteudoIA`).
 4. **Desafio POR DISC** — cada kit DISC tem seu próprio desafio (mesma espinha
    conceitual, ação prática sob medida ao perfil). Cobrado na quinta.
 5. **Desafio é o foco prático da semana** (substitui o "desafio solto" atual).
@@ -27,9 +30,12 @@ como a parte prática da semana.
 MÓDULO-BASE (modulos_base_conteudo — verdade pedagógica, já existe)
   └─► gerarKitBrief()  →  BRIEF { ideia_central, pontos_chave[3], exemplo_ancora }   ← espinha (DISC-neutra)
         └─► gerarKitDesafio(brief, DISC)  →  DESAFIO próprio do DISC
-              └─► 4 formatos SEMEADOS pelo brief + o desafio do DISC (lente DISC):
-                    vídeo (fecha no desafio) · podcast (provocação = desafio)
-                    texto ("Para refletir" = desafio) · caso (pergunta final = desafio)
+              └─► 3 formatos SEMEADOS pelo brief + o desafio do DISC (lente DISC),
+                  via gerarConteudoIA → micro_conteudos:
+                    podcast (provocação = desafio) · texto ("Para refletir" = desafio)
+                    caso (pergunta final = desafio)
+                  + vídeo (fecha no desafio) — pipeline de célula (videos_gerados),
+                    NÃO é micro_conteudo
   PRODUÇÃO EM LOTE na semana anterior, por coorte (DUO = 2 competências × 4 DISC)
 SEGUNDA: pessoa recebe os 4 (principal = formato preferido; resto = apoio) + o desafio
 QUINTA 11:00: IA cobra o desafio (check-in focado) → avalia → rastreia
@@ -41,8 +47,8 @@ QUINTA 11:00: IA cobra o desafio (check-in focado) → avalia → rastreia
   DISC-neutra, derivada do módulo-base.
 - **`kits`** — 4 por brief, um por DISC. `disc` (D/I/S/C) + `desafio` JSONB
   (`{desafio_texto, acao_observavel, criterio_de_execucao, por_que_cabe_na_semana}`).
-  Agrupa os 4 formatos.
-- **`micro_conteudos.kit_id`** (FK → kits) + **`.disc`** — os 16 conteúdos do brief.
+  Agrupa os 3 formatos de conteúdo (+ o vídeo de célula ligado ao kit).
+- **`micro_conteudos.kit_id`** (FK → kits) + **`.disc`** — os 12 conteúdos do brief.
 - (Fase 4) `colaboradores.formato_preferido` — define o "principal".
 - (Fase 3) `temporada_semana_progresso.reflexao.desafio_quinta` — rastreio da cobrança.
 
@@ -60,9 +66,10 @@ QUINTA 11:00: IA cobra o desafio (check-in focado) → avalia → rastreia
 ## Fases
 - **Fase 1 — Espinha** (este commit): `kit_briefs` + `kits` + `kit_id` +
   `gerarKitBrief`/`gerarKitDesafio` + `enriquecerPromptComKit` + `gerarKit`
-  (orquestrador on-demand de UM kit DISC = 4 formatos coesos + 1 desafio). Prova a
+  (orquestrador on-demand de UM kit DISC = 3 formatos coesos + 1 desafio, + vídeo
+  disparado à parte, async). Prova a
   coesão num tema/DISC antes de escalar.
-- **Fase 2 — Lote**: `gerarKitSemanal` (brief → 4 DISC × 4 formatos → render pesado
+- **Fase 2 — Lote**: `gerarKitSemanal` (brief → 4 DISC × 3 formatos + vídeo por célula → render pesado
   no auto-provision cx33) + agendador semana-anterior por coorte (DUO).
 - **Fase 3 — Cobrança de quinta**: desafio como foco da semana + prompt de check-in
   + gate por dia (quinta = início + (semana−1)×7 + 3d) + rastreio + estender
@@ -110,7 +117,7 @@ QUINTA 11:00: IA cobra o desafio (check-in focado) → avalia → rastreia
 - 4 perfis (`mei`, `empregabilidade`, `educacao`, `corporativo`), cada um com: `registroInstrucao`, `dominioExemplos`, `termosEvitar`, `proibirContextoEducacional`, `minCharsPdf` (5k p/ nível simples vs 8k).
 - `blocoCalibracaoPublico(perfil)` monta o bloco injetável (reutilizado por texto/case/kit).
 
-**Injeção:** `promptTextContent`/`promptCaseStudy` (+ extensão reduzida p/ `simples`; `garantirMinimoPdf` não reinfla) e no **núcleo + desafio do kit** (`kit/brief.ts`). Ponto único de geração = `gerarConteudoIA` → cobre kit e temporada.
+**Injeção:** `promptTextContent`/`promptCaseStudy` (+ extensão reduzida p/ `simples`; `garantirMinimoPdf` não reinfla) e no **núcleo + desafio do kit** (`lib/season-engine/kit/brief.ts`). Ponto único de geração = `gerarConteudoIA` → cobre kit e temporada.
 
 **Geração por cargo:** `planejarKitsCoorte` agora chaveia por **(competência × descritor × CARGO × DISC)** — cada público gera no seu registro. **Entrega cargo-aware com fallback:** `resolverDesafioDoKit` e `precarregarKits`/`overlayKitNaSemana` preferem o kit do cargo do colaborador e caem no `'todos'` do legado se não houver.
 
