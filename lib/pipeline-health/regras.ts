@@ -266,6 +266,30 @@ export function checarHorizonteKits(
   ].filter(Boolean) as Achado[];
 }
 
+/**
+ * R8 · O alarme tem para onde alertar?
+ *
+ * `alertar()` só envia se `ADMIN_EMAILS` estiver preenchida; sem ela, o alerta crítico
+ * vira um `console.error` que ninguém lê. **Medido em 27/07:** a env não existia em
+ * NENHUM ambiente enquanto os 4 modos eram construídos e declarados prontos — todo o
+ * sistema de alarme era decorativo, e só apareceu numa auditoria manual.
+ *
+ * Por isso este achado entra no run ESTRUTURAL, que é persistido: mesmo sem conseguir
+ * mandar e-mail (a ironia é inevitável), fica na série histórica e na tela. Um alarme
+ * sem destinatário é a mesma "documentação que não protege ninguém" que este sistema
+ * existe para substituir.
+ */
+export function checarDestinoDoAlerta(adminEmails: string | undefined): Achado | null {
+  const destinos = String(adminEmails || '').split(',').map((s) => s.trim()).filter(Boolean);
+  return achado(
+    'alerta-sem-destino', 'critico',
+    'ADMIN_EMAILS vazia — nenhum alerta crítico chega a ninguém',
+    destinos.length ? 0 : 1,
+    'Os checks continuam rodando e gravando, mas o e-mail nunca sai: o pipeline degrada em silêncio de novo, agora com um painel dizendo que está tudo monitorado.',
+    { acao: "Definir ADMIN_EMAILS na Vercel (Production): printf '%s' 'email@dominio' | vercel env add ADMIN_EMAILS production" },
+  );
+}
+
 /** Aplica todas as regras de PRÉ-VOO. */
 export function regrasPreflight(entregas: EntregaPrevista[]): Achado[] {
   return [

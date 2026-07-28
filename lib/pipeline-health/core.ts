@@ -18,7 +18,7 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
-import { regrasPreflight, regrasPostflight, checarHorizonteKits } from './regras';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta } from './regras';
 import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
 /** Empresas elegíveis a envio: exclui demo (não envia comunicação real). */
@@ -162,6 +162,10 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
     achados.push(achado('celula-video-duplicada', 'aviso', 'Célula de vídeo com cópias', dupCelulas,
       'Cada cópia é um render pago e a entrega serve uma delas sem critério — a pessoa pode ver um vídeo diferente a cada acesso.',
       { acao: 'Consolidar migrando videos_personalizados para a célula vencedora ANTES de apagar (há personalizados prontos nas cópias).' }));
+
+    // O alarme tem destinatário? Sem isso, todo o resto deste arquivo é decorativo
+    // (R8 — medido em 27/07: a env não existia em nenhum ambiente).
+    achados.push(checarDestinoDoAlerta(process.env.ADMIN_EMAILS));
 
     const ungrounded = await contar('kit_briefs', (q: any) => q.is('modulo_base_id', null));
     achados.push(achado('brief-ungrounded', 'aviso', 'Brief sem módulo-base', ungrounded,

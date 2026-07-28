@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   checarFormatoPrometido, checarCoberturaKit, checarDesafioPlaceholder,
   checarContatos, checarCoreAusente, checarCanalZerado, checarEntregaIncompleta,
-  regrasPreflight, checarHorizonteKits,
+  regrasPreflight, checarHorizonteKits, checarDestinoDoAlerta,
   type EntregaPrevista, type EnvioObservado, type LacunaKitHorizonte,
 } from '@/lib/pipeline-health/regras';
 import { severidadeGlobal, achado } from '@/lib/pipeline-health/types';
@@ -224,5 +224,26 @@ describe('R7 · horizonte de kits', () => {
     expect(checarHorizonteKits([lac({ diasAte: 14 })])[0].id).toBe('kit-horizonte-urgente');
     expect(checarHorizonteKits([lac({ diasAte: 15 })])[0].id).toBe('kit-horizonte-proximo');
     expect(checarHorizonteKits([lac({ diasAte: 20 })], 21)[0].id).toBe('kit-horizonte-urgente');
+  });
+});
+
+/**
+ * R8 · o alarme tem destinatário? Medido em 27/07: `ADMIN_EMAILS` não existia em
+ * ambiente nenhum enquanto os 4 modos eram construídos — todo o alerta caía num
+ * console.error. O achado entra no run estrutural, que é PERSISTIDO: mesmo sem
+ * conseguir mandar e-mail, o problema fica visível na série e na tela.
+ */
+describe('R8 · destino do alerta', () => {
+  it('acusa quando ADMIN_EMAILS está vazia, ausente ou só com lixo', () => {
+    for (const v of [undefined, '', '   ', ',', ' , ,']) {
+      const a = checarDestinoDoAlerta(v);
+      expect(a?.id, `deveria acusar para ${JSON.stringify(v)}`).toBe('alerta-sem-destino');
+      expect(a?.severidade).toBe('critico');
+    }
+  });
+
+  it('fica calado quando há destinatário (inclusive com espaços)', () => {
+    expect(checarDestinoDoAlerta('a@b.com')).toBeNull();
+    expect(checarDestinoDoAlerta(' a@b.com , c@d.com ')).toBeNull();
   });
 });
