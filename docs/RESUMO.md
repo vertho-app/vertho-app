@@ -26,13 +26,21 @@ Antes de considerar qualquer tarefa pronta:
 ```powershell
 npm run build          # NUNCA com `| tail` (deixa next build orfao segurando o lock)
 npx tsc --noEmit
-npm run test:unit      # vitest — 960 testes em 108 arquivos (medido 27/07 noite), roda no CI
+npm run test:unit      # vitest — 1041 testes em 120 arquivos (medido 28/07), roda no CI
 ```
 
 Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (reseta `acme-demo`).
 ⚠️ `npm run lint` esta QUEBRADO desde o Next 16 (`next lint` removido) — usar `tsc --noEmit`.
 
 ## Frentes recentes
+
+**28/07** — **Três regras de produto novas.** (1) **A missão de aplicação cobre o bloco que acabou
+de fechar** (sem 4 → semanas 1-3, sem 8 → só 5-7, sem 12 → cumulativa): antes a semana 4 cobrava a
+competência inteira, incluindo conteúdo ainda não entregue; as 37 trilhas do Ibipeba foram regeradas
+(74 missões). (2) **Telemetria de degradação** (`degradacao_log`, mig 194): os 10 fallbacks
+silenciosos clássicos registram; o health estrutural lê 24h (R10). (3) **Na construção, falhe alto;
+na entrega, degrade registrando** — missão/cenário, semana sem core e DUO→single viraram ERRO
+acionável no build (placeholder não embarca mais). Régua permanente no `CLAUDE.md`.
 
 **26-27/07** — **Uma fonte de contexto institucional por empresa.** Empresa-rede tem 1 PPP por escola
 (Ibipeba: 11) e o `.limit(1)` aplicava uma escola sorteada ao municipio inteiro, em silencio — classe

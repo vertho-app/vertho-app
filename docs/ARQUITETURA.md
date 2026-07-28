@@ -46,7 +46,7 @@
 | **Scraping Fallback** | Firecrawl | — | 🔑 |
 | **Error Tracking** | Sentry | — | 🔑 |
 | **TypeScript** | tsc --noEmit (strict: false) | 5.9 | ✅ |
-| **Testes** | **vitest** (955 testes / 107 arquivos, roda no CI) + Playwright + smoke-test.js. ⚠️ `npm run lint` quebrado desde o Next 16 | 4.1 | ✅ |
+| **Testes** | **vitest** (1041 testes / 120 arquivos, roda no CI) + Playwright + smoke-test.js. ⚠️ `npm run lint` quebrado desde o Next 16 | 4.1 | ✅ |
 | **i18n** | next-intl (pt-BR / pt-PT / es-ES) | — | ✅ |
 | **Hospedagem** | Vercel (Serverless) | — | ✅ |
 | **DNS/CDN** | Cloudflare (Full Strict SSL) | — | ✅ |
@@ -82,6 +82,13 @@
 - **26/07** — IA2 consolida os **valores da REDE** (empresa-rede tem 1 PPP por escola; `.limit(1)`
   aplicava uma escola sorteada ao municipio inteiro — F-I10 do `docs/FMEA-PIPELINE.md`). Os 2 guards
   de tenant voltaram ao verde.
+- **28/07** — **Três regras de produto**: (1) **missão de aplicação cobre o bloco que acabou de
+  fechar** (sem 4 → semanas 1-3, sem 8 → só 5-7, sem 12 → cumulativa; corte por `semanas_ids` em
+  `descritoresEntreguesNaMissao`) — as 37 trilhas do Ibipeba regeradas (74 missões); (2) **telemetria
+  de degradação** (`degradacao_log`, mig 194 + `lib/degradacao.ts`, dedup por chave, nunca lança) nos
+  10 fallbacks silenciosos clássicos + R10 no health estrutural; (3) **na construção, falhe alto** —
+  missão/cenário, semana sem core e DUO→single viraram erro acionável no build (regua completa no
+  `CLAUDE.md`: construção falha alto, entrega degrada registrando).
 - **27/07** — **F-I10 fechado em 9 sites** e virou **guard de CI**
   (`tests/unit/security/ppp-rede-guard.test.ts`): `buscarContextoPPP` (IA1/IA2/IA3), check dual do IA3,
   PDF personalizado, IA4 (×2) e Cenario B do fechamento (×3). Os 5 ultimos foram achados **pelo guard**,
@@ -981,7 +988,7 @@ Tres niveis, todos **read-only / sem custo** (nao clicam acoes de IA, envio, exc
 ### CI/CD
 `.github/workflows/smoke-test.yml` — smoke test em cada push. `typecheck.yml` — tsc + vitest (inclui os guards de tenant/service-role).
 
-**Estado em 27/07/2026 (noite): 955 testes / 107 arquivos, verdes.** Regras que valem para teste novo:
+**Estado em 28/07/2026: 1041 testes / 120 arquivos, verdes.** Regras que valem para teste novo:
 1. **Validar por MUTAÇÃO** — quebrar a invariante no código de produção e confirmar que o teste
    correspondente falha. Teste que nunca falhou não prova nada; é carimbo.
 2. Mock testa o NOSSO código, nunca o do fornecedor — para API externa, canary/health check.
