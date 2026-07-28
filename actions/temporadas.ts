@@ -523,7 +523,7 @@ async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { co
       });
     await Promise.all(
       plano.filter((s: any) => s?.tipo === 'conteudo').map((s: any) =>
-        overlayKitNaSemana(sb, s, { empresaId: colab.empresa_id, disc, cargo: colab.cargo, formatoPref, competenciaFoco, kitsCache }),
+        overlayKitNaSemana(sb, s, { empresaId: colab.empresa_id, disc, cargo: colab.cargo, formatoPref, competenciaFoco, kitsCache, colaboradorId: colab.id }),
       ),
     );
   } catch { /* best-effort — nunca quebra a tela */ }

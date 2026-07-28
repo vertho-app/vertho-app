@@ -327,6 +327,54 @@ export function checarDestinoDoAlerta(adminEmails: string | undefined): Achado |
   );
 }
 
+/**
+ * R10 · Fallbacks acionados nas últimas 24h (telemetria de degradação, FMEA §3.3).
+ *
+ * Decisão de produto de 28/07: fallback pode existir, mas nunca invisível. Cada
+ * queda no caminho degradado grava uma linha em `degradacao_log` (mig 194, via
+ * lib/degradacao.ts) — esta regra é quem TRANSFORMA o rastro em reclamação: sem
+ * ela, a tabela seria só mais um log que ninguém lê (o mesmo destino do
+ * console.warn que ela substitui).
+ *
+ * Sobe para crítico quando algum tipo foi registrado com severidade crítica
+ * (ex.: `missao-placeholder` — a semana inteira degrada) ou quando o VOLUME
+ * total passa do limiar: uma degradação é acidente; dezenas por dia são sintoma.
+ */
+export interface DegradacaoRegistro {
+  fluxo: string;
+  tipo: string;
+  severidade: 'info' | 'aviso' | 'critico';
+  ocorrencias: number;
+}
+
+/** Acima disto em 24h, o volume em si é o problema — não um tipo específico. */
+export const DEGRADACAO_VOLUME_CRITICO = 50;
+
+export function checarDegradacoes(registros: DegradacaoRegistro[]): Achado | null {
+  const porTipo = new Map<string, { ocorrencias: number; severidade: string }>();
+  for (const r of registros || []) {
+    const atual = porTipo.get(r.tipo) || { ocorrencias: 0, severidade: r.severidade };
+    atual.ocorrencias += Number(r.ocorrencias) || 1;
+    if (r.severidade === 'critico') atual.severidade = 'critico';
+    porTipo.set(r.tipo, atual);
+  }
+  const total = [...porTipo.values()].reduce((s, t) => s + t.ocorrencias, 0);
+  const temCritico = [...porTipo.values()].some((t) => t.severidade === 'critico');
+  return achado(
+    'degradacao-fallback-24h',
+    temCritico || total > DEGRADACAO_VOLUME_CRITICO ? 'critico' : 'aviso',
+    'Fallbacks acionados nas últimas 24h',
+    total,
+    'Fluxos caíram no caminho degradado (conteúdo placeholder, personalização desligada, trilha reduzida) — a entrega acontece, só perde qualidade, então ninguém reclama.',
+    {
+      amostra: [...porTipo.entries()]
+        .sort((a, b) => b[1].ocorrencias - a[1].ocorrencias)
+        .map(([tipo, t]) => `${tipo} · ${t.ocorrencias}×`),
+      acao: 'Ver degradacao_log (detalhe por fluxo/chave) e atacar o tipo mais frequente — fallback repetido é sintoma, não azar.',
+    },
+  );
+}
+
 /** Aplica todas as regras de PRÉ-VOO. */
 export function regrasPreflight(entregas: EntregaPrevista[]): Achado[] {
   return [

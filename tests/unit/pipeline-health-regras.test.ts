@@ -3,7 +3,8 @@ import {
   checarFormatoPrometido, checarCoberturaKit, checarDesafioPlaceholder,
   checarContatos, checarCoreAusente, checarCanalZerado, checarEntregaIncompleta,
   regrasPreflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua,
-  type EntregaPrevista, type EnvioObservado, type LacunaKitHorizonte,
+  checarDegradacoes, DEGRADACAO_VOLUME_CRITICO,
+  type EntregaPrevista, type EnvioObservado, type LacunaKitHorizonte, type DegradacaoRegistro,
 } from '@/lib/pipeline-health/regras';
 import { severidadeGlobal, achado } from '@/lib/pipeline-health/types';
 
@@ -276,5 +277,43 @@ describe('R9 · MB com descritor fora da régua', () => {
 
   it('acervo alinhado não gera achado', () => {
     expect(checarMbForaDaRegua([])).toBeNull();
+  });
+});
+
+/**
+ * R10 · telemetria de degradação (FMEA §3.3 — fallback pode existir, nunca invisível).
+ * A tabela `degradacao_log` (mig 194) guarda o rastro; esta regra é quem reclama.
+ * Dois sentidos, como sempre: dispara com degradação, calada sem.
+ */
+describe('R10 · degradações das últimas 24h', () => {
+  const reg = (over: Partial<DegradacaoRegistro>): DegradacaoRegistro => ({
+    fluxo: 'build', tipo: 'duo-para-single', severidade: 'aviso', ocorrencias: 1, ...over,
+  });
+
+  it('calada sem nenhuma degradação', () => {
+    expect(checarDegradacoes([])).toBeNull();
+  });
+
+  it('dispara como AVISO com degradação comum e agrupa por tipo na amostra', () => {
+    const a = checarDegradacoes([
+      reg({ tipo: 'kit-ausente-disc', ocorrencias: 7 }),
+      reg({ tipo: 'kit-ausente-disc', ocorrencias: 3 }), // mesma chave de tipo, outra linha → soma
+      reg({ tipo: 'duo-para-single', ocorrencias: 2 }),
+    ]);
+    expect(a?.id).toBe('degradacao-fallback-24h');
+    expect(a?.severidade).toBe('aviso');
+    expect(a?.contagem).toBe(12);
+    expect(a?.amostra?.[0]).toBe('kit-ausente-disc · 10×'); // mais frequente primeiro
+  });
+
+  it('sobe para CRÍTICO quando algum tipo foi registrado com severidade crítica', () => {
+    const a = checarDegradacoes([reg({ tipo: 'missao-placeholder', severidade: 'critico' })]);
+    expect(a?.severidade).toBe('critico');
+  });
+
+  it('sobe para CRÍTICO quando o volume total passa do limiar, mesmo tudo aviso', () => {
+    const a = checarDegradacoes([reg({ ocorrencias: DEGRADACAO_VOLUME_CRITICO + 1 })]);
+    expect(a?.severidade).toBe('critico');
+    expect(checarDegradacoes([reg({ ocorrencias: DEGRADACAO_VOLUME_CRITICO })])?.severidade).toBe('aviso');
   });
 });

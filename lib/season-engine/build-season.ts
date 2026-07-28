@@ -14,6 +14,7 @@ import { promptCenario, parseCenarioResponse, cenarioToMarkdown } from '@/lib/se
 import { promptMissao, parseMissaoResponse, missaoToMarkdown } from '@/lib/season-engine/prompts/missao';
 import type { SelectedDescriptor } from './select-descriptors';
 import { PROGRAMA_REGULAR, descritoresCobertosNaMissao, type ProgramaConfig } from './programa-config';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import type { BlueprintBindingSemana } from '@/lib/blueprint/to-descriptors';
 
 interface MicroConteudo {
@@ -381,7 +382,7 @@ export async function buildSeason({
   for (let semana = 1; semana <= programaConfig.semanas; semana++) {
     let plan: SemanaPlan;
     if (programaConfig.semanasMissao.includes(semana)) {
-      plan = await montarSemanaAplicacao(semana, descritoresSelecionados, competencia, cargo, contexto, aiConfig, programaConfig, compsArray);
+      plan = await montarSemanaAplicacao(semana, descritoresSelecionados, competencia, cargo, contexto, aiConfig, programaConfig, compsArray, empresaId);
     } else if (programaConfig.semanasAvaliacao.includes(semana)) {
       const espelho = programaConfig.semanaEspelhoCalendario?.[semana];
       plan = {
@@ -412,6 +413,10 @@ export async function buildSeason({
         // em silêncio) — a semana sai com o que há, na shape piloto.
         if (ordenados.length < (programaConfig.conteudosPorSemana || 1)) {
           console.warn(`[piloto] semana ${semana}: ${ordenados.length} descritor(es) para ${programaConfig.conteudosPorSemana} entregas esperadas — distribuição incompleta.`);
+          await registrarDegradacao({
+            fluxo: 'build', tipo: DEGRADACAO.PILOTO_DISTRIBUICAO_INCOMPLETA, chave: `${empresaId || 'global'}:${semana}`,
+            empresaId, detalhe: { descritores: ordenados.length, esperado: programaConfig.conteudosPorSemana },
+          });
         }
         const entregas: NonNullable<SemanaConteudo['conteudos_dia']> = [];
 
@@ -644,10 +649,22 @@ async function montarSemanaConteudo(
       }
     } catch (err: any) {
       console.warn(`[buildSeason] desafio IA sem ${semana}: ${err?.message ?? err} — usando fallback templated`);
+      await registrarDegradacao({
+        fluxo: 'build', tipo: DEGRADACAO.DESAFIO_PLACEHOLDER, chave: `${empresaId || 'global'}:${semana}:${descritorSel.descritor}`,
+        empresaId, detalhe: { error: String(err?.message ?? err), competencia, descritor: descritorSel.descritor },
+      });
     }
   }
 
   const reused = !!(coreContent && idsJaUsados.has(coreContent.id));
+  // Sem core: a semana sai com título/desafio templated (`fallback_gerado`). FMEA §3.3:
+  // o sinal existia só no JSON do plano — agora também persiste (dedup por empresa:semana:descritor).
+  if (!coreContent) {
+    await registrarDegradacao({
+      fluxo: 'build', tipo: DEGRADACAO.CONTEUDO_AUSENTE, chave: `${empresaId || 'global'}:${semana}:${descritorSel.descritor}`,
+      empresaId, detalhe: { competencia, descritor: descritorSel.descritor },
+    });
+  }
   return {
     semana,
     tipo: 'conteudo',
@@ -702,6 +719,7 @@ export async function montarSemanaAplicacao(
   aiConfig: AIConfigOpt,
   programaConfig: ProgramaConfig,
   competenciasArray: string[] = [competencia],
+  empresaId: string | null = null,
 ): Promise<SemanaAplicacao> {
   const complexidade = programaConfig.complexidadeMap[semana] || 'intermediario';
 
@@ -783,6 +801,12 @@ export async function montarSemanaAplicacao(
     }
   } catch (err: any) {
     console.warn(`[buildSeason] missao/cenario sem ${semana}: ${err?.message ?? err}`);
+    // A semana INTEIRA degrada (missão + cenário viram placeholder) → severidade crítica.
+    await registrarDegradacao({
+      fluxo: 'build', tipo: DEGRADACAO.MISSAO_PLACEHOLDER, chave: `${empresaId || 'global'}:${semana}`,
+      empresaId, severidade: 'critico',
+      detalhe: { error: String(err?.message ?? err), competencia, descritores: cobertos },
+    });
     if (!missaoObj.texto) missaoObj.texto = `Missão pendente. Aplique os descritores ${cobertos.join(', ')} em uma situação real do seu cargo esta semana.`;
     if (!cenarioObj.texto) cenarioObj.texto = `Cenário pendente. Descreva como você aplicaria os descritores ${cobertos.join(', ')} em uma situação típica do seu cargo.`;
   }

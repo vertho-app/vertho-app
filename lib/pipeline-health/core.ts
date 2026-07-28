@@ -18,8 +18,8 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
-import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua } from './regras';
-import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, diaDaSemanaBRT, pilulaDoDia } from './coleta';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes } from './regras';
+import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, coletarDegradacoes, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
 /** Empresas elegíveis a envio: exclui demo (não envia comunicação real). */
 async function empresasAtivas(sb: any) {
@@ -169,6 +169,9 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
 
     // R9: MB publicado com descritor fora da régua — ancora o conteúdo no assunto vizinho.
     achados.push(checarMbForaDaRegua(await coletarMbForaDaRegua(sb)));
+
+    // R10: telemetria de degradação (FMEA §3.3) — fallback existe, nunca invisível.
+    achados.push(checarDegradacoes(await coletarDegradacoes(sb)));
 
     const ungrounded = await contar('kit_briefs', (q: any) => q.is('modulo_base_id', null));
     achados.push(achado('brief-ungrounded', 'aviso', 'Brief sem módulo-base', ungrounded,

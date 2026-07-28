@@ -8,6 +8,7 @@
  * quando entra um PPP mais novo). Ver docs/KIT-SEMANAL.md.
  */
 import { callAI } from '@/actions/ai-client';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
 export async function resolverContextoEmpresa(sb: any, empresaId: string, aiConfig: any = {}): Promise<string | null> {
   const { data: ppps } = await sb.from('ppp_escolas')
@@ -41,8 +42,13 @@ Saída: um brief conciso (≤2000 caracteres), em texto corrido, usável como LE
   let consolidado: string;
   try {
     consolidado = (await callAI(system, user, aiConfig, 1200)).trim().slice(0, 2500);
-  } catch {
+  } catch (err: any) {
     // Falha na síntese: cai no PPP mais recente (melhor que nada), sem cachear.
+    // FMEA §3.3: a queda era invisível (catch vazio) — agora persiste (nunca lança).
+    await registrarDegradacao({
+      fluxo: 'contexto-empresa', tipo: DEGRADACAO.SINTESE_PPP_FALHOU, chave: empresaId,
+      empresaId, detalhe: { error: String(err?.message ?? err), ppps: ppps.length },
+    }, sb);
     return extracaoParaTexto(ppps[0].extracao).slice(0, 2500);
   }
 

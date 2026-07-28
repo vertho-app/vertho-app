@@ -8,6 +8,7 @@
  * conteúdo antigo (buildSeason) permanece. Ver docs/KIT-SEMANAL.md.
  */
 import { resolverDesafioDoKit } from './desafio-semana';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
 const FMTS = ['video', 'audio', 'texto', 'case'] as const;
 export type Formato = (typeof FMTS)[number];
@@ -150,13 +151,27 @@ export async function precarregarKits(
 }
 
 /** Aplica o kit num objeto `conteudo` (mutação): formatos + core preferido + desafio. */
-async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; kitsCache?: KitsCache }) {
+async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; kitsCache?: KitsCache; colaboradorId?: string; semana?: number }) {
   if (!conteudo) return;
   // Com cache pré-carregado: consulta em memória (sem query). Sem cache: resolve 1×.
   const kit = args.kitsCache
     ? (args.kitsCache.get(cacheKey(args.competencia, args.descritor)) || null)
     : await resolverKitDaSemana(sb, args).catch(() => null);
-  if (!kit) return; // sem kit → mantém o conteúdo antigo
+  if (!kit) {
+    // sem kit → mantém o conteúdo antigo. FMEA §3.3: a degradação NÃO pode ser
+    // invisível — registra UMA vez por (colaborador × semana) (dedup da mig 194;
+    // roda a cada leitura de página, e sem o UNIQUE o log viraria ruído). Só
+    // registra quando o caller identifica a pessoa: a prévia do health-check
+    // (coleta.ts, sem colaboradorId) é simulação e não pode poluir o log.
+    if (args.colaboradorId && args.semana != null) {
+      await registrarDegradacao({
+        fluxo: 'overlay', tipo: DEGRADACAO.KIT_AUSENTE_DISC, chave: `${args.colaboradorId}:${args.semana}`,
+        empresaId: args.empresaId, colaboradorId: args.colaboradorId,
+        detalhe: { disc: args.disc, cargo: args.cargo ?? null, competencia: args.competencia, descritor: args.descritor },
+      }, sb);
+    }
+    return;
+  }
   conteudo.kit_id = kit.kitId;
   conteudo.formatos_disponiveis = { ...(conteudo.formatos_disponiveis || {}), ...kit.formatos }; // mantém vídeo existente
   // formato_core = preferido se disponível; senão o 1º disponível.
@@ -176,14 +191,14 @@ async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string
 export async function overlayKitNaSemana(
   sb: any,
   semanaPlan: any,
-  args: { empresaId: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; competenciaFoco: string | null; kitsCache?: KitsCache },
+  args: { empresaId: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; competenciaFoco: string | null; kitsCache?: KitsCache; colaboradorId?: string },
 ) {
   if (!semanaPlan || semanaPlan.tipo !== 'conteudo') return;
   if (Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length) {
     for (const e of semanaPlan.conteudos_dia) {
-      await overlayConteudo(sb, e.conteudo, { empresaId: args.empresaId, competencia: e.competencia || args.competenciaFoco, descritor: e.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, kitsCache: args.kitsCache });
+      await overlayConteudo(sb, e.conteudo, { empresaId: args.empresaId, competencia: e.competencia || args.competenciaFoco, descritor: e.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, kitsCache: args.kitsCache, colaboradorId: args.colaboradorId, semana: semanaPlan.semana });
     }
   } else {
-    await overlayConteudo(sb, semanaPlan.conteudo, { empresaId: args.empresaId, competencia: args.competenciaFoco, descritor: semanaPlan.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, kitsCache: args.kitsCache });
+    await overlayConteudo(sb, semanaPlan.conteudo, { empresaId: args.empresaId, competencia: args.competenciaFoco, descritor: semanaPlan.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, kitsCache: args.kitsCache, colaboradorId: args.colaboradorId, semana: semanaPlan.semana });
   }
 }

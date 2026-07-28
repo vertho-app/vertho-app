@@ -6,6 +6,7 @@ import { focoDoCargo } from '@/lib/foco-cargo';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { getProgramaConfigByModo, resolverModoColab, type ProgramaConfig, type ProgramaModoLabel } from '@/lib/season-engine/programa-config';
 import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import type { AIConfig } from '@/actions/ai-client';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 
@@ -106,6 +107,12 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
       });
       if (duo?.ok || duo?.error) return duo; // sucesso ou erro definitivo
       console.warn(`[gerarTemporada] DUO indisponível → fallback single (${competenciaAlvo}):`, duo?.motivo);
+      // FMEA §3.3: o warn some no log da Vercel — o registro persiste (nunca lança).
+      await registrarDegradacao({
+        fluxo: 'trilha', tipo: DEGRADACAO.DUO_PARA_SINGLE, chave: colaboradorId,
+        empresaId: colab.empresa_id, colaboradorId,
+        detalhe: { motivo: duo?.motivo ?? null, competencia: competenciaAlvo },
+      });
     }
 
     // 3) Prioridade de formatos — derivada das colunas pref_* em colaboradores
@@ -146,6 +153,11 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     const ausentes = descritoresCatalogo.filter(d => !avaliadosSet.has(d));
     if (ausentes.length > 0) {
       console.warn(`[gerarTemporada] ${ausentes.length} descritor(es) sem avaliação — ignorados na alocação:`, ausentes);
+      await registrarDegradacao({
+        fluxo: 'trilha', tipo: DEGRADACAO.DESCRITOR_SEM_AVALIACAO, chave: colaboradorId,
+        empresaId: colab.empresa_id, colaboradorId,
+        detalhe: { competencia: competenciaAlvo, ausentes },
+      });
     }
 
     if (assessment.length === 0) {
@@ -256,6 +268,11 @@ export async function gerarTemporadaOnboarding(args: {
       assessments.push({ competencia: comp, assessment: rows });
     } else {
       console.warn(`[gerarTemporadaOnboarding] ${comp} sem assessment — usará default neutro`);
+      await registrarDegradacao({
+        fluxo: 'trilha', tipo: DEGRADACAO.ONBOARDING_DEFAULT_NEUTRO, chave: `${colab.id}:${comp}`,
+        empresaId: colab.empresa_id, colaboradorId: colab.id,
+        detalhe: { competencia: comp },
+      });
       assessments.push({ competencia: comp, assessment: [{ descritor: 'Descritor padrão', nota: 1.5 }] });
     }
   }
@@ -394,6 +411,11 @@ export async function gerarTemporadaRegularDuo(args: {
       const r = blueprintToTrilhaInputs(bpRow.blueprint, assessmentPorComp, programaConfig);
       if ('error' in r) {
         console.warn(`[DUO] blueprint→trilha indisponível (${r.error}) — fallback selectDescriptorsDuo`);
+        await registrarDegradacao({
+          fluxo: 'trilha', tipo: DEGRADACAO.BLUEPRINT_ADAPTER_FALLBACK, chave: colab.id,
+          empresaId: colab.empresa_id, colaboradorId: colab.id,
+          detalhe: { error: r.error },
+        });
       } else {
         blueprintInputs = r;
         if (r.avisos.length) console.warn(`[DUO] blueprint→trilha avisos:`, r.avisos);

@@ -14,7 +14,7 @@ import { precarregarKits, overlayKitNaSemana, formatoPreferido } from '@/lib/sea
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { normalizePhone } from '@/lib/phone';
 import { levantarPlanoKitsCoorte } from '@/lib/season-engine/kit/plano-coorte';
-import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua } from './regras';
+import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua, DegradacaoRegistro } from './regras';
 
 /** Dia da semana no fuso do envio (1=segunda … 7=domingo), como o cron calcula. */
 export function diaDaSemanaBRT(d: Date): number {
@@ -262,6 +262,22 @@ export async function coletarMbForaDaRegua(sb: any): Promise<MbForaDaRegua[]> {
     }
   }
   return fora;
+}
+
+/**
+ * Degradações tocadas nas últimas 24h (R10). `ocorrencias` acumula desde a
+ * PRIMEIRA ocorrência da chave (não só do dia) — a janela filtra pelo `ultima_em`,
+ * então o volume é uma aproximação para cima; o que interessa à regra é a
+ * presença e a ordem de grandeza, não a contagem exata.
+ */
+export async function coletarDegradacoes(sb: any): Promise<DegradacaoRegistro[]> {
+  const desde = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { data, error } = await sb.from('degradacao_log')
+    .select('fluxo, tipo, severidade, ocorrencias')
+    .gte('ultima_em', desde);
+  // Propaga: 0 por falha de query é indistinguível de "nenhuma degradação".
+  if (error) throw new Error(`degradacao_log: ${error.message}`);
+  return (data as DegradacaoRegistro[]) || [];
 }
 
 /** Estado dos carimbos do dia (postflight). */
