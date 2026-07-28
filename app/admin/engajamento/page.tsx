@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { BarChart3, Eye, RefreshCw, MousePointerClick, Loader2, CheckCircle2, LayoutGrid, Video, Headphones, FileText, BookOpen, ClipboardCheck, MessagesSquare } from 'lucide-react';
+import Link from 'next/link';
+import { BarChart3, Eye, RefreshCw, MousePointerClick, Loader2, CheckCircle2, LayoutGrid, Video, Headphones, FileText, BookOpen, ClipboardCheck, MessagesSquare, TrendingUp } from 'lucide-react';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { getEngajamentoEmpresa } from '@/actions/engajamento';
@@ -94,6 +95,12 @@ export default function EngajamentoPage() {
         subtitle={empresa?.nome ? `${empresa.nome} — abriu · formato · vídeo · concluiu · evidência · tutor` : 'Selecione uma empresa no filtro do topo'}
         actions={
           <div className="flex items-center gap-2">
+            <Link
+              href={empresaId ? `/admin/engajamento/evolucao?empresa=${empresaId}` : '/admin/engajamento/evolucao'}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-cyan-400/10 border border-cyan-400/20 text-cyan-300 hover:bg-cyan-400/15"
+            >
+              <TrendingUp size={13} /> Página B
+            </Link>
             <select
               value={semanaSel ?? ''}
               onChange={(e) => setSemanaSel(e.target.value ? Number(e.target.value) : null)}
