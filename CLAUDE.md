@@ -213,11 +213,13 @@ nunca **"o que está gravado aqui?"**.
   deixando dois testes de rate limit passarem sem exercitar nada. Quebre a invariante de propósito
   antes de contar o teste como prova.
 - NÃO criar fallback novo **silencioso** — fallback pode existir, nunca invisível: registre com
-  `registrarDegradacao` (`lib/degradacao.ts`, nunca lança, dedup por chave com contador). Os 10
+  `registrarDegradacao` (`lib/degradacao.ts`, nunca lança, dedup por chave com contador **por dia
+  UTC** — a regra que lê olha 24h, então contador sem janela vira alarme crônico). Os 10
   pontos clássicos já estão instrumentados (28/07, mig 194) e o health estrutural lê
   `degradacao_log` toda madrugada (R10 do `lib/pipeline-health/regras.ts`).
   **A régua (28/07): na CONSTRUÇÃO, falhe alto** (build/admin — tem humano pra consertar:
-  missão/cenário, semana sem core, DUO indisponível **abortam** com erro acionável); **na
+  missão/cenário, semana sem core, DUO indisponível **abortam** com erro acionável — e "falha"
+  inclui **resposta 200 vazia/não-parseável**, não só exceção); **na
   ENTREGA, degrade registrando** (leitura ao vivo — falhar duro quebra a pessoa sem recuperação).
 - NÃO `.limit(1)` em `ppp_escolas` p/ representar a empresa — empresa-rede tem **1 PPP por escola**
   (Ibipeba: 11) e isso aplica uma escola sorteada à rede inteira, em silêncio. Consolidar:

@@ -552,6 +552,23 @@ briefs duplicados por tupla.
   colabs do mesmo DISC) → personalização longuíssima ocupando a box.
 - **Resolução:** teto de tempo próprio na personalização + paralelismo limitado; ou personalizar
   fora do worker de render (fila separada).
+- **Medido 28/07 (não morde ainda):** no lote de 42 células, **187 personalizados** saíram atrás dos
+  decks sem travar nenhuma box — o cache de saudação (25/06) é o que segura isso. O risco continua
+  em pé para célula de cargo popular; só ficou provado que 187/42 ≈ 4,5 por célula passa.
+
+### F-V3 · Lote de vídeo satura o FORNECEDOR — ~15% falham e o pipeline não retenta 🟠 (recuperável)
+- **Medido 28/07 (semana 5 do Ibipeba, 41 células com `--conc 4`):** **6 falhas (~15%)** —
+  3× `TTS: resposta sem áudio após 4 tentativas` (Vertex) e 3× `HeyGen timeout aguardando video_id`.
+  Nenhuma por bug: é saturação de Vertex TTS e HeyGen ao mesmo tempo. Concorrência **4 já basta**.
+- **Efeito:** a célula fica `status='error'`, o resolver da entrega a ignora (`status<>'error'`) e a
+  pessoa cai no formato não-vídeo — **sem alarme**, porque o achado `video-stale` do health só pega
+  `processing/rendering/render_queued` presos, nunca `error`.
+- **Resolução (o que já funciona):** re-rodar o disparo com `--conc 2` recuperou **6/6** na primeira
+  tentativa. É seguro e idempotente: `error` não conta como "tem deck" e a UNIQUE parcial permite a
+  linha nova. **Custo do padrão:** 47 renders pagos para 42 células (~12% de desperdício).
+- **O que falta (não feito):** o health não tem regra para **célula de vídeo em `error`** — hoje
+  descobrir isso depende de alguém consultar. Uma regra nova (`celula-video-em-error`, por empresa e
+  semana) fecharia o buraco entre "o render falhou" e "alguém percebeu".
 
 ---
 
@@ -629,7 +646,7 @@ O `PIPELINE-TRILHA.md` é **excepcionalmente fiel** (~50 referências `arquivo:l
 ### Camadas 0–3 (Insumos → Blueprint → Trilha)
 
 - **IA com JSON inválido no blueprint** → erro "IA não retornou blueprint válido", sem retry de parse; o colaborador fica sem blueprint e ninguém é notificado; com a flag on, a trilha DUO **degrada em silêncio** para `selectDescriptorsDuo` (`lib/blueprint/core.ts:172-178`, `lib/season-engine/trilha-core.ts:378`).
-- **IA fora durante `buildSeason`** ✅ 28/07 → o build **ABORTA** com erro acionável ("trilha não construída; rode de novo") + registra `missao-placeholder` crítico no `degradacao_log`. Antes: placeholder templated gravado no plano ("Missão pendente…") ia para produção, com sinal só em `console.warn`.
+- **IA fora durante `buildSeason`** ✅ 28/07 → o build **ABORTA** com erro acionável ("trilha não construída; rode de novo") + registra `missao-placeholder` crítico no `degradacao_log`. Antes: placeholder templated gravado no plano ("Missão pendente…") ia para produção, com sinal só em `console.warn`. **28/07 (varredura):** o corte passou a cobrir também **resposta 200 vazia/não-parseável** (`build-season.ts` — sem ele, a semana ia com missão/cenário em branco: o `catch` só cobria exceção).
 - **DUO sem assessment da 2ª competência** ✅ 28/07 → **erro acionável** ("rode o mapeamento ou defina `programa_modo='regular_single'` explicitamente") + registro `duo-para-single`. Antes: fallback single **silencioso** — o colaborador recebia produto diferente do contratado, sem aviso (a trilha `regular_single` da Érica no Ibipeba nasceu desse caminho).
 - **Sem assessment / sem foco do cargo** → erro explícito acionável (correto), mas **sem notificação proativa** — quem trava fica invisível até alguém olhar a fila (`trilha-core.ts:105-110`, `core.ts:120-122`).
 - **Blueprint regenerado depois da trilha construída** → trilha é snapshot; PDI lê o blueprint ao vivo → **PDI e trilha divergem silenciosamente** até a próxima geração (`trilha-core.ts:370-376`, `actions/relatorios.ts:275`).
@@ -673,7 +690,7 @@ O `PIPELINE-TRILHA.md` é **excepcionalmente fiel** (~50 referências `arquivo:l
 
 1. ✅ 27/07 (F-I4 — filtro duplo `kit_id/disc IS NULL`, a `disc` virou filtro de verdade): **A invariante anti-vazamento DISC depende da única coluna que a FK apaga.** `micro_conteudos.kit_id` é `ON DELETE SET NULL` (`migrations/142:45`): apagar brief/kit sem apagar o conteúdo antes transforma conteúdo DISC-específico em "genérico" — e ele **volta a vazar no build**, porque o filtro SQL e `conteudosDoBuild` só olham `kit_id`. A coluna **`disc` denormalizada existe e sobreviveria ao SET NULL** (`migrations/142:48`), mas **nada a usa como filtro**; o teste de isolamento **não cobre** `{kit_id:null, disc:'D'}`. A defesa hoje é processual (ordem conteúdo→kits→brief) — e falha exatamente durante regerações, que é quando scripts mexem nessas tabelas (já mordeu: 6 pessoas sem core em 16/07).
 2. **Snapshot congelado ponta a ponta.** `temporada_plano`, `descritores_selecionados`, `formatos_disponiveis`, binding e `programa_modo` são gravados no build; nova IA4, blueprint novo, foco alterado ou micro-conteúdo melhor **não refletem** em nada já construído. O sistema depende de disciplina operacional de "regerar na ordem certa", sem invalidação automática.
-3. ✅ 28/07 (telemetria de degradação, mig 194): **Cadeia de degradação silenciosa de 4 níveis** (flag off → sem blueprint → adapter erro → DUO sem 2ª comp → single): cada degrau é "correto" isoladamente, mas o único vestígio persistido é `programa_modo='regular_single'`. **Sem telemetria de decisões do motor** — o ledger `ia_usage_log` cobre chamadas de IA, não degradações. Medir exige grepar `console.warn`. **Correção:** `degradacao_log` + `registrarDegradacao` (`lib/degradacao.ts`, nunca lança, dedup por chave com contador) em 10 pontos de fallback — `duo-para-single`, `blueprint-adapter-fallback`, `descritor-sem-avaliacao`, `onboarding-default-neutro`, `missao-placeholder` (crítico), `desafio-placeholder`, `conteudo-ausente`, `piloto-distribuicao-incompleta`, `sintese-ppp-falhou`, `kit-ausente-disc`. O health estrutural lê as últimas 24h toda madrugada (R10). Fallback continua existindo — só não é mais invisível.
+3. ✅ 28/07 (telemetria de degradação, mig 194): **Cadeia de degradação silenciosa de 4 níveis** (flag off → sem blueprint → adapter erro → DUO sem 2ª comp → single): cada degrau é "correto" isoladamente, mas o único vestígio persistido é `programa_modo='regular_single'`. **Sem telemetria de decisões do motor** — o ledger `ia_usage_log` cobre chamadas de IA, não degradações. Medir exige grepar `console.warn`. **Correção:** `degradacao_log` + `registrarDegradacao` (`lib/degradacao.ts`, nunca lança, dedup por chave com contador **por dia UTC** — a R10 lê 24h, e o acumulado histórico cruzava o limiar em operação normal: alarme crônico, corrigido na varredura de 28/07) em 10 pontos de fallback — `duo-para-single`, `blueprint-adapter-fallback`, `descritor-sem-avaliacao`, `onboarding-default-neutro`, `missao-placeholder` (crítico), `desafio-placeholder`, `conteudo-ausente`, `piloto-distribuicao-incompleta`, `sintese-ppp-falhou`, `kit-ausente-disc`. O health estrutural lê as últimas 24h toda madrugada (R10). Fallback continua existindo — só não é mais invisível.
 4. **Match por string tolerante em ~5 fronteiras** (normalizações diferentes em `core.ts:31,181`, `to-descriptors.ts:53-61`, `audit.ts:52-53`, `desafio-semana.ts:26-27`): qualquer divergência de grafia (prefixo `CÓDIGO —`, acento, renomeação) degrada kit→genérico sem erro — já houve bug real disso.
 5. ✅ 27/07 (F-I8 — virou DECISÃO de design: 1ª letra na geração é a célula de custo, combo completo no relatório): **DISC de 1 letra vs 2 letras** (FMEA F-I8, aberto): kit/overlay/vídeo usam `charAt(0)`; o PDF personalizado cacheia por slug multi-letra (`"DI"`, `"SC"`) — a mesma pessoa é "D" num formato e "DI" noutro (`entrega-semana.ts:63`, `conteudos.ts:880`).
 6. **Build de trilha sem checkpoint**: ~6 chamadas de IA (timeout 120s cada) + N queries em memória; function morre no meio → nada persiste, retry refaz tudo (`build-season.ts:274-435`).
@@ -861,7 +878,7 @@ na IA4 · 0 duplicatas do lado do kit.
 11. **Batch de kit fecha `done` com ≥1 DISC ok** (§6): pessoas do DISC falho recebem genérico
     em silêncio; reparo manual via `planejarKitsCoorte`.
 12. ~~**Telemetria de degradação**~~ ✅ (28/07, mig 194): `degradacao_log` + `registrarDegradacao`
-    (`lib/degradacao.ts`, dedup por chave com contador, nunca lança) em 10 pontos de fallback;
+    (`lib/degradacao.ts`, dedup por chave com contador **por dia UTC**, nunca lança) em 10 pontos de fallback;
     o estrutural lê as últimas 24h toda madrugada (R10, `critico` em volume >50/dia ou
     `missao-placeholder`). Decisões do motor deixaram de ser invisíveis.
 
