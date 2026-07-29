@@ -41,6 +41,13 @@ export const DEGRADACAO = {
   SINTESE_PPP_FALHOU: 'sintese-ppp-falhou',
   /** overlay: sem kit para o DISC da pessoa → mantém o conteúdo do build. */
   KIT_AUSENTE_DISC: 'kit-ausente-disc',
+  /**
+   * overlay: existe kit do tema E do DISC, mas só de OUTRO cargo → barrado, mantém
+   * o build. Separado de `kit-ausente-disc` porque a ação é diferente e mais barata:
+   * o tema já foi escrito e aprovado, falta gerar a célula do cargo certo. Misturar
+   * os dois esconderia isso dentro do balde maior.
+   */
+  KIT_CARGO_DIVERGENTE: 'kit-cargo-divergente',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

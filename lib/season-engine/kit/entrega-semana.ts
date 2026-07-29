@@ -7,7 +7,7 @@
  * (resolverVideoDaSemana) — só preservamos a entrada dele. Aditivo: sem kit, o
  * conteúdo antigo (buildSeason) permanece. Ver docs/KIT-SEMANAL.md.
  */
-import { resolverDesafioDoKit } from './desafio-semana';
+import { resolverDesafioDoKit, cargoServe } from './desafio-semana';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { normDescritor } from '@/lib/blueprint/to-descriptors';
 
@@ -64,7 +64,13 @@ export async function resolverKitDaSemana(
 }
 
 /** Tipo do resolvedor em memória (pré-carregado): (competência:::descritor) → kit. */
-export type KitsCache = Map<string, { kitId: string; desafio: any; formatos: Record<string, { id: string; url: string | null; titulo: string }> }>;
+export type KitsCache = Map<string, {
+  kitId: string | null;
+  desafio: any;
+  formatos: Record<string, { id: string; url: string | null; titulo: string }>;
+  /** Preenchido quando havia kit do tema+DISC, mas só de outro cargo (barrado). */
+  barradoPorCargo?: string;
+}>;
 /**
  * Chave do cache. O descritor passa por `normDescritor` — a MESMA tolerância que
  * `resolverDesafioDoKit` já aplicava (tira prefixo "COO03_D3 — ", acentos, caixa).
@@ -144,9 +150,14 @@ export async function precarregarKits(
     return ta !== tb ? ta > tb : String(a?.id || '') > String(b?.id || '');
   };
   const best = new Map<string, { kit: any; score: number }>();
+  const barrados = new Map<string, string>(); // chave → cargo do brief recusado
   for (const b of briefs) {
     const kit = kitByBrief.get(b.id); if (!kit) continue;
     const key = cacheKey(b.competencia, b.descritor);
+    // Cargo é FILTRO, não desempate (ver `cargoServe`). Guarda-se o recusado para o
+    // overlay poder registrar "existe, mas do cargo errado" em vez de "não existe" —
+    // a diferença entre gerar uma célula e investigar um tema inteiro.
+    if (!cargoServe(b.cargo, args.cargo)) { barrados.set(key, String(b.cargo || '')); continue; }
     const score = (cargoColab && String(b.cargo || '').toLowerCase() === cargoColab ? 2 : 0) + (b.empresa_id ? 1 : 0);
     const prev = best.get(key);
     // Empate de score é REAL desde que a chave é normalizada: o mesmo tema existe
@@ -173,6 +184,10 @@ export async function precarregarKits(
     }
     out.set(key, { kitId: kit.id, desafio: kit.desafio || {}, formatos });
   }
+  // Marcador só onde NÃO houve kit válido: um brief do cargo certo sempre vence.
+  for (const [key, cargo] of barrados) {
+    if (!out.has(key)) out.set(key, { kitId: null, desafio: {}, formatos: {}, barradoPorCargo: cargo });
+  }
   return out;
 }
 
@@ -181,8 +196,12 @@ async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string
   if (!conteudo) return;
   // Com cache pré-carregado: consulta em memória (sem query). Sem cache: resolve 1×.
   let kit: { kitId: string; desafio: any; formatos: Record<string, { id: string; url: string | null; titulo: string }> } | null;
+  let barradoPorCargo: string | undefined;
   if (args.kitsCache) {
-    kit = args.kitsCache.get(cacheKey(args.competencia, args.descritor)) || null;
+    const entrada = args.kitsCache.get(cacheKey(args.competencia, args.descritor)) || null;
+    // Entrada com kitId null é o MARCADOR de "existe, mas do cargo errado" — não é kit.
+    kit = entrada?.kitId ? (entrada as { kitId: string; desafio: any; formatos: any }) : null;
+    barradoPorCargo = entrada?.barradoPorCargo;
   } else {
     try {
       kit = await resolverKitDaSemana(sb, args);
@@ -202,9 +221,16 @@ async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string
     // (coleta.ts, sem colaboradorId) é simulação e não pode poluir o log.
     if (args.colaboradorId && args.semana != null) {
       await registrarDegradacao({
-        fluxo: 'overlay', tipo: DEGRADACAO.KIT_AUSENTE_DISC, chave: `${args.colaboradorId}:${args.semana}`,
+        fluxo: 'overlay',
+        // Dois motivos, duas ações: "não existe kit deste tema/DISC" (escrever o tema)
+        // ≠ "existe, mas do cargo errado" (gerar só a célula do cargo certo).
+        tipo: barradoPorCargo ? DEGRADACAO.KIT_CARGO_DIVERGENTE : DEGRADACAO.KIT_AUSENTE_DISC,
+        chave: `${args.colaboradorId}:${args.semana}`,
         empresaId: args.empresaId, colaboradorId: args.colaboradorId,
-        detalhe: { disc: args.disc, cargo: args.cargo ?? null, competencia: args.competencia, descritor: args.descritor },
+        detalhe: {
+          disc: args.disc, cargo: args.cargo ?? null, competencia: args.competencia, descritor: args.descritor,
+          ...(barradoPorCargo ? { kit_existe_no_cargo: barradoPorCargo } : {}),
+        },
       }, sb);
     }
     return;

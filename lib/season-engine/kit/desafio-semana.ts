@@ -7,6 +7,24 @@
  */
 import { normDescritor } from '@/lib/blueprint/to-descriptors';
 
+/**
+ * O brief serve a este colaborador? Brief SEM cargo é curinga (kits 'todos' do
+ * legado); colaborador sem cargo aceita qualquer um (não há como discriminar).
+ *
+ * Existe porque a preferência por cargo era só ORDENAÇÃO: quando o brief do cargo
+ * certo não tinha o DISC da pessoa, o loop seguia e servia o kit de OUTRO cargo —
+ * desafio e ação observável escritos no registro de diretor entregues a coordenador,
+ * sem nada avisar. Medido em ibipeba (29/07): 18 leituras nessa situação. Decisão do
+ * Rodrigo: barrar e registrar. Conteúdo do cargo errado é pior que o genérico, que
+ * ao menos não afirma um contexto que não é o da pessoa.
+ */
+export function cargoServe(cargoBrief: string | null | undefined, cargoColab: string | null | undefined): boolean {
+  const b = String(cargoBrief || '').trim().toLowerCase();
+  const c = String(cargoColab || '').trim().toLowerCase();
+  if (!b || !c) return true;
+  return b === c;
+}
+
 export async function resolverDesafioDoKit(
   sb: any,
   args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null },
@@ -24,7 +42,10 @@ export async function resolverDesafioDoKit(
   const { data: briefsRaw } = await q;
   if (!briefsRaw?.length) return null;
   const alvo = normDescritor(args.descritor);
-  const briefs = (briefsRaw as any[]).filter((b) => normDescritor(b.descritor) === alvo);
+  // Cargo é FILTRO, não só ordenação — ver `cargoServe`.
+  const briefs = (briefsRaw as any[])
+    .filter((b) => normDescritor(b.descritor) === alvo)
+    .filter((b) => cargoServe(b.cargo, args.cargo));
   if (!briefs.length) return null;
 
   // Preferência: (1) brief do CARGO do colaborador (registro certo p/ MEI vs

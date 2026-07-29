@@ -102,6 +102,67 @@ describe('paridade entre os dois resolvedores de kit', () => {
     expect(semanaPlan.conteudo.kit_id).toBe(individual!.kitId); // overlay aplicou o MESMO kit
   });
 
+  /**
+   * Cargo é FILTRO, não desempate. Quando o brief do cargo certo não tem o DISC da
+   * pessoa, o kit de OUTRO cargo NÃO pode entrar: o desafio e a ação observável são
+   * escritos no registro daquele cargo. Decisão do Rodrigo (29/07) depois de medir 18
+   * leituras assim em ibipeba — conteúdo do cargo errado é pior que o genérico.
+   * Os dois resolvedores barram igual; o cache ainda marca `barradoPorCargo` para o
+   * overlay registrar o motivo certo.
+   */
+  describe('kit de outro cargo é barrado', () => {
+    const OUTRO = { ...BRIEF, id: 'b2', cargo: 'Gestão Escolar' }; // colab é Coordenação
+    const sbOutroCargo = () => ({
+      from: (nome: string) => {
+        const rows = nome === 'kit_briefs' ? [OUTRO] : nome === 'kits' ? [{ ...KIT, brief_id: 'b2' }] : CONTEUDOS;
+        const q: any = {
+          select: () => q, eq: () => q, or: () => q, is: () => q, in: () => q, order: () => q,
+          maybeSingle: async () => ({ data: rows[0] ?? null }),
+          then: (res: any) => Promise.resolve({ data: rows }).then(res),
+        };
+        return q;
+      },
+    });
+    const COLAB = { empresaId: 'e1', disc: 'S', cargo: 'Coordenação Pedagógica' };
+
+    it('resolverKitDaSemana não serve kit de cargo divergente', async () => {
+      const kit = await resolverKitDaSemana(sbOutroCargo() as any, { ...ARGS, cargo: COLAB.cargo });
+      expect(kit).toBeNull();
+    });
+
+    it('o cache marca barradoPorCargo em vez de servir o kit', async () => {
+      const cache = await precarregarKits(sbOutroCargo() as any, COLAB);
+      const entrada = cache.get(`${BRIEF.competencia} ::: ${normDescritor(BRIEF.descritor)}`);
+      expect(entrada?.kitId).toBeNull();
+      expect(entrada?.barradoPorCargo).toBe('Gestão Escolar');
+    });
+
+    it('o overlay não aplica o kit barrado', async () => {
+      const cache = await precarregarKits(sbOutroCargo() as any, COLAB);
+      const plan: any = { semana: 7, tipo: 'conteudo', descritor: BRIEF.descritor, conteudo: { formato_core: 'texto', formatos_disponiveis: {} } };
+      await overlayKitNaSemana(sbOutroCargo() as any, plan, {
+        ...COLAB, formatoPref: 'texto', competenciaFoco: BRIEF.competencia, kitsCache: cache,
+      });
+      expect(plan.conteudo.kit_id).toBeUndefined(); // mantém o conteúdo do build
+    });
+
+    it('brief SEM cargo segue servindo (curinga do legado)', async () => {
+      const sbCuringa = () => ({
+        from: (nome: string) => {
+          const rows = nome === 'kit_briefs' ? [{ ...BRIEF, cargo: null }] : nome === 'kits' ? [KIT] : CONTEUDOS;
+          const q: any = {
+            select: () => q, eq: () => q, or: () => q, is: () => q, in: () => q, order: () => q,
+            maybeSingle: async () => ({ data: rows[0] ?? null }),
+            then: (res: any) => Promise.resolve({ data: rows }).then(res),
+          };
+          return q;
+        },
+      });
+      const kit = await resolverKitDaSemana(sbCuringa() as any, { ...ARGS, cargo: COLAB.cargo });
+      expect(kit?.kitId).toBe('k1');
+    });
+  });
+
   it('nenhum dos dois serve vídeo — o vídeo é do pipeline de célula', async () => {
     const individual = await resolverKitDaSemana(sbMock() as any, ARGS);
     const cache = await precarregarKits(sbMock() as any, { empresaId: 'e1', disc: 'S', cargo: BRIEF.cargo });
