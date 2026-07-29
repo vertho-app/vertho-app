@@ -593,6 +593,24 @@ briefs duplicados por tupla.
   denominador variável derruba 3). ⚠️ Comportamento muda: runs parciais que o admin via como 100
   agora aparecem como ≤50 + PARCIAL — é a correção, não regressão.
 
+### F-P4 · Conversa da semana de missão nunca começava — `messages: []` no turn 1 ✅ (fechado 29/07)
+- **Gatilho:** a API da Anthropic recusa `messages: []` com **400 "at least one message is required"**
+  e `/api/temporada/reflection` converte em **500 "Erro na IA"**. No turn 1 o histórico é vazio **por
+  definição** — a pessoa acabou de clicar o botão que inicia a conversa e ainda não escreveu nada.
+- **Alcance:** dos três prompts de conversa, **só o `socratic` injetava** a mensagem de abertura.
+  `missao_feedback` (semanas 4/8/12, caminho "Sim, consegui") e `analytic` (caminho "Não" → cenário
+  escrito, e avaliação) não injetavam. O caminho principal das semanas de aplicação **nunca funcionou**.
+- **Medida do impacto (o que provou):** `0 de 144` semanas de aplicação com qualquer transcript e
+  **0 aceites de missão**, contra `37` transcripts nas semanas de conteúdo, que usam o socratic.
+- **Correção:** injeção `[INICIE A CONVERSA…]` nos dois, espelhando o socratic. Guarda:
+  `tests/unit/prompts-primeiro-turno.test.ts` roda sobre **os três** — a falha foi um prompt nascer
+  sem copiar o detalhe do irmão, então o próximo entra na mesma lista.
+- 📌 **Como apareceu — e por que não antes:** dirigindo o fluxo real com Playwright para capturar o
+  vídeo-tutorial. **Nenhuma superfície mostrava**: não há tela de admin para isso, o health-check não
+  olha, e `registrarDegradacao` também não pega — a rota devolve 500 e o cliente exibe erro genérico.
+  Classe: **fluxo que ninguém percorreu ponta a ponta não tem prova de que funciona**, e "ninguém
+  reclamou" não é sinal quando o passo anterior (aceitar a missão) também nunca foi alcançado.
+
 ### F-P2 · Missão/cenário formativos caem em placeholder — **não afeta o scoring** ✅ (esclarecimento)
 - Confirmado: o Cenário B da **avaliação** (13/14) vem de `banco_cenarios`, não desta geração. Missão/
   cenário das semanas 4/8/12 são formativos. Placeholder degrada a experiência, **não o fechamento**.
