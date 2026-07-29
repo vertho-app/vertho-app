@@ -103,7 +103,7 @@ if ($Instalar) {
   # execução — junto com o painel que ela estiver rodando (são ~16 min de
   # trabalho e cota de quatro assinaturas). Se há painel em andamento, pare aqui.
   $emAndamento = Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
-    Where-Object { $_.CommandLine -match 'painel.worker\.mjs' }
+    Where-Object { $_.CommandLine -match 'painel[\\/]worker\.mjs' }
   if ($emAndamento -and -not $Forcar) {
     $ultima = (LerLog $Log 1) -join ''
     Escrever "worker em execucao (pid $($emAndamento.ProcessId -join ', ')) — pode estar no meio de um painel."
@@ -115,25 +115,20 @@ if ($Instalar) {
     throw "nao achei $Repo\.env.local — o worker precisa da service-role key"
   }
 
-  # -WindowStyle Hidden no wrapper: sem isso uma janela de console fica aberta
-  # o dia inteiro. O log vai para arquivo, que é como se acompanha.
-  # Duas coisas no comando, além de rodar o worker:
+  # O que a tarefa roda vive em worker-tarefa.ps1, NÃO numa string aqui.
   #
-  # 1. TRAVA de instância única. A tarefa também dispara a cada 5 min (ver
-  #    gatilhos), para ressuscitar o worker se ele morrer — e sem esta checagem
-  #    isso viraria um worker novo a cada 5 min, todos disputando a mesma fila.
-  # 2. UTF-8 explícito: sem isso o log grava "ÔÇö" no lugar de "—" e fica
-  #    ilegível justamente no que se lê quando algo deu errado.
-  $comando = "[Console]::OutputEncoding=[Text.Encoding]::UTF8; " +
-             "`$OutputEncoding=[Text.Encoding]::UTF8; " +
-             "`$vivo = Get-CimInstance Win32_Process -Filter `"Name='node.exe'`" | " +
-             "Where-Object { `$_.CommandLine -match 'painel.worker\.mjs' }; " +
-             "if (`$vivo) { exit 0 }; " +
-             "Set-Location '$Repo'; " +
-             "node --env-file=.env.local scripts/painel/worker.mjs 2>&1 | " +
-             "ForEach-Object { Add-Content -LiteralPath '$Log' -Value `$_ -Encoding utf8 }"
+  # Isto já foi um `-Command "..."` montado por concatenação, e a linha de comando
+  # do powershell.exe COMIA as aspas duplas internas: o filtro chegava como
+  # `-Filter Name='node.exe'`, o WQL era inválido e a trava de instância única
+  # nunca travou nada (4 workers em 70 min, medido no log de 28/07). Com `-File`
+  # não há camada de quoting entre o arquivo e o que executa.
+  #
+  # -WindowStyle Hidden: sem isso uma janela de console fica aberta o dia inteiro.
+  # O log vai para arquivo, que é como se acompanha.
+  $tarefaPs1 = Join-Path $PSScriptRoot 'worker-tarefa.ps1'
+  if (-not (Test-Path $tarefaPs1)) { throw "nao achei $tarefaPs1" }
   $acao = New-ScheduledTaskAction -Execute 'powershell.exe' `
-    -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$comando`""
+    -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$tarefaPs1`""
 
   # DOIS gatilhos. Só o de logon não bastava: em 28/07 o worker subiu, rodou um
   # painel inteiro e morreu horas depois (código 0xC000013A — provavelmente a
