@@ -75,7 +75,8 @@ describe('F-C4 · falha de query NÃO pode virar cache vazio silencioso', () => 
     const cache = await precarregarKits(
       sbMock(undefined, { kit_briefs: [BRIEF], kits: [KIT], micro_conteudos: [CONTEUDO] }) as any, ARGS);
     expect(cache.size).toBe(1);
-    expect(cache.get('Planejamento ::: Gestão de riscos')?.kitId).toBe('k1');
+    // chave com o descritor NORMALIZADO (sem acento/caixa) — ver kit-entrega-paridade
+    expect(cache.get('Planejamento ::: gestao de riscos')?.kitId).toBe('k1');
   });
 
   it('DISC inválido → Map vazio sem tocar no banco (guard barato antes das queries)', async () => {

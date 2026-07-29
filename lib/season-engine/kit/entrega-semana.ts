@@ -9,6 +9,7 @@
  */
 import { resolverDesafioDoKit } from './desafio-semana';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
+import { normDescritor } from '@/lib/blueprint/to-descriptors';
 
 const FMTS = ['video', 'audio', 'texto', 'case'] as const;
 export type Formato = (typeof FMTS)[number];
@@ -64,7 +65,19 @@ export async function resolverKitDaSemana(
 
 /** Tipo do resolvedor em memória (pré-carregado): (competência:::descritor) → kit. */
 export type KitsCache = Map<string, { kitId: string; desafio: any; formatos: Record<string, { id: string; url: string | null; titulo: string }> }>;
-const cacheKey = (competencia: string | null, descritor: string | null) => `${competencia || ''} ::: ${descritor || ''}`;
+/**
+ * Chave do cache. O descritor passa por `normDescritor` — a MESMA tolerância que
+ * `resolverDesafioDoKit` já aplicava (tira prefixo "COO03_D3 — ", acentos, caixa).
+ *
+ * Sem isso os dois resolvedores discordavam justamente onde importa: o cache era
+ * montado com o descritor do BRIEF ("Limites profissionais") e consultado com o do
+ * PLANO ("COO03_D3 — Limites profissionais"), dando miss e caindo no genérico com o
+ * kit existindo. E como o overlay real SEMPRE tem cache (temporadas.ts pré-carrega),
+ * o caminho tolerante nunca rodava em produção: a correção estava no resolvedor que
+ * ninguém executa. Medido 29/07 no degradacao_log: 29 ocorrências / 2 pessoas de
+ * ibipeba recebendo conteúdo genérico com o kit publicado do DISC delas na prateleira.
+ */
+const cacheKey = (competencia: string | null, descritor: string | null) => `${competencia || ''} ::: ${normDescritor(descritor || '')}`;
 
 /**
  * Pré-carrega TODOS os kits de uma trilha em 3 queries (evita o N+1 do overlay,
@@ -108,7 +121,7 @@ export async function precarregarKits(
 
   // 2) kits publicados do DISC. 3) conteúdos desses kits.
   const { data: kitsRows, error: errKits } = await sb.from('kits')
-    .select('id, brief_id, desafio').in('brief_id', briefs.map((b: any) => b.id)).eq('disc', disc).eq('status', 'published');
+    .select('id, brief_id, desafio, created_at').in('brief_id', briefs.map((b: any) => b.id)).eq('disc', disc).eq('status', 'published');
   if (errKits) falhou('kits', errKits);
   if (!kitsRows?.length) return out;
   const kitByBrief = new Map(kitsRows.map((k: any) => [k.brief_id, k]));
@@ -124,13 +137,26 @@ export async function precarregarKits(
 
   // Casa por (comp:::desc) escolhendo o melhor brief: cargo certo (2) + empresa (1).
   const cargoColab = String(args.cargo || '').trim().toLowerCase();
+  /** Desempate determinístico entre kits de mesmo score: mais recente, depois id desc. */
+  const maisNovo = (a: any, b: any) => {
+    const ta = Date.parse(a?.created_at || '') || 0;
+    const tb = Date.parse(b?.created_at || '') || 0;
+    return ta !== tb ? ta > tb : String(a?.id || '') > String(b?.id || '');
+  };
   const best = new Map<string, { kit: any; score: number }>();
   for (const b of briefs) {
     const kit = kitByBrief.get(b.id); if (!kit) continue;
     const key = cacheKey(b.competencia, b.descritor);
     const score = (cargoColab && String(b.cargo || '').toLowerCase() === cargoColab ? 2 : 0) + (b.empresa_id ? 1 : 0);
     const prev = best.get(key);
-    if (!prev || score > prev.score) best.set(key, { kit, score });
+    // Empate de score é REAL desde que a chave é normalizada: o mesmo tema existe
+    // gravado nas duas grafias (medido em ibipeba: "COO03_D5 — Protagonismo do
+    // bem-estar" e "Protagonismo do bem-estar", mesmo cargo e mesma empresa). Sem
+    // critério, quem ganhava era a ordem que o Postgres devolveu — a mesma pessoa
+    // podia receber um kit hoje e outro amanhã. Desempate: kit mais RECENTE vence
+    // (id desc como último recurso), a mesma regra que o resto do arquivo usa para
+    // duplicatas.
+    if (!prev || score > prev.score || (score === prev.score && maisNovo(kit, prev.kit))) best.set(key, { kit, score });
   }
   for (const [key, { kit }] of best) {
     const formatos: Record<string, { id: string; url: string | null; titulo: string }> = {};

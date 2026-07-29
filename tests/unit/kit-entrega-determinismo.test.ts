@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolverKitDaSemana, precarregarKits } from '@/lib/season-engine/kit/entrega-semana';
+import { normDescritor } from '@/lib/blueprint/to-descriptors';
 
 /**
  * INVARIANTE (FMEA-PIPELINE 1.5, residual): com DUPLICATAS do mesmo formato sob o
@@ -51,7 +52,10 @@ function sbMock() {
 }
 
 const ARGS = { empresaId: 'e1', competencia: BRIEF.competencia, descritor: BRIEF.descritor, disc: 'S', cargo: BRIEF.cargo };
-const KEY = `${BRIEF.competencia} ::: ${BRIEF.descritor}`;
+// A chave do cache normaliza o descritor (normDescritor): o overlay consulta com o
+// descritor do PLANO, que pode vir prefixado ("COO03_D3 — Nome"), e o cache é montado
+// com o do BRIEF. Ver kit-entrega-paridade.test.ts.
+const KEY = `${BRIEF.competencia} ::: ${normDescritor(BRIEF.descritor)}`;
 
 describe('duplicatas de kit — escolha determinística (a mais recente vence)', () => {
   it('resolverKitDaSemana escolhe a cópia mais recente do formato duplicado', async () => {

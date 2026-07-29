@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { resolverKitDaSemana, precarregarKits } from '@/lib/season-engine/kit/entrega-semana';
+import { resolverKitDaSemana, precarregarKits, overlayKitNaSemana } from '@/lib/season-engine/kit/entrega-semana';
+import { normDescritor } from '@/lib/blueprint/to-descriptors';
 
 /**
  * INVARIANTE: os DOIS resolvedores de kit entregam os mesmos formatos.
@@ -58,7 +59,7 @@ describe('paridade entre os dois resolvedores de kit', () => {
 
   it('precarregarKits entrega o mesmo conjunto de formatos', async () => {
     const cache = await precarregarKits(sbMock() as any, { empresaId: 'e1', disc: 'S', cargo: BRIEF.cargo });
-    const entrada = cache.get(`${BRIEF.competencia} ::: ${BRIEF.descritor}`);
+    const entrada = cache.get(`${BRIEF.competencia} ::: ${normDescritor(BRIEF.descritor)}`);
     expect(entrada).toBeTruthy();
     expect(Object.keys(entrada!.formatos).sort()).toEqual(['audio', 'case', 'texto']);
   });
@@ -66,15 +67,45 @@ describe('paridade entre os dois resolvedores de kit', () => {
   it('os dois caminhos concordam — nenhum esconde formato que o outro serve', async () => {
     const individual = await resolverKitDaSemana(sbMock() as any, ARGS);
     const cache = await precarregarKits(sbMock() as any, { empresaId: 'e1', disc: 'S', cargo: BRIEF.cargo });
-    const doCache = cache.get(`${BRIEF.competencia} ::: ${BRIEF.descritor}`);
+    const doCache = cache.get(`${BRIEF.competencia} ::: ${normDescritor(BRIEF.descritor)}`);
     expect(Object.keys(individual!.formatos).sort()).toEqual(Object.keys(doCache!.formatos).sort());
     expect(individual!.kitId).toBe(doCache!.kitId);
+  });
+
+  /**
+   * O caso que ESCAPOU: os testes acima consultam o cache com o descritor do BRIEF,
+   * que é sempre o mesmo dos dois lados — assim a divergência de grafia nunca é
+   * exercitada. Em produção quem consulta é o overlay, com o descritor do PLANO, que
+   * às vezes vem com prefixo de código. `resolverDesafioDoKit` normaliza (normDescritor)
+   * desde 20/07; o cache não normalizava, e como o overlay real SEMPRE tem cache, o
+   * caminho tolerante nunca rodava. Medido em ibipeba (29/07): 29 leituras caíram no
+   * conteúdo genérico com o kit publicado do DISC na prateleira.
+   */
+  it('o cache casa o descritor do PLANO (com prefixo) no brief de nome limpo', async () => {
+    const doPlano = 'COO03_D3 — ' + BRIEF.descritor; // grafia da trilha
+    const cache = await precarregarKits(sbMock() as any, { empresaId: 'e1', disc: 'S', cargo: BRIEF.cargo });
+
+    // Pelo CONSUMIDOR real (overlayKitNaSemana), não reconstruindo a chave aqui:
+    // um teste que monta a chave com a mesma função da implementação passaria mesmo
+    // se o overlay consultasse de outro jeito — que é exatamente o que acontecia.
+    const semanaPlan: any = {
+      semana: 7, tipo: 'conteudo', descritor: doPlano,
+      conteudo: { formato_core: 'texto', formatos_disponiveis: {} },
+    };
+    await overlayKitNaSemana(sbMock() as any, semanaPlan, {
+      empresaId: 'e1', disc: 'S', cargo: BRIEF.cargo, formatoPref: 'texto',
+      competenciaFoco: BRIEF.competencia, kitsCache: cache,
+    });
+
+    const individual = await resolverKitDaSemana(sbMock() as any, { ...ARGS, descritor: doPlano });
+    expect(individual).not.toBeNull();
+    expect(semanaPlan.conteudo.kit_id).toBe(individual!.kitId); // overlay aplicou o MESMO kit
   });
 
   it('nenhum dos dois serve vídeo — o vídeo é do pipeline de célula', async () => {
     const individual = await resolverKitDaSemana(sbMock() as any, ARGS);
     const cache = await precarregarKits(sbMock() as any, { empresaId: 'e1', disc: 'S', cargo: BRIEF.cargo });
     expect(individual!.formatos).not.toHaveProperty('video');
-    expect(cache.get(`${BRIEF.competencia} ::: ${BRIEF.descritor}`)!.formatos).not.toHaveProperty('video');
+    expect(cache.get(`${BRIEF.competencia} ::: ${normDescritor(BRIEF.descritor)}`)!.formatos).not.toHaveProperty('video');
   });
 });
