@@ -7,6 +7,7 @@ import { registrarEvento } from '@/lib/radar/eventos';
 import { APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
 import { sendWhatsapp } from '@/lib/whatsapp';
 import { rotuloPorta } from '@/lib/conarh/conteudo';
+import { classificarLeadConarh } from '@/lib/conarh/classificacao';
 
 /**
  * Captura de lead comercial do Radar Bett SEM escopo de escola/município
@@ -68,7 +69,10 @@ export type ConarhSessaoInput = {
   nota_instintiva?: number;
   reavaliacao?: Array<{ descritor: string; nota: number }>;
   divergencias?: string[];
+  rotas_iniciadas?: number[];
   rotas_concluidas?: number[];
+  /** Porta de onde a captura foi aberta — o gesto de apontar da abordagem. */
+  porta_origem?: number;
 };
 
 export type CapturarLeadComercialInput = {
@@ -103,6 +107,11 @@ export type CapturarLeadComercialInput = {
   horizonte?: 'rodando' | 'ate_3m' | '3_a_6m' | 'sem_data';
   decide_ou_recomenda?: boolean;
   aceitou_proximo_passo?: boolean;
+  /**
+   * Curioso, fornecedor, concorrente ou fora do ICP — marcado pelo expositor.
+   * Sem este campo a classe C era inalcançável no tablet (ver lib/conarh/classificacao).
+   */
+  fora_do_perfil?: boolean;
   /** ISO datetime da reunião marcada no estande. */
   slot?: string;
   sessao?: ConarhSessaoInput;
@@ -133,20 +142,6 @@ function falha(error: string): CapturarLeadComercialResult {
   return { success: false, error, ok: false, erro: error };
 }
 
-/**
- * Classe A/B/C calculada NO SERVIDOR (F4 do sprint). O front pode sugerir,
- * mas o funil não pode depender de flag vinda do navegador:
- *   A — decide ou recomenda + horizonte quente (rodando | até 3m) + aceitou próximo passo
- *   C — não decide/recomenda E não citou competência (nada a ancorar o follow-up)
- *   B — todo o resto
- */
-function classificarLeadConarh(input: CapturarLeadComercialInput, competencia: string | null, horizonte: string | null): 'A' | 'B' | 'C' {
-  const decide = !!input.decide_ou_recomenda;
-  if (decide && (horizonte === 'rodando' || horizonte === 'ate_3m') && !!input.aceitou_proximo_passo) return 'A';
-  if (!decide && !competencia) return 'C';
-  return 'B';
-}
-
 /** Sessão da demo: aceita só as chaves conhecidas, com teto de tamanho. */
 function sanitizarSessaoConarh(s?: ConarhSessaoInput): Record<string, unknown> | null {
   if (!s || typeof s !== 'object') return null;
@@ -163,10 +158,54 @@ function sanitizarSessaoConarh(s?: ConarhSessaoInput): Record<string, unknown> |
   if (Array.isArray(s.divergencias)) {
     out.divergencias = s.divergencias.slice(0, 20).map((d) => String(d).slice(0, 300));
   }
-  if (Array.isArray(s.rotas_concluidas)) {
-    out.rotas_concluidas = s.rotas_concluidas.map(Number).filter((n) => n >= 1 && n <= 5);
+  for (const chave of ['rotas_iniciadas', 'rotas_concluidas'] as const) {
+    const lista = s[chave];
+    if (Array.isArray(lista)) {
+      out[chave] = [...new Set(lista.map(Number).filter((n) => n >= 1 && n <= 5))];
+    }
+  }
+  if (typeof s.porta_origem === 'number' && s.porta_origem >= 1 && s.porta_origem <= 5) {
+    out.porta_origem = Math.trunc(s.porta_origem);
   }
   return Object.keys(out).length ? out : null;
+}
+
+/**
+ * Emite `conarh_porta_toque`, `conarh_rota_iniciada` e `conarh_rota_concluida`
+ * a partir da sessão que chegou com a captura — um evento por porta.
+ *
+ * Estes três tipos existiam no enum de `lib/radar/eventos.ts` desde o commit
+ * inicial da rota e nunca tinham emissor: o painel diário conta
+ * `conarh_rota_concluida` (app/api/conarh/painel/route.ts) e por isso mostrava
+ * zero rotas todos os dias — o modo de falha que a própria seção de
+ * verificações do sprint adverte.
+ *
+ * Best-effort: nenhum `await`, nenhuma falha propagada. O lead já está gravado;
+ * telemetria não pode derrubar captura.
+ */
+function emitirEventosDeRota(
+  scopeId: string,
+  leadId: string,
+  sessao: Record<string, unknown> | null,
+  portaEscolhida: number | null,
+): void {
+  const comum = { scopeType: 'municipio' as const, scopeId };
+  const portaOrigem = typeof sessao?.porta_origem === 'number' ? sessao.porta_origem : portaEscolhida;
+  if (portaOrigem) {
+    registrarEvento('conarh_porta_toque', {
+      ...comum,
+      extra: { leadId, porta: portaOrigem },
+    }).catch(() => {});
+  }
+  const emitirLista = (tipo: 'conarh_rota_iniciada' | 'conarh_rota_concluida', chave: string) => {
+    const portas = sessao?.[chave];
+    if (!Array.isArray(portas)) return;
+    for (const porta of portas) {
+      registrarEvento(tipo, { ...comum, extra: { leadId, porta } }).catch(() => {});
+    }
+  };
+  emitirLista('conarh_rota_iniciada', 'rotas_iniciadas');
+  emitirLista('conarh_rota_concluida', 'rotas_concluidas');
 }
 
 /**
@@ -436,7 +475,13 @@ export async function capturarLeadComercial(
     const slotMs = Date.parse(input.slot || '');
     reuniaoEm = Number.isFinite(slotMs) ? new Date(slotMs).toISOString() : null;
     sessao = sanitizarSessaoConarh(input.sessao);
-    classe = classificarLeadConarh(input, competenciaCritica, horizonte);
+    classe = classificarLeadConarh({
+      decide_ou_recomenda: input.decide_ou_recomenda,
+      aceitou_proximo_passo: input.aceitou_proximo_passo,
+      fora_do_perfil: input.fora_do_perfil,
+      competencia: competenciaCritica,
+      horizonte,
+    });
   }
 
   const { data: lead, error } = await sb
@@ -495,6 +540,16 @@ export async function capturarLeadComercial(
         extra: { leadId: lead.id, reuniao_em: reuniaoEm },
       }).catch(() => {});
     }
+
+    // ── Telemetria de rota (F7) ────────────────────────────────────────────
+    // A demo roda em modo avião: nada é emitido DURANTE a rota, ou o evento se
+    // perderia em silêncio no pavilhão. A sessão acumula no dispositivo
+    // (app/conarh/_components/sessao.ts) e vira evento aqui, no único submit.
+    //
+    // Limite declarado: isto conta as rotas de quem CAPTUROU. Sessão que roda e
+    // não deixa contato não aparece no painel — o denominador do funil é
+    // "capturas", não "visitantes". Está dito em docs/CONARH52-SPRINT-CONSOLIDADO.md.
+    emitirEventosDeRota(scopeId, lead.id, sessao, porta);
 
     // Lead A acorda o fechador na hora (F4: alerta < 30 s). SEM await: a
     // captura nunca espera nem falha por causa do alerta.

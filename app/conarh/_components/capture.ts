@@ -1,15 +1,14 @@
 // CONARH 52 — captura de lead: wrapper ÚNICO sobre a server action + fila
 // offline em localStorage. Nenhum componente chama a action diretamente.
 //
-// TODO(backend): a assinatura atual de `capturarLeadComercial`
-// (actions/lead-comercial.ts) ainda é a do Radar Bett — campos `instituicao`,
-// `whatsapp`, retorno `{ success, error }`. O contrato CONARH (abaixo) é o
-// acordado para o backend novo. Enquanto os dois convivem, este wrapper:
-//   1) envia o payload do contrato + aliases (`instituicao`, `whatsapp`) para
-//      funcionar contra as duas versões;
+// `capturarLeadComercial` (actions/lead-comercial.ts) JÁ aceita o contrato
+// CONARH nativamente (porta, competencia, horizonte, slot, sessao, classe
+// calculada no servidor). Os aliases `instituicao`/`whatsapp` continuam sendo
+// enviados porque a action é compartilhada com o Radar Bett, que os usa como
+// nomes canônicos; o mesmo vale para o retorno em dois formatos. Este wrapper:
+//   1) monta o payload único das duas campanhas;
 //   2) normaliza os dois formatos de retorno para `ResultadoCaptura`;
 //   3) concentra o `as any` AQUI — nenhum outro arquivo faz cast.
-// Quando a action aceitar os campos novos nativamente, remover os aliases.
 
 import { capturarLeadComercial } from '@/actions/lead-comercial';
 import type { NumeroPorta, ReavaliacaoItem } from './sessao';
@@ -35,12 +34,16 @@ export interface LeadConarhPayload {
   horizonte: Horizonte;
   decide_ou_recomenda: boolean;
   aceitou_proximo_passo: boolean;
+  /** Curioso, fornecedor ou fora do ICP — força classe C no servidor. */
+  fora_do_perfil: boolean;
   slot?: string; // ISO, se marcou os 20 min
   sessao: {
     nota_instintiva?: number;
     reavaliacao?: ReavaliacaoItem[];
     divergencias?: string[];
+    rotas_iniciadas: number[];
     rotas_concluidas: number[];
+    porta_origem?: NumeroPorta;
   };
 }
 

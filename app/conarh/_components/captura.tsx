@@ -127,6 +127,7 @@ export function Captura({
   const [competencia, setCompetencia] = useState(conteudo.porta1.competencia);
   const [decide, setDecide] = useState(false);
   const [proximoPasso, setProximoPasso] = useState(false);
+  const [foraDoPerfil, setForaDoPerfil] = useState(false);
   const [querAgenda, setQuerAgenda] = useState(!!abrirAgenda);
   const [slot, setSlot] = useState<string | undefined>(undefined);
   const [lgpd, setLgpd] = useState(false);
@@ -158,12 +159,15 @@ export function Captura({
       horizonte,
       decide_ou_recomenda: decide,
       aceitou_proximo_passo: proximoPasso || !!slot,
+      fora_do_perfil: foraDoPerfil,
       slot,
       sessao: {
         nota_instintiva: telemetria.nota_instintiva,
         reavaliacao: telemetria.reavaliacao,
         divergencias: telemetria.divergencias,
+        rotas_iniciadas: telemetria.rotas_iniciadas,
         rotas_concluidas: telemetria.rotas_concluidas,
+        porta_origem: telemetria.porta_origem,
       },
     };
     const r = await enviarLeadConarh(payload);
@@ -295,6 +299,13 @@ export function Captura({
 
             <Toggle ligado={decide} onChange={setDecide} rotulo="Decide ou recomenda a decisão de desenvolvimento" />
             <Toggle ligado={proximoPasso} onChange={setProximoPasso} rotulo="Aceitou um próximo passo depois da feira" />
+            {/* Marca classe C no servidor. Sem isto, curioso e fornecedor
+                entravam como B e poluíam a cadência ativa. */}
+            <Toggle
+              ligado={foraDoPerfil}
+              onChange={setForaDoPerfil}
+              rotulo="Fora do perfil (curioso, fornecedor ou concorrente)"
+            />
 
             {/* Agenda — marcar os 20 minutos na hora */}
             <div>
