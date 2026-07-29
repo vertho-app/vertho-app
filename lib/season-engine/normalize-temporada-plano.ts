@@ -115,16 +115,71 @@ function salvageCenarioStructured(raw: string): CenarioStructured | null {
   };
 }
 
+/**
+ * Recupera a missão de um JSON TRUNCADO — o gêmeo do `salvageCenarioStructured`.
+ *
+ * O cenário ganhou salvamento e a missão não, e a consequência era visível para o
+ * usuário: `parseMissaoResponse` faz `JSON.parse` do payload inteiro; se a geração
+ * cortou no meio (maxTokens — F-P1 do FMEA), ele devolve null, `normalizeMissao`
+ * é fail-safe (`if (!parsed) return missao`) e a tela renderiza o texto CRU com
+ * ReactMarkdown — ou seja, um bloco de código JSON no lugar da missão da semana.
+ *
+ * Medido em 29/07: **34 das 37 trilhas do ibipeba** (piloto real) na semana 4, e
+ * 37/37 nas semanas 8 e 12; acme-demo, projetomacae e teste-piloto no mesmo estado.
+ *
+ * `missaoToMarkdown` só consome `missao_texto` e `integracao_descritores`, então
+ * recuperar esses dois já devolve a tela ao que deveria ser. Os demais campos são
+ * best-effort: entram se o corte não os alcançou.
+ */
+function salvageMissaoStructured(raw: string): MissaoStructured | null {
+  const text = stripCodeFence(raw);
+  if (!text.includes('"missao_texto"')) return null;
+
+  const knownKeys = [
+    'missao_texto',
+    'acao_principal',
+    'contexto_de_aplicacao',
+    'criterio_de_execucao',
+    'integracao_descritores',
+    'por_que_cabe_na_semana',
+  ];
+
+  const missaoTexto = extractLooseStringField(text, 'missao_texto', knownKeys);
+  if (!missaoTexto) return null;
+
+  // `integracao_descritores` é array de OBJETOS ({descritor, como_aparece}) — o
+  // extractLooseArrayField só recupera array de strings. O último par costuma ser
+  // justamente o cortado, daí o `|$` fechando a alternativa.
+  const pares: { descritor: string; como_aparece: string }[] = [];
+  const paresRegex = /"descritor"\s*:\s*"([\s\S]*?)"\s*,\s*"como_aparece"\s*:\s*"([\s\S]*?)(?:"\s*(?=[},])|$)/g;
+  let par: RegExpExecArray | null = null;
+  while ((par = paresRegex.exec(text))) {
+    const descritor = unescapeJsonLike(par[1]);
+    const comoAparece = unescapeJsonLike(par[2]);
+    if (descritor && comoAparece) pares.push({ descritor, como_aparece: comoAparece });
+  }
+
+  return {
+    missao_texto: missaoTexto,
+    acao_principal: extractLooseStringField(text, 'acao_principal', knownKeys),
+    contexto_de_aplicacao: extractLooseStringField(text, 'contexto_de_aplicacao', knownKeys),
+    criterio_de_execucao: extractLooseStringField(text, 'criterio_de_execucao', knownKeys),
+    integracao_descritores: pares,
+    por_que_cabe_na_semana: extractLooseStringField(text, 'por_que_cabe_na_semana', knownKeys),
+  };
+}
+
 function toMissaoStructured(raw: any): MissaoStructured | null {
   if (!raw) return null;
 
+  // Mesma cadeia do cenário: parse estrito → salvamento do truncado → parse frouxo.
   if (typeof raw === 'string') {
-    return parseMissaoResponse(raw) || toMissaoStructured(parseLooseJSON(raw));
+    return parseMissaoResponse(raw) || salvageMissaoStructured(raw) || toMissaoStructured(parseLooseJSON(raw));
   }
 
   if (typeof raw === 'object') {
     if (typeof raw.texto === 'string') {
-      return parseMissaoResponse(raw.texto) || toMissaoStructured(parseLooseJSON(raw.texto));
+      return parseMissaoResponse(raw.texto) || salvageMissaoStructured(raw.texto) || toMissaoStructured(parseLooseJSON(raw.texto));
     }
 
     if (

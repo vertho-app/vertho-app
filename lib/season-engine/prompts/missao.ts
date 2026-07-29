@@ -149,11 +149,13 @@ export function parseMissaoResponse(raw: string): MissaoStructured | null {
 }
 
 export function missaoToMarkdown(m: MissaoStructured): string {
-  const lines = [
-    `**Sua missão:** ${m.missao_texto}`,
-    '',
-    '**Descritores a integrar:**',
-    ...m.integracao_descritores.map(d => `- **${d.descritor}**: ${d.como_aparece}`),
-  ];
+  const lines = [`**Sua missão:** ${m.missao_texto}`];
+  // Sem descritores o cabeçalho ficaria órfão na tela. Acontece de verdade: quando
+  // a missão vem de um JSON truncado (salvageMissaoStructured), o corte pode ter
+  // alcançado a lista — melhor entregar só a missão do que uma seção vazia.
+  if (m.integracao_descritores.length) {
+    lines.push('', '**Descritores a integrar:**',
+      ...m.integracao_descritores.map(d => `- **${d.descritor}**: ${d.como_aparece}`));
+  }
   return lines.join('\n');
 }
