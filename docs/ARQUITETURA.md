@@ -179,7 +179,7 @@ nextjs-app/
 │   │   ├── perfil/page.tsx       # Perfil + DISC preview + logout
 │   │   ├── perfil-comportamental/
 │   │   │   ├── page.tsx          # Resultado DISC ou "Iniciar Mapeamento"
-│   │   │   ├── mapeamento/page.tsx # Instrumento DISC completo (29 steps)
+│   │   │   ├── mapeamento/page.tsx # DISC natural (8 rankings + 6 escolhas + preferências)
 │   │   │   └── relatorio/page.tsx  # Relatorio comportamental detalhado
 │   │   ├── votacao/page.tsx      # NOVO: Votacao em competencias por cargo (case+accent insensitive)
 │   │   ├── evolucao/page.tsx     # Comparativo inicial vs reavaliacao
@@ -1090,10 +1090,19 @@ Padrao das mensagens: explicar **o que** vai acontecer, **escopo** (todos / N it
 
 Todos com filtro `?empresa=` e back button context-aware. Dados via `lib/ia-cost-catalog.ts`.
 
-Fora do `/vertho` mas de mesma natureza operacional: **`/admin/engajamento`** — telemetria da trilha
-(link aberto × conteudo consumido de fato × evidencia entregue, por semana e canal). ⚠️
-`conteudo_consumido ≈ 0` **nao** e falta de engajamento: o sinal real e `play_finished`, e o conteudo
-da semana fica acessivel desde o inicio — o envio e notificacao, nao liberacao.
+Fora do `/vertho` mas de mesma natureza operacional:
+
+- **`/admin/engajamento`** — visão atual da telemetria da trilha (link aberto × conteúdo consumido
+  de fato × evidência entregue, por semana e canal).
+- **`/admin/engajamento/evolucao`** — página B longitudinal: ativação, consumo e evidência por
+  semana, trajetórias, recuperados, mapa de calor por área e fila operacional de risco. O índice é
+  explícito: ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10. É sinal operacional da
+  jornada, não nota, competência ou avaliação de desempenho.
+
+Ambas usam `?empresa=` e `tenantDb(empresaId)`. Na série longitudinal, o denominador de cada semana
+é quem já alcançou aquela semana — pessoas em semanas anteriores não entram artificialmente como
+inativas. ⚠️ `conteudo_consumido ≈ 0` **não** é falta de engajamento: para vídeo, o sinal real é
+`play_finished`; o conteúdo fica acessível desde o início e o envio é notificação, não liberação.
 
 ---
 
@@ -1349,7 +1358,17 @@ Pulso T0 → Sinais da Jornada → Pulso T2 → Triangulação → Relatório ag
 
 ### 18.2 Estrutura das perguntas
 
-26 perguntas hardcoded em `lib/pulse/template.ts` (12 Likert + 1 aberta por momento). 6 dimensões × 2 perguntas:
+O template atual (`2.0.0`) tem **27 perguntas por momento** em `lib/pulse/template.ts`:
+
+- 12 Likert do Pulso (6 dimensões × 2);
+- 8 rankings de quatro palavras + 6 escolhas forçadas do contexto de trabalho;
+- 1 pergunta aberta opcional.
+
+São 54 perguntas no ciclo completo T0+T2. Assignments já abertos na versão `1.0.0` preservam o
+formulário legado de 12 Likert + 1 aberta; `pulse_assignments.template_version` congela o contrato
+por assignment.
+
+As 6 dimensões do Pulso são:
 
 1. Clareza
 2. Condições
@@ -1359,6 +1378,12 @@ Pulso T0 → Sinais da Jornada → Pulso T2 → Triangulação → Relatório ag
 6. Futuro e permanência
 
 Escala Likert 1-5 (Discordo totalmente → Concordo totalmente).
+
+**Decisão de produto (migração 183):** o mapeamento comportamental principal e seus relatórios usam
+somente o **DISC natural**. O antigo bloco/perfil adaptado saiu dessas superfícies. Suas perguntas de
+contexto foram preservadas no Pulso v2 como rankings e escolhas forçadas; ao concluir, o resultado é
+salvo em `pulse_assignments.contextual_disc` com versão `pulse-contextual-disc-v1`. Esse resultado
+não sobrescreve `d_natural/i_natural/s_natural/c_natural` nem reintroduz perfil adaptado implícito.
 
 ### 18.3 Privacy-by-design
 
@@ -1376,7 +1401,8 @@ Anti-vazamento na Dual-IA: `pulse_classifications` armazena apenas `classifier_e
 ### 18.4 Arquivos-chave
 
 ```
-lib/pulse/template.ts            # 26 perguntas hardcoded (12 T0 + 12 T2 + 2 abertas)
+lib/pulse/template.ts            # v1 legado e v2: 27 perguntas por momento
+lib/pulse/contextual-disc.ts      # valida respostas estruturadas e calcula o DISC contextual
 lib/pulse/anonymity.ts           # PULSE_MIN_N=7, enforceMinN, classifyScore
 lib/pulse/signal-scoring.ts      # Normalização sinais 1-5 + mapping pra dimensões
 lib/pulse/triangulation.ts       # triangulate() puro (sem efeito colateral)
@@ -1396,7 +1422,8 @@ app/admin/empresas/[empresaId]/pulso/page.tsx                # Admin: gestão de
 app/admin/empresas/[empresaId]/pulso/[cicloId]/dashboard/page.tsx  # Dashboard agregado
 app/admin/empresas/[empresaId]/pulso/[cicloId]/enviar/page.tsx     # Envio de convites WA/email
 
-components/pulse/  # LikertScale, PulseProgress, OpenTextQuestion, PulseCompletion,
+components/pulse/  # LikertScale, DiscRankingQuestion, DiscPairQuestion, PulseProgress,
+                   # OpenTextQuestion, PulseCompletion,
                    # PrivacyNotice, AnonymityGuardMessage, PulseScoreCard,
                    # PulseDimensionChart, PulseDeltaTable, PulseSignalsCard,
                    # PulseThemesCloud, TriangulationSummary, RecommendationsList
@@ -1414,8 +1441,8 @@ app/api/relatorios/pdf/route.ts  # Estendido: pulso_executivo + pulso_complement
 | Tabela | UK | Função |
 |---|---|---|
 | `pulse_ciclos` | — | Ciclo de pulso por empresa (T0+T2 com timestamps de abertura/fechamento) |
-| `pulse_assignments` | (ciclo_id, colaborador_id, pulse_moment) | "Convite" pra um colab responder T0 ou T2 |
-| `pulse_responses` | (assignment_id, question_id) | Resposta a uma pergunta (Likert ou texto) |
+| `pulse_assignments` | (ciclo_id, colaborador_id, pulse_moment) | "Convite" pra um colab responder T0 ou T2; congela `template_version` e guarda `contextual_disc` |
+| `pulse_responses` | (assignment_id, question_id) | Resposta Likert/texto ou estruturada em `answer_json` (ranking/escolha forçada) |
 | `pulse_audit_logs` | — | Logs de acesso a relatórios + envios + bloqueios n<7 |
 | `pulse_classifications` | (response_id) | Saída Dual-IA: classifier + auditor + final_confidence |
 | `pulse_triangulations` | (ciclo_id, group_type, group_key) | Cache do resultado consolidado por grupo |

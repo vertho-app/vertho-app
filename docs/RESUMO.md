@@ -1,6 +1,6 @@
 # Resumo de Retomada — Vertho App
 
-> Atualizado em 27/07/2026 (noite). O SHA de HEAD não é fixado aqui de propósito — ficava
+> Atualizado em 28/07/2026 (noite). O SHA de HEAD não é fixado aqui de propósito — ficava
 > obsoleto no commit seguinte e dava a impressão de que o resto do documento também estava.
 
 ## Onde esta o projeto
@@ -33,6 +33,20 @@ Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (rese
 ⚠️ `npm run lint` esta QUEBRADO desde o Next 16 (`next lint` removido) — usar `tsc --noEmit`.
 
 ## Frentes recentes
+
+**28/07 — Perfil natural, contexto no Pulso e evolução de engajamento.** O mapeamento DISC principal
+e o relatório comportamental ficaram **natural-only**: o antigo bloco/perfil adaptado foi removido
+da coleta principal, dos prompts e dos contratos de relatório. As perguntas de contexto foram
+preservadas no **Pulso v2**: cada momento novo tem 12 Likert + 8 rankings + 6 escolhas forçadas +
+1 aberta; assignments antigos continuam em v1, pois `template_version` é congelada. O resultado
+contextual fica em `pulse_assignments.contextual_disc` e nunca sobrescreve o DISC natural
+(migração 183; commit-base `8f987a25`).
+
+Também entrou a página B **`/admin/engajamento/evolucao`** (`3caa064e`), mantendo
+`/admin/engajamento`: série semana a semana de ativação/consumo/evidência, trajetórias, recuperados,
+heatmap por área e fila operacional de risco. Índice explícito: 20 ativação + 30 consumo +
+40 evidência + 10 Tira-Dúvidas; é sinal operacional, não nota. Cada semana usa como denominador
+somente quem já a alcançou. Não houve migration nova para o dashboard.
 
 **28/07** — **Três regras de produto novas.** (1) **A missão de aplicação cobre o bloco que acabou
 de fechar** (sem 4 → semanas 1-3, sem 8 → só 5-7, sem 12 → cumulativa): antes a semana 4 cobrava a
@@ -77,7 +91,8 @@ semanas, 1-2 competencias, fechamento opcional, com a config congelada na trilha
 paleta do site do cliente** (`c885e970`) — IA mapeia 7 slots, contraste garantido em codigo.
 **Lotes de IA em segundo plano** com Batch API (−50%) e botao de parar (migs 172/173). Refresh de
 sessao movido pro `proxy.js` (`8f5c1d1c`) — matou o laco `/admin/dashboard` ↔ `/login`.
-DISC contextual movido pro Pulso (mig 183).
+DISC contextual movido pro Pulso (mig 183); o mapeamento e os relatórios comportamentais usam apenas
+o natural.
 
 **20/07** — Telemetria de engajamento (`/admin/engajamento`), ledger de uso de IA (migs 177/178),
 eventos de trilha (mig 179), provedor Kimi e `reasoningEffort` no wrapper de IA.
@@ -93,6 +108,8 @@ rastreavel (mig 169). ACME Demo: reset canonico unico.
   Modos: **Regular DUO** (14 sem, default) · **Onboarding** (10 sem) · **Piloto** (2 sem) ·
   **Personalizado** (1-4 sem, configuravel). Modo por empresa E por colaborador, com carimbo na trilha.
 - **Pulso de Desenvolvimento** — T0/T2 + sinais + Dual-IA + PDFs (executivo e complementar NR-1).
+- **Engajamento operacional** — visão atual em `/admin/engajamento` e evolução longitudinal em
+  `/admin/engajamento/evolucao`, com filtro de empresa/área e régua transparente.
 - **Radar Vertho** (`radar.vertho.ai`) — inteligencia publica: escola, municipio, rede, estado,
   comparacao. Inclui matriculas do censo (178k escolas).
 - **Portal do Representante** (`/representante`, interno) — funil de RCs, propostas, comissoes.

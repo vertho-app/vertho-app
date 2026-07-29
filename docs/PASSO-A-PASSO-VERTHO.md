@@ -84,7 +84,9 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 **Colaborador** · link recebido por WhatsApp/email → `/dashboard/assessment`
 - Responde cenários da IA3 (chat com simulação)
 - Mapeamento comportamental (DISC): `/dashboard/perfil-comportamental/mapeamento`
-  - A tela de instruções abre com um **vídeo de instruções** (capa clicável → player com tracking de view). Ao concluir o mapeamento, o colab é levado à tela de resultado, que gera relatório + insights e pré-gera o PDF (16 competências) em background.
+  - Coleta somente o **perfil natural**: 8 rankings de palavras + 6 escolhas forçadas e preferências de aprendizagem. O antigo bloco adaptado não faz mais parte do mapeamento nem do relatório comportamental.
+  - A tela de instruções abre com um **vídeo de instruções** (capa clicável → player com tracking de view). Ao concluir o mapeamento, o colab é levado à tela de resultado, que gera relatório + insights e pré-gera o PDF (16 competências naturais) em background.
+  - As perguntas de contexto de trabalho que antes alimentavam o adaptado foram preservadas no **Pulso v2** (passo P4), sem sobrescrever o DISC natural.
 
 ---
 
@@ -340,7 +342,9 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 **`/admin/vertho/custo-ia`** — Plano de custo/qualidade (espelho do doc `docs/CUSTO-QUALIDADE.md`; os dois precisam ser atualizados juntos). **`/admin/vertho/modulos-base`** — autoria e auditoria dual-IA dos Módulos-Base. **`/admin/vertho/auditorias`** e **`/admin/vertho/orcamento`** — auditoria de blueprints e orçamento.
 
-**`/admin/engajamento`** (não é vertho-only) — telemetria da trilha: quem abriu o link × quem consumiu de fato. ⚠️ `conteudo_consumido ≈ 0` **não** é falta de engajamento (o sinal real é `play_finished`), e o conteúdo da semana fica acessível desde o início — o envio é notificação, não liberação.
+**`/admin/engajamento`** (não é vertho-only) — visão atual da telemetria: quem abriu o link × quem consumiu de fato. ⚠️ `conteudo_consumido ≈ 0` **não** é falta de engajamento (o sinal real de vídeo é `play_finished`), e o conteúdo da semana fica acessível desde o início — o envio é notificação, não liberação.
+
+**`/admin/engajamento/evolucao`** — página B, acessível pelo botão da visão atual. Mostra evolução de ativação, consumo e evidência semana a semana; trajetórias (acelerando/no ritmo/atenção/crítico); recuperados; heatmap por área; e participantes que pedem acompanhamento. O filtro continua em `?empresa=` e pode ser refinado por área. O índice operacional soma ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10; não é nota de desempenho. O denominador de cada semana inclui apenas quem já chegou nela.
 
 **`/admin/vertho/knowledge-base`** — CRUD da base de conhecimento RAG per-tenant. Upload PDF/DOCX/TXT/MD (até 4MB), botão "Popular base inicial" (6 docs seed), preview de busca. Alimenta grounding em Tira-Dúvidas + Evidências + Missão Feedback + Relatórios Gestor/RH.
 
@@ -408,7 +412,9 @@ Todos com back button context-aware.
 ### P4. Colaborador responde
 **Colaborador** · link recebido → `/dashboard/pulso/{assignmentId}`
 - Tela intro com aviso de privacidade obrigatório
-- 12 perguntas Likert 1-5 (uma por vez) + 1 aberta (opcional)
+- Em assignments novos (`template_version=2.0.0`): 12 Likert 1-5 + 8 rankings de palavras + 6 escolhas forçadas de contexto de trabalho + 1 aberta opcional (**27 perguntas por momento**)
+- Assignments antigos (`1.0.0`) continuam com 12 Likert + 1 aberta; a versão é congelada no disparo, portanto um ciclo em andamento não muda de formulário
+- Ao concluir o v2, o resultado contextual é salvo no próprio assignment (`contextual_disc`); ele não altera o DISC natural nem reaparece como “perfil adaptado” no relatório comportamental
 - Progresso visual + botão voltar + salvamento automático
 - 6 dimensões: clareza, condições, liderança, segurança para aprender, aplicação prática, futuro e permanência
 - Tela final: "Obrigado. Seu pulso foi registrado com segurança."
@@ -556,7 +562,13 @@ repo; **não usar em material novo**.
 - **28/07 — três regras de produto** (`bee72f13`, mig 194, `b959f5dd`): **(1)** a missão de aplicação cobre o **bloco que acabou de fechar** (sem 4 → semanas 1-3, sem 8 → só 5-7, sem 12 → cumulativa) — antes a semana 4 cobrava competência inteira, incluindo conteúdo não entregue; 74 missões regeradas no Ibipeba. **(2)** **telemetria de degradação** (`degradacao_log` + R10 no estrutural) — os 10 fallbacks silenciosos clássicos agora registram. **(3)** **na construção, falhe alto**: missão/cenário, semana sem core e DUO→single viraram erro acionável (placeholder não embarca mais em produção). Entrega ao vivo segue degradando COM registro. Régua permanente no `CLAUDE.md`.
 - **Lotes de IA em segundo plano** (`aa9c0aad`, migrations 172/173) com progresso, botão de parar e Batch API dos dois lados (Claude + OpenAI, −50%).
 - **Sessão**: o refresh mudou para o `proxy.js` (`8f5c1d1c`) — matou o laço `/admin/dashboard` ↔ `/login`. Gate no cliente usa `getUser()`, nunca `getSession()`.
-- **Pulso**: o DISC contextual passou a ser coletado no pulso (`8f987a25`, migration 183).
+- **Pulso + perfil natural** (`8f987a25`, migration 183): o bloco/perfil adaptado saiu do
+  mapeamento e dos relatórios comportamentais. As 14 perguntas de contexto passaram ao Pulso v2
+  (8 rankings + 6 escolhas forçadas), com `template_version` imutável e resultado salvo em
+  `pulse_assignments.contextual_disc`, sem sobrescrever o DISC natural.
+- **28/07 — evolução de engajamento** (`3caa064e`): página B
+  `/admin/engajamento/evolucao` adicionada sem substituir a visão atual; usa os sinais operacionais
+  existentes e não exigiu migration.
 
 ### 2026-07-06/07 — Piloto robusto + Portal do Representante + ACME Demo
 - **Piloto — acumulada em Trigger.dev (M8)** (`ce30c46d`, `1d1279eb`, `e19acc04`, `76de153e`, `7a6ef4e7`, `83c8092a`, `f67c195c`): a avaliação acumulada do piloto saiu do `after()` da reflection (frágil, morria no freeze da Vercel e corria com o fechamento) para a task `trigger/acumulada-piloto.ts` com retry; a reflection sem 2 marca a linha como `processing` e dispara a task, e o fechamento só abre quando `done` — gate "Preparando sua avaliação…" com polling + **self-heal inline** (migration 169). Fechamento não trava mais por Cenário B faltando nem por avaliação parcial (report tolera N-1 descritores). **Deploy da task é MANUAL** (`npx trigger.dev deploy`). Validado E2E ao vivo em prod (gate + task) + **73 testes unit/integração verdes** (inclui integração B1/B2/B4/B5).
