@@ -15,6 +15,11 @@ import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { registrarEventoTrilha } from '@/actions/engajamento';
+import FirstViewVideo from '@/components/first-view-video';
+
+// Tutorial da semana de missão (Bunny) — serve às semanas 4, 8 e 12: mesma tela,
+// mesma mecânica, então a narração não cita número de semana.
+const APLICACAO_VIDEO_ID = '80f4da74-4384-419f-aab8-89ed346e7b5b';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 
@@ -245,6 +250,21 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
           {t('header.weekOf', { week: semanaNum, total: 14 })} · {isAplicacao ? t('type.practice') : isAvaliacao ? t('type.assessment') : t('type.episode')}
         </div>
         <h1 className="text-2xl font-bold text-white">{descritoresLabel}</h1>
+        {/* Semana de aplicação (4/8/12) funciona diferente das de conteúdo — não tem
+            pílula pra consumir, tem missão pra executar e relatar. O vídeo abre
+            sozinho na PRIMEIRA que a pessoa acessar e depois fica como botão: a
+            mecânica é a mesma nas três, então repetir seria ruído. */}
+        {isAplicacao && (
+          <div className="mt-3">
+            <FirstViewVideo
+              videoId={APLICACAO_VIDEO_ID}
+              title={t('missionVideo.title')}
+              label={t('missionVideo.watch')}
+              sectionKey="semana-aplicacao"
+              colabId={data.trilha.colaborador_id}
+            />
+          </div>
+        )}
       </div>
 
       {/* Vínculo com o PDI (Blueprint) — só quando a trilha é dirigida pelo blueprint. */}

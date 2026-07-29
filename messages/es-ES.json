@@ -870,6 +870,10 @@
       "placeholderDefault": "Tu respuesta... (Shift+Enter para nueva línea)",
       "doneSeason": "✓ Conversación concluida · Temporada finalizada",
       "doneNextWeek": "✓ Conversación concluida · Próxima semana se libera el {date}"
+    },
+    "missionVideo": {
+      "title": "Semana de misión",
+      "watch": "Cómo funciona esta semana"
     }
   },
   "SeasonDone": {

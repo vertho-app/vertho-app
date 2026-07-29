@@ -870,6 +870,10 @@
       "placeholderDefault": "Your answer... (Shift+Enter to new line)",
       "doneSeason": "✓ Conversation completed · Season finished",
       "doneNextWeek": "✓ Conversation completed · Next week releases {date}"
+    },
+    "missionVideo": {
+      "title": "Mission week",
+      "watch": "How this week works"
     }
   },
   "SeasonDone": {
@@ -2659,8 +2663,8 @@
       "simular": "Simulate Responses",
       "ia4": "IA4 — Evaluate + Check",
       "foco": "Focus Skills",
-    "blueprint": "Generate Blueprint",
-    "audit-blueprint": "Audit Blueprint",
+      "blueprint": "Generate Blueprint",
+      "audit-blueprint": "Audit Blueprint",
       "rel-ind": "Generate POI",
       "rel-gestor": "Manager",
       "rel-rh": "HR",
@@ -4018,11 +4022,11 @@
       "pleno": "Mid-level (no explicit bias)",
       "senior": "Senior",
       "careerHint": "In Onboarding mode, <b>junior</b> is the sensible default. Regular mode usually stays blank.",
-    "blueprintTitle": "PDI ↔ track coherence (Development Blueprint)",
-    "blueprintDesc": "When enabled, the track (Regular DUO) is generated <b>from the employee's Development Blueprint</b> — the same competencies, descriptors, and goals as the PDI. Each week now shows the PDI action it supports. Requires a generated blueprint (button \"Generate Blueprint\"). Applies only to the next track generation.",
-    "blueprintOn": "Blueprint-driven track (on)",
-    "blueprintOff": "Default track (blueprint off)",
-    "blueprintHint": "We recommend auditing the blueprint before enabling it in a pilot.",
+      "blueprintTitle": "PDI ↔ track coherence (Development Blueprint)",
+      "blueprintDesc": "When enabled, the track (Regular DUO) is generated <b>from the employee's Development Blueprint</b> — the same competencies, descriptors, and goals as the PDI. Each week now shows the PDI action it supports. Requires a generated blueprint (button \"Generate Blueprint\"). Applies only to the next track generation.",
+      "blueprintOn": "Blueprint-driven track (on)",
+      "blueprintOff": "Default track (blueprint off)",
+      "blueprintHint": "We recommend auditing the blueprint before enabling it in a pilot.",
       "pilot": "Pilot",
       "pilotDesc": "Tasting: 2 weeks, 1 competency, 4 content pieces + full closing",
       "pilotNote": "Pilot: the full diagnostic (DISC, mapping, DNA, Fit) runs unchanged. A 2-week track with 2 content pieces/week (top-4 descriptors by gap) and a closing with scenario + AI assessment. The displayed score never drops below baseline (floor lock, raw score preserved in the snapshot). Goal: run the whole flow, not demonstrate growth.",
