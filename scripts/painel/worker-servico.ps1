@@ -123,12 +123,17 @@ if ($Instalar) {
   # nunca travou nada (4 workers em 70 min, medido no log de 28/07). Com `-File`
   # não há camada de quoting entre o arquivo e o que executa.
   #
-  # -WindowStyle Hidden: sem isso uma janela de console fica aberta o dia inteiro.
-  # O log vai para arquivo, que é como se acompanha.
+  # E a tarefa chama o .ps1 através de um LANÇADOR .vbs, não direto: no Windows 11 o
+  # host de console é o Windows Terminal, e `-WindowStyle Hidden` não o esconde (esse
+  # parâmetro é do conhost clássico). Medido em 29/07: a tarefa abria uma janela do
+  # Windows Terminal que ficava aberta e VAZIA — o log vai para arquivo, então nada
+  # aparecia nela. Fechá-la matava o worker, e 5 min depois subia outro. O `.vbs`
+  # lança com SW_HIDE no CreateProcess: a janela não chega a existir.
+  $lancador = Join-Path $PSScriptRoot 'worker-oculto.vbs'
   $tarefaPs1 = Join-Path $PSScriptRoot 'worker-tarefa.ps1'
-  if (-not (Test-Path $tarefaPs1)) { throw "nao achei $tarefaPs1" }
-  $acao = New-ScheduledTaskAction -Execute 'powershell.exe' `
-    -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$tarefaPs1`""
+  foreach ($f in @($lancador, $tarefaPs1)) { if (-not (Test-Path $f)) { throw "nao achei $f" } }
+  $acao = New-ScheduledTaskAction -Execute 'wscript.exe' `
+    -Argument "//B //Nologo `"$lancador`""
 
   # DOIS gatilhos. Só o de logon não bastava: em 28/07 o worker subiu, rodou um
   # painel inteiro e morreu horas depois (código 0xC000013A — provavelmente a
