@@ -226,3 +226,35 @@ headless falha, o que acontece em TODA geração via tsx ("Font family not regis
 Efeito: a mesma pessoa via 3 formatos ou 1 dependendo de uma query ter falhado. Travado por
 `tests/unit/kit-entrega-paridade.test.ts` (validado por mutação). **Ao mexer num dos dois
 resolvedores, mexa no outro.**
+
+## Atualização 29/07/2026 — o cache não casava o prefixo, e o cargo não era filtro
+
+Vieram do alarme `kit-ausente-disc · 86×` do health-check. Duas coisas distintas atrás do
+mesmo número — e **só 47 das 86 leituras eram bug; as outras 39 são kit que não existe.**
+
+**10. A armadilha 9 tinha uma TERCEIRA divergência, e o teste de paridade não a via.**
+`resolverDesafioDoKit` normaliza o descritor desde 20/07 (`normDescritor` tira o prefixo
+`COO03_D3 — `, acentos, caixa) porque o plano da trilha às vezes grava o código e o brief tem o
+nome limpo. Mas `cacheKey` casava **string crua** — montada com o descritor do BRIEF, consultada
+com o do PLANO. Como o overlay real SEMPRE tem cache, **a tolerância vivia no caminho que quase
+nunca executa**: 29 leituras de 2 pessoas caíram no genérico com o kit publicado do DISC delas na
+prateleira. E o `kit-entrega-paridade.test.ts` passava verde porque consultava o cache com o
+descritor do brief, igual dos dois lados. O caso novo vai pelo **consumidor** (`overlayKitNaSemana`
+com o descritor do plano). ⚠️ **Teste de paridade que constrói a entrada dos dois lados do mesmo
+jeito não testa paridade nenhuma.**
+
+**11. Cargo do brief era ORDENAÇÃO, não filtro — kit de diretor ia para coordenador.**
+A preferência por cargo só ordenava os candidatos; se o brief do cargo certo não tinha o DISC da
+pessoa, o loop seguia e servia o de outro cargo, com desafio e ação observável escritos naquele
+registro. Ficou escondido enquanto o cache dava miss (tudo virava genérico) e **apareceu quando a
+normalização passou a alcançar esses briefs**: 18 das 47 leituras destravadas. Decisão do Rodrigo:
+barrar — conteúdo do cargo errado é pior que o genérico, que ao menos não afirma um contexto que
+não é o da pessoa. `cargoServe` aplica nos dois resolvedores (brief sem cargo segue curinga do
+legado; colaborador sem cargo aceita qualquer um). Como essas leituras voltam ao genérico, elas
+**não podem sumir**: o cache marca `barradoPorCargo` e o overlay registra `kit-cargo-divergente`,
+tipo separado de `kit-ausente-disc` porque a ação é gerar UMA célula, não escrever um tema.
+
+📏 **Cobertura real de ibipeba (medida 29/07, pela chave que o consumidor usa):** 37 temas, 21
+completos nos 4 DISC, **33 células (tema × DISC) vazias**. Contar por `brief × DISC` dá 55 — número
+inflado, porque o mesmo tema existe gravado nas duas grafias e a chave normalizada os une. Ao medir
+cobertura de kit, agrupe por `(cargo, competência, normDescritor(descritor))`, nunca por brief.
