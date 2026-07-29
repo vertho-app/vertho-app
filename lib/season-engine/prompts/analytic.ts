@@ -145,5 +145,12 @@ ${cenario}
 ${instrucaoTurn}`;
 
   const messages = (historico || []).map(m => ({ role: m.role, content: m.content }));
+  // Ver o comentário longo em `missao-feedback.ts`: sem ao menos uma mensagem a API
+  // devolve 400 e a rota vira 500. Vale para o turn 1, quando o histórico é vazio —
+  // aqui isso acontece quando a pessoa responde "Não" na semana de missão e cai no
+  // cenário escrito. O `socratic` já injetava; estes dois não.
+  if (turnIA === 1 && messages.length === 0) {
+    messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme as regras do TURN 1]' });
+  }
   return { system, messages };
 }

@@ -10,6 +10,7 @@ import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedbac
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { deveEncerrarSemFechamento, montarReportDegustacao } from '@/lib/season-engine/programa-custom';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import { tasks } from '@trigger.dev/sdk';
@@ -239,7 +240,13 @@ export async function POST(request) {
       .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
     if (!colab) return NextResponse.json({ error: 'colab não encontrado' }, { status: 404 });
 
-    const semanaPlan = (trilha.temporada_plano || []).find(s => s.semana === Number(semana));
+    // NORMALIZA antes de ler: esta rota manda `semanaPlan.missao.texto` e
+    // `semanaPlan.cenario.texto` para a IA. Cru, o que chega é o payload do modelo
+    // — que em 127 trilhas está truncado no meio de um JSON (29/07). A tela já
+    // normalizava (loadTemporada) e esta rota não: a pessoa lia a missão certa e a
+    // IA conduzia a conversa com um blob de JSON no lugar dela.
+    const planoNormalizado = normalizeTemporadaPlano(trilha.temporada_plano);
+    const semanaPlan = planoNormalizado.find(s => s.semana === Number(semana));
     if (!semanaPlan) return NextResponse.json({ error: 'semana fora do plano' }, { status: 400 });
     const competenciaSemana = resolveCompetenciaSemana(trilha, semanaPlan);
 

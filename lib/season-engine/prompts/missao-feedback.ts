@@ -189,5 +189,15 @@ REGRAS DE USO DO GROUNDING:
   // prefixo estável ser cacheado e lido a 0,1× nos turnos 2..N. Output-neutral.
 
   const messages = (historico || []).map(m => ({ role: m.role, content: m.content }));
+  // A API exige ao menos UMA mensagem. No turn 1 o histórico está vazio por
+  // definição — a pessoa acabou de clicar "Sim, consegui" e ainda não escreveu
+  // nada — então a chamada voltava 400 ("messages: at least one message is
+  // required") e a rota devolvia 500 "Erro na IA": a conversa da missão NUNCA
+  // começava. Medido em 29/07: 0 de 144 semanas de aplicação com transcript, contra
+  // 37 nas de conteúdo, que usam o `socratic` — o único dos três prompts que já
+  // fazia esta injeção. Mesma correção aqui e no `analytic`.
+  if (turnIA === 1 && messages.length === 0) {
+    messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme as regras do TURN 1]' });
+  }
   return { system, systemSuffix: instrucaoTurn, messages };
 }
