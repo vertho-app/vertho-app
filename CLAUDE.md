@@ -212,6 +212,13 @@ nunca **"o que está gravado aqui?"**.
   conferia só o resultado final, e um mock encadeável do supabase devolvia `count: undefined`,
   deixando dois testes de rate limit passarem sem exercitar nada. Quebre a invariante de propósito
   antes de contar o teste como prova.
+- NÃO deixar **ramo raro** sem alguém percorrer antes do usuário — e, ao chamar CLI externo, NÃO
+  assumir que o binário do seu terminal é o que vai rodar. Em 28/07 um `log()` inexistente dentro de
+  um `if` que só dispara em caso raro matou um painel de 5 min já pago, e um `codex` **0.130 vs
+  0.145** (três instalados, PATH diferente sob tarefa agendada) fez o CLI velho falhar de um jeito
+  que **parecia erro do modelo**. Receita nos dois casos: teste que exercita o caminho raro por
+  padrão + logar a versão no contexto real + capturar a saída COMPLETA (os últimos N chars cortam o
+  cabeçalho, que é onde está a causa). Detalhe: `docs/BOARD-PAINEL.md`.
 - NÃO criar fallback novo **silencioso** — fallback pode existir, nunca invisível: registre com
   `registrarDegradacao` (`lib/degradacao.ts`, nunca lança, dedup por chave com contador **por dia
   UTC** — a regra que lê olha 24h, então contador sem janela vira alarme crônico). Os 10

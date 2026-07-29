@@ -26,15 +26,51 @@ Por isso a arquitetura é fila: **a web enfileira, a máquina executa.**
                                     └────────── resultado + progresso ─────────┘
 ```
 
-**Ligar o worker** (precisa estar rodando, senão o pedido fica na fila):
+**O worker sobe sozinho** — tarefa agendada `Vertho - Board worker`, no logon e revalidada a cada
+5 min (com trava de instância única, senão cada disparo criaria um worker novo disputando a fila):
 
-```bash
-cd "C:\GAS\Vertho App\nextjs-app"
-node --env-file=.env.local scripts/painel/worker.mjs
+```powershell
+.\scripts\painel\worker-servico.ps1 -Instalar   # registra (recusa se houver painel rodando; -Forcar insiste)
+.\scripts\painel\worker-servico.ps1 -Status     # tarefa, processo e as últimas linhas do log
+.\scripts\painel\worker-servico.ps1 -Iniciar    # liga agora, sem deslogar
+.\scripts\painel\worker-servico.ps1 -Parar
 ```
 
-A tela avisa quando um pedido está parado há mais de 2 minutos — quase sempre é o worker desligado,
-não painel lento.
+Não é serviço do Windows de propósito: serviço roda sem sessão de usuário, e os quatro CLIs dependem
+das credenciais do perfil logado — subiria e falharia em toda chamada. A tela avisa quando um pedido
+está parado há mais de 2 minutos.
+
+⚠️ **Pegadinhas da tarefa agendada, todas medidas em 28/07:** `Register-ScheduledTask` **falha em
+silêncio** com `TimeSpan::MaxValue` (duração fora do intervalo) — use dias e confira no objeto;
+`Get-Content` no log **quebra** enquanto o worker escreve, então o `-Status` lê com `FileShare`; e só
+o gatilho de logon **não recupera** — o worker morreu com a suspensão da máquina (0xC000013A) e a
+fila ficou órfã até alguém notar.
+
+## 🔴 O binário que você testa não é o que roda
+
+Havia **três `codex`** nesta máquina: app desktop (0.130.0-alpha), npm global (0.130.0) e o do fnm
+(**0.145.0**). O PATH resolvia diferente conforme quem chamava — terminal pegava 0.145, **tarefa
+agendada pegava 0.130**. A 0.130 não conhece `gpt-5.6-sol`: imprime o cabeçalho, ecoa o prompt e sai
+em ~16s, o que na saída **parece "o modelo não devolveu JSON"**. Dois painéis perderam o autor B.
+
+Por isso `resolverCodex()` (`scripts/painel/engine.mjs`) escolhe **por versão medida**, com caminho
+absoluto, e o worker **anuncia a versão dos três CLIs ao subir**. Antes de culpar o modelo: compare a
+versão no contexto REAL de execução e capture a saída COMPLETA — os últimos 800 caracteres cortam
+justamente o cabeçalho onde a versão aparece.
+
+## Testes que não gastam cota
+
+```bash
+node scripts/painel/_fluxo.mjs        # rodarPainel() ponta a ponta com motores FALSOS, em ms
+node scripts/painel/_verificacao.mjs  # verificador de fontes + teto de confiança
+node scripts/painel/_leitura.mjs      # os 4 CLIs leem arquivo fora do cwd? (~30s, usa cota)
+node scripts/painel/_smoke.mjs        # os 4 respondem? (~30s, usa cota)
+```
+
+`_fluxo.mjs` existe por um bug específico: `log()` (função do worker) foi usada em `painel.mjs`
+dentro de um `if` que só dispara **quando um autor cita fonte inexistente**. Nenhum painel anterior
+passou por ali; na primeira vez que passou, morreu com as quatro propostas já pagas. **O cenário
+padrão do teste é o raro** — caminho raro tem de ser percorrido por alguém antes do usuário.
 
 ## Rodar sem a web
 
