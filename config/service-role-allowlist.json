@@ -146,6 +146,11 @@
     "lib/video/reconciliar-personalizados.ts": 1,
     "app/admin/vertho/board/page.tsx": 1,
     "app/admin/vertho/board/[id]/page.tsx": 1,
-    "app/admin/vertho/board/actions.ts": 4
+    "app/admin/vertho/board/actions.ts": 4,
+    "lib/conarh/regua.ts": 1,
+    "app/api/conarh/artefato/route.ts": 1,
+    "app/api/conarh/fila/route.ts": 1,
+    "app/api/conarh/painel/route.ts": 1,
+    "app/conarh/mapa/[id]/page.tsx": 1
   }
 }

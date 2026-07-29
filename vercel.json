@@ -31,6 +31,10 @@
     {
       "path": "/api/cron?action=reconciliar_videos",
       "schedule": "0 3 * * 6"
+    },
+    {
+      "path": "/api/cron?action=conarh-followup",
+      "schedule": "0 12 * * *"
     }
   ]
 }

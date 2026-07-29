@@ -209,3 +209,79 @@ describe('dedup', () => {
     expect(r.leadId).toBeUndefined();
   });
 });
+
+describe('CONARH 52 — qualificação e classe no servidor (mig 196)', () => {
+  const conarh = {
+    ...base,
+    campanha: 'conarh',
+    organizacao: base.instituicao, // alias do formulário da feira
+    telefone: '11987654321',       // alias de whatsapp
+    instituicao: undefined as any,
+    porta: 2 as const,
+    competencia: 'feedback entre pares',
+    sessao: { nota_instintiva: 2, divergencias: ['nota instintiva abaixo do motor'], rotas_concluidas: [1, 2] },
+  };
+
+  it('grava porta, competência, horizonte, sessão e reunião em coluna própria', async () => {
+    await capturarLeadComercial({
+      ...conarh,
+      horizonte: 'ate_3m',
+      decide_ou_recomenda: true,
+      aceitou_proximo_passo: true,
+      slot: '2026-08-19T14:00:00-03:00',
+    });
+    const l = estado.inseridos[0];
+    expect(l.scope_id).toBe('conarh-2026');
+    expect(l.porta_escolhida).toBe(2);
+    expect(l.competencia_critica).toBe('feedback entre pares');
+    expect(l.horizonte).toBe('ate_3m');
+    expect(l.reuniao_em).toBe('2026-08-19T17:00:00.000Z');
+    expect((l.sessao as any).divergencias).toHaveLength(1);
+    expect(l.telefone).toBe('+5511987654321');
+  });
+
+  it('A = decide + horizonte quente + aceitou próximo passo (e retorna no contrato novo)', async () => {
+    const r = await capturarLeadComercial({
+      ...conarh, horizonte: 'rodando', decide_ou_recomenda: true, aceitou_proximo_passo: true,
+    });
+    expect(estado.inseridos[0].classe).toBe('A');
+    expect(r.ok).toBe(true);
+    expect(r.id).toBe(estado.inseridos[0].id);
+    expect(r.classe).toBe('A');
+    // formato legado continua válido para o modal do Bett
+    expect(r.success).toBe(true);
+    expect(r.leadId).toBe(r.id);
+  });
+
+  it('C = não decide E não citou competência', async () => {
+    await capturarLeadComercial({ ...conarh, competencia: undefined, decide_ou_recomenda: false });
+    expect(estado.inseridos[0].classe).toBe('C');
+  });
+
+  it('B = aderente sem urgência (o resto)', async () => {
+    await capturarLeadComercial({ ...conarh, horizonte: 'sem_data', decide_ou_recomenda: true, aceitou_proximo_passo: false });
+    expect(estado.inseridos[0].classe).toBe('B');
+  });
+
+  it('campos conarh NÃO vazam para a campanha radarbett', async () => {
+    await capturarLeadComercial({
+      ...base, whatsapp: '11987654321', porta: 3, competencia: 'não deveria gravar',
+    } as any);
+    const l = estado.inseridos[0];
+    expect(l.scope_id).toBe('radarbett');
+    expect(l.porta_escolhida).toBeUndefined();
+    expect(l.classe).toBeUndefined();
+  });
+
+  it('horizonte fora da allowlist cai como nulo, nunca texto livre', async () => {
+    await capturarLeadComercial({ ...conarh, horizonte: 'quando-eu-quiser' as any });
+    expect(estado.inseridos[0].horizonte).toBeNull();
+  });
+
+  it('erro de validação vem nos DOIS formatos', async () => {
+    const r = await capturarLeadComercial({ ...conarh, email: 'invalido', telefone: undefined });
+    expect(r.success).toBe(false);
+    expect(r.ok).toBe(false);
+    expect(r.erro).toMatch(/inválido/i);
+  });
+});

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cleanupSessoes, triggerSegunda, triggerQuinta, triggerDiario } from '@/actions/cron-jobs';
+import { cleanupSessoes, triggerSegunda, triggerQuinta, triggerDiario, conarhFollowup } from '@/actions/cron-jobs';
 import { safeSecretEqual } from '@/lib/secure-compare';
 
 /**
@@ -135,6 +135,12 @@ export async function GET(req) {
         };
         break;
       }
+
+      // CONARH 52 — régua T+1→T+5 dos leads da feira (F8). Best-effort por
+      // lead dentro do núcleo; exceção global vira 500 observável no log.
+      case 'conarh-followup':
+        result = await conarhFollowup();
+        break;
 
       // Legados (disparo manual): seg = pílula única; qui = evidência. O cron
       // agora usa trigger_diario, que cobre os 2 e respeita a cadência configurada.

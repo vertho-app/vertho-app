@@ -33,7 +33,13 @@ type EventoTipo =
   | 'bett_public_cta'
   | 'bett_schedule_click'
   | 'bett_wpp_click'
-  | 'bett_sticky_click';
+  | 'bett_sticky_click'
+  // CONARH 52 — telemetria da demo de feira (F7 do sprint consolidado)
+  | 'conarh_rota_iniciada'
+  | 'conarh_rota_concluida'
+  | 'conarh_porta_toque'
+  | 'conarh_captura'
+  | 'conarh_reuniao_marcada';
 
 function hashIp(ip: string): string {
   return crypto.createHash('sha256').update(ip).digest('hex').slice(0, 16);

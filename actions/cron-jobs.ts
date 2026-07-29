@@ -485,6 +485,18 @@ export async function triggerDiario() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// CONARH FOLLOW-UP: régua T+1 → T+5 dos leads da feira (F8 do sprint).
+// Núcleo em lib/conarh/regua.ts (headless, sem gate) — aqui só o gate e a
+// delegação, mesmo padrão do evolution-report. Diário ~12:00 UTC.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function conarhFollowup() {
+  await requireAdminOrCronAction();
+  const { executarReguaConarh } = await import('@/lib/conarh/regua');
+  return executarReguaConarh();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Helper: Publicar no QStash (reutilizado de whatsapp-lote.js)
 // ═══════════════════════════════════════════════════════════════════════════════
 

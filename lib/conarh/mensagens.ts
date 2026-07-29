@@ -1,0 +1,67 @@
+/**
+ * CONARH 52 — textos das mensagens da captura e da régua (T+0 → T+5).
+ *
+ * Regra do sprint (F8): nenhum "passando pra saber se viu meu e-mail" — todo
+ * toque entrega evidência, ferramenta ou decisão. As mensagens citam a PORTA
+ * e a COMPETÊNCIA com as palavras do visitante, porque é isso que separa o
+ * follow-up humano da automação genérica.
+ *
+ * Envs: nenhuma direta.
+ */
+import { formatarDataHoraBRT, mapaEvolucaoUrl, perguntasRevisao, primeiroNome, rotuloPorta } from './conteudo';
+
+export type LeadConarhMsg = {
+  id: string;
+  nome: string | null;
+  organizacao: string | null;
+  porta_escolhida: number | null;
+  competencia_critica: string | null;
+  reuniao_em?: string | null;
+};
+
+/** T+0 — entrega do artefato (Mapa da Evolução), citando porta e competência. */
+export function mensagemT0(lead: LeadConarhMsg): string {
+  const nome = primeiroNome(lead.nome);
+  const porta = rotuloPorta(lead.porta_escolhida);
+  const linhas = [
+    `Oi${nome ? `, ${nome}` : ''}! Aqui é da Vertho — a gente se falou no estande do CONARH.`,
+    '',
+  ];
+  if (porta && lead.competencia_critica) {
+    linhas.push(
+      `Você apontou a ${porta} e citou "${lead.competencia_critica}" como a competência crítica aí${lead.organizacao ? ` na ${lead.organizacao}` : ''}.`,
+      '',
+    );
+  }
+  linhas.push(
+    'Separamos o seu Mapa da Evolução: 1 página com o problema que você descreveu, o ciclo completo das 5 portas e 3 perguntas para revisar o processo atual. Dá para encaminhar direto para quem decide:',
+    mapaEvolucaoUrl(lead.id),
+  );
+  if (lead.reuniao_em) {
+    linhas.push(
+      '',
+      `E está confirmado: nossa conversa de 20 minutos ficou para ${formatarDataHoraBRT(lead.reuniao_em)}.`,
+    );
+  }
+  linhas.push('', 'Qualquer coisa, é só responder por aqui.');
+  return linhas.join('\n');
+}
+
+/**
+ * T+1 — recorte aplicado à competência crítica, ZERO pedido (F8).
+ * Entrega uma ferramenta (as 3 perguntas de revisão), não uma cobrança.
+ */
+export function mensagemT1(lead: LeadConarhMsg): string {
+  const nome = primeiroNome(lead.nome);
+  const perguntas = perguntasRevisao();
+  const linhas = [
+    `Oi${nome ? `, ${nome}` : ''}! Vertho aqui, do estande no CONARH.`,
+    '',
+    lead.competencia_critica
+      ? `Ficamos pensando no que você disse sobre "${lead.competencia_critica}". As 3 perguntas do Mapa da Evolução foram feitas exatamente para destravar isso no dia a dia:`
+      : 'As 3 perguntas do Mapa da Evolução foram feitas para revisar o processo de desenvolvimento no dia a dia:',
+  ];
+  for (const p of perguntas.slice(0, 3)) linhas.push(`• ${p}`);
+  linhas.push('', `Seu mapa continua aqui: ${mapaEvolucaoUrl(lead.id)}`);
+  return linhas.join('\n');
+}

@@ -4,6 +4,9 @@ import crypto from 'crypto';
 import { headers } from 'next/headers';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { registrarEvento } from '@/lib/radar/eventos';
+import { APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
+import { sendWhatsapp } from '@/lib/whatsapp';
+import { rotuloPorta } from '@/lib/conarh/conteudo';
 
 /**
  * Captura de lead comercial do Radar Bett SEM escopo de escola/município
@@ -19,6 +22,17 @@ import { registrarEvento } from '@/lib/radar/eventos';
  *
  * NÃO dispara worker de PDF — sem escopo concreto, não há proposta
  * individual a gerar. A equipe Vertho recebe via dashboard funnel-bett.
+ *
+ * ── CONARH 52 ────────────────────────────────────────────────────────────
+ * Campanha 'conarh' (scope_id 'conarh-2026'): além dos campos base, grava a
+ * qualificação da feira (porta, competência, horizonte, sessão da demo,
+ * reunião) nas colunas da mig 196, classifica A/B/C NO SERVIDOR e dispara o
+ * worker assíncrono /api/conarh/artefato (T+0: WhatsApp + e-mail com o Mapa
+ * da Evolução). Lead classe A gera alerta WhatsApp best-effort ao fechador.
+ *
+ * Envs novas:
+ *   - CONARH_ALERT_WHATSAPP — número (E.164) do fechador que recebe o alerta
+ *     de lead A e os resumos da régua. Ausente → alerta pulado, captura intacta.
  */
 
 /**
@@ -50,6 +64,13 @@ const CAMPANHA_PADRAO = 'radarbett';
  * errada, e não gravar texto arbitrário no scope_id.
  */
 
+export type ConarhSessaoInput = {
+  nota_instintiva?: number;
+  reavaliacao?: Array<{ descritor: string; nota: number }>;
+  divergencias?: string[];
+  rotas_concluidas?: number[];
+};
+
 export type CapturarLeadComercialInput = {
   // Dados pessoais — email OU whatsapp; pelo menos um
   nome: string;
@@ -70,9 +91,161 @@ export type CapturarLeadComercialInput = {
   scope_label_original?: string;
   // LGPD
   consentimento_lgpd: boolean;
+
+  // ── CONARH 52 (campanha 'conarh') — todos opcionais e ignorados nas demais
+  // campanhas: a classe é calculada NO SERVIDOR, nunca aceita do cliente.
+  /** Alias de `whatsapp` no formulário da feira. */
+  telefone?: string;
+  /** Alias de `instituicao` no formulário da feira. */
+  organizacao?: string;
+  porta?: 1 | 2 | 3 | 4 | 5;
+  competencia?: string;
+  horizonte?: 'rodando' | 'ate_3m' | '3_a_6m' | 'sem_data';
+  decide_ou_recomenda?: boolean;
+  aceitou_proximo_passo?: boolean;
+  /** ISO datetime da reunião marcada no estande. */
+  slot?: string;
+  sessao?: ConarhSessaoInput;
+};
+
+/**
+ * Retorno em DOIS formatos, por compatibilidade:
+ *  - legado radarbett: `success` / `leadId` / `error` (modal do Bett só olha `error`);
+ *  - contrato CONARH: `ok: true, id, classe` ou `ok: false, erro`.
+ */
+export type CapturarLeadComercialResult = {
+  success: boolean;
+  leadId?: string;
+  error?: string;
+  ok: boolean;
+  id?: string;
+  classe?: 'A' | 'B' | 'C';
+  erro?: string;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Horizontes válidos da feira — allowlist, o valor vem do cliente. */
+const HORIZONTES_CONARH = new Set(['rodando', 'ate_3m', '3_a_6m', 'sem_data']);
+
+/** Falha nos DOIS formatos de retorno (legado + contrato CONARH). */
+function falha(error: string): CapturarLeadComercialResult {
+  return { success: false, error, ok: false, erro: error };
+}
+
+/**
+ * Classe A/B/C calculada NO SERVIDOR (F4 do sprint). O front pode sugerir,
+ * mas o funil não pode depender de flag vinda do navegador:
+ *   A — decide ou recomenda + horizonte quente (rodando | até 3m) + aceitou próximo passo
+ *   C — não decide/recomenda E não citou competência (nada a ancorar o follow-up)
+ *   B — todo o resto
+ */
+function classificarLeadConarh(input: CapturarLeadComercialInput, competencia: string | null, horizonte: string | null): 'A' | 'B' | 'C' {
+  const decide = !!input.decide_ou_recomenda;
+  if (decide && (horizonte === 'rodando' || horizonte === 'ate_3m') && !!input.aceitou_proximo_passo) return 'A';
+  if (!decide && !competencia) return 'C';
+  return 'B';
+}
+
+/** Sessão da demo: aceita só as chaves conhecidas, com teto de tamanho. */
+function sanitizarSessaoConarh(s?: ConarhSessaoInput): Record<string, unknown> | null {
+  if (!s || typeof s !== 'object') return null;
+  const out: Record<string, unknown> = {};
+  if (typeof s.nota_instintiva === 'number' && s.nota_instintiva >= 1 && s.nota_instintiva <= 4) {
+    out.nota_instintiva = s.nota_instintiva;
+  }
+  if (Array.isArray(s.reavaliacao)) {
+    out.reavaliacao = s.reavaliacao
+      .slice(0, 20)
+      .map((r) => ({ descritor: String(r?.descritor || '').slice(0, 200), nota: Number(r?.nota) || 0 }))
+      .filter((r) => r.descritor);
+  }
+  if (Array.isArray(s.divergencias)) {
+    out.divergencias = s.divergencias.slice(0, 20).map((d) => String(d).slice(0, 300));
+  }
+  if (Array.isArray(s.rotas_concluidas)) {
+    out.rotas_concluidas = s.rotas_concluidas.map(Number).filter((n) => n >= 1 && n <= 5);
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * Alerta de lead A ao fechador (F4: "< 30 s"). Best-effort de verdade: NUNCA
+ * awaited no caminho da captura e engole qualquer falha — o lead não pode
+ * deixar de ser registrado porque o WhatsApp interno não saiu.
+ */
+async function alertarFechadorConarh(opts: {
+  nome: string;
+  organizacao: string | null;
+  telefone: string | null;
+  porta: number | null;
+  competencia: string | null;
+  reuniaoEm: string | null;
+}): Promise<void> {
+  try {
+    const destino = process.env.CONARH_ALERT_WHATSAPP;
+    if (!destino) {
+      console.warn('[lead-comercial] classe A sem CONARH_ALERT_WHATSAPP — alerta pulado');
+      return;
+    }
+    const porta = rotuloPorta(opts.porta);
+    const linhas = [
+      '🔥 Lead A no estande (CONARH)',
+      '',
+      `${opts.nome}${opts.organizacao ? ` — ${opts.organizacao}` : ''}`,
+      porta ? `Porta: ${porta}` : null,
+      opts.competencia ? `Competência: "${opts.competencia}"` : null,
+      opts.telefone ? `WhatsApp: ${opts.telefone}` : null,
+      opts.reuniaoEm ? `Reunião marcada: ${opts.reuniaoEm}` : null,
+    ].filter(Boolean);
+    const r = await sendWhatsapp({ kind: 'text', phone: destino, text: linhas.join('\n') });
+    if (!r.ok) console.error('[lead-comercial] alerta classe A falhou:', r.reason);
+  } catch (err) {
+    console.error('[lead-comercial] alerta classe A exception:', err);
+  }
+}
+
+/**
+ * Dispara o worker /api/conarh/artefato (T+0: WhatsApp + e-mail com o Mapa da
+ * Evolução). Mesmo padrão do dispararPdfWorker (app/radar/actions.ts):
+ *   1. QStash (assíncrono, com retry) — quando QSTASH_TOKEN configurado;
+ *   2. fetch interno com INTERNAL_DISPATCH_SECRET — fallback, fire-and-forget.
+ * Best-effort: erros são logados, nunca interrompem a captura.
+ */
+async function dispararArtefatoConarh(leadId: string): Promise<void> {
+  const webhookUrl = `${APP_WEBHOOK_URL}/api/conarh/artefato`;
+
+  if (process.env.QSTASH_TOKEN) {
+    try {
+      const r = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ leadId }),
+      });
+      if (r.ok) return;
+      console.error('[lead-comercial] qstash artefato retornou', r.status);
+    } catch (err) {
+      console.error('[lead-comercial] qstash artefato dispatch failed', err);
+    }
+  }
+
+  if (!process.env.INTERNAL_DISPATCH_SECRET) {
+    console.warn('[lead-comercial] sem QStash e sem INTERNAL_DISPATCH_SECRET — artefato T+0 ficará pendente');
+    return;
+  }
+  // Sem await: o envio não bloqueia a resposta da captura no estande.
+  fetch(webhookUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-internal-dispatch': process.env.INTERNAL_DISPATCH_SECRET,
+    },
+    body: JSON.stringify({ leadId }),
+  }).catch((err) => console.error('[lead-comercial] internal dispatch artefato failed', err));
+}
 
 /**
  * Teto por IP, igual para todo mundo.
@@ -172,31 +345,34 @@ async function checkRateLimit(
 
 export async function capturarLeadComercial(
   input: CapturarLeadComercialInput,
-): Promise<{ success: boolean; leadId?: string; error?: string }> {
+): Promise<CapturarLeadComercialResult> {
   // Validações básicas
   if (!input?.nome?.trim() || input.nome.trim().length < 2) {
-    return { success: false, error: 'Nome obrigatório.' };
+    return falha('Nome obrigatório.');
   }
   // Contato: e-mail OU WhatsApp. Exigir e-mail era o que rejeitava todo lead de
   // feira, onde o que se coleta é o número.
   const emailBruto = (input?.email || '').trim().toLowerCase();
   const emailNorm = emailBruto && EMAIL_RE.test(emailBruto) && emailBruto.length <= 200 ? emailBruto : null;
-  const telefoneNorm = normalizarTelefone(input?.whatsapp);
+  // `telefone` é o alias do formulário CONARH; `whatsapp` é o campo original.
+  const telefoneNorm = normalizarTelefone(input?.whatsapp || input?.telefone);
 
   if (emailBruto && !emailNorm) {
-    return { success: false, error: 'E-mail inválido.' };
+    return falha('E-mail inválido.');
   }
   if (!emailNorm && !telefoneNorm) {
-    return { success: false, error: 'Informe e-mail ou WhatsApp para retornarmos o contato.' };
+    return falha('Informe e-mail ou WhatsApp para retornarmos o contato.');
   }
   if (!input?.cargo?.trim()) {
-    return { success: false, error: 'Cargo obrigatório.' };
+    return falha('Cargo obrigatório.');
   }
-  if (!input?.instituicao?.trim()) {
-    return { success: false, error: 'Instituição obrigatória.' };
+  // `organizacao` é o alias do formulário CONARH; `instituicao` é o original.
+  const instituicao = (input?.instituicao || input?.organizacao || '').trim();
+  if (!instituicao) {
+    return falha('Instituição obrigatória.');
   }
   if (!input.consentimento_lgpd) {
-    return { success: false, error: 'Consentimento LGPD obrigatório.' };
+    return falha('Consentimento LGPD obrigatório.');
   }
 
   const sb = createSupabaseAdmin();
@@ -206,7 +382,7 @@ export async function capturarLeadComercial(
   const scopeId = CAMPANHAS[pedida] || CAMPANHAS[CAMPANHA_PADRAO];
 
   const rl = await checkRateLimit(ipHash, { email: emailNorm, telefone: telefoneNorm });
-  if (!rl.ok) return { success: false, error: rl.reason || 'Limite de pedidos atingido.' };
+  if (!rl.ok) return falha(rl.reason || 'Limite de pedidos atingido.');
 
   // Dedup idempotente na última hora, por QUALQUER uma das identidades — quem
   // deixou o WhatsApp duas vezes não vira dois leads.
@@ -229,7 +405,7 @@ export async function capturarLeadComercial(
     // Sucesso SEM o id: o lead achado pode ser de outra pessoa (basta enviar o
     // e-mail dela), e devolver o identificador dela num formulário público é
     // vazamento. Nenhum chamador usa o leadId — o modal só olha `error`.
-    return { success: true };
+    return { success: true, ok: true };
   }
 
   // Consolida dados extras em organizacao. WhatsApp e origem NÃO entram mais
@@ -242,7 +418,26 @@ export async function capturarLeadComercial(
     input.qtd_escolas && `Escolas: ${input.qtd_escolas}`,
     input.scope_label_original && `Busca anterior: ${input.scope_label_original}`,
   ].filter(Boolean).join(' · ');
-  const organizacao = [input.instituicao.trim(), orgComplemento].filter(Boolean).join(' — ');
+  const organizacao = [instituicao, orgComplemento].filter(Boolean).join(' — ');
+
+  // ── CONARH 52: qualificação da feira (mig 196). Só se aplica à campanha
+  // conarh — lead de outra campanha não pode gravar classe/porta por acidente.
+  const ehConarh = scopeId === 'conarh-2026';
+  let classe: 'A' | 'B' | 'C' | null = null;
+  let porta: number | null = null;
+  let competenciaCritica: string | null = null;
+  let horizonte: string | null = null;
+  let reuniaoEm: string | null = null;
+  let sessao: Record<string, unknown> | null = null;
+  if (ehConarh) {
+    porta = input.porta && input.porta >= 1 && input.porta <= 5 ? Math.trunc(input.porta) : null;
+    competenciaCritica = (input.competencia || '').trim().slice(0, 300) || null;
+    horizonte = input.horizonte && HORIZONTES_CONARH.has(input.horizonte) ? input.horizonte : null;
+    const slotMs = Date.parse(input.slot || '');
+    reuniaoEm = Number.isFinite(slotMs) ? new Date(slotMs).toISOString() : null;
+    sessao = sanitizarSessaoConarh(input.sessao);
+    classe = classificarLeadConarh(input, competenciaCritica, horizonte);
+  }
 
   const { data: lead, error } = await sb
     .from('diag_leads')
@@ -255,19 +450,29 @@ export async function capturarLeadComercial(
       organizacao: organizacao.slice(0, 1000),
       scope_type: 'comercial',
       scope_id: scopeId,
-      scope_label: input.instituicao.trim().slice(0, 200),
+      scope_label: instituicao.slice(0, 200),
       consentimento_lgpd: true,
       consentimento_em: new Date().toISOString(),
       pdf_status: 'nao_aplicavel',
       user_agent: userAgent,
       referer,
       ip_hash: ipHash,
+      ...(ehConarh
+        ? {
+            porta_escolhida: porta,
+            competencia_critica: competenciaCritica,
+            horizonte,
+            classe,
+            reuniao_em: reuniaoEm,
+            sessao,
+          }
+        : {}),
     })
     .select('id')
     .single();
 
   if (error || !lead) {
-    return { success: false, error: error?.message || 'Falha ao salvar lead.' };
+    return falha(error?.message || 'Falha ao salvar lead.');
   }
 
   // Tracking — best effort
@@ -277,5 +482,36 @@ export async function capturarLeadComercial(
     extra: { leadId: lead.id, comercial: true, origem: input.origem, sem_email: !emailNorm },
   }).catch(() => {});
 
-  return { success: true, leadId: lead.id };
+  if (ehConarh) {
+    registrarEvento('conarh_captura', {
+      scopeType: 'municipio',
+      scopeId,
+      extra: { leadId: lead.id, classe, porta, horizonte, com_reuniao: !!reuniaoEm },
+    }).catch(() => {});
+    if (reuniaoEm) {
+      registrarEvento('conarh_reuniao_marcada', {
+        scopeType: 'municipio',
+        scopeId,
+        extra: { leadId: lead.id, reuniao_em: reuniaoEm },
+      }).catch(() => {});
+    }
+
+    // Lead A acorda o fechador na hora (F4: alerta < 30 s). SEM await: a
+    // captura nunca espera nem falha por causa do alerta.
+    if (classe === 'A') {
+      alertarFechadorConarh({
+        nome: input.nome.trim(),
+        organizacao: instituicao || null,
+        telefone: telefoneNorm,
+        porta,
+        competencia: competenciaCritica,
+        reuniaoEm,
+      }).catch(() => {});
+    }
+
+    // T+0 assíncrono: WhatsApp + e-mail com o Mapa da Evolução (F5).
+    await dispararArtefatoConarh(lead.id);
+  }
+
+  return { success: true, leadId: lead.id, ok: true, id: lead.id, ...(classe ? { classe } : {}) };
 }

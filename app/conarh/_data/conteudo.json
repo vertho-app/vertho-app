@@ -1,0 +1,437 @@
+{
+  "versao": "1.0-caso-feedback",
+  "rotulo": "caso demonstrativo",
+  "caso": {
+    "id": "feedback-renata-diego",
+    "tema": "feedback",
+    "titulo": "O recado foi dado — e nada mudou",
+    "personagem": {
+      "nome": "Renata Falcão",
+      "cargo": "Gerente de Operações",
+      "contexto": "Oito anos de operação, promovida a gerente há dois. Responde por um centro de distribuição que atende os clientes mais exigentes da rede, com quatro coordenadores subordinados. Técnica respeitada, direta, sem paciência para rodeio — e, pela primeira vez na carreira, com um time para desenvolver, não só uma operação para entregar."
+    }
+  },
+  "portas": [
+    { "numero": 1, "nome": "Definir o que desenvolver", "sub": "matriz e descritores observáveis" },
+    { "numero": 2, "nome": "Avaliar com consistência", "sub": "critério explícito vs. achismo" },
+    { "numero": 3, "nome": "Transformar diagnóstico em PDI", "sub": "lacuna → objetivo → missão → evidência" },
+    { "numero": 4, "nome": "Personalizar o desenvolvimento", "sub": "ponto de partida · formato · estilo" },
+    { "numero": 5, "nome": "Demonstrar o que evoluiu", "sub": "painel do gestor" }
+  ],
+  "porta1": {
+    "competencia": "Feedback e Desenvolvimento de Pessoas",
+    "introducao": "Feedback não é uma coisa só. \"Dar feedback\" junta pelo menos seis comportamentos diferentes — e dá para ser bom em quase todos e ruim justamente no que faz o feedback desenvolver. A matriz abaixo separa esses comportamentos em descritores observáveis, cada um com régua de N1 a N4. Sem isso, \"precisa melhorar o feedback\" é uma frase que não desenvolve ninguém.",
+    "descritores": [
+      {
+        "cod": "FBK-D01",
+        "nome_curto": "Clareza sobre o fato",
+        "descritor_completo": "Capacidade de ancorar o feedback em comportamento observável — o que a pessoa fez ou deixou de fazer, em qual situação, com qual impacto — em vez de generalizações, impressões ou nomes de eventos.",
+        "n1": "Dá feedback vago ou genérico: \"precisa melhorar\", \"ficou aquém\", sem situação, momento ou comportamento identificável.",
+        "n2": "Nomeia o evento (\"teve problema na expedição\"), mas não desce ao comportamento observável da pessoa — quem decidiu o quê, em que momento, com que alternativa.",
+        "n3": "Ancora o feedback em comportamento específico: situação, ação da pessoa e impacto concreto, sem rodeio.",
+        "n4": "Além de ancorar no comportamento, distingue fato de interpretação na hora e usa a evidência para o outro enxergar sozinho o que aconteceu.",
+        "leitura_motor": {
+          "nota": 2.3,
+          "nivel": 2,
+          "evidencia": "\"a expedição de sexta tinha tido falha grave, que saiu carga sem conferência dupla\"",
+          "justificativa": "Renata nomeia o evento e o procedimento violado — é mais do que o feedback genérico de N1. Mas não desce ao comportamento observável do Diego: em nenhum momento ela diz que ele decidiu liberar os caminhões sem conferente, que essa decisão foi dele e que havia alternativa (segurar a carga, escalar para ela). Evento nomeado não é comportamento evidenciado.",
+          "limite": "Faltou transformar o evento em comportamento: \"às 17h40 você decidiu liberar os dois caminhões sabendo que não havia conferente — essa decisão, não a correria, é o ponto\"."
+        }
+      },
+      {
+        "cod": "FBK-D02",
+        "nome_curto": "Foco em comportamento, não na pessoa",
+        "descritor_completo": "Capacidade de tratar do que a pessoa fez — não de quem ela é. Corrige atos sem rotular caráter, e não usa elogio de identidade como amortecedor da crítica.",
+        "n1": "Corrige a pessoa, não o ato: \"você é desorganizado\", \"você não tem perfil\". O feedback vira julgamento de identidade.",
+        "n2": "Tenta focar no comportamento, mas escorrega em rótulos ou embala a crítica em elogio à pessoa (\"você é ótimo, mas...\"), diluindo o ponto.",
+        "n3": "Sustenta a conversa inteira no plano do comportamento: o que foi feito, o impacto, o que muda — sem rótulo e sem sanduíche de elogio.",
+        "n4": "Foca no comportamento com tal consistência que o outro separa sozinho o erro da própria identidade — e sai da conversa com autoestima intacta e ponto claro.",
+        "leitura_motor": {
+          "nota": 2.6,
+          "nivel": 3,
+          "evidencia": "\"ele é um dos melhores técnicos que eu tenho, que sabe a operação como ninguém\"",
+          "justificativa": "A maior parte da conversa trata de ato e procedimento, não de caráter — mérito real. Mas o elogio ao traço (\"melhor técnico\", \"sabe como ninguém\") funciona como amortecedor: a crítica chega embalada em identidade, e a mensagem que fica é \"você é ótimo, deu um deslize\" — não \"essa decisão específica não pode se repetir\".",
+          "limite": "Faltou sustentar o fecho no plano do comportamento: terminar no que muda na rotina dele, não em quem ele é."
+        }
+      },
+      {
+        "cod": "FBK-D03",
+        "nome_curto": "Escuta e verificação de entendimento",
+        "descritor_completo": "Capacidade de abrir espaço genuíno para a versão do outro, explorar o que emerge e verificar o que ele leva da conversa — porque concordar em voz alta não é entender.",
+        "n1": "Fala o tempo inteiro; a conversa é monólogo com plateia. Não pergunta, não ouve, não verifica nada.",
+        "n2": "Deixa o outro falar, mas não explora o que ele diz e confunde \"estamos de acordo?\" com verificação de entendimento.",
+        "n3": "Faz perguntas abertas sobre a decisão do outro, explora o que emerge e verifica a saída: \"o que você leva dessa conversa?\"",
+        "n4": "Usa a escuta como instrumento diagnóstico: da fala do outro extrai a causa-raiz (capacidade, clareza, motivação) e ajusta o feedback ao que descobriu.",
+        "leitura_motor": {
+          "nota": 1.9,
+          "nivel": 2,
+          "evidencia": "\"Perguntei se ele estava de acordo. Ele disse que sim.\" / \"Ele ouviu, ficou visivelmente abalado.\"",
+          "justificativa": "Diego teve duas falas em quinze minutos — e nenhuma foi explorada. A informação mais valiosa da conversa (\"achou que dava conta no olho\") passou sem uma pergunta sequer: era ali que estava o padrão de decisão a corrigir. Renata deixou ele falar, mas não escutou. E \"está de acordo?\" mede concordância sob pressão, não entendimento.",
+          "limite": "Faltou uma pergunta aberta sobre a decisão dele (\"me conta o que passou na sua cabeça às 17h40\") e uma verificação de saída (\"o que você leva dessa conversa?\")."
+        }
+      },
+      {
+        "cod": "FBK-D04",
+        "nome_curto": "Definição de próximo passo observável",
+        "descritor_completo": "Capacidade de fechar o feedback com um combinado verificável: ação concreta, forma de medir e data de revisão — em vez de intenção, advertência ou \"vou ficar de olho\".",
+        "n1": "A conversa termina no ar: sem ação, sem dono, sem prazo. O feedback vira desabafo com agenda.",
+        "n2": "Fecha com intenção (\"vamos redobrar a atenção\") ou com promessa de observação do gestor — nada que os dois consigam verificar depois.",
+        "n3": "Fecha com combinado observável: o que a pessoa faz, como os dois vão ver, e o dia em que revisam juntos.",
+        "n4": "O combinado é construído com a pessoa, ligado à competência em desenvolvimento, e a revisão acontece na data marcada — virando ciclo, não evento.",
+        "leitura_motor": {
+          "nota": 1.8,
+          "nivel": 2,
+          "evidencia": "\"vamos redobrar a atenção nessa conferência a partir de hoje\" / \"vou observar nas próximas semanas\"",
+          "justificativa": "Este é o ponto onde gestores experientes mais divergem da leitura — porque \"houve fechamento\". Mas \"redobrar a atenção\" não é observável: não diz o que Diego faz de diferente na próxima sexta com dois conferentes a menos, não tem medida, não tem data de revisão. E \"vou observar\" é intenção da gestora, não combinado. Intenção de acompanhar não é próximo passo.",
+          "limite": "Faltou um combinado no formato ação + medida + data: ex. \"checklist de liberação conferido e assinado por caminhão, sem exceção — se faltar conferente, a carga não sai e você me escala; revisamos juntos sexta às 16h\"."
+        }
+      },
+      {
+        "cod": "FBK-D05",
+        "nome_curto": "Coragem e oportunidade",
+        "descritor_completo": "Capacidade de ter a conversa na hora certa, sem adiar, sem terceirizar e sem eufemismo — sustentando a clareza do primeiro ao último minuto.",
+        "n1": "Adia, terceiriza para o RH ou desvia do ponto central. A conversa importante nunca acontece — ou acontece tarde demais.",
+        "n2": "Tem a conversa, mas ameniza tanto para proteger a relação que o outro sai sem saber que foi corrigido.",
+        "n3": "Conversa no tempo certo, com clareza sobre a gravidade, sem rodeio — e sustenta o tom até o fim.",
+        "n4": "Além da coragem no ponto, cria segurança para o outro discordar e trazer a própria versão — a conversa difícil vira conversa verdadeira.",
+        "leitura_motor": {
+          "nota": 3.4,
+          "nivel": 3,
+          "evidencia": "\"Chamei o Diego na minha sala segunda de manhã, antes da reunião de turno. Fui direta: falei que a expedição de sexta tinha tido falha grave\"",
+          "justificativa": "Conversa no primeiro dia útil, antes da reunião de turno, sem adiar, sem mandar o RH no lugar, sem eufemismo sobre a gravidade (\"falha grave\", \"não pode acontecer\"). É N3 com folga. Não chega a N4 porque a coragem não se sustentou: o fecho (\"conto com você\", \"potencial pra crescer\") suavizou a exigência justamente no momento em que ela precisava virar combinado.",
+          "limite": "Faltou sustentar a mesma clareza do início até o último minuto — o fecho morno desfez parte da força da abertura."
+        }
+      },
+      {
+        "cod": "FBK-D06",
+        "nome_curto": "Conexão com desenvolvimento",
+        "descritor_completo": "Capacidade de ligar a correção do erro passado à competência que a pessoa precisa construir — o feedback corrige o episódio e desenvolve o futuro.",
+        "n1": "O feedback é só cobrança do passado: apaga o incêndio e nada fica construído.",
+        "n2": "Menciona futuro de forma genérica (\"você tem potencial\"), sem conectar o erro à competência em jogo.",
+        "n3": "Nomeia a competência que o episódio revela e o que muda na rotina para construí-la.",
+        "n4": "Transforma o episódio em marco de desenvolvimento: a pessoa sai sabendo qual competência está construindo, por quê e como a evolução será reconhecida.",
+        "leitura_motor": {
+          "nota": 2.2,
+          "nivel": 2,
+          "evidencia": "\"ele tem potencial pra crescer aqui dentro\"",
+          "justificativa": "Há menção a futuro, mas genérica e desconectada do ponto corrigido — \"potencial pra crescer\" não diz o que Diego precisa desenvolver para crescer. A conversa foi 100% corretiva sobre o passado: em nenhuma linha o erro vira a competência que ele precisa construir como coordenador (decidir sob pressão sem abandonar procedimento).",
+          "limite": "Faltou nomear a competência em jogo e ligar o combinado a ela: \"o que está em jogo aqui é decidir sob pressão sem largar o procedimento — é isso que separa coordenador de gerente\"."
+        }
+      }
+    ]
+  },
+  "porta2": {
+    "contexto": "Renata Falcão, gerente de operações, e Diego Sampaio, coordenador de expedição promovido há oito meses — técnico forte, primeira vez liderando gente. Na sexta-feira anterior, dois caminhões saíram sem a conferência dupla que o procedimento exige; um cliente estratégico recebeu carga trocada e abriu reclamação formal. A pedido do RH, Renata registrou por escrito a conversa que teve com Diego na segunda-feira seguinte.",
+    "registro_conversa": "Chamei o Diego na minha sala segunda de manhã, antes da reunião de turno. Fui direta: falei que a expedição de sexta tinha tido falha grave, que saiu carga sem conferência dupla e que o cliente abriu reclamação formal. Disse que isso não pode acontecer num time que ele coordena.\n\nEle ouviu, ficou visivelmente abalado. Disse que a sexta foi um caos, que dois conferentes faltaram e que ele mesmo foi para a linha ajudar a carregar. Que achou que dava conta no olho. Eu disse que entendo a correria, mas que procedimento existe justamente para dia de caos, não para dia tranquilo.\n\nFalei que ele é um dos melhores técnicos que eu tenho, que sabe a operação como ninguém, e que por isso mesmo não dá para operar no improviso. Que a coordenação dele custa caro quando falha.\n\nPerguntei se ele estava de acordo. Ele disse que sim, que sabe que pisou na bola. Eu falei: então vamos redobrar a atenção nessa conferência a partir de hoje. Ele assentiu. Fechei dizendo que conto com ele, que ele tem potencial pra crescer aqui dentro, e que não quero mais esse tipo de surpresa.\n\nA conversa durou uns quinze minutos. Ele saiu meio quieto, mas acho que o recado foi dado. O RH me perguntou se ficou algum combinado de acompanhamento — falei que vou observar nas próximas semanas.",
+    "descritores": [
+      {
+        "cod": "FBK-D01",
+        "nome_curto": "Clareza sobre o fato",
+        "descritor_completo": "Capacidade de ancorar o feedback em comportamento observável — o que a pessoa fez ou deixou de fazer, em qual situação, com qual impacto — em vez de generalizações, impressões ou nomes de eventos.",
+        "n1": "Dá feedback vago ou genérico: \"precisa melhorar\", \"ficou aquém\", sem situação, momento ou comportamento identificável.",
+        "n2": "Nomeia o evento (\"teve problema na expedição\"), mas não desce ao comportamento observável da pessoa — quem decidiu o quê, em que momento, com que alternativa.",
+        "n3": "Ancora o feedback em comportamento específico: situação, ação da pessoa e impacto concreto, sem rodeio.",
+        "n4": "Além de ancorar no comportamento, distingue fato de interpretação na hora e usa a evidência para o outro enxergar sozinho o que aconteceu.",
+        "leitura_motor": {
+          "nota": 2.3,
+          "nivel": 2,
+          "evidencia": "\"a expedição de sexta tinha tido falha grave, que saiu carga sem conferência dupla\"",
+          "justificativa": "Renata nomeia o evento e o procedimento violado — é mais do que o feedback genérico de N1. Mas não desce ao comportamento observável do Diego: em nenhum momento ela diz que ele decidiu liberar os caminhões sem conferente, que essa decisão foi dele e que havia alternativa (segurar a carga, escalar para ela). Evento nomeado não é comportamento evidenciado.",
+          "limite": "Faltou transformar o evento em comportamento: \"às 17h40 você decidiu liberar os dois caminhões sabendo que não havia conferente — essa decisão, não a correria, é o ponto\"."
+        }
+      },
+      {
+        "cod": "FBK-D02",
+        "nome_curto": "Foco em comportamento, não na pessoa",
+        "descritor_completo": "Capacidade de tratar do que a pessoa fez — não de quem ela é. Corrige atos sem rotular caráter, e não usa elogio de identidade como amortecedor da crítica.",
+        "n1": "Corrige a pessoa, não o ato: \"você é desorganizado\", \"você não tem perfil\". O feedback vira julgamento de identidade.",
+        "n2": "Tenta focar no comportamento, mas escorrega em rótulos ou embala a crítica em elogio à pessoa (\"você é ótimo, mas...\"), diluindo o ponto.",
+        "n3": "Sustenta a conversa inteira no plano do comportamento: o que foi feito, o impacto, o que muda — sem rótulo e sem sanduíche de elogio.",
+        "n4": "Foca no comportamento com tal consistência que o outro separa sozinho o erro da própria identidade — e sai da conversa com autoestima intacta e ponto claro.",
+        "leitura_motor": {
+          "nota": 2.6,
+          "nivel": 3,
+          "evidencia": "\"ele é um dos melhores técnicos que eu tenho, que sabe a operação como ninguém\"",
+          "justificativa": "A maior parte da conversa trata de ato e procedimento, não de caráter — mérito real. Mas o elogio ao traço (\"melhor técnico\", \"sabe como ninguém\") funciona como amortecedor: a crítica chega embalada em identidade, e a mensagem que fica é \"você é ótimo, deu um deslize\" — não \"essa decisão específica não pode se repetir\".",
+          "limite": "Faltou sustentar o fecho no plano do comportamento: terminar no que muda na rotina dele, não em quem ele é."
+        }
+      },
+      {
+        "cod": "FBK-D03",
+        "nome_curto": "Escuta e verificação de entendimento",
+        "descritor_completo": "Capacidade de abrir espaço genuíno para a versão do outro, explorar o que emerge e verificar o que ele leva da conversa — porque concordar em voz alta não é entender.",
+        "n1": "Fala o tempo inteiro; a conversa é monólogo com plateia. Não pergunta, não ouve, não verifica nada.",
+        "n2": "Deixa o outro falar, mas não explora o que ele diz e confunde \"estamos de acordo?\" com verificação de entendimento.",
+        "n3": "Faz perguntas abertas sobre a decisão do outro, explora o que emerge e verifica a saída: \"o que você leva dessa conversa?\"",
+        "n4": "Usa a escuta como instrumento diagnóstico: da fala do outro extrai a causa-raiz (capacidade, clareza, motivação) e ajusta o feedback ao que descobriu.",
+        "leitura_motor": {
+          "nota": 1.9,
+          "nivel": 2,
+          "evidencia": "\"Perguntei se ele estava de acordo. Ele disse que sim.\" / \"Ele ouviu, ficou visivelmente abalado.\"",
+          "justificativa": "Diego teve duas falas em quinze minutos — e nenhuma foi explorada. A informação mais valiosa da conversa (\"achou que dava conta no olho\") passou sem uma pergunta sequer: era ali que estava o padrão de decisão a corrigir. Renata deixou ele falar, mas não escutou. E \"está de acordo?\" mede concordância sob pressão, não entendimento.",
+          "limite": "Faltou uma pergunta aberta sobre a decisão dele (\"me conta o que passou na sua cabeça às 17h40\") e uma verificação de saída (\"o que você leva dessa conversa?\")."
+        }
+      },
+      {
+        "cod": "FBK-D04",
+        "nome_curto": "Definição de próximo passo observável",
+        "descritor_completo": "Capacidade de fechar o feedback com um combinado verificável: ação concreta, forma de medir e data de revisão — em vez de intenção, advertência ou \"vou ficar de olho\".",
+        "n1": "A conversa termina no ar: sem ação, sem dono, sem prazo. O feedback vira desabafo com agenda.",
+        "n2": "Fecha com intenção (\"vamos redobrar a atenção\") ou com promessa de observação do gestor — nada que os dois consigam verificar depois.",
+        "n3": "Fecha com combinado observável: o que a pessoa faz, como os dois vão ver, e o dia em que revisam juntos.",
+        "n4": "O combinado é construído com a pessoa, ligado à competência em desenvolvimento, e a revisão acontece na data marcada — virando ciclo, não evento.",
+        "leitura_motor": {
+          "nota": 1.8,
+          "nivel": 2,
+          "evidencia": "\"vamos redobrar a atenção nessa conferência a partir de hoje\" / \"vou observar nas próximas semanas\"",
+          "justificativa": "Este é o ponto onde gestores experientes mais divergem da leitura — porque \"houve fechamento\". Mas \"redobrar a atenção\" não é observável: não diz o que Diego faz de diferente na próxima sexta com dois conferentes a menos, não tem medida, não tem data de revisão. E \"vou observar\" é intenção da gestora, não combinado. Intenção de acompanhar não é próximo passo.",
+          "limite": "Faltou um combinado no formato ação + medida + data: ex. \"checklist de liberação conferido e assinado por caminhão, sem exceção — se faltar conferente, a carga não sai e você me escala; revisamos juntos sexta às 16h\"."
+        }
+      },
+      {
+        "cod": "FBK-D05",
+        "nome_curto": "Coragem e oportunidade",
+        "descritor_completo": "Capacidade de ter a conversa na hora certa, sem adiar, sem terceirizar e sem eufemismo — sustentando a clareza do primeiro ao último minuto.",
+        "n1": "Adia, terceiriza para o RH ou desvia do ponto central. A conversa importante nunca acontece — ou acontece tarde demais.",
+        "n2": "Tem a conversa, mas ameniza tanto para proteger a relação que o outro sai sem saber que foi corrigido.",
+        "n3": "Conversa no tempo certo, com clareza sobre a gravidade, sem rodeio — e sustenta o tom até o fim.",
+        "n4": "Além da coragem no ponto, cria segurança para o outro discordar e trazer a própria versão — a conversa difícil vira conversa verdadeira.",
+        "leitura_motor": {
+          "nota": 3.4,
+          "nivel": 3,
+          "evidencia": "\"Chamei o Diego na minha sala segunda de manhã, antes da reunião de turno. Fui direta: falei que a expedição de sexta tinha tido falha grave\"",
+          "justificativa": "Conversa no primeiro dia útil, antes da reunião de turno, sem adiar, sem mandar o RH no lugar, sem eufemismo sobre a gravidade (\"falha grave\", \"não pode acontecer\"). É N3 com folga. Não chega a N4 porque a coragem não se sustentou: o fecho (\"conto com você\", \"potencial pra crescer\") suavizou a exigência justamente no momento em que ela precisava virar combinado.",
+          "limite": "Faltou sustentar a mesma clareza do início até o último minuto — o fecho morno desfez parte da força da abertura."
+        }
+      },
+      {
+        "cod": "FBK-D06",
+        "nome_curto": "Conexão com desenvolvimento",
+        "descritor_completo": "Capacidade de ligar a correção do erro passado à competência que a pessoa precisa construir — o feedback corrige o episódio e desenvolve o futuro.",
+        "n1": "O feedback é só cobrança do passado: apaga o incêndio e nada fica construído.",
+        "n2": "Menciona futuro de forma genérica (\"você tem potencial\"), sem conectar o erro à competência em jogo.",
+        "n3": "Nomeia a competência que o episódio revela e o que muda na rotina para construí-la.",
+        "n4": "Transforma o episódio em marco de desenvolvimento: a pessoa sai sabendo qual competência está construindo, por quê e como a evolução será reconhecida.",
+        "leitura_motor": {
+          "nota": 2.2,
+          "nivel": 2,
+          "evidencia": "\"ele tem potencial pra crescer aqui dentro\"",
+          "justificativa": "Há menção a futuro, mas genérica e desconectada do ponto corrigido — \"potencial pra crescer\" não diz o que Diego precisa desenvolver para crescer. A conversa foi 100% corretiva sobre o passado: em nenhuma linha o erro vira a competência que ele precisa construir como coordenador (decidir sob pressão sem abandonar procedimento).",
+          "limite": "Faltou nomear a competência em jogo e ligar o combinado a ela: \"o que está em jogo aqui é decidir sob pressão sem largar o procedimento — é isso que separa coordenador de gerente\"."
+        }
+      }
+    ]
+  },
+  "porta3": {
+    "personagem": "Renata Falcão",
+    "lacuna": "FBK-D04 · Definição de próximo passo observável — 1,8 (N2): os feedbacks da Renata terminam em intenção (\"vamos redobrar a atenção\", \"vou observar\"), não em combinado que os dois consigam verificar. É o descritor mais baixo dela — e o que explica por que o recado \"foi dado\" e nada mudou.",
+    "objetivo": "Em 30 dias, toda conversa de feedback da Renata termina com um combinado no formato ação + medida + data de revisão — dito por ela, registrado por escrito e revisado na data marcada.",
+    "missao": "Na conversa de acompanhamento com o Diego desta semana, fechar com UM combinado no padrão: o que ele faz de diferente na liberação de carga, como os dois vão ver, e o dia em que revisam juntos. Registrar o combinado por escrito e enviar a ele no mesmo dia.",
+    "evidencia_esperada": "Até sexta: mensagem enviada ao Diego com o combinado — ex.: \"checklist de liberação conferido e assinado por caminhão, sem exceção; faltou conferente, a carga não sai e você me escala; revisamos juntos sexta às 16h\".",
+    "ritual": "Sexta-feira, 15 minutos antes de fechar a semana: revisar as conversas de feedback da semana, marcar quais terminaram com combinado verificável — e reabrir, na hora, as que não terminaram.",
+    "checklist": [
+      "Todo feedback desta semana terminou com ação + medida + data de revisão?",
+      "Cada combinado foi registrado por escrito e enviado no mesmo dia?",
+      "A revisão do combinado anterior aconteceu na data marcada?"
+    ]
+  },
+  "porta4": {
+    "semana": 3,
+    "comum": {
+      "competencia": "Feedback e Desenvolvimento de Pessoas",
+      "descritor": "Definição de próximo passo observável",
+      "ideia_central": "Feedback sem próximo passo observável é desabafo com agenda: o que desenvolve é o combinado — ação, medida e data de revisão."
+    },
+    "pessoas": [
+      {
+        "nome": "Marcos Vilela",
+        "cargo": "Gerente de Operações",
+        "perfil_disc": "D",
+        "exemplo": "No seu 1:1 com o coordenador que atrasou o fechamento: em vez de \"preciso que isso melhore\", feche com \"a partir de amanhã o fechamento sai às 18h; travou, você me chama às 16h — e sexta a gente olha a semana inteira em 15 minutos\".",
+        "linguagem": "Direta, curta, orientada a resultado. Frases de comando, sem rodeio: \"O ponto é este: intenção não muda número. Combinado muda.\"",
+        "desafio": "Hoje ainda: pegue o último feedback que você deu e que morreu no ar e transforme em combinado escrito — ação, medida, data — em no máximo 5 linhas. Envie para a pessoa em até 2 horas.",
+        "formato": "vídeo"
+      },
+      {
+        "nome": "Sandra Peixoto",
+        "cargo": "Gerente de Operações",
+        "perfil_disc": "S",
+        "exemplo": "Na conversa com o analista que errou o relatório: depois de ouvir a versão dele com calma, construa o combinado junto — \"o que você acha de a gente combinar assim: o relatório sai com a aba de checagem preenchida até quinta, e sexta a gente conversa 10 minutos sobre o que apareceu?\"",
+        "linguagem": "Cuidadosa, passo a passo, com roteiro de apoio: \"Você não precisa virar outra pessoa. Precisa de uma frase de fechamento que proteja a clareza sem abrir mão do cuidado — e essa frase a gente escreve junto antes.\"",
+        "desafio": "Use o roteiro de 3 passos (ouvir a versão → combinar junto → registrar por escrito) na próxima conversa de correção da semana e anote a frase exata de fechamento que você usou.",
+        "formato": "texto"
+      }
+    ]
+  },
+  "porta5": {
+    "ciclo": "Ciclo 1 · 12 semanas",
+    "pessoas": [
+      {
+        "nome": "Renata Falcão",
+        "cargo": "Gerente de Operações",
+        "descritores": [
+          { "nome": "Definição de próximo passo observável", "antes": 1.8, "depois": 2.9, "status": "evolucao_confirmada" },
+          { "nome": "Clareza sobre o fato", "antes": 2.3, "depois": 2.6, "status": "evolucao_parcial" },
+          { "nome": "Conexão com desenvolvimento", "antes": 2.2, "depois": 2.3, "status": "estagnacao" }
+        ]
+      },
+      {
+        "nome": "Diego Sampaio",
+        "cargo": "Coordenador de Expedição",
+        "descritores": [
+          { "nome": "Aderência a procedimento sob pressão", "antes": 2.1, "depois": 3.0, "status": "evolucao_confirmada" },
+          { "nome": "Decisão com informação incompleta", "antes": 1.9, "depois": 2.8, "status": "evolucao_confirmada" },
+          { "nome": "Comunicação de risco ao gestor", "antes": 1.7, "depois": 2.0, "status": "evolucao_parcial" }
+        ]
+      },
+      {
+        "nome": "Bruna Costa",
+        "cargo": "Representante Comercial",
+        "descritores": [
+          { "nome": "Adaptação ao interlocutor", "antes": 1.4, "depois": 2.2, "status": "evolucao_confirmada" },
+          { "nome": "Condução de reuniões", "antes": 1.85, "depois": 2.4, "status": "evolucao_parcial" },
+          { "nome": "Demonstração e prova", "antes": 1.0, "depois": 1.9, "status": "evolucao_parcial" }
+        ]
+      },
+      {
+        "nome": "Paulo Ribeiro",
+        "cargo": "Representante Comercial",
+        "descritores": [
+          { "nome": "Criação de senso de urgência", "antes": 1.5, "depois": 2.5, "status": "evolucao_confirmada" },
+          { "nome": "Tratamento de objeções", "antes": 1.75, "depois": 2.0, "status": "evolucao_parcial" },
+          { "nome": "Saber a hora de recuar", "antes": 1.83, "depois": 1.9, "status": "estagnacao" }
+        ]
+      },
+      {
+        "nome": "Mariana Lopes",
+        "cargo": "Analista Financeiro",
+        "descritores": [
+          { "nome": "Execução com método e acompanhamento", "antes": 2.5, "depois": 3.1, "status": "evolucao_confirmada" },
+          { "nome": "Comunicação com stakeholders", "antes": 2.0, "depois": 2.7, "status": "evolucao_confirmada" },
+          { "nome": "Critério de priorização", "antes": 2.0, "depois": 2.1, "status": "estagnacao" }
+        ]
+      }
+    ]
+  },
+  "personas": [
+    {
+      "id": "bruna",
+      "nome": "Bruna Costa",
+      "cargo": "Representante Comercial",
+      "perfil_disc": "CS",
+      "descritor_foco": "Demonstração e prova",
+      "kit": {
+        "pilula1": { "tipo": "video", "src": "/conarh/media/pilula-video-demonstracao-prova.mp4", "titulo": "Mostrar, não contar: a prova que fecha a venda", "duracao": "1:37" },
+        "pilula2": { "tipo": "audio", "src": "/conarh/media/pilula-audio-bruna-metodo.mp3", "titulo": "O método por trás de uma boa demonstração", "duracao": "1:04" },
+        "missao": {
+          "titulo": "Troque uma característica por uma prova",
+          "texto": "Na sua próxima proposta, escolha UMA característica que você costuma descrever e substitua por uma prova: caso de um cliente parecido, dado de resultado ou comparativo. Anote a reação do cliente na hora — perguntou mais? Pediu detalhe? Ficou indiferente?",
+          "evidencia": "Resumo da proposta com a prova usada destacada + 2 linhas sobre a reação do cliente, registrados no mesmo dia."
+        },
+        "pdf": { "src": "/conarh/media/perfil-fator-c.pdf", "titulo": "Seu perfil CS: como a precisão joga a seu favor (e quando trava)" }
+      }
+    },
+    {
+      "id": "paulo",
+      "nome": "Paulo Ribeiro",
+      "cargo": "Representante Comercial",
+      "perfil_disc": "ID",
+      "descritor_foco": "Criação de senso de urgência",
+      "kit": {
+        "pilula1": { "tipo": "video", "src": "/conarh/media/pilula-video-urgencia.mp4", "titulo": "Urgência de verdade não é pressão — é custo de esperar", "duracao": "1:34" },
+        "pilula2": { "tipo": "audio", "src": "/conarh/media/pilula-audio-paulo-abertura.mp3", "titulo": "Abrir bem a conversa para não empurrar no fim", "duracao": "0:52" },
+        "missao": {
+          "titulo": "Uma pergunta de custo por proposta",
+          "texto": "Na próxima negociação, antes de falar de prazo ou desconto, faça UMA pergunta que torne o custo de esperar visível para o cliente: \"o que acontece com esse número se isso ficar para o próximo trimestre?\". Use a resposta dele — não a sua pressa — como argumento de urgência.",
+          "evidencia": "A pergunta usada e a resposta do cliente, registradas em 3 linhas no CRM ou no caderno, no mesmo dia."
+        },
+        "pdf": { "src": "/conarh/media/perfil-fator-i.pdf", "titulo": "Seu perfil ID: energia que engaja — e o ponto cego do fechamento" }
+      }
+    },
+    {
+      "id": "carla",
+      "nome": "Carla",
+      "cargo": "Diretor Geral",
+      "perfil_disc": "D",
+      "descritor_foco": "Desenvolvimento da liderança direta",
+      "kit": {
+        "pilula1": { "tipo": "video", "src": "/conarh/media/pilula-video-carla-lideranca.mp4", "titulo": "O feedback que faz um diretor crescer (não só entregar)", "duracao": "4:47" },
+        "pilula2": { "tipo": "audio", "src": "/conarh/media/pilula-audio-carla-pilares.mp3", "titulo": "Os quatro pilares de quem desenvolve gente", "duracao": "0:48" },
+        "missao": {
+          "titulo": "Um feedback de desenvolvimento por diretor",
+          "texto": "Esta semana, escolha um dos seus diretores e dê UM feedback que não seja sobre o resultado do mês: sobre o comportamento que o faria crescer. Feche com um combinado observável — o que ele faz, como vocês vão ver, quando revisam.",
+          "evidencia": "O combinado registrado por escrito (ação + medida + data de revisão) e enviado ao diretor no mesmo dia."
+        },
+        "pdf": { "src": "/conarh/media/perfil-fator-d.pdf", "titulo": "Seu perfil D: a força da decisão — e o que ela atropela" }
+      }
+    },
+    {
+      "id": "ana",
+      "nome": "Ana",
+      "cargo": "Representante Comercial",
+      "perfil_disc": "I",
+      "descritor_foco": "Escuta e aprofundamento do diagnóstico",
+      "kit": {
+        "pilula1": { "tipo": "texto", "src": null, "titulo": "Para refletir: o cliente compra a conversa ou a solução?", "duracao": "3 min de leitura" },
+        "pilula2": { "tipo": "audio", "src": "/conarh/media/pilula-audio-ana-crescer.mp3", "titulo": "O que é crescer de verdade numa conversa de venda", "duracao": "0:19" },
+        "missao": {
+          "titulo": "Três porquês antes da proposta",
+          "texto": "Na próxima conversa com cliente, segure o impulso de apresentar e faça TRÊS perguntas de aprofundamento seguidas sobre a dor que ele mencionou — antes de falar de solução. Anote a terceira resposta: é ela que sustenta a proposta.",
+          "evidencia": "As três perguntas feitas e a terceira resposta do cliente, registradas em até 5 linhas no mesmo dia."
+        },
+        "pdf": { "src": "/conarh/media/perfil-combinacao-disc.pdf", "titulo": "Como seu perfil combina com o do cliente — e onde isso engana" }
+      }
+    },
+    {
+      "id": "mariana",
+      "nome": "Mariana Lopes",
+      "cargo": "Analista Financeiro",
+      "perfil_disc": "C",
+      "descritor_foco": "Comunicação com stakeholders",
+      "kit": {
+        "pilula1": { "tipo": "video", "src": "/conarh/media/pilula-video-mariana-jornada.mp4", "titulo": "Do número certo à decisão tomada: comunicar para não-financeiros", "duracao": "1:39" },
+        "pilula2": { "tipo": "texto", "src": null, "titulo": "Roteiro: explique um indicador em 3 frases — contexto, número, decisão", "duracao": "3 min de leitura" },
+        "missao": {
+          "titulo": "Um número, três frases",
+          "texto": "No próximo relatório ou reunião com a diretoria, escolha UM indicador e apresente em três frases: o contexto (por que olhar isso agora), o número (o que mudou) e a decisão (o que você recomenda). Peça a um colega de outra área que repita o que entendeu.",
+          "evidencia": "As três frases escritas + 1 linha com o que o colega repetiu (acertou o essencial?)."
+        },
+        "pdf": { "src": "/conarh/media/perfil-disc-geral.pdf", "titulo": "DISC na prática: ler o interlocutor antes de apresentar o número" }
+      }
+    }
+  ],
+  "casos_reserva": [
+    {
+      "id": "delegacao-marina",
+      "tema": "delegacao",
+      "resumo": "Delegação — Gerente de projetos que \"delega\" mas retoma tudo na primeira dúvida: a equipe aprendeu a não decidir. A matriz separa delegar tarefa de delegar decisão, e a leitura do motor mostra onde a conversa morreu: nenhum critério de autonomia foi combinado — só tarefa e prazo."
+    },
+    {
+      "id": "conversa-dificil-helena",
+      "tema": "conversa-dificil",
+      "resumo": "Conversa difícil — Líder técnica precisa dizer a um veterano da casa que ele não será promovido desta vez. O registro mostra três adiamentos e uma conversa que virou aviso genérico de \"resultados do semestre\". A leitura separa clareza (alta) de coragem no ponto central (baixa): tudo foi dito, menos o que importava."
+    }
+  ],
+  "mapa_evolucao": {
+    "perguntas_revisao": [
+      "O seu último treinamento de liderança mudou o quê, em qual descritor, medido onde? Se a resposta é \"a avaliação de reação foi 4,7\", você mediu aplauso — não evolução.",
+      "Dois gestores avaliam hoje a mesma conversa de feedback: um dá nota 2, outro dá 4. Qual dos dois está certo — e o que na sua empresa decide isso, além da opinião de cada um?",
+      "Do PDI que você aprovou no ano passado, quantas missões viraram evidência observável — e quem viu essa evidência, além do RH?"
+    ],
+    "ciclo_resumo": [
+      "Porta 1 — Se \"feedback\" não tem descritor observável, cada gestor desenvolve uma coisa diferente chamando pelo mesmo nome.",
+      "Porta 2 — Sem régua explícita, a avaliação do gestor é opinião com autoridade: o mesmo registro vira nota 2 num gestor e nota 4 no outro.",
+      "Porta 3 — Diagnóstico que não vira missão da semana com evidência esperada vira PDF: bonito, arquivado, inócuo.",
+      "Porta 4 — O mesmo conteúdo para todo mundo não desenvolve ninguém: a ideia é uma só, mas o exemplo, a linguagem, o desafio e o formato mudam por perfil.",
+      "Porta 5 — Se o gestor não vê antes/depois por descritor, desenvolvimento vira ato de fé — e é o primeiro orçamento cortado."
+    ]
+  },
+  "agenda": {
+    "dias": [
+      { "data": "2026-08-18", "rotulo": "Ter 18/08", "slots": ["10:00", "11:00", "14:00", "15:00", "16:00"] },
+      { "data": "2026-08-19", "rotulo": "Qua 19/08", "slots": ["10:00", "11:00", "14:00", "15:00", "16:00"] },
+      { "data": "2026-08-20", "rotulo": "Qui 20/08", "slots": ["10:00", "11:00", "14:00", "15:00", "16:00"] },
+      { "data": "2026-08-25", "rotulo": "Pós-feira · call 20 min", "slots": ["10:00", "11:00", "14:00", "15:00"] }
+    ]
+  }
+}
