@@ -311,7 +311,9 @@
 - **Trigger**: Colaborador envia mensagem em tela de chat Fase 3 (POST `/api/chat`).
 - **Multi-turn**: Sim — mantém histórico em `mensagens_chat`. Máx 10 turnos ou confiança >= 80 com ≥2 evidências.
 - **Grounding RAG**: Não.
-- **System prompt** (~3500 chars, resumo):
+- ⚠️ **NUNCA EXECUTADO em produção** (medido 31/07): `sessoes_avaliacao` e `mensagens_chat` com **0 registros**. A tela existe (`/dashboard/assessment/chat`) e a rota está ligada, mas o fluxo 3.1→3.2→3.3 nunca rodou ponta a ponta. Antes de otimizar custo/modelo aqui, **rode uma vez** — e veja F-P4 do FMEA para o que caminho nunca percorrido costuma esconder.
+- ⚠️ **Sem `taskKey` até 31/07** → o custo caía em `untagged` (que sozinho é 78% do ledger). Agora etiquetado como `conversa_fase3`.
+- **System prompt** (~6-7k chars com a régua embutida — acima do limiar de 4000, portanto **cacheado**; encolher abaixo disso desliga o `cache_control` automático). Resumo:
   ```text
   ## PAPEL
   Voce e a Mentor IA, ENTREVISTADORA comportamental da Vertho.
@@ -333,12 +335,19 @@
   6. NUNCA mencione diagnostico, PDI, DISC ou dados internos
   7. NUNCA invente cenarios
   8. NUNCA assuma comportamentos nao mencionados
+  9. NUNCA deixe virar mentoria, coaching ou aconselhamento
 
-  ## 4 DIMENSOES (SEM ordem fixa): SITUACAO, ACAO, RACIOCINIO, AUTOSSENSIBILIDADE
+  ## 5 DIMENSOES (SEM ordem fixa):
+  SITUACAO, ACAO, RACIOCINIO, CONSEQUENCIA, AUTOPERCEPÇÃO
+
+  ## FORCA DA EVIDENCIA (classificacao pedida no prompt)
+  FRACA = intencao vaga, generico, sem 1a pessoa, sem contexto
+  MODERADA = acao descrita, sem detalhe de contexto ou resultado
+  FORTE = acao concreta + contexto + resultado
 
   ## COMO APROFUNDAR
-  Precisa de ≥2 evidencias EXPLICITAS para encerrar.
-  - Evidencia explicita = acao concreta que ELE fez/faria (1a pessoa)
+  NAO encerre com <2 evidencias FORTES, evidencias em ≤2 dimensoes,
+  sem autopercepção, so "eu faria" sem exemplo real, ou confianca <70%.
 
   ## CONTEXTO
   COMPETENCIA: {comp.nome}
@@ -353,13 +362,30 @@
 
   ## BLOCO [META] — OBRIGATORIO EM TODA RESPOSTA (invisivel ao colab)
   [META]
-  {proximo_passo, razao, dimensao_explorada, dimensoes_cobertas, evidencias_coletadas:[{trecho,indicador,tipo}], confianca, aprofundamentos_feitos}
+  {
+    "proximo_passo": "aprofundar|contraexemplo|encerrar",
+    "razao": "...",
+    "dimensao_explorada": "situacao|acao|raciocinio|consequencia|autopercepção",
+    "dimensoes_cobertas": ["situacao", "acao"],
+    "evidencias_coletadas": [
+      { "trecho": "...", "tipo": "<uma das 5 dimensoes>",
+        "forca": "fraca|moderada|forte", "indicador": "aspecto da regua" }
+    ],
+    "lacunas_abertas": ["..."],
+    "risco_de_encerramento_prematuro": true,
+    "confianca": 0-100,
+    "aprofundamentos_feitos": n
+  }
   [/META]
+  A mensagem visivel vem ANTES do bloco.
   ```
 - **Inputs no user prompt (via messages array)**:
   - Histórico completo da conversa (role+content) + mensagem atual do colab
 - **Output esperado**: Mensagem visível + bloco `[META]` JSON.
 - **Consumido por**: `mensagens_chat` (com meta em metadata). Se encerrar → chama 3.2 (eval).
+- 🔑 **Como `decidirFase` (`route.ts:441`) realmente consome o META** — encerra só com **todas** estas condições: `evidencias >= 2` **E** `forca='forte' >= 2` **E** `dimensoes_cobertas >= 3` incluindo autopercepção **E** `confianca >= 80` **E** `risco_de_encerramento_prematuro !== true`; ou teto de 10 turnos. Ou seja, `forca`, `lacunas_abertas` e `risco_de_encerramento_prematuro` **não são decorativos** — sem eles o gate não fecha. Aceita `autossensibilidade` como sinônimo legado de `autopercepção` (`:450`), mas o prompt pede `autopercepção`.
+- ⚠️ **`evidencias_coletadas` é CUMULATIVA**, não incremental: a IA vê o histórico inteiro e reemite a lista completa a cada turno, e a rota **substitui** (`:236`) em vez de concatenar — concatenar duplicaria. Quem for extrair o META numa chamada separada precisa reproduzir essa semântica: o input pode ser só "estado + última mensagem", mas o **output continua tendo que ser a lista inteira**.
+- 📌 **Divergência corrigida em 31/07:** este verbete dizia "4 DIMENSOES ... AUTOSSENSIBILIDADE" e um `evidencias_coletadas:[{trecho,indicador,tipo}]` sem `forca`, sem `lacunas_abertas` e sem `risco_de_encerramento_prematuro`. Uma proposta de redesenho foi escrita a partir deste texto e teria perdido a dimensão CONSEQUENCIA e os três campos que fecham o gate de encerramento. Ao mexer no 3.1, **leia `buildSystemPrompt` e `decidirFase`**, não só este resumo.
 
 ### 3.2 Avaliador IA4 do Chat (evalPrompt)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`

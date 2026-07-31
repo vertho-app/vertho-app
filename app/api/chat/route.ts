@@ -200,7 +200,17 @@ export async function POST(req) {
 
     let rawResponse;
     try {
-      rawResponse = await callAIChat(systemPrompt, messages, { model: modeloAvaliador }, 1024);
+      // taskKey: sem ele a chamada entra no ledger como 'untagged' — e o
+      // 'untagged' concentrava 78% do custo de IA (3306 chamadas / $97,88 em
+      // 31/07), o que torna impossível saber quanto ESTE fluxo custa. Como a
+      // conversa é multi-turn (até 10 chamadas por sessão, histórico crescente),
+      // é justamente o tipo de chamada que precisa aparecer separada antes de
+      // qualquer discussão sobre trocar de modelo ou dividir em duas.
+      rawResponse = await callAIChat(systemPrompt, messages, { model: modeloAvaliador }, 1024, {
+        taskKey: 'conversa_fase3',
+        empresaId: sessao.empresa_id ?? null,
+        colaboradorId: sessao.colaborador_id ?? null,
+      });
     } catch (llmError) {
       // Fallback: salvar erro mas não derrubar sessão
       await sb.from('mensagens_chat').insert({
@@ -585,7 +595,13 @@ REGRAS DO JSON:
 
   let rascunho: any = null;
   try {
-    const evalResponse = await callAI(evalPrompt, '', { model: modeloAvaliador }, 8192);
+    // Etiquetado junto com a conversa: o custo do fluxo 3.1→3.2→3.3 só faz
+    // sentido somado. Este é 1 chamada por SESSÃO (contra até 10 da conversa) —
+    // separar as três no ledger é o que permite ver onde o dinheiro está antes
+    // de decidir trocar modelo em qualquer uma delas.
+    const evalResponse = await callAI(evalPrompt, '', { model: modeloAvaliador }, 8192, {
+      taskKey: 'chat_fase3_eval', empresaId: empresaId ?? null,
+    });
     rascunho = await extractBlock(evalResponse, 'EVAL');
   } catch (err: any) {
     console.error('[encerrarSessao] Avaliação falhou:', err.message);
@@ -745,7 +761,9 @@ REGRAS:
 
   let audit: any = null;
   try {
-    const auditResponse = await callAI(auditPrompt, '', { model: modeloValidador }, 8192);
+    const auditResponse = await callAI(auditPrompt, '', { model: modeloValidador }, 8192, {
+      taskKey: 'chat_fase3_audit', empresaId: empresaId ?? null,
+    });
     audit = await extractBlock(auditResponse, 'AUDIT');
   } catch (err: any) {
     console.error('[encerrarSessao] Auditoria falhou:', err.message);
