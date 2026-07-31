@@ -593,6 +593,28 @@ briefs duplicados por tupla.
   denominador variável derruba 3). ⚠️ Comportamento muda: runs parciais que o admin via como 100
   agora aparecem como ≤50 + PARCIAL — é a correção, não regressão.
 
+### F-P3 · Missão truncada chegava CRUA na tela (JSON no lugar do texto) ✅ (fechado 29/07)
+- **Gatilho:** `parseMissaoResponse` faz `JSON.parse` do payload inteiro e devolve `null` quando a
+  geração cortou no meio (maxTokens — mesma raiz do F-P1). `normalizeMissao` é fail-safe
+  (`if (!parsed) return missao`) e repassa o texto cru; a week page renderiza com `<ReactMarkdown>`
+  → a pessoa abre a semana de aplicação e vê um **bloco de código JSON** no lugar da missão.
+- **Alcance medido (29/07):** **127 missões**, sendo **108 no ibipeba** (piloto REAL) — 34 das 37
+  trilhas na semana 4 e 37/37 nas semanas 8 e 12. acme-demo, projetomacae e teste-piloto idem.
+- **A assimetria que causou:** o CENÁRIO já tinha `salvageCenarioStructured` para exatamente isso; a
+  MISSÃO não tinha. A recuperação foi escrita para um dos gêmeos e não replicada — a mesma classe do
+  §3.4 (match de kit), no mesmo dia.
+- **Correção:** `salvageMissaoStructured` espelha a cadeia do cenário (parse estrito → salvamento do
+  truncado → parse frouxo) e reusa os helpers loose; `integracao_descritores` precisa de extrator
+  próprio por ser array de OBJETOS, e o último par costuma ser o cortado. `missaoToMarkdown` deixou
+  de emitir o cabeçalho "Descritores a integrar" com lista vazia.
+- **Por que não precisou de migration:** a normalização roda na **leitura** (`loadTemporada`), então
+  as 127 se corrigiram sem tocar no banco. `scripts/_verif-missao-normalizada.ts` roda o normalizador
+  real sobre as trilhas e conta o que ainda chegaria cru: **127 antes, 0 depois**.
+- ⚠️ **Resíduo da mesma família, corrigido junto:** `/api/temporada/reflection` lia
+  `trilha.temporada_plano` **cru** para montar o prompt, enquanto a tela normalizava — a pessoa lia a
+  missão certa e a IA recebia o blob de JSON. Ao ler o plano fora do `loadTemporada`, passe por
+  `normalizeTemporadaPlano`.
+
 ### F-P4 · Conversa da semana de missão nunca começava — `messages: []` no turn 1 ✅ (fechado 29/07)
 - **Gatilho:** a API da Anthropic recusa `messages: []` com **400 "at least one message is required"**
   e `/api/temporada/reflection` converte em **500 "Erro na IA"**. No turn 1 o histórico é vazio **por

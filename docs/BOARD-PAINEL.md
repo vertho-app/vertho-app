@@ -46,6 +46,32 @@ silêncio** com `TimeSpan::MaxValue` (duração fora do intervalo) — use dias 
 o gatilho de logon **não recupera** — o worker morreu com a suspensão da máquina (0xC000013A) e a
 fila ficou órfã até alguém notar.
 
+### 🔴 Duas causas diferentes para o mesmo sintoma (29/07) — e por que a ordem importa
+
+O sintoma era um só: **"abre uma janela do PowerShell sozinha, vazia"**. Havia dois defeitos, e o
+primeiro consertado NÃO era o que o usuário via.
+
+1. **A trava de instância única nunca travou.** O comando da tarefa era montado como string e passado
+   em `powershell.exe -Command "..."`; a linha de comando **come as aspas duplas internas**, então o
+   filtro chegava como `-Filter Name='node.exe'` — WQL inválido (0x80041017). O erro **não é
+   terminante**, a variável ficava nula e a conclusão era "não há worker", sempre. Medido no log de
+   28/07: 4 workers em 70 min disputando a fila. Fix: o comando saiu para `worker-tarefa.ps1` e a
+   ação virou `-File` — sem camada de quoting entre o que se lê e o que roda.
+
+2. **A janela era do Windows Terminal, e `-WindowStyle Hidden` não a esconde.** Esse parâmetro age
+   sobre o console clássico (conhost); no Windows 11 o host padrão é o WT, que o ignora. Medido
+   observando os processos durante o disparo: `WindowsTerminal` com `MainWindowHandle != 0`, e ela
+   **ficava** — não era flash. Vazia porque toda a saída vai para o log. Fechá-la matava o worker, e
+   5 min depois a tarefa subia outro: o ciclo que parecia "terminal abrindo sozinho". Fix: a tarefa
+   chama **`worker-oculto.vbs`** (`WshShell.Run(cmd, 0, True)` → SW_HIDE no `CreateProcess`, nenhum
+   host cria janela; o `True` mantém a instância da tarefa viva para o `IgnoreNew` barrar os disparos
+   de 5 min).
+
+📌 **O sinal que separou os dois:** o worker registra `worker encerrado (exit N)` ao terminar por
+conta própria. O log tinha três subidas e **nenhuma** dessas linhas → estava sendo **morto**, não
+caindo. Ao investigar "janela abre", meça **qual processo tem janela** (`MainWindowHandle`) antes de
+assumir que é o processo que você conhece — "janela apareceu" ≠ "meu worker subiu".
+
 ## 🔴 O binário que você testa não é o que roda
 
 Havia **três `codex`** nesta máquina: app desktop (0.130.0-alpha), npm global (0.130.0) e o do fnm

@@ -322,6 +322,37 @@ concentrado fora deles — e hoje não dá para dizer em quê. **Próxima fatia 
 não é esperar mais tráfego: é etiquetar os call-sites de `untagged`**, senão o
 ledger responde "quanto" e nunca "onde".
 
+## 31/07 · O `untagged` tem endereço — e não é onde se procurava
+
+`Medido:` (SQL em `ia_usage_log`, 31/07). O `untagged` cresceu para **3.306
+chamadas / $97,88 — 78% do total**. A novidade não é o número, é o recorte:
+
+| Recorte do `untagged` | Valor |
+|---|---|
+| `claude-sonnet-4-6` via `wrapper` | 2.812 chamadas · **$87,28** (89% do untagged) |
+| com `empresa_id` / `colaborador_id` / `trilha_id` / `semana` | **0** · zero em todos |
+| output médio | **1.474 tokens** |
+| concentração | 13-15/07 = $59,49 · 27-28/07 = $18,81 |
+
+**Nenhuma atribuição preenchida + output longo + concentrado em poucos dias = não
+é tráfego de usuário, é autoria/geração em lote por script.** Tráfego de pessoa
+passa `colaboradorId`; estas 2.812 não passam nada. As datas batem com as
+rodadas de geração de conteúdo (13-15/07) e com a faxina + semana 5 do Ibipeba
+(27-28/07).
+
+📌 **O call-site: `actions/conteudos.ts` tem 8 chamadas de IA e nenhuma
+etiquetada** (`gerarConteudoIA` e as expansões). É ali que a próxima etiqueta
+paga — não nos chats.
+
+⚠️ **Contra-exemplo útil, para não repetir o erro de mira:** em 31/07 etiquetei
+o bloco Chat Fase 3 (`conversa_fase3`, `chat_fase3_eval`, `chat_fase3_audit`,
+`chat_simulador`) porque uma proposta de redesenho queria baratear aquele fluxo.
+**Isso não move o `untagged` em um centavo** — o chat da Fase 3 nunca executou
+(`sessoes_avaliacao` e `mensagens_chat` com 0 registros). A etiqueta ali serve
+para a PRÓXIMA execução ter número; o dinheiro de hoje está na geração de
+conteúdo. **Regra: antes de otimizar um fluxo, confirme que ele roda e quanto
+ele custa — nesta ordem.**
+
 **Cobertura de preço:** 1.136 chamadas (18%) com `cost_usd` NULL — modelo fora do
 catálogo. O painel já sinaliza via `custo_conhecido_frac`, então **os $100,99 são
 piso, não total**. Fechar o catálogo é pré-requisito da reconciliação ≤5% com o

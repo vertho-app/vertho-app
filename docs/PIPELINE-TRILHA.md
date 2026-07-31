@@ -323,6 +323,25 @@ descritores alocados em semanas de conteúdo desde a missão anterior (corte por
 competência inteira (12 descritores no Ibipeba, incluindo o bloco da semana 5); as 37 trilhas do
 Ibipeba foram regeradas com a regra nova (semanas 4, 8 e 12).
 **Avaliação: ZERO IA** (`:278-287`) — objeto literal. O Cenário B vem de `banco_cenarios`.
+
+#### O que a pessoa VÊ e FAZ numa semana de missão (4/8/12) — e o que estava quebrado
+
+Três estados na week page, nesta ordem: **(A)** missão + campo "qual situação da sua rotina você vai
+usar" + botão "Aceito a missão" → **(B)** compromisso salvo + **"Você conseguiu executar a missão
+esta semana?"** com Sim/Não → **(C)** se "Não", cai no cenário escrito e a semana segue. O chat de
+evidências só destrava depois que o modo é definido, e **no modo prática ele troca de rótulo** para
+`evidence.missionReport` ("Relato da Missão") e **só aparece após o "Sim"**.
+
+🔴 **Esse caminho nunca funcionou até 29/07** — ver F-P4: o "Sim" devolvia 500 porque o prompt ia com
+`messages: []`. Medido: **0 de 144 semanas de aplicação com qualquer transcript e 0 aceites de
+missão**, contra 37 transcripts nas semanas de conteúdo. Não havia reclamação porque ninguém chegava
+sequer a aceitar a missão — **"sem reclamação" não é sinal quando o passo anterior também não é
+alcançado.**
+
+🎥 **Vídeo explicativo (29/07)** — `FirstViewVideo` na week page com chave `semana-aplicacao` (Bunny
+`80f4da74`, 123s). **Um só para as três semanas**: 4, 8 e 12 têm a mesma tela e a mesma mecânica, e a
+narração não cita número. Auto-abre na primeira semana de aplicação que a pessoa acessar e depois
+fica como botão. Pipeline em `video-spike/tutorial/` (ver `project_video_tutorial_pipeline`).
 **Desafio: templated por default** (`:509`); IA só com `BUILDSEASON_DESAFIO_IA=1` — porque o
 desafio canônico vem do **Kit**, aplicado na leitura.
 

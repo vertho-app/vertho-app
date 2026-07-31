@@ -175,6 +175,24 @@ Antes de afirmar o que a pessoa recebe, **leia quem consome** — não a tabela/
 nenhuma tela mostrava o que era entregue. Ao investigar entrega, a pergunta é **"quem lê isso?"**,
 nunca **"o que está gravado aqui?"**.
 
+### 🔴 Corolário: quando há DOIS caminhos, conserte o que RODA
+
+Três vezes no mesmo dia (29/07) uma correção correta estava no gêmeo errado:
+
+1. **Kit** — `resolverDesafioDoKit` normalizava o descritor desde 20/07, mas quem roda em produção é
+   o CACHE (`precarregarKits`); o resolvedor individual só entra se o pré-carregamento falhar. 29
+   leituras caíram no genérico **com o kit publicado na prateleira**.
+2. **Missão** — o CENÁRIO tinha salvamento de JSON truncado, a MISSÃO não. 127 missões (108 no
+   piloto real) renderizavam JSON cru na tela.
+3. **Prompts de conversa** — dos três, só o `socratic` injetava a mensagem de abertura do turno 1.
+   Os outros dois devolviam 500 e as semanas 4/8/12 **nunca funcionaram**.
+
+**A regra:** ao corrigir um comportamento que tem dois caminhos (cache × live, gêmeo A × gêmeo B),
+pergunte **qual deles o usuário percorre** — e conserte esse primeiro. Um teste de paridade não
+prova nada se construir a entrada dos dois lados do mesmo jeito: o
+`kit-entrega-paridade.test.ts` existia, passava verde, e a divergência de grafia nunca era
+exercitada porque ele consultava o cache com a chave do brief, não com a do plano.
+
 ## Testes
 `npm run test:unit` (vitest) — **roda no CI** (`typecheck.yml`, passo "Security tests + service-role guard"). Preferir extrair lógica pura + testar helpers; para actions com Supabase, mock encadeável (ver `tests/unit/piloto/report-tenant-piloto.test.ts`).
 
