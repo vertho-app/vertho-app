@@ -155,8 +155,16 @@ export async function submitClaudeBatch(
   return fetchClaudeBatchResults(batchId);
 }
 
-/** Assinatura compatível com callAI (primeiros 4 args) — drop-in como `aiRun`. */
-export type AIRun = (system: string, user: string, aiConfig: any, maxTokens: number) => Promise<string>;
+/**
+ * Assinatura compatível com callAI — drop-in como `aiRun`.
+ *
+ * O 5º arg (`options`) existe para o call-site poder passar `taskKey`/atribuição
+ * SEM precisar saber se está no caminho síncrono ou em lote: o `callAI` usa e
+ * registra no ledger; o collector de batch IGNORA, porque o lote é logado à parte
+ * em `fetchClaudeBatchResults` (`source='batch'`). Sem isso, etiquetar a geração
+ * de conteúdo exigiria um `as any` no call-site ou dois caminhos de chamada.
+ */
+export type AIRun = (system: string, user: string, aiConfig: any, maxTokens: number, options?: any) => Promise<string>;
 
 interface Pending extends BatchReq { resolve: (s: string) => void; reject: (e: any) => void; }
 

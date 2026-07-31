@@ -33,6 +33,7 @@ async function garantirMinimoPdf(
   aiConfig: AIConfig | undefined,
   model: string | undefined,
   minChars: number = MIN_PDF_CHARS,
+  empresaId: string | null = null,
 ): Promise<string> {
   // Público de baixa escolaridade tem meta menor (RegistroPublico.minCharsPdf):
   // NÃO reinflar — expansão por volume reintroduz o abstrato que queríamos cortar.
@@ -49,7 +50,9 @@ NÃO faça: enchimento repetitivo, alongar só para bater tamanho, tom acadêmic
 Meta de tamanho: chegue a NO MÍNIMO ${minChars} caracteres QUANDO o tema justificar sem repetição. Se não justificar, priorize qualidade e densidade aplicada — entregue o melhor texto possível, mais rico que o original.
 
 Retorne APENAS o markdown final, sem comentários e sem cercas de código.\n\n---\n\n${conteudoMd}`;
-    const expandido = (await callAI(system, user, { ...(aiConfig || {}), model }, minChars)).trim();
+    const expandido = (await callAI(system, user, { ...(aiConfig || {}), model }, minChars, {
+      taskKey: 'conteudo_expansao_pdf', empresaId,
+    })).trim();
     return expandido.length > conteudoMd.length ? expandido : conteudoMd;
   } catch (e: any) {
     console.warn('[garantirMinimoPdf] expansão p/ mínimo de caracteres falhou:', e?.message);
@@ -194,12 +197,18 @@ export async function gerarConteudoIA({
     // tokens de saída p/ não truncar antes de atingir o comprimento mínimo.
     const maxTokens = formato === 'texto' || formato === 'case' ? 8000 : 4096;
     const ai = aiRun || callAI;
-    let conteudoGerado = (await ai(system, user, { ...aiConfig, model: model || aiConfig?.model }, maxTokens)).trim();
+    // O `taskKey` acima já existia — mas só para ESCOLHER O MODELO
+    // (`getModelForTask`). Não era repassado ao ledger, então a geração de
+    // conteúdo caía em `untagged`: medido em 31/07, 2.812 chamadas / $87,28 (89%
+    // do untagged) sem nenhuma atribuição. Mesma etiqueta, os dois usos.
+    let conteudoGerado = (await ai(system, user, { ...aiConfig, model: model || aiConfig?.model }, maxTokens, {
+      taskKey: taskKey || 'conteudo_gerar', empresaId,
+    })).trim();
 
     // Garante o mínimo de 8.000 caracteres nos PDFs (texto/case): se vier curto,
     // faz UMA expansão mantendo estilo/estrutura. Falha não quebra a geração.
     if (formato === 'texto' || formato === 'case') {
-      conteudoGerado = await garantirMinimoPdf(conteudoGerado, system, aiConfig, model || aiConfig?.model, perfilPublico.minCharsPdf);
+      conteudoGerado = await garantirMinimoPdf(conteudoGerado, system, aiConfig, model || aiConfig?.model, perfilPublico.minCharsPdf, empresaId);
     }
 
     const titulo = extrairTitulo(conteudoGerado, descritor, formato);
@@ -958,7 +967,9 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
       competencia: c.competencia, descritor: c.descritor, conteudoCore: c.conteudo_inline,
       arquetipoNome: arq.nome, arquetipoDesc: arq.desc, escolaBrief,
     });
-    const layer = (await callAI(system, user, { model }, 2000, { temperature: 0.5 })).trim();
+    const layer = (await callAI(system, user, { model }, 2000, {
+      temperature: 0.5, taskKey: 'conteudo_personalizacao', empresaId,
+    })).trim();
     if (!layer) return { success: true, url: generico, personalized: false };
     const full = `${c.conteudo_inline}\n\n${layer}`;
 
@@ -1296,7 +1307,9 @@ REGRAS:
     // Modelo configurado da tarefa conteudo_tags (usa empresa_id do conteúdo)
     const { getModelForTask } = await import('@/lib/ai-tasks');
     const model = c.empresa_id ? await getModelForTask(c.empresa_id, 'conteudo_tags') : undefined;
-    const resposta = await callAI(system, user, { ...(aiConfig || {}), model: model || aiConfig?.model }, 1000);
+    const resposta = await callAI(system, user, { ...(aiConfig || {}), model: model || aiConfig?.model }, 1000, {
+      taskKey: 'conteudo_tags', empresaId: c.empresa_id ?? null,
+    });
     const jsonMatch = resposta.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return { error: 'IA não retornou JSON válido' };
 

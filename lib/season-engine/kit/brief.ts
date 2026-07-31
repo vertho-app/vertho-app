@@ -117,7 +117,12 @@ Fala natural, sem jargão, sem markdown. RETORNE APENAS JSON VÁLIDO:
   const sysJson = `${system}\n\nIMPORTANTE: responda SOMENTE com o objeto JSON, sem nenhum texto antes ou depois, sem markdown.`;
   let nucleo: KitBriefNucleo | null = null;
   for (let i = 0; i < 3 && !nucleo; i++) {
-    const raw = (await callAI(i === 0 ? system : sysJson, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 1500)).trim();
+    // Etiqueta no ledger: o núcleo do kit é gerado em lote por script e caía no
+    // `untagged` junto com o resto da geração de conteúdo (ver CUSTO-QUALIDADE,
+    // leitura de 31/07). Retry conta como chamada nova — é isso que se quer ver.
+    const raw = (await callAI(i === 0 ? system : sysJson, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 1500, {
+      taskKey: 'kit_nucleo', empresaId: p.empresaId ?? null,
+    })).trim();
     nucleo = parseNucleo(raw);
     if (!nucleo) console.warn(`[kit/brief] núcleo inválido (tentativa ${i + 1}/3): ${raw.slice(0, 120)}`);
   }
@@ -187,7 +192,9 @@ CONTEXTO:
   for (let i = 0; i < 3 && !desafio; i++) {
     // 1ª tentativa pode ir no batch (aiRun); retries por JSON inválido = síncrono.
     const ai = i === 0 && p.aiRun ? p.aiRun : callAI;
-    const raw = (await ai(i === 0 ? system : sysJson, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 800)).trim();
+    const raw = (await ai(i === 0 ? system : sysJson, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 800, {
+      taskKey: 'kit_desafio', empresaId: p.empresaId ?? null,
+    })).trim();
     desafio = parseDesafioResponse(raw) || parseDesafioFallback(raw);
     if (!desafio) console.warn(`[kit/desafio] inválido DISC ${disc} (tentativa ${i + 1}/3): ${raw.slice(0, 120)}`);
   }
