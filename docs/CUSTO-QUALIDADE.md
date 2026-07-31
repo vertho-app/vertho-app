@@ -340,9 +340,22 @@ passa `colaboradorId`; estas 2.812 não passam nada. As datas batem com as
 rodadas de geração de conteúdo (13-15/07) e com a faxina + semana 5 do Ibipeba
 (27-28/07).
 
-📌 **O call-site: `actions/conteudos.ts` tem 8 chamadas de IA e nenhuma
-etiquetada** (`gerarConteudoIA` e as expansões). É ali que a próxima etiqueta
-paga — não nos chats.
+📌 **O call-site era `actions/conteudos.ts`** (`gerarConteudoIA` e as expansões).
+✅ **Etiquetado em 31/07** — 6 chaves novas: `conteudo_gerar` (fallback),
+`conteudo_expansao_pdf`, `conteudo_personalizacao`, `conteudo_tags`, `kit_nucleo`
+e `kit_desafio`, todas passando `empresaId` (o eixo cuja **ausência** foi o que
+permitiu rastrear a origem).
+
+🔑 **Como isso passou tanto tempo despercebido:** `gerarConteudoIA` **já
+calculava um `taskKey`** (`conteudo_video`/`_podcast`/`_texto`/`_case`) — só que
+para escolher o MODELO em `getModelForTask`, sem repassar ao ledger. Não faltava
+nome nem decisão: faltava um argumento. Procure fios soltos assim antes de supor
+que a instrumentação "não foi feita".
+
+**A leitura acima é o baseline.** Como o número foi acumulado *antes* das
+etiquetas, o `untagged` histórico não encolhe — o que muda é que a **próxima**
+rodada de geração aparece nomeada. Reler `feature × modelo` depois da próxima
+geração de conteúdo é o que fecha o ciclo.
 
 ⚠️ **Contra-exemplo útil, para não repetir o erro de mira:** em 31/07 etiquetei
 o bloco Chat Fase 3 (`conversa_fase3`, `chat_fase3_eval`, `chat_fase3_audit`,
