@@ -19,18 +19,21 @@ import path from 'node:path';
  * AUDIT (1 cada). As três precisam aparecer separadas para a conta fechar.
  */
 
-const ROTA = path.join(process.cwd(), 'app', 'api', 'chat', 'route.ts');
+const ROTAS = [
+  path.join(process.cwd(), 'app', 'api', 'chat', 'route.ts'),
+  path.join(process.cwd(), 'app', 'api', 'chat-simulador', 'route.ts'),
+];
 
 describe('chat fase 3 · chamadas de IA etiquetadas no ledger', () => {
-  const src = readFileSync(ROTA, 'utf8');
+  const src = ROTAS.map((r) => readFileSync(r, 'utf8')).join('\n');
 
-  it('as três taskKeys do fluxo estão presentes', () => {
-    for (const key of ['conversa_fase3', 'chat_fase3_eval', 'chat_fase3_audit']) {
-      expect(src, `taskKey '${key}' sumiu de app/api/chat/route.ts`).toContain(`'${key}'`);
+  it('as taskKeys do bloco estão presentes', () => {
+    for (const key of ['conversa_fase3', 'chat_fase3_eval', 'chat_fase3_audit', 'chat_simulador']) {
+      expect(src, `taskKey '${key}' sumiu das rotas de chat`).toContain(`'${key}'`);
     }
   });
 
-  it('nenhuma chamada callAI/callAIChat da rota fica sem taskKey', () => {
+  it('nenhuma chamada callAI/callAIChat das rotas fica sem taskKey', () => {
     // Cada invocação até o fecha-parênteses da chamada seguinte: basta que o
     // trecho após o nome contenha `taskKey` antes da próxima invocação.
     const invocacoes = [...src.matchAll(/\bcallAI(?:Chat)?\s*\(/g)].map((m) => m.index!);

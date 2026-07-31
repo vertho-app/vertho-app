@@ -40,7 +40,11 @@ export async function POST(req: Request) {
       safeSystem,
       messages,
       { model: safeModel },
-      4096
+      4096,
+      // Sem taskKey esta chamada some no `untagged` do ledger — e ela é
+      // justamente a que roda com system e modelo escolhidos por quem usa o
+      // simulador, ou seja, a de custo mais imprevisível do bloco.
+      { taskKey: 'chat_simulador' },
     );
 
     return NextResponse.json({ ok: true, mensagem: response });

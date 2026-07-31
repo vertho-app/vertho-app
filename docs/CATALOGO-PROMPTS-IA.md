@@ -392,9 +392,11 @@
 
 - **Arquivo**: `app/api/chat/route.ts::encerrarSessao` (evalPrompt inline)
 - **Modelo default**: `claude-sonnet-4-6` (ou configurado em `sys_config.ai.modelo_padrao`)
-- **Max tokens**: 32768
-- **Trigger**: Ao encerrar sessão de chat Fase 3 (critério: confiança ≥80 + 2 evidências OU 10 turnos).
-- **System prompt** (apenas `system` — user vazio, tudo no prompt único, ~3500 chars):
+- **Max tokens**: **8192** (o catálogo dizia 32768 até 31/07 — o código sempre foi 8192, `route.ts:602` e o versionamento `:593`)
+- **taskKey**: `chat_fase3_eval` · **prompt version**: `avaliacao_ia4_conversacional`
+- **Trigger**: Ao encerrar sessão de chat Fase 3 — o critério real é o de `decidirFase` (5 condições simultâneas, ver 3.1), não "confiança ≥80 + 2 evidências".
+- 🔑 **A IA NÃO CONSOLIDA — e isso é explícito no prompt** ("NÃO calcule média, nível geral, gap ou travas — isso é feito em código", `:544` e `:590`). Ela devolve **por descritor**; média, nível geral, gap, lacuna e travas são derivados em código (`:610-649`), mesma disciplina do `derivarVeredito` da auditoria dual.
+- **System prompt** (apenas `system` — user vazio, tudo no prompt único):
   ```text
   Voce e o avaliador final de competencias comportamentais da Vertho.
 
@@ -409,30 +411,58 @@
   N3 (Proficiente/Meta): acoes concretas, estruturadas, resultado
   N4 (Referencia): multiplas dimensoes, multiplicacao, impacto institucional
 
-  ## NOTA DECIMAL: .00-.25 atende minimo / .26-.50 com lacunas / .51-.75 atende bem / .76-.99 quase proximo
+  ## REGRAS
+  1. Base EXCLUSIVA na regua e nas evidencias textuais
+  2. EVIDENCIA ou NAO CONTA — intencao nao e evidencia
+  3. NA DUVIDA → nivel inferior
+  4. N3 exige acao concreta + contexto + resultado
+  5. N4 exige multiplas evidencias robustas + visao sistemica
+  6. Conversa elegante mas pouco concreta → nota E confianca DEVEM cair
+  7. NUNCA invente fatos
 
-  ## TRAVAS:
-  1. Descritor critico N1 → nivel_geral MAXIMO N2
-  2. 3+ descritores N1 → nivel_geral = N1
-  3. Na duvida entre dois niveis → escolha INFERIOR
-
-  ## FEEDBACK: cite comportamentos REAIS, 3-5 paragrafos, sem DISC/CIS/jargao, tom acolhedor
+  ## PROCESSO (por descritor da regua)
+  Extrair evidencias → classificar tipo e forca → limites da conversa →
+  nota_sugerida (1.00-4.00) e nivel_sugerido (1-4). Depois, feedback citando
+  trechos REAIS. NAO calcular media/nivel geral/gap/travas.
 
   Retorne APENAS bloco [EVAL]:
   [EVAL]
-  {competencia, consolidacao:{nivel_geral, nota_decimal, gap, confianca_geral, travas_aplicadas}, descritores_destaque:{pontos_fortes, gaps_prioritarios}, evidencias[], feedback, recomendacoes_pdi[{descritor_foco, nivel_atual, nivel_meta, acao, por_que_importa, barreira_provavel}], nivel, nota_decimal, lacuna}
+  {
+    "competencia": "...",
+    "avaliacao_por_descritor": [
+      { "descritor": "...",
+        "evidencias": [{"trecho","tipo","forca","fonte"}],
+        "limites_da_conversa": ["..."],
+        "nota_sugerida": 2.33, "nivel_sugerido": 2, "confianca": 0.75, "racional": "..." }
+    ],
+    "insumos_consolidacao": {descritores_fortes, descritores_frageis,
+                             descritores_sem_sustentacao, alertas_metodologicos},
+    "descritores_destaque": {pontos_fortes[], gaps_prioritarios[]},
+    "feedback": {resumo_geral, mensagem_positiva, mensagem_construtiva},
+    "recomendacoes_pdi": [{"descritor_foco", "acao"}]
+  }
   [/EVAL]
+  tipo: situacao_real | acao_concreta | raciocinio | consequencia |
+        autopercepção | intencao_sem_execucao      forca: fraca|moderada|forte
   ```
 - **Inputs**: Tudo embutido no prompt (user vazio): evidências, histórico, régua, competência.
-- **Output esperado**: Bloco `[EVAL]` JSON.
+- **Output esperado**: Bloco `[EVAL]` JSON (formato acima).
+- 🔑 **Consolidação EM CÓDIGO (`route.ts:610-649`)** — o que a IA não faz:
+  - `media_descritores` = média das `nota_sugerida`; `nivel_geral = floor(media)`;
+  - `gap = max(0, 3 - nivel_geral)` e `lacuna = -gap`; `confianca_geral` = média das confianças ×100;
+  - **três travas**, nesta ordem: `>3 descritores N1` → teto N1; senão `≥1 N1 e nivel>2` → teto N2; e um **piso** — `algum descritor ≥N3 e nivel<2` → mínimo N2.
+  - ⚠️ O catálogo dizia "**3+** descritores N1 → N1". O código é `nN1 > 3`, ou seja **4 ou mais**. Com exatamente 3 aplica-se a trava de teto N2, não a de N1.
+  - ⚠️ A trava de **piso** (N3 → mínimo N2) não estava documentada e não tem equivalente no prompt: é só código.
+  - `feedback` é objeto no JSON e vira **string** por compatibilidade (`:652`).
 - **Consumido por**: `sessoes_avaliacao.rascunho_avaliacao`. Versionado via `prompt_version_id`.
 
 ### 3.3 Auditor Gemini do Chat (auditPrompt)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `app/api/chat/route.ts::encerrarSessao` (auditPrompt inline)
-- **Modelo default**: `gemini-3-flash-preview`
-- **Max tokens**: 65536
+- **Modelo default**: **`gemini-3.1-flash-lite`** (`DEFAULT_VALIDADOR`, `route.ts:15`) — o catálogo dizia `gemini-3-flash-preview` até 31/07. Provider diferente do 3.2 de propósito: é a cross-validation.
+- **Max tokens**: **8192** (o catálogo dizia 65536)
+- **taskKey**: `chat_fase3_audit` · **prompt version**: `auditoria_gemini_conversacional`
 - **Trigger**: Após 3.2 (eval completa).
 - **System prompt** (inline, em português):
   ```text
@@ -440,27 +470,47 @@
 
   COMPETÊNCIA AVALIADA: {nome} | RÉGUA: {gabarito}
   RASCUNHO DA AVALIAÇÃO (feita por outro modelo de IA): {...}
-  EVIDÊNCIAS ORIGINAIS: {...}
+  EVIDÊNCIAS ORIGINAIS: {...} | HISTÓRICO DA CONVERSA: {...}
 
-  Audite esta avaliação em 6 critérios e retorne APENAS um bloco [AUDIT]:
+  ## 6 CRITÉRIOS
+  1. ANCORAGEM EM EVIDÊNCIA      (ok|ajustar|erro_grave) — nota alta sem trecho = ajustar
+  2. COERÊNCIA NÍVEL × NOTA      (ok|ajustar) — coerente com a nota e as TRAVAS aplicadas
+  3. PRUDÊNCIA CONVERSACIONAL    (ok|ajustar|erro_grave) — N3+ sem ação concreta = erro grave
+  4. ALUCINAÇÃO / EXTRAPOLAÇÃO   (ok|ajustar|erro_grave)
+  5. ESPECIFICIDADE DO FEEDBACK  (ok|ajustar) — genérico ("boa comunicação") = ajustar
+  6. QUALIDADE DAS RECOMENDAÇÕES (ok|ajustar) — proporcionais à força da evidência
+
+  ERROS GRAVES: N3+ sem evidência concreta · fato inventado · feedback que
+  contradiz as evidências → status "reprovado" ou "corrigido" com nota reduzida
+
   [AUDIT]
-  {status:"aprovado|corrigido|reprovado", criterios:{evidencias, nivel, nota, lacuna, alucinacoes, vies}, justificativa, avaliacao_corrigida}
+  {
+    "status": "aprovado|corrigido|reprovado", "erro_grave": false,
+    "criterios": { ancoragem_evidencia, coerencia_nivel_nota,
+                   prudencia_conversacional, alucinacao_extrapolacao,
+                   especificidade_feedback, qualidade_recomendacoes },
+    "ponto_mais_confiavel": "...", "ponto_mais_fragil": "...",
+    "descritores_com_risco": [...],
+    "tipo_de_erro_predominante": "extrapolação|falta_prudencia|generico|nenhum",
+    "justificativa": "...", "mudancas_aplicadas": [...],
+    "alertas_residuais": [...], "avaliacao_corrigida": null
+  }
   [/AUDIT]
-
-  Se status="corrigido", preencha avaliacao_corrigida com a estrutura do rascunho mas ajustada.
-  Se status="aprovado", avaliacao_corrigida deve ser null.
+  Prefira rigor metodológico a elegância.
   ```
+- ⚠️ Os nomes dos 6 critérios no catálogo estavam errados (`{evidencias, nivel, nota, lacuna, alucinacoes, vies}`): **`lacuna` e `vies` não existem**, e faltavam prudência conversacional, especificidade do feedback e qualidade das recomendações. Também faltavam 7 campos do bloco (`erro_grave`, `ponto_mais_confiavel`, `ponto_mais_fragil`, `descritores_com_risco`, `tipo_de_erro_predominante`, `mudancas_aplicadas`, `alertas_residuais`).
 - **Output esperado**: Bloco `[AUDIT]` JSON.
-- **Consumido por**: Se `status=corrigido` → usa `avaliacao_corrigida`, senão mantém rascunho. Persiste em `sessoes_avaliacao.validacao_audit` + `avaliacao_final`.
+- **Consumido por**: Se `status=corrigido` → usa `avaliacao_corrigida`, senão mantém rascunho. Persiste em `sessoes_avaliacao.validacao_audit` + `avaliacao_final`. 🔑 Se a correção vier com `avaliacao_por_descritor`, o código **re-consolida** (`:788`) — as travas do 3.2 são reaplicadas sobre a versão corrigida, então o auditor não consegue burlar o teto/piso escrevendo um `nivel_geral` à mão.
 
 ### 3.4 Chat Simulador (proxy genérico)
 > `AUXILIAR` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `app/api/chat-simulador/route.ts`
-- **Modelo default**: `claude-sonnet-4-6` (configurável via body)
-- **Max tokens**: 4096
+- **Modelo default**: `claude-sonnet-4-6` — o `model` do body só é aceito se estiver na **allowlist** `ALLOWED_MODELS` (11 modelos); qualquer outro valor cai no default, silenciosamente.
+- **Max tokens**: 4096 · **taskKey**: `chat_simulador`
 - **Trigger**: UI de playground/simulador admin chama POST com `{ system, messages, model }`.
-- **System prompt**: Fornecido pelo cliente (default: `"Voce e um assistente util."`).
+- **System prompt**: Fornecido pelo cliente, **truncado em `MAX_SYSTEM_CHARS = 16000`** (default: `"Voce e um assistente util."`).
+- 🔒 **É um proxy de LLM — e por isso tem quatro gates**: `csrfCheck` → **`requireAdmin`** (platform admin, não "autenticado": antes aceitava qualquer usuário logado, o que era um proxy de LLM aberto = abuso de custo) → `aiLimiter` por e-mail → allowlist de modelo. Ao mexer aqui, nenhum desses sai: o valor que o cliente escolhe (modelo, tamanho do system) é decisão de custo do servidor.
 - **Inputs**: messages array (multi-turn) vindos do cliente.
 - **Output esperado**: Texto livre.
 - **Consumido por**: Response direto ao cliente (não persiste).
