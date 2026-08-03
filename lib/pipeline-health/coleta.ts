@@ -329,11 +329,33 @@ export async function coletarEnviosDoDia(
   const colW = pilula === 1 ? 'ultima_pilula1_whatsapp_em' : 'ultima_pilula2_whatsapp_em';
   const colE = pilula === 1 ? 'ultima_pilula1_email_em' : 'ultima_pilula2_email_em';
   const { data } = await sb.from('fase4_envios')
-    .select(`colaborador_id, ${colW}, ${colE}, colaboradores!inner(nome_completo, email, telefone, whatsapp)`)
+    .select(`colaborador_id, semana_atual, ${colW}, ${colE}, colaboradores!inner(nome_completo, email, telefone, whatsapp)`)
     .eq('empresa_id', empresaId).eq('status', 'ativo');
 
+  // Quem NÃO devia receber hoje: semana de 'aplicacao'/'avaliacao' (sem pílula nova)
+  // ou semana single num dia de P2 — o cron (triggerDiario) pula os dois casos. O
+  // preflight já filtra assim; sem o mesmo filtro aqui, a segunda da semana 4 da
+  // Ibipeba reportou "36 elegíveis, 0 WhatsApp/e-mail" quando o correto era 0
+  // elegíveis — falso crítico medido em 03/08/2026.
+  const { data: trilhas } = await sb.from('trilhas')
+    .select('colaborador_id, temporada_plano, numero_temporada').eq('empresa_id', empresaId);
+  const ultima = new Map<string, any>();
+  for (const t of (trilhas as any[] || [])) {
+    const p = ultima.get(t.colaborador_id);
+    if (!p || Number(t.numero_temporada) > Number(p.numero_temporada)) ultima.set(t.colaborador_id, t);
+  }
+  const deviaReceber = (r: any): boolean => {
+    const plano = (ultima.get(r.colaborador_id)?.temporada_plano || []) as any[];
+    const semana = Number(r.semana_atual) || 1;
+    const plan = plano.find((s: any) => Number(s.semana) === semana) || plano[semana - 1] || null;
+    if (!plan || plan.tipo !== 'conteudo') return false;
+    const itens = Array.isArray(plan.conteudos_dia) && plan.conteudos_dia.length
+      ? plan.conteudos_dia : (plan.conteudo ? [plan.conteudo] : []);
+    return !!itens[pilula - 1];
+  };
+
   const doDia = (ts: any) => (ts && String(new Date(ts).toISOString().slice(0, 10)) === dia ? String(ts) : null);
-  return ((data as any[]) || []).map((r) => {
+  return ((data as any[]) || []).filter(deviaReceber).map((r) => {
     const c = r.colaboradores;
     const tel = c.whatsapp || c.telefone;
     return {
