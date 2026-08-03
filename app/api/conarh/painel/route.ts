@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { safeSecretEqual } from '@/lib/secure-compare';
-import { inicioHojeBRT } from '@/lib/conarh/conteudo';
+import { inicioHojeBRT, totalDescritoresPorta2 } from '@/lib/conarh/conteudo';
 
 /**
  * CONARH 52 — painel diário de 5 números + funil por porta (F7 do sprint).
@@ -15,6 +15,11 @@ import { inicioHojeBRT } from '@/lib/conarh/conteudo';
  *   - funil por porta    (contagem por porta_escolhida, 1–5)
  *   - divergências médias da porta 2 (média de itens em sessao.divergencias) —
  *     o ativo de dados do evento ("como um critério explícito muda a avaliação").
+ *     Só entram sessões COMPLETAS (todos os descritores reavaliados): o modo
+ *     curto da porta 2 deixa o visitante pular o resto da matriz, e sessão
+ *     encurtada tem menos chance de divergir só porque foi mais curta. Contar
+ *     as duas juntas afunda a média que vira número publicável. As parciais são
+ *     devolvidas em `sessoes_parciais` — descarte declarado, nunca silencioso.
  *
  * Envs novas:
  *   - CONARH_PANEL_KEY — mesma chave da fila. FAIL-CLOSED em produção.
@@ -69,8 +74,10 @@ export async function GET(req: Request) {
 
   const lista = leads || [];
   const funilPorPorta: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+  const totalDescritores = totalDescritoresPorta2();
   let divergenciasTotal = 0;
   let divergenciasN = 0;
+  let sessoesParciais = 0;
 
   for (const l of lista as any[]) {
     if (l.porta_escolhida >= 1 && l.porta_escolhida <= 5) {
@@ -78,10 +85,14 @@ export async function GET(req: Request) {
     }
     // Divergências vs. motor registradas na porta 2 (o toque interativo).
     const divs = l.sessao?.divergencias;
-    if (Array.isArray(divs)) {
-      divergenciasTotal += divs.length;
-      divergenciasN++;
+    if (!Array.isArray(divs)) continue;
+    const avaliados = Array.isArray(l.sessao?.reavaliacao) ? l.sessao.reavaliacao.length : 0;
+    if (totalDescritores > 0 && avaliados < totalDescritores) {
+      sessoesParciais++;
+      continue;
     }
+    divergenciasTotal += divs.length;
+    divergenciasN++;
   }
 
   return NextResponse.json({
@@ -98,6 +109,9 @@ export async function GET(req: Request) {
     divergencias_porta2: {
       media: divergenciasN ? Math.round((divergenciasTotal / divergenciasN) * 100) / 100 : null,
       sessoes: divergenciasN,
+      // Encurtadas pelo modo curto: fora da média, mas visíveis no painel.
+      sessoes_parciais: sessoesParciais,
+      descritores_por_sessao: totalDescritores,
       // F7: nenhum recorte publicável com n < 7 — o painel já avisa.
       amostra_suficiente: divergenciasN >= 7,
     },

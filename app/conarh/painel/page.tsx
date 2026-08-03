@@ -7,17 +7,33 @@ import { useCallback, useEffect, useState } from 'react';
 import { AvisoSync, buscarComCache, PortaoChave, ShellEquipe, useChaveEquipe } from '../_components/equipe';
 import { COR, SANS, SERIF } from '../_components/tema';
 
+// Espelha EXATAMENTE o corpo de GET /api/conarh/painel. A versão anterior
+// desta interface era outro formato (números na raiz, funil como array,
+// divergencias_media) — o `buscarComCache<PainelDados>` é um cast, não uma
+// validação, então o descasamento passou pelo typecheck e só apareceria no
+// estande: `funil_por_porta.map is not a function` derruba a tela inteira.
 interface PainelDados {
-  rotas_concluidas: number;
-  leads_a: number;
-  leads_b: number;
-  reunioes: number;
-  capturas: number;
-  funil_por_porta: Array<{ porta: number; total: number }>;
-  divergencias_media: number;
+  ok: boolean;
+  dia: string;
+  numeros: {
+    rotas_concluidas: number;
+    leads_a: number;
+    leads_b: number;
+    reunioes_com_data: number;
+    total_capturas: number;
+  };
+  funil_por_porta: Record<string, number>;
+  divergencias_porta2: {
+    media: number | null;
+    sessoes: number;
+    sessoes_parciais: number;
+    descritores_por_sessao: number;
+    amostra_suficiente: boolean;
+  };
 }
 
-const CACHE = 'conarh:cache-painel-v1';
+// v2: o formato mudou — chave nova para nenhum tablet renderizar cache velho.
+const CACHE = 'conarh:cache-painel-v2';
 
 function Numero({ rotulo, valor, cor }: { rotulo: string; valor: number; cor?: string }) {
   return (
@@ -70,7 +86,10 @@ export default function PainelPage() {
     return () => clearInterval(intervalo);
   }, [carregar]);
 
-  const maiorFunil = Math.max(1, ...(dados?.funil_por_porta.map((f) => f.total) ?? [1]));
+  const funil = Object.entries(dados?.funil_por_porta ?? {})
+    .map(([porta, total]) => ({ porta: Number(porta), total }))
+    .sort((a, b) => a.porta - b.porta);
+  const maiorFunil = Math.max(1, ...funil.map((f) => f.total));
 
   return (
     <ShellEquipe titulo="Painel do dia" sub="Os cinco números que importam — lidos em 5 minutos às 18h.">
@@ -83,11 +102,11 @@ export default function PainelPage() {
           <AvisoSync sincronizadoEm={sincronizadoEm} erro={erro} />
 
           <div className="flex flex-wrap gap-4 mt-6">
-            <Numero rotulo="Rotas concluídas" valor={dados.rotas_concluidas} />
-            <Numero rotulo="Leads A" valor={dados.leads_a} cor={COR.verde} />
-            <Numero rotulo="Leads B" valor={dados.leads_b} cor={COR.ambar} />
-            <Numero rotulo="Reuniões marcadas" valor={dados.reunioes} cor={COR.acento} />
-            <Numero rotulo="Capturas" valor={dados.capturas} />
+            <Numero rotulo="Rotas concluídas" valor={dados.numeros.rotas_concluidas} />
+            <Numero rotulo="Leads A" valor={dados.numeros.leads_a} cor={COR.verde} />
+            <Numero rotulo="Leads B" valor={dados.numeros.leads_b} cor={COR.ambar} />
+            <Numero rotulo="Reuniões marcadas" valor={dados.numeros.reunioes_com_data} cor={COR.acento} />
+            <Numero rotulo="Capturas" valor={dados.numeros.total_capturas} />
           </div>
 
           <div
@@ -101,7 +120,7 @@ export default function PainelPage() {
               Funil por porta
             </p>
             <div className="space-y-3">
-              {dados.funil_por_porta.map((f) => (
+              {funil.map((f) => (
                 <div key={f.porta} className="flex items-center gap-4">
                   <span style={{ color: COR.texto2, fontSize: 17, fontWeight: 700, fontFamily: SANS, width: 70 }}>
                     Porta {f.porta}
@@ -136,11 +155,27 @@ export default function PainelPage() {
               Divergências por sessão (média)
             </p>
             <p style={{ color: COR.texto, fontFamily: SERIF, fontSize: 40, fontWeight: 600, margin: 0 }}>
-              {dados.divergencias_media.toFixed(1)}
+              {dados.divergencias_porta2.media === null
+                ? '—'
+                : dados.divergencias_porta2.media.toFixed(1)}
             </p>
             <p style={{ color: COR.texto2, fontSize: 16, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
               Quantas vezes, em média, o instinto do visitante divergiu da leitura criteriosa — o
               tamanho da dor que a matriz resolve.
+            </p>
+            <p style={{ color: COR.texto3, fontSize: 15, fontFamily: SANS, marginTop: 8, marginBottom: 0 }}>
+              {dados.divergencias_porta2.sessoes} sessão(ões) completa(s) —{' '}
+              {dados.divergencias_porta2.descritores_por_sessao} descritores cada.
+              {dados.divergencias_porta2.sessoes_parciais > 0 && (
+                <>
+                  {' '}
+                  {dados.divergencias_porta2.sessoes_parciais} encurtada(s) pelo modo curto, fora da
+                  média.
+                </>
+              )}
+              {!dados.divergencias_porta2.amostra_suficiente && (
+                <> Amostra ainda menor que 7 — não publicar.</>
+              )}
             </p>
           </div>
         </>

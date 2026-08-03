@@ -453,8 +453,11 @@ function Passo4Reavaliacao({
         ))}
       </div>
       {/* Modo curto: fila no estande → pula os descritores restantes e cai
-          direto na leitura do motor com os que já foram avaliados. */}
-      {indice + 1 < total && (
+          direto na leitura do motor com os que já foram avaliados.
+          Só a partir do 3º descritor: com 0 ou 1 marcação a tela de fecho vira
+          uma lista de "não avaliado" sem nenhum convergiu/divergiu — a porta 2
+          é a prova da demo, e o atalho não pode esvaziá-la. */}
+      {indice >= 2 && indice + 1 < total && (
         <button
           type="button"
           onClick={onPular}
