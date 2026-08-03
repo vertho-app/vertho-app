@@ -126,7 +126,7 @@ export function Porta5({
       </div>
 
       <FechoPorta
-        gancho=""
+        gancho="O piloto demonstra o método. A evolução é avaliada na jornada adequada — em 20 minutos a gente desenha um piloto com a competência crítica da sua equipe."
         onConcluiu={onConcluiu}
         onCaptura={onCaptura}
         onAgendar={onAgendar}

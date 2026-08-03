@@ -26,6 +26,12 @@ export function Hub({
       >
         CONARH 52 · Vertho
       </p>
+      <p
+        className="uppercase font-bold mb-3"
+        style={{ color: COR.texto3, fontSize: 15, letterSpacing: '0.18em', fontFamily: SANS }}
+      >
+        Plataforma de evolução de competências
+      </p>
       <h1
         style={{
           color: COR.texto,
@@ -51,8 +57,8 @@ export function Hub({
           maxWidth: 800,
         }}
       >
-        Toque na etapa que chamou sua atenção — cada uma abre em segundos, com um caso
-        demonstrativo completo.
+        Onde seu processo de desenvolvimento mais perde força? Toque na etapa — cada
+        uma abre em segundos, com um caso demonstrativo completo.
       </p>
 
       <div className="mt-10 space-y-4">

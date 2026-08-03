@@ -77,6 +77,31 @@ export function Porta4({
         </p>
       </div>
 
+      {/* As três camadas nomeadas — a moldura antes do espelho */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+        {[
+          { camada: 'Camada 1 · o quê', texto: 'O descritor define o que cada pessoa precisa desenvolver.' },
+          { camada: 'Camada 2 · como', texto: 'O perfil comportamental orienta como abordar, provocar, apoiar e dar feedback.' },
+          { camada: 'Camada 3 · formato', texto: 'A preferência de aprendizagem define a porta de entrada: vídeo, áudio, texto, visual ou caso.' },
+        ].map((c) => (
+          <div
+            key={c.camada}
+            className="rounded-2xl border p-5"
+            style={{ background: COR.card, borderColor: COR.borda }}
+          >
+            <p
+              className="uppercase font-bold"
+              style={{ color: COR.acento, fontSize: 14, letterSpacing: '0.16em', fontFamily: SANS, margin: 0 }}
+            >
+              {c.camada}
+            </p>
+            <p style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.5, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
+              {c.texto}
+            </p>
+          </div>
+        ))}
+      </div>
+
       {/* O espelho lado a lado */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-6">
         {porta4.pessoas.map((p) => (
@@ -87,13 +112,14 @@ export function Porta4({
           >
             <div className="flex items-center gap-4 mb-2">
               <div
-                className="rounded-2xl flex items-center justify-center flex-shrink-0 font-bold"
+                className="rounded-xl flex items-center justify-center flex-shrink-0 font-bold"
                 style={{
-                  width: 60,
-                  height: 60,
-                  background: 'rgba(52,197,204,0.14)',
-                  color: COR.acento,
-                  fontSize: 26,
+                  width: 44,
+                  height: 44,
+                  background: 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${COR.borda}`,
+                  color: COR.texto2,
+                  fontSize: 18,
                   fontFamily: SERIF,
                 }}
               >
@@ -104,7 +130,7 @@ export function Porta4({
                   {p.nome}
                 </h2>
                 <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, margin: 0 }}>
-                  {p.cargo} · perfil {p.perfil_disc}
+                  {p.cargo} · perfil {p.perfil_disc} — uma das lentes do motor
                 </p>
               </div>
             </div>
@@ -126,9 +152,67 @@ export function Porta4({
         ))}
       </div>
 
+      <p
+        className="mt-8"
+        style={{
+          color: COR.texto,
+          fontFamily: SERIF,
+          fontSize: 'clamp(24px, 3vw, 32px)',
+          lineHeight: 1.3,
+          fontWeight: 500,
+        }}
+      >
+        Uma competência. Três camadas de personalização.{' '}
+        <em style={{ color: COR.acento }}>Uma régua comum.</em>
+      </p>
+
       {/* Kits das personas — play local, offline */}
       {personas.length > 0 && (
         <div className="mt-12">
+          {/* A objeção das pílulas, respondida antes de nascer */}
+          <div
+            className="rounded-3xl border p-6 mb-8"
+            style={{ background: 'rgba(52,197,204,0.07)', borderColor: COR.bordaAcento }}
+          >
+            <p
+              style={{
+                color: COR.texto,
+                fontFamily: SERIF,
+                fontSize: 'clamp(22px, 2.8vw, 30px)',
+                lineHeight: 1.3,
+                fontWeight: 500,
+                margin: 0,
+              }}
+            >
+              A pílula cabe em três minutos. <em style={{ color: COR.acento }}>A competência não.</em>
+            </p>
+            <p style={{ color: COR.texto2, fontSize: 19, lineHeight: 1.55, fontFamily: SANS, marginTop: 8, marginBottom: 0 }}>
+              O conteúdo curto é um componente de um ciclo — não o ciclo inteiro:
+            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-4">
+              {['Descritor', 'Conteúdo focado', 'Reflexão', 'Aplicação ou cenário', 'Evidência', 'Feedback', 'Reavaliação'].map((passo, i, arr) => (
+                <span key={passo} className="flex items-center gap-2">
+                  <span
+                    className="rounded-full px-4 py-2 font-bold"
+                    style={{
+                      background: 'rgba(52,197,204,0.12)',
+                      border: `1px solid ${COR.bordaAcento}`,
+                      color: COR.acento,
+                      fontSize: 15,
+                      fontFamily: SANS,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {passo}
+                  </span>
+                  {i < arr.length - 1 && (
+                    <span style={{ color: COR.texto3, fontSize: 15, fontFamily: SANS }}>→</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
+
           <h2
             style={{
               color: COR.texto,

@@ -224,6 +224,7 @@ export function Porta2({
           total={porta2.descritores.length}
           registro={porta2.registro_conversa}
           onEscolher={escolherReavaliacao}
+          onPular={() => concluirReavaliacao(reavaliacao)}
         />
       )}
 
@@ -257,40 +258,56 @@ export function Porta2({
             {' '}· leitura média do motor com a matriz:{' '}
             <strong style={{ color: COR.acento }}>{mediaMotor.toFixed(1)}</strong>. Não é questão de
             certo ou errado — é critério explícito contra critério implícito.
+            {reavaliacao.length < porta2.descritores.length && (
+              <span style={{ color: COR.texto3 }}>
+                {' '}Você avaliou {reavaliacao.length} de {porta2.descritores.length} descritores —
+                os demais aparecem só com a leitura do motor.
+              </span>
+            )}
           </p>
 
           <div className="mt-8 space-y-5">
             {porta2.descritores.map((d) => {
               const sua = reavaliacao.find((r) => r.descritor === d.cod)?.nota;
-              const convergiu = sua === d.leitura_motor.nivel;
+              const avaliado = sua !== undefined;
+              const convergiu = avaliado && sua === d.leitura_motor.nivel;
               return (
                 <section
                   key={d.cod}
                   className="rounded-3xl border p-6"
                   style={{
                     background: COR.card,
-                    borderColor: convergiu ? 'rgba(52,211,153,0.35)' : 'rgba(251,191,36,0.35)',
+                    borderColor: !avaliado
+                      ? COR.borda
+                      : convergiu
+                        ? 'rgba(52,211,153,0.35)'
+                        : 'rgba(251,191,36,0.35)',
                   }}
                 >
                   <div className="flex items-center gap-3 flex-wrap">
-                    {convergiu ? (
-                      <Check size={22} style={{ color: COR.verde }} />
-                    ) : (
-                      <GitBranch size={22} style={{ color: COR.ambar }} />
-                    )}
+                    {avaliado &&
+                      (convergiu ? (
+                        <Check size={22} style={{ color: COR.verde }} />
+                      ) : (
+                        <GitBranch size={22} style={{ color: COR.ambar }} />
+                      ))}
                     <p style={{ color: COR.texto, fontSize: 21, fontWeight: 700, fontFamily: SANS, margin: 0 }}>
                       {d.nome_curto}
                     </p>
                     <span
                       className="rounded-full px-3.5 py-1.5 font-bold"
                       style={{
-                        background: convergiu ? 'rgba(52,211,153,0.12)' : 'rgba(251,191,36,0.12)',
-                        color: convergiu ? COR.verde : COR.ambar,
+                        background: !avaliado
+                          ? 'rgba(255,255,255,0.06)'
+                          : convergiu
+                            ? 'rgba(52,211,153,0.12)'
+                            : 'rgba(251,191,36,0.12)',
+                        color: !avaliado ? COR.texto3 : convergiu ? COR.verde : COR.ambar,
                         fontSize: 15,
                         fontFamily: SANS,
                       }}
                     >
-                      {convergiu ? 'convergiram' : 'divergiram'}
+                      {!avaliado ? 'não avaliado' : convergiu ? 'convergiram' : 'divergiram'}
                     </span>
                     <span style={{ color: COR.texto2, fontSize: 17, fontFamily: SANS }}>
                       você: <strong>{sua ? `N${sua}` : '—'}</strong> · motor:{' '}
@@ -363,12 +380,14 @@ function Passo4Reavaliacao({
   total,
   registro,
   onEscolher,
+  onPular,
 }: {
   descritor: ConteudoConarh['porta2']['descritores'][number];
   indice: number;
   total: number;
   registro: string;
   onEscolher: (nota: number) => void;
+  onPular: () => void;
 }) {
   const [verRegistro, setVerRegistro] = useState(false);
   const ancoraPorNivel = [descritor.n1, descritor.n2, descritor.n3, descritor.n4];
@@ -433,6 +452,27 @@ function Passo4Reavaliacao({
           </button>
         ))}
       </div>
+      {/* Modo curto: fila no estande → pula os descritores restantes e cai
+          direto na leitura do motor com os que já foram avaliados. */}
+      {indice + 1 < total && (
+        <button
+          type="button"
+          onClick={onPular}
+          className="mt-6"
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: COR.texto3,
+            fontSize: 16,
+            fontWeight: 600,
+            fontFamily: SANS,
+            textDecoration: 'underline',
+          }}
+        >
+          Sem tempo para os {total - indice - 1} descritores restantes? Ir direto para a leitura do motor →
+        </button>
+      )}
     </div>
   );
 }

@@ -278,6 +278,17 @@ function Confirmacao({
       >
         {modoVisitante ? 'Recomeçar a demonstração' : 'Novo visitante'}
       </button>
+      <p
+        style={{
+          color: COR.texto3,
+          fontFamily: SERIF,
+          fontStyle: 'italic',
+          fontSize: 22,
+          marginTop: 40,
+        }}
+      >
+        Vertho — <span style={{ color: COR.acento }}>desenvolvimento que deixa evidências.</span>
+      </p>
     </div>
   );
 }
