@@ -57,6 +57,15 @@ export interface Porta4Espelho {
     linguagem: string;
     desafio: string;
     formato: string; // vídeo | áudio | texto | pdf
+    // A peça que a pessoa REALMENTE recebe naquele formato. Sem isto, a Camada
+    // 3 ("o formato muda") era só uma palavra na tela: o play vinha de personas
+    // de outra empresa e outra competência, o que contradizia o "mesma régua".
+    midia?: {
+      tipo: 'video' | 'audio' | 'texto';
+      src: string | null; // arquivo local em /conarh/media (a demo roda offline)
+      titulo: string;
+      duracao?: string;
+    };
   }>; // exatamente 2 — mesmo cargo, competência e semana
 }
 
@@ -80,6 +89,11 @@ export interface PersonaKit {
   cargo: string;
   perfil_disc: string;
   descritor_foco: string;
+  // A porta 4 mostra APENAS as personas de vitrine. As demais ficam no pacote
+  // como reserva: são de outra empresa e outra competência que o caso da feira,
+  // e enfileirá-las embaixo do espelho colocava 7 nomes na mesma tela,
+  // contradizendo a frase "mesma competência, uma régua comum".
+  vitrine?: boolean;
   kit: {
     pilula1: { tipo: 'video' | 'audio' | 'texto'; src: string | null; titulo: string; duracao?: string };
     pilula2: { tipo: 'video' | 'audio' | 'texto'; src: string | null; titulo: string; duracao?: string };

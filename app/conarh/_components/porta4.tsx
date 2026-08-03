@@ -40,6 +40,12 @@ export function Porta4({
   onProxima: () => void;
 }) {
   const { porta4, portas, personas } = conteudo;
+  // Só as personas de vitrine entram na tela; as outras seguem no pacote como
+  // reserva (troca sem deploy). Fallback para a primeira: JSON sem nenhuma
+  // marcada não pode virar seção vazia no meio da demo.
+  const vitrine = personas.filter((p) => p.vitrine).length
+    ? personas.filter((p) => p.vitrine)
+    : personas.slice(0, 1);
   return (
     <div>
       <TituloPorta numero={4} nome={portas[3].nome} sub={portas[3].sub} />
@@ -142,11 +148,21 @@ export function Porta4({
                 className="uppercase font-bold"
                 style={{ color: COR.texto3, fontSize: 13, letterSpacing: '0.18em', fontFamily: SANS, margin: 0 }}
               >
-                Formato
+                Formato · o que chega para ela
               </p>
-              <p style={{ color: COR.acento, fontSize: 18, fontWeight: 700, fontFamily: SANS, marginTop: 4, marginBottom: 0 }}>
+              <p style={{ color: COR.acento, fontSize: 18, fontWeight: 700, fontFamily: SANS, marginTop: 4, marginBottom: 10 }}>
                 {p.formato}
               </p>
+              {/* A peça real, no formato prometido — play local, sem rede. */}
+              {p.midia && (
+                <Pilula
+                  tipo={p.midia.tipo}
+                  src={p.midia.src}
+                  titulo={p.midia.titulo}
+                  duracao={p.midia.duracao}
+                  texto={p.midia.tipo === 'texto' ? p.desafio : undefined}
+                />
+              )}
             </div>
           </section>
         ))}
@@ -167,7 +183,7 @@ export function Porta4({
       </p>
 
       {/* Kits das personas — play local, offline */}
-      {personas.length > 0 && (
+      {vitrine.length > 0 && (
         <div className="mt-12">
           {/* A objeção das pílulas, respondida antes de nascer */}
           <div
@@ -222,10 +238,19 @@ export function Porta4({
               margin: 0,
             }}
           >
-            O kit que cada pessoa recebe
+            O kit completo de uma semana
           </h2>
+          {/* Rótulo honesto: esta persona é de OUTRA empresa e OUTRA
+              competência. Antes vinham cinco delas empilhadas logo abaixo do
+              espelho — sete nomes na tela, e a promessa "mesma competência,
+              uma régua comum" desmentida pelo próprio exemplo. */}
+          <p style={{ color: COR.texto3, fontSize: 17, lineHeight: 1.5, fontFamily: SANS, marginTop: 6, maxWidth: 900 }}>
+            Outra empresa, outro cargo, outra competência — a mecânica do kit é a
+            mesma: duas pílulas em formatos diferentes, missão prática e material
+            do perfil.
+          </p>
           <div className="mt-6 space-y-8">
-            {personas.map((persona) => (
+            {vitrine.map((persona) => (
               <section
                 key={persona.id}
                 className="rounded-3xl border p-6"
