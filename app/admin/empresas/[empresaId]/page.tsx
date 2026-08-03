@@ -215,6 +215,10 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   const [gabaritos, setGabaritos] = useState<any[]>([]);
   const [gabExpanded, setGabExpanded] = useState<any>(null);
   const [envioStatus, setEnvioStatus] = useState<any>(null);
+  // Guard contra o disparo em render: sem ele, uma falha (ex.: sessão expirada)
+  // refaz a action a CADA render, e o reject sem catch vira o erro genérico de
+  // "Server Components render" no browser (VERTHO-APP-1 / VERTHO-APP-H, 03/08).
+  const envioStatusTentou = useRef(false);
   const [focoData, setFocoData] = useState<any>(null);
   // Cancelamento de fase (sync): os loops de handleAction checam no topo de cada
   // iteração e dão break → a fase para de emitir novos itens. O item em andamento
@@ -818,7 +822,12 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                         ) : null;
                       })()}
                       {fase.num === 1 && (() => {
-                        if (!envioStatus) verStatusEnvios(empresaId).then((r: any) => { if (r.success) setEnvioStatus(r.resumo); });
+                        if (!envioStatus && !envioStatusTentou.current) {
+                          envioStatusTentou.current = true;
+                          verStatusEnvios(empresaId)
+                            .then((r: any) => { if (r.success) setEnvioStatus(r.resumo); })
+                            .catch(() => {}); // sessão expirada: o card de envios simplesmente não aparece
+                        }
                         return envioStatus && envioStatus.total > 0 ? (
                           <div className="mb-3 flex items-center gap-4 flex-wrap"
                             style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, color: 'rgba(255,255,255,.4)' }}>
