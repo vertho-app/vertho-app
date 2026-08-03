@@ -3,7 +3,7 @@ import {
   BookMarked, BookOpen, Video, Database, GraduationCap as GradIcon, BarChart2,
   Calculator, LayoutDashboard, TrendingUp, Target, Shield, LockKeyhole,
   ScrollText, Trash2, CalendarDays, Send, Package, School, Settings,
-  FileBarChart, Crosshair, FlaskConical, Briefcase, MessagesSquare,
+  FileBarChart, Crosshair, FlaskConical, Briefcase, MessagesSquare, DollarSign,
 } from 'lucide-react';
 
 // ── nav items (sidebar) ─────────────────────────────────────────────────────
@@ -95,6 +95,10 @@ export const NAV_ITEMS: NavItem[] = [
 
   // ── Custos ────────────────────────────────────────────────────────────────
   { key: 'custo-ia',  labelKey: 'aiCost', subKey: 'callCatalog',    group: 'costs', icon: BarChart2,  hrefFn: () => '/admin/vertho/simulador-custo', permission: 'ai.costs.view' },
+  // `/admin/vertho/custo-ia` ficou sem entrada de menu desde que foi criada: a
+  // key acima se chama 'custo-ia' mas aponta para o SIMULADOR, então parecia
+  // coberta. É a tela com o custo por jornada (Piloto/Onboarding/Mentor IA).
+  { key: 'plano-custo', labelKey: 'aiCostPlan', subKey: 'costPerJourney', group: 'costs', icon: DollarSign, hrefFn: () => '/admin/vertho/custo-ia',  permission: 'ai.costs.view' },
   { key: 'orcamento', labelKey: 'budget', subKey: 'costTableFinal', group: 'costs', icon: Calculator, hrefFn: () => '/admin/vertho/orcamento',       permission: 'ai.costs.view' },
 
   // ── Sistema (governança + ferramentas internas) ───────────────────────────
