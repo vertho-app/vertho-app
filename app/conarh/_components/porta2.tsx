@@ -14,6 +14,9 @@ import type { ResultadoPorta2 } from './sessao';
 import { COR, SANS, SERIF, TOQUE } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
 import { FechoPorta } from './porta-shell';
+import { MatrizDescritores } from './matriz';
+import { RegistroRecorte } from './registro';
+import { partirNaPrimeiraFrase } from './texto';
 
 const NOMES_NIVEL = ['', 'N1 · gap', 'N2 · desenvolvimento', 'N3 · meta', 'N4 · referência'];
 
@@ -39,6 +42,9 @@ export function Porta2({
   const [notaInstintiva, setNotaInstintiva] = useState<number | null>(null);
   const [indiceDescritor, setIndiceDescritor] = useState(0);
   const [reavaliacao, setReavaliacao] = useState<Array<{ descritor: string; nota: number }>>([]);
+  const [verContexto, setVerContexto] = useState(false);
+  const [cardAberto, setCardAberto] = useState<string | null>(null);
+  const contexto = useMemo(() => partirNaPrimeiraFrase(porta2.contexto), [porta2.contexto]);
 
   const mediaMotor = useMemo(() => {
     if (porta2.descritores.length === 0) return 0;
@@ -60,6 +66,9 @@ export function Porta2({
       reavaliacao: lista,
       divergencias,
     });
+    // A primeira divergência já entra aberta: é o card que prova a porta, e
+    // sem ele o fecho vira uma lista de rótulos sem evidência na tela.
+    setCardAberto(divergencias[0] ?? null);
     setPasso(5);
   }
 
@@ -81,34 +90,61 @@ export function Porta2({
     <div>
       <TituloPorta numero={2} nome={portas[1].nome} sub={portas[1].sub} />
 
-      {/* ── Passo 1: o registro ─────────────────────────────────── */}
+      {/* ── Passo 1: o registro, em 3 momentos ──────────────────── */}
       {passo === 1 && (
         <div>
-          <p style={{ color: COR.texto2, fontSize: 20, lineHeight: 1.55, fontFamily: SANS, maxWidth: 900 }}>
-            {porta2.contexto}
-          </p>
-          <blockquote
-            className="rounded-3xl border p-7 mt-6"
+          <p
             style={{
-              background: COR.card,
-              borderColor: COR.borda,
-              borderLeft: `5px solid ${COR.acento}`,
+              color: COR.texto,
+              fontSize: 21,
+              lineHeight: 1.4,
+              fontFamily: SANS,
+              maxWidth: 900,
               margin: 0,
             }}
           >
-            <p
-              style={{
-                color: COR.texto,
-                fontFamily: SERIF,
-                fontSize: 'clamp(21px, 2.6vw, 27px)',
-                lineHeight: 1.55,
-                margin: 0,
-                whiteSpace: 'pre-line',
-              }}
-            >
-              {porta2.registro_conversa}
-            </p>
-          </blockquote>
+            {contexto.manchete}
+          </p>
+          {contexto.resto && (
+            <>
+              <button
+                type="button"
+                onClick={() => setVerContexto(!verContexto)}
+                style={{
+                  color: COR.acento,
+                  fontSize: 17,
+                  fontWeight: 700,
+                  fontFamily: SANS,
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  marginTop: 6,
+                }}
+              >
+                {verContexto ? 'Esconder ↑' : 'O que aconteceu na sexta ↓'}
+              </button>
+              {verContexto && (
+                <p
+                  style={{
+                    color: COR.texto2,
+                    fontSize: 18,
+                    lineHeight: 1.55,
+                    fontFamily: SANS,
+                    marginTop: 8,
+                    maxWidth: 900,
+                  }}
+                >
+                  {contexto.resto}
+                </p>
+              )}
+            </>
+          )}
+
+          <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 22, marginBottom: 10 }}>
+            Renata registrou a conversa por escrito. Três momentos:
+          </p>
+          <RegistroRecorte trechos={porta2.registro_trechos} completo={porta2.registro_conversa} />
+
           <BarraAcao
             primaria={{ rotulo: 'Avaliar esse registro', onClick: () => setPasso(2) }}
           />
@@ -175,39 +211,10 @@ export function Porta2({
             Você deu <em style={{ color: COR.acento }}>{notaInstintiva}</em>. Agora olha a régua
             que torna essa nota auditável.
           </h2>
-          <div className="mt-8 space-y-5">
-            {porta2.descritores.map((d) => (
-              <section
-                key={d.cod}
-                className="rounded-3xl border p-6"
-                style={{ background: COR.card, borderColor: COR.borda }}
-              >
-                <p style={{ color: COR.texto, fontSize: 21, fontWeight: 700, fontFamily: SANS, margin: 0 }}>
-                  {d.nome_curto}{' '}
-                  <span style={{ color: COR.texto3, fontWeight: 500, fontSize: 15 }}>{d.cod}</span>
-                </p>
-                <p style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.5, fontFamily: SANS, marginTop: 4 }}>
-                  {d.descritor_completo}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
-                  {(['n1', 'n2', 'n3', 'n4'] as const).map((chave, i) => (
-                    <div
-                      key={chave}
-                      className="rounded-2xl border p-3.5"
-                      style={{ background: 'rgba(255,255,255,0.03)', borderColor: COR.borda }}
-                    >
-                      <p style={{ color: COR.acento, fontSize: 15, fontWeight: 800, fontFamily: SANS, margin: 0 }}>
-                        {NOMES_NIVEL[i + 1]}
-                      </p>
-                      <p style={{ color: COR.texto2, fontSize: 15, lineHeight: 1.45, fontFamily: SANS, marginTop: 4, marginBottom: 0 }}>
-                        {d[chave]}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+          <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 20, marginBottom: 10 }}>
+            {porta2.descritores.length} descritores. Toque para ver a régua de cada um.
+          </p>
+          <MatrizDescritores descritores={porta2.descritores} />
           <BarraAcao
             primaria={{ rotulo: 'Reavaliar com a matriz', onClick: () => setPasso(4) }}
             secundaria={{ rotulo: 'Voltar ao registro', onClick: () => setPasso(1) }}
@@ -223,6 +230,7 @@ export function Porta2({
           indice={indiceDescritor}
           total={porta2.descritores.length}
           registro={porta2.registro_conversa}
+          trechos={porta2.registro_trechos}
           onEscolher={escolherReavaliacao}
           onPular={() => concluirReavaliacao(reavaliacao)}
         />
@@ -266,11 +274,16 @@ export function Porta2({
             )}
           </p>
 
-          <div className="mt-8 space-y-5">
+          <div className="mt-8 space-y-4">
             {porta2.descritores.map((d) => {
               const sua = reavaliacao.find((r) => r.descritor === d.cod)?.nota;
               const avaliado = sua !== undefined;
               const convergiu = avaliado && sua === d.leitura_motor.nivel;
+              // Colapsado por padrão: 6 justificativas abertas somam 638
+              // palavras numa tela só (medido 03/08). Abre-se a que o
+              // visitante perguntar — e a primeira divergência já vem aberta,
+              // porque é ela que prova a porta.
+              const expandido = cardAberto === d.cod;
               return (
                 <section
                   key={d.cod}
@@ -284,16 +297,21 @@ export function Porta2({
                         : 'rgba(251,191,36,0.35)',
                   }}
                 >
-                  <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setCardAberto(expandido ? null : d.cod)}
+                    className="flex items-center gap-3 flex-wrap w-full text-left"
+                    style={{ background: 'none', border: 'none', padding: 0 }}
+                  >
                     {avaliado &&
                       (convergiu ? (
                         <Check size={22} style={{ color: COR.verde }} />
                       ) : (
                         <GitBranch size={22} style={{ color: COR.ambar }} />
                       ))}
-                    <p style={{ color: COR.texto, fontSize: 21, fontWeight: 700, fontFamily: SANS, margin: 0 }}>
+                    <span style={{ color: COR.texto, fontSize: 21, fontWeight: 700, fontFamily: SANS }}>
                       {d.nome_curto}
-                    </p>
+                    </span>
                     <span
                       className="rounded-full px-3.5 py-1.5 font-bold"
                       style={{
@@ -315,25 +333,34 @@ export function Porta2({
                         N{d.leitura_motor.nivel} ({d.leitura_motor.nota.toFixed(1)})
                       </strong>
                     </span>
-                  </div>
-                  <blockquote
-                    className="rounded-2xl p-4 mt-4"
-                    style={{
-                      background: 'rgba(255,255,255,0.03)',
-                      borderLeft: `4px solid ${COR.acento}`,
-                      margin: 0,
-                    }}
-                  >
-                    <p style={{ color: COR.texto, fontSize: 17, lineHeight: 1.55, fontFamily: SANS, margin: 0, fontStyle: 'italic' }}>
-                      “{d.leitura_motor.evidencia}”
-                    </p>
-                  </blockquote>
-                  <p style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.55, fontFamily: SANS, marginTop: 10, marginBottom: 0 }}>
-                    {d.leitura_motor.justificativa}
-                  </p>
-                  <p style={{ color: COR.texto3, fontSize: 16, lineHeight: 1.5, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
-                    Para o nível acima faltou: {d.leitura_motor.limite}
-                  </p>
+                    <span
+                      style={{ color: COR.acento, fontSize: 16, fontWeight: 700, fontFamily: SANS, marginLeft: 'auto' }}
+                    >
+                      {expandido ? 'esconder ↑' : 'por quê ↓'}
+                    </span>
+                  </button>
+                  {expandido && (
+                    <>
+                      <blockquote
+                        className="rounded-2xl p-4 mt-4"
+                        style={{
+                          background: 'rgba(255,255,255,0.03)',
+                          borderLeft: `4px solid ${COR.acento}`,
+                          margin: 0,
+                        }}
+                      >
+                        <p style={{ color: COR.texto, fontSize: 17, lineHeight: 1.55, fontFamily: SANS, margin: 0, fontStyle: 'italic' }}>
+                          “{d.leitura_motor.evidencia}”
+                        </p>
+                      </blockquote>
+                      <p style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.55, fontFamily: SANS, marginTop: 10, marginBottom: 0 }}>
+                        {d.leitura_motor.justificativa}
+                      </p>
+                      <p style={{ color: COR.texto3, fontSize: 16, lineHeight: 1.5, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
+                        Para o nível acima faltou: {d.leitura_motor.limite}
+                      </p>
+                    </>
+                  )}
                 </section>
               );
             })}
@@ -379,6 +406,7 @@ function Passo4Reavaliacao({
   indice,
   total,
   registro,
+  trechos,
   onEscolher,
   onPular,
 }: {
@@ -386,6 +414,7 @@ function Passo4Reavaliacao({
   indice: number;
   total: number;
   registro: string;
+  trechos: ConteudoConarh['porta2']['registro_trechos'];
   onEscolher: (nota: number) => void;
   onPular: () => void;
 }) {
@@ -422,14 +451,9 @@ function Passo4Reavaliacao({
         {verRegistro ? 'Esconder o registro ↑' : 'Reler o registro da conversa ↓'}
       </button>
       {verRegistro && (
-        <blockquote
-          className="rounded-2xl border p-5 mt-3"
-          style={{ background: COR.card, borderColor: COR.borda, margin: 0, marginTop: 12 }}
-        >
-          <p style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.55, fontFamily: SANS, margin: 0, whiteSpace: 'pre-line' }}>
-            {registro}
-          </p>
-        </blockquote>
+        <div className="mt-3">
+          <RegistroRecorte trechos={trechos} completo={registro} />
+        </div>
       )}
       <p style={{ color: COR.texto, fontSize: 21, fontWeight: 700, fontFamily: SANS, marginTop: 24 }}>
         Com a matriz na mão, em que nível está essa conversa?

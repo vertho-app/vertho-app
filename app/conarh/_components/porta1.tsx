@@ -1,19 +1,17 @@
 'use client';
 
-// CONARH 52 — Porta 1: a matriz aberta. "Liderança não é uma coisa só" —
-// descritores observáveis com âncoras N1–N4. Nenhum input do visitante.
+// CONARH 52 — Porta 1: a matriz aberta. "Feedback não é uma coisa só" —
+// descritores observáveis com âncoras N1–N4, um por vez (ver ./matriz.tsx).
+// A tela abre com a manchete + os 6 nomes; o resto da introdução e os demais
+// descritores vêm por toque. Em pé, tela cheia de texto não é lida.
 
+import { useState } from 'react';
 import type { ConteudoConarh } from '../_data/types';
 import { COR, SERIF, SANS } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
 import { FechoPorta } from './porta-shell';
-
-const NIVEIS = [
-  { chave: 'n1' as const, rotulo: 'N1', nome: 'gap' },
-  { chave: 'n2' as const, rotulo: 'N2', nome: 'desenvolvimento' },
-  { chave: 'n3' as const, rotulo: 'N3', nome: 'meta' },
-  { chave: 'n4' as const, rotulo: 'N4', nome: 'referência' },
-];
+import { MatrizDescritores } from './matriz';
+import { partirNaPrimeiraFrase } from './texto';
 
 export function Porta1({
   conteudo,
@@ -29,6 +27,9 @@ export function Porta1({
   onProxima: () => void;
 }) {
   const { porta1, portas } = conteudo;
+  const [verIntro, setVerIntro] = useState(false);
+  const { manchete, resto } = partirNaPrimeiraFrase(porta1.introducao);
+
   return (
     <div>
       <TituloPorta numero={1} nome={portas[0].nome} sub={portas[0].sub} />
@@ -37,57 +38,58 @@ export function Porta1({
         style={{
           color: COR.texto,
           fontFamily: SERIF,
-          fontSize: 'clamp(24px, 3vw, 32px)',
-          lineHeight: 1.3,
-          fontWeight: 500,
+          fontSize: 'clamp(28px, 3.6vw, 40px)',
+          lineHeight: 1.15,
+          fontWeight: 600,
           maxWidth: 900,
+          margin: 0,
         }}
       >
-        {porta1.introducao}
+        {manchete}
       </p>
-      <p style={{ color: COR.texto2, fontSize: 20, marginTop: 12, fontFamily: SANS }}>
-        Competência do caso: <strong style={{ color: COR.acento }}>{porta1.competencia}</strong>
+      <p style={{ color: COR.texto2, fontSize: 20, marginTop: 10, fontFamily: SANS }}>
+        <strong style={{ color: COR.acento }}>{porta1.competencia}</strong> ·{' '}
+        {porta1.descritores.length} descritores observáveis · régua N1 a N4
       </p>
-
-      <div className="mt-10 space-y-6">
-        {porta1.descritores.map((d) => (
-          <section
-            key={d.cod}
-            className="rounded-3xl border p-6"
-            style={{ background: COR.card, borderColor: COR.borda }}
+      {resto && (
+        <>
+          <button
+            type="button"
+            onClick={() => setVerIntro(!verIntro)}
+            style={{
+              color: COR.acento,
+              fontSize: 17,
+              fontWeight: 700,
+              fontFamily: SANS,
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              marginTop: 8,
+            }}
           >
+            {verIntro ? 'Esconder ↑' : 'Por que isso importa ↓'}
+          </button>
+          {verIntro && (
             <p
-              className="uppercase font-bold mb-1"
-              style={{ color: COR.texto3, fontSize: 13, letterSpacing: '0.2em', fontFamily: SANS }}
+              style={{
+                color: COR.texto2,
+                fontSize: 18,
+                lineHeight: 1.55,
+                fontFamily: SANS,
+                marginTop: 10,
+                maxWidth: 900,
+              }}
             >
-              {d.cod}
+              {resto}
             </p>
-            <h2 style={{ color: COR.texto, fontSize: 24, fontWeight: 700, fontFamily: SANS, margin: 0 }}>
-              {d.nome_curto}
-            </h2>
-            <p style={{ color: COR.texto2, fontSize: 18, lineHeight: 1.5, fontFamily: SANS, marginTop: 6 }}>
-              {d.descritor_completo}
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-5">
-              {NIVEIS.map((n) => (
-                <div
-                  key={n.rotulo}
-                  className="rounded-2xl border p-4"
-                  style={{ background: 'rgba(255,255,255,0.03)', borderColor: COR.borda }}
-                >
-                  <p style={{ margin: 0, fontFamily: SANS }}>
-                    <strong style={{ color: COR.acento, fontSize: 17 }}>{n.rotulo}</strong>{' '}
-                    <span style={{ color: COR.texto3, fontSize: 14 }}>· {n.nome}</span>
-                  </p>
-                  <p style={{ color: COR.texto2, fontSize: 16, lineHeight: 1.5, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
-                    {d[n.chave]}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+          )}
+        </>
+      )}
+
+      <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 26, marginBottom: 10 }}>
+        Toque em um descritor para ver a régua.
+      </p>
+      <MatrizDescritores descritores={porta1.descritores} />
 
       <FechoPorta
         gancho="Com uma régua dessas na mão, como fica a avaliação? Na próxima etapa você testa a sua."

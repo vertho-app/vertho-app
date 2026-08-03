@@ -122,6 +122,20 @@
   },
   "porta2": {
     "contexto": "Renata Falcão, gerente de operações, e Diego Sampaio, coordenador de expedição promovido há oito meses — técnico forte, primeira vez liderando gente. Na sexta-feira anterior, dois caminhões saíram sem a conferência dupla que o procedimento exige; um cliente estratégico recebeu carga trocada e abriu reclamação formal. A pedido do RH, Renata registrou por escrito a conversa que teve com Diego na segunda-feira seguinte.",
+    "registro_trechos": [
+      {
+        "momento": "Como ela abriu",
+        "texto": "Fui direta: falei que a expedição de sexta tinha tido falha grave, que saiu carga sem conferência dupla e que o cliente abriu reclamação formal."
+      },
+      {
+        "momento": "O que o Diego respondeu",
+        "texto": "Disse que a sexta foi um caos, que dois conferentes faltaram. Eu disse que entendo a correria, mas que procedimento existe justamente para dia de caos."
+      },
+      {
+        "momento": "Como ficou o combinado",
+        "texto": "Eu falei: então vamos redobrar a atenção nessa conferência a partir de hoje. Ele assentiu. […] Falei que vou observar nas próximas semanas."
+      }
+    ],
     "registro_conversa": "Chamei o Diego na minha sala segunda de manhã, antes da reunião de turno. Fui direta: falei que a expedição de sexta tinha tido falha grave, que saiu carga sem conferência dupla e que o cliente abriu reclamação formal. Disse que isso não pode acontecer num time que ele coordena.\n\nEle ouviu, ficou visivelmente abalado. Disse que a sexta foi um caos, que dois conferentes faltaram e que ele mesmo foi para a linha ajudar a carregar. Que achou que dava conta no olho. Eu disse que entendo a correria, mas que procedimento existe justamente para dia de caos, não para dia tranquilo.\n\nFalei que ele é um dos melhores técnicos que eu tenho, que sabe a operação como ninguém, e que por isso mesmo não dá para operar no improviso. Que a coordenação dele custa caro quando falha.\n\nPerguntei se ele estava de acordo. Ele disse que sim, que sabe que pisou na bola. Eu falei: então vamos redobrar a atenção nessa conferência a partir de hoje. Ele assentiu. Fechei dizendo que conto com ele, que ele tem potencial pra crescer aqui dentro, e que não quero mais esse tipo de surpresa.\n\nA conversa durou uns quinze minutos. Ele saiu meio quieto, mas acho que o recado foi dado. O RH me perguntou se ficou algum combinado de acompanhamento — falei que vou observar nas próximas semanas.",
     "descritores": [
       {

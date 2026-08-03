@@ -21,7 +21,11 @@ export interface DescritorCaso {
 }
 
 export interface Porta2 {
-  registro_conversa: string; // texto que o visitante lê e avalia (caso rotulado demonstrativo)
+  // O recorte que o visitante lê EM PÉ: 3 momentos da conversa, ~70 palavras
+  // no total. O registro inteiro (228 palavras) fica atrás de um toque — ler
+  // uma página em pé, num corredor de feira, ninguém lê.
+  registro_trechos: Array<{ momento: string; texto: string }>;
+  registro_conversa: string; // registro integral, sob demanda (caso rotulado demonstrativo)
   contexto: string; // quem são os personagens, 2-3 linhas
   descritores: DescritorCaso[]; // 5–6, ordem da matriz
 }
