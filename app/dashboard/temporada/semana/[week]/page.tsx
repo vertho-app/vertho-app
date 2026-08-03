@@ -16,10 +16,9 @@ import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { registrarEventoTrilha } from '@/actions/engajamento';
 import FirstViewVideo from '@/components/first-view-video';
-
-// Tutorial da semana de missão (Bunny) — serve às semanas 4, 8 e 12: mesma tela,
-// mesma mecânica, então a narração não cita número de semana.
-const APLICACAO_VIDEO_ID = '80f4da74-4384-419f-aab8-89ed346e7b5b';
+// Tutorial da semana de missão (Bunny) — constante única em programa-config,
+// compartilhada com o envio de segunda do triggerDiario.
+import { APLICACAO_VIDEO_ID } from '@/lib/season-engine/programa-config';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 

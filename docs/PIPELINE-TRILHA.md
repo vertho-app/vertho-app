@@ -514,6 +514,15 @@ contra runs sobrepostos.
 via `COMO_FECHA` + card "Desafio" do week page). O 3º envio seria redundante → cobrança curta +
 link. Semana de missão (4/8/12) → lembrete de evidência clássico.
 
+**Segunda de semana de missão (4/8/12) = ANÚNCIO da missão.** A semana de aplicação não tem
+pílula, e até 03/08/2026 a coorte ficava sem contato nenhum até quinta — descobria a missão
+por conta. Agora o `triggerDiario` envia no dia da P1, quando `plan.tipo === 'aplicacao'`:
+texto padrão (`templateWhatsAppMissao`/`emailMissao` em `pilula-envio.ts`) + **vídeo
+explicativo** (`/v/{APLICACAO_VIDEO_ID}` — página pública com preview OG; a constante vive em
+`programa-config.ts`, a mesma do FirstViewVideo do week page) + deep-link da semana + resumo
+(`missao.acao_principal`, do plano **normalizado** — no banco a missão pode ser JSON cru).
+Carimba as colunas da pílula 1 (idempotência); o postflight não mede semana de aplicação.
+
 **Avanço de semana** acontece no dia da evidência (`semana_atual + 1`).
 
 ---

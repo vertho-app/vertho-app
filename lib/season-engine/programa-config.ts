@@ -11,6 +11,13 @@ export type ProgramaModo = 'regular' | 'onboarding' | 'piloto';
 export type ComplexidadeMissao = 'simples' | 'intermediario' | 'completo';
 export type FaseCarreira = 'junior' | 'pleno' | 'senior';
 
+/**
+ * Tutorial da semana de missão (vídeo no Bunny) — serve às semanas 4, 8 e 12:
+ * mesma tela, mesma mecânica, então a narração não cita número de semana.
+ * Usado no week page (FirstViewVideo) e no envio de segunda do triggerDiario.
+ */
+export const APLICACAO_VIDEO_ID = '80f4da74-4384-419f-aab8-89ed346e7b5b';
+
 export interface ProgramaConfig {
   modo: ProgramaModo;
   /** Duração total da trilha em semanas. Regular=14, Onboarding=10. */

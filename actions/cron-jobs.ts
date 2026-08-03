@@ -5,9 +5,10 @@ import { mesmoDiaUTC, pilulaPendente } from '@/lib/notifications/carimbo-canal';
 import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, APP_WEBHOOK_URL, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppDesafioQuinta, templateWhatsAppNudgeDesafio } from '@/lib/notifications';
-import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula, deepLinkSemana } from '@/lib/notifications/pilula-envio';
+import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao } from '@/lib/notifications/pilula-envio';
 import { resolverDesafioDoKit } from '@/lib/season-engine/kit/desafio-semana';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
+import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
 import { assertWhatsappAvailable } from '@/lib/whatsapp';
@@ -346,6 +347,7 @@ export async function triggerDiario() {
       // 14, nudgeando semanas que não existem). Sem trilha/plano → fallback 14
       // (colabs legados, byte-igual ao comportamento anterior).
       let plan: any = null, conteudosDia: any[] = [], competenciaFoco: any = null;
+      let plano: any[] = [];
       let totalSemanas = TOTAL_SEMANAS;
       try {
         const { data: trilha } = await tdb.from('trilhas')
@@ -353,7 +355,7 @@ export async function triggerDiario() {
           .eq('colaborador_id', envio.colaborador_id)
           .order('numero_temporada', { ascending: false }).limit(1).maybeSingle();
         competenciaFoco = trilha?.competencia_foco;
-        const plano = (trilha?.temporada_plano || []) as any[];
+        plano = (trilha?.temporada_plano || []) as any[];
         totalSemanas = totalSemanasDoPlano(plano, TOTAL_SEMANAS);
         plan = plano.find((s: any) => Number(s.semana) === Number(semana)) || plano[semana - 1] || null;
         if (plan) {
@@ -432,6 +434,40 @@ export async function triggerDiario() {
       // ── 1ª PÍLULA ──
       if (hoje === diaP1 && !ehImpl && conteudosDia[0] && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em')) {
         await enviarPilulaDia(conteudosDia[0], 'ultima_pilula1_em');
+      }
+
+      // ── MISSÃO (semana de aplicação 4/8/12): a segunda ANUNCIA a missão ──
+      // Antes a semana de aplicação não tinha contato nenhum até a evidência de
+      // quinta — a pessoa descobria a missão por conta (medido 03/08, Ibipeba:
+      // 36/36 sem envio na segunda da semana 4). Agora a segunda abre a semana
+      // com texto padrão + vídeo explicativo + deep-link. Reusa os carimbos da
+      // pílula 1 (idempotência); o postflight não mede semana de aplicação.
+      if (hoje === diaP1 && plan?.tipo === 'aplicacao' && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em')) {
+        // acao_principal precisa do plano NORMALIZADO — no banco a missão pode
+        // estar como JSON cru/truncado (estado real de 33/36 trilhas da Ibipeba).
+        let acaoPrincipal: string | null = null;
+        try {
+          const planoNorm = normalizeTemporadaPlano(plano);
+          const planNorm = planoNorm.find((s: any) => Number(s.semana) === Number(semana)) || planoNorm[semana - 1];
+          acaoPrincipal = planNorm?.missao?.acao_principal || null;
+        } catch (e: any) { console.warn('[triggerDiario] missão normalize:', e?.message); }
+        const optsMissao = { semana, baseUrl, acaoPrincipal };
+        const agora = new Date().toISOString();
+        const stamp: Record<string, string> = {};
+        if (telefone && !mesmoDiaUTC(envio.ultima_pilula1_whatsapp_em, hojeUTC)) {
+          try {
+            await publishToQStash({ telefone, mensagem: templateWhatsAppMissao(nome, optsMissao) }, delay());
+            pilulas++; stamp.ultima_pilula1_whatsapp_em = agora;
+          } catch { erros++; }
+        }
+        if (email && !mesmoDiaUTC(envio.ultima_pilula1_email_em, hojeUTC)) {
+          const { subject, html } = emailMissao(nome, optsMissao);
+          const r = await enviarEmailPilula(email, subject, html);
+          if (r.ok) { emails++; stamp.ultima_pilula1_email_em = agora; } else erros++;
+        }
+        if (Object.keys(stamp).length) {
+          await tdb.from('fase4_envios').update({ ...stamp, ultima_pilula1_em: agora }).eq('id', envio.id);
+        }
       }
 
       // ── 2ª PÍLULA (DUO) ──

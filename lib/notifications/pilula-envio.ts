@@ -10,6 +10,7 @@
  */
 
 import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
+import { APLICACAO_VIDEO_ID } from '@/lib/season-engine/programa-config';
 
 const LABEL_FORMATO: Record<string, string> = {
   video: 'vídeo 🎬',
@@ -82,4 +83,68 @@ export async function enviarEmailPilula(to: string, subject: string, html: strin
   } catch (e: any) {
     return { ok: false, reason: String(e?.message || e) };
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MISSÃO (semana de aplicação 4/8/12): envio de SEGUNDA.
+//
+// A semana de aplicação não tem pílula — até 03/08/2026 a coorte ficava sem
+// contato nenhum até a evidência de quinta e descobria a missão por conta
+// (medido: 36/36 "sem envio" na segunda da semana 4 da Ibipeba). Agora a
+// segunda abre a semana: texto padrão + vídeo explicativo (o MESMO tutorial
+// do week page) + deep-link para a missão.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export type MissaoOpts = {
+  semana: number;
+  baseUrl: string;
+  /** `missao.acao_principal` (já normalizada) — entra como resumo quando existe. */
+  acaoPrincipal?: string | null;
+};
+
+/** Página pública do vídeo tutorial da missão (preview rico no WhatsApp via OG). */
+export function videoUrlMissao(baseUrl: string): string {
+  return `${baseUrl}/v/${APLICACAO_VIDEO_ID}`;
+}
+
+/** Texto padrão do WhatsApp da missão: vídeo explicativo + link da semana. */
+export function templateWhatsAppMissao(nome: string, opts: MissaoOpts): string {
+  const link = deepLinkSemana(opts.baseUrl, opts.semana);
+  const resumo = opts.acaoPrincipal ? `\n\nSua missão, em resumo: _${opts.acaoPrincipal}_` : '';
+  return `Olá, ${nome}! 🎯
+
+*Semana ${opts.semana} — Missão de Aplicação*
+
+Esta semana não tem pílula nova: é hora de colocar em prática o que você vem aprendendo, com uma *missão* feita para o seu dia a dia.${resumo}
+
+🎬 Comece pelo vídeo explicativo:
+${videoUrlMissao(opts.baseUrl)}
+
+📋 Sua missão completa está na plataforma:
+👉 ${link}
+
+Na quinta a Mentora IA vai querer saber como foi. Boa prática! 💪
+— Equipe Vertho`;
+}
+
+/** Assunto + HTML do e-mail da missão (thumbnail do vídeo + botão pro deep-link). */
+export function emailMissao(nome: string, opts: MissaoOpts): { subject: string; html: string } {
+  const link = deepLinkSemana(opts.baseUrl, opts.semana);
+  const video = videoUrlMissao(opts.baseUrl);
+  const thumb = `${opts.baseUrl}/api/bunny-thumb/${APLICACAO_VIDEO_ID}`;
+  const primeiro = (nome || 'Colaborador').split(' ')[0];
+  const subject = `Semana ${opts.semana} — sua Missão de Aplicação 🎯`;
+  const resumo = opts.acaoPrincipal
+    ? `<p>Sua missão, em resumo: <em>${opts.acaoPrincipal}</em></p>` : '';
+  const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
+<p>Olá, ${primeiro}! 🎯</p>
+<p>Chegou a <strong>Semana ${opts.semana} — Missão de Aplicação</strong>.</p>
+<p>Esta semana não tem pílula nova: é hora de colocar em prática o que você vem aprendendo, com uma <strong>missão</strong> feita para o seu dia a dia.</p>
+${resumo}
+<p>Comece pelo vídeo explicativo:</p>
+<p style="margin:16px 0"><a href="${video}"><img src="${thumb}" alt="Vídeo explicativo da semana" width="480" style="width:100%;max-width:480px;border-radius:8px;display:block" /></a></p>
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Ver minha missão →</a></p>
+<p style="color:#666;font-size:14px">Na quinta a Mentora IA vai querer saber como foi. Boa prática! 💪</p>
+<p style="color:#666;font-size:14px">— Equipe Vertho</p></div>`;
+  return { subject, html };
 }
