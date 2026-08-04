@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { cleanupSessoes, triggerSegunda, triggerQuinta, triggerDiario, conarhFollowup } from '@/actions/cron-jobs';
 import { safeSecretEqual } from '@/lib/secure-compare';
 
+// Os triggers (diário/segunda/quinta) varrem todas as empresas em loop
+// sequencial — sem teto explícito caem no default da Vercel e as empresas
+// do fim da lista ficam sem envio. (O fan-out por empresa é a correção
+// estrutural; isto é o remendo de curto prazo.)
+export const maxDuration = 800;
+
 /**
  * GET /api/cron?action=cleanup_sessoes|trigger_segunda|trigger_quinta
  *

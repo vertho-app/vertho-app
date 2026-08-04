@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     const auth = await requireAdmin(req);
     if (auth instanceof Response) return auth;
 
-    const limited = aiLimiter.check(req, auth.email);
+    const limited = await aiLimiter.check(req, auth.email);
     if (limited) return limited;
 
     const { system, messages, model } = await req.json();

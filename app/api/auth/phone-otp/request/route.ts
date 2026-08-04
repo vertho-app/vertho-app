@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   // Rate limit por IP — complementa o limite por-telefone do banco (que um
   // atacante contornaria variando o número), barrando flood de SMS/WhatsApp.
-  const limited = authLimiter.check(req);
+  const limited = await authLimiter.check(req);
   if (limited) return limited;
 
   try {

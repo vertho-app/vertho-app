@@ -1,10 +1,12 @@
 'use server';
 
+import { updateTag } from 'next/cache';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { addVercelDomain, removeVercelDomain } from '@/lib/vercel-domain';
 import { isAppLocale, locales } from '@/i18n/routing';
+import { TENANT_LOCALE_CACHE_TAG } from '@/lib/i18n-server';
 
 export async function loadConfig(empresaId) {
   const sb = await requireAdminSupabase();
@@ -53,6 +55,10 @@ export async function salvarLocaleEmpresa(empresaId, defaultLocale) {
     .update({ default_locale: defaultLocale })
     .eq('id', empresaId);
   if (error) return { success: false, error: error.message };
+  // O locale default é cacheado no data cache (ver lib/i18n-server.ts) —
+  // sem isso, requests antigos continuariam servindo o idioma anterior.
+  // updateTag (server action) expira na hora, com read-your-own-writes.
+  updateTag(TENANT_LOCALE_CACHE_TAG);
   await logAdminAction({
     adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
     acao: 'empresa.editar', empresaId, alvo: 'default_locale',

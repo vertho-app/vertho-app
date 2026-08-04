@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const auth = await requireRole(request, ['rh', 'admin']);
     if (auth instanceof Response) return auth;
 
-    const limited = heavyLimiter.check(request, auth.email);
+    const limited = await heavyLimiter.check(request, auth.email);
     if (limited) return limited;
 
     const { formato, filename } = await request.json();

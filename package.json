@@ -43,6 +43,8 @@
     "@supabase/supabase-js": "^2.110.7",
     "@trigger.dev/sdk": "4.4.6",
     "@upstash/qstash": "^2.10.1",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.2",
     "@vercel/functions": "^3.6.1",
     "exceljs": "^4.4.0",
     "libphonenumber-js": "^1.13.8",

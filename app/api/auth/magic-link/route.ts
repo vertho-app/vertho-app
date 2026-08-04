@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   // Rate limit por IP — rota não autenticada que dispara email/WhatsApp (custo).
-  const limited = authLimiter.check(req);
+  const limited = await authLimiter.check(req);
   if (limited) return limited;
 
   try {

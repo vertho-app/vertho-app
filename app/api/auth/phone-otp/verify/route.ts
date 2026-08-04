@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   // Rate limit por IP — barra brute-force do código OTP (complementa o limite
   // de 5 tentativas por código no banco).
-  const limited = authLimiter.check(req);
+  const limited = await authLimiter.check(req);
   if (limited) return limited;
 
   try {

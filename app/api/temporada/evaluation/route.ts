@@ -62,7 +62,7 @@ export async function POST(request) {
     const auth = await requireUser(request);
     if (auth instanceof Response) return auth;
 
-    const limited = aiLimiter.check(request, auth.email);
+    const limited = await aiLimiter.check(request, auth.email);
     if (limited) return limited;
 
     const body = await request.json();

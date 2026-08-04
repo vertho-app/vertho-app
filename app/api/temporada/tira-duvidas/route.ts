@@ -13,6 +13,9 @@ import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
 import { carregarBlueprintResumo } from '@/lib/blueprint/resumo';
 import { buscarConteudosRelacionados, formatConteudosRelacionadosBloco } from '@/lib/conteudos-relacionados';
 
+// callAIChat por pergunta pode levar dezenas de segundos (com retry, mais).
+export const maxDuration = 300;
+
 /**
  * POST /api/temporada/tira-duvidas
  * Body: { trilhaId, semana, message }
@@ -32,7 +35,7 @@ export async function POST(request) {
     const auth = await requireUser(request);
     if (auth instanceof Response) return auth;
 
-    const limited = aiLimiter.check(request, auth.email);
+    const limited = await aiLimiter.check(request, auth.email);
     if (limited) return limited;
 
     const body = await request.json();

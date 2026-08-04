@@ -11,6 +11,10 @@ import { storageSlug } from '@/lib/storage-slug';
 import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 import React from 'react';
 
+// O fallback regenera o PDF com renderToBuffer (CPU-bound) quando o
+// pdf_path não está no Storage — precisa de teto explícito.
+export const maxDuration = 300;
+
 const COMPONENTS = {
   individual: { C: RelatorioIndividualPDF, prefix: 'vertho-pdi' },
   gestor: { C: RelatorioGestorPDF, prefix: 'vertho-gestor' },

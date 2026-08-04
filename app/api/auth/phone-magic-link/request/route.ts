@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
  * interno apenas para criar a sessao Supabase via /auth/callback.
  */
 export async function POST(req: NextRequest) {
-  const limited = authLimiter.check(req);
+  const limited = await authLimiter.check(req);
   if (limited) return limited;
 
   try {

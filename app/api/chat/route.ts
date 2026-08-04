@@ -9,6 +9,11 @@ import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
 
+// Turno do chat + encerramento (avaliação + auditoria, 2× 8192 tokens) podem
+// levar minutos com retry/backoff — sem isso a rota cai no default da Vercel
+// e a função morre no meio da avaliação final.
+export const maxDuration = 300;
+
 // ── Defaults ────────────────────────────────────────────────────────────────
 
 const DEFAULT_AVALIADOR = 'claude-sonnet-4-6';
@@ -29,7 +34,7 @@ export async function POST(req) {
     const auth = await requireUser(req);
     if (auth instanceof Response) return auth;
 
-    const limited = aiLimiter.check(req, auth.email);
+    const limited = await aiLimiter.check(req, auth.email);
     if (limited) return limited;
 
     const body = await req.json();
