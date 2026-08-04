@@ -17,9 +17,17 @@ const base: EntradaClassificacao = {
 };
 
 describe('classificarLeadConarh', () => {
-  it('A exige os cinco predicados juntos', () => {
+  it('A exige os predicados juntos', () => {
     expect(classificarLeadConarh(base)).toBe('A');
     expect(classificarLeadConarh({ ...base, horizonte: 'ate_3m' })).toBe('A');
+  });
+
+  it('A continua alcançável sem `decide_ou_recomenda`', () => {
+    // O formulário da feira foi enxugado para um único toggle de qualificação
+    // (04/08/2026). Se `decide` seguisse no predicado, nenhum lead conduzido
+    // seria A — o alerta de < 30 s morreria em silêncio.
+    expect(classificarLeadConarh({ ...base, decide_ou_recomenda: false })).toBe('A');
+    expect(classificarLeadConarh({ ...base, decide_ou_recomenda: undefined })).toBe('A');
   });
 
   it('cai para B quando falta um predicado de A', () => {
@@ -29,11 +37,9 @@ describe('classificarLeadConarh', () => {
     expect(classificarLeadConarh({ ...base, horizonte: null })).toBe('B');
     // não aceitou próximo passo
     expect(classificarLeadConarh({ ...base, aceitou_proximo_passo: false })).toBe('B');
-    // não decide nem recomenda
-    expect(classificarLeadConarh({ ...base, decide_ou_recomenda: false })).toBe('B');
   });
 
-  it('sem dor clara não é A, mesmo decidindo com horizonte quente', () => {
+  it('sem dor clara não é A, mesmo com horizonte quente', () => {
     // Regressão: a versão anterior não olhava a competência e disparava o
     // alerta de lead A para quem não tinha citado dor nenhuma.
     expect(classificarLeadConarh({ ...base, competencia: null })).toBe('B');
@@ -59,5 +65,11 @@ describe('classificarLeadConarh', () => {
 
   it('dor clara sem poder de decisão é B, não C', () => {
     expect(classificarLeadConarh({ ...base, decide_ou_recomenda: false, aceitou_proximo_passo: false })).toBe('B');
+  });
+
+  it('dor clara com horizonte frio é B, não C', () => {
+    expect(
+      classificarLeadConarh({ ...base, decide_ou_recomenda: undefined, horizonte: 'sem_data' }),
+    ).toBe('B');
   });
 });

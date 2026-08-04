@@ -32,11 +32,15 @@ export interface LeadConarhPayload {
   porta: NumeroPorta;
   competencia: string; // com as palavras do visitante
   horizonte: Horizonte;
-  decide_ou_recomenda: boolean;
+  // Único toggle de qualificação do formulário desde 04/08/2026.
   aceitou_proximo_passo: boolean;
+  // Os três abaixo saíram da tela (o tablet ficou com um toggle só), mas
+  // continuam no contrato: a action os aceita e a fila offline pode ter itens
+  // antigos que os carregam.
+  decide_ou_recomenda?: boolean;
   /** Curioso, fornecedor ou fora do ICP — força classe C no servidor. */
-  fora_do_perfil: boolean;
-  slot?: string; // ISO, se marcou os 20 min
+  fora_do_perfil?: boolean;
+  slot?: string; // ISO, se a reunião já vier marcada por outro canal
   sessao: {
     nota_instintiva?: number;
     reavaliacao?: ReavaliacaoItem[];

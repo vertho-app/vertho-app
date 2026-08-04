@@ -6,7 +6,7 @@
 // Rede caiu → entra na fila local (capture.ts) e a mensagem é honesta.
 
 import { useState } from 'react';
-import { CalendarCheck, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import type { ConteudoConarh } from '../_data/types';
 import type { NumeroPorta, Telemetria } from './sessao';
 import {
@@ -19,8 +19,6 @@ import {
 import { COR, SANS, SERIF, TOQUE } from './tema';
 
 export interface ResultadoForm {
-  classe?: string;
-  slot?: string;
   naFila: boolean;
 }
 
@@ -107,13 +105,11 @@ export function Captura({
   conteudo,
   telemetria,
   modoVisitante,
-  abrirAgenda,
   onSucesso,
 }: {
   conteudo: ConteudoConarh;
   telemetria: Telemetria;
   modoVisitante?: boolean;
-  abrirAgenda?: boolean;
   onSucesso: (r: ResultadoForm) => void;
 }) {
   const [nome, setNome] = useState('');
@@ -125,11 +121,9 @@ export function Captura({
   // Pré-preenchidos da sessão — o expositor só confirma.
   const [porta, setPorta] = useState<NumeroPorta>(telemetria.porta_origem ?? 2);
   const [competencia, setCompetencia] = useState(conteudo.porta1.competencia);
-  const [decide, setDecide] = useState(false);
+  // Único toggle de qualificação do formulário conduzido (04/08/2026): é ele,
+  // com dor clara e horizonte quente, que marca o lead A no servidor.
   const [proximoPasso, setProximoPasso] = useState(false);
-  const [foraDoPerfil, setForaDoPerfil] = useState(false);
-  const [querAgenda, setQuerAgenda] = useState(!!abrirAgenda);
-  const [slot, setSlot] = useState<string | undefined>(undefined);
   const [lgpd, setLgpd] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -157,10 +151,7 @@ export function Captura({
       porta,
       competencia: competencia.trim(),
       horizonte,
-      decide_ou_recomenda: decide,
-      aceitou_proximo_passo: proximoPasso || !!slot,
-      fora_do_perfil: foraDoPerfil,
-      slot,
+      aceitou_proximo_passo: proximoPasso,
       sessao: {
         nota_instintiva: telemetria.nota_instintiva,
         reavaliacao: telemetria.reavaliacao,
@@ -172,11 +163,11 @@ export function Captura({
     };
     const r = await enviarLeadConarh(payload);
     if (r.ok) {
-      onSucesso({ classe: r.classe, slot, naFila: false });
+      onSucesso({ naFila: false });
     } else {
       // Falha de rede/servidor → não perde o lead: fila local + mensagem honesta.
       enfileirar(payload);
-      onSucesso({ slot, naFila: true });
+      onSucesso({ naFila: true });
     }
   }
 
@@ -297,67 +288,7 @@ export function Captura({
               </p>
             </div>
 
-            <Toggle ligado={decide} onChange={setDecide} rotulo="Decide ou recomenda a decisão de desenvolvimento" />
             <Toggle ligado={proximoPasso} onChange={setProximoPasso} rotulo="Aceitou um próximo passo depois da feira" />
-            {/* Marca classe C no servidor. Sem isto, curioso e fornecedor
-                entravam como B e poluíam a cadência ativa. */}
-            <Toggle
-              ligado={foraDoPerfil}
-              onChange={setForaDoPerfil}
-              rotulo="Fora do perfil (curioso, fornecedor ou concorrente)"
-            />
-
-            {/* Agenda — marcar os 20 minutos na hora */}
-            <div>
-              <Toggle
-                ligado={querAgenda}
-                onChange={(v) => {
-                  setQuerAgenda(v);
-                  if (!v) setSlot(undefined);
-                }}
-                rotulo="Marcar os 20 minutos agora"
-              />
-              {querAgenda && (
-                <div className="mt-4 space-y-4">
-                  {conteudo.agenda.dias.map((dia) => (
-                    <div key={dia.data}>
-                      <p style={{ color: COR.texto2, fontSize: 17, fontWeight: 700, fontFamily: SANS, margin: 0 }}>
-                        {dia.rotulo}
-                      </p>
-                      <div className="flex flex-wrap gap-2.5 mt-2">
-                        {dia.slots.map((hora) => {
-                          // Feira em São Paulo (UTC-3) — slot ISO com offset explícito.
-                          const iso = `${dia.data}T${hora}:00:00-03:00`;
-                          const ativo = slot === iso;
-                          return (
-                            <button
-                              key={hora}
-                              type="button"
-                              onClick={() => setSlot(ativo ? undefined : iso)}
-                              className="rounded-xl border px-5 py-3 font-bold"
-                              style={{
-                                background: ativo ? COR.acento : COR.card,
-                                borderColor: ativo ? COR.acento : COR.borda,
-                                color: ativo ? COR.fundo0 : COR.texto2,
-                                fontSize: 18,
-                                fontFamily: SANS,
-                              }}
-                            >
-                              {hora}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                  {slot && (
-                    <p className="flex items-center gap-2" style={{ color: COR.acento, fontSize: 17, fontWeight: 700, fontFamily: SANS, margin: 0 }}>
-                      <CalendarCheck size={18} /> Reunião marcada — confirmação sai no WhatsApp.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
           </>
         )}
 

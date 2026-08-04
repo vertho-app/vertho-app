@@ -31,7 +31,7 @@ import { COR, FUNDO, SANS, SERIF, TOQUE } from './tema';
 type Tela =
   | { tipo: 'hub' }
   | { tipo: 'porta'; porta: NumeroPorta }
-  | { tipo: 'captura'; agenda: boolean }
+  | { tipo: 'captura' }
   | { tipo: 'confirmacao'; resultado: ResultadoForm };
 
 const TEMPO_RESET_MS = 5 * 60 * 1000; // 5 min sem toque → volta ao hub limpo
@@ -99,13 +99,16 @@ export function ConarhApp({
     setTela({ tipo: 'porta', porta });
   }
 
-  function abrirCaptura(agenda: boolean) {
+  // "Receber o recorte" e "Marcar os 20 minutos" levam à MESMA tela: desde
+  // 04/08/2026 o slot não é escolhido no tablet — o fechador marca depois, pelo
+  // WhatsApp. O que a segunda porta muda é a conversa, não o formulário.
+  function abrirCaptura() {
     setTelemetria((t) =>
       tela.tipo === 'porta'
         ? { ...marcarConclusao(t, tela.porta), porta_origem: tela.porta }
         : t,
     );
-    setTela({ tipo: 'captura', agenda });
+    setTela({ tipo: 'captura' });
   }
 
   function finalizarPorta2(r: ResultadoPorta2) {
@@ -154,8 +157,8 @@ export function ConarhApp({
           <Porta1
             conteudo={conteudo}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 1))}
-            onCaptura={() => abrirCaptura(false)}
-            onAgendar={() => abrirCaptura(true)}
+            onCaptura={() => abrirCaptura()}
+            onAgendar={() => abrirCaptura()}
             onProxima={() => abrirPorta(2)}
           />
         )}
@@ -165,8 +168,8 @@ export function ConarhApp({
             modoVisitante={modoVisitante}
             onFinalizar={finalizarPorta2}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 2))}
-            onCaptura={() => abrirCaptura(false)}
-            onAgendar={() => abrirCaptura(true)}
+            onCaptura={() => abrirCaptura()}
+            onAgendar={() => abrirCaptura()}
             onProxima={() => abrirPorta(3)}
           />
         )}
@@ -174,8 +177,8 @@ export function ConarhApp({
           <Porta3
             conteudo={conteudo}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 3))}
-            onCaptura={() => abrirCaptura(false)}
-            onAgendar={() => abrirCaptura(true)}
+            onCaptura={() => abrirCaptura()}
+            onAgendar={() => abrirCaptura()}
             onProxima={() => abrirPorta(4)}
           />
         )}
@@ -183,8 +186,8 @@ export function ConarhApp({
           <Porta4
             conteudo={conteudo}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 4))}
-            onCaptura={() => abrirCaptura(false)}
-            onAgendar={() => abrirCaptura(true)}
+            onCaptura={() => abrirCaptura()}
+            onAgendar={() => abrirCaptura()}
             onProxima={() => abrirPorta(5)}
           />
         )}
@@ -192,8 +195,8 @@ export function ConarhApp({
           <Porta5
             conteudo={conteudo}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 5))}
-            onCaptura={() => abrirCaptura(false)}
-            onAgendar={() => abrirCaptura(true)}
+            onCaptura={() => abrirCaptura()}
+            onAgendar={() => abrirCaptura()}
             onProxima={() => setTela({ tipo: 'hub' })}
           />
         )}
@@ -203,7 +206,6 @@ export function ConarhApp({
             conteudo={conteudo}
             telemetria={telemetria}
             modoVisitante={modoVisitante}
-            abrirAgenda={tela.agenda}
             onSucesso={(resultado) => setTela({ tipo: 'confirmacao', resultado })}
           />
         )}
@@ -254,16 +256,6 @@ function Confirmacao({
           ? 'A rede oscilou na hora de enviar — o contato está salvo no aparelho e enviamos em instantes, automaticamente.'
           : 'O recorte da demonstração chega pelo WhatsApp em alguns minutos.'}
       </p>
-      {resultado.slot && (
-        <p style={{ color: COR.acento, fontSize: 20, fontWeight: 700, fontFamily: SANS, marginTop: 10 }}>
-          Reunião de 20 min marcada — a confirmação sai junto no WhatsApp.
-        </p>
-      )}
-      {resultado.classe && (
-        <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 10 }}>
-          Classificação interna: {resultado.classe}
-        </p>
-      )}
       <button
         type="button"
         onClick={onNovoVisitante}
