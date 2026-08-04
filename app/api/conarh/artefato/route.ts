@@ -176,7 +176,7 @@ function emailHtml({ nome, mapaUrl }: { nome: string | null; mapaUrl: string }) 
     </td></tr>
     <tr><td style="padding:28px;color:#1e293b;line-height:1.65;font-size:14px;">
       <p>${saud}</p>
-      <p>Como combinado no estande, aqui está o seu Mapa da Evolução: 1 página com o problema que você descreveu, o ciclo completo das 5 portas e 3 perguntas para revisar o processo atual. O formato é feito para ser encaminhado (ou impresso) para quem decide com você.</p>
+      <p>Como combinado no estande, aqui está o seu Mapa da Evolução: 1 página com o problema que você descreveu, o ciclo completo das 5 etapas e 3 perguntas para revisar o processo atual. O formato é feito para ser lido em dois minutos — e para circular com o time, na tela ou impresso.</p>
       <p style="text-align:center;margin:28px 0;">
         <a href="${safeUrl}" style="background:#34c5cc;color:#0f2b54;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:700;">Abrir o Mapa da Evolução</a>
       </p>

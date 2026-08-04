@@ -8,8 +8,8 @@ import { cicloResumo, formatarDataHoraBRT, perguntasRevisao, portaInfo, primeiro
  *
  * Página PÚBLICA (sem auth — o link vai por WhatsApp/e-mail para o lead e
  * precisa abrir no celular dele e sobreviver a um print encaminhado ao chefe):
- * 1 página com o problema declarado (porta + competência, nas palavras dele),
- * o ciclo das 5 portas em 5 linhas, as 3 perguntas de revisão, a marca Vertho
+ * 1 página com o problema declarado (etapa + competência, nas palavras dele),
+ * o ciclo das 5 etapas em 5 linhas, as 3 perguntas de revisão, a marca Vertho
  * e o próximo passo. Sem nav, sem links para o resto do app.
  *
  * Lê SOMENTE leads do scope conarh-2026: sem esse filtro, a URL viraria
@@ -63,7 +63,7 @@ export default async function MapaEvolucaoPage({ params }: { params: Promise<{ i
           <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500">O problema que você descreveu</h2>
           {porta && (
             <p className="mt-3 text-lg">
-              <span className="font-bold">Porta {porta.numero} — {porta.nome}.</span>{' '}
+              <span className="font-bold">Etapa {porta.numero} — {porta.nome}.</span>{' '}
               <span className="text-slate-600">{porta.sub}</span>
             </p>
           )}

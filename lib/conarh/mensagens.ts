@@ -2,9 +2,16 @@
  * CONARH 52 — textos das mensagens da captura e da régua (T+0 → T+5).
  *
  * Regra do sprint (F8): nenhum "passando pra saber se viu meu e-mail" — todo
- * toque entrega evidência, ferramenta ou decisão. As mensagens citam a PORTA
+ * toque entrega evidência, ferramenta ou decisão. As mensagens citam a ETAPA
  * e a COMPETÊNCIA com as palavras do visitante, porque é isso que separa o
  * follow-up humano da automação genérica.
+ *
+ * Duas regras de TOM, aprendidas relendo o T+0 já enviado (04/08/2026):
+ * 1. "porta" é vocabulário do código — para quem visitou o estande é ETAPA.
+ * 2. Nada que rebaixe quem recebe. "Dá para encaminhar direto para quem
+ *    decide" trata o destinatário como quem NÃO decide; o convite a compartilhar
+ *    se faz pelo formato ("feito para ler em dois minutos e circular"), nunca
+ *    por um palpite sobre o cargo dele.
  *
  * Envs: nenhuma direta.
  */
@@ -34,7 +41,7 @@ export function mensagemT0(lead: LeadConarhMsg): string {
     );
   }
   linhas.push(
-    'Separamos o seu Mapa da Evolução: 1 página com o problema que você descreveu, o ciclo completo das 5 portas e 3 perguntas para revisar o processo atual. Dá para encaminhar direto para quem decide:',
+    'Separamos o seu Mapa da Evolução: 1 página com o problema que você descreveu, o ciclo completo das 5 etapas e 3 perguntas para revisar o processo atual. Feito para ler em dois minutos e circular com o time:',
     mapaEvolucaoUrl(lead.id),
   );
   if (lead.reuniao_em) {

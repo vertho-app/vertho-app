@@ -19,10 +19,15 @@ export function portaInfo(numero: number | null | undefined): PortaInfo | null {
   return p || null;
 }
 
-/** Rótulo curto "porta 2 (Avaliar com consistência)" para mensagens. */
+/**
+ * Rótulo curto "etapa 2 (Avaliar com consistência)" para mensagens.
+ * "Porta" é o nome INTERNO do componente; para o visitante a demo sempre disse
+ * "etapa" (barra do topo, título e botão de avanço). O follow-up fala a língua
+ * da tela que ele tocou, não a do código.
+ */
 export function rotuloPorta(numero: number | null | undefined): string | null {
   const p = portaInfo(numero);
-  return p ? `porta ${p.numero} (${p.nome})` : null;
+  return p ? `etapa ${p.numero} (${p.nome})` : null;
 }
 
 /**
@@ -39,7 +44,7 @@ export function perguntasRevisao(): string[] {
   return (conteudo.mapa_evolucao?.perguntas_revisao as string[]) || [];
 }
 
-/** O ciclo das 5 portas em 5 linhas (uma por porta). */
+/** O ciclo das 5 etapas em 5 linhas (uma por etapa). */
 export function cicloResumo(): string[] {
   return (conteudo.mapa_evolucao?.ciclo_resumo as string[]) || [];
 }
