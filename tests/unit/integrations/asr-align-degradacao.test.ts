@@ -44,7 +44,7 @@ describe('transcribeWords — degradação declarada', () => {
     vi.unstubAllGlobals();
   });
 
-  it('erro HTTP: devolve null e registra a degradação com o status na chave', async () => {
+  it('erro HTTP persistente: re-tenta, devolve null e registra UMA vez, com o status na chave', async () => {
     (globalThis.fetch as any).mockResolvedValue({
       ok: false,
       status: 403,
@@ -55,11 +55,26 @@ describe('transcribeWords — degradação declarada', () => {
     const r = await transcribeWords(MP3);
 
     expect(r).toBeNull();
-    expect(registrarDegradacao).toHaveBeenCalledTimes(1);
+    expect((globalThis.fetch as any).mock.calls).toHaveLength(3); // 1 + 2 retries
+    expect(registrarDegradacao).toHaveBeenCalledTimes(1); // uma linha, não uma por tentativa
     const arg = registrarDegradacao.mock.calls[0][0] as any;
     expect(arg.fluxo).toBe('video');
     expect(arg.tipo).toBe('alinhamento-asr-ausente');
     expect(arg.chave).toContain('http-403'); // dedup por motivo: 403 ≠ timeout
+  });
+
+  it('403 transitório: a 2ª tentativa vence e NÃO registra degradação', async () => {
+    // Foi o que aconteceu em 04/08: a liberação do modelo levou minutos para
+    // valer em todas as chamadas, e 2 de 9 cenas perderam o alinhamento.
+    (globalThis.fetch as any)
+      .mockResolvedValueOnce({ ok: false, status: 403, text: async () => 'ainda propagando' })
+      .mockResolvedValueOnce(respostaOk({ words: [{ word: 'oi', start: 0, end: 0.3 }] }));
+    const { transcribeWords } = await carregar();
+
+    const r = await transcribeWords(MP3);
+
+    expect(r).toHaveLength(1);
+    expect(registrarDegradacao).not.toHaveBeenCalled();
   });
 
   it('sucesso: devolve as palavras e NÃO registra degradação', async () => {

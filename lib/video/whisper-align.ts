@@ -35,14 +35,29 @@ function registrar(motivo: string, detalhe: Record<string, unknown>) {
   });
 }
 
-/** Transcreve o áudio e devolve as palavras com timestamps (ou null no fallback). */
-export async function transcribeWords(mp3: Buffer, opts: { language?: string } = {}): Promise<WordTime[] | null> {
+/**
+ * Transcreve o áudio e devolve as palavras com timestamps (ou null no fallback).
+ *
+ * `tentativa` é interna (retry). Medido em 04/08: minutos depois de o acesso ao
+ * modelo ser liberado, 2 de 9 cenas ainda levaram 403 enquanto as outras 7
+ * passavam — janela de propagação do lado da OpenAI, não permissão de verdade
+ * (10/10 logo em seguida). Sem retry, uma cena perde o cue de fala para sempre:
+ * o vídeo já foi renderizado. Por isso até 403 é re-tentado — aqui ele não
+ * significa "nunca vai funcionar", significa "ainda não".
+ */
+export async function transcribeWords(
+  mp3: Buffer,
+  opts: { language?: string } = {},
+  tentativa = 0,
+): Promise<WordTime[] | null> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
     console.warn('[asr] sem OPENAI_API_KEY — fallback p/ heurística');
     registrar('sem-api-key', {});
     return null;
   }
+  const MAX_TENTATIVAS = 3;
+  const retentavel = (status: number) => status === 403 || status === 429 || status >= 500;
   try {
     const form = new FormData();
     form.append('file', new Blob([mp3 as any], { type: 'audio/mpeg' }), 'narration.mp3');
@@ -63,8 +78,14 @@ export async function transcribeWords(mp3: Buffer, opts: { language?: string } =
     }
     if (!res.ok) {
       const corpo = (await res.text()).slice(0, 160);
+      if (retentavel(res.status) && tentativa + 1 < MAX_TENTATIVAS) {
+        const espera = 1500 * 2 ** tentativa;
+        console.warn(`[asr] ${MODELO} ${res.status} — re-tentando em ${espera}ms (${tentativa + 2}/${MAX_TENTATIVAS})`);
+        await new Promise((r) => setTimeout(r, espera));
+        return transcribeWords(mp3, opts, tentativa + 1);
+      }
       console.warn(`[asr] ${MODELO} ${res.status}: ${corpo} — fallback p/ heurística`);
-      registrar(`http-${res.status}`, { corpo });
+      registrar(`http-${res.status}`, { corpo, tentativas: tentativa + 1 });
       return null;
     }
     const data = await res.json();
