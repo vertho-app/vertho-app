@@ -48,10 +48,19 @@ export const DEGRADACAO = {
    * os dois esconderia isso dentro do balde maior.
    */
   KIT_CARGO_DIVERGENTE: 'kit-cargo-divergente',
+  /**
+   * vídeo: o ASR não devolveu timing por palavra → legendas caem na heurística
+   * proporcional E as animações perdem `speechStartFrame/EndFrame` (7 templates
+   * usam esses cues). Medido em 03/08: o projeto OpenAI perdeu acesso a modelos
+   * de áudio em algum ponto entre 25/06 e 14/07, e **139 vídeos** foram gerados
+   * assim — em silêncio, porque só havia console.warn. É o caso que justifica
+   * esta constante existir.
+   */
+  ALINHAMENTO_ASR_AUSENTE: 'alinhamento-asr-ausente',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
-export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa';
+export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video';
 export type DegradacaoSeveridade = 'info' | 'aviso' | 'critico';
 
 export interface DegradacaoInput {
