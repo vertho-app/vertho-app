@@ -29,13 +29,11 @@ export function Porta5({
   conteudo,
   onConcluiu,
   onCaptura,
-  onAgendar,
   onProxima,
 }: {
   conteudo: ConteudoConarh;
   onConcluiu: () => void;
   onCaptura: () => void;
-  onAgendar: () => void;
   onProxima: () => void;
 }) {
   const { porta5, portas } = conteudo;
@@ -129,7 +127,6 @@ export function Porta5({
         gancho="O piloto demonstra o método. A evolução é avaliada na jornada adequada — em 20 minutos a gente desenha um piloto com a competência crítica da sua equipe."
         onConcluiu={onConcluiu}
         onCaptura={onCaptura}
-        onAgendar={onAgendar}
       />
 
       <BarraAcao primaria={{ rotulo: 'Voltar às 5 etapas', onClick: onProxima }} />

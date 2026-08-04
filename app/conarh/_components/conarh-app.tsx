@@ -99,9 +99,9 @@ export function ConarhApp({
     setTela({ tipo: 'porta', porta });
   }
 
-  // "Receber o recorte" e "Marcar os 20 minutos" levam à MESMA tela: desde
-  // 04/08/2026 o slot não é escolhido no tablet — o fechador marca depois, pelo
-  // WhatsApp. O que a segunda porta muda é a conversa, não o formulário.
+  // Caminho ÚNICO para o formulário desde 04/08/2026: o fecho de cada etapa
+  // tem um CTA só ("Receber esse recorte"). Marcar a reunião voltou a ser
+  // conversa — o fechador combina o horário depois, pelo WhatsApp.
   function abrirCaptura() {
     setTelemetria((t) =>
       tela.tipo === 'porta'
@@ -158,7 +158,6 @@ export function ConarhApp({
             conteudo={conteudo}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 1))}
             onCaptura={() => abrirCaptura()}
-            onAgendar={() => abrirCaptura()}
             onProxima={() => abrirPorta(2)}
           />
         )}
@@ -169,7 +168,6 @@ export function ConarhApp({
             onFinalizar={finalizarPorta2}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 2))}
             onCaptura={() => abrirCaptura()}
-            onAgendar={() => abrirCaptura()}
             onProxima={() => abrirPorta(3)}
           />
         )}
@@ -178,7 +176,6 @@ export function ConarhApp({
             conteudo={conteudo}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 3))}
             onCaptura={() => abrirCaptura()}
-            onAgendar={() => abrirCaptura()}
             onProxima={() => abrirPorta(4)}
           />
         )}
@@ -187,7 +184,6 @@ export function ConarhApp({
             conteudo={conteudo}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 4))}
             onCaptura={() => abrirCaptura()}
-            onAgendar={() => abrirCaptura()}
             onProxima={() => abrirPorta(5)}
           />
         )}
@@ -196,7 +192,6 @@ export function ConarhApp({
             conteudo={conteudo}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 5))}
             onCaptura={() => abrirCaptura()}
-            onAgendar={() => abrirCaptura()}
             onProxima={() => setTela({ tipo: 'hub' })}
           />
         )}

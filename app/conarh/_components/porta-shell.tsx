@@ -1,10 +1,10 @@
 'use client';
 
 // CONARH 52 — fecho padrão de cada porta: gancho que puxa a próxima etapa +
-// a pergunta de sempre ("ver outra etapa ou receber o recorte?") + agenda.
+// a pergunta de sempre ("ver outra etapa ou receber o recorte?") + UM CTA.
 // Também marca a rota como concluída quando o fecho entra na tela.
 
-import { CalendarCheck, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { COR, SANS, TOQUE } from './tema';
 import { useAoAparecer } from './chrome';
 
@@ -15,13 +15,11 @@ export function FechoPorta({
   gancho,
   onConcluiu,
   onCaptura,
-  onAgendar,
 }: {
   /** Frase que puxa a próxima porta (vazio na porta 5). */
   gancho: string;
   onConcluiu: () => void;
   onCaptura: () => void;
-  onAgendar: () => void;
 }) {
   const ref = useAoAparecer(onConcluiu);
   return (
@@ -59,6 +57,11 @@ export function FechoPorta({
       >
         {FECHO}
       </p>
+      {/* Um CTA só: "Marcar os 20 minutos" levava à MESMA tela desde que o
+          seletor de horário saiu do formulário (04/08/2026) — dois botões
+          idênticos com nomes diferentes só fazem o visitante escolher à toa.
+          Marcar a reunião voltou a ser conversa (o fecho acima já a propõe),
+          não interface. */}
       <div className="flex flex-wrap gap-3 mt-6">
         <button
           type="button"
@@ -75,23 +78,6 @@ export function FechoPorta({
         >
           <Send size={20} />
           Receber esse recorte
-        </button>
-        <button
-          type="button"
-          onClick={onAgendar}
-          className="flex items-center gap-2.5 rounded-2xl border px-7"
-          style={{
-            minHeight: TOQUE,
-            background: 'transparent',
-            borderColor: COR.bordaAcento,
-            color: COR.acento,
-            fontSize: 19,
-            fontWeight: 700,
-            fontFamily: SANS,
-          }}
-        >
-          <CalendarCheck size={20} />
-          Marcar os 20 minutos
         </button>
       </div>
     </div>

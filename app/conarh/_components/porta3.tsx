@@ -62,13 +62,11 @@ export function Porta3({
   conteudo,
   onConcluiu,
   onCaptura,
-  onAgendar,
   onProxima,
 }: {
   conteudo: ConteudoConarh;
   onConcluiu: () => void;
   onCaptura: () => void;
-  onAgendar: () => void;
   onProxima: () => void;
 }) {
   const { porta3, portas } = conteudo;
@@ -126,7 +124,6 @@ export function Porta3({
         gancho="O plano é o mesmo para todos? É aí que a maioria dos programas quebra. A próxima etapa mostra o espelho."
         onConcluiu={onConcluiu}
         onCaptura={onCaptura}
-        onAgendar={onAgendar}
       />
 
       <BarraAcao primaria={{ rotulo: 'Próxima etapa: personalizar', onClick: onProxima }} />

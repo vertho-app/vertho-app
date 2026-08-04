@@ -17,13 +17,11 @@ export function Porta1({
   conteudo,
   onConcluiu,
   onCaptura,
-  onAgendar,
   onProxima,
 }: {
   conteudo: ConteudoConarh;
   onConcluiu: () => void;
   onCaptura: () => void;
-  onAgendar: () => void;
   onProxima: () => void;
 }) {
   const { porta1, portas } = conteudo;
@@ -166,7 +164,6 @@ export function Porta1({
         gancho="Com uma régua dessas na mão, como fica a avaliação? Na próxima etapa você testa a sua."
         onConcluiu={onConcluiu}
         onCaptura={onCaptura}
-        onAgendar={onAgendar}
       />
 
       <BarraAcao primaria={{ rotulo: 'Próxima etapa: avaliar', onClick: onProxima }} />

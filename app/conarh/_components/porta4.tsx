@@ -30,13 +30,11 @@ export function Porta4({
   conteudo,
   onConcluiu,
   onCaptura,
-  onAgendar,
   onProxima,
 }: {
   conteudo: ConteudoConarh;
   onConcluiu: () => void;
   onCaptura: () => void;
-  onAgendar: () => void;
   onProxima: () => void;
 }) {
   const { porta4, portas, personas } = conteudo;
@@ -311,7 +309,6 @@ export function Porta4({
         gancho="Personalizado assim, dá para mostrar o que evoluiu de verdade. É o painel da última etapa."
         onConcluiu={onConcluiu}
         onCaptura={onCaptura}
-        onAgendar={onAgendar}
       />
 
       <BarraAcao primaria={{ rotulo: 'Próxima etapa: o painel', onClick: onProxima }} />

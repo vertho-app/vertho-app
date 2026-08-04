@@ -26,7 +26,6 @@ export function Porta2({
   onFinalizar,
   onConcluiu,
   onCaptura,
-  onAgendar,
   onProxima,
 }: {
   conteudo: ConteudoConarh;
@@ -34,7 +33,6 @@ export function Porta2({
   onFinalizar: (r: ResultadoPorta2) => void;
   onConcluiu: () => void;
   onCaptura: () => void;
-  onAgendar: () => void;
   onProxima: () => void;
 }) {
   const { porta2, portas } = conteudo;
@@ -389,7 +387,6 @@ export function Porta2({
                 gancho="Com a avaliação criteriosa em mãos, o próximo passo é transformar isso em plano. É a etapa 3."
                 onConcluiu={onConcluiu}
                 onCaptura={onCaptura}
-                onAgendar={onAgendar}
               />
               <BarraAcao primaria={{ rotulo: 'Próxima etapa: PDI', onClick: onProxima }} />
             </>
