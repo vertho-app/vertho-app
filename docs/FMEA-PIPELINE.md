@@ -593,6 +593,25 @@ briefs duplicados por tupla.
   denominador variável derruba 3). ⚠️ Comportamento muda: runs parciais que o admin via como 100
   agora aparecem como ≤50 + PARCIAL — é a correção, não regressão.
 
+### F-O1 · O ALARME media varredura, não experiência ✅ (fechado 04/08)
+- **Gatilho:** `aplicarOverlayKit` roda sobre o plano INTEIRO (14 semanas) e passava `colaboradorId`
+  em todas — e é o `colaboradorId` que LIGA o registro em `overlayConteudo`. Uma abertura de
+  `/admin/temporadas` no ibipeba = 37 trilhas × ~9 semanas, tudo contabilizado como fallback.
+- **Medido (04/08):** o health acusou **578 fallbacks/24h**; das **622 ocorrências acumuladas** de
+  `kit-ausente-disc` + `kit-cargo-divergente`, **ZERO eram de semana acessível** — menor semana
+  registrada em todo o histórico = **6**, maior liberada = **4**. Ninguém tinha recebido conteúdo
+  degradado.
+- 🔎 **O que denunciou:** os dois tipos com `ultima_em` no **mesmo segundo** (03:41:27) — lote, não
+  leitura de gente. Ao ver contagem alta, cheque a distribuição temporal antes da causa-raiz.
+- **Correção:** `colaboradorId` só em semana liberada (`entregaEhReal`, `week-gating.ts`).
+  Fail-closed sem `data_inicio` → varredura de admin (cujos selects não trazem o campo) para de
+  registrar por construção, mesma disciplina da prévia do health (que já não passava `colaboradorId`).
+- ⚠️ **Recontextualiza o alarme de 29/07:** os "86 fallbacks / 29 leituras de 2 pessoas" que
+  motivaram os fixes de kit (§3.4) também eram varredura de semana futura. Os bugs eram **reais** e a
+  correção segue válida — mas era **preventiva**: ninguém tinha sido servido errado, porque ninguém
+  chegou na semana 6. **Lição: "N ocorrências" não é "N pessoas afetadas" enquanto não se cruza com
+  quem podia consumir aquilo.**
+
 ### F-P3 · Missão truncada chegava CRUA na tela (JSON no lugar do texto) ✅ (fechado 29/07)
 - **Gatilho:** `parseMissaoResponse` faz `JSON.parse` do payload inteiro e devolve `null` quando a
   geração cortou no meio (maxTokens — mesma raiz do F-P1). `normalizeMissao` é fail-safe
