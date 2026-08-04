@@ -20,18 +20,13 @@ export function Hub({
 }) {
   return (
     <div>
-      <p
-        className="uppercase font-bold mb-3"
-        style={{ color: COR.acento, fontSize: 14, letterSpacing: '0.26em', fontFamily: SANS }}
-      >
-        CONARH 52 · Vertho
-      </p>
-      <p
-        className="uppercase font-bold mb-3"
-        style={{ color: COR.texto3, fontSize: 15, letterSpacing: '0.18em', fontFamily: SANS }}
-      >
-        Plataforma de evolução de competências
-      </p>
+      {/* Assinatura da marca: logo centralizado, sem eyebrow — a pergunta é o gancho. */}
+      <img
+        src="/logo-vertho.png"
+        alt="Vertho"
+        className="mx-auto block"
+        style={{ height: 34, opacity: 0.95, marginBottom: 28 }}
+      />
       <h1
         style={{
           color: COR.texto,
@@ -47,18 +42,6 @@ export function Hub({
         Onde seu processo de desenvolvimento{' '}
         <em style={{ color: COR.acento }}>mais perde força?</em>
       </h1>
-      <p
-        style={{
-          color: COR.texto2,
-          fontSize: 21,
-          lineHeight: 1.5,
-          fontFamily: SANS,
-          marginTop: 16,
-          maxWidth: 800,
-        }}
-      >
-        Toque na etapa — cada uma abre em segundos, com um caso demonstrativo completo.
-      </p>
 
       <div className="mt-10 space-y-4">
         {conteudo.portas.map((porta) => {
