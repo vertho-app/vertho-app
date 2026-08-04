@@ -50,7 +50,10 @@ export default async function MapaEvolucaoPage({ params }: { params: Promise<{ i
       <div className="mx-auto max-w-2xl px-6 py-10 print:py-6">
         {/* Marca */}
         <header className="border-b-2 border-slate-900 pb-4">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-700">Vertho · CONARH 52</p>
+          {/* Assinatura ESCURA: a página é branca (e feita para imprimir), onde
+              o logo claro padrão sumiria. Mesma regra do rodapé dos PDFs. */}
+          <img src="/logo-vertho-escuro.png" alt="Vertho" className="mb-4 h-7 w-auto" />
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-700">CONARH 52</p>
           <h1 className="mt-1 text-3xl font-bold leading-tight">Mapa da Evolução</h1>
           <p className="mt-1 text-sm text-slate-500">
             {primeiroNome(lead.nome) ? `Preparado para ${primeiroNome(lead.nome)}` : 'Preparado no estande'}
