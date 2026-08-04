@@ -41,6 +41,7 @@ export function Porta2({
   const [indiceDescritor, setIndiceDescritor] = useState(0);
   const [reavaliacao, setReavaliacao] = useState<Array<{ descritor: string; nota: number }>>([]);
   const [verContexto, setVerContexto] = useState(false);
+  const [verOrigem, setVerOrigem] = useState(false);
   const [cardAberto, setCardAberto] = useState<string | null>(null);
   const contexto = useMemo(() => partirNaPrimeiraFrase(porta2.contexto), [porta2.contexto]);
 
@@ -142,6 +143,45 @@ export function Porta2({
             Renata registrou a conversa por escrito. Três momentos:
           </p>
           <RegistroRecorte trechos={porta2.registro_trechos} completo={porta2.registro_conversa} />
+
+          {/* O diferencial que a demo não podia mostrar em pé: na plataforma
+              ninguém digita registro nenhum — a evidência nasce do cenário
+              situacional. Fica atrás de um toque para não competir com o
+              registro, que é o que o visitante precisa ler antes de avaliar. */}
+          <button
+            type="button"
+            onClick={() => setVerOrigem(!verOrigem)}
+            style={{
+              color: COR.acento,
+              fontSize: 17,
+              fontWeight: 700,
+              fontFamily: SANS,
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              marginTop: 16,
+            }}
+          >
+            {verOrigem ? 'Esconder ↑' : 'De onde sai essa evidência na plataforma ↓'}
+          </button>
+          {verOrigem && (
+            <p
+              style={{
+                color: COR.texto2,
+                fontSize: 18,
+                lineHeight: 1.55,
+                fontFamily: SANS,
+                marginTop: 8,
+                maxWidth: 900,
+              }}
+            >
+              Aqui o registro é escrito porque você precisa lê-lo em pé, em trinta segundos. Na
+              plataforma, ninguém digita relatório: a pessoa recebe um{' '}
+              <strong style={{ color: COR.texto }}>cenário situacional</strong> gerado para o cargo
+              e a competência dela, responde, e a IA conduz a conversa até a decisão aparecer. É
+              essa conversa — com as palavras dela — que a régua lê.
+            </p>
+          )}
 
           <BarraAcao
             primaria={{ rotulo: 'Avaliar esse registro', onClick: () => setPasso(2) }}
@@ -363,6 +403,51 @@ export function Porta2({
               );
             })}
           </div>
+
+          {/* Onde o diferencial fecha: o visitante ACABOU de ver a régua ler
+              uma conversa. Aqui se diz que, em produção, a conversa não vem de
+              um gestor com boa memória — vem do cenário. Sem isto, a demo
+              parece depender de alguém escrever um relatório bom. */}
+          <section
+            className="rounded-3xl border p-6 mt-10"
+            style={{ background: COR.card, borderColor: COR.bordaAcento }}
+          >
+            <p
+              className="uppercase font-bold"
+              style={{ color: COR.acento, fontSize: 13, letterSpacing: '0.2em', fontFamily: SANS, margin: 0 }}
+            >
+              Como isso roda na plataforma
+            </p>
+            <p style={{ color: COR.texto, fontSize: 19, fontWeight: 700, fontFamily: SANS, marginTop: 8, marginBottom: 0 }}>
+              Mapeamento por cenários — a evidência não depende de alguém lembrar de escrever.
+            </p>
+            <ol className="mt-4 space-y-3">
+              {[
+                ['Cenário situacional', 'gerado para o cargo, a competência e o contexto da empresa — não um banco de perguntas genéricas.'],
+                ['A pessoa responde e a IA conduz', 'a conversa vai até a decisão aparecer. Ela é a evidência, com as palavras de quem respondeu.'],
+                ['A mesma régua lê a conversa', 'nível por descritor, trecho citado e o que faltou para o nível acima — exatamente o que você acabou de ver acima.'],
+              ].map(([titulo, texto], i) => (
+                <li key={titulo} className="flex gap-3">
+                  <span
+                    className="flex items-center justify-center rounded-full flex-shrink-0 font-bold"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      background: 'rgba(52,197,204,0.14)',
+                      color: COR.acento,
+                      fontSize: 15,
+                      fontFamily: SANS,
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                  <span style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.5, fontFamily: SANS }}>
+                    <strong style={{ color: COR.texto }}>{titulo}</strong> — {texto}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
 
           {modoVisitante ? (
             <div className="mt-10">
