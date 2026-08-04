@@ -30,15 +30,6 @@ export function rotuloPorta(numero: number | null | undefined): string | null {
   return p ? `etapa ${p.numero} (${p.nome})` : null;
 }
 
-/**
- * Quantos descritores a porta 2 pede. É o denominador que separa sessão
- * COMPLETA de sessão encurtada (o visitante pode pular o resto da matriz) —
- * o painel só computa divergência de quem avaliou todos.
- */
-export function totalDescritoresPorta2(): number {
-  return (conteudo.porta2?.descritores as unknown[] | undefined)?.length ?? 0;
-}
-
 /** As 3 perguntas de revisão do Mapa da Evolução. */
 export function perguntasRevisao(): string[] {
   return (conteudo.mapa_evolucao?.perguntas_revisao as string[]) || [];

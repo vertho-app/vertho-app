@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { safeSecretEqual } from '@/lib/secure-compare';
-import { inicioHojeBRT, totalDescritoresPorta2 } from '@/lib/conarh/conteudo';
+import { inicioHojeBRT } from '@/lib/conarh/conteudo';
 
 /**
  * CONARH 52 — painel diário de 5 números + funil por porta (F7 do sprint).
@@ -13,13 +13,16 @@ import { inicioHojeBRT, totalDescritoresPorta2 } from '@/lib/conarh/conteudo';
  *   - reuniões com data  (reuniao_em preenchido)
  *   - total de capturas
  *   - funil por porta    (contagem por porta_escolhida, 1–5)
- *   - divergências médias da porta 2 (média de itens em sessao.divergencias) —
- *     o ativo de dados do evento ("como um critério explícito muda a avaliação").
- *     Só entram sessões COMPLETAS (todos os descritores reavaliados): o modo
- *     curto da porta 2 deixa o visitante pular o resto da matriz, e sessão
- *     encurtada tem menos chance de divergir só porque foi mais curta. Contar
- *     as duas juntas afunda a média que vira número publicável. As parciais são
- *     devolvidas em `sessoes_parciais` — descarte declarado, nunca silencioso.
+ *   - padrão aceito na etapa 2 (sessao.cenario) — o ativo de dados do evento.
+ *     O visitante escolhe, entre 4 respostas a um cenário, a que ACEITARIA de
+ *     alguém do time dele; o número publicável é quantos aceitaram uma resposta
+ *     ABAIXO da meta da régua (N3). É a distância entre o padrão que o gestor
+ *     cobra e o que ele diz querer.
+ *
+ *     ⚠️ Antes de 04/08/2026 este bloco media outra coisa (divergências por
+ *     descritor, do registro escrito). Leads gravados antes disso não têm
+ *     `sessao.cenario` e ficam fora da conta — sem conversão silenciosa entre
+ *     as duas réguas de medida, que não são comparáveis.
  *
  * Envs novas:
  *   - CONARH_PANEL_KEY — mesma chave da fila. FAIL-CLOSED em produção.
@@ -74,25 +77,25 @@ export async function GET(req: Request) {
 
   const lista = leads || [];
   const funilPorPorta: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
-  const totalDescritores = totalDescritoresPorta2();
-  let divergenciasTotal = 0;
-  let divergenciasN = 0;
-  let sessoesParciais = 0;
+  let cenarioN = 0;
+  let abaixoDaMeta = 0;
+  let somaNivel = 0;
+  const porCompetencia: Record<string, number> = {};
 
   for (const l of lista as any[]) {
     if (l.porta_escolhida >= 1 && l.porta_escolhida <= 5) {
       funilPorPorta[String(l.porta_escolhida)]++;
     }
-    // Divergências vs. motor registradas na porta 2 (o toque interativo).
-    const divs = l.sessao?.divergencias;
-    if (!Array.isArray(divs)) continue;
-    const avaliados = Array.isArray(l.sessao?.reavaliacao) ? l.sessao.reavaliacao.length : 0;
-    if (totalDescritores > 0 && avaliados < totalDescritores) {
-      sessoesParciais++;
-      continue;
-    }
-    divergenciasTotal += divs.length;
-    divergenciasN++;
+    // Padrão aceito na etapa 2 (o toque interativo da demo).
+    const c = l.sessao?.cenario;
+    const nivel = Number(c?.nivel_aceito);
+    if (!(nivel >= 1 && nivel <= 4)) continue;
+    const meta = Number(c?.nivel_meta) || 3;
+    cenarioN++;
+    somaNivel += nivel;
+    if (nivel < meta) abaixoDaMeta++;
+    const comp = String(c?.competencia || 'sem competência');
+    porCompetencia[comp] = (porCompetencia[comp] || 0) + 1;
   }
 
   return NextResponse.json({
@@ -106,14 +109,13 @@ export async function GET(req: Request) {
       total_capturas: lista.length,
     },
     funil_por_porta: funilPorPorta,
-    divergencias_porta2: {
-      media: divergenciasN ? Math.round((divergenciasTotal / divergenciasN) * 100) / 100 : null,
-      sessoes: divergenciasN,
-      // Encurtadas pelo modo curto: fora da média, mas visíveis no painel.
-      sessoes_parciais: sessoesParciais,
-      descritores_por_sessao: totalDescritores,
+    cenario_porta2: {
+      sessoes: cenarioN,
+      abaixo_da_meta: abaixoDaMeta,
+      nivel_medio_aceito: cenarioN ? Math.round((somaNivel / cenarioN) * 100) / 100 : null,
+      por_competencia: porCompetencia,
       // F7: nenhum recorte publicável com n < 7 — o painel já avisa.
-      amostra_suficiente: divergenciasN >= 7,
+      amostra_suficiente: cenarioN >= 7,
     },
   });
 }

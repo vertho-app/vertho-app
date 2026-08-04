@@ -1,27 +1,39 @@
 'use client';
 
-// CONARH 52 — Porta 2: o único toque do visitante. Sequência em 5 estados:
-//   1) registro da conversa (lê) → 2) nota instintiva 1–4 (O toque) →
-//   3) matriz revelada → 4) reavaliação descritor a descritor →
-//   5) leitura do motor lado a lado (convergências/divergências + evidência).
-// Regras duras: NUNCA "certo/errado" — só "convergiram/divergiram"; a matriz
-// SEMPRE aparece antes da reavaliação.
+// CONARH 52 — Porta 2: o único toque do visitante.
+//
+// Desde 04/08/2026 a porta roda o CENÁRIO SITUACIONAL da competência escolhida
+// na porta 1 — o artefato que a plataforma gera de verdade — no lugar do
+// registro escrito à mão. Motivo: o registro fazia a demo parecer depender de
+// um gestor com boa memória escrevendo um relatório bom; o cenário mostra a
+// engrenagem real, e as 4 respostas provam a tese melhor do que qualquer
+// texto explicativo — as quatro são plausíveis, e a régua as separa.
+// (O registro escrito continua vivo na PRANCHETA, o fallback de papel.)
+//
+// Sequência em 4 estados:
+//   1) a situação (lê) → 2) escolhe a resposta que ACEITARIA (o toque) →
+//   3) a matriz revelada, aberta no descritor que a situação testa →
+//   4) a leitura da régua sobre a escolha dele + as outras três, por nível.
+// Regra dura: NUNCA "certo/errado" — a linguagem é "o seu padrão" x "a régua".
 
-import { useMemo, useState } from 'react';
-import { Check, GitBranch } from 'lucide-react';
-import type { ConteudoConarh } from '../_data/types';
+import { useState } from 'react';
+import { Check } from 'lucide-react';
+import type { ConteudoConarh, RespostaCenario } from '../_data/types';
 import type { ResultadoPorta2 } from './sessao';
 import { COR, SANS, SERIF, TOQUE } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
 import { FechoPorta } from './porta-shell';
 import { MatrizDescritores } from './matriz';
-import { RegistroRecorte } from './registro';
-import { partirNaPrimeiraFrase } from './texto';
+import { acharRegua } from './reguas';
 
 const NOMES_NIVEL = ['', 'N1 · gap', 'N2 · desenvolvimento', 'N3 · meta', 'N4 · referência'];
 
+/** A meta da régua: N3 é o nível que a empresa quer ver acontecendo. */
+const NIVEL_META = 3;
+
 export function Porta2({
   conteudo,
+  reguaId,
   modoVisitante,
   onFinalizar,
   onConcluiu,
@@ -29,212 +41,126 @@ export function Porta2({
   onProxima,
 }: {
   conteudo: ConteudoConarh;
+  reguaId: string;
   modoVisitante?: boolean;
   onFinalizar: (r: ResultadoPorta2) => void;
   onConcluiu: () => void;
   onCaptura: () => void;
   onProxima: () => void;
 }) {
-  const { porta2, portas } = conteudo;
-  const [passo, setPasso] = useState<1 | 2 | 3 | 4 | 5>(1);
-  const [notaInstintiva, setNotaInstintiva] = useState<number | null>(null);
-  const [indiceDescritor, setIndiceDescritor] = useState(0);
-  const [reavaliacao, setReavaliacao] = useState<Array<{ descritor: string; nota: number }>>([]);
-  const [verContexto, setVerContexto] = useState(false);
-  const [verOrigem, setVerOrigem] = useState(false);
-  const [cardAberto, setCardAberto] = useState<string | null>(null);
-  const contexto = useMemo(() => partirNaPrimeiraFrase(porta2.contexto), [porta2.contexto]);
+  const { portas } = conteudo;
+  const regua = acharRegua(conteudo, reguaId);
+  const cenario = regua.cenario;
+  const descritorTestado = regua.descritores.find((d) => d.cod === cenario.descritor_cod);
 
-  const mediaMotor = useMemo(() => {
-    if (porta2.descritores.length === 0) return 0;
-    return (
-      porta2.descritores.reduce((acc, d) => acc + d.leitura_motor.nota, 0) /
-      porta2.descritores.length
-    );
-  }, [porta2.descritores]);
+  const [passo, setPasso] = useState<1 | 2 | 3 | 4>(1);
+  const [escolhaId, setEscolhaId] = useState<string | null>(null);
 
-  function concluirReavaliacao(lista: Array<{ descritor: string; nota: number }>) {
-    const divergencias = lista
-      .filter((item) => {
-        const d = porta2.descritores.find((x) => x.cod === item.descritor);
-        return d ? item.nota !== d.leitura_motor.nivel : false;
-      })
-      .map((item) => item.descritor);
+  const escolha = cenario.respostas.find((r) => r.id === escolhaId) ?? null;
+  const porNivel = [...cenario.respostas].sort((a, b) => a.nivel - b.nivel);
+
+  function escolher(r: RespostaCenario) {
+    setEscolhaId(r.id);
     onFinalizar({
-      nota_instintiva: notaInstintiva ?? 0,
-      reavaliacao: lista,
-      divergencias,
+      regua: regua.id,
+      competencia: regua.competencia,
+      cenario: cenario.id,
+      descritor: cenario.descritor_cod,
+      nivel_aceito: r.nivel,
+      nivel_meta: NIVEL_META,
     });
-    // A primeira divergência já entra aberta: é o card que prova a porta, e
-    // sem ele o fecho vira uma lista de rótulos sem evidência na tela.
-    setCardAberto(divergencias[0] ?? null);
-    setPasso(5);
+    setPasso(3);
   }
-
-  function escolherReavaliacao(nota: number) {
-    const d = porta2.descritores[indiceDescritor];
-    const lista = [...reavaliacao, { descritor: d.cod, nota }];
-    setReavaliacao(lista);
-    if (indiceDescritor + 1 < porta2.descritores.length) {
-      setIndiceDescritor(indiceDescritor + 1);
-    } else {
-      concluirReavaliacao(lista);
-    }
-  }
-
-  const instintoConvergiu =
-    notaInstintiva !== null && Math.abs(notaInstintiva - mediaMotor) <= 0.5;
 
   return (
     <div>
       <TituloPorta numero={2} nome={portas[1].nome} sub={portas[1].sub} />
 
-      {/* ── Passo 1: o registro, em 3 momentos ──────────────────── */}
+      {/* ── Passo 1: a situação ─────────────────────────────────── */}
       {passo === 1 && (
         <div>
+          <p
+            className="uppercase font-bold"
+            style={{ color: COR.acento, fontSize: 13, letterSpacing: '0.2em', fontFamily: SANS, margin: 0 }}
+          >
+            Cenário situacional · {regua.competencia}
+          </p>
           <p
             style={{
               color: COR.texto,
               fontSize: 21,
-              lineHeight: 1.4,
+              lineHeight: 1.45,
               fontFamily: SANS,
               maxWidth: 900,
-              margin: 0,
+              marginTop: 10,
+              marginBottom: 0,
             }}
           >
-            {contexto.manchete}
+            {cenario.situacao}
           </p>
-          {contexto.resto && (
-            <>
-              <button
-                type="button"
-                onClick={() => setVerContexto(!verContexto)}
-                style={{
-                  color: COR.acento,
-                  fontSize: 17,
-                  fontWeight: 700,
-                  fontFamily: SANS,
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  marginTop: 6,
-                }}
-              >
-                {verContexto ? 'Esconder ↑' : 'O que aconteceu na sexta ↓'}
-              </button>
-              {verContexto && (
-                <p
-                  style={{
-                    color: COR.texto2,
-                    fontSize: 18,
-                    lineHeight: 1.55,
-                    fontFamily: SANS,
-                    marginTop: 8,
-                    maxWidth: 900,
-                  }}
-                >
-                  {contexto.resto}
-                </p>
-              )}
-            </>
-          )}
-
-          <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 22, marginBottom: 10 }}>
-            Renata registrou a conversa por escrito. Três momentos:
-          </p>
-          <RegistroRecorte trechos={porta2.registro_trechos} completo={porta2.registro_conversa} />
-
-          {/* O diferencial que a demo não podia mostrar em pé: na plataforma
-              ninguém digita registro nenhum — a evidência nasce do cenário
-              situacional. Fica atrás de um toque para não competir com o
-              registro, que é o que o visitante precisa ler antes de avaliar. */}
-          <button
-            type="button"
-            onClick={() => setVerOrigem(!verOrigem)}
+          <p
             style={{
-              color: COR.acento,
-              fontSize: 17,
-              fontWeight: 700,
+              color: COR.texto3,
+              fontSize: 16,
+              lineHeight: 1.5,
               fontFamily: SANS,
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              marginTop: 16,
+              marginTop: 18,
+              maxWidth: 900,
             }}
           >
-            {verOrigem ? 'Esconder ↑' : 'De onde sai essa evidência na plataforma ↓'}
-          </button>
-          {verOrigem && (
-            <p
-              style={{
-                color: COR.texto2,
-                fontSize: 18,
-                lineHeight: 1.55,
-                fontFamily: SANS,
-                marginTop: 8,
-                maxWidth: 900,
-              }}
-            >
-              Aqui o registro é escrito porque você precisa lê-lo em pé, em trinta segundos. Na
-              plataforma, ninguém digita relatório: a pessoa recebe um{' '}
-              <strong style={{ color: COR.texto }}>cenário situacional</strong> gerado para o cargo
-              e a competência dela, responde, e a IA conduz a conversa até a decisão aparecer. É
-              essa conversa — com as palavras dela — que a régua lê.
-            </p>
-          )}
+            Na plataforma é assim que a evidência nasce: a situação é gerada para o cargo, a
+            competência e o contexto da empresa — ninguém digita relatório depois.
+          </p>
 
-          <BarraAcao
-            primaria={{ rotulo: 'Avaliar esse registro', onClick: () => setPasso(2) }}
-          />
+          <BarraAcao primaria={{ rotulo: 'Ver as 4 respostas', onClick: () => setPasso(2) }} />
         </div>
       )}
 
-      {/* ── Passo 2: a nota instintiva (o ÚNICO toque) ──────────── */}
+      {/* ── Passo 2: a escolha (o ÚNICO toque) ──────────────────── */}
       {passo === 2 && (
         <div>
           <h2
             style={{
               color: COR.texto,
               fontFamily: SERIF,
-              fontSize: 'clamp(28px, 3.6vw, 40px)',
+              fontSize: 'clamp(26px, 3.4vw, 38px)',
               fontWeight: 600,
               lineHeight: 1.15,
               margin: 0,
             }}
           >
-            De 1 a 4, que nota você dá para essa conversa?
+            {cenario.pergunta}
           </h2>
-          <p style={{ color: COR.texto2, fontSize: 20, fontFamily: SANS, marginTop: 10 }}>
-            Sem critério, sem tabela — só a sua intuição de gestor.
+          <p style={{ color: COR.texto2, fontSize: 19, fontFamily: SANS, marginTop: 10 }}>
+            As quatro são plausíveis e você já ouviu todas elas. Sem tabela, sem régua — só o seu
+            critério de gestor.
           </p>
-          <div className="grid grid-cols-4 gap-4 mt-10" style={{ maxWidth: 720 }}>
-            {[1, 2, 3, 4].map((n) => (
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-8">
+            {cenario.respostas.map((r) => (
               <button
-                key={n}
+                key={r.id}
                 type="button"
-                onClick={() => {
-                  setNotaInstintiva(n);
-                  setPasso(3);
-                }}
-                className="rounded-3xl border font-bold"
-                style={{
-                  minHeight: 120,
-                  background: COR.card,
-                  borderColor: COR.bordaAcento,
-                  color: COR.acento,
-                  fontSize: 52,
-                  fontFamily: SERIF,
-                }}
+                onClick={() => escolher(r)}
+                className="rounded-3xl border p-5 text-left"
+                style={{ minHeight: TOQUE, background: COR.card, borderColor: COR.bordaAcento }}
               >
-                {n}
+                <span
+                  className="block"
+                  style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.55, fontFamily: SANS }}
+                >
+                  {r.texto}
+                </span>
               </button>
             ))}
           </div>
+
+          <BarraAcao secundaria={{ rotulo: 'Reler a situação', onClick: () => setPasso(1) }} />
         </div>
       )}
 
-      {/* ── Passo 3: a matriz revelada (SEMPRE antes da reavaliação) */}
-      {passo === 3 && (
+      {/* ── Passo 3: a matriz revelada (antes da leitura) ───────── */}
+      {passo === 3 && escolha && (
         <div>
           <h2
             style={{
@@ -246,36 +172,24 @@ export function Porta2({
               margin: 0,
             }}
           >
-            Você deu <em style={{ color: COR.acento }}>{notaInstintiva}</em>. Agora olha a régua
-            que torna essa nota auditável.
+            Você aceitaria essa resposta. Agora olha a régua que torna essa escolha{' '}
+            <em style={{ color: COR.acento }}>auditável</em>.
           </h2>
           <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 20, marginBottom: 10 }}>
-            {porta2.descritores.length} descritores. Toque para ver a régua de cada um.
+            {descritorTestado
+              ? `A situação testa um descritor: ${descritorTestado.nome_curto}. Ele já está aberto.`
+              : `${regua.descritores.length} descritores. Toque para ver a régua de cada um.`}
           </p>
-          <MatrizDescritores descritores={porta2.descritores} />
+          <MatrizDescritores descritores={regua.descritores} inicial={cenario.descritor_cod} />
           <BarraAcao
-            primaria={{ rotulo: 'Reavaliar com a matriz', onClick: () => setPasso(4) }}
-            secundaria={{ rotulo: 'Voltar ao registro', onClick: () => setPasso(1) }}
+            primaria={{ rotulo: 'Ver a leitura da sua escolha', onClick: () => setPasso(4) }}
+            secundaria={{ rotulo: 'Voltar às respostas', onClick: () => setPasso(2) }}
           />
         </div>
       )}
 
-      {/* ── Passo 4: reavaliação descritor a descritor ──────────── */}
-      {passo === 4 && porta2.descritores[indiceDescritor] && (
-        <Passo4Reavaliacao
-          key={porta2.descritores[indiceDescritor].cod}
-          descritor={porta2.descritores[indiceDescritor]}
-          indice={indiceDescritor}
-          total={porta2.descritores.length}
-          registro={porta2.registro_conversa}
-          trechos={porta2.registro_trechos}
-          onEscolher={escolherReavaliacao}
-          onPular={() => concluirReavaliacao(reavaliacao)}
-        />
-      )}
-
-      {/* ── Passo 5: leitura do motor lado a lado ───────────────── */}
-      {passo === 5 && (
+      {/* ── Passo 4: a leitura da régua ─────────────────────────── */}
+      {passo === 4 && escolha && (
         <div>
           <h2
             style={{
@@ -287,167 +201,94 @@ export function Porta2({
               margin: 0,
             }}
           >
-            {instintoConvergiu ? (
+            {escolha.nivel >= NIVEL_META ? (
               <>
-                Sua intuição já é criteriosa —{' '}
-                <em style={{ color: COR.acento }}>a matriz só a torna auditável</em>.
+                Você aceitaria um <em style={{ color: COR.acento }}>N{escolha.nivel}</em> — o seu
+                padrão já está na meta da régua.
               </>
             ) : (
               <>
-                Instinto e critério contaram histórias diferentes —{' '}
-                <em style={{ color: COR.acento }}>e agora dá para discutir com evidência</em>.
+                Você aceitaria um <em style={{ color: COR.acento }}>N{escolha.nivel}</em> — e a meta
+                da régua é N{NIVEL_META}.
               </>
             )}
           </h2>
-          <p style={{ color: COR.texto2, fontSize: 19, fontFamily: SANS, marginTop: 10 }}>
-            Sua nota de olho: <strong style={{ color: COR.texto }}>{notaInstintiva}</strong>
-            {' '}· leitura média do motor com a matriz:{' '}
-            <strong style={{ color: COR.acento }}>{mediaMotor.toFixed(1)}</strong>. Não é questão de
-            certo ou errado — é critério explícito contra critério implícito.
-            {reavaliacao.length < porta2.descritores.length && (
-              <span style={{ color: COR.texto3 }}>
-                {' '}Você avaliou {reavaliacao.length} de {porta2.descritores.length} descritores —
-                os demais aparecem só com a leitura do motor.
-              </span>
-            )}
+          <p style={{ color: COR.texto2, fontSize: 19, lineHeight: 1.5, fontFamily: SANS, marginTop: 12 }}>
+            Não é certo ou errado: é o mesmo padrão dito em voz alta. Sem a régua, essa exigência
+            muda de gestor para gestor — e a pessoa avaliada não tem como saber qual delas vale.
           </p>
 
-          <div className="mt-8 space-y-4">
-            {porta2.descritores.map((d) => {
-              const sua = reavaliacao.find((r) => r.descritor === d.cod)?.nota;
-              const avaliado = sua !== undefined;
-              const convergiu = avaliado && sua === d.leitura_motor.nivel;
-              // Colapsado por padrão: 6 justificativas abertas somam 638
-              // palavras numa tela só (medido 03/08). Abre-se a que o
-              // visitante perguntar — e a primeira divergência já vem aberta,
-              // porque é ela que prova a porta.
-              const expandido = cardAberto === d.cod;
-              return (
-                <section
-                  key={d.cod}
-                  className="rounded-3xl border p-6"
-                  style={{
-                    background: COR.card,
-                    borderColor: !avaliado
-                      ? COR.borda
-                      : convergiu
-                        ? 'rgba(52,211,153,0.35)'
-                        : 'rgba(251,191,36,0.35)',
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setCardAberto(expandido ? null : d.cod)}
-                    className="flex items-center gap-3 flex-wrap w-full text-left"
-                    style={{ background: 'none', border: 'none', padding: 0 }}
-                  >
-                    {avaliado &&
-                      (convergiu ? (
-                        <Check size={22} style={{ color: COR.verde }} />
-                      ) : (
-                        <GitBranch size={22} style={{ color: COR.ambar }} />
-                      ))}
-                    <span style={{ color: COR.texto, fontSize: 21, fontWeight: 700, fontFamily: SANS }}>
-                      {d.nome_curto}
-                    </span>
-                    <span
-                      className="rounded-full px-3.5 py-1.5 font-bold"
-                      style={{
-                        background: !avaliado
-                          ? 'rgba(255,255,255,0.06)'
-                          : convergiu
-                            ? 'rgba(52,211,153,0.12)'
-                            : 'rgba(251,191,36,0.12)',
-                        color: !avaliado ? COR.texto3 : convergiu ? COR.verde : COR.ambar,
-                        fontSize: 15,
-                        fontFamily: SANS,
-                      }}
-                    >
-                      {!avaliado ? 'não avaliado' : convergiu ? 'convergiram' : 'divergiram'}
-                    </span>
-                    <span style={{ color: COR.texto2, fontSize: 17, fontFamily: SANS }}>
-                      você: <strong>{sua ? `N${sua}` : '—'}</strong> · motor:{' '}
-                      <strong style={{ color: COR.acento }}>
-                        N{d.leitura_motor.nivel} ({d.leitura_motor.nota.toFixed(1)})
-                      </strong>
-                    </span>
-                    <span
-                      style={{ color: COR.acento, fontSize: 16, fontWeight: 700, fontFamily: SANS, marginLeft: 'auto' }}
-                    >
-                      {expandido ? 'esconder ↑' : 'por quê ↓'}
-                    </span>
-                  </button>
-                  {expandido && (
-                    <>
-                      <blockquote
-                        className="rounded-2xl p-4 mt-4"
-                        style={{
-                          background: 'rgba(255,255,255,0.03)',
-                          borderLeft: `4px solid ${COR.acento}`,
-                          margin: 0,
-                        }}
-                      >
-                        <p style={{ color: COR.texto, fontSize: 17, lineHeight: 1.55, fontFamily: SANS, margin: 0, fontStyle: 'italic' }}>
-                          “{d.leitura_motor.evidencia}”
-                        </p>
-                      </blockquote>
-                      <p style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.55, fontFamily: SANS, marginTop: 10, marginBottom: 0 }}>
-                        {d.leitura_motor.justificativa}
-                      </p>
-                      <p style={{ color: COR.texto3, fontSize: 16, lineHeight: 1.5, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
-                        Para o nível acima faltou: {d.leitura_motor.limite}
-                      </p>
-                    </>
-                  )}
-                </section>
-              );
-            })}
-          </div>
-
-          {/* Onde o diferencial fecha: o visitante ACABOU de ver a régua ler
-              uma conversa. Aqui se diz que, em produção, a conversa não vem de
-              um gestor com boa memória — vem do cenário. Sem isto, a demo
-              parece depender de alguém escrever um relatório bom. */}
+          {/* A escolha dele, lida em detalhe */}
           <section
-            className="rounded-3xl border p-6 mt-10"
+            className="rounded-3xl border p-6 mt-8"
             style={{ background: COR.card, borderColor: COR.bordaAcento }}
           >
             <p
               className="uppercase font-bold"
               style={{ color: COR.acento, fontSize: 13, letterSpacing: '0.2em', fontFamily: SANS, margin: 0 }}
             >
-              Como isso roda na plataforma
+              Sua escolha · {NOMES_NIVEL[escolha.nivel]}
             </p>
-            <p style={{ color: COR.texto, fontSize: 19, fontWeight: 700, fontFamily: SANS, marginTop: 8, marginBottom: 0 }}>
-              Mapeamento por cenários — a evidência não depende de alguém lembrar de escrever.
+            <p style={{ color: COR.texto, fontSize: 18, lineHeight: 1.55, fontFamily: SANS, marginTop: 8, marginBottom: 0 }}>
+              {escolha.texto}
             </p>
-            <ol className="mt-4 space-y-3">
-              {[
-                ['Cenário situacional', 'gerado para o cargo, a competência e o contexto da empresa — não um banco de perguntas genéricas.'],
-                ['A pessoa responde e a IA conduz', 'a conversa vai até a decisão aparecer. Ela é a evidência, com as palavras de quem respondeu.'],
-                ['A mesma régua lê a conversa', 'nível por descritor, trecho citado e o que faltou para o nível acima — exatamente o que você acabou de ver acima.'],
-              ].map(([titulo, texto], i) => (
-                <li key={titulo} className="flex gap-3">
+            <blockquote
+              className="rounded-2xl p-4 mt-4"
+              style={{ background: 'rgba(255,255,255,0.03)', borderLeft: `4px solid ${COR.acento}`, margin: 0 }}
+            >
+              <p style={{ color: COR.texto, fontSize: 17, lineHeight: 1.55, fontFamily: SANS, margin: 0, fontStyle: 'italic' }}>
+                {escolha.evidencia}
+              </p>
+            </blockquote>
+            <p style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.55, fontFamily: SANS, marginTop: 10, marginBottom: 0 }}>
+              {escolha.justificativa}
+            </p>
+            <p style={{ color: COR.texto3, fontSize: 16, lineHeight: 1.5, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
+              {escolha.limite}
+            </p>
+          </section>
+
+          {/* As quatro, agora por nível — a prova de que a régua ordena */}
+          <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 26, marginBottom: 10 }}>
+            As quatro respostas, na régua:
+          </p>
+          <div className="space-y-3">
+            {porNivel.map((r) => {
+              const sua = r.id === escolha.id;
+              return (
+                <div
+                  key={r.id}
+                  className="rounded-2xl border p-4 flex gap-4"
+                  style={{
+                    background: sua ? 'rgba(52,197,204,0.10)' : COR.card,
+                    borderColor: sua ? COR.bordaAcento : COR.borda,
+                  }}
+                >
                   <span
                     className="flex items-center justify-center rounded-full flex-shrink-0 font-bold"
                     style={{
-                      width: 28,
-                      height: 28,
-                      background: 'rgba(52,197,204,0.14)',
-                      color: COR.acento,
-                      fontSize: 15,
+                      width: 44,
+                      height: 44,
+                      background: sua ? COR.acento : 'rgba(255,255,255,0.06)',
+                      color: sua ? COR.fundo0 : COR.texto3,
+                      fontSize: 17,
                       fontFamily: SANS,
                     }}
                   >
-                    {i + 1}
+                    N{r.nivel}
                   </span>
-                  <span style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.5, fontFamily: SANS }}>
-                    <strong style={{ color: COR.texto }}>{titulo}</strong> — {texto}
+                  <span style={{ color: sua ? COR.texto : COR.texto2, fontSize: 16, lineHeight: 1.5, fontFamily: SANS }}>
+                    {r.texto}
+                    {sua && (
+                      <strong className="flex items-center gap-1.5" style={{ color: COR.acento, marginTop: 6 }}>
+                        <Check size={16} strokeWidth={3} /> a sua
+                      </strong>
+                    )}
                   </span>
-                </li>
-              ))}
-            </ol>
-          </section>
+                </div>
+              );
+            })}
+          </div>
 
           {modoVisitante ? (
             <div className="mt-10">
@@ -477,110 +318,6 @@ export function Porta2({
             </>
           )}
         </div>
-      )}
-    </div>
-  );
-}
-
-// Sub-componente do passo 4 (remonta a cada descritor via `key`).
-function Passo4Reavaliacao({
-  descritor,
-  indice,
-  total,
-  registro,
-  trechos,
-  onEscolher,
-  onPular,
-}: {
-  descritor: ConteudoConarh['porta2']['descritores'][number];
-  indice: number;
-  total: number;
-  registro: string;
-  trechos: ConteudoConarh['porta2']['registro_trechos'];
-  onEscolher: (nota: number) => void;
-  onPular: () => void;
-}) {
-  const [verRegistro, setVerRegistro] = useState(false);
-  const ancoraPorNivel = [descritor.n1, descritor.n2, descritor.n3, descritor.n4];
-  return (
-    <div>
-      <p
-        className="uppercase font-bold"
-        style={{ color: COR.texto3, fontSize: 14, letterSpacing: '0.22em', fontFamily: SANS }}
-      >
-        Descritor {indice + 1} de {total}
-      </p>
-      <h2
-        style={{
-          color: COR.texto,
-          fontFamily: SERIF,
-          fontSize: 'clamp(26px, 3.4vw, 36px)',
-          fontWeight: 600,
-          lineHeight: 1.15,
-          margin: '8px 0 0',
-        }}
-      >
-        {descritor.nome_curto}
-      </h2>
-      <p style={{ color: COR.texto2, fontSize: 19, lineHeight: 1.5, fontFamily: SANS, marginTop: 8 }}>
-        {descritor.descritor_completo}
-      </p>
-      <button
-        type="button"
-        onClick={() => setVerRegistro(!verRegistro)}
-        style={{ color: COR.acento, fontSize: 17, fontWeight: 700, fontFamily: SANS, background: 'none', border: 'none', padding: 0, marginTop: 4 }}
-      >
-        {verRegistro ? 'Esconder o registro ↑' : 'Reler o registro da conversa ↓'}
-      </button>
-      {verRegistro && (
-        <div className="mt-3">
-          <RegistroRecorte trechos={trechos} completo={registro} />
-        </div>
-      )}
-      <p style={{ color: COR.texto, fontSize: 21, fontWeight: 700, fontFamily: SANS, marginTop: 24 }}>
-        Com a matriz na mão, em que nível está essa conversa?
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-        {ancoraPorNivel.map((ancora, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onEscolher(i + 1)}
-            className="rounded-3xl border p-5 text-left"
-            style={{ minHeight: TOQUE, background: COR.card, borderColor: COR.bordaAcento }}
-          >
-            <span style={{ color: COR.acento, fontSize: 17, fontWeight: 800, fontFamily: SANS }}>
-              {NOMES_NIVEL[i + 1]}
-            </span>
-            <span className="block" style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.5, fontFamily: SANS, marginTop: 6 }}>
-              {ancora}
-            </span>
-          </button>
-        ))}
-      </div>
-      {/* Modo curto: fila no estande → pula os descritores restantes e cai
-          direto na leitura do motor com os que já foram avaliados.
-          Só a partir do 3º descritor: com 0 ou 1 marcação a tela de fecho vira
-          uma lista de "não avaliado" sem nenhum convergiu/divergiu — a porta 2
-          é a prova da demo, e o atalho não pode esvaziá-la. */}
-      {indice >= 2 && indice + 1 < total && (
-        <button
-          type="button"
-          onClick={onPular}
-          className="mt-6"
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            color: COR.texto3,
-            fontSize: 16,
-            fontWeight: 600,
-            fontFamily: SANS,
-            textDecoration: 'underline',
-          }}
-        >
-          Sem tempo para os {total - indice - 1} descritores restantes? Ir direto para a leitura do motor →
-        </button>
       )}
     </div>
   );

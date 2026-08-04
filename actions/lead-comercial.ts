@@ -66,9 +66,20 @@ const CAMPANHA_PADRAO = 'radarbett';
  */
 
 export type ConarhSessaoInput = {
-  nota_instintiva?: number;
-  reavaliacao?: Array<{ descritor: string; nota: number }>;
-  divergencias?: string[];
+  /**
+   * Etapa 2 desde 04/08/2026: o visitante escolhe, entre 4 respostas a um
+   * cenário, a que ACEITARIA — e `nivel_aceito` é o nível dessa resposta na
+   * régua. Substituiu `nota_instintiva`/`reavaliacao`/`divergencias`, que
+   * mediam o mecanismo antigo (registro escrito + reavaliação por descritor).
+   */
+  cenario?: {
+    regua?: string;
+    competencia?: string;
+    cenario?: string;
+    descritor?: string;
+    nivel_aceito?: number;
+    nivel_meta?: number;
+  };
   rotas_iniciadas?: number[];
   rotas_concluidas?: number[];
   /** Porta de onde a captura foi aberta — o gesto de apontar da abordagem. */
@@ -146,17 +157,22 @@ function falha(error: string): CapturarLeadComercialResult {
 function sanitizarSessaoConarh(s?: ConarhSessaoInput): Record<string, unknown> | null {
   if (!s || typeof s !== 'object') return null;
   const out: Record<string, unknown> = {};
-  if (typeof s.nota_instintiva === 'number' && s.nota_instintiva >= 1 && s.nota_instintiva <= 4) {
-    out.nota_instintiva = s.nota_instintiva;
-  }
-  if (Array.isArray(s.reavaliacao)) {
-    out.reavaliacao = s.reavaliacao
-      .slice(0, 20)
-      .map((r) => ({ descritor: String(r?.descritor || '').slice(0, 200), nota: Number(r?.nota) || 0 }))
-      .filter((r) => r.descritor);
-  }
-  if (Array.isArray(s.divergencias)) {
-    out.divergencias = s.divergencias.slice(0, 20).map((d) => String(d).slice(0, 300));
+  const c = s.cenario;
+  if (c && typeof c === 'object') {
+    const nivelAceito = Number(c.nivel_aceito);
+    // Sem nível não há o que medir: a linha entraria no painel como sessão
+    // sem resposta e afundaria a média.
+    if (nivelAceito >= 1 && nivelAceito <= 4) {
+      const nivelMeta = Number(c.nivel_meta);
+      out.cenario = {
+        regua: String(c.regua || '').slice(0, 80),
+        competencia: String(c.competencia || '').slice(0, 200),
+        cenario: String(c.cenario || '').slice(0, 80),
+        descritor: String(c.descritor || '').slice(0, 40),
+        nivel_aceito: Math.trunc(nivelAceito),
+        nivel_meta: nivelMeta >= 1 && nivelMeta <= 4 ? Math.trunc(nivelMeta) : 3,
+      };
+    }
   }
   for (const chave of ['rotas_iniciadas', 'rotas_concluidas'] as const) {
     const lista = s[chave];

@@ -153,9 +153,7 @@ export function Captura({
       horizonte,
       aceitou_proximo_passo: proximoPasso,
       sessao: {
-        nota_instintiva: telemetria.nota_instintiva,
-        reavaliacao: telemetria.reavaliacao,
-        divergencias: telemetria.divergencias,
+        cenario: telemetria.cenario,
         rotas_iniciadas: telemetria.rotas_iniciadas,
         rotas_concluidas: telemetria.rotas_concluidas,
         porta_origem: telemetria.porta_origem,

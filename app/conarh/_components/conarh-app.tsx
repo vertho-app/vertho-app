@@ -26,6 +26,7 @@ import { Porta3 } from './porta3';
 import { Porta4 } from './porta4';
 import { Porta5 } from './porta5';
 import { Captura } from './captura';
+import { ID_REGUA_CASO } from './reguas';
 import { COR, FUNDO, SANS, SERIF, TOQUE } from './tema';
 
 type Tela =
@@ -47,11 +48,18 @@ export function ConarhApp({
     modoVisitante ? { tipo: 'porta', porta: 2 } : { tipo: 'hub' },
   );
   const [telemetria, setTelemetria] = useState<Telemetria>(telemetriaVazia);
+  // A competência escolhida na etapa 1 vive AQUI porque a etapa 2 roda o
+  // cenário dela — se cada porta guardasse a sua, o visitante escolheria
+  // Vendas e responderia um cenário de liderança.
+  const [reguaId, setReguaId] = useState(ID_REGUA_CASO);
   const [pendentes, setPendentes] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetar = useCallback(() => {
     setTelemetria(telemetriaVazia());
+    // A régua também volta ao caso: sem isto, o próximo visitante herdaria a
+    // competência escolhida pelo anterior — e o expositor não veria por quê.
+    setReguaId(ID_REGUA_CASO);
     setTela(modoVisitante ? { tipo: 'porta', porta: 2 } : { tipo: 'hub' });
   }, [modoVisitante]);
 
@@ -156,6 +164,8 @@ export function ConarhApp({
         {portaAtual === 1 && (
           <Porta1
             conteudo={conteudo}
+            reguaId={reguaId}
+            onTrocarRegua={setReguaId}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 1))}
             onCaptura={() => abrirCaptura()}
             onProxima={() => abrirPorta(2)}
@@ -164,6 +174,7 @@ export function ConarhApp({
         {portaAtual === 2 && (
           <Porta2
             conteudo={conteudo}
+            reguaId={reguaId}
             modoVisitante={modoVisitante}
             onFinalizar={finalizarPorta2}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 2))}

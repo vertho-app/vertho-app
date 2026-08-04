@@ -11,34 +11,30 @@ import { COR, SERIF, SANS, TOQUE } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
 import { FechoPorta } from './porta-shell';
 import { MatrizDescritores } from './matriz';
+import { montarReguas } from './reguas';
 import { partirNaPrimeiraFrase } from './texto';
 
 export function Porta1({
   conteudo,
+  reguaId,
+  onTrocarRegua,
   onConcluiu,
   onCaptura,
   onProxima,
 }: {
   conteudo: ConteudoConarh;
+  /** Escolha do visitante — vive no app porque a porta 2 roda o cenário dela. */
+  reguaId: string;
+  onTrocarRegua: (id: string) => void;
   onConcluiu: () => void;
   onCaptura: () => void;
   onProxima: () => void;
 }) {
-  const { porta1, portas } = conteudo;
+  const { portas } = conteudo;
   const [verIntro, setVerIntro] = useState(false);
 
-  // A competência do CASO vem primeiro — é ela que segue nas portas 2 a 5.
-  // As demais são vitrine: provam que a engrenagem (descritor + régua N1–N4)
-  // não é um truque de liderança, sem prometer que o caso mudou junto.
-  const reguaCaso: ReguaVitrine = {
-    id: 'caso',
-    eixo: porta1.eixo ?? 'Liderança',
-    competencia: porta1.competencia,
-    introducao: porta1.introducao,
-    descritores: porta1.descritores,
-  };
-  const reguas: ReguaVitrine[] = [reguaCaso, ...(porta1.reguas_vitrine ?? [])];
-  const [reguaId, setReguaId] = useState(reguaCaso.id);
+  const reguas: ReguaVitrine[] = montarReguas(conteudo);
+  const reguaCaso = reguas[0];
   const regua = reguas.find((r) => r.id === reguaId) ?? reguaCaso;
   const { manchete, resto } = partirNaPrimeiraFrase(regua.introducao);
 
@@ -55,7 +51,7 @@ export function Porta1({
                 key={r.id}
                 type="button"
                 onClick={() => {
-                  setReguaId(r.id);
+                  onTrocarRegua(r.id);
                   setVerIntro(false);
                 }}
                 className="rounded-2xl border p-4 text-left"
@@ -151,8 +147,8 @@ export function Porta1({
         {regua.id !== reguaCaso.id && (
           <>
             {' '}
-            O caso das próximas etapas segue{' '}
-            <strong style={{ color: COR.texto2 }}>{reguaCaso.competencia}</strong>.
+            A etapa 2 vai rodar o cenário desta competência; o PDI e o painel das etapas 3 a 5
+            seguem <strong style={{ color: COR.texto2 }}>{reguaCaso.competencia}</strong>.
           </>
         )}
       </p>

@@ -11,7 +11,7 @@
 //   3) concentra o `as any` AQUI — nenhum outro arquivo faz cast.
 
 import { capturarLeadComercial } from '@/actions/lead-comercial';
-import type { NumeroPorta, ReavaliacaoItem } from './sessao';
+import type { CenarioPorta2, NumeroPorta } from './sessao';
 
 export type Horizonte = 'rodando' | 'ate_3m' | '3_a_6m' | 'sem_data';
 
@@ -42,9 +42,7 @@ export interface LeadConarhPayload {
   fora_do_perfil?: boolean;
   slot?: string; // ISO, se a reunião já vier marcada por outro canal
   sessao: {
-    nota_instintiva?: number;
-    reavaliacao?: ReavaliacaoItem[];
-    divergencias?: string[];
+    cenario?: CenarioPorta2;
     rotas_iniciadas: number[];
     rotas_concluidas: number[];
     porta_origem?: NumeroPorta;

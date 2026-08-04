@@ -20,6 +20,11 @@ export interface DescritorCaso {
   };
 }
 
+// ⚠️ Desde 04/08/2026 a TELA da porta 2 não usa mais este bloco: ela roda o
+// `cenario` da régua escolhida na porta 1 (ver CenarioRegua). O registro
+// escrito continua vivo porque é o conteúdo da PRANCHETA — o fallback de
+// papel plastificado (`/conarh/prancheta`), que não tem toque nem estado.
+// Apagar isto quebra o plano B da feira.
 export interface Porta2 {
   // O recorte que o visitante lê EM PÉ: 3 momentos da conversa, ~70 palavras
   // no total. O registro inteiro (228 palavras) fica atrás de um toque — ler
@@ -43,15 +48,41 @@ export interface DescritorRegua {
   n4: string;
 }
 
+// Uma das quatro respostas hipotéticas do cenário. As quatro são plausíveis
+// — é esse o ponto: sem régua, escolher entre elas é gosto; com régua, cada
+// uma cai num nível que dá para auditar.
+export interface RespostaCenario {
+  id: string;
+  texto: string;
+  nivel: 1 | 2 | 3 | 4;
+  evidencia: string; // trecho da PRÓPRIA resposta que ancora a leitura
+  justificativa: string;
+  limite: string; // o que faltou para o nível acima
+}
+
+// O cenário situacional da competência — o artefato que a plataforma gera de
+// verdade (cargo × competência × contexto). Na porta 2 ele substituiu o
+// registro escrito: o visitante escolhe a resposta que ACEITARIA e descobre
+// em que nível está o próprio critério.
+export interface CenarioRegua {
+  id: string;
+  descritor_cod: string; // qual descritor da matriz esta situação testa
+  situacao: string;
+  pergunta: string;
+  /** Exatamente 4, uma por nível, em ordem EMBARALHADA (nunca N1→N4). */
+  respostas: RespostaCenario[];
+}
+
 // Competência de vitrine da porta 1: prova que a engrenagem (descritor +
-// régua N1–N4) não é específica de liderança. Não entra no caso das portas
-// 2–5 — lá a competência é uma só.
+// régua N1–N4) não é específica de liderança. Só a competência do CASO segue
+// nas portas 3–5; a porta 2 roda o cenário da competência escolhida aqui.
 export interface ReguaVitrine {
   id: string;
   eixo: string; // "Liderança" | "Vendas" | "Transversal" — rótulo curto do botão
   competencia: string;
   introducao: string; // 1ª frase vira manchete (ver partirNaPrimeiraFrase)
   descritores: DescritorRegua[];
+  cenario: CenarioRegua;
 }
 
 export interface Porta1 {
@@ -59,6 +90,7 @@ export interface Porta1 {
   introducao: string; // "Liderança não é uma coisa só" — 2-3 linhas
   descritores: DescritorCaso[]; // mesmos da porta 2 (a régua é uma só)
   eixo?: string; // rótulo do botão da competência do caso
+  cenario?: CenarioRegua; // o que a porta 2 roda quando esta régua é a escolhida
   reguas_vitrine?: ReguaVitrine[]; // outras competências, só para demonstrar a matriz
 }
 

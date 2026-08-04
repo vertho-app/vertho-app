@@ -185,7 +185,10 @@ export async function executarReguaConarh() {
 
 /**
  * Insight agregado do evento inteiro (não só do dia): contagens por porta,
- * por classe e divergências médias vs. motor (o ativo de dados de setembro).
+ * por classe e o padrão aceito no cenário da etapa 2 (o ativo de dados de
+ * setembro). Leads anteriores a 04/08/2026 não têm `sessao.cenario` — ficam
+ * fora da conta em vez de serem convertidos de uma régua de medida que já não
+ * existe (as divergências por descritor do registro escrito).
  */
 async function montarInsightEvento(sb: ReturnType<typeof createSupabaseAdmin>): Promise<string> {
   const { data: leads, error } = await sb
@@ -198,21 +201,24 @@ async function montarInsightEvento(sb: ReturnType<typeof createSupabaseAdmin>): 
   const lista = (leads || []) as any[];
   const porPorta: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   const porClasse: Record<string, number> = { A: 0, B: 0, C: 0 };
-  let divTotal = 0, divN = 0;
+  let cenarioN = 0, abaixoDaMeta = 0, somaNivel = 0;
   for (const l of lista) {
     if (l.porta_escolhida >= 1 && l.porta_escolhida <= 5) porPorta[l.porta_escolhida]++;
     if (l.classe && porClasse[l.classe] !== undefined) porClasse[l.classe]++;
-    const divs = l.sessao?.divergencias;
-    if (Array.isArray(divs)) { divTotal += divs.length; divN++; }
+    const nivel = Number(l.sessao?.cenario?.nivel_aceito);
+    if (!(nivel >= 1 && nivel <= 4)) continue;
+    cenarioN++;
+    somaNivel += nivel;
+    if (nivel < (Number(l.sessao?.cenario?.nivel_meta) || 3)) abaixoDaMeta++;
   }
 
   const linhas = [
     `Leads: ${lista.length} (A: ${porClasse.A} · B: ${porClasse.B} · C: ${porClasse.C})`,
-    `Portas: 1) ${porPorta[1]} · 2) ${porPorta[2]} · 3) ${porPorta[3]} · 4) ${porPorta[4]} · 5) ${porPorta[5]}`,
-    divN
-      ? `Divergências vs. motor (porta 2): média de ${(divTotal / divN).toFixed(1)} por sessão (${divN} sessões)`
-      : 'Divergências vs. motor (porta 2): sem sessões registradas',
+    `Etapas: 1) ${porPorta[1]} · 2) ${porPorta[2]} · 3) ${porPorta[3]} · 4) ${porPorta[4]} · 5) ${porPorta[5]}`,
+    cenarioN
+      ? `Cenário (etapa 2): ${abaixoDaMeta} de ${cenarioN} aceitariam resposta abaixo da meta N3 — nível médio aceito N${(somaNivel / cenarioN).toFixed(1)}`
+      : 'Cenário (etapa 2): sem sessões registradas',
   ];
-  if (divN > 0 && divN < 7) linhas.push('(amostra < 7 — ainda não publicável, só interno)');
+  if (cenarioN > 0 && cenarioN < 7) linhas.push('(amostra < 7 — ainda não publicável, só interno)');
   return linhas.join('\n');
 }

@@ -21,10 +21,19 @@ const NIVEIS = [
   { chave: 'n4' as const, rotulo: 'N4', nome: 'referência' },
 ];
 
-export function MatrizDescritores({ descritores }: { descritores: DescritorRegua[] }) {
+export function MatrizDescritores({
+  descritores,
+  inicial,
+}: {
+  descritores: DescritorRegua[];
+  /** cod do descritor que abre primeiro — na porta 2, o que o cenário testa. */
+  inicial?: string;
+}) {
   // Primeiro aberto por padrão: a tela nunca começa vazia e a régua já se prova
   // sem exigir um toque de quem só olhou de passagem.
-  const [aberto, setAberto] = useState<string>(descritores[0]?.cod ?? '');
+  const [aberto, setAberto] = useState<string>(
+    (inicial && descritores.some((d) => d.cod === inicial) ? inicial : descritores[0]?.cod) ?? '',
+  );
   const atual = descritores.find((d) => d.cod === aberto) ?? descritores[0];
 
   return (

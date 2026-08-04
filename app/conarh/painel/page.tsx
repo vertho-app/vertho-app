@@ -23,17 +23,19 @@ interface PainelDados {
     total_capturas: number;
   };
   funil_por_porta: Record<string, number>;
-  divergencias_porta2: {
-    media: number | null;
+  cenario_porta2: {
     sessoes: number;
-    sessoes_parciais: number;
-    descritores_por_sessao: number;
+    abaixo_da_meta: number;
+    nivel_medio_aceito: number | null;
+    por_competencia: Record<string, number>;
     amostra_suficiente: boolean;
   };
 }
 
-// v2: o formato mudou — chave nova para nenhum tablet renderizar cache velho.
-const CACHE = 'conarh:cache-painel-v2';
+// v3 (04/08/2026): a etapa 2 trocou o registro escrito pelo cenário, então o
+// bloco medido deixou de ser `divergencias_porta2`. Chave nova — um tablet com
+// cache velho renderizaria o formato antigo e quebraria a tela no estande.
+const CACHE = 'conarh:cache-painel-v3';
 
 function Numero({ rotulo, valor, cor }: { rotulo: string; valor: number; cor?: string }) {
   return (
@@ -152,28 +154,27 @@ export default function PainelPage() {
               className="uppercase font-bold mb-1"
               style={{ color: COR.texto3, fontSize: 13, letterSpacing: '0.16em', fontFamily: SANS }}
             >
-              Divergências por sessão (média)
+              Aceitaram abaixo da meta (N3)
             </p>
             <p style={{ color: COR.texto, fontFamily: SERIF, fontSize: 40, fontWeight: 600, margin: 0 }}>
-              {dados.divergencias_porta2.media === null
+              {dados.cenario_porta2.sessoes === 0
                 ? '—'
-                : dados.divergencias_porta2.media.toFixed(1)}
+                : `${dados.cenario_porta2.abaixo_da_meta} de ${dados.cenario_porta2.sessoes}`}
             </p>
             <p style={{ color: COR.texto2, fontSize: 16, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
-              Quantas vezes, em média, o instinto do visitante divergiu da leitura criteriosa — o
-              tamanho da dor que a matriz resolve.
+              Quantos gestores aceitariam, de alguém do time deles, uma resposta que a régua lê
+              abaixo da meta — a distância entre o padrão que se cobra e o que se diz querer.
             </p>
             <p style={{ color: COR.texto3, fontSize: 15, fontFamily: SANS, marginTop: 8, marginBottom: 0 }}>
-              {dados.divergencias_porta2.sessoes} sessão(ões) completa(s) —{' '}
-              {dados.divergencias_porta2.descritores_por_sessao} descritores cada.
-              {dados.divergencias_porta2.sessoes_parciais > 0 && (
-                <>
-                  {' '}
-                  {dados.divergencias_porta2.sessoes_parciais} encurtada(s) pelo modo curto, fora da
-                  média.
-                </>
-              )}
-              {!dados.divergencias_porta2.amostra_suficiente && (
+              Nível médio aceito:{' '}
+              {dados.cenario_porta2.nivel_medio_aceito === null
+                ? '—'
+                : `N${dados.cenario_porta2.nivel_medio_aceito.toFixed(1)}`}
+              .{' '}
+              {Object.entries(dados.cenario_porta2.por_competencia)
+                .map(([comp, n]) => `${comp}: ${n}`)
+                .join(' · ')}
+              {!dados.cenario_porta2.amostra_suficiente && (
                 <> Amostra ainda menor que 7 — não publicar.</>
               )}
             </p>
