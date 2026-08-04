@@ -36,7 +36,11 @@ export function mensagemT0(lead: LeadConarhMsg): string {
   ];
   if (porta && lead.competencia_critica) {
     linhas.push(
-      `Você apontou a ${porta} e citou "${lead.competencia_critica}" como a competência crítica aí${lead.organizacao ? ` na ${lead.organizacao}` : ''}.`,
+      // Sem o nome da empresa no meio da frase: o template fixava o artigo
+      // ("aí na {org}"), e nome de empresa não tem gênero previsível — "na
+      // Grupo Marista", "na Sesc". Some o artigo, some a classe inteira de
+      // erro; a empresa continua nomeada no cabeçalho do Mapa da Evolução.
+      `Você apontou a ${porta} e citou "${lead.competencia_critica}" como a competência crítica aí.`,
       '',
     );
   }

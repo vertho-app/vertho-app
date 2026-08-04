@@ -43,6 +43,17 @@ describe('mensagens do CONARH', () => {
     }
   });
 
+  it('não encaixa o nome da empresa depois de um artigo fixo', () => {
+    // Regressão: `aí na ${organizacao}` produzia "aí na Grupo Marista" — e,
+    // com um lead de teste, o memorável "aí na teste". Nome de empresa não
+    // tem gênero previsível; a saída não deve depender disso.
+    for (const org of ['Grupo Marista', 'Sesc', 'teste', 'Instituto Ayrton Senna']) {
+      const t0 = mensagemT0({ ...lead, organizacao: org });
+      expect(t0, org).not.toContain(`na ${org}`);
+      expect(t0, org).not.toContain(`no ${org}`);
+    }
+  });
+
   it('entrega o link do mapa e cita a competência com as palavras dele', () => {
     const t0 = mensagemT0(lead);
     expect(t0).toContain(`/conarh/mapa/${lead.id}`);
