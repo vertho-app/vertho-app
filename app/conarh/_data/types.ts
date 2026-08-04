@@ -30,10 +30,36 @@ export interface Porta2 {
   descritores: DescritorCaso[]; // 5–6, ordem da matriz
 }
 
+// A régua sozinha — sem a leitura do motor. É o que a porta 1 precisa para
+// mostrar a MATRIZ; a leitura (`leitura_motor`) só existe para o caso avaliado
+// na porta 2. `DescritorCaso` satisfaz este contrato.
+export interface DescritorRegua {
+  cod: string;
+  nome_curto: string;
+  descritor_completo: string;
+  n1: string;
+  n2: string;
+  n3: string;
+  n4: string;
+}
+
+// Competência de vitrine da porta 1: prova que a engrenagem (descritor +
+// régua N1–N4) não é específica de liderança. Não entra no caso das portas
+// 2–5 — lá a competência é uma só.
+export interface ReguaVitrine {
+  id: string;
+  eixo: string; // "Liderança" | "Vendas" | "Transversal" — rótulo curto do botão
+  competencia: string;
+  introducao: string; // 1ª frase vira manchete (ver partirNaPrimeiraFrase)
+  descritores: DescritorRegua[];
+}
+
 export interface Porta1 {
   competencia: string;
   introducao: string; // "Liderança não é uma coisa só" — 2-3 linhas
   descritores: DescritorCaso[]; // mesmos da porta 2 (a régua é uma só)
+  eixo?: string; // rótulo do botão da competência do caso
+  reguas_vitrine?: ReguaVitrine[]; // outras competências, só para demonstrar a matriz
 }
 
 export interface Porta3 {

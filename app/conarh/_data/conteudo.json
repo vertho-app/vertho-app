@@ -118,6 +118,115 @@
           "limite": "Faltou nomear a competência em jogo e ligar o combinado a ela: \"o que está em jogo aqui é decidir sob pressão sem largar o procedimento — é isso que separa coordenador de gerente\"."
         }
       }
+    ],
+    "eixo": "Liderança",
+    "reguas_vitrine": [
+      {
+        "id": "venda-consultiva",
+        "eixo": "Vendas",
+        "competencia": "Condução de Venda Consultiva",
+        "introducao": "Vender não é uma coisa só. \"Precisa vender melhor\" junta pelo menos cinco comportamentos diferentes — dá para ser excelente no relacionamento e perder o negócio no avanço, ou diagnosticar bem e desmontar o valor na primeira objeção. A engrenagem é a mesma da matriz de liderança: descritor observável, régua de N1 a N4.",
+        "descritores": [
+          {
+            "cod": "VND-D01",
+            "nome_curto": "Diagnóstico da necessidade",
+            "descritor_completo": "Capacidade de investigar o problema do cliente antes de apresentar solução — perguntas que revelam situação, impacto e custo atual — em vez de perguntas que só confirmam a oferta que já se queria vender.",
+            "n1": "Apresenta a solução na abertura. As perguntas servem para confirmar o que já ia propor.",
+            "n2": "Pergunta sobre a operação do cliente, mas para no sintoma: sabe o que acontece, não o que aquilo custa.",
+            "n3": "Investiga situação, impacto e custo do problema antes de propor qualquer coisa — o cliente ouve a própria dor de volta, em números.",
+            "n4": "Conduz o diagnóstico a ponto de o cliente enxergar um problema que ainda não tinha nomeado — e a proposta nasce dessa descoberta, não do catálogo."
+          },
+          {
+            "cod": "VND-D02",
+            "nome_curto": "Mapa de decisão",
+            "descritor_completo": "Capacidade de saber, antes de investir tempo, quem decide, por qual critério, com qual verba e em qual prazo — e de agir sobre isso, em vez de torcer.",
+            "n1": "Toca o negócio inteiro com quem atendeu o telefone. Não sabe quem assina nem com que orçamento.",
+            "n2": "Sabe o nome do decisor, mas não o critério nem o prazo dele — e nunca falou com ele.",
+            "n3": "Mapeia decisor, critério, verba e prazo, e confirma isso com o próprio cliente.",
+            "n4": "Constrói acesso ao decisor e municia o contato interno com os argumentos que aquele comitê usa para aprovar."
+          },
+          {
+            "cod": "VND-D03",
+            "nome_curto": "Articulação de valor",
+            "descritor_completo": "Capacidade de ligar o que se vende ao problema específico daquele cliente, em impacto e ordem de grandeza — em vez de listar recursos e diferenciais.",
+            "n1": "Descreve recursos e diferenciais genéricos; a mesma apresentação serviria para qualquer cliente.",
+            "n2": "Traduz recurso em benefício, mas genérico (\"mais eficiência\"), sem amarrar ao problema que o cliente descreveu.",
+            "n3": "Liga cada ponto da proposta a um problema que o cliente nomeou, com a ordem de grandeza do ganho.",
+            "n4": "Constrói o caso de retorno junto com o cliente — que passa a repetir o argumento internamente, com as próprias palavras."
+          },
+          {
+            "cod": "VND-D04",
+            "nome_curto": "Tratamento de objeção",
+            "descritor_completo": "Capacidade de tratar a objeção como informação: entender o que está por trás, verificar se é a objeção real e responder ao ponto — sem discutir e sem ceder por reflexo.",
+            "n1": "Discute com o cliente ou desconta o preço ao primeiro sinal de resistência.",
+            "n2": "Responde à objeção literal (\"está caro\") sem investigar o que ela esconde: risco, prioridade, comparação.",
+            "n3": "Explora a objeção antes de responder, confirma se é a real e trata a causa, não a frase.",
+            "n4": "Antecipa a objeção previsível daquele perfil e a coloca na mesa antes do cliente — a resistência vira critério de decisão."
+          },
+          {
+            "cod": "VND-D05",
+            "nome_curto": "Avanço do negócio",
+            "descritor_completo": "Capacidade de encerrar toda interação com um próximo passo combinado — o que acontece, com quem e em que data — em vez de \"vou mandar a proposta\".",
+            "n1": "A conversa termina sem próximo passo; o follow-up depende de o cliente lembrar.",
+            "n2": "Combina um próximo passo vago: \"me retorna quando puder\", \"te mando o material\".",
+            "n3": "Fecha toda interação com ação, dono e data — confirmados na agenda do cliente.",
+            "n4": "Constrói com o cliente o plano até a assinatura (etapas, áreas envolvidas, datas) e o revisa a cada avanço."
+          }
+        ]
+      },
+      {
+        "id": "resolucao-de-problemas",
+        "eixo": "Transversal",
+        "competencia": "Resolução de Problemas",
+        "introducao": "Resolver problema não é uma coisa só. Entre o sintoma que aparece e o resultado verificado há pelo menos cinco comportamentos distintos — quem investiga bem pode decidir mal, e quem decide bem pode nunca voltar para conferir se resolveu. Vale para qualquer área da empresa: muda o exemplo, não a régua.",
+        "descritores": [
+          {
+            "cod": "RSP-D01",
+            "nome_curto": "Definição do problema",
+            "descritor_completo": "Capacidade de separar sintoma de problema e enunciar o que precisa ser resolvido — com escopo, impacto e critério de pronto — antes de partir para a solução.",
+            "n1": "Parte direto para a solução a partir do sintoma; o problema nunca chega a ser enunciado.",
+            "n2": "Descreve o problema, mas em termos amplos demais para alguém saber quando ele estará resolvido.",
+            "n3": "Enuncia problema, escopo, impacto e critério de resolvido — a equipe sabe o que muda quando acabar.",
+            "n4": "Reenquadra o problema quando a evidência pede e explicita o que ficou fora do escopo, evitando trabalho certo no problema errado."
+          },
+          {
+            "cod": "RSP-D02",
+            "nome_curto": "Investigação da causa",
+            "descritor_completo": "Capacidade de sustentar a hipótese em evidência — dado, observação direta, teste — em vez de opinião ou do primeiro culpado plausível.",
+            "n1": "Aponta a causa por intuição ou hábito (\"é sempre o mesmo setor\") e age sobre ela.",
+            "n2": "Busca dado, mas para na primeira causa plausível e não testa alternativa.",
+            "n3": "Levanta hipóteses concorrentes e usa evidência para descartar as que não se sustentam.",
+            "n4": "Desenha a verificação que distingue as hipóteses — e muda de posição quando o dado contraria a dele."
+          },
+          {
+            "cod": "RSP-D03",
+            "nome_curto": "Geração de alternativas",
+            "descritor_completo": "Capacidade de pôr mais de um caminho na mesa, com custo, risco e prazo comparáveis — em vez de defender a primeira ideia que apareceu.",
+            "n1": "Trabalha com uma única saída: a primeira que ocorreu.",
+            "n2": "Cita alternativas, mas sem comparabilidade — não dá para escolher entre elas.",
+            "n3": "Apresenta dois ou três caminhos reais com custo, risco e prazo, incluindo o de não fazer nada.",
+            "n4": "Busca de propósito a alternativa que contraria a própria preferência e a apresenta com o mesmo cuidado."
+          },
+          {
+            "cod": "RSP-D04",
+            "nome_curto": "Decisão sob critério",
+            "descritor_completo": "Capacidade de decidir com critério explícito e assumir o trade-off — inclusive com informação incompleta — registrando o que fez a decisão pender.",
+            "n1": "Adia à espera de certeza, ou decide sem saber dizer por quê.",
+            "n2": "Decide, mas o critério só aparece depois, para justificar o que já tinha sido escolhido.",
+            "n3": "Explicita o critério antes de decidir, assume o trade-off e registra o que foi trocado por quê.",
+            "n4": "Diz o que o faria mudar de ideia e quando a decisão será revista — a decisão vira hipótese verificável."
+          },
+          {
+            "cod": "RSP-D05",
+            "nome_curto": "Verificação do resultado",
+            "descritor_completo": "Capacidade de fechar o ciclo: medir se o problema saiu de fato, na data combinada, e agir sobre o que a medição mostrar.",
+            "n1": "Executa e segue em frente; ninguém volta para ver se resolveu.",
+            "n2": "Pergunta informalmente se melhorou, sem medida e sem data.",
+            "n3": "Define a medida e a data da revisão junto com a solução — e revisa na data.",
+            "n4": "Da verificação tira o aprendizado que muda o padrão de trabalho, para o problema não voltar por outra porta."
+          }
+        ]
+      }
     ]
   },
   "porta2": {

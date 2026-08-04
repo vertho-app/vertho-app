@@ -11,7 +11,7 @@
 // àquele visitante, em vez de rolar a página.
 
 import { useState } from 'react';
-import type { DescritorCaso } from '../_data/types';
+import type { DescritorRegua } from '../_data/types';
 import { COR, SANS, TOQUE } from './tema';
 
 const NIVEIS = [
@@ -21,7 +21,7 @@ const NIVEIS = [
   { chave: 'n4' as const, rotulo: 'N4', nome: 'referência' },
 ];
 
-export function MatrizDescritores({ descritores }: { descritores: DescritorCaso[] }) {
+export function MatrizDescritores({ descritores }: { descritores: DescritorRegua[] }) {
   // Primeiro aberto por padrão: a tela nunca começa vazia e a régua já se prova
   // sem exigir um toque de quem só olhou de passagem.
   const [aberto, setAberto] = useState<string>(descritores[0]?.cod ?? '');
