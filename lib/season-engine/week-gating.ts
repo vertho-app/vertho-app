@@ -43,6 +43,30 @@ export function semanaLiberadaPorData(dataInicio: string | null | undefined, n: 
 }
 
 /**
+ * A degradação desta semana representa uma ENTREGA REAL (e portanto deve ir para
+ * o `degradacao_log`)?
+ *
+ * Só semana já liberada conta. O overlay roda sobre o plano INTEIRO — 14 semanas
+ * por pessoa — em toda leitura e em toda varredura de admin, mas degradação em
+ * semana que ninguém pode abrir não é experiência ruim de ninguém: é simulação.
+ *
+ * 🔴 Medido em 04/08: das **622 ocorrências** acumuladas de `kit-ausente-disc` +
+ * `kit-cargo-divergente` em ibipeba, **zero** eram de semana acessível — a menor
+ * semana já registrada era a **6** e a maior liberada era a **4**. O alarme
+ * "578 fallbacks em 24h" media a tela `/admin/temporadas` varrendo o futuro, não
+ * gente recebendo conteúdo pior. Alarme que não corresponde a experiência
+ * treina a ignorar o alarme — o mesmo estrago do contador sem janela (28/07).
+ *
+ * Fail-closed sem `dataInicio`: os selects de admin (`listarTemporadasEmpresa`,
+ * `carregarTrilhaAdmin`) não trazem o campo, então varredura administrativa
+ * deixa de registrar por construção — a mesma disciplina que a prévia do
+ * health-check já seguia ao não passar `colaboradorId`.
+ */
+export function entregaEhReal(dataInicio: string | null | undefined, semana: number | string): boolean {
+  return semanaLiberadaPorData(dataInicio, semana);
+}
+
+/**
  * Formata a data de liberação para exibição (ex.: "seg 12/05").
  * Horário (03:00) não é exibido — é detalhe de implementação.
  */

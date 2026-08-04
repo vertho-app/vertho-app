@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
 import { selectDescriptorsPiloto } from '@/lib/season-engine/select-descriptors';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
+import { entregaEhReal } from '@/lib/season-engine/week-gating';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { getProgramaConfigByModo, resolverModoColab } from '@/lib/season-engine/programa-config';
 import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
@@ -503,7 +504,7 @@ export async function regerarSemana(input: z.infer<typeof RegerarSemanaInput>) {
  * exibir o fallback do buildSeason quando já existe Kit. `colab` precisa de
  * perfil_dominante + prefs + empresa_id.
  */
-async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { competencia_foco?: any; competencias_foco?: any }) {
+async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { competencia_foco?: any; competencias_foco?: any; data_inicio?: string | null }) {
   if (!colab?.empresa_id || !Array.isArray(plano)) return;
   try {
     const formatoPref = formatoPreferido(colab);
@@ -523,7 +524,17 @@ async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { co
       });
     await Promise.all(
       plano.filter((s: any) => s?.tipo === 'conteudo').map((s: any) =>
-        overlayKitNaSemana(sb, s, { empresaId: colab.empresa_id, disc, cargo: colab.cargo, formatoPref, competenciaFoco, kitsCache, colaboradorId: colab.id }),
+        overlayKitNaSemana(sb, s, {
+          empresaId: colab.empresa_id, disc, cargo: colab.cargo, formatoPref, competenciaFoco, kitsCache,
+          // `colaboradorId` é o que LIGA o registro de degradação (entrega-semana.ts).
+          // Só passa em semana já liberada: o overlay roda no plano INTEIRO (14
+          // semanas) a cada leitura e a cada varredura de admin, e degradação em
+          // semana que ninguém pode abrir não é experiência de ninguém.
+          // Medido 04/08: 622 de 622 ocorrências eram de semana futura — o alarme
+          // "578 fallbacks/24h" era a tela de admin varrendo o futuro. Ver
+          // `entregaEhReal`.
+          colaboradorId: entregaEhReal(trilha.data_inicio, s.calendario_semana ?? s.semana) ? colab.id : undefined,
+        }),
       ),
     );
   } catch { /* best-effort — nunca quebra a tela */ }
