@@ -151,6 +151,10 @@
     "app/api/conarh/artefato/route.ts": 1,
     "app/api/conarh/fila/route.ts": 1,
     "app/api/conarh/painel/route.ts": 1,
-    "app/conarh/mapa/[id]/page.tsx": 1
+    "app/conarh/mapa/[id]/page.tsx": 1,
+    "scripts/_check-postflight-aplicacao.ts": 1,
+    "scripts/_check-semana4-ibipeba.ts": 1,
+    "scripts/_dryrun-missao-segunda.ts": 1,
+    "scripts/_enviar-missao-semana4-ibipeba.ts": 1
   }
 }
