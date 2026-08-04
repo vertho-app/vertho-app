@@ -44,8 +44,8 @@ export function Hub({
           maxWidth: 1000,
         }}
       >
-        Seu treinamento mudou o quê?{' '}
-        <em style={{ color: COR.acento }}>Cinco etapas para responder com evidência.</em>
+        Onde seu processo de desenvolvimento{' '}
+        <em style={{ color: COR.acento }}>mais perde força?</em>
       </h1>
       <p
         style={{
@@ -57,8 +57,7 @@ export function Hub({
           maxWidth: 800,
         }}
       >
-        Onde seu processo de desenvolvimento mais perde força? Toque na etapa — cada
-        uma abre em segundos, com um caso demonstrativo completo.
+        Toque na etapa — cada uma abre em segundos, com um caso demonstrativo completo.
       </p>
 
       <div className="mt-10 space-y-4">
