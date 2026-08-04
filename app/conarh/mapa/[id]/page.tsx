@@ -116,9 +116,16 @@ export default async function MapaEvolucaoPage({ params }: { params: Promise<{ i
               {formatarDataHoraBRT(lead.reuniao_em)} (horário de Brasília). A confirmação já está no seu WhatsApp.
             </p>
           ) : (
+            /* "Recorte" é como o estande e a mensagem T+0 chamam ESTA página.
+               Prometer aqui "um recorte nos próximos dias" fazia a pessoa
+               esperar o que já estava aberto na tela dela. O próximo passo
+               real é a conversa de 20 min — e ela, sim, sai do caso da feira
+               para a competência dela. */
             <p className="mt-2 text-lg">
-              A Vertho te chama no WhatsApp nos próximos dias com um recorte aplicado ao que você descreveu.
-              Quer adiantar? Responda a mensagem que te enviamos.
+              Este é o recorte da sua conversa no estande. O passo seguinte são 20 minutos com a
+              matriz montada na <span className="font-bold">sua</span> competência — não no caso
+              demonstrativo da feira. Quer adiantar? Responda a mensagem que te enviamos no
+              WhatsApp; se preferir, a Vertho te chama nos próximos dias.
             </p>
           )}
         </section>
