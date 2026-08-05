@@ -21,7 +21,7 @@ import { PROGRESSO, TRILHA } from '@/lib/status';
  * `lib/blueprint/core.ts`. Quando `empresaIdEsperado` é informado (caminho de
  * lote), o núcleo revalida o tenant do colaborador.
  */
-export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, competencia, aiConfig, empresaIdEsperado }: { colaboradorId?: string; competencia?: string; aiConfig?: any; empresaIdEsperado?: string } = {}) {
+export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, competencia, aiConfig, empresaIdEsperado, novaJornada }: { colaboradorId?: string; competencia?: string; aiConfig?: any; empresaIdEsperado?: string; novaJornada?: boolean } = {}) {
   try {
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
 
@@ -187,10 +187,16 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
       colaboradorId,
       competenciaFoco: competenciaAlvo,
       competenciasFoco: [competenciaAlvo], // uniformiza com DUO (Fase 3 lê sempre o array)
-      // Fallback DUO→single também aterrissa aqui: o plano gerado É single.
-      programaModo: 'regular_single',
+      // O carimbo tem que descrever o PLANO que acabou de ser gerado. A jornada
+      // também é single-competência e aterrissa aqui: carimbá-la de
+      // 'regular_single' faria o runtime resolver 14 semanas para um plano de 7
+      // — semana 8 a 14 inexistentes, missões em 4/8/12 e fechamento na 14 que
+      // nunca chega. O fallback DUO→single segue carimbando 'regular_single',
+      // porque ali o plano gerado É o single de 14.
+      programaModo: modoResolvido === 'jornada' ? 'jornada' : 'regular_single',
       semanas,
       descritoresSelecionados,
+      novaJornada,
     });
     if ('error' in persist) return { error: persist.error };
 
@@ -682,11 +688,16 @@ export async function gerarTemporadaCustom(args: {
 }
 
 /**
- * Persistência de trilha + progresso — FONTE ÚNICA dos 4 modos (single, DUO,
- * onboarding, piloto), que mantinham 4 cópias byte-quase-idênticas deste
- * bloco. Regras: 1 trilha por (empresa, colab) → header por UPSERT no UNIQUE
- * (empresa_id, colaborador_id) — numero_temporada e data_inicio mantidos
- * (lidos no SELECT acima); semana 1 NOVA nasce em_andamento.
+ * Persistência de trilha + progresso — FONTE ÚNICA dos modos (single, DUO,
+ * onboarding, piloto, jornada), que mantinham cópias byte-quase-idênticas
+ * deste bloco. Regras: UPSERT no UNIQUE (empresa_id, colaborador_id,
+ * numero_temporada) — mig 199; sem `novaJornada`, o número e o `data_inicio`
+ * da trilha atual são mantidos (regenerar não infla contador nem move o
+ * calendário de quem já começou); semana 1 NOVA nasce em_andamento.
+ *
+ * `novaJornada: true` (encadeamento do DUO, 05/08/2026) cria a PRÓXIMA trilha:
+ * numero_temporada + 1 e calendário começando na próxima segunda. A jornada
+ * anterior fica intacta, com seu fechamento, seu relatório e seu certificado.
  *
  * O progresso é gravado por UPSERT que PRESERVA o trabalho do colaborador
  * (reflexão, feedback, tira-dúvidas, consumo) — antes era delete+insert, que
@@ -701,8 +712,10 @@ export async function persistirTrilha(tdb: any, args: {
   descritoresSelecionados: any[];
   /** Modo custom: snapshot da config derivada (mig 182). Presets: undefined → null. */
   programaConfig?: ProgramaConfig;
+  /** Encadeamento: cria a próxima jornada em vez de regravar a atual. */
+  novaJornada?: boolean;
 }): Promise<{ trilhaId: string; numeroTemporada: number } | { error: string }> {
-  const { colaboradorId, competenciaFoco, competenciasFoco, programaModo, semanas, descritoresSelecionados, programaConfig } = args;
+  const { colaboradorId, competenciaFoco, competenciasFoco, programaModo, semanas, descritoresSelecionados, programaConfig, novaJornada } = args;
 
   // Normaliza campos DERIVADOS de conteudos_dia antes de salvar (chokepoint dos 4
   // modos): garante que descritores_cobertos/descritor/label/dia SEMPRE reflitam os
@@ -710,13 +723,19 @@ export async function persistirTrilha(tdb: any, args: {
   // blocos, dias errados). Idempotente.
   normalizarSemanas(semanas);
 
+  // Ordena por numero_temporada (não por criado_em): com jornadas sequenciais,
+  // "a trilha do colaborador" é a de maior temporada. Por criado_em, regerar a
+  // jornada 1 depois de a 2 existir a faria virar "a atual" e o encadeamento
+  // criaria uma terceira.
   const { data: existente } = await tdb.from('trilhas')
     .select('id, numero_temporada, data_inicio')
     .eq('colaborador_id', colaboradorId)
-    .order('criado_em', { ascending: false }).limit(1).maybeSingle();
+    .order('numero_temporada', { ascending: false }).limit(1).maybeSingle();
 
   // Com UPDATE na mesma row, regenerar não infla o contador.
-  const numeroTemporada = existente?.numero_temporada || 1;
+  const numeroTemporada = novaJornada
+    ? (existente?.numero_temporada || 0) + 1
+    : (existente?.numero_temporada || 1);
   const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
   // empresa_id é injetado pelo tdb.upsert — não precisa repetir aqui.
   const payload = {
@@ -736,7 +755,9 @@ export async function persistirTrilha(tdb: any, args: {
     // na semana 8 jogava `data_inicio` para a próxima segunda e a pessoa voltava ao
     // calendário zero — o week-gating libera por `data_inicio`, então ela perdia
     // acesso a 7 semanas de conteúdo de uma vez. Só a PRIMEIRA gravação calcula.
-    data_inicio: existente?.data_inicio || nextMondayISO(),
+    // Jornada nova começa na próxima segunda; regeneração preserva o
+    // calendário de quem já está no meio (F-I1).
+    data_inicio: novaJornada ? nextMondayISO() : (existente?.data_inicio || nextMondayISO()),
     cursos: [],                                 // legado — conteúdo vive em temporada_plano
   };
 
@@ -748,7 +769,7 @@ export async function persistirTrilha(tdb: any, args: {
   // (lib/blueprint/core.ts). O SELECT acima SEGUE — lê data_inicio (F-I1) e
   // numero_temporada da trilha atual; a gravação é que não pode mais se perder.
   const { data: salva, error } = await tdb.from('trilhas')
-    .upsert(payload, { onConflict: 'empresa_id,colaborador_id' })
+    .upsert(payload, { onConflict: 'empresa_id,colaborador_id,numero_temporada' })
     .select('id').maybeSingle();
   if (error) return { error: error.message };
   const trilhaId: string = salva.id;

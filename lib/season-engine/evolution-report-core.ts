@@ -3,6 +3,31 @@ import { tenantDb } from '@/lib/tenant-db';
 import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { PILOTO_SPEC_VERSION } from '@/lib/season-engine/piloto-trava';
 import { PROGRESSO, TRILHA } from '@/lib/status';
+import { encadearProximaJornada } from './encadear-jornada';
+
+/**
+ * Fim de jornada = começo da próxima (modo `jornada`, 05/08/2026). Roda DEPOIS
+ * de a trilha estar marcada como concluída, e nunca derruba o fechamento: se a
+ * geração falhar, a jornada concluída segue concluída e a degradação fica
+ * registrada (`jornada-encadeamento-falhou`) para o admin gerar pelo caminho
+ * normal. Nos outros modos é um no-op — concluir é o fim do ciclo.
+ *
+ * O import do gerador é dinâmico porque `trilha-core` importa este arquivo em
+ * cadeia; estático fecharia o ciclo.
+ */
+async function encadear(sbRaw: any, tdb: any, trilhaId: string): Promise<void> {
+  try {
+    const { gerarTemporadaCoreHeadless } = await import('./trilha-core');
+    const r = await encadearProximaJornada(sbRaw, tdb, trilhaId, (args) =>
+      gerarTemporadaCoreHeadless(sbRaw, args),
+    );
+    if (r.encadeou) {
+      console.log(`[jornada] trilha ${trilhaId} concluída → jornada ${r.numeroTemporada} em "${r.competencia}" (${r.trilhaId})`);
+    }
+  } catch (e: any) {
+    console.error('[jornada] encadeamento falhou:', e?.message || e);
+  }
+}
 
 /**
  * Núcleo HEADLESS do Evolution Report — SEM gate de auth e SEM endpoint HTTP.
@@ -127,6 +152,7 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
         evolution_generated_at: new Date().toISOString(),
         status: TRILHA.CONCLUIDA,
       }).eq('id', trilhaId);
+      await encadear(sbRaw, tdb, trilhaId);
       return { success: true, evolution_report };
     }
 
@@ -166,6 +192,8 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
       evolution_generated_at: new Date().toISOString(),
       status: TRILHA.CONCLUIDA,
     }).eq('id', trilhaId);
+
+    await encadear(sbRaw, tdb, trilhaId);
 
     return { success: true, evolution_report };
   } catch (err) {

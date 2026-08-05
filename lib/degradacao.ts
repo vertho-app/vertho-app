@@ -37,6 +37,8 @@ export const DEGRADACAO = {
   CONTEUDO_AUSENTE: 'conteudo-ausente',
   /** build-season (piloto): semana com menos entregas que o esperado. */
   PILOTO_DISTRIBUICAO_INCOMPLETA: 'piloto-distribuicao-incompleta',
+  /** jornada: fechamento concluiu, mas a jornada seguinte não foi gerada (mig 199). */
+  JORNADA_ENCADEAMENTO_FALHOU: 'jornada-encadeamento-falhou',
   /** contexto-empresa: síntese do PPP falhou → cai no PPP mais recente. */
   SINTESE_PPP_FALHOU: 'sintese-ppp-falhou',
   /** overlay: sem kit para o DISC da pessoa → mantém o conteúdo do build. */

@@ -5,7 +5,8 @@ import { persistirTrilha } from '@/lib/season-engine/trilha-core';
  * F-C1 do docs/FMEA-PIPELINE.md: o HEADER da trilha era SELECT-then-UPDATE/INSERT
  * sem lock nem versão — sob regeneração concorrente, o UPDATE batia em 0 linhas
  * (a row sumiu entre os statements) ou o INSERT colidia no
- * UNIQUE(empresa_id,colaborador_id), e ambos falhavam em silêncio (lost-update
+ * UNIQUE(empresa_id,colaborador_id,numero_temporada) — mig 199 —, e ambos
+ * falhavam em silêncio (lost-update
  * com ok:true). A correção é um UPSERT atômico no UNIQUE que já existe — mesmo
  * padrão de development_blueprints (lib/blueprint/core.ts).
  *
@@ -62,7 +63,7 @@ const ARGS = {
 };
 
 describe('persistirTrilha · header da trilha é UPSERT atômico (F-C1)', () => {
-  it('grava o header por upsert com onConflict empresa_id,colaborador_id — sem update/insert', async () => {
+  it('grava o header por upsert com onConflict (empresa, colab, temporada) — sem update/insert', async () => {
     const tdb = tdbMock();
     const r = await persistirTrilha(tdb, ARGS);
     expect(r).toEqual({ trilhaId: 'trilha-1', numeroTemporada: 1 });
@@ -70,7 +71,7 @@ describe('persistirTrilha · header da trilha é UPSERT atômico (F-C1)', () => 
     const header = tdb.ops.filter((o) => o.tabela === 'trilhas');
     const upserts = header.filter((o) => o.tipo === 'upsert');
     expect(upserts).toHaveLength(1);
-    expect(upserts[0].opts).toEqual({ onConflict: 'empresa_id,colaborador_id' });
+    expect(upserts[0].opts).toEqual({ onConflict: 'empresa_id,colaborador_id,numero_temporada' });
     // Nenhum caminho de update/insert sobrou — eram os 2 modos de falha silenciosa.
     expect(header.filter((o) => o.tipo === 'update')).toHaveLength(0);
     expect(header.filter((o) => o.tipo === 'insert')).toHaveLength(0);

@@ -403,16 +403,16 @@ export async function buildSeason({
           descritores_cobertos: [],
           status: 'bloqueada',
         };
-      } else if (isPilotoContentWeek(programaConfig)) {
-        // Piloto: N entregas na MESMA competência (1 descritor DISTINTO cada),
+      } else if (ehSemanaDeEntregaMultipla(programaConfig)) {
+        // N entregas na MESMA competência (1 descritor DISTINTO cada),
         // resolvidas pela via existente (formato-core + opcionais). Mesmo shape
         // conteudos_dia do DUO → UI/reflection/kit-overlay funcionam sem mudança.
         const ordenados = descritoresDaSemana.slice(0, programaConfig.conteudosPorSemana);
-        // Invariante: cada semana de conteúdo do piloto deve ter conteudosPorSemana
-        // descritores (distribuição 2+2). Se vier menos, avisa ALTO (não degrada
-        // em silêncio) — a semana sai com o que há, na shape piloto.
+        // Invariante: cada semana de conteúdo deve ter conteudosPorSemana
+        // descritores. Se vier menos, avisa ALTO (não degrada em silêncio) — a
+        // semana sai com o que há, na mesma shape.
         if (ordenados.length < (programaConfig.conteudosPorSemana || 1)) {
-          console.warn(`[piloto] semana ${semana}: ${ordenados.length} descritor(es) para ${programaConfig.conteudosPorSemana} entregas esperadas — distribuição incompleta.`);
+          console.warn(`[${programaConfig.modo}] semana ${semana}: ${ordenados.length} descritor(es) para ${programaConfig.conteudosPorSemana} entregas esperadas — distribuição incompleta.`);
           await registrarDegradacao({
             fluxo: 'build', tipo: DEGRADACAO.PILOTO_DISTRIBUICAO_INCOMPLETA, chave: `${empresaId || 'global'}:${semana}`,
             empresaId, detalhe: { descritores: ordenados.length, esperado: programaConfig.conteudosPorSemana },
@@ -546,14 +546,19 @@ export async function buildSeason({
   return semanas;
 }
 
-function isPilotoContentWeek(
+/**
+ * Semana com ENTREGA MÚLTIPLA: N conteúdos da mesma competência, um descritor
+ * distinto cada (shape `conteudos_dia`, igual à do DUO).
+ *
+ * Vale para o piloto (2 entregas em 2 semanas) e, desde 05/08/2026, para a
+ * JORNADA (2 pílulas por semana durante 6 semanas). A chave é a CONFIG e não a
+ * contagem de descritores: `length === 0` já virou 'bloqueada' antes, e uma
+ * semana com 1 descritor segue por aqui, com aviso — em vez de degradar em
+ * silêncio para a shape single.
+ */
+function ehSemanaDeEntregaMultipla(
   programaConfig: ProgramaConfig,
 ): boolean {
-  // Só o Piloto define conteudosPorSemana > 1 — nos demais modos a chave é
-  // undefined e este branch nunca dispara (garantia por construção). Chave é a
-  // CONFIG, não a contagem de descritores: o caso length===0 já vira 'bloqueada'
-  // antes, e uma semana com 1 descritor (redistribuição futura) segue no branch
-  // piloto (mesma shape) com aviso — em vez de degradar em silêncio pro single.
   return (programaConfig.conteudosPorSemana || 1) > 1;
 }
 
