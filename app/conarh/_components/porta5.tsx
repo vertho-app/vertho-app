@@ -142,25 +142,43 @@ export function Porta5({
             O que sai do ciclo — <em style={{ color: COR.acento }}>em documento, não em slide</em>.
           </p>
           <p style={{ color: COR.texto3, fontSize: 17, lineHeight: 1.5, fontFamily: SANS, margin: '8px 0 0' }}>
-            Três leituras da mesma régua: a do gestor sobre o time, a do RH sobre a organização e a
-            individual. Abra qualquer uma — são as peças reais, com dados de demonstração.
+            Quatro leituras da mesma régua: o gestor sobre o time, o RH sobre o ciclo, e os dois
+            retratos da organização — comportamental e de cultura. Abra qualquer uma: são as peças
+            reais, com dados de demonstração.
           </p>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+            {/* Card com a CAPA do documento. Um link de texto sobre uma tabela
+                desenhada é indistinguível de mock; a capa é o que prova que a
+                peça existe — mesma escolha da etapa 3. */}
             {porta5.relatorios.map((r) => (
               <a
                 key={r.src}
                 href={r.src}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-2xl border p-5 flex flex-col"
+                className="rounded-2xl border p-5 flex gap-5 items-start"
                 style={{ background: COR.card, borderColor: COR.bordaAcento, textDecoration: 'none' }}
               >
-                <span className="flex items-center gap-2" style={{ color: COR.acento, fontSize: 18, fontWeight: 700, fontFamily: SANS }}>
-                  <FileText size={19} />
-                  {r.titulo} →
-                </span>
-                <span style={{ color: COR.texto2, fontSize: 16, lineHeight: 1.5, fontFamily: SANS, marginTop: 8 }}>
-                  {r.nota}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={r.capa}
+                  alt={`Capa do ${r.titulo}`}
+                  style={{ width: 116, borderRadius: 10, border: `1px solid ${COR.borda}`, flexShrink: 0 }}
+                />
+                <span style={{ minWidth: 0 }}>
+                  <span className="flex items-center gap-2" style={{ color: COR.acento, fontSize: 18, fontWeight: 700, fontFamily: SANS }}>
+                    <FileText size={18} />
+                    {r.titulo}
+                  </span>
+                  <span
+                    className="block uppercase font-bold"
+                    style={{ color: COR.texto3, fontSize: 12, letterSpacing: '0.16em', fontFamily: SANS, margin: '4px 0 6px' }}
+                  >
+                    PDF · {r.paginas} páginas
+                  </span>
+                  <span style={{ color: COR.texto2, fontSize: 15, lineHeight: 1.5, fontFamily: SANS, display: 'block' }}>
+                    {r.nota}
+                  </span>
                 </span>
               </a>
             ))}

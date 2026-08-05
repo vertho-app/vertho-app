@@ -210,7 +210,7 @@ export interface Porta5Painel {
    * Gerados por `scripts/_conarh-relatorios-gestao.ts` (prompts e componentes
    * do produto, tenant de demonstração).
    */
-  relatorios?: Array<{ src: string; titulo: string; nota: string }>;
+  relatorios?: Array<{ src: string; titulo: string; nota: string; capa: string; paginas: number }>;
   pessoas: Array<{
     nome: string;
     cargo: string;
