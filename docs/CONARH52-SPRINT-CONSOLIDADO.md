@@ -22,7 +22,8 @@ A rota `/conarh` **existe e está implementada** (commit `47eec490`, 29/07/2026)
 |---|---|---|
 | F1 hub, template de rota, reset entre visitantes | ✅ | `app/conarh/_components/{hub,porta-shell,conarh-app}.tsx` |
 | F1 · P1 modo opt-in no celular do visitante | ⚠️ parcial — o formulário reduzido existe (`modoVisitante`), falta o QR | `captura.tsx` |
-| F2 porta 2 em 5 estados, "convergiram/divergiram" | ✅ | `porta2.tsx` |
+| F2 porta 2 interativa — **cenário + 4 respostas** desde 04/08 (§0.1) | ✅ | `porta2.tsx` · `_components/reguas.ts` |
+| F2 · três réguas trocáveis na etapa 1 (Liderança · Vendas · Transversal) | ✅ 04/08 | `porta1.tsx` · `conteudo.json` |
 | F2 · P2 benchmark ao vivo (n ≥ 7) | ❌ não construído (é P2) | — |
 | F3 caso canônico, 5 portas, 5 personas, mídia local | ✅ | `_data/conteudo.json` · `public/conarh/media/` |
 | F3 caso canônico **validado com 3 clientes** | ❌ **pendente — caminho crítico** | fora do código |
@@ -32,7 +33,7 @@ A rota `/conarh` **existe e está implementada** (commit `47eec490`, 29/07/2026)
 | F4 · P1 fila do dia | ✅ | `/conarh/fila` |
 | F5 recorte por WhatsApp + e-mail, fila offline | ✅ | `api/conarh/artefato` · `capture.ts` |
 | F5 · P1 Mapa da Evolução | ✅ | `/conarh/mapa/[id]` |
-| F6 · P1 agenda na hora | ✅ | slots no formulário → `diag_leads.reuniao_em` |
+| F6 · P1 agenda na hora | ⚠️ **revertido 04/08** — sem seletor no tablet; o fechador marca (§0.1) | `diag_leads.reuniao_em` segue no schema |
 | F7 telemetria + painel diário | ✅ | `lib/radar/eventos.ts` · `api/conarh/painel` |
 | F8 · P1 régua T+0 → T+5 | ✅ | `lib/conarh/regua.ts` + cron `conarh-followup` |
 | F9 degustação · F10 infraestrutura | ❌ fora do código — ver §5 | — |
@@ -40,6 +41,44 @@ A rota `/conarh` **existe e está implementada** (commit `47eec490`, 29/07/2026)
 **O que resta de engenharia é conferência, não construção.** O caminho crítico da sprint passou a ser o **caso canônico validado com 3 clientes** (§7, semana 1) e a **verificação por presença** (§9).
 
 Migração de banco: `196-conarh-lead-sessao.sql` (porta, competência, horizonte, classe, reunião, sessão, passo da régua).
+
+### 0.1 Rodada de 04/08/2026 — o que MUDOU depois da sprint
+
+Cinco decisões de produto tomadas dirigindo a demo na tela, não no papel. **Onde este
+documento descrever o comportamento antigo, vale esta seção** — os bullets superados estão
+marcados com ⚠️ no corpo.
+
+| Mudou | De → para | Por quê |
+|---|---|---|
+| **Vocabulário** | "porta" → **"etapa"** em tudo que o visitante lê | "Porta" é o nome do componente. A tela sempre disse "etapa"; o follow-up dizia "porta 1". Interno (fila do fechador, insight) segue com o jargão. |
+| **Etapa 1** | uma régua → **três** (Liderança · Vendas · Transversal), trocáveis num toque | A matriz só se provava em liderança; o visitante de vendas tinha que acreditar que "vale pra mim". Só a régua do CASO segue nas etapas 3–5. |
+| **Etapa 2** | registro escrito → **cenário situacional + 4 respostas** | O registro fazia a demo parecer depender de um gestor com boa memória escrevendo um relatório bom. Agora roda o artefato real: 4 respostas plausíveis, embaralhadas, e a régua as separa. O cenário segue a competência escolhida na etapa 1. |
+| **Formulário** | 4 toggles → **1** ("aceitou um próximo passo") + sem seletor de horário | Enxugar o toque no tablet. Consequências tratadas nas duas linhas abaixo. |
+| **Fecho de etapa** | 2 CTAs → **1** ("Receber esse recorte") | Sem o seletor de horário, "Marcar os 20 minutos" abria a mesma tela — dois botões idênticos com nomes diferentes. |
+
+**Duas consequências que NÃO podiam ficar implícitas:**
+
+1. **Régua A/B/C** (`lib/conarh/classificacao.ts`): `decide_ou_recomenda` saiu do predicado de A.
+   Com o campo fora da tela, A ficaria inalcançável e todo lead conduzido cairia em B — o alerta
+   de < 30 s do fechador morreria em silêncio. **A = dor clara + horizonte quente + próximo
+   passo.** `fora_do_perfil` segue vencendo tudo no contrato, mas já não chega por esta tela: C
+   só acontece pela regra automática.
+2. **Telemetria e painel**: `nota_instintiva` / `reavaliacao` / `divergencias` foram **removidos**
+   (mediam o mecanismo antigo). Entra `sessao.cenario` com `nivel_aceito` × `nivel_meta`, e o
+   número publicável vira **"N de M gestores aceitariam uma resposta abaixo da meta N3"**. Leads
+   anteriores a 04/08 ficam FORA da conta — as duas réguas de medida não são comparáveis. Cache
+   do painel: `conarh:cache-painel-v2` → `v3`.
+
+**A prancheta (`/conarh/prancheta`) continua no fluxo do registro escrito** — é papel, não tem
+toque nem estado. Por isso o bloco `porta2` do `conteudo.json` (registro + leitura do motor)
+segue vivo: apagá-lo deixa o plano B da feira em branco. ⏳ Pendente decidir se o papel espelha
+o cenário.
+
+Guardas de conteúdo e de texto (falham no CI, validadas por mutação):
+`tests/unit/conarh-conteudo.test.ts` (toda régua com cenário, 4 respostas uma por nível, ordem
+não-crescente, descritor testado existindo na matriz) e `tests/unit/conarh-mensagens.test.ts`
+(o follow-up não pode dizer "porta" nem "quem decide", nem colar o nome da empresa depois de
+artigo fixo).
 
 ## 1. Objetivo da sprint
 
@@ -85,10 +124,13 @@ Prioridades: **P0** sem isso a feira não abre · **P1** é o que diferencia a o
 - **Aceite:** porta abre em < 1 s offline, sem login e sem loading visível; rota ≤ 90 s por quem nunca viu a tela; 20 ciclos sem estado residual.
 
 ### F2 · Porta 2 — o toque interativo (a única tela com input do visitante)
-- **P0** Sequência em 5 estados: registro da conversa → nota 1–4 (o único toque) → matriz de descritores revelada → reavaliação do mesmo registro descritor a descritor → leitura do motor lado a lado, com justificativa.
-- **P0** Registro por sessão: nota instintiva, marcações com critério, divergências vs. motor — com consentimento, anônimo até a captura.
+- ⚠️ **SUPERADO em 04/08/2026 — ver §0.1.** A sequência abaixo descreve o mecanismo do registro
+  escrito, que saiu da tela (continua na prancheta). Hoje: situação → 4 respostas embaralhadas
+  (o único toque) → matriz aberta no descritor testado → leitura da escolha + as quatro por nível.
+- **P0** ~~Sequência em 5 estados: registro da conversa → nota 1–4 (o único toque) → matriz de descritores revelada → reavaliação do mesmo registro descritor a descritor → leitura do motor lado a lado, com justificativa.~~
+- **P0** Registro por sessão — ~~nota instintiva, marcações com critério, divergências vs. motor~~ → hoje `sessao.cenario` (nível aceito × meta), com consentimento, anônimo até a captura.
 - **P2** Benchmark ao vivo no fecho ("os gestores que passaram por aqui convergem, em média, em X de 5") — só ligar com n ≥ 7 no evento; abaixo disso a linha não aparece.
-- **Aceite:** nunca "certo/errado" na tela — só "convergiram/divergiram"; a matriz sempre antes da reavaliação. Se instinto = leitura com critério, a tela diz **"sua intuição já é criteriosa — a matriz só a torna auditável"**: o visitante que não muda a nota não pode virar silêncio constrangido.
+- **Aceite (vale no mecanismo novo):** nunca "certo/errado" na tela — a linguagem é "o seu padrão" × "a régua"; a matriz sempre antes da leitura. Se ele escolhe N3 ou N4, a tela diz **"o seu padrão já está na meta da régua"**: o visitante que acerta não pode virar silêncio constrangido.
 
 ### F3 · Conteúdo das cinco rotas — pacote offline
 - **P0** Caso canônico (feedback, delegação ou conversa difícil) com contexto da personagem, registro, **matriz de 5–6 descritores** e justificativas do motor — **ambíguo o bastante para um bom gestor divergir, defensável o bastante para ele aceitar**. Validado com 3 clientes/prospects em ligação: se os três não reconhecerem a dor, **troca o caso — não a palavra**. **Caminho crítico da sprint.**
@@ -113,11 +155,15 @@ Prioridades: **P0** sem isso a feira não abre · **P1** é o que diferencia a o
 - **Aceite:** sobrevive a um print encaminhado ao chefe — porta, marca e próximo passo legíveis na captura de tela.
 
 ### F6 · Agenda na hora
-- **P1** Botão "marcar os 20 minutos" no fecho: grade de slots dos 3 dias, confirmação imediata no WhatsApp do visitante + convite de calendário. Fallback: link de agendamento manual.
-- **Aceite:** lead A sai do estande com data no calendário — não com "a gente se fala".
+- ⚠️ **REVERTIDO em 04/08/2026 — ver §0.1.** O seletor de slots saiu do tablet e o botão "marcar
+  os 20 minutos" saiu do fecho: marcar reunião voltou a ser conversa, e o horário é combinado
+  pelo fechador no WhatsApp. `diag_leads.reuniao_em` continua no schema e a confirmação por
+  mensagem continua funcionando se a data chegar por outro canal.
+- **P1** ~~Botão "marcar os 20 minutos" no fecho: grade de slots dos 3 dias, confirmação imediata no WhatsApp do visitante + convite de calendário.~~ Fallback: link de agendamento manual.
+- **Aceite (revisado):** lead A sai do estande com o próximo passo aceito e registrado — a data entra na conversa do fechador.
 
 ### F7 · Telemetria, painel diário e ativo de dados
-- **P0** Eventos por sessão: porta escolhida · rota iniciada/concluída · nota instintiva · reavaliação · divergências · captura concluída · classe do lead · reunião marcada.
+- **P0** Eventos por sessão: porta escolhida · rota iniciada/concluída · ⚠️ ~~nota instintiva · reavaliação · divergências~~ → **nível aceito no cenário × meta** (§0.1) · captura concluída · classe do lead · reunião marcada.
 - **P1** Painel diário de 5 números (rotas concluídas · leads A · leads B · reuniões com data · total de capturas), lido em 5 min às 18h — uma variável por dia. O **comparativo de ganchos verbais é contador manual**, ao lado do painel: o app não tem como observá-lo.
 - **P1** Dataset do evento para o ativo de setembro ("como um critério explícito muda a avaliação do gestor"), por porta, cargo e porte — campos anônimos, consentimento registrado, nenhum recorte publicável com n < 7.
 - **Aceite:** funil reconstruível por dia e por porta, exportável para a reunião de 5 min do fim do dia.
@@ -156,7 +202,7 @@ Sem esta tabela na mão do expositor, o alerta de lead A não tem critério e a 
 
 | Classe | Definição | Tratamento |
 |---|---|---|
-| **A** | Decide ou recomenda · dentro do perfil · dor clara · horizonte quente (rodando / até 3 m) · aceitou o próximo passo | Reunião marcada na hora, com data no calendário. Recorte no WhatsApp no mesmo dia. |
+| **A** | Dentro do perfil · dor clara · horizonte quente (rodando / até 3 m) · aceitou o próximo passo ⚠️ *(04/08: "decide ou recomenda" saiu do predicado — §0.1)* | Próximo passo aceito e registrado; o fechador marca a data. Recorte no WhatsApp no mesmo dia. |
 | **B** | Boa aderência e dor clara, sem urgência | Mapa da Evolução + convite específico. |
 | **C** | Curioso, fornecedor, fora do perfil | Material se pedir. **Fora da cadência ativa** — é o que mantém alta a taxa de resposta de A e B. |
 
@@ -167,7 +213,13 @@ Sem esta tabela na mão do expositor, o alerta de lead A não tem critério e a 
 | **T+3** | Ligação proativa para os A. Para B e C, só quem respondeu. |
 | **T+5** | Insight agregado do evento — alimenta o ativo de dados de setembro. |
 
-**Os cinco predicados de A são avaliados em código** (`lib/conarh/classificacao.ts`, coberto por `tests/unit/conarh-classificacao.test.ts`). Dois deles dependem de marcação do expositor no formulário: *decide ou recomenda* e *fora do perfil*. **Marcar "fora do perfil" é o que produz um C** — sem isso, todo curioso e todo fornecedor entra como B e polui a cadência ativa.
+**Os predicados de A são avaliados em código** (`lib/conarh/classificacao.ts`, coberto por
+`tests/unit/conarh-classificacao.test.ts`). Desde 04/08/2026 **nenhum depende de marcação do
+expositor além do toggle "aceitou um próximo passo"**: *decide ou recomenda* e *fora do perfil*
+saíram da tela, e o predicado de A foi reajustado no mesmo commit — senão A viraria inalcançável
+e o alerta morreria calado (§0.1). Consequência assumida: **C só acontece pela regra automática**
+(sem dor e sem decisor declarado); curioso e fornecedor entram como B. Se isso poluir a cadência
+na feira, o caminho é devolver o toggle *fora do perfil* — não afrouxar a régua.
 
 ## 7. Cronograma — três semanas, quatro gates
 
@@ -210,7 +262,7 @@ Sem esta tabela na mão do expositor, o alerta de lead A não tem critério e a 
 
 ## 11. Definição de pronto
 
-As cinco portas abrem em modo avião · a porta 2 registra nota, reavaliação e divergências · a captura grava origem, porta e competência · o recorte sai por dois canais · o ensaio fecha rota ≤ 90 s · o tablet 2 está idêntico ao 1.
+As cinco etapas abrem em modo avião · a etapa 2 registra o nível aceito no cenário (nas TRÊS réguas) · a captura grava origem, etapa e competência · o recorte sai por dois canais · o ensaio fecha rota ≤ 90 s · o tablet 2 está idêntico ao 1.
 
 **O que não estiver assim em 17/08 não vai para a feira — corta-se, não se remenda.**
 

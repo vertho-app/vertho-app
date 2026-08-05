@@ -237,6 +237,14 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   que **parecia erro do modelo**. Receita nos dois casos: teste que exercita o caminho raro por
   padrão + logar a versão no contexto real + capturar a saída COMPLETA (os últimos N chars cortam o
   cabeçalho, que é onde está a causa). Detalhe: `docs/BOARD-PAINEL.md`.
+- NÃO tirar campo de formulário sem perguntar **que regra do servidor lê aquele campo**. Campo de
+  UI e régua de decisão/medição são um par: em 04/08 remover dois toggles do tablet do CONARH
+  tornaria a classe **A inalcançável** (o predicado exigia `decide_ou_recomenda`), e o alerta de
+  < 30 s do fechador morreria calado — nada no typecheck acusa. Mesma rodada, mesma classe: trocar
+  o mecanismo de uma tela **obriga a renomear a métrica**; manter `nota_instintiva`/`divergencias`
+  medindo outra coisa é como um painel passa a mentir sem ninguém perceber (os campos foram
+  REMOVIDOS, e leads velhos ficam fora da conta em vez de convertidos). Detalhe:
+  `docs/CONARH52-SPRINT-CONSOLIDADO.md` §0.1.
 - NÃO criar fallback novo **silencioso** — fallback pode existir, nunca invisível: registre com
   `registrarDegradacao` (`lib/degradacao.ts`, nunca lança, dedup por chave com contador **por dia
   UTC** — a regra que lê olha 24h, então contador sem janela vira alarme crônico). Os 10
