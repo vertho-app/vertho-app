@@ -48,38 +48,50 @@ export interface DescritorRegua {
   n4: string;
 }
 
-// Um turno da conversa avaliativa: a plataforma pergunta, a pessoa avaliada
-// responde. É o artefato que a engine gera de verdade — cargo × competência ×
-// contexto — e é sobre ele que a régua é aplicada.
+// Uma das QUATRO perguntas do cenário + a resposta da pessoa avaliada.
 //
-// ⚠️ `nivel`, `evidencia` e `leitura` são a LEITURA da régua, não a conversa:
+// As quatro não são um bate-papo: são o instrumento que a IA3 gera de verdade
+// (`lib/ia3-cenarios.ts`), e cada uma tem um papel fixo, nesta ordem —
+//   1 ESCOLHA        · trade-off real, priorização com custo declarado
+//   2 EXECUÇÃO       · o COMO, sabendo que haverá resistência
+//   3 TENSÃO HUMANA  · alguém que resiste, sofre ou discorda, na cara
+//   4 SUSTENTAÇÃO    · como saber que funcionou no médio prazo
+// — todas ABERTAS, em 2ª pessoa, ≤200 caracteres, com decisão forçada: se dá
+// para responder bem sem abrir mão de nada, priorizar nada e assumir risco
+// nenhum, o cenário falhou como instrumento (regra de ouro do prompt da IA3).
+// Escrever aqui pergunta de entrevista ("ficou marcada alguma data?") faz a
+// demo exibir um artefato que a plataforma não produz.
+//
+// ⚠️ `nivel`, `evidencia` e `leitura` são a LEITURA da régua, não o cenário:
 // só entram na tela DEPOIS que o visitante classificou. Mostrar o nível junto
 // da resposta não deixa nada para ele classificar — e é o erro fácil de
-// cometer aqui, porque no JSON os quatro campos moram lado a lado.
-export interface TurnoConversa {
-  pergunta: string; // o que a plataforma perguntou
+// cometer aqui, porque no JSON os campos moram lado a lado.
+export interface PerguntaAvaliativa {
+  foco: 'Escolha' | 'Execução' | 'Tensão humana' | 'Sustentação';
+  pergunta: string; // a pergunta do cenário, aberta e com custo embutido
   resposta: string; // o que a pessoa avaliada respondeu
   nivel: 1 | 2 | 3 | 4; // o nível que ESTA resposta evidencia
   evidencia: string; // trecho literal da resposta que ancora o nível
   leitura: string; // por que este trecho vale este nível
 }
 
-// O cenário situacional da competência + a conversa que a plataforma teve com
-// a pessoa avaliada. Na porta 2 (05/08/2026) o visitante lê a conversa inteira
-// e CLASSIFICA a pessoa num nível — o mesmo trabalho que a régua faz. Depois
-// compara. O que a demo prova não é que ele erra: é que a régua sustenta a
-// leitura com trecho, e diz a mesma coisa para todo mundo.
+// O cenário situacional da competência + as 4 perguntas respondidas pela
+// pessoa avaliada. Na porta 2 (05/08/2026) o visitante lê tudo e CLASSIFICA a
+// pessoa num nível — o mesmo trabalho que a régua faz. Depois compara. O que a
+// demo prova não é que ele erra: é que a régua sustenta a leitura com trecho,
+// e diz a mesma coisa para todo mundo.
 //
-// A `nota` NÃO mora aqui: é derivada dos níveis dos turnos em código
-// (`lib/conarh/leitura.ts`). Nota gravada à mão diverge dos turnos no primeiro
-// ajuste de conteúdo, e a tela passa a mostrar uma média que não é a média.
+// A `nota` NÃO mora aqui: é derivada dos níveis das 4 respostas em código
+// (`lib/conarh/leitura.ts`). Nota gravada à mão diverge das respostas no
+// primeiro ajuste de conteúdo, e a tela passa a mostrar uma média que não é a
+// média.
 export interface CenarioRegua {
   id: string;
   descritor_cod: string; // qual descritor da matriz esta situação testa
   situacao: string;
   avaliado: { nome: string; cargo: string };
-  /** Exatamente 4 turnos — a conversa que a pessoa teve com a plataforma. */
-  conversa: TurnoConversa[];
+  /** Exatamente 4, na ordem dos focos — é o formato que a IA3 gera. */
+  perguntas: PerguntaAvaliativa[];
   justificativa: string; // a leitura do conjunto, depois da classificação
   limite: string; // o que faltaria para o nível acima
 }

@@ -2,10 +2,10 @@
  * CONARH 52 — a leitura da régua sobre a conversa avaliativa da etapa 2.
  *
  * A nota e o nível NÃO moram no `conteudo.json`: são derivados aqui, dos
- * níveis dos quatro turnos. Se estivessem gravados, o primeiro ajuste de
- * conteúdo (um turno que passa de N1 para N2) deixaria a tela mostrando uma
- * média que não é a média dos turnos que o visitante acabou de ler — e nada
- * no typecheck acusaria. Mesma razão pela qual a auditoria dual-IA deriva o
+ * níveis das quatro respostas. Se estivessem gravados, o primeiro ajuste de
+ * conteúdo (uma resposta que passa de N1 para N2) deixaria a tela mostrando
+ * uma média que não é a média do que o visitante acabou de ler — e nada no
+ * typecheck acusaria. Mesma razão pela qual a auditoria dual-IA deriva o
  * veredito em código em vez de aceitar o que o modelo escreveu.
  *
  * Consumidores: `porta2.tsx` (tela) e `tests/unit/conarh-conteudo.test.ts`
@@ -14,14 +14,14 @@
 import type { CenarioRegua } from '@/app/conarh/_data/types';
 
 export interface LeituraDaRegua {
-  /** Média dos níveis dos turnos, uma casa decimal (ex.: 1,5). */
+  /** Média dos níveis das 4 respostas, uma casa decimal (ex.: 1,5). */
   nota: number;
-  /** A nota arredondada — o nível que a régua atribui à conversa. */
+  /** A nota arredondada — o nível que a régua atribui ao conjunto. */
   nivel: 1 | 2 | 3 | 4;
 }
 
-export function lerConversa(cenario: Pick<CenarioRegua, 'conversa'>): LeituraDaRegua {
-  const niveis = cenario.conversa.map((t) => t.nivel);
+export function lerRespostas(cenario: Pick<CenarioRegua, 'perguntas'>): LeituraDaRegua {
+  const niveis = cenario.perguntas.map((p) => p.nivel);
   const media = niveis.reduce((s, n) => s + n, 0) / niveis.length;
   const nota = Math.round(media * 10) / 10;
   const nivel = Math.min(4, Math.max(1, Math.round(media))) as 1 | 2 | 3 | 4;

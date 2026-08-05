@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import conteudoJson from '@/app/conarh/_data/conteudo.json';
 import type { ConteudoConarh, ReguaVitrine } from '@/app/conarh/_data/types';
-import { formatarNota, lerConversa } from '@/lib/conarh/leitura';
+import { formatarNota, lerRespostas } from '@/lib/conarh/leitura';
 
 /**
  * CONARH 52 — integridade do pacote de conteúdo da demo.
@@ -16,11 +16,12 @@ import { formatarNota, lerConversa } from '@/lib/conarh/leitura';
  * respostas no mesmo nível — quebra a tela ou, pior, mostra uma leitura que
  * não fecha com a matriz que o visitante acabou de ver.
  *
- * Em 05/08/2026 o mecanismo virou a CONVERSA AVALIATIVA (4 turnos, o visitante
- * classifica). O que passou a poder quebrar em silêncio: um turno sem trecho
- * de evidência (a tela promete "auditável" e mostra um campo vazio), uma
- * conversa cujos turnos não sustentam o nível que a tela anuncia, e a nota da
- * etapa 3 divergindo da que a etapa 2 deriva dos mesmos turnos.
+ * Em 05/08/2026 o mecanismo virou o CENÁRIO RESPONDIDO (as 4 perguntas da
+ * IA3, o visitante classifica). O que passou a poder quebrar em silêncio: uma
+ * resposta sem trecho de evidência (a tela promete "auditável" e mostra um
+ * campo vazio), perguntas que deixam de seguir a régua da IA3 e viram
+ * entrevista, e a nota da etapa 3 divergindo da que a etapa 2 deriva das
+ * mesmas respostas.
  */
 
 const conteudo = conteudoJson as unknown as ConteudoConarh;
@@ -65,14 +66,14 @@ describe('pacote de conteúdo do CONARH', () => {
     }
   });
 
-  it('cada conversa tem 4 turnos completos — pergunta, resposta, trecho e leitura', () => {
+  it('cada cenário tem 4 perguntas completas — foco, pergunta, resposta, trecho e leitura', () => {
     for (const r of reguas()) {
-      expect(r.cenario.conversa, r.competencia).toHaveLength(4);
-      r.cenario.conversa.forEach((t, i) => {
+      expect(r.cenario.perguntas, r.competencia).toHaveLength(4);
+      r.cenario.perguntas.forEach((p, i) => {
         for (const campo of ['pergunta', 'resposta', 'evidencia', 'leitura'] as const) {
-          expect(t[campo]?.trim(), `${r.competencia}/turno ${i + 1}/${campo}`).toBeTruthy();
+          expect(p[campo]?.trim(), `${r.competencia}/pergunta ${i + 1}/${campo}`).toBeTruthy();
         }
-        expect([1, 2, 3, 4], `${r.competencia}/turno ${i + 1}/nivel`).toContain(t.nivel);
+        expect([1, 2, 3, 4], `${r.competencia}/pergunta ${i + 1}/nivel`).toContain(p.nivel);
       });
       for (const campo of ['justificativa', 'limite'] as const) {
         expect(r.cenario[campo]?.trim(), `${r.competencia}/${campo}`).toBeTruthy();
@@ -80,16 +81,34 @@ describe('pacote de conteúdo do CONARH', () => {
     }
   });
 
-  it('a conversa mostra a pessoa ABAIXO da meta — é o que faz a demo ter assunto', () => {
-    // Uma conversa lida em N3/N4 deixa a etapa 2 sem tensão (e a etapa 3 sem
+  it('as 4 perguntas seguem a régua da IA3: focos na ordem, abertas e ≤200 chars', () => {
+    // O prompt real (`lib/ia3-cenarios.ts`) fixa os quatro papéis e o teto de
+    // 200 caracteres. Sem isto, a tela volta a exibir perguntas de entrevista
+    // ("ficou marcada alguma data?") — um artefato que a plataforma não gera,
+    // no meio da tela que existe para provar que ela gera.
+    const FOCOS = ['Escolha', 'Execução', 'Tensão humana', 'Sustentação'];
+    for (const r of reguas()) {
+      expect(r.cenario.perguntas.map((p) => p.foco), r.competencia).toEqual(FOCOS);
+      r.cenario.perguntas.forEach((p, i) => {
+        expect(p.pergunta.length, `${r.competencia}/pergunta ${i + 1} (chars)`).toBeLessThanOrEqual(200);
+        // Aberta: termina em interrogação e não oferece alternativas fechadas.
+        expect(p.pergunta.trim().endsWith('?'), `${r.competencia}/pergunta ${i + 1} (aberta)`).toBe(true);
+      });
+      // Contexto do cenário: teto de 900 chars do prompt da IA3.
+      expect(r.cenario.situacao.length, r.competencia).toBeLessThanOrEqual(900);
+    }
+  });
+
+  it('as respostas mostram a pessoa ABAIXO da meta — é o que faz a demo ter assunto', () => {
+    // Um conjunto lido em N3/N4 deixa a etapa 2 sem tensão (e a etapa 3 sem
     // lacuna para virar PDI). O material é de propósito N1/N2, e é isso que a
     // troca de mecanismo tem que preservar quando alguém editar o JSON.
     for (const r of reguas()) {
-      const { nivel } = lerConversa(r.cenario);
+      const { nivel } = lerRespostas(r.cenario);
       expect(nivel, r.competencia).toBeLessThanOrEqual(2);
-      const distintos = new Set(r.cenario.conversa.map((t) => t.nivel));
-      // Quatro turnos idênticos viram uma régua de um degrau só: a leitura
-      // turno a turno não teria o que mostrar.
+      const distintos = new Set(r.cenario.perguntas.map((p) => p.nivel));
+      // Quatro respostas idênticas viram uma régua de um degrau só: a leitura
+      // resposta a resposta não teria o que mostrar.
       expect(distintos.size, r.competencia).toBeGreaterThan(1);
     }
   });
@@ -105,12 +124,12 @@ describe('pacote de conteúdo do CONARH', () => {
 
   it('a nota citada na etapa 3 é a que a etapa 2 deriva dos turnos', () => {
     // As duas telas falam do MESMO descritor da MESMA pessoa: a etapa 2 mostra
-    // a leitura da conversa e a etapa 3 monta o PDI em cima dela. Se alguém
-    // reescrever um turno (mudando a média) e não mexer no texto da etapa 3, o
+    // a leitura das respostas e a etapa 3 monta o PDI em cima dela. Se alguém
+    // reescrever uma resposta (mudando a média) e não mexer no texto da etapa 3, o
     // visitante vê 1,5 numa tela e 1,8 na seguinte — e a demo perde a única
     // coisa que ela vende, que é as leituras baterem.
     const cenario = conteudo.porta1.cenario!;
-    const { nota, nivel } = lerConversa(cenario);
+    const { nota, nivel } = lerRespostas(cenario);
     expect(conteudo.porta3.lacuna).toContain(cenario.descritor_cod);
     expect(conteudo.porta3.lacuna).toContain(`${formatarNota(nota)} (N${nivel})`);
   });

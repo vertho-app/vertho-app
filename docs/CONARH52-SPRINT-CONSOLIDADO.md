@@ -22,9 +22,9 @@ A rota `/conarh` **existe e está implementada** (commit `47eec490`, 29/07/2026)
 |---|---|---|
 | F1 hub, template de rota, reset entre visitantes | ✅ | `app/conarh/_components/{hub,porta-shell,conarh-app}.tsx` |
 | F1 · P1 modo opt-in no celular do visitante | ⚠️ parcial — o formulário reduzido existe (`modoVisitante`), falta o QR | `captura.tsx` |
-| F2 porta 2 interativa — **conversa avaliativa + classificação** desde 05/08 (§0.2) | ✅ | `porta2.tsx` · `lib/conarh/leitura.ts` · `_components/reguas.ts` |
+| F2 porta 2 interativa — **cenário respondido (4 perguntas IA3) + classificação** desde 05/08 (§0.2) | ✅ | `porta2.tsx` · `lib/conarh/leitura.ts` · `_components/reguas.ts` |
 | F2 · três réguas trocáveis nas etapas **1 e 2** (Liderança · Vendas · Transversal) | ✅ 04-05/08 | `seletor-regua.tsx` · `reguas.ts` · `conteudo.json` |
-| F2 · fluxo da etapa 2 verificado no navegador (headless) | ✅ 05/08 — 9/9 asserções, 0 erro de console | receita na memória `reference_verificacao_navegador` |
+| F2 · fluxo da etapa 2 verificado no navegador (headless) | ✅ 05/08 — 20/20 asserções, 0 erro de console | receita na memória `reference_verificacao_navegador` |
 | F2 · P2 benchmark ao vivo (n ≥ 7) | ❌ não construído (é P2) | — |
 | F3 caso canônico, 5 portas, 5 personas, mídia local | ✅ | `_data/conteudo.json` · `public/conarh/media/` |
 | F3 caso canônico **validado com 3 clientes** | ❌ **pendente — caminho crítico** | fora do código |
@@ -53,7 +53,7 @@ marcados com ⚠️ no corpo.
 |---|---|---|
 | **Vocabulário** | "porta" → **"etapa"** em tudo que o visitante lê | "Porta" é o nome do componente. A tela sempre disse "etapa"; o follow-up dizia "porta 1". Interno (fila do fechador, insight) segue com o jargão. |
 | **Etapa 1** | uma régua → **três** (Liderança · Vendas · Transversal), trocáveis num toque | A matriz só se provava em liderança; o visitante de vendas tinha que acreditar que "vale pra mim". Só a régua do CASO segue nas etapas 3–5. |
-| **Etapa 2** | registro escrito → **cenário situacional + 4 respostas** ⚠️ *(superado em 05/08, §0.2)* | O registro fazia a demo parecer depender de um gestor com boa memória escrevendo um relatório bom. Agora roda o artefato real — e, desde 05/08, o visitante classifica a conversa em vez de escolher entre respostas. |
+| **Etapa 2** | registro escrito → **cenário situacional + 4 respostas** ⚠️ *(superado em 05/08, §0.2)* | O registro fazia a demo parecer depender de um gestor com boa memória escrevendo um relatório bom. Agora roda o artefato real — e, desde 05/08, o visitante classifica o cenário respondido em vez de escolher entre respostas. |
 | **Escolha da competência** | só na etapa 1 → **também na etapa 2** (05/08) | O expositor abre direto a etapa que o visitante apontou; quem entra assim nunca passou pela etapa 1 e respondia o cenário de liderança sem ter escolhido nada. Seletor único (`seletor-regua.tsx`) nas duas telas — trocar no meio do fluxo **reseta para o passo 1**, porque a escolha anterior era o id de uma resposta de outro cenário. |
 | **Formulário** | 4 toggles → **1** ("aceitou um próximo passo") + sem seletor de horário | Enxugar o toque no tablet. Consequências tratadas nas duas linhas abaixo. |
 | **Fecho de etapa** | 2 CTAs → **1** ("Receber esse recorte") | Sem o seletor de horário, "Marcar os 20 minutos" abria a mesma tela — dois botões idênticos com nomes diferentes. |
@@ -74,16 +74,24 @@ marcados com ⚠️ no corpo.
 ### 0.2 Rodada de 05/08/2026 — a etapa 2 vira CLASSIFICAÇÃO
 
 O visitante deixou de escolher "qual resposta eu aceitaria" e passou a fazer o **mesmo trabalho
-da régua**: ele lê a conversa avaliativa (4 perguntas da plataforma + as respostas da pessoa
-avaliada) e a **classifica num nível**; depois compara com a leitura da régua sobre a mesma
-conversa.
+da régua**: ele lê o cenário respondido (as **4 perguntas que a IA3 gera** + as respostas da
+pessoa avaliada) e o **classifica num nível**; depois compara com a leitura da régua sobre o
+mesmo material.
+
+As perguntas seguem a régua do prompt real (`lib/ia3-cenarios.ts`), não um roteiro de entrevista:
+**P1 escolha com custo · P2 execução sob resistência · P3 tensão humana · P4 sustentação**, todas
+abertas, em 2ª pessoa, ≤200 caracteres e com decisão forçada. Na 1ª versão desta rodada elas
+foram escritas como follow-up conversacional ("ficou marcada alguma data?") — a tela que existe
+para provar o instrumento estava exibindo um artefato que a plataforma não gera. Os quatro focos
+aparecem na tela como rótulo: é o que separa instrumento de questionário, e é onde o expositor
+aponta o dedo.
 
 | Mudou | De → para | Por quê |
 |---|---|---|
-| **Mecanismo do toque** | escolher entre 4 respostas → **classificar a conversa em N1–N4** | Escolher entre quatro textos que nós escrevemos media o gosto do visitante. Classificar põe ele e a régua olhando **exatamente o mesmo material** — a única comparação honesta, e a única que sustenta a frase "a régua não muda de gestor para gestor". |
-| **O que a tela mostra** | 1 situação + 4 respostas hipotéticas → 1 situação + **a conversa real** (4 turnos) | É o artefato que a engine produz de verdade. A pessoa avaliada aparece com nome e cargo (Renata · Marcelo · Sérgio, um por régua). |
-| **Fecho da etapa** | "as quatro respostas, na régua" → **turno a turno, com o trecho que ancora cada nível** + bloco "a régua não tem viés" | "Auditável" deixa de ser adjetivo: cada nível vem com o pedaço da fala em que se apoia. |
-| **Nota** | não existia → **derivada em código** (`lib/conarh/leitura.ts`), média dos níveis dos 4 turnos | Nota gravada à mão diverge dos turnos no primeiro ajuste de conteúdo e a tela passa a mostrar uma média que não é a média. Guard novo amarra a nota da etapa 2 (1,5 · N2) ao texto do PDI da etapa 3 — as duas telas falam do mesmo descritor da mesma pessoa. |
+| **Mecanismo do toque** | escolher entre 4 respostas → **classificar o cenário respondido em N1–N4** | Escolher entre quatro textos que nós escrevemos media o gosto do visitante. Classificar põe ele e a régua olhando **exatamente o mesmo material** — a única comparação honesta, e a única que sustenta a frase "a régua não muda de gestor para gestor". |
+| **O que a tela mostra** | 1 situação + 4 respostas hipotéticas → 1 situação + **as 4 perguntas da IA3 respondidas** | É o artefato que a engine produz de verdade, com os focos na ordem do prompt. A pessoa avaliada aparece com nome e cargo (Renata · Marcelo · Sérgio, um por régua). |
+| **Fecho da etapa** | "as quatro respostas, na régua" → **resposta a resposta, com o trecho que ancora cada nível** + bloco "a régua não tem viés" | "Auditável" deixa de ser adjetivo: cada nível vem com o pedaço da fala em que se apoia. |
+| **Nota** | não existia → **derivada em código** (`lib/conarh/leitura.ts`), média dos níveis das 4 respostas | Nota gravada à mão diverge do conteúdo no primeiro ajuste e a tela passa a mostrar uma média que não é a média. Guard novo amarra a nota da etapa 2 (1,5 · N2) ao texto do PDI da etapa 3 — as duas telas falam do mesmo descritor da mesma pessoa. |
 | **Telemetria** | `nivel_aceito` × `nivel_meta` → **`nivel_atribuido` × `nivel_regua`** (+ `nota_regua`) | Terceiro contrato desta etapa; nome velho medindo coisa nova é como o painel mente. O número publicável vira **"N de M gestores classificaram a conversa ACIMA do que a régua lê"**. Leads anteriores a 05/08 ficam fora da conta. Cache do painel: `v3` → `v4`. |
 
 ⚠️ **A allowlist do servidor é parte do contrato, não detalhe**: `sanitizarSessaoConarh`
@@ -91,9 +99,9 @@ conversa.
 sem trocar lá derruba a sessão inteira **em silêncio** — o lead grava, o painel conta zero. Quem
 pegou foi o teste de contrato (`lead-comercial-contato`), não o typecheck.
 
-Verificado no navegador headless em 05/08: **19/19 asserções, 0 erro de console** — incluindo as
+Verificado no navegador headless em 05/08: **20/20 asserções, 0 erro de console** — incluindo as
 duas que garantem que a leitura da régua (trecho, justificativa e nota) **não vaza** na tela em
-que ele ainda vai classificar.
+que ele ainda vai classificar, e a que confere os quatro focos da IA3 na ordem.
 
 **A prancheta (`/conarh/prancheta`) continua no fluxo do registro escrito** — é papel, não tem
 toque nem estado. Por isso o bloco `porta2` do `conteudo.json` (registro + leitura do motor)
@@ -101,9 +109,10 @@ segue vivo: apagá-lo deixa o plano B da feira em branco. ⏳ Pendente decidir s
 o cenário.
 
 Guardas de conteúdo e de texto (falham no CI, validadas por mutação):
-`tests/unit/conarh-conteudo.test.ts` (toda régua com cenário e pessoa avaliada, conversa de 4
-turnos com pergunta/resposta/trecho/leitura, conversa lida abaixo da meta com níveis distintos,
-descritor testado existindo na matriz, nota da etapa 2 = nota citada na etapa 3) e
+`tests/unit/conarh-conteudo.test.ts` (toda régua com cenário e pessoa avaliada; 4 perguntas com
+foco/pergunta/resposta/trecho/leitura; **focos na ordem da IA3, abertas e ≤200 chars, contexto
+≤900**; conjunto lido abaixo da meta com níveis distintos; descritor testado existindo na matriz;
+nota da etapa 2 = nota citada na etapa 3) e
 `tests/unit/conarh-mensagens.test.ts`
 (o follow-up não pode dizer "porta" nem "quem decide", nem colar o nome da empresa depois de
 artigo fixo).
@@ -154,8 +163,9 @@ Prioridades: **P0** sem isso a feira não abre · **P1** é o que diferencia a o
 ### F2 · Porta 2 — o toque interativo (a única tela com input do visitante)
 - ⚠️ **SUPERADO em 04/08 e de novo em 05/08/2026 — ver §0.1 e §0.2.** A sequência abaixo descreve
   o mecanismo do registro escrito, que saiu da tela (continua na prancheta). Hoje: situação →
-  conversa avaliativa de 4 turnos + **classificação do visitante** (o único toque) → matriz aberta
-  no descritor testado → a leitura dele × a da régua, turno a turno, + "a régua não tem viés".
+  as 4 perguntas do cenário respondidas + **classificação do visitante** (o único toque) → matriz
+  aberta no descritor testado → a leitura dele × a da régua, resposta a resposta, + "a régua não
+  tem viés".
 - **P0** ~~Sequência em 5 estados: registro da conversa → nota 1–4 (o único toque) → matriz de descritores revelada → reavaliação do mesmo registro descritor a descritor → leitura do motor lado a lado, com justificativa.~~
 - **P0** Registro por sessão — ~~nota instintiva, marcações com critério, divergências vs. motor~~ → ~~nível aceito × meta~~ → hoje `sessao.cenario` (**nível atribuído × nível da régua**, §0.2), com consentimento, anônimo até a captura.
 - **P2** Benchmark ao vivo no fecho ("os gestores que passaram por aqui convergem, em média, em X de 5") — só ligar com n ≥ 7 no evento; abaixo disso a linha não aparece.

@@ -2,29 +2,30 @@
 
 // CONARH 52 — Porta 2: o único toque do visitante.
 //
-// Desde 05/08/2026 a porta roda a CONVERSA AVALIATIVA da competência escolhida
-// na porta 1 — o artefato que a plataforma produz de verdade: quatro perguntas
-// feitas à pessoa avaliada e as respostas dela. O visitante lê a conversa
-// inteira e faz o MESMO trabalho da régua: classifica a pessoa num nível.
+// Desde 05/08/2026 a porta roda o CENÁRIO AVALIATIVO da competência escolhida
+// na porta 1 — o artefato que a plataforma produz de verdade: a situação e as
+// QUATRO perguntas que a IA3 gera para ela (escolha · execução · tensão
+// humana · sustentação), com as respostas da pessoa avaliada. O visitante lê
+// tudo e faz o MESMO trabalho da régua: classifica a pessoa num nível.
 // Depois compara.
 //
 // Por que trocou (de novo): escolher "qual resposta você aceitaria" media o
-// gosto do visitante entre quatro textos escritos por nós. Classificar uma
-// conversa real põe os dois — ele e a régua — olhando exatamente o mesmo
+// gosto do visitante entre quatro textos escritos por nós. Classificar o
+// instrumento real põe os dois — ele e a régua — olhando exatamente o mesmo
 // material, que é a única comparação honesta. E é aqui que a demo prova a
 // frase que vende: a régua não muda de gestor para gestor.
 // (O registro escrito continua vivo na PRANCHETA, o fallback de papel.)
 //
 // Sequência em 4 estados:
 //   1) escolhe a competência (as mesmas 3 da etapa 1) e lê a situação →
-//   2) lê a conversa (4 turnos) e CLASSIFICA num nível (o toque) →
-//   3) a matriz revelada, aberta no descritor que a conversa testa →
-//   4) a leitura dele × a da régua, turno a turno, com o trecho que ancora.
+//   2) lê as 4 perguntas respondidas e CLASSIFICA num nível (o toque) →
+//   3) a matriz revelada, aberta no descritor que o cenário testa →
+//   4) a leitura dele × a da régua, resposta a resposta, com o trecho que ancora.
 // Regra dura: NUNCA "certo/errado" — a linguagem é "a sua leitura" x "a régua".
 
 import { useState } from 'react';
 import { Quote } from 'lucide-react';
-import type { ConteudoConarh, TurnoConversa } from '../_data/types';
+import type { ConteudoConarh, PerguntaAvaliativa } from '../_data/types';
 import type { ResultadoPorta2 } from './sessao';
 import { COR, SANS, SERIF, TOQUE } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
@@ -32,7 +33,7 @@ import { FechoPorta } from './porta-shell';
 import { MatrizDescritores } from './matriz';
 import { acharRegua, montarReguas } from './reguas';
 import { SeletorRegua } from './seletor-regua';
-import { compararComRegua, formatarNota, lerConversa } from '@/lib/conarh/leitura';
+import { compararComRegua, formatarNota, lerRespostas } from '@/lib/conarh/leitura';
 
 const NIVEIS: Array<{ n: 1 | 2 | 3 | 4; rotulo: string }> = [
   { n: 1, rotulo: 'gap' },
@@ -65,7 +66,7 @@ export function Porta2({
   const regua = acharRegua(conteudo, reguaId);
   const cenario = regua.cenario;
   const descritorTestado = regua.descritores.find((d) => d.cod === cenario.descritor_cod);
-  const leitura = lerConversa(cenario);
+  const leitura = lerRespostas(cenario);
 
   const [passo, setPasso] = useState<1 | 2 | 3 | 4>(1);
   const [atribuido, setAtribuido] = useState<1 | 2 | 3 | 4 | null>(null);
@@ -144,15 +145,15 @@ export function Porta2({
             }}
           >
             Na plataforma é assim que a evidência nasce: a situação é gerada para o cargo, a
-            competência e o contexto da empresa — e {cenario.avaliado.nome} responde a quatro
-            perguntas sobre ela, no celular, em três minutos. Ninguém digita relatório depois.
+            competência e o contexto da empresa, e vem com quatro perguntas abertas — cada uma
+            forçando uma decisão com custo. Ninguém digita relatório depois.
           </p>
 
-          <BarraAcao primaria={{ rotulo: 'Ver a conversa', onClick: () => setPasso(2) }} />
+          <BarraAcao primaria={{ rotulo: 'Ver as 4 perguntas', onClick: () => setPasso(2) }} />
         </div>
       )}
 
-      {/* ── Passo 2: a conversa + a classificação (o ÚNICO toque) ─ */}
+      {/* ── Passo 2: as 4 perguntas + a classificação (o ÚNICO toque) ─ */}
       {passo === 2 && (
         <div>
           <h2
@@ -165,16 +166,17 @@ export function Porta2({
               margin: 0,
             }}
           >
-            A conversa de {cenario.avaliado.nome} com a plataforma
+            As quatro perguntas do cenário — e o que {cenario.avaliado.nome} respondeu
           </h2>
           <p style={{ color: COR.texto2, fontSize: 19, fontFamily: SANS, marginTop: 10 }}>
-            {cenario.avaliado.cargo} · quatro perguntas, três minutos. É tudo que a régua vai ter
-            para ler — e tudo que você vai ter também.
+            {cenario.avaliado.cargo} · uma decisão em cada pergunta: escolher com custo, executar
+            sob resistência, encarar quem discorda e sustentar no médio prazo. É tudo que a régua
+            vai ter para ler — e tudo que você vai ter também.
           </p>
 
           <div className="space-y-4 mt-8">
-            {cenario.conversa.map((t, i) => (
-              <Turno key={i} indice={i} turno={t} avaliado={cenario.avaliado.nome} />
+            {cenario.perguntas.map((p, i) => (
+              <Pergunta key={i} indice={i} item={p} avaliado={cenario.avaliado.nome} />
             ))}
           </div>
 
@@ -253,13 +255,13 @@ export function Porta2({
           </h2>
           <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 20, marginBottom: 10 }}>
             {descritorTestado
-              ? `A conversa testa um descritor: ${descritorTestado.nome_curto}. Ele já está aberto.`
+              ? `O cenário testa um descritor: ${descritorTestado.nome_curto}. Ele já está aberto.`
               : `${regua.descritores.length} descritores. Toque para ver a régua de cada um.`}
           </p>
           <MatrizDescritores descritores={regua.descritores} inicial={cenario.descritor_cod} />
           <BarraAcao
             primaria={{ rotulo: 'Comparar com a leitura da régua', onClick: () => setPasso(4) }}
-            secundaria={{ rotulo: 'Reler a conversa', onClick: () => setPasso(2) }}
+            secundaria={{ rotulo: 'Reler as respostas', onClick: () => setPasso(2) }}
           />
         </div>
       )}
@@ -279,13 +281,13 @@ export function Porta2({
           >
             Você leu <em style={{ color: COR.acento }}>N{atribuido}</em>. A régua lê{' '}
             <em style={{ color: COR.acento }}>N{leitura.nivel}</em> — {formatarNota(leitura.nota)}{' '}
-            {relacao === 'igual' ? 'na mesma direção.' : 'na mesma conversa.'}
+            {relacao === 'igual' ? 'na mesma direção.' : 'nas mesmas respostas.'}
           </h2>
           <p style={{ color: COR.texto2, fontSize: 19, lineHeight: 1.5, fontFamily: SANS, marginTop: 12 }}>
             {relacao === 'igual' &&
               'Mesma leitura — e é o que costuma acontecer com quem já tem uma régua na cabeça. A diferença não está na nota: está em conseguir mostrar em que trecho ela se apoia, e em repetir isso amanhã, com outro avaliador.'}
             {relacao === 'acima' &&
-              'Não é certo ou errado: é o mesmo padrão dito em voz alta. Você leu a conversa com mais generosidade do que a régua — e é assim que a exigência muda de gestor para gestor, sem ninguém perceber.'}
+              'Não é certo ou errado: é o mesmo padrão dito em voz alta. Você leu as mesmas respostas com mais generosidade do que a régua — e é assim que a exigência muda de gestor para gestor, sem ninguém perceber.'}
             {relacao === 'abaixo' &&
               'Não é certo ou errado: é o mesmo padrão dito em voz alta. Você foi mais exigente do que a régua — e é assim que a exigência muda de gestor para gestor, sem ninguém perceber.'}
           </p>
@@ -309,13 +311,13 @@ export function Porta2({
             </p>
           </section>
 
-          {/* Turno a turno: é aqui que "auditável" deixa de ser palavra */}
+          {/* Resposta a resposta: é aqui que "auditável" deixa de ser palavra */}
           <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 26, marginBottom: 10 }}>
-            Onde a régua se apoiou, turno a turno:
+            Onde a régua se apoiou, resposta a resposta:
           </p>
           <div className="space-y-3">
-            {cenario.conversa.map((t, i) => (
-              <Turno key={i} indice={i} turno={t} avaliado={cenario.avaliado.nome} revelado />
+            {cenario.perguntas.map((p, i) => (
+              <Pergunta key={i} indice={i} item={p} avaliado={cenario.avaliado.nome} revelado />
             ))}
           </div>
 
@@ -332,7 +334,7 @@ export function Porta2({
             </p>
             <p style={{ color: COR.texto, fontSize: 18, lineHeight: 1.55, fontFamily: SANS, marginTop: 8, marginBottom: 0 }}>
               Ela lê o que está escrito ali — não a simpatia da pessoa, não a última reunião, não a
-              sexta-feira que o avaliador teve. A mesma conversa, amanhã, recebe a mesma leitura; e
+              sexta-feira que o avaliador teve. As mesmas respostas, amanhã, recebem a mesma leitura; e
               os outros líderes da empresa são lidos pelo mesmo critério, com o mesmo trecho na mão.
               É por isso que {cenario.avaliado.nome} pode discordar da nota sem que vire discussão
               de personalidade: discorda-se de um trecho, não de uma impressão.
@@ -373,20 +375,21 @@ export function Porta2({
 }
 
 /**
- * Um turno da conversa. O MESMO componente serve os dois momentos — antes da
- * classificação (só pergunta e resposta) e depois dela (`revelado`: nível,
- * trecho e leitura). Um componente só porque o visitante precisa reconhecer,
- * na comparação, a mesma conversa que leu — e porque duplicar a marcação era
- * o caminho curto para o nível vazar na tela onde ele ainda não pode aparecer.
+ * Uma pergunta do cenário com a resposta dada. O MESMO componente serve os
+ * dois momentos — antes da classificação (foco, pergunta e resposta) e depois
+ * dela (`revelado`: nível, trecho e leitura). Um componente só porque o
+ * visitante precisa reconhecer, na comparação, o mesmo material que leu — e
+ * porque duplicar a marcação era o caminho curto para o nível vazar na tela
+ * onde ele ainda não pode aparecer.
  */
-function Turno({
+function Pergunta({
   indice,
-  turno,
+  item,
   avaliado,
   revelado,
 }: {
   indice: number;
-  turno: TurnoConversa;
+  item: PerguntaAvaliativa;
   avaliado: string;
   revelado?: boolean;
 }) {
@@ -407,9 +410,24 @@ function Turno({
             fontFamily: SANS,
           }}
         >
-          {revelado ? `N${turno.nivel}` : indice + 1}
+          {revelado ? `N${item.nivel}` : indice + 1}
         </span>
         <div style={{ minWidth: 0 }}>
+          {/* O papel da pergunta na régua da IA3. Fica visível porque é o que
+              separa um instrumento de um questionário: cada uma cobra uma
+              coisa diferente, e é isso que o expositor aponta com o dedo. */}
+          <p
+            className="uppercase font-bold"
+            style={{
+              color: COR.acento,
+              fontSize: 12,
+              letterSpacing: '0.18em',
+              fontFamily: SANS,
+              margin: '0 0 6px',
+            }}
+          >
+            {item.foco}
+          </p>
           <p
             style={{
               color: COR.texto3,
@@ -420,7 +438,7 @@ function Turno({
               fontStyle: 'italic',
             }}
           >
-            {turno.pergunta}
+            {item.pergunta}
           </p>
           <p
             style={{
@@ -432,7 +450,7 @@ function Turno({
               marginBottom: 0,
             }}
           >
-            <strong style={{ color: COR.texto2 }}>{avaliado}:</strong> {turno.resposta}
+            <strong style={{ color: COR.texto2 }}>{avaliado}:</strong> {item.resposta}
           </p>
 
           {revelado && (
@@ -449,7 +467,7 @@ function Turno({
                 }}
               >
                 <Quote size={16} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 4 }} />
-                {turno.evidencia}
+                {item.evidencia}
               </p>
               <p
                 style={{
@@ -461,7 +479,7 @@ function Turno({
                   marginBottom: 0,
                 }}
               >
-                {turno.leitura}
+                {item.leitura}
               </p>
             </>
           )}
