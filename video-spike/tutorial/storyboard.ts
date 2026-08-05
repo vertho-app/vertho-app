@@ -310,4 +310,80 @@ export const APLICACAO: Flow = {
   ],
 };
 
-export const FLOWS: Record<string, Flow> = { disc: DISC, jornada: JORNADA, pdi: PDI, aplicacao: APLICACAO };
+// ── FLOW: Boas-vindas (UniAnchieta — entrar + mapeamento + cenários) ─────────
+//
+// Vídeo único de abertura do programa: como ENTRAR no app, como fazer o
+// MAPEAMENTO comportamental e como responder os CENÁRIOS. Teto de 2 minutos —
+// a narração é curta de propósito; cada bloco tem ~30s.
+//
+// Estúdio: tenant `unianchieta` LOCAL, com uma persona FICTÍCIA (Marina Prado)
+// que o capture-boasvindas.mts cria e apaga na mesma execução — as 3 diretoras
+// reais nunca aparecem em tela. A marca (logo/subtítulo do login) é a do tenant.
+//
+// ⚠️ O passo de entrada é LINK MÁGICO, não código de 6 dígitos: o estado
+// `awaitingCode` do login-form é código morto (nada faz setAwaitingCode(true)).
+// Quem informa e-mail/telefone recebe um LINK por e-mail e WhatsApp.
+export const BOASVINDAS: Flow = {
+  id: 'boasvindas',
+  persona: 'marina.demo@vertho.ai',
+  title: 'Boas-vindas',
+  subtitle: 'Como entrar, se mapear e responder os cenários',
+  steps: [
+    {
+      id: 'abertura', title: 'Boas-vindas', cuts: FULL, kind: 'cartela',
+      cartela: { eyebrow: 'UniAnchieta · Vertho', title: 'Sua jornada começa aqui' },
+      narration: 'Boas-vindas ao seu programa de desenvolvimento na UniAnchieta! Em dois minutos, eu te mostro como começar.',
+    },
+    {
+      id: 'entrar', title: 'Como entrar', cuts: FULL, captureId: 'login',
+      narration: 'Nesta tela, informe o seu e-mail ou o seu número de WhatsApp e toque em Entrar.',
+      highlight: { label: 'E-mail ou WhatsApp' },
+    },
+    {
+      id: 'link', title: 'O link de acesso', cuts: FULL, captureId: 'link',
+      narration: 'Na hora chega um link de acesso, no e-mail e no WhatsApp. Toque nele: sem senha pra decorar.',
+    },
+    {
+      id: 'home', title: 'Sua página inicial', cuts: FULL, captureId: 'home',
+      narration: 'Esta é a sua página inicial. O botão principal mostra sempre o seu próximo passo.',
+      highlight: { label: 'Seu próximo passo' },
+    },
+    {
+      id: 'map-inicio', title: 'O mapeamento', cuts: FULL, captureId: 'map-inicio',
+      narration: 'O mapeamento é o retrato do seu jeito de agir: cinco minutos, respondendo pelo primeiro impulso. Não existe certo nem errado.',
+    },
+    {
+      id: 'map-rank', title: 'Como responder', cuts: FULL, captureId: 'map-rank',
+      dragHint: { topLabel: 'MAIS parecido', bottomLabel: 'MENOS parecido' },
+      narration: 'Arraste pro topo a palavra que mais tem a ver com você, e pra base a que menos tem.',
+    },
+    {
+      id: 'map-aprender', title: 'Como você aprende', cuts: FULL, captureId: 'map-aprender',
+      narration: 'Pra fechar, marque como prefere aprender: vídeo, texto ou áudio. O conteúdo chega no seu formato.',
+    },
+    {
+      id: 'aval-inicio', title: 'Os cenários', cuts: FULL, captureId: 'aval-inicio',
+      narration: 'Depois vêm os cenários: situações reais da direção universitária. Quatro perguntas cada, cerca de dez minutos.',
+    },
+    {
+      id: 'aval-contexto', title: 'Leia o contexto', cuts: FULL, captureId: 'aval-contexto',
+      narration: 'Leia o contexto com calma: o que se pede é o que você faria de verdade.',
+    },
+    {
+      id: 'aval-responder', title: 'Responda', cuts: FULL, captureId: 'aval-responder',
+      narration: 'Responda com detalhe: situação, ação, raciocínio e análise. E se preferir falar, use o gravador por voz.',
+      highlight: { label: 'Prefere falar? Grave por voz' },
+    },
+    {
+      id: 'aval-enviar', title: 'Enviar', cuts: FULL, captureId: 'aval-enviar',
+      narration: 'Por fim, diga o quanto essa situação é frequente na sua rotina, e envie.',
+    },
+    {
+      id: 'fecho', title: 'Fecho', cuts: FULL, kind: 'cartela',
+      cartela: { eyebrow: 'Boas-vindas', title: 'É daqui que nasce o seu plano.' },
+      narration: 'Do cruzamento entre os cenários e o seu perfil nasce o seu plano, no formato em que você aprende melhor. Bom começo!',
+    },
+  ],
+};
+
+export const FLOWS: Record<string, Flow> = { disc: DISC, jornada: JORNADA, pdi: PDI, aplicacao: APLICACAO, boasvindas: BOASVINDAS };
