@@ -38,14 +38,28 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { CIS_COLUMNS, mapSupabaseToCISRawData } from '@/lib/supabase/mapCISProfile';
 import { derivarArquetipo, derivarTagsExecutivas, insightsHardcoded } from '@/lib/disc-arquetipos';
 
-/** Persona VITRINE da etapa 4 (a que aparece no espelho). */
-const EMAIL_PERSONA = 'bruna.demo@vertho.ai';
-// Fica junto das outras mídias do kit (`/conarh/media`), que é de onde a etapa
-// 4 serve os materiais das personas.
-export const DESTINO = 'public/conarh/media/perfil-bruna-costa.pdf';
+/**
+ * Persona de demonstração cujo relatório ilustra a Camada 2 da etapa 4.
+ * Default: perfil D, o mesmo do Marcos (o gestor à esquerda do espelho) — o
+ * exemplo tem que rimar com quem está na tela.
+ *   npx --yes tsx scripts/_conarh-perfil-pdf.ts [email] [arquivo.pdf]
+ */
+const EMAIL_PERSONA = process.argv[2] || 'carla.demo@vertho.ai';
+// Fica junto das outras mídias (`/conarh/media`), de onde a etapa 4 serve.
+export const DESTINO = process.argv[3] || 'public/conarh/media/perfil-exemplo-d.pdf';
 
 async function main() {
   const sb = createSupabaseAdmin();
+
+  // Escopo ESTRUTURAL: só tenants de demonstração. O sufixo do e-mail abaixo
+  // continua como segunda barreira, mas o filtro no WHERE é o que impede a
+  // consulta de alcançar um colaborador real — o app roda service-role, então
+  // o banco não recusaria.
+  const { data: empresasDemo, error: errEmp } = await sb
+    .from('empresas').select('id').eq('is_demo', true);
+  if (errEmp) throw new Error(`empresas demo: ${errEmp.message}`);
+  const idsDemo = (empresasDemo || []).map((e: { id: string }) => e.id);
+  if (!idsDemo.length) throw new Error('nenhuma empresa is_demo — recusando gerar material de tenant real');
 
   const { data: colab, error } = await sb
     .from('colaboradores')
@@ -54,6 +68,7 @@ async function main() {
     // cada CARACTERE como uma coluna — o PostgREST devolve um erro de 2 mil
     // caracteres que não parece com "usei o tipo errado".
     .select(`${CIS_COLUMNS}, insights_executivos, email`)
+    .in('empresa_id', idsDemo)
     .eq('email', EMAIL_PERSONA)
     .maybeSingle();
   if (error) throw new Error(`consulta falhou: ${error.message}`);

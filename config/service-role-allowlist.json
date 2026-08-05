@@ -165,6 +165,7 @@
     "scripts/_check-postflight-aplicacao.ts": 1,
     "scripts/_check-semana4-ibipeba.ts": 1,
     "scripts/_dryrun-missao-segunda.ts": 1,
-    "scripts/_enviar-missao-semana4-ibipeba.ts": 1
+    "scripts/_enviar-missao-semana4-ibipeba.ts": 1,
+    "scripts/_conarh-perfil-pdf.ts": 1
   }
 }

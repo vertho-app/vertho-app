@@ -160,6 +160,16 @@ export interface Porta3 {
 
 export interface Porta4Espelho {
   semana: number;
+  /**
+   * O relatório comportamental que ilustra a CAMADA 2 ("o perfil orienta o
+   * como"). Fica no card da camada, e não pendurado numa persona: o kit de uma
+   * terceira pessoa embaixo do espelho de duas colocava três nomes na tela e
+   * contradizia "mesmo cargo, mesma competência" (05/08/2026).
+   *
+   * Gerado por `scripts/_conarh-perfil-pdf.ts` a partir de uma persona de DEMO
+   * com o mesmo perfil de quem está no espelho.
+   */
+  relatorio_perfil?: { src: string; titulo: string; nota: string };
   comum: { competencia: string; descritor: string; ideia_central: string };
   pessoas: Array<{
     nome: string;
@@ -201,23 +211,15 @@ export interface PersonaKit {
   cargo: string;
   perfil_disc: string;
   descritor_foco: string;
-  // A porta 4 mostra APENAS as personas de vitrine. As demais ficam no pacote
-  // como reserva: são de outra empresa e outra competência que o caso da feira,
-  // e enfileirá-las embaixo do espelho colocava 7 nomes na mesma tela,
-  // contradizendo a frase "mesma competência, uma régua comum".
-  vitrine?: boolean;
+  // ⚠️ Desde 05/08/2026 NENHUMA persona aparece na etapa 4: o kit delas era de
+  // outra empresa e outra competência, e punha uma terceira pessoa embaixo do
+  // espelho de duas. Elas seguem no pacote como reserva (troca de caso sem
+  // deploy) e o material de perfil virou `porta4.relatorio_perfil`.
   kit: {
     pilula1: { tipo: 'video' | 'audio' | 'texto'; src: string | null; titulo: string; duracao?: string };
     pilula2: { tipo: 'video' | 'audio' | 'texto'; src: string | null; titulo: string; duracao?: string };
     missao: { titulo: string; texto: string; evidencia: string };
-    /**
-     * `real: true` = relatório que o produto gera (gerado por
-     * `scripts/_conarh-perfil-pdf.ts` a partir da persona de DEMO). Sem a
-     * marca, é material genérico da biblioteca — que é o que estava no lugar
-     * até 05/08/2026, contradizendo a própria etapa: ela fala de
-     * personalização e abria um PDF igual para todo perfil CS do mundo.
-     */
-    pdf: { src: string | null; titulo: string; real?: boolean };
+    pdf: { src: string | null; titulo: string };
   };
 }
 

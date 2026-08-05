@@ -610,7 +610,12 @@
           "duracao": "4 min de leitura"
         }
       }
-    ]
+    ],
+    "relatorio_perfil": {
+      "src": "/conarh/media/perfil-exemplo-d.pdf",
+      "titulo": "Relatório Comportamental completo — perfil D",
+      "nota": "Exemplo gerado pela plataforma para uma persona de demonstração com o mesmo perfil do Marcos. Não é material sobre \"o perfil D\": é o relatório de uma pessoa, com os índices dela."
+    }
   },
   "porta5": {
     "ciclo": "Jornada 1 · Liderança · 7 semanas",
@@ -744,7 +749,6 @@
       "cargo": "Representante Comercial",
       "perfil_disc": "CS",
       "descritor_foco": "Demonstração e prova",
-      "vitrine": true,
       "kit": {
         "pilula1": {
           "tipo": "video",
@@ -764,9 +768,8 @@
           "evidencia": "Resumo da proposta com a prova usada destacada + 2 linhas sobre a reação do cliente, registrados no mesmo dia."
         },
         "pdf": {
-          "src": "/conarh/media/perfil-bruna-costa.pdf",
-          "titulo": "Relatório Comportamental de Bruna Costa (CS)",
-          "real": true
+          "src": "/conarh/media/perfil-fator-c.pdf",
+          "titulo": "Seu perfil CS: como a precisão joga a seu favor (e quando trava)"
         }
       }
     },

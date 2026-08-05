@@ -212,18 +212,30 @@ describe('pacote de conteúdo do CONARH', () => {
     expect(existsSync(join(process.cwd(), 'public/pdfjs'))).toBe(false);
   });
 
-  it('o material de perfil da vitrine é o relatório real, e o arquivo existe', () => {
-    // A etapa 4 vende "o perfil orienta COMO abordar". Até 05/08/2026 o link
-    // abria um PDF genérico da biblioteca ("Fator C") — igual para todo perfil
-    // CS do mundo, dentro da etapa que promete o contrário.
-    const vitrine = conteudo.personas.filter((p) => p.vitrine);
-    expect(vitrine.length, 'nenhuma persona de vitrine').toBeGreaterThan(0);
-    for (const p of vitrine) {
-      expect(p.kit.pdf.real, `${p.nome}: material de perfil não é o relatório real`).toBe(true);
-      const caminho = join(process.cwd(), 'public', String(p.kit.pdf.src).replace(/^\//, ''));
-      expect(existsSync(caminho), `${p.nome}: ${p.kit.pdf.src} ausente`).toBe(true);
-      expect(statSync(caminho).size, `${p.nome}: PDF vazio`).toBeGreaterThan(50_000);
-    }
+  it('a Camada 2 carrega o relatório de perfil, e o arquivo existe', () => {
+    // A etapa 4 vende "o perfil orienta COMO abordar" e mostra DUAS pessoas.
+    // Até 05/08/2026 o material vinha pendurado no kit de uma TERCEIRA (de
+    // outra empresa e outra competência) e era um PDF genérico da biblioteca —
+    // igual para todo perfil CS do mundo, dentro da etapa que promete o
+    // contrário. Agora o relatório real ilustra a camada onde ela é explicada.
+    const rel = conteudo.porta4.relatorio_perfil;
+    expect(rel?.src, 'Camada 2 sem relatório de perfil').toBeTruthy();
+    expect(rel!.nota?.trim(), 'relatório sem a nota que diz que é de persona demo').toBeTruthy();
+    const caminho = join(process.cwd(), 'public', String(rel!.src).replace(/^\//, ''));
+    expect(existsSync(caminho), `${rel!.src} ausente`).toBe(true);
+    expect(statSync(caminho).size, 'relatório vazio').toBeGreaterThan(50_000);
+  });
+
+  it('a etapa 4 mostra DUAS pessoas — nenhuma persona extra na tela', () => {
+    // O espelho é "mesmo cargo, mesma competência": uma terceira pessoa na
+    // mesma tela desmonta a frase que a etapa inteira sustenta.
+    expect(conteudo.porta4.pessoas).toHaveLength(2);
+    const cargos = new Set(conteudo.porta4.pessoas.map((p) => p.cargo));
+    expect(cargos.size, 'o espelho tem cargos diferentes').toBe(1);
+    expect(
+      conteudo.personas.some((p) => (p as { vitrine?: boolean }).vitrine),
+      'persona marcada como vitrine — o bloco que a renderizava não existe mais',
+    ).toBe(false);
   });
 
   it('a prancheta (fallback de papel) continua com o registro escrito', () => {

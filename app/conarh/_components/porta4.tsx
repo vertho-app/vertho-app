@@ -1,9 +1,16 @@
 'use client';
 
-// CONARH 52 — Porta 4: o espelho. Duas pessoas, mesmo cargo, mesma competên-
+// CONARH 52 — Porta 4: o espelho. DUAS pessoas, mesmo cargo, mesma competên-
 // cia, mesma semana — jornadas diferentes. "Personaliza o caminho sem
-// relativizar a chegada." Abaixo, os kits das personas com play local.
+// relativizar a chegada."
+//
+// 05/08/2026: o bloco de kits das personas saiu. Ele trazia uma TERCEIRA
+// pessoa (de outra empresa e outra competência) para uma tela que promete
+// "mesmo cargo, mesma competência" — e era só o carregador do material de
+// perfil. O material virou `porta4.relatorio_perfil`, no card da Camada 2; as
+// personas seguem no pacote como reserva de conteúdo.
 
+import { FileText } from 'lucide-react';
 import type { ConteudoConarh } from '../_data/types';
 import { COR, SANS, SERIF } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
@@ -37,13 +44,7 @@ export function Porta4({
   onCaptura: () => void;
   onProxima: () => void;
 }) {
-  const { porta4, portas, personas } = conteudo;
-  // Só as personas de vitrine entram na tela; as outras seguem no pacote como
-  // reserva (troca sem deploy). Fallback para a primeira: JSON sem nenhuma
-  // marcada não pode virar seção vazia no meio da demo.
-  const vitrine = personas.filter((p) => p.vitrine).length
-    ? personas.filter((p) => p.vitrine)
-    : personas.slice(0, 1);
+  const { porta4, portas } = conteudo;
   return (
     <div>
       <TituloPorta numero={4} nome={portas[3].nome} sub={portas[3].sub} />
@@ -81,17 +82,23 @@ export function Porta4({
         </p>
       </div>
 
-      {/* As três camadas nomeadas — a moldura antes do espelho */}
+      {/* As três camadas nomeadas — a moldura antes do espelho. A Camada 2
+          carrega o relatório de perfil: é a prova do "como", e fica ONDE a
+          camada é explicada. Antes vivia num kit de terceira pessoa embaixo do
+          espelho — que punha três nomes numa tela que promete duas. */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
         {[
           { camada: 'Camada 1 · o quê', texto: 'O descritor define o que cada pessoa precisa desenvolver.' },
-          { camada: 'Camada 2 · como', texto: 'O perfil comportamental orienta como abordar, provocar, apoiar e dar feedback.' },
+          { camada: 'Camada 2 · como', texto: 'O perfil comportamental orienta como abordar, provocar, apoiar e dar feedback.', relatorio: porta4.relatorio_perfil },
           { camada: 'Camada 3 · formato', texto: 'A preferência de aprendizagem define a porta de entrada: vídeo, áudio, texto, visual ou caso.' },
         ].map((c) => (
           <div
             key={c.camada}
-            className="rounded-2xl border p-5"
-            style={{ background: COR.card, borderColor: COR.borda }}
+            className="rounded-2xl border p-5 flex flex-col"
+            style={{
+              background: COR.card,
+              borderColor: c.relatorio ? COR.bordaAcento : COR.borda,
+            }}
           >
             <p
               className="uppercase font-bold"
@@ -102,6 +109,23 @@ export function Porta4({
             <p style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.5, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
               {c.texto}
             </p>
+            {c.relatorio && (
+              <div className="mt-4 pt-4 border-t" style={{ borderColor: COR.borda }}>
+                <a
+                  href={c.relatorio.src}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 font-bold"
+                  style={{ color: COR.acento, fontSize: 16, fontFamily: SANS, textDecoration: 'none' }}
+                >
+                  <FileText size={17} />
+                  {c.relatorio.titulo} →
+                </a>
+                <p style={{ color: COR.texto3, fontSize: 14, lineHeight: 1.45, fontFamily: SANS, margin: '6px 0 0' }}>
+                  {c.relatorio.nota}
+                </p>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -180,153 +204,6 @@ export function Porta4({
         <em style={{ color: COR.acento }}>Uma régua comum.</em>
       </p>
 
-      {/* Kits das personas — play local, offline */}
-      {vitrine.length > 0 && (
-        <div className="mt-12">
-          {/* A objeção das pílulas, respondida antes de nascer */}
-          <div
-            className="rounded-3xl border p-6 mb-8"
-            style={{ background: 'rgba(52,197,204,0.07)', borderColor: COR.bordaAcento }}
-          >
-            <p
-              style={{
-                color: COR.texto,
-                fontFamily: SERIF,
-                fontSize: 'clamp(22px, 2.8vw, 30px)',
-                lineHeight: 1.3,
-                fontWeight: 500,
-                margin: 0,
-              }}
-            >
-              A pílula cabe em três minutos. <em style={{ color: COR.acento }}>A competência não.</em>
-            </p>
-            <p style={{ color: COR.texto2, fontSize: 19, lineHeight: 1.55, fontFamily: SANS, marginTop: 8, marginBottom: 0 }}>
-              O conteúdo curto é um componente de um ciclo — não o ciclo inteiro:
-            </p>
-            <div className="flex flex-wrap items-center gap-2 mt-4">
-              {['Descritor', 'Conteúdo focado', 'Reflexão', 'Aplicação ou cenário', 'Evidência', 'Feedback', 'Reavaliação'].map((passo, i, arr) => (
-                <span key={passo} className="flex items-center gap-2">
-                  <span
-                    className="rounded-full px-4 py-2 font-bold"
-                    style={{
-                      background: 'rgba(52,197,204,0.12)',
-                      border: `1px solid ${COR.bordaAcento}`,
-                      color: COR.acento,
-                      fontSize: 15,
-                      fontFamily: SANS,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {passo}
-                  </span>
-                  {i < arr.length - 1 && (
-                    <span style={{ color: COR.texto3, fontSize: 15, fontFamily: SANS }}>→</span>
-                  )}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <h2
-            style={{
-              color: COR.texto,
-              fontFamily: SERIF,
-              fontSize: 'clamp(24px, 3vw, 32px)',
-              fontWeight: 600,
-              margin: 0,
-            }}
-          >
-            O kit completo de uma semana
-          </h2>
-          {/* Rótulo honesto: esta persona é de OUTRA empresa e OUTRA
-              competência. Antes vinham cinco delas empilhadas logo abaixo do
-              espelho — sete nomes na tela, e a promessa "mesma competência,
-              uma régua comum" desmentida pelo próprio exemplo. */}
-          <p style={{ color: COR.texto3, fontSize: 17, lineHeight: 1.5, fontFamily: SANS, marginTop: 6, maxWidth: 900 }}>
-            Outra empresa, outro cargo, outra competência — a mecânica do kit é a
-            mesma: duas pílulas em formatos diferentes, missão prática e material
-            do perfil.
-          </p>
-          <div className="mt-6 space-y-8">
-            {vitrine.map((persona) => (
-              <section
-                key={persona.id}
-                className="rounded-3xl border p-6"
-                style={{ background: COR.card, borderColor: COR.borda }}
-              >
-                <p style={{ color: COR.texto, fontSize: 21, fontWeight: 700, fontFamily: SANS, margin: 0 }}>
-                  {persona.nome}{' '}
-                  <span style={{ color: COR.texto3, fontWeight: 500, fontSize: 17 }}>
-                    · {persona.cargo} · perfil {persona.perfil_disc} · foco: {persona.descritor_foco}
-                  </span>
-                </p>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5">
-                  <Pilula
-                    tipo={persona.kit.pilula1.tipo}
-                    src={persona.kit.pilula1.src}
-                    titulo={persona.kit.pilula1.titulo}
-                    duracao={persona.kit.pilula1.duracao}
-                  />
-                  <Pilula
-                    tipo={persona.kit.pilula2.tipo}
-                    src={persona.kit.pilula2.src}
-                    titulo={persona.kit.pilula2.titulo}
-                    duracao={persona.kit.pilula2.duracao}
-                  />
-                </div>
-                <div
-                  className="rounded-2xl border p-4 mt-4"
-                  style={{ background: 'rgba(255,255,255,0.03)', borderColor: COR.borda }}
-                >
-                  <p style={{ color: COR.texto, fontSize: 18, fontWeight: 700, fontFamily: SANS, margin: 0 }}>
-                    Missão: {persona.kit.missao.titulo}
-                  </p>
-                  <p style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.55, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
-                    {persona.kit.missao.texto}
-                  </p>
-                  <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
-                    Evidência: {persona.kit.missao.evidencia}
-                  </p>
-                </div>
-                {/* O material do perfil é a prova da Camada 2 ("o perfil
-                    orienta COMO abordar"). Quando ele é o relatório que o
-                    produto gera para ESTA pessoa (`real`), a tela diz isso —
-                    até 05/08/2026 abria um PDF genérico da biblioteca, igual
-                    para todo perfil CS do mundo, dentro da etapa que promete o
-                    contrário. */}
-                {persona.kit.pdf.src && (
-                  <div className="mt-4">
-                    {persona.kit.pdf.real && (
-                      <p
-                        className="uppercase font-bold"
-                        style={{ color: COR.acento, fontSize: 12, letterSpacing: '0.18em', fontFamily: SANS, margin: '0 0 4px' }}
-                      >
-                        Camada 2 · o perfil dela, por extenso
-                      </p>
-                    )}
-                    <a
-                      href={persona.kit.pdf.src}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block"
-                      style={{ color: COR.acento, fontSize: 17, fontWeight: 700, fontFamily: SANS }}
-                    >
-                      {persona.kit.pdf.real ? 'Abrir o relatório completo' : 'Abrir material em PDF'}: {persona.kit.pdf.titulo} →
-                    </a>
-                    {persona.kit.pdf.real && (
-                      <p style={{ color: COR.texto3, fontSize: 15, lineHeight: 1.5, fontFamily: SANS, margin: '4px 0 0' }}>
-                        Não é um material sobre o perfil CS: é o relatório que a plataforma gerou
-                        para ela, com os índices dela — e é dele que sai o &quot;como&quot; desta
-                        camada.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </section>
-            ))}
-          </div>
-        </div>
-      )}
 
       <FechoPorta
         gancho="Personalizado assim, dá para mostrar o que evoluiu de verdade. É o painel da última etapa."
