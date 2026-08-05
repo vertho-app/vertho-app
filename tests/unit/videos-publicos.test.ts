@@ -12,7 +12,7 @@ const TUTORIAIS_PRIVADOS = [
   '80f4da74-4384-419f-aab8-89ed346e7b5b', // semana de missão
 ];
 
-const BOASVINDAS_UNIANCHIETA = '3bb52aa2-1d63-4507-9bb1-028e9e7565e1';
+const BOASVINDAS_UNIANCHIETA = '482e3eab-65bd-4e0d-98d6-1f2af6141071';
 
 describe('allowlist de vídeos públicos', () => {
   it('libera o vídeo de boas-vindas (quem recebe ainda não tem acesso)', () => {

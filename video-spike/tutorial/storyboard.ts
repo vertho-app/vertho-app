@@ -359,7 +359,9 @@ export const BOASVINDAS: Flow = {
     },
     {
       id: 'map-aprender', title: 'Como você aprende', cuts: FULL, captureId: 'map-aprender',
-      narration: 'Pra fechar, marque como prefere aprender: vídeo, texto ou áudio. O conteúdo chega no seu formato.',
+      // A tela dá estrelas de 1 a 5 para CADA um dos 8 formatos — não é escolha
+      // única. Dizer "marque o formato" ensinaria a usar menos do que existe.
+      narration: 'Pra fechar, dê estrelas pra cada formato — pode gostar de vários. É assim que o conteúdo chega do seu jeito.',
     },
     {
       id: 'aval-inicio', title: 'Os cenários', cuts: FULL, captureId: 'aval-inicio',
@@ -380,8 +382,8 @@ export const BOASVINDAS: Flow = {
     },
     {
       id: 'fecho', title: 'Fecho', cuts: FULL, kind: 'cartela',
-      cartela: { eyebrow: 'Boas-vindas', title: 'É daqui que nasce o seu plano.' },
-      narration: 'Do cruzamento entre os cenários e o seu perfil nasce o seu plano, no formato em que você aprende melhor. Bom começo!',
+      cartela: { eyebrow: 'Boas-vindas', title: 'Liderança se constrói.' },
+      narration: 'Daí nasce um plano que é só seu. Liderança não é dom: é construção. E a sua começa agora — conte comigo.',
     },
   ],
 };

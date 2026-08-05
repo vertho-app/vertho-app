@@ -34,7 +34,7 @@ export type VideoPublico = {
 
 export const VIDEOS_PUBLICOS: VideoPublico[] = [
   {
-    guid: '3bb52aa2-1d63-4507-9bb1-028e9e7565e1',
+    guid: '482e3eab-65bd-4e0d-98d6-1f2af6141071',
     tenant: 'unianchieta',
     slug: 'boas-vindas',
     // Enviado por WhatsApp no convite, antes do primeiro acesso. Gravado com
