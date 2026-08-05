@@ -129,6 +129,17 @@ export interface Porta3 {
    * espelho (DISC × formato), aqui na origem.
    */
   insumos: Array<{ rotulo: string; valor: string; efeito: string }>;
+  /**
+   * O PDF que a pessoa recebe de verdade — gerado pelo componente do produto
+   * (`components/pdf/RelatorioIndividual`) a partir DESTE bloco, por
+   * `scripts/_conarh-pdi-pdf.ts`. O arquivo é versionado porque a demo roda em
+   * modo avião: nada é gerado no pavilhão.
+   *
+   * ⚠️ Mexeu em `objetivo`, `missao`, `evidencia_esperada` ou `ritual`? Rode o
+   * script de novo — senão a tela e o PDF passam a contar histórias diferentes
+   * sobre a mesma pessoa, e o expositor descobre isso na frente do visitante.
+   */
+  pdf: { src: string; capa: string; titulo: string; paginas: number };
   lacuna: string; // descritor mais baixo
   objetivo: string;
   missao: string; // missão prática da semana

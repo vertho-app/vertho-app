@@ -3,7 +3,7 @@
 // CONARH 52 — Porta 3: o PDI. lacuna → objetivo → missão → evidência.
 // Mensagem central: saiu do cruzamento matriz × diagnóstico, ninguém escreveu à mão.
 
-import { Crosshair, Flag, ClipboardCheck, Eye, Repeat } from 'lucide-react';
+import { Crosshair, Flag, ClipboardCheck, Eye, FileText, Repeat } from 'lucide-react';
 import type { ConteudoConarh } from '../_data/types';
 import { COR, SANS, SERIF } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
@@ -169,6 +169,66 @@ export function Porta3({
           ))}
         </ul>
       </div>
+
+      {/* O artefato que a pessoa RECEBE. Vem depois do plano, não antes: o
+          visitante precisa ter lido de onde saiu cada parte para o PDF ser a
+          prova, e não um folheto. A capa é imagem — abrir o PDF joga o tablet
+          no visualizador do sistema, e ali o expositor perde a demo. */}
+      <section
+        className="mt-8 rounded-3xl border p-6 flex flex-col sm:flex-row gap-6 items-start"
+        style={{ background: COR.card, borderColor: COR.bordaAcento }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={porta3.pdf.capa}
+          alt={`Capa do ${porta3.pdf.titulo}`}
+          style={{
+            width: 172,
+            borderRadius: 12,
+            border: `1px solid ${COR.borda}`,
+            flexShrink: 0,
+          }}
+        />
+        <div>
+          <p
+            className="uppercase font-bold"
+            style={{ color: COR.acento, fontSize: 13, letterSpacing: '0.2em', fontFamily: SANS, margin: 0 }}
+          >
+            O que {porta3.personagem.split(' ')[0]} recebe
+          </p>
+          <p
+            style={{
+              color: COR.texto,
+              fontSize: 19,
+              lineHeight: 1.5,
+              fontFamily: SANS,
+              margin: '10px 0 0',
+            }}
+          >
+            {porta3.pdf.titulo} — {porta3.pdf.paginas} páginas, com a matriz, a leitura da régua,
+            o plano ciclo a ciclo e a trilha que vem dele. Saiu da plataforma, não de um modelo
+            preenchido à mão.
+          </p>
+          <a
+            href={porta3.pdf.src}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-2xl px-7 font-bold mt-5"
+            style={{
+              minHeight: 60,
+              background: 'rgba(52,197,204,0.14)',
+              border: `1px solid ${COR.bordaAcento}`,
+              color: COR.acento,
+              fontSize: 18,
+              fontFamily: SANS,
+              textDecoration: 'none',
+            }}
+          >
+            <FileText size={20} />
+            Abrir o PDF completo
+          </a>
+        </div>
+      </section>
 
       <FechoPorta
         gancho="O plano é o mesmo para todos? É aí que a maioria dos programas quebra. A próxima etapa mostra o espelho."

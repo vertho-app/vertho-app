@@ -13,6 +13,14 @@ Nota de proveniência: o que veio de onde. Atualizar quando o caso ou os assets 
   - **`leitura_motor`** segue o padrão do `avaliacao_ia` do fixture (nota decimal, evidência literal entre aspas, racional "por que este nível e não outro", `limites_da_evidencia`). A divergência intencional está em FBK-D01 (evento ≠ comportamento) e FBK-D04 (intenção ≠ próximo passo); os outros 4 convergem com um bom gestor.
 - **Cenário respondido da etapa 2** (05/08/2026): cada régua traz a pessoa avaliada (Renata · Marcelo · Sérgio) e as **4 perguntas no formato da IA3** (`lib/ia3-cenarios.ts`) — foco (escolha · execução · tensão humana · sustentação), pergunta aberta ≤200 chars com decisão forçada, resposta da pessoa, e a leitura da régua (nível, trecho literal, racional). As respostas ficam entre N1 e N2 de propósito: é a lacuna que a etapa 3 transforma em PDI. **A nota não é escrita no JSON** — sai da média das 4 respostas em `lib/conarh/leitura.ts`, e um guard amarra essa média ao número citado no texto da etapa 3.
 - **Porta 3 (PDI)** declara na tela os **4 insumos** que a engine cruza — matriz, diagnóstico, **perfil comportamental (DISC)** e **modelo de aprendizagem** (as preferências de `lib/preferencias-config.ts`) — cada um com o valor da Renata e o que ele decidiu no plano. Deriva do descritor mais baixo (FBK-D04, **1,5** — a média das 4 respostas do cenário) e segue o schema do sprint de `lib/relatorio-individual-prompt.ts` (foco/ação/evidência/ritual/checklist de 3 itens).
+- **PDF do PDI (etapa 3)** — `public/conarh/pdi-renata-falcao.pdf` (6 páginas, ~195 KB) + a capa
+  em PNG (`pdi-capa.png`) que a tela mostra como prévia. **Gerado pelo componente REAL do produto**
+  (`components/pdf/RelatorioIndividual`) a partir do próprio `conteudo.json`, por
+  `npx --yes tsx scripts/_conarh-pdi-pdf.ts`. Mexeu em objetivo/missão/evidência/ritual da porta 3
+  (ou nas notas da matriz)? **Rode o script de novo** — senão tela e PDF contam histórias
+  diferentes sobre a mesma pessoa. Para regerar a capa: sirva o app, renderize a página 1 do PDF
+  em canvas (pdf.js) e salve o PNG; o arquivo temporário de preview **não fica no repo** (guard no
+  teste de conteúdo). O PDF é versionado porque a demo roda em modo avião.
 - **Porta 4 (espelho)** segue o modelo do Kit Semanal (`docs/KIT-SEMANAL.md`): mesma espinha (competência × descritor × ideia central), kits por DISC (D e S) com exemplo, linguagem, desafio e formato próprios.
 - **Porta 5 (painel)** usa as personas do fixture ACME com antes/depois plausível; os valores "antes" de Bruna, Paulo e Mariana partem das notas reais do fixture (ex.: Bruna "Demonstração e prova" 1,0; Paulo "Criação de senso de urgência" 1,5; Mariana "Comunicação com stakeholders" 2,0).
 

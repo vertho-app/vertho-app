@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import conteudoJson from '@/app/conarh/_data/conteudo.json';
 import type { ConteudoConarh, ReguaVitrine } from '@/app/conarh/_data/types';
 import { formatarNota, lerRespostas } from '@/lib/conarh/leitura';
@@ -187,6 +189,27 @@ describe('pacote de conteúdo do CONARH', () => {
     }
     // O diagnóstico citado aqui é o descritor que a etapa 2 avaliou.
     expect(insumos[1].valor).toContain(conteudo.porta1.cenario!.descritor_cod);
+  });
+
+  it('o PDF do PDI está no pacote e é o mesmo que a tela aponta', () => {
+    // A demo roda em modo avião: o PDF é gerado ANTES
+    // (`scripts/_conarh-pdi-pdf.ts`) e versionado. Se o arquivo sumir do
+    // repo, a etapa 3 mostra uma capa quebrada e um link 404 — no estande,
+    // logo depois de dizer "é isto que ela recebe".
+    const { pdf } = conteudo.porta3;
+    expect(pdf.src.startsWith('/conarh/')).toBe(true);
+    expect(pdf.capa.startsWith('/conarh/')).toBe(true);
+    expect(pdf.paginas).toBeGreaterThan(0);
+    for (const rel of [pdf.src, pdf.capa]) {
+      const caminho = join(process.cwd(), 'public', rel.replace(/^\//, ''));
+      expect(existsSync(caminho), `arquivo ausente: ${rel}`).toBe(true);
+      expect(statSync(caminho).size, `arquivo vazio: ${rel}`).toBeGreaterThan(10_000);
+    }
+    // Os arquivos de inspeção do PDF (preview em canvas + build do pdf.js)
+    // NÃO podem ser versionados: são 3 MB de ferramenta de desenvolvimento
+    // dentro de `public/`, servidos em produção.
+    expect(existsSync(join(process.cwd(), 'public/conarh/pdi-preview.html'))).toBe(false);
+    expect(existsSync(join(process.cwd(), 'public/pdfjs'))).toBe(false);
   });
 
   it('a prancheta (fallback de papel) continua com o registro escrito', () => {

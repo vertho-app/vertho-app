@@ -551,7 +551,13 @@
       "Todo feedback desta semana terminou com ação + medida + data de revisão?",
       "Cada combinado foi registrado por escrito e enviado no mesmo dia?",
       "A revisão do combinado anterior aconteceu na data marcada?"
-    ]
+    ],
+    "pdf": {
+      "src": "/conarh/pdi-renata-falcao.pdf",
+      "capa": "/conarh/pdi-capa.png",
+      "titulo": "Plano de Desenvolvimento Individual — Renata Falcão",
+      "paginas": 6
+    }
   },
   "porta4": {
     "semana": 3,
