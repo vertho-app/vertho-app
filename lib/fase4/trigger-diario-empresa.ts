@@ -172,7 +172,12 @@ export async function processarEmpresaDiario(
       }
       if (email && !mesmoDiaUTC(envio[mailCol], hojeUTC)) {
         const { subject, html } = emailPilula(nome, item, opts);
-        const r = await enviarEmailPilula(email, subject, html);
+        const r = await enviarEmailPilula(email, subject, html, {
+          kind: 'pilula',
+          empresaId: empresa.id,
+          colaboradorId: envio.colaborador_id,
+          dedupeKey: `${mailCol}:${envio.id}`,
+        });
         if (r.ok) { emails++; stamp[mailCol] = agora; } else erros++;
       }
       // O ciclo só fecha se ALGUM canal saiu. DECISÃO (fan-out): o consolidado
@@ -231,7 +236,14 @@ export async function processarEmpresaDiario(
       }
       if (email && !mesmoDiaUTC(envio.ultima_pilula1_email_em, hojeUTC)) {
         const { subject, html } = emailMissao(nome, optsMissao);
-        const r = await enviarEmailPilula(email, subject, html);
+        // Kind próprio: a missão da semana de aplicação NÃO é pílula. Reaproveitar
+        // o kind faria a contagem de cadência incluir um evento de outra natureza.
+        const r = await enviarEmailPilula(email, subject, html, {
+          kind: 'missao',
+          empresaId: empresa.id,
+          colaboradorId: envio.colaborador_id,
+          dedupeKey: `missao:${envio.id}`,
+        });
         if (r.ok) { emails++; stamp.ultima_pilula1_email_em = agora; } else erros++;
       }
       if (Object.keys(stamp).length || whatsappEnfileirado) {

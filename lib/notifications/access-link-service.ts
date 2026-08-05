@@ -4,6 +4,7 @@ import type { AppLocale } from '@/i18n/routing';
 import { magicLinkEmail, magicLinkWhatsapp, signupEmail, signupWhatsapp } from '@/lib/i18n-auth-templates';
 import { sendWhatsapp } from '@/lib/whatsapp';
 import { isTenantDemo } from '@/lib/demo/envio-guard';
+import { registrarEntrega } from '@/lib/notifications/delivery-log';
 
 /**
  * Serviço CENTRAL de envio de link de acesso (magic link) por canal.
@@ -48,7 +49,31 @@ export type SendAccessLinkInput = {
   kind?: 'magic-link' | 'signup';
 };
 
+/**
+ * Registra a tentativa de e-mail em `notification_deliveries` (mig 198).
+ *
+ * O canal de e-mail nasceu fora da medição: a 198 instrumentou só o serviço
+ * central de WhatsApp, e o e-mail sai por Resend direto. Enquanto isso durou, um
+ * colaborador SEM telefone recebia o link de acesso e nada disso aparecia — o
+ * que tornava "não tentou entrar" indistinguível de "tentou e o e-mail falhou".
+ *
+ * `skipped` também é gravado como falha, com o motivo: é o mesmo tratamento que
+ * o WhatsApp dá a "telefone inválido". Curto-circuito que não deixa rastro é
+ * volume que some da conta.
+ */
 async function enviarEmail(p: SendAccessLinkInput, out: SendAccessLinkResult): Promise<void> {
+  await executarEnvioEmail(p, out);
+  await registrarEntrega({
+    canal: 'email',
+    status: out.email === 'sent' ? 'sucesso' : 'falha',
+    kind: p.kind === 'signup' ? 'signup' : 'magic_link',
+    empresaId: p.empresaId ?? null,
+    provider: 'resend',
+    error: out.email === 'sent' ? null : (out.emailReason ?? null),
+  });
+}
+
+async function executarEnvioEmail(p: SendAccessLinkInput, out: SendAccessLinkResult): Promise<void> {
   if (!process.env.RESEND_API_KEY) {
     out.email = 'failed';
     out.emailReason = 'RESEND_API_KEY ausente';

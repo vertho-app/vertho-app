@@ -44,9 +44,29 @@ Regra: métrica escolhida depois de ver o dado é métrica escolhida para agrada
   permissao_concedida|negada → endpoint_registrado`. Sem esses degraus, um
   resultado fraco é ambíguo entre "push não engaja" e "ninguém conseguiu
   instalar" — conclusões opostas que levam a decisões opostas.
-- **Critério de fracasso declarado**: se a conversão até `endpoint_registrado`
-  ficar abaixo de ~1/3 dos elegíveis, o gargalo é a INSTALAÇÃO, não a
-  notificação — e aí a resposta é a fase 4/5 (app de loja), não refinar o PWA.
+### ⚠️ Correção do critério (05/08, depois do spike)
+
+O critério original — "< 1/3 de conversão até `endpoint_registrado` = gargalo na
+instalação" — assumia teste **não-guiado**, e isso estava errado por uma razão
+simples: **ninguém adiciona um site à tela de início por conta própria.** Não é
+hipótese a testar, é comportamento conhecido; medir isso gastaria pessoas reais
+para confirmar um zero previsível.
+
+A pergunta certa não é "eles instalam sozinhos?" (não instalam), e sim
+**"instalar dá para ensinar, a que custo?"**. O que muda a decisão é que a
+instrução vira **imposto permanente**: cobrado de cada pessoa nova, em cada
+tenant, para sempre. Numa escola de 54 pessoas é um vídeo no grupo; em 50 mil, é
+um canal de suporte.
+
+**Critério revisado, declarado antes de coletar:**
+
+1. Medir a conversão **entre instruídos** (quem recebeu o roteiro de instalação),
+   nunca entre todos.
+2. **Sempre segmentado por plataforma.** A média entre iOS e Android esconde
+   exatamente a diferença que decide tudo — no Android não existe ritual de
+   instalação, então juntar os dois produz um número que não descreve ninguém.
+3. Gargalo iOS confirmado ⇒ a resposta é a fase 4/5 (app de loja) **para iOS**,
+   não refinar o PWA. Isso não bloqueia o Android, que já funciona sem atrito.
 
 ### O que já está instrumentado
 
@@ -128,12 +148,27 @@ Push funciona igual nos dois modelos. A diferença real não é notificação �
   a maior parte dos usuários (medido: entre pageloads móveis, Android supera iOS
   ~2:1).
 
-### Como decidir entre os dois
+### A decisão não é PWA × loja — é por plataforma
 
-Sem opinião: com o funil. Se as pessoas atravessarem a instalação, o PWA ganha em
-custo, velocidade e risco. Se travarem no "Adicionar à Tela de Início", isso é a
-justificativa **quantificada** para a conta Apple e o app de loja — e aí o gasto
-é uma resposta a um número, não uma aposta.
+O erro de enquadramento é tratar isso como escolha única. O ritual de instalação
+**só existe no iOS**. No Android, o push funciona no Chrome sem instalar nada: o
+convite aparece, a pessoa autoriza, acabou.
+
+E a distribuição importa: entre pageloads móveis da plataforma, **Android supera
+iOS em cerca de 2:1** (medido no Sentry, 30 dias, 05/08 — 960 × 450; é medida de
+pageload, não de pessoas, e não segmentada por tenant).
+
+| | Instalação | Instrução necessária | Veredito |
+|---|---|---|---|
+| **Android** (~2/3 dos móveis) | não precisa | nenhuma | ✅ PWA resolve hoje |
+| **iOS** (~1/3) | obrigatória | sim, sempre | ⚠️ onboarding guiado — ou app de loja |
+
+Ou seja: o push **já entrega valor à maioria dos usuários móveis, sem imposto
+nenhum**. Quem fica devendo é o iOS — e é ele, sozinho, que justifica a conta
+Apple, quando e se a fatia iOS pesar o suficiente.
+
+Consequência prática: priorizar Android no primeiro uso real, porque lá o ganho
+é imediato e não depende de convencer ninguém a instalar nada.
 
 ## 6. Ressalvas técnicas das fases 4–6
 
@@ -175,11 +210,30 @@ plataforma}`, adapter webpush, 4 rotas, PWA + service worker, convite com funil.
 VAPID nas 3 envs da Vercel. Flag ligada **só** em `teste-piloto`.
 
 **Em aberto:**
-1. Carimbar `kind: 'pilula'` no webhook `whatsapp-cis`.
-2. Deixar o WhatsApp acumular dado por pelo menos uma semana cheia para a fase 1
+1. Deixar o WhatsApp acumular dado por pelo menos uma semana cheia para a fase 1
    produzir a proporção cadência × autenticação.
-3. **Decisão explícita e separada:** se e quando expor o convite a gente real.
-   Sucesso no tenant de teste valida o mecanismo, não a adoção.
+2. **Instrumentar o canal de E-MAIL.** A mig 198 cobre só o WhatsApp (o e-mail sai
+   por Resend, direto, sem passar pelo serviço central). Hoje o e-mail está fora
+   da contagem — e ele é o canal alternativo de login, então a comparação entre
+   canais está incompleta enquanto isso durar.
+   ⚠️ Efeito colateral já observado: colaborador **sem telefone** recebe o link de
+   acesso por e-mail, e nada disso aparece na medição. O funil só começa em
+   `convite_exibido` (pós-login), então desistência ANTES do login é invisível —
+   "não tentou" fica idêntico a "tentou e falhou".
+3. Teste guiado com 2 pessoas reais (Samuel e Juliane, adicionados ao
+   `teste-piloto` sem telefone). Não mede adoção espontânea — mede quanto atrito
+   sobra **mesmo instruído**, e se o comportamento muda em aparelho que não é o
+   do dono.
+4. **Decisão explícita e separada:** se e quando expor o convite a gente real em
+   tenant real. Sucesso no tenant de teste valida o mecanismo, não a adoção.
+
+### Histórico de correções deste documento
+
+- **05/08** — critério de fracasso reescrito (§3): a versão original media
+  instalação espontânea no iOS, que é ~zero por construção. Substituído por
+  conversão entre instruídos, segmentada por plataforma.
+- **05/08** — §5 reenquadrada: a decisão não é "PWA × loja", é por plataforma.
+  Android não tem ritual de instalação e concentra ~2/3 dos pageloads móveis.
 
 ⚠️ **Chave VAPID:** regenerar invalida **todas** as inscrições existentes e obriga
 cada pessoa a reativar. A privada vive só nas envs da Vercel.

@@ -10,6 +10,7 @@
  */
 
 import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
+import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { APLICACAO_VIDEO_ID } from '@/lib/season-engine/programa-config';
 
 const LABEL_FORMATO: Record<string, string> = {
@@ -68,20 +69,55 @@ export function emailPilula(nome: string, e: any, opts: PilulaOpts): { subject: 
   return { subject, html };
 }
 
-/** Envia e-mail via Resend. NUNCA lança — devolve {ok, reason}. */
-export async function enviarEmailPilula(to: string, subject: string, html: string): Promise<{ ok: boolean; reason?: string }> {
+/**
+ * Envia e-mail via Resend. NUNCA lança — devolve {ok, reason}.
+ *
+ * `meta` é o contexto de negócio para a telemetria de entrega (mig 198) e não
+ * afeta o envio. Sem ele a linha ainda é gravada, com `kind` nulo — lacuna
+ * contável (`WHERE kind IS NULL`), nunca ausência silenciosa. Ver
+ * `lib/notifications/delivery-log.ts`.
+ */
+export async function enviarEmailPilula(
+  to: string,
+  subject: string,
+  html: string,
+  meta?: { kind?: string | null; empresaId?: string | null; colaboradorId?: string | null; dedupeKey?: string | null },
+): Promise<{ ok: boolean; reason?: string }> {
+  const registrar = async (ok: boolean, reason?: string) => {
+    await registrarEntrega({
+      canal: 'email',
+      status: ok ? 'sucesso' : 'falha',
+      kind: meta?.kind ?? null,
+      empresaId: meta?.empresaId ?? null,
+      colaboradorId: meta?.colaboradorId ?? null,
+      provider: 'resend',
+      error: ok ? null : (reason ?? null),
+      dedupeKey: meta?.dedupeKey ?? null,
+    });
+  };
+
   const key = process.env.RESEND_API_KEY;
-  if (!key) return { ok: false, reason: 'sem RESEND_API_KEY' };
+  if (!key) {
+    await registrar(false, 'sem RESEND_API_KEY');
+    return { ok: false, reason: 'sem RESEND_API_KEY' };
+  }
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
       body: JSON.stringify({ from: EMAIL_FROM_DEFAULT, to, subject, html }),
     });
-    if (!r.ok) return { ok: false, reason: `${r.status} ${(await r.text()).slice(0, 120)}` };
+    if (!r.ok) {
+      const reason = `${r.status} ${(await r.text()).slice(0, 120)}`;
+      await registrar(false, reason);
+      return { ok: false, reason };
+    }
+    await registrar(true);
     return { ok: true };
   } catch (e: any) {
-    return { ok: false, reason: String(e?.message || e) };
+    const reason = String(e?.message || e);
+    await registrar(false, reason);
+    return { ok: false, reason };
   }
 }
 
