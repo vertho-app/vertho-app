@@ -206,7 +206,10 @@ export async function enviarConvitesPulso(
         try {
           if (stats.enviados > 0) await new Promise(r => setTimeout(r, 1200)); // throttle
           // Serviço central: normaliza telefone + failover entre provedores.
-          const r = await sendWhatsapp({ kind: 'text', phone: colab.telefone as string, text: mensagem });
+          const r = await sendWhatsapp(
+            { kind: 'text', phone: colab.telefone as string, text: mensagem },
+            { kind: 'pulse', empresaId: empresa.id, colaboradorId: colab.id }
+          );
           if (!r.ok) {
             stats.erros++;
             stats.ultimo_erro = (r.reason || 'falha no envio').slice(0, 150);

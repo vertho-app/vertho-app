@@ -57,10 +57,18 @@ export const DEGRADACAO = {
    * esta constante existir.
    */
   ALINHAMENTO_ASR_AUSENTE: 'alinhamento-asr-ausente',
+  /**
+   * envio: falhou gravar a linha de `notification_deliveries` (mig 198). O envio
+   * em si NÃO é afetado — o que se perde é a medição. Está aqui porque tabela
+   * vazia é ambígua entre "ninguém enviou" e "o logger quebrou", e essa dúvida
+   * invalidaria a comparação WhatsApp × push que a instrumentação existe para
+   * permitir. Dedup por canal, então canal quebrado = 1 linha/dia, não 1/mensagem.
+   */
+  TELEMETRIA_ENTREGA_FALHOU: 'telemetria-entrega-falhou',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
-export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video';
+export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio';
 export type DegradacaoSeveridade = 'info' | 'aviso' | 'critico';
 
 export interface DegradacaoInput {

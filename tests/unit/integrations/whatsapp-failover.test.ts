@@ -56,6 +56,12 @@ vi.mock('@/lib/whatsapp/providers/wasender', () => ({
   wasenderProvider: asProvider(() => mocks.wasender),
 }));
 
+// Telemetria de entrega (mig 198) fica fora deste arquivo: aqui o assunto é
+// failover. O contrato do log tem arquivo próprio (whatsapp-delivery-log.test.ts).
+vi.mock('@/lib/notifications/delivery-log', () => ({
+  registrarEntrega: vi.fn(async () => 'stub-delivery-id'),
+}));
+
 const { sendWhatsapp, whatsappHealth, assertWhatsappAvailable, resetWhatsappHealthCache } =
   await import('@/lib/whatsapp');
 

@@ -13,11 +13,12 @@
 // isso cobre queda de FORNECEDOR e ban por-número, não a fragilidade do QR em si
 // — para isso, a primária deveria migrar para a Cloud API oficial (novo adapter).
 import { normalizePhone } from '@/lib/phone';
+import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { zapiProvider } from './providers/zapi';
 import { wasenderProvider } from './providers/wasender';
-import type { WaKind, WaMessage, WaProvider, WaProviderId, WaSendResult } from './types';
+import type { WaKind, WaMessage, WaProvider, WaProviderId, WaSendMeta, WaSendResult } from './types';
 
-export type { WaMessage, WaProviderId, WaSendResult } from './types';
+export type { WaMessage, WaProviderId, WaSendMeta, WaSendResult } from './types';
 
 const REGISTRY: Record<WaProviderId, WaProvider> = {
   zapi: zapiProvider,
@@ -58,16 +59,53 @@ function markDown(id: WaProviderId, reason: string) {
 }
 
 /**
+ * Registra a entrega em `notification_deliveries` (mig 198) e devolve o
+ * resultado INTACTO. É `await`ado de propósito:
+ *  - `after()` não serve — `sendWhatsapp` também roda fora de contexto de
+ *    request (crons, `lib/conarh/regua.ts`), onde `after()` lança;
+ *  - escrita solta sem `await` morre no freeze da lambda pós-response.
+ * Um INSERT ao lado de uma chamada de rede de centenas de ms é custo irrelevante.
+ *
+ * `registrarEntrega` nunca lança e nunca engole em silêncio (falha vira
+ * degradação), então o contrato de `sendWhatsapp` não muda em nenhum caminho.
+ */
+async function comLog(r: WaSendResult, meta: WaSendMeta | undefined): Promise<WaSendResult> {
+  // try/catch aqui é redundante COM a implementação atual de `registrarEntrega`
+  // (que já não lança) — e é justamente por isso que ele existe: o contrato
+  // never-throw de `sendWhatsapp` não pode depender de uma cadeia de promessas
+  // feitas por dois módulos abaixo. A garantia tem que ser estrutural, neste
+  // arquivo, onde o contrato é declarado.
+  try {
+    await registrarEntrega({
+      canal: 'whatsapp',
+      status: r.ok ? 'sucesso' : 'falha',
+      kind: meta?.kind ?? null,
+      empresaId: meta?.empresaId ?? null,
+      colaboradorId: meta?.colaboradorId ?? null,
+      provider: r.provider ?? null,
+      error: r.ok ? null : (r.reason ?? null),
+      dedupeKey: meta?.dedupeKey ?? null,
+    });
+  } catch (e) {
+    console.error('[whatsapp] telemetria de entrega falhou (envio NÃO afetado):', e);
+  }
+  return r;
+}
+
+/**
  * Envia uma mensagem de WhatsApp pelo melhor provedor disponível, com failover
  * automático. Nunca lança — sempre devolve `WaSendResult` com a trilha.
+ *
+ * `meta` é o contexto de negócio (quem/por quê) usado só para telemetria; não
+ * afeta o despacho. Chamada sem `meta` é registrada com `kind` nulo.
  */
-export async function sendWhatsapp(input: WaMessage): Promise<WaSendResult> {
+export async function sendWhatsapp(input: WaMessage, meta?: WaSendMeta): Promise<WaSendResult> {
   const phone = normalizePhone(input.phone);
-  if (!phone) return { ok: false, attempts: [], reason: `telefone inválido: ${input.phone}` };
+  if (!phone) return comLog({ ok: false, attempts: [], reason: `telefone inválido: ${input.phone}` }, meta);
   const msg = { ...input, phone } as WaMessage;
 
   const providers = orderedProviders();
-  if (!providers.length) return { ok: false, attempts: [], reason: 'nenhum provedor de WhatsApp configurado' };
+  if (!providers.length) return comLog({ ok: false, attempts: [], reason: 'nenhum provedor de WhatsApp configurado' }, meta);
 
   const attempts: WaSendResult['attempts'] = [];
   for (const p of providers) {
@@ -82,12 +120,12 @@ export async function sendWhatsapp(input: WaMessage): Promise<WaSendResult> {
     }
     const r = await p.send(msg);
     attempts.push({ provider: p.id, ok: r.ok, status: r.status, reason: r.reason });
-    if (r.ok) return { ok: true, provider: p.id, attempts };
+    if (r.ok) return comLog({ ok: true, provider: p.id, attempts }, meta);
     // falhou num provedor que estava saudável → cooldown p/ próximas mensagens
     markDown(p.id, r.reason || 'falha no envio');
   }
 
-  return { ok: false, attempts, reason: attempts.map((a) => `${a.provider}: ${a.reason}`).join(' | ') };
+  return comLog({ ok: false, attempts, reason: attempts.map((a) => `${a.provider}: ${a.reason}`).join(' | ') }, meta);
 }
 
 /** Saúde agregada de todos os provedores (para telas de admin/diagnóstico). */

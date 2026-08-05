@@ -16,6 +16,23 @@ export type WaMessage =
 
 export type WaKind = WaMessage['kind'];
 
+/**
+ * Contexto de NEGÓCIO do envio — opcional, e separado de `WaMessage` de
+ * propósito: `WaMessage.kind` é o TIPO de mensagem (text/link/document/audio),
+ * não o motivo. Sem isto o serviço central não sabe quem nem por quê, e o log
+ * de entrega (mig 198) não conseguiria separar cadência de autenticação.
+ *
+ * Chamada sem `meta` continua válida e AINDA é registrada, com `kind` nulo: a
+ * lacuna de instrumentação fica contável por query em vez de invisível.
+ */
+export interface WaSendMeta {
+  /** pilula | otp | magic_link | convite | nudge | alerta | ... */
+  kind?: string | null;
+  empresaId?: string | null;
+  colaboradorId?: string | null;
+  dedupeKey?: string | null;
+}
+
 /** Resultado de UMA tentativa num provedor. */
 export interface WaSendOutcome {
   ok: boolean;

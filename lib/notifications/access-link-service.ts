@@ -90,7 +90,10 @@ async function enviarWhatsapp(p: SendAccessLinkInput, out: SendAccessLinkResult)
   const buildWa = p.kind === 'signup' ? signupWhatsapp : magicLinkWhatsapp;
   const msg = buildWa(p.locale, { nome: p.nome, empresaNome: p.empresaNome, link: p.whatsappLink });
   // Serviço central: normaliza telefone + failover entre provedores (Z-API → WaSender).
-  const r = await sendWhatsapp({ kind: 'text', phone: p.telefone, text: msg });
+  const r = await sendWhatsapp(
+    { kind: 'text', phone: p.telefone, text: msg },
+    { kind: p.kind === 'signup' ? 'signup' : 'magic_link', empresaId: p.empresaId ?? null }
+  );
   if (r.ok) {
     out.whatsapp = 'sent';
   } else {
