@@ -543,7 +543,7 @@
       }
     ],
     "lacuna": "LID-D04 · Acordo e acompanhamento observável — 1,5 (N1): os feedbacks da Renata terminam em intenção (\"vamos redobrar a atenção\", \"vou observar\"), não em combinado que os dois consigam verificar. É o descritor mais baixo dela — e o que explica por que o recado \"foi dado\" e nada mudou.",
-    "objetivo": "Em 30 dias, toda conversa de feedback da Renata termina com um combinado no formato ação + medida + data de revisão — dito por ela, registrado por escrito e revisado na data marcada.",
+    "objetivo": "Nas 6 semanas de conteúdo da jornada, toda conversa de feedback da Renata termina com um combinado no formato ação + medida + data de revisão — dito por ela, registrado por escrito e revisado na data marcada.",
     "missao": "Na conversa de acompanhamento com o Diego desta semana, fechar com UM combinado no padrão: o que ele faz de diferente na liberação de carga, como os dois vão ver, e o dia em que revisam juntos. Registrar o combinado por escrito e enviar a ele no mesmo dia.",
     "evidencia_esperada": "Até sexta: mensagem enviada ao Diego com o combinado — ex.: \"checklist de liberação conferido e assinado por caminhão, sem exceção; faltou conferente, a carga não sai e você me escala; revisamos juntos sexta às 16h\".",
     "ritual": "Sexta-feira, 15 minutos antes de fechar a semana: revisar as conversas de feedback da semana, marcar quais terminaram com combinado verificável — e reabrir, na hora, as que não terminaram.",
@@ -600,7 +600,7 @@
     ]
   },
   "porta5": {
-    "ciclo": "Ciclo 1 · 12 semanas",
+    "ciclo": "Jornada 1 · Liderança · 7 semanas",
     "pessoas": [
       {
         "nome": "Renata Falcão",

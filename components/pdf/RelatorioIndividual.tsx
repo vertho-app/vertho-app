@@ -191,6 +191,13 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
 
   const competencias = c.competencias || [];
   const nome = data.colaborador_nome || '';
+  // Duração REAL da trilha. Era "14 semanas" fixo na capa — desde a jornada de
+  // 7 (05/08/2026), isso imprimia a duração de outro programa no PDF da pessoa.
+  // Fonte: o mapa da trilha; sem ele, o default histórico.
+  const semanasDoMapa: number[] = (Array.isArray(c.trilha_mapa?.semanas) ? c.trilha_mapa.semanas : [])
+    .map((s: any) => Number(s?.semana) || 0)
+    .filter((n: number) => n > 0);
+  const totalSemanas = Number(c.total_semanas) || (semanasDoMapa.length ? Math.max(...semanasDoMapa) : 14);
   const headerLabel = `Plano de Desenvolvimento Individual${nome ? ` · ${(nome.split(' ')[0]) || nome}` : ''}`;
 
   // Competências que já têm sprint (novo modelo) — dirige o one-pager.
@@ -306,7 +313,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
         titulo={['Plano de Desenvolvimento Individual', '(PDI)']}
         overline={null}
         mentorLabel={null}
-        jornada={'Uma jornada de 14 semanas de aprendizagem'}
+        jornada={`Uma jornada de ${totalSemanas} semanas de aprendizagem`}
         nome={nome}
         cargo={data.colaborador_cargo}
         empresa={empresaNome}
@@ -413,7 +420,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
           <ReportSectionTitle>Seu plano, ciclo a ciclo</ReportSectionTitle>
           <Text style={s.mapIntro}>
-            {'Sua trilha tem 14 semanas e você trabalha uma competência por vez. Abaixo, o foco de cada ciclo — comece pelo primeiro; o segundo entra na sequência.'}
+            {`Sua trilha tem ${totalSemanas} semanas e você trabalha uma competência por vez. Abaixo, o foco de cada ciclo — comece pelo primeiro; o segundo entra na sequência.`}
           </Text>
           {sprintComps.map((comp: any, i: number) => (
             <View key={i} style={s.mapCard} wrap={false}>
@@ -475,7 +482,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
           <ReportSectionTitle>{hasBinding ? 'Sua jornada, ciclo a ciclo' : 'Como este PDI vira trilha'}</ReportSectionTitle>
           <Text style={s.trilhaIntro}>
             {hasBinding
-              ? 'Sua trilha tem 14 semanas, uma competência por vez. Cada ciclo tem um objetivo (o que muda no seu trabalho), o que você aprende e o que pratica — o objetivo é o destino, as atividades semanais são o caminho até ele, não trabalho a mais. Você recebe o conteúdo resumido toda semana (microaprendizagem), não precisa buscar por conta própria. Comece pelo Ciclo 1: o segundo só começa quando ele terminar, e a trilha te guia semana a semana.'
+              ? `Sua trilha tem ${totalSemanas} semanas, uma competência por vez. Cada ciclo tem um objetivo (o que muda no seu trabalho), o que você aprende e o que pratica — o objetivo é o destino, as atividades semanais são o caminho até ele, não trabalho a mais. Você recebe o conteúdo resumido toda semana (microaprendizagem), não precisa buscar por conta própria. Comece pelo Ciclo 1: o segundo só começa quando ele terminar, e a trilha te guia semana a semana.`
               : 'O que está no seu PDI é exatamente o que você vai aprender e praticar na trilha. Cada ciclo tem conteúdo (o que você estuda) e prática (o que você aplica).'}
           </Text>
           {hasBinding ? (

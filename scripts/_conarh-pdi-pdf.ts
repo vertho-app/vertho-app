@@ -57,10 +57,39 @@ function montarData() {
     .filter((d) => d.leitura_motor.nivel <= 1)
     .map((d) => `${d.nome_curto}: ${d.leitura_motor.limite}`);
 
+  // A JORNADA (05/08/2026): 6 semanas de conteúdo + 1 de avaliação, uma
+  // competência. Sem este mapa o componente cai na timeline computada — que,
+  // para 1 competência, imprime "Semanas 1–8 / 9–12 / 13–14", o calendário do
+  // formato de 14 semanas. A demo passaria a ensinar um programa que não
+  // existe mais, no documento que ela usa como prova.
+  const OBJETIVO_ID = 'obj-lid-d04';
+  const trilhaMapa = {
+    semanas: [
+      ...Array.from({ length: 6 }, (_, i) => ({
+        semana: i + 1,
+        tipo: 'conteudo',
+        competencia_foco: [porta1.competencia],
+        conexao_com_pdi: [OBJETIVO_ID],
+      })),
+      // A avaliação vai SEM competência de propósito: o relatório agrupa
+      // semanas consecutivas pela assinatura de `competencia_foco`, então
+      // repeti-la aqui fundiria as 7 num bloco só ("Semanas 1–7") e o
+      // conteúdo apareceria rotulado como avaliação. Sem ela, vira o bloco
+      // próprio "Avaliação", que é o que a jornada tem na 7ª semana.
+      { semana: 7, tipo: 'avaliacao' },
+    ],
+  };
+
   return {
     colaborador_nome: caso.personagem.nome,
     colaborador_cargo: caso.personagem.cargo,
     conteudo: {
+      total_semanas: 7,
+      trilha_mapa: trilhaMapa,
+      blueprint_objetivos: { [OBJETIVO_ID]: { acao_principal: porta3.missao } },
+      blueprint_conteudos: {
+        [porta1.competencia]: porta1.descritores.slice(0, 6).map((d) => ({ tema: d.nome_curto })),
+      },
       acolhimento:
         `Este plano nasceu de uma conversa real e de uma régua explícita — não de uma impressão. ` +
         `A avaliação do cenário situacional colocou ${caso.personagem.nome.split(' ')[0]} em ` +

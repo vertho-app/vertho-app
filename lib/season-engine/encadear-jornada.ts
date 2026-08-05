@@ -72,8 +72,15 @@ export async function encadearProximaJornada(
     return { encadeou: false, motivo: 'modo-nao-encadeia' };
   }
 
+  // `.eq('empresa_id', ...)` na MESMA cadeia: o app roda service-role, que
+  // bypassa RLS — sem o filtro, um colaborador_id de outro tenant devolveria a
+  // pessoa errada e a jornada seguinte nasceria no cargo dela. O empresa_id vem
+  // da trilha que acabou de fechar, não do input.
   const { data: colab } = await sbRaw.from('colaboradores')
-    .select('id, cargo, empresa_id').eq('id', trilha.colaborador_id).maybeSingle();
+    .select('id, cargo, empresa_id')
+    .eq('id', trilha.colaborador_id)
+    .eq('empresa_id', trilha.empresa_id)
+    .maybeSingle();
   if (!colab) return { encadeou: false, motivo: 'falhou' };
 
   const { data: cargo } = await tdb.from('cargos_empresa')

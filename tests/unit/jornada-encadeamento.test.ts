@@ -34,6 +34,21 @@ function tdbFake(tabelas: Record<string, any>) {
   };
 }
 
+
+/**
+ * Mock do cliente raw. `.eq()` encadeia quantas vezes for preciso: o
+ * encadeamento filtra colaborador POR ID E POR EMPRESA (service-role bypassa
+ * RLS), e um mock que aceitasse só um `.eq` esconderia a falta do segundo.
+ */
+function sbFake(colab: any) {
+  const chain: any = {
+    select: () => chain,
+    eq: () => chain,
+    maybeSingle: async () => ({ data: colab }),
+  };
+  return { from: () => chain };
+}
+
 const TRILHA_JORNADA = {
   id: 't1',
   colaborador_id: 'c1',
@@ -65,7 +80,7 @@ describe('encadeamento', () => {
   it('gera a próxima jornada com a competência seguinte', async () => {
     const gerar = vi.fn(async () => ({ ok: true, trilhaId: 't2' }));
     const r = await encadearProximaJornada(
-      { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { id: 'c1', cargo: 'Coordenador', empresa_id: 'e1' } }) }) }) }) },
+      sbFake({ id: 'c1', cargo: 'Coordenador', empresa_id: 'e1' }),
       tdbFake({
         trilhas: [TRILHA_JORNADA],
         cargos_empresa: { competencias_foco: ['Liderança', 'Relacionamento com Clientes'] },
@@ -82,7 +97,7 @@ describe('encadeamento', () => {
   it('não encadeia em modo de 14 semanas', async () => {
     const gerar = vi.fn();
     const r = await encadearProximaJornada(
-      { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { id: 'c1' } }) }) }) }) },
+      sbFake({ id: 'c1' }),
       tdbFake({ trilhas: [{ ...TRILHA_JORNADA, programa_modo: 'regular_duo' }] }),
       't1',
       gerar,
@@ -94,7 +109,7 @@ describe('encadeamento', () => {
   it('cargo sem próxima competência: encerra sem erro', async () => {
     const gerar = vi.fn();
     const r = await encadearProximaJornada(
-      { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { id: 'c1', cargo: 'Coordenador' } }) }) }) }) },
+      sbFake({ id: 'c1', cargo: 'Coordenador' }),
       tdbFake({ trilhas: [TRILHA_JORNADA], cargos_empresa: { competencias_foco: ['Liderança'] } }),
       't1',
       gerar,
@@ -106,7 +121,7 @@ describe('encadeamento', () => {
   it('geração falhou: reporta, mas não lança — o fechamento não se desfaz', async () => {
     const gerar = vi.fn(async () => ({ error: 'IA fora do ar' }));
     const r = await encadearProximaJornada(
-      { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { id: 'c1', cargo: 'Coordenador' } }) }) }) }) },
+      sbFake({ id: 'c1', cargo: 'Coordenador' }),
       tdbFake({
         trilhas: [TRILHA_JORNADA],
         cargos_empresa: { competencias_foco: ['Liderança', 'Relacionamento com Clientes'] },
