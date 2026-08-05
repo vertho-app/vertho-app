@@ -23,7 +23,8 @@ A rota `/conarh` **existe e está implementada** (commit `47eec490`, 29/07/2026)
 | F1 hub, template de rota, reset entre visitantes | ✅ | `app/conarh/_components/{hub,porta-shell,conarh-app}.tsx` |
 | F1 · P1 modo opt-in no celular do visitante | ⚠️ parcial — o formulário reduzido existe (`modoVisitante`), falta o QR | `captura.tsx` |
 | F2 porta 2 interativa — **cenário + 4 respostas** desde 04/08 (§0.1) | ✅ | `porta2.tsx` · `_components/reguas.ts` |
-| F2 · três réguas trocáveis na etapa 1 (Liderança · Vendas · Transversal) | ✅ 04/08 | `porta1.tsx` · `conteudo.json` |
+| F2 · três réguas trocáveis nas etapas **1 e 2** (Liderança · Vendas · Transversal) | ✅ 04-05/08 | `seletor-regua.tsx` · `reguas.ts` · `conteudo.json` |
+| F2 · fluxo da etapa 2 verificado no navegador (headless) | ✅ 05/08 — 9/9 asserções, 0 erro de console | receita na memória `reference_verificacao_navegador` |
 | F2 · P2 benchmark ao vivo (n ≥ 7) | ❌ não construído (é P2) | — |
 | F3 caso canônico, 5 portas, 5 personas, mídia local | ✅ | `_data/conteudo.json` · `public/conarh/media/` |
 | F3 caso canônico **validado com 3 clientes** | ❌ **pendente — caminho crítico** | fora do código |
@@ -52,7 +53,8 @@ marcados com ⚠️ no corpo.
 |---|---|---|
 | **Vocabulário** | "porta" → **"etapa"** em tudo que o visitante lê | "Porta" é o nome do componente. A tela sempre disse "etapa"; o follow-up dizia "porta 1". Interno (fila do fechador, insight) segue com o jargão. |
 | **Etapa 1** | uma régua → **três** (Liderança · Vendas · Transversal), trocáveis num toque | A matriz só se provava em liderança; o visitante de vendas tinha que acreditar que "vale pra mim". Só a régua do CASO segue nas etapas 3–5. |
-| **Etapa 2** | registro escrito → **cenário situacional + 4 respostas** | O registro fazia a demo parecer depender de um gestor com boa memória escrevendo um relatório bom. Agora roda o artefato real: 4 respostas plausíveis, embaralhadas, e a régua as separa. O cenário segue a competência escolhida na etapa 1. |
+| **Etapa 2** | registro escrito → **cenário situacional + 4 respostas** | O registro fazia a demo parecer depender de um gestor com boa memória escrevendo um relatório bom. Agora roda o artefato real: 4 respostas plausíveis, embaralhadas, e a régua as separa. |
+| **Escolha da competência** | só na etapa 1 → **também na etapa 2** (05/08) | O expositor abre direto a etapa que o visitante apontou; quem entra assim nunca passou pela etapa 1 e respondia o cenário de liderança sem ter escolhido nada. Seletor único (`seletor-regua.tsx`) nas duas telas — trocar no meio do fluxo **reseta para o passo 1**, porque a escolha anterior era o id de uma resposta de outro cenário. |
 | **Formulário** | 4 toggles → **1** ("aceitou um próximo passo") + sem seletor de horário | Enxugar o toque no tablet. Consequências tratadas nas duas linhas abaixo. |
 | **Fecho de etapa** | 2 CTAs → **1** ("Receber esse recorte") | Sem o seletor de horário, "Marcar os 20 minutos" abria a mesma tela — dois botões idênticos com nomes diferentes. |
 
