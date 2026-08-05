@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { VIDEOS_PUBLICOS, isVideoPublico } from '@/lib/videos-publicos';
+import { VIDEOS_PUBLICOS, isVideoPublico, resolverSlugPublico } from '@/lib/videos-publicos';
 
 // GUIDs dos tutoriais que vivem DENTRO do produto (Bunny library 636615).
 // Eles falam de PDI/jornada/semana pra quem já está logado — se algum cair na
-// allowlist, o gate de sessão do /v/{guid} abre sem ninguém perceber.
+// allowlist, o gate de sessão do /v/ abre sem ninguém perceber.
 const TUTORIAIS_PRIVADOS = [
   '89812149-0c2e-4299-b1ba-3f27013aba25', // disc-app
   'a352dbdf-4515-45ba-8797-72f62798402c', // disc-ajuda
@@ -34,17 +34,49 @@ describe('allowlist de vídeos públicos', () => {
     expect(isVideoPublico('')).toBe(false);
   });
 
-  it('não herda chaves do Object.prototype', () => {
-    // `id in obj` diria true pra 'constructor'/'toString' e abriria o gate
-    // com uma string qualquer — por isso o lookup usa hasOwnProperty.
-    expect(isVideoPublico('constructor')).toBe(false);
-    expect(isVideoPublico('toString')).toBe(false);
+  it('cada entrada declara guid, tenant, slug e o motivo de ser pública', () => {
+    for (const v of VIDEOS_PUBLICOS) {
+      expect(v.guid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      expect(v.tenant.trim().length, `${v.guid} sem tenant`).toBeGreaterThan(0);
+      expect(v.slug).toMatch(/^[a-z0-9][a-z0-9-]{1,48}$/);
+      expect(v.motivo.trim().length, `${v.guid} sem motivo`).toBeGreaterThan(10);
+    }
   });
 
-  it('cada entrada da allowlist tem um rótulo dizendo por que é pública', () => {
-    for (const [guid, rotulo] of Object.entries(VIDEOS_PUBLICOS)) {
-      expect(guid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-      expect(rotulo.trim().length, `${guid} sem rótulo`).toBeGreaterThan(3);
+  it('não repete (tenant, slug) — dois vídeos no mesmo endereço', () => {
+    const chaves = VIDEOS_PUBLICOS.map((v) => `${v.tenant}/${v.slug}`);
+    expect(new Set(chaves).size).toBe(chaves.length);
+  });
+});
+
+describe('apelido curto (/v/{slug})', () => {
+  it('resolve o slug do tenant dono', () => {
+    expect(resolverSlugPublico('boas-vindas', 'unianchieta')).toBe(BOASVINDAS_UNIANCHIETA);
+    expect(resolverSlugPublico('BOAS-VINDAS', 'UniAnchieta')).toBe(BOASVINDAS_UNIANCHIETA);
+  });
+
+  it('NÃO vaza o vídeo de um tenant para outro', () => {
+    // O risco real do apelido curto: "boas-vindas" é o nome óbvio, e o segundo
+    // cliente vai querer o mesmo. Servir o vídeo do vizinho carregaria a página
+    // normalmente — com a logo certa e o conteúdo errado.
+    for (const outro of ['acme-demo', 'ibipeba', 'projetomacae', 'bett']) {
+      expect(resolverSlugPublico('boas-vindas', outro), `vazou para ${outro}`).toBeNull();
     }
+  });
+
+  it('sem tenant resolvido, não resolve slug nenhum', () => {
+    expect(resolverSlugPublico('boas-vindas', null)).toBeNull();
+    expect(resolverSlugPublico('boas-vindas', '')).toBeNull();
+  });
+
+  it('ignora slug desconhecido e lixo', () => {
+    expect(resolverSlugPublico('nao-existe', 'unianchieta')).toBeNull();
+    expect(resolverSlugPublico('', 'unianchieta')).toBeNull();
+    expect(resolverSlugPublico('../../etc/passwd', 'unianchieta')).toBeNull();
+    expect(resolverSlugPublico('constructor', 'unianchieta')).toBeNull();
+  });
+
+  it('GUID passa direto (não é slug) — o endereço longo continua valendo', () => {
+    expect(resolverSlugPublico(BOASVINDAS_UNIANCHIETA, 'unianchieta')).toBeNull();
   });
 });

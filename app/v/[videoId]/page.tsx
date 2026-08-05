@@ -4,7 +4,7 @@ import { Lock } from 'lucide-react';
 import { resolveTenantFromHeaders } from '@/lib/tenant-resolver';
 import { resolveTheme } from '@/lib/ui-resolver';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
-import { isVideoPublico } from '@/lib/videos-publicos';
+import { isVideoPublico, resolverSlugPublico } from '@/lib/videos-publicos';
 import LoginRedirect from './LoginRedirect';
 
 export const dynamic = 'force-dynamic';
@@ -47,15 +47,19 @@ async function fetchTitle(videoId: string): Promise<string> {
 // generateMetadata roda também para o crawler (sem login) → o preview do
 // WhatsApp sai com título + thumbnail mesmo a reprodução exigindo login.
 export async function generateMetadata({ params }: { params: Promise<{ videoId: string }> }): Promise<Metadata> {
-  const { videoId } = await params;
-  if (!GUID_RE.test(videoId)) return { title: 'Vídeo' };
+  const { videoId: param } = await params;
 
   const base = await baseUrl();
   const tenant = await resolveTenantFromHeaders(await headers());
+  // O apelido curto tem que resolver AQUI também: é o endereço que a pessoa
+  // recebe, e é dele que sai o preview do WhatsApp.
+  const videoId = resolverSlugPublico(param, tenant?.slug) || param;
+  if (!GUID_RE.test(videoId)) return { title: 'Vídeo' };
+
   const tenantName = tenant?.nome || 'Vertho';
   const title = await fetchTitle(videoId);
   const thumb = `${base}/api/bunny-thumb/${videoId}`;
-  const url = `${base}/v/${videoId}`;
+  const url = `${base}/v/${param}`; // canônica = a que foi compartilhada
   const description = isVideoPublico(videoId)
     ? `Assista antes de começar — ${tenantName}.`
     : `Assista no painel ${tenantName}.`;
@@ -82,18 +86,22 @@ async function getSessionUser() {
 }
 
 export default async function VideoPage({ params }: { params: Promise<{ videoId: string }> }) {
-  const { videoId } = await params;
-  const valid = GUID_RE.test(videoId);
+  const { videoId: param } = await params;
 
   const tenant = await resolveTenantFromHeaders(await headers());
   const theme = resolveTheme(tenant?.ui_config);
   const lib = process.env.BUNNY_LIBRARY_ID;
 
+  // Apelido curto (/v/boas-vindas) → GUID, dentro do tenant. O GUID continua
+  // funcionando direto; o slug é só um endereço mais amigável pro convite.
+  const videoId = resolverSlugPublico(param, tenant?.slug) || param;
+  const valid = GUID_RE.test(videoId);
+
   // Vídeo de convite/boas-vindas: quem recebe ainda NÃO tem acesso, então o
   // gate de sessão não se aplica (allowlist explícita em lib/videos-publicos).
   const publico = valid && isVideoPublico(videoId);
   const user = valid && !publico ? await getSessionUser() : null;
-  const loginHref = `/login?redirect=/v/${videoId}`;
+  const loginHref = `/login?redirect=/v/${param}`;
   const bg = `linear-gradient(180deg, ${theme.bgStart} 0%, ${theme.bgEnd} 100%)`;
   const src = `https://iframe.mediadelivery.net/embed/${lib}/${videoId}?autoplay=true&responsive=true&preload=true`;
 
