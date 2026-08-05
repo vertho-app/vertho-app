@@ -84,9 +84,59 @@ export function Porta3({
           maxWidth: 900,
         }}
       >
-        O PDI de {porta3.personagem} saiu do cruzamento entre a matriz e o diagnóstico —{' '}
+        O PDI de {porta3.personagem} saiu do cruzamento entre a matriz, o diagnóstico, o perfil
+        comportamental e o modelo de aprendizagem dela —{' '}
         <em style={{ color: COR.acento }}>ninguém escreveu à mão</em>.
       </p>
+
+      {/* Os quatro insumos, com o valor DESTA pessoa e o que cada um decidiu.
+          Sem isto, "o plano é automático" soa a template: é o perfil e a
+          preferência de aprendizagem que explicam por que o plano dela não
+          serviria para o vizinho de mesa. */}
+      <div className="mt-9 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {porta3.insumos.map((insumo) => (
+          <div
+            key={insumo.rotulo}
+            className="rounded-2xl border p-5"
+            style={{ background: COR.card, borderColor: COR.borda }}
+          >
+            <p
+              className="uppercase font-bold"
+              style={{
+                color: COR.acento,
+                fontSize: 12,
+                letterSpacing: '0.18em',
+                fontFamily: SANS,
+                margin: 0,
+              }}
+            >
+              {insumo.rotulo}
+            </p>
+            <p
+              style={{
+                color: COR.texto,
+                fontSize: 17,
+                lineHeight: 1.45,
+                fontFamily: SANS,
+                margin: '8px 0 0',
+              }}
+            >
+              {insumo.valor}
+            </p>
+            <p
+              style={{
+                color: COR.texto3,
+                fontSize: 15,
+                lineHeight: 1.5,
+                fontFamily: SANS,
+                margin: '6px 0 0',
+              }}
+            >
+              {insumo.efeito}
+            </p>
+          </div>
+        ))}
+      </div>
 
       <div className="mt-10 space-y-5">
         <Bloco icone={<Crosshair size={26} />} rotulo="Lacuna" texto={porta3.lacuna} />
