@@ -55,7 +55,7 @@ export async function extrairPPP(empresaId: string, { urls = [], textos = [], mo
       (empresa.segmento || '').toLowerCase().includes('empresa');
 
     const todosTextos = conteudosExtraidos.map(c => `[Fonte: ${c.fonte}]\n${c.texto}`).join('\n\n---\n\n');
-    const aiModel = model || 'claude-sonnet-5';
+    const aiModel = model || 'claude-sonnet-4-6';
 
     const { system, user } = isCorporativo
       ? buildPromptCorporativo(empresa, todosTextos)

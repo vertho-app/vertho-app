@@ -51,7 +51,7 @@ export async function classificarRespostasAbertas(
 
   const classifierModel = await getModelForTask(empresaId, 'pulse_classify');
   const auditorModel = await getModelForTask(empresaId, 'pulse_audit')
-    || (classifierModel.startsWith('claude') ? 'gemini-3.6-flash' : 'claude-sonnet-5');
+    || (classifierModel.startsWith('claude') ? 'gemini-3.6-flash' : 'claude-sonnet-4-6');
 
   let processadas = 0, erros = 0;
   for (const r of pendentes) {

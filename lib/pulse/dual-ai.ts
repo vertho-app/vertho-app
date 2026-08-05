@@ -63,7 +63,7 @@ FORMATO DE SAÍDA (JSON único):
 
 export async function classifyOpenText(
   text: string,
-  classifierModel: string = 'claude-sonnet-5',
+  classifierModel: string = 'claude-sonnet-4-6',
 ): Promise<ClassifyResult> {
   if (!text || text.trim().length < 5) {
     return {

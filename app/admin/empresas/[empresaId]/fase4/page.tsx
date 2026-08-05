@@ -61,7 +61,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
   const [actionId, setActionId] = useState(null);
-  const [genModel, setGenModel] = useState('claude-sonnet-5');
+  const [genModel, setGenModel] = useState('claude-sonnet-4-6');
   const [checkModel, setCheckModel] = useState('gpt-5.6-terra');
   function flash(msg) { toast(msg); }
 

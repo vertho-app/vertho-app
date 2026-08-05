@@ -213,12 +213,12 @@ export async function POST(request) {
 
     let respostaIA;
     try {
-      // Sonnet 5: mais capaz para ancorar a explicação no conhecimento do
+      // Sonnet 4.6: mais capaz para ancorar a explicação no conhecimento do
       // descritor + conteúdo recebido + módulo-base, mantendo o escopo.
       // HISTORY CACHING (S3/L1) ligado 20/07 — system (conteúdo da semana) +
       // histórico lidos a 0,1× nos turnos seguintes da MESMA conversa. Kill
       // switch sem deploy: IA_CACHE_HISTORY=0.
-      respostaIA = (await callAIChat(system, messages as any, { model: 'claude-sonnet-5' }, 1500, {
+      respostaIA = (await callAIChat(system, messages as any, { model: 'claude-sonnet-4-6' }, 1500, {
         taskKey: 'tira_duvidas', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
         cacheHistory: process.env.IA_CACHE_HISTORY !== '0',
       })).trim();
@@ -245,7 +245,7 @@ export async function POST(request) {
       feature: 'tira_duvidas',
       trilha_id: trilhaId,
       semana: Number(semana),
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-4-6',
       // tokens aprox: sistema+histórico médio; valores precisos precisariam parse da response
       input_tokens: Math.round((system.length + JSON.stringify(messages).length) / 4),
       output_tokens: Math.round(respostaIA.length / 4),

@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Nenhuma mensagem fornecida' }, { status: 400 });
     }
 
-    const safeModel = model && ALLOWED_MODELS.has(model) ? model : 'claude-sonnet-5';
+    const safeModel = model && ALLOWED_MODELS.has(model) ? model : 'claude-sonnet-4-6';
     const safeSystem = (typeof system === 'string' ? system : '').slice(0, MAX_SYSTEM_CHARS)
       || 'Voce e um assistente util.';
 

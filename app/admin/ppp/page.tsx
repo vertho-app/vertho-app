@@ -114,7 +114,7 @@ function PPPPageInner() {
   const [files, setFiles] = useState([]); // { name, size, content }
   const [extracting, setExtracting] = useState(false);
   const [result, setResult] = useState(null);
-  const [model, setModel] = useState('claude-sonnet-5');
+  const [model, setModel] = useState('claude-sonnet-4-6');
   const [viewPPP, setViewPPP] = useState(null);
   const [enriquecerWeb, setEnriquecerWeb] = useState(false);
   const [nomeEscola, setNomeEscola] = useState('');

@@ -16,7 +16,7 @@ export const maxDuration = 300;
 
 // ── Defaults ────────────────────────────────────────────────────────────────
 
-const DEFAULT_AVALIADOR = 'claude-sonnet-5';
+const DEFAULT_AVALIADOR = 'claude-sonnet-4-6';
 const DEFAULT_VALIDADOR = 'gpt-5.6-terra';
 const MAX_TURNOS = 10;
 const CONFIANCA_ENCERRAR = 80;

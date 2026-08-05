@@ -72,11 +72,13 @@ export const MODELOS_DISPONIVEIS = [
  * Gemini Flash auditando Claude, e do Pulso classifier + auditor).
  */
 export const DEFAULT_TASK_MODELS: Record<string, string> = {
-  // Módulos-Base — autora (extração/segmentação/estruturação) em Claude Sonnet 5
+  // Módulos-Base — autora (extração/segmentação/estruturação) em Claude Sonnet 4.6
   // (24/06): qualidade pedagógica e aderência ao spec acima do Gemini Flash, que
   // entregava segmentação/estruturação mais rasa. Custo/latência maiores, aceitos
   // pela alavancagem (módulo-base é matéria-prima reaproveitada).
-  modulo_base_autor:   'claude-sonnet-5',
+  // Sonnet 5 NÃO virou default (piloto: tokens +40-68%, truncava JSON das
+  // extrações — docs/CUSTO-QUALIDADE.md Resultado 3); segue selecionável.
+  modulo_base_autor:   'claude-sonnet-4-6',
   // ── TODAS as dupla-checagens (2ª IA auditando a 1ª) em GPT 5.6 Terra ──
   // Decisão do Rodrigo 22/07: padroniza os auditores no Terra ($2,50/$15) —
   // cross-família OpenAI auditando o Sonnet, qualidade acima do Luna ($1/$6,
@@ -96,7 +98,7 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   conteudo_video:      'claude-opus-5',
 };
 
-const FALLBACK_GLOBAL = 'claude-sonnet-5';
+const FALLBACK_GLOBAL = 'claude-sonnet-4-6';
 
 /**
  * Tasks PINNED: imunes ao `modelo_padrao` genérico do tenant.
@@ -122,7 +124,7 @@ export const PINNED_TASKS = new Set([
  *   1. sys_config.ai.modelos[taskKey] (específico, configurável por empresa)
  *   2. sys_config.ai.modelo_padrao (fallback da empresa — IGNORADO se a task é pinned)
  *   3. DEFAULT_TASK_MODELS[taskKey] (default por task)
- *   4. 'claude-sonnet-5' (default absoluto)
+ *   4. 'claude-sonnet-4-6' (default absoluto)
  */
 export function resolveTaskModel(sysConfig, taskKey) {
   const ai = sysConfig?.ai || {};

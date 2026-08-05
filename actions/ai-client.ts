@@ -9,7 +9,7 @@ import { costFromTokens } from '@/lib/ia-cost-catalog';
 // precisa ser async — exportar predicado síncrono aqui passa no tsc e quebra o BUILD.
 import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
 
-const DEFAULT_MODEL = 'claude-sonnet-5';
+const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
 // Timeout por chamada de IA. Sem isto, uma request que "pendura" (rede/modelo)
 // bloqueia a função até o maxDuration da rota (até 300s), travando lotes

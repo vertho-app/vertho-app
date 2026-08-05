@@ -12,10 +12,10 @@ import type {
 } from './queries';
 
 const PROMPT_VERSION = 'radarbett-narrativa-v2';
-// Modelo primário do glimpse radarbett — Claude Sonnet 5 oferece melhor
+// Modelo primário do glimpse radarbett — Claude Sonnet 4.6 oferece melhor
 // fidelidade às citações de número e fonte que o prompt exige. Override
 // possível via env (ex: 'gpt-5.6-luna' para experimentos de custo).
-const MODEL_PRIMARY = process.env.RADARBETT_AI_MODEL || 'claude-sonnet-5';
+const MODEL_PRIMARY = process.env.RADARBETT_AI_MODEL || 'claude-sonnet-4-6';
 const MODEL_FALLBACK = process.env.RADARBETT_AI_FALLBACK || 'gpt-5.6-luna';
 
 export type NarrativaRadarbett = {

@@ -55,7 +55,7 @@ export default async function EscolaResultadoPage({
   // Leitura determinística como fallback estável (sem IA)
   const leituraDeterministica = leituraSaebEscola(escola, saeb);
 
-  // Narrativa IA (Claude Sonnet 5 → fallback GPT 5.6 Luna).
+  // Narrativa IA (Claude Sonnet 4.6 → fallback GPT 5.6 Luna).
   // Bot-aware: crawlers só leem cache, nunca disparam geração.
   const userAgent = (await headers()).get('user-agent');
   const isBot = isLikelyBotRadarbett(userAgent);

@@ -196,7 +196,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   const [logs, setLogs] = useState<any[]>([]);
   const [expandedPhase, setExpandedPhase] = useState<number | null>(null);
   const [modelPicker, setModelPicker] = useState<any>(null);
-  const [dualModel1, setDualModel1] = useState('claude-sonnet-5');
+  const [dualModel1, setDualModel1] = useState('claude-sonnet-4-6');
   const [dualModel2, setDualModel2] = useState('gpt-5.6-terra');
   const [showDanger, setShowDanger] = useState(false);
   const [dangerLoading, setDangerLoading] = useState(false);
@@ -1165,7 +1165,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                   const { actionKey, label } = modelPicker; setModelPicker(null);
                   // No lote, garante modelos batcháveis mesmo se o select não foi tocado
                   // (value fora das options filtradas fica no estado anterior).
-                  const gen = modo === 'lote' && !dualModel1.startsWith('claude') ? 'claude-sonnet-5' : dualModel1;
+                  const gen = modo === 'lote' && !dualModel1.startsWith('claude') ? 'claude-sonnet-4-6' : dualModel1;
                   const chk = modo === 'lote' && !dualModel2.startsWith('gpt') ? 'gpt-5.6-terra' : dualModel2;
                   handleAction(actionKey, label, { model: gen, checkModel: chk, modo });
                 }}

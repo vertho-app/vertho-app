@@ -90,7 +90,7 @@ async function callClaudeBatch(system: string, user: string, model: string, maxT
 
 export async function gerarRoteiroDeModulo(m: ModuloParaRoteiro, opts: { forceSync?: boolean } = {}): Promise<{ roteiro?: VideoRoteiro; error?: string }> {
   const { system, user } = buildRoteiroPrompt(m);
-  const model = await getModelForTask(null as any, 'conteudo_video').catch(() => 'claude-sonnet-5');
+  const model = await getModelForTask(null as any, 'conteudo_video').catch(() => 'claude-sonnet-4-6');
   let roteiro: VideoRoteiro | null = null;
 
   // forceSync (Kit): pula o batch (lento, ~minutos) e gera na hora — o kit já é
