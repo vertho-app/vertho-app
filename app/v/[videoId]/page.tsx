@@ -4,6 +4,7 @@ import { Lock } from 'lucide-react';
 import { resolveTenantFromHeaders } from '@/lib/tenant-resolver';
 import { resolveTheme } from '@/lib/ui-resolver';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { isVideoPublico } from '@/lib/videos-publicos';
 import LoginRedirect from './LoginRedirect';
 
 export const dynamic = 'force-dynamic';
@@ -55,7 +56,9 @@ export async function generateMetadata({ params }: { params: Promise<{ videoId: 
   const title = await fetchTitle(videoId);
   const thumb = `${base}/api/bunny-thumb/${videoId}`;
   const url = `${base}/v/${videoId}`;
-  const description = `Assista no painel ${tenantName}.`;
+  const description = isVideoPublico(videoId)
+    ? `Assista antes de começar — ${tenantName}.`
+    : `Assista no painel ${tenantName}.`;
 
   return {
     title: `${title} · ${tenantName}`,
@@ -86,7 +89,10 @@ export default async function VideoPage({ params }: { params: Promise<{ videoId:
   const theme = resolveTheme(tenant?.ui_config);
   const lib = process.env.BUNNY_LIBRARY_ID;
 
-  const user = valid ? await getSessionUser() : null;
+  // Vídeo de convite/boas-vindas: quem recebe ainda NÃO tem acesso, então o
+  // gate de sessão não se aplica (allowlist explícita em lib/videos-publicos).
+  const publico = valid && isVideoPublico(videoId);
+  const user = valid && !publico ? await getSessionUser() : null;
   const loginHref = `/login?redirect=/v/${videoId}`;
   const bg = `linear-gradient(180deg, ${theme.bgStart} 0%, ${theme.bgEnd} 100%)`;
   const src = `https://iframe.mediadelivery.net/embed/${lib}/${videoId}?autoplay=true&responsive=true&preload=true`;
@@ -103,7 +109,7 @@ export default async function VideoPage({ params }: { params: Promise<{ videoId:
             <div className="rounded-2xl border border-white/10 p-10 text-center" style={{ background: 'rgba(255,255,255,.03)' }}>
               <p className="text-sm text-white/70">Vídeo não encontrado.</p>
             </div>
-          ) : user ? (
+          ) : user || publico ? (
             <div className="rounded-2xl overflow-hidden border border-white/10" style={{ background: '#0A1D35', boxShadow: '0 0 60px rgba(0,180,216,0.12)' }}>
               <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
                 <iframe
