@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { sendWhatsapp } from '@/lib/whatsapp';
+import { sendWhatsapp, type WaSendMeta } from '@/lib/whatsapp';
 
 /**
  * Webhook chamado pelo QStash para enviar um link CIS individual via WhatsApp.
@@ -48,6 +48,49 @@ async function verifyQStashSignature(req, body) {
     console.error('[qstash/whatsapp-cis] Assinatura inválida:', err instanceof Error ? err.message : String(err));
     return false;
   }
+}
+
+/**
+ * Contexto de negócio do envio, para a telemetria de entrega (mig 198).
+ *
+ * Resolvido ANTES do `sendWhatsapp` porque é lá dentro que a linha de
+ * `notification_deliveries` é gravada.
+ *
+ * O `kind` sai de `carimboCampo`, que é enum FECHADO no schema acima — derivar
+ * de um enum é diferente de adivinhar por substring: se alguém acrescentar um
+ * valor novo, o TypeScript obriga a decidir o kind aqui em vez de deixar cair
+ * num default silencioso.
+ *
+ * A pessoa vem junto de propósito: a comparação honesta entre WhatsApp e push é
+ * por PESSOA ALCANÇADA, e sem `colaborador_id` no lado do WhatsApp essa conta
+ * não existe. Custa um lookup por chave primária, uma vez por mensagem.
+ */
+async function resolverMetaEnvio(
+  fase4EnvioId?: string,
+  carimboCampo?: 'ultima_pilula1_whatsapp_em' | 'ultima_pilula2_whatsapp_em',
+  envioId?: string,
+): Promise<WaSendMeta> {
+  if (fase4EnvioId && carimboCampo) {
+    const sb = createSupabaseAdmin();
+    const { data, error } = await sb
+      .from('fase4_envios')
+      .select('colaborador_id, empresa_id')
+      .eq('id', fase4EnvioId)
+      .maybeSingle();
+    // supabase-js RETORNA `{ error }`: sem checar, a falha viraria uma pílula
+    // gravada sem pessoa, indistinguível de pílula que realmente não tem.
+    if (error) {
+      console.warn(`[qstash/whatsapp-cis] meta da pílula sem pessoa: ${error.message}`);
+    }
+    return {
+      kind: 'pilula',
+      colaboradorId: (data as any)?.colaborador_id ?? null,
+      empresaId: (data as any)?.empresa_id ?? null,
+      dedupeKey: `${carimboCampo}:${fase4EnvioId}`,
+    };
+  }
+  if (envioId) return { kind: 'diagnostico' };
+  return {};
 }
 
 async function envioJaFinalizado(envioId?: string) {
@@ -156,7 +199,8 @@ export async function POST(req) {
 
     // Serviço central com failover (Z-API → WaSender). Se NENHUM provedor
     // entregar, devolve 503 para o QStash retentar (queda transitória de sessão).
-    const r = await sendWhatsapp({ kind: 'text', phone: telefone, text: mensagem });
+    const metaEnvio = await resolverMetaEnvio(fase4EnvioId, carimboCampo, envioId);
+    const r = await sendWhatsapp({ kind: 'text', phone: telefone, text: mensagem }, metaEnvio);
     console.log(
       `[qstash/whatsapp-cis] phone=***${telefone.replace(/\D/g, '').slice(-4)} ok=${r.ok} provider=${r.provider ?? '-'} trilha=${r.attempts.map((a) => `${a.provider}:${a.ok ? 'ok' : a.reason}`).join(' | ')}`,
     );
@@ -169,12 +213,19 @@ export async function POST(req) {
     // reenviaria a mensagem inteira, duplicando o texto. Falha só loga.
     if (documentoUrl) {
       try {
-        const rDoc = await sendWhatsapp({
-          kind: 'document',
-          phone: telefone,
-          url: documentoUrl,
-          filename: documentoNome || 'relatorio.pdf',
-        });
+        const rDoc = await sendWhatsapp(
+          {
+            kind: 'document',
+            phone: telefone,
+            url: documentoUrl,
+            filename: documentoNome || 'relatorio.pdf',
+          },
+          // O anexo é uma MENSAGEM à parte: conta como volume do canal, mas
+          // carimbá-lo com o mesmo kind do texto inflaria a contagem de cadência
+          // (duas linhas "pilula" para uma pílula só). Kind composto mantém as
+          // duas leituras possíveis — com e sem anexos — de forma explícita.
+          { ...metaEnvio, kind: metaEnvio.kind ? `${metaEnvio.kind}_anexo` : 'anexo' },
+        );
         if (!rDoc.ok) {
           console.warn(`[qstash/whatsapp-cis] documento não enviado: ${rDoc.reason ?? '-'}`);
         }

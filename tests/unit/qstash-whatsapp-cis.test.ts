@@ -180,12 +180,21 @@ describe('qstash whatsapp-cis webhook', () => {
 
     expect(res.status).toBe(200);
     expect(sendWhatsapp).toHaveBeenCalledTimes(2);
-    expect(sendWhatsapp).toHaveBeenNthCalledWith(1, expect.objectContaining({ kind: 'text' }));
-    expect(sendWhatsapp).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      kind: 'document',
-      url: 'https://example.com/rel.pdf?token=abc',
-      filename: 'relatorio-maria.pdf',
-    }));
+    // 2º argumento = meta de negócio para a telemetria de entrega (mig 198).
+    // Sem fase4EnvioId nem envioId no payload, o contexto é vazio — e a entrega
+    // ainda assim é gravada, com kind nulo (lacuna contável, não invisível).
+    expect(sendWhatsapp).toHaveBeenNthCalledWith(1, expect.objectContaining({ kind: 'text' }), {});
+    expect(sendWhatsapp).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        kind: 'document',
+        url: 'https://example.com/rel.pdf?token=abc',
+        filename: 'relatorio-maria.pdf',
+      }),
+      // O anexo nunca herda o kind do texto: seria uma segunda "pílula" para uma
+      // pílula só.
+      expect.objectContaining({ kind: 'anexo' }),
+    );
   });
 
   it('still returns 200 when the document fails but the text was delivered', async () => {

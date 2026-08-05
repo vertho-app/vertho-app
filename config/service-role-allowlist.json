@@ -74,7 +74,7 @@
     "app/api/upload-logo/route.ts": 1,
     "app/api/webhooks/bunny/route.ts": 1,
     "app/api/webhooks/qstash/trigger-diario-empresa/route.ts": 1,
-    "app/api/webhooks/qstash/whatsapp-cis/route.ts": 3,
+    "app/api/webhooks/qstash/whatsapp-cis/route.ts": 4,
     "app/api/webhooks/zapi/disconnected/route.ts": 1,
     "app/dashboard/assessment/assessment-actions.ts": 2,
     "app/dashboard/dashboard-actions.ts": 1,
