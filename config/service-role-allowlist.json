@@ -166,6 +166,9 @@
     "scripts/_check-semana4-ibipeba.ts": 1,
     "scripts/_dryrun-missao-segunda.ts": 1,
     "scripts/_enviar-missao-semana4-ibipeba.ts": 1,
-    "scripts/_conarh-perfil-pdf.ts": 1
+    "scripts/_conarh-perfil-pdf.ts": 1,
+    "scripts/_conarh-relatorios-gestao.ts": 1,
+    "scripts/_conarh-relatorios-org.ts": 1,
+    "scripts/_conarh-seed-avaliacoes-demo.ts": 1
   }
 }
