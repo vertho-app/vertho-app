@@ -6,6 +6,8 @@ import { resolveTheme } from '@/lib/ui-resolver';
 import { getRepresentativeContext } from '@/lib/sales/permissions';
 import { isPlatformAdmin } from '@/lib/authz';
 import DashboardShell from './dashboard-shell';
+import { pushHabilitado } from '@/lib/notifications/flag';
+import { AtivarPush } from '@/components/notifications/ativar-push';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   await connection();
@@ -26,5 +28,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const tenant = await resolveTenantFromHeaders(h);
   const theme = resolveTheme(tenant?.ui_config);
 
-  return <DashboardShell theme={theme}>{children}</DashboardShell>;
+  // Convite de push só existe onde a flag está ligada. Quem não tem a flag não
+  // recebe nem o componente no HTML — não é `display:none`, é ausência.
+  const mostrarPush = await pushHabilitado(tenant?.id);
+
+  return (
+    <DashboardShell theme={theme}>
+      {mostrarPush ? (
+        <div className="mb-4">
+          <AtivarPush />
+        </div>
+      ) : null}
+      {children}
+    </DashboardShell>
+  );
 }

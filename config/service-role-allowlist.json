@@ -18,6 +18,7 @@
     "lib/degradacao.ts": 1,
     "lib/notifications/delivery-log.ts": 1,
     "lib/notifications/push-core.ts": 1,
+    "lib/notifications/flag.ts": 1,
     "app/api/notifications/subscriptions/route.ts": 1,
     "app/api/notifications/subscriptions/disable/route.ts": 1,
     "app/api/notifications/opened/route.ts": 1,

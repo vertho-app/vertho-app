@@ -47,6 +47,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t('title'),
     description: t('description'),
+    // PWA: o manifest é pré-requisito para "Adicionar à Tela de Início" no iOS,
+    // e sem app instalado o Safari nem expõe a API de push. `appleWebApp` faz o
+    // app abrir sem a barra do Safari — é o que o transforma em app aos olhos
+    // de quem usa (e o que faz a notificação parecer nativa).
+    manifest: '/manifest.webmanifest',
+    appleWebApp: {
+      capable: true,
+      title: 'Vertho',
+      statusBarStyle: 'default',
+    },
   };
 }
 
