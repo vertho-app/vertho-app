@@ -105,6 +105,61 @@ sem TestFlight.
 instalação, não recebeu o convite por WhatsApp e não passou pelo navegador
 in-app. A adoção real segue não medida.
 
+### 4.1 Primeira conversão INSTRUÍDA de terceiros — 05/08, mesma tarde
+
+Três pessoas, tenant `teste-piloto`, com o roteiro de instalação em mãos.
+
+**iPhone (Juliane) — o funil que interessa, medido pela primeira vez:**
+
+| Horário (UTC) | Evento | |
+|---|---|---|
+| 18:24:44 | `convite_exibido` · motivo `ios-nao-instalado` | tela de instrução |
+| 18:25:07 | idem, 23s depois — ainda não instalado | |
+| 18:26:25 | `convite_exibido` + `instalado_detectado` | instalou |
+| 18:27:33 | `permissao_solicitada` | |
+| 18:27:39 | `permissao_concedida` | |
+| 18:27:41 | `endpoint_registrado` | ✅ `web.push.apple.com` |
+
+**Instrução → instalado: 1min41s. Instrução → ativo: 2min57s. Conversão
+instruída no iOS: 1/1.** O ritual de instalação não se mostrou proibitivo
+QUANDO HÁ INSTRUÇÃO — que é exatamente o que o critério revisado (§3) pede
+medir. N=1 e pessoa motivada: é sinal, não conclusão.
+
+**Android (mesma pessoa):** `convite_exibido` 18:13:55 → `permissao_solicitada`
+18:21:18. **7min23s entre ver o card e tocar nele**, sem nenhum obstáculo
+técnico no caminho. Pista de que no Android o problema não é *poder*, é
+*querer* — problema de copy e de momento, muito mais barato de resolver que
+plataforma. (Pode ser só distração; não sustenta conclusão sozinho.)
+
+**Desktop (Samuel):** ativou no Chrome do Mac, via `fcm.googleapis.com`, sem
+nenhum código específico. O adapter é mesmo agnóstico de serviço de push.
+⚠️ Registre-se que isso NÃO testa a hipótese: no desktop não existe ritual de
+instalação. "Ativou" e "testou o que importa" são coisas diferentes.
+
+### 4.2 Dois defeitos que só o uso real expôs
+
+1. **O convite era invisível no iOS.** O componente checava `PushManager` antes
+   de checar iOS-não-instalado; como o PushManager não existe fora do app
+   instalado, o Safari caía em 'sem-suporte' e renderizava `null`. A tela
+   "adicione à tela de início" **nunca renderizou para ninguém**, e o degrau
+   `ios-nao-instalado` nunca disparava — o funil era estruturalmente incapaz de
+   medir a evasão na instalação, que é a única coisa que este spike existe para
+   medir. Uma pessoa abriu no iPhone, viu a home limpa, e o funil registrou zero
+   eventos: indistinguível de "nunca entrou".
+   Guarda: `lib/notifications/estado-convite.ts` (função pura) +
+   `tests/unit/notifications-estado-convite.test.ts`, validado por mutação.
+2. **Endpoint duplicado.** Reinstalar o PWA zera o `localStorage`, gera
+   `installation_id` novo e cria segunda linha — com a assinatura antiga ainda
+   VÁLIDA na Apple. Observado: `entregues: 2` para uma pessoa, duas notificações
+   no mesmo aparelho, mais uma por reinstalação, sem auto-correção (endpoint vivo
+   nunca devolve 410). Corrigido no registro (desativa mesmo user-agent) + limpeza
+   das linhas antigas.
+
+**Lição transversal:** os dois defeitos passaram por typecheck, 1200+ testes e
+build limpo. Quem os encontrou foi gente usando — e, no caso do primeiro, o
+sintoma era *ausência de sinal*, que é o mais fácil de confundir com "ninguém
+quis".
+
 ## 5. O que construímos: um PWA. O que isso custa.
 
 O que existe hoje é o **próprio app web, instalável na tela de início e capaz de
@@ -220,12 +275,14 @@ VAPID nas 3 envs da Vercel. Flag ligada **só** em `teste-piloto`.
    acesso por e-mail, e nada disso aparece na medição. O funil só começa em
    `convite_exibido` (pós-login), então desistência ANTES do login é invisível —
    "não tentou" fica idêntico a "tentou e falhou".
-3. Teste guiado com 2 pessoas reais (Samuel e Juliane, adicionados ao
-   `teste-piloto` sem telefone). Não mede adoção espontânea — mede quanto atrito
-   sobra **mesmo instruído**, e se o comportamento muda em aparelho que não é o
-   do dono.
+3. ~~Teste guiado com 2 pessoas reais~~ ✅ feito 05/08 — ver §4.1. Resultado:
+   conversão instruída no iOS 1/1 em ~3min; Android sem obstáculo técnico mas
+   com 7min de latência até o clique.
 4. **Decisão explícita e separada:** se e quando expor o convite a gente real em
    tenant real. Sucesso no tenant de teste valida o mecanismo, não a adoção.
+5. Sobre o Android, a pergunta aberta virou **copy e momento** (por que a pessoa
+   demora a tocar num botão sem obstáculo?), não plataforma. É a hipótese mais
+   barata de testar da lista.
 
 ### Histórico de correções deste documento
 
