@@ -373,3 +373,34 @@ billing.
 
 **Última chamada registrada: 25/07.** Sem tráfego novo desde então — o gate de
 "1 dia de volume real" continua dependendo do próximo ciclo de tenant ativo.
+
+---
+
+## 05/08 · Refresh do catálogo de modelos (Opus 5 / Sonnet 5 / GPT 5.6 Sol·Terra·Luna / Gemini 3.6 Flash)
+
+Seletores admin e defaults migrados (commit `c61f612d`): geração em
+`claude-sonnet-5`, roteiro de vídeo em `claude-opus-5`, checks continuam
+`gpt-5.6-terra`, fallback de provedor `AI_FALLBACK_MODEL` → `gpt-5.6-terra`
+(código + env Vercel, redeploy aplicado).
+
+- **Suponho (NÃO medido):** preços de `claude-opus-5` ($5/$25) e
+  `gemini-3.6-flash` ($1,50/$9) no `lib/ia-cost-catalog.ts` são ASSUMIDOS
+  (faixa do antecessor), aguardando tabela oficial. A reconciliação com o
+  billing fica comprometida até confirmar — e as 1.136 linhas `cost_usd` NULL
+  acima lembram o custo de catálogo desatualizado.
+- **⚠️ Tensão com o Resultado 3 (piloto, acima):** o veredito medido foi
+  **NÃO trocar para Sonnet 5** (tokens/tarefa +40–68%, output ~2×, 9
+  truncamentos de JSON vs 0 no 4.6, +60%/colab a preço GA). O refresh moveu os
+  defaults a pedido explícito do dono. Se as extrações voltarem a falhar com
+  "Unterminated string in JSON", o suspeito nº 1 é o thinking do Sonnet 5
+  comendo o `max_tokens` — a mitigação conhecida é budget de tokens nas
+  extrações.
+- **⚠️ Luna:** o `gpt-5.6-luna` teve 401 intermitente (4/6) com a chave
+  sk-proj no piloto. Agora é fallback do radarbett e par cross-LLM do Gemini
+  3.6 Flash nos presets. Se o 401 não foi resolvido no dashboard OpenAI,
+  esses caminhos falham de forma intermitente.
+- **Varredura:** o catálogo de modelos NÃO é fonte única — trocar modelos
+  exige varrer 5 seletores + whitelist de rota + ~15 defaults soltos (mapa na
+  memória `project_catalogo_modelos_ia`). `MODELOS_DISPONIVEIS`
+  (`lib/ai-tasks.ts`) é o mais próximo de canônico, mas não é importado pelos
+  outros seletores.
