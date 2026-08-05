@@ -185,10 +185,14 @@ export async function executarReguaConarh() {
 
 /**
  * Insight agregado do evento inteiro (não só do dia): contagens por porta,
- * por classe e o padrão aceito no cenário da etapa 2 (o ativo de dados de
- * setembro). Leads anteriores a 04/08/2026 não têm `sessao.cenario` — ficam
- * fora da conta em vez de serem convertidos de uma régua de medida que já não
- * existe (as divergências por descritor do registro escrito).
+ * por classe e a comparação entre a leitura do visitante e a da régua no
+ * cenário da etapa 2 (o ativo de dados de setembro).
+ *
+ * Leads que não têm `sessao.cenario.nivel_atribuido` ficam FORA da conta: são
+ * os anteriores a 05/08/2026, medidos por réguas que já não existem (as
+ * divergências por descritor do registro escrito, até 04/08; o nível que o
+ * visitante aceitaria entre 4 respostas, até 05/08). Converter uma medida na
+ * outra inventaria um dado que ninguém coletou.
  */
 async function montarInsightEvento(sb: ReturnType<typeof createSupabaseAdmin>): Promise<string> {
   const { data: leads, error } = await sb
@@ -201,22 +205,24 @@ async function montarInsightEvento(sb: ReturnType<typeof createSupabaseAdmin>): 
   const lista = (leads || []) as any[];
   const porPorta: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   const porClasse: Record<string, number> = { A: 0, B: 0, C: 0 };
-  let cenarioN = 0, abaixoDaMeta = 0, somaNivel = 0;
+  let cenarioN = 0, acimaDaRegua = 0, convergiram = 0, somaNivel = 0;
   for (const l of lista) {
     if (l.porta_escolhida >= 1 && l.porta_escolhida <= 5) porPorta[l.porta_escolhida]++;
     if (l.classe && porClasse[l.classe] !== undefined) porClasse[l.classe]++;
-    const nivel = Number(l.sessao?.cenario?.nivel_aceito);
-    if (!(nivel >= 1 && nivel <= 4)) continue;
+    const nivel = Number(l.sessao?.cenario?.nivel_atribuido);
+    const daRegua = Number(l.sessao?.cenario?.nivel_regua);
+    if (!(nivel >= 1 && nivel <= 4) || !(daRegua >= 1 && daRegua <= 4)) continue;
     cenarioN++;
     somaNivel += nivel;
-    if (nivel < (Number(l.sessao?.cenario?.nivel_meta) || 3)) abaixoDaMeta++;
+    if (nivel > daRegua) acimaDaRegua++;
+    else if (nivel === daRegua) convergiram++;
   }
 
   const linhas = [
     `Leads: ${lista.length} (A: ${porClasse.A} · B: ${porClasse.B} · C: ${porClasse.C})`,
     `Etapas: 1) ${porPorta[1]} · 2) ${porPorta[2]} · 3) ${porPorta[3]} · 4) ${porPorta[4]} · 5) ${porPorta[5]}`,
     cenarioN
-      ? `Cenário (etapa 2): ${abaixoDaMeta} de ${cenarioN} aceitariam resposta abaixo da meta N3 — nível médio aceito N${(somaNivel / cenarioN).toFixed(1)}`
+      ? `Cenário (etapa 2): ${acimaDaRegua} de ${cenarioN} classificaram a conversa ACIMA do que a régua lê (${convergiram} leram igual) — nível médio atribuído N${(somaNivel / cenarioN).toFixed(1)}`
       : 'Cenário (etapa 2): sem sessões registradas',
   ];
   if (cenarioN > 0 && cenarioN < 7) linhas.push('(amostra < 7 — ainda não publicável, só interno)');

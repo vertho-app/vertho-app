@@ -48,29 +48,40 @@ export interface DescritorRegua {
   n4: string;
 }
 
-// Uma das quatro respostas hipotéticas do cenário. As quatro são plausíveis
-// — é esse o ponto: sem régua, escolher entre elas é gosto; com régua, cada
-// uma cai num nível que dá para auditar.
-export interface RespostaCenario {
-  id: string;
-  texto: string;
-  nivel: 1 | 2 | 3 | 4;
-  evidencia: string; // trecho da PRÓPRIA resposta que ancora a leitura
-  justificativa: string;
-  limite: string; // o que faltou para o nível acima
+// Um turno da conversa avaliativa: a plataforma pergunta, a pessoa avaliada
+// responde. É o artefato que a engine gera de verdade — cargo × competência ×
+// contexto — e é sobre ele que a régua é aplicada.
+//
+// ⚠️ `nivel`, `evidencia` e `leitura` são a LEITURA da régua, não a conversa:
+// só entram na tela DEPOIS que o visitante classificou. Mostrar o nível junto
+// da resposta não deixa nada para ele classificar — e é o erro fácil de
+// cometer aqui, porque no JSON os quatro campos moram lado a lado.
+export interface TurnoConversa {
+  pergunta: string; // o que a plataforma perguntou
+  resposta: string; // o que a pessoa avaliada respondeu
+  nivel: 1 | 2 | 3 | 4; // o nível que ESTA resposta evidencia
+  evidencia: string; // trecho literal da resposta que ancora o nível
+  leitura: string; // por que este trecho vale este nível
 }
 
-// O cenário situacional da competência — o artefato que a plataforma gera de
-// verdade (cargo × competência × contexto). Na porta 2 ele substituiu o
-// registro escrito: o visitante escolhe a resposta que ACEITARIA e descobre
-// em que nível está o próprio critério.
+// O cenário situacional da competência + a conversa que a plataforma teve com
+// a pessoa avaliada. Na porta 2 (05/08/2026) o visitante lê a conversa inteira
+// e CLASSIFICA a pessoa num nível — o mesmo trabalho que a régua faz. Depois
+// compara. O que a demo prova não é que ele erra: é que a régua sustenta a
+// leitura com trecho, e diz a mesma coisa para todo mundo.
+//
+// A `nota` NÃO mora aqui: é derivada dos níveis dos turnos em código
+// (`lib/conarh/leitura.ts`). Nota gravada à mão diverge dos turnos no primeiro
+// ajuste de conteúdo, e a tela passa a mostrar uma média que não é a média.
 export interface CenarioRegua {
   id: string;
   descritor_cod: string; // qual descritor da matriz esta situação testa
   situacao: string;
-  pergunta: string;
-  /** Exatamente 4, uma por nível, em ordem EMBARALHADA (nunca N1→N4). */
-  respostas: RespostaCenario[];
+  avaliado: { nome: string; cargo: string };
+  /** Exatamente 4 turnos — a conversa que a pessoa teve com a plataforma. */
+  conversa: TurnoConversa[];
+  justificativa: string; // a leitura do conjunto, depois da classificação
+  limite: string; // o que faltaria para o nível acima
 }
 
 // Competência de vitrine da porta 1: prova que a engrenagem (descritor +

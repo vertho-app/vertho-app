@@ -13,16 +13,17 @@ import { inicioHojeBRT } from '@/lib/conarh/conteudo';
  *   - reuniões com data  (reuniao_em preenchido)
  *   - total de capturas
  *   - funil por porta    (contagem por porta_escolhida, 1–5)
- *   - padrão aceito na etapa 2 (sessao.cenario) — o ativo de dados do evento.
- *     O visitante escolhe, entre 4 respostas a um cenário, a que ACEITARIA de
- *     alguém do time dele; o número publicável é quantos aceitaram uma resposta
- *     ABAIXO da meta da régua (N3). É a distância entre o padrão que o gestor
- *     cobra e o que ele diz querer.
+ *   - leitura da etapa 2 (sessao.cenario) — o ativo de dados do evento.
+ *     O visitante lê a conversa avaliativa e a CLASSIFICA num nível; a régua
+ *     classifica a mesma conversa. O número publicável é quantos leram ACIMA
+ *     da régua — a distância entre a leitura do gestor e um critério explícito,
+ *     medida no mesmo material.
  *
- *     ⚠️ Antes de 04/08/2026 este bloco media outra coisa (divergências por
- *     descritor, do registro escrito). Leads gravados antes disso não têm
- *     `sessao.cenario` e ficam fora da conta — sem conversão silenciosa entre
- *     as duas réguas de medida, que não são comparáveis.
+ *     ⚠️ Este bloco já mediu outras duas coisas: divergências por descritor do
+ *     registro escrito (até 04/08/2026) e o nível que o visitante ACEITARIA
+ *     entre 4 respostas (`nivel_aceito`, até 05/08/2026). Leads gravados antes
+ *     não têm `nivel_atribuido` e ficam fora da conta — sem conversão silenciosa
+ *     entre réguas de medida que não são comparáveis.
  *
  * Envs novas:
  *   - CONARH_PANEL_KEY — mesma chave da fila. FAIL-CLOSED em produção.
@@ -78,7 +79,9 @@ export async function GET(req: Request) {
   const lista = leads || [];
   const funilPorPorta: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
   let cenarioN = 0;
-  let abaixoDaMeta = 0;
+  let acimaDaRegua = 0;
+  let abaixoDaRegua = 0;
+  let convergiram = 0;
   let somaNivel = 0;
   const porCompetencia: Record<string, number> = {};
 
@@ -86,14 +89,16 @@ export async function GET(req: Request) {
     if (l.porta_escolhida >= 1 && l.porta_escolhida <= 5) {
       funilPorPorta[String(l.porta_escolhida)]++;
     }
-    // Padrão aceito na etapa 2 (o toque interativo da demo).
+    // Leitura do visitante × leitura da régua na etapa 2 (o toque da demo).
     const c = l.sessao?.cenario;
-    const nivel = Number(c?.nivel_aceito);
-    if (!(nivel >= 1 && nivel <= 4)) continue;
-    const meta = Number(c?.nivel_meta) || 3;
+    const nivel = Number(c?.nivel_atribuido);
+    const daRegua = Number(c?.nivel_regua);
+    if (!(nivel >= 1 && nivel <= 4) || !(daRegua >= 1 && daRegua <= 4)) continue;
     cenarioN++;
     somaNivel += nivel;
-    if (nivel < meta) abaixoDaMeta++;
+    if (nivel > daRegua) acimaDaRegua++;
+    else if (nivel < daRegua) abaixoDaRegua++;
+    else convergiram++;
     const comp = String(c?.competencia || 'sem competência');
     porCompetencia[comp] = (porCompetencia[comp] || 0) + 1;
   }
@@ -111,8 +116,10 @@ export async function GET(req: Request) {
     funil_por_porta: funilPorPorta,
     cenario_porta2: {
       sessoes: cenarioN,
-      abaixo_da_meta: abaixoDaMeta,
-      nivel_medio_aceito: cenarioN ? Math.round((somaNivel / cenarioN) * 100) / 100 : null,
+      acima_da_regua: acimaDaRegua,
+      abaixo_da_regua: abaixoDaRegua,
+      convergiram,
+      nivel_medio_atribuido: cenarioN ? Math.round((somaNivel / cenarioN) * 100) / 100 : null,
       por_competencia: porCompetencia,
       // F7: nenhum recorte publicável com n < 7 — o painel já avisa.
       amostra_suficiente: cenarioN >= 7,

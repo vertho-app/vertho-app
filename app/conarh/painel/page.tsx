@@ -25,17 +25,21 @@ interface PainelDados {
   funil_por_porta: Record<string, number>;
   cenario_porta2: {
     sessoes: number;
-    abaixo_da_meta: number;
-    nivel_medio_aceito: number | null;
+    acima_da_regua: number;
+    abaixo_da_regua: number;
+    convergiram: number;
+    nivel_medio_atribuido: number | null;
     por_competencia: Record<string, number>;
     amostra_suficiente: boolean;
   };
 }
 
-// v3 (04/08/2026): a etapa 2 trocou o registro escrito pelo cenário, então o
-// bloco medido deixou de ser `divergencias_porta2`. Chave nova — um tablet com
-// cache velho renderizaria o formato antigo e quebraria a tela no estande.
-const CACHE = 'conarh:cache-painel-v3';
+// v4 (05/08/2026): a etapa 2 trocou de mecanismo de novo — o visitante agora
+// CLASSIFICA a conversa em vez de escolher a resposta que aceitaria, e o bloco
+// passou de `abaixo_da_meta` para a comparação com a régua. Chave nova a cada
+// troca de formato: um tablet com cache velho renderizaria o formato antigo e
+// quebraria a tela no estande.
+const CACHE = 'conarh:cache-painel-v4';
 
 function Numero({ rotulo, valor, cor }: { rotulo: string; valor: number; cor?: string }) {
   return (
@@ -154,22 +158,24 @@ export default function PainelPage() {
               className="uppercase font-bold mb-1"
               style={{ color: COR.texto3, fontSize: 13, letterSpacing: '0.16em', fontFamily: SANS }}
             >
-              Aceitaram abaixo da meta (N3)
+              Leram a conversa acima da régua
             </p>
             <p style={{ color: COR.texto, fontFamily: SERIF, fontSize: 40, fontWeight: 600, margin: 0 }}>
               {dados.cenario_porta2.sessoes === 0
                 ? '—'
-                : `${dados.cenario_porta2.abaixo_da_meta} de ${dados.cenario_porta2.sessoes}`}
+                : `${dados.cenario_porta2.acima_da_regua} de ${dados.cenario_porta2.sessoes}`}
             </p>
             <p style={{ color: COR.texto2, fontSize: 16, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
-              Quantos gestores aceitariam, de alguém do time deles, uma resposta que a régua lê
-              abaixo da meta — a distância entre o padrão que se cobra e o que se diz querer.
+              Quantos gestores classificaram a MESMA conversa acima do nível que a régua lê — a
+              distância entre o critério de cada um e um critério explícito.{' '}
+              {dados.cenario_porta2.convergiram} leram igual, {dados.cenario_porta2.abaixo_da_regua}{' '}
+              leram abaixo.
             </p>
             <p style={{ color: COR.texto3, fontSize: 15, fontFamily: SANS, marginTop: 8, marginBottom: 0 }}>
-              Nível médio aceito:{' '}
-              {dados.cenario_porta2.nivel_medio_aceito === null
+              Nível médio atribuído:{' '}
+              {dados.cenario_porta2.nivel_medio_atribuido === null
                 ? '—'
-                : `N${dados.cenario_porta2.nivel_medio_aceito.toFixed(1)}`}
+                : `N${dados.cenario_porta2.nivel_medio_atribuido.toFixed(1)}`}
               .{' '}
               {Object.entries(dados.cenario_porta2.por_competencia)
                 .map(([comp, n]) => `${comp}: ${n}`)

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import conteudoJson from '@/app/conarh/_data/conteudo.json';
 import type { ConteudoConarh, ReguaVitrine } from '@/app/conarh/_data/types';
+import { formatarNota, lerConversa } from '@/lib/conarh/leitura';
 
 /**
  * CONARH 52 — integridade do pacote de conteúdo da demo.
@@ -14,6 +15,12 @@ import type { ConteudoConarh, ReguaVitrine } from '@/app/conarh/_data/types';
  * escolhida na porta 1 (04/08/2026). Uma régua sem cenário — ou com duas
  * respostas no mesmo nível — quebra a tela ou, pior, mostra uma leitura que
  * não fecha com a matriz que o visitante acabou de ver.
+ *
+ * Em 05/08/2026 o mecanismo virou a CONVERSA AVALIATIVA (4 turnos, o visitante
+ * classifica). O que passou a poder quebrar em silêncio: um turno sem trecho
+ * de evidência (a tela promete "auditável" e mostra um campo vazio), uma
+ * conversa cujos turnos não sustentam o nível que a tela anuncia, e a nota da
+ * etapa 3 divergindo da que a etapa 2 deriva dos mesmos turnos.
  */
 
 const conteudo = conteudoJson as unknown as ConteudoConarh;
@@ -46,33 +53,44 @@ describe('pacote de conteúdo do CONARH', () => {
     }
   });
 
-  it('toda régua tem cenário — inclusive a do caso, que a porta 2 usa por padrão', () => {
+  it('toda régua tem cenário e pessoa avaliada — a porta 2 abre por aí', () => {
     for (const r of reguas()) {
       expect(r.cenario, r.competencia).toBeTruthy();
       expect(r.cenario.situacao.length, r.competencia).toBeGreaterThan(80);
-      expect(r.cenario.pergunta.length, r.competencia).toBeGreaterThan(10);
+      expect(r.cenario.avaliado?.nome?.trim(), r.competencia).toBeTruthy();
+      expect(r.cenario.avaliado?.cargo?.trim(), r.competencia).toBeTruthy();
+      // A tela chama a pessoa pelo nome ("A conversa de Renata com a
+      // plataforma"): nome composto ou com cargo embutido estoura o título.
+      expect(r.cenario.avaliado.nome.split(' ').length, r.competencia).toBe(1);
     }
   });
 
-  it('cada cenário tem exatamente 4 respostas, uma por nível N1–N4', () => {
+  it('cada conversa tem 4 turnos completos — pergunta, resposta, trecho e leitura', () => {
     for (const r of reguas()) {
-      const niveis = r.cenario.respostas.map((x) => x.nivel).sort();
-      expect(niveis, r.competencia).toEqual([1, 2, 3, 4]);
-      expect(new Set(r.cenario.respostas.map((x) => x.id)).size, r.competencia).toBe(4);
-      for (const resp of r.cenario.respostas) {
-        for (const campo of ['texto', 'evidencia', 'justificativa', 'limite'] as const) {
-          expect(resp[campo]?.trim(), `${r.competencia}/${resp.id}/${campo}`).toBeTruthy();
+      expect(r.cenario.conversa, r.competencia).toHaveLength(4);
+      r.cenario.conversa.forEach((t, i) => {
+        for (const campo of ['pergunta', 'resposta', 'evidencia', 'leitura'] as const) {
+          expect(t[campo]?.trim(), `${r.competencia}/turno ${i + 1}/${campo}`).toBeTruthy();
         }
+        expect([1, 2, 3, 4], `${r.competencia}/turno ${i + 1}/nivel`).toContain(t.nivel);
+      });
+      for (const campo of ['justificativa', 'limite'] as const) {
+        expect(r.cenario[campo]?.trim(), `${r.competencia}/${campo}`).toBeTruthy();
       }
     }
   });
 
-  it('as respostas NÃO estão em ordem crescente de nível', () => {
-    // Se estivessem, o visitante acertaria por posição em vez de por critério
-    // — e a demo mediria a capacidade dele de ler uma lista ordenada.
+  it('a conversa mostra a pessoa ABAIXO da meta — é o que faz a demo ter assunto', () => {
+    // Uma conversa lida em N3/N4 deixa a etapa 2 sem tensão (e a etapa 3 sem
+    // lacuna para virar PDI). O material é de propósito N1/N2, e é isso que a
+    // troca de mecanismo tem que preservar quando alguém editar o JSON.
     for (const r of reguas()) {
-      const ordem = r.cenario.respostas.map((x) => x.nivel);
-      expect(ordem, r.competencia).not.toEqual([1, 2, 3, 4]);
+      const { nivel } = lerConversa(r.cenario);
+      expect(nivel, r.competencia).toBeLessThanOrEqual(2);
+      const distintos = new Set(r.cenario.conversa.map((t) => t.nivel));
+      // Quatro turnos idênticos viram uma régua de um degrau só: a leitura
+      // turno a turno não teria o que mostrar.
+      expect(distintos.size, r.competencia).toBeGreaterThan(1);
     }
   });
 
@@ -83,6 +101,18 @@ describe('pacote de conteúdo do CONARH', () => {
       const cods = r.descritores.map((d) => d.cod);
       expect(cods, r.competencia).toContain(r.cenario.descritor_cod);
     }
+  });
+
+  it('a nota citada na etapa 3 é a que a etapa 2 deriva dos turnos', () => {
+    // As duas telas falam do MESMO descritor da MESMA pessoa: a etapa 2 mostra
+    // a leitura da conversa e a etapa 3 monta o PDI em cima dela. Se alguém
+    // reescrever um turno (mudando a média) e não mexer no texto da etapa 3, o
+    // visitante vê 1,5 numa tela e 1,8 na seguinte — e a demo perde a única
+    // coisa que ela vende, que é as leituras baterem.
+    const cenario = conteudo.porta1.cenario!;
+    const { nota, nivel } = lerConversa(cenario);
+    expect(conteudo.porta3.lacuna).toContain(cenario.descritor_cod);
+    expect(conteudo.porta3.lacuna).toContain(`${formatarNota(nota)} (N${nivel})`);
   });
 
   it('a prancheta (fallback de papel) continua com o registro escrito', () => {

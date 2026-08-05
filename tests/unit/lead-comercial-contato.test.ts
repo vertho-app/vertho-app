@@ -219,16 +219,17 @@ describe('CONARH 52 — qualificação e classe no servidor (mig 196)', () => {
     instituicao: undefined as any,
     porta: 2 as const,
     competencia: 'feedback entre pares',
-    // Etapa 2 desde 04/08/2026: o cenário com 4 respostas substituiu a nota
-    // instintiva + reavaliação por descritor (ver app/conarh/_components/sessao).
+    // Etapa 2 desde 05/08/2026: o visitante CLASSIFICA a conversa avaliativa, e
+    // o que se grava é a leitura dele × a da régua (ver _components/sessao.ts).
     sessao: {
       cenario: {
         regua: 'caso',
         competencia: 'Feedback e Desenvolvimento de Pessoas',
         cenario: 'fbk-fechamento-diego',
         descritor: 'FBK-D04',
-        nivel_aceito: 2,
-        nivel_meta: 3,
+        nivel_atribuido: 3,
+        nivel_regua: 2,
+        nota_regua: 1.5,
       },
       rotas_concluidas: [1, 2],
     },
@@ -248,7 +249,8 @@ describe('CONARH 52 — qualificação e classe no servidor (mig 196)', () => {
     expect(l.competencia_critica).toBe('feedback entre pares');
     expect(l.horizonte).toBe('ate_3m');
     expect(l.reuniao_em).toBe('2026-08-19T17:00:00.000Z');
-    expect((l.sessao as any).cenario.nivel_aceito).toBe(2);
+    expect((l.sessao as any).cenario.nivel_atribuido).toBe(3);
+    expect((l.sessao as any).cenario.nivel_regua).toBe(2);
     expect((l.sessao as any).cenario.descritor).toBe('FBK-D04');
     expect(l.telefone).toBe('+5511987654321');
   });

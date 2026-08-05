@@ -5,26 +5,35 @@
 export type NumeroPorta = 1 | 2 | 3 | 4 | 5;
 
 /**
- * O que a porta 2 mede desde 04/08/2026.
+ * O que a porta 2 mede desde 05/08/2026.
  *
- * A porta trocou o registro escrito pelo CENÁRIO com 4 respostas, então o que
- * dava para medir mudou de natureza: não há mais nota de olho nem reavaliação
- * descritor a descritor. O que sobra é mais forte como número de feira — o
- * NÍVEL que o visitante aceitaria de alguém do time dele. Se ele aceita um N2
- * onde a régua põe a meta em N3, essa é a distância entre o padrão que ele
- * cobra e o que ele diz querer.
+ * A porta trocou de mecanismo DUAS vezes, e a métrica trocou junto nas duas —
+ * de propósito, porque nome velho medindo coisa nova é como um painel passa a
+ * mentir sem ninguém perceber:
  *
- * Os campos antigos (`nota_instintiva`, `reavaliacao`, `divergencias`) foram
- * REMOVIDOS em vez de reaproveitados: manter o nome velho medindo coisa nova
- * é como o painel passa a mentir sem ninguém perceber.
+ *   registro escrito  → `nota_instintiva`/`reavaliacao`/`divergencias` (extintos)
+ *   4 respostas       → `nivel_aceito` × `nivel_meta` (extintos em 05/08)
+ *   conversa avaliada → `nivel_atribuido` × `nivel_regua`  ← hoje
+ *
+ * O visitante não escolhe mais qual resposta aceitaria: ele lê a conversa que
+ * a plataforma teve com a pessoa avaliada e faz o MESMO trabalho da régua —
+ * classifica num nível. O número do evento passa a ser a distância entre a
+ * leitura dele e a leitura da régua sobre a MESMA conversa (quantos leram
+ * acima, quantos leram igual), que é mais forte do que a média anterior: as
+ * duas leituras olham exatamente o mesmo material.
+ *
+ * Leads gravados antes de 05/08/2026 têm `nivel_aceito` e ficam FORA da conta
+ * — as duas medidas não são comparáveis, e converter uma na outra em silêncio
+ * inventaria um dado que ninguém coletou.
  */
 export interface CenarioPorta2 {
   regua: string; // id da régua percorrida (caso | venda-consultiva | ...)
   competencia: string;
   cenario: string; // id do cenário
-  descritor: string; // cod do descritor que a situação testa
-  nivel_aceito: number; // 1–4 — nível da resposta que ele aceitaria
-  nivel_meta: number; // 3 — a meta da régua
+  descritor: string; // cod do descritor que a conversa testa
+  nivel_atribuido: number; // 1–4 — o nível que o VISITANTE deu à conversa
+  nivel_regua: number; // 1–4 — o nível que a régua lê na mesma conversa
+  nota_regua: number; // a nota da régua (ex.: 1,5), derivada dos turnos
 }
 
 export interface Telemetria {

@@ -2,24 +2,29 @@
 
 // CONARH 52 — Porta 2: o único toque do visitante.
 //
-// Desde 04/08/2026 a porta roda o CENÁRIO SITUACIONAL da competência escolhida
-// na porta 1 — o artefato que a plataforma gera de verdade — no lugar do
-// registro escrito à mão. Motivo: o registro fazia a demo parecer depender de
-// um gestor com boa memória escrevendo um relatório bom; o cenário mostra a
-// engrenagem real, e as 4 respostas provam a tese melhor do que qualquer
-// texto explicativo — as quatro são plausíveis, e a régua as separa.
+// Desde 05/08/2026 a porta roda a CONVERSA AVALIATIVA da competência escolhida
+// na porta 1 — o artefato que a plataforma produz de verdade: quatro perguntas
+// feitas à pessoa avaliada e as respostas dela. O visitante lê a conversa
+// inteira e faz o MESMO trabalho da régua: classifica a pessoa num nível.
+// Depois compara.
+//
+// Por que trocou (de novo): escolher "qual resposta você aceitaria" media o
+// gosto do visitante entre quatro textos escritos por nós. Classificar uma
+// conversa real põe os dois — ele e a régua — olhando exatamente o mesmo
+// material, que é a única comparação honesta. E é aqui que a demo prova a
+// frase que vende: a régua não muda de gestor para gestor.
 // (O registro escrito continua vivo na PRANCHETA, o fallback de papel.)
 //
 // Sequência em 4 estados:
 //   1) escolhe a competência (as mesmas 3 da etapa 1) e lê a situação →
-//   2) escolhe a resposta que ACEITARIA (o toque) →
-//   3) a matriz revelada, aberta no descritor que a situação testa →
-//   4) a leitura da régua sobre a escolha dele + as outras três, por nível.
-// Regra dura: NUNCA "certo/errado" — a linguagem é "o seu padrão" x "a régua".
+//   2) lê a conversa (4 turnos) e CLASSIFICA num nível (o toque) →
+//   3) a matriz revelada, aberta no descritor que a conversa testa →
+//   4) a leitura dele × a da régua, turno a turno, com o trecho que ancora.
+// Regra dura: NUNCA "certo/errado" — a linguagem é "a sua leitura" x "a régua".
 
 import { useState } from 'react';
-import { Check } from 'lucide-react';
-import type { ConteudoConarh, RespostaCenario } from '../_data/types';
+import { Quote } from 'lucide-react';
+import type { ConteudoConarh, TurnoConversa } from '../_data/types';
 import type { ResultadoPorta2 } from './sessao';
 import { COR, SANS, SERIF, TOQUE } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
@@ -27,11 +32,14 @@ import { FechoPorta } from './porta-shell';
 import { MatrizDescritores } from './matriz';
 import { acharRegua, montarReguas } from './reguas';
 import { SeletorRegua } from './seletor-regua';
+import { compararComRegua, formatarNota, lerConversa } from '@/lib/conarh/leitura';
 
-const NOMES_NIVEL = ['', 'N1 · gap', 'N2 · desenvolvimento', 'N3 · meta', 'N4 · referência'];
-
-/** A meta da régua: N3 é o nível que a empresa quer ver acontecendo. */
-const NIVEL_META = 3;
+const NIVEIS: Array<{ n: 1 | 2 | 3 | 4; rotulo: string }> = [
+  { n: 1, rotulo: 'gap' },
+  { n: 2, rotulo: 'desenvolvimento' },
+  { n: 3, rotulo: 'meta' },
+  { n: 4, rotulo: 'referência' },
+];
 
 export function Porta2({
   conteudo,
@@ -57,36 +65,38 @@ export function Porta2({
   const regua = acharRegua(conteudo, reguaId);
   const cenario = regua.cenario;
   const descritorTestado = regua.descritores.find((d) => d.cod === cenario.descritor_cod);
+  const leitura = lerConversa(cenario);
 
   const [passo, setPasso] = useState<1 | 2 | 3 | 4>(1);
-  const [escolhaId, setEscolhaId] = useState<string | null>(null);
+  const [atribuido, setAtribuido] = useState<1 | 2 | 3 | 4 | null>(null);
 
-  const escolha = cenario.respostas.find((r) => r.id === escolhaId) ?? null;
-  const porNivel = [...cenario.respostas].sort((a, b) => a.nivel - b.nivel);
-
-  // Trocar de competência troca o CENÁRIO inteiro: a escolha feita no anterior
-  // não significa nada aqui (é o id de uma resposta que não existe mais), e a
-  // matriz é outra. Voltar ao passo 1 é a única leitura honesta — herdar o
-  // estado deixaria a tela mostrando a leitura de um cenário que saiu do ar.
+  // Trocar de competência troca a CONVERSA inteira: a classificação feita na
+  // anterior não significa nada aqui (é a leitura de outra pessoa, em outro
+  // descritor), e a matriz é outra. Voltar ao passo 1 é a única leitura
+  // honesta — herdar o estado deixaria a tela comparando a nota que ele deu ao
+  // Marcelo com a leitura da régua sobre a Renata.
   function trocarRegua(id: string) {
     if (id === reguaId) return;
     onTrocarRegua(id);
-    setEscolhaId(null);
+    setAtribuido(null);
     setPasso(1);
   }
 
-  function escolher(r: RespostaCenario) {
-    setEscolhaId(r.id);
+  function classificar(n: 1 | 2 | 3 | 4) {
+    setAtribuido(n);
     onFinalizar({
       regua: regua.id,
       competencia: regua.competencia,
       cenario: cenario.id,
       descritor: cenario.descritor_cod,
-      nivel_aceito: r.nivel,
-      nivel_meta: NIVEL_META,
+      nivel_atribuido: n,
+      nivel_regua: leitura.nivel,
+      nota_regua: leitura.nota,
     });
     setPasso(3);
   }
+
+  const relacao = atribuido ? compararComRegua(atribuido, leitura.nivel) : null;
 
   return (
     <div>
@@ -134,14 +144,15 @@ export function Porta2({
             }}
           >
             Na plataforma é assim que a evidência nasce: a situação é gerada para o cargo, a
-            competência e o contexto da empresa — ninguém digita relatório depois.
+            competência e o contexto da empresa — e {cenario.avaliado.nome} responde a quatro
+            perguntas sobre ela, no celular, em três minutos. Ninguém digita relatório depois.
           </p>
 
-          <BarraAcao primaria={{ rotulo: 'Ver as 4 respostas', onClick: () => setPasso(2) }} />
+          <BarraAcao primaria={{ rotulo: 'Ver a conversa', onClick: () => setPasso(2) }} />
         </div>
       )}
 
-      {/* ── Passo 2: a escolha (o ÚNICO toque) ──────────────────── */}
+      {/* ── Passo 2: a conversa + a classificação (o ÚNICO toque) ─ */}
       {passo === 2 && (
         <div>
           <h2
@@ -154,38 +165,78 @@ export function Porta2({
               margin: 0,
             }}
           >
-            {cenario.pergunta}
+            A conversa de {cenario.avaliado.nome} com a plataforma
           </h2>
           <p style={{ color: COR.texto2, fontSize: 19, fontFamily: SANS, marginTop: 10 }}>
-            As quatro são plausíveis e você já ouviu todas elas. Sem tabela, sem régua — só o seu
-            critério de gestor.
+            {cenario.avaliado.cargo} · quatro perguntas, três minutos. É tudo que a régua vai ter
+            para ler — e tudo que você vai ter também.
           </p>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-8">
-            {cenario.respostas.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => escolher(r)}
-                className="rounded-3xl border p-5 text-left"
-                style={{ minHeight: TOQUE, background: COR.card, borderColor: COR.bordaAcento }}
-              >
-                <span
-                  className="block"
-                  style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.55, fontFamily: SANS }}
-                >
-                  {r.texto}
-                </span>
-              </button>
+          <div className="space-y-4 mt-8">
+            {cenario.conversa.map((t, i) => (
+              <Turno key={i} indice={i} turno={t} avaliado={cenario.avaliado.nome} />
             ))}
           </div>
+
+          {/* O toque. A régua NÃO está na tela: se estivesse, ele leria a âncora
+              em vez de classificar — e a demo mediria a capacidade dele de
+              casar dois textos. O nome do descritor fica, porque classificar
+              sem saber o que está sendo avaliado não é instinto, é adivinhação. */}
+          <section
+            className="rounded-3xl border p-6 mt-10"
+            style={{ background: COR.card, borderColor: COR.bordaAcento }}
+          >
+            <p
+              className="uppercase font-bold"
+              style={{ color: COR.acento, fontSize: 13, letterSpacing: '0.2em', fontFamily: SANS, margin: 0 }}
+            >
+              Descritor avaliado · {descritorTestado?.nome_curto ?? cenario.descritor_cod}
+            </p>
+            <h3
+              style={{
+                color: COR.texto,
+                fontFamily: SERIF,
+                fontSize: 'clamp(22px, 2.8vw, 30px)',
+                fontWeight: 600,
+                lineHeight: 1.2,
+                marginTop: 10,
+                marginBottom: 6,
+              }}
+            >
+              Que nível você daria a {cenario.avaliado.nome} nesse ponto?
+            </h3>
+            <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 0, marginBottom: 18 }}>
+              Sem a régua na tela — como acontece na avaliação de verdade, quando o gestor decide de
+              cabeça.
+            </p>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {NIVEIS.map(({ n, rotulo }) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => classificar(n)}
+                  className="rounded-2xl border p-4 text-left"
+                  style={{ minHeight: TOQUE, background: COR.fundo0, borderColor: COR.borda }}
+                >
+                  <span
+                    className="block font-bold"
+                    style={{ color: COR.acento, fontSize: 26, fontFamily: SANS, lineHeight: 1.1 }}
+                  >
+                    N{n}
+                  </span>
+                  <span style={{ color: COR.texto2, fontSize: 15, fontFamily: SANS }}>{rotulo}</span>
+                </button>
+              ))}
+            </div>
+          </section>
 
           <BarraAcao secundaria={{ rotulo: 'Reler a situação', onClick: () => setPasso(1) }} />
         </div>
       )}
 
       {/* ── Passo 3: a matriz revelada (antes da leitura) ───────── */}
-      {passo === 3 && escolha && (
+      {passo === 3 && atribuido && (
         <div>
           <h2
             style={{
@@ -197,24 +248,24 @@ export function Porta2({
               margin: 0,
             }}
           >
-            Você aceitaria essa resposta. Agora olha a régua que torna essa escolha{' '}
-            <em style={{ color: COR.acento }}>auditável</em>.
+            Você classificou de cabeça — como todo mundo faz. Agora olha a régua que torna essa
+            leitura <em style={{ color: COR.acento }}>auditável</em>.
           </h2>
           <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 20, marginBottom: 10 }}>
             {descritorTestado
-              ? `A situação testa um descritor: ${descritorTestado.nome_curto}. Ele já está aberto.`
+              ? `A conversa testa um descritor: ${descritorTestado.nome_curto}. Ele já está aberto.`
               : `${regua.descritores.length} descritores. Toque para ver a régua de cada um.`}
           </p>
           <MatrizDescritores descritores={regua.descritores} inicial={cenario.descritor_cod} />
           <BarraAcao
-            primaria={{ rotulo: 'Ver a leitura da sua escolha', onClick: () => setPasso(4) }}
-            secundaria={{ rotulo: 'Voltar às respostas', onClick: () => setPasso(2) }}
+            primaria={{ rotulo: 'Comparar com a leitura da régua', onClick: () => setPasso(4) }}
+            secundaria={{ rotulo: 'Reler a conversa', onClick: () => setPasso(2) }}
           />
         </div>
       )}
 
-      {/* ── Passo 4: a leitura da régua ─────────────────────────── */}
-      {passo === 4 && escolha && (
+      {/* ── Passo 4: a sua leitura × a da régua ─────────────────── */}
+      {passo === 4 && atribuido && (
         <div>
           <h2
             style={{
@@ -226,24 +277,20 @@ export function Porta2({
               margin: 0,
             }}
           >
-            {escolha.nivel >= NIVEL_META ? (
-              <>
-                Você aceitaria um <em style={{ color: COR.acento }}>N{escolha.nivel}</em> — o seu
-                padrão já está na meta da régua.
-              </>
-            ) : (
-              <>
-                Você aceitaria um <em style={{ color: COR.acento }}>N{escolha.nivel}</em> — e a meta
-                da régua é N{NIVEL_META}.
-              </>
-            )}
+            Você leu <em style={{ color: COR.acento }}>N{atribuido}</em>. A régua lê{' '}
+            <em style={{ color: COR.acento }}>N{leitura.nivel}</em> — {formatarNota(leitura.nota)}{' '}
+            {relacao === 'igual' ? 'na mesma direção.' : 'na mesma conversa.'}
           </h2>
           <p style={{ color: COR.texto2, fontSize: 19, lineHeight: 1.5, fontFamily: SANS, marginTop: 12 }}>
-            Não é certo ou errado: é o mesmo padrão dito em voz alta. Sem a régua, essa exigência
-            muda de gestor para gestor — e a pessoa avaliada não tem como saber qual delas vale.
+            {relacao === 'igual' &&
+              'Mesma leitura — e é o que costuma acontecer com quem já tem uma régua na cabeça. A diferença não está na nota: está em conseguir mostrar em que trecho ela se apoia, e em repetir isso amanhã, com outro avaliador.'}
+            {relacao === 'acima' &&
+              'Não é certo ou errado: é o mesmo padrão dito em voz alta. Você leu a conversa com mais generosidade do que a régua — e é assim que a exigência muda de gestor para gestor, sem ninguém perceber.'}
+            {relacao === 'abaixo' &&
+              'Não é certo ou errado: é o mesmo padrão dito em voz alta. Você foi mais exigente do que a régua — e é assim que a exigência muda de gestor para gestor, sem ninguém perceber.'}
           </p>
 
-          {/* A escolha dele, lida em detalhe */}
+          {/* A leitura do motor sobre o conjunto */}
           <section
             className="rounded-3xl border p-6 mt-8"
             style={{ background: COR.card, borderColor: COR.bordaAcento }}
@@ -252,68 +299,45 @@ export function Porta2({
               className="uppercase font-bold"
               style={{ color: COR.acento, fontSize: 13, letterSpacing: '0.2em', fontFamily: SANS, margin: 0 }}
             >
-              Sua escolha · {NOMES_NIVEL[escolha.nivel]}
+              A leitura da régua · {descritorTestado?.nome_curto ?? cenario.descritor_cod}
             </p>
             <p style={{ color: COR.texto, fontSize: 18, lineHeight: 1.55, fontFamily: SANS, marginTop: 8, marginBottom: 0 }}>
-              {escolha.texto}
+              {cenario.justificativa}
             </p>
-            <blockquote
-              className="rounded-2xl p-4 mt-4"
-              style={{ background: 'rgba(255,255,255,0.03)', borderLeft: `4px solid ${COR.acento}`, margin: 0 }}
-            >
-              <p style={{ color: COR.texto, fontSize: 17, lineHeight: 1.55, fontFamily: SANS, margin: 0, fontStyle: 'italic' }}>
-                {escolha.evidencia}
-              </p>
-            </blockquote>
-            <p style={{ color: COR.texto2, fontSize: 17, lineHeight: 1.55, fontFamily: SANS, marginTop: 10, marginBottom: 0 }}>
-              {escolha.justificativa}
-            </p>
-            <p style={{ color: COR.texto3, fontSize: 16, lineHeight: 1.5, fontFamily: SANS, marginTop: 6, marginBottom: 0 }}>
-              {escolha.limite}
+            <p style={{ color: COR.texto3, fontSize: 16, lineHeight: 1.5, fontFamily: SANS, marginTop: 10, marginBottom: 0 }}>
+              {cenario.limite}
             </p>
           </section>
 
-          {/* As quatro, agora por nível — a prova de que a régua ordena */}
+          {/* Turno a turno: é aqui que "auditável" deixa de ser palavra */}
           <p style={{ color: COR.texto3, fontSize: 16, fontFamily: SANS, marginTop: 26, marginBottom: 10 }}>
-            As quatro respostas, na régua:
+            Onde a régua se apoiou, turno a turno:
           </p>
           <div className="space-y-3">
-            {porNivel.map((r) => {
-              const sua = r.id === escolha.id;
-              return (
-                <div
-                  key={r.id}
-                  className="rounded-2xl border p-4 flex gap-4"
-                  style={{
-                    background: sua ? 'rgba(52,197,204,0.10)' : COR.card,
-                    borderColor: sua ? COR.bordaAcento : COR.borda,
-                  }}
-                >
-                  <span
-                    className="flex items-center justify-center rounded-full flex-shrink-0 font-bold"
-                    style={{
-                      width: 44,
-                      height: 44,
-                      background: sua ? COR.acento : 'rgba(255,255,255,0.06)',
-                      color: sua ? COR.fundo0 : COR.texto3,
-                      fontSize: 17,
-                      fontFamily: SANS,
-                    }}
-                  >
-                    N{r.nivel}
-                  </span>
-                  <span style={{ color: sua ? COR.texto : COR.texto2, fontSize: 16, lineHeight: 1.5, fontFamily: SANS }}>
-                    {r.texto}
-                    {sua && (
-                      <strong className="flex items-center gap-1.5" style={{ color: COR.acento, marginTop: 6 }}>
-                        <Check size={16} strokeWidth={3} /> a sua
-                      </strong>
-                    )}
-                  </span>
-                </div>
-              );
-            })}
+            {cenario.conversa.map((t, i) => (
+              <Turno key={i} indice={i} turno={t} avaliado={cenario.avaliado.nome} revelado />
+            ))}
           </div>
+
+          {/* O ponto que o expositor fala em voz alta neste momento. */}
+          <section
+            className="rounded-3xl border p-6 mt-8"
+            style={{ background: 'rgba(52,197,204,0.08)', borderColor: COR.bordaAcento }}
+          >
+            <p
+              className="uppercase font-bold"
+              style={{ color: COR.acento, fontSize: 13, letterSpacing: '0.2em', fontFamily: SANS, margin: 0 }}
+            >
+              A régua não tem viés
+            </p>
+            <p style={{ color: COR.texto, fontSize: 18, lineHeight: 1.55, fontFamily: SANS, marginTop: 8, marginBottom: 0 }}>
+              Ela lê o que está escrito ali — não a simpatia da pessoa, não a última reunião, não a
+              sexta-feira que o avaliador teve. A mesma conversa, amanhã, recebe a mesma leitura; e
+              os outros líderes da empresa são lidos pelo mesmo critério, com o mesmo trecho na mão.
+              É por isso que {cenario.avaliado.nome} pode discordar da nota sem que vire discussão
+              de personalidade: discorda-se de um trecho, não de uma impressão.
+            </p>
+          </section>
 
           {modoVisitante ? (
             <div className="mt-10">
@@ -344,6 +368,105 @@ export function Porta2({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Um turno da conversa. O MESMO componente serve os dois momentos — antes da
+ * classificação (só pergunta e resposta) e depois dela (`revelado`: nível,
+ * trecho e leitura). Um componente só porque o visitante precisa reconhecer,
+ * na comparação, a mesma conversa que leu — e porque duplicar a marcação era
+ * o caminho curto para o nível vazar na tela onde ele ainda não pode aparecer.
+ */
+function Turno({
+  indice,
+  turno,
+  avaliado,
+  revelado,
+}: {
+  indice: number;
+  turno: TurnoConversa;
+  avaliado: string;
+  revelado?: boolean;
+}) {
+  return (
+    <div
+      className="rounded-2xl border p-5"
+      style={{ background: COR.card, borderColor: revelado ? COR.bordaAcento : COR.borda }}
+    >
+      <div className="flex items-start gap-4">
+        <span
+          className="flex items-center justify-center rounded-full flex-shrink-0 font-bold"
+          style={{
+            width: 40,
+            height: 40,
+            background: revelado ? COR.acento : 'rgba(255,255,255,0.06)',
+            color: revelado ? COR.fundo0 : COR.texto3,
+            fontSize: revelado ? 15 : 17,
+            fontFamily: SANS,
+          }}
+        >
+          {revelado ? `N${turno.nivel}` : indice + 1}
+        </span>
+        <div style={{ minWidth: 0 }}>
+          <p
+            style={{
+              color: COR.texto3,
+              fontSize: 16,
+              lineHeight: 1.45,
+              fontFamily: SANS,
+              margin: 0,
+              fontStyle: 'italic',
+            }}
+          >
+            {turno.pergunta}
+          </p>
+          <p
+            style={{
+              color: COR.texto,
+              fontSize: 17,
+              lineHeight: 1.55,
+              fontFamily: SANS,
+              marginTop: 8,
+              marginBottom: 0,
+            }}
+          >
+            <strong style={{ color: COR.texto2 }}>{avaliado}:</strong> {turno.resposta}
+          </p>
+
+          {revelado && (
+            <>
+              <p
+                className="flex items-start gap-2"
+                style={{
+                  color: COR.acento,
+                  fontSize: 16,
+                  lineHeight: 1.5,
+                  fontFamily: SANS,
+                  marginTop: 12,
+                  marginBottom: 0,
+                }}
+              >
+                <Quote size={16} strokeWidth={2.5} style={{ flexShrink: 0, marginTop: 4 }} />
+                {turno.evidencia}
+              </p>
+              <p
+                style={{
+                  color: COR.texto2,
+                  fontSize: 16,
+                  lineHeight: 1.5,
+                  fontFamily: SANS,
+                  marginTop: 6,
+                  marginBottom: 0,
+                }}
+              >
+                {turno.leitura}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

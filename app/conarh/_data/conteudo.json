@@ -124,41 +124,39 @@
       "id": "fbk-fechamento-diego",
       "descritor_cod": "FBK-D04",
       "situacao": "Sexta-feira, dois caminhões saíram sem a conferência dupla que o procedimento exige. Um cliente estratégico recebeu carga trocada e abriu reclamação formal. Segunda de manhã, Renata chama o Diego — coordenador de expedição há oito meses, técnico forte, primeira vez liderando gente. Ela já disse o que aconteceu e já ouviu a versão dele: dois conferentes faltaram e ele foi para a linha ajudar a carregar. Agora ela precisa fechar a conversa.",
-      "pergunta": "Qual desses fechamentos você aceitaria de um gestor do seu time?",
-      "respostas": [
+      "avaliado": { "nome": "Renata", "cargo": "Gerente de Operações" },
+      "conversa": [
         {
-          "id": "fbk-r1",
-          "texto": "\"Então vamos redobrar a atenção nessa conferência a partir de hoje. Vou observar nas próximas semanas.\"",
-          "nivel": 2,
-          "evidencia": "\"vamos redobrar a atenção\" · \"vou observar nas próximas semanas\"",
-          "justificativa": "Parece fechamento — e é aqui que gestores experientes mais divergem da leitura. Mas \"redobrar a atenção\" não é observável: não diz o que o Diego faz diferente na próxima sexta com dois conferentes a menos, não tem medida e não tem data. E \"vou observar\" é intenção da gestora, não combinado dos dois.",
-          "limite": "Para N3, faltou virar ação + medida + data: o que ele faz, como os dois vão ver, e o dia em que revisam juntos."
-        },
-        {
-          "id": "fbk-r2",
-          "texto": "\"O que você faria diferente na próxima sexta, com dois conferentes a menos?\" A partir da resposta dele, fecham juntos: carga não sai sem conferência, falta de conferente é escalada na hora, revisão sexta às 16h. E encerra: \"o que está em jogo aqui é decidir sob pressão sem largar o procedimento — é isso que separa coordenador de gerente.\"",
-          "nivel": 4,
-          "evidencia": "\"O que você faria diferente na próxima sexta…\" · \"é isso que separa coordenador de gerente\"",
-          "justificativa": "O combinado é construído COM ele — a pergunta vem antes da regra — e tem as três partes verificáveis (ação, medida, data). Além disso liga o episódio à competência que ele precisa construir, então o feedback deixa de ser evento e vira ciclo.",
-          "limite": "É o topo da régua neste descritor. O que sustenta o N4 não é a fala: é a revisão acontecer na data marcada."
-        },
-        {
-          "id": "fbk-r3",
-          "texto": "\"Diego, isso não pode acontecer de novo. Conto com você — você tem potencial pra crescer aqui dentro.\"",
+          "pergunta": "Você já ouviu a versão do Diego. Como você fecha essa conversa — o que ele leva quando sai da sala?",
+          "resposta": "Fui direta, como sempre sou. Mostrei a reclamação do cliente, disse que conferência dupla não é opcional e que a liberação da carga é responsabilidade dele. Terminei dizendo que conto com ele: o Diego é o melhor técnico que eu tenho e vai crescer aqui dentro.",
           "nivel": 1,
-          "evidencia": "\"isso não pode acontecer de novo\" · \"conto com você\"",
-          "justificativa": "A conversa termina no ar: sem ação, sem dono e sem prazo. É desabafo com agenda. Na sexta seguinte, nenhum dos dois consegue dizer se o combinado foi cumprido — porque não houve combinado.",
-          "limite": "Para N2, faltaria pelo menos nomear o que muda na rotina; para N3, um combinado que os dois consigam verificar."
+          "evidencia": "\"conferência dupla não é opcional\" · \"conto com ele\"",
+          "leitura": "A conversa foi clara sobre o fato e firme no tom — só que termina em cobrança mais voto de confiança. Não há ação, dono nem prazo: o Diego sai sabendo o que fez de errado e sem saber o que vai fazer diferente."
         },
         {
-          "id": "fbk-r4",
-          "texto": "\"A partir de hoje o checklist de liberação é conferido e assinado por caminhão, sem exceção. Se faltar conferente, a carga não sai e você me escala na hora. Sexta às 16h a gente revisa juntos.\"",
-          "nivel": 3,
-          "evidencia": "\"conferido e assinado por caminhão\" · \"sexta às 16h a gente revisa juntos\"",
-          "justificativa": "Tem as três partes de um combinado verificável: a ação (checklist assinado), a medida (por caminhão, sem exceção) e a data (sexta, 16h). Os dois saem da sala sabendo o que vão olhar e quando.",
-          "limite": "Para N4, faltou construir o combinado com ele — perguntar o que ELE mudaria na rotina — e amarrar isso à competência em desenvolvimento."
+          "pergunta": "Na próxima sexta faltam dois conferentes de novo. O que o Diego faz de diferente?",
+          "resposta": "Ele vai redobrar a atenção na liberação. Ficou claro pra ele que carga não sai sem conferência — antes isso não estava dito com essa letra.",
+          "nivel": 2,
+          "evidencia": "\"vai redobrar a atenção na liberação\"",
+          "leitura": "É aqui que gestores experientes mais divergem da régua: parece combinado, mas \"redobrar a atenção\" não é observável. Não diz o que muda na operação quando faltam duas pessoas — e atenção não sobrevive à sexta seguinte."
+        },
+        {
+          "pergunta": "Como vocês dois vão saber, daqui a duas semanas, se isso está acontecendo?",
+          "resposta": "Eu vou acompanhar de perto nas próximas semanas. Passo na expedição quase toda sexta, dá pra ver pelo movimento se está rodando direito — e o pessoal me procura quando aperta.",
+          "nivel": 2,
+          "evidencia": "\"eu vou acompanhar de perto\" · \"dá pra ver pelo movimento\"",
+          "leitura": "A verificação é observação da gestora, não combinado dos dois. Depende de ela estar lá e de o problema aparecer — o Diego não tem como demonstrar sozinho que cumpriu."
+        },
+        {
+          "pergunta": "Ficou marcada alguma data para vocês revisarem isso juntos?",
+          "resposta": "Data marcada não. A gente se fala todo dia, se aparecer qualquer coisa eu trato na hora.",
+          "nivel": 1,
+          "evidencia": "\"data marcada não\"",
+          "leitura": "Sem data, a revisão só acontece se houver um novo incidente. O feedback vira evento em vez de ciclo — é exatamente por aqui que o recado é dado e nada muda."
         }
-      ]
+      ],
+      "justificativa": "A Renata é forte onde a maioria falha: ancorou no fato, não amenizou e não terceirizou. Neste descritor, porém, os quatro turnos terminam em intenção — o que muda na próxima sexta é \"atenção\", quem verifica é ela, e a revisão não tem data. É a distância entre dar o recado e fechar um combinado.",
+      "limite": "Para N3, faltava uma frase no fim da conversa: o que o Diego faz (ação), como os dois vão ver (medida) e o dia em que revisam juntos (data)."
     },
     "reguas_vitrine": [
       {
@@ -216,42 +214,40 @@
         "cenario": {
           "id": "vnd-proposta-na-primeira",
           "descritor_cod": "VND-D01",
-          "situacao": "Primeira reunião com o diretor de operações de uma rede de 40 lojas. Aos oito minutos ele corta: \"Olha, eu já pesquisei bastante. Me manda a proposta com preço por usuário que eu levo pro comitê na quinta.\" Você ainda não sabe o que o fez procurar o mercado agora — nem quanto o problema custa hoje.",
-          "pergunta": "Qual dessas respostas você aceitaria de alguém do seu time comercial?",
-          "respostas": [
+          "situacao": "Primeira reunião do Marcelo — executivo de contas há dois anos — com o diretor de operações de uma rede de 40 lojas. Aos oito minutos o diretor corta: \"Olha, eu já pesquisei bastante. Me manda a proposta com preço por usuário que eu levo pro comitê na quinta.\" Marcelo ainda não sabe o que fez a rede procurar o mercado agora, nem quanto o problema custa hoje.",
+          "avaliado": { "nome": "Marcelo", "cargo": "Executivo de Contas" },
+          "conversa": [
             {
-              "id": "vnd-r1",
-              "texto": "\"Mando na quinta. Antes preciso de dez minutos: o que fez vocês procurarem o mercado agora, o que já tentaram e quanto isso está custando hoje?\" Ele descreve o problema, e a proposta sai com os números dele dentro.",
-              "nivel": 3,
-              "evidencia": "\"o que já tentaram e quanto isso está custando hoje\"",
-              "justificativa": "Investiga situação, tentativa anterior e custo antes de propor qualquer coisa. A proposta deixa de ser catálogo e passa a devolver ao cliente a dor dele, em números — que é o que sobrevive dentro do comitê, onde o vendedor não está.",
-              "limite": "Para N4, faltou levar o diagnóstico até onde ele enxerga um problema que ainda não tinha nomeado."
-            },
-            {
-              "id": "vnd-r2",
-              "texto": "\"Perfeito, mando ainda hoje.\" Envia a proposta padrão com a tabela de preço por usuário e pede retorno na quinta.",
+              "pergunta": "O diretor pediu a proposta aos oito minutos. O que você fez em seguida?",
+              "resposta": "Falei que mandava na quinta, sem falta. Ele estava com pressa e já tinha pesquisado — insistir em perguntar ali seria empurrar um roteiro que ele não pediu. Prefiro ganhar a confiança entregando rápido.",
               "nivel": 1,
-              "evidencia": "\"Perfeito, mando ainda hoje\" — proposta padrão, sem uma pergunta",
-              "justificativa": "Apresenta solução na abertura. A proposta vira uma tabela de preço comparável com qualquer concorrente, porque não tem nada dentro dela que só este cliente reconheça.",
-              "limite": "Para N2, bastaria entender a operação antes de dimensionar o que quer que seja."
+              "evidencia": "\"insistir em perguntar ali seria empurrar um roteiro\"",
+              "leitura": "A proposta foi para a mesa sem uma pergunta de diagnóstico. O que chega ao comitê na quinta é uma tabela de preço — comparável com a de qualquer concorrente, porque não tem uma linha dentro dela que só esta rede reconheça."
             },
             {
-              "id": "vnd-r3",
-              "texto": "\"Mando na quinta. Antes: o que mudou aí para isso virar prioridade agora?\" Ele fala do turnover de gerentes. Você devolve: \"se cada gerente que sai custa três meses de curva, nas 40 lojas isso dá quantos por ano — e quanto vale?\" Ele para: \"nunca contei assim.\"",
-              "nivel": 4,
-              "evidencia": "\"nunca contei assim\"",
-              "justificativa": "O diagnóstico não só levanta a dor: faz o cliente enxergar um problema que ele ainda não tinha quantificado. A partir daí a proposta nasce da descoberta dele — e é ele quem defende o número lá dentro, com as próprias palavras.",
-              "limite": "É o topo da régua neste descritor. O risco de N4 é virar exibição de raciocínio: o número tem que ser o dele, não o seu."
-            },
-            {
-              "id": "vnd-r4",
-              "texto": "\"Fechado. Antes de mandar, me conta rapidinho como funciona hoje: quantas lojas, quantas pessoas por loja, quem cuida disso aí?\" E monta a proposta dimensionada com esses números.",
+              "pergunta": "O que você já sabia sobre a operação dele quando montou a proposta?",
+              "resposta": "Sabia o tamanho: 40 lojas, média de doze pessoas por loja, RH centralizado em São Paulo. Dimensionei a proposta com esses números, inclusive as faixas de desconto por volume.",
               "nivel": 2,
-              "evidencia": "\"quantas lojas, quantas pessoas por loja\"",
-              "justificativa": "Pergunta sobre a operação — já é mais do que despejar catálogo. Mas para no retrato: sabe o tamanho, não sabe o que dói nem quanto custa. A proposta sai bem dimensionada e mesmo assim comparável só por preço.",
-              "limite": "Para N3, faltou o impacto: o que o problema custa hoje e o que já tentaram antes."
+              "evidencia": "\"Dimensionei a proposta com esses números\"",
+              "leitura": "Conhecer o tamanho é mais do que despejar catálogo — e é aqui que a maioria dos times comerciais se considera consultiva. Mas o retrato diz quantas pessoas existem, não o que dói nem quanto custa."
+            },
+            {
+              "pergunta": "O que fez essa rede procurar o mercado agora — por que este mês, e não no ano passado?",
+              "resposta": "Ele não chegou a dizer. Acho que é o momento: o mercado inteiro está falando de desenvolvimento de liderança e eles devem ter visto os concorrentes se mexendo.",
+              "nivel": 1,
+              "evidencia": "\"Ele não chegou a dizer. Acho que é o momento\"",
+              "leitura": "O gatilho da compra é a informação mais barata da reunião e a que mais decide: sem ela, a urgência dentro do comitê é a do vendedor, não a do cliente. No lugar dela entrou uma suposição de mercado."
+            },
+            {
+              "pergunta": "Quanto o problema custa hoje para essa rede?",
+              "resposta": "Em número exato eu não tenho. Mas dá pra sustentar com o retorno médio dos nossos clientes — costumo mostrar o case da rede do Sul, que é parecida com a dele.",
+              "nivel": 2,
+              "evidencia": "\"Em número exato eu não tenho\" · \"mostro o case da rede do Sul\"",
+              "leitura": "O caso de outro cliente é benefício genérico com sotaque: quem defende a compra lá dentro precisa do número da própria operação. Sem custo do problema, a conversa no comitê volta para preço."
             }
-          ]
+          ],
+          "justificativa": "Marcelo é rápido, conhece o produto e responde no prazo — o comercial inteiro trabalha assim. Só que a proposta que ele mandou na quinta é dimensionada, não diagnosticada: tem quantas pessoas, não tem o que dói, o que já tentaram nem quanto isso custa. No comitê, onde o vendedor não está, sobra o preço.",
+          "limite": "Para N3, faltaram três perguntas antes de qualquer proposta: o que mudou para isso virar prioridade agora, o que já tentaram e quanto o problema custa hoje."
         }
       },
       {
@@ -309,42 +305,40 @@
         "cenario": {
           "id": "rsp-fechamento-atrasado",
           "descritor_cod": "RSP-D02",
-          "situacao": "Pela terceira vez no mês, o fechamento contábil atrasou dois dias. O financeiro aponta o comercial (pedidos lançados em cima do prazo); o comercial aponta o sistema (lentidão no fim do mês). Você apresenta à diretoria na sexta e precisa dizer o que vai fazer.",
-          "pergunta": "Qual desses encaminhamentos você aceitaria de quem responde por esse processo?",
-          "respostas": [
+          "situacao": "Pela terceira vez no mês, o fechamento contábil atrasou dois dias. O financeiro aponta o comercial (pedidos lançados em cima do prazo); o comercial aponta o sistema (lentidão no fim do mês). Sérgio, coordenador de controladoria, responde pelo processo e apresenta à diretoria na sexta.",
+          "avaliado": { "nome": "Sérgio", "cargo": "Coordenador de Controladoria" },
+          "conversa": [
             {
-              "id": "rsp-r1",
-              "texto": "Puxa a data de lançamento dos pedidos, vê que 30% entram nos dois últimos dias e conclui: é o comercial. Leva à diretoria uma regra nova de corte de lançamento.",
+              "pergunta": "O que está causando o atraso do fechamento?",
+              "resposta": "É o comercial. Puxei a data de lançamento dos pedidos: 30% entram nos dois últimos dias. Com esse volume represado no fim, não tem fechamento que feche no prazo.",
               "nivel": 2,
-              "evidencia": "\"30% entram nos dois últimos dias — é o comercial\"",
-              "justificativa": "Buscou dado, o que já separa isto de um palpite. Mas parou na primeira causa plausível: os 30% explicam a concentração, não o atraso. A hipótese do sistema nunca foi testada — e a regra de corte pode empurrar o problema para outro lugar.",
-              "limite": "Para N3, faltou tratar as duas versões como hipóteses concorrentes e usar evidência para descartar uma."
+              "evidencia": "\"Puxei a data de lançamento: 30% entram nos dois últimos dias\"",
+              "leitura": "Foi atrás de dado antes de apontar — isso já separa a resposta de um palpite. Mas os 30% explicam a concentração, não o atraso: a mesma evidência é compatível com as duas versões em disputa."
             },
             {
-              "id": "rsp-r2",
-              "texto": "Cruza a hora de lançamento com o tempo de resposta do sistema. A lentidão só aparece acima de 200 pedidos/hora — e os 30% do fim do mês estouram esse teto. Leva as duas coisas: o pico é real e o sistema não aguenta o pico.",
-              "nivel": 3,
-              "evidencia": "\"a lentidão só aparece acima de 200 pedidos/hora\"",
-              "justificativa": "Levantou as duas hipóteses e usou evidência para ver qual se sustenta — e a resposta não é \"a culpa é de fulano\": é a interação entre as duas. Sai da reunião com um diagnóstico que nenhuma das duas áreas consegue contestar no grito.",
-              "limite": "Para N4, faltou desenhar a verificação que ISOLA a causa — e dizer o que faria mudar de ideia."
-            },
-            {
-              "id": "rsp-r3",
-              "texto": "\"É o comercial de novo — todo mês é a mesma coisa.\" Escala a cobrança com o diretor comercial e aperta o prazo de lançamento dos pedidos.",
+              "pergunta": "E a versão do comercial, de que o sistema fica lento no fim do mês?",
+              "resposta": "Todo mundo reclama de sistema. Se fosse o sistema, atrasaria também no meio do mês — e não atrasa. Pra mim isso é desculpa pro lançamento em cima da hora.",
               "nivel": 1,
-              "evidencia": "\"todo mês é a mesma coisa\"",
-              "justificativa": "A causa vem do hábito, não de evidência: escolheu o culpado mais plausível e já agiu sobre ele. Se a lentidão for real, o prazo mais apertado piora o problema — e o próximo fechamento atrasa de novo, agora com o time desgastado.",
-              "limite": "Para N2, bastaria olhar um dado antes de decidir de quem é a causa."
+              "evidencia": "\"Todo mundo reclama de sistema\" · \"pra mim isso é desculpa\"",
+              "leitura": "A hipótese concorrente foi descartada por raciocínio e por hábito, não por evidência — e o raciocínio tem um furo: se a lentidão depender de volume, ela só apareceria no fim do mês mesmo."
             },
             {
-              "id": "rsp-r4",
-              "texto": "Antes de levar qualquer conclusão, roda o teste que separa as hipóteses: reproduz o mesmo volume num dia comum. O tempo de resposta cai — o gargalo é volume, não calendário. Leva à diretoria a hipótese que sobrou, o dado que a sustenta e o que a derrubaria.",
-              "nivel": 4,
-              "evidencia": "\"o que a sustenta e o que a derrubaria\"",
-              "justificativa": "Desenhou a verificação que distingue as hipóteses em vez de acumular indício, e apresentou a decisão como hipótese verificável — inclusive dizendo o que a faria mudar. É isso que impede a reunião de virar disputa de narrativa entre duas áreas.",
-              "limite": "É o topo da régua neste descritor. O que sustenta o N4 é mudar de posição quando o dado contrariar a sua."
+              "pergunta": "Que dado você olhou sobre o desempenho do sistema nesses dias?",
+              "resposta": "Abri chamado no TI e eles responderam que não houve indisponibilidade registrada no período. Pra mim isso encerra a discussão.",
+              "nivel": 2,
+              "evidencia": "\"não houve indisponibilidade registrada\" · \"isso encerra a discussão\"",
+              "leitura": "O dado existe, mas responde outra pergunta: indisponibilidade é o sistema fora do ar; a versão do comercial é lentidão sob carga. Um dado que não distingue as hipóteses não descarta nenhuma."
+            },
+            {
+              "pergunta": "O que você vai propor na sexta — e o que faria você mudar de ideia?",
+              "resposta": "Corte de lançamento no dia 25, sem exceção. Mudar de ideia... se depois do corte continuar atrasando, aí a gente reabre a discussão.",
+              "nivel": 2,
+              "evidencia": "\"se depois do corte continuar atrasando, aí a gente reabre\"",
+              "leitura": "A verificação existe, mas só depois de a decisão já ter custado um mês e o desgaste com o comercial. E se a causa for volume, o corte concentra ainda mais pedidos antes do dia 25 — o teste pode piorar o que queria medir."
             }
-          ]
+          ],
+          "justificativa": "Sérgio não deu palpite: buscou dado nos dois momentos, o que é mais do que a maioria faz numa reunião de diretoria. O que faltou foi tratar as duas versões como hipóteses concorrentes — o dado do TI mede queda, não lentidão sob carga — e por isso ele vai à sexta com a versão de uma das áreas, não com um diagnóstico.",
+          "limite": "Para N3, faltava o cruzamento que separa as duas versões: tempo de resposta por faixa de volume. É uma consulta, não um projeto."
         }
       }
     ]
@@ -467,7 +461,7 @@
   },
   "porta3": {
     "personagem": "Renata Falcão",
-    "lacuna": "FBK-D04 · Definição de próximo passo observável — 1,8 (N2): os feedbacks da Renata terminam em intenção (\"vamos redobrar a atenção\", \"vou observar\"), não em combinado que os dois consigam verificar. É o descritor mais baixo dela — e o que explica por que o recado \"foi dado\" e nada mudou.",
+    "lacuna": "FBK-D04 · Definição de próximo passo observável — 1,5 (N2): os feedbacks da Renata terminam em intenção (\"vamos redobrar a atenção\", \"vou observar\"), não em combinado que os dois consigam verificar. É o descritor mais baixo dela — e o que explica por que o recado \"foi dado\" e nada mudou.",
     "objetivo": "Em 30 dias, toda conversa de feedback da Renata termina com um combinado no formato ação + medida + data de revisão — dito por ela, registrado por escrito e revisado na data marcada.",
     "missao": "Na conversa de acompanhamento com o Diego desta semana, fechar com UM combinado no padrão: o que ele faz de diferente na liberação de carga, como os dois vão ver, e o dia em que revisam juntos. Registrar o combinado por escrito e enviar a ele no mesmo dia.",
     "evidencia_esperada": "Até sexta: mensagem enviada ao Diego com o combinado — ex.: \"checklist de liberação conferido e assinado por caminhão, sem exceção; faltou conferente, a carga não sai e você me escala; revisamos juntos sexta às 16h\".",

@@ -67,18 +67,21 @@ const CAMPANHA_PADRAO = 'radarbett';
 
 export type ConarhSessaoInput = {
   /**
-   * Etapa 2 desde 04/08/2026: o visitante escolhe, entre 4 respostas a um
-   * cenário, a que ACEITARIA — e `nivel_aceito` é o nível dessa resposta na
-   * régua. Substituiu `nota_instintiva`/`reavaliacao`/`divergencias`, que
-   * mediam o mecanismo antigo (registro escrito + reavaliação por descritor).
+   * Etapa 2 desde 05/08/2026: o visitante lê a conversa avaliativa e a
+   * CLASSIFICA num nível (`nivel_atribuido`); `nivel_regua`/`nota_regua` são a
+   * leitura da régua sobre a mesma conversa. Terceiro contrato desta etapa —
+   * os anteriores (`nota_instintiva`/`reavaliacao`/`divergencias` e depois
+   * `nivel_aceito`/`nivel_meta`) mediam mecanismos que saíram da tela, e por
+   * isso foram removidos em vez de reaproveitados.
    */
   cenario?: {
     regua?: string;
     competencia?: string;
     cenario?: string;
     descritor?: string;
-    nivel_aceito?: number;
-    nivel_meta?: number;
+    nivel_atribuido?: number;
+    nivel_regua?: number;
+    nota_regua?: number;
   };
   rotas_iniciadas?: number[];
   rotas_concluidas?: number[];
@@ -159,18 +162,22 @@ function sanitizarSessaoConarh(s?: ConarhSessaoInput): Record<string, unknown> |
   const out: Record<string, unknown> = {};
   const c = s.cenario;
   if (c && typeof c === 'object') {
-    const nivelAceito = Number(c.nivel_aceito);
-    // Sem nível não há o que medir: a linha entraria no painel como sessão
-    // sem resposta e afundaria a média.
-    if (nivelAceito >= 1 && nivelAceito <= 4) {
-      const nivelMeta = Number(c.nivel_meta);
+    const atribuido = Number(c.nivel_atribuido);
+    const daRegua = Number(c.nivel_regua);
+    // Sem os DOIS níveis não há comparação: a linha entraria no painel como
+    // sessão sem leitura e afundaria a média. Os dois porque a métrica do
+    // evento é a distância entre eles — guardar só um seria guardar metade de
+    // um par e deixar o painel completar a outra metade por conta própria.
+    if (atribuido >= 1 && atribuido <= 4 && daRegua >= 1 && daRegua <= 4) {
+      const nota = Number(c.nota_regua);
       out.cenario = {
         regua: String(c.regua || '').slice(0, 80),
         competencia: String(c.competencia || '').slice(0, 200),
         cenario: String(c.cenario || '').slice(0, 80),
         descritor: String(c.descritor || '').slice(0, 40),
-        nivel_aceito: Math.trunc(nivelAceito),
-        nivel_meta: nivelMeta >= 1 && nivelMeta <= 4 ? Math.trunc(nivelMeta) : 3,
+        nivel_atribuido: Math.trunc(atribuido),
+        nivel_regua: Math.trunc(daRegua),
+        nota_regua: nota >= 1 && nota <= 4 ? Math.round(nota * 10) / 10 : daRegua,
       };
     }
   }
