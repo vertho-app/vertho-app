@@ -756,6 +756,23 @@
           }
         ]
       }
+    ],
+    "relatorios": [
+      {
+        "src": "/conarh/media/relatorio-gestor.pdf",
+        "titulo": "Relatório do Gestor",
+        "nota": "O que a liderança direta recebe: resumo executivo da equipe, destaques de evolução e ranking de atenção — cada pessoa com o risco declarado, não só a nota."
+      },
+      {
+        "src": "/conarh/media/relatorio-rh.pdf",
+        "titulo": "Relatório de RH",
+        "nota": "A leitura da organização: onde o time está por competência, o que se repete entre áreas e o que priorizar no próximo ciclo."
+      },
+      {
+        "src": "/conarh/media/perfil-exemplo-d.pdf",
+        "titulo": "Relatório Comportamental",
+        "nota": "O documento individual que sustenta o \"como\" de cada plano — o mesmo que aparece na etapa 4."
+      }
     ]
   },
   "personas": [

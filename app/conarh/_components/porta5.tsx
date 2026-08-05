@@ -3,7 +3,7 @@
 // CONARH 52 — Porta 5: painel do gestor navegável (rotulado "demo").
 // Pessoas × descritores × antes/depois, com status de evolução.
 
-import { TrendingUp, Minus, AlertCircle } from 'lucide-react';
+import { TrendingUp, Minus, AlertCircle, FileText } from 'lucide-react';
 import type { ConteudoConarh } from '../_data/types';
 import { COR, SANS, SERIF } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
@@ -122,6 +122,51 @@ export function Porta5({
           </section>
         ))}
       </div>
+
+      {/* O que SAI do ciclo. O painel acima é a tela; estes são os documentos
+          que gestor, RH e a própria pessoa recebem — gerados pelos componentes
+          do produto a partir do tenant de demonstração. Sem eles, a etapa que
+          responde "o que eu levo para a diretoria" terminava numa tabela. */}
+      {porta5.relatorios && porta5.relatorios.length > 0 && (
+        <section className="mt-12">
+          <p
+            style={{
+              color: COR.texto,
+              fontFamily: SERIF,
+              fontSize: 'clamp(24px, 3vw, 32px)',
+              lineHeight: 1.3,
+              fontWeight: 500,
+              margin: 0,
+            }}
+          >
+            O que sai do ciclo — <em style={{ color: COR.acento }}>em documento, não em slide</em>.
+          </p>
+          <p style={{ color: COR.texto3, fontSize: 17, lineHeight: 1.5, fontFamily: SANS, margin: '8px 0 0' }}>
+            Três leituras da mesma régua: a do gestor sobre o time, a do RH sobre a organização e a
+            individual. Abra qualquer uma — são as peças reais, com dados de demonstração.
+          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+            {porta5.relatorios.map((r) => (
+              <a
+                key={r.src}
+                href={r.src}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-2xl border p-5 flex flex-col"
+                style={{ background: COR.card, borderColor: COR.bordaAcento, textDecoration: 'none' }}
+              >
+                <span className="flex items-center gap-2" style={{ color: COR.acento, fontSize: 18, fontWeight: 700, fontFamily: SANS }}>
+                  <FileText size={19} />
+                  {r.titulo} →
+                </span>
+                <span style={{ color: COR.texto2, fontSize: 16, lineHeight: 1.5, fontFamily: SANS, marginTop: 8 }}>
+                  {r.nota}
+                </span>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
 
       <FechoPorta
         gancho="O piloto demonstra o método. A evolução é avaliada na jornada adequada — em 20 minutos a gente desenha um piloto com a competência crítica da sua equipe."

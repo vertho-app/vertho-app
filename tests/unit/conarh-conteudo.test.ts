@@ -252,6 +252,19 @@ describe('pacote de conteúdo do CONARH', () => {
     }
   });
 
+  it('a etapa 5 entrega os relatórios do ciclo, e os arquivos existem', () => {
+    // "O que eu levo para a diretoria" é a pergunta da etapa. Sem os
+    // documentos, ela termina numa tabela de antes/depois na tela.
+    const rels = conteudo.porta5.relatorios || [];
+    expect(rels.length, 'etapa 5 sem relatórios').toBeGreaterThanOrEqual(3);
+    for (const r of rels) {
+      expect(r.nota?.trim(), `${r.titulo} sem nota`).toBeTruthy();
+      const caminho = join(process.cwd(), 'public', r.src.replace(/^\//, ''));
+      expect(existsSync(caminho), `${r.titulo}: ${r.src} ausente`).toBe(true);
+      expect(statSync(caminho).size, `${r.titulo}: PDF vazio`).toBeGreaterThan(50_000);
+    }
+  });
+
   it('a prancheta (fallback de papel) continua com o registro escrito', () => {
     // A tela trocou o registro pelo cenário; o papel não. Apagar o registro
     // do JSON deixaria /conarh/prancheta em branco no dia da queda de rede.

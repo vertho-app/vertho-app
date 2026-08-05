@@ -200,7 +200,17 @@ export interface Porta4Espelho {
 }
 
 export interface Porta5Painel {
-  ciclo: string; // ex. "Ciclo 1 · 12 semanas"
+  ciclo: string; // ex. "Jornada 1 · Liderança · 7 semanas"
+  /**
+   * Os documentos que saem do ciclo — gestor, RH e comportamental. A etapa 5
+   * responde "o que eu levo para a diretoria" e, até 05/08/2026, mostrava só a
+   * tabela de antes/depois: o painel na tela, sem nenhum dos relatórios que a
+   * plataforma entrega de verdade.
+   *
+   * Gerados por `scripts/_conarh-relatorios-gestao.ts` (prompts e componentes
+   * do produto, tenant de demonstração).
+   */
+  relatorios?: Array<{ src: string; titulo: string; nota: string }>;
   pessoas: Array<{
     nome: string;
     cargo: string;
