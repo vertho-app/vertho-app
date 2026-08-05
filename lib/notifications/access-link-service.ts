@@ -5,6 +5,7 @@ import { magicLinkEmail, magicLinkWhatsapp, signupEmail, signupWhatsapp } from '
 import { sendWhatsapp } from '@/lib/whatsapp';
 import { isTenantDemo } from '@/lib/demo/envio-guard';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
+import { createSupabaseAdmin } from '@/lib/supabase';
 
 /**
  * Serviço CENTRAL de envio de link de acesso (magic link) por canal.
@@ -68,9 +69,46 @@ async function enviarEmail(p: SendAccessLinkInput, out: SendAccessLinkResult): P
     status: out.email === 'sent' ? 'sucesso' : 'falha',
     kind: p.kind === 'signup' ? 'signup' : 'magic_link',
     empresaId: p.empresaId ?? null,
+    colaboradorId: await resolverColaboradorId(p.empresaId, p.to),
     provider: 'resend',
     error: out.email === 'sent' ? null : (out.emailReason ?? null),
   });
+}
+
+/**
+ * Resolve a pessoa a partir de (empresa, e-mail) só para a telemetria.
+ *
+ * Medido em 05/08: sem este campo, três magic links enviados com sucesso em 90
+ * segundos ficaram impossíveis de atribuir — e a pergunta que o instrumento
+ * existia para responder ("essa pessoa chegou a receber o link?") ficou sem
+ * resposta justamente no primeiro caso real de falha. Entrega sem dono responde
+ * "quantos", nunca "quem", e o funil é por PESSOA.
+ *
+ * Escopado por `empresa_id`: e-mail se repete entre tenants (a mesma pessoa
+ * existe em 5 empresas nesta base), e resolver sem o tenant devolveria a pessoa
+ * errada — silenciosamente.
+ */
+async function resolverColaboradorId(
+  empresaId: string | null | undefined,
+  email: string,
+): Promise<string | null> {
+  if (!empresaId || !email) return null;
+  try {
+    const sb = createSupabaseAdmin();
+    const { data, error } = await sb
+      .from('colaboradores')
+      .select('id')
+      .eq('empresa_id', empresaId)
+      .ilike('email', email.trim())
+      .maybeSingle();
+    if (error) {
+      console.warn('[access-link] telemetria sem pessoa:', error.message);
+      return null;
+    }
+    return (data as any)?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function executarEnvioEmail(p: SendAccessLinkInput, out: SendAccessLinkResult): Promise<void> {

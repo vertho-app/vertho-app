@@ -46,6 +46,29 @@ export async function POST(req: Request) {
   const userAgent = req.headers.get('user-agent') || '';
   const sb = createSupabaseAdmin();
 
+  // Desativa inscrições ANTERIORES do mesmo aparelho antes de registrar a nova.
+  //
+  // Medido em 05/08: reinstalar o PWA zera o localStorage, gera um
+  // `installation_id` novo e cria uma segunda linha — enquanto a assinatura
+  // antiga continua VÁLIDA na Apple. Resultado: duas notificações no mesmo
+  // aparelho, e mais uma a cada reinstalação, para sempre. Nada se auto-corrige,
+  // porque endpoint vivo nunca devolve 410.
+  //
+  // "Mesmo aparelho" = mesmo user-agent. É heurística: dois iPhones idênticos, no
+  // mesmo iOS, da mesma pessoa, desativariam um ao outro. Caso raro e reversível
+  // (basta reativar), enquanto o duplicado é comum e irreversível sozinho.
+  const { error: erroLimpeza } = await sb
+    .from('notification_endpoints')
+    .update({ enabled: false, updated_at: new Date().toISOString() })
+    .eq('colaborador_id', colaboradorId)
+    .eq('user_agent', userAgent.slice(0, 400))
+    .neq('installation_id', installationId);
+  if (erroLimpeza) {
+    // Não aborta: registrar a inscrição nova é mais importante que limpar a
+    // velha. O custo de falhar aqui é notificação dobrada, não ausência dela.
+    console.warn('[notifications/subscriptions] limpeza de duplicados falhou:', erroLimpeza.message);
+  }
+
   const { data, error } = await sb
     .from('notification_endpoints')
     .upsert(

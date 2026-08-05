@@ -19,8 +19,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
+import { decidirEstadoConvite, type EstadoConvite } from '@/lib/notifications/estado-convite';
 
-type Estado = 'carregando' | 'sem-suporte' | 'precisa-instalar' | 'pode-ativar' | 'ativo' | 'negado';
+type Estado = 'carregando' | EstadoConvite;
 
 const CHAVE_INSTALACAO = 'vertho:push:installation-id';
 
@@ -56,8 +57,26 @@ function ehIOS(): boolean {
   return /iphone|ipad|ipod/.test(ua) || (/macintosh/.test(ua) && 'ontouchend' in document);
 }
 
+/**
+ * Degraus passivos (exibição/detecção) disparam a cada montagem do componente.
+ * Medido em 05/08: uma pessoa gerou 3 `convite_exibido` em meio segundo. Não
+ * corrompe a métrica — a leitura correta é `COUNT(DISTINCT colaborador_id)` por
+ * degrau — mas polui a tabela e convida a leitura errada mais tarde, quando
+ * ninguém lembrar por que os números não batem com o número de pessoas.
+ *
+ * `sessionStorage` (não `localStorage`): dedupe dentro da MESMA sessão, para
+ * matar a rajada de remontagem. Visita nova em outro dia volta a registrar, que
+ * é comportamento desejado — repetir a visita é informação, remontar não é.
+ */
+const PASSIVOS = new Set(['convite_exibido', 'instalado_detectado']);
+
 async function registrarEvento(step: string, detalhe?: Record<string, unknown>) {
   try {
+    if (PASSIVOS.has(step)) {
+      const chave = `vertho:push:evento:${step}`;
+      if (sessionStorage.getItem(chave)) return;
+      sessionStorage.setItem(chave, '1');
+    }
     await fetchAuth('/api/notifications/optin-event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -76,32 +95,56 @@ export function AtivarPush() {
     let cancelado = false;
 
     (async () => {
-      const suportado = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-      if (!suportado) {
-        if (!cancelado) setEstado('sem-suporte');
-        return;
-      }
-
       const instalado = estaInstalado();
-      // No iOS, PushManager só existe dentro do app instalado — sem isso não há
-      // o que ativar, e insistir num botão aqui só gera frustração.
+      const sinaisBase = {
+        ehIOS: ehIOS(),
+        instalado,
+        temPushManager: false,
+        permissao: 'default' as const,
+        jaInscrito: false,
+      };
+
+      // ⚠️ ORDEM IMPORTA — não inverter.
+      //
+      // No iOS, `PushManager` NÃO existe fora do app instalado. A versão
+      // anterior testava suporte primeiro, caía em 'sem-suporte' e renderizava
+      // `null` — ou seja, quem mais precisava da instrução ("adicione à tela de
+      // início") era exatamente quem não via nada.
+      //
+      // Pior: o degrau `convite_exibido` com motivo 'ios-nao-instalado' nunca
+      // disparava, então o funil não conseguia medir a evasão na instalação —
+      // que é a única coisa que este spike existe para medir. Medido em 05/08:
+      // uma pessoa abriu no iPhone, viu a home sem nenhum convite, e o funil
+      // registrou zero eventos, indistinguível de "nunca entrou".
       if (ehIOS() && !instalado) {
         if (!cancelado) setEstado('precisa-instalar');
         await registrarEvento('convite_exibido', { motivo: 'ios-nao-instalado' });
         return;
       }
 
-      await registrarEvento('convite_exibido');
-      if (instalado) await registrarEvento('instalado_detectado');
-
-      if (Notification.permission === 'denied') {
-        if (!cancelado) setEstado('negado');
+      const temPushManager =
+        'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+      if (!temPushManager) {
+        if (!cancelado) setEstado(decidirEstadoConvite({ ...sinaisBase, temPushManager: false }));
+        await registrarEvento('convite_exibido', { motivo: 'sem-suporte' });
         return;
       }
 
+      await registrarEvento('convite_exibido');
+      if (instalado) await registrarEvento('instalado_detectado');
+
       const reg = await navigator.serviceWorker.getRegistration();
-      const jaInscrito = reg ? await reg.pushManager.getSubscription() : null;
-      if (!cancelado) setEstado(jaInscrito ? 'ativo' : 'pode-ativar');
+      const jaInscrito = Boolean(reg ? await reg.pushManager.getSubscription() : null);
+      if (!cancelado) {
+        setEstado(
+          decidirEstadoConvite({
+            ...sinaisBase,
+            temPushManager: true,
+            permissao: Notification.permission as 'default' | 'granted' | 'denied',
+            jaInscrito,
+          }),
+        );
+      }
     })().catch(() => {
       if (!cancelado) setEstado('sem-suporte');
     });
