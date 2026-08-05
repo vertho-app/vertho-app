@@ -4012,6 +4012,8 @@
     "program": {
       "title": "Modo del programa",
       "desc": "Regular = ruta de 14 semanas con hasta 2 competencias en profundidad. Onboarding = 10 semanas en espiral cubriendo hasta 5 competencias (recién graduados / autonomía supervisada).",
+      "journey": "Jornada (7 semanas)",
+      "journeyDesc": "6 semanas de contenido + evaluación · 1 competencia · 1 tarea por semana. DUO = 2 jornadas seguidas",
       "regular": "Regular (14 semanas)",
       "regularDesc": "Hasta 2 competencias · nivel objetivo 3",
       "onboarding": "Onboarding (10 semanas)",

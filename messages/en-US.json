@@ -4012,6 +4012,8 @@
     "program": {
       "title": "Program mode",
       "desc": "Regular = 14-week track with up to 2 deeply developed competencies. Onboarding = 10 spiral weeks covering up to 5 competencies (new graduates / supervised autonomy).",
+      "journey": "Journey (7 weeks)",
+      "journeyDesc": "6 content weeks + assessment · 1 competency · 1 task per week. DUO = 2 journeys back to back",
       "regular": "Regular (14 weeks)",
       "regularDesc": "Up to 2 competencies · target level 3",
       "onboarding": "Onboarding (10 weeks)",

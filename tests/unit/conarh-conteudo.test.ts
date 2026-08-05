@@ -212,6 +212,20 @@ describe('pacote de conteúdo do CONARH', () => {
     expect(existsSync(join(process.cwd(), 'public/pdfjs'))).toBe(false);
   });
 
+  it('o material de perfil da vitrine é o relatório real, e o arquivo existe', () => {
+    // A etapa 4 vende "o perfil orienta COMO abordar". Até 05/08/2026 o link
+    // abria um PDF genérico da biblioteca ("Fator C") — igual para todo perfil
+    // CS do mundo, dentro da etapa que promete o contrário.
+    const vitrine = conteudo.personas.filter((p) => p.vitrine);
+    expect(vitrine.length, 'nenhuma persona de vitrine').toBeGreaterThan(0);
+    for (const p of vitrine) {
+      expect(p.kit.pdf.real, `${p.nome}: material de perfil não é o relatório real`).toBe(true);
+      const caminho = join(process.cwd(), 'public', String(p.kit.pdf.src).replace(/^\//, ''));
+      expect(existsSync(caminho), `${p.nome}: ${p.kit.pdf.src} ausente`).toBe(true);
+      expect(statSync(caminho).size, `${p.nome}: PDF vazio`).toBeGreaterThan(50_000);
+    }
+  });
+
   it('a prancheta (fallback de papel) continua com o registro escrito', () => {
     // A tela trocou o registro pelo cenário; o papel não. Apagar o registro
     // do JSON deixaria /conarh/prancheta em branco no dia da queda de rede.

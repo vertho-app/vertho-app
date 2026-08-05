@@ -140,6 +140,16 @@ export interface Porta3 {
    * sobre a mesma pessoa, e o expositor descobre isso na frente do visitante.
    */
   pdf: { src: string; capa: string; titulo: string; paginas: number };
+  /**
+   * Perfil comportamental no formato que o relatório do produto usa: 2ª pessoa,
+   * 2-3 parágrafos, e forças/atenções DO PERFIL — não dos descritores.
+   *
+   * Existe separado do card `insumos` porque os dois têm consumidores
+   * diferentes: o card é uma linha na tela (o expositor fala em cima), o PDF é
+   * o documento que a pessoa leva. Alimentar o PDF com a linha do card, como
+   * na 1ª versão, entregava um bloco mais pobre do que o produto entrega.
+   */
+  perfil: { descricao: string; pontos_forca: string[]; pontos_atencao: string[] };
   lacuna: string; // descritor mais baixo
   objetivo: string;
   missao: string; // missão prática da semana
@@ -200,7 +210,14 @@ export interface PersonaKit {
     pilula1: { tipo: 'video' | 'audio' | 'texto'; src: string | null; titulo: string; duracao?: string };
     pilula2: { tipo: 'video' | 'audio' | 'texto'; src: string | null; titulo: string; duracao?: string };
     missao: { titulo: string; texto: string; evidencia: string };
-    pdf: { src: string | null; titulo: string };
+    /**
+     * `real: true` = relatório que o produto gera (gerado por
+     * `scripts/_conarh-perfil-pdf.ts` a partir da persona de DEMO). Sem a
+     * marca, é material genérico da biblioteca — que é o que estava no lugar
+     * até 05/08/2026, contradizendo a própria etapa: ela fala de
+     * personalização e abria um PDF igual para todo perfil CS do mundo.
+     */
+    pdf: { src: string | null; titulo: string; real?: boolean };
   };
 }
 

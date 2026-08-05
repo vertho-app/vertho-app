@@ -542,6 +542,19 @@
         "efeito": "define o FORMATO: uma missão real com o Diego nesta semana, com pílulas curtas de apoio — em vez de um curso sobre feedback."
       }
     ],
+    "perfil": {
+      "descricao": "Renata, o seu perfil D aparece antes de você falar: decide rápido, vai direto ao ponto e prefere resolver a explicar. Numa operação com prazo curto e cliente exigente, é isso que segura o dia — e foi o que fez a conversa com o Diego acontecer na segunda de manhã, antes da reunião de turno, sem adiar e sem terceirizar para o RH.\n\nO mesmo traço cobra um preço quando o assunto é desenvolver gente. Quem decide rápido tende a encerrar a conversa no ponto em que JÁ entendeu — e o outro ainda não. O recado sai claro, a exigência é firme, e o combinado que tornaria tudo verificável na sexta seguinte não chega a ser dito. Não é falta de rigor: é velocidade. O seu plano trabalha exatamente essa passagem, da clareza para o combinado.",
+      "pontos_forca": [
+        "Decide sob pressão sem travar: quando faltam dois conferentes e a carga precisa sair, você escolhe — e assume.",
+        "Não adia conversa difícil: chama no primeiro dia útil, com a gravidade dita em voz alta.",
+        "Padrão alto explícito: a equipe sabe o que você considera inaceitável, e isso não muda conforme o dia."
+      ],
+      "pontos_atencao": [
+        "Fechar antes de combinar: a conversa termina quando o ponto está claro para você, não quando o próximo passo está claro para o outro.",
+        "Acompanhamento que só existe do seu lado: \"vou observar\" é controle seu, não combinado dos dois.",
+        "Pouco espaço para a versão do outro: com a resposta já formada, a pergunta vira formalidade — e a causa real passa batido."
+      ]
+    },
     "lacuna": "LID-D04 · Acordo e acompanhamento observável — 1,5 (N1): os feedbacks da Renata terminam em intenção (\"vamos redobrar a atenção\", \"vou observar\"), não em combinado que os dois consigam verificar. É o descritor mais baixo dela — e o que explica por que o recado \"foi dado\" e nada mudou.",
     "objetivo": "Nas 6 semanas de conteúdo da jornada, toda conversa de feedback da Renata termina com um combinado no formato ação + medida + data de revisão — dito por ela, registrado por escrito e revisado na data marcada.",
     "missao": "Na conversa de acompanhamento com o Diego desta semana, fechar com UM combinado no padrão: o que ele faz de diferente na liberação de carga, como os dois vão ver, e o dia em que revisam juntos. Registrar o combinado por escrito e enviar a ele no mesmo dia.",
@@ -751,8 +764,9 @@
           "evidencia": "Resumo da proposta com a prova usada destacada + 2 linhas sobre a reação do cliente, registrados no mesmo dia."
         },
         "pdf": {
-          "src": "/conarh/media/perfil-fator-c.pdf",
-          "titulo": "Seu perfil CS: como a precisão joga a seu favor (e quando trava)"
+          "src": "/conarh/media/perfil-bruna-costa.pdf",
+          "titulo": "Relatório Comportamental de Bruna Costa (CS)",
+          "real": true
         }
       }
     },

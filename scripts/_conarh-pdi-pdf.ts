@@ -95,11 +95,10 @@ function montarData() {
         `A avaliação do cenário situacional colocou ${caso.personagem.nome.split(' ')[0]} em ` +
         `${formatarNota(leitura.nota)} (N${leitura.nivel}) no descritor mais baixo da matriz de ` +
         `${porta1.competencia}, e é dele que parte o ciclo a seguir.`,
-      perfil_comportamental: {
-        descricao: valorDoInsumo('Perfil comportamental'),
-        pontos_forca: fortes,
-        pontos_atencao: aMelhorar,
-      },
+      // Perfil no padrão do relatório real (2ª pessoa, parágrafos, forças e
+      // atenções DO PERFIL). A 1ª versão passava a linha do card da etapa 3 e
+      // os descritores fortes/fracos — o bloco saía mais pobre que o do produto.
+      perfil_comportamental: porta3.perfil,
       resumo_desempenho: resumo,
       competencias: [
         {

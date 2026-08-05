@@ -4012,6 +4012,8 @@
     "program": {
       "title": "Modo do programa",
       "desc": "Regular = trilha de 14 semanas com até 2 competências em profundidade. Onboarding = 10 semanas em espiral cobrindo até 5 competências (recém-formados / autonomia supervisionada).",
+      "journey": "Jornada (7 semanas)",
+      "journeyDesc": "6 semanas de conteúdo + avaliação · 1 competência · 1 tarefa por semana. DUO = 2 jornadas em sequência",
       "regular": "Regular (14 semanas)",
       "regularDesc": "Até 2 competências · nível-meta 3",
       "onboarding": "Onboarding (10 semanas)",

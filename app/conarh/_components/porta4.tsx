@@ -288,16 +288,39 @@ export function Porta4({
                     Evidência: {persona.kit.missao.evidencia}
                   </p>
                 </div>
+                {/* O material do perfil é a prova da Camada 2 ("o perfil
+                    orienta COMO abordar"). Quando ele é o relatório que o
+                    produto gera para ESTA pessoa (`real`), a tela diz isso —
+                    até 05/08/2026 abria um PDF genérico da biblioteca, igual
+                    para todo perfil CS do mundo, dentro da etapa que promete o
+                    contrário. */}
                 {persona.kit.pdf.src && (
-                  <a
-                    href={persona.kit.pdf.src}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block mt-4"
-                    style={{ color: COR.acento, fontSize: 17, fontWeight: 700, fontFamily: SANS }}
-                  >
-                    Abrir material em PDF: {persona.kit.pdf.titulo} →
-                  </a>
+                  <div className="mt-4">
+                    {persona.kit.pdf.real && (
+                      <p
+                        className="uppercase font-bold"
+                        style={{ color: COR.acento, fontSize: 12, letterSpacing: '0.18em', fontFamily: SANS, margin: '0 0 4px' }}
+                      >
+                        Camada 2 · o perfil dela, por extenso
+                      </p>
+                    )}
+                    <a
+                      href={persona.kit.pdf.src}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block"
+                      style={{ color: COR.acento, fontSize: 17, fontWeight: 700, fontFamily: SANS }}
+                    >
+                      {persona.kit.pdf.real ? 'Abrir o relatório completo' : 'Abrir material em PDF'}: {persona.kit.pdf.titulo} →
+                    </a>
+                    {persona.kit.pdf.real && (
+                      <p style={{ color: COR.texto3, fontSize: 15, lineHeight: 1.5, fontFamily: SANS, margin: '4px 0 0' }}>
+                        Não é um material sobre o perfil CS: é o relatório que a plataforma gerou
+                        para ela, com os índices dela — e é dele que sai o &quot;como&quot; desta
+                        camada.
+                      </p>
+                    )}
+                  </div>
                 )}
               </section>
             ))}

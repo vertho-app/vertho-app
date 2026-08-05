@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
   ai: { modelo_padrao: 'claude-sonnet-4-6', modelos: {}, anthropic_key: null, gemini_key: null, openai_key: null, thinking: false },
   cadencia: { fase4_dia_pilula: 1, fase4_dia_pilula2: 2, fase4_dia_evidencia: 4, fase4_hora: 8, email_ativo: true, whatsapp_ativo: true },
   envios: { email_remetente: null, email_alias: null },
-  programa_modo: 'regular_duo' as 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto' | 'custom',
+  programa_modo: 'regular_duo' as 'jornada' | 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto' | 'custom',
   programa_custom: { semanas: 1, numCompetencias: 1, fechamento: false },
   fase_carreira_default: null as null | 'junior' | 'pleno' | 'senior',
   blueprint_drives_trilha: false,
@@ -287,6 +287,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                       }`}
                       style={{ minWidth: '130px' }}>
                       <option value="">{t('team.programInherit')}</option>
+                      <option value="jornada">{t('program.journey')}</option>
                       <option value="regular_duo">Regular DUO</option>
                       <option value="regular_single">Regular single</option>
                       <option value="onboarding">Onboarding</option>
@@ -311,6 +312,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
             </p>
             <div className="grid grid-cols-2 gap-2">
               {[
+                { id: 'jornada', label: t('program.journey'), desc: t('program.journeyDesc') },
                 { id: 'regular_duo', label: t('program.regular'), desc: t('program.regularDesc') },
                 { id: 'regular_single', label: t('program.regularSingle'), desc: t('program.regularSingleDesc') },
                 { id: 'onboarding', label: t('program.onboarding'), desc: t('program.onboardingDesc') },

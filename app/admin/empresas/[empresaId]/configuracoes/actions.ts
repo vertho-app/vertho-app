@@ -257,8 +257,10 @@ export async function atualizarProgramaModo(colaboradorId, novoModo, empresaId) 
   const sb = await requireEmpresaSupabase(empresaId, 'users.manage');
   if (!colaboradorId || !empresaId) return { success: false, error: 'colaboradorId e empresaId obrigatórios' };
   const modo = novoModo || null;
-  const validos = [null, 'regular_duo', 'regular_single', 'onboarding', 'piloto', 'custom'];
-  if (!validos.includes(modo)) return { success: false, error: 'Modo inválido. Use: herdar (vazio), regular_duo, regular_single, onboarding, piloto, custom' };
+  // A allowlist é o contrato: um modo que existe na engine mas não está aqui é
+  // recusado no salvamento (foi o que aconteceu com 'jornada' em 05/08).
+  const validos = [null, 'jornada', 'regular_duo', 'regular_single', 'onboarding', 'piloto', 'custom'];
+  if (!validos.includes(modo)) return { success: false, error: 'Modo inválido. Use: herdar (vazio), jornada, regular_duo, regular_single, onboarding, piloto, custom' };
 
   // Update TENANT-SCOPED: o id sozinho permitiria mexer em colaborador de
   // outra empresa (defense-in-depth mesmo sendo gate de platform admin).
