@@ -16,15 +16,24 @@ import type { CenarioRegua } from '@/app/conarh/_data/types';
 export interface LeituraDaRegua {
   /** Média dos níveis das 4 respostas, uma casa decimal (ex.: 1,5). */
   nota: number;
-  /** A nota arredondada — o nível que a régua atribui ao conjunto. */
+  /** O nível que a régua atribui ao conjunto — `floor` da nota, como no motor. */
   nivel: 1 | 2 | 3 | 4;
 }
 
+/**
+ * Nota → nível é **`Math.floor` com clamp 1–4**, não arredondamento.
+ *
+ * É a regra do motor, em quatro pontos independentes: `actions/fase3.ts`
+ * (IA4, por descritor e no nível geral), `lib/blueprint/core.ts` e
+ * `lib/relatorio-individual-prompt.ts`. A semântica é "atingiu o nível": 1,5
+ * é meio caminho para o N2 — não é um N2. Arredondar promove a pessoa meio
+ * degrau e faz a demo mostrar um número que o produto não mostraria.
+ */
 export function lerRespostas(cenario: Pick<CenarioRegua, 'perguntas'>): LeituraDaRegua {
   const niveis = cenario.perguntas.map((p) => p.nivel);
   const media = niveis.reduce((s, n) => s + n, 0) / niveis.length;
   const nota = Math.round(media * 10) / 10;
-  const nivel = Math.min(4, Math.max(1, Math.round(media))) as 1 | 2 | 3 | 4;
+  const nivel = Math.min(4, Math.max(1, Math.floor(media))) as 1 | 2 | 3 | 4;
   return { nota, nivel };
 }
 

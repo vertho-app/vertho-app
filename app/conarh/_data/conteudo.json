@@ -48,7 +48,7 @@
         "n4": "Foca no comportamento com tal consistência que o outro separa sozinho o erro da própria identidade — e sai da conversa com autoestima intacta e ponto claro.",
         "leitura_motor": {
           "nota": 2.6,
-          "nivel": 3,
+          "nivel": 2,
           "evidencia": "\"ele é um dos melhores técnicos que eu tenho, que sabe a operação como ninguém\"",
           "justificativa": "A maior parte da conversa trata de ato e procedimento, não de caráter — mérito real. Mas o elogio ao traço (\"melhor técnico\", \"sabe como ninguém\") funciona como amortecedor: a crítica chega embalada em identidade, e a mensagem que fica é \"você é ótimo, deu um deslize\" — não \"essa decisão específica não pode se repetir\".",
           "limite": "Faltou sustentar o fecho no plano do comportamento: terminar no que muda na rotina dele, não em quem ele é."
@@ -64,7 +64,7 @@
         "n4": "Usa a escuta como instrumento diagnóstico: da fala do outro extrai a causa-raiz (capacidade, clareza, motivação) e ajusta o feedback ao que descobriu.",
         "leitura_motor": {
           "nota": 1.9,
-          "nivel": 2,
+          "nivel": 1,
           "evidencia": "\"Perguntei se ele estava de acordo. Ele disse que sim.\" / \"Ele ouviu, ficou visivelmente abalado.\"",
           "justificativa": "Diego teve duas falas em quinze minutos — e nenhuma foi explorada. A informação mais valiosa da conversa (\"achou que dava conta no olho\") passou sem uma pergunta sequer: era ali que estava o padrão de decisão a corrigir. Renata deixou ele falar, mas não escutou. E \"está de acordo?\" mede concordância sob pressão, não entendimento.",
           "limite": "Faltou uma pergunta aberta sobre a decisão dele (\"me conta o que passou na sua cabeça às 17h40\") e uma verificação de saída (\"o que você leva dessa conversa?\")."
@@ -80,7 +80,7 @@
         "n4": "O combinado é construído com a pessoa, ligado à competência em desenvolvimento, e a revisão acontece na data marcada — virando ciclo, não evento.",
         "leitura_motor": {
           "nota": 1.8,
-          "nivel": 2,
+          "nivel": 1,
           "evidencia": "\"vamos redobrar a atenção nessa conferência a partir de hoje\" / \"vou observar nas próximas semanas\"",
           "justificativa": "Este é o ponto onde gestores experientes mais divergem da leitura — porque \"houve fechamento\". Mas \"redobrar a atenção\" não é observável: não diz o que Diego faz de diferente na próxima sexta com dois conferentes a menos, não tem medida, não tem data de revisão. E \"vou observar\" é intenção da gestora, não combinado. Intenção de acompanhar não é próximo passo.",
           "limite": "Faltou um combinado no formato ação + medida + data: ex. \"checklist de liberação conferido e assinado por caminhão, sem exceção — se faltar conferente, a carga não sai e você me escala; revisamos juntos sexta às 16h\"."
@@ -159,8 +159,8 @@
           "leitura": "A revisão fica pendurada num evento negativo: só existe se houver nova falha, e quem avisa é o cliente. Sem data marcada, o feedback vira evento em vez de ciclo — é por aqui que o recado é dado e nada muda."
         }
       ],
-      "justificativa": "A Renata é forte onde a maioria falha: ancorou no fato, não amenizou e não terceirizou. Neste descritor, porém, os quatro turnos terminam em intenção — o que muda na próxima sexta é \"atenção\", quem verifica é ela, e a revisão não tem data. É a distância entre dar o recado e fechar um combinado.",
-      "limite": "Para N3, faltava uma frase no fim da conversa: o que o Diego faz (ação), como os dois vão ver (medida) e o dia em que revisam juntos (data)."
+      "justificativa": "A Renata é forte onde a maioria falha: ancorou no fato, não amenizou e não terceirizou. Neste descritor, porém, as quatro respostas terminam em intenção — o que muda na próxima sexta é \"atenção\", quem verifica é ela, e a revisão não tem data. É a distância entre dar o recado e fechar um combinado.",
+      "limite": "Duas das quatro respostas ficam em N1 — o fecho da conversa e a sustentação — e é isso que segura a nota em 1,5, meio caminho do N2. Para N3, a meta, faltava a frase que fecha: o que o Diego faz (ação), como os dois vão ver (medida) e o dia em que revisam juntos (data)."
     },
     "reguas_vitrine": [
       {
@@ -255,7 +255,7 @@
             }
           ],
           "justificativa": "Marcelo é rápido, conhece o produto e responde no prazo — o comercial inteiro trabalha assim. Só que a proposta que ele mandou na quinta é dimensionada, não diagnosticada: tem quantas pessoas, não tem o que dói, o que já tentaram nem quanto isso custa. No comitê, onde o vendedor não está, sobra o preço.",
-          "limite": "Para N3, faltaram três perguntas antes de qualquer proposta: o que mudou para isso virar prioridade agora, o que já tentaram e quanto o problema custa hoje."
+          "limite": "Duas respostas em N1 — mandar sem diagnosticar e responder à pressão com case de terceiro — seguram a nota em 1,5, dentro do N1. Para N3, a meta, faltaram três perguntas antes de qualquer proposta: o que mudou para isso virar prioridade agora, o que já tentaram e quanto o problema custa hoje."
         }
       },
       {
@@ -350,7 +350,7 @@
             }
           ],
           "justificativa": "Sérgio não deu palpite: buscou dado nos dois momentos, o que é mais do que a maioria faz numa reunião de diretoria. O que faltou foi tratar as duas versões como hipóteses concorrentes — o dado do TI mede queda, não lentidão sob carga — e por isso ele vai à sexta com a versão de uma das áreas, não com um diagnóstico.",
-          "limite": "Para N3, faltava o cruzamento que separa as duas versões: tempo de resposta por faixa de volume. É uma consulta, não um projeto."
+          "limite": "Uma única resposta em N1 — descartar a versão do comercial sem testá-la — já segura a nota em 1,8, ainda dentro do N1. Para N3, a meta, faltava o cruzamento que separa as duas versões: tempo de resposta por faixa de volume. É uma consulta, não um projeto."
         }
       }
     ]
@@ -399,7 +399,7 @@
         "n4": "Foca no comportamento com tal consistência que o outro separa sozinho o erro da própria identidade — e sai da conversa com autoestima intacta e ponto claro.",
         "leitura_motor": {
           "nota": 2.6,
-          "nivel": 3,
+          "nivel": 2,
           "evidencia": "\"ele é um dos melhores técnicos que eu tenho, que sabe a operação como ninguém\"",
           "justificativa": "A maior parte da conversa trata de ato e procedimento, não de caráter — mérito real. Mas o elogio ao traço (\"melhor técnico\", \"sabe como ninguém\") funciona como amortecedor: a crítica chega embalada em identidade, e a mensagem que fica é \"você é ótimo, deu um deslize\" — não \"essa decisão específica não pode se repetir\".",
           "limite": "Faltou sustentar o fecho no plano do comportamento: terminar no que muda na rotina dele, não em quem ele é."
@@ -415,7 +415,7 @@
         "n4": "Usa a escuta como instrumento diagnóstico: da fala do outro extrai a causa-raiz (capacidade, clareza, motivação) e ajusta o feedback ao que descobriu.",
         "leitura_motor": {
           "nota": 1.9,
-          "nivel": 2,
+          "nivel": 1,
           "evidencia": "\"Perguntei se ele estava de acordo. Ele disse que sim.\" / \"Ele ouviu, ficou visivelmente abalado.\"",
           "justificativa": "Diego teve duas falas em quinze minutos — e nenhuma foi explorada. A informação mais valiosa da conversa (\"achou que dava conta no olho\") passou sem uma pergunta sequer: era ali que estava o padrão de decisão a corrigir. Renata deixou ele falar, mas não escutou. E \"está de acordo?\" mede concordância sob pressão, não entendimento.",
           "limite": "Faltou uma pergunta aberta sobre a decisão dele (\"me conta o que passou na sua cabeça às 17h40\") e uma verificação de saída (\"o que você leva dessa conversa?\")."
@@ -431,7 +431,7 @@
         "n4": "O combinado é construído com a pessoa, ligado à competência em desenvolvimento, e a revisão acontece na data marcada — virando ciclo, não evento.",
         "leitura_motor": {
           "nota": 1.8,
-          "nivel": 2,
+          "nivel": 1,
           "evidencia": "\"vamos redobrar a atenção nessa conferência a partir de hoje\" / \"vou observar nas próximas semanas\"",
           "justificativa": "Este é o ponto onde gestores experientes mais divergem da leitura — porque \"houve fechamento\". Mas \"redobrar a atenção\" não é observável: não diz o que Diego faz de diferente na próxima sexta com dois conferentes a menos, não tem medida, não tem data de revisão. E \"vou observar\" é intenção da gestora, não combinado. Intenção de acompanhar não é próximo passo.",
           "limite": "Faltou um combinado no formato ação + medida + data: ex. \"checklist de liberação conferido e assinado por caminhão, sem exceção — se faltar conferente, a carga não sai e você me escala; revisamos juntos sexta às 16h\"."
@@ -473,7 +473,7 @@
   },
   "porta3": {
     "personagem": "Renata Falcão",
-    "lacuna": "FBK-D04 · Definição de próximo passo observável — 1,5 (N2): os feedbacks da Renata terminam em intenção (\"vamos redobrar a atenção\", \"vou observar\"), não em combinado que os dois consigam verificar. É o descritor mais baixo dela — e o que explica por que o recado \"foi dado\" e nada mudou.",
+    "lacuna": "FBK-D04 · Definição de próximo passo observável — 1,5 (N1): os feedbacks da Renata terminam em intenção (\"vamos redobrar a atenção\", \"vou observar\"), não em combinado que os dois consigam verificar. É o descritor mais baixo dela — e o que explica por que o recado \"foi dado\" e nada mudou.",
     "objetivo": "Em 30 dias, toda conversa de feedback da Renata termina com um combinado no formato ação + medida + data de revisão — dito por ela, registrado por escrito e revisado na data marcada.",
     "missao": "Na conversa de acompanhamento com o Diego desta semana, fechar com UM combinado no padrão: o que ele faz de diferente na liberação de carga, como os dois vão ver, e o dia em que revisam juntos. Registrar o combinado por escrito e enviar a ele no mesmo dia.",
     "evidencia_esperada": "Até sexta: mensagem enviada ao Diego com o combinado — ex.: \"checklist de liberação conferido e assinado por caminhão, sem exceção; faltou conferente, a carga não sai e você me escala; revisamos juntos sexta às 16h\".",

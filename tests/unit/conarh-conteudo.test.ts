@@ -122,6 +122,35 @@ describe('pacote de conteúdo do CONARH', () => {
     }
   });
 
+  it('nota → nível é floor com clamp 1–4, como no motor', () => {
+    // O motor faz `Math.floor(nota)` em quatro pontos independentes
+    // (`actions/fase3.ts` ×2 + geral, `lib/blueprint/core.ts`,
+    // `lib/relatorio-individual-prompt.ts`): a semântica é "atingiu o nível".
+    // Arredondar promove meio degrau — 1,5 vira N2 — e a demo passa a mostrar
+    // um número que o produto não mostraria. Foi o que aconteceu em 05/08.
+    const comNiveis = (niveis: Array<1 | 2 | 3 | 4>) => ({
+      perguntas: niveis.map((n) => ({ nivel: n })),
+    });
+    expect(lerRespostas(comNiveis([1, 2, 2, 1]) as never)).toEqual({ nota: 1.5, nivel: 1 });
+    expect(lerRespostas(comNiveis([2, 3, 3, 2]) as never)).toEqual({ nota: 2.5, nivel: 2 });
+    expect(lerRespostas(comNiveis([2, 2, 2, 3]) as never)).toEqual({ nota: 2.3, nivel: 2 });
+    expect(lerRespostas(comNiveis([4, 4, 4, 4]) as never)).toEqual({ nota: 4, nivel: 4 });
+    expect(lerRespostas(comNiveis([1, 1, 1, 1]) as never)).toEqual({ nota: 1, nivel: 1 });
+  });
+
+  it('todo leitura_motor do pacote tem nível = floor(nota)', () => {
+    // A prancheta (papel) e a matriz mostram `N{nivel} ({nota})` lado a lado.
+    // Três descritores do caso vinham com o nível arredondado — o expositor
+    // mostraria 1,8 · N2 no papel e N1 na tela, no MESMO caso.
+    const blocos = [conteudo.porta1.descritores, conteudo.porta2.descritores];
+    for (const lista of blocos) {
+      for (const d of lista) {
+        const { nota, nivel } = d.leitura_motor;
+        expect(nivel, `${d.cod} (nota ${nota})`).toBe(Math.min(4, Math.max(1, Math.floor(nota))));
+      }
+    }
+  });
+
   it('a nota citada na etapa 3 é a que a etapa 2 deriva dos turnos', () => {
     // As duas telas falam do MESMO descritor da MESMA pessoa: a etapa 2 mostra
     // a leitura das respostas e a etapa 3 monta o PDI em cima dela. Se alguém
