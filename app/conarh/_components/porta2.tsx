@@ -11,7 +11,8 @@
 // (O registro escrito continua vivo na PRANCHETA, o fallback de papel.)
 //
 // Sequência em 4 estados:
-//   1) a situação (lê) → 2) escolhe a resposta que ACEITARIA (o toque) →
+//   1) escolhe a competência (as mesmas 3 da etapa 1) e lê a situação →
+//   2) escolhe a resposta que ACEITARIA (o toque) →
 //   3) a matriz revelada, aberta no descritor que a situação testa →
 //   4) a leitura da régua sobre a escolha dele + as outras três, por nível.
 // Regra dura: NUNCA "certo/errado" — a linguagem é "o seu padrão" x "a régua".
@@ -24,7 +25,8 @@ import { COR, SANS, SERIF, TOQUE } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
 import { FechoPorta } from './porta-shell';
 import { MatrizDescritores } from './matriz';
-import { acharRegua } from './reguas';
+import { acharRegua, montarReguas } from './reguas';
+import { SeletorRegua } from './seletor-regua';
 
 const NOMES_NIVEL = ['', 'N1 · gap', 'N2 · desenvolvimento', 'N3 · meta', 'N4 · referência'];
 
@@ -34,6 +36,7 @@ const NIVEL_META = 3;
 export function Porta2({
   conteudo,
   reguaId,
+  onTrocarRegua,
   modoVisitante,
   onFinalizar,
   onConcluiu,
@@ -42,6 +45,7 @@ export function Porta2({
 }: {
   conteudo: ConteudoConarh;
   reguaId: string;
+  onTrocarRegua: (id: string) => void;
   modoVisitante?: boolean;
   onFinalizar: (r: ResultadoPorta2) => void;
   onConcluiu: () => void;
@@ -49,6 +53,7 @@ export function Porta2({
   onProxima: () => void;
 }) {
   const { portas } = conteudo;
+  const reguas = montarReguas(conteudo);
   const regua = acharRegua(conteudo, reguaId);
   const cenario = regua.cenario;
   const descritorTestado = regua.descritores.find((d) => d.cod === cenario.descritor_cod);
@@ -58,6 +63,17 @@ export function Porta2({
 
   const escolha = cenario.respostas.find((r) => r.id === escolhaId) ?? null;
   const porNivel = [...cenario.respostas].sort((a, b) => a.nivel - b.nivel);
+
+  // Trocar de competência troca o CENÁRIO inteiro: a escolha feita no anterior
+  // não significa nada aqui (é o id de uma resposta que não existe mais), e a
+  // matriz é outra. Voltar ao passo 1 é a única leitura honesta — herdar o
+  // estado deixaria a tela mostrando a leitura de um cenário que saiu do ar.
+  function trocarRegua(id: string) {
+    if (id === reguaId) return;
+    onTrocarRegua(id);
+    setEscolhaId(null);
+    setPasso(1);
+  }
 
   function escolher(r: RespostaCenario) {
     setEscolhaId(r.id);
@@ -76,9 +92,18 @@ export function Porta2({
     <div>
       <TituloPorta numero={2} nome={portas[1].nome} sub={portas[1].sub} />
 
-      {/* ── Passo 1: a situação ─────────────────────────────────── */}
+      {/* ── Passo 1: a competência e a situação ─────────────────── */}
       {passo === 1 && (
         <div>
+          {/* Quem entra direto pela etapa 2 (o expositor abre a que o visitante
+              apontou) nunca passou pela etapa 1 — sem isto responderia o
+              cenário de liderança sem ter escolhido nada. */}
+          <SeletorRegua
+            reguas={reguas}
+            reguaId={regua.id}
+            onTrocar={trocarRegua}
+            legenda="Escolha a competência — o cenário vem dela"
+          />
           <p
             className="uppercase font-bold"
             style={{ color: COR.acento, fontSize: 13, letterSpacing: '0.2em', fontFamily: SANS, margin: 0 }}

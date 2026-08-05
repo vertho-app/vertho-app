@@ -7,11 +7,12 @@
 
 import { useState } from 'react';
 import type { ConteudoConarh, ReguaVitrine } from '../_data/types';
-import { COR, SERIF, SANS, TOQUE } from './tema';
+import { COR, SERIF, SANS } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
 import { FechoPorta } from './porta-shell';
 import { MatrizDescritores } from './matriz';
 import { montarReguas } from './reguas';
+import { SeletorRegua } from './seletor-regua';
 import { partirNaPrimeiraFrase } from './texto';
 
 export function Porta1({
@@ -42,53 +43,14 @@ export function Porta1({
     <div>
       <TituloPorta numero={1} nome={portas[0].nome} sub={portas[0].sub} />
 
-      {reguas.length > 1 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-7">
-          {reguas.map((r) => {
-            const ativo = r.id === regua.id;
-            return (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => {
-                  onTrocarRegua(r.id);
-                  setVerIntro(false);
-                }}
-                className="rounded-2xl border p-4 text-left"
-                style={{
-                  minHeight: TOQUE,
-                  background: ativo ? 'rgba(52,197,204,0.12)' : COR.card,
-                  borderColor: ativo ? COR.bordaAcento : COR.borda,
-                }}
-              >
-                <span
-                  className="block uppercase font-bold"
-                  style={{
-                    color: ativo ? COR.acento : COR.texto3,
-                    fontSize: 12,
-                    letterSpacing: '0.18em',
-                    fontFamily: SANS,
-                  }}
-                >
-                  {r.eixo}
-                </span>
-                <span
-                  className="block font-bold"
-                  style={{
-                    color: ativo ? COR.texto : COR.texto2,
-                    fontSize: 17,
-                    lineHeight: 1.25,
-                    fontFamily: SANS,
-                    marginTop: 3,
-                  }}
-                >
-                  {r.competencia}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <SeletorRegua
+        reguas={reguas}
+        reguaId={regua.id}
+        onTrocar={(id) => {
+          onTrocarRegua(id);
+          setVerIntro(false);
+        }}
+      />
 
       <p
         style={{

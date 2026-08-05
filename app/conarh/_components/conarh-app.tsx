@@ -175,6 +175,7 @@ export function ConarhApp({
           <Porta2
             conteudo={conteudo}
             reguaId={reguaId}
+            onTrocarRegua={setReguaId}
             modoVisitante={modoVisitante}
             onFinalizar={finalizarPorta2}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 2))}
