@@ -119,6 +119,16 @@ export interface Porta1 {
 
 export interface Porta3 {
   personagem: string; // nome da persona do caso
+  /**
+   * De onde o plano saiu — os quatro insumos que a engine cruza, cada um com
+   * o valor DESTA pessoa e o que ele decidiu no plano.
+   *
+   * Está na tela porque "o PDI é automático" soa a template até o visitante
+   * ver que o perfil comportamental e a preferência de aprendizagem mudaram o
+   * COMO e o FORMATO, não só o texto. É o mesmo par que a etapa 4 mostra no
+   * espelho (DISC × formato), aqui na origem.
+   */
+  insumos: Array<{ rotulo: string; valor: string; efeito: string }>;
   lacuna: string; // descritor mais baixo
   objetivo: string;
   missao: string; // missão prática da semana

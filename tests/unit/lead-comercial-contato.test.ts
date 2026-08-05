@@ -224,9 +224,9 @@ describe('CONARH 52 — qualificação e classe no servidor (mig 196)', () => {
     sessao: {
       cenario: {
         regua: 'caso',
-        competencia: 'Feedback e Desenvolvimento de Pessoas',
-        cenario: 'fbk-fechamento-diego',
-        descritor: 'FBK-D04',
+        competencia: 'Liderança',
+        cenario: 'lid-fechamento-diego',
+        descritor: 'LID-D04',
         nivel_atribuido: 3,
         nivel_regua: 2,
         nota_regua: 1.5,
@@ -251,7 +251,7 @@ describe('CONARH 52 — qualificação e classe no servidor (mig 196)', () => {
     expect(l.reuniao_em).toBe('2026-08-19T17:00:00.000Z');
     expect((l.sessao as any).cenario.nivel_atribuido).toBe(3);
     expect((l.sessao as any).cenario.nivel_regua).toBe(2);
-    expect((l.sessao as any).cenario.descritor).toBe('FBK-D04');
+    expect((l.sessao as any).cenario.descritor).toBe('LID-D04');
     expect(l.telefone).toBe('+5511987654321');
   });
 

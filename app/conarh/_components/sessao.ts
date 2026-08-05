@@ -27,7 +27,7 @@ export type NumeroPorta = 1 | 2 | 3 | 4 | 5;
  * inventaria um dado que ninguém coletou.
  */
 export interface CenarioPorta2 {
-  regua: string; // id da régua percorrida (caso | venda-consultiva | ...)
+  regua: string; // id da régua percorrida (caso | relacionamento-clientes | resolucao-de-problemas)
   competencia: string;
   cenario: string; // id do cenário
   descritor: string; // cod do descritor que a conversa testa

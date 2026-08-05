@@ -118,6 +118,17 @@ nota da etapa 2 = nota citada na etapa 3) e
 (o follow-up não pode dizer "porta" nem "quem decide", nem colar o nome da empresa depois de
 artigo fixo).
 
+### 0.3 Ainda em 05/08/2026 — competências, navegação e insumos do PDI
+
+| Mudou | De → para | Por quê |
+|---|---|---|
+| **As 3 competências** | Feedback e Desenvolvimento de Pessoas · Condução de Venda Consultiva · Resolução de Problemas → **Liderança · Relacionamento com Clientes · Resolução de Problemas** | São as três que a feira vende. "Feedback" era um recorte de liderança (virou o descritor LID-D04) e "venda consultiva" falava só de venda nova — quem tem carteira não se via. Códigos: `LID-*`, `REL-*`, `RSP-*`. Guard trava os três nomes: eles saem em lona, folder e fala. |
+| **Descritores por régua** | 6 · 5 · 5 → **6 em todas** | O seletor põe as três lado a lado: régua mais curta que a vizinha faz o visitante achar que a competência DELE foi tratada por cima. |
+| **Régua de Relacionamento** | — | Cenário próprio (implantação atrasada 3 semanas, cliente ameaçando cancelar no comitê de sexta), ancorado em REL-D04 · Recuperação de confiança. Avaliada: Juliana, gerente de contas. Nota 1,8 · N1. |
+| **Navegação** | só "As 5 etapas" (hub) → **botão "Voltar"** em toda tela que tem anterior | O expositor precisava de um passo atrás sem perder a sessão. Pilha explícita no `conarh-app` (o botão do browser sairia de `/conarh` e mataria a demo na frente do visitante). Na etapa 2, "Voltar" anda **um passo**, não a tela inteira; na confirmação a pilha é zerada, senão o expositor reenviaria o mesmo lead. |
+| **Etapa 3 (PDI)** | "cruzamento entre a matriz e o diagnóstico" → **+ perfil comportamental (DISC) + modelo de aprendizagem** | "O plano é automático" soa a template até o visitante ver o que cada insumo decidiu: o DISC define o COMO (missão em uma frase, ritual de 15 min) e a preferência de aprendizagem define o FORMATO (missão prática, não curso). É o mesmo par que a etapa 4 mostra no espelho — aqui na origem. Os 4 insumos aparecem na tela com valor e efeito, e um guard trava a lista. |
+
+
 ## 1. Objetivo da sprint
 
 Colocar de pé, até 17/08, uma operação de estande de 4 m² que **filtra, provoca, demonstra e agenda** — com o app rodando 100% offline no tablet, a captura acontecendo depois do valor, e cada lead classe A saindo com data no calendário.

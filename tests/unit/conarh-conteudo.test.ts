@@ -42,15 +42,21 @@ function reguas(): ReguaVitrine[] {
 }
 
 describe('pacote de conteúdo do CONARH', () => {
-  it('tem 3 réguas, cada uma com eixo próprio e ≥5 descritores', () => {
+  it('tem as 3 competências da feira, com eixo próprio e 6 descritores cada', () => {
+    // Seis em todas porque o seletor põe as três lado a lado: uma régua com
+    // menos descritores que a vizinha faz o visitante achar que a competência
+    // dele foi tratada por cima. Os nomes são travados aqui porque saem em
+    // lona, folder e fala — mudar um exige mudar os quatro (05/08/2026).
     const lista = reguas();
-    expect(lista).toHaveLength(3);
+    expect(lista.map((r) => r.competencia)).toEqual([
+      'Liderança',
+      'Relacionamento com Clientes',
+      'Resolução de Problemas',
+    ]);
     expect(new Set(lista.map((r) => r.eixo)).size).toBe(3);
     for (const r of lista) {
-      expect(r.descritores.length, r.competencia).toBeGreaterThanOrEqual(5);
-      expect(new Set(r.descritores.map((d) => d.cod)).size, r.competencia).toBe(
-        r.descritores.length,
-      );
+      expect(r.descritores.length, r.competencia).toBe(6);
+      expect(new Set(r.descritores.map((d) => d.cod)).size, r.competencia).toBe(6);
     }
   });
 
@@ -161,6 +167,26 @@ describe('pacote de conteúdo do CONARH', () => {
     const { nota, nivel } = lerRespostas(cenario);
     expect(conteudo.porta3.lacuna).toContain(cenario.descritor_cod);
     expect(conteudo.porta3.lacuna).toContain(`${formatarNota(nota)} (N${nivel})`);
+  });
+
+  it('o PDI declara os 4 insumos, incluindo perfil comportamental e aprendizagem', () => {
+    // A etapa 3 vende "ninguém escreveu à mão". O que sustenta a frase são os
+    // insumos: tirar o perfil comportamental ou o modelo de aprendizagem da
+    // lista transforma a promessa de personalização em texto de template —
+    // e é justamente o par que a etapa 4 mostra em ação (DISC × formato).
+    const { insumos } = conteudo.porta3;
+    expect(insumos.map((i) => i.rotulo)).toEqual([
+      'Matriz de competências',
+      'Diagnóstico',
+      'Perfil comportamental (DISC)',
+      'Modelo de aprendizagem',
+    ]);
+    for (const i of insumos) {
+      expect(i.valor?.trim(), `${i.rotulo}/valor`).toBeTruthy();
+      expect(i.efeito?.trim(), `${i.rotulo}/efeito`).toBeTruthy();
+    }
+    // O diagnóstico citado aqui é o descritor que a etapa 2 avaliou.
+    expect(insumos[1].valor).toContain(conteudo.porta1.cenario!.descritor_cod);
   });
 
   it('a prancheta (fallback de papel) continua com o registro escrito', () => {
