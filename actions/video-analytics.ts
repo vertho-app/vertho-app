@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 import { requireUserAction, requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { carregarUltimosVideos } from '@/lib/home/loaders';
 
 const DIAS_INATIVO = 14;
 
@@ -39,32 +40,7 @@ export async function loadUltimosVideosColab(email: string, limit: number = 3) {
     const colab = await findColabByEmail(ctx.email, 'id');
     if (!colab) return { error: 'Colab não encontrado' };
 
-    const sb = createSupabaseAdmin();
-    const { data } = await sb.from('videos_watched')
-      .select('video_id, seconds_watched, video_length, event_type, created_at')
-      .eq('colaborador_id', colab.id)
-      .order('created_at', { ascending: false })
-      .limit(limit * 3); // overfetch pra poder deduplicar
-
-    const seen = new Set<string>();
-    const items: any[] = [];
-    for (const r of (data || [])) {
-      if (!r.video_id || seen.has(r.video_id)) continue;
-      seen.add(r.video_id);
-      const length = Number(r.video_length) || 0;
-      const watched = Number(r.seconds_watched) || 0;
-      const pct = length > 0 ? Math.min(100, Math.round((watched / length) * 100)) : 0;
-      items.push({
-        videoId: r.video_id,
-        secondsWatched: watched,
-        videoLength: length,
-        pct,
-        concluido: r.event_type === 'play_finished' || pct >= 90,
-        watchedAt: r.created_at,
-      });
-      if (items.length >= limit) break;
-    }
-    return { items };
+    return await carregarUltimosVideos(colab.id, limit);
   } catch (err) {
     console.error('[loadUltimosVideosColab]', err);
     return { error: err?.message || 'Erro' };

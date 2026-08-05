@@ -1,0 +1,95 @@
+'use server';
+
+import { createSupabaseAdmin } from '@/lib/supabase';
+import { getUserContext, findColabByEmail } from '@/lib/authz';
+import {
+  carregarDashboardData,
+  carregarJornada,
+  carregarHomeKpis,
+  carregarUltimosVideos,
+  carregarPulsosPendentes,
+  carregarVotacaoStatus,
+  carregarCapacitacoes,
+  JORNADA_COLAB_COLS,
+  type HomeSharedData,
+} from '@/lib/home/loaders';
+
+/**
+ * Carregamento CONSOLIDADO da home do dashboard.
+ *
+ * Antes: o page.tsx disparava 4 server actions em paralelo + 1 sequencial +
+ * 1 fetch de API route, cada um refazendo a cadeia de auth completa
+ * (auth.getUser → resolve tenant → colaboradores → platform_admins) — 6× por
+ * pageview. Aqui: UMA cadeia de auth, uma pré-busca compartilhada (trilha
+ * latest, sys_config e count de respostas eram consultados 2-3×) e os loaders
+ * de lib/home em paralelo.
+ *
+ * Resiliência por seção: cada loader roda isolado (Promise.allSettled) e uma
+ * falha derruba só a própria seção — fallbacks iguais aos que a home já
+ * tolerava ({ error }, { items: [] }, [], null).
+ */
+export async function loadHomeData() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
+
+  const ctx = await getUserContext(email);
+  if (!ctx?.colaborador) return { error: 'Colaborador nao encontrado para este e-mail' };
+
+  const colab = ctx.colaborador as any;
+  // A jornada precisa de colunas fora do default do authz (perfil_externo_dados)
+  const colabJornada = (await findColabByEmail(email, JORNADA_COLAB_COLS)) || colab;
+
+  const sb = createSupabaseAdmin();
+
+  // Pré-busca compartilhada — superset das colunas que dashboard, KPIs e
+  // jornada consultavam separadamente na trilha latest.
+  const [trilhaRes, empCfgRes, respRes] = await Promise.all([
+    sb.from('trilhas')
+      .select('id, cursos, competencia_foco, numero_temporada, status, temporada_plano, criado_em')
+      .eq('colaborador_id', colab.id)
+      .eq('empresa_id', colab.empresa_id)
+      .order('criado_em', { ascending: false })
+      .limit(1).maybeSingle(),
+    sb.from('empresas')
+      .select('sys_config')
+      .eq('id', colab.empresa_id)
+      .maybeSingle(),
+    sb.from('respostas')
+      .select('id', { count: 'exact', head: true })
+      .eq('colaborador_id', colab.id)
+      .eq('empresa_id', colab.empresa_id),
+  ]);
+  const shared: HomeSharedData = {
+    trilha: trilhaRes.data ?? null,
+    sysConfig: (empCfgRes.data?.sys_config as any) || null,
+    respostasCount: respRes.count ?? 0,
+  };
+
+  const dashboardP = carregarDashboardData(ctx, shared);
+  const jornadaP = carregarJornada(colabJornada, shared);
+
+  const [dashboardR, kpisR, videosR, pulsosR, votacaoR, capacR] = await Promise.allSettled([
+    dashboardP,
+    // KPIs aguarda a jornada internamente (só no passo da fase) — paralelo
+    carregarHomeKpis(colabJornada, jornadaP, shared),
+    carregarUltimosVideos(colab.id, 3),
+    carregarPulsosPendentes(colab.id),
+    carregarVotacaoStatus(colab, shared),
+    // Capacitações depende da competência foco (vem da trilha, via seção
+    // dashboard) — encadeado na promise, sem roundtrip extra do client.
+    dashboardP.then(d => carregarCapacitacoes(colab.empresa_id, d?.competenciaFoco ?? null, 12)),
+  ]);
+
+  const val = (r: PromiseSettledResult<any>, fallback: any): any =>
+    r.status === 'fulfilled' ? r.value : fallback;
+
+  return {
+    dashboard: val(dashboardR, { error: 'Erro ao carregar dashboard' }),
+    kpis: val(kpisR, { error: 'Erro ao carregar KPIs' }),
+    ultimosVideos: val(videosR, { items: [] as any[] }),
+    pulsos: val(pulsosR, [] as any[]),
+    votacao: val(votacaoR, null),
+    capacitacoes: val(capacR, [] as any[]),
+  };
+}

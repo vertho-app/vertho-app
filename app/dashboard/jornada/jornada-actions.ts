@@ -1,158 +1,20 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
-import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
+import { carregarJornada, JORNADA_COLAB_COLS } from '@/lib/home/loaders';
 
 /**
  * Carrega a jornada do colaborador — status de cada fase.
  * Fases: Diagnóstico → Avaliação → PDI → Capacitação → Reavaliação
+ * Wrapper fino: auth + delega pra `carregarJornada` (lib/home/loaders).
  */
-export async function loadJornada() {
+export async function loadJornada(): Promise<any> {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
 
-  const colab: any = await findColabByEmail(email, 'id, nome_completo, email, cargo, area_depto, empresa_id, perfil_dominante, perfil_externo_dados, created_at');
+  const colab: any = await findColabByEmail(email, JORNADA_COLAB_COLS);
   if (!colab) return { error: 'Colaborador nao encontrado' };
 
-  const sb = createSupabaseAdmin();
-  const { data: empCfg } = await sb.from('empresas')
-    .select('sys_config')
-    .eq('id', colab.empresa_id)
-    .maybeSingle();
-  const cfg = (empCfg?.sys_config as any) || {};
-  const empresaPerfilExternoFonte = cfg.perfil_externo_fonte ?? null;
-  const usaPerfilExterno = !!empresaPerfilExternoFonte;
-  const perfilComportamentalLiberado = isPerfilComportamentalLiberado(cfg);
-
-  const fases = [];
-
-  // Fase 1 — Diagnóstico comportamental.
-  // Empresas com fonte externa/proprietária não fazem DISC na Vertho:
-  // a etapa não deve bloquear o avanço para a avaliação de competências.
-  const temDISC = !!colab.perfil_dominante;
-  const temPerfilExterno = !!colab.perfil_externo_dados;
-  fases.push({
-    fase: 1,
-    titulo: 'Diagnóstico',
-    descricao: usaPerfilExterno
-      ? 'Mapeamento comportamental conduzido pela empresa'
-      : perfilComportamentalLiberado
-        ? 'Mapeamento do perfil comportamental'
-        : 'Aguardando liberação do perfil comportamental',
-    status: (usaPerfilExterno || temDISC) ? 'completed' : 'pending',
-    data: (temDISC || temPerfilExterno) ? null : null, // DISC date not stored separately
-    usaPerfilExterno,
-  });
-
-  // Fase 2 — Avaliação (respostas de competências do fluxo do dashboard)
-  // Total = quantas competências o cargo tem no top5_workshop
-  const { data: cargoEmp } = await sb.from('cargos_empresa')
-    .select('top5_workshop').eq('empresa_id', colab.empresa_id).eq('nome', colab.cargo).maybeSingle();
-  const totalComp = (cargoEmp?.top5_workshop || []).length;
-
-  // Respondidas = contagem de respostas do colab (qualquer canal, sem filtro de IA4)
-  const { count: respondidas } = await sb.from('respostas')
-    .select('id', { count: 'exact', head: true })
-    .eq('colaborador_id', colab.id)
-    .eq('empresa_id', colab.empresa_id);
-
-  const respondidasCount = respondidas || 0;
-  const avaliacaoCompleta = totalComp > 0 && respondidasCount >= totalComp;
-  const avaliacaoIniciada = respondidasCount > 0;
-  fases.push({
-    fase: 2,
-    titulo: 'Avaliação',
-    descricao: `Competências avaliadas: ${respondidasCount}/${totalComp}`,
-    status: avaliacaoCompleta ? 'completed' : avaliacaoIniciada ? 'current' : 'pending',
-    data: null,
-  });
-
-  // Trilha (necessária pra liberar Fase 3) — Motor de Temporadas
-  const { data: trilha } = await sb.from('trilhas')
-    .select('id, status, temporada_plano, competencia_foco, criado_em')
-    .eq('colaborador_id', colab.id)
-    .order('criado_em', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const temPlano = trilha?.temporada_plano && Array.isArray(trilha.temporada_plano) && trilha.temporada_plano.length > 0;
-
-  // Fase 3 — PDI (só disponível depois que a trilha estiver criada pelo gestor)
-  const { data: pdi } = await sb.from('relatorios')
-    .select('id, gerado_em')
-    .eq('colaborador_id', colab.id)
-    .eq('empresa_id', colab.empresa_id)
-    .eq('tipo', 'individual')
-    .order('gerado_em', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  let pdiStatus, pdiDesc;
-  if (!temPlano) {
-    pdiStatus = 'pending';
-    pdiDesc = 'Aguardando o gestor criar sua trilha de desenvolvimento';
-  } else if (pdi) {
-    pdiStatus = 'completed';
-    pdiDesc = 'Plano de Desenvolvimento Individual';
-  } else {
-    pdiStatus = 'pending';
-    pdiDesc = 'Aguardando geração do PDI';
-  }
-
-  fases.push({
-    fase: 3,
-    titulo: 'PDI',
-    descricao: pdiDesc,
-    status: pdiStatus,
-    data: pdi?.gerado_em || null,
-    bloqueado: !temPlano,
-  });
-
-  // Fase 4 — Temporada (já carregada acima)
-  let semanaAtual = 1;
-  if (temPlano) {
-    const { data: progresso } = await sb.from('temporada_semana_progresso')
-      .select('semana, status').eq('trilha_id', trilha.id).order('semana');
-    const concluidas = (progresso || []).filter(p => p.status === 'concluido').length;
-    semanaAtual = Math.min(14, concluidas + 1);
-  }
-
-  const temporadaStatus = trilha?.status === 'concluida' ? 'completed'
-    : (temPlano && trilha.status === 'ativa') ? 'current'
-    : 'pending';
-
-  fases.push({
-    fase: 4,
-    titulo: 'Temporada',
-    descricao: temPlano
-      ? `Semana ${semanaAtual} de 14 · ${trilha.competencia_foco || ''}`
-      : 'Aguardando geração da trilha personalizada',
-    status: temporadaStatus,
-    data: trilha?.criado_em || null,
-  });
-
-  // Fase 5 — Reavaliação
-  // Check if there's a second round of respostas or a reavaliacao flag
-  const { count: reavaliacoes } = await sb.from('respostas')
-    .select('id', { count: 'exact', head: true })
-    .eq('colaborador_id', colab.id)
-    .eq('rodada', 2);
-
-  fases.push({
-    fase: 5,
-    titulo: 'Reavaliação',
-    descricao: 'Medição de evolução pós-capacitação',
-    status: reavaliacoes > 0 ? 'completed' : 'pending',
-    data: null,
-  });
-
-  return {
-    colaborador: colab,
-    fases,
-    empresaPerfilExternoFonte,
-    temPerfilExterno,
-    perfilComportamentalLiberado,
-  };
+  return carregarJornada(colab);
 }

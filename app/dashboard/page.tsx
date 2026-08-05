@@ -9,12 +9,8 @@ import {
   BookOpen, FileText, Headphones, Zap, MessageCircle,
   Lock, ShieldCheck,
 } from 'lucide-react';
-import { loadDashboardData } from './dashboard-actions';
-import { loadHomeKpis } from '@/actions/dashboard-kpis';
-import { loadUltimosVideosColab } from '@/actions/video-analytics';
-import { loadMeusPulsosPendentes } from '@/actions/pulse/responder';
+import { loadHomeData } from './home-actions';
 import VideoModal from '@/components/video-modal';
-import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { ContentThumb } from '@/components/content-thumb';
 
 const BUNNY_LIBRARY = 636615;
@@ -82,40 +78,27 @@ export default function DashboardHomePage() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const [result, kpisR, histR, pulseR] = await Promise.all([
-        loadDashboardData(),
-        loadHomeKpis(),
-        loadUltimosVideosColab(user.email, 3),
-        loadMeusPulsosPendentes(),
-      ]);
-      if (!result.error) setData(result);
-      if (!kpisR?.error) setKpis(kpisR);
-      if (!histR?.error) setUltimosVideos(histR?.items || []);
-      setPulsosPendentes(Array.isArray(pulseR) ? pulseR : []);
-      // Verifica se há votação aberta
+      // Uma única action consolidada: 1 cadeia de auth no servidor (antes
+      // eram 4 actions + 1 check de votação + 1 fetch de API route, cada um
+      // com auth completa). Falhas são por seção — ver home-actions.ts.
       try {
-        const { checkVotacaoStatus } = await import('@/actions/votacao');
-        const vr = await checkVotacaoStatus();
-        if (vr?.votacaoAtiva) setVotacaoAberta(vr);
+        const r: any = await loadHomeData();
+        if (r && !r.error) {
+          if (r.dashboard && !r.dashboard.error) setData(r.dashboard);
+          if (r.kpis && !r.kpis.error) setKpis(r.kpis);
+          setUltimosVideos(r.ultimosVideos?.items || []);
+          setPulsosPendentes(Array.isArray(r.pulsos) ? r.pulsos : []);
+          if (r.votacao?.votacaoAtiva) setVotacaoAberta(r.votacao);
+          setCapacitacoes(Array.isArray(r.capacitacoes) ? r.capacitacoes : []);
+        }
       } catch (e) {
-        console.error('[home] votacao check failed:', e);
+        console.error('[home] loadHomeData failed:', e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     init();
   }, []);
-
-  useEffect(() => {
-    const competencia = data?.competenciaFoco;
-    const empresaId = data?.colaborador?.empresa_id;
-    if (!competencia) { setCapacitacoes([]); return; }
-    const params = new URLSearchParams({ competencia });
-    if (empresaId) params.set('empresa_id', empresaId);
-    fetchAuth(`/api/capacitacao-recomendada?${params}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setCapacitacoes(Array.isArray(d?.items) ? d.items : []))
-      .catch(() => setCapacitacoes([]));
-  }, [data?.competenciaFoco, data?.colaborador?.empresa_id]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-[60dvh]">

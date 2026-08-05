@@ -14,6 +14,7 @@ import {
   hasRequiredAnswer,
   sanitizeContextualAnswer,
 } from '@/lib/pulse/contextual-disc';
+import { carregarPulsosPendentes } from '@/lib/home/loaders';
 
 interface StoredResponse {
   numeric_answer: number | null;
@@ -253,12 +254,5 @@ export async function finishAssignment(
 export async function loadMeusPulsosPendentes() {
   const ctx = await requireUserAction();
   if (!ctx.colaborador?.id) return [];
-  const sb = createSupabaseAdmin();
-  const { data } = await sb.from('pulse_assignments')
-    .select('id, pulse_moment, status, due_date, ciclo_id')
-    .eq('colaborador_id', ctx.colaborador.id)
-    .in('status', ['pending', 'started'])
-    .or(`due_date.is.null,due_date.gte.${new Date().toISOString().slice(0, 10)}`)
-    .order('due_date', { ascending: true, nullsFirst: false });
-  return data || [];
+  return carregarPulsosPendentes(ctx.colaborador.id);
 }
