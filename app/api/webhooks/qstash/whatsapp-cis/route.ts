@@ -13,6 +13,12 @@ const whatsappPayloadSchema = z.object({
   telefone: z.string().trim().min(8).max(32),
   mensagem: z.string().trim().min(1).max(4000),
   envioId: z.string().uuid().optional(),
+  // Carimbo pós-envio da pílula diária (fase 4): quando presentes, após o
+  // sendWhatsapp ok o webhook grava o carimbo do canal em fase4_envios — quem
+  // prova a entrega é o webhook, não o enfileiramento (F-C4). Enum fechado:
+  // string livre deixaria o payload escolher QUALQUER coluna para sobrescrever.
+  fase4EnvioId: z.string().uuid().optional(),
+  carimboCampo: z.enum(['ultima_pilula1_whatsapp_em', 'ultima_pilula2_whatsapp_em']).optional(),
   // Anexo opcional (ex.: PDF do relatório individual no disparo em lote).
   // Vai por URL assinada — o documento é enviado após o texto, best-effort.
   documentoUrl: z.string().url().max(2000).optional(),
@@ -94,6 +100,31 @@ async function marcarEnvioWhatsAppEntregue(envioId?: string) {
   return true;
 }
 
+/**
+ * Carimbo do canal WhatsApp da pílula diária (fase 4), espelho de
+ * marcarEnvioWhatsAppEntregue: roda APÓS o sendWhatsapp confirmar. Atualiza UM
+ * campo só — não pode sobrescrever o carimbo do e-mail nem o consolidado
+ * `ultima_pilulaN_em` (gravados pelo worker no enfileiramento/envio síncrono).
+ * Falha aqui NÃO pode virar 5xx: o texto já foi entregue e o retry do QStash
+ * reenviaria a mensagem — só loga e reporta no corpo da resposta.
+ */
+async function carimbarPilulaWhatsAppEntregue(fase4EnvioId?: string, carimboCampo?: string) {
+  if (!fase4EnvioId || !carimboCampo) return true;
+
+  const sb = createSupabaseAdmin();
+  const { error } = await sb
+    .from('fase4_envios')
+    .update({ [carimboCampo]: new Date().toISOString() })
+    .eq('id', fase4EnvioId);
+
+  if (error) {
+    console.error(`[qstash/whatsapp-cis] Falha ao carimbar fase4_envios ${fase4EnvioId}.${carimboCampo}: ${error.message}`);
+    return false;
+  }
+
+  return true;
+}
+
 export async function POST(req) {
   try {
     const rawBody = await req.text();
@@ -112,7 +143,7 @@ export async function POST(req) {
       return NextResponse.json({ error: detalhe || 'Payload inválido' }, { status: 400 });
     }
 
-    const { telefone, mensagem, envioId, documentoUrl, documentoNome } = payload;
+    const { telefone, mensagem, envioId, fase4EnvioId, carimboCampo, documentoUrl, documentoNome } = payload;
 
     if (!telefone || !mensagem) {
       return NextResponse.json({ error: 'telefone e mensagem obrigatórios' }, { status: 400 });
@@ -153,7 +184,8 @@ export async function POST(req) {
     }
 
     const statusAtualizado = await marcarEnvioWhatsAppEntregue(envioId);
-    return NextResponse.json({ success: true, statusAtualizado, provider: r.provider });
+    const carimboFase4 = await carimbarPilulaWhatsAppEntregue(fase4EnvioId, carimboCampo);
+    return NextResponse.json({ success: true, statusAtualizado, carimboFase4, provider: r.provider });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[qstash/whatsapp-cis] Erro:', message);

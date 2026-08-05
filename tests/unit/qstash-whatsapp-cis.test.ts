@@ -204,4 +204,46 @@ describe('qstash whatsapp-cis webhook', () => {
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
   });
+
+  it('carimba ultima_pilulaN_whatsapp_em em fase4_envios após o envio confirmado', async () => {
+    const res = await POST(makeReq({
+      telefone: '11999999999',
+      mensagem: 'Sua pílula da semana',
+      fase4EnvioId: '22222222-2222-4222-8222-222222222222',
+      carimboCampo: 'ultima_pilula1_whatsapp_em',
+    }));
+    const body = await json(res);
+
+    expect(res.status).toBe(200);
+    expect(body.carimboFase4).toBe(true);
+    // UM campo só: o carimbo do canal — nunca o consolidado nem o do e-mail.
+    expect(mocks.supabaseState.updates[0]).toHaveProperty('ultima_pilula1_whatsapp_em');
+    expect(Object.keys(mocks.supabaseState.updates[0])).toEqual(['ultima_pilula1_whatsapp_em']);
+  });
+
+  it('rejeita carimboCampo fora do enum (não pode escolher coluna arbitrária)', async () => {
+    const res = await POST(makeReq({
+      telefone: '11999999999',
+      mensagem: 'Sua pílula da semana',
+      fase4EnvioId: '22222222-2222-4222-8222-222222222222',
+      carimboCampo: 'ultima_pilula1_em',
+    }));
+
+    expect(res.status).toBe(400);
+    expect(sendWhatsapp).not.toHaveBeenCalled();
+  });
+
+  it('não carimba fase4 quando o envio falha (503 para o QStash retentar)', async () => {
+    mocks.zapi.connected = false;
+
+    const res = await POST(makeReq({
+      telefone: '11999999999',
+      mensagem: 'Sua pílula da semana',
+      fase4EnvioId: '22222222-2222-4222-8222-222222222222',
+      carimboCampo: 'ultima_pilula2_whatsapp_em',
+    }));
+
+    expect(res.status).toBe(503);
+    expect(mocks.supabaseState.updates).toHaveLength(0);
+  });
 });

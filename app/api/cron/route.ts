@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import { cleanupSessoes, triggerSegunda, triggerQuinta, triggerDiario, conarhFollowup } from '@/actions/cron-jobs';
 import { safeSecretEqual } from '@/lib/secure-compare';
 
-// Os triggers (diário/segunda/quinta) varrem todas as empresas em loop
-// sequencial — sem teto explícito caem no default da Vercel e as empresas
-// do fim da lista ficam sem envio. (O fan-out por empresa é a correção
-// estrutural; isto é o remendo de curto prazo.)
+// trigger_diario virou DISPATCHER (fan-out QStash por empresa — uma task por
+// empresa, processada na rota worker com maxDuration próprio), então ele mesmo
+// é rápido. O teto alto continua pelos demais jobs deste arquivo, que ainda
+// varrem todas as empresas em loop sequencial na mesma lambda.
 export const maxDuration = 800;
 
 /**
@@ -86,6 +86,10 @@ export async function GET(req) {
         // PÓS-VOO imediato: confere se o que acabou de rodar realmente saiu. Roda
         // depois do envio, no mesmo request, para não depender de outro agendamento.
         // Best-effort: um problema no check NUNCA pode derrubar o envio em si.
+        // ⚠️ TIMING PÓS-FAN-OUT: triggerDiario agora é um DISPATCHER — enfileira
+        // uma task QStash por empresa e retorna. Este postflight roda logo após o
+        // ENFILEIRAMENTO, não após os envios (que acontecem nas lambdas worker, em
+        // paralelo); a leitura de "entregue hoje" só é completa minutos depois.
         try {
           const { executarHealthCheck } = await import('@/lib/pipeline-health/core');
           const h = await executarHealthCheck('postflight');
