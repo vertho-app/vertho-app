@@ -15,6 +15,7 @@ import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import { storageSlug } from '@/lib/storage-slug';
 import React from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { excludeInternalEmails } from '@/lib/internal-emails';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tipos públicos
@@ -275,9 +276,14 @@ export async function gerarRelatorioGestor(
     if (!empresa) return { success: false, error: 'Empresa não encontrada' };
 
     // Busca TODOS os colabs e agrupa por gestor_email (exclui internos @vertho.ai)
-    const { data: todosColabs } = await tdb.from('colaboradores')
-      .select('id, nome_completo, email, cargo, gestor_email, gestor_nome, perfil_dominante, d_natural, i_natural, s_natural, c_natural, role')
-      .not('email', 'ilike', '%@vertho.ai');
+    // Exclui STAFF, mantém as personas de demo (`*.demo@vertho.ai`): elas são
+    // o CONTEÚDO do tenant de demonstração. Com o filtro cru `%@vertho.ai`, o
+    // relatório do gestor saía VAZIO em qualquer tenant de demo — inclusive no
+    // que a feira usa. Ver lib/internal-emails.ts.
+    const { data: todosColabs } = await excludeInternalEmails(
+      tdb.from('colaboradores')
+        .select('id, nome_completo, email, cargo, gestor_email, gestor_nome, perfil_dominante, d_natural, i_natural, s_natural, c_natural, role'),
+    );
 
     const equipesPorGestor: Record<string, any[]> = {};
     for (const c of (todosColabs || [])) {

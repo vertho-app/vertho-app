@@ -187,6 +187,12 @@ export interface Porta4Espelho {
       src: string | null; // arquivo local em /conarh/media (a demo roda offline)
       titulo: string;
       duracao?: string;
+      /**
+       * Formato texto: o PDF editorial que a pessoa recebe de verdade (gerado
+       * por `scripts/_conarh-guia-pdf.ts`). Vídeo e áudio já abriam a peça
+       * real; o texto era o único que ficava só na tela.
+       */
+      pdf?: string;
     };
   }>; // 2+ pessoas do MESMO cargo, competência e semana — uma por formato
   // (vídeo · texto · podcast). Repetir formato entre elas transforma a prova

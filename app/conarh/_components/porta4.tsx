@@ -194,6 +194,21 @@ export function Porta4({
                   texto={p.midia.tipo === 'texto' ? p.desafio : undefined}
                 />
               )}
+              {/* Formato texto: o mesmo PDF editorial que a pessoa recebe.
+                  Vídeo e áudio já abriam a peça real na tela; o texto ficava só
+                  como parágrafo, e era o único dos três sem artefato. */}
+              {p.midia?.pdf && (
+                <a
+                  href={p.midia.pdf}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 mt-3 font-bold"
+                  style={{ color: COR.acento, fontSize: 16, fontFamily: SANS, textDecoration: 'none' }}
+                >
+                  <FileText size={16} />
+                  Abrir o guia em PDF →
+                </a>
+              )}
             </div>
           </section>
         ))}
