@@ -1688,6 +1688,35 @@ Reconstrói personas DISC (Mariana/Renato/Carla/Bruna + Gerente Comercial), gaba
 
 ---
 
-*Documento validado contra o codigo-fonte local em 25/05/2026 (patches pós-response/demo em 07/07/2026).*
+## 25. Escala — pacote "1000 usuários simultâneos" (04/08/2026)
+
+Auditoria de rajada (login matinal de ~1k usuários) executada em 2 pacotes. Análise de gargalos completa e o que falta (semáforo global de LLM, relatórios no Trigger, isolamento do radar) estão na memória do projeto; aqui o que mudou no código.
+
+### 25.1 Banco (migration 197)
+
+- `idx_respostas_colaborador` em `respostas(colaborador_id)` — a tabela que mais cresce; queries quentes por colaborador (dashboard, `/api/assessment`) não tinham índice líder (o existente é `(empresa_id, email_colaborador)`).
+- `idx_colaboradores_email_lower` em `colaboradores(lower(email))` — lookup por email puro estava no caminho de TODA request autenticada (`lib/authz.ts`, `request-context.ts`, `i18n-server.ts`).
+- ⚠️ Aplicada com `CREATE INDEX CONCURRENTLY` via script statement-a-statement (`scripts/_criar-indices-escala.mjs`) — o `apply-migration.mjs` manda o arquivo inteiro numa query só (transaction implícita) e CONCURRENTLY falharia.
+
+### 25.2 Rate limit distribuído (Upstash)
+
+`lib/rate-limit.ts`: se `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` existem, sliding window no Redis (compartilhado pela frota de lambdas, prefixo `vertho-rl:<cfg>`); senão, fallback in-memory por instância (fail-open com log se o Redis falha em runtime). `check()` é **async** — todos os call sites usam `await`. Limites: IA 10/min, heavy 5/min, read 60/min, auth 8/min. Verificado em produção (8×200 → 429 com `Retry-After`, chave no Redis). O sliding window da Upstash é aproximado (~10% para cima, por design).
+
+### 25.3 Home do dashboard — 1 server action, 1 auth
+
+Antes: 4 actions em paralelo + 1 sequencial + 1 API route por pageview, cada uma refazendo a cadeia de auth (6× `auth.getUser`, 8× lookup `colaboradores`). Agora `loadHomeData()` (`app/dashboard/home-actions.ts`) autentica 1×, pré-busca compartilhada (trilha latest, `sys_config`, count de respostas — antes 2-3× cada) e delega aos loaders puros de `lib/home/loaders.ts` em `Promise.allSettled` (falha derruba só a seção). As actions antigas (`loadDashboardData`, `loadHomeKpis`, `loadJornada`, etc.) viraram wrappers finos sobre a lib — assinaturas preservadas. Capacitações chegam na mesma resposta (a home não chama mais `/api/capacitacao-recomendada`; a rota segue existindo).
+
+### 25.4 Cron diário — fan-out por empresa (QStash)
+
+`triggerDiario` (`actions/cron-jobs.ts`) é dispatcher: lock diário → filtra empresas pela cadência do dia → enfileira 1 task QStash por empresa. O worker `app/api/webhooks/qstash/trigger-diario-empresa/route.ts` (dual-auth `x-internal-dispatch` OU assinatura QStash, `maxDuration` 300) processa UMA empresa via `processarEmpresaDiario` (`lib/fase4/trigger-diario-empresa.ts`, núcleo extraído do loop antigo, com N+1 de trilhas eliminado). Task idempotente no dia (carimbos por canal) → 5xx = retry seguro. Sem `QSTASH_TOKEN`, o dispatcher cai no loop inline (dev). Efeitos colaterais registrados: delay de 2s/msg passou a ser intra-empresa; postflight roda após o enfileiramento. Carimbo `ultima_pilulaN_whatsapp_em` agora é gravado pelo webhook `whatsapp-cis` **após a entrega** (payload `fase4EnvioId` + `carimboCampo`, enum fechado) — ver FMEA §1.2.
+
+### 25.5 Menores
+
+- `maxDuration` explícito: `/api/chat` 300, `tira-duvidas` 300, `relatorios/pdf` 300, `cron` 800.
+- Locale default do tenant cacheado (`unstable_cache`, tag `tenant-default-locale`, TTL 1d) em `lib/i18n-server.ts`; invalidação com `updateTag` em `salvarLocaleEmpresa`. Era a query mais quente do sistema (1 por request renderizada, via `i18n/request.ts`).
+
+---
+
+*Documento validado contra o codigo-fonte local em 25/05/2026 (patches pós-response/demo em 07/07/2026; seção 25 em 04/08/2026).*
 *~429 arquivos TS/TSX + ~72 JS/MJS | arquivos SQL 022-169 (com gaps) | vertho.ai*
 *Revisao: 07/07/2026 (HEAD `83c8092a` — padroes pos-response Trigger.dev + tenant de demo/contas internas; base 25/05 `2730cd7`)*
