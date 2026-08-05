@@ -11,6 +11,7 @@
  * CÓPIA do plano, igual `loadTemporada` faz.
  */
 import { precarregarKits, overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
+import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { normalizePhone } from '@/lib/phone';
 import { levantarPlanoKitsCoorte } from '@/lib/season-engine/kit/plano-coorte';
@@ -87,6 +88,10 @@ export async function coletarEntregasPrevistas(
       empresaId, disc: c.perfil_dominante, cargo: c.cargo,
       formatoPref: formatoPreferido(c), competenciaFoco: t?.competencia_foco || null,
       kitsCache: cacheKits.get(chave),
+      // Mesmo flag do caminho real: sem isto o health mediria a semana com dois
+      // desafios enquanto o colaborador recebe um — o gêmeo que não roda
+      // passando verde (a classe de 29/07).
+      desafioUnicoPorSemana: getProgramaConfigDaTrilha(t as any).desafioUnicoPorSemana,
     });
 
     const itens = Array.isArray(copia.conteudos_dia) && copia.conteudos_dia.length

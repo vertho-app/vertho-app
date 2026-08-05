@@ -72,6 +72,12 @@ export interface ProgramaConfig {
    */
   semanaEspelhoCalendario?: Record<number, number>;
   /**
+   * Jornada: a semana entrega 2 pílulas mas UMA tarefa. O overlay do kit passa
+   * a manter o desafio de uma entrega só (a primeira que tiver kit publicado).
+   * undefined/false = um desafio por entrega, como nos modos de 14 semanas.
+   */
+  desafioUnicoPorSemana?: boolean;
+  /**
    * Arguição conversacional no fechamento (a "defesa oral" da resposta ao
    * Cenário B). Depois das 4 perguntas fixas, a IA sonda a resposta por até
    * `maxTurnos` turnos — expõe profundidade ou fragilidade que o escrito não
@@ -228,6 +234,46 @@ export const PROGRAMA_PILOTO: ProgramaConfig = Object.freeze({
 }) as ProgramaConfig;
 
 /**
+ * Jornada (05/08/2026) — o formato novo do programa: **7 semanas**, sendo 6 de
+ * conteúdo e a última de avaliação. UMA competência por jornada, 2 conteúdos
+ * por semana (as duas pílulas) e **um desafio por semana**, que cobre as duas
+ * — no lugar das semanas dedicadas de missão (4/8/12), que deixam de existir.
+ *
+ * O DUO passa a ser DUAS jornadas em sequência: terminou a primeira (com
+ * fechamento próprio), a segunda começa na competência seguinte. Por isso a
+ * config descreve UMA jornada e não 14 semanas: cada uma é uma trilha completa,
+ * com seu Cenário B, sua arguição e seu Evolution Report.
+ *
+ * `modo: 'regular'` de propósito. `modo: 'piloto'` liga comportamentos que são
+ * só da degustação (trava de piso na nota, spec_version 'piloto-v1', evidência
+ * por cobertos) — a jornada é programa cheio, não amostra.
+ *
+ * ⚠️ Só vale para trilha NOVA. As em andamento servem o `temporada_plano` já
+ * gravado, com a estrutura de 14 semanas — mudar a config não as regenera, e é
+ * exatamente isso que se quer.
+ */
+export const PROGRAMA_JORNADA: ProgramaConfig = Object.freeze({
+  modo: 'regular',
+  semanas: 7,
+  // Sem semana dedicada de aplicação: a tarefa da semana é o desafio, que
+  // agora vem uma vez por semana cobrindo as duas pílulas.
+  semanasMissao: [],
+  semanasAvaliacao: [7],
+  semanaCenarioB: 7,
+  // Como no piloto: sem semana de conversa qualitativa separada, a acumulada
+  // roda ao fechar a última semana de conteúdo e persiste na row dela.
+  semanaAcumulada: 6,
+  slotsConteudo: [1, 2, 3, 4, 5, 6],
+  blocosCobertos: {},
+  complexidadeMap: {},
+  nivelMetaAlvo: 3,
+  numCompetencias: 1,
+  conteudosPorSemana: 2,
+  desafioUnicoPorSemana: true,
+  arguicao: { ativa: true, maxTurnos: 6 },
+}) as ProgramaConfig;
+
+/**
  * Rótulos persistíveis de modo (colaboradores.programa_modo e
  * trilhas.programa_modo — migrations 154/182). Distintos de ProgramaModo:
  * 'regular' ambíguo vira 'regular_duo' | 'regular_single'. 'custom' = builder
@@ -235,7 +281,7 @@ export const PROGRAMA_PILOTO: ProgramaConfig = Object.freeze({
  * `sys_config.programa_custom` e o runtime lê o snapshot
  * `trilhas.programa_config` (ver lib/season-engine/programa-custom.ts).
  */
-export type ProgramaModoLabel = 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto' | 'custom';
+export type ProgramaModoLabel = 'jornada' | 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto' | 'custom';
 
 /**
  * Mapeia um rótulo de modo → template. Desconhecido/ausente → DUO
@@ -244,6 +290,7 @@ export type ProgramaModoLabel = 'regular_duo' | 'regular_single' | 'onboarding' 
  * o label ANTES de chamar esta função (trilha-core / resolverConfigDaTrilha).
  */
 export function getProgramaConfigByModo(modo?: string | null): ProgramaConfig {
+  if (modo === 'jornada') return PROGRAMA_JORNADA;
   if (modo === 'onboarding') return PROGRAMA_ONBOARDING;
   if (modo === 'regular_single') return PROGRAMA_REGULAR;
   if (modo === 'piloto') return PROGRAMA_PILOTO;
@@ -255,6 +302,8 @@ export function getProgramaConfigByModo(modo?: string | null): ProgramaConfig {
  *
  * Default GLOBAL = Regular DUO (2 competências). Escape hatches por
  * `sys_config.programa_modo`:
+ *   - 'jornada'         → PROGRAMA_JORNADA (7 sem: 6 conteúdo + avaliação,
+ *                         1 competência, 1 desafio/semana; DUO = 2 em sequência)
  *   - 'onboarding'      → PROGRAMA_ONBOARDING (10 sem, 5 comps, espiral)
  *   - 'regular_single'  → PROGRAMA_REGULAR (1 comp aprofundada — rollback
  *                         sem mexer em código, caso um cliente precise)
@@ -276,6 +325,7 @@ export function resolverModoColab(
   sysConfig?: { programa_modo?: string } | null,
 ): ProgramaModoLabel {
   const bruto = colab?.programa_modo || sysConfig?.programa_modo;
+  if (bruto === 'jornada') return 'jornada';
   if (bruto === 'onboarding' || bruto === 'regular_single' || bruto === 'piloto' || bruto === 'custom') return bruto;
   if (bruto === 'regular_duo' || bruto === 'regular') return 'regular_duo';
   return 'regular_duo';

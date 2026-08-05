@@ -7,7 +7,7 @@ import { selectDescriptorsPiloto } from '@/lib/season-engine/select-descriptors'
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { entregaEhReal } from '@/lib/season-engine/week-gating';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
-import { getProgramaConfigByModo, resolverModoColab } from '@/lib/season-engine/programa-config';
+import { getProgramaConfigByModo, getProgramaConfigDaTrilha, resolverModoColab } from '@/lib/season-engine/programa-config';
 import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
 import { gerarTemporadaCoreHeadless, normalizarSemanas } from '@/lib/season-engine/trilha-core';
 import type { AIConfig } from './ai-client';
@@ -504,7 +504,7 @@ export async function regerarSemana(input: z.infer<typeof RegerarSemanaInput>) {
  * exibir o fallback do buildSeason quando já existe Kit. `colab` precisa de
  * perfil_dominante + prefs + empresa_id.
  */
-async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { competencia_foco?: any; competencias_foco?: any; data_inicio?: string | null }) {
+async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { competencia_foco?: any; competencias_foco?: any; data_inicio?: string | null; programa_modo?: string | null }) {
   if (!colab?.empresa_id || !Array.isArray(plano)) return;
   try {
     const formatoPref = formatoPreferido(colab);
@@ -526,6 +526,10 @@ async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { co
       plano.filter((s: any) => s?.tipo === 'conteudo').map((s: any) =>
         overlayKitNaSemana(sb, s, {
           empresaId: colab.empresa_id, disc, cargo: colab.cargo, formatoPref, competenciaFoco, kitsCache,
+          // Jornada: 1 tarefa por semana. Vem do CARIMBO da trilha (não do
+          // sys_config atual da empresa) — trocar o modo da empresa não pode
+          // mudar a entrega de quem já está no meio de uma trilha.
+          desafioUnicoPorSemana: getProgramaConfigDaTrilha(trilha).desafioUnicoPorSemana,
           // `colaboradorId` é o que LIGA o registro de degradação (entrega-semana.ts).
           // Só passa em semana já liberada: o overlay roda no plano INTEIRO (14
           // semanas) a cada leitura e a cada varredura de admin, e degradação em
@@ -567,7 +571,7 @@ const _prepararEntregasJornada = protectedAction('content.manage', PrepararEntre
   let preparadas = 0, jaProntas = 0, falhas = 0, semanas = 0;
   for (const colab of colabs as any[]) {
     const { data: trilha } = await tdb.from('trilhas')
-      .select('competencia_foco, competencias_foco, temporada_plano, data_inicio')
+      .select('competencia_foco, competencias_foco, temporada_plano, data_inicio, programa_modo')
       .eq('colaborador_id', colab.id).order('criado_em', { ascending: false }).limit(1).maybeSingle();
     if (!trilha?.temporada_plano) continue;
     const plano = normalizeTemporadaPlano(trilha.temporada_plano);
@@ -672,7 +676,7 @@ export async function listarTemporadasEmpresa(empresaId: string) {
     if (!empresaId) return { error: 'empresaId obrigatório' };
     const tdb = tenantDb(empresaId);
     const { data, error } = await tdb.from('trilhas')
-      .select('id, colaborador_id, competencia_foco, competencias_foco, numero_temporada, status, criado_em, descritores_selecionados, temporada_plano')
+      .select('id, colaborador_id, competencia_foco, competencias_foco, numero_temporada, status, criado_em, descritores_selecionados, temporada_plano, programa_modo')
       .not('temporada_plano', 'is', null)
       .order('criado_em', { ascending: false });
     if (error) return { error: error.message };
@@ -746,7 +750,7 @@ export async function loadProgressoDetalhado(trilhaId: string) {
   try {
     const sb = await requireAdminSupabase();
     const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, competencia_foco, competencias_foco, temporada_plano, evolution_report')
+      .select('id, colaborador_id, competencia_foco, competencias_foco, temporada_plano, evolution_report, programa_modo')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return { error: 'Trilha não encontrada' };
 

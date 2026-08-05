@@ -148,6 +148,8 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     : (conteudo ? [{ dia: 'semana', label: t('type.episode'), competencia: semana.competencia, descritor: semana.descritor, conteudo }] : []);
   const cenario = semana.cenario;
   const nadaParaAbrir = entregasConteudo.length > 0 && entregasConteudo.every((_, i) => semFonte[i]);
+  /** Entregas que trazem tarefa: 2 nos modos de 14 semanas, 1 na jornada. */
+  const entregasComDesafio = entregasConteudo.filter((e: any) => e?.conteudo?.desafio_texto);
   const progressoSemana = (data.progresso || []).find(p => p.semana === semanaNum);
   const conteudoConsumido = progressoSemana?.conteudo_consumido;
 
@@ -327,15 +329,23 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
             )}
           </GlassCard>
 
+          {entregasComDesafio.length > 0 && (
           <GlassCard className="mb-4 border-brand-500/30 bg-brand-500/5">
             <div className="flex items-center gap-2 mb-2">
               <Target size={16} className="text-brand-400" />
               <span className="text-xs uppercase text-brand-400 font-bold">{t('challenge.title')}</span>
             </div>
             <div className="space-y-4">
-              {entregasConteudo.map((entrega, idx) => (
+              {/* Só as entregas que TÊM desafio. Na jornada (05/08/2026) a semana
+                  entrega duas pílulas e uma tarefa só, então a segunda entrega
+                  vem sem desafio — sem este filtro, a tela mostrava um bloco
+                  vazio com o rótulo da entrega e nada embaixo. Com uma única
+                  tarefa, o rótulo da pílula também sai: a tarefa é da SEMANA. */}
+              {entregasComDesafio.map((entrega, idx) => (
                 <div key={`${entrega.dia}-challenge-${idx}`} className={idx > 0 ? 'border-t border-brand-500/20 pt-4' : ''}>
-                  <p className="text-[10px] uppercase tracking-widest text-brand-400/70 font-semibold mb-1">{entrega.label}</p>
+                  {entregasComDesafio.length > 1 && (
+                    <p className="text-[10px] uppercase tracking-widest text-brand-400/70 font-semibold mb-1">{entrega.label}</p>
+                  )}
                   <p className="text-sm text-gray-200">{entrega.conteudo?.desafio_texto}</p>
                   {entrega.conteudo?.acao_observavel && (
                     <div className="mt-3 space-y-2">
@@ -355,6 +365,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               ))}
             </div>
           </GlassCard>
+          )}
         </>
       )}
 

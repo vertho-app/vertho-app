@@ -78,6 +78,31 @@ export function totalSemanasDoPlano(plano: any, fallback: number): number {
 }
 
 /**
+ * Semana de implementação = semana de missão prática, sem pílula nova.
+ *
+ * FONTE ÚNICA desta pergunta. Ela estava respondida por `[4, 8, 12]` escrito à
+ * mão em quatro arquivos (cron, trigger diário, home, praticar) — uma lista que
+ * só vale no formato de 14 semanas. Na jornada de 7 (05/08/2026) não existe
+ * semana de missão: a semana 4 é de conteúdo, e a lista antiga a deixaria sem
+ * pílula, calada, para todos os colaboradores desse modo.
+ *
+ * O PLANO da trilha é a resposta certa porque foi carimbado na geração — vale
+ * para qualquer modo, inclusive os que ainda não existem. Sem plano (colab
+ * legado), cai no fallback recebido, que é o comportamento de antes.
+ */
+export function ehSemanaDeImplementacao(
+  plano: any,
+  semana: number,
+  fallback: number[] = [4, 8, 12],
+): boolean {
+  if (Array.isArray(plano) && plano.length) {
+    const slot = plano.find((s: any) => Number(s?.semana) === Number(semana));
+    if (slot?.tipo) return slot.tipo === 'aplicacao';
+  }
+  return fallback.includes(Number(semana));
+}
+
+/**
  * Semana cujo CALENDÁRIO governa a liberação, lida do SNAPSHOT do plano
  * (`calendario_semana` gravado na geração — contrato da UI/rotas). Slots sem
  * espelho (todos, exceto o fechamento do piloto) → a própria semana.

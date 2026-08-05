@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { isMapeamentoCenariosLiberado, isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import type { UserContext } from '@/types';
+import { ehSemanaDeImplementacao } from '@/lib/season-engine/trilha-runtime';
 
 /**
  * Loaders da home do dashboard — queries PURAS, sem 'use server' e sem auth
@@ -32,6 +33,8 @@ export const JORNADA_COLAB_COLS =
 
 const SEMANA_DIAS = 7;
 const TOTAL_SEMANAS = 14;
+// Fallback histórico: o formato de 14 semanas. Quem responde de verdade é o
+// plano da trilha (ver `ehSemanaDeImplementacao`).
 const SEMANAS_IMPLEMENTACAO = [4, 8, 12];
 const MS_DIA = 24 * 60 * 60 * 1000;
 
@@ -302,7 +305,7 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
     const trilha = shared?.trilha !== undefined
       ? shared.trilha
       : (await sb.from('trilhas')
-          .select('id, cursos, competencia_foco')
+          .select('id, cursos, competencia_foco, temporada_plano')
           .eq('colaborador_id', colab.id)
           .eq('empresa_id', colab.empresa_id)
           .order('criado_em', { ascending: false })
@@ -335,7 +338,7 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
         titulo: cursoSemana?.nome || `Pílula da semana ${semanaAtual}`,
         semana: semanaAtual,
         status: concluida ? 'concluida' : 'em-curso',
-        ehImplementacao: SEMANAS_IMPLEMENTACAO.includes(semanaAtual),
+        ehImplementacao: ehSemanaDeImplementacao(trilha?.temporada_plano, semanaAtual),
       };
     }
 
@@ -401,7 +404,7 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
         const dataSemana = new Date(inicio.getTime() + (s - 1) * SEMANA_DIAS * MS_DIA);
         const diasAte = Math.ceil((dataSemana.getTime() - agora.getTime()) / MS_DIA);
         if (diasAte <= 0) continue;
-        const ehImpl = SEMANAS_IMPLEMENTACAO.includes(s);
+        const ehImpl = ehSemanaDeImplementacao(trilha?.temporada_plano, s);
         const ehFim = s === TOTAL_SEMANAS;
         marcos.push({
           tipo: ehFim ? 'fim' : ehImpl ? 'implementacao' : 'pilula',

@@ -191,6 +191,26 @@ export async function precarregarKits(
   return out;
 }
 
+/**
+ * Deixa a semana com UM desafio só (jornada): mantém o da primeira entrega que
+ * REALMENTE tem desafio e limpa o das demais — conteúdo, formatos e vídeo
+ * seguem intactos, porque o que ficou único é a tarefa, não a pílula.
+ *
+ * "A primeira que tem" e não "a primeira": se o kit da entrega 1 não estiver
+ * publicado e o da 2 estiver, escolher cegamente a 1 deixaria a semana SEM
+ * tarefa nenhuma — a falha silenciosa clássica desta camada, que já custou 29
+ * leituras no genérico com kit na prateleira (29/07).
+ */
+export function manterUmDesafio(entregas: any[]): void {
+  const CAMPOS = ['desafio_texto', 'acao_observavel', 'criterio_de_execucao'] as const;
+  const principal = entregas.findIndex((e) => e?.conteudo?.desafio_texto);
+  if (principal < 0) return; // nenhuma tem desafio: não há o que unificar
+  entregas.forEach((e, i) => {
+    if (i === principal || !e?.conteudo) return;
+    for (const campo of CAMPOS) delete e.conteudo[campo];
+  });
+}
+
 /** Aplica o kit num objeto `conteudo` (mutação): formatos + core preferido + desafio. */
 async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; kitsCache?: KitsCache; colaboradorId?: string; semana?: number }) {
   if (!conteudo) return;
@@ -254,13 +274,29 @@ async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string
 export async function overlayKitNaSemana(
   sb: any,
   semanaPlan: any,
-  args: { empresaId: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; competenciaFoco: string | null; kitsCache?: KitsCache; colaboradorId?: string },
+  args: {
+    empresaId: string | null;
+    disc: string | null;
+    cargo?: string | null;
+    formatoPref: Formato;
+    competenciaFoco: string | null;
+    kitsCache?: KitsCache;
+    colaboradorId?: string;
+    /**
+     * Jornada (05/08/2026): UMA tarefa por semana, cobrindo as duas pílulas.
+     * O conteúdo continua sendo dois; o que passa a ser único é o desafio.
+     * Sem o flag, nada muda — os modos de 14 semanas seguem com um desafio
+     * por entrega, que é como as 47 trilhas em andamento foram geradas.
+     */
+    desafioUnicoPorSemana?: boolean;
+  },
 ) {
   if (!semanaPlan || semanaPlan.tipo !== 'conteudo') return;
   if (Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length) {
     for (const e of semanaPlan.conteudos_dia) {
       await overlayConteudo(sb, e.conteudo, { empresaId: args.empresaId, competencia: e.competencia || args.competenciaFoco, descritor: e.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, kitsCache: args.kitsCache, colaboradorId: args.colaboradorId, semana: semanaPlan.semana });
     }
+    if (args.desafioUnicoPorSemana) manterUmDesafio(semanaPlan.conteudos_dia);
   } else {
     await overlayConteudo(sb, semanaPlan.conteudo, { empresaId: args.empresaId, competencia: args.competenciaFoco, descritor: semanaPlan.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, kitsCache: args.kitsCache, colaboradorId: args.colaboradorId, semana: semanaPlan.semana });
   }

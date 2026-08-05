@@ -194,7 +194,7 @@ export async function processarEmpresaDiario(
       });
 
     // ── 1ª PÍLULA ──
-    if (hoje === diaP1 && !ehImpl(semana) && conteudosDia[0] && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em')) {
+    if (hoje === diaP1 && !ehImpl(semana, plan) && conteudosDia[0] && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em')) {
       await enviarPilulaDia(conteudosDia[0], 'ultima_pilula1_em');
     }
 
@@ -240,7 +240,7 @@ export async function processarEmpresaDiario(
     }
 
     // ── 2ª PÍLULA (DUO) ──
-    if (hoje === diaP2 && !ehImpl(semana) && conteudosDia[1] && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em')) {
+    if (hoje === diaP2 && !ehImpl(semana, plan) && conteudosDia[1] && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em')) {
       await enviarPilulaDia(conteudosDia[1], 'ultima_pilula2_em');
     }
 
@@ -261,7 +261,7 @@ export async function processarEmpresaDiario(
       // (rever o desafio + relatar à Mentora IA). Aplicação/missão (4/8/12) → lembrete
       // de evidência clássico.
       if (telefone) {
-        const ehDesafio = plan && plan.tipo !== 'aplicacao' && !ehImpl(semana) && conteudosDia.length;
+        const ehDesafio = plan && plan.tipo !== 'aplicacao' && !ehImpl(semana, plan) && conteudosDia.length;
         const mensagem = ehDesafio
           ? templateWhatsAppNudgeDesafio(nome, deepLinkSemana(baseUrl, semana))
           : templateWhatsAppEvidencia(nome, semana);
@@ -276,6 +276,20 @@ export async function processarEmpresaDiario(
   return { pilulas, emails, evidencias, nudges, erros };
 }
 
-function ehImpl(semana: number): boolean {
+/**
+ * Semana de implementação = semana SEM pílula nova (a de missão prática).
+ *
+ * Pergunta ao PLANO da trilha (`tipo: 'aplicacao'`), não a uma lista de
+ * números. A lista `[4, 8, 12]` só vale no formato de 14 semanas: na jornada
+ * de 7 (05/08/2026) não há semana de missão, e a semana 4 — que É de conteúdo —
+ * ficaria sem pílula, em silêncio, para todo mundo desse modo. O plano é
+ * carimbado na geração, então responde certo para qualquer modo, inclusive os
+ * que ainda não existem.
+ *
+ * `plan` ausente (colab legado sem plano) cai na lista antiga — mesmo
+ * comportamento de antes para quem já roda.
+ */
+function ehImpl(semana: number, plan: any | null): boolean {
+  if (plan?.tipo) return plan.tipo === 'aplicacao';
   return SEMANAS_IMPL.includes(semana);
 }

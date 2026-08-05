@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
+import { ehSemanaDeImplementacao, totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 
 /**
  * Carrega a trilha do colaborador (Fase 4 — Capacitação).
@@ -31,7 +32,7 @@ export async function loadTrilhaAtual(email) {
 
   // 1) Trilha criada na Fase 2 (montar trilhas)
   const { data: trilha } = await sb.from('trilhas')
-    .select('id, competencia_foco, cursos, status, criado_em')
+    .select('id, competencia_foco, cursos, status, criado_em, temporada_plano')
     .eq('colaborador_id', colab.id)
     .eq('empresa_id', colab.empresa_id)
     .order('criado_em', { ascending: false })
@@ -53,8 +54,12 @@ export async function loadTrilhaAtual(email) {
 
   const ultimoProgresso = progressoRows?.[0] || null;
   const semanaAtual = ultimoProgresso?.semana || 0;
-  const totalSemanas = 14;
-  const ehImplementacao = [4, 8, 12].includes(semanaAtual);
+  // Tamanho e formato vêm do PLANO da trilha: 14 no formato antigo, 7 na
+  // jornada. Antes eram dois números fixos aqui, e a tela desenhava 14 semanas
+  // para quem tem 7.
+  const plano = Array.isArray(trilha?.temporada_plano) ? trilha.temporada_plano : [];
+  const totalSemanas = totalSemanasDoPlano(plano, 14);
+  const ehImplementacao = ehSemanaDeImplementacao(plano, semanaAtual);
 
   // Estado "pendente" — trilha preparada mas ainda não iniciada
   if (!ultimoProgresso || trilha.status === 'pendente') {
@@ -75,7 +80,7 @@ export async function loadTrilhaAtual(email) {
     trilhaSemanas.push({
       semana: s,
       completada: semanasCompletas.includes(s),
-      ehImplementacao: [4, 8, 12].includes(s),
+      ehImplementacao: ehSemanaDeImplementacao(plano, s),
       atual: s === semanaAtual,
     });
   }

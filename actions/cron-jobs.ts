@@ -10,7 +10,13 @@ import { publicarQStashTask, publicarWhatsappCis } from '@/lib/qstash-publish';
 
 const TIMEOUT_ABANDONO_HORAS = 48;
 const TOTAL_SEMANAS = 14;
-const SEMANAS_IMPL = [4, 8, 12]; // Semanas de implementação (sem pílula nova)
+// Semanas de implementação do formato de 14 semanas. Este cron (`triggerSegunda`)
+// serve o caminho LEGADO da fase 4 (`fase4_envios.sequencia`, sem
+// `temporada_plano`) e NÃO está agendado no vercel.json — roda só por disparo
+// manual. Quem responde pela pergunta no caminho vivo é
+// `ehSemanaDeImplementacao` (lib/season-engine/trilha-runtime), que lê o plano
+// da trilha e por isso acerta na jornada de 7 semanas.
+const SEMANAS_IMPL = [4, 8, 12];
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CLEANUP: Resetar sessões abandonadas (>48h de inatividade)
