@@ -55,15 +55,12 @@ export const AI_TASKS = [
 ];
 
 export const MODELOS_DISPONIVEIS = [
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-  { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
-  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
-  { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
-  // Snapshot datado: o alias puro `gpt-5.4` morreu p/ a chave do projeto (20/07).
-  { id: 'gpt-5.4-2026-03-05', label: 'GPT 5.4' },
-  { id: 'gpt-5.4-mini', label: 'GPT 5.4 mini' },
-  { id: 'gpt-5.6-luna', label: 'GPT 5.6 Luna' },
+  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
+  { id: 'claude-opus-5', label: 'Claude Opus 5' },
+  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+  { id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol' },
   { id: 'gpt-5.6-terra', label: 'GPT 5.6 Terra' },
+  { id: 'gpt-5.6-luna', label: 'GPT 5.6 Luna' },
 ];
 
 /**
@@ -75,11 +72,11 @@ export const MODELOS_DISPONIVEIS = [
  * Gemini Flash auditando Claude, e do Pulso classifier + auditor).
  */
 export const DEFAULT_TASK_MODELS: Record<string, string> = {
-  // Módulos-Base — autora (extração/segmentação/estruturação) em Claude Sonnet 4.6
+  // Módulos-Base — autora (extração/segmentação/estruturação) em Claude Sonnet 5
   // (24/06): qualidade pedagógica e aderência ao spec acima do Gemini Flash, que
   // entregava segmentação/estruturação mais rasa. Custo/latência maiores, aceitos
   // pela alavancagem (módulo-base é matéria-prima reaproveitada).
-  modulo_base_autor:   'claude-sonnet-4-6',
+  modulo_base_autor:   'claude-sonnet-5',
   // ── TODAS as dupla-checagens (2ª IA auditando a 1ª) em GPT 5.6 Terra ──
   // Decisão do Rodrigo 22/07: padroniza os auditores no Terra ($2,50/$15) —
   // cross-família OpenAI auditando o Sonnet, qualidade acima do Luna ($1/$6,
@@ -93,13 +90,13 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   cenarios_b_check:    'gpt-5.6-terra',
   pulse_audit:         'gpt-5.6-terra',
   // Roteiro de vídeo — peça criativa de alta alavancagem (reaproveitada por
-  // célula): Opus 4.6 + extended thinking (mesmo preço do 4.8, $5/$25) pela
+  // célula): Opus 5 + extended thinking ($5/$25) pela
   // aderência a muitas regras + fidelidade pedagógica. Thinking é ativado no
   // callClaudeBatch (lib/video/gerar-roteiro.ts).
-  conteudo_video:      'claude-opus-4-6',
+  conteudo_video:      'claude-opus-5',
 };
 
-const FALLBACK_GLOBAL = 'claude-sonnet-4-6';
+const FALLBACK_GLOBAL = 'claude-sonnet-5';
 
 /**
  * Tasks PINNED: imunes ao `modelo_padrao` genérico do tenant.
@@ -125,7 +122,7 @@ export const PINNED_TASKS = new Set([
  *   1. sys_config.ai.modelos[taskKey] (específico, configurável por empresa)
  *   2. sys_config.ai.modelo_padrao (fallback da empresa — IGNORADO se a task é pinned)
  *   3. DEFAULT_TASK_MODELS[taskKey] (default por task)
- *   4. 'claude-sonnet-4-6' (default absoluto)
+ *   4. 'claude-sonnet-5' (default absoluto)
  */
 export function resolveTaskModel(sysConfig, taskKey) {
   const ai = sysConfig?.ai || {};

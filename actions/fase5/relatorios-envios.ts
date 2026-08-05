@@ -478,7 +478,7 @@ REGRAS:
 - não aprovar por benevolência
 - leitura_do_lote obrigatória com padrões agregados`;
 
-    const resultado = await callAI(system, user, { model: aiConfig?.model || 'gemini-3.1-flash-lite' }, 8192, { temperature: TEMP });
+    const resultado = await callAI(system, user, { model: aiConfig?.model || 'gemini-3.6-flash' }, 8192, { temperature: TEMP });
     const verificacao = await extractJSON(resultado);
     return {
       success: true,

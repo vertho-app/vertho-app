@@ -6,10 +6,12 @@ import { Loader2, Zap, Send, Trash2, ChevronDown, Settings } from 'lucide-react'
 import BackButton from '@/components/back-button';
 
 const MODELS = [
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-  { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
-  { id: 'claude-haiku-4-20250414', label: 'Claude Haiku 4' },
-  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
+  { id: 'claude-opus-5', label: 'Claude Opus 5' },
+  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+  { id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol' },
+  { id: 'gpt-5.6-terra', label: 'GPT 5.6 Terra' },
+  { id: 'gpt-5.6-luna', label: 'GPT 5.6 Luna' },
 ];
 
 const DEFAULT_SYSTEM = 'Voce e um assistente util e responde em portugues brasileiro.';

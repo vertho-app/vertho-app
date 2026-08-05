@@ -63,7 +63,7 @@ FORMATO DE SAÍDA (JSON único):
 
 export async function classifyOpenText(
   text: string,
-  classifierModel: string = 'claude-sonnet-4-6',
+  classifierModel: string = 'claude-sonnet-5',
 ): Promise<ClassifyResult> {
   if (!text || text.trim().length < 5) {
     return {
@@ -116,7 +116,7 @@ FORMATO DE SAÍDA (JSON único):
 export async function auditClassification(
   originalText: string,
   classification: ClassifyResult,
-  auditorModel: string = 'gemini-3.1-flash-lite',
+  auditorModel: string = 'gpt-5.6-terra',
 ): Promise<AuditResult> {
   const user = `TEXTO ORIGINAL:
 """${originalText.trim().slice(0, 2000)}"""

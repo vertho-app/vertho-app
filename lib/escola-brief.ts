@@ -14,7 +14,7 @@
 
 import { callAI } from '@/actions/ai-client';
 
-const BRIEF_MODEL = process.env.ESCOLA_BRIEF_MODEL || 'gemini-3.1-flash-lite';
+const BRIEF_MODEL = process.env.ESCOLA_BRIEF_MODEL || 'gemini-3.6-flash';
 
 export interface EscolaBrief {
   /** Etapas/segmentos atendidos. Ex: "Educação Infantil e Fundamental I". */

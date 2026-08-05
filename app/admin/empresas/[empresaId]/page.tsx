@@ -39,16 +39,12 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // ── AI Models ──────────────────────────────────────────────────────────────
 const AI_MODELS = [
-  { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6', provider: 'claude' },
-  { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6',   provider: 'claude' },
-  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite',    provider: 'gemini' },
-  { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash',    provider: 'gemini' },
-  // Snapshot datado: o alias `gpt-5.4` retorna model_not_found para a chave
-  // OpenAI do projeto (medido 20/07/2026) — só o snapshot e o mini existem.
-  { id: 'gpt-5.4-2026-03-05',     label: 'GPT 5.4',           provider: 'openai' },
-  { id: 'gpt-5.4-mini',           label: 'GPT 5.4 Mini',      provider: 'openai' },
-  { id: 'gpt-5.6-luna',           label: 'GPT 5.6 Luna',      provider: 'openai' },
-  { id: 'gpt-5.6-terra',          label: 'GPT 5.6 Terra',     provider: 'openai' },
+  { id: 'claude-sonnet-5',       label: 'Claude Sonnet 5',  provider: 'claude' },
+  { id: 'claude-opus-5',         label: 'Claude Opus 5',    provider: 'claude' },
+  { id: 'gemini-3.6-flash',      label: 'Gemini 3.6 Flash', provider: 'gemini' },
+  { id: 'gpt-5.6-sol',           label: 'GPT 5.6 Sol',      provider: 'openai' },
+  { id: 'gpt-5.6-terra',         label: 'GPT 5.6 Terra',    provider: 'openai' },
+  { id: 'gpt-5.6-luna',          label: 'GPT 5.6 Luna',     provider: 'openai' },
 ];
 
 // Ações duais → (task de geração, task de checagem) no registro central. O
@@ -200,8 +196,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   const [logs, setLogs] = useState<any[]>([]);
   const [expandedPhase, setExpandedPhase] = useState<number | null>(null);
   const [modelPicker, setModelPicker] = useState<any>(null);
-  const [dualModel1, setDualModel1] = useState('claude-sonnet-4-6');
-  const [dualModel2, setDualModel2] = useState('gemini-3.1-flash-lite');
+  const [dualModel1, setDualModel1] = useState('claude-sonnet-5');
+  const [dualModel2, setDualModel2] = useState('gpt-5.6-terra');
   const [showDanger, setShowDanger] = useState(false);
   const [dangerLoading, setDangerLoading] = useState(false);
   const [dangerColabId, setDangerColabId] = useState('');
@@ -1169,7 +1165,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                   const { actionKey, label } = modelPicker; setModelPicker(null);
                   // No lote, garante modelos batcháveis mesmo se o select não foi tocado
                   // (value fora das options filtradas fica no estado anterior).
-                  const gen = modo === 'lote' && !dualModel1.startsWith('claude') ? 'claude-sonnet-4-6' : dualModel1;
+                  const gen = modo === 'lote' && !dualModel1.startsWith('claude') ? 'claude-sonnet-5' : dualModel1;
                   const chk = modo === 'lote' && !dualModel2.startsWith('gpt') ? 'gpt-5.6-terra' : dualModel2;
                   handleAction(actionKey, label, { model: gen, checkModel: chk, modo });
                 }}

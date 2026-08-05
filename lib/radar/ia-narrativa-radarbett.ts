@@ -12,11 +12,11 @@ import type {
 } from './queries';
 
 const PROMPT_VERSION = 'radarbett-narrativa-v2';
-// Modelo primário do glimpse radarbett — Claude Sonnet 4.6 oferece melhor
+// Modelo primário do glimpse radarbett — Claude Sonnet 5 oferece melhor
 // fidelidade às citações de número e fonte que o prompt exige. Override
-// possível via env (ex: 'gpt-5.4-mini' para experimentos de custo).
-const MODEL_PRIMARY = process.env.RADARBETT_AI_MODEL || 'claude-sonnet-4-6';
-const MODEL_FALLBACK = process.env.RADARBETT_AI_FALLBACK || 'gpt-5.4-mini';
+// possível via env (ex: 'gpt-5.6-luna' para experimentos de custo).
+const MODEL_PRIMARY = process.env.RADARBETT_AI_MODEL || 'claude-sonnet-5';
+const MODEL_FALLBACK = process.env.RADARBETT_AI_FALLBACK || 'gpt-5.6-luna';
 
 export type NarrativaRadarbett = {
   resumo: string;
@@ -51,7 +51,7 @@ async function gerarComFallback(systemPrompt: string, userPrompt: string): Promi
   } catch (err) {
     console.error(`[radarbett-narrativa] ${MODEL_PRIMARY} falhou, tentando fallback:`, err);
   }
-  // 2. Fallback (gpt-5.4-mini default)
+  // 2. Fallback (gpt-5.6-luna default)
   if (MODEL_FALLBACK && MODEL_FALLBACK !== MODEL_PRIMARY) {
     try {
       const resp = await callAI(systemPrompt, userPrompt, { model: MODEL_FALLBACK }, 600, { temperature: 0.4 });

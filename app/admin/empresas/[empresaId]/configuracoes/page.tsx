@@ -17,7 +17,7 @@ import { AI_TASKS, MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
 const MODELOS = MODELOS_DISPONIVEIS;
 
 const DEFAULT_CONFIG = {
-  ai: { modelo_padrao: 'claude-sonnet-4-6', modelos: {}, anthropic_key: null, gemini_key: null, openai_key: null, thinking: false },
+  ai: { modelo_padrao: 'claude-sonnet-5', modelos: {}, anthropic_key: null, gemini_key: null, openai_key: null, thinking: false },
   cadencia: { fase4_dia_pilula: 1, fase4_dia_pilula2: 2, fase4_dia_evidencia: 4, fase4_hora: 8, email_ativo: true, whatsapp_ativo: true },
   envios: { email_remetente: null, email_alias: null },
   programa_modo: 'regular_duo' as 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto' | 'custom',

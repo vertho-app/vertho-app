@@ -7,9 +7,9 @@ import { csrfCheck } from '@/lib/csrf';
 // Modelos permitidos no simulador (ferramenta admin). Evita repassar um `model`
 // arbitrário do client ao provedor (escolha do modelo mais caro = abuso de custo).
 const ALLOWED_MODELS = new Set([
-  'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-opus-4-7',
-  'gemini-3.5-flash', 'gemini-3.1-flash-lite',
-  'gpt-5', 'gpt-5.1', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5',
+  'claude-sonnet-5', 'claude-opus-5',
+  'gemini-3.6-flash',
+  'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
 ]);
 const MAX_SYSTEM_CHARS = 16000;
 
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Nenhuma mensagem fornecida' }, { status: 400 });
     }
 
-    const safeModel = model && ALLOWED_MODELS.has(model) ? model : 'claude-sonnet-4-6';
+    const safeModel = model && ALLOWED_MODELS.has(model) ? model : 'claude-sonnet-5';
     const safeSystem = (typeof system === 'string' ? system : '').slice(0, MAX_SYSTEM_CHARS)
       || 'Voce e um assistente util.';
 

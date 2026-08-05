@@ -380,7 +380,7 @@ async function gerarOuCacheProposta(
     }
   };
 
-  let resultado = await tentar('claude-sonnet-4-6');
+  let resultado = await tentar('claude-sonnet-5');
   if (!resultado.parsed && process.env.OPENAI_API_KEY) {
     console.warn('[proposta-pdf] Claude falhou; tentando GPT fallback');
     resultado = await tentar(fallbackOpenAI);

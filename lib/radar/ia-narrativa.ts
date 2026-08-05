@@ -27,7 +27,7 @@ async function gerarComFallback(
 ): Promise<NarrativaIA | null> {
   // 1. Claude (primário)
   try {
-    const resp = await callAI(systemPrompt, userPrompt, { model: 'claude-sonnet-4-6' }, maxTokens, { temperature: 0.4 });
+    const resp = await callAI(systemPrompt, userPrompt, { model: 'claude-sonnet-5' }, maxTokens, { temperature: 0.4 });
     const parsed = parser(resp);
     if (parsed) return parsed;
     console.warn('[ia-narrativa] Claude retornou texto não-parseável; tentando GPT');
@@ -145,7 +145,7 @@ async function saveCache(
     prompt_version: PROMPT_VERSION_NARRATIVA,
     dados_hash: dadosHash,
     conteudo,
-    modelo: 'claude-sonnet-4-6',
+    modelo: 'claude-sonnet-5',
   }, {
     onConflict: 'scope_type,scope_id,prompt_version,dados_hash',
   });

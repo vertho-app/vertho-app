@@ -43,12 +43,12 @@ const CHECK_DIM_LABEL_KEYS: Record<string, string> = {
 };
 
 const AI_MODELS = [
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-  { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
-  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
-  { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
-  { id: 'gpt-5.4-2026-03-05', label: 'GPT 5.4' },
-  { id: 'gpt-5.4-mini', label: 'GPT 5.4 Mini' },
+  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
+  { id: 'claude-opus-5', label: 'Claude Opus 5' },
+  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+  { id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol' },
+  { id: 'gpt-5.6-terra', label: 'GPT 5.6 Terra' },
+  { id: 'gpt-5.6-luna', label: 'GPT 5.6 Luna' },
 ];
 
 export default function Fase4Page({ params }: { params: Promise<{ empresaId: string }> }) {
@@ -61,8 +61,8 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
   const [actionId, setActionId] = useState(null);
-  const [genModel, setGenModel] = useState('claude-sonnet-4-6');
-  const [checkModel, setCheckModel] = useState('gemini-3.1-flash-lite');
+  const [genModel, setGenModel] = useState('claude-sonnet-5');
+  const [checkModel, setCheckModel] = useState('gpt-5.6-terra');
   function flash(msg) { toast(msg); }
 
   async function refresh() {

@@ -6,7 +6,7 @@ import { createHash } from 'crypto';
  * Dedup por hash — se o mesmo prompt já foi registrado, retorna o existente.
  *
  * @param {string} tipo - Tipo do prompt ('conversa_fase3', 'avaliacao_ia4', etc.)
- * @param {string} modelo - Modelo de IA usado ('claude-sonnet-4-6', etc.)
+ * @param {string} modelo - Modelo de IA usado ('claude-sonnet-5', etc.)
  * @param {string} conteudo - Texto completo do system prompt
  * @param {object} metadata - Dados extras (max_tokens, etc.)
  * @returns {string} UUID da versão do prompt

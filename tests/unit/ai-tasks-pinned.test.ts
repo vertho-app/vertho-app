@@ -32,7 +32,7 @@ describe('resolveTaskModel — tasks pinned', () => {
 
   it('sem config nenhuma cai no default da task ou no fallback global', () => {
     expect(resolveTaskModel(null, 'modulo_base_auditor')).toBe(DEFAULT_TASK_MODELS['modulo_base_auditor']);
-    expect(resolveTaskModel({}, 'tarefa_desconhecida')).toBe('claude-sonnet-4-6');
+    expect(resolveTaskModel({}, 'tarefa_desconhecida')).toBe('claude-sonnet-5');
   });
 
   it('toda task pinned tem default próprio (pin sem default cairia no fallback genérico)', () => {

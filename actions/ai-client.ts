@@ -9,7 +9,7 @@ import { costFromTokens } from '@/lib/ia-cost-catalog';
 // precisa ser async — exportar predicado síncrono aqui passa no tsc e quebra o BUILD.
 import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
 
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+const DEFAULT_MODEL = 'claude-sonnet-5';
 
 // Timeout por chamada de IA. Sem isto, uma request que "pendura" (rede/modelo)
 // bloqueia a função até o maxDuration da rota (até 300s), travando lotes
@@ -127,15 +127,12 @@ async function withAIRetry<T>(fn: () => Promise<T>, label: string, max = 4): Pro
 }
 
 // Fallback de PROVEDOR quando o primário (Claude) fica sobrecarregado mesmo após
-// retries (ex.: outage de 529 da Anthropic). Gera por GPT-5.4 (OpenAI) em vez de
-// falhar. Sobrescreva com a env AI_FALLBACK_MODEL (Vercel = gpt-5.4-2026-03-05, 20/07).
+// retries (ex.: outage de 529 da Anthropic). Gera por GPT 5.6 Terra (OpenAI) em vez de
+// falhar. Sobrescreva com a env AI_FALLBACK_MODEL (alinhar no Vercel se mudar aqui).
 // ⚠️ NÃO é a mesma coisa que OPENAI_FALLBACK_MODEL: essa outra é knob EXCLUSIVA do
 // Radar (lib/radar/*, default gpt-5.1) e NÃO afeta este fallback central. Manter
 // os dois nomes separados de propósito — são fallbacks de subsistemas diferentes.
-// Snapshot datado: o alias `gpt-5.4` deixou de existir para a chave OpenAI do
-// projeto (model_not_found, medido 20/07/2026) — fallback em alias quebrado =
-// fallback que nunca funciona. Alinhar a env AI_FALLBACK_MODEL no Vercel.
-const AI_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gpt-5.4-2026-03-05';
+const AI_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gpt-5.6-terra';
 
 export async function callAI(
   system: string,

@@ -14,7 +14,7 @@
 
 import { validarUrlPublica, fetchPublico } from '@/lib/net-guard';
 
-const VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.5-flash';
+const VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.6-flash';
 const MAX_INLINE_BYTES = 20 * 1024 * 1024; // 20MB: acima disso precisa de Files API (Fase 3)
 
 export interface VideoBaseExtraido {

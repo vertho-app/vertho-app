@@ -26,16 +26,19 @@
 // OFICIAL da doc OpenAI ($2,50/$15, cached $0,25) em 12/07/2026.
 export const MODELS = {
   // Anthropic
+  'claude-opus-5':              { label: 'Claude Opus 5',       inUsd: 5,    outUsd: 25 },
+  // Sonnet 5 a preço INTRO (até 31/08/2026). GA = $3/$15. O ledger reflete o que
+  // pagamos hoje; a projeção GA do piloto de custo é calculada à parte.
+  'claude-sonnet-5':            { label: 'Claude Sonnet 5 (intro)', inUsd: 2, outUsd: 10 },
+  // ── Linhas históricas (ledger pré-ago/2026) — manter p/ custo retroativo ──
   'claude-opus-4-8':            { label: 'Claude Opus 4.8',     inUsd: 5,    outUsd: 25 },
   'claude-opus-4-7':            { label: 'Claude Opus 4.7',     inUsd: 5,    outUsd: 25 },
   'claude-opus-4-6':            { label: 'Claude Opus 4.6',     inUsd: 5,    outUsd: 25 },
   'claude-sonnet-4-6':          { label: 'Claude Sonnet 4.6',   inUsd: 3,    outUsd: 15 },
-  // Sonnet 5 a preço INTRO (até 31/08/2026). GA = $3/$15. O ledger reflete o que
-  // pagamos hoje; a projeção GA do piloto de custo é calculada à parte.
-  'claude-sonnet-5':            { label: 'Claude Sonnet 5 (intro)', inUsd: 2, outUsd: 10 },
   'claude-haiku-4-5':          { label: 'Claude Haiku 4.5',    inUsd: 1,    outUsd: 5 },
   'claude-haiku-4-5-20251001': { label: 'Claude Haiku 4.5',    inUsd: 1,    outUsd: 5 },
   // Google
+  'gemini-3.6-flash':      { label: 'Gemini 3.6 Flash',      inUsd: 1.50, outUsd: 9 },
   'gemini-3.1-flash-lite':     { label: 'Gemini 3.1 Flash Lite',      inUsd: 0.25, outUsd: 1.50 },
   'gemini-3.5-flash':     { label: 'Gemini 3.5 Flash',      inUsd: 1.50, outUsd: 9 },
   'gemini-3.1-pro-preview': { label: 'Gemini 3.1 Pro',      inUsd: 2,    outUsd: 12 },
@@ -108,7 +111,7 @@ export const CALLS = [
     inTokens: 3500,
     outTokens: 1200,
     exec: 5,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: true,
   },
   {
@@ -134,7 +137,7 @@ export const CALLS = [
     inTokens: 3000,
     outTokens: 2500,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -146,7 +149,7 @@ export const CALLS = [
     inTokens: 2000,
     outTokens: 600,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
 
@@ -160,7 +163,7 @@ export const CALLS = [
     inTokens: 600,
     outTokens: 200,
     exec: 12,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -172,7 +175,7 @@ export const CALLS = [
     inTokens: 800,
     outTokens: 400,
     exec: 3,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -184,7 +187,7 @@ export const CALLS = [
     inTokens: 800,
     outTokens: 600,
     exec: 3,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
 
@@ -198,7 +201,7 @@ export const CALLS = [
     inTokens: 2800,
     outTokens: 250,
     exec: 6 * 12,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: true,
   },
   {
@@ -210,7 +213,7 @@ export const CALLS = [
     inTokens: 1500,
     outTokens: 400,
     exec: 12,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: true,
   },
   {
@@ -218,11 +221,11 @@ export const CALLS = [
     fase: 'Temporada',
     scaleType: 'colab',
     nome: 'Tira-Dúvidas',
-    descricao: 'Chat reativo com colab (média 3 perguntas/sem). Contexto: definição do descritor + conteúdo recebido na semana (corpo do micro-conteúdo) + Módulo-Base + grounding RAG. Modelo Sonnet 4.6.',
+    descricao: 'Chat reativo com colab (média 3 perguntas/sem). Contexto: definição do descritor + conteúdo recebido na semana (corpo do micro-conteúdo) + Módulo-Base + grounding RAG. Modelo Sonnet 5.',
     inTokens: 4200,
     outTokens: 400,
     exec: 3 * 12,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -230,11 +233,11 @@ export const CALLS = [
     fase: 'Temporada',
     scaleType: 'colab',
     nome: 'BETO — mentor (dashboard)',
-    descricao: 'Chat mentor no painel do colab. Contexto: doutrina DISC/Jung + perfil comportamental real + conhecimento da competência em foco + pílula da semana. Modelo Sonnet 4.6. Uso opcional/variável (estimativa ~10 mensagens/ciclo).',
+    descricao: 'Chat mentor no painel do colab. Contexto: doutrina DISC/Jung + perfil comportamental real + conhecimento da competência em foco + pílula da semana. Modelo Sonnet 5. Uso opcional/variável (estimativa ~10 mensagens/ciclo).',
     inTokens: 4000,
     outTokens: 300,
     exec: 10,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
     opcional: true,
   },
@@ -263,7 +266,7 @@ export const CALLS = [
     inTokens: 3600,
     outTokens: 300,
     exec: 10 * 3,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: true,
   },
   {
@@ -275,7 +278,7 @@ export const CALLS = [
     inTokens: 2500,
     outTokens: 500,
     exec: 3,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: true,
   },
 
@@ -289,7 +292,7 @@ export const CALLS = [
     inTokens: 3000,
     outTokens: 400,
     exec: 12,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: true,
   },
   {
@@ -301,7 +304,7 @@ export const CALLS = [
     inTokens: 3500,
     outTokens: 900,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: true,
   },
 
@@ -315,7 +318,7 @@ export const CALLS = [
     inTokens: 5000,
     outTokens: 1000,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: true,
   },
   {
@@ -341,7 +344,7 @@ export const CALLS = [
     inTokens: 8000,
     outTokens: 1200,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: true,
   },
   {
@@ -367,7 +370,7 @@ export const CALLS = [
     inTokens: 3000,
     outTokens: 1500,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
     opcional: true,
   },
@@ -380,7 +383,7 @@ export const CALLS = [
     inTokens: 3500,
     outTokens: 2000,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
     opcional: true,
   },
@@ -395,7 +398,7 @@ export const CALLS = [
     inTokens: 1500,
     outTokens: 400,
     exec: 50,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -407,7 +410,7 @@ export const CALLS = [
     inTokens: 8000,
     outTokens: 4000,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -419,7 +422,7 @@ export const CALLS = [
     inTokens: 4000,
     outTokens: 2000,
     exec: 4,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -431,7 +434,7 @@ export const CALLS = [
     inTokens: 1500,
     outTokens: 1500,
     exec: 4 * 5,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -443,7 +446,7 @@ export const CALLS = [
     inTokens: 3000,
     outTokens: 2000,
     exec: 4 * 5,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -467,7 +470,7 @@ export const CALLS = [
     inTokens: 3000,
     outTokens: 2500,
     exec: 4 * 5,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -494,7 +497,7 @@ export const CALLS = [
     inTokens: 700,
     outTokens: 2500,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -506,7 +509,7 @@ export const CALLS = [
     inTokens: 700,
     outTokens: 2500,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -518,7 +521,7 @@ export const CALLS = [
     inTokens: 800,
     outTokens: 1300,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -544,7 +547,7 @@ export const CALLS = [
     inTokens: 3000,
     outTokens: 2000,
     exec: 4,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
     opcional: true,
   },
@@ -559,12 +562,12 @@ export const CALLS = [
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Roteiro de vídeo (LLM)',
-    descricao: 'Transforma o Módulo-Base em roteiro de 6–12 cenas (3–5 min, JSON). Opus 4.6 + extended thinking via Batch API (50% off) → ~$0,054/roteiro em lote (síncrono ~$0,11). ~4,5k tok in + ~3,5k tok out.',
+    descricao: 'Transforma o Módulo-Base em roteiro de 6–12 cenas (3–5 min, JSON). Opus 5 + extended thinking via Batch API (50% off) → ~$0,054/roteiro em lote (síncrono ~$0,11). ~4,5k tok in + ~3,5k tok out.',
     inTokens: 4500,
     outTokens: 3500,
     costMultiplier: 0.5,
     exec: 1,
-    defaultModel: 'claude-opus-4-6',
+    defaultModel: 'claude-opus-5',
     critical: false,
   },
   {
@@ -633,7 +636,7 @@ export const CALLS = [
     inTokens: 19200,
     outTokens: 1800,
     exec: 1,
-    defaultModel: 'gemini-3.5-flash',
+    defaultModel: 'gemini-3.6-flash',
     critical: false,
   },
   {
@@ -645,7 +648,7 @@ export const CALLS = [
     inTokens: 4500,
     outTokens: 800,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -657,7 +660,7 @@ export const CALLS = [
     inTokens: 5000,
     outTokens: 8000,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -684,7 +687,7 @@ export const CALLS = [
     inTokens: 3000,
     outTokens: 800,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -696,7 +699,7 @@ export const CALLS = [
     inTokens: 2500,
     outTokens: 700,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
   {
@@ -708,7 +711,7 @@ export const CALLS = [
     inTokens: 4500,
     outTokens: 3000,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: true,
   },
   {
@@ -720,7 +723,7 @@ export const CALLS = [
     inTokens: 2500,
     outTokens: 500,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
   },
 ];
@@ -740,21 +743,18 @@ const CHECK_PRIMARIES = {
 /**
  * Pareia modelo primário ao auditor de FAMÍLIA DIFERENTE com força similar.
  * Garante que o auditor não compartilhe vieses do primário.
- *   Sonnet 4.6   ↔ GPT 5.4
- *   Gemini Flash ↔ GPT 5.4 Mini
- *   Opus / Pro   ↔ GPT 5.5
+ *   Sonnet 5        ↔ GPT 5.6 Terra
+ *   Gemini 3.6 Flash ↔ GPT 5.6 Luna
+ *   Opus 5 / Sol    ↔ GPT 5.6 Sol / Opus 5
  */
 function crossLlmCheck(primaryModel) {
   const map = {
-    'claude-opus-4-7':         'gpt-5.5',
-    'claude-opus-4-6':         'gpt-5.5',
-    'claude-sonnet-4-6':       'gpt-5.4-2026-03-05', // alias puro morreu p/ a chave do projeto
-    'gemini-3.5-flash':  'gpt-5.5',
-    'gemini-3.1-flash-lite':  'gpt-5.4-mini',
-    'gpt-5.5':                 'claude-opus-4-7',
-    'gpt-5.4':                 'claude-sonnet-4-6',
-    'gpt-5.4-2026-03-05':      'claude-sonnet-4-6',
-    'gpt-5.4-mini':            'gemini-3.1-flash-lite',
+    'claude-opus-5':     'gpt-5.6-sol',
+    'claude-sonnet-5':   'gpt-5.6-terra',
+    'gemini-3.6-flash':  'gpt-5.6-luna',
+    'gpt-5.6-sol':       'claude-opus-5',
+    'gpt-5.6-terra':     'claude-sonnet-5',
+    'gpt-5.6-luna':      'gemini-3.6-flash',
   };
   return map[primaryModel] || primaryModel;
 }
@@ -774,28 +774,28 @@ function applyPreset(call, primaryFn) {
 /**
  * Presets de modelos por uso. Todos aplicam pareamento cross-LLM nos checks
  * automaticamente — auditor sempre é de família diferente do primário.
- *   - premium: Opus 4.7 em tudo crítico, Sonnet no resto.
- *   - balanced: Sonnet no crítico, Gemini 3.1 Flash Lite no resto.
- *   - cheap: Gemini 3.1 Flash Lite em quase tudo, Sonnet só em scorers finais.
+ *   - premium: Opus 5 em tudo crítico, Sonnet 5 no resto.
+ *   - balanced: Sonnet 5 no crítico, Gemini 3.6 Flash no resto.
+ *   - cheap: Gemini 3.6 Flash em quase tudo, Sonnet 5 só em scorers finais.
  */
 export const PRESETS = {
   premium: {
-    label: 'Premium (Opus 4.7)',
-    desc: 'Máxima qualidade. Opus 4.7 em tudo crítico (avaliações, scorers), Sonnet 4.6 no resto. Checks em GPT 5.5/5.4 (cross-família).',
-    model: (call) => applyPreset(call, (c) => (c.critical ? 'claude-opus-4-7' : 'claude-sonnet-4-6')),
+    label: 'Premium (Opus 5)',
+    desc: 'Máxima qualidade. Opus 5 em tudo crítico (avaliações, scorers), Sonnet 5 no resto. Checks em GPT 5.6 Sol/Terra (cross-família).',
+    model: (call) => applyPreset(call, (c) => (c.critical ? 'claude-opus-5' : 'claude-sonnet-5')),
   },
   balanced: {
-    label: 'Custo-benefício (Sonnet + GPT 5.4)',
-    desc: 'Sonnet 4.6 em todas as primárias (crítico e leve). Checks em GPT 5.4 (cross-família). Sem Gemini Flash.',
-    model: (call) => applyPreset(call, () => 'claude-sonnet-4-6'),
+    label: 'Custo-benefício (Sonnet 5 + GPT 5.6 Terra)',
+    desc: 'Sonnet 5 em todas as primárias (crítico e leve). Checks em GPT 5.6 Terra (cross-família). Sem Gemini Flash.',
+    model: (call) => applyPreset(call, () => 'claude-sonnet-5'),
   },
   cheap: {
     label: 'Barata (Gemini Flash + Sonnet onde obrigatório)',
-    desc: 'Gemini 3.1 Flash Lite em tudo conversacional. Sonnet 4.6 apenas em scorers finais (sem 14, acumulada, IA4, proposta Radar). Checks pareados em GPT 5.4/5.4 Mini. Risco maior de erros pequenos.',
+    desc: 'Gemini 3.6 Flash em tudo conversacional. Sonnet 5 apenas em scorers finais (sem 14, acumulada, IA4, proposta Radar). Checks pareados em GPT 5.6 Terra/Luna. Risco maior de erros pequenos.',
     model: (call) => applyPreset(call, (c) => {
       const mustBeSonnet = ['sem14-scorer', 'acumulada-primaria', 'ia4-avaliacao', 'radar-proposta-pdf'];
-      if (mustBeSonnet.includes(c.id)) return 'claude-sonnet-4-6';
-      return 'gemini-3.1-flash-lite';
+      if (mustBeSonnet.includes(c.id)) return 'claude-sonnet-5';
+      return 'gemini-3.6-flash';
     }),
   },
 };

@@ -11,7 +11,7 @@
 import { EXTRATOR_SYSTEM, EXTRATOR_SCHEMA, EXTRATOR_USER } from './prompts';
 import type { ExtracaoCargo, ItemEvid } from './adapter';
 
-const CARGO_MODEL = process.env.GEMINI_CARGO_MODEL || 'gemini-3.5-flash';
+const CARGO_MODEL = process.env.GEMINI_CARGO_MODEL || 'gemini-3.6-flash';
 const MAX_PDF_BYTES = 20 * 1024 * 1024; // 20MB inline (acima → Files API, fora de escopo)
 
 export interface ExtratorInput {
