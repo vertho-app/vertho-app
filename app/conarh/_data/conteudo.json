@@ -609,6 +609,21 @@
           "titulo": "Guia escrito · roteiro de 3 passos para a conversa de correção",
           "duracao": "4 min de leitura"
         }
+      },
+      {
+        "nome": "Rogério Tavares",
+        "cargo": "Gerente de Operações",
+        "perfil_disc": "I",
+        "exemplo": "Na conversa com o supervisor que prometeu \"pode deixar, vou dar um jeito\": em vez de aceitar o entusiasmo, feche com \"ótimo — o que muda amanhã, como a gente vê isso na planilha, e que dia a gente senta dez minutos pra olhar?\".",
+        "linguagem": "Calorosa e direta ao mesmo tempo: \"você convence qualquer um numa conversa — agora vamos deixar por escrito o que você acabou de me prometer, senão vira conversa boa e semana igual.\"",
+        "desafio": "Pegue o próximo combinado que você fizer no corredor e transforme numa mensagem de 3 linhas — ação, medida, data — enviada na hora. Se não couber em 3 linhas, não era combinado.",
+        "formato": "podcast (áudio)",
+        "midia": {
+          "tipo": "audio",
+          "src": "/conarh/media/pilula-audio-rogerio-combinado.mp3",
+          "titulo": "Podcast do Rogério · o combinado que sobrevive ao corredor",
+          "duracao": "2 min"
+        }
       }
     ],
     "relatorio_perfil": {

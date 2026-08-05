@@ -188,7 +188,9 @@ export interface Porta4Espelho {
       titulo: string;
       duracao?: string;
     };
-  }>; // exatamente 2 — mesmo cargo, competência e semana
+  }>; // 2+ pessoas do MESMO cargo, competência e semana — uma por formato
+  // (vídeo · texto · podcast). Repetir formato entre elas transforma a prova
+  // da Camada 3 em ilustração; o guard de conteúdo trava isso.
 }
 
 export interface Porta5Painel {

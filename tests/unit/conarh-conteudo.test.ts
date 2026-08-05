@@ -226,16 +226,30 @@ describe('pacote de conteúdo do CONARH', () => {
     expect(statSync(caminho).size, 'relatório vazio').toBeGreaterThan(50_000);
   });
 
-  it('a etapa 4 mostra DUAS pessoas — nenhuma persona extra na tela', () => {
-    // O espelho é "mesmo cargo, mesma competência": uma terceira pessoa na
-    // mesma tela desmonta a frase que a etapa inteira sustenta.
-    expect(conteudo.porta4.pessoas).toHaveLength(2);
-    const cargos = new Set(conteudo.porta4.pessoas.map((p) => p.cargo));
-    expect(cargos.size, 'o espelho tem cargos diferentes').toBe(1);
+  it('o espelho é do MESMO cargo, com um formato distinto por pessoa', () => {
+    // "Mesmo cargo, mesma competência, mesma semana" é a frase que a etapa
+    // inteira sustenta: uma pessoa de outro cargo (ou de outra empresa, como a
+    // persona que ficava embaixo até 05/08) desmonta o argumento.
+    const { pessoas } = conteudo.porta4;
+    expect(pessoas.length, 'o espelho precisa de pelo menos 2 pessoas').toBeGreaterThanOrEqual(2);
+    expect(new Set(pessoas.map((p) => p.cargo)).size, 'cargos diferentes no espelho').toBe(1);
+    // O que a Camada 3 promete é justamente formatos diferentes — repetir
+    // formato entre as pessoas transforma a prova em ilustração.
+    expect(new Set(pessoas.map((p) => p.formato)).size, 'formato repetido').toBe(pessoas.length);
+    expect(new Set(pessoas.map((p) => p.perfil_disc)).size, 'perfil repetido').toBe(pessoas.length);
     expect(
       conteudo.personas.some((p) => (p as { vitrine?: boolean }).vitrine),
       'persona marcada como vitrine — o bloco que a renderizava não existe mais',
     ).toBe(false);
+  });
+
+  it('a mídia de cada pessoa do espelho existe no pacote (a demo roda offline)', () => {
+    for (const p of conteudo.porta4.pessoas) {
+      if (!p.midia?.src) continue; // formato texto não tem arquivo
+      const caminho = join(process.cwd(), 'public', p.midia.src.replace(/^\//, ''));
+      expect(existsSync(caminho), `${p.nome}: ${p.midia.src} ausente`).toBe(true);
+      expect(statSync(caminho).size, `${p.nome}: mídia vazia`).toBeGreaterThan(10_000);
+    }
   });
 
   it('a prancheta (fallback de papel) continua com o registro escrito', () => {

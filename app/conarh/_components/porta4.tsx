@@ -17,6 +17,11 @@ import { BarraAcao, TituloPorta } from './chrome';
 import { FechoPorta } from './porta-shell';
 import { Pilula } from './media';
 
+/** "Marcos Vilela" → "Marcos". O card já traz o nome completo no topo. */
+function primeiroNome(nome: string): string {
+  return nome.trim().split(/\s+/)[0] || nome;
+}
+
 function LinhaEspelho({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
     <div className="py-3 border-b" style={{ borderColor: COR.borda }}>
@@ -72,7 +77,7 @@ export function Porta4({
           className="uppercase font-bold mb-2"
           style={{ color: COR.acento, fontSize: 14, letterSpacing: '0.2em', fontFamily: SANS }}
         >
-          O que é igual para os dois
+          O que é igual para todos
         </p>
         <p style={{ color: COR.texto, fontSize: 20, lineHeight: 1.55, fontFamily: SANS, margin: 0 }}>
           <strong>{porta4.comum.competencia}</strong> · {porta4.comum.descritor}
@@ -130,8 +135,9 @@ export function Porta4({
         ))}
       </div>
 
-      {/* O espelho lado a lado */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-6">
+      {/* O espelho lado a lado — três pessoas, um formato cada (vídeo, texto
+          e podcast). É a Camada 3 provada na tela, não descrita. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-6">
         {porta4.pessoas.map((p) => (
           <section
             key={p.nome}
@@ -162,7 +168,10 @@ export function Porta4({
                 </p>
               </div>
             </div>
-            <LinhaEspelho rotulo="Exemplo no contexto dela" valor={p.exemplo} />
+            {/* Rótulo com o NOME, não com pronome: "no contexto dela" ficava
+                errado em cima do Marcos, e "no contexto dele(a)" é a saída
+                preguiçosa. O nome já está no card e concorda sozinho. */}
+            <LinhaEspelho rotulo={`No contexto de ${primeiroNome(p.nome)}`} valor={p.exemplo} />
             <LinhaEspelho rotulo="Linguagem" valor={p.linguagem} />
             <LinhaEspelho rotulo="Desafio proposto" valor={p.desafio} />
             <div className="pt-3">
@@ -170,7 +179,7 @@ export function Porta4({
                 className="uppercase font-bold"
                 style={{ color: COR.texto3, fontSize: 13, letterSpacing: '0.18em', fontFamily: SANS, margin: 0 }}
               >
-                Formato · o que chega para ela
+                Formato · o que chega para {primeiroNome(p.nome)}
               </p>
               <p style={{ color: COR.acento, fontSize: 18, fontWeight: 700, fontFamily: SANS, marginTop: 4, marginBottom: 10 }}>
                 {p.formato}
