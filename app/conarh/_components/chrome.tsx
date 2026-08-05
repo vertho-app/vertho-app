@@ -5,17 +5,25 @@
 // inferior (botão principal sempre no mesmo lugar, canto inferior direito).
 
 import { useEffect, useRef } from 'react';
-import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, LayoutGrid, RotateCcw } from 'lucide-react';
 import { COR, SERIF, SANS, TOQUE } from './tema';
 
 export function BarraTopo({
   rotulo,
   onHub,
+  onVoltar,
   onNovoVisitante,
   esconderNavegacao,
 }: {
   rotulo: string;
   onHub: () => void;
+  /**
+   * Volta uma tela — o passo anterior dentro da etapa ou, no primeiro passo,
+   * a tela de onde ele veio. Ausente quando não há para onde voltar (hub,
+   * confirmação): botão que não faz nada é pior do que botão que não existe,
+   * ainda mais num tablet operado por quem está falando com o visitante.
+   */
+  onVoltar?: () => void;
   onNovoVisitante: () => void;
   /** modo visitante (QR): sem hub nem reset visíveis — fluxo linear. */
   esconderNavegacao?: boolean;
@@ -30,28 +38,49 @@ export function BarraTopo({
       }}
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-        {esconderNavegacao ? (
-          <span style={{ width: 120 }} />
-        ) : (
-          <button
-            type="button"
-            onClick={onHub}
-            className="flex items-center gap-2 rounded-full border px-5"
-            style={{
-              minHeight: 52,
-              background: COR.card,
-              borderColor: COR.borda,
-              color: COR.texto,
-              fontSize: 17,
-              fontWeight: 700,
-              fontFamily: SANS,
-              minWidth: 120,
-            }}
-          >
-            <ArrowLeft size={20} />
-            As 5 etapas
-          </button>
-        )}
+        <div className="flex items-center gap-2" style={{ minWidth: 120 }}>
+          {/* Voltar existe em TODAS as telas que têm anterior — inclusive no
+              modo visitante, onde não há hub: quem lê a conversa no celular
+              precisa poder reler a situação sem recomeçar a demo. */}
+          {onVoltar && (
+            <button
+              type="button"
+              onClick={onVoltar}
+              className="flex items-center gap-2 rounded-full border px-5"
+              style={{
+                minHeight: 52,
+                background: COR.card,
+                borderColor: COR.bordaAcento,
+                color: COR.acento,
+                fontSize: 17,
+                fontWeight: 700,
+                fontFamily: SANS,
+              }}
+            >
+              <ArrowLeft size={20} />
+              Voltar
+            </button>
+          )}
+          {!esconderNavegacao && (
+            <button
+              type="button"
+              onClick={onHub}
+              className="flex items-center gap-2 rounded-full border px-5"
+              style={{
+                minHeight: 52,
+                background: COR.card,
+                borderColor: COR.borda,
+                color: COR.texto,
+                fontSize: 17,
+                fontWeight: 700,
+                fontFamily: SANS,
+              }}
+            >
+              <LayoutGrid size={19} />
+              As 5 etapas
+            </button>
+          )}
+        </div>
 
         {/* Rótulo obrigatório — visível em toda tela de caso */}
         <span

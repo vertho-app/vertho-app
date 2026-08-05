@@ -47,6 +47,16 @@ export function ConarhApp({
   const [tela, setTela] = useState<Tela>(
     modoVisitante ? { tipo: 'porta', porta: 2 } : { tipo: 'hub' },
   );
+  // Pilha de navegação do botão "Voltar". É explícita, e não o histórico do
+  // browser, porque a demo é uma máquina de estados numa rota só: o botão do
+  // sistema levaria o visitante para FORA de /conarh, e no tablet do estande
+  // isso significa perder a sessão inteira na frente dele.
+  const [historico, setHistorico] = useState<Tela[]>([]);
+  // A etapa 2 tem passos internos; voltar ali é voltar UM passo, não a tela
+  // inteira. Ela registra aqui como desfazer o próprio passo — e registra
+  // `null` no primeiro passo, que é o que faz o botão sumir quando não há
+  // para onde voltar dentro da etapa.
+  const [voltarNaEtapa, setVoltarNaEtapa] = useState<(() => void) | null>(null);
   const [telemetria, setTelemetria] = useState<Telemetria>(telemetriaVazia);
   // A competência escolhida na etapa 1 vive AQUI porque a etapa 2 roda o
   // cenário dela — se cada porta guardasse a sua, o visitante escolheria
@@ -60,8 +70,38 @@ export function ConarhApp({
     // A régua também volta ao caso: sem isto, o próximo visitante herdaria a
     // competência escolhida pelo anterior — e o expositor não veria por quê.
     setReguaId(ID_REGUA_CASO);
+    setHistorico([]);
     setTela(modoVisitante ? { tipo: 'porta', porta: 2 } : { tipo: 'hub' });
   }, [modoVisitante]);
+
+  /** Toda navegação passa por aqui — é o que alimenta o "Voltar". */
+  const irPara = useCallback((destino: Tela) => {
+    setHistorico((h) => [...h, tela]);
+    setTela(destino);
+  }, [tela]);
+
+  const voltar = useCallback(() => {
+    // Dentro da etapa primeiro: no passo 3 da etapa 2, "Voltar" é o passo 2 —
+    // não a tela anterior, que jogaria fora os três passos que ele já leu.
+    if (voltarNaEtapa) {
+      voltarNaEtapa();
+      return;
+    }
+    const anterior = historico[historico.length - 1];
+    if (!anterior) return;
+    setHistorico((h) => h.slice(0, -1));
+    setTela(anterior);
+  }, [voltarNaEtapa, historico]);
+
+  // `useCallback` sem dependência não é estilo: a etapa 2 registra o handler
+  // dentro de um `useEffect` que depende desta função. Recriá-la a cada render
+  // faria o efeito disparar de novo a cada render — set state, render, set
+  // state — e o tablet trava no estande, não aqui.
+  const registrarVoltarNaEtapa = useCallback((fn: (() => void) | null) => {
+    setVoltarNaEtapa(() => fn);
+  }, []);
+
+  const podeVoltar = !!voltarNaEtapa || historico.length > 0;
 
   // Reset por inatividade — qualquer toque reinicia o relógio.
   useEffect(() => {
@@ -104,7 +144,7 @@ export function ConarhApp({
 
   function abrirPorta(porta: NumeroPorta) {
     setTelemetria((t) => marcarInicio(t, porta));
-    setTela({ tipo: 'porta', porta });
+    irPara({ tipo: 'porta', porta });
   }
 
   // Caminho ÚNICO para o formulário desde 04/08/2026: o fecho de cada etapa
@@ -116,7 +156,7 @@ export function ConarhApp({
         ? { ...marcarConclusao(t, tela.porta), porta_origem: tela.porta }
         : t,
     );
-    setTela({ tipo: 'captura' });
+    irPara({ tipo: 'captura' });
   }
 
   function finalizarPorta2(r: ResultadoPorta2) {
@@ -132,7 +172,8 @@ export function ConarhApp({
     >
       <BarraTopo
         rotulo={conteudo.rotulo}
-        onHub={() => setTela({ tipo: 'hub' })}
+        onHub={() => irPara({ tipo: 'hub' })}
+        onVoltar={podeVoltar ? voltar : undefined}
         onNovoVisitante={resetar}
         esconderNavegacao={modoVisitante}
       />
@@ -177,6 +218,7 @@ export function ConarhApp({
             reguaId={reguaId}
             onTrocarRegua={setReguaId}
             modoVisitante={modoVisitante}
+            onVoltarNaEtapa={registrarVoltarNaEtapa}
             onFinalizar={finalizarPorta2}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 2))}
             onCaptura={() => abrirCaptura()}
@@ -204,7 +246,7 @@ export function ConarhApp({
             conteudo={conteudo}
             onConcluiu={() => setTelemetria((t) => marcarConclusao(t, 5))}
             onCaptura={() => abrirCaptura()}
-            onProxima={() => setTela({ tipo: 'hub' })}
+            onProxima={() => irPara({ tipo: 'hub' })}
           />
         )}
 
@@ -213,7 +255,13 @@ export function ConarhApp({
             conteudo={conteudo}
             telemetria={telemetria}
             modoVisitante={modoVisitante}
-            onSucesso={(resultado) => setTela({ tipo: 'confirmacao', resultado })}
+            onSucesso={(resultado) => {
+              // Confirmação ENCERRA o fluxo: a pilha é zerada de propósito.
+              // "Voltar" aqui levaria ao formulário já enviado, e o expositor
+              // reenviaria o mesmo lead sem perceber.
+              setHistorico([]);
+              setTela({ tipo: 'confirmacao', resultado });
+            }}
           />
         )}
 

@@ -23,7 +23,7 @@
 //   4) a leitura dele × a da régua, resposta a resposta, com o trecho que ancora.
 // Regra dura: NUNCA "certo/errado" — a linguagem é "a sua leitura" x "a régua".
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Quote } from 'lucide-react';
 import type { ConteudoConarh, PerguntaAvaliativa } from '../_data/types';
 import type { ResultadoPorta2 } from './sessao';
@@ -47,6 +47,7 @@ export function Porta2({
   reguaId,
   onTrocarRegua,
   modoVisitante,
+  onVoltarNaEtapa,
   onFinalizar,
   onConcluiu,
   onCaptura,
@@ -56,6 +57,12 @@ export function Porta2({
   reguaId: string;
   onTrocarRegua: (id: string) => void;
   modoVisitante?: boolean;
+  /**
+   * Diz ao app como desfazer UM passo desta etapa — ou `null` no passo 1, onde
+   * voltar significa sair da etapa. É o app que desenha o botão (ele vive na
+   * barra do topo, fora daqui), então o passo precisa subir de alguma forma.
+   */
+  onVoltarNaEtapa?: (fn: (() => void) | null) => void;
   onFinalizar: (r: ResultadoPorta2) => void;
   onConcluiu: () => void;
   onCaptura: () => void;
@@ -98,6 +105,15 @@ export function Porta2({
   }
 
   const relacao = atribuido ? compararComRegua(atribuido, leitura.nivel) : null;
+
+  // Registra/desregistra o voltar-um-passo a cada mudança de passo. O cleanup
+  // é o que garante que sair da etapa não deixa um handler órfão apontando
+  // para um passo de uma tela que já não está montada.
+  useEffect(() => {
+    if (!onVoltarNaEtapa) return;
+    onVoltarNaEtapa(passo > 1 ? () => setPasso((p) => (p > 1 ? ((p - 1) as 1 | 2 | 3) : p)) : null);
+    return () => onVoltarNaEtapa(null);
+  }, [passo, onVoltarNaEtapa]);
 
   return (
     <div>
