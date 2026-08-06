@@ -690,7 +690,9 @@
       "receivedDescription": "Your behavioral profile has already been received and will be used by Vertho to personalize analyses, recommendations and trails when applicable.",
       "pendingDescription": "When HR makes the mapping information available, it will be integrated by Vertho into the journey's internal flows.",
       "availableHighlights": "Available highlights",
-      "scale": "Scale"
+      "scale": "Scale",
+      "openPdf": "View my {source} report",
+      "pdfError": "Could not open the PDF"
     },
     "blocked": {
       "title": "Next step still blocked",

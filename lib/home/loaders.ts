@@ -29,7 +29,7 @@ export interface HomeSharedData {
 
 /** Colunas que a jornada precisa no colaborador (superset do default do authz). */
 export const JORNADA_COLAB_COLS =
-  'id, nome_completo, email, cargo, area_depto, empresa_id, perfil_dominante, perfil_externo_dados, created_at';
+  'id, nome_completo, email, cargo, area_depto, empresa_id, perfil_dominante, perfil_externo_dados, perfil_externo_pdf_path, created_at';
 
 const SEMANA_DIAS = 7;
 const TOTAL_SEMANAS = 14;
@@ -304,6 +304,9 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     fases,
     empresaPerfilExternoFonte,
     temPerfilExterno,
+    // PDF original existe mesmo antes da extração rodar — e é ele que a pessoa
+    // reconhece. Sem isto a Fase 1 fica "concluída" e sem destino clicável.
+    temPdfPerfilExterno: !!colab.perfil_externo_pdf_path,
     perfilComportamentalLiberado,
   };
 }

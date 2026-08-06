@@ -690,7 +690,9 @@
       "receivedDescription": "Tu perfil conductual ya fue recibido y será usado por Vertho para personalizar análisis, recomendaciones y rutas cuando corresponda.",
       "pendingDescription": "Cuando RR. HH. disponibilice la información del mapeo, Vertho la integrará a los flujos internos de la jornada.",
       "availableHighlights": "Destacados disponibles",
-      "scale": "Escala"
+      "scale": "Escala",
+      "openPdf": "Ver mi informe {source}",
+      "pdfError": "No se pudo abrir el PDF"
     },
     "blocked": {
       "title": "Próxima etapa aún bloqueada",

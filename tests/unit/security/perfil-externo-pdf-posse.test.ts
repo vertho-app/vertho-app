@@ -52,12 +52,23 @@ vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => makeClient() }));
 vi.mock('@/lib/auth/action-context', () => ({
   getAuthenticatedEmailFromAction: async () => sessao?.email || null,
 }));
+// findColabByEmail resolve pela SESSÃO (usado pela action do próprio usuário)
+const EU: Record<string, any> = {
+  'com-pdf@x.com': { id: 'c1', perfil_externo_pdf_path: 'emp-A/c1.pdf' },
+  'sem-pdf@x.com': { id: 'c4', perfil_externo_pdf_path: null },
+};
+
 vi.mock('@/lib/authz', async (importOriginal) => {
   const actual = await importOriginal<any>();
-  return { ...actual, getUserContext: async () => sessao };
+  return {
+    ...actual,
+    getUserContext: async () => sessao,
+    findColabByEmail: async (email: string) => EU[String(email).toLowerCase()] || null,
+  };
 });
 
 import { getPerfilExternoPdfUrl } from '@/app/dashboard/gestor/actions';
+import { getMeuPerfilExternoPdfUrl } from '@/app/dashboard/perfil-comportamental/perfil-comportamental-actions';
 
 const gestor = {
   email: 'gestor@x.com', role: 'gestor', isPlatformAdmin: false,
@@ -139,5 +150,38 @@ describe('getPerfilExternoPdfUrl — gate de POSSE', () => {
   it('colabId vazio é rejeitado antes de qualquer query', async () => {
     sessao = gestor;
     expect((await getPerfilExternoPdfUrl('')).error).toMatch(/inválido/i);
+  });
+});
+
+/**
+ * A action do PRÓPRIO usuário não recebe parâmetro: o colaborador vem da
+ * sessão. Isso é o gate — não há id do cliente para forjar. O teste trava essa
+ * assinatura: se alguém adicionar um `colabId`, a posse deixa de ser trivial e
+ * estes casos param de descrever a realidade.
+ */
+describe('getMeuPerfilExternoPdfUrl — identidade só da sessão', () => {
+  it('não aceita nenhum argumento (posse é a própria sessão)', () => {
+    expect(getMeuPerfilExternoPdfUrl.length).toBe(0);
+  });
+
+  it('sem sessão → não autenticado, sem assinar', async () => {
+    sessao = null;
+    const r = await getMeuPerfilExternoPdfUrl();
+    expect(r.error).toMatch(/autenticado/i);
+    expect(signedUrlMock).not.toHaveBeenCalled();
+  });
+
+  it('com sessão e PDF → assina o PDF DO PRÓPRIO colaborador', async () => {
+    sessao = { email: 'com-pdf@x.com', role: 'colaborador', colaborador: { id: 'c1' } };
+    const r = await getMeuPerfilExternoPdfUrl();
+    expect(r.url).toBe('https://signed/emp-A/c1.pdf');
+  });
+
+  it('sem PDF carregado → mensagem clara, sem assinar', async () => {
+    sessao = { email: 'sem-pdf@x.com', role: 'colaborador', colaborador: { id: 'c4' } };
+    const r = await getMeuPerfilExternoPdfUrl();
+    expect(r.url).toBeUndefined();
+    expect(r.error).toMatch(/ainda não foi carregado/i);
+    expect(signedUrlMock).not.toHaveBeenCalled();
   });
 });

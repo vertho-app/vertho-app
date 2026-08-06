@@ -35,7 +35,7 @@ export async function loadPerfilCIS() {
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
 
-  const colab: any = await findColabByEmail(email, COLS + ', empresa_id, perfil_externo_fonte, perfil_externo_dados');
+  const colab: any = await findColabByEmail(email, COLS + ', empresa_id, perfil_externo_fonte, perfil_externo_dados, perfil_externo_pdf_path');
   if (!colab) return { error: 'Colaborador nao encontrado' };
 
   // Empresa usa fonte externa de perfil (OPQ32 etc.)?
@@ -78,7 +78,33 @@ export async function loadPerfilCIS() {
     empresaPerfilExternoFonte,
     empresaPerfilExternoLabel,
     perfilComportamentalLiberado,
+    temPdfPerfilExterno: !!colab.perfil_externo_pdf_path,
   };
+}
+
+/**
+ * URL assinada do PDF do perfil externo (OPQ32/Hogan) DO PRÓPRIO usuário.
+ *
+ * Não recebe parâmetro de propósito: o colaborador vem da SESSÃO, então não há
+ * identificador do cliente para forjar e a posse é trivial (é a própria pessoa).
+ * Contraste com `getPerfilExternoPdfUrl` (dashboard do gestor), que recebe
+ * `colabId` do cliente e por isso precisa de gate de posse explícito.
+ */
+export async function getMeuPerfilExternoPdfUrl(): Promise<{ url?: string; error?: string }> {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
+
+  const colab: any = await findColabByEmail(email, 'id, perfil_externo_pdf_path');
+  if (!colab) return { error: 'Colaborador não encontrado' };
+  if (!colab.perfil_externo_pdf_path) return { error: 'Seu relatório ainda não foi carregado pela empresa' };
+
+  const sb = createSupabaseAdmin();
+  const { data, error } = await sb.storage
+    .from('perfis-externos')
+    .createSignedUrl(colab.perfil_externo_pdf_path, 60 * 10); // 10 min
+  if (error || !data?.signedUrl) return { error: error?.message || 'Falha gerando o link do PDF' };
+  return { url: data.signedUrl };
 }
 
 /**

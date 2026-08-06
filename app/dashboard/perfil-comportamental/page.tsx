@@ -5,8 +5,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, AlertCircle, Download, Zap, Users, Anchor, ListChecks, Sparkles, Volume2, Send } from 'lucide-react';
-import { loadPerfilCIS, gerarInsightsExecutivos } from './perfil-comportamental-actions';
+import { Loader2, AlertCircle, Download, Zap, Users, Anchor, ListChecks, Sparkles, Volume2, Send, FileText } from 'lucide-react';
+import { loadPerfilCIS, gerarInsightsExecutivos, getMeuPerfilExternoPdfUrl } from './perfil-comportamental-actions';
 import { ouvirDevolutivaComportamental, enviarDevolutivaWhatsApp } from './relatorio/relatorio-actions';
 import {
   loadBehavioralReport,
@@ -400,6 +400,7 @@ export default function PerfilComportamentalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [abrindoPdfExterno, setAbrindoPdfExterno] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [gerandoAudio, setGerandoAudio] = useState(false);
   const [enviandoWhats, setEnviandoWhats] = useState(false);
@@ -441,6 +442,18 @@ export default function PerfilComportamentalPage() {
     init();
   }, []);
 
+  async function handleAbrirPdfExterno() {
+    setAbrindoPdfExterno(true);
+    // Abre a aba ANTES do await: popup criado depois da resposta assíncrona
+    // perde o gesto do usuário e é bloqueado pelo navegador.
+    const aba = window.open('', '_blank');
+    const r = await getMeuPerfilExternoPdfUrl();
+    setAbrindoPdfExterno(false);
+    if (r.error || !r.url) { aba?.close(); flash(r.error || t('external.pdfError')); return; }
+    if (aba) aba.location.href = r.url;
+    else window.open(r.url, '_blank');
+  }
+
   async function handleDownloadPdf() {
     setDownloading(true);
     const r = await baixarRelatorioComportamentalPdf();
@@ -462,6 +475,7 @@ export default function PerfilComportamentalPage() {
   const hasDISC = c.perfil_dominante && (c.d_natural || c.i_natural || c.s_natural || c.c_natural);
   const usaFonteExterna = !!empresaPerfilExternoFonte;
   const temPerfilExterno = !!c.perfil_externo_dados;
+  const temPdfPerfilExterno = (data as any).temPdfPerfilExterno === true;
   const perfilComportamentalLiberado = (data as any).perfilComportamentalLiberado !== false;
 
   // Empresa com fonte externa/proprietária: NUNCA oferecer DISC nativo.
@@ -486,6 +500,19 @@ export default function PerfilComportamentalPage() {
                 ? t('external.receivedDescription')
                 : t('external.pendingDescription')}
             </p>
+            {/* O relatório original é o que a pessoa reconhece — sem ele a Fase 1
+                fica "concluída" sem nada para ver. Aparece assim que o PDF existe,
+                mesmo que a extração ainda não tenha rodado. */}
+            {temPdfPerfilExterno && (
+              <button onClick={handleAbrirPdfExterno} disabled={abrindoPdfExterno}
+                className="w-full mb-4 px-5 py-3 rounded-full text-sm font-bold text-white inline-flex items-center justify-center gap-2 disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                {abrindoPdfExterno
+                  ? <Loader2 size={16} className="animate-spin" />
+                  : <FileText size={16} />}
+                {t('external.openPdf', { source: empresaPerfilExternoFonte === 'opq32' ? 'OPQ32' : String(empresaPerfilExternoFonte || '').toUpperCase() })}
+              </button>
+            )}
             {altas.length > 0 && (
               <div className="rounded-xl border border-white/[0.06] p-4 text-left" style={{ background: 'rgba(255,255,255,0.03)' }}>
                 <p className="text-[10px] font-bold text-brand-400 uppercase tracking-widest mb-2">{t('external.availableHighlights')}</p>

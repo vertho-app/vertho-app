@@ -86,7 +86,7 @@
     "app/dashboard/pdi/pdi-actions.ts": 2,
     "app/dashboard/perfil/perfil-actions.ts": 5,
     "app/dashboard/perfil-comportamental/mapeamento/mapeamento-actions.ts": 2,
-    "app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts": 2,
+    "app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts": 3,
     "app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts": 9,
     "app/dashboard/praticar/praticar-actions.ts": 2,
     "app/radar/actions.ts": 7,

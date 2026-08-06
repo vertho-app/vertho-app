@@ -69,7 +69,8 @@ export default function JornadaPage() {
   const perfilComportamentalLiberado = data.perfilComportamentalLiberado !== false;
 
   function faseHref(fase: any) {
-    if (fase?.fase === 1 && usaPerfilExterno && !data.temPerfilExterno) return null;
+    // Basta ter o PDF: ele já é conteúdo para ver, mesmo sem a extração ter rodado.
+    if (fase?.fase === 1 && usaPerfilExterno && !data.temPerfilExterno && !(data as any).temPdfPerfilExterno) return null;
     if (fase?.fase === 1 && !usaPerfilExterno && !colaborador.perfil_dominante && !perfilComportamentalLiberado) return null;
     return FASE_HREF[fase?.fase];
   }

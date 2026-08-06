@@ -690,7 +690,9 @@
       "receivedDescription": "O seu perfil comportamental já foi recebido e será usado pela Vertho para personalizar análises, recomendações e trilhas quando aplicável.",
       "pendingDescription": "Quando o RH disponibilizar as informações do mapeamento, elas serão integradas pela Vertho aos fluxos internos da jornada.",
       "availableHighlights": "Destaques disponíveis",
-      "scale": "Escala"
+      "scale": "Escala",
+      "openPdf": "Ver o meu relatório {source}",
+      "pdfError": "Não foi possível abrir o PDF"
     },
     "blocked": {
       "title": "Próxima etapa ainda bloqueada",
