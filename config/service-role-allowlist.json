@@ -79,7 +79,7 @@
     "app/api/webhooks/zapi/disconnected/route.ts": 1,
     "app/dashboard/assessment/assessment-actions.ts": 2,
     "app/dashboard/dashboard-actions.ts": 1,
-    "app/dashboard/gestor/actions.ts": 1,
+    "app/dashboard/gestor/actions.ts": 2,
     "app/dashboard/gestor/equipe-evolucao/actions.ts": 4,
     "app/dashboard/home-actions.ts": 1,
     "app/dashboard/jornada/jornada-actions.ts": 1,

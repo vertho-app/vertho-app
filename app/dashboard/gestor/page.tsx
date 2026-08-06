@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import {
   Users, AlertTriangle, ChevronRight, Loader2, ArrowRight,
-  Calendar, TrendingUp, Activity, ClipboardCheck,
+  Calendar, TrendingUp, Activity, ClipboardCheck, FileText,
 } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
-import { getGestorHomeData, type GestorHomeData, type CheckpointPendenteDetalhado } from './actions';
+import { getGestorHomeData, getPerfilExternoPdfUrl, type GestorHomeData, type CheckpointPendenteDetalhado } from './actions';
 import { salvarCheckpointGestor } from './equipe-evolucao/actions';
 
 export default function GestorHomePage() {
@@ -433,18 +434,57 @@ function StatusPill({ status }: { status: string }) {
 
 function PerfisSection({ perfis, fonteExterna }: { perfis: any[]; fonteExterna?: string | null }) {
   const t = useTranslations('ManagerDashboard');
+  const [abrindo, setAbrindo] = useState<string | null>(null);
   if (perfis.length === 0) return null;
+
+  async function abrirPdf(colabId: string) {
+    setAbrindo(colabId);
+    // Abre a aba ANTES do await: popup aberto depois da resposta assíncrona é
+    // bloqueado pelo navegador (perde o gesto do usuário).
+    const aba = window.open('', '_blank');
+    const r = await getPerfilExternoPdfUrl(colabId);
+    setAbrindo(null);
+    if (r.error || !r.url) {
+      aba?.close();
+      toast.error(r.error || t('profiles.pdfError'));
+      return;
+    }
+    if (aba) aba.location.href = r.url;
+    else window.open(r.url, '_blank');
+  }
+
   return (
     <section className="mb-6">
       <h2 className="text-white text-base font-bold mb-3">
         {t('titles.profileMap', { type: fonteExterna === 'opq32' ? 'OPQ32' : t('profiles.behavioral') })}
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-        {perfis.map((p) => (
-          <div key={p.colabId} className="rounded-xl border border-white/[0.06] p-3"
+        {perfis.map((p) => {
+          const Card = p.temPdf ? 'button' : 'div';
+          return (
+          <Card key={p.colabId}
+            {...(p.temPdf ? {
+              type: 'button' as const,
+              onClick: () => abrirPdf(p.colabId),
+              disabled: abrindo === p.colabId,
+              'aria-label': t('profiles.openPdfFor', { name: p.colab }),
+              title: t('profiles.openPdf'),
+            } : {})}
+            className={`rounded-xl border border-white/[0.06] p-3 text-left w-full ${
+              p.temPdf ? 'cursor-pointer transition-colors hover:border-brand-400/40 hover:bg-white/[0.05] disabled:opacity-60' : ''
+            }`}
             style={{ background: 'rgba(255,255,255,0.025)' }}>
-            <p className="text-[12px] text-white font-bold truncate">{p.colab}</p>
-            <p className="text-[10px] text-white/45 truncate mb-2">{p.cargo || '—'}</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[12px] text-white font-bold truncate">{p.colab}</p>
+                <p className="text-[10px] text-white/45 truncate mb-2">{p.cargo || '—'}</p>
+              </div>
+              {p.temPdf && (
+                abrindo === p.colabId
+                  ? <Loader2 size={13} className="animate-spin text-brand-300 shrink-0 mt-0.5" />
+                  : <FileText size={13} className="text-brand-300/70 shrink-0 mt-0.5" />
+              )}
+            </div>
             {p.fonte === 'sem_perfil' && (
               <p className="text-[10px] text-white/35 italic">{t('profiles.noProfile')}</p>
             )}
@@ -472,8 +512,9 @@ function PerfisSection({ perfis, fonteExterna }: { perfis: any[]; fonteExterna?:
                 ))}
               </div>
             )}
-          </div>
-        ))}
+          </Card>
+          );
+        })}
       </div>
     </section>
   );

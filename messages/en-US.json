@@ -3963,7 +3963,10 @@
     "profiles": {
       "behavioral": "behavioral",
       "noProfile": "No profile mapped",
-      "discDominant": "Dominant DISC"
+      "discDominant": "Dominant DISC",
+      "openPdf": "Open the mapping PDF",
+      "openPdfFor": "Open the mapping PDF for {name}",
+      "pdfError": "Could not open the PDF"
     },
     "timeline": {
       "inDays": "in {value}",

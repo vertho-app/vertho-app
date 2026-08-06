@@ -3963,7 +3963,10 @@
     "profiles": {
       "behavioral": "comportamentais",
       "noProfile": "Sem perfil mapeado",
-      "discDominant": "DISC dominante"
+      "discDominant": "DISC dominante",
+      "openPdf": "Abrir o PDF do mapeamento",
+      "openPdfFor": "Abrir o PDF do mapeamento de {name}",
+      "pdfError": "Não foi possível abrir o PDF"
     },
     "timeline": {
       "inDays": "em {value}",

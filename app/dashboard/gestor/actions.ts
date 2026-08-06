@@ -51,6 +51,8 @@ export type PerfilColab = {
   colab: string;
   cargo: string | null;
   fonte: 'disc' | 'opq32' | 'sem_perfil';
+  /** Tem PDF original no bucket — só então o card vira clicável. */
+  temPdf?: boolean;
   // DISC
   letraDom?: string | null;
   d?: number | null; i?: number | null; s?: number | null; c?: number | null;
@@ -81,6 +83,59 @@ export type GestorHomeData = {
   timeline?: TimelineEvento[];
   empresaPerfilExternoFonte?: string | null;
 };
+
+/**
+ * URL assinada do PDF original do perfil externo (OPQ32/Hogan) de um liderado.
+ *
+ * ⚠️ `colabId` vem do CLIENTE — este arquivo é `'use server'`, então cada export
+ * é um endpoint HTTP e sessão válida NÃO é autorização. O gate de POSSE abaixo
+ * repete exatamente o escopo da listagem (gestor → `gestor_email`; tutor →
+ * `tutorados_ids`; RH/admin → a empresa toda) para que ver e abrir tenham a
+ * mesma régua. Sem ele, qualquer gestor autenticado leria o PDF de qualquer
+ * pessoa da base — PII pesada (relatório psicométrico nominal).
+ */
+export async function getPerfilExternoPdfUrl(colabId: string): Promise<{ url?: string; error?: string }> {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
+  const ctx = await getUserContext(email);
+  if (!ctx?.colaborador) return { error: 'Não autenticado' };
+
+  const isGestor = ctx.role === 'gestor';
+  const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
+  const isTutor = ctx.role === 'tutor';
+  if (!isGestor && !isRH && !isTutor) return { error: 'Acesso restrito a gestor/tutor/RH' };
+  if (!colabId || typeof colabId !== 'string') return { error: 'Colaborador inválido' };
+
+  const sb = createSupabaseAdmin();
+  const empresaId = ctx.colaborador.empresa_id;
+
+  const { data: colab, error: colabErr } = await sb.from('colaboradores')
+    .select('id, gestor_email, perfil_externo_pdf_path')
+    .eq('id', colabId)
+    .eq('empresa_id', empresaId) // tenant: nunca cruza empresa
+    .maybeSingle();
+  if (colabErr) return { error: colabErr.message };
+  if (!colab) return { error: 'Colaborador não encontrado' };
+
+  // Gate de POSSE (≠ gate de sessão): o alvo tem que estar no escopo de quem pede.
+  const meuEmail = ctx.colaborador.email?.toLowerCase().trim();
+  const tutoradosIds: string[] = (ctx.colaborador as any)?.tutorados_ids || [];
+  const noEscopo = isRH
+    ? true
+    : isGestor
+      ? !!meuEmail && (colab.gestor_email || '').toLowerCase().trim() === meuEmail
+      : tutoradosIds.includes(colabId);
+  if (!noEscopo) return { error: 'Colaborador fora do seu escopo' };
+
+  if (!colab.perfil_externo_pdf_path) return { error: 'Sem PDF carregado para este colaborador' };
+
+  const { data, error } = await sb.storage
+    .from('perfis-externos')
+    .createSignedUrl(colab.perfil_externo_pdf_path, 60 * 10); // 10 min
+  if (error || !data?.signedUrl) return { error: error?.message || 'Falha gerando o link do PDF' };
+  return { url: data.signedUrl };
+}
 
 export async function getGestorHomeData(): Promise<GestorHomeData> {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
@@ -115,7 +170,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // Fail-closed: se zero match, retorna lista vazia.
   const meuEmail = ctx.colaborador.email?.toLowerCase().trim();
   let colabQ = sb.from('colaboradores')
-    .select('id, nome_completo, cargo, email, area_depto, perfil_dominante, perfil_externo_dados, foto_url, gestor_email')
+    .select('id, nome_completo, cargo, email, area_depto, perfil_dominante, perfil_externo_dados, perfil_externo_pdf_path, foto_url, gestor_email')
     .eq('empresa_id', empresaId)
     .neq('id', meuId);
   if (isGestor && meuEmail) {
@@ -132,7 +187,13 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     colabQ = colabQ.in('id', tutoradosIds);
   }
   const { data: colabs } = await colabQ;
-  const liderados = colabs || [];
+  // `ilike` trata `_` e `%` como curinga — e-mail com underscore (comum) faria a
+  // listagem casar gestores que NÃO são o mesmo. Refina em código com igualdade
+  // exata (case-insensitive): é a MESMA régua do gate de posse em
+  // getPerfilExternoPdfUrl, então ver e abrir nunca divergem.
+  const liderados = (colabs || []).filter((c: any) =>
+    !isGestor || !meuEmail || (c.gestor_email || '').toLowerCase().trim() === meuEmail,
+  );
   const liderId2obj = new Map(liderados.map((c: any) => [c.id, c]));
   const liderIds = liderados.map((c: any) => c.id);
 
@@ -322,6 +383,9 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
 
   // ── 8. Perfis comportamentais (DISC ou OPQ32) ──
   const perfis: PerfilColab[] = liderados.map((c: any) => {
+    // O PDF pode existir sem extração concluída (fonte 'sem_perfil' na UI) —
+    // e nesse caso ele é justamente o que o gestor precisa ver.
+    const temPdf = !!c.perfil_externo_pdf_path;
     if (c.perfil_externo_dados) {
       const dados = c.perfil_externo_dados as any;
       return {
@@ -329,6 +393,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
         colab: c.nome_completo,
         cargo: c.cargo,
         fonte: 'opq32',
+        temPdf,
         altas: dados?.resumo?.altas?.slice(0, 3) || [],
         baixas: dados?.resumo?.baixas?.slice(0, 3) || [],
       };
@@ -339,6 +404,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
         colab: c.nome_completo,
         cargo: c.cargo,
         fonte: 'disc',
+        temPdf,
         letraDom: c.perfil_dominante,
         // disc_d/i/s/c não estão no select inicial; ficam null aqui (UI handle)
       };
@@ -348,6 +414,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       colab: c.nome_completo,
       cargo: c.cargo,
       fonte: 'sem_perfil',
+      temPdf,
     };
   });
 
