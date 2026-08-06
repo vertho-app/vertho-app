@@ -82,8 +82,19 @@ cadência e quanto é autenticação. Essa é a razão de a instrumentação do 
 atual ter vindo antes do canal novo.
 
 ⚠️ Call sites ainda não atribuídos gravam com `kind` nulo. É lacuna **contável**
-(`WHERE kind IS NULL`), não silenciosa. A pílula está nesse grupo: ela sai por
-`trigger-diario-empresa` → QStash → webhook `whatsapp-cis` → `sendWhatsapp`.
+(`WHERE kind IS NULL`), não silenciosa.
+
+**Atribuídos** (05/08): `pilula` e `diagnostico` no webhook `whatsapp-cis` (o kind
+sai de `carimboCampo`, enum fechado), `pilula`/`missao` no e-mail da cadência,
+`otp`, `magic_link`/`signup` e `pulse`. Anexo de PDF recebe kind **composto**
+(`pilula_anexo`) — é mensagem separada e contaria como segunda pílula se herdasse
+o kind do texto.
+
+**Ainda fora da medição** (verificado 06/08 — enviam e-mail sem passar por
+`pilula-envio`/`access-link-service`): `actions/fase2.ts` (diagnóstico),
+`actions/fase5/relatorios-envios.ts`, `actions/pulse/envio.ts` (o e-mail; o
+WhatsApp já é medido), `app/api/radar/lead-pdf/route.ts`,
+`app/api/conarh/artefato/route.ts` e `app/admin/whatsapp/actions.ts`.
 
 ## 4. Resultado medido — 05/08/2026
 
@@ -267,14 +278,15 @@ VAPID nas 3 envs da Vercel. Flag ligada **só** em `teste-piloto`.
 **Em aberto:**
 1. Deixar o WhatsApp acumular dado por pelo menos uma semana cheia para a fase 1
    produzir a proporção cadência × autenticação.
-2. **Instrumentar o canal de E-MAIL.** A mig 198 cobre só o WhatsApp (o e-mail sai
-   por Resend, direto, sem passar pelo serviço central). Hoje o e-mail está fora
-   da contagem — e ele é o canal alternativo de login, então a comparação entre
-   canais está incompleta enquanto isso durar.
-   ⚠️ Efeito colateral já observado: colaborador **sem telefone** recebe o link de
-   acesso por e-mail, e nada disso aparece na medição. O funil só começa em
-   `convite_exibido` (pós-login), então desistência ANTES do login é invisível —
-   "não tentou" fica idêntico a "tentou e falhou".
+2. ~~Instrumentar o canal de e-mail~~ ✅ feito 05/08 para o que importa ao
+   experimento: magic link/signup (`access-link-service`) e pílula/missão
+   (`pilula-envio`), com pessoa e empresa. **Continuam fora** os envios
+   periféricos listados no §3 — não bloqueiam a comparação de canais da cadência,
+   mas o volume total de e-mail da plataforma ainda está subcontado.
+   ⚠️ Limite que permanece: o funil só começa em `convite_exibido` (pós-login),
+   então desistência ANTES do login segue invisível — "não tentou" fica idêntico
+   a "tentou e falhou no login". Medido em 05/08: uma pessoa não apareceu em
+   nenhum degrau e só se soube o que houve perguntando a ela.
 3. ~~Teste guiado com 2 pessoas reais~~ ✅ feito 05/08 — ver §4.1. Resultado:
    conversão instruída no iOS 1/1 em ~3min; Android sem obstáculo técnico mas
    com 7min de latência até o clique.

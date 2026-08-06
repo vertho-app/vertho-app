@@ -2,12 +2,18 @@
  *
  * ⚠️ NÃO ADICIONE UM HANDLER DE `fetch` AQUI. ⚠️
  *
- * Este arquivo é registrado no escopo raiz para TODA pessoa que abrir o app,
- * não só para quem participa do teste de push. Um service worker com handler de
- * `fetch` passa a intermediar cada requisição da aplicação — e a primeira
- * estratégia de cache que alguém escrever aqui vai servir app shell antigo
- * depois de um deploy, para todo mundo, sem erro em lugar nenhum. O sintoma é
- * "o deploy não subiu" e a causa fica invisível por dias.
+ * Quem é atingido: o registro acontece SÓ quando a pessoa toca em "Ativar
+ * notificações" (`components/notifications/ativar-push.tsx`), botão que só
+ * aparece em tenant com a flag ligada. Não é registrado para todo visitante —
+ * uma versão anterior deste comentário afirmava isso e estava errada.
+ *
+ * Ainda assim a regra vale, e por um motivo que sobrevive à correção: uma vez
+ * registrado, o worker controla o escopo `/` INTEIRO daquele aparelho, para
+ * sempre, inclusive depois de a pessoa desativar as notificações. Um handler de
+ * `fetch` passaria a intermediar cada requisição da aplicação — e a primeira
+ * estratégia de cache que alguém escrever aqui serviria app shell antigo depois
+ * de um deploy, sem erro em lugar nenhum. O sintoma é "o deploy não subiu" e a
+ * causa fica invisível por dias.
  *
  * Sem handler de `fetch`, este worker é ESTRUTURALMENTE incapaz de servir
  * conteúdo: ele só sabe reagir a `push` e a `notificationclick`. Essa é a
@@ -40,8 +46,8 @@ self.addEventListener('push', (event) => {
   const titulo = dados.title || 'Vertho';
   const opcoes = {
     body: dados.body || '',
-    icon: '/icon-256.png',
-    badge: '/icon-256.png',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     // `data` sobrevive até o clique — é por aqui que a URL de destino e o
     // deliveryId chegam ao handler de notificationclick.
     data: { url: dados.url || '/dashboard', deliveryId: dados.deliveryId || null },

@@ -12,10 +12,18 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/request-context';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { csrfCheck } from '@/lib/csrf';
 
 export const runtime = 'nodejs';
 
+// ⚠️ Esta rota NÃO é gateada por `pushHabilitado`, ao contrário das outras.
+// Desligar a flag da empresa não pode aprisionar quem já ativou: sair sempre
+// tem que ser possível, mesmo depois de a porta de entrada fechar. Gate de
+// saída espelhando gate de entrada é como se cria gente sem meio de desistir.
 export async function POST(req: Request) {
+  const csrf = csrfCheck(req);
+  if (csrf) return csrf;
+
   const auth = await requireUser(req);
   if (auth instanceof Response) return auth;
 

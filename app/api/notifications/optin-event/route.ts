@@ -14,6 +14,8 @@ import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/request-context';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { detectarPlataforma } from '@/lib/notifications/plataforma';
+import { pushHabilitado } from '@/lib/notifications/flag';
+import { csrfCheck } from '@/lib/csrf';
 
 export const runtime = 'nodejs';
 
@@ -27,12 +29,21 @@ const STEPS = new Set([
 ]);
 
 export async function POST(req: Request) {
+  const csrf = csrfCheck(req);
+  if (csrf) return csrf;
+
   const auth = await requireUser(req);
   if (auth instanceof Response) return auth;
 
   const colaboradorId = auth.colaborador?.id;
   if (!colaboradorId) {
     return NextResponse.json({ error: 'sessão sem colaborador no tenant' }, { status: 403 });
+  }
+
+  // Sem a flag no servidor, um tenant fora do piloto poderia sujar o funil por
+  // chamada direta — e o funil é o instrumento de decisão do projeto inteiro.
+  if (!(await pushHabilitado(auth.empresaId))) {
+    return NextResponse.json({ error: 'notificações não habilitadas para esta empresa' }, { status: 403 });
   }
 
   let body: any;

@@ -12,6 +12,7 @@
  * ligar a abertura ao envio que a causou.
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { enviarWebPush, webPushConfigurado, type WebPushSubscription } from './providers/webpush';
 
 export interface EnviarPushInput {
@@ -137,7 +138,26 @@ async function gravarEntrega(
     .select('id')
     .single();
   if (error) {
+    // Fallback NUNCA silencioso — a regra desta base. Sem isto, um push sai,
+    // chega na pessoa e não existe em lugar nenhum: entrega não medida, e sem
+    // `deliveryId` ele também nunca poderá registrar abertura. Para um
+    // experimento cuja conclusão sai da tabela, entrega invisível é pior que
+    // entrega ausente, porque enviesa o denominador para baixo em silêncio.
+    //
+    // Escolha deliberada de NÃO falhar fechado: abortar o envio trocaria uma
+    // lacuna de medição por uma lacuna de entrega — a pessoa deixaria de ser
+    // avisada porque o log caiu. Degrada-se registrando, e o health estrutural
+    // (R10) reclama do volume.
     console.error('[push-core] falha ao gravar entrega:', error.message);
+    await registrarDegradacao({
+      fluxo: 'envio',
+      tipo: DEGRADACAO.TELEMETRIA_ENTREGA_FALHOU,
+      chave: `webpush:${input.kind}`,
+      empresaId: input.empresaId ?? null,
+      colaboradorId: input.colaboradorId,
+      severidade: 'aviso',
+      detalhe: { motivo: error.message, endpointId },
+    });
     return null;
   }
   return (data as { id: string }).id;

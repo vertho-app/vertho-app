@@ -134,14 +134,41 @@ export function AtivarPush() {
       if (instalado) await registrarEvento('instalado_detectado');
 
       const reg = await navigator.serviceWorker.getRegistration();
-      const jaInscrito = Boolean(reg ? await reg.pushManager.getSubscription() : null);
+      const inscricao = reg ? await reg.pushManager.getSubscription() : null;
+
+      // 🔴 A assinatura pertence ao NAVEGADOR, não à conta. Se A ativou, saiu, e
+      // agora B está logado neste aparelho, a assinatura continua existindo e
+      // apontando para A no banco — B veria "ativo" e receberia o que é de A.
+      // Re-registrar a cada carga reamarra a assinatura a quem está logado
+      // AGORA. Barato (um upsert) e não depende de logout, que pode nunca
+      // acontecer (navegador fechado, sessão expirada, aparelho passado adiante).
+      let vinculoOk = Boolean(inscricao);
+      if (inscricao) {
+        try {
+          const res = await fetchAuth('/api/notifications/subscriptions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              installationId: obterInstallationId(),
+              subscription: inscricao.toJSON(),
+            }),
+          });
+          vinculoOk = res.ok;
+        } catch {
+          // Rede caiu: não afirmar 'ativo' sem confirmação do servidor. Mostrar
+          // o botão é o erro seguro — reativar é inócuo, e alegar ativo sem
+          // vínculo é a mentira que este bloco existe para evitar.
+          vinculoOk = false;
+        }
+      }
+
       if (!cancelado) {
         setEstado(
           decidirEstadoConvite({
             ...sinaisBase,
             temPushManager: true,
             permissao: Notification.permission as 'default' | 'granted' | 'denied',
-            jaInscrito,
+            jaInscrito: vinculoOk,
           }),
         );
       }

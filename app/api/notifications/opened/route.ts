@@ -20,6 +20,23 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 
 export const runtime = 'nodejs';
 
+// ⚠️ DECISÃO: esta rota NÃO usa `csrfCheck`, ao contrário das outras três.
+//
+// Ela é chamada pelo `notificationclick` do service worker, que autentica por
+// COOKIE (o SW não tem acesso ao access token para mandar Bearer). Não está
+// verificado que um POST originado de service worker carrega `Origin` ou
+// `Referer` em todos os navegadores — e `csrfCheck` falha FECHADO quando não
+// encontra nenhum dos dois. Ou seja: ligar o check aqui pode parar de registrar
+// abertura silenciosamente, matando a única métrica de engajamento do projeto.
+//
+// O risco que se aceita em troca é pequeno e limitado por construção: o gate de
+// posse (`.eq('colaborador_id')`) faz com que uma requisição forjada só consiga
+// marcar entregas DA PRÓPRIA vítima, e o `deliveryId` é UUID não-adivinhável. O
+// dano máximo é um `opened_at` falso numa linha, para quem já é dono dela.
+//
+// Trocar isso por um check que pode zerar a medição seria trocar um risco
+// desprezível por um dano certo. Reavaliar se o SW passar a mandar Bearer.
+
 export async function POST(req: Request) {
   const auth = await requireUser(req);
   if (auth instanceof Response) return auth;

@@ -12,3 +12,32 @@
 - Credenciais em `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`).
 - Scripts pontuais de diagnóstico/manutenção: `scripts/_*.mjs` (convenção do repo), usando `@supabase/supabase-js` + `dotenv`.
 - Antes de deletar dados em produção, sempre salvar backup JSON em `backups/`.
+
+## Notificações e Web Push (`lib/notifications/`)
+
+> Contexto, medições e decisões: **`docs/APP-MOBILE.md`**. Leia antes de mexer.
+
+**Tabelas** (migs 198/200/201): `notification_deliveries` (uma linha por tentativa,
+**qualquer canal** — WhatsApp, e-mail e push), `notification_endpoints` (uma linha por
+INSTALAÇÃO, não por pessoa), `notification_optin_events` (funil de adesão).
+
+**Módulos**
+- `delivery-log.ts` — `registrarEntrega`, usado por WhatsApp e e-mail. Nunca lança; falha vira degradação.
+- `push-core.ts` — `enviarPush`, núcleo **headless** (sem gate; quem chama aplica). Grava a entrega ANTES do envio porque o `id` vai no payload e é ele que o service worker devolve na abertura.
+- `providers/webpush.ts` — único adapter com consumidor. 404/410 = inscrição morta → desliga o endpoint.
+- `flag.ts` — `pushHabilitado(empresaId)`, **fail-closed**.
+- `estado-convite.ts` — decisão pura de qual convite mostrar. **A ordem das checagens é a invariante**: iOS-não-instalado ANTES de suporte a `PushManager` (fora do app instalado o PushManager não existe, e inverter faz o convite sumir no iOS — já aconteceu).
+- `access-link-service.ts` — magic link/signup por e-mail e WhatsApp, com status explícito por canal.
+
+**Rotas** (`app/api/notifications/`): `subscriptions`, `subscriptions/disable`, `optin-event`, `opened`.
+Todas `requireUser` + `runtime = 'nodejs'`; empresa/colaborador **só da sessão**.
+
+**Regras que não podem ser afrouxadas**
+- `public/sw.js` **sem handler de `fetch`** — uma vez registrado, o worker controla `/` inteiro daquele aparelho para sempre. Cache ali serviria app shell velho depois de um deploy, sem erro visível.
+- A flag gateia as **rotas**, não só a renderização. Exceção deliberada: `disable` nunca é gateado (desligar a flag não pode aprisionar quem já ativou).
+- `csrfCheck` nas rotas mutativas. Exceção documentada no `opened` (chamada pelo service worker, autenticada por cookie) — ver o comentário no arquivo.
+- Ao registrar uma inscrição, endpoints com a **mesma URL de subscription** pertencentes a outro colaborador são desativados: a assinatura pertence ao navegador, não à conta (A → logout → B no mesmo aparelho).
+- Envio de e-mail **fora** de `pilula-envio`/`access-link-service` ainda NÃO é medido (`fase2`, `fase5/relatorios-envios`, `pulse/envio`, `radar/lead-pdf`, `conarh/artefato`, `admin/whatsapp`).
+
+**Envs**: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`.
+⚠️ Regenerar o par VAPID invalida **todas** as inscrições existentes.

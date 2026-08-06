@@ -70,3 +70,12 @@
   `WASENDER_API_KEY`, o health devolve 401 "Session not found" e o failover fica morto.
   O número da sessão WaSender deve ser **DIFERENTE** do número do Z-API (duas APIs de QR
   no mesmo número brigam pela sessão).
+- **Web Push / VAPID (05/08).** Três vars, as três nos 3 ambientes da Vercel:
+  `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (pública, **inlined no build** → trocar exige rebuild),
+  `VAPID_PRIVATE_KEY` (só na Vercel, nunca no git) e `VAPID_SUBJECT`
+  (`mailto:` de contato, exigido pelo protocolo). Gerar com
+  `npx web-push generate-vapid-keys`. Sem elas, `webPushConfigurado()` devolve false e
+  `enviarPush` retorna sem enviar — **falha silenciosa do ponto de vista do usuário**,
+  visível só no campo `motivo` do resultado.
+  ⚠️ **Regenerar o par invalida TODAS as inscrições existentes**: cada pessoa teria que
+  reativar as notificações no aparelho. Não é rotação transparente — trate como migração.
