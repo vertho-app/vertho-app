@@ -12,6 +12,7 @@ import { SaebCard } from '../../_components/indicator-card';
 import { LeadCTA } from '../../_components/lead-cta';
 import { NarrativaIA, NarrativaSkeleton } from '../../_components/narrativa-ia';
 import { InfraSection } from '../../_components/infra-card';
+import { DocentesEscolaSection } from '../../_components/docentes-card';
 import { CitarButton } from '../../_components/citar-button';
 import { SarespSection } from '../../_components/saresp-section';
 import { PddeSection } from '../../_components/pdde-section';
@@ -50,6 +51,7 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
   const escola = r.escola;
   const saeb = r.saeb;
   const censo = r.censo;
+  const docentes = r.docentes;
   const ideb = r.ideb;
   const enem = r.enem || [];
   const enemElegivel = filterComparableEnem(enem);
@@ -166,6 +168,11 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
 
         {/* Infra (Censo Escolar) */}
         {censo && <InfraSection censo={censo} />}
+
+        {/* Corpo docente (Censo Escolar) */}
+        {docentes && (
+          <DocentesEscolaSection docentes={docentes} matriculas={censo?.matriculas ?? null} />
+        )}
 
         {/* Ideb timeline (chart SVG) */}
         {ideb.length > 0 && (

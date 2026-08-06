@@ -109,7 +109,7 @@
     "lib/radar/ideb-importer.ts": 1,
     "lib/radar/pdde-importer.ts": 1,
     "lib/radar/proposta-pdf-data.ts": 1,
-    "lib/radar/queries.ts": 23,
+    "lib/radar/queries.ts": 25,
     "lib/radar/saeb-importer.ts": 1,
     "lib/radar/saresp-importer.ts": 1,
     "lib/radar/vaar-derivado.ts": 1,

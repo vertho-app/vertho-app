@@ -3,11 +3,12 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft, TrendingDown, TrendingUp } from 'lucide-react';
 
-import { getEstadoStats, getRankingMunicipiosUf } from '@/lib/radar/queries';
+import { getEstadoStats, getRankingMunicipiosUf, getDocentesUf } from '@/lib/radar/queries';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
 import { FaleConosco } from '../../_components/fale-conosco';
 import { HeroEstado } from '../../_components/hero-estado';
+import { DocentesAgregadoSection } from '../../_components/docentes-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,7 +46,10 @@ export default async function EstadoPage({ params }: { params: Promise<{ uf: str
 
   registrarEvento('view_estado', { scopeType: 'estado', scopeId: uf }).catch(() => {});
 
-  const ranking = await getRankingMunicipiosUf(uf);
+  const [ranking, docentes] = await Promise.all([
+    getRankingMunicipiosUf(uf),
+    getDocentesUf(uf),
+  ]);
 
   // Ordena: melhor (menor % N0-1) → pior
   const rankSaeb = [...ranking]
@@ -124,6 +128,9 @@ export default async function EstadoPage({ params }: { params: Promise<{ uf: str
             </div>
           </section>
         )}
+
+        {/* Corpo docente do estado (Censo Escolar) */}
+        {docentes && <DocentesAgregadoSection agg={docentes} escopo="estado" nome={ufNome} />}
 
         {/* Ranking Saeb (melhor → pior) */}
         {rankSaeb.length > 0 && (

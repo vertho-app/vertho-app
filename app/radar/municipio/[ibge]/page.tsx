@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft } from 'lucide-react';
 
-import { getMunicipio, getMunicipioBenchmarks, getMunicipioVariabilidade, getDispersaoMunicipal } from '@/lib/radar/queries';
+import { getMunicipio, getMunicipioBenchmarks, getMunicipioVariabilidade, getDispersaoMunicipal, getDocentesMunicipio } from '@/lib/radar/queries';
 import { estimarVaar } from '@/lib/radar/vaar-estimativa';
 import { calcularCondIIDerivadoMunicipio, getStatusICMSEducacional } from '@/lib/radar/vaar-derivado';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
@@ -18,6 +18,7 @@ import { VaarSection } from '../../_components/vaar-section';
 import { BenchmarkTable } from '../../_components/benchmark-table';
 import { VariabilidadeCard } from '../../_components/variabilidade-card';
 import { HeroMunicipio } from '../../_components/hero-municipio';
+import { DocentesAgregadoSection } from '../../_components/docentes-card';
 import { AtuacaoVerthoMunicipio } from '../../_components/atuacao-vertho';
 import { FaleConosco } from '../../_components/fale-conosco';
 
@@ -44,10 +45,11 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
 
   registrarEvento('view_municipio', { scopeType: 'municipio', scopeId: ibge }).catch(() => {});
 
-  const [benchmarks, variabilidade, dispersao] = await Promise.all([
+  const [benchmarks, variabilidade, dispersao, docentes] = await Promise.all([
     getMunicipioBenchmarks(ibge),
     getMunicipioVariabilidade(ibge),
     getDispersaoMunicipal(ibge),
+    getDocentesMunicipio(ibge),
   ]);
 
   // Estimativa VAAR — só calcula quando município não é beneficiário
@@ -140,6 +142,9 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
 
         {/* Variabilidade entre escolas da rede */}
         {variabilidade && <VariabilidadeCard data={variabilidade} />}
+
+        {/* Corpo docente da rede (Censo Escolar) */}
+        {docentes && <DocentesAgregadoSection agg={docentes} escopo="municipio" nome={m.nome} />}
 
         {/* Ideb médio das escolas */}
         {m.ideb.length > 0 && <MunicipioIdebSection ideb={m.ideb} />}

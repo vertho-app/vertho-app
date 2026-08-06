@@ -1,4 +1,19 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
+import {
+  DOCENTES_AGG_COLUNAS,
+  DOCENTES_ESCOLA_COLUNAS,
+  agregarDocentes,
+  consolidarPorRede,
+  type CensoDocentes,
+  type DocentesAggRow,
+  type DocentesAgregado,
+} from '@/lib/radar/docentes';
+
+// Corpo docente: tipos e agregação ficam em `lib/radar/docentes.ts` (puro,
+// testável); aqui só as queries. Reexportado para não quebrar quem já importa
+// os tipos do Radar por este módulo.
+export type { CensoDocentes, DocentesAgregado } from '@/lib/radar/docentes';
+export { temVinculoDeclarado } from '@/lib/radar/docentes';
 
 const SUPABASE_PAGE_SIZE = 1000;
 
@@ -840,6 +855,7 @@ export async function getEscola(codigoInep: string): Promise<{
   escola: Escola | null;
   saeb: SaebSnapshot[];
   censo: CensoInfra | null;
+  docentes: CensoDocentes | null;
   ideb: IdebSnapshot[];
   enem: EnemEscolaSnapshot[];
   saresp: SarespSnapshot[];
@@ -853,7 +869,7 @@ export async function getEscola(codigoInep: string): Promise<{
     .single();
   if (!escola) return null;
 
-  const [saebRes, censoRes, idebRes, enemRes, sarespRes, pddeRes] = await Promise.all([
+  const [saebRes, censoRes, docentesRes, idebRes, enemRes, sarespRes, pddeRes] = await Promise.all([
     sb.from('diag_saeb_snapshots')
       .select('*')
       .eq('codigo_inep', codigoInep)
@@ -862,6 +878,12 @@ export async function getEscola(codigoInep: string): Promise<{
       .order('disciplina', { ascending: true }),
     sb.from('diag_censo_infra')
       .select('*')
+      .eq('codigo_inep', codigoInep)
+      .order('ano', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    sb.from('diag_censo_docentes')
+      .select(DOCENTES_ESCOLA_COLUNAS)
       .eq('codigo_inep', codigoInep)
       .order('ano', { ascending: false })
       .limit(1)
@@ -894,11 +916,48 @@ export async function getEscola(codigoInep: string): Promise<{
     escola: escola as any,
     saeb: (saebRes.data || []) as any,
     censo: (censoRes.data as any) || null,
+    docentes: (docentesRes.data as any) || null,
     ideb: (idebRes.data || []) as any,
     enem: (enemRes.data || []) as any,
     saresp: (sarespRes.data || []) as any,
     pdde: (pddeRes.data || []) as any,
   };
+}
+
+// ── Corpo docente agregado (MV diag_mv_docentes_agg, migration 204) ──────
+
+/**
+ * Corpo docente do município. `apenasRedeMunicipal` espelha o recorte que a
+ * página já usa para ICA/Ideb/Enem quando o leitor pede só a rede municipal.
+ */
+export async function getDocentesMunicipio(
+  ibge: string,
+  opts: { apenasRedeMunicipal?: boolean } = {},
+): Promise<DocentesAgregado | null> {
+  const sb = createSupabaseAdmin();
+  let q = sb
+    .from('diag_mv_docentes_agg')
+    .select(DOCENTES_AGG_COLUNAS)
+    .eq('municipio_ibge', ibge);
+  if (opts.apenasRedeMunicipal) q = q.eq('rede', 'MUNICIPAL');
+  const { data, error } = await q;
+  if (error) return null;
+  return agregarDocentes((data || []) as any);
+}
+
+/** Corpo docente da UF (soma dos municípios × redes; ~1-2k linhas por UF). */
+export async function getDocentesUf(uf: string): Promise<DocentesAgregado | null> {
+  const sb = createSupabaseAdmin();
+  try {
+    const rows = await fetchAllRows<DocentesAggRow>(() => sb
+      .from('diag_mv_docentes_agg')
+      .select(DOCENTES_AGG_COLUNAS)
+      .eq('uf', uf));
+    // Uma linha por (município × rede) — consolida por rede para o breakdown.
+    return agregarDocentes(consolidarPorRede(rows));
+  } catch {
+    return null;
+  }
 }
 
 export async function getMunicipio(
