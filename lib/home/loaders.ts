@@ -71,6 +71,22 @@ export async function carregarDashboardData(ctx: UserContext, shared?: HomeShare
   colab.avaliadas = avaliadas || 0;
   colab.progresso = totalComp ? Math.round((respondidas / totalComp) * 100) : 0;
 
+  // Quem decide se HÁ avaliação é o Top 5 do CARGO (`cargos_empresa`), não a
+  // contagem de competências da empresa. Sem essa checagem a home convida a
+  // "Iniciar avaliação" e o assessment responde "Nenhuma competência
+  // configurada para seu cargo" — medido no cargo GR do Boehringer.
+  let cargoSemCompetencias = false;
+  if (!colab.cargo) {
+    cargoSemCompetencias = true;
+  } else {
+    const { data: cargoEmp } = await sb.from('cargos_empresa')
+      .select('top5_workshop')
+      .eq('empresa_id', colab.empresa_id)
+      .eq('nome', colab.cargo)
+      .maybeSingle();
+    cargoSemCompetencias = !((cargoEmp?.top5_workshop as any[])?.length);
+  }
+
   // Dados de equipe (gestor/rh)
   let teamData = null;
   if (view === 'rh' || view === 'gestor') {
@@ -138,6 +154,7 @@ export async function carregarDashboardData(ctx: UserContext, shared?: HomeShare
     empresaPerfilExternoFonte,
     perfilComportamentalLiberado,
     mapeamentoCenariosLiberado,
+    cargoSemCompetencias,
   };
 }
 

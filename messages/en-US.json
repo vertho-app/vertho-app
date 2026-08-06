@@ -154,6 +154,7 @@
       "vote": "Vote before the behavioral profile",
       "waitingProfile": "Awaiting release of behavioral profile",
       "waitingScenarios": "Waiting for scenario mapping release",
+      "waitingRoleSetup": "Waiting for your role's competencies",
       "behavioral": "Start behavioral assessment",
       "continueAssessment": "Continue review",
       "startAssessment": "Start assessment",

@@ -138,6 +138,18 @@ export default function DashboardHomePage() {
     data?.mapeamentoCenariosLiberado === true ||
     votacaoAberta?.mapeamentoCenariosLiberado === true;
   const mapeamentoCenariosBloqueado = !competencia && !perfilComportamentalBloqueado && !precisaMapeamentoDISC && !mapeamentoCenariosLiberado;
+  // Cargo sem Top 5 definido: não existe avaliação para iniciar. Sem isto a home
+  // convida a "Iniciar avaliação" e a tela seguinte responde "Nenhuma
+  // competência configurada para seu cargo".
+  const cargoSemCompetencias = data?.cargoSemCompetencias === true;
+  const avaliacaoSemCargoConfigurado = !competencia && !perfilComportamentalBloqueado
+    && !precisaMapeamentoDISC && !mapeamentoCenariosBloqueado && cargoSemCompetencias;
+  // Estado visual do CTA principal, num lugar só (antes a mesma expressão se
+  // repetia em 4 pontos — divergir entre eles é como o botão fica clicável mas
+  // apagado, ou vice-versa).
+  const ctaTravado = (perfilComportamentalBloqueado && !(votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou))
+    || mapeamentoCenariosBloqueado || avaliacaoSemCargoConfigurado;
+  const ctaApagado = perfilComportamentalBloqueado || mapeamentoCenariosBloqueado || avaliacaoSemCargoConfigurado;
   const phaseLabels = [
     data?.empresaPerfilExternoFonte === 'opq32' ? 'OPQ' : usaFonteExterna ? t('phaseLabels.externalProfile') : t('phaseLabels.disc'),
     t('phaseLabels.assessment'),
@@ -154,6 +166,7 @@ export default function DashboardHomePage() {
     }
     if (precisaMapeamentoDISC) return router.push('/dashboard/perfil-comportamental');
     if (mapeamentoCenariosBloqueado) return;
+    if (avaliacaoSemCargoConfigurado) return;
     router.push('/dashboard/assessment');
   }
 
@@ -165,6 +178,7 @@ export default function DashboardHomePage() {
     }
     if (precisaMapeamentoDISC) return t('mainCta.behavioral');
     if (mapeamentoCenariosBloqueado) return t('mainCta.waitingScenarios');
+    if (avaliacaoSemCargoConfigurado) return t('mainCta.waitingRoleSetup');
     // Avaliação 100% concluída: CTA deixa de sugerir "continuar" e vira "ver resultado".
     if ((colaborador.totalComp || 0) > 0 && (colaborador.respondidas || 0) >= colaborador.totalComp) {
       return t('mainCta.viewResult');
@@ -425,17 +439,15 @@ export default function DashboardHomePage() {
               {faseDescricoes[faseNum] || t('phaseDescriptions.fallback')}
             </p>
             <button onClick={handleMainCTA}
-              disabled={(perfilComportamentalBloqueado && !(votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou)) || mapeamentoCenariosBloqueado}
+              disabled={ctaTravado}
               className="w-full py-4 rounded-2xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2"
               style={{
-                background: (perfilComportamentalBloqueado || mapeamentoCenariosBloqueado) ? 'rgba(255,255,255,0.08)' : 'var(--phase-accent)',
-                color: (perfilComportamentalBloqueado || mapeamentoCenariosBloqueado) ? 'rgba(255,255,255,0.55)' : '#062032',
-                boxShadow: (perfilComportamentalBloqueado || mapeamentoCenariosBloqueado) ? 'none' : '0 10px 24px var(--phase-glow)',
+                background: ctaApagado ? 'rgba(255,255,255,0.08)' : 'var(--phase-accent)',
+                color: ctaApagado ? 'rgba(255,255,255,0.55)' : '#062032',
+                boxShadow: ctaApagado ? 'none' : '0 10px 24px var(--phase-glow)',
               }}>
               {mainCTALabel()}
-              {(perfilComportamentalBloqueado && !(votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou)) || mapeamentoCenariosBloqueado
-                ? <Lock size={18} />
-                : <ArrowRight size={18} />}
+              {ctaTravado ? <Lock size={18} /> : <ArrowRight size={18} />}
             </button>
           </div>
         </section>
