@@ -2474,13 +2474,16 @@
       "unlocked": "Perfil comportamental liberado — colaboradores podem avançar",
       "locked": "Perfil comportamental bloqueado — aguarde finalizar a votação",
       "availableAfterClose": "Liberação disponível após fechar a votação",
-      "useUnlockButton": "Use o botão “Liberar perfil” quando o ranking estiver fechado"
+      "useUnlockButton": "Use o botão “Liberar perfil” quando o ranking estiver fechado",
+      "externalSource": "Perfil comportamental conduzido pela empresa ({source})",
+      "externalSourceHint": "Esta empresa não usa o mapeamento nativo — manter bloqueado é o esperado"
     },
     "scenarios": {
       "unlocked": "Mapeamento de cenários liberado — colaboradores podem responder",
       "locked": "Mapeamento de cenários bloqueado",
       "availableAfterProfile": "Liberação disponível após liberar o perfil comportamental",
-      "useUnlockButton": "Use o botão “Liberar cenários” quando o perfil comportamental estiver concluído"
+      "useUnlockButton": "Use o botão “Liberar cenários” quando o perfil comportamental estiver concluído",
+      "useUnlockButtonExternal": "Use o botão “Liberar cenários” — não depende do perfil comportamental aqui"
     },
     "hint": {
       "title": "Como definir o Top final do cargo:",

@@ -50,3 +50,35 @@ describe('access-gates: mapeamento de cenários (fail-closed)', () => {
     expect(r.code).toBe('VOTACAO_ATIVA');
   });
 });
+
+// Empresa com fonte externa de perfil (OPQ32/Hogan) não faz o DISC nativo: o
+// perfil fica bloqueado PARA SEMPRE. Se ele fosse pré-requisito, os cenários
+// seriam inalcançáveis nesses tenants (era o caso do Boehringer).
+describe('access-gates: cenários com fonte EXTERNA de perfil', () => {
+  const EXTERNO = { perfil_externo_fonte: 'opq32' };
+
+  it('libera cenários com o perfil explicitamente bloqueado', () => {
+    const r = canAccessMapeamentoCenarios({
+      ...EXTERNO,
+      perfil_comportamental_liberado: false,
+      mapeamento_cenarios_liberado: true,
+    });
+    expect(r.allowed).toBe(true);
+  });
+
+  it('continua fail-closed: sem a flag de cenários, segue bloqueado', () => {
+    const r = canAccessMapeamentoCenarios({ ...EXTERNO, perfil_comportamental_liberado: false });
+    expect(r.allowed).toBe(false);
+    expect(r.code).toBe('CENARIOS_BLOQUEADOS');
+  });
+
+  it('votação aberta ainda bloqueia (sem liberação explícita de cenários)', () => {
+    const r = canAccessMapeamentoCenarios({ ...EXTERNO, votacao_ativa: true, perfil_comportamental_liberado: false });
+    expect(r.allowed).toBe(false);
+    expect(r.code).toBe('VOTACAO_ATIVA');
+  });
+
+  it('NÃO afeta o gate do próprio perfil — que segue bloqueado', () => {
+    expect(canAccessPerfilComportamental({ ...EXTERNO, perfil_comportamental_liberado: false }).allowed).toBe(false);
+  });
+});

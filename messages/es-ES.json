@@ -2474,13 +2474,16 @@
       "unlocked": "Perfil conductual liberado — los colaboradores pueden avanzar",
       "locked": "Perfil conductual bloqueado — espera a finalizar la votación",
       "availableAfterClose": "Liberación disponible después de cerrar la votación",
-      "useUnlockButton": "Usa el botón “Liberar perfil” cuando el ranking esté cerrado"
+      "useUnlockButton": "Usa el botón “Liberar perfil” cuando el ranking esté cerrado",
+      "externalSource": "Perfil conductual conducido por la empresa ({source})",
+      "externalSourceHint": "Esta empresa no usa el mapeo nativo — mantenerlo bloqueado es lo esperado"
     },
     "scenarios": {
       "unlocked": "Mapeo de escenarios liberado — los colaboradores pueden responder",
       "locked": "Mapeo de escenarios bloqueado",
       "availableAfterProfile": "Liberación disponible después de liberar el perfil conductual",
-      "useUnlockButton": "Usa el botón “Liberar escenarios” cuando el perfil conductual esté concluido"
+      "useUnlockButton": "Usa el botón “Liberar escenarios” cuando el perfil conductual esté concluido",
+      "useUnlockButtonExternal": "Usa el botón “Liberar escenarios” — aquí no depende del perfil conductual"
     },
     "hint": {
       "title": "Cómo definir el Top final del puesto:",

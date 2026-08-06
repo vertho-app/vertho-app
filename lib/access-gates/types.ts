@@ -21,5 +21,7 @@ export type EmpresaConfig = {
   votacao_ativa?: boolean;
   perfil_comportamental_liberado?: boolean;
   mapeamento_cenarios_liberado?: boolean;
+  /** Fonte externa do perfil (opq32, hogan…) — quando presente, a empresa NÃO faz o DISC nativo. */
+  perfil_externo_fonte?: string | null;
   [k: string]: any;
 };

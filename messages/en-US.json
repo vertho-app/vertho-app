@@ -2474,13 +2474,16 @@
       "unlocked": "Behavioral profile released — employees can advance",
       "locked": "Behavioral profile blocked - wait for voting to finish",
       "availableAfterClose": "Release available after voting closes",
-      "useUnlockButton": "Use the “Release profile” button when the ranking is closed"
+      "useUnlockButton": "Use the “Release profile” button when the ranking is closed",
+      "externalSource": "Behavioral profile run by the company ({source})",
+      "externalSourceHint": "This company does not use the native mapping — keeping it locked is expected"
     },
     "scenarios": {
       "unlocked": "Scenario mapping released — employees can answer",
       "locked": "Scenario mapping locked",
       "availableAfterProfile": "Release available after the behavioral profile is released",
-      "useUnlockButton": "Use the “Release scenarios” button when behavioral profile mapping is complete"
+      "useUnlockButton": "Use the “Release scenarios” button when behavioral profile mapping is complete",
+      "useUnlockButtonExternal": "Use the “Release scenarios” button — it does not depend on the behavioral profile here"
     },
     "hint": {
       "title": "How to define the final Top of the position:",

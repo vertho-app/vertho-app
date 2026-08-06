@@ -156,7 +156,12 @@ export async function toggleVotacao(empresaId: string, ativa: boolean) {
 
   const config = empresa?.sys_config || {};
   config.votacao_ativa = ativa;
-  if (ativa || config.perfil_comportamental_liberado !== true) {
+  if (config.perfil_externo_fonte) {
+    // Perfil externo (OPQ32/Hogan): o perfil nativo fica bloqueado sempre e NÃO
+    // é etapa do fluxo. Só abrir a votação reinicia o mapeamento de cenários —
+    // fechar não pode apagar uma liberação que o admin acabou de fazer.
+    if (ativa) config.mapeamento_cenarios_liberado = false;
+  } else if (ativa || config.perfil_comportamental_liberado !== true) {
     config.perfil_comportamental_liberado = false;
     config.mapeamento_cenarios_liberado = false;
   }
@@ -179,7 +184,10 @@ export async function togglePerfilComportamental(empresaId: string, liberado: bo
   }
 
   config.perfil_comportamental_liberado = liberado;
-  if (!liberado) config.mapeamento_cenarios_liberado = false;
+  // Cascata só vale onde o perfil É pré-requisito. Empresa com fonte externa
+  // (OPQ32/Hogan) fica com o perfil bloqueado de forma permanente — arrastar os
+  // cenários junto tornaria o mapeamento inalcançável nesses tenants.
+  if (!liberado && !config.perfil_externo_fonte) config.mapeamento_cenarios_liberado = false;
 
   const { error } = await sb.from('empresas')
     .update({ sys_config: config }).eq('id', empresaId);
@@ -201,7 +209,10 @@ export async function toggleMapeamentoCenarios(empresaId: string, liberado: bool
     return { success: false, error: 'Feche a votação antes de liberar o mapeamento de cenários.' };
   }
 
-  if (liberado) {
+  // Liberar cenários arrasta o perfil junto (pré-requisito) — EXCETO em empresa
+  // com fonte externa de perfil, onde o DISC nativo não existe e o perfil deve
+  // permanecer bloqueado.
+  if (liberado && !config.perfil_externo_fonte) {
     config.perfil_comportamental_liberado = true;
   }
 
@@ -230,6 +241,9 @@ export async function loadResultadosVotacao(empresaId: string) {
   const votacaoAtiva = config.votacao_ativa === true;
   const perfilComportamentalLiberado = isPerfilComportamentalLiberado(config);
   const mapeamentoCenariosLiberado = isMapeamentoCenariosLiberado(config);
+  // Fonte externa de perfil: a UI precisa explicar por que o perfil fica
+  // bloqueado sem que isso seja uma pendência (e sem travar os cenários).
+  const perfilExternoFonte = config.perfil_externo_fonte || null;
 
   // Todos os colaboradores (exclui internos @vertho.ai das estatísticas)
   const { data: colabs } = await tdb.from('colaboradores')
@@ -285,7 +299,7 @@ export async function loadResultadosVotacao(empresaId: string) {
     };
   }
 
-  return { votacaoAtiva, perfilComportamentalLiberado, mapeamentoCenariosLiberado, resultado };
+  return { votacaoAtiva, perfilComportamentalLiberado, mapeamentoCenariosLiberado, perfilExternoFonte, resultado };
 }
 
 // ── Admin: aprovar Top 5 da votação ───────────────────────────────────────

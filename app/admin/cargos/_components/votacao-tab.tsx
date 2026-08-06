@@ -94,6 +94,12 @@ export default function VotacaoTab({ empresaId }: { empresaId: string }) {
 
   const cargos = data?.resultado ? Object.entries(data.resultado) : [];
 
+  // Empresa com fonte externa de perfil (OPQ32, Hogan…) não faz o DISC nativo:
+  // "perfil bloqueado" é o estado correto dela, não uma pendência.
+  const fonteExternaLabel = data?.perfilExternoFonte === 'opq32'
+    ? 'OPQ32'
+    : String(data?.perfilExternoFonte || '').toUpperCase();
+
   // Total geral de votantes
   const totalVotaram = cargos.reduce((acc, [, d]: [string, any]) => acc + (d.votaram || 0), 0);
   const totalColabs = cargos.reduce((acc, [, d]: [string, any]) => acc + (d.total || 0), 0);
@@ -168,13 +174,17 @@ export default function VotacaoTab({ empresaId }: { empresaId: string }) {
             <span className={`text-sm font-bold ${data?.perfilComportamentalLiberado ? 'text-cyan-300' : 'text-amber-300'}`}>
               {data?.perfilComportamentalLiberado
                 ? t('profile.unlocked')
-                : t('profile.locked')}
+                : data?.perfilExternoFonte
+                  ? t('profile.externalSource', { source: fonteExternaLabel })
+                  : t('profile.locked')}
             </span>
           </div>
           <span className="text-xs text-gray-400">
-            {data?.votacaoAtiva
-              ? t('profile.availableAfterClose')
-              : t('profile.useUnlockButton')}
+            {data?.perfilExternoFonte && !data?.perfilComportamentalLiberado
+              ? t('profile.externalSourceHint')
+              : data?.votacaoAtiva
+                ? t('profile.availableAfterClose')
+                : t('profile.useUnlockButton')}
           </span>
         </div>
       </div>
@@ -192,7 +202,9 @@ export default function VotacaoTab({ empresaId }: { empresaId: string }) {
           <span className="text-xs text-gray-400">
             {data?.votacaoAtiva
               ? t('profile.availableAfterClose')
-              : t('scenarios.useUnlockButton')}
+              : data?.perfilExternoFonte
+                ? t('scenarios.useUnlockButtonExternal')
+                : t('scenarios.useUnlockButton')}
           </span>
         </div>
       </div>
