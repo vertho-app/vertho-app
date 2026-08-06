@@ -260,6 +260,22 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   sintoma chega como bug do usuário ("ou libera os 2 ou bloqueia os 2"), não como configuração.
   O acoplamento estava em 3 camadas e **só o gate barrava de verdade** — corrigir os botões sem
   corrigir `lib/access-gates/` não resolveria nada. Detalhe: `docs/ARQUITETURA.md` §3.6.
+- NÃO prometer confidencialidade que depende do **tamanho da turma** sem um piso de N. A tela do
+  assessment diz "Confidencial · RH vê apenas dados agregados" — verdade com 200 pessoas, falsa com
+  2: agregado de 2 não anonimiza ninguém. E **não existe limiar no código** que segure isso
+  (`lib/dna-organizacional/aggregate.ts` e `lib/perfil-organizacional/aggregate.ts` não têm piso; o
+  único `N_MINIMO`, 10, está em `lib/scoring/colinearidade.ts:18` e é de outra medida). Medido em
+  06/08 numa demo de 2 participantes — e a frase tinha sido copiada da tela para a mensagem de
+  convite antes de alguém perceber. Antes de repetir a promessa em piloto/demo, ou põe piso de N ou
+  troca a frase. Vale pra qualquer garantia cuja validade some quando o N encolhe.
+- NÃO abrir gate de autenticação por regra genérica — é **allowlist explícita, com o motivo ao lado**.
+  O vídeo de convite precisa ser visto por quem ainda NÃO tem login (exigir sessão é pedir que a
+  pessoa faça primeiro o que o vídeo explica), então `/v/{guid}` ganhou exceção em
+  `lib/videos-publicos.ts`: guid + tenant + slug + motivo, auditável lendo o arquivo. Duas
+  pegadinhas viraram teste (validado por mutação): lookup com **`hasOwnProperty`, nunca `in`**
+  (`"constructor"`/`"toString"` abririam o gate), e **apelido curto é POR TENANT** — "boas-vindas"
+  é o nome óbvio, e um mapa global serviria o vídeo de um cliente no domínio de outro, com a logo
+  certa e o conteúdo errado, sem erro nenhum na tela.
 - NÃO filtrar valor livre (e-mail, slug) com **`.ilike()`**: `_` e `%` são curinga no Postgres, e
   e-mail com underscore casa gente que não é a mesma pessoa — em 06/08 a listagem de liderados
   (`.ilike('gestor_email', …)`) ficava mais larga que o gate de posse que eu tinha acabado de
