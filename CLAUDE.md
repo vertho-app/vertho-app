@@ -134,6 +134,14 @@ tests/unit/          vitest
 - **`git add` SELETIVO** dos arquivos que EU editei — **NUNCA `git add -A`/`.`** (o dono edita o repo em paralelo).
 - `git -C "<repo>" ...` — nunca `cd ... && git` (dispara approval).
 - **`git push origin master`** deploya a Vercel. **NUNCA** `vercel --prod` (duplica).
+- ⚠️ **O push pode NÃO gerar build — sem erro e sem aviso** (medido 06/08: commit chegou ao GitHub,
+  `list_deployments` continuava no commit anterior; eu depurei código que não estava em produção
+  enquanto o Rodrigo testava). Antes de investigar "não funcionou", **compare o SHA do último
+  deployment** (`mcp__vercel__list_deployments` → `meta.githubCommitSha`) com `git log -1`.
+  Destravar: `git commit --allow-empty -m "chore: dispara build" && git push`. As três causas de
+  "não mudou nada" produzem a MESMA tela — build não disparou · aba no bundle antigo (Skew
+  Protection segura o cliente 12 h → Ctrl+Shift+R) · bug de verdade. Descarte as duas primeiras
+  primeiro; dá para provar a 2ª buscando a string nova no bundle servido.
 - **Trigger.dev**: tasks em `trigger/` **NÃO** sobem no push — precisam de `npx trigger.dev deploy` manual (path com espaço quebra o CLI; receita em `docs`/memória).
 
 ## Domínio: modelo de competências & Temporadas
@@ -245,6 +253,19 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   medindo outra coisa é como um painel passa a mentir sem ninguém perceber (os campos foram
   REMOVIDOS, e leads velhos ficam fora da conta em vez de convertidos). Detalhe:
   `docs/CONARH52-SPRINT-CONSOLIDADO.md` §0.1.
+- NÃO tornar A pré-requisito de B sem perguntar **se existe tenant em que A nunca será satisfeito**.
+  Empresa com `sys_config.perfil_externo_fonte` (OPQ32/Hogan) não faz o DISC nativo, então
+  `perfil_comportamental_liberado = false` é o estado **correto e permanente** dela — e o gate de
+  cenários, que exigia o perfil, tornava o mapeamento **inalcançável** no Boehringer (06/08). O
+  sintoma chega como bug do usuário ("ou libera os 2 ou bloqueia os 2"), não como configuração.
+  O acoplamento estava em 3 camadas e **só o gate barrava de verdade** — corrigir os botões sem
+  corrigir `lib/access-gates/` não resolveria nada. Detalhe: `docs/ARQUITETURA.md` §3.6.
+- NÃO filtrar valor livre (e-mail, slug) com **`.ilike()`**: `_` e `%` são curinga no Postgres, e
+  e-mail com underscore casa gente que não é a mesma pessoa — em 06/08 a listagem de liderados
+  (`.ilike('gestor_email', …)`) ficava mais larga que o gate de posse que eu tinha acabado de
+  escrever com igualdade exata, o que produziria "card aparece mas não abre". Igualdade
+  case-insensitive vai em código; `ilike` só com curinga INTENCIONAL. E quando um gate novo duplica
+  um filtro que já existe numa listagem, as duas pontas têm que usar a **mesma régua**.
 - NÃO criar fallback novo **silencioso** — fallback pode existir, nunca invisível: registre com
   `registrarDegradacao` (`lib/degradacao.ts`, nunca lança, dedup por chave com contador **por dia
   UTC** — a regra que lê olha 24h, então contador sem janela vira alarme crônico). Os 10

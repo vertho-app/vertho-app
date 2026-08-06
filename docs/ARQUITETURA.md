@@ -570,6 +570,43 @@ Coluna `ui_config JSONB`: logo_url, 7 cores, font_color, login_subtitle, hidden_
 ### 3.5 Config por Tenant
 Coluna `sys_config JSONB`: ai_model, cadencia, envios.
 
+### 3.6 Perfil externo (`perfil_externo_fonte`) — bloqueado é o estado CORRETO (06/08/2026)
+
+Empresa com `sys_config.perfil_externo_fonte` (`opq32` | `hogan` | `mbti` | `big5`)
+**não aplica o DISC nativo**. Nesses tenants `perfil_comportamental_liberado = false`
+é permanente e correto — não é etapa pendente. Caso vivo: `boehringer` (`opq32`).
+
+**Modo de falha corrigido:** o perfil era pré-requisito do mapeamento de cenários em
+**três camadas**, e como ele nunca é liberado nesses tenants, os cenários ficavam
+**inalcançáveis** — o admin só conseguia liberar os dois ou bloquear os dois, e a UI
+descrevia isso como pendência ("aguarde finalizar a votação"). Só uma das camadas
+barrava de verdade:
+
+| Camada | Arquivo | Barra? |
+|---|---|---|
+| Gate de acesso | `lib/access-gates/mapeamento-cenarios.ts` | **SIM** — lido por `/api/assessment`, `/api/chat`, `app/dashboard/assessment/assessment-actions.ts:93` |
+| Toggle "liberar cenários" | `actions/votacao.ts::toggleMapeamentoCenarios` | não (só grava) |
+| Toggle "bloquear perfil" | `actions/votacao.ts::togglePerfilComportamental` | não (só grava) |
+
+Hoje o gate dispensa o pré-requisito do perfil quando há fonte externa (segue
+*fail-closed* na flag de cenários, e votação aberta continua bloqueando), e os
+toggles não cascateiam nesses tenants. Contrato em
+`tests/unit/access-gates.test.ts`.
+
+**Regra geral:** antes de tornar A pré-requisito de B, pergunte se existe tenant em
+que A **nunca** será satisfeito. Se existir, B fica inalcançável lá — e o sintoma
+aparece como bug do usuário, não como configuração.
+
+**PDF do relatório externo** (bucket `perfis-externos/<empresa_id>/<colab_id>.pdf`,
+coluna `colaboradores.perfil_externo_pdf_path`, URL assinada de 10 min):
+- gestor/RH: `app/dashboard/gestor/actions.ts::getPerfilExternoPdfUrl(colabId)` —
+  recebe id do CLIENTE, então tem **gate de posse** (gestor→`gestor_email`,
+  tutor→`tutorados_ids`, RH→a empresa) + `.eq('empresa_id')`;
+- o próprio colaborador: `perfil-comportamental-actions.ts::getMeuPerfilExternoPdfUrl()`
+  — **sem parâmetro**: a identidade vem da sessão, então a posse é trivial.
+- O PDF pode existir **sem** extração (`perfil_externo_dados` null). Quem decide se há
+  o que mostrar é o **path**, não os dados.
+
 ---
 
 ## 4. RBAC (Controle de Acesso Baseado em Papeis)
