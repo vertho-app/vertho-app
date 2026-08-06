@@ -80,6 +80,7 @@ decisão explícita — hoje nenhuma tela de dashboard/admin usa Fraunces. Fora 
 - Pesos, escala e tracking: `tokens/typography.css` (a escala do bundle é referência de marca; nas telas o Tailwind manda).
 - ⚠️ **`--font-mono` (JetBrains Mono) é aspiracional** — não é carregada em lugar nenhum do produto.
 - ⚠️ **Codec Cold não existe em código**: 0 ocorrências em `app/`, `components/`, `lib/`, `public/`. O wordmark entra como **PNG** (`lib/pdf-assets.ts` → `public/logo-vertho*.png`); os `.otf` daqui servem a artefatos de marca fora do app. Codec não tem SemiBold (600 → Bold).
+- ⚠️ **Codec Cold é fonte de DISPLAY, não de texto corrido** (medido 05/08/2026, deck 7 × 2): os glifos de vírgula, ponto e interrogação têm sidebearing largo, então `anterior, as duas` renderiza como `anterior , as duas` e `turma?` vira `turma ?`. Em parágrafo isso pipoca em cada linha. Receita: Codec só em títulos, números, eyebrows e rótulos — **escritos sem pontuação interna** (troque a vírgula por travessão) —, corpo numa sans neutra; para a pontuação inevitável de um título, `<span>` com `margin-left: -0.05em` (−0.16em já cola o glifo na letra).
 
 ## Forma, sombra, movimento
 
@@ -98,7 +99,8 @@ decisão explícita — hoje nenhuma tela de dashboard/admin usa Fraunces. Fora 
 
 ## Logos e ícones
 
-- `assets/logo-h-{claro,escuro}.png` (horizontal), `assets/logo-ac-{claro,escuro}.png` (empilhado/stacked), `assets/icone-{claro,escuro}.png` (símbolo V+i). "claro" = para fundo claro, "escuro" = para fundo escuro. Nos PDFs, o logo entra via `lib/pdf-assets.ts` (`public/logo-vertho*.png`).
+- `assets/logo-h-{claro,escuro}.png` (horizontal), `assets/logo-ac-{claro,escuro}.png` (empilhado/stacked), `assets/icone-{claro,escuro}.png` (símbolo V+i). Nos PDFs, o logo entra via `lib/pdf-assets.ts` (`public/logo-vertho*.png`).
+- ⚠️ **O sufixo nomeia a TINTA do arquivo, não o fundo de destino** (medido 05/08/2026, abrindo os PNGs): `logo-h-claro.png` é o wordmark **branco + cyan** → vai em fundo **escuro**; `logo-h-escuro.png` é o wordmark **índigo `#3c385f`** → vai em fundo **claro**. Ler "claro = para fundo claro" põe logo branco sobre papel branco e ele **some sem erro nenhum** — nada no build acusa. Ao alternar por tema, cheque qual arquivo está em qual ramo.
 
 ## Componentes reais (o bundle não tem nenhum deles)
 
