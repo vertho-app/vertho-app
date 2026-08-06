@@ -52,8 +52,15 @@ export async function enviarPush(
   const vazio: EnviarPushResultado = { entregues: 0, falhas: 0, desligados: 0, semEndpoints: true };
   const client = sb ?? createSupabaseAdmin();
 
+  // ⚠️ `semEndpoints: false` aqui, e isto NÃO é detalhe. Este caminho é falha de
+  // AMBIENTE, não ausência de adesão — e devolver `semEndpoints: true` faria
+  // "VAPID ausente" ler exatamente igual a "ninguém aderiu" para quem consumisse
+  // esse campo. Quem quer saber de falha sistêmica lê `motivo`.
   if (!webPushConfigurado()) {
-    return { ...vazio, motivo: 'VAPID não configurado no ambiente' };
+    return {
+      entregues: 0, falhas: 0, desligados: 0, semEndpoints: false,
+      motivo: 'VAPID não configurado no ambiente',
+    };
   }
 
   const { data: endpoints, error } = await client
@@ -65,7 +72,11 @@ export async function enviarPush(
   // supabase-js RETORNA `{ error }` — sem esta checagem a falha viraria
   // "ninguém tem push" em silêncio, que é a conclusão oposta da verdadeira.
   if (error) {
-    return { ...vazio, motivo: `falha ao ler endpoints: ${error.message}` };
+    // Idem: falha de leitura não é ausência de inscrição.
+    return {
+      entregues: 0, falhas: 0, desligados: 0, semEndpoints: false,
+      motivo: `falha ao ler endpoints: ${error.message}`,
+    };
   }
   const lista = (endpoints ?? []) as EndpointRow[];
   if (!lista.length) return vazio;

@@ -34,8 +34,11 @@ export interface EnvioObservado {
   nome: string;
   temTelefone: boolean;
   temEmail: boolean;
+  /** tem inscrição de push ativa — canal aplicável a esta pessoa */
+  temPush: boolean;
   carimboWhatsapp: string | null;
   carimboEmail: string | null;
+  carimboPush: string | null;
 }
 
 /**
@@ -164,8 +167,10 @@ export function checarCoreAusente(entregas: EntregaPrevista[]): Achado | null {
 export function checarCanalZerado(envios: EnvioObservado[]): Achado[] {
   const comTel = envios.filter((e) => e.temTelefone);
   const comMail = envios.filter((e) => e.temEmail);
+  const comPush = envios.filter((e) => e.temPush);
   const zapOk = comTel.filter((e) => e.carimboWhatsapp).length;
   const mailOk = comMail.filter((e) => e.carimboEmail).length;
+  const pushOk = comPush.filter((e) => e.carimboPush).length;
 
   const out: (Achado | null)[] = [];
   if (comTel.length >= 3 && zapOk === 0) {
@@ -178,6 +183,15 @@ export function checarCanalZerado(envios: EnvioObservado[]): Achado[] {
       comMail.length, 'Todos os elegíveis ficaram sem e-mail — provedor fora ou credencial ausente.',
       { acao: 'Checar RESEND_API_KEY e o painel do provedor.' }));
   }
+  // Push como canal de primeira classe também aqui. Sem esta linha, uma pane
+  // total de push (VAPID ausente no ambiente, leitura de endpoints falhando)
+  // seria indistinguível de "ninguém aderiu" — e ausência de sinal já foi
+  // confundida com "ninguém quis" duas vezes neste projeto.
+  if (comPush.length >= 3 && pushOk === 0) {
+    out.push(achado('canal-push-zerado', 'critico', 'Nenhum push saiu hoje',
+      comPush.length, 'Todos com inscrição ativa ficaram sem push — VAPID ausente, provedor fora ou falha ao ler os endpoints, não azar individual.',
+      { acao: 'Checar NEXT_PUBLIC_VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY na Vercel e o degradacao_log (fluxo=envio).' }));
+  }
   return out.filter(Boolean) as Achado[];
 }
 
@@ -188,7 +202,10 @@ export function checarCanalZerado(envios: EnvioObservado[]): Achado[] {
  * específica ter ficado de fora. Sem isso, a falha individual é invisível.
  */
 export function checarEntregaIncompleta(envios: EnvioObservado[]): Achado | null {
-  const faltou = envios.filter((e) => (e.temTelefone || e.temEmail) && !e.carimboWhatsapp && !e.carimboEmail);
+  const faltou = envios.filter(
+    (e) => (e.temTelefone || e.temEmail || e.temPush)
+      && !e.carimboWhatsapp && !e.carimboEmail && !e.carimboPush,
+  );
   return achado(
     'entrega-nao-realizada', 'critico',
     'Pessoa elegível não recebeu por canal nenhum',
@@ -409,6 +426,101 @@ export function checarDegradacoes(registros: DegradacaoRegistro[]): Achado | nul
         .map(([tipo, t]) => `${tipo} · ${t.ocorrencias}×`),
       acao: 'Ver degradacao_log (detalhe por fluxo/chave) e atacar o tipo mais frequente — fallback repetido é sintoma, não azar.',
     },
+  );
+}
+
+/**
+ * R11 · Saúde do canal PUSH nas últimas 24h (`notification_deliveries`).
+ *
+ * Complementa — não substitui — o `canal-push-zerado` do pós-voo. Aquele lê
+ * CARIMBO e herda o timing do fan-out (o pós-voo roda logo após o enfileiramento,
+ * não após os envios). Esta lê a tabela de ENTREGAS numa janela de 24h, quando a
+ * resposta já existe, e enxerga duas coisas que o carimbo não conta:
+ *
+ *  · FALHAS — o carimbo só registra sucesso, então uma taxa alta de falha é
+ *    invisível por ele;
+ *  · PRESOS — linha em `tentativa` que envelheceu sem desfecho. A entrega é
+ *    gravada ANTES do envio (para o id viajar no payload), então `tentativa`
+ *    velha significa que o processo morreu entre gravar e enviar. Não existe
+ *    nenhuma outra tela onde isso apareça.
+ *
+ * Zero entregas NÃO é achado: em dia sem cadência (fim de semana, empresa sem
+ * envio) zero é o correto. Alarme por ausência aqui viraria crônico — e alarme
+ * crônico é a mesma coisa que silêncio.
+ */
+export interface PushDiario {
+  total: number;
+  sucesso: number;
+  falha: number;
+  presos: number;
+}
+
+/** Acima disto, a proporção de falha deixa de ser azar individual. */
+export const PUSH_FALHA_CRITICA = 0.5;
+/** Abaixo disto, a amostra não sustenta conclusão sobre o canal. */
+export const PUSH_AMOSTRA_MINIMA = 5;
+
+export function checarPushDegradado(p: PushDiario): Achado | null {
+  if (!p || p.total === 0) return p?.presos ? presosAchado(p.presos) : null;
+
+  const taxaFalha = p.total ? p.falha / p.total : 0;
+  const tudoFalhou = p.sucesso === 0 && p.total > 0;
+  const falhaAlta = p.total >= PUSH_AMOSTRA_MINIMA && taxaFalha > PUSH_FALHA_CRITICA;
+
+  if (tudoFalhou || falhaAlta) {
+    return achado(
+      'push-degradado-24h',
+      'critico',
+      'Push falhando nas últimas 24h',
+      p.falha + p.presos || p.total,
+      'Houve tentativa de push e quase nada chegou — VAPID ausente/rotacionada, provedor fora ou inscrições mortas em massa. Como push é canal adicional, ninguém reclama: a pessoa simplesmente não é avisada.',
+      {
+        amostra: [`total ${p.total}`, `sucesso ${p.sucesso}`, `falha ${p.falha}`, `presos ${p.presos}`],
+        acao: 'Conferir NEXT_PUBLIC_VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY na Vercel e degradacao_log (fluxo=envio). Rotacionar VAPID invalida TODAS as inscrições.',
+      },
+    );
+  }
+  return p.presos ? presosAchado(p.presos) : null;
+}
+
+function presosAchado(presos: number): Achado | null {
+  return achado(
+    'push-preso-em-tentativa',
+    'aviso',
+    'Entregas de push presas em "tentativa"',
+    presos,
+    'A linha foi gravada antes do envio e o desfecho nunca chegou: o processo morreu no meio. A pessoa não recebeu e a entrega não conta como falha em lugar nenhum.',
+    { acao: 'Ver notification_deliveries WHERE channel=\'webpush\' AND status=\'tentativa\' — e checar timeout da lambda do cron.' },
+  );
+}
+
+/**
+ * R11b · Gente inscrita em push num ambiente SEM VAPID.
+ *
+ * Esta regra existe porque a R11 acima NÃO PODE pegar este caso, e a descoberta
+ * disso é o motivo de ela existir separada: com VAPID ausente, `enviarPush`
+ * retorna ANTES de gravar qualquer linha em `notification_deliveries`. Total
+ * zero, falhas zero — e `achado()` devolve `null` quando a contagem é 0. Ou
+ * seja: a regra desenhada para detectar pane total ficava muda justamente na
+ * pane total. Check que não pode falhar é o anti-padrão que este módulo combate.
+ *
+ * A contagem aqui é "quem NÃO vai receber", nunca "quantas falhas" — é o que
+ * garante que ela seja diferente de zero exatamente quando o problema existe.
+ *
+ * E é DETERMINÍSTICA: lê ambiente, não infere de tabela vazia. Tabela vazia
+ * confunde quatro estados distintos (ninguém aderiu · cron não rodou · flag
+ * desligada · VAPID ausente); a env responde de graça e sem ambiguidade.
+ * Mesmo formato do R8 (`checarDestinoDoAlerta`).
+ */
+export function checarPushSemVapid(configurado: boolean, endpointsAtivos: number): Achado | null {
+  if (configurado) return null;
+  return achado(
+    'push-sem-vapid',
+    'critico',
+    'Pessoas inscritas em push, mas o ambiente não tem VAPID',
+    endpointsAtivos,
+    'Cada uma dessas pessoas concedeu permissão e nunca vai receber nada: o envio aborta antes de tentar, então não há sequer registro de falha. Do lado delas, o app simplesmente não avisa.',
+    { acao: "Definir NEXT_PUBLIC_VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY na Vercel. ⚠️ Gerar par NOVO invalida todas as inscrições existentes — se elas foram criadas com a chave antiga, todo mundo reativa." },
   );
 }
 

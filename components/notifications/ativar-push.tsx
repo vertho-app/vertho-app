@@ -70,6 +70,34 @@ function ehIOS(): boolean {
  */
 const PASSIVOS = new Set(['convite_exibido', 'instalado_detectado']);
 
+/**
+ * Remove um service worker que tenha tomado o escopo RAIZ indevidamente.
+ *
+ * Corrigir o registro (tirar o fallback sem `scope`) protege quem vier depois —
+ * não desfaz o que já aconteceu. Aparelho que registrou `conarh-sw.js` em `/`
+ * continua assim para sempre: o worker de push foi SUBSTITUÍDO, o handler de
+ * `push` não existe mais e nada na tela denuncia. Pior, a pessoa vê
+ * "Notificações ativas neste aparelho" e não toca no botão que curaria.
+ *
+ * Só desregistra o caso específico e verificável (script conarh no escopo raiz).
+ * Uma limpeza genérica de "qualquer worker no escopo /" apagaria o próprio
+ * `/sw.js`, que é exatamente quem queremos preservar.
+ */
+async function limparWorkerInvasor() {
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const reg of regs) {
+      const script = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
+      const escopoRaiz = reg.scope === `${location.origin}/`;
+      if (escopoRaiz && script.endsWith('/conarh-sw.js')) {
+        await reg.unregister();
+      }
+    }
+  } catch {
+    // Falhar aqui só mantém o estado anterior — nunca piora.
+  }
+}
+
 async function registrarEvento(step: string, detalhe?: Record<string, unknown>) {
   try {
     if (PASSIVOS.has(step)) {
@@ -95,6 +123,7 @@ export function AtivarPush() {
     let cancelado = false;
 
     (async () => {
+      await limparWorkerInvasor();
       const instalado = estaInstalado();
       const sinaisBase = {
         ehIOS: ehIOS(),
@@ -220,10 +249,20 @@ export function AtivarPush() {
       });
 
       if (!res.ok) {
-        // Inscrição existe no navegador mas não no nosso banco: é o pior estado
-        // possível (parece ativo e nunca chega push). Desfaz para não mentir.
-        await subscription.unsubscribe();
-        toast.error('Não conseguimos concluir. Tente de novo em instantes.');
+        // NÃO desinscrever aqui. Já desinscrevia, e era regressão: uma falha
+        // transitória do servidor destruía a assinatura do navegador e obrigava
+        // a pessoa a refazer o ritual inteiro — no iOS, isso inclui o
+        // "Adicionar à Tela de Início", o degrau mais caro do funil.
+        //
+        // O estado exibido vem do SERVIDOR (`vinculoOk` no efeito de montagem),
+        // não da existência da assinatura no navegador, então nada mente: sem
+        // vínculo, o botão continua aparecendo. E o re-registro a cada carga
+        // tenta de novo sozinho — a recuperação é automática.
+        toast.error(
+          res.status === 409
+            ? 'Este aparelho está registrado em outra conta. Saia dela e tente de novo.'
+            : 'Não conseguimos concluir. Tente de novo em instantes.',
+        );
         return;
       }
 

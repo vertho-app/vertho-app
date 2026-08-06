@@ -5,7 +5,7 @@
 // "Secretaria…", que não identifica cliente nenhum — e o manifest existia
 // justamente porque o nome errado na tela de início é o problema.
 import { describe, expect, it } from 'vitest';
-import { derivarNomeCurto } from '@/app/manifest.webmanifest/route';
+import { derivarNomeCurto } from '@/lib/tenant-nome-curto';
 
 describe('derivarNomeCurto', () => {
   // Asserção pela INTENÇÃO (identifica + cabe), não pela formatação exata:

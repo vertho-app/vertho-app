@@ -21,6 +21,7 @@
 import { headers } from 'next/headers';
 import { resolveTenantFromHeaders } from '@/lib/tenant-resolver';
 import { resolveTheme } from '@/lib/ui-resolver';
+import { derivarNomeCurto } from '@/lib/tenant-nome-curto';
 
 export const runtime = 'nodejs';
 // Depende do header do tenant: renderizar estaticamente serviria o manifest de
@@ -28,29 +29,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const NOME_PADRAO = 'Vertho Mentor IA';
-const CURTO_PADRAO = 'Vertho';
-
-/**
- * `short_name` é o que aparece SOB o ícone na tela de início, onde o sistema
- * corta perto de ~12 caracteres. "Secretaria Municipal de Ibipeba/BA" viraria
- * "Secretaria…", que não identifica nada. Pega-se a primeira palavra
- * significativa, ignorando as genéricas do começo.
- */
-const GENERICAS = new Set([
-  'secretaria', 'municipal', 'prefeitura', 'instituto', 'colegio', 'colégio',
-  'escola', 'grupo', 'centro', 'faculdade', 'universidade', 'de', 'da', 'do',
-]);
-
-export function derivarNomeCurto(nome: string | null | undefined): string {
-  const limpo = (nome || '').replace(/\s+/g, ' ').trim();
-  if (!limpo) return CURTO_PADRAO;
-
-  const palavras = limpo.split(' ').filter(Boolean);
-  const significativa = palavras.find((p) => !GENERICAS.has(p.toLowerCase().replace(/[^\wáéíóúâêôãõç]/gi, '')));
-  const escolhida = (significativa || palavras[0] || CURTO_PADRAO).replace(/[/,.]+$/, '');
-
-  return escolhida.length > 12 ? `${escolhida.slice(0, 11)}…` : escolhida;
-}
 
 export async function GET() {
   const h = await headers();

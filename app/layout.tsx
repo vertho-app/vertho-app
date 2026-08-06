@@ -3,6 +3,9 @@ import { Inter, Instrument_Serif, Manrope, Plus_Jakarta_Sans, Fraunces } from "n
 import { NextIntlClientProvider } from 'next-intl';
 import { Toaster } from 'sonner';
 import { getLocale, getMessages, getTranslations } from 'next-intl/server';
+import { headers } from 'next/headers';
+import { resolveTenantFromHeaders } from '@/lib/tenant-resolver';
+import { derivarNomeCurto } from '@/lib/tenant-nome-curto';
 import "./globals.css";
 
 const inter = Inter({
@@ -54,7 +57,11 @@ export async function generateMetadata(): Promise<Metadata> {
     manifest: '/manifest.webmanifest',
     appleWebApp: {
       capable: true,
-      title: 'Vertho',
+      // Por TENANT, mesma régua do manifest. Fixo em 'Vertho' aqui, este campo
+      // sobrepunha o `short_name` do manifest justamente no iOS — a plataforma
+      // onde o nome sob o ícone da tela de início importa — e anulava boa parte
+      // do manifest dinâmico para clientes white-label.
+      title: derivarNomeCurto((await resolveTenantFromHeaders(await headers()))?.nome),
       statusBarStyle: 'default',
     },
   };

@@ -28,7 +28,7 @@ import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { publicarWhatsappCis } from '@/lib/qstash-publish';
-import { pushHabilitado } from '@/lib/notifications/flag';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { enviarPush } from '@/lib/notifications/push-core';
 import { pushPilula, pushMissao } from '@/lib/notifications/push-copy';
 import { temaPilula } from '@/lib/notifications/pilula-envio';
@@ -111,7 +111,15 @@ export async function processarEmpresaDiario(
   // um SELECT por colaborador só para decidir a pendência.
   // Empresa sem a flag nem consulta — o custo do canal novo escala com adoção,
   // não com o tamanho do tenant.
-  const pushLigado = await pushHabilitado(empresa.id);
+  // Flag lida do `sys_config` que a empresa JÁ traz (o dispatcher e o worker
+  // ambos o carregam), não por query.
+  //
+  // `pushHabilitado()` faz sentido nas ROTAS, onde só existe o empresaId. Aqui
+  // seria query redundante — e, pior, ela é fail-closed: qualquer erro de
+  // leitura devolveria `false`, o canal sumiria da pendência e o resultado seria
+  // indistinguível de "o tenant não ligou push". Exatamente o tipo de silêncio
+  // que este bloco existe para eliminar, entrando pela porta dos fundos.
+  const pushLigado = (empresa as any).sys_config?.notificacoes_push === true;
   const comPush = new Set<string>();
   if (pushLigado) {
     const { data: eps, error: errEps } = await tdb
@@ -121,8 +129,25 @@ export async function processarEmpresaDiario(
     // supabase-js RETORNA `{ error }`: sem checar, uma falha viraria "ninguém
     // tem push" e o canal sumiria da pendência em silêncio — exatamente o tipo
     // de ausência que já foi confundida com "ninguém quis".
-    if (errEps) console.warn('[triggerDiario] endpoints de push:', errEps.message);
-    else for (const e of (eps as any[]) || []) comPush.add(e.colaborador_id);
+    //
+    // FALHA ALTO, e isto é seguro justamente AQUI: a leitura acontece ANTES do
+    // loop, então nada foi enviado ainda e o retry do QStash recomeça a empresa
+    // do zero sem duplicar (os carimbos por canal seguram o que já saiu em
+    // execuções anteriores). Seguir com `comPush` vazio devolveria 200, o worker
+    // não retentaria, e o dia inteiro ficaria sem push com o painel dizendo
+    // "tudo certo" — a falha mais cara de todas, a que parece sucesso.
+    if (errEps) {
+      await registrarDegradacao({
+        fluxo: 'envio',
+        tipo: DEGRADACAO.TELEMETRIA_ENTREGA_FALHOU,
+        chave: `endpoints:${empresa.id}`,
+        empresaId: empresa.id,
+        severidade: 'critico',
+        detalhe: { motivo: errEps.message, onde: 'leitura de notification_endpoints' },
+      });
+      throw new Error(`[triggerDiario] falha ao ler endpoints de push: ${errEps.message}`);
+    }
+    for (const e of (eps as any[]) || []) comPush.add(e.colaborador_id);
   }
 
   for (const envio of (envios as any[])) {
@@ -229,6 +254,24 @@ export async function processarEmpresaDiario(
         // Carimba só o próprio sucesso — mesma regra dos irmãos. Zero entregues
         // (endpoint morto entre a leitura e o envio) deixa o canal PENDENTE.
         if (r.entregues > 0) { stamp[pushCol] = agora; } else if (r.falhas > 0) erros++;
+
+        // `motivo` = falha SISTÊMICA (VAPID ausente no ambiente, leitura de
+        // endpoints caindo). Sem isto, o campo era simplesmente ignorado: o
+        // chamador olhava só `entregues`/`falhas`, um ambiente sem VAPID
+        // devolvia `entregues: 0, falhas: 0` e a rodada terminava como sucesso.
+        // Não aborta a empresa aqui — WhatsApp e e-mail dos demais colaboradores
+        // ainda precisam sair; a degradação é quem faz o health reclamar.
+        if (r.motivo) {
+          erros++;
+          await registrarDegradacao({
+            fluxo: 'envio',
+            tipo: DEGRADACAO.TELEMETRIA_ENTREGA_FALHOU,
+            chave: `push-sistemico:${empresa.id}`,
+            empresaId: empresa.id,
+            severidade: 'critico',
+            detalhe: { motivo: r.motivo, kind: 'pilula' },
+          });
+        }
       }
 
       // O ciclo só fecha se ALGUM canal saiu. DECISÃO (fan-out): o consolidado

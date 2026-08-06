@@ -15,7 +15,7 @@ import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { normalizePhone } from '@/lib/phone';
 import { levantarPlanoKitsCoorte } from '@/lib/season-engine/kit/plano-coorte';
-import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua, DegradacaoRegistro, CelulaVideoSemDeck } from './regras';
+import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua, DegradacaoRegistro, CelulaVideoSemDeck, PushDiario } from './regras';
 
 /** Dia da semana no fuso do envio (1=segunda … 7=domingo), como o cron calcula. */
 export function diaDaSemanaBRT(d: Date): number {
@@ -286,6 +286,42 @@ export async function coletarDegradacoes(sb: any): Promise<DegradacaoRegistro[]>
 }
 
 /**
+ * Entregas de PUSH das últimas 24h (`notification_deliveries`, mig 198).
+ *
+ * Por que no modo ESTRUTURAL e não no pós-voo: o `triggerDiario` virou um
+ * DISPATCHER (enfileira uma task QStash por empresa e retorna), e o pós-voo roda
+ * no mesmo request — logo após o ENFILEIRAMENTO, não após os envios. Ler carimbo
+ * naquele instante é ler antes de a coisa acontecer. O estrutural roda de
+ * madrugada sobre 24h, que é a janela em que a resposta já existe.
+ *
+ * Lê a tabela de entregas, não os carimbos, e por isso enxerga o que o carimbo
+ * não conta: FALHAS (o carimbo só registra sucesso) e entregas PRESAS em
+ * `tentativa` — linha gravada antes do envio cujo desfecho nunca chegou, ou
+ * seja, o processo morreu no meio. Hoje isso é invisível em qualquer tela.
+ */
+export async function coletarPushDiario(sb: any): Promise<PushDiario> {
+  const desde = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { data, error } = await sb.from('notification_deliveries')
+    .select('status, sent_at')
+    .eq('channel', 'webpush')
+    .gte('sent_at', desde);
+  // Propaga: 0 por falha de query é indistinguível de "nenhum push", que é
+  // exatamente a confusão que esta regra existe para desfazer.
+  if (error) throw new Error(`notification_deliveries: ${error.message}`);
+
+  const linhas = (data as any[]) || [];
+  // Uma hora de folga: `tentativa` recém-gravada é normal (o envio está em
+  // curso). O que denuncia é a que envelheceu sem desfecho.
+  const limite = Date.now() - 3600_000;
+  return {
+    total: linhas.length,
+    sucesso: linhas.filter((l) => l.status === 'sucesso').length,
+    falha: linhas.filter((l) => l.status === 'falha').length,
+    presos: linhas.filter((l) => l.status === 'tentativa' && new Date(l.sent_at).getTime() < limite).length,
+  };
+}
+
+/**
  * Células de vídeo que falharam e seguem SEM deck assistível (R10 / F-V3).
  *
  * Agrupa por (módulo × empresa × cargo × DISC) — a mesma chave da UNIQUE parcial e do
@@ -333,9 +369,19 @@ export async function coletarEnviosDoDia(
   const dia = dataAlvo.toISOString().slice(0, 10);
   const colW = pilula === 1 ? 'ultima_pilula1_whatsapp_em' : 'ultima_pilula2_whatsapp_em';
   const colE = pilula === 1 ? 'ultima_pilula1_email_em' : 'ultima_pilula2_email_em';
+  const colP = pilula === 1 ? 'ultima_pilula1_push_em' : 'ultima_pilula2_push_em';
   const { data } = await sb.from('fase4_envios')
-    .select(`colaborador_id, semana_atual, ${colW}, ${colE}, colaboradores!inner(nome_completo, email, telefone, whatsapp)`)
+    .select(`colaborador_id, semana_atual, ${colW}, ${colE}, ${colP}, colaboradores!inner(nome_completo, email, telefone, whatsapp)`)
     .eq('empresa_id', empresaId).eq('status', 'ativo');
+
+  // Quem tem push ativo. Uma query, mesmo padrão do cron — e o health precisa
+  // saber a APLICABILIDADE do canal, não só o carimbo: sem isso, todo mundo
+  // apareceria como "elegível a push e não recebeu", virando alarme crônico.
+  const comPush = new Set<string>();
+  const { data: eps, error: errEps } = await sb.from('notification_endpoints')
+    .select('colaborador_id').eq('empresa_id', empresaId).eq('enabled', true);
+  if (errEps) console.warn('[health] endpoints de push:', errEps.message);
+  else for (const e of (eps as any[]) || []) comPush.add(e.colaborador_id);
 
   // Quem NÃO devia receber hoje: semana de 'aplicacao'/'avaliacao' (sem pílula nova)
   // ou semana single num dia de P2 — o cron (triggerDiario) pula os dois casos. O
@@ -368,8 +414,10 @@ export async function coletarEnviosDoDia(
       nome: c.nome_completo || '(sem nome)',
       temTelefone: !!tel && !!normalizePhone(tel),
       temEmail: !!c.email,
+      temPush: comPush.has(r.colaborador_id),
       carimboWhatsapp: doDia(r[colW]),
       carimboEmail: doDia(r[colE]),
+      carimboPush: doDia(r[colP]),
     };
   });
 }

@@ -18,8 +18,9 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
-import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError } from './regras';
-import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, coletarDegradacoes, coletarCelulasVideoSemDeck, diaDaSemanaBRT, pilulaDoDia } from './coleta';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarPushDegradado, checarPushSemVapid } from './regras';
+import { webPushConfigurado } from '@/lib/notifications/providers/webpush';
+import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
 /** Empresas elegíveis a envio: exclui demo (não envia comunicação real). */
 async function empresasAtivas(sb: any) {
@@ -176,6 +177,19 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
 
     // R10: telemetria de degradação (FMEA §3.3) — fallback existe, nunca invisível.
     achados.push(checarDegradacoes(await coletarDegradacoes(sb)));
+
+    // R11: saúde do canal push em 24h. Aqui e não no pós-voo porque o pós-voo
+    // roda logo após o ENFILEIRAMENTO do fan-out, antes de os workers enviarem.
+    achados.push(checarPushDegradado(await coletarPushDiario(sb)));
+
+    // R11b: o caso que a R11 é ESTRUTURALMENTE incapaz de ver. Sem VAPID o envio
+    // aborta antes de gravar entrega — total 0, falhas 0, achado nulo. A env
+    // responde de graça e sem ambiguidade; inferir de tabela vazia confundiria
+    // "ninguém aderiu", "cron não rodou", "flag desligada" e "VAPID ausente".
+    achados.push(checarPushSemVapid(
+      webPushConfigurado(),
+      await contar('notification_endpoints', (q: any) => q.eq('enabled', true)),
+    ));
 
     const ungrounded = await contar('kit_briefs', (q: any) => q.is('modulo_base_id', null));
     achados.push(achado('brief-ungrounded', 'aviso', 'Brief sem módulo-base', ungrounded,

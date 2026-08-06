@@ -107,9 +107,13 @@ describe('R5 · semana sem conteúdo resolvível', () => {
 });
 
 describe('R6/R7 · pós-voo', () => {
+  // `temPush`/`carimboPush` são OBRIGATÓRIOS no tipo de propósito: opcionais
+  // deixariam um coletor futuro desligar a regra de push por omissão, sem erro.
+  // O default aqui é "sem push", que é o estado da maioria das pessoas hoje.
   const envio = (over: Partial<EnvioObservado>): EnvioObservado => ({
-    colaboradorId: 'c1', nome: 'Fulana', temTelefone: true, temEmail: true,
-    carimboWhatsapp: '2026-07-27T11:00:00Z', carimboEmail: '2026-07-27T11:00:00Z', ...over,
+    colaboradorId: 'c1', nome: 'Fulana', temTelefone: true, temEmail: true, temPush: false,
+    carimboWhatsapp: '2026-07-27T11:00:00Z', carimboEmail: '2026-07-27T11:00:00Z',
+    carimboPush: null, ...over,
   });
 
   it('canal inteiro zerado → crítico (caso real 20/07: 36 carimbos, 0 WhatsApp)', () => {
@@ -134,6 +138,38 @@ describe('R6/R7 · pós-voo', () => {
 
   it('quem não tem contato nenhum não conta como entrega falha', () => {
     expect(checarEntregaIncompleta([envio({ temTelefone: false, temEmail: false, carimboWhatsapp: null, carimboEmail: null })])).toBeNull();
+  });
+
+  // ── PUSH como canal de primeira classe no pós-voo ─────────────────────────
+  it('push zerado entre quem tem inscrição → crítico', () => {
+    // Pane total de push (VAPID ausente, endpoints ilegíveis) precisa gritar.
+    // Sem esta regra o sintoma é ZERO entregas, indistinguível de "ninguém
+    // aderiu" — a confusão que já custou duas investigações neste projeto.
+    const envios = [1, 2, 3, 4].map((i) =>
+      envio({ colaboradorId: `c${i}`, temPush: true, carimboPush: null }));
+    expect(checarCanalZerado(envios).find((a) => a.id === 'canal-push-zerado')?.severidade).toBe('critico');
+  });
+
+  it('não acusa push zerado para quem NÃO tem inscrição', () => {
+    // Canal inaplicável não pende — mesma régua de telefone/e-mail. Sem isso,
+    // toda empresa sem push viraria crítico permanente: alarme crônico.
+    const envios = [1, 2, 3, 4].map((i) =>
+      envio({ colaboradorId: `c${i}`, temPush: false, carimboPush: null }));
+    expect(checarCanalZerado(envios).find((a) => a.id === 'canal-push-zerado')).toBeUndefined();
+  });
+
+  it('só push saiu: a pessoa NÃO conta como entrega falha', () => {
+    const a = checarEntregaIncompleta([
+      envio({ temPush: true, carimboWhatsapp: null, carimboEmail: null, carimboPush: '2026-07-27T11:00:00Z' }),
+    ]);
+    expect(a).toBeNull();
+  });
+
+  it('elegível só por push e sem carimbo nenhum → entrega falha', () => {
+    const a = checarEntregaIncompleta([
+      envio({ temTelefone: false, temEmail: false, temPush: true, carimboWhatsapp: null, carimboEmail: null, carimboPush: null }),
+    ]);
+    expect(a?.contagem).toBe(1);
   });
 });
 

@@ -81,6 +81,25 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
     return () => subscription.unsubscribe();
   }, []);
 
+  // ⚠️ DECISÃO: o logout NÃO desativa o push. Já esteve aqui e foi removido.
+  //
+  // A tentação é óbvia — a assinatura pertence ao NAVEGADOR, não à conta, então
+  // entre o logout de A e o login de B o aparelho segue recebendo o que é de A.
+  // Mas o remédio custava mais que a doença:
+  //
+  //  · desativar no logout transforma o opt-in em "opt-in até você sair", e a
+  //    reativação só acontece quando a pessoa VOLTA — justamente o intervalo em
+  //    que o push existe para atuar (trazer de volta quem saiu);
+  //  · o denominador do experimento WhatsApp × push passaria a depender de
+  //    hábito de logout, em silêncio, e a regra de health acusaria "push zerado"
+  //    por gente que apenas saiu da conta;
+  //  · e o `await` antes do signOut podia pendurar o botão "Sair" numa rede ruim.
+  //
+  // A troca de dono já é resolvida onde ela de fato acontece: no REGISTRO
+  // (app/api/notifications/subscriptions/route.ts), que reassocia a assinatura a
+  // quem entrou e tem índice único no banco garantindo um dono ativo por
+  // aparelho. O resíduo aceito é a janela entre o logout de A e o login de B —
+  // que exige o aparelho trocar de mãos exatamente nesse intervalo.
   async function handleLogout() {
     await supabase.auth.signOut();
     router.replace('/login');

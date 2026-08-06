@@ -12,6 +12,8 @@ const estado = vi.hoisted(() => ({
   flagLigada: true,
   updates: [] as Array<{ patch: any; filtros: Array<[string, string, any]> }>,
   upsertPayload: null as any,
+  /** injeta erro no update cujo filtro casar com esta coluna */
+  erroNoUpdateDe: null as string | null,
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -23,7 +25,13 @@ vi.mock('@/lib/supabase', () => ({
         const q: any = {
           eq(col: string, val: any) { registro.filtros.push(['eq', col, val]); return q; },
           neq(col: string, val: any) { registro.filtros.push(['neq', col, val]); return q; },
-          then(res: any) { return Promise.resolve({ error: null }).then(res); },
+          then(res: any) {
+            const falhou = estado.erroNoUpdateDe
+              && registro.filtros.some(([, col]) => col === estado.erroNoUpdateDe);
+            return Promise.resolve(
+              falhou ? { error: { message: 'conexão caiu' } } : { error: null },
+            ).then(res);
+          },
         };
         return q;
       },
@@ -64,6 +72,46 @@ describe('POST /api/notifications/subscriptions', () => {
     estado.flagLigada = true;
     estado.updates = [];
     estado.upsertPayload = null;
+    estado.erroNoUpdateDe = null;
+  });
+
+  // ── caminho de FALHA da reassociação (o que faltava) ───────────────────────
+  it('🔴 se a reassociação de dono FALHA, não registra e devolve 500', () => {
+    // Registrar a inscrição sem ter desativado o dono anterior é o único caminho
+    // que produz "notificação de A na tela de B". Falhar aqui é obrigatório —
+    // continuar seria trocar um erro visível por vazamento silencioso.
+    estado.erroNoUpdateDe = 'subscription->>endpoint';
+    return POST(req({ installationId: 'inst-1', subscription: SUB })).then((res) => {
+      expect(res.status).toBe(500);
+      expect(estado.upsertPayload, 'não pode ter registrado a inscrição nova').toBeNull();
+    });
+  });
+
+  it('🔴 MESMA pessoa reinstalando: desativa a instalação anterior pelo endpoint', async () => {
+    // A limpeza por user_agent casa por igualdade EXATA — um bump de iOS
+    // (18_7 → 18_8) já a faz errar. E a reassociação de dono exclui o próprio
+    // colaborador de propósito. Sem esta terceira regra o par (mesma pessoa,
+    // mesmo endpoint, installation_id novo) violaria o índice único da mig 205 e
+    // a pessoa levaria 500 ao reativar o push no PRÓPRIO aparelho.
+    await POST(req({ installationId: 'inst-NOVA', subscription: SUB }));
+
+    const limpeza = estado.updates.find((u) =>
+      u.filtros.some(([, col, val]) => col === 'subscription->>endpoint' && val === SUB.endpoint)
+      && u.filtros.some(([op, col, val]) => op === 'eq' && col === 'colaborador_id' && val === 'colab-B')
+      && u.filtros.some(([op, col, val]) => op === 'neq' && col === 'installation_id' && val === 'inst-NOVA'),
+    );
+    expect(limpeza, 'nenhum update cobriu a reinstalação do mesmo dono').toBeTruthy();
+    expect(limpeza!.patch.disabled_reason).toBe('reinstalacao');
+  });
+
+  it('falha na limpeza de DUPLICADOS não aborta — o custo é outro', () => {
+    // Aqui o pior caso é notificação dobrada para a MESMA pessoa. Abortar
+    // custaria a inscrição inteira, que é pior. A assimetria é deliberada.
+    estado.erroNoUpdateDe = 'user_agent';
+    return POST(req({ installationId: 'inst-1', subscription: SUB })).then((res) => {
+      expect(res.status).toBe(200);
+      expect(estado.upsertPayload).not.toBeNull();
+    });
   });
 
   // ── 1. o bloqueador ────────────────────────────────────────────────────────

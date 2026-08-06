@@ -105,8 +105,46 @@ export async function POST(req: Request) {
     .update({ enabled: false, disabled_reason: 'troca-de-dono', updated_at: new Date().toISOString() })
     .eq('subscription->>endpoint', subscription.endpoint)
     .neq('colaborador_id', colaboradorId);
+
+  // MESMA pessoa, MESMO aparelho, installation_id NOVO.
+  //
+  // A limpeza por user_agent lá em cima cobre a reinstalação — mas casa por
+  // igualdade EXATA de UA, e um bump de iOS (18_7 → 18_8) já a faz errar. A
+  // reassociação de dono logo acima exclui o próprio colaborador de propósito.
+  // Sobra este par descoberto, e com o índice único ele deixou de ser cosmético:
+  // o upsert violaria a constraint e a pessoa levaria um 500 ao reativar o push
+  // no próprio aparelho.
+  //
+  // A URL do endpoint é a identidade real: se esta assinatura já está registrada
+  // em outra instalação MINHA, aquela linha é a velha.
+  const { error: erroMesmoDono } = await sb
+    .from('notification_endpoints')
+    .update({ enabled: false, disabled_reason: 'reinstalacao', updated_at: new Date().toISOString() })
+    .eq('subscription->>endpoint', subscription.endpoint)
+    .eq('colaborador_id', colaboradorId)
+    .neq('installation_id', installationId);
+  if (erroMesmoDono) {
+    console.error('[notifications/subscriptions] limpeza da instalação anterior falhou:', erroMesmoDono.message);
+    return NextResponse.json(
+      { error: 'não foi possível registrar a inscrição neste aparelho' },
+      { status: 500 },
+    );
+  }
   if (erroDono) {
-    console.warn('[notifications/subscriptions] reassociação de dono falhou:', erroDono.message);
+    // FALHA FECHADA, ao contrário da limpeza de duplicados acima. A diferença de
+    // custo é o que decide: falhar na limpeza custa notificação dobrada para a
+    // MESMA pessoa; falhar aqui custa notificação de A chegando em B — conteúdo
+    // de uma pessoa na tela de outra. Registrar a inscrição nova sem ter
+    // desativado o dono anterior é o único caminho que produz isso.
+    //
+    // O índice único da mig 204 já impediria o duplicado, mas o erro chegaria
+    // como violação de constraint no upsert — mensagem obscura e tarde demais
+    // para dizer o que houve. Falhar aqui é o mesmo resultado, dito direito.
+    console.error('[notifications/subscriptions] reassociação de dono falhou:', erroDono.message);
+    return NextResponse.json(
+      { error: 'não foi possível registrar a inscrição neste aparelho' },
+      { status: 500 },
+    );
   }
 
   const { data, error } = await sb
@@ -133,6 +171,17 @@ export async function POST(req: Request) {
     .single();
 
   if (error) {
+    // 23505 = violação do índice único de dono (mig 205). Chegar aqui significa
+    // que alguma das desativações acima não pegou o caso — resposta distinta de
+    // propósito: 500 é "quebrou", 409 é "este aparelho está registrado em outro
+    // lugar". Sem separar, o cliente trata os dois igual e o diagnóstico se perde.
+    if ((error as any).code === '23505') {
+      console.error('[notifications/subscriptions] conflito de dono não resolvido:', error.message);
+      return NextResponse.json(
+        { error: 'este aparelho já está registrado em outra conta' },
+        { status: 409 },
+      );
+    }
     console.error('[notifications/subscriptions] upsert falhou:', error.message);
     return NextResponse.json({ error: 'não foi possível registrar a inscrição' }, { status: 500 });
   }
