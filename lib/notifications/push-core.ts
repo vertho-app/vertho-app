@@ -106,7 +106,7 @@ export async function enviarPush(
         falhas--; // inscrição morta não é falha de entrega: é ausência de destino
         await client
           .from('notification_endpoints')
-          .update({ enabled: false, updated_at: new Date().toISOString() })
+          .update({ enabled: false, disabled_reason: 'inscricao-morta', updated_at: new Date().toISOString() })
           .eq('id', ep.id);
       }
     }

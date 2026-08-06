@@ -16,6 +16,15 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { detectarPlataforma } from '@/lib/notifications/plataforma';
 import { pushHabilitado } from '@/lib/notifications/flag';
 import { csrfCheck } from '@/lib/csrf';
+import { createRateLimiter } from '@/lib/rate-limit';
+
+/**
+ * O funil é o instrumento de decisão do projeto: se ele puder ser inflado, a
+ * conclusão pode ser inflada junto. 30/min por pessoa é folgado para o uso real
+ * (um punhado de eventos por sessão) e ainda assim impede que um laço de
+ * remontagem — ou alguém curioso com o DevTools aberto — encha a tabela.
+ */
+const optinLimiter = createRateLimiter({ maxRequests: 30, windowMs: 60_000 });
 
 export const runtime = 'nodejs';
 
@@ -45,6 +54,11 @@ export async function POST(req: Request) {
   if (!(await pushHabilitado(auth.empresaId))) {
     return NextResponse.json({ error: 'notificações não habilitadas para esta empresa' }, { status: 403 });
   }
+
+  // Chave = colaborador, não IP: numa escola a rede é compartilhada e o teto por
+  // IP puniria a turma inteira pelo laço de uma pessoa.
+  const limite = await optinLimiter.check(req, colaboradorId);
+  if (limite) return limite;
 
   let body: any;
   try {

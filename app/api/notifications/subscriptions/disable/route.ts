@@ -47,7 +47,7 @@ export async function POST(req: Request) {
   const sb = createSupabaseAdmin();
   const { error } = await sb
     .from('notification_endpoints')
-    .update({ enabled: false, updated_at: new Date().toISOString() })
+    .update({ enabled: false, disabled_reason: 'usuario', updated_at: new Date().toISOString() })
     .eq('colaborador_id', colaboradorId)
     .eq('installation_id', installationId);
 

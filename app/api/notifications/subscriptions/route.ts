@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   // (basta reativar), enquanto o duplicado é comum e irreversível sozinho.
   const { error: erroLimpeza } = await sb
     .from('notification_endpoints')
-    .update({ enabled: false, updated_at: new Date().toISOString() })
+    .update({ enabled: false, disabled_reason: 'reinstalacao', updated_at: new Date().toISOString() })
     .eq('colaborador_id', colaboradorId)
     .eq('user_agent', userAgent.slice(0, 400))
     .neq('installation_id', installationId);
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
   // aparelho passado adiante).
   const { error: erroDono } = await sb
     .from('notification_endpoints')
-    .update({ enabled: false, updated_at: new Date().toISOString() })
+    .update({ enabled: false, disabled_reason: 'troca-de-dono', updated_at: new Date().toISOString() })
     .eq('subscription->>endpoint', subscription.endpoint)
     .neq('colaborador_id', colaboradorId);
   if (erroDono) {
@@ -120,6 +120,9 @@ export async function POST(req: Request) {
         provider: 'webpush',
         subscription,
         enabled: true,
+        // Reativou: o motivo antigo tem que sumir junto, senão uma linha ATIVA
+        // carrega "inscricao-morta" e a consulta de diagnóstico passa a mentir.
+        disabled_reason: null,
         user_agent: userAgent.slice(0, 400),
         last_seen_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

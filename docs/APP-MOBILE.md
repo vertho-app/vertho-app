@@ -268,6 +268,26 @@ Consequência prática: priorizar Android no primeiro uso real, porque lá o gan
 - **`acme-demo` não serve para testar push:** o reset das 04h deleta
   `colaboradores`, e o `ON DELETE CASCADE` apaga o endpoint. O push pararia de
   chegar de um dia para o outro, parecendo falha do iOS.
+- **O manifest é POR TENANT** (rota dinâmica, 06/08). Era estático em `public/`,
+  então alguém de cliente white-label instalaria na tela de início dele um app
+  chamado "Vertho Mentor IA". Não é risco de dado — é incoerência de marca, e
+  bloqueava sair do tenant de teste. `short_name` pula palavras genéricas
+  ("Secretaria Municipal de Ibipeba/BA" → "Ibipeba/BA") porque o sistema corta a
+  legenda do ícone perto de 12 caracteres.
+  ⚠️ **Os ÍCONES ainda são os do Vertho para todos.** Ícone de manifest precisa
+  ser PNG quadrado, com padding, nos tamanhos DECLARADOS; `ui_config.logo_url` é
+  logo de aspecto e formato desconhecidos, e declarar `512x512` apontando para
+  ele mentiria ao prompt de instalação — o sintoma (ícone esticado, install
+  recusado) apareceria longe da causa. Ícone por tenant é trabalho de UPLOAD
+  (quadrado + padding + 192/512 ao salvar o logo), não de request.
+  **Pendente antes de tenant white-label instalar o PWA.**
+- **`disabled_reason` no endpoint** (mig 203): quatro caminhos desligam um
+  endpoint (reinstalação, troca de dono, inscrição morta, o usuário) e todos
+  deixavam a linha idêntica. Um deles é heurística — "mesmo user-agent = mesmo
+  aparelho" — que erra com dois iPhones iguais da mesma pessoa. Não dá para
+  consertar a heurística: não existe impressão digital confiável de aparelho no
+  navegador. Consertou-se a INVESTIGABILIDADE — "parei de receber push" passou a
+  ter diagnóstico em vez de quatro suspeitos idênticos.
 
 ## 8. Estado e próximos passos
 
