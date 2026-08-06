@@ -27,10 +27,10 @@ Spec: `Vertho_Radar_Spec_v2_2.docx` · Decisões: `decisions.md`.
 | Rota | O que mostra |
 |---|---|
 | `/` | Home com busca + 3 stats reais (escolas, municípios distintos, snapshots Saeb) |
-| `/escola/[inep]` | Hero vh3 + Saeb (chart histórico + tabela) + Ideb timeline + ENEM (3º EM) + SARESP (SP) + Censo (4 scores + 213 IN_*) + benchmarks vs microrregião/UF + cruzamento Infra×Saeb + pares INSE da cidade + alfabetização×Saeb + PDDE + IA narrativa + CTA |
-| `/municipio/[ibge]` | Hero + ICA por rede + Ideb agregado + ENEM + FUNDEB + VAAR + variabilidade entre escolas + benchmark vs microrregião/UF/BR + IA + CTA |
+| `/escola/[inep]` | Hero vh3 + Saeb (chart histórico + tabela) + Ideb timeline + ENEM (3º EM) + SARESP (SP) + Censo (4 scores + 213 IN_*) + benchmarks vs microrregião/UF + cruzamento Infra×Saeb + pares INSE da cidade + alfabetização×Saeb + corpo docente + PDDE + IA narrativa + CTA |
+| `/municipio/[ibge]` | Hero + ICA por rede + Ideb agregado + ENEM + FUNDEB + VAAR + variabilidade entre escolas + corpo docente da rede + benchmark vs microrregião/UF/BR + IA + CTA |
 | `/rede/[ibge]` | Página dedicada da rede municipal (escolas, performance, infra agregada) |
-| `/estado/[uf]` | Stats UF + microrregiões + Top/Bottom 10 Saeb e Top 10 ICA |
+| `/estado/[uf]` | Stats UF + microrregiões + corpo docente do estado + Top/Bottom 10 Saeb e Top 10 ICA |
 | `/comparar?escolas=A,B` | Lado a lado de até 4 escolas com chips honestos (binário VAAR, decisão "melhor" considerando empate) |
 | `/metodologia` | Fontes, escala de níveis, INSE, limites, LGPD |
 | `/bett` | Landing estática para o Bett (expo educação) |
@@ -170,6 +170,23 @@ Worker (com fail-closed em prod sem signing keys):
 | `diag_eventos` | Tracking append-only: views, cliques no CTA, leads, citações, etc | 061 |
 | `diag_censo_docentes` | Microdados INEP — docentes por escola (formação, vínculo, etc.) | 080 |
 
+#### ⚠️ Corpo docente: três armadilhas do dado (medidas em 06/08/2026, censo 2025)
+
+O total por escola (`qt_doc_bas`) é exato, mas nada nesta tabela **soma** do jeito
+que parece — a UI (`app/radar/_components/docentes-card.tsx`) trata as três:
+
+1. **Docente é contado em CADA escola onde atua.** A soma BR dá 2.992.045 contra
+   ~2,3M de docentes únicos do INEP. Por isso todo agregado (município/UF) fala em
+   **vínculos docentes**, nunca em "professores".
+2. **Vínculo vem ZERADO na rede privada** — o Censo só publica tipo de contratação
+   da rede pública (651.519 docentes privados, 0 com vínculo). Sem
+   `temVinculoDeclarado()`, uma escola privada exibiria "0% concursados" como se
+   fosse medição. E onde o escopo mistura redes, a base do percentual é menor que o
+   total: a nota do card diz quantos ficam de fora.
+3. **Níveis de pós e etapas não se somam.** Quem tem especialização e mestrado entra
+   nos dois (a rede federal de Jundiaí somaria 35 de 28); 24% das escolas somam mais
+   que o total nas etapas. Cada um aparece como linha própria, nunca somado.
+
 ### Materialized views
 
 | MV | O que pré-computa | Migration |
@@ -178,6 +195,7 @@ Worker (com fail-closed em prod sem signing keys):
 | `diag_mv_municipio_saeb_agg` | Mesmas agregações + total de escolas, agrupadas por município. Usada em `/estado/[uf]` | 060 |
 | `diag_mv_municipio_ica_recent` | ICA mais recente por município (DISTINCT ON ano) | 060 |
 | `diag_mv_estado_stats` | Stats por UF (total escolas/municípios/snapshots) | 060 |
+| `diag_mv_docentes_agg` | Corpo docente por (município × rede): total, etapa, formação, vínculo, faixa etária, matrículas. Serve município e UF | 204 |
 | `diag_mv_municipio_metricas` | Métricas agregadas por município pra ranking/benchmark | 070 |
 | `diag_mv_escola_metricas` | Métricas agregadas por escola | 071 |
 | `diag_mv_escola_benchmarks_inse` | Benchmarks de pares INSE da mesma cidade | 072 |
@@ -370,6 +388,7 @@ Ou cole arquivo por arquivo no SQL editor do Supabase Studio.
 - ✅ Saeb por escola (chart histórico SVG) + ICA municipal
 - ✅ Ideb timeline + metas oficiais
 - ✅ ENEM por escola (3º EM, média geral + áreas)
+- ✅ Corpo docente (Censo 2025) na escola, no município e na UF — formação, vínculo, etapa, faixa etária e alunos por docente
 - ✅ SARESP (escolas SP)
 - ✅ FUNDEB municipal + VAAR (binário recebe/não recebe)
 - ✅ PDDE — repasses por escola e municipal
