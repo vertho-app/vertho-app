@@ -275,6 +275,18 @@ Consequência prática: priorizar Android no primeiro uso real, porque lá o gan
 plataforma}`, adapter webpush, 4 rotas, PWA + service worker, convite com funil.
 VAPID nas 3 envs da Vercel. Flag ligada **só** em `teste-piloto`.
 
+**Cadência real dispara push** ✅ 06/08 (mig 202). Push entrou como **terceiro
+canal de primeira classe** na pílula e na missão: carimbo próprio
+(`ultima_pilulaN_push_em`), pendência avaliada por canal — se o push falhou e os
+outros dois saíram, a pílula segue pendente e o push é recuperável.
+
+⚠️ **Custo reconhecido e TEMPORÁRIO:** durante a medição a pessoa com push ativo
+é notificada **duas vezes** pela mesma pílula (push + WhatsApp/e-mail). É o
+desenho — só assim os canais são comparáveis sobre a mesma população.
+**Critério de saída:** quando houver uma semana cheia de dado com a proporção
+cadência × autenticação, decide-se qual canal some para quem tem push ativo.
+Sem critério declarado, "temporário" vira permanente por inércia.
+
 **Em aberto:**
 1. Deixar o WhatsApp acumular dado por pelo menos uma semana cheia para a fase 1
    produzir a proporção cadência × autenticação.

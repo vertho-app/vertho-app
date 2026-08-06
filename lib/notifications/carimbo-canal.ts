@@ -34,12 +34,20 @@ export function canalPendente(aplicavel: boolean, carimbo: string | null | undef
 export function pilulaPendente(args: {
   temTelefone: boolean;
   temEmail: boolean;
+  /** tem inscrição de push ativa (endpoint habilitado) */
+  temPush?: boolean;
   carimboWhatsapp: string | null | undefined;
   carimboEmail: string | null | undefined;
+  carimboPush?: string | null | undefined;
   hojeUTC: string;
 }): boolean {
   return (
     canalPendente(args.temTelefone, args.carimboWhatsapp, args.hojeUTC) ||
-    canalPendente(args.temEmail, args.carimboEmail, args.hojeUTC)
+    canalPendente(args.temEmail, args.carimboEmail, args.hojeUTC) ||
+    // Push entra como canal de PRIMEIRA classe, não como penduricalho: se ele
+    // falhou e os outros dois saíram, a pílula segue pendente e o push é
+    // recuperável na próxima passada. Tratá-lo como secundário reintroduziria,
+    // só que para o canal novo, exatamente o bug que este módulo consertou.
+    canalPendente(Boolean(args.temPush), args.carimboPush, args.hojeUTC)
   );
 }

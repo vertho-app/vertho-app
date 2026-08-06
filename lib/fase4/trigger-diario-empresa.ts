@@ -28,6 +28,10 @@ import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { publicarWhatsappCis } from '@/lib/qstash-publish';
+import { pushHabilitado } from '@/lib/notifications/flag';
+import { enviarPush } from '@/lib/notifications/push-core';
+import { pushPilula, pushMissao } from '@/lib/notifications/push-copy';
+import { temaPilula } from '@/lib/notifications/pilula-envio';
 import { ENVIO } from '@/lib/status';
 
 const TOTAL_SEMANAS = 14;
@@ -77,7 +81,7 @@ export async function processarEmpresaDiario(
 
   const tdb = tenantDb(empresa.id);
   const { data: envios } = await tdb.from('fase4_envios')
-    .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
+    .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula1_push_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, ultima_pilula2_push_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
     .eq('status', ENVIO.ATIVO);
   if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros };
 
@@ -101,6 +105,25 @@ export async function processarEmpresaDiario(
   // global entre empresas; com o fan-out cada empresa roda na sua lambda).
   let msgsAgendadas = 0;
   const delay = () => (msgsAgendadas++) * 2;
+
+  // Quem tem push ativo nesta empresa. UMA query por execução, não uma por
+  // pessoa: sem este conjunto, saber "o canal push é aplicável a fulano?" custaria
+  // um SELECT por colaborador só para decidir a pendência.
+  // Empresa sem a flag nem consulta — o custo do canal novo escala com adoção,
+  // não com o tamanho do tenant.
+  const pushLigado = await pushHabilitado(empresa.id);
+  const comPush = new Set<string>();
+  if (pushLigado) {
+    const { data: eps, error: errEps } = await tdb
+      .from('notification_endpoints')
+      .select('colaborador_id')
+      .eq('enabled', true);
+    // supabase-js RETORNA `{ error }`: sem checar, uma falha viraria "ninguém
+    // tem push" e o canal sumiria da pendência em silêncio — exatamente o tipo
+    // de ausência que já foi confundida com "ninguém quis".
+    if (errEps) console.warn('[triggerDiario] endpoints de push:', errEps.message);
+    else for (const e of (eps as any[]) || []) comPush.add(e.colaborador_id);
+  }
 
   for (const envio of (envios as any[])) {
     const semana = envio.semana_atual || 1;
@@ -145,6 +168,7 @@ export async function processarEmpresaDiario(
       const pilula = stampCol === 'ultima_pilula1_em' ? 1 : 2;   // atribuição de abertura (?p=)
       const wppCol = pilula === 1 ? 'ultima_pilula1_whatsapp_em' : 'ultima_pilula2_whatsapp_em';
       const mailCol = pilula === 1 ? 'ultima_pilula1_email_em' : 'ultima_pilula2_email_em';
+      const pushCol = pilula === 1 ? 'ultima_pilula1_push_em' : 'ultima_pilula2_push_em';
       const opts = { formato: formatoPref, semana, baseUrl, pilula };
       const agora = new Date().toISOString();
       const stamp: Record<string, string> = {};
@@ -180,6 +204,33 @@ export async function processarEmpresaDiario(
         });
         if (r.ok) { emails++; stamp[mailCol] = agora; } else erros++;
       }
+
+      // ── PUSH (3º canal) ──
+      // Roda EM PARALELO ao WhatsApp/e-mail de propósito: a pessoa é notificada
+      // duas vezes pela mesma pílula durante a fase de medição, que é o desenho
+      // — só assim os canais são comparáveis sobre a MESMA população. É custo
+      // reconhecido e temporário; o critério de saída está no docs/APP-MOBILE.md.
+      //
+      // `comPush` já garante que só entra quem tem inscrição ativa, então isto
+      // não custa nada para quem não aderiu.
+      if (pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio[pushCol], hojeUTC)) {
+        const texto = pushPilula(semana, temaPilula(item));
+        const r = await enviarPush({
+          colaboradorId: envio.colaborador_id,
+          empresaId: empresa.id,
+          kind: 'pilula',
+          titulo: texto.titulo,
+          corpo: texto.corpo,
+          // MESMO destino do WhatsApp e do e-mail: comparar canais exige que a
+          // única variável seja o canal, não para onde cada um leva.
+          url: deepLinkSemana(baseUrl, semana, formatoPref, pilula),
+          dedupeKey: `${pushCol}:${envio.id}`,
+        });
+        // Carimba só o próprio sucesso — mesma regra dos irmãos. Zero entregues
+        // (endpoint morto entre a leitura e o envio) deixa o canal PENDENTE.
+        if (r.entregues > 0) { stamp[pushCol] = agora; } else if (r.falhas > 0) erros++;
+      }
+
       // O ciclo só fecha se ALGUM canal saiu. DECISÃO (fan-out): o consolidado
       // `ultima_pilulaN_em` é gravado quando o e-mail saiu (síncrono) OU o
       // WhatsApp foi ENFILEIRADO — o mesmo critério de antes, quando o
@@ -192,14 +243,17 @@ export async function processarEmpresaDiario(
     };
 
     // Há canal PENDENTE hoje? Ver lib/notifications/carimbo-canal.
-    const pendente = (wppCol: string, mailCol: string) =>
+    const temPush = comPush.has(envio.colaborador_id);
+    const pendente = (wppCol: string, mailCol: string, pushCol?: string) =>
       pilulaPendente({
-        temTelefone: !!telefone, temEmail: !!email,
-        carimboWhatsapp: envio[wppCol], carimboEmail: envio[mailCol], hojeUTC,
+        temTelefone: !!telefone, temEmail: !!email, temPush,
+        carimboWhatsapp: envio[wppCol], carimboEmail: envio[mailCol],
+        carimboPush: pushCol ? envio[pushCol] : null,
+        hojeUTC,
       });
 
     // ── 1ª PÍLULA ──
-    if (hoje === diaP1 && !ehImpl(semana, plan) && conteudosDia[0] && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em')) {
+    if (hoje === diaP1 && !ehImpl(semana, plan) && conteudosDia[0] && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
       await enviarPilulaDia(conteudosDia[0], 'ultima_pilula1_em');
     }
 
@@ -209,7 +263,7 @@ export async function processarEmpresaDiario(
     // 36/36 sem envio na segunda da semana 4). Agora a segunda abre a semana
     // com texto padrão + vídeo explicativo + deep-link. Reusa os carimbos da
     // pílula 1 (idempotência); o postflight não mede semana de aplicação.
-    if (hoje === diaP1 && plan?.tipo === 'aplicacao' && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em')) {
+    if (hoje === diaP1 && plan?.tipo === 'aplicacao' && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
       // acao_principal precisa do plano NORMALIZADO — no banco a missão pode
       // estar como JSON cru/truncado (estado real de 33/36 trilhas da Ibipeba).
       let acaoPrincipal: string | null = null;
@@ -246,13 +300,26 @@ export async function processarEmpresaDiario(
         });
         if (r.ok) { emails++; stamp.ultima_pilula1_email_em = agora; } else erros++;
       }
+      if (pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio.ultima_pilula1_push_em, hojeUTC)) {
+        const texto = pushMissao(semana);
+        const r = await enviarPush({
+          colaboradorId: envio.colaborador_id,
+          empresaId: empresa.id,
+          kind: 'missao',
+          titulo: texto.titulo,
+          corpo: texto.corpo,
+          url: deepLinkSemana(baseUrl, semana),
+          dedupeKey: `missao-push:${envio.id}`,
+        });
+        if (r.entregues > 0) { stamp.ultima_pilula1_push_em = agora; } else if (r.falhas > 0) erros++;
+      }
       if (Object.keys(stamp).length || whatsappEnfileirado) {
         await tdb.from('fase4_envios').update({ ...stamp, ultima_pilula1_em: agora }).eq('id', envio.id);
       }
     }
 
     // ── 2ª PÍLULA (DUO) ──
-    if (hoje === diaP2 && !ehImpl(semana, plan) && conteudosDia[1] && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em')) {
+    if (hoje === diaP2 && !ehImpl(semana, plan) && conteudosDia[1] && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em', 'ultima_pilula2_push_em')) {
       await enviarPilulaDia(conteudosDia[1], 'ultima_pilula2_em');
     }
 
