@@ -280,6 +280,14 @@ canal de primeira classe** na pílula e na missão: carimbo próprio
 (`ultima_pilulaN_push_em`), pendência avaliada por canal — se o push falhou e os
 outros dois saíram, a pílula segue pendente e o push é recuperável.
 
+**Exercitado em produção** (06/08, `teste-piloto`, chamando `processarEmpresaDiario`
+— o mesmo núcleo do cron, não um atalho):
+- 1ª execução: push **e** e-mail saíram em paralelo, cada um com o próprio
+  `dedupe_key` e o próprio carimbo. WhatsApp ficou nulo (colaborador sem
+  telefone = canal inaplicável, que é o comportamento correto).
+- 2ª execução no mesmo dia: **zero envios**, total de entregas inalterado.
+  A idempotência por canal segura o reenvio.
+
 ⚠️ **Custo reconhecido e TEMPORÁRIO:** durante a medição a pessoa com push ativo
 é notificada **duas vezes** pela mesma pílula (push + WhatsApp/e-mail). É o
 desenho — só assim os canais são comparáveis sobre a mesma população.
