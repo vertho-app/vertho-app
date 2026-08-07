@@ -107,7 +107,9 @@ export async function gerarRelatorioIndividual(
     if ('error' in built) return { success: false, error: built.error };
     const { system, user, dadosComps, blueprint, colab, empresa } = built;
 
-    const resultado = await callAI(system, user, aiConfig, 64000);
+    const resultado = await callAI(system, user, aiConfig, 64000, {
+      taskKey: 'pdi_individual', empresaId, colaboradorId,
+    });
     const relatorio: any = await extractJSON(resultado);
 
     if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
@@ -277,7 +279,9 @@ export async function gerarRelatorioGestor(
 
         const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})\nGESTOR: ${gestorNome} (${gestorEmail})\nTOTAL EQUIPE: ${membros.length}\nDISC: D=${discDist.D} I=${discDist.I} S=${discDist.S} C=${discDist.C}\n${groundingBlock ? `\n${groundingBlock}\n` : ''}\nDADOS DA EQUIPE:\n${JSON.stringify(membros, null, 2)}`;
 
-        const resultado = await callAI(RELATORIO_GESTOR_SYSTEM, user, aiConfig, 64000);
+        const resultado = await callAI(RELATORIO_GESTOR_SYSTEM, user, aiConfig, 64000, {
+          taskKey: 'relatorio_gestor', empresaId,
+        });
         const relatorio: any = await extractJSON(resultado);
 
         if (!relatorio) { return { gestor: gestorNome, erro: 'IA não retornou JSON' }; }
@@ -423,7 +427,9 @@ ${JSON.stringify(cargosData, null, 2)}
 REGISTROS INDIVIDUAIS:
 ${JSON.stringify(registros, null, 2)}`;
 
-    const resultado = await callAI(RELATORIO_RH_SYSTEM, user, aiConfig, 64000);
+    const resultado = await callAI(RELATORIO_RH_SYSTEM, user, aiConfig, 64000, {
+      taskKey: 'relatorio_rh', empresaId,
+    });
     const relatorio: any = await extractJSON(resultado);
 
     if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };

@@ -140,7 +140,7 @@ ${JSON.stringify(sessao.avaliacao_final)}
   }
 }`;
 
-    const resultado = await callAI(system, user, aiConfig, 32768);
+    const resultado = await callAI(system, user, aiConfig, 32768, { taskKey: 'cenarios_b' });
     const cenarioData = await extractJSON(resultado);
 
     if (!cenarioData || !cenarioData.descricao) {

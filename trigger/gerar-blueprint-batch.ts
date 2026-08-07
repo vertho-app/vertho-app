@@ -72,7 +72,11 @@ export const gerarBlueprintBatchTask = task({
         const req = reqs.find((r) => r.customId === id)!;
         let texto = respostas.get(id);
         if (!texto || !texto.trim()) {
-          try { texto = await callAI(req.system, req.user, aiConfig, req.maxTokens); }
+          try {
+            texto = await callAI(req.system, req.user, aiConfig, req.maxTokens, {
+              taskKey: 'blueprint_gerar', empresaId, source: 'batch-sync',
+            });
+          }
           catch (e: any) { resultados.push({ colab: nome(id), ok: false, error: 'IA falhou: ' + (e?.message || e) }); await pushProgress(`${nome(id)}: erro de IA`); continue; }
         }
         const r = await persistBlueprintFromText(empresaId, id, m.competenciasFoco, texto);

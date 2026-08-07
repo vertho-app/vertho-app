@@ -423,7 +423,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
   const system = buildIA3SystemPrompt();
   const user = buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS);
 
-  let resposta = await callAI(system, user, aiConfig, 6144);
+  let resposta = await callAI(system, user, aiConfig, 6144, { taskKey: 'ia3_cenarios' });
   let resultado = await extractJSON(resposta);
   if (!resultado) return { success: false, error: 'IA não retornou JSON válido' };
 
@@ -434,7 +434,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
   if (norm.errors.length > 0) {
     console.warn(`[IA3] ${comp.nome}: validação (${norm.errors.join('; ')}). Retry.`);
     const retryUser = user + `\n\n═══ ATENÇÃO: CORREÇÃO NECESSÁRIA ═══\n${norm.errors.join('\n')}\nCorrija e retorne JSON válido.`;
-    resposta = await callAI(system, retryUser, aiConfig, 6144);
+    resposta = await callAI(system, retryUser, aiConfig, 6144, { taskKey: 'ia3_cenarios' });
     const retryResult = await extractJSON(resposta);
     if (retryResult) {
       resultado = retryResult;

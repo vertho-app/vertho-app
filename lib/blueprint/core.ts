@@ -204,7 +204,9 @@ export async function gerarBlueprintCore(
   try {
     const req = await buildBlueprintReq(sbRaw, { colaboradorId, empresaIdEsperado });
     if ('error' in req) return req;
-    const text = await callAI(req.system, req.user, aiConfig || {}, req.maxTokens);
+    const text = await callAI(req.system, req.user, aiConfig || {}, req.maxTokens, {
+      taskKey: 'blueprint_gerar', empresaId: req.empresaId, colaboradorId,
+    });
     return await persistBlueprintFromText(req.empresaId, colaboradorId, req.competenciasFoco, text);
   } catch (err: any) {
     return { error: err.message };
@@ -260,7 +262,7 @@ export async function auditarBlueprintCore(
     let semantico = { checks: [] as BlueprintAuditReport['checks'], resumo: '' };
     try {
       const { system, user } = buildBlueprintAuditPrompt(blueprint);
-      const resp = await callAI(system, user, aiConfig || {}, 4000);
+      const resp = await callAI(system, user, aiConfig || {}, 4000, { taskKey: 'blueprint_audit' });
       const parsed = await extractJSON(resp);
       if (parsed) semantico = parseAuditResponse(parsed);
     } catch (err: any) {

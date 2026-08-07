@@ -148,7 +148,7 @@ REGRAS:
 - conexao_com_pratica: true se o colaborador conectou o conteúdo a algo do trabalho real
 - NÃO complete lacunas com "bom senso"
 - NÃO infle qualidade_reflexao`;
-    const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 2000);
+    const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 2000, { taskKey: 'temporada_extracao' });
     return validateExtracaoSocratic(parseExtracaoResponse(resp));
   }
 
@@ -186,7 +186,7 @@ REGRAS:
 - alertas_metodologicos: liste se houver risco de viés, falta de base ou inflação
 - NÃO preencha todos os descritores como se todos tivessem aparecido bem
 - NÃO transforme intenção em evidência de execução`;
-  const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 3000);
+  const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 3000, { taskKey: 'temporada_extracao' });
   return validateExtracaoAnalytic(parseExtracaoResponse(resp), descritores);
 }
 
@@ -373,7 +373,14 @@ export async function POST(request) {
     let respostaIA;
     try {
       respostaIA = await callAIChat(promptData.system, promptData.messages, {}, 2000, {
-        taskKey: 'evidencias_socratic', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+        // ⚠️ Os TRÊS tipos de conversa gravavam sob 'evidencias_socratic', então o
+        // ledger não separava semana de CONTEÚDO (socratic) de semana de APLICAÇÃO
+        // (missao/analytic) — que têm nº de turnos e custo diferentes. A etiqueta
+        // agora segue o mecanismo, e usa o mesmo vocabulário do simulador.
+        taskKey: tipoConversa === 'missao_feedback' ? 'missao_feedback'
+          : tipoConversa === 'analytic' ? 'evidencias_analytic'
+          : 'evidencias_socratic',
+        empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
         // Instrução do turno (volátil) no bloco 2 do system; persona+grounding no
         // bloco 1 cacheado. Estratégia validada na S4 (não-inferior por perfil).
         // socratic e missao usam systemSuffix; analytic não usa → inalterado.

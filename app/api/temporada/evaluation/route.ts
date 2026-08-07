@@ -173,7 +173,9 @@ export async function POST(request) {
         try {
           const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
           const { system: s2, user: u2 } = promptEvolutionQualitativeExtract({ descritores, transcript });
-          const r = await callAI(s2, u2, {}, 8000);
+          const r = await callAI(s2, u2, {}, 8000, {
+            taskKey: 'temporada_extracao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+          });
           const parsed = validateEvolutionExtract(parseJsonIA(r), descritores);
           Object.assign(novoSlot, parsed);
         } catch (e) { console.error('[VERTHO] extract sem13:', e.message); }

@@ -166,7 +166,12 @@ export async function submitClaudeBatch(
  */
 export type AIRun = (system: string, user: string, aiConfig: any, maxTokens: number, options?: any) => Promise<string>;
 
-interface Pending extends BatchReq { resolve: (s: string) => void; reject: (e: any) => void; }
+interface Pending extends BatchReq {
+  resolve: (s: string) => void;
+  reject: (e: any) => void;
+  /** options do call-site (taskKey/empresaId/...) — só usado se cair no síncrono. */
+  options?: any;
+}
 
 /**
  * Collector debounced (estilo DataLoader): acumula chamadas concorrentes e, após
@@ -182,8 +187,16 @@ export function createAIBatchCollector(
   let timer: any = null;
   let seq = 0;
 
-  function syncFallback(p: { system: string; user: string; model: string; maxTokens: number }): Promise<string> {
-    return callAI(p.system, p.user, { model: p.model }, p.maxTokens);
+  // ⚠️ Repassa `options` (taskKey/empresaId/...) para o callAI. Sem isso o
+  // fallback gravava `feature='untagged'` no ledger justamente nos dias em que o
+  // batch falha — o call-site etiquetava certo e o custo sumia mesmo assim.
+  // `source='batch-sync'` distingue no ledger o que foi lote degradado (preço
+  // cheio) do que rodou síncrono por opção — senão a degradação fica invisível.
+  function syncFallback(p: Pending): Promise<string> {
+    return callAI(p.system, p.user, { model: p.model }, p.maxTokens, {
+      ...(p.options || {}),
+      source: 'batch-sync',
+    });
   }
 
   async function doFlush(batch: Pending[]) {
@@ -210,12 +223,12 @@ export function createAIBatchCollector(
     }, opts.windowMs ?? 200);
   }
 
-  const run: AIRun = (system, user, aiConfig, maxTokens) => {
+  const run: AIRun = (system, user, aiConfig, maxTokens, options) => {
     const model = aiConfig?.model || defaultModel;
     // Modelo não-Claude (override por-tarefa da empresa) → síncrono, preserva o provedor.
-    if (!String(model).startsWith('claude')) return callAI(system, user, aiConfig, maxTokens);
+    if (!String(model).startsWith('claude')) return callAI(system, user, aiConfig, maxTokens, options);
     return new Promise<string>((resolve, reject) => {
-      queue.push({ customId: `r${seq++}`, system, user, model, maxTokens, resolve, reject });
+      queue.push({ customId: `r${seq++}`, system, user, model, maxTokens, resolve, reject, options });
       schedule();
     });
   };

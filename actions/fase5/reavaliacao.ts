@@ -347,7 +347,7 @@ export async function processarReavaliacao(sessaoId: string, mensagem: string, a
     historico.push({ role: 'user', content: mensagem });
 
     const systemPrompt = buildReavSystemPrompt(sessao, sessao.competencias);
-    const resposta = await callAIChat(systemPrompt, historico, aiConfig, 4096, { temperature: TEMP });
+    const resposta = await callAIChat(systemPrompt, historico, aiConfig, 4096, { temperature: TEMP, taskKey: 'reavaliacao_chat' });
 
     historico.push({ role: 'assistant', content: resposta });
     const novoTurno = sessao.turno + 1;

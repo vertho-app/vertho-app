@@ -89,7 +89,9 @@ export const gerarIA2BatchTask = task({
               cargoNome: it.cargoNome, compNomes: it.compNomes, detalhe: it.detalhe,
               contextoPPP: ctx.contextoPPP, valores: ctx.valores, empresa: ctx.empresa,
             });
-            texto = await callAI(system, user, aiConfig, 8192);
+            texto = await callAI(system, user, aiConfig, 8192, {
+              taskKey: 'ia2_gabarito', source: 'batch-sync',
+            });
           } catch (e: any) {
             resultados.push({ cargo: it.cargoNome, ok: false, error: 'IA falhou: ' + (e?.message || e) });
             done++;

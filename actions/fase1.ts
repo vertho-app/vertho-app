@@ -151,7 +151,7 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}, opts:
         const system = buildSystemPromptSelecao(compsDoCargo, cargoNome, faseCarreira);
         const user = buildUserPrompt(empresa, cargoInfo, valores, contextoPPP);
 
-        const resposta = await callAI(system, user, aiConfig, 8192);
+        const resposta = await callAI(system, user, aiConfig, 8192, { taskKey: 'ia1_top10' });
         let resultado = await extractJSON(resposta);
 
         if (resultado?.top10 && Array.isArray(resultado.top10)) {
@@ -171,7 +171,7 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}, opts:
           // Se menos de 7 válidos (de 10), fazer retry
           if (top10Valid.length < Math.min(7, compsDoCargo.length)) {
             console.warn(`[IA1] ${cargoNome}: só ${top10Valid.length} válidos. Retry.`);
-            const retry = await callAI(system, user + '\n\nATENÇÃO: sua resposta anterior não tinha competências suficientes da lista. Use EXATAMENTE os IDs/nomes da lista fornecida.', aiConfig, 8192);
+            const retry = await callAI(system, user + '\n\nATENÇÃO: sua resposta anterior não tinha competências suficientes da lista. Use EXATAMENTE os IDs/nomes da lista fornecida.', aiConfig, 8192, { taskKey: 'ia1_top10' });
             const retryResult = await extractJSON(retry);
             if (retryResult?.top10?.length > top10Valid.length) {
               resultado.top10 = retryResult.top10;
@@ -658,7 +658,7 @@ export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}, opts:
 
       // Montagem do prompt (system + user) extraída p/ montarPromptIA2.
       const { system, user } = montarPromptIA2({ cargoNome, compNomes, detalhe, contextoPPP, valores, empresa });
-      let resposta = await callAI(system, user, aiConfig, 8192);
+      let resposta = await callAI(system, user, aiConfig, 8192, { taskKey: 'ia2_gabarito' });
       let resultado = await extractJSON(resposta);
 
       // ── Validação pós-resposta + RETRY (permanece aqui, no caminho síncrono) ──
@@ -668,7 +668,7 @@ export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}, opts:
         if (invalid) {
           console.warn(`[IA2] ${cargoNome}: validação falhou (${errors.join('; ')}). Retry.`);
           const retryUser = user + `\n\n═══ ATENÇÃO: CORREÇÃO NECESSÁRIA ═══\n${errors.join('\n')}\nCorrija e retorne JSON válido.`;
-          resposta = await callAI(system, retryUser, aiConfig, 8192);
+          resposta = await callAI(system, retryUser, aiConfig, 8192, { taskKey: 'ia2_gabarito' });
           const retryResult = await extractJSON(resposta);
           if (retryResult?.gabarito) resultado = retryResult;
         }

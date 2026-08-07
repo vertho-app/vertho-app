@@ -239,7 +239,7 @@ REGRAS:
 
         const user = userBlocks.join('\n\n');
 
-        const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
+        const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP, taskKey: 'evolucao_fusao' });
         const fusao = await extractJSON(resultado);
         if (!fusao) continue;
 

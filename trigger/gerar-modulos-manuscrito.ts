@@ -139,7 +139,9 @@ export const gerarModulosManuscritoTask = task({
         let texto = respostas.get(r.customId);
         if (!texto || !texto.trim()) {
           try {
-            texto = await callAI(r.system, r.user, { model }, MAX_TOKENS);
+            texto = await callAI(r.system, r.user, { model }, MAX_TOKENS, {
+              taskKey: 'modulo_base_autor', source: 'batch-sync',
+            });
           } catch (e: any) {
             resultados.push({ modulo: rotulo, ok: false, error: 'IA falhou: ' + (e?.message || e) });
             done++; await pushProgress(`${rotulo}: erro de IA`);
