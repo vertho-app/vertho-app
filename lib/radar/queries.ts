@@ -891,7 +891,7 @@ export async function getEscola(codigoInep: string): Promise<{
     sb.from('diag_ideb_snapshots')
       .select('codigo_inep, municipio_ibge, uf, rede, ano, etapa, ideb, meta, indicador_rendimento, nota_saeb')
       .eq('codigo_inep', codigoInep)
-      .in('ano', [2019, 2021, 2023])
+      .in('ano', [2019, 2021, 2023, 2025])
       .order('etapa', { ascending: true })
       .order('ano', { ascending: false }),
     sb.from('diag_enem_escola_snapshots')
@@ -1052,7 +1052,7 @@ export async function getMunicipio(
     .from('diag_ideb_snapshots')
     .select('ano, etapa, codigo_inep, ideb, indicador_rendimento, nota_saeb')
     .eq('municipio_ibge', ibge)
-    .in('ano', [2019, 2021, 2023])
+    .in('ano', [2019, 2021, 2023, 2025])
     .order('etapa', { ascending: true })
     .order('ano', { ascending: false });
   const idebRows = apenasMunicipal
