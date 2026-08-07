@@ -76,6 +76,20 @@ um canal de suporte.
 | `notification_endpoints` (mig 200) | uma linha por INSTALAÇÃO (não por pessoa) |
 | `notification_optin_events` (mig 201) | os degraus do funil, segmentados por plataforma |
 
+**Observabilidade do canal push** (o que reclama quando ele para):
+
+| Onde | O quê |
+|---|---|
+| pós-voo · `canal-push-zerado` | ninguém com inscrição recebeu hoje. Lê CARIMBO, então herda o timing do fan-out (o pós-voo roda após o *enfileiramento*, não após os envios — `app/api/cron/route.ts:89-92`) |
+| estrutural · `push-degradado-24h` | lê `notification_deliveries` em 24h: falhas **e entregas presas em `tentativa`**, que é crash entre gravar e enviar e não aparece em nenhuma tela |
+| estrutural · `push-sem-vapid` | **determinística**: gente inscrita num ambiente sem VAPID |
+
+⚠️ A terceira existe porque as outras duas são **estruturalmente incapazes** de
+pegar o pior caso: sem VAPID, `enviarPush` retorna antes de gravar qualquer
+entrega — total 0, falhas 0 — e `achado()` devolve `null` com contagem 0. A regra
+desenhada para detectar pane total ficava muda na pane total. A contagem de uma
+regra tem que ser **"quem não vai receber"**, nunca "quantas falhas".
+
 Antes da mig 198 o serviço central de WhatsApp (`lib/whatsapp/index.ts`) **não
 persistia nada** — não existia denominador para responder quanto do volume é
 cadência e quanto é autenticação. Essa é a razão de a instrumentação do canal
@@ -281,6 +295,38 @@ Consequência prática: priorizar Android no primeiro uso real, porque lá o gan
   recusado) apareceria longe da causa. Ícone por tenant é trabalho de UPLOAD
   (quadrado + padding + 192/512 ao salvar o logo), não de request.
   **Pendente antes de tenant white-label instalar o PWA.**
+- **Evidência de quinta e nudge de inatividade seguem SÓ no WhatsApp** — decisão,
+  não esquecimento. Pílula (1 e 2) e missão bastam para a medição: são a cadência
+  de conteúdo, que é o que o push se propõe a substituir. Evidência e nudge têm
+  natureza diferente (cobrança e recuperação) e copy própria a escrever; entram
+  depois de a hipótese se sustentar, ou não entram. Registrar isso importa porque
+  "a substituição da cadência completa" NÃO está entregue, e sem esta linha a
+  ausência pareceria bug.
+- **O logout NÃO desativa o push** — esteve implementado e foi revertido no mesmo
+  dia. A troca de dono é real (a assinatura pertence ao navegador, não à conta),
+  mas o remédio custava mais: virava "opt-in até você sair", e a reativação só
+  acontece quando a pessoa VOLTA — justamente o intervalo em que o push existiria
+  para atuar. O denominador do experimento passaria a depender de hábito de
+  logout, em silêncio, e a regra de health acusaria "push zerado" por gente que
+  apenas saiu. A troca de dono é resolvida no REGISTRO + índice único (mig 205).
+  Resíduo aceito: a janela entre o logout de A e o login de B, que exige o
+  aparelho trocar de mãos exatamente nesse intervalo.
+- **🔴 O service worker do CONARH era uma mina.** `registrar-sw.tsx` tinha
+  fallback `register('/conarh-sw.js')` SEM `scope`; como o arquivo mora na raiz
+  de `public/`, o escopo padrão é `/` — o mesmo do `/sw.js` — e registrar outro
+  script no mesmo escopo **substitui** a registration: o handler de `push` some e
+  as inscrições param de entregar, sem erro em tela nenhuma. Pior, o conarh-sw
+  tem handler de `fetch`, então passaria a cachear o app inteiro. Era decisão
+  correta quando escrita (o push não existia) e virou bomba quando o vizinho
+  mudou. Guarda: `tests/unit/security/service-worker-scope-guard.test.ts` +
+  limpeza no boot (aparelho já contaminado não se cura sozinho).
+  ℹ️ Efeito colateral **pré-existente**, não causado pela correção: com escopo
+  `/conarh`, o ramo `/_next` do `conarh-sw.js` nunca é consultado — o browser não
+  chama o SW fora do escopo. Como o `PRECACHE` também não lista `/_next`, os
+  chunks do Next nunca estiveram nesse cache. Offline em `/conarh` depende do
+  cache HTTP do browser (Next serve `/_next/static` como `immutable`, 1 ano), não
+  do service worker. **Precisa ser testado no iPad em modo avião** antes de
+  contar com isso numa demo.
 - **`disabled_reason` no endpoint** (mig 203): quatro caminhos desligam um
   endpoint (reinstalação, troca de dono, inscrição morta, o usuário) e todos
   deixavam a linha idêntica. Um deles é heurística — "mesmo user-agent = mesmo

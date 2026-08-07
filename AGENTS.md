@@ -34,6 +34,11 @@ Todas `requireUser` + `runtime = 'nodejs'`; empresa/colaborador **só da sessão
 
 **Regras que não podem ser afrouxadas**
 - `public/sw.js` **sem handler de `fetch`** — uma vez registrado, o worker controla `/` inteiro daquele aparelho para sempre. Cache ali serviria app shell velho depois de um deploy, sem erro visível.
+- 🔴 **Todo `serviceWorker.register()` declara `scope`.** Sem ele o escopo padrão é o diretório do script — para arquivos na raiz de `public/` isso é `/`, o mesmo do `sw.js`, e registrar outro script no mesmo escopo **substitui** a registration: o push morre em silêncio. Guarda executável: `tests/unit/security/service-worker-scope-guard.test.ts`.
+- **Um dono ativo por assinatura**, garantido pelo banco (índice único parcial, mig 205). Fechar só em código não cobre corrida.
+- **O logout NÃO desativa push** (decisão registrada em `dashboard-shell.tsx` e no doc). Reverter isso reintroduz "opt-in até você sair" e envenena o denominador do experimento.
+- No cron, a flag sai de `empresa.sys_config`, **nunca** de `pushHabilitado()`: aquela função é fail-closed e um erro de leitura viraria "o tenant não ligou push".
+- Regra de health nova: a contagem tem que ser **"quem não vai receber"**, nunca "quantas falhas" — `achado()` devolve `null` com contagem 0, e o pior caso costuma produzir zero falhas.
 - A flag gateia as **rotas**, não só a renderização. Exceção deliberada: `disable` nunca é gateado (desligar a flag não pode aprisionar quem já ativou).
 - `csrfCheck` nas rotas mutativas. Exceção documentada no `opened` (chamada pelo service worker, autenticada por cookie) — ver o comentário no arquivo.
 - Ao registrar uma inscrição, endpoints com a **mesma URL de subscription** pertencentes a outro colaborador são desativados: a assinatura pertence ao navegador, não à conta (A → logout → B no mesmo aparelho).

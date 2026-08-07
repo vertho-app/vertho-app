@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { entregaEhReal } from '@/lib/season-engine/week-gating';
 
 /**
@@ -30,6 +30,21 @@ const inicio = (diasAtras: number) => {
 };
 
 describe('degradação só conta entrega real', () => {
+  // ⏱️ RELÓGIO CONGELADO — este teste era FLAKY e falhava de madrugada.
+  //
+  // `inicio(N)` devolve só a DATA (meia-noite), mas a semana libera às 06:00 UTC.
+  // Rodando entre 00:00 e 06:00 UTC, a "semana corrente" ainda não tinha
+  // liberado e a asserção de fronteira invertia — teste vermelho sem ninguém ter
+  // mexido em nada. Pego em 06/08 numa execução de madrugada.
+  //
+  // Meio-dia UTC fica longe das duas bordas (00:00 e 06:00), então a fronteira
+  // testada é a do PRODUTO (semana 3 × semana 4), não a da hora em que o CI rodou.
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-06T12:00:00.000Z'));
+  });
+  afterAll(() => vi.useRealTimers());
+
   it('semana já liberada conta', () => {
     const dataInicio = inicio(30); // ~5 semanas rodando
     expect(entregaEhReal(dataInicio, 1)).toBe(true);

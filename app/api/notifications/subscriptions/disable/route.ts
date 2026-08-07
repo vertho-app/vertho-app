@@ -44,12 +44,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'installationId obrigatório' }, { status: 400 });
   }
 
-  // Motivo vem do cliente, então é validado contra lista fechada — campo livre
-  // aqui viraria texto arbitrário na coluna de diagnóstico, que é o oposto do
-  // que a mig 203 foi criar. Distinguir "desativou no botão" de "saiu da conta"
-  // muda o diagnóstico: o primeiro é escolha, o segundo é efeito colateral.
-  const MOTIVOS = new Set(['usuario', 'logout']);
-  const motivo = MOTIVOS.has(body?.motivo) ? body.motivo : 'usuario';
+  // Único motivo possível por esta rota: a pessoa clicou em "Desativar".
+  //
+  // Houve aqui um `'logout'` também, para o handler de logout desativar o push.
+  // Foi REVERTIDO (ver o comentário em app/dashboard/dashboard-shell.tsx): virava
+  // "opt-in até você sair". O valor sobrou órfão e saiu junto — enum com opção
+  // que nenhum chamador produz é convite a alguém supor que o caminho existe.
+  const motivo = 'usuario';
 
   const sb = createSupabaseAdmin();
   const { error } = await sb
