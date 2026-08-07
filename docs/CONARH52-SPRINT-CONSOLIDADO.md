@@ -130,6 +130,29 @@ artigo fixo).
 | **Etapa 3 · PDF real** | só cards na tela → **o PDF que a pessoa recebe**, com prévia da capa e link | O que o cliente leva é um PDF; a etapa terminava sem mostrá-lo. Gerado pelo componente do produto a partir do `conteudo.json` (`scripts/_conarh-pdi-pdf.ts`), 6 páginas, versionado (modo avião). Guard confere que o arquivo existe, que a tela aponta para ele e que os arquivos de inspeção do pdf.js **não** foram versionados. |
 
 
+### 0.4 Rodada de 05-06/08/2026 — peças reais e modo avião
+
+| Mudou | Onde |
+|---|---|
+| **A demo abre os documentos**, não os descreve: PDI (etapa 3), guia escrito + podcast + relatório comportamental (etapa 4), gestor/RH/perfil organizacional/DNA (etapa 5) — **8 peças**, todas geradas pelo COMPONENTE e pelo PROMPT do produto, versionadas em `public/conarh/media/` | `scripts/_conarh-*.ts` |
+| Cada uma aparece em **card com a CAPA** do PDF. Link de texto sobre tabela desenhada é indistinguível de mock | `porta3/4/5.tsx` |
+| **PWA**: service worker + manifest → o tablet abre em MODO AVIÃO. Precache dos ~16 MB que a tela exibe (as personas de reserva, 80 MB de vídeo, ficam fora: não são renderizadas) | `public/conarh-sw.js` |
+| Etapa 4 com **3 pessoas do mesmo cargo, um formato cada** (vídeo · texto · podcast) e rótulos com o primeiro nome — "no contexto DELA" ficava errado em cima do Marcos | `porta4.tsx` |
+
+⚠️ **PII:** os relatórios agregados e os `report_texts` do banco são de clientes reais. Os scripts
+filtram `is_demo` **no WHERE**, e recusam rodar sem isso.
+
+⚠️ **`%@vertho.ai` cru apaga as personas de demo** — `gerarRelatorioGestor` saía VAZIO em tenant de
+demonstração. Corrigido com `excludeInternalEmails`; **restam 5 sites** com o filtro cru
+(pulse ×2, calibração ×2, evolution-report).
+
+⚠️ **Deploy durante a feira invalida os chunks cacheados** — tablet já preparado segue funcionando
+(cache-first), mas aparelho novo precisa de rede. **Congelar o deploy em 18-20/08.**
+
+⏳ **Não verificado:** o modo avião foi testado só no dev server (a página abriu pelo fallback, as
+mídias falharam — dev não é representativo). O teste que decide é em produção, no iPad, em modo
+avião. Instruções enviadas ao sócio em 06/08.
+
 ## 1. Objetivo da sprint
 
 Colocar de pé, até 17/08, uma operação de estande de 4 m² que **filtra, provoca, demonstra e agenda** — com o app rodando 100% offline no tablet, a captura acontecendo depois do valor, e cada lead classe A saindo com data no calendário.
