@@ -8,11 +8,17 @@ import {
   type DocentesAggRow,
   type DocentesAgregado,
 } from '@/lib/radar/docentes';
+import {
+  agregarIdebMunicipio,
+  type MunicipioIdebAggregate,
+  type MunicipioIdebSourceRow,
+} from '@/lib/radar/ideb-municipio';
 
 // Corpo docente: tipos e agregação ficam em `lib/radar/docentes.ts` (puro,
 // testável); aqui só as queries. Reexportado para não quebrar quem já importa
 // os tipos do Radar por este módulo.
 export type { CensoDocentes, DocentesAgregado } from '@/lib/radar/docentes';
+export type { MunicipioIdebAggregate } from '@/lib/radar/ideb-municipio';
 export { temVinculoDeclarado } from '@/lib/radar/docentes';
 
 const SUPABASE_PAGE_SIZE = 1000;
@@ -104,15 +110,6 @@ export type IdebSnapshot = {
   meta: number | null;
   indicador_rendimento: number | null;
   nota_saeb: number | null;
-};
-
-export type MunicipioIdebAggregate = {
-  ano: number;
-  etapa: '5_EF' | '9_EF' | '3_EM' | string;
-  idebAvg: number | null;
-  rendimentoAvg: number | null;
-  notaSaebAvg: number | null;
-  totalEscolas: number;
 };
 
 export type EnemEscolaSnapshot = {
@@ -1048,16 +1045,29 @@ export async function getMunicipio(
   if (apenasMunicipal) icaQ = icaQ.eq('rede', 'MUNICIPAL');
   const { data: ica } = await icaQ;
 
-  const { data: idebRowsAll } = await sb
-    .from('diag_ideb_snapshots')
-    .select('ano, etapa, codigo_inep, ideb, indicador_rendimento, nota_saeb')
-    .eq('municipio_ibge', ibge)
-    .in('ano', [2019, 2021, 2023, 2025])
-    .order('etapa', { ascending: true })
-    .order('ano', { ascending: false });
-  const idebRows = apenasMunicipal
-    ? (idebRowsAll || []).filter((r: any) => inepsMunicipais.has(r.codigo_inep))
-    : (idebRowsAll || []);
+  const redeIdebOficial = apenasMunicipal ? 'MUNICIPAL' : 'PUBLICA';
+  const [idebEscolasAll, idebOficialRes] = await Promise.all([
+    fetchAllRows<MunicipioIdebSourceRow>(() => sb
+      .from('diag_ideb_snapshots')
+      .select('ano, etapa, codigo_inep, ideb, indicador_rendimento, nota_saeb')
+      .eq('municipio_ibge', ibge)
+      .eq('escopo', 'escola')
+      .in('ano', [2019, 2021, 2023, 2025])
+      .order('etapa', { ascending: true })
+      .order('ano', { ascending: false })),
+    sb.from('diag_ideb_snapshots')
+      .select('ano, etapa, codigo_inep, ideb, indicador_rendimento, nota_saeb')
+      .eq('municipio_ibge', ibge)
+      .eq('escopo', 'municipio')
+      .eq('rede', redeIdebOficial)
+      .in('ano', [2019, 2021, 2023, 2025])
+      .order('etapa', { ascending: true })
+      .order('ano', { ascending: false }),
+  ]);
+  const idebEscolas = apenasMunicipal
+    ? idebEscolasAll.filter((row) => inepsMunicipais.has(row.codigo_inep || ''))
+    : idebEscolasAll;
+  const idebOficial = (idebOficialRes.data || []) as MunicipioIdebSourceRow[];
 
   let enemQ = sb
     .from('diag_enem_escola_snapshots')
@@ -1072,7 +1082,7 @@ export async function getMunicipio(
     nome: escolas[0].municipio,
     uf: escolas[0].uf,
     ica: (ica || []) as any,
-    ideb: aggregateMunicipioIdeb((idebRows || []) as any),
+    ideb: agregarIdebMunicipio(idebEscolas, idebOficial),
     enem: aggregateMunicipioEnem((enemRows || []) as any),
     totalEscolas: escolas.length,
     totalEscolasMunicipais: inepsMunicipais.size,
@@ -1162,58 +1172,6 @@ function aggregateMunicipioEnem(rows: Array<{
       mediaRedacaoPonderada: group.redWeight > 0 ? group.redWeightedSum / group.redWeight : null,
     }))
     .sort((a, b) => b.ano - a.ano);
-}
-
-function aggregateMunicipioIdeb(rows: Array<{
-  ano: number;
-  etapa: string;
-  codigo_inep: string;
-  ideb: number | null;
-  indicador_rendimento: number | null;
-  nota_saeb: number | null;
-}>): MunicipioIdebAggregate[] {
-  const groups = new Map<string, {
-    ano: number;
-    etapa: string;
-    escolas: Set<string>;
-    idebSum: number;
-    idebCount: number;
-    rendSum: number;
-    rendCount: number;
-    notaSum: number;
-    notaCount: number;
-  }>();
-  for (const row of rows) {
-    const key = `${row.etapa}:${row.ano}`;
-    if (!groups.has(key)) {
-      groups.set(key, {
-        ano: row.ano,
-        etapa: row.etapa,
-        escolas: new Set<string>(),
-        idebSum: 0,
-        idebCount: 0,
-        rendSum: 0,
-        rendCount: 0,
-        notaSum: 0,
-        notaCount: 0,
-      });
-    }
-    const group = groups.get(key)!;
-    if (row.codigo_inep) group.escolas.add(row.codigo_inep);
-    if (row.ideb != null) { group.idebSum += Number(row.ideb); group.idebCount++; }
-    if (row.indicador_rendimento != null) { group.rendSum += Number(row.indicador_rendimento); group.rendCount++; }
-    if (row.nota_saeb != null) { group.notaSum += Number(row.nota_saeb); group.notaCount++; }
-  }
-  return Array.from(groups.values())
-    .map((group) => ({
-      ano: group.ano,
-      etapa: group.etapa,
-      idebAvg: group.idebCount > 0 ? group.idebSum / group.idebCount : null,
-      rendimentoAvg: group.rendCount > 0 ? group.rendSum / group.rendCount : null,
-      notaSaebAvg: group.notaCount > 0 ? group.notaSum / group.notaCount : null,
-      totalEscolas: group.escolas.size,
-    }))
-    .sort((a, b) => a.etapa.localeCompare(b.etapa) || b.ano - a.ano);
 }
 
 export async function getEscolasMunicipio(ibge: string, limit = 200): Promise<Pick<Escola, 'codigo_inep' | 'nome' | 'rede' | 'etapas'>[]> {

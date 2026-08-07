@@ -390,7 +390,7 @@ export default function RadarPropostaPDF({
                 <View style={s.tableHead}>
                   <Text style={{ ...s.tableHeadCell, flex: 0.6 }}>Ano</Text>
                   <Text style={{ ...s.tableHeadCell, flex: 1 }}>Etapa</Text>
-                  <Text style={{ ...s.tableHeadCell, flex: 1, textAlign: 'right' }}>Ideb médio</Text>
+                  <Text style={{ ...s.tableHeadCell, flex: 1, textAlign: 'right' }}>Ideb oficial</Text>
                   <Text style={{ ...s.tableHeadCell, flex: 1, textAlign: 'right' }}>Rendimento</Text>
                   <Text style={{ ...s.tableHeadCell, flex: 0.7, textAlign: 'right' }}>Escolas</Text>
                 </View>

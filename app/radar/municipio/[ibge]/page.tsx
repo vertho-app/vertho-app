@@ -277,7 +277,7 @@ function MunicipioIdebSection({ ideb }: {
   return (
     <section className="mb-12">
       <p className="text-[11px] tracking-[0.15em] uppercase font-bold mb-3" style={{ color: '#34c5cc' }}>
-        Ideb · médio da rede
+        Ideb · resultado oficial
       </p>
       <h2 className="text-white mb-3"
         style={{
@@ -290,8 +290,9 @@ function MunicipioIdebSection({ ideb }: {
         Trajetória do Ideb por etapa
       </h2>
       <p className="text-white/60 mb-6 leading-relaxed" style={{ fontSize: 15, maxWidth: 720 }}>
-        Média do Ideb das escolas do município por etapa, com indicador de rendimento e
-        nota Saeb padronizada. Cobertura por edição varia conforme participação das escolas.
+        Resultado agregado oficial do município por etapa, com indicador de rendimento e
+        nota Saeb padronizada. A contagem mostra as escolas com resultado publicado na edição;
+        o Ideb municipal não é calculado pela média simples dessas escolas.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {Array.from(byEtapa.entries()).map(([etapa, rows]) => (
@@ -316,7 +317,7 @@ function MunicipioIdebSection({ ideb }: {
                       {row.idebAvg != null ? row.idebAvg.toFixed(1) : '—'}
                     </span>
                     <span className="text-[10px] text-white/40 font-mono">
-                      {row.totalEscolas} esc · N {row.notaSaebAvg != null ? row.notaSaebAvg.toFixed(2) : '—'}
+                      {row.totalEscolas} esc. · N {row.notaSaebAvg != null ? row.notaSaebAvg.toFixed(2) : '—'}
                     </span>
                   </div>
                 ))}

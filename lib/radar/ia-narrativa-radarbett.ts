@@ -282,7 +282,7 @@ export async function getNarrativaRadarbettMunicipio(
       JSON.stringify((ica || []).slice(0, 12), null, 2));
   }
   if (opts.ideb && opts.ideb.length) {
-    partes.push('', 'Ideb agregado (médias municipais por etapa):',
+    partes.push('', 'Ideb agregado oficial do município por etapa (não é média simples das escolas):',
       JSON.stringify(opts.ideb.slice(0, 8), null, 2));
   }
   if (opts.enem && opts.enem.length) {

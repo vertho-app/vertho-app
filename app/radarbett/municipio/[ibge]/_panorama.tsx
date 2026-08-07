@@ -213,13 +213,13 @@ export function PanoramaMunicipio({
               return (
                 <KpiCard
                   icon={GraduationCap}
-                  label={`Ideb agregado ${ETAPA_LABEL[idebRecentePorEtapa.etapa] || idebRecentePorEtapa.etapa}`}
+                  label={`Ideb oficial ${ETAPA_LABEL[idebRecentePorEtapa.etapa] || idebRecentePorEtapa.etapa}`}
                   ano={idebRecentePorEtapa.ano}
                   valor={v.toFixed(1)}
                   comparacao={
                     ufIdeb != null
                       ? { rotulo: 'UF (rede municipal)', valor: ufIdeb.toFixed(1), delta: v - ufIdeb }
-                      : { rotulo: 'baseado em', valor: `${idebRecentePorEtapa.totalEscolas} ${idebRecentePorEtapa.totalEscolas === 1 ? 'escola' : 'escolas'}`, delta: null }
+                      : { rotulo: 'escolas com resultado', valor: `${idebRecentePorEtapa.totalEscolas}`, delta: null }
                   }
                 />
               );
