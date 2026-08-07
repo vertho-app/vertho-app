@@ -64,6 +64,7 @@ npm run reset:demo     # reseta o tenant de demonstração acme-demo
 ```
 
 **Migrations**: arquivos em `migrations/NNN-nome.sql` (sequencial). Aplicadas por **script node + driver `pg`** lendo `DATABASE_URL` do `.env.local` + `NOTIFY pgrst, 'reload schema'` — o MCP Supabase é read-only. NÃO existe `supabase/migrations/` nem se usa `supabase db push`. Ver `docs/SCHEMA-PROCESS.md`. ⚠️ `CREATE INDEX CONCURRENTLY` (e qualquer DDL proibido em transaction) **não vai pelo `apply-migration.mjs`** — ele manda o arquivo inteiro numa query só (multi-statement = transaction implícita). Usar script statement-a-statement; template: `scripts/_criar-indices-escala.mjs`.
+⚠️ **Conferir o maior N no INSTANTE de criar o arquivo, não no início da rodada** — o dono cria migration em paralelo e a colisão nasce nessa janela (aconteceu 2× em 06/08: 199 e 204). Renumerar SEMPRE a sua. Guarda: `tests/unit/security/migrations-numeracao-guard.test.ts` (varre o diretório, não `git ls-files`, porque a colisão nasce untracked).
 
 ## Diretórios-chave
 
@@ -238,6 +239,13 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   conferia só o resultado final, e um mock encadeável do supabase devolvia `count: undefined`,
   deixando dois testes de rate limit passarem sem exercitar nada. Quebre a invariante de propósito
   antes de contar o teste como prova.
+- NÃO montar data de teste com `Date.now()` quando a regra testada tem **hora de corte** — e, no
+  simétrico, NÃO atribuir vermelho ao próprio diff antes de perguntar se o teste depende de relógio.
+  Em 06/08 a suíte quebrou em `degradacao-so-entrega-real` logo após uma mudança de push, e não era
+  ela: o helper monta a data truncada para o DIA, mas a semana libera às **06:00 UTC** — entre 00:00
+  e 06:00 UTC a asserção de fronteira inverte sozinha (verde às 19:29 local, vermelho às 22:21, sem
+  commit no meio). Congele o tempo (`vi.setSystemTime`) longe das duas bordas; congelar às 02:00 UTC
+  reproduz a falha, às 12:00 UTC não. Vale para qualquer teste sobre regra com janela horária.
 - NÃO deixar **ramo raro** sem alguém percorrer antes do usuário — e, ao chamar CLI externo, NÃO
   assumir que o binário do seu terminal é o que vai rodar. Em 28/07 um `log()` inexistente dentro de
   um `if` que só dispara em caso raro matou um painel de 5 min já pago, e um `codex` **0.130 vs
