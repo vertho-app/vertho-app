@@ -63,6 +63,13 @@ is already running", `.next` sem `BUILD_ID`). Redirecionar para arquivo.
 - [ ] Admin: pipeline Fase 1→5, relatórios e PDFs
 - [ ] Envio real (WhatsApp/e-mail) — **conferir antes que o tenant não é `is_demo`**
 
+**Acesso da turma importada** (medido em Macaé 06/08 — importar pessoa NÃO dá acesso a ninguém)
+- [ ] `auth.users` existe para cada e-mail — `select count(*) from colaboradores c left join auth.users u on lower(u.email)=lower(c.email) where c.empresa_id=… and u.id is null` tem que dar **0**. O import criou 156 colaboradores e **0 contas**; `/api/auth/magic-link` chama `generateLink` **sem** `createUser` e devolve "Falha ao gerar link".
+- [ ] `login_por_whatsapp = true` para quem tem telefone — as 3 rotas de telefone filtram `.eq('login_por_whatsapp', true)` e são **anti-enumeração**: com `false` respondem sucesso e **não enviam nada** (falha silenciosa, ninguém reclama do erro certo).
+- [ ] Vínculo de gestor preenche o PAR `gestor_email` (régua do servidor) **e** `gestor_nome` (coluna da tela) — e `role='gestor'` no gestor, senão ele não vê equipe.
+- [ ] Duplicata de pessoa conferida por **e-mail E telefone** — cada chave sozinha deixa passar (mesma pessoa com domínio `macae.gov.br` e `macae.rj.gov.br` só apareceu no índice de telefone).
+> Sinal de que isso importa: dos 126 diretores de Macaé, **os 89 com conta são exatamente os 89 que fizeram o mapeamento**. Conta ausente parece desengajamento.
+
 **Produto (o que costuma faltar e só aparece com o cliente dentro)**
 - [ ] Competências e descritores cadastrados com a régua N1-N4 completa
 - [ ] Top 10 / Top 5 validados por cargo

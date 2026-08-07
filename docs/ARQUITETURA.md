@@ -528,6 +528,42 @@ proxy.js
 
 **Vincular subdominio ao Vercel**: a partir de 2026-04, o registro NAO eh mais automatico em `criarNovaEmpresa`. Existe botao **"Vincular ao Vercel"** em `/admin/empresas/{id}/configuracoes` (aba Branding) — usa `lib/vercel-domain.ts`. Razao: cliente Ibipeba falhou silenciosamente no auto-registro.
 
+### 3.1.2 Onboarding em massa: importar pessoa NAO cria acesso (06/08/2026)
+
+`colaboradores` e `auth.users` sao tabelas diferentes, e **nenhum caminho de import cria a segunda**.
+Medido em Macae: 156 professores importados = **0 `auth.users`, 0 `login_por_whatsapp`**. O convite
+estava pronto pra sair pra 155 pessoas que bateriam todas na porta.
+
+Os dois caminhos de login **nao sao equivalentes** pra quem nunca entrou:
+
+| entrada | rota | cria `auth.users`? | canais do link |
+|---|---|---|---|
+| e-mail | `app/api/auth/magic-link/route.ts` | **NAO** — `admin.generateLink({type:'magiclink'})` direto → *"Falha ao gerar link"* | e-mail **+** WhatsApp (`sendAccessLink`) |
+| telefone | `app/api/auth/phone-magic-link/request/route.ts:61` | **SIM** — `admin.createUser` antes do link | **so WhatsApp** (`channels:['whatsapp']`) |
+
+Duas consequencias que nao aparecem em log nenhum:
+
+1. **O formulario unificado da prioridade ao e-mail** (`login-form.tsx::handleSubmit` — "e-mail vence
+   quando ambos preenchidos"), ou seja, a instrucao natural ("informe telefone ou e-mail") empurra a
+   maioria pro caminho que **quebra** pra quem nao tem conta.
+2. As 3 rotas de telefone filtram `.eq('login_por_whatsapp', true)` e sao **anti-enumeracao**: com a
+   flag `false` elas respondem sucesso generico e **nao enviam nada**. A pessoa espera um link que
+   nunca foi disparado — e nao ha erro pra ninguem investigar.
+
+**O sinal de quanto isso custa:** dos 126 diretores de Macae, os **89 com `auth.users` sao exatamente
+os 89 com `mapeamento_em`**. Conta ausente e indistinguivel de desengajamento no painel.
+
+Provisionamento em massa: `POST {SUPABASE_URL}/auth/v1/admin/users` com `email_confirm:true`
+(concorrencia 4; 156 em ~2 min) + `UPDATE colaboradores SET login_por_whatsapp=true` para quem tem
+telefone. ⚠️ O indice parcial **`uq_colab_wa_telefone (empresa_id, telefone) WHERE login_por_whatsapp`**
+faz o UPDATE em massa abortar em telefone duplicado — e foi ele que revelou uma pessoa cadastrada duas
+vezes com dominios quase iguais (`@gestao.macae.gov.br` e `@gestao.macae.rj.gov.br`), que o dedup por
+e-mail nao pegou. **Dedup de pessoa precisa de e-mail E telefone.**
+
+Ao consertar identidade de quem **ja entrou** (`last_sign_in_at` preenchido), renomeie o `auth.users`
+existente em vez de apontar o colaborador pra uma conta nova: a conta nova nao tem historico e a pessoa
+nao sabe que ela existe. Checklist operacional em `docs/CHECKLISTS.md` §3.
+
 ### 3.2 Resolucao do Tenant
 ```
 lib/tenant-resolver.js:

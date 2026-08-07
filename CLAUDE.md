@@ -276,6 +276,15 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   06/08 numa demo de 2 participantes — e a frase tinha sido copiada da tela para a mensagem de
   convite antes de alguém perceber. Antes de repetir a promessa em piloto/demo, ou põe piso de N ou
   troca a frase. Vale pra qualquer garantia cuja validade some quando o N encolhe.
+- NÃO tratar **importar colaborador** como "dar acesso". `colaboradores` e `auth.users` são tabelas
+  diferentes e **nenhum import cria a segunda**: em 06/08 os 156 professores de Macaé entraram com
+  **0 contas** e o convite ia sair para 155 pessoas que bateriam na porta. Pior, os dois caminhos de
+  login divergem justamente aí — o de **e-mail** chama `generateLink` **sem** `createUser` (devolve
+  "Falha ao gerar link"), o de **telefone** se auto-provisiona mas exige `login_por_whatsapp=true` e é
+  **anti-enumeração**: com a flag `false` ele responde sucesso e **não envia nada**. Antes de convidar
+  turma nova, rode o bloco "Acesso da turma importada" de `docs/CHECKLISTS.md` §3. O sinal de quanto
+  custa: dos 126 diretores de Macaé, os **89 com conta são exatamente os 89 que se mapearam** — conta
+  ausente parece desengajamento. Detalhe: `docs/ARQUITETURA.md` §3.1.2.
 - NÃO abrir gate de autenticação por regra genérica — é **allowlist explícita, com o motivo ao lado**.
   O vídeo de convite precisa ser visto por quem ainda NÃO tem login (exigir sessão é pedir que a
   pessoa faça primeiro o que o vídeo explica), então `/v/{guid}` ganhou exceção em
