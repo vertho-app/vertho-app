@@ -41,6 +41,17 @@ export const VIDEOS_PUBLICOS: VideoPublico[] = [
     // persona FICTÍCIA em telas do app: nenhum dado de participante real aparece.
     motivo: 'Convite de boas-vindas — assistido antes de existir login',
   },
+  {
+    guid: '747c65a8-1764-46c0-95d4-f9fb40873341',
+    tenant: 'macae',
+    slug: 'boas-vindas',
+    // Mesma exceção da UniAnchieta, tenant diferente: o link vai na mensagem do
+    // Beto pelo WhatsApp para 155 professoras que ainda não entraram uma vez.
+    // Gravado com persona FICTÍCIA (criada e apagada na captura) em telas do
+    // app — nenhuma professora real aparece. É o segundo `boas-vindas` da lista:
+    // o slug é resolvido POR TENANT, e é isso que impede um servir o outro.
+    motivo: 'Convite de boas-vindas — assistido antes de existir login',
+  },
 ];
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,48}$/;

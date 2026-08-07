@@ -388,4 +388,71 @@ export const BOASVINDAS: Flow = {
   ],
 };
 
-export const FLOWS: Record<string, Flow> = { disc: DISC, jornada: JORNADA, pdi: PDI, aplicacao: APLICACAO, boasvindas: BOASVINDAS };
+/**
+ * MACAÉ — professores do projeto Educação Integral (06/08/2026).
+ *
+ * Irmão do BOASVINDAS, com três diferenças de PRODUTO (não de estilo):
+ *   - PARA no mapeamento: o professor só tem essa atividade agora (a jornada de
+ *     Autocuidado começa depois), então nada de cenários;
+ *   - a entrada é pelo WhatsApp: a mensagem do Beto chega por lá e o número é o
+ *     mesmo — mas o campo de e-mail aparece PRIMEIRO na tela, e por isso a
+ *     narração nomeia os dois campos em vez de dizer "o campo de cima";
+ *   - fecha com o prazo e a competência, que é o que a mensagem promete.
+ *
+ * Estúdio: tenant `macae` LOCAL, persona fictícia criada e apagada pelo
+ * capture-macae.mts. Os 155 professores reais nunca entram em tela.
+ */
+export const MACAE: Flow = {
+  id: 'macae',
+  persona: 'gravacao.professor@vertho.ai',
+  title: 'Boas-vindas aos professores',
+  subtitle: 'Como entrar e fazer seu mapeamento',
+  steps: [
+    {
+      id: 'abertura', title: 'Boas-vindas', cuts: FULL, kind: 'cartela',
+      cartela: { eyebrow: 'Educação Integral · Macaé', title: 'Sua jornada começa aqui' },
+      narration: 'Olá! Aqui é o Beto, seu Gestor de Aprendizagem no projeto Educação Integral. Em um minuto eu te mostro como entrar e começar a sua primeira atividade.',
+    },
+    {
+      id: 'entrar', title: 'Como entrar', cuts: FULL, captureId: 'login',
+      narration: 'Abra o endereço que eu enviei na mensagem. Informe o seu e-mail ou, no campo de baixo, o DDD e o número do seu WhatsApp. E toque em Entrar.',
+      highlight: { label: 'E-mail ou WhatsApp' },
+    },
+    {
+      id: 'link', title: 'O link de acesso', cuts: FULL, captureId: 'link',
+      // FIEL às rotas: quem entra pelo NÚMERO recebe só por WhatsApp
+      // (phone-magic-link manda `channels:['whatsapp']`); quem entra pelo E-MAIL
+      // recebe nos dois. Dizer "chega nos dois" sem essa ressalva ensinaria errado
+      // justamente quem seguiu o gesto que o vídeo mostra.
+      narration: 'Na hora chega um link de acesso no seu WhatsApp. E se você preferir entrar pelo e-mail, o link chega no e-mail também. Toque nele e pronto: não tem senha pra decorar.',
+    },
+    {
+      id: 'home', title: 'Sua página inicial', cuts: FULL, captureId: 'home',
+      narration: 'Esta é a sua página inicial. O botão principal mostra sempre o seu próximo passo.',
+      highlight: { label: 'Seu próximo passo' },
+    },
+    {
+      id: 'map-inicio', title: 'O mapeamento', cuts: FULL, captureId: 'map-inicio',
+      narration: 'A sua primeira atividade é o Mapeamento de Perfil Comportamental: cinco minutos, respondendo pelo primeiro impulso. Não existe resposta certa nem errada.',
+    },
+    {
+      id: 'map-rank', title: 'Como responder', cuts: FULL, captureId: 'map-rank',
+      dragHint: { topLabel: 'MAIS parecido', bottomLabel: 'MENOS parecido' },
+      narration: 'Arraste pro topo a palavra que mais tem a ver com você, e pra base a que menos tem.',
+    },
+    {
+      id: 'map-aprender', title: 'Como você aprende', cuts: FULL, captureId: 'map-aprender',
+      narration: 'Pra fechar, dê estrelas pra cada formato de conteúdo — pode gostar de vários. É assim que o material chega do seu jeito.',
+    },
+    {
+      id: 'fecho', title: 'Fecho', cuts: FULL, kind: 'cartela',
+      cartela: { eyebrow: 'Educação Integral', title: 'Comece pelo Autocuidado.' },
+      // A pessoa não para no perfil: logo depois vem o mapeamento da COMPETÊNCIA
+      // (cenários de Autocuidado). Anunciar aqui evita que ela conclua o perfil e
+      // ache que acabou.
+      narration: 'Assim que terminar, vem o mapeamento da competência Autocuidado: é ele que mostra onde você está hoje e por onde a sua jornada começa. Conclua tudo até doze de agosto. Eu vou estar com você em cada semana. Até já!',
+    },
+  ],
+};
+
+export const FLOWS: Record<string, Flow> = { disc: DISC, jornada: JORNADA, pdi: PDI, aplicacao: APLICACAO, boasvindas: BOASVINDAS, macae: MACAE };

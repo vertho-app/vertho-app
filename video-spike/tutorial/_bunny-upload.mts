@@ -35,6 +35,7 @@ const TODOS: [string, string][] = [
   ['outputs/tutorial-pdi.mp4', 'Tutorial · PDI'],
   ['outputs/tutorial-aplicacao.mp4', 'Tutorial · Semana de missão (aplicação)'],
   ['outputs/tutorial-boasvindas.mp4', 'UniAnchieta · Boas-vindas — entrar, mapeamento e cenários'],
+  ['outputs/tutorial-macae.mp4', 'Macaé · Boas-vindas aos professores — entrar e mapeamento'],
 ];
 
 // Sem argumento sobe TODOS — e cada upload cria um guid NOVO, sem substituir o
