@@ -16,6 +16,7 @@ import { COR, SANS, SERIF } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
 import { FechoPorta } from './porta-shell';
 import { Pilula } from './media';
+import { AbrirDocumento } from './documento';
 
 /** "Marcos Vilela" → "Marcos". O card já traz o nome completo no topo. */
 function primeiroNome(nome: string): string {
@@ -116,16 +117,15 @@ export function Porta4({
             </p>
             {c.relatorio && (
               <div className="mt-4 pt-4 border-t" style={{ borderColor: COR.borda }}>
-                <a
-                  href={c.relatorio.src}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 font-bold"
-                  style={{ color: COR.acento, fontSize: 16, fontFamily: SANS, textDecoration: 'none' }}
+                <AbrirDocumento
+                  src={c.relatorio.src}
+                  titulo={c.relatorio.titulo}
+                  className="inline-flex items-center gap-2 font-bold text-left"
+                  style={{ color: COR.acento, fontSize: 16, fontFamily: SANS }}
                 >
                   <FileText size={17} />
                   {c.relatorio.titulo} →
-                </a>
+                </AbrirDocumento>
                 <p style={{ color: COR.texto3, fontSize: 14, lineHeight: 1.45, fontFamily: SANS, margin: '6px 0 0' }}>
                   {c.relatorio.nota}
                 </p>
@@ -198,16 +198,15 @@ export function Porta4({
                   Vídeo e áudio já abriam a peça real na tela; o texto ficava só
                   como parágrafo, e era o único dos três sem artefato. */}
               {p.midia?.pdf && (
-                <a
-                  href={p.midia.pdf}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 mt-3 font-bold"
-                  style={{ color: COR.acento, fontSize: 16, fontFamily: SANS, textDecoration: 'none' }}
+                <AbrirDocumento
+                  src={p.midia.pdf}
+                  titulo={p.midia.titulo}
+                  className="inline-flex items-center gap-2 mt-3 font-bold text-left"
+                  style={{ color: COR.acento, fontSize: 16, fontFamily: SANS }}
                 >
                   <FileText size={16} />
                   Abrir o guia em PDF →
-                </a>
+                </AbrirDocumento>
               )}
             </div>
           </section>

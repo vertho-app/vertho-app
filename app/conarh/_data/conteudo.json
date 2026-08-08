@@ -569,7 +569,7 @@
       "src": "/conarh/pdi-renata-falcao.pdf",
       "capa": "/conarh/pdi-capa.png",
       "titulo": "Plano de Desenvolvimento Individual — Renata Falcão",
-      "paginas": 6
+      "paginas": 5
     }
   },
   "porta4": {
@@ -770,21 +770,21 @@
         "titulo": "Relatório de RH",
         "nota": "A leitura do ciclo para quem responde pelo programa: onde o time está por competência, o que se repete entre as pessoas e o que priorizar no próximo.",
         "capa": "/conarh/media/capa-relatorio-rh.png",
-        "paginas": 7
+        "paginas": 9
       },
       {
         "src": "/conarh/media/perfil-organizacional.pdf",
         "titulo": "Perfil Organizacional",
         "nota": "O mapeamento comportamental da organização — DISC, estilo de liderança e talentos, recortado por cargo. Cargos com menos de 3 pessoas ficam de fora, por anonimato.",
         "capa": "/conarh/media/capa-perfil-organizacional.png",
-        "paginas": 8
+        "paginas": 9
       },
       {
         "src": "/conarh/media/dna-organizacional.pdf",
         "titulo": "DNA Organizacional",
         "nota": "A leitura de cultura: como a organização decide, se comunica e aprende — com a narrativa gerada sobre os dados do ciclo, não sobre impressões.",
         "capa": "/conarh/media/capa-dna-organizacional.png",
-        "paginas": 6
+        "paginas": 10
       }
     ]
   },

@@ -8,6 +8,7 @@ import type { ConteudoConarh } from '../_data/types';
 import { COR, SANS, SERIF } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
 import { FechoPorta } from './porta-shell';
+import { AbrirDocumento } from './documento';
 
 const STATUS = {
   evolucao_confirmada: { rotulo: 'Evolução confirmada', cor: COR.verde, Icone: TrendingUp },
@@ -151,13 +152,12 @@ export function Porta5({
                 desenhada é indistinguível de mock; a capa é o que prova que a
                 peça existe — mesma escolha da etapa 3. */}
             {porta5.relatorios.map((r) => (
-              <a
+              <AbrirDocumento
                 key={r.src}
-                href={r.src}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-2xl border p-5 flex gap-5 items-start"
-                style={{ background: COR.card, borderColor: COR.bordaAcento, textDecoration: 'none' }}
+                src={r.src}
+                titulo={r.titulo}
+                className="rounded-2xl border p-5 flex gap-5 items-start text-left w-full"
+                style={{ background: COR.card, borderColor: COR.bordaAcento }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -180,7 +180,7 @@ export function Porta5({
                     {r.nota}
                   </span>
                 </span>
-              </a>
+              </AbrirDocumento>
             ))}
           </div>
         </section>

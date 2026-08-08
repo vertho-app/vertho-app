@@ -21,7 +21,7 @@
  * cacheados. Quem abriu antes continua funcionando (cache-first), mas um tablet
  * novo precisa de rede uma vez. Congele o deploy nos dias 18-20/08.
  */
-const VERSAO = 'conarh-v1';
+const VERSAO = 'conarh-v2'; // v2 (07/08): páginas dos PDFs entraram no precache
 const CACHE = `${VERSAO}`;
 
 /** O que a TELA exibe hoje. As personas de reserva (80 MB de vídeo) ficam de
@@ -44,16 +44,40 @@ const PRECACHE = [
   '/conarh/media/capa-dna-organizacional.png',
   '/conarh/pdi-renata-falcao.pdf',
   '/conarh/pdi-capa.png',
+  '/conarh/paginas-pdf.json',
 ];
+
+/**
+ * As PÁGINAS dos documentos (~4,4 MB, 50 imagens) vêm do manifesto, não de uma
+ * lista repetida aqui: quem gera as imagens é `scripts/_conarh-paginas-pdf.ts`,
+ * e uma segunda lista escrita à mão sairia de sincronia no primeiro documento
+ * novo — em silêncio, e só em modo avião.
+ *
+ * Elas são o que a tela EXIBE desde 07/08: o PDF em nova aba prendia o
+ * expositor fora da demo no iOS (ver `_components/documento.tsx`), então o
+ * documento agora é folheado dentro do app.
+ */
+async function paginasDosDocumentos() {
+  try {
+    const resposta = await fetch('/conarh/paginas-pdf.json', { cache: 'reload' });
+    if (!resposta.ok) return [];
+    const manifesto = await resposta.json();
+    return Object.values(manifesto).flat();
+  } catch (e) {
+    console.warn('[conarh-sw] manifesto de páginas indisponível:', e);
+    return [];
+  }
+}
 
 self.addEventListener('install', (evento) => {
   evento.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE);
+      const alvos = [...PRECACHE, ...(await paginasDosDocumentos())];
       // Um a um, e tolerante: `addAll` falha TUDO se um único arquivo falhar —
       // e aí o tablet fica sem cache nenhum por causa de um 404.
       await Promise.all(
-        PRECACHE.map(async (url) => {
+        alvos.map(async (url) => {
           try {
             await cache.add(new Request(url, { cache: 'reload' }));
           } catch (e) {

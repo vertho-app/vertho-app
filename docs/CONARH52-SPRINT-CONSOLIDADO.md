@@ -136,7 +136,7 @@ artigo fixo).
 |---|---|
 | **A demo abre os documentos**, não os descreve: PDI (etapa 3), guia escrito + podcast + relatório comportamental (etapa 4), gestor/RH/perfil organizacional/DNA (etapa 5) — **8 peças**, todas geradas pelo COMPONENTE e pelo PROMPT do produto, versionadas em `public/conarh/media/` | `scripts/_conarh-*.ts` |
 | Cada uma aparece em **card com a CAPA** do PDF. Link de texto sobre tabela desenhada é indistinguível de mock | `porta3/4/5.tsx` |
-| **PWA**: service worker + manifest → o tablet abre em MODO AVIÃO. Precache dos ~16 MB que a tela exibe (as personas de reserva, 80 MB de vídeo, ficam fora: não são renderizadas) | `public/conarh-sw.js` |
+| **PWA**: service worker + manifest → o tablet abre em MODO AVIÃO. Precache dos ~16 MB que a tela exibe — ~20 MB desde 07/08, com as páginas dos documentos (§0.5). As personas de reserva, 80 MB de vídeo, ficam fora: não são renderizadas | `public/conarh-sw.js` |
 | Etapa 4 com **3 pessoas do mesmo cargo, um formato cada** (vídeo · texto · podcast) e rótulos com o primeiro nome — "no contexto DELA" ficava errado em cima do Marcos | `porta4.tsx` |
 
 ⚠️ **PII:** os relatórios agregados e os `report_texts` do banco são de clientes reais. Os scripts
@@ -152,6 +152,43 @@ demonstração. Corrigido com `excludeInternalEmails`; **restam 5 sites** com o 
 ⏳ **Não verificado:** o modo avião foi testado só no dev server (a página abriu pelo fallback, as
 mídias falharam — dev não é representativo). O teste que decide é em produção, no iPad, em modo
 avião. Instruções enviadas ao sócio em 06/08.
+
+### 0.5 Rodada de 07-08/08/2026 — o documento abre DENTRO da demo
+
+🔴 **O primeiro toque num aparelho real derrubou a etapa 3.** No iPhone, instalado na tela de
+início, abrir o PDF **prendia o expositor fora da demo**: os cards usavam `target="_blank"`, e num
+PWA standalone o iOS abre a nova aba numa view **sem barra de navegação** — não há botão de voltar.
+A única saída era matar o app no multitarefa. Em modo avião seria pior: aquela view é outro
+contexto de armazenamento e **não enxerga o cache do service worker**, então o documento nem
+abriria.
+
+| Mudou | Onde |
+|---|---|
+| Os 4 pontos que abriam PDF viraram `<AbrirDocumento>` — overlay com as páginas e um botão **Fechar** grande (a palavra, não só o X) | `_components/documento.tsx` · `porta3/4/5.tsx` |
+| As 50 páginas dos 7 documentos são **pré-renderizadas em WebP** (4,4 MB a 1191 px) | `scripts/_conarh-paginas-pdf.ts` |
+| O worker precacheia as páginas **lendo o manifesto**, não uma segunda lista à mão (`conarh-v2`) | `public/conarh-sw.js` |
+| A contagem de páginas do card passou a ser conferida contra o documento | `tests/unit/conarh-documentos.test.ts` |
+
+**Imagem, e não pdf.js no cliente**, por dois motivos que só aparecem no aparelho: 10 canvas A4 em
+DPR 2 são ~180 MB e derrubam a aba do iPhone (o Safari decodifica `<img>` sob demanda e libera
+sozinho); e o nome do arquivo é **estável**, então entra no precache — chunk de JS tem hash e só
+entraria no cache de runtime, isto é, se alguém já tivesse aberto um PDF antes do modo avião.
+
+⚠️ **4 dos 7 cards declaravam a contagem errada** ("PDF · 7 páginas" num relatório de 9; o DNA
+dizia 6 e tem 10). O número era escrito à mão no `conteudo.json` e **nada o lia** — o PDF abria
+fora da demo, então ninguém comparava. O visualizador põe os dois números na mesma tela, e o
+guard passou a amarrá-los.
+
+⏳ **Segue não verificado:** o modo avião **em produção**. O que o iPhone provou até agora é o
+bug de navegação, não o cache.
+
+**Preparar cada tablet** (uma vez, com rede — o cache do web app instalado é separado do Safari):
+
+1. Safari em `https://app.vertho.ai/conarh` — sempre este host, o cache é por origem.
+2. Compartilhar → **Adicionar à Tela de Início**.
+3. Abrir **pelo ícone**, ainda com rede, e esperar ~1 min parado (≈20 MB de precache).
+4. Percorrer as 5 etapas: play no vídeo, no podcast, e abrir um documento.
+5. Modo avião → fechar o app no multitarefa → reabrir pelo ícone e percorrer de novo.
 
 ## 1. Objetivo da sprint
 

@@ -8,6 +8,7 @@ import type { ConteudoConarh } from '../_data/types';
 import { COR, SANS, SERIF } from './tema';
 import { BarraAcao, TituloPorta } from './chrome';
 import { FechoPorta } from './porta-shell';
+import { AbrirDocumento } from './documento';
 
 function Bloco({
   icone,
@@ -209,10 +210,9 @@ export function Porta3({
             o plano ciclo a ciclo e a trilha que vem dele. Saiu da plataforma, não de um modelo
             preenchido à mão.
           </p>
-          <a
-            href={porta3.pdf.src}
-            target="_blank"
-            rel="noopener noreferrer"
+          <AbrirDocumento
+            src={porta3.pdf.src}
+            titulo={porta3.pdf.titulo}
             className="inline-flex items-center gap-2 rounded-2xl px-7 font-bold mt-5"
             style={{
               minHeight: 60,
@@ -221,12 +221,11 @@ export function Porta3({
               color: COR.acento,
               fontSize: 18,
               fontFamily: SANS,
-              textDecoration: 'none',
             }}
           >
             <FileText size={20} />
             Abrir o PDF completo
-          </a>
+          </AbrirDocumento>
         </div>
       </section>
 
