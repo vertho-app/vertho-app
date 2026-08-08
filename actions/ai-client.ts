@@ -64,11 +64,14 @@ export interface AICallOptions {
   // Liga o history caching (relocação do userSuffix + cache_control). Só Claude.
   // O caller gateia por flag (IA_CACHE_HISTORY) até a qualidade ser validada.
   cacheHistory?: boolean;
-  // Esforço de raciocínio p/ modelos reasoning OpenAI-compatible (kimi-k3,
-  // gpt-5.x reasoning): vira `reasoning_effort` no body. Medido no kimi-k3
-  // (20/07): low=7 tokens de thinking vs high=62 no mesmo prompt — em tarefa de
-  // redação, low corta o custo dominante. Ignorado pelos caminhos Claude/Gemini.
-  reasoningEffort?: 'low' | 'medium' | 'high' | 'max';
+  // Esforço de raciocínio. Medido no kimi-k3 (20/07): low=7 tokens de thinking
+  // vs high=62 no mesmo prompt — em tarefa de redação, low corta o custo dominante.
+  //  - OpenAI-compatible (kimi-k3, gpt-5.x): vira `reasoning_effort` no body.
+  //  - Claude geração 5 / 4.7+ : vira `output_config.effort` (07/08). Antes era
+  //    IGNORADO no ramo Anthropic, então "opus-5 em high" rodava em esforço
+  //    PADRÃO com o rótulo errado — pior que falhar, porque a tabela mente.
+  //  - Gemini: ignorado.
+  reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 }
 
 export interface ChatMessage {
@@ -285,6 +288,38 @@ async function registrarUsoIA(
   }
 }
 
+// ── Thinking / effort por geração de modelo Claude ──────────────────────────
+// A geração 5 (e Opus 4.7/4.8) REMOVEU `thinking:{type:'enabled',budget_tokens}`
+// — mandar isso devolve 400 "not supported for this model. Use thinking.type.
+// adaptive and output_config.effort". Medido em 07/08 tentando rodar opus-5 com
+// thinking no comparativo de PDI. O 4.6 e anteriores continuam no formato antigo.
+//
+// ⚠️ Em Opus 5 o thinking é LIGADO POR PADRÃO (ao contrário do 4.8/4.7), e
+// `max_tokens` limita thinking + texto JUNTOS: rota que nunca setou `thinking` e
+// dimensionou max_tokens justo pode truncar no meio da resposta.
+function ehClaudeAdaptativo(model: string): boolean {
+  return /^claude-(opus-5|sonnet-5|fable-5|mythos-5|opus-4-7|opus-4-8)/.test(model);
+}
+
+/** Aplica thinking/effort no corpo da chamada Claude conforme a geração. */
+function aplicarThinkingClaude(params: any, model: string, options: AICallOptions) {
+  if (ehClaudeAdaptativo(model)) {
+    if (options.thinking) params.thinking = { type: 'adaptive' };
+    // `effort` é GA nesses modelos e vive DENTRO de output_config.
+    if (options.reasoningEffort) {
+      params.output_config = { ...(params.output_config || {}), effort: options.reasoningEffort };
+    }
+    return;
+  }
+  if (options.thinking) {
+    const budgetTokens = Math.min(options.thinkingBudget || 32768, 65536);
+    params.thinking = { type: 'enabled', budget_tokens: budgetTokens };
+    if (params.max_tokens < budgetTokens + 4096) {
+      params.max_tokens = budgetTokens + 4096;
+    }
+  }
+}
+
 async function callClaude(
   system: string,
   user: string,
@@ -328,13 +363,7 @@ async function callClaude(
     ...(options.temperature != null ? { temperature: options.temperature } : {}),
   };
 
-  if (options.thinking) {
-    const budgetTokens = Math.min(options.thinkingBudget || 32768, 65536);
-    params.thinking = { type: 'enabled', budget_tokens: budgetTokens };
-    if (params.max_tokens < budgetTokens + 4096) {
-      params.max_tokens = budgetTokens + 4096;
-    }
-  }
+  aplicarThinkingClaude(params, model, options);
 
   const t0 = Date.now();
   if (maxTokens > 8192) {
@@ -432,13 +461,7 @@ async function callClaudeChat(
     ...(options.temperature != null ? { temperature: options.temperature } : {}),
   };
 
-  if (options.thinking) {
-    const budgetTokens = Math.min(options.thinkingBudget || 32768, 65536);
-    params.thinking = { type: 'enabled', budget_tokens: budgetTokens };
-    if (params.max_tokens < budgetTokens + 4096) {
-      params.max_tokens = budgetTokens + 4096;
-    }
-  }
+  aplicarThinkingClaude(params, model, options);
 
   const t0 = Date.now();
   if (maxTokens > 8192) {
