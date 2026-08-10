@@ -16,6 +16,7 @@ import { PROGRESSO, TRILHA } from '@/lib/status';
 import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
 import type { acumuladaPilotoTask } from '@/trigger/acumulada-piloto';
+import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine/progresso-semana';
 
 // Conclusão de semana pode disparar a acumulada (após IA) e o chat usa callAI —
 // dá margem além dos 60s default. Fluid até 300s.
@@ -429,21 +430,18 @@ export async function POST(request) {
       ...(finished ? { concluido_em: new Date().toISOString() } : { iniciado_em: prog?.iniciado_em || new Date().toISOString() }),
     };
 
-    if (prog) {
-      await sb.from('temporada_semana_progresso').update(upsertPayload).eq('id', prog.id);
-    } else {
-      await sb.from('temporada_semana_progresso').insert(upsertPayload);
-    }
+    // F10: era `await sb...update(...)` sem `{ error }`. Falha de banco virava
+    // 200 com a semana marcada como concluída e o slot vazio. O helper lança, e
+    // o catch do handler transforma em 500 — que é o que impede a UI de dar a
+    // conversa por encerrada. Mesmo helper da rota gêmea (evaluation).
+    await gravarProgressoSemana(sb, upsertPayload, prog?.id);
 
     // Config pela FONTE ÚNICA (carimbo da trilha → fallback sys_config)
     const programaConfig = await resolverConfigDaTrilha(sb, trilha);
 
     // Se concluiu, libera próxima semana (status pendente → em_andamento na UI fica visível)
     if (finished && Number(semana) < programaConfig.semanas) {
-      const proxima = Number(semana) + 1;
-      await sb.from('temporada_semana_progresso')
-        .update({ status: PROGRESSO.EM_ANDAMENTO })
-        .eq('trilha_id', trilhaId).eq('semana', proxima).eq('status', PROGRESSO.PENDENTE);
+      await liberarProximaSemana(sb, trilhaId, Number(semana) + 1, upsertPayload.empresa_id);
     }
 
     // Modo custom SEM fechamento (degustação): concluir a ÚLTIMA semana de

@@ -90,20 +90,34 @@ export async function loadCertificadoData(email: string) {
   // de posse já passou, e o filtro garante que trilha/progresso lidos são dele.
   const tdb = tenantDb(colab.empresa_id);
 
-  const { data: trilha } = await tdb.from('trilhas')
+  const { data: trilha, error: errTrilha } = await tdb.from('trilhas')
     .select('id, numero_temporada, competencia_foco, competencias_foco, data_inicio, evolution_generated_at, temporada_plano, evolution_report, programa_modo, empresa_id, status')
     .eq('colaborador_id', colab.id)
     .order('criado_em', { ascending: false })
     .limit(1).maybeSingle();
+  // Falha de banco ≠ "não tem trilha": a segunda manda a pessoa procurar o RH.
+  if (errTrilha) return { error: `Não foi possível ler a sua trilha agora: ${errTrilha.message}`, motivo: 'falha_leitura' };
   if (!trilha) return { error: 'Nenhuma trilha encontrada' };
   if (trilha.status !== TRILHA.CONCLUIDA) return { error: 'Temporada ainda não concluída' };
 
   // Piloto (degustação) não emite certificado — decisão de produto.
   if (isTrilhaPiloto(trilha)) return { error: 'Piloto não emite certificado', motivo: 'piloto' };
 
-  const { data: progressos } = await tdb.from('temporada_semana_progresso')
+  const { data: progressos, error: errProg } = await tdb.from('temporada_semana_progresso')
     .select('semana, tipo, reflexao, feedback')
     .eq('trilha_id', trilha.id);
+
+  // 🔴 F15 da auditoria: sem esta checagem, o `{ error }` do supabase-js passava
+  // batido, `progressos` vinha null, `calcularParticipacao` recebia `[]` e a
+  // pessoa levava **"Participação abaixo do mínimo (75%)" com pct 0**.
+  //
+  // Não é um erro exibido no lugar errado — é uma ACUSAÇÃO. Quem concluiu as 14
+  // semanas lê que não participou, e o RH lê a mesma coisa na tela dele. Um
+  // timeout de pool não pode virar um julgamento sobre o esforço de alguém.
+  if (errProg) {
+    return { error: `Não foi possível conferir a sua participação agora: ${errProg.message}`, motivo: 'falha_leitura' };
+  }
+
   const participacao = calcularParticipacao(trilha.temporada_plano, progressos || []);
   if (!participacao.elegivel) {
     return { error: 'Participação abaixo do mínimo (75%)', motivo: 'participacao', participacao };

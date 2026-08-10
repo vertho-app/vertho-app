@@ -10,6 +10,7 @@ import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/li
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { parseJsonIA } from '@/lib/ai-json';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
+import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine/progresso-semana';
 import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { buscarCenarioBComFallback } from '@/lib/season-engine/cenario-b';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
@@ -201,7 +202,7 @@ export async function POST(request) {
         });
       }
 
-      if (finished && Number(semana) < semCenarioB) await liberarProxima(sb, trilhaId, semCenarioB);
+      if (finished && Number(semana) < semCenarioB) await liberarProxima(sb, trilhaId, semCenarioB, trilha.empresa_id);
 
       return NextResponse.json({ message: respostaIA, turnIA: proximoTurnIA, finished, history: historico });
     }
@@ -479,6 +480,13 @@ export async function POST(request) {
 
 
 
+/**
+ * Delega para `lib/season-engine/progresso-semana`, que LANÇA quando a gravação
+ * falha (F10). Antes o `{ error }` do supabase-js era ignorado aqui: a rota
+ * respondia 200, a UI marcava a semana como concluída e a próxima destravava —
+ * com o slot desta vazio. O helper é compartilhado com a rota gêmea da
+ * reflection, que fazia o mesmo em outro formato.
+ */
 async function upsertProg(sb, { prog, trilhaId, semana, tipo, empresaId, colaboradorId, slotKey, novoSlot, finished }) {
   const payload = {
     trilha_id: trilhaId, empresa_id: empresaId, colaborador_id: colaboradorId,
@@ -486,12 +494,9 @@ async function upsertProg(sb, { prog, trilhaId, semana, tipo, empresaId, colabor
     [slotKey]: novoSlot,
     ...(finished ? { concluido_em: new Date().toISOString() } : { iniciado_em: prog?.iniciado_em || new Date().toISOString() }),
   };
-  if (prog) await sb.from('temporada_semana_progresso').update(payload).eq('id', prog.id);
-  else await sb.from('temporada_semana_progresso').insert(payload);
+  await gravarProgressoSemana(sb, payload, prog?.id);
 }
 
-async function liberarProxima(sb, trilhaId, proxima) {
-  await sb.from('temporada_semana_progresso')
-    .update({ status: PROGRESSO.EM_ANDAMENTO })
-    .eq('trilha_id', trilhaId).eq('semana', proxima).eq('status', PROGRESSO.PENDENTE);
+async function liberarProxima(sb, trilhaId, proxima, empresaId) {
+  await liberarProximaSemana(sb, trilhaId, proxima, empresaId);
 }
