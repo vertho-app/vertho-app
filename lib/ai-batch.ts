@@ -139,7 +139,11 @@ export async function fetchClaudeBatchResults(
  */
 export async function submitClaudeBatch(
   reqs: BatchReq[],
-  opts: { pollMs?: number; budgetMs?: number; locale?: AppLocale } = {},
+  opts: {
+    pollMs?: number; budgetMs?: number; locale?: AppLocale;
+    /** Etiqueta do ledger (feature/empresa). Sem isto o custo cai como 'batch' genérico. */
+    ledger?: { feature?: string; empresaId?: string | null };
+  } = {},
 ): Promise<Map<string, string>> {
   const batchId = await createClaudeBatch(reqs, { locale: opts.locale });
   const budgetMs = opts.budgetMs ?? 40 * 60_000;
@@ -152,7 +156,7 @@ export async function submitClaudeBatch(
     if (Date.now() > deadline) throw new Error(`batch ${batchId} excedeu ${Math.round(budgetMs / 60000)}min`);
     await sleep(pollMs);
   }
-  return fetchClaudeBatchResults(batchId);
+  return fetchClaudeBatchResults(batchId, opts.ledger);
 }
 
 /**
