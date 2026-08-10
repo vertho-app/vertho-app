@@ -446,7 +446,7 @@ export async function planLayout(blocks: RawBlock[], meta: PlanMeta, model?: str
   const systemPrompt = meta.formato === 'case' ? PLAN_SYSTEM_CASE : PLAN_SYSTEM;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const raw = await callAI(systemPrompt, user, { model }, 8000, { temperature: 0.3 });
+      const raw = await callAI(systemPrompt, user, { model }, 8000, { temperature: 0.3, taskKey: 'conteudo_layout_plan' });
       const plan = sanitize(extractJson(raw), blocks, meta.formato);
       if (plan) return plan;
       console.error(`[planLayout] plano inválido (tentativa ${attempt}/2) — raw[0..200]: ${String(raw).slice(0, 200)}`);

@@ -76,7 +76,7 @@ function parseBrief(raw: string): EscolaBrief {
  */
 export async function resumirPPP(ppp: string): Promise<EscolaBrief> {
   if (!ppp?.trim()) throw new Error('PPP/descrição vazio');
-  const raw = await callAI(SYSTEM, ppp.trim().slice(0, 60000), { model: BRIEF_MODEL }, 2000, { temperature: 0.3 });
+  const raw = await callAI(SYSTEM, ppp.trim().slice(0, 60000), { model: BRIEF_MODEL }, 2000, { temperature: 0.3, taskKey: 'escola_brief' });
   const brief = parseBrief(raw);
   if (!brief.identidade && !brief.contexto && !brief.etapas) {
     throw new Error('não foi possível extrair o brief do texto');

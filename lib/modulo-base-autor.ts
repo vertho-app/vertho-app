@@ -254,7 +254,10 @@ export async function chamarIAComRetry(systemPrompt: string, userPrompt: string,
   let corpo: any = null;
   for (let tentativa = 1; tentativa <= 2 && !corpo; tentativa++) {
     try {
-      const raw = await callAI(systemPrompt, userPrompt, { model }, maxTokens);
+      // `taskKey`: a extração de manuscrito custa ~$0,197 por módulo e roda em
+      // LOTE — sem etiqueta ela some no `untagged` e o ledger não sabe dizer que
+      // a conta do mês veio daqui (F13).
+      const raw = await callAI(systemPrompt, userPrompt, { model }, maxTokens, { taskKey: 'modulo_base_autor' });
       corpo = extractCorpo(raw);
       if (!corpo) {
         const txt = String(raw || '');
