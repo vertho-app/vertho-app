@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Send, Loader2, CheckCircle, AlertTriangle, ArrowLeft, Shield } from 'lucide-react';
 import { getColabByEmail } from '@/app/dashboard/colab-action';
+import { getNomeCompetencia } from '@/app/dashboard/assessment/assessment-actions';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 
 export default function ChatPage() {
@@ -56,10 +57,11 @@ export default function ChatPage() {
 
       if (!competenciaId) { setError(t('errors.missingCompetency')); setInitLoading(false); return; }
 
-      // Nome da competência
-      const { data: comp } = await supabase.from('competencias')
-        .select('nome').eq('id', competenciaId).single();
-      if (comp) setCompNome(comp.nome);
+      // Nome da competência — pelo servidor, com o tenant vindo da SESSÃO.
+      // Ler `competencias` do browser exigia uma policy aberta a todo
+      // `authenticated`, que entregava o acervo dos outros tenants junto.
+      const comp = await getNomeCompetencia(competenciaId);
+      if (comp?.nome) setCompNome(comp.nome);
 
       // Buscar sessão ativa
       const { data: sessaoAtiva } = await supabase.from('sessoes_avaliacao')

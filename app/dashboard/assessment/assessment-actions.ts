@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
 
@@ -60,6 +61,51 @@ async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string,
     const comp = compPrincipalPorNome[key];
     return { nome: n, id: cenario?.compId || comp?.id || null, cenarioId: cenario?.id || null };
   });
+}
+
+/**
+ * Nome da competência exibido no cabeçalho do chat do assessment.
+ *
+ * Existe porque a tela lia `competencias` DIRETO do browser, e a policy que
+ * permitia isso (`authenticated ... USING(true)`) devolvia as 935 competências
+ * das 10 empresas para qualquer sessão autenticada — inclusive de tenant com
+ * cadastro aberto. A leitura veio para cá para a policy poder cair.
+ *
+ * ⚠️ O `competenciaId` continua vindo da URL (`?competencia=`), ou seja, é
+ * escolhido pelo CLIENTE. Quem decide o tenant é a SESSÃO: `tenantDb` injeta
+ * `empresa_id` no filtro. Sem esse par, a migração só teria movido o IDOR do
+ * browser para dentro de uma server action — que é a mesma classe de bug.
+ */
+export async function getNomeCompetencia(competenciaId: string) {
+  try {
+    if (!competenciaId) return { error: 'Competência inválida' };
+
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
+    if (!email) return { error: 'Não autenticado' };
+
+    const colab = await findColabByEmail(email, 'id, empresa_id');
+    if (!colab) return { error: 'Colaborador não encontrado' };
+
+    // Id inválido chegaria ao Postgres como `invalid input syntax for type uuid`
+    // (22P02) — barrar aqui evita transformar lixo da URL em erro de banco.
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(competenciaId)) {
+      return { error: 'Competência inválida' };
+    }
+
+    const tdb = tenantDb(colab.empresa_id);
+    const { data, error } = await tdb.from('competencias')
+      .select('nome')
+      .eq('id', competenciaId)
+      .maybeSingle();
+    if (error) return { error: error.message };
+    if (!data) return { error: 'Competência não encontrada' };
+
+    return { nome: data.nome as string };
+  } catch (err) {
+    console.error('[getNomeCompetencia]', err);
+    return { error: err?.message || 'Erro ao carregar competência' };
+  }
 }
 
 /**
