@@ -61,3 +61,19 @@ export const PAINEL = {
   CANCELADO: 'cancelado',
 } as const;
 export type PainelStatus = (typeof PAINEL)[keyof typeof PAINEL];
+
+/**
+ * ia_batches.status — rastro de um batch submetido à Anthropic (mig 208).
+ *
+ * QUINTO domínio, e o que ele descreve não é trabalho NOSSO: é o estado de algo
+ * que roda no provedor. Daí `SUBMETIDO` em vez de 'pendente' — um batch nesse
+ * estado não está esperando alguém pegá-lo (como no PAINEL); ele já está sendo
+ * processado, e nós é que ainda não colhemos. Um batch parado aqui por horas é o
+ * sinal de órfão: pago, provavelmente pronto, e sem ninguém buscando.
+ */
+export const IA_BATCH = {
+  SUBMETIDO: 'submetido',
+  CONCLUIDO: 'concluido',
+  ERRO: 'erro',
+} as const;
+export type IaBatchStatus = (typeof IA_BATCH)[keyof typeof IA_BATCH];

@@ -13,6 +13,7 @@ import { AppLocale, defaultLocale } from '@/i18n/routing';
 import { localeLanguageName } from '@/lib/i18n';
 import { callAI } from '@/actions/ai-client';
 import { costFromTokens } from '@/lib/ia-cost-catalog';
+import { IA_BATCH, type IaBatchStatus } from '@/lib/status';
 
 const AI_TIMEOUT_MS = 120000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -47,7 +48,10 @@ function anthropicClient() {
  * consultar depois (com `wait.for` numa task, ou noutra invocação). Assim um
  * batch lento não segura a run aberta nem consome `maxDuration`.
  */
-export async function createClaudeBatch(reqs: BatchReq[], opts: { locale?: AppLocale } = {}): Promise<string> {
+export async function createClaudeBatch(
+  reqs: BatchReq[],
+  opts: { locale?: AppLocale; ledger?: { feature?: string; empresaId?: string | null } } = {},
+): Promise<string> {
   const locale = opts.locale || defaultLocale;
   const requests = reqs.map((r) => {
     const system = withLanguageInstruction(r.system, locale);
@@ -60,7 +64,56 @@ export async function createClaudeBatch(reqs: BatchReq[], opts: { locale?: AppLo
     };
   });
   const created = await anthropicClient().messages.batches.create({ requests: requests as any });
+  await registrarBatch(created.id, reqs.length, opts.ledger);
   return created.id;
+}
+
+/**
+ * Grava o `batch_id` FORA da memória do processo, no instante da submissão.
+ *
+ * Achado do gate de 10/08/2026: o id só existia numa variável local durante o
+ * polling. Lambda morrendo, deploy trocando ou timeout e o batch **segue rodando
+ * na Anthropic** — pago, concluído, e sem ninguém com o id para buscar o
+ * resultado. O trabalho some sem deixar linha, porque a persistência do
+ * resultado vem depois.
+ *
+ * Best-effort de propósito: se o rastro falhar, a geração continua. Um batch sem
+ * rastro é ruim; um batch que não roda porque o rastro falhou é pior.
+ */
+/**
+ * Client de INFRA deste módulo: ledger de custo (`ia_usage_log`) e rastro de
+ * batch (`ia_batches`). Nenhuma das duas é dado de tenant — `empresa_id` ali é
+ * etiqueta de atribuição, não escopo de acesso —, então elas não passam por
+ * `tenantDb`. Em UM lugar de propósito: o `service-role-guard` conta ocorrências
+ * de `createSupabaseAdmin` por arquivo, e quatro chamadas espalhadas fariam a
+ * allowlist crescer para registrar a mesma decisão quatro vezes.
+ */
+async function sbInfra() {
+  const { createSupabaseAdmin } = await import('@/lib/supabase');
+  return createSupabaseAdmin();
+}
+
+async function registrarBatch(batchId: string, itens: number, ledger?: { feature?: string; empresaId?: string | null }) {
+  try {
+    const { error } = await (await sbInfra()).from('ia_batches').insert({
+      batch_id: batchId,
+      itens,
+      feature: ledger?.feature ?? null,
+      empresa_id: ledger?.empresaId ?? null,
+    });
+    if (error) console.warn('[ia-batch] rastro não gravado:', error.message);
+  } catch (e: any) {
+    console.warn('[ia-batch] rastro não gravado:', e?.message);
+  }
+}
+
+/** Fecha o rastro. Também best-effort — ver `registrarBatch`. */
+async function encerrarBatch(batchId: string, status: IaBatchStatus, erro?: string) {
+  try {
+    await (await sbInfra()).from('ia_batches')
+      .update({ status, erro: erro?.slice(0, 500) ?? null, concluido_em: new Date().toISOString() })
+      .eq('batch_id', batchId);
+  } catch { /* rastro é observabilidade, nunca bloqueia a geração */ }
 }
 
 export interface BatchStatus {
@@ -119,8 +172,7 @@ export async function fetchClaudeBatchResults(
   }
   if (linhas.length) {
     try {
-      const { createSupabaseAdmin } = await import('@/lib/supabase');
-      await createSupabaseAdmin().from('ia_usage_log').insert(linhas);
+      await (await sbInfra()).from('ia_usage_log').insert(linhas);
     } catch (e: any) {
       console.warn('[ia-ledger] falha ao registrar batch:', e?.message);
     }
@@ -145,7 +197,7 @@ export async function submitClaudeBatch(
     ledger?: { feature?: string; empresaId?: string | null };
   } = {},
 ): Promise<Map<string, string>> {
-  const batchId = await createClaudeBatch(reqs, { locale: opts.locale });
+  const batchId = await createClaudeBatch(reqs, { locale: opts.locale, ledger: opts.ledger });
   const budgetMs = opts.budgetMs ?? 40 * 60_000;
   const pollMs = opts.pollMs ?? 5000;
   const deadline = Date.now() + budgetMs;
@@ -153,10 +205,16 @@ export async function submitClaudeBatch(
   for (;;) {
     const { ended } = await pollClaudeBatch(batchId);
     if (ended) break;
-    if (Date.now() > deadline) throw new Error(`batch ${batchId} excedeu ${Math.round(budgetMs / 60000)}min`);
+    if (Date.now() > deadline) {
+      // O batch NÃO é cancelado: ele continua e vai terminar. Deixar o rastro em
+      // 'submetido' é o que permite buscá-lo depois — `scripts/_batches-orfaos.mjs`.
+      throw new Error(`batch ${batchId} excedeu ${Math.round(budgetMs / 60000)}min (rastro em ia_batches, recuperável)`);
+    }
     await sleep(pollMs);
   }
-  return fetchClaudeBatchResults(batchId, opts.ledger);
+  const out = await fetchClaudeBatchResults(batchId, opts.ledger);
+  await encerrarBatch(batchId, IA_BATCH.CONCLUIDO);
+  return out;
 }
 
 /**
@@ -330,8 +388,7 @@ export async function fetchOpenAIBatchResults(
   }
   if (linhasLedger.length) {
     try {
-      const { createSupabaseAdmin } = await import('@/lib/supabase');
-      await createSupabaseAdmin().from('ia_usage_log').insert(linhasLedger);
+      await (await sbInfra()).from('ia_usage_log').insert(linhasLedger);
     } catch (e: any) {
       console.warn('[ia-ledger] falha ao registrar batch openai:', e?.message);
     }

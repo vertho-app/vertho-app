@@ -23,6 +23,26 @@ export const acumuladaPilotoTask = task({
         .eq('trilha_id', payload.trilhaId).eq('semana', payload.semanaAcumulada);
 
     try {
+      // ── Idempotência (auditoria 09-10/08, confirmado no gate de 10/08) ──────
+      // `retry: { maxAttempts: 3 }` acima re-executa o `run` INTEIRO. Sem esta
+      // checagem, uma falha DEPOIS da geração — o `patch` final, um timeout na
+      // borda dos 600s, um deploy no meio — refazia as **2 chamadas de IA
+      // sequenciais (8k + 6k tokens)** e sobrescrevia a avaliação que já estava
+      // pronta. Pagar três vezes pelo mesmo texto é o menor dos problemas: a
+      // segunda geração produz um texto DIFERENTE do que a pessoa já pode ter
+      // lido, porque a IA não é determinística.
+      //
+      // Ler o estado antes de agir é o que torna a task segura para retry, e o
+      // `acumulada_status` já existe justamente para isso — só não era lido.
+      const { data: jaFeito } = await sb.from('temporada_semana_progresso')
+        .select('acumulada_status')
+        .eq('trilha_id', payload.trilhaId)
+        .eq('semana', payload.semanaAcumulada)
+        .maybeSingle();
+      if (jaFeito?.acumulada_status === 'done') {
+        return { ok: true, trilhaId: payload.trilhaId, pulou: 'ja_concluida' };
+      }
+
       // dynamic import: evita ciclo de tipos e mantém a task leve. Núcleo headless
       // (sem endpoint); empresaId validado pela reflection (dono da trilha) e
       // revalidado contra a trilha no core (B5).
