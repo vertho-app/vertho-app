@@ -5,6 +5,20 @@ import { headers } from 'next/headers';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
 import { registrarEvento } from '@/lib/radar/eventos';
+import { checarAcessoPlataforma, exigirAcessoPlataforma } from '@/lib/authz-plataforma';
+
+/**
+ * 🔴 TODO export deste arquivo é um ENDPOINT HTTP.
+ *
+ * O Radar virou interno em 10/08/2026, e gate de layout não alcança este
+ * arquivo: o action id vai no bundle e é chamável direto, sem passar por página
+ * nenhuma. Tornar a tela interna e deixar as actions abertas devolveria
+ * exatamente o mesmo dado a quem não tem sessão — a tela some, a API fica.
+ *
+ * Por isso o gate está em CADA função, na primeira linha, e não numa camada
+ * acima. Guarda executável: `tests/unit/security/radar-interno-guard.test.ts`
+ * falha se um export novo nascer sem ele.
+ */
 
 type SearchResult = {
   tipo: 'escola' | 'municipio';
@@ -17,6 +31,7 @@ export async function buscarEscolasMunicipios(
   termo: string,
   opts?: { uf?: string },
 ): Promise<SearchResult[]> {
+  await exigirAcessoPlataforma('radar.buscarEscolasMunicipios');
   const q = termo.trim().replace(/[%_]/g, '').slice(0, 80);
   if (q.length < 2) return [];
   const allowed = await checkPublicActionRateLimit('search_radar', 60, 10 * 60 * 1000);
@@ -131,6 +146,7 @@ export type MunicipioListagem = {
 };
 
 export async function listarMunicipiosPorUf(uf: string): Promise<MunicipioListagem[]> {
+  await exigirAcessoPlataforma('radar.listarMunicipiosPorUf');
   const ufNorm = uf?.trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(ufNorm || '')) return [];
   const allowed = await checkPublicActionRateLimit('list_municipios', 60, 10 * 60 * 1000);
@@ -169,6 +185,7 @@ export async function buscarEscolasAvancado(opts: {
   limit?: number;
   offset?: number;
 }): Promise<{ rows: BuscaAvancadaResult[]; total: number }> {
+  await exigirAcessoPlataforma('radar.buscarEscolasAvancado');
   const allowed = await checkPublicActionRateLimit('search_radar_avancado', 60, 10 * 60 * 1000);
   if (!allowed) return { rows: [], total: 0 };
 
@@ -215,6 +232,11 @@ export async function registrarEventoClient(
     | 'bett_sticky_click',
   scope?: { tipo: 'escola' | 'municipio' | 'estado'; id: string },
 ) {
+  // Telemetria NÃO lança: quem chama é fire-and-forget na tela, e derrubar a
+  // renderização de uma tela interna por causa de um evento seria pior do que
+  // perder o evento. Nega igual ao rate limit, com o mesmo contrato.
+  const acesso = await checarAcessoPlataforma();
+  if (!acesso.authorized) return { ok: false };
   const allowed = await checkPublicActionRateLimit('event_client_radar', 120, 10 * 60 * 1000);
   if (!allowed) return { ok: false };
   await registrarEvento(tipo, scope ? { scopeType: scope.tipo, scopeId: scope.id } : {});
@@ -313,6 +335,11 @@ async function checkRateLimit(ipHash: string | null): Promise<{ ok: boolean; rea
 }
 
 export async function capturarLead(input: CapturarLeadInput): Promise<{ success: boolean; error?: string; leadId?: string }> {
+  // Captura de lead do Radar PÚBLICO — que deixou de existir em 10/08/2026.
+  // Fica gateada como o resto: o funil externo saiu, e o formulário só é
+  // alcançável de dentro. A captura do CONARH é outra
+  // (`actions/lead-comercial.ts::capturarLeadComercial`) e segue aberta.
+  await exigirAcessoPlataforma('radar.capturarLead');
   const email = input.email?.trim().toLowerCase();
   if (!email || !email.includes('@') || email.length > 200) return { success: false, error: 'E-mail inválido' };
   if (!input.consentimento_lgpd) return { success: false, error: 'Consentimento LGPD obrigatório' };

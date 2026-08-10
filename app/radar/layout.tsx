@@ -1,36 +1,58 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { ShieldAlert } from 'lucide-react';
+import { checarAcessoPlataforma } from '@/lib/authz-plataforma';
 
+/**
+ * O Radar saiu do ar público em 10/08/2026 (decisão do dono). Era
+ * `radar.vertho.ai`, sem login e indexável; virou ferramenta INTERNA em
+ * `app.vertho.ai/radar`, com a mesma régua do /admin (`platform_admins`).
+ *
+ * ⚠️ Este gate protege a PÁGINA, não os dados. Quem entrega os dados são as
+ * Server Actions de `actions.ts` — cada export é um endpoint HTTP, chamável sem
+ * passar por layout nenhum. O gate delas está lá, uma a uma, e é o que de fato
+ * fecha a superfície. Ver `tests/unit/security/radar-interno-guard.test.ts`.
+ */
 export const metadata: Metadata = {
   title: {
-    default: 'Radar Vertho — Diagnóstico público de educação',
+    default: 'Radar Vertho — inteligência de mercado (interno)',
     template: '%s · Radar Vertho',
   },
-  description:
-    'Indicadores oficiais de Saeb, Ideb e ICA por escola e município. Diagnóstico público gratuito da educação básica brasileira.',
-  metadataBase: new URL('https://radar.vertho.ai'),
+  description: 'Ferramenta interna Vertho. Indicadores oficiais de Saeb, Ideb e ICA por escola e município.',
   applicationName: 'Radar Vertho',
-  authors: [{ name: 'Vertho Mentor IA', url: 'https://vertho.ai' }],
-  keywords: [
-    'saeb', 'ideb', 'ica', 'inep', 'educação básica', 'diagnóstico escolar',
-    'indicadores educacionais', 'radar vertho', 'escola pública',
-  ],
-  openGraph: {
-    type: 'website',
-    locale: 'pt_BR',
-    siteName: 'Radar Vertho',
-    url: 'https://radar.vertho.ai',
-    images: [
-      { url: '/logo-vertho.png', width: 1200, height: 630, alt: 'Radar Vertho — Vertho Mentor IA' },
-    ],
-  },
-  twitter: { card: 'summary_large_image', site: '@vertho_ai' },
-  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
+  // Ferramenta interna não pede indexação. O `noindex` é a segunda linha: a
+  // primeira é o 301 de radar.vertho.ai e o gate abaixo — crawler não passa
+  // por login.
+  robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
 };
 
-export default function RadarLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="radar-shell">
-      {children}
-    </div>
-  );
+export const dynamic = 'force-dynamic';
+
+export default async function RadarLayout({ children }: { children: React.ReactNode }) {
+  const acesso = await checarAcessoPlataforma();
+
+  if (acesso.reason === 'unauthenticated') {
+    redirect('/login?redirect=/radar');
+  }
+
+  if (!acesso.authorized) {
+    return (
+      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-[#07162a] px-6 text-center">
+        <ShieldAlert size={48} className="text-red-400" />
+        <p className="text-lg font-semibold text-white">Acesso restrito</p>
+        <p className="text-sm text-gray-400">
+          O Radar é uma ferramenta interna da Vertho.
+        </p>
+        <Link
+          href="/dashboard"
+          className="mt-2 rounded-lg border border-cyan-400/30 px-4 py-2 text-sm font-semibold text-cyan-400 transition-colors hover:bg-cyan-400/10"
+        >
+          Voltar ao painel
+        </Link>
+      </div>
+    );
+  }
+
+  return <div className="radar-shell">{children}</div>;
 }

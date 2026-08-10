@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { notFound, redirect } from 'next/navigation';
+import { checarAcessoPlataforma } from '@/lib/authz-plataforma';
 
 export const metadata: Metadata = {
   title: {
@@ -25,10 +27,23 @@ export const metadata: Metadata = {
     ],
   },
   twitter: { card: 'summary_large_image', site: '@vertho_ai' },
-  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
+  robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
 };
 
-export default function RadarBettLayout({ children }: { children: React.ReactNode }) {
+export const dynamic = 'force-dynamic';
+
+/**
+ * O `radarbett` foi descontinuado em 25/05/2026 (301 no subdomínio), mas as
+ * páginas seguiam alcançáveis por `app.vertho.ai/radarbett/*` — o 301 é por
+ * HOST. Elas consomem as mesmas actions do Radar, que ficaram internas em
+ * 10/08/2026; sem este gate, a superfície pública continuaria de pé pela porta
+ * dos fundos e as telas quebrariam na primeira busca.
+ */
+export default async function RadarBettLayout({ children }: { children: React.ReactNode }) {
+  const acesso = await checarAcessoPlataforma();
+  if (acesso.reason === 'unauthenticated') redirect('/login?redirect=/radarbett');
+  if (!acesso.authorized) notFound();
+
   return (
     <div className="radarbett-shell">
       {children}

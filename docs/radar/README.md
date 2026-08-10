@@ -1,28 +1,43 @@
 # Radar Vertho — README operacional
 
-Plataforma pública (`radar.vertho.ai`) que organiza indicadores oficiais
-do INEP por escola e município, com leitura contextualizada por IA e
-captação de leads via PDF.
+Ferramenta **interna** (`app.vertho.ai/radar`) que organiza indicadores oficiais
+do INEP por escola e município, com leitura contextualizada por IA.
 
 Spec: `Vertho_Radar_Spec_v2_2.docx` · Decisões: `decisions.md`.
+
+> 🔴 **10/08/2026 — o Radar saiu do ar público.** Era `radar.vertho.ai`, sem
+> login e indexável; virou interno, com a mesma régua do `/admin`
+> (`platform_admins` + fallback `ADMIN_EMAILS`). O subdomínio responde **301
+> para `vertho.ai`**, e `robots.ts`/`sitemap.xml` foram removidos — eram route
+> handlers, que **não passam pelo layout** e continuariam servindo o inventário
+> de URLs.
+>
+> **O número que sustentou a decisão** (medido em 90 dias): 182 eventos
+> humanos, 15 IPs distintos e **zero** visitante com referer externo; 5 leads no
+> total, 4 deles em abril, nenhum convertido.
+>
+> ⚠️ O gate da página **não** protege os dados: cada export de
+> `app/radar/actions.ts` é um endpoint HTTP com id no bundle. O gate está em
+> cada action, e `tests/unit/security/radar-interno-guard.test.ts` falha se uma
+> nova nascer sem ele.
 
 ---
 
 ## TL;DR
 
 - **Pra você**: `app.vertho.ai/admin/radar` (ingestão), `app.vertho.ai/admin/radar/funnel` (analytics)
-- **Pro público**: `radar.vertho.ai` (busca, escola, município, rede, estado, comparar, metodologia)
+- **A ferramenta**: `app.vertho.ai/radar` — interno, platform-admin (busca, escola, município, rede, estado, comparar, metodologia)
 - **Stack**: Next 16 + Supabase + Claude Sonnet 4.6 + QStash + Resend, tudo no monorepo
 - **Cobertura**: nacional (~197k escolas no Censo, Saeb/Ideb/ENEM nacionais; FUNDEB/VAAR a nível de rede)
 - **Design**: handoff vh3 (hero serif + cards de stats + charts SVG inline); leitura IA full-width + Pontos/Destaques 2-col
 - **Migrations aplicadas**: 054–082 (rodar via `node scripts/...` ou Supabase Studio)
-- **Radarbett**: variante para o Bett 2026 vive em `radarbett.vertho.ai` / `app/radarbett/*`. Stack visual diferente (Plus Jakarta Sans + Fraunces, escopados via `.radarbett-shell`) e CTA "Agendar conversa" abre WhatsApp direto. Não confundir com `/radar` (Radar Vertho público regular).
+- **Radarbett**: variante para o Bett 2026 em `app/radarbett/*`. Stack visual diferente (Plus Jakarta Sans + Fraunces, escopados via `.radarbett-shell`) e CTA "Agendar conversa" abre WhatsApp direto. **Descontinuado em 25/05/2026** (301 no subdomínio) e **interno desde 10/08** — o 301 é por HOST, então `app.vertho.ai/radarbett/*` seguia alcançável pela porta dos fundos.
 
 ---
 
 ## Quick reference
 
-### Rotas públicas (`radar.vertho.ai`)
+### Rotas (`app.vertho.ai/radar` — internas, platform-admin)
 
 | Rota | O que mostra |
 |---|---|
