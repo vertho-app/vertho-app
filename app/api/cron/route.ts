@@ -60,9 +60,16 @@ export async function GET(req) {
         break;
       }
 
+      // Backup: falha vira 500 observável, como no reset_demo abaixo. Sem este
+      // `throw` a rota devolvia `{ok: true}` com `result.success === false`
+      // colado dentro — ou seja, o backup podia voltar INCOMPLETO todo dia e o
+      // Vercel Cron registrava sucesso. De nada adianta a action passar a falhar
+      // se quem a chama traduz a falha em 200.
       case 'backup_diario': {
         const { executarBackupDiario } = await import('@/actions/backup');
-        result = await executarBackupDiario();
+        const r = await executarBackupDiario();
+        if (!r.success) throw new Error(r.error || 'backup falhou');
+        result = r;
         break;
       }
 
