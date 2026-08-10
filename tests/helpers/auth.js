@@ -5,7 +5,13 @@
 async function login(page) {
   const email = process.env.SMOKE_EMAIL;
   const pass = process.env.SMOKE_PASS;
-  if (!email || !pass) return false;
+  if (!email || !pass) {
+    // Em CI, falta de credencial NÃO pode virar `test.skip()` — a suíte inteira
+    // pularia e o comando sairia 0 (F12 da auditoria: "instrumento que não pode
+    // disparar"). Local, pular é legítimo: nem todo dev tem a credencial.
+    if (process.env.CI) throw new Error('SMOKE_EMAIL/SMOKE_PASS ausentes em CI — sem eles a suíte pula tudo e mente verde');
+    return false;
+  }
 
   await page.goto('/login');
   await page.getByText('Entrar com senha').click();

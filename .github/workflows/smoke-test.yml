@@ -21,11 +21,18 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Wait for Vercel deploy
+      # `sleep 90` não esperava o deploy: o build leva ~2 min (medido 10/08/2026),
+      # então o smoke media o deployment ANTERIOR e ficava verde sobre código que
+      # ainda não estava no ar. Agora ele espera `/api/version` devolver o SHA
+      # deste commit — e falha se não entrar no ar, em vez de testar a versão velha.
+      - name: Run smoke test (push → espera o SHA deste commit)
         if: github.event_name == 'push'
-        run: sleep 90
+        run: node scripts/smoke-test.js https://app.vertho.ai --aguardar-sha ${{ github.sha }}
 
-      - name: Run smoke test
+      # Em PR não há deployment de produção com este SHA: roda contra o que está
+      # no ar, para pegar quebra de rota, sem afirmar que testou o código do PR.
+      - name: Run smoke test (PR → produção atual)
+        if: github.event_name == 'pull_request'
         run: node scripts/smoke-test.js https://app.vertho.ai
 
       - name: Report result
