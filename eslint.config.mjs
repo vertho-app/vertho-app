@@ -31,7 +31,43 @@ const OVERRIDES = {
 
 export default [
   {
-    ignores: ['.next/**', 'node_modules/**', 'migrations/**', 'scripts/**', 'public/**', 'next-env.d.ts'],
+    /**
+     * ⚠️ Os quatro últimos entraram em 10/08/2026 e são o motivo de o lint
+     * parecer inutilizável: `npx eslint .` reportava **326 errors, e 306 vinham
+     * de artefato de build** — `build/`, `spike-bundle/`,
+     * `worker-hetzner/spike-bundle/` e `.vercel/output/`. Lint que grita sobre
+     * código gerado treina todo mundo a ignorá-lo, e aí o achado real (75
+     * warnings de `react-hooks/set-state-in-effect`, 5 de `purity`) fica
+     * enterrado. Dos 20 errors do nosso código, 16 eram
+     * `jsx-no-comment-textnodes` na proposta comercial, onde
+     * `<SectionLabel>// Contexto</SectionLabel>` é ELEMENTO DE MARCA, não
+     * comentário vazado — ver o override abaixo.
+     */
+    ignores: [
+      '.next/**', 'node_modules/**', 'migrations/**', 'scripts/**', 'public/**', 'next-env.d.ts',
+      'build/**', 'spike-bundle/**', 'worker-hetzner/**', '.vercel/**',
+      'video-spike/**', 'data-pipeline/**',
+      // `.claude/worktrees/**` é resíduo de sessão do Claude Code: uma CÓPIA do
+      // projeto, com `.next` gerado dentro. Sem esta linha o lint reporta cada
+      // achado duas vezes e ainda adiciona os chunks do build da cópia — foi
+      // metade dos 326 errors, e não estava no diagnóstico da auditoria.
+      '.claude/**',
+    ],
   },
   { ...next[0], rules: { ...next[0].rules, ...OVERRIDES } },
+  {
+    /**
+     * `<SectionLabel>// Contexto</SectionLabel>` é ELEMENTO DE MARCA na proposta
+     * comercial (o `//` é tipografia, imita marcador de código), não comentário
+     * JSX vazado. São 16 dos 17 errors que sobravam no nosso código, todos aqui.
+     * Desligar por ARQUIVO, não globalmente: em qualquer outra tela um `//`
+     * dentro de JSX continua sendo bug de verdade.
+     *
+     * ⚠️ Este bloco vem DEPOIS do `next[0]`: no flat config o último a declarar
+     * a regra vence. Colocado antes, ele não tem efeito nenhum — e o lint segue
+     * com os mesmos 16 errors parecendo que a exceção foi aplicada.
+     */
+    files: ['components/pdf/PropostaComercialPDF.tsx', 'app/proposta/**/*.tsx'],
+    rules: { 'react/jsx-no-comment-textnodes': 'off' },
+  },
 ];

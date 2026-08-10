@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
+import { escaparLike } from '@/lib/sql-like';
 import type { AppLocale } from '@/i18n/routing';
 import { magicLinkEmail, magicLinkWhatsapp, signupEmail, signupWhatsapp } from '@/lib/i18n-auth-templates';
 import { sendWhatsapp } from '@/lib/whatsapp';
@@ -99,7 +100,12 @@ async function resolverColaboradorId(
       .from('colaboradores')
       .select('id')
       .eq('empresa_id', empresaId)
-      .ilike('email', email.trim())
+      // `escaparLike`: `_` e `%` são curinga no ILIKE. Aqui isto ATRIBUI a
+      // entrega de um magic link a uma pessoa — um e-mail com underscore casava
+      // outra, e a telemetria passava a dizer que fulano recebeu o link de
+      // sicrano. `.maybeSingle()` esconde o estrago: com 2 casamentos ele
+      // devolve erro e a função retorna null, então some sem deixar rastro.
+      .ilike('email', escaparLike(email.trim()))
       .maybeSingle();
     if (error) {
       console.warn('[access-link] telemetria sem pessoa:', error.message);

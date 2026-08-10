@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser } from '@/lib/auth/request-context';
 import { csrfCheck } from '@/lib/csrf';
 import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
+import { findColabByEmail } from '@/lib/authz';
 
 // PPP-alvo do colaborador: a escola dele define o PPP (escolas que compartilham
 // o PPP usam o mesmo cenário). Sem escola/PPP → null = rede.
@@ -35,9 +36,11 @@ export async function GET(req: Request) {
     const email = auth.email;
     const sb = createSupabaseAdmin();
 
-    const { data: colab } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo, empresa_id, perfil_dominante, escola_id')
-      .eq('email', email).single();
+    // `findColabByEmail` resolve o TENANT pelo header do host. A query direta
+    // `.eq('email').single()` quebra para quem existe em 2+ empresas — são 6
+    // e-mails hoje — porque `.single()` devolve erro com 2 linhas e a pessoa lê
+    // "Colaborador não encontrado" no tenant onde ela está.
+    const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id, perfil_dominante, escola_id') as any;
     if (!colab) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
 
     const { data: empresa } = await sb.from('empresas')
@@ -88,8 +91,7 @@ export async function POST(req: Request) {
     }
 
     const sb = createSupabaseAdmin();
-    const { data: colab } = await sb.from('colaboradores')
-      .select('id, empresa_id, escola_id').eq('email', auth.email).single();
+    const colab = await findColabByEmail(auth.email, 'id, empresa_id, escola_id') as any;
     if (!colab) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
 
     const { data: empresa } = await sb.from('empresas')

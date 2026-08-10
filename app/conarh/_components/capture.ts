@@ -57,7 +57,9 @@ export async function enviarLeadConarh(
   payload: LeadConarhPayload,
 ): Promise<ResultadoCaptura> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // (sem eslint-disable: o typed-linting do @typescript-eslint fica FORA do
+    // `eslint.config.mjs` de propósito, então a regra citada não existe aqui e o
+    // próprio disable virava o último error do projeto.)
     const r: any = await (capturarLeadComercial as any)({
       ...payload,
       // Aliases temporários — ver TODO no cabeçalho.
