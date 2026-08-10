@@ -43,10 +43,30 @@ import { describe, it } from 'vitest';
 const config = JSON.parse(readFileSync('config/ownership-allowlist.json', 'utf-8'));
 const allowlist: Record<string, number> = config.allowlist;
 
-/** Gate que prova SESSÃO, não posse. */
-const GATES_FRACOS = /requireUserAction|requireRoleAction/;
-/** Gate que já decide quem entra (admin/permissão/tenant explícito). */
-const GATES_FORTES = /requireAdminAction|requireAdminSupabase|protectedAction|requirePermissionAction|requireEmpresaSupabase|requireAdminOrCron/;
+/**
+ * Gate que prova SESSÃO, não posse.
+ *
+ * ⚠️ Até 10/08/2026 esta lista tinha só `requireUserAction|requireRoleAction`, e
+ * a linha do `continue` abaixo tirava da varredura tudo que não os usasse. O
+ * dashboard inteiro fala outro idioma — `getAuthenticatedEmailFromAction()` +
+ * `getUserContext(email)` — então dezenas de exports que recebem id/e-mail do
+ * cliente nunca chegaram a ser olhados, e a allowlist VAZIA fazia o guard
+ * parecer 100% limpo. `salvarCheckpointGestor` (F6, escrita e DELETE
+ * cross-tenant) passou por aqui sem ser vista.
+ */
+const GATES_FRACOS = /requireUserAction|requireRoleAction|getAuthenticatedEmailFromAction|getUserContext/;
+/**
+ * Gate que já decide quem entra (admin/permissão/papel comercial).
+ * Os `require*Representative*`/`requireCommercialAdmin*` entraram em 10/08: o
+ * Portal do Representante inteiro usa esse idioma, e sem eles 32 exports
+ * ficavam fora da conta — sem gate reconhecido, mas gatados de verdade.
+ */
+const GATES_FORTES = /requireAdminAction|requireAdminSupabase|protectedAction|requirePermissionAction|requireEmpresaSupabase|requireAdminOrCron|requireRepresentative\w*Action|requireCommercialAdminAction|\bisPlatformAdmin\s*\(/;
+// ⚠️ `\bisPlatformAdmin\s*\(` casa a CHAMADA (`await isPlatformAdmin(email)`, um
+// gate), não a propriedade `ctx.isPlatformAdmin`, que costuma ser só o bypass do
+// admin dentro de uma regra maior. Trocar um pelo outro afrouxaria o guard em
+// silêncio: dezenas de exports mencionam `ctx.isPlatformAdmin` sem serem
+// restritos a admin.
 
 /** Sinais de que o código confere a POSSE do recurso pedido. */
 const SINAIS_POSSE = [
@@ -58,6 +78,14 @@ const SINAIS_POSSE = [
   /colaborador_id['"]?\s*,\s*ctx\./,
   /\bctx\.empresaId\b/, /auth\.empresaId/,
   /colab\.id\s*!==/, /\.id\s*!==\s*colab/,
+  // Acrescentados em 10/08 com os idiomas que o repo REALMENTE usa — sem eles o
+  // guard acusava `getPerfilExternoPdfUrl`, que tem um dos gates de posse mais
+  // completos da base (tenant + gestor_email + tutorados). Guard que acusa quem
+  // fez certo vira ruído, e ruído é como um guard morre.
+  /\bctx\.colaborador\??\.empresa_id\b/,   // tenant vindo da SESSÃO, não do input
+  /\bmesmoEmail\s*\(/,                      // igualdade de e-mail da sessão × alvo
+  /canTutorAccess/, /tutorados_ids/,
+  /assertRepresentativeOwnership/, /\bownAccount\s*\(/, /\bguardEvent\s*\(/,
 ];
 
 const PARECE_ID = /(^|[a-z])(Id|_id|Ids)$|^id$/;
@@ -79,6 +107,72 @@ function isUseServer(sf: ts.SourceFile): boolean {
 
 interface Achado { file: string; line: number; nome: string; ids: string[] }
 
+/**
+ * Corpo do export MAIS o das funções locais que ele chama (1 nível).
+ *
+ * O idioma dominante deste repo é `export async function f(x) { try { return
+ * await _f(x) } catch {} }` com o gate dentro de `_f`. Lendo só o corpo do
+ * export, o guard não via gate NENHUM — e como o filtro exige um gate fraco para
+ * seguir adiante, esses exports saíam da varredura em silêncio. Medido em 10/08:
+ * 24 exports com id do cliente e nenhuma chamada com cara de gate no corpo
+ * próprio, entre eles `salvarRespostaDiagnostico`, cujo gate está no `_`.
+ *
+ * Um nível basta para o padrão real e mantém isto legível; se um dia alguém
+ * empilhar dois wrappers, o guard volta a não ver — e é melhor saber disso por
+ * escrito do que descobrir depois.
+ */
+/**
+ * Tira comentários antes de procurar gate/posse.
+ *
+ * ⚠️ Encontrado por MUTAÇÃO em 10/08/2026, e é o furo mais sério que este guard
+ * tinha: os sinais eram testados no TEXTO da função, comentários inclusive.
+ * Removi de propósito o gate de posse de `salvarCheckpointGestor` para ver o
+ * guard acusar — e ele ficou verde, porque um comentário meu logo acima citava
+ * `canViewColabJourney`. Ou seja: **mencionar o nome de um gate num comentário
+ * silenciava o guard**, por acidente ou de propósito. Um guard que se cala com
+ * uma frase em português não guarda nada.
+ */
+function semComentarios(texto: string): string {
+  return texto
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')   // /* … */ e /** … */
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 '); // // … (o `[^:]` poupa "https://")
+}
+
+function corpoComDelegacao(fn: ts.FunctionLikeDeclaration, sf: ts.SourceFile, locais: Map<string, string>): string {
+  const proprio = semComentarios(fn.getText(sf));
+  const chamadas = new Set<string>();
+  const visit = (n: ts.Node): void => {
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) chamadas.add(n.expression.text);
+    ts.forEachChild(n, visit);
+  };
+  visit(fn);
+  let extra = '';
+  for (const nome of chamadas) {
+    const corpo = locais.get(nome);
+    if (corpo) {
+      const limpo = semComentarios(corpo);
+      if (limpo !== proprio) extra += `\n${limpo}`;
+    }
+  }
+  return proprio + extra;
+}
+
+/** Todas as funções declaradas no arquivo, por nome (para seguir a delegação). */
+function funcoesLocais(sf: ts.SourceFile): Map<string, string> {
+  const mapa = new Map<string, string>();
+  for (const node of sf.statements) {
+    if (ts.isFunctionDeclaration(node) && node.name) mapa.set(node.name.text, node.getText(sf));
+    else if (ts.isVariableStatement(node)) {
+      for (const d of node.declarationList.declarations) {
+        if (d.initializer && (ts.isArrowFunction(d.initializer) || ts.isFunctionExpression(d.initializer) || ts.isCallExpression(d.initializer))) {
+          mapa.set(d.name.getText(sf), d.getText(sf));
+        }
+      }
+    }
+  }
+  return mapa;
+}
+
 function varrer(): Achado[] {
   const achados: Achado[] = [];
 
@@ -89,6 +183,7 @@ function varrer(): Achado[] {
 
     const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     if (!isUseServer(sf)) continue;
+    const locais = funcoesLocais(sf);
 
     for (const node of sf.statements) {
       let nome: string | null = null;
@@ -107,7 +202,7 @@ function varrer(): Achado[] {
       }
       if (!nome || !fn) continue;
 
-      const corpo = fn.getText(sf);
+      const corpo = corpoComDelegacao(fn, sf, locais);
       if (!GATES_FRACOS.test(corpo)) continue;   // sem gate de sessão → outro guard
       if (GATES_FORTES.test(corpo)) continue;    // admin/permissão já decide
 
