@@ -53,10 +53,23 @@ jobs:
 
       - run: npm ci
 
-      - name: rls-posture (banco ausente = FALHA, nunca skip verde)
+      # A pré-condição é verificada AQUI, no shell, e não dentro do teste.
+      # Motivo medido em 10/08: com `describe.skipIf(...)` dependendo de uma env,
+      # o processo do vitest não recebeu `RLS_POSTURE_REQUIRED` e o arquivo
+      # inteiro foi SKIPADO — o guard contra "verde sem ter rodado" caindo
+      # exatamente nesse defeito, na primeira execução. Um `[ -z ]` no shell não
+      # tem essa sutileza: ou o secret existe, ou o job para aqui com a razão na
+      # tela.
+      - name: exige o secret (sem banco não há o que verificar)
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "::error::secret DATABASE_URL ausente. Este job existe para conferir o BANCO VIVO — sem credencial ele não verifica nada, e passar assim seria um verde que afirma o que não foi medido. Crie o secret com um usuário SOMENTE-LEITURA de catálogo (SQL no cabeçalho deste arquivo)."
+            exit 1
+          fi
+
+      - name: rls-posture contra o banco
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          RLS_POSTURE_REQUIRED: '1'
         run: npx vitest run tests/unit/security/rls-posture.test.ts
 
       - name: Reportar

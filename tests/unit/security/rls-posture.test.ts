@@ -37,23 +37,18 @@ const DB = getDatabaseUrl();
  *
  * A separação: PR roda verificação ESTÁTICA (`rls-policy-estatica-guard`), que
  * não precisa de banco e não pode receber credencial de produção — o PR pode
- * modificar o código que executa. O banco VIVO é conferido por um job próprio
- * (`.github/workflows/rls-posture.yml`), que declara `RLS_POSTURE_REQUIRED=1`.
- * Nesse job, banco ausente é FALHA, nunca skip verde.
+ * modificar o código que executa. O banco VIVO é conferido pelo job próprio
+ * `.github/workflows/rls-posture.yml`.
+ *
+ * 🔑 **Quem garante que o skip não vira verde é o WORKFLOW, não este arquivo.**
+ * A primeira versão colocava a exigência aqui, atrás de uma env
+ * (`RLS_POSTURE_REQUIRED`) — e na primeira execução o vitest não recebeu a
+ * variável, o `skipIf` caiu no ramo de skip e o guard-contra-verde-falso passou
+ * verde sem rodar. O job agora falha no shell (`[ -z "$SECRET" ]`) antes de
+ * chegar aqui: uma condição que não depende de propagação de env para dentro de
+ * worker de teste.
  */
-const EXIGIDO = process.env.RLS_POSTURE_REQUIRED === '1';
-
-describe.skipIf(!DB && !EXIGIDO)('RLS posture guard (migs 155-158)', () => {
-  it('há banco para verificar (no job dedicado, ausência é falha)', () => {
-    if (!DB) {
-      throw new Error(
-        'RLS_POSTURE_REQUIRED=1 mas DATABASE_URL está ausente. Este job existe justamente ' +
-        'para conferir o banco vivo: sem credencial ele não verifica nada, e passar assim ' +
-        'seria pior que não existir — é um verde que afirma o que não foi medido.',
-      );
-    }
-    expect(DB).toBeTruthy();
-  });
+describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
 
   let client: Client;
 
