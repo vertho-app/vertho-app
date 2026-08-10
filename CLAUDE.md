@@ -115,6 +115,16 @@ tests/unit/          vitest
 
 ### IA
 - Só `callAI`/`callAIChat` — NÃO criar wrappers novos.
+  - **Por quê, medido (09/08/2026):** o **contrato** da API muda entre gerações de modelo, e quem monta
+    request cru fica fora do fix. `lib/video/gerar-roteiro.ts` faz `fetch` direto para
+    `/v1/messages/batches` com `thinking: {type:'enabled', budget_tokens}` — formato **removido** na
+    geração 5 (retorna 400); o correto é `{type:'adaptive'}`. `conteudo_video` virou `claude-opus-5`
+    em 05/08, o wrapper aprendeu `adaptive` em 08/08 **no gêmeo que não roda**, e o ramo batch é o
+    default. Resultado: **0 vídeos gerados desde 05/08** (último 28/07), sem rastro — o insert em
+    `videos_gerados` vem DEPOIS do roteiro, e o catch faz `return {error}` sem cair no síncrono.
+  - Ao trocar de modelo, além do mapa de ~26 arquivos, **grepar chamada crua**
+    (`api.anthropic.com`, `new Anthropic(`, `generativelanguage`) e conferir o contrato dos parâmetros
+    de raciocínio — não só o id.
 - **Prompt caching**: o system >4000 chars já é cacheado (`cache_control`). Para lote com prefixo grande e estável (régua/cenário repetidos entre colabs), passar `options.cachedUserPrefix` (2º breakpoint). Ver IA4 (`fase3.ts`) e o check (`check-ia4.ts`).
 - Geração em lote de fundo (kit/conteúdos/roteiros) usa **`lib/ai-batch.ts`** (−50%).
 - JSON estruturado: pedir JSON no prompt + parsear (há helpers de extração).
