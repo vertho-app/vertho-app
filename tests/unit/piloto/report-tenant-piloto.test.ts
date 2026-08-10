@@ -3,27 +3,19 @@ import { PROGRAMA_PILOTO } from '@/lib/season-engine/programa-config';
 import { PILOTO_SPEC_VERSION } from '@/lib/season-engine/piloto-trava';
 import { PROGRESSO } from '@/lib/status';
 
-// ── Mock do Supabase (cliente encadeável) ──────────────────────────────────
-// `resolver(table, selectCols)` devolve o `data` de cada .maybeSingle()/.single().
-let resolver: (table: string, cols: string) => any = () => null;
-const updates: any[] = [];
+// ── Mock do Supabase ───────────────────────────────────────────────────────
+// Usa `tests/helpers/supabase-mock`, que sabe FALHAR. A versão anterior deste
+// arquivo hardcodava `error: null` nos quatro métodos — e o CLAUDE.md apontava
+// justamente este arquivo como o modelo a copiar, o que fazia a suíte garantir
+// que a classe nº 1 do "NÃO fazer" (não checar o `{ error }` do supabase-js)
+// nascesse verde. Medido em 10/08: 31 de 40 arquivos de teste eram assim.
+import { criarSupabaseMock } from '../../helpers/supabase-mock';
 
-function makeClient() {
-  const from = (table: string) => {
-    let cols = '';
-    const b: any = {
-      select: (c = '') => { cols = c; return b; },
-      eq: () => b, is: () => b, not: () => b, or: () => b, order: () => b, limit: () => b,
-      maybeSingle: async () => ({ data: resolver(table, cols), error: null }),
-      single: async () => ({ data: resolver(table, cols), error: null }),
-      update: (payload: any) => ({ eq: async () => { updates.push({ table, payload }); return { error: null }; } }),
-      insert: (payload: any) => ({ select: () => ({ single: async () => ({ data: { id: 'new-id' }, error: null }) }) }),
-    };
-    return b;
-  };
-  return { from };
-}
-const client = makeClient();
+let resolver: (table: string, cols: string) => any = () => null;
+const sb = criarSupabaseMock({ resolver: (t, c) => resolver(t, c) });
+const client = sb.client;
+/** Compat com as asserções existentes: escritas de update, no formato antigo. */
+const updates = sb.escritas;
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => client }));
 vi.mock('@/lib/tenant-db', () => ({ tenantDb: () => client }));
@@ -35,7 +27,7 @@ vi.mock('@/actions/ai-client', () => ({ callAI: vi.fn() }));
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
 import { gerarAvaliacaoAcumuladaCore } from '@/lib/season-engine/avaliacao-acumulada-core';
 
-beforeEach(() => { updates.length = 0; resolver = () => null; });
+beforeEach(() => { sb.reset(); resolver = () => null; });
 
 // Trilha piloto padrão (emp-A) com 2 descritores.
 const trilhaPiloto = (empresa = 'emp-A') => ({
@@ -71,7 +63,7 @@ describe('gerarEvolutionReportCore — B4 (não trava por N-1) + B5 (tenant)', (
     expect(er.incompleto).toBe(true);
     expect(er.descritores_avaliados).toBe(1);
     expect(er.descritores_esperados).toBe(2);
-    expect(updates.some((u) => u.table === 'trilhas' && u.payload.status)).toBe(true); // conclui a trilha
+    expect(updates.some((u) => u.tabela === 'trilhas' && u.payload.status)).toBe(true); // conclui a trilha
   });
 
   it('B4: completo (2/2) gera sem flag de incompleto', async () => {
@@ -108,6 +100,46 @@ describe('gerarEvolutionReportCore — B4 (não trava por N-1) + B5 (tenant)', (
     const r = await gerarEvolutionReportCore('tr1', { empresaId: 'emp-A' });
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/spec_version/i);
+  });
+});
+
+/**
+ * Estes dois casos eram INEXPRIMÍVEIS com o mock anterior — ele devolvia
+ * `error: null` sempre. São o motivo de F16 existir: o supabase-js **retorna**
+ * `{ error }` em vez de lançar, então um caminho que não olha o retorno some do
+ * radar tanto em produção quanto na suíte.
+ */
+describe('gerarEvolutionReportCore — o que o mock antigo não conseguia exercitar', () => {
+  const cenarioCompleto = () => {
+    resolver = (t, cols) => {
+      if (t === 'trilhas') return trilhaPiloto('emp-A');
+      if (t === 'temporada_semana_progresso' && cols.includes('reflexao')) return { reflexao: null };
+      if (t === 'temporada_semana_progresso' && cols.includes('feedback')) return prog14([{ descritor: 'D1', nota_pos: 2.5 }, { descritor: 'D2', nota_pos: 3.0 }]);
+      return null;
+    };
+  };
+
+  it('leitura da trilha falhando não vira "trilha não encontrada"', async () => {
+    cenarioCompleto();
+    sb.falharEm({ tabela: 'trilhas', op: 'select', mensagem: 'timeout no pool' });
+    const r = await gerarEvolutionReportCore('tr1', { empresaId: 'emp-A' });
+
+    expect(r.success).toBe(false);
+    // A distinção importa para quem lê o erro: "não existe" manda procurar o
+    // dado; "o banco falhou" manda tentar de novo. Trocar uma pela outra é o que
+    // faz o certificado acusar "participação < 75%" quando o pool estourou (F15).
+    expect(r.error, `erro devolvido: ${r.error}`).not.toMatch(/não encontrada|not found/i);
+    expect(updates.length).toBe(0);
+  });
+
+  it('falha ao PERSISTIR não pode ser reportada como sucesso', async () => {
+    cenarioCompleto();
+    sb.falharEm({ tabela: 'trilhas', op: 'update', mensagem: 'deadlock detected', code: '40P01' });
+    const r = await gerarEvolutionReportCore('tr1', { empresaId: 'emp-A' });
+
+    // Se este teste falhar, o core está devolvendo success:true depois de um
+    // update que não gravou — o relatório existe na tela e não existe no banco.
+    expect(r.success, 'update falhou e o core reportou sucesso').toBe(false);
   });
 });
 

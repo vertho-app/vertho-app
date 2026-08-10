@@ -221,7 +221,9 @@ prova nada se construir a entrada dos dois lados do mesmo jeito: o
 exercitada porque ele consultava o cache com a chave do brief, não com a do plano.
 
 ## Testes
-`npm run test:unit` (vitest) — **roda no CI** (`typecheck.yml`, passo "Security tests + service-role guard"). Preferir extrair lógica pura + testar helpers; para actions com Supabase, mock encadeável (ver `tests/unit/piloto/report-tenant-piloto.test.ts`).
+`npm run test:unit` (vitest) — **roda no CI** (`typecheck.yml`, passo "Security tests + service-role guard"). Preferir extrair lógica pura + testar helpers; para actions com Supabase, usar **`tests/helpers/supabase-mock.ts`** (`criarSupabaseMock`) — nunca escrever um mock novo à mão.
+- ⚠️ **O motivo é medido (10/08/2026): 31 de 40 arquivos de teste com mock de Supabase hardcodavam `error: null` nos quatro métodos** — nenhum deles conseguia exercitar o ramo de erro. E este arquivo apontava um deles como O MODELO a copiar, então a suíte garantia que a classe nº 1 do "NÃO fazer" abaixo (não checar o `{ error }` que o supabase-js **retorna**) nascesse verde. Na primeira aplicação do helper novo, dois bugs reais apareceram em `evolution-report-core`: leitura falhando virava "trilha não encontrada", e `update` falhando saía como `success: true` (relatório na tela, trilha aberta no banco).
+- `criarSupabaseMock({ resolver, lista, contagem })` + **`sb.falharEm({ tabela, op, mensagem })`** dentro do `it` que exercita a falha. `sb.escritas` prova que um gate impediu a escrita — e não só mudou a mensagem de retorno.
 
 - **Integrações externas** (IA, HeyGen, Bunny, WhatsApp): testar o CONTRATO do wrapper em `tests/unit/integrations/` — herda o `include` do `vitest.config.ts` e o CI, sem config nova. Modelo: `tests/unit/integrations/whatsapp-failover.test.ts` (adapters stubados, `fetch` real lança). **NUNCA chamar API real.**
 - Mock testa o NOSSO código, nunca o do fornecedor: se a API externa mudar, o teste passa feliz. Para isso, canary/health check — não `.test.ts`.

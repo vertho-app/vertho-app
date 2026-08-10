@@ -71,9 +71,14 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
   try {
     // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
     const sbRaw = createSupabaseAdmin();
-    const { data: trilha } = await sbRaw.from('trilhas')
+    const { data: trilha, error: errTrilha } = await sbRaw.from('trilhas')
       .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados, programa_modo, programa_config')
       .eq('id', trilhaId).maybeSingle();
+    // Falha de banco ≠ trilha inexistente. Sem esta linha um timeout de pool
+    // virava "Trilha não encontrada", que manda a pessoa procurar um dado que
+    // está lá — é a mesma troca que faz o certificado acusar "participação
+    // < 75%" quando quem falhou foi a query (F15 da auditoria).
+    if (errTrilha) return { success: false, error: `Falha ao ler a trilha: ${errTrilha.message}` };
     if (!trilha) return { success: false, error: 'Trilha não encontrada' };
 
     // B5: caller com sessão de colab usa service-role (bypassa RLS) → EXIGE prova
@@ -147,11 +152,15 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
         descritores_avaliados: quantitativa.length,
         descritores_esperados: descritores.length,
       };
-      await tdb.from('trilhas').update({
+      // O supabase-js RETORNA `{ error }` — não lança. Sem checar, um update que
+      // não gravou saía daqui como `success: true`: o relatório aparecia na tela
+      // e a trilha continuava aberta no banco, sem nada acusando.
+      const { error: errUpPiloto } = await tdb.from('trilhas').update({
         evolution_report,
         evolution_generated_at: new Date().toISOString(),
         status: TRILHA.CONCLUIDA,
       }).eq('id', trilhaId);
+      if (errUpPiloto) return { success: false, error: `Falha ao gravar o relatório: ${errUpPiloto.message}` };
       await encadear(sbRaw, tdb, trilhaId);
       return { success: true, evolution_report };
     }
@@ -187,11 +196,12 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
       },
     };
 
-    await tdb.from('trilhas').update({
+    const { error: errUp } = await tdb.from('trilhas').update({
       evolution_report,
       evolution_generated_at: new Date().toISOString(),
       status: TRILHA.CONCLUIDA,
     }).eq('id', trilhaId);
+    if (errUp) return { success: false, error: `Falha ao gravar o relatório: ${errUp.message}` };
 
     await encadear(sbRaw, tdb, trilhaId);
 
