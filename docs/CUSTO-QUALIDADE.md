@@ -70,6 +70,17 @@ disciplina.
 - *Decisão anti-double-count:* rate-limit do tira-dúvidas conta só `source=null`
   (linha do route); a do wrapper é `source='wrapper'`. Sem isso o limite
   diário contaria 2× por resposta.
+- 🔴 *Ponto cego fechado em 10/08:* "o batch loga lá" só vale para quem passa por
+  `lib/ai-batch.ts`. O roteiro de vídeo montava request cru direto na Batch API e
+  ficava **fora do ledger**: **0 de 169 vídeos** registrados em `ia_usage_log` —
+  e o roteiro é a chamada de LLM mais cara do produto. Ou seja, o painel "Real
+  medido (ledger)" vinha subestimando o custo de IA, sem nada indicar a falta.
+  Agora o roteiro passa por `submitClaudeBatch` com `ledger:{feature:'conteudo_video'}`.
+  **A classe:** custo só aparece no painel se a chamada passar por um dos dois
+  caminhos instrumentados — ao auditar custo, a pergunta não é "quanto o painel
+  mostra?", é **"que chamada não passa por aqui?"**. Ver `docs/FMEA-PIPELINE.md` §F-I14.
+  ⚠️ *Não medido:* quanto o custo real sobe quando os vídeos voltarem a ser gerados
+  — não há histórico no ledger para comparar (as 169 gerações antigas nunca entraram).
 
 **S1.3 (commit desta rodada) — ENTREGUE: estimado × real na mesma tela.**
 - O simulador de custo (`/admin/vertho/simulador-custo`) mostrava só o custo

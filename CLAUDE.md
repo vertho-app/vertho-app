@@ -114,14 +114,19 @@ tests/unit/          vitest
 - Trabalho pesado que precisa de **retry/status** → **task Trigger.dev** + coluna de status na tabela + gate/polling no client, com `after()` só como fallback/self-heal (ex.: acumulada do piloto, `trigger/acumulada-piloto.ts`).
 
 ### IA
-- Só `callAI`/`callAIChat` — NÃO criar wrappers novos.
-  - **Por quê, medido (09/08/2026):** o **contrato** da API muda entre gerações de modelo, e quem monta
-    request cru fica fora do fix. `lib/video/gerar-roteiro.ts` faz `fetch` direto para
+- Só `callAI`/`callAIChat` (síncrono) ou **`lib/ai-batch.ts`** (lote) — NÃO criar wrapper novo nem
+  montar request cru.
+  - **Por quê, medido (09-10/08/2026):** o **contrato** da API muda entre gerações de modelo, e quem monta
+    request cru fica fora do fix. `lib/video/gerar-roteiro.ts` fazia `fetch` direto para
     `/v1/messages/batches` com `thinking: {type:'enabled', budget_tokens}` — formato **removido** na
     geração 5 (retorna 400); o correto é `{type:'adaptive'}`. `conteudo_video` virou `claude-opus-5`
     em 05/08, o wrapper aprendeu `adaptive` em 08/08 **no gêmeo que não roda**, e o ramo batch é o
-    default. Resultado: **0 vídeos gerados desde 05/08** (último 28/07), sem rastro — o insert em
+    default. Resultado: **0 vídeos gerados de 05/08 a 10/08** (o último foi 28/07), sem rastro — o insert em
     `videos_gerados` vem DEPOIS do roteiro, e o catch faz `return {error}` sem cair no síncrono.
+    **Corrigido em 10/08:** o lote passa por `submitClaudeBatch` — SDK oficial, **sem parâmetro de
+    raciocínio no corpo** (imune à próxima troca de geração) e com o custo indo pro ledger (eram
+    0 de 169 vídeos registrados). Guarda: `tests/unit/integrations/ia-request-cru-guard.test.ts`,
+    com allowlist de HTTP cru **vazia**. Detalhe: `docs/FMEA-PIPELINE.md` §F-I14.
   - Ao trocar de modelo, além do mapa de ~26 arquivos, **grepar chamada crua**
     (`api.anthropic.com`, `new Anthropic(`, `generativelanguage`) e conferir o contrato dos parâmetros
     de raciocínio — não só o id.

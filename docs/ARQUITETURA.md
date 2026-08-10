@@ -678,8 +678,17 @@ checkAdminAccess():
 ```
 callAI(system, user, aiConfig, maxTokens, options)     → single-turn
 callAIChat(system, messages, aiConfig, maxTokens, options) → multi-turn
-options.thinking = true → Extended Thinking (budget 32k/65k)
+options.thinking = true → Extended Thinking — o FORMATO depende da geração do modelo
+                          (até 4.6: {type:'enabled', budget_tokens 32k/65k};
+                           4.7/4.8/5: {type:'adaptive'} + output_config.effort)
+options.reasoningEffort   → 'low'|'medium'|'high'|'xhigh'|'max'
 ```
+
+⚠️ Quem decide esse formato é **só** `aplicarThinkingClaude()` dentro de `actions/ai-client.ts`.
+Mandar `{type:'enabled'}` para um modelo da geração 5 retorna **400**, e request montado à mão fica
+fora dessa correção — foi assim que o vídeo passou 5 dias gerando zero (`docs/FMEA-PIPELINE.md`
+§F-I14). Guardas: `tests/unit/integrations/ai-thinking-geracao.test.ts` (formato por geração) e
+`ia-request-cru-guard.test.ts` (ninguém fala HTTP cru com a Anthropic).
 
 Modelos: Claude Sonnet 4.6, Claude Opus 4.6, Claude Haiku 4.5, Gemini 3 Flash, Gemini 3.1 Pro
 
@@ -1710,7 +1719,8 @@ Helpers em `lib/phone-otp.ts` (`proxyEmailFromPhone`, `isProxyEmail`, `issueOtp`
 
 ```
 Modulo-Base
-  → roteiro          (Claude Opus 4.8 via Batch API + prompt caching; lib/video/roteiro-prompt.ts → lib/video/gerar-roteiro.ts)
+  → roteiro          (modelo da task conteudo_video — Claude Opus 5 desde 05/08/2026 — via Batch API
+                      (submitClaudeBatch) + prompt caching; lib/video/roteiro-prompt.ts → lib/video/gerar-roteiro.ts)
   → narracao TTS     (Gemini, voz Kore; lib/video/gerar-narracao.ts / lib/gemini-tts.ts)
   → avatar HeyGen    (lib/video/heygen.ts — lip-sync da NOSSA narracao; so nas cenas de abertura/fecho)
   → montar inputProps (lib/video/montar-inputprops.ts)
@@ -1734,7 +1744,7 @@ Cada video e sob medida para **(modulo × empresa × cargo × DISC dominante D/I
 
 Tabela `videos_gerados` (migrations 138/139): `status`, `etapa`, `roteiro` (jsonb), `assets` (jsonb), `cargo`, `disc_dominante`, `video_url`, `bunny_video_id`, `srt`, `vtt`.
 
-Modelo do roteiro: `claude-opus-4-8` (default da task `conteudo_video` em `lib/ai-tasks.ts`), orçado com Batch API (50% off) + prompt caching/prompting quando há lote. Doc do prompt: `docs/PROMPT-ROTEIRO-VIDEO.md`.
+Modelo do roteiro: default da task `conteudo_video` em `lib/ai-tasks.ts` — **`claude-opus-5` desde 05/08/2026**, orçado com Batch API (50% off) via `submitClaudeBatch` (`lib/ai-batch.ts`) + prompt caching/prompting quando há lote. Doc do prompt: `docs/PROMPT-ROTEIRO-VIDEO.md`. ⚠️ Não montar o request à mão nem pedir `thinking` no corpo — `docs/FMEA-PIPELINE.md` §F-I14.
 
 ### 23.4 Infra de render
 

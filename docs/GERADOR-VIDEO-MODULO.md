@@ -13,7 +13,11 @@
 → `actions/gerar-video.ts::criarEDispararVideo` → task `trigger/gerar-video-modulo`.
 
 **Pipeline (na task `gerar-video-modulo`):**
-1. **Roteiro** — `claude-opus-4-6` + extended thinking (task `conteudo_video`). Estrutura flexível: `avatar_intro` + miolo 6–12 cenas (13 templates) + `avatar_outro`. O `avatar_intro` **NÃO cumprimenta** (a saudação nominal faz isso — ver abaixo).
+1. **Roteiro** — modelo da task `conteudo_video` (`lib/ai-tasks.ts`; **`claude-opus-5` desde 05/08/2026**), pela **Batch API** via `submitClaudeBatch` (`lib/ai-batch.ts`, −50%), com fallback síncrono por `callAI` quando `VIDEO_ROTEIRO_MODE=sync` ou `forceSync` (o Kit). Estrutura flexível: `avatar_intro` + miolo 6–12 cenas (13 templates) + `avatar_outro`. O `avatar_intro` **NÃO cumprimenta** (a saudação nominal faz isso — ver abaixo).
+   - ⚠️ **Não peça `thinking` no corpo.** Até 10/08 este passo montava request cru com
+     `thinking:{type:'enabled',budget_tokens}` — formato removido na geração 5 — e o pipeline ficou
+     **5 dias gerando zero vídeo** sem deixar rastro. Na geração 5 o raciocínio já vem ligado e
+     divide `max_tokens` (16k aqui) com o texto. Modo de falha completo: `docs/FMEA-PIPELINE.md` §F-I14.
 2. **Narração** — Gemini TTS, voz **`Vindemiatrix`** (`VIDEO_TTS_VOICE`), 1 mp3/cena, com **direção de estilo por tipo de cena** (intro calorosa/engajante, miolo conversa, outro pausado) + correção de pronúncia de siglas. Whisper alinha palavra-a-palavra (legendas).
 3. **Avatar (HeyGen)** — só nas pontas; lip-sync do NOSSO mp3 (`voice.type=audio`), 1920×1080; mp4 normalizado p/ CFR (25→30fps).
 4. **Render (Remotion, comp `VerthoVideo`)** — recebe tudo via `inputProps` (timeline de `montar-inputprops.ts`). **Dois backends** (`RENDER_BACKEND`):

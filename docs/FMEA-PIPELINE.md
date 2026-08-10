@@ -440,6 +440,40 @@ briefs duplicados por tupla.
   42). Guardas: `tests/unit/pipeline-health-horizonte.test.ts` e `pipeline-health-regras.test.ts` (R7),
   ambos validados por mutação.
 
+### F-I14 · Request cru de IA fica FORA do fix do wrapper e some na troca de geração ✅ (corrigido 10/08)
+- **Gatilho:** `lib/video/gerar-roteiro.ts:47` (antes desta correção) — `fetch` direto para
+  `https://api.anthropic.com/v1/messages/batches`, fora de `callAI` e fora de `lib/ai-batch.ts`,
+  com `thinking: {type:'enabled', budget_tokens: 8000}` no corpo.
+- **Efeito:** o formato `enabled`+`budget_tokens` foi **removido** na geração 5 do Claude (400: *"use
+  thinking.type.adaptive and output_config.effort"*). `lib/ai-tasks.ts` apontou `conteudo_video` para
+  `claude-opus-5` em 05/08 → toda geração de roteiro passou a estourar 400.
+- **Medido:** **0 vídeos gerados de 05/08 a 10/08** (o último foi 28/07; 169 no total). E **0 de 169
+  vídeos** no `ia_usage_log` — o request cru também não passava pelo ledger, justamente na chamada
+  mais cara do produto.
+- **Por que ficou 5 dias invisível — três camadas, não uma:**
+  1. o ramo batch é o **default** (`VIDEO_ROTEIRO_MODE !== 'sync' && !forceSync`) e `VIDEO_ROTEIRO_MODE`
+     não existe em produção → o caminho quebrado é o que roda;
+  2. o `catch` faz `return { error }` **sem cair no síncrono** e sem `registrarDegradacao`;
+  3. o insert em `videos_gerados` vem **DEPOIS** do roteiro — falha não deixa linha, e "nada foi
+     gerado" é indistinguível de "ninguém pediu".
+- **A pegadinha que dá nome ao modo:** em 08/08 o wrapper **aprendeu** o formato novo (`adaptive`) e
+  o vídeo **continuou quebrado** — quem monta request cru não passa pelo wrapper e portanto fica fora
+  do fix. É o corolário "conserte o que RODA" do `CLAUDE.md`, agora entre *wrapper* e *request cru*.
+  Documentar o modo de falha (commit `18c53a13`, 09/08) também não gera vídeo: o arquivo seguiu
+  intacto até 10/08.
+- **Correção (10/08):** o ramo batch passa por **`submitClaudeBatch`** (`lib/ai-batch.ts`) — SDK
+  oficial, **nenhum parâmetro de raciocínio no corpo** (imune por construção à próxima troca de
+  geração), cache de system automático e ledger com `feature:'conteudo_video'`. `max_tokens` fica em
+  **16k de propósito**: na geração 5 o raciocínio é ligado por padrão e divide o orçamento com o
+  texto — dimensionar justo trunca o roteiro no meio.
+- **Guarda (validada por mutação):** `tests/unit/integrations/ia-request-cru-guard.test.ts` varre o
+  DIRETÓRIO (`actions/ lib/ app/ trigger/ components/`, pega arquivo untracked) e falha se alguém
+  falar HTTP direto com `api.anthropic.com` (allowlist **vazia**) ou montar `budget_tokens:` fora de
+  `actions/ai-client.ts`. Complementa `ai-thinking-geracao.test.ts`, que trava o formato *dentro* do
+  wrapper: um cobre o conteúdo do corpo, o outro a existência de um segundo caminho.
+- ⚠️ **Ainda não observado:** um vídeo real gerado fim-a-fim após a correção. A prova aqui é de
+  contrato (typecheck + guarda), não de execução — a primeira geração real é que fecha o modo.
+
 ---
 
 ## 3. Escala (o que quebra a partir de N) — resumo; detalhe em ESCALA-50K.md
