@@ -43,7 +43,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # `engines` do package.json exige >=24.13.1 — com Node 20 o `npm ci`
+          # recusa (`notsup`) e o job falha ANTES de rodar o teste. Um job que
+          # falha pelo motivo errado não é o alarme que ele diz ser: mesmo com o
+          # secret configurado, ele continuaria vermelho pelo mesmo erro.
+          # (O `smoke-test.yml` ainda usa 20 e funciona porque não faz `npm ci`.)
+          node-version: '24.13.1'
           cache: 'npm'
 
       - run: npm ci
