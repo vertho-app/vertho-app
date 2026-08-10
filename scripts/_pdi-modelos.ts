@@ -31,11 +31,18 @@ const EMP = process.argv[2] || process.env.PDI_EMP || '0d99fed1-1710-40e3-b32e-7
 const COLAB = process.argv[3] || process.env.PDI_COLAB || 'c514045e-01e0-452f-8ce9-91b27f6d1d22'; // Elda
 const TASK_KEY = 'pdi_compare_0708';
 
-interface Run { model: string; effort?: 'low' | 'medium' | 'high' | 'max'; thinking?: boolean; nota?: string }
+interface Run { model: string; effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max'; thinking?: boolean; nota?: string }
 
 const RUNS: Run[] = [
+  { model: 'claude-sonnet-4-6', nota: 'BASELINE (default de produção)' },
+  { model: 'claude-sonnet-5', nota: 'candidato — vigiar inflação de output' },
+  { model: 'claude-sonnet-5', effort: 'high', nota: 'par do anterior: effort compensa?' },
+  { model: 'gpt-5.6-luna', effort: 'low' },
+  { model: 'gpt-5.6-luna', effort: 'high', nota: 'par: esforço vale a pena?' },
+  { model: 'gpt-5.6-terra', effort: 'high' },
+  { model: 'gemini-3.6-flash' },
+  { model: 'kimi-k3', effort: 'low' },
   { model: 'claude-opus-5', thinking: true, effort: 'high', nota: 'TETO de referência, não candidato' },
-  { model: 'claude-sonnet-5', effort: 'high', nota: 'candidato gen-5 com effort real' },
 ];
 
 const OUT = path.join(os.homedir(), 'Downloads', `pdi-modelos-${new Date().toISOString().slice(0, 10)}`);
@@ -76,14 +83,14 @@ async function main() {
   const sb = createSupabaseAdmin();
   const built = await buildRelatorioIndividualPrompt(sb, { empresaId: EMP, colaboradorId: COLAB });
   if ('error' in built) throw new Error(built.error);
-  console.log(`alvo: ${built.colab?.nome} @ ${built.empresa?.nome}`);
+  console.log(`alvo: ${built.colab?.nome_completo} @ ${built.empresa?.nome}`);
   console.log(`prompt: system=${built.system.length}ch user=${built.user.length}ch — blueprint ${built.blueprint ? 'FIXO ✓' : 'AUSENTE ⚠️'}`);
   console.log(`competências: ${built.dadosComps.length}\n`);
   fs.writeFileSync(path.join(OUT, '_prompt-user.txt'), built.user);
   fs.writeFileSync(path.join(OUT, '_prompt-system.txt'), built.system);
 
   const resumo: string[] = [
-    `# Comparação PDI — ${built.colab?.nome} (${built.empresa?.nome}), blueprint fixo`,
+    `# Comparação PDI — ${built.colab?.nome_completo} (${built.empresa?.nome}), blueprint fixo`,
     '',
     `Prompt idêntico em todos: system ${built.system.length}ch · user ${built.user.length}ch · ${built.dadosComps.length} competências.`,
     'O blueprint fixa as AÇÕES e o overlay() sobrescreve nível/nota — o que varia entre modelos é a REDAÇÃO.',
