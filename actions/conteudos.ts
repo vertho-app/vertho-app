@@ -8,7 +8,6 @@ import { promptTextContent } from '@/lib/season-engine/prompts/text-content';
 import { promptCaseStudy } from '@/lib/season-engine/prompts/case-study';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { resolverModuloBaseParaConteudo, enriquecerPromptComModuloBase } from '@/lib/season-engine/modulo-base-integration';
 import { getModelForTask } from '@/lib/ai-tasks';
 import { derivarArquetipo } from '@/lib/disc-arquetipos';
@@ -866,31 +865,58 @@ export async function gerarConteudoFinal(id: string) {
 export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabIn }: { contentId: string; colab?: any }) {
   let generico: string | null = null;
   try {
-    // Service-role direto: quem abre o conteúdo é o COLABORADOR (não admin).
-    // A identidade vem da SESSÃO (sem IDOR) — EXCETO quando `colab` é passado
-    // explicitamente (pré-geração em lote por um job admin, por colaboradorId).
-    const sb = createSupabaseAdmin();
     if (!contentId) return { success: false, error: 'contentId obrigatório' };
 
+    // ── Gate de posse ────────────────────────────────────────────────────────
+    // Este export é um ENDPOINT HTTP: `colab` chega pela REDE, escolhido pelo
+    // cliente. Até 10/08/2026 passá-lo pulava a identidade da sessão inteira, e
+    // o conteúdo era buscado por id SEM filtro de tenant — um autenticado de
+    // qualquer empresa recebia 302 para o PDF de outra, com o `conteudo_inline`
+    // alheio já renderizado e 2 chamadas de IA pagas no caminho. Corrigir só a
+    // rota `/api/conteudo/[id]/pdf` não resolveria: o bypass é aqui dentro.
+    //
+    // A régua é a MESMA da rota gêmea do podcast (`/api/conteudo/[id]/podcast`,
+    // que já estava certa): conteúdo **global OU do próprio tenant**, e `colab`
+    // do caller é AUTORIZADO por `assertColabAccess`, nunca confiado em silêncio.
+    // Duas réguas para a mesma pergunta é como nasce a divergência do F4.
+    const { requireUserAction } = await import('@/lib/auth/action-context');
+    let auth;
+    try {
+      auth = await requireUserAction();
+    } catch {
+      return { success: false, error: 'não autenticado' };
+    }
+
+    const sb = createSupabaseAdmin();
     const { data: c } = await sb
       .from('micro_conteudos')
       .select('*, empresa:empresas(nome)')
       .eq('id', contentId)
       .maybeSingle();
     if (!c) return { success: false, error: 'Conteúdo não encontrado' };
+
+    // `empresa_id` nulo = catálogo global (30 dos 491 conteúdos, medido 10/08).
+    // Filtrar por tenant sem esta ressalva tiraria 19 textos/cases de todo mundo.
+    if (c.empresa_id && !auth.isPlatformAdmin && c.empresa_id !== auth.empresaId) {
+      return { success: false, error: 'sem acesso a este conteúdo' };
+    }
+
     generico = c.url || null;
     if ((c.formato !== 'texto' && c.formato !== 'case') || !c.conteudo_inline?.trim()) {
       return { success: true, url: generico, personalized: false };
     }
 
-    // Colaborador (DISC + tenant): passado pelo job (pré-geração) OU resolvido da sessão.
+    // Colaborador (DISC + tenant): do job de pré-geração em lote OU da sessão.
     let colab: any = colabIn;
-    if (!colab) {
-      const email = await getAuthenticatedEmailFromAction();
-      if (!email) return { success: true, url: generico, personalized: false };
+    if (colab) {
+      const { assertColabAccess } = await import('@/lib/auth/request-context');
+      if (await assertColabAccess(auth, colab?.id)) {
+        return { success: false, error: 'sem acesso a este colaborador' };
+      }
+    } else {
       const { findColabByEmail } = await import('@/lib/authz');
       colab = await findColabByEmail(
-        email,
+        auth.email,
         'perfil_dominante, d_natural, i_natural, s_natural, c_natural, tp_introvertido_extrovertido, tp_sensor_intuitivo, empresa_id',
       );
     }
@@ -1011,12 +1037,50 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
  */
 export async function prepararAudioPersonalizado({ contentId, colab }: { contentId: string; colab: any }) {
   try {
+    if (!colab?.id) return { success: false, error: 'colab inválido' };
+
+    // Mesmo gate da gêmea acima, e pelo mesmo motivo: export de `'use server'` é
+    // endpoint, e aqui o `colab` inteiro (id E nome) vinha do caller — dava para
+    // gravar no Storage o áudio de um conteúdo de outro tenant com o nome que se
+    // quisesse na saudação, pagando TTS. A rota `/api/conteudo/[id]/podcast` já
+    // autorizava assim; esta função não.
+    const { requireUserAction } = await import('@/lib/auth/action-context');
+    let auth;
+    try {
+      auth = await requireUserAction();
+    } catch {
+      return { success: false, error: 'não autenticado' };
+    }
+
     const sb = createSupabaseAdmin();
-    const nome = colab?.nome_completo?.trim();
-    if (!nome || !colab?.id) return { success: false, error: 'colab inválido' };
     const { data: content } = await sb.from('micro_conteudos')
-      .select('id, formato, conteudo_inline').eq('id', contentId).maybeSingle();
+      .select('id, formato, conteudo_inline, empresa_id').eq('id', contentId).maybeSingle();
     if (!content || content.formato !== 'audio') return { success: false, error: 'não é áudio' };
+    if (content.empresa_id && !auth.isPlatformAdmin && content.empresa_id !== auth.empresaId) {
+      return { success: false, error: 'sem acesso a este conteúdo' };
+    }
+
+    const { assertColabAccess } = await import('@/lib/auth/request-context');
+    if (await assertColabAccess(auth, colab.id)) {
+      return { success: false, error: 'sem acesso a este colaborador' };
+    }
+
+    // O NOME vai para dentro do áudio ("Olá, {nome}") e é o que a pessoa ouve —
+    // então vem do BANCO, não do payload. Autorizar o `colab.id` e depois aceitar
+    // o `nome_completo` que veio junto deixaria o texto da saudação escolhido pelo
+    // caller; a rota gêmea já lê do banco por isso.
+    const { data: alvo } = await sb.from('colaboradores')
+      .select('nome_completo, empresa_id').eq('id', colab.id).maybeSingle();
+    const nome = alvo?.nome_completo?.trim();
+    if (!nome) return { success: false, error: 'colaborador sem nome' };
+
+    // O `empresa_id` do alvo não é lido por formalidade: `assertColabAccess`
+    // libera o platform admin para QUALQUER colaborador, então sem esta linha
+    // daria para gerar o áudio de um conteúdo do tenant A com o nome de alguém
+    // do tenant B — e o arquivo ficaria no Storage do A.
+    if (content.empresa_id && alvo.empresa_id !== content.empresa_id) {
+      return { success: false, error: 'colaborador de outro tenant' };
+    }
 
     const sani = (v: string) => String(v || '').replace(/[^a-zA-Z0-9_-]/g, '_');
     const cachePath = `final/audio-personalizado/${sani(contentId)}/${sani(colab.id)}.mp3`;
