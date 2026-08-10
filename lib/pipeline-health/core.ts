@@ -22,9 +22,25 @@ import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDo
 import { webPushConfigurado } from '@/lib/notifications/providers/webpush';
 import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
-/** Empresas elegíveis a envio: exclui demo (não envia comunicação real). */
+/**
+ * Empresas elegíveis a envio: exclui demo (não envia comunicação real).
+ *
+ * ⚠️ LANÇA se a query falhar, em vez de devolver `[]`. O supabase-js **retorna**
+ * `{ error }` — não lança — e sem esta checagem uma falha aqui virava lista
+ * vazia: os três modos que dependem dela varreriam zero empresas, devolveriam
+ * zero resultados, e `executarHealthCheck` reportaria
+ * "0 run(s) · 0 crítico(s) · 0 aviso(s)". Um health-check que não conseguiu
+ * olhar nada diria exatamente o mesmo que um que olhou tudo e não achou
+ * problema — que é a falha mais cara possível num instrumento de alarme.
+ *
+ * Lançar é o certo aqui (e não devolver um achado): quem chama está DENTRO do
+ * `executarHealthCheck`, o cron transforma exceção em 500 observável, e o
+ * try/catch por empresa lá embaixo cobre o caso oposto — uma empresa quebrada
+ * não pode cegar a varredura das outras.
+ */
 async function empresasAtivas(sb: any) {
-  const { data } = await sb.from('empresas').select('id, slug, nome, sys_config, is_demo');
+  const { data, error } = await sb.from('empresas').select('id, slug, nome, sys_config, is_demo');
+  if (error) throw new Error(`health-check não conseguiu listar empresas: ${error.message}`);
   return ((data as any[]) || []).filter((e) => !e.is_demo);
 }
 
