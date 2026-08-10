@@ -84,6 +84,17 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'auditorias', labelKey: 'audits',    subKey: 'auditsSub',        group: 'verthoAudit', icon: ClipboardCheck, hrefFn: (id) => `/admin/vertho/auditorias?empresa=${id}`,  showWhenAll: false },
 
   // ── Dados educacionais (admin-wide) ───────────────────────────────────────
+  // A FERRAMENTA (busca de escola/município). Era `radar.vertho.ai`, público e
+  // sem login; virou interna em 10/08/2026 e ficou sem porta de entrada — o
+  // subdomínio ERA o botão. Os dois itens abaixo são a administração dela.
+  //
+  // ⚠️ Sem `permission` de propósito: `radar.admin.access` é `risk: critical` e
+  // cobre INGESTÃO (mexer no dado), que o Admin Sócio não tem. Consultar é
+  // leitura — amarrar este item àquela permissão tiraria o Radar da Juliane e
+  // do Samuel. A régua aqui é a mesma do gate de `app/radar/layout.tsx`:
+  // qualquer platform admin. Mudar uma ponta sem a outra é como o menu passa a
+  // mentir (item some e a URL continua entrando, ou o contrário).
+  { key: 'radar-consulta',  labelKey: 'radarTool',      subKey: 'schoolCityLookup', group: 'data', icon: Crosshair, hrefFn: () => '/radar',                    showWhenEmpresa: false },
   { key: 'radar',           labelKey: 'radarIngestion', subKey: 'saebIcaCensus', group: 'data', icon: BarChart2, hrefFn: () => '/admin/radar',                 showWhenEmpresa: false, permission: 'radar.admin.access' },
   { key: 'qualidade-dados', labelKey: 'dataQuality',    subKey: 'radarQuality',  group: 'data', icon: Database,  hrefFn: () => '/admin/radar/qualidade-dados', showWhenEmpresa: false, permission: 'radar.admin.access' },
 

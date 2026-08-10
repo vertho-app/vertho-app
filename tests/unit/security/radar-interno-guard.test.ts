@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { detectRewriteSubdomain, extractTenantSlug, resolveSubdominioAposentado } from '../../../proxy.js';
 
@@ -18,6 +18,14 @@ import { detectRewriteSubdomain, extractTenantSlug, resolveSubdominioAposentado 
 
 const RAIZ = join(__dirname, '..', '..', '..');
 const ACTIONS = join(RAIZ, 'app', 'radar', 'actions.ts');
+
+function varrerTsx(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const caminho = join(dir, e.name);
+    if (e.isDirectory()) return varrerTsx(caminho);
+    return e.name.endsWith('.tsx') ? [caminho] : [];
+  });
+}
 
 describe('Radar interno', () => {
   it('toda Server Action do Radar aplica o gate de plataforma', () => {
@@ -41,6 +49,21 @@ describe('Radar interno', () => {
     ).toEqual([]);
   });
 
+  it('o Radar tem porta de entrada no menu, com a mesma régua do gate', async () => {
+    // O subdomínio ERA o botão: aposentá-lo deixou a ferramenta sem entrada
+    // nenhuma (o menu só tinha a INGESTÃO, `/admin/radar`).
+    const { NAV_ITEMS } = await import('@/app/admin/_shell/nav-items');
+    const item = NAV_ITEMS.find((i: any) => i.hrefFn() === '/radar');
+    expect(item, 'sem item de menu, a ferramenta só é alcançável digitando a URL').toBeDefined();
+
+    // Sem permissão granular, de propósito: `radar.admin.access` é `critical` e
+    // cobre a INGESTÃO — o Admin Sócio não a tem. Consultar é leitura, e o gate
+    // de `app/radar/layout.tsx` deixa entrar qualquer platform admin. Amarrar o
+    // item àquela permissão faria o botão sumir para quem ainda entra pela URL.
+    expect(item!.permission).toBeUndefined();
+    expect(item!.showWhenEmpresa).toBe(false); // é admin-wide, não tem tenant
+  });
+
   it('a página do Radar é montada atrás do gate', () => {
     const layout = readFileSync(join(RAIZ, 'app', 'radar', 'layout.tsx'), 'utf8');
     expect(layout).toMatch(/checarAcessoPlataforma\(/);
@@ -59,6 +82,35 @@ describe('Radar interno', () => {
     ]) {
       expect(existsSync(join(RAIZ, morto)), `${morto} voltou a existir`).toBe(false);
     }
+  });
+
+  it('a navegação interna do Radar aponta para /radar, não para a raiz do app', () => {
+    // Enquanto o Radar era `radar.vertho.ai`, o REWRITE do proxy prefixava tudo:
+    // `href="/comparar"` chegava como `/radar/comparar` sozinho, e `href="/"` era
+    // a home do Radar. Sem o subdomínio, os mesmos links levam para a home do APP
+    // e para 404 — quebra que não aparece em typecheck nem em build.
+    const ROTAS = ['escola', 'municipio', 'estado', 'rede', 'comparar', 'metodologia'];
+    const arquivos = varrerTsx(join(RAIZ, 'app', 'radar'));
+    expect(arquivos.length).toBeGreaterThan(10);
+
+    const soltos: string[] = [];
+    for (const arquivo of arquivos) {
+      // Sem comentários: o próprio aviso escrito no header cita `href="/"` como
+      // exemplo do erro, e um guard que acusa a própria documentação treina a
+      // pessoa a ignorá-lo.
+      const fonte = readFileSync(arquivo, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      const rel = arquivo.slice(RAIZ.length + 1).replace(/\\/g, '/');
+      // href="/x" | href={`/x/...`} | router.push('/x') — sem o prefixo /radar
+      for (const [, alvo] of fonte.matchAll(/(?:href=|router\.push\()[{('"`]+(\/[a-z-]+)/g)) {
+        if (ROTAS.includes(alvo.slice(1))) soltos.push(`${rel}: ${alvo}`);
+      }
+      // A raiz nua: no app inteiro ela é o dashboard, aqui parecia a home do Radar.
+      if (/href="\/"/.test(fonte)) soltos.push(`${rel}: href="/"`);
+    }
+
+    expect(soltos, 'link do Radar sem o prefixo /radar cai fora da ferramenta').toEqual([]);
   });
 
   it('radar.vertho.ai não faz rewrite e responde 301 para a home institucional', () => {

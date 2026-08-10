@@ -61,7 +61,7 @@ const DEMOS: Demo[] = [
     icon: Map,
   },
   {
-    href: '/comparar?escolas=35915592,35916754,35923655,35918040',
+    href: '/radar/comparar?escolas=35915592,35916754,35923655,35918040',
     badge: 'Comparativo',
     titulo: 'Comparar 4 escolas SP',
     sub: 'Hugo Penteado, Pedro Geraldo, São Judas, Anna de Mello — lado a lado.',

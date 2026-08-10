@@ -55,7 +55,7 @@ export default async function CompararPage({
       <RadarHeader />
 
       <div className="max-w-[1200px] mx-auto px-6 pt-6 pb-16">
-        <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-white/45 hover:text-white mb-4">
+        <Link href="/radar" className="inline-flex items-center gap-1.5 text-xs text-white/45 hover:text-white mb-4">
           <ArrowLeft size={12} /> Voltar
         </Link>
 

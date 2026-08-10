@@ -22,7 +22,7 @@ export default function MetodologiaPage() {
       <RadarHeader />
 
       <article className="max-w-[760px] mx-auto px-6 pb-16">
-        <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-white/45 hover:text-white mb-6">
+        <Link href="/radar" className="inline-flex items-center gap-1.5 text-xs text-white/45 hover:text-white mb-6">
           <ArrowLeft size={12} /> Voltar ao início
         </Link>
 

@@ -26,7 +26,7 @@ export default function NotFound() {
           A escola ou município que você procura ainda pode não estar indexado no Radar. Tente
           buscar na home ou volte mais tarde — novos dados são importados periodicamente.
         </p>
-        <Link href="/" className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white"
+        <Link href="/radar" className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white"
           style={{ background: 'linear-gradient(135deg, #34c5cc, #0D9488)' }}>
           Voltar à busca
         </Link>

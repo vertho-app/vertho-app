@@ -40,7 +40,7 @@ export default async function RadarHomePage() {
           </span>
         </div>
         <nav className="flex items-center gap-5 text-xs text-white/60">
-          <Link href="/metodologia" className="hover:text-white">Metodologia</Link>
+          <Link href="/radar/metodologia" className="hover:text-white">Metodologia</Link>
           <a href="https://vertho.ai" className="hover:text-white">vertho.ai</a>
         </nav>
       </header>

@@ -58,9 +58,9 @@ export function RadarSearch() {
 
   function handlePick(item: Result) {
     if (item.tipo === 'escola') {
-      router.push(`/escola/${item.id}`);
+      router.push(`/radar/escola/${item.id}`);
     } else {
-      router.push(`/municipio/${item.id}`);
+      router.push(`/radar/municipio/${item.id}`);
     }
   }
 

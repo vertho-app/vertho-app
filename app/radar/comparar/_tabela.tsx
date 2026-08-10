@@ -32,7 +32,7 @@ export function CompararTabela({ escolas }: { escolas: EscolaCompacta[] }) {
         </div>
         {escolas.map((e) => (
           <div key={e.codigo_inep} className="px-4 py-3 border-r border-white/[0.04] last:border-r-0">
-            <Link href={`/escola/${e.codigo_inep}`}
+            <Link href={`/radar/escola/${e.codigo_inep}`}
               className="text-sm font-bold text-white hover:text-cyan-400 inline-flex items-center gap-1 leading-tight">
               {e.nome.length > 36 ? e.nome.slice(0, 34) + '…' : e.nome}
               <ExternalLink size={11} className="opacity-50" />

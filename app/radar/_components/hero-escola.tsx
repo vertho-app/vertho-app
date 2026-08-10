@@ -167,7 +167,7 @@ export function HeroEscola({
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 mb-4 text-[11px] uppercase tracking-[0.12em] font-bold"
           style={{ color: '#9ae2e6' }}>
-          <Link href="/" className="text-white/45 hover:text-cyan-300">Escolas</Link>
+          <Link href="/radar" className="text-white/45 hover:text-cyan-300">Escolas</Link>
           <span className="text-white/25">›</span>
           <Link href={`/radar/estado/${escola.uf}`} className="text-white/45 hover:text-cyan-300">{escola.uf}</Link>
           {escola.municipio_ibge && (
