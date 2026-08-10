@@ -56,7 +56,8 @@ const SIM_MODEL = { model: 'claude-haiku-4-5-20251001' };
 
 // Modelo do MENTOR na simulação. Default = produção (Sonnet 4.6). O piloto de
 // custo passa 'claude-sonnet-5' num braço para medir tokens/tarefa (o +30% do
-// tokenizer) e qualidade sob o preço intro, antes do GA.
+// tokenizer) e qualidade. ⚠️ O $2/$10 do Sonnet 5 é PERMANENTE (10/08/2026) —
+// o braço não está mais medindo "sob preço promocional antes do GA".
 const MENTOR_MODEL_DEFAULT = MENTOR_MODEL_SONNET_46;
 
 /**

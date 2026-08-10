@@ -137,19 +137,31 @@ Haiku (overhead netável, `sim_aluno`); mentor no modelo do braço.
   cache: `cacheRead` tem que sair de 0). NÃO é "ligar `CHAT_HISTORY_CACHE`" — é
   consertar a ESTRUTURA antes.
 
-**Resultado 3 — veredito Sonnet 5 (braço do piloto, sob preço intro):**
+**Resultado 3 — veredito Sonnet 5 (braço do piloto):**
 - **Tokens/tarefa +40% a +68%** vs 4.6 (o "+30% do tokenizer" era otimista) +
   **output ~2×** (tokens de *thinking* entram como output).
-- Custo: **intro ($2/$10) ≈ empata** (+7%/colab); **GA ($3/$15) = +60%/colab**.
 - **Confiabilidade PIOR:** 9 falhas "Unterminated string in JSON" no braço 5 vs
   **0** no 4.6 — o thinking come o budget de `max_tokens` e **trunca o JSON
   estruturado** das extrações.
-- **Decisão: NÃO trocar para Sonnet 5.** Pior em custo (GA) E em confiabilidade
-  de saída estruturada. O preço intro é isca. Só reconsiderar se um teste com
-  goldens REAIS (S4, Ibipeba) mostrar ganho qualitativo grande E as extrações
-  ganharem budget de tokens. ⚠️ A qualidade em colab SINTÉTICO é evidência fraca
-  (o aluno é sintético) — o veredito de custo/confiabilidade é sólido; o de
-  qualidade fina fica p/ os goldens reais.
+
+> 🔴 **REVISADO em 10/08/2026 — metade deste veredito caiu.** Ele tinha dois
+> pilares e o de custo era `GA ($3/$15) = +60%/colab`. **Não existe esse GA: o
+> $2/$10 do Sonnet 5 virou permanente.** O custo medido é o definitivo, e no PDI
+> o Sonnet 5 saiu **21% MAIS BARATO** que o 4.6 ($0,127 vs $0,161 em 5
+> competências) — a inflação de +16% de output é mais que compensada pelos 33% a
+> menos por token. A frase "o preço intro é isca" está morta; não a cite.
+>
+> O pilar de **confiabilidade continua de pé, mas é POR TAREFA**, não global. O
+> truncamento aparece onde `max_tokens` é apertado e o thinking disputa o mesmo
+> teto (as extrações do piloto). **No PDI não se reproduziu**: 18 execuções (9
+> modelos × 2 cenários, 2 e 5 competências, teto de 64k) deram JSON válido, todas
+> as competências na ordem, zero truncagem — inclusive Sonnet 5 em `effort: high`
+> com 13.041 tokens de saída. Ver `_resumo.md` das rodadas 07-08/08.
+>
+> **Decisão hoje:** a troca volta a ser decidível caso a caso. Onde o teto é
+> folgado, custo agora favorece o Sonnet 5; onde é apertado, o achado de
+> truncamento manda e o 4.6 fica. O que falta para o PDI é só o julgamento de
+> qualidade de escrita (leitura cega), não custo nem robustez.
 
 **Decisão em aberto p/ o dono — `acumulada_check` (Luna 401):**
 (a) consertar a permissão da chave sk-proj no dashboard OpenAI; (b) repointar o
