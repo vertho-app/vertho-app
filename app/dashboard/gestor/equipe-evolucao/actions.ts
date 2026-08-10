@@ -193,6 +193,40 @@ export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, obse
     .select('id, empresa_id, colaborador_id').eq('id', trilhaId).maybeSingle();
   if (!trilha) return { error: 'Trilha não encontrada' };
 
+  // ── Posse ────────────────────────────────────────────────────────────────
+  // Até 10/08/2026 o gate acima era só de PAPEL: qualquer gestor/RH de QUALQUER
+  // tenant passava, o `trilhaId` vinha do cliente, e o payload carimbava
+  // `empresa_id: trilha.empresa_id` — ou seja, o tenant do registro vinha do
+  // próprio pedido. O DELETE apagava o checkpoint do tenant alheio e o INSERT
+  // gravava lá uma avaliação assinada com o `gestor_id` de quem chamou.
+  // Passava por três guards: o `ownership-guard` não enxerga este idioma de
+  // gate, o `dashboard-isolation` só proíbe os nomes email/colaboradorId/
+  // empresaId, e o `tenant-mutation-guard` não cobre `checkpoints_gestor`.
+  //
+  // Mesma mensagem de "não encontrada" para trilha inexistente e trilha de
+  // outro tenant: distinguir as duas transforma o endpoint num verificador de
+  // existência de uuid alheio.
+  if (!ctx.isPlatformAdmin && trilha.empresa_id !== ctx.colaborador.empresa_id) {
+    return { error: 'Trilha não encontrada' };
+  }
+
+  // Escopo DENTRO do tenant: deliberadamente a MESMA régua de
+  // `listarCheckpointsPendentes` (area_depto), que é a tela que leva até aqui.
+  // Uma régua diferente produziria "o card aparece e não salva" — a classe do
+  // F4, em que a listagem resolve por `gestor_email` e o gate por `area_depto`.
+  // Qual das duas é a canônica é decisão da branch de F4/F5; esta correção
+  // fecha o tenant sem inventar uma TERCEIRA régua.
+  if (ctx.role === 'gestor' && ctx.colaborador.area_depto) {
+    const { data: alvo } = await sb.from('colaboradores')
+      .select('id, area_depto, empresa_id')
+      .eq('id', trilha.colaborador_id)
+      .eq('empresa_id', trilha.empresa_id)
+      .maybeSingle();
+    if (!alvo || alvo.area_depto !== ctx.colaborador.area_depto) {
+      return { error: 'Colaborador fora do seu escopo' };
+    }
+  }
+
   const payload = {
     trilha_id: trilhaId,
     empresa_id: trilha.empresa_id,
@@ -205,9 +239,11 @@ export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, obse
     validado_em: new Date().toISOString(),
   };
 
-  // Upsert via delete+insert (chave única trilha_id+semana)
-  await sb.from('checkpoints_gestor').delete().eq('trilha_id', trilhaId).eq('semana', Number(semana));
-  const { error } = await sb.from('checkpoints_gestor').insert(payload);
+  // `upsert` na constraint UNIQUE (trilha_id, semana) — o delete+insert anterior
+  // não era atômico: insert falhando depois do delete perdia a avaliação que já
+  // estava lá, e o `await` do delete nem checava `error`.
+  const { error } = await sb.from('checkpoints_gestor')
+    .upsert(payload, { onConflict: 'trilha_id,semana' });
   if (error) return { error: error.message };
   return { ok: true };
 }
