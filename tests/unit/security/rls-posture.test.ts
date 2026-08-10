@@ -29,7 +29,32 @@ function getDatabaseUrl(): string | null {
 }
 const DB = getDatabaseUrl();
 
-describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
+/**
+ * ⚠️ `skipIf(!DB)` sozinho é a armadilha que a auditoria de 09-10/08 catalogou
+ * (F2): sem `DATABASE_URL` o arquivo inteiro pula e o CI fica verde **sem ter
+ * rodado**. Enquanto isso, o INV4 saía com exit 1 na máquina de quem tinha o
+ * `.env.local` — vermelho de verdade que ninguém via.
+ *
+ * A separação: PR roda verificação ESTÁTICA (`rls-policy-estatica-guard`), que
+ * não precisa de banco e não pode receber credencial de produção — o PR pode
+ * modificar o código que executa. O banco VIVO é conferido por um job próprio
+ * (`.github/workflows/rls-posture.yml`), que declara `RLS_POSTURE_REQUIRED=1`.
+ * Nesse job, banco ausente é FALHA, nunca skip verde.
+ */
+const EXIGIDO = process.env.RLS_POSTURE_REQUIRED === '1';
+
+describe.skipIf(!DB && !EXIGIDO)('RLS posture guard (migs 155-158)', () => {
+  it('há banco para verificar (no job dedicado, ausência é falha)', () => {
+    if (!DB) {
+      throw new Error(
+        'RLS_POSTURE_REQUIRED=1 mas DATABASE_URL está ausente. Este job existe justamente ' +
+        'para conferir o banco vivo: sem credencial ele não verifica nada, e passar assim ' +
+        'seria pior que não existir — é um verde que afirma o que não foi medido.',
+      );
+    }
+    expect(DB).toBeTruthy();
+  });
+
   let client: Client;
 
   beforeAll(async () => {
@@ -50,7 +75,75 @@ describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
     expect(v).toEqual([]);
   });
 
-  it('INV2 — nenhuma policy permissiva USING/CHECK(true) a public/anon (exceto censo diag_*)', async () => {
+  /**
+   * INV2 — REESCRITO em 10/08/2026. A versão anterior tinha DOIS pontos cegos, e
+   * o F1 (acervo de 10 tenants legível por qualquer sessão autenticada) passou
+   * pelos dois:
+   *
+   *  · filtrava `roles @> '{public}' OR '{anon}'` — o papel **`authenticated`
+   *    nunca entrava na conta**, e era exatamente ele que estava aberto;
+   *  · casava `qual = 'true'`, enquanto `micro_conteudos` era
+   *    `USING (ativo = true)` — igualmente permissiva e igualmente invisível.
+   *
+   * A régua agora não é um padrão de `qual`: é a lista de tabelas **tenant-owned
+   * derivada do próprio banco** (as que têm coluna `empresa_id`) contra o que a
+   * policy referencia. Tabela com dono precisa de policy que fale de dono.
+   * `service_role` sozinho fica de fora — tem BYPASSRLS, a policy não é a defesa
+   * dele; e `diag_*` (censo público do Radar) segue como exceção nomeada.
+   */
+  it('INV2 — nenhuma policy sobre tabela tenant-owned sem filtro de tenant', async () => {
+    const v = await violations(`
+      SELECT p.tablename, p.policyname FROM pg_policies p
+      WHERE p.schemaname = 'public'
+        AND EXISTS (
+          SELECT 1 FROM information_schema.columns c
+          WHERE c.table_schema = 'public' AND c.table_name = p.tablename AND c.column_name = 'empresa_id'
+        )
+        AND NOT (p.roles @> '{service_role}' AND array_length(p.roles, 1) = 1)
+        AND p.tablename NOT LIKE 'diag\\_%'
+        AND coalesce(p.qual, '') !~* 'empresa_id|current_colaborador_id|can_read_sessao_avaliacao'
+        AND coalesce(p.with_check, '') !~* 'empresa_id|current_colaborador_id'
+      ORDER BY p.tablename, p.policyname`);
+    expect(v).toEqual([]);
+  });
+
+  /**
+   * O INV2 acima só pode ficar verde por MEDIÇÃO, não por cegueira — e como as
+   * policies do F1 foram dropadas (mig 206), não há mais nada real para ele
+   * acusar. Este teste roda o MESMO predicado contra linhas sintéticas, entre
+   * elas as duas policies exatas que existiam: se alguém afrouxar a régua do
+   * INV2, isto acusa sem depender do estado do banco.
+   */
+  it('INV2 — o predicado pega o F1 e absolve as policies legítimas', async () => {
+    const { rows } = await client.query(`
+      WITH fake(tablename, policyname, roles, qual, with_check) AS (VALUES
+        ('competencias',   'authenticated_select_competencias', '{authenticated}'::name[], 'true',                            NULL),
+        ('micro_conteudos','mc_authenticated_read',             '{authenticated}'::name[], '(ativo = true)',                  NULL),
+        ('colaboradores',  'tenant_ok',                         '{authenticated}'::name[], '(empresa_id = get_empresa_id())', NULL),
+        ('colaboradores',  'update_self',                       '{authenticated}'::name[], '(id = current_colaborador_id())', NULL),
+        ('micro_conteudos','mc_service_all',                    '{service_role}'::name[],  'true',                            NULL)
+      )
+      SELECT f.tablename || '.' || f.policyname AS policy,
+             (EXISTS (SELECT 1 FROM information_schema.columns c
+                      WHERE c.table_schema='public' AND c.table_name=f.tablename AND c.column_name='empresa_id')
+              AND NOT (f.roles @> '{service_role}' AND array_length(f.roles,1)=1)
+              AND f.tablename NOT LIKE 'diag\\_%'
+              AND coalesce(f.qual,'') !~* 'empresa_id|current_colaborador_id|can_read_sessao_avaliacao'
+              AND coalesce(f.with_check,'') !~* 'empresa_id|current_colaborador_id') AS acusa
+      FROM fake f`);
+
+    const veredito = Object.fromEntries(rows.map((r: any) => [r.policy, r.acusa]));
+    // as duas que abriram o acervo de 10 tenants — inclusive a `USING (ativo = true)`,
+    // que o INV2 anterior (`qual = 'true'`) deixava passar
+    expect(veredito['competencias.authenticated_select_competencias']).toBe(true);
+    expect(veredito['micro_conteudos.mc_authenticated_read']).toBe(true);
+    // e as que estão certas seguem passando — guard que acusa quem fez certo vira ruído
+    expect(veredito['colaboradores.tenant_ok']).toBe(false);
+    expect(veredito['colaboradores.update_self']).toBe(false);
+    expect(veredito['micro_conteudos.mc_service_all']).toBe(false);
+  });
+
+  it('INV2b — nenhuma policy permissiva USING/CHECK(true) a public/anon (exceto censo diag_*)', async () => {
     const v = await violations(`
       SELECT tablename, policyname FROM pg_policies
       WHERE schemaname = 'public' AND (qual = 'true' OR with_check = 'true')
