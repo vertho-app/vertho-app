@@ -141,21 +141,42 @@ export function canViewOwnJourney(ctx: UserContext | null | undefined): boolean 
   return !!ctx?.colaborador;
 }
 
+/** Igualdade de e-mail: case-insensitive, sem espaço — e EM CÓDIGO, nunca por `ilike`. */
+export function mesmoEmail(a?: string | null, b?: string | null): boolean {
+  const x = String(a ?? '').trim().toLowerCase();
+  const y = String(b ?? '').trim().toLowerCase();
+  return x !== '' && x === y;
+}
+
 /**
  * Quem pode ver a JORNADA de `colab` (temporada, progresso, transcripts): o
- * PRÓPRIO, o RH do mesmo tenant, o gestor da mesma área, o tutor de quem ele
- * tutora, ou o platform admin. Cross-tenant nunca — exceto platform admin.
+ * PRÓPRIO, o RH do mesmo tenant, o gestor DELE, o tutor de quem ele tutora, ou o
+ * platform admin. Cross-tenant nunca — exceto platform admin.
  *
  * Existe porque `'use server'` torna todo export um endpoint HTTP e o id do
  * colaborador vem do CLIENTE: um gate que só exige sessão (`requireUserAction`)
  * deixa qualquer autenticado pedir a jornada de qualquer pessoa de qualquer
  * tenant. Ter a regra em UM lugar evita que cada action a reinvente — e divirja.
  *
- * Cuidado ao usar: passe o `colab` LIDO DO BANCO, nunca dados vindos do cliente.
+ * ⚠️ **A régua do gestor mudou em 10/08/2026 (F4 da auditoria): era
+ * `area_depto`, virou `gestor_email`.** Não foi preferência de estilo — foi
+ * medição. Dos 295 pares gestor→liderado que existem hoje (por `gestor_email`,
+ * que é como o RH configura), **3 passavam no gate por `area_depto`, e são
+ * exatamente os 3 do `acme-demo`** — o tenant de demonstração, que é onde se
+ * testa. Macaé 0/280, Boehringer 0/8, bett 0/2, teste-piloto 0/2. O diretor via
+ * a lista da equipe e não abria ninguém.
+ *
+ * E não era dado faltando: em Macaé os gestores COM `area_depto` têm o valor
+ * "Vertho" (equipe interna) enquanto os liderados têm NULL. O campo tem outra
+ * semântica naquele tenant — popular não resolveria.
+ *
+ * Cuidado ao usar: passe o `colab` LIDO DO BANCO, nunca dados vindos do cliente,
+ * **e inclua `gestor_email` no `select`** — sem a coluna o gate nega e a tela
+ * fica vazia sem erro. O aviso abaixo existe para essa falha não ser silenciosa.
  */
 export function canViewColabJourney(
   ctx: UserContext | null | undefined,
-  colab: { id: string; empresa_id?: string | null; area_depto?: string | null } | null | undefined,
+  colab: { id: string; empresa_id?: string | null; area_depto?: string | null; gestor_email?: string | null } | null | undefined,
 ): boolean {
   if (!ctx || !colab?.id) return false;
   if (ctx.isPlatformAdmin) return true;
@@ -166,8 +187,13 @@ export function canViewColabJourney(
 
   if (ctx.role === 'rh') return true;
   if (ctx.role === 'gestor') {
-    const areaGestor = ctx.colaborador?.area_depto;
-    return !!areaGestor && !!colab.area_depto && colab.area_depto === areaGestor;
+    // `undefined` = a coluna não veio no select (erro de call-site).
+    // `null`/'' = a pessoa não tem gestor definido (nega, corretamente).
+    if (colab.gestor_email === undefined) {
+      console.warn('[canViewColabJourney] `gestor_email` ausente no select — o gate nega por falta de dado, não por regra');
+      return false;
+    }
+    return mesmoEmail(ctx.colaborador?.email, colab.gestor_email);
   }
   if (ctx.role === 'tutor') return canTutorAccess(ctx, colab.id);
   return false;

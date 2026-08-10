@@ -1,12 +1,14 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getUserContext } from '@/lib/authz';
+import { getUserContext, mesmoEmail } from '@/lib/authz';
+import { escaparLike } from '@/lib/sql-like';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 
 /**
  * Lista os liderados do gestor com temporada (em andamento ou concluída)
- * e seu status de evolução. Gestor vê só sua área; RH vê tudo da empresa.
+ * e seu status de evolução. Gestor vê os liderados DELE (`gestor_email`);
+ * RH vê tudo da empresa.
  */
 export async function listarEquipeEvolucao() {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
@@ -38,11 +40,15 @@ export async function listarEquipeEvolucao() {
     .eq('empresa_id', empresaId)
     .neq('id', meuId);
   if (isGestor && meuEmail) {
-    colabQ = colabQ.ilike('gestor_email', meuEmail);
+    // `escaparLike`: `_` e `%` são curinga no ILIKE, e e-mail com underscore
+    // casava gente que não era a mesma pessoa — listagem mais larga que o gate.
+    colabQ = colabQ.ilike('gestor_email', escaparLike(meuEmail));
   } else if (isTutor) {
     colabQ = colabQ.in('id', tutoradosIds);
   }
-  const { data: colabs } = await colabQ;
+  let { data: colabs } = await colabQ;
+  // Segunda trava, em CÓDIGO: o banco filtra por padrão, a igualdade decide.
+  if (isGestor && meuEmail) colabs = (colabs || []).filter((c: any) => mesmoEmail(c.gestor_email, meuEmail));
   if (!colabs?.length) return { ok: true, rows: [], resumo: { total: 0 } };
 
   // Trilhas desses colabs
@@ -126,10 +132,21 @@ export async function listarCheckpointsPendentes() {
 
   if (isTutor && tutoradosIds.length === 0) return { ok: true, rows: [] };
 
-  let colabQ = sb.from('colaboradores').select('id, nome_completo, area_depto').eq('empresa_id', empresaId);
-  if (isGestor && ctx.colaborador.area_depto) colabQ = colabQ.eq('area_depto', ctx.colaborador.area_depto);
-  else if (isTutor) colabQ = colabQ.in('id', tutoradosIds);
-  const { data: colabs } = await colabQ;
+  // ⚠️ Esta listagem usava `area_depto` — a régua ERRADA e, pior, com fail-OPEN:
+  // `if (isGestor && ctx.colaborador.area_depto)` significa que campo vazio =
+  // SEM FILTRO, e 155 dos 161 gestores de Macaé têm `area_depto` nulo. Cada um
+  // deles abria esta tela e recebia os checkpoints de TODAS as trilhas do tenant.
+  // (F5 da auditoria. O par certo estava três linhas acima, no ramo do tutor,
+  // que já era fail-closed.) Agora é `gestor_email`, a mesma régua da listagem
+  // irmã deste arquivo e de `canViewColabJourney` — as três divergiam entre si.
+  const meuEmailCp = ctx.colaborador.email?.toLowerCase().trim();
+  let colabQ = sb.from('colaboradores').select('id, nome_completo, area_depto, gestor_email').eq('empresa_id', empresaId);
+  if (isGestor) {
+    if (!meuEmailCp) return { ok: true, rows: [] };   // fail-CLOSED
+    colabQ = colabQ.ilike('gestor_email', escaparLike(meuEmailCp));
+  } else if (isTutor) colabQ = colabQ.in('id', tutoradosIds);
+  let { data: colabs } = await colabQ;
+  if (isGestor) colabs = (colabs || []).filter((c: any) => mesmoEmail(c.gestor_email, meuEmailCp));
   if (!colabs?.length) return { ok: true, rows: [] };
 
   // Trilhas ativas desses colabs que passaram da sem 5 ou sem 10
@@ -210,19 +227,16 @@ export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, obse
     return { error: 'Trilha não encontrada' };
   }
 
-  // Escopo DENTRO do tenant: deliberadamente a MESMA régua de
-  // `listarCheckpointsPendentes` (area_depto), que é a tela que leva até aqui.
-  // Uma régua diferente produziria "o card aparece e não salva" — a classe do
-  // F4, em que a listagem resolve por `gestor_email` e o gate por `area_depto`.
-  // Qual das duas é a canônica é decisão da branch de F4/F5; esta correção
-  // fecha o tenant sem inventar uma TERCEIRA régua.
-  if (ctx.role === 'gestor' && ctx.colaborador.area_depto) {
+  // Escopo DENTRO do tenant: a MESMA régua da listagem que leva até aqui e de
+  // `canViewColabJourney` — `gestor_email`. Era `area_depto` quando esta função
+  // foi corrigida (F6), porque era o que a listagem usava; F4 unificou as três.
+  if (ctx.role === 'gestor') {
     const { data: alvo } = await sb.from('colaboradores')
-      .select('id, area_depto, empresa_id')
+      .select('id, gestor_email, empresa_id')
       .eq('id', trilha.colaborador_id)
       .eq('empresa_id', trilha.empresa_id)
       .maybeSingle();
-    if (!alvo || alvo.area_depto !== ctx.colaborador.area_depto) {
+    if (!alvo || !mesmoEmail(alvo.gestor_email, ctx.colaborador.email)) {
       return { error: 'Colaborador fora do seu escopo' };
     }
   }

@@ -32,7 +32,8 @@ export async function loadAvatarData(emailHint?: string) {
     if (emailHint && emailHint.trim().toLowerCase() !== emailSessao) {
       const { canViewColabJourney } = await import('@/lib/authz');
       const ctx = await getUserContext(emailSessao);
-      const alvo = await findColabByEmail(emailHint, 'id, empresa_id, area_depto');
+      // `gestor_email` é a régua do gate desde 10/08 (F4) — sem a coluna, nega.
+      const alvo = await findColabByEmail(emailHint, 'id, empresa_id, area_depto, gestor_email');
       if (!canViewColabJourney(ctx, alvo)) return null;
       email = emailHint.trim().toLowerCase();
     }

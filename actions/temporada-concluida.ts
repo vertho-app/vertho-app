@@ -19,7 +19,7 @@ export async function loadTemporadaConcluida(email: string) {
   // findColabByEmail resolve o TENANT (cookie/header do host) — a query
   // direta com .maybeSingle() quebrava pra usuário presente em 2+ empresas
   // (multi-tenant → múltiplas rows → null → "Colaborador não encontrado").
-  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, area_depto, perfil_dominante, empresa_id') as any;
+  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, area_depto, gestor_email, perfil_dominante, empresa_id') as any;
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   // Gate de POSSE (auditoria 23/07, grupo C): o email vem do CLIENTE — qualquer

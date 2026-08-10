@@ -11,9 +11,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 let sessao: any = null;
 
 const FIXTURES: Record<string, any> = {
-  'a@x.com': { id: 'c1', empresa_id: 'emp-A', area_depto: 'Ped', nome_completo: 'Ana', cargo: 'Prof', foto_url: 'f', avatar_preset: 'p' },
-  'b@x.com': { id: 'c2', empresa_id: 'emp-A', area_depto: 'Comercial', nome_completo: 'Beto', cargo: 'Vendedor' },
-  'c@y.com': { id: 'c3', empresa_id: 'emp-B', area_depto: 'Ped', nome_completo: 'Caio', cargo: 'Prof' },
+  'a@x.com': { id: 'c1', empresa_id: 'emp-A', area_depto: 'Ped', gestor_email: 'chefe.ped@x.com', nome_completo: 'Ana', cargo: 'Prof', foto_url: 'f', avatar_preset: 'p' },
+  'b@x.com': { id: 'c2', empresa_id: 'emp-A', area_depto: 'Comercial', gestor_email: 'g@x.com', nome_completo: 'Beto', cargo: 'Vendedor' },
+  'c@y.com': { id: 'c3', empresa_id: 'emp-B', area_depto: 'Ped', gestor_email: 'g@x.com', nome_completo: 'Caio', cargo: 'Prof' },
 };
 
 const findColabByEmailMock = vi.fn(async (email: string, _cols?: string) => FIXTURES[String(email).trim().toLowerCase()] || null);
@@ -56,7 +56,8 @@ import { loadUltimosVideosColab } from '@/actions/video-analytics';
 import { loadAvatarData } from '@/app/dashboard/dashboard-actions';
 
 const colabA = { email: 'a@x.com', role: 'colaborador', empresaId: 'emp-A', colaborador: { id: 'c1', area_depto: 'Ped' }, isPlatformAdmin: false };
-const gestorComercial = { email: 'g@x.com', role: 'gestor', empresaId: 'emp-A', colaborador: { id: 'g1', area_depto: 'Comercial' }, isPlatformAdmin: false };
+// Gestor do Beto (`b@x.com`) — a régua é `gestor_email`, não a área (F4, 10/08).
+const gestorComercial = { email: 'g@x.com', role: 'gestor', empresaId: 'emp-A', colaborador: { id: 'g1', email: 'g@x.com', area_depto: 'Comercial' }, isPlatformAdmin: false };
 const rhA = { email: 'rh@x.com', role: 'rh', empresaId: 'emp-A', colaborador: { id: 'rh1' }, isPlatformAdmin: false };
 
 beforeEach(() => { sessao = null; findColabByEmailMock.mockClear(); });
@@ -74,15 +75,15 @@ describe('loadTemporadaConcluida — posse via canViewColabJourney', () => {
     expect(r.error).toMatch(/permissão/i);
   });
 
-  it('gestor vê liderado da PRÓPRIA área', async () => {
+  it('gestor vê o PRÓPRIO liderado', async () => {
     sessao = gestorComercial;
     const r: any = await loadTemporadaConcluida('b@x.com');
     expect(r.error).not.toMatch(/permissão/i);
   });
 
-  it('gestor NÃO vê colab de OUTRA área', async () => {
-    sessao = { ...gestorComercial, colaborador: { id: 'g1', area_depto: 'Ped' } };
-    const r: any = await loadTemporadaConcluida('b@x.com'); // Comercial
+  it('gestor NÃO vê quem não é liderado dele (mesmo tenant)', async () => {
+    sessao = { ...gestorComercial, colaborador: { id: 'g1', email: 'outro.gestor@x.com' } };
+    const r: any = await loadTemporadaConcluida('b@x.com'); // gestor_email = g@x.com
     expect(r.error).toMatch(/permissão/i);
   });
 

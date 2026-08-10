@@ -788,7 +788,8 @@ export async function loadTemporada(colaboradorId: string, opts: { semanaTranscr
     // Uso raw aqui porque colaboradores busca é a fonte do tenantId.
     const sbRaw = createSupabaseAdmin();
     const { data: colaborador } = await sbRaw.from('colaboradores')
-      .select('id, nome_completo, cargo, email, perfil_dominante, empresa_id, area_depto, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso')
+      // `gestor_email`: régua do gate de posse desde 10/08 (F4) — sem ela, nega.
+      .select('id, nome_completo, cargo, email, perfil_dominante, empresa_id, area_depto, gestor_email, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso')
       .eq('id', colaboradorId).maybeSingle();
     if (!colaborador?.empresa_id) return { error: 'Colab sem empresa_id' };
 

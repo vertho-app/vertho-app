@@ -22,9 +22,9 @@ const TRILHAS: Record<string, any> = {
   'tr-B': { id: 'tr-B', empresa_id: 'emp-B', colaborador_id: 'c3' },
 };
 const COLABS: Record<string, any> = {
-  c1: { id: 'c1', empresa_id: 'emp-A', area_depto: 'Ensino' },
-  c2: { id: 'c2', empresa_id: 'emp-A', area_depto: 'Financeiro' },
-  c3: { id: 'c3', empresa_id: 'emp-B', area_depto: 'Ensino' },
+  c1: { id: 'c1', empresa_id: 'emp-A', area_depto: 'Ensino', gestor_email: 'g@a.com' },
+  c2: { id: 'c2', empresa_id: 'emp-A', area_depto: 'Financeiro', gestor_email: 'outro@a.com' },
+  c3: { id: 'c3', empresa_id: 'emp-B', area_depto: 'Ensino', gestor_email: 'g@a.com' },
 };
 
 const { upsertMock, deleteMock } = vi.hoisted(() => ({
@@ -67,9 +67,9 @@ vi.mock('@/lib/authz', async (importOriginal) => {
 
 import { salvarCheckpointGestor } from '@/app/dashboard/gestor/equipe-evolucao/actions';
 
-const gestorA = { email: 'g@a.com', role: 'gestor', isPlatformAdmin: false, colaborador: { id: 'g1', empresa_id: 'emp-A', area_depto: 'Ensino' } };
-const gestorAOutraArea = { email: 'g2@a.com', role: 'gestor', isPlatformAdmin: false, colaborador: { id: 'g2', empresa_id: 'emp-A', area_depto: 'Financeiro' } };
-const gestorSemArea = { email: 'g3@a.com', role: 'gestor', isPlatformAdmin: false, colaborador: { id: 'g3', empresa_id: 'emp-A', area_depto: null } };
+const gestorA = { email: 'g@a.com', role: 'gestor', isPlatformAdmin: false, colaborador: { id: 'g1', email: 'g@a.com', empresa_id: 'emp-A', area_depto: 'Ensino' } };
+const gestorAOutraArea = { email: 'g2@a.com', role: 'gestor', isPlatformAdmin: false, colaborador: { id: 'g2', email: 'g2@a.com', empresa_id: 'emp-A', area_depto: 'Financeiro' } };
+const gestorSemArea = { email: 'g@a.com', role: 'gestor', isPlatformAdmin: false, colaborador: { id: 'g3', email: 'g@a.com', empresa_id: 'emp-A', area_depto: null } };
 const rhB = { email: 'rh@b.com', role: 'rh', isPlatformAdmin: false, colaborador: { id: 'rh-b', empresa_id: 'emp-B', area_depto: null } };
 const admin = { email: 'adm@vertho.ai', role: 'admin', isPlatformAdmin: true, colaborador: { id: 'adm', empresa_id: null, area_depto: null } };
 
@@ -100,7 +100,7 @@ describe('salvarCheckpointGestor — posse antes de escrever', () => {
     expect(inexistente.error).toBe(deOutro.error);
   });
 
-  it('gestor grava na trilha de liderado da PRÓPRIA área', async () => {
+  it('gestor grava na trilha do PRÓPRIO liderado (régua `gestor_email`)', async () => {
     sessao = gestorA;
     const r: any = await salvarCheckpointGestor({ trilhaId: 'tr-A', ...ok });
     expect(r.ok).toBe(true);
@@ -111,16 +111,17 @@ describe('salvarCheckpointGestor — posse antes de escrever', () => {
     expect(opts).toEqual({ onConflict: 'trilha_id,semana' });
   });
 
-  it('gestor de OUTRA área do mesmo tenant é barrado (régua igual à da listagem)', async () => {
+  it('outro gestor do mesmo tenant é barrado (régua igual à da listagem)', async () => {
     sessao = gestorAOutraArea;
     const r: any = await salvarCheckpointGestor({ trilhaId: 'tr-A', ...ok });
     expect(r.error).toMatch(/fora do seu escopo/i);
     expect(upsertMock).not.toHaveBeenCalled();
   });
 
-  it('gestor sem area_depto segue como na listagem: passa dentro do tenant', async () => {
-    // 125 de 126 gestores de Macaé têm area_depto nulo. Fechar isto aqui e não
-    // na listagem daria "o card aparece e não salva" — é F5, decidido junto de F4.
+  it('`area_depto` deixou de importar: gestor sem área grava no liderado dele', async () => {
+    // 155 dos 161 gestores de Macaé têm area_depto nulo, e a régua antiga
+    // (area_depto com fail-OPEN na listagem) dava a eles a tela do tenant
+    // inteiro. Com `gestor_email` o campo vazio simplesmente não entra na conta.
     sessao = gestorSemArea;
     const dentro: any = await salvarCheckpointGestor({ trilhaId: 'tr-A', ...ok });
     expect(dentro.ok).toBe(true);
