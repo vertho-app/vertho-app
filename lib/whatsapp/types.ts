@@ -57,6 +57,16 @@ export interface WaProvider {
   /** Checa sessão/conexão viva (I/O — cacheado pelo serviço). */
   health(): Promise<WaHealth>;
   send(msg: WaMessage): Promise<WaSendOutcome>;
+  /**
+   * Mensagens presas na fila do PROVEDOR — aceitas por ele, ainda não entregues.
+   * Opcional: só provedores que expõem isso (Z-API) implementam.
+   *
+   * `null` = não sei (sem suporte, erro, formato inesperado); `0` = fila vazia.
+   * A distinção importa: o pré-flight de lote só bloqueia com um número, nunca
+   * com "não sei" — senão uma instabilidade da API do provedor viraria trava de
+   * envio para todos os tenants.
+   */
+  pendingQueue?(): Promise<number | null>;
 }
 
 /** Resultado final do serviço, após eventual failover. */

@@ -63,6 +63,40 @@ export async function getZapiStatus(): Promise<ZapiStatus> {
   };
 }
 
+/**
+ * Quantas mensagens estão presas na fila INTERNA da Z-API.
+ *
+ * A Z-API aceita o POST (HTTP 200) e só então tenta entregar. Se o celular cair
+ * no meio, a mensagem fica na fila dela — e **descarrega toda de uma vez quando
+ * o número reconecta**. Em 11/08/2026, 13 mensagens do lote de Macaé ficaram
+ * aqui: contadas como "sucesso" no nosso log, nunca entregues, e prontas para
+ * disparar em rajada assim que a instância voltasse — em cima de um número que
+ * acabara de ser bloqueado.
+ *
+ * Devolve `null` quando não dá para saber (não configurada, erro de rede, HTTP
+ * ruim, formato inesperado). `null` é "não sei", diferente de `0` = "está
+ * vazia" — quem decide bloquear um disparo precisa distinguir os dois.
+ */
+export async function getZapiQueueSize(): Promise<number | null> {
+  const cfg = getZapiConfig();
+  if (!cfg.configured) return null;
+
+  try {
+    const res = await fetch(`${cfg.baseUrl}/queue`, {
+      headers: { 'Content-Type': 'application/json', 'Client-Token': cfg.clientToken },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+
+    const raw = await res.json().catch(() => null);
+    // A Z-API devolve um array cru; os wrappers cobrem variações de formato.
+    const itens = Array.isArray(raw) ? raw : (raw?.queue ?? raw?.messages);
+    return Array.isArray(itens) ? itens.length : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function assertZapiConnected(): Promise<ZapiStatus> {
   const status = await getZapiStatus();
   if (!status.configured) throw new Error(status.error || 'Z-API não configurada');

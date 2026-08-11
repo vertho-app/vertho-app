@@ -1,7 +1,7 @@
 // Adapter Z-API (não-oficial, QR). Reusa a config/saúde já existentes em
 // lib/zapi.ts. Mantém EXATAMENTE os endpoints/payloads que o app já usava,
 // para não mudar o comportamento de envio ao centralizar.
-import { getZapiConfig, getZapiStatus } from '@/lib/zapi';
+import { getZapiConfig, getZapiQueueSize, getZapiStatus } from '@/lib/zapi';
 import type { WaMessage, WaProvider, WaSendOutcome } from '../types';
 
 const headers = () => ({
@@ -35,6 +35,7 @@ export const zapiProvider: WaProvider = {
   label: 'Z-API',
   capabilities: { text: true, link: true, document: true, audio: true },
   configured: () => getZapiConfig().configured,
+  pendingQueue: () => getZapiQueueSize(),
   async health() {
     const s = await getZapiStatus();
     if (!s.configured) return { ok: false, reason: s.error || 'não configurada' };

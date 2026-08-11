@@ -23,6 +23,20 @@ const whatsappPayloadSchema = z.object({
   // Vai por URL assinada — o documento é enviado após o texto, best-effort.
   documentoUrl: z.string().url().max(2000).optional(),
   documentoNome: z.string().trim().min(1).max(200).optional(),
+  // Identificação da PESSOA no disparo em lote (broadcast/relatório), que não
+  // tem `envioId` nem `fase4EnvioId` para resolvê-la.
+  //
+  // Sem isto, o lote de 11/08/2026 gravou 155 entregas com `colaborador_id`
+  // NULO: não havia no banco quem tinha recebido, e a lista dos que ficaram de
+  // fora teve de ser reconstruída da DLQ do QStash (que expira). Um novo
+  // disparo com o mesmo filtro reenviaria para quem já recebeu.
+  colaboradorId: z.string().uuid().optional(),
+  empresaId: z.string().uuid().optional(),
+  // Enum FECHADO, como `carimboCampo`: este valor vai para uma coluna de
+  // telemetria e o payload é escolhido por quem publica — string livre deixaria
+  // o `kind` do log ser qualquer coisa, e a métrica por tipo de envio pararia
+  // de fechar.
+  kindEnvio: z.enum(['broadcast', 'relatorio', 'magic_link']).optional(),
 }).strict();
 
 async function verifyQStashSignature(req, body) {
@@ -69,6 +83,7 @@ async function resolverMetaEnvio(
   fase4EnvioId?: string,
   carimboCampo?: 'ultima_pilula1_whatsapp_em' | 'ultima_pilula2_whatsapp_em',
   envioId?: string,
+  lote?: { colaboradorId?: string; empresaId?: string; kindEnvio?: 'broadcast' | 'relatorio' | 'magic_link' },
 ): Promise<WaSendMeta> {
   if (fase4EnvioId && carimboCampo) {
     const sb = createSupabaseAdmin();
@@ -89,7 +104,17 @@ async function resolverMetaEnvio(
       dedupeKey: `${carimboCampo}:${fase4EnvioId}`,
     };
   }
-  if (envioId) return { kind: 'diagnostico' };
+  if (envioId) return { kind: 'diagnostico', colaboradorId: lote?.colaboradorId ?? null, empresaId: lote?.empresaId ?? null };
+  // Lote: a pessoa vem no próprio payload — não há registro intermediário para
+  // consultar, e sem isto a entrega é gravada sem dono.
+  if (lote?.colaboradorId || lote?.empresaId || lote?.kindEnvio) {
+    return {
+      kind: lote.kindEnvio ?? 'broadcast',
+      colaboradorId: lote.colaboradorId ?? null,
+      empresaId: lote.empresaId ?? null,
+      dedupeKey: lote.colaboradorId ? `${lote.kindEnvio ?? 'broadcast'}:${lote.colaboradorId}` : null,
+    };
+  }
   return {};
 }
 
@@ -186,7 +211,10 @@ export async function POST(req) {
       return NextResponse.json({ error: detalhe || 'Payload inválido' }, { status: 400 });
     }
 
-    const { telefone, mensagem, envioId, fase4EnvioId, carimboCampo, documentoUrl, documentoNome } = payload;
+    const {
+      telefone, mensagem, envioId, fase4EnvioId, carimboCampo, documentoUrl, documentoNome,
+      colaboradorId, empresaId, kindEnvio,
+    } = payload;
 
     if (!telefone || !mensagem) {
       return NextResponse.json({ error: 'telefone e mensagem obrigatórios' }, { status: 400 });
@@ -199,7 +227,7 @@ export async function POST(req) {
 
     // Serviço central com failover (Z-API → WaSender). Se NENHUM provedor
     // entregar, devolve 503 para o QStash retentar (queda transitória de sessão).
-    const metaEnvio = await resolverMetaEnvio(fase4EnvioId, carimboCampo, envioId);
+    const metaEnvio = await resolverMetaEnvio(fase4EnvioId, carimboCampo, envioId, { colaboradorId, empresaId, kindEnvio });
     const r = await sendWhatsapp({ kind: 'text', phone: telefone, text: mensagem }, metaEnvio);
     console.log(
       `[qstash/whatsapp-cis] phone=***${telefone.replace(/\D/g, '').slice(-4)} ok=${r.ok} provider=${r.provider ?? '-'} trilha=${r.attempts.map((a) => `${a.provider}:${a.ok ? 'ok' : a.reason}`).join(' | ')}`,

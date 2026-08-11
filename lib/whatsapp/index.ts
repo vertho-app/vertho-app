@@ -128,17 +128,37 @@ export async function sendWhatsapp(input: WaMessage, meta?: WaSendMeta): Promise
   return comLog({ ok: false, attempts, reason: attempts.map((a) => `${a.provider}: ${a.reason}`).join(' | ') }, meta);
 }
 
-/** Saúde agregada de todos os provedores (para telas de admin/diagnóstico). */
-export async function whatsappHealth(): Promise<
-  Array<{ provider: WaProviderId; label: string; configured: boolean; ok: boolean; reason?: string; primary: boolean }>
-> {
+export interface WaProviderHealth {
+  provider: WaProviderId;
+  label: string;
+  configured: boolean;
+  ok: boolean;
+  reason?: string;
+  primary: boolean;
+  /** Fila interna do provedor. `undefined` = não consultada; `null` = não sei. */
+  filaPendente?: number | null;
+}
+
+/**
+ * Saúde agregada de todos os provedores (para telas de admin/diagnóstico).
+ *
+ * `incluirFila` é opt-in porque custa uma chamada de rede a mais por provedor —
+ * telas de status pedem; o caminho de envio não.
+ */
+export async function whatsappHealth(opts?: { incluirFila?: boolean }): Promise<WaProviderHealth[]> {
   const primary = primaryId();
-  const out: Array<{ provider: WaProviderId; label: string; configured: boolean; ok: boolean; reason?: string; primary: boolean }> = [];
+  const out: WaProviderHealth[] = [];
   for (const id of Object.keys(REGISTRY) as WaProviderId[]) {
     const p = REGISTRY[id];
     const configured = p.configured();
     const h = configured ? await p.health() : { ok: false, reason: 'não configurado' };
-    out.push({ provider: id, label: p.label, configured, ok: h.ok, reason: h.reason, primary: id === primary });
+    const entry: WaProviderHealth = {
+      provider: id, label: p.label, configured, ok: h.ok, reason: h.reason, primary: id === primary,
+    };
+    if (opts?.incluirFila && configured && p.pendingQueue) {
+      entry.filaPendente = await p.pendingQueue();
+    }
+    out.push(entry);
   }
   return out;
 }
@@ -147,13 +167,60 @@ export async function whatsappHealth(): Promise<
  * Pré-flight para disparos em lote: garante que existe ao menos UM provedor
  * saudável. Lança com mensagem amigável (mesmo contrato do antigo
  * `assertZapiConnected`, mas agnóstico de provedor).
+ *
+ * `maxFilaPendente` liga a segunda trava, criada depois de 11/08/2026: um
+ * provedor pode estar `connected` e mesmo assim carregar mensagens presas da
+ * fila anterior, que ele descarrega em rajada. Empilhar um lote novo por cima
+ * disso é o caminho mais curto para o segundo bloqueio. Sem o parâmetro o
+ * comportamento é o de antes — quem dispara lote é que pede a trava.
+ *
+ * Só bloqueia com um NÚMERO acima do teto: `null` ("não sei", por erro de rede
+ * ou formato) nunca trava o envio — uma instabilidade da API do provedor não
+ * pode virar indisponibilidade do canal para todos os tenants.
  */
-export async function assertWhatsappAvailable(): Promise<void> {
+export async function assertWhatsappAvailable(opts?: { maxFilaPendente?: number }): Promise<void> {
   const health = await whatsappHealth();
   if (!health.some((h) => h.configured)) throw new Error('Nenhum provedor de WhatsApp configurado');
   if (!health.some((h) => h.ok)) {
     const detail = health.filter((h) => h.configured).map((h) => `${h.label}: ${h.reason}`).join('; ');
     throw new Error(`WhatsApp indisponível (${detail})`);
+  }
+
+  if (typeof opts?.maxFilaPendente === 'number') {
+    await assertFilaDoProvedorLimpa(opts.maxFilaPendente, health);
+  }
+}
+
+/**
+ * Lança se algum provedor SAUDÁVEL tem mais de `maxFilaPendente` mensagens
+ * presas na própria fila.
+ *
+ * Só a fila de quem vai entregar importa: a fila de um provedor caído não é
+ * motivo para barrar um lote que sairia pelo outro. E `null` ("não sei") nunca
+ * bloqueia — ver `pendingQueue` em `types.ts`.
+ *
+ * Exportada porque há dois caminhos de lote com gates diferentes
+ * (`actions/whatsapp-lote.ts` usa `assertWhatsappAvailable`;
+ * `app/admin/whatsapp/actions.ts` ainda usa `assertZapiConnected`, porque o
+ * ramo de ≤50 destinatários fala com a Z-API crua). Uma implementação só.
+ */
+export async function assertFilaDoProvedorLimpa(
+  maxFilaPendente: number,
+  healthConhecida?: WaProviderHealth[],
+): Promise<void> {
+  const health = healthConhecida ?? (await whatsappHealth());
+  for (const h of health) {
+    if (!h.ok) continue;
+    const p = REGISTRY[h.provider];
+    if (!p.pendingQueue) continue;
+    const fila = await p.pendingQueue();
+    if (typeof fila === 'number' && fila > maxFilaPendente) {
+      throw new Error(
+        `${p.label} tem ${fila} mensagem(ns) presa(s) na fila (teto: ${maxFilaPendente}). ` +
+        `Elas são entregues em rajada assim que a conexão estabilizar, e disparar um lote ` +
+        `agora arrisca bloquear o número. Aguarde a fila escoar ou limpe-a antes de disparar.`,
+      );
+    }
   }
 }
 

@@ -4,8 +4,10 @@ import { templateWhatsAppCIS } from '@/lib/notifications';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { APP_WEBHOOK_URL, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 import { assertWhatsappAvailable } from '@/lib/whatsapp';
+import { aplicarTetoLote, atrasosDoLote, duracaoEstimada } from '@/lib/whatsapp/cadencia';
 
-const DELAY_BETWEEN_MS = 2000; // 2s entre cada mensagem
+/** Fila residual tolerada antes de um lote — ver MAX_FILA_ANTES_DO_LOTE no admin. */
+const MAX_FILA_ANTES_DO_LOTE = 0;
 
 /**
  * Publica uma mensagem no QStash para entrega via webhook.
@@ -59,21 +61,33 @@ export async function dispararLinksCIS(empresaId: string) {
     if (!envios?.length) return { success: false, error: 'Nenhum envio pendente com telefone cadastrado' };
 
     try {
-      await assertWhatsappAvailable();
+      // maxFilaPendente: conectado não basta — fila residual do provedor é
+      // entregue em rajada e empilhar lote em cima dela arrisca o bloqueio.
+      await assertWhatsappAvailable({ maxFilaPendente: MAX_FILA_ANTES_DO_LOTE });
     } catch (err: any) {
       return { success: false, error: `${err?.message || 'WhatsApp indisponível'}. Reconecte uma instância antes de disparar WhatsApp em lote.` };
     }
 
-    // Publicar todas no QStash em paralelo com delay incremental
-    const results = await Promise.all(envios.map(async (envio: any, i) => {
+    // Teto de volume + cadência com jitter (lib/whatsapp/cadencia).
+    const { enviar: alvos, adiados, aviso: avisoTeto } = aplicarTetoLote(envios as any[]);
+    const atrasos = atrasosDoLote(alvos.length);
+
+    // Publicar no QStash em paralelo, com o atraso vindo da política.
+    const results = await Promise.all(alvos.map(async (envio: any, i) => {
       const nome = envio.colaboradores.nome_completo || 'Colaborador';
       const telefone = envio.colaboradores.telefone;
       const link = tenantUrl(empresa.slug, `/avaliacao/${envio.token}`);
       const mensagem = templateWhatsAppCIS(nome, link);
-      const delaySec = Math.floor((i * DELAY_BETWEEN_MS) / 1000);
 
       try {
-        await publishToQStash({ telefone, mensagem, envioId: envio.id }, delaySec);
+        await publishToQStash({
+          telefone,
+          mensagem,
+          envioId: envio.id,
+          // Identifica a pessoa na telemetria de entrega, como no broadcast.
+          ...(envio.colaborador_id ? { colaboradorId: envio.colaborador_id } : {}),
+          empresaId,
+        }, atrasos[i]);
 
         return { ok: true };
       } catch (err) {
@@ -85,11 +99,13 @@ export async function dispararLinksCIS(empresaId: string) {
 
     const agendados = results.filter(r => r.ok).length;
     const erros = results.filter(r => !r.ok).length;
-    const semWhatsapp = envios.length - results.length;
+    const semWhatsapp = envios.length - alvos.length - adiados.length;
 
     return {
       success: true,
-      message: `${agendados} agendados no QStash, ${erros} erros${semWhatsapp > 0 ? `, ${semWhatsapp} sem telefone` : ''}`,
+      message:
+        `${agendados} agendados no QStash (entrega em ${duracaoEstimada(agendados)}), ${erros} erros` +
+        `${semWhatsapp > 0 ? `, ${semWhatsapp} sem telefone` : ''}${avisoTeto ? ` ⚠️ ${avisoTeto}` : ''}`,
     };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : String(err) };
@@ -114,20 +130,28 @@ export async function dispararRelatoriosLote(empresaId: string) {
     if (!relatorios?.length) return { success: false, error: 'Nenhum relatório com telefone' };
 
     try {
-      await assertWhatsappAvailable();
+      await assertWhatsappAvailable({ maxFilaPendente: MAX_FILA_ANTES_DO_LOTE });
     } catch (err: any) {
       return { success: false, error: `${err?.message || 'WhatsApp indisponível'}. Reconecte uma instância antes de disparar WhatsApp em lote.` };
     }
 
-    const results = await Promise.all(relatorios.map(async (rel: any, i) => {
+    const { enviar: alvos, adiados, aviso: avisoTeto } = aplicarTetoLote(relatorios as any[]);
+    const atrasos = atrasosDoLote(alvos.length);
+
+    const results = await Promise.all(alvos.map(async (rel: any, i) => {
       const nome = rel.colaboradores.nome_completo || 'Colaborador';
       const telefone = rel.colaboradores.telefone;
       const link = tenantUrl(empresa.slug, `/relatorio/${rel.id}`);
       const mensagem = `Olá, ${nome}! Seu relatório de competências da ${empresa.nome} está disponível:\n\n${link}`;
-      const delaySec = Math.floor((i * DELAY_BETWEEN_MS) / 1000);
 
       try {
-        await publishToQStash({ telefone, mensagem }, delaySec);
+        await publishToQStash({
+          telefone,
+          mensagem,
+          kindEnvio: 'relatorio',
+          ...(rel.colaborador_id ? { colaboradorId: rel.colaborador_id } : {}),
+          empresaId,
+        }, atrasos[i]);
         return { ok: true };
       } catch {
         return { ok: false };
@@ -137,7 +161,12 @@ export async function dispararRelatoriosLote(empresaId: string) {
     const agendados = results.filter(r => r.ok).length;
     const erros = results.filter(r => !r.ok).length;
 
-    return { success: true, message: `Relatórios: ${agendados} agendados, ${erros} erros` };
+    return {
+      success: true,
+      message:
+        `Relatórios: ${agendados} agendados (entrega em ${duracaoEstimada(agendados)}), ${erros} erros` +
+        `${avisoTeto ? ` ⚠️ ${avisoTeto}` : ''}`,
+    };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : String(err) };
   }

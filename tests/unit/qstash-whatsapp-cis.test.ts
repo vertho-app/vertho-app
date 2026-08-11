@@ -242,6 +242,71 @@ describe('qstash whatsapp-cis webhook', () => {
     expect(sendWhatsapp).not.toHaveBeenCalled();
   });
 
+  // ── Identificação da pessoa no lote (11/08/2026) ──────────────────────────
+  // O broadcast não tem envioId nem fase4EnvioId, então antes disto a entrega
+  // era gravada com colaborador_id NULO: não havia no banco quem tinha
+  // recebido, e a lista de quem ficou de fora teve de sair da DLQ do QStash.
+  it('propaga colaboradorId/empresaId do lote para a telemetria de entrega', async () => {
+    const res = await POST(makeReq({
+      telefone: '11999999999',
+      mensagem: 'Convite do projeto',
+      colaboradorId: '33333333-3333-4333-8333-333333333333',
+      empresaId: '44444444-4444-4444-8444-444444444444',
+      kindEnvio: 'broadcast',
+    }));
+
+    expect(res.status).toBe(200);
+    expect(sendWhatsapp).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'text' }),
+      expect.objectContaining({
+        kind: 'broadcast',
+        colaboradorId: '33333333-3333-4333-8333-333333333333',
+        empresaId: '44444444-4444-4444-8444-444444444444',
+      }),
+    );
+  });
+
+  it('usa kindEnvio=relatorio quando o lote é de relatórios', async () => {
+    const res = await POST(makeReq({
+      telefone: '11999999999',
+      mensagem: 'Seu relatório',
+      colaboradorId: '33333333-3333-4333-8333-333333333333',
+      kindEnvio: 'relatorio',
+    }));
+
+    expect(res.status).toBe(200);
+    expect(sendWhatsapp).toHaveBeenNthCalledWith(1, expect.anything(), expect.objectContaining({ kind: 'relatorio' }));
+  });
+
+  it('rejeita kindEnvio fora do enum (payload não escolhe o valor da coluna)', async () => {
+    const res = await POST(makeReq({
+      telefone: '11999999999',
+      mensagem: 'oi',
+      kindEnvio: 'qualquer_coisa',
+    }));
+
+    expect(res.status).toBe(400);
+    expect(sendWhatsapp).not.toHaveBeenCalled();
+  });
+
+  it('rejeita colaboradorId que não é uuid', async () => {
+    const res = await POST(makeReq({
+      telefone: '11999999999',
+      mensagem: 'oi',
+      colaboradorId: 'nao-e-uuid',
+    }));
+
+    expect(res.status).toBe(400);
+    expect(sendWhatsapp).not.toHaveBeenCalled();
+  });
+
+  it('lote sem identificação continua válido (retrocompatível), com meta vazia', async () => {
+    const res = await POST(makeReq({ telefone: '11999999999', mensagem: 'oi' }));
+
+    expect(res.status).toBe(200);
+    expect(sendWhatsapp).toHaveBeenCalledWith(expect.anything(), {});
+  });
+
   it('não carimba fase4 quando o envio falha (503 para o QStash retentar)', async () => {
     mocks.zapi.connected = false;
 
