@@ -60,6 +60,38 @@ achado R8 do health-check aponta a env certa e diz por que não usar a outra.
 com decisão consciente de dar admin — e o caminho canônico para isso é a tabela `platform_admins`,
 não a env.
 
+### 10/08 — a mesma porta com DUAS réguas: a env abre a tela e não abre ação nenhuma
+
+Sequela direta do item acima, medida ao capturar as telas para o Manual de Telas. O `/admin`
+autoriza em dois pontos, e **só um** deles conhece o fallback de env:
+
+| Ponto | Régua | Aceita `ADMIN_EMAILS`? |
+|---|---|---|
+| Porta da tela — `app/admin/layout.tsx:12` → `checarAcessoPlataforma()` (`lib/authz-plataforma.ts:32-39`) | tabela **ou** env | **sim** |
+| Toda Server Action — `requireAdminAction()` (`lib/auth/action-context.ts:28-30`) → `getUserContext()` → `isPlatformAdmin()` (`lib/authz.ts:99-107`) | só a tabela `platform_admins` | **não** |
+
+Medido em produção (10-11/08/2026, `users=1`): com um e-mail que está na env e **não** está na
+tabela, o shell do admin renderiza inteiro — menu, grupos, lista de empresas com nome de tenant —
+e **toda** carga de dado é recusada: **134** `FORBIDDEN: permissão necessária admin.access` +
+**54** `FORBIDDEN: apenas platform admin`, em **76 rotas**.
+
+Duas consequências, e a segunda é a que morde:
+
+1. **Visibilidade sem poder.** Quem está só na env enxerga a estrutura do painel e os nomes dos
+   tenants sem ser platform admin. Não é escalável por atacante (a env só o dono edita), mas é
+   mais acesso do que a régua das actions concede — as duas pontas discordam sobre quem entra.
+2. **O sintoma não parece de autorização.** A tela fica presa em "Carregando…" **sem mensagem de
+   erro**: o `catch` das telas não distingue 403 de falha de rede. Quem for depurar isso vai
+   procurar bug de carregamento, e o log só entrega a pista pelo lado errado
+   (`[authz] email ambíguo (multi-tenant) sem tenant resolvido`, que é efeito colateral do
+   `findColabByEmail` no apex, não a causa).
+
+🚧 **Decisão em aberto (do dono):** o fallback de env vale nas **duas** pontas ou em **nenhuma**.
+Hoje vale só na que dá visibilidade sem poder, que é o pior dos três estados. Enquanto não se
+decide, o caminho canônico continua sendo a tabela `platform_admins` — e quem for automatizar
+qualquer coisa contra o `/admin` (E2E, captura de tela, smoke) tem que usar e-mail **da tabela**,
+senão colhe telas que abrem e nunca carregam.
+
 ### 28/07 — mais dois casos de "entrada do cliente vira decisão do servidor" (fechados)
 
 Ambos nasceram no código novo do `/board` e da captura de lead, e ambos foram apontados por

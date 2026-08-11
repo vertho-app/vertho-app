@@ -1,0 +1,23 @@
+{
+  "_leia": "MODELO. Copie para ../../deliverables/manual-telas/alvos.json e preencha. O arquivo real NÃO entra no repo (é público e isto tem id de tenant e e-mail de equipe).",
+  "app": "https://app.vertho.ai",
+  "tenantDemo": "https://<slug-do-tenant-de-demo>.vertho.ai",
+  "empresaDemo": "<uuid da empresa is_demo — o tenant que aparece nos prints>",
+  "empresaFallback": "<uuid de um tenant real, usado só onde a demo não tem dado>",
+  "sessoes": {
+    "admin": "<e-mail que esteja na tabela platform_admins>",
+    "colab": "<colaborador da demo com trilha ativa>",
+    "gestor": "<colaborador da demo com role=gestor e liderados>",
+    "rep": "<e-mail com linha em sales_representatives>"
+  },
+  "ids": {
+    "moduloBase": "<uuid em modulos_base_conteudo>",
+    "board": "<uuid em board_paineis>",
+    "proposta": "<uuid em sales_proposals>",
+    "conta": "<uuid em sales_accounts>",
+    "oportunidade": "<uuid em sales_opportunities>",
+    "cnpj": "<cnpj_basico em radarempresas_empresas>",
+    "cicloPulso": "<uuid em pulse_ciclos>",
+    "pulsoAssignment": "<uuid em pulse_assignments>"
+  }
+}

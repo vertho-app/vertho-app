@@ -15,6 +15,7 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > | Schema e migrations | `docs/SCHEMA-PROCESS.md` |
 > | Vídeo (pipeline + 13 templates de cena) | `docs/GERADOR-VIDEO-MODULO.md` · prompt literal em `docs/PROMPT-ROTEIRO-VIDEO.md` |
 > | Conteúdo canônico | `docs/MODULOS-BASE-CONTEUDO.md` · `docs/EXTRACAO-MANUSCRITO.md` · `docs/KIT-SEMANAL.md` |
+> | Telas do produto (o que cada uma mostra, o que cada botão faz) | `docs/MANUAL-DE-TELAS.md` — o manual em si fica **fora do repo** (tem print de tenant) |
 > | Checklists (deploy, mudança grande, go-live) | `docs/CHECKLISTS.md` |
 > | Modos da engine | `docs/MODO-PILOTO.md` (piloto e personalizado) |
 > | Comercial / demo | `docs/PORTAL-REPRESENTANTE.md` · `docs/AMBIENTE-DEMO.md` |
