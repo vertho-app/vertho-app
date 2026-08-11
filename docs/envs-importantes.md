@@ -35,6 +35,9 @@
 | `WASENDER_ACCOUNT_TOKEN` | Token de CONTA WaSender (gerência de sessões via API; o app NÃO lê) | Não | Local |
 | `WASENDER_BASE_URL` | Override do host WaSender (default `https://www.wasenderapi.com`) | Não | — |
 | `WHATSAPP_PRIMARY` | Provedor primário do failover: `zapi` (default) \| `wasender` | Não | Produção |
+| `WHATSAPP_LOTE_INTERVALO_MS` | Intervalo entre mensagens de um LOTE (default `15000` = 4/min). Era 2s literal e derrubou o número em 11/08 — ver `lib/whatsapp/cadencia.ts` | Não | Produção |
+| `WHATSAPP_LOTE_MAX` | Teto de destinatários por disparo (default `120`). O excedente NÃO é enviado e volta na mensagem da tela | Não | Produção |
+| `WHATSAPP_LOTE_JITTER` | Variação do intervalo, 0–1 (default `0.3` = ±30%). Cadência exata é assinatura de robô; `0` desliga | Não | — |
 | `INTERNAL_API_KEY` | Auth de chamadas internas server-to-server | Não | Produção |
 | `INTERNAL_DISPATCH_SECRET` | Segredo de dispatch interno (after/QStash) | Sim | Produção |
 | `CRON_SECRET` | Auth cron jobs (⚠️ sem espaço/newline — ver nota) | Sim | Produção |
