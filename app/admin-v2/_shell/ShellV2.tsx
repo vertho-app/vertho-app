@@ -7,42 +7,66 @@ import {
 } from 'lucide-react';
 
 /**
- * Shell do protótipo: 6 áreas globais que NÃO mudam com o cliente selecionado.
- * No admin atual são 39 itens em 10 grupos, dos quais só 10 aparecem nos dois
- * contextos do filtro de empresa (medido em nav-items.ts).
+ * Shell da arquitetura proposta: 6 áreas globais que NÃO mudam com o cliente
+ * selecionado. No admin atual são 39 itens em 10 grupos, dos quais só 10
+ * aparecem nos dois contextos do filtro de empresa (medido em nav-items.ts).
+ *
+ * Sem badge de contagem aqui de propósito: número no menu teria de ser buscado
+ * a cada navegação e, se ficar defasado, o menu mente. As contagens vivem em
+ * "Meu trabalho", que é onde elas são lidas do banco.
  */
 type Area = {
   href: string;
   icone: React.ComponentType<{ size?: number; className?: string }>;
   rotulo: string;
   sub: string;
-  badge?: string;
+  pronta: boolean;
 };
 
 const AREAS: Area[] = [
-  { href: '/admin-v2', icone: CircleDot, rotulo: 'Meu trabalho', sub: 'Pendências e aprovações', badge: '7' },
-  { href: '/admin-v2/cliente', icone: Building2, rotulo: 'Clientes', sub: 'Carteira e operação' },
-  { href: '/admin-v2/em-breve?area=conteudo', icone: Sparkles, rotulo: 'Estúdio de Conteúdo', sub: 'Biblioteca, produção, kits' },
-  { href: '/admin-v2/em-breve?area=crescimento', icone: TrendingUp, rotulo: 'Crescimento', sub: 'Radar e mercado' },
-  { href: '/admin-v2/em-breve?area=comercial', icone: DollarSign, rotulo: 'Comercial & Financeiro', sub: 'Filas, propostas, custos', badge: '3' },
-  { href: '/admin-v2/em-breve?area=plataforma', icone: Settings, rotulo: 'Plataforma', sub: 'Acessos, dados, governança' },
+  { href: '/admin-v2', icone: CircleDot, rotulo: 'Meu trabalho', sub: 'Pendências e aprovações', pronta: true },
+  { href: '/admin-v2/clientes', icone: Building2, rotulo: 'Clientes', sub: 'Carteira e operação', pronta: true },
+  { href: '/admin-v2/em-breve?area=conteudo', icone: Sparkles, rotulo: 'Estúdio de Conteúdo', sub: 'Biblioteca, produção, kits', pronta: false },
+  { href: '/admin-v2/em-breve?area=crescimento', icone: TrendingUp, rotulo: 'Crescimento', sub: 'Radar e mercado', pronta: false },
+  { href: '/admin-v2/em-breve?area=comercial', icone: DollarSign, rotulo: 'Comercial & Financeiro', sub: 'Filas, propostas, custos', pronta: false },
+  { href: '/admin-v2/em-breve?area=plataforma', icone: Settings, rotulo: 'Plataforma', sub: 'Acessos, dados, governança', pronta: false },
+];
+
+const TITULOS: { teste: (p: string) => boolean; crumb: string; h1: React.ReactNode }[] = [
+  {
+    teste: (p) => p === '/admin-v2',
+    crumb: 'Meu trabalho',
+    h1: <>O que precisa de <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">atenção</em></>,
+  },
+  {
+    teste: (p) => p.startsWith('/admin-v2/clientes'),
+    crumb: 'Clientes',
+    h1: <>Carteira de <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">clientes</em></>,
+  },
+  {
+    teste: (p) => p.startsWith('/admin-v2/cliente'),
+    crumb: 'Clientes › workspace',
+    h1: <>Workspace do <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">cliente</em></>,
+  },
 ];
 
 export default function ShellV2({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '';
+  const titulo = TITULOS.find((t) => t.teste(pathname));
 
   const ativo = (href: string) => {
     const base = href.split('?')[0];
-    return base === '/admin-v2' ? pathname === '/admin-v2' : pathname.startsWith(base);
+    if (base === '/admin-v2') return pathname === '/admin-v2';
+    if (base === '/admin-v2/clientes') return pathname.startsWith('/admin-v2/cliente');
+    return pathname.startsWith(base);
   };
 
   return (
     <div className="min-h-dvh text-[var(--ink)]">
-      {/* faixa que impede confundir o protótipo com o admin de produção */}
       <div className="sticky top-0 z-50 flex flex-wrap items-center gap-3 border-b border-[#e1aaef47] bg-[#9e4edd24] px-5 py-2 text-xs text-[var(--lilac)]">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em]">Protótipo</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em]">Arquitetura proposta</span>
         <span className="text-[var(--ink-dim)]">
-          Arquitetura proposta · dados ilustrativos · o admin de produção continua em{' '}
+          Lendo dados reais · o admin atual continua em{' '}
           <Link href="/admin/dashboard" className="underline underline-offset-2 hover:text-[var(--cyan)]">/admin</Link>
         </span>
       </div>
@@ -58,19 +82,11 @@ export default function ShellV2({ children }: { children: React.ReactNode }) {
             </span>
           </div>
 
-          <div className="rounded-[10px] border border-white/[0.14] bg-[#34c5cc10] px-3 py-2.5">
-            <span className="block font-mono text-[9.5px] uppercase tracking-[0.16em] text-[var(--ink-faint)]">Cliente</span>
-            <span className="flex items-center justify-between gap-2 text-[13.5px] font-semibold">
-              Grupo Meridiano
-              <span className="font-mono text-[10px] font-normal text-[var(--cyan)]">trocar</span>
-            </span>
-          </div>
-
           <nav className="flex flex-col gap-0.5">
-            <span className="px-2.5 pb-1.5 pt-3 font-mono text-[9.5px] uppercase tracking-[0.16em] text-[var(--ink-faint)]">
+            <span className="px-2.5 pb-1.5 font-mono text-[9.5px] uppercase tracking-[0.16em] text-[var(--ink-faint)]">
               Áreas
             </span>
-            {AREAS.map(({ href, icone: Icone, rotulo, sub, badge }) => {
+            {AREAS.map(({ href, icone: Icone, rotulo, sub, pronta }) => {
               const on = ativo(href);
               return (
                 <Link
@@ -83,12 +99,14 @@ export default function ShellV2({ children }: { children: React.ReactNode }) {
                 >
                   <Icone size={16} className={`mt-0.5 shrink-0 ${on ? 'text-[var(--cyan)]' : 'text-[var(--ink-faint)]'}`} />
                   <span className="min-w-0 flex-1">
-                    <span className={`block font-medium ${on ? 'text-[var(--cyan)]' : ''}`}>{rotulo}</span>
+                    <span className={`block font-medium ${on ? 'text-[var(--cyan)]' : ''} ${pronta ? '' : 'text-[var(--ink-dim)]'}`}>
+                      {rotulo}
+                    </span>
                     <span className="mt-0.5 block text-[11px] text-[var(--ink-faint)]">{sub}</span>
                   </span>
-                  {badge && (
-                    <span className="shrink-0 rounded-full bg-[var(--coral)] px-1.5 py-px font-mono text-[10px] font-semibold text-[#2a0a00]">
-                      {badge}
+                  {!pronta && (
+                    <span className="mt-0.5 shrink-0 rounded-full border border-white/[0.14] px-1.5 py-px font-mono text-[9px] text-[var(--ink-faint)]">
+                      a fazer
                     </span>
                   )}
                 </Link>
@@ -105,29 +123,18 @@ export default function ShellV2({ children }: { children: React.ReactNode }) {
         <main className="flex min-w-0 flex-col">
           <div className="sticky top-[37px] z-40 flex flex-wrap items-center gap-4 border-b border-white/[0.08] bg-gradient-to-b from-[#06172ceb] to-[#06172cb8] px-7 py-4 backdrop-blur-[10px]">
             <div className="min-w-0">
-              <p className="font-mono text-[11.5px] text-[var(--ink-faint)]">
-                {pathname.startsWith('/admin-v2/cliente') ? 'Clientes › Grupo Meridiano' : 'Meu trabalho'}
-              </p>
-              <h1 className="mt-0.5 text-[23px] font-semibold leading-tight">
-                {pathname.startsWith('/admin-v2/cliente') ? (
-                  <>Grupo <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">Meridiano</em></>
-                ) : (
-                  <>O que precisa de <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">atenção</em></>
-                )}
-              </h1>
+              <p className="font-mono text-[11.5px] text-[var(--ink-faint)]">{titulo?.crumb ?? 'Admin'}</p>
+              <h1 className="mt-0.5 text-[23px] font-semibold leading-tight">{titulo?.h1 ?? 'Área'}</h1>
             </div>
             <div className="ml-auto flex items-center gap-2.5">
               <span className="flex items-center gap-1.5 rounded-lg border border-white/[0.14] px-2.5 py-1.5 font-mono text-[11px] text-[var(--ink-faint)]">
                 <Search size={12} /> ⌘K
               </span>
-              <span className="rounded-full border border-white/[0.14] bg-[#34c5cc14] px-3 py-1.5 text-xs text-[var(--cyan-soft)]">
-                ▼ Grupo Meridiano
-              </span>
               <Link
                 href="/admin/dashboard"
                 className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-[var(--ink-faint)] transition-colors hover:text-[var(--cyan)]"
               >
-                <LogOut size={13} /> sair do protótipo
+                <LogOut size={13} /> admin atual
               </Link>
             </div>
           </div>
