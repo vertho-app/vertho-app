@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { renderConteudoFinalPDF } from '@/lib/conteudo-final-pdf';
+
+// Render REAL de PDF (@react-pdf): estes são dos testes mais lentos da suíte.
+// O teto vive em `vitest.config.ts` (testTimeout), calibrado pela medição da
+// suíte inteira — não por arquivo.
 import { parseBlocks, type LayoutPlan, type PlanItem } from '@/lib/conteudo-layout-plan';
 
 const md = `# Título Principal de Teste

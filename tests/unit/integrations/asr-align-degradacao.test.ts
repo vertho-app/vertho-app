@@ -52,7 +52,19 @@ describe('transcribeWords — degradação declarada', () => {
     });
     const { transcribeWords } = await carregar();
 
-    const r = await transcribeWords(MP3);
+    // O backoff é REAL (`1500 * 2 ** tentativa` em whisper-align): 1,5s + 3s =
+    // 4,5s de espera contra o teto de 5s do vitest. Não era "timeout apertado" —
+    // o teste passava com 500ms de folga e virava vermelho intermitente sempre
+    // que a suíte disputava CPU. Timer falso tira a espera do relógio real: o
+    // teste vira determinístico em vez de só ganhar um teto maior.
+    vi.useFakeTimers();
+    try {
+      const p = transcribeWords(MP3);
+      await vi.advanceTimersByTimeAsync(10_000); // cobre 1500 + 3000 com folga
+      var r = await p;
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect(r).toBeNull();
     expect((globalThis.fetch as any).mock.calls).toHaveLength(3); // 1 + 2 retries
