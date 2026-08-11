@@ -26,7 +26,7 @@ type Area = {
 const AREAS: Area[] = [
   { href: '/admin-v2', icone: CircleDot, rotulo: 'Meu trabalho', sub: 'Pendências e aprovações', pronta: true },
   { href: '/admin-v2/clientes', icone: Building2, rotulo: 'Clientes', sub: 'Carteira e operação', pronta: true },
-  { href: '/admin-v2/em-breve?area=conteudo', icone: Sparkles, rotulo: 'Estúdio de Conteúdo', sub: 'Biblioteca, produção, kits', pronta: false },
+  { href: '/admin-v2/conteudo', icone: Sparkles, rotulo: 'Estúdio de Conteúdo', sub: 'Biblioteca, produção, kits', pronta: true },
   { href: '/admin-v2/em-breve?area=crescimento', icone: TrendingUp, rotulo: 'Crescimento', sub: 'Radar e mercado', pronta: false },
   { href: '/admin-v2/em-breve?area=comercial', icone: DollarSign, rotulo: 'Comercial & Financeiro', sub: 'Filas, propostas, custos', pronta: false },
   { href: '/admin-v2/em-breve?area=plataforma', icone: Settings, rotulo: 'Plataforma', sub: 'Acessos, dados, governança', pronta: false },
@@ -42,6 +42,11 @@ const TITULOS: { teste: (p: string) => boolean; crumb: string; h1: React.ReactNo
     teste: (p) => p.startsWith('/admin-v2/clientes'),
     crumb: 'Clientes',
     h1: <>Carteira de <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">clientes</em></>,
+  },
+  {
+    teste: (p) => p.startsWith('/admin-v2/conteudo'),
+    crumb: 'Estúdio de Conteúdo',
+    h1: <>Acervo e <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">produção</em></>,
   },
   {
     teste: (p) => p.startsWith('/admin-v2/cliente'),
