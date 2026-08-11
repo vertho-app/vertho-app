@@ -15,7 +15,16 @@ const url = process.env.DATABASE_URL
   || readFileSync('.env.local', 'utf8').match(/^DATABASE_URL=["']?([^"'\r\n]+)/m)?.[1];
 if (!url) { console.error('DATABASE_URL ausente'); process.exit(1); }
 
-const TABELAS = ['competencias', 'modulos_base_conteudo', 'micro_conteudos', 'competencias_base'];
+const TABELAS = ['competencias', 'modulos_base_conteudo', 'micro_conteudos', 'competencias_base', 'colaboradores'];
+
+/**
+ * Papéis a testar. `ci_rls_audit` (o usuário do workflow de postura) entra aqui
+ * de propósito: ele recebeu `GRANT SELECT` para enxergar o CATÁLOGO, e a
+ * pergunta que fica é se isso lhe deu DADO junto. Não deu — ele não tem
+ * BYPASSRLS e nenhuma policy o alcança —, mas isso é uma afirmação que precisa
+ * ser medida, não deduzida.
+ */
+const PAPEIS = process.argv.slice(2).length ? process.argv.slice(2) : ['authenticated', 'anon', 'ci_rls_audit'];
 
 const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
 await client.connect();
@@ -24,7 +33,24 @@ const claims = JSON.stringify({ role: 'authenticated', sub: '00000000-0000-0000-
 
 console.log('papel      | tabela                 | linhas visíveis');
 console.log('-----------+------------------------+----------------');
-for (const papel of ['authenticated', 'anon']) {
+for (const papel of PAPEIS) {
+  // ⚠️ O `SET ROLE` é testado SEPARADAMENTE do `SELECT`, e isso não é zelo
+  // gratuito: na primeira versão os dois estavam no mesmo try, e um
+  // "permission denied to set role" aparecia na tabela como se fosse a tabela
+  // negando. O relatório dizia "sem permissão em colaboradores" quando o que
+  // faltava era poder virar aquele papel — a mesma classe de "o número prova
+  // outra coisa" que este arquivo existe para evitar.
+  await client.query('BEGIN');
+  let podeAssumir = true;
+  try {
+    await client.query(`SET LOCAL ROLE ${papel}`);
+  } catch (e) {
+    podeAssumir = false;
+    console.log(`${papel.padEnd(14)} | (não consegui assumir o papel: ${e.code} — resultado abaixo seria enganoso)`);
+  }
+  await client.query('ROLLBACK');
+  if (!podeAssumir) continue;
+
   for (const t of TABELAS) {
     await client.query('BEGIN');
     let resultado;
@@ -34,10 +60,10 @@ for (const papel of ['authenticated', 'anon']) {
       const { rows } = await client.query(`SELECT count(*)::int AS n FROM ${t}`);
       resultado = String(rows[0].n);
     } catch (e) {
-      resultado = `sem permissão (${e.code})`;
+      resultado = e.code === '42501' ? 'GRANT negado (42501)' : `erro ${e.code}`;
     }
     await client.query('ROLLBACK');
-    console.log(`${papel.padEnd(10)} | ${t.padEnd(22)} | ${resultado}`);
+    console.log(`${papel.padEnd(14)} | ${t.padEnd(22)} | ${resultado}`);
   }
 }
 
