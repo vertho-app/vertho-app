@@ -18,7 +18,20 @@
 //
 // Invariantes:
 //   1. Nenhum arquivo de produção fala HTTP direto com `api.anthropic.com`.
-//   2. Só o wrapper decide o formato do parâmetro de raciocínio (`budget_tokens:`).
+//   2. Só o wrapper decide o formato do parâmetro de raciocínio — em QUALQUER
+//      provedor. O vocabulário muda: `budget_tokens` (Anthropic),
+//      `thinkingConfig.thinkingBudget` (Gemini), `reasoning_effort`
+//      (OpenAI-compatible). O invariante 2 nasceu (10/08) só com o vocabulário
+//      da Anthropic, e por isso não via `thinkingConfig:{thinkingBudget:0}` em
+//      `trigger/extracao-video.ts` — a MESMA classe, outro fornecedor,
+//      esperando a próxima troca de geração do Gemini para repetir o episódio.
+//
+// Por que o invariante 1 NÃO foi estendido para Gemini/OpenAI (decisão de 11/08,
+// não esquecimento): lá o HTTP cru é legítimo em massa — TTS, embeddings, imagem
+// e ASR são modalidades que `callAI` não cobre, e a allowlist ficaria com ~8
+// arquivos corretos. Allowlist grande é allowlist que ninguém lê. O sinal que
+// separa risco de rotina não é o HOST, é o PARÂMETRO DE RACIOCÍNIO — que só
+// existe onde há geração de texto e só quebra quando a geração do modelo muda.
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -31,7 +44,19 @@ const IGNORAR = new Set(['node_modules', '.next', '.git', 'dist', 'build']);
 // "passar o CI" é exatamente o bug que esta guarda existe para pegar — o caminho
 // certo é `callAI`/`callAIChat` (síncrono) ou `lib/ai-batch` (lote, SDK oficial).
 const PODE_FALAR_HTTP_CRU: string[] = [];
-const PODE_DECIDIR_RACIOCINIO = ['actions/ai-client.ts'];
+const PODE_DECIDIR_RACIOCINIO = [
+  'actions/ai-client.ts',
+  // Dívida declarada (11/08): MULTIMODAL — mandam áudio/vídeo por `inlineData`, e
+  // `callAI` só transporta texto. Não é preguiça: rotear pelo wrapper hoje perderia
+  // a modalidade. Saem daqui quando `callGemini` aceitar partes não-textuais.
+  'lib/gemini-video.ts',        // vídeo → texto
+  'trigger/extracao-video.ts',  // áudio → transcrição
+];
+
+// Arquivos que são PAYLOAD (string de HTML/markdown servida ao browser), não
+// código de request: a tela de custo cita `reasoning_effort` em prosa. Casar
+// texto de documentação como violação treina a ignorar a guarda.
+const EH_CONTEUDO = (rel: string) => /-html\.ts$/.test(rel);
 
 function varrer(dir: string, saida: string[] = []): string[] {
   let entradas: string[];
@@ -75,19 +100,29 @@ describe('IA · nenhum request cru de Anthropic fora do wrapper', () => {
     ).toEqual([]);
   });
 
-  it('só o wrapper decide o formato do parâmetro de raciocínio', () => {
-    // `budget_tokens:` (com dois-pontos) casa atribuição real e ignora as menções
-    // em comentário/prosa, que são desejáveis — é assim que a lição fica no código.
+  it('só o wrapper decide o formato do parâmetro de raciocínio (todos os provedores)', () => {
+    // Com dois-pontos: casa atribuição real e ignora as menções em comentário/prosa,
+    // que são desejáveis — é assim que a lição fica no código.
+    const VOCABULARIO = /(?:budget_tokens|thinkingBudget|thinkingConfig|reasoning_effort)\s*:/;
     const infratores = ARQUIVOS
-      .filter((a) => /budget_tokens\s*:/.test(a.texto))
+      .filter((a) => VOCABULARIO.test(a.texto))
       .map((a) => a.rel)
-      .filter((rel) => !PODE_DECIDIR_RACIOCINIO.includes(rel));
+      .filter((rel) => !PODE_DECIDIR_RACIOCINIO.includes(rel) && !EH_CONTEUDO(rel));
 
     expect(
       infratores,
-      `O formato de thinking muda por geração de modelo (enabled+budget_tokens até a\n` +
-        `4.6; adaptive+output_config.effort da 4.7/5 em diante). Quem monta esse corpo\n` +
-        `fora de actions/ai-client.ts reintroduz o 400. Infratores: ${infratores.join(', ')}`,
+      `O formato do parâmetro de raciocínio muda por GERAÇÃO de modelo e por PROVEDOR\n` +
+        `(Anthropic: enabled+budget_tokens até a 4.6 → adaptive+output_config.effort da\n` +
+        `4.7/5 em diante. Gemini: thinkingConfig.thinkingBudget. OpenAI: reasoning_effort).\n` +
+        `Quem monta esse corpo fora de actions/ai-client.ts fica FORA do fix quando o\n` +
+        `contrato muda — foi assim que o vídeo passou 5 dias gerando zero.\n` +
+        `Infratores: ${infratores.join(', ')}`,
     ).toEqual([]);
+  });
+
+  it('a allowlist de raciocínio é pequena o bastante para alguém ler', () => {
+    // Uma guarda com allowlist crescente vira carimbo. Se este número subir, a
+    // pergunta certa é "por que o wrapper ainda não cobre isso?", não "+1 na lista".
+    expect(PODE_DECIDIR_RACIOCINIO.length).toBeLessThanOrEqual(3);
   });
 });
