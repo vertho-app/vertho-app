@@ -431,3 +431,78 @@ checks continuam `gpt-5.6-terra`, fallback de provedor `AI_FALLBACK_MODEL` →
   memória `project_catalogo_modelos_ia`). `MODELOS_DISPONIVEIS`
   (`lib/ai-tasks.ts`) é o mais próximo de canônico, mas não é importado pelos
   outros seletores.
+
+---
+
+## 07-11/08 · Eval vivo do PDI em 9 modelos, e o `untagged` etiquetado
+
+### Eval: 18 execuções, 9 modelos × 2 cenários
+
+Harness: `scripts/_pdi-modelos.ts` (sucessor do `_pdi-4-modelos`), prompt REAL via
+`buildRelatorioIndividualPrompt`, custo/tokens lidos do `ia_usage_log` — o ledger
+também **confirma qual modelo serviu**, porque o `callAI` tem fallback de provedor e
+sem isso um resultado caído no fallback seria comparado com o rótulo errado.
+Cenários: 2 competências **com** blueprint (Elda·Ibipeba, ações fixas — mede só
+redação) e 5 competências **sem** blueprint (persona fictícia — o modelo também
+monta o sprint). Artefatos em `Downloads/pdi-modelos-2026-08-0{7,8}/`.
+
+**Nenhum modelo truncou: 18/18** com JSON válido, todas as competências na ordem e
+sprint completo — inclusive Sonnet 5 em `effort:high` com 13.041 tokens de saída.
+A hipótese que motivou o teste de volume (Sonnet 5 truncando como truncou na
+extração de Módulo-Base, Resultado 3 acima) **não se reproduziu no PDI**. O
+truncamento é **por tarefa**: aparece onde `max_tokens` é apertado e o thinking
+disputa o mesmo teto, não onde o teto é 64k.
+
+**Nenhum critério automático separou os modelos.** JSON válido, contagem e ordem
+bateram em todos os nove — o que sobra é qualidade de escrita, e essa decisão foi
+para leitura cega (artefato `e8161cfa-fead-4bee-a9d1-fac9c9df0421`, 9 PDIs
+anonimizados A–I sobre persona fictícia).
+
+**A única métrica objetiva que discriminou foi densidade** — bytes de markdown
+legível ÷ tokens de saída, isto é, quanto do que se paga vira texto que a pessoa lê:
+
+| Run (5 competências) | out tok | US$ | Latência | Bytes/tok |
+|---|---:|---:|---:|---:|
+| `gpt-5.6-luna` low | 4.416 | **0,031** | **31s** | **3,39** |
+| `gpt-5.6-terra` high | 4.580 | 0,081 | 42s | 3,21 |
+| `gemini-3.6-flash` | 4.873 | 0,054 | 34s | 2,97 |
+| `gpt-5.6-luna` high | 6.809 | 0,046 | 50s | 2,37 |
+| `kimi-k3` low | 7.983 | 0,145 | 200s | 2,44 |
+| **`claude-sonnet-4-6`** (produção) | 8.908 | 0,161 | 183s | 2,65 |
+| `claude-sonnet-5` | 10.348 | 0,127 | 104s | 1,58 |
+| `claude-opus-5` thinking+high | 11.270 | **0,342** | 151s | 1,77 |
+| `claude-sonnet-5` high | 13.041 | 0,147 | 116s | **1,20** |
+
+O `sonnet-5 high` queima 13.041 tokens e entrega **menos texto** que o `luna low`
+entrega com 4.416 — a inflação não vira conteúdo, vira overhead. O `opus-5` custa
+2,4× o `sonnet-5` e **não** é mais prolixo: teto de referência, não candidato.
+
+> ⚠️ **`effort` em Claude era ignorado até 08/08.** `options.reasoningEffort` só
+> virava `reasoning_effort` no ramo OpenAI-compatible; no ramo Anthropic era
+> descartado. Pedir "opus-5 em high" rodava o modelo em esforço **padrão** e
+> devolvia resultado com o rótulo `high` — pior que um erro, porque a tabela mente.
+> Corrigido para `output_config.effort` (GA na geração 5). O efeito é medido: o
+> mesmo prompt no mesmo `sonnet-5` passou de 6.959 para 9.766 tokens ao ligar
+> `high` (+40%).
+
+### O `untagged` etiquetado — e o fio solto no receptor
+
+77,3% do custo em 90 dias ($99,46 de $128,64) era `feature='untagged'`. Etiquetados
+os call-sites que dominam: os 3 relatórios de 64k (`pdi_individual`,
+`relatorio_gestor`, `relatorio_rh` — o maior custo por chamada da base), IA1/IA2 com
+retries, IA3, cenário B, blueprint, evolução, reavaliação, extrações dos chats, e os
+3 fallbacks síncronos das tasks Trigger (marcados `source:'batch-sync'`, para lote
+degradado a preço cheio não se confundir com síncrono por opção).
+
+**Achado no caminho:** o tipo `AIRun` de `lib/ai-batch.ts` declarava 5 parâmetros e a
+implementação de `run` desestruturava 4; `syncFallback` chamava `callAI` sem o 5º.
+Os dois call-sites que **já etiquetavam certo** (`conteudo_gerar`, `kit_desafio`)
+gravavam `untagged` sempre que o lote caía no síncrono — ou seja, **exatamente nos
+dias caros**, que são os que se quer explicar. O guard que existia lia o **emissor**
+(o call-site, por regex) e passava verde enquanto o fio estava solto no **receptor**.
+Guarda nova, validada por mutação: `tests/unit/integrations/ai-batch-taskkey.test.ts`.
+
+Também separadas as três conversas que gravavam sob a mesma etiqueta
+(`evidencias_socratic` cobria socrático, missão e analítico, que têm nº de turnos e
+custo diferentes) — semana de conteúdo e semana de aplicação agora são distinguíveis
+no ledger.
