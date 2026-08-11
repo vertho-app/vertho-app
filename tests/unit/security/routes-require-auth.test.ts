@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { describe, it, expect } from 'vitest';
+import { semComentarios } from '../../helpers/fonte';
 
 /**
  * Guard das rotas de API mutativas: auth, CSRF e rate limit.
@@ -77,7 +78,10 @@ function rotasDeApi(): Rota[] {
   } catch { return []; }
 
   return arquivos.map((arquivo) => {
-    const src = readFileSync(arquivo, 'utf-8');
+    // `semComentarios`: sem isto, `// chama requireUser(request)` satisfaz o
+    // guard — verificado por mutação em 10/08. É o mesmo furo que o
+    // `ownership-guard` tinha, e por isso a função vive em `helpers/fonte`.
+    const src = semComentarios(readFileSync(arquivo, 'utf-8'));
     const metodos = [...new Set(
       (src.match(/export\s+(?:const|async\s+function|function)\s+(GET|POST|PUT|PATCH|DELETE)/g) || [])
         .map((m) => m.split(/\s+/).pop() as string),

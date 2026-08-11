@@ -96,8 +96,18 @@ describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
         )
         AND NOT (p.roles @> '{service_role}' AND array_length(p.roles, 1) = 1)
         AND p.tablename NOT LIKE 'diag\\_%'
-        AND coalesce(p.qual, '') !~* 'empresa_id|current_colaborador_id|can_read_sessao_avaliacao'
-        AND coalesce(p.with_check, '') !~* 'empresa_id|current_colaborador_id'
+        -- Cada predicado e julgado por si, e so quando SE APLICA. Com AND entre
+        -- os dois (versao anterior), uma policy USING(true) com WITH CHECK
+        -- escopado passava batido -- e e o USING que libera a LEITURA, o furo
+        -- inteiro do F1. O inverso tambem: UPDATE com qual escopado e
+        -- WITH CHECK(true) deixa mover a linha para outro tenant.
+        -- IS NOT NULL importa: qual e nulo em INSERT e with_check em
+        -- SELECT/DELETE -- sem isso o guard acusaria toda policy correta.
+        AND (
+          (p.qual       IS NOT NULL AND p.qual       !~* 'empresa_id|current_colaborador_id|can_read_sessao_avaliacao')
+          OR
+          (p.with_check IS NOT NULL AND p.with_check !~* 'empresa_id|current_colaborador_id')
+        )
       ORDER BY p.tablename, p.policyname`);
     expect(v).toEqual([]);
   });
@@ -114,17 +124,25 @@ describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
       WITH fake(tablename, policyname, roles, qual, with_check) AS (VALUES
         ('competencias',   'authenticated_select_competencias', '{authenticated}'::name[], 'true',                            NULL),
         ('micro_conteudos','mc_authenticated_read',             '{authenticated}'::name[], '(ativo = true)',                  NULL),
+        -- as duas que a versão com AND deixava passar:
+        ('competencias',   'select_true_check_escopado',        '{authenticated}'::name[], 'true',                            '(empresa_id = get_empresa_id())'),
+        ('competencias',   'update_qual_ok_check_true',         '{authenticated}'::name[], '(empresa_id = get_empresa_id())', 'true'),
+        -- legítimas, incluindo INSERT (qual nulo) e UPDATE por identidade:
         ('colaboradores',  'tenant_ok',                         '{authenticated}'::name[], '(empresa_id = get_empresa_id())', NULL),
-        ('colaboradores',  'update_self',                       '{authenticated}'::name[], '(id = current_colaborador_id())', NULL),
-        ('micro_conteudos','mc_service_all',                    '{service_role}'::name[],  'true',                            NULL)
+        ('colaboradores',  'insert_ok',                         '{authenticated}'::name[], NULL,                              '(empresa_id = get_empresa_id())'),
+        ('colaboradores',  'update_self',                       '{authenticated}'::name[], '(id = current_colaborador_id())', '(id = current_colaborador_id())'),
+        ('micro_conteudos','mc_service_all',                    '{service_role}'::name[],  'true',                            'true')
       )
       SELECT f.tablename || '.' || f.policyname AS policy,
              (EXISTS (SELECT 1 FROM information_schema.columns c
                       WHERE c.table_schema='public' AND c.table_name=f.tablename AND c.column_name='empresa_id')
               AND NOT (f.roles @> '{service_role}' AND array_length(f.roles,1)=1)
               AND f.tablename NOT LIKE 'diag\\_%'
-              AND coalesce(f.qual,'') !~* 'empresa_id|current_colaborador_id|can_read_sessao_avaliacao'
-              AND coalesce(f.with_check,'') !~* 'empresa_id|current_colaborador_id') AS acusa
+              AND (
+                (f.qual       IS NOT NULL AND f.qual       !~* 'empresa_id|current_colaborador_id|can_read_sessao_avaliacao')
+                OR
+                (f.with_check IS NOT NULL AND f.with_check !~* 'empresa_id|current_colaborador_id')
+              )) AS acusa
       FROM fake f`);
 
     const veredito = Object.fromEntries(rows.map((r: any) => [r.policy, r.acusa]));
@@ -132,8 +150,14 @@ describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
     // que o INV2 anterior (`qual = 'true'`) deixava passar
     expect(veredito['competencias.authenticated_select_competencias']).toBe(true);
     expect(veredito['micro_conteudos.mc_authenticated_read']).toBe(true);
+    // e as duas que o `AND` entre qual/with_check deixava escapar (achadas em
+    // revisão crítica): `USING(true)` é o que libera a LEITURA, não importa o
+    // with_check; e `WITH CHECK(true)` deixa mover a linha para outro tenant.
+    expect(veredito['competencias.select_true_check_escopado']).toBe(true);
+    expect(veredito['competencias.update_qual_ok_check_true']).toBe(true);
     // e as que estão certas seguem passando — guard que acusa quem fez certo vira ruído
     expect(veredito['colaboradores.tenant_ok']).toBe(false);
+    expect(veredito['colaboradores.insert_ok']).toBe(false);   // qual nulo em INSERT
     expect(veredito['colaboradores.update_self']).toBe(false);
     expect(veredito['micro_conteudos.mc_service_all']).toBe(false);
   });
@@ -155,10 +179,18 @@ describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
     expect(v).toEqual([]);
   });
 
-  it('INV4 — nenhuma materialized view concede SELECT a anon/authenticated', async () => {
+  /**
+   * INV4 — ⚠️ cobria só `relkind = 'm'` (materialized views). Uma VIEW comum com
+   * GRANT a `anon` ficava fora da conta, e era o caso de
+   * `diag_view_escola_n0_breakdown`: 463.684 linhas legíveis pela anon key do
+   * bundle, encontrada numa revisão crítica DEPOIS de eu declarar o F3 fechado.
+   * Revogada na mig 209; o guard passa a olhar view e MV, porque a diferença
+   * entre as duas não tem nada a ver com quem pode lê-las.
+   */
+  it('INV4 — nenhuma view ou materialized view concede SELECT a anon/authenticated', async () => {
     const v = await violations(`
       SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE n.nspname = 'public' AND c.relkind = 'm'
+      WHERE n.nspname = 'public' AND c.relkind IN ('m', 'v')
         AND (has_table_privilege('anon', c.oid, 'SELECT') OR has_table_privilege('authenticated', c.oid, 'SELECT'))
       ORDER BY c.relname`);
     expect(v).toEqual([]);

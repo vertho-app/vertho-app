@@ -28,7 +28,6 @@
     "app/api/temporada/tira-duvidas/route.ts": 1,
     "app/api/webhooks/bunny/route.ts": 1,
     "app/dashboard/gestor/actions.ts": 1,
-    "app/dashboard/gestor/equipe-evolucao/actions.ts": 1,
     "app/dashboard/perfil-comportamental/mapeamento/mapeamento-actions.ts": 1,
     "app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts": 3,
     "app/dashboard/perfil/perfil-actions.ts": 1,

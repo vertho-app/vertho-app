@@ -55,10 +55,18 @@ export async function registrarEventoTrilha(input: {
     const formato = FORMATOS.includes(String(input.formato)) ? input.formato : null;
     const tipo = TIPOS.includes(String(input.tipo)) ? input.tipo : 'abertura';
 
-    await sb.from('trilha_eventos').insert({
+    // O supabase-js RETORNA `{ error }`: sem esta checagem o evento sumia e a
+    // action devolvia `ok: true`. O estrago não é perder um insert — é a
+    // /admin/engajamento SUBNOTIFICAR e ninguém saber, porque "evento não
+    // gravado" e "pessoa não abriu" produzem exatamente o mesmo gráfico.
+    const { error } = await sb.from('trilha_eventos').insert({
       empresa_id: t.empresa_id, colaborador_id: t.colaborador_id, trilha_id: trilhaId,
       semana, pilula, formato, tipo,
     });
+    if (error) {
+      console.error('[engajamento] evento não gravado:', error.message);
+      return { ok: false, error: error.message };
+    }
     return { ok: true };
   } catch {
     return { ok: false };

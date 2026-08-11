@@ -61,10 +61,20 @@ export async function carregarDashboardData(ctx: UserContext, shared?: HomeShare
   ] as const;
 
   const [
-    { count: totalComp },
-    { count: respondidas },
-    { count: avaliadas },
+    { count: totalComp, error: errComp },
+    { count: respondidas, error: errResp },
+    { count: avaliadas, error: errAval },
   ] = await Promise.all(progressoQueries);
+
+  // `count` vem `null` quando a query falha, e `null || 0` = 0. Sem esta
+  // checagem a home mostrava "0 de 0" e "0% de progresso" para quem respondeu
+  // tudo — falha de banco escrita na tela como se fosse o estado da pessoa, a
+  // mesma classe do certificado que acusava "participação < 75%" (F15).
+  const erroContagem = errComp || errResp || errAval;
+  if (erroContagem) {
+    console.error('[home] contagens de progresso falharam:', erroContagem.message);
+    colab.progressoIndisponivel = true;
+  }
 
   colab.totalComp = totalComp || 0;
   colab.respondidas = respondidas || 0;

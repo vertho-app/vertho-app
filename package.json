@@ -9,7 +9,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "backfill:embeddings": "node scripts/backfill-embeddings.js",
     "radar:import-censo-catalog": "node scripts/import-censo-catalog.mjs",

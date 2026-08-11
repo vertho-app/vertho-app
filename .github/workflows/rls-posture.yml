@@ -13,12 +13,30 @@ name: RLS Posture (banco vivo)
 #
 # 🔑 O secret `DATABASE_URL` deve ser de um usuário SOMENTE-LEITURA DE CATÁLOGO,
 # não do dono do banco. Este guard só faz SELECT em `pg_policies`, `pg_class`,
-# `pg_proc` e `information_schema`. SQL para criar:
+# `pg_proc` e `information_schema`.
+#
+# ⚠️ ARMADILHA, corrigida em 10/08 depois de uma revisão crítica: o SQL que eu
+# tinha escrito aqui ("sem GRANT em tabela nenhuma") produziria um guard CEGO.
+# `information_schema.columns` **não mostra tudo** — ela filtra pelo que o papel
+# enxerga. Um usuário sem privilégio em tabela alguma veria ZERO colunas, e o
+# INV2 (que descobre as tabelas tenant-owned justamente por `column_name =
+# 'empresa_id'`) encontraria zero tabelas e passaria verde por não ver nada.
+# Exatamente a classe que este job existe para impedir.
+#
+# Por isso o papel precisa de SELECT nas tabelas — ele nunca lê LINHA nenhuma
+# (só catálogo), mas o privilégio é o que torna o catálogo visível:
 #
 #   CREATE ROLE ci_rls_audit LOGIN PASSWORD '<gerar>';
 #   GRANT CONNECT ON DATABASE postgres TO ci_rls_audit;
-#   GRANT USAGE ON SCHEMA public, pg_catalog, information_schema TO ci_rls_audit;
-#   -- sem GRANT em tabela nenhuma: catálogo é legível por padrão
+#   GRANT USAGE ON SCHEMA public TO ci_rls_audit;
+#   GRANT SELECT ON ALL TABLES IN SCHEMA public TO ci_rls_audit;
+#   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ci_rls_audit;
+#
+# ⚠️ E como `ci_rls_audit` NÃO tem BYPASSRLS, o RLS continua valendo para ele —
+# o GRANT acima não lhe dá as linhas, só a visibilidade do catálogo. Se um dia
+# este papel passar a enxergar dado de tenant, isso é achado, não configuração.
+# Alternativa mais restrita, se preferir: `pg_read_all_stats` + GRANT SELECT
+# apenas em `information_schema.columns`.
 #
 # Enquanto o secret não existir, este job FALHA de propósito — é um lembrete
 # visível, e ele não bloqueia PR nem push.

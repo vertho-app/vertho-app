@@ -39,6 +39,9 @@ import { readFileSync, existsSync } from 'fs';
 import { execFileSync } from 'child_process';
 import ts from 'typescript';
 import { describe, it } from 'vitest';
+// Compartilhado com o `routes-require-auth`: os dois guards casam regex no
+// fonte, e os dois podiam ser silenciados por um comentário (medido).
+import { semComentarios } from '../../helpers/fonte';
 
 const config = JSON.parse(readFileSync('config/ownership-allowlist.json', 'utf-8'));
 const allowlist: Record<string, number> = config.allowlist;
@@ -121,23 +124,6 @@ interface Achado { file: string; line: number; nome: string; ids: string[] }
  * empilhar dois wrappers, o guard volta a não ver — e é melhor saber disso por
  * escrito do que descobrir depois.
  */
-/**
- * Tira comentários antes de procurar gate/posse.
- *
- * ⚠️ Encontrado por MUTAÇÃO em 10/08/2026, e é o furo mais sério que este guard
- * tinha: os sinais eram testados no TEXTO da função, comentários inclusive.
- * Removi de propósito o gate de posse de `salvarCheckpointGestor` para ver o
- * guard acusar — e ele ficou verde, porque um comentário meu logo acima citava
- * `canViewColabJourney`. Ou seja: **mencionar o nome de um gate num comentário
- * silenciava o guard**, por acidente ou de propósito. Um guard que se cala com
- * uma frase em português não guarda nada.
- */
-function semComentarios(texto: string): string {
-  return texto
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')   // /* … */ e /** … */
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 '); // // … (o `[^:]` poupa "https://")
-}
-
 function corpoComDelegacao(fn: ts.FunctionLikeDeclaration, sf: ts.SourceFile, locais: Map<string, string>): string {
   const proprio = semComentarios(fn.getText(sf));
   const chamadas = new Set<string>();

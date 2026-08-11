@@ -37,15 +37,21 @@ function trackedTsFiles(): string[] {
   }
 }
 
-/** `taskKey` em qualquer objeto passado como argumento da chamada. */
+/**
+ * `taskKey` em qualquer objeto passado como argumento da chamada.
+ *
+ * ⚠️ O spread (`...options`) conta como etiquetado, e isso é uma concessão
+ * DECLARADA, não um descuido: quem repassa o que recebeu depende do chamador
+ * para etiquetar, e o guard não segue essa cadeia. Um call-site pode se
+ * esconder atrás de um spread vazio. Se a proporção de untagged parar de cair
+ * mesmo com a allowlist encolhendo, é aqui que se olha primeiro.
+ */
 function temTaskKey(call: ts.CallExpression, sf: ts.SourceFile): boolean {
   for (const arg of call.arguments) {
     if (!ts.isObjectLiteralExpression(arg)) continue;
     for (const p of arg.properties) {
       const nome = p.name?.getText(sf);
       if (nome === 'taskKey') return true;
-      // `...options` / `...opts`: o call-site repassa o que recebeu — quem
-      // etiqueta é o chamador dele, e o guard não segue essa cadeia.
       if (ts.isSpreadAssignment(p)) return true;
     }
   }

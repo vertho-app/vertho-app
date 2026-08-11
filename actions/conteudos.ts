@@ -913,6 +913,23 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
       if (await assertColabAccess(auth, colab?.id)) {
         return { success: false, error: 'sem acesso a este colaborador' };
       }
+
+      // ⚠️ Autorizar o `id` não torna o RESTO do objeto confiável. Até aqui só o
+      // id tinha passado por gate: `empresa_id` e `perfil_dominante` seguiam
+      // vindo do payload, e são eles que escolhem o PPP (contexto institucional)
+      // e a chave de cache `final/perso/<id>/<empresa>/<arquétipo>`. Um RH podia
+      // autorizar um colaborador do próprio tenant e, no mesmo objeto, mandar o
+      // `empresa_id` de OUTRO — lendo o PPP alheio e gravando o PDF no cache
+      // dele. A gêmea do áudio já relia do banco; esta não. Agora as duas releem.
+      const { data: doBanco } = await sb.from('colaboradores')
+        .select('id, empresa_id, perfil_dominante, d_natural, i_natural, s_natural, c_natural, tp_introvertido_extrovertido, tp_sensor_intuitivo')
+        .eq('id', colab.id)
+        .maybeSingle();
+      if (!doBanco) return { success: false, error: 'colaborador não encontrado' };
+      if (c.empresa_id && doBanco.empresa_id !== c.empresa_id) {
+        return { success: false, error: 'colaborador de outro tenant' };
+      }
+      colab = doBanco;
     } else {
       const { findColabByEmail } = await import('@/lib/authz');
       colab = await findColabByEmail(

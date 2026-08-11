@@ -1,7 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getUserContext, mesmoEmail } from '@/lib/authz';
+import { getUserContext, mesmoEmail, canViewColabJourney, findColabByEmail } from '@/lib/authz';
 import { escaparLike } from '@/lib/sql-like';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 
@@ -277,21 +277,24 @@ export async function loadLideradoConcluida(colabEmail) {
   const isTutor = ctx.role === 'tutor';
   if (!isGestor && !isRH && !isTutor) return { error: 'Acesso restrito' };
 
-  // Valida que o liderado é realmente do gestor/tutor/empresa
-  const sb = createSupabaseAdmin();
-  const { data: liderado } = await sb.from('colaboradores')
-    .select('id, empresa_id, area_depto').eq('email', colabEmail).maybeSingle();
-  if (!liderado) return { error: 'Colab não encontrado' };
-  if (liderado.empresa_id !== ctx.colaborador.empresa_id) return { error: 'Colab de outra empresa' };
-  if (isGestor && liderado.area_depto !== ctx.colaborador.area_depto) {
-    return { error: 'Colab de outra área — só RH pode ver' };
-  }
-  if (isTutor) {
-    const tutoradosIds: string[] = (ctx.colaborador as any)?.tutorados_ids || [];
-    if (!tutoradosIds.includes(liderado.id)) {
-      return { error: 'Colab fora do seu escopo de tutor' };
-    }
-  }
+  // ⚠️ Este pré-check era a QUARTA régua do mesmo arquivo, e a pior delas: a
+  // listagem já resolvia por `gestor_email` (corrigido em 32abf31e) e AQUI o
+  // clique caía num `liderado.area_depto !== ctx.colaborador.area_depto`. Ou
+  // seja, o F4 continuava vivo exatamente na forma original — vê a lista e não
+  // abre ninguém: medido em 10/08, esse gate ainda negaria **157 dos 168 pares**
+  // (Macaé 155/155, Boehringer 2/8).
+  //
+  // E ele tinha um fail-OPEN de brinde: com os dois `area_depto` nulos,
+  // `null !== null` é `false` e o check passava por acidente — quem barrava era
+  // só o gate interno, que é o que deveria estar decidindo desde o começo.
+  //
+  // Agora delega para `canViewColabJourney`, a régua única: dono, RH do tenant,
+  // gestor DELE (`gestor_email`), tutor do tutorado, platform admin. Corrigir
+  // "onde a régua diverge" e deixar uma cópia da régua velha no caminho do
+  // clique é o mesmo que não ter corrigido.
+  const alvo = await findColabByEmail(colabEmail, 'id, empresa_id, area_depto, gestor_email') as any;
+  if (!alvo) return { error: 'Colab não encontrado' };
+  if (!canViewColabJourney(ctx, alvo)) return { error: 'Sem permissão para ver este colaborador' };
 
   return loadTemporadaConcluida(colabEmail);
 }
