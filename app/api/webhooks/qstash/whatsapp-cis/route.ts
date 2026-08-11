@@ -39,7 +39,9 @@ const whatsappPayloadSchema = z.object({
   // `nudge`/`evidencia` são do cron diário: não têm `fase4EnvioId` (não carimbam
   // canal), então sem um kind próprio cairiam no default `broadcast` e a métrica
   // por tipo passaria a somar cadência automática com disparo manual.
-  kindEnvio: z.enum(['broadcast', 'relatorio', 'magic_link', 'nudge', 'evidencia']).optional(),
+  // `pulse` entrou em 11/08/2026, quando o convite do Pulso deixou de sair
+  // síncrono (1,2s por mensagem, dentro da action) e passou por esta fila.
+  kindEnvio: z.enum(['broadcast', 'relatorio', 'magic_link', 'nudge', 'evidencia', 'pulse']).optional(),
 }).strict();
 
 async function verifyQStashSignature(req, body) {
@@ -101,18 +103,18 @@ async function resolverMetaEnvio(
       console.warn(`[qstash/whatsapp-cis] meta da pílula sem pessoa: ${error.message}`);
     }
     return {
-      kind: 'pilula',
+      motivo: 'pilula',
       colaboradorId: (data as any)?.colaborador_id ?? null,
       empresaId: (data as any)?.empresa_id ?? null,
       dedupeKey: `${carimboCampo}:${fase4EnvioId}`,
     };
   }
-  if (envioId) return { kind: 'diagnostico', colaboradorId: lote?.colaboradorId ?? null, empresaId: lote?.empresaId ?? null };
+  if (envioId) return { motivo: 'diagnostico', colaboradorId: lote?.colaboradorId ?? null, empresaId: lote?.empresaId ?? null };
   // Lote: a pessoa vem no próprio payload — não há registro intermediário para
   // consultar, e sem isto a entrega é gravada sem dono.
   if (lote?.colaboradorId || lote?.empresaId || lote?.kindEnvio) {
     return {
-      kind: lote.kindEnvio ?? 'broadcast',
+      motivo: lote.kindEnvio ?? 'broadcast',
       colaboradorId: lote.colaboradorId ?? null,
       empresaId: lote.empresaId ?? null,
       dedupeKey: lote.colaboradorId ? `${lote.kindEnvio ?? 'broadcast'}:${lote.colaboradorId}` : null,
@@ -255,7 +257,7 @@ export async function POST(req) {
           // carimbá-lo com o mesmo kind do texto inflaria a contagem de cadência
           // (duas linhas "pilula" para uma pílula só). Kind composto mantém as
           // duas leituras possíveis — com e sem anexos — de forma explícita.
-          { ...metaEnvio, kind: metaEnvio.kind ? `${metaEnvio.kind}_anexo` : 'anexo' },
+          { ...metaEnvio, motivo: metaEnvio.motivo ? `${metaEnvio.motivo}_anexo` : 'anexo' },
         );
         if (!rDoc.ok) {
           console.warn(`[qstash/whatsapp-cis] documento não enviado: ${rDoc.reason ?? '-'}`);

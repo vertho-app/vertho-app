@@ -10,6 +10,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { enviarWhatsApp } from '@/actions/whatsapp';
+import { criarPaceadorSincrono } from '@/lib/whatsapp/cadencia';
 
 const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.vertho.ai';
 
@@ -62,6 +63,11 @@ export async function notifyTutorMissaoConcluida({ trilhaId, semana, competencia
 
   const erros: string[] = [];
   let enviados = 0;
+  // Tutores de um tutorado são poucos (1-2), mas o loop é um loop: sem cadência,
+  // três tutores viram três mensagens no mesmo segundo, pelo mesmo número que
+  // manda a trilha inteira. Foi a GUARDA que achou este caso — nenhuma das duas
+  // varreduras manuais de 11/08/2026 o tinha listado.
+  const paceador = criarPaceadorSincrono();
   for (const tutor of tutores) {
     if (!tutor.telefone) { erros.push(`${tutor.nome_completo}: sem telefone`); continue; }
     const tutorNome = (tutor.nome_completo || '').split(' ')[0] || 'tutor';
@@ -82,6 +88,8 @@ Ver progresso → ${APP_URL}/dashboard/gestor
 — Vertho Mentor IA`;
 
     try {
+      if (paceador.tetoAtingido()) { erros.push(`${tutor.nome_completo}: adiado pelo teto de cadência`); continue; }
+      await paceador.aguardarVez();
       const r = await enviarWhatsApp(tutor.telefone, msg, true);
       if (r.success) enviados++;
       else erros.push(`${tutor.nome_completo}: ${r.error}`);

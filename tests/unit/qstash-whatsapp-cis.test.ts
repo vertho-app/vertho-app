@@ -193,7 +193,7 @@ describe('qstash whatsapp-cis webhook', () => {
       }),
       // O anexo nunca herda o kind do texto: seria uma segunda "pílula" para uma
       // pílula só.
-      expect.objectContaining({ kind: 'anexo' }),
+      expect.objectContaining({ motivo: 'anexo' }),
     );
   });
 
@@ -259,7 +259,7 @@ describe('qstash whatsapp-cis webhook', () => {
     expect(sendWhatsapp).toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'text' }),
       expect.objectContaining({
-        kind: 'broadcast',
+        motivo: 'broadcast',
         colaboradorId: '33333333-3333-4333-8333-333333333333',
         empresaId: '44444444-4444-4444-8444-444444444444',
       }),
@@ -275,7 +275,7 @@ describe('qstash whatsapp-cis webhook', () => {
     }));
 
     expect(res.status).toBe(200);
-    expect(sendWhatsapp).toHaveBeenNthCalledWith(1, expect.anything(), expect.objectContaining({ kind: 'relatorio' }));
+    expect(sendWhatsapp).toHaveBeenNthCalledWith(1, expect.anything(), expect.objectContaining({ motivo: 'relatorio' }));
   });
 
   it('rejeita kindEnvio fora do enum (payload não escolhe o valor da coluna)', async () => {

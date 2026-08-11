@@ -161,7 +161,7 @@ async function enviarWhatsapp(p: SendAccessLinkInput, out: SendAccessLinkResult)
   // Serviço central: normaliza telefone + failover entre provedores (Z-API → WaSender).
   const r = await sendWhatsapp(
     { kind: 'text', phone: p.telefone, text: msg },
-    { kind: p.kind === 'signup' ? 'signup' : 'magic_link', empresaId: p.empresaId ?? null }
+    { motivo: p.kind === 'signup' ? 'signup' : 'magic_link', empresaId: p.empresaId ?? null }
   );
   if (r.ok) {
     out.whatsapp = 'sent';

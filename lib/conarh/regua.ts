@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { sendWhatsapp } from '@/lib/whatsapp';
+import { criarPaceadorSincrono } from '@/lib/whatsapp/cadencia';
 import { formatarDataHoraBRT, rotuloPorta } from './conteudo';
 import { mensagemT1 } from './mensagens';
 
@@ -56,7 +57,20 @@ export async function executarReguaConarh() {
   const alertaPara = process.env.CONARH_ALERT_WHATSAPP || null;
   if (!alertaPara) console.warn('[conarh/regua] CONARH_ALERT_WHATSAPP ausente — toques internos (T+3, T+5) ficarão pendentes');
 
-  let t1 = 0, t3 = 0, t5 = 0, encerrados = 0, erros = 0;
+  let t1 = 0, t3 = 0, t5 = 0, encerrados = 0, erros = 0, adiados = 0;
+
+  // ── Cadência do T+1 (política única: lib/whatsapp/cadencia) ────────────────
+  //
+  // Este loop mandava WhatsApp para lead atrás de lead SEM INTERVALO NENHUM —
+  // era o quarto emissor fora da política, e o único que nenhuma varredura
+  // anterior tinha visto (não publica na fila, então a guarda de cadência, que
+  // procurava por `whatsapp-cis`, passava direto). Com 5 leads não incomoda;
+  // no dia seguinte a uma feira, é uma rajada para números que nunca trocaram
+  // mensagem com o remetente — a definição do que bloqueou o número em 11/08.
+  //
+  // O teto ADIA em vez de descartar: sem o `update` do step, o lead continua
+  // elegível e entra na varredura de amanhã. Num cron diário, "depois" já existe.
+  const paceador = criarPaceadorSincrono();
 
   // Candidatos: já passaram pelo T+0 (step ≥ 1) e ainda não encerraram (≤ 3).
   // criado há ≥1 dia já filtra o grosso no banco (índice idx_diag_leads_conarh).
@@ -100,7 +114,14 @@ export async function executarReguaConarh() {
           await sb.from('diag_leads').update({ followup_step: 2 }).eq('id', lead.id).eq('followup_step', 1);
           continue;
         }
-        const r = await sendWhatsapp({ kind: 'text', phone: lead.telefone, text: mensagemT1(lead) });
+        // Teto (volume ou tempo da invocação): não envia e NÃO avança o step —
+        // o lead volta amanhã, em vez de ser pulado em silêncio.
+        if (paceador.tetoAtingido()) { adiados++; continue; }
+        await paceador.aguardarVez();
+        const r = await sendWhatsapp(
+          { kind: 'text', phone: lead.telefone, text: mensagemT1(lead) },
+          { motivo: 'conarh_t1' },
+        );
         if (r.ok) {
           await sb.from('diag_leads').update({ followup_step: 2 }).eq('id', lead.id).eq('followup_step', 1);
           t1++;
@@ -178,9 +199,13 @@ export async function executarReguaConarh() {
     }
   }
 
-  const message = `CONARH régua: ${t1} T+1, ${t3} T+3 (fila ligação), ${t5} T+5 (encerrados), ${encerrados} C/sem-classe encerrados, ${erros} erros`;
+  // `adiados` fica FORA da conta de erros e visível na mensagem: erro é coisa a
+  // consertar, adiado é a proteção funcionando — e um corte que não aparece é
+  // indistinguível de "mandei para todo mundo".
+  const adiadoTxt = adiados > 0 ? `, ${adiados} adiados pelo teto (voltam amanhã)` : '';
+  const message = `CONARH régua: ${t1} T+1, ${t3} T+3 (fila ligação), ${t5} T+5 (encerrados), ${encerrados} C/sem-classe encerrados, ${erros} erros${adiadoTxt}`;
   console.log(`[conarh/regua] ${message}`);
-  return { t1, t3, t5, encerrados, erros, message };
+  return { t1, t3, t5, encerrados, erros, adiados, message };
 }
 
 /**

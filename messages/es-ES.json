@@ -1282,7 +1282,9 @@
         "alreadySent": "Ya enviados antes",
         "noPhone": "Sin teléfono",
         "noEmail": "Sin email",
-        "errors": "Errores"
+        "errors": "Errores",
+        "queued": "En la cola de WhatsApp",
+        "postponed": "Aplazados por el tope"
       },
       "status": {
         "title": "Estado de {moment}",

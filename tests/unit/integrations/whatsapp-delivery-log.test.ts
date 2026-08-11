@@ -6,7 +6,8 @@
 // com cara de dado.
 //
 // Invariantes (uma por `it`):
-//   1. Envio com sucesso grava UMA linha: canal, status, provider e o kind do meta.
+//   1. Envio com sucesso grava UMA linha: canal, status, provider e o motivo do meta
+//      (que a telemetria grava na coluna `kind` — a tradução vive em lib/whatsapp).
 //   2. Chamada SEM meta ainda grava, com kind nulo — a lacuna de instrumentação
 //      é contável (`kind IS NULL`), nunca ausência silenciosa.
 //   3. Falha de envio grava status 'falha' com o motivo.
@@ -63,9 +64,9 @@ describe('sendWhatsapp — telemetria de entrega (mig 198)', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   // ── 1 ──────────────────────────────────────────────────────────────────────
-  it('grava uma linha com canal, status, provider e o kind do meta', async () => {
+  it('grava uma linha com canal, status, provider e o motivo do meta', async () => {
     const r = await sendWhatsapp(msg(), {
-      kind: 'pilula',
+      motivo: 'pilula',
       empresaId: 'emp-1',
       colaboradorId: 'colab-1',
       dedupeKey: 'pilula:colab-1:semana3',
@@ -102,7 +103,7 @@ describe('sendWhatsapp — telemetria de entrega (mig 198)', () => {
   it('falha de envio grava status falha com o motivo', async () => {
     mocks.zapi.send = { ok: false, status: 500, reason: 'instância desconectada' };
 
-    const r = await sendWhatsapp(msg(), { kind: 'otp' });
+    const r = await sendWhatsapp(msg(), { motivo: 'otp' });
 
     expect(r.ok).toBe(false);
     expect(mocks.registrar).toHaveBeenCalledWith(
@@ -114,7 +115,7 @@ describe('sendWhatsapp — telemetria de entrega (mig 198)', () => {
 
   // ── 4 ──────────────────────────────────────────────────────────────────────
   it('telefone inválido também grava — curto-circuito não pode sumir da conta', async () => {
-    const r = await sendWhatsapp(msg('abc'), { kind: 'otp' });
+    const r = await sendWhatsapp(msg('abc'), { motivo: 'otp' });
 
     expect(r.ok).toBe(false);
     expect(mocks.registrar).toHaveBeenCalledTimes(1);
@@ -128,7 +129,7 @@ describe('sendWhatsapp — telemetria de entrega (mig 198)', () => {
   it('telemetria explodindo NÃO afeta o envio nem faz sendWhatsapp lançar', async () => {
     mocks.registrar = vi.fn(async () => { throw new Error('supabase fora do ar'); });
 
-    const r = await sendWhatsapp(msg(), { kind: 'pilula' });
+    const r = await sendWhatsapp(msg(), { motivo: 'pilula' });
 
     expect(r.ok).toBe(true);
     expect(r.provider).toBe('zapi');
@@ -139,7 +140,7 @@ describe('sendWhatsapp — telemetria de entrega (mig 198)', () => {
     mocks.zapi.send = { ok: false, status: 500, reason: 'boom' };
     mocks.registrar = vi.fn(async () => { throw new Error('supabase fora do ar'); });
 
-    const r = await sendWhatsapp(msg(), { kind: 'pilula' });
+    const r = await sendWhatsapp(msg(), { motivo: 'pilula' });
 
     expect(r.ok).toBe(false);
     expect(r.reason).toContain('boom');

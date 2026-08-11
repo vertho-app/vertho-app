@@ -7,6 +7,7 @@ import { resolverDesafioDoKit } from '@/lib/season-engine/kit/desafio-semana';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
 import { processarEmpresaDiario } from '@/lib/fase4/trigger-diario-empresa';
 import { publicarQStashTask, publicarWhatsappCis } from '@/lib/qstash-publish';
+import { criarRelogioCadencia, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 
 const TIMEOUT_ABANDONO_HORAS = 48;
 const TOTAL_SEMANAS = 14;
@@ -101,6 +102,18 @@ export async function triggerSegunda() {
 
   let totalEnviados = 0;
   let totalErros = 0;
+  let adiados = 0;
+
+  // Cadência pela política única (lib/whatsapp/cadencia). Era `totalEnviados * 2`
+  // — 2s por mensagem, a taxa EXATA que bloqueou o número em 11/08/2026. Este
+  // caminho é legado (o cron vivo é `trigger_diario`), mas continua alcançável
+  // por `/api/cron?action=trigger_segunda`, e um disparo manual num tenant grande
+  // sairia na velocidade do incidente.
+  //
+  // UM relógio para a execução inteira, não um por empresa: aqui o loop de
+  // empresas é sequencial dentro da MESMA invocação, e o que o WhatsApp vê é a
+  // soma — reiniciar o contador a cada empresa devolveria a rajada pela janela.
+  const relogio = criarRelogioCadencia();
 
   for (const empresa of empresas) {
     const cadencia = empresa.sys_config?.cadencia || {};
@@ -155,11 +168,17 @@ export async function triggerSegunda() {
 
       // Enviar WhatsApp via QStash (se tiver telefone)
       if (telefone) {
-        const mensagem = templateWhatsAppPilula(nome, semana, conteudo);
-        try {
-          await publishToQStash({ telefone, mensagem }, totalEnviados * 2);
-          totalEnviados++;
-        } catch { totalErros++; }
+        if (relogio.tetoAtingido()) {
+          // Teto de volume: adia. Sem carimbo de envio, a pessoa continua
+          // pendente e entra no próximo disparo.
+          adiados++;
+        } else {
+          const mensagem = templateWhatsAppPilula(nome, semana, conteudo);
+          try {
+            await publishToQStash({ telefone, mensagem }, relogio.proximo());
+            totalEnviados++;
+          } catch { totalErros++; }
+        }
       }
 
       // Atualizar último envio
@@ -169,7 +188,8 @@ export async function triggerSegunda() {
     }
   }
 
-  return { enviados: totalEnviados, erros: totalErros, message: `Segunda: ${totalEnviados} pílulas enviadas` };
+  const adiadoSeg = adiados > 0 ? `, ${adiados} adiados pelo teto de ${maxPorDisparo()}` : '';
+  return { enviados: totalEnviados, erros: totalErros, adiados, message: `Segunda: ${totalEnviados} pílulas enviadas${adiadoSeg}` };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -189,6 +209,12 @@ export async function triggerQuinta() {
   let totalEnviados = 0;
   let totalErros = 0;
   let nudges = 0;
+  let adiados = 0;
+
+  // Um relógio para a execução inteira — mesmo motivo do triggerSegunda: nudge e
+  // evidência saem pelo MESMO número, então precisam compartilhar a cadência e o
+  // teto (dois contadores independentes dobrariam a taxa real).
+  const relogio = criarRelogioCadencia();
 
   for (const empresa of empresas) {
     const tdb = tenantDb(empresa.id);
@@ -221,12 +247,14 @@ export async function triggerQuinta() {
         const diasSemEnvio = (Date.now() - ultimoEnvio.getTime()) / (1000 * 60 * 60 * 24);
         if (diasSemEnvio >= 14) {
           // Nudge de inatividade
-          if (telefone) {
+          if (telefone && !relogio.tetoAtingido()) {
             const nudgeMsg = `Olá, ${nome}! 👋\n\nNotamos que você está há mais de 2 semanas sem interagir com sua trilha de desenvolvimento.\n\nSua evolução é importante para nós. Que tal retomar hoje?\n\n— Vertho Mentor IA`;
             try {
-              await publishToQStash({ telefone, mensagem: nudgeMsg }, (totalEnviados + nudges) * 2);
+              await publishToQStash({ telefone, mensagem: nudgeMsg }, relogio.proximo());
               nudges++;
             } catch {}
+          } else if (telefone) {
+            adiados++;
           }
           // Marca processamento do dia (idempotência) sem avançar semana.
           await tdb.from('fase4_envios')
@@ -263,11 +291,15 @@ export async function triggerQuinta() {
           }
         } catch (e: any) { console.warn('[triggerQuinta] resolver desafio:', e?.message); }
 
-        const mensagem = desafioTexto ? templateWhatsAppDesafioQuinta(nome, desafioTexto) : templateWhatsAppEvidencia(nome, semana);
-        try {
-          await publishToQStash({ telefone, mensagem }, totalEnviados * 2);
-          totalEnviados++;
-        } catch { totalErros++; }
+        if (relogio.tetoAtingido()) {
+          adiados++;
+        } else {
+          const mensagem = desafioTexto ? templateWhatsAppDesafioQuinta(nome, desafioTexto) : templateWhatsAppEvidencia(nome, semana);
+          try {
+            await publishToQStash({ telefone, mensagem }, relogio.proximo());
+            totalEnviados++;
+          } catch { totalErros++; }
+        }
       }
 
       // Avançar semana + marcar processamento do dia (idempotência, migration 120)
@@ -277,7 +309,8 @@ export async function triggerQuinta() {
     }
   }
 
-  return { enviados: totalEnviados, erros: totalErros, nudges, message: `Quinta: ${totalEnviados} evidências solicitadas, ${nudges} nudges` };
+  const adiadoQui = adiados > 0 ? `, ${adiados} adiados pelo teto de ${maxPorDisparo()}` : '';
+  return { enviados: totalEnviados, erros: totalErros, nudges, adiados, message: `Quinta: ${totalEnviados} evidências solicitadas, ${nudges} nudges${adiadoQui}` };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

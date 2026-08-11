@@ -111,6 +111,105 @@ export function atrasosDoLote(total: number, rng: () => number = Math.random): n
   return atrasos;
 }
 
+export interface PaceadorSincrono {
+  /**
+   * Segura a execução até a vez desta mensagem. Chamar ANTES do envio.
+   * A espera desconta o tempo já gasto pela chamada anterior: o que a política
+   * define é a TAXA no número, não quanto o processo dorme.
+   */
+  aguardarVez(): Promise<void>;
+  /** Quantas mensagens este paceador já liberou. */
+  liberadas(): number;
+  /**
+   * Não há mais espaço neste disparo — por VOLUME (teto de mensagens) ou por
+   * TEMPO (o orçamento da invocação acabou). Perguntar ANTES de `aguardarVez()`:
+   * um paceador que já esperou pela mensagem 121 autorizou o envio dela.
+   */
+  tetoAtingido(): boolean;
+  /** Qual dos dois tetos fechou a porta — para a mensagem que o usuário lê. */
+  motivoDoTeto(): 'volume' | 'tempo' | null;
+}
+
+/**
+ * Orçamento de tempo de UM disparo síncrono, em ms.
+ *
+ * A 15s por mensagem, o teto de volume (120) levaria 30 minutos — e nenhuma
+ * invocação serverless vive isso. Sem este segundo teto, aplicar a política num
+ * loop síncrono trocaria "número bloqueado" por "lote cortado no meio, sem
+ * ninguém saber onde parou": o pior dos dois, porque não deixa rastro.
+ */
+function orcamentoSincronoMs(): number {
+  const bruto = Number(process.env.WHATSAPP_LOTE_SINCRONO_ORCAMENTO_MS);
+  return Number.isFinite(bruto) && bruto > 0 ? bruto : 240_000; // 4 min
+}
+
+/**
+ * Paceador para quem envia **em loop síncrono** (`await sendWhatsapp(...)` numa
+ * iteração), sem passar pela fila do QStash.
+ *
+ * Por que existe (inventário de 11/08/2026, feito por grep em DOIS saltos): a
+ * guarda de cadência só enxergava quem publica no webhook `whatsapp-cis`, e
+ * havia quatro emissores que mandam direto — `actions/pulse/envio.ts` (1,2s, o
+ * DOBRO da taxa do incidente), `actions/automacao-envios.ts` (1,5s, e enviando
+ * documento), `actions/cron-jobs.ts::triggerSegunda/Quinta` (2s, a taxa exata do
+ * incidente) e `lib/conarh/regua.ts` (sem intervalo NENHUM, num cron diário).
+ * Nenhum deles aparecia num grep de `sendWhatsapp` — dois chegam lá pelos
+ * wrappers de `actions/whatsapp.ts`.
+ *
+ * O `relogio` que já existia não serve para eles: ele devolve o atraso ACUMULADO
+ * para o header `Upstash-Delay`, e quem entrega é a fila. Num loop síncrono o
+ * mesmo número seria um sleep de 15s, 30s, 45s… — atraso quadrático, e a lambda
+ * morre no meio do lote sem ninguém saber quem recebeu.
+ *
+ * ⚠️ **Limite de projeto, e a razão de o teto continuar valendo aqui:** um loop
+ * síncrono roda dentro do tempo de UMA invocação. A 15s por mensagem, 20 já são
+ * 5 minutos. Este paceador é para lote PEQUENO e de cauda tolerante (a régua do
+ * CONARH, que reprocessa no dia seguinte). Lote grande vai para a fila — que é o
+ * que o pulso passou a fazer na mesma rodada.
+ *
+ * `dormir` e `agora` são injetáveis só para teste; em produção são o relógio real.
+ */
+export function criarPaceadorSincrono(opts?: {
+  rng?: () => number;
+  dormir?: (ms: number) => Promise<void>;
+  agora?: () => number;
+  /** Orçamento de tempo deste disparo (default: `orcamentoSincronoMs()`). */
+  orcamentoMs?: number;
+}): PaceadorSincrono {
+  const rng = opts?.rng ?? Math.random;
+  const dormir = opts?.dormir ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const agora = opts?.agora ?? (() => Date.now());
+  const base = intervaloLoteMs();
+  const frac = jitterFrac();
+  const teto = maxPorDisparo();
+  const orcamento = opts?.orcamentoMs ?? orcamentoSincronoMs();
+  const inicio = agora();
+  let ultimoMs: number | null = null;
+  let n = 0;
+
+  // Sobra tempo para MAIS UMA mensagem (a espera dela + a chamada de rede)?
+  // Medir a próxima, não a passada: o corte tem que acontecer ANTES de dormir.
+  const cabeNoTempo = () => (agora() - inicio) + base <= orcamento;
+
+  return {
+    async aguardarVez() {
+      if (ultimoMs !== null) {
+        const fator = 1 + (rng() * 2 - 1) * frac; // [1-frac, 1+frac]
+        const alvo = ultimoMs + Math.max(1, Math.round(base * fator));
+        const espera = alvo - agora();
+        // Nunca negativo: se a chamada anterior demorou MAIS que o intervalo, a
+        // taxa já está abaixo do teto e não há nada a esperar.
+        if (espera > 0) await dormir(espera);
+      }
+      n++;
+      ultimoMs = agora();
+    },
+    liberadas: () => n,
+    tetoAtingido: () => n >= teto || !cabeNoTempo(),
+    motivoDoTeto: () => (n >= teto ? 'volume' : !cabeNoTempo() ? 'tempo' : null),
+  };
+}
+
 export interface TetoAplicado<T> {
   /** Os que vão neste disparo. */
   enviar: T[];

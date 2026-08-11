@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     // Envia o código pelo serviço central (failover Z-API → WaSender).
     const empresaNome = empresa.nome || 'Vertho';
     const msg = otpWhatsapp(locale, { empresaNome, code: issued.code });
-    const r = await sendWhatsapp({ kind: 'text', phone: e164, text: msg }, { kind: 'otp', empresaId: empresa.id });
+    const r = await sendWhatsapp({ kind: 'text', phone: e164, text: msg }, { motivo: 'otp', empresaId: empresa.id });
     if (!r.ok) {
       console.error('[phone-otp/request] envio falhou:', r.reason);
       return NextResponse.json({ error: 'Não foi possível enviar o código pelo WhatsApp. Tente novamente.' }, { status: 502 });

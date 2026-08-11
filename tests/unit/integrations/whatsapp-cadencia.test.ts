@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   aplicarTetoLote,
   atrasosDoLote,
+  criarPaceadorSincrono,
   criarRelogioCadencia,
   duracaoEstimada,
   intervaloLoteMs,
@@ -189,5 +190,101 @@ describe('duracaoEstimada', () => {
     expect(duracaoEstimada(5)).toBe('~1 min');
     expect(duracaoEstimada(155)).toBe('~39 min');
     expect(duracaoEstimada(300)).toBe('~1h15');
+  });
+});
+
+// ── Paceador síncrono ────────────────────────────────────────────────────────
+//
+// Para os emissores que NÃO passam pela fila: `lib/conarh/regua.ts` (que mandava
+// sem intervalo nenhum) e `actions/automacao-envios.ts` (1,5s, com documento).
+// O relógio é injetado — o teste mede a POLÍTICA, não a paciência de quem roda
+// a suíte.
+describe('paceador síncrono', () => {
+  beforeEach(() => [...ENVS, 'WHATSAPP_LOTE_SINCRONO_ORCAMENTO_MS'].forEach((e) => delete process.env[e]));
+  afterEach(() => [...ENVS, 'WHATSAPP_LOTE_SINCRONO_ORCAMENTO_MS'].forEach((e) => delete process.env[e]));
+
+  /** Relógio falso: `dormir` avança o tempo, `gastar` simula a chamada de rede. */
+  function relogioFalso() {
+    let t = 0;
+    return {
+      agora: () => t,
+      dormir: async (ms: number) => { t += ms; },
+      gastar: (ms: number) => { t += ms; },
+      lido: () => t,
+    };
+  }
+
+  it('a primeira mensagem não espera', async () => {
+    const rel = relogioFalso();
+    const p = criarPaceadorSincrono({ rng: () => 0.5, dormir: rel.dormir, agora: rel.agora });
+
+    await p.aguardarVez();
+
+    expect(rel.lido()).toBe(0);
+    expect(p.liberadas()).toBe(1);
+  });
+
+  it('a segunda espera o intervalo da política, não um literal', async () => {
+    const rel = relogioFalso();
+    const p = criarPaceadorSincrono({ rng: () => 0.5, dormir: rel.dormir, agora: rel.agora });
+
+    await p.aguardarVez();
+    await p.aguardarVez();
+
+    // rng 0.5 → fator 1 → intervalo cheio. O que importa: ≫ os 1,2s-2s do incidente.
+    expect(rel.lido()).toBe(15_000);
+  });
+
+  it('desconta o tempo que a iteração anterior gastou — a política é TAXA, não sleep', async () => {
+    const rel = relogioFalso();
+    const p = criarPaceadorSincrono({ rng: () => 0.5, dormir: rel.dormir, agora: rel.agora });
+
+    await p.aguardarVez();
+    rel.gastar(9_000);      // render do PDF + envio demoraram 9s
+    await p.aguardarVez();
+
+    // 9s já passaram: espera só os 6s que faltam para completar o intervalo.
+    expect(rel.lido()).toBe(15_000);
+  });
+
+  it('iteração mais lenta que o intervalo não dorme nada (nunca atraso negativo)', async () => {
+    const rel = relogioFalso();
+    const p = criarPaceadorSincrono({ rng: () => 0.5, dormir: rel.dormir, agora: rel.agora });
+
+    await p.aguardarVez();
+    rel.gastar(40_000);
+    await p.aguardarVez();
+
+    expect(rel.lido()).toBe(40_000);
+  });
+
+  it('teto de VOLUME fecha a porta no limite configurado', async () => {
+    process.env.WHATSAPP_LOTE_MAX = '3';
+    const rel = relogioFalso();
+    const p = criarPaceadorSincrono({ rng: () => 0.5, dormir: rel.dormir, agora: rel.agora });
+
+    for (let i = 0; i < 3; i++) {
+      expect(p.tetoAtingido()).toBe(false);
+      await p.aguardarVez();
+    }
+
+    expect(p.tetoAtingido()).toBe(true);
+    expect(p.motivoDoTeto()).toBe('volume');
+  });
+
+  // ── a que mais importa ─────────────────────────────────────────────────────
+  it('teto de TEMPO impede o lote cortado no meio pela lambda', async () => {
+    // 4 min de orçamento, 15s por mensagem → cabem 16, não as 120 do teto de volume.
+    process.env.WHATSAPP_LOTE_SINCRONO_ORCAMENTO_MS = '60000';
+    const rel = relogioFalso();
+    const p = criarPaceadorSincrono({ rng: () => 0.5, dormir: rel.dormir, agora: rel.agora });
+
+    let liberadas = 0;
+    while (!p.tetoAtingido()) { await p.aguardarVez(); liberadas++; }
+
+    // 0s, 15s, 30s, 45s, 60s — a 6ª precisaria de 75s e não cabe no orçamento.
+    expect(liberadas).toBe(5);
+    expect(p.motivoDoTeto()).toBe('tempo');
+    expect(p.liberadas()).toBe(5);
   });
 });

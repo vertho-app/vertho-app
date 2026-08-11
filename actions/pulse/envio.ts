@@ -5,7 +5,9 @@ import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { EMAIL_FROM_DEFAULT, tenantUrl } from '@/lib/domain';
-import { sendWhatsapp, whatsappHealth } from '@/lib/whatsapp';
+import { assertFilaDoProvedorLimpa, whatsappHealth } from '@/lib/whatsapp';
+import { publicarWhatsappCis } from '@/lib/qstash-publish';
+import { criarRelogioCadencia, duracaoEstimada, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 
 const RESEND_MIN_INTERVAL_MS = 250;
 
@@ -35,12 +37,26 @@ async function enviarEmailResend(emailBody: any, throttle: { lastSentAt: number 
 
 export interface EnvioStats {
   total_candidatos: number;
+  /** E-mails entregues + convites de WhatsApp ENFILEIRADOS (ver `enfileirados_whatsapp`). */
   enviados: number;
   ja_enviados: number;
   sem_telefone: number;
   sem_email: number;
   erros: number;
+  /**
+   * WhatsApp que entrou na FILA (QStash), não que chegou ao aparelho. A entrega
+   * real fica em `notification_deliveries` (o webhook é quem chama o provedor).
+   * Nome próprio porque "enviados" para um canal assíncrono é a mentira que já
+   * custou caro aqui: em 11/08/2026 `sucesso` significava "a Z-API aceitou".
+   */
+  enfileirados_whatsapp: number;
+  /**
+   * Excedente do teto por disparo — NÃO enviados, e nunca cortados em silêncio.
+   * Quem dispara precisa ver o número na tela e disparar o resto depois.
+   */
+  adiados: number;
   ultimo_erro?: string;
+  aviso?: string;
 }
 
 /**
@@ -137,6 +153,7 @@ export async function enviarConvitesPulso(
   const stats: EnvioStats = {
     total_candidatos: assignments.length,
     enviados: 0, ja_enviados: 0, sem_telefone: 0, sem_email: 0, erros: 0,
+    enfileirados_whatsapp: 0, adiados: 0,
   };
 
   const enviarWa = opts.canal === 'whatsapp' || opts.canal === 'ambos';
@@ -150,10 +167,35 @@ export async function enviarConvitesPulso(
       const detail = health.filter((h) => h.configured).map((h) => `${h.label}: ${h.reason}`).join('; ');
       return { ok: false, error: `WhatsApp indisponível (${detail}). Reconecte uma instância antes de disparar em lote.` };
     }
+    // Segunda trava: `connected` não basta. O provedor pode estar de pé com
+    // mensagens presas da rodada anterior, que ele descarrega em rajada ao
+    // estabilizar — empilhar um lote por cima é o caminho mais curto para o
+    // segundo bloqueio. Aqui ABORTA (diferente do cron diário, que só desliga o
+    // canal do dia): há um humano na tela lendo o motivo e podendo decidir.
+    try {
+      await assertFilaDoProvedorLimpa(0);
+    } catch (e: any) {
+      return { ok: false, error: e?.message || 'Fila do provedor de WhatsApp não está limpa' };
+    }
+    if (!process.env.QSTASH_TOKEN) {
+      return { ok: false, error: 'QSTASH_TOKEN não configurado — o convite por WhatsApp sai pela fila, não direto.' };
+    }
   }
   if (enviarEmail && !process.env.RESEND_API_KEY) return { ok: false, error: 'RESEND_API_KEY não configurada' };
 
   const emailThrottle = { lastSentAt: 0 };
+
+  // ── Cadência do WhatsApp: política única (lib/whatsapp/cadencia) ────────────
+  //
+  // Era `setTimeout(1200)` dentro do loop — 1,2s por mensagem, ~50/min, o DOBRO
+  // da taxa que bloqueou o número em 11/08/2026. E era síncrono: um ciclo de 40
+  // pessoas segurava a lambda por 48s no melhor caso, com a entrega de cada uma
+  // dependendo de a invocação sobreviver até o fim.
+  //
+  // Agora o convite entra na FILA (mesmo webhook do broadcast do admin) com o
+  // atraso vindo do relógio da política. A action devolve na hora; quem entrega
+  // é o webhook, um a um, no ritmo do `Upstash-Delay`.
+  const relogio = criarRelogioCadencia();
 
   for (const a of assignments as any[]) {
     const colab = colabMap.get(a.colaborador_id);
@@ -202,31 +244,41 @@ export async function enviarConvitesPulso(
         stats.ja_enviados++;
       } else if (!colab.telefone) {
         stats.sem_telefone++;
+      } else if (relogio.tetoAtingido()) {
+        // Teto de VOLUME, independente da taxa: 500 convites a 15s ainda são 500
+        // mensagens não solicitadas. O excedente volta na tela como `adiados`.
+        stats.adiados++;
       } else {
         try {
-          if (stats.enviados > 0) await new Promise(r => setTimeout(r, 1200)); // throttle
-          // Serviço central: normaliza telefone + failover entre provedores.
-          const r = await sendWhatsapp(
-            { kind: 'text', phone: colab.telefone as string, text: mensagem },
-            { kind: 'pulse', empresaId: empresa.id, colaboradorId: colab.id }
+          await publicarWhatsappCis(
+            {
+              telefone: colab.telefone as string,
+              mensagem,
+              colaboradorId: colab.id,
+              empresaId: empresa.id,
+              kindEnvio: 'pulse',
+            },
+            relogio.proximo(),
           );
-          if (!r.ok) {
-            stats.erros++;
-            stats.ultimo_erro = (r.reason || 'falha no envio').slice(0, 150);
-          } else {
-            stats.enviados++;
-            await sb.from('pulse_audit_logs').insert({
-              empresa_id: empresaId, actor_email: adminEmail,
-              actor_role: 'admin', action_type: 'convite_enviado_whatsapp',
-              ciclo_id: cicloId,
-              metadata_json: {
-                assignment_id: a.id,
-                colaborador_id: colab.id,
-                pulse_moment: opts.pulse_moment,
-                provider: r.provider,
-              },
-            } as any);
-          }
+          stats.enviados++;
+          stats.enfileirados_whatsapp++;
+          // ⚠️ O log entra no ENFILEIRAMENTO, e é ele que segura a idempotência
+          // (`jaEnviadosSet`). Consequência assumida: se o webhook não entregar,
+          // a pessoa não é reconvidada sem `force_resend`. A alternativa —
+          // carimbar só na entrega — exigiria o webhook conhecer `pulse_audit_logs`,
+          // e o registro REAL de entrega já existe em `notification_deliveries`
+          // (kind='pulse'), que é onde se apura quem recebeu de verdade.
+          await sb.from('pulse_audit_logs').insert({
+            empresa_id: empresaId, actor_email: adminEmail,
+            actor_role: 'admin', action_type: 'convite_enviado_whatsapp',
+            ciclo_id: cicloId,
+            metadata_json: {
+              assignment_id: a.id,
+              colaborador_id: colab.id,
+              pulse_moment: opts.pulse_moment,
+              via: 'fila',
+            },
+          } as any);
         } catch (e: any) {
           stats.erros++;
           stats.ultimo_erro = e.message;
@@ -275,11 +327,21 @@ export async function enviarConvitesPulso(
     }
   }
 
+  if (stats.enfileirados_whatsapp > 0) {
+    stats.aviso = `WhatsApp: ${stats.enfileirados_whatsapp} na fila, entrega em ${duracaoEstimada(stats.enfileirados_whatsapp)}.`;
+  }
+  if (stats.adiados > 0) {
+    stats.aviso = `${stats.aviso ? stats.aviso + ' ' : ''}${stats.adiados} NÃO enviados: o teto de segurança por disparo é `
+      + `${maxPorDisparo()} (protege o número contra bloqueio). Dispare o restante depois.`;
+  }
+
   await logAdminAction({
     adminEmail,
     acao: 'pulse.envio', empresaId, empresaSlug: empresa.slug,
     alvo: `${stats.total_candidatos} convites · ${ciclo.nome} ${opts.pulse_moment}`,
     detalhes: { cicloId, pulse_moment: opts.pulse_moment, canal: opts.canal, ...stats },
+    // `adiados` NÃO é erro — é a proteção funcionando. Somá-los faria um disparo
+    // saudável de 200 pessoas parecer meio quebrado no log de auditoria.
     resultado: stats.enviados === 0 ? 'erro' : stats.erros > 0 ? 'parcial' : 'ok',
   });
 

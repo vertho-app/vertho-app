@@ -189,7 +189,18 @@ export default function EnviarPulsoPage({
                 <span>{t('result.noPhone')}: <span className="text-amber-400">{result.sem_telefone}</span></span>
                 <span>{t('result.noEmail')}: <span className="text-amber-400">{result.sem_email}</span></span>
                 <span>{t('result.errors')}: <span className={result.erros > 0 ? 'text-red-400' : 'text-gray-500'}>{result.erros}</span></span>
+                {result.enfileirados_whatsapp > 0 && (
+                  <span>{t('result.queued')}: <span className="text-white">{result.enfileirados_whatsapp}</span></span>
+                )}
+                {result.adiados > 0 && (
+                  <span>{t('result.postponed')}: <span className="text-amber-400 font-bold">{result.adiados}</span></span>
+                )}
               </div>
+              {/* Teto e fila NÃO são erro — mas precisam aparecer: um corte
+                  silencioso é indistinguível de "enviei para todo mundo". */}
+              {result.aviso && (
+                <p className="text-[10px] text-amber-300 mt-2">{result.aviso}</p>
+              )}
               {result.ultimo_erro && (
                 <p className="text-[10px] text-red-400 mt-2 break-all">{result.ultimo_erro}</p>
               )}

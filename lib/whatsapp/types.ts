@@ -22,12 +22,21 @@ export type WaKind = WaMessage['kind'];
  * não o motivo. Sem isto o serviço central não sabe quem nem por quê, e o log
  * de entrega (mig 198) não conseguiria separar cadência de autenticação.
  *
- * Chamada sem `meta` continua válida e AINDA é registrada, com `kind` nulo: a
+ * Chamada sem `meta` continua válida e AINDA é registrada, com `motivo` nulo: a
  * lacuna de instrumentação fica contável por query em vez de invisível.
+ *
+ * ⚠️ O campo se chamava `kind` — MESMO NOME do discriminante de `WaMessage`,
+ * que fica a três linhas daqui. Renomeado para `motivo` em 11/08/2026, na
+ * véspera do roteamento por número: o despacho passa a escolher o NÚMERO de
+ * saída por este campo (`otp` → número de acesso; `pilula` → número de
+ * jornada), e um `msg.kind` digitado no lugar de `meta.motivo` rotearia por
+ * "text/document" — compilando, passando no teste, e mandando OTP pelo número
+ * de campanha. Dois campos com o mesmo nome e semânticas diferentes não são um
+ * detalhe de estilo quando um deles vira chave de roteamento.
  */
 export interface WaSendMeta {
   /** pilula | otp | magic_link | convite | nudge | alerta | ... */
-  kind?: string | null;
+  motivo?: string | null;
   empresaId?: string | null;
   colaboradorId?: string | null;
   dedupeKey?: string | null;

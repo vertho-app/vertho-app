@@ -79,7 +79,10 @@ async function comLog(r: WaSendResult, meta: WaSendMeta | undefined): Promise<Wa
     await registrarEntrega({
       canal: 'whatsapp',
       status: r.ok ? 'sucesso' : 'falha',
-      kind: meta?.kind ?? null,
+      // `kind` é a COLUNA de `notification_deliveries`; `motivo` é o campo do
+      // contexto de negócio. A tradução acontece aqui, no único lugar que fala
+      // com a telemetria — ver a nota em WaSendMeta sobre por que o nome mudou.
+      kind: meta?.motivo ?? null,
       empresaId: meta?.empresaId ?? null,
       colaboradorId: meta?.colaboradorId ?? null,
       provider: r.provider ?? null,
