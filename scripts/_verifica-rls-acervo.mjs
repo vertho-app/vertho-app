@@ -10,6 +10,7 @@
  */
 import { readFileSync } from 'fs';
 import pg from 'pg';
+import { sslSupabase } from './_pg-ssl.mjs';
 
 const url = process.env.DATABASE_URL
   || readFileSync('.env.local', 'utf8').match(/^DATABASE_URL=["']?([^"'\r\n]+)/m)?.[1];
@@ -26,7 +27,7 @@ const TABELAS = ['competencias', 'modulos_base_conteudo', 'micro_conteudos', 'co
  */
 const PAPEIS = process.argv.slice(2).length ? process.argv.slice(2) : ['authenticated', 'anon', 'ci_rls_audit'];
 
-const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString: url, ssl: sslSupabase() });
 await client.connect();
 
 const claims = JSON.stringify({ role: 'authenticated', sub: '00000000-0000-0000-0000-000000000000', app_metadata: {} });

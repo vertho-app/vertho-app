@@ -21,10 +21,11 @@
  * Uso: node --env-file=.env.local scripts/_setup-ci-rls-audit.mjs
  */
 import { randomBytes } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { openSync, writeSync, closeSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import pg from 'pg';
+import { sslSupabase } from './_pg-ssl.mjs';
 
 const ADMIN_URL = process.env.DATABASE_URL;
 if (!ADMIN_URL) {
@@ -36,7 +37,7 @@ const ROLE = 'ci_rls_audit';
 // alfanumérico: não precisa de escape em SQL nem de percent-encoding na URL
 const senha = randomBytes(48).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 40);
 
-const admin = new pg.Client({ connectionString: ADMIN_URL, ssl: { rejectUnauthorized: false } });
+const admin = new pg.Client({ connectionString: ADMIN_URL, ssl: sslSupabase() });
 await admin.connect();
 
 const { rows: existe } = await admin.query('SELECT 1 FROM pg_roles WHERE rolname = $1', [ROLE]);
@@ -77,7 +78,7 @@ const url = `postgresql://${ROLE}.${ref}:${senha}@${u.hostname}:${u.port}${u.pat
 // sem ninguém ter mexido em nada.
 async function conectarComRetry(connectionString, tentativas = 8, esperaMs = 10000) {
   for (let i = 1; ; i++) {
-    const c = new pg.Client({ connectionString, ssl: { rejectUnauthorized: false } });
+    const c = new pg.Client({ connectionString, ssl: sslSupabase() });
     try {
       await c.connect();
       if (i > 1) console.log(`(conectou na tentativa ${i} — o pooler levou ~${((i - 1) * esperaMs) / 1000}s para aceitar a senha nova)`);
@@ -128,7 +129,18 @@ if (vazou) {
 }
 console.log('  ✅ catálogo visível, dado de tenant não — que é exatamente o que se queria');
 
+// Arquivo de credencial: dono-somente (0600) e criado com `wx` — falha se já
+// existir, em vez de sobrescrever. No Linux o `tmpdir()` é COMPARTILHADO: sem o
+// modo restrito a senha do banco fica legível por qualquer usuário da máquina, e
+// sem o `wx` um arquivo (ou symlink) plantado por outro usuário seria seguido.
+// ⚠️ No WINDOWS o `mode` é praticamente ignorado (NTFS usa ACL, não bits POSIX —
+// medido: o arquivo sai 644 na emulação do Git Bash). Ali a proteção real vem de
+// o `tmpdir()` já ser por usuário (`%LOCALAPPDATA%\Temp`). O 0600 está aqui pelo
+// caso POSIX, que é justamente onde o diretório é compartilhado.
+// O `rmSync` anterior é o que mantém o script re-executável.
 const destino = path.join(tmpdir(), 'ci-rls-audit.url');
-writeFileSync(destino, url, { encoding: 'utf8' });
-console.log(`\n✅ connection string escrita em: ${destino}`);
+rmSync(destino, { force: true });
+const fd = openSync(destino, 'wx', 0o600);
+try { writeSync(fd, url); } finally { closeSync(fd); }
+console.log(`\n✅ connection string escrita (modo 0600) em: ${destino}`);
 console.log('   (grave como secret e APAGUE o arquivo — a senha não foi impressa em lugar nenhum)');
