@@ -231,13 +231,16 @@ function CargosPageInner() {
       {!loadingCargos && cargos.length > 0 && (
         <div className="space-y-4">
           {cargos.map((cargo: any) => {
-            const top10 = cargo.competencias_top10 || [];
             const votadasExtra = cargo.competencias_votadas_extra || [];
+            const catalogoExtra = cargo.competencias_catalogo_extra || [];
             const selected = top5Edits[cargo.id] || [];
-            // Lista do workshop = Top 10 da IA ∪ votadas fora da Top 10 ∪ já selecionadas.
-            const lista: string[] = [...top10, ...votadasExtra];
+            // Lista do workshop = Top 10 da IA ∪ votadas ∪ catálogo do cargo ∪ já
+            // selecionadas — montada no loader (lib/workshop-competencias), fonte
+            // única com a tela da Fase 1.
+            const lista: string[] = [...(cargo.competencias_workshop || [])];
             for (const s of selected) if (!lista.includes(s)) lista.push(s);
             const votadaSet = new Set(votadasExtra);
+            const catalogoSet = new Set(catalogoExtra);
             const isOrfao = !!cargo.is_orfao;
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(cargo.id);
             const cargosValidos = cargos.filter((c: any) => /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(c.id));
@@ -314,6 +317,10 @@ function CargosPageInner() {
                             <span className="ml-auto shrink-0 flex items-center gap-1.5">
                               {votadaSet.has(comp) && (
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-400/15 text-cyan-300 border border-cyan-400/25">votação</span>
+                              )}
+                              {catalogoSet.has(comp) && (
+                                <span title="Competência do cargo que não está na Top 10 da IA"
+                                  className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/[0.06] text-gray-400 border border-white/10">catálogo</span>
                               )}
                               <span
                                 title={isFoco ? 'Competência foco — clique pra remover' : 'Marcar como foco (máx. 2 — trilha DUO + PDI)'}

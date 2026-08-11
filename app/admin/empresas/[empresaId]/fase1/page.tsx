@@ -293,7 +293,14 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
           {cargosData.length === 0 ? (
             <Empty icon={Target} text={tr('empty.noRoles')} />
           ) : cargosData.map(cargo => {
-            const top10 = cargo.competencias_top10 || [];
+            // Lista do workshop = Top 10 da IA ∪ votadas ∪ catálogo do cargo ∪ já
+            // selecionadas (lib/workshop-competencias, montada no loader). Antes
+            // aqui era só a Top 10, e competência do cargo fora do ranking da IA1
+            // ficava inalcançável — só entrava inflando a Top 10.
+            const lista: string[] = [...(cargo.competencias_workshop || [])];
+            for (const s of (top5Edits[cargo.id] || [])) if (!lista.includes(s)) lista.push(s);
+            const votadaSet = new Set(cargo.competencias_votadas_extra || []);
+            const catalogoSet = new Set(cargo.competencias_catalogo_extra || []);
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(cargo.id);
             const selected: string[] = top5Edits[cargo.id] || [];
             const dirty = JSON.stringify(selected) !== JSON.stringify(cargo.top5_workshop || []);
@@ -321,11 +328,11 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-bold text-white">{cargo.nome}</h3>
                     <p className="text-[10px] text-gray-500">
-                      {tr('labels.selectedOf', { selected: selected.length, total: top10.length })}
+                      {tr('labels.selectedOf', { selected: selected.length, total: lista.length })}
                       {dirty && <span className="text-amber-400 ml-2">· {tr('labels.unsaved')}</span>}
                     </p>
                   </div>
-                  {top10.length > 0 && (
+                  {lista.length > 0 && (
                     <button
                       onClick={salvar}
                       disabled={!dirty || isSaving || !isUuid}
@@ -337,11 +344,11 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                 </div>
 
                 <div className="p-4">
-                  {top10.length === 0 ? (
+                  {lista.length === 0 ? (
                     <p className="text-[11px] text-gray-500 italic">{tr('empty.top10ForRole')}</p>
                   ) : (
                     <div className="space-y-1.5">
-                      {top10.map((comp, i) => {
+                      {lista.map((comp, i) => {
                         const marcado = selected.includes(comp);
                         return (
                           <button
@@ -360,6 +367,13 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                             </span>
                             <span className="text-[10px] font-mono text-amber-400/70 w-4 text-center shrink-0">{i + 1}</span>
                             <span className={`text-xs ${marcado ? 'font-bold text-white' : 'text-gray-400'}`}>{comp}</span>
+                            {votadaSet.has(comp) && (
+                              <span className="ml-auto shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-400/15 text-cyan-300 border border-cyan-400/25">votação</span>
+                            )}
+                            {catalogoSet.has(comp) && (
+                              <span title="Competência do cargo que não está na Top 10 da IA"
+                                className="ml-auto shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/[0.06] text-gray-400 border border-white/10">catálogo</span>
+                            )}
                           </button>
                         );
                       })}

@@ -2,6 +2,7 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { focoDoCargo, MAX_FOCO } from '@/lib/foco-cargo';
+import { montarListaWorkshop, normalizarComp } from '@/lib/workshop-competencias';
 
 export async function loadEmpresas() {
   const sb = await requireAdminSupabase();
@@ -76,6 +77,36 @@ export async function loadCargos(empresaId: string) {
       }
     } catch { /* tabela pode não existir ainda */ }
 
+    // 3c. Catálogo de competências do tenant, por cargo. Sem isto, competência
+    // que EXISTE no cargo mas não entrou na Top 10 da IA1 nem passou por votação
+    // fica inalcançável na curadoria — a única saída era inflar a Top 10. Foi o
+    // caso de "Autocuidado e bem-estar profissional" (TCH12) no Professor(a) de
+    // Macaé, que é justamente a competência foco do piloto.
+    // Régua igual à do modal "Adicionar" da Top 10 (fase1/page.tsx `availComps`):
+    // competência DO cargo ou sem cargo. Sem cargo é hoje conjunto vazio nos 10
+    // tenants (medido 11/08) — a paridade existe pra não nascerem duas réguas.
+    const catalogoByCargo = new Map<string, string[]>();
+    const catalogoSemCargo: string[] = [];
+    try {
+      const { data: catalogo } = await sb.from('competencias')
+        .select('nome, cargo')
+        .eq('empresa_id', empresaId)
+        .order('cod_comp');
+      const vistos = new Set<string>();
+      for (const c of (catalogo || []) as any[]) {
+        const nome = (c.nome || '').toString().trim();
+        if (!nome) continue;
+        // A tabela tem uma linha por DESCRITOR (cod_desc) além da linha-
+        // competência: sem dedup, o mesmo nome entraria 6× na lista.
+        const chave = `${c.cargo || ''}::${normalizarComp(nome)}`;
+        if (vistos.has(chave)) continue;
+        vistos.add(chave);
+        if (!c.cargo) { catalogoSemCargo.push(nome); continue; }
+        if (!catalogoByCargo.has(c.cargo)) catalogoByCargo.set(c.cargo, []);
+        catalogoByCargo.get(c.cargo)!.push(nome);
+      }
+    } catch { /* catálogo indisponível: a lista cai pro top10 ∪ votadas */ }
+
     // 4. Merge: união de todas as fontes
     const cargosNomes = [
       ...new Set([
@@ -95,9 +126,15 @@ export async function loadCargos(empresaId: string) {
       const isOrfao = !ce && !cargosColab.includes(nome) && cargosTop10.includes(nome);
       const semColabs = !ce && !cargosColab.includes(nome);
       const top10Names = top10ByCargo.get(nome) || [];
-      const top10Set = new Set(top10Names);
-      const competencias_votadas_extra = [...(votadasByCargo.get(nome) || [])]
-        .filter((v) => !top10Set.has(v)).sort();
+      // Lista que a curadoria oferece — montagem em lib/workshop-competencias
+      // (pura e testada), para as duas telas de seleção não divergirem: a de
+      // Cargos somava as votadas, a da Fase 1 listava só a Top 10.
+      const { votadasExtra, catalogoExtra, workshop } = montarListaWorkshop({
+        top10: top10Names,
+        votadas: [...(votadasByCargo.get(nome) || [])],
+        catalogo: [...(catalogoByCargo.get(nome) || []), ...catalogoSemCargo],
+        selecionadas: Array.isArray(ce?.top5_workshop) ? ce.top5_workshop : [],
+      });
 
       result.push({
         id: ce?.id || nome,
@@ -107,7 +144,9 @@ export async function loadCargos(empresaId: string) {
         top5_workshop: ce?.top5_workshop || [],
         competencias_foco: focoDoCargo(ce),
         competencias_top10: top10Names,
-        competencias_votadas_extra,
+        competencias_votadas_extra: votadasExtra,
+        competencias_catalogo_extra: catalogoExtra,
+        competencias_workshop: workshop,
         // Flags pra UI: cargo órfão = só existe em top10_cargos (IA gerou
         // nome diferente do oficial). Admin pode "vincular" a um nome
         // válido de cargos_empresa via renomearTop10Cargo.
