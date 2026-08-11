@@ -36,7 +36,10 @@ const whatsappPayloadSchema = z.object({
   // telemetria e o payload é escolhido por quem publica — string livre deixaria
   // o `kind` do log ser qualquer coisa, e a métrica por tipo de envio pararia
   // de fechar.
-  kindEnvio: z.enum(['broadcast', 'relatorio', 'magic_link']).optional(),
+  // `nudge`/`evidencia` são do cron diário: não têm `fase4EnvioId` (não carimbam
+  // canal), então sem um kind próprio cairiam no default `broadcast` e a métrica
+  // por tipo passaria a somar cadência automática com disparo manual.
+  kindEnvio: z.enum(['broadcast', 'relatorio', 'magic_link', 'nudge', 'evidencia']).optional(),
 }).strict();
 
 async function verifyQStashSignature(req, body) {
@@ -83,7 +86,7 @@ async function resolverMetaEnvio(
   fase4EnvioId?: string,
   carimboCampo?: 'ultima_pilula1_whatsapp_em' | 'ultima_pilula2_whatsapp_em',
   envioId?: string,
-  lote?: { colaboradorId?: string; empresaId?: string; kindEnvio?: 'broadcast' | 'relatorio' | 'magic_link' },
+  lote?: { colaboradorId?: string; empresaId?: string; kindEnvio?: z.infer<typeof whatsappPayloadSchema>['kindEnvio'] },
 ): Promise<WaSendMeta> {
   if (fase4EnvioId && carimboCampo) {
     const sb = createSupabaseAdmin();

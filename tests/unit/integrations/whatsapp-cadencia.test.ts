@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   aplicarTetoLote,
   atrasosDoLote,
+  criarRelogioCadencia,
   duracaoEstimada,
   intervaloLoteMs,
   maxPorDisparo,
@@ -125,6 +126,56 @@ describe('cadência de lote — teto de volume', () => {
   it('teto default protege um lote grande sem env nenhuma', () => {
     expect(maxPorDisparo()).toBe(120);
     expect(aplicarTetoLote(Array.from({ length: 500 }, (_, i) => i)).adiados).toHaveLength(380);
+  });
+});
+
+// O relógio incremental existe para quem NÃO sabe o total de antemão — o cron
+// diário descobre as mensagens no loop (pílula, missão, nudge, evidência), e era
+// ele que ainda rodava a 2s/mensagem depois da correção dos disparos manuais.
+describe('cadência de lote — relógio incremental', () => {
+  beforeEach(() => ENVS.forEach((e) => delete process.env[e]));
+  afterEach(() => ENVS.forEach((e) => delete process.env[e]));
+
+  it('produz a MESMA sequência que atrasosDoLote (uma política, não duas)', () => {
+    process.env.WHATSAPP_LOTE_JITTER = '0';
+    const relogio = criarRelogioCadencia(() => 0.5);
+    const passo = [0, 1, 2, 3, 4].map(() => relogio.proximo());
+
+    expect(passo).toEqual(atrasosDoLote(5, () => 0.5));
+  });
+
+  it('conta o que agendou e avisa quando o teto foi consumido', () => {
+    process.env.WHATSAPP_LOTE_MAX = '3';
+    const relogio = criarRelogioCadencia(() => 0.5);
+
+    expect(relogio.tetoAtingido()).toBe(false);
+    relogio.proximo(); relogio.proximo();
+    expect(relogio.agendadas()).toBe(2);
+    expect(relogio.tetoAtingido()).toBe(false);
+
+    relogio.proximo();
+    // A 3ª consumiu o teto: perguntar ANTES de agendar é o que impede a 4ª.
+    expect(relogio.agendadas()).toBe(3);
+    expect(relogio.tetoAtingido()).toBe(true);
+  });
+
+  it('o teto é lido na CRIAÇÃO — trocar a env no meio não afrouxa o disparo', () => {
+    process.env.WHATSAPP_LOTE_MAX = '2';
+    const relogio = criarRelogioCadencia(() => 0.5);
+    relogio.proximo(); relogio.proximo();
+
+    process.env.WHATSAPP_LOTE_MAX = '500';
+    expect(relogio.tetoAtingido()).toBe(true);
+  });
+
+  it('a cadência do cron diário não pode voltar a ~30 msg/min', () => {
+    // A régua do incidente aplicada ao caminho automático: 36 mensagens (a coorte
+    // de Ibipeba hoje) levavam 72s a 2s/msg. Com a política, minutos.
+    const relogio = criarRelogioCadencia(() => 0.5);
+    let ultimo = 0;
+    for (let i = 0; i < 36; i++) ultimo = relogio.proximo();
+
+    expect(ultimo / 60).toBeGreaterThan(5);
   });
 });
 

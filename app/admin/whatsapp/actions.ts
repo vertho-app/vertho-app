@@ -7,7 +7,8 @@ import { logAdminAction } from '@/lib/audit';
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
 import { assertZapiConnected, getZapiConfig } from '@/lib/zapi';
 import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
-import { aplicarTetoLote, atrasosDoLote, duracaoEstimada, intervaloLoteMs } from '@/lib/whatsapp/cadencia';
+import { publicarWhatsappCis } from '@/lib/qstash-publish';
+import { aplicarTetoLote, atrasosDoLote, criarRelogioCadencia, duracaoEstimada, intervaloLoteMs, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 
 /**
  * Fila residual tolerada antes de um disparo em lote. Zero: qualquer mensagem
@@ -24,8 +25,16 @@ const MAX_FILA_ANTES_DO_LOTE = 0;
  * 1 msg/s — o DOBRO da taxa que bloqueou o número em 11/08. Com a cadência real
  * (15s), 50 mensagens levariam 12 min e nenhuma lambda sobrevive a isso; então o
  * limiar tem que ser o que cabe na request, e todo o resto é assíncrono.
+ *
+ * **1, não 3** (revisão de 11/08, depois): com 3 o ramo direto passou a dormir
+ * `intervaloLoteMs()` entre mensagens DENTRO da server action — 30s de request
+ * num segmento sem `maxDuration` (e a page é `'use client'`, então não há onde
+ * declará-lo). A request morreria depois de já ter enviado: o admin veria erro
+ * sobre mensagem entregue. Com 1 não existe intervalo a cumprir (a cadência só
+ * começa na 2ª mensagem), o sleep some da request e tudo que é lote é assíncrono.
+ * Subir este número reintroduz o acoplamento "env de cadência × timeout de HTTP".
  */
-const LIMIAR_ENVIO_DIRETO = 3;
+const LIMIAR_ENVIO_DIRETO = 1;
 
 /**
  * Colaboradores que CONCLUÍRAM o mapeamento de competências: responderam TODAS
@@ -411,6 +420,11 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     const isRelatorio = comPDF;
     const resendThrottle = { lastSentAt: 0 };
     let enviados = 0, erros = 0, pulados = 0, erroDetalhe = '';
+    // Relógio da cadência para o loop sequencial (o ramo que roda quando o
+    // paralelo não se aplica). Um por execução, criado FORA do loop: dentro dele,
+    // cada mensagem começaria do zero e todas sairiam juntas.
+    const relogioLoop = criarRelogioCadencia();
+    let adiadosNoLoop = 0;
 
     // Anexo extra: usamos sempre base64 no endpoint /send-document/{ext}.
     // Essa abordagem resolve o problema de abertura (o WhatsApp usa a
@@ -484,8 +498,10 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         // Lote pequeno: Z-API direto na request. Acima do limiar: QStash.
         if (colabs.length <= LIMIAR_ENVIO_DIRETO) {
           try {
-            // Mesma cadência do lote assíncrono — não existe "poucos, então
-            // pode rápido": o que o WhatsApp observa é o intervalo.
+            // Inalcançável com LIMIAR_ENVIO_DIRETO = 1, e é de propósito que
+            // fique aqui: se alguém subir o limiar, a cadência do ramo direto é a
+            // mesma dos outros — não existe "poucos, então pode rápido". O que o
+            // WhatsApp observa é o intervalo, não o tamanho do lote.
             if (enviados > 0) await new Promise(resolve => setTimeout(resolve, intervaloLoteMs()));
 
             // Enviar texto
@@ -540,8 +556,14 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
             if (res.ok) { enviados++; }
             else { erroDetalhe = await res.text(); erros++; }
           } catch (e) { erroDetalhe = e.message; erros++; }
+        } else if (relogioLoop.tetoAtingido()) {
+          // Teto de VOLUME também neste ramo. Ele usava `enviados * intervalo`:
+          // a taxa certa, mas sem jitter (cadência exata é assinatura de robô) e
+          // sem limite — 500 destinatários a 15s ainda são 500 mensagens não
+          // solicitadas saindo de um número não-oficial.
+          adiadosNoLoop++;
         } else if (process.env.QSTASH_TOKEN) {
-          // Branch QStash (>50 destinatários)
+          // Branch QStash (acima do limiar de envio direto)
           try {
             // Usa APP_WEBHOOK_URL (app.{ROOT_DOMAIN}) — APP_URL pode apontar
             // pra raiz vertho.ai que está servida pelo Gamma e retorna 405.
@@ -574,9 +596,9 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
-                // Mesma política do ramo paralelo: o atraso acumula pela cadência
-                // configurada, não por um literal de 2s.
-                'Upstash-Delay': `${Math.floor((enviados * intervaloLoteMs()) / 1000)}s`,
+                // Mesma política do ramo paralelo, e pelo MESMO relógio: acúmulo
+                // com jitter, não `enviados * intervalo` (que dá cadência exata).
+                'Upstash-Delay': `${relogioLoop.proximo()}s`,
               },
               body: JSON.stringify(bodyQ),
             });
@@ -599,12 +621,17 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     }
 
     const puladosTxt = pulados ? `, ${pulados} sem relatório (não enviados)` : '';
-    const msg2 = `${enviados} ${canal === 'email' ? 'emails' : 'WhatsApp'} enviados${erros ? `, ${erros} erros` : ''}${puladosTxt}${erroDetalhe ? ` — ${erroDetalhe}` : ''}`;
+    // O teto deste ramo aparece na frase e na auditoria pelo mesmo motivo do ramo
+    // paralelo: "155 colaboradores" no alvo sugere 155 enviados.
+    const adiadoTxt = adiadosNoLoop
+      ? ` ⚠️ ${adiadosNoLoop} NÃO enviados: teto de ${maxPorDisparo()} por disparo (protege o número). Dispare o restante depois.`
+      : '';
+    const msg2 = `${enviados} ${canal === 'email' ? 'emails' : 'WhatsApp'} enviados${erros ? `, ${erros} erros` : ''}${puladosTxt}${erroDetalhe ? ` — ${erroDetalhe}` : ''}${adiadoTxt}`;
     await logAdminAction({
       adminEmail: ctx.email, acao: 'whatsapp.broadcast', empresaId, empresaSlug: empresa.slug,
       alvo: `${colabs.length} colaboradores`,
-      detalhes: { canal, via: 'direto', filtros, enviados, erros, pulados, comPDF, anexo: !!anexoExtra?.base64, erroDetalhe: erroDetalhe || undefined },
-      resultado: enviados === 0 ? 'erro' : (erros > 0 || pulados > 0) ? 'parcial' : 'ok',
+      detalhes: { canal, via: 'direto', filtros, enviados, erros, pulados, comPDF, anexo: !!anexoExtra?.base64, adiadosPorTeto: adiadosNoLoop, erroDetalhe: erroDetalhe || undefined },
+      resultado: enviados === 0 ? 'erro' : (erros > 0 || pulados > 0 || adiadosNoLoop > 0) ? 'parcial' : 'ok',
     });
     return { success: enviados > 0, message: msg2, error: enviados === 0 ? msg2 : undefined };
   } catch (err) {
@@ -652,25 +679,56 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
 
     const zapi = getZapiConfig();
     if (!zapi.configured) return { success: false, error: 'Z-API não configurado' };
+    // Sem QStash este disparo não tem como respeitar a cadência: 15s × N dentro
+    // de uma server action estoura o timeout muito antes do fim do lote. Falhar
+    // aqui é melhor que enviar rápido demais — foi a pressa que bloqueou o
+    // número em 11/08/2026.
+    if (!process.env.QSTASH_TOKEN) {
+      return { success: false, error: 'QSTASH_TOKEN não configurado — disparo em lote indisponível.' };
+    }
     try {
       await assertZapiConnected();
+      // Segunda trava: conectado não basta (fila residual sai em rajada).
+      await assertFilaDoProvedorLimpa(MAX_FILA_ANTES_DO_LOTE);
     } catch (e: any) {
       await logAdminAction({
         adminEmail: ctx.email, acao: 'whatsapp.magic_links', empresaId, empresaSlug: empresa.slug,
         alvo: `${colabs.length} colaboradores`,
-        detalhes: { filtros, bloqueado: 'zapi_desconectada', erro: e?.message },
+        detalhes: { filtros, bloqueado: 'zapi_indisponivel', erro: e?.message },
         resultado: 'erro',
       });
-      return { success: false, error: `${e?.message || 'Z-API desconectada'}. Reconecte a instância antes de disparar WhatsApp em lote.` };
+      return { success: false, error: `${e?.message || 'Z-API indisponível'}. Reconecte a instância antes de disparar WhatsApp em lote.` };
     }
 
     const redirectUrl = tenantUrl(empresa.slug, '/dashboard');
     let enviados = 0, erros = 0, ultimoErro = '';
 
-    for (const colab of colabs) {
-      try {
-        if (enviados > 0) await new Promise(r => setTimeout(r, 1200));
+    // Teto de volume + cadência (política única). Este disparo enviava DIRETO na
+    // request com 1,2s entre mensagens — ~50/min, o DOBRO da taxa que bloqueou o
+    // número. Agora vai pelo QStash como os outros lotes.
+    //
+    // ⚠️ Trade-off assumido: o magic link passa a ficar no CORPO da mensagem no
+    // QStash até o seu atraso vencer (no pior caso ~30 min com o teto default).
+    // É mais um custodiante de uma credencial de login. Aceito porque (a) o mesmo
+    // link já trafega em claro pela Z-API e pelo WhatsApp, (b) é de uso único e
+    // expira em 24h, e (c) a alternativa — manter o envio síncrono — só funciona
+    // rápido demais ou não funciona. Se um dia isso incomodar, o caminho é o
+    // webhook GERAR o link (payload com colaboradorId, não com o link pronto).
+    const { enviar: alvos, adiados, aviso: avisoTeto } = aplicarTetoLote(colabs as any[]);
+    const atrasos = atrasosDoLote(alvos.length);
 
+    // Em BLOCOS, não em série: o `generateLink` é uma ida ao GoTrue por pessoa
+    // (~300ms), e 120 delas em fila levariam ~36s DENTRO da server action — o
+    // mesmo tipo de request longa que este arquivo acabou de deixar de ter. O
+    // bloco de 10 encurta para ~4s sem martelar o rate limit do Auth. A cadência
+    // NÃO depende desta ordem: quem espaça as mensagens é o `Upstash-Delay` de
+    // cada publish, não o instante em que ele foi publicado.
+    const BLOCO = 10;
+    for (let inicio = 0; inicio < alvos.length; inicio += BLOCO) {
+      const bloco = alvos.slice(inicio, inicio + BLOCO);
+      await Promise.all(bloco.map(async (colab: any, i: number) => {
+      const idx = inicio + i;
+      try {
         const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
           type: 'magiclink',
           email: colab.email,
@@ -679,7 +737,7 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
         if (linkErr || !linkData?.properties?.action_link) {
           erros++;
           ultimoErro = linkErr?.message || 'Falha ao gerar magic link';
-          continue;
+          return;
         }
 
         const magicLink = linkData.properties.action_link;
@@ -698,26 +756,31 @@ ${magicLink}
 
 — Equipe Vertho`;
 
-        const res = await fetch(`${zapi.baseUrl}/send-text`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
-          body: JSON.stringify({ phone, message: msg }),
-        });
-
-        if (res.ok) enviados++;
-        else { erros++; ultimoErro = await res.text(); }
+        await publicarWhatsappCis({
+          telefone: phone,
+          mensagem: msg,
+          kindEnvio: 'magic_link',
+          colaboradorId: colab.id,
+          empresaId,
+        }, atrasos[idx]);
+        enviados++;
       } catch (e: any) {
         erros++;
         ultimoErro = e.message;
       }
+      }));
     }
 
-    const msg2 = `${enviados} magic links enviados por WhatsApp${erros ? `, ${erros} erros` : ''}${ultimoErro ? ` — ${ultimoErro}` : ''}`;
+    const tetoTxt = avisoTeto ? ` ⚠️ ${avisoTeto}` : '';
+    const msg2 =
+      `${enviados} magic links agendados por WhatsApp (entrega em ${duracaoEstimada(enviados)})` +
+      `${erros ? `, ${erros} erros` : ''}${ultimoErro ? ` — ${ultimoErro}` : ''}${tetoTxt}`;
     await logAdminAction({
       adminEmail: ctx.email, acao: 'whatsapp.magic_links', empresaId, empresaSlug: empresa.slug,
       alvo: `${colabs.length} colaboradores`,
-      detalhes: { filtros, enviados, erros, ultimoErro: ultimoErro || undefined },
-      resultado: enviados === 0 ? 'erro' : erros > 0 ? 'parcial' : 'ok',
+      // adiadosPorTeto na auditoria: "53 colaboradores" no alvo sugere 53 links.
+      detalhes: { filtros, enviados, erros, adiadosPorTeto: adiados.length, ultimoErro: ultimoErro || undefined },
+      resultado: enviados === 0 ? 'erro' : (erros > 0 || adiados.length > 0) ? 'parcial' : 'ok',
     });
     return { success: enviados > 0, message: msg2, error: enviados === 0 ? msg2 : undefined };
   } catch (err: any) {

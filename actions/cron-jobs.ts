@@ -350,7 +350,7 @@ export async function triggerDiario() {
   // FALLBACK sem QSTASH (dev local — mesmo padrão de app/radar/actions.ts):
   // processa as empresas inline em loop, como antes do fan-out.
   console.warn('[triggerDiario] QSTASH_TOKEN ausente — processando INLINE (sem fan-out)');
-  let pilulas = 0, emails = 0, evidencias = 0, nudges = 0, erros = 0;
+  let pilulas = 0, emails = 0, evidencias = 0, nudges = 0, erros = 0, adiadosPorTeto = 0;
   // Empresas cujo processamento explodiu — reportadas no retorno em vez de sumirem.
   const empresasComFalha: string[] = [];
 
@@ -362,7 +362,7 @@ export async function triggerDiario() {
     try {
       const r = await processarEmpresaDiario(empresa, { hoje, hojeUTC });
       pilulas += r.pilulas; emails += r.emails; evidencias += r.evidencias;
-      nudges += r.nudges; erros += r.erros;
+      nudges += r.nudges; erros += r.erros; adiadosPorTeto += r.adiadosPorTeto;
     } catch (e: any) {
       erros++;
       empresasComFalha.push((empresa as any).slug || (empresa as any).id);
@@ -371,9 +371,12 @@ export async function triggerDiario() {
   }
 
   const alerta = empresasComFalha.length ? ` · ⚠️ falharam: ${empresasComFalha.join(', ')}` : '';
-  const message = `Diário (inline): ${pilulas} pílulas WhatsApp, ${emails} e-mails, ${evidencias} evidências, ${nudges} nudges${alerta}`;
+  // Adiados aparecem no texto do lock: "12 pílulas" com 200 na coorte só é lido
+  // corretamente ao lado de "188 adiados pelo teto".
+  const adiadoTxt = adiadosPorTeto ? ` · ${adiadosPorTeto} adiados pelo teto` : '';
+  const message = `Diário (inline): ${pilulas} pílulas WhatsApp, ${emails} e-mails, ${evidencias} evidências, ${nudges} nudges${adiadoTxt}${alerta}`;
   await lock.liberar(message);
-  return { pilulas, emails, evidencias, nudges, erros, empresasComFalha, message };
+  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, empresasComFalha, message };
   } catch (err: any) {
     // Marca a execução como encerrada mesmo em falha global — senão o lock ficaria
     // pendurado e o retry de hoje seria recusado como "execução em andamento".

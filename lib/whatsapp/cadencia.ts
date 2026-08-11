@@ -47,6 +47,53 @@ function jitterFrac(): number {
   return Number.isFinite(bruto) && bruto >= 0 && bruto < 1 ? bruto : 0.3;
 }
 
+export interface RelogioCadencia {
+  /** Atraso da PRÓXIMA mensagem, em segundos. Monótono e já com jitter. */
+  proximo(): number;
+  /** Quantas mensagens este relógio já agendou. */
+  agendadas(): number;
+  /**
+   * `true` quando o teto por disparo já foi consumido — o chamador NÃO deve
+   * enfileirar mais nada. Perguntar ANTES de `proximo()`: um relógio que
+   * devolvesse atraso para a mensagem 121 já teria autorizado o envio.
+   */
+  tetoAtingido(): boolean;
+}
+
+/**
+ * Relógio incremental da cadência, para quem NÃO conhece o total de antemão.
+ *
+ * O lote em lista sabe quantas mensagens vai mandar; o cron diário não — ele
+ * descobre no loop, por pessoa e por canal (pílula, missão, nudge, evidência).
+ * Sem esta forma, o cron teria que reimplementar o acúmulo com jitter, e
+ * "duas implementações da mesma política" é exatamente a doença que este
+ * módulo existe para curar: em 11/08 o intervalo estava escrito em dois lugares
+ * e não havia onde corrigi-lo.
+ *
+ * `atrasosDoLote` é construído SOBRE este relógio pelo mesmo motivo.
+ */
+export function criarRelogioCadencia(rng: () => number = Math.random): RelogioCadencia {
+  const base = intervaloLoteMs();
+  const frac = jitterFrac();
+  const teto = maxPorDisparo();
+  let acumuladoMs = 0;
+  let n = 0;
+
+  return {
+    proximo() {
+      // 1ª mensagem sai imediatamente; as demais somam base ± jitter.
+      if (n > 0) {
+        const fator = 1 + (rng() * 2 - 1) * frac; // [1-frac, 1+frac]
+        acumuladoMs += Math.max(1, Math.round(base * fator));
+      }
+      n++;
+      return Math.floor(acumuladoMs / 1000);
+    },
+    agendadas: () => n,
+    tetoAtingido: () => n >= teto,
+  };
+}
+
 /**
  * Atrasos (em SEGUNDOS, que é a unidade do header `Upstash-Delay`) para um lote
  * de `total` mensagens, na ordem do índice.
@@ -58,19 +105,9 @@ function jitterFrac(): number {
  * `rng` é injetável só para teste — em produção é `Math.random`.
  */
 export function atrasosDoLote(total: number, rng: () => number = Math.random): number[] {
-  const base = intervaloLoteMs();
-  const frac = jitterFrac();
+  const relogio = criarRelogioCadencia(rng);
   const atrasos: number[] = [];
-  let acumuladoMs = 0;
-
-  for (let i = 0; i < total; i++) {
-    // 1ª mensagem sai imediatamente; as demais somam base ± jitter.
-    if (i > 0) {
-      const fator = 1 + (rng() * 2 - 1) * frac; // [1-frac, 1+frac]
-      acumuladoMs += Math.max(1, Math.round(base * fator));
-    }
-    atrasos.push(Math.floor(acumuladoMs / 1000));
-  }
+  for (let i = 0; i < total; i++) atrasos.push(relogio.proximo());
   return atrasos;
 }
 

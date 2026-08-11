@@ -28,6 +28,8 @@ import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { publicarWhatsappCis } from '@/lib/qstash-publish';
+import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
+import { criarRelogioCadencia, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { enviarPush } from '@/lib/notifications/push-core';
 import { pushPilula, pushMissao } from '@/lib/notifications/push-copy';
@@ -51,6 +53,13 @@ export interface ResumoEmpresaDiario {
   evidencias: number;
   nudges: number;
   erros: number;
+  /**
+   * Mensagens de WhatsApp que o teto de volume (ou a fila suja do provedor)
+   * deixou para o próximo dia. NÃO são erros — e não podem ser somadas a eles:
+   * erro é coisa a consertar, adiado é a proteção funcionando. Sem este campo,
+   * "36 pílulas" com 200 pessoas na coorte parece cobertura total.
+   */
+  adiadosPorTeto: number;
 }
 
 /**
@@ -64,14 +73,14 @@ export async function processarEmpresaDiario(
   empresa: EmpresaDiario,
   { hoje, hojeUTC }: { hoje: number; hojeUTC: string },
 ): Promise<ResumoEmpresaDiario> {
-  let pilulas = 0, emails = 0, evidencias = 0, nudges = 0, erros = 0;
+  let pilulas = 0, emails = 0, evidencias = 0, nudges = 0, erros = 0, adiadosPorTeto = 0;
 
   const cadencia = (empresa as any).sys_config?.cadencia || {};
   const diaP1 = cadencia.fase4_dia_pilula ?? 1;            // default segunda
   const diaP2 = cadencia.fase4_dia_pilula2 ?? 2;           // default terça (2ª pílula DUO)
   const diaEv = cadencia.fase4_dia_evidencia ?? 4;         // default quinta
   if (hoje !== diaP1 && hoje !== diaP2 && hoje !== diaEv) {
-    return { pilulas, emails, evidencias, nudges, erros }; // empresa sem nada hoje
+    return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto }; // empresa sem nada hoje
   }
 
   // Deep-link da pílula = URL do TENANT (ibipeba.vertho.ai), não a genérica.
@@ -83,7 +92,7 @@ export async function processarEmpresaDiario(
   const { data: envios } = await tdb.from('fase4_envios')
     .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula1_push_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, ultima_pilula2_push_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
     .eq('status', ENVIO.ATIVO);
-  if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros };
+  if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto };
 
   // Trilha mais recente de CADA colaborador em UMA query (era 1 query por
   // envio — N+1). Ordenada por numero_temporada desc, a PRIMEIRA ocorrência
@@ -101,10 +110,68 @@ export async function processarEmpresaDiario(
     }
   } catch (e: any) { console.warn('[triggerDiario] trilhas bulk:', e?.message); }
 
-  // Espaçamento de 2s por mensagem DENTRO da empresa (antes era um contador
-  // global entre empresas; com o fan-out cada empresa roda na sua lambda).
-  let msgsAgendadas = 0;
-  const delay = () => (msgsAgendadas++) * 2;
+  // ── Cadência do canal (política única: lib/whatsapp/cadencia) ─────────────
+  //
+  // Era `msgsAgendadas++ * 2` — 2s por mensagem, ~30/min, EXATAMENTE a taxa que
+  // bloqueou o número em 11/08/2026 (50 entregues, 105 não). A correção daquele
+  // dia cobriu os dois disparos manuais e deixou este, que é o de maior volume
+  // e o único que ninguém observa: roda sozinho, de madrugada, todo dia.
+  //
+  // Agravante que só existe aqui: com o fan-out, cada empresa é uma lambda, e
+  // o espaçamento é POR EMPRESA — duas empresas em paralelo somam taxa no MESMO
+  // número. O intervalo por empresa é, portanto, um teto otimista.
+  const relogio = criarRelogioCadencia();
+
+  // ── Trava de fila: `connected` não basta ──────────────────────────────────
+  //
+  // O provedor pode estar de pé com mensagens presas da rodada anterior, que ele
+  // descarrega em rajada ao estabilizar. Aqui a trava NÃO aborta a empresa (como
+  // faz no disparo manual, onde há um humano lendo o erro): ela desliga o canal
+  // WhatsApp do dia e deixa e-mail e push seguirem. Abortar calaria os três.
+  let canalWhatsappAtivo = true;
+  try {
+    await assertFilaDoProvedorLimpa(0);
+  } catch (e: any) {
+    canalWhatsappAtivo = false;
+    await registrarDegradacao({
+      fluxo: 'envio',
+      tipo: DEGRADACAO.WHATSAPP_FILA_SUJA,
+      chave: `diario:${empresa.id}`,
+      empresaId: empresa.id,
+      severidade: 'critico',
+      detalhe: { motivo: e?.message || String(e) },
+    });
+  }
+
+  /**
+   * Enfileira UMA mensagem do dia respeitando cadência e teto.
+   *
+   * Devolve `false` quando NÃO enviou por política (canal desligado ou teto
+   * atingido) — o chamador não conta isso como erro nem como envio. Lança o que
+   * `publicarWhatsappCis` lançar, para os `catch` existentes seguirem contando
+   * falha de verdade.
+   *
+   * O teto ADIA, não descarta: como o carimbo do canal (`ultima_pilulaN_whatsapp_em`)
+   * só é gravado pelo webhook após a entrega, quem fica de fora continua pendente
+   * e entra na execução do dia seguinte. É o que torna o corte aceitável aqui —
+   * num disparo manual o excedente precisa de um segundo clique; num cron diário
+   * o "depois" já existe.
+   */
+  const agendarWhatsapp = async (payload: Record<string, any>): Promise<boolean> => {
+    if (!canalWhatsappAtivo || relogio.tetoAtingido()) { adiadosPorTeto++; return false; }
+    await publicarWhatsappCis(payload, relogio.proximo());
+    return true;
+  };
+
+  // ── Ordem do dia: quem esperou mais vai primeiro ──────────────────────────
+  //
+  // O teto corta a CAUDA da lista, então a ordem decide quem fica de fora. Sem
+  // este sort a fila seria a do banco — estável entre execuções — e as mesmas
+  // pessoas ficariam para depois todo santo dia, o que transformaria um atraso
+  // rotativo em exclusão permanente. Nulo (nunca recebeu WhatsApp) vem primeiro.
+  const ultimoWppMs = (e: any) => [e.ultima_pilula1_whatsapp_em, e.ultima_pilula2_whatsapp_em]
+    .filter(Boolean).map((d: any) => new Date(d).getTime()).sort((a, b) => b - a)[0] ?? 0;
+  (envios as any[]).sort((a, b) => ultimoWppMs(a) - ultimoWppMs(b));
 
   // Quem tem push ativo nesta empresa. UMA query por execução, não uma por
   // pessoa: sem este conjunto, saber "o canal push é aplicável a fulano?" custaria
@@ -210,13 +277,13 @@ export async function processarEmpresaDiario(
       // que é exatamente a semântica da guarda por canal.
       if (telefone && !mesmoDiaUTC(envio[wppCol], hojeUTC)) {
         try {
-          await publicarWhatsappCis({
+          const enfileirou = await agendarWhatsapp({
             telefone,
             mensagem: templateWhatsAppPilula(nome, semana, textoPilulaWhatsapp(item, opts)),
             fase4EnvioId: envio.id,
             carimboCampo: wppCol,
-          }, delay());
-          pilulas++; whatsappEnfileirado = true;
+          });
+          if (enfileirou) { pilulas++; whatsappEnfileirado = true; }
         } catch { erros++; }
       }
       if (email && !mesmoDiaUTC(envio[mailCol], hojeUTC)) {
@@ -322,13 +389,13 @@ export async function processarEmpresaDiario(
       if (telefone && !mesmoDiaUTC(envio.ultima_pilula1_whatsapp_em, hojeUTC)) {
         try {
           // Mesmo contrato da pílula: carimbo do canal só no webhook, pós-envio.
-          await publicarWhatsappCis({
+          const enfileirou = await agendarWhatsapp({
             telefone,
             mensagem: templateWhatsAppMissao(nome, optsMissao),
             fase4EnvioId: envio.id,
             carimboCampo: 'ultima_pilula1_whatsapp_em',
-          }, delay());
-          pilulas++; whatsappEnfileirado = true;
+          });
+          if (enfileirou) { pilulas++; whatsappEnfileirado = true; }
         } catch { erros++; }
       }
       if (email && !mesmoDiaUTC(envio.ultima_pilula1_email_em, hojeUTC)) {
@@ -372,7 +439,16 @@ export async function processarEmpresaDiario(
       if (ultimoEnvio && (Date.now() - ultimoEnvio) / 86_400_000 >= 14) {
         if (telefone) {
           const nudgeMsg = `Olá, ${nome}! 👋\n\nNotamos que você está há mais de 2 semanas sem interagir com sua trilha.\n\nQue tal retomar hoje?\n\n— Vertho Mentor IA`;
-          try { await publicarWhatsappCis({ telefone, mensagem: nudgeMsg }, delay()); nudges++; } catch {}
+          // colaboradorId/empresaId: sem eles a entrega é gravada sem dono, e a
+          // conta de PESSOAS alcançadas pelo canal (a que se compara com push)
+          // não fecha. `kindEnvio` mantém nudge separado de pílula na métrica.
+          try {
+            const enfileirou = await agendarWhatsapp({
+              telefone, mensagem: nudgeMsg, kindEnvio: 'nudge',
+              colaboradorId: envio.colaborador_id, empresaId: empresa.id,
+            });
+            if (enfileirou) nudges++;
+          } catch {}
         }
         await tdb.from('fase4_envios').update({ ultima_evidencia_em: new Date().toISOString() }).eq('id', envio.id);
         continue;
@@ -387,7 +463,13 @@ export async function processarEmpresaDiario(
         const mensagem = ehDesafio
           ? templateWhatsAppNudgeDesafio(nome, deepLinkSemana(baseUrl, semana))
           : templateWhatsAppEvidencia(nome, semana);
-        try { await publicarWhatsappCis({ telefone, mensagem }, delay()); evidencias++; } catch { erros++; }
+        try {
+          const enfileirou = await agendarWhatsapp({
+            telefone, mensagem, kindEnvio: 'evidencia',
+            colaboradorId: envio.colaborador_id, empresaId: empresa.id,
+          });
+          if (enfileirou) evidencias++;
+        } catch { erros++; }
       }
       // Avanço de semana INCONDICIONAL (decisão de produto — não mexer): a
       // evidência é a alavanca do calendário, independente de canal entregue.
@@ -395,7 +477,22 @@ export async function processarEmpresaDiario(
     }
   }
 
-  return { pilulas, emails, evidencias, nudges, erros };
+  // UMA linha por empresa por dia (não uma por mensagem cortada): o que interessa
+  // ao pós-voo é "esta empresa não coube no teto hoje, e por quanto". Sem isto o
+  // corte seria invisível — e um dia em que metade da coorte não recebeu WhatsApp
+  // ficaria indistinguível de um dia em que metade não tinha telefone.
+  if (adiadosPorTeto > 0 && canalWhatsappAtivo) {
+    await registrarDegradacao({
+      fluxo: 'envio',
+      tipo: DEGRADACAO.WHATSAPP_TETO_LOTE,
+      chave: `diario:${empresa.id}`,
+      empresaId: empresa.id,
+      severidade: 'aviso',
+      detalhe: { adiados: adiadosPorTeto, teto: maxPorDisparo(), agendadas: relogio.agendadas() },
+    });
+  }
+
+  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto };
 }
 
 /**

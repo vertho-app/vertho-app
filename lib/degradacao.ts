@@ -67,6 +67,22 @@ export const DEGRADACAO = {
    * permitir. Dedup por canal, então canal quebrado = 1 linha/dia, não 1/mensagem.
    */
   TELEMETRIA_ENTREGA_FALHOU: 'telemetria-entrega-falhou',
+  /**
+   * envio: o teto de volume por disparo (lib/whatsapp/cadencia) cortou a cauda
+   * do lote — as mensagens NÃO foram enfileiradas. No cron diário elas não se
+   * perdem (sem carimbo de canal, o dia seguinte tenta de novo), mas o corte
+   * precisa ser CONTÁVEL: uma pessoa que não recebeu hoje é indistinguível de
+   * uma que não tinha telefone, e foi essa ambiguidade que fez o lote de
+   * 11/08/2026 ser reportado como "155 enviados" quando 50 saíram.
+   */
+  WHATSAPP_TETO_LOTE: 'whatsapp-teto-lote',
+  /**
+   * envio: o provedor estava conectado mas com mensagens presas na fila
+   * interna, então o WhatsApp do dia foi PULADO (e-mail e push seguem). A fila
+   * é descarregada em rajada quando a conexão estabiliza; empilhar o lote em
+   * cima dela foi o caminho do bloqueio de 11/08/2026.
+   */
+  WHATSAPP_FILA_SUJA: 'whatsapp-fila-suja',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

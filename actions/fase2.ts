@@ -6,6 +6,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { hasDiscMapeado } from '@/lib/disc-status';
 import { assertWhatsappAvailable } from '@/lib/whatsapp';
+import { criarRelogioCadencia, duracaoEstimada, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 
 // ── Disparar convites (email + WhatsApp unificado) ──────────────────────────
 
@@ -55,16 +56,26 @@ export async function dispararEmails(empresaId: string) {
       envioMap[e.colaborador_id] = { id: e.id, status: e.status, token: e.token };
     });
 
-    let emailsEnviados = 0, whatsEnviados = 0, jaEnviados = 0, erros = 0, semCanal = 0;
+    let emailsEnviados = 0, whatsEnviados = 0, jaEnviados = 0, erros = 0, semCanal = 0, whatsAdiados = 0;
     let whatsappDisponivel = Boolean(process.env.QSTASH_TOKEN && colaboradores.some(c => c.telefone));
     if (whatsappDisponivel) {
       try {
-        await assertWhatsappAvailable();
+        // maxFilaPendente: conectado não basta — fila residual do provedor sai em
+        // rajada e empilhar um lote em cima dela foi o caminho do bloqueio de
+        // 11/08/2026. Aqui a trava só DESLIGA o WhatsApp (o catch abaixo), sem
+        // abortar o disparo: os convites por e-mail continuam saindo.
+        await assertWhatsappAvailable({ maxFilaPendente: 0 });
       } catch (err: any) {
         whatsappDisponivel = false;
         console.warn('[fase2] WhatsApp via QStash bloqueado:', err?.message || err);
       }
     }
+    // Cadência e teto pela política única (lib/whatsapp/cadencia) — este call-site
+    // ficou de fora da correção de 11/08 e mantinha o literal de 2s, que é a taxa
+    // que derrubou o número. O excedente NÃO é descartado em silêncio: vira
+    // "N adiados" na mensagem, e como o envio só marca `status: 'enviado'` para
+    // quem foi acionado, um segundo disparo alcança exatamente quem sobrou.
+    const relogio = criarRelogioCadencia();
 
     for (const colab of colaboradores) {
       // Pular se já foi enviado ou respondido
@@ -134,7 +145,9 @@ export async function dispararEmails(empresaId: string) {
       }
 
       // 2. Enviar WhatsApp (se tem telefone e QStash configurado)
-      if (colab.telefone && whatsappDisponivel) {
+      if (colab.telefone && whatsappDisponivel && relogio.tetoAtingido()) {
+        whatsAdiados++;
+      } else if (colab.telefone && whatsappDisponivel) {
         try {
           const msg = `Olá${colab.nome_completo ? ` ${colab.nome_completo.split(' ')[0]}` : ''}! Você foi convidado(a) para a avaliação de competências da *${empresa.nome}*.\n\nAcesse: ${link}`;
           const webhookUrl = `${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`;
@@ -143,9 +156,14 @@ export async function dispararEmails(empresaId: string) {
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
-              'Upstash-Delay': `${whatsEnviados * 2}s`,
+              'Upstash-Delay': `${relogio.proximo()}s`,
             },
-            body: JSON.stringify({ telefone: colab.telefone, mensagem: msg, envioId }),
+            // colaboradorId/empresaId: sem eles a entrega é gravada sem dono e
+            // "quem recebeu" só existe na DLQ do QStash, que expira.
+            body: JSON.stringify({
+              telefone: colab.telefone, mensagem: msg, envioId,
+              colaboradorId: colab.id, empresaId,
+            }),
           });
           if (!qstashRes.ok) throw new Error(`QStash ${qstashRes.status}: ${(await qstashRes.text()).slice(0, 200)}`);
           whatsappAgendado = true;
@@ -174,7 +192,17 @@ export async function dispararEmails(empresaId: string) {
 
     const parts = [];
     if (emailsEnviados) parts.push(`${emailsEnviados} emails`);
-    if (whatsEnviados) parts.push(`${whatsEnviados} WhatsApp`);
+    if (whatsEnviados) parts.push(`${whatsEnviados} WhatsApp (entrega em ${duracaoEstimada(whatsEnviados)})`);
+    // Teto silencioso é indistinguível de "mandei para todo mundo". A frase não
+    // promete o que o código não faz: quem foi adiado E recebeu e-mail já está
+    // convidado (o WhatsApp era redundância) e NÃO volta num segundo disparo,
+    // porque o e-mail carimbou `status: 'enviado'`. Quem ficou sem os dois segue
+    // pendente e está contado em "sem canal disponível".
+    if (whatsAdiados) {
+      parts.push(
+        `${whatsAdiados} WhatsApp adiados pelo teto de ${maxPorDisparo()} por disparo (protege o número; quem também recebeu e-mail já está convidado)`,
+      );
+    }
     if (jaEnviados) parts.push(`${jaEnviados} já enviados`);
     if (puladosSemDisc) parts.push(`${puladosSemDisc} sem DISC (ignorados)`);
     if (semCanal) parts.push(`${semCanal} sem canal disponível`);
