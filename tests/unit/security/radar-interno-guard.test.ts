@@ -73,14 +73,27 @@ describe('Radar interno', () => {
   it('não sobrou endpoint de indexação servindo o inventário por fora do layout', () => {
     // Route handler NÃO passa por layout: enquanto existiam, `sitemap.xml` e
     // `sitemap/[id].xml` listavam todas as escolas e municípios a quem pedisse.
+    //
+    // `lib/radar/sitemap.ts` está na lista mesmo NÃO sendo endpoint: ele só
+    // existe para alimentar as três rotas acima (nenhum outro arquivo o importa),
+    // e é o primeiro a voltar quando alguém restaura o conjunto. Em 11/08/2026 os
+    // seis reapareceram no working tree em etapas (16:33 → 16:59 → 17:09),
+    // restaurados por uma sessão paralela; o módulo chegou 26 min depois das
+    // rotas, e no meio-tempo o sintoma era "Module not found" no build — que
+    // aponta para o lugar errado. Falhar já no módulo transforma a restauração
+    // silenciosa em vermelho com nome.
     for (const morto of [
       'app/radar/robots.ts',
       'app/radar/sitemap.xml/route.ts',
       'app/radar/sitemap/[...id]/route.ts',
       'app/radarbett/robots.ts',
       'app/radarbett/sitemap.xml/route.ts',
+      'lib/radar/sitemap.ts',
     ]) {
-      expect(existsSync(join(RAIZ, morto)), `${morto} voltou a existir`).toBe(false);
+      expect(
+        existsSync(join(RAIZ, morto)),
+        `${morto} voltou a existir — se o Radar vai ter sitemap de novo, a decisão de 10/08 muda e este guard muda junto`,
+      ).toBe(false);
     }
   });
 
