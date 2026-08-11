@@ -128,9 +128,15 @@ export async function processarEmpresaDiario(
   // descarrega em rajada ao estabilizar. Aqui a trava NÃO aborta a empresa (como
   // faz no disparo manual, onde há um humano lendo o erro): ela desliga o canal
   // WhatsApp do dia e deixa e-mail e push seguirem. Abortar calaria os três.
+  //
+  // Só é consultada se alguém desta empresa tem telefone: sem essa condição, um
+  // tenant 100% e-mail pagaria a chamada de rede todo dia E registraria
+  // `whatsapp-fila-suja` por um canal que ele não usa — alarme sobre população
+  // errada é como um painel começa a ser ignorado.
+  const alguemNoWhatsapp = (envios as any[]).some((e) => e.colaboradores?.whatsapp || e.colaboradores?.telefone);
   let canalWhatsappAtivo = true;
   try {
-    await assertFilaDoProvedorLimpa(0);
+    if (alguemNoWhatsapp) await assertFilaDoProvedorLimpa(0);
   } catch (e: any) {
     canalWhatsappAtivo = false;
     await registrarDegradacao({
