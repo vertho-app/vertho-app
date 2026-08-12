@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { loadRespostasAvaliadas, reavaliarResposta, rechecarResposta, loadRosterDiagnostico } from '@/actions/fase3';
+import { selecionarParaReavaliar, resumoPuladas, PISO_REAVALIACAO } from '@/lib/ia4-fila-reavaliacao';
+import { MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
 import { loadTrilhas } from '@/actions/trilhas-load';
 import VideoModal from '@/components/video-modal';
 import { nivelDaNota } from '@/lib/nivel-regua';
@@ -229,6 +231,11 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [actionId, setActionId] = useState(null);
   const [batchRunning, setBatchRunning] = useState(false);
+  // Modelo da REAVALIAÇÃO. Medido em 12/08 nas 55 reprovadas de Macaé: com
+  // `claude-sonnet-5` o check subiu +21 em média; a rodada equivalente em
+  // sonnet-4-6 ficou em ~0 (3 melhoraram, 4 pioraram). Fica na tela porque a
+  // escolha é do operador — o default da task segue valendo para o resto.
+  const [modeloRev, setModeloRev] = useState('claude-sonnet-5');
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, ok: 0, erros: 0 });
   const [activeVideo, setActiveVideo] = useState(null); // { libraryId, videoId, title }
   function flash(msg) { toast(msg); }
@@ -244,7 +251,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
     let ok = 0, erros = 0;
     for (let i = 0; i < lista.length; i++) {
       setBatchProgress(p => ({ ...p, current: i + 1 }));
-      const r1 = await reavaliarResposta(lista[i].id);
+      const r1 = await reavaliarResposta(lista[i].id, { model: modeloRev });
       if (r1.success) {
         await rechecarResposta(lista[i].id);
         ok++;
@@ -257,8 +264,18 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   }
 
   async function handleRevisarTodos() {
-    const paraRevisar = respostas.filter(r => r.status_ia4 === 'revisar' || r.status_ia4 === 'aprovado_com_ajustes');
-    await reavaliarLote(paraRevisar);
+    // Régua em lib/ia4-fila-reavaliacao (testada): pula quem já foi reavaliada
+    // e quem está ACIMA do piso — medido, reavaliar ali PIORA (−7,6 de média,
+    // 6 de 8 caindo). O que ficou de fora é anunciado: filtro silencioso é
+    // indistinguível de "reavaliei tudo".
+    const { elegiveis, puladas } = selecionarParaReavaliar(respostas as any);
+    const fora = resumoPuladas(puladas);
+    if (!elegiveis.length) {
+      flash(fora ? `Nada elegível — ${fora}` : tr('messages.noneToReview'));
+      return;
+    }
+    if (fora) flash(`${elegiveis.length} na fila · fora: ${fora}`);
+    await reavaliarLote(elegiveis as any);
   }
 
   async function handleReavaliarSelecionados() {
@@ -457,10 +474,20 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
         {stats.revisar > 0 && <span className="bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded font-bold">{tr('stats.review', { count: stats.revisar })}</span>}
         {stats.pendentes > 0 && <span className="bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded font-bold">{tr('stats.pending', { count: stats.pendentes })}</span>}
         {(stats.revisar > 0 || stats.com_ajustes > 0) && (
+          <select value={modeloRev} onChange={(e) => setModeloRev(e.target.value)} disabled={batchRunning}
+            title="Modelo da reavaliação"
+            className="ml-auto px-2 py-1.5 rounded-lg text-[10px] font-bold text-gray-300 border border-white/10 outline-none disabled:opacity-50"
+            style={{ background: '#091D35' }}>
+            {MODELOS_DISPONIVEIS.filter((m) => m.id.startsWith('claude')).map((m) => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </select>
+        )}
+        {(stats.revisar > 0 || stats.com_ajustes > 0) && (
           <button onClick={handleRevisarTodos} disabled={batchRunning}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
             {batchRunning ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-            {tr('actions.reevaluateAll', { count: stats.revisar + stats.com_ajustes })}
+            {tr('actions.reevaluateAll', { count: selecionarParaReavaliar(respostas as any).elegiveis.length })}
           </button>
         )}
       </div>
@@ -931,7 +958,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                           <button disabled={actionId === r.id} onClick={async () => {
                             setActionId(r.id);
                             flash(tr('messages.reevaluating'));
-                            const r1 = await reavaliarResposta(r.id);
+                            const r1 = await reavaliarResposta(r.id, { model: modeloRev });
                             if (r1.success) {
                               flash(tr('messages.rechecking'));
                               await rechecarResposta(r.id);
