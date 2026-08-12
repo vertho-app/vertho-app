@@ -96,6 +96,32 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // aderência a muitas regras + fidelidade pedagógica. Thinking é ativado no
   // callClaudeBatch (lib/video/gerar-roteiro.ts).
   conteudo_video:      'claude-opus-5',
+  // ── Tarefas de SAÍDA LONGA em Claude Sonnet 5 (12/08/2026) ──
+  // `Medido:` no ledger, 90d, mesmo `source` dos dois lados. O sinal do Sonnet 5
+  // INVERTE com o tamanho da saída, porque o thinking cobra um pedágio quase fixo
+  // por chamada: ele dilui em resposta longa e domina em resposta curta.
+  //   ia4_avaliacao  out 6.212 → 8.115 tok ... $0,10029 → $0,09131  (−9%, n=77/15)
+  //   pdi (eval)     out 8.908 → 10.348 ..... $0,161   → $0,127    (−21%)
+  // ...contra o outro lado da curva, que fica no 4.6 de propósito:
+  //   missao_feedback     out 104 → 428 ...... +14%
+  //   evidencias_socratic out  69 → 144 ...... +0,5%
+  //   sim_extracao_socratic out 441 → 1.184 .. +41%
+  // Ponto de virada ≈ 1.500–2.000 tokens de saída no 4.6.
+  //
+  // 🔴 Pré-requisito, não detalhe: teto FOLGADO. O modo de falha do Sonnet 5 aqui
+  // é truncar JSON onde `max_tokens` é apertado — medido em produção, não só no
+  // piloto: `sim_extracao_qualitativa` bateu no teto de 4.000 em 8 de 8 chamadas
+  // (o 4.6, zero). A IA4 só entra nesta lista porque o teto subiu para 16k em
+  // 12/08 — com os 8.192 antigos, o Sonnet 5 já produziu 10.754 tokens e teria
+  // truncado. Ao trazer uma task nova para cá, confira o teto ANTES.
+  //
+  // ⚠️ Qualidade de ESCRITA segue sem veredito: no eval de 07-08/08 nenhum critério
+  // automático separou os modelos, e a leitura cega dos 9 PDIs anonimizados
+  // (artefato e8161cfa) nunca foi feita. O que decidiu aqui foi custo + robustez.
+  ia4_avaliacao:       'claude-sonnet-5',
+  pdi_individual:      'claude-sonnet-5',
+  relatorio_gestor:    'claude-sonnet-5',
+  relatorio_rh:        'claude-sonnet-5',
 };
 
 const FALLBACK_GLOBAL = 'claude-sonnet-4-6';
@@ -117,6 +143,18 @@ export const PINNED_TASKS = new Set([
   'ia4_check',
   'cenarios_b_check',
   'pulse_audit',
+  // As 4 de saída longa acima. Pinadas porque, SEM isto, a troca para Sonnet 5
+  // seria config morta: as 10 empresas têm `modelo_padrao: claude-sonnet-4-6`, que
+  // vence o default por-task na precedência (medido em 12/08 — nenhuma tem override
+  // de `ia4_avaliacao`). Mudar só o DEFAULT_TASK_MODELS não mudaria uma chamada
+  // sequer, e o painel registraria a "troca" sem que ela existisse. Mesma classe do
+  // override de ia3/ia4_check que era ignorado pelo runner (22/07).
+  // O override EXPLÍCITO por task segue valendo — é a saída para voltar ao 4.6 numa
+  // empresa específica sem tocar no código.
+  'ia4_avaliacao',
+  'pdi_individual',
+  'relatorio_gestor',
+  'relatorio_rh',
 ]);
 
 /**

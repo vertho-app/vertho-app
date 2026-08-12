@@ -299,7 +299,7 @@ FORMATO (JSON):
   ]
 }`;
 
-  const raw = await callAI(system, user, aiConfig, 4096, { temperature: 0.2 });
+  const raw = await callAI(system, user, aiConfig, 4096, { temperature: 0.2, taskKey: 'arguicao' });
   try {
     const ext = parseJsonIA(raw) as ArguicaoExtracao;
     // Despersonaliza os campos textuais (citações/resumo) antes de persistir.

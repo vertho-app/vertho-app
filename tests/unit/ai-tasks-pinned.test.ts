@@ -60,4 +60,36 @@ describe('resolveTaskModel — tasks pinned', () => {
       expect(PINNED_TASKS.has(task), task).toBe(true);
     }
   });
+
+  /**
+   * Decisão 12/08/2026 — Sonnet 5 nas tarefas de SAÍDA LONGA.
+   *
+   * O pin aqui não é zelo: é o que faz a decisão existir. Medido no mesmo dia,
+   * as 10 empresas têm `modelo_padrao: 'claude-sonnet-4-6'` e NENHUMA tem override
+   * de `ia4_avaliacao` — então, sem o pin, o genérico do tenant vence o default
+   * por-task e a troca não muda uma chamada sequer, enquanto o código e o painel
+   * dizem que mudou. É a mesma classe do override de ia3/ia4_check que o runner
+   * ignorava (22/07). O primeiro teste abaixo reproduz esse sys_config REAL.
+   */
+  const SAIDA_LONGA = ['ia4_avaliacao', 'pdi_individual', 'relatorio_gestor', 'relatorio_rh'];
+
+  it('saída longa resolve para Sonnet 5 com o sys_config REAL das empresas', () => {
+    const sysConfigReal = { ai: { modelo_padrao: 'claude-sonnet-4-6' } };
+    for (const task of SAIDA_LONGA) {
+      expect(resolveTaskModel(sysConfigReal, task), task).toBe('claude-sonnet-5');
+    }
+  });
+
+  it('saída CURTA segue no 4.6 — o sinal do Sonnet 5 inverte abaixo de ~1.5k tokens', () => {
+    const sysConfigReal = { ai: { modelo_padrao: 'claude-sonnet-4-6' } };
+    // Medido: missao_feedback +14%, evidencias_socratic +0,5%, extração socrática +41%.
+    for (const task of ['missao_feedback', 'evidencias_socratic', 'sem13_qualitativa', 'beto']) {
+      expect(resolveTaskModel(sysConfigReal, task), task).toBe('claude-sonnet-4-6');
+      expect(PINNED_TASKS.has(task), `${task} não deve ser pinned`).toBe(false);
+    }
+  });
+
+  it('modulo_base_autor NÃO foi junto (é onde o Sonnet 5 trunca JSON)', () => {
+    expect(DEFAULT_TASK_MODELS['modulo_base_autor']).toBe('claude-sonnet-4-6');
+  });
 });

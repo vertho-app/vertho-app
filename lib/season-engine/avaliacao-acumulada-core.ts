@@ -188,7 +188,7 @@ export async function gerarAvaliacaoAcumuladaParcialCore(trilhaId: string, compe
         nomeColab: colabMasked.nome,
         nivelMetaAlvo,
       });
-      const r = await callAI(system, user, {}, 8000);
+      const r = await callAI(system, user, {}, 8000, { taskKey: 'acumulada_primaria' });
       const primaria = validateAvaliacaoAcumulada(parseJsonIA(r));
       if (primaria?.resumo_geral) primaria.resumo_geral = unmaskPII(primaria.resumo_geral, piiMap);
       acumuladosPorComp.push({ competencia: comp, primaria });

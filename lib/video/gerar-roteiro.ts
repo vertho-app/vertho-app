@@ -64,8 +64,16 @@ export async function gerarRoteiroDeModulo(m: ModuloParaRoteiro, opts: { forceSy
     return { roteiro: normalizarRoteiro(roteiro) };
   }
 
+  // Mesmo teto do ramo batch, e pelo mesmo motivo: 8.000 aqui contrariava o
+  // ROTEIRO_MAX_TOKENS logo acima, que existe porque na geração 5 o raciocínio
+  // divide `max_tokens` com o texto. Este ramo roda em Opus 5 (task conteudo_video)
+  // e é o caminho do Kit (`forceSync`) — o degradado ficava com metade do teto que
+  // o arquivo declara necessário. `taskKey` porque sem ele o custo caía em
+  // `untagged`: 5 chamadas / $0,71 em 3 dias eram exatamente esta linha.
   for (let tentativa = 1; tentativa <= 2 && !roteiro; tentativa++) {
-    const raw = await callAI(system, user, { model }, 8000).catch(() => '');
+    const raw = await callAI(system, user, { model }, ROTEIRO_MAX_TOKENS, {
+      taskKey: 'conteudo_video', source: 'batch-sync',
+    }).catch(() => '');
     roteiro = parseRoteiro(raw);
   }
   if (!roteiro) return { error: 'A IA não retornou um roteiro válido.' };

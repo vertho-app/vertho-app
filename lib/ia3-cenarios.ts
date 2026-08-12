@@ -663,7 +663,7 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
 2. Os limites de sobriedade são inegociáveis: contexto ≤900 caracteres (conte antes de finalizar), máx 2 tensões, máx 2 stakeholders.
 3. Se o feedback pedir mais cobertura, obtenha-a REFORMULANDO perguntas — nunca inflando o contexto.`;
 
-  const resposta = await callAI(system, user, aiConfig, 6144);
+  const resposta = await callAI(system, user, aiConfig, 6144, { taskKey: 'ia3_cenarios' });
   const resultado = await extractJSON(resposta);
   const norm = resultado ? validarRespostaIA3(resultado, descritores.length) : null;
   if (!norm) return { success: false, error: 'IA não retornou cenário válido — NADA foi alterado (a versão atual continua valendo)' };

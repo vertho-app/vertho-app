@@ -385,7 +385,7 @@ ${texto}`;
   // os 300s da rota síncrona. timeoutMs 150s cobre a geração densa legítima e
   // maxRetries 0 evita o retry do SDK (que dobraria o tempo por chamada).
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
-      const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 32000, { timeoutMs: 180000, maxRetries: 0 }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
+      const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 32000, { timeoutMs: 180000, maxRetries: 0, taskKey: 'modulo_base_autor' }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
       const brutas = parseSecoesBlocos(String(raw || ''));
       if (!brutas.length) { ultimoDiag = `t${tentativa}${sufixo}: raw=${String(raw || '').length}c, 0 blocos`; continue; }
 

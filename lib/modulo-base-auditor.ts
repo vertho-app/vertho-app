@@ -163,7 +163,7 @@ Responda APENAS com o JSON do veredito.`;
   let auditoria: any = null;
   for (let tentativa = 1; tentativa <= 2 && !auditoria; tentativa++) {
     try {
-      const raw = await callAI(SYSTEM_AUDITOR, userPrompt, { model }, 16000);
+      const raw = await callAI(SYSTEM_AUDITOR, userPrompt, { model }, 16000, { taskKey: 'modulo_base_auditor' });
       const cleaned = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
       const candidatos = [cleaned];
       const objMatch = cleaned.match(/\{[\s\S]*\}/);
