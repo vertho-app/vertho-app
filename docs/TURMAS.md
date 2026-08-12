@@ -1,24 +1,66 @@
 # Turmas (coortes) — proposta de arquitetura
 
-> **Status: PROPOSTA (12/08/2026) — nada implementado.** Este documento descreve
-> um desenho e as medições que o justificam. Enquanto estiver com este cabeçalho,
-> não é descrição do sistema: o sistema hoje é o que está na seção "Estado atual".
+> **Status: PROPOSTA (v2, 12/08/2026) — nada implementado.** Enquanto estiver com
+> este cabeçalho, não é descrição do sistema.
+>
+> **v2** incorpora uma revisão crítica externa e um achado de produção que muda o
+> desenho: a turma **já existe** em Macaé, sob o nome de `pulse_ciclos`. Ver §0.
+> O que a v1 dizia sobre teto de WhatsApp, importação sem turma e ordem de
+> rollout estava **errado** e foi corrigido — as correções estão marcadas com
+> `[v2]`.
 
 ## O problema em uma frase
 
-A plataforma tem **dois relógios**, e só um deles existe de verdade:
+A plataforma tem **dois relógios**, e só um existe de verdade:
 
-1. **Relógio do participante** — `trilhas.data_inicio` por pessoa. Já funciona:
-   `semanaLiberadaPorData` (`lib/season-engine/week-gating.ts`) libera a semana N
-   em `data_inicio + (N-1)*7` **por trilha**. Duas pessoas em semanas diferentes
+1. **Relógio do participante** — já funciona. `semanaLiberadaPorData`
+   (`lib/season-engine/week-gating.ts:29`) libera a semana N em
+   `trilhas.data_inicio + (N-1)*7`, **por trilha**. Pessoas em semanas diferentes
    já convivem sem conflito.
 2. **Relógio do operador** — não existe. Painel, ações em lote, flags de
-   liberação de etapa, cadência de envio, tetos de WhatsApp e alarmes tomam
-   **`empresa_id` como unidade**. O pressuposto embutido é "empresa = uma coorte,
-   numa fase".
+   liberação de etapa, cadência de envio e alarmes tomam **`empresa_id` como
+   unidade**. O pressuposto embutido é "empresa = uma coorte, numa fase".
 
 Enquanto o cliente tinha uma turma só, os dois relógios coincidiam. Macaé quebra
 a coincidência.
+
+---
+
+## §0 `[v2]` A turma já existe — e se chama `pulse_ciclos`
+
+Medido em produção (12/08):
+
+```
+pulse_ciclos: "Piloto Macaé — 1º Semestre 2026"
+  status      em_jornada          (draft|t0_aberto|em_jornada|t2_aberto|encerrado)
+  t0_aberto   2026-05-14
+  membros     40 pulse_assignments — 100% Diretor(a) Escolar
+```
+
+O ciclo de Pulso (mig 096) é uma **edição do programa** com tudo que se pediria
+de uma turma: nome com safra, status operacional próprio, calendário próprio
+(T0/T2), lista explícita de membros, agregados com `group_type`
+(`company|area|cargo`, mig 130) e piso de anonimato (`PULSE_MIN_N = 7`,
+`lib/pulse/anonymity.ts`). São 51 referências em 22 arquivos, com CRUD em
+`/admin/empresas/[id]/pulso`.
+
+E o recorte é **40 de 127 diretores** — não é "todos do cargo". Alguém já fez à
+mão o recorte "diretores, 1º semestre" no único lugar do sistema que tinha o
+conceito de edição.
+
+**Consequência para o desenho:** a pergunta não é "que entidade nova criar?", é
+**"turma é `pulse_ciclos` promovido a cidadão de primeira classe, ou uma entidade
+irmã?"**. Criar `turmas` ignorando `pulse_ciclos` produz duas entidades
+concorrentes de "edição do programa" na mesma base — o pior resultado possível,
+porque a partir daí toda pergunta ("de que turma é essa pessoa?") tem duas
+respostas.
+
+Recomendação: **`turmas` nasce como generalização de `pulse_ciclos`**, e o ciclo
+de pulso passa a ser um *momento* da turma (T0/T2 são datas da turma), não uma
+entidade paralela. Migração do que existe: 1 ciclo vivo, 40 assignments. É agora
+que sai barato.
+
+---
 
 ## Estado atual (medido em 12/08/2026)
 
@@ -28,254 +70,314 @@ a coincidência.
 |---|---|---|
 | Pessoas | 127 | 156 |
 | Com resposta de assessment | 38 (30%) | 8 (5%) |
-| Avaliadas pela IA4 | 38 (100% das respondidas) | 0 |
+| Avaliadas pela IA4 | 38 (todas) | 0 |
 | Primeira resposta | 23/07 | 11/08 |
 | Trilhas | 0 | 0 |
+| Membros do ciclo de Pulso | 40 | 0 |
 
-Os diretores estão prontos para gerar trilha; os professores abriram o
-diagnóstico **ontem**. Em Ibipeba a jornada roda com 36 trilhas ativas, todas com
-`data_inicio = 2026-07-13` (semana 5) — **uma coorte só**, que é o caso que a
-arquitetura atual suporta.
+Ibipeba: 36 trilhas ativas, todas com `data_inicio = 2026-07-13` — **uma coorte
+só**, que é o caso que a arquitetura atual suporta.
 
 ### O que o painel mostra hoje para Macaé
 
 `carregarClienteWorkspace` (`app/admin-v2/actions.ts:213-276`) monta 5 fases com
-**um estado por empresa**. Para Macaé, a fase F2 renderiza:
+**um estado por empresa**:
 
 > **F2 · Diagnóstico** — 80 respostas · 72 avaliadas pela IA
 > estado: `revisao` — "8 resposta(s) sem avaliação"
 
-Três defeitos, todos consequência do escopo errado:
+- **Sem denominador de gente**: 80 linhas de resposta = 46 pessoas de 283.
+- **A única "próxima ação" é a da turma nova** — as 8 sem IA4 são todas de
+  professores; os 38 diretores prontos para gerar trilha somem da tela.
+- **Um semáforo para dois grupos em fases diferentes** só pode estar errado para
+  um deles.
 
-- **Sem denominador de gente.** "80 respostas" não diz 80 de quantos. São 46
-  pessoas de 283. O código conta linhas de `respostas`, não pessoas.
-- **A única "próxima ação" oferecida é a da turma nova.** As 8 respostas sem IA4
-  são todas de professores. A tela não tem como dizer "diretores: fechado, pode
-  gerar trilha".
-- **O semáforo mistura.** Um estado (`bloqueado`/`revisao`/`feito`) para dois
-  grupos que estão em fases diferentes só pode estar errado para um deles.
-
-O mesmo vale para `GestorKpi.em_andamento.semana_media`
-(`app/dashboard/gestor/actions.ts:16`): a média entre semana 1 e semana 5 é 3,
-que não descreve ninguém.
+Mesmo defeito em `GestorKpi.em_andamento.semana_media`
+(`app/dashboard/gestor/actions.ts`): a média entre semana 1 e semana 5 é 3, que
+não descreve ninguém.
 
 ### As decisões que "afetam a todos"
 
-Vivem em `empresas.sys_config` (JSONB por empresa), lido em **169 pontos de 43
-arquivos**:
-
-| Chave | O que faz | Por que dói com 2 turmas |
-|---|---|---|
-| `perfil_comportamental_liberado` | abre o DISC | uma turma precisa abrir, a outra já passou |
-| `mapeamento_cenarios_liberado` | abre o assessment | idem |
-| `votacao_ativa` | abre a votação de competências | idem |
-| `programa_modo` | jornada / duo / piloto / onboarding | turmas podem ter desenhos diferentes |
-| `competencias_regular_duo` | quais competências | diretor e professor não trabalham a mesma |
-| `cadencia.fase4_dia_*` | dias de pílula e evidência | duas turmas competem pela mesma janela |
-| `blueprint_drives_trilha` | origem da trilha | pode mudar entre safras |
-
-E **63 varreduras** do tipo `from('colaboradores').eq('empresa_id', …)` operam em
-lote sobre a empresa inteira — `gerarPDIs(empresaId)`,
-`listarColabsParaTrilha(empresaId)`, `levantarPlanoKitsCoorte(sb, empresaId)`.
-Apertar um botão para os diretores prontos varre também os 156 professores.
+`empresas.sys_config` (JSONB por empresa), lido em **169 pontos de 43 arquivos**:
+`perfil_comportamental_liberado`, `mapeamento_cenarios_liberado`,
+`votacao_ativa`, `programa_modo`, `competencias_regular_duo`,
+`blueprint_drives_trilha`, `cadencia.*`. E **63 varreduras**
+`from('colaboradores').eq('empresa_id', …)` operam em lote sobre a empresa
+inteira.
 
 ### O que **já** está certo e não deve ser refeito
 
-- O gating de semana é por trilha (`week-gating.ts`).
-- Já existe precedência de config em dois níveis: `resolverModoColab`
-  (`lib/season-engine/programa-config.ts`) resolve
-  `colab.programa_modo → empresa.sys_config.programa_modo → 'regular_duo'`.
-- Já existe **carimbo que congela as regras**: `trilhas.programa_modo` +
-  `trilhas.programa_config` (modo custom). Trilha em andamento não muda de regra
-  quando a config da empresa muda.
-- Os gates de etapa estão centralizados em `lib/access-gates/` com apenas **6
-  consumidores reais** — ponto de injeção barato.
-
-A proposta abaixo é uma **extensão dessas três decisões**, não uma troca.
+- Gating de semana por trilha (`week-gating.ts`).
+- Precedência de config em 2 níveis: `resolverModoColab`
+  (`lib/season-engine/programa-config.ts`).
+- **Carimbo que congela regras**: `trilhas.programa_modo` + `programa_config`.
+- Gates de etapa centralizados em `lib/access-gates/` — **6 consumidores reais**.
+- `[v2]` **Reentrada já tem mecanismo**: `numero_temporada`.
+  `trilha-core.ts:737` **incrementa** (nunca reinicia em 1) e a UNIQUE virou
+  `(empresa_id, colaborador_id, numero_temporada)` na mig 199. Hoje há **0
+  trilhas** com temporada ≥ 2 — o encadeamento nunca rodou em produção.
+- `[v2]` **Log de decisão já existe**: `admin_audit_log` (baseline) tem
+  `acao`, `empresa_id`, `alvo` ("53 colaboradores"), `detalhes` JSONB,
+  `resultado`. Não criar tabela nova — acrescentar `turma_id`.
+- `[v2]` **Piso de anonimato já existe**: `PULSE_MIN_N = 7`.
 
 ---
 
-## Proposta: turma como entidade de primeira classe
+## Proposta
 
 ### 1. Modelo
 
 ```sql
+-- generalização de pulse_ciclos (§0)
 create table turmas (
   id           uuid primary key default gen_random_uuid(),
   empresa_id   uuid not null references empresas(id) on delete cascade,
-  nome         text not null,                 -- "Diretores 2026.1"
+  nome         text not null,                  -- "Diretores escolares — 2026.2"
   status       text not null default 'planejada',
-                                              -- planejada|ativa|concluida|arquivada
-  data_inicio  date,                          -- a segunda canônica da turma
-  is_default   boolean not null default false,-- destino de import sem turma
-  sys_config   jsonb not null default '{}',   -- OVERRIDE (ver §2)
+  data_inicio  date,
+  sys_config   jsonb not null default '{}',    -- override tipado (§2)
   created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
+  updated_at   timestamptz not null default now(),
+  unique (id, empresa_id)                      -- alvo da FK composta
 );
-create unique index turmas_empresa_nome_ux on turmas(empresa_id, lower(nome));
-create unique index turmas_default_ux on turmas(empresa_id) where is_default;
 
-alter table colaboradores add column turma_id uuid references turmas(id);
-alter table trilhas       add column turma_id uuid references turmas(id);
+-- [v2] vínculo é TABELA, não campo — mesmo padrão de pulse_assignments
+create table turma_membros (
+  id             uuid primary key default gen_random_uuid(),
+  empresa_id     uuid not null,
+  turma_id       uuid not null,
+  colaborador_id uuid not null references colaboradores(id) on delete cascade,
+  status         text not null default 'ativo', -- ativo|removido|concluido
+  entrou_em      date not null default current_date,
+  saiu_em        date,
+  foreign key (turma_id, empresa_id) references turmas(id, empresa_id),
+  unique (turma_id, colaborador_id)
+);
+
+alter table trilhas add column turma_membro_id uuid references turma_membros(id);
 ```
 
-Duas decisões de desenho, ambas com precedente no repo:
+`[v2]` **Por que `turma_membros` e não `colaboradores.turma_id`.** A revisão
+externa estava certa na conclusão, mas o argumento que deu ("perde o histórico")
+está errado: o histórico de jornada já vive na trilha carimbada, e
+`numero_temporada` já resolve reentrada. Os motivos que **os dados** sustentam:
 
-- **`colaboradores.turma_id` é o vínculo vivo; `trilhas.turma_id` é carimbo.**
-  Mover alguém de turma não muda a trilha em andamento — mesma disciplina de
-  `getProgramaConfigDaTrilha`, que serve a config do carimbo e não da empresa.
-- **Turma tem `sys_config` próprio**, com a mesma forma do da empresa, para que a
-  resolução seja um merge e não um tipo novo.
+- **O recorte não é derivável de atributo.** 40 membros de 127 diretores. Um
+  campo no colaborador guarda "turma atual"; não guarda "quem foi selecionado".
+- **Existe estado de turma antes de existir trilha.** Macaé tem 283 pessoas e 0
+  trilhas: durante todo o diagnóstico o vínculo só pode viver fora da trilha.
+- **Simetria com o Pulso**, que já faz exatamente isso (`pulse_assignments`).
 
-**Turma não é cargo.** Em Macaé os dois eixos coincidem hoje, mas coincidência não
-é modelo: no dia em que uma escola entrar em setembro com professores *e*
-diretores juntos, derivar turma de cargo quebra. Turma é campo próprio, atribuído
-na importação ou na tela.
+`[v2]` **O que NÃO fazer: mexer na UNIQUE de `trilhas`.** A sugestão
+`UNIQUE (turma_membro_id, numero_temporada)` quebra duas coisas:
 
-### 2. Quais chaves são por turma (e quais não são)
+1. `trilha-core.ts:772` faz `upsert(..., { onConflict:
+   'empresa_id,colaborador_id,numero_temporada' })` — o upsert atômico do header
+   (F-C1 do FMEA). Trocar a constraint quebra o call-site.
+2. Pior: `turma_membro_id` é NULL em toda trilha legada, e **UNIQUE não
+   deduplica NULLs no Postgres**. A atomicidade morreria exatamente no caminho
+   de compatibilidade — falha silenciosa, do tipo que este repo já pagou caro.
 
-Sem uma lista explícita, JSONB livre vira bagunça e nenhum guard consegue
-verificar nada. A lista é código, em `lib/turmas/chaves.ts`:
+`turma_membro_id` entra como **carimbo**, ao lado de `programa_modo`/
+`programa_config`. A chave continua sendo `(empresa_id, colaborador_id,
+numero_temporada)`.
+
+`[v2]` **FK composta, não FK simples.** `turma_membros` referencia
+`turmas(id, empresa_id)`, não `turmas(id)`. Como o app roda em `service_role`
+(BYPASSRLS), a única garantia real de que turma, membro e trilha são da mesma
+empresa é a que o Postgres impõe. FK por UUID solto não impede cruzar tenant.
+
+**Turma não é cargo.** Em Macaé os eixos coincidem hoje; coincidência não é
+modelo. A safra 2026.2 pode ter professores e diretores juntos.
+
+### 2. Config: resolvedor tipado por nível (não merge genérico)
+
+`[v2]` A v1 falava em "merge do `sys_config`". Está errado, e o motivo é
+concreto: **as flags são booleanas** (`perfil_comportamental_liberado`), e um
+merge com `||` perde `false` — ou seja, a turma **nunca conseguiria desligar** o
+que a empresa ligou, que é metade do caso de uso. Arrays
+(`competencias_regular_duo`) precisam **substituir**, não concatenar. `cadencia`
+precisa de sobrescrita parcial por chave.
+
+O resolvedor é tipado, chave a chave, em `lib/turmas/config-efetiva.ts`:
 
 ```
-POR TURMA (etapa e tempo):
-  perfil_comportamental_liberado, mapeamento_cenarios_liberado, votacao_ativa,
-  programa_modo, competencias_regular_duo, blueprint_drives_trilha, cadencia.*
-
-DA EMPRESA (não faz sentido divergir):
-  ai.*, perfil_externo_fonte, is_demo, default_locale, branding, envios.*
-```
-
-### 3. Fonte única de resolução
-
-```ts
-// lib/turmas/config-efetiva.ts
-resolverConfigEfetiva(colab, turma, empresa) -> ConfigEfetiva
+resolverConfigEfetiva(colab, turmaMembro, turma, empresa) -> ConfigEfetiva
 // precedência: colaborador → turma → empresa → default
 ```
 
-Precedência de **três** níveis, estendendo a de dois que já existe. Regra dura,
-com o precedente de `nivelDaNota` (que estava em 10 cópias e vazava divergência
-para o documento final):
+| Escopo | Chaves |
+|---|---|
+| **Empresa** | `ai.*`, `perfil_externo_fonte`, `is_demo`, `default_locale`, branding, `envios.*` |
+| **Turma** | gates de etapa, `programa_modo`, `competencias_regular_duo`, calendário, cadência **planejada** |
+| **Pessoa/trilha** | exceções individuais, `data_inicio` real, snapshot congelado |
+| **Remetente/fila** | throughput, saúde do número, prioridade — **não é da empresa** (§6) |
 
-> **Nenhum consumidor lê `empresas.sys_config` direto** para uma chave da lista
-> "por turma". Um guard de teste varre os 43 arquivos e falha se aparecer leitura
-> fora de `config-efetiva.ts`, com allowlist explícita.
+> **Nenhum consumidor lê `empresas.sys_config` direto** para uma chave de nível
+> turma. Guard de teste varre os 43 arquivos e falha fora da allowlist.
+> Precedente: `nivelDaNota` esteve em 10 cópias e a divergência vazou para o
+> documento final.
 
-Sem o guard, a fonte única dura até o próximo commit distraído.
+### 3. Painel: lista de turmas, workspace por turma
 
-### 4. O painel: lista de turmas, workspace por turma
+`[v2]` **Nem a turma tem fase única.** Os diretores podem começar a jornada
+enquanto os atrasados ainda respondem o diagnóstico. A turma tem um **estado
+operacional** (`diagnóstico aberto`, `trilhas em geração`, `jornada ativa`)
+**acompanhado da distribuição**, nunca substituindo-a:
 
-O dashboard **não** vira "um dashboard por turma" nem continua misturado:
+| Turma | Pessoas | Estado | Distribuição | Próxima ação |
+|---|---|---|---|---|
+| Diretores 2026.2 | 127 | diagnóstico aberto | 38 responderam · 38/38 avaliados | gerar trilha para 38 elegíveis |
+| Professores 2026.2 | 156 | diagnóstico inicial | 8 responderam · 0/8 avaliados | avaliar respostas · seguir mobilização |
 
-- `/admin-v2/cliente?empresa=X` passa a listar as turmas como linhas — nome,
-  pessoas, modo, etapa **daquela turma**, semana da jornada, próxima ação, alertas.
-- Operar exige entrar numa turma: `?empresa=X&turma=Y`. Uma faixa fixa no topo
-  ("operando **Diretores 2026.1** · 127 pessoas · semana 5 de 7") impede disparar
-  um lote achando que é a outra.
-- **Nenhum agregado sem denominador da turma.** "38 de 127 (30%)", nunca "80
-  respostas".
+`[v2]` **F0/F1 continuam por empresa.** Base, cargos, Top 10, gabarito e cenários
+vivem em `cargos_empresa` — **já são por cargo**, e duas safras do mesmo cargo
+devem compartilhar o perfil ideal. Só **F2/F3/F4** viram por turma. O painel fica:
+régua institucional no topo, lista de turmas abaixo.
 
-Este é o momento certo: o admin-v2 tem 3 das 6 áreas escritas. As 3 restantes
-nascem com o escopo certo em vez de herdarem o pressuposto errado.
+No gestor, `semana_media` morre e vira distribuição, com coluna de turma. O
+escopo do gestor (`gestor_email`) é **ortogonal**: as duas réguas se compõem.
 
-No dashboard do gestor, `semana_media` sai e vira distribuição por turma. O
-escopo do gestor (`gestor_email`) é **ortogonal** à turma: um gestor pode ter
-liderados nas duas, e as duas réguas se compõem (gestor ∩ turma).
+`[v2]` **Piso de N ao segmentar.** Segmentar um agregado seguro em turmas pode
+produzir grupos de 2–3 pessoas. Reusar `PULSE_MIN_N` — não inventar régua nova.
+Precedente do estrago: a demo UniAnchieta, com N=2.
 
-### 5. Ações em lote: fail-closed
+### 4. Ações em lote: escopo explícito, validado em runtime
 
-As ações de lote ganham `turmaId`. O ponto que decide se isso funciona ou vira
-maquiagem:
+Toda ação mutativa recebe escopo declarado — `turma`, `selecionados` ou
+`empresa_inteira` (esta, uma escolha consciente e auditada, não um default).
 
-> Com **duas ou mais turmas ativas**, ação de lote **sem** `turmaId` é **erro**,
-> não "faz para a empresa toda".
+`[v2]` **A garantia vem de Zod, não do tipo.** A revisão sugeriu uma union
+discriminada por `kind`. Não funciona aqui: `tsconfig.json` tem **`strict:
+false`**, e `lib/access-gates/types.ts` documenta a decisão de evitar union
+discriminada *"porque este projeto não estreita de forma confiável
+(strictNullChecks frouxo)"*. O tipo não vai forçar exaustividade. O escopo é
+validado por schema Zod dentro de `protectedAction`, que já é o pedágio de toda
+action.
 
-Default silencioso reintroduz o bug exatamente no dia em que alguém esquecer.
-Mesmo padrão de `assertTenantAccessAction`, um nível abaixo. Com uma turma só
-(todos os clientes de hoje), o comportamento é idêntico ao atual.
+> Com **duas ou mais turmas ativas**, ação de lote sem escopo é **erro**.
 
-### 6. Envio: o teto é da empresa, a reserva é da turma
+Com prévia antes de executar — *"38 elegíveis · 89 sem diagnóstico concluído · 0
+professores incluídos"* — e registro em `admin_audit_log` com `turma_id` e
+contagem.
 
-O teto de WhatsApp é por empresa (`maxPorDisparo`, `lib/whatsapp/cadencia.ts`), e
-`adiadosPorTeto` **não é erro** — é a proteção funcionando. Com duas turmas isso
-vira falha dirigida e silenciosa: a turma que está começando (156 professores,
-convites) come a cota e a turma no meio da jornada perde a pílula da semana. O
-incidente de 11/08 (155 mensagens a 2s/msg derrubaram o número em 1min47) mostra
-que o teto não vai subir para acomodar as duas.
+### 5. `[v2]` Importação: "Sem turma", não turma default
 
-Proposta: **prioridade por natureza da mensagem**, não por ordem de varredura —
-pílula de jornada (entrega contratada, tem data) antes de convite de onboarding
-(pode esperar um dia). E `adiadosPorTeto` reportado **por turma**, senão o número
-agregado esconde qual das duas ficou sem.
+A v1 propunha mandar importados sem turma para uma turma default. Errado: numa
+empresa com várias turmas, isso enfia a nova leva de professores dentro da turma
+antiga de diretores — decisão errada, silenciosa. Correto:
 
-### 7. Alarmes e kits
+- empresa com **uma** turma (todos os clientes de hoje): backfill automático,
+  compatibilidade total;
+- empresa **multiturma**: importação aceita, pessoas ficam em **"Sem turma"**;
+- pessoa sem turma **não recebe ação em lote nem comunicação**;
+- e — o ponto que fecha o ciclo — **"Sem turma: 156" é um contador visível na
+  tela**. Bloqueio silencioso é o mesmo defeito do `adiadosPorTeto`: proteção que
+  ninguém vê vira gente sem conteúdo sem ninguém saber.
 
-`levantarPlanoKitsCoorte(sb, empresaId, opts)` recebe `turmaId`. Hoje "coorte"
-significa "a empresa toda" — o `inicioMaisCedo` que ancora as datas de abertura
-mistura duas turmas, e o horizonte de kits ("o que falta nas próximas semanas")
-soma semana 5 de uma com semana 1 da outra. Como as janelas são
-`semanas: number[]`, **"semana 5" de duas turmas são datas diferentes** e o
-alarme perde a capacidade de dizer *quando*.
+### 6. `[v2]` WhatsApp: a capacidade é do REMETENTE, não da empresa
 
-Vocabulário: hoje `coorte` no código = empresa. Ao introduzir turma, `coorte`
-vira sinônimo de turma ou é renomeado — sem meio-termo, senão a palavra
-significa duas coisas na mesma base.
+Correção de um erro da v1. O próprio código já diz
+(`lib/fase4/trigger-diario-empresa.ts:118-121`):
 
-### 8. Migração
+> *"com o fan-out, cada empresa é uma lambda, e o espaçamento é POR EMPRESA —
+> duas empresas em paralelo somam taxa no MESMO número. O intervalo por empresa
+> é, portanto, um teto otimista."*
 
-Backfill de **uma turma por empresa** (`is_default = true`), com o `data_inicio`
-predominante das trilhas ativas e todos os colaboradores dentro. Uma turma =
-comportamento byte-igual ao de hoje. Depois, em Macaé, criam-se as duas turmas na
-tela e move-se quem for.
+E o risco que **turmas agravam**: se a cadência virar unidade de fan-out por
+turma, duas turmas da mesma empresa passam a somar taxa no mesmo número —
+exatamente o defeito que hoje existe entre empresas, multiplicado. O incidente de
+11/08 (155 mensagens a 2s/msg derrubaram o número em 1min47) mostra que não há
+folga para absorver isso.
 
-`turma_id` fica **nullable** com a turma default como destino do import, em vez de
-`NOT NULL`: import em massa que falha por falta de turma é pior do que import que
-cai no default — e o default é auditável.
+Portanto: **cadência é planejada por turma; execução é serializada por
+remetente.** A fila do número aplica prioridade por SLA (pílula de jornada tem
+data contratada; convite de onboarding é campanha recuperável), reserva para
+entregas de jornada, e justiça entre turmas para evitar starvation — "jornada
+antes de onboarding" é padrão inicial, não prioridade absoluta permanente.
+`adiadosPorTeto` reportado **por turma**.
+
+`notification_deliveries` (mig 198, **797 linhas já gravadas**) recebe
+`turma_id` **na entrega**. Não basta join com o vínculo vivo: quem muda de turma
+reescreveria o próprio passado.
+
+### 7. Kits e alarmes
+
+`levantarPlanoKitsCoorte(sb, empresaId, opts)` recebe `turmaId`. Hoje "coorte" =
+empresa: `inicioMaisCedo` mistura turmas e o horizonte soma semana 5 de uma com
+semana 1 da outra — e como as janelas são `semanas: number[]`, **"semana 5" de
+duas turmas são datas diferentes**. `pulse_mv_aggregates` ganha `group_type:
+'turma'` (extensão natural de `company|area|cargo`).
+
+Vocabulário: `coorte` no código hoje significa "empresa". Ao introduzir turma, ou
+vira sinônimo ou é renomeado — sem meio-termo. "Turma" é a palavra da Secretaria.
 
 ---
 
-## Faseamento
+## `[v2]` Rollout: fatia vertical para Macaé
 
-| Fase | Entrega | Muda comportamento? |
-|---|---|---|
-| **1 — fundação** | tabela `turmas`, `turma_id` nos dois lados, backfill, `resolverConfigEfetiva` + guard, CRUD de turmas | não |
-| **2 — painel** | lista de turmas no admin-v2, workspace com escopo, denominadores por turma, gestor sem `semana_media` | sim (só leitura) |
-| **3 — lote** | `turmaId` nas ações de lote, fail-closed com 2+ turmas, guard de varredura | sim |
-| **4 — envio e alarme** | cadência por turma, reserva de teto, kit/health por turma | sim |
+A v1 propunha "fundação → painel → lote → envio". **Errado**, e a revisão externa
+tem razão: um painel que anuncia *"38 elegíveis · gerar trilha"* enquanto o botão
+ainda varre a empresa inteira é **pior que o painel de hoje** — hoje o operador
+desconfia do número; com o painel por turma ele confia. Painel que promete escopo
+sem entregá-lo é armadilha.
 
-Fases 1 e 2 já resolvem a dor descrita ("o dashboard é único"). As fases 3 e 4
-resolvem a dor que vem depois — quando as duas turmas de Macaé estiverem **ambas
-em jornada**, competindo por cota de envio e por kits.
+Entrega única, atrás de feature flag só para Macaé:
+
+1. `turmas` + `turma_membros` + FKs compostas (**migration 210** — 200 a 209 já
+   existem; conferir `ls migrations/` no instante de criar);
+2. backfill de uma turma legada por empresa (Ibipeba: 36 trilhas, nada muda);
+3. conciliação com `pulse_ciclos` (§0) — 1 ciclo, 40 assignments;
+4. criação explícita de "Diretores escolares — 2026.2" e "Professores — 2026.2";
+5. resolvedor tipado empresa → turma → pessoa, com guard;
+6. dashboard por turma;
+7. escopo obrigatório nos **três fluxos críticos**: IA4, geração de trilhas,
+   convites;
+8. `admin_audit_log` com `turma_id` e contagem do alvo.
+
+Depois: kits e health por turma, cadência/entregas tagueadas, dashboard do
+gestor, relatórios históricos, resto das 63 varreduras (com guard + allowlist
+para que o pendente seja **visível**).
+
+**Janela de ouro:** Macaé tem **0 trilhas**. Se a fundação entrar antes da
+primeira geração, as trilhas já nascem carimbadas — zero retrabalho. Os 38
+diretores estão prontos desde 11/08; o custo de esperar é menor que o de estampar
+turma depois.
+
+### Critérios de aceite
+
+- Liberar o diagnóstico dos professores não altera gate nenhum dos diretores.
+- Gerar trilhas para diretores nunca lista professor como candidato.
+- Empresa com uma turma se comporta exatamente como hoje.
+- Importado sem turma não recebe comunicação — e aparece como pendência contada.
+- A mesma pessoa entra numa turma posterior sem perder histórico.
+- Agregado por turma respeita `PULSE_MIN_N`.
+- `pulse_ciclos` e `turmas` não coexistem como entidades concorrentes.
 
 ## Alternativas consideradas
 
 | Alternativa | Por que não |
 |---|---|
-| **Um tenant por turma** (`macae-diretores`, `macae-professores`) | Resolve hoje de graça — o isolamento já existe e é testado. Mas duplica cargos e competências, quebra os relatórios coletivos (DNA Organizacional, Ranking de Adequação são por empresa), o gestor da secretaria passa a ver dois clientes, e o repo já registra o custo de "158 pessoas no tenant errado". |
-| **Só um filtro de turma na UI** | Barato, mas não toca as flags de etapa nem as ações em lote — que é exatamente onde "as decisões afetam a todos". Maquiagem. |
-| **Turma implícita = quem começou na mesma segunda** (`data_inicio`) | Zero migração, mas a turma precisa existir **antes** da trilha: em Macaé são 283 pessoas sem trilha nenhuma, e é agora, no diagnóstico, que os dois grupos precisam se separar. Turma implícita também não tem onde pendurar override de config. |
-| **Usar `escola_id`** (já existe, mig 126) | Eixo organizacional (onde a pessoa trabalha), não temporal (quando entrou). Em Macaé, professores e diretores estão nas **mesmas** escolas. Ortogonal — os dois eixos convivem. |
+| **Um tenant por turma** | Duplica cargos/competências, quebra DNA Organizacional e Ranking (por empresa), a secretaria vira dois clientes, e o repo já pagou por "158 pessoas no tenant errado". |
+| **Só filtro de turma na UI** | Não toca flags de etapa nem lotes — onde a dor está. Maquiagem. |
+| **Turma implícita por `data_inicio`** | A turma precisa existir **antes** da trilha: 283 pessoas, 0 trilhas. E não tem onde pendurar override. |
+| **`escola_id`** (mig 126) | Eixo organizacional, não temporal. Em Macaé, professores e diretores estão nas mesmas escolas. Ortogonal — convivem. |
 
 ## Riscos
 
-- **Turma tratada como cargo.** Mitigar no modelo (campo próprio) e na tela
-  (atribuição explícita, com sugestão por cargo apenas como atalho de importação).
-- **As 63 varreduras por empresa.** A Fase 3 não fecha todas; fecha as de lote e
-  IA. O resto precisa de um guard com allowlist (precedente:
-  `docs/service-role-allowlist.md`) para que o pendente seja **visível**, não
-  esquecido.
-- **Fonte única sem guard não sobrevive.** Ver `nivelDaNota`.
-- **Vocabulário vazando para o cliente.** "Turma" é a palavra da Secretaria;
-  "coorte" é jargão de código. O guard de copy já existe em
-  `tests/unit/conarh-mensagens.test.ts` como precedente.
+- **Duas entidades de edição** (`turmas` vs `pulse_ciclos`) — §0. É o risco nº 1.
+- **Turma tratada como cargo** — campo próprio; sugestão por cargo só como atalho
+  de importação.
+- **Cadência por turma multiplicando o fan-out** no mesmo número — §6.
+- **As 63 varreduras**: a fatia vertical fecha 3 fluxos; o resto precisa de guard
+  com allowlist (precedente: `docs/service-role-allowlist.md`).
+- **Fonte única sem guard não sobrevive** — `nivelDaNota`.
 
 ## Decisões pendentes
 
-1. **Nome da entidade** — `turma` (recomendado: é a palavra do cliente) ou `coorte`.
-2. **As turmas de Macaé** — "Diretores" e "Professores" confirma? Nomear com safra
-   (`Diretores 2026.2`) já prevendo a segunda leva.
-3. **Escopo do gestor** — o gestor com liderados nas duas turmas vê tudo junto
-   (com coluna de turma) ou escolhe uma? Recomendo tudo junto com coluna: o gestor
-   pensa em pessoas, não em safras.
-4. **Prioridade de envio** — jornada antes de onboarding quando a cota apertar?
+1. **`turmas` absorve `pulse_ciclos` ou o ciclo vira filho da turma?** — a
+   decisão de maior impacto, e a mais barata agora (1 ciclo vivo).
+2. Nome: **turma** (recomendado) ou coorte.
+3. Turmas de Macaé: "Diretores escolares — 2026.2" / "Professores — 2026.2"?
+4. Gestor: visão consolidada com coluna de turma (recomendado) ou uma por vez.
+5. Prioridade de fila: jornada antes de onboarding como padrão inicial.
