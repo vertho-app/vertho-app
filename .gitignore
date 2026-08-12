@@ -84,8 +84,9 @@ data-pipeline/radarempresas/**/_vt/
 # logs de pipeline / execução
 *.log
 
-# microdados/temp pesados (ENEM etc) — nunca vão pro git
+# microdados/temp pesados (ENEM, IDEB etc) — nunca vão pro git
 .tmp_*/
+.tmp/
 
 # backups locais (podem conter PII de colaboradores)
 /backups/
