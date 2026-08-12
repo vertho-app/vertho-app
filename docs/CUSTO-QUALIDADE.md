@@ -146,7 +146,11 @@ Haiku (overhead netável, `sim_aluno`); mentor no modelo do braço.
 
 > 🔴 **REVISADO em 10/08/2026 — metade deste veredito caiu.** Ele tinha dois
 > pilares e o de custo era `GA ($3/$15) = +60%/colab`. **Não existe esse GA: o
-> $2/$10 do Sonnet 5 virou permanente.** O custo medido é o definitivo, e no PDI
+> $2/$10 do Sonnet 5 é o preço padrão.** `Medido:` conferido na doc oficial de
+> pricing em **12/08/2026**, que traz a nota textual — o intro anunciado até
+> 31/08/2026 *"is now the standard price"* e o aumento p/ $3/$15 em 01/09/2026
+> *"will not occur"*. (Em 10/08 a mesma conclusão tinha sido tirada por leitura,
+> sem citar a fonte; agora tem procedência.) O custo medido é o definitivo, e no PDI
 > o Sonnet 5 saiu **21% MAIS BARATO** que o 4.6 ($0,127 vs $0,161 em 5
 > competências) — a inflação de +16% de output é mais que compensada pelos 33% a
 > menos por token. A frase "o preço intro é isca" está morta; não a cite.

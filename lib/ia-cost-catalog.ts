@@ -27,9 +27,12 @@
 export const MODELS = {
   // Anthropic
   'claude-opus-5':              { label: 'Claude Opus 5',       inUsd: 5,    outUsd: 25 },
-  // Sonnet 5 a $2/$10 — o preço virou PERMANENTE (10/08/2026); não é mais
-  // introdutório e não há GA de $3/$15 vindo. Qualquer conta que projetava
-  // "+X% quando acabar o intro" está morta: o custo medido é o custo definitivo.
+  // Sonnet 5 a $2/$10 — preço PADRÃO, não introdutório. Conferido na doc oficial
+  // de pricing em 12/08/2026, que declara textualmente: o intro anunciado até
+  // 31/08/2026 "is now the standard price" e o aumento p/ $3/$15 em 01/09/2026
+  // "will not occur". Qualquer conta que projetava "+X% quando acabar o intro"
+  // está morta: o custo medido é o custo definitivo.
+  // (Batch = 50% → $1/$5; cache read 0,1× → $0,20 — ambos saem dos multiplicadores.)
   'claude-sonnet-5':            { label: 'Claude Sonnet 5',      inUsd: 2,    outUsd: 10 },
   // ── Linhas históricas (ledger pré-ago/2026) — manter p/ custo retroativo ──
   'claude-opus-4-8':            { label: 'Claude Opus 4.8',     inUsd: 5,    outUsd: 25 },
