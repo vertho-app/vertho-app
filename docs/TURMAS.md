@@ -1,13 +1,14 @@
 # Turmas (coortes) — proposta de arquitetura
 
-> **Status: PROPOSTA (v2, 12/08/2026) — nada implementado.** Enquanto estiver com
+> **Status: PROPOSTA (v3, 12/08/2026) — nada implementado.** Enquanto estiver com
 > este cabeçalho, não é descrição do sistema.
 >
-> **v2** incorpora uma revisão crítica externa e um achado de produção que muda o
-> desenho: a turma **já existe** em Macaé, sob o nome de `pulse_ciclos`. Ver §0.
-> O que a v1 dizia sobre teto de WhatsApp, importação sem turma e ordem de
-> rollout estava **errado** e foi corrigido — as correções estão marcadas com
-> `[v2]`.
+> **v2** incorporou uma revisão crítica externa: teto de WhatsApp, importação sem
+> turma e ordem de rollout estavam **errados** na v1.
+> **v3** corrige a hierarquia de §0 — o Pulso é **módulo opcional** e, quando
+> contratado, é **etapa de uma turma**; logo a turma não pode ser o
+> `pulse_ciclos`, e o ciclo vira filho. Marcações `[v2]` / `[v3]` apontam o que
+> mudou em cada rodada.
 
 ## O problema em uma frase
 
@@ -26,7 +27,7 @@ a coincidência.
 
 ---
 
-## §0 `[v2]` A turma já existe — e se chama `pulse_ciclos`
+## §0 `[v3]` `pulse_ciclos` foi esticado para fazer papel de turma
 
 Medido em produção (12/08):
 
@@ -37,28 +38,58 @@ pulse_ciclos: "Piloto Macaé — 1º Semestre 2026"
   membros     40 pulse_assignments — 100% Diretor(a) Escolar
 ```
 
-O ciclo de Pulso (mig 096) é uma **edição do programa** com tudo que se pediria
-de uma turma: nome com safra, status operacional próprio, calendário próprio
-(T0/T2), lista explícita de membros, agregados com `group_type`
-(`company|area|cargo`, mig 130) e piso de anonimato (`PULSE_MIN_N = 7`,
-`lib/pulse/anonymity.ts`). São 51 referências em 22 arquivos, com CRUD em
+O ciclo de Pulso (mig 096) tem, hoje, quase tudo que se pediria de uma turma:
+nome com safra, status operacional, calendário (T0/T2), lista explícita de
+membros, agregados com `group_type` (`company|area|cargo`, mig 130) e piso de
+anonimato (`PULSE_MIN_N = 7`). 51 referências em 22 arquivos, com CRUD em
 `/admin/empresas/[id]/pulso`.
 
-E o recorte é **40 de 127 diretores** — não é "todos do cargo". Alguém já fez à
-mão o recorte "diretores, 1º semestre" no único lugar do sistema que tinha o
-conceito de edição.
+`[v3]` **Isso não faz dele a turma — faz dele um sintoma.** O Pulso é **módulo
+opcional, contratado à parte**; quando contratado, é **uma etapa da turma**. Uma
+empresa que não contrata Pulso não pode ficar sem turma, então a turma não pode
+ser o ciclo.
 
-**Consequência para o desenho:** a pergunta não é "que entidade nova criar?", é
-**"turma é `pulse_ciclos` promovido a cidadão de primeira classe, ou uma entidade
-irmã?"**. Criar `turmas` ignorando `pulse_ciclos` produz duas entidades
-concorrentes de "edição do programa" na mesma base — o pior resultado possível,
-porque a partir daí toda pergunta ("de que turma é essa pessoa?") tem duas
-respostas.
+A prova de que o ciclo foi esticado está no próprio enum: **`em_jornada` não é
+estado do Pulso** — é estado da turma. Na falta de um container, o único objeto
+que tinha nome, janela e membros virou o container. A migração tem que
+**desfazer** esse esticamento, não preservá-lo:
 
-Recomendação: **`turmas` nasce como generalização de `pulse_ciclos`**, e o ciclo
-de pulso passa a ser um *momento* da turma (T0/T2 são datas da turma), não uma
-entidade paralela. Migração do que existe: 1 ciclo vivo, 40 assignments. É agora
-que sai barato.
+| | Hoje (ciclo faz os dois papéis) | Depois |
+|---|---|---|
+| `draft`, `t0_aberto`, `t2_aberto`, `encerrado` | `pulse_ciclos.status` | continua no ciclo |
+| `em_jornada` | `pulse_ciclos.status` | **vira estado da turma** |
+
+**Direção:** `turmas` é o container primário e independente do Pulso;
+`pulse_ciclos` ganha `turma_id` e passa a ser **uma etapa instanciada** da turma.
+
+`[v3]` **Correção de um argumento da v2.** A v2 usou "40 de 127 diretores" como
+prova de que o recorte da turma não é derivável de atributo. Com o Pulso sendo
+etapa, esses 40 são o recorte **da etapa** — possivelmente uma amostra da turma —
+e não dizem quem é da turma. O argumento cai; a conclusão (`turma_membros` como
+tabela) sobrevive por outras razões, em §1.
+
+Fica, no lugar, uma regra de desenho que os dados sustentam: **os participantes
+de uma etapa são um subconjunto dos membros da turma**, nunca uma lista paralela.
+`pulse_assignments` continua existindo, validado contra `turma_membros`.
+
+### `[v3]` Contratação: não existe lugar para registrar
+
+Achado ao verificar: **não há registro de módulo contratado**. `pulse_stage`
+(`experimental|calibrating|production`) foi citado na mig 096 como "fica em
+`empresas.sys_config`, não precisa de DDL" e **nunca foi implementado** — zero
+ocorrências no código. Não existe `modulos_contratados` nem equivalente. O
+colaborador vê o Pulso pela simples existência de um `pulse_assignment`
+(`lib/home/loaders.ts:498`), e qualquer admin pode criar ciclo para qualquer
+empresa.
+
+Duas coisas diferentes precisam de lugar, e a distinção importa comercialmente:
+
+- **Disponível** (a empresa contratou o módulo) → nível empresa;
+- **Instanciado** (esta safra vai usar) → etapa da turma.
+
+A Secretaria pode contratar Pulso e aplicá-lo só na turma de diretores. Sem essa
+separação, "contratou" e "está rodando" viram a mesma flag — e aí não há como
+vender o módulo para a próxima turma sem religar a anterior.
 
 ---
 
@@ -128,7 +159,7 @@ inteira.
 ### 1. Modelo
 
 ```sql
--- generalização de pulse_ciclos (§0)
+-- container primário, independente de qualquer módulo opcional (§0)
 create table turmas (
   id           uuid primary key default gen_random_uuid(),
   empresa_id   uuid not null references empresas(id) on delete cascade,
@@ -155,6 +186,24 @@ create table turma_membros (
 );
 
 alter table trilhas add column turma_membro_id uuid references turma_membros(id);
+
+-- [v3] etapas instanciadas da turma. Tipos são enum FECHADO em código —
+-- não é um builder de roteiro livre.
+create table turma_etapas (
+  id         uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null,
+  turma_id   uuid not null,
+  tipo       text not null,   -- perfil|diagnostico|votacao|pulso_t0|jornada|pulso_t2|fechamento
+  ordem      smallint not null,
+  status     text not null default 'planejada', -- planejada|aberta|encerrada
+  abre_em    date,
+  fecha_em   date,
+  ref_id     uuid,            -- id do objeto da etapa (ex.: pulse_ciclos.id)
+  foreign key (turma_id, empresa_id) references turmas(id, empresa_id),
+  unique (turma_id, tipo, ordem)
+);
+
+alter table pulse_ciclos add column turma_id uuid;  -- etapa, não container
 ```
 
 `[v2]` **Por que `turma_membros` e não `colaboradores.turma_id`.** A revisão
@@ -162,11 +211,25 @@ externa estava certa na conclusão, mas o argumento que deu ("perde o histórico
 está errado: o histórico de jornada já vive na trilha carimbada, e
 `numero_temporada` já resolve reentrada. Os motivos que **os dados** sustentam:
 
-- **O recorte não é derivável de atributo.** 40 membros de 127 diretores. Um
-  campo no colaborador guarda "turma atual"; não guarda "quem foi selecionado".
 - **Existe estado de turma antes de existir trilha.** Macaé tem 283 pessoas e 0
   trilhas: durante todo o diagnóstico o vínculo só pode viver fora da trilha.
+- **A composição é decisão do operador, não consulta.** Quem entra na safra
+  2026.2 é escolha — não é `where cargo = 'Diretor'`. Um campo no colaborador
+  guarda "turma atual"; não guarda "quem foi selecionado, quando e por quem".
+- `[v3]` **Etapa precisa de um conjunto para ser subconjunto de.** Se o Pulso é
+  uma etapa aplicada a parte da turma, `pulse_assignments` tem que se validar
+  contra uma lista de membros — que precisa existir.
 - **Simetria com o Pulso**, que já faz exatamente isso (`pulse_assignments`).
+
+`[v3]` **Sobre `turma_etapas`: entra quando houver a segunda etapa opcional.** As
+três flags de hoje (`perfil_comportamental_liberado`,
+`mapeamento_cenarios_liberado`, `votacao_ativa`) já **são** etapas —
+abertas/fechadas por booleano solto no `sys_config` da empresa. `turma_etapas`
+unifica isso (etapa com janela, estado e ordem) em vez de inventar conceito novo;
+mas enquanto o Pulso for a única etapa contratável, o resolvedor tipado de §2
+resolve o caso com as flags por turma. **Não construir o motor de roteiro antes
+de existirem dois clientes com roteiros diferentes** — o enum fechado é
+justamente o freio contra virar builder.
 
 `[v2]` **O que NÃO fazer: mexer na UNIQUE de `trilhas`.** A sugestão
 `UNIQUE (turma_membro_id, numero_temporada)` quebra duas coisas:
@@ -208,8 +271,8 @@ resolverConfigEfetiva(colab, turmaMembro, turma, empresa) -> ConfigEfetiva
 
 | Escopo | Chaves |
 |---|---|
-| **Empresa** | `ai.*`, `perfil_externo_fonte`, `is_demo`, `default_locale`, branding, `envios.*` |
-| **Turma** | gates de etapa, `programa_modo`, `competencias_regular_duo`, calendário, cadência **planejada** |
+| **Empresa** | `ai.*`, `perfil_externo_fonte`, `is_demo`, `default_locale`, branding, `envios.*`, `[v3]` **módulos contratados** (o que está *disponível*) |
+| **Turma** | gates de etapa, `programa_modo`, `competencias_regular_duo`, calendário, cadência **planejada**, `[v3]` **etapas instanciadas** (o que esta safra *usa*) |
 | **Pessoa/trilha** | exceções individuais, `data_inicio` real, snapshot congelado |
 | **Remetente/fila** | throughput, saúde do número, prioridade — **não é da empresa** (§6) |
 
@@ -222,8 +285,11 @@ resolverConfigEfetiva(colab, turmaMembro, turma, empresa) -> ConfigEfetiva
 
 `[v2]` **Nem a turma tem fase única.** Os diretores podem começar a jornada
 enquanto os atrasados ainda respondem o diagnóstico. A turma tem um **estado
-operacional** (`diagnóstico aberto`, `trilhas em geração`, `jornada ativa`)
-**acompanhado da distribuição**, nunca substituindo-a:
+operacional** (`diagnóstico aberto`, `trilhas em geração`, `jornada ativa` — este
+último herdado do enum do ciclo, §0) **acompanhado da distribuição**, nunca
+substituindo-a. `[v3]` E o roteiro de etapas **varia por turma**: a turma com
+Pulso contratado tem T0/T2 no calendário; a sem Pulso não os tem — a mesma tela
+não pode presumir um roteiro fixo.
 
 | Turma | Pessoas | Estado | Distribuição | Próxima ação |
 |---|---|---|---|---|
@@ -327,7 +393,8 @@ Entrega única, atrás de feature flag só para Macaé:
 1. `turmas` + `turma_membros` + FKs compostas (**migration 210** — 200 a 209 já
    existem; conferir `ls migrations/` no instante de criar);
 2. backfill de uma turma legada por empresa (Ibipeba: 36 trilhas, nada muda);
-3. conciliação com `pulse_ciclos` (§0) — 1 ciclo, 40 assignments;
+3. `[v3]` `pulse_ciclos.turma_id` + desesticar o enum (`em_jornada` sai do ciclo
+   e vira estado da turma) — 1 ciclo vivo, 40 assignments;
 4. criação explícita de "Diretores escolares — 2026.2" e "Professores — 2026.2";
 5. resolvedor tipado empresa → turma → pessoa, com guard;
 6. dashboard por turma;
@@ -365,7 +432,12 @@ turma depois.
 
 ## Riscos
 
-- **Duas entidades de edição** (`turmas` vs `pulse_ciclos`) — §0. É o risco nº 1.
+- `[v3]` **Deixar `pulse_ciclos` continuar fazendo papel de turma.** Enquanto
+  `em_jornada` viver no ciclo, existem dois donos do estado da turma — e o cliente
+  sem Pulso não tem nenhum. É o risco nº 1.
+- `[v3]` **Construir motor de roteiro cedo demais.** `turma_etapas` com tipo
+  aberto vira builder e nunca fecha. Enum fechado, e só depois da segunda etapa
+  contratável.
 - **Turma tratada como cargo** — campo próprio; sugestão por cargo só como atalho
   de importação.
 - **Cadência por turma multiplicando o fan-out** no mesmo número — §6.
@@ -375,9 +447,15 @@ turma depois.
 
 ## Decisões pendentes
 
-1. **`turmas` absorve `pulse_ciclos` ou o ciclo vira filho da turma?** — a
-   decisão de maior impacto, e a mais barata agora (1 ciclo vivo).
-2. Nome: **turma** (recomendado) ou coorte.
-3. Turmas de Macaé: "Diretores escolares — 2026.2" / "Professores — 2026.2"?
-4. Gestor: visão consolidada com coluna de turma (recomendado) ou uma por vez.
-5. Prioridade de fila: jornada antes de onboarding como padrão inicial.
+1. ~~`turmas` absorve `pulse_ciclos`?~~ **RESOLVIDO 12/08 (Rodrigo):** o Pulso é
+   módulo opcional; quando contratado, é **etapa da turma**. O ciclo vira filho.
+2. `[v3]` **Onde registrar "contratado"** — `empresas.sys_config.modulos`
+   (barato, consistente) ou tabela `empresa_modulos` com vigência (auditável,
+   suporta "contratou em X, expira em Y"). Recomendo a tabela **se** houver um
+   segundo módulo opcional à vista; senão, `sys_config` e promover depois.
+3. `[v3]` **A contratação do Pulso em Macaé cobre as duas turmas ou só
+   diretores?** Muda o backfill do ciclo existente.
+4. Nome: **turma** (recomendado) ou coorte.
+5. Turmas de Macaé: "Diretores escolares — 2026.2" / "Professores — 2026.2"?
+6. Gestor: visão consolidada com coluna de turma (recomendado) ou uma por vez.
+7. Prioridade de fila: jornada antes de onboarding como padrão inicial.
