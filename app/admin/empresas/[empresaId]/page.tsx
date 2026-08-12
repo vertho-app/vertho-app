@@ -19,7 +19,7 @@ import { useConfirm } from '@/components/admin/confirm-dialog';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
-import { enqueueIA2Batch, enqueueIA3Batch, enqueueBlueprintBatch, statusIAJob, cancelIAJob, listarJobsAtivosIA } from '@/actions/ia-pipeline-batch';
+import { enqueueIA2Batch, enqueueIA3Batch, enqueueIA4Batch, enqueueBlueprintBatch, statusIAJob, cancelIAJob, listarJobsAtivosIA } from '@/actions/ia-pipeline-batch';
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { resolveTaskModel } from '@/lib/ai-tasks';
@@ -425,6 +425,20 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
       }
       if (actionKey === 'ia4') {
         const checkModel = aiConfig?.checkModel;
+        // ── Em lote: Batch API (avaliação Claude −50% + check OpenAI −50%) ──
+        // Tira o trabalho da request: o Next despacha Server Action UMA POR VEZ
+        // por cliente, e a ~100 s por resposta o modo "Agora" prende a aba o
+        // lote inteiro (72 respostas ≈ 2 h em 11/08).
+        if (aiConfig?.modo === 'lote') {
+          addLog('📦 IA4 em lote (Batch API −50%, assíncrono).', 'info');
+          const r: any = await enqueueIA4Batch(empresaId, aiConfig);
+          if (!r.success) { addLog(`❌ ${r.error}`, 'error'); setPendingAction(null); return; }
+          if (!r.jobId) { addLog(`✅ ${r.message || 'Nada pendente'}`, 'success'); loadData(); setPendingAction(null); return; }
+          const extra = r.checkOnly ? ` (+${r.checkOnly} só-check, avaliadas antes)` : '';
+          addLog(`📋 ${r.total} resposta(s) no lote ${String(r.jobId).slice(0, 8)}…${extra} — rodando em segundo plano, pode fechar a aba.`, 'info');
+          watchJob(r.jobId, 'IA4');
+          setPendingAction(null); return;
+        }
         // Check UMA POR REQUEST (como a avaliação abaixo). Em 11/08/2026 o lote
         // rodava dentro de uma única action e a Vercel matou a função aos 300s
         // com 14 de 72 checadas — "Check falhou" sem nada errado no modelo.
@@ -1165,8 +1179,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
             <h3 className="text-sm font-bold text-white mb-1">{modelPicker.label}</h3>
             {modelPicker.dual ? (
               <>
-                {/* Em lote (Batch API −50%): geração Claude + check OpenAI. Por ora só o IA3 tem task de lote. */}
-                {modelPicker.actionKey === 'ia3' && (
+                {/* Em lote (Batch API −50%): geração Claude + check OpenAI. IA3 e IA4. */}
+                {['ia3', 'ia4'].includes(modelPicker.actionKey) && (
                   <div className="flex gap-2 mb-3">
                     {(['agora', 'lote'] as const).map((mo) => (
                       <button key={mo} onClick={() => setModo(mo)}
@@ -1179,8 +1193,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                     ))}
                   </div>
                 )}
-                {modelPicker.actionKey === 'ia3' && modo === 'lote' && (
-                  <p className="text-[9px] leading-snug mb-3" style={{ color: 'rgba(245,158,11,.85)' }}>Batch API: mais barato, porém assíncrono — pode demorar. Geração: modelos Claude · Validação: modelos OpenAI (GPT).</p>
+                {['ia3', 'ia4'].includes(modelPicker.actionKey) && modo === 'lote' && (
+                  <p className="text-[9px] leading-snug mb-3" style={{ color: 'rgba(245,158,11,.85)' }}>Batch API: mais barato, porém assíncrono — pode demorar. Geração: modelos Claude · Validação: modelos OpenAI (GPT). Roda em segundo plano: pode fechar a aba.</p>
                 )}
                 <p className="text-[10px] text-gray-500 mb-3">{t('modelPicker.selectEachStep')}</p>
                 <div className="mb-3">

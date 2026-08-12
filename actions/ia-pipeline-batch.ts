@@ -12,9 +12,12 @@ import { regionOpts } from '@/lib/trigger-region';
 import { tenantDb } from '@/lib/tenant-db';
 import type { AIConfig } from '@/actions/ai-client';
 import { listarCargosParaIA2, listarFilaIA3 } from '@/actions/fase1';
+import { listarPendentesIA4 } from '@/actions/fase3';
+import { listarPendentesCheckCore } from '@/lib/check-ia4-core';
 import { resolverFilaBlueprint100 } from '@/lib/blueprint/core';
 import type { gerarIA2BatchTask } from '@/trigger/gerar-ia2-batch';
 import type { gerarIA3BatchTask } from '@/trigger/gerar-ia3-batch';
+import type { gerarIA4BatchTask } from '@/trigger/gerar-ia4-batch';
 import type { gerarBlueprintBatchTask } from '@/trigger/gerar-blueprint-batch';
 
 /**
@@ -136,6 +139,62 @@ export async function enqueueIA3Batch(empresaId: string, aiConfig: AIConfig & { 
     }
 
     return { success: true as const, jobId: job.id, total: items.length };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || 'Erro' };
+  }
+}
+
+/**
+ * IA4 (avaliação das respostas + check dual) em LOTE — Claude −50% na avaliação,
+ * OpenAI −50% no check. Enfileira a fila da IA4 (mesma fonte do runner síncrono,
+ * incluindo as "presas" do achado 1.4) e dispara `gerar-ia4-batch`.
+ *
+ * Inclui `checkOnlyIds`: avaliações que JÁ existem e nunca passaram pela 2ª IA.
+ * Sem isso o lote repetiria o buraco da tela — um lote interrompido no meio
+ * deixa avaliação pronta sem check, e nada mais alcança essas respostas
+ * (aconteceu em 11/08: 58 de 72 ficaram assim quando a action estourou 300 s).
+ */
+export async function enqueueIA4Batch(empresaId: string, aiConfig: AIConfig & { checkModel?: string } = {}) {
+  try {
+    if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
+    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+    const dup = await jaTemLoteAtivo(sb, empresaId, 'ia4');
+    if (dup) return { success: false as const, error: `Já existe um lote de IA4 em andamento (${dup.slice(0, 8)}…) — aguarde ou cancele antes de disparar outro.` };
+
+    const fila = await listarPendentesIA4(empresaId);
+    if (!fila?.success) return { success: false as const, error: fila?.error || 'Não foi possível listar a fila da IA4' };
+    const items = (fila.data || []).map((r: any) => ({ id: r.id }));
+
+    let checkOnlyIds: string[] = [];
+    if (aiConfig?.checkModel) {
+      const pend = await listarPendentesCheckCore(sb, empresaId);
+      const jaNaFila = new Set(items.map((i) => i.id));
+      checkOnlyIds = (pend.data || []).map((p: any) => p.id).filter((id: string) => !jaNaFila.has(id));
+    }
+
+    if (!items.length && !checkOnlyIds.length) {
+      return { success: true as const, jobId: null, total: 0, message: 'nada pendente' };
+    }
+
+    const total = items.length * (aiConfig?.checkModel ? 2 : 1) + checkOnlyIds.length;
+    const { data: job, error } = await sb.from('ia_jobs').insert({
+      empresa_id: empresaId,
+      fase: 'ia4',
+      params: { aiConfig, items, checkOnlyIds },
+      status: 'queued',
+      progress: { done: 0, total, current: 'na fila', resultados: [] },
+    }).select('id').single();
+    if (error) return { success: false as const, error: error.message };
+
+    try {
+      const handle = await tasks.trigger<typeof gerarIA4BatchTask>('gerar-ia4-batch', { jobId: job.id }, regionOpts());
+      await sb.from('ia_jobs').update({ params: { aiConfig, items, checkOnlyIds, runId: handle.id } }).eq('id', job.id);
+    } catch (e: any) {
+      await sb.from('ia_jobs').update({ status: 'error', error: 'dispatch: ' + (e?.message || e) }).eq('id', job.id);
+      return { success: false as const, error: 'Não foi possível enfileirar: ' + (e?.message || e) };
+    }
+
+    return { success: true as const, jobId: job.id, total: items.length, checkOnly: checkOnlyIds.length };
   } catch (err: any) {
     return { success: false as const, error: err?.message || 'Erro' };
   }

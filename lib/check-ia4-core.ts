@@ -134,7 +134,64 @@ Prefira rigor a elegância.`);
   return { prefix: estavel.join('\n\n'), user: variavel.join('\n\n') };
 }
 
-function processCheckResult(check: any): { status: string; check: any } {
+/**
+ * Contexto + prompt do check de UMA resposta, numa peça só — para o síncrono e o
+ * lote pedirem exatamente a mesma auditoria. Prompt duplicado entre os dois
+ * caminhos é como eles divergem sem ninguém ver (o corolário "conserte o que
+ * RODA" do CLAUDE.md), então aqui só existe esta função.
+ */
+export async function montarCheckIA4Prompt(
+  sb: SupabaseClient, resp: any, empresaId: string,
+): Promise<{ system: string; prefix: string; user: string; compNome: string; colab: any }> {
+  const { data: colab } = await sb.from('colaboradores')
+    .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, perfil_externo_fonte, perfil_externo_dados')
+    .eq('empresa_id', empresaId)
+    .eq('id', resp.colaborador_id).maybeSingle();
+
+  let cenarioTexto = '', perguntasTexto = '';
+  if (resp.cenario_id) {
+    const { data: cen } = await sb.from('banco_cenarios')
+      .select('titulo, descricao, alternativas').eq('id', resp.cenario_id).maybeSingle();
+    if (cen) {
+      cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
+      const altObj = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
+      const pergs = (altObj as any).perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
+      perguntasTexto = pergs.map((p: any, i: number) => `P${p.numero || i + 1}: ${p.texto || ''}`).join('\n');
+    }
+  }
+
+  let compNome = '', reguaTexto = '';
+  if (resp.competencia_id) {
+    const { data: comp } = await sb.from('competencias')
+      .select('nome, cod_comp').eq('id', resp.competencia_id).maybeSingle();
+    compNome = comp?.nome || '';
+    const { data: descs } = await sb.from('competencias')
+      .select('cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+      .eq('empresa_id', empresaId).eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
+    if (descs?.length) {
+      reguaTexto = descs.map((d: any, i: number) =>
+        `D${i + 1} ${d.cod_desc}: ${d.nome_curto}\n  N1: ${d.n1_gap || '—'}\n  N2: ${d.n2_desenvolvimento || '—'}\n  N3: ${d.n3_meta || '—'}\n  N4: ${d.n4_referencia || '—'}`
+      ).join('\n\n');
+    }
+  }
+
+  const perfilCIS = formatPerfilContext(colab as any);
+  const { prefix, user } = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
+  return { system: CHECK_SYSTEM, prefix, user, compNome, colab };
+}
+
+/** Persistência do veredito — um lugar só, usado pelo síncrono e pelo lote. */
+export async function persistirCheckIA4(
+  sb: SupabaseClient, respostaId: string, empresaId: string, status: string, check: any,
+): Promise<{ error?: string }> {
+  const { error } = await sb.from('respostas').update({
+    status_ia4: status,
+    payload_ia4: check,
+  }).eq('id', respostaId).eq('empresa_id', empresaId).select('id');
+  return error ? { error: error.message } : {};
+}
+
+export function processCheckResult(check: any): { status: string; check: any } {
   if (!check || check.nota === undefined) return { status: 'erro', check: null };
 
   // Validação: erro_grave força max 60
@@ -208,64 +265,20 @@ export async function checkAvaliacoesCore(sb: SupabaseClient, empresaId: string,
     if (qErr) return { success: false, error: qErr.message };
     if (!respostas?.length) return { success: true, message: 'Nenhuma avaliação pendente de check' };
 
-    const colabIds = [...new Set(respostas.map((r: any) => r.colaborador_id).filter(Boolean))];
-    const { data: colabs } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, perfil_externo_fonte, perfil_externo_dados')
-      .eq('empresa_id', empresaId)
-      .in('id', colabIds);
-    const colabMap: Record<string, any> = {};
-    (colabs || []).forEach((c: any) => { colabMap[c.id] = c; });
-
     const model = aiConfig?.model || await getModelForTask(empresaId, 'ia4_check');
     let checados = 0, erros = 0, ultimoErro = '';
 
     for (const resp of respostas) {
       try {
-        const colab = colabMap[resp.colaborador_id] || {};
-
-        let cenarioTexto = '', perguntasTexto = '';
-        if (resp.cenario_id) {
-          const { data: cen } = await sb.from('banco_cenarios')
-            .select('titulo, descricao, alternativas')
-            .eq('id', resp.cenario_id).maybeSingle();
-          if (cen) {
-            cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
-            const altObj = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
-            const pergs = altObj.perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
-            perguntasTexto = pergs.map((p: any, i: number) => `P${p.numero || i + 1}: ${p.texto || ''}`).join('\n');
-          }
-        }
-
-        let compNome = '', reguaTexto = '';
-        if (resp.competencia_id) {
-          const { data: comp } = await sb.from('competencias')
-            .select('nome, cod_comp').eq('id', resp.competencia_id).maybeSingle();
-          compNome = comp?.nome || '';
-          const { data: descs } = await sb.from('competencias')
-            .select('cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-            .eq('empresa_id', empresaId).eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
-          if (descs?.length) {
-            reguaTexto = descs.map((d: any, i: number) =>
-              `D${i + 1} ${d.cod_desc}: ${d.nome_curto}\n  N1: ${d.n1_gap || '—'}\n  N2: ${d.n2_desenvolvimento || '—'}\n  N3: ${d.n3_meta || '—'}\n  N4: ${d.n4_referencia || '—'}`
-            ).join('\n\n');
-          }
-        }
-
-        const perfilCIS = formatPerfilContext(colab);
-
-        const { prefix, user } = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
-        const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check' });
+        const { system, prefix, user } = await montarCheckIA4Prompt(sb, resp, empresaId);
+        const resultado = await callAI(system, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check' });
         const raw = await extractJSON(resultado);
         const { status, check } = processCheckResult(raw);
 
         if (check) {
-          const { error: updErr } = await sb.from('respostas').update({
-            status_ia4: status,
-            payload_ia4: check,
-          }).eq('id', resp.id).eq('empresa_id', empresaId).select('id');
-
+          const { error: updErr } = await persistirCheckIA4(sb, resp.id, empresaId, status, check);
           if (!updErr) checados++;
-          else { erros++; ultimoErro = updErr.message; }
+          else { erros++; ultimoErro = updErr; }
         } else {
           erros++;
           ultimoErro = 'Check não retornou nota';
@@ -298,54 +311,16 @@ export async function checarUmaRespostaCore(sb: SupabaseClient, respostaId: stri
     await sb.from('respostas').update({ status_ia4: null, payload_ia4: null })
       .eq('id', respostaId).eq('empresa_id', resp.empresa_id).select('id');
 
-    const { data: colab } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, perfil_externo_fonte, perfil_externo_dados')
-      .eq('empresa_id', resp.empresa_id)
-      .eq('id', resp.colaborador_id).maybeSingle();
-
     const model = aiConfig?.model || await getModelForTask(resp.empresa_id, 'ia4_check');
 
-    let cenarioTexto = '', perguntasTexto = '';
-    if (resp.cenario_id) {
-      const { data: cen } = await sb.from('banco_cenarios')
-        .select('titulo, descricao, alternativas').eq('id', resp.cenario_id).maybeSingle();
-      if (cen) {
-        cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
-        const altObj = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
-        const pergs = altObj.perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
-        perguntasTexto = pergs.map((p: any, i: number) => `P${p.numero || i + 1}: ${p.texto || ''}`).join('\n');
-      }
-    }
-
-    let compNome = '', reguaTexto = '';
-    if (resp.competencia_id) {
-      const { data: comp } = await sb.from('competencias')
-        .select('nome, cod_comp').eq('id', resp.competencia_id).maybeSingle();
-      compNome = comp?.nome || '';
-      const { data: descs } = await sb.from('competencias')
-        .select('cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-        .eq('empresa_id', resp.empresa_id).eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
-      if (descs?.length) {
-        reguaTexto = descs.map((d: any, i: number) =>
-          `D${i + 1} ${d.cod_desc}: ${d.nome_curto}\n  N1: ${d.n1_gap || '—'}\n  N2: ${d.n2_desenvolvimento || '—'}\n  N3: ${d.n3_meta || '—'}\n  N4: ${d.n4_referencia || '—'}`
-        ).join('\n\n');
-      }
-    }
-
-    const perfilCIS = formatPerfilContext(colab as any);
-
-    const { prefix, user } = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
-    const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check' });
+    const { system, prefix, user, compNome } = await montarCheckIA4Prompt(sb, resp, resp.empresa_id);
+    const resultado = await callAI(system, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check' });
     const raw = await extractJSON(resultado);
     const { status, check } = processCheckResult(raw);
 
     if (check) {
-      const { error: updErr } = await sb.from('respostas').update({
-        status_ia4: status,
-        payload_ia4: check,
-      }).eq('id', respostaId).eq('empresa_id', resp.empresa_id).select('id');
-
-      if (updErr) return { success: false, error: updErr.message };
+      const { error: updErr } = await persistirCheckIA4(sb, respostaId, resp.empresa_id, status, check);
+      if (updErr) return { success: false, error: updErr };
       return { success: true, message: `Check: ${compNome} — ${check.nota}pts (${status})`, nota: check.nota, status };
     }
     return { success: false, error: 'Check não retornou nota' };
