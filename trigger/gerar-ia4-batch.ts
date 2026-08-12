@@ -4,7 +4,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import {
   IA4_SYSTEM, IA4_COLAB_COLS,
   carregarContextoLoteIA4, carregarContextoRespostaIA4, buildIA4UserPrompt,
-  validarAvaliacaoIA4, consolidarEPersistirIA4, avaliarUmaRespostaCore,
+  validarAvaliacaoIA4, consolidarEPersistirIA4, avaliarUmaRespostaCore, IA4_MAX_TOKENS,
 } from '@/lib/ia4-avaliacao';
 import {
   montarCheckIA4Prompt, processCheckResult, persistirCheckIA4, checarUmaRespostaCore,
@@ -93,7 +93,7 @@ export const gerarIA4BatchTask = task({
       let respostasGen = new Map<string, string>();
       if (preparados.length && genModel.startsWith('claude')) {
         try {
-          const reqs: BatchReq[] = preparados.map((p) => ({ customId: p.customId, system: IA4_SYSTEM, user: p.user, model: genModel, maxTokens: 8192 }));
+          const reqs: BatchReq[] = preparados.map((p) => ({ customId: p.customId, system: IA4_SYSTEM, user: p.user, model: genModel, maxTokens: IA4_MAX_TOKENS }));
           respostasGen = await submitClaudeBatch(reqs, { budgetMs: 35 * 60_000, ledger: { feature: 'ia4_avaliacao', empresaId } });
         } catch (e: any) {
           console.warn(`[gerar-ia4-batch] batch avaliação falhou (${e?.message}) — fallback síncrono por item`);

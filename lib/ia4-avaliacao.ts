@@ -145,6 +145,16 @@ REGRAS DO JSON:
 
 export const IA4_CALL_OPTIONS = { timeoutMs: 240000, maxRetries: 0 } as const;
 
+/**
+ * Teto de saída da IA4. Medido em 11-12/08/2026 com `claude-sonnet-4-6`: saída
+ * MÉDIA de 6.130 tokens e MÁXIMA de 7.467 — contra um teto que era de 8.192,
+ * ou seja, 9% de folga no pior caso. Modelo mais verboso (ou com raciocínio
+ * disputando o mesmo teto) trunca o JSON, e aqui truncar é caro: cai no retry e,
+ * se o retry também truncar, a resposta fica SEM avaliação. O teto não é
+ * cobrado — só o que sai —, então folga aqui não custa nada.
+ */
+export const IA4_MAX_TOKENS = 16000;
+
 /** Colunas de perfil que o prompt da IA4 consome — uma lista só, três call-sites. */
 export const IA4_COLAB_COLS =
   'id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, lid_executivo, lid_motivador, lid_metodico, lid_sistematico, perfil_dominante, comp_ousadia, comp_comando, comp_objetividade, comp_assertividade, comp_persuasao, comp_extroversao, comp_entusiasmo, comp_sociabilidade, comp_empatia, comp_paciencia, comp_persistencia, comp_planejamento, comp_organizacao, comp_detalhismo, comp_prudencia, comp_concentracao, perfil_externo_fonte, perfil_externo_dados';
@@ -335,28 +345,46 @@ export function normalizarNiveisDaAvaliacao(avaliacao: any, notasPorDesc: Record
   }
 }
 
+export type ConsolidacaoIA4 = {
+  notasPorDesc: Record<string, any>;
+  mediaDescritores: number;
+  nivelGeral: number;
+  gap: number;
+  confiancaGeral: number;
+  travasAplicadas: string[];
+};
+
 /**
- * Consolidação (em CÓDIGO, nunca pela IA) + persistência. Devolve o mesmo
- * `{success, message|error}` que o fluxo síncrono sempre devolveu.
+ * Consolidação matemática — média, travas e nível geral, sempre em CÓDIGO.
+ *
+ * Existia em TRÊS cópias byte-a-byte (IA4, `reavaliarResposta` e o chat ao
+ * vivo), e é assim que gêmeo diverge: a correção da régua de nível entrou na
+ * cópia da IA4 e a da reavaliação — o caminho que o admin usa para consertar
+ * uma avaliação reprovada — teria continuado gravando o defeito. As diferenças
+ * legítimas entre os três viram PARÂMETRO, não cópia:
+ *   • chave do descritor: `D{numero}` na IA4, o nome no chat;
+ *   • nota: `nota_decimal`, ou `nota_sugerida` no chat;
+ *   • `sustentacao`: só existe onde a IA a fornece.
  */
-export async function consolidarEPersistirIA4(
-  tdb: any, resp: any, colab: any, avaliacao: any, ctx: ContextoRespostaIA4,
-): Promise<{ success: boolean; message?: string; error?: string }> {
-  const descPorDescritor = avaliacao.avaliacao_por_descritor;
+export function consolidarNotasIA4(
+  descritores: any[],
+  opts: { chave?: (d: any) => string; nota?: (d: any) => number; comSustentacao?: boolean } = {},
+): ConsolidacaoIA4 {
+  const chaveDe = opts.chave || ((d: any) => `D${d?.numero}`);
+  const notaDe = opts.nota || ((d: any) => d?.nota_decimal);
+  const comSustentacao = opts.comSustentacao !== false;
+
   const notasPorDesc: Record<string, any> = {};
-  for (const d of descPorDescritor) {
-    const key = `D${d.numero}`;
-    const nota = Math.max(1.0, Math.min(4.0, d.nota_decimal || 1.0));
-    notasPorDesc[key] = {
-      nome: d.nome,
+  for (const d of descritores || []) {
+    const nota = Math.max(1.0, Math.min(4.0, notaDe(d) || 1.0));
+    notasPorDesc[chaveDe(d)] = {
+      nome: d?.nome ?? d?.descritor,
       nota_decimal: Math.round(nota * 100) / 100,
       nivel: nivelDaNota(nota),
-      confianca: d.confianca || 0,
-      sustentacao: d.sustentacao || 'insuficiente',
+      confianca: d?.confianca || 0,
+      ...(comSustentacao ? { sustentacao: d?.sustentacao || 'insuficiente' } : {}),
     };
   }
-
-  normalizarNiveisDaAvaliacao(avaliacao, notasPorDesc);
 
   const notas = Object.values(notasPorDesc).map((d: any) => d.nota_decimal);
   const mediaDescritores = notas.length
@@ -371,7 +399,7 @@ export async function consolidarEPersistirIA4(
     travasAplicadas.push(`${niveisN1} descritores N1 → nível geral máximo N1`);
   } else if (niveisN1 > 0 && nivelGeral > 2) {
     nivelGeral = Math.min(nivelGeral, 2);
-    travasAplicadas.push(`Descritor N1 presente → nível geral máximo N2`);
+    travasAplicadas.push('Descritor N1 presente → nível geral máximo N2');
   }
   const temN3 = Object.values(notasPorDesc).some((d: any) => d.nivel >= 3);
   if (temN3 && nivelGeral < 2) {
@@ -379,19 +407,45 @@ export async function consolidarEPersistirIA4(
     travasAplicadas.push('Evidência N3 presente → nível mínimo N2');
   }
   nivelGeral = Math.max(1, Math.min(4, nivelGeral));
-  const gap = Math.max(0, 3 - nivelGeral);
 
   const confs = Object.values(notasPorDesc).map((d: any) => d.confianca || 0).filter((c: number) => c > 0);
   const confiancaGeral = confs.length ? Math.round((confs.reduce((a, b) => a + b, 0) / confs.length) * 100) / 100 : 0;
 
-  avaliacao.consolidacao = {
-    notas_por_descritor: notasPorDesc,
-    media_descritores: mediaDescritores,
-    nivel_geral: nivelGeral,
-    gap,
-    confianca_geral: confiancaGeral,
-    travas_aplicadas: travasAplicadas.length ? travasAplicadas : ['Nenhuma'],
+  return {
+    notasPorDesc,
+    mediaDescritores,
+    nivelGeral,
+    gap: Math.max(0, 3 - nivelGeral),
+    confiancaGeral,
+    travasAplicadas: travasAplicadas.length ? travasAplicadas : ['Nenhuma'],
   };
+}
+
+/** Bloco `consolidacao` do payload, no formato que as telas e o auditor leem. */
+export function blocoConsolidacao(c: ConsolidacaoIA4) {
+  return {
+    notas_por_descritor: c.notasPorDesc,
+    media_descritores: c.mediaDescritores,
+    nivel_geral: c.nivelGeral,
+    gap: c.gap,
+    confianca_geral: c.confiancaGeral,
+    travas_aplicadas: c.travasAplicadas,
+  };
+}
+
+/**
+ * Consolidação (em CÓDIGO, nunca pela IA) + persistência. Devolve o mesmo
+ * `{success, message|error}` que o fluxo síncrono sempre devolveu.
+ */
+export async function consolidarEPersistirIA4(
+  tdb: any, resp: any, colab: any, avaliacao: any, ctx: ContextoRespostaIA4,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const descPorDescritor = avaliacao.avaliacao_por_descritor;
+  const cons = consolidarNotasIA4(descPorDescritor);
+  const { notasPorDesc, mediaDescritores, nivelGeral } = cons;
+
+  normalizarNiveisDaAvaliacao(avaliacao, notasPorDesc);
+  avaliacao.consolidacao = blocoConsolidacao(cons);
 
   if (!avaliacao.recomendacoes_pdi && avaliacao.feedback?.recomendacoes_pdi) {
     avaliacao.recomendacoes_pdi = avaliacao.feedback.recomendacoes_pdi;
@@ -474,13 +528,13 @@ export async function avaliarUmaRespostaCore(
   const ia4Opts = { ...IA4_CALL_OPTIONS, cachedUserPrefix };
   const rotulo = colab?.nome_completo || resp.colaborador_id;
 
-  let resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8192, { ...ia4Opts, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
+  let resultado = await callAI(IA4_SYSTEM, user, aiConfig, IA4_MAX_TOKENS, { ...ia4Opts, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
   let avaliacao = await extractJSON(resultado);
 
   if (!avaliacao) {
     console.warn(`[IA4] retry para ${rotulo}: primeira resposta sem JSON`);
     const userRetry = `${user}\n\n=== ATENÇÃO ===\nSua resposta anterior não foi um JSON válido. Retorne APENAS o JSON, sem texto antes ou depois, sem markdown.`;
-    resultado = await callAI(IA4_SYSTEM, userRetry, aiConfig, 8192, { ...ia4Opts, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
+    resultado = await callAI(IA4_SYSTEM, userRetry, aiConfig, IA4_MAX_TOKENS, { ...ia4Opts, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
     avaliacao = await extractJSON(resultado);
   }
 

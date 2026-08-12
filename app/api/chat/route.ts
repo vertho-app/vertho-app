@@ -9,6 +9,7 @@ import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
 import { nivelDaNota } from '@/lib/nivel-regua';
+import { consolidarNotasIA4, blocoConsolidacao, normalizarNiveisDaAvaliacao } from '@/lib/ia4-avaliacao';
 
 // Turno do chat + encerramento (avaliação + auditoria, 2× 8192 tokens) podem
 // levar minutos com retry/backoff — sem isso a rota cai no default da Vercel
@@ -616,39 +617,20 @@ REGRAS DO JSON:
   // ── Consolidação em código ──
   if (rascunho?.avaliacao_por_descritor) {
     const descPorDescritor = rascunho.avaliacao_por_descritor;
-    const notasPorDesc: Record<string, any> = {};
-    for (const d of descPorDescritor) {
-      const nota = Math.max(1.0, Math.min(4.0, d.nota_sugerida || d.nota_decimal || 1.0));
-      notasPorDesc[d.descritor] = {
-        nome: d.descritor,
-        nota_decimal: Math.round(nota * 100) / 100,
-        nivel: nivelDaNota(nota),
-        confianca: d.confianca || 0,
-      };
-    }
-
-    const notas = Object.values(notasPorDesc).map((d: any) => d.nota_decimal);
-    const media = notas.length ? Math.round((notas.reduce((a: number, b: number) => a + b, 0) / notas.length) * 100) / 100 : 0;
-    let nivelGeral: number = nivelDaNota(media);
-
-    const travas: string[] = [];
-    const nN1 = Object.values(notasPorDesc).filter((d: any) => d.nivel === 1).length;
-    if (nN1 > 3) { nivelGeral = Math.min(nivelGeral, 1); travas.push(`${nN1} descritores N1 → max N1`); }
-    else if (nN1 > 0 && nivelGeral > 2) { nivelGeral = Math.min(nivelGeral, 2); travas.push('Descritor N1 → max N2'); }
-    const temN3 = Object.values(notasPorDesc).some((d: any) => d.nivel >= 3);
-    if (temN3 && nivelGeral < 2) { nivelGeral = 2; travas.push('Evidência N3 → mínimo N2'); }
-    nivelGeral = Math.max(1, Math.min(4, nivelGeral));
-
-    const confs = Object.values(notasPorDesc).map((d: any) => d.confianca).filter((c: number) => c > 0);
-    const confGeral = confs.length ? Math.round((confs.reduce((a, b) => a + b, 0) / confs.length) * 100) / 100 : 0;
+    // Mesma consolidação da IA4 (lib/ia4-avaliacao) — aqui a chave do descritor
+    // é o NOME e a nota vem de `nota_sugerida`, então vão como parâmetro.
+    // `confianca_geral` segue em 0–100 neste payload, como as telas do chat leem.
+    const cons = consolidarNotasIA4(descPorDescritor, {
+      chave: (d: any) => d?.descritor,
+      nota: (d: any) => d?.nota_sugerida || d?.nota_decimal,
+      comSustentacao: false,
+    });
+    const { notasPorDesc, mediaDescritores: media, nivelGeral } = cons;
+    normalizarNiveisDaAvaliacao(rascunho, notasPorDesc);
 
     rascunho.consolidacao = {
-      notas_por_descritor: notasPorDesc,
-      media_descritores: media,
-      nivel_geral: nivelGeral,
-      gap: Math.max(0, 3 - nivelGeral),
-      confianca_geral: Math.round(confGeral * 100),
-      travas_aplicadas: travas.length ? travas : ['Nenhuma'],
+      ...blocoConsolidacao(cons),
+      confianca_geral: Math.round(cons.confiancaGeral * 100),
     };
     rascunho.nivel = nivelGeral;
     rascunho.nota_decimal = media;

@@ -10,7 +10,6 @@
   ],
   "allowlist": {
     "actions/evolucao-granular.ts": 1,
-    "actions/fase3.ts": 3,
     "actions/fase4.ts": 1,
     "actions/fase5/cenarios-b.ts": 4,
     "actions/fase5/evolucao.ts": 1,
