@@ -26,19 +26,32 @@ async function main() {
   if (!emp) throw new Error('empresa não encontrada: ' + SLUG);
   const empresaId = (emp as any).id;
 
+  // `revisado_em` vem do carimbo `_revisao` que a reavaliação grava no payload —
+  // só a data, não o objeto inteiro (ele carrega a avaliação anterior completa).
   const { data: alvos, error } = await sb.from('respostas')
-    .select('id, colaborador_id, competencia_nome, nivel_ia4, nota_ia4, status_ia4, payload_ia4')
+    .select('id, colaborador_id, competencia_nome, nivel_ia4, nota_ia4, status_ia4, payload_ia4, revisado_em:avaliacao_ia->_revisao->>revisado_em')
     .eq('empresa_id', empresaId)
     .eq('status_ia4', 'revisar')
     .order('id');
   if (error) throw new Error(error.message);
 
+  // Quem JÁ passou pela reavaliação fica de fora — reavaliar uma revisão é
+  // pagar de novo para revisar o texto revisado, e o que sobra em `revisar`
+  // depois de uma passada costuma ser falta de evidência na RESPOSTA (nota
+  // baixa), que nenhuma reescrita resolve. `--forcar` ignora esta trava.
+  const FORCAR = process.argv.includes('--forcar');
+  const jaRevisadas = (alvos || []).filter((r: any) => r.revisado_em);
+  const elegiveis = FORCAR ? (alvos || []) : (alvos || []).filter((r: any) => !r.revisado_em);
+  if (jaRevisadas.length && !FORCAR) {
+    console.log(`↩︎ ${jaRevisadas.length} já reavaliada(s) antes — puladas (use --forcar para incluir)`);
+  }
+
   // Piores primeiro: é onde o modelo novo tem mais o que mostrar.
-  const fila = (alvos || [])
+  const fila = elegiveis
     .sort((a: any, b: any) => ((a.payload_ia4 as any)?.nota ?? 0) - ((b.payload_ia4 as any)?.nota ?? 0))
     .slice(0, LIMITE === Infinity ? undefined : LIMITE);
 
-  console.log(`${fila.length} de ${alvos?.length || 0} em 'revisar' · modelo=${MODELO} · check=${CHECK_MODEL} · ${APLICAR ? 'APLICAR' : 'dry-run'}`);
+  console.log(`${fila.length} elegíveis de ${alvos?.length || 0} em 'revisar' · modelo=${MODELO} · check=${CHECK_MODEL} · ${APLICAR ? 'APLICAR' : 'dry-run'}`);
   if (!APLICAR) {
     for (const r of fila) console.log(`  ${String(r.id).slice(0, 8)} ${r.competencia_nome} · nota check ${(r.payload_ia4 as any)?.nota} · N${r.nivel_ia4} (${r.nota_ia4})`);
     console.log('\n(dry-run — rode com --aplicar)');
