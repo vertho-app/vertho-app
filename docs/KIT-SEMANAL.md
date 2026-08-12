@@ -258,3 +258,39 @@ tipo separado de `kit-ausente-disc` porque a ação é gerar UMA célula, não e
 completos nos 4 DISC, **33 células (tema × DISC) vazias**. Contar por `brief × DISC` dá 55 — número
 inflado, porque o mesmo tema existe gravado nas duas grafias e a chave normalizada os une. Ao medir
 cobertura de kit, agrupe por `(cargo, competência, normDescritor(descritor))`, nunca por brief.
+
+## Atualização 12/08/2026 — prontidão da semana medida pelo CONSUMIDOR (áudio, vídeo, prewarm)
+
+Rodada de fechamento da semana 5 do Ibipeba (36 pessoas, 72 pílulas). Placar final: **36/36 em P1 e
+P2** nas sete camadas. O que aprendemos vale para qualquer semana.
+
+**8. `micro_conteudos.url`/`ativo` NÃO decidem se o áudio toca — quem decide é o cache.** A ordem real
+de `/api/conteudo/[id]/podcast` é: (1) cache `final/audio-personalizado/{conteudoId}/{colabId}.mp3`;
+(2) TTS on-demand a partir do `conteudo_inline`, que grava esse mesmo cache; (3) `content.url` (MP3
+base, sem nome); (4) 404. Logo **cache quente = entrega instantânea com saudação, e o `url` nulo é
+irrelevante**. `ativo=false` também não barra: o áudio do kit chega por `overlayKitNaSemana`, que não
+filtra `ativo` (o filtro é do caminho do BUILD). Um check que acusa `url=null`/`ativo=false` como
+falta reporta **72 inocentes** — foi o que o nosso fez antes da correção. A única falta real é
+**cache frio E sem MP3-base**: aí o 1º play espera ~150 s e um TTS que falhe devolve 404.
+
+**Prewarm por semana:** `scripts/_prewarm-podcast-semana.ts [semana] --executar` deriva os pares
+(áudio × colaborador) pelo **overlay real** e bate na rota interna — o encode de MP3 não roda sob tsx
+(armadilha do lamejs, §22/07), então tem de ser na Vercel. Ele confere o Storage antes de chamar
+(a rota não confere: regrava e paga TTS de novo). `PREWARM_CONC` ajusta a concorrência: medido
+**0,4 áudio/min com 3 → ~1,5/min com 5**, e foi essa mesma concorrência que produziu a cauda de 504
+(ver **F-V4** do `docs/FMEA-PIPELINE.md`; 504 do gateway não significa arquivo não gravado).
+
+**9. Diagnóstico de vídeo por semana tem de usar o módulo do core PÓS-OVERLAY.** O
+`_check-pilulas-dia.mjs` resolve a célula pelo módulo do core do **build** e por isso reportou
+**0 faltas de vídeo** na semana 5, enquanto a régua da week page
+(`resolverVideoDaSemana({coreId})` → `resolverCelulaVideo(..., {colaboradorId})`) apontava **5
+entregas sem deck** em 4 células. É a armadilha 6 vista pelo lado da medição: o overlay troca o
+`core_id`, então medir pelo build responde outra pergunta. Scripts com a régua certa:
+`_check-sem5-entrega.ts [semana]` (7 camadas, inclui personalizado e cache de áudio) e
+`_gerar-videos-faltantes-semana.ts [semana] [--executar]` (dedup por célula, dry-run por padrão).
+
+⚠️ **Não derrube a box de render ao ver o deck `done`.** A personalização nominal roda DEPOIS, serial
+por colaborador (F-V2) — matar ali deixa aquelas pessoas no vídeo genérico para sempre, sem
+re-disparo automático. Use `_hetzner-encerrar-ocioso.ts --encerrar`, que só encerra com ócio
+confirmado (fila vazia + `videos_personalizados` sem crescer por 3 ciclos). Medido nesta rodada: as
+3 boxes se auto-encerraram após a personalização; conta em 0 sem intervenção.

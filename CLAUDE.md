@@ -342,6 +342,12 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   também envelhece: F-I4 pedia coluna `origem_disc` nova e a `micro_conteudos.disc` (mig 142) já fazia
   o papel (sobrevive ao SET NULL). E antes de deletar conteúdo, varrer **referências JSONB**
   (`temporada_plano`: `core_id`, `formatos_disponiveis[].id`) — não há FK que avise.
+- NÃO rodar na mesma janela dois lotes que compartilham **fornecedor** — o TTS do Vertex serve a
+  narração do vídeo E o podcast, então prewarm de áudio + disparo de vídeo é auto-saturação (medido
+  12/08: a única célula que ainda não tinha passado da narração morreu em `TTS: resposta sem áudio`, e
+  sozinha passou de primeira). E NÃO julgar lote pelo **status HTTP**: `504` do gateway não prova
+  trabalho perdido — 8 de 10 "falhas" do prewarm estavam gravadas no Storage, porque a função termina
+  depois de o gateway desistir. Medir pelo efeito PERSISTIDO. `docs/FMEA-PIPELINE.md` F-V4.
 - NÃO "padronizar" o DISC dos kits/vídeos para 2 letras — a geração de conteúdo ancora na **1ª letra
   de propósito** (4 células de custo, decisão 27/07 — F-I8). Só camadas derivadas em código
   (relatório/PDF) usam o combo completo.

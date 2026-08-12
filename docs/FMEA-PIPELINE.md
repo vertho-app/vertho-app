@@ -610,6 +610,25 @@ briefs duplicados por tupla.
 - **Segue sem retry automático:** a recuperação é o re-disparo manual com `--conc 2`. Automatizar
   exigiria fila com backoff por fornecedor — não feito, e o alarme agora avisa quem precisa agir.
 
+### F-V4 · Dois lotes NOSSOS disputam o mesmo TTS — e o 504 do gateway não prova trabalho perdido 🟠 (recuperável)
+- **Gatilho:** o TTS do Vertex é compartilhado por caminhos que ninguém lê juntos — a **narração do
+  vídeo** (`worker`/`gerar-video`, etapa `narracao`) e o **podcast** (`/api/internal/pregerar-podcast`
+  e `/api/conteudo/[id]/podcast`). Rodar prewarm de podcast e disparo de vídeo na mesma janela é
+  auto-saturação: F-V3 mede a saturação causada pelo PRÓPRIO lote; aqui a causa é o lote vizinho.
+- **Medido 12/08/2026 (Ibipeba, semana 5):** 4 células disparadas com o prewarm de 72 podcasts rodando
+  a `CONC=5`. As 3 que já tinham passado da narração renderizaram; **a 4ª morreu em `narracao`**
+  (`TTS: resposta sem áudio após 4 tentativas`). Re-disparada **sozinha**, passou na primeira
+  tentativa. No mesmo lote, o prewarm devolveu **10 falhas em 69** — 9× **HTTP 504** e 1× 500.
+- 🔑 **`504` do gateway ≠ trabalho não feito:** a rodada seguinte encontrou **8 dos 10 já gravados** no
+  Storage. O gateway desiste em ~300 s, a função continua e sobe o MP3. **Quem sabe se o áudio existe é
+  o Storage, não o status HTTP** — tratar 504 como falha faz o retry pagar TTS de novo (a rota
+  `pregerar-podcast` NÃO confere cache antes de gerar; quem confere é o script).
+- **Resolução:** serializar as frentes que compartilham fornecedor (vídeo primeiro, prewarm depois — ou
+  o inverso), e medir o resultado pelo **efeito persistido**, não pela resposta da chamada. Concorrência
+  é recurso global: `PREWARM_CONC=5` subiu a taxa de 0,4 → ~1,5 áudio/min *e* produziu a cauda de 504.
+- **Sem retry automático** (mesma limitação de F-V3): a recuperação é re-rodar, e o script de prewarm é
+  idempotente por cache. Detalhe operacional em `docs/KIT-SEMANAL.md` §12/08.
+
 ---
 
 ## 5. Parse de IA / robustez
