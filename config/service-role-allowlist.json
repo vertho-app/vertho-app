@@ -151,6 +151,7 @@
     "trigger/gerar-ia3-batch.ts": 1,
     "trigger/gerar-ia4-batch.ts": 1,
     "scripts/_comparar-check-modelo.ts": 1,
+    "scripts/_backfill-nivel-regua.ts": 1,
     "scripts/_render-podcast-kit.ts": 1,
     "scripts/_video-kit-mei-d.ts": 1,
     "scripts/_diag-orfaos-detalhe.ts": 1,

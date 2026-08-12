@@ -18,7 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { callAI, type AIConfig } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
-import { resolverNomeOficial } from '@/lib/descritores';
+import { resolverNomeOficial, chaveDescritor } from '@/lib/descritores';
 import { buscarContextoPPP } from '@/lib/ia2-gabarito';
 import { nivelDaNota } from '@/lib/nivel-regua';
 
@@ -295,22 +295,42 @@ export function normalizarNiveisDaAvaliacao(avaliacao: any, notasPorDesc: Record
     }
   }
 
-  const nivelPorNome: Record<string, number> = {};
+  // Índice por chave canônica do NOME (sem código, sem acento) — o mesmo
+  // tratamento que `lib/descritores` dá ao eco do modelo.
+  const porNome: Record<string, number> = {};
   for (const v of Object.values(notasPorDesc) as any[]) {
-    if (v?.nome) nivelPorNome[String(v.nome).trim().toLowerCase()] = v.nivel;
+    if (v?.nome) porNome[chaveDescritor(String(v.nome))] = v.nivel;
   }
+
+  /**
+   * Resolve o nível de um rótulo escrito pela IA. Casa em duas passadas porque
+   * o modelo NÃO repete o mesmo texto entre as seções (medido em 12/08/2026):
+   * a consolidação trazia "D4 – Proteção da aluna, gestão da relação com a
+   * família…" e os gaps, para o MESMO descritor, "D4 – Proteção da aluna,
+   * gestão da família…". Casamento exato por nome falhava e o campo ficava com
+   * o nível da IA — que é justamente a contradição que o auditor pune.
+   * 1º o CÓDIGO no prefixo ("D4 – …" → D4), que é estável; 2º a chave do nome.
+   */
+  const nivelDoRotulo = (rotulo: unknown): number | undefined => {
+    const s = String(rotulo || '').trim();
+    if (!s) return undefined;
+    const cod = s.match(/^D\s*(\d+)\b/i);
+    if (cod && notasPorDesc[`D${cod[1]}`]) return notasPorDesc[`D${cod[1]}`].nivel;
+    return porNome[chaveDescritor(s)];
+  };
+
   for (const lista of [avaliacao?.descritores_destaque?.pontos_fortes, avaliacao?.descritores_destaque?.gaps_prioritarios]) {
     if (!Array.isArray(lista)) continue;
     for (const item of lista) {
-      const n = nivelPorNome[String(item?.descritor || '').trim().toLowerCase()];
-      if (n) item.nivel = n; // sem casar o nome, NÃO inventa: deixa como veio
+      const n = nivelDoRotulo(item?.descritor);
+      if (n) item.nivel = n; // sem resolver o descritor, NÃO inventa: deixa como veio
     }
   }
 
   if (Array.isArray(avaliacao?.recomendacoes_pdi)) {
     for (const rec of avaliacao.recomendacoes_pdi) {
-      const alvo = notasPorDesc[String(rec?.descritor_foco || '').trim().toUpperCase()];
-      if (alvo) rec.nivel_atual_sugerido = alvo.nivel;
+      const n = nivelDoRotulo(rec?.descritor_foco);
+      if (n) rec.nivel_atual_sugerido = n;
     }
   }
 }

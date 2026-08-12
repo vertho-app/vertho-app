@@ -20,26 +20,37 @@ const APLICAR = process.argv.includes('--aplicar');
 async function main() {
   const sb = createSupabaseAdmin();
 
-  let empresaIds: string[] | null = null;
-  if (ALVO !== '--todas') {
+  // Percorre TENANT A TENANT, mesmo no `--todas`: toda leitura de `respostas`
+  // leva `.eq('empresa_id', …)` na cadeia. Um `select` global aqui seria mais
+  // curto e passaria por cima do tenant-read-guard — o guard está certo, e um
+  // script de manutenção não é motivo para abrir exceção nele.
+  let empresaIds: string[];
+  if (ALVO === '--todas') {
+    const { data: emps, error: e1 } = await sb.from('empresas').select('id');
+    if (e1) throw new Error(e1.message);
+    empresaIds = (emps || []).map((e: any) => e.id);
+  } else {
     const { data: emp } = await sb.from('empresas').select('id').eq('slug', ALVO).single();
     if (!emp) throw new Error('empresa não encontrada: ' + ALVO);
     empresaIds = [(emp as any).id];
   }
 
-  let q = sb.from('respostas')
-    .select('id, empresa_id, avaliacao_ia, nivel_ia4, nota_ia4')
-    .not('avaliacao_ia', 'is', null);
-  if (empresaIds) q = q.in('empresa_id', empresaIds);
-  const { data: respostas, error } = await q;
-  if (error) throw new Error(error.message);
+  const respostas: any[] = [];
+  for (const empresaId of empresaIds) {
+    const { data, error } = await sb.from('respostas')
+      .select('id, empresa_id, avaliacao_ia, nivel_ia4, nota_ia4')
+      .eq('empresa_id', empresaId)
+      .not('avaliacao_ia', 'is', null);
+    if (error) throw new Error(error.message);
+    respostas.push(...(data || []));
+  }
 
-  console.log(`${respostas?.length || 0} avaliação(ões) · modo=${APLICAR ? 'APLICAR' : 'dry-run'}`);
+  console.log(`${respostas.length} avaliação(ões) em ${empresaIds.length} empresa(s) · modo=${APLICAR ? 'APLICAR' : 'dry-run'}`);
 
   let mudaram = 0, descritoresCorrigidos = 0, sugeridosCorrigidos = 0, erros = 0;
   const exemplos: string[] = [];
 
-  for (const r of respostas || []) {
+  for (const r of respostas) {
     const av: any = typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia;
     const notasPorDesc = av?.consolidacao?.notas_por_descritor;
     if (!notasPorDesc || typeof notasPorDesc !== 'object') continue;
