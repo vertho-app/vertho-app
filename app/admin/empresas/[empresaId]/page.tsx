@@ -30,7 +30,7 @@ import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
   verStatusEnvios,
-  rodarIA4, rodarIA4Uma, listarPendentesIA4, checkAvaliacoes,
+  rodarIA4, rodarIA4Uma, listarPendentesIA4, listarPendentesCheck, checarUmaAvaliacao,
   montarTrilhasLote, salvarCompetenciaFoco, loadCompetenciasFoco,
   gerarCenariosBLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
 } from './actions';
@@ -425,9 +425,45 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
       }
       if (actionKey === 'ia4') {
         const checkModel = aiConfig?.checkModel;
+        // Check UMA POR REQUEST (como a avaliação abaixo). Em 11/08/2026 o lote
+        // rodava dentro de uma única action e a Vercel matou a função aos 300s
+        // com 14 de 72 checadas — "Check falhou" sem nada errado no modelo.
+        const rodarFilaCheck = async () => {
+          const filaChk = await listarPendentesCheck(empresaId);
+          if (!filaChk.success) { addLog(`⚠ Check falhou ao listar a fila: ${filaChk.error}`, 'error'); return; }
+          if (!filaChk.data?.length) { addLog('✅ Nenhuma avaliação pendente de check', 'success'); return; }
+          addLog(`📋 ${filaChk.data.length} avaliação(ões) para validar`, 'info');
+          let okChk = 0, errosChk = 0;
+          for (let i = 0; i < filaChk.data.length; i++) {
+            if (cancelRef.current) { addLog(`⏹ Check cancelado — ${filaChk.data.length - i} sem validar`, 'info'); break; }
+            const item = filaChk.data[i];
+            addLog(`⏳ [${i + 1}/${filaChk.data.length}] ${item.nome} — ${item.competencia}`, 'info');
+            try {
+              const r2 = await checarUmaAvaliacao(item.id, { model: checkModel });
+              if (r2.success) { okChk++; addLog(`✅ ${r2.message}`, 'success'); }
+              else { errosChk++; addLog(`⚠ ${item.nome}: ${r2.error}`, 'error'); }
+            } catch (e: any) {
+              errosChk++; addLog(`❌ ${item.nome}: ${e?.message || 'falha de rede'} — seguindo`, 'error');
+            }
+          }
+          addLog(`✅ Check: ${okChk} validada(s)${errosChk ? `, ${errosChk} erro(s)` : ''}`, errosChk ? 'info' : 'success');
+        };
+
         addLog(`⏳ Listando respostas pendentes...`, 'info');
         const fila = await listarPendentesIA4(empresaId);
-        if (!fila.success || !fila.data?.length) { addLog(fila.data?.length === 0 ? '✅ Nenhuma resposta pendente' : `❌ ${fila.error}`, fila.data?.length === 0 ? 'success' : 'error'); setPendingAction(null); return; }
+        if (!fila.success) { addLog(`❌ ${fila.error}`, 'error'); setPendingAction(null); return; }
+        if (!fila.data?.length) {
+          addLog('✅ Nenhuma resposta pendente de avaliação', 'success');
+          // A avaliação pode estar completa e o CHECK não — foi assim que 58 de 72
+          // ficaram sem 2ª IA em 11/08 (timeout no meio do lote). Sem este ramo, a
+          // tela não tem como alcançá-las: o botão saía aqui.
+          if (checkModel) { addLog(`🔍 Validando com ${checkModel}...`, 'info'); await rodarFilaCheck(); }
+          else {
+            const filaChk = await listarPendentesCheck(empresaId);
+            if (filaChk.success && filaChk.data?.length) addLog(`⚠ ${filaChk.data.length} avaliação(ões) SEM check da 2ª IA — escolha um modelo de validação e rode de novo`, 'error');
+          }
+          loadData(); setPendingAction(null); return;
+        }
         addLog(`📋 ${fila.data.length} respostas pendentes. Avaliando uma por vez...`, 'info');
         const presas = fila.data.filter((r: any) => r.presa_sem_notas).length;
         if (presas) addLog(`⚠ ${presas} resposta(s) com avaliação gravada mas SEM notas de descritor (falha antiga da IA4) — serão reprocessadas agora`, 'warning');
@@ -439,7 +475,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
           if (r.success) { ok++; addLog(`✅ ${r.message}`, 'success'); } else { erros++; addLog(`⚠ ${r.error}`, 'error'); }
         }
         addLog(`✅ IA4: ${ok} avaliadas${erros ? `, ${erros} erros` : ''}`, 'success');
-        if (ok > 0 && checkModel) { addLog(`🔍 Validando com ${checkModel}...`, 'info'); const r2 = await checkAvaliacoes(empresaId, { model: checkModel }); addLog(r2.success ? `✅ ${r2.message}` : `⚠ Check falhou: ${r2.error}`, r2.success ? 'success' : 'error'); }
+        if (ok > 0 && checkModel) { addLog(`🔍 Validando com ${checkModel}...`, 'info'); await rodarFilaCheck(); }
         // Skip do check NUNCA pode ser silencioso: em 20/07 4 avaliações saíram
         // sem check e ninguém soube até auditar o ledger (zero `ia4_check` no dia).
         else if (ok > 0) { addLog(`⚠ Check PULADO: nenhum modelo de validação selecionado — as ${ok} avaliações ficaram sem auditoria da 2ª IA (status_ia4 vazio)`, 'error'); }

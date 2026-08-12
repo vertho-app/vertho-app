@@ -522,11 +522,11 @@
 ### 4.1 CHECK IA4 — Auditor de avaliações
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/check-ia4.ts::checkAvaliacoes` + `checarUmaResposta` (constante `CHECK_SYSTEM`)
+- **Arquivo**: `lib/check-ia4-core.ts` (constante `CHECK_SYSTEM`) — actions em `actions/check-ia4.ts::listarPendentesCheck` + `checarUmaResposta`
 - **Modelo default**: `gemini-3-flash-preview` (configurável)
 - **Max tokens**: 8192
-- **Trigger**: Admin clica "Check IA4" em `/admin/empresas/{id}` → itera respostas com `status_ia4 IS NULL`.
-- **Loop**: Sim — 1 chamada por resposta avaliada.
+- **Trigger**: Admin clica "Check IA4" em `/admin/empresas/{id}` → lista as respostas com `status_ia4 IS NULL` e audita **uma por request**.
+- **Loop**: Sim — 1 chamada por resposta avaliada, **iterada no CLIENTE**. O lote inteiro numa action existe só headless (`checkAvaliacoesCore`, via `scripts/_run-check-ia4.ts`): dentro de um request ele estoura o `maxDuration` de 300s — em 11/08/2026, 14 de 72 checadas e 504 na rota.
 - **System prompt** (~2500 chars):
   ```text
   Voce e um auditor de qualidade de Assessment Comportamental.

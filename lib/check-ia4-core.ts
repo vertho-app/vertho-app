@@ -151,7 +151,52 @@ function processCheckResult(check: any): { status: string; check: any } {
   return { status, check };
 }
 
-/** Check em LOTE: todas as avaliações da empresa com `status_ia4 IS NULL`. */
+/**
+ * Fila do check: avaliações da empresa que ainda não passaram pela 2ª IA.
+ *
+ * Existe para a UI percorrer a fila UMA RESPOSTA POR REQUEST (como a IA4 já
+ * fazia), em vez de pedir o lote inteiro numa server action. Motivo medido
+ * (11/08/2026, Macaé): o lote de 72 avaliações rodou dentro de um único POST e
+ * a Vercel matou a função aos 300s (`maxDuration` do segmento /admin/empresas)
+ * com 14 checadas — o erro chegou como "Check falhou", sem nada de errado no
+ * modelo nem nos dados. A ~21s por check, o teto sempre foi ~14 por execução.
+ */
+export async function listarPendentesCheckCore(sb: SupabaseClient, empresaId: string) {
+  const { data, error } = await sb.from('respostas')
+    .select('id, colaborador_id, competencia_nome')
+    .eq('empresa_id', empresaId)
+    .not('avaliacao_ia', 'is', null)
+    .is('status_ia4', null);
+  if (error) return { success: false, error: error.message, data: [] };
+
+  const colabIds = [...new Set((data || []).map((r: any) => r.colaborador_id).filter(Boolean))] as string[];
+  const nomes: Record<string, string> = {};
+  if (colabIds.length) {
+    const { data: colabs, error: errColab } = await sb.from('colaboradores')
+      .select('id, nome_completo')
+      .eq('empresa_id', empresaId)
+      .in('id', colabIds);
+    if (errColab) return { success: false, error: errColab.message, data: [] };
+    (colabs || []).forEach((c: any) => { nomes[c.id] = c.nome_completo; });
+  }
+
+  return {
+    success: true,
+    data: (data || []).map((r: any) => ({
+      id: r.id,
+      nome: nomes[r.colaborador_id] || '—',
+      competencia: r.competencia_nome || '—',
+    })),
+  };
+}
+
+/**
+ * Check em LOTE: todas as avaliações da empresa com `status_ia4 IS NULL`.
+ *
+ * ⚠️ SÓ HEADLESS (scripts/crons — `scripts/_run-check-ia4.ts`). Não expor como
+ * action: o loop inteiro num request estoura o `maxDuration` (ver o comentário
+ * de `listarPendentesCheckCore`). Na UI, use a fila + `checarUmaRespostaCore`.
+ */
 export async function checkAvaliacoesCore(sb: SupabaseClient, empresaId: string, aiConfig: AIConfig = {}) {
   try {
     const { data: respostas, error: qErr } = await sb.from('respostas')
