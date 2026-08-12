@@ -25,6 +25,7 @@ import {
 import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import { callAI, type AIConfig } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
+import { nivelDaNota } from '@/lib/nivel-regua';
 
 export const BLUEPRINT_SPEC_VERSION = 1;
 
@@ -131,8 +132,8 @@ export async function buildBlueprintReq(
     const media = notas.length ? notas.reduce((s, v) => s + v, 0) / notas.length : null;
     competenciasFoco.push({
       nome: nomeComp,
-      // floor, não round: N1 até CONSOLIDAR o 2.0. Alinhado com o nível do PDI.
-      nivel: media == null ? null : Math.max(1, Math.min(4, Math.floor(media))),
+      // Régua única em lib/nivel-regua (N1 até CONSOLIDAR o 2.0; N4 acima de 3,5).
+      nivel: media == null ? null : nivelDaNota(media),
       nota_decimal: media == null ? null : Number(media.toFixed(2)),
       descritores,
     });

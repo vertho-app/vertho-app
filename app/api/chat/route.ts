@@ -8,6 +8,7 @@ import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/r
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
+import { nivelDaNota } from '@/lib/nivel-regua';
 
 // Turno do chat + encerramento (avaliação + auditoria, 2× 8192 tokens) podem
 // levar minutos com retry/backoff — sem isso a rota cai no default da Vercel
@@ -621,14 +622,14 @@ REGRAS DO JSON:
       notasPorDesc[d.descritor] = {
         nome: d.descritor,
         nota_decimal: Math.round(nota * 100) / 100,
-        nivel: Math.floor(nota),
+        nivel: nivelDaNota(nota),
         confianca: d.confianca || 0,
       };
     }
 
     const notas = Object.values(notasPorDesc).map((d: any) => d.nota_decimal);
     const media = notas.length ? Math.round((notas.reduce((a: number, b: number) => a + b, 0) / notas.length) * 100) / 100 : 0;
-    let nivelGeral = Math.floor(media);
+    let nivelGeral: number = nivelDaNota(media);
 
     const travas: string[] = [];
     const nN1 = Object.values(notasPorDesc).filter((d: any) => d.nivel === 1).length;
@@ -795,7 +796,7 @@ REGRAS:
       const descs = avaliacaoFinal.avaliacao_por_descritor;
       const notasCorr = descs.map((d: any) => Math.max(1, Math.min(4, d.nota_sugerida || d.nota_decimal || 1)));
       const mediaCorr = notasCorr.length ? Math.round((notasCorr.reduce((a: number, b: number) => a + b, 0) / notasCorr.length) * 100) / 100 : 0;
-      avaliacaoFinal.nivel = Math.floor(mediaCorr);
+      avaliacaoFinal.nivel = nivelDaNota(mediaCorr);
       avaliacaoFinal.nota_decimal = mediaCorr;
       avaliacaoFinal.lacuna = -Math.max(0, 3 - avaliacaoFinal.nivel);
     }

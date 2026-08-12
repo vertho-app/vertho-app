@@ -26,6 +26,7 @@ for (const linha of LINHAS_ENV) {
 }
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { nivelDaNota } from '@/lib/nivel-regua';
 
 /** As 5 competências comerciais do tenant de demo, com seus descritores. */
 const COMPETENCIAS: Array<{ nome: string; descritores: string[] }> = [
@@ -65,10 +66,10 @@ function avaliacao(competencia: string, descritores: string[], nivelBase: number
     profissional: nome,
     cargo,
     consolidacao: {
-      nivel_geral: Math.min(4, Math.max(1, Math.floor(media))),
+      nivel_geral: nivelDaNota(media),
       media_descritores: Number(media.toFixed(2)),
       confianca_geral: 76,
-      gap: Math.max(0, 3 - Math.floor(media)),
+      gap: Math.max(0, 3 - nivelDaNota(media)),
       travas_aplicadas: [],
       notas_por_descritor: notas,
     },

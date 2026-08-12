@@ -9,6 +9,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { nivelDaNota } from '@/lib/nivel-regua';
 
 export interface DadoComp {
   competencia: string;
@@ -288,9 +289,9 @@ export async function buildRelatorioIndividualPrompt(
     const arr = assessByComp[normKey(nomeComp)];
     if (!arr || arr.length === 0) return null;
     const media = arr.reduce((s, v) => s + v, 0) / arr.length;
-    // floor, não round — igual ao blueprint: a pessoa é N-x até CONSOLIDAR o x+1
-    // (média 1.9 = N1, não N2). Mantém o nível do PDI coerente com o do blueprint.
-    return { nivel: Math.max(1, Math.min(4, Math.floor(media))), nota_decimal: Number(media.toFixed(2)) };
+    // Régua única em lib/nivel-regua — a pessoa é N-x até CONSOLIDAR o x+1
+    // (média 1.9 = N1), e N4 abre em 3,5. Mesma régua do blueprint e da IA4.
+    return { nivel: nivelDaNota(media), nota_decimal: Number(media.toFixed(2)) };
   };
 
   // Fuzzy fallback: includes-match para nomes próximos.

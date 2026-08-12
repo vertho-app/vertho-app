@@ -14,6 +14,7 @@ import BackButton from '@/components/back-button';
 import { loadRespostasAvaliadas, reavaliarResposta, rechecarResposta, loadRosterDiagnostico } from '@/actions/fase3';
 import { loadTrilhas } from '@/actions/trilhas-load';
 import VideoModal from '@/components/video-modal';
+import { nivelDaNota } from '@/lib/nivel-regua';
 
 // Ícone por formato de conteúdo (consistente com dashboard do colab).
 const FORMATO_ICON = {
@@ -670,8 +671,8 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                   {descPorDescritor.map((d, i) => (
                                     <div key={i} className="p-2 rounded border border-white/[0.04]" style={{ background: '#0a1e38' }}>
                                       <div className="flex items-center gap-2 flex-wrap">
-                                        <span className={`text-[10px] font-bold ${NIVEL_COLORS[d.nivel_sugerido || Math.floor(d.nota_decimal)] || 'text-gray-400'}`}>
-                                          D{d.numero}: N{d.nivel_sugerido || Math.floor(d.nota_decimal)} ({d.nota_decimal?.toFixed(2)})
+                                        <span className={`text-[10px] font-bold ${NIVEL_COLORS[d.nivel_sugerido || nivelDaNota(d.nota_decimal)] || 'text-gray-400'}`}>
+                                          D{d.numero}: N{d.nivel_sugerido || nivelDaNota(d.nota_decimal)} ({d.nota_decimal?.toFixed(2)})
                                         </span>
                                         <span className="text-[10px] text-gray-300">{d.nome}</span>
                                         {d.sustentacao && (
@@ -734,7 +735,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                   <p className="text-[9px] font-bold text-gray-500">{key}:</p>
                                   {val.descritores_avaliados.map((d, i) => (
                                     <div key={i} className="flex items-start gap-2 text-[10px] ml-2">
-                                      <span className={`font-bold shrink-0 ${NIVEL_COLORS[Math.floor(d.nota_decimal || d.nivel)] || 'text-gray-400'}`}>
+                                      <span className={`font-bold shrink-0 ${NIVEL_COLORS[nivelDaNota(d.nota_decimal || d.nivel)] || 'text-gray-400'}`}>
                                         D{d.numero}: {d.nota_decimal?.toFixed(2) || `N${d.nivel}`}
                                       </span>
                                       <span className="text-gray-500 truncate">{safeText(d.evidencia || d.nome)}</span>

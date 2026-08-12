@@ -7,6 +7,7 @@ import { loadAssessmentGrid, salvarNotaAssessment, deletarNotaAssessment } from 
 import BackButton from '@/components/back-button';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
+import { nivelDaNota } from '@/lib/nivel-regua';
 
 const NIVEL_COR = {
   1: 'bg-red-500/10 border-red-500/30 text-red-400',
@@ -125,7 +126,7 @@ export default function AssessmentDescritoresPage() {
                       const key = `${c.id}::${competenciaSel}::${d}`;
                       const nota = data.notas[key];
                       const saving = savingCell === key;
-                      const nivel = nota != null ? Math.floor(nota) : null;
+                      const nivel = nota != null ? nivelDaNota(nota) : null;
                       const corClass = nivel != null ? NIVEL_COR[nivel] : 'bg-white/5 border-white/10 text-gray-400';
                       return (
                         <td key={d} className="px-1 py-1 text-center">

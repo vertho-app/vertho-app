@@ -65,7 +65,7 @@ const NIVEL_BUCKET: Record<string, NBucket> = {
 };
 function bucketOf(nivel: string | null, nota: number | null): NBucket {
   if (nivel && NIVEL_BUCKET[nivel]) return NIVEL_BUCKET[nivel];
-  const n = Math.max(1, Math.min(4, Math.floor(Number(nota) || 1)));
+  const n = nivelDaNota(nota);
   return (['n1', 'n1', 'n2', 'n3', 'n4'][n] || 'n1') as NBucket;
 }
 const PRIORIDADE_MEDIA = 2.0; // média abaixo disso = competência prioritária
@@ -77,6 +77,7 @@ const PRIORIDADE_MEDIA = 2.0; // média abaixo disso = competência prioritária
 // "Busca de apoio (COO03_D6)" — cada variante virava linha nova na tabela.
 export { stripCodigoDescritor, chaveDescritor } from '@/lib/descritores';
 import { stripCodigoDescritor, chaveDescritor } from '@/lib/descritores';
+import { nivelDaNota } from '@/lib/nivel-regua';
 
 function pct(d: Dist): Dist {
   const t = d.n1 + d.n2 + d.n3 + d.n4 || 1;

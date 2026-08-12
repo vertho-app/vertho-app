@@ -14,6 +14,7 @@ import {
   IA4_CALL_OPTIONS, IA4_COLAB_COLS,
   avaliarUmaRespostaCore, carregarContextoLoteIA4,
 } from '@/lib/ia4-avaliacao';
+import { nivelDaNota } from '@/lib/nivel-regua';
 
 /**
  * Fila da IA4 = pendentes clássicas (avaliacao_ia IS NULL) + PRESAS: respostas
@@ -353,7 +354,7 @@ ${resumoAnterior || '(formato legado — sem detalhamento por descritor)'}`);
       notasPorDesc[key] = {
         nome: d.nome,
         nota_decimal: Math.round(nota * 100) / 100,
-        nivel: Math.floor(nota),
+        nivel: nivelDaNota(nota),
         confianca: d.confianca || 0,
         sustentacao: d.sustentacao || 'insuficiente',
       };
@@ -362,7 +363,7 @@ ${resumoAnterior || '(formato legado — sem detalhamento por descritor)'}`);
     const notas = Object.values(notasPorDesc).map((d: any) => d.nota_decimal);
     const mediaDescritores = notas.length
       ? Math.round((notas.reduce((a: number, b: number) => a + b, 0) / notas.length) * 100) / 100 : 0;
-    let nivelGeral = Math.floor(mediaDescritores);
+    let nivelGeral: number = nivelDaNota(mediaDescritores);
 
     const travasAplicadas: string[] = [];
     const niveisN1 = Object.values(notasPorDesc).filter((d: any) => d.nivel === 1).length;

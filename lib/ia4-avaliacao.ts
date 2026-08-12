@@ -20,6 +20,7 @@ import { extractJSON } from '@/actions/utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
 import { resolverNomeOficial } from '@/lib/descritores';
 import { buscarContextoPPP } from '@/lib/ia2-gabarito';
+import { nivelDaNota } from '@/lib/nivel-regua';
 
 export const IA4_SYSTEM = `Você é o Motor de Avaliação de Competências da Vertho Mentor IA.
 
@@ -274,6 +275,47 @@ export function validarAvaliacaoIA4(avaliacao: any, rotulo: string): { ok: boole
 }
 
 /**
+ * Impõe a régua de nível (`lib/nivel-regua`) em TODOS os campos de nível do
+ * payload — inclusive nos que a IA escreveu.
+ *
+ * O nível é DERIVADO da nota; o que o modelo escreveu em `nivel_sugerido` (e nos
+ * campos que copiam dele) não vale. Sem isto o mesmo documento carrega dois
+ * níveis para o mesmo descritor: medido em 12/08/2026, em 42 de 288 descritores
+ * das avaliações de Macaé a IA dizia N2 onde o código gravava N1, e o auditor da
+ * 2ª IA leu como "consolidação contraditória" — erro grave, teto de 60 pontos.
+ *
+ * Exportada porque o backfill dos payloads antigos usa exatamente esta função:
+ * uma normalização, não duas (`scripts/_backfill-nivel-regua.ts`).
+ */
+export function normalizarNiveisDaAvaliacao(avaliacao: any, notasPorDesc: Record<string, any>): void {
+  if (Array.isArray(avaliacao?.avaliacao_por_descritor)) {
+    for (const d of avaliacao.avaliacao_por_descritor) {
+      const chave = `D${d?.numero}`;
+      if (notasPorDesc[chave]) d.nivel_sugerido = notasPorDesc[chave].nivel;
+    }
+  }
+
+  const nivelPorNome: Record<string, number> = {};
+  for (const v of Object.values(notasPorDesc) as any[]) {
+    if (v?.nome) nivelPorNome[String(v.nome).trim().toLowerCase()] = v.nivel;
+  }
+  for (const lista of [avaliacao?.descritores_destaque?.pontos_fortes, avaliacao?.descritores_destaque?.gaps_prioritarios]) {
+    if (!Array.isArray(lista)) continue;
+    for (const item of lista) {
+      const n = nivelPorNome[String(item?.descritor || '').trim().toLowerCase()];
+      if (n) item.nivel = n; // sem casar o nome, NÃO inventa: deixa como veio
+    }
+  }
+
+  if (Array.isArray(avaliacao?.recomendacoes_pdi)) {
+    for (const rec of avaliacao.recomendacoes_pdi) {
+      const alvo = notasPorDesc[String(rec?.descritor_foco || '').trim().toUpperCase()];
+      if (alvo) rec.nivel_atual_sugerido = alvo.nivel;
+    }
+  }
+}
+
+/**
  * Consolidação (em CÓDIGO, nunca pela IA) + persistência. Devolve o mesmo
  * `{success, message|error}` que o fluxo síncrono sempre devolveu.
  */
@@ -288,18 +330,20 @@ export async function consolidarEPersistirIA4(
     notasPorDesc[key] = {
       nome: d.nome,
       nota_decimal: Math.round(nota * 100) / 100,
-      nivel: Math.floor(nota),
+      nivel: nivelDaNota(nota),
       confianca: d.confianca || 0,
       sustentacao: d.sustentacao || 'insuficiente',
     };
   }
+
+  normalizarNiveisDaAvaliacao(avaliacao, notasPorDesc);
 
   const notas = Object.values(notasPorDesc).map((d: any) => d.nota_decimal);
   const mediaDescritores = notas.length
     ? Math.round((notas.reduce((a: number, b: number) => a + b, 0) / notas.length) * 100) / 100
     : 0;
 
-  let nivelGeral = Math.floor(mediaDescritores);
+  let nivelGeral: number = nivelDaNota(mediaDescritores);
   const travasAplicadas: string[] = [];
   const niveisN1 = Object.values(notasPorDesc).filter((d: any) => d.nivel === 1).length;
   if (niveisN1 > 3) {
