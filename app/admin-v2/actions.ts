@@ -4,6 +4,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { TRILHA } from '@/lib/status';
+import { levantarPortfolioTurmas, type PortfolioTurmas } from '@/lib/turmas/portfolio';
 
 /**
  * Dados reais de /admin-v2. Toda consulta a tabela tenant-owned vai com
@@ -199,6 +200,15 @@ export type Workspace = {
   regua: PassoRegua[];
   cenariosSemCheck: number;
   cargosSemCenario: number;
+  /**
+   * Portfólio de turmas (mig 210). `null` = feature desligada para esta
+   * empresa; a tela cai no comportamento anterior, byte-igual.
+   *
+   * ⚠️ F0/F1 continuam por EMPRESA de propósito: base, cargos, Top 10, gabarito
+   * e cenários vivem em `cargos_empresa` — já são por cargo, e duas safras do
+   * mesmo cargo devem compartilhar o perfil ideal. Só F2/F3/F4 são por turma.
+   */
+  portfolio: PortfolioTurmas | null;
 };
 
 export async function carregarClienteWorkspace(empresaId: string): Promise<{ ws?: Workspace; erro?: string }> {
@@ -284,6 +294,14 @@ export async function carregarClienteWorkspace(empresaId: string): Promise<{ ws?
       { titulo: 'Cenários situacionais', descricao: 'IA3 · revisão humana antes de valer', feitos: cenAprov.count || 0, total: nCen, href: `/admin/empresas/${empresaId}/fase1?tab=cenarios` },
     ];
 
+    // Feature flag: env global OU por empresa (`sys_config.turmas_ui`), mesmo
+    // padrão de BLUEPRINT_DRIVES_TRILHA. Desligada, esta tela é byte-igual à
+    // anterior — o que permite subir o código sem mexer no que está no ar.
+    const { data: empCfg } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+    const turmasLigadas = process.env.TURMAS_UI === '1'
+      || (empCfg?.sys_config as any)?.turmas_ui === true;
+    const portfolio = turmasLigadas ? await levantarPortfolioTurmas(sb, empresaId) : null;
+
     return {
       ws: {
         empresa: { id: empresa.id as string, nome: empresa.nome as string },
@@ -291,6 +309,7 @@ export async function carregarClienteWorkspace(empresaId: string): Promise<{ ws?
         regua,
         cenariosSemCheck: cenSemCheck.count || 0,
         cargosSemCenario: Math.max(0, nCargos - cargosComCenario),
+        portfolio,
       },
     };
   } catch (e) {

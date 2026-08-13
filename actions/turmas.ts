@@ -13,25 +13,13 @@ import { protectedAction } from '@/lib/auth/protected-action';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { assertTenantAccessAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
-import { TURMA, TURMA_MEMBRO, TURMA_ENCERRADAS, type TurmaStatus } from '@/lib/status';
+import { TURMA, TURMA_MEMBRO, TURMA_ENCERRADAS } from '@/lib/status';
+import { levantarPortfolioTurmas } from '@/lib/turmas/portfolio';
 
 const STATUS_TURMA = [
   TURMA.PLANEJADA, TURMA.DIAGNOSTICO, TURMA.TRILHAS_EM_GERACAO,
   TURMA.EM_JORNADA, TURMA.CONCLUIDA, TURMA.ARQUIVADA,
 ] as const;
-
-export interface TurmaLinha {
-  id: string;
-  nome: string;
-  status: TurmaStatus;
-  dataInicio: string | null;
-  membros: number;
-  /** Distribuição — o painel nunca mostra agregado sem denominador. */
-  comResposta: number;
-  comIa4: number;
-  comTrilha: number;
-  programaModo: string | null;
-}
 
 // ── Leitura ────────────────────────────────────────────────────────────────
 
@@ -40,55 +28,7 @@ const EmpresaInput = z.object({ empresaId: z.string().min(1) });
 const _listarTurmas = protectedAction('content.manage', EmpresaInput, async (ctx, { empresaId }) => {
   await assertTenantAccessAction(ctx, empresaId);
   const sb = await requireAdminSupabase();
-
-  const { data: turmas, error } = await sb.from('turmas')
-    .select('id, nome, status, data_inicio, sys_config')
-    .eq('empresa_id', empresaId)
-    .order('created_at');
-  if (error) throw new Error(error.message);
-  if (!turmas?.length) return { turmas: [] as TurmaLinha[] };
-
-  // Uma varredura por empresa em vez de N+1 por turma: com 283 pessoas e duas
-  // safras, N+1 seriam ~8 roundtrips por render do painel.
-  const [membrosRes, respostasRes, trilhasRes] = await Promise.all([
-    sb.from('turma_membros').select('turma_id, colaborador_id, status').eq('empresa_id', empresaId),
-    sb.from('respostas').select('colaborador_id, nivel_ia4').eq('empresa_id', empresaId),
-    sb.from('trilhas').select('colaborador_id').eq('empresa_id', empresaId),
-  ]);
-
-  const comResposta = new Set<string>();
-  const comIa4 = new Set<string>();
-  for (const r of respostasRes.data || []) {
-    if (!r.colaborador_id) continue;
-    comResposta.add(r.colaborador_id);
-    if (r.nivel_ia4 !== null && r.nivel_ia4 !== undefined) comIa4.add(r.colaborador_id);
-  }
-  const comTrilha = new Set<string>((trilhasRes.data || []).map((t: any) => t.colaborador_id));
-
-  const porTurma = new Map<string, string[]>();
-  for (const m of membrosRes.data || []) {
-    if (m.status !== TURMA_MEMBRO.ATIVO) continue;
-    const lista = porTurma.get(m.turma_id) || [];
-    lista.push(m.colaborador_id);
-    porTurma.set(m.turma_id, lista);
-  }
-
-  const linhas: TurmaLinha[] = turmas.map((t: any) => {
-    const ids = porTurma.get(t.id) || [];
-    return {
-      id: t.id,
-      nome: t.nome,
-      status: t.status,
-      dataInicio: t.data_inicio,
-      membros: ids.length,
-      comResposta: ids.filter((id) => comResposta.has(id)).length,
-      comIa4: ids.filter((id) => comIa4.has(id)).length,
-      comTrilha: ids.filter((id) => comTrilha.has(id)).length,
-      programaModo: (t.sys_config as any)?.programa_modo ?? null,
-    };
-  });
-
-  return { turmas: linhas };
+  return levantarPortfolioTurmas(sb, empresaId);
 });
 export async function listarTurmas(input: z.infer<typeof EmpresaInput>) {
   return _listarTurmas(input);

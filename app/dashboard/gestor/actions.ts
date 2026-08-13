@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext } from '@/lib/authz';
+import { TURMA_MEMBRO } from '@/lib/status';
 
 /**
  * Home do gestor — dados consolidados em uma única chamada:
@@ -12,7 +13,12 @@ import { getUserContext } from '@/lib/authz';
 
 export type GestorKpi = {
   liderados: { total: number; em_trilha: number; sem_trilha: number };
-  em_andamento: { count: number; semana_media: number | null };
+  /**
+   * ⚠️ `semana_media` SAIU (13/08/2026, mig 210). A média entre alguém na
+   * semana 1 e alguém na semana 5 é 3 — que não descreve NINGUÉM, e num tenant
+   * com duas safras é a regra, não a exceção. Distribuição no lugar.
+   */
+  em_andamento: { count: number; distribuicao_semanas: Array<{ semana: number; pessoas: number }> };
   checkpoints: { pendentes: number; respondidos: number };
   atividade_semana: { ativos: number; total: number };
 };
@@ -44,6 +50,9 @@ export type EquipeRow = {
   delta: number | null; // só quando concluida
   perfilDominante: string | null;
   fontePerfilExterno: string | null;
+  /** Turma da participação ativa (mig 210). O gestor pensa em pessoas, então a
+   *  visão segue consolidada — a turma é COLUNA, não filtro obrigatório. */
+  turma: string | null;
 };
 
 export type PerfilColab = {
@@ -180,7 +189,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       // Fail-closed: tutor sem tutorados não vê ninguém.
       return {
         ok: true, scope: 'tutor',
-        kpis: { liderados: { total: 0, em_trilha: 0, sem_trilha: 0 }, em_andamento: { count: 0, semana_media: null }, checkpoints: { pendentes: 0, respondidos: 0 }, atividade_semana: { ativos: 0, total: 0 } },
+        kpis: { liderados: { total: 0, em_trilha: 0, sem_trilha: 0 }, em_andamento: { count: 0, distribuicao_semanas: [] }, checkpoints: { pendentes: 0, respondidos: 0 }, atividade_semana: { ativos: 0, total: 0 } },
         alertas: [], checkpointsPendentes: [],
       };
     }
@@ -203,7 +212,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       scope: isTutor ? 'tutor' : (isGestor ? 'gestor' : 'rh'),
       kpis: {
         liderados: { total: 0, em_trilha: 0, sem_trilha: 0 },
-        em_andamento: { count: 0, semana_media: null },
+        em_andamento: { count: 0, distribuicao_semanas: [] },
         checkpoints: { pendentes: 0, respondidos: 0 },
         atividade_semana: { ativos: 0, total: 0 },
       },
@@ -232,15 +241,18 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     }
   }
 
-  // Semana média (proxy: dias desde data_inicio dividido por 7, capado em 14)
-  const semanas: number[] = [];
+  // DISTRIBUIÇÃO por semana (mig 210) — não média. Ver o comentário no tipo.
+  const porSemana = new Map<number, number>();
   for (const t of ativas) {
     if (!t.data_inicio) continue;
     const inicio = new Date(t.data_inicio).getTime();
     const dias = Math.max(1, Math.floor((Date.now() - inicio) / (24 * 3600 * 1000)));
-    semanas.push(Math.min(14, Math.ceil(dias / 7)));
+    const semana = Math.min(14, Math.ceil(dias / 7));
+    porSemana.set(semana, (porSemana.get(semana) || 0) + 1);
   }
-  const semanaMedia = semanas.length ? Math.round((semanas.reduce((a, b) => a + b, 0) / semanas.length) * 10) / 10 : null;
+  const distribuicaoSemanas = [...porSemana.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([semana, pessoas]) => ({ semana, pessoas }));
 
   // ── 3. Checkpoints (pendentes + respondidos) ──
   const { data: cps } = await sb.from('checkpoints_gestor')
@@ -348,6 +360,27 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     if (!colabsTodasTrilhas.has(t.colaborador_id)) colabsTodasTrilhas.set(t.colaborador_id, []);
     colabsTodasTrilhas.get(t.colaborador_id)!.push(t);
   }
+  // Turma de cada liderado (mig 210). Duas queries pequenas: o gestor pode ter
+  // gente em safras diferentes, e sem a coluna a lista mistura sem avisar.
+  const turmaPorColab = new Map<string, string>();
+  {
+    const { data: membros } = await sb.from('turma_membros')
+      .select('colaborador_id, turma_id')
+      .eq('empresa_id', empresaId)
+      .eq('status', TURMA_MEMBRO.ATIVO)
+      .in('colaborador_id', liderIds);
+    const turmaIds = [...new Set((membros || []).map((m: any) => m.turma_id))];
+    if (turmaIds.length) {
+      const { data: turmas } = await sb.from('turmas')
+        .select('id, nome').eq('empresa_id', empresaId).in('id', turmaIds);
+      const nomeDe = new Map<string, string>((turmas || []).map((t: any) => [t.id, t.nome]));
+      for (const m of membros || []) {
+        const nome = nomeDe.get(m.turma_id);
+        if (nome) turmaPorColab.set(m.colaborador_id, nome);
+      }
+    }
+  }
+
   const equipe: EquipeRow[] = liderados.map((c: any) => {
     const t = trilhaPorColab.get(c.id);
     let semana: number | null = null;
@@ -378,6 +411,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       delta,
       perfilDominante: c.perfil_dominante || null,
       fontePerfilExterno: c.perfil_externo_fonte || null,
+      turma: turmaPorColab.get(c.id) || null,
     };
   });
 
@@ -470,7 +504,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
         em_trilha: ativasIds.length,
         sem_trilha: liderados.length - ativasIds.length,
       },
-      em_andamento: { count: ativasIds.length, semana_media: semanaMedia },
+      em_andamento: { count: ativasIds.length, distribuicao_semanas: distribuicaoSemanas },
       checkpoints: { pendentes: cpPendentes.length, respondidos: cpRespondidos },
       atividade_semana: { ativos: ativosSet.size, total: liderados.length },
     },

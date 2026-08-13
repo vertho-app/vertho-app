@@ -3921,14 +3921,14 @@
       "led": "Direct reports",
       "inTrack": "{count} in track · {without} without track",
       "inProgress": "In progress",
-      "averageWeek": "average week {week} of 14",
       "noActiveTrack": "no active track",
       "checkpoints": "Checkpoints",
       "answered": "{count} already answered",
       "pending": "pending",
       "weeklyActivity": "Weekly activity",
       "activeLastDays": "of {total} active in the last 7 days",
-      "ofTotal": "of {total}"
+      "ofTotal": "of {total}",
+      "weekCount": "{count} in week {week}"
     },
     "pendingCount": "{count} pending",
     "emptyAction": "Nothing pending right now. When direct reports reach weeks 5 and 10 of their tracks, checkpoints will appear here for evaluation.",

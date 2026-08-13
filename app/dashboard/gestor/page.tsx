@@ -122,8 +122,10 @@ export default function GestorHomePage() {
           icon={TrendingUp}
           label={t('kpis.inProgress')}
           valor={k.em_andamento.count}
-          subtitulo={k.em_andamento.semana_media != null
-            ? t('kpis.averageWeek', { week: k.em_andamento.semana_media })
+          subtitulo={k.em_andamento.distribuicao_semanas.length > 0
+            ? k.em_andamento.distribuicao_semanas
+                .map((d) => t('kpis.weekCount', { count: d.pessoas, week: d.semana }))
+                .join(' · ')
             : t('kpis.noActiveTrack')}
         />
         <KpiCard
@@ -386,6 +388,10 @@ function EquipeSection({ equipe }: { equipe: any[] }) {
               <div className="text-[13px] text-white font-bold truncate">{e.colab}</div>
               <div className="text-[10px] text-white/45 truncate">
                 {e.cargo || '—'}
+                {/* Turma como COLUNA, não filtro: o gestor pensa em pessoas, e
+                    liderados de safras diferentes convivem na mesma lista. Sem
+                    isto, duas jornadas distintas parecem uma só. */}
+                {e.turma && <> · <span className="text-white/60">{e.turma}</span></>}
                 {e.competenciaFoco && <> · <span className="text-brand-300/70">{e.competenciaFoco}</span></>}
               </div>
             </div>

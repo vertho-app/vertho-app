@@ -3921,14 +3921,14 @@
       "led": "Liderados",
       "inTrack": "{count} em trilha · {without} sem trilha",
       "inProgress": "Em andamento",
-      "averageWeek": "semana média {week} de 14",
       "noActiveTrack": "sem trilha ativa",
       "checkpoints": "Checkpoints",
       "answered": "{count} já respondido{plural}",
       "pending": "pendentes",
       "weeklyActivity": "Atividade na semana",
       "activeLastDays": "de {total} ativos nos últ. 7 dias",
-      "ofTotal": "de {total}"
+      "ofTotal": "de {total}",
+      "weekCount": "{count} na semana {week}"
     },
     "pendingCount": "{count} pendente{plural}",
     "emptyAction": "Nada pendente neste momento. Quando os liderados chegarem nas semanas 5 e 10 das trilhas, checkpoints aparecerão aqui pra avaliação.",
