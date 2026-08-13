@@ -66,6 +66,8 @@ beforeEach(() => {
   process.env.TWILIO_ACCOUNT_SID = 'AC' + '0'.repeat(32);
   process.env.TWILIO_AUTH_TOKEN = 'token-de-teste';
   process.env.TWILIO_SMS_FROM = '+15550001111';
+  delete process.env.TWILIO_API_KEY_SID;
+  delete process.env.TWILIO_API_KEY_SECRET;
   process.env.SMS_MAX_DIA = '200';
 });
 
@@ -169,6 +171,50 @@ describe('teto diário de custo', () => {
 
     expect(r.ok).toBe(false);
     expect(r.bloqueadoPorTeto).toBe(true);
+    expect(fetchProibido).not.toHaveBeenCalled();
+  });
+});
+
+describe('esquemas de credencial', () => {
+  it('API Key (SK) autentica, mas a URL continua usando o ACCOUNT SID', async () => {
+    // O erro clássico é mandar o SK na URL: devolve 404 num endpoint que existe.
+    process.env.TWILIO_API_KEY_SID = 'SK' + 'b'.repeat(32);
+    process.env.TWILIO_API_KEY_SECRET = 'segredo-da-api-key';
+    delete process.env.TWILIO_AUTH_TOKEN;
+
+    const fetchOk = vi.fn(async (_url: string, _init: RequestInit) =>
+      respostaTwilio({ sid: 'SM200', error_code: null }),
+    );
+    vi.stubGlobal('fetch', fetchOk);
+
+    const { sendSms } = await carregarSms();
+    const r = await sendSms({ phone: '+5511999998888', text: 'oi' }, { motivo: 'otp' });
+    expect(r.ok).toBe(true);
+
+    const url = String(fetchOk.mock.calls[0]![0]);
+    expect(url).toContain('/Accounts/AC00000000000000000000000000000000/');
+    expect(url).not.toContain('SK');
+
+    // ...e a API Key é quem assina.
+    const auth = String((fetchOk.mock.calls[0]![1].headers as Record<string, string>).Authorization);
+    const decodificado = Buffer.from(auth.replace('Basic ', ''), 'base64').toString();
+    expect(decodificado.startsWith('SK')).toBe(true);
+    expect(decodificado.endsWith(':segredo-da-api-key')).toBe(true);
+  });
+
+  it('API Key SEM o Account SID não é "configurado" — e diz o que falta', async () => {
+    // Estado real de quem acabou de criar a API Key no painel: tem SK e secret,
+    // ainda não copiou o AC. Sem mensagem acionável isso vira 404 misterioso.
+    delete process.env.TWILIO_ACCOUNT_SID;
+    delete process.env.TWILIO_AUTH_TOKEN;
+    process.env.TWILIO_API_KEY_SID = 'SK' + 'b'.repeat(32);
+    process.env.TWILIO_API_KEY_SECRET = 'segredo';
+
+    const { smsDisponivel } = await carregarSms();
+    const { pendenciasDeConfig } = await import('@/lib/sms/providers/twilio');
+
+    expect(smsDisponivel()).toBe(false);
+    expect(pendenciasDeConfig().join(' ')).toContain('TWILIO_ACCOUNT_SID');
     expect(fetchProibido).not.toHaveBeenCalled();
   });
 });

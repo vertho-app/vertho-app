@@ -46,6 +46,14 @@ yarn-error.log*
 
 # env files
 .env*.local
+# ...e qualquer SUFIXO depois de `.local`. O padrão acima casa `.env.local`, mas
+# não `.env.local.bak`, `.env.local.old`, `.env.local.2026-08-13` — e um backup
+# de env é um arquivo de segredos com outro nome. Pego em 13/08/2026 ao copiar
+# `.env.local` antes de renomear chaves: o git listou o backup como untracked
+# num repositório PÚBLICO. Custo de errar aqui é assimétrico; o padrão é largo
+# de propósito.
+.env.local*
+.env*.local.*
 
 # vercel
 .vercel

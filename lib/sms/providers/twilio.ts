@@ -1,7 +1,7 @@
 // Adapter Twilio Programmable Messaging (SMS).
 //
-// REST: POST {BASE}/2010-04-01/Accounts/{SID}/Messages.json
-//   auth:  Basic base64(SID:AUTH_TOKEN)
+// REST: POST {BASE}/2010-04-01/Accounts/{ACCOUNT_SID}/Messages.json
+//   auth:  Basic base64(usuario:senha) — ver `credencial()` abaixo
 //   corpo: application/x-www-form-urlencoded — To, Body e (From | MessagingServiceSid)
 //   200/201 → { sid, status: "queued", error_code, error_message, ... }
 //   4xx/5xx → { code, message, more_info, status }
@@ -14,10 +14,32 @@
 import type { SmsMessage, SmsProvider, SmsSendOutcome } from '../types';
 
 const BASE = (process.env.TWILIO_BASE_URL || 'https://api.twilio.com').replace(/\/+$/, '');
-const sid = () => process.env.TWILIO_ACCOUNT_SID || '';
-const token = () => process.env.TWILIO_AUTH_TOKEN || '';
+/** Conta que DONA do recurso — vai sempre na URL, mesmo autenticando por API Key. */
+const accountSid = () => process.env.TWILIO_ACCOUNT_SID || '';
+const authToken = () => process.env.TWILIO_AUTH_TOKEN || '';
+const apiKeySid = () => process.env.TWILIO_API_KEY_SID || '';
+const apiKeySecret = () => process.env.TWILIO_API_KEY_SECRET || '';
 /** Remetente: número comprado (+55...) OU Messaging Service (MG...). */
 const from = () => process.env.TWILIO_SMS_FROM || '';
+
+/**
+ * Par (usuário, senha) do Basic auth. A Twilio aceita DOIS esquemas:
+ *
+ *   1. **API Key** — `SK…` + secret. Preferido: é revogável sozinha, tem escopo
+ *      e não é a credencial-mestra da conta. Tem precedência aqui.
+ *   2. **Account SID + Auth Token** — a credencial-mestra. Vazou, vazou tudo.
+ *
+ * 🔴 A ARMADILHA da API Key, e a razão de esta função existir separada da URL:
+ * o `SK…` autentica, mas **NÃO** é o dono do recurso. A URL continua exigindo o
+ * `AC…` da conta. Trocar um pelo outro devolve 404 num endpoint que existe — um
+ * erro que se lê como "recurso não encontrado" quando na verdade é credencial
+ * montada errada, e que custa uma tarde para quem nunca viu.
+ */
+function credencial(): { user: string; pass: string } | null {
+  if (apiKeySid() && apiKeySecret()) return { user: apiKeySid(), pass: apiKeySecret() };
+  if (accountSid() && authToken()) return { user: accountSid(), pass: authToken() };
+  return null;
+}
 
 /**
  * A Twilio aceita o remetente em dois campos MUTUAMENTE exclusivos, e mandar o
@@ -33,14 +55,30 @@ function campoRemetente(valor: string): 'MessagingServiceSid' | 'From' {
 /** E.164 com '+' — a Twilio recusa número sem o prefixo internacional. */
 const paraE164 = (phone: string) => '+' + phone.replace(/\D/g, '');
 
+/**
+ * O que ainda falta para o canal ficar de pé, em português, para aparecer no
+ * log em vez de um 401 cru. Uma credencial pela metade é o estado NORMAL de quem
+ * está configurando — e "não configurado" sem dizer o que falta é a diferença
+ * entre cinco minutos e uma tarde.
+ */
+export function pendenciasDeConfig(): string[] {
+  const faltando: string[] = [];
+  if (!accountSid()) faltando.push('TWILIO_ACCOUNT_SID (o AC… da conta, mesmo usando API Key)');
+  if (!credencial()) faltando.push('TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET (ou TWILIO_AUTH_TOKEN)');
+  if (!from()) faltando.push('TWILIO_SMS_FROM (número +55… comprado ou Messaging Service MG…)');
+  return faltando;
+}
+
 export const twilioProvider: SmsProvider = {
   id: 'twilio',
   label: 'Twilio SMS',
-  configured: () => Boolean(sid() && token() && from()),
+  configured: () => pendenciasDeConfig().length === 0,
 
   async send(msg: SmsMessage): Promise<SmsSendOutcome> {
-    if (!this.configured()) return { ok: false, reason: 'Twilio não configurado' };
+    const pendencias = pendenciasDeConfig();
+    if (pendencias.length) return { ok: false, reason: `Twilio incompleto — falta: ${pendencias.join('; ')}` };
 
+    const cred = credencial()!;
     const corpo = new URLSearchParams({
       To: paraE164(msg.phone),
       Body: msg.text,
@@ -48,11 +86,12 @@ export const twilioProvider: SmsProvider = {
     });
 
     try {
-      const res = await fetch(`${BASE}/2010-04-01/Accounts/${sid()}/Messages.json`, {
+      // Sempre o ACCOUNT SID na URL — ver a nota em `credencial()`.
+      const res = await fetch(`${BASE}/2010-04-01/Accounts/${accountSid()}/Messages.json`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          Authorization: 'Basic ' + Buffer.from(`${sid()}:${token()}`).toString('base64'),
+          Authorization: 'Basic ' + Buffer.from(`${cred.user}:${cred.pass}`).toString('base64'),
         },
         body: corpo.toString(),
         cache: 'no-store',
