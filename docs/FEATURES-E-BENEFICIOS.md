@@ -230,7 +230,7 @@ Lógica em 4 momentos: **Pulso T0 → Sinais da Jornada → Pulso T2 → Triangu
 | **PDF Executivo** | Capa Vertho + KPIs + dimensões + sinais + temas + triangulação + recomendações | Apresentação pronta para liderança/board. |
 | **PDF Complementar NR-1** | Versão com disclaimer obrigatório + mapeamento conceitual das 6 dimensões em linguagem organizacional | Insumo qualitativo complementar a profissionais técnicos — sem substituí-los. |
 | **Audit log de acessos** | `pulse_audit_logs` registra cada view de dashboard, export de PDF, envio de convite, bloqueio por n<7 | LGPD by design — quem viu o quê e quando, rastreável. |
-| **Stage por empresa** | `sys_config.pulse_stage`: experimental / calibrating / production. Em calibrating, admin Vertho revisa antes de exibir | Permite pilotar com cuidado sem expor cliente a leituras imaturas. |
+| **Módulo contratado** | `sys_config.modulos.pulso`: fail-closed — sem contrato não se cria ciclo nem assignment, e convite não sai | O módulo é vendido à parte; sem a régua, um rascunho vira entrega real na tela de quem não comprou (aconteceu: 40 pessoas, 3 meses). ⚠️ `pulse_stage` foi **especificado e nunca implementado** — ver `docs/ARQUITETURA.md` §18.8. |
 
 ### 6.3 Mensagens-chave do Pulso (síntese pra copy)
 

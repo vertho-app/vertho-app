@@ -1546,14 +1546,38 @@ Registrado em `lib/ai-tasks.ts` como `pulse_classify` (default Sonnet 4.6) e `pu
 
 UI: `/admin/empresas/[id]/pulso/[cicloId]/enviar` com toggle T0/T2, canal (WA/email/ambos), textarea com placeholders `{{nome}}`, `{{empresa}}`, `{{link_pulso}}`.
 
-### 18.8 Stage do módulo
+### 18.8 Contratação do módulo
 
-Flag `empresas.sys_config.pulse_stage`: `experimental` | `calibrating` | `production`. Por empresa (não global) — alinhado aos pilotos.
+> ⚠️ **Correção (13/08/2026).** Esta seção descrevia uma flag
+> `empresas.sys_config.pulse_stage` (`experimental` | `calibrating` |
+> `production`) com comportamento de revisão em `calibrating`. **Ela nunca foi
+> implementada** — a mig 096 a menciona como "fica em `sys_config`, não precisa
+> de DDL" e o código tem **zero ocorrências**. O que existia de fato: qualquer
+> admin criava ciclo para qualquer empresa, e o colaborador via a etapa pela
+> simples existência de um `pulse_assignment`. Custo medido: um ciclo rascunho de
+> Macaé (14/05, nunca executado) serviu card "Pulso T0" na home de **40
+> diretores por 3 meses**.
 
-Em `calibrating`:
-- Admin Vertho vê texto aberto bruto (debug).
-- Triangulação pode ser revisada antes de exibir a RH.
-- Coleta feedback do RH/gestor pra ajustar taxonomia e thresholds.
+O que existe hoje é o **gate de módulo contratado** (mig 210,
+`lib/access-gates/modulos.ts`):
+
+```
+empresas.sys_config.modulos.pulso: true
+```
+
+Fail-closed — ausência significa NÃO contratado. Aplicado onde o Pulso **cria
+estado** (`criarCiclo`, `dispararPulso`) e onde vira **comunicação real**
+(`enviarConvitesPulso`). Leitura (listar ciclos, status) segue liberada:
+esconder o que já existe não protege ninguém e atrapalha auditar quem foi
+afetado.
+
+**Disponível ≠ instanciado.** Este gate responde só à primeira pergunta —
+_a empresa contratou_. Qual safra usa o módulo é a **etapa da turma**
+(`docs/TURMAS.md` §2): a Secretaria pode contratar Pulso e aplicá-lo só na turma
+de diretores.
+
+⚠️ O módulo **nunca rodou em produção** (`pulse_responses` = 0 em 13/08/2026):
+rodar um ciclo inteiro em tenant de demo antes de ligar em cliente pagante.
 
 Em `production`:
 - Apenas temas agregados são exibidos.
