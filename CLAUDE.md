@@ -154,6 +154,14 @@ tests/unit/          vitest
 
 - `npm run build` (+ `tsc --noEmit`) **antes** — nunca empurrar quebrado.
 - **`git add` SELETIVO** dos arquivos que EU editei — **NUNCA `git add -A`/`.`** (o dono edita o repo em paralelo).
+- **`git commit` SEMPRE com PATHSPEC explícito**: `git commit -F msg.txt -- caminho/a.ts caminho/b.ts`.
+  Sem pathspec o commit leva o **index inteiro**, e o index não é só seu: o dono trabalha no mesmo
+  repo ao mesmo tempo. Medido 2× (11/08 e 13/08). Em 13/08 foi ao contrário — um commit do dono
+  ("fix(turmas)") carregou `lib/check-ia4-core.ts`, que estava em stage esperando a suíte, e o meu
+  commit seguinte pegou só 1 arquivo. Nada se perde, mas a mensagem passa a descrever o que não
+  carrega, e o histórico deixa de servir para achar quando algo entrou. Conferir `git status` antes
+  **não** defende: a janela entre o `add` e o `commit` é exatamente onde o outro lado escreve — e ela
+  é grande de propósito, porque os guards de CI só enxergam o que está **staged** (`git ls-files`).
 - `git -C "<repo>" ...` — nunca `cd ... && git` (dispara approval).
 - **`git push origin master`** deploya a Vercel. **NUNCA** `vercel --prod` (duplica).
 - ⚠️ **O push pode NÃO gerar build — sem erro e sem aviso** (medido 06/08: commit chegou ao GitHub,

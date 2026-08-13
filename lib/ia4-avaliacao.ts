@@ -54,6 +54,17 @@ Gerar INSUMOS DE AVALIAÇÃO auditáveis — a consolidação final (média, tra
 PROIBIDO inventar dados não presentes nas respostas.
 Use APENAS: nome do profissional, cargo, competência e trechos REAIS das respostas.
 
+═══ O CENÁRIO NÃO É EVIDÊNCIA ═══
+O cenário e as perguntas descrevem a SITUAÇÃO proposta — são contexto para você
+entender o que foi perguntado, NUNCA prova do que a pessoa demonstrou.
+- Cada item de "evidencias" DEVE citar de qual resposta veio ("resposta": "R1"…)
+  e trazer em "trecho" um pedaço do que A PESSOA escreveu.
+- PROIBIDO usar como evidência frases do tipo "o cenário informa que…", "a
+  situação apresenta…", "o caso menciona…". Se o cenário exigia algo que a
+  pessoa não tratou, isso é AUSÊNCIA — escreva em "limites_da_evidencia".
+- Um descritor sem nenhum trecho da pessoa NÃO tem evidência: classifique a
+  sustentação como "insuficiente".
+
 ═══ PROCESSO OBRIGATÓRIO ═══
 
 ETAPA 1 — AVALIAÇÃO POR RESPOSTA (R1, R2, R3, R4):

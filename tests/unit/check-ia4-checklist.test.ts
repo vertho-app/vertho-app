@@ -54,8 +54,8 @@ describe('processCheckResult — nota derivada do checklist', () => {
   it('o item FATAL segura SOZINHO — alucinação não passa em hipótese nenhuma', () => {
     const fatal = CHECK_ITENS.find((i) => i.fatal)!;
     const { status, check } = processCheckResult({ verificacoes: comFalhas([fatal.id]) });
-    expect(check.nota).toBe(90);      // perde só o peso do item
-    expect(status).toBe('revisar');   // e mesmo assim não passa
+    expect(check.nota).toBe(100 - fatal.peso); // perde só o peso do item...
+    expect(status).toBe('revisar');            // ...mas não passa
     expect(check.erro_grave).toBe(true);
   });
 

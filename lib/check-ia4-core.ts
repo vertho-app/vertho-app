@@ -53,8 +53,14 @@ export type CheckItem = {
  * responde esses itens e a IA fica só com o que exige LEITURA.
  */
 export const CHECK_ITENS: readonly CheckItem[] = [
-  { id: 'A1', peso: 10, critico: true,  eixo: 'ancoragem_evidencia',    texto: 'Todo descritor com nível N3 ou N4 tem trecho literal (ou paráfrase fiel) da resposta como evidência.' },
-  { id: 'A2', peso: 10, critico: true, fatal: true, eixo: 'ancoragem_evidencia', texto: 'Toda evidência citada existe de fato nas respostas R1–R4 — nada foi inventado ou inferido.' },
+  // A3 é verificável sem ler nada: ou a evidência declara de qual resposta veio,
+  // ou não declara. Foi assim que o caso real de 12/08 entrou — a avaliação
+  // listou "O cenário informa que o Conselho existe formalmente…" como evidência
+  // do descritor, uma string solta, sem R1–R4. O auditor pegou (A2), mas por
+  // julgamento; aqui o código pega sempre, e de graça.
+  { fonte: 'codigo' as const, id: 'A3', peso: 6, critico: true, eixo: 'ancoragem_evidencia', texto: 'Toda evidência declara de qual resposta (R1–R4) veio — nenhuma cita o cenário como se fosse prova.' },
+  { id: 'A1', peso: 8,  critico: true,  eixo: 'ancoragem_evidencia',    texto: 'Todo descritor com nível N3 ou N4 tem trecho literal (ou paráfrase fiel) da resposta como evidência.' },
+  { id: 'A2', peso: 6, critico: true, fatal: true, eixo: 'ancoragem_evidencia', texto: 'Toda evidência citada existe de fato nas respostas R1–R4 — nada foi inventado ou inferido.' },
   { fonte: 'codigo' as const, id: 'B1', peso: 10, critico: false, eixo: 'coerencia_nivel_nota',   texto: 'O nível de cada descritor corresponde à nota decimal pela régua (N1 1,00–1,99 · N2 2,00–2,99 · N3 3,00–3,50 · N4 acima de 3,50).' },
   { fonte: 'codigo' as const, id: 'B2', peso: 10, critico: true,  eixo: 'coerencia_nivel_nota',   texto: 'O MESMO descritor aparece com o MESMO nível em todas as seções (consolidação, avaliação por descritor, destaques, PDI e no texto).' },
   { fonte: 'codigo' as const, id: 'C1', peso: 8,  critico: false, eixo: 'coerencia_consolidacao', texto: 'A média informada confere com as notas por descritor.' },
@@ -246,6 +252,22 @@ export function verificarEmCodigo(avaliacao: any): Record<string, { ok: boolean;
   }
   out.B2 = divergentes.length
     ? { ok: false, obs: `níveis divergentes entre seções: ${[...new Set(divergentes)].join(', ')}` }
+    : { ok: true };
+
+  // A3 — toda evidência declara de qual resposta veio. Aceita tanto o formato
+  // estruturado ({resposta:'R1', trecho}) quanto o textual ("R2: '...'"), que é
+  // o que o modelo produz na prática. Item solto, sem R1–R4, reprova.
+  const soltas: string[] = [];
+  for (const d of avaliacao?.avaliacao_por_descritor || []) {
+    for (const e of d?.evidencias || []) {
+      const marcada = typeof e === 'object'
+        ? /^R[1-4]$/i.test(String(e?.resposta || '').trim())
+        : /^\s*R\s*[1-4]\b/i.test(String(e || ''));
+      if (!marcada) soltas.push(`${d?.nome || d?.numero}: "${String(typeof e === 'object' ? e?.trecho : e).slice(0, 60)}…"`);
+    }
+  }
+  out.A3 = soltas.length
+    ? { ok: false, obs: `${soltas.length} evidência(s) sem origem em R1–R4 (cenário citado como prova?): ${soltas.slice(0, 2).join(' | ')}` }
     : { ok: true };
 
   // C1 — a média informada confere com as notas.

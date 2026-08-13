@@ -21,9 +21,9 @@ const avaliacaoOk = {
 const clonar = (o: any) => JSON.parse(JSON.stringify(o));
 
 describe('verificarEmCodigo', () => {
-  it('avaliação coerente passa nos quatro itens', () => {
+  it('avaliação coerente passa em todos os itens verificados por código', () => {
     const v = verificarEmCodigo(avaliacaoOk);
-    expect(Object.keys(v).sort()).toEqual(['B1', 'B2', 'C1', 'C2']);
+    expect(Object.keys(v).sort()).toEqual(['A3', 'B1', 'B2', 'C1', 'C2']);
     expect(Object.values(v).every((x) => x.ok)).toBe(true);
   });
 
