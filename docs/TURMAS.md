@@ -7,8 +7,10 @@
 > turma e ordem de rollout estavam **errados** na v1.
 > **v3** corrige a hierarquia de §0 — o Pulso é **módulo opcional** e, quando
 > contratado, é **etapa de uma turma**; logo a turma não pode ser o
-> `pulse_ciclos`, e o ciclo vira filho. Marcações `[v2]` / `[v3]` apontam o que
-> mudou em cada rodada.
+> `pulse_ciclos`, e o ciclo vira filho.
+> **v4** fecha duas decisões (contratação em `sys_config`; nenhum cliente tem
+> Pulso — o ciclo existente é rascunho, §0.1). Marcações `[v2]`…`[v4]` apontam o
+> que mudou em cada rodada.
 
 ## O problema em uma frase
 
@@ -72,6 +74,31 @@ Fica, no lugar, uma regra de desenho que os dados sustentam: **os participantes
 de uma etapa são um subconjunto dos membros da turma**, nunca uma lista paralela.
 `pulse_assignments` continua existindo, validado contra `turma_membros`.
 
+### `[v4]` §0.1 O ciclo que existe é rascunho — o Pulso nunca rodou
+
+Confirmado com o Rodrigo (12/08): **não há Pulso contratado em nenhum cliente.**
+Os números batem:
+
+```
+pulse_responses          0
+assignments não-pending  0    (os 40 seguem 'pending' desde 14/05 — 3 meses)
+pulse_mv_aggregates      0
+```
+
+O ciclo "Piloto Macaé" é um **rascunho de 14/05 abandonado**, não uma edição
+real. Consequências:
+
+- **O backfill não converte o ciclo em etapa** — arquiva. `pulse_ciclos.turma_id`
+  nasce sem nada para preencher, o que torna a mudança trivial.
+- O esticamento do enum (§0) fica **ainda mais claro**: `em_jornada` foi marcado
+  para refletir que a *turma* andou, com o Pulso parado desde o primeiro dia.
+- ⚠️ **O módulo inteiro é código que nunca foi exercitado com dado real** — 51
+  referências em 22 arquivos, MV de agregados, dual-AI, triangulação, piso de
+  anonimato: tudo escrito, nada rodado. Quando for vendido, a primeira execução
+  real será num cliente pagante. Mesma classe já registrada no health-check ("os
+  4 modos nasceram sem nunca rodar"): rodar uma vez em tenant de demo antes de
+  ligar em cliente.
+
 ### `[v3]` Contratação: não existe lugar para registrar
 
 Achado ao verificar: **não há registro de módulo contratado**. `pulse_stage`
@@ -84,12 +111,16 @@ empresa.
 
 Duas coisas diferentes precisam de lugar, e a distinção importa comercialmente:
 
-- **Disponível** (a empresa contratou o módulo) → nível empresa;
+- **Disponível** (a empresa contratou o módulo) → `[v4]` `empresas.sys_config.modulos`;
 - **Instanciado** (esta safra vai usar) → etapa da turma.
 
 A Secretaria pode contratar Pulso e aplicá-lo só na turma de diretores. Sem essa
 separação, "contratou" e "está rodando" viram a mesma flag — e aí não há como
 vender o módulo para a próxima turma sem religar a anterior.
+
+`[v4]` **O gate de módulo é o pedágio que falta hoje**: sem ele, criar ciclo e
+gerar assignment não têm régua nenhuma — foi assim que 40 pessoas ficaram com uma
+etapa pendente de um módulo que ninguém contratou.
 
 ---
 
@@ -393,8 +424,8 @@ Entrega única, atrás de feature flag só para Macaé:
 1. `turmas` + `turma_membros` + FKs compostas (**migration 210** — 200 a 209 já
    existem; conferir `ls migrations/` no instante de criar);
 2. backfill de uma turma legada por empresa (Ibipeba: 36 trilhas, nada muda);
-3. `[v3]` `pulse_ciclos.turma_id` + desesticar o enum (`em_jornada` sai do ciclo
-   e vira estado da turma) — 1 ciclo vivo, 40 assignments;
+3. `[v4]` desesticar o enum (`em_jornada` sai do ciclo e vira estado da turma) e
+   **arquivar o rascunho de 14/05** — nada a converter (§0.1);
 4. criação explícita de "Diretores escolares — 2026.2" e "Professores — 2026.2";
 5. resolvedor tipado empresa → turma → pessoa, com guard;
 6. dashboard por turma;
@@ -449,12 +480,12 @@ turma depois.
 
 1. ~~`turmas` absorve `pulse_ciclos`?~~ **RESOLVIDO 12/08 (Rodrigo):** o Pulso é
    módulo opcional; quando contratado, é **etapa da turma**. O ciclo vira filho.
-2. `[v3]` **Onde registrar "contratado"** — `empresas.sys_config.modulos`
-   (barato, consistente) ou tabela `empresa_modulos` com vigência (auditável,
-   suporta "contratou em X, expira em Y"). Recomendo a tabela **se** houver um
-   segundo módulo opcional à vista; senão, `sys_config` e promover depois.
-3. `[v3]` **A contratação do Pulso em Macaé cobre as duas turmas ou só
-   diretores?** Muda o backfill do ciclo existente.
+2. ~~Onde registrar "contratado"~~ **RESOLVIDO 12/08 (Rodrigo):**
+   `empresas.sys_config.modulos` — sem tabela nova. Promover a `empresa_modulos`
+   só se surgir necessidade de vigência/histórico de contrato.
+3. ~~A contratação do Pulso em Macaé cobre as duas turmas?~~ **RESOLVIDO 12/08
+   (Rodrigo): não há Pulso contratado em lugar nenhum.** Ver §0.1 — o ciclo que
+   existe é rascunho. Backfill **não converte**: arquiva.
 4. Nome: **turma** (recomendado) ou coorte.
 5. Turmas de Macaé: "Diretores escolares — 2026.2" / "Professores — 2026.2"?
 6. Gestor: visão consolidada com coluna de turma (recomendado) ou uma por vez.
