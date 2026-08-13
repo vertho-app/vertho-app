@@ -200,7 +200,12 @@ export async function persistBlueprintFromText(
  */
 export async function gerarBlueprintCore(
   sbRaw: ReturnType<typeof createSupabaseAdmin>,
-  { colaboradorId, aiConfig, empresaIdEsperado }: { colaboradorId: string; aiConfig?: AIConfig; empresaIdEsperado?: string },
+  { colaboradorId, aiConfig, empresaIdEsperado, dryRun }: {
+    colaboradorId: string; aiConfig?: AIConfig; empresaIdEsperado?: string;
+    /** Gera e devolve SEM persistir — para medir mudança de prompt/modelo sem
+     *  sobrescrever o blueprint de produção (mesmo padrão do núcleo da IA4). */
+    dryRun?: boolean;
+  },
 ): Promise<GerarBlueprintResult> {
   try {
     const req = await buildBlueprintReq(sbRaw, { colaboradorId, empresaIdEsperado });
@@ -208,6 +213,11 @@ export async function gerarBlueprintCore(
     const text = await callAI(req.system, req.user, aiConfig || {}, req.maxTokens, {
       taskKey: 'blueprint_gerar', empresaId: req.empresaId, colaboradorId,
     });
+    if (dryRun) {
+      const { extractJSON } = await import('@/actions/utils');
+      const bp = await extractJSON(text);
+      return bp ? ({ blueprint: bp } as GerarBlueprintResult) : { error: 'IA não retornou JSON válido' };
+    }
     return await persistBlueprintFromText(req.empresaId, colaboradorId, req.competenciasFoco, text);
   } catch (err: any) {
     return { error: err.message };
