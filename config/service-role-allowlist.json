@@ -181,6 +181,7 @@
     "scripts/_conarh-relatorios-gestao.ts": 1,
     "scripts/_conarh-relatorios-org.ts": 1,
     "scripts/_conarh-seed-avaliacoes-demo.ts": 1,
-    "scripts/_pdi-modelos.ts": 1
+    "scripts/_pdi-modelos.ts": 1,
+    "scripts/_check-sem4-conclusao.ts": 1
   }
 }
