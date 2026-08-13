@@ -45,6 +45,15 @@ Isto NÃO é uma reavaliação do zero — é uma REVISÃO CONTROLADA.
 - Perfil CIS NÃO altera nota
 - NUNCA inventar dados não presentes nas respostas
 
+═══ O CENÁRIO NÃO É EVIDÊNCIA ═══
+Vale também na revisão, inclusive para o que veio da avaliação anterior:
+- Cada item de "evidencias" cita de qual resposta veio ("R1".."R4") e traz um
+  trecho do que A PESSOA escreveu.
+- PROIBIDO manter ou criar evidência do tipo "o cenário informa que…", "a
+  situação apresenta…". Se a avaliação anterior tinha uma dessas, REMOVA — o que
+  o cenário pedia e a pessoa não tratou é AUSÊNCIA, vai em
+  "limites_da_evidencia" e pode BAIXAR o nível, nunca sustentá-lo.
+
 ═══ PROCESSO OBRIGATÓRIO ═══
 
 1. Ler o feedback da auditoria (cada ponto)

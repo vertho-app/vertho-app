@@ -156,6 +156,7 @@
     "scripts/_reprodutibilidade-ia4.ts": 1,
     "scripts/_ab-check-prompt.ts": 1,
     "scripts/_auditar-item-a2.ts": 1,
+    "scripts/_validar-evidencia-a3.ts": 1,
     "scripts/_render-podcast-kit.ts": 1,
     "scripts/_video-kit-mei-d.ts": 1,
     "scripts/_diag-orfaos-detalhe.ts": 1,
