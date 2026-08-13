@@ -133,6 +133,21 @@ describe('adapter Twilio', () => {
     expect(corpo).toContain('MessagingServiceSid=MG');
     expect(corpo).not.toContain('From=MG');
   });
+
+  it('normaliza o remetente para E.164 — env sem "+" era o caso real', async () => {
+    process.env.TWILIO_SMS_FROM = '551151980701'; // exatamente como foi salvo
+    const fetchOk = vi.fn(async (_url: string, _init: RequestInit) =>
+      respostaTwilio({ sid: 'SM300', error_code: null }),
+    );
+    vi.stubGlobal('fetch', fetchOk);
+
+    const { sendSms } = await carregarSms();
+    await sendSms({ phone: '+5511999998888', text: 'oi' }, { motivo: 'otp' });
+
+    // URLSearchParams codifica '+' como %2B.
+    const corpo = String(fetchOk.mock.calls[0]![1].body);
+    expect(corpo).toContain('From=%2B551151980701');
+  });
 });
 
 describe('teto diário de custo', () => {

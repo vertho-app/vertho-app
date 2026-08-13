@@ -56,6 +56,19 @@ function campoRemetente(valor: string): 'MessagingServiceSid' | 'From' {
 const paraE164 = (phone: string) => '+' + phone.replace(/\D/g, '');
 
 /**
+ * O remetente também precisa de E.164 quando é NÚMERO — mas não quando é um
+ * Messaging Service (`MG…`), que não é telefone e seria destruído por `paraE164`.
+ *
+ * Medido em 13/08/2026: a env foi preenchida como `551151980701`, sem o `+`.
+ * `To` já era normalizado e `From` não, então a primeira mensagem real bateria
+ * em 21212 ("Invalid From number") — um erro que aponta para o número e não
+ * para o código que esqueceu de normalizá-lo.
+ */
+function remetenteNormalizado(valor: string): string {
+  return campoRemetente(valor) === 'MessagingServiceSid' ? valor : paraE164(valor);
+}
+
+/**
  * O que ainda falta para o canal ficar de pé, em português, para aparecer no
  * log em vez de um 401 cru. Uma credencial pela metade é o estado NORMAL de quem
  * está configurando — e "não configurado" sem dizer o que falta é a diferença
@@ -82,7 +95,7 @@ export const twilioProvider: SmsProvider = {
     const corpo = new URLSearchParams({
       To: paraE164(msg.phone),
       Body: msg.text,
-      [campoRemetente(from())]: from(),
+      [campoRemetente(from())]: remetenteNormalizado(from()),
     });
 
     try {
