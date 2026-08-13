@@ -250,7 +250,7 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
 - **Sentry** (`mcp__sentry__*`) — erros de produção (stack trace, frequência, versão/deploy). OAuth (login no browser na 1ª chamada).
 - **stitch** (Google Stitch) — design.
 
-**Skills** (`.claude/skills/`, versionadas — invocar por `/nome` ou carregar quando o contexto casar): `deploy`, `migrations`, `multi-tenant`, `trigger-dev`, `ai-calls`, `video`, `competency-matrix`, `scenario-generation`.
+**Skills** (`.claude/skills/`, versionadas — invocar por `/nome` ou carregar quando o contexto casar): `deploy`, `migrations`, `multi-tenant`, `trigger-dev`, `ai-calls`, `video`, `competency-matrix`, `scenario-generation`, `vertho-design`, `fechar`, **`checklist`** (o que conferir nesta mudança — roteia pelos arquivos tocados, tabela em `checklist/gatilhos.md`) e **`conferir`** (a afirmação ainda bate com o código? — antes de declarar algo fechado/coberto/em produção).
 
 ## NÃO fazer
 - NÃO escrever JavaScript — é **TypeScript**.

@@ -92,6 +92,8 @@ Por que importa: uma fonte defasada é pior que fonte ausente — ela responde c
 
 Aprendizado que só vive em prosa volta a acontecer. Se dá pra escrever um teste, escreva em `tests/unit/` — e **valide por mutação**: quebre a invariante no código de produção e confirme que o teste correspondente falha. Teste que nunca falhou não prova nada.
 
+**Se não dá pra escrever teste** (a armadilha é de processo, não de código), acrescente um gatilho em `.claude/skills/checklist/gatilhos.md` — padrão que casa · o que conferir · a consequência medida + data. É o que faz a próxima mudança na mesma área encontrar a conferência sozinha, em vez de depender de alguém lembrar.
+
 ## 5. Deploy
 
 Siga a skill `deploy` (build-first, `git add` SELETIVO — nunca `-A`/`.` —, `git push origin master`, nunca `vercel --prod`, Trigger.dev não sobe no push).
