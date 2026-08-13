@@ -265,5 +265,8 @@ export async function arquivarTurma(input: z.infer<typeof ArquivarInput>) {
   return _arquivarTurma(input);
 }
 
-/** Turmas que ainda recebem operação — usado pelo fail-closed das ações em lote. */
-export const TURMAS_ENCERRADAS = TURMA_ENCERRADAS;
+// A constante NÃO pode ser reexportada daqui: este arquivo é `'use server'`, e
+// ali todo export tem de ser função async — um `export const` derruba o MÓDULO
+// INTEIRO em runtime ("A 'use server' file can only export async functions,
+// found object"), levando junto quem o importa. Quem precisa da lista importa
+// de `@/lib/status`, que é onde ela mora (e é o que todos os call-sites já fazem).
