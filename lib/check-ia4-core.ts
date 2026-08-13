@@ -18,88 +18,90 @@ import { extractJSON } from '@/actions/utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
 import { getModelForTask } from '@/lib/ai-tasks';
 
+/**
+ * Itens do CHECKLIST do auditor. A 2ª IA responde SIM/NÃO em cada um; a nota é
+ * somada EM CÓDIGO — o modelo nunca escreve um número.
+ *
+ * Por que assim (medido em 12/08/2026, test-retest de 5 respostas × 3 rodadas
+ * com entrada IDÊNTICA): pedindo nota livre, o auditor variava dp 8,0 com
+ * amplitude de até 28 pontos, e o VEREDITO mudava em 5 de 5. A variância não
+ * era difusa — era BIMODAL (`60 · 84 · 88`, `60 · 84 · 60`): o 60 é o teto que
+ * o antigo `erro_grave` forçava. Ou seja, UMA decisão binária do modelo movia
+ * um quarto da escala. Aqui a mesma discordância move o peso de UM item (7–10
+ * pontos) e não chaveia o veredito sozinha.
+ *
+ * `critico` não mexe na nota — mexe no VEREDITO: DOIS críticos reprovados
+ * seguram em `revisar` (um só é onde o julgamento oscila). `fatal` é a exceção
+ * que segura sozinha — alucinação não passa em nenhuma hipótese. Assim o rigor
+ * continua sem o penhasco de 25 pontos na nota.
+ */
+export type CheckItem = {
+  id: string; peso: number; critico: boolean; fatal?: boolean; eixo: string; texto: string;
+};
+
+export const CHECK_ITENS: readonly CheckItem[] = [
+  { id: 'A1', peso: 10, critico: true,  eixo: 'ancoragem_evidencia',    texto: 'Todo descritor com nível N3 ou N4 tem trecho literal (ou paráfrase fiel) da resposta como evidência.' },
+  { id: 'A2', peso: 10, critico: true, fatal: true, eixo: 'ancoragem_evidencia', texto: 'Toda evidência citada existe de fato nas respostas R1–R4 — nada foi inventado ou inferido.' },
+  { id: 'B1', peso: 10, critico: false, eixo: 'coerencia_nivel_nota',   texto: 'O nível de cada descritor corresponde à nota decimal pela régua (N1 1,00–1,99 · N2 2,00–2,99 · N3 3,00–3,50 · N4 acima de 3,50).' },
+  { id: 'B2', peso: 10, critico: true,  eixo: 'coerencia_nivel_nota',   texto: 'O MESMO descritor aparece com o MESMO nível em todas as seções (consolidação, avaliação por descritor, destaques, PDI e no texto).' },
+  { id: 'C1', peso: 8,  critico: false, eixo: 'coerencia_consolidacao', texto: 'A média informada confere com as notas por descritor.' },
+  { id: 'C2', peso: 7,  critico: false, eixo: 'coerencia_consolidacao', texto: 'As travas e o gap estão corretos (descritor N1 → máximo N2; mais de 3 descritores N1 → N1; evidência N3 → mínimo N2; gap = 3 − nível geral).' },
+  { id: 'D1', peso: 8,  critico: true,  eixo: 'especificidade_feedback',texto: 'O feedback cita algo específico DESTA pessoa — não serviria igual para qualquer outra.' },
+  { id: 'D2', peso: 7,  critico: false, eixo: 'especificidade_feedback',texto: 'O tom é construtivo e trata a pessoa pelo que ela demonstrou, sem julgamento moral.' },
+  { id: 'E1', peso: 8,  critico: false, eixo: 'qualidade_recomendacoes',texto: 'Cada gap prioritário vira uma ação praticável e observável no trabalho da pessoa.' },
+  { id: 'E2', peso: 7,  critico: false, eixo: 'qualidade_recomendacoes',texto: 'Não recomenda recursos externos (livros, cursos, podcasts, consultorias).' },
+  // F1 é o item que mais oscilava (medido 12/08: reprovado em 2 de 3 rodadas
+  // IDÊNTICAS, chaveando o veredito sozinho). A causa era o enunciado: toda
+  // avaliação INTERPRETA o que foi dito — sem um limiar, "inferir" vira moeda.
+  // Agora pergunta por AFIRMAÇÃO DE FATO não dito, e diz explicitamente o que
+  // NÃO conta como violação.
+  { id: 'F1', peso: 8,  critico: true,  eixo: 'prudencia_metodologica', texto: 'A avaliação NÃO afirma como fato algo que a pessoa não disse — atribuir intenção ("quis evitar o conflito"), causa ("porque teme a mãe") ou resultado ("isso desgastaria a equipe") que não está nas respostas. NÃO conta como violação: interpretar o que FOI dito, apontar o que faltou, ou classificar a resposta contra a régua.' },
+  { id: 'F2', peso: 7,  critico: false, eixo: 'prudencia_metodologica', texto: 'Na dúvida entre dois níveis, a avaliação ficou com o INFERIOR.' },
+] as const;
+
 const CHECK_SYSTEM = `Você é um auditor de qualidade de Assessment Comportamental da Vertho.
-Sua tarefa: verificar se a avaliação gerada por uma IA é DEFENSÁVEL como produto Vertho.
+Sua tarefa: verificar, item a item, se a avaliação gerada por outra IA é DEFENSÁVEL como produto Vertho.
 
 ═══ PRINCÍPIOS ═══
 
 - Evidência concreta vale mais que texto bonito
-- N3/N4 sem base concreta devem ser penalizados FORTEMENTE
+- N3/N4 sem base concreta NÃO se sustentam
 - Feedback genérico é erro metodológico
-- Recomendação sem base observável deve derrubar nota
+- Recomendação sem base observável não vale
 - O auditor PROTEGE rigor, prática e baixo viés
 
-═══ 6 CRITÉRIOS DE AUDITORIA (total 100 pontos) ═══
+═══ COMO RESPONDER ═══
 
-1. ANCORAGEM EM EVIDÊNCIA (20pts)
-   Cada nota por descritor está ancorada em evidência textual real?
-   N3+ sem trecho concreto = penalizar fortemente.
+Você NÃO dá nota. Você responde VERDADEIRO ou FALSO em cada verificação abaixo,
+e a nota é calculada em código a partir das suas respostas.
 
-2. COERÊNCIA NÍVEL × NOTA (20pts)
-   O nível geral é coerente com as notas por descritor?
-   A nota decimal reflete corretamente a média?
+Para cada item: \`ok: true\` se a avaliação CUMPRE o item; \`ok: false\` se NÃO cumpre.
+Quando \`ok: false\`, escreva em \`obs\` o motivo em uma frase, citando o ponto exato.
+Na dúvida sobre um item, responda \`ok: false\` e explique — o lado conservador é acusar.
 
-3. COERÊNCIA DA CONSOLIDAÇÃO (15pts)
-   Travas foram aplicadas corretamente?
-   (descritor N1 → max N2; >3 N1 → N1; floor da média)
-   GAP = 3 - nivel_geral correto?
-   Matemática correta?
+═══ VERIFICAÇÕES ═══
 
-4. ESPECIFICIDADE DO FEEDBACK (15pts)
-   O feedback menciona algo específico das respostas?
-   Tom construtivo e personalizado?
-   ERRO GRAVE: feedback 100% genérico que serviria para qualquer pessoa.
-
-5. QUALIDADE DAS RECOMENDAÇÕES (15pts)
-   Gaps prioritários são acionáveis?
-   Recomendações são proporcionais à força da evidência?
-   NÃO sugere recursos externos (livros, podcasts)?
-
-6. PRUDÊNCIA METODOLÓGICA (15pts)
-   A avaliação é prudente dado as evidências disponíveis?
-   Inferiu fatos não mencionados? Extrapolou impactos?
-   Na dúvida, escolheu o nível inferior?
-
-═══ ERROS GRAVES (forçam nota máxima 60) ═══
-
-- N3/N4 sem evidência concreta suficiente
-- Feedback 100% genérico
-- Recomendação sem base observável
-- Consolidação contraditória (ex: média 1.5 com nível N3)
-- Inferência/alucinação evidente
-- Erro matemático claro (média ou travas)
-
-═══ CLASSIFICAÇÃO ═══
-
-90-100 = aprovado
-80-89 = aprovado_com_ajustes
-0-79 = revisar (mudancas_sugeridas obrigatório)
+${CHECK_ITENS.map((i) => `${i.id}. ${i.texto}`).join('\n')}
 
 ═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
 
 {
-  "nota": 87,
-  "status": "aprovado_com_ajustes",
-  "erro_grave": false,
-  "criterios": {
-    "ancoragem_evidencia": 18,
-    "coerencia_nivel_nota": 17,
-    "coerencia_consolidacao": 13,
-    "especificidade_feedback": 14,
-    "qualidade_recomendacoes": 12,
-    "prudencia_metodologica": 13
+  "verificacoes": {
+${CHECK_ITENS.map((i) => `    "${i.id}": {"ok": true, "obs": ""}`).join(',\n')}
   },
-  "ponto_mais_confiavel": "O que a avaliação fez melhor",
-  "ponto_mais_fragil": "Onde a avaliação é mais vulnerável",
-  "descritores_com_risco": ["descritores onde a nota parece frágil"],
+  "ponto_mais_confiavel": "O que a avaliação fez melhor (1 frase)",
+  "ponto_mais_fragil": "Onde a avaliação é mais vulnerável (1 frase)",
+  "descritores_com_risco": ["descritores cuja nota parece frágil"],
   "tipo_de_erro_predominante": "extrapolacao|falta_prudencia|generico|matematica|nenhum",
-  "justificativa": "Avaliação geral (2-3 frases concretas, não genéricas)",
-  "mudancas_sugeridas": ["lista de correções específicas se status != aprovado"],
+  "justificativa": "2-3 frases concretas sobre o conjunto",
+  "mudancas_sugeridas": ["correção específica para cada item marcado false"],
   "alertas": ["riscos residuais"]
 }
 
-REGRA: Prefira rigor metodológico a elegância. Se a avaliação for razoável
-mas imprudente, penalize. Se for conservadora e bem ancorada, premie.`;
+REGRAS:
+- Responda TODOS os ${CHECK_ITENS.length} itens.
+- NÃO invente campo "nota" nem "status" — eles são derivados em código.
+- \`mudancas_sugeridas\` deve ter uma entrada por item false, na mesma ordem.`;
 
 const IA4_CHECK_CALL_OPTIONS = { timeoutMs: 180000, maxRetries: 0 } as const;
 
@@ -191,20 +193,87 @@ export async function persistirCheckIA4(
   return error ? { error: error.message } : {};
 }
 
-export function processCheckResult(check: any): { status: string; check: any } {
-  if (!check || check.nota === undefined) return { status: 'erro', check: null };
+/** Veredito a partir da nota — a régua de faixas, num lugar só. */
+function faixaDeStatus(nota: number): string {
+  return nota >= 90 ? 'aprovado' : nota >= 80 ? 'aprovado_com_ajustes' : 'revisar';
+}
 
-  // Validação: erro_grave força max 60
-  if (check.erro_grave && check.nota > 60) {
-    check.nota = 60;
+/**
+ * Deriva NOTA e VEREDITO do checklist — o modelo responde sim/não, o código
+ * calcula. Mesmo princípio do `derivarVeredito` da auditoria dual-IA e da
+ * consolidação da IA4: número que sai da IA não se aceita, se deriva.
+ *
+ * Duas decisões que vêm da medição de 12/08 (test-retest, entrada idêntica):
+ *
+ * 1. NOTA sem teto. O `erro_grave` antigo grampeava em 60, e era esse penhasco
+ *    que produzia as séries bimodais (`60 · 84 · 88`): uma discordância isolada
+ *    valia 25 pontos. Agora cada item vale o seu peso (7–10) e nada mais.
+ * 2. Item AUSENTE não pune. A nota é normalizada pelos itens efetivamente
+ *    respondidos — se o modelo esquecer um item, a avaliação não é penalizada
+ *    por uma falha do auditor. Só falha DECLARADA (`ok:false`) tira ponto.
+ *
+ * O rigor migrou para o VEREDITO: qualquer item crítico reprovado segura em
+ * `revisar` por mais alta que seja a nota. Inventar evidência não passa — mas
+ * também não derruba a nota num degrau artificial.
+ */
+export function processCheckResult(check: any): { status: string; check: any } {
+  if (!check) return { status: 'erro', check: null };
+
+  const verificacoes = check.verificacoes;
+  if (verificacoes && typeof verificacoes === 'object') {
+    let pesoRespondido = 0, pesoOk = 0;
+    const criticosFalhos: string[] = [];
+    const falhas: string[] = [];
+    const porEixo: Record<string, { peso: number; ok: number }> = {};
+
+    for (const item of CHECK_ITENS) {
+      const v = verificacoes[item.id];
+      if (!v || typeof v.ok !== 'boolean') continue; // ausente: não conta (nem a favor, nem contra)
+      pesoRespondido += item.peso;
+      porEixo[item.eixo] ||= { peso: 0, ok: 0 };
+      porEixo[item.eixo].peso += item.peso;
+      if (v.ok) {
+        pesoOk += item.peso;
+        porEixo[item.eixo].ok += item.peso;
+      } else {
+        falhas.push(`${item.id}: ${v.obs || item.texto}`);
+        if (item.critico) criticosFalhos.push(item.id);
+      }
+    }
+
+    if (pesoRespondido === 0) return { status: 'erro', check: null };
+
+    const nota = Math.round((pesoOk / pesoRespondido) * 100);
+
+    // Quantos críticos seguram o veredito. UM basta quando o item é FATAL
+    // (evidência inventada — alucinação não passa, em nenhuma hipótese); os
+    // demais exigem DOIS, porque medimos que um crítico isolado é justamente
+    // onde o julgamento oscila (F1 reprovado em 2 de 3 rodadas idênticas,
+    // chaveando o veredito sozinho). Dois críticos independentes discordando é
+    // sinal; um só é moeda.
+    const temFatal = criticosFalhos.some((id) => CHECK_ITENS.find((i) => i.id === id)?.fatal);
+    const seguraVeredito = temFatal || criticosFalhos.length >= 2;
+    const status = seguraVeredito ? 'revisar' : faixaDeStatus(nota);
+
+    check.nota = nota;
+    check.status = status;
+    check.erro_grave = seguraVeredito;
+    check.criticos_falhos = criticosFalhos;
+    check.itens_falhos = falhas;
+    check.itens_respondidos = Math.round((pesoRespondido / CHECK_ITENS.reduce((s, i) => s + i.peso, 0)) * 100);
+    // `criterios` por eixo (0–100) — o formato que as telas já sabiam ler.
+    check.criterios = Object.fromEntries(
+      Object.entries(porEixo).map(([eixo, v]) => [eixo, Math.round((v.ok / v.peso) * 100)])
+    );
+    return { status, check };
   }
 
-  // Status
-  const status = check.nota >= 90 ? 'aprovado'
-    : check.nota >= 80 ? 'aprovado_com_ajustes'
-    : 'revisar';
+  // Formato ANTIGO (nota escrita pelo modelo): payloads já gravados e qualquer
+  // resposta que ignore o checklist continuam legíveis, com a régua de então.
+  if (check.nota === undefined) return { status: 'erro', check: null };
+  if (check.erro_grave && check.nota > 60) check.nota = 60;
+  const status = faixaDeStatus(check.nota);
   check.status = status;
-
   return { status, check };
 }
 
