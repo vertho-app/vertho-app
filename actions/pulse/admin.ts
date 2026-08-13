@@ -2,6 +2,7 @@
 
 import { tenantDb } from '@/lib/tenant-db';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { canUseModulo, MODULOS } from '@/lib/access-gates';
 import { PULSE_TEMPLATE_VERSION, PulseMoment } from '@/lib/pulse/template';
 
 export interface PulseCiclo {
@@ -22,6 +23,25 @@ export interface PulseCicloStatus extends PulseCiclo {
   t0_completos: number;
   t2_total: number;
   t2_completos: number;
+}
+
+/**
+ * Gate de módulo — o Pulso é contratado à parte (lib/access-gates/modulos.ts).
+ * Aplicado em TODA action que CRIA estado do Pulso (ciclo, assignment): sem
+ * contrato não se cria nada, e é isso que impede um rascunho virar entrega real
+ * na home de quem não comprou.
+ *
+ * Leitura só (listar/status) segue liberada: esconder o que já existe não
+ * protege ninguém e atrapalha a auditoria de quem foi afetado.
+ */
+async function assertPulsoContratado(empresaId: string): Promise<{ ok: false; error: string } | null> {
+  const { requireAdminSupabase } = await import('@/lib/admin-supabase');
+  const sb = await requireAdminSupabase();
+  const { data: emp } = await sb
+    .from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+  const gate = canUseModulo((emp?.sys_config as any) || {}, MODULOS.PULSO);
+  if (!gate.allowed) return { ok: false, error: `${gate.message} ${gate.remediation}` };
+  return null;
 }
 
 export async function listarCiclos(empresaId: string): Promise<PulseCicloStatus[]> {
@@ -54,6 +74,8 @@ export async function criarCiclo(
   input: { nome: string; descricao?: string | null },
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   await requireAdminAction('assessments.dispatch');
+  const semModulo = await assertPulsoContratado(empresaId);
+  if (semModulo) return semModulo;
   const tdb = tenantDb(empresaId);
   if (!input.nome?.trim()) return { ok: false, error: 'Nome obrigatório' };
   const { data, error } = await tdb.from('pulse_ciclos')
@@ -115,6 +137,8 @@ export async function dispararPulso(
   opts?: { dueDays?: number; cargoFilter?: string },
 ): Promise<{ ok: true; criados: number; pulados: number } | { ok: false; error: string }> {
   await requireAdminAction('assessments.dispatch');
+  const semModulo = await assertPulsoContratado(empresaId);
+  if (semModulo) return semModulo;
   const tdb = tenantDb(empresaId);
 
   const { data: ciclo } = await tdb.from('pulse_ciclos').select('id, status').eq('id', cicloId).single();

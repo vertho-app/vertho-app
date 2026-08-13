@@ -9,6 +9,7 @@ import { assertZapiConnected, getZapiConfig } from '@/lib/zapi';
 import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
 import { publicarWhatsappCis } from '@/lib/qstash-publish';
 import { aplicarTetoLote, atrasosDoLote, criarRelogioCadencia, duracaoEstimada, intervaloLoteMs, maxPorDisparo } from '@/lib/whatsapp/cadencia';
+import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
 
 /**
  * Fila residual tolerada antes de um disparo em lote. Zero: qualquer mensagem
@@ -245,6 +246,23 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
       .select('nome, slug').eq('id', empresaId).single();
     if (!empresa) return { success: false, error: 'Empresa não encontrada' };
 
+    // ESCOPO fail-closed (mig 210): disparo em lote é COMUNICAÇÃO REAL. Com duas
+    // safras no mesmo tenant, "mandar para a empresa" atinge quem está no meio
+    // da jornada e quem acabou de entrar com a mesma mensagem. Sem turma
+    // escolhida, recusa — e o teto de WhatsApp torna o estrago pior: a turma
+    // grande come a cota e a outra fica sem, em silêncio (11/08).
+    let permitidos: Set<string> | null;
+    try {
+      permitidos = await idsDoEscopoOuFalhar(sb, empresaId, {
+        turmaId: filtros.turmaId || null,
+        empresaInteiraJustificativa: filtros.empresaInteiraJustificativa || null,
+      });
+    } catch (e) {
+      const msg = mensagemEscopoObrigatorio(e);
+      if (msg) return { success: false, error: msg, code: 'ESCOPO_OBRIGATORIO' };
+      throw e;
+    }
+
     // Buscar colaboradores
     let colabs;
     const { data: c1, error: e1 } = await sb.from('colaboradores')
@@ -252,6 +270,9 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
       .eq('empresa_id', empresaId);
     colabs = e1 ? (await sb.from('colaboradores').select('id, nome_completo, email, cargo, perfil_dominante').eq('empresa_id', empresaId)).data : c1;
     if (!colabs?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
+
+    if (permitidos) colabs = colabs.filter(c => permitidos!.has(c.id));
+    if (!colabs.length) return { success: false, error: 'Nenhum colaborador na turma escolhida' };
 
     // Filtrar por cargo
     if (filtros.cargo) colabs = colabs.filter(c => c.cargo === filtros.cargo);
@@ -650,11 +671,26 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
       .select('nome, slug').eq('id', empresaId).single();
     if (!empresa) return { success: false, error: 'Empresa não encontrada' };
 
+    // ESCOPO fail-closed (mig 210) — magic link é ACESSO: mandar para a safra
+    // errada convida gente que ainda não devia entrar.
+    let permitidos: Set<string> | null;
+    try {
+      permitidos = await idsDoEscopoOuFalhar(sb, empresaId, {
+        turmaId: filtros.turmaId || null,
+        empresaInteiraJustificativa: filtros.empresaInteiraJustificativa || null,
+      });
+    } catch (e) {
+      const msg = mensagemEscopoObrigatorio(e);
+      if (msg) return { success: false, error: msg, code: 'ESCOPO_OBRIGATORIO' };
+      throw e;
+    }
+
     let { data: colabs } = await sb.from('colaboradores')
       .select('id, nome_completo, email, cargo, telefone, perfil_dominante')
       .eq('empresa_id', empresaId);
     if (!colabs?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
+    if (permitidos) colabs = colabs.filter(c => permitidos!.has(c.id));
     colabs = colabs.filter(c => c.telefone && c.email);
     if (filtros.cargo) colabs = colabs.filter(c => c.cargo === filtros.cargo);
     if (filtros.disc === 'sim') colabs = colabs.filter(c => !!c.perfil_dominante);

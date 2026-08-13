@@ -22,6 +22,12 @@ export type AuditEntry = {
   empresaSlug?: string | null;
   /** Descrição curta do alvo: "53 colaboradores", um id, um nome. */
   alvo?: string | null;
+  /**
+   * TURMA em cujo escopo a ação rodou (mig 210). `null` = empresa inteira ou
+   * ação anterior às turmas. Sem isto, "gerou 38 trilhas" no log não diz PARA
+   * QUEM — e num tenant com duas safras essa é a única pergunta que importa.
+   */
+  turmaId?: string | null;
   /** Payload livre: canal, filtros, contagem, erro, etc. */
   detalhes?: Record<string, any>;
   resultado?: 'ok' | 'parcial' | 'erro';
@@ -48,6 +54,7 @@ export async function logAdminAction(entry: AuditEntry): Promise<void> {
       empresa_id: entry.empresaId ?? null,
       empresa_slug: entry.empresaSlug ?? null,
       alvo: entry.alvo ?? null,
+      turma_id: entry.turmaId ?? null,
       detalhes: entry.detalhes ?? {},
       resultado: entry.resultado ?? 'ok',
       ip,

@@ -2,6 +2,7 @@
 
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { gateEnvioDemo } from '@/lib/demo/envio-guard';
+import { canUseModulo, MODULOS } from '@/lib/access-gates';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { EMAIL_FROM_DEFAULT, tenantUrl } from '@/lib/domain';
@@ -91,8 +92,13 @@ export async function enviarConvitesPulso(
   if (gate.blocked) return { ok: false, error: gate.motivo as string };
 
   const { data: empresa } = await sb.from('empresas')
-    .select('id, nome, slug').eq('id', empresaId).single();
+    .select('id, nome, slug, sys_config').eq('id', empresaId).single();
   if (!empresa) return { ok: false, error: 'Empresa não encontrada' };
+
+  // Módulo contratado: disparo de convite é o ponto em que o Pulso vira
+  // comunicação real. Sem contrato, não sai (lib/access-gates/modulos.ts).
+  const gateModulo = canUseModulo((empresa as any).sys_config || {}, MODULOS.PULSO);
+  if (!gateModulo.allowed) return { ok: false, error: `${gateModulo.message} ${gateModulo.remediation}` };
 
   // Cross-check de tenant (auditoria 23/07): o cicloId vem do client e o gate
   // acima só prova que empresaId === sessão. Sem amarrar o ciclo ao empresaId,

@@ -3,6 +3,7 @@
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 
 // ── Gerar PDIs (Planos de Desenvolvimento Individual) ───────────────────────
@@ -157,16 +158,30 @@ export async function loadCompetenciasFoco(empresaId: string) {
  * Lista colabs elegíveis para gerar temporada (têm cargo + competência foco).
  * Usado pelo client pra orquestrar geração 1 por 1 (evita timeout serverless).
  */
-export async function listarColabsParaTrilha(empresaId: string) {
+export async function listarColabsParaTrilha(empresaId: string, opts?: { turmaId?: string | null; empresaInteiraJustificativa?: string }) {
   const sb = await requireAdminSupabase();
-  const { data: colabs } = await sb.from('colaboradores')
+
+  // ESCOPO fail-closed (mig 210): com 2+ turmas ativas, gerar trilha "para a
+  // empresa" varreria as duas safras — os 38 diretores prontos E os 156
+  // professores que mal começaram. Sem turma escolhida, recusa.
+  let permitidos: Set<string> | null;
+  try {
+    permitidos = await idsDoEscopoOuFalhar(sb, empresaId, opts || {});
+  } catch (e) {
+    const msg = mensagemEscopoObrigatorio(e);
+    if (msg) return { success: false, error: msg, code: 'ESCOPO_OBRIGATORIO', colabs: [], trilhasExistentes: 0 };
+    throw e;
+  }
+
+  const { data: colabsRaw } = await sb.from('colaboradores')
     .select('id, nome_completo, cargo')
     .eq('empresa_id', empresaId)
     .order('nome_completo');
+  const colabs = permitidos ? (colabsRaw || []).filter((c: any) => permitidos!.has(c.id)) : (colabsRaw || []);
   const { count } = await sb.from('trilhas')
     .select('id', { count: 'exact', head: true })
     .eq('empresa_id', empresaId);
-  return { success: true, colabs: colabs || [], trilhasExistentes: count || 0 };
+  return { success: true, colabs, trilhasExistentes: count || 0 };
 }
 
 /**

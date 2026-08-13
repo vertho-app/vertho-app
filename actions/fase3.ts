@@ -1,5 +1,6 @@
 'use server';
 
+import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
 import { tenantDb } from '@/lib/tenant-db';
 import type { AIConfig } from './ai-client';
 import { requireAdminAction } from '@/lib/auth/action-context';
@@ -59,14 +60,31 @@ async function _buscarFilaIA4(tdb: any): Promise<{ data?: any[]; error?: string 
   return { data: [...(pendentes || []), ...presas] };
 }
 
-export async function listarPendentesIA4(empresaId: string) {
+export async function listarPendentesIA4(empresaId: string, opts?: { turmaId?: string | null; empresaInteiraJustificativa?: string }) {
   await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório', data: [] };
   const tdb = tenantDb(empresaId);
+
+  // ESCOPO fail-closed (mig 210): a fila da IA4 é o alvo de "avaliar tudo". Com
+  // duas safras, rodar sem escolher turma gasta IA na turma errada e mistura o
+  // painel — que é o defeito que as turmas existem para resolver.
+  let permitidos: Set<string> | null;
+  try {
+    const sbEscopo = await requireAdminSupabase();
+    permitidos = await idsDoEscopoOuFalhar(sbEscopo, empresaId, opts || {});
+  } catch (e) {
+    const msg = mensagemEscopoObrigatorio(e);
+    if (msg) return { success: false, error: msg, code: 'ESCOPO_OBRIGATORIO', data: [] };
+    throw e;
+  }
+
   const fila = await _buscarFilaIA4(tdb);
   if (fila.error) return { success: false, error: fila.error, data: [] };
-  const presas = (fila.data || []).filter((r: any) => r.presa_sem_notas).length;
-  return { success: true, data: fila.data || [], presas };
+  const linhas = permitidos
+    ? (fila.data || []).filter((r: any) => r.colaborador_id && permitidos!.has(r.colaborador_id))
+    : (fila.data || []);
+  const presas = linhas.filter((r: any) => r.presa_sem_notas).length;
+  return { success: true, data: linhas, presas };
 }
 
 export async function rodarIA4Uma(
