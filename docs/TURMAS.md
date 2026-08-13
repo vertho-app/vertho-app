@@ -85,11 +85,21 @@ assignments não-pending  0    (os 40 seguem 'pending' desde 14/05 — 3 meses)
 pulse_mv_aggregates      0
 ```
 
-O ciclo "Piloto Macaé" é um **rascunho de 14/05 abandonado**, não uma edição
-real. Consequências:
+O ciclo "Piloto Macaé" era um **rascunho de 14/05 abandonado**, não uma edição
+real — **excluído em 12/08** (autorizado pelo Rodrigo). O backup completo do
+ciclo e dos 40 assignments está em `admin_audit_log`, ação
+`pulse.rascunho.excluir`. Restou só "Ibipeba Ciclo1" (draft, 0 assignments).
 
-- **O backfill não converte o ciclo em etapa** — arquiva. `pulse_ciclos.turma_id`
-  nasce sem nada para preencher, o que torna a mudança trivial.
+Motivo de urgência da exclusão, achado no caminho: os 40 assignments tinham
+`due_date = NULL`, o filtro de pendentes (`lib/home/loaders.ts:498`) deixa NULL
+passar e a home (`app/dashboard/page.tsx:377`) renderiza o card sem outra
+condição — **40 diretores recebiam um card "Pulso T0" havia 3 meses**, de um
+módulo que ninguém contratou.
+
+Consequências:
+
+- **Nada a converter no backfill.** `pulse_ciclos.turma_id` nasce vazio, o que
+  torna a mudança trivial.
 - O esticamento do enum (§0) fica **ainda mais claro**: `em_jornada` foi marcado
   para refletir que a *turma* andou, com o Pulso parado desde o primeiro dia.
 - ⚠️ **O módulo inteiro é código que nunca foi exercitado com dado real** — 51
