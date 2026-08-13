@@ -148,12 +148,13 @@ export async function getEngajamentoEmpresa(empresaId: string, semana?: number |
   const vidPorColab: Record<string, any[]> = {};
   for (const v of (videos || [])) (vidPorColab[v.colaborador_id] ||= []).push(v);
   const consumoPorColab: Record<string, boolean> = {};
-  // Evidência = semana de CONTEÚDO concluída (enviar a reflexão socrática é o que
-  // conclui a semana — mesmo critério da tela /admin/vertho/evidencias).
+  // Evidência = semana concluída (reflexão socrática em semana de CONTEÚDO, relato
+  // da missão em semana de APLICAÇÃO — sem o `aplicacao` aqui as semanas 4/8/12
+  // marcavam 0 mesmo com missões concluídas, apagão de Ibipeba em ago/2026).
   const evidenciaPorColab: Record<string, boolean> = {};
   for (const p of (progresso || [])) {
     if (consumiuFlag(p.conteudo_consumido)) consumoPorColab[p.colaborador_id] = true;
-    if (p.tipo === 'conteudo' && p.status === PROGRESSO.CONCLUIDO) evidenciaPorColab[p.colaborador_id] = true;
+    if ((p.tipo === 'conteudo' || p.tipo === 'aplicacao') && p.status === PROGRESSO.CONCLUIDO) evidenciaPorColab[p.colaborador_id] = true;
   }
   const tutorPorColab: Record<string, boolean> = {};
   for (const t of (tutorRows || [])) tutorPorColab[t.colaborador_id] = true;

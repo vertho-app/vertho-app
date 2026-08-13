@@ -214,7 +214,9 @@ export function buildEngagementEvolutionDashboard(input: {
       state.activated = true;
       state.consumed = true;
     }
-    if (progress.tipo === 'conteudo' && progress.status === input.completedStatus) {
+    // Semana de APLICAÇÃO concluída também é evidência (relato da missão) — sem
+    // ela as semanas 4/8/12 zeravam ativação/consumo/evidência na página B.
+    if ((progress.tipo === 'conteudo' || progress.tipo === 'aplicacao') && progress.status === input.completedStatus) {
       state.activated = true;
       state.consumed = true;
       state.evidence = true;
