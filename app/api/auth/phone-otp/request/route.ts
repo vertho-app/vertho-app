@@ -4,9 +4,10 @@ import { getTenantSlug } from '@/lib/tenant-resolver';
 import { validateWhatsApp } from '@/lib/phone';
 import { issueOtp } from '@/lib/phone-otp';
 import { resolveAppLocale } from '@/lib/i18n';
-import { otpWhatsapp } from '@/lib/i18n-auth-templates';
+import { otpWhatsapp, otpSms } from '@/lib/i18n-auth-templates';
 import { authLimiter } from '@/lib/rate-limit';
 import { sendWhatsapp } from '@/lib/whatsapp';
+import { sendSms } from '@/lib/sms';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,13 +70,34 @@ export async function POST(req: NextRequest) {
     // Envia o código pelo serviço central (failover Z-API → WaSender).
     const empresaNome = empresa.nome || 'Vertho';
     const msg = otpWhatsapp(locale, { empresaNome, code: issued.code });
-    const r = await sendWhatsapp({ kind: 'text', phone: e164, text: msg }, { motivo: 'otp', empresaId: empresa.id });
-    if (!r.ok) {
-      console.error('[phone-otp/request] envio falhou:', r.reason);
-      return NextResponse.json({ error: 'Não foi possível enviar o código pelo WhatsApp. Tente novamente.' }, { status: 502 });
-    }
+    const r = await sendWhatsapp({ kind: 'text', phone: e164, text: msg }, { motivo: 'otp', empresaId: empresa.id, colaboradorId: colab.id });
+    if (r.ok) return NextResponse.json({ ok: true, canal: 'whatsapp' });
 
-    return NextResponse.json({ ok: true });
+    // ── CONTINGÊNCIA: SMS ────────────────────────────────────────────────────
+    //
+    // Medido em 13/08/2026: a instância Z-API caiu e derrubou junto o único
+    // caminho de login por telefone das 271 pessoas com `login_por_whatsapp`.
+    // E-mail não substitui aqui — quem entra por este fluxo digitou um número,
+    // não um endereço, e 4 dessas pessoas não têm e-mail cadastrado.
+    //
+    // O código JÁ foi emitido acima e vale 10 minutos: mandá-lo por outro canal
+    // é entregar o MESMO segredo, não emitir um novo. Reemitir aqui invalidaria
+    // o código que talvez já tenha chegado por WhatsApp (a falha pode ser no
+    // aceite, com a mensagem saindo mesmo assim) e deixaria a pessoa com dois
+    // códigos, só um válido.
+    console.error('[phone-otp/request] WhatsApp falhou:', r.reason);
+    const sms = await sendSms(
+      { phone: e164, text: otpSms(locale, { empresaNome, code: issued.code }) },
+      { motivo: 'otp', empresaId: empresa.id, colaboradorId: colab.id },
+    );
+    if (sms.ok) return NextResponse.json({ ok: true, canal: 'sms' });
+
+    // Os dois canais fora. A mensagem ao usuário não cita WhatsApp: ele pediu
+    // "um código", e dizer o nome do canal que falhou o faz esperar por algo que
+    // não vem. `bloqueadoPorTeto` não vaza para a resposta — é limite nosso, não
+    // erro dele, e o rastro fica na degradação `sms-teto-diario`.
+    console.error('[phone-otp/request] SMS também falhou:', sms.reason);
+    return NextResponse.json({ error: 'Não foi possível enviar o código agora. Tente novamente em alguns minutos.' }, { status: 502 });
   } catch (err: any) {
     console.error('[phone-otp/request]', err.message);
     return NextResponse.json({ error: 'Erro ao solicitar código.' }, { status: 500 });

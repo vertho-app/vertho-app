@@ -21,6 +21,7 @@ const copy = {
     whatsappAccess: (name: string, company: string, link: string) => `Olá, ${name}! 🔐\n\nSeu link de acesso à *${company}*:\n${link}\n\nClique para entrar direto, sem senha.\nEste link expira em 24h.`,
     whatsappWelcome: (name: string, company: string, link: string) => `Olá, ${name}! Bem-vindo à *${company}*! 🎉\n\nSeu link de acesso:\n${link}\n\nClique para entrar direto, sem senha.\nEste link expira em 24h.`,
     otp: (company: string, code: string) => `*${company}* — seu código de acesso:\n\n*${code}*\n\nDigite esse código no app para entrar. Ele expira em 10 minutos.\nSe você não solicitou, ignore esta mensagem.`,
+    otpSms: (company: string, code: string) => `${company}: seu código é ${code}. Expira em 10 minutos.`,
   },
   'pt-PT': {
     hello: (name: string) => name ? `Olá, ${escapeHtml(name)}!` : 'Olá!',
@@ -37,6 +38,7 @@ const copy = {
     whatsappAccess: (name: string, company: string, link: string) => `Olá, ${name}! 🔐\n\nO seu link de acesso à *${company}*:\n${link}\n\nClique para entrar diretamente, sem palavra-passe.\nEste link expira em 24h.`,
     whatsappWelcome: (name: string, company: string, link: string) => `Olá, ${name}! Bem-vindo à *${company}*! 🎉\n\nO seu link de acesso:\n${link}\n\nClique para entrar diretamente, sem palavra-passe.\nEste link expira em 24h.`,
     otp: (company: string, code: string) => `*${company}* — o seu código de acesso:\n\n*${code}*\n\nIntroduza este código na app para entrar. Expira em 10 minutos.\nSe não solicitou, ignore esta mensagem.`,
+    otpSms: (company: string, code: string) => `${company}: o seu código é ${code}. Expira em 10 minutos.`,
   },
   'es-ES': {
     hello: (name: string) => name ? `Hola, ${escapeHtml(name)}!` : 'Hola!',
@@ -53,6 +55,7 @@ const copy = {
     whatsappAccess: (name: string, company: string, link: string) => `Hola, ${name}! 🔐\n\nTu enlace de acceso a *${company}*:\n${link}\n\nHaz clic para entrar directamente, sin contraseña.\nEste enlace caduca en 24h.`,
     whatsappWelcome: (name: string, company: string, link: string) => `Hola, ${name}! ¡Bienvenido a *${company}*! 🎉\n\nTu enlace de acceso:\n${link}\n\nHaz clic para entrar directamente, sin contraseña.\nEste enlace caduca en 24h.`,
     otp: (company: string, code: string) => `*${company}* — tu código de acceso:\n\n*${code}*\n\nIntroduce este código en la app para entrar. Caduca en 10 minutos.\nSi no lo solicitaste, ignora este mensaje.`,
+    otpSms: (company: string, code: string) => `${company}: tu código es ${code}. Caduca en 10 minutos.`,
   },
   'en-US': {
     hello: (name: string) => name ? `Hi, ${escapeHtml(name)}!` : 'Hi!',
@@ -69,6 +72,7 @@ const copy = {
     whatsappAccess: (name: string, company: string, link: string) => `Hi, ${name}! 🔐\n\nYour access link for *${company}*:\n${link}\n\nTap to sign in directly, no password needed.\nThis link expires in 24h.`,
     whatsappWelcome: (name: string, company: string, link: string) => `Hi, ${name}! Welcome to *${company}*! 🎉\n\nYour access link:\n${link}\n\nTap to sign in directly, no password needed.\nThis link expires in 24h.`,
     otp: (company: string, code: string) => `*${company}* — your access code:\n\n*${code}*\n\nEnter this code in the app to sign in. It expires in 10 minutes.\nIf you did not request it, ignore this message.`,
+    otpSms: (company: string, code: string) => `${company}: your code is ${code}. It expires in 10 minutes.`,
   },
 } satisfies Record<AppLocale, any>;
 
@@ -143,4 +147,36 @@ export function signupWhatsapp(locale: AppLocale, params: { nome: string; empres
 
 export function otpWhatsapp(locale: AppLocale, params: { empresaNome: string; code: string }) {
   return copy[locale].otp(params.empresaNome, params.code);
+}
+
+/**
+ * Nome de empresa cortado para caber num SMS.
+ *
+ * SMS cobra por SEGMENTO: 160 caracteres em GSM-7, mas apenas **70** quando há
+ * qualquer acento — e "código" tem. Com o nome inteiro, um tenant como
+ * "Secretaria Municipal de Ibipeba/BA" (34 chars) empurraria toda mensagem para
+ * dois segmentos, dobrando o custo de cada login. Em 20 caracteres, as quatro
+ * copies abaixo cabem em um segmento com folga.
+ *
+ * Corta em espaço quando dá, para não partir palavra no meio.
+ */
+function nomeCurtoSms(nome: string, max = 20): string {
+  const limpo = nome.trim();
+  if (limpo.length <= max) return limpo;
+  const cortado = limpo.slice(0, max);
+  const ultimoEspaco = cortado.lastIndexOf(' ');
+  return (ultimoEspaco > max / 2 ? cortado.slice(0, ultimoEspaco) : cortado).trim();
+}
+
+/**
+ * OTP por SMS — contingência de quando o WhatsApp está fora (13/08/2026).
+ *
+ * NÃO é a copy do WhatsApp reaproveitada, e não pode ser: SMS não interpreta
+ * `*negrito*` (os asteriscos chegam literais), não quebra bem em várias linhas
+ * e é pago por segmento. Por isso: uma frase, sem markdown, sem emoji e sem a
+ * linha "se você não solicitou" — que é boa prática em mensagem gratuita e
+ * custaria um segundo segmento aqui.
+ */
+export function otpSms(locale: AppLocale, params: { empresaNome: string; code: string }) {
+  return copy[locale].otpSms(nomeCurtoSms(params.empresaNome), params.code);
 }

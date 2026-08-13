@@ -17,6 +17,7 @@
     "lib/audit.ts": 1,
     "lib/degradacao.ts": 1,
     "lib/notifications/delivery-log.ts": 1,
+    "lib/sms/index.ts": 1,
     "lib/notifications/access-link-service.ts": 1,
     "lib/notifications/push-core.ts": 1,
     "lib/notifications/flag.ts": 1,

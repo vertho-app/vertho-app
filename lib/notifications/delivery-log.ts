@@ -21,7 +21,11 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
-export type EntregaCanal = 'whatsapp' | 'email' | 'webpush' | 'fcm' | 'apns';
+// 'sms' entrou em 13/08/2026 (mig 211) como contingência de ACESSO. Manter em
+// sincronia com o CHECK `notification_deliveries_channel_chk`: um valor aqui que
+// o banco recusa vira erro 23514 no caminho de envio — e, como `registrarEntrega`
+// não lança, viraria degradação silenciosa em vez de canal medido.
+export type EntregaCanal = 'whatsapp' | 'email' | 'webpush' | 'fcm' | 'apns' | 'sms';
 export type EntregaStatus = 'tentativa' | 'sucesso' | 'falha';
 
 export interface EntregaInput {

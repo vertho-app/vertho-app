@@ -83,6 +83,14 @@ export const DEGRADACAO = {
    * cima dela foi o caminho do bloqueio de 11/08/2026.
    */
   WHATSAPP_FILA_SUJA: 'whatsapp-fila-suja',
+  /**
+   * envio: o teto diário de SMS (lib/sms) barrou o envio. Severidade `critico`
+   * porque, ao contrário do teto de WhatsApp, aqui não há "amanhã tenta de
+   * novo": SMS só é acionado quando o WhatsApp JÁ falhou, e o caso de uso é
+   * login. Teto atingido significa gente sem conseguir entrar, e não uma
+   * mensagem de cadência adiada.
+   */
+  SMS_TETO_DIARIO: 'sms-teto-diario',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
