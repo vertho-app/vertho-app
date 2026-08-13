@@ -158,7 +158,7 @@ export const gerarIA4BatchTask = task({
           let registrado = false;
           if (texto && texto.trim()) {
             const raw = await extractJSON(texto);
-            const { status, check } = processCheckResult(raw);
+            const { status, check } = processCheckResult(raw, c.resp.avaliacao_ia);
             if (check) {
               const { error } = await persistirCheckIA4(sb, c.resp.id, empresaId, status, check);
               resultados.push(error

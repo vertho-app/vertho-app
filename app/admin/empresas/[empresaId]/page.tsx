@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 
 function fmt(n: any, locale: string) { return (n ?? 0).toLocaleString(locale); }
@@ -184,6 +184,9 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   const confirmDialog = useConfirm();
   const locale = useLocale();
   const { empresaId } = use(params);
+  // Turma do escopo (mig 210) — o portfólio em /admin-v2 linka para cá com
+  // `&turma=<id>`. Sem ela, empresa com 2+ turmas ativas recusa o lote.
+  const turmaIdEscopo = useSearchParams().get('turma') || null;
   const router = useRouter();
   const { registerRefresh, podeVer } = useAdminShell();
   const podeExecutarIA = podeVer('ai.audit.regenerate');
@@ -431,7 +434,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         // lote inteiro (72 respostas ≈ 2 h em 11/08).
         if (aiConfig?.modo === 'lote') {
           addLog('📦 IA4 em lote (Batch API −50%, assíncrono).', 'info');
-          const r: any = await enqueueIA4Batch(empresaId, aiConfig);
+          const r: any = await enqueueIA4Batch(empresaId, aiConfig, { turmaId: turmaIdEscopo });
           if (!r.success) { addLog(`❌ ${r.error}`, 'error'); setPendingAction(null); return; }
           if (!r.jobId) { addLog(`✅ ${r.message || 'Nada pendente'}`, 'success'); loadData(); setPendingAction(null); return; }
           const extra = r.checkOnly ? ` (+${r.checkOnly} só-check, avaliadas antes)` : '';
@@ -464,7 +467,10 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         };
 
         addLog(`⏳ Listando respostas pendentes...`, 'info');
-        const fila = await listarPendentesIA4(empresaId);
+        // Escopo de turma (mig 210). Este ramo já mostrava `fila.error` na tela —
+        // por isso o fail-closed chega aqui como mensagem acionável, e não como
+        // "nenhuma resposta pendente".
+        const fila = await listarPendentesIA4(empresaId, { turmaId: turmaIdEscopo });
         if (!fila.success) { addLog(`❌ ${fila.error}`, 'error'); setPendingAction(null); return; }
         if (!fila.data?.length) {
           addLog('✅ Nenhuma resposta pendente de avaliação', 'success');
@@ -601,9 +607,23 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
       if (actionKey === 'temporadas') {
         const { listarColabsParaTrilha } = await import('@/actions/fase4');
         const { gerarTemporada } = await import('@/actions/temporadas');
-        const r = await listarColabsParaTrilha(empresaId);
+        const r = await listarColabsParaTrilha(empresaId, { turmaId: turmaIdEscopo });
         const colabs = r?.colabs || [];
-        if (!colabs.length) { addLog('Nenhum colaborador encontrado', 'error'); setPendingAction(null); return; }
+        // ⚠️ A mensagem do servidor VEM PARA A TELA. Antes isto caía no genérico
+        // "Nenhum colaborador encontrado", que é falso e não diz o que fazer: a
+        // empresa tem gente, falta escolher a TURMA. Bloqueio que não explica
+        // como destravar é a mesma classe do `adiadosPorTeto` invisível.
+        if ((r as any)?.code === 'ESCOPO_OBRIGATORIO') {
+          addLog(`⚠️ ${(r as any).error}`, 'error');
+          addLog('Abra esta tela pelo portfólio de turmas (Cliente → Turmas) ou acrescente &turma=<id> na URL.', 'info');
+          setPendingAction(null); return;
+        }
+        if ((r as any)?.success === false) { addLog(`❌ ${(r as any).error}`, 'error'); setPendingAction(null); return; }
+        if (!colabs.length) {
+          addLog(turmaIdEscopo ? 'Nenhum colaborador nesta turma' : 'Nenhum colaborador encontrado', 'error');
+          setPendingAction(null); return;
+        }
+        if (turmaIdEscopo) addLog(`🎯 Escopo: turma ${turmaIdEscopo.slice(0, 8)}… (${colabs.length} pessoa(s))`, 'info');
         if (r?.trilhasExistentes > 0 && !(await confirmDialog({ title: label, message: t('feedback.existingTracksConfirm', { count: r.trilhasExistentes }), severity: 'danger' }))) { addLog(t('feedback.cancelLog'), 'info'); setPendingAction(null); return; }
         addLog(`📋 Gerando temporada para ${colabs.length} colab(s)`, 'info');
         let ok = 0, erros = 0;

@@ -17,6 +17,7 @@ import { callAI, type AIConfig } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
 import { getModelForTask } from '@/lib/ai-tasks';
+import { nivelDaNota } from '@/lib/nivel-regua';
 
 /**
  * Itens do CHECKLIST do auditor. A 2ª IA responde SIM/NÃO em cada um; a nota é
@@ -37,15 +38,27 @@ import { getModelForTask } from '@/lib/ai-tasks';
  */
 export type CheckItem = {
   id: string; peso: number; critico: boolean; fatal?: boolean; eixo: string; texto: string;
+  /** 'codigo' = verificado deterministicamente; ausente = perguntado à IA. */
+  fonte?: 'codigo';
 };
 
+/**
+ * `fonte: 'codigo'` = item verificado DETERMINISTICAMENTE, sem perguntar à IA.
+ *
+ * Medido no A/B de 12/08 (15 respostas × 3 rodadas × 2 prompts): B2 foi
+ * reprovado 19 vezes em 45 — discordando de uma normalização que o próprio
+ * código já tinha imposto (`normalizarNiveisDaAvaliacao`). Perguntar a um LLM
+ * o que o código calculou é pagar por ruído: são 35 dos 100 pontos entregues a
+ * um julgamento sobre fatos que já conhecemos com certeza. Agora o código
+ * responde esses itens e a IA fica só com o que exige LEITURA.
+ */
 export const CHECK_ITENS: readonly CheckItem[] = [
   { id: 'A1', peso: 10, critico: true,  eixo: 'ancoragem_evidencia',    texto: 'Todo descritor com nível N3 ou N4 tem trecho literal (ou paráfrase fiel) da resposta como evidência.' },
   { id: 'A2', peso: 10, critico: true, fatal: true, eixo: 'ancoragem_evidencia', texto: 'Toda evidência citada existe de fato nas respostas R1–R4 — nada foi inventado ou inferido.' },
-  { id: 'B1', peso: 10, critico: false, eixo: 'coerencia_nivel_nota',   texto: 'O nível de cada descritor corresponde à nota decimal pela régua (N1 1,00–1,99 · N2 2,00–2,99 · N3 3,00–3,50 · N4 acima de 3,50).' },
-  { id: 'B2', peso: 10, critico: true,  eixo: 'coerencia_nivel_nota',   texto: 'O MESMO descritor aparece com o MESMO nível em todas as seções (consolidação, avaliação por descritor, destaques, PDI e no texto).' },
-  { id: 'C1', peso: 8,  critico: false, eixo: 'coerencia_consolidacao', texto: 'A média informada confere com as notas por descritor.' },
-  { id: 'C2', peso: 7,  critico: false, eixo: 'coerencia_consolidacao', texto: 'As travas e o gap estão corretos (descritor N1 → máximo N2; mais de 3 descritores N1 → N1; evidência N3 → mínimo N2; gap = 3 − nível geral).' },
+  { fonte: 'codigo' as const, id: 'B1', peso: 10, critico: false, eixo: 'coerencia_nivel_nota',   texto: 'O nível de cada descritor corresponde à nota decimal pela régua (N1 1,00–1,99 · N2 2,00–2,99 · N3 3,00–3,50 · N4 acima de 3,50).' },
+  { fonte: 'codigo' as const, id: 'B2', peso: 10, critico: true,  eixo: 'coerencia_nivel_nota',   texto: 'O MESMO descritor aparece com o MESMO nível em todas as seções (consolidação, avaliação por descritor, destaques, PDI e no texto).' },
+  { fonte: 'codigo' as const, id: 'C1', peso: 8,  critico: false, eixo: 'coerencia_consolidacao', texto: 'A média informada confere com as notas por descritor.' },
+  { fonte: 'codigo' as const, id: 'C2', peso: 7,  critico: false, eixo: 'coerencia_consolidacao', texto: 'As travas e o gap estão corretos (descritor N1 → máximo N2; mais de 3 descritores N1 → N1; evidência N3 → mínimo N2; gap = 3 − nível geral).' },
   { id: 'D1', peso: 8,  critico: true,  eixo: 'especificidade_feedback',texto: 'O feedback cita algo específico DESTA pessoa — não serviria igual para qualquer outra.' },
   { id: 'D2', peso: 7,  critico: false, eixo: 'especificidade_feedback',texto: 'O tom é construtivo e trata a pessoa pelo que ela demonstrou, sem julgamento moral.' },
   { id: 'E1', peso: 8,  critico: false, eixo: 'qualidade_recomendacoes',texto: 'Cada gap prioritário vira uma ação praticável e observável no trabalho da pessoa.' },
@@ -55,7 +68,7 @@ export const CHECK_ITENS: readonly CheckItem[] = [
   // avaliação INTERPRETA o que foi dito — sem um limiar, "inferir" vira moeda.
   // Agora pergunta por AFIRMAÇÃO DE FATO não dito, e diz explicitamente o que
   // NÃO conta como violação.
-  { id: 'F1', peso: 8,  critico: true,  eixo: 'prudencia_metodologica', texto: 'A avaliação NÃO afirma como fato algo que a pessoa não disse — atribuir intenção ("quis evitar o conflito"), causa ("porque teme a mãe") ou resultado ("isso desgastaria a equipe") que não está nas respostas. NÃO conta como violação: interpretar o que FOI dito, apontar o que faltou, ou classificar a resposta contra a régua.' },
+  { id: 'F1', peso: 8,  critico: false, eixo: 'prudencia_metodologica', texto: 'A avaliação NÃO afirma como fato algo que a pessoa não disse — atribuir intenção ("quis evitar o conflito"), causa ("porque teme a mãe") ou resultado ("isso desgastaria a equipe") que não está nas respostas. NÃO conta como violação: interpretar o que FOI dito, apontar o que faltou, ou classificar a resposta contra a régua.' },
   { id: 'F2', peso: 7,  critico: false, eixo: 'prudencia_metodologica', texto: 'Na dúvida entre dois níveis, a avaliação ficou com o INFERIOR.' },
 ] as const;
 
@@ -81,13 +94,13 @@ Na dúvida sobre um item, responda \`ok: false\` e explique — o lado conservad
 
 ═══ VERIFICAÇÕES ═══
 
-${CHECK_ITENS.map((i) => `${i.id}. ${i.texto}`).join('\n')}
+${CHECK_ITENS.filter((i) => i.fonte !== 'codigo').map((i) => `${i.id}. ${i.texto}`).join('\n')}
 
 ═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
 
 {
   "verificacoes": {
-${CHECK_ITENS.map((i) => `    "${i.id}": {"ok": true, "obs": ""}`).join(',\n')}
+${CHECK_ITENS.filter((i) => i.fonte !== 'codigo').map((i) => `    "${i.id}": {"ok": true, "obs": ""}`).join(',\n')}
   },
   "ponto_mais_confiavel": "O que a avaliação fez melhor (1 frase)",
   "ponto_mais_fragil": "Onde a avaliação é mais vulnerável (1 frase)",
@@ -99,7 +112,8 @@ ${CHECK_ITENS.map((i) => `    "${i.id}": {"ok": true, "obs": ""}`).join(',\n')}
 }
 
 REGRAS:
-- Responda TODOS os ${CHECK_ITENS.length} itens.
+- Responda TODOS os ${CHECK_ITENS.filter((i) => i.fonte !== 'codigo').length} itens.
+- Coerência de níveis, média e travas NÃO são perguntadas: o código já as verifica.
 - NÃO invente campo "nota" nem "status" — eles são derivados em código.
 - \`mudancas_sugeridas\` deve ter uma entrada por item false, na mesma ordem.`;
 
@@ -193,6 +207,69 @@ export async function persistirCheckIA4(
   return error ? { error: error.message } : {};
 }
 
+/**
+ * Responde os itens `fonte: 'codigo'` olhando o payload — sem IA, sem ruído.
+ *
+ * São fatos que já calculamos: o nível vem de `nivelDaNota`, a média e as
+ * travas de `consolidarNotasIA4`, e a coerência entre seções é IMPOSTA por
+ * `normalizarNiveisDaAvaliacao`. Perguntar isso a um LLM foi o que produziu 19
+ * reprovações de B2 em 45 rodadas — o modelo discordando de uma normalização
+ * determinística. Quando o código não consegue verificar (payload sem o campo),
+ * o item fica AUSENTE e não pontua para nenhum lado.
+ */
+export function verificarEmCodigo(avaliacao: any): Record<string, { ok: boolean; obs?: string }> {
+  const out: Record<string, { ok: boolean; obs?: string }> = {};
+  const cons = avaliacao?.consolidacao;
+  const notas: Record<string, any> | undefined = cons?.notas_por_descritor;
+  if (!cons || !notas || typeof notas !== 'object') return out;
+
+  const entradas = Object.entries(notas);
+  if (!entradas.length) return out;
+
+  // B1 — nível de cada descritor bate com a nota pela régua oficial.
+  const b1 = entradas.filter(([, v]: any) => nivelDaNota(v?.nota_decimal) !== v?.nivel);
+  out.B1 = b1.length
+    ? { ok: false, obs: `${b1.length} descritor(es) com nível fora da régua: ${b1.map(([k]) => k).join(', ')}` }
+    : { ok: true };
+
+  // B2 — o MESMO descritor com o MESMO nível em todas as seções.
+  const porChave = new Map(entradas.map(([k, v]: any) => [k, v?.nivel]));
+  const divergentes: string[] = [];
+  for (const d of avaliacao?.avaliacao_por_descritor || []) {
+    const esperado = porChave.get(`D${d?.numero}`);
+    if (esperado != null && d?.nivel_sugerido != null && d.nivel_sugerido !== esperado) divergentes.push(`D${d.numero}`);
+  }
+  for (const rec of avaliacao?.recomendacoes_pdi || []) {
+    const m = String(rec?.descritor_foco || '').match(/^D\s*(\d+)/i);
+    const esperado = m ? porChave.get(`D${m[1]}`) : undefined;
+    if (esperado != null && rec?.nivel_atual_sugerido != null && rec.nivel_atual_sugerido !== esperado) divergentes.push(`PDI:${m?.[0]}`);
+  }
+  out.B2 = divergentes.length
+    ? { ok: false, obs: `níveis divergentes entre seções: ${[...new Set(divergentes)].join(', ')}` }
+    : { ok: true };
+
+  // C1 — a média informada confere com as notas.
+  const valores = entradas.map(([, v]: any) => Number(v?.nota_decimal)).filter((n) => Number.isFinite(n));
+  const mediaEsperada = valores.length ? Math.round((valores.reduce((a, b) => a + b, 0) / valores.length) * 100) / 100 : null;
+  const mediaGravada = Number(cons.media_descritores);
+  out.C1 = mediaEsperada != null && Math.abs(mediaEsperada - mediaGravada) <= 0.011
+    ? { ok: true }
+    : { ok: false, obs: `média informada ${mediaGravada}, calculada ${mediaEsperada}` };
+
+  // C2 — travas e gap.
+  const niveis = entradas.map(([, v]: any) => v?.nivel);
+  const nN1 = niveis.filter((n) => n === 1).length;
+  const nivelGravado = Number(cons.nivel_geral);
+  const problemas: string[] = [];
+  if (nN1 > 3 && nivelGravado > 1) problemas.push(`${nN1} descritores N1 exigiam nível geral N1`);
+  else if (nN1 > 0 && nivelGravado > 2) problemas.push('descritor N1 presente exigia no máximo N2');
+  if (niveis.some((n) => n >= 3) && nivelGravado < 2) problemas.push('evidência N3 exigia no mínimo N2');
+  if (Number(cons.gap) !== Math.max(0, 3 - nivelGravado)) problemas.push(`gap ${cons.gap} ≠ ${Math.max(0, 3 - nivelGravado)}`);
+  out.C2 = problemas.length ? { ok: false, obs: problemas.join('; ') } : { ok: true };
+
+  return out;
+}
+
 /** Veredito a partir da nota — a régua de faixas, num lugar só. */
 function faixaDeStatus(nota: number): string {
   return nota >= 90 ? 'aprovado' : nota >= 80 ? 'aprovado_com_ajustes' : 'revisar';
@@ -216,8 +293,15 @@ function faixaDeStatus(nota: number): string {
  * `revisar` por mais alta que seja a nota. Inventar evidência não passa — mas
  * também não derruba a nota num degrau artificial.
  */
-export function processCheckResult(check: any): { status: string; check: any } {
+export function processCheckResult(check: any, avaliacao?: any): { status: string; check: any } {
   if (!check) return { status: 'erro', check: null };
+
+  // Itens objetivos: o CÓDIGO responde e sobrescreve o que a IA porventura
+  // tenha dito. Fato verificável não se pergunta a um modelo.
+  if (avaliacao && check.verificacoes && typeof check.verificacoes === 'object') {
+    const doCodigo = verificarEmCodigo(avaliacao);
+    for (const [id, v] of Object.entries(doCodigo)) check.verificacoes[id] = { ...v, fonte: 'codigo' };
+  }
 
   const verificacoes = check.verificacoes;
   if (verificacoes && typeof verificacoes === 'object') {
@@ -342,7 +426,7 @@ export async function checkAvaliacoesCore(sb: SupabaseClient, empresaId: string,
         const { system, prefix, user } = await montarCheckIA4Prompt(sb, resp, empresaId);
         const resultado = await callAI(system, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check' });
         const raw = await extractJSON(resultado);
-        const { status, check } = processCheckResult(raw);
+        const { status, check } = processCheckResult(raw, resp.avaliacao_ia);
 
         if (check) {
           const { error: updErr } = await persistirCheckIA4(sb, resp.id, empresaId, status, check);
@@ -385,7 +469,7 @@ export async function checarUmaRespostaCore(sb: SupabaseClient, respostaId: stri
     const { system, prefix, user, compNome } = await montarCheckIA4Prompt(sb, resp, resp.empresa_id);
     const resultado = await callAI(system, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check' });
     const raw = await extractJSON(resultado);
-    const { status, check } = processCheckResult(raw);
+    const { status, check } = processCheckResult(raw, resp.avaliacao_ia);
 
     if (check) {
       const { error: updErr } = await persistirCheckIA4(sb, respostaId, resp.empresa_id, status, check);

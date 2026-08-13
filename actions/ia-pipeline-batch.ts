@@ -154,14 +154,21 @@ export async function enqueueIA3Batch(empresaId: string, aiConfig: AIConfig & { 
  * deixa avaliação pronta sem check, e nada mais alcança essas respostas
  * (aconteceu em 11/08: 58 de 72 ficaram assim quando a action estourou 300 s).
  */
-export async function enqueueIA4Batch(empresaId: string, aiConfig: AIConfig & { checkModel?: string } = {}) {
+export async function enqueueIA4Batch(
+  empresaId: string,
+  aiConfig: AIConfig & { checkModel?: string } = {},
+  // Escopo de turma (mig 210). ⚠️ Este é o caminho que RODA: o lote virou o
+  // default em 12/08. Escopar só o síncrono deixaria o fail-closed contornável
+  // pelo botão que o operador realmente usa.
+  opts?: { turmaId?: string | null; empresaInteiraJustificativa?: string },
+) {
   try {
     if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
     const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
     const dup = await jaTemLoteAtivo(sb, empresaId, 'ia4');
     if (dup) return { success: false as const, error: `Já existe um lote de IA4 em andamento (${dup.slice(0, 8)}…) — aguarde ou cancele antes de disparar outro.` };
 
-    const fila = await listarPendentesIA4(empresaId);
+    const fila = await listarPendentesIA4(empresaId, opts);
     if (!fila?.success) return { success: false as const, error: fila?.error || 'Não foi possível listar a fila da IA4' };
     const items = (fila.data || []).map((r: any) => ({ id: r.id }));
 

@@ -436,7 +436,10 @@ export async function rodarIA4(e, c) {
   }
 }
 export async function rodarIA4Uma(e, respostaId, c) { await requireAdminAction('ai.audit.regenerate'); return _ia4Uma(e, respostaId, c); }
-export async function listarPendentesIA4(e) { await requireAdminAction(); return _listarIA4(e); }
+// ⚠️ O `opts` (escopo de turma, mig 210) TEM que ser repassado: um wrapper que
+// engole o parâmetro faz o fail-closed sumir sem erro nenhum. Aqui o typecheck
+// pegou; num JS solto teria passado.
+export async function listarPendentesIA4(e, opts?: { turmaId?: string | null; empresaInteiraJustificativa?: string }) { await requireAdminAction(); return _listarIA4(e, opts); }
 export async function verFilaIA4(e) { await requireAdminAction(); return _fila(e); }
 // Check da IA4: a UI lista a fila e audita UMA resposta por request. Não há
 // wrapper de lote — ele estourava o maxDuration de 300s (ver actions/check-ia4.ts).

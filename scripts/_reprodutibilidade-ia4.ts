@@ -89,7 +89,7 @@ async function main() {
     const checks = await Promise.all(Array.from({ length: REPS }, async () => {
       try {
         const txt = await callAI(system, userChk, { model: MODELO_CHECK }, 8192, { ...optsChk, taskKey: 'ia4_check', empresaId });
-        const { status, check } = processCheckResult(await extractJSON(txt));
+        const { status, check } = processCheckResult(await extractJSON(txt), resp.avaliacao_ia);
         return check ? { nota: check.nota as number, status, erro_grave: !!check.erro_grave, criticos: (check.criticos_falhos || []) as string[], falhos: (check.itens_falhos || []).map((f: string) => f.split(':')[0]) } : null;
       } catch (e: any) { console.error(`   check falhou: ${e?.message}`); return null; }
     }));

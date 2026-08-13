@@ -58,7 +58,7 @@ async function main() {
     const rodar = async (system: string) => {
       try {
         const txt = await callAI(system, user, { model: MODELO }, 8192, { ...opts, taskKey: 'ia4_check', empresaId });
-        const { status, check } = processCheckResult(await extractJSON(txt));
+        const { status, check } = processCheckResult(await extractJSON(txt), resp.avaliacao_ia);
         return check ? { nota: check.nota as number, status, falhos: (check.itens_falhos || []).map((f: string) => f.split(':')[0]) } : null;
       } catch (e: any) { console.error(`   falhou: ${e?.message}`); return null; }
     };
