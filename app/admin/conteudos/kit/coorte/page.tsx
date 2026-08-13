@@ -4,10 +4,11 @@
 // colaboradores da empresa, deduplica os (competência × descritor × DISC) que a
 // coorte vai demandar e gera SÓ os faltantes (em lote/Batch). Dry-run primeiro
 // (preview), depois "Gerar faltantes". Ver docs/KIT-SEMANAL.md.
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { planejarKitsCoorte, statusKit } from '@/actions/kits';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
+import { TURMA_ENCERRADAS } from '@/lib/status';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -19,15 +20,38 @@ export default function CoorteKitPage() {
   const [incluirVideo, setIncluirVideo] = useState(true);
   const [semanaMax, setSemanaMax] = useState<string>('');
   const [jobStatus, setJobStatus] = useState<Record<string, any>>({});
+  const [turmas, setTurmas] = useState<any[]>([]);
+  const [turmaId, setTurmaId] = useState<string>('');
 
   const semEmpresa = !empresaFiltro || empresaFiltro === 'all';
+
+  // Turmas da empresa (mig 210). O recorte importa aqui mais que em qualquer
+  // outra tela: `semanas` é número de TRILHA, e a semana 5 de duas safras que
+  // começaram em datas diferentes são datas diferentes — somar as duas gera um
+  // plano que não serve a nenhuma.
+  useEffect(() => {
+    setTurmaId(''); setTurmas([]); setRes(null);
+    if (semEmpresa) return;
+    (async () => {
+      try {
+        const { listarTurmas } = await import('@/actions/turmas');
+        const r: any = await listarTurmas({ empresaId: empresaFiltro });
+        const ativas = (r?.data?.turmas || []).filter((t: any) => !TURMA_ENCERRADAS.includes(t.status));
+        setTurmas(ativas);
+      } catch { /* sem turmas: a tela segue por empresa, como antes */ }
+    })();
+  }, [empresaFiltro, semEmpresa]);
 
   async function analisar(executar: boolean) {
     if (semEmpresa) { setErro('Selecione uma empresa no topo do admin.'); return; }
     setBusy(true); setErro(null);
     if (!executar) { setRes(null); setJobStatus({}); }
     try {
-      const r: any = await planejarKitsCoorte(empresaFiltro, { executar, incluirVideo, semanaMax: semanaMax ? Number(semanaMax) : undefined });
+      const r: any = await planejarKitsCoorte(empresaFiltro, {
+        executar, incluirVideo,
+        semanaMax: semanaMax ? Number(semanaMax) : undefined,
+        turmaId: turmaId || null,
+      });
       if (r.error) { setErro(r.error); setBusy(false); return; }
       setRes(r);
       if (executar) pollJobs(r.plano.filter((p: any) => p.jobId).map((p: any) => p.jobId));
@@ -71,6 +95,16 @@ export default function CoorteKitPage() {
             className="px-4 py-2 rounded-lg text-sm font-bold border border-white/15 hover:bg-white/5 disabled:opacity-40">
             {busy ? 'Analisando…' : 'Analisar coorte'}
           </button>
+          {turmas.length > 0 && (
+            <label className="text-xs text-white/60 flex items-center gap-2">
+              turma
+              <select value={turmaId} onChange={(e) => { setTurmaId(e.target.value); setRes(null); }} disabled={busy}
+                className="bg-white/5 border border-white/15 rounded px-2 py-1 text-white outline-none">
+                <option value="">todas (empresa)</option>
+                {turmas.map((t: any) => <option key={t.id} value={t.id}>{t.nome} ({t.membros})</option>)}
+              </select>
+            </label>
+          )}
           <label className="text-xs text-white/60 flex items-center gap-2">
             <input type="checkbox" checked={incluirVideo} onChange={(e) => setIncluirVideo(e.target.checked)} disabled={busy} />
             incluir vídeo (HeyGen/render — custo de GPU)
@@ -88,6 +122,14 @@ export default function CoorteKitPage() {
             </button>
           )}
         </div>
+
+        {turmas.length > 1 && !turmaId && (
+          <div className="mb-4 rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-xs text-amber-200">
+            Esta empresa tem <b>{turmas.length} turmas</b> e o plano abaixo soma todas. Como cada safra tem
+            calendário próprio, a <b>semana N de uma não é a mesma data da outra</b> — escolha a turma para
+            planejar por horizonte real.
+          </div>
+        )}
 
         {erro && <div className="rounded-lg border border-red-400/30 bg-red-400/10 p-3 mb-4 text-sm text-red-200">{erro}</div>}
 

@@ -13,7 +13,12 @@
  * semana 3. Ninguém dispara o que ninguém sabe que falta. Ver F-I11 do FMEA.
  */
 
+import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
+
 export const DISC_OK = ['D', 'I', 'S', 'C'];
+
+/** Recorte dos que TÊM trilha e nenhuma participação ativa (mig 210). */
+export const SEM_TURMA = 'sem-turma';
 export const ckey = (...parts: string[]) => parts.filter(Boolean).join(' ::: ');
 
 export interface PlanoCoorteItem {
@@ -36,8 +41,14 @@ export interface PlanoCoorte {
   colaboradores: number;
   plano: PlanoCoorteItem[];
   totalFaltantes: number;
-  /** Início mais CEDO entre as trilhas da coorte — âncora das datas de abertura. */
+  /**
+   * Início mais CEDO entre as trilhas do recorte — âncora das datas de abertura.
+   * ⚠️ Só é comparável DENTRO de uma turma: entre safras, o mínimo global data a
+   * demanda da turma nova pelo calendário da antiga.
+   */
   inicioMaisCedo: string | null;
+  /** Recorte usado. `null` = empresa inteira (compat); `'sem-turma'` = órfãos. */
+  turmaId?: string | null;
 }
 
 export interface OpcoesPlanoCoorte {
@@ -46,6 +57,20 @@ export interface OpcoesPlanoCoorte {
   semanaMax?: number;
   /** Janela: ignora semanas ANTES desta. Com `semanaMax`, delimita o horizonte. */
   semanaMin?: number;
+  /**
+   * TURMA (mig 210). Restringe a varredura aos membros ATIVOS dela.
+   *
+   * Por que importa aqui e não é detalhe de filtro: `semanas` é um número de
+   * TRILHA, e a semana 5 de duas safras que começaram em datas diferentes são
+   * DATAS diferentes. Somar as duas num plano só produz um horizonte que não
+   * corresponde a nenhuma das duas — e o alarme passa a datar a demanda de uma
+   * pela âncora da outra.
+   *
+   * `'sem-turma'` = quem tem trilha e nenhuma participação ativa. Existe para o
+   * alarme não ficar CEGO para essa gente: silêncio aqui é indistinguível de
+   * "está tudo pronto", que foi como a semana 5 do Ibipeba passou batida.
+   */
+  turmaId?: string | null;
 }
 
 /**
@@ -60,9 +85,40 @@ export async function levantarPlanoKitsCoorte(
 
   // 1) Colaboradores + DISC dominante + cargo (cargo define o público: MEI vs
   //    Empregabilidade caem em registros diferentes — ver perfil-publico).
-  const { data: colabs } = await sb.from('colaboradores')
+  const { data: colabsTodos } = await sb.from('colaboradores')
     .select('id, perfil_dominante, cargo').eq('empresa_id', empresaId);
-  if (!colabs?.length) return { error: 'Empresa sem colaboradores' };
+  if (!colabsTodos?.length) return { error: 'Empresa sem colaboradores' };
+
+  // Recorte por TURMA (mig 210). Sem `turmaId`, a empresa inteira — que é o
+  // comportamento de sempre, e o resultado é byte-igual em cliente de uma turma só.
+  let colabs = colabsTodos;
+  if (opts.turmaId) {
+    const { data: membros } = await sb.from('turma_membros')
+      .select('colaborador_id, turma_id')
+      .eq('empresa_id', empresaId).eq('status', TURMA_MEMBRO.ATIVO);
+    if (opts.turmaId === SEM_TURMA) {
+      // ⚠️ "Tem turma" = participação ativa em turma ATIVA. Arquivar a turma não
+      // encerra a participação, então contar qualquer vínculo faria essa gente
+      // sumir dos DOIS recortes — nem na turma (que não é mais varrida) nem
+      // aqui. É o mesmo defeito que `recortesDeHorizonte` tinha do outro lado:
+      // quando há dois caminhos, os dois precisam da mesma régua.
+      const { data: turmas } = await sb.from('turmas')
+        .select('id, status').eq('empresa_id', empresaId);
+      const idsAtivas = new Set(
+        (turmas || []).filter((t: any) => !TURMA_ENCERRADAS.includes(t.status)).map((t: any) => t.id),
+      );
+      const comTurmaAtiva = new Set(
+        (membros || []).filter((m: any) => idsAtivas.has(m.turma_id)).map((m: any) => m.colaborador_id),
+      );
+      colabs = colabsTodos.filter((c: any) => !comTurmaAtiva.has(c.id));
+    } else {
+      const daTurma = new Set(
+        (membros || []).filter((m: any) => m.turma_id === opts.turmaId).map((m: any) => m.colaborador_id),
+      );
+      colabs = colabsTodos.filter((c: any) => daTurma.has(c.id));
+    }
+    if (!colabs.length) return { error: 'Turma sem colaboradores' };
+  }
   const discDe = new Map<string, string>();
   const cargoDe = new Map<string, string>();
   for (const c of colabs) {
@@ -172,5 +228,6 @@ export async function levantarPlanoKitsCoorte(
     plano,
     totalFaltantes: plano.reduce((s, p) => s + p.faltantes.length, 0),
     inicioMaisCedo,
+    turmaId: opts.turmaId ?? null,
   };
 }

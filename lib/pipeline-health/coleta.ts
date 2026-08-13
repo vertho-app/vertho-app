@@ -14,7 +14,8 @@ import { precarregarKits, overlayKitNaSemana, formatoPreferido } from '@/lib/sea
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { normalizePhone } from '@/lib/phone';
-import { levantarPlanoKitsCoorte } from '@/lib/season-engine/kit/plano-coorte';
+import { levantarPlanoKitsCoorte, SEM_TURMA } from '@/lib/season-engine/kit/plano-coorte';
+import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
 import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua, DegradacaoRegistro, CelulaVideoSemDeck, PushDiario } from './regras';
 
 /** Dia da semana no fuso do envio (1=segunda … 7=domingo), como o cron calcula. */
@@ -199,30 +200,103 @@ export async function coletarHorizonteKits(
   semanasAdiante: number,
   hoje: Date = new Date(),
 ): Promise<LacunaKitHorizonte[]> {
-  // Semana corrente da coorte = a MAIOR entre os ativos (quem está mais adiantado
-  // chega primeiro na semana futura, e é por ele que o prazo aperta).
+  // ── UMA VARREDURA POR TURMA (mig 210) ────────────────────────────────────
+  //
+  // Antes isto rodava uma vez por EMPRESA, e com duas safras o alarme quebrava
+  // de duas formas ao mesmo tempo:
+  //
+  //  1. A JANELA vinha do máximo global (`semana_atual`). Com diretores na
+  //     semana 5 e professores na 1, a janela virava [6, 6+N] — e as semanas
+  //     2, 3 e 4 dos professores, que são justamente as que vão faltar kit,
+  //     NUNCA entravam. A turma nova ficava invisível.
+  //  2. A DATA vinha do mínimo global (`inicioMaisCedo`). A demanda da turma
+  //     nova era datada pela âncora da antiga, então "semana 3" parecia ter
+  //     aberto há semanas — urgente por engano, ou o contrário.
+  //
+  // O casamento dos dois é pior que cada um: janela de uma turma, régua de
+  // outra. Agora cada recorte traz a sua janela e a sua âncora.
+  const recortes = await recortesDeHorizonte(sb, empresaId);
+  const todas: LacunaKitHorizonte[] = [];
+
+  for (const recorte of recortes) {
+    if (!recorte.semanaCorrente) continue;   // ninguém ativo neste recorte
+    const de = recorte.semanaCorrente + 1;
+    const ate = recorte.semanaCorrente + semanasAdiante;
+    const base = await levantarPlanoKitsCoorte(sb, empresaId, {
+      semanaMin: de, semanaMax: ate, turmaId: recorte.turmaId,
+    });
+    if ('error' in base) continue;
+
+    // Data de abertura de uma semana = início mais cedo DESTE recorte + (N-1)×7d.
+    // Sem `data_inicio` não dá para datar: cai em 0 dias, que classifica como
+    // urgente — preferir o alarme falso ao silêncio, porque o silêncio aqui é
+    // indistinguível de "está tudo pronto" (foi assim que a semana 5 passou).
+    const inicio = base.inicioMaisCedo ? new Date(`${base.inicioMaisCedo}T00:00:00Z`) : null;
+    const diasAteSemana = (n: number): number => {
+      if (!inicio) return 0;
+      const abre = new Date(inicio.getTime() + (n - 1) * 7 * 86400_000);
+      return Math.round((abre.getTime() - hoje.getTime()) / 86400_000);
+    };
+
+    for (const lacuna of montarLacunas(base.plano, diasAteSemana)) {
+      todas.push({ ...lacuna, turma: recorte.rotulo });
+    }
+  }
+
+  return todas;
+}
+
+/**
+ * Os recortes que o horizonte precisa varrer, cada um com a SUA semana corrente.
+ *
+ * Empresa sem turma nenhuma → um recorte só (`turmaId: null`), idêntico ao que
+ * existia. Com turmas → uma por turma ativa, mais um bucket para quem tem envio
+ * ativo e nenhuma participação: essa gente não pode sumir do alarme só porque
+ * ficou fora da classificação.
+ */
+async function recortesDeHorizonte(
+  sb: any,
+  empresaId: string,
+): Promise<Array<{ turmaId: string | null; rotulo: string | null; semanaCorrente: number | null }>> {
   const { data: envios } = await sb.from('fase4_envios')
-    .select('semana_atual').eq('empresa_id', empresaId).eq('status', 'ativo');
+    .select('colaborador_id, semana_atual').eq('empresa_id', empresaId).eq('status', 'ativo');
   if (!envios?.length) return [];
-  const semanaCorrente = Math.max(1, ...((envios as any[]).map((e) => Number(e.semana_atual) || 1)));
 
-  const de = semanaCorrente + 1;
-  const ate = semanaCorrente + semanasAdiante;
-  const base = await levantarPlanoKitsCoorte(sb, empresaId, { semanaMin: de, semanaMax: ate });
-  if ('error' in base) return [];
+  const semanaDe = (linhas: any[]) =>
+    linhas.length ? Math.max(1, ...linhas.map((e: any) => Number(e.semana_atual) || 1)) : null;
 
-  // Data de abertura de uma semana = início mais cedo da coorte + (N-1) × 7 dias.
-  // Sem `data_inicio` não dá para datar: cai em 0 dias, que classifica como urgente —
-  // preferir o alarme falso ao silêncio, porque o silêncio aqui é indistinguível de
-  // "está tudo pronto" (foi exatamente assim que a semana 5 passou despercebida).
-  const inicio = base.inicioMaisCedo ? new Date(`${base.inicioMaisCedo}T00:00:00Z`) : null;
-  const diasAteSemana = (n: number): number => {
-    if (!inicio) return 0;
-    const abre = new Date(inicio.getTime() + (n - 1) * 7 * 86400_000);
-    return Math.round((abre.getTime() - hoje.getTime()) / 86400_000);
-  };
+  const { data: turmas } = await sb.from('turmas')
+    .select('id, nome, status').eq('empresa_id', empresaId);
+  const ativas = (turmas || []).filter((t: any) => !TURMA_ENCERRADAS.includes(t.status));
+  if (!ativas.length) {
+    return [{ turmaId: null, rotulo: null, semanaCorrente: semanaDe(envios as any[]) }];
+  }
 
-  return montarLacunas(base.plano, diasAteSemana);
+  const { data: membros } = await sb.from('turma_membros')
+    .select('colaborador_id, turma_id').eq('empresa_id', empresaId).eq('status', TURMA_MEMBRO.ATIVO);
+  // ⚠️ Só participação em turma ATIVA conta como "tem turma". Arquivar a turma
+  // não encerra os envios das pessoas: se elas continuassem contando como
+  // classificadas, sumiriam do alarme sem nenhum recorte cobri-las — um jeito
+  // silencioso de a turma inteira ficar sem kit. (O teste da turma arquivada
+  // pegou isto; a primeira versão mapeava qualquer participação ativa.)
+  const idsAtivas = new Set(ativas.map((t: any) => t.id));
+  const turmaDe = new Map<string, string>(
+    (membros || [])
+      .filter((m: any) => idsAtivas.has(m.turma_id))
+      .map((m: any) => [m.colaborador_id, m.turma_id]),
+  );
+
+  const recortes = ativas.map((t: any) => ({
+    turmaId: t.id as string,
+    rotulo: t.nome as string,
+    semanaCorrente: semanaDe((envios as any[]).filter((e) => turmaDe.get(e.colaborador_id) === t.id)),
+  }));
+
+  const orfaos = (envios as any[]).filter((e) => !turmaDe.has(e.colaborador_id));
+  if (orfaos.length) {
+    recortes.push({ turmaId: SEM_TURMA, rotulo: 'sem turma', semanaCorrente: semanaDe(orfaos) });
+  }
+  return recortes;
 }
 
 /**

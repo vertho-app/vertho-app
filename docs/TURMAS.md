@@ -433,11 +433,31 @@ reescrever o próprio passado.
 
 ## 8. Kits e alarmes
 
-`levantarPlanoKitsCoorte(sb, empresaId, opts)` recebe `turmaId`. Hoje "coorte" =
-empresa: `inicioMaisCedo` mistura turmas e o horizonte soma semana 5 de uma com
-semana 1 da outra — e como as janelas são `semanas: number[]`, **"semana 5" de
-duas turmas são datas diferentes**. `pulse_mv_aggregates` ganha
-`group_type: 'turma'` (extensão natural de `company|area|cargo`).
+`levantarPlanoKitsCoorte(sb, empresaId, opts)` recebe `turmaId`, e o horizonte
+(`coletarHorizonteKits`) roda **uma varredura por turma ativa**. O defeito que
+isso corrige tinha duas metades que se agravavam:
+
+1. **A janela** vinha do máximo global de `fase4_envios.semana_atual`. Com
+   diretores na semana 5 e professores na 1, ela virava `[6, 6+N]` — e as
+   semanas 2 a 4 dos professores, justamente as que vão faltar kit, **nunca
+   entravam**. A turma nova ficava invisível para o alarme.
+2. **A data** vinha do mínimo global de `data_inicio`. A demanda da turma nova
+   era datada pela âncora da antiga: "semana 3" parecia ter aberto há semanas.
+
+O casamento das duas era pior que cada uma — janela de uma turma, régua de
+outra. Agora cada recorte traz a sua janela e a sua âncora, e o rótulo do achado
+cita a turma **só quando há mais de uma** (em cliente de safra única seria ruído).
+
+Um terceiro recorte, `'sem-turma'`, cobre quem tem envio ativo e nenhuma
+participação em turma **ativa** — inclusive quando a turma foi arquivada sem
+encerrar os envios. Sem ele, essa gente sumiria de todos os recortes, e silêncio
+aqui é indistinguível de "está tudo pronto".
+
+A tela `/admin/conteudos/kit/coorte` ganhou seletor de turma e avisa quando há
+2+ safras e nenhuma escolhida.
+
+⏳ Pendente: `pulse_mv_aggregates` com `group_type: 'turma'` — vai junto com a
+frente do Pulso.
 
 Vocabulário: `coorte` no código significa "empresa". Ao introduzir turma, ou vira
 sinônimo ou é renomeado — sem meio-termo. "Turma" é a palavra da Secretaria.
@@ -524,7 +544,7 @@ turma depois.
 | **Fila por remetente** (§7) | Projeto à parte: exige coordenador *cross-lambda* com estado compartilhado. O que entrou foi o mínimo — escopo obrigatório no disparo em lote. `adiadosPorTeto` por turma e `notification_deliveries.turma_id` ficam para a mesma frente. |
 | **Pulso ↔ turma** (`pulse_ciclos.turma_id`, `pulse_assignments.turma_membro_id`, `aguardando_t2`, `group_type: 'turma'`) | Nenhum cliente usa o módulo; refatorar ciclo, enum e MV junto com a fundação adicionaria risco sem tocar a dor. O **gate de contratação** entrou (era o que impedia rascunho virar entrega real). |
 | **`turma_etapas`** | Enquanto o Pulso for a única etapa contratável, o resolvedor tipado resolve. Motor de roteiro antes de dois clientes com roteiros diferentes vira builder que não fecha. |
-| **Kits e health por turma** (§8) | `levantarPlanoKitsCoorte` segue por empresa. Com uma turma por cliente em jornada (só Ibipeba hoje), não há mistura de horizonte ainda. |
+| ~~Kits e health por turma~~ | ✅ **feito em 13/08** — ver §8. |
 | **Cadência por turma** | Depende da fila por remetente — cadência por turma como unidade de fan-out multiplicaria o problema de 11/08. Allowlist declarada no guard. |
 | **As 63 varreduras restantes** | Os 3 fluxos críticos foram escopados. O resto precisa de guard com allowlist para ser **visível**. |
 

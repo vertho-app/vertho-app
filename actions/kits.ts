@@ -327,7 +327,10 @@ export type { PlanoCoorteItem } from '@/lib/season-engine/kit/plano-coorte';
 
 export async function planejarKitsCoorte(
   empresaId: string,
-  opts: { executar?: boolean; incluirVideo?: boolean; contexto?: string; nivelMin?: number; nivelMax?: number; semanaMax?: number } = {},
+  // `turmaId` (mig 210): a semana N de duas safras são DATAS diferentes, então
+  // gerar "para a coorte" sem recorte produz um plano que não corresponde a
+  // nenhuma delas. Sem turma → empresa inteira, como sempre foi.
+  opts: { executar?: boolean; incluirVideo?: boolean; contexto?: string; nivelMin?: number; nivelMax?: number; semanaMax?: number; turmaId?: string | null } = {},
 ) {
   try {
     const sb = await requireAdminSupabase('content.manage');

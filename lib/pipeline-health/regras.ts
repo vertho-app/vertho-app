@@ -239,8 +239,15 @@ export interface LacunaKitHorizonte {
   pessoas: number;
   /** Semana da trilha (a mais próxima) que demanda este tema. */
   semana: number;
-  /** Dias até essa semana abrir para quem está mais adiantado na coorte. */
+  /** Dias até essa semana abrir para quem está mais adiantado NO RECORTE. */
   diasAte: number;
+  /**
+   * Turma do recorte (mig 210). `null` = empresa sem turmas (compat).
+   *
+   * Vai no rótulo do achado porque "sem5 · 12d · Gestão Escolar" não diz de QUEM
+   * é a semana 5 quando há duas safras — e a ação de produzir kit é por turma.
+   */
+  turma?: string | null;
 }
 
 /** Abaixo disto não há tempo hábil de produzir e revisar: vira crítico. */
@@ -251,8 +258,11 @@ export function checarHorizonteKits(
   criticoAteDias: number = HORIZONTE_CRITICO_DIAS,
 ): Achado[] {
   const comFalta = lacunas.filter((l) => l.faltantes.length > 0);
+  // A turma entra no rótulo SÓ quando há mais de uma no lote: em cliente de uma
+  // safra só, o prefixo seria ruído constante.
+  const varias = new Set(comFalta.map((l) => l.turma ?? '')).size > 1;
   const rotulo = (l: LacunaKitHorizonte) =>
-    `sem${l.semana} (${l.diasAte}d) · ${l.competencia} · ${l.cargo} · ${l.descritor} · ${l.faltantes.join('')} · ${l.pessoas}p`;
+    `${varias && l.turma ? `[${l.turma}] ` : ''}sem${l.semana} (${l.diasAte}d) · ${l.competencia} · ${l.cargo} · ${l.descritor} · ${l.faltantes.join('')} · ${l.pessoas}p`;
   // Ordena pelo que vence primeiro — a amostra é cortada em 8 e tem que mostrar o
   // mais urgente, não o alfabeticamente primeiro.
   const ordenar = (a: LacunaKitHorizonte, b: LacunaKitHorizonte) => a.diasAte - b.diasAte || b.pessoas - a.pessoas;
