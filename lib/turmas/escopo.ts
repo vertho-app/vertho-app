@@ -159,29 +159,3 @@ export async function idsDoEscopoOuFalhar(
 export function mensagemEscopoObrigatorio(e: unknown): string | null {
   return e instanceof EscopoObrigatorioError ? e.message : null;
 }
-
-/**
- * PRÉVIA antes de executar — o que a tela mostra ao operador.
- *
- * Sempre com denominador: "38 de 127". Contagem sem denominador é como o painel
- * de hoje diz "80 respostas" para 283 pessoas e ninguém percebe que faltam 235.
- */
-export async function previaDoEscopo(
-  sb: any,
-  empresaId: string,
-  escopo: EscopoOperacional | undefined,
-  filtro?: (colaboradorId: string) => boolean | Promise<boolean>,
-): Promise<{ rotulo: string; total: number; elegiveis: number; foraDoAlvo: number }> {
-  const resolvido = await resolverEscopoDeLote(sb, empresaId, escopo);
-  if (!filtro) {
-    return { rotulo: resolvido.rotulo, total: resolvido.total, elegiveis: resolvido.total, foraDoAlvo: 0 };
-  }
-  let elegiveis = 0;
-  for (const id of resolvido.colaboradorIds) if (await filtro(id)) elegiveis++;
-  return {
-    rotulo: resolvido.rotulo,
-    total: resolvido.total,
-    elegiveis,
-    foraDoAlvo: resolvido.total - elegiveis,
-  };
-}

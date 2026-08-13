@@ -26,6 +26,7 @@ import { resolveTaskModel } from '@/lib/ai-tasks';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { iniciarEnviosTemporada, pausarEnviosTemporada } from '@/actions/envios-temporada';
 import { gerarBlueprint, auditarBlueprint, filaBlueprint, filaAuditBlueprint } from '@/actions/blueprint';
+import { TURMA_ENCERRADAS } from '@/lib/status';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
@@ -187,6 +188,10 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   // Turma do escopo (mig 210) — o portfólio em /admin-v2 linka para cá com
   // `&turma=<id>`. Sem ela, empresa com 2+ turmas ativas recusa o lote.
   const turmaIdEscopo = useSearchParams().get('turma') || null;
+  // Portfólio de turmas (mig 210) — aqui só para a FAIXA DE ESCOPO. A
+  // composição (criar, mover, arquivar) vive no /admin-v2; nesta tela a
+  // pergunta é uma só: "esta ação em lote vai atingir quem?".
+  const [turmas, setTurmas] = useState<any[]>([]);
   const router = useRouter();
   const { registerRefresh, podeVer } = useAdminShell();
   const podeExecutarIA = podeVer('ai.audit.regenerate');
@@ -268,6 +273,19 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   }, [empresaId]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Turmas da empresa — carregamento ISOLADO do loadData de propósito: falha
+  // aqui não pode derrubar o pipeline inteiro, e a faixa some em silêncio
+  // (empresa com 1 turma nem a mostra).
+  useEffect(() => {
+    (async () => {
+      try {
+        const { listarTurmas } = await import('@/actions/turmas');
+        const r: any = await listarTurmas({ empresaId });
+        if (r?.success && r.data?.turmas) setTurmas(r.data.turmas);
+      } catch { /* sem turmas: a tela segue como sempre foi */ }
+    })();
+  }, [empresaId]);
   useEffect(() => () => { mountedRef.current = false; }, []); // para os watchers ao desmontar
 
   // Acompanha um lote em SEGUNDO PLANO (não segura pendingAction): atualiza o
@@ -623,7 +641,20 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
           addLog(turmaIdEscopo ? 'Nenhum colaborador nesta turma' : 'Nenhum colaborador encontrado', 'error');
           setPendingAction(null); return;
         }
-        if (turmaIdEscopo) addLog(`🎯 Escopo: turma ${turmaIdEscopo.slice(0, 8)}… (${colabs.length} pessoa(s))`, 'info');
+        // PRÉVIA antes de executar — o que a ação vai atingir, com denominador.
+        // Sem isto, "Gerando temporada para 38 colab(s)" não diz 38 DE QUANTOS,
+        // e um escopo errado só aparece depois de gastar IA.
+        if (turmaIdEscopo) {
+          const t = turmas.find((x: any) => x.id === turmaIdEscopo);
+          const fora = t ? Math.max(0, t.membros - colabs.length) : 0;
+          addLog(
+            `🎯 Escopo: ${t?.nome || turmaIdEscopo.slice(0, 8) + '…'} — ${colabs.length}` +
+            (t ? ` de ${t.membros} pessoa(s)` : ' pessoa(s)') +
+            (fora ? ` · ${fora} fora do alvo` : '') +
+            ` · 0 de outras turmas`,
+            'info',
+          );
+        }
         if (r?.trilhasExistentes > 0 && !(await confirmDialog({ title: label, message: t('feedback.existingTracksConfirm', { count: r.trilhasExistentes }), severity: 'danger' }))) { addLog(t('feedback.cancelLog'), 'info'); setPendingAction(null); return; }
         addLog(`📋 Gerando temporada para ${colabs.length} colab(s)`, 'info');
         let ok = 0, erros = 0;
@@ -678,6 +709,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   );
 
   const { empresa, totalColab, fases } = data;
+  const turmaAtual = turmas.find((t: any) => t.id === turmaIdEscopo) || null;
+  const turmasAtivas = turmas.filter((t: any) => !TURMA_ENCERRADAS.includes(t.status));
   const uiConfig = empresa.ui_config || null;
   const activeFase = fases.find((f: any) => f.status === 'andamento');
   const empGlyph = empresa.nome?.trim()?.[0]?.toUpperCase() ?? '?';
@@ -707,6 +740,45 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
       <div className="max-w-[1200px] mx-auto px-5 py-6">
 
         <BackButton onClick={() => router.push('/admin/dashboard')} />
+
+        {/* ── FAIXA DE ESCOPO ──────────────────────────────────────────────
+            Com 2+ turmas ativas o lote RECUSA sem escopo (mig 210). Sem esta
+            faixa, o único jeito de escolher seria editar a URL na mão — e o
+            operador leria "nenhum colaborador" sem saber o que fazer. */}
+        {turmasAtivas.length > 1 && (
+          <div
+            className="mb-4 flex flex-wrap items-center gap-3 rounded-[14px] px-4 py-3"
+            style={{
+              background: turmaAtual ? 'rgba(52,197,204,.07)' : 'rgba(244,183,64,.08)',
+              border: `1px solid ${turmaAtual ? 'rgba(52,197,204,.25)' : 'rgba(244,183,64,.3)'}`,
+            }}
+          >
+            <span className="text-[12px]" style={{ color: turmaAtual ? '#34c5cc' : '#f4b740' }}>
+              {turmaAtual
+                ? `Operando: ${turmaAtual.nome} · ${turmaAtual.membros} pessoa(s)`
+                : `Esta empresa tem ${turmasAtivas.length} turmas — escolha uma antes de rodar ações em lote.`}
+            </span>
+            <select
+              value={turmaIdEscopo || ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                router.replace(v ? `/admin/empresas/${empresaId}?turma=${v}` : `/admin/empresas/${empresaId}`);
+              }}
+              className="rounded-lg px-2.5 py-1.5 text-[12.5px]"
+              style={{ background: '#0b1a2e', border: '1px solid rgba(255,255,255,.14)', color: '#e8eef6' }}
+            >
+              <option value="">— sem turma escolhida —</option>
+              {turmasAtivas.map((t: any) => (
+                <option key={t.id} value={t.id}>{t.nome} ({t.membros})</option>
+              ))}
+            </select>
+            {turmaAtual && (
+              <span className="font-mono text-[11px] text-white/45">
+                {turmaAtual.comIa4} avaliado(s) · {turmaAtual.comTrilha} com trilha
+              </span>
+            )}
+          </div>
+        )}
 
         {/* ── EMPRESA HEADER ──────────────────────────────── */}
         <div

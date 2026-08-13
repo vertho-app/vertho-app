@@ -57,6 +57,50 @@ export async function listarSemTurma(input: z.infer<typeof EmpresaInput>) {
   return _listarSemTurma(input);
 }
 
+/**
+ * Membros de uma turma, para a tela de composição.
+ *
+ * Traz o estado individual junto (respondeu? avaliado? tem trilha?) porque a
+ * pergunta do operador ao mover alguém é sempre "e o que essa pessoa já fez?".
+ */
+const MembrosInput = z.object({ empresaId: z.string().min(1), turmaId: z.string().min(1) });
+
+const _listarMembrosTurma = protectedAction('content.manage', MembrosInput, async (ctx, { empresaId, turmaId }) => {
+  await assertTenantAccessAction(ctx, empresaId);
+  const sb = await requireAdminSupabase();
+
+  const { data: membros } = await sb.from('turma_membros')
+    .select('colaborador_id, entrou_em')
+    .eq('empresa_id', empresaId).eq('turma_id', turmaId).eq('status', TURMA_MEMBRO.ATIVO);
+  const ids = (membros || []).map((m: any) => m.colaborador_id);
+  if (!ids.length) return { pessoas: [] as any[] };
+
+  const [colabsRes, respostasRes, trilhasRes] = await Promise.all([
+    sb.from('colaboradores').select('id, nome_completo, cargo, email').eq('empresa_id', empresaId).in('id', ids),
+    sb.from('respostas').select('colaborador_id, nivel_ia4').eq('empresa_id', empresaId).in('colaborador_id', ids),
+    sb.from('trilhas').select('colaborador_id').eq('empresa_id', empresaId).in('colaborador_id', ids),
+  ]);
+  const comResposta = new Set<string>(), comIa4 = new Set<string>();
+  for (const r of respostasRes.data || []) {
+    if (!r.colaborador_id) continue;
+    comResposta.add(r.colaborador_id);
+    if (r.nivel_ia4 !== null && r.nivel_ia4 !== undefined) comIa4.add(r.colaborador_id);
+  }
+  const comTrilha = new Set<string>((trilhasRes.data || []).map((t: any) => t.colaborador_id));
+  const entradaDe = new Map<string, string>((membros || []).map((m: any) => [m.colaborador_id, m.entrou_em]));
+
+  const pessoas = (colabsRes.data || []).map((c: any) => ({
+    id: c.id, nome: c.nome_completo, cargo: c.cargo, email: c.email,
+    entrouEm: entradaDe.get(c.id) || null,
+    respondeu: comResposta.has(c.id), avaliado: comIa4.has(c.id), temTrilha: comTrilha.has(c.id),
+  })).sort((a: any, b: any) => String(a.nome || '').localeCompare(String(b.nome || '')));
+
+  return { pessoas };
+});
+export async function listarMembrosTurma(input: z.infer<typeof MembrosInput>) {
+  return _listarMembrosTurma(input);
+}
+
 // ── Escrita ────────────────────────────────────────────────────────────────
 
 const CriarInput = z.object({

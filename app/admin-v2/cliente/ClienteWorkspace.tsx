@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type { Workspace, FaseReal } from '../actions';
+import TurmasPanel from './TurmasPanel';
 
 const CHIP: Record<FaseReal['estado'], { classe: string; rotulo: string }> = {
   feito: { classe: 'bg-[#2ecc7124] text-[var(--success)]', rotulo: 'Concluído' },
@@ -16,21 +17,6 @@ const ETAPAS_BASE = [
   { chave: 'visao', rotulo: 'Visão geral' },
   { chave: 'regua', rotulo: 'Definir régua' },
 ];
-
-const STATUS_TURMA: Record<string, { classe: string; rotulo: string }> = {
-  planejada: { classe: 'bg-white/[0.06] text-[var(--ink-faint)]', rotulo: 'Planejada' },
-  diagnostico: { classe: 'bg-[#f4b74029] text-[var(--warning)]', rotulo: 'Diagnóstico' },
-  trilhas_em_geracao: { classe: 'bg-[#34c5cc24] text-[var(--cyan)]', rotulo: 'Gerando trilhas' },
-  em_jornada: { classe: 'bg-[#2ecc7124] text-[var(--success)]', rotulo: 'Em jornada' },
-  concluida: { classe: 'bg-white/[0.06] text-[var(--ink-faint)]', rotulo: 'Concluída' },
-  arquivada: { classe: 'bg-white/[0.06] text-[var(--ink-faint)]', rotulo: 'Arquivada' },
-};
-
-/** "38 de 127 (30%)" — contagem sem denominador é o defeito que as turmas corrigem. */
-function fracao(parte: number, total: number): string {
-  if (!total) return '0';
-  return `${parte} de ${total} (${Math.round((parte / total) * 100)}%)`;
-}
 
 export default function ClienteWorkspace({ ws }: { ws: Workspace }) {
   const ETAPAS = ws.portfolio
@@ -124,66 +110,7 @@ export default function ClienteWorkspace({ ws }: { ws: Workspace }) {
       )}
 
       {etapa === 'turmas' && ws.portfolio && (
-        <div className="flex flex-col gap-3.5">
-          <p className="max-w-[76ch] text-[13.5px] text-[var(--ink-dim)]">
-            Cada turma tem <b className="text-[var(--ink)]">estado próprio</b> e uma próxima ação. As fases F0/F1
-            (cargos, Top 10, gabarito, cenários) seguem institucionais — perfil ideal é do cargo, não da safra.
-          </p>
-
-          {ws.portfolio.semTurma > 0 && (
-            <div className="rounded-2xl border border-[#f4b74040] bg-[#f4b74012] px-4 py-3 text-[13px] text-[var(--warning)]">
-              <b>{ws.portfolio.semTurma}</b> pessoa(s) sem turma — não recebem ação em lote nem comunicação até
-              serem classificadas.
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2.5">
-            {ws.portfolio.turmas.map((t) => {
-              const chip = STATUS_TURMA[t.status] || STATUS_TURMA.planejada;
-              return (
-                <div
-                  key={t.id}
-                  className="rounded-2xl border border-white/[0.08] bg-[var(--navy-card)] px-4 py-3.5 shadow-[0_8px_20px_rgba(0,0,0,0.18)]"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-semibold">{t.nome}</h3>
-                      <span className="font-mono text-[11px] text-[var(--ink-faint)]">
-                        {t.membros} pessoa(s)
-                        {t.programaModo ? ` · ${t.programaModo}` : ''}
-                        {t.dataInicio ? ` · início ${t.dataInicio}` : ''}
-                      </span>
-                    </div>
-                    <span className={`whitespace-nowrap rounded-full px-2.5 py-1 font-mono text-[9.5px] uppercase tracking-[0.08em] ${chip.classe}`}>
-                      {chip.rotulo}
-                    </span>
-                  </div>
-
-                  <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 font-mono text-[11px] text-[var(--ink-dim)]">
-                    <span>responderam: {fracao(t.comResposta, t.membros)}</span>
-                    <span>avaliados: {fracao(t.comIa4, t.membros)}</span>
-                    <span>com trilha: {fracao(t.comTrilha, t.membros)}</span>
-                  </div>
-
-                  {t.semanas.length > 0 && (
-                    <div className="mt-1 font-mono text-[11px] text-[var(--ink-faint)]">
-                      jornada: {t.semanas.map((s) => `${s.pessoas} na semana ${s.semana}`).join(' · ')}
-                    </div>
-                  )}
-
-                  {t.proximaAcao && (
-                    <Link
-                      href={`/admin/temporadas?empresa=${ws.empresa.id}&turma=${t.id}`}
-                      className="mt-1.5 block text-[12.5px] text-[var(--cyan)] hover:underline"
-                    >
-                      → {t.proximaAcao}
-                    </Link>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <TurmasPanel empresaId={ws.empresa.id} portfolio={ws.portfolio} />
       )}
 
       {etapa === 'regua' && (
