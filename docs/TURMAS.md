@@ -1,8 +1,13 @@
-# Turmas (coortes) — proposta de arquitetura
+# Turmas (coortes) — arquitetura
 
-> **Status: PROPOSTA — nada implementado.** Consolidada em 13/08/2026 a partir de
-> quatro rodadas de revisão (histórico no fim). Enquanto estiver com este
-> cabeçalho, não é descrição do sistema: descreve o que se propõe construir.
+> **Status: IMPLEMENTADO em 13/08/2026** (fundação, config, escopo, painel e
+> turmas de Macaé). O desenho abaixo descreve o sistema como ele é; o que ficou
+> de fora está marcado como **pendente** e listado em "O que NÃO entrou".
+>
+> Schema: `migrations/210-turmas.sql`. Código: `lib/turmas/`, `actions/turmas.ts`.
+> A **UI do portfólio está atrás de flag desligada** (`TURMAS_UI` ou
+> `sys_config.turmas_ui`) — ligar para Macaé depois de 20/08, pelo
+> sequenciamento do CONARH.
 
 ## O problema
 
@@ -512,6 +517,17 @@ turma depois.
 - Fluxo ponta a ponta validado no `acme-demo` + `npm run smoke` verde antes de a
   flag ligar para Macaé.
 
+## O que NÃO entrou (pendente, de propósito)
+
+| Item | Por quê |
+|---|---|
+| **Fila por remetente** (§7) | Projeto à parte: exige coordenador *cross-lambda* com estado compartilhado. O que entrou foi o mínimo — escopo obrigatório no disparo em lote. `adiadosPorTeto` por turma e `notification_deliveries.turma_id` ficam para a mesma frente. |
+| **Pulso ↔ turma** (`pulse_ciclos.turma_id`, `pulse_assignments.turma_membro_id`, `aguardando_t2`, `group_type: 'turma'`) | Nenhum cliente usa o módulo; refatorar ciclo, enum e MV junto com a fundação adicionaria risco sem tocar a dor. O **gate de contratação** entrou (era o que impedia rascunho virar entrega real). |
+| **`turma_etapas`** | Enquanto o Pulso for a única etapa contratável, o resolvedor tipado resolve. Motor de roteiro antes de dois clientes com roteiros diferentes vira builder que não fecha. |
+| **Kits e health por turma** (§8) | `levantarPlanoKitsCoorte` segue por empresa. Com uma turma por cliente em jornada (só Ibipeba hoje), não há mistura de horizonte ainda. |
+| **Cadência por turma** | Depende da fila por remetente — cadência por turma como unidade de fan-out multiplicaria o problema de 11/08. Allowlist declarada no guard. |
+| **As 63 varreduras restantes** | Os 3 fluxos críticos foram escopados. O resto precisa de guard com allowlist para ser **visível**. |
+
 ## Alternativas descartadas
 
 | Alternativa | Por que não |
@@ -568,6 +584,9 @@ turma depois.
   rascunho de Macaé foi excluído.
 - **v5** (13/08) — consolidação: texto reescrito sem as camadas de correção,
   números remedidos.
+- **v7** (13/08) — **implementado**: mig 210, `lib/turmas/`, gate de módulo,
+  escopo fail-closed nos 3 fluxos, painel atrás de flag, gestor sem
+  `semana_media`, turmas de Macaé criadas. Ver "O que NÃO entrou".
 - **v6** (13/08) — segunda revisão externa. FKs compostas em **todos** os
   vínculos (o SQL da v5 prometia isolamento que não entregava); uma participação
   ativa por pessoa via índice parcial; reentrada exige `novaJornada` +
