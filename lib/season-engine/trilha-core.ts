@@ -4,7 +4,8 @@ import { buildSeason } from '@/lib/season-engine/build-season';
 import { blueprintToTrilhaInputs, type BlueprintTrilhaInputs } from '@/lib/blueprint/to-descriptors';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
-import { getProgramaConfigByModo, resolverModoColab, type ProgramaConfig, type ProgramaModoLabel } from '@/lib/season-engine/programa-config';
+import { getProgramaConfigByModo, type ProgramaConfig, type ProgramaModoLabel } from '@/lib/season-engine/programa-config';
+import { carregarContextoTurma, resolverModoDaTurma } from '@/lib/turmas';
 import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import type { AIConfig } from '@/actions/ai-client';
@@ -21,6 +22,20 @@ import { PROGRESSO, TRILHA } from '@/lib/status';
  * `lib/blueprint/core.ts`. Quando `empresaIdEsperado` é informado (caminho de
  * lote), o núcleo revalida o tenant do colaborador.
  */
+/**
+ * Contexto de TURMA para a geração (mig 210). Resolvido uma vez em
+ * `gerarTemporadaCoreHeadless` e propagado para todos os modos: o carimbo da
+ * participação, o calendário da safra e a config efetiva (empresa → turma →
+ * participação) andam juntos, senão um modo herda a config da turma e grava a
+ * trilha sem carimbo — ou o contrário.
+ */
+export interface ContextoGeracaoTurma {
+  turmaMembroId: string | null;
+  dataInicioTurma: string | null;
+  /** Config EFETIVA. Sem turma, é a `sys_config` da empresa inalterada. */
+  config: Record<string, any>;
+}
+
 export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, competencia, aiConfig, empresaIdEsperado, novaJornada }: { colaboradorId?: string; competencia?: string; aiConfig?: any; empresaIdEsperado?: string; novaJornada?: boolean } = {}) {
   try {
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
@@ -59,16 +74,29 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     const { data: empresa } = await sbRaw.from('empresas')
       .select('segmento, sys_config').eq('id', colab.empresa_id).maybeSingle();
     const contexto = inferirContexto(empresa?.segmento);
-    // Precedência de GERAÇÃO (fonte única): override do colaborador →
-    // default da empresa → DUO. O rótulo resolvido é CARIMBADO na trilha
-    // (programa_modo) — o runtime passa a ler de lá, congelando as regras.
-    const modoResolvido = resolverModoColab(colab, empresa?.sys_config);
+
+    // Contexto de TURMA (mig 210): resolve UMA vez a participação ativa, o
+    // calendário da safra e a config efetiva — e propaga para todos os modos.
+    const ctxTurma = await carregarContextoTurma(sbRaw, colab.empresa_id, colab.id, empresa?.sys_config || {});
+    const cfg = ctxTurma.config;
+    const turma: ContextoGeracaoTurma = {
+      turmaMembroId: ctxTurma.turmaMembroId,
+      dataInicioTurma: ctxTurma.turmaDataInicio,
+      config: cfg,
+    };
+
+    // Precedência de GERAÇÃO (fonte única): participação → turma → override do
+    // colaborador (legado) → default da empresa → DUO. O rótulo resolvido é
+    // CARIMBADO na trilha (programa_modo) — o runtime passa a ler de lá,
+    // congelando as regras. Sem turma, `cfg` é a sys_config da empresa e o
+    // resultado é byte-igual ao `resolverModoColab` anterior.
+    const modoResolvido = resolverModoDaTurma({ empresa: cfg, colaboradorLegado: colab }) as ProgramaModoLabel;
 
     // ── Modo Personalizado (builder de degustação): config vem de DADO ────
     // getProgramaConfigByModo NÃO resolve 'custom' (cairia no DUO de 14
     // semanas) — deriva de sys_config.programa_custom, com erro explícito.
     if (modoResolvido === 'custom') {
-      const inputs = parseProgramaCustom(empresa?.sys_config?.programa_custom);
+      const inputs = parseProgramaCustom(cfg?.programa_custom);
       if (!inputs) {
         return {
           error: 'Modo Personalizado sem configuração válida (sys_config.programa_custom) — defina semanas/competências/fechamento em Configurações → Programa antes de gerar.',
@@ -76,7 +104,7 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
         };
       }
       return await gerarTemporadaCustom({
-        colab, empresa, tdb, contexto, programaConfig: derivarConfigCustom(inputs), aiConfig, competenciaAlvo,
+        colab, empresa, tdb, contexto, programaConfig: derivarConfigCustom(inputs), aiConfig, competenciaAlvo, turma,
       });
     }
 
@@ -86,14 +114,14 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     // ── Modo Onboarding: trilha multi-competência ────────────────────────
     if (isOnboarding) {
       return await gerarTemporadaOnboarding({
-        colab, empresa, tdb, sbRaw, contexto, programaConfig, aiConfig, competenciaPrincipal: competenciaAlvo,
+        colab, empresa, tdb, sbRaw, contexto, programaConfig, aiConfig, competenciaPrincipal: competenciaAlvo, turma,
       });
     }
 
     // ── Modo Piloto: degustação 2 semanas, 1 comp, 4 conteúdos ───────────
     if (programaConfig.modo === 'piloto') {
       return await gerarTemporadaPiloto({
-        colab, tdb, contexto, programaConfig, aiConfig, competenciaAlvo,
+        colab, tdb, contexto, programaConfig, aiConfig, competenciaAlvo, turma,
       });
     }
 
@@ -106,7 +134,7 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     // { error } — a mensagem chega ao admin por colaborador no lote.
     if ((programaConfig.numCompetencias || 1) >= 2) {
       const duo = await gerarTemporadaRegularDuo({
-        colab, empresa, tdb, sbRaw, contexto, programaConfig, aiConfig, competenciaAncora: competenciaAlvo,
+        colab, empresa, tdb, sbRaw, contexto, programaConfig, aiConfig, competenciaAncora: competenciaAlvo, turma,
       });
       if (duo?.ok || duo?.error) return duo; // sucesso ou erro definitivo
       console.warn(`[gerarTemporada] DUO indisponível (${competenciaAlvo}):`, duo?.motivo);
@@ -196,6 +224,8 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
       programaModo: modoResolvido === 'jornada' ? 'jornada' : 'regular_single',
       semanas,
       descritoresSelecionados,
+      turmaMembroId: ctxTurma.turmaMembroId,
+      dataInicioTurma: ctxTurma.turmaDataInicio,
       novaJornada,
     });
     if ('error' in persist) return { error: persist.error };
@@ -225,6 +255,7 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
  *  5. Persiste em `trilhas.competencias_foco TEXT[]` (migration 091)
  */
 export async function gerarTemporadaOnboarding(args: {
+  turma?: ContextoGeracaoTurma;
   colab: any; empresa: any; tdb: any; sbRaw: any; contexto: string;
   programaConfig: any; aiConfig?: AIConfig; competenciaPrincipal: string;
 }) {
@@ -317,6 +348,8 @@ export async function gerarTemporadaOnboarding(args: {
     programaModo: 'onboarding',
     semanas,
     descritoresSelecionados,
+    turmaMembroId: args.turma?.turmaMembroId ?? null,
+    dataInicioTurma: args.turma?.dataInicioTurma ?? null,
   });
   if ('error' in persist) return { error: persist.error };
   const { trilhaId, numeroTemporada } = persist;
@@ -346,6 +379,7 @@ export async function gerarTemporadaOnboarding(args: {
  * single-comp. `{ error }` = falha definitiva. `{ ok }` = trilha gerada.
  */
 export async function gerarTemporadaRegularDuo(args: {
+  turma?: ContextoGeracaoTurma;
   colab: any; empresa: any; tdb: any; sbRaw: any; contexto: string;
   programaConfig: any; aiConfig?: AIConfig; competenciaAncora?: string;
 }): Promise<any> {
@@ -356,8 +390,11 @@ export async function gerarTemporadaRegularDuo(args: {
   const { data: cargoFocoRow } = await tdb.from('cargos_empresa')
     .select('competencia_foco, competencias_foco').eq('nome', colab.cargo || '').maybeSingle();
   let comps: string[] = focoDoCargo(cargoFocoRow).slice(0, 2);
-  if (comps.length < 2 && Array.isArray(empresa?.sys_config?.competencias_regular_duo)) {
-    comps = empresa.sys_config.competencias_regular_duo.slice(0, 2);
+  // Config EFETIVA (empresa → turma → participação): a safra pode ter as suas
+  // competências. Sem turma, é a sys_config da empresa — mesmo resultado de antes.
+  const cfgDuo = args.turma?.config ?? empresa?.sys_config ?? {};
+  if (comps.length < 2 && Array.isArray(cfgDuo.competencias_regular_duo)) {
+    comps = cfgDuo.competencias_regular_duo.slice(0, 2);
   }
   if (comps.length < 2) {
     const { data: top10 } = await tdb.from('top10_cargos')
@@ -409,7 +446,7 @@ export async function gerarTemporadaRegularDuo(args: {
   let blueprintInputs: BlueprintTrilhaInputs | null = null;
   // Flag: env global (todos os tenants) OU por empresa (sys_config, p/ piloto).
   const blueprintDrivesTrilha = process.env.BLUEPRINT_DRIVES_TRILHA === '1'
-    || empresa?.sys_config?.blueprint_drives_trilha === true;
+    || cfgDuo.blueprint_drives_trilha === true;
   if (blueprintDrivesTrilha) {
     const { data: bpRow } = await tdb.from('development_blueprints')
       .select('blueprint')
@@ -466,6 +503,8 @@ export async function gerarTemporadaRegularDuo(args: {
     programaModo: 'regular_duo',
     semanas,
     descritoresSelecionados,
+    turmaMembroId: args.turma?.turmaMembroId ?? null,
+    dataInicioTurma: args.turma?.dataInicioTurma ?? null,
   });
   if ('error' in persist) return { error: persist.error };
   const { trilhaId, numeroTemporada } = persist;
@@ -494,6 +533,7 @@ export async function gerarTemporadaRegularDuo(args: {
  * erro EXPLÍCITO com a contagem — nunca slot vazio silencioso.
  */
 export async function gerarTemporadaPiloto(args: {
+  turma?: ContextoGeracaoTurma;
   colab: any; tdb: any; contexto: string;
   programaConfig: any; aiConfig?: AIConfig; competenciaAlvo: string;
   /** Modo custom reusa esta maquinaria: carimba 'custom' + congela o snapshot. */
@@ -547,6 +587,8 @@ export async function gerarTemporadaPiloto(args: {
     semanas,
     descritoresSelecionados,
     programaConfig: snapshotConfig,
+    turmaMembroId: args.turma?.turmaMembroId ?? null,
+    dataInicioTurma: args.turma?.dataInicioTurma ?? null,
   });
   if ('error' in persist) return { error: persist.error };
   const { trilhaId, numeroTemporada } = persist;
@@ -577,6 +619,7 @@ export async function gerarTemporadaPiloto(args: {
  * mesmo contrato do fallback DUO→single).
  */
 export async function gerarTemporadaCustom(args: {
+  turma?: ContextoGeracaoTurma;
   colab: any; empresa: any; tdb: any; contexto: string;
   programaConfig: ProgramaConfig; aiConfig?: AIConfig; competenciaAlvo: string;
 }): Promise<any> {
@@ -602,8 +645,9 @@ export async function gerarTemporadaCustom(args: {
   const { data: cargoFocoRow } = await tdb.from('cargos_empresa')
     .select('competencia_foco, competencias_foco').eq('nome', colab.cargo || '').maybeSingle();
   let candidatas: string[] = [competenciaAlvo, ...focoDoCargo(cargoFocoRow)];
-  if (Array.isArray(empresa?.sys_config?.competencias_regular_duo)) {
-    candidatas = [...candidatas, ...empresa.sys_config.competencias_regular_duo];
+  const cfgCustom = args.turma?.config ?? empresa?.sys_config ?? {};
+  if (Array.isArray(cfgCustom.competencias_regular_duo)) {
+    candidatas = [...candidatas, ...cfgCustom.competencias_regular_duo];
   }
   let comps = [...new Set<string>(candidatas.filter(Boolean))].slice(0, 2);
   if (comps.length < 2) {
@@ -673,6 +717,8 @@ export async function gerarTemporadaCustom(args: {
     semanas,
     descritoresSelecionados,
     programaConfig,
+    turmaMembroId: args.turma?.turmaMembroId ?? null,
+    dataInicioTurma: args.turma?.dataInicioTurma ?? null,
   });
   if ('error' in persist) return { error: persist.error };
 
@@ -714,8 +760,17 @@ export async function persistirTrilha(tdb: any, args: {
   programaConfig?: ProgramaConfig;
   /** Encadeamento: cria a próxima jornada em vez de regravar a atual. */
   novaJornada?: boolean;
+  /** CARIMBO da participação que originou a trilha (mig 210). null = trilha sem turma. */
+  turmaMembroId?: string | null;
+  /**
+   * Segunda-feira canônica da TURMA. Quando a participação tem turma com data,
+   * o calendário da trilha nasce nela — não em `nextMondayISO()`. Sem isso, duas
+   * pessoas da mesma safra geradas em semanas diferentes teriam calendários
+   * diferentes, que é a coorte se desfazendo sozinha.
+   */
+  dataInicioTurma?: string | null;
 }): Promise<{ trilhaId: string; numeroTemporada: number } | { error: string }> {
-  const { colaboradorId, competenciaFoco, competenciasFoco, programaModo, semanas, descritoresSelecionados, programaConfig, novaJornada } = args;
+  const { colaboradorId, competenciaFoco, competenciasFoco, programaModo, semanas, descritoresSelecionados, programaConfig, novaJornada, turmaMembroId, dataInicioTurma } = args;
 
   // Normaliza campos DERIVADOS de conteudos_dia antes de salvar (chokepoint dos 4
   // modos): garante que descritores_cobertos/descritor/label/dia SEMPRE reflitam os
@@ -728,12 +783,23 @@ export async function persistirTrilha(tdb: any, args: {
   // jornada 1 depois de a 2 existir a faria virar "a atual" e o encadeamento
   // criaria uma terceira.
   const { data: existente } = await tdb.from('trilhas')
-    .select('id, numero_temporada, data_inicio')
+    .select('id, numero_temporada, data_inicio, turma_membro_id')
     .eq('colaborador_id', colaboradorId)
     .order('numero_temporada', { ascending: false }).limit(1).maybeSingle();
 
+  // ⚠️ TROCA DE PARTICIPAÇÃO cria trilha nova, mesmo sem `novaJornada` explícito.
+  //
+  // Sem isto, gerar a primeira trilha de alguém numa turma NOVA reusaria o
+  // `numero_temporada` da participação anterior e o upsert bateria na MESMA
+  // linha — a trilha da turma antiga (com o fechamento, o relatório e o
+  // certificado dela) seria SOBRESCRITA em silêncio. Derivar aqui, e não no
+  // caller, é o que garante que nenhum caminho de geração esqueça.
+  const trocouDeParticipacao =
+    !!turmaMembroId && !!existente?.turma_membro_id && existente.turma_membro_id !== turmaMembroId;
+  const criarNova = !!novaJornada || trocouDeParticipacao;
+
   // Com UPDATE na mesma row, regenerar não infla o contador.
-  const numeroTemporada = novaJornada
+  const numeroTemporada = criarNova
     ? (existente?.numero_temporada || 0) + 1
     : (existente?.numero_temporada || 1);
   const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
@@ -757,7 +823,13 @@ export async function persistirTrilha(tdb: any, args: {
     // acesso a 7 semanas de conteúdo de uma vez. Só a PRIMEIRA gravação calcula.
     // Jornada nova começa na próxima segunda; regeneração preserva o
     // calendário de quem já está no meio (F-I1).
-    data_inicio: novaJornada ? nextMondayISO() : (existente?.data_inicio || nextMondayISO()),
+    // Turma (mig 210): a safra tem uma segunda-feira canônica; quem entra nela
+    // herda esse calendário. Sem turma (ou turma sem data) → comportamento
+    // idêntico ao anterior.
+    data_inicio: criarNova
+      ? (dataInicioTurma || nextMondayISO())
+      : (existente?.data_inicio || dataInicioTurma || nextMondayISO()),
+    turma_membro_id: turmaMembroId ?? null,     // carimbo da participação (mig 210)
     cursos: [],                                 // legado — conteúdo vive em temporada_plano
   };
 

@@ -13,6 +13,7 @@ import {
   JORNADA_COLAB_COLS,
   type HomeSharedData,
 } from '@/lib/home/loaders';
+import { carregarContextoTurma } from '@/lib/turmas';
 
 /**
  * Carregamento CONSOLIDADO da home do dashboard.
@@ -60,9 +61,16 @@ export async function loadHomeData() {
       .eq('colaborador_id', colab.id)
       .eq('empresa_id', colab.empresa_id),
   ]);
+  // `sysConfig` do shared é a config EFETIVA (empresa → turma → participação),
+  // não a da empresa crua: todos os loaders que decidem etapa (votação, perfil,
+  // assessment) herdam o override da turma por este ponto único. Sem turma, o
+  // resolvedor devolve a config da empresa inalterada — compatibilidade total.
+  const ctxTurma = await carregarContextoTurma(
+    sb, colab.empresa_id, colab.id, (empCfgRes.data?.sys_config as any) || {},
+  );
   const shared: HomeSharedData = {
     trilha: trilhaRes.data ?? null,
-    sysConfig: (empCfgRes.data?.sys_config as any) || null,
+    sysConfig: ctxTurma.config,
     respostasCount: respRes.count ?? 0,
   };
 

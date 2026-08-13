@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
+import { configEfetivaDoColaborador } from '@/lib/turmas';
 
 async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string, top5: string[], escolaId: string | null = null) {
   const { data: compsDoCargo } = await sb.from('competencias')
@@ -132,11 +133,9 @@ async function _getDiagnosticoDoDia() {
 
   const sb = createSupabaseAdmin();
 
-  const { data: empresa } = await sb.from('empresas')
-    .select('sys_config')
-    .eq('id', colab.empresa_id)
-    .maybeSingle();
-  const gate = canAccessMapeamentoCenarios(empresa?.sys_config || {});
+  // Config EFETIVA (empresa → turma → participação): mig 210.
+  const cfg = await configEfetivaDoColaborador(sb, colab.empresa_id, (colab as any).id);
+  const gate = canAccessMapeamentoCenarios(cfg);
   if (!gate.allowed) {
     return { error: gate.message, code: gate.code, remediation: gate.remediation };
   }

@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser } from '@/lib/auth/request-context';
 import { csrfCheck } from '@/lib/csrf';
 import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
+import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { findColabByEmail } from '@/lib/authz';
 
 // PPP-alvo do colaborador: a escola dele define o PPP (escolas que compartilham
@@ -43,11 +44,10 @@ export async function GET(req: Request) {
     const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id, perfil_dominante, escola_id') as any;
     if (!colab) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
 
-    const { data: empresa } = await sb.from('empresas')
-      .select('sys_config')
-      .eq('id', colab.empresa_id)
-      .maybeSingle();
-    const gateGet = canAccessMapeamentoCenarios(empresa?.sys_config || {});
+    // Config EFETIVA (empresa → turma → participação), não a da empresa: duas
+    // turmas do mesmo tenant podem estar em etapas diferentes (mig 210).
+    const cfgGet = await configEfetivaDoColaborador(sb, colab.empresa_id, colab.id);
+    const gateGet = canAccessMapeamentoCenarios(cfgGet);
     if (!gateGet.allowed) {
       return NextResponse.json({ error: gateGet.message, code: gateGet.code, remediation: gateGet.remediation }, { status: 403 });
     }
@@ -94,11 +94,8 @@ export async function POST(req: Request) {
     const colab = await findColabByEmail(auth.email, 'id, empresa_id, escola_id') as any;
     if (!colab) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
 
-    const { data: empresa } = await sb.from('empresas')
-      .select('sys_config')
-      .eq('id', colab.empresa_id)
-      .maybeSingle();
-    const gatePost = canAccessMapeamentoCenarios(empresa?.sys_config || {});
+    const cfgPost = await configEfetivaDoColaborador(sb, colab.empresa_id, colab.id);
+    const gatePost = canAccessMapeamentoCenarios(cfgPost);
     if (!gatePost.allowed) {
       return NextResponse.json({ error: gatePost.message, code: gatePost.code, remediation: gatePost.remediation }, { status: 403 });
     }

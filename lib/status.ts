@@ -77,3 +77,46 @@ export const IA_BATCH = {
   ERRO: 'erro',
 } as const;
 export type IaBatchStatus = (typeof IA_BATCH)[keyof typeof IA_BATCH];
+
+/**
+ * turmas.status — a SAFRA (mig 210).
+ *
+ * SEXTO domínio. `CONCLUIDA`/`ARQUIVADA` coincidem em valor com TRILHA, de novo
+ * por acaso: aqui descrevem a turma inteira, não a jornada de uma pessoa — uma
+ * turma em `EM_JORNADA` tem gente concluída e gente atrasada ao mesmo tempo.
+ *
+ * `EM_JORNADA` é o estado que vivia, emprestado, no enum de `pulse_ciclos`
+ * (docs/TURMAS.md §2): não é estado do Pulso, é da turma. O ciclo fica com o
+ * que é dele (T0 aberto / aguardando T2 / encerrado).
+ *
+ * ⚠️ A turma NÃO tem fase única: o status é o rótulo operacional, e a
+ * distribuição individual (quantos responderam, quantos têm trilha) é que
+ * descreve a realidade. Um sem o outro mente.
+ */
+export const TURMA = {
+  PLANEJADA: 'planejada',
+  DIAGNOSTICO: 'diagnostico',
+  TRILHAS_EM_GERACAO: 'trilhas_em_geracao',
+  EM_JORNADA: 'em_jornada',
+  CONCLUIDA: 'concluida',
+  ARQUIVADA: 'arquivada',
+} as const;
+export type TurmaStatus = (typeof TURMA)[keyof typeof TURMA];
+
+/** Turmas que não recebem mais operação — base do fail-closed das ações em lote. */
+export const TURMA_ENCERRADAS: TurmaStatus[] = [TURMA.CONCLUIDA, TURMA.ARQUIVADA];
+
+/**
+ * turma_membros.status — a PARTICIPAÇÃO (mig 210).
+ *
+ * SÉTIMO domínio. Só UMA participação `ATIVO` por pessoa (índice parcial):
+ * reentrada é linha nova, e a anterior vira `CONCLUIDO` (terminou a safra) ou
+ * `REMOVIDO` (saiu antes). A distinção importa para o relatório histórico —
+ * quem terminou e quem desistiu não são a mesma coisa.
+ */
+export const TURMA_MEMBRO = {
+  ATIVO: 'ativo',
+  REMOVIDO: 'removido',
+  CONCLUIDO: 'concluido',
+} as const;
+export type TurmaMembroStatus = (typeof TURMA_MEMBRO)[keyof typeof TURMA_MEMBRO];

@@ -4,6 +4,7 @@ import { after } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 import { canAccessPerfilComportamental } from '@/lib/access-gates';
+import { configEfetivaDoColaborador } from '@/lib/turmas';
 import {
   computeDiscCompetenciesNatural,
   DISC_COMPETENCY_MODEL_VERSION,
@@ -22,12 +23,11 @@ export async function verificarDisponibilidadeMapeamento() {
   if (!colab) return { permitido: false, redirectTo: '/dashboard', motivo: 'Colaborador não encontrado' };
 
   const sb = createSupabaseAdmin();
-  const { data: empCfg } = await sb.from('empresas')
-    .select('sys_config')
-    .eq('id', colab.empresa_id)
-    .maybeSingle();
-  const fonteExterna = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
-  const cfg = (empCfg?.sys_config as any) || {};
+  // Config EFETIVA (empresa -> turma -> participacao): o gate do DISC e da TURMA
+  // da pessoa (mig 210). `perfil_externo_fonte` segue institucional -- a fonte do
+  // perfil e contrato da empresa, nao escolha da safra (lib/turmas/chaves.ts).
+  const cfg = await configEfetivaDoColaborador(sb, colab.empresa_id, (colab as any).id);
+  const fonteExterna = cfg.perfil_externo_fonte ?? null;
   if (fonteExterna) {
     return {
       permitido: false,
@@ -66,12 +66,11 @@ export async function salvarPerfilComportamental(resultados) {
   if (!colab) return { success: false, error: 'Colaborador não encontrado' };
 
   const sb = createSupabaseAdmin();
-  const { data: empCfg } = await sb.from('empresas')
-    .select('sys_config')
-    .eq('id', colab.empresa_id)
-    .maybeSingle();
-  const fonteExterna = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
-  const cfg = (empCfg?.sys_config as any) || {};
+  // Config EFETIVA (empresa -> turma -> participacao): o gate do DISC e da TURMA
+  // da pessoa (mig 210). `perfil_externo_fonte` segue institucional -- a fonte do
+  // perfil e contrato da empresa, nao escolha da safra (lib/turmas/chaves.ts).
+  const cfg = await configEfetivaDoColaborador(sb, colab.empresa_id, (colab as any).id);
+  const fonteExterna = cfg.perfil_externo_fonte ?? null;
   if (fonteExterna) {
     return {
       success: false,

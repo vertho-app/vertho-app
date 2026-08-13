@@ -8,6 +8,7 @@ import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/r
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
+import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { consolidarNotasIA4, blocoConsolidacao, normalizarNiveisDaAvaliacao } from '@/lib/ia4-avaliacao';
 
@@ -66,11 +67,10 @@ export async function POST(req) {
     // tenant, e o app roda service-role (o banco não barra — service_role tem
     // BYPASSRLS). Tabelas globais (empresas, competencias, escolas) seguem no raw.
     const tdb = tenantDb(empresaId);
-    const { data: empresaGate } = await sb.from('empresas')
-      .select('sys_config')
-      .eq('id', empresaId)
-      .single();
-    const gate = canAccessMapeamentoCenarios(empresaGate?.sys_config || {});
+    // Config EFETIVA (empresa → turma → participação): o gate de etapa é da
+    // TURMA da pessoa, não da empresa inteira (mig 210).
+    const cfgGate = await configEfetivaDoColaborador(sb, empresaId, colaboradorId);
+    const gate = canAccessMapeamentoCenarios(cfgGate);
     if (!gate.allowed) {
       return NextResponse.json({ ok: false, error: gate.message, code: gate.code, remediation: gate.remediation }, { status: 403 });
     }
