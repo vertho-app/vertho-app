@@ -26,15 +26,28 @@
  * categoria NÃO é o que você declara: a Meta reclassifica na revisão. Três dos
  * sete primeiros templates foram submetidos como UTILITY e voltaram MARKETING.
  *
- * O que derrubou, comparando os que caíram com os que passaram:
- *   - nome do produto no corpo ("plataforma Vertho Mentor IA")  → derruba
- *   - urgência ("Acesse agora", "dá tempo até o fim da semana") → derruba
- *   - pergunta engajadora ("Você já fez seu desafio?")          → derruba
- *   - assinatura "— Equipe Vertho" no rodapé                    → tolerada
- *   - fato sobre o estado da conta da pessoa                    → passa
+ * RESULTADO MEDIDO: das 6 copies com a VOZ ORIGINAL do produto (emoji,
+ * exclamação, "Bons estudos!", "— Equipe Vertho", tom de conversa), **6 caíram
+ * em MARKETING**. Nenhuma resistiu. As reescritas em tom factual seguiram
+ * UTILITY.
  *
- * A amostra é de sete templates, não setenta: trate como heurística observada,
- * não como regra publicada pela Meta. O guard em
+ * ⚠️ O VEREDITO INICIAL ENGANA. A categoria devolvida na criação é provisória e
+ * muda durante a revisão: `pilula_semanal` ficou UTILITY por vinte minutos e
+ * depois virou MARKETING; `missao_aplicacao` e `nudge_inatividade`, idem. Uma
+ * versão anterior deste comentário afirmava, com base nessa leitura precoce, que
+ * a assinatura "— Equipe Vertho" era tolerada — e estava errada. **Só conte a
+ * categoria depois de APPROVED.**
+ *
+ * Sinais que se correlacionaram com a queda:
+ *   - nome do produto no corpo ("plataforma Vertho Mentor IA")
+ *   - urgência ("Acesse agora", "dá tempo até o fim da semana")
+ *   - pergunta engajadora ("Você já fez seu desafio?")
+ *   - convite de reengajamento ("Que tal retomar hoje?")
+ *   - entusiasmo: exclamação, "Bons estudos!", "Boa prática!"
+ * O que passou: afirmar um FATO sobre o estado da conta e explicar para que serve.
+ *
+ * A amostra é de nove templates, não noventa: heurística observada, não regra
+ * publicada pela Meta. O guard em
  * `tests/unit/integrations/whatsapp-templates.test.ts` congela esses sinais para
  * que copy nova não reintroduza um deles sem alguém decidir isso de propósito.
  */
@@ -58,6 +71,22 @@ export interface TemplateDef {
  * Trocar a ordem sem reenviar o template entrega os valores nos lugares errados
  * — e isso o typecheck não pega, porque tudo é string.
  */
+/**
+ * ⚠️ NEM TODO TEMPLATE AQUI JÁ ESTÁ LIGADO AO CÓDIGO QUE ENVIA (14/08/2026).
+ *
+ *  - LIGADOS (o texto do legado já vem daqui): `evidencia_semanal`,
+ *    `nudge_desafio`, `perfil_disponivel`.
+ *  - DEFINIDOS, AINDA NÃO CONSUMIDOS: `conteudo_semana`, `missao_semana`,
+ *    `retomada_trilha`. As funções correspondentes (`textoPilulaWhatsapp`,
+ *    `templateWhatsAppMissao` e o nudge de inatividade embutido em
+ *    `trigger-diario-empresa`) seguem com a copy ANTIGA.
+ *
+ * A distinção é proposital e é decisão de produto pendente: ligar esses três
+ * troca a copy que sai HOJE pela Z-API — inclusive a da pílula, que é a de maior
+ * volume — pela versão factual, mais seca. Enquanto não forem ligados, a copy
+ * daqui e a do call-site DIVERGEM, que é exatamente o que este arquivo existe
+ * para impedir. É dívida declarada, não descuido: ou liga, ou remove daqui.
+ */
 export const TEMPLATES = {
   /** Quinta da semana de aplicação (4/8/12): cobra o registro de evidência. */
   evidencia_semanal: {
@@ -75,6 +104,42 @@ export const TEMPLATES = {
     language: 'pt_BR',
     body: 'Olá, {{1}}. O desafio da semana {{2}} da sua trilha ainda não foi registrado.\n\nVocê pode rever o desafio e relatar como foi em:\n{{3}}\n\nO relato é usado para acompanhar sua evolução na trilha.',
     example: ['Maria', '5', 'https://ibipeba.vertho.ai/dashboard/temporada/semana/5'],
+  },
+
+  /** Segunda/terça: conteúdo (pílula) da semana disponível. */
+  conteudo_semana: {
+    name: 'conteudo_semana',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. O conteúdo da semana {{2}} da sua trilha já está disponível: {{3}}.\n\nVocê pode acessar em:\n{{4}}\n\nO conteúdo é selecionado a partir do seu perfil e da competência desta semana.',
+    example: ['Maria', '5', 'Escuta ativa na sala de aula', 'https://ibipeba.vertho.ai/dashboard/temporada/semana/5'],
+  },
+
+  /** Semana de aplicação (4/8/12): missão prática, sem conteúdo novo. */
+  missao_semana: {
+    name: 'missao_semana',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. A semana {{2}} da sua trilha é de aplicação: não há conteúdo novo, e sim uma missão prática.\n\nSua missão está em:\n{{3}}\n\nO vídeo com a explicação da semana está em:\n{{4}}\n\nNa quinta será solicitado o registro do que você praticou.',
+    example: ['Maria', '4', 'https://ibipeba.vertho.ai/dashboard/temporada/semana/4', 'https://ibipeba.vertho.ai/v/missao-aplicacao'],
+  },
+
+  /**
+   * Nudge de inatividade (2+ semanas sem envio).
+   *
+   * ⚠️ É o de maior risco de virar MARKETING mesmo em tom factual: reengajar
+   * quem parou é, pela definição da Meta, um caso de marketing. Aqui a aposta é
+   * afirmar o ESTADO da conta ("sem registro de atividade há mais de duas
+   * semanas") em vez de convidar ("Que tal retomar hoje?"). Se cair, cai — e
+   * fica sendo o único template caro da cadência, o que é aceitável dado que ele
+   * dispara para pouca gente.
+   */
+  retomada_trilha: {
+    name: 'retomada_trilha',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Sua trilha de desenvolvimento está sem registro de atividade há mais de duas semanas.\n\nVocê pode retomar de onde parou em:\n{{2}}\n\nA trilha permanece disponível na sua conta.',
+    example: ['Maria', 'https://ibipeba.vertho.ai/dashboard/temporada'],
   },
 
   /** Resultado do assessment comportamental liberado. */
