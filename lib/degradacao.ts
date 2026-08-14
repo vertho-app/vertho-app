@@ -91,6 +91,18 @@ export const DEGRADACAO = {
    * mensagem de cadência adiada.
    */
   SMS_TETO_DIARIO: 'sms-teto-diario',
+  /**
+   * envio: chegou mensagem pelo webhook da Cloud API e a gravação falhou. É
+   * `critico` porque o dado NÃO tem segunda chance: um número na Cloud API não
+   * tem aplicativo, então o que não for gravado aqui não existe em lugar nenhum
+   * — ninguém pode "abrir o WhatsApp e ver depois".
+   */
+  WHATSAPP_INBOUND_PERDIDO: 'whatsapp-inbound-perdido',
+  /**
+   * envio: evento de status (delivered/read/failed) não foi aplicado. Degrada a
+   * MEDIÇÃO, não a entrega — a mensagem chegou, só não sabemos. Daí `aviso`.
+   */
+  WHATSAPP_STATUS_PERDIDO: 'whatsapp-status-perdido',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
