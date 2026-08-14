@@ -18,17 +18,13 @@ import type { Metadata } from 'next';
  * faz a página descrever um sistema que não existe mais.
  */
 
-/**
- * Identificação legal. ⚠️ PREENCHER ANTES DE DIVULGAR: sem estes dados a página
- * publica um documento sem responsável identificável, o que é justamente o que
- * uma política de privacidade precisa ter.
- */
+/** Identificação legal do controlador/operador. */
 const EMPRESA = {
-  razaoSocial: '[RAZÃO SOCIAL]',
-  cnpj: '[CNPJ]',
-  endereco: '[ENDEREÇO]',
+  razaoSocial: 'VERTHO.AI GESTÃO DA APRENDIZAGEM LTDA',
+  cnpj: '62.058.419/0001-51',
+  endereco: 'R. Luzia Latorre de Oliveira Lima, 243 — Jundiaí/SP',
   emailPrivacidade: 'contato@vertho.ai',
-  encarregado: '[NOME DO ENCARREGADO / DPO]',
+  encarregado: 'Rodrigo Naves',
   emailEncarregado: 'contato@vertho.ai',
 };
 
