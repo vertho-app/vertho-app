@@ -165,6 +165,7 @@
     "scripts/_extrair-manuscrito-diretores.ts": 1,
     "scripts/_comparar-auditor-mb.ts": 1,
     "scripts/_regua-auditor-vs-acervo.ts": 1,
+    "scripts/_refinar-reprovados.ts": 1,
     "scripts/_render-podcast-kit.ts": 1,
     "scripts/_video-kit-mei-d.ts": 1,
     "scripts/_diag-orfaos-detalhe.ts": 1,
