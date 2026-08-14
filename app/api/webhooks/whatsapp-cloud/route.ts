@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { safeSecretEqual } from '@/lib/secure-compare';
-import { interpretarPayload, camposDoStatus } from '@/lib/whatsapp/cloud-webhook';
+import { interpretarPayload, camposDoStatus, encareceu } from '@/lib/whatsapp/cloud-webhook';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
 /**
@@ -88,8 +88,59 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ignorado: 'corpo inválido' });
   }
 
-  const { mensagens, statuses, ignorados } = interpretarPayload(body);
+  const { mensagens, statuses, templates, ignorados } = interpretarPayload(body);
   const sb = createSupabaseAdmin();
+
+  // ── Status / categoria de template ────────────────────────────────────────
+  //
+  // Motivo de existir: a categoria devolvida na criação é PROVISÓRIA e muda
+  // durante a revisão. Em 14/08/2026, 4 de 8 templates submetidos como UTILITY
+  // viraram MARKETING — e MARKETING custa ~6× mais. Até aqui só se descobria
+  // consultando a Graph API na mão, um a um.
+  for (const t of templates) {
+    try {
+      const { error } = await sb.from('whatsapp_template_eventos').insert({
+        waba_id: t.wabaId,
+        template_id: t.templateId,
+        template_nome: t.templateNome,
+        template_idioma: t.templateIdioma,
+        tipo_evento: t.tipoEvento,
+        evento: t.evento,
+        categoria_anterior: t.categoriaAnterior,
+        categoria_nova: t.categoriaNova,
+        motivo: t.motivo,
+        raw: t.raw as any,
+      });
+      if (error) throw new Error(error.message);
+
+      if (encareceu(t.categoriaAnterior, t.categoriaNova)) {
+        // `critico`: multiplica por ~6 o custo daquele template, e o efeito é
+        // permanente até alguém agir. Diferente de uma falha de envio, isto não
+        // se resolve sozinho no dia seguinte.
+        await registrarDegradacao({
+          fluxo: 'envio',
+          tipo: DEGRADACAO.WHATSAPP_TEMPLATE_ENCARECEU,
+          chave: t.templateNome,
+          severidade: 'critico',
+          detalhe: {
+            template: t.templateNome,
+            de: t.categoriaAnterior,
+            para: t.categoriaNova,
+            motivo: t.motivo,
+          },
+        });
+      }
+    } catch (e: any) {
+      console.error('[whatsapp-cloud] evento de template falhou:', e?.message);
+      await registrarDegradacao({
+        fluxo: 'envio',
+        tipo: DEGRADACAO.WHATSAPP_STATUS_PERDIDO,
+        chave: 'template-evento',
+        severidade: 'aviso',
+        detalhe: { template: t.templateNome, motivo: e?.message || String(e) },
+      });
+    }
+  }
 
   // ── Mensagens recebidas ───────────────────────────────────────────────────
   for (const m of mensagens) {
@@ -146,6 +197,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     mensagens: mensagens.length,
+    templates: templates.length,
     statuses: statuses.length,
     ignorados,
   });

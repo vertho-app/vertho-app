@@ -46,11 +46,47 @@ export interface StatusEntrega {
   raw: unknown;
 }
 
+/**
+ * Mudança de status ou de CATEGORIA de um template.
+ *
+ * A categoria devolvida na criação é provisória: em 14/08/2026, 4 de 8
+ * templates submetidos como UTILITY viraram MARKETING durante a revisão — e
+ * MARKETING custa ~6× mais. Sem estes eventos, a única forma de saber era
+ * consultar a Graph API na mão, template por template.
+ */
+export interface EventoTemplate {
+  tipoEvento: 'status_update' | 'category_update';
+  templateId: string | null;
+  templateNome: string;
+  templateIdioma: string | null;
+  /** APPROVED | REJECTED | FLAGGED | PAUSED … — cru, sem tradução. */
+  evento: string | null;
+  categoriaAnterior: string | null;
+  categoriaNova: string | null;
+  motivo: string | null;
+  wabaId: string | null;
+  raw: unknown;
+}
+
 export interface PayloadInterpretado {
   mensagens: MensagemRecebida[];
   statuses: StatusEntrega[];
+  /** Status/categoria de template (assinar os campos no app da Meta). */
+  templates: EventoTemplate[];
   /** Eventos que não sabemos ler — contados para não sumirem em silêncio. */
   ignorados: number;
+}
+
+/**
+ * A mudança encareceu o canal?
+ *
+ * Só `UTILITY → MARKETING` conta como piora de custo. `PENDING → MARKETING` não
+ * é piora: nunca houve preço bom para perder. Tratar os dois igual encheria o
+ * alarme de ruído no dia em que vários templates novos são submetidos — que é
+ * exatamente quando ele precisa ser lido.
+ */
+export function encareceu(anterior: string | null, nova: string | null): boolean {
+  return anterior === 'UTILITY' && nova === 'MARKETING';
 }
 
 /** Epoch em segundos (string) → ISO. A Meta manda segundos, não milissegundos. */
@@ -85,6 +121,7 @@ function extrairTexto(m: any): string | null {
 export function interpretarPayload(body: any, agora: () => number = Date.now): PayloadInterpretado {
   const mensagens: MensagemRecebida[] = [];
   const statuses: StatusEntrega[] = [];
+  const templates: EventoTemplate[] = [];
   let ignorados = 0;
 
   const entries = Array.isArray(body?.entry) ? body.entry : [];
@@ -93,6 +130,35 @@ export function interpretarPayload(body: any, agora: () => number = Date.now): P
     for (const change of changes) {
       const value = change?.value;
       if (!value) { ignorados++; continue; }
+
+      // ── Eventos de TEMPLATE ────────────────────────────────────────────────
+      // Vêm no MESMO webhook das mensagens, distinguidos pelo `field` — e não
+      // por ter `messages`/`statuses`. Sem tratá-los aqui, cairiam no balde de
+      // "ignorados" junto com o ruído legítimo, e o alarme de reclassificação
+      // nunca dispararia.
+      const field = change?.field;
+      if (field === 'message_template_status_update' || field === 'message_template_category_update') {
+        const nome = value.message_template_name;
+        if (!nome) { ignorados++; continue; }
+        templates.push({
+          tipoEvento: field === 'message_template_category_update' ? 'category_update' : 'status_update',
+          templateId: value.message_template_id != null ? String(value.message_template_id) : null,
+          templateNome: String(nome),
+          templateIdioma: value.message_template_language ? String(value.message_template_language) : null,
+          evento: value.event ? String(value.event) : null,
+          // `correct_category` aparece quando a Meta reclassifica na aprovação;
+          // `new_category`, quando muda depois. Os dois significam a mesma coisa
+          // para quem paga a conta.
+          categoriaAnterior: value.previous_category ? String(value.previous_category) : null,
+          categoriaNova: value.new_category
+            ? String(value.new_category)
+            : (value.correct_category ? String(value.correct_category) : null),
+          motivo: value.reason && value.reason !== 'NONE' ? String(value.reason) : null,
+          wabaId: entry?.id ? String(entry.id) : null,
+          raw: value,
+        });
+        continue;
+      }
 
       const phoneNumberId = value?.metadata?.phone_number_id ?? null;
 
@@ -123,13 +189,13 @@ export function interpretarPayload(body: any, agora: () => number = Date.now): P
         });
       }
 
-      // `value` sem messages nem statuses (ex.: mudança de qualidade do número,
-      // atualização de template) — legítimo, e não é nosso caso de uso.
+      // `value` sem messages nem statuses (ex.: mudança de qualidade do número)
+      // — legítimo, e não é nosso caso de uso.
       if (!value.messages && !value.statuses) ignorados++;
     }
   }
 
-  return { mensagens, statuses, ignorados };
+  return { mensagens, statuses, templates, ignorados };
 }
 
 /**

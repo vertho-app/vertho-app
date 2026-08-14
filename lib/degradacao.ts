@@ -103,6 +103,15 @@ export const DEGRADACAO = {
    * MEDIÇÃO, não a entrega — a mensagem chegou, só não sabemos. Daí `aviso`.
    */
   WHATSAPP_STATUS_PERDIDO: 'whatsapp-status-perdido',
+  /**
+   * envio: a Meta reclassificou um template de UTILITY para MARKETING —
+   * multiplica por ~6 o custo daquele envio (R$ 0,06–0,09 → R$ 0,40–0,55 no
+   * Brasil). `critico` porque, ao contrário de uma falha de entrega, isto NÃO se
+   * resolve sozinho no dia seguinte: vale até alguém reescrever a copy ou pedir
+   * revisão de categoria. Medido em 14/08/2026, quando 4 de 8 templates viraram
+   * MARKETING durante a revisão, sem nenhum sinal no produto.
+   */
+  WHATSAPP_TEMPLATE_ENCARECEU: 'whatsapp-template-encareceu',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

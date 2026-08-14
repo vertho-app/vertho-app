@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest';
 import {
   interpretarPayload,
   camposDoStatus,
+  encareceu,
   type StatusEntrega,
 } from '@/lib/whatsapp/cloud-webhook';
 
@@ -141,6 +142,90 @@ describe('camposDoStatus — aceite e entrega são eixos diferentes', () => {
     const c = camposDoStatus(base('warning'));
     expect(c.provider_status).toBe('warning');
     expect(c).not.toHaveProperty('delivered_at');
+  });
+});
+
+describe('eventos de template — o veredito de categoria que muda depois', () => {
+  function envelopeTpl(field: string, value: unknown) {
+    return { entry: [{ id: '1401800048505109', changes: [{ field, value }] }] };
+  }
+
+  it('lê reclassificação de categoria (o flip que custa 6×)', () => {
+    const r = interpretarPayload(
+      envelopeTpl('message_template_category_update', {
+        message_template_id: 123,
+        message_template_name: 'pilula_semanal',
+        message_template_language: 'pt_BR',
+        previous_category: 'UTILITY',
+        new_category: 'MARKETING',
+      }),
+      AGORA,
+    );
+    expect(r.templates).toHaveLength(1);
+    const t = r.templates[0]!;
+    expect(t.tipoEvento).toBe('category_update');
+    expect(t.templateNome).toBe('pilula_semanal');
+    expect(t.categoriaAnterior).toBe('UTILITY');
+    expect(t.categoriaNova).toBe('MARKETING');
+    expect(t.wabaId).toBe('1401800048505109');
+    // NÃO pode cair no balde de ignorados — era lá que ia parar antes.
+    expect(r.ignorados).toBe(0);
+  });
+
+  it('lê aprovação e rejeição, com o motivo', () => {
+    const ok = interpretarPayload(
+      envelopeTpl('message_template_status_update', {
+        message_template_name: 'registro_evidencia', event: 'APPROVED', reason: 'NONE',
+      }),
+      AGORA,
+    );
+    expect(ok.templates[0]!.evento).toBe('APPROVED');
+    // `reason: NONE` é ausência de motivo, não um motivo chamado "NONE".
+    expect(ok.templates[0]!.motivo).toBeNull();
+
+    const rej = interpretarPayload(
+      envelopeTpl('message_template_status_update', {
+        message_template_name: 'link_acesso', event: 'REJECTED', reason: 'INCORRECT_CATEGORY',
+      }),
+      AGORA,
+    );
+    expect(rej.templates[0]!.motivo).toBe('INCORRECT_CATEGORY');
+  });
+
+  it('aceita `correct_category`, usado quando a Meta reclassifica na aprovação', () => {
+    const r = interpretarPayload(
+      envelopeTpl('message_template_status_update', {
+        message_template_name: 'missao_semana', event: 'APPROVED', correct_category: 'MARKETING',
+      }),
+      AGORA,
+    );
+    expect(r.templates[0]!.categoriaNova).toBe('MARKETING');
+  });
+
+  it('evento de template sem nome é ignorado e contado', () => {
+    const r = interpretarPayload(
+      envelopeTpl('message_template_category_update', { new_category: 'MARKETING' }),
+      AGORA,
+    );
+    expect(r.templates).toHaveLength(0);
+    expect(r.ignorados).toBe(1);
+  });
+});
+
+describe('encareceu — só alarme que importa', () => {
+  it('UTILITY → MARKETING encarece', () => {
+    expect(encareceu('UTILITY', 'MARKETING')).toBe(true);
+  });
+
+  it('PENDING/null → MARKETING NÃO encarece — nunca houve preço bom a perder', () => {
+    // Sem isto, o dia de submeter vários templates novos encheria o alarme de
+    // ruído — justamente quando ele precisa ser lido.
+    expect(encareceu(null, 'MARKETING')).toBe(false);
+    expect(encareceu('MARKETING', 'MARKETING')).toBe(false);
+  });
+
+  it('MARKETING → UTILITY (melhora) não dispara alarme', () => {
+    expect(encareceu('MARKETING', 'UTILITY')).toBe(false);
   });
 });
 
