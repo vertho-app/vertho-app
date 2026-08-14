@@ -13,6 +13,7 @@
 process.loadEnvFile('.env.local');
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { gerarBlueprintCore, auditarBlueprintCore } from '@/lib/blueprint/core';
+import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 
 const SLUG = process.argv[2] || 'macae';
 const APLICAR = process.argv.includes('--aplicar');
@@ -24,12 +25,34 @@ async function main() {
   if (!emp) throw new Error('empresa não encontrada: ' + SLUG);
   const empresaId = (emp as any).id;
 
-  const { data: bps, error } = await sb.from('development_blueprints')
-    .select('colaborador_id, auditoria')
+  const { data: todos, error } = await sb.from('development_blueprints')
+    .select('colaborador_id, auditoria, blueprint')
     .eq('empresa_id', empresaId).order('colaborador_id');
   if (error) throw new Error(error.message);
 
-  console.log(`${bps?.length || 0} blueprints · modelo=${MODELO} · ${APLICAR ? 'APLICAR' : 'dry-run'}`);
+  // RETOMÁVEL: pula quem já tem o padrão novo (evidência com piso explícito nas
+  // semanas de avaliação). Sem isto, retomar uma execução interrompida — e elas
+  // são interrompidas, por queda de rede — paga tudo de novo. `--forcar` ignora.
+  const TEM_PISO = /ao menos|pelo menos|no m[íi]nimo|\b[1-9]\d*\s+(fichas?|registros?|casos?|atas?|termos?|relat[óo]rios?|devolutivas?|visitas?|reuni[õo]es?)/i;
+  // O critério de "já refeito" tem de cobrir TUDO o que a rodada corrige. A
+  // primeira versão olhava só o piso da evidência — e teria pulado os 38, que
+  // tinham piso mas ainda descreviam 14 semanas quando o programa da empresa é
+  // de 7. Filtro que não vê parte do defeito é filtro que mente.
+  const { data: emp2 } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+  const cfg = getProgramaConfig((emp2 as any)?.sys_config);
+  const jaNovo = (bp: any) => {
+    const semanas = bp?.trilha?.semanas || [];
+    if (semanas.length !== cfg.semanas) return false;
+    const aval = semanas.filter((s: any) => s?.tipo === 'avaliacao');
+    if (aval.length !== cfg.semanasAvaliacao.length) return false;
+    return aval.length > 0 && aval.every((s: any) => TEM_PISO.test(String(s.evidencia_esperada || '')));
+  };
+  const FORCAR = process.argv.includes('--forcar');
+  const prontos = (todos || []).filter((r: any) => jaNovo(r.blueprint));
+  const bps = FORCAR ? todos : (todos || []).filter((r: any) => !jaNovo(r.blueprint));
+
+  if (prontos.length && !FORCAR) console.log(`↩︎ ${prontos.length} já no padrão novo — pulados (use --forcar para refazer)`);
+  console.log(`${bps?.length || 0} a regerar · modelo=${MODELO} · ${APLICAR ? 'APLICAR' : 'dry-run'}`);
   if (!APLICAR) { console.log('(dry-run — rode com --aplicar)'); return; }
 
   let ok = 0, falhas = 0;

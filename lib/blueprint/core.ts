@@ -16,7 +16,7 @@
 import { tenantDb } from '@/lib/tenant-db';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { focoDoCargo } from '@/lib/foco-cargo';
-import { PROGRAMA_REGULAR_DUO } from '@/lib/season-engine/programa-config';
+import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 import { buildBlueprintPrompt, type BlueprintCompetenciaInput } from '@/lib/blueprint/prompt';
 import {
   auditEstrutural, buildBlueprintAuditPrompt, parseAuditResponse, montarRelatorioAuditoria,
@@ -111,7 +111,7 @@ export async function buildBlueprintReq(
   if (!empresaId) return { error: 'Colaborador sem empresa_id' };
   const tdb = tenantDb(empresaId);
 
-  const { data: empresa } = await sbRaw.from('empresas').select('nome, segmento').eq('id', empresaId).single();
+  const { data: empresa } = await sbRaw.from('empresas').select('nome, segmento, sys_config').eq('id', empresaId).single();
   if (!empresa) return { error: 'Empresa não encontrada' };
 
   // Foco do cargo (fonte única PDI↔trilha). Gate: sem foco, não gera.
@@ -151,7 +151,11 @@ export async function buildBlueprintReq(
     perfilComportamental = `DISC: D=${colab.d_natural} | I=${colab.i_natural} | S=${colab.s_natural} | C=${colab.c_natural}\nDominante: ${colab.perfil_dominante || '—'}\nLiderança: Executor=${colab.lid_executivo || 0}% | Motivador=${colab.lid_motivador || 0}% | Metódico=${colab.lid_metodico || 0}% | Sistemático=${colab.lid_sistematico || 0}%`;
   }
 
-  const cfg = PROGRAMA_REGULAR_DUO;
+  // O programa da EMPRESA manda: era `PROGRAMA_REGULAR_DUO` hardcoded, e Macaé
+  // está em `jornada` (7 semanas, avaliação na 7, sem missão) — os 38 blueprints
+  // saíram com 14 semanas e avaliação em 13/14. A trilha, essa sim, respeita o
+  // modo: blueprint e trilha descreveriam programas diferentes.
+  const cfg = getProgramaConfig((empresa as any).sys_config);
   const { system, user } = buildBlueprintPrompt({
     colaborador: { nome: colab.nome_completo, cargo: colab.cargo },
     empresa: { nome: empresa.nome, segmento: empresa.segmento },
@@ -260,8 +264,12 @@ export async function auditarBlueprintCore(
     if (!bpRow?.blueprint) return { error: 'Blueprint não encontrado — gere o blueprint antes de auditar.' };
     const blueprint = bpRow.blueprint as DevelopmentBlueprint;
 
-    // 1) Estrutural (determinístico). Parâmetros = Regular DUO (mesma régua da geração).
-    const cfg = PROGRAMA_REGULAR_DUO;
+    // 1) Estrutural (determinístico). A régua vem do programa da EMPRESA — a
+    //    mesma da geração. Com o DUO fixo dos dois lados, o check `calendario`
+    //    comparava o blueprint contra a config ERRADA e passava em 38/38: dois
+    //    erros que se cancelavam e escondiam o programa trocado.
+    const { data: empAud } = await tdb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+    const cfg = getProgramaConfig((empAud as any)?.sys_config);
     const estrutural = auditEstrutural(blueprint, {
       duracaoSemanas: cfg.semanas,
       semanasMissao: cfg.semanasMissao,

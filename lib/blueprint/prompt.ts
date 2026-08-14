@@ -78,9 +78,14 @@ PRINCÍPIOS INEGOCIÁVEIS:
 REGRAS DURAS DA TRILHA (obedeça exatamente):
 - "trilha.duracao_semanas" = DURACAO_SEMANAS (valor informado no input).
 - A trilha tem UMA linha por semana, de 1 até DURACAO_SEMANAS, em ordem.
-- Alocação das competências foco:
-  * DUAS competências foco: competência 1 nas semanas 1-4, competência 2 nas semanas 5-8, INTEGRAÇÃO das duas nas 9-12.
-  * UMA competência foco: a competência ocupa as semanas 1-8, com APROFUNDAMENTO nas 9-12.
+- Alocação das competências foco (as faixas são PROPORCIONAIS a DURACAO_SEMANAS —
+  nunca use números fixos de outra duração):
+  * DUAS competências foco: competência 1 no 1º terço, competência 2 no 2º terço,
+    INTEGRAÇÃO das duas no terço final (antes das semanas de avaliação).
+  * UMA competência foco: a competência ocupa os dois primeiros terços, com
+    APROFUNDAMENTO no terço final.
+  * Exemplo com DURACAO_SEMANAS=14 e duas competências: 1-4, 5-8, 9-12.
+    Com DURACAO_SEMANAS=7 e uma competência: 1-4 e aprofundamento em 5-6.
 - Semanas de MISSÃO prática: exatamente as semanas em SEMANAS_MISSAO (tipo "missao").
 - Semanas de AVALIAÇÃO: exatamente as semanas em SEMANAS_AVALIACAO (tipo "avaliacao"). Cada uma mede UMA competência específica: com 2 competências, a 1ª semana de avaliação mede a competência 1 (seu "conexao_com_pdi" = objetivos da competência 1, e "descritores_foco" = descritores DA competência 1) e a 2ª mede a competência 2. Os "descritores_foco" e a "evidencia_esperada" SAEM das competências/descritores DESTE blueprint — NUNCA invente descritor novo (ex.: "Entrega de resultados", "Corresponsabilidade" fora do foco). A evidência da avaliação é uma DEMONSTRAÇÃO OBSERVÁVEL do que foi praticado (uma entrega/ação verificável por terceiros) — NUNCA autoavaliação, portfólio, "síntese pessoal" ou "o que aprendi".
   * "evidencia_esperada" É CONTÁVEL: diga QUANTOS itens a pessoa apresenta, com piso explícito — "ao menos duas fichas de visita preenchidas", "o registro de ao menos uma devolutiva". PROIBIDO pedir "amostra de…", "alguns registros", "os registros do período" ou qualquer quantidade indefinida: quem avalia não sabe se 1 basta, e o que o PDI prometeu deixa de ser verificável.
