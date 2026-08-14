@@ -134,7 +134,15 @@ export function derivarVeredito(
   return { nota, veredito };
 }
 
-export async function auditarModuloCore(sb: ReturnType<typeof createSupabaseAdmin>, id: string) {
+/**
+ * Audita UM módulo. `modelo` sobrescreve o auditor configurado — existe para
+ * comparar RÉGUAS: o veredito de um módulo só é comparável ao de outro se os
+ * dois passaram pelo mesmo auditor, e o acervo atual atravessa três
+ * (`gpt-5.4` nos 212 primeiros, depois `gpt-5.6-luna` e `gpt-5.6-terra`).
+ * Sem poder fixar o modelo, "piorou" e "mudou de auditor" ficam
+ * indistinguíveis. O modelo usado fica gravado em `auditado_por_modelo`.
+ */
+export async function auditarModuloCore(sb: ReturnType<typeof createSupabaseAdmin>, id: string, modelo?: string, persistir = true) {
   const { data: m } = await sb.from('modulos_base_conteudo').select(COLS_MODULO).eq('id', id).maybeSingle();
   if (!m) return { error: 'Módulo não encontrado' };
 
@@ -159,7 +167,7 @@ ${JSON.stringify({
 
 Responda APENAS com o JSON do veredito.`;
 
-  const model = await getModelForTask(null as any, 'modulo_base_auditor');
+  const model = modelo || await getModelForTask(null as any, 'modulo_base_auditor');
   let auditoria: any = null;
   for (let tentativa = 1; tentativa <= 2 && !auditoria; tentativa++) {
     try {
@@ -200,6 +208,12 @@ Responda APENAS com o JSON do veredito.`;
   auditoria.nota = derivado.nota;
   auditoria.veredito = derivado.veredito;
 
+  // `persistir: false` audita SEM gravar. Existe para comparar réguas em
+  // conteúdo PUBLICADO: sobrescrever `auditoria_ia` de um módulo em produção
+  // apagaria a nota que justificou a publicação dele, e o experimento não vale
+  // o histórico do cliente.
+  if (!persistir) return { ok: true, auditoria, naoPersistido: true as const };
+
   const { error } = await sb.from('modulos_base_conteudo').update({
     auditoria_ia: auditoria,
     auditado_em: new Date().toISOString(),
@@ -226,6 +240,10 @@ export async function auditarModulosCore(
     onItem?: (id: string, ok: boolean) => Promise<void> | void;
     /** Auditados saltam de rascunho → revisão: já têm veredito. */
     promoverParaRevisao?: boolean;
+    /** Sobrescreve o auditor configurado (comparação de réguas). */
+    modelo?: string;
+    /** `false` = audita sem gravar (não estraga histórico de módulo publicado). */
+    persistir?: boolean;
   } = {},
 ) {
   const CONC = opts.conc ?? 4;
@@ -234,7 +252,7 @@ export async function auditarModulosCore(
   for (let i = 0; i < ids.length; i += CONC) {
     const fatia = ids.slice(i, i + CONC);
     const res = await Promise.all(fatia.map((id) =>
-      auditarModuloCore(sb, id).catch((e: any) => ({ error: e?.message || 'erro' }))));
+      auditarModuloCore(sb, id, opts.modelo, opts.persistir !== false).catch((e: any) => ({ error: e?.message || 'erro' }))));
     for (let k = 0; k < fatia.length; k++) {
       const bom = !!(res[k] as any)?.ok;
       if (bom) ok++;
