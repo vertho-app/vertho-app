@@ -58,7 +58,9 @@ export const gerarModulosManuscritoTask = task({
 
       // 1) Re-parse determinístico (custo zero, sem IA).
       const parse = await parsearManuscrito(Buffer.from(pp.docxBase64, 'base64'));
-      const { resolvidos, error: errResolve } = await resolverDescritores(sb, parse, empresaId);
+      const { resolvidos, error: errResolve } = await resolverDescritores(sb, parse, empresaId, {
+        codCompAlvo: pp.codCompAlvo || null,
+      });
       if (errResolve || !resolvidos) throw new Error(errResolve || 'falha ao resolver descritores');
 
       const reqs = montarReqsManuscrito({

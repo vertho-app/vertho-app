@@ -261,21 +261,26 @@ export async function parsearManuscrito(buffer: Buffer): Promise<ManuscritoParse
 
   // ── Faixa por POSIÇÃO dentro do descritor (unifica os dois esquemas) ───────
   // Ordenados: ranks 0..7 = N1,N1,N2,N2,N3,N3,N4,N4; rank 8 (se houver) = síntese.
-  const tamanhos = [...new Set(principais.map((g) => g.mbs.length))];
-  if (tamanhos.length !== 1) {
-    throw new Error(`Descritores com nº de MBs diferentes (${tamanhos.join(',')}). A convenção do manuscrito não é uniforme.`);
-  }
-  const perDesc = tamanhos[0];
-  const temSintese = perDesc % 4 === 1;                 // 9 = 8 faixa + 1 síntese; 8 = sem
-  if (!temSintese && perDesc % 4 !== 0) {
-    throw new Error(`Cada descritor tem ${perDesc} MBs — não fecha em (4 faixas × k) [+1 síntese]. Verifique o DOCX.`);
-  }
-  const mbsPorFaixa = Math.floor(perDesc / 4);
+  // A divisão em faixas é POR DESCRITOR, não global. Antes o parser exigia que
+  // TODOS tivessem o mesmo número de MBs — restrição desnecessária, porque o
+  // mapeamento posição→faixa acontece dentro de cada grupo. O manuscrito de
+  // Gerenciamento de Conflitos (13/08) tem 9, 8, 5 e 4 MBs conforme o descritor,
+  // e cada um desses fecha sozinho em (4 faixas × k) [+1 síntese]. Rejeitá-lo
+  // por falta de uniformidade barrava material legítimo. Quando todos têm o
+  // mesmo tamanho, o comportamento é idêntico ao anterior.
   const FAIXAS = ['N1', 'N2', 'N3', 'N4'] as const;
-
   const microblocos: Microbloco[] = [];
   const doDescOrdenado = new Map<string, Microbloco[]>();
+  const irregulares: string[] = [];
+
   principais.forEach((g) => {
+    const perDesc = g.mbs.length;
+    const temSintese = perDesc % 4 === 1;               // 9 = 8 faixa + 1 síntese; 8 = sem
+    if (!temSintese && perDesc % 4 !== 0) {
+      irregulares.push(`${g.nome} (${perDesc})`);
+      return;
+    }
+    const mbsPorFaixa = Math.floor(perDesc / 4);
     const ordenados = [...g.mbs].sort((a, b) => a.num - b.num);
     const lista: Microbloco[] = ordenados.map((p, rank) => ({
       ...p,
@@ -285,6 +290,41 @@ export async function parsearManuscrito(buffer: Buffer): Promise<ManuscritoParse
     doDescOrdenado.set(g.nome, lista);
     microblocos.push(...lista);
   });
+
+  if (irregulares.length) {
+    throw new Error(`Descritor(es) que não fecham em (4 faixas × k) [+1 síntese]: ${irregulares.join(', ')}. Verifique o DOCX.`);
+  }
+  if (principais.some((g) => g.mbs.length < 4)) {
+    throw new Error('Todo descritor precisa de pelo menos 4 MBs (um por faixa N1–N4).');
+  }
+
+  // ── Conferência cruzada: POSIÇÃO no descritor × NÚMERO global do MB ────────
+  // A faixa acima saiu da posição dentro do descritor — leitura cega, que não
+  // erra de forma visível: um MB fora de lugar viraria conteúdo de N2 rotulado
+  // como N4, e nada na tela acusaria. No esquema por-faixa a numeração é uma
+  // testemunha INDEPENDENTE: os MBs de faixa ocupam blocos globais (1-12 = N1,
+  // 13-24 = N2, …) e as sínteses vêm todas depois. Se as duas leituras
+  // divergirem, o manuscrito não segue a convenção e qualquer fatiamento seria
+  // arbitrário — erro, não aviso (é construção: há humano para corrigir).
+  if (!sequencial) {
+    const deFaixa = microblocos.filter((m) => m.faixa !== 'SINTESE').sort((a, b) => a.num - b.num);
+    if (deFaixa.length % 4 !== 0) {
+      throw new Error(`${deFaixa.length} MBs de faixa não dividem em 4 níveis. Verifique o DOCX.`);
+    }
+    const tamFaixa = deFaixa.length / 4;
+    const divergentes = deFaixa
+      .map((m, rank) => ({ m, esperada: FAIXAS[Math.floor(rank / tamFaixa)] }))
+      .filter(({ m, esperada }) => m.faixa !== esperada);
+    if (divergentes.length) {
+      const amostra = divergentes.slice(0, 5).map(({ m, esperada }) => `MB${m.num} (${m.descritor}): posição diz ${m.faixa}, numeração diz ${esperada}`);
+      throw new Error(`${divergentes.length} microbloco(s) com faixa ambígua — ${amostra.join('; ')}.`);
+    }
+    const maxFaixaNum = Math.max(...deFaixa.map((m) => m.num));
+    const sinteseBaixa = microblocos.filter((m) => m.faixa === 'SINTESE' && m.num < maxFaixaNum);
+    if (sinteseBaixa.length) {
+      throw new Error(`Síntese numerada antes do fim das faixas (MB${sinteseBaixa.map((m) => m.num).join(', MB')}). Verifique o DOCX.`);
+    }
+  }
 
   // ── Agrupa por descritor e monta as três transições ───────────────────────
   const descritores: DescritorGroup[] = principais.map((g, i) => {
@@ -307,7 +347,13 @@ export async function parsearManuscrito(buffer: Buffer): Promise<ManuscritoParse
 
   // ── Avisos (não bloqueiam) ────────────────────────────────────────────────
   if (nDesc !== 6) avisos.push(`${nDesc} descritores principais (esperado: 6).`);
-  avisos.push(`Esquema ${sequencial ? 'sequencial' : 'por-faixa'}, ${perDesc} MBs/descritor${temSintese ? ' (c/ síntese)' : ' (s/ síntese própria)'}.`);
+  const tamanhosPorDesc = [...new Set(principais.map((g) => g.mbs.length))].sort((a, b) => a - b);
+  avisos.push(
+    `Esquema ${sequencial ? 'sequencial' : 'por-faixa'}, ` +
+    (tamanhosPorDesc.length === 1
+      ? `${tamanhosPorDesc[0]} MBs/descritor${tamanhosPorDesc[0] % 4 === 1 ? ' (c/ síntese)' : ' (s/ síntese própria)'}.`
+      : `MBs/descritor VARIÁVEL (${tamanhosPorDesc.join(', ')}) — faixas calculadas por descritor.`)
+  );
   for (const g of descritores) {
     const magra = g.transicoes.find((t) => t.chars < 2000);
     if (magra) avisos.push(`Descritor "${g.descritor}" tem pouco conteúdo em ${magra.nivel_entrada}→${magra.nivel_destino} (${magra.chars} chars).`);
@@ -326,7 +372,7 @@ export async function parsearManuscrito(buffer: Buffer): Promise<ManuscritoParse
     stats: {
       totalMicroblocos: microblocos.length,
       totalDescritores: nDesc,
-      mbsPorFaixa,
+      mbsPorFaixa: Math.floor(principais.reduce((n, g) => n + Math.floor(g.mbs.length / 4), 0) / Math.max(1, principais.length)),
       modulosPrevistos: nDesc * TRANSICOES.length,
       charsUteis,
       charsDescartados: raw.length - charsUteis,

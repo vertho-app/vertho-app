@@ -60,26 +60,43 @@ export async function resolverDescritores(
   sb: SupabaseClient,
   parse: ManuscritoParseResult,
   empresaId?: string | null,
+  opts?: { codCompAlvo?: string | null },
 ): Promise<{ resolvidos?: DescritorResolvido[]; avisos: string[]; error?: string }> {
   const tabela = empresaId ? 'competencias' : 'competencias_base';
-  let q = sb.from(tabela).select('*').eq('cod_comp', parse.cod_comp);
-  if (empresaId) q = q.eq('empresa_id', empresaId);
+  // O código do manuscrito e o código do catálogo do tenant podem divergir: o
+  // manuscrito de Gerenciamento de Conflitos vem como DIR08 (numeração do
+  // material autoral do cargo) e a matriz de Macaé usa C007. O mapeamento é
+  // EXPLÍCITO, nunca adivinhado por semelhança de nome — errar aqui grava 24
+  // módulos ancorados na competência errada, e nada na tela acusaria.
+  const codAlvo = opts?.codCompAlvo || parse.cod_comp;
+  let q = sb.from(tabela).select('*').eq('cod_comp', codAlvo);
+  if (empresaId) {
+    q = q.eq('empresa_id', empresaId);
+    // Linha SEM `cod_desc` não é descritor — é o registro antigo da competência
+    // (formato pré-matriz, uma linha por competência), preservado porque
+    // `respostas.competencia_id` aponta para ele. Contá-la faria a conferência
+    // "manuscrito tem 8, banco tem 9" reprovar um casamento correto.
+    q = q.not('cod_desc', 'is', null);
+  }
   const { data, error } = await q.order('cod_desc');
   if (error) return { avisos: [], error: error.message };
 
   const linhas = (data || []) as CompetenciaRow[];
   if (!linhas.length) {
-    return { avisos: [], error: `Competência ${parse.cod_comp} não encontrada em ${tabela}${empresaId ? ' para esta empresa' : ''}.` };
+    return { avisos: [], error: `Competência ${codAlvo} não encontrada em ${tabela}${empresaId ? ' para esta empresa' : ''}.` };
   }
   if (linhas.length !== parse.descritores.length) {
     return {
       avisos: [],
-      error: `O manuscrito tem ${parse.descritores.length} descritores, mas ${parse.cod_comp} tem ${linhas.length} em ${tabela}. Corrija antes de gerar.`,
+      error: `O manuscrito tem ${parse.descritores.length} descritores, mas ${codAlvo} tem ${linhas.length} em ${tabela}. Corrija antes de gerar.`,
     };
   }
 
   const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
   const avisos: string[] = [];
+  if (codAlvo !== parse.cod_comp) {
+    avisos.push(`Manuscrito ${parse.cod_comp} gravado sob a competência ${codAlvo} do catálogo (mapeamento explícito).`);
+  }
   const resolvidos = parse.descritores.map((g, i) => {
     const comp = linhas[i];
     const matchExato = norm(comp.nome_curto || '') === norm(g.descritor);
