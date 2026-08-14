@@ -167,7 +167,26 @@ export default function LoginForm({ branding }: { branding: any }) {
     }
   }
 
-  // Fluxo de WhatsApp: envia magic link direto pelo WhatsApp.
+  /**
+   * Fluxo de WhatsApp: envia magic link direto pelo WhatsApp.
+   *
+   * ⚠️ DECISÃO DE PRODUTO (14/08/2026): fica o magic link, e NÃO o OTP por
+   * código. Chegou a ser trocado e foi revertido no mesmo dia — a troca é de UX,
+   * não só de canal, e não compensava o ganho técnico.
+   *
+   * O que isso implica, e é bom estar escrito:
+   *  - **O magic link não sai pela Cloud API oficial.** Link de acesso foi
+   *    rejeitado como UTILITY e como MARKETING (`INCORRECT_CATEGORY` nos dois):
+   *    a Meta trata login como AUTHENTICATION, e template de autenticação carrega
+   *    CÓDIGO com botão de copiar, não link. Então este fluxo continua no
+   *    caminho por QR (Z-API), que é o que caiu em 11 e 13/08.
+   *  - No período medido, o magic link por WhatsApp teve **88 falhas para 23
+   *    sucessos**; o mesmo magic link por E-MAIL teve **83 sucessos e 0 falhas**.
+   *
+   * A infra do OTP fica pronta e inerte (`otp_acesso` aprovado na Meta,
+   * `enviarTemplateOtp`, `/api/auth/phone-otp/*`): se um dia a confiabilidade do
+   * acesso pesar mais que a UX, é trocar o endpoint desta função.
+   */
   async function submitWhatsapp(digits: string) {
     if (digits.length < 10) {
       setErrorMsg(t('errors.invalidWhatsapp'));

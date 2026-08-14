@@ -45,6 +45,14 @@ export interface EntregaInput {
   endpointId?: string | null;
   error?: string | null;
   dedupeKey?: string | null;
+  /**
+   * Id da mensagem no provedor (wamid da Cloud API) — mig 212.
+   *
+   * É a chave que o webhook usa para aplicar `delivered`/`read`/`failed` depois.
+   * Sem ela a linha nasce sem status possível: aceite continua sendo tudo que se
+   * sabe, que é exatamente o que a mig 212 existe para resolver.
+   */
+  providerMessageId?: string | null;
 }
 
 const TABELA = 'notification_deliveries';
@@ -73,6 +81,7 @@ export async function registrarEntrega(
         endpoint_id: input.endpointId ?? null,
         error: input.error ?? null,
         dedupe_key: input.dedupeKey ?? null,
+        provider_message_id: input.providerMessageId ?? null,
       })
       .select('id')
       .single();

@@ -8,6 +8,7 @@ import { otpWhatsapp, otpSms } from '@/lib/i18n-auth-templates';
 import { authLimiter } from '@/lib/rate-limit';
 import { sendWhatsapp } from '@/lib/whatsapp';
 import { sendSms } from '@/lib/sms';
+import { enviarTemplateOtp, cloudApiConfigurada } from '@/lib/whatsapp/cloud-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,8 +68,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: issued.error }, { status: 429 });
     }
 
-    // Envia o código pelo serviço central (failover Z-API → WaSender).
     const empresaNome = empresa.nome || 'Vertho';
+
+    // ── 1º: Cloud API oficial, com o template `otp_acesso` (APPROVED em 14/08) ──
+    //
+    // Preferida ao caminho por QR porque não depende de sessão pareada — foi
+    // exatamente isso que caiu em 11 e 13/08 e derrubou o canal. Categoria
+    // AUTHENTICATION, a mais barata no Brasil.
+    //
+    // Só o OTP passa por aqui: os templates da cadência ainda estão PENDING, e
+    // mandar a cadência pela Cloud API antes disso seria trocar um canal que
+    // funciona por um que ainda não pode enviar nada.
+    if (cloudApiConfigurada()) {
+      const cloud = await enviarTemplateOtp(
+        { phone: e164, codigo: issued.code },
+        { motivo: 'otp', empresaId: empresa.id, colaboradorId: colab.id },
+      );
+      if (cloud.ok) return NextResponse.json({ ok: true, canal: 'whatsapp-oficial' });
+      // Não retorna: cai para o caminho antigo. Enquanto a migração não fecha,
+      // ter os dois é o que impede uma falha na Cloud API de virar "ninguém entra".
+      console.error('[phone-otp/request] Cloud API falhou:', cloud.reason);
+    }
+
+    // ── 2º: caminho legado (Z-API → WaSender), texto livre ──
     const msg = otpWhatsapp(locale, { empresaNome, code: issued.code });
     const r = await sendWhatsapp({ kind: 'text', phone: e164, text: msg }, { motivo: 'otp', empresaId: empresa.id, colaboradorId: colab.id });
     if (r.ok) return NextResponse.json({ ok: true, canal: 'whatsapp' });
