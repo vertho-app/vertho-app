@@ -1,4 +1,11 @@
 // lib/notifications.js — Email and WhatsApp notification templates for Vertho Mentor IA
+//
+// ⚠️ As copies de WhatsApp que têm template aprovado na Meta NÃO moram mais aqui:
+// vivem em `lib/whatsapp/templates.ts` e são renderizadas a partir de lá. O texto
+// que a Z-API manda passa a ser o corpo do template com as variáveis
+// substituídas, então os dois caminhos não podem divergir. Ver o cabeçalho
+// daquele arquivo para o porquê e para o que derruba um template em MARKETING.
+import { TEMPLATES, renderTemplate } from '@/lib/whatsapp/templates';
 
 const NAVY = '#0F2A4A';
 const CYAN = '#00B4D8';
@@ -98,15 +105,7 @@ export function templateEmailPDI(nome, link) {
  * WhatsApp text for behavioral profile link.
  */
 export function templateWhatsAppCIS(nome, link) {
-  return `Olá, ${nome}! 👋
-
-Seu *perfil comportamental* na plataforma Vertho Mentor IA está disponível para consulta.
-
-Acesse agora para ver seus resultados:
-${link}
-
-Qualquer dúvida, estamos à disposição!
-— Equipe Vertho`;
+  return renderTemplate(TEMPLATES.perfil_disponivel, [nome, link]);
 }
 
 /**
@@ -126,15 +125,8 @@ Continue evoluindo! Acesse a plataforma Vertho para mais conteúdos.
 /**
  * WhatsApp text for weekly evidence reminder.
  */
-export function templateWhatsAppEvidencia(nome, semana) {
-  return `Olá, ${nome}! 📝
-
-Lembrete: esta é a *Semana ${semana}* do seu plano de desenvolvimento.
-
-Registre suas *evidências de aprendizagem* na plataforma para que possamos acompanhar seu progresso e ajustar as próximas etapas.
-
-Acesse a plataforma Vertho e registre sua evidência hoje!
-— Equipe Vertho`;
+export function templateWhatsAppEvidencia(nome, semana, link) {
+  return renderTemplate(TEMPLATES.evidencia_semanal, [nome, String(semana), link]);
 }
 
 // Quinta: cobra o DESAFIO específico da semana (do kit, por DISC). A pessoa sabe
@@ -154,13 +146,6 @@ Já conseguiu fazer? Conta pra Mentora IA na plataforma como foi (e o que você 
 // Quinta (NUDGE): a pessoa já viu o desafio no conteúdo E no card "Desafio" do week
 // page durante a semana. Aqui é só a cobrança de prática + link pra rever e relatar
 // à Mentora IA — SEM repetir o texto do desafio (evita a redundância do 3º envio).
-export function templateWhatsAppNudgeDesafio(nome, link) {
-  return `Olá, ${nome}! 🎯
-
-É quinta — dia de fechar a prática da semana. Você já fez seu desafio?
-
-👉 ${link}
-
-Abra sua semana pra rever o desafio e conta pra Mentora IA como foi. Se ainda não deu, dá tempo até o fim da semana!
-— Equipe Vertho`;
+export function templateWhatsAppNudgeDesafio(nome, semana, link) {
+  return renderTemplate(TEMPLATES.nudge_desafio, [nome, String(semana), link]);
 }

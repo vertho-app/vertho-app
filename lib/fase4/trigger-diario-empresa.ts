@@ -466,9 +466,10 @@ export async function processarEmpresaDiario(
       // de evidência clássico.
       if (telefone) {
         const ehDesafio = plan && plan.tipo !== 'aplicacao' && !ehImpl(semana, plan) && conteudosDia.length;
+        const linkSemana = deepLinkSemana(baseUrl, semana);
         const mensagem = ehDesafio
-          ? templateWhatsAppNudgeDesafio(nome, deepLinkSemana(baseUrl, semana))
-          : templateWhatsAppEvidencia(nome, semana);
+          ? templateWhatsAppNudgeDesafio(nome, semana, linkSemana)
+          : templateWhatsAppEvidencia(nome, semana, linkSemana);
         try {
           const enfileirou = await agendarWhatsapp({
             telefone, mensagem, kindEnvio: 'evidencia',

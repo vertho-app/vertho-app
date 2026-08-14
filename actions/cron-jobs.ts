@@ -8,6 +8,8 @@ import { requireAdminOrCronAction } from '@/lib/auth/action-context';
 import { processarEmpresaDiario } from '@/lib/fase4/trigger-diario-empresa';
 import { publicarQStashTask, publicarWhatsappCis } from '@/lib/qstash-publish';
 import { criarRelogioCadencia, maxPorDisparo } from '@/lib/whatsapp/cadencia';
+import { deepLinkSemana } from '@/lib/notifications/pilula-envio';
+import { APP_URL, tenantUrl } from '@/lib/domain';
 
 const TIMEOUT_ABANDONO_HORAS = 48;
 const TOTAL_SEMANAS = 14;
@@ -294,7 +296,14 @@ export async function triggerQuinta() {
         if (relogio.tetoAtingido()) {
           adiados++;
         } else {
-          const mensagem = desafioTexto ? templateWhatsAppDesafioQuinta(nome, desafioTexto) : templateWhatsAppEvidencia(nome, semana);
+          // O template aprovado da evidência exige o link da semana (variável
+          // {{3}}). O deep-link é do TENANT, não do domínio genérico — mesma
+          // regra do trigger diário.
+          const linkSemana = deepLinkSemana(
+            (empresa as any).slug ? tenantUrl((empresa as any).slug) : APP_URL,
+            semana,
+          );
+          const mensagem = desafioTexto ? templateWhatsAppDesafioQuinta(nome, desafioTexto) : templateWhatsAppEvidencia(nome, semana, linkSemana);
           try {
             await publishToQStash({ telefone, mensagem }, relogio.proximo());
             totalEnviados++;
