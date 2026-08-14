@@ -30,6 +30,7 @@ import {
   type MetaModulo,
   type Status,
 } from '@/lib/modulos-base/pipeline';
+import { publicarModuloCore } from '@/lib/modulos-base/publicar';
 
 
 
@@ -394,47 +395,9 @@ export async function submeterRevisao(id: string) {
   return _submeterRevisaoCore(createSupabaseAdmin(), id);
 }
 
-// Núcleo de publicação SEM guard (reusável por batch). email = quem publica.
-async function _aprovarPublicarCore(sb: ReturnType<typeof createSupabaseAdmin>, email: string, id: string) {
-  const { data } = await sb.from('modulos_base_conteudo')
-    .select('status, versao, auditoria_ia, auditado_em_versao, descritor, titulo')
-    .eq('id', id).maybeSingle();
-  if (!data) return { error: 'Módulo não encontrado' };
-  if (data.status !== 'revisao') return { error: `Status atual é ${data.status} — só é possível publicar em revisão` };
-
-  // Dual-IA: a publicação exige aprovação da IA-auditora pra ESTA versão.
-  if (!data.auditoria_ia) {
-    return { error: 'Auditoria da IA pendente. Submeta pra revisão (dispara a auditoria) ou clique em "Reauditar".' };
-  }
-  if (data.auditado_em_versao !== data.versao) {
-    return { error: 'Módulo foi editado após a última auditoria. Reauditar antes de publicar.' };
-  }
-  const veredito = (data.auditoria_ia as any)?.veredito;
-  if (veredito === 'reprovado') {
-    return { error: 'IA-auditora reprovou. Corrija os problemas listados e submeta novamente pra reauditar.' };
-  }
-  if (veredito !== 'aprovado' && veredito !== 'aprovado_com_ressalvas') {
-    return { error: 'Veredito da auditoria inválido — reauditar.' };
-  }
-
-  const { error } = await sb.from('modulos_base_conteudo')
-    .update({ status: 'publicado', published_by: email, published_at: new Date().toISOString() })
-    .eq('id', id);
-  if (error) return { error: error.message };
-
-  // Embedding do descritor p/ a seleção semântica na trilha (best-effort, não bloqueia).
-  try {
-    const { embedText } = await import('@/lib/embeddings');
-    const emb = await embedText(`${data.descritor || ''} ${data.titulo || ''}`.trim());
-    if (emb?.vector) await sb.from('modulos_base_conteudo').update({ descritor_embedding: emb.vector }).eq('id', id);
-  } catch (e: any) { console.warn('[aprovarPublicar] embedding falhou:', e?.message); }
-
-  return { ok: true };
-}
-
 export async function aprovarPublicar(id: string) {
   const ctx = await requireAdminAction('content.manage');
-  return _aprovarPublicarCore(createSupabaseAdmin(), (ctx as any).email, id);
+  return publicarModuloCore(createSupabaseAdmin(), (ctx as any).email, id);
 }
 
 // ── Ações em LOTE (lista de módulos, seleção múltipla) ──────────────────────
@@ -459,7 +422,7 @@ export async function aprovarPublicarEmLote(ids: string[]) {
   const ctx = await requireAdminAction('content.manage');
   const sb = createSupabaseAdmin();
   if (!ids?.length) return { error: 'Nenhum módulo selecionado' };
-  return _emLote(ids, (id) => _aprovarPublicarCore(sb, (ctx as any).email, id));
+  return _emLote(ids, (id) => publicarModuloCore(sb, (ctx as any).email, id));
 }
 
 export async function marcarObsoleto(id: string, substitui_por?: string) {
