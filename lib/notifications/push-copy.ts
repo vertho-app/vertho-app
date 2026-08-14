@@ -61,3 +61,17 @@ export function pushMissao(semana: number): TextoPush {
     corpo: limitar('Sua tarefa prática desta semana já está disponível.', LIMITE_CORPO),
   };
 }
+
+/**
+ * Quinta: cobrança do registro de evidência/prática.
+ *
+ * Fala do que FALTA ("ainda não registrou"), não do que existe — é a única
+ * mensagem da semana cujo propósito é uma ação pendente da pessoa, e um título
+ * genérico tipo "Semana 5" não daria a ela motivo para abrir.
+ */
+export function pushEvidencia(semana: number): TextoPush {
+  return {
+    titulo: limitar(`Registro da semana ${semana}`, LIMITE_TITULO),
+    corpo: limitar('Você ainda não registrou como foi a prática desta semana.', LIMITE_CORPO),
+  };
+}

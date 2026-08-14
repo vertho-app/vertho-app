@@ -18,7 +18,17 @@ const whatsappPayloadSchema = z.object({
   // prova a entrega é o webhook, não o enfileiramento (F-C4). Enum fechado:
   // string livre deixaria o payload escolher QUALQUER coluna para sobrescrever.
   fase4EnvioId: z.string().uuid().optional(),
-  carimboCampo: z.enum(['ultima_pilula1_whatsapp_em', 'ultima_pilula2_whatsapp_em']).optional(),
+  // `ultima_evidencia_whatsapp_em` entrou em 14/08/2026 (mig 213), quando a
+  // evidência de quinta deixou de ser monocanal e passou a carimbar por canal
+  // como a pílula. ⚠️ Enum fechado é bom E É UMA ARMADILHA na hora de estender:
+  // o schema é `.strict()`, então publicar um campo novo sem adicioná-lo AQUI
+  // não degrada o carimbo — faz o Zod rejeitar o payload inteiro e a mensagem
+  // NÃO SAI. Coluna nova de carimbo exige tocar nos dois lados, sempre.
+  carimboCampo: z.enum([
+    'ultima_pilula1_whatsapp_em',
+    'ultima_pilula2_whatsapp_em',
+    'ultima_evidencia_whatsapp_em',
+  ]).optional(),
   // Anexo opcional (ex.: PDF do relatório individual no disparo em lote).
   // Vai por URL assinada — o documento é enviado após o texto, best-effort.
   documentoUrl: z.string().url().max(2000).optional(),
@@ -69,6 +79,25 @@ async function verifyQStashSignature(req, body) {
   }
 }
 
+/** Campos de carimbo aceitos — espelha o enum de `carimboCampo` no schema. */
+type CarimboCampo = NonNullable<z.infer<typeof whatsappPayloadSchema>['carimboCampo']>;
+
+/**
+ * Motivo de negócio de cada carimbo, para a telemetria.
+ *
+ * ⚠️ Isto era o literal `'pilula'`, e o comentário abaixo já afirmava que "o
+ * TypeScript obriga a decidir o kind aqui" — não obrigava. Quando a evidência
+ * ganhou carimbo próprio (mig 213), ela teria sido gravada como `pilula`,
+ * inflando a contagem de cadência com um evento de outra natureza. Promessa em
+ * comentário não é garantia; `satisfies Record<CarimboCampo, …>` é: acrescentar
+ * um valor ao enum sem mapeá-lo aqui passa a QUEBRAR O BUILD.
+ */
+const MOTIVO_POR_CARIMBO = {
+  ultima_pilula1_whatsapp_em: 'pilula',
+  ultima_pilula2_whatsapp_em: 'pilula',
+  ultima_evidencia_whatsapp_em: 'evidencia',
+} as const satisfies Record<CarimboCampo, string>;
+
 /**
  * Contexto de negócio do envio, para a telemetria de entrega (mig 198).
  *
@@ -86,7 +115,7 @@ async function verifyQStashSignature(req, body) {
  */
 async function resolverMetaEnvio(
   fase4EnvioId?: string,
-  carimboCampo?: 'ultima_pilula1_whatsapp_em' | 'ultima_pilula2_whatsapp_em',
+  carimboCampo?: 'ultima_pilula1_whatsapp_em' | 'ultima_pilula2_whatsapp_em' | 'ultima_evidencia_whatsapp_em',
   envioId?: string,
   lote?: { colaboradorId?: string; empresaId?: string; kindEnvio?: z.infer<typeof whatsappPayloadSchema>['kindEnvio'] },
 ): Promise<WaSendMeta> {
@@ -103,7 +132,7 @@ async function resolverMetaEnvio(
       console.warn(`[qstash/whatsapp-cis] meta da pílula sem pessoa: ${error.message}`);
     }
     return {
-      motivo: 'pilula',
+      motivo: MOTIVO_POR_CARIMBO[carimboCampo],
       colaboradorId: (data as any)?.colaborador_id ?? null,
       empresaId: (data as any)?.empresa_id ?? null,
       dedupeKey: `${carimboCampo}:${fase4EnvioId}`,

@@ -70,6 +70,36 @@ export function emailPilula(nome: string, e: any, opts: PilulaOpts): { subject: 
 }
 
 /**
+ * Assunto + HTML do e-mail da EVIDÊNCIA de quinta.
+ *
+ * Existe desde 14/08/2026, quando a quinta deixou de ser monocanal. Até ali a
+ * evidência só saía por WhatsApp — e no dia 13 a instância caiu no meio do
+ * disparo, deixando 30 de 36 pessoas sem nada, todas com e-mail cadastrado.
+ *
+ * A copy é a mesma do template aprovado da Meta (`lib/whatsapp/templates.ts`,
+ * `evidencia_semanal`), em tom factual: afirma o que está pendente na conta da
+ * pessoa e para que serve. Isso não é só coerência de marca — é o que mantém a
+ * mensagem na categoria UTILITY quando ela sai pelo WhatsApp oficial, e canal
+ * diferente com promessa diferente é como o produto começa a se contradizer.
+ */
+export function emailEvidencia(
+  nome: string,
+  opts: { semana: number; baseUrl: string },
+): { subject: string; html: string } {
+  const link = deepLinkSemana(opts.baseUrl, opts.semana);
+  const primeiro = (nome || 'Colaborador').split(' ')[0];
+  const subject = `Registro da Semana ${opts.semana} — pendente`;
+  const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
+<p>Olá, ${primeiro}.</p>
+<p>Você está na <strong>semana ${opts.semana}</strong> da sua trilha de desenvolvimento.</p>
+<p>O registro de evidências desta semana está <strong>pendente</strong>.</p>
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Registrar minha evidência →</a></p>
+<p style="color:#666;font-size:14px">As evidências registradas são usadas para ajustar as próximas semanas da sua trilha.</p>
+<p style="color:#666;font-size:14px">— Equipe Vertho</p></div>`;
+  return { subject, html };
+}
+
+/**
  * Envia e-mail via Resend. NUNCA lança — devolve {ok, reason}.
  *
  * `meta` é o contexto de negócio para a telemetria de entrega (mig 198) e não

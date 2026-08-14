@@ -23,7 +23,7 @@ import { mesmoDiaUTC, pilulaPendente } from '@/lib/notifications/carimbo-canal';
 import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, tenantUrl } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppNudgeDesafio } from '@/lib/notifications';
-import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao } from '@/lib/notifications/pilula-envio';
+import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao, emailEvidencia } from '@/lib/notifications/pilula-envio';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
@@ -32,7 +32,7 @@ import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
 import { criarRelogioCadencia, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { enviarPush } from '@/lib/notifications/push-core';
-import { pushPilula, pushMissao } from '@/lib/notifications/push-copy';
+import { pushPilula, pushMissao, pushEvidencia } from '@/lib/notifications/push-copy';
 import { temaPilula } from '@/lib/notifications/pilula-envio';
 import { ENVIO } from '@/lib/status';
 
@@ -90,7 +90,7 @@ export async function processarEmpresaDiario(
 
   const tdb = tenantDb(empresa.id);
   const { data: envios } = await tdb.from('fase4_envios')
-    .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula1_push_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, ultima_pilula2_push_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
+    .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_evidencia_whatsapp_em, ultima_evidencia_email_em, ultima_evidencia_push_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula1_push_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, ultima_pilula2_push_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
     .eq('status', ENVIO.ATIVO);
   if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto };
 
@@ -440,7 +440,10 @@ export async function processarEmpresaDiario(
     }
 
     // ── EVIDÊNCIA + avanço de semana ──
-    if (hoje === diaEv && !mesmoDiaUTC(envio.ultima_evidencia_em, hojeUTC)) {
+    // Gate POR CANAL (mig 213): olhar só `ultima_evidencia_em` fecharia a porta
+    // para a recuperação do canal que falhou — com o e-mail entregue e o WhatsApp
+    // fora, aquele carimbo já existe. É o mesmo raciocínio de `pilulaPendente`.
+    if (hoje === diaEv && pendente('ultima_evidencia_whatsapp_em', 'ultima_evidencia_email_em', 'ultima_evidencia_push_em')) {
       // Nudge de inatividade (2+ semanas sem envio) — não avança semana.
       if (ultimoEnvio && (Date.now() - ultimoEnvio) / 86_400_000 >= 14) {
         if (telefone) {
@@ -464,23 +467,80 @@ export async function processarEmpresaDiario(
       // inteiro seria o 3º envio redundante. Aqui só cobramos + linkamos a semana
       // (rever o desafio + relatar à Mentora IA). Aplicação/missão (4/8/12) → lembrete
       // de evidência clássico.
-      if (telefone) {
-        const ehDesafio = plan && plan.tipo !== 'aplicacao' && !ehImpl(semana, plan) && conteudosDia.length;
-        const linkSemana = deepLinkSemana(baseUrl, semana);
+      //
+      // ── MULTICANAL desde 14/08/2026 (mig 213) ────────────────────────────
+      // Era `if (telefone) { ... }` e mais nada: a quinta era o ÚNICO ponto da
+      // cadência com um canal só, enquanto a pílula de segunda/terça já saía por
+      // três. Em 13/08 a Z-API caiu no meio do disparo e 30 de 36 pessoas da
+      // Ibipeba ficaram sem nada — todas com e-mail cadastrado, num canal que
+      // não falhou nenhuma vez em 194 envios medidos.
+      const ehDesafio = plan && plan.tipo !== 'aplicacao' && !ehImpl(semana, plan) && conteudosDia.length;
+      const linkSemana = deepLinkSemana(baseUrl, semana);
+      const agoraEv = new Date().toISOString();
+      const stampEv: Record<string, string> = {};
+      let evidenciaEnfileirada = false;
+
+      if (telefone && !mesmoDiaUTC(envio.ultima_evidencia_whatsapp_em, hojeUTC)) {
         const mensagem = ehDesafio
           ? templateWhatsAppNudgeDesafio(nome, semana, linkSemana)
           : templateWhatsAppEvidencia(nome, semana, linkSemana);
         try {
+          // Carimbo do canal vem do webhook, PÓS-envio — mesmo contrato da
+          // pílula. Carimbar aqui afirmaria envio que ainda pode não sair.
           const enfileirou = await agendarWhatsapp({
             telefone, mensagem, kindEnvio: 'evidencia',
             colaboradorId: envio.colaborador_id, empresaId: empresa.id,
+            fase4EnvioId: envio.id, carimboCampo: 'ultima_evidencia_whatsapp_em',
           });
-          if (enfileirou) evidencias++;
+          if (enfileirou) { evidencias++; evidenciaEnfileirada = true; }
         } catch { erros++; }
       }
-      // Avanço de semana INCONDICIONAL (decisão de produto — não mexer): a
-      // evidência é a alavanca do calendário, independente de canal entregue.
-      await tdb.from('fase4_envios').update({ semana_atual: semana + 1, ultima_evidencia_em: new Date().toISOString() }).eq('id', envio.id);
+
+      if (email && !ehDemo && !mesmoDiaUTC(envio.ultima_evidencia_email_em, hojeUTC)) {
+        const { subject, html } = emailEvidencia(nome, { semana, baseUrl });
+        const r = await enviarEmailPilula(email, subject, html, {
+          kind: 'evidencia',
+          empresaId: empresa.id,
+          colaboradorId: envio.colaborador_id,
+          dedupeKey: `evidencia:${envio.id}:semana${semana}`,
+        });
+        if (r.ok) { emails++; stampEv.ultima_evidencia_email_em = agoraEv; } else erros++;
+      }
+
+      if (pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio.ultima_evidencia_push_em, hojeUTC)) {
+        const texto = pushEvidencia(semana);
+        const r = await enviarPush({
+          colaboradorId: envio.colaborador_id,
+          empresaId: empresa.id,
+          kind: 'evidencia',
+          titulo: texto.titulo,
+          corpo: texto.corpo,
+          url: linkSemana,
+          dedupeKey: `evidencia-push:${envio.id}:semana${semana}`,
+        });
+        if (r.entregues > 0) { stampEv.ultima_evidencia_push_em = agoraEv; } else if (r.falhas > 0) erros++;
+      }
+
+      // ── AVANÇO DE SEMANA: uma vez por dia, e só aqui ─────────────────────
+      //
+      // 🔴 A ARMADILHA QUE ESTE `if` EVITA. O gate de entrada deste bloco passou
+      // a ser POR CANAL (recuperável): com o e-mail entregue e o WhatsApp falho,
+      // a evidência segue pendente e uma segunda passada no MESMO dia entra aqui
+      // de novo para recuperar o WhatsApp — que é o comportamento desejado. Sem
+      // este guarda, essa segunda passada avançaria a semana OUTRA VEZ, pulando
+      // uma semana inteira de conteúdo da pessoa.
+      //
+      // `ultima_evidencia_em` continua sendo a alavanca do calendário (decisão de
+      // produto: o avanço não depende de canal entregue), agora com um papel só.
+      if (!mesmoDiaUTC(envio.ultima_evidencia_em, hojeUTC)) {
+        stampEv.ultima_evidencia_em = agoraEv;
+        await tdb.from('fase4_envios')
+          .update({ ...stampEv, semana_atual: semana + 1 })
+          .eq('id', envio.id);
+      } else if (Object.keys(stampEv).length || evidenciaEnfileirada) {
+        // Recuperação de canal no mesmo dia: grava os carimbos SEM tocar na semana.
+        await tdb.from('fase4_envios').update(stampEv).eq('id', envio.id);
+      }
     }
   }
 
