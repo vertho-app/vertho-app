@@ -52,6 +52,7 @@ export const AI_TASKS = [
   // ── Vertho Master Content (módulos-base) ─────────────────
   { key: 'modulo_base_autor',   label: 'Módulo-Base — Rascunho assistido / Import docx', fase: 'Vertho' },
   { key: 'modulo_base_auditor', label: 'Módulo-Base — Auditor (valida o que a autora gerou)', fase: 'Vertho' },
+  { key: 'descritor_reancoragem', label: 'Descritores — Reancoragem de avaliação livre à régua oficial', fase: 'Vertho' },
 ];
 
 export const MODELOS_DISPONIVEIS = [
@@ -85,6 +86,8 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // Onda 0) e 4× mais barato que o gpt-5.4 ($10/$30) que ia3/ia4 usavam.
   // O veredito continua derivado EM CÓDIGO, não pedido ao modelo.
   modulo_base_auditor: 'gpt-5.6-terra',
+  // Classificação curta (paráfrase → item de régua): saída pequena, o 4.6 basta.
+  descritor_reancoragem: 'claude-sonnet-4-6',
   acumulada_check:     'gpt-5.6-terra',
   sem14_check:         'gpt-5.6-terra',
   ia3_check:           'gpt-5.6-terra',
