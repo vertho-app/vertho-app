@@ -62,7 +62,24 @@ async function main() {
   const { data: resps, error } = await tdb.from('respostas')
     .select('*').in('competencia_id', compIds).order('id');
   if (error) throw new Error(error.message);
-  const alvo = (resps || []).filter((r: any) => colabIds.has(r.colaborador_id)).slice(0, MAX);
+
+  // RETOMÁVEL: quem já tem os 8 descritores oficiais está pronto. Sem isto, uma
+  // queda de rede no meio (ECONNRESET, medido 14/08 na 25ª pessoa) obriga a
+  // repagar as que já passaram.
+  const { data: jaOficiais } = await sb.from('descriptor_assessments')
+    .select('colaborador_id, descritor').eq('empresa_id', empresaId).eq('competencia', nomeComp);
+  const contaOficial = new Map<string, number>();
+  for (const l of (jaOficiais || []) as any[]) {
+    if (nomesOficiais.includes(l.descritor)) contaOficial.set(l.colaborador_id, (contaOficial.get(l.colaborador_id) || 0) + 1);
+  }
+  const prontos = new Set([...contaOficial.entries()].filter(([, n]) => n >= nomesOficiais.length).map(([id]) => id));
+  const FORCAR = process.argv.includes('--forcar');
+
+  const alvo = (resps || [])
+    .filter((r: any) => colabIds.has(r.colaborador_id))
+    .filter((r: any) => FORCAR || !prontos.has(r.colaborador_id))
+    .slice(0, MAX);
+  if (prontos.size && !FORCAR) console.log(`↩︎ ${prontos.size} já na régua oficial — pulados (--forcar refaz)`);
 
   const { count: livresAntes } = await sb.from('descriptor_assessments')
     .select('id', { count: 'exact', head: true })
@@ -99,8 +116,17 @@ async function main() {
     const mediaAntes = (antesRows || []).length
       ? (antesRows as any[]).reduce((s, x) => s + Number(x.nota), 0) / (antesRows as any[]).length : NaN;
 
-    const r = await avaliarUmaRespostaCore(tdb, sb, resp, colab, empresa, contextoPPP, { model: modelo });
-    if (!r.success) { erros.push(`${colab?.nome_completo || resp.colaborador_id}: ${r.error}`); console.log(`  [${i + 1}/${alvo.length}] ❌ ${r.error}`); continue; }
+    // try/catch POR ITEM: `callAI` LANÇA em queda de conexão (ECONNRESET), e sem
+    // isto a exceção sobe pelo laço e mata o lote inteiro na primeira falha de
+    // rede — foi o que aconteceu na 25ª de 38, deixando o estado meio migrado e
+    // a limpeza sem rodar.
+    let r: { success: boolean; error?: string };
+    try {
+      r = await avaliarUmaRespostaCore(tdb, sb, resp, colab, empresa, contextoPPP, { model: modelo });
+    } catch (e: any) {
+      r = { success: false, error: e?.message || String(e) };
+    }
+    if (!r.success) { erros.push(`${colab?.nome_completo || resp.colaborador_id}: ${r.error}`); console.log(`  [${i + 1}/${alvo.length}] ❌ ${String(colab?.nome_completo || '').slice(0, 30)}: ${r.error}`); continue; }
     ok++;
     reavaliados.add(resp.colaborador_id);
 
@@ -121,7 +147,10 @@ async function main() {
   console.log(`\n${ok}/${alvo.length} reavaliadas${erros.length ? `, ${erros.length} com erro` : ''}`);
   for (const e of erros) console.log(`  ✗ ${e}`);
 
-  if (!ok) { console.log('\n❌ nenhuma reavaliação passou — NADA será apagado.'); return; }
+  // `prontos.size` entra aqui porque uma execução de RETOMADA pode não
+  // reavaliar ninguém (todos já na régua) e ainda assim precisar limpar os
+  // livres que a execução anterior deixou para trás ao morrer no meio.
+  if (!ok && !prontos.size) { console.log('\n❌ nenhuma reavaliação passou — NADA será apagado.'); return; }
 
   // Limpeza: só agora, só o que ficou fora da régua, e só de quem foi
   // reavaliado AGORA. Se a reavaliação falhou para alguém, a linha velha dessa
@@ -130,9 +159,20 @@ async function main() {
   const { data: livres } = await sb.from('descriptor_assessments')
     .select('id, colaborador_id, descritor')
     .eq('empresa_id', empresaId).eq('competencia', nomeComp);
+
+  // O critério é TER A RÉGUA COMPLETA, não "foi reavaliado nesta execução":
+  // depois da queda de rede, 10 pessoas ficaram com os 8 oficiais E os livres
+  // ao mesmo tempo, e um critério preso à execução atual nunca as limparia.
+  // Continua seguro — quem não tem os 8 oficiais mantém a avaliação antiga
+  // intacta, que é a única que possui.
+  const completos = new Map<string, number>();
+  for (const l of (livres || []) as any[]) {
+    if (nomesOficiais.includes(l.descritor)) completos.set(l.colaborador_id, (completos.get(l.colaborador_id) || 0) + 1);
+  }
+  const podeLimpar = new Set([...completos.entries()].filter(([, n]) => n >= nomesOficiais.length).map(([id]) => id));
   const paraApagar = (livres || []).filter((l: any) =>
-    !nomesOficiais.includes(l.descritor) && reavaliados.has(l.colaborador_id));
-  console.log(`\n${paraApagar.length} linha(s) em descritor livre a remover (de ${reavaliados.size} colaborador(es) reavaliado(s))`);
+    !nomesOficiais.includes(l.descritor) && podeLimpar.has(l.colaborador_id) && colabIds.has(l.colaborador_id));
+  console.log(`\n${paraApagar.length} linha(s) em descritor livre a remover (de ${podeLimpar.size} colaborador(es) com a régua completa)`);
   if (paraApagar.length) {
     const { error: eDel } = await sb.from('descriptor_assessments')
       .delete().in('id', paraApagar.map((l: any) => l.id));
