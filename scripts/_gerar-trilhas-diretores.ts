@@ -39,7 +39,11 @@ async function main() {
     .select('colaborador_id').eq('empresa_id', empresaId)
     .in('colaborador_id', (colabs || []).map((c: any) => c.id));
   const comTrilha = new Set((jaTem || []).map((t: any) => t.colaborador_id));
-  const pendentes = (colabs || []).filter((c: any) => !comTrilha.has(c.id)).slice(0, MAX);
+  // `--forcar` regera quem já tem trilha. `persistirTrilha` faz UPDATE quando
+  // existe, então não duplica — mas só use com trilha que ninguém começou:
+  // regerar por cima de quem já consumiu semanas troca o plano debaixo da pessoa.
+  const FORCAR = process.argv.includes('--forcar');
+  const pendentes = (colabs || []).filter((c: any) => FORCAR || !comTrilha.has(c.id)).slice(0, MAX);
 
   console.log(`${colabs?.length || 0} ${CARGO} com blueprint · ${comTrilha.size} já com trilha · ${pendentes.length} a gerar${APLICAR ? '' : ' (dry-run)'}`);
   for (const c of pendentes as any[]) console.log(`  ${String(c.nome_completo).slice(0, 38)}`);

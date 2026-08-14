@@ -196,7 +196,44 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     }
 
     // 5) Seleciona descritores e aloca semanas
-    const descritoresSelecionados = selectDescriptors(assessment, programaConfig.slotsConteudo);
+    //
+    // O BLUEPRINT tem precedência — mesma regra do DUO. Sem isto, o modo
+    // jornada (numCompetencias=1, logo fora do ramo DUO) caía direto em
+    // `selectDescriptors`, que aloca UM descritor por semana: modelo anterior
+    // ao `conteudosPorSemana: 2`. Medido 14/08 na 1ª trilha de Macaé: o
+    // blueprint trazia 2 descritores distintos em cada semana cobrindo os 6
+    // gaps, e a trilha saiu com 4 descritores em 6 semanas — "Postura diante do
+    // conflito" e "Escuta das partes" (nota 2,2, gap real) ficaram de fora, e as
+    // semanas 4-6 avisaram "1 descritor para 2 entregas esperadas".
+    //
+    // Ou seja: o blueprint era gerado, auditado e IGNORADO neste modo, e o
+    // `conteudosPorSemana: 2` era config morta — quem consultava não existia.
+    let blueprintInputsSingle: BlueprintTrilhaInputs | null = null;
+    if ((programaConfig.conteudosPorSemana || 1) >= 2) {
+      const { data: bpRow } = await tdb.from('development_blueprints')
+        .select('blueprint')
+        .eq('colaborador_id', colab.id)
+        .order('gerado_em', { ascending: false })
+        .limit(1).maybeSingle();
+      if (bpRow?.blueprint) {
+        const r = blueprintToTrilhaInputs(bpRow.blueprint, { [competenciaAlvo]: assessment as any }, programaConfig);
+        if ('error' in r) {
+          console.warn(`[${programaConfig.modo}] blueprint→trilha indisponível (${r.error}) — fallback selectDescriptors`);
+          await registrarDegradacao({
+            fluxo: 'trilha', tipo: DEGRADACAO.BLUEPRINT_ADAPTER_FALLBACK, chave: colab.id,
+            empresaId: colab.empresa_id, colaboradorId: colab.id,
+            detalhe: { error: r.error, competencia: competenciaAlvo },
+          });
+        } else {
+          blueprintInputsSingle = r;
+          if (r.avisos.length) console.warn(`[${programaConfig.modo}] blueprint→trilha avisos:`, r.avisos);
+        }
+      }
+    }
+
+    const descritoresSelecionados = blueprintInputsSingle
+      ? blueprintInputsSingle.descritoresSelecionados
+      : selectDescriptors(assessment, programaConfig.slotsConteudo);
 
     // 6) Monta plano de N semanas (com IA pra desafios + cenários)
     const semanas = await buildSeason({
@@ -208,6 +245,7 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
       empresaId: colab.empresa_id,
       aiConfig,
       programaConfig,
+      blueprintBinding: blueprintInputsSingle?.bindingPorSemana,
     });
 
     // 7) Persiste trilha + progresso (fonte única dos 4 modos)

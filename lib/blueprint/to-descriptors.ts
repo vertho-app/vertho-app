@@ -85,6 +85,15 @@ export function blueprintToTrilhaInputs(
 
   // Índice de assessment por competência: nome normalizado → { original, nota }.
   const idxPorComp: Record<string, Map<string, { descritor: string; nota: number }>> = {};
+  // Chave da competência NORMALIZADA. O nome vem de duas fontes que não
+  // combinam: o assessment guarda o que está em `competencias.nome`
+  // ("GERENCIAMENTO DE CONFLITOS", caixa alta na matriz de Macaé) e a IA do
+  // blueprint reescreve em caixa mista ("Gerenciamento de Conflitos"). Com a
+  // chave crua, NENHUM descritor casava e o adapter devolvia "semana 1 sem
+  // nenhum descritor resolvível" — o blueprint inteiro ia para o lixo em
+  // silêncio, caindo no fallback. Os descritores já eram normalizados aqui; a
+  // competência tinha ficado de fora. Medido 14/08 na 1ª trilha de Macaé.
+  const compOriginalPorNorm: Record<string, string> = {};
   for (const [comp, rows] of Object.entries(assessmentPorComp)) {
     const m = new Map<string, { descritor: string; nota: number }>();
     for (const r of rows || []) {
@@ -92,7 +101,9 @@ export function blueprintToTrilhaInputs(
       if (!Number.isFinite(nota)) continue;
       m.set(normDescritor(r.descritor), { descritor: r.descritor, nota });
     }
-    idxPorComp[comp] = m;
+    const chave = normDescritor(comp);
+    idxPorComp[chave] = m;
+    compOriginalPorNorm[chave] = comp;
   }
 
   // Lookup de objetivos_30_dias: id → { objetivo, acao_principal }.
@@ -142,10 +153,12 @@ export function blueprintToTrilhaInputs(
       // Tenta casar em cada competência da semana (fallback: qualquer comp).
       let comp: string | undefined;
       let hit: { descritor: string; nota: number } | undefined;
-      const compsBusca = compsSemana.length ? compsSemana : Object.keys(idxPorComp);
+      const compsBusca = compsSemana.length ? compsSemana.map(normDescritor) : Object.keys(idxPorComp);
       for (const c of compsBusca) {
         const m = idxPorComp[c];
-        if (m && m.has(alvo)) { comp = c; hit = m.get(alvo); break; }
+        // `comp` volta a ser o nome ORIGINAL do assessment: é ele que a trilha
+        // grava e que o resolver de conteúdo usa para casar `micro_conteudos`.
+        if (m && m.has(alvo)) { comp = compOriginalPorNorm[c] || c; hit = m.get(alvo); break; }
       }
       if (!hit || !comp) {
         avisos.push(`sem ${semana}: descritor "${nome}" sem nota casável (comps ${JSON.stringify(compsSemana)})`);
@@ -185,7 +198,8 @@ export function blueprintToTrilhaInputs(
   // há vagas suficientes: nº semanas × 2 ≥ nº descritores da competência).
   // Mantém 2 descritores/semana e a competência da semana. Determinístico.
   const GAP_LIMITE = 3.0;
-  for (const [comp, m] of Object.entries(idxPorComp)) {
+  for (const [compNorm, m] of Object.entries(idxPorComp)) {
+    const comp = compOriginalPorNorm[compNorm] || compNorm;
     const gaps = [...m.values()].filter((d) => d.nota < GAP_LIMITE).sort((a, b) => a.nota - b.nota);
     for (const g of gaps) {
       const key = `${comp}||${g.descritor}`;

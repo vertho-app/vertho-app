@@ -26,7 +26,7 @@ async function main() {
   const empresaId = (emp as any).id;
 
   const { data: todos, error } = await sb.from('development_blueprints')
-    .select('colaborador_id, auditoria, blueprint')
+    .select('colaborador_id, auditoria, blueprint, gerado_em')
     .eq('empresa_id', empresaId).order('colaborador_id');
   if (error) throw new Error(error.message);
 
@@ -48,10 +48,20 @@ async function main() {
     return aval.length > 0 && aval.every((s: any) => TEM_PISO.test(String(s.evidencia_esperada || '')));
   };
   const FORCAR = process.argv.includes('--forcar');
-  const prontos = (todos || []).filter((r: any) => jaNovo(r.blueprint));
-  const bps = FORCAR ? todos : (todos || []).filter((r: any) => !jaNovo(r.blueprint));
 
-  if (prontos.length && !FORCAR) console.log(`↩︎ ${prontos.length} já no padrão novo — pulados (use --forcar para refazer)`);
+  // `--recentes=N` pula quem foi gerado nas últimas N horas. O filtro `jaNovo`
+  // olha a ESTRUTURA (semanas, piso da evidência) e por isso não distingue um
+  // blueprint velho de um refeito sobre descritores novos — com `--forcar`, uma
+  // execução interrompida recomeçaria do zero e repagaria tudo. Foi o caso em
+  // 14/08: a reancoragem trocou os descritores e a regeração morreu na 22ª de 38.
+  const RECENTES = Number(process.argv.find((a) => a.startsWith('--recentes='))?.slice(11) || 0);
+  const corte = RECENTES ? Date.now() - RECENTES * 3600_000 : 0;
+  const recente = (r: any) => corte && r.gerado_em && new Date(r.gerado_em).getTime() > corte;
+
+  const prontos = (todos || []).filter((r: any) => recente(r) || (!FORCAR && jaNovo(r.blueprint)));
+  const bps = (todos || []).filter((r: any) => !recente(r) && (FORCAR || !jaNovo(r.blueprint)));
+
+  if (prontos.length) console.log(`↩︎ ${prontos.length} pulado(s)${RECENTES ? ` (gerados nas últimas ${RECENTES}h ou já no padrão novo)` : ' — já no padrão novo (use --forcar para refazer)'}`);
   console.log(`${bps?.length || 0} a regerar · modelo=${MODELO} · ${APLICAR ? 'APLICAR' : 'dry-run'}`);
   if (!APLICAR) { console.log('(dry-run — rode com --aplicar)'); return; }
 
