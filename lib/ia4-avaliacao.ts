@@ -485,7 +485,7 @@ export async function consolidarEPersistirIA4(
     // eco do modelo: no mesmo dia ele devolveu "COO03_D6 — Busca de apoio" e
     // "Busca de apoio (COO03_D6)", e cada variante virava linha duplicada no
     // Retrato de Competências. Resolve contra a régua oficial (código→nome).
-    const rows = descPorDescritor
+    const brutas = descPorDescritor
       .filter((d: any) => d.nome && typeof d.nota_decimal === 'number')
       .map((d: any) => ({
         colaborador_id: resp.colaborador_id,
@@ -496,6 +496,32 @@ export async function consolidarEPersistirIA4(
         origem: 'ia4',
         assessment_date: new Date().toISOString(),
       }));
+
+    // DEDUP depois de resolver o nome. Resolver contra a régua faz variantes
+    // distintas do modelo ("D3 — Escuta das partes" e "Escuta ativa das
+    // partes") colapsarem no MESMO `nome_curto` — e aí o upsert leva duas
+    // linhas com a mesma chave, que o Postgres recusa inteira: "ON CONFLICT DO
+    // UPDATE command cannot affect row a second time". A avaliação toda se
+    // perdia por causa de uma repetição do modelo. Medido 14/08, ao reancorar
+    // Macaé: só aparece quando existe régua oficial para resolver, então o
+    // acervo antigo (nomes livres, nunca colidiam) nunca expôs isto.
+    // Duas notas para o mesmo descritor consolidam pela MÉDIA — é a mesma regra
+    // que a consolidação usa, e mantém a nota auditável.
+    const porDescritor = new Map<string, { row: any; notas: number[] }>();
+    for (const r of brutas) {
+      const k = r.descritor;
+      const acc = porDescritor.get(k);
+      if (acc) acc.notas.push(r.nota);
+      else porDescritor.set(k, { row: r, notas: [r.nota] });
+    }
+    const rows = [...porDescritor.values()].map(({ row, notas }) => ({
+      ...row,
+      nota: Math.round((notas.reduce((s, n) => s + n, 0) / notas.length) * 100) / 100,
+    }));
+    const colididos = brutas.length - rows.length;
+    if (colididos > 0) {
+      console.warn(`[IA4] ${colididos} descritor(es) repetido(s) após resolver contra a régua (${colab?.nome_completo || resp.colaborador_id}) — notas consolidadas pela média`);
+    }
     if (rows.length === 0) {
       return { success: false, error: `IA não retornou notas de descritor válidas para persistir (${colab?.nome_completo || resp.colaborador_id}) — segue pendente para retry` };
     }

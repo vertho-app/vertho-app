@@ -169,6 +169,7 @@
     "scripts/_publicar-modulos-aprovados.ts": 1,
     "scripts/_gerar-trilhas-diretores.ts": 1,
     "scripts/_mapear-descritores-oficiais.ts": 1,
+    "scripts/_reancorar-avaliacoes.ts": 1,
     "scripts/_render-podcast-kit.ts": 1,
     "scripts/_video-kit-mei-d.ts": 1,
     "scripts/_diag-orfaos-detalhe.ts": 1,
