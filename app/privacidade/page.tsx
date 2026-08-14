@@ -23,9 +23,9 @@ const EMPRESA = {
   razaoSocial: 'VERTHO.AI GESTÃO DA APRENDIZAGEM LTDA',
   cnpj: '62.058.419/0001-51',
   endereco: 'R. Luzia Latorre de Oliveira Lima, 243 — Jundiaí/SP',
-  emailPrivacidade: 'contato@vertho.ai',
+  emailPrivacidade: 'rodrigo@vertho.ai',
   encarregado: 'Rodrigo Naves',
-  emailEncarregado: 'contato@vertho.ai',
+  emailEncarregado: 'rodrigo@vertho.ai',
 };
 
 const ATUALIZACAO = '14 de agosto de 2026';
