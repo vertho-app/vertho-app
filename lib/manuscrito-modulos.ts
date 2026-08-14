@@ -183,6 +183,15 @@ export async function persistirModuloDeManuscrito(
   },
 ): Promise<{ id?: string; error?: string }> {
   const isEmpresa = !!args.empresaId;
+  // O campo `descritor` é a ÂNCORA do resolver de conteúdo — recebe o
+  // `nome_curto` da RÉGUA, não o rótulo do manuscrito. No DIR08 os dois
+  // coincidem a menos de caixa/acento (e `norm()` do resolver absorve isso),
+  // mas essa coincidência é sorte, não contrato: a autora pode reescrever o
+  // título do capítulo sem mexer no banco — é justamente por isso que
+  // `resolverDescritores` trata divergência de nome como aviso e casa por
+  // ordem. Gravar o rótulo faria o conteúdo ancorar no descritor vizinho, e a
+  // correção depois exige RECALCULAR `descritor_embedding` (F-I12).
+  const ancora = (args.comp.nome_curto || args.descritor || '').trim() || args.descritor;
   const row = {
     empresa_id: args.empresaId || null,
     locale: args.locale,
@@ -190,8 +199,8 @@ export async function persistirModuloDeManuscrito(
     competencia_id: isEmpresa ? args.comp.id : null,
     nivel_entrada: args.nivel_entrada,
     nivel_destino: args.nivel_destino,
-    titulo: `${args.descritor} · ${args.nivel_entrada}→${args.nivel_destino}`.slice(0, 120),
-    descritor: args.descritor.slice(0, 200),
+    titulo: `${ancora} · ${args.nivel_entrada}→${args.nivel_destino}`.slice(0, 120),
+    descritor: ancora.slice(0, 200),
     finalidade: `Matéria-prima pedagógica do manuscrito ${args.codManuscrito} para a transição ${args.nivel_entrada}→${args.nivel_destino} em "${args.comp.nome}".`.slice(0, 400),
     // Nomeia o cargo → a auditora aplica o gancho de contexto de cargo (exemplos
     // ancorados no cargo deixam de ser "falta de universalidade").

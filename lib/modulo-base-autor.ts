@@ -126,6 +126,9 @@ REGRAS INTRANSPONÍVEIS:
 - Não use nomes próprios reais. Não invente leis, normas ou estatísticas. Não faça diagnóstico psicológico. Não trate DISC como determinismo.
 - Exemplos devem ser UNIVERSAIS (sem cargo específico, salvo se for explicitamente um módulo de contexto específico).
 - repertorio_linguagem DEVE ter as 6 categorias (frases_uteis, perguntas_poderosas, abertura, conducao_situacao_dificil, fechamento_com_compromisso, frases_a_evitar) — nenhuma vazia.
+- COERÊNCIA INTERNA (o módulo é auditado contra si mesmo): tudo que você declarar em guarda_corpos.preservar como estrutura, sequência ou distinção inegociável PRECISA aparecer EXECUTADO nos exemplos e no repertório — não apenas citado. Se preservar diz "sequência fato-impacto-escuta", o exemplo tem de nomear o fato, o impacto E escutar; descrever dois dos três é contradição. Do mesmo modo, nada em repertorio_linguagem pode contrariar cuidados_eticos, e nenhuma orientação de ação pode ignorar uma ressalva que você mesmo escreveu. Antes de fechar o JSON, releia guarda_corpos e confirme que cada item tem correspondência no conteúdo.
+- NÃO prometa confidencialidade ABSOLUTA em falas de abertura ou acolhimento ("fica só entre nós", "não sai daqui"). Em contexto institucional existe dever de encaminhar certos assuntos, e uma promessa que não se pode cumprir é falha ética, não empatia. Formule o sigilo com o limite junto ("o que você me contar eu trato com discrição; se envolver algo que eu precise encaminhar, te aviso antes").
+- Escreva no PORTUGUÊS DO BRASIL (pt-BR): "planeja", não "planeia"; "gerenciar/gerir" conforme o uso brasileiro; nada de formas exclusivas de pt-PT. Revise a ortografia antes de fechar — erro de digitação em matéria-prima se propaga para todos os conteúdos derivados dela.
 
 FORMATO DE SAÍDA: APENAS JSON válido com a estrutura especificada. Sem markdown, sem comentários, sem texto antes ou depois.`;
 

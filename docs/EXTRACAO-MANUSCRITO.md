@@ -58,6 +58,39 @@ O parser **deriva** `mbsPorFaixa` da contagem (não assume 2) e depois **confere
 numeração inteira** contra a fórmula. Um MB fora do lugar é erro fatal, não aviso:
 significa que a convenção mudou, e qualquer fatiamento seria silenciosamente errado.
 
+### 1.1 `mbsPorFaixa` é POR DESCRITOR (14/08)
+
+A fórmula acima descreve o SED08, em que todo descritor recebeu 2 MBs por faixa.
+**Isso não é regra**: no DIR08 (Gerenciamento de Conflitos) a autora escreveu 2 por
+faixa + síntese em "Postura diante do conflito" (9 MBs) e 1 por faixa sem síntese em
+"Acompanhamento" (4) — 9, 8, 5 e 4 no mesmo manuscrito. Cada descritor fecha sozinho
+em `(4 faixas × k) [+1 síntese]`, que é a única invariante real; exigir o mesmo `k`
+de todos era restrição inventada, e ela **barrava material legítimo** com
+"A convenção do manuscrito não é uniforme".
+
+Duas consequências práticas:
+
+- **A faixa sai da posição do MB dentro do SEU descritor**, com `k` próprio. Um
+  descritor de 4 MBs mapeia 1→N1, 2→N2, 3→N3, 4→N4; um de 9 mapeia 2 por faixa + síntese.
+- **A numeração global vira testemunha independente** e o parser exige que as duas
+  leituras concordem: o rank do MB entre todos os de faixa tem de cair na mesma faixa
+  que a posição indicou. Sem isso, a atribuição é cega — um MB deslocado viraria
+  conteúdo de N3 rotulado como N4, gerando o módulo da transição errada **sem sintoma
+  na tela**. Divergência é erro (é construção: há humano para corrigir), com o MB e os
+  dois vereditos na mensagem. Testes: `tests/unit/manuscrito-parser.test.ts`
+  (validados por mutação — desligar a conferência derruba exatamente os 2 casos).
+
+### 1.2 O código da competência pode divergir do catálogo
+
+O manuscrito se identifica pelo código do material autoral (`DIR08`); a matriz do
+tenant pode usar outro (`C007`, em Macaé). `resolverDescritores` aceita `codCompAlvo`
+para declarar o mapeamento — **explícito, nunca inferido por semelhança de nome**:
+errar aqui grava 24 módulos ancorados na competência errada, e o sintoma só aparece
+semanas depois, no conteúdo entregue. O casamento dos descritores em si continua
+**por ordem de `cod_desc`**, com o `nome_curto` como conferência (divergência = aviso).
+Linhas sem `cod_desc` são ignoradas: são o registro pré-matriz da competência,
+preservado porque `respostas.competencia_id` aponta para ele.
+
 ## 2. Um módulo = um par de faixas adjacentes + a síntese
 
 A transição N2→N3 precisa do ponto de partida (faixa N2) e do destino (faixa N3).

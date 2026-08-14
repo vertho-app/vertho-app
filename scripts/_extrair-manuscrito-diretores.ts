@@ -23,6 +23,11 @@ const APLICAR = process.argv.includes('--aplicar');
 // do tenant pode usar outro (C007). O mapeamento é declarado na linha de
 // comando, nunca inferido — ver `resolverDescritores`.
 const COD_ALVO = (process.argv.find((a) => a.startsWith('--comp='))?.slice(7) || '').trim() || null;
+// `--desc=1,2` limita a extração a esses descritores (1-based). Serve para o
+// piloto: 3 módulos lidos antes de mandar os 24 — o casamento a gente prova de
+// graça no dry-run, a QUALIDADE do texto só se vê depois de gerar.
+const DESCRITORES = (process.argv.find((a) => a.startsWith('--desc='))?.slice(7) || '')
+  .split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0);
 
 async function main() {
   if (!ARQUIVO) throw new Error('informe o caminho do .docx');
@@ -48,16 +53,20 @@ async function main() {
 
   if (!APLICAR) { console.log('\n(dry-run — rode com --aplicar para extrair)'); return; }
 
-  const total = parse.descritores.length * TRANSICOES_POR_DESCRITOR;
+  const nDesc = DESCRITORES.length || parse.descritores.length;
+  const total = nDesc * TRANSICOES_POR_DESCRITOR;
+  if (DESCRITORES.length) console.log(`\nPILOTO: só descritor(es) ${DESCRITORES.join(', ')} → ${total} módulos`);
+  const params = {
+    cod_comp: parse.cod_comp, codCompAlvo: COD_ALVO, titulo: parse.titulo, cargoManuscrito: parse.cargo,
+    empresaId, locale: 'pt-BR', termoCanonico: null,
+    apenasDescritores: DESCRITORES.length ? DESCRITORES : null,
+    substituirExistentes: false, auditar: true, createdBy: 'script:_extrair-manuscrito-diretores',
+    parseStats: parse.stats, recursos: parse.recursos, docxBase64: buffer.toString('base64'),
+  };
   const { data: job, error: errJob } = await sb.from('ia_jobs').insert({
     empresa_id: empresaId,
     fase: 'manuscrito',
-    params: {
-      cod_comp: parse.cod_comp, codCompAlvo: COD_ALVO, titulo: parse.titulo, cargoManuscrito: parse.cargo,
-      empresaId, locale: 'pt-BR', termoCanonico: null, apenasDescritores: null,
-      substituirExistentes: false, auditar: true, createdBy: 'script:_extrair-manuscrito-diretores',
-      parseStats: parse.stats, recursos: parse.recursos, docxBase64: buffer.toString('base64'),
-    },
+    params,
     status: 'queued',
     progress: { done: 0, total, current: 'na fila', resultados: [] },
     created_by: 'script:_extrair-manuscrito-diretores',
@@ -65,7 +74,13 @@ async function main() {
   if (errJob) throw new Error(errJob.message);
 
   const handle = await tasks.trigger<typeof gerarModulosManuscritoTask>('gerar-modulos-manuscrito', { jobId: job.id }, regionOpts());
-  await sb.from('ia_jobs').update({ params: { runId: handle.id } }).eq('id', job.id).select('id');
+  // `update` de JSONB SUBSTITUI a coluna inteira — sem o spread, gravar o runId
+  // apaga o `docxBase64` que a task acabou de precisar, e o job morre com
+  // "params.docxBase64 ausente" (medido 14/08, 1 job perdido). Mesmo padrão de
+  // `actions/manuscrito-batch.ts`.
+  const { error: errRun } = await sb.from('ia_jobs')
+    .update({ params: { ...params, runId: handle.id } }).eq('id', job.id);
+  if (errRun) console.warn(`⚠ runId não gravado: ${errRun.message}`);
   console.log(`\n✅ job ${job.id} enfileirado (${total} módulos) · run ${handle.id}`);
   console.log('Acompanhe: select status, progress from ia_jobs where id = ...');
 }
