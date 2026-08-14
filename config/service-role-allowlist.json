@@ -161,6 +161,7 @@
     "scripts/_corrigir-evidencia-solta.ts": 1,
     "scripts/_validar-avaliacao-contavel.ts": 1,
     "scripts/_regerar-blueprints.ts": 1,
+    "scripts/_seed-descritores-diretores.ts": 1,
     "scripts/_render-podcast-kit.ts": 1,
     "scripts/_video-kit-mei-d.ts": 1,
     "scripts/_diag-orfaos-detalhe.ts": 1,
