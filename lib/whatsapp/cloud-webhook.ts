@@ -89,6 +89,23 @@ export function encareceu(anterior: string | null, nova: string | null): boolean
   return anterior === 'UTILITY' && nova === 'MARKETING';
 }
 
+/**
+ * Campos de webhook que carregam evento de template.
+ *
+ * Conferidos em `GET /{app-id}/subscriptions` — a lista do que a Meta assina de
+ * verdade, não do que se supõe pelo padrão de nomes. `message_template_*` e
+ * `template_*` convivem, e a assimetria não é erro de digitação da Meta: é como
+ * está publicado.
+ */
+const CAMPOS_TEMPLATE = new Set([
+  'message_template_status_update',
+  'template_category_update',
+  'template_correct_category_detection',
+  // Aceito por segurança: aparece em documentação de terceiros com este nome, e
+  // um alias a mais custa nada perto de perder o evento.
+  'message_template_category_update',
+]);
+
 /** Epoch em segundos (string) → ISO. A Meta manda segundos, não milissegundos. */
 function epochParaIso(valor: unknown, agora: () => number = Date.now): string {
   const n = Number(valor);
@@ -136,12 +153,22 @@ export function interpretarPayload(body: any, agora: () => number = Date.now): P
       // por ter `messages`/`statuses`. Sem tratá-los aqui, cairiam no balde de
       // "ignorados" junto com o ruído legítimo, e o alarme de reclassificação
       // nunca dispararia.
+      // ⚠️ OS NOMES NÃO SÃO SIMÉTRICOS, e supor que fossem foi um bug real
+      // (14/08/2026): o de status é `message_template_status_update`, mas o de
+      // categoria é `template_category_update` — SEM o prefixo `message_`. A
+      // verificação veio de `GET /{app-id}/subscriptions`, que lista o que a
+      // Meta realmente assina; deduzir pela simetria produziu um campo que não
+      // existe, e o alarme nunca teria disparado.
+      //
+      // `template_correct_category_detection` é o aviso PRÉVIO: a Meta detectou
+      // que a categoria declarada está errada, antes de reclassificar. Chega
+      // antes do prejuízo, então vale tanto quanto o outro.
       const field = change?.field;
-      if (field === 'message_template_status_update' || field === 'message_template_category_update') {
+      if (CAMPOS_TEMPLATE.has(field)) {
         const nome = value.message_template_name;
         if (!nome) { ignorados++; continue; }
         templates.push({
-          tipoEvento: field === 'message_template_category_update' ? 'category_update' : 'status_update',
+          tipoEvento: field === 'message_template_status_update' ? 'status_update' : 'category_update',
           templateId: value.message_template_id != null ? String(value.message_template_id) : null,
           templateNome: String(nome),
           templateIdioma: value.message_template_language ? String(value.message_template_language) : null,

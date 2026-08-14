@@ -150,9 +150,30 @@ describe('eventos de template — o veredito de categoria que muda depois', () =
     return { entry: [{ id: '1401800048505109', changes: [{ field, value }] }] };
   }
 
+  // 🔴 O NOME DO CAMPO NÃO É SIMÉTRICO e supor que fosse foi bug real: o de
+  // status é `message_template_status_update`, o de categoria é
+  // `template_category_update` (sem `message_`). Conferido em
+  // `GET /{app-id}/subscriptions`. Estes casos travam os nomes REAIS.
+  it.each([
+    'template_category_update',
+    'template_correct_category_detection',
+  ])('%s é reconhecido — o nome real que a Meta assina', (campo) => {
+    const r = interpretarPayload(
+      envelopeTpl(campo, {
+        message_template_name: 'pilula_semanal',
+        previous_category: 'UTILITY',
+        new_category: 'MARKETING',
+      }),
+      AGORA,
+    );
+    expect(r.templates).toHaveLength(1);
+    expect(r.templates[0]!.tipoEvento).toBe('category_update');
+    expect(r.ignorados).toBe(0);
+  });
+
   it('lê reclassificação de categoria (o flip que custa 6×)', () => {
     const r = interpretarPayload(
-      envelopeTpl('message_template_category_update', {
+      envelopeTpl('template_category_update', {
         message_template_id: 123,
         message_template_name: 'pilula_semanal',
         message_template_language: 'pt_BR',
