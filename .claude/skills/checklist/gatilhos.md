@@ -203,3 +203,9 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - 🔴 Antes de depurar "não funcionou": comparar o **SHA do último deployment** com `git log -1`.
   Push que não gera build, aba com bundle antigo (Skew Protection 12 h) e bug real produzem a
   **mesma tela**.
+- 🔴 Rodar `npm run test:unit` **inteiro**, não só o arquivo da mudança: os guards varrem o repo
+  todo, então o vermelho pode não ter relação nenhuma com o seu diff — e você é quem vai encontrá-lo.
+- 🔴 **Depois** do push: `gh run list --limit 6 --json headSha,conclusion,workflowName`. `git push`
+  devolve sucesso com o CI vermelho, e o `Smoke Test` verde ao lado do `TypeScript` vermelho faz a
+  lista parecer saudável de relance — em 13/08 foram **5 commits e 3h18 em vermelho, três deles
+  meus**, empurrados por cima sem ninguém ver.

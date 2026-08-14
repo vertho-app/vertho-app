@@ -8,6 +8,12 @@
 > O checklist de **validação funcional passo a passo** (validar cada etapa do pipeline num tenant
 > novo) não foi duplicado aqui: ele espelha o `PASSO-A-PASSO-VERTHO.md`, que é a fonte. O que vale
 > como checklist está na seção 4.
+>
+> **Aqui está o que é igual em toda mudança.** O que só vale para a área que a mudança toca sai da
+> skill **`/checklist`**, que roteia pelos arquivos tocados — a tabela
+> (arquivo → conferência obrigatória → consequência medida) fica em
+> `.claude/skills/checklist/gatilhos.md`. Para conferir uma afirmação ("está fechado", "o guard
+> cobre X", "já está em produção") antes de repeti-la, a skill é **`/conferir`**.
 
 ---
 
