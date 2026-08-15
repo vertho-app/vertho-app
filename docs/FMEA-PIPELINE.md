@@ -631,6 +631,46 @@ briefs duplicados por tupla.
 
 ---
 
+### F-C10 · A quinta era o ÚNICO ponto MONOCANAL da cadência ✅ (fechado 14/08)
+
+**Gatilho:** `lib/fase4/trigger-diario-empresa.ts` — o bloco da evidência era `if (telefone) { … }` e
+nada mais, enquanto a pílula de segunda/terça já saía por WhatsApp + e-mail + push (mig 202).
+
+**Medido (13/08/2026):** a instância Z-API caiu no meio do disparo da Ibipeba — **6 de 36
+entregues**, 30 pessoas sem nada. As 36 têm e-mail cadastrado, e o Resend não falhou **nenhuma** vez
+em 194 envios medidos. O canal que teria salvado as 30 já existia, já estava pago, e simplesmente
+não era usado naquele dia da semana.
+
+**Correção (mig 213):** carimbo por canal na evidência, como a pílula.
+
+🔴 **A armadilha que a correção quase criou.** O gate de entrada virou POR CANAL — de propósito,
+para recuperar o canal que falhou numa segunda passada. Só que `ultima_evidencia_em` acumulava DOIS
+papéis: idempotência do dia **e** alavanca do avanço de semana. Sem separar, a segunda passada
+avançaria `semana_atual` de novo, **pulando uma semana inteira de conteúdo da pessoa, sem erro
+nenhum na tela**. Entrega passou a olhar os carimbos por canal; calendário olha o consolidado.
+Validado por mutação.
+
+**Classe:** quando um campo responde a duas perguntas ("já processei hoje?" e "já avancei o
+calendário?"), tornar a primeira mais granular quebra a segunda em silêncio.
+
+### F-C11 · Enum fechado em schema `.strict()` faz a mensagem NÃO SAIR ✅ (fechado 14/08)
+
+**Gatilho:** `app/api/webhooks/qstash/whatsapp-cis/route.ts` — `carimboCampo: z.enum([...])` dentro
+de um schema `.strict()`.
+
+Ao dar carimbo próprio à evidência, publicar `ultima_evidencia_whatsapp_em` sem adicioná-lo ao enum
+**não** deixaria só o carimbo de fora: o Zod recusa o payload inteiro e o envio nem acontece. Falha
+**total**, não parcial — e descoberta por ler o consumidor, não pelo typecheck (publisher e webhook
+falam por JSON).
+
+No mesmo arquivo, o `motivo` da telemetria era o literal `'pilula'` para qualquer carimbo, sob um
+comentário afirmando que "o TypeScript obriga a decidir o kind aqui". Não obrigava — a evidência
+entraria na contagem de cadência como conteúdo. Hoje é `satisfies Record<CarimboCampo, string>`:
+enum novo sem mapa **quebra o build**.
+
+**Classe:** contrato entre dois processos que falam por JSON não é verificado pelo compilador. E
+comentário que promete uma garantia não a implementa.
+
 ## 5. Parse de IA / robustez
 
 ### F-P1 · JSON truncado (maxTokens) → falha limpa (blueprint) ou score inflado (auditoria) ✅ (fechado 27/07)

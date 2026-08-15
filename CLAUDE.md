@@ -19,6 +19,8 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > | Checklists (deploy, mudança grande, go-live) | `docs/CHECKLISTS.md` |
 > | Modos da engine | `docs/MODO-PILOTO.md` (piloto e personalizado) |
 > | Comercial / demo | `docs/PORTAL-REPRESENTANTE.md` · `docs/AMBIENTE-DEMO.md` |
+> | WhatsApp: caixa de entrada e migração p/ Cloud API | `docs/INBOX-WHATSAPP.md` |
+> | Fluxo de dados pessoais (insumo p/ LGPD) | `docs/FLUXO-DE-DADOS-PESSOAIS.md` |
 > | Board (painel multi-modelo, interno) | `docs/BOARD-PAINEL.md` — a web enfileira, o **worker local** executa os 4 CLIs por assinatura |
 > | Histórico (não é backlog) | `docs/HISTORICO-MIGRACAO.md` · `docs/HISTORICO-AUDITORIAS.md` |
 >
@@ -51,7 +53,7 @@ no repo** — o repositório é público.
 - **Jobs de fundo**: Trigger.dev v4 (`trigger/`).
 - **Deploy**: Vercel (via `git push`).
 - **Vídeo**: Bunny Stream (hosting) + HeyGen (avatar) + Remotion (render, `RENDER_BACKEND=hetzner`).
-- **WhatsApp**: `lib/whatsapp` (failover Z-API + WaSender).
+- **WhatsApp**: **Cloud API oficial** (`lib/whatsapp/cloud-api.ts`, no ar 14/08 — número, webhook e status real de entrega) + legado `lib/whatsapp` (Z-API/WaSender), que ainda leva a CADÊNCIA enquanto os templates não aprovam. Detalhe: `docs/INBOX-WHATSAPP.md`.
 - **Multi-tenant**: por subdomínio `*.vertho.ai` (`acme.vertho.ai`); o tenant é resolvido pelo header `x-tenant-slug`.
 
 ## Comandos
@@ -364,6 +366,18 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   **recalcular `descritor_embedding`** (o vetor tem precedência sobre tokens, então o antigo continua
   mandando). Medido 28/07: 18 MBs assim fizeram 14 conteúdos ancorarem no assunto vizinho, em
   silêncio — **F-I12** do `docs/FMEA-PIPELINE.md`. Guarda: R9 do health estrutural.
+- NÃO contar a categoria de um template da Meta antes de `APPROVED` — o veredito da CRIAÇÃO é
+  PROVISÓRIO e muda na revisão. Medido 14/08: **4 de 8** submetidos como UTILITY voltaram MARKETING,
+  e MARKETING custa **6×** (R$ 0,40-0,55 contra R$ 0,06-0,09). Eu escrevi no código que a assinatura
+  "— Equipe Vertho" era tolerada, baseado numa leitura de 20 min antes — e o template caiu depois.
+  E NÃO apague template para recriar: o nome fica QUEIMADO enquanto a exclusão processa (muito mais
+  que o "menos de 1 minuto" do erro). Crie com nome NOVO e só então apague. Detalhe:
+  `docs/INBOX-WHATSAPP.md` + memória `project_meta_template_categoria`.
+- NÃO adicionar coluna de carimbo de WhatsApp sem tocar no ENUM de `carimboCampo` do webhook
+  `whatsapp-cis`. O schema é `.strict()`: campo fora do enum não degrada o carimbo — o Zod recusa o
+  payload INTEIRO e **a mensagem não sai**. Falha total, não parcial (14/08). Mesma classe: o
+  `motivo` da telemetria era o literal `'pilula'` sob um comentário que prometia exaustividade do
+  TypeScript; promessa em comentário não é garantia — hoje é `satisfies Record<...>`.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
