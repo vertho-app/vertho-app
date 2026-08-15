@@ -169,6 +169,59 @@ export const TEMPLATES = {
   },
 
   /**
+   * TRILHA LIBERADA — o aviso que hoje não existe.
+   *
+   * Sem ele, a primeira coisa que a pessoa recebe da trilha é uma PÍLULA, sem
+   * nunca ter sido avisada de que entrou numa jornada de várias semanas. Duas
+   * consequências: ela não sabe o que esperar, e a mensagem seguinte chega sem
+   * contexto.
+   *
+   * 🔑 DIZER O RITMO NÃO É ENFEITE, É PROTEÇÃO DO CANAL: "um conteúdo novo e um
+   * registro de prática por semana" transforma as mensagens seguintes em algo
+   * anunciado. Mensagem semanal que a pessoa não esperava é candidata a bloqueio
+   * — e bloqueio derruba o `quality_rating` do número, que é compartilhado por
+   * todos os tenants.
+   *
+   * ⚠️ O texto NÃO crava o dia da semana: a cadência é configurável por empresa
+   * (`sys_config.cadencia`), e um tenant que mude o dia faria a mensagem mentir.
+   */
+  trilha_liberada: {
+    name: 'trilha_liberada',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Sua trilha de desenvolvimento em {{2}} foi liberada: são {{3}} semanas, com um conteúdo novo e um registro de prática por semana.\n\nVocê pode começar em:\n{{4}}\n\nO conteúdo é selecionado a partir do seu perfil e das competências do seu cargo.',
+    example: ['Maria', 'Gestão Escolar', '7', 'https://ibipeba.vertho.ai/dashboard/temporada'],
+  },
+
+  /**
+   * TRILHA CONCLUÍDA — o fim da jornada de 7 semanas (uma competência).
+   *
+   * Hoje o programa termina em SILÊNCIO: `actions/temporada-concluida.ts` e
+   * `actions/certificado.ts` não enviam nada. É o momento de maior valor
+   * percebido do produto inteiro, e o único que não tinha comunicação.
+   *
+   * 🔴 POR QUE NÃO PROMETE CERTIFICADO. A emissão tem DUAS condições que a
+   * mensagem não pode ignorar (`actions/certificado.ts`): participação ≥ 75% e
+   * trilha que não seja piloto — piloto (degustação) não emite, por decisão de
+   * produto. Uma copy dizendo "seu certificado está disponível" chegaria a quem
+   * não tem direito a ele, e a frustração voltaria como resposta na caixa da
+   * equipe. O texto afirma o que vale para todos (as semanas foram concluídas e
+   * o resultado está lá) e deixa o certificado para quem o encontra na tela.
+   *
+   * `{{3}}` é o número de semanas, não a constante 7: a jornada de uma
+   * competência tem 7, mas "14 semanas" existe como 7×2 em sequência (mig 199),
+   * e o piloto tem 2. Cravar o número faria a mensagem mentir em dois dos três
+   * modos.
+   */
+  trilha_concluida: {
+    name: 'trilha_concluida',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Você concluiu a sua trilha de desenvolvimento em {{2}}: as {{3}} semanas do programa foram registradas.\n\nSeu resultado final está disponível em:\n{{4}}\n\nOs materiais da trilha continuam acessíveis na sua conta.',
+    example: ['Maria', 'Gestão Escolar', '7', 'https://ibipeba.vertho.ai/dashboard/temporada'],
+  },
+
+  /**
    * Avaliação NUNCA INICIADA — o maior grupo parado do produto.
    *
    * Medido em 15/08/2026: **187 pessoas** cadastradas sem nenhum passo dado
