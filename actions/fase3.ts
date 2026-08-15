@@ -298,26 +298,12 @@ export async function loadRosterDiagnostico(empresaId: string) {
 
 // ── Relatórios ──────────────────────────────────────────────────────────────
 
-export async function gerarRelatoriosIndividuais(_empresaId: string, _aiConfig: AIConfig = {}) {
-  return { success: true, message: 'Relatórios individuais: funcionalidade em desenvolvimento' };
-}
-
-export async function gerarRelatorioGestor(_empresaId: string, _aiConfig: AIConfig = {}) {
-  return { success: true, message: 'Relatório gestor: funcionalidade em desenvolvimento' };
-}
-
-export async function gerarRelatorioRH(_empresaId: string, _aiConfig: AIConfig = {}) {
-  return { success: true, message: 'Relatório RH: funcionalidade em desenvolvimento' };
-}
-
-export async function enviarRelIndividuais(_empresaId: string) {
-  return { success: true, message: 'Envio individuais: funcionalidade em desenvolvimento' };
-}
-
-export async function enviarRelGestor(_empresaId: string) {
-  return { success: true, message: 'Envio gestor: funcionalidade em desenvolvimento' };
-}
-
-export async function enviarRelRH(_empresaId: string) {
-  return { success: true, message: 'Envio RH: funcionalidade em desenvolvimento' };
-}
+// REMOVIDOS em 15/08: `gerarRelatoriosIndividuais`, `gerarRelatorioGestor`,
+// `gerarRelatorioRH` e os três `enviarRel*` eram STUBS que devolviam
+// `{ success: true, message: 'funcionalidade em desenvolvimento' }` — sucesso
+// sem efeito, a pior forma de falhar (F-C do FMEA: 200 vazia fura o fail-loud).
+// Nenhum tinha consumidor: a tela chama as implementações REAIS de
+// `actions/relatorios.ts`. Num `'use server'`, porém, cada um era um endpoint
+// HTTP publicado, então não eram só código morto — eram seis rotas que
+// respondiam "deu certo". Se voltarem a ser necessários, delegam para
+// `actions/relatorios.ts`; não recriar o stub.
