@@ -24,6 +24,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, tenantUrl } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppNudgeDesafio } from '@/lib/notifications';
 import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao, emailEvidencia } from '@/lib/notifications/pilula-envio';
+import { enviarPilulaPorTemplate } from '@/lib/notifications/pilula-template';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
@@ -283,13 +284,26 @@ export async function processarEmpresaDiario(
       // que é exatamente a semântica da guarda por canal.
       if (telefone && !mesmoDiaUTC(envio[wppCol], hojeUTC)) {
         try {
-          const enfileirou = await agendarWhatsapp({
-            telefone,
-            mensagem: templateWhatsAppPilula(nome, semana, textoPilulaWhatsapp(item, opts)),
-            fase4EnvioId: envio.id,
-            carimboCampo: wppCol,
+          const viaTemplate = await enviarPilulaPorTemplate({
+            telefone, nome, semana, tema: temaPilula(item),
+            slug: empresa.slug, formato: formatoPref, pilula,
+            empresaId: empresa.id, colaboradorId: envio.colaborador_id,
+            dedupeKey: `${wppCol}:${envio.id}`,
           });
-          if (enfileirou) { pilulas++; whatsappEnfileirado = true; }
+
+          if (viaTemplate.tentou) {
+            // Caminho da Cloud API: síncrono, então o carimbo é aqui e agora —
+            // não há webhook de fila para confirmar depois.
+            if (viaTemplate.ok) { pilulas++; stamp[wppCol] = agora; } else erros++;
+          } else {
+            const enfileirou = await agendarWhatsapp({
+              telefone,
+              mensagem: templateWhatsAppPilula(nome, semana, textoPilulaWhatsapp(item, opts)),
+              fase4EnvioId: envio.id,
+              carimboCampo: wppCol,
+            });
+            if (enfileirou) { pilulas++; whatsappEnfileirado = true; }
+          }
         } catch { erros++; }
       }
       if (email && !mesmoDiaUTC(envio[mailCol], hojeUTC)) {

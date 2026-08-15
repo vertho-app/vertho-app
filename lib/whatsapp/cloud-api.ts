@@ -517,6 +517,100 @@ export async function inspecionarCloudApi(): Promise<SaudeCloudApi> {
 }
 
 /**
+ * Envia um template APROVADO com variáveis de corpo e (opcional) de botão.
+ *
+ * É o caminho da CADÊNCIA pela Cloud API — o que hoje sai por texto livre na
+ * Z-API. Separado do `enviarTemplateOtp` porque aquele tem a regra do código
+ * duplicado (corpo + botão), que não vale para os demais.
+ *
+ * ⚠️ O PARÂMETRO DO BOTÃO NÃO É A URL INTEIRA. A Meta guarda a URL fixa do
+ * template (`https://app.vertho.ai/ir/{{1}}`) e recebe aqui só o valor que
+ * substitui `{{1}}` — mandar a URL completa produz um link duplicado
+ * (`.../ir/https://...`), que não dá erro na API e chega quebrado para a pessoa.
+ *
+ * ⚠️ NÃO CHAME COM TEMPLATE NÃO APROVADO: a Meta recusa com 132001 e, para quem
+ * esperava a mensagem, ela simplesmente não chegou. Quem decide se está aprovado
+ * é o chamador (ver `WHATSAPP_TEMPLATE_PILULA`), não esta função.
+ */
+export async function enviarTemplateCloud(
+  input: {
+    phone: string;
+    /** Nome EXATO do template na Meta. */
+    template: string;
+    idioma?: string;
+    /** Valores de `{{1}}`, `{{2}}`, … do CORPO, na ordem. */
+    params: string[];
+    /** Valor que substitui `{{1}}` da URL do botão — sufixo, não a URL. */
+    botaoParam?: string | null;
+  },
+  meta?: EnvioTemplateMeta,
+): Promise<EnvioTemplateResult> {
+  if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
+
+  const fone = normalizePhone(input.phone);
+  if (!fone) return { ok: false, reason: `telefone inválido: ${input.phone}` };
+  if (!input.template) return { ok: false, reason: 'template não informado' };
+
+  const components: Record<string, unknown>[] = [
+    { type: 'body', parameters: input.params.map((text) => ({ type: 'text', text: String(text ?? '') })) },
+  ];
+  if (input.botaoParam) {
+    components.push({
+      type: 'button',
+      sub_type: 'url',
+      index: '0',
+      parameters: [{ type: 'text', text: input.botaoParam }],
+    });
+  }
+
+  const corpo = {
+    messaging_product: 'whatsapp',
+    to: fone,
+    type: 'template',
+    template: { name: input.template, language: { code: input.idioma || 'pt_BR' }, components },
+  };
+
+  let resultado: EnvioTemplateResult;
+  try {
+    const res = await fetch(`${BASE}/${phoneNumberId()}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(TIMEOUT_ENVIO_MS),
+    });
+    const json: any = await res.json().catch(() => null);
+    if (!res.ok) {
+      const e = json?.error;
+      const detalhe = e ? `${e.message || ''}${e.code ? ` (${e.code})` : ''}` : '';
+      resultado = { ok: false, status: res.status, reason: `Cloud API HTTP ${res.status}${detalhe ? ': ' + detalhe : ''}` };
+    } else {
+      resultado = { ok: true, providerMessageId: json?.messages?.[0]?.id ?? null };
+    }
+  } catch (e: any) {
+    resultado = { ok: false, reason: `Cloud API rede: ${motivoDeRede(e, TIMEOUT_ENVIO_MS)}` };
+  }
+
+  try {
+    await registrarEntrega({
+      canal: 'whatsapp',
+      status: resultado.ok ? 'sucesso' : 'falha',
+      kind: meta?.motivo ?? 'template',
+      empresaId: meta?.empresaId ?? null,
+      colaboradorId: meta?.colaboradorId ?? null,
+      provider: 'cloud-api',
+      error: resultado.ok ? null : (resultado.reason ?? null),
+      dedupeKey: meta?.dedupeKey ?? null,
+      providerMessageId: resultado.providerMessageId ?? null,
+    });
+  } catch (e) {
+    await telemetriaFalhou(e, meta);
+  }
+
+  return resultado;
+}
+
+/**
  * Envia um template de AUTENTICAÇÃO (código OTP).
  *
  * Separado de um `enviarTemplate` genérico de propósito: o formato de
