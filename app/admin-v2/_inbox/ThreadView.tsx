@@ -1,8 +1,10 @@
 'use client';
 
-import { Send, Lock, RefreshCw, CheckCheck, Check, AlertTriangle, Mic, Image as ImageIcon, FileText } from 'lucide-react';
+import { Send, Lock, RefreshCw, CheckCheck, Check, AlertTriangle, Mic, Image as ImageIcon, FileText, Paperclip, X } from 'lucide-react';
 import type { ThreadCompleta } from '@/lib/inbox/tipos';
 import { restanteLegivel } from '@/lib/inbox/janela';
+import { MIMES_ACEITOS } from '@/lib/inbox/anexos';
+import SeletorEmoji from './SeletorEmoji';
 
 /**
  * A conversa aberta — um componente só, usado pela caixa do cliente e pela caixa
@@ -35,6 +37,12 @@ export function IconeTipo({ tipo }: { tipo: string | null }) {
   return null;
 }
 
+function tamanhoLegivel(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 export default function ThreadView({
   thread,
   aviso,
@@ -44,6 +52,9 @@ export default function ThreadView({
   enviando,
   onAtualizar,
   contexto,
+  anexo,
+  onAnexar,
+  onEnviarAnexo,
 }: {
   thread: ThreadCompleta | null;
   aviso: string | null;
@@ -54,6 +65,9 @@ export default function ThreadView({
   onAtualizar: () => void;
   /** Linha extra no cabeçalho — na caixa global, de que cliente é a conversa. */
   contexto?: string | null;
+  anexo: File | null;
+  onAnexar: (f: File | null) => void;
+  onEnviarAnexo: () => void;
 }) {
   if (!thread) {
     return (
@@ -139,24 +153,76 @@ export default function ThreadView({
           <p className="mb-2 rounded-lg bg-[#e74c3c1a] px-3 py-2 text-[12px] text-[#ff9b90]">{aviso}</p>
         )}
         {j?.podeTextoLivre ? (
-          <div className="flex items-end gap-2">
-            <textarea
-              value={rascunho}
-              onChange={(e) => onEscrever(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) onEnviar(); }}
-              rows={2}
-              maxLength={4096}
-              placeholder={`Responder — janela aberta por ${restanteLegivel(j.restanteMs)}`}
-              className="flex-1 resize-none rounded-lg border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-[13px] outline-none focus:border-[var(--cyan)]"
-            />
-            <button
-              type="button"
-              onClick={onEnviar}
-              disabled={enviando || !rascunho.trim()}
-              className="flex items-center gap-1.5 rounded-lg bg-[var(--cyan)] px-3.5 py-2.5 text-[13px] font-medium text-[#0f2b54] disabled:opacity-40"
-            >
-              <Send size={14} /> {enviando ? 'Enviando…' : 'Enviar'}
-            </button>
+          <div className="flex flex-col gap-2">
+            {anexo && (
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--cyan)]/30 bg-[#34c5cc12] px-3 py-2 text-[12px]">
+                <Paperclip size={13} className="shrink-0 text-[var(--cyan)]" />
+                <span className="min-w-0 flex-1 truncate">{anexo.name}</span>
+                <span className="shrink-0 font-mono text-[10.5px] text-[var(--ink-faint)]">
+                  {tamanhoLegivel(anexo.size)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onAnexar(null)}
+                  aria-label="Remover anexo"
+                  className="shrink-0 text-[var(--ink-faint)] transition-colors hover:text-[var(--danger)]"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-end gap-2">
+              <label
+                className={`rounded-lg p-2 transition-colors ${
+                  enviando
+                    ? 'cursor-not-allowed text-[var(--ink-faint)] opacity-40'
+                    : 'cursor-pointer text-[var(--ink-faint)] hover:bg-white/[0.05] hover:text-[var(--cyan)]'
+                }`}
+                title="Anexar arquivo (até 4 MB)"
+              >
+                <Paperclip size={16} />
+                <input
+                  type="file"
+                  className="hidden"
+                  disabled={enviando}
+                  accept={MIMES_ACEITOS.join(',')}
+                  onChange={(e) => {
+                    onAnexar(e.target.files?.[0] ?? null);
+                    // Zera o input: sem isso, escolher o MESMO arquivo de novo
+                    // (depois de remover) não dispara `change` e a tela não reage.
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+
+              <textarea
+                value={rascunho}
+                onChange={(e) => onEscrever(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) (anexo ? onEnviarAnexo() : onEnviar());
+                }}
+                rows={2}
+                maxLength={4096}
+                placeholder={
+                  anexo
+                    ? 'Legenda do arquivo (opcional)'
+                    : `Responder — janela aberta por ${restanteLegivel(j.restanteMs)}`
+                }
+                className="flex-1 resize-none rounded-lg border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-[13px] outline-none focus:border-[var(--cyan)]"
+              />
+
+              <SeletorEmoji desabilitado={enviando} onEscolher={(e) => onEscrever(rascunho + e)} />
+
+              <button
+                type="button"
+                onClick={anexo ? onEnviarAnexo : onEnviar}
+                disabled={enviando || (!anexo && !rascunho.trim())}
+                className="flex items-center gap-1.5 rounded-lg bg-[var(--cyan)] px-3.5 py-2.5 text-[13px] font-medium text-[#0f2b54] disabled:opacity-40"
+              >
+                <Send size={14} /> {enviando ? 'Enviando…' : anexo ? 'Enviar arquivo' : 'Enviar'}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex items-start gap-2 rounded-lg bg-white/[0.03] px-3 py-2.5 text-[12px] text-[var(--ink-faint)]">

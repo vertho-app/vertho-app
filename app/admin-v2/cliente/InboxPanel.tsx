@@ -40,7 +40,7 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
   }, [empresaId]);
 
   const conversa = useConversa(recarregar);
-  const { abrir, atualizar, estaAtiva, thread, aviso, rascunho, escrever, enviar, enviando, ativa } = conversa;
+  const { abrir, atualizar, estaAtiva, thread, aviso, rascunho, escrever, enviar, enviando, ativa, anexo, anexar, enviarAnexo } = conversa;
 
   useEffect(() => { void recarregar(); }, [recarregar]);
 
@@ -123,6 +123,9 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
           onEnviar={enviar}
           enviando={enviando}
           onAtualizar={atualizar}
+          anexo={anexo}
+          onAnexar={anexar}
+          onEnviarAnexo={enviarAnexo}
         />
       </div>
 

@@ -45,6 +45,13 @@ const nextConfig = {
   // fluxos (anexos base64, PDFs, imagens). Uploads grandes (áudios,
   // vídeos) vão via /api/upload/signed-url direto pro Supabase Storage,
   // bypassando o server action — ver actions/conteudos.js::uploadConteudo.
+  //
+  // ⚠️ ESTE NÚMERO NÃO VALE EM PRODUÇÃO ACIMA DE 4,5 MB. A Vercel corta o corpo
+  // da request em **4,5 MB** e devolve 413 `FUNCTION_PAYLOAD_TOO_LARGE` antes de
+  // qualquer código nosso rodar (conferido na doc da Vercel em 15/08/2026). O
+  // efeito é o pior tipo: funciona em dev e falha só no ar. Quem depende de
+  // corpo maior tem que ir por signed URL direto ao Storage — e quem valida
+  // tamanho em código deve usar o teto REAL, como `lib/inbox/anexos.ts` faz.
   experimental: {
     serverActions: {
       bodySizeLimit: '15mb',

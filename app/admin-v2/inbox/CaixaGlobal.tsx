@@ -68,7 +68,7 @@ export default function CaixaGlobal() {
   }, []);
 
   const conversa = useConversa(recarregar);
-  const { abrir, atualizar, estaAtiva, thread, aviso, rascunho, escrever, enviar, enviando, ativa } = conversa;
+  const { abrir, atualizar, estaAtiva, thread, aviso, rascunho, escrever, enviar, enviando, ativa, anexo, anexar, enviarAnexo } = conversa;
 
   useEffect(() => { void recarregar(); }, [recarregar]);
   useEffect(() => {
@@ -301,6 +301,9 @@ export default function CaixaGlobal() {
           enviando={enviando}
           onAtualizar={atualizar}
           contexto={caixa.empresas.find((e) => e.id === ativa?.empresaId)?.nome ?? null}
+          anexo={anexo}
+          onAnexar={anexar}
+          onEnviarAnexo={enviarAnexo}
         />
       </div>
 

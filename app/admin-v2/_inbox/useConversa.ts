@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState, useTransition } from 'react';
-import { carregarThread, responderConversa, marcarLida } from '../cliente/inbox-actions';
+import { carregarThread, responderConversa, marcarLida, responderComAnexo } from '../cliente/inbox-actions';
 import {
   chaveDaConversa, lerRascunho, gravarRascunho, criarControleDePedidos,
   type Alvo, type Rascunhos,
@@ -40,6 +40,10 @@ export function useConversa(aoMudarLista?: () => void) {
   const [ativa, setAtiva] = useState<Alvo | null>(null);
   const [thread, setThread] = useState<ThreadCompleta | null>(null);
   const [rascunhos, setRascunhos] = useState<Rascunhos>({});
+  // O anexo também é POR CONVERSA, pelo mesmo motivo do rascunho — e aqui o
+  // estrago seria maior: escolher um arquivo, trocar de conversa e enviar
+  // mandaria o documento de um cliente para outro.
+  const [anexos, setAnexos] = useState<Record<string, File>>({});
   const [aviso, setAviso] = useState<string | null>(null);
   const [enviando, startEnvio] = useTransition();
 
@@ -117,10 +121,68 @@ export function useConversa(aoMudarLista?: () => void) {
     });
   }, [ativa, rascunhos, carregar, aoMudarLista]);
 
+  const anexo = ativa ? anexos[chaveDaConversa(ativa)] ?? null : null;
+
+  const anexar = useCallback((arquivo: File | null) => {
+    if (!ativa) return;
+    const k = chaveDaConversa(ativa);
+    setAviso(null);
+    setAnexos((a) => {
+      const proximo = { ...a };
+      if (arquivo) proximo[k] = arquivo; else delete proximo[k];
+      return proximo;
+    });
+  }, [ativa]);
+
+  /**
+   * Envia o anexo da conversa aberta, com o rascunho virando legenda.
+   *
+   * A validação de tipo/tamanho fica no SERVIDOR (`classificarMidia`): o input
+   * `accept` só evita o incômodo de escolher o que seria recusado — quem decide
+   * não pode ser o cliente.
+   */
+  const enviarAnexo = useCallback(() => {
+    if (!ativa) return;
+    const alvo = ativa;
+    const arquivo = anexos[chaveDaConversa(alvo)];
+    if (!arquivo) return;
+
+    const legenda = lerRascunho(rascunhos, alvo).trim();
+    const dedupeKey = `inbox:${alvo.telefone}:anexo:${arquivo.name}:${arquivo.size}:${Math.floor(Date.now() / 60000)}`;
+    setAviso(null);
+
+    startEnvio(async () => {
+      const form = new FormData();
+      form.append('empresaId', alvo.empresaId);
+      form.append('telefone', alvo.telefone);
+      form.append('legenda', legenda);
+      form.append('dedupeKey', dedupeKey);
+      form.append('arquivo', arquivo);
+
+      const r: ResultadoEnvio = await responderComAnexo(form);
+      if (!r.ok) {
+        setAviso(r.motivo || 'Falha ao enviar o arquivo.');
+        if (r.janelaFechada) await carregar(alvo, false);
+        return;
+      }
+
+      // Some com o anexo E com a legenda DAQUELA conversa — as duas coisas já
+      // saíram juntas, e deixar a legenda no campo faria a próxima mensagem
+      // repetir o texto do arquivo.
+      setAnexos((a) => { const p = { ...a }; delete p[chaveDaConversa(alvo)]; return p; });
+      setRascunhos((rs) => gravarRascunho(rs, alvo, ''));
+      await carregar(alvo, false);
+      aoMudarLista?.();
+    });
+  }, [ativa, anexos, rascunhos, carregar, aoMudarLista]);
+
   const estaAtiva = useCallback(
     (alvo: Alvo) => Boolean(ativa && chaveDaConversa(ativa) === chaveDaConversa(alvo)),
     [ativa],
   );
 
-  return { ativa, thread, aviso, setAviso, rascunho, escrever, enviar, enviando, abrir, atualizar, estaAtiva };
+  return {
+    ativa, thread, aviso, setAviso, rascunho, escrever, enviar, enviando, abrir, atualizar, estaAtiva,
+    anexo, anexar, enviarAnexo,
+  };
 }

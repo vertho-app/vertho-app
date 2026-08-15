@@ -11,6 +11,7 @@ import { montarConversas, montarCaixaGlobal, resumoDaCaixa, rotuloDoTipo, type L
 import {
   chaveDaConversa, lerRascunho, gravarRascunho, criarControleDePedidos,
 } from '@/lib/inbox/rascunhos';
+import { classificarMidia, MIMES_ACEITOS, TETO_ANEXO_BYTES } from '@/lib/inbox/anexos';
 
 describe('de quem é o telefone — a decisão sobre TODAS as linhas', () => {
   it('uma pessoa, uma empresa: resolve limpo', () => {
@@ -197,5 +198,62 @@ describe('rascunho e corrida — os dois jeitos de a tela mandar a coisa errada'
     expect(p.aindaVale(n)).toBe(true);
     p.novo();
     expect(p.aindaVale(n)).toBe(false);
+  });
+});
+
+/**
+ * Anexos: o que pode ir, e por que o teto não é o da Meta.
+ *
+ * A Meta aceita 100 MB de documento. O corpo de uma request na Vercel para em
+ * 4,5 MB — e o `next.config.mjs` declara `bodySizeLimit: '15mb'`, que a
+ * plataforma não cumpre: funciona em dev e vira 413 opaco em produção. Por isso
+ * o teto é NOSSO, a recusa acontece antes do upload, e a mensagem diz o número
+ * verdadeiro. Config declarada não é config aplicada.
+ */
+describe('anexos — classificação antes de gastar upload', () => {
+  const MB = 1024 * 1024;
+
+  it('mapeia cada MIME para o tipo que a Cloud API espera', () => {
+    expect(classificarMidia('image/jpeg', 1024).tipo).toBe('image');
+    expect(classificarMidia('audio/ogg', 1024).tipo).toBe('audio');
+    expect(classificarMidia('video/mp4', 1024).tipo).toBe('video');
+    expect(classificarMidia('application/pdf', 1024).tipo).toBe('document');
+    expect(classificarMidia('text/plain', 1024).tipo).toBe('document');
+  });
+
+  it('MIME em caixa alta ainda casa — o navegador não promete minúsculas', () => {
+    expect(classificarMidia('IMAGE/PNG', 1024).ok).toBe(true);
+  });
+
+  it('tipo não suportado é recusado com frase, não com código', () => {
+    const c = classificarMidia('application/x-msdownload', 1024);
+    expect(c.ok).toBe(false);
+    expect(c.motivo).toMatch(/não aceita este tipo/i);
+  });
+
+  it('🔴 o teto é 4 MB e a recusa explica que é da HOSPEDAGEM, não do WhatsApp', () => {
+    // Um PDF de 8 MB seria aceito pela Meta (limite 100 MB) e morre no corpo da
+    // request. Culpar o WhatsApp aqui mandaria alguém procurar no lugar errado.
+    const c = classificarMidia('application/pdf', 8 * MB);
+    expect(c.ok).toBe(false);
+    expect(c.motivo).toContain('8.0 MB');
+    expect(c.motivo).toMatch(/hospedagem/i);
+    expect(c.motivo).not.toMatch(/limite do WhatsApp/i);
+  });
+
+  it('a fronteira do teto: exatamente 4 MB passa, um byte a mais não', () => {
+    expect(classificarMidia('application/pdf', TETO_ANEXO_BYTES).ok).toBe(true);
+    expect(classificarMidia('application/pdf', TETO_ANEXO_BYTES + 1).ok).toBe(false);
+  });
+
+  it('arquivo vazio é recusado (o navegador entrega File de 0 byte em alguns casos)', () => {
+    expect(classificarMidia('image/png', 0).ok).toBe(false);
+  });
+
+  it('a lista do `accept` cobre os mesmos MIMEs que o servidor aceita', () => {
+    // Se as duas divergirem, a pessoa escolhe um arquivo que o servidor recusa —
+    // ou pior, não consegue escolher um que passaria.
+    expect(MIMES_ACEITOS.length).toBeGreaterThan(0);
+    for (const mime of MIMES_ACEITOS) expect(classificarMidia(mime, 1024).ok).toBe(true);
   });
 });

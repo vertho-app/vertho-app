@@ -149,3 +149,53 @@ describe('mídia — áudio precisa ser ouvível', () => {
     expect(midiaIdDoRaw(null)).toBeNull();
   });
 });
+
+/**
+ * 🔴 O anexo que NÓS mandamos também precisa aparecer.
+ *
+ * A extração de mídia só rodava sobre as recebidas: um documento enviado pela
+ * caixa saía para a pessoa e, na thread, virava "(sem conteúdo)". A conversa
+ * mostrava metade do que aconteceu — e é assim que o atendente reenvia o mesmo
+ * arquivo achando que não foi.
+ *
+ * O envio grava `raw` no MESMO formato da Meta (`{ document: { id } }`), então a
+ * mesma função serve os dois lados e o proxy autenticado serve os dois ids.
+ */
+describe('anexo enviado na thread', () => {
+  const enviada = (over: any = {}) => ({
+    id: 'e1', texto: null, tipo: 'document', template_nome: null,
+    autor_email: 'equipe@vertho.ai', origem: 'inbox', erro: null,
+    enviada_em: '2026-08-15T12:00:00Z', wa_message_id: 'wamid.OUT1',
+    raw: { document: { id: '445566778899' }, filename: 'contrato.pdf' },
+    ...over,
+  });
+
+  it('extrai o id da mídia do que foi ENVIADO', () => {
+    const [item] = montarThread({ recebidas: [], enviadas: [enviada()], entregas: [] });
+    expect(item.midiaId).toBe('445566778899');
+    expect(item.autor).toBe('equipe');
+  });
+
+  it('anexo com legenda mantém o texto E a mídia', () => {
+    const [item] = montarThread({ recebidas: [], enviadas: [enviada({ texto: 'segue o contrato' })], entregas: [] });
+    expect(item.texto).toBe('segue o contrato');
+    expect(item.midiaId).toBe('445566778899');
+  });
+
+  it('envio de texto puro continua sem mídia', () => {
+    const [item] = montarThread({
+      recebidas: [], entregas: [],
+      enviadas: [enviada({ tipo: 'text', texto: 'oi', raw: null })],
+    });
+    expect(item.midiaId).toBeNull();
+  });
+
+  it('upload que falhou aparece como tentativa, com o erro e sem mídia', () => {
+    const [item] = montarThread({
+      recebidas: [], entregas: [],
+      enviadas: [enviada({ wa_message_id: null, erro: 'upload HTTP 400', raw: { filename: 'contrato.pdf' } })],
+    });
+    expect(item.erro).toBe('upload HTTP 400');
+    expect(item.midiaId).toBeNull();
+  });
+});

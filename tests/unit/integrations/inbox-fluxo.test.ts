@@ -34,7 +34,7 @@ vi.mock('@/lib/degradacao', async (orig) => ({
 }));
 
 const { POST } = await import('@/app/api/webhooks/whatsapp-cloud/route');
-const { carregarThread, listarConversas, responderConversa, marcarLida } = await import('@/app/admin-v2/cliente/inbox-actions');
+const { carregarThread, listarConversas, responderConversa, marcarLida, responderComAnexo } = await import('@/app/admin-v2/cliente/inbox-actions');
 const { associarTelefone, reprocessarNaoIdentificadas } = await import('@/app/admin-v2/inbox/inbox-actions');
 
 /** Request assinada como a Meta assina: HMAC-SHA256 sobre o corpo CRU. */
@@ -388,5 +388,84 @@ describe('escrita local que falha não pode sumir', () => {
     await marcarLida('e1', '5511999998888');
 
     expect(h.degradacoes).toHaveLength(0);
+  });
+});
+
+/**
+ * Anexo: mesma janela do texto, e tentativa sempre gravada.
+ *
+ * O anexo compartilha a regra da janela com o texto (`prepararEnvio`) de
+ * propósito — duas cópias divergiriam na primeira correção. E o upload que falha
+ * precisa virar linha na thread: sem isso o atendente não sabe se o arquivo foi.
+ */
+describe('responder com anexo', () => {
+  const AGORA = Date.UTC(2026, 7, 15, 12, 0, 0);
+  const arquivo = (nome = 'contrato.pdf', tipo = 'application/pdf', bytes = 1024) =>
+    new File([new Uint8Array(bytes)], nome, { type: tipo });
+
+  function formulario(over: { arquivo?: File; legenda?: string } = {}): FormData {
+    const f = new FormData();
+    f.append('empresaId', 'e1');
+    f.append('telefone', '5511999998888');
+    f.append('legenda', over.legenda ?? '');
+    f.append('arquivo', over.arquivo ?? arquivo());
+    return f;
+  }
+
+  const janelaAberta = (t: string) => (t === 'whatsapp_mensagens_recebidas'
+    ? { recebida_em: new Date(AGORA - 3600_000).toISOString(), colaborador_id: 'c1' }
+    : null);
+
+  beforeEach(() => { vi.setSystemTime(AGORA); });
+
+  it('🔴 arquivo grande demais é recusado ANTES de qualquer I/O', async () => {
+    const sb = novoMock({ resolver: janelaAberta });
+    const r = await responderComAnexo(formulario({ arquivo: arquivo('gigante.pdf', 'application/pdf', 5 * 1024 * 1024) }));
+
+    expect(r.ok).toBe(false);
+    expect(r.motivo).toMatch(/limite aqui é 4 MB/);
+    // Nem leu a conversa: a recusa é de graça e não gasta rede.
+    expect(sb.chamadas).toHaveLength(0);
+  });
+
+  it('tipo não suportado é recusado sem tocar no banco', async () => {
+    const sb = novoMock({ resolver: janelaAberta });
+    const r = await responderComAnexo(formulario({ arquivo: arquivo('vírus.exe', 'application/x-msdownload') }));
+    expect(r.ok).toBe(false);
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  it('🔴 janela fechada bloqueia o anexo pela MESMA regra do texto', async () => {
+    novoMock({
+      resolver: (t) => (t === 'whatsapp_mensagens_recebidas'
+        ? { recebida_em: new Date(AGORA - 30 * 3600_000).toISOString(), colaborador_id: 'c1' }
+        : null),
+    });
+
+    const r = await responderComAnexo(formulario());
+    expect(r.ok).toBe(false);
+    expect(r.janelaFechada).toBe(true);
+  });
+
+  it('🔴 falha no upload vira TENTATIVA gravada, não silêncio', async () => {
+    // Sem credencial, `subirMidia` recusa — o efeito é o mesmo de um upload que
+    // falhou. A linha tem que existir na thread com o erro à vista.
+    delete process.env.META_WHATSAPPBUSINESS_API;
+    const sb = novoMock({ resolver: janelaAberta });
+
+    const r = await responderComAnexo(formulario());
+
+    expect(r.ok).toBe(false);
+    const escrita = sb.escritas.find((e) => e.tabela === 'whatsapp_mensagens_enviadas');
+    expect(escrita?.payload.tipo).toBe('document');
+    expect(escrita?.payload.erro).toBeTruthy();
+    expect(escrita?.payload.wa_message_id).toBeNull();
+  });
+
+  it('sem acesso de plataforma não lê nem escreve', async () => {
+    const sb = novoMock({ resolver: janelaAberta });
+    h.autorizado = false;
+    await expect(responderComAnexo(formulario())).rejects.toThrow(/restrito/i);
+    expect(sb.escritas).toHaveLength(0);
   });
 });

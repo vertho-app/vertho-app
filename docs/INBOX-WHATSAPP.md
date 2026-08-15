@@ -419,6 +419,29 @@ mudou de forma no caminho, e é a forma que importa:
 | Log estruturado (Sentry/Datadog) | O mecanismo canônico já é `registrarDegradacao` (dedup, contador por dia, lido pela R10) + Sentry. O que faltava eram os três pontos cegos acima, não o formato |
 | Alerta de taxa de leitura < 20% por template | Premissa quebrada: `read` só existe se a pessoa tiver **confirmação de leitura ligada** — a métrica misturaria comportamento com configuração de privacidade. E o denominador hoje é ~zero (a cadência vai por Z-API, que não tem status). Quando houver volume: comparar **entregue × lido**, com piso de N, e nomear a métrica pelo que ela mede |
 
+### 9.2c Anexos e emoji (15/08)
+
+**Emoji já funcionava** — o corpo vai como UTF-8 e nada no caminho sanitiza. O que entrou foi
+conveniência: um seletor com quatro grupos curtos (`_inbox/SeletorEmoji.tsx`), **sem dependência
+nova** — um pacote com 1.800 emojis e busca resolveria o mesmo problema com um bundle que esta tela
+não tem. Nuance medida: o limite de 4096 usa `.length` do JS, que conta emoji como 2; na prática
+irrelevante, mas nosso teto é um pouco mais conservador que o da Meta.
+
+**Anexos** (`responderComAnexo`): imagem, áudio, vídeo e documento, em dois passos —
+`POST /{PHONE_NUMBER_ID}/media` (upload) e depois a mensagem referenciando o id.
+
+| Decisão | Por quê |
+|---|---|
+| **Upload, não `link` público** | A Meta buscaria a URL, e o nosso Storage é privado — seria signed URL, isto é, o arquivo de uma conversa acessível a quem tivesse o link durante o TTL. No upload o binário sai por nós |
+| **Teto de 4 MB, e ele é NOSSO** | A Meta aceita 5 MB (imagem), 16 MB (áudio/vídeo) e **100 MB** (documento). Mas a Vercel corta o corpo da request em **4,5 MB** (413 `FUNCTION_PAYLOAD_TOO_LARGE`) — e o `next.config.mjs` declara `bodySizeLimit: '15mb'`, promessa que a plataforma não cumpre: funciona em dev, falha no ar. A recusa acontece **antes** do upload e diz o número verdadeiro |
+| **`raw` no formato da Meta** (`{ document: { id } }`) | O mesmo `midiaIdDoRaw` que lê o recebido passa a ler o enviado, e o proxy autenticado serve os dois ids sem uma linha a mais |
+| **Mesma janela de 24h** | Anexo compartilha `prepararEnvio` com o texto. Duas cópias da regra divergiriam na primeira correção |
+| **Anexo por CONVERSA no estado da tela** | Mesmo risco do rascunho, com estrago maior: escolher um arquivo, trocar de conversa e enviar mandaria o documento de um cliente para outro |
+| **Upload que falha vira tentativa gravada** | Sem a linha, o atendente não sabe se o arquivo foi — e reenvia |
+
+Fica de fora: **sticker** (webp, teto de 100 KB) e **template com mídia no cabeçalho** (é outro tipo
+de template, e nenhum aprovado hoje).
+
 ### 9.3 O que continua aberto — e por quê
 
 - **Responder pelo `to_phone_id` da conversa** (§7.1). Com dois números, a chave da conversa é

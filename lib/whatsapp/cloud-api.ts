@@ -20,6 +20,7 @@
 import { normalizePhone } from '@/lib/phone';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
+import type { TipoMidia } from '@/lib/inbox/anexos';
 
 /**
  * A telemetria falhou — o envio NÃO é afetado, a medição é.
@@ -61,6 +62,8 @@ const phoneNumberId = () => process.env.PHONE_NUMBER_ID || '';
 const TIMEOUT_ENVIO_MS = 15_000;
 const TIMEOUT_META_MIDIA_MS = 10_000;
 const TIMEOUT_DOWNLOAD_MS = 30_000;
+/** Upload é o mais lento: sobe binário de até 4 MB por uma rede que não é nossa. */
+const TIMEOUT_UPLOAD_MS = 45_000;
 
 /** Motivo legível quando o teto estourou — "fetch failed" não diz nada a quem lê o log. */
 function motivoDeRede(e: any, tetoMs: number): string {
@@ -252,6 +255,123 @@ async function baixarMidiaUmaVez(url: string): Promise<{ ok: boolean; body?: Arr
   } catch (e: any) {
     return { ok: false, reason: `download rede: ${motivoDeRede(e, TIMEOUT_DOWNLOAD_MS)}` };
   }
+}
+
+// ── ANEXOS ──────────────────────────────────────────────────────────────────
+//
+// As REGRAS (tipos aceitos, teto, classificação) vivem em `lib/inbox/anexos.ts`
+// porque a tela precisa delas para montar o `accept` do input — e este módulo
+// puxa Supabase, que não pode ir para o bundle do navegador. Aqui fica só o I/O.
+
+/**
+ * Sobe o binário para a Meta e devolve o `media id`.
+ *
+ * A alternativa seria mandar um `link` e deixar a Meta buscar. Recusada: o nosso
+ * Storage é privado, então seria uma URL assinada — o arquivo de uma conversa
+ * ficaria acessível a quem tivesse o link enquanto o TTL durasse. Aqui o binário
+ * sai por nós e nada fica exposto.
+ *
+ * O id devolvido é o MESMO tipo de id da mídia recebida, o que faz o proxy
+ * autenticado (`/api/inbox/midia/[mediaId]`) servir os dois lados sem uma linha
+ * a mais.
+ */
+export async function subirMidia(
+  arquivo: Blob,
+  mime: string,
+  nome: string,
+): Promise<{ ok: boolean; mediaId?: string; reason?: string }> {
+  if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
+
+  const form = new FormData();
+  form.append('messaging_product', 'whatsapp');
+  form.append('type', mime);
+  form.append('file', arquivo, nome || 'arquivo');
+
+  try {
+    const res = await fetch(`${BASE}/${phoneNumberId()}/media`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token()}` }, // sem Content-Type: o FormData define o boundary
+      body: form,
+      cache: 'no-store',
+      signal: AbortSignal.timeout(TIMEOUT_UPLOAD_MS),
+    });
+    const json: any = await res.json().catch(() => null);
+    if (!res.ok || !json?.id) {
+      const e = json?.error;
+      return { ok: false, reason: `upload HTTP ${res.status}${e?.message ? ': ' + e.message : ''}` };
+    }
+    return { ok: true, mediaId: String(json.id) };
+  } catch (e: any) {
+    return { ok: false, reason: `upload rede: ${motivoDeRede(e, TIMEOUT_UPLOAD_MS)}` };
+  }
+}
+
+/**
+ * Envia uma mídia já subida. Vale a MESMA janela de 24h do texto livre.
+ *
+ * ⚠️ ÁUDIO NÃO ACEITA LEGENDA na Cloud API, e `document` é o único que leva
+ * `filename` — sem ele a pessoa recebe um anexo com nome gerado, e "documento
+ * sem nome" num canal de trabalho parece arquivo suspeito.
+ */
+export async function enviarMidiaCloud(
+  input: { phone: string; tipo: TipoMidia; mediaId: string; legenda?: string | null; nomeArquivo?: string | null },
+  meta?: EnvioTemplateMeta,
+): Promise<EnvioTemplateResult> {
+  if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
+
+  const fone = normalizePhone(input.phone);
+  if (!fone) return { ok: false, reason: `telefone inválido: ${input.phone}` };
+
+  const midia: Record<string, unknown> = { id: input.mediaId };
+  const legenda = (input.legenda || '').trim();
+  if (legenda && input.tipo !== 'audio') midia.caption = legenda.slice(0, 1024);
+  if (input.tipo === 'document' && input.nomeArquivo) midia.filename = input.nomeArquivo;
+
+  const corpo = {
+    messaging_product: 'whatsapp',
+    to: fone,
+    type: input.tipo,
+    [input.tipo]: midia,
+  };
+
+  let resultado: EnvioTemplateResult;
+  try {
+    const res = await fetch(`${BASE}/${phoneNumberId()}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(TIMEOUT_ENVIO_MS),
+    });
+    const json: any = await res.json().catch(() => null);
+    if (!res.ok) {
+      const e = json?.error;
+      const detalhe = e ? `${e.message || ''}${e.code ? ` (${e.code})` : ''}` : '';
+      resultado = { ok: false, status: res.status, reason: `Cloud API HTTP ${res.status}${detalhe ? ': ' + detalhe : ''}` };
+    } else {
+      resultado = { ok: true, providerMessageId: json?.messages?.[0]?.id ?? null };
+    }
+  } catch (e: any) {
+    resultado = { ok: false, reason: `Cloud API rede: ${motivoDeRede(e, TIMEOUT_ENVIO_MS)}` };
+  }
+
+  try {
+    await registrarEntrega({
+      canal: 'whatsapp',
+      status: resultado.ok ? 'sucesso' : 'falha',
+      kind: meta?.motivo ?? 'atendimento-anexo',
+      empresaId: meta?.empresaId ?? null,
+      colaboradorId: meta?.colaboradorId ?? null,
+      provider: 'cloud-api',
+      error: resultado.ok ? null : (resultado.reason ?? null),
+      dedupeKey: meta?.dedupeKey ?? null,
+      providerMessageId: resultado.providerMessageId ?? null,
+    });
+  } catch (e) {
+    await telemetriaFalhou(e, meta);
+  }
+
+  return resultado;
 }
 
 /**

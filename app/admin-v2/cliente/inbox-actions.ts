@@ -6,7 +6,8 @@ import { calcularJanela } from '@/lib/inbox/janela';
 import { montarThread } from '@/lib/inbox/thread';
 import { montarConversas, type LinhaConversa } from '@/lib/inbox/caixa';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
-import { enviarTextoCloud } from '@/lib/whatsapp/cloud-api';
+import { enviarTextoCloud, subirMidia, enviarMidiaCloud } from '@/lib/whatsapp/cloud-api';
+import { classificarMidia } from '@/lib/inbox/anexos';
 import type { Conversa, ThreadCompleta, ResultadoEnvio } from '@/lib/inbox/tipos';
 
 /**
@@ -87,7 +88,7 @@ export async function carregarThread(empresaId: string, telefone: string): Promi
   if (e1) throw new Error(`thread/recebidas: ${e1.message}`);
 
   const { data: enviadas, error: e2 } = await tdb.from('whatsapp_mensagens_enviadas')
-    .select('id, texto, tipo, template_nome, autor_email, origem, erro, enviada_em, wa_message_id')
+    .select('id, texto, tipo, template_nome, autor_email, origem, erro, enviada_em, wa_message_id, raw')
     .eq('to_phone', telefone)
     .order('enviada_em', { ascending: false })
     .limit(TETO_THREAD);
@@ -158,13 +159,72 @@ export async function marcarLida(empresaId: string, telefone: string): Promise<v
 }
 
 /**
+ * O que TODO envio precisa checar antes de gastar rede — janela e idempotência.
+ *
+ * Existe como função única porque texto e anexo compartilham a mesma regra, e
+ * duas cópias dela divergiriam na primeira correção: nesta base já houve caso de
+ * o conserto ir para o gêmeo que ninguém percorre. Se a janela mudar, muda aqui.
+ */
+/**
+ * ⚠️ NÃO é união discriminada, e o motivo é o mesmo do `ResultadoEnvio`: o
+ * `tsconfig` deste repo tem `strict: false`, então o TypeScript **não estreita**
+ * união por booleano literal — `if (!p.ok)` não daria acesso a `p.resposta`, e o
+ * erro aparece como "Property does not exist", parecendo problema de quem
+ * consome. Interface achatada funciona nos dois modos.
+ */
+interface Preparo {
+  ok: boolean;
+  /** Presente quando `ok`. */
+  colaboradorId?: string | null;
+  /** Presente quando `!ok` — já é a resposta pronta para o cliente. */
+  resposta?: ResultadoEnvio;
+}
+
+async function prepararEnvio(tdb: any, telefone: string, dedupe: string | null): Promise<Preparo> {
+  // 1) Estado REAL da janela, agora.
+  const { data: ultima, error: eU } = await tdb.from('whatsapp_mensagens_recebidas')
+    .select('recebida_em, colaborador_id')
+    .eq('from_phone', telefone)
+    .order('recebida_em', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (eU) return { ok: false, resposta: { ok: false, motivo: 'Não foi possível verificar a conversa.' } };
+
+  const janela = calcularJanela((ultima as any)?.recebida_em ?? null);
+  if (!janela.podeTextoLivre) {
+    return {
+      ok: false,
+      resposta: {
+        ok: false,
+        janelaFechada: true,
+        motivo:
+          janela.estado === 'nunca-escreveu'
+            ? 'Esta pessoa nunca escreveu para o número — sem janela aberta, só é possível enviar template aprovado.'
+            : 'A janela de 24 horas encerrou. Só é possível enviar template aprovado.',
+      },
+    };
+  }
+
+  // 2) Idempotência ANTES de gastar a chamada de rede.
+  if (dedupe) {
+    const { data: jaExiste } = await tdb.from('whatsapp_mensagens_enviadas')
+      .select('id, wa_message_id')
+      .eq('dedupe_key', dedupe)
+      .maybeSingle();
+    if (jaExiste) return { ok: false, resposta: { ok: true, wamid: (jaExiste as any).wa_message_id ?? null } };
+  }
+
+  return { ok: true, colaboradorId: (ultima as any)?.colaborador_id ?? null };
+}
+
+/**
  * Responde uma conversa com texto livre.
  *
- * 🔴 A JANELA É REVALIDADA AQUI, no instante do envio, lendo o banco. O estado
- * que a tela renderizou envelhece — o atendente abre com a janela aberta,
- * escreve cinco minutos e clica com ela fechada. Sem esta checagem, a Meta
- * recusaria com 131047 e, para quem clicou, a mensagem simplesmente não teria
- * chegado.
+ * 🔴 A JANELA É REVALIDADA no `prepararEnvio`, no instante do envio, lendo o
+ * banco. O estado que a tela renderizou envelhece — o atendente abre com a
+ * janela aberta, escreve cinco minutos e clica com ela fechada. Sem essa
+ * checagem, a Meta recusaria com 131047 e, para quem clicou, a mensagem
+ * simplesmente não teria chegado.
  */
 export async function responderConversa(args: {
   empresaId: string;
@@ -178,39 +238,11 @@ export async function responderConversa(args: {
   if (!texto) return { ok: false, motivo: 'Mensagem vazia.' };
 
   const tdb = tenantDb(args.empresaId);
-
-  // 1) Estado REAL da janela, agora.
-  const { data: ultima, error: eU } = await tdb.from('whatsapp_mensagens_recebidas')
-    .select('recebida_em, colaborador_id')
-    .eq('from_phone', args.telefone)
-    .order('recebida_em', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (eU) return { ok: false, motivo: 'Não foi possível verificar a conversa.' };
-
-  const janela = calcularJanela((ultima as any)?.recebida_em ?? null);
-  if (!janela.podeTextoLivre) {
-    return {
-      ok: false,
-      janelaFechada: true,
-      motivo:
-        janela.estado === 'nunca-escreveu'
-          ? 'Esta pessoa nunca escreveu para o número — sem janela aberta, só é possível enviar template aprovado.'
-          : 'A janela de 24 horas encerrou. Só é possível enviar template aprovado.',
-    };
-  }
-
-  // 2) Idempotência ANTES de gastar a chamada de rede.
   const dedupe = args.dedupeKey || null;
-  if (dedupe) {
-    const { data: jaExiste } = await tdb.from('whatsapp_mensagens_enviadas')
-      .select('id, wa_message_id')
-      .eq('dedupe_key', dedupe)
-      .maybeSingle();
-    if (jaExiste) return { ok: true, wamid: (jaExiste as any).wa_message_id ?? null };
-  }
 
-  const colaboradorId = (ultima as any)?.colaborador_id ?? null;
+  const preparo = await prepararEnvio(tdb, args.telefone, dedupe);
+  if (!preparo.ok) return preparo.resposta!;
+  const colaboradorId = preparo.colaboradorId ?? null;
 
   // 3) Envia.
   const r = await enviarTextoCloud(
@@ -221,38 +253,141 @@ export async function responderConversa(args: {
   // 4) Grava o CONTEÚDO — inclusive quando falha. Uma resposta que não saiu
   // precisa aparecer na tela como tentativa: sem isso o atendente reescreve sem
   // saber que já tentou, e a pessoa do outro lado pode receber duas.
-  const { error: eIns } = await tdb.from('whatsapp_mensagens_enviadas').insert({
-    empresa_id: args.empresaId,
-    colaborador_id: colaboradorId,
-    wa_message_id: r.providerMessageId ?? null,
-    to_phone: args.telefone,
-    from_phone_id: process.env.PHONE_NUMBER_ID || null,
+  await gravarEnviada(tdb, {
+    empresaId: args.empresaId,
+    colaboradorId,
+    telefone: args.telefone,
+    email,
+    dedupe,
     tipo: 'text',
     texto,
-    autor_email: email,
-    origem: 'inbox',
-    dedupe_key: dedupe,
-    erro: r.ok ? null : (r.reason ?? 'falha desconhecida'),
+    resultado: r,
   });
-  if (eIns) {
-    // 🔴 A mensagem SAIU e a thread não vai mostrar. Sem este registro, o
-    // atendente reescreve por não ver o que já respondeu — e a pessoa recebe
-    // duas. `critico` porque o efeito está do lado de fora, não na nossa tela.
-    console.error('[inbox] gravar enviada:', eIns.message);
-    await registrarDegradacao({
-      fluxo: 'envio',
-      tipo: DEGRADACAO.INBOX_ESCRITA_PERDIDA,
-      chave: 'gravar-enviada',
-      empresaId: args.empresaId,
-      colaboradorId,
-      severidade: 'critico',
-      detalhe: { wamid: r.providerMessageId ?? null, enviou: r.ok, motivo: eIns.message },
-    });
-  }
 
   return r.ok
     ? { ok: true, wamid: r.providerMessageId ?? null }
     : { ok: false, motivo: r.reason || 'Falha ao enviar.' };
+}
+
+/**
+ * Grava o que saiu (ou tentou sair). Um lugar só, porque o ramo de erro daqui é
+ * o ponto cego mais caro do inbox: a mensagem chegou à pessoa e a thread não
+ * mostra nada.
+ */
+async function gravarEnviada(tdb: any, d: {
+  empresaId: string;
+  colaboradorId: string | null;
+  telefone: string;
+  email: string;
+  dedupe: string | null;
+  tipo: string;
+  texto: string | null;
+  /** Payload no MESMO formato da Meta — é o que faz `midiaIdDoRaw` servir os dois lados. */
+  raw?: Record<string, unknown> | null;
+  resultado: { ok: boolean; providerMessageId?: string | null; reason?: string };
+}): Promise<void> {
+  const { error } = await tdb.from('whatsapp_mensagens_enviadas').insert({
+    empresa_id: d.empresaId,
+    colaborador_id: d.colaboradorId,
+    wa_message_id: d.resultado.providerMessageId ?? null,
+    to_phone: d.telefone,
+    from_phone_id: process.env.PHONE_NUMBER_ID || null,
+    tipo: d.tipo,
+    texto: d.texto,
+    raw: (d.raw ?? null) as any,
+    autor_email: d.email,
+    origem: 'inbox',
+    dedupe_key: d.dedupe,
+    erro: d.resultado.ok ? null : (d.resultado.reason ?? 'falha desconhecida'),
+  });
+
+  if (error) {
+    // 🔴 A mensagem SAIU e a thread não vai mostrar. Sem este registro, o
+    // atendente reescreve por não ver o que já respondeu — e a pessoa recebe
+    // duas. `critico` porque o efeito está do lado de fora, não na nossa tela.
+    console.error('[inbox] gravar enviada:', error.message);
+    await registrarDegradacao({
+      fluxo: 'envio',
+      tipo: DEGRADACAO.INBOX_ESCRITA_PERDIDA,
+      chave: 'gravar-enviada',
+      empresaId: d.empresaId,
+      colaboradorId: d.colaboradorId,
+      severidade: 'critico',
+      detalhe: { wamid: d.resultado.providerMessageId ?? null, enviou: d.resultado.ok, tipo: d.tipo, motivo: error.message },
+    });
+  }
+}
+
+/**
+ * Responde com um ANEXO (imagem, áudio, vídeo ou documento).
+ *
+ * Recebe `FormData` porque o arquivo é binário — e é aqui que mora o limite que
+ * mais confunde: o corpo de uma request na Vercel para em **4,5 MB**, então o
+ * teto real é nosso (4 MB), não o da Meta (que aceita 100 MB de documento). A
+ * recusa acontece ANTES do upload e diz o número verdadeiro; deixar subir para
+ * morrer num 413 opaco seria impossível de explicar ao cliente.
+ *
+ * Vale a MESMA janela de 24h do texto livre — anexo fora da janela é recusado
+ * pela Meta igual, e a checagem é a mesma função (`prepararEnvio`).
+ */
+export async function responderComAnexo(formData: FormData): Promise<ResultadoEnvio> {
+  const email = await exigirPlataforma();
+
+  const empresaId = String(formData.get('empresaId') || '');
+  const telefone = String(formData.get('telefone') || '');
+  const legenda = String(formData.get('legenda') || '').trim();
+  const dedupe = String(formData.get('dedupeKey') || '') || null;
+  const arquivo = formData.get('arquivo');
+
+  if (!empresaId || !telefone) return { ok: false, motivo: 'Conversa inválida.' };
+  if (!(arquivo instanceof File) || !arquivo.size) return { ok: false, motivo: 'Nenhum arquivo recebido.' };
+
+  // Classifica ANTES de qualquer I/O: tipo não suportado e arquivo grande demais
+  // são decisões de graça, e o erro precisa chegar como frase, não como código.
+  const classe = classificarMidia(arquivo.type, arquivo.size);
+  if (!classe.ok) return { ok: false, motivo: classe.motivo! };
+
+  const tdb = tenantDb(empresaId);
+  const preparo = await prepararEnvio(tdb, telefone, dedupe);
+  if (!preparo.ok) return preparo.resposta!;
+  const colaboradorId = preparo.colaboradorId ?? null;
+
+  const nome = (arquivo.name || 'arquivo').slice(0, 120);
+
+  // 1) Sobe o binário. Falhar aqui é falha de ENVIO, e vira tentativa gravada:
+  // sem isso o atendente não sabe se o anexo foi ou não.
+  const up = await subirMidia(arquivo, arquivo.type, nome);
+  if (!up.ok || !up.mediaId) {
+    await gravarEnviada(tdb, {
+      empresaId, colaboradorId, telefone, email, dedupe,
+      tipo: classe.tipo,
+      texto: legenda || null,
+      raw: { filename: nome },
+      resultado: { ok: false, reason: up.reason ?? 'falha no upload' },
+    });
+    return { ok: false, motivo: `Não foi possível enviar o arquivo: ${up.reason ?? 'falha no upload'}` };
+  }
+
+  // 2) Envia a mídia já subida.
+  const r = await enviarMidiaCloud(
+    { phone: telefone, tipo: classe.tipo, mediaId: up.mediaId, legenda, nomeArquivo: nome },
+    { motivo: 'atendimento-anexo', empresaId, colaboradorId, dedupeKey: dedupe },
+  );
+
+  // 3) Grava no formato DA META (`{ image: { id } }`) — assim o mesmo
+  // `midiaIdDoRaw` que lê o recebido lê o enviado, e o proxy autenticado serve
+  // os dois sem uma linha a mais.
+  await gravarEnviada(tdb, {
+    empresaId, colaboradorId, telefone, email, dedupe,
+    tipo: classe.tipo,
+    texto: legenda || null,
+    raw: { [classe.tipo]: { id: up.mediaId }, filename: nome },
+    resultado: r,
+  });
+
+  return r.ok
+    ? { ok: true, wamid: r.providerMessageId ?? null }
+    : { ok: false, motivo: r.reason || 'Falha ao enviar o anexo.' };
 }
 
 /**

@@ -66,6 +66,8 @@ export interface LinhaEnviada {
   erro: string | null;
   enviada_em: string;
   wa_message_id: string | null;
+  /** Payload no formato da Meta quando é anexo: `{ image: { id } }`. */
+  raw?: any;
 }
 
 /** Linha crua de `notification_deliveries` (telemetria, sem texto). */
@@ -141,6 +143,11 @@ export function montarThread(args: {
       em: s.enviada_em,
       texto: s.texto,
       tipo: s.tipo,
+      // O anexo que NÓS mandamos é gravado no mesmo formato do que chega, então
+      // a mesma extração serve os dois lados. Sem esta linha, o arquivo enviado
+      // aparecia como "(sem conteúdo)" — a conversa mostrava metade do que
+      // aconteceu, que é como o atendente reenvia o mesmo arquivo.
+      midiaId: midiaIdDoRaw(s.raw),
       rotulo: s.template_nome,
       autorEmail: s.autor_email,
       status: st?.provider_status ?? null,
