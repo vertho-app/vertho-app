@@ -24,6 +24,30 @@ const BASE = (process.env.META_GRAPH_URL || 'https://graph.facebook.com/v22.0').
 const token = () => process.env.META_WHATSAPPBUSINESS_API || '';
 const phoneNumberId = () => process.env.PHONE_NUMBER_ID || '';
 
+/**
+ * Tetos de espera. Sem eles, uma conexão pendurada da Meta segura a Server
+ * Action até o `maxDuration` da função — quem clicou fica olhando um botão
+ * "Enviando…" que não termina, e no webhook o custo é pior: a Meta reentrega o
+ * evento porque não recebeu o 200 a tempo.
+ *
+ * ⚠️ TIMEOUT NO ENVIO NÃO É "NÃO ENVIOU". A requisição pode ter chegado e sido
+ * aceita depois de o nosso lado desistir. Registramos como falha porque é tudo
+ * que se sabe daqui — e é por isso que a idempotência do chamador (`dedupeKey`)
+ * importa: sem ela, a reação natural de reenviar produziria duas mensagens para
+ * a pessoa. O download é o mais generoso porque carrega binário, não JSON.
+ */
+const TIMEOUT_ENVIO_MS = 15_000;
+const TIMEOUT_META_MIDIA_MS = 10_000;
+const TIMEOUT_DOWNLOAD_MS = 30_000;
+
+/** Motivo legível quando o teto estourou — "fetch failed" não diz nada a quem lê o log. */
+function motivoDeRede(e: any, tetoMs: number): string {
+  if (e?.name === 'TimeoutError' || e?.name === 'AbortError') {
+    return `sem resposta em ${Math.round(tetoMs / 1000)}s (estado do envio DESCONHECIDO)`;
+  }
+  return String(e?.message || e).slice(0, 150);
+}
+
 /** Tem credencial para falar com a Cloud API? Sem I/O. */
 export function cloudApiConfigurada(): boolean {
   return Boolean(token() && phoneNumberId());
@@ -90,6 +114,7 @@ export async function enviarTextoCloud(
       headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo),
       cache: 'no-store',
+      signal: AbortSignal.timeout(TIMEOUT_ENVIO_MS),
     });
     const json: any = await res.json().catch(() => null);
 
@@ -101,7 +126,7 @@ export async function enviarTextoCloud(
       resultado = { ok: true, providerMessageId: json?.messages?.[0]?.id ?? null };
     }
   } catch (e: any) {
-    resultado = { ok: false, reason: `Cloud API rede: ${String(e?.message || e).slice(0, 150)}` };
+    resultado = { ok: false, reason: `Cloud API rede: ${motivoDeRede(e, TIMEOUT_ENVIO_MS)}` };
   }
 
   try {
@@ -130,6 +155,7 @@ export async function urlDaMidia(mediaId: string): Promise<{ ok: boolean; url?: 
     const res = await fetch(`${BASE}/${mediaId}`, {
       headers: { Authorization: `Bearer ${token()}` },
       cache: 'no-store',
+      signal: AbortSignal.timeout(TIMEOUT_META_MIDIA_MS),
     });
     const json: any = await res.json().catch(() => null);
     if (!res.ok || !json?.url) {
@@ -137,7 +163,7 @@ export async function urlDaMidia(mediaId: string): Promise<{ ok: boolean; url?: 
     }
     return { ok: true, url: json.url, mime: json.mime_type };
   } catch (e: any) {
-    return { ok: false, reason: `mídia rede: ${String(e?.message || e).slice(0, 150)}` };
+    return { ok: false, reason: `mídia rede: ${motivoDeRede(e, TIMEOUT_META_MIDIA_MS)}` };
   }
 }
 
@@ -151,11 +177,15 @@ export async function urlDaMidia(mediaId: string): Promise<{ ok: boolean; url?: 
  */
 export async function baixarMidia(url: string): Promise<{ ok: boolean; body?: ArrayBuffer; mime?: string; reason?: string }> {
   try {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token()}` }, cache: 'no-store' });
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token()}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(TIMEOUT_DOWNLOAD_MS),
+    });
     if (!res.ok) return { ok: false, reason: `download HTTP ${res.status}` };
     return { ok: true, body: await res.arrayBuffer(), mime: res.headers.get('content-type') || undefined };
   } catch (e: any) {
-    return { ok: false, reason: `download rede: ${String(e?.message || e).slice(0, 150)}` };
+    return { ok: false, reason: `download rede: ${motivoDeRede(e, TIMEOUT_DOWNLOAD_MS)}` };
   }
 }
 
@@ -208,6 +238,7 @@ export async function enviarTemplateOtp(
       headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo),
       cache: 'no-store',
+      signal: AbortSignal.timeout(TIMEOUT_ENVIO_MS),
     });
     const json: any = await res.json().catch(() => null);
 
@@ -219,7 +250,7 @@ export async function enviarTemplateOtp(
       resultado = { ok: true, providerMessageId: json?.messages?.[0]?.id ?? null };
     }
   } catch (e: any) {
-    resultado = { ok: false, reason: `Cloud API rede: ${String(e?.message || e).slice(0, 150)}` };
+    resultado = { ok: false, reason: `Cloud API rede: ${motivoDeRede(e, TIMEOUT_ENVIO_MS)}` };
   }
 
   // Telemetria com o `provider_message_id`: é essa coluna que o webhook usa para

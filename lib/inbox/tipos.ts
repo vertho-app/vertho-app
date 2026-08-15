@@ -16,8 +16,55 @@ export interface Conversa {
   nome: string | null;
   ultimaEm: string;
   ultimoTexto: string | null;
+  /** Tipo da última mensagem — decide a prévia quando não há texto. */
+  ultimoTipo: string | null;
   naoLidas: number;
+  /** Motivo de a última mensagem não ter dono, quando não teve. */
+  ambiguidade: string | null;
   janela: Janela;
+}
+
+/**
+ * Conversa na caixa da EQUIPE (todas as empresas).
+ *
+ * `empresaId` nulo é um estado legítimo, não um defeito de dados: é o telefone
+ * que o webhook não conseguiu atribuir. Ele aparece na mesma lista, porque uma
+ * pessoa esperando resposta continua esperando enquanto a gente não descobre de
+ * qual cliente ela é.
+ */
+export interface ConversaGlobal extends Conversa {
+  empresaId: string | null;
+  empresa: string | null;
+}
+
+export interface ResumoCaixa {
+  conversas: number;
+  /** Quantas CONVERSAS têm ao menos uma não lida (≠ total de mensagens). */
+  conversasNaoLidas: number;
+  naoLidas: number;
+  janelasAbertas: number;
+  naoIdentificadas: number;
+}
+
+/** Candidato a dono de um telefone não resolvido, para a associação manual. */
+export interface CandidatoDono {
+  colaboradorId: string;
+  nome: string | null;
+  email: string | null;
+  empresaId: string;
+  empresa: string;
+}
+
+/** Uma conversa não identificada + a quem ela pode pertencer. */
+export interface FilaNaoIdentificada {
+  telefone: string;
+  ultimaEm: string;
+  ultimoTexto: string | null;
+  ultimoTipo: string | null;
+  total: number;
+  naoLidas: number;
+  ambiguidade: string | null;
+  candidatos: CandidatoDono[];
 }
 
 export interface ThreadCompleta {
@@ -57,11 +104,10 @@ export interface ResultadoEnvio {
   janelaFechada?: boolean;
 }
 
-export interface NaoResolvida {
-  id: string;
-  from_phone: string;
-  texto: string | null;
-  tipo: string;
-  ambiguidade: string | null;
-  recebida_em: string;
+/** Resultado de uma associação manual de telefone não identificado. */
+export interface ResultadoAssociacao {
+  ok: boolean;
+  /** Quantas mensagens daquele telefone foram atribuídas. */
+  mensagens?: number;
+  motivo?: string;
 }

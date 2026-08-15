@@ -1,12 +1,12 @@
 'use server';
 
 import { checarAcessoPlataforma } from '@/lib/authz-plataforma';
-import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { calcularJanela } from '@/lib/inbox/janela';
 import { montarThread } from '@/lib/inbox/thread';
+import { montarConversas, type LinhaConversa } from '@/lib/inbox/caixa';
 import { enviarTextoCloud } from '@/lib/whatsapp/cloud-api';
-import type { Conversa, ThreadCompleta, ResultadoEnvio, NaoResolvida } from '@/lib/inbox/tipos';
+import type { Conversa, ThreadCompleta, ResultadoEnvio } from '@/lib/inbox/tipos';
 
 /**
  * Caixa de entrada do WhatsApp — leitura e resposta.
@@ -28,52 +28,52 @@ async function exigirPlataforma() {
   return acesso.email!;
 }
 
-/** Conversas de uma empresa, agrupadas por telefone, mais recente primeiro. */
+/**
+ * Conversas de uma empresa, mais recente primeiro.
+ *
+ * Lê a view `whatsapp_conversas` (mig 216) — o agrupamento é do BANCO. A versão
+ * anterior trazia as últimas 500 mensagens e agrupava aqui, e isso escondia
+ * conversas assim que um único telefone ficasse falante: a cota era das
+ * mensagens, não das pessoas.
+ */
 export async function listarConversas(empresaId: string): Promise<Conversa[]> {
   await exigirPlataforma();
   const tdb = tenantDb(empresaId);
 
-  const { data, error } = await tdb.from('whatsapp_mensagens_recebidas')
-    .select('id, from_phone, colaborador_id, texto, tipo, recebida_em, lida_em')
-    .order('recebida_em', { ascending: false })
-    .limit(500);
+  const { data, error } = await tdb.from('whatsapp_conversas')
+    .select('empresa_id, from_phone, ultima_em, total, nao_lidas, ultimo_texto, ultimo_tipo, colaborador_id, ambiguidade')
+    .order('ultima_em', { ascending: false })
+    .limit(300);
   if (error) throw new Error(`conversas: ${error.message}`);
 
-  const porTelefone = new Map<string, any[]>();
-  for (const m of (data || []) as any[]) {
-    const lista = porTelefone.get(m.from_phone) || [];
-    lista.push(m);
-    porTelefone.set(m.from_phone, lista);
-  }
+  const linhas = (data || []) as LinhaConversa[];
+  const colabIds = [...new Set(linhas.map((l) => l.colaborador_id).filter(Boolean))] as string[];
 
-  const colabIds = [...new Set((data || []).map((m: any) => m.colaborador_id).filter(Boolean))];
   const nomes = new Map<string, string>();
   if (colabIds.length) {
-    const { data: colabs } = await tdb.from('colaboradores')
+    const { data: colabs, error: eN } = await tdb.from('colaboradores')
       .select('id, nome_completo')
       .in('id', colabIds);
+    // Nome é enfeite; conversa não é. Falhar aqui esconderia a caixa inteira
+    // por causa de um join que só melhora o rótulo.
+    if (eN) console.error('[inbox] nomes:', eN.message);
     for (const c of (colabs || []) as any[]) nomes.set(c.id, c.nome_completo);
   }
 
-  const agora = Date.now();
-  return [...porTelefone.entries()]
-    .map(([telefone, msgs]) => {
-      const ultima = msgs[0];
-      return {
-        telefone,
-        colaboradorId: ultima.colaborador_id,
-        nome: ultima.colaborador_id ? nomes.get(ultima.colaborador_id) ?? null : null,
-        ultimaEm: ultima.recebida_em,
-        ultimoTexto: ultima.texto,
-        naoLidas: msgs.filter((m: any) => !m.lida_em).length,
-        // A janela é do ÚLTIMO recebido — é ele que a reabre.
-        janela: calcularJanela(ultima.recebida_em, agora),
-      };
-    })
-    .sort((a, b) => new Date(b.ultimaEm).getTime() - new Date(a.ultimaEm).getTime());
+  return montarConversas(linhas, nomes);
 }
 
-/** Thread completa de um telefone: recebidas + enviadas + telemetria. */
+/**
+ * Thread completa de um telefone: recebidas + enviadas + telemetria.
+ *
+ * 🔴 AS TRÊS CONSULTAS SÃO `DESC`, e a lista é invertida em memória. Parece
+ * indireto e é o oposto: `ORDER BY ... ASC LIMIT 300` devolve as 300 mensagens
+ * MAIS ANTIGAS, então uma conversa longa abriria mostrando o começo do
+ * relacionamento e escondendo exatamente a mensagem que acabou de chegar — sem
+ * erro nenhum na tela. O limite tem que cair sobre a cauda, não sobre a cabeça.
+ */
+const TETO_THREAD = 300;
+
 export async function carregarThread(empresaId: string, telefone: string): Promise<ThreadCompleta> {
   await exigirPlataforma();
   const tdb = tenantDb(empresaId);
@@ -81,17 +81,19 @@ export async function carregarThread(empresaId: string, telefone: string): Promi
   const { data: recebidas, error: e1 } = await tdb.from('whatsapp_mensagens_recebidas')
     .select('id, texto, tipo, recebida_em, raw, colaborador_id')
     .eq('from_phone', telefone)
-    .order('recebida_em', { ascending: true })
-    .limit(300);
+    .order('recebida_em', { ascending: false })
+    .limit(TETO_THREAD);
   if (e1) throw new Error(`thread/recebidas: ${e1.message}`);
 
   const { data: enviadas, error: e2 } = await tdb.from('whatsapp_mensagens_enviadas')
     .select('id, texto, tipo, template_nome, autor_email, origem, erro, enviada_em, wa_message_id')
     .eq('to_phone', telefone)
-    .order('enviada_em', { ascending: true })
-    .limit(300);
+    .order('enviada_em', { ascending: false })
+    .limit(TETO_THREAD);
   if (e2) throw new Error(`thread/enviadas: ${e2.message}`);
 
+  // Com as recebidas em DESC, o primeiro com dono é o vínculo MAIS RECENTE —
+  // que é o certo quando o telefone mudou de mãos entre um envio e outro.
   const colaboradorId = (recebidas || []).find((r: any) => r.colaborador_id)?.colaborador_id ?? null;
 
   // Telemetria histórica (cadência antiga, sem texto). Só faz sentido buscar
@@ -102,8 +104,8 @@ export async function carregarThread(empresaId: string, telefone: string): Promi
       .select('id, kind, sent_at, provider_status, delivered_at, opened_at, error, provider_message_id')
       .eq('colaborador_id', colaboradorId)
       .eq('channel', 'whatsapp')
-      .order('sent_at', { ascending: true })
-      .limit(300);
+      .order('sent_at', { ascending: false })
+      .limit(TETO_THREAD);
     entregas = data || [];
   }
 
@@ -114,7 +116,9 @@ export async function carregarThread(empresaId: string, telefone: string): Promi
     nome = (c as any)?.nome_completo ?? null;
   }
 
-  const ultimaRecebida = (recebidas || []).at(-1) as any;
+  // DESC ⇒ a mais recente é a PRIMEIRA. Ler `.at(-1)` aqui pegaria a mais antiga
+  // das 300 e a janela nasceria fechada com a conversa viva.
+  const ultimaRecebida = (recebidas || [])[0] as any;
   return {
     telefone,
     nome,
@@ -223,17 +227,16 @@ export async function responderConversa(args: {
     : { ok: false, motivo: r.reason || 'Falha ao enviar.' };
 }
 
-/** Mensagens que o webhook não conseguiu atribuir a nenhum tenant. */
-export async function listarNaoResolvidas(): Promise<NaoResolvida[]> {
-  await exigirPlataforma();
-  // Sem tenant por definição — `tenantDb` não se aplica, e é o único ponto do
-  // inbox que lê sem escopo de empresa. `empresa_id IS NULL` é o próprio filtro.
-  const sb = await requireAdminSupabase();
-  const { data, error } = await sb.from('whatsapp_mensagens_recebidas')
-    .select('id, from_phone, texto, tipo, ambiguidade, recebida_em')
-    .is('empresa_id', null)
-    .order('recebida_em', { ascending: false })
-    .limit(100);
-  if (error) throw new Error(`nao-resolvidas: ${error.message}`);
-  return (data || []) as NaoResolvida[];
-}
+/**
+ * As mensagens SEM tenant não moram aqui.
+ *
+ * Elas viviam neste arquivo, numa `listarNaoResolvidas()` que nunca teve
+ * consumidor — e o custo disso foi medido em 15/08/2026: a ÚNICA mensagem que o
+ * webhook já tinha recebido estava sem empresa, portanto invisível em todas as
+ * telas, enquanto o workspace do cliente dizia "nenhuma mensagem recebida". Uma
+ * action sem tela não é meio caminho andado; é a lacuna com aparência de
+ * cobertura.
+ *
+ * Agora ficam em `app/admin-v2/inbox` (caixa da equipe), junto com os candidatos
+ * a dono e a associação auditada — que é onde alguém realmente as vê.
+ */

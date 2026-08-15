@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  CircleDot, Building2, Sparkles, TrendingUp, DollarSign, Settings, LogOut, Search,
+  CircleDot, Building2, Sparkles, TrendingUp, DollarSign, Settings, LogOut, Search, Inbox,
 } from 'lucide-react';
 
 /**
@@ -47,6 +47,11 @@ const TITULOS: { teste: (p: string) => boolean; crumb: string; h1: React.ReactNo
     teste: (p) => p.startsWith('/admin-v2/conteudo'),
     crumb: 'Estúdio de Conteúdo',
     h1: <>Acervo e <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">produção</em></>,
+  },
+  {
+    teste: (p) => p.startsWith('/admin-v2/inbox'),
+    crumb: 'Caixa de entrada',
+    h1: <>Quem <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">escreveu</em></>,
   },
   {
     teste: (p) => p.startsWith('/admin-v2/cliente'),
@@ -132,6 +137,21 @@ export default function ShellV2({ children }: { children: React.ReactNode }) {
               <h1 className="mt-0.5 text-[23px] font-semibold leading-tight">{titulo?.h1 ?? 'Área'}</h1>
             </div>
             <div className="ml-auto flex items-center gap-2.5">
+              {/* Ferramenta transversal, não uma 7ª área: a caixa atravessa todos
+                  os clientes. Sem badge de contagem — número no menu precisa ser
+                  buscado a cada navegação e, defasado, o menu mente. */}
+              <Link
+                href="/admin-v2/inbox"
+                aria-current={pathname.startsWith('/admin-v2/inbox') ? 'page' : undefined}
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-mono text-[11px] transition-colors ${
+                  pathname.startsWith('/admin-v2/inbox')
+                    ? 'border-[var(--cyan)] text-[var(--cyan)]'
+                    : 'border-white/[0.14] text-[var(--ink-faint)] hover:text-[var(--cyan)]'
+                }`}
+                title="Caixa de entrada do WhatsApp — todas as empresas"
+              >
+                <Inbox size={12} /> caixa
+              </Link>
               <span className="flex items-center gap-1.5 rounded-lg border border-white/[0.14] px-2.5 py-1.5 font-mono text-[11px] text-[var(--ink-faint)]">
                 <Search size={12} /> ⌘K
               </span>

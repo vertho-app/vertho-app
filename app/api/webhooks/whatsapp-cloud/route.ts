@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { safeSecretEqual } from '@/lib/secure-compare';
 import { interpretarPayload, camposDoStatus, encareceu } from '@/lib/whatsapp/cloud-webhook';
+import { decidirDono, filtroDeTelefone } from '@/lib/whatsapp/resolver-dono';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
 /**
@@ -177,10 +178,30 @@ export async function POST(req: Request) {
   // ── Status de entrega ─────────────────────────────────────────────────────
   for (const s of statuses) {
     try {
-      const { error } = await sb.from('notification_deliveries')
+      // `.select('id')` não é enfeite: sem ele, um update que casa ZERO linhas
+      // volta com `error: null` e passa por sucesso. E casar zero é o caso
+      // provável, não o raro — quando isto foi escrito, 0 de 979 linhas de
+      // `notification_deliveries` tinham `provider_message_id`, ou seja, TODO
+      // status recebido morria em silêncio. Justamente a métrica que este
+      // webhook existe para tornar confiável.
+      const { data, error } = await sb.from('notification_deliveries')
         .update(camposDoStatus(s))
-        .eq('provider_message_id', s.waMessageId);
+        .eq('provider_message_id', s.waMessageId)
+        .select('id');
       if (error) throw new Error(error.message);
+
+      if (!data?.length) {
+        // Não é falha de gravação: é status de uma mensagem que não temos
+        // registrada (envio anterior à mig 212, ou telemetria que falhou no
+        // aceite). Aviso, porque degrada a MEDIÇÃO e não a entrega.
+        await registrarDegradacao({
+          fluxo: 'envio',
+          tipo: DEGRADACAO.WHATSAPP_STATUS_PERDIDO,
+          chave: 'sem-destino',
+          severidade: 'aviso',
+          detalhe: { wamid: s.waMessageId, status: s.status, motivo: 'nenhuma entrega com este provider_message_id' },
+        });
+      }
     } catch (e: any) {
       // Status perdido degrada a MEDIÇÃO, não a entrega — aviso, não crítico.
       console.error('[whatsapp-cloud] status falhou:', e?.message);
@@ -204,30 +225,26 @@ export async function POST(req: Request) {
 }
 
 /**
- * De quem é este telefone?
+ * De quem é este telefone? — a CONSULTA. A decisão vive em
+ * `lib/whatsapp/resolver-dono.ts`, que é pura e testável sem banco.
  *
- * O número da Cloud API é ÚNICO para todos os tenants, então quem escreve chega
- * sem tenant. A resolução é pelo telefone — e ela pode ser AMBÍGUA: a mesma
- * pessoa (ou o mesmo aparelho) pode estar cadastrada em duas empresas. Nesse
- * caso a linha fica SEM empresa, com o motivo registrado.
- *
- * Chutar um tenant seria mostrar a mensagem de um colaborador no painel de outro
- * cliente — vazamento entre tenants, exatamente o que o isolamento desta base
- * existe para impedir. Lacuna contável é preferível a atribuição errada.
+ * 🔴 SEM `.limit()`, e isso é a correção, não descuido. A versão anterior lia 5
+ * linhas e concluía "empresa única" sobre elas: com um telefone presente em 7
+ * pessoas de 6 empresas (medido no cadastro em 15/08/2026), bastava o Postgres
+ * — que não tinha `ORDER BY` para obedecer — devolver cinco da mesma empresa
+ * para a mensagem ser carimbada com o TENANT ERRADO. Um telefone casa com um
+ * punhado de linhas; trazer todas custa nada e é o que torna a conclusão válida.
  */
 async function resolverDono(sb: any, telefone: string) {
-  const digits = telefone.replace(/\D/g, '');
+  const filtro = filtroDeTelefone(telefone);
+  // Sem dígitos não há o que casar — e um `.or('')` não filtraria nada,
+  // devolvendo a tabela inteira como se fosse candidata.
+  if (!filtro) return { empresaId: null, colaboradorId: null, ambiguidade: 'telefone-vazio' };
+
   const { data, error } = await sb.from('colaboradores')
     .select('id, empresa_id')
-    .or(`whatsapp.eq.${digits},telefone.eq.${digits},whatsapp.eq.+${digits},telefone.eq.+${digits}`)
-    .limit(5);
+    .or(filtro);
 
   if (error) return { empresaId: null, colaboradorId: null, ambiguidade: `erro-na-resolucao: ${error.message}` };
-  if (!data?.length) return { empresaId: null, colaboradorId: null, ambiguidade: 'telefone-desconhecido' };
-
-  const empresas = new Set(data.map((c: any) => c.empresa_id));
-  if (empresas.size > 1) {
-    return { empresaId: null, colaboradorId: null, ambiguidade: 'telefone-em-multiplas-empresas' };
-  }
-  return { empresaId: data[0].empresa_id, colaboradorId: data[0].id, ambiguidade: null };
+  return decidirDono((data || []) as { id: string; empresa_id: string | null }[]);
 }

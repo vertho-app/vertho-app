@@ -46,12 +46,30 @@ export interface Escrita {
   payload: any;
 }
 
+/**
+ * Um elo da cadeia, registrado: `.eq('empresa_id', x)`, `.order('em', {…})`, …
+ *
+ * Existe porque várias invariantes desta base não estão no dado que volta, e sim
+ * na PERGUNTA feita: "filtrou por empresa_id?", "pediu DESC?", "limitou às linhas
+ * sem dono?". Sem registrar a cadeia, um teste sobre isso só pode afirmar que a
+ * função não explodiu.
+ */
+export interface Chamada {
+  tabela: string;
+  metodo: string;
+  args: any[];
+}
+
 export interface SupabaseMock {
   client: any;
   escritas: Escrita[];
+  /** Todos os elos encadeados, na ordem em que foram chamados. */
+  chamadas: Chamada[];
   falhas: FalhaSpec[];
   /** Programa uma falha. Pode ser chamada dentro do `it`, depois do `vi.mock`. */
   falharEm(spec: FalhaSpec): void;
+  /** Houve `.metodo(arg0, …)` nesta tabela? Ex.: `usou('colaboradores', 'eq', 'empresa_id')`. */
+  usou(tabela: string, metodo: string, arg0?: any): boolean;
   reset(): void;
 }
 
@@ -62,16 +80,26 @@ export interface OpcoesMock {
   lista?: (tabela: string, cols: string) => any[];
   /** `count` devolvido quando o select pede `{ count: 'exact' }`. */
   contagem?: (tabela: string) => number | null;
+  /**
+   * `data` de uma ESCRITA com `.select()` — as linhas afetadas.
+   *
+   * Default `null` (o comportamento histórico). Programar isto é o que permite
+   * distinguir "o update casou linhas" de "o update não casou nada e voltou
+   * `error: null`" — que é falha silenciosa, não sucesso.
+   */
+  escrita?: (tabela: string, op: Operacao, payload: any) => any[] | null;
   falhas?: FalhaSpec[];
 }
 
 export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
   const escritas: Escrita[] = [];
+  const chamadas: Chamada[] = [];
   const falhas: FalhaSpec[] = [...(opts.falhas || [])];
 
   const resolver = opts.resolver || (() => null);
   const lista = opts.lista || (() => []);
   const contagem = opts.contagem || (() => null);
+  const escrita = opts.escrita || (() => null);
 
   const acharFalha = (tabela: string, op: Operacao): FalhaSpec | null =>
     falhas.find((f) => (!f.tabela || f.tabela === tabela) && (!f.op || f.op === op)) || null;
@@ -84,26 +112,32 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
     let querCount = false;
     let payload: any = null;
 
+    const registrar = (metodo: string, args: any[]) => { chamadas.push({ tabela, metodo, args }); };
+
     const resultadoLista = () => {
       const f = acharFalha(tabela, op);
       if (f) return { data: null, error: erroDe(f), count: null };
       if (op !== 'select') {
         escritas.push({ tabela, op, payload });
-        return { data: null, error: null, count: null };
+        return { data: escrita(tabela, op, payload), error: null, count: null };
       }
       return { data: lista(tabela, cols), error: null, count: querCount ? contagem(tabela) : null };
     };
 
-    const b: any = {
-      select: (c = '', o?: any) => { cols = c; querCount = Boolean(o?.count); return b; },
-      insert: (p: any) => { op = 'insert'; payload = p; return b; },
-      update: (p: any) => { op = 'update'; payload = p; return b; },
-      upsert: (p: any, _o?: any) => { op = 'upsert'; payload = p; return b; },
-      delete: () => { op = 'delete'; return b; },
+    const filtro = (nome: string) => (...args: any[]) => { registrar(nome, args); return b; };
 
-      eq: () => b, neq: () => b, gt: () => b, gte: () => b, lt: () => b, lte: () => b,
-      is: () => b, not: () => b, or: () => b, in: () => b, ilike: () => b, like: () => b,
-      contains: () => b, order: () => b, limit: () => b, range: () => b, filter: () => b,
+    const b: any = {
+      select: (c = '', o?: any) => { cols = c; querCount = Boolean(o?.count); registrar('select', [c, o]); return b; },
+      insert: (p: any) => { op = 'insert'; payload = p; registrar('insert', [p]); return b; },
+      update: (p: any) => { op = 'update'; payload = p; registrar('update', [p]); return b; },
+      upsert: (p: any, o?: any) => { op = 'upsert'; payload = p; registrar('upsert', [p, o]); return b; },
+      delete: () => { op = 'delete'; registrar('delete', []); return b; },
+
+      eq: filtro('eq'), neq: filtro('neq'), gt: filtro('gt'), gte: filtro('gte'),
+      lt: filtro('lt'), lte: filtro('lte'), is: filtro('is'), not: filtro('not'),
+      or: filtro('or'), in: filtro('in'), ilike: filtro('ilike'), like: filtro('like'),
+      contains: filtro('contains'), order: filtro('order'), limit: filtro('limit'),
+      range: filtro('range'), filter: filtro('filter'),
 
       maybeSingle: async () => {
         const f = acharFalha(tabela, op);
@@ -142,8 +176,14 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
   return {
     client,
     escritas,
+    chamadas,
     falhas,
     falharEm(spec: FalhaSpec) { falhas.push(spec); },
-    reset() { escritas.length = 0; falhas.length = 0; },
+    usou(tabela: string, metodo: string, arg0?: any) {
+      return chamadas.some(
+        (c) => c.tabela === tabela && c.metodo === metodo && (arg0 === undefined || c.args[0] === arg0),
+      );
+    },
+    reset() { escritas.length = 0; chamadas.length = 0; falhas.length = 0; },
   };
 }

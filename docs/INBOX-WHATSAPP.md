@@ -1,14 +1,27 @@
-# Caixa de entrada do WhatsApp — proposta
+# Caixa de entrada do WhatsApp
 
-> **Status:** proposta, não implementada. Escrita em 14/08/2026, **revisada no mesmo dia** após
-> duas revisões externas.
-> **Pré-requisito já pronto:** o webhook da Cloud API (`app/api/webhooks/whatsapp-cloud`, mig 212)
-> já grava tudo que chega.
+> **Status: NO AR** (fases 1 e 2 implementadas). Escrita como proposta em 14/08/2026, construída no
+> mesmo dia, **revisada e corrigida em 15/08/2026** — o que mudou nessa revisão está na §9, que é o
+> lugar para começar se você já conhece o resto.
 >
-> **A revisão mudou o escopo.** A v1 previa só leitura; o pedido original era ver **e responder**, e
-> o argumento para adiar a resposta ("caixa que às vezes falha é pior que ausência") trazia dentro
-> de si a condição de entrada — a janela como estado que **controla** a UI, não apenas a explica.
-> O plano agora tem duas fases, e a §0 registra o que a revisão corrigiu.
+> Onde está o quê:
+>
+> | Peça | Arquivo |
+> |---|---|
+> | Webhook (assinatura, mensagens, status, templates) | `app/api/webhooks/whatsapp-cloud/route.ts` |
+> | Decisão de dono do telefone (pura) | `lib/whatsapp/resolver-dono.ts` |
+> | Envio pela Cloud API | `lib/whatsapp/cloud-api.ts` |
+> | Caixa do cliente (uma empresa) | `app/admin-v2/cliente/InboxPanel.tsx` + `inbox-actions.ts` |
+> | **Caixa da equipe (todas as empresas + não identificados)** | `app/admin-v2/inbox/` |
+> | Thread e estado da conversa, compartilhados | `app/admin-v2/_inbox/` |
+> | Núcleos puros (janela, thread, caixa, rascunhos) | `lib/inbox/` |
+> | Schema | mig 212 (inbound), 214 (templates), 215 (enviadas + lida), **216 (view de conversas)** |
+> | Testes | `tests/unit/integrations/inbox-*.test.ts`, `whatsapp-cloud-*.test.ts` |
+>
+> **A revisão de 14/08 mudou o escopo.** A v1 previa só leitura; o pedido original era ver **e
+> responder**, e o argumento para adiar a resposta ("caixa que às vezes falha é pior que ausência")
+> trazia dentro de si a condição de entrada — a janela como estado que **controla** a UI, não apenas
+> a explica. A §0 registra o que aquela revisão corrigiu.
 
 ---
 
@@ -247,11 +260,19 @@ resposta na própria tela.
   hipótese: no primeiro evento real de teste, o telefone do dono resolveu para **7 cadastros em
   6 tenants**. Um professor que atue em duas escolas da rede cai no mesmo caso.
 
+Há um terceiro caso desde 15/08: **`telefone-em-multiplas-pessoas`** — uma empresa só, duas pessoas
+com o mesmo número. Aí o **tenant** é inequívoco (a conversa aparece na caixa daquele cliente) e a
+PESSOA fica nula. Escolher entre as duas seria sortear, e o sorteio vira histórico.
+
 Essas linhas **não podem** aparecer na aba de um cliente — seria mostrar a mensagem de uma
-pessoa no painel de outro. Ficam num painel de plataforma, com o motivo à vista.
+pessoa no painel de outro. Ficam em **`/admin-v2/inbox`** (caixa da equipe), com o motivo à vista,
+os candidatos a dono e a associação auditada.
 
 > ⚠️ Se este painel não existir, essas mensagens ficam **invisíveis**: não estão em tenant
 > nenhum e ninguém as procura. Invisível é pior que ausente, porque parece que não chegou nada.
+>
+> Isto não é hipótese: entre 14 e 15/08 o painel não existia, e **a única mensagem já recebida**
+> estava exatamente nesse estado. Ver §9.1.
 
 ### 5.3 Mídia
 
@@ -297,20 +318,23 @@ Estimativa da fase 1: **poucas horas**, por ser consulta sobre dados que já exi
 
 ### 7.1 Critérios de aceite
 
-- [ ] Mensagem de colaborador de um tenant aparece **só** na aba daquele cliente.
-- [ ] Mensagem com `ambiguidade` **não** aparece em nenhum cliente, e aparece no painel de plataforma.
-- [ ] Janela de 24h mostrada corretamente nas bordas (23h59 aberta, 24h01 fechada) — validado por teste com relógio congelado, não com `Date.now()`.
-- [ ] Áudio aparece como áudio, não como mensagem vazia.
-- [ ] Tela vazia explica que o app ainda não foi publicado.
-- [ ] A thread mostra os dois lados: o que a pessoa escreveu e o que o sistema enviou.
+- [x] Mensagem de colaborador de um tenant aparece **só** na aba daquele cliente.
+- [x] Mensagem com `ambiguidade` **não** aparece em nenhum cliente, e aparece no painel de plataforma
+      — `/admin-v2/inbox`, entregue em 15/08 (ver §9.1: até lá a action existia e a tela não).
+- [x] Janela de 24h mostrada corretamente nas bordas (23h59 aberta, 24h01 fechada) — validado por teste com relógio congelado, não com `Date.now()`.
+- [x] Áudio aparece como áudio, não como mensagem vazia.
+- [x] Tela vazia explica que o app ainda não foi publicado.
+- [x] A thread mostra os dois lados: o que a pessoa escreveu e o que o sistema enviou.
 
 **Fase 2:**
-- [ ] Janela exatamente em 24h: 23h59 permite enviar, 24h01 bloqueia — com relógio congelado, nunca `Date.now()`.
-- [ ] Janela expirada ENTRE a renderização e o envio → erro explicado, não mensagem perdida.
-- [ ] Duplo clique não envia duas vezes.
-- [ ] Conversa ambígua não tem campo de resposta.
-- [ ] Resposta sai pelo mesmo número da conversa.
-- [ ] Falha da Meta aparece para quem enviou, não só no log.
+- [x] Janela exatamente em 24h: 23h59 permite enviar, 24h01 bloqueia — com relógio congelado, nunca `Date.now()`.
+- [x] Janela expirada ENTRE a renderização e o envio → erro explicado, não mensagem perdida.
+- [x] Duplo clique não envia duas vezes (chave de idempotência; a versão **atômica** segue pendente — §9.2).
+- [x] Conversa ambígua não tem campo de resposta.
+- [ ] **Resposta sai pelo mesmo número da conversa.** ⚠️ NÃO cumprido: o envio usa
+      `process.env.PHONE_NUMBER_ID`, não o `to_phone_id` gravado. Com um número só, indistinguível;
+      com o segundo número (proposta A=acesso / B=jornada) passa a responder pelo remetente errado.
+- [x] Falha da Meta aparece para quem enviou, não só no log.
 
 ---
 
@@ -320,3 +344,67 @@ Nada aqui depende desta proposta, mas a tela só terá conteúdo real quando:
 
 - **Business Verification** aprovar (em processamento em 14/08) — destrava `TIER_1000` e categoria Authentication;
 - **o app for publicado** — sem isso, só eventos de teste do painel chegam ao webhook.
+
+---
+
+## 9. Revisão de 15/08/2026 — o que estava errado no que já estava no ar
+
+Seis correções, todas da mesma família: **funcionavam sem dar erro**. Nenhuma delas produzia tela
+vermelha, log de exceção ou teste vermelho — é por isso que a lista foi levantada lendo o código, e
+cada item foi confirmado contra o banco antes de virar trabalho.
+
+### 9.1 A medição que sustentou a prioridade
+
+| Medido em 15/08/2026 | Resultado |
+|---|---|
+| Mensagens recebidas, no total | **1** — e com `empresa_id NULL`, portanto invisível em toda tela |
+| Linhas de `notification_deliveries` com `provider_message_id` | **0 de 979** |
+| Cadastros de `whatsapp` fora de E.164 com DDI | **0 de 157** |
+| Telefone repetido entre tenants | 1 número em **7 pessoas / 6 empresas**; outros 2 em 4 empresas |
+
+A primeira linha é o argumento inteiro da caixa da equipe: **1 de 1** mensagem recebida estava
+invisível, enquanto o workspace do cliente exibia "Nenhuma mensagem recebida deste cliente". Havia
+uma `listarNaoResolvidas()` escrita — e **nenhum consumidor na interface**. Action sem tela não é
+meio caminho andado: é a lacuna com aparência de cobertura.
+
+A segunda linha diz que o webhook de status, hoje, não casa com nada — 100% dos eventos morriam
+num update de zero linhas.
+
+### 9.2 O que foi corrigido
+
+| # | Achado | Por que passava despercebido | Correção |
+|---|---|---|---|
+| 1 | Mensagem sem tenant não aparecia em lugar nenhum | A tela do cliente diz "nenhuma mensagem", que é indistinguível de "ninguém escreveu" | `/admin-v2/inbox`: todas as empresas numa lista, fila de não identificados **com os candidatos**, associação **auditada** (`inbox.associar`) e reprocessamento (`inbox.reprocessar`) |
+| 2 | 🔴 `resolverDono` decidia sobre `.limit(5)` | Sem `ORDER BY`, cinco linhas quaisquer; se caíssem na mesma empresa, `Set(empresa_id).size === 1` e a mensagem ia para **o tenant errado** — vazamento cross-tenant sem erro nenhum | Consulta sem limite + decisão pura em `lib/whatsapp/resolver-dono.ts`. Novo desfecho: mesma empresa com 2+ pessoas resolve o **tenant** e deixa a pessoa nula, em vez de sortear `data[0]` |
+| 3 | Update de status sem conferir se casou | `update` que afeta zero linhas volta `error: null` — sucesso aparente | `.select('id')` + `registrarDegradacao` (`chave: 'sem-destino'`, severidade `aviso`) |
+| 4 | `fetch` para a Graph sem timeout | Conexão pendurada só aparece como lentidão | `AbortSignal.timeout` nos quatro (envio 15s, mídia 10s, download 30s) e motivo legível que diz **"estado do envio DESCONHECIDO"** — timeout não é prova de não-envio |
+| 5 | Rascunho global e corrida no polling | Escrever para A, clicar em B e enviar para B não gera nenhum sinal na tela | Rascunho **por (empresa, telefone)** e controle de pedidos (`lib/inbox/rascunhos.ts`); resposta de pedido ultrapassado é descartada |
+| 6 | Thread com `ORDER BY ASC LIMIT 300` | Devolve as 300 mensagens **mais antigas**: acima disso, a conversa abre no começo do relacionamento e esconde o que acabou de chegar | `DESC` nas três consultas, inversão em memória, e a janela lida da linha `[0]` |
+
+Junto: a lista de conversas passou a ser agregada **no banco** (view `whatsapp_conversas`, mig 216).
+Antes eram "as últimas 500 mensagens agrupadas em memória" — uma cota de mensagens, não de pessoas,
+em que um telefone falante esconde as conversas dos outros, começando pela mais antiga (a que
+esperava resposta).
+
+### 9.3 O que continua aberto — e por quê
+
+- **Responder pelo `to_phone_id` da conversa** (§7.1). Com dois números, a chave da conversa é
+  `(to_phone_id, from_phone)`. É o item com data marcada: quebra quando o segundo número entrar.
+- **Idempotência atômica.** A chave é `(telefone, 40 primeiros caracteres, minuto)` e o fluxo é
+  "consulta → chama a Meta → insere". Dois cliques simultâneos passam os dois; e uma tentativa que
+  **falhou** faz a repetição encontrar a linha e devolver `ok: true` com `wa_message_id` nulo. O
+  desenho certo é reservar a chave com um `pending` antes da chamada externa.
+- **Variante do nono dígito no `wa_id`.** O `wa_id` de número BR pode chegar sem o 9, e aí nenhuma
+  variante casa (o cadastro está 157/157 normalizado — o problema não é ele). Deliberadamente **não**
+  implementado: ampliar um casamento de IDENTIDADE sem medir contra tráfego real troca uma linha a
+  mais na fila por conversa entregue ao tenant errado. Enquanto isso, a fila de não identificados é
+  a rede de segurança.
+- **Mídia carregada inteira em memória** (`arrayBuffer`) — documento pode ter até 100 MB. Streaming,
+  limite explícito, `X-Content-Type-Options: nosniff` e `attachment` para documento.
+- **Webhook processa tudo antes do 200.** Mover para fila é correto em princípio, mas **não** para o
+  inbound: hoje o retry da Meta é a rede de segurança de uma gravação que falha. O que deve sair da
+  linha síncrona são `statuses` e eventos de template, que são medição.
+- **Unicidade nos eventos de template** (`whatsapp_template_eventos` é insert puro; a Meta reentrega).
+- **`read` e indicador de digitação na Meta**, e **`context.id`** (mensagem citada) — este dá para
+  extrair do `raw` já gravado, na leitura, sem migration.
+- **Retenção/LGPD** de texto, `raw` e mídias, com auditoria de acesso à mídia.
