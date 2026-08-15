@@ -127,7 +127,7 @@ describe('chave interna ≠ nome na Meta', () => {
 
 describe('payload da Graph API', () => {
   it('monta o corpo no formato que a Meta espera', () => {
-    const p = payloadDaMeta(TEMPLATES.nudge_desafio as unknown as TemplateDef);
+    const p: any = payloadDaMeta(TEMPLATES.nudge_desafio as unknown as TemplateDef);
     // O payload leva o `name` (o que existe na Meta), NUNCA a chave do objeto.
     expect(p).toMatchObject({ name: 'registro_desafio', language: 'pt_BR', category: 'UTILITY' });
     expect(p.components[0]!.type).toBe('BODY');

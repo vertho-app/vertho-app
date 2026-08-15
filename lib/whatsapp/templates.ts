@@ -54,6 +54,14 @@
 
 export type TemplateCategoria = 'UTILITY' | 'AUTHENTICATION' | 'MARKETING';
 
+export interface BotaoUrl {
+  texto: string;
+  /** URL com `{{1}}` NO FIM. Domínio e caminho base fixos — ver `payloadDaMeta`. */
+  url: string;
+  /** URL completa de exemplo, com esquema. */
+  exemplo: string;
+}
+
 export interface TemplateDef {
   /** Nome na Meta (minúsculas e underscore — é a chave da API). */
   name: string;
@@ -64,6 +72,13 @@ export interface TemplateDef {
   body: string;
   /** Exemplo por variável, na ordem — a Meta EXIGE para aprovar. */
   example: string[];
+  /**
+   * Botão de URL, quando o template leva link.
+   *
+   * O link vai AQUI e não no corpo: link no corpo é o sinal mais associado a
+   * reprovação e a reclassificação para MARKETING (que custa ~6× mais).
+   */
+  botao?: BotaoUrl;
 }
 
 /**
@@ -113,6 +128,44 @@ export const TEMPLATES = {
     language: 'pt_BR',
     body: 'Olá, {{1}}. O conteúdo da semana {{2}} da sua trilha já está disponível: {{3}}.\n\nVocê pode acessar em:\n{{4}}\n\nO conteúdo é selecionado a partir do seu perfil e da competência desta semana.',
     example: ['Maria', '5', 'Escuta ativa na sala de aula', 'https://ibipeba.vertho.ai/dashboard/temporada/semana/5'],
+  },
+
+  /**
+   * Conteúdo da semana, v2 — a versão que a cadência vai usar.
+   *
+   * POR QUE UM `_v2` E NÃO EDITAR O ANTERIOR
+   * ────────────────────────────────────────
+   * Template aprovado não se edita sem nova revisão, e o nome APAGADO fica
+   * queimado enquanto a exclusão processa (mordeu em 14/08). Nome novo entra na
+   * fila em paralelo; o antigo só sai depois que este aprovar.
+   *
+   * O QUE MUDOU EM RELAÇÃO AO `conteudo_semana`:
+   *   1. O link saiu do CORPO e virou BOTÃO. Link no corpo é o sinal que mais se
+   *      correlacionou com reprovação e com reclassificação para MARKETING.
+   *   2. O link agora é `app.vertho.ai/ir/…` — domínio FIXO, porque a variável
+   *      de botão da Meta só pode ir no fim de uma URL fixa e aqui o domínio é
+   *      o tenant.
+   *   3. A variável carrega semana, formato e pílula: sem isso a pessoa recebe
+   *      "seu vídeo de hoje" e cai numa tela genérica — perda silenciosa que a
+   *      R1 do health existe para pegar.
+   *
+   * ⚠️ **Só existe UM.** A proposta original trazia `pilula_semanal_v2` idêntico
+   * a este; dois templates byte-iguais recebem DUAS classificações independentes
+   * da Meta (4 de 8 mudaram de categoria em 14/08), e aí qual deles o código
+   * escolhe passa a decidir se o envio custa 1× ou 6×.
+   */
+  conteudo_semana_v2: {
+    name: 'conteudo_semana_v2',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. O conteúdo da semana {{2}} da sua trilha está disponível.\n\nTema: {{3}}\n\nO conteúdo é selecionado a partir do seu perfil e da competência desta semana.',
+    example: ['Maria', '5', 'Escuta ativa na sala de aula'],
+    botao: {
+      // Rótulo funcional. "Acesse agora" é chamada de ação e puxa para MARKETING.
+      texto: 'Ver conteúdo',
+      url: 'https://app.vertho.ai/ir/{{1}}',
+      exemplo: 'https://app.vertho.ai/ir/ibipeba/5/video/2',
+    },
   },
 
   /** Semana de aplicação (4/8/12): missão prática, sem conteúdo novo. */
@@ -196,12 +249,43 @@ export function renderTemplate(def: TemplateDef, params: string[]): string {
   return def.body.replace(/\{\{(\d+)\}\}/g, (_, n) => params[Number(n) - 1] ?? '');
 }
 
+/**
+ * Botão de URL com variável — o jeito de mandar link sem link no corpo.
+ *
+ * ⚠️ A META ACEITA **UMA** VARIÁVEL, E ELA VAI NO FIM DE UMA URL FIXA:
+ * "Supports 1 variable, appended to the end of the URL string"
+ * (`https://www.exemplo.com/loja?promo={{1}}`).
+ *
+ * 🔴 Isso colide com o multi-tenant por subdomínio: aqui o DOMÍNIO é o cliente
+ * (`ibipeba.vertho.ai`), então `https://{{1}}` — variável cobrindo o domínio —
+ * é recusado na revisão. Por isso o link sai por `app.vertho.ai/ir/<slug>/…`
+ * (ver `app/ir/[...caminho]/route.ts`), que é domínio fixo e resolve o tenant.
+ *
+ * `exemplo` é a URL COMPLETA que a Meta usa para validar — sem o `https://` ela
+ * reprova por exemplo inválido.
+ */
 /** Payload de criação na Graph API (`POST /{waba-id}/message_templates`). */
 export function payloadDaMeta(def: TemplateDef) {
+  const components: Record<string, unknown>[] = [
+    { type: 'BODY', text: def.body, example: { body_text: [def.example] } },
+  ];
+
+  if (def.botao) {
+    components.push({
+      type: 'BUTTONS',
+      buttons: [{
+        type: 'URL',
+        text: def.botao.texto,
+        url: def.botao.url,
+        example: [def.botao.exemplo],
+      }],
+    });
+  }
+
   return {
     name: def.name,
     language: def.language,
     category: def.category,
-    components: [{ type: 'BODY', text: def.body, example: { body_text: [def.example] } }],
+    components,
   };
 }
