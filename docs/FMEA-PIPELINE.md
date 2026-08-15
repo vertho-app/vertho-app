@@ -671,6 +671,51 @@ enum novo sem mapa **quebra o build**.
 **Classe:** contrato entre dois processos que falam por JSON não é verificado pelo compilador. E
 comentário que promete uma garantia não a implementa.
 
+### F-I15 · Régua oficial faz variantes do modelo COLIDIREM e o upsert perde a avaliação inteira ✅ (corrigido 14/08)
+
+**Gatilho:** `lib/ia4-avaliacao.ts` — `descritor: resolverNomeOficial(d.nome, ctx.descsOficiais)` no
+array do `upsert` com `onConflict: 'colaborador_id,competencia,descritor'`.
+
+`resolverNomeOficial` existe porque o modelo devolve o mesmo descritor com grafias diferentes
+("COO03_D6 — Busca de apoio" e "Busca de apoio (COO03_D6)"). Resolver contra a régua conserta o nome
+— e faz as duas variantes virarem a MESMA chave. O upsert então leva duas linhas iguais e o Postgres
+recusa a operação **inteira**: `ON CONFLICT DO UPDATE command cannot affect row a second time`. A
+avaliação completa da pessoa se perde por causa de uma repetição do modelo.
+
+**O defeito é ANTIGO e era invisível:** só aparece quando existe régua para resolver CONTRA. Com
+descritores livres (competência sem `cod_desc`), duas variantes viravam dois nomes distintos e nunca
+colidiam. Ficou latente até a matriz de Macaé ser semeada — ou seja, apareceria no próximo tenant que
+cadastrasse os descritores corretamente.
+
+**Correção:** dedup por descritor DEPOIS de resolver, consolidando notas repetidas pela média, com
+`console.warn` nomeando quantas colidiram.
+
+**Classe:** correção que só se manifesta depois de OUTRA correção. A primeira metade (resolver o nome)
+criou a segunda (chave duplicada) e ficou dormente esperando o pré-requisito.
+
+### F-I16 · A jornada gerava blueprint e não o lia — `conteudosPorSemana` sem consumidor ✅ (corrigido 14/08)
+
+**Gatilho:** `lib/season-engine/trilha-core.ts` — o bloco `blueprintToTrilhaInputs` vivia só no ramo
+DUO; `PROGRAMA_JORNADA` tem `numCompetencias: 1` e caía em `selectDescriptors`.
+
+`selectDescriptors` aloca UM descritor por semana (modelo anterior ao `conteudosPorSemana: 2`). A
+trilha de 7 semanas saía com 4 descritores e 6 entregas em vez de 7 e 12, e descritores com gap real
+ficavam de fora. O blueprint — gerado, auditado, pago — era ignorado nesse modo.
+
+Ligado o bloco, o adapter ainda rejeitava tudo: `semana de conteúdo 1 sem nenhum descritor
+resolvível`. O nome da competência vem de duas fontes que não combinam — o assessment guarda
+`competencias.nome` ("GERENCIAMENTO DE CONFLITOS") e a IA do blueprint reescreve em caixa mista
+("Gerenciamento de Conflitos"). Os DESCRITORES já eram normalizados; a competência era chave crua.
+Resultado: fallback silencioso, sem erro na tela.
+
+**Correção:** caminho de 1 competência tenta o blueprint quando `conteudosPorSemana >= 2` (mesmo
+fallback e mesma degradação do DUO); `to-descriptors.ts` normaliza a chave da competência e devolve o
+nome do ASSESSMENT — é por ele que o resolver casa `micro_conteudos`. Guarda:
+`tests/unit/blueprint-to-descriptors-competencia.test.ts`, validada por mutação.
+
+**Classe:** config declarada sem consumidor. `conteudosPorSemana: 2` estava certo no objeto e não
+tinha quem o lesse naquele caminho — o modo novo herdou o objeto de config, não os consumidores.
+
 ## 5. Parse de IA / robustez
 
 ### F-P1 · JSON truncado (maxTokens) → falha limpa (blueprint) ou score inflado (auditoria) ✅ (fechado 27/07)

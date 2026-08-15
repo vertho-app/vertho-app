@@ -378,6 +378,21 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   payload INTEIRO e **a mensagem não sai**. Falha total, não parcial (14/08). Mesma classe: o
   `motivo` da telemetria era o literal `'pilula'` sob um comentário que prometia exaustividade do
   TypeScript; promessa em comentário não é garantia — hoje é `satisfies Record<...>`.
+- NÃO afirmar que uma task de IA roda no modelo X só porque está em `DEFAULT_TASK_MODELS`. `callAI`
+  faz `aiConfig?.model || DEFAULT_MODEL` (`claude-sonnet-4-6`) e **não** consulta `getModelForTask` —
+  o `taskKey` só marca o custo no ledger. Nos fluxos de assessment/relatório quem passa o modelo é a
+  TELA, com o que o operador escolheu; sem seleção, roda no 4.6 (medido 14/08: a reancoragem de Macaé
+  saiu no 4.6 apesar de `ia4_avaliacao` estar pinado em Sonnet 5). Em script/lote, resolver com
+  `getModelForTask(empresaId, '<task>')` e **imprimir o modelo**. Caso geral: config declarada não é
+  config aplicada — antes de afirmar que uma chave vale, ache quem a LÊ (o mesmo mordeu em
+  `conteudosPorSemana`, F-I16 do `docs/FMEA-PIPELINE.md`).
+- NÃO escrever filtro de retomada sobre uma propriedade qualquer do alvo — ele tem que descrever **o
+  que a rodada corrige**. Três vezes em 14-15/08: o de blueprint via semanas quando o que mudara eram
+  os descritores; a reancoragem sem filtro repagava 24 pessoas após queda de rede; e o `--forcar` dos
+  relatórios refazia sempre os MESMOS 8 (lista idêntica a cada execução) — pagou IA duas vezes. Para
+  "refazer o que está velho", ordene por `gerado_em` ASC em vez de filtrar: a fila anda sozinha.
+  ⚠️ Quando o INSUMO muda por baixo (reancorar descritores), o artefato antigo **não se anuncia** — o
+  PDF abre normal descrevendo uma régua que não existe mais.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
