@@ -36,16 +36,21 @@
 
 ---
 
-## 0.1 🔴 A decisão que bloqueia o desenho: quem responde?
+## 0.1 ✅ Quem responde: a equipe Vertho (decidido em 14/08/2026)
 
-`/admin-v2` exige `checarAcessoPlataforma` — é **administrador da plataforma**, não o cliente.
+Era o que bloqueava o desenho, e está resolvido: **quem atende é a equipe Vertho**, não o RH das
+escolas contratantes.
 
-- **Se quem responde é a equipe Vertho** → o lugar está certo, e o plano abaixo vale como está.
-- **Se forem RH/gestores dos clientes** → muda tudo: rota dentro do tenant, permissões próprias
-  (`whatsapp.inbox.view` / `whatsapp.inbox.reply`), auditoria de quem respondeu o quê.
+Consequências, que valem como restrição de projeto:
 
-**Nada da fase 2 deve ser construído antes desta resposta.** Não é detalhe de implementação: define
-onde a tela vive e qual o modelo de permissão.
+- **`/admin-v2` é o lugar certo.** O gate `checarAcessoPlataforma` que já existe ali é exatamente o
+  modelo de permissão necessário — não há permissão nova a criar.
+- **Não há rota dentro do tenant.** Se um dia gestores de cliente forem responder, isso NÃO é
+  "liberar a mesma tela": é outra rota, outro gate e auditoria por autor. Reaproveitar a tela de
+  plataforma para o cliente seria dar a um contratante a visão da caixa dos outros.
+- **A auditoria de autor pode ser simples na fase 2** — o time é pequeno e todo mundo é
+  platform-admin. Registrar quem enviou continua obrigatório; o que não é preciso é hierarquia de
+  papéis.
 
 ---
 
@@ -92,17 +97,17 @@ Vertho e um app do Chatwoot inscritos na mesma WABA, cada um com seu endpoint. S
 rota for considerada, **validar isso primeiro** — se não for possível, a escolha vira "inbox do
 Chatwoot **ou** status de entrega", não os dois.
 
-### 2.1 `chatwoot-deploy/` existe — e precisa de uma decisão
+### 2.1 ✅ Chatwoot descartado (14/08/2026)
+
+O caminho Chatwoot está **encerrado** — não é mais alternativa em aberto.
 
 Há um diretório `chatwoot-deploy/` na raiz do workspace (fora de `nextjs-app/`), com
-`docker-compose.yml`, `Caddyfile` e `cloud-init.yaml`. Último commit em **25/06/2026**.
+`docker-compose.yml`, `Caddyfile` e `cloud-init.yaml`, último commit em 25/06/2026. Ele é um repo
+git **próprio e sem remote**: apagá-lo é perda definitiva, não recuperável por `git`. A remoção
+ficou com o dono.
 
-Não está abandonado nem ativo: é um deploy preparado e nunca executado — o que a memória do projeto
-registra como "deploy pende inputs". Enquanto ele existir sem decisão, há **dois planos de inbox
-convivendo**, e o risco não é o disco ocupado: é alguém retomá-lo sem saber que a decisão de
-construir aqui já foi tomada, e por qual motivo (isolamento entre tenants, §2).
-
-**Ou some, ou vira alternativa declarada com a condição de retomada escrita.**
+⚠️ `docs/ESCALA-50K.md` ainda citava o Chatwoot como destino de atendimento humano — corrigido na
+mesma rodada. Doc velho que ensina o errado é uma classe de problema já catalogada nesta base.
 
 ---
 
