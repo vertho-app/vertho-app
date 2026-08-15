@@ -34,6 +34,8 @@ export interface EnvioTemplateResult {
   /** wamid — liga o envio ao webhook de status (mig 212). */
   providerMessageId?: string | null;
   reason?: string;
+  /** Status HTTP da Graph API, quando houve resposta. */
+  status?: number;
 }
 
 export interface EnvioTemplateMeta {
@@ -41,6 +43,120 @@ export interface EnvioTemplateMeta {
   empresaId?: string | null;
   colaboradorId?: string | null;
   dedupeKey?: string | null;
+}
+
+/**
+ * Envia TEXTO LIVRE — só válido dentro da janela de 24h.
+ *
+ * ⚠️ NÃO CHAME SEM VALIDAR A JANELA NO SERVIDOR. Fora dela a Meta recusa com
+ * **131047** ("Message failed to send because more than 24 hours have passed
+ * since the customer last replied"), e do ponto de vista de quem clicou a
+ * mensagem simplesmente não chegou. O estado renderizado na tela envelhece: o
+ * atendente abre com a janela aberta, escreve cinco minutos e envia com ela
+ * fechada. A checagem tem que acontecer no instante do envio, no servidor.
+ *
+ * A telemetria é gravada com `providerMessageId` — é ela que o webhook usa para
+ * aplicar entregue/lido depois (mig 212).
+ */
+export async function enviarTextoCloud(
+  input: { phone: string; texto: string },
+  meta?: EnvioTemplateMeta,
+): Promise<EnvioTemplateResult> {
+  if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
+
+  const fone = normalizePhone(input.phone);
+  if (!fone) return { ok: false, reason: `telefone inválido: ${input.phone}` };
+
+  const texto = input.texto.trim();
+  if (!texto) return { ok: false, reason: 'mensagem vazia' };
+  // Limite da Meta para corpo de texto. Cortar aqui, com erro, é melhor que
+  // deixar a API recusar um texto que a pessoa já considerou enviado.
+  if (texto.length > 4096) return { ok: false, reason: 'mensagem acima de 4096 caracteres' };
+
+  const corpo = {
+    messaging_product: 'whatsapp',
+    to: fone,
+    type: 'text',
+    // `preview_url: false`: link em resposta de atendimento não deve virar card
+    // — o preview é buscado pela Meta e muda o que a pessoa vê sem o atendente
+    // ter escolhido isso.
+    text: { body: texto, preview_url: false },
+  };
+
+  let resultado: EnvioTemplateResult;
+  try {
+    const res = await fetch(`${BASE}/${phoneNumberId()}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo),
+      cache: 'no-store',
+    });
+    const json: any = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      const e = json?.error;
+      const detalhe = e ? `${e.message || ''}${e.code ? ` (${e.code})` : ''}` : '';
+      resultado = { ok: false, status: res.status, reason: `Cloud API HTTP ${res.status}${detalhe ? ': ' + detalhe : ''}` };
+    } else {
+      resultado = { ok: true, providerMessageId: json?.messages?.[0]?.id ?? null };
+    }
+  } catch (e: any) {
+    resultado = { ok: false, reason: `Cloud API rede: ${String(e?.message || e).slice(0, 150)}` };
+  }
+
+  try {
+    await registrarEntrega({
+      canal: 'whatsapp',
+      status: resultado.ok ? 'sucesso' : 'falha',
+      kind: meta?.motivo ?? 'atendimento',
+      empresaId: meta?.empresaId ?? null,
+      colaboradorId: meta?.colaboradorId ?? null,
+      provider: 'cloud-api',
+      error: resultado.ok ? null : (resultado.reason ?? null),
+      dedupeKey: meta?.dedupeKey ?? null,
+      providerMessageId: resultado.providerMessageId ?? null,
+    });
+  } catch (e) {
+    console.error('[cloud-api] telemetria falhou (envio NÃO afetado):', e);
+  }
+
+  return resultado;
+}
+
+/** URL temporária de uma mídia recebida. Expira em minutos — não repassar ao browser. */
+export async function urlDaMidia(mediaId: string): Promise<{ ok: boolean; url?: string; mime?: string; reason?: string }> {
+  if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
+  try {
+    const res = await fetch(`${BASE}/${mediaId}`, {
+      headers: { Authorization: `Bearer ${token()}` },
+      cache: 'no-store',
+    });
+    const json: any = await res.json().catch(() => null);
+    if (!res.ok || !json?.url) {
+      return { ok: false, reason: `mídia HTTP ${res.status}${json?.error?.message ? ': ' + json.error.message : ''}` };
+    }
+    return { ok: true, url: json.url, mime: json.mime_type };
+  } catch (e: any) {
+    return { ok: false, reason: `mídia rede: ${String(e?.message || e).slice(0, 150)}` };
+  }
+}
+
+/**
+ * Baixa o binário da mídia.
+ *
+ * ⚠️ A URL devolvida por `urlDaMidia` exige o **token no header** para ser
+ * baixada — ela não é pública. Repassá-la ao browser não funcionaria e, pior,
+ * vazaria o token se alguém tentasse resolver isso mandando o header junto. Por
+ * isso o servidor busca e transmite: o token nunca sai daqui.
+ */
+export async function baixarMidia(url: string): Promise<{ ok: boolean; body?: ArrayBuffer; mime?: string; reason?: string }> {
+  try {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token()}` }, cache: 'no-store' });
+    if (!res.ok) return { ok: false, reason: `download HTTP ${res.status}` };
+    return { ok: true, body: await res.arrayBuffer(), mime: res.headers.get('content-type') || undefined };
+  } catch (e: any) {
+    return { ok: false, reason: `download rede: ${String(e?.message || e).slice(0, 150)}` };
+  }
 }
 
 /**

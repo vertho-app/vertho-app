@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type { Workspace, FaseReal } from '../actions';
 import TurmasPanel from './TurmasPanel';
+import InboxPanel from './InboxPanel';
 
 const CHIP: Record<FaseReal['estado'], { classe: string; rotulo: string }> = {
   feito: { classe: 'bg-[#2ecc7124] text-[var(--success)]', rotulo: 'Concluído' },
@@ -16,11 +17,14 @@ const CHIP: Record<FaseReal['estado'], { classe: string; rotulo: string }> = {
 const ETAPAS_BASE = [
   { chave: 'visao', rotulo: 'Visão geral' },
   { chave: 'regua', rotulo: 'Definir régua' },
+  // Caixa de entrada do WhatsApp. Última de propósito: é acompanhamento, não
+  // uma etapa da implantação do cliente.
+  { chave: 'mensagens', rotulo: 'Mensagens' },
 ];
 
 export default function ClienteWorkspace({ ws }: { ws: Workspace }) {
   const ETAPAS = ws.portfolio
-    ? [ETAPAS_BASE[0], { chave: 'turmas', rotulo: 'Turmas' }, ETAPAS_BASE[1]]
+    ? [ETAPAS_BASE[0], { chave: 'turmas', rotulo: 'Turmas' }, ETAPAS_BASE[1], ETAPAS_BASE[2]]
     : ETAPAS_BASE;
   const [etapa, setEtapa] = useState<string>('visao');
   const [preflight, setPreflight] = useState(false);
@@ -35,6 +39,8 @@ export default function ClienteWorkspace({ ws }: { ws: Workspace }) {
   const pontoDaEtapa = (chave: string) => {
     if (chave === 'visao') return ws.fases.some((f) => f.estado === 'bloqueado') ? 'bg-[var(--danger)]' : 'bg-[var(--success)]';
     if (chave === 'turmas') return ws.portfolio?.semTurma ? 'bg-[var(--warning)]' : 'bg-[var(--success)]';
+    // Neutro: mensagens não têm estado "certo" ou "errado" — só existem ou não.
+    if (chave === 'mensagens') return 'bg-white/20';
     return ws.cenariosSemCheck > 0 ? 'bg-[var(--warning)]' : 'bg-[var(--success)]';
   };
 
@@ -112,6 +118,8 @@ export default function ClienteWorkspace({ ws }: { ws: Workspace }) {
       {etapa === 'turmas' && ws.portfolio && (
         <TurmasPanel empresaId={ws.empresa.id} portfolio={ws.portfolio} />
       )}
+
+      {etapa === 'mensagens' && <InboxPanel empresaId={ws.empresa.id} />}
 
       {etapa === 'regua' && (
         <div className="flex flex-col gap-3.5">
