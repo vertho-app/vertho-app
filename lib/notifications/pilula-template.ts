@@ -59,10 +59,29 @@ export function caminhoDoBotao(a: Pick<PilulaTemplateArgs, 'slug' | 'semana' | '
   return partes.join('/');
 }
 
-/** Nome do template aprovado, ou `null` quando o caminho está desligado. */
-export function templatePilulaAtivo(): string | null {
-  const nome = (process.env.WHATSAPP_TEMPLATE_PILULA || '').trim();
+/**
+ * Papéis da cadência que podem sair por template.
+ *
+ * Cada um tem a SUA chave: a quinta-feira e a pílula aprovam em momentos
+ * diferentes, e uma chave só obrigaria a ligar tudo junto — ou nada.
+ */
+export type PapelCadencia = 'pilula' | 'evidencia' | 'desafio';
+
+const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
+  pilula: 'WHATSAPP_TEMPLATE_PILULA',
+  evidencia: 'WHATSAPP_TEMPLATE_EVIDENCIA',
+  desafio: 'WHATSAPP_TEMPLATE_DESAFIO',
+};
+
+/** Nome do template aprovado para o papel, ou `null` quando está desligado. */
+export function templateAtivo(papel: PapelCadencia): string | null {
+  const nome = (process.env[ENV_DO_PAPEL[papel]] || '').trim();
   return nome || null;
+}
+
+/** @deprecated use `templateAtivo('pilula')`. Mantido para não quebrar chamador. */
+export function templatePilulaAtivo(): string | null {
+  return templateAtivo('pilula');
 }
 
 /**
@@ -93,6 +112,25 @@ const CONTRATOS: Record<string, MontarParams> = {
     botaoParam: null,
   }),
 
+  /**
+   * Quinta-feira, semana de APLICAÇÃO: cobra o registro de evidência.
+   * APPROVED/UTILITY. `{{1}}`=nome, `{{2}}`=semana, `{{3}}`=link. Sem botão.
+   */
+  registro_evidencia: (a) => ({
+    params: [a.nome, String(a.semana), deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
+    botaoParam: null,
+  }),
+
+  /**
+   * Quinta-feira, semana de CONTEÚDO: cobra a prática do desafio.
+   * APPROVED/UTILITY, mesma forma do `registro_evidencia` — mas texto diferente,
+   * e trocar um pelo outro entrega a cobrança errada para a pessoa certa.
+   */
+  registro_desafio: (a) => ({
+    params: [a.nome, String(a.semana), deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
+    botaoParam: null,
+  }),
+
   /** Copy ANTIGA, aprovada como MARKETING (6× o custo). Link no CORPO, sem botão. */
   pilula_semanal: (a) => ({
     params: [labelFormato(a.formato), a.tema, deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
@@ -110,15 +148,18 @@ export function contratoDoTemplate(nome: string | null): MontarParams | null {
   return nome ? CONTRATOS[nome] ?? null : null;
 }
 
-export async function enviarPilulaPorTemplate(a: PilulaTemplateArgs): Promise<ResultadoPilulaTemplate> {
-  const template = templatePilulaAtivo();
+export async function enviarPorTemplate(
+  papel: PapelCadencia,
+  a: PilulaTemplateArgs,
+): Promise<ResultadoPilulaTemplate> {
+  const template = templateAtivo(papel);
   const montar = contratoDoTemplate(template);
 
   if (!template || !cloudApiConfigurada()) return { tentou: false };
   if (!montar) {
     // Chave apontando para template desconhecido: não envia e DIZ. Silêncio aqui
     // viraria "a pílula não sai e ninguém sabe por quê".
-    console.error(`[pilula-template] WHATSAPP_TEMPLATE_PILULA="${template}" não tem contrato em CONTRATOS — envio NÃO feito.`);
+    console.error(`[cadencia-template] ${ENV_DO_PAPEL[papel]}="${template}" não tem contrato em CONTRATOS — envio NÃO feito.`);
     return { tentou: false };
   }
 
@@ -127,7 +168,9 @@ export async function enviarPilulaPorTemplate(a: PilulaTemplateArgs): Promise<Re
   const r = await enviarTemplateCloud(
     { phone: a.telefone, template, params, botaoParam },
     {
-      motivo: 'pilula',
+      // `motivo` vira o `kind` da telemetria: é o que separa pílula de cobrança
+      // de quinta nas métricas de entrega.
+      motivo: papel,
       empresaId: a.empresaId ?? null,
       colaboradorId: a.colaboradorId ?? null,
       dedupeKey: a.dedupeKey ?? null,
@@ -135,4 +178,9 @@ export async function enviarPilulaPorTemplate(a: PilulaTemplateArgs): Promise<Re
   );
 
   return { tentou: true, ok: r.ok, reason: r.reason };
+}
+
+/** Atalho do papel mais usado — mantém o call-site da pílula legível. */
+export function enviarPilulaPorTemplate(a: PilulaTemplateArgs): Promise<ResultadoPilulaTemplate> {
+  return enviarPorTemplate('pilula', a);
 }

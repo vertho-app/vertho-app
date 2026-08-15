@@ -20,7 +20,7 @@ vi.mock('@/lib/whatsapp/cloud-api', () => ({
   },
 }));
 
-const { enviarPilulaPorTemplate, caminhoDoBotao, templatePilulaAtivo } =
+const { enviarPilulaPorTemplate, enviarPorTemplate, caminhoDoBotao, templatePilulaAtivo } =
   await import('@/lib/notifications/pilula-template');
 
 const base = {
@@ -41,8 +41,14 @@ beforeEach(() => {
   h.envios.length = 0;
   h.resultado = { ok: true, providerMessageId: 'wamid.T1' };
   delete process.env.WHATSAPP_TEMPLATE_PILULA;
+  delete process.env.WHATSAPP_TEMPLATE_EVIDENCIA;
+  delete process.env.WHATSAPP_TEMPLATE_DESAFIO;
 });
-afterEach(() => { delete process.env.WHATSAPP_TEMPLATE_PILULA; });
+afterEach(() => {
+  delete process.env.WHATSAPP_TEMPLATE_PILULA;
+  delete process.env.WHATSAPP_TEMPLATE_EVIDENCIA;
+  delete process.env.WHATSAPP_TEMPLATE_DESAFIO;
+});
 
 describe('o caminho só liga quando o template está aprovado', () => {
   it('🔴 sem a chave, NÃO tenta — o legado segue valendo', async () => {
@@ -151,6 +157,40 @@ describe('🔴 contrato POR TEMPLATE — cada aprovado tem o seu', () => {
     const r = await enviarPilulaPorTemplate(base);
     expect(r.tentou).toBe(false);
     expect(h.envios).toHaveLength(0);
+  });
+});
+
+describe('🔴 a quinta tem DOIS papéis, e trocá-los é entregar a cobrança errada', () => {
+  // Semana de aplicação cobra EVIDÊNCIA; semana de conteúdo cobra o DESAFIO. Os
+  // dois templates têm a MESMA forma (3 variáveis), então trocar um pelo outro
+  // não quebra nada — só manda a mensagem errada para a pessoa certa.
+  it('evidencia: nome, semana e link da SEMANA (sem formato)', async () => {
+    process.env.WHATSAPP_TEMPLATE_EVIDENCIA = 'registro_evidencia';
+    await enviarPorTemplate('evidencia', { ...base, tema: '', formato: null, pilula: null });
+
+    const { template, params, botaoParam } = h.envios[0].input;
+    expect(template).toBe('registro_evidencia');
+    expect(params).toEqual(['Maria', '5', 'https://ibipeba.vertho.ai/dashboard/temporada/semana/5']);
+    expect(botaoParam).toBeNull();
+  });
+
+  it('desafio usa o SEU template, não o da evidência', async () => {
+    process.env.WHATSAPP_TEMPLATE_DESAFIO = 'registro_desafio';
+    await enviarPorTemplate('desafio', { ...base, tema: '', formato: null, pilula: null });
+    expect(h.envios[0].input.template).toBe('registro_desafio');
+  });
+
+  it('cada papel tem a SUA chave — ligar a pílula não liga a quinta', async () => {
+    process.env.WHATSAPP_TEMPLATE_PILULA = 'conteudo_semana';
+    expect((await enviarPorTemplate('evidencia', base)).tentou).toBe(false);
+    expect((await enviarPorTemplate('desafio', base)).tentou).toBe(false);
+    expect((await enviarPorTemplate('pilula', base)).tentou).toBe(true);
+  });
+
+  it('o `kind` da telemetria separa os papéis — senão a métrica funde os três', async () => {
+    process.env.WHATSAPP_TEMPLATE_EVIDENCIA = 'registro_evidencia';
+    await enviarPorTemplate('evidencia', base);
+    expect(h.envios[0].meta.motivo).toBe('evidencia');
   });
 });
 

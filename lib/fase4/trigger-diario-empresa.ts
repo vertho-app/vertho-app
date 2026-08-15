@@ -24,7 +24,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, tenantUrl } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppNudgeDesafio } from '@/lib/notifications';
 import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao, emailEvidencia } from '@/lib/notifications/pilula-envio';
-import { enviarPilulaPorTemplate } from '@/lib/notifications/pilula-template';
+import { enviarPilulaPorTemplate, enviarPorTemplate } from '@/lib/notifications/pilula-template';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
@@ -499,14 +499,33 @@ export async function processarEmpresaDiario(
           ? templateWhatsAppNudgeDesafio(nome, semana, linkSemana)
           : templateWhatsAppEvidencia(nome, semana, linkSemana);
         try {
-          // Carimbo do canal vem do webhook, PÓS-envio — mesmo contrato da
-          // pílula. Carimbar aqui afirmaria envio que ainda pode não sair.
-          const enfileirou = await agendarWhatsapp({
-            telefone, mensagem, kindEnvio: 'evidencia',
-            colaboradorId: envio.colaborador_id, empresaId: empresa.id,
-            fase4EnvioId: envio.id, carimboCampo: 'ultima_evidencia_whatsapp_em',
+          // A quinta tem DOIS papéis, e eles não são intercambiáveis: semana de
+          // aplicação cobra EVIDÊNCIA, semana de conteúdo cobra o DESAFIO.
+          // Trocar um pelo outro entrega a cobrança errada para a pessoa certa,
+          // e nada no código acusaria — por isso o papel vem do mesmo `ehDesafio`
+          // que escolhe a copy do caminho legado.
+          const viaTemplate = await enviarPorTemplate(ehDesafio ? 'desafio' : 'evidencia', {
+            telefone, nome, semana,
+            tema: '',                       // a quinta não anuncia tema
+            slug: (empresa as any).slug, baseUrl,
+            formato: null, pilula: null,    // o link é o da SEMANA, sem formato
+            empresaId: empresa.id, colaboradorId: envio.colaborador_id,
+            dedupeKey: `ultima_evidencia_whatsapp_em:${envio.id}`,
           });
-          if (enfileirou) { evidencias++; evidenciaEnfileirada = true; }
+
+          if (viaTemplate.tentou) {
+            // Cloud API é síncrona: o carimbo é aqui, não no webhook da fila.
+            if (viaTemplate.ok) { evidencias++; stampEv.ultima_evidencia_whatsapp_em = agoraEv; } else erros++;
+          } else {
+            // Carimbo do canal vem do webhook, PÓS-envio — mesmo contrato da
+            // pílula. Carimbar aqui afirmaria envio que ainda pode não sair.
+            const enfileirou = await agendarWhatsapp({
+              telefone, mensagem, kindEnvio: 'evidencia',
+              colaboradorId: envio.colaborador_id, empresaId: empresa.id,
+              fase4EnvioId: envio.id, carimboCampo: 'ultima_evidencia_whatsapp_em',
+            });
+            if (enfileirou) { evidencias++; evidenciaEnfileirada = true; }
+          }
         } catch { erros++; }
       }
 
