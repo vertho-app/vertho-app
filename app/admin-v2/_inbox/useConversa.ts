@@ -158,12 +158,14 @@ export function useConversa(aoMudarLista?: () => void) {
   /**
    * Envia o anexo da conversa aberta, com o rascunho virando legenda.
    *
-   * 🔴 A VALIDAÇÃO ACONTECE NOS DOIS LADOS, e não é redundância. O servidor
-   * continua sendo quem decide — mas um arquivo acima do limite da plataforma
-   * **nunca chega até ele**: a Vercel corta em 4,5 MB na borda e o Next devolve
-   * "unexpected response". Medido em produção em 15/08/2026, no primeiro envio
-   * real: nenhum POST da action nos logs, e a tela inteira caiu no error
-   * boundary. Validar aqui é o que torna a mensagem do servidor ALCANÇÁVEL.
+   * 🔴 O ARQUIVO VAI DIRETO DO NAVEGADOR PARA O STORAGE — a action recebe só o
+   * caminho. É o que permite passar dos 4,5 MB: o corpo de uma request na Vercel
+   * para aí, e no primeiro envio real (15/08/2026) o PDF morreu num 413 sem
+   * nunca chegar ao nosso código, derrubando a tela no error boundary.
+   *
+   * A validação acontece nos dois lados e não é redundância: o servidor decide
+   * (lendo o que está no Storage, não o que o cliente afirma), e o cliente evita
+   * gastar um upload de 100 MB para ouvir "não" depois.
    */
   const enviarAnexo = useCallback(() => {
     if (!ativa) return;
@@ -182,16 +184,39 @@ export function useConversa(aoMudarLista?: () => void) {
     setAviso(null);
 
     startEnvio(async () => {
-      const form = new FormData();
-      form.append('empresaId', alvo.empresaId);
-      form.append('telefone', alvo.telefone);
-      form.append('legenda', legenda);
-      form.append('dedupeKey', dedupeKey);
-      form.append('arquivo', arquivo);
-
       let r: ResultadoEnvio;
       try {
-        r = await responderComAnexo(form);
+        // 1) O servidor assina; 2) o binário sobe direto; 3) a action manda o
+        // link para a Meta buscar.
+        const assinar = await fetch('/api/inbox/anexo/assinar', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ empresaId: alvo.empresaId, mime: arquivo.type, tamanho: arquivo.size }),
+        });
+        const assinatura = await assinar.json().catch(() => null);
+        if (!assinar.ok || !assinatura?.signedUrl) {
+          setAviso(assinatura?.error || 'Não foi possível preparar o envio do arquivo.');
+          return;
+        }
+
+        const up = await fetch(assinatura.signedUrl, {
+          method: 'PUT',
+          headers: { 'content-type': arquivo.type || 'application/octet-stream' },
+          body: arquivo,
+        });
+        if (!up.ok) {
+          setAviso(`Falha ao subir o arquivo (${up.status}). Tente de novo.`);
+          return;
+        }
+
+        r = await responderComAnexo({
+          empresaId: alvo.empresaId,
+          telefone: alvo.telefone,
+          path: assinatura.path,
+          nome: arquivo.name,
+          legenda,
+          dedupeKey,
+        });
       } catch (e) {
         // Sem este catch, a promise rejeitada derruba a SEÇÃO INTEIRA no error
         // boundary — a conversa some da tela e a pessoa perde o que digitou,

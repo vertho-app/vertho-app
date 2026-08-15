@@ -11,7 +11,7 @@ import { montarConversas, montarCaixaGlobal, resumoDaCaixa, rotuloDoTipo, type L
 import {
   chaveDaConversa, lerRascunho, gravarRascunho, criarControleDePedidos,
 } from '@/lib/inbox/rascunhos';
-import { classificarMidia, MIMES_ACEITOS, TETO_ANEXO_BYTES, mensagemDeFalhaDeEnvio } from '@/lib/inbox/anexos';
+import { classificarMidia, MIMES_ACEITOS, TETOS_POR_TIPO, mensagemDeFalhaDeEnvio } from '@/lib/inbox/anexos';
 
 describe('de quem é o telefone — a decisão sobre TODAS as linhas', () => {
   it('uma pessoa, uma empresa: resolve limpo', () => {
@@ -231,19 +231,37 @@ describe('anexos — classificação antes de gastar upload', () => {
     expect(c.motivo).toMatch(/não aceita este tipo/i);
   });
 
-  it('🔴 o teto é 4 MB e a recusa explica que é da HOSPEDAGEM, não do WhatsApp', () => {
-    // Um PDF de 8 MB seria aceito pela Meta (limite 100 MB) e morre no corpo da
-    // request. Culpar o WhatsApp aqui mandaria alguém procurar no lugar errado.
-    const c = classificarMidia('application/pdf', 8 * MB);
-    expect(c.ok).toBe(false);
-    expect(c.motivo).toContain('8.0 MB');
-    expect(c.motivo).toMatch(/hospedagem/i);
-    expect(c.motivo).not.toMatch(/limite do WhatsApp/i);
+  it('🔴 o teto é POR TIPO — o da Meta, agora que o arquivo não passa pela função', () => {
+    // Antes o teto era 4 MB para tudo (corpo da request na Vercel). Com upload
+    // direto para o Storage, vale o limite de cada tipo — e a mensagem diz qual,
+    // senão a pessoa não entende por que 20 MB passa num PDF e não num vídeo.
+    const video = classificarMidia('video/mp4', 20 * MB);
+    expect(video.ok).toBe(false);
+    expect(video.motivo).toMatch(/20 MB/);
+    expect(video.motivo).toMatch(/até 16 MB para vídeo/);
+
+    const imagem = classificarMidia('image/png', 8 * MB);
+    expect(imagem.motivo).toMatch(/5 MB para imagem/);
+
+    // O mesmo tamanho que reprova em vídeo passa em documento.
+    expect(classificarMidia('application/pdf', 20 * MB).ok).toBe(true);
   });
 
-  it('a fronteira do teto: exatamente 4 MB passa, um byte a mais não', () => {
-    expect(classificarMidia('application/pdf', TETO_ANEXO_BYTES).ok).toBe(true);
-    expect(classificarMidia('application/pdf', TETO_ANEXO_BYTES + 1).ok).toBe(false);
+  it('🔴 PDF de 40 MB passa — era exatamente o que o teto antigo barrava', () => {
+    expect(classificarMidia('application/pdf', 40 * MB).ok).toBe(true);
+    expect(classificarMidia('application/pdf', 101 * MB).ok).toBe(false);
+  });
+
+  it('a fronteira de cada tipo: no teto passa, um byte acima não', () => {
+    for (const [mime, teto] of [
+      ['image/png', TETOS_POR_TIPO.image],
+      ['audio/ogg', TETOS_POR_TIPO.audio],
+      ['video/mp4', TETOS_POR_TIPO.video],
+      ['application/pdf', TETOS_POR_TIPO.document],
+    ] as const) {
+      expect(classificarMidia(mime, teto).ok, `${mime} no teto`).toBe(true);
+      expect(classificarMidia(mime, teto + 1).ok, `${mime} acima`).toBe(false);
+    }
   });
 
   it('arquivo vazio é recusado (o navegador entrega File de 0 byte em alguns casos)', () => {

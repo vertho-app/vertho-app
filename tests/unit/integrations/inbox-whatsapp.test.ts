@@ -255,9 +255,10 @@ describe('render da thread não pode excluir mídia OU texto', () => {
   it('🔴 mídia é renderizada em bloco PRÓPRIO, não no ramo "senão" do texto', () => {
     // O padrão proibido é `it.texto ? (…) : it.midiaId ? (…)`: com legenda, o
     // arquivo nunca chega à tela.
-    const excludente = /it\.texto\s*\?[\s\S]{0,400}?:\s*it\.midiaId\s*\?/;
+    const excludente = /it\.texto\s*\?[\s\S]{0,400}?:\s*(it\.midiaId|urlDoAnexo\(it\))\s*\?/;
     expect(excludente.test(fonte)).toBe(false);
-    expect(fonte).toMatch(/\{it\.midiaId\s*&&\s*\(/);
+    // O anexo tem bloco próprio, e a URL cobre as DUAS origens (Meta e Storage).
+    expect(fonte).toMatch(/\{urlDoAnexo\(it\)\s*&&\s*\(/);
   });
 
   it('o nome do arquivo é usado no link do anexo', () => {

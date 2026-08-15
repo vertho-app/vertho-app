@@ -143,7 +143,7 @@ export interface EnvioTemplateMeta {
  * aplicar entregue/lido depois (mig 212).
  */
 export async function enviarTextoCloud(
-  input: { phone: string; texto: string },
+  input: { phone: string; texto: string; previewUrl?: boolean },
   meta?: EnvioTemplateMeta,
 ): Promise<EnvioTemplateResult> {
   if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
@@ -161,10 +161,21 @@ export async function enviarTextoCloud(
     messaging_product: 'whatsapp',
     to: fone,
     type: 'text',
-    // `preview_url: false`: link em resposta de atendimento não deve virar card
-    // — o preview é buscado pela Meta e muda o que a pessoa vê sem o atendente
-    // ter escolhido isso.
-    text: { body: texto, preview_url: false },
+    /*
+     * `preview_url: true` desde 15/08/2026 — decisão REVISTA.
+     *
+     * A versão anterior mandava `false`, com o argumento de que o preview é
+     * buscado pela Meta e muda o que a pessoa vê sem o atendente ter escolhido.
+     * O argumento continua verdadeiro e a conclusão estava errada na prática: o
+     * caso real de link no atendimento é mandar um VÍDEO (YouTube) ou um
+     * material, e sem card a pessoa recebe uma URL crua, sem título nem
+     * miniatura — parece spam justamente onde a confiança importa.
+     *
+     * O preview é do PRIMEIRO link do texto, é montado pela Meta e não altera o
+     * corpo da mensagem. Quem precisar do link "seco" (um link interno que não
+     * deve ser buscado por robô nenhum) passa `previewUrl: false`.
+     */
+    text: { body: texto, preview_url: input.previewUrl ?? true },
   };
 
   let resultado: EnvioTemplateResult;
@@ -314,7 +325,20 @@ export async function subirMidia(
  * sem nome" num canal de trabalho parece arquivo suspeito.
  */
 export async function enviarMidiaCloud(
-  input: { phone: string; tipo: TipoMidia; mediaId: string; legenda?: string | null; nomeArquivo?: string | null },
+  input: {
+    phone: string;
+    tipo: TipoMidia;
+    /** Id de mídia JÁ subida (`subirMidia`) — ou use `link`. */
+    mediaId?: string;
+    /**
+     * URL de onde a META vai BAIXAR o arquivo. É o caminho que permite passar do
+     * teto de 4,5 MB do corpo da nossa função: o binário nunca nos atravessa.
+     * A doc é explícita — "Either `id` or `link` is required".
+     */
+    link?: string;
+    legenda?: string | null;
+    nomeArquivo?: string | null;
+  },
   meta?: EnvioTemplateMeta,
 ): Promise<EnvioTemplateResult> {
   if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
@@ -322,7 +346,11 @@ export async function enviarMidiaCloud(
   const fone = normalizePhone(input.phone);
   if (!fone) return { ok: false, reason: `telefone inválido: ${input.phone}` };
 
-  const midia: Record<string, unknown> = { id: input.mediaId };
+  if (!input.mediaId && !input.link) return { ok: false, reason: 'anexo sem id nem link' };
+
+  // `link` quando o arquivo está fora daqui; `id` quando já foi subido para a
+  // Meta. Mandar os dois é ambiguidade — a API aceita um.
+  const midia: Record<string, unknown> = input.link ? { link: input.link } : { id: input.mediaId };
   const legenda = (input.legenda || '').trim();
   if (legenda && input.tipo !== 'audio') midia.caption = legenda.slice(0, 1024);
   if (input.tipo === 'document' && input.nomeArquivo) midia.filename = input.nomeArquivo;

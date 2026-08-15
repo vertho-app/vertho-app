@@ -6,6 +6,7 @@ import { Inbox } from 'lucide-react';
 import { listarConversas } from './inbox-actions';
 import ThreadView from '../_inbox/ThreadView';
 import { useConversa } from '../_inbox/useConversa';
+import { useIntervaloVisivel } from '../_inbox/useIntervaloVisivel';
 import type { Conversa } from '@/lib/inbox/tipos';
 import { rotuloDoTipo } from '@/lib/inbox/caixa';
 import { restanteLegivel } from '@/lib/inbox/janela';
@@ -24,7 +25,9 @@ import { restanteLegivel } from '@/lib/inbox/janela';
  * polling) vive em `useConversa`, compartilhado com a caixa da equipe.
  */
 
-const POLL_MS = 15_000;
+/** A conversa aberta é o que a pessoa está olhando; a lista custa mais e muda menos. */
+const POLL_THREAD_MS = 5_000;
+const POLL_LISTA_MS = 15_000;
 
 export default function InboxPanel({ empresaId }: { empresaId: string }) {
   const [conversas, setConversas] = useState<Conversa[] | null>(null);
@@ -44,12 +47,11 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
 
   useEffect(() => { void recarregar(); }, [recarregar]);
 
-  // Polling curto: sem volume, websocket seria complexidade sem uso. 15s é
-  // suficiente para atendimento e não pesa no banco.
-  useEffect(() => {
-    const id = setInterval(() => { void recarregar(); atualizar(); }, POLL_MS);
-    return () => clearInterval(id);
-  }, [recarregar, atualizar]);
+  // Dois ritmos, não um: a CONVERSA ABERTA é o que a pessoa está olhando (5s), a
+  // lista muda menos e custa mais (15s). Antes eram os dois a 15s, e a mensagem
+  // que o webhook grava em 2-3s levava até 15 para aparecer.
+  useIntervaloVisivel(atualizar, POLL_THREAD_MS);
+  useIntervaloVisivel(() => { void recarregar(); }, POLL_LISTA_MS);
 
   if (conversas === null && !erroLista) {
     return <p className="py-8 text-center text-[13px] text-[var(--ink-faint)]">Carregando conversas…</p>;

@@ -6,8 +6,9 @@ import { calcularJanela } from '@/lib/inbox/janela';
 import { montarThread } from '@/lib/inbox/thread';
 import { montarConversas, type LinhaConversa } from '@/lib/inbox/caixa';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
-import { enviarTextoCloud, subirMidia, enviarMidiaCloud } from '@/lib/whatsapp/cloud-api';
-import { classificarMidia } from '@/lib/inbox/anexos';
+import { enviarTextoCloud, enviarMidiaCloud } from '@/lib/whatsapp/cloud-api';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { classificarMidia, BUCKET_ANEXOS, TTL_LINK_SEGUNDOS } from '@/lib/inbox/anexos';
 import type { Conversa, ThreadCompleta, ResultadoEnvio } from '@/lib/inbox/tipos';
 
 /**
@@ -321,30 +322,58 @@ async function gravarEnviada(tdb: any, d: {
 /**
  * Responde com um ANEXO (imagem, áudio, vídeo ou documento).
  *
- * Recebe `FormData` porque o arquivo é binário — e é aqui que mora o limite que
- * mais confunde: o corpo de uma request na Vercel para em **4,5 MB**, então o
- * teto real é nosso (4 MB), não o da Meta (que aceita 100 MB de documento). A
- * recusa acontece ANTES do upload e diz o número verdadeiro; deixar subir para
- * morrer num 413 opaco seria impossível de explicar ao cliente.
+ * 🔴 O BINÁRIO NÃO PASSA POR AQUI, e essa é a mudança que sobe o teto de 4 MB
+ * para os limites da própria Meta (100 MB em documento). O navegador já subiu o
+ * arquivo direto para o Storage (`/api/inbox/anexo/assinar`); esta action
+ * recebe só o CAMINHO, assina uma URL de leitura curta e manda o `link` — a
+ * Meta baixa, re-hospeda e entrega como anexo nativo. Do lado de quem recebe,
+ * `link` e `id` são indistinguíveis.
  *
- * Vale a MESMA janela de 24h do texto livre — anexo fora da janela é recusado
- * pela Meta igual, e a checagem é a mesma função (`prepararEnvio`).
+ * O desenho anterior mandava o arquivo pela própria action e morria em 413 na
+ * borda da Vercel, sem nem chegar ao nosso código (medido em 15/08/2026).
+ *
+ * ⚠️ O `path` VEM DO CLIENTE, então nada nele é confiado: o tipo e o tamanho são
+ * lidos do STORAGE (não do que o cliente afirma), e o caminho é usado apenas
+ * dentro do bucket privado — quem escolhe o que enviar continua sendo quem tem
+ * acesso de plataforma, e o que vale é o arquivo que está lá.
+ *
+ * Vale a MESMA janela de 24h do texto livre (`prepararEnvio`).
  */
-export async function responderComAnexo(formData: FormData): Promise<ResultadoEnvio> {
+export async function responderComAnexo(args: {
+  empresaId: string;
+  telefone: string;
+  /** Caminho no bucket, devolvido por `/api/inbox/anexo/assinar`. */
+  path: string;
+  /** Nome original, só para exibir e para o `filename` do documento. */
+  nome: string;
+  legenda?: string;
+  dedupeKey?: string;
+}): Promise<ResultadoEnvio> {
   const email = await exigirPlataforma();
 
-  const empresaId = String(formData.get('empresaId') || '');
-  const telefone = String(formData.get('telefone') || '');
-  const legenda = String(formData.get('legenda') || '').trim();
-  const dedupe = String(formData.get('dedupeKey') || '') || null;
-  const arquivo = formData.get('arquivo');
+  const { empresaId, telefone } = args;
+  const legenda = (args.legenda || '').trim();
+  const dedupe = args.dedupeKey || null;
+  if (!empresaId || !telefone || !args.path) return { ok: false, motivo: 'Conversa ou arquivo inválido.' };
 
-  if (!empresaId || !telefone) return { ok: false, motivo: 'Conversa inválida.' };
-  if (!(arquivo instanceof File) || !arquivo.size) return { ok: false, motivo: 'Nenhum arquivo recebido.' };
+  // `requireAdminSupabase` e não `createSupabaseAdmin`: o client de service-role
+  // sai daqui já com permissão revalidada, e o guard de CI continua com a
+  // allowlist intacta — service-role em action nova é dívida, não conveniência.
+  const sb = await requireAdminSupabase();
 
-  // Classifica ANTES de qualquer I/O: tipo não suportado e arquivo grande demais
-  // são decisões de graça, e o erro precisa chegar como frase, não como código.
-  const classe = classificarMidia(arquivo.type, arquivo.size);
+  // 1) O que está NO STORAGE decide — não o que o cliente disse que subiu.
+  const pasta = args.path.split('/').slice(0, -1).join('/');
+  const arquivoNome = args.path.split('/').pop()!;
+  const { data: lista, error: eL } = await sb.storage.from(BUCKET_ANEXOS)
+    .list(pasta, { search: arquivoNome, limit: 1 });
+  if (eL) return { ok: false, motivo: 'Não foi possível ler o arquivo enviado.' };
+
+  const meta = lista?.[0];
+  if (!meta) return { ok: false, motivo: 'O arquivo não chegou ao servidor. Tente anexar de novo.' };
+
+  const mime = String((meta as any).metadata?.mimetype || '');
+  const tamanho = Number((meta as any).metadata?.size) || 0;
+  const classe = classificarMidia(mime, tamanho);
   if (!classe.ok) return { ok: false, motivo: classe.motivo! };
 
   const tdb = tenantDb(empresaId);
@@ -352,36 +381,34 @@ export async function responderComAnexo(formData: FormData): Promise<ResultadoEn
   if (!preparo.ok) return preparo.resposta!;
   const colaboradorId = preparo.colaboradorId ?? null;
 
-  const nome = (arquivo.name || 'arquivo').slice(0, 120);
+  const nome = (args.nome || arquivoNome).slice(0, 120);
 
-  // 1) Sobe o binário. Falhar aqui é falha de ENVIO, e vira tentativa gravada:
-  // sem isso o atendente não sabe se o anexo foi ou não.
-  const up = await subirMidia(arquivo, arquivo.type, nome);
-  if (!up.ok || !up.mediaId) {
+  // 2) URL curta para a Meta buscar. É a única janela de exposição do arquivo.
+  const { data: assinada, error: eA } = await sb.storage.from(BUCKET_ANEXOS)
+    .createSignedUrl(args.path, TTL_LINK_SEGUNDOS);
+  if (eA || !assinada?.signedUrl) {
     await gravarEnviada(tdb, {
       empresaId, colaboradorId, telefone, email, dedupe,
-      tipo: classe.tipo,
-      texto: legenda || null,
-      raw: { filename: nome },
-      resultado: { ok: false, reason: up.reason ?? 'falha no upload' },
+      tipo: classe.tipo!, texto: legenda || null, raw: { filename: nome },
+      resultado: { ok: false, reason: `falha ao assinar o link: ${eA?.message ?? 'sem URL'}` },
     });
-    return { ok: false, motivo: `Não foi possível enviar o arquivo: ${up.reason ?? 'falha no upload'}` };
+    return { ok: false, motivo: 'Não foi possível preparar o arquivo para envio.' };
   }
 
-  // 2) Envia a mídia já subida.
+  // 3) Envia pelo link.
   const r = await enviarMidiaCloud(
-    { phone: telefone, tipo: classe.tipo, mediaId: up.mediaId, legenda, nomeArquivo: nome },
+    { phone: telefone, tipo: classe.tipo!, link: assinada.signedUrl, legenda, nomeArquivo: nome },
     { motivo: 'atendimento-anexo', empresaId, colaboradorId, dedupeKey: dedupe },
   );
 
-  // 3) Grava no formato DA META (`{ image: { id } }`) — assim o mesmo
-  // `midiaIdDoRaw` que lê o recebido lê o enviado, e o proxy autenticado serve
-  // os dois sem uma linha a mais.
+  // 4) Grava no formato DA META, com o `storage_path` para a limpeza saber o que
+  // apagar. Sem o id da mídia (a Meta re-hospeda e não devolve um), a thread usa
+  // o próprio caminho do Storage para exibir — ver `midiaIdDoRaw`/`linkDoRaw`.
   await gravarEnviada(tdb, {
     empresaId, colaboradorId, telefone, email, dedupe,
-    tipo: classe.tipo,
+    tipo: classe.tipo!,
     texto: legenda || null,
-    raw: { [classe.tipo]: { id: up.mediaId }, filename: nome },
+    raw: { filename: nome, storage_path: args.path, mime },
     resultado: r,
   });
 
@@ -389,17 +416,3 @@ export async function responderComAnexo(formData: FormData): Promise<ResultadoEn
     ? { ok: true, wamid: r.providerMessageId ?? null }
     : { ok: false, motivo: r.reason || 'Falha ao enviar o anexo.' };
 }
-
-/**
- * As mensagens SEM tenant não moram aqui.
- *
- * Elas viviam neste arquivo, numa `listarNaoResolvidas()` que nunca teve
- * consumidor — e o custo disso foi medido em 15/08/2026: a ÚNICA mensagem que o
- * webhook já tinha recebido estava sem empresa, portanto invisível em todas as
- * telas, enquanto o workspace do cliente dizia "nenhuma mensagem recebida". Uma
- * action sem tela não é meio caminho andado; é a lacuna com aparência de
- * cobertura.
- *
- * Agora ficam em `app/admin-v2/inbox` (caixa da equipe), junto com os candidatos
- * a dono e a associação auditada — que é onde alguém realmente as vê.
- */

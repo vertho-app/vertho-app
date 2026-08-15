@@ -32,8 +32,20 @@ import { semComentarios } from '../../helpers/fonte';
  * definição) e 2 webhooks que validam assinatura/segredo próprio.
  */
 
-/** Chamada de gate de SESSÃO (cookie/bearer do usuário). */
-const GATE_SESSAO = /\b(requireUser|requireAdmin|requireRole|requirePermission|requireUserAction|requireAdminAction|getAuthenticatedEmail|requireRepresentative\w*|requireCommercialAdmin)\s*\(/;
+/**
+ * Chamada de gate de SESSÃO (cookie/bearer do usuário).
+ *
+ * ⚠️ SÓ ENTRAM AQUI GATES QUE **LANÇAM**. `requireAdminSupabase` /
+ * `requireEmpresaSupabase` / `exigirAcessoPlataforma` interrompem a execução
+ * quando o acesso falta, então a presença da chamada é prova de proteção.
+ *
+ * 🔴 `checarAcessoPlataforma` NÃO entra, de propósito: ela **retorna**
+ * `{ authorized }` em vez de lançar, e quem chamar sem olhar o retorno fica
+ * desprotegido com a chamada no arquivo. Aceitá-la aqui transformaria o guard
+ * em carimbo — é a mesma armadilha que este arquivo descreve no topo (casar o
+ * import em vez do uso).
+ */
+const GATE_SESSAO = /\b(requireUser|requireAdmin|requireRole|requirePermission|requireUserAction|requireAdminAction|requireAdminSupabase|requireEmpresaSupabase|exigirAcessoPlataforma|getAuthenticatedEmail|requireRepresentative\w*|requireCommercialAdmin)\s*\(/;
 /** Autenticação de MÁQUINA: assinatura de webhook ou segredo compartilhado. */
 const GATE_MAQUINA = /\b(verifyQStashSignature|verifyZapiWebhook|verifyBunnyWebhook|safeSecretEqual)\s*\(|CRON_SECRET|INTERNAL_API_KEY|x-internal-secret/;
 const CSRF = /\bcsrfCheck\s*\(/;

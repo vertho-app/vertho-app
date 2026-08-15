@@ -37,6 +37,13 @@ export interface ItemThread {
   midiaId?: string | null;
   /** Nome original do arquivo, quando o anexo tem um. */
   nomeArquivo?: string | null;
+  /**
+   * Caminho no nosso Storage, para o anexo que ENVIAMOS por `link`.
+   *
+   * A Meta re-hospeda o arquivo e não devolve `media id` nesse caminho — sem
+   * isto, o anexo enviado sumiria da tela de quem mandou.
+   */
+  storagePath?: string | null;
   /** Rótulo do que foi enviado quando não há texto (ex.: "pilula"). */
   rotulo?: string | null;
   /** Estado do provedor: sent | delivered | read | failed. */
@@ -169,6 +176,7 @@ export function montarThread(args: {
       // aconteceu, que é como o atendente reenvia o mesmo arquivo.
       midiaId: midiaIdDoRaw(s.raw),
       nomeArquivo: nomeDoArquivoDoRaw(s.raw),
+      storagePath: s.raw?.storage_path ? String(s.raw.storage_path) : null,
       rotulo: s.template_nome,
       autorEmail: s.autor_email,
       status: st?.provider_status ?? null,

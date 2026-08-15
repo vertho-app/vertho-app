@@ -14,21 +14,42 @@
 
 export type TipoMidia = 'image' | 'audio' | 'video' | 'document';
 
+/** Bucket dos anexos enviados pela equipe (mig 217). Privado e temporário. */
+export const BUCKET_ANEXOS = 'inbox-anexos';
+
 /**
- * 🔴 O TETO É NOSSO, NÃO DA META.
+ * Validade da URL assinada que a META vai buscar.
  *
- * A Meta aceita 5 MB de imagem, 16 MB de áudio/vídeo e **100 MB** de documento
- * (conferido na doc oficial em 15/08/2026). Mas o corpo de uma request na Vercel
- * para em **4,5 MB** — acima disso vem 413 `FUNCTION_PAYLOAD_TOO_LARGE`, antes
- * de qualquer código nosso rodar.
- *
- * ⚠️ E o `next.config.mjs` declara `serverActions.bodySizeLimit: '15mb'`, que é
- * uma promessa que a plataforma não cumpre: funciona em dev e dá 413 em
- * produção. Config declarada não é config aplicada — quem manda aqui é a
- * hospedagem. Por isso 4 MB, com margem para o overhead do multipart, e a
- * recusa acontece ANTES do upload dizendo o número verdadeiro.
+ * Curta de propósito: é a única janela em que o arquivo de uma conversa fica
+ * alcançável por quem tiver o link. A Meta baixa durante o `POST /messages` e
+ * re-hospeda — depois disso a URL não serve mais para nada, e a cópia local
+ * vira lixo a ser expurgado.
  */
-export const TETO_ANEXO_BYTES = 4 * 1024 * 1024;
+export const TTL_LINK_SEGUNDOS = 300;
+
+/**
+ * Teto por TIPO — os limites da própria Meta (doc oficial, 15/08/2026).
+ *
+ * 🔴 ESTES NÚMEROS SÓ VALEM PORQUE O ARQUIVO NÃO PASSA MAIS PELA NOSSA FUNÇÃO.
+ * O desenho anterior subia o binário pela Server Action, e ali o teto real era
+ * **4,5 MB** — o corpo máximo de uma request na Vercel (413
+ * `FUNCTION_PAYLOAD_TOO_LARGE`), que mordeu no primeiro envio real. Hoje o
+ * navegador sobe direto para o Storage (bucket `inbox-anexos`, mig 217) e a Meta
+ * busca por URL assinada; o servidor só assina e manda o link.
+ *
+ * ⚠️ O `next.config.mjs` continua declarando `bodySizeLimit: '15mb'`, que a
+ * plataforma não cumpre — quem depender de corpo grande em OUTRO fluxo vai
+ * encontrar o mesmo 413. Config declarada não é config aplicada.
+ */
+export const TETOS_POR_TIPO: Record<TipoMidia, number> = {
+  image: 5 * 1024 * 1024,
+  audio: 16 * 1024 * 1024,
+  video: 16 * 1024 * 1024,
+  document: 100 * 1024 * 1024,
+};
+
+/** Maior teto possível — usado só para mensagens genéricas. */
+export const TETO_ANEXO_BYTES = TETOS_POR_TIPO.document;
 
 /** MIMEs aceitos pela Cloud API, com o teto de cada um segundo a Meta. */
 export const TIPOS_MIDIA: Record<string, { tipo: TipoMidia; tetoMeta: number }> = {
@@ -53,6 +74,23 @@ export const TIPOS_MIDIA: Record<string, { tipo: TipoMidia; tetoMeta: number }> 
 
 /** Para o `accept` do input — evita escolher o que seria recusado depois. */
 export const MIMES_ACEITOS = Object.keys(TIPOS_MIDIA);
+
+/**
+ * MB para gente ler: sem casa decimal quando é inteiro ("16 MB", não "16.0 MB")
+ * e com VÍRGULA quando não é — a mensagem aparece em pt-BR, e "8.4" ali parece
+ * erro de formatação de sistema, não número.
+ */
+function megabytes(bytes: number): string {
+  const v = bytes / 1024 / 1024;
+  return Number.isInteger(v) ? String(v) : v.toFixed(1).replace('.', ',');
+}
+
+const ROTULO_TIPO: Record<TipoMidia, string> = {
+  image: 'imagem',
+  audio: 'áudio',
+  video: 'vídeo',
+  document: 'documento',
+};
 
 /**
  * ⚠️ Interface achatada, não união discriminada: com `strict: false` no
@@ -106,10 +144,15 @@ export function classificarMidia(mime: string, tamanhoBytes: number): Classifica
     };
   }
   if (tamanhoBytes <= 0) return { ok: false, motivo: 'Arquivo vazio.' };
-  if (tamanhoBytes > TETO_ANEXO_BYTES) {
+
+  // O teto é POR TIPO, e a mensagem diz qual é o do tipo escolhido: "limite de
+  // 16 MB" num vídeo e "100 MB" num PDF explicam; um número único obrigaria a
+  // pessoa a adivinhar por que o mesmo tamanho passa num caso e não no outro.
+  const teto = TETOS_POR_TIPO[entrada.tipo];
+  if (tamanhoBytes > teto) {
     return {
       ok: false,
-      motivo: `Arquivo de ${(tamanhoBytes / 1024 / 1024).toFixed(1)} MB — o limite aqui é 4 MB (restrição da nossa hospedagem, não do WhatsApp). Para algo maior, mande o link.`,
+      motivo: `Arquivo de ${megabytes(tamanhoBytes)} MB — o WhatsApp aceita até ${megabytes(teto)} MB para ${ROTULO_TIPO[entrada.tipo]}. Para algo maior, mande o link.`,
     };
   }
   return { ok: true, tipo: entrada.tipo };

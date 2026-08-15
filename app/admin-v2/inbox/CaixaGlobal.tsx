@@ -8,6 +8,7 @@ import {
 } from './inbox-actions';
 import ThreadView from '../_inbox/ThreadView';
 import { useConversa } from '../_inbox/useConversa';
+import { useIntervaloVisivel } from '../_inbox/useIntervaloVisivel';
 import { rotuloDoTipo } from '@/lib/inbox/caixa';
 import { restanteLegivel } from '@/lib/inbox/janela';
 import type { FilaNaoIdentificada } from '@/lib/inbox/tipos';
@@ -29,7 +30,14 @@ import type { FilaNaoIdentificada } from '@/lib/inbox/tipos';
  * desta tela que exige uma pessoa.
  */
 
-const POLL_MS = 15_000;
+/**
+ * Três ritmos. A fila de não identificados é a mais cara (uma consulta por
+ * empresa para achar os candidatos) e a que menos muda — rodá-la junto com a
+ * thread era gastar várias consultas por ciclo para atualizar o que não mudou.
+ */
+const POLL_THREAD_MS = 5_000;
+const POLL_LISTA_MS = 15_000;
+const POLL_FILA_MS = 60_000;
 
 function Numero({ valor, rotulo, destaque }: { valor: number; rotulo: string; destaque?: boolean }) {
   return (
@@ -56,25 +64,38 @@ export default function CaixaGlobal() {
   const [avisoFila, setAvisoFila] = useState<string | null>(null);
   const [agindo, startAcao] = useTransition();
 
-  const recarregar = useCallback(async () => {
+  const recarregarCaixa = useCallback(async () => {
     try {
-      const [c, f] = await Promise.all([listarCaixaGlobal(), listarFilaNaoIdentificada()]);
-      setCaixa(c);
-      setFila(f);
+      setCaixa(await listarCaixaGlobal());
       setErro(null);
     } catch (e: any) {
       setErro(e?.message || 'Falha ao carregar a caixa.');
     }
   }, []);
 
+  const recarregarFila = useCallback(async () => {
+    try {
+      setFila(await listarFilaNaoIdentificada());
+    } catch (e: any) {
+      // A fila é a parte cara e a menos urgente: falhar aqui não pode esconder
+      // as conversas, que é o que a tela existe para mostrar.
+      console.error('[inbox] fila:', e?.message);
+    }
+  }, []);
+
+  /** Depois de uma ação (envio, associação), as duas partes mudam. */
+  const recarregar = useCallback(async () => {
+    await Promise.all([recarregarCaixa(), recarregarFila()]);
+  }, [recarregarCaixa, recarregarFila]);
+
   const conversa = useConversa(recarregar);
   const { abrir, atualizar, estaAtiva, thread, aviso, rascunho, escrever, enviar, enviando, ativa, anexo, anexar, enviarAnexo } = conversa;
 
   useEffect(() => { void recarregar(); }, [recarregar]);
-  useEffect(() => {
-    const id = setInterval(() => { void recarregar(); atualizar(); }, POLL_MS);
-    return () => clearInterval(id);
-  }, [recarregar, atualizar]);
+
+  useIntervaloVisivel(atualizar, POLL_THREAD_MS);
+  useIntervaloVisivel(() => { void recarregarCaixa(); }, POLL_LISTA_MS);
+  useIntervaloVisivel(() => { void recarregarFila(); }, POLL_FILA_MS);
 
   function associar(item: FilaNaoIdentificada) {
     const telefone = item.telefone;

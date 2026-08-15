@@ -37,6 +37,20 @@ export function IconeTipo({ tipo }: { tipo: string | null }) {
   return null;
 }
 
+/**
+ * De onde vem o arquivo desta linha da conversa.
+ *
+ * Duas origens, uma função: o que a pessoa MANDA fica na Meta (proxy com o
+ * nosso token); o que NÓS mandamos por `link` fica no nosso Storage (a Meta
+ * re-hospeda e não devolve id). Sem tratar as duas, metade dos anexos some da
+ * tela — e some justamente a metade que quem atende acabou de enviar.
+ */
+function urlDoAnexo(it: { midiaId?: string | null; storagePath?: string | null }): string | null {
+  if (it.midiaId) return `/api/inbox/midia/${it.midiaId}`;
+  if (it.storagePath) return `/api/inbox/anexo/ver?path=${encodeURIComponent(it.storagePath)}`;
+  return null;
+}
+
 function tamanhoLegivel(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -121,17 +135,17 @@ export default function ThreadView({
                   dois sentidos: foto com legenda é o formato mais comum de quem
                   responde pelo celular.
                 */}
-                {it.midiaId && (
+                {urlDoAnexo(it) && (
                   <div className="mb-1 flex items-center gap-2">
                     <IconeTipo tipo={it.tipo} />
                     {it.tipo === 'audio' || it.tipo === 'voice' ? (
-                      <audio controls preload="none" className="h-8" src={`/api/inbox/midia/${it.midiaId}`} />
+                      <audio controls preload="none" className="h-8" src={urlDoAnexo(it)!} />
                     ) : it.tipo === 'image' || it.tipo === 'sticker' ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img alt={it.nomeArquivo || 'imagem'} src={`/api/inbox/midia/${it.midiaId}`} className="max-h-52 rounded-lg" />
+                      <img alt={it.nomeArquivo || 'imagem'} src={urlDoAnexo(it)!} className="max-h-52 rounded-lg" />
                     ) : (
                       <a
-                        href={`/api/inbox/midia/${it.midiaId}`}
+                        href={urlDoAnexo(it)!}
                         className="min-w-0 truncate underline"
                         target="_blank"
                         rel="noreferrer"
@@ -146,7 +160,7 @@ export default function ThreadView({
 
                 {it.texto ? (
                   <p className="whitespace-pre-wrap break-words">{it.texto}</p>
-                ) : !it.midiaId ? (
+                ) : !urlDoAnexo(it) ? (
                   <p className="italic text-[var(--ink-faint)]">
                     {it.rotulo ? `enviado: ${it.rotulo}` : '(sem conteúdo)'}
                   </p>

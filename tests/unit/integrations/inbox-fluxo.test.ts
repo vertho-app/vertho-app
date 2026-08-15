@@ -392,80 +392,113 @@ describe('escrita local que falha não pode sumir', () => {
 });
 
 /**
- * Anexo: mesma janela do texto, e tentativa sempre gravada.
+ * Anexo: o binário NÃO passa pela action — ela recebe o caminho no Storage.
  *
- * O anexo compartilha a regra da janela com o texto (`prepararEnvio`) de
- * propósito — duas cópias divergiriam na primeira correção. E o upload que falha
- * precisa virar linha na thread: sem isso o atendente não sabe se o arquivo foi.
+ * O que o servidor decide, ele decide sobre o que ESTÁ NO STORAGE (mime e
+ * tamanho lidos de lá), nunca sobre o que o cliente afirmou ter subido. E a
+ * janela de 24h é a mesma do texto, pela mesma função.
  */
-describe('responder com anexo', () => {
+describe('responder com anexo (upload direto + link)', () => {
   const AGORA = Date.UTC(2026, 7, 15, 12, 0, 0);
-  const arquivo = (nome = 'contrato.pdf', tipo = 'application/pdf', bytes = 1024) =>
-    new File([new Uint8Array(bytes)], nome, { type: tipo });
 
-  function formulario(over: { arquivo?: File; legenda?: string } = {}): FormData {
-    const f = new FormData();
-    f.append('empresaId', 'e1');
-    f.append('telefone', '5511999998888');
-    f.append('legenda', over.legenda ?? '');
-    f.append('arquivo', over.arquivo ?? arquivo());
-    return f;
+  const args = (over: Partial<{ path: string; nome: string; legenda: string }> = {}) => ({
+    empresaId: 'e1',
+    telefone: '5511999998888',
+    path: over.path ?? 'e1/2026-08-15/abc.pdf',
+    nome: over.nome ?? 'contrato.pdf',
+    legenda: over.legenda ?? '',
+  });
+
+  /** Storage com um arquivo válido em `list`. */
+  function mockComArquivo(mime = 'application/pdf', size = 2 * 1024 * 1024) {
+    const m = novoMock({
+      resolver: (t) => (t === 'whatsapp_mensagens_recebidas'
+        ? { recebida_em: new Date(AGORA - 3600_000).toISOString(), colaborador_id: 'c1' }
+        : null),
+    });
+    m.client.storage = {
+      from: () => ({
+        list: async () => ({ data: [{ name: 'abc.pdf', metadata: { mimetype: mime, size } }], error: null }),
+        createSignedUrl: async () => ({ data: { signedUrl: 'https://storage/assinada?token=x' }, error: null }),
+        remove: async () => ({ data: null, error: null }),
+      }),
+    };
+    return m;
   }
-
-  const janelaAberta = (t: string) => (t === 'whatsapp_mensagens_recebidas'
-    ? { recebida_em: new Date(AGORA - 3600_000).toISOString(), colaborador_id: 'c1' }
-    : null);
 
   beforeEach(() => { vi.setSystemTime(AGORA); });
 
-  it('🔴 arquivo grande demais é recusado ANTES de qualquer I/O', async () => {
-    const sb = novoMock({ resolver: janelaAberta });
-    const r = await responderComAnexo(formulario({ arquivo: arquivo('gigante.pdf', 'application/pdf', 5 * 1024 * 1024) }));
+  it('🔴 o TIPO e o TAMANHO vêm do Storage, não do que o cliente disse', async () => {
+    // Cliente jura que é PDF pequeno; no bucket está um executável de 90 MB.
+    const sb = mockComArquivo('application/x-msdownload', 90 * 1024 * 1024);
+    const r = await responderComAnexo(args());
 
     expect(r.ok).toBe(false);
-    expect(r.motivo).toMatch(/limite aqui é 4 MB/);
-    // Nem leu a conversa: a recusa é de graça e não gasta rede.
-    expect(sb.chamadas).toHaveLength(0);
+    expect(r.motivo).toMatch(/não aceita este tipo/i);
+    expect(sb.escritas).toHaveLength(0);
   });
 
-  it('tipo não suportado é recusado sem tocar no banco', async () => {
-    const sb = novoMock({ resolver: janelaAberta });
-    const r = await responderComAnexo(formulario({ arquivo: arquivo('vírus.exe', 'application/x-msdownload') }));
+  it('vídeo acima de 16 MB é recusado com o teto DAQUELE tipo', async () => {
+    mockComArquivo('video/mp4', 20 * 1024 * 1024);
+    const r = await responderComAnexo(args());
+    expect(r.motivo).toMatch(/16 MB para vídeo/);
+  });
+
+  it('PDF de 40 MB PASSA — o teto agora é o da Meta, não o do corpo da request', async () => {
+    const sb = mockComArquivo('application/pdf', 40 * 1024 * 1024);
+    const r = await responderComAnexo(args());
+
+    // Sem credencial da Cloud API no teste, o envio falha — mas passou da
+    // validação de tamanho, que é o que este teste guarda.
+    expect(r.motivo).not.toMatch(/MB/);
+    const escrita = sb.escritas.find((e) => e.tabela === 'whatsapp_mensagens_enviadas');
+    expect(escrita?.payload.tipo).toBe('document');
+  });
+
+  it('arquivo que não chegou ao Storage não vira mensagem', async () => {
+    const sb = novoMock({
+      resolver: (t) => (t === 'whatsapp_mensagens_recebidas'
+        ? { recebida_em: new Date(AGORA - 3600_000).toISOString(), colaborador_id: 'c1' }
+        : null),
+    });
+    sb.client.storage = { from: () => ({ list: async () => ({ data: [], error: null }) }) };
+
+    const r = await responderComAnexo(args());
     expect(r.ok).toBe(false);
+    expect(r.motivo).toMatch(/não chegou/i);
     expect(sb.escritas).toHaveLength(0);
   });
 
   it('🔴 janela fechada bloqueia o anexo pela MESMA regra do texto', async () => {
-    novoMock({
+    const sb = mockComArquivo();
+    (sb as any).client.from = sb.client.from;
+    // Última recebida há 30h: janela fechada.
+    const m = criarSupabaseMock({
       resolver: (t) => (t === 'whatsapp_mensagens_recebidas'
         ? { recebida_em: new Date(AGORA - 30 * 3600_000).toISOString(), colaborador_id: 'c1' }
         : null),
     });
+    m.client.storage = sb.client.storage;
+    h.sb = m;
 
-    const r = await responderComAnexo(formulario());
+    const r = await responderComAnexo(args());
     expect(r.ok).toBe(false);
     expect(r.janelaFechada).toBe(true);
   });
 
-  it('🔴 falha no upload vira TENTATIVA gravada, não silêncio', async () => {
-    // Sem credencial, `subirMidia` recusa — o efeito é o mesmo de um upload que
-    // falhou. A linha tem que existir na thread com o erro à vista.
-    delete process.env.META_WHATSAPPBUSINESS_API;
-    const sb = novoMock({ resolver: janelaAberta });
+  it('grava o storage_path no raw — é o que faz o anexo aparecer na thread', async () => {
+    const sb = mockComArquivo();
+    await responderComAnexo(args());
 
-    const r = await responderComAnexo(formulario());
-
-    expect(r.ok).toBe(false);
     const escrita = sb.escritas.find((e) => e.tabela === 'whatsapp_mensagens_enviadas');
-    expect(escrita?.payload.tipo).toBe('document');
-    expect(escrita?.payload.erro).toBeTruthy();
-    expect(escrita?.payload.wa_message_id).toBeNull();
+    expect(escrita?.payload.raw.storage_path).toBe('e1/2026-08-15/abc.pdf');
+    expect(escrita?.payload.raw.filename).toBe('contrato.pdf');
   });
 
   it('sem acesso de plataforma não lê nem escreve', async () => {
-    const sb = novoMock({ resolver: janelaAberta });
+    const sb = mockComArquivo();
     h.autorizado = false;
-    await expect(responderComAnexo(formulario())).rejects.toThrow(/restrito/i);
+    await expect(responderComAnexo(args())).rejects.toThrow(/restrito/i);
     expect(sb.escritas).toHaveLength(0);
   });
 });
