@@ -169,6 +169,43 @@ export const TEMPLATES = {
   },
 
   /**
+   * PRIMEIRO CONTATO — e é a mensagem mais arriscada do programa inteiro.
+   *
+   * 🔴 O RISCO AQUI NÃO É A CATEGORIA, É O BLOQUEIO. Ela chega de um número que
+   * a pessoa não conhece, e o `boas_vindas` original tinha a FORMA EXATA de um
+   * golpe: saudação genérica + link + "clique para entrar direto, **sem senha**"
+   * + urgência de expiração. É literalmente o que se ensina a não clicar.
+   *
+   * Quem desconfia bloqueia ou marca como spam, e isso não cai sobre a mensagem
+   * — cai sobre o NÚMERO: `quality_rating` desce, o tier de envio encolhe e o
+   * canal morre para todos os tenants de uma vez. Este projeto já perdeu um
+   * número assim em 11/08/2026.
+   *
+   * As três mudanças, todas de copy:
+   *   1. Abre pela INSTITUIÇÃO, não pela Vertho — a pessoa conhece a prefeitura
+   *      ou a escola; a Vertho ela nunca ouviu falar.
+   *   2. Diz POR QUE ela está recebendo ("você foi inscrito pela X"), que é o
+   *      que faz o número desconhecido deixar de ser estranho.
+   *   3. Sai o "sem senha" e a ênfase na expiração — os dois gatilhos de
+   *      desconfiança.
+   *
+   * ⚠️ "É só responder a esta mensagem" só é honesto porque existe a caixa da
+   * equipe (`/admin-v2/inbox`) desde 15/08: alguém LÊ. Antes disso seria
+   * promessa vazia — e promessa vazia no primeiro contato é pior que nenhuma.
+   *
+   * ⚠️ AO LIGAR: mandar em lote pequeno e conferir o `quality_rating` do número
+   * depois (a R12 do health lê isso). Turma inteira de uma vez é a forma de
+   * descobrir tarde que a copy não convenceu.
+   */
+  boas_vindas_v2: {
+    name: 'boas_vindas_v2',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Você foi inscrito(a) pela {{2}} no programa de desenvolvimento de competências.\n\nEste é o canal oficial do programa. Seu acesso está em:\n{{3}}\n\nSe não reconhece este convite, é só responder a esta mensagem.',
+    example: ['Maria', 'Secretaria Municipal de Ibipeba/BA', 'https://ibipeba.vertho.ai/entrar'],
+  },
+
+  /**
    * Missão da semana de aplicação, v2 — tentativa de sair de MARKETING.
    *
    * O `missao_semana` (abaixo) JÁ era factual — sem emoji, sem exclamação, sem
