@@ -46,7 +46,7 @@ function blueprintFake(nomeComp: string) {
 describe('blueprintToTrilhaInputs — competência com grafia diferente', () => {
   it('casa o blueprint mesmo quando a caixa do nome da competência difere', () => {
     const r: any = blueprintToTrilhaInputs(
-      blueprintFake(COMP_BLUEPRINT),
+      blueprintFake(COMP_BLUEPRINT) as any,
       { [COMP_ASSESSMENT]: assessment },
       PROGRAMA_JORNADA,
     );
@@ -64,7 +64,7 @@ describe('blueprintToTrilhaInputs — competência com grafia diferente', () => 
 
   it('devolve a competência com o nome do ASSESSMENT, não o do blueprint', () => {
     const r: any = blueprintToTrilhaInputs(
-      blueprintFake(COMP_BLUEPRINT),
+      blueprintFake(COMP_BLUEPRINT) as any,
       { [COMP_ASSESSMENT]: assessment },
       PROGRAMA_JORNADA,
     );
@@ -75,7 +75,7 @@ describe('blueprintToTrilhaInputs — competência com grafia diferente', () => 
 
   it('continua funcionando quando as grafias coincidem', () => {
     const r: any = blueprintToTrilhaInputs(
-      blueprintFake(COMP_ASSESSMENT),
+      blueprintFake(COMP_ASSESSMENT) as any,
       { [COMP_ASSESSMENT]: assessment },
       PROGRAMA_JORNADA,
     );

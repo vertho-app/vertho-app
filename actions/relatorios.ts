@@ -17,6 +17,7 @@ import React from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { RELATORIO_GESTOR_SYSTEM, RELATORIO_RH_SYSTEM } from '@/lib/relatorios/prompts';
+import { gerarRelatorioIndividualCore } from '@/lib/relatorios/individual-core';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tipos públicos
@@ -96,95 +97,14 @@ export async function gerarRelatorioIndividual(
   aiConfig: AIConfig = {},
 ): Promise<ServerResult> {
   // Sem escape hatch: `empresaId` vem do caller, então um bypass de gate aqui
-  // leria/escreveria QUALQUER tenant. O gate roda sempre.
+  // leria/escreveria QUALQUER tenant. O gate roda sempre. O núcleo mora em
+  // `lib/relatorios/individual-core` — mesmo código para tela e lote headless.
   const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const tdb = tenantDb(empresaId);
-  try {
-    // Montagem do prompt EXTRAÍDA p/ lib/relatorio-individual-prompt (núcleo
-    // headless, fonte única com scripts/lotes). Comportamento idêntico.
-    const built = await buildRelatorioIndividualPrompt(sbRaw, { empresaId, colaboradorId });
-    if ('error' in built) return { success: false, error: built.error };
-    const { system, user, dadosComps, blueprint, colab, empresa } = built;
-
-    const resultado = await callAI(system, user, aiConfig, 64000, {
-      taskKey: 'pdi_individual', empresaId, colaboradorId,
-    });
-    const relatorio: any = await extractJSON(resultado);
-
-    if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
-
-    // Pós-processo: força nivel/nota_decimal dos dados reais (LLM as vezes ignora).
-    const dadosByName = Object.fromEntries(dadosComps.map(d => [normKey(d.competencia), d]));
-    const overlay = (c: any, key: string = 'nome'): any => {
-      const src = dadosByName[normKey(c[key] || c.competencia || c.nome)];
-      if (!src) return c;
-      return {
-        ...c,
-        nivel: src.nivel === 'pendente' ? null : src.nivel,
-        nota_decimal: src.nota_decimal === 'pendente' ? null : src.nota_decimal,
-        flag: src.nivel === 'pendente' || (typeof src.nivel === 'number' && src.nivel < 3),
-      };
-    };
-    if (Array.isArray(relatorio.competencias)) relatorio.competencias = relatorio.competencias.map((c: any) => overlay(c, 'nome'));
-    if (Array.isArray(relatorio.resumo_desempenho)) relatorio.resumo_desempenho = relatorio.resumo_desempenho.map((c: any) => overlay(c, 'competencia'));
-
-    // Binding real "vira trilha" (Estágio 2): LIDO DO BLUEPRINT, não da IA. Persiste
-    // no `conteudo` pra a página "Como este PDI vira trilha" mostrar o vínculo real
-    // (cada semana → ação do PDI). Sem blueprint, ambos ficam ausentes (fallback).
-    if (blueprint) {
-      // trilha_mapa: as semanas com competencia_foco + conexao_com_pdi (ids dos objetivos).
-      relatorio.trilha_mapa = blueprint.trilha;
-      // blueprint_objetivos: mapa { [objetivoId]: { competencia, objetivo, acao_principal } }
-      // pra a página resolver conexao_com_pdi → ação do PDI que a semana sustenta.
-      const blueprintObjetivos: Record<string, { competencia: string; objetivo: string; acao_principal: string }> = {};
-      for (const comp of (blueprint.competencias || [])) {
-        for (const obj of (comp.objetivos_30_dias || [])) {
-          if (!obj?.id) continue;
-          blueprintObjetivos[obj.id] = {
-            competencia: comp.nome,
-            objetivo: obj.objetivo,
-            acao_principal: obj.acao_principal,
-          };
-        }
-      }
-      relatorio.blueprint_objetivos = blueprintObjetivos;
-      // blueprint_conteudos: mapa { [competenciaNome]: [{ tema, formato }] } — a TEORIA
-      // (o que a pessoa vai APRENDER por competência). A página "vira trilha" mostra
-      // aprende+aplica, não só a prática. Temas do blueprint (sempre presentes); o
-      // micro-conteúdo REAL só existe quando a trilha é gerada (refinamento futuro).
-      const blueprintConteudos: Record<string, { tema: string; formato?: string }[]> = {};
-      for (const comp of (blueprint.competencias || [])) {
-        const temas = (comp.conteudos_recomendados || [])
-          .map((cr: any) => ({ tema: cr?.tema, formato: cr?.formato_preferencial }))
-          .filter((t: any) => t.tema);
-        if (temas.length) blueprintConteudos[comp.nome] = temas;
-      }
-      relatorio.blueprint_conteudos = blueprintConteudos;
-    }
-
-    // Gerar PDF
-    let pdfPath: string | null = null;
-    try {
-      const pdfData = { conteudo: relatorio, colaborador_nome: colab.nome_completo, colaborador_cargo: colab.cargo, gerado_em: new Date().toISOString() };
-      const buffer = await gerarPDFBuffer('individual', pdfData, empresa.nome);
-      if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'individual', colab.nome_completo, buffer);
-    } catch (e: any) { console.error('[PDF Gen]', e.message); }
-
-    // Salvar — empresa_id é injetado pelo tdb.upsert
-    const { error: saveErr } = await tdb.from('relatorios').upsert({
-      colaborador_id: colaboradorId,
-      tipo: 'individual',
-      conteudo: relatorio,
-      pdf_path: pdfPath,
-      gerado_em: new Date().toISOString(),
-    }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
-
-    if (saveErr) return { success: false, error: saveErr.message };
-    return { success: true, message: `Relatório gerado: ${colab.nome_completo}${pdfPath ? ' (PDF salvo)' : ''}` };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+  const r = await gerarRelatorioIndividualCore(sbRaw, empresaId, colaboradorId, aiConfig);
+  return r.success
+    ? { success: true, message: r.message }
+    : { success: false, error: r.error };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
