@@ -551,9 +551,17 @@ export async function enviarTemplateCloud(
   if (!fone) return { ok: false, reason: `telefone inválido: ${input.phone}` };
   if (!input.template) return { ok: false, reason: 'template não informado' };
 
-  const components: Record<string, unknown>[] = [
-    { type: 'body', parameters: input.params.map((text) => ({ type: 'text', text: String(text ?? '') })) },
-  ];
+  // ⚠️ CORPO SEM VARIÁVEL NÃO LEVA COMPONENTE. O `acesso_vertho` (aprovado
+  // 15/08) tem texto fixo e só o BOTÃO variável; mandar `{type:'body',
+  // parameters: []}` faz a Meta recusar o envio por parâmetro que o template
+  // não espera — e o efeito seria o login por link parar de sair, calado.
+  const components: Record<string, unknown>[] = [];
+  if (input.params.length) {
+    components.push({
+      type: 'body',
+      parameters: input.params.map((text) => ({ type: 'text', text: String(text ?? '') })),
+    });
+  }
   if (input.botaoParam) {
     components.push({
       type: 'button',

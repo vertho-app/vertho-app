@@ -45,6 +45,7 @@ beforeEach(() => {
   delete process.env.WHATSAPP_TEMPLATE_DESAFIO;
   delete process.env.WHATSAPP_TEMPLATE_RETOMADA;
   delete process.env.WHATSAPP_TEMPLATE_PERFIL;
+  delete process.env.WHATSAPP_TEMPLATE_ACESSO;
 });
 afterEach(() => {
   delete process.env.WHATSAPP_TEMPLATE_PILULA;
@@ -52,6 +53,7 @@ afterEach(() => {
   delete process.env.WHATSAPP_TEMPLATE_DESAFIO;
   delete process.env.WHATSAPP_TEMPLATE_RETOMADA;
   delete process.env.WHATSAPP_TEMPLATE_PERFIL;
+  delete process.env.WHATSAPP_TEMPLATE_ACESSO;
 });
 
 describe('o caminho só liga quando o template está aprovado', () => {
@@ -227,6 +229,32 @@ describe('perfil pronto — o template aprovado que não tinha consumidor', () =
     const { template, params } = h.envios[0].input;
     expect(template).toBe('resultado_perfil');
     expect(params).toEqual(['Maria', 'https://ibipeba.vertho.ai/dashboard/perfil-comportamental']);
+  });
+});
+
+describe('magic link — corpo SEM variável, só o botão', () => {
+  it('🔴 params vazio: o corpo do acesso_vertho é texto fixo', async () => {
+    // Mandar `parameters: []` faria a Meta recusar por parâmetro que o template
+    // não espera — e o login por link pararia de sair, calado.
+    process.env.WHATSAPP_TEMPLATE_ACESSO = 'acesso_vertho';
+    await enviarPorTemplate('acesso', { ...base, acessoParam: 'ibipeba~abc123' });
+
+    const { template, params, botaoParam } = h.envios[0].input;
+    expect(template).toBe('acesso_vertho');
+    expect(params).toEqual([]);
+    expect(botaoParam).toBe('ibipeba~abc123');
+  });
+
+  it('🔴 o botão leva slug~token, nunca a URL completa', async () => {
+    process.env.WHATSAPP_TEMPLATE_ACESSO = 'acesso_vertho';
+    await enviarPorTemplate('acesso', { ...base, acessoParam: 'ibipeba~abc123' });
+    expect(h.envios[0].input.botaoParam).not.toMatch(/^https?:/);
+  });
+
+  it('sem acessoParam não manda botão vazio', async () => {
+    process.env.WHATSAPP_TEMPLATE_ACESSO = 'acesso_vertho';
+    await enviarPorTemplate('acesso', { ...base, acessoParam: null });
+    expect(h.envios[0].input.botaoParam).toBeNull();
   });
 });
 

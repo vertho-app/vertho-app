@@ -4,6 +4,7 @@ import { getTenantSlug } from '@/lib/tenant-resolver';
 import { authLimiter } from '@/lib/rate-limit';
 import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
 import { resolveAppLocale } from '@/lib/i18n';
+import { montarParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
 import { sendAccessLink } from '@/lib/notifications/access-link-service';
 
 export const dynamic = 'force-dynamic';
@@ -53,6 +54,16 @@ export async function POST(req: NextRequest) {
     }
 
     const tokenHash = linkData.properties.hashed_token;
+    // `ibipeba.vertho.ai` → `ibipeba`. Sem slug utilizável (host sem tenant), o
+    // template não é usado e o caminho legado assume — melhor um envio pelo
+    // caminho antigo que um link que leva ao subdomínio errado.
+    const slugDoTenant = (() => {
+      try {
+        const host = new URL(redirect.origin).hostname;
+        const [primeiro, ...resto] = host.split('.');
+        return resto.length >= 2 && primeiro && primeiro !== 'app' ? primeiro : null;
+      } catch { return null; }
+    })();
     const callbackLink = tokenHash
       ? `${redirect.origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(redirect.nextPath)}`
       : linkData.properties.action_link;
@@ -65,6 +76,12 @@ export async function POST(req: NextRequest) {
       empresaId: (empresa as any)?.id ?? colab.empresa_id ?? null, // gate de tenant-demo
       locale,
       whatsappLink: callbackLink,
+      // Parâmetro do BOTÃO do template aprovado: `<slug>~<token_hash>`. O slug
+      // sai do host do redirect — é ele que diz em qual subdomínio a sessão
+      // precisa nascer, e o cookie fica preso ao host exato.
+      acessoParam: slugDoTenant && tokenHash
+        ? montarParametroAcesso(slugDoTenant, tokenHash)
+        : null,
       channels: ['whatsapp'],
     });
 

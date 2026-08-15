@@ -33,6 +33,8 @@ export interface PilulaTemplateArgs {
   empresaId?: string | null;
   colaboradorId?: string | null;
   dedupeKey?: string | null;
+  /** `<slug>~<token_hash>` do magic link — só para o papel `acesso`. */
+  acessoParam?: string | null;
 }
 
 export interface ResultadoPilulaTemplate {
@@ -65,7 +67,7 @@ export function caminhoDoBotao(a: Pick<PilulaTemplateArgs, 'slug' | 'semana' | '
  * Cada um tem a SUA chave: a quinta-feira e a pílula aprovam em momentos
  * diferentes, e uma chave só obrigaria a ligar tudo junto — ou nada.
  */
-export type PapelCadencia = 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil';
+export type PapelCadencia = 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil' | 'acesso';
 
 const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   pilula: 'WHATSAPP_TEMPLATE_PILULA',
@@ -73,6 +75,7 @@ const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   desafio: 'WHATSAPP_TEMPLATE_DESAFIO',
   retomada: 'WHATSAPP_TEMPLATE_RETOMADA',
   perfil: 'WHATSAPP_TEMPLATE_PERFIL',
+  acesso: 'WHATSAPP_TEMPLATE_ACESSO',
 };
 
 /** Nome do template aprovado para o papel, ou `null` quando está desligado. */
@@ -162,6 +165,26 @@ const CONTRATOS: Record<string, MontarParams> = {
   resultado_perfil: (a) => ({
     params: [a.nome, `${a.baseUrl}/dashboard/perfil-comportamental`],
     botaoParam: null,
+  }),
+
+  /**
+   * Magic link por WhatsApp. APPROVED/UTILITY (15/08).
+   *
+   * 🔴 CORPO SEM VARIÁVEL — texto fixo, e só o BOTÃO varia. `params` vazio é
+   * intencional: com um array vazio, `enviarTemplateCloud` OMITE o componente
+   * body, porque mandar `parameters: []` faz a Meta recusar por parâmetro que o
+   * template não espera.
+   *
+   * O `{{1}}` do botão é `<slug>~<token_hash>` (`montarParametroAcesso`), e quem
+   * o desempacota é `/entrar` — a base do botão é fixa e o multi-tenant vive em
+   * subdomínio, então o salto existe para a sessão nascer no host certo.
+   *
+   * ⚠️ O parâmetro aqui NÃO é o link completo: mandar a URL inteira produziria
+   * `/entrar?t=https://…`, que não dá erro na API e leva a pessoa a lugar nenhum.
+   */
+  acesso_vertho: (a) => ({
+    params: [],
+    botaoParam: a.acessoParam ?? null,
   }),
 
   /** Copy ANTIGA, aprovada como MARKETING (6× o custo). Link no CORPO, sem botão. */

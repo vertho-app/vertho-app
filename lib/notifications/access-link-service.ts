@@ -4,6 +4,7 @@ import { escaparLike } from '@/lib/sql-like';
 import type { AppLocale } from '@/i18n/routing';
 import { magicLinkEmail, magicLinkWhatsapp, signupEmail, signupWhatsapp } from '@/lib/i18n-auth-templates';
 import { sendWhatsapp } from '@/lib/whatsapp';
+import { enviarPorTemplate } from '@/lib/notifications/pilula-template';
 import { isTenantDemo } from '@/lib/demo/envio-guard';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { createSupabaseAdmin } from '@/lib/supabase';
@@ -49,6 +50,14 @@ export type SendAccessLinkInput = {
   channels?: Array<'email' | 'whatsapp'>;
   /** conjunto de templates: 'magic-link' (login, default) ou 'signup' (boas-vindas) */
   kind?: 'magic-link' | 'signup';
+  /**
+   * `<slug>~<token_hash>` para o BOTÃO do template aprovado (`acesso_vertho`).
+   *
+   * Quando presente e o template estiver ligado, o link sai pela Cloud API. Sem
+   * ele, o caminho é o legado (texto livre) — que hoje depende da Z-API, e ela
+   * está desconectada desde 11/08 (93 magic links falharam por isso).
+   */
+  acessoParam?: string | null;
 };
 
 /**
@@ -156,6 +165,28 @@ async function enviarWhatsapp(p: SendAccessLinkInput, out: SendAccessLinkResult)
     out.whatsappReason = 'link de whatsapp não disponível';
     return;
   }
+  // 1) Template aprovado pela Cloud API — o caminho que funciona hoje.
+  //    O legado (texto livre) depende da Z-API, desconectada desde 11/08: 93
+  //    magic links falharam por isso, e login que não chega é a pessoa fora.
+  if (p.acessoParam) {
+    const viaTemplate = await enviarPorTemplate('acesso', {
+      telefone: p.telefone, nome: p.nome, semana: 1, tema: '',
+      slug: '', baseUrl: '', formato: null, pilula: null,
+      empresaId: p.empresaId ?? null, colaboradorId: null,
+      dedupeKey: null,
+      acessoParam: p.acessoParam,
+    });
+
+    if (viaTemplate.tentou) {
+      if (viaTemplate.ok) { out.whatsapp = 'sent'; return; }
+      // NÃO cai no legado: o template pode ter sido aceito e falhado depois, e
+      // dois links de acesso na mesma conversa é convite a usar o expirado.
+      out.whatsapp = 'failed';
+      out.whatsappReason = (viaTemplate.reason || 'falha no envio').slice(0, 200);
+      return;
+    }
+  }
+
   const buildWa = p.kind === 'signup' ? signupWhatsapp : magicLinkWhatsapp;
   const msg = buildWa(p.locale, { nome: p.nome, empresaNome: p.empresaNome, link: p.whatsappLink });
   // Serviço central: normaliza telefone + failover entre provedores (Z-API → WaSender).
