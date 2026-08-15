@@ -113,27 +113,44 @@ export default function ThreadView({
                       : 'bg-white/[0.03] text-[var(--ink-dim)]'
                 }`}
               >
-                {it.texto ? (
-                  <p className="whitespace-pre-wrap break-words">{it.texto}</p>
-                ) : it.midiaId ? (
-                  <div className="flex items-center gap-2">
+                {/*
+                  🔴 MÍDIA E TEXTO, NUNCA "OU". Isto era um if/else, e o efeito
+                  foi medido em produção no primeiro anexo real: um PDF enviado
+                  COM legenda entregou o arquivo à pessoa e, na thread, mostrou
+                  só a legenda — o anexo sumia da tela de quem mandou. Vale nos
+                  dois sentidos: foto com legenda é o formato mais comum de quem
+                  responde pelo celular.
+                */}
+                {it.midiaId && (
+                  <div className="mb-1 flex items-center gap-2">
                     <IconeTipo tipo={it.tipo} />
                     {it.tipo === 'audio' || it.tipo === 'voice' ? (
                       <audio controls preload="none" className="h-8" src={`/api/inbox/midia/${it.midiaId}`} />
-                    ) : it.tipo === 'image' ? (
+                    ) : it.tipo === 'image' || it.tipo === 'sticker' ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img alt="imagem recebida" src={`/api/inbox/midia/${it.midiaId}`} className="max-h-52 rounded-lg" />
+                      <img alt={it.nomeArquivo || 'imagem'} src={`/api/inbox/midia/${it.midiaId}`} className="max-h-52 rounded-lg" />
                     ) : (
-                      <a href={`/api/inbox/midia/${it.midiaId}`} className="underline" target="_blank" rel="noreferrer">
-                        abrir {it.tipo}
+                      <a
+                        href={`/api/inbox/midia/${it.midiaId}`}
+                        className="min-w-0 truncate underline"
+                        target="_blank"
+                        rel="noreferrer"
+                        title={it.nomeArquivo || undefined}
+                      >
+                        {/* O NOME importa: "abrir document" não distingue um anexo do outro. */}
+                        {it.nomeArquivo || `abrir ${it.tipo}`}
                       </a>
                     )}
                   </div>
-                ) : (
+                )}
+
+                {it.texto ? (
+                  <p className="whitespace-pre-wrap break-words">{it.texto}</p>
+                ) : !it.midiaId ? (
                   <p className="italic text-[var(--ink-faint)]">
                     {it.rotulo ? `enviado: ${it.rotulo}` : '(sem conteúdo)'}
                   </p>
-                )}
+                ) : null}
 
                 <div className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-[var(--ink-faint)]">
                   <span>{new Date(it.em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>

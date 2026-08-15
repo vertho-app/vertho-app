@@ -15,8 +15,9 @@
  *    tela dizer que uma conversa expirou quando ela nunca existiu.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { calcularJanela, restanteLegivel, JANELA_MS } from '@/lib/inbox/janela';
-import { montarThread, midiaIdDoRaw } from '@/lib/inbox/thread';
+import { montarThread, midiaIdDoRaw, nomeDoArquivoDoRaw } from '@/lib/inbox/thread';
 
 const T0 = Date.parse('2026-08-14T12:00:00.000Z');
 
@@ -197,5 +198,69 @@ describe('anexo enviado na thread', () => {
     });
     expect(item.erro).toBe('upload HTTP 400');
     expect(item.midiaId).toBeNull();
+  });
+});
+
+/**
+ * 🔴 Nome do arquivo: sem ele, todo anexo vira "abrir document".
+ *
+ * A Meta manda o nome DENTRO do objeto do tipo (`document.filename`); o nosso
+ * envio grava ao lado. Duas origens, uma leitura.
+ */
+describe('nome do arquivo no anexo', () => {
+  it('lê o nome no formato que a Meta manda (dentro do tipo)', () => {
+    expect(nomeDoArquivoDoRaw({ document: { id: '1', filename: 'contrato.pdf' } })).toBe('contrato.pdf');
+  });
+
+  it('lê o nome no formato que NÓS gravamos (ao lado)', () => {
+    expect(nomeDoArquivoDoRaw({ document: { id: '1' }, filename: 'proposta.pdf' })).toBe('proposta.pdf');
+  });
+
+  it('anexo sem nome e mensagem de texto não inventam nome', () => {
+    expect(nomeDoArquivoDoRaw({ image: { id: '1' } })).toBeNull();
+    expect(nomeDoArquivoDoRaw({ text: { body: 'oi' } })).toBeNull();
+    expect(nomeDoArquivoDoRaw(null)).toBeNull();
+  });
+
+  it('a thread carrega o nome junto do id da mídia', () => {
+    const [item] = montarThread({
+      recebidas: [], entregas: [],
+      enviadas: [{
+        id: 'e1', texto: 'segue', tipo: 'document', template_nome: null,
+        autor_email: 'equipe@vertho.ai', origem: 'inbox', erro: null,
+        enviada_em: '2026-08-15T12:00:00Z', wa_message_id: 'wamid.X',
+        raw: { document: { id: '99' }, filename: 'APRESENTAÇÃO.pdf' },
+      }],
+    });
+    // 🔴 Os DOIS ao mesmo tempo: foi exatamente isto que a tela descartava.
+    expect(item.midiaId).toBe('99');
+    expect(item.nomeArquivo).toBe('APRESENTAÇÃO.pdf');
+    expect(item.texto).toBe('segue');
+  });
+});
+
+/**
+ * Guard do CONSUMIDOR — o `montarThread` já entregava mídia e texto juntos, e a
+ * TELA descartava um deles.
+ *
+ * Este é o segundo caso da mesma classe nesta base: o dado estava certo, o
+ * consumidor decidia errado, e nenhum teste sobre o dado podia pegar. A suíte
+ * roda em ambiente `node` (sem testing-library), então a verificação possível é
+ * estática — e é melhor que nada exatamente porque a falha é invisível de todo
+ * outro ângulo: o anexo simplesmente não aparece.
+ */
+describe('render da thread não pode excluir mídia OU texto', () => {
+  const fonte = readFileSync('app/admin-v2/_inbox/ThreadView.tsx', 'utf-8');
+
+  it('🔴 mídia é renderizada em bloco PRÓPRIO, não no ramo "senão" do texto', () => {
+    // O padrão proibido é `it.texto ? (…) : it.midiaId ? (…)`: com legenda, o
+    // arquivo nunca chega à tela.
+    const excludente = /it\.texto\s*\?[\s\S]{0,400}?:\s*it\.midiaId\s*\?/;
+    expect(excludente.test(fonte)).toBe(false);
+    expect(fonte).toMatch(/\{it\.midiaId\s*&&\s*\(/);
+  });
+
+  it('o nome do arquivo é usado no link do anexo', () => {
+    expect(fonte).toMatch(/it\.nomeArquivo\s*\|\|\s*`abrir/);
   });
 });

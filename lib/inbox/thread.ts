@@ -35,6 +35,8 @@ export interface ItemThread {
   tipo: string;
   /** Id da mídia na Meta, quando houver — usado pelo proxy autenticado. */
   midiaId?: string | null;
+  /** Nome original do arquivo, quando o anexo tem um. */
+  nomeArquivo?: string | null;
   /** Rótulo do que foi enviado quando não há texto (ex.: "pilula"). */
   rotulo?: string | null;
   /** Estado do provedor: sent | delivered | read | failed. */
@@ -99,6 +101,23 @@ export function midiaIdDoRaw(raw: any): string | null {
 }
 
 /**
+ * Nome do arquivo, quando há.
+ *
+ * Dois lugares porque são duas origens: no que a Meta MANDA ele vem dentro do
+ * objeto do tipo (`document.filename`); no que NÓS gravamos, ao lado. Um link
+ * escrito "abrir document" é indistinguível de qualquer outro anexo da conversa
+ * — o nome é o que permite achar o arquivo certo depois.
+ */
+export function nomeDoArquivoDoRaw(raw: any): string | null {
+  if (!raw || typeof raw !== 'object') return null;
+  for (const k of ['document', 'audio', 'image', 'video']) {
+    const nome = raw?.[k]?.filename;
+    if (nome) return String(nome);
+  }
+  return raw?.filename ? String(raw.filename) : null;
+}
+
+/**
  * Une os três lados numa linha do tempo única, do mais antigo ao mais recente.
  *
  * A deduplicação importa: um envio da inbox aparece nas DUAS tabelas — texto em
@@ -129,6 +148,7 @@ export function montarThread(args: {
       texto: r.texto,
       tipo: r.tipo,
       midiaId: midiaIdDoRaw(r.raw),
+      nomeArquivo: nomeDoArquivoDoRaw(r.raw),
     });
   }
 
@@ -148,6 +168,7 @@ export function montarThread(args: {
       // aparecia como "(sem conteúdo)" — a conversa mostrava metade do que
       // aconteceu, que é como o atendente reenvia o mesmo arquivo.
       midiaId: midiaIdDoRaw(s.raw),
+      nomeArquivo: nomeDoArquivoDoRaw(s.raw),
       rotulo: s.template_nome,
       autorEmail: s.autor_email,
       status: st?.provider_status ?? null,
