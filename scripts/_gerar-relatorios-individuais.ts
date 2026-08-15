@@ -34,11 +34,24 @@ async function main() {
   const alvos = [...new Set((trilhas || []).map((t: any) => t.colaborador_id))];
 
   const { data: jaTem } = await sb.from('relatorios')
-    .select('colaborador_id, pdf_path').eq('empresa_id', empresaId).eq('tipo', 'individual');
+    .select('colaborador_id, pdf_path, gerado_em').eq('empresa_id', empresaId).eq('tipo', 'individual');
   // Só conta como pronto quem tem PDF: relatório sem `pdf_path` é justamente o
   // caso que precisa ser refeito.
   const prontos = new Set((jaTem || []).filter((r: any) => r.pdf_path).map((r: any) => r.colaborador_id));
-  const pendentes = alvos.filter((id) => !prontos.has(id)).slice(0, MAX);
+  // `--forcar` refaz quem já tem PDF. Necessário quando o INSUMO mudou e o
+  // relatório não: reancorar uma competência troca os descritores por baixo, e
+  // o PDF antigo continua descrevendo a régua velha sem nada indicar isso.
+  const FORCAR = process.argv.includes('--forcar');
+  // Com `--forcar`, a fila tem de andar: ordenar do MAIS ANTIGO para o mais
+  // recente faz cada lote pegar os que ainda não foram refeitos. Sem isso, a
+  // lista é sempre a mesma e `--max=8` regera os MESMOS 8 a cada execução —
+  // pagando IA de novo e nunca chegando ao fim (medido 15/08). Terceira vez no
+  // dia que um filtro de retomada não enxergava o que a rodada corrige.
+  const geradoEm = new Map((jaTem || []).map((r: any) => [r.colaborador_id, r.gerado_em || '']));
+  const fila = FORCAR
+    ? [...alvos].sort((a, b) => String(geradoEm.get(a) || '').localeCompare(String(geradoEm.get(b) || '')))
+    : alvos.filter((id) => !prontos.has(id));
+  const pendentes = fila.slice(0, MAX);
 
   const { data: nomes } = await sb.from('colaboradores')
     .select('id, nome_completo').eq('empresa_id', empresaId).in('id', pendentes.length ? pendentes : ['x']);
