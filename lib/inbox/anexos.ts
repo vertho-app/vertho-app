@@ -72,6 +72,31 @@ export interface Classificacao {
  * O arquivo pode ir? Decide ANTES de gastar upload — e a recusa explica o porquê
  * na linguagem de quem escolheu o arquivo, não em código de erro.
  */
+/**
+ * Traduz uma falha de ENVIO que não veio como resposta da action.
+ *
+ * 🔴 MEDIDO EM 15/08/2026, e é o motivo desta função existir: um anexo acima do
+ * limite da plataforma **nunca chega ao servidor** — a Vercel devolve 413 na
+ * borda, sem invocar a função (os logs mostraram GETs da página e NENHUM POST da
+ * action). O Next então rejeita a chamada com "An unexpected response was
+ * received from the server", o error boundary engole a tela inteira, e quem
+ * anexou lê "Algo deu errado nesta seção".
+ *
+ * Ou seja: a mensagem amigável de "limite é 4 MB", que vive no servidor, era
+ * INALCANÇÁVEL justamente para os arquivos que mais precisavam dela. Mesma
+ * classe do pré-requisito impossível que torna a etapa seguinte inatingível.
+ */
+export function mensagemDeFalhaDeEnvio(erro: unknown): string {
+  const texto = String((erro as any)?.message || erro || '');
+  if (/unexpected response|Failed to fetch|NetworkError|413|too large/i.test(texto)) {
+    return 'O servidor recusou o envio antes de recebê-lo — em geral, arquivo grande demais (o limite é 4 MB) ou sessão expirada. Tente um arquivo menor; se persistir, recarregue a página.';
+  }
+  if (/restrito|não autorizado|unauthorized/i.test(texto)) {
+    return 'Sua sessão expirou. Recarregue a página e entre de novo.';
+  }
+  return texto ? `Falha ao enviar: ${texto}` : 'Falha ao enviar.';
+}
+
 export function classificarMidia(mime: string, tamanhoBytes: number): Classificacao {
   const entrada = TIPOS_MIDIA[String(mime || '').toLowerCase()];
   if (!entrada) {

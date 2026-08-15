@@ -6,6 +6,7 @@ import {
   chaveDaConversa, lerRascunho, gravarRascunho, criarControleDePedidos,
   type Alvo, type Rascunhos,
 } from '@/lib/inbox/rascunhos';
+import { classificarMidia, mensagemDeFalhaDeEnvio } from '@/lib/inbox/anexos';
 import type { ThreadCompleta, ResultadoEnvio } from '@/lib/inbox/tipos';
 
 export type { Alvo };
@@ -97,12 +98,20 @@ export function useConversa(aoMudarLista?: () => void) {
     setAviso(null);
 
     startEnvio(async () => {
-      const r: ResultadoEnvio = await responderConversa({
-        empresaId: alvo.empresaId,
-        telefone: alvo.telefone,
-        texto: corpo,
-        dedupeKey,
-      });
+      let r: ResultadoEnvio;
+      try {
+        r = await responderConversa({
+          empresaId: alvo.empresaId,
+          telefone: alvo.telefone,
+          texto: corpo,
+          dedupeKey,
+        });
+      } catch (e) {
+        // Idem ao anexo: falha de rede ou sessão expirada não pode derrubar a
+        // tela. O texto digitado continua no rascunho da conversa.
+        setAviso(mensagemDeFalhaDeEnvio(e));
+        return;
+      }
 
       if (!r.ok) {
         setAviso(r.motivo || 'Falha ao enviar.');
@@ -127,6 +136,18 @@ export function useConversa(aoMudarLista?: () => void) {
     if (!ativa) return;
     const k = chaveDaConversa(ativa);
     setAviso(null);
+
+    // Recusa no ATO da escolha, não no clique de enviar: deixar um arquivo
+    // grande demais "anexado" na tela promete um envio que nunca vai acontecer,
+    // e a pessoa só descobre depois de escrever a legenda.
+    if (arquivo) {
+      const classe = classificarMidia(arquivo.type, arquivo.size);
+      if (!classe.ok) {
+        setAviso(classe.motivo!);
+        return;
+      }
+    }
+
     setAnexos((a) => {
       const proximo = { ...a };
       if (arquivo) proximo[k] = arquivo; else delete proximo[k];
@@ -137,15 +158,24 @@ export function useConversa(aoMudarLista?: () => void) {
   /**
    * Envia o anexo da conversa aberta, com o rascunho virando legenda.
    *
-   * A validação de tipo/tamanho fica no SERVIDOR (`classificarMidia`): o input
-   * `accept` só evita o incômodo de escolher o que seria recusado — quem decide
-   * não pode ser o cliente.
+   * 🔴 A VALIDAÇÃO ACONTECE NOS DOIS LADOS, e não é redundância. O servidor
+   * continua sendo quem decide — mas um arquivo acima do limite da plataforma
+   * **nunca chega até ele**: a Vercel corta em 4,5 MB na borda e o Next devolve
+   * "unexpected response". Medido em produção em 15/08/2026, no primeiro envio
+   * real: nenhum POST da action nos logs, e a tela inteira caiu no error
+   * boundary. Validar aqui é o que torna a mensagem do servidor ALCANÇÁVEL.
    */
   const enviarAnexo = useCallback(() => {
     if (!ativa) return;
     const alvo = ativa;
     const arquivo = anexos[chaveDaConversa(alvo)];
     if (!arquivo) return;
+
+    const classe = classificarMidia(arquivo.type, arquivo.size);
+    if (!classe.ok) {
+      setAviso(classe.motivo!);
+      return;
+    }
 
     const legenda = lerRascunho(rascunhos, alvo).trim();
     const dedupeKey = `inbox:${alvo.telefone}:anexo:${arquivo.name}:${arquivo.size}:${Math.floor(Date.now() / 60000)}`;
@@ -159,7 +189,17 @@ export function useConversa(aoMudarLista?: () => void) {
       form.append('dedupeKey', dedupeKey);
       form.append('arquivo', arquivo);
 
-      const r: ResultadoEnvio = await responderComAnexo(form);
+      let r: ResultadoEnvio;
+      try {
+        r = await responderComAnexo(form);
+      } catch (e) {
+        // Sem este catch, a promise rejeitada derruba a SEÇÃO INTEIRA no error
+        // boundary — a conversa some da tela e a pessoa perde o que digitou,
+        // por um erro que cabia num aviso de duas linhas.
+        setAviso(mensagemDeFalhaDeEnvio(e));
+        return;
+      }
+
       if (!r.ok) {
         setAviso(r.motivo || 'Falha ao enviar o arquivo.');
         if (r.janelaFechada) await carregar(alvo, false);

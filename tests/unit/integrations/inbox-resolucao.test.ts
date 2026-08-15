@@ -11,7 +11,7 @@ import { montarConversas, montarCaixaGlobal, resumoDaCaixa, rotuloDoTipo, type L
 import {
   chaveDaConversa, lerRascunho, gravarRascunho, criarControleDePedidos,
 } from '@/lib/inbox/rascunhos';
-import { classificarMidia, MIMES_ACEITOS, TETO_ANEXO_BYTES } from '@/lib/inbox/anexos';
+import { classificarMidia, MIMES_ACEITOS, TETO_ANEXO_BYTES, mensagemDeFalhaDeEnvio } from '@/lib/inbox/anexos';
 
 describe('de quem é o telefone — a decisão sobre TODAS as linhas', () => {
   it('uma pessoa, uma empresa: resolve limpo', () => {
@@ -255,5 +255,40 @@ describe('anexos — classificação antes de gastar upload', () => {
     // ou pior, não consegue escolher um que passaria.
     expect(MIMES_ACEITOS.length).toBeGreaterThan(0);
     for (const mime of MIMES_ACEITOS) expect(classificarMidia(mime, 1024).ok).toBe(true);
+  });
+});
+
+/**
+ * 🔴 A mensagem que o usuário lê quando o envio falha ANTES de chegar ao servidor.
+ *
+ * Medido em produção em 15/08/2026, no primeiro envio real de anexo: o arquivo
+ * passou do limite da plataforma, a Vercel devolveu 413 na borda (nenhum POST da
+ * action nos logs), o Next rejeitou com "An unexpected response was received
+ * from the server" e o error boundary derrubou a seção inteira — a pessoa leu
+ * "Algo deu errado nesta seção".
+ *
+ * A lição que estes testes guardam: a validação do servidor era INALCANÇÁVEL
+ * para exatamente o caso que ela existia para explicar.
+ */
+describe('falha de envio antes do servidor', () => {
+  it('resposta inesperada do Next vira instrução, não jargão', () => {
+    const m = mensagemDeFalhaDeEnvio(new Error('An unexpected response was received from the server.'));
+    expect(m).toMatch(/4 MB/);
+    expect(m).toMatch(/recarregue a página/i);
+    expect(m).not.toMatch(/unexpected response/i);
+  });
+
+  it('413 e falha de rede caem na mesma explicação', () => {
+    expect(mensagemDeFalhaDeEnvio(new Error('413 Payload Too Large'))).toMatch(/4 MB/);
+    expect(mensagemDeFalhaDeEnvio(new Error('Failed to fetch'))).toMatch(/4 MB/);
+  });
+
+  it('sessão expirada tem mensagem própria — a ação é outra', () => {
+    expect(mensagemDeFalhaDeEnvio(new Error('Acesso restrito à plataforma'))).toMatch(/sessão expirou/i);
+  });
+
+  it('erro desconhecido não vira silêncio nem texto vazio', () => {
+    expect(mensagemDeFalhaDeEnvio(new Error('boom'))).toBe('Falha ao enviar: boom');
+    expect(mensagemDeFalhaDeEnvio(null)).toBe('Falha ao enviar.');
   });
 });
