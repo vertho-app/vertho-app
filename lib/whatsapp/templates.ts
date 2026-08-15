@@ -169,6 +169,61 @@ export const TEMPLATES = {
   },
 
   /**
+   * Avaliação NUNCA INICIADA — o maior grupo parado do produto.
+   *
+   * Medido em 15/08/2026: **187 pessoas** cadastradas sem nenhum passo dado
+   * (sem DISC e sem cenário), 159 delas em Macaé. Não existia comunicação
+   * nenhuma para esse estado: cadastro sem retorno é indistinguível, do lado de
+   * dentro, de "a pessoa não quis" — e do lado de fora, de "nunca soube".
+   *
+   * A copy afirma o ESTADO DA CONTA ("ainda não foi iniciada"), que é o padrão
+   * dos templates que a Meta manteve em UTILITY, e diz o custo em minutos:
+   * o atrito de começar é o que trava, e ele se resolve com informação.
+   */
+  avaliacao_pendente: {
+    name: 'avaliacao_pendente',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Sua avaliação de perfil no programa da {{2}} ainda não foi iniciada.\n\nVocê pode começar em:\n{{3}}\n\nA avaliação leva cerca de 15 minutos e é ela que define a sua trilha de desenvolvimento.',
+    example: ['Maria', 'Secretaria Municipal de Ibipeba/BA', 'https://ibipeba.vertho.ai/dashboard'],
+  },
+
+  /**
+   * Avaliação COMEÇADA E PARADA — com o denominador na mensagem.
+   *
+   * Medido: **39 pessoas** com cenários parcialmente respondidos (29 só em
+   * Ibipeba). "Você respondeu 4 de 12" é factual e mostra o quanto falta; um
+   * "continue sua avaliação" genérico não diz se falta um passo ou dez.
+   *
+   * "As respostas já enviadas foram salvas" existe por um motivo específico:
+   * quem parou no meio costuma achar que vai recomeçar do zero, e esse medo é o
+   * que mantém a pessoa parada.
+   */
+  avaliacao_parcial: {
+    name: 'avaliacao_parcial',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Sua avaliação está parcialmente respondida: {{2}} de {{3}} cenários registrados.\n\nVocê pode continuar de onde parou em:\n{{4}}\n\nAs respostas já enviadas foram salvas.',
+    example: ['Maria', '4', '12', 'https://ibipeba.vertho.ai/dashboard'],
+  },
+
+  /**
+   * Plano de desenvolvimento (PDI) disponível.
+   *
+   * ⚠️ A tabela `pdis` está VAZIA em todos os tenants (medido 15/08/2026). O que
+   * existe hoje é `relatorios` do tipo `individual` — 84 registros, 82 pessoas.
+   * Este template anuncia o artefato que a pessoa realmente recebe; se o PDI
+   * virar entidade própria, o texto continua valendo, mas o gatilho muda.
+   */
+  plano_desenvolvimento: {
+    name: 'plano_desenvolvimento',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Seu plano de desenvolvimento individual está disponível.\n\nVocê pode acessar em:\n{{2}}\n\nO plano é gerado a partir da sua avaliação de perfil e das competências do seu cargo.',
+    example: ['Maria', 'https://ibipeba.vertho.ai/dashboard/perfil'],
+  },
+
+  /**
    * PRIMEIRO CONTATO — e é a mensagem mais arriscada do programa inteiro.
    *
    * 🔴 O RISCO AQUI NÃO É A CATEGORIA, É O BLOQUEIO. Ela chega de um número que

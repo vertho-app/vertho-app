@@ -65,13 +65,14 @@ export function caminhoDoBotao(a: Pick<PilulaTemplateArgs, 'slug' | 'semana' | '
  * Cada um tem a SUA chave: a quinta-feira e a pílula aprovam em momentos
  * diferentes, e uma chave só obrigaria a ligar tudo junto — ou nada.
  */
-export type PapelCadencia = 'pilula' | 'evidencia' | 'desafio' | 'retomada';
+export type PapelCadencia = 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil';
 
 const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   pilula: 'WHATSAPP_TEMPLATE_PILULA',
   evidencia: 'WHATSAPP_TEMPLATE_EVIDENCIA',
   desafio: 'WHATSAPP_TEMPLATE_DESAFIO',
   retomada: 'WHATSAPP_TEMPLATE_RETOMADA',
+  perfil: 'WHATSAPP_TEMPLATE_PERFIL',
 };
 
 /** Nome do template aprovado para o papel, ou `null` quando está desligado. */
@@ -140,6 +141,26 @@ const CONTRATOS: Record<string, MontarParams> = {
    */
   retomada_trilha: (a) => ({
     params: [a.nome, deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
+    botaoParam: null,
+  }),
+
+  /**
+   * Perfil comportamental pronto. APPROVED/UTILITY, 2 variáveis (nome, link).
+   *
+   * 🔴 O template estava aprovado e a copy pronta em `lib/notifications.ts`
+   * desde sempre — e **sem nenhum consumidor**: ninguém chamava
+   * `templateWhatsAppCIS`. Resultado medido em 15/08/2026: ~120 pessoas
+   * responderam a avaliação e nunca souberam que o resultado saiu. É a mesma
+   * classe do `listarNaoResolvidas` sem tela — a peça existe e não é acionada.
+   *
+   * ⚠️ O DISPARO NÃO ACONTECE NA GERAÇÃO DO RELATÓRIO, de propósito: aquele
+   * caminho roda em LOTE (dezenas de relatórios seguidos), e mandar uma
+   * mensagem por relatório gerado é uma rajada — exatamente o padrão que
+   * derrubou o número em 11/08. Quem dispara é
+   * `scripts/_avisar-perfil-pronto.ts`, com teto e espaçamento.
+   */
+  resultado_perfil: (a) => ({
+    params: [a.nome, `${a.baseUrl}/dashboard/perfil-comportamental`],
     botaoParam: null,
   }),
 

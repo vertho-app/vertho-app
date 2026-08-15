@@ -44,12 +44,14 @@ beforeEach(() => {
   delete process.env.WHATSAPP_TEMPLATE_EVIDENCIA;
   delete process.env.WHATSAPP_TEMPLATE_DESAFIO;
   delete process.env.WHATSAPP_TEMPLATE_RETOMADA;
+  delete process.env.WHATSAPP_TEMPLATE_PERFIL;
 });
 afterEach(() => {
   delete process.env.WHATSAPP_TEMPLATE_PILULA;
   delete process.env.WHATSAPP_TEMPLATE_EVIDENCIA;
   delete process.env.WHATSAPP_TEMPLATE_DESAFIO;
   delete process.env.WHATSAPP_TEMPLATE_RETOMADA;
+  delete process.env.WHATSAPP_TEMPLATE_PERFIL;
 });
 
 describe('o caminho só liga quando o template está aprovado', () => {
@@ -211,6 +213,20 @@ describe('retomada de inatividade — UTILITY no lugar do MARKETING', () => {
   it('a chave da retomada é independente das outras', async () => {
     process.env.WHATSAPP_TEMPLATE_PILULA = 'conteudo_semana';
     expect((await enviarPorTemplate('retomada', base)).tentou).toBe(false);
+  });
+});
+
+describe('perfil pronto — o template aprovado que não tinha consumidor', () => {
+  it('resultado_perfil: nome e link do perfil comportamental', async () => {
+    // Aprovado desde sempre, copy pronta em lib/notifications.ts, e NINGUÉM
+    // chamava: ~120 pessoas responderam a avaliação e nunca souberam do
+    // resultado. Mesma classe do `listarNaoResolvidas` sem tela.
+    process.env.WHATSAPP_TEMPLATE_PERFIL = 'resultado_perfil';
+    await enviarPorTemplate('perfil', { ...base, tema: '', formato: null, pilula: null });
+
+    const { template, params } = h.envios[0].input;
+    expect(template).toBe('resultado_perfil');
+    expect(params).toEqual(['Maria', 'https://ibipeba.vertho.ai/dashboard/perfil-comportamental']);
   });
 });
 
