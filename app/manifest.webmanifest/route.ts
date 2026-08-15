@@ -41,7 +41,20 @@ export async function GET() {
     name: nome,
     short_name: derivarNomeCurto(tenant?.nome),
     description: 'Sua trilha de desenvolvimento de competências.',
-    start_url: '/dashboard',
+    /*
+     * 🔴 O DESTINO DEPENDE DE HAVER TENANT.
+     *
+     * `/dashboard` é a tela do COLABORADOR e ela resolve a pessoa pelo header
+     * do tenant (`findColabByEmail`). Instalado a partir de `app.vertho.ai` —
+     * o domínio da plataforma, sem tenant — o atalho abria `/dashboard` sem
+     * subdomínio para desempatar, e quem está em MAIS DE UM tenant (o caso de
+     * quem opera a plataforma) recebia "colaborador não encontrado". Medido em
+     * 15/08/2026 com um e-mail presente em dois tenants.
+     *
+     * Sem tenant, o destino é a raiz, que decide pela sessão: equipe vai para
+     * `/admin-v2`, o resto vai para o login.
+     */
+    start_url: tenant ? '/dashboard' : '/',
     scope: '/',
     display: 'standalone',
     background_color: tema.bgStart,

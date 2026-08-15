@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
+import { checarAcessoPlataforma } from '@/lib/authz-plataforma';
 
 const MARKETING_HOSTS = new Set([
   'vertho.ai',
@@ -20,7 +21,12 @@ export default async function Home() {
   const t = await getTranslations('Home');
 
   if (!MARKETING_HOSTS.has(host)) {
-    redirect('/login');
+    // Quem opera a plataforma vai para a área da equipe; o resto, para o login
+    // (que sabe para onde mandar depois). Antes era `/login` para todo mundo, e
+    // o atalho do PWA instalado em `app.vertho.ai` — que aponta para cá quando
+    // não há tenant — deixava a equipe num vaivém de login sem destino próprio.
+    const acesso = await checarAcessoPlataforma();
+    redirect(acesso.authorized ? '/admin-v2' : '/login');
   }
 
   return (
