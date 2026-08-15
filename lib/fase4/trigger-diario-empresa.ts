@@ -466,11 +466,27 @@ export async function processarEmpresaDiario(
           // conta de PESSOAS alcançadas pelo canal (a que se compara com push)
           // não fecha. `kindEnvio` mantém nudge separado de pílula na métrica.
           try {
-            const enfileirou = await agendarWhatsapp({
-              telefone, mensagem: nudgeMsg, kindEnvio: 'nudge',
-              colaboradorId: envio.colaborador_id, empresaId: empresa.id,
+            // `retomada_trilha` (UTILITY) no lugar do `nudge_inatividade`
+            // (MARKETING): mesma função, 6× mais barato — a diferença é só a
+            // voz do texto, e é ela que a Meta cobra.
+            const viaTemplate = await enviarPorTemplate('retomada', {
+              telefone, nome, semana,
+              tema: '',
+              slug: (empresa as any).slug, baseUrl,
+              formato: null, pilula: null,
+              empresaId: empresa.id, colaboradorId: envio.colaborador_id,
+              dedupeKey: `nudge:${envio.id}:${hojeUTC}`,
             });
-            if (enfileirou) nudges++;
+
+            if (viaTemplate.tentou) {
+              if (viaTemplate.ok) nudges++;
+            } else {
+              const enfileirou = await agendarWhatsapp({
+                telefone, mensagem: nudgeMsg, kindEnvio: 'nudge',
+                colaboradorId: envio.colaborador_id, empresaId: empresa.id,
+              });
+              if (enfileirou) nudges++;
+            }
           } catch {}
         }
         await tdb.from('fase4_envios').update({ ultima_evidencia_em: new Date().toISOString() }).eq('id', envio.id);

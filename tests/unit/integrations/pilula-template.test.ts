@@ -43,11 +43,13 @@ beforeEach(() => {
   delete process.env.WHATSAPP_TEMPLATE_PILULA;
   delete process.env.WHATSAPP_TEMPLATE_EVIDENCIA;
   delete process.env.WHATSAPP_TEMPLATE_DESAFIO;
+  delete process.env.WHATSAPP_TEMPLATE_RETOMADA;
 });
 afterEach(() => {
   delete process.env.WHATSAPP_TEMPLATE_PILULA;
   delete process.env.WHATSAPP_TEMPLATE_EVIDENCIA;
   delete process.env.WHATSAPP_TEMPLATE_DESAFIO;
+  delete process.env.WHATSAPP_TEMPLATE_RETOMADA;
 });
 
 describe('o caminho só liga quando o template está aprovado', () => {
@@ -191,6 +193,24 @@ describe('🔴 a quinta tem DOIS papéis, e trocá-los é entregar a cobrança e
     process.env.WHATSAPP_TEMPLATE_EVIDENCIA = 'registro_evidencia';
     await enviarPorTemplate('evidencia', base);
     expect(h.envios[0].meta.motivo).toBe('evidencia');
+  });
+});
+
+describe('retomada de inatividade — UTILITY no lugar do MARKETING', () => {
+  it('retomada_trilha: nome e link, 2 variáveis', async () => {
+    // Substitui o `nudge_inatividade` (MARKETING): mesma função, 6× menos. A
+    // diferença entre os dois é só a VOZ do texto — e é ela que a Meta cobra.
+    process.env.WHATSAPP_TEMPLATE_RETOMADA = 'retomada_trilha';
+    await enviarPorTemplate('retomada', { ...base, tema: '', formato: null, pilula: null });
+
+    const { template, params } = h.envios[0].input;
+    expect(template).toBe('retomada_trilha');
+    expect(params).toEqual(['Maria', 'https://ibipeba.vertho.ai/dashboard/temporada/semana/5']);
+  });
+
+  it('a chave da retomada é independente das outras', async () => {
+    process.env.WHATSAPP_TEMPLATE_PILULA = 'conteudo_semana';
+    expect((await enviarPorTemplate('retomada', base)).tentou).toBe(false);
   });
 });
 

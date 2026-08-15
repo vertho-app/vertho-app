@@ -168,6 +168,32 @@ export const TEMPLATES = {
     },
   },
 
+  /**
+   * Missão da semana de aplicação, v2 — tentativa de sair de MARKETING.
+   *
+   * O `missao_semana` (abaixo) JÁ era factual — sem emoji, sem exclamação, sem
+   * assinatura — e mesmo assim voltou MARKETING. Ou seja, a heurística "tom
+   * factual = UTILITY" não explica sozinha: `boas_vindas` tem emoji E
+   * exclamação e ficou UTILITY.
+   *
+   * Comparando os aprovados, o que separa os UTILITY é AFIRMAR UM ESTADO DA
+   * CONTA ("o conteúdo está disponível", "o registro está pendente", "está sem
+   * atividade há duas semanas"). O `missao_semana` descreve o PROGRAMA ("a
+   * semana é de aplicação: não há conteúdo novo, e sim uma missão prática") — e
+   * é o único UTILITY-candidato com DOIS links no corpo.
+   *
+   * Esta versão muda as duas coisas: afirma o estado e leva UM link. O vídeo
+   * explicativo continua existindo — na própria página da semana, que é onde a
+   * pessoa cai. Hipótese registrada; só o veredito APPROVED confirma.
+   */
+  missao_semana_v2: {
+    name: 'missao_semana_v2',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. A missão da semana {{2}} da sua trilha está disponível.\n\nVocê pode acessar em:\n{{3}}\n\nNesta semana não há conteúdo novo. O registro da prática é solicitado na quinta-feira.',
+    example: ['Maria', '4', 'https://ibipeba.vertho.ai/dashboard/temporada/semana/4'],
+  },
+
   /** Semana de aplicação (4/8/12): missão prática, sem conteúdo novo. */
   missao_semana: {
     name: 'missao_semana',

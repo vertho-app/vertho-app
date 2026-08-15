@@ -65,12 +65,13 @@ export function caminhoDoBotao(a: Pick<PilulaTemplateArgs, 'slug' | 'semana' | '
  * Cada um tem a SUA chave: a quinta-feira e a pílula aprovam em momentos
  * diferentes, e uma chave só obrigaria a ligar tudo junto — ou nada.
  */
-export type PapelCadencia = 'pilula' | 'evidencia' | 'desafio';
+export type PapelCadencia = 'pilula' | 'evidencia' | 'desafio' | 'retomada';
 
 const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   pilula: 'WHATSAPP_TEMPLATE_PILULA',
   evidencia: 'WHATSAPP_TEMPLATE_EVIDENCIA',
   desafio: 'WHATSAPP_TEMPLATE_DESAFIO',
+  retomada: 'WHATSAPP_TEMPLATE_RETOMADA',
 };
 
 /** Nome do template aprovado para o papel, ou `null` quando está desligado. */
@@ -128,6 +129,17 @@ const CONTRATOS: Record<string, MontarParams> = {
    */
   registro_desafio: (a) => ({
     params: [a.nome, String(a.semana), deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
+    botaoParam: null,
+  }),
+
+  /**
+   * Inatividade de 2+ semanas. APPROVED/**UTILITY** — substitui o
+   * `nudge_inatividade`, que a Meta classificou como MARKETING (6× o custo) por
+   * causa da voz antiga ("Notamos que…", "Que tal retomar hoje?", emoji).
+   * `{{1}}`=nome, `{{2}}`=link. Sem botão.
+   */
+  retomada_trilha: (a) => ({
+    params: [a.nome, deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
     botaoParam: null,
   }),
 
