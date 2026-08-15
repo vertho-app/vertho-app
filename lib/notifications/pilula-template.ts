@@ -17,6 +17,7 @@
  * verdade contra a Meta; até lá, o que existe é teste com o cliente stubado.
  */
 import { enviarTemplateCloud, cloudApiConfigurada } from '@/lib/whatsapp/cloud-api';
+import { deepLinkSemana, labelFormato } from '@/lib/notifications/pilula-envio';
 
 export interface PilulaTemplateArgs {
   telefone: string;
@@ -25,6 +26,8 @@ export interface PilulaTemplateArgs {
   tema: string;
   /** Slug do tenant — vira o primeiro segmento do link curto. */
   slug: string;
+  /** URL do tenant (`https://ibipeba.vertho.ai`) — para o template que leva link no corpo. */
+  baseUrl: string;
   formato?: string | null;
   pilula?: number | null;
   empresaId?: string | null;
@@ -62,18 +65,55 @@ export function templatePilulaAtivo(): string | null {
   return nome || null;
 }
 
+/**
+ * 🔴 CADA TEMPLATE APROVADO TEM O SEU CONTRATO — e ele não se deduz do nome.
+ *
+ * Descoberto ao ligar, em 15/08/2026: `pilula_semanal` foi aprovado com
+ * `{{1}}`=formato, `{{2}}`=tema, `{{3}}`=**link no corpo**, e SEM botão. O
+ * código mandava `[nome, semana, tema]` + parâmetro de botão. Ligar sem
+ * conferir teria entregado *"Seu Maria de hoje: **5**. Acesse: Escuta ativa…"*
+ * a 36 pessoas — ou uma recusa por componente que não existe.
+ *
+ * Por isso o mapeamento é EXPLÍCITO por nome de template. Nome fora daqui não
+ * liga (fail-closed): mandar parâmetros no formato errado não dá erro de
+ * compilação, dá mensagem sem sentido na mão de gente real.
+ */
+type MontarParams = (a: PilulaTemplateArgs) => { params: string[]; botaoParam?: string | null };
+
+const CONTRATOS: Record<string, MontarParams> = {
+  /** Copy ANTIGA, aprovada como MARKETING. Link no CORPO, sem botão. */
+  pilula_semanal: (a) => ({
+    params: [labelFormato(a.formato), a.tema, deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
+    botaoParam: null,
+  }),
+  /** Copy factual com o link no BOTÃO — o desenho novo (ver templates.ts). */
+  conteudo_semana_v2: (a) => ({
+    params: [a.nome, String(a.semana), a.tema],
+    botaoParam: caminhoDoBotao(a),
+  }),
+};
+
+/** O template configurado tem contrato conhecido? Sem isso, não se envia. */
+export function contratoDoTemplate(nome: string | null): MontarParams | null {
+  return nome ? CONTRATOS[nome] ?? null : null;
+}
+
 export async function enviarPilulaPorTemplate(a: PilulaTemplateArgs): Promise<ResultadoPilulaTemplate> {
   const template = templatePilulaAtivo();
+  const montar = contratoDoTemplate(template);
+
   if (!template || !cloudApiConfigurada()) return { tentou: false };
+  if (!montar) {
+    // Chave apontando para template desconhecido: não envia e DIZ. Silêncio aqui
+    // viraria "a pílula não sai e ninguém sabe por quê".
+    console.error(`[pilula-template] WHATSAPP_TEMPLATE_PILULA="${template}" não tem contrato em CONTRATOS — envio NÃO feito.`);
+    return { tentou: false };
+  }
+
+  const { params, botaoParam } = montar(a);
 
   const r = await enviarTemplateCloud(
-    {
-      phone: a.telefone,
-      template,
-      // Ordem é contrato do template: {{1}} nome, {{2}} semana, {{3}} tema.
-      params: [a.nome, String(a.semana), a.tema],
-      botaoParam: caminhoDoBotao(a),
-    },
+    { phone: a.telefone, template, params, botaoParam },
     {
       motivo: 'pilula',
       empresaId: a.empresaId ?? null,

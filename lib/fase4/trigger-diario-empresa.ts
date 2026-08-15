@@ -286,7 +286,7 @@ export async function processarEmpresaDiario(
         try {
           const viaTemplate = await enviarPilulaPorTemplate({
             telefone, nome, semana, tema: temaPilula(item),
-            slug: empresa.slug, formato: formatoPref, pilula,
+            slug: (empresa as any).slug, baseUrl, formato: formatoPref, pilula,
             empresaId: empresa.id, colaboradorId: envio.colaborador_id,
             dedupeKey: `${wppCol}:${envio.id}`,
           });

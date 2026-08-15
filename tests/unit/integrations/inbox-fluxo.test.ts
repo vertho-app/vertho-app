@@ -28,6 +28,14 @@ vi.mock('@/lib/authz-plataforma', () => ({
 vi.mock('@/lib/audit', () => ({
   logAdminAction: async (e: any) => { h.auditorias.push(e); },
 }));
+// `after()` (next/server) só existe dentro do escopo de uma request. O webhook
+// usa para o push da inbox — trabalho pós-resposta, que é o padrão do projeto.
+// Aqui ele roda na hora: o teste quer o EFEITO, não o adiamento.
+vi.mock('next/server', async (orig) => ({
+  ...(await orig<any>()),
+  after: (fn: any) => { if (typeof fn === 'function') return fn(); },
+}));
+
 vi.mock('@/lib/degradacao', async (orig) => ({
   ...(await orig<any>()),
   registrarDegradacao: async (d: any) => { h.degradacoes.push(d); },

@@ -29,6 +29,7 @@ const base = {
   semana: 5,
   tema: 'Escuta ativa na sala de aula',
   slug: 'ibipeba',
+  baseUrl: 'https://ibipeba.vertho.ai',
   formato: 'video',
   pilula: 2,
   empresaId: 'e1',
@@ -102,6 +103,40 @@ describe('parâmetros do template', () => {
       motivo: 'pilula', empresaId: 'e1', colaboradorId: 'c1',
       dedupeKey: 'ultima_pilula1_whatsapp_em:env1',
     });
+  });
+});
+
+describe('🔴 contrato POR TEMPLATE — cada aprovado tem o seu', () => {
+  it('pilula_semanal: formato, tema e LINK no corpo, sem botão', async () => {
+    // Estrutura real do template aprovado em 15/08: {{1}}=formato, {{2}}=tema,
+    // {{3}}=link. Mandar [nome, semana, tema] aqui entregaria "Seu Maria de
+    // hoje: *5*" a gente de verdade.
+    process.env.WHATSAPP_TEMPLATE_PILULA = 'pilula_semanal';
+    await enviarPilulaPorTemplate(base);
+
+    const { params, botaoParam } = h.envios[0].input;
+    expect(params[1]).toBe('Escuta ativa na sala de aula');
+    expect(params[2]).toBe('https://ibipeba.vertho.ai/dashboard/temporada/semana/5?formato=video&p=2');
+    expect(params[0]).not.toBe('Maria');       // {{1}} é o FORMATO, não o nome
+    expect(botaoParam).toBeNull();             // este template não tem botão
+  });
+
+  it('conteudo_semana_v2: nome, semana, tema — e o link no BOTÃO', async () => {
+    process.env.WHATSAPP_TEMPLATE_PILULA = 'conteudo_semana_v2';
+    await enviarPilulaPorTemplate(base);
+
+    const { params, botaoParam } = h.envios[0].input;
+    expect(params).toEqual(['Maria', '5', 'Escuta ativa na sala de aula']);
+    expect(botaoParam).toBe('ibipeba/5/video/2');
+  });
+
+  it('🔴 template DESCONHECIDO não envia — fail-closed', async () => {
+    // Parâmetro no formato errado não quebra o build: quebra a mensagem de
+    // quem recebe. Sem contrato, o certo é não mandar.
+    process.env.WHATSAPP_TEMPLATE_PILULA = 'template_que_nao_mapeamos';
+    const r = await enviarPilulaPorTemplate(base);
+    expect(r.tentou).toBe(false);
+    expect(h.envios).toHaveLength(0);
   });
 });
 
