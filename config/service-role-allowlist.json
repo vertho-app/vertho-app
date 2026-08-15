@@ -153,6 +153,7 @@
     "app/api/internal/pregerar-podcast/route.ts": 1,
     "trigger/gerar-ia3-batch.ts": 1,
     "trigger/gerar-ia4-batch.ts": 1,
+    "scripts/_avisar-perfil-pronto.ts": 1,
     "scripts/_comparar-check-modelo.ts": 1,
     "scripts/_backfill-nivel-regua.ts": 1,
     "scripts/_reavaliar-revisar.ts": 1,
