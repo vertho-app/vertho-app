@@ -434,7 +434,16 @@ describe('R12 · canal de entrada do WhatsApp', () => {
   });
 
   it('Cloud API desligada NÃO alarma — é decisão, e o canal legado assume', () => {
-    expect(checarCanalEntradaWhatsapp(saude({ configurada: false, inscrito: null }))).toEqual([]);
+    expect(checarCanalEntradaWhatsapp(saude({ configurada: false, inscrito: null, numeroOk: null }))).toEqual([]);
+  });
+
+  it('🔴 metade cega também é cegueira: token presente e número não verificável', () => {
+    // Ambiente com credencial e sem PHONE_NUMBER_ID responde a inscrição e não o
+    // número. Tratar isso como 'ok' seria a mesma falha que a regra combate.
+    const achados = checarCanalEntradaWhatsapp(saude({ numeroOk: null, qualidade: null, motivo: 'PHONE_NUMBER_ID ausente' }));
+    const cego = achados.find((a) => a.id === 'whatsapp-webhook-check-cego');
+    expect(cego?.severidade).toBe('aviso');
+    expect(cego?.detalhe).toContain('PHONE_NUMBER_ID ausente');
   });
 
   it('número inacessível é crítico e lembra que derruba o OTP junto', () => {

@@ -301,10 +301,15 @@ const wabaId = () => process.env.WABA_ID || '';
  */
 export async function inspecionarCloudApi(): Promise<SaudeCloudApi> {
   const vazio: SaudeCloudApi = {
-    configurada: cloudApiConfigurada(),
+    configurada: Boolean(token()),
     inscrito: null, appsInscritos: [], numeroOk: null, qualidade: null, nomeVerificado: null, motivo: null,
   };
-  if (!vazio.configurada) return { ...vazio, motivo: 'Cloud API não configurada' };
+  // ⚠️ O GATE É O TOKEN, não `cloudApiConfigurada()`. A diferença importa: aquela
+  // função exige também o `PHONE_NUMBER_ID`, que é o que permite ENVIAR. O
+  // webhook RECEBE sem ele (a rota só depende de `META_APP_SECRET`), então
+  // amarrar a inspeção ao envio silenciaria a checagem da inscrição justamente
+  // num ambiente meio configurado — cegueira disfarçada de "canal desligado".
+  if (!vazio.configurada) return { ...vazio, motivo: 'sem credencial da Cloud API (META_WHATSAPPBUSINESS_API)' };
 
   const out: SaudeCloudApi = { ...vazio };
 
@@ -337,6 +342,10 @@ export async function inspecionarCloudApi(): Promise<SaudeCloudApi> {
   }
 
   // 2) O número e a qualidade dele.
+  if (!phoneNumberId()) {
+    out.motivo = out.motivo ?? 'PHONE_NUMBER_ID ausente — não dá para verificar o número';
+    return out;
+  }
   try {
     const res = await fetch(`${BASE}/${phoneNumberId()}?fields=verified_name,quality_rating,platform_type`, {
       headers: { Authorization: `Bearer ${token()}` },

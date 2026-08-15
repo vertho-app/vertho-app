@@ -583,13 +583,17 @@ export function checarCanalEntradaWhatsapp(s: SaudeCanalEntrada): Achado[] {
     ));
   }
 
-  if (s.inscrito === null) {
+  // Cegueira em QUALQUER das duas metades vira achado. `inscrito` e `numeroOk`
+  // vêm de chamadas diferentes: um ambiente com token e sem `PHONE_NUMBER_ID`
+  // responde a primeira e não a segunda, e tratar isso como "ok" seria a mesma
+  // falha que a regra existe para pegar, um nível acima.
+  if (s.inscrito === null || s.numeroOk === null) {
     out.push(achado(
       'whatsapp-webhook-check-cego', 'aviso',
-      'Não foi possível verificar a inscrição do webhook',
+      'Não foi possível verificar a saúde do canal de entrada',
       1,
       `O canal pode estar de pé ou caído — este check não conseguiu perguntar${s.motivo ? ` (${s.motivo})` : ''}. Enquanto isso, uma queda do inbound continua indistinguível de "ninguém escreveu".`,
-      { acao: 'Conferir WABA_ID e META_WHATSAPPBUSINESS_API na Vercel (o token precisa de whatsapp_business_management).' },
+      { acao: 'Conferir WABA_ID, PHONE_NUMBER_ID e META_WHATSAPPBUSINESS_API na Vercel (o token precisa de whatsapp_business_management).' },
     ));
   }
 
