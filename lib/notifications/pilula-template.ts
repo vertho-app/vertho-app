@@ -81,7 +81,19 @@ export function templatePilulaAtivo(): string | null {
 type MontarParams = (a: PilulaTemplateArgs) => { params: string[]; botaoParam?: string | null };
 
 const CONTRATOS: Record<string, MontarParams> = {
-  /** Copy ANTIGA, aprovada como MARKETING. Link no CORPO, sem botão. */
+  /**
+   * ✅ O PREFERIDO desde 15/08/2026: copy factual, aprovada como **UTILITY**.
+   *
+   * Custa ~R$ 0,08 contra ~R$ 0,45 do `pilula_semanal` (MARKETING) — 6× menos
+   * pela mesma entrega. Corpo conferido na Meta antes de mapear:
+   * `{{1}}`=nome, `{{2}}`=semana, `{{3}}`=tema, `{{4}}`=link. Sem botão.
+   */
+  conteudo_semana: (a) => ({
+    params: [a.nome, String(a.semana), a.tema, deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
+    botaoParam: null,
+  }),
+
+  /** Copy ANTIGA, aprovada como MARKETING (6× o custo). Link no CORPO, sem botão. */
   pilula_semanal: (a) => ({
     params: [labelFormato(a.formato), a.tema, deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
     botaoParam: null,

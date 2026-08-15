@@ -121,6 +121,20 @@ describe('🔴 contrato POR TEMPLATE — cada aprovado tem o seu', () => {
     expect(botaoParam).toBeNull();             // este template não tem botão
   });
 
+  it('✅ conteudo_semana (UTILITY, o preferido): nome, semana, tema e LINK no corpo', async () => {
+    // Aprovado como UTILITY em 15/08 — custa 6× menos que o pilula_semanal pela
+    // mesma entrega. Corpo conferido na Meta antes de mapear: 4 variáveis.
+    process.env.WHATSAPP_TEMPLATE_PILULA = 'conteudo_semana';
+    await enviarPilulaPorTemplate(base);
+
+    const { params, botaoParam } = h.envios[0].input;
+    expect(params).toEqual([
+      'Maria', '5', 'Escuta ativa na sala de aula',
+      'https://ibipeba.vertho.ai/dashboard/temporada/semana/5?formato=video&p=2',
+    ]);
+    expect(botaoParam).toBeNull();
+  });
+
   it('conteudo_semana_v2: nome, semana, tema — e o link no BOTÃO', async () => {
     process.env.WHATSAPP_TEMPLATE_PILULA = 'conteudo_semana_v2';
     await enviarPilulaPorTemplate(base);
