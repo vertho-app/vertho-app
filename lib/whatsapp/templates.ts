@@ -194,6 +194,34 @@ export const TEMPLATES = {
   },
 
   /**
+   * Trilha liberada, v2 — tentativa de trazer o `trilha_liberada` para UTILITY.
+   *
+   * 🔴 O QUE DERRUBOU A v1, e a lição vale para toda copy nova: eu escrevi a
+   * heurística ("os UTILITY afirmam ESTADO da conta; os que descrevem o PROGRAMA
+   * caem em MARKETING") ao analisar o `missao_semana` — e caí nela no mesmo dia.
+   * A v1 dizia: "…foi liberada: são {{3}} semanas, **com um conteúdo novo e um
+   * registro de prática por semana**". A segunda metade explica COMO O PROGRAMA
+   * FUNCIONA, e voltou MARKETING.
+   *
+   * A v2 muda UMA coisa só, de propósito: sai a descrição do funcionamento,
+   * fica o número de semanas — que é fato sobre a trilha DELA, não propaganda.
+   * Mudar duas coisas de uma vez aprovaria (ou não) sem ensinar qual delas
+   * pesava; com uma, o veredito da Meta vira informação.
+   *
+   * ⚠️ O QUE SE PERDE: o aviso de ritmo protegia o canal — quem sabe que vai
+   * receber uma mensagem por semana bloqueia menos. Se esta v2 aprovar como
+   * UTILITY, esse aviso precisa achar outro lugar (a tela do primeiro acesso, ou
+   * o corpo do primeiro conteúdo), e não some da experiência por descuido.
+   */
+  trilha_liberada_v2: {
+    name: 'trilha_liberada_v2',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Sua trilha de desenvolvimento em {{2}} está disponível: são {{3}} semanas.\n\nVocê pode começar em:\n{{4}}\n\nO conteúdo é selecionado a partir do seu perfil e das competências do seu cargo.',
+    example: ['Maria', 'Gestão Escolar', '7', 'https://ibipeba.vertho.ai/dashboard/temporada'],
+  },
+
+  /**
    * TRILHA CONCLUÍDA — o fim da jornada de 7 semanas (uma competência).
    *
    * Hoje o programa termina em SILÊNCIO: `actions/temporada-concluida.ts` e
