@@ -1,8 +1,51 @@
 # Caixa de entrada do WhatsApp — proposta
 
-> **Status:** proposta, não implementada. Escrita em 14/08/2026.
+> **Status:** proposta, não implementada. Escrita em 14/08/2026, **revisada no mesmo dia** após
+> duas revisões externas.
 > **Pré-requisito já pronto:** o webhook da Cloud API (`app/api/webhooks/whatsapp-cloud`, mig 212)
-> já grava tudo que chega. Esta proposta é sobre **ler**, não sobre capturar.
+> já grava tudo que chega.
+>
+> **A revisão mudou o escopo.** A v1 previa só leitura; o pedido original era ver **e responder**, e
+> o argumento para adiar a resposta ("caixa que às vezes falha é pior que ausência") trazia dentro
+> de si a condição de entrada — a janela como estado que **controla** a UI, não apenas a explica.
+> O plano agora tem duas fases, e a §0 registra o que a revisão corrigiu.
+
+---
+
+## 0. O que a revisão corrigiu (e o que ela errou)
+
+**Corrigido no plano:**
+
+| Item | Correção |
+|---|---|
+| Rota do workspace | É `/admin-v2/cliente?empresa=<id>`, **não** `/[id]`. E não há sistema de abas — seria seção nova |
+| Thread unilateral | A v1 mostrava só o que CHEGA. O gestor veria *"Sim"* sem saber *sim a quê* |
+| `notification_deliveries` | Guarda telemetria, **não o texto enviado** — thread bidirecional exige migration |
+| Mídia | Áudio é o formato mais provável de resposta no Brasil; "recebeu um áudio" sem ouvir é meio valor |
+| Corrida na janela | Gestor abre com janela aberta, digita 5 min, envia com ela fechada |
+| `chatwoot-deploy/` | Existe na raiz do workspace (último commit 25/06/2026) — ver §2.1 |
+
+**O que a revisão afirmou e não procede** (registrado para quem ler depois não repetir):
+
+- *"Não existe envio pela Cloud API."* Existe: `lib/whatsapp/cloud-api.ts`. A observação
+  **parcialmente** válida é outra: ele envia só **template**, não texto livre, e fica FORA do
+  registry de propósito — registrá-lo tornaria a Cloud API o caminho de toda mensagem enquanto só o
+  template de autenticação está aprovado.
+- *"Não existe `PHONE_NUMBER_ID`."* Existe no `.env.local` e nas envs de produção; foi o que
+  enviou todas as mensagens de 14/08.
+
+---
+
+## 0.1 🔴 A decisão que bloqueia o desenho: quem responde?
+
+`/admin-v2` exige `checarAcessoPlataforma` — é **administrador da plataforma**, não o cliente.
+
+- **Se quem responde é a equipe Vertho** → o lugar está certo, e o plano abaixo vale como está.
+- **Se forem RH/gestores dos clientes** → muda tudo: rota dentro do tenant, permissões próprias
+  (`whatsapp.inbox.view` / `whatsapp.inbox.reply`), auditoria de quem respondeu o quê.
+
+**Nada da fase 2 deve ser construído antes desta resposta.** Não é detalhe de implementação: define
+onde a tela vive e qual o modelo de permissão.
 
 ---
 
@@ -49,13 +92,25 @@ Vertho e um app do Chatwoot inscritos na mesma WABA, cada um com seu endpoint. S
 rota for considerada, **validar isso primeiro** — se não for possível, a escolha vira "inbox do
 Chatwoot **ou** status de entrega", não os dois.
 
+### 2.1 `chatwoot-deploy/` existe — e precisa de uma decisão
+
+Há um diretório `chatwoot-deploy/` na raiz do workspace (fora de `nextjs-app/`), com
+`docker-compose.yml`, `Caddyfile` e `cloud-init.yaml`. Último commit em **25/06/2026**.
+
+Não está abandonado nem ativo: é um deploy preparado e nunca executado — o que a memória do projeto
+registra como "deploy pende inputs". Enquanto ele existir sem decisão, há **dois planos de inbox
+convivendo**, e o risco não é o disco ocupado: é alguém retomá-lo sem saber que a decisão de
+construir aqui já foi tomada, e por qual motivo (isolamento entre tenants, §2).
+
+**Ou some, ou vira alternativa declarada com a condição de retomada escrita.**
+
 ---
 
 ## 3. Escopo
 
 ### 3.1 O que ENTRA
 
-- **Aba "Mensagens" no workspace do cliente** (`/admin-v2/cliente/[id]`), listando o que chegou
+- **Seção "Mensagens" no workspace do cliente** (`/admin-v2/cliente?empresa=<id>` — não há sistema de abas hoje), listando o que chegou
   daquele tenant.
 - **Agrupamento por pessoa**, com a última mensagem e o horário em destaque.
 - **Estado da janela de 24h** visível por conversa (ver §5.1) — mesmo sem poder responder, é o
@@ -63,14 +118,67 @@ Chatwoot **ou** status de entrega", não os dois.
 - **Painel de mensagens sem tenant**, em área de plataforma (ver §5.2).
 - **Mídia identificada** (áudio/imagem/documento) mostrada como tipo, não como mensagem vazia.
 
-### 3.2 O que NÃO entra, e por quê
+### 3.1.1 A thread precisa ter os DOIS lados
+
+A v1 mostrava só `whatsapp_mensagens_recebidas`. Isso produz uma conversa pela metade — o gestor lê
+*"Sim"* sem saber a que a pessoa respondeu, e **conversa pela metade parece defeito**.
+
+O lado enviado existe em `notification_deliveries`, mas com uma limitação que precisa ser dita:
+**aquela tabela é telemetria, não histórico de conversa.** Ela tem canal, `kind`, provedor, status e
+`provider_message_id` — **não tem o texto**. Então:
+
+- **Fase 1** junta os envios na linha do tempo pelo que existe: *"pílula da semana 5 — entregue
+  10:32, lida 10:47"*. Já resolve o "sim a quê" na maioria dos casos, porque o `kind` diz qual
+  mensagem era.
+- **Fase 2** exige migration para guardar o texto do que sai (e quem enviou, quando houver operador
+  humano). Sem isso, a resposta manual não teria onde ser registrada.
+
+⚠️ Envios legados pela **Z-API não vão aparecer** com status real — eles nunca tiveram
+`provider_message_id`. A thread fica completa só para o que sai pela Cloud API.
+
+### 3.2 Fase 2 — responder (depois de §0.1)
+
+A v1 excluía resposta com um argumento correto: caixa que às vezes falha é pior que ausência. Mas o
+próprio plano já calcula o estado da janela — então o incremento é transformá-la de **informação**
+em **controle**:
+
+| Janela | UI |
+|---|---|
+| **Aberta** | Campo habilitado; envia texto livre pela Cloud API; mostra quanto tempo resta |
+| **Fechada** | Campo **bloqueado**, com a explicação e o caminho por template |
+
+O que a fase 2 exige, e não é pouco:
+
+1. **Envio de texto livre pela Cloud API.** `lib/whatsapp/cloud-api.ts` hoje só manda template.
+2. **A resposta sai pelo MESMO `to_phone_id` da conversa** — sem failover para o número por QR.
+   Responder de outro número quebra o fio da conversa para quem recebe.
+3. **Revalidar a janela NO SERVIDOR, no instante do envio.** O estado renderizado envelhece: o
+   gestor abre com a janela aberta, escreve cinco minutos e envia com ela fechada. Confiar na tela
+   produz erro 131047 da Meta e uma mensagem que a pessoa nunca recebe.
+4. **Persistir texto, `wamid`, operador e chave de idempotência** (duplo clique é o caso comum).
+5. **Auth explícita**: sessão + papel, e — se a decisão de §0.1 for "cliente responde" — escopo de
+   empresa na própria rota.
+6. 🔴 **Conversa ambígua NÃO pode ter resposta.** Um telefone em vários tenants (caso real: 7
+   cadastros em 6 empresas) não tem contexto definido; responder ali é mandar mensagem no contexto
+   errado. O painel de §5.2 é read-only por construção.
+
+### 3.3 O que continua fora
 
 | Fora do escopo | Motivo |
 |---|---|
-| **Responder pela tela** | Fora da janela de 24h só sai template aprovado. Uma caixa de resposta que às vezes funciona e às vezes falha é pior que ausência: o gestor escreve, tenta enviar, falha e não entende. Se entrar um dia, a janela precisa ser estado de primeira classe, com bloqueio explícito e contagem regressiva. |
-| **Estado de lido / atribuição / múltiplos atendentes** | É o que o Chatwoot faz bem. Construir aqui só se o volume justificar — e hoje o volume é **zero**. |
-| **Tempo real (websocket/polling)** | Sem volume, atualizar na navegação basta. |
-| **Download de mídia** | Exige baixar da Graph API com o token e reencaminhar. Só faz sentido depois de saber se as pessoas mandam áudio de verdade. |
+| **Atribuição / múltiplos atendentes** | É o que o Chatwoot faz bem. Só se o volume justificar — hoje é **zero**. |
+| **Tempo real (websocket)** | Polling curto (10–15s) basta na fase 2; na fase 1, atualizar na navegação. |
+| **Seletor de template fora da janela** | Depende de ter templates aprovados de conversa, que ainda não existem. Até lá, bloqueio explicado. |
+
+### 3.4 Mídia: primeiro follow-up, não "talvez um dia"
+
+A v1 tratava download de mídia como eventual. A revisão apontou o que muda isso: **no Brasil, áudio é
+o formato mais provável de resposta de colaborador.** Mostrar "recebeu um áudio" sem poder ouvir é
+meia funcionalidade — e quem atende não consegue responder com consciência.
+
+A implementação correta é um **proxy autenticado**: o servidor pega a URL temporária da Meta
+(`GET /{media-id}`) e transmite o arquivo. A URL expira em poucos minutos e **não pode** ser exposta
+ao browser, porque carrega o token. Fica logo depois da fase 1.
 
 ### 3.3 Pré-condição honesta
 
@@ -155,17 +263,32 @@ mostra o tipo. Tratar como vazio esconderia que a pessoa respondeu.
 | **PII exposta a quem não deve** | Consulta por `tenantDb`; painel de não-resolvidas restrito a platform-admin. |
 | **Expectativa de resposta** | A tela diz explicitamente que é leitura. Um gestor achar que respondeu quando não respondeu é pior do que não ter a tela. |
 | **Volume futuro** | Paginação por data desde o início; sem `SELECT *` na tabela inteira. |
+| **Corrida na janela (fase 2)** | Gestor abre com janela aberta, digita 5 min, envia com ela fechada. Revalidar no SERVIDOR no instante do envio e devolver erro explicado — o estado renderizado envelhece. |
+| **Envio duplicado (fase 2)** | Duplo clique é o caso comum. Chave de idempotência por (conversa, texto, janela de segundos). |
+| **Auth das rotas de leitura** | Não é implícita: sessão + papel em TODAS as rotas, incluindo as de leitura. Se a §0.1 decidir "cliente responde", escopo de empresa na própria rota. |
 
 ---
 
 ## 7. Plano
 
-1. **Consulta + tipos** — leitura por tenant, agrupada por pessoa, com cálculo da janela. Função pura para a janela, testável sem banco.
-2. **Aba no workspace do cliente** — lista de conversas, detalhe por pessoa.
-3. **Painel de não-resolvidas** — plataforma, com o motivo da ambiguidade.
-4. **Testes** — janela aberta/fechada/limite; ambíguo não vaza para tenant; mídia não vira vazio.
+**Bloqueio:** responder a §0.1 (quem responde) antes de qualquer coisa da fase 2.
 
-Estimativa: **poucas horas**, por ser consulta sobre dados que já existem.
+**Fase 1 — ver (poucas horas)**
+1. Consulta por tenant, agrupada por pessoa, com cálculo da janela (função pura, testável sem banco).
+2. Seção no workspace do cliente: lista de conversas + detalhe.
+3. Thread com os DOIS lados: recebidas + envios de `notification_deliveries` (sem texto — ver §3.1.1).
+4. Painel de não-resolvidas, na plataforma, read-only por construção.
+
+**Follow-up imediato — áudio (§3.4)**
+5. Proxy autenticado de mídia. Sem ele, resposta de áudio é ilegível para quem atende.
+
+**Fase 2 — responder (~1 dia, depois da §0.1)**
+6. Envio de texto livre pela Cloud API, pelo mesmo `to_phone_id` da conversa.
+7. Migration do histórico enviado (texto, `wamid`, operador, idempotência).
+8. Janela controlando a UI + revalidação no servidor no instante do envio.
+9. Estado mínimo de não-lida e polling de 10–15s.
+
+Estimativa da fase 1: **poucas horas**, por ser consulta sobre dados que já existem.
 
 ### 7.1 Critérios de aceite
 
@@ -174,6 +297,15 @@ Estimativa: **poucas horas**, por ser consulta sobre dados que já existem.
 - [ ] Janela de 24h mostrada corretamente nas bordas (23h59 aberta, 24h01 fechada) — validado por teste com relógio congelado, não com `Date.now()`.
 - [ ] Áudio aparece como áudio, não como mensagem vazia.
 - [ ] Tela vazia explica que o app ainda não foi publicado.
+- [ ] A thread mostra os dois lados: o que a pessoa escreveu e o que o sistema enviou.
+
+**Fase 2:**
+- [ ] Janela exatamente em 24h: 23h59 permite enviar, 24h01 bloqueia — com relógio congelado, nunca `Date.now()`.
+- [ ] Janela expirada ENTRE a renderização e o envio → erro explicado, não mensagem perdida.
+- [ ] Duplo clique não envia duas vezes.
+- [ ] Conversa ambígua não tem campo de resposta.
+- [ ] Resposta sai pelo mesmo número da conversa.
+- [ ] Falha da Meta aparece para quem enviou, não só no log.
 
 ---
 
