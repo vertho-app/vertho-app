@@ -534,6 +534,91 @@ export function checarPushSemVapid(configurado: boolean, endpointsAtivos: number
   );
 }
 
+/**
+ * R12 · O canal de ENTRADA do WhatsApp ainda está de pé?
+ *
+ * Todas as 14 regras acima olham SAÍDA. O inbound não tinha nenhuma — e ele é o
+ * lado que falha em silêncio absoluto: a Meta desativa a inscrição do webhook
+ * quando ele erra de forma persistente, e num número da Cloud API **não existe
+ * aplicativo** onde alguém possa "abrir e ver depois". A mensagem não fica
+ * pendente: ela nunca chega a lugar nenhum.
+ *
+ * 🔴 POR QUE NÃO DÁ PARA MEDIR ISSO POR VOLUME. "Nenhuma mensagem recebida em
+ * 24h" é o estado NORMAL deste canal hoje (uma mensagem no total até 15/08/2026).
+ * Uma regra baseada em contagem ficaria muda sempre — inclusive no dia da queda.
+ * Por isso `inspecionarCloudApi()` PERGUNTA à Meta, e esta função só decide.
+ * Mesmo espírito do R8 e do R11b: ler configuração, nunca inferir de tabela vazia.
+ *
+ * `inscrito === null` vira aviso próprio em vez de silêncio: não saber é um
+ * estado, e um check que trata ignorância como "ok" é o que este módulo combate.
+ *
+ * A qualidade do número entra aqui porque chega no mesmo custo e é o único aviso
+ * PRÉVIO de restrição — em 11/08/2026 um disparo em lote derrubou um número, e o
+ * sinal chegou como canal morto, nunca como métrica.
+ */
+export interface SaudeCanalEntrada {
+  configurada: boolean;
+  inscrito: boolean | null;
+  appsInscritos: string[];
+  numeroOk: boolean | null;
+  qualidade: string | null;
+  nomeVerificado: string | null;
+  motivo: string | null;
+}
+
+export function checarCanalEntradaWhatsapp(s: SaudeCanalEntrada): Achado[] {
+  // Cloud API desligada é um estado legítimo: o canal legado (Z-API/WaSender)
+  // assume, e alarmar aqui seria reclamar de uma decisão.
+  if (!s?.configurada) return [];
+
+  const out: (Achado | null)[] = [];
+
+  if (s.inscrito === false) {
+    out.push(achado(
+      'whatsapp-webhook-sem-inscricao', 'critico',
+      'O webhook do WhatsApp não está inscrito na conta da Meta',
+      1,
+      'Tudo que chegar pelo WhatsApp some sem rastro — e como o número da Cloud API não tem aplicativo, ninguém consegue ver depois. Do lado de quem escreveu, a mensagem foi entregue.',
+      { acao: 'Reinscrever: POST /{WABA_ID}/subscribed_apps com o token do app, e conferir os campos messages e message_template_status_update.' },
+    ));
+  }
+
+  if (s.inscrito === null) {
+    out.push(achado(
+      'whatsapp-webhook-check-cego', 'aviso',
+      'Não foi possível verificar a inscrição do webhook',
+      1,
+      `O canal pode estar de pé ou caído — este check não conseguiu perguntar${s.motivo ? ` (${s.motivo})` : ''}. Enquanto isso, uma queda do inbound continua indistinguível de "ninguém escreveu".`,
+      { acao: 'Conferir WABA_ID e META_WHATSAPPBUSINESS_API na Vercel (o token precisa de whatsapp_business_management).' },
+    ));
+  }
+
+  if (s.numeroOk === false) {
+    out.push(achado(
+      'whatsapp-numero-inacessivel', 'critico',
+      'O número da Cloud API não respondeu com a credencial atual',
+      1,
+      'Nenhuma mensagem sai — inclusive o OTP de login, que hoje tenta este caminho antes do legado.',
+      { acao: 'Conferir PHONE_NUMBER_ID e a validade do token do system user no painel da Meta.' },
+    ));
+  }
+
+  const q = (s.qualidade || '').toUpperCase();
+  if (q === 'RED' || q === 'YELLOW') {
+    out.push(achado(
+      `whatsapp-qualidade-${q.toLowerCase()}`, q === 'RED' ? 'critico' : 'aviso',
+      `Qualidade do número em ${q} na Meta`,
+      1,
+      q === 'RED'
+        ? 'A Meta já restringiu ou está prestes a restringir o número: o limite de mensagens cai e o canal pode morrer para todos os tenants de uma vez.'
+        : 'Sinal PRÉVIO de restrição — bloqueios e "marcar como spam" acumulados. É a janela para agir antes de perder o número.',
+      { acao: 'Reduzir disparo em lote, revisar copy dos templates e conferir o painel de qualidade da WABA.' },
+    ));
+  }
+
+  return out.filter(Boolean) as Achado[];
+}
+
 /** Aplica todas as regras de PRÉ-VOO. */
 export function regrasPreflight(entregas: EntregaPrevista[]): Achado[] {
   return [

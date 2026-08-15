@@ -3,8 +3,9 @@ import {
   checarFormatoPrometido, checarCoberturaKit, checarDesafioPlaceholder,
   checarContatos, checarCoreAusente, checarCanalZerado, checarEntregaIncompleta,
   regrasPreflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarCelulaVideoEmError,
-  checarDegradacoes, DEGRADACAO_VOLUME_CRITICO,
+  checarDegradacoes, DEGRADACAO_VOLUME_CRITICO, checarCanalEntradaWhatsapp,
   type CelulaVideoSemDeck, type EntregaPrevista, type EnvioObservado, type LacunaKitHorizonte, type DegradacaoRegistro,
+  type SaudeCanalEntrada,
 } from '@/lib/pipeline-health/regras';
 import { severidadeGlobal, achado } from '@/lib/pipeline-health/types';
 
@@ -384,5 +385,84 @@ describe('R10 · célula de vídeo em error sem deck', () => {
 
   it('lista vazia não gera achado — célula recuperada não deve aparecer', () => {
     expect(checarCelulaVideoEmError([])).toBeNull();
+  });
+});
+
+/**
+ * R12 · O canal de ENTRADA do WhatsApp.
+ *
+ * As outras regras deste arquivo olham SAÍDA. Esta existe porque o inbound falha
+ * de forma absolutamente silenciosa: a Meta desativa a inscrição do webhook e,
+ * como o número da Cloud API não tem aplicativo, a mensagem não fica pendente em
+ * lugar nenhum — some. Medido em 14/08/2026: `subscribed_apps` estava vazio e as
+ * respostas dos colaboradores desapareciam sem rastro.
+ *
+ * 🔴 A invariante que estes testes guardam é a do DESENHO: a regra decide sobre o
+ * que a Meta RESPONDEU, nunca sobre volume de mensagens. "Zero recebidas em 24h"
+ * é o estado normal deste canal (1 mensagem no total até 15/08), então uma regra
+ * por contagem ficaria muda para sempre — inclusive na queda.
+ */
+describe('R12 · canal de entrada do WhatsApp', () => {
+  const saude = (over: Partial<SaudeCanalEntrada> = {}): SaudeCanalEntrada => ({
+    configurada: true,
+    inscrito: true,
+    appsInscritos: ['Vertho'],
+    numeroOk: true,
+    qualidade: 'GREEN',
+    nomeVerificado: 'Vertho.ai',
+    motivo: null,
+    ...over,
+  });
+
+  it('canal saudável não gera achado nenhum', () => {
+    expect(checarCanalEntradaWhatsapp(saude())).toEqual([]);
+  });
+
+  it('🔴 inscrição caída é CRÍTICA e diz que a mensagem some, não que "atrasa"', () => {
+    const [a] = checarCanalEntradaWhatsapp(saude({ inscrito: false, appsInscritos: [] }));
+    expect(a.id).toBe('whatsapp-webhook-sem-inscricao');
+    expect(a.severidade).toBe('critico');
+    expect(a.detalhe).toMatch(/some sem rastro/i);
+    expect(a.acao).toMatch(/subscribed_apps/);
+  });
+
+  it('🔴 não saber vira ACHADO próprio — ignorância não é "ok"', () => {
+    const achados = checarCanalEntradaWhatsapp(saude({ inscrito: null, motivo: 'WABA_ID ausente' }));
+    const cego = achados.find((a) => a.id === 'whatsapp-webhook-check-cego');
+    expect(cego?.severidade).toBe('aviso');
+    expect(cego?.detalhe).toContain('WABA_ID ausente');
+  });
+
+  it('Cloud API desligada NÃO alarma — é decisão, e o canal legado assume', () => {
+    expect(checarCanalEntradaWhatsapp(saude({ configurada: false, inscrito: null }))).toEqual([]);
+  });
+
+  it('número inacessível é crítico e lembra que derruba o OTP junto', () => {
+    const a = checarCanalEntradaWhatsapp(saude({ numeroOk: false })).find((x) => x.id === 'whatsapp-numero-inacessivel');
+    expect(a?.severidade).toBe('critico');
+    expect(a?.detalhe).toMatch(/OTP/);
+  });
+
+  it('qualidade YELLOW avisa (janela para agir) e RED é crítico', () => {
+    const amarelo = checarCanalEntradaWhatsapp(saude({ qualidade: 'YELLOW' }));
+    expect(amarelo[0].id).toBe('whatsapp-qualidade-yellow');
+    expect(amarelo[0].severidade).toBe('aviso');
+    expect(amarelo[0].detalhe).toMatch(/PRÉVIO/i);
+
+    const vermelho = checarCanalEntradaWhatsapp(saude({ qualidade: 'RED' }));
+    expect(vermelho[0].severidade).toBe('critico');
+    expect(vermelho[0].detalhe).toMatch(/todos os tenants/i);
+  });
+
+  it('GREEN e UNKNOWN não viram alarme — só os dois estados que pedem ação', () => {
+    expect(checarCanalEntradaWhatsapp(saude({ qualidade: 'GREEN' }))).toEqual([]);
+    expect(checarCanalEntradaWhatsapp(saude({ qualidade: 'UNKNOWN' }))).toEqual([]);
+  });
+
+  it('problemas simultâneos viram achados SEPARADOS — cada um tem ação diferente', () => {
+    const achados = checarCanalEntradaWhatsapp(saude({ inscrito: false, numeroOk: false, qualidade: 'RED' }));
+    expect(achados.map((a) => a.id).sort()).toEqual([
+      'whatsapp-numero-inacessivel', 'whatsapp-qualidade-red', 'whatsapp-webhook-sem-inscricao',
+    ]);
   });
 });

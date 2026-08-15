@@ -19,6 +19,28 @@
  */
 import { normalizePhone } from '@/lib/phone';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
+
+/**
+ * A telemetria falhou — o envio NÃO é afetado, a medição é.
+ *
+ * Sem a linha em `notification_deliveries`, o `wamid` deste envio não existe em
+ * lugar nenhum: quando o webhook trouxer `delivered`/`read`, o update não vai
+ * casar com nada e o status se perde para sempre. Era um `console.error` solto,
+ * que é o mesmo que não registrar (15/08/2026).
+ */
+async function telemetriaFalhou(e: unknown, meta?: EnvioTemplateMeta): Promise<void> {
+  console.error('[cloud-api] telemetria falhou (envio NÃO afetado):', e);
+  await registrarDegradacao({
+    fluxo: 'envio',
+    tipo: DEGRADACAO.WHATSAPP_STATUS_PERDIDO,
+    chave: 'telemetria-nao-gravada',
+    empresaId: meta?.empresaId ?? null,
+    colaboradorId: meta?.colaboradorId ?? null,
+    severidade: 'aviso',
+    detalhe: { motivo: String((e as any)?.message || e).slice(0, 200) },
+  });
+}
 
 const BASE = (process.env.META_GRAPH_URL || 'https://graph.facebook.com/v22.0').replace(/\/+$/, '');
 const token = () => process.env.META_WHATSAPPBUSINESS_API || '';
@@ -46,6 +68,41 @@ function motivoDeRede(e: any, tetoMs: number): string {
     return `sem resposta em ${Math.round(tetoMs / 1000)}s (estado do envio DESCONHECIDO)`;
   }
   return String(e?.message || e).slice(0, 150);
+}
+
+/**
+ * Repete uma leitura que falhou por rede, com espera crescente.
+ *
+ * 🔴 SÓ PARA GET, e a restrição é o ponto inteiro desta função. Repetir
+ * `POST /messages` seria o caminho mais curto para a pessoa receber a MESMA
+ * mensagem duas vezes: a Graph API não aceita chave de idempotência nesse
+ * endpoint, e um timeout **não prova** que a Meta não aceitou — ela pode ter
+ * entregue depois de o nosso lado desistir. O `dedupeKey` do inbox tampouco
+ * protegeria: ele é consultado ANTES do envio, não dentro do `fetch`.
+ *
+ * Ler mídia é idempotente: buscar duas vezes devolve o mesmo áudio. E aqui a
+ * falha transitória tem custo visível — vira "mídia indisponível" na tela de
+ * quem atende, com a resposta da pessoa do outro lado inaudível.
+ *
+ * A espera é curta de propósito (300ms, 900ms): isto roda dentro de uma request
+ * que alguém está esperando, não num job de fundo.
+ */
+async function comRetry<T extends { ok: boolean; reason?: string }>(
+  operacao: () => Promise<T>,
+  tentativas = 3,
+  esperar: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+): Promise<T> {
+  let ultimo!: T;
+  for (let i = 0; i < tentativas; i++) {
+    ultimo = await operacao();
+    if (ultimo.ok) return ultimo;
+    // Só rede/5xx merecem outra chance. 404 (mídia expirada) e 401 (token) são
+    // definitivos: repetir só atrasa o erro que já se sabe.
+    const transitorio = /rede:|HTTP 5\d\d|HTTP 429/.test(ultimo.reason || '');
+    if (!transitorio || i === tentativas - 1) return ultimo;
+    await esperar(300 * 3 ** i);
+  }
+  return ultimo;
 }
 
 /** Tem credencial para falar com a Cloud API? Sem I/O. */
@@ -142,7 +199,7 @@ export async function enviarTextoCloud(
       providerMessageId: resultado.providerMessageId ?? null,
     });
   } catch (e) {
-    console.error('[cloud-api] telemetria falhou (envio NÃO afetado):', e);
+    await telemetriaFalhou(e, meta);
   }
 
   return resultado;
@@ -150,6 +207,10 @@ export async function enviarTextoCloud(
 
 /** URL temporária de uma mídia recebida. Expira em minutos — não repassar ao browser. */
 export async function urlDaMidia(mediaId: string): Promise<{ ok: boolean; url?: string; mime?: string; reason?: string }> {
+  return comRetry(() => urlDaMidiaUmaVez(mediaId));
+}
+
+async function urlDaMidiaUmaVez(mediaId: string): Promise<{ ok: boolean; url?: string; mime?: string; reason?: string }> {
   if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
   try {
     const res = await fetch(`${BASE}/${mediaId}`, {
@@ -176,6 +237,10 @@ export async function urlDaMidia(mediaId: string): Promise<{ ok: boolean; url?: 
  * isso o servidor busca e transmite: o token nunca sai daqui.
  */
 export async function baixarMidia(url: string): Promise<{ ok: boolean; body?: ArrayBuffer; mime?: string; reason?: string }> {
+  return comRetry(() => baixarMidiaUmaVez(url));
+}
+
+async function baixarMidiaUmaVez(url: string): Promise<{ ok: boolean; body?: ArrayBuffer; mime?: string; reason?: string }> {
   try {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token()}` },
@@ -187,6 +252,111 @@ export async function baixarMidia(url: string): Promise<{ ok: boolean; body?: Ar
   } catch (e: any) {
     return { ok: false, reason: `download rede: ${motivoDeRede(e, TIMEOUT_DOWNLOAD_MS)}` };
   }
+}
+
+/**
+ * Estado da conta na Meta — o que um check de saúde precisa saber.
+ *
+ * `null` em `inscrito`/`numeroOk` significa **não deu para saber**, que é
+ * diferente de "está ruim" e diferente de "está bom". Um health-check que
+ * traduz ignorância em "ok" é a forma mais cara de mentir.
+ */
+export interface SaudeCloudApi {
+  configurada: boolean;
+  /** O nosso app está inscrito no webhook da WABA? `null` = não deu para saber. */
+  inscrito: boolean | null;
+  /** Nomes dos apps inscritos (para o alerta dizer o que encontrou). */
+  appsInscritos: string[];
+  /** O número responde com a credencial atual? `null` = não deu para saber. */
+  numeroOk: boolean | null;
+  /** GREEN | YELLOW | RED | UNKNOWN — qualidade do número, medida pela Meta. */
+  qualidade: string | null;
+  nomeVerificado: string | null;
+  /** Por que ficou sem saber. Preenchido só quando algo acima é `null`. */
+  motivo: string | null;
+}
+
+/** WABA (conta) — separado do número; é nela que vive a inscrição do webhook. */
+const wabaId = () => process.env.WABA_ID || '';
+
+/**
+ * Pergunta à Meta se o canal ainda está de pé. LEITURA PURA (dois GETs).
+ *
+ * 🔴 POR QUE ATIVO, E NÃO POR VOLUME
+ * ──────────────────────────────────
+ * A tentação é medir "chegou mensagem nas últimas 24h?". Não serve: o volume
+ * legítimo de entrada é quase zero (uma mensagem no total até 15/08/2026), então
+ * "nada chegou" é o estado NORMAL — o alarme nasceria mudo, e continuaria mudo
+ * no dia em que a inscrição caísse. Perguntar diretamente dá resposta binária,
+ * independente de tráfego.
+ *
+ * Não é hipótese: em 14/08/2026 o `subscribed_apps` da WABA estava VAZIO e as
+ * respostas dos colaboradores sumiam sem deixar rastro — num número da Cloud API
+ * não existe "abrir o WhatsApp e ver depois". A Meta também desativa a inscrição
+ * sozinha quando o webhook falha de forma persistente, e nada no produto avisa.
+ *
+ * O `quality_rating` vem de brinde no mesmo custo e vale tanto quanto: é o sinal
+ * que ANTECEDE a restrição do número. Este projeto já perdeu um número por
+ * disparo em lote (11/08) — ali o aviso veio como canal morto, não como métrica.
+ */
+export async function inspecionarCloudApi(): Promise<SaudeCloudApi> {
+  const vazio: SaudeCloudApi = {
+    configurada: cloudApiConfigurada(),
+    inscrito: null, appsInscritos: [], numeroOk: null, qualidade: null, nomeVerificado: null, motivo: null,
+  };
+  if (!vazio.configurada) return { ...vazio, motivo: 'Cloud API não configurada' };
+
+  const out: SaudeCloudApi = { ...vazio };
+
+  // 1) A inscrição do webhook na WABA.
+  if (!wabaId()) {
+    out.motivo = 'WABA_ID ausente — não dá para verificar a inscrição do webhook';
+  } else {
+    try {
+      const res = await fetch(`${BASE}/${wabaId()}/subscribed_apps`, {
+        headers: { Authorization: `Bearer ${token()}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(TIMEOUT_META_MIDIA_MS),
+      });
+      const json: any = await res.json().catch(() => null);
+      if (!res.ok) {
+        out.motivo = `subscribed_apps HTTP ${res.status}${json?.error?.message ? ': ' + json.error.message : ''}`;
+      } else {
+        const apps: any[] = Array.isArray(json?.data) ? json.data : [];
+        out.appsInscritos = apps
+          .map((a) => a?.whatsapp_business_api_data?.name)
+          .filter(Boolean)
+          .map(String);
+        // Lista vazia é a resposta de "ninguém está inscrito" — é assim que a
+        // desativação aparece, sem erro nenhum.
+        out.inscrito = apps.length > 0;
+      }
+    } catch (e: any) {
+      out.motivo = `subscribed_apps rede: ${motivoDeRede(e, TIMEOUT_META_MIDIA_MS)}`;
+    }
+  }
+
+  // 2) O número e a qualidade dele.
+  try {
+    const res = await fetch(`${BASE}/${phoneNumberId()}?fields=verified_name,quality_rating,platform_type`, {
+      headers: { Authorization: `Bearer ${token()}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(TIMEOUT_META_MIDIA_MS),
+    });
+    const json: any = await res.json().catch(() => null);
+    if (!res.ok) {
+      out.numeroOk = false;
+      out.motivo = out.motivo ?? `número HTTP ${res.status}${json?.error?.message ? ': ' + json.error.message : ''}`;
+    } else {
+      out.numeroOk = true;
+      out.qualidade = json?.quality_rating ? String(json.quality_rating) : null;
+      out.nomeVerificado = json?.verified_name ? String(json.verified_name) : null;
+    }
+  } catch (e: any) {
+    out.motivo = out.motivo ?? `número rede: ${motivoDeRede(e, TIMEOUT_META_MIDIA_MS)}`;
+  }
+
+  return out;
 }
 
 /**
@@ -269,7 +439,7 @@ export async function enviarTemplateOtp(
       providerMessageId: resultado.providerMessageId ?? null,
     });
   } catch (e) {
-    console.error('[cloud-api] telemetria falhou (envio NÃO afetado):', e);
+    await telemetriaFalhou(e, meta);
   }
 
   return resultado;

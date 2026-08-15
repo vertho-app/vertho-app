@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { calcularJanela } from '@/lib/inbox/janela';
 import { montarThread } from '@/lib/inbox/thread';
 import { montarConversas, type LinhaConversa } from '@/lib/inbox/caixa';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { enviarTextoCloud } from '@/lib/whatsapp/cloud-api';
 import type { Conversa, ThreadCompleta, ResultadoEnvio } from '@/lib/inbox/tipos';
 
@@ -140,7 +141,20 @@ export async function marcarLida(empresaId: string, telefone: string): Promise<v
     .update({ lida_em: new Date().toISOString(), lida_por: email })
     .eq('from_phone', telefone)
     .is('lida_em', null);
-  if (error) console.error('[inbox] marcarLida:', error.message);
+  if (error) {
+    console.error('[inbox] marcarLida:', error.message);
+    // Aviso, não crítico: a conversa continua aparecendo como não lida. Irrita
+    // e não perde nada — mas some do log se não for registrado, e "o contador
+    // não zera" é o tipo de queixa que ninguém consegue investigar depois.
+    await registrarDegradacao({
+      fluxo: 'envio',
+      tipo: DEGRADACAO.INBOX_ESCRITA_PERDIDA,
+      chave: 'marcar-lida',
+      empresaId,
+      severidade: 'aviso',
+      detalhe: { motivo: error.message },
+    });
+  }
 }
 
 /**
@@ -220,7 +234,21 @@ export async function responderConversa(args: {
     dedupe_key: dedupe,
     erro: r.ok ? null : (r.reason ?? 'falha desconhecida'),
   });
-  if (eIns) console.error('[inbox] gravar enviada:', eIns.message);
+  if (eIns) {
+    // 🔴 A mensagem SAIU e a thread não vai mostrar. Sem este registro, o
+    // atendente reescreve por não ver o que já respondeu — e a pessoa recebe
+    // duas. `critico` porque o efeito está do lado de fora, não na nossa tela.
+    console.error('[inbox] gravar enviada:', eIns.message);
+    await registrarDegradacao({
+      fluxo: 'envio',
+      tipo: DEGRADACAO.INBOX_ESCRITA_PERDIDA,
+      chave: 'gravar-enviada',
+      empresaId: args.empresaId,
+      colaboradorId,
+      severidade: 'critico',
+      detalhe: { wamid: r.providerMessageId ?? null, enviou: r.ok, motivo: eIns.message },
+    });
+  }
 
   return r.ok
     ? { ok: true, wamid: r.providerMessageId ?? null }

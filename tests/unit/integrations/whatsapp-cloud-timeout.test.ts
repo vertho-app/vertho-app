@@ -105,3 +105,48 @@ describe('estouro do teto — o que é dito sobre o que aconteceu', () => {
     expect(r.reason).toMatch(/sem resposta em 30s/);
   });
 });
+
+/**
+ * Retry: onde pode e onde NÃO pode.
+ *
+ * A assimetria é a regra inteira. Ler mídia é idempotente — buscar duas vezes
+ * devolve o mesmo áudio, e desistir na primeira falha transitória deixa quem
+ * atende sem ouvir a resposta da pessoa. Enviar NÃO é: a Graph API não aceita
+ * chave de idempotência em `/messages`, e um timeout não prova que a Meta
+ * recusou. Repetir ali é o caminho curto para a mesma mensagem chegar duas vezes.
+ */
+describe('retry só nas leituras', () => {
+  it('mídia: falha de rede é tentada de novo e a segunda vale', async () => {
+    let n = 0;
+    stubarFetch(async () => {
+      n++;
+      if (n === 1) throw new Error('ECONNRESET');
+      return respostaOk({ url: 'https://lookaside.meta/x', mime_type: 'audio/ogg' });
+    });
+
+    const r = await urlDaMidia('9876543210');
+    expect(r.ok).toBe(true);
+    expect(n).toBe(2);
+  });
+
+  it('mídia expirada (404) NÃO é repetida — o erro já é definitivo', async () => {
+    let n = 0;
+    stubarFetch(async () => {
+      n++;
+      return { ok: false, status: 404, json: async () => ({ error: { message: 'not found' } }) };
+    });
+
+    const r = await urlDaMidia('9876543210');
+    expect(r.ok).toBe(false);
+    expect(n).toBe(1); // repetir só atrasaria o erro que já se sabe
+  });
+
+  it('🔴 ENVIO nunca é repetido — retry aqui entregaria a mensagem duas vezes', async () => {
+    let n = 0;
+    stubarFetch(async () => { n++; throw erroDeTimeout(); });
+
+    const r = await enviarTextoCloud({ phone: '5511999998888', texto: 'oi' });
+    expect(r.ok).toBe(false);
+    expect(n).toBe(1);
+  });
+});

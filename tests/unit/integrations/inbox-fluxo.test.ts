@@ -34,7 +34,7 @@ vi.mock('@/lib/degradacao', async (orig) => ({
 }));
 
 const { POST } = await import('@/app/api/webhooks/whatsapp-cloud/route');
-const { carregarThread, listarConversas } = await import('@/app/admin-v2/cliente/inbox-actions');
+const { carregarThread, listarConversas, responderConversa, marcarLida } = await import('@/app/admin-v2/cliente/inbox-actions');
 const { associarTelefone, reprocessarNaoIdentificadas } = await import('@/app/admin-v2/inbox/inbox-actions');
 
 /** Request assinada como a Meta assina: HMAC-SHA256 sobre o corpo CRU. */
@@ -333,5 +333,60 @@ describe('reprocessar a fila', () => {
     expect(r).toEqual({ resolvidas: 1, mensagens: 2, restantes: 0 });
     const escrita = sb.escritas.find((e) => e.tabela === 'whatsapp_mensagens_recebidas');
     expect(escrita?.payload).toEqual({ empresa_id: 'e1', colaborador_id: 'c1', ambiguidade: null });
+  });
+});
+
+/**
+ * Pontos cegos: escritas locais que falhavam num `console.error` e sumiam.
+ *
+ * O pior deles tem o efeito FORA da nossa tela: a mensagem sai pela Cloud API, a
+ * gravação local falha, e a thread não mostra que já foi respondido. Quem atende
+ * reescreve — e a pessoa do outro lado recebe duas. Um log que ninguém lê é
+ * indistinguível de não registrar nada.
+ */
+describe('escrita local que falha não pode sumir', () => {
+  const AGORA = Date.UTC(2026, 7, 15, 12, 0, 0);
+
+  beforeEach(() => { vi.setSystemTime(AGORA); });
+
+  it('🔴 mensagem enviada que não foi gravada vira degradação CRÍTICA', async () => {
+    const sb = novoMock({
+      // Janela aberta: a última recebida é de uma hora atrás.
+      resolver: (t) => (t === 'whatsapp_mensagens_recebidas'
+        ? { recebida_em: new Date(AGORA - 3600_000).toISOString(), colaborador_id: 'c1' }
+        : null),
+    });
+    sb.falharEm({ tabela: 'whatsapp_mensagens_enviadas', op: 'insert', mensagem: 'deadlock detected' });
+
+    await responderConversa({ empresaId: 'e1', telefone: '5511999998888', texto: 'já resolvido' });
+
+    const d = h.degradacoes.find((x) => x.chave === 'gravar-enviada');
+    expect(d).toBeTruthy();
+    expect(d.severidade).toBe('critico');
+    expect(d.empresaId).toBe('e1');
+    expect(d.detalhe.motivo).toContain('deadlock');
+  });
+
+  it('marcarLida que falha vira aviso — o contador não zera e ninguém investigaria', async () => {
+    const sb = novoMock();
+    sb.falharEm({ tabela: 'whatsapp_mensagens_recebidas', op: 'update', mensagem: 'timeout' });
+
+    await marcarLida('e1', '5511999998888');
+
+    const d = h.degradacoes.find((x) => x.chave === 'marcar-lida');
+    expect(d?.severidade).toBe('aviso');
+  });
+
+  it('caminho feliz não registra degradação nenhuma', async () => {
+    novoMock({
+      resolver: (t) => (t === 'whatsapp_mensagens_recebidas'
+        ? { recebida_em: new Date(AGORA - 3600_000).toISOString(), colaborador_id: 'c1' }
+        : null),
+    });
+
+    await responderConversa({ empresaId: 'e1', telefone: '5511999998888', texto: 'oi' });
+    await marcarLida('e1', '5511999998888');
+
+    expect(h.degradacoes).toHaveLength(0);
   });
 });

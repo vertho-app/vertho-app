@@ -34,6 +34,14 @@
 > e o teste guarda os DOIS sentidos: dispara quando o problema existe e fica calada
 > quando não existe — check que sempre acusa vira ruído e é desligado.
 >
+> **A R12 é a única que depende de I/O EXTERNO** (`inspecionarCloudApi`, no estrutural), e
+> a exceção tem motivo: ela cobre o canal de ENTRADA do WhatsApp, que não deixa rastro no
+> banco quando cai. A Meta desativa a inscrição do webhook por conta própria, e num número
+> da Cloud API **não existe aplicativo** — a mensagem não fica pendente, some. Medir isso
+> por volume seria inútil: "zero recebidas em 24h" é o estado normal do canal (uma mensagem
+> no total até 15/08/2026), então a regra ficaria muda para sempre, inclusive na queda. A
+> decisão continua pura; só a coleta pergunta à Meta (`subscribed_apps` + `quality_rating`).
+>
 > **A regra de ouro da coleta:** a previsão passa pelo MESMO código da entrega
 > (`precarregarKits` + `overlayKitNaSemana`). Reimplementar "o que a pessoa vai
 > receber" produz um check que concorda consigo mesmo e diverge da realidade — erro

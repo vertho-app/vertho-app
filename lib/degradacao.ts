@@ -112,6 +112,15 @@ export const DEGRADACAO = {
    * MARKETING durante a revisão, sem nenhum sinal no produto.
    */
   WHATSAPP_TEMPLATE_ENCARECEU: 'whatsapp-template-encareceu',
+  /**
+   * envio: a mensagem SAIU pela Cloud API e a escrita local falhou.
+   *
+   * `critico` na gravação do enviado: a pessoa recebeu, e a thread de quem
+   * atende não mostra nada. O atendente reescreve sem saber que já respondeu —
+   * e a pessoa do outro lado recebe duas. Era o pior dos pontos cegos, porque o
+   * erro morria num `console.error` que ninguém lê (15/08/2026).
+   */
+  INBOX_ESCRITA_PERDIDA: 'inbox-escrita-perdida',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

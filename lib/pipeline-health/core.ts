@@ -18,8 +18,9 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
-import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarPushDegradado, checarPushSemVapid } from './regras';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp } from './regras';
 import { webPushConfigurado } from '@/lib/notifications/providers/webpush';
+import { inspecionarCloudApi } from '@/lib/whatsapp/cloud-api';
 import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
 /**
@@ -206,6 +207,11 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
       webPushConfigurado(),
       await contar('notification_endpoints', (q: any) => q.eq('enabled', true)),
     ));
+
+    // R12: o canal de ENTRADA do WhatsApp. Único check deste arquivo que sai
+    // para a rede — e tem que ser assim: o inbound não deixa rastro no banco
+    // quando cai, então não há tabela onde inferir. Ver `checarCanalEntradaWhatsapp`.
+    achados.push(...checarCanalEntradaWhatsapp(await inspecionarCloudApi()));
 
     const ungrounded = await contar('kit_briefs', (q: any) => q.is('modulo_base_id', null));
     achados.push(achado('brief-ungrounded', 'aviso', 'Brief sem módulo-base', ungrounded,

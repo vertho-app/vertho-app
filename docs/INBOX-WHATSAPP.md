@@ -386,6 +386,39 @@ Antes eram "as últimas 500 mensagens agrupadas em memória" — uma cota de men
 em que um telefone falante esconde as conversas dos outros, começando pela mais antiga (a que
 esperava resposta).
 
+### 9.2b Segunda rodada (mesma data): saúde do canal e pontos cegos
+
+Três itens, vindos de uma lista de sugestões que foi avaliada item a item — o que entrou
+mudou de forma no caminho, e é a forma que importa:
+
+- **R12 · saúde do canal de entrada** (`checarCanalEntradaWhatsapp` + `inspecionarCloudApi`).
+  Todas as 14 regras anteriores do health olhavam SAÍDA. A sugestão original era um "health check
+  do webhook"; **medir por volume não funcionaria** — "zero mensagens em 24h" é o estado normal
+  deste canal, então a regra nasceria muda. O check PERGUNTA à Meta: `GET /{WABA_ID}/subscribed_apps`
+  (inscrição — vazio é exatamente como a desativação aparece, sem erro) e
+  `GET /{PHONE_NUMBER_ID}` (credencial + `quality_rating`). Não saber vira **achado próprio**
+  (`whatsapp-webhook-check-cego`), nunca silêncio.
+  A qualidade veio de brinde no mesmo custo e é o único aviso PRÉVIO de restrição — em 11/08 um
+  disparo em lote derrubou um número e o sinal chegou como canal morto, não como métrica.
+- **Três pontos cegos fechados**: gravar a mensagem enviada (🔴 `critico` — ela SAIU e a thread não
+  mostra, então o atendente reescreve e a pessoa recebe duas), `marcarLida` (aviso) e a telemetria
+  do `cloud-api` (sem a linha, o `wamid` não existe e o status nunca casa). Os três morriam em
+  `console.error`, que é o mesmo que não registrar.
+- **Retry só nas LEITURAS de mídia.** A sugestão era "retry exponencial para falhas de rede"; no
+  `POST /messages` isso é o caminho curto para a mensagem chegar duas vezes — a Graph não aceita
+  chave de idempotência nesse endpoint e timeout não prova recusa. O `dedupeKey` não protegeria:
+  ele é consultado ANTES do envio, não dentro do `fetch`. Guardado por teste
+  (`🔴 ENVIO nunca é repetido`).
+
+**Avaliadas e NÃO feitas** (registrado para não voltarem como novidade):
+
+| Sugestão | Por que não agora |
+|---|---|
+| Rate limiting explícito na Cloud API | O OTP já é limitado por `(empresa, telefone)` em `lib/phone-otp.ts`; o inbox é humano digitando; e há **0 envios** registrados por este canal. Vira obrigatório **no dia em que a cadência migrar** — aí no mesmo mecanismo do lote legado, não num novo |
+| Documentação de rollback para Z-API | O rollback já é **automático**: o OTP cai em cascata Cloud API → Z-API/WaSender → SMS. Para desligar, basta remover `PHONE_NUMBER_ID`/`META_WHATSAPPBUSINESS_API`. Para o inbox não existe e não deveria: responder pelo número da Z-API é outro número, outra conversa |
+| Log estruturado (Sentry/Datadog) | O mecanismo canônico já é `registrarDegradacao` (dedup, contador por dia, lido pela R10) + Sentry. O que faltava eram os três pontos cegos acima, não o formato |
+| Alerta de taxa de leitura < 20% por template | Premissa quebrada: `read` só existe se a pessoa tiver **confirmação de leitura ligada** — a métrica misturaria comportamento com configuração de privacidade. E o denominador hoje é ~zero (a cadência vai por Z-API, que não tem status). Quando houver volume: comparar **entregue × lido**, com piso de N, e nomear a métrica pelo que ela mede |
+
 ### 9.3 O que continua aberto — e por quê
 
 - **Responder pelo `to_phone_id` da conversa** (§7.1). Com dois números, a chave da conversa é
