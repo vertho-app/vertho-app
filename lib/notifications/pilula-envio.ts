@@ -24,10 +24,36 @@ export function labelFormato(formato?: string | null): string {
   return LABEL_FORMATO[formato || ''] || 'conteúdo';
 }
 
+/**
+ * Código interno da matriz no começo do descritor: `COO03_D6 — Busca de apoio`.
+ *
+ * 🔴 POR QUE ISTO EXISTE (medido 16/08/2026, Ibipeba)
+ * ──────────────────────────────────────────────────
+ * Os descritores de **Coordenação Pedagógica** entraram com o identificador da
+ * matriz colado no texto; os de Gestão Escolar/Educacional, na MESMA competência,
+ * não. São **79 de 648** itens de plano (12%), e 18 deles cairiam na semana 5 —
+ * a mensagem sairia como *"Autocuidado e resiliência emocional — COO03_D6 —
+ * Busca de apoio"*, com um código interno e um travessão duplicado.
+ *
+ * ⚠️ A limpeza é na EXIBIÇÃO, nunca no dado. O `descritor` é a chave que casa o
+ * kit por (DISC × cargo) — no dia da medição o kit aplicava em 36/36 —, e
+ * reescrevê-lo para consertar um texto arriscaria quebrar o casamento. Jargão de
+ * código que vaza para fora é problema de apresentação; trate na camada de
+ * apresentação.
+ */
+const CODIGO_DA_MATRIZ = /^[A-Z]{2,5}\d{1,3}_[A-Z]\d+\s*[—–-]\s*/;
+
+export function descritorParaHumano(bruto: string): string {
+  const limpo = bruto.replace(CODIGO_DA_MATRIZ, '').trim();
+  // Se o descritor era SÓ o código, texto vazio é pior que o código: devolve o
+  // original e deixa alguém perceber.
+  return limpo || bruto;
+}
+
 /** Tema da pílula ("competência — descritor") a partir de um item de conteudos_dia. */
 export function temaPilula(e: any): string {
   const comp = e?.competencia ? String(e.competencia).trim() : '';
-  const desc = e?.descritor ? String(e.descritor).trim() : '';
+  const desc = e?.descritor ? descritorParaHumano(String(e.descritor).trim()) : '';
   const titulo = e?.conteudo?.core_titulo || e?.conteudo?.titulo || '';
   return [comp, desc].filter(Boolean).join(' — ') || titulo || 'novo conteúdo da semana';
 }
