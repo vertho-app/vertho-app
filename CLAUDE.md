@@ -20,6 +20,7 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > | Modos da engine | `docs/MODO-PILOTO.md` (piloto e personalizado) |
 > | Comercial / demo | `docs/PORTAL-REPRESENTANTE.md` · `docs/AMBIENTE-DEMO.md` |
 > | WhatsApp: caixa de entrada e migração p/ Cloud API | `docs/INBOX-WHATSAPP.md` |
+> | WhatsApp: quais templates estão APROVADOS **e ligados**, com que contrato | `docs/TEMPLATES-WHATSAPP.md` |
 > | Fluxo de dados pessoais (insumo p/ LGPD) | `docs/FLUXO-DE-DADOS-PESSOAIS.md` |
 > | Board (painel multi-modelo, interno) | `docs/BOARD-PAINEL.md` — a web enfileira, o **worker local** executa os 4 CLIs por assinatura |
 > | Histórico (não é backlog) | `docs/HISTORICO-MIGRACAO.md` · `docs/HISTORICO-AUDITORIAS.md` |
