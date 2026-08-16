@@ -7,8 +7,8 @@ import { ehNavegadorEmbutido, ehAndroid, intentChrome } from '@/lib/auth/navegad
 /**
  * Despacho do magic link recebido por WhatsApp.
  *
- * `GET /entrar?t=<slug>~<token_hash>` → 302 para
- * `https://<slug>.vertho.ai/auth/callback?type=email&token_hash=…`
+ * `GET /entrar?t=<slug>~<token_hash>`      → tela de confirmação (NÃO consome)
+ * `GET /entrar?t=<slug>~<token_hash>&ir=1` → 302 para o `/auth/callback` do tenant
  *
  * POR QUE UM SALTO A MAIS
  * ───────────────────────
@@ -22,6 +22,27 @@ import { ehNavegadorEmbutido, ehAndroid, intentChrome } from '@/lib/auth/navegad
  * A alternativa seria um template por cliente, com aprovação da Meta a cada
  * cliente novo. Um salto de redirecionamento é mais barato que isso.
  *
+ * 🔴 POR QUE ELA NÃO REDIRECIONA SOZINHA (medido em 15/08/2026)
+ * ─────────────────────────────────────────────────────────────
+ * O `/auth/callback` chama `verifyOtp`, que **consome o token de uso único**.
+ * Dentro do navegador embutido do WhatsApp isso produz um beco sem saída:
+ *
+ *   1. o token é gasto e a sessão nasce no cookie jar do WebView, isolado do
+ *      navegador e do app instalado;
+ *   2. a pessoa pede "abrir no navegador" — e o WhatsApp transfere a **URL
+ *      ATUAL**, que depois do redirect já é `<tenant>/dashboard`, sem token
+ *      nenhum;
+ *   3. no navegador de verdade ela cai no login, com o link já queimado.
+ *
+ * O passo 2 é o que mata a ideia de resolver isso detectando o navegador: mesmo
+ * com detecção perfeita, redirecionar automaticamente **destrói a única URL que
+ * valia a pena transferir**. Por isso o `t` fica parado numa tela de confirmação
+ * até alguém tocar em "Entrar" — assim a URL da barra de endereços continua
+ * sendo a redimível, e mudar de navegador antes de entrar funciona.
+ *
+ * Efeito colateral bem-vindo: robô de preview de link (a Meta busca a URL para
+ * montar o cartão) passa a ler HTML em vez de seguir para o callback.
+ *
  * ⚠️ ROTA PÚBLICA E PRÉ-SESSÃO, por definição: quem clica ainda não está logado.
  * Ela não autentica ninguém — quem valida o token é o `/auth/callback` do
  * tenant, via `verifyOtp`. O que esta rota decide é PARA ONDE mandar, e é aí que
@@ -34,42 +55,15 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   const t = req.nextUrl.searchParams.get('t');
   const dados = lerParametroAcesso(t);
-
-  // 🔴 ANTES DE QUALQUER REDIRECT QUE CONSUMA O TOKEN.
-  //
-  // O link chega por WhatsApp e o app abre no navegador EMBUTIDO. Seguir dali
-  // para o `/auth/callback` gasta o token de uso único e cria a sessão num
-  // cookie jar isolado: a pessoa fecha o WhatsApp, abre o app instalado e não
-  // está logada — com o link já queimado. Medido em 15/08/2026.
-  //
-  // A tela de despacho não consome nada: ela devolve o mesmo link para ser
-  // aberto no navegador de verdade.
+  // `ir=1` é o toque explícito em "Entrar" na tela de confirmação. É o ÚNICO
+  // caminho que consome o token.
+  const consumir = req.nextUrl.searchParams.get('ir') === '1';
   const ua = req.headers.get('user-agent');
-  if (t && ehNavegadorEmbutido(ua)) {
-    const meuLink = new URL('/entrar', req.url);
-    meuLink.searchParams.set('t', t);
-
-    // Tela de despacho: explica o caminho e NÃO consome o token.
-    const abrir = new URL('/entrar/abrir', req.url);
-    abrir.searchParams.set('t', t);
-
-    // ANDROID: sai do WebView SEM tela intermediária. O `intent://` entrega a
-    // navegação ao Chrome, que reabre este mesmo endereço — aí o UA já é de
-    // navegador de verdade e o fluxo segue normal. Se o Chrome não resolver, o
-    // fallback cai na tela de despacho (nunca de volta no link, que reiniciaria
-    // o laço dentro do WhatsApp).
-    if (ehAndroid(ua)) {
-      return NextResponse.redirect(intentChrome(meuLink.toString(), abrir.toString()), 302);
-    }
-
-    // iOS: não existe caminho programático para sair do WKWebView.
-    return NextResponse.redirect(abrir, 302);
-  }
 
   // Sem parâmetro utilizável → login, sem detalhe. Dizer "token inválido" versus
   // "tenant inexistente" entregaria a quem testa a informação de quais slugs
   // existem.
-  if (!dados) return NextResponse.redirect(new URL('/login?error=link-invalido', req.url));
+  if (!dados || !t) return NextResponse.redirect(new URL('/login?error=link-invalido', req.url));
 
   // O slug PRECISA existir. A regex garante só a forma; sem esta consulta,
   // qualquer string bem-formada viraria um subdomínio de destino.
@@ -90,6 +84,35 @@ export async function GET(req: NextRequest) {
   if (!empresa) {
     console.warn('[entrar] slug inexistente no parâmetro de acesso');
     return NextResponse.redirect(new URL('/login?error=link-invalido', req.url));
+  }
+
+  if (!consumir) {
+    // O User-Agent do WebView é a única pista que temos de onde o clique nasceu,
+    // e ela erra: em 15/08 um iPhone real passou pela heurística sem ser
+    // detectado. Registrar o UA aqui é o que permite corrigir a régua com dado
+    // em vez de palpite — e o volume é baixo (um por clique em link de acesso).
+    console.log(`[entrar] ua=${JSON.stringify(ua)} embutido=${ehNavegadorEmbutido(ua)} android=${ehAndroid(ua)}`);
+
+    const meuLink = new URL('/entrar', req.url);
+    meuLink.searchParams.set('t', t);
+
+    // ANDROID: dá para sair do WebView sem pedir nada a ninguém. O `intent://`
+    // entrega a navegação ao Chrome, que reabre este mesmo endereço — com o
+    // token INTACTO, porque nada foi consumido até aqui. O fallback vai para a
+    // tela de confirmação, nunca de volta para cá (viraria laço).
+    if (ehNavegadorEmbutido(ua) && ehAndroid(ua)) {
+      const abrir = new URL('/entrar/abrir', req.url);
+      abrir.searchParams.set('t', t);
+      return NextResponse.redirect(intentChrome(meuLink.toString(), abrir.toString()), 302);
+    }
+
+    // Todo o resto — inclusive navegador de verdade — vai para a confirmação. É
+    // um toque a mais, e é o preço de a URL continuar redimível quando a pessoa
+    // troca de navegador. No iOS não existe alternativa: nenhum caminho
+    // programático sai do WKWebView.
+    const abrir = new URL('/entrar/abrir', req.url);
+    abrir.searchParams.set('t', t);
+    return NextResponse.redirect(abrir, 302);
   }
 
   // `tenantUrl` monta a partir do slug JÁ validado contra o banco — a URL nunca

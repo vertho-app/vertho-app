@@ -457,25 +457,50 @@ token de uso único**. Dentro do navegador embutido isso produz três coisas ao 
 
 O link parece ter funcionado e deixa a pessoa de fora. Um caso de "clicou, entrou, sumiu".
 
-**A correção** (`lib/auth/navegador-embutido.ts`, aplicada em `app/entrar/route.ts` **antes** de
-qualquer redirect que consuma o token):
+#### 🔑 A primeira tentativa foi detectar o navegador — e ela estava errada em DUAS camadas
+
+A correção óbvia é olhar o User-Agent e desviar quem está no WebView. Foi o que subiu primeiro, e o
+teste em aparelho real (15/08, 21:34) derrubou os dois pressupostos de uma vez:
+
+1. **A heurística não detectou um iPhone real.** O log do `/entrar` mostra um único `302` indo direto
+   ao callback. A regra "WKWebView não traz o token `Safari/`" não vale para o navegador embutido
+   deste aparelho.
+2. **E, mesmo se tivesse detectado, não resolveria.** Quando a pessoa pede "abrir no navegador", o
+   WhatsApp transfere a **URL ATUAL** — que, depois do redirect automático, já era
+   `<tenant>/dashboard`, sem token nenhum. O redirect automático **destrói a única URL que valia a
+   pena transferir**. Foi exatamente o que se viu: dashboard dentro do WhatsApp, login no Safari.
+
+O segundo ponto é o que muda o desenho. Não existe detecção boa o bastante: enquanto o `/entrar`
+redirecionar sozinho, o link já não é mais redimível no instante em que a pessoa tenta mudar de
+navegador.
+
+#### A correção que vale: o token fica PARADO até um toque explícito
+
+`/entrar?t=…` **nunca** consome. Ele valida o slug contra o banco e manda para `/entrar/abrir?t=…`,
+uma tela de confirmação. Só `/entrar?t=…&ir=1` — o botão "Entrar agora" — segue para o
+`/auth/callback`. Enquanto ninguém toca, a barra de endereços continua exibindo uma URL redimível, e
+`••• → Abrir no Safari` leva o acesso junto.
 
 | Plataforma | O que acontece |
 |---|---|
-| **Android** | `intent://…#Intent;scheme=https;package=com.android.chrome;end` — o WebView entrega a navegação ao Chrome, que reabre o MESMO endereço. Sem tela intermediária: o UA já é de navegador de verdade e o fluxo segue. `S.browser_fallback_url` aponta para `/entrar/abrir` (nunca para o link, que reiniciaria o laço) |
-| **iOS** | **Não existe caminho programático para sair do WKWebView** — nem link, nem esquema, nem script. `/entrar/abrir` explica o menu `•••` → *Abrir no Safari*, oferece o endereço para copiar e **não consome o token** |
+| **Android** | `intent://…;package=com.android.chrome;S.browser_fallback_url=…;end` — o WebView entrega a navegação ao Chrome com o token **intacto**, e a confirmação aparece já no navegador certo. Um toque |
+| **iOS / não detectado / navegador de verdade** | Tela de confirmação. Quem quiser o app instalado abre no Safari **antes** de entrar; quem só quer usar agora toca em "Entrar agora" |
+
+A tela aparece **para todo mundo**, e isso é deliberado: a detecção erra (provado acima), e o custo
+de errar é assimétrico — um toque a mais para quem já estava no navegador certo, contra um acesso
+queimado para quem não estava. Efeito colateral bem-vindo: o robô de preview de link da Meta passa a
+ler HTML em vez de seguir para o callback.
 
 ⚠️ **Escreva isto na resposta ao cliente, não só no código:** "abrir direto no navegador" no iPhone
-é uma promessa que ninguém consegue cumprir. O que dá para fazer é reduzir a instrução a um toque e,
-para quem já tem o app instalado, preferir o **OTP** (`otp_acesso`, template aprovado): código de 6
-dígitos, digitado onde a pessoa já está, sem navegador nenhum no caminho.
+é uma promessa que ninguém consegue cumprir — não existe caminho programático para sair do
+WKWebView. Para quem já tem o app instalado, o caminho sem navegador nenhum é o **OTP**
+(`otp_acesso`, template aprovado): código de 6 dígitos digitado onde a pessoa já está.
 
-**A detecção é heurística por User-Agent, e a assimetria decidiu o desenho.** Falso POSITIVO mostra
-uma tela a mais para quem já estava no navegador certo; falso NEGATIVO **queima o acesso**. Na
-dúvida, acusa embutido. No iOS o sinal é a ausência do token `Safari/` no fim do UA (o WKWebView usa
-o mesmo motor, mas não assina), com exceção explícita para `CriOS`/`FxiOS`/`EdgiOS`/`OPiOS`, que são
-navegadores de verdade. Testes: `tests/unit/security/navegador-embutido.test.ts` (validado por
-mutação nos dois ramos).
+Testes: `tests/unit/security/entrar-nao-consome.test.ts` — o invariante é *"um GET sem `ir=1` NUNCA
+aponta para o `/auth/callback`"*, varrido sobre quatro User-Agents justamente para não voltar a
+depender da heurística. `tests/unit/security/navegador-embutido.test.ts` cobre o desvio do Android.
+Ambos validados por mutação. O `/entrar` passou a **registrar o UA** de cada clique: a régua só
+melhora com dado de aparelho real, e foi um aparelho real que derrubou a primeira versão.
 
 ### 9.3 O que continua aberto — e por quê
 
