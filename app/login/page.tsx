@@ -3,6 +3,7 @@ import { connection } from 'next/server';
 import { resolveTenant, getTenantSlug } from '@/lib/tenant-resolver';
 import { getTranslations } from 'next-intl/server';
 import LoginForm from './login-form';
+import { ehNavegadorEmbutido, ehIos } from '@/lib/auth/navegador-embutido';
 
 export default async function LoginPage() {
   await connection();
@@ -27,5 +28,16 @@ export default async function LoginPage() {
     subtitle: uiConfig.login_subtitle || t('defaultSubtitle'),
   };
 
-  return <LoginForm branding={branding} />;
+  // Se esta tela apareceu dentro do navegador embutido de um app, é porque NESTE
+  // navegador não há sessão — e a da pessoa pode estar no Safari/Chrome ou no app
+  // instalado, noutro cookie jar. Decidido no servidor para o aviso não piscar.
+  const ua = h.get('user-agent');
+
+  return (
+    <LoginForm
+      branding={branding}
+      embutido={ehNavegadorEmbutido(ua)}
+      ios={ehIos(ua)}
+    />
+  );
 }

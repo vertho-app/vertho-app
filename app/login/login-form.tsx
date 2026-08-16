@@ -7,8 +7,9 @@ import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
 import { locales } from '@/i18n/routing';
 import SignupModal from './signup-modal';
+import AvisoNavegadorEmbutido from '@/components/auth/aviso-navegador-embutido';
 
-export default function LoginForm({ branding }: { branding: any }) {
+export default function LoginForm({ branding, embutido = false, ios = false }: { branding: any; embutido?: boolean; ios?: boolean }) {
   const t = useTranslations('Login');
   const common = useTranslations('Common');
   const locale = useLocale();
@@ -320,6 +321,11 @@ export default function LoginForm({ branding }: { branding: any }) {
         <p className="text-sm mb-7" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
           {promptText}
         </p>
+
+        {/* Só aparece dentro de app embutido — e chegar aqui já prova que NESTE
+            navegador não há sessão. Ver o componente para o porquê de isto viver
+            no login, e não no link. */}
+        {embutido ? <AvisoNavegadorEmbutido ios={ios} /> : null}
 
         {awaitingCode ? (
           /* ── Passo de código (OTP por WhatsApp) ── */

@@ -60,7 +60,19 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { router.replace('/login'); return; }
+      if (!session) {
+        // 🔑 LEVA O DESTINO JUNTO. Sem isto, quem toca no link da semana 5 e não
+        // tem sessão neste navegador entra e cai na home genérica — o conteúdo
+        // que a mensagem anunciou fica a três cliques de distância, e a pessoa
+        // não sabe que chegou no lugar errado. O `?redirect=` já é honrado pelo
+        // `login-form`, e é ele que o aviso de navegador embutido carrega para o
+        // Safari.
+        const destino = `${window.location.pathname}${window.location.search}`;
+        router.replace(destino && destino !== '/dashboard'
+          ? `/login?redirect=${encodeURIComponent(destino)}`
+          : '/login');
+        return;
+      }
       setUser(session.user);
 
       fetch('/api/me')

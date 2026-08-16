@@ -89,6 +89,31 @@ export function ehIos(userAgent: string | null | undefined): boolean {
  * toque e, para quem usa o app instalado, preferir o OTP (código), que não
  * depende de navegador nenhum.
  */
+/**
+ * Esquemas que fazem o WebView do iOS entregar a navegação ao navegador.
+ *
+ * 🔴 NENHUM DOS DOIS É API SUPORTADA. A Apple não oferece forma de sair do
+ * WKWebView; o que existe é um efeito colateral — ao navegar para um esquema
+ * DESCONHECIDO, um app bem-comportado repassa a URL ao sistema
+ * (`UIApplication.open`) em vez de tratar como erro. `x-safari-https://` é
+ * registrado pelo Safari e `googlechromes://` pelo Chrome.
+ *
+ * **Medido funcionando no WhatsApp 2.26.31 (iPhone, 15/08/2026.)** Pode sumir
+ * numa atualização do app, sem aviso e sem erro — por isso quem usa isto tem
+ * que ter um caminho manual visível quando a tentativa não leva a lugar nenhum.
+ *
+ * Ficam aqui, e não na tela, porque são a mesma pegadinha em dois lugares
+ * (`/entrar/abrir` e o login): conhecimento frágil duplicado envelhece em
+ * metades.
+ */
+export function esquemaSafari(url: string): string {
+  return `x-safari-https://${url.replace(/^https?:\/\//, '')}`;
+}
+
+export function esquemaChrome(url: string): string {
+  return `googlechromes://${url.replace(/^https?:\/\//, '')}`;
+}
+
 export function intentChrome(url: string, urlDeFallback?: string): string {
   const semEsquema = url.replace(/^https?:\/\//, '');
   const fallback = urlDeFallback

@@ -9,7 +9,7 @@
 // A assimetria que guia os testes: falso POSITIVO só mostra uma tela a mais a
 // quem já estava no navegador certo; falso NEGATIVO queima o acesso.
 import { describe, it, expect } from 'vitest';
-import { ehNavegadorEmbutido, ehAndroid, intentChrome } from '@/lib/auth/navegador-embutido';
+import { ehNavegadorEmbutido, ehAndroid, intentChrome, esquemaSafari, esquemaChrome } from '@/lib/auth/navegador-embutido';
 
 const UA = {
   waAndroid: 'Mozilla/5.0 (Linux; Android 13; SM-A536E Build/TP1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36',
@@ -88,6 +88,21 @@ describe('saída do WebView', () => {
     expect(intent).toContain(`S.browser_fallback_url=${encodeURIComponent(despacho)}`);
     // O `/entrar` cru consumiria o token de novo dentro do WhatsApp.
     expect(intent).toContain(encodeURIComponent('/entrar/abrir'));
+  });
+
+  it('🔴 os esquemas do iOS preservam o caminho E a query', () => {
+    // A query é o que faz a pessoa cair na semana que ela tocou: o aviso do
+    // login manda a URL COM `?redirect=`. Perder a query aqui manda todo mundo
+    // para a home genérica, e o sintoma é "abriu no Safari mas foi pro lugar
+    // errado" — parece bug de navegação, é perda de parâmetro.
+    const url = 'https://ibipeba.vertho.ai/login?redirect=%2Fdashboard%2Ftemporada%2Fsemana%2F5';
+    expect(esquemaSafari(url)).toBe('x-safari-https://ibipeba.vertho.ai/login?redirect=%2Fdashboard%2Ftemporada%2Fsemana%2F5');
+    expect(esquemaChrome(url)).toBe('googlechromes://ibipeba.vertho.ai/login?redirect=%2Fdashboard%2Ftemporada%2Fsemana%2F5');
+  });
+
+  it('os esquemas não deixam `https://` duplicado', () => {
+    expect(esquemaSafari('https://app.vertho.ai/x')).not.toContain('//https');
+    expect(esquemaChrome('http://app.vertho.ai/x')).not.toContain('//http');
   });
 
   it('sem fallback informado, a intent continua válida', () => {
