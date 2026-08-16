@@ -55,7 +55,7 @@ export interface StatusEntrega {
  * consultar a Graph API na mão, template por template.
  */
 export interface EventoTemplate {
-  tipoEvento: 'status_update' | 'category_update';
+  tipoEvento: 'status_update' | 'category_update' | 'quality_update';
   templateId: string | null;
   templateNome: string;
   templateIdioma: string | null;
@@ -68,11 +68,35 @@ export interface EventoTemplate {
   raw: unknown;
 }
 
+/**
+ * Aviso sobre a CONTA (WABA), não sobre um template.
+ *
+ * Chega em `account_update` (advertência/punição por categorização),
+ * `account_alerts` e `account_review_update`. Nenhum deles tem nome de template
+ * — por isso não cabe em `EventoTemplate`, e por isso o alarme é por
+ * `registrarDegradacao`, não por linha em `whatsapp_template_eventos`.
+ */
+export interface AvisoConta {
+  campo: string;
+  /** ACCOUNT_RESTRICTION, ACCOUNT_VIOLATION, … — cru, sem tradução. */
+  evento: string | null;
+  /** UTILITY_TEMPLATE_ABUSE, … quando a Meta diz qual foi a violação. */
+  violacao: string | null;
+  /** RESTRICTED_UTILITY_TEMPLATES, RATE_LIMITED_… — presente só quando há punição ATIVA. */
+  restricoes: string[];
+  /** Texto legível quando vem (`alert_description`). */
+  descricao: string | null;
+  wabaId: string | null;
+  raw: unknown;
+}
+
 export interface PayloadInterpretado {
   mensagens: MensagemRecebida[];
   statuses: StatusEntrega[];
   /** Status/categoria de template (assinar os campos no app da Meta). */
   templates: EventoTemplate[];
+  /** Advertências/punições sobre a CONTA. Ver `AvisoConta`. */
+  avisosConta: AvisoConta[];
   /** Eventos que não sabemos ler — contados para não sumirem em silêncio. */
   ignorados: number;
 }
@@ -104,7 +128,26 @@ const CAMPOS_TEMPLATE = new Set([
   // Aceito por segurança: aparece em documentação de terceiros com este nome, e
   // um alias a mais custa nada perto de perder o evento.
   'message_template_category_update',
+  // 🔴 ASSINADO DESDE SEMPRE E NUNCA LIDO (medido 16/08/2026): caía em
+  // `ignorados`. A Meta pausa o envio de um template cuja qualidade cai o
+  // bastante — e o sintoma seria a cadência ficar muda sem ninguém saber por quê.
+  'message_template_quality_update',
 ]);
+
+/**
+ * Avisos sobre a CONTA, não sobre um template.
+ *
+ * `account_alerts` já é assinado e caía em `ignorados`. `account_update` **não
+ * está assinado** (medido em `GET /{app-id}/subscriptions`, 16/08/2026) — é
+ * tratado aqui mesmo assim, para que assinar depois seja só apertar o botão, e
+ * não uma mudança de código no meio de um incidente.
+ *
+ * É por `account_update` que chega a advertência por classificar marketing como
+ * utility. Depois dela, UTILITY→MARKETING passa a ser INSTANTÂNEO (sem as 24h de
+ * aviso), e a escada segue para rate limit e para recategorizar TODOS os UTILITY
+ * da WABA por 7-30 dias.
+ */
+const CAMPOS_CONTA = new Set(['account_update', 'account_alerts', 'account_review_update']);
 
 /** Epoch em segundos (string) → ISO. A Meta manda segundos, não milissegundos. */
 function epochParaIso(valor: unknown, agora: () => number = Date.now): string {
@@ -139,6 +182,7 @@ export function interpretarPayload(body: any, agora: () => number = Date.now): P
   const mensagens: MensagemRecebida[] = [];
   const statuses: StatusEntrega[] = [];
   const templates: EventoTemplate[] = [];
+  const avisosConta: AvisoConta[] = [];
   let ignorados = 0;
 
   const entries = Array.isArray(body?.entry) ? body.entry : [];
@@ -164,15 +208,42 @@ export function interpretarPayload(body: any, agora: () => number = Date.now): P
       // que a categoria declarada está errada, antes de reclassificar. Chega
       // antes do prejuízo, então vale tanto quanto o outro.
       const field = change?.field;
+
+      // Conta antes de template: `account_*` não tem nome de template, e cair no
+      // ramo de template o descartaria por `!nome`.
+      if (CAMPOS_CONTA.has(field)) {
+        const restr = Array.isArray(value.restriction_info) ? value.restriction_info : [];
+        avisosConta.push({
+          campo: String(field),
+          evento: value.event ? String(value.event) : null,
+          violacao: value.violation_info?.violation_type
+            ? String(value.violation_info.violation_type) : null,
+          // `restriction_info` só existe com punição ATIVA — é omitido em
+          // advertência e em recuperação. Lista vazia é informação, não lacuna.
+          restricoes: restr.map((r: any) => String(r?.restriction_type ?? '')).filter(Boolean),
+          descricao: value.alert_description ? String(value.alert_description) : null,
+          wabaId: entry?.id ? String(entry.id) : null,
+          raw: value,
+        });
+        continue;
+      }
+
       if (CAMPOS_TEMPLATE.has(field)) {
         const nome = value.message_template_name;
         if (!nome) { ignorados++; continue; }
         templates.push({
-          tipoEvento: field === 'message_template_status_update' ? 'status_update' : 'category_update',
+          tipoEvento: field === 'message_template_status_update'
+            ? 'status_update'
+            : (field === 'message_template_quality_update' ? 'quality_update' : 'category_update'),
           templateId: value.message_template_id != null ? String(value.message_template_id) : null,
           templateNome: String(nome),
           templateIdioma: value.message_template_language ? String(value.message_template_language) : null,
-          evento: value.event ? String(value.event) : null,
+          // Em `quality_update` não vem `event`: o que muda é o par de scores
+          // (GREEN/YELLOW/RED). Guardar o novo score aqui mantém uma coluna só
+          // para "o que aconteceu", em vez de espalhar por tipo de evento.
+          evento: value.event
+            ? String(value.event)
+            : (value.new_quality_score ? String(value.new_quality_score) : null),
           // `correct_category` aparece quando a Meta reclassifica na aprovação;
           // `new_category`, quando muda depois. Os dois significam a mesma coisa
           // para quem paga a conta.
@@ -222,7 +293,7 @@ export function interpretarPayload(body: any, agora: () => number = Date.now): P
     }
   }
 
-  return { mensagens, statuses, templates, ignorados };
+  return { mensagens, statuses, templates, avisosConta, ignorados };
 }
 
 /**

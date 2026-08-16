@@ -113,6 +113,31 @@ export const DEGRADACAO = {
    */
   WHATSAPP_TEMPLATE_ENCARECEU: 'whatsapp-template-encareceu',
   /**
+   * envio: a Meta baixou a QUALIDADE de um template (GREEN → YELLOW → RED).
+   *
+   * `critico` porque a escada termina com a Meta **pausando** o template: a
+   * cadência daquele papel fica muda e o sintoma no produto é "ninguém recebeu",
+   * sem erro de envio em lugar nenhum. O evento
+   * `message_template_quality_update` estava ASSINADO desde sempre e caía em
+   * `ignorados` — chegava e sumia (medido 16/08/2026).
+   */
+  WHATSAPP_TEMPLATE_QUALIDADE: 'whatsapp-template-qualidade',
+  /**
+   * envio: a Meta advertiu ou puniu a CONTA (WABA), tipicamente por classificar
+   * marketing como utility.
+   *
+   * `critico`, e é o de efeito mais amplo do arquivo: depois da advertência,
+   * UTILITY→MARKETING passa a ser INSTANTÂNEO (sem as 24h de aviso prévio), e a
+   * escada segue para rate limit de UTILITY e para recategorizar **TODOS** os
+   * templates UTILITY da WABA por 7–30 dias. Não é sobre uma mensagem: é sobre o
+   * custo de todas elas.
+   *
+   * ⚠️ Chega em `account_update`, que em 16/08/2026 **não estava assinado** no
+   * app da Meta. O tratamento existe antes da assinatura de propósito — assinar
+   * depois é apertar um botão, não mexer em código durante um incidente.
+   */
+  WHATSAPP_CONTA_ADVERTIDA: 'whatsapp-conta-advertida',
+  /**
    * envio: a mensagem SAIU pela Cloud API e a escrita local falhou.
    *
    * `critico` na gravação do enviado: a pessoa recebeu, e a thread de quem

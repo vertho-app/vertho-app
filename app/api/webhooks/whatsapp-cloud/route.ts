@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { safeSecretEqual } from '@/lib/secure-compare';
 import { interpretarPayload, camposDoStatus, encareceu } from '@/lib/whatsapp/cloud-webhook';
 import { decidirDono, filtroDeTelefone } from '@/lib/whatsapp/resolver-dono';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
+import { fanoutInboxPush } from '@/lib/notifications/inbox-push';
 
 /**
  * Webhook da WhatsApp Cloud API — mensagens recebidas e status de entrega.
@@ -89,7 +90,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ignorado: 'corpo inválido' });
   }
 
-  const { mensagens, statuses, templates, ignorados } = interpretarPayload(body);
+  const { mensagens, statuses, templates, avisosConta, ignorados } = interpretarPayload(body);
   const sb = createSupabaseAdmin();
 
   // ── Status / categoria de template ────────────────────────────────────────
@@ -131,6 +132,19 @@ export async function POST(req: Request) {
           },
         });
       }
+
+      // Qualidade caindo é o aviso ANTES da pausa: a Meta pausa o template cuja
+      // qualidade despenca, e aí a cadência daquele papel fica muda sem erro de
+      // envio nenhum. `UNKNOWN` não é queda — é ausência de medida.
+      if (t.tipoEvento === 'quality_update' && ['YELLOW', 'RED'].includes(String(t.evento || '').toUpperCase())) {
+        await registrarDegradacao({
+          fluxo: 'envio',
+          tipo: DEGRADACAO.WHATSAPP_TEMPLATE_QUALIDADE,
+          chave: t.templateNome,
+          severidade: 'critico',
+          detalhe: { template: t.templateNome, qualidade: t.evento },
+        });
+      }
     } catch (e: any) {
       console.error('[whatsapp-cloud] evento de template falhou:', e?.message);
       await registrarDegradacao({
@@ -143,7 +157,41 @@ export async function POST(req: Request) {
     }
   }
 
+  // ── Advertência / punição na CONTA ────────────────────────────────────────
+  //
+  // 🔴 O evento de efeito mais amplo que este webhook recebe. Não é sobre uma
+  // mensagem: depois de uma advertência por classificar marketing como utility,
+  // UTILITY→MARKETING passa a ser INSTANTÂNEO (sem as 24h de aviso prévio), e a
+  // escada segue para rate limit e para recategorizar TODOS os UTILITY da WABA
+  // por 7-30 dias — o custo de toda a cadência, de uma vez.
+  //
+  // ⚠️ `account_update` NÃO estava assinado em 16/08/2026 (medido em
+  // `GET /{app-id}/subscriptions`). Este bloco existe antes da assinatura de
+  // propósito: assinar depois é apertar um botão, e não escrever código no meio
+  // de um incidente. `account_alerts` e `account_review_update` já chegam.
+  for (const a of avisosConta) {
+    // `console.error` além da degradação: este é o único evento aqui cujo
+    // destinatário certo é uma PESSOA no mesmo dia, não o health da madrugada.
+    console.error(`[whatsapp-cloud] AVISO DE CONTA campo=${a.campo} evento=${a.evento} violacao=${a.violacao} restricoes=${a.restricoes.join(',') || '(nenhuma)'}`);
+    await registrarDegradacao({
+      fluxo: 'envio',
+      tipo: DEGRADACAO.WHATSAPP_CONTA_ADVERTIDA,
+      // Chave por campo+evento: advertência e punição são estados diferentes e
+      // não podem colapsar num contador só.
+      chave: `${a.campo}:${a.evento || 'sem-evento'}`,
+      severidade: 'critico',
+      detalhe: {
+        campo: a.campo,
+        evento: a.evento,
+        violacao: a.violacao,
+        restricoes: a.restricoes,
+        descricao: a.descricao,
+      },
+    });
+  }
+
   // ── Mensagens recebidas ───────────────────────────────────────────────────
+  const paraPush: Array<{ m: (typeof mensagens)[number]; empresaId: string | null; empresaNome: string | null }> = [];
   for (const m of mensagens) {
     try {
       const { empresaId, colaboradorId, ambiguidade } = await resolverDono(sb, m.fromPhone);
@@ -163,6 +211,17 @@ export async function POST(req: Request) {
         }, { onConflict: 'wa_message_id', ignoreDuplicates: true });
       // supabase-js RETORNA {error} — sem este check a mensagem sumiria calada.
       if (error) throw new Error(error.message);
+
+      // Coleta para push (só se gravou). Nome da empresa para o título — barato,
+      // uma query por mensagem nova (volume inbound é ~1/dia, não é lote).
+      let empresaNome: string | null = null;
+      if (empresaId) {
+        try {
+          const { data: emp } = await sb.from('empresas').select('nome').eq('id', empresaId).maybeSingle();
+          empresaNome = (emp as any)?.nome ?? null;
+        } catch {}
+      }
+      paraPush.push({ m, empresaId, empresaNome });
     } catch (e: any) {
       console.error('[whatsapp-cloud] gravar mensagem falhou:', e?.message);
       await registrarDegradacao({
@@ -173,6 +232,29 @@ export async function POST(req: Request) {
         detalhe: { wamid: m.waMessageId, motivo: e?.message || String(e) },
       });
     }
+  }
+
+  // Push da inbox para a equipe — DEPOIS da resposta, via after().
+  // Sem after(), um envio lento seguraria o 200 e a Meta reentregaria/desativaria.
+  if (paraPush.length) {
+    after(async () => {
+      for (const { m, empresaId, empresaNome } of paraPush) {
+        const preview =
+          (m.texto && m.texto.trim().slice(0, 120)) ||
+          (m.tipo === 'audio' ? '🎤 áudio' : m.tipo === 'image' ? '🖼️ imagem' : m.tipo === 'document' ? '📄 documento' : `nova mensagem (${m.tipo})`);
+        try {
+          await fanoutInboxPush({
+            waMessageId: m.waMessageId,
+            fromPhone: m.fromPhone,
+            preview,
+            empresaId,
+            empresaNome,
+          });
+        } catch (e: any) {
+          console.error('[whatsapp-cloud] fanout push falhou:', e?.message);
+        }
+      }
+    });
   }
 
   // ── Status de entrega ─────────────────────────────────────────────────────
