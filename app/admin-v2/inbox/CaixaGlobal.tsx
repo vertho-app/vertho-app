@@ -12,6 +12,7 @@ import { useIntervaloVisivel } from '../_inbox/useIntervaloVisivel';
 import { rotuloDoTipo } from '@/lib/inbox/caixa';
 import { restanteLegivel } from '@/lib/inbox/janela';
 import type { FilaNaoIdentificada } from '@/lib/inbox/tipos';
+import { AtivarPushInbox } from '@/components/notifications/ativar-push-inbox';
 
 /**
  * Caixa de entrada da EQUIPE — todas as empresas numa lista só.
@@ -152,6 +153,9 @@ export default function CaixaGlobal() {
         <Numero valor={caixa.resumo.janelasAbertas} rotulo="janelas abertas agora" />
         <Numero valor={caixa.resumo.naoIdentificadas} rotulo="sem cliente identificado" destaque />
       </div>
+
+      {/* Push da inbox — opt-in da equipe (só platform admin, flag fail-closed) */}
+      <AtivarPushInbox />
 
       {/* Fila de não identificados — primeiro, porque é o que exige gente */}
       {fila.fila.length > 0 && (

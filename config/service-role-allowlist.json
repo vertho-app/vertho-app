@@ -200,6 +200,8 @@
     "scripts/_pdi-modelos.ts": 1,
     "scripts/_check-sem4-conclusao.ts": 1,
     "lib/notifications/inbox-push.ts": 1,
-    "lib/notifications/inbox-flag.ts": 1
+    "lib/notifications/inbox-flag.ts": 1,
+    "app/api/notifications/admin/subscriptions/route.ts": 1,
+    "app/api/notifications/admin/subscriptions/disable/route.ts": 1
   }
 }
