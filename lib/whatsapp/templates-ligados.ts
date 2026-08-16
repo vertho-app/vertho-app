@@ -83,7 +83,7 @@ export async function inspecionarTemplatesLigados(): Promise<TemplateLigado[]> {
     return base.map((t) => (t.nome ? { ...t, motivo } : t));
   }
 
-  return base.map((t) => {
+  const out = base.map((t) => {
     if (!t.nome) return t;
     const m = porNome[t.nome];
     // Nome configurado que a Meta não conhece: NÃO é cegueira (a consulta
@@ -91,4 +91,21 @@ export async function inspecionarTemplatesLigados(): Promise<TemplateLigado[]> {
     if (!m) return { ...t, status: 'INEXISTENTE', categoria: null, motivo: null };
     return { ...t, status: m.status, categoria: m.category, motivo: null };
   });
+
+  // 🔑 IMPRIMIR O OBSERVADO, NÃO O VEREDITO.
+  //
+  // O health só persiste ACHADOS, e achado é o que deu errado. Quando está tudo
+  // certo, o resultado é silêncio — e silêncio é indistinguível de "papel
+  // desligado, pulado sem alarme". Foi essa ambiguidade que, em 16/08, deixou a
+  // troca da pílula para UTILITY como INFERÊNCIA por ausência em vez de leitura:
+  // as variáveis são *Sensitive* na Vercel e não há nenhum outro lugar onde o
+  // valor aplicado apareça.
+  //
+  // Esta linha é esse lugar. Papel DESLIGADO aparece como `(desligado)`, e é
+  // exatamente o caso que o silêncio escondia.
+  console.log('[templates-ligados] ' + out
+    .map((t) => `${t.papel}=${t.nome ?? '(desligado)'}${t.nome ? `[${t.status ?? t.motivo ?? '?'}/${t.categoria ?? '-'}]` : ''}`)
+    .join(' '));
+
+  return out;
 }
