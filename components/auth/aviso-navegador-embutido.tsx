@@ -10,9 +10,14 @@ import { esquemaSafari, esquemaChrome } from '@/lib/auth/navegador-embutido';
  * 🔴 O PROBLEMA (medido em 15/08/2026)
  * ────────────────────────────────────
  * A sessão do Supabase mora no cookie jar de UM navegador. Quem entrou pelo
- * Safari (ou usa o PWA instalado) tem sessão lá — e o link semanal, tocado
- * dentro do WhatsApp, abre no WebView, que é outro jar. Resultado: tela de
- * login, mesmo com a pessoa logada "no app".
+ * Safari tem sessão lá — e o link semanal, tocado dentro do WhatsApp, abre no
+ * WebView, que é outro jar. Resultado: tela de login, mesmo com a pessoa logada
+ * "no app".
+ *
+ * ⚠️ Isto é um ATALHO, não a única saída: quem cair aqui também pode
+ * simplesmente entrar pelo formulário abaixo. O PWA instalado saiu do escopo em
+ * 16/08 (decisão do dono), então nada aqui deve empurrar ninguém para outro
+ * navegador — só oferecer, para quem reconhece a situação.
  *
  * 🔑 POR QUE ELE VIVE NO LOGIN, e não no link
  * ───────────────────────────────────────────
@@ -63,9 +68,9 @@ export default function AvisoNavegadorEmbutido({ ios }: { ios: boolean }) {
         Você está no navegador do WhatsApp
       </p>
       <p className="mt-2 text-[13px] leading-relaxed text-white/70">
-        Se você já entrou pelo {navegador} ou usa o app instalado, sua sessão
-        está lá — não aqui. Abra este mesmo endereço no {navegador} e você entra
-        direto, sem novo login.
+        Se você já entrou pelo {navegador}, sua sessão está lá — não aqui. Abra
+        este mesmo endereço no {navegador} e você entra direto, sem novo login.
+        Ou entre por aqui mesmo, abaixo.
       </p>
 
       <button

@@ -584,6 +584,32 @@ a sessão, então o link da semana seguinte abre naquela janela já logado; (b) 
 instalado, trocar link por **código** (`otp_acesso`, aprovado, com botão nativo "Copiar código"): sem
 transferência de navegador, não existe o problema.
 
+#### 🔑 16/08: o PWA saiu do escopo, e o default mudou pela quarta vez
+
+Decisão do dono: *"não considere a versão PWA, pouquíssimas pessoas vão usar desta forma."*
+
+Isso **dissolve o motivo inteiro** da saída para o navegador. Todo o argumento era: a sessão do
+WebView não serve ao app instalado. Sem app instalado no escopo, o navegador do WhatsApp é uma casa
+perfeitamente boa — e isso está **medido**, não suposto: em 16/08 às 00:04 o link semanal abriu
+`/dashboard/temporada/semana/5` com `200`, sem passar pelo login, numa sessão criada dentro do
+WhatsApp 23 horas antes. **O WebView guarda a sessão entre mensagens.**
+
+Estado final da tela de acesso: **"Entrar agora" é o botão, para todo mundo, um toque.** A saída para
+o navegador vive num `<details>` fechado ("Prefere entrar pelo navegador?") — continua construída e
+testada, e serve a quem também usa a Vertho no computador, mas não cobra pedágio de ninguém. O aviso
+do login (`components/auth/aviso-navegador-embutido.tsx`) segue como atalho para quem cair sem
+sessão, deixando explícito que dá para entrar ali mesmo.
+
+Também **cancelou** o trabalho que estava proposto para o dia seguinte: transferência de sessão
+(minter um link novo para o usuário já autenticado e abrir no Safari já logado). Era a peça que
+tornava "sempre no navegador" seguro para quem tem sessão no WebView — e sem "sempre no navegador",
+ela não tem cliente.
+
+**A sequência inteira, porque ela é a lição:** três versões desta tela estiveram *corretas no
+mecanismo e erradas na hierarquia*. Um mecanismo que funciona não decide o default — quem decide é
+para quem o produto é. A pergunta que faltava não era "isso funciona?", era **"quem paga por isso, e
+quantos são?"**.
+
 **O que continua em aberto:** quem tocar no secundário e depois quiser o app instalado segue sem
 sessão e com o link gasto. Fechar isso exige trocar o `token_hash` do Supabase por um ticket nosso
 redimível 2-3 vezes em 15 min. ⚠️ E aí esbarra numa promessa aprovada: o corpo do `acesso_vertho`

@@ -20,24 +20,28 @@ import SairDoWebView from './SairDoWebView';
  * Enquanto ninguém toca em "Entrar", a URL continua redimível. Trocar de
  * navegador ANTES de entrar passa a funcionar.
  *
- * 🔑 UM TOQUE PARA O NAVEGADOR (revisto duas vezes no mesmo dia)
- * ─────────────────────────────────────────────────────────────
- * Houve uma versão que promovia "••• → Abrir no Safari" a caminho principal, com
- * três passos numerados: correta e **burocrática**. E houve outra que deixou
- * "Entrar agora" como botão único: um toque, mas dentro do WhatsApp.
+ * 🔑 UM TOQUE — E O DEFAULT MUDOU TRÊS VEZES ANTES DE ASSENTAR
+ * ────────────────────────────────────────────────────────────
+ * Vale registrar a sequência, porque o mecanismo esteve certo antes de o default
+ * estar:
  *
- * O que o dono quer é o navegador, em um toque. No Android isso já acontece
- * antes desta tela (o `/entrar` manda um `intent://`). No iOS não existe caminho
- * suportado — então o `SairDoWebView` TENTA os esquemes `x-safari-https://` e
- * `googlechromes://`, que funcionam se o app repassar a URL ao sistema, e revela
- * o caminho manual só quando a tentativa não leva a lugar nenhum.
+ *  1. `•••` → "Abrir no Safari" como caminho principal, três passos numerados.
+ *     Correto e **burocrático**.
+ *  2. "Entrar agora" único: um toque, mas dentro do WhatsApp.
+ *  3. Saída para o navegador em um toque (`SairDoWebView`), promovida a
+ *     principal — porque a sessão do WebView não servia ao **PWA instalado**.
+ *  4. **O PWA saiu do escopo (16/08, decisão do dono: "pouquíssimas pessoas vão
+ *     usar desta forma").** Com isso o motivo inteiro da saída evaporou: o
+ *     navegador do WhatsApp guarda a sessão, e o link da semana seguinte abre
+ *     nesta mesma janela já logado (medido).
  *
- * O destino da tentativa já leva `ir=1`: se o Safari abrir, a pessoa entra
- * direto, sem uma segunda tela. Se não abrir, nada foi consumido.
+ * Então "Entrar agora" é o botão, para todo mundo. A saída para o navegador
+ * continua disponível num `<details>` FECHADO — está construída e testada, e
+ * serve a quem também usa a Vertho no computador —, mas não cobra pedágio de
+ * ninguém.
  *
- * "Entrar aqui mesmo" continua existindo como link secundário — funciona, e o
- * navegador do WhatsApp guarda a sessão, então o link da semana seguinte abre
- * nesta mesma janela já logado. O que ele não resolve é o app instalado.
+ * A lição: **um mecanismo correto pode estar na hierarquia errada**, e quem
+ * decide a hierarquia é para quem o produto é — não a elegância da solução.
  *
  * ⚠️ Esta página NÃO autentica ninguém e não consome nada.
  */
@@ -81,33 +85,6 @@ export default async function ConfirmarAcesso({
   const entrar = `/entrar?t=${encodeURIComponent(t)}&ir=1`;
   const link = `https://${host}/entrar/abrir?t=${encodeURIComponent(t)}`;
 
-  if (embutido) {
-    return (
-      <main className="flex min-h-dvh flex-col justify-center bg-[#061526] px-6 py-10 text-white">
-        <div className="mx-auto w-full max-w-md">
-          <h1 className="text-[22px] font-semibold leading-tight">Entrar na Vertho</h1>
-          <p className="mt-3 text-[14px] leading-relaxed text-slate-300">
-            Abra no navegador para que o acesso valha também no app instalado.
-          </p>
-
-          <div className="mt-6">
-            <SairDoWebView urlEntrar={`https://${host}${entrar}`} link={link} />
-          </div>
-
-          {/* Secundário, e com a consequência na etiqueta: entrar aqui funciona
-              e a sessão fica guardada nesta janela — o link da semana seguinte
-              abre aqui já logado. Só não serve para o app instalado. */}
-          <a
-            href={entrar}
-            className="mt-7 block text-center text-[13px] text-slate-400 underline decoration-slate-600 underline-offset-4"
-          >
-            Entrar aqui mesmo, dentro do WhatsApp
-          </a>
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="flex min-h-dvh flex-col justify-center bg-[#061526] px-6 py-10 text-white">
       <div className="mx-auto w-full max-w-md">
@@ -123,15 +100,37 @@ export default async function ConfirmarAcesso({
           Entrar agora
         </a>
 
-        <details className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-4">
-          <summary className="cursor-pointer list-none text-[13px] text-slate-300">
-            <span className="underline decoration-slate-600 underline-offset-4">
-              Abrir em outro aparelho
-            </span>
-          </summary>
-          <p className="mt-3 break-all font-mono text-[12px] text-slate-400">{link}</p>
-          <CopiarLink link={link} />
-        </details>
+        {embutido ? (
+          // FECHADO de propósito. A saída para o navegador continua aqui porque
+          // já está construída e testada — mas deixou de ser o caminho principal
+          // no dia em que o PWA saiu do escopo (16/08). Entrar dentro do
+          // WhatsApp é coerente: o WebView guarda a sessão, e o link da semana
+          // seguinte abre nesta mesma janela já logado (medido).
+          <details className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-4">
+            <summary className="cursor-pointer list-none text-[13px] text-slate-300">
+              <span className="underline decoration-slate-600 underline-offset-4">
+                Prefere entrar pelo navegador?
+              </span>
+            </summary>
+            <p className="mt-3 text-[13px] leading-relaxed text-slate-400">
+              Útil se você também usa a Vertho no computador. O link continua
+              intacto — nada foi usado ainda.
+            </p>
+            <div className="mt-3">
+              <SairDoWebView urlEntrar={`https://${host}${entrar}`} link={link} />
+            </div>
+          </details>
+        ) : (
+          <details className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-4">
+            <summary className="cursor-pointer list-none text-[13px] text-slate-300">
+              <span className="underline decoration-slate-600 underline-offset-4">
+                Abrir em outro aparelho
+              </span>
+            </summary>
+            <p className="mt-3 break-all font-mono text-[12px] text-slate-400">{link}</p>
+            <CopiarLink link={link} />
+          </details>
+        )}
       </div>
     </main>
   );
