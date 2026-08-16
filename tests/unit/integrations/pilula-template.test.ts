@@ -37,24 +37,26 @@ const base = {
   dedupeKey: 'ultima_pilula1_whatsapp_em:env1',
 };
 
+/**
+ * Limpa TODA chave `WHATSAPP_TEMPLATE_*`, sem enumerar.
+ *
+ * 🔴 A lista era escrita à mão e envelheceu na primeira oportunidade: ao ligar o
+ * papel `missao` (16/08/2026), a chave nova sobrevivia entre os testes e o de
+ * independência de papel passou a falhar — um vermelho que descreve o setup, não
+ * o produto. Enumeração de cobertura mente; derivar do ambiente não.
+ */
+function limparChavesDeTemplate() {
+  for (const k of Object.keys(process.env)) {
+    if (k.startsWith('WHATSAPP_TEMPLATE_')) delete process.env[k];
+  }
+}
+
 beforeEach(() => {
   h.envios.length = 0;
   h.resultado = { ok: true, providerMessageId: 'wamid.T1' };
-  delete process.env.WHATSAPP_TEMPLATE_PILULA;
-  delete process.env.WHATSAPP_TEMPLATE_EVIDENCIA;
-  delete process.env.WHATSAPP_TEMPLATE_DESAFIO;
-  delete process.env.WHATSAPP_TEMPLATE_RETOMADA;
-  delete process.env.WHATSAPP_TEMPLATE_PERFIL;
-  delete process.env.WHATSAPP_TEMPLATE_ACESSO;
+  limparChavesDeTemplate();
 });
-afterEach(() => {
-  delete process.env.WHATSAPP_TEMPLATE_PILULA;
-  delete process.env.WHATSAPP_TEMPLATE_EVIDENCIA;
-  delete process.env.WHATSAPP_TEMPLATE_DESAFIO;
-  delete process.env.WHATSAPP_TEMPLATE_RETOMADA;
-  delete process.env.WHATSAPP_TEMPLATE_PERFIL;
-  delete process.env.WHATSAPP_TEMPLATE_ACESSO;
-});
+afterEach(limparChavesDeTemplate);
 
 describe('o caminho só liga quando o template está aprovado', () => {
   it('🔴 sem a chave, NÃO tenta — o legado segue valendo', async () => {
@@ -215,6 +217,39 @@ describe('retomada de inatividade — UTILITY no lugar do MARKETING', () => {
   it('a chave da retomada é independente das outras', async () => {
     process.env.WHATSAPP_TEMPLATE_PILULA = 'conteudo_semana';
     expect((await enviarPorTemplate('retomada', base)).tentou).toBe(false);
+  });
+});
+
+describe('missão da semana de aplicação (4/8/12)', () => {
+  it('missao_semana_v2: nome, semana e link — 3 variáveis', async () => {
+    // Substitui `missao_semana` E `missao_aplicacao`: dois templates aprovados
+    // para o MESMO momento, os dois MARKETING (6×) e os dois sem contrato, ou
+    // seja, ligados a nada. Até 16/08 a segunda da semana de aplicação só tinha
+    // o caminho legado do Z-API, morto desde 11/08 — por WhatsApp ela não abria.
+    process.env.WHATSAPP_TEMPLATE_MISSAO = 'missao_semana_v2';
+    await enviarPorTemplate('missao', { ...base, semana: 4, tema: '', formato: null, pilula: null });
+
+    const { template, params } = h.envios[0].input;
+    expect(template).toBe('missao_semana_v2');
+    expect(params).toEqual(['Maria', '4', 'https://ibipeba.vertho.ai/dashboard/temporada/semana/4']);
+  });
+
+  it('🔴 o link da missão NÃO leva formato', async () => {
+    // Semana de aplicação não entrega conteúdo novo. Anunciar um formato
+    // prometeria o que não existe — a classe da R1 do health, que nasceu de 17
+    // pílulas anunciando "vídeo" numa semana sem vídeo.
+    process.env.WHATSAPP_TEMPLATE_MISSAO = 'missao_semana_v2';
+    await enviarPorTemplate('missao', { ...base, semana: 8, tema: '', formato: 'video', pilula: 1 });
+
+    const link = h.envios[0].input.params[2];
+    expect(link).toBe('https://ibipeba.vertho.ai/dashboard/temporada/semana/8');
+    expect(link).not.toContain('formato');
+    expect(link).not.toContain('p=');
+  });
+
+  it('a chave da missão é independente das outras', async () => {
+    process.env.WHATSAPP_TEMPLATE_PILULA = 'conteudo_semana';
+    expect((await enviarPorTemplate('missao', base)).tentou).toBe(false);
   });
 });
 

@@ -67,7 +67,7 @@ export function caminhoDoBotao(a: Pick<PilulaTemplateArgs, 'slug' | 'semana' | '
  * Cada um tem a SUA chave: a quinta-feira e a pílula aprovam em momentos
  * diferentes, e uma chave só obrigaria a ligar tudo junto — ou nada.
  */
-export type PapelCadencia = 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil' | 'acesso';
+export type PapelCadencia = 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil' | 'acesso' | 'missao';
 
 const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   pilula: 'WHATSAPP_TEMPLATE_PILULA',
@@ -76,6 +76,7 @@ const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   retomada: 'WHATSAPP_TEMPLATE_RETOMADA',
   perfil: 'WHATSAPP_TEMPLATE_PERFIL',
   acesso: 'WHATSAPP_TEMPLATE_ACESSO',
+  missao: 'WHATSAPP_TEMPLATE_MISSAO',
 };
 
 /** Nome do template aprovado para o papel, ou `null` quando está desligado. */
@@ -121,6 +122,23 @@ const CONTRATOS: Record<string, MontarParams> = {
    * Quinta-feira, semana de APLICAÇÃO: cobra o registro de evidência.
    * APPROVED/UTILITY. `{{1}}`=nome, `{{2}}`=semana, `{{3}}`=link. Sem botão.
    */
+  /**
+   * Segunda-feira da semana de APLICAÇÃO (4/8/12): anuncia a missão.
+   * APPROVED/UTILITY em 16/08/2026. `{{1}}`=nome, `{{2}}`=semana, `{{3}}`=link.
+   * Sem botão.
+   *
+   * ⚠️ O link vai SEM `formato`: semana de aplicação não entrega conteúdo novo,
+   * então anunciar um formato prometeria o que não existe — a classe da R1 do
+   * health.
+   *
+   * Substitui `missao_semana` e `missao_aplicacao`, que a Meta aprovou como
+   * MARKETING (6× o custo) e que descreviam o MESMO momento com dois templates.
+   */
+  missao_semana_v2: (a) => ({
+    params: [a.nome, String(a.semana), deepLinkSemana(a.baseUrl, a.semana)],
+    botaoParam: null,
+  }),
+
   registro_evidencia: (a) => ({
     params: [a.nome, String(a.semana), deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
     botaoParam: null,

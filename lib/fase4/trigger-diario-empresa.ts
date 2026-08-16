@@ -408,14 +408,32 @@ export async function processarEmpresaDiario(
       let whatsappEnfileirado = false;
       if (telefone && !mesmoDiaUTC(envio.ultima_pilula1_whatsapp_em, hojeUTC)) {
         try {
-          // Mesmo contrato da pílula: carimbo do canal só no webhook, pós-envio.
-          const enfileirou = await agendarWhatsapp({
-            telefone,
-            mensagem: templateWhatsAppMissao(nome, optsMissao),
-            fase4EnvioId: envio.id,
-            carimboCampo: 'ultima_pilula1_whatsapp_em',
+          // Cloud API primeiro (`missao_semana_v2`, UTILITY desde 16/08/2026).
+          // Até aqui a missão só tinha o caminho legado, e ele está morto desde
+          // 11/08 — ou seja, por WhatsApp a semana de aplicação não abria.
+          const viaTemplate = await enviarPorTemplate('missao', {
+            telefone, nome, semana, tema: '',
+            slug: (empresa as any).slug, baseUrl,
+            // Sem formato: semana de aplicação não entrega conteúdo novo, e
+            // anunciar formato prometeria o que não existe.
+            formato: null, pilula: null,
+            empresaId: empresa.id, colaboradorId: envio.colaborador_id,
+            dedupeKey: `missao:${envio.id}`,
           });
-          if (enfileirou) { pilulas++; whatsappEnfileirado = true; }
+
+          if (viaTemplate.tentou) {
+            // Caminho da Cloud API: síncrono, então o carimbo é aqui e agora.
+            if (viaTemplate.ok) { pilulas++; stamp.ultima_pilula1_whatsapp_em = agora; } else erros++;
+          } else {
+            // Mesmo contrato da pílula: carimbo do canal só no webhook, pós-envio.
+            const enfileirou = await agendarWhatsapp({
+              telefone,
+              mensagem: templateWhatsAppMissao(nome, optsMissao),
+              fase4EnvioId: envio.id,
+              carimboCampo: 'ultima_pilula1_whatsapp_em',
+            });
+            if (enfileirou) { pilulas++; whatsappEnfileirado = true; }
+          }
         } catch { erros++; }
       }
       if (email && !mesmoDiaUTC(envio.ultima_pilula1_email_em, hojeUTC)) {
