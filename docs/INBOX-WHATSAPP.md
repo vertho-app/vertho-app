@@ -442,6 +442,41 @@ irrelevante, mas nosso teto é um pouco mais conservador que o da Meta.
 Fica de fora: **sticker** (webp, teto de 100 KB) e **template com mídia no cabeçalho** (é outro tipo
 de template, e nenhum aprovado hoje).
 
+### 9.2d 🔴 O link de acesso abria DENTRO do WhatsApp (15/08)
+
+**O sintoma que chegou:** "recebi a msg do WA para abrir mas ele está abrindo por dentro do WA e não
+no navegador".
+
+**Por que isso queima o acesso, e não é só incômodo.** O botão do template leva a `/entrar?t=…`, que
+redireciona para o `/auth/callback` do tenant, e o callback chama **`verifyOtp`** — que **consome o
+token de uso único**. Dentro do navegador embutido isso produz três coisas ao mesmo tempo:
+
+1. o token é gasto;
+2. a sessão nasce no **cookie jar do WebView**, isolado do Safari/Chrome e do app instalado;
+3. a pessoa fecha o WhatsApp, abre o app — **não está logada**, e o link não funciona mais.
+
+O link parece ter funcionado e deixa a pessoa de fora. Um caso de "clicou, entrou, sumiu".
+
+**A correção** (`lib/auth/navegador-embutido.ts`, aplicada em `app/entrar/route.ts` **antes** de
+qualquer redirect que consuma o token):
+
+| Plataforma | O que acontece |
+|---|---|
+| **Android** | `intent://…#Intent;scheme=https;package=com.android.chrome;end` — o WebView entrega a navegação ao Chrome, que reabre o MESMO endereço. Sem tela intermediária: o UA já é de navegador de verdade e o fluxo segue. `S.browser_fallback_url` aponta para `/entrar/abrir` (nunca para o link, que reiniciaria o laço) |
+| **iOS** | **Não existe caminho programático para sair do WKWebView** — nem link, nem esquema, nem script. `/entrar/abrir` explica o menu `•••` → *Abrir no Safari*, oferece o endereço para copiar e **não consome o token** |
+
+⚠️ **Escreva isto na resposta ao cliente, não só no código:** "abrir direto no navegador" no iPhone
+é uma promessa que ninguém consegue cumprir. O que dá para fazer é reduzir a instrução a um toque e,
+para quem já tem o app instalado, preferir o **OTP** (`otp_acesso`, template aprovado): código de 6
+dígitos, digitado onde a pessoa já está, sem navegador nenhum no caminho.
+
+**A detecção é heurística por User-Agent, e a assimetria decidiu o desenho.** Falso POSITIVO mostra
+uma tela a mais para quem já estava no navegador certo; falso NEGATIVO **queima o acesso**. Na
+dúvida, acusa embutido. No iOS o sinal é a ausência do token `Safari/` no fim do UA (o WKWebView usa
+o mesmo motor, mas não assina), com exceção explícita para `CriOS`/`FxiOS`/`EdgiOS`/`OPiOS`, que são
+navegadores de verdade. Testes: `tests/unit/security/navegador-embutido.test.ts` (validado por
+mutação nos dois ramos).
+
 ### 9.3 O que continua aberto — e por quê
 
 - **Responder pelo `to_phone_id` da conversa** (§7.1). Com dois números, a chave da conversa é

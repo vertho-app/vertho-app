@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantUrl } from '@/lib/domain';
 import { lerParametroAcesso, caminhoCallback } from '@/lib/auth/magic-link-whatsapp';
+import { ehNavegadorEmbutido, ehAndroid, intentChrome } from '@/lib/auth/navegador-embutido';
 
 /**
  * Despacho do magic link recebido por WhatsApp.
@@ -33,6 +34,37 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   const t = req.nextUrl.searchParams.get('t');
   const dados = lerParametroAcesso(t);
+
+  // 🔴 ANTES DE QUALQUER REDIRECT QUE CONSUMA O TOKEN.
+  //
+  // O link chega por WhatsApp e o app abre no navegador EMBUTIDO. Seguir dali
+  // para o `/auth/callback` gasta o token de uso único e cria a sessão num
+  // cookie jar isolado: a pessoa fecha o WhatsApp, abre o app instalado e não
+  // está logada — com o link já queimado. Medido em 15/08/2026.
+  //
+  // A tela de despacho não consome nada: ela devolve o mesmo link para ser
+  // aberto no navegador de verdade.
+  const ua = req.headers.get('user-agent');
+  if (t && ehNavegadorEmbutido(ua)) {
+    const meuLink = new URL('/entrar', req.url);
+    meuLink.searchParams.set('t', t);
+
+    // Tela de despacho: explica o caminho e NÃO consome o token.
+    const abrir = new URL('/entrar/abrir', req.url);
+    abrir.searchParams.set('t', t);
+
+    // ANDROID: sai do WebView SEM tela intermediária. O `intent://` entrega a
+    // navegação ao Chrome, que reabre este mesmo endereço — aí o UA já é de
+    // navegador de verdade e o fluxo segue normal. Se o Chrome não resolver, o
+    // fallback cai na tela de despacho (nunca de volta no link, que reiniciaria
+    // o laço dentro do WhatsApp).
+    if (ehAndroid(ua)) {
+      return NextResponse.redirect(intentChrome(meuLink.toString(), abrir.toString()), 302);
+    }
+
+    // iOS: não existe caminho programático para sair do WKWebView.
+    return NextResponse.redirect(abrir, 302);
+  }
 
   // Sem parâmetro utilizável → login, sem detalhe. Dizer "token inválido" versus
   // "tenant inexistente" entregaria a quem testa a informação de quais slugs
