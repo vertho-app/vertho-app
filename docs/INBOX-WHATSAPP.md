@@ -532,10 +532,25 @@ Os dois erros são as tentativas já no navegador, depois de copiar o endereço.
 tela oferecia **"Entrar agora" como botão principal para todo mundo**, com a instrução do navegador
 num aviso ao lado — e o teste seguiu o que o botão pedia.
 
-Onde o toque errado é **irreversível**, hierarquia visual não é estética: é a trava. Dentro de app
-embutido a tela passou a ter *"Abra no Safari para entrar"* como título, os três passos como
-conteúdo principal, e "Entrar aqui mesmo (a sessão fica só nesta janela)" como link secundário — com
-a consequência na própria etiqueta. Fora dele, "Entrar agora" continua sendo o botão, sem ruído.
+Onde o toque errado é **irreversível**, hierarquia visual não é estética: é a trava. A tela passou a
+ter *"Abra no Safari para entrar"* como título dentro de app embutido, com três passos numerados.
+
+#### 🔑 …e essa correção estava errada no DEFAULT
+
+O dono testou e resumiu em uma palavra: **"burocrático"**. Ele está certo, e o erro é de escopo.
+
+O problema que os três passos resolvem é de quem usa o **PWA instalado** — minoria. Para todo o
+resto, entrar dentro do WhatsApp não é um consolo: é coerente. O navegador embutido **guarda a
+sessão**, então o link da semana seguinte abre na mesma janela já logado. Cobrar de ~400 pessoas um
+menu de três passos para atender a poucas é transformar a exceção em regra.
+
+Versão final: **"Entrar agora" é o botão, para todo mundo, um toque.** A saída para o navegador vive
+num `<details>` fechado ("Vai usar o app instalado na tela de início?"), com a consequência escrita e
+o endereço copiável — visível para quem precisa, invisível para quem não precisa. A detecção de
+embutido não some: ela decide qual `<details>` aparece e mantém o `intent://` do Android.
+
+A lição que sobra não é sobre WebView: **uma correção pode estar certa no mecanismo e errada no
+default.** "Quem paga o custo desta proteção?" é pergunta separada de "a proteção funciona?".
 
 **O que continua em aberto:** quem tocar no secundário e depois quiser o app instalado segue sem
 sessão e com o link gasto. Fechar isso exige trocar o `token_hash` do Supabase por um ticket nosso
