@@ -18,9 +18,10 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
-import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp } from './regras';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados } from './regras';
 import { webPushConfigurado } from '@/lib/notifications/providers/webpush';
 import { inspecionarCloudApi } from '@/lib/whatsapp/cloud-api';
+import { inspecionarTemplatesLigados } from '@/lib/whatsapp/templates-ligados';
 import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
 /**
@@ -212,6 +213,13 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
     // para a rede — e tem que ser assim: o inbound não deixa rastro no banco
     // quando cai, então não há tabela onde inferir. Ver `checarCanalEntradaWhatsapp`.
     achados.push(...checarCanalEntradaWhatsapp(await inspecionarCloudApi()));
+
+    // R13: qual template está LIGADO em cada papel da cadência. Também sai para
+    // a rede, e pela mesma razão do R12 — a resposta não existe em tabela
+    // nenhuma. O nome vem de env *Sensitive* (ilegível até pelo CLI), então
+    // sem este check a única forma de descobrir que a pílula aponta para um
+    // template MARKETING é a fatura. Ver `checarTemplatesLigados`.
+    achados.push(...checarTemplatesLigados(await inspecionarTemplatesLigados()));
 
     const ungrounded = await contar('kit_briefs', (q: any) => q.is('modulo_base_id', null));
     achados.push(achado('brief-ungrounded', 'aviso', 'Brief sem módulo-base', ungrounded,

@@ -623,6 +623,85 @@ export function checarCanalEntradaWhatsapp(s: SaudeCanalEntrada): Achado[] {
   return out.filter(Boolean) as Achado[];
 }
 
+/**
+ * R13 · O template LIGADO em cada papel da cadência.
+ *
+ * 🔴 Real (15/08/2026): a pílula semanal — o disparo de maior volume do produto
+ * — estava apontando para um template que a Meta havia reclassificado de UTILITY
+ * para MARKETING. Nada quebrou: aprovado, enviado, entregue. Só que MARKETING
+ * custa ~6× (R$ 0,40-0,55 contra R$ 0,06-0,09), e em ~400 pessoas por semana
+ * isso é a diferença entre ~R$ 25 e ~R$ 180 semanais. Havia, o tempo todo, um
+ * template UTILITY **aprovado** cobrindo o mesmo momento, parado.
+ *
+ * Por que ninguém viu: o nome vem de `WHATSAPP_TEMPLATE_*`, marcada como
+ * *Sensitive* na Vercel (não dá para ler de volta), e `templateAtivo()` não
+ * tinha nenhum outro consumidor — nenhuma tela, nenhum check. Configuração
+ * declarada não é configuração observável.
+ *
+ * As três severidades correspondem a três consequências diferentes:
+ *   - **`INEXISTENTE`** → a Meta responde 132001 e a mensagem NÃO SAI. Crítico.
+ *     É também o sintoma de um `\n` colado no `vercel env add` (já mordeu).
+ *   - **status ≠ APPROVED** → mesmo efeito: não sai. Crítico.
+ *   - **MARKETING** → sai, entrega, custa 6×. Aviso, porque pode ser escolha
+ *     consciente — mas nunca uma escolha invisível.
+ *
+ * Papel desligado (`nome === null`) é estado legítimo e não vira achado.
+ */
+export interface TemplateLigadoObservado {
+  papel: string;
+  nome: string | null;
+  status: string | null;
+  categoria: string | null;
+  motivo: string | null;
+}
+
+export function checarTemplatesLigados(ligados: TemplateLigadoObservado[]): Achado[] {
+  const ativos = (ligados || []).filter((t) => t.nome);
+  if (!ativos.length) return [];
+
+  const out: (Achado | null)[] = [];
+
+  // Cegueira primeiro: se não deu para perguntar, os outros dois checks abaixo
+  // ficariam mudos e isso pareceria "tudo certo".
+  const cegos = ativos.filter((t) => t.motivo);
+  out.push(achado(
+    'template-ligado-check-cego', 'aviso',
+    'Não foi possível verificar os templates ligados na Meta',
+    cegos.length,
+    `Os templates da cadência podem estar corretos ou apontando para nada — este check não conseguiu perguntar${cegos[0]?.motivo ? ` (${cegos[0].motivo})` : ''}.`,
+    { amostra: cegos.map((t) => `${t.papel} → ${t.nome}`), acao: 'Conferir WABA_ID e META_WHATSAPPBUSINESS_API na Vercel.' },
+  ));
+
+  const sumidos = ativos.filter((t) => !t.motivo && t.status === 'INEXISTENTE');
+  out.push(achado(
+    'template-ligado-inexistente', 'critico',
+    'Papel da cadência aponta para um template que não existe na Meta',
+    sumidos.length,
+    'A Meta recusa com 132001 e a mensagem não sai. Costuma ser typo, template apagado ou um "\\n" colado no valor pelo shell.',
+    { amostra: sumidos.map((t) => `${t.papel} → ${t.nome}`), acao: 'Conferir o nome exato em /{WABA_ID}/message_templates e regravar com printf %s (sem pipe de echo).' },
+  ));
+
+  const naoAprovados = ativos.filter((t) => !t.motivo && t.status && t.status !== 'INEXISTENTE' && t.status !== 'APPROVED');
+  out.push(achado(
+    'template-ligado-nao-aprovado', 'critico',
+    'Papel da cadência aponta para template que não está aprovado',
+    naoAprovados.length,
+    'Template PENDING ou REJECTED é recusado no envio (132001) — a cadência daquele papel fica muda.',
+    { amostra: naoAprovados.map((t) => `${t.papel} → ${t.nome} (${t.status})`), acao: 'Ligar um template APPROVED, ou desligar o papel até a aprovação sair.' },
+  ));
+
+  const marketing = ativos.filter((t) => !t.motivo && t.categoria === 'MARKETING');
+  out.push(achado(
+    'template-ligado-marketing', 'aviso',
+    'Papel da cadência ligado a template MARKETING (custa ~6×)',
+    marketing.length,
+    'MARKETING custa R$ 0,40-0,55 por mensagem contra R$ 0,06-0,09 do UTILITY. Funciona e entrega — só sai caro, e sem sintoma.',
+    { amostra: marketing.map((t) => `${t.papel} → ${t.nome}`), acao: 'Procurar um template UTILITY aprovado para o mesmo momento; se não houver, submeter uma versão com copy mais transacional.' },
+  ));
+
+  return out.filter(Boolean) as Achado[];
+}
+
 /** Aplica todas as regras de PRÉ-VOO. */
 export function regrasPreflight(entregas: EntregaPrevista[]): Achado[] {
   return [
