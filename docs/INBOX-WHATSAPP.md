@@ -502,6 +502,48 @@ depender da heurística. `tests/unit/security/navegador-embutido.test.ts` cobre 
 Ambos validados por mutação. O `/entrar` passou a **registrar o UA** de cada clique: a régua só
 melhora com dado de aparelho real, e foi um aparelho real que derrubou a primeira versão.
 
+#### 🔑 O UA real, e o que ele ensinou sobre heurística por ausência
+
+O log do `/entrar` entregou a string que faltava (iPhone do dono, 15/08):
+
+```
+Mozilla/5.0 (iPhone; CPU iPhone OS 26_6 like Mac OS X) AppleWebKit/605.1.15
+(KHTML, like Gecko) Version/26.6 Mobile/15E148 Safari/604.1 [WAiOS/2.26.31]
+```
+
+O `Safari/604.1` está lá. A régua original procurava a **ausência** desse token para concluir
+"WKWebView", e é por isso que ela errou. O sinal confiável é o marcador POSITIVO do app —
+`[WAiOS/…]` —, não a falta de algo. Regra geral que vale além deste caso: heurística construída
+sobre ausência falha em silêncio no dia em que o outro lado passa a incluir o que faltava, e não há
+como saber quando esse dia chegou sem medir. O caso real virou fixture em
+`navegador-embutido.test.ts` (string de campo, marcada como "não editar").
+
+#### 🔴 A tela funcionava — e convidava ao erro
+
+Com o token parado, o teste seguinte falhou mesmo assim, e o log conta por quê:
+
+| Hora | Evento |
+|---|---|
+| 01:17:58 | `/auth/callback` **sucesso** — "Entrar agora" tocado dentro do WhatsApp. Token consumido |
+| 01:20:23 | `verifyOtp error: Email link is invalid or has expired` |
+| 01:21:00 | idem |
+
+Os dois erros são as tentativas já no navegador, depois de copiar o endereço. A primeira versão da
+tela oferecia **"Entrar agora" como botão principal para todo mundo**, com a instrução do navegador
+num aviso ao lado — e o teste seguiu o que o botão pedia.
+
+Onde o toque errado é **irreversível**, hierarquia visual não é estética: é a trava. Dentro de app
+embutido a tela passou a ter *"Abra no Safari para entrar"* como título, os três passos como
+conteúdo principal, e "Entrar aqui mesmo (a sessão fica só nesta janela)" como link secundário — com
+a consequência na própria etiqueta. Fora dele, "Entrar agora" continua sendo o botão, sem ruído.
+
+**O que continua em aberto:** quem tocar no secundário e depois quiser o app instalado segue sem
+sessão e com o link gasto. Fechar isso exige trocar o `token_hash` do Supabase por um ticket nosso
+redimível 2-3 vezes em 15 min. ⚠️ E aí esbarra numa promessa aprovada: o corpo do `acesso_vertho`
+diz *"só pode ser usado uma vez"*. Mudar o comportamento sem mudar o texto torna o texto falso;
+mudar o texto é submeter o template de novo à Meta, com o risco de voltar MARKETING (6× o custo —
+4 de 8 voltaram assim em 14/08). Decisão pendente, e é do dono.
+
 ### 9.3 O que continua aberto — e por quê
 
 - **Responder pelo `to_phone_id` da conversa** (§7.1). Com dois números, a chave da conversa é

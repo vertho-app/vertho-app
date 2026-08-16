@@ -13,6 +13,15 @@ import { ehNavegadorEmbutido, ehAndroid, intentChrome } from '@/lib/auth/navegad
 
 const UA = {
   waAndroid: 'Mozilla/5.0 (Linux; Android 13; SM-A536E Build/TP1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36',
+  /**
+   * 🔑 MEDIDO em aparelho real (15/08/2026, iPhone do dono). Repare no
+   * `Safari/604.1`: o WebView do WhatsApp no iOS **assina como Safari**, e foi
+   * por isso que a primeira régua — que procurava a AUSÊNCIA desse token —
+   * deixou passar. O sinal de verdade é o `[WAiOS/…]` no fim.
+   *
+   * Esta string é dado de campo, não exemplo inventado: não editar.
+   */
+  waIosReal: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6 Mobile/15E148 Safari/604.1 [WAiOS/2.26.31]',
   waIos: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
   safariIos: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
   chromeIos: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/126.0 Mobile/15E148 Safari/604.1',
@@ -22,7 +31,14 @@ const UA = {
 };
 
 describe('navegador embutido — quem NÃO pode consumir o token', () => {
-  it('🔴 WhatsApp no Android e no iOS são detectados', () => {
+  it('🔴 o UA REAL do WhatsApp no iPhone é detectado — ele assina como Safari', () => {
+    // A regressão que este caso trava: procurar a ausência de `Safari/` deixava
+    // este aparelho passar, e o token era consumido dentro do WhatsApp.
+    expect(UA.waIosReal).toMatch(/Safari\//); // o token ESTÁ lá
+    expect(ehNavegadorEmbutido(UA.waIosReal)).toBe(true);
+  });
+
+  it('🔴 WhatsApp no Android e no iOS antigo são detectados', () => {
     expect(ehNavegadorEmbutido(UA.waAndroid)).toBe(true);
     expect(ehNavegadorEmbutido(UA.waIos)).toBe(true);
   });

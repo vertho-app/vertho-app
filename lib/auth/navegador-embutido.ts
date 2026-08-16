@@ -20,12 +20,31 @@
  * falso NEGATIVO queima o token. Na dúvida, o lado seguro é acusar embutido.
  */
 
-/** Android: o WebView anuncia `wv`, e o WhatsApp costuma se identificar. */
-const ANDROID_EMBUTIDO = /\bwv\b|WhatsApp|Instagram|FBAN|FBAV|Line\/|MicroMessenger/i;
+/**
+ * Marcadores que o app EMBUTIDO acrescenta ao UA.
+ *
+ * 🔑 `WAiOS` é o que o WhatsApp do iPhone usa — medido em 15/08/2026 num
+ * aparelho real:
+ *
+ *   …Version/26.6 Mobile/15E148 Safari/604.1 **[WAiOS/2.26.31]**
+ *
+ * Note o `Safari/604.1` ali: o WebView do WhatsApp no iOS **assina como Safari**.
+ * A primeira versão desta régua procurava a AUSÊNCIA desse token e por isso
+ * deixou passar um iPhone real — o token estava lá. O sinal confiável é o
+ * marcador do app, não a ausência de algo.
+ *
+ * `wv` (Android), `WAiOS`/`WhatsApp` (WhatsApp), `FBAN`/`FBAV`/`FB_IAB`
+ * (Facebook/Messenger), `Instagram`, `Line/`, `MicroMessenger` (WeChat).
+ */
+const APP_EMBUTIDO = /\bwv\b|WAiOS|WhatsApp|Instagram|FBAN|FBAV|FB_IAB|Line\/|MicroMessenger/i;
 
 /**
- * iOS: o WKWebView usa o motor do Safari e NÃO traz o token `Safari/` no fim do
- * UA — é o sinal que separa "Safari de verdade" de "WebView dentro de um app".
+ * iOS sem marcador de app: o WKWebView de apps menos educados usa o motor do
+ * Safari e não traz o token `Safari/`.
+ *
+ * ⚠️ Este ramo é o FRACO — ele erra por omissão sempre que o app assina como
+ * Safari (foi o caso do WhatsApp). Ele fica porque cobre apps que o
+ * `APP_EMBUTIDO` não conhece, não porque seja confiável.
  */
 function ehIosEmbutido(ua: string): boolean {
   const ios = /iPhone|iPad|iPod/i.test(ua);
@@ -42,8 +61,13 @@ export function ehAndroid(userAgent: string | null | undefined): boolean {
 export function ehNavegadorEmbutido(userAgent: string | null | undefined): boolean {
   const ua = String(userAgent || '');
   if (!ua) return false; // sem UA não dá para afirmar; o fluxo normal segue
-  if (ANDROID_EMBUTIDO.test(ua)) return true;
+  if (APP_EMBUTIDO.test(ua)) return true;
   return ehIosEmbutido(ua);
+}
+
+/** iPhone/iPad — muda a instrução ("Abrir no Safari" × "Abrir no Chrome"). */
+export function ehIos(userAgent: string | null | undefined): boolean {
+  return /iPhone|iPad|iPod/i.test(String(userAgent || ''));
 }
 
 /**
