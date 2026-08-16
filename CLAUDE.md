@@ -386,6 +386,15 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   `getModelForTask(empresaId, '<task>')` e **imprimir o modelo**. Caso geral: config declarada não é
   config aplicada — antes de afirmar que uma chave vale, ache quem a LÊ (o mesmo mordeu em
   `conteudosPorSemana`, F-I16 do `docs/FMEA-PIPELINE.md`).
+- NÃO gravar env var que decide comportamento **sem um observável do valor aplicado**. Na Vercel, var
+  marcada *Sensitive* volta como `[SENSITIVE]` no `vercel env pull`: você grava e **não tem como
+  provar o que gravou**. Medido 16/08: `WHATSAPP_TEMPLATE_PILULA` apontava para um template que a
+  Meta reclassificou como MARKETING — 6× o custo (~R$ 180 contra ~R$ 25 por semana em 400 pessoas),
+  aprovado, enviado, entregue, **sem nenhum sintoma**: o único consumidor de `templateAtivo()` era o
+  próprio envio, então não havia tela nem check onde o erro aparecesse. O observável tem que existir
+  ANTES de considerar feito — health (`checarTemplatesLigados`, R13), script que imprime o valor
+  resolvido (`scripts/_testar-template.ts`) ou log. E gravar com `printf '%s' … | vercel env add`,
+  **nunca `echo`** (injeta `\n`, e o sintoma é 132001 no cron). Gatilhos §23-24 da skill `checklist`.
 - NÃO escrever filtro de retomada sobre uma propriedade qualquer do alvo — ele tem que descrever **o
   que a rodada corrige**. Três vezes em 14-15/08: o de blueprint via semanas quando o que mudara eram
   os descritores; a reancoragem sem filtro repagava 24 pessoas após queda de rede; e o `--forcar` dos

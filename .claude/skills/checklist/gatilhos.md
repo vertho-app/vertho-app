@@ -193,6 +193,37 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - Não escrever doc que **enumera cobertura** ("cobre 5 tabelas") — aponte para a constante do teste.
 - 🔴 O repo é **público**: dump de tenant, nota de sessão e lacuna de segurança **aberta** ficam fora.
 
+## 23. Passo novo numa tela de acesso / onboarding
+
+Casa: `app/login/**`, `app/entrar/**`, qualquer tela que fica **entre a mensagem e o conteúdo**.
+
+- 🔴 Antes de tornar algo o caminho PRINCIPAL, responder as duas em voz alta: **quem paga o custo
+  disto** e **quantos são, contra quantos ganham**. Beneficiado minoritário ⇒ o mecanismo vira opção
+  secundária (`<details>` fechado, link discreto), nunca pedágio.
+- Proteção só é **obrigatória** quando o erro que ela evita é irreversível (token de uso único
+  queimado). Erro recuperável ⇒ opção.
+- ⚠️ Quando a resposta depende de **para quem o produto é**, ela não está no código: perguntar ao
+  Rodrigo cedo custa uma frase.
+- Medido 15-16/08/2026: três versões seguidas da tela de acesso estavam **certas no mecanismo e
+  erradas na hierarquia** — uma virou "burocrático… muitos passos", outra caiu inteira com *"não
+  considere a versão PWA"*, levando junto ~2h de trabalho já desenhado.
+
+## 24. Variável de ambiente que decide comportamento (Vercel)
+
+Casa: `vercel env add/rm`, leitura nova de `process.env.*` que muda entrega, custo ou destino.
+
+- 🔴 **Gravou e não consegue ler de volta?** Var marcada *Sensitive* volta como `[SENSITIVE]` no
+  `vercel env pull` — você não tem como provar o que gravou. Antes de considerar feito, garantir um
+  **observável**: check de health, script que imprime o valor resolvido, ou log.
+- 🔴 Achar **quem LÊ** a chave. Se o único consumidor é o próprio ponto de envio, não existe lugar
+  onde o erro apareça — o sintoma vira a fatura ou um 132001 no cron. (Caso-irmão: `feedback_config_sem_consumidor`.)
+- `printf '%s' 'valor' | vercel env add …` — **nunca `echo`** (injeta `\n`, e o sintoma é
+  "template não existe" em produção).
+- Medido 16/08/2026: `WHATSAPP_TEMPLATE_PILULA` apontava para um template reclassificado como
+  MARKETING (6× o custo, ~R$ 180 contra ~R$ 25 por semana em 400 pessoas). Aprovado, enviado,
+  entregue — nada quebrou. Fechado com a **R13** do health (`checarTemplatesLigados`) e
+  `scripts/_testar-template.ts`, que imprime o template resolvido **antes** de enviar.
+
 ## 22. Sempre (base fixa — cite, não copie)
 
 `docs/CHECKLISTS.md` §1. Os três que mais reincidem:
