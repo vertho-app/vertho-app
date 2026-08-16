@@ -19,6 +19,7 @@ import FirstViewVideo from '@/components/first-view-video';
 // Tutorial da semana de missão (Bunny) — constante única em programa-config,
 // compartilhada com o envio de segunda do triggerDiario.
 import { APLICACAO_VIDEO_ID } from '@/lib/season-engine/programa-config';
+import { descritorParaHumano, descritoresParaHumano } from '@/lib/descritor-humano';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 
@@ -139,9 +140,12 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const isAplicacao = semana.tipo === 'aplicacao';
   const isAvaliacao = semana.tipo === 'avaliacao';
   // DUO: a semana cobre 2 descritores (seg+ter). Rótulo único p/ título e Tira-Dúvidas.
+  // `descritorParaHumano`: parte dos descritores traz o código da matriz colado no
+  // texto (`COO03_D6 — Busca de apoio`) e este é o TÍTULO da semana. Limpeza só na
+  // exibição — o valor cru continua sendo a chave que casa o kit.
   const descritoresLabel = (Array.isArray(semana.descritores_cobertos) && semana.descritores_cobertos.length > 1)
-    ? semana.descritores_cobertos.join(' + ')
-    : (semana.descritor || semana.competencia || data.trilha.competencia_foco);
+    ? descritoresParaHumano(semana.descritores_cobertos).join(' + ')
+    : (descritorParaHumano(semana.descritor) || semana.competencia || data.trilha.competencia_foco);
   const conteudo = semana.conteudo;
   const entregasConteudo = Array.isArray(semana.conteudos_dia) && semana.conteudos_dia.length > 0
     ? semana.conteudos_dia.filter(e => e?.conteudo)
@@ -292,7 +296,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                 <div className="mb-3">
                   <p className="text-[10px] uppercase tracking-widest text-brand-400 font-bold">{entrega.label}</p>
                   <h2 className="text-sm font-bold text-white">{entrega.competencia || semana.competencia}</h2>
-                  {entrega.descritor && <p className="text-xs text-gray-400">{entrega.descritor}</p>}
+                  {entrega.descritor && <p className="text-xs text-gray-400">{descritorParaHumano(entrega.descritor)}</p>}
                 </div>
                 <ConteudoViewer
                   conteudo={entrega.conteudo}

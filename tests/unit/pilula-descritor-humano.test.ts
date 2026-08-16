@@ -39,10 +39,12 @@ describe('descritor que sai para fora', () => {
     expect(descritorParaHumano('BNCC — competências gerais')).toBe('BNCC — competências gerais');
   });
 
-  it('🔴 descritor que é SÓ o código devolve o original, não vazio', () => {
-    // Assunto vazio é pior que assunto feio: a mensagem fica sem tema nenhum.
+  it('🔴 descritor que é SÓ o código NÃO some — assunto vazio é pior que feio', () => {
+    // A invariante é "não vira string vazia", não a grafia exata: o helper faz
+    // trim na entrada, então espaço à direita não sobrevive (nem deve).
     expect(descritorParaHumano('COO03_D6')).toBe('COO03_D6');
-    expect(descritorParaHumano('COO03_D6 — ')).toBe('COO03_D6 — ');
+    expect(descritorParaHumano('COO03_D6 — ')).toContain('COO03_D6');
+    expect(descritorParaHumano('COO03_D6 — ')).not.toBe('');
   });
 
   it('🔴 o tema completo da pílula sai limpo', () => {

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { colors, fonts, nivelColor, nivelBgColor, nivelLabel } from './styles';
 import ChecklistBox from './ChecklistBox';
+import { descritorParaHumano } from '@/lib/descritor-humano';
 
 const s = StyleSheet.create({
   // ── Header navy compacto ────────────────────────────────────────────
@@ -168,7 +169,7 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
         <View style={s.descritorBox} wrap={false}>
           <Text style={{ ...s.blockLabel, color: colors.yellow }}>Comportamentos em Desenvolvimento</Text>
           {comp.descritores_desenvolvimento.map((d: any, i: number) => (
-            <PrefixedItem key={i} prefix="•" color={colors.yellow} text={d} textColor={colors.yellowText} />
+            <PrefixedItem key={i} prefix="•" color={colors.yellow} text={descritorParaHumano(d)} textColor={colors.yellowText} />
           ))}
         </View>
       )}

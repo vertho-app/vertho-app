@@ -6,6 +6,7 @@ import { Loader2, Users, TrendingUp, TrendingDown, Minus, ChevronRight, Clock, X
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import { listarEquipeEvolucao, loadLideradoConcluida, listarCheckpointsPendentes, salvarCheckpointGestor } from './actions';
+import { descritorParaHumano } from '@/lib/descritor-humano';
 
 const STATUS_CFG = {
   em_andamento:         { cor: 'cyan',    icon: Clock,        label: 'Em andamento' },
@@ -278,7 +279,7 @@ function DetalheModal({ data, loading, onClose, sb }) {
                   return (
                     <div key={i} className={`p-2 rounded border border-${cfg.cor}-500/20`}>
                       <div className="flex justify-between text-xs">
-                        <p className="font-bold text-white truncate">{d.descritor}</p>
+                        <p className="font-bold text-white truncate">{descritorParaHumano(d.descritor)}</p>
                         <span className={`text-${cfg.cor}-400 font-bold shrink-0`}>
                           {d.nota_pre} → {d.nota_pos} ({(d.nota_pos - d.nota_pre).toFixed(1)})
                         </span>

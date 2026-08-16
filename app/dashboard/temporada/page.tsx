@@ -9,6 +9,7 @@ import { loadTemporadaPorEmail } from '@/actions/temporadas';
 import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 import { semanaLiberadaPorData, formatarLiberacao } from '@/lib/season-engine/week-gating';
 import FirstViewVideo from '@/components/first-view-video';
+import { descritorParaHumano } from '@/lib/descritor-humano';
 
 // Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a temporada.
 const JORNADA_VIDEO_ID = '4d17fac6-2dda-4c34-8436-bfe4c7f32f62';
@@ -253,7 +254,7 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
           return (
             <div key={i} className={`p-2 rounded-lg bg-white/5 border border-${conv.cor}-500/20`}>
               <div className="flex items-center justify-between">
-                <div className="text-xs font-bold text-white">{conv.icon} {d.descritor}</div>
+                <div className="text-xs font-bold text-white">{conv.icon} {descritorParaHumano(d.descritor)}</div>
                 <div className="text-[10px] text-gray-400">
                   {d.nota_pre} → <span className={`text-${conv.cor}-400 font-bold`}>{d.nota_pos}</span> ({delta > 0 ? '+' : ''}{delta})
                 </div>

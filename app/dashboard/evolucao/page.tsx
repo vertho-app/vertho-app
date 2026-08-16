@@ -7,6 +7,7 @@ import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, TrendingUp, Download, Clock, Quote, Target, Award } from 'lucide-react';
 import { loadEvolucao } from './evolucao-actions';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
+import { descritorParaHumano } from '@/lib/descritor-humano';
 
 function classifyDelta(delta: number, t: any): { label: string; pill: string } {
   if (delta >= 0.5) return { label: t('classification.confirmed'), pill: 'bg-green-500/12 text-green-300 border border-green-500/22' };
@@ -174,7 +175,7 @@ export default function EvolucaoPage() {
                     style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold leading-snug">{d.descritor || d.competencia_nome || t('descriptorFallback', { number: i + 1 })}</h3>
+                        <h3 className="font-bold leading-snug">{descritorParaHumano(d.descritor) || d.competencia_nome || t('descriptorFallback', { number: i + 1 })}</h3>
                       </div>
                       <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap ${cls.pill}`}>
                         {cls.label}
@@ -254,14 +255,14 @@ export default function EvolucaoPage() {
                 <div className="rounded-[22px] p-4"
                   style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <p className="text-[12px] text-white/55 mb-1">{t('summary.biggestAdvance')}</p>
-                  <p className="font-bold">{melhor.descritor || melhor.competencia_nome}</p>
+                  <p className="font-bold">{descritorParaHumano(melhor.descritor) || melhor.competencia_nome}</p>
                 </div>
               )}
               {pior && (pior.delta || 0) < 0 && (
                 <div className="rounded-[22px] p-4"
                   style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <p className="text-[12px] text-white/55 mb-1">{t('summary.mainAttentionPoint')}</p>
-                  <p className="font-bold">{pior.descritor || pior.competencia_nome}</p>
+                  <p className="font-bold">{descritorParaHumano(pior.descritor) || pior.competencia_nome}</p>
                 </div>
               )}
               <div className="rounded-[22px] p-4"

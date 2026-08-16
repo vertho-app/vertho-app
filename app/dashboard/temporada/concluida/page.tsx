@@ -9,6 +9,7 @@ import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import ReactMarkdown from 'react-markdown';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
+import { descritorParaHumano } from '@/lib/descritor-humano';
 
 const CONVERGENCIA = {
   evolucao_confirmada: { cor: 'emerald', icon: TrendingUp, labelKey: 'confirmed' },
@@ -79,7 +80,7 @@ export default function TemporadaConcluidaPage() {
             {descritores.map((d, i) => (
               <GlassCard key={i} className="border-brand-500/15">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold text-white">{d.descritor}</p>
+                  <p className="text-sm font-bold text-white">{descritorParaHumano(d.descritor)}</p>
                   {d.baseline != null && (
                     <span className="text-xs text-brand-300 font-bold shrink-0">{Number(d.baseline).toFixed(1)}/4.0</span>
                   )}
@@ -102,7 +103,7 @@ export default function TemporadaConcluidaPage() {
                       <p className="text-lg font-extrabold text-brand-300">{m.semana}</p>
                     </div>
                     <div className="flex-1">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">{m.descritor}</p>
+                      <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">{descritorParaHumano(m.descritor)}</p>
                       <p className="text-sm text-gray-200 italic">💡 {m.insight}</p>
                     </div>
                   </div>
@@ -229,7 +230,7 @@ export default function TemporadaConcluidaPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <p className="text-sm font-bold text-white">{d.descritor}</p>
+                      <p className="text-sm font-bold text-white">{descritorParaHumano(d.descritor)}</p>
                       <div className="text-xs text-right shrink-0">
                         <span className="text-gray-400">{d.nota_pre}</span>
                         <span className={`text-${conv.cor}-400 font-bold mx-2`}>→ {d.nota_pos}</span>
@@ -264,7 +265,7 @@ export default function TemporadaConcluidaPage() {
                     <p className="text-lg font-extrabold text-brand-300">{m.semana}</p>
                   </div>
                   <div className="flex-1">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">{m.descritor}</p>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">{descritorParaHumano(m.descritor)}</p>
                     <p className="text-sm text-gray-200 italic">💡 {m.insight}</p>
                   </div>
                 </div>
