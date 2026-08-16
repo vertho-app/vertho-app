@@ -26,5 +26,8 @@ Sentry.init({
     'network error',
     // Navigator LockManager do supabase auth: disputa de lock entre abas — benigno
     /Lock "lock:sb-.+-auth-token"/,
+    // Bots HeadlessChrome e tradução automática do Chrome alteram o DOM sob o
+    // React — ruído conhecido, sem ação possível no app
+    "Cannot read properties of null (reading 'parentNode')",
   ],
 });
