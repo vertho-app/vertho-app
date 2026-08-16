@@ -86,13 +86,58 @@ avisa se isso mudar, porque MARKETING não tem sintoma: aprova, envia, entrega, 
 
 ---
 
+## 3.1 A regra da Meta, e o que ela obriga a vigiar
+
+Da doc oficial *Template categorization* (conferida em 16/08/2026):
+
+- **Desde 09/04/2025, `allow_category_change` é o comportamento PADRÃO.** Submeter como UTILITY e a
+  Meta discordar **não** rejeita: ela **aprova como MARKETING**. É o mecanismo por trás dos "4 de 8"
+  de 14/08 — não houve erro nosso de leitura, é como o sistema funciona.
+- **Existe aviso PRÉVIO, e é consultável:**
+  `GET /{WABA_ID}/message_templates?fields=category,correct_category`. `correct_category` divergente
+  de `category` = reclassificação agendada para o 1º dia do mês seguinte. **Medido em 16/08: null nos
+  24 templates — nada agendado.**
+- **Revisão de categoria pode ser pedida em até 60 dias** da mudança, para template MARKETING +
+  APPROVED. Só pelo WhatsApp Manager (Business Support → *Template Category Updates* → *Request
+  Review*), não pela API. Aplicável aos 4 MARKETING da seção 2.
+- Conteúdo **vago** (só `{{1}}`, "Parabéns!") é MARKETING por definição.
+
+### 🔴 Escada de punição por classificar marketing como utility
+
+| Nível | O que acontece | Duração |
+|---|---|---|
+| Aviso | E-mail aos admins da WABA. **A partir dele, UTILITY→MARKETING passa a ser instantâneo, sem as 24h de aviso prévio** | contínuo |
+| Rate limit | Teto de volume UTILITY em 24h; o excedente é **recusado** | mín. 7 dias |
+| Restrição de utility | **TODOS** os UTILITY aprovados viram MARKETING; criar UTILITY e pedir revisão ficam desabilitados | 7 dias (30 se reincidente) |
+| Portfólio | O mesmo em **todas** as WABAs do Business Suite | 30 dias |
+
+⚠️ **Nosso perfil é o de risco:** 6 submissões viraram MARKETING e há v2 de copy limítrofe na fila.
+Não re-submeter cópia limítrofe repetidamente.
+
+### 🔴 Ponto cego: não vemos a advertência
+
+O aviso e a punição chegam no campo **`account_update`** (com `restriction_info`), e ele **não está
+assinado**: `GET /{app-id}/subscriptions` devolve 11 campos e nenhum é esse (medido 16/08). Se a Meta
+advertir a conta, não chega webhook — só e-mail aos admins da WABA.
+
+E dois campos **assinados** caem em `ignorados` no `app/api/webhooks/whatsapp-cloud/route.ts`, ou
+seja, chegam e somem: `account_alerts` e `message_template_quality_update` (queda de qualidade de um
+template).
+
+O que JÁ é tratado e grava em `whatsapp_template_eventos`: `message_template_status_update`,
+`template_category_update` e `template_correct_category_detection` (o aviso prévio).
+⚠️ Mesmo assim a tabela **não é registro completo** — em 14/08 a API mostrava 6 reclassificações e a
+tabela guardou 2. Para categoria, a fonte é a API.
+
 ## 4. Como conferir sem confiar neste arquivo
 
 ```bash
-# Status e categoria AGORA, direto na Meta
+# Status, categoria e RECLASSIFICAÇÃO AGENDADA (correct_category) direto na Meta.
+# correct_category != category  ⇒  vira MARKETING no 1º dia do mês seguinte.
 node -e "process.loadEnvFile('.env.local');
- fetch('https://graph.facebook.com/v22.0/'+process.env.WABA_ID+'/message_templates?limit=200&access_token='+process.env.META_WHATSAPPBUSINESS_API)
- .then(r=>r.json()).then(j=>j.data.forEach(t=>console.log(t.status,t.category,t.name)))"
+ fetch('https://graph.facebook.com/v22.0/'+process.env.WABA_ID+'/message_templates?limit=200&fields=name,status,category,correct_category&access_token='+process.env.META_WHATSAPPBUSINESS_API)
+ .then(r=>r.json()).then(j=>j.data.forEach(t=>console.log(
+   (t.correct_category&&t.correct_category!==t.category?'AGENDADO':'  '),t.status,t.category,t.name)))"
 
 # Uma mensagem pelo caminho REAL, imprimindo o template resolvido antes de enviar
 npx tsx scripts/_testar-template.ts --papel=pilula --telefone=55… --slug=ibipeba --empresa-id=… 
