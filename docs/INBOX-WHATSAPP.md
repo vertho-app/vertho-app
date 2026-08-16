@@ -552,6 +552,38 @@ embutido não some: ela decide qual `<details>` aparece e mantém o `intent://` 
 A lição que sobra não é sobre WebView: **uma correção pode estar certa no mecanismo e errada no
 default.** "Quem paga o custo desta proteção?" é pergunta separada de "a proteção funciona?".
 
+#### ✅ E, no fim, um toque PARA O NAVEGADOR — inclusive no iPhone
+
+O dono não queria nem o menu de três passos nem entrar no WhatsApp: queria o navegador. No Android
+isso já era resolvido (`intent://`, API pública). No iOS a Apple não oferece **nenhuma** forma
+suportada de um WKWebView entregar a navegação ao Safari — mas existe um efeito colateral
+aproveitável: quando a página navega para um esquema **desconhecido**, um app bem-comportado repassa
+a URL ao sistema em vez de tratar como erro. `x-safari-https://` é registrado pelo Safari e
+`googlechromes://` pelo Chrome.
+
+**Medido em 15/08/2026, iPhone real, WhatsApp 2.26.31: funciona.** Log da sequência —
+
+```
+02:00:20  GET /entrar        ua=…[WAiOS/2.26.31]  embutido=true
+02:00:21  GET /entrar/abrir  200
+02:00:31  GET /entrar        (ir=1)
+02:00:31  GET /auth/callback 307   ← sem erro: token validado de primeira
+```
+
+O destino da tentativa já leva `ir=1`, então o Safari abre **já entrando**, sem segunda tela. Se o
+esquema não for repassado, a navegação é cancelada, **nada é consumido**, e o componente revela
+sozinho o caminho manual (`•••` → Abrir no Safari) depois de 1,2s.
+
+⚠️ **Isto é comportamento não suportado e pode sumir numa atualização do WhatsApp.** Por isso o botão
+não promete nada na copy, e por isso o `/entrar` **loga o UA também no consumo**: `embutido=true` na
+linha `[entrar] consumido` significa que o truque falhou e a pessoa entrou dentro do WhatsApp. Sem
+esse log a regressão seria invisível — todo mundo continuaria "entrando", só que no lugar errado.
+
+Se um dia falhar, as saídas são: (a) aceitar o navegador do WhatsApp como lugar normal — ele guarda
+a sessão, então o link da semana seguinte abre naquela janela já logado; (b) para quem usa o PWA
+instalado, trocar link por **código** (`otp_acesso`, aprovado, com botão nativo "Copiar código"): sem
+transferência de navegador, não existe o problema.
+
 **O que continua em aberto:** quem tocar no secundário e depois quiser o app instalado segue sem
 sessão e com o link gasto. Fechar isso exige trocar o `token_hash` do Supabase por um ticket nosso
 redimível 2-3 vezes em 15 min. ⚠️ E aí esbarra numa promessa aprovada: o corpo do `acesso_vertho`

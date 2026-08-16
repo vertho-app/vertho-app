@@ -115,6 +115,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(abrir, 302);
   }
 
+  // ONDE a pessoa efetivamente entrou.
+  //
+  // 🔑 Isto não é curiosidade: a saída do WebView no iOS depende de um esquema
+  // NÃO SUPORTADO (`x-safari-https://`, ver `SairDoWebView.tsx`). Funciona hoje
+  // porque o WhatsApp repassa esquemas desconhecidos ao sistema — e pode parar
+  // numa atualização do app, sem aviso e sem erro. O sintoma seria silencioso:
+  // as pessoas voltariam a entrar dentro do WhatsApp e ninguém saberia.
+  //
+  // Com esta linha, `embutido=true` no CONSUMO é o alarme: significa que o
+  // truque não funcionou e a pessoa entrou no WebView.
+  console.log(`[entrar] consumido ua=${JSON.stringify(ua)} embutido=${ehNavegadorEmbutido(ua)}`);
+
   // `tenantUrl` monta a partir do slug JÁ validado contra o banco — a URL nunca
   // é concatenada com texto vindo da query.
   const destino = new URL(caminhoCallback(dados.tokenHash), tenantUrl(empresa.slug));
