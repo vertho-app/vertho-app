@@ -5,7 +5,6 @@ import { headers } from 'next/headers';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
-import { rotuloPorta } from '@/lib/conarh/conteudo';
 import { classificarLeadConarh } from '@/lib/conarh/classificacao';
 
 /**
@@ -36,6 +35,11 @@ import { classificarLeadConarh } from '@/lib/conarh/classificacao';
  * pelo caminho legado, e a Z-API está desconectada desde 11/08 (388 falhas
  * medidas): não chegavam desde então. O conteúdo dos três continua no log e no
  * banco; se voltarem, o canal certo é push.
+ *
+ * ⚠️ E o log NÃO leva PII. A primeira versão desta mudança despejava nome,
+ * organização e telefone do lead no `console.log`: trocar um canal por um log
+ * parece inócuo e não é — a mensagem ia para um destinatário, o log fica RETIDO
+ * e legível por quem tem acesso ao projeto.
  */
 
 /**
@@ -247,26 +251,19 @@ async function alertarFechadorConarh(opts: {
   reuniaoEm: string | null;
 }): Promise<void> {
   try {
-    const porta = rotuloPorta(opts.porta);
-    const linhas = [
-      'Lead A no estande (CONARH)',
-      `${opts.nome}${opts.organizacao ? ` — ${opts.organizacao}` : ''}`,
-      porta ? `Porta: ${porta}` : null,
-      opts.competencia ? `Competência: "${opts.competencia}"` : null,
-      opts.telefone ? `WhatsApp: ${opts.telefone}` : null,
-      opts.reuniaoEm ? `Reunião marcada: ${opts.reuniaoEm}` : null,
-    ].filter(Boolean);
-
     // 🔴 Aviso por WhatsApp DESLIGADO em 17/08/2026 (decisão do dono). Ia por
     // `sendWhatsapp` (legado → Z-API), desconectada desde 11/08: 388 falhas
     // medidas, ou seja, não chegava a ninguém desde então.
     //
-    // O registro fica no log porque este é o mais sensível ao TEMPO dos três
-    // avisos do CONARH — ele existe para alguém falar com a pessoa enquanto ela
-    // ainda está na feira, e chegar 40 minutos depois é o mesmo que não chegar.
-    // Se voltar, o canal certo é push: chega no celular, não tem janela de 24h
-    // e não custa por mensagem.
-    console.log(`[lead-comercial] ${linhas.join(' · ')}`);
+    // ⚠️ O LOG NÃO LEVA PII. A primeira versão desta mudança despejava nome,
+    // organização e TELEFONE do lead no `console.log` — trocar um canal por um
+    // log parece inócuo e não é: a mensagem ia para um destinatário, o log fica
+    // RETIDO e visível a quem tem acesso ao projeto. Aqui vai só o que serve
+    // para achar a linha; o dado está em `diag_leads`, que é o lugar dele.
+    //
+    // Se o aviso voltar, o canal certo é push: chega no celular, não tem janela
+    // de 24h e não custa por mensagem.
+    console.log(`[lead-comercial] lead classe A capturado (porta ${opts.porta ?? '—'})`);
   } catch (err) {
     console.error('[lead-comercial] alerta classe A exception:', err);
   }

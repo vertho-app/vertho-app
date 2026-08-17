@@ -3,7 +3,7 @@ import 'server-only';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { sendWhatsapp } from '@/lib/whatsapp';
 import { criarPaceadorSincrono } from '@/lib/whatsapp/cadencia';
-import { formatarDataHoraBRT, rotuloPorta } from './conteudo';
+import { formatarDataHoraBRT } from './conteudo';
 import { mensagemT1 } from './mensagens';
 
 /**
@@ -16,11 +16,11 @@ import { mensagemT1 } from './mensagens';
  *     WhatsApp AO LEAD com recorte aplicado à competencia_critica, zero pedido
  *     → step 2.
  *   T+3 (step=2, ≥3 dias, classe A):
- *     WhatsApp INTERNO ao fechador com a fila de ligação do dia (nomes +
- *     telefones) → step 3.
+ *     entra na fila de ligação → step 3. A fila fica em `diag_leads`; não há
+ *     mais aviso (ver abaixo).
  *   T+5 (step 2 ou 3, ≥5 dias):
- *     WhatsApp INTERNO com o insight agregado do evento (contagens por porta,
- *     divergências médias) → step 4 (régua encerrada).
+ *     calcula o insight agregado do evento (contagens por porta, divergências
+ *     médias) → step 4 (régua encerrada).
  *
  * Regras fixas:
  *   - Classe C NUNCA recebe nada — encerrada na primeira varredura (step 4,
@@ -180,15 +180,14 @@ export async function executarReguaConarh() {
     }
     t3 = filaLigacao.length;
 
-    // Aviso interno DESLIGADO por decisão do dono (17/08). Sem `alertaPara` não
-    // se tenta nada — e a fila continua no `console.log` abaixo e no banco, que
-    // é onde ela sempre esteve. Para religar (push ou WhatsApp), a fila já está
-    // montada aqui.
-    const linhas = filaLigacao.map((l, i) =>
-      `${i + 1}. ${l.nome || 'Sem nome'}${l.organizacao ? ` (${l.organizacao})` : ''} — ${l.telefone || 'sem telefone'}`
-      + `${rotuloPorta(l.porta_escolhida) ? ` · ${rotuloPorta(l.porta_escolhida)}` : ''}`
-      + `${l.competencia_critica ? ` · "${l.competencia_critica}"` : ''}`);
-    console.log(`[conarh/regua] fila de ligação (${filaLigacao.length}):\n${linhas.join('\n')}`);
+    // Aviso interno DESLIGADO por decisão do dono (17/08).
+    //
+    // ⚠️ O LOG NÃO LEVA PII. A primeira versão listava nome, organização e
+    // TELEFONE de cada lead — trocar um canal por um log parece inócuo e não é:
+    // a mensagem ia para um destinatário, o log fica RETIDO e visível a quem tem
+    // acesso ao projeto. A fila em si está em `diag_leads` (`followup_step = 3`),
+    // que é de onde a tela lê e onde o dado deve viver.
+    console.log(`[conarh/regua] fila de ligação: ${filaLigacao.length} lead(s) A no step 3`);
   }
 
   // ── T+5: encerra a régua e registra o insight agregado ──
