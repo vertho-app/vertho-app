@@ -13,6 +13,7 @@
 import { precarregarKits, overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
+import { formatosEntregaveis, escolherFormatoAnunciado } from '@/lib/season-engine/formato-anunciado';
 import { normalizePhone } from '@/lib/phone';
 import { levantarPlanoKitsCoorte, SEM_TURMA } from '@/lib/season-engine/kit/plano-coorte';
 import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
@@ -67,6 +68,8 @@ export async function coletarEntregasPrevistas(
   // Cache dos kits por (cargo × DISC): a coorte inteira compartilha poucos pares, e
   // sem isso o preflight faz 3 queries POR PESSOA.
   const cacheKits = new Map<string, any>();
+  /** Deck de vídeo por (core × cargo × DISC) — dezenas de pessoas compartilham a célula. */
+  const cacheDeck = new Map<string, boolean>();
   const entregas: EntregaPrevista[] = [];
 
   for (const e of (envios as any[])) {
@@ -101,10 +104,12 @@ export async function coletarEntregasPrevistas(
     if (!item) continue; // semana single num dia de P2: nada sai, nada a checar
     const cont = item.conteudo || {};
 
-    // Formatos REALMENTE entregáveis: os do kit/build + vídeo só se a célula tiver
-    // deck pronto. `formatos_disponiveis` nunca contém vídeo (é do pipeline de célula).
-    const formatos = Object.keys(cont.formatos_disponiveis || {}).filter((f) => f !== 'video');
-    if (await temDeckPronto(sb, empresaId, cont.core_id, c.cargo, c.perfil_dominante)) formatos.push('video');
+    // Formatos REALMENTE entregáveis — mesma função que o ENVIO usa para decidir
+    // o que prometer. Enquanto eram duas implementações, o health media certo e a
+    // mensagem prometia errado (35 de 38 em 17/08/2026).
+    const formatos = await formatosEntregaveis(sb, {
+      empresaId, conteudo: cont, cargo: c.cargo, disc: c.perfil_dominante, cacheDeck,
+    });
 
     const tel = c.whatsapp || c.telefone;
     entregas.push({
@@ -114,10 +119,20 @@ export async function coletarEntregasPrevistas(
       semana, pilula: pilulaAlvo,
       descritor: item.descritor ?? null,
       temKit: !!cont.kit_id,
-      // O texto da pílula usa `derivarPrioridadeFormatos[0]` (cron-jobs.ts), que NÃO é
-      // a mesma função do overlay (`formatoPreferido`). Duas implementações da mesma
-      // ideia — F-estrutural 10 do FMEA. Aqui usa-se a do TEXTO, que é quem promete.
-      formatoAnunciado: derivarPrioridadeFormatos(c)[0],
+      /*
+       * O que a mensagem VAI prometer — a mesma expressão do envio
+       * (`trigger-diario-empresa.ts`), fallback incluído.
+       *
+       * ⚠️ Espelhar o envio é o ponto: enquanto aqui rodava
+       * `derivarPrioridadeFormatos[0]` e lá também, a regra pegava o defeito;
+       * agora que o envio cruza a preferência com o estoque, repetir a fórmula
+       * antiga faria a R1 acusar um problema que não existe mais — e alarme que
+       * grita sem motivo é o que ensina a ignorá-lo.
+       *
+       * A regra continua PODENDO falhar: com `entregaveis` vazio, o envio cai no
+       * preferido e a promessa volta a ser falsa. É esse caso que sobra.
+       */
+      formatoAnunciado: escolherFormatoAnunciado(c, formatos) ?? derivarPrioridadeFormatos(c)[0],
       formatosDisponiveis: formatos,
       coreId: cont.core_id ?? null,
       desafioPlaceholder: /^Aplique /i.test(String(cont.desafio_texto || '')),
@@ -129,17 +144,9 @@ export async function coletarEntregasPrevistas(
 }
 
 /** A célula de vídeo do core tem deck ASSISTÍVEL? (status done + ids do Bunny) */
-async function temDeckPronto(sb: any, empresaId: string, coreId: string | null, cargo: string | null, disc: string | null): Promise<boolean> {
-  const d1 = String(disc || '').charAt(0).toUpperCase();
-  if (!coreId || !cargo || !['D', 'I', 'S', 'C'].includes(d1)) return false;
-  const { data: mc } = await sb.from('micro_conteudos').select('modulo_base_id').eq('id', coreId).eq('empresa_id', empresaId).maybeSingle();
-  if (!(mc as any)?.modulo_base_id) return false;
-  const { data: deck } = await sb.from('videos_gerados')
-    .select('id').eq('modulo_base_id', (mc as any).modulo_base_id).eq('empresa_id', empresaId)
-    .eq('cargo', cargo).eq('disc_dominante', d1).eq('status', 'done')
-    .not('bunny_video_id', 'is', null).limit(1).maybeSingle();
-  return !!deck;
-}
+// `temDeckPronto` mudou para `lib/season-engine/formato-anunciado.ts`: o ENVIO
+// precisa da mesma régua para não prometer um formato que a semana não tem, e
+// duas cópias divergiriam na primeira correção.
 
 /**
  * Transforma o plano da coorte nas lacunas do horizonte. PURA e exportada porque a

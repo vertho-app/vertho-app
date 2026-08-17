@@ -26,6 +26,7 @@ import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppNudg
 import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao, emailEvidencia } from '@/lib/notifications/pilula-envio';
 import { enviarPilulaPorTemplate, enviarPorTemplate } from '@/lib/notifications/pilula-template';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
+import { formatosEntregaveis, escolherFormatoAnunciado } from '@/lib/season-engine/formato-anunciado';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { publicarWhatsappCis } from '@/lib/qstash-publish';
@@ -90,6 +91,13 @@ export async function processarEmpresaDiario(
   const ehDemo = !!(empresa as any).is_demo;
 
   const tdb = tenantDb(empresa.id);
+  /**
+   * Deck de vídeo por (core × cargo × DISC), reusado no disparo inteiro.
+   *
+   * Sem ele seriam duas consultas por PESSOA para responder a mesma pergunta —
+   * numa coorte, dezenas compartilham a mesma célula de vídeo.
+   */
+  const cacheDeck = new Map<string, boolean>();
   const { data: envios } = await tdb.from('fase4_envios')
     .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_evidencia_whatsapp_em, ultima_evidencia_email_em, ultima_evidencia_push_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula1_push_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, ultima_pilula2_push_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
     .eq('status', ENVIO.ATIVO);
@@ -256,6 +264,8 @@ export async function processarEmpresaDiario(
     // Telefone: coluna `whatsapp` ou, no fallback, `telefone` (muitos tenants só têm este).
     const telefone = envio.colaboradores.whatsapp || envio.colaboradores.telefone;
     const email = !ehDemo ? (envio.colaboradores.email || null) : null;
+    // Preferência DECLARADA. Vira promessa só depois de cruzar com o que o
+    // conteúdo do dia realmente tem — ver `enviarPilulaDia`.
     const formatoPref = derivarPrioridadeFormatos(envio.colaboradores)[0];
     // ultimo_envio DERIVADO em JS (não existe coluna): o mais recente dos 3 carimbos.
     const ultimoEnvio = [envio.ultima_pilula1_em, envio.ultima_pilula2_em, envio.ultima_evidencia_em]
@@ -268,7 +278,29 @@ export async function processarEmpresaDiario(
       const wppCol = pilula === 1 ? 'ultima_pilula1_whatsapp_em' : 'ultima_pilula2_whatsapp_em';
       const mailCol = pilula === 1 ? 'ultima_pilula1_email_em' : 'ultima_pilula2_email_em';
       const pushCol = pilula === 1 ? 'ultima_pilula1_push_em' : 'ultima_pilula2_push_em';
-      const opts = { formato: formatoPref, semana, baseUrl, pilula };
+
+      /*
+       * 🔴 O FORMATO ANUNCIADO É O QUE EXISTE, não o preferido (17/08/2026).
+       *
+       * `derivarPrioridadeFormatos[0]` é a preferência da PESSOA, e o default de
+       * quem nunca declarou nenhuma é `video`. O pré-voo da abertura de Macaé
+       * acusou 35 de 38 com "promete video · tem case/texto": o e-mail diria
+       * "Seu vídeo de hoje" e o link levaria a `?formato=video` numa semana sem
+       * vídeo — no primeiro contato do programa.
+       *
+       * A régua é a MESMA do health (`formatosEntregaveis`), e o vídeo entra por
+       * deck ao vivo: `formatos_disponiveis` nunca o contém.
+       */
+      const entregaveis = await formatosEntregaveis(tdb.raw, {
+        empresaId: empresa.id,
+        conteudo: item?.conteudo || item,
+        cargo: envio.colaboradores.cargo ?? null,
+        disc: envio.colaboradores.perfil_dominante ?? null,
+        cacheDeck,
+      });
+      const formatoAnunciado = escolherFormatoAnunciado(envio.colaboradores, entregaveis) ?? formatoPref;
+
+      const opts = { formato: formatoAnunciado, semana, baseUrl, pilula };
       const agora = new Date().toISOString();
       const stamp: Record<string, string> = {};
       let whatsappEnfileirado = false;
@@ -286,7 +318,7 @@ export async function processarEmpresaDiario(
         try {
           const viaTemplate = await enviarPilulaPorTemplate({
             telefone, nome, semana, tema: temaPilula(item),
-            slug: (empresa as any).slug, baseUrl, formato: formatoPref, pilula,
+            slug: (empresa as any).slug, baseUrl, formato: formatoAnunciado, pilula,
             empresaId: empresa.id, colaboradorId: envio.colaborador_id,
             dedupeKey: `${wppCol}:${envio.id}`,
           });
@@ -335,7 +367,7 @@ export async function processarEmpresaDiario(
           corpo: texto.corpo,
           // MESMO destino do WhatsApp e do e-mail: comparar canais exige que a
           // única variável seja o canal, não para onde cada um leva.
-          url: deepLinkSemana(baseUrl, semana, formatoPref, pilula),
+          url: deepLinkSemana(baseUrl, semana, formatoAnunciado, pilula),
           dedupeKey: `${pushCol}:${envio.id}`,
         });
         // Carimba só o próprio sucesso — mesma regra dos irmãos. Zero entregues
