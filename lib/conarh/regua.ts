@@ -30,10 +30,19 @@ import { mensagemT1 } from './mensagens';
  *   - leads sem classe (capturados antes da mig 196) encerram sem envio;
  *   - tudo best-effort com log: um lead quebrado NUNCA derruba o cron.
  *
- * Envs novas:
- *   - CONARH_ALERT_WHATSAPP — número do fechador (fila de ligação T+3 e
- *     insight T+5). Ausente → toques internos pulados com warn; os leads
- *     afetados NÃO avançam de step para o reenvio ficar pendente e visível.
+ * ⚠️ AVISOS INTERNOS DESLIGADOS em 17/08/2026 (decisão do dono).
+ *
+ * `CONARH_ALERT_WHATSAPP` não é mais lida. A fila de ligação (T+3) e o insight
+ * do evento (T+5) continuam sendo CALCULADOS e registrados no log; o que saiu
+ * foi a notificação por WhatsApp, que ia para o próprio time pelo caminho
+ * legado e não chegava desde 11/08.
+ *
+ * 🔑 E o avanço de `followup_step` foi DESAMARRADO do envio. Antes, o estado do
+ * lead só mudava se a mensagem interna saísse — com o canal caído, a régua
+ * ficava congelada em silêncio, e o T+5 recolhia os mesmos leads todo dia num
+ * laço de nada. O que aconteceu de fato foi o lead completar 3 ou 5 dias; isso
+ * é verdade tendo ou não alguém sido avisado. **Aviso é notificação, não
+ * catraca de estado.**
  */
 
 const DIA_MS = 24 * 60 * 60 * 1000;
@@ -54,8 +63,14 @@ type LeadRegua = {
 export async function executarReguaConarh() {
   const sb = createSupabaseAdmin();
   const agora = Date.now();
-  const alertaPara = process.env.CONARH_ALERT_WHATSAPP || null;
-  if (!alertaPara) console.warn('[conarh/regua] CONARH_ALERT_WHATSAPP ausente — toques internos (T+3, T+5) ficarão pendentes');
+  // Avisos internos de T+3/T+5 DESLIGADOS em 17/08/2026 (decisão do dono). Eles
+  // iam por WhatsApp para o próprio time, pelo caminho legado — e a Z-API está
+  // desconectada desde 11/08, então já não chegavam: 388 falhas medidas.
+  //
+  // O que sai daqui é só a NOTIFICAÇÃO. A fila de ligação e o insight continuam
+  // sendo calculados, registrados no log e visíveis no banco (`followup_step`).
+  // Se voltarem, o canal certo é push ou e-mail: comunicação interna nunca
+  // precisou de WhatsApp, e amarrá-la a ele é o que deixou a régua parada.
 
   let t1 = 0, t3 = 0, t5 = 0, encerrados = 0, erros = 0, adiados = 0;
 
@@ -148,55 +163,54 @@ export async function executarReguaConarh() {
     }
   }
 
-  // ── T+3: UMA mensagem interna com a fila de ligação do dia ──
+  // ── T+3: fila de ligação do dia ──
+  //
+  // 🔴 O AVANÇO DE ESTADO NÃO DEPENDE MAIS DO AVISO (17/08/2026).
+  //
+  // Antes, o `followup_step` só ia a 3 se a mensagem interna saísse. Isso amarra
+  // o ESTADO DO LEAD ao sucesso de um CANAL — e o canal caiu: a Z-API está
+  // desconectada desde 11/08 (388 falhas medidas), então a régua estava
+  // congelada em silêncio, sem nada no produto dizendo isso.
+  //
+  // O que aconteceu de fato foi o lead completar 3 dias. Isso é verdade tendo
+  // ou não alguém sido avisado. Aviso é notificação, não catraca.
   if (filaLigacao.length) {
-    if (!alertaPara) {
-      console.warn(`[conarh/regua] T+3: ${filaLigacao.length} lead(s) A aguardando CONARH_ALERT_WHATSAPP`);
-    } else {
-      const linhas = [
-        `📞 Fila de ligação CONARH — ${formatarDataHoraBRT(new Date().toISOString())}`,
-        '',
-        ...filaLigacao.map((l, i) =>
-          `${i + 1}. ${l.nome || 'Sem nome'}${l.organizacao ? ` (${l.organizacao})` : ''} — ${l.telefone || 'sem telefone'}`
-          + `${rotuloPorta(l.porta_escolhida) ? ` · ${rotuloPorta(l.porta_escolhida)}` : ''}`
-          + `${l.competencia_critica ? ` · "${l.competencia_critica}"` : ''}`),
-      ];
-      const r = await sendWhatsapp({ kind: 'text', phone: alertaPara, text: linhas.join('\n') });
-      if (r.ok) {
-        for (const l of filaLigacao) {
-          await sb.from('diag_leads').update({ followup_step: 3 }).eq('id', l.id).eq('followup_step', 2);
-        }
-        t3 = filaLigacao.length;
-      } else {
-        erros++;
-        console.error('[conarh/regua] T+3 fila de ligação falhou:', r.reason);
-      }
+    for (const l of filaLigacao) {
+      await sb.from('diag_leads').update({ followup_step: 3 }).eq('id', l.id).eq('followup_step', 2);
     }
+    t3 = filaLigacao.length;
+
+    // Aviso interno DESLIGADO por decisão do dono (17/08). Sem `alertaPara` não
+    // se tenta nada — e a fila continua no `console.log` abaixo e no banco, que
+    // é onde ela sempre esteve. Para religar (push ou WhatsApp), a fila já está
+    // montada aqui.
+    const linhas = filaLigacao.map((l, i) =>
+      `${i + 1}. ${l.nome || 'Sem nome'}${l.organizacao ? ` (${l.organizacao})` : ''} — ${l.telefone || 'sem telefone'}`
+      + `${rotuloPorta(l.porta_escolhida) ? ` · ${rotuloPorta(l.porta_escolhida)}` : ''}`
+      + `${l.competencia_critica ? ` · "${l.competencia_critica}"` : ''}`);
+    console.log(`[conarh/regua] fila de ligação (${filaLigacao.length}):\n${linhas.join('\n')}`);
   }
 
-  // ── T+5: UMA mensagem interna com o insight agregado do evento ──
+  // ── T+5: encerra a régua e registra o insight agregado ──
+  //
+  // Mesma correção do T+3: encerrar é consequência de o lead completar 5 dias,
+  // não de alguém ter sido avisado. Com o aviso amarrado ao estado, o canal
+  // caído deixava TODO lead preso no step 2/3 — e, como o T+5 recolhe os mesmos
+  // leads todo dia, a régua ficava num laço de nada, sem erro e sem fim.
   if (avancaramT5.length) {
-    if (!alertaPara) {
-      console.warn(`[conarh/regua] T+5: ${avancaramT5.length} lead(s) aguardando CONARH_ALERT_WHATSAPP`);
-    } else {
-      const insight = await montarInsightEvento(sb).catch((err) => {
-        console.error('[conarh/regua] insight agregado falhou:', err?.message || err);
-        return null;
-      });
-      const texto = insight
-        ? `📊 CONARH — insight agregado do evento (T+5)\n\n${insight}`
-        : '📊 CONARH — régua T+5 executada (insight agregado indisponível nesta rodada).';
-      const r = await sendWhatsapp({ kind: 'text', phone: alertaPara, text: texto });
-      if (r.ok) {
-        for (const l of avancaramT5) {
-          await sb.from('diag_leads').update({ followup_step: 4 }).eq('id', l.id).in('followup_step', [2, 3]);
-        }
-        t5 = avancaramT5.length;
-      } else {
-        erros++;
-        console.error('[conarh/regua] T+5 insight falhou:', r.reason);
-      }
+    for (const l of avancaramT5) {
+      await sb.from('diag_leads').update({ followup_step: 4 }).eq('id', l.id).in('followup_step', [2, 3]);
     }
+    t5 = avancaramT5.length;
+
+    // O insight continua sendo CALCULADO e registrado — ele é a leitura do
+    // evento, e some se depender de um canal desligado. Aviso interno
+    // desligado por decisão do dono (17/08).
+    const insight = await montarInsightEvento(sb).catch((err) => {
+      console.error('[conarh/regua] insight agregado falhou:', err?.message || err);
+      return null;
+    });
+    console.log(`[conarh/regua] insight T+5 (${avancaramT5.length} encerrados):\n${insight || '(indisponível nesta rodada)'}`);
   }
 
   // `adiados` fica FORA da conta de erros e visível na mensagem: erro é coisa a

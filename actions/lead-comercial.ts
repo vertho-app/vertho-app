@@ -5,7 +5,6 @@ import { headers } from 'next/headers';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
-import { sendWhatsapp } from '@/lib/whatsapp';
 import { rotuloPorta } from '@/lib/conarh/conteudo';
 import { classificarLeadConarh } from '@/lib/conarh/classificacao';
 
@@ -31,9 +30,12 @@ import { classificarLeadConarh } from '@/lib/conarh/classificacao';
  * worker assíncrono /api/conarh/artefato (T+0: WhatsApp + e-mail com o Mapa
  * da Evolução). Lead classe A gera alerta WhatsApp best-effort ao fechador.
  *
- * Envs novas:
- *   - CONARH_ALERT_WHATSAPP — número (E.164) do fechador que recebe o alerta
- *     de lead A e os resumos da régua. Ausente → alerta pulado, captura intacta.
+ * ⚠️ `CONARH_ALERT_WHATSAPP` não é mais lida (17/08/2026): os três avisos
+ * internos do CONARH — lead A no estande, fila de ligação T+3 e insight T+5 —
+ * foram DESLIGADOS por decisão do dono. Iam por WhatsApp para o próprio time
+ * pelo caminho legado, e a Z-API está desconectada desde 11/08 (388 falhas
+ * medidas): não chegavam desde então. O conteúdo dos três continua no log e no
+ * banco; se voltarem, o canal certo é push.
  */
 
 /**
@@ -245,23 +247,26 @@ async function alertarFechadorConarh(opts: {
   reuniaoEm: string | null;
 }): Promise<void> {
   try {
-    const destino = process.env.CONARH_ALERT_WHATSAPP;
-    if (!destino) {
-      console.warn('[lead-comercial] classe A sem CONARH_ALERT_WHATSAPP — alerta pulado');
-      return;
-    }
     const porta = rotuloPorta(opts.porta);
     const linhas = [
-      '🔥 Lead A no estande (CONARH)',
-      '',
+      'Lead A no estande (CONARH)',
       `${opts.nome}${opts.organizacao ? ` — ${opts.organizacao}` : ''}`,
       porta ? `Porta: ${porta}` : null,
       opts.competencia ? `Competência: "${opts.competencia}"` : null,
       opts.telefone ? `WhatsApp: ${opts.telefone}` : null,
       opts.reuniaoEm ? `Reunião marcada: ${opts.reuniaoEm}` : null,
     ].filter(Boolean);
-    const r = await sendWhatsapp({ kind: 'text', phone: destino, text: linhas.join('\n') });
-    if (!r.ok) console.error('[lead-comercial] alerta classe A falhou:', r.reason);
+
+    // 🔴 Aviso por WhatsApp DESLIGADO em 17/08/2026 (decisão do dono). Ia por
+    // `sendWhatsapp` (legado → Z-API), desconectada desde 11/08: 388 falhas
+    // medidas, ou seja, não chegava a ninguém desde então.
+    //
+    // O registro fica no log porque este é o mais sensível ao TEMPO dos três
+    // avisos do CONARH — ele existe para alguém falar com a pessoa enquanto ela
+    // ainda está na feira, e chegar 40 minutos depois é o mesmo que não chegar.
+    // Se voltar, o canal certo é push: chega no celular, não tem janela de 24h
+    // e não custa por mensagem.
+    console.log(`[lead-comercial] ${linhas.join(' · ')}`);
   } catch (err) {
     console.error('[lead-comercial] alerta classe A exception:', err);
   }
