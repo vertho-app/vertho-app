@@ -2,7 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
-import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
 import { storageSlug } from '@/lib/storage-slug';
 
 /**
@@ -88,7 +88,10 @@ export async function baixarMeuPdiPdf() {
     if (!rel) return { error: 'PDI não encontrado' };
 
     const slug = storageSlug(colab.nome_completo, 'pdi');
-    const filename = `vertho-pdi-${slug}.pdf`;
+    // Resolvido antes do `if (!path)` porque o nome do arquivo também é marca —
+    // e ele vale inclusive quando o PDF já existe no Storage.
+    const marca = await resolverMarcaPdf(colab.empresa_id);
+    const filename = `${nomeArquivoMarca('vertho-pdi', marca)}-${slug}.pdf`;
 
     // Se ainda não tem PDF salvo, gera e sobe antes de criar a signed URL
     let path = rel.pdf_path;
@@ -107,7 +110,9 @@ export async function baixarMeuPdiPdf() {
       };
       const buffer = await renderToBuffer(
         React.createElement(RelatorioIndividualPDF, {
-          data, empresaNome: emp?.nome || '', logoBase64: getLogoCoverBase64(),
+          data, empresaNome: emp?.nome || '',
+          logoBase64: marca.logoBase64 || undefined,
+          mostrarVertho: marca.mostrarVertho,
         }) as any
       );
       path = `${rel.empresa_id}/individual-${slug}-${Date.now()}.pdf`;

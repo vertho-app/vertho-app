@@ -6,7 +6,7 @@ import RelatorioGestorPDF from '@/components/pdf/RelatorioGestor';
 import RelatorioRHPDF from '@/components/pdf/RelatorioRH';
 import RelatorioPulsoExecutivoPDF from '@/components/pdf/RelatorioPulsoExecutivo';
 import RelatorioPulsoNR1PDF from '@/components/pdf/RelatorioPulsoNR1';
-import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
 import { storageSlug } from '@/lib/storage-slug';
 import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 import React from 'react';
@@ -71,8 +71,11 @@ export async function GET(request) {
       empresaNome = emp?.nome || '';
     }
 
+    // A marca é resolvida ANTES do filename porque ela também decide o nome do
+    // arquivo — e o nome vale mesmo quando o PDF vem pronto do Storage.
+    const marca = await resolverMarcaPdf(rel.empresa_id);
     const baseName = rel.tipo === 'individual' ? colaboradorNome : empresaNome;
-    const filename = `${tipoCfg.prefix}-${(baseName || rel.tipo).replace(/\s+/g, '-').toLowerCase()}.pdf`;
+    const filename = `${nomeArquivoMarca(tipoCfg.prefix, marca)}-${(baseName || rel.tipo).replace(/\s+/g, '-').toLowerCase()}.pdf`;
 
     // 1) Tentar baixar do storage se já foi salvo
     if (rel.pdf_path) {
@@ -100,9 +103,12 @@ export async function GET(request) {
     }
     const data = { ...rel, conteudo, colaborador_nome: colaboradorNome, colaborador_cargo: colaboradorCargo };
 
-    const logoBase64 = getLogoCoverBase64();
     const buffer = await renderToBuffer(
-      React.createElement(tipoCfg.C, { data, empresaNome, logoBase64 }) as any
+      React.createElement(tipoCfg.C, {
+        data, empresaNome,
+        logoBase64: marca.logoBase64 || undefined,
+        mostrarVertho: marca.mostrarVertho,
+      }) as any
     );
 
     // Salvar no storage para próximos downloads

@@ -205,6 +205,11 @@
     "lib/notifications/inbox-flag.ts": 1,
     "app/api/notifications/admin/subscriptions/route.ts": 1,
     "app/api/notifications/admin/subscriptions/disable/route.ts": 1,
-    "lib/notifications/avisar-plano-pronto.ts": 1
+    "lib/notifications/avisar-plano-pronto.ts": 1,
+    "lib/pdf-marca.ts": 1,
+    "scripts/_regerar-pdi-sem-marca.ts": 1,
+    "scripts/_verificar-pdi-marca.ts": 1,
+    "scripts/_amostra-pdi-marca.ts": 1,
+    "scripts/_flag-push-tenant.ts": 1
   }
 }

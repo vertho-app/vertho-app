@@ -149,10 +149,10 @@ function PageHeader({ logoBase64, label }: { logoBase64?: string; label: string 
 }
 
 // ── Fixed Footer ────────────────────────────────────────────────────────────
-function PageFooter() {
+function PageFooter({ mostrarVertho = true }: { mostrarVertho?: boolean }) {
   return (
     <View style={pageStyles.footer} fixed>
-      <Text style={pageStyles.footerText}>vertho.ai — Confidencial</Text>
+      <Text style={pageStyles.footerText}>{mostrarVertho ? 'vertho.ai — Confidencial' : 'Confidencial'}</Text>
       <Text style={pageStyles.footerText}
         render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </View>
@@ -185,7 +185,18 @@ function ProgressBar({ nivel }: { nivel: number }) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }: { data: any; empresaNome?: string; logoBase64?: string }) {
+export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, mostrarVertho = true }: {
+  data: any;
+  empresaNome?: string;
+  logoBase64?: string;
+  /**
+   * false = tenant white-label (`sys_config.pdf_sem_marca`): nenhuma
+   * identificação da Vertho no documento — capa, cabeçalho, rodapé e
+   * contracapa. Resolvido em `lib/pdf-marca.ts`; o `logoBase64` que chega
+   * junto é o do CLIENTE, ou nenhum.
+   */
+  mostrarVertho?: boolean;
+}) {
   const c = data.conteudo;
   if (!c) return null;
 
@@ -310,6 +321,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       <PdfReportCover
         bgBase64={getReportCoverBgBase64()}
         logoBase64={logoBase64}
+        mostrarVertho={mostrarVertho}
         titulo={['Plano de Desenvolvimento Individual', '(PDI)']}
         overline={null}
         mentorLabel={null}
@@ -410,7 +422,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
           </View>
         )}
 
-        <PageFooter />
+        <PageFooter mostrarVertho={mostrarVertho} />
       </Page>
 
       {/* ═══ SPRINT ONE-PAGER (LEGADO — só sem blueprint; com blueprint, tudo vira
@@ -452,7 +464,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
               )}
             </View>
           ))}
-          <PageFooter />
+          <PageFooter mostrarVertho={mostrarVertho} />
         </Page>
       )}
 
@@ -470,7 +482,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
           <Page key={idx} size="A4" style={pageStyles.page} wrap>
             <PageHeader logoBase64={logoBase64} label={`Competência ${idx + 1} de ${competencias.length}`} />
             <CompetencyBlock comp={comp} index={idx} total={competencias.length} ciclo={ciclo} />
-            <PageFooter />
+            <PageFooter mostrarVertho={mostrarVertho} />
           </Page>
         );
       })}
@@ -560,7 +572,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
               <Text style={s.finalText}>{c.mensagem_final}</Text>
             </View>
           )}
-          <PageFooter />
+          <PageFooter mostrarVertho={mostrarVertho} />
         </Page>
       )}
 
@@ -572,12 +584,15 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
             <Text style={s.finalLabel}>Mensagem Final</Text>
             <Text style={s.finalText}>{c.mensagem_final}</Text>
           </View>
-          <PageFooter />
+          <PageFooter mostrarVertho={mostrarVertho} />
         </Page>
       )}
 
       {/* ═══════════════════ CONTRACAPA NAVY ═══════════════════ */}
-      <PdfBackCover logoBase64={logoBase64} linha={null} />
+      {/* A contracapa é só o logo (a `linha` já vem null no PDI). Sem imagem
+          nenhuma ela vira uma página navy VAZIA — pior que não existir —, então
+          o tenant white-label sem logo próprio simplesmente não a recebe. */}
+      {logoBase64 ? <PdfBackCover logoBase64={logoBase64} linha={null} /> : null}
     </Document>
   );
 }

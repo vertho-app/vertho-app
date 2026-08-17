@@ -61,9 +61,16 @@ function Divider() {
 export default function PdfReportCover({
   bgBase64, logoBase64, titulo = ['Plano de', 'Desenvolvimento'], overline = 'Plano de desenvolvimento individual',
   nome, cargo, empresa, tagline = 'Pequenos ajustes, grande impacto.', mentorLabel = 'Mentor IA', jornada,
+  mostrarVertho = true,
 }: {
   bgBase64?: string | null;
   logoBase64?: string | null;
+  /**
+   * false = tenant white-label: nenhuma identificação da Vertho nesta página.
+   * Some o fallback de texto "vertho.ai" do topo, o "· vertho.ai" da linha de
+   * confidencialidade e o slogan. Ver `lib/pdf-marca.ts`.
+   */
+  mostrarVertho?: boolean;
   titulo?: [string, string];
   overline?: string | null;
   nome?: string;
@@ -81,7 +88,9 @@ export default function PdfReportCover({
       {bgBase64 ? <View style={s.bgWrap}><Image src={bgBase64} style={s.bgImg} /></View> : null}
       <View style={s.content}>
         <View style={s.topRow}>
-          {logoBase64 ? <Image src={logoBase64} style={s.logo} /> : <Text style={{ ...s.mentor, fontSize: 12 }}>vertho.ai</Text>}
+          {logoBase64
+            ? <Image src={logoBase64} style={s.logo} />
+            : mostrarVertho ? <Text style={{ ...s.mentor, fontSize: 12 }}>vertho.ai</Text> : <View />}
           {mentorLabel ? <Text style={s.mentor}>{mentorLabel}</Text> : null}
         </View>
 
@@ -97,8 +106,8 @@ export default function PdfReportCover({
 
         <View style={s.spacer} />
 
-        {tagline ? <Text style={s.tagline}>{tagline}</Text> : null}
-        <Text style={s.confid}>Confidencial — uso restrito · vertho.ai</Text>
+        {tagline && mostrarVertho ? <Text style={s.tagline}>{tagline}</Text> : null}
+        <Text style={s.confid}>{mostrarVertho ? 'Confidencial — uso restrito · vertho.ai' : 'Confidencial — uso restrito'}</Text>
       </View>
     </Page>
   );
