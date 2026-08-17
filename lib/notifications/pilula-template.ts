@@ -43,6 +43,16 @@ export interface PilulaTemplateArgs {
    * que se apresenta sozinho é o que faz alguém bloquear.
    */
   instituicao?: string | null;
+  /**
+   * URL completa e pronta — só para o papel `recorte` (lead do CONARH).
+   *
+   * Campo próprio, e não reaproveitar `baseUrl` ou `tema`: o destino aqui não é
+   * do tenant nem é derivável de `semana`/`formato` como nos outros papéis — é o
+   * Mapa da Evolução de um LEAD, em `app.vertho.ai/conarh/mapa/<id>`. Enfiar uma
+   * URL num campo que significa outra coisa é como uma métrica passa a medir o
+   * que não diz.
+   */
+  linkDireto?: string | null;
 }
 
 export interface ResultadoPilulaTemplate {
@@ -77,7 +87,7 @@ export function caminhoDoBotao(a: Pick<PilulaTemplateArgs, 'slug' | 'semana' | '
  */
 export type PapelCadencia =
   | 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil' | 'acesso' | 'missao' | 'plano'
-  | 'boas_vindas';
+  | 'boas_vindas' | 'recorte';
 
 const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   pilula: 'WHATSAPP_TEMPLATE_PILULA',
@@ -88,6 +98,15 @@ const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   acesso: 'WHATSAPP_TEMPLATE_ACESSO',
   missao: 'WHATSAPP_TEMPLATE_MISSAO',
   plano: 'WHATSAPP_TEMPLATE_PLANO',
+  /**
+   * CONARH: o recorte da demonstração para o lead que pediu no estande.
+   *
+   * Único papel cujo destinatário NÃO é colaborador de tenant — é um lead
+   * comercial, sem `empresaId` e sem `colaboradorId`. Por isso o link vem pronto
+   * em `linkDireto` (o Mapa da Evolução vive em `app.vertho.ai`, não no
+   * subdomínio de ninguém).
+   */
+  recorte: 'WHATSAPP_TEMPLATE_RECORTE',
   /**
    * ⚠️ O ÚNICO PAPEL SEM GATILHO AUTOMÁTICO, e é de propósito.
    *
@@ -170,6 +189,20 @@ const CONTRATOS: Record<string, MontarParams> = {
    */
   plano_desenvolvimento: (a) => ({
     params: [a.nome, `${a.baseUrl}/dashboard/pdi`],
+    botaoParam: null,
+  }),
+
+  /**
+   * CONARH T+0: entrega o recorte ao lead. `{{1}}`=nome, `{{2}}`=link do Mapa.
+   * Submetido 17/08/2026 como UTILITY pelo enquadramento "Continue a
+   * Conversation on WhatsApp" — a pessoa pediu no estande.
+   *
+   * ⚠️ O link é `linkDireto`, NÃO `baseUrl`: o Mapa vive em `app.vertho.ai`, e
+   * um lead não tem tenant. Sem link, não envia — mandar "o recorte está em:"
+   * seguido de nada é pior que não mandar.
+   */
+  recorte_demonstracao: (a) => ({
+    params: [a.nome, a.linkDireto || ''],
     botaoParam: null,
   }),
 

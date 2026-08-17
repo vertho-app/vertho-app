@@ -6,6 +6,7 @@ import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
 import { sendWhatsapp } from '@/lib/whatsapp';
 import { mapaEvolucaoUrl, primeiroNome } from '@/lib/conarh/conteudo';
 import { mensagemT0 } from '@/lib/conarh/mensagens';
+import { enviarPorTemplate } from '@/lib/notifications/pilula-template';
 
 /**
  * CONARH 52 — worker T+0 do artefato (F5 do sprint consolidado).
@@ -92,13 +93,53 @@ export async function POST(req: Request) {
     let whatsappErro: string | null = null;
     if (lead.telefone) {
       try {
-        const r = await sendWhatsapp({ kind: 'text', phone: lead.telefone, text: mensagemT0(lead) });
-        if (r.ok) {
-          whatsappEnviado = 'sim';
+        // 1) Template aprovado pela Cloud API — o caminho que funciona.
+        //
+        // 🔴 O legado (`sendWhatsapp`, texto livre) depende da Z-API, DESCONECTADA
+        // desde 11/08: medido em 17/08, 388 falhas com "zapi: saúde: desconectada",
+        // a última um segundo depois de um lead entrar. O recorte não saía.
+        //
+        // ⚠️ O lead é contato FRIO — nunca escreveu para o nosso número. Fora da
+        // janela de 24h só sai TEMPLATE; texto livre volta 131047. Por isso o
+        // detalhe variável (porta, competência crítica, reunião marcada) não vem
+        // na mensagem: template não tem bloco condicional, e todo `{{n}}` precisa
+        // de valor sempre. Esse detalhe vive na página do Mapa.
+        //
+        // Enquanto `WHATSAPP_TEMPLATE_RECORTE` não estiver setada (o template
+        // está PENDING na Meta), `tentou` volta false e o legado assume — mesmo
+        // comportamento de hoje, sem regressão.
+        const viaTemplate = mapaUrl
+          ? await enviarPorTemplate('recorte', {
+              telefone: lead.telefone,
+              nome: primeiroNome(lead.nome) || 'Olá',
+              semana: 1, tema: '', slug: '', baseUrl: '',
+              formato: null, pilula: null,
+              linkDireto: mapaUrl,
+              // Lead comercial não tem tenant nem colaborador — os dois são null
+              // de propósito, e é o que distingue este papel de todos os outros.
+              empresaId: null, colaboradorId: null,
+              dedupeKey: `conarh-recorte:${lead.id}`,
+            })
+          : { tentou: false, ok: false, reason: 'sem link do mapa' };
+
+        if (viaTemplate.tentou) {
+          // NÃO cai no legado quando o template foi tentado: ele pode ter sido
+          // aceito e falhado depois, e dois recortes na mesma conversa é ruído
+          // para o lead.
+          whatsappEnviado = viaTemplate.ok ? 'sim' : 'erro';
+          if (!viaTemplate.ok) {
+            whatsappErro = String(viaTemplate.reason || '').slice(0, 300);
+            console.error('[conarh/artefato] template falhou:', whatsappErro);
+          }
         } else {
-          whatsappEnviado = 'erro';
-          whatsappErro = String(r.reason || '').slice(0, 300);
-          console.error('[conarh/artefato] WhatsApp falhou:', whatsappErro);
+          const r = await sendWhatsapp({ kind: 'text', phone: lead.telefone, text: mensagemT0(lead) });
+          if (r.ok) {
+            whatsappEnviado = 'sim';
+          } else {
+            whatsappEnviado = 'erro';
+            whatsappErro = String(r.reason || '').slice(0, 300);
+            console.error('[conarh/artefato] WhatsApp falhou:', whatsappErro);
+          }
         }
       } catch (err: any) {
         whatsappEnviado = 'erro';

@@ -394,6 +394,38 @@ export const TEMPLATES = {
     example: ['Maria', 'https://ibipeba.vertho.ai/dashboard/temporada'],
   },
 
+  /**
+   * T+0 do CONARH: entrega o recorte da demonstração ao lead que pediu no estande.
+   *
+   * 🔑 POR QUE UTILITY, e não MARKETING (submetido 17/08/2026)
+   * ─────────────────────────────────────────────────────────
+   * Mensagem comercial para contato frio normalmente é **retargeting**, que a
+   * régua da Meta classifica como MARKETING *"mesmo quando solicitado pelo
+   * usuário"*. O enquadramento que sustenta UTILITY aqui é outro caso da mesma
+   * régua: **"Continue a Conversation on WhatsApp"** — iniciar no WhatsApp uma
+   * interação começada em outro canal, **a pedido da pessoa**. É literalmente o
+   * que acontece: ela esteve no estande e autorizou receber o recorte por aqui.
+   *
+   * Para isso valer, a mensagem ENTREGA o que foi pedido e **não vende nada**. O
+   * convite dos 20 minutos, "circular com o time" e a confirmação de reunião —
+   * que o texto livre do `mensagemT0` tem — ficam de fora e vivem na PÁGINA.
+   *
+   * ⚠️ Se voltar MARKETING, é uma classificação legítima e não vale insistir:
+   * re-submeter copy limítrofe como UTILITY é o gatilho da escada de punição
+   * (aviso → rate limit → TODOS os UTILITY da WABA viram MARKETING).
+   *
+   * Texto do dono. O detalhe variável (porta, competência crítica, reunião) não
+   * cabe em template — todo `{{n}}` precisa de valor sempre, e template não tem
+   * bloco condicional.
+   */
+  recorte_demonstracao: {
+    name: 'recorte_demonstracao',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Segue o recorte da demonstração que você pediu no estande da Vertho, no CONARH.\n\nEle está em:\n{{2}}\n\nUma página com o que você descreveu, o ciclo das 5 etapas e 3 perguntas para revisar seu processo. Se precisar de algo, é só responder por aqui.',
+    example: ['Maria', 'https://app.vertho.ai/conarh/mapa/a1b2c3d4'],
+  },
+
   /** Resultado do assessment comportamental liberado. */
   perfil_disponivel: {
     name: 'resultado_perfil',
