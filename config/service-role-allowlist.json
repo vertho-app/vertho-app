@@ -215,6 +215,8 @@
     "scripts/_boas-vindas-turma.ts": 1,
     "scripts/_cadencia-empresa.ts": 1,
     "scripts/_abrir-turma.ts": 1,
-    "scripts/_status-turma.ts": 1
+    "scripts/_status-turma.ts": 1,
+    "scripts/_prewarm-podcast-dia.ts": 1,
+    "scripts/_diag-formatos-amanha.ts": 1
   }
 }
