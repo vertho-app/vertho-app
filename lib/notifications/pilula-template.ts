@@ -35,6 +35,14 @@ export interface PilulaTemplateArgs {
   dedupeKey?: string | null;
   /** `<slug>~<token_hash>` do magic link — só para o papel `acesso`. */
   acessoParam?: string | null;
+  /**
+   * Nome da INSTITUIÇÃO que inscreveu a pessoa — só para `boas_vindas`.
+   *
+   * Não é enfeite: o primeiro contato abre pela prefeitura/escola, não pela
+   * Vertho, porque é a instituição que a pessoa conhece. Um número desconhecido
+   * que se apresenta sozinho é o que faz alguém bloquear.
+   */
+  instituicao?: string | null;
 }
 
 export interface ResultadoPilulaTemplate {
@@ -67,7 +75,9 @@ export function caminhoDoBotao(a: Pick<PilulaTemplateArgs, 'slug' | 'semana' | '
  * Cada um tem a SUA chave: a quinta-feira e a pílula aprovam em momentos
  * diferentes, e uma chave só obrigaria a ligar tudo junto — ou nada.
  */
-export type PapelCadencia = 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil' | 'acesso' | 'missao' | 'plano';
+export type PapelCadencia =
+  | 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil' | 'acesso' | 'missao' | 'plano'
+  | 'boas_vindas';
 
 const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   pilula: 'WHATSAPP_TEMPLATE_PILULA',
@@ -78,6 +88,16 @@ const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   acesso: 'WHATSAPP_TEMPLATE_ACESSO',
   missao: 'WHATSAPP_TEMPLATE_MISSAO',
   plano: 'WHATSAPP_TEMPLATE_PLANO',
+  /**
+   * ⚠️ O ÚNICO PAPEL SEM GATILHO AUTOMÁTICO, e é de propósito.
+   *
+   * Boas-vindas é a mensagem de ABERTURA de uma turma — quem decide que a turma
+   * abriu é uma pessoa, não o calendário. Ligar isto na cadência faria a primeira
+   * mensagem sair para quem entrar no cadastro por qualquer motivo (import,
+   * correção, teste), e o primeiro contato é justamente o de maior risco de
+   * bloqueio. O disparo é deliberado, com teto e espaçamento.
+   */
+  boas_vindas: 'WHATSAPP_TEMPLATE_BOAS_VINDAS',
 };
 
 /** Nome do template aprovado para o papel, ou `null` quando está desligado. */
@@ -217,6 +237,24 @@ const CONTRATOS: Record<string, MontarParams> = {
   acesso_vertho: (a) => ({
     params: [],
     botaoParam: a.acessoParam ?? null,
+  }),
+
+  /**
+   * PRIMEIRO CONTATO da turma. APPROVED/UTILITY — corpo conferido na Meta em
+   * 17/08/2026: `{{1}}`=nome, `{{2}}`=instituição, `{{3}}`=link. Sem botão.
+   *
+   * 🔴 `{{2}}` É A INSTITUIÇÃO, NÃO A VERTHO. A pessoa conhece a prefeitura ou a
+   * escola; a Vertho ela nunca ouviu falar. Trocar os dois transforma a mensagem
+   * naquilo que se ensina a não clicar — e o custo de um bloqueio não é a
+   * mensagem, é o `quality_rating` do número, que serve TODOS os tenants.
+   *
+   * `{{3}}` é a porta do tenant (`/entrar`), sem token: o link com credencial é
+   * outro template (`acesso_vertho`, por botão), e misturar os dois colocaria um
+   * segredo num corpo que a caixa de entrada mostra.
+   */
+  boas_vindas_v2: (a) => ({
+    params: [a.nome, a.instituicao || '', `${a.baseUrl}/entrar`],
+    botaoParam: null,
   }),
 
   /** Copy ANTIGA, aprovada como MARKETING (6× o custo). Link no CORPO, sem botão. */

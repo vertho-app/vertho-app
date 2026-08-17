@@ -210,6 +210,10 @@
     "scripts/_regerar-pdi-sem-marca.ts": 1,
     "scripts/_verificar-pdi-marca.ts": 1,
     "scripts/_amostra-pdi-marca.ts": 1,
-    "scripts/_flag-push-tenant.ts": 1
+    "scripts/_flag-push-tenant.ts": 1,
+    "scripts/_kits-macae-semana1.ts": 1,
+    "scripts/_boas-vindas-turma.ts": 1,
+    "scripts/_cadencia-empresa.ts": 1,
+    "scripts/_abrir-turma.ts": 1
   }
 }

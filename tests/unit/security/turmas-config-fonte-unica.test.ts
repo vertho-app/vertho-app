@@ -51,6 +51,11 @@ const ALLOWLIST: Record<string, string> = {
   'lib/pipeline-health/coleta.ts': 'cadencia — o health espelha o que o cron faz hoje',
   'lib/pipeline-health/core.ts': 'cadencia — idem',
   'actions/temporadas.ts': 'texto da mensagem de erro, não decisão',
+  // Ferramenta que ADMINISTRA a chave institucional: ela lê e escreve
+  // `sys_config.cadencia` da EMPRESA porque é exatamente de lá que o motor lê
+  // (`trigger-diario-empresa.ts:79`). Passar pelo resolvedor aqui mostraria um
+  // valor efetivo que o envio não usa — o oposto do que a ferramenta serve.
+  'scripts/_cadencia-empresa.ts': 'cadencia — escreve a chave da empresa, que é a que o cron lê',
 };
 
 describe('Guard: config de turma tem fonte única', () => {

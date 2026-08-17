@@ -29,6 +29,11 @@ import { templateAtivo, type PapelCadencia } from '@/lib/notifications/pilula-te
 
 export const PAPEIS: PapelCadencia[] = [
   'pilula', 'evidencia', 'desafio', 'retomada', 'perfil', 'acesso',
+  // Sem gatilho automático (o disparo é deliberado, por turma), mas entra aqui
+  // pelo mesmo motivo dos outros: se a env apontar para um nome que a Meta não
+  // conhece, isso só apareceria como 132001 no dia da abertura da turma — que é
+  // o pior dia possível para descobrir.
+  'boas_vindas',
 ];
 
 export interface TemplateLigado {
