@@ -16,6 +16,7 @@ import { templateWhatsAppMissao, emailMissao, enviarEmailPilula } from '@/lib/no
 import { mesmoDiaUTC } from '@/lib/notifications/carimbo-canal';
 import { APP_WEBHOOK_URL, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 import { assertWhatsappAvailable } from '@/lib/whatsapp';
+import { atrasosDoLote } from '@/lib/whatsapp/cadencia';
 
 const EMP = '0d99fed1-1710-40e3-b32e-7a95c7d023fe'; // ibipeba
 const SEMANA = 4;
@@ -52,6 +53,10 @@ async function main() {
   const falhas: string[] = [];
   if (EXECUTAR) await assertWhatsappAvailable();
 
+  // Atrasos pela política única. Aqui estava `i * 2` — 2s por mensagem, a taxa
+  // exata que derrubou o número em 11/08. O `atrasosDoLote` aplica intervalo,
+  // jitter e ordem monótona a partir de um lugar só.
+  const atrasos = atrasosDoLote(((envios as any[]) || []).length);
   for (const [i, envio] of ((envios as any[]) || []).entries()) {
     const c = envio.colaboradores;
     const nome = c.nome_completo || 'Colaborador';
@@ -74,7 +79,7 @@ async function main() {
     if (telefone && !mesmoDiaUTC(envio.ultima_pilula1_whatsapp_em, hojeUTC)) {
       if (EXECUTAR) {
         try {
-          await publishToQStash({ telefone, mensagem: templateWhatsAppMissao(nome.split(' ')[0], opts) }, i * 2);
+          await publishToQStash({ telefone, mensagem: templateWhatsAppMissao(nome.split(' ')[0], opts) }, atrasos[i]);
           zap++; stamp.ultima_pilula1_whatsapp_em = agora;
         } catch (e: any) { erros++; falhas.push(`${nome} · zap · ${e?.message}`); }
       } else zap++;

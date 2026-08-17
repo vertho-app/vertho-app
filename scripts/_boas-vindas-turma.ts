@@ -31,6 +31,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { enviarTemplateCloud, cloudApiConfigurada } from '@/lib/whatsapp/cloud-api';
 import { contratoDoTemplate } from '@/lib/notifications/pilula-template';
 import { tenantUrl } from '@/lib/domain';
+import { criarPaceadorSincrono } from '@/lib/whatsapp/cadencia';
 
 const arg = (n: string) => process.argv.find((a) => a.startsWith(`--${n}=`))?.split('=')[1];
 const SLUG = arg('empresa');
@@ -38,9 +39,9 @@ const TEMPLATE = arg('template') || 'boas_vindas_v2';
 const LIMITE = Number(arg('limite')) || 50;
 const ENVIAR = process.argv.includes('--enviar');
 
-/** 6s entre mensagens. 155 a cada 2s derrubaram o número em 11/08/2026. */
-const INTERVALO_MS = 6_000;
-const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// A cadência vem da política única (`lib/whatsapp/cadencia.ts`), não de um
+// literal daqui: este script tinha o seu 6s, o aviso de plano tinha OUTRO 6s e o
+// resto do produto usava 15s — três números para a mesma decisão.
 
 /**
  * Primeiro nome apresentável.
@@ -116,7 +117,9 @@ async function main() {
   }
 
   let ok = 0, falha = 0;
+  const paceador = criarPaceadorSincrono();
   for (const [i, c] of lote.entries()) {
+    await paceador.aguardarVez();
     const nome = primeiroNome(c.nome_completo);
     const { params, botaoParam } = montar({
       telefone: c.fone, nome, semana: 1, tema: '', slug: empresa.slug, baseUrl,
@@ -129,7 +132,6 @@ async function main() {
     );
     if (r.ok) ok++; else falha++;
     console.log(`  ${i + 1}/${lote.length} ${c.nome_completo} · ${r.ok ? 'ok' : 'FALHOU: ' + r.reason}`);
-    if (i < lote.length - 1) await dormir(INTERVALO_MS);
   }
 
   console.log(`\n✓ ${ok} enviada(s) · ${falha} falha(s)`);

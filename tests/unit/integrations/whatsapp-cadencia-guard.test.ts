@@ -55,7 +55,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 const RAIZ = join(__dirname, '..', '..', '..');
-const DIRS = ['actions', 'lib', 'app', 'trigger'];
+// `scripts` entrou em 17/08: os dois lotes REAIS de Macaé (38 boas-vindas e 34
+// avisos de plano) saíram de um script, com literal próprio de 6s, e esta guarda
+// não varria a pasta. "Script não vai para produção" é falso quando é ele que
+// fala com 400 pessoas.
+const DIRS = ['actions', 'lib', 'app', 'trigger', 'scripts'];
 const IGNORAR = new Set(['node_modules', '.next', '.git', 'dist', 'build']);
 
 /**
@@ -130,9 +134,24 @@ const IMPORTA_WRAPPER = new RegExp(
   `from ['"](@/actions/whatsapp|\\./whatsapp)['"]`,
 );
 
+/**
+ * Emissores da CLOUD API — o canal oficial desde 14/08/2026.
+ *
+ * 🔴 Sem isto a guarda media só o canal LEGADO (`@/actions/whatsapp`), e ficou
+ * cega justamente onde o produto passou a mandar mensagem. Foi por aqui que
+ * nasceram as duas réguas paralelas de 6s (`avisar-plano-pronto.ts` e
+ * `_boas-vindas-turma.ts`), enquanto a política dizia 15s: a guarda existia,
+ * rodava verde e não olhava para o caminho novo.
+ */
+const WRAPPERS_CLOUD = ['enviarTemplateCloud', 'enviarPorTemplate'];
+
 function emiteWhatsapp(a: { rel: string; texto: string }): boolean {
   if (a.rel.startsWith('lib/whatsapp/')) return false;          // o serviço em si
+  // `pilula-template` é a camada que RESOLVE o template e chama a Cloud API —
+  // infraestrutura, como `lib/whatsapp/`. Quem decide cadência é quem itera.
+  if (a.rel === 'lib/notifications/pilula-template.ts') return false;
   if (a.texto.includes('sendWhatsapp(')) return true;
+  if (WRAPPERS_CLOUD.some((w) => a.texto.includes(`${w}(`))) return true;
   return IMPORTA_WRAPPER.test(a.texto) && WRAPPERS.some((w) => a.texto.includes(`${w}(`));
 }
 

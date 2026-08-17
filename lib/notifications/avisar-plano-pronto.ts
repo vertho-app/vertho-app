@@ -35,6 +35,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { enviarPorTemplate } from '@/lib/notifications/pilula-template';
 import { tenantUrl } from '@/lib/domain';
+import { criarPaceadorSincrono } from '@/lib/whatsapp/cadencia';
 
 /**
  * Momento em que o aviso foi ligado. Relatório mais antigo que isto é passado —
@@ -47,10 +48,6 @@ export const CORTE_ISO = '2026-08-16T23:59:00.000Z';
 
 /** Teto por execução. Conservador de propósito: leva pequena, medir, repetir. */
 const TETO_PADRAO = 25;
-/** Espaçamento entre mensagens. A cadência do canal é política, não detalhe. */
-const INTERVALO_MS = 6_000;
-
-const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export interface CandidatoPlano {
   colaboradorId: string;
@@ -163,8 +160,15 @@ export async function avisarPlanosProntos(opts: {
     resumo.elegiveis += d.enviar.length;
 
     const baseUrl = tenantUrl(emp.slug);
+    // Cadência pela política ÚNICA (`lib/whatsapp/cadencia.ts`), não por um
+    // literal daqui: até 17/08 este módulo tinha o seu próprio 6s e o script de
+    // boas-vindas tinha OUTRO 6s, enquanto o resto do produto usava 15s. Três
+    // números para a mesma decisão significam que corrigir a política não
+    // corrige o envio.
+    const paceador = criarPaceadorSincrono();
     for (const alvo of d.enviar.slice(0, Math.max(0, teto - resumo.enviados))) {
       if (!executar) continue;
+      await paceador.aguardarVez();
       const r = await enviarPorTemplate('plano', {
         telefone: alvo.telefone!, nome: alvo.nome,
         semana: 1, tema: '', slug: emp.slug, baseUrl,
@@ -173,7 +177,6 @@ export async function avisarPlanosProntos(opts: {
         dedupeKey: `plano:${alvo.colaboradorId}`,
       });
       if (r.ok) resumo.enviados++; else resumo.falhas++;
-      await dormir(INTERVALO_MS);
     }
   }
 

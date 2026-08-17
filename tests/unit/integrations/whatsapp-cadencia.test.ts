@@ -29,8 +29,13 @@ describe('cadência de lote — intervalo', () => {
   afterEach(() => ENVS.forEach((e) => delete process.env[e]));
 
   it('usa default muito acima dos 2s que causaram o bloqueio', () => {
-    expect(intervaloLoteMs()).toBe(15_000);
-    // A régua do incidente: qualquer default que permita ~30 msg/min é regressão.
+    // 17/08: 15s → 6s, quando a política virou única e o canal passou a ser a
+    // Cloud API oficial (teto 80 msg/s). O 6s é o valor MEDIDO em produção —
+    // 38 boas-vindas a 7,0s e 34 avisos de plano a 6,5s, 0 falhas.
+    expect(intervaloLoteMs()).toBe(6_000);
+    // A régua do incidente CONTINUA valendo, e é o que trava o valor: qualquer
+    // default que permita mais de 10 msg/min é regressão. 6s dá exatamente 10 —
+    // é o teto, não uma folga. Descer para 5s quebra este teste de propósito.
     expect(60_000 / intervaloLoteMs()).toBeLessThanOrEqual(10);
   });
 
@@ -42,7 +47,7 @@ describe('cadência de lote — intervalo', () => {
   it('ignora env inválida em vez de virar 0 (que restauraria a rajada)', () => {
     for (const ruim of ['abc', '0', '-5', '']) {
       process.env.WHATSAPP_LOTE_INTERVALO_MS = ruim;
-      expect(intervaloLoteMs()).toBe(15_000);
+      expect(intervaloLoteMs()).toBe(6_000);
     }
   });
 });
@@ -90,11 +95,14 @@ describe('cadência de lote — atrasos', () => {
     expect(atrasosDoLote(4, () => 0.5)).toEqual([0, 12, 24, 36]);
   });
 
-  it('lote de 155 leva dezenas de minutos, não 5 (a régua do incidente)', () => {
+  it('lote de 155 leva MUITO mais que no ritmo do incidente', () => {
     const at = atrasosDoLote(155, () => 0.5);
-    const totalMin = at[at.length - 1] / 60;
-
-    expect(totalMin).toBeGreaterThan(30);
+    const totalS = at[at.length - 1];
+    // Relativo, não absoluto: a régua é a DISTÂNCIA do incidente (154 × 2s =
+    // 308s), que sobrevive a mudanças do default. Em 17/08 esta asserção era
+    // `> 30 min` e caiu junto com o 15s — o número tinha virado o teste.
+    const noRitmoDoIncidente = 154 * 2;
+    expect(totalS).toBeGreaterThan(noRitmoDoIncidente * 2.5);
   });
 });
 
@@ -176,7 +184,8 @@ describe('cadência de lote — relógio incremental', () => {
     let ultimo = 0;
     for (let i = 0; i < 36; i++) ultimo = relogio.proximo();
 
-    expect(ultimo / 60).toBeGreaterThan(5);
+    // 35 × 2s = 70s era o ritmo do incidente para esta coorte.
+    expect(ultimo).toBeGreaterThan(35 * 2 * 2.5);
   });
 });
 
@@ -187,9 +196,10 @@ describe('duracaoEstimada', () => {
   it('descreve a duração para a UI', () => {
     expect(duracaoEstimada(0)).toBe('imediato');
     expect(duracaoEstimada(1)).toBe('imediato');
-    expect(duracaoEstimada(5)).toBe('~1 min');
-    expect(duracaoEstimada(155)).toBe('~39 min');
-    expect(duracaoEstimada(300)).toBe('~1h15');
+    // Com 6s: 5 msg = 24s, 155 = ~15 min, 300 = ~30 min.
+    expect(duracaoEstimada(5)).toBe('menos de 1 min');
+    expect(duracaoEstimada(155)).toBe('~15 min');
+    expect(duracaoEstimada(300)).toBe('~30 min');
   });
 });
 
@@ -232,7 +242,7 @@ describe('paceador síncrono', () => {
     await p.aguardarVez();
 
     // rng 0.5 → fator 1 → intervalo cheio. O que importa: ≫ os 1,2s-2s do incidente.
-    expect(rel.lido()).toBe(15_000);
+    expect(rel.lido()).toBe(6_000);
   });
 
   it('desconta o tempo que a iteração anterior gastou — a política é TAXA, não sleep', async () => {
@@ -240,11 +250,11 @@ describe('paceador síncrono', () => {
     const p = criarPaceadorSincrono({ rng: () => 0.5, dormir: rel.dormir, agora: rel.agora });
 
     await p.aguardarVez();
-    rel.gastar(9_000);      // render do PDF + envio demoraram 9s
+    rel.gastar(4_000);      // render do PDF + envio demoraram 4s
     await p.aguardarVez();
 
-    // 9s já passaram: espera só os 6s que faltam para completar o intervalo.
-    expect(rel.lido()).toBe(15_000);
+    // 4s já passaram: espera só os 2s que faltam para completar o intervalo.
+    expect(rel.lido()).toBe(6_000);
   });
 
   it('iteração mais lenta que o intervalo não dorme nada (nunca atraso negativo)', async () => {
@@ -274,7 +284,7 @@ describe('paceador síncrono', () => {
 
   // ── a que mais importa ─────────────────────────────────────────────────────
   it('teto de TEMPO impede o lote cortado no meio pela lambda', async () => {
-    // 4 min de orçamento, 15s por mensagem → cabem 16, não as 120 do teto de volume.
+    // 1 min de orçamento, 6s por mensagem → cabem 11, não as 120 do teto de volume.
     process.env.WHATSAPP_LOTE_SINCRONO_ORCAMENTO_MS = '60000';
     const rel = relogioFalso();
     const p = criarPaceadorSincrono({ rng: () => 0.5, dormir: rel.dormir, agora: rel.agora });
@@ -282,9 +292,9 @@ describe('paceador síncrono', () => {
     let liberadas = 0;
     while (!p.tetoAtingido()) { await p.aguardarVez(); liberadas++; }
 
-    // 0s, 15s, 30s, 45s, 60s — a 6ª precisaria de 75s e não cabe no orçamento.
-    expect(liberadas).toBe(5);
+    // 0s, 6s, 12s … 60s — a 12ª precisaria de 66s e não cabe no orçamento.
+    expect(liberadas).toBe(11);
     expect(p.motivoDoTeto()).toBe('tempo');
-    expect(p.liberadas()).toBe(5);
+    expect(p.liberadas()).toBe(11);
   });
 });

@@ -10,9 +10,9 @@
  *
  * Três decisões, e o motivo de cada uma:
  *
- * 1. **Intervalo maior** (default 15s ≈ 4/min, era 2s ≈ 30/min). Número
- *    não-oficial (QR) sem aquecimento não sustenta dezenas por minuto para
- *    gente que nunca trocou mensagem com o remetente.
+ * 1. **Intervalo maior** (hoje 6s ≈ 10/min; era 2s ≈ 30/min, e foi 15s enquanto
+ *    o canal era o número QR). Ver a nota de 17/08 no fim deste bloco: o valor
+ *    acompanha o canal, e o de agora é o único medido em produção.
  *
  * 2. **Jitter** (±30%). Uma mensagem a cada exatamente 2,000ms é assinatura de
  *    robô — o padrão perfeito é, por si só, um sinal. Note que o jitter é
@@ -25,14 +25,30 @@
  *    dispara precisa ver "40 adiados" na tela, não descobrir depois que 40
  *    pessoas nunca receberam.
  *
- * Os defaults valem para número não-oficial recém-bloqueado. Ajuste por env
- * conforme o número aquece — e sempre pelas envs, nunca de volta ao literal.
+ * Ajuste por env conforme o canal muda — e sempre pelas envs, nunca de volta ao
+ * literal.
+ *
+ * ── 17/08/2026: default 15s → 6s, e a política virou de fato ÚNICA ───────────
+ * O 15s foi calibrado para o número **não-oficial (QR) recém-bloqueado**. Essa
+ * premissa morreu em 14/08, quando o canal passou para a **Cloud API oficial**,
+ * cujo teto técnico é 80 msg/s — o limite que sobra é o tier de destinatários
+ * únicos em 24h, que é VOLUME, não taxa.
+ *
+ * E o 15s nunca governou os lotes reais: os dois envios de Macaé rodaram por
+ * literais próprios de 6s, um em `avisar-plano-pronto.ts` e outro em
+ * `_boas-vindas-turma.ts`. Medido em 17/08: **38 boas-vindas a 7,0s de média e
+ * 34 avisos de plano a 6,5s — 72 mensagens, 0 falhas**. Ou seja, o número
+ * validado em produção é 6s; 15s era teoria de um canal que não existe mais.
+ *
+ * Manter 15s ao unificar teria QUEBRADO o caminho que acabou de funcionar: o
+ * disparo pela tela roda numa server action, e 34 × 15s = 510s estoura o teto
+ * (o envio real levou 215s e coube).
  */
 
 /** Intervalo-base entre mensagens do lote, em ms. */
 export function intervaloLoteMs(): number {
   const bruto = Number(process.env.WHATSAPP_LOTE_INTERVALO_MS);
-  return Number.isFinite(bruto) && bruto > 0 ? bruto : 15_000;
+  return Number.isFinite(bruto) && bruto > 0 ? bruto : 6_000;
 }
 
 /** Máximo de destinatários que UM disparo pode agendar. */
