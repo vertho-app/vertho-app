@@ -18,7 +18,7 @@
  */
 
 import React from 'react';
-import { Document, Page, View, Text, Image, StyleSheet, Svg, Path } from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, renderToBuffer } from '@react-pdf/renderer';
 import '@/components/pdf/styles'; // registra a fonte NotoSans (efeito colateral)
 import { getLogoCoverBase64, getLogoDarkBase64 } from '@/lib/pdf-assets';
 import { parseBlocks } from '@/lib/conteudo-layout-plan';
@@ -635,8 +635,21 @@ export function ConteudoFinalPDF({ titulo, conteudoMd, competencia, descritor, e
   return e(Document, { title: titulo, author: 'Vertho' }, cover, ...body);
 }
 
+/**
+ * ⚠ `renderToBuffer` vem do import ESTÁTICO do topo — o mesmo de onde saem
+ * `Document`/`Page` e, sobretudo, a instância em que `components/pdf/styles`
+ * registrou a fonte. Aqui havia um `await import('@react-pdf/renderer')`, e sob
+ * `tsx` (scripts headless) esse import dinâmico resolve uma CÓPIA diferente do
+ * módulo: medido em 16/08/2026, `Font`, `renderToBuffer` e o próprio namespace
+ * são objetos distintos, e a instância dinâmica tinha 12 famílias registradas
+ * contra 13 da estática — faltava exatamente a NotoSans. O sintoma era
+ * "Font family not registered: NotoSans" **com a fonte registrada**, engolido
+ * pelo catch de `gerarConteudoIA`: 16 micro-conteúdos de C014 nasceram sem PDF
+ * (`url`/`storage_path` nulos) e ainda assim pagaram a expansão de IA do PDF.
+ * O import dinâmico também não adiava nada — o módulo já entra estático na
+ * linha 21. Não voltar a `await import` aqui.
+ */
 export async function renderConteudoFinalPDF(params: Params): Promise<Uint8Array> {
-  const { renderToBuffer } = await import('@react-pdf/renderer');
   return renderToBuffer(ConteudoFinalPDF(params));
 }
 
