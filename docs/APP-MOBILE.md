@@ -339,7 +339,29 @@ Consequência prática: priorizar Android no primeiro uso real, porque lá o gan
 
 **Pronto:** migs 198/200/201, `lib/notifications/{delivery-log,push-core,flag,
 plataforma}`, adapter webpush, 4 rotas, PWA + service worker, convite com funil.
-VAPID nas 3 envs da Vercel. Flag ligada **só** em `teste-piloto`.
+VAPID nas 3 envs da Vercel.
+
+**Flag `notificacoes_push` (17/08/2026): ligada em `macae`, desligada em `teste-piloto`.**
+O piloto saiu do sandbox e foi para o tenant real — 283 colaboradores passam a ver o
+convite no dashboard (a flag é por EMPRESA: não há como limitá-la aos 38 diretores).
+Consequências medidas na troca:
+
+- os **4 endpoints habilitados** do `teste-piloto` (android, ios e web, último visto
+  11/08) continuam gravados, mas **param de receber** — o cron lê a flag em
+  `trigger-diario-empresa.ts:196` e pula o canal. Religar a flag restaura sem
+  reinstalação;
+- `macae` **já tinha `notificacoes_inbox_push: true`** — o push do inbox estava
+  habilitado antes desta troca; o que faltava era o da cadência;
+- a cadência de `macae` está ativa (8h, pílula nos dias 1 e 2, evidência no dia 4,
+  modo `jornada`), então o push entra na próxima rodada **para quem instalar** — com
+  0 endpoints hoje, nada muda no envio até a primeira instalação;
+- o convite tem **cache de 60 s por processo** (`resetPushFlagCache`), então a
+  mudança aparece com esse atraso.
+
+Trocar de tenant: `npx tsx scripts/_flag-push-tenant.ts <slug>=on|off [--aplicar]`
+(dry-run por padrão). ⚠️ Ele faz **merge** do `sys_config` e confere lendo de volta —
+`update` de JSONB substitui a coluna inteira, e gravar a flag crua apagaria `cadencia`,
+`programa_modo` e as outras 10 chaves.
 
 **Cadência real dispara push** ✅ 06/08 (mig 202). Push entrou como **terceiro
 canal de primeira classe** na pílula e na missão: carimbo próprio
