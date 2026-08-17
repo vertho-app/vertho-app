@@ -35,9 +35,25 @@ export const minhaTask = task({
 O repo está em `C:\GAS\Vertho App` (espaço). O builder remoto do Trigger transforma o espaço em `Vertho%20App` → **"Cannot find module '.../trigger.config.mjs'"**. `--force-local-build` exigiria Docker (indisponível nesta máquina).
 
 **Solução**: deployar a partir de um **path sem espaço**:
-1. `robocopy` do repo (sem `node_modules`/.git) para `C:\vertho-deploy2`.
+1. `robocopy` do repo para `C:\vertho-deploy2` com a lista de exclusão **inteira** — sem ela a cópia
+   passa de 12 GB e o comando estoura o timeout:
+   ```powershell
+   robocopy "C:\GAS\Vertho App\nextjs-app" "C:\vertho-deploy2" /E `
+     /XD node_modules .next .git .vercel data-pipeline outputs spike-bundle build .claude video-spike `
+     /XF *.tsbuildinfo /NFL /NDL /NJH /NJS
+   ```
 2. Criar um **junction** de `node_modules` (ou reinstalar) para não duplicar.
 3. Rodar o deploy dali.
+
+⚠️ **`/XD` não apaga o que já está lá.** `/E` copia por cima; diretório excluído que sobrou de uma
+cópia ANTIGA fica intacto para sempre. Medido 16/08/2026: `data-pipeline` já estava na lista de
+exclusão e mesmo assim havia **8,4 GB** dele em `C:\vertho-deploy2` — CAGED/RAIS descompactados e
+`br/out/base`, resto de um robocopy anterior à exclusão. Ao mudar a lista, apagar à mão o que ela
+passou a excluir.
+
+⚠️ **Espelho velho deploya código velho, sem avisar.** `C:\vertho-deploy2` é CÓPIA, não link:
+`npx trigger.dev deploy` sem re-sincronizar sobe as tasks do dia em que o robocopy rodou (a cópia
+estava parada em 14/08 enquanto o repo andava). Refazer o passo 1 SEMPRE antes de deployar.
 
 ```bash
 npx trigger.dev@4.4.6 deploy
