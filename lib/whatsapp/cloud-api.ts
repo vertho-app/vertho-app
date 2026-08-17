@@ -20,6 +20,9 @@
 import { normalizePhone } from '@/lib/phone';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
+import { alternarNonoDigito } from './nono-digito';
+import { registrarSaida } from './registro-saida';
+import { corpoDoTemplatePorNome } from './templates';
 import type { TipoMidia } from '@/lib/inbox/anexos';
 
 /**
@@ -127,6 +130,44 @@ export interface EnvioTemplateMeta {
   empresaId?: string | null;
   colaboradorId?: string | null;
   dedupeKey?: string | null;
+  /**
+   * De onde partiu o envio — e QUEM grava o conteúdo em
+   * `whatsapp_mensagens_enviadas`.
+   *
+   * `'inbox'` significa "a action já grava": ela sabe o autor, o anexo e o
+   * `storage_path`, e grava até quando o envio nem chega aqui (falha ao assinar o
+   * link do arquivo). Gravar de novo neste módulo criaria a mesma mensagem duas
+   * vezes na thread — uma com corpo e outra sem, como se fossem envios
+   * diferentes. Qualquer outro valor (default `'cadencia'`) grava aqui.
+   */
+  origem?: 'inbox' | 'cadencia';
+  /** Quem clicou. Ausente = automático. Só usado no registro do conteúdo. */
+  autorEmail?: string | null;
+}
+
+/**
+ * E.164 para a Meta, tolerando o `wa_id` sem o nono dígito.
+ *
+ * 🔴 MEDIDO EM 17/08/2026: `normalizePhone('557499225966')` devolve **null** —
+ * o número que a própria Cloud API usa para os DDDs ≥ 31 é recusado pela nossa
+ * validação, porque não existe no plano de numeração atual do Brasil. Sem esta
+ * função, responder na caixa de entrada a quem escreveu daquela faixa falharia
+ * com *"telefone inválido"* — e o efeito só apareceria no instante em que
+ * alguém tentasse responder, depois de a identidade já ter sido resolvida.
+ *
+ * A ordem importa: o número como veio primeiro (é o que a Meta reconhece), a
+ * outra forma só quando a primeira não valida.
+ */
+function foneParaMeta(bruto: string): string | null {
+  const direto = normalizePhone(bruto);
+  if (direto) return direto;
+  const alt = alternarNonoDigito(bruto);
+  return alt ? normalizePhone(alt) : null;
+}
+
+/** O conteúdo deste envio é gravado aqui, ou quem chamou já cuida disso? */
+function registraAqui(meta?: EnvioTemplateMeta): boolean {
+  return meta?.origem !== 'inbox';
 }
 
 /**
@@ -148,7 +189,7 @@ export async function enviarTextoCloud(
 ): Promise<EnvioTemplateResult> {
   if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
 
-  const fone = normalizePhone(input.phone);
+  const fone = foneParaMeta(input.phone);
   if (!fone) return { ok: false, reason: `telefone inválido: ${input.phone}` };
 
   const texto = input.texto.trim();
@@ -214,6 +255,23 @@ export async function enviarTextoCloud(
     });
   } catch (e) {
     await telemetriaFalhou(e, meta);
+  }
+
+  // O CONTEÚDO, para a conversa aparecer inteira na caixa de entrada. Inclusive
+  // quando falhou: tentativa que não vira linha faz quem atende reescrever.
+  if (registraAqui(meta)) {
+    await registrarSaida({
+      telefone: fone,
+      tipo: 'text',
+      texto,
+      empresaId: meta?.empresaId ?? null,
+      colaboradorId: meta?.colaboradorId ?? null,
+      autorEmail: meta?.autorEmail ?? null,
+      origem: meta?.origem ?? 'cadencia',
+      dedupeKey: meta?.dedupeKey ?? null,
+      wamid: resultado.providerMessageId ?? null,
+      erro: resultado.ok ? null : (resultado.reason ?? 'falha desconhecida'),
+    });
   }
 
   return resultado;
@@ -343,7 +401,7 @@ export async function enviarMidiaCloud(
 ): Promise<EnvioTemplateResult> {
   if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
 
-  const fone = normalizePhone(input.phone);
+  const fone = foneParaMeta(input.phone);
   if (!fone) return { ok: false, reason: `telefone inválido: ${input.phone}` };
 
   if (!input.mediaId && !input.link) return { ok: false, reason: 'anexo sem id nem link' };
@@ -397,6 +455,23 @@ export async function enviarMidiaCloud(
     });
   } catch (e) {
     await telemetriaFalhou(e, meta);
+  }
+
+  if (registraAqui(meta)) {
+    await registrarSaida({
+      telefone: fone,
+      tipo: input.tipo,
+      texto: legenda || null,
+      empresaId: meta?.empresaId ?? null,
+      colaboradorId: meta?.colaboradorId ?? null,
+      autorEmail: meta?.autorEmail ?? null,
+      origem: meta?.origem ?? 'cadencia',
+      dedupeKey: meta?.dedupeKey ?? null,
+      wamid: resultado.providerMessageId ?? null,
+      erro: resultado.ok ? null : (resultado.reason ?? 'falha desconhecida'),
+      // Mesmo formato do que CHEGA, para `midiaIdDoRaw` servir os dois lados.
+      raw: input.mediaId ? { [input.tipo]: { id: input.mediaId } } : null,
+    });
   }
 
   return resultado;
@@ -547,7 +622,7 @@ export async function enviarTemplateCloud(
 ): Promise<EnvioTemplateResult> {
   if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
 
-  const fone = normalizePhone(input.phone);
+  const fone = foneParaMeta(input.phone);
   if (!fone) return { ok: false, reason: `telefone inválido: ${input.phone}` };
   if (!input.template) return { ok: false, reason: 'template não informado' };
 
@@ -615,6 +690,25 @@ export async function enviarTemplateCloud(
     await telemetriaFalhou(e, meta);
   }
 
+  if (registraAqui(meta)) {
+    await registrarSaida({
+      telefone: fone,
+      tipo: 'template',
+      // O corpo renderizado, quando o template é um dos nossos: é o que a pessoa
+      // leu. Sem ele a thread mostraria só o nome do template, e quem atende não
+      // saberia a que ela está respondendo.
+      texto: corpoDoTemplatePorNome(input.template, input.params),
+      templateNome: input.template,
+      empresaId: meta?.empresaId ?? null,
+      colaboradorId: meta?.colaboradorId ?? null,
+      autorEmail: meta?.autorEmail ?? null,
+      origem: meta?.origem ?? 'cadencia',
+      dedupeKey: meta?.dedupeKey ?? null,
+      wamid: resultado.providerMessageId ?? null,
+      erro: resultado.ok ? null : (resultado.reason ?? 'falha desconhecida'),
+    });
+  }
+
   return resultado;
 }
 
@@ -635,7 +729,7 @@ export async function enviarTemplateOtp(
 ): Promise<EnvioTemplateResult> {
   if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
 
-  const fone = normalizePhone(input.phone);
+  const fone = foneParaMeta(input.phone);
   if (!fone) return { ok: false, reason: `telefone inválido: ${input.phone}` };
 
   const nome = input.template || 'otp_acesso';
@@ -699,6 +793,25 @@ export async function enviarTemplateOtp(
     });
   } catch (e) {
     await telemetriaFalhou(e, meta);
+  }
+
+  // 🔴 SEM O CÓDIGO, e isso não é esquecimento: a caixa de entrada é lida pela
+  // equipe, e um OTP na tela é uma credencial de outra pessoa exposta a quem
+  // atende. Fica o rótulo do template — "enviamos um acesso às 08:58" é o que a
+  // conversa precisa; o código, não.
+  if (registraAqui(meta)) {
+    await registrarSaida({
+      telefone: fone,
+      tipo: 'template',
+      texto: null,
+      templateNome: nome,
+      empresaId: meta?.empresaId ?? null,
+      colaboradorId: meta?.colaboradorId ?? null,
+      origem: meta?.origem ?? 'cadencia',
+      dedupeKey: meta?.dedupeKey ?? null,
+      wamid: resultado.providerMessageId ?? null,
+      erro: resultado.ok ? null : (resultado.reason ?? 'falha desconhecida'),
+    });
   }
 
   return resultado;

@@ -56,13 +56,48 @@ describe('de quem é o telefone — a decisão sobre TODAS as linhas', () => {
   });
 
   it('variantes cobrem com e sem "+", e o filtro cobre as duas colunas', () => {
-    expect(variantesDoTelefone('5511999998888')).toEqual(['5511999998888', '+5511999998888']);
-    expect(variantesDoTelefone('+55 (11) 99999-8888')).toEqual(['5511999998888', '+5511999998888']);
+    expect(variantesDoTelefone('5511999998888')).toContain('5511999998888');
+    expect(variantesDoTelefone('+55 (11) 99999-8888')).toContain('+5511999998888');
 
     const f = filtroDeTelefone('5511999998888');
     expect(f).toContain('whatsapp.eq.5511999998888');
     expect(f).toContain('telefone.eq.5511999998888');
     expect(f).toContain('whatsapp.eq.+5511999998888');
+  });
+
+  /**
+   * 🔴 O caso que a caixa não reconhecia — medido em 17/08/2026.
+   *
+   * A pílula saiu às 11:00:28 para `5574999225966` (o cadastro), a professora
+   * respondeu às 11:00:40 de `557499225966` (o `wa_id`, sem o nono dígito), e o
+   * app gravou `telefone-desconhecido`: não reconheceu o próprio destinatário
+   * doze segundos depois de entregar. Valia para as 50 pessoas de Ibipeba com
+   * DDD ≥ 31, ou seja, para a turma inteira.
+   */
+  it('🔴 o wa_id SEM o nono dígito casa com o cadastro que TEM', () => {
+    const v = variantesDoTelefone('557499225966');
+    expect(v).toContain('5574999225966');
+    expect(v).toContain('557499225966');
+
+    const f = filtroDeTelefone('557499225966');
+    expect(f).toContain('telefone.eq.5574999225966');
+    expect(f).toContain('whatsapp.eq.5574999225966');
+  });
+
+  it('e o espelho: cadastro na forma antiga casa com o wa_id que tem o nono', () => {
+    // 4 telefones do cadastro estão gravados com 12 dígitos. Nos DDDs ≤ 30 o
+    // wa_id vem com 13 — sem as duas direções, esse par também nunca casaria.
+    expect(variantesDoTelefone('5511999998888')).toContain('551199998888');
+  });
+
+  it('nono dígito NÃO é inventado para fixo — 3021-4455 continua um fixo', () => {
+    // Fixo brasileiro começa em 2–5. Criar "9 3021-4455" produziria um celular
+    // que não existe, e casamento de identidade com quem não é a pessoa.
+    expect(variantesDoTelefone('551130214455')).toEqual(['551130214455', '+551130214455']);
+  });
+
+  it('número estrangeiro não ganha variante (Portugal não perde dígito)', () => {
+    expect(variantesDoTelefone('351926360862')).toEqual(['351926360862', '+351926360862']);
   });
 
   it('🔴 telefone sem dígitos devolve filtro VAZIO — um `.or("")` traria a tabela toda', () => {

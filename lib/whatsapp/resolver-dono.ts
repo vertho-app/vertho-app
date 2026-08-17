@@ -23,6 +23,7 @@
  * A regra, que não mudou: chutar um tenant é pior que não resolver. Lacuna
  * contável é preferível a atribuição errada.
  */
+import { formasDoTelefone } from './nono-digito';
 
 export interface CandidatoDono {
   id: string;
@@ -42,18 +43,27 @@ export interface DonoResolvido {
  * O cadastro é normalizado em E.164 SEM o "+" (convenção de `lib/phone.ts`), mas
  * o "+" aparece em dado importado de fora, então as duas formas são tentadas.
  *
- * ⚠️ O QUE ESTA FUNÇÃO **NÃO** FAZ, de propósito: variar o nono dígito. O
- * `wa_id` que a Meta manda para número brasileiro pode chegar sem ele, e nesse
- * caso nenhuma variante casa — a mensagem cai na fila de não identificadas, que
- * é o lado seguro. Gerar a variante ampliaria o alcance de um casamento de
- * IDENTIDADE, e isso não se faz sem medir contra tráfego real: um falso
- * positivo aqui entrega conversa para o tenant errado, que é pior que uma linha
- * a mais na fila. Está registrado como pendência em `docs/INBOX-WHATSAPP.md`.
+ * 🔴 O NONO DÍGITO ENTROU EM 17/08/2026 — e a decisão anterior era o oposto.
+ * ─────────────────────────────────────────────────────────────────────────
+ * Até aqui esta função NÃO variava o nono dígito, com o argumento de que ampliar
+ * um casamento de IDENTIDADE sem medir contra tráfego real pode entregar
+ * conversa ao tenant errado. O argumento continua válido; o que faltava era a
+ * medição, e ela chegou junto com o primeiro tráfego real de verdade:
+ *
+ *   - o `wa_id` de todo DDD ≥ 31 chega SEM o nono (36 de 44 envios com wamid);
+ *   - 2 de 2 respostas recebidas naquela manhã ficaram `telefone-desconhecido`
+ *     — de duas professoras para quem o app tinha acabado de entregar a pílula;
+ *   - **50 pessoas** de Ibipeba estavam nessa faixa, ou seja, a caixa nunca
+ *     reconheceria nenhuma delas;
+ *   - e o teste que faltava: normalizando o nono dígito, **0 dos ~350 telefones
+ *     do cadastro** passam a colidir com outro que hoje é distinto.
+ *
+ * O risco que sobra é coberto por `decidirDono`, que não escolhe no empate: uma
+ * variante que casasse duas empresas deixa a conversa SEM dono, na fila. A régua
+ * do dígito vive em `nono-digito.ts`, sem dependência, porque roda no webhook.
  */
 export function variantesDoTelefone(telefone: string): string[] {
-  const digitos = String(telefone || '').replace(/\D/g, '');
-  if (!digitos) return [];
-  return [digitos, `+${digitos}`];
+  return formasDoTelefone(telefone).flatMap((d) => [d, `+${d}`]);
 }
 
 /**

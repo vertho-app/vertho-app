@@ -213,6 +213,19 @@ describe('thread — o limite tem que cair sobre a cauda da conversa', () => {
     expect(sb.usou('whatsapp_mensagens_enviadas', 'eq', 'empresa_id')).toBe(true);
   });
 
+  it('🔴 o lado ENVIADO é buscado nas duas formas do telefone', async () => {
+    // A pessoa escreve do `wa_id` (`557499225966`, sem o nono dígito nos DDDs
+    // ≥ 31) e a cadência manda para o CADASTRO (`5574999225966`). Com igualdade
+    // exata, a thread mostraria só o lado dela — conversa pela metade, sem erro
+    // nenhum na tela.
+    const sb = novoMock();
+    await carregarThread('e1', '557499225966');
+
+    const filtro = sb.chamadas.find((c) => c.tabela === 'whatsapp_mensagens_enviadas' && c.metodo === 'in');
+    expect(filtro?.args[0]).toBe('to_phone');
+    expect(filtro?.args[1]).toEqual(['557499225966', '5574999225966']);
+  });
+
   it('erro na leitura das recebidas EXPLODE — thread pela metade parece defeito', async () => {
     const sb = novoMock();
     sb.falharEm({ tabela: 'whatsapp_mensagens_recebidas', op: 'select', mensagem: 'timeout' });

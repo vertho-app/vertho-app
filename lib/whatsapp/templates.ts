@@ -449,6 +449,32 @@ export function renderTemplate(def: TemplateDef, params: string[]): string {
 }
 
 /**
+ * O corpo JÁ RENDERIZADO de um template, achado pelo nome que existe na Meta.
+ *
+ * Serve à caixa de entrada: sem isto, a thread mostraria "enviado: conteudo_semana"
+ * no lugar da mensagem que a pessoa recebeu — e quem atende teria que adivinhar a
+ * que ela está respondendo. O corpo aqui é byte-igual ao aprovado, então o que
+ * aparece na tela é o que saiu.
+ *
+ * `null` (e nunca exceção) quando o nome é desconhecido ou os parâmetros não
+ * batem: isto roda DEPOIS de a mensagem ter saído, e uma exceção aqui derrubaria
+ * o registro de um envio que já aconteceu. O rótulo do template ainda é gravado —
+ * menos que o corpo, muito mais que um buraco.
+ *
+ * ⚠️ Não substitui o botão: o parâmetro dele costuma ser credencial (o
+ * `<slug>~<token>` do magic link), e credencial não entra em caixa de entrada.
+ */
+export function corpoDoTemplatePorNome(nome: string, params: string[]): string | null {
+  const def = Object.values(TEMPLATES).find((t) => t.name === nome) as TemplateDef | undefined;
+  if (!def) return null;
+  try {
+    return renderTemplate(def, params);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Botão de URL com variável — o jeito de mandar link sem link no corpo.
  *
  * ⚠️ A META ACEITA **UMA** VARIÁVEL, E ELA VAI NO FIM DE UMA URL FIXA:

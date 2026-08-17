@@ -7,6 +7,7 @@ import { montarThread } from '@/lib/inbox/thread';
 import { montarConversas, type LinhaConversa } from '@/lib/inbox/caixa';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { enviarTextoCloud, enviarMidiaCloud } from '@/lib/whatsapp/cloud-api';
+import { formasDoTelefone } from '@/lib/whatsapp/nono-digito';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { classificarMidia, BUCKET_ANEXOS, TTL_LINK_SEGUNDOS } from '@/lib/inbox/anexos';
 import type { Conversa, ThreadCompleta, ResultadoEnvio } from '@/lib/inbox/tipos';
@@ -88,9 +89,17 @@ export async function carregarThread(empresaId: string, telefone: string): Promi
     .limit(TETO_THREAD);
   if (e1) throw new Error(`thread/recebidas: ${e1.message}`);
 
+  /*
+   * 🔴 `.in(...)` E NÃO `.eq(...)`: os dois lados da conversa chegam com formas
+   * DIFERENTES do mesmo telefone. O que a pessoa manda vem no `wa_id` da Meta
+   * (`557499225966`, sem o nono dígito nos DDDs ≥ 31); o que a cadência manda vai
+   * para o número do CADASTRO (`5574999225966`). Com igualdade exata, a thread de
+   * quem respondeu mostraria só o lado dela — a conversa apareceria pela metade,
+   * sem nenhum erro na tela. Ver `lib/whatsapp/nono-digito.ts`.
+   */
   const { data: enviadas, error: e2 } = await tdb.from('whatsapp_mensagens_enviadas')
     .select('id, texto, tipo, template_nome, autor_email, origem, erro, enviada_em, wa_message_id, raw')
-    .eq('to_phone', telefone)
+    .in('to_phone', formasDoTelefone(telefone))
     .order('enviada_em', { ascending: false })
     .limit(TETO_THREAD);
   if (e2) throw new Error(`thread/enviadas: ${e2.message}`);
@@ -246,9 +255,13 @@ export async function responderConversa(args: {
   const colaboradorId = preparo.colaboradorId ?? null;
 
   // 3) Envia.
+  // `origem: 'inbox'` diz ao `cloud-api` para NÃO gravar o conteúdo: quem grava é
+  // o `gravarEnviada` abaixo, que sabe o autor, o anexo e o `storage_path` — e
+  // que grava até quando o envio nem chega à Meta. Sem isso, dois registros do
+  // mesmo envio apareceriam como duas mensagens na thread.
   const r = await enviarTextoCloud(
     { phone: args.telefone, texto },
-    { motivo: 'atendimento', empresaId: args.empresaId, colaboradorId, dedupeKey: dedupe },
+    { motivo: 'atendimento', empresaId: args.empresaId, colaboradorId, dedupeKey: dedupe, origem: 'inbox' },
   );
 
   // 4) Grava o CONTEÚDO — inclusive quando falha. Uma resposta que não saiu
@@ -398,7 +411,7 @@ export async function responderComAnexo(args: {
   // 3) Envia pelo link.
   const r = await enviarMidiaCloud(
     { phone: telefone, tipo: classe.tipo!, link: assinada.signedUrl, legenda, nomeArquivo: nome },
-    { motivo: 'atendimento-anexo', empresaId, colaboradorId, dedupeKey: dedupe },
+    { motivo: 'atendimento-anexo', empresaId, colaboradorId, dedupeKey: dedupe, origem: 'inbox' },
   );
 
   // 4) Grava no formato DA META, com o `storage_path` para a limpeza saber o que

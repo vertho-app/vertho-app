@@ -104,6 +104,18 @@ export async function listarCaixaGlobal(): Promise<CaixaGlobal> {
  * por CONSTRUÇÃO — não por allowlist — e deixa explícito que ler o cadastro de
  * todos os tenants é uma decisão, não um efeito colateral.
  */
+/**
+ * Telefones por consulta.
+ *
+ * ⚠️ O `.or()` do PostgREST viaja na URL, e cada telefone contribui com QUATRO
+ * variantes × duas colunas — ~200 caracteres. Cinquenta telefones numa consulta
+ * só passariam de 10 KB de query string, e o servidor recusa URI longa com 414:
+ * o `catch` abaixo registraria no log e a fila apareceria SEM CANDIDATO NENHUM,
+ * que é exatamente o sintoma que esta tela existe para resolver. Lotear é mais
+ * consultas curtas em vez de uma que quebra quando a fila cresce.
+ */
+const TELEFONES_POR_CONSULTA = 10;
+
 async function candidatosPorTelefone(
   sb: any,
   telefones: string[],
@@ -113,34 +125,45 @@ async function candidatosPorTelefone(
   for (const t of telefones) mapa.set(t, []);
   if (!telefones.length) return mapa;
 
-  // Um `.or()` por empresa, cobrindo todos os telefones da fila de uma vez.
-  const filtro = telefones.map(filtroDeTelefone).filter(Boolean).join(',');
-  if (!filtro) return mapa;
-
   // Índice variante → telefone da fila, para saber qual linha casou com qual.
+  // Uma variante que apareça em dois telefones da fila (o mesmo número escrito de
+  // duas formas) fica com o último — e os dois casam com a mesma pessoa, que é o
+  // desfecho certo.
   const porVariante = new Map<string, string>();
   for (const t of telefones) for (const v of variantesDoTelefone(t)) porVariante.set(v, t);
 
-  await Promise.all(empresas.map(async (e) => {
-    const { data, error } = await sb.from('colaboradores')
-      .select('id, nome_completo, email, whatsapp, telefone')
-      .eq('empresa_id', e.id)
-      .or(filtro);
-    if (error) {
-      console.error('[inbox-global] candidatos:', e.nome, error.message);
-      return;
-    }
-    for (const c of (data || []) as any[]) {
-      const alvo = porVariante.get(String(c.whatsapp || '')) ?? porVariante.get(String(c.telefone || ''));
-      if (!alvo) continue;
-      mapa.get(alvo)!.push({
-        colaboradorId: c.id,
-        nome: c.nome_completo ?? null,
-        email: c.email ?? null,
-        empresaId: e.id,
-        empresa: e.nome,
-      });
-    }
+  const lotes: string[][] = [];
+  for (let i = 0; i < telefones.length; i += TELEFONES_POR_CONSULTA) {
+    lotes.push(telefones.slice(i, i + TELEFONES_POR_CONSULTA));
+  }
+
+  await Promise.all(lotes.flatMap((lote) => {
+    const filtro = lote.map(filtroDeTelefone).filter(Boolean).join(',');
+    if (!filtro) return [];
+
+    // Um `.or()` por empresa — a varredura escopada é o que passa no
+    // `tenant-read-guard` por construção, e não por allowlist.
+    return empresas.map(async (e) => {
+      const { data, error } = await sb.from('colaboradores')
+        .select('id, nome_completo, email, whatsapp, telefone')
+        .eq('empresa_id', e.id)
+        .or(filtro);
+      if (error) {
+        console.error('[inbox-global] candidatos:', e.nome, error.message);
+        return;
+      }
+      for (const c of (data || []) as any[]) {
+        const alvo = porVariante.get(String(c.whatsapp || '')) ?? porVariante.get(String(c.telefone || ''));
+        if (!alvo) continue;
+        mapa.get(alvo)!.push({
+          colaboradorId: c.id,
+          nome: c.nome_completo ?? null,
+          email: c.email ?? null,
+          empresaId: e.id,
+          empresa: e.nome,
+        });
+      }
+    });
   }));
 
   return mapa;

@@ -625,11 +625,9 @@ mudar o texto é submeter o template de novo à Meta, com o risco de voltar MARK
   "consulta → chama a Meta → insere". Dois cliques simultâneos passam os dois; e uma tentativa que
   **falhou** faz a repetição encontrar a linha e devolver `ok: true` com `wa_message_id` nulo. O
   desenho certo é reservar a chave com um `pending` antes da chamada externa.
-- **Variante do nono dígito no `wa_id`.** O `wa_id` de número BR pode chegar sem o 9, e aí nenhuma
-  variante casa (o cadastro está 157/157 normalizado — o problema não é ele). Deliberadamente **não**
-  implementado: ampliar um casamento de IDENTIDADE sem medir contra tráfego real troca uma linha a
-  mais na fila por conversa entregue ao tenant errado. Enquanto isso, a fila de não identificados é
-  a rede de segurança.
+- ~~**Variante do nono dígito no `wa_id`.**~~ **FECHADO em 17/08/2026** — ver §9.4. A medição que
+  faltava chegou junto com o primeiro tráfego real, e ela era o oposto do esperado: não era caso
+  raro, era a turma inteira.
 - **Mídia carregada inteira em memória** (`arrayBuffer`) — documento pode ter até 100 MB. Streaming,
   limite explícito, `X-Content-Type-Options: nosniff` e `attachment` para documento.
 - **Webhook processa tudo antes do 200.** Mover para fila é correto em princípio, mas **não** para o
@@ -639,3 +637,57 @@ mudar o texto é submeter o template de novo à Meta, com o risco de voltar MARK
 - **`read` e indicador de digitação na Meta**, e **`context.id`** (mensagem citada) — este dá para
   extrair do `raw` já gravado, na leitura, sem migration.
 - **Retenção/LGPD** de texto, `raw` e mídias, com auditoria de acesso à mídia.
+- **A caixa lista só quem ESCREVEU** (a view `whatsapp_conversas` agrega `whatsapp_mensagens_recebidas`).
+  Mesmo agora que o lado enviado é gravado, uma conversa só nasce quando chega resposta — e isso é
+  decisão, não lacuna: incluir todo envio faria 37 disparos de pílula afogarem as duas respostas do
+  dia numa tela que existe para não perder nenhuma. Quem quiser ver "o que foi mandado para fulano"
+  tem a thread do cliente, que agora mostra os dois lados.
+
+### 9.4 A rodada de 17/08/2026 — o número que a Meta manda ≠ o número do cadastro
+
+Três defeitos com o mesmo sintoma (*a conversa aparece pela metade e ninguém vê erro*) e a mesma
+raiz: **a identidade da conversa é o telefone, e existem duas formas do mesmo telefone.**
+
+**O fato, medido no `wamid` que a própria Meta devolveu** (os 4 primeiros caracteres codificam o
+tamanho: `HBgN` = 13 dígitos, `HBgM` = 12):
+
+| DDD | forma do `wa_id` | envios medidos |
+|---|---|---|
+| 11 | `5511973882303` — **com** o nono | 8 |
+| 74 / 77 | `557499225966` — **sem** o nono | 36 |
+
+O cadastro está em E.164 **com** o nono (294 de 298 telefones BR), porque é assim que se disca.
+
+1. **A resposta não casava com o cadastro.** Pílula entregue às 11:00:28 para `5574999225966`;
+   resposta às 11:00:40 de `557499225966` gravada como `telefone-desconhecido`. O app não reconheceu
+   o próprio destinatário doze segundos depois de entregar. Exposição: **50 pessoas** de Ibipeba com
+   DDD ≥ 31 — a turma que estava recebendo a cadência naquela manhã.
+   Correção: `lib/whatsapp/nono-digito.ts` + `variantesDoTelefone`. O que destravou a decisão que
+   estava congelada desde 15/08 foi a medição que faltava: normalizando o nono dígito, **0 dos ~350
+   telefones do cadastro** passam a colidir com outro que hoje é distinto. E o risco residual
+   continua contido por `decidirDono`, que não escolhe no empate.
+2. **Responder falharia depois de resolvida a identidade.** `normalizePhone('557499225966')` devolve
+   **null** — a forma que a Cloud API usa não existe no plano de numeração atual do Brasil. O envio
+   morreria em *"telefone inválido"*, e só no instante em que alguém tentasse responder.
+   Correção: `foneParaMeta()` em `cloud-api.ts` — tenta o número como veio e cai na outra forma.
+3. **Nada do que a cadência manda aparecia na conversa.** `whatsapp_mensagens_enviadas` tinha **5
+   linhas no banco inteiro**, todas da caixa de entrada: pílula, missão, cobrança de quinta, acesso e
+   OTP só existiam em `notification_deliveries` — sem texto, sem telefone, e alcançável pela thread
+   apenas quando o `colaborador_id` já estava resolvido (que é justamente o que falhava no item 1).
+   Correção: `lib/whatsapp/registro-saida.ts`, chamado por `cloud-api.ts` no mesmo ponto do
+   `registrarEntrega`. O corpo é o do template APROVADO, renderizado com os parâmetros do envio
+   (`corpoDoTemplatePorNome`), então a thread mostra o que a pessoa leu.
+   🔴 **Menos o OTP**: dele grava-se o rótulo e nunca o código — a caixa é lida pela equipe, e um
+   código ali é credencial de outra pessoa exposta a quem atende.
+
+⚠️ **Quem grava é UM só.** `origem: 'inbox'` no `EnvioTemplateMeta` diz ao `cloud-api` para não
+gravar: a action já grava, e ela sabe o autor, o anexo e o `storage_path` — além de gravar quando o
+envio nem chega à Meta. Sem esse discriminador, o mesmo envio viraria duas mensagens na thread, uma
+com corpo e outra sem.
+
+⚠️ **A thread casa o lado enviado com `.in(...)`, não `.eq(...)`**: o que chega vem pelo `wa_id` e o
+que sai vai para o cadastro. Igualdade exata mostraria só o lado de quem escreveu.
+
+**A lição que vale para além do WhatsApp:** quando um identificador externo é a chave de junção,
+pergunte se o sistema de fora usa a MESMA forma que a sua base. Aqui as duas eram "o telefone da
+pessoa", ambas corretas, e nenhuma linha de código estava errada — o que faltava era o par.
