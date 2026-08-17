@@ -80,4 +80,14 @@ describe('o corte publicado', () => {
     const r = decidirAvisos([], new Set());
     expect(r).toEqual({ enviar: [], antigos: 0, repetidos: 0, semTelefone: 0 });
   });
+
+  it('🔴 corte alternativo SEM escopo é recusado — reanúncio não pode vazar para outro tenant', async () => {
+    const { avisarPlanosProntos } = await import('@/lib/notifications/avisar-plano-pronto');
+    // O corte de 17/08 existe para alcançar os 34 de Macaé (relatórios de 15/08).
+    // Sem `apenasSlug`, ele alcançaria também os 38 de Ibipeba (julho) — e
+    // mensagem enviada não volta. Falha ANTES de tocar banco ou provedor.
+    await expect(
+      avisarPlanosProntos({ corteIso: '2026-08-01T00:00:00.000Z' }),
+    ).rejects.toThrow(/apenasSlug/);
+  });
 });

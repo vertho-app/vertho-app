@@ -120,9 +120,24 @@ export async function GET(req) {
       // corte e ainda não soube. Fora do laço de geração de propósito — relatório
       // sai em lote (34 em 38 min em Macaé) e um envio por item seria a rajada
       // que derrubou o número em 11/08. Aqui é espaçado e com teto.
+      // Parâmetros OPCIONAIS, para reanúncio deliberado de um lote anterior ao
+      // corte: `slug` (escopo obrigatório junto de `corte`), `corte` (ISO),
+      // `teto` e `dry=1` (conta os elegíveis sem enviar). O cron automático não
+      // passa nenhum deles e segue com o corte fixo. As envs de WhatsApp são
+      // *Sensitive* e só existem aqui — por isso este é o único lugar de onde o
+      // disparo pode sair; da máquina do dev, `enviarPorTemplate` não resolve o
+      // nome do template.
       case 'avisar_planos': {
         const { avisarPlanosProntos } = await import('@/lib/notifications/avisar-plano-pronto');
-        result = await avisarPlanosProntos();
+        const slug = searchParams.get('slug');
+        const corte = searchParams.get('corte');
+        const teto = Number(searchParams.get('teto') || 0);
+        result = await avisarPlanosProntos({
+          ...(slug ? { apenasSlug: slug } : {}),
+          ...(corte ? { corteIso: corte } : {}),
+          ...(teto > 0 ? { teto } : {}),
+          ...(searchParams.get('dry') === '1' ? { executar: false } : {}),
+        });
         break;
       }
 

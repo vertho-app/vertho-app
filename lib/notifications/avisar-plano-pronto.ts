@@ -22,9 +22,15 @@
  * Aqui o envio é deliberado, espaçado e com teto por execução.
  *
  * ⚠️ CORTE FIXO, e é ele que cumpre "só para os próximos": nenhum relatório
- * anterior a `CORTE_ISO` é elegível, nunca — nem se o cron rodar pela primeira
- * vez meses depois. Os 38 de Ibipeba (13-20/07) e os 34 de Macaé (15/08) já
- * foram baixados pelas pessoas e não devem ser reanunciados.
+ * anterior a `CORTE_ISO` é elegível pelo CRON, nunca — nem se ele rodar pela
+ * primeira vez meses depois.
+ *
+ * 🔴 A premissa do corte ("já foram baixados") valia para Ibipeba, NÃO para
+ * Macaé. Medido em 17/08/2026: `notification_deliveries` tinha ZERO envios de
+ * `kind='plano'` no tenant — os 34 nunca souberam que o plano existia, e o corte
+ * os condenava ao silêncio permanente. Por isso o runner aceita `corteIso`, mas
+ * só junto de `apenasSlug`: reanúncio é decisão deliberada e escopada, nunca
+ * efeito colateral de mexer numa constante.
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { enviarPorTemplate } from '@/lib/notifications/pilula-template';
@@ -81,15 +87,42 @@ export function decidirAvisos(
  * Roda para TODAS as empresas não-demo. Nunca lança: um aviso que derruba o cron
  * troca uma notificação por um apagão.
  */
-export async function avisarPlanosProntos(opts: { teto?: number; executar?: boolean } = {}) {
+export async function avisarPlanosProntos(opts: {
+  teto?: number;
+  executar?: boolean;
+  /**
+   * Restringe a UMA empresa. O cron não passa nada e varre todas as não-demo.
+   */
+  apenasSlug?: string | null;
+  /**
+   * Corte alternativo, para ANUNCIAR DELIBERADAMENTE um lote anterior ao
+   * `CORTE_ISO` — foi o caso de Macaé (relatórios de 15/08, avisados em 17/08:
+   * o corte os excluía sob a premissa de que já tinham sido baixados, e o
+   * histórico de `notification_deliveries` mostrou ZERO envios de `plano` lá).
+   *
+   * 🔴 Só é aceito junto com `apenasSlug`. Sem escopo, baixar o corte alcança
+   * todo tenant com relatório antigo — os 38 de Ibipeba (julho) sairiam juntos,
+   * e mensagem enviada não volta.
+   */
+  corteIso?: string;
+} = {}) {
   const teto = opts.teto ?? TETO_PADRAO;
   const executar = opts.executar !== false;
+  const corte = opts.corteIso ?? CORTE_ISO;
+  if (opts.corteIso && !opts.apenasSlug) {
+    throw new Error('corteIso exige apenasSlug: reanúncio em massa sem escopo alcançaria outros tenants.');
+  }
   const sb = createSupabaseAdmin();
   const resumo = { elegiveis: 0, enviados: 0, falhas: 0, antigos: 0, repetidos: 0, semTelefone: 0 };
 
-  const { data: empresas, error: eE } = await sb.from('empresas')
+  let q = sb.from('empresas')
     .select('id, slug, nome, is_demo').or('is_demo.is.null,is_demo.eq.false');
+  if (opts.apenasSlug) q = q.eq('slug', opts.apenasSlug);
+  const { data: empresas, error: eE } = await q;
   if (eE) { console.error('[avisar-plano] empresas:', eE.message); return resumo; }
+  if (opts.apenasSlug && !empresas?.length) {
+    console.warn(`[avisar-plano] slug "${opts.apenasSlug}" não encontrado (ou é tenant de demo)`);
+  }
 
   for (const emp of (empresas || []) as any[]) {
     // Só o que nasceu depois do corte já filtra no banco — o `decidirAvisos`
@@ -97,7 +130,7 @@ export async function avisarPlanosProntos(opts: { teto?: number; executar?: bool
     const { data: rels, error: eR } = await sb.from('relatorios')
       .select('colaborador_id, gerado_em')
       .eq('empresa_id', emp.id).eq('tipo', 'individual')
-      .gt('gerado_em', CORTE_ISO)
+      .gt('gerado_em', corte)
       .not('colaborador_id', 'is', null);
     if (eR) { console.error(`[avisar-plano] relatorios ${emp.slug}:`, eR.message); continue; }
     if (!rels?.length) continue;
@@ -123,7 +156,7 @@ export async function avisarPlanosProntos(opts: { teto?: number; executar?: bool
       };
     });
 
-    const d = decidirAvisos(candidatos, avisados);
+    const d = decidirAvisos(candidatos, avisados, corte);
     resumo.antigos += d.antigos;
     resumo.repetidos += d.repetidos;
     resumo.semTelefone += d.semTelefone;
