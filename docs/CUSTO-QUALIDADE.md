@@ -510,3 +510,35 @@ Também separadas as três conversas que gravavam sob a mesma etiqueta
 (`evidencias_socratic` cobria socrático, missão e analítico, que têm nº de turnos e
 custo diferentes) — semana de conteúdo e semana de aplicação agora são distinguíveis
 no ledger.
+
+## 16/08 · Refino de Módulo-Base custa 2× a geração (e ainda compensa)
+
+Rodada do manuscrito DIR10 → `C014` (Macaé), medida no `ia_usage_log`:
+
+| Etapa | Chamadas | Custo | US$/módulo |
+|---|---|---|---|
+| Autoria (`modulo_base_autor`, `source='batch'`) | 24 | 2,235 | **0,093** |
+| Refino (`modulo_base_autor`, `source='wrapper'`) | 15 | 2,707 | **0,180** |
+| Auditoria (`modulo_base_auditor`, GPT-5.6 Terra) | 39 | 1,221 | 0,031 |
+| **Total dos 24 módulos** | | **6,16** | |
+| Micro-conteúdos (texto+case+layout+expansão PDF) | 36 | 1,66 | 0,104/conteúdo |
+
+**Os 15 refinos custaram mais que as 24 gerações.** A causa é estrutural, não de
+prompt: `refinarModuloCore` chama o wrapper SÍNCRONO, então paga preço cheio,
+enquanto a autoria em lote pega o −50% da Batch API. O input também é maior — o
+refino manda o módulo inteiro mais o feedback da auditora.
+
+**Mesmo assim vale**, porque o alternativo é módulo parado: 13 de 14 reprovados
+recuperados numa passada (a maioria 4,9 → 10) por US$ 2,71, contra regerar do zero
+sem garantia de acertar o mesmo ponto. O que **não** vale é tratar refino como rotina
+barata de "melhorar nota boa".
+
+**Otimização óbvia e não feita:** o refino é o candidato natural a `submitClaudeBatch`
+— é assíncrono por natureza (ninguém espera na tela) e roda em lote de N módulos.
+Cortaria ~US$ 1,35 por manuscrito reprovado pela metade. Mesma família do
+`submitOpenAIBatch` pendente para a auditoria.
+
+⚠️ **`conteudo_expansao_pdf` pagou por um PDF que não nascia** (4 chamadas, US$ 0,26):
+a expansão roda ANTES do render, e o render falhava por fonte (F-I18 do
+`docs/FMEA-PIPELINE.md`). Etapa cara que alimenta um artefato opcional deveria
+conferir se o consumidor existe antes de gastar.

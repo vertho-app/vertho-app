@@ -403,6 +403,18 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   "refazer o que está velho", ordene por `gerado_em` ASC em vez de filtrar: a fila anda sozinha.
   ⚠️ Quando o INSUMO muda por baixo (reancorar descritores), o artefato antigo **não se anuncia** — o
   PDF abre normal descrevendo uma régua que não existe mais.
+- NÃO ler o **`progress` de um job de lote como veredito**. `resultados[].ok` diz *persistiu*, não
+  *aprovado*: em 16/08 o job de manuscrito fechou "21 ok, 0 erro(s)" com **11 reprovados de 24** e
+  **3 módulos com `conteudo_central` vazio** (`{}`) marcados `ok: true`, carregando os avisos do
+  `validarCorpo` na mesma linha. Contar por `auditoria_ia->>'veredito'` no banco antes de declarar a
+  rodada boa. Mesma classe do "200 vazia fura fail-loud". Detalhe: `docs/FMEA-PIPELINE.md` §F-I17.
+- NÃO usar **`await import('@react-pdf/renderer')` dentro de uma função de render**. Sob `tsx` (todo
+  lote headless) isso resolve uma CÓPIA do módulo, e a fonte que `components/pdf/styles` registrou
+  fica na outra instância — medido: 13 famílias na estática contra 12 na dinâmica. O sintoma é
+  `Font family not registered: NotoSans` **com a fonte registrada**, engolido por um `catch` que só
+  faz `warn`: **40 micro-conteúdos nasceram sem PDF** e ainda pagaram a expansão de IA dele. E
+  quando o diagnóstico estiver certo, **conserte a FUNÇÃO, não o chamador** — em 05/08 o contorno
+  entrou num script e a função ficou quebrada mais 11 dias. `docs/FMEA-PIPELINE.md` §F-I18.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.

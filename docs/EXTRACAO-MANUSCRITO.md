@@ -80,6 +80,48 @@ Duas consequências práticas:
   dois vereditos na mensagem. Testes: `tests/unit/manuscrito-parser.test.ts`
   (validados por mutação — desligar a conferência derruba exatamente os 2 casos).
 
+### 1.1.1 Quando a grade NÃO fecha: fundir, não escrever (16/08)
+
+A invariante do §1.1 é o que reprova manuscrito na porta. O **DIR10 — Consciência
+Organizacional e Jurídica** chegou com 54 MBs e 8 capítulos, mas com as faixas
+desiguais dentro do capítulo (2,2,1,1 · 2,1,2,2 · 1,2,2,1 · 1,1,1,2 …): **2 de 8
+capítulos válidos**, e o import morre com *"Descritor(es) que não fecham em (4 faixas
+× k) [+1 síntese]"*.
+
+Há dois consertos possíveis, e o barato é o certo:
+
+| | O que faz | Custo |
+|---|---|---|
+| **Fundir** (recomendado) | onde a faixa tem 2 e outra tem 1, apaga a linha de CABEÇALHO do excedente | nenhum texto sai nem entra |
+| Subdividir | corta um MB longo em dois | exige batizar a segunda metade = **texto novo** |
+
+Fundir é neutro para o produto: a fonte que a IA-autora recebe por transição é a
+**concatenação** do capítulo (faixa de entrada + destino + síntese), e o número de
+módulos é `3 × descritores`, independente do `k`. Nesse manuscrito o título editorial
+fica no parágrafo SEGUINTE ao cabeçalho, então o MB absorvido continua legível como
+subtítulo. Resultado no DIR10: **12 fusões, 54 → 42 MBs, 8/8 capítulos válidos, 24
+módulos** — os mesmos 24 que sairiam da grade original se ela fechasse.
+
+⚠️ **Acrescentar ou remover MB obriga a RENUMERAR o documento inteiro**, porque a
+faixa é lida do número (§1.1). Não adianta abrir `MB55` no fim.
+
+Ferramentas (`scripts/`, todas com dry-run ou saída em arquivo novo):
+
+- **`_verificar-manuscrito.ts <docx>`** — imprime a grade capítulo × faixa, os chars
+  por capítulo e roda o parser real. É o passo antes de gastar IA.
+- **`_corrigir-grade-manuscrito.ts <entrada> <saida>`** — funde, renumera na convenção
+  canônica, atualiza o apêndice "Mapa dos microblocos" (IDs novos, títulos dos
+  fundidos concatenados com ` · `) e move para o fim qualquer apêndice que esteja
+  ANTES da Síntese final. Edita `word/document.xml` via `jszip`, preservando a
+  formatação, e **aborta se qualquer parágrafo de texto mudar** — compara o multiset
+  de parágrafos antes/depois (1.184 preservados byte a byte no DIR10).
+- **`_comparar-manuscritos.ts <a> <b>`** — ver §1.2.
+
+⚠️ **Apêndice antes da "Síntese final" é engolido pelo último microbloco.** `RE_CAUDA`
+só corta em `Síntese`, então o "Guia rápido das legislações" do DIR10 (28k) entrava no
+MB48, que ficou com 38k contra ~11k dos demais. O script de correção move; se um dia
+o parser passar a cortar também em `Apêndice`/`Referências`, isso deixa de ser preciso.
+
 ### 1.2 O código da competência pode divergir do catálogo
 
 O manuscrito se identifica pelo código do material autoral (`DIR08`); a matriz do

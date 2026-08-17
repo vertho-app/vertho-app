@@ -21,6 +21,10 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - 🔴 `CREATE INDEX CONCURRENTLY` e qualquer DDL proibido em transaction **não vai** por
   `apply-migration.mjs` (ele manda o arquivo inteiro numa query = transaction implícita).
   Script statement-a-statement; template: `scripts/_criar-indices-escala.mjs`.
+- 🔴 **`CREATE UNIQUE INDEX … WHERE …` (parcial) não serve de árbitro para `ON CONFLICT` via
+  PostgREST** — o `on_conflict=` só aceita colunas, não predicado → `42P10` no primeiro envio real,
+  com mensagem que nem cita o índice (16/08: o push do admin nunca funcionou). Ao criar índice único
+  parcial, procure quem faz `upsert` com essas colunas. Detalhe: memória `reference_indice_parcial_on_conflict`.
 - Idempotência + `NOTIFY pgrst, 'reload schema'` no fim. Fluxo: skill `migrations`, `docs/SCHEMA-PROCESS.md`.
 - Coluna nova "para corrigir algo": conferir o **schema atual** antes — a especificação do FMEA
   também envelhece (F-I4 pedia coluna que já existia).
@@ -223,6 +227,45 @@ Casa: `vercel env add/rm`, leitura nova de `process.env.*` que muda entrega, cus
   MARKETING (6× o custo, ~R$ 180 contra ~R$ 25 por semana em 400 pessoas). Aprovado, enviado,
   entregue — nada quebrou. Fechado com a **R13** do health (`checarTemplatesLigados`) e
   `scripts/_testar-template.ts`, que imprime o template resolvido **antes** de enviar.
+
+## 25. Lote de Módulo-Base / manuscrito (`trigger/gerar-modulos-manuscrito`, `scripts/_extrair-manuscrito-*`)
+
+Casa: importar manuscrito, gerar/refinar Módulo-Base em lote, publicar acervo de competência.
+
+- 🔴 **O `progress` do job NÃO é veredito.** `resultados[].ok` significa *persistiu*. Medido
+  16/08/2026: o job fechou "21 ok, 0 erro(s) · 21/21 auditado(s)" com **11 reprovados de 24** no
+  banco, e **3 com `conteudo_central` vazio** (`{}`) marcados `ok: true`, levando os avisos do
+  `validarCorpo` junto. Contar por veredito antes de dizer que deu certo:
+  `select auditoria_ia->>'veredito', count(*) … group by 1`.
+- 🔴 **Antes de gastar IA, rodar `scripts/_verificar-manuscrito.ts <docx>`** — a grade tem de fechar
+  em 4 faixas iguais **por capítulo** [+1 síntese]. O DIR10 chegou com 2 de 8 capítulos válidos; a
+  correção sem perder texto é **fundir** (`scripts/_corrigir-grade-manuscrito.ts`), nunca escrever MB
+  novo. Acrescentar ou remover MB **obriga a renumerar o documento inteiro**.
+- 🔴 **Dois manuscritos podem ter o mesmo `cod_comp` e ser competências diferentes.** DIR10 tem duas
+  versões com 54 IDs colidindo e **0 títulos iguais** — um merge por ID apagaria um manuscrito
+  inteiro em silêncio. Comparar por CONTEÚDO (`scripts/_comparar-manuscritos.ts`); o casamento com o
+  tenant é explícito (`--comp=C014`), nunca por semelhança de nome.
+- Refino: 13 de 14 recuperados numa passada, mas **custa 2× a geração** (wrapper síncrono, sem o
+  −50% do batch — `docs/CUSTO-QUALIDADE.md`). "Sem ganho" com nota igual pode ser conteúdo NOVO:
+  conferir `versao`/`auditado_em_versao` e rodar a 2ª passada antes de desistir.
+- Ressalva da auditoria vem do MANUSCRITO ou da IA? **Grep na fonte decide.** Refinar o que a autora
+  escreveu de propósito afasta o módulo do material dela.
+
+## 26. Render de PDF fora do Next (`scripts/*.ts`, tasks, lotes headless)
+
+Casa: qualquer caminho que renderize PDF por `tsx`/node em vez do bundle do Next.
+
+- 🔴 **`await import('@react-pdf/renderer')` dentro da função resolve uma CÓPIA diferente do
+  módulo.** A fonte registrada por `components/pdf/styles` fica na instância do import estático e o
+  render acontece na outra. Sintoma que engana: `Font family not registered: NotoSans` **com a fonte
+  comprovadamente registrada**. Medido 16/08/2026: 13 famílias na instância estática contra 12 na
+  dinâmica. Usar o `renderToBuffer` do import estático — `scripts/_provar-instancia-pdf.ts` prova e
+  valida por mutação.
+- 🔴 **Corrigir a FUNÇÃO, não o chamador.** Em 05/08 o diagnóstico estava certo e o conserto foi
+  contornar no script; a função ficou quebrada mais 11 dias e **40 micro-conteúdos nasceram sem
+  PDF** (`url`/`storage_path` nulos), pagando a expansão de IA do PDF assim mesmo.
+- Falha de render dentro de `try/catch` que só faz `console.warn` **não aparece em lugar nenhum**:
+  conferir o efeito PERSISTIDO (`select count(*) … where url is null`), nunca o log.
 
 ## 22. Sempre (base fixa — cite, não copie)
 

@@ -724,6 +724,60 @@ nome do ASSESSMENT — é por ele que o resolver casa `micro_conteudos`. Guarda:
 **Classe:** config declarada sem consumidor. `conteudosPorSemana: 2` estava certo no objeto e não
 tinha quem o lesse naquele caminho — o modo novo herdou o objeto de config, não os consumidores.
 
+### F-I17 · O `progress` do job de manuscrito diz "N ok, 0 erros" e 11 de 24 estavam reprovados 🟡 (medido 16/08)
+
+**Gatilho:** `trigger/gerar-modulos-manuscrito.ts` — `resultados[].ok` significa *persistiu*, não
+*aprovado*. O veredito mora em `modulos_base_conteudo.auditoria_ia->>'veredito'`, que o progresso
+não resume.
+
+Medido no DIR10 → C014 (Macaé): o job fechou **"21 ok, 0 erro(s) · 21/21 auditado(s)"** e o banco
+tinha **11 reprovados de 24**. Pior, **3 módulos com `conteudo_central` VAZIO** (`{}`, 2 chars,
+contra ~9k dos irmãos, com `conteudo_aplicavel` completo de ~19k) saíram como `ok: true`, levando os
+avisos do `validarCorpo` na mesma linha do resultado (`ideia_principal ausente`,
+`principios precisa de pelo menos 3 itens`). Nada falhou alto: é a classe **"200 vazia fura
+fail-loud"** (§1.2 deste doc) aplicada à CONSTRUÇÃO, onde a régua manda falhar.
+
+**Como não cair:** depois de qualquer lote de manuscrito, contar por veredito — nunca ler o
+`progress` como resultado:
+
+```sql
+select auditoria_ia->>'veredito', count(*), min((auditoria_ia->>'nota')::numeric)
+from modulos_base_conteudo m join competencias c on c.id = m.competencia_id
+where c.cod_comp = 'C014' group by 1;
+```
+
+**Correção pendente:** o `progress` deveria carregar o veredito por item (ou ao menos `reprovados:
+N`), e `conteudo_central` vazio deveria ser erro do item, não aviso. **Contorno que funciona hoje:**
+`scripts/_refinar-reprovados.ts <slug> --aplicar` — 13 de 14 recuperados em uma passada; o único
+"sem ganho" (4,9 → 4,9) tinha sido REESCRITO (`versao` 2, bloco vazio → 8,3k, problema mudou de
+*estrutura* para *auto-consistência*) e uma 2ª passada fechou em 10. **Nota igual não quer dizer
+conteúdo igual — comparar `versao`/`auditado_em_versao` antes de desistir.**
+
+### F-I18 · PDF do micro-conteúdo falhava por fonte e o catch engolia — 40 conteúdos sem PDF ✅ (corrigido 16/08, `f3ed4aa5`)
+
+**Gatilho:** `lib/conteudo-final-pdf.tsx` fazia `await import('@react-pdf/renderer')` dentro de
+`renderConteudoFinalPDF`, enquanto `components/pdf/styles` registrava a NotoSans na instância do
+import ESTÁTICO. Sob `tsx` (todo lote headless) são cópias diferentes do módulo — medido: namespace,
+`Font` e `renderToBuffer` são objetos distintos, e a dinâmica tinha **12 famílias registradas contra
+13** da estática.
+
+O erro `Font family not registered: NotoSans` caía no `catch` de `gerarConteudoIA`
+(`actions/conteudos.ts:250`), que só faz `console.warn`. O conteúdo era gravado com `url` e
+`storage_path` NULOS. Resultado: **40 micro-conteúdos sem PDF** (24 de C007 em 14/08 + 16 de C014 em
+16/08) — e a expansão de IA do PDF (`conteudo_expansao_pdf`, US$ 0,26 na última rodada) foi paga
+mesmo assim.
+
+**Correção:** `renderToBuffer` passou a vir do import estático do topo — o dinâmico não adiava nada,
+já que `Document`/`Page` entram estáticos na mesma linha. **Guarda:**
+`scripts/_provar-instancia-pdf.ts`, com validação por mutação (o mesmo componente pelo import
+dinâmico ainda falha com o erro original).
+
+**Classe: contornar não é consertar.** A causa foi diagnosticada certo em 05/08 e o conserto entrou
+no CHAMADOR (`scripts/_conarh-guia-pdf.ts` deixou de usar a função); a função ficou quebrada mais 11
+dias, para todo mundo. ⚠️ **Ainda com o padrão, não medidos:**
+`lib/relatorio-comportamental/relatorio-core.ts:65` e `app/dashboard/pdi/pdi-actions.ts:96`.
+**Backfill dos 40 existentes: ABERTO** — o fix vale só para gerações novas.
+
 ## 5. Parse de IA / robustez
 
 ### F-P1 · JSON truncado (maxTokens) → falha limpa (blueprint) ou score inflado (auditoria) ✅ (fechado 27/07)
