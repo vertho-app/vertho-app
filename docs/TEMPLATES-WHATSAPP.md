@@ -177,6 +177,225 @@ O que JÁ é tratado e grava em `whatsapp_template_eventos`: `message_template_s
 ⚠️ Mesmo assim a tabela **não é registro completo** — em 14/08 a API mostrava 6 reclassificações e a
 tabela guardou 2. Para categoria, a fonte é a API.
 
+## 3.2 O texto de cada template aprovado
+
+Copiado da Graph API em 17/08/2026 — é o corpo **aprovado**, não o que o código acha que manda.
+Serve para revisar copy sem abrir o WhatsApp Manager, e para conferir o `CONTRATOS` `{{n}}` a `{{n}}`
+antes de ligar qualquer papel.
+
+⚠️ Ao editar copy aqui, lembre que **o texto é o que define a categoria**: nome do produto, urgência,
+pergunta engajadora, entusiasmo e reengajamento puxam para MARKETING (6× o custo). O que passa como
+UTILITY é **afirmar um fato sobre o estado da conta da pessoa** e explicar para que serve. Ver §3.1.
+
+---
+
+### Em uso (§1)
+
+**`conteudo_semana`** · UTILITY · papel `pilula`
+
+> Olá, **{{1}}**. O conteúdo da semana **{{2}}** da sua trilha já está disponível: **{{3}}**.
+>
+> Você pode acessar em:
+> **{{4}}**
+>
+> O conteúdo é selecionado a partir do seu perfil e da competência desta semana.
+
+**`registro_evidencia`** · UTILITY · papel `evidencia` — quinta de semana de **aplicação**
+
+> Olá, **{{1}}**. Você está na semana **{{2}}** da sua trilha de desenvolvimento.
+>
+> O registro de evidências desta semana está pendente. Você pode registrar em:
+> **{{3}}**
+>
+> As evidências registradas são usadas para ajustar as próximas semanas da sua trilha.
+
+**`registro_desafio`** · UTILITY · papel `desafio` — quinta de semana de **conteúdo**
+
+> Olá, **{{1}}**. O desafio da semana **{{2}}** da sua trilha ainda não foi registrado.
+>
+> Você pode rever o desafio e relatar como foi em:
+> **{{3}}**
+>
+> O relato é usado para acompanhar sua evolução na trilha.
+
+🔑 Os dois acima saem do mesmo call-site e têm a **mesma forma**. É o texto que os separa — trocar um
+pelo outro entrega a cobrança errada para a pessoa certa, sem nada no typecheck acusar.
+
+**`missao_semana_v2`** · UTILITY · papel `missao`
+
+> Olá, **{{1}}**. A missão da semana **{{2}}** da sua trilha está disponível.
+>
+> Você pode acessar em:
+> **{{3}}**
+>
+> Nesta semana não há conteúdo novo. O registro da prática é solicitado na quinta-feira.
+
+**`retomada_trilha`** · UTILITY · papel `retomada`
+
+> Olá, **{{1}}**. Sua trilha de desenvolvimento está sem registro de atividade há mais de duas semanas.
+>
+> Você pode retomar de onde parou em:
+> **{{2}}**
+>
+> A trilha permanece disponível na sua conta.
+
+**`resultado_perfil`** · UTILITY · papel `perfil`
+
+> Olá, **{{1}}**. O resultado do seu perfil comportamental já está disponível na sua conta.
+>
+> Você pode consultar em:
+> **{{2}}**
+>
+> O resultado é usado para personalizar as próximas etapas da sua trilha.
+
+**`plano_desenvolvimento`** · UTILITY · papel `plano`
+
+> Olá, **{{1}}**. Seu plano de desenvolvimento individual está disponível.
+>
+> Você pode acessar em:
+> **{{2}}**
+>
+> O plano é gerado a partir da sua avaliação de perfil e das competências do seu cargo.
+
+**`acesso_vertho`** · UTILITY · papel `acesso` — **corpo sem variável**, o dado vai no botão
+
+> Seu link de acesso à Vertho foi gerado. Toque no botão abaixo para entrar.
+>
+> O link expira em 15 minutos e só pode ser usado uma vez.
+>
+> _Rodapé:_ Não compartilhe este link com ninguém.
+> _Botão:_ **Acessar Vertho** → `https://app.vertho.ai/entrar?t={{1}}`
+
+**`otp_acesso`** · AUTHENTICATION — botão nativo de copiar código
+
+> Seu código de verificação é **{{1}}**. Para sua segurança, não o compartilhe.
+>
+> _Rodapé:_ Expira em 10 minutos.
+> _Botão:_ **Copiar código** (COPY_CODE nativo)
+
+---
+
+### Aprovados UTILITY, sem consumidor (§2.1)
+
+**`trilha_liberada_v2`**
+
+> Olá, **{{1}}**. Sua trilha de desenvolvimento em **{{2}}** está disponível: são **{{3}}** semanas.
+>
+> Você pode começar em:
+> **{{4}}**
+>
+> O conteúdo é selecionado a partir do seu perfil e das competências do seu cargo.
+
+**`trilha_concluida`**
+
+> Olá, **{{1}}**. Você concluiu a sua trilha de desenvolvimento em **{{2}}**: as **{{3}}** semanas do programa foram registradas.
+>
+> Seu resultado final está disponível em:
+> **{{4}}**
+>
+> Os materiais da trilha continuam acessíveis na sua conta.
+
+**`avaliacao_pendente`**
+
+> Olá, **{{1}}**. Sua avaliação de perfil no programa da **{{2}}** ainda não foi iniciada.
+>
+> Você pode começar em:
+> **{{3}}**
+>
+> A avaliação leva cerca de 15 minutos e é ela que define a sua trilha de desenvolvimento.
+
+**`avaliacao_parcial`**
+
+> Olá, **{{1}}**. Sua avaliação está parcialmente respondida: **{{2}}** de **{{3}}** cenários registrados.
+>
+> Você pode continuar de onde parou em:
+> **{{4}}**
+>
+> As respostas já enviadas foram salvas.
+
+**`boas_vindas_v2`** — a primeira mensagem, de um número ainda desconhecido
+
+> Olá, **{{1}}**. Você foi inscrito(a) pela **{{2}}** no programa de desenvolvimento de competências.
+>
+> Este é o canal oficial do programa. Seu acesso está em:
+> **{{3}}**
+>
+> Se não reconhece este convite, é só responder a esta mensagem.
+
+---
+
+### MARKETING — desligados, guardados como contraste
+
+Vale ler ao lado dos UTILITY equivalentes: **a diferença é sempre a voz**, não a informação.
+
+**`pilula_semanal`** (≠ `conteudo_semana`) — anuncia o FORMATO, e é o que se perdeu na troca
+
+> Seu **{{1}}** de hoje: **{{2}}**.
+>
+> Acesse sua semana na plataforma:
+> **{{3}}**
+>
+> Bons estudos!
+> — Equipe Vertho
+
+**`nudge_inatividade`** (≠ `retomada_trilha`)
+
+> Olá, **{{1}}**! 👋
+>
+> Notamos que você está há mais de 2 semanas sem interagir com sua trilha.
+>
+> Que tal retomar hoje?
+>
+> — Vertho Mentor IA
+
+**`missao_aplicacao`** e **`missao_semana`** (≠ `missao_semana_v2`) — dois templates para o mesmo momento
+
+> Olá, **{{1}}**!
+>
+> **Semana {{2}} — Missão de Aplicação**
+>
+> Esta semana não tem pílula nova: é hora de colocar em prática o que você vem aprendendo, com uma **missão** feita para o seu dia a dia.
+>
+> Sua missão completa está na plataforma:
+> **{{3}}**
+>
+> E este vídeo explica como a semana funciona:
+> **{{4}}**
+>
+> Na quinta a Mentora IA vai querer saber como foi. Boa prática!
+> — Equipe Vertho
+
+**`conteudo_semana_v2`** (≠ `conteudo_semana`) — a reescrita que saiu pior: tirou o link do corpo,
+pôs num botão, e ainda assim veio MARKETING
+
+> Olá, **{{1}}**. O conteúdo da semana **{{2}}** da sua trilha está disponível.
+>
+> Tema: **{{3}}**
+>
+> O conteúdo é selecionado a partir do seu perfil e da competência desta semana.
+>
+> _Botão:_ **Ver conteúdo** → `https://app.vertho.ai/ir/{{1}}`
+
+**`trilha_liberada`** (≠ `trilha_liberada_v2`) — a única diferença é *"foi liberada: são N semanas,
+com um conteúdo novo e um registro de prática por semana"* contra *"está disponível: são N semanas"*.
+Descrever o programa puxou para MARKETING.
+
+**`boas_vindas`** — da fase Z-API, sem contrato
+
+> Olá, **{{1}}**! Bem-vindo à **{{2}}**! 🎉
+>
+> Seu link de acesso:
+> **{{3}}**
+>
+> Clique para entrar direto, sem senha.
+> Este link expira em 24h.
+
+🔑 **O contraste mais útil deste arquivo:** `trilha_liberada` × `trilha_liberada_v2`. Mesma
+informação, mesma estrutura, um trecho a mais descrevendo o programa — e 6× no custo. É a evidência
+de que a categoria não olha o assunto, olha a **intenção percebida**.
+
+---
+
 ## 4. Como conferir sem confiar neste arquivo
 
 ```bash
