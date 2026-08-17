@@ -220,6 +220,7 @@
     "scripts/_diag-formatos-amanha.ts": 1,
     "scripts/_video-semana-preferentes.ts": 1,
     "scripts/_watch-render.ts": 1,
-    "app/admin-v2/cliente/planos-actions.ts": 2
+    "app/admin-v2/cliente/planos-actions.ts": 2,
+    "scripts/_reenviar-p1-whatsapp.ts": 1
   }
 }
