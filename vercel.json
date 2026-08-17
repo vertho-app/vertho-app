@@ -17,6 +17,10 @@
       "schedule": "0 7 * * *"
     },
     {
+      "path": "/api/cron?action=avisar_planos",
+      "schedule": "0 12 * * *"
+    },
+    {
       "path": "/api/cron?action=preflight_entrega",
       "schedule": "0 10 * * *"
     },

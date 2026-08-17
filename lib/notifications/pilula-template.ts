@@ -67,7 +67,7 @@ export function caminhoDoBotao(a: Pick<PilulaTemplateArgs, 'slug' | 'semana' | '
  * Cada um tem a SUA chave: a quinta-feira e a pílula aprovam em momentos
  * diferentes, e uma chave só obrigaria a ligar tudo junto — ou nada.
  */
-export type PapelCadencia = 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil' | 'acesso' | 'missao';
+export type PapelCadencia = 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil' | 'acesso' | 'missao' | 'plano';
 
 const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   pilula: 'WHATSAPP_TEMPLATE_PILULA',
@@ -77,6 +77,7 @@ const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   perfil: 'WHATSAPP_TEMPLATE_PERFIL',
   acesso: 'WHATSAPP_TEMPLATE_ACESSO',
   missao: 'WHATSAPP_TEMPLATE_MISSAO',
+  plano: 'WHATSAPP_TEMPLATE_PLANO',
 };
 
 /** Nome do template aprovado para o papel, ou `null` quando está desligado. */
@@ -136,6 +137,19 @@ const CONTRATOS: Record<string, MontarParams> = {
    */
   missao_semana_v2: (a) => ({
     params: [a.nome, String(a.semana), deepLinkSemana(a.baseUrl, a.semana)],
+    botaoParam: null,
+  }),
+
+  /**
+   * O PLANO (relatório individual) ficou pronto. APPROVED/UTILITY em 16/08/2026.
+   * `{{1}}`=nome, `{{2}}`=link. Sem botão.
+   *
+   * 🔑 O link vai para `/dashboard/pdi`, que lê `relatorios` — NÃO a tabela
+   * `pdis`, que é código morto sem escritor vivo. O que a pessoa encontra lá é o
+   * blueprint com objetivos, ação principal, checklist e evidência esperada.
+   */
+  plano_desenvolvimento: (a) => ({
+    params: [a.nome, `${a.baseUrl}/dashboard/pdi`],
     botaoParam: null,
   }),
 

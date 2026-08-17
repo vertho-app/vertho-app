@@ -111,6 +111,16 @@ export async function GET(req) {
       // não serve de nada — gerar um kit leva ~5min por DISC e um vídeo leva ~40min de
       // render. Não roda às 11:00 (24h exatas) só para não disputar a lambda com o
       // envio do próprio dia, que acontece nesse minuto.
+      // AVISO DE PLANO PRONTO: quem teve relatório individual gerado DEPOIS do
+      // corte e ainda não soube. Fora do laço de geração de propósito — relatório
+      // sai em lote (34 em 38 min em Macaé) e um envio por item seria a rajada
+      // que derrubou o número em 11/08. Aqui é espaçado e com teto.
+      case 'avisar_planos': {
+        const { avisarPlanosProntos } = await import('@/lib/notifications/avisar-plano-pronto');
+        result = await avisarPlanosProntos();
+        break;
+      }
+
       case 'preflight_entrega': {
         const { executarHealthCheck } = await import('@/lib/pipeline-health/core');
         result = await executarHealthCheck('preflight');
