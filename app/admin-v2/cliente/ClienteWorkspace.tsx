@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import type { Workspace, FaseReal } from '../actions';
 import TurmasPanel from './TurmasPanel';
 import InboxPanel from './InboxPanel';
+import PlanosPanel from './PlanosPanel';
 
 const CHIP: Record<FaseReal['estado'], { classe: string; rotulo: string }> = {
   feito: { classe: 'bg-[#2ecc7124] text-[var(--success)]', rotulo: 'Concluído' },
@@ -17,14 +18,21 @@ const CHIP: Record<FaseReal['estado'], { classe: string; rotulo: string }> = {
 const ETAPAS_BASE = [
   { chave: 'visao', rotulo: 'Visão geral' },
   { chave: 'regua', rotulo: 'Definir régua' },
+  // Aviso de plano pronto: vem DEPOIS da régua porque só faz sentido quando os
+  // relatórios já existem, e antes de "Mensagens" porque é ação, não leitura.
+  { chave: 'planos', rotulo: 'Planos (PDI)' },
   // Caixa de entrada do WhatsApp. Última de propósito: é acompanhamento, não
   // uma etapa da implantação do cliente.
   { chave: 'mensagens', rotulo: 'Mensagens' },
 ];
 
 export default function ClienteWorkspace({ ws }: { ws: Workspace }) {
+  // Turmas entra logo depois de "Visão geral"; o resto segue na ordem da base.
+  // Por índice explícito (`[0], turmas, [1], [2]`) uma etapa nova na base
+  // desaparecia em silêncio nos tenants COM portfólio — que são justamente os
+  // maiores.
   const ETAPAS = ws.portfolio
-    ? [ETAPAS_BASE[0], { chave: 'turmas', rotulo: 'Turmas' }, ETAPAS_BASE[1], ETAPAS_BASE[2]]
+    ? [ETAPAS_BASE[0], { chave: 'turmas', rotulo: 'Turmas' }, ...ETAPAS_BASE.slice(1)]
     : ETAPAS_BASE;
   const [etapa, setEtapa] = useState<string>('visao');
   const [preflight, setPreflight] = useState(false);
@@ -39,6 +47,9 @@ export default function ClienteWorkspace({ ws }: { ws: Workspace }) {
   const pontoDaEtapa = (chave: string) => {
     if (chave === 'visao') return ws.fases.some((f) => f.estado === 'bloqueado') ? 'bg-[var(--danger)]' : 'bg-[var(--success)]';
     if (chave === 'turmas') return ws.portfolio?.semTurma ? 'bg-[var(--warning)]' : 'bg-[var(--success)]';
+    // Neutro também aqui: só a prévia sabe se há alguém a avisar, e ela custa
+    // uma consulta — pintar a bolinha exigiria contar no carregamento da tela.
+    if (chave === 'planos') return 'bg-white/20';
     // Neutro: mensagens não têm estado "certo" ou "errado" — só existem ou não.
     if (chave === 'mensagens') return 'bg-white/20';
     return ws.cenariosSemCheck > 0 ? 'bg-[var(--warning)]' : 'bg-[var(--success)]';
@@ -118,6 +129,8 @@ export default function ClienteWorkspace({ ws }: { ws: Workspace }) {
       {etapa === 'turmas' && ws.portfolio && (
         <TurmasPanel empresaId={ws.empresa.id} portfolio={ws.portfolio} />
       )}
+
+      {etapa === 'planos' && <PlanosPanel empresaId={ws.empresa.id} />}
 
       {etapa === 'mensagens' && <InboxPanel empresaId={ws.empresa.id} />}
 
