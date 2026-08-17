@@ -39,6 +39,62 @@ export function montarParametroAcesso(slug: string, tokenHash: string): string {
   return `${slug}${SEP}${tokenHash}`;
 }
 
+/**
+ * Subdomínios que NÃO são tenant. Espelha `RESERVED_SUBDOMAINS` do `proxy.js` —
+ * duplicado aqui de propósito: este módulo é puro (sem imports) porque roda em
+ * caminho de auth, e um import do proxy traria o middleware junto.
+ */
+const RESERVADOS = new Set(['www', 'app', 'api', 'admin', 'mail', 'smtp', 'ftp', 'radar', 'radarbett', 'imprensa']);
+
+/**
+ * Deriva `<slug>~<token_hash>` a partir da URL de callback já montada.
+ *
+ * 🔴 POR QUE ISTO EXISTE (medido 17/08/2026)
+ * ─────────────────────────────────────────
+ * `sendAccessLink` só usa o template da Cloud API quando recebe `acessoParam`, e
+ * dos **4 call-sites apenas 1** o passava. Os outros três —
+ * `phone-magic-link/request` (o login por telefone do colaborador!),
+ * `magic-link` e `signup` — caíam no legado, que depende da Z-API desconectada
+ * desde 11/08: **28 falhas com `zapi: saúde: desconectada` entre 14 e 16/08**.
+ * Login que não chega é a pessoa fora.
+ *
+ * A correção não é repetir a linha nos outros três — é derivar do que TODOS já
+ * passam (o `whatsappLink`), num lugar só. Assim o próximo call-site nasce certo
+ * sem ninguém lembrar. (Lição de 11/08 que eu tinha registrado e não apliquei:
+ * ao mexer no envio, procurar TODOS os call-sites.)
+ *
+ * ⚠️ ESTRITO DE PROPÓSITO. Devolve `null` para qualquer coisa que não seja
+ * inequivocamente um callback de tenant nosso: o `whatsappLink` pode ser o
+ * `action_link` do Supabase (outro host) quando o `token_hash` não veio, e
+ * derivar dali produziria um slug que não é tenant nenhum — um link de acesso
+ * apontando para lugar errado é pior que não mandar.
+ */
+export function derivarParametroAcesso(
+  url: string | null | undefined,
+  rootDomain = 'vertho.ai',
+): string | null {
+  if (!url) return null;
+  let u: URL;
+  try { u = new URL(url); } catch { return null; }
+
+  if (u.protocol !== 'https:') return null;
+  // Só o callback do tenant. Outro caminho não carrega token de sessão.
+  if (u.pathname !== '/auth/callback') return null;
+  if (!u.hostname.endsWith(`.${rootDomain}`)) return null;
+
+  const slug = u.hostname.slice(0, -(rootDomain.length + 1));
+  // `ibipeba` sim; `app`, `www` e afins não; `algo.ibipeba` também não (sub-sub).
+  if (!slug || slug.includes('.') || RESERVADOS.has(slug)) return null;
+  if (!SLUG_VALIDO.test(slug)) return null;
+
+  const tokenHash = u.searchParams.get('token_hash');
+  if (!tokenHash) return null;
+
+  const param = montarParametroAcesso(slug, tokenHash);
+  // Fecha o círculo: o que sai daqui tem que ser legível pelo `/entrar`.
+  return lerParametroAcesso(param) ? param : null;
+}
+
 export interface AcessoDespacho {
   slug: string;
   tokenHash: string;

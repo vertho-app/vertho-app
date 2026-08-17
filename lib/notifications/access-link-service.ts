@@ -5,6 +5,7 @@ import type { AppLocale } from '@/i18n/routing';
 import { magicLinkEmail, magicLinkWhatsapp, signupEmail, signupWhatsapp } from '@/lib/i18n-auth-templates';
 import { sendWhatsapp } from '@/lib/whatsapp';
 import { enviarPorTemplate } from '@/lib/notifications/pilula-template';
+import { derivarParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
 import { isTenantDemo } from '@/lib/demo/envio-guard';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { createSupabaseAdmin } from '@/lib/supabase';
@@ -168,13 +169,22 @@ async function enviarWhatsapp(p: SendAccessLinkInput, out: SendAccessLinkResult)
   // 1) Template aprovado pela Cloud API — o caminho que funciona hoje.
   //    O legado (texto livre) depende da Z-API, desconectada desde 11/08: 93
   //    magic links falharam por isso, e login que não chega é a pessoa fora.
-  if (p.acessoParam) {
+  //
+  // 🔑 DERIVA quando o chamador não passa. Dos 4 call-sites de `sendAccessLink`,
+  // só `magic-link-whatsapp` passava `acessoParam` — `phone-magic-link/request`
+  // (o login por telefone do colaborador), `magic-link` e `signup` caíam no
+  // legado morto: 28 falhas com "zapi: saúde: desconectada" entre 14 e 16/08.
+  // O `whatsappLink` que TODOS passam já carrega tenant + token_hash, então a
+  // regra mora aqui, uma vez, e o próximo call-site nasce certo.
+  const acessoParam = p.acessoParam || derivarParametroAcesso(p.whatsappLink);
+
+  if (acessoParam) {
     const viaTemplate = await enviarPorTemplate('acesso', {
       telefone: p.telefone, nome: p.nome, semana: 1, tema: '',
       slug: '', baseUrl: '', formato: null, pilula: null,
       empresaId: p.empresaId ?? null, colaboradorId: null,
       dedupeKey: null,
-      acessoParam: p.acessoParam,
+      acessoParam,
     });
 
     if (viaTemplate.tentou) {
