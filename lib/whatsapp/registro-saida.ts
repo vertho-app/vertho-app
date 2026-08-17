@@ -77,7 +77,20 @@ export async function registrarSaida(s: SaidaWhatsApp, sb?: ClientMinimo): Promi
       template_nome: s.templateNome ?? null,
       autor_email: s.autorEmail ?? null,
       origem: s.origem || 'cadencia',
-      dedupe_key: s.dedupeKey ?? null,
+      /*
+       * 🔴 SÓ O INBOX GRAVA `dedupe_key`, e isto é correção de um bug que ainda
+       * não tinha acontecido.
+       *
+       * A coluna tem índice ÚNICO (mig 215) e existe para UMA coisa: o duplo
+       * clique na caixa de texto (`prepararEnvio` consulta por ela). As chaves da
+       * CADÊNCIA não são únicas no tempo — `ultima_evidencia_whatsapp_em:<id>` e
+       * `missao:<id>` se repetem TODA semana, porque lá elas identificam o
+       * carimbo, não a mensagem. Gravá-las aqui faria o segundo envio da mesma
+       * pessoa colidir em `23505` e sumir da conversa: a thread mostraria a
+       * primeira semana e mais nada, sem erro nenhum. Apareceria só na quinta
+       * seguinte (27/08), com cara de "as mensagens antigas sumiram".
+       */
+      dedupe_key: s.origem === 'inbox' ? (s.dedupeKey ?? null) : null,
       erro: s.erro ?? null,
       raw: (s.raw ?? null) as any,
     });

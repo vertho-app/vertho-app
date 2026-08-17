@@ -136,6 +136,43 @@ describe('🔴 o que a cadência manda vira linha na conversa', () => {
     expect(linha.payload.wa_message_id).toBeNull();
   });
 
+  /**
+   * 🔴 A chave da cadência NÃO é única no tempo — e a coluna tem índice único.
+   *
+   * `ultima_evidencia_whatsapp_em:<id>` e `missao:<id>` se repetem toda semana:
+   * lá elas identificam o CARIMBO, não a mensagem. Gravadas aqui, o segundo envio
+   * para a mesma pessoa colidiria em 23505 e sumiria da conversa — a thread
+   * mostraria a primeira semana e mais nada, sem erro na tela.
+   */
+  it('🔴 envio de cadência NÃO carrega dedupe_key (a chave se repete toda semana)', async () => {
+    const sb = novoMock();
+    const chaveQueSeRepete = 'ultima_evidencia_whatsapp_em:envio-1';
+
+    await enviarTemplateCloud(
+      { phone: '5511999998888', template: 'registro_desafio', params: ['Ana', '5', 'u'] },
+      { motivo: 'desafio', dedupeKey: chaveQueSeRepete },
+    );
+    await enviarTemplateCloud(
+      { phone: '5511999998888', template: 'registro_desafio', params: ['Ana', '6', 'u'] },
+      { motivo: 'desafio', dedupeKey: chaveQueSeRepete },
+    );
+
+    const linhas = enviadas(sb);
+    expect(linhas).toHaveLength(2);
+    for (const l of linhas) expect(l.payload.dedupe_key).toBeNull();
+  });
+
+  it('a caixa de entrada CONTINUA gravando a chave — é lá que o duplo clique existe', async () => {
+    const sb = novoMock();
+    await enviarTextoCloud(
+      { phone: '5511999998888', texto: 'oi' },
+      { origem: 'cadencia', dedupeKey: 'x' }, // origem inbox não grava aqui; ver o teste vizinho
+    );
+    expect(enviadas(sb)[0].payload.dedupe_key).toBeNull();
+    // E o caminho do inbox: quem grava é `gravarEnviada` na action, com a chave.
+    // Ver `tests/unit/integrations/inbox-fluxo.test.ts`.
+  });
+
   it('🔴 o OTP grava o rótulo e NUNCA o código', async () => {
     const sb = novoMock();
     await enviarTemplateOtp({ phone: '5511999998888', codigo: '314159' }, { motivo: 'otp' });
