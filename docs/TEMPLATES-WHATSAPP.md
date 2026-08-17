@@ -21,7 +21,7 @@ está no ar e com qual contrato".
 
 ---
 
-## 1. Os 8 que estão em uso
+## 1. Os 9 que estão em uso
 
 Cada papel da cadência resolve o nome do template por env var (`ENV_DO_PAPEL` em
 `lib/notifications/pilula-template.ts`). Papel sem env var configurada fica **desligado** e o envio
@@ -37,6 +37,7 @@ cai no caminho legado — silenciosamente, que é o motivo da R13 existir.
 | 6 | `resultado_perfil` | UTILITY | `perfil` · `WHATSAPP_TEMPLATE_PERFIL` | Relatório individual pronto (envio deliberado, em lote) | `scripts/_avisar-perfil-pronto.ts:103` |
 | 7 | `acesso_vertho` | UTILITY | `acesso` · `WHATSAPP_TEMPLATE_ACESSO` | Magic link pedido no login | `lib/notifications/access-link-service.ts:172` |
 | 8 | `otp_acesso` | AUTHENTICATION | — (nome fixo no código) | Código de 6 dígitos do login por telefone | `app/api/auth/phone-otp/request/route.ts:83` |
+| 9 | `plano_desenvolvimento` | UTILITY | `plano` · `WHATSAPP_TEMPLATE_PLANO` | Relatório individual gerado **depois do corte** — cron `avisar_planos` | `lib/notifications/avisar-plano-pronto.ts` |
 
 🔑 **O nº 4 fechou um buraco de mais de um mês.** A segunda da semana de aplicação só tinha o
 caminho legado (`agendarWhatsapp` → Z-API), morto desde 11/08: por WhatsApp a semana **não abria**.
@@ -62,6 +63,7 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `missao_semana_v2` | nome | semana | link **sem formato** | — | — |
 | `retomada_trilha` | nome | link | — | — | — |
 | `resultado_perfil` | nome | link | — | — | — |
+| `plano_desenvolvimento` | nome | link de `/dashboard/pdi` | — | — | — |
 | `acesso_vertho` | *(corpo sem variável)* | | | | URL: `app.vertho.ai/entrar?t={{1}}` |
 | `otp_acesso` | código | — | — | — | COPY_CODE nativo |
 
@@ -99,7 +101,7 @@ pensar — a decisão de **quando** dispara.
 |---|---|---|---|
 | `trilha_liberada_v2` | Trilha liberada para a pessoa | nome · área · nº de semanas · link | Substitui o `trilha_liberada` (MARKETING) |
 | `trilha_concluida` | Fim das 7 semanas | nome · área · nº de semanas · link do resultado | ⚠️ O dono pediu que **não** dispare sozinho sem aprovação dele |
-| `plano_desenvolvimento` | PDI disponível | nome · link | ⚠️ `pdis` está **vazia em todos os tenants** — ligar hoje é anunciar o que não existe |
+| ~~`plano_desenvolvimento`~~ | — | — | ✅ **LIGADO em 16/08** (papel `plano`). Ver §1 |
 | `avaliacao_pendente` | Assessment nunca iniciado | nome · empresa · link | ~187 pessoas nesse estado (medido 15/08) |
 | `avaliacao_parcial` | Assessment parcial | nome · respondidos · total · link | O par `{{2}}`/`{{3}}` exige contar cenários — não é só um link |
 | `boas_vindas_v2` | Convite ao programa | nome · empresa · link | O momento mais arriscado: 1ª mensagem, de um número desconhecido |
@@ -108,6 +110,12 @@ pensar — a decisão de **quando** dispara.
 `resultado_perfil` aprovado e sem consumidor por semanas, com ~120 pessoas sem saber que o
 relatório delas estava pronto.
 
+⚠️ **A nota que eu tinha escrito aqui sobre o `plano_desenvolvimento` estava ERRADA.** Dizia "não
+ligar, a `pdis` está vazia" — e a tabela era irrelevante: **`/dashboard/pdi` nunca leu `pdis`**, lê
+`relatorios`. A `pdis` é código morto da fase 4, com um único escritor (`gerarPDIs`) que nenhuma tela
+chamou. Olhei o que estava GRAVADO em vez de ler quem CONSOME, que é a classe nº 1 deste repo
+(CLAUDE.md §"A forma GRAVADA ≠ o que é ENTREGUE"). O template foi ligado em 16/08.
+
 ---
 
 ## 3. O que isso custa
@@ -115,7 +123,7 @@ relatório delas estava pronto.
 No Brasil: **UTILITY R$ 0,06–0,09** · **MARKETING R$ 0,40–0,55** · AUTHENTICATION é a mais barata.
 Em ~400 pessoas semanais, a pílula sozinha é a diferença entre ~R$ 25 e ~R$ 180 por semana.
 
-Os 8 em uso são UTILITY ou AUTHENTICATION — **nenhum MARKETING ligado** (16/08). A R13 do health
+Os 9 em uso são UTILITY ou AUTHENTICATION — **nenhum MARKETING ligado** (16/08). A R13 do health
 avisa se isso mudar, porque MARKETING não tem sintoma: aprova, envia, entrega, e só aparece na fatura.
 
 Os 6 MARKETING aprovados estão todos **desligados**, e 4 deles porque um gêmeo UTILITY tomou o lugar:
