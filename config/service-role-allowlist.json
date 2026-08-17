@@ -218,6 +218,7 @@
     "scripts/_status-turma.ts": 1,
     "scripts/_prewarm-podcast-dia.ts": 1,
     "scripts/_diag-formatos-amanha.ts": 1,
-    "scripts/_video-semana-preferentes.ts": 1
+    "scripts/_video-semana-preferentes.ts": 1,
+    "scripts/_watch-render.ts": 1
   }
 }
