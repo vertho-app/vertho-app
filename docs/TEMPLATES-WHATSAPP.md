@@ -4,7 +4,12 @@ Registro operacional dos templates da Meta que estão **aprovados E ligados a al
 app**. Decisões de categoria, copy e migração ficam em `docs/INBOX-WHATSAPP.md`; aqui é o "o que
 está no ar e com qual contrato".
 
-> **Levantado em 16/08/2026.** Fontes: Graph API da WABA (status e categoria), `CONTRATOS` em
+> **Atualizado em 16/08/2026, 21h — a fila da Meta zerou:** os 9 pendentes aprovaram entre 12:34 e
+> 19:55 (7 UTILITY, 2 MARKETING), e o webhook gravou os 9. Estado: **22 aprovados** (15 UTILITY,
+> 6 MARKETING, 1 AUTHENTICATION), **0 pendentes**, 2 rejeitados, e `correct_category` null em todos
+> — nenhuma reclassificação agendada.
+>
+> Fontes: Graph API da WABA (status e categoria), `CONTRATOS` em
 > `lib/notifications/pilula-template.ts` (parâmetros), `git grep` dos call-sites e
 > `notification_deliveries` (o que realmente saiu).
 >
@@ -16,7 +21,7 @@ está no ar e com qual contrato".
 
 ---
 
-## 1. Os 7 que estão em uso
+## 1. Os 8 que estão em uso
 
 Cada papel da cadência resolve o nome do template por env var (`ENV_DO_PAPEL` em
 `lib/notifications/pilula-template.ts`). Papel sem env var configurada fica **desligado** e o envio
@@ -27,10 +32,16 @@ cai no caminho legado — silenciosamente, que é o motivo da R13 existir.
 | 1 | `conteudo_semana` | UTILITY | `pilula` · `WHATSAPP_TEMPLATE_PILULA` | Dias de pílula (P1/P2 da cadência da empresa) | `lib/fase4/trigger-diario-empresa.ts:287` |
 | 2 | `registro_evidencia` | UTILITY | `evidencia` · `WHATSAPP_TEMPLATE_EVIDENCIA` | Quinta de semana de **aplicação** | `lib/fase4/trigger-diario-empresa.ts:523` |
 | 3 | `registro_desafio` | UTILITY | `desafio` · `WHATSAPP_TEMPLATE_DESAFIO` | Quinta de semana de **conteúdo** | `lib/fase4/trigger-diario-empresa.ts:523` |
-| 4 | `retomada_trilha` | UTILITY | `retomada` · `WHATSAPP_TEMPLATE_RETOMADA` | 2+ semanas sem atividade | `lib/fase4/trigger-diario-empresa.ts:472` |
-| 5 | `resultado_perfil` | UTILITY | `perfil` · `WHATSAPP_TEMPLATE_PERFIL` | Relatório individual pronto (envio deliberado, em lote) | `scripts/_avisar-perfil-pronto.ts:103` |
-| 6 | `acesso_vertho` | UTILITY | `acesso` · `WHATSAPP_TEMPLATE_ACESSO` | Magic link pedido no login | `lib/notifications/access-link-service.ts:172` |
-| 7 | `otp_acesso` | AUTHENTICATION | — (nome fixo no código) | Código de 6 dígitos do login por telefone | `app/api/auth/phone-otp/request/route.ts:83` |
+| 4 | `missao_semana_v2` | UTILITY | `missao` · `WHATSAPP_TEMPLATE_MISSAO` | Segunda da semana de **aplicação** (4/8/12) | `lib/fase4/trigger-diario-empresa.ts:409` |
+| 5 | `retomada_trilha` | UTILITY | `retomada` · `WHATSAPP_TEMPLATE_RETOMADA` | 2+ semanas sem atividade | `lib/fase4/trigger-diario-empresa.ts:490` |
+| 6 | `resultado_perfil` | UTILITY | `perfil` · `WHATSAPP_TEMPLATE_PERFIL` | Relatório individual pronto (envio deliberado, em lote) | `scripts/_avisar-perfil-pronto.ts:103` |
+| 7 | `acesso_vertho` | UTILITY | `acesso` · `WHATSAPP_TEMPLATE_ACESSO` | Magic link pedido no login | `lib/notifications/access-link-service.ts:172` |
+| 8 | `otp_acesso` | AUTHENTICATION | — (nome fixo no código) | Código de 6 dígitos do login por telefone | `app/api/auth/phone-otp/request/route.ts:83` |
+
+🔑 **O nº 4 fechou um buraco de mais de um mês.** A segunda da semana de aplicação só tinha o
+caminho legado (`agendarWhatsapp` → Z-API), morto desde 11/08: por WhatsApp a semana **não abria**.
+Sobravam e-mail e push. E os dois templates que existiam para esse momento (`missao_semana`,
+`missao_aplicacao`, ambos MARKETING) nunca estiveram ligados a nada — não tinham contrato.
 
 🔑 **Nºs 2 e 3 saem do MESMO call-site**, com o papel escolhido por `ehDesafio ? 'desafio' :
 'evidencia'`. Eles têm a mesma forma e textos diferentes: trocar um pelo outro entrega a cobrança
@@ -48,10 +59,15 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `conteudo_semana` | nome | semana | tema | link | — |
 | `registro_evidencia` | nome | semana | link | — | — |
 | `registro_desafio` | nome | semana | link | — | — |
+| `missao_semana_v2` | nome | semana | link **sem formato** | — | — |
 | `retomada_trilha` | nome | link | — | — | — |
 | `resultado_perfil` | nome | link | — | — | — |
 | `acesso_vertho` | *(corpo sem variável)* | | | | URL: `app.vertho.ai/entrar?t={{1}}` |
 | `otp_acesso` | código | — | — | — | COPY_CODE nativo |
+
+⚠️ **O link da missão vai SEM `formato`**, e isso é teste: semana de aplicação não entrega conteúdo
+novo, então anunciar formato prometeria o que não existe — a classe da R1 do health, que nasceu de 17
+pílulas anunciando "vídeo" numa semana sem vídeo.
 
 ⚠️ **Corpo sem variável NÃO leva componente.** O `acesso_vertho` tem texto fixo; mandar
 `parameters: []` faz a Meta recusar a mensagem inteira. Ver `lib/whatsapp/cloud-api.ts:554`.
@@ -66,13 +82,31 @@ Aprovado não é o mesmo que ligado. Estes existem na conta e nenhum caminho do 
 |---|---|---|
 | `pilula_semanal` | ⚠️ MARKETING | Foi o da pílula até 16/08. Trocado por `conteudo_semana` — mesmo momento, **6× mais barato**. Tem contrato no código; se voltar a ser ligado, volta o custo |
 | `nudge_inatividade` | ⚠️ MARKETING | Substituído por `retomada_trilha`. Mesma função, mesma pessoa, 6× mais barato — a diferença é a voz do texto, e é ela que a Meta cobra |
-| `missao_semana` | ⚠️ MARKETING | Semana de aplicação. **Sem contrato no código** — não pode ser ligado sem escrever um |
-| `missao_aplicacao` | ⚠️ MARKETING | Gêmeo do anterior: mesmo momento, dois templates. Também sem contrato |
+| `missao_semana` | ⚠️ MARKETING | Semana de aplicação. Substituído por `missao_semana_v2` (UTILITY) em 16/08. Sem contrato — nunca chegou a ninguém |
+| `missao_aplicacao` | ⚠️ MARKETING | Gêmeo do anterior: mesmo momento, dois templates, os dois sem contrato |
+| `conteudo_semana_v2` | ⚠️ MARKETING | Reescrita do `conteudo_semana` que saiu **pior** que o original: aprovou MARKETING. O v1 (UTILITY) cobre o mesmo momento — não ligar |
+| `trilha_liberada` | ⚠️ MARKETING | Substituído por `trilha_liberada_v2` (UTILITY), aprovado no mesmo dia |
 | `boas_vindas` | UTILITY | Da fase Z-API. Sem contrato; o convite hoje sai por `acesso_vertho` |
 | `hello_world` | UTILITY | Amostra da Meta |
 
-🔴 **A semana de aplicação é o único momento sem opção UTILITY aprovada.** `missao_semana_v2`
-(UTILITY) está PENDING; enquanto não sair, disparar essa semana custa 6× ou não sai.
+### 2.1 Aprovados UTILITY e ainda **sem consumidor** (16/08)
+
+Estes saíram da fila hoje e **não enviam nada**: o `CONTRATOS` é fail-closed, então template sem
+contrato simplesmente não sai. Cada um precisa de contrato + papel + env var, e — o que custa mais
+pensar — a decisão de **quando** dispara.
+
+| Template | Momento | `{{n}}` | Nota |
+|---|---|---|---|
+| `trilha_liberada_v2` | Trilha liberada para a pessoa | nome · área · nº de semanas · link | Substitui o `trilha_liberada` (MARKETING) |
+| `trilha_concluida` | Fim das 7 semanas | nome · área · nº de semanas · link do resultado | ⚠️ O dono pediu que **não** dispare sozinho sem aprovação dele |
+| `plano_desenvolvimento` | PDI disponível | nome · link | ⚠️ `pdis` está **vazia em todos os tenants** — ligar hoje é anunciar o que não existe |
+| `avaliacao_pendente` | Assessment nunca iniciado | nome · empresa · link | ~187 pessoas nesse estado (medido 15/08) |
+| `avaliacao_parcial` | Assessment parcial | nome · respondidos · total · link | O par `{{2}}`/`{{3}}` exige contar cenários — não é só um link |
+| `boas_vindas_v2` | Convite ao programa | nome · empresa · link | O momento mais arriscado: 1ª mensagem, de um número desconhecido |
+
+🔑 **Aprovar não é ligar, e ligar não é disparar.** Foram esses dois degraus que deixaram
+`resultado_perfil` aprovado e sem consumidor por semanas, com ~120 pessoas sem saber que o
+relatório delas estava pronto.
 
 ---
 
@@ -81,8 +115,14 @@ Aprovado não é o mesmo que ligado. Estes existem na conta e nenhum caminho do 
 No Brasil: **UTILITY R$ 0,06–0,09** · **MARKETING R$ 0,40–0,55** · AUTHENTICATION é a mais barata.
 Em ~400 pessoas semanais, a pílula sozinha é a diferença entre ~R$ 25 e ~R$ 180 por semana.
 
-Os 7 em uso são UTILITY ou AUTHENTICATION — **nenhum MARKETING ligado** (16/08). A R13 do health
+Os 8 em uso são UTILITY ou AUTHENTICATION — **nenhum MARKETING ligado** (16/08). A R13 do health
 avisa se isso mudar, porque MARKETING não tem sintoma: aprova, envia, entrega, e só aparece na fatura.
+
+Os 6 MARKETING aprovados estão todos **desligados**, e 4 deles porque um gêmeo UTILITY tomou o lugar:
+`pilula_semanal`→`conteudo_semana`, `nudge_inatividade`→`retomada_trilha`,
+`missao_semana`/`missao_aplicacao`→`missao_semana_v2`, `trilha_liberada`→`trilha_liberada_v2`.
+Cabe pedir **revisão de categoria** deles em até 60 dias da reclassificação (só pelo WhatsApp
+Manager, ver §3.1) — se algum voltar a UTILITY, a copy original volta a ficar disponível de graça.
 
 ---
 
@@ -151,15 +191,26 @@ papel desligado aparece como `(desligado)`, que é o caso que o silêncio escond
 
 ---
 
-## 5. Pendentes na Meta (16/08)
+## 5. Fila da Meta: vazia (16/08, 21h)
 
-`avaliacao_pendente` · `avaliacao_parcial` · `boas_vindas_v2` · `missao_semana_v2` ·
-`plano_desenvolvimento` · `trilha_concluida` · `trilha_liberada_v2` — todos submetidos como UTILITY.
+**0 pendentes.** Os 9 que estavam na fila aprovaram no mesmo dia, entre 12:34 e 19:55 — e o webhook
+gravou os 9 em `whatsapp_template_eventos`, nenhum se perdeu.
 
-⚠️ `conteudo_semana_v2` e `trilha_liberada` já foram reclassificados para **MARKETING** antes mesmo
-de aprovar. O `conteudo_semana_v2` era a reescrita do nº 1 desta lista e saiu **pior** que o
-original: se aprovar, não vale ligar.
+| Resultado | Templates |
+|---|---|
+| ✅ UTILITY (7) | `avaliacao_pendente` · `avaliacao_parcial` · `boas_vindas_v2` · `missao_semana_v2` · `plano_desenvolvimento` · `trilha_concluida` · `trilha_liberada_v2` |
+| 🔴 MARKETING (2) | `conteudo_semana_v2` · `trilha_liberada` — os dois já vinham carimbados antes de aprovar |
 
-**Nenhum deles pode ser ligado antes de `APPROVED`** — template PENDING é recusado no envio (132001)
-e o papel fica mudo. Ao ligar qualquer um, escreva o contrato em `CONTRATOS` **no mesmo commit**:
-o mapa é fail-closed, então nome sem contrato simplesmente não envia.
+Desses, só o `missao_semana_v2` foi ligado. Os outros 6 UTILITY estão na §2.1, aprovados e sem
+consumidor.
+
+### Ao ligar o próximo
+
+- Escreva o contrato em `CONTRATOS` **no mesmo commit**: o mapa é fail-closed, e nome sem contrato
+  não envia — falha silenciosa, não erro.
+- Confira o contrato contra o corpo APROVADO na Graph API, `{{n}}` por `{{n}}`. Ele **não se deduz do
+  nome**: foi assim que o `pilula_semanal` quase mandou *"Seu Maria de hoje: \*5\*"* para 36 pessoas.
+- Rode `npx tsx scripts/_testar-template.ts` para si mesmo antes de qualquer lote.
+- Grave a env var com `printf '%s' … | vercel env add`, **nunca `echo`**.
+- E pergunte se o dado que a mensagem anuncia **existe**: `plano_desenvolvimento` está aprovado e a
+  tabela `pdis` está vazia em todos os tenants.
