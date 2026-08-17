@@ -19,6 +19,7 @@
     "lib/degradacao.ts": 1,
     "lib/notifications/delivery-log.ts": 1,
     "lib/whatsapp/registro-saida.ts": 1,
+    "scripts/_backfill-saida-whatsapp.ts": 1,
     "lib/sms/index.ts": 1,
     "lib/notifications/access-link-service.ts": 1,
     "lib/notifications/push-core.ts": 1,
