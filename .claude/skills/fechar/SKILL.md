@@ -68,12 +68,18 @@ Regras de escrita: o `CLAUDE.md` é resumo operacional — entrada nova ali é *
 
 **Um doc canônico por assunto.** Antes de criar `.md` novo, procure quem já cobre o tema e escreva lá — a consolidação de 27/07 fundiu 21 arquivos em 6 justamente porque o mesmo assunto vivia em 3-5 lugares, com versões que se contradiziam. Doc novo só quando o assunto não tem dono; então acrescente a linha na tabela de índice do `CLAUDE.md`.
 
-### 3.1 As 5 FONTES DO PROJECT (claude.ai) — avisar quando desatualizarem
+### 3.1 As FONTES DO PROJECT (claude.ai) — avisar quando desatualizarem
 
-Estes cinco estão carregados como fontes do Project no claude.ai, e **fonte de Project não se atualiza sozinha** — fica congelada na versão que foi subida:
+**São 16, não 5** (conferido na interface em 16/08/2026 — esta lista já mandou checar só 5 e deixou
+passar 7 defasadas, entre elas o `CLAUDE.md`, que estava com **191 linhas contra 423** do repo).
+Fonte de Project não se atualiza sozinha: fica congelada na versão subida.
 
 ```
-CLAUDE.md · docs/ARQUITETURA.md · docs/PIPELINE-TRILHA.md · docs/FMEA-PIPELINE.md · docs/PASSO-A-PASSO-VERTHO.md
+CLAUDE.md · docs/ARQUITETURA.md · docs/PIPELINE-TRILHA.md · docs/FMEA-PIPELINE.md
+docs/PASSO-A-PASSO-VERTHO.md · docs/CUSTO-QUALIDADE.md · docs/SECURITY-STATUS.md
+docs/CATALOGO-PROMPTS-IA.md · docs/MODULOS-BASE-CONTEUDO.md · docs/PORTAL-REPRESENTANTE.md
+docs/GERADOR-VIDEO-MODULO.md · docs/DESIGN-SYSTEM.md · docs/RESUMO.md
+docs/FEATURES-E-BENEFICIOS.md · docs/LEVANTAMENTO-2026-07.md · docs/plano-refatoracao-final.md
 ```
 
 No fim da rodada, cheque se algum deles foi tocado:
@@ -106,7 +112,7 @@ Termine dizendo, em uma linha cada:
 
 1. o que foi gravado na memória;
 2. quais `.md` mudaram;
-3. **se alguma das 5 fontes do Project mudou** (checagem do passo 3.1) → *"⚠️ Re-subir no claude.ai: …"*;
+3. **se alguma das 16 fontes do Project mudou** (checagem do passo 3.1) → *"⚠️ Re-subir no claude.ai: …"*. Dá para fazer no lugar do Rodrigo pela extensão do Chrome (`claude-in-chrome`): copiar os `.md` para a pasta da sessão, `file_upload` no input da seção **Context** (o do projeto, não o do chat) e só então remover as versões antigas, identificadas pela **contagem de linhas** — a nova entra com `wc -l + 1`. Remoção é irreversível: pedir o ok antes;
 4. o que **ficou aberto** — o que você não conseguiu verificar.
 
 O que não foi medido tem que sair rotulado como não medido.
