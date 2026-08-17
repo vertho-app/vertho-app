@@ -13,10 +13,18 @@
  * estado terminal (`done`/`error`) ou quando o teto de tempo estoura — e diz
  * qual dos dois aconteceu, porque "parou de imprimir" não é resposta.
  *
+ * `--so-terminais` emite apenas `done`/`error` e o fim. A saída deste script vira
+ * NOTIFICAÇÃO, e cada transição intermediária (narração → avatar → fila → render)
+ * custa a atenção de quem lê sem dizer nada acionável: num lote de 19, são ~60
+ * eventos para 19 informações. O modo detalhado continua sendo o default porque
+ * na primeira vez que se roda um pipeline novo é a etapa que revela ONDE ele
+ * trava.
+ *
  * Uso:
  *   npx tsx scripts/_watch-render.ts --empresa=macae
  *   ... --desde=2026-08-17T22:00:00Z   (default: últimas 6h)
  *   ... --teto=180                     (minutos; default 180)
+ *   ... --so-terminais                 (só done/error + fim)
  */
 process.loadEnvFile('.env.local');
 import { createSupabaseAdmin } from '@/lib/supabase';
@@ -28,6 +36,7 @@ const TETO_MIN = Number(arg('teto')) || 180;
 const INTERVALO_MS = 60_000;
 
 const TERMINAIS = new Set(['done', 'error']);
+const SO_TERMINAIS = process.argv.includes('--so-terminais');
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
@@ -57,6 +66,7 @@ async function main() {
       const estado = `${v.status}/${v.etapa ?? '-'}${v.bunny_video_id ? '+bunny' : ''}`;
       if (visto.get(v.id) === estado) continue;
       visto.set(v.id, estado);
+      if (SO_TERMINAIS && !TERMINAIS.has(v.status)) continue;
       const marca = v.status === 'done' ? '✅' : v.status === 'error' ? '❌' : '·';
       console.log(`${marca} DISC ${v.disc_dominante} ${v.id.slice(0, 8)} → ${estado}${v.error ? ` · ${String(v.error).slice(0, 120)}` : ''}`);
     }
