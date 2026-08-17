@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter, Instrument_Serif, Manrope, Plus_Jakarta_Sans, Fraunces } from "next/font/google";
+import localFont from "next/font/local";
 import { NextIntlClientProvider } from 'next-intl';
 import { Toaster } from 'sonner';
 import { getLocale, getMessages, getTranslations } from 'next-intl/server';
@@ -8,38 +8,59 @@ import { resolveTenantFromHeaders } from '@/lib/tenant-resolver';
 import { derivarNomeCurto } from '@/lib/tenant-nome-curto';
 import "./globals.css";
 
-const inter = Inter({
-  subsets: ["latin"],
+/**
+ * Fontes SELF-HOSTED (`app/fonts/*.woff2`), não `next/font/google`.
+ *
+ * 🔴 POR QUE (medido 15-17/08/2026): o build do CI quebrou QUATRO vezes em dois
+ * dias buscando `fonts.gstatic.com` — `Module not found:
+ * @vercel/turbopack-next/internal/font/google/font` e, num teste de PDF,
+ * `ECONNRESET` no meio do render. Todas passaram no re-run, ou seja: vermelho
+ * que não é do diff. E vermelho intermitente é pior que vermelho — ele treina
+ * quem olha a ficar re-rodando sem ler, que foi como cinco commits ficaram
+ * quebrados por 3h em 13/08.
+ *
+ * O `next/font/google` baixa em BUILD TIME. Como o cache não sobrevive entre
+ * execuções do CI, todo build depende da rede do Google. Servindo do repo, essa
+ * dependência deixa de existir — e o resultado no navegador é o mesmo (o
+ * `next/font` já servia do nosso domínio; o que mudou é de onde o BUILD tira o
+ * arquivo).
+ *
+ * Subset `latin`, arquivos variáveis quando a família tem eixo de peso — 13
+ * arquivos, ~340 KB. Todas as famílias são SIL OFL; ver `app/fonts/README.md`.
+ */
+const inter = localFont({
+  src: [{ path: "./fonts/inter.woff2", weight: "100 900", style: "normal" }],
   variable: "--font-inter",
+  display: "swap",
 });
 
-const manrope = Manrope({
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
+const manrope = localFont({
+  src: [{ path: "./fonts/manrope.woff2", weight: "200 800", style: "normal" }],
   variable: "--font-manrope",
   display: "swap",
 });
 
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
-  weight: ["400"],
-  style: ["normal", "italic"],
+const instrumentSerif = localFont({
+  src: [
+    { path: "./fonts/instrument-serif.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/instrument-serif-italic.woff2", weight: "400", style: "italic" },
+  ],
   variable: "--font-serif",
   display: "swap",
 });
 
 // Tipografia exclusiva do /radarbett/* (handoff Bett 2026)
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+const jakarta = localFont({
+  src: [{ path: "./fonts/jakarta.woff2", weight: "200 800", style: "normal" }],
   variable: "--font-jakarta",
   display: "swap",
 });
 
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
+const fraunces = localFont({
+  src: [
+    { path: "./fonts/fraunces.woff2", weight: "100 900", style: "normal" },
+    { path: "./fonts/fraunces-italic.woff2", weight: "100 900", style: "italic" },
+  ],
   variable: "--font-fraunces",
   display: "swap",
 });

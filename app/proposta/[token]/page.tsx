@@ -4,27 +4,33 @@
 // Não importa nenhum guard de auth/tenant. Renderiza apenas o VM cliente-safe
 // devolvido por getPropostaPublica (que exclui comissão/margem/score).
 import type { Metadata } from 'next';
-import { Space_Grotesk, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 import { getPropostaPublica } from '@/actions/sales/proposal-share';
 import { fmtBRL, fmtDate } from '@/lib/sales/formatters';
 
 export const dynamic = 'force-dynamic';
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+// Self-hosted (`app/fonts/`) pelo mesmo motivo do `app/layout.tsx`: o build do
+// CI não pode depender do gstatic. Ver o comentário lá.
+const spaceGrotesk = localFont({
+  src: [{ path: '../../fonts/space-grotesk.woff2', weight: '300 700', style: 'normal' }],
   variable: '--font-prop-display',
   display: 'swap',
 });
-const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
+const ibmPlexSans = localFont({
+  src: [
+    { path: '../../fonts/ibm-plex-sans-400.woff2', weight: '400', style: 'normal' },
+    { path: '../../fonts/ibm-plex-sans-500.woff2', weight: '500', style: 'normal' },
+    { path: '../../fonts/ibm-plex-sans-600.woff2', weight: '600', style: 'normal' },
+  ],
   variable: '--font-prop-body',
   display: 'swap',
 });
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
+const ibmPlexMono = localFont({
+  src: [
+    { path: '../../fonts/ibm-plex-mono-400.woff2', weight: '400', style: 'normal' },
+    { path: '../../fonts/ibm-plex-mono-500.woff2', weight: '500', style: 'normal' },
+  ],
   variable: '--font-prop-mono',
   display: 'swap',
 });
