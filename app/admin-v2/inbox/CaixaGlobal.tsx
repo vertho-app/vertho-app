@@ -61,18 +61,27 @@ export default function CaixaGlobal() {
   const [erro, setErro] = useState<string | null>(null);
   const [empresaFiltro, setEmpresaFiltro] = useState('');
   const [soNaoLidas, setSoNaoLidas] = useState(false);
+  /**
+   * Mostrar também quem só RECEBEU (a cadência mandou, a pessoa não escreveu).
+   *
+   * Desligado por padrão porque a caixa existe para não perder RESPOSTA, e são
+   * dezenas de disparos por dia contra poucas respostas — ligado por padrão, as
+   * duas que precisam de gente sumiriam no meio das trinta e seis que não
+   * precisam. Ligado sob demanda, a mesma tela vira o registro do canal.
+   */
+  const [incluirSemResposta, setIncluirSemResposta] = useState(false);
   const [escolha, setEscolha] = useState<Record<string, string>>({});
   const [avisoFila, setAvisoFila] = useState<string | null>(null);
   const [agindo, startAcao] = useTransition();
 
   const recarregarCaixa = useCallback(async () => {
     try {
-      setCaixa(await listarCaixaGlobal());
+      setCaixa(await listarCaixaGlobal({ incluirSemResposta }));
       setErro(null);
     } catch (e: any) {
       setErro(e?.message || 'Falha ao carregar a caixa.');
     }
-  }, []);
+  }, [incluirSemResposta]);
 
   const recarregarFila = useCallback(async () => {
     try {
@@ -258,6 +267,17 @@ export default function CaixaGlobal() {
           <input type="checkbox" checked={soNaoLidas} onChange={(e) => setSoNaoLidas(e.target.checked)} />
           só não lidas
         </label>
+        <label
+          className="flex items-center gap-1.5 text-[12px] text-[var(--ink-dim)]"
+          title="Inclui quem recebeu mensagem nossa e ainda não respondeu — a caixa vira o registro do canal, não só das respostas"
+        >
+          <input
+            type="checkbox"
+            checked={incluirSemResposta}
+            onChange={(e) => setIncluirSemResposta(e.target.checked)}
+          />
+          mostrar enviadas sem resposta
+        </label>
         <button
           type="button"
           onClick={() => void recarregar()}
@@ -301,6 +321,9 @@ export default function CaixaGlobal() {
                   )}
                 </div>
                 <span className="truncate text-[12px] text-[var(--ink-faint)]">
+                  {/* Quem falou por último muda o sentido da prévia: a mesma
+                      frase vinda de nós é o último disparo, não alguém esperando. */}
+                  {c.ultimoLado === 'equipe' && <span className="text-[var(--ink-faint)]">nós: </span>}
                   {c.ultimoTexto || rotuloDoTipo(c.ultimoTipo)}
                 </span>
                 <span className="flex items-center gap-1.5 font-mono text-[10px] text-[var(--ink-faint)]">
@@ -308,9 +331,11 @@ export default function CaixaGlobal() {
                     {c.empresa ?? 'sem cliente'}
                   </span>
                   ·{' '}
-                  {c.janela.estado === 'aberta'
-                    ? `responde por ${restanteLegivel(c.janela.restanteMs)}`
-                    : 'janela encerrada'}
+                  {c.recebidas === 0
+                    ? `${c.enviadas} enviada(s) · sem resposta`
+                    : c.janela.estado === 'aberta'
+                      ? `responde por ${restanteLegivel(c.janela.restanteMs)}`
+                      : 'janela encerrada'}
                 </span>
               </button>
             );

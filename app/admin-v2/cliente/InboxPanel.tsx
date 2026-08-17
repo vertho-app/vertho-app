@@ -32,15 +32,17 @@ const POLL_LISTA_MS = 15_000;
 export default function InboxPanel({ empresaId }: { empresaId: string }) {
   const [conversas, setConversas] = useState<Conversa[] | null>(null);
   const [erroLista, setErroLista] = useState<string | null>(null);
+  /** Também quem só recebeu (ver o mesmo controle em `/admin-v2/inbox`). */
+  const [incluirSemResposta, setIncluirSemResposta] = useState(false);
 
   const recarregar = useCallback(async () => {
     try {
-      setConversas(await listarConversas(empresaId));
+      setConversas(await listarConversas(empresaId, { incluirSemResposta }));
       setErroLista(null);
     } catch (e: any) {
       setErroLista(e?.message || 'Falha ao carregar conversas.');
     }
-  }, [empresaId]);
+  }, [empresaId, incluirSemResposta]);
 
   const conversa = useConversa(recarregar);
   const { abrir, atualizar, estaAtiva, thread, aviso, rascunho, escrever, enviar, enviando, ativa, anexo, anexar, enviarAnexo } = conversa;
@@ -65,23 +67,51 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
     );
   }
 
+  /**
+   * O controle vive FORA do `if (vazio)`, e isso não é detalhe de layout: sem
+   * resposta nenhuma é exatamente quando alguém quer ver o que foi enviado. Um
+   * checkbox que só aparece quando já há conversa é inalcançável no único estado
+   * em que ele muda alguma coisa.
+   */
+  const controle = (
+    <label
+      className="flex items-center gap-1.5 text-[12px] text-[var(--ink-dim)]"
+      title="Inclui quem recebeu mensagem nossa e ainda não respondeu"
+    >
+      <input
+        type="checkbox"
+        checked={incluirSemResposta}
+        onChange={(e) => setIncluirSemResposta(e.target.checked)}
+      />
+      mostrar enviadas sem resposta
+    </label>
+  );
+
   if (!conversas?.length) {
     return (
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-6 text-center">
-        <p className="text-sm text-[var(--ink-dim)]">Nenhuma mensagem recebida deste cliente.</p>
-        <p className="mt-2 text-[12px] text-[var(--ink-faint)]">
-          As respostas dos colaboradores aparecem aqui assim que chegam pelo WhatsApp. Mensagens de telefone que
-          o sistema não conseguiu identificar não entram nesta lista —{' '}
-          <Link href="/admin-v2/inbox" className="underline underline-offset-2 hover:text-[var(--cyan)]">
-            veja a caixa da equipe
-          </Link>.
-        </p>
+      <div className="flex flex-col gap-3">
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-6 text-center">
+          <p className="text-sm text-[var(--ink-dim)]">
+            {incluirSemResposta
+              ? 'Nenhuma mensagem trocada com este cliente — nem recebida, nem enviada.'
+              : 'Nenhuma mensagem recebida deste cliente.'}
+          </p>
+          <p className="mt-2 text-[12px] text-[var(--ink-faint)]">
+            As respostas dos colaboradores aparecem aqui assim que chegam pelo WhatsApp. Mensagens de telefone que
+            o sistema não conseguiu identificar não entram nesta lista —{' '}
+            <Link href="/admin-v2/inbox" className="underline underline-offset-2 hover:text-[var(--cyan)]">
+              veja a caixa da equipe
+            </Link>.
+          </p>
+        </div>
+        {controle}
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-3">
+      {controle}
       <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
         {/* Lista de conversas */}
         <div className="max-h-[560px] overflow-y-auto rounded-xl border border-white/[0.08]">
@@ -105,12 +135,15 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
                   )}
                 </div>
                 <span className="truncate text-[12px] text-[var(--ink-faint)]">
+                  {c.ultimoLado === 'equipe' && <span>nós: </span>}
                   {c.ultimoTexto || rotuloDoTipo(c.ultimoTipo)}
                 </span>
                 <span className="font-mono text-[10px] text-[var(--ink-faint)]">
-                  {c.janela.estado === 'aberta'
-                    ? `responde por ${restanteLegivel(c.janela.restanteMs)}`
-                    : 'janela encerrada'}
+                  {c.recebidas === 0
+                    ? `${c.enviadas} enviada(s) · sem resposta`
+                    : c.janela.estado === 'aberta'
+                      ? `responde por ${restanteLegivel(c.janela.restanteMs)}`
+                      : 'janela encerrada'}
                 </span>
               </button>
             );

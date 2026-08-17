@@ -86,7 +86,72 @@ export async function rodarPreflight(dataAlvo: Date, empresaIdFiltro?: string): 
 
 // ── PÓS-VOO ────────────────────────────────────────────────────────────────────
 
-export async function rodarPostflight(dataAlvo: Date, empresaIdFiltro?: string): Promise<ResultadoCheck[]> {
+/**
+ * Hora UTC em que a cadência dispara (`trigger_diario` no `vercel.json`).
+ *
+ * Vive aqui porque é o que dá SENTIDO ao pós-voo: "o que ia sair, saiu?" só é uma
+ * pergunta respondível depois que o envio terminou.
+ */
+const HORA_DISPARO_UTC = 11;
+
+/**
+ * Quanto tempo esperar depois do disparo antes de julgar a entrega.
+ *
+ * 🔴 POR QUE ISTO EXISTE (medido em 17/08/2026)
+ * ─────────────────────────────────────────────
+ * O pós-voo rodava DENTRO do mesmo request do `trigger_diario`. Isso funcionava
+ * enquanto o trigger enviava; quando ele virou **dispatcher** (fan-out de uma
+ * task QStash por empresa), o check passou a medir logo após o ENFILEIRAMENTO —
+ * antes de qualquer worker gravar carimbo.
+ *
+ * O resultado não foi silêncio, foi MENTIRA: em 17/08 o run das 11:00:21 gritou
+ * *"Nenhum WhatsApp saiu hoje"*, *"Nenhum e-mail saiu hoje"* e *"36 pessoas não
+ * receberam por canal nenhum"* — enquanto as 36 pílulas saíam entre 11:00:28 e
+ * 11:00:43 e chegavam como `delivered`. Mesmo padrão em 03/08.
+ *
+ * ⚠️ O timing já estava DESCRITO num comentário do `app/api/cron/route.ts` ("este
+ * postflight roda logo após o enfileiramento"), e o alarme continuou disparando
+ * assim mesmo: **aviso em comentário não é mecanismo**. O cron passou a rodar às
+ * 11:45 e esta guarda é a segunda linha — se alguém reencaixar o pós-voo cedo,
+ * ele diz "ainda não dá para saber" em vez de inventar uma pane.
+ *
+ * 45 min de folga no cron, 25 aqui: a janela entre os dois é a margem para o
+ * fan-out atrasar sem que o check vire ruído.
+ */
+export const MINUTOS_MINIMOS_APOS_DISPARO = 25;
+
+/** Minutos desde o disparo do dia. Negativo = ainda não disparou. */
+export function minutosDesdeODisparo(agora: Date, dataAlvo: Date): number {
+  const disparo = new Date(Date.UTC(
+    dataAlvo.getUTCFullYear(), dataAlvo.getUTCMonth(), dataAlvo.getUTCDate(), HORA_DISPARO_UTC, 0, 0,
+  ));
+  return Math.floor((agora.getTime() - disparo.getTime()) / 60_000);
+}
+
+export async function rodarPostflight(
+  dataAlvo: Date,
+  empresaIdFiltro?: string,
+  agora: Date = new Date(),
+): Promise<ResultadoCheck[]> {
+  const decorridos = minutosDesdeODisparo(agora, dataAlvo);
+  if (decorridos < MINUTOS_MINIMOS_APOS_DISPARO) {
+    // Registra em vez de sumir: "silêncio por exceção é indistinguível de
+    // silêncio por estar tudo bem" vale também para o check que se absteve.
+    return [{
+      modo: 'postflight', empresaId: null, empresaSlug: null,
+      dataAlvo: dataAlvo.toISOString().slice(0, 10),
+      severidade: 'aviso', duracaoMs: 0,
+      achados: [{
+        id: 'postflight-cedo-demais',
+        severidade: 'aviso',
+        titulo: 'Pós-voo não julgou: cedo demais para saber',
+        contagem: 1,
+        detalhe: `Só ${decorridos} min desde o disparo das ${HORA_DISPARO_UTC}:00 UTC, e o envio é assíncrono (uma task por empresa). Julgar agora produziria "nenhum canal saiu" com as mensagens ainda em voo — foi o que aconteceu em 03/08 e 17/08.`,
+        acao: `Rodar de novo pelo menos ${MINUTOS_MINIMOS_APOS_DISPARO} min após o disparo (o cron postflight_entrega já faz isso às ${HORA_DISPARO_UTC}:45 UTC).`,
+      }],
+    }];
+  }
+
   const sb = createSupabaseAdmin();
   const empresas = (await empresasAtivas(sb)).filter((e) => !empresaIdFiltro || e.id === empresaIdFiltro);
   const dia = diaDaSemanaBRT(dataAlvo);
@@ -378,7 +443,9 @@ export async function executarHealthCheck(modo: 'preflight' | 'postflight' | 'es
     // Avalia a entrega de AMANHÃ — o ponto é sobrar tempo para corrigir.
     resultados = await rodarPreflight(new Date(agora.getTime() + 24 * 3600_000));
   } else if (modo === 'postflight') {
-    resultados = await rodarPostflight(agora);
+    // O dia alvo é HOJE e o relógio é o mesmo — é `rodarPostflight` que decide se
+    // já dá para julgar (ver `MINUTOS_MINIMOS_APOS_DISPARO`).
+    resultados = await rodarPostflight(agora, undefined, agora);
   } else if (modo === 'horizonte') {
     resultados = await rodarHorizonte();
   } else {

@@ -40,14 +40,21 @@ async function exigirPlataforma() {
  * conversas assim que um único telefone ficasse falante: a cota era das
  * mensagens, não das pessoas.
  */
-export async function listarConversas(empresaId: string): Promise<Conversa[]> {
+export async function listarConversas(
+  empresaId: string,
+  opts?: { incluirSemResposta?: boolean },
+): Promise<Conversa[]> {
   await exigirPlataforma();
   const tdb = tenantDb(empresaId);
 
-  const { data, error } = await tdb.from('whatsapp_conversas')
-    .select('empresa_id, from_phone, ultima_em, total, nao_lidas, ultimo_texto, ultimo_tipo, colaborador_id, ambiguidade')
+  let q = tdb.from('whatsapp_conversas')
+    .select('empresa_id, from_phone, ultima_em, ultima_recebida_em, total, enviadas, nao_lidas, ultimo_texto, ultimo_tipo, ultimo_lado, colaborador_id, ambiguidade')
     .order('ultima_em', { ascending: false })
     .limit(300);
+  // A view traz os DOIS lados desde a mig 220; `total` conta só o que ELA mandou.
+  if (!opts?.incluirSemResposta) q = q.gt('total', 0);
+
+  const { data, error } = await q;
   if (error) throw new Error(`conversas: ${error.message}`);
 
   const linhas = (data || []) as LinhaConversa[];
@@ -82,9 +89,14 @@ export async function carregarThread(empresaId: string, telefone: string): Promi
   await exigirPlataforma();
   const tdb = tenantDb(empresaId);
 
+  // As duas formas nos DOIS lados: a caixa pode ter aberto a conversa pelo
+  // telefone do cadastro (quando só houve envio) ou pelo `wa_id` (quando ela
+  // escreveu). Uma thread que só entende uma das formas mostra meia conversa.
+  const formas = formasDoTelefone(telefone);
+
   const { data: recebidas, error: e1 } = await tdb.from('whatsapp_mensagens_recebidas')
     .select('id, texto, tipo, recebida_em, raw, colaborador_id')
-    .eq('from_phone', telefone)
+    .in('from_phone', formas)
     .order('recebida_em', { ascending: false })
     .limit(TETO_THREAD);
   if (e1) throw new Error(`thread/recebidas: ${e1.message}`);
@@ -99,7 +111,7 @@ export async function carregarThread(empresaId: string, telefone: string): Promi
    */
   const { data: enviadas, error: e2 } = await tdb.from('whatsapp_mensagens_enviadas')
     .select('id, texto, tipo, template_nome, autor_email, origem, erro, enviada_em, wa_message_id, raw')
-    .in('to_phone', formasDoTelefone(telefone))
+    .in('to_phone', formas)
     .order('enviada_em', { ascending: false })
     .limit(TETO_THREAD);
   if (e2) throw new Error(`thread/enviadas: ${e2.message}`);
@@ -150,7 +162,7 @@ export async function marcarLida(empresaId: string, telefone: string): Promise<v
   const tdb = tenantDb(empresaId);
   const { error } = await tdb.from('whatsapp_mensagens_recebidas')
     .update({ lida_em: new Date().toISOString(), lida_por: email })
-    .eq('from_phone', telefone)
+    .in('from_phone', formasDoTelefone(telefone))
     .is('lida_em', null);
   if (error) {
     console.error('[inbox] marcarLida:', error.message);
@@ -194,7 +206,7 @@ async function prepararEnvio(tdb: any, telefone: string, dedupe: string | null):
   // 1) Estado REAL da janela, agora.
   const { data: ultima, error: eU } = await tdb.from('whatsapp_mensagens_recebidas')
     .select('recebida_em, colaborador_id')
-    .eq('from_phone', telefone)
+    .in('from_phone', formasDoTelefone(telefone))
     .order('recebida_em', { ascending: false })
     .limit(1)
     .maybeSingle();

@@ -53,15 +53,31 @@ export interface CaixaGlobal {
   truncada: boolean;
 }
 
-/** Todas as conversas, de todas as empresas, mais recente primeiro. */
-export async function listarCaixaGlobal(): Promise<CaixaGlobal> {
+/** Colunas da view `whatsapp_conversas` (mig 220 — os dois lados). */
+const COLUNAS_CONVERSA =
+  'empresa_id, from_phone, ultima_em, ultima_recebida_em, total, enviadas, nao_lidas, ultimo_texto, ultimo_tipo, ultimo_lado, colaborador_id, ambiguidade';
+
+/**
+ * Todas as conversas, de todas as empresas, mais recente primeiro.
+ *
+ * `incluirSemResposta` traz também quem só RECEBEU (a cadência mandou e a pessoa
+ * não escreveu). Fica desligado por padrão de propósito: são dezenas de disparos
+ * por dia contra as poucas respostas, e a caixa existe para não perder resposta.
+ * Ligado, ela vira o registro do canal — útil para "o que foi mandado para
+ * fulano?" e para ver de quem o silêncio é antigo.
+ */
+export async function listarCaixaGlobal(opts?: { incluirSemResposta?: boolean }): Promise<CaixaGlobal> {
   await exigirPlataforma();
   const sb = await requireAdminSupabase();
 
-  const { data, error } = await sb.from('whatsapp_conversas')
-    .select('empresa_id, from_phone, ultima_em, total, nao_lidas, ultimo_texto, ultimo_tipo, colaborador_id, ambiguidade')
+  let q = sb.from('whatsapp_conversas')
+    .select(COLUNAS_CONVERSA)
     .order('ultima_em', { ascending: false })
     .limit(TETO_CONVERSAS);
+  // `total` = mensagens DELA. Sem o filtro, entra quem nunca respondeu.
+  if (!opts?.incluirSemResposta) q = q.gt('total', 0);
+
+  const { data, error } = await q;
   if (error) throw new Error(`caixa: ${error.message}`);
 
   const linhas = (data || []) as LinhaConversa[];
@@ -176,9 +192,14 @@ export async function listarFilaNaoIdentificada(): Promise<{ fila: FilaNaoIdenti
 
   // Sem tenant por definição: `empresa_id IS NULL` é o próprio filtro, e é o
   // único ponto do inbox que lê a caixa sem escopo de empresa.
+  //
+  // ⚠️ `.gt('total', 0)` não é redundante desde a mig 220: a view passou a
+  // incluir o lado ENVIADO, e um envio gravado sem `empresa_id` cairia aqui
+  // como se fosse alguém esperando resposta. Esta fila é sobre quem ESCREVEU.
   const { data, error } = await sb.from('whatsapp_conversas')
-    .select('empresa_id, from_phone, ultima_em, total, nao_lidas, ultimo_texto, ultimo_tipo, colaborador_id, ambiguidade')
+    .select(COLUNAS_CONVERSA)
     .is('empresa_id', null)
+    .gt('total', 0)
     .order('ultima_em', { ascending: false })
     .limit(TETO_FILA);
   if (error) throw new Error(`fila: ${error.message}`);
@@ -287,6 +308,7 @@ export async function reprocessarNaoIdentificadas(): Promise<{ resolvidas: numbe
   const { data, error } = await sb.from('whatsapp_conversas')
     .select('from_phone')
     .is('empresa_id', null)
+    .gt('total', 0)
     .order('ultima_em', { ascending: false })
     .limit(TETO_FILA);
   if (error) throw new Error(`reprocessar: ${error.message}`);

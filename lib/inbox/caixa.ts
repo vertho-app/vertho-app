@@ -17,15 +17,27 @@
 import { calcularJanela } from './janela';
 import type { Conversa, ConversaGlobal, ResumoCaixa } from './tipos';
 
-/** Linha crua da view `whatsapp_conversas` (mig 216). */
+/** Linha crua da view `whatsapp_conversas` (mig 216, ampliada na 220). */
 export interface LinhaConversa {
   empresa_id: string | null;
   from_phone: string;
+  /** Mais recente de QUALQUER lado — é por ela que a caixa ordena. */
   ultima_em: string;
+  /**
+   * Mais recente RECEBIDA. `null` = a pessoa nunca escreveu.
+   *
+   * Separado de `ultima_em` porque a janela de 24h é reaberta pelo que ELA manda;
+   * usar a data do nosso envio ofereceria um campo de resposta que a Meta recusa.
+   */
+  ultima_recebida_em?: string | null;
+  /** Mensagens DELA. `0` = conversa que só existe porque nós mandamos. */
   total: number;
+  /** Mensagens NOSSAS. */
+  enviadas?: number;
   nao_lidas: number;
   ultimo_texto: string | null;
   ultimo_tipo: string | null;
+  ultimo_lado?: 'pessoa' | 'equipe' | null;
   colaborador_id: string | null;
   ambiguidade: string | null;
 }
@@ -51,6 +63,7 @@ export function rotuloDoTipo(tipo: string | null): string {
 }
 
 function paraConversa(l: LinhaConversa, nomes: Map<string, string>, agora: number): Conversa {
+  const recebidas = Number(l.total) || 0;
   return {
     telefone: l.from_phone,
     colaboradorId: l.colaborador_id,
@@ -60,8 +73,20 @@ function paraConversa(l: LinhaConversa, nomes: Map<string, string>, agora: numbe
     ultimoTipo: l.ultimo_tipo,
     naoLidas: Number(l.nao_lidas) || 0,
     ambiguidade: l.ambiguidade,
-    // A janela é do ÚLTIMO recebido — é ele que a reabre. Nunca do que enviamos.
-    janela: calcularJanela(l.ultima_em, agora),
+    recebidas,
+    enviadas: Number(l.enviadas) || 0,
+    ultimoLado: l.ultimo_lado === 'equipe' ? 'equipe' : 'pessoa',
+    /*
+     * A janela é do ÚLTIMO RECEBIDO — é ele que a reabre. Nunca do que enviamos.
+     *
+     * 🔴 Desde a mig 220 a lista inclui conversas que só têm envio, e aí a
+     * diferença deixou de ser sutil: `ultima_em` seria a data do NOSSO disparo, e
+     * a tela ofereceria o campo de resposta livre para quem nunca escreveu — a
+     * Meta recusaria com 131047 e, para quem clicou, a mensagem simplesmente não
+     * teria chegado. O `?? null` (e não `?? l.ultima_em`) é deliberado: sem
+     * recebida, o estado correto é "nunca escreveu".
+     */
+    janela: calcularJanela(l.ultima_recebida_em ?? null, agora),
   };
 }
 

@@ -14,7 +14,7 @@
 > | Modo | Quando | O que responde |
 > |---|---|---|
 > | `preflight_entrega` | 10:00 UTC (~25h antes do envio das 11:00) | "a pílula de amanhã está pronta, e o que ela promete existe?" |
-> | `postflight` | junto com `trigger_diario` | "o que dizia que ia sair, saiu?" |
+> | `postflight_entrega` | 11:45 UTC (45 min APÓS o disparo) | "o que dizia que ia sair, saiu?" |
 > | `health_estrutural` | 06:30 UTC | duplicatas, presos, órfãos — com **tendência**, não foto |
 > | `horizonte_kits` | segunda 09:00 UTC (semanal) | "o que as PRÓXIMAS 4 semanas vão pedir e ainda não existe?" |
 >
@@ -33,6 +33,21 @@
 > (`tests/unit/pipeline-health-regras.test.ts`). Cada uma nasceu de uma falha medida,
 > e o teste guarda os DOIS sentidos: dispara quando o problema existe e fica calada
 > quando não existe — check que sempre acusa vira ruído e é desligado.
+>
+> 🔴 **O pós-voo já foi um alarme MENTIROSO, e a causa não foi a regra — foi a hora** (17/08/2026).
+> Ele rodava dentro do mesmo request do `trigger_diario`. Isso valia enquanto o trigger enviava;
+> desde que virou **dispatcher** (fan-out de uma task QStash por empresa, 04/08), passou a medir o
+> ENFILEIRAMENTO: em 17/08 o run das 11:00:21 gritou *"Nenhum WhatsApp saiu hoje"*, *"Nenhum e-mail
+> saiu hoje"* e *"36 pessoas não receberam por canal nenhum"* — enquanto as 36 pílulas eram
+> entregues entre 11:00:28 e 11:00:43, todas `delivered`. Mesmo padrão em 03/08.
+> **O timing já estava escrito num comentário do `app/api/cron/route.ts`** ("este postflight roda
+> logo após o enfileiramento") e o alarme continuou disparando assim mesmo: *aviso em comentário não
+> é mecanismo*. Correção em duas camadas — cron próprio às 11:45 e, no código,
+> `MINUTOS_MINIMOS_APOS_DISPARO`: rodando cedo demais o pós-voo devolve
+> `postflight-cedo-demais` (aviso) em vez de inventar uma pane. Guard novo liga os dois arquivos:
+> `tests/unit/security/cron-agendado-existe.test.ts` (toda action agendada tem case, e o pós-voo vem
+> ≥30 min depois do disparo). Alarme que grita num dia normal é pior que alarme ausente: ensina a
+> ignorá-lo justamente antes do dia em que ele estiver certo.
 >
 > **A R12 é a única que depende de I/O EXTERNO** (`inspecionarCloudApi`, no estrutural), e
 > a exceção tem motivo: ela cobre o canal de ENTRADA do WhatsApp, que não deixa rastro no

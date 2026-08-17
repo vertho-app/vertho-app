@@ -637,11 +637,10 @@ mudar o texto é submeter o template de novo à Meta, com o risco de voltar MARK
 - **`read` e indicador de digitação na Meta**, e **`context.id`** (mensagem citada) — este dá para
   extrair do `raw` já gravado, na leitura, sem migration.
 - **Retenção/LGPD** de texto, `raw` e mídias, com auditoria de acesso à mídia.
-- **A caixa lista só quem ESCREVEU** (a view `whatsapp_conversas` agrega `whatsapp_mensagens_recebidas`).
-  Mesmo agora que o lado enviado é gravado, uma conversa só nasce quando chega resposta — e isso é
-  decisão, não lacuna: incluir todo envio faria 37 disparos de pílula afogarem as duas respostas do
-  dia numa tela que existe para não perder nenhuma. Quem quiser ver "o que foi mandado para fulano"
-  tem a thread do cliente, que agora mostra os dois lados.
+- **A view agrega em memória do Postgres** (`UNION ALL` das duas tabelas + `GROUP BY`, sem
+  materialização). Medido em 17/08 com 11 mensagens: **0,8 ms**. O plano é sequencial nas duas
+  tabelas, então cresce linear com o volume — a conta a refazer quando o inbound passar de algumas
+  dezenas de milhares de linhas é esta, não a da tela.
 
 ### 9.4 A rodada de 17/08/2026 — o número que a Meta manda ≠ o número do cadastro
 
@@ -691,3 +690,29 @@ que sai vai para o cadastro. Igualdade exata mostraria só o lado de quem escrev
 **A lição que vale para além do WhatsApp:** quando um identificador externo é a chave de junção,
 pergunte se o sistema de fora usa a MESMA forma que a sua base. Aqui as duas eram "o telefone da
 pessoa", ambas corretas, e nenhuma linha de código estava errada — o que faltava era o par.
+
+### 9.5 A caixa passou a conhecer quem NÃO respondeu (mig 220)
+
+`whatsapp_conversas` agregava só as recebidas, então a caixa só conhecia quem escreveu de volta —
+uma minoria. A view agora une os dois lados, e a tela ganhou **"mostrar enviadas sem resposta"**
+(desligado por padrão nas duas caixas, a da equipe e a do cliente).
+
+O default é a decisão que importa: são dezenas de disparos por dia contra pouquíssimas respostas, e
+a caixa existe para **não perder resposta** — ligada por padrão, as duas conversas que precisam de
+gente sumiriam no meio das trinta e seis que não precisam. Ligado sob demanda, a mesma tela vira o
+registro do canal ("o que foi mandado para fulano?", "de quem o silêncio é antigo?").
+
+🔴 **A chave do agrupamento é `wa_fone_canonico`, não o telefone cru.** O `wa_id` que chega e o
+número do cadastro para onde a cadência manda são formas diferentes (§9.4): agrupar por texto
+partiria a mesma pessoa em duas linhas lado a lado — uma com o que ela escreveu, outra com o que
+mandamos. A canônica é chave interna; o que a tela exibe (e o que a thread busca) é o telefone real
+da última mensagem.
+
+⚠️ **A janela de 24h passou a ler `ultima_recebida_em`, não `ultima_em`.** Com conversas que só têm
+envio, a diferença deixou de ser sutil: `ultima_em` seria a data do NOSSO disparo, e a tela ofereceria
+resposta livre para quem nunca escreveu — a Meta recusa com 131047 e, para quem clicou, a mensagem
+não chegou. O fallback é `null` (= "nunca escreveu"), nunca `ultima_em`; validado por mutação.
+
+⚠️ Duas consultas que pareciam redundantes deixaram de ser: a fila de não identificados e o
+reprocessamento filtram `total > 0` explicitamente. Sem isso, um envio gravado sem `empresa_id`
+apareceria na fila como se fosse alguém esperando resposta.

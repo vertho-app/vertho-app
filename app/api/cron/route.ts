@@ -90,21 +90,26 @@ export async function GET(req) {
       // Motor único da cadência (lê dia da pílula 1/2/evidência por empresa).
       case 'trigger_diario':
         result = await triggerDiario();
-        // PÓS-VOO imediato: confere se o que acabou de rodar realmente saiu. Roda
-        // depois do envio, no mesmo request, para não depender de outro agendamento.
-        // Best-effort: um problema no check NUNCA pode derrubar o envio em si.
-        // ⚠️ TIMING PÓS-FAN-OUT: triggerDiario agora é um DISPATCHER — enfileira
-        // uma task QStash por empresa e retorna. Este postflight roda logo após o
-        // ENFILEIRAMENTO, não após os envios (que acontecem nas lambdas worker, em
-        // paralelo); a leitura de "entregue hoje" só é completa minutos depois.
-        try {
-          const { executarHealthCheck } = await import('@/lib/pipeline-health/core');
-          const h = await executarHealthCheck('postflight');
-          result.message = `${result.message || 'envio ok'} · saúde: ${h.message}`;
-        } catch (e) {
-          console.error('[cron] postflight falhou:', e.message);
-        }
         break;
+
+      /**
+       * PÓS-VOO: "o que dizia que ia sair, saiu?" — 45 min DEPOIS do disparo.
+       *
+       * 🔴 Era chamado aqui mesmo, no fim do `trigger_diario`. Isso valia enquanto
+       * o trigger ENVIAVA; desde que ele virou DISPATCHER (fan-out de uma task
+       * QStash por empresa), medir no mesmo request é medir o enfileiramento — e
+       * o alarme deixou de errar por omissão e passou a errar por afirmação: em
+       * 17/08 gritou "nenhum WhatsApp saiu hoje · 36 pessoas sem nada" enquanto
+       * as 36 pílulas eram entregues nos 20 segundos seguintes. Idem em 03/08.
+       *
+       * Alarme que grita num dia normal é pior que alarme ausente: ensina a
+       * equipe a ignorá-lo justamente antes do dia em que ele estiver certo.
+       */
+      case 'postflight_entrega': {
+        const { executarHealthCheck } = await import('@/lib/pipeline-health/core');
+        result = await executarHealthCheck('postflight');
+        break;
+      }
 
       // PRÉ-VOO: avalia a entrega de AMANHÃ. Roda 10:00 UTC = ~25h antes do envio das
       // 11:00 UTC do dia seguinte. A folga é o ponto: achar o problema 5 minutos antes

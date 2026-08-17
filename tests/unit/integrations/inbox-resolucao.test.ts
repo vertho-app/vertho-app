@@ -110,14 +110,20 @@ const AGORA = Date.UTC(2026, 7, 15, 12, 0, 0); // meio-dia UTC: longe das duas b
 const H = 3600_000;
 
 function linha(over: Partial<LinhaConversa> = {}): LinhaConversa {
+  const em = new Date(AGORA - H).toISOString();
   return {
     empresa_id: 'e1',
     from_phone: '5511999998888',
-    ultima_em: new Date(AGORA - H).toISOString(),
+    ultima_em: em,
+    // Desde a mig 220 a view separa as duas datas: `ultima_em` é dos dois lados,
+    // `ultima_recebida_em` é o que abre a janela de 24h.
+    ultima_recebida_em: em,
     total: 3,
+    enviadas: 0,
     nao_lidas: 1,
     ultimo_texto: 'oi',
     ultimo_tipo: 'text',
+    ultimo_lado: 'pessoa',
     colaborador_id: 'c1',
     ambiguidade: null,
     ...over,
@@ -134,9 +140,34 @@ describe('a lista da caixa — o que a view entrega vira o que a tela mostra', (
   });
 
   it('conversa parada há mais de 24h vem com a janela fechada', () => {
-    const [c] = montarConversas([linha({ ultima_em: new Date(AGORA - 25 * H).toISOString() })], new Map(), AGORA);
+    const velha = new Date(AGORA - 25 * H).toISOString();
+    const [c] = montarConversas([linha({ ultima_em: velha, ultima_recebida_em: velha })], new Map(), AGORA);
     expect(c.janela.estado).toBe('fechada');
     expect(c.janela.podeTextoLivre).toBe(false);
+  });
+
+  /**
+   * 🔴 A conversa que só existe porque NÓS mandamos (mig 220).
+   *
+   * A pílula de hoje saiu para 36 pessoas; nenhuma delas tem `ultima_recebida_em`.
+   * Se a janela fosse calculada sobre `ultima_em` — que aqui é a data do NOSSO
+   * envio —, a tela ofereceria o campo de resposta livre para quem nunca
+   * escreveu: a Meta recusa com 131047 e, para quem clicou, a mensagem
+   * simplesmente não chegou.
+   */
+  it('🔴 conversa sem resposta: a janela é NUNCA-ESCREVEU, não "aberta há 1h"', () => {
+    const [c] = montarConversas([linha({
+      ultima_em: new Date(AGORA - H).toISOString(),
+      ultima_recebida_em: null,
+      total: 0, enviadas: 3, nao_lidas: 0, ultimo_lado: 'equipe',
+      ultimo_texto: 'conteudo_semana',
+    })], new Map(), AGORA);
+
+    expect(c.janela.estado).toBe('nunca-escreveu');
+    expect(c.janela.podeTextoLivre).toBe(false);
+    expect(c.recebidas).toBe(0);
+    expect(c.enviadas).toBe(3);
+    expect(c.ultimoLado).toBe('equipe');
   });
 
   it('ordena por recência, não pela ordem que o banco devolveu', () => {
@@ -177,7 +208,11 @@ describe('a lista da caixa — o que a view entrega vira o que a tela mostra', (
     // esperando — um painel que funde os dois passa a mentir sem avisar.
     const r = resumoDaCaixa(montarCaixaGlobal([
       linha({ from_phone: '551100000001', nao_lidas: 12 }),
-      linha({ from_phone: '551100000002', nao_lidas: 0, ultima_em: new Date(AGORA - 30 * H).toISOString() }),
+      linha({
+        from_phone: '551100000002', nao_lidas: 0,
+        ultima_em: new Date(AGORA - 30 * H).toISOString(),
+        ultima_recebida_em: new Date(AGORA - 30 * H).toISOString(),
+      }),
       linha({ from_phone: '551100000009', nao_lidas: 1, empresa_id: null }),
     ], new Map(), new Map(), AGORA));
 

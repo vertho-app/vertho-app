@@ -22,6 +22,17 @@ export interface Conversa {
   /** Motivo de a última mensagem não ter dono, quando não teve. */
   ambiguidade: string | null;
   janela: Janela;
+  /** Quantas mensagens ELA mandou. `0` = nunca respondeu (mig 220). */
+  recebidas: number;
+  /** Quantas NÓS mandamos. */
+  enviadas: number;
+  /**
+   * De quem foi a última mensagem.
+   *
+   * A prévia muda de sentido conforme o lado: *"Bom dia!"* de quem escreveu é
+   * alguém esperando resposta; a mesma frase vinda de nós é o último disparo.
+   */
+  ultimoLado: 'pessoa' | 'equipe';
 }
 
 /**
