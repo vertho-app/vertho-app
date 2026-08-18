@@ -28,7 +28,13 @@ export function QrMapa({ url, lado = 190 }: { url: string; lado?: number }) {
       try {
         // Import dinâmico: o encoder só entra no bundle de quem chega à
         // confirmação, não no da demo inteira.
-        const QRCode = (await import('qrcode')).default;
+        //
+        // ⚠️ `?? mod`: `qrcode` é CJS, e o interop do bundler decide se ele chega
+        // em `.default` ou espalhado no namespace. Só `.default` daria `undefined`
+        // exatamente onde o `catch` abaixo esconderia — o QR sumia da tela do
+        // estande sem uma linha de erro em lugar nenhum.
+        const mod: any = await import('qrcode');
+        const QRCode = mod.default ?? mod;
         const uri = await QRCode.toDataURL(url, {
           margin: 1,
           width: lado * 2, // 2× para não serrilhar em tela de tablet
@@ -36,9 +42,11 @@ export function QrMapa({ url, lado = 190 }: { url: string; lado?: number }) {
           color: { dark: '#0f2b54', light: '#ffffff' },
         });
         if (vivo) setDataUri(uri);
-      } catch {
-        // Falhar aqui não pode derrubar a confirmação — o link em texto embaixo
-        // continua sendo um caminho válido.
+      } catch (err) {
+        // Falhar aqui não pode derrubar a confirmação — o link em texto continua
+        // sendo caminho válido. Mas também não pode ser MUDO: sem o log, "o QR
+        // não aparece" chega como relato de estande, sem nada onde olhar.
+        console.error('[conarh/qr] não gerou o QR:', err);
         if (vivo) setFalhou(true);
       }
     })();
@@ -47,7 +55,20 @@ export function QrMapa({ url, lado = 190 }: { url: string; lado?: number }) {
     };
   }, [url, lado]);
 
-  if (falhou) return null;
+  // Sem QR, o bloco NÃO some: o texto ao lado manda apontar a câmera, e apontar
+  // para um buraco é pior que não ter oferecido. Aqui ele vira a instrução certa.
+  if (falhou) {
+    return (
+      <div
+        className="rounded-2xl flex items-center justify-center text-center p-4"
+        style={{ background: '#ffffff', width: lado + 28, minHeight: lado + 28, flexShrink: 0 }}
+      >
+        <span style={{ color: '#0f2b54', fontSize: 15, fontFamily: SANS, fontWeight: 700 }}>
+          Abra o endereço abaixo no seu celular
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div
