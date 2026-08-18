@@ -33,7 +33,8 @@ import { scriptAutoEntrar, scriptSairParaNavegador } from '@/lib/auth/auto-entra
  * interno"*. Hoje o destino depende de onde dá para chegar:
  *
  *   - **Android no WhatsApp** → já saiu antes desta tela: o `/entrar` responde
- *     `intent://…package=com.android.chrome`, e a pessoa chega aqui já no Chrome.
+ *     `intent://` SEM `package=`, e a pessoa chega aqui já no navegador padrão
+ *     do aparelho — o dela, não o que a gente escolheu por ela.
  *   - **iPhone no WhatsApp** → esta tela tenta `x-safari-https://` (modo
  *     `navegador`), para a sessão nascer no Safari. **Não é API suportada**;
  *     falhando, a navegação é cancelada, nada é consumido, e a tela — que nasce

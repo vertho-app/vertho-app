@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantUrl } from '@/lib/domain';
 import { lerParametroAcesso, caminhoCallback } from '@/lib/auth/magic-link-whatsapp';
-import { ehNavegadorEmbutido, ehAndroid, intentChrome } from '@/lib/auth/navegador-embutido';
+import { ehNavegadorEmbutido, ehAndroid, intentNavegadorPadrao } from '@/lib/auth/navegador-embutido';
 
 /**
  * Despacho do magic link recebido por WhatsApp.
@@ -110,19 +110,23 @@ export async function GET(req: NextRequest) {
     meuLink.searchParams.set('t', t);
 
     // ANDROID: dá para sair do WebView sem pedir nada a ninguém. O `intent://`
-    // entrega a navegação ao Chrome, que reabre este mesmo endereço — com o
-    // token INTACTO, porque nada foi consumido até aqui. O fallback vai para a
-    // tela de confirmação, nunca de volta para cá (viraria laço).
+    // entrega a navegação ao navegador PADRÃO do aparelho (desde 18/08 sem
+    // `package=` fixo — ver `intentNavegadorPadrao`), que reabre este mesmo
+    // endereço com o token INTACTO, porque nada foi consumido até aqui. O
+    // fallback vai para a tela de despacho, nunca de volta para cá (viraria
+    // laço).
     if (ehNavegadorEmbutido(ua) && ehAndroid(ua)) {
       const abrir = new URL('/entrar/abrir', req.url);
       abrir.searchParams.set('t', t);
-      return NextResponse.redirect(intentChrome(meuLink.toString(), abrir.toString()), 302);
+      return NextResponse.redirect(intentNavegadorPadrao(meuLink.toString(), abrir.toString()), 302);
     }
 
-    // Todo o resto — inclusive navegador de verdade — vai para a confirmação. É
-    // um toque a mais, e é o preço de a URL continuar redimível quando a pessoa
-    // troca de navegador. No iOS não existe alternativa: nenhum caminho
-    // programático sai do WKWebView.
+    // Todo o resto vai para a tela de despacho — e o que acontece lá depende de
+    // quem chegou: iPhone dentro de app embutido TENTA o Safari
+    // (`x-safari-https://`, não suportado, com o caminho manual visível);
+    // navegador de verdade entra direto; robô de preview fica parado. Nada disso
+    // é decidido aqui, de propósito: esta rota não redireciona sozinha, e é isso
+    // que mantém o token intacto para quem só buscou o HTML.
     const abrir = new URL('/entrar/abrir', req.url);
     abrir.searchParams.set('t', t);
     return NextResponse.redirect(abrir, 302);

@@ -9,7 +9,7 @@
 // A assimetria que guia os testes: falso POSITIVO só mostra uma tela a mais a
 // quem já estava no navegador certo; falso NEGATIVO queima o acesso.
 import { describe, it, expect } from 'vitest';
-import { ehNavegadorEmbutido, ehAndroid, intentChrome, esquemaSafari, esquemaChrome } from '@/lib/auth/navegador-embutido';
+import { ehNavegadorEmbutido, ehAndroid, intentNavegadorPadrao, esquemaSafari, esquemaChrome } from '@/lib/auth/navegador-embutido';
 
 const UA = {
   waAndroid: 'Mozilla/5.0 (Linux; Android 13; SM-A536E Build/TP1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36',
@@ -73,18 +73,26 @@ describe('saída do WebView', () => {
 
   it('intent:// preserva host, caminho e query do link original', () => {
     const url = 'https://app.vertho.ai/entrar?t=ibipeba~abc123';
-    const intent = intentChrome(url);
+    const intent = intentNavegadorPadrao(url);
     expect(intent.startsWith('intent://app.vertho.ai/entrar?t=ibipeba~abc123')).toBe(true);
     expect(intent).toContain('scheme=https');
-    expect(intent).toContain('package=com.android.chrome');
     // Sem `https://` duplicado: o esquema vai no fragmento, não no início.
     expect(intent).not.toContain('intent://https');
+  });
+
+  it('🔴 NÃO fixa navegador: o destino é o padrão do aparelho (18/08)', () => {
+    // `package=com.android.chrome` mandava todo mundo para o Chrome, inclusive
+    // quem usa Samsung Internet — comum em Galaxy. E o ponto do intent é fazer a
+    // sessão nascer no navegador DA PESSOA, aquele para onde ela volta; forçar
+    // outro app entrega metade do resultado e parece completo.
+    const intent = intentNavegadorPadrao('https://app.vertho.ai/entrar?t=x~yyyyyyyy');
+    expect(intent).not.toContain('package=');
   });
 
   it('🔴 o fallback do intent NÃO é o link de acesso — seria voltar ao laço', () => {
     const link = 'https://app.vertho.ai/entrar?t=ibipeba~abc123';
     const despacho = 'https://app.vertho.ai/entrar/abrir?t=ibipeba~abc123';
-    const intent = intentChrome(link, despacho);
+    const intent = intentNavegadorPadrao(link, despacho);
     expect(intent).toContain(`S.browser_fallback_url=${encodeURIComponent(despacho)}`);
     // O `/entrar` cru consumiria o token de novo dentro do WhatsApp.
     expect(intent).toContain(encodeURIComponent('/entrar/abrir'));
@@ -106,7 +114,7 @@ describe('saída do WebView', () => {
   });
 
   it('sem fallback informado, a intent continua válida', () => {
-    const intent = intentChrome('https://app.vertho.ai/entrar?t=x~y');
+    const intent = intentNavegadorPadrao('https://app.vertho.ai/entrar?t=x~y');
     expect(intent).not.toContain('browser_fallback_url');
     expect(intent.endsWith(';end')).toBe(true);
   });

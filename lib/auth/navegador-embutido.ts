@@ -105,23 +105,35 @@ export function ehRoboDePreview(userAgent: string | null | undefined): boolean {
 }
 
 /**
- * Link que abre no Chrome a partir do WebView do Android.
+ * Link que sai do WebView do Android para o navegador do APARELHO.
  *
- * `intent://` é o único jeito de um WebView entregar a navegação ao navegador do
- * sistema.
+ * `intent://` é o único jeito de um WebView entregar a navegação ao sistema.
  *
- * ⚠️ `package=com.android.chrome` fixa o destino — se o Chrome estiver desativado
- * no aparelho, o Android não resolve a intent e o WebView mostra um erro cru, com
- * a pessoa sem instrução nenhuma. É para isso que serve o `browser_fallback_url`:
- * ele NÃO é o link de acesso (isso recomeçaria o laço dentro do WhatsApp), é a
- * tela de despacho, que explica o caminho e não consome o token.
+ * 🔑 SEM `package=` — E ISSO É A ESCOLHA, NÃO UM ESQUECIMENTO (18/08/2026)
+ * ──────────────────────────────────────────────────────────────────────
+ * Até aqui o destino era `package=com.android.chrome`, fixo. Funciona, e por
+ * isso durou: Chrome é o padrão na maioria. Mas "maioria" não é "todos" — em
+ * Galaxy o padrão costuma ser o Samsung Internet —, e forçar o Chrome manda a
+ * pessoa para um navegador que não é o dela: a sessão nasce onde ela não volta,
+ * e é justamente a sessão FORA do WhatsApp que estamos tentando criar.
  *
- * 🔴 NÃO EXISTE EQUIVALENTE NO iOS. O WKWebView não abre o Safari por link,
- * esquema ou script — a única saída de lá é o menu do próprio app ("Abrir no
- * Safari"), acionado pela pessoa. Qualquer promessa de "abrir direto no
- * navegador" no iPhone é falsa; o que dá para fazer é reduzir a instrução a um
- * toque e, para quem usa o app instalado, preferir o OTP (código), que não
- * depende de navegador nenhum.
+ * Sem `package`, o Android resolve para o handler padrão de `https` — o
+ * navegador que a pessoa escolheu. Não há risco de laço: o WhatsApp não é
+ * handler de `https` genérico.
+ *
+ * ⚠️ `browser_fallback_url` continua obrigatório, e agora cobre também o caso de
+ * NENHUM handler resolver (aparelho sem navegador padrão definido). Ele NÃO é o
+ * link de acesso — isso recomeçaria o laço dentro do WhatsApp —, é a tela de
+ * despacho, que não consome o token.
+ *
+ * 🔴 NÃO EXISTE EQUIVALENTE NO iOS, e a diferença é conceitual, não de esforço.
+ * Lá só dá para NOMEAR um app (cada navegador registra o próprio esquema:
+ * `x-safari-https://`, `googlechromes://`, `firefox://open-url?url=`,
+ * `microsoft-edge-https://`) — **não existe esquema "o navegador padrão"**, e
+ * nenhuma API web diz qual é. Quem respeita a escolha do iOS 14+ é o
+ * `UIApplication.open`, chamado pelo app hospedeiro (o menu `•••` do WhatsApp),
+ * fora do alcance da página. Por isso a tentativa automática do iPhone aposta no
+ * Safari — o padrão na esmagadora maioria — e deixa o Chrome a um toque.
  */
 /**
  * Esquemas que fazem o WebView do iOS entregar a navegação ao navegador.
@@ -148,10 +160,10 @@ export function esquemaChrome(url: string): string {
   return `googlechromes://${url.replace(/^https?:\/\//, '')}`;
 }
 
-export function intentChrome(url: string, urlDeFallback?: string): string {
+export function intentNavegadorPadrao(url: string, urlDeFallback?: string): string {
   const semEsquema = url.replace(/^https?:\/\//, '');
   const fallback = urlDeFallback
     ? `S.browser_fallback_url=${encodeURIComponent(urlDeFallback)};`
     : '';
-  return `intent://${semEsquema}#Intent;scheme=https;package=com.android.chrome;${fallback}end`;
+  return `intent://${semEsquema}#Intent;scheme=https;${fallback}end`;
 }
