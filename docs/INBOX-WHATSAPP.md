@@ -667,10 +667,48 @@ mensagem antiga do WhatsApp consome sem passar por botão. Hoje o `/login` expli
 (pt-BR/pt-PT/en/es), **sem ecoar o texto do Supabase** ("Email link is invalid or has expired" é
 detalhe de fornecedor, em inglês), e limpa o parâmetro da URL para a recarga não repetir o aviso.
 
-⚠️ **O que se perde, explicitamente:** o desvio "prefere entrar pelo navegador?" deixa de ser
-alcançável na prática — a tela não fica mais parada esperando. Quem também usa a Vertho no computador
-pede o link **de lá**, que é onde a sessão precisa nascer de qualquer jeito. Reverter é trocar uma
-condição: parar de renderizar o `AutoEntrar`.
+#### E logo depois: entrar sozinho, mas **no navegador do aparelho**
+
+O dono testou o commit acima e trouxe o que faltava: *"foi direto, mas para o navegador interno do
+WA"*. Zero toque com a sessão presa ao WebView é **metade do prêmio** — o Android já saía para o
+navegador (`intent://`, no `/entrar`) e o iPhone não saía para lugar nenhum. O que antes era o botão
+escondido no `<details>` virou o comportamento padrão, **sem custar o toque de volta**:
+
+| Quem | Destino | Como |
+|---|---|---|
+| **Android no WhatsApp** | navegador **padrão do aparelho** | `intent://…;scheme=https;S.browser_fallback_url=…;end` — **sem `package=`** desde 18/08 |
+| **iPhone no WhatsApp** | **Safari** | a tela tenta `x-safari-https://<host>/entrar?…&ir=1` sozinha |
+| **navegador de verdade** | ali mesmo | `location.replace` |
+
+🔑 **"Navegador padrão" existe no Android e NÃO existe no iOS** — e isso é conceitual, não falta de
+esforço. No iOS só dá para **nomear um app**: cada navegador registra o próprio esquema
+(`x-safari-https://` = Safari, `googlechromes://` = Chrome, `firefox://open-url?url=` = Firefox,
+`microsoft-edge-https://` = Edge). Não há esquema "o padrão do usuário", e nenhuma API web diz qual
+é. Quem respeita a escolha do iOS 14+ é o `UIApplication.open`, chamado pelo **app hospedeiro** (o
+menu `•••` do WhatsApp), fora do alcance da página. Daí a aposta no Safari, com o Chrome a um toque.
+
+No Android, o `package=com.android.chrome` saiu pelo motivo simétrico: forçar o Chrome manda a pessoa
+para um navegador que pode não ser o dela (em Galaxy o padrão costuma ser o Samsung Internet), e o
+ponto do intent é a sessão nascer onde ela **volta**. Sem `package`, o Android resolve para o handler
+padrão de `https`; não há laço, porque o WhatsApp não é handler de `https` genérico.
+
+Duas decisões da tentativa do iPhone que não são estilo — e as duas existem porque o esquema **não é
+API suportada**:
+
+1. **`location.href`, não `replace`.** Falhando, o WKWebView apenas cancela a navegação e a pessoa
+   **fica nesta tela** — que é o fallback. Com `replace`, a tela sairia do histórico junto.
+2. **A tela nasce com os dois caminhos visíveis** ("Abrir no Safari" / "Entrar aqui mesmo, no
+   WhatsApp"). Nada é revelado por timer: esconder o fallback seria construir a falha silenciosa que
+   este fluxo inteiro existe para evitar — e o dia em que o WhatsApp parar de repassar o esquema
+   chega sem aviso.
+
+O alarme continua o mesmo, e agora tem leitura direta: **`[entrar] consumido … embutido=false` é a
+saída funcionando**; voltar a `true` em massa é o sinal de que o truque morreu.
+
+⚠️ **O que se perde, explicitamente:** a tela não fica mais parada esperando, então "copiar o link e
+abrir noutro aparelho" deixa de estar no caminho. Quem usa a Vertho no computador pede o link **de
+lá**, que é onde a sessão precisa nascer de qualquer jeito. Reverter é trocar uma condição: parar de
+renderizar o `AutoEntrar`.
 
 Testes: `tests/unit/security/entrar-auto-entrar.test.ts` (o script é executado num sandbox `vm` e o
 que se observa é o EFEITO — navegou? gravou o quê? —, não o texto dele), validado por mutação em
