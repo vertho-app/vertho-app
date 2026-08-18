@@ -71,6 +71,40 @@ export function ehIos(userAgent: string | null | undefined): boolean {
 }
 
 /**
+ * Do outro lado tem um ROBÔ (preview de link, crawler, monitor) em vez de gente?
+ *
+ * 🔑 POR QUE ISTO PASSOU A EXISTIR (18/08/2026)
+ * ────────────────────────────────────────────
+ * A tela de confirmação deixou de esperar um toque: ela entra sozinha (ver
+ * `AutoEntrar`). Como entrar CONSOME o token de uso único, quem carrega a página
+ * sem ser a pessoa passa a ser um problema — o robô de preview da Meta busca a
+ * URL para montar o cartão da mensagem.
+ *
+ * **A defesa principal NÃO é esta régua, é o JavaScript**: o servidor continua
+ * sem redirecionar por conta própria (o invariante de `/entrar` está intacto — um
+ * GET nunca aponta para o callback), e quem entra é um `location.replace` que só
+ * roda em navegador de verdade. Robô de preview baixa o HTML e vai embora.
+ *
+ * Esta função é a segunda camada, barata: nem serve o script para quem se
+ * anuncia como robô. Ela é por marcador POSITIVO — a lição do `WAiOS` vale aqui
+ * também: régua por ausência falha calada no dia em que o outro lado muda.
+ *
+ * ⚠️ Ela erra para o lado seguro: falso positivo só mostra a tela com o botão
+ * (o comportamento antigo, um toque a mais); falso negativo não queima nada
+ * sozinho, porque ainda depende de o robô executar JS.
+ */
+const ROBO_DE_PREVIEW =
+  /facebookexternalhit|Facebot|WhatsApp\/|Twitterbot|Slackbot|Slack-ImgProxy|LinkedInBot|TelegramBot|Discordbot|SkypeUriPreview|Embedly|redditbot|Googlebot|bingbot|DuckDuckBot|Applebot|YandexBot|Baiduspider|AhrefsBot|SemrushBot|PetalBot|\bbot\b|crawler|spider|HeadlessChrome|Chrome-Lighthouse|curl\/|Wget\/|python-requests|Go-http-client|node-fetch|axios\/|okhttp|Java\/|libwww-perl/i;
+
+export function ehRoboDePreview(userAgent: string | null | undefined): boolean {
+  const ua = String(userAgent || '');
+  // Sem UA não é gente com navegador — navegador SEMPRE manda User-Agent. O lado
+  // seguro aqui é o oposto do de `ehNavegadorEmbutido`: na dúvida, não entrar.
+  if (!ua.trim()) return true;
+  return ROBO_DE_PREVIEW.test(ua);
+}
+
+/**
  * Link que abre no Chrome a partir do WebView do Android.
  *
  * `intent://` é o único jeito de um WebView entregar a navegação ao navegador do

@@ -59,6 +59,10 @@
     "linkSentTitle": "Link enviado!",
     "linkSentDescription": "Clique no link enviado para o seu <email>e-mail</email> ou <whatsapp>WhatsApp</whatsapp> para aceder ao seu ambiente de desenvolvimento.",
     "useAnotherEmail": "Usar outro e-mail",
+    "linkErrors": {
+      "expired": "O seu link de acesso expirou ou já foi utilizado — cada link é válido uma única vez. Peça um novo abaixo: chega no seu WhatsApp ou e-mail.",
+      "unavailable": "Não conseguimos validar o seu link agora. Tente novamente dentro de instantes ou peça um novo abaixo."
+    },
     "errors": {
       "invalidEmail": "Introduza um e-mail válido.",
       "emptyIdentifier": "Indique o seu e-mail ou WhatsApp.",

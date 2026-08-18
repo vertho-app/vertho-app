@@ -45,11 +45,34 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
 
   // Detect redirect param
   const [redirectTo, setRedirectTo] = useState('/dashboard');
+  // Por que a pessoa caiu aqui vindo de um link de acesso.
+  const [avisoLink, setAvisoLink] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const redir = params.get('redirect');
     if (redir && redir.startsWith('/')) setRedirectTo(redir);
+
+    // 🔴 O `?error=` chegava aqui desde sempre e NINGUÉM o lia (medido 18/08):
+    // quem clicava num link já usado via a tela de login limpa, sem uma palavra
+    // sobre o que aconteceu — e a conclusão natural é "o sistema não funciona".
+    // Ficou mais provável desde que a tela do link entra sozinha: reabrir a
+    // mensagem antiga do WhatsApp agora consome sem passar por um botão.
+    //
+    // ⚠️ A mensagem do Supabase NÃO vai para a tela. Ela vem em inglês ("Email
+    // link is invalid or has expired") e é detalhe de fornecedor; aqui traduzimos
+    // para o que a pessoa precisa FAZER.
+    const erro = params.get('error');
+    if (erro) {
+      setAvisoLink(
+        erro === 'indisponivel' ? t('linkErrors.unavailable') : t('linkErrors.expired'),
+      );
+      // Tira o parâmetro da URL: recarregar a página não deve repetir o aviso de
+      // um link que a pessoa já desistiu de usar.
+      params.delete('error');
+      const qs = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+    }
   }, []);
 
   function handleLocaleChange(nextLocale: string) {
@@ -358,6 +381,13 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
             navegador não há sessão. Ver o componente para o porquê de isto viver
             no login, e não no link. */}
         {embutido ? <AvisoNavegadorEmbutido ios={ios} /> : null}
+
+        {/* Chegou aqui vindo de um link de acesso que não deu certo. */}
+        {avisoLink ? (
+          <p className="mb-5 rounded-xl border border-amber-300/25 bg-amber-300/[0.07] px-4 py-3 text-left text-[13px] leading-relaxed text-amber-100">
+            {avisoLink}
+          </p>
+        ) : null}
 
         {awaitingCode ? (
           /* ── Passo de código (OTP por WhatsApp) ── */

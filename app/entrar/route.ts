@@ -36,12 +36,25 @@ import { ehNavegadorEmbutido, ehAndroid, intentChrome } from '@/lib/auth/navegad
  *
  * O passo 2 é o que mata a ideia de resolver isso detectando o navegador: mesmo
  * com detecção perfeita, redirecionar automaticamente **destrói a única URL que
- * valia a pena transferir**. Por isso o `t` fica parado numa tela de confirmação
- * até alguém tocar em "Entrar" — assim a URL da barra de endereços continua
- * sendo a redimível, e mudar de navegador antes de entrar funciona.
+ * valia a pena transferir**. Por isso esta rota nunca aponta para o callback sem
+ * `ir=1`: o `t` chega inteiro numa tela, e não num redirecionamento.
  *
- * Efeito colateral bem-vindo: robô de preview de link (a Meta busca a URL para
- * montar o cartão) passa a ler HTML em vez de seguir para o callback.
+ * Efeito que virou a defesa principal: robô de preview de link (a Meta busca a
+ * URL para montar o cartão) lê HTML em vez de seguir para o callback.
+ *
+ * ⚠️ ATUALIZADO EM 18/08/2026 — O QUE MUDOU LÁ NA FRENTE
+ * ─────────────────────────────────────────────────────
+ * A tela **deixou de esperar um toque**: ela entra sozinha por JavaScript
+ * (`app/entrar/abrir/AutoEntrar.tsx`), e o fluxo inteiro voltou a ser um toque
+ * só — o botão da mensagem. O que o toque comprava era a chance de TROCAR de
+ * navegador antes de entrar, e isso servia ao PWA instalado, fora de escopo
+ * desde 16/08: custo em todo mundo, benefício em quase ninguém.
+ *
+ * **Esta rota não mudou de comportamento**, e é de propósito. A fronteira do
+ * consumo deixou de ser um TOQUE e passou a ser a EXECUÇÃO DE JS — o robô
+ * continua do lado de fora porque o servidor continua não redirecionando
+ * sozinho. Se um dia alguém "simplificar" isto para um 302 direto, o preview da
+ * Meta passa a queimar o token de todo link enviado.
  *
  * ⚠️ ROTA PÚBLICA E PRÉ-SESSÃO, por definição: quem clica ainda não está logado.
  * Ela não autentica ninguém — quem valida o token é o `/auth/callback` do

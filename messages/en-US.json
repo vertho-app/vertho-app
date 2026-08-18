@@ -59,6 +59,10 @@
     "linkSentTitle": "Link sent!",
     "linkSentDescription": "Click the link sent to your <email>email</email> or <whatsapp>WhatsApp</whatsapp> to access your development environment.",
     "useAnotherEmail": "Use another email",
+    "linkErrors": {
+      "expired": "Your access link expired or has already been used — each link works only once. Request a new one below: it arrives on your WhatsApp or email.",
+      "unavailable": "We couldn't validate your link right now. Try again in a moment or request a new one below."
+    },
     "errors": {
       "invalidEmail": "Enter a valid email address.",
       "emptyIdentifier": "Enter your email or WhatsApp.",
