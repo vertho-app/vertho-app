@@ -165,6 +165,7 @@
     "scripts/_validar-evidencia-a3.ts": 1,
     "scripts/_corrigir-evidencia-solta.ts": 1,
     "scripts/_validar-avaliacao-contavel.ts": 1,
+    "scripts/_reescrever-narracao-video.ts": 1,
     "scripts/_regerar-blueprints.ts": 1,
     "scripts/_seed-descritores-diretores.ts": 1,
     "scripts/_extrair-manuscrito-diretores.ts": 1,
