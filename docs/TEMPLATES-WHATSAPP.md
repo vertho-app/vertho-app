@@ -74,6 +74,7 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `retomada_trilha` | nome | link | — | — | — |
 | `resultado_perfil` | nome | link | — | — | — |
 | `plano_desenvolvimento` | nome | link de `/dashboard/pdi` | — | — | — |
+| `recorte_demonstracao` ⏳ | nome | link do Mapa (`linkDireto`) | — | — | — |
 | `acesso_vertho` | *(corpo sem variável)* | | | | URL: `app.vertho.ai/entrar?t={{1}}` |
 | `otp_acesso` | código | — | — | — | COPY_CODE nativo |
 
@@ -428,7 +429,37 @@ papel desligado aparece como `(desligado)`, que é o caso que o silêncio escond
 
 ---
 
-## 5. Fila da Meta: vazia (16/08, 21h)
+## 5. Fila da Meta (18/08)
+
+**22 aprovados · 1 pendente · 2 rejeitados.**
+
+⏳ **`recorte_demonstracao`** — PENDING/UTILITY, submetido em 17/08. É o recorte da demonstração
+para o **lead do CONARH**, e o único template do repo cujo destinatário não é colaborador de tenant.
+
+🔑 **Por que UTILITY, e por que isso não é malandragem.** Mensagem comercial a contato frio é
+*retargeting*, que a régua da Meta chama de MARKETING **"mesmo quando solicitada pelo usuário"**. O
+que sustenta UTILITY aqui é outro caso da mesma régua: **"Continue a Conversation on WhatsApp"** —
+iniciar no WhatsApp uma interação começada em outro canal, **a pedido da pessoa**. É literalmente o
+que o termo de consentimento do estande diz. Para isso valer, a copy **entrega o que foi pedido e
+não vende nada**: o convite dos 20 minutos, o "circular com o time" e a confirmação de reunião
+ficaram de fora e vivem na página do Mapa.
+
+⚠️ **Se voltar MARKETING, aceitar.** Re-submeter copy limítrofe como UTILITY é o gatilho da escada
+de punição (§3.1), e ela recategoriza **todos** os UTILITY da WABA. Com 2 leads com telefone, pagar
+MARKETING custa menos de R$ 1; arriscar a cadência de centenas de pessoas, não.
+
+**A fiação já está pronta** (papel `recorte`, contrato, e o `artefato/route.ts` tentando template
+antes do legado). Falta só gravar `WHATSAPP_TEMPLATE_RECORTE` quando aprovar — deixada desligada de
+propósito, porque ligar antes faria toda mensagem voltar `132001`.
+
+⚠️ **O que a mensagem perdeu, e é do formato:** porta escolhida, competência crítica e **confirmação
+da reunião marcada**. Template não tem bloco condicional — todo `{{n}}` precisa de valor sempre. Os
+dois primeiros já estão na página; **a reunião não foi verificada** — se a página não a mostrar, a
+informação some para quem marcou no estande.
+
+---
+
+## 5.1 Como era a fila (16/08, 21h)
 
 **0 pendentes.** Os 9 que estavam na fila aprovaram no mesmo dia, entre 12:34 e 19:55 — e o webhook
 gravou os 9 em `whatsapp_template_eventos`, nenhum se perdeu.

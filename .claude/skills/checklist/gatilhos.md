@@ -93,6 +93,14 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - 🔴 `sucesso` significa **"a Z-API aceitou"**, não "entregou". Não relatar entrega a partir disso.
 - Ao mexer no envio, procurar **todos** os call-sites (eram cinco, não dois — 11/08).
 - Tenant `is_demo` não envia nada real (`lib/demo/envio-guard`).
+- 🔴 **Desligar/trocar um canal de aviso? duas perguntas antes:** *(a) o sucesso deste envio guarda
+  alguma transição de estado?* — no CONARH o `followup_step` avançava DENTRO do `if (r.ok)`, e com o
+  canal caído a régua ficou congelada desde 11/08 sem sintoma; *(b) para onde o conteúdo vai agora, e
+  quem lê aquilo?* — trocar envio por `console.log` levou nome, organização e TELEFONE de lead para o
+  log retido da Vercel (17/08). Detalhe: memória `feedback_desligar_um_aviso`.
+- 🔴 **Ligou o template num call-site? procure os OUTROS.** `sendAccessLink` tinha 4 e só 1 passava o
+  `acessoParam` → 28 falhas de login medidas (14-16/08). O antídoto não é repetir a linha: é DERIVAR
+  do que todos já passam, num lugar só (`derivarParametroAcesso`).
 
 ## 8. Auth, sessão, login
 
