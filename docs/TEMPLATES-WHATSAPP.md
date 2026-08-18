@@ -37,7 +37,17 @@ cai no caminho legado — silenciosamente, que é o motivo da R13 existir.
 | 6 | `resultado_perfil` | UTILITY | `perfil` · `WHATSAPP_TEMPLATE_PERFIL` | Relatório individual pronto (envio deliberado, em lote) | `scripts/_avisar-perfil-pronto.ts:103` |
 | 7 | `acesso_vertho` | UTILITY | `acesso` · `WHATSAPP_TEMPLATE_ACESSO` | Magic link pedido no login | `lib/notifications/access-link-service.ts:172` |
 | 8 | `otp_acesso` | AUTHENTICATION | — (nome fixo no código) | Código de 6 dígitos do login por telefone | `app/api/auth/phone-otp/request/route.ts:83` |
-| 9 | `plano_desenvolvimento` | UTILITY | `plano` · `WHATSAPP_TEMPLATE_PLANO` | Relatório individual gerado **depois do corte** — cron `avisar_planos` | `lib/notifications/avisar-plano-pronto.ts` |
+| 9 | `plano_desenvolvimento` | UTILITY | `plano` · `WHATSAPP_TEMPLATE_PLANO` | Relatório individual: pelo cron `avisar_planos` (só **depois do corte**) ou pela tela, sob demanda | `lib/notifications/avisar-plano-pronto.ts` · `/admin-v2/cliente` → "Planos (PDI)" |
+
+🔑 **Dois gatilhos, réguas diferentes — 17/08.** O CRON usa o `CORTE_ISO` fixo e roda sem ninguém
+olhando. A TELA ignora o corte de propósito: há prévia com números e um humano confirmando, então a
+régua que vale é a **idempotência** (`notification_deliveries` com `kind='plano'`), que impede
+segunda mensagem para a mesma pessoa — repetir o clique é seguro. O corte alternativo só é aceito
+com escopo de tenant (`apenasSlug`), senão um reanúncio alcançaria outros clientes.
+
+⚠️ **O corte tinha uma premissa falsa** e deixou os 34 de Macaé sem aviso nenhum (medido: zero
+envios de `plano` no tenant). Ver F-I19 do `docs/FMEA-PIPELINE.md`. `Medido: 34/34 entregues, 0
+falhas, em 215s.`
 
 🔑 **O nº 4 fechou um buraco de mais de um mês.** A segunda da semana de aplicação só tinha o
 caminho legado (`agendarWhatsapp` → Z-API), morto desde 11/08: por WhatsApp a semana **não abria**.
@@ -441,3 +451,20 @@ consumidor.
 - Grave a env var com `printf '%s' … | vercel env add`, **nunca `echo`**.
 - E pergunte se o dado que a mensagem anuncia **existe**: `plano_desenvolvimento` está aprovado e a
   tabela `pdis` está vazia em todos os tenants.
+
+## Cadência: uma régua só, e ela mudou em 17/08
+
+Todo envio em lote passa por **`lib/whatsapp/cadencia.ts`** — `criarPaceadorSincrono()` no loop
+síncrono, `atrasosDoLote()`/`criarRelogioCadencia()` para o `Upstash-Delay`. Nunca um literal.
+
+**Default 6s** (era 15s), com jitter ±30% e teto de 120 por disparo, tudo por env
+(`WHATSAPP_LOTE_INTERVALO_MS`/`_MAX`/`_JITTER`). O 15s foi calibrado para o número QR bloqueado em
+11/08; hoje o canal é a Cloud API oficial (teto técnico 80 msg/s — o limite que resta é o tier de
+destinatários únicos, que é volume, não taxa). `Medido em 17/08:` 38 boas-vindas a 7,0s e 34 avisos
+de plano a 6,5s — 72 mensagens, 0 falhas. A régua do incidente continua travando o valor: no máximo
+**10 msg/min**, e 6s dá exatamente 10.
+
+⚠️ **A política não governava nada até 17/08**: havia quatro réguas, duas delas com os 2s do
+incidente, porque o guard media o canal LEGADO e não varria `scripts/`. Ver F-I20 do
+`docs/FMEA-PIPELINE.md`. Ao trocar de canal ou fornecedor, **o denominador do guard troca junto** —
+senão ele fica verde certificando o caminho que ninguém mais usa.

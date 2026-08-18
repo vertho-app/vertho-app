@@ -267,6 +267,36 @@ Casa: qualquer caminho que renderize PDF por `tsx`/node em vez do bundle do Next
 - Falha de render dentro de `try/catch` que só faz `console.warn` **não aparece em lugar nenhum**:
   conferir o efeito PERSISTIDO (`select count(*) … where url is null`), nunca o log.
 
+## 27. Marca em PDF / white-label por tenant (`components/pdf/**`, `lib/pdf-marca.ts`)
+
+Casa: pedido de "tirar a marca", PDF entregue a cliente, capa/cabeçalho/rodapé de relatório.
+
+- 🔴 **Tirar o logo PIORA**: `PdfReportCover` tem fallback que ESCREVE "vertho.ai" quando não recebe
+  imagem. Imagem e `mostrarVertho` são uma decisão só — `lib/pdf-marca.ts` (17/08).
+- 🔴 A marca não está só na capa: rodapé fixo (4 de 6 páginas), slogan, "· vertho.ai" na linha de
+  confidencialidade, contracapa e **o nome do arquivo** baixado. Provar no ARTEFATO:
+  `scripts/_verificar-pdi-marca.ts` lê o texto de todas as páginas do PDF servido.
+- 🔴 **Mudar o componente não muda o que já foi gerado** — o PDF nasce uma vez e é reusado
+  (`if (!path)`). Regerar faz parte da entrega, senão ninguém vê a mudança.
+- Fallback de erro é **sem logo**, jamais o da Vertho. Logo do cliente é opt-in à parte.
+
+## 28. Envio de WhatsApp em lote (qualquer caminho)
+
+Casa: script, action, cron ou tela que mande mais de uma mensagem.
+
+- 🔴 **Cadência vem de `lib/whatsapp/cadencia.ts`**, nunca de literal. Em 17/08 havia QUATRO réguas,
+  duas com os 2s que derrubaram o número em 11/08. Guarda: `whatsapp-cadencia-guard`.
+- 🔴 **Ao trocar de canal/fornecedor, o denominador do guard troca junto.** Ele media o wrapper
+  legado e ficou cego para `enviarTemplateCloud`/`enviarPorTemplate` (Cloud API desde 14/08) — verde
+  enquanto o produto migrava.
+- 🔴 **Envio real não sai da máquina do dev**: `.env.local` não tem `WHATSAPP_TEMPLATE_*` nem
+  `CRON_SECRET`. Descobrir isso antes de preparar o disparo.
+- Antes de disparar, conferir o que JÁ saiu (`notification_deliveries` por `kind`): "vamos avisar" e
+  "já avisamos" são indistinguíveis sem essa consulta — foi assim que 34 pessoas ficaram sem aviso
+  por uma premissa escrita num comentário (F-I19).
+- Operação que **só** o cron alcança precisa de caminho por sessão: `CRON_SECRET` é *Sensitive* e
+  ninguém consegue lê-lo; regravar derruba os crons agendados.
+
 ## 22. Sempre (base fixa — cite, não copie)
 
 `docs/CHECKLISTS.md` §1. Os três que mais reincidem:

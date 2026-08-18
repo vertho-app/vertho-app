@@ -793,6 +793,56 @@ dias, para todo mundo. ⚠️ **Ainda com o padrão, não medidos:**
 `lib/relatorio-comportamental/relatorio-core.ts:65` e `app/dashboard/pdi/pdi-actions.ts:96`.
 **Backfill dos 40 existentes: ABERTO** — o fix vale só para gerações novas.
 
+### F-I19 · Corte constante com premissa embutida deixou 34 pessoas sem aviso, para sempre ✅ (corrigido 17/08)
+
+**Gatilho:** `lib/notifications/avisar-plano-pronto.ts` — `CORTE_ISO = '2026-08-16T23:59'`, com o
+comentário *"os 38 de Ibipeba e os 34 de Macaé já foram baixados pelas pessoas e não devem ser
+reanunciados"*.
+
+A premissa valia para Ibipeba, de onde nasceu, e foi generalizada para os dois na mesma linha.
+**Medido em 17/08:** `notification_deliveries` tinha **ZERO** registros de `kind='plano'` em `macae`
+— só convite, magic link, boas-vindas e acesso. Os 34 nunca souberam que o plano existia, e como o
+corte é fixo **e não tinha caminho de exceção**, ficariam em silêncio permanente. O sintoma é a
+ausência de sintoma: nada falha, nada alerta, ninguém reclama de mensagem que não chegou.
+
+**Classe: constante cuja justificativa mora num comentário.** O comentário é uma afirmação sobre o
+MUNDO ("já baixaram"), não sobre o código, e envelhece sem que nada acuse. Antes de confiar num
+corte, conferir o fato no banco.
+
+**Correção:** `avisarPlanosProntos` aceita `corteIso`, mas **só junto de `apenasSlug`**, e lança
+antes de tocar banco ou provedor — sem escopo, baixar o corte alcançaria os 38 de Ibipeba junto.
+O `CORTE_ISO` não mudou; o teste que o trava segue valendo. Guarda em
+`tests/unit/avisar-plano-pronto.test.ts`.
+
+**Agravante que virou feature:** o disparo só existia via `curl` no endpoint do cron com
+`CRON_SECRET`, que é *Sensitive* na Vercel — ninguém consegue LER, só regravar, e regravar
+invalidaria o valor dos crons agendados. Operação que só o cron alcança é operação sem porta. Agora
+há botão em `/admin-v2` (aba "Planos (PDI)"), autorizado pela sessão e auditado.
+
+### F-I20 · A política de cadência existia e não governava nenhum envio real ✅ (corrigido 17/08, `259bb66a`)
+
+**Gatilho:** `tests/unit/integrations/whatsapp-cadencia-guard.test.ts` — o denominador media o canal
+ANTIGO.
+
+Seis dias depois do incidente de 11/08, havia **quatro** réguas para a mesma decisão: a política
+(15s), dois literais de 6s (`avisar-plano-pronto.ts`, `_boas-vindas-turma.ts`) e **dois de 2s** —
+`_reenviar-p1-whatsapp.ts` (`setTimeout(res, 2000)`) e `_enviar-missao-semana4-ibipeba.ts`
+(`i * 2` no `Upstash-Delay`), que é o ritmo exato que derrubou o número.
+
+**Por que a guarda passava verde:** (1) `DIRS` não incluía `scripts/`, e foram scripts que falaram
+com as 72 pessoas de Macaé; (2) os emissores reconhecidos eram os do wrapper legado
+(`@/actions/whatsapp`, `sendWhatsapp`) — `enviarTemplateCloud`/`enviarPorTemplate`, a **Cloud API
+oficial desde 14/08**, não contavam. Ampliado o denominador, ela apontou os dois scripts sozinha.
+
+**Classe: guard que não acompanha a migração de canal.** Ele continua verde e passa a certificar o
+caminho que ninguém mais usa. Ao trocar de fornecedor/canal, o denominador do guard troca junto.
+
+**Default 15s → 6s**, com procedência: o 15s era para o número QR bloqueado; hoje o canal é a Cloud
+API (teto 80 msg/s, o limite restante é o tier de destinatários únicos — volume, não taxa). Medido
+em 17/08: 38 boas-vindas a 7,0s e 34 avisos de plano a 6,5s, **72 mensagens, 0 falhas**. A régua do
+incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detalhe em
+`docs/TEMPLATES-WHATSAPP.md` e na memória `project_whatsapp_ban_lote`.
+
 ## 5. Parse de IA / robustez
 
 ### F-P1 · JSON truncado (maxTokens) → falha limpa (blueprint) ou score inflado (auditoria) ✅ (fechado 27/07)
