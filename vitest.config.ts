@@ -22,6 +22,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
+      // `server-only` é resolvido pelo próprio Next (alias interno do webpack) e
+      // não existe em node_modules. Sem este stub, todo núcleo headless que se
+      // marca com ele fica fora da suíte — a marca custaria cobertura.
+      'server-only': path.resolve(__dirname, 'tests/stubs/server-only.ts'),
     },
   },
 });

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { safeSecretEqual } from '@/lib/secure-compare';
 import { inicioHojeBRT } from '@/lib/conarh/conteudo';
+import { contarEntregasT0 } from '@/lib/conarh/reenvio-t0';
 
 /**
  * CONARH 52 — fila do dia no tablet (F4 do sprint consolidado).
@@ -46,7 +47,7 @@ export async function GET(req: Request) {
 
   const { data, error } = await sb
     .from('diag_leads')
-    .select('id, nome, organizacao, porta_escolhida, competencia_critica, horizonte, classe, reuniao_em, criado_em')
+    .select('id, nome, organizacao, porta_escolhida, competencia_critica, horizonte, classe, reuniao_em, criado_em, t0_status, t0_erro')
     .eq('scope_id', 'conarh-2026')
     .gte('criado_em', inicioDia)
     .order('criado_em', { ascending: false })
@@ -57,10 +58,22 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Falha ao ler a fila' }, { status: 500 });
   }
 
+  // Contagem de entregas do T+0 — da CAMPANHA INTEIRA, não do dia: quem ficou
+  // devendo ontem continua devendo hoje, e o dia 3 da feira não pode zerar o
+  // pendente do dia 1. Best-effort: se a contagem falhar, a fila ainda abre (é a
+  // tela que o expositor usa entre um visitante e outro).
+  let entregas: Awaited<ReturnType<typeof contarEntregasT0>> | null = null;
+  try {
+    entregas = await contarEntregasT0();
+  } catch (err: any) {
+    console.error('[conarh/fila] contagem de entregas falhou:', err?.message || err);
+  }
+
   return NextResponse.json({
     ok: true,
     dia: inicioDia.slice(0, 10),
     total: data?.length || 0,
+    entregas,
     leads: (data || []).map((l: any) => ({
       id: l.id,
       nome: l.nome,
@@ -71,6 +84,10 @@ export async function GET(req: Request) {
       classe: l.classe,
       reuniao_em: l.reuniao_em,
       criado_em: l.criado_em,
+      // O recorte chegou? É a única coluna desta tela que não é sobre o
+      // visitante, e sim sobre o que NÓS devemos a ele.
+      t0_status: l.t0_status,
+      t0_erro: l.t0_erro,
     })),
   });
 }

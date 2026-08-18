@@ -440,6 +440,20 @@ export async function conarhFollowup() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// CONARH T+0 PENDENTE: re-tenta o recorte que não chegou.
+// Núcleo em lib/conarh/reenvio-t0.ts. A cada 15 min na janela da feira — é o que
+// faz a fila esvaziar SOZINHA no minuto em que a Meta aprovar o template
+// (`recorte_demonstracao` estava PENDING em 18/08, dia 1). Rodada sem pendente é
+// uma query que devolve 0 linhas: barata o bastante para não valer um interruptor.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function conarhReenvioT0() {
+  await requireAdminOrCronAction();
+  const { reenviarPendentesT0 } = await import('@/lib/conarh/reenvio-t0');
+  return reenviarPendentesT0();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Helper: Publicar no QStash (reutilizado de whatsapp-lote.js)
 // ═══════════════════════════════════════════════════════════════════════════════
 

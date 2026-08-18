@@ -20,6 +20,14 @@ import { COR, SANS, SERIF, TOQUE } from './tema';
 
 export interface ResultadoForm {
   naFila: boolean;
+  /**
+   * Id do lead gravado — a chave do Mapa da Evolução (`/conarh/mapa/{id}`), que a
+   * confirmação vira QR na tela.
+   *
+   * Ausente quando a captura caiu na fila offline: o id nasce no servidor, e sem
+   * ele não há Mapa para apontar a câmera.
+   */
+  leadId?: string;
 }
 
 const LGPD_TEXTO =
@@ -161,7 +169,7 @@ export function Captura({
     };
     const r = await enviarLeadConarh(payload);
     if (r.ok) {
-      onSucesso({ naFila: false });
+      onSucesso({ naFila: false, leadId: r.id });
     } else {
       // Falha de rede/servidor → não perde o lead: fila local + mensagem honesta.
       enfileirar(payload);

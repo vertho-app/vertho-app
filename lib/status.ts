@@ -120,3 +120,28 @@ export const TURMA_MEMBRO = {
   CONCLUIDO: 'concluido',
 } as const;
 export type TurmaMembroStatus = (typeof TURMA_MEMBRO)[keyof typeof TURMA_MEMBRO];
+
+/**
+ * diag_leads.t0_status — a ENTREGA do recorte prometido no estande (mig 221).
+ *
+ * OITAVO domínio. `PENDENTE` coincide em valor com PROGRESSO e PAINEL, mais uma
+ * vez por acaso: aqui não descreve o andamento de uma semana nem uma fila de
+ * worker, e sim **o que nós devemos a um visitante da feira**.
+ *
+ * 🔑 `DESCONHECIDO` é o único que não descreve uma tentativa: é o lead capturado
+ * ANTES de o worker medir a entrega (até 18/08/2026 ele carimbava "T+0 executado"
+ * sem que nada tivesse saído). Não significa "não recebeu" — significa "não dá
+ * para afirmar". Por isso fica fora do reenvio automático: reenviar o recorte a
+ * quem já leu é ruído, e afirmar que não chegou seria a mesma invenção que a
+ * mig 221 veio corrigir.
+ */
+export const ENTREGA_T0 = {
+  PENDENTE: 'pendente',
+  ENVIADO: 'enviado',
+  FALHOU: 'falhou',
+  DESCONHECIDO: 'desconhecido',
+} as const;
+export type EntregaT0Status = (typeof ENTREGA_T0)[keyof typeof ENTREGA_T0];
+
+/** Os que ainda devem entrega — a fila que o cron e o botão da equipe varrem. */
+export const ENTREGA_T0_NA_FILA: EntregaT0Status[] = [ENTREGA_T0.PENDENTE, ENTREGA_T0.FALHOU];

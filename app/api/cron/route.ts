@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cleanupSessoes, triggerSegunda, triggerQuinta, triggerDiario, conarhFollowup } from '@/actions/cron-jobs';
+import { cleanupSessoes, triggerSegunda, triggerQuinta, triggerDiario, conarhFollowup, conarhReenvioT0 } from '@/actions/cron-jobs';
 import { safeSecretEqual } from '@/lib/secure-compare';
 
 // trigger_diario virou DISPATCHER (fan-out QStash por empresa — uma task por
@@ -187,6 +187,13 @@ export async function GET(req) {
       // lead dentro do núcleo; exceção global vira 500 observável no log.
       case 'conarh-followup':
         result = await conarhFollowup();
+        break;
+
+      // CONARH 52 — fila do T+0: re-tenta o recorte que não chegou (mig 221).
+      // Roda de 15 em 15 min na janela da feira; é o gatilho que esvazia a fila
+      // sem ninguém apertar nada quando a Meta aprovar o template.
+      case 'conarh_reenvio_t0':
+        result = await conarhReenvioT0();
         break;
 
       // Legados (disparo manual): seg = pílula única; qui = evidência. O cron

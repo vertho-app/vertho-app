@@ -18,6 +18,8 @@ import {
 } from './sessao';
 import { flushFila, totalPendentes } from './capture';
 import type { ResultadoForm } from './captura';
+import { LinkMapa, QrMapa } from './qr-mapa';
+import { mapaEvolucaoUrl } from '@/lib/conarh/conteudo';
 import { BarraTopo } from './chrome';
 import { Hub } from './hub';
 import { Porta1 } from './porta1';
@@ -304,13 +306,37 @@ function Confirmacao({
           margin: 0,
         }}
       >
-        {resultado.naFila ? 'Salvo no aparelho.' : 'Recebido!'}
+        {resultado.naFila ? 'Salvo no aparelho.' : resultado.leadId ? 'Pronto — leve agora.' : 'Recebido!'}
       </h1>
-      <p style={{ color: COR.texto2, fontSize: 21, lineHeight: 1.55, fontFamily: SANS, marginTop: 14 }}>
-        {resultado.naFila
-          ? 'A rede oscilou na hora de enviar — o contato está salvo no aparelho e enviamos em instantes, automaticamente.'
-          : 'O recorte da demonstração chega pelo WhatsApp em alguns minutos.'}
-      </p>
+
+      {/*
+        🔑 A ENTREGA SAIU DO CAMINHO CRÍTICO (18/08/2026). Esta tela prometia
+        "chega pelo WhatsApp em alguns minutos" — e em 18/08 não chegava nada: o
+        template `recorte_demonstracao` estava PENDING na Meta e o legado (Z-API)
+        caiu em 11/08. Promessa de PRAZO num canal que depende de terceiro é a
+        parte que quebra sozinha; o QR entrega ali, na câmera do visitante, e o
+        WhatsApp passa a ser reforço.
+      */}
+      {resultado.leadId ? (
+        <div className="flex flex-wrap items-center gap-7 mt-6">
+          <QrMapa url={mapaEvolucaoUrl(resultado.leadId)} />
+          <div style={{ minWidth: 260, flex: '1 1 260px' }}>
+            <p style={{ color: COR.texto2, fontSize: 21, lineHeight: 1.5, fontFamily: SANS, margin: 0 }}>
+              Aponte a câmera do seu celular para levar o Mapa da Evolução agora.
+            </p>
+            <p style={{ color: COR.texto3, fontSize: 17, lineHeight: 1.5, fontFamily: SANS, margin: '10px 0 0' }}>
+              Também enviamos o recorte para o seu WhatsApp.
+            </p>
+            <LinkMapa url={mapaEvolucaoUrl(resultado.leadId)} />
+          </div>
+        </div>
+      ) : (
+        <p style={{ color: COR.texto2, fontSize: 21, lineHeight: 1.55, fontFamily: SANS, marginTop: 14 }}>
+          {resultado.naFila
+            ? 'A rede oscilou na hora de enviar — o contato está salvo no aparelho e enviamos em instantes, automaticamente.'
+            : 'Enviamos o recorte da demonstração para o seu WhatsApp.'}
+        </p>
+      )}
       <button
         type="button"
         onClick={onNovoVisitante}

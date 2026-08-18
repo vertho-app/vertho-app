@@ -43,6 +43,10 @@
     {
       "path": "/api/cron?action=conarh-followup",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron?action=conarh_reenvio_t0",
+      "schedule": "*/15 11-23 * * *"
     }
   ]
 }
