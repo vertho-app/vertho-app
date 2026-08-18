@@ -71,6 +71,11 @@ export default function FilaPage() {
    *
    * A chave vai no HEADER (a rota que escreve não aceita chave por query: URL
    * fica em histórico e log de acesso).
+   *
+   * O corpo vai VAZIO de propósito: quem decide insistir é o servidor. A rota
+   * manual inclui os leads que esgotaram as tentativas automáticas — foi esse
+   * o buraco de 18/08, quando o teto queimou contra um canal caído e o botão
+   * não alcançava mais justamente quem ainda não tinha recebido nada.
    */
   async function reenviar() {
     if (!key || reenviando) return;

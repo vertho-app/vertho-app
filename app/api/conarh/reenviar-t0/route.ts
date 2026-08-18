@@ -74,7 +74,22 @@ export async function POST(req: Request) {
     }
 
     // ── A fila inteira.
-    const resultado = await reenviarPendentesT0({ incluirEsgotados: body?.incluirEsgotados === true });
+    //
+    // 🔑 O DEFAULT desta rota INCLUI os esgotados, e a decisão é do SERVIDOR: o
+    // teto de tentativas existe para o cron não martelar sozinho para sempre, e
+    // esta rota é o caminho manual — se ela foi chamada, uma pessoa com a chave
+    // já decidiu insistir. Herdar o teto do automático tornava a tela incapaz de
+    // resgatar justamente quem mais precisa.
+    //
+    // Medido em 18/08/2026 (dia 1 da feira): um lead capturado 15:19 gastou as 10
+    // tentativas contra a Z-API caída e, quando o template aprovou às 19:21, já
+    // estava fora do cron E do botão — a tela mostrava "1 recorte não chegou" com
+    // um botão que, para aquele lead, não fazia nada. A cota tinha sido queimada
+    // por avaria do CANAL, não por recusa do destinatário.
+    //
+    // `incluirEsgotados: false` continua disponível para quem quiser a varredura
+    // conservadora de propósito — só deixou de ser o que se ganha por omissão.
+    const resultado = await reenviarPendentesT0({ incluirEsgotados: body?.incluirEsgotados !== false });
     return NextResponse.json({ ok: true, ...resultado, contagem: await contarEntregasT0() });
   } catch (err: any) {
     console.error('[conarh/reenviar-t0] FATAL', err?.message || err);
