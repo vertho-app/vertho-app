@@ -12,8 +12,8 @@
 // "o link não funciona" para a pessoa, sem erro nenhum do nosso lado.
 import { describe, it, expect } from 'vitest';
 import vm from 'node:vm';
-import { scriptAutoEntrar, CHAVE_AUTO_ENTRAR } from '@/lib/auth/auto-entrar';
-import { ehRoboDePreview } from '@/lib/auth/navegador-embutido';
+import { scriptAutoEntrar, scriptSairParaNavegador, CHAVE_AUTO_ENTRAR } from '@/lib/auth/auto-entrar';
+import { ehRoboDePreview, esquemaSafari } from '@/lib/auth/navegador-embutido';
 
 const URL_ENTRAR = '/entrar?t=ibipeba~abcdef0123456789&ir=1';
 
@@ -24,7 +24,12 @@ const URL_ENTRAR = '/entrar?t=ibipeba~abcdef0123456789&ir=1';
  * separa este teste de um snapshot: ele continua valendo se o script for
  * reescrito, e falha se o comportamento mudar.
  */
-function executar({ agora = 1_000_000, guardado = null as string | null, storageQuebrado = false } = {}) {
+function executar({
+  agora = 1_000_000,
+  guardado = null as string | null,
+  storageQuebrado = false,
+  script = scriptAutoEntrar(URL_ENTRAR),
+} = {}) {
   const gravado: Record<string, string> = {};
   const navegouPara: string[] = [];
   const storage = storageQuebrado
@@ -37,12 +42,17 @@ function executar({ agora = 1_000_000, guardado = null as string | null, storage
         setItem: (k: string, v: string) => { gravado[k] = v; },
       };
 
-  const sandbox = {
-    sessionStorage: storage,
-    location: { replace: (u: string) => { navegouPara.push(u); } },
-    Date: { now: () => agora },
-  };
-  vm.runInNewContext(scriptAutoEntrar(URL_ENTRAR), sandbox);
+  // `href` é uma PROPRIEDADE: o setter registra a navegação, do mesmo jeito que
+  // o navegador faria. Assim os dois modos (replace × href) são observados pelo
+  // mesmo sandbox, e nenhum deles passa despercebido.
+  const location: any = { replace: (u: string) => { navegouPara.push(u); } };
+  Object.defineProperty(location, 'href', {
+    get: () => '',
+    set: (u: string) => { navegouPara.push(u); },
+  });
+
+  const sandbox = { sessionStorage: storage, location, Date: { now: () => agora } };
+  vm.runInNewContext(script, sandbox);
   return { gravado, navegouPara };
 }
 
@@ -90,6 +100,41 @@ describe('o script entra sozinho — o toque virou JS', () => {
     const script = scriptAutoEntrar('/entrar?t=x</script><script>alert(1)</script>&ir=1');
     expect(script).not.toContain('</script>');
     expect(script).toContain('\\u003C/script>');
+  });
+});
+
+describe('iPhone no WhatsApp: a tela tenta o SAFARI, não o WebView', () => {
+  // 🔴 `x-safari-https://` NÃO é API suportada — é um efeito colateral (app
+  // bem-comportado repassa esquema desconhecido ao sistema), medido no WhatsApp
+  // 2.26.31 em 15/08/2026. Pode sumir numa atualização, e o teste aqui não
+  // protege contra isso: quem protege é a tela nascer com os botões visíveis e o
+  // `[entrar] consumido … embutido=true` denunciar no log que a saída parou de
+  // funcionar.
+  const URL_ABS = 'https://app.vertho.ai/entrar?t=ibipeba~abcdef0123456789&ir=1';
+  const script = () => scriptSairParaNavegador(esquemaSafari(URL_ABS));
+
+  it('entrega a navegação ao Safari, com `ir=1` (entra direto lá)', () => {
+    const { navegouPara } = executar({ script: script() });
+    expect(navegouPara).toEqual(['x-safari-https://app.vertho.ai/entrar?t=ibipeba~abcdef0123456789&ir=1']);
+  });
+
+  it('🔴 usa `href`: com `replace`, a tela sumiria e o fallback iria junto', () => {
+    // Se o esquema não for repassado, o WKWebView cancela a navegação e a pessoa
+    // FICA nesta tela — que é o fallback. Ela precisa continuar existindo.
+    expect(script()).toContain('location.href=');
+    expect(script()).not.toContain('location.replace');
+  });
+
+  it('a mesma trava de 60 s vale aqui', () => {
+    const { navegouPara } = executar({ script: script(), agora: 1_000_000, guardado: '999000' });
+    expect(navegouPara).toEqual([]);
+  });
+
+  it('🔴 nada é consumido pela tentativa em si', () => {
+    // O que consome é o `/entrar?ir=1` — e ele só é alcançado se o Safari
+    // realmente abrir. Tentativa que falha deixa o token intacto.
+    const { navegouPara } = executar({ script: script() });
+    expect(navegouPara[0].startsWith('x-safari-https://')).toBe(true);
   });
 });
 

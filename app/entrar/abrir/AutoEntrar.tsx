@@ -1,4 +1,4 @@
-import { scriptAutoEntrar } from '@/lib/auth/auto-entrar';
+import { scriptAutoEntrar, scriptSairParaNavegador } from '@/lib/auth/auto-entrar';
 
 /**
  * O toque em "Entrar agora" que a pessoa não precisa mais dar.
@@ -26,16 +26,37 @@ import { scriptAutoEntrar } from '@/lib/auth/auto-entrar';
  *   - robô de preview da Meta → baixa o HTML, não executa script, token intacto;
  *   - navegador com JS desligado → vê a tela com o botão, exatamente como antes.
  *
- * ⚠️ O QUE SE PERDE: o desvio "prefere entrar pelo navegador?" deixa de ser
- * alcançável na prática, porque a tela não fica parada esperando. Quem também usa
- * a Vertho no computador pede o link de lá — é onde a sessão precisa nascer de
- * qualquer jeito.
+ * 🔑 PARA ONDE ela entra sozinha (ajustado no mesmo dia, a pedido do dono)
+ * ──────────────────────────────────────────────────────────────────────
+ * A primeira versão entrava ONDE a pessoa estava — e no iPhone isso é o WebView
+ * do WhatsApp. O pedido veio no teste: *"foi direto, mas para o navegador
+ * interno"*. Hoje o destino depende de onde dá para chegar:
+ *
+ *   - **Android no WhatsApp** → já saiu antes desta tela: o `/entrar` responde
+ *     `intent://…package=com.android.chrome`, e a pessoa chega aqui já no Chrome.
+ *   - **iPhone no WhatsApp** → esta tela tenta `x-safari-https://` (modo
+ *     `navegador`), para a sessão nascer no Safari. **Não é API suportada**;
+ *     falhando, a navegação é cancelada, nada é consumido, e a tela — que nasce
+ *     com os botões visíveis — vira o caminho manual de um toque.
+ *   - **navegador de verdade** → `location.replace` direto (modo `direto`).
  *
  * A lógica do script (e o porquê de cada decisão dele) fica em
  * `lib/auth/auto-entrar.ts`, que é o que a suíte exercita.
  */
-export default function AutoEntrar({ url }: { url: string }) {
+export default function AutoEntrar({
+  url,
+  modo = 'direto',
+}: {
+  url: string;
+  /**
+   * `direto` — entra onde a pessoa está (navegador de verdade, ou o WebView
+   * quando não há saída). `navegador` — tenta ENTREGAR a navegação ao navegador
+   * do aparelho (iPhone: `x-safari-https://`), para a sessão nascer lá.
+   */
+  modo?: 'direto' | 'navegador';
+}) {
   // Emitido no HTML servido — roda antes de qualquer hidratação do React, que no
   // 4G do celular chega segundos depois.
-  return <script dangerouslySetInnerHTML={{ __html: scriptAutoEntrar(url) }} />;
+  const js = modo === 'navegador' ? scriptSairParaNavegador(url) : scriptAutoEntrar(url);
+  return <script dangerouslySetInnerHTML={{ __html: js }} />;
 }
