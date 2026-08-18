@@ -491,6 +491,11 @@ de errar é assimétrico — um toque a mais para quem já estava no navegador c
 queimado para quem não estava. Efeito colateral bem-vindo: o robô de preview de link da Meta passa a
 ler HTML em vez de seguir para o callback.
 
+> ⚠️ **Atualizado em 18/08 (§9.2e): a tela deixou de ESPERAR o toque — ela entra sozinha por JS.**
+> O invariante descrito aqui continua valendo palavra por palavra (nenhum GET sem `ir=1` aponta para
+> o callback); o que mudou é que o passo final passou a ser dado por `location.replace`, e o "efeito
+> colateral bem-vindo" acima virou a **defesa principal** contra o robô de preview.
+
 ⚠️ **Escreva isto na resposta ao cliente, não só no código:** "abrir direto no navegador" no iPhone
 é uma promessa que ninguém consegue cumprir — não existe caminho programático para sair do
 WKWebView. Para quem já tem o app instalado, o caminho sem navegador nenhum é o **OTP**
@@ -594,11 +599,10 @@ perfeitamente boa — e isso está **medido**, não suposto: em 16/08 às 00:04 
 `/dashboard/temporada/semana/5` com `200`, sem passar pelo login, numa sessão criada dentro do
 WhatsApp 23 horas antes. **O WebView guarda a sessão entre mensagens.**
 
-Estado final da tela de acesso: **"Entrar agora" é o botão, para todo mundo, um toque.** A saída para
-o navegador vive num `<details>` fechado ("Prefere entrar pelo navegador?") — continua construída e
-testada, e serve a quem também usa a Vertho no computador, mas não cobra pedágio de ninguém. O aviso
-do login (`components/auth/aviso-navegador-embutido.tsx`) segue como atalho para quem cair sem
-sessão, deixando explícito que dá para entrar ali mesmo.
+Estado da tela de acesso após 16/08 — **superado em 18/08, ver §9.2e**: "Entrar agora" era o botão,
+para todo mundo, um toque. A saída para o navegador vivia num `<details>` fechado ("Prefere entrar
+pelo navegador?"). O aviso do login (`components/auth/aviso-navegador-embutido.tsx`) segue como
+atalho para quem cair sem sessão, deixando explícito que dá para entrar ali mesmo.
 
 Também **cancelou** o trabalho que estava proposto para o dia seguinte: transferência de sessão
 (minter um link novo para o usuário já autenticado e abrir no Safari já logado). Era a peça que
@@ -616,6 +620,63 @@ redimível 2-3 vezes em 15 min. ⚠️ E aí esbarra numa promessa aprovada: o c
 diz *"só pode ser usado uma vez"*. Mudar o comportamento sem mudar o texto torna o texto falso;
 mudar o texto é submeter o template de novo à Meta, com o risco de voltar MARKETING (6× o custo —
 4 de 8 voltaram assim em 14/08). Decisão pendente, e é do dono.
+
+### 9.2e A quinta virada: o toque virou JavaScript (18/08)
+
+Relato do dono, com dois prints: *"nosso fluxo de magic link está com muitos cliques"*. Ele estava
+certo, e a conta é curta: **botão da mensagem + "Entrar agora"** = dois toques para chegar ao
+dashboard; quem abrisse o `<details>` do navegador pagava quatro.
+
+O toque extra comprava **uma coisa só**: a chance de trocar de navegador antes de entrar, porque a
+URL da barra continuava redimível. Isso servia ao PWA instalado — fora do escopo desde 16/08. Ou
+seja, desde aquela decisão o pedágio era cobrado de todo mundo e o beneficiário tinha ido embora.
+Nenhuma linha de código estava errada; a **premissa** é que tinha vencido.
+
+**O que mudou:** a tela entra sozinha (`app/entrar/abrir/AutoEntrar.tsx` + `lib/auth/auto-entrar.ts`).
+Fluxo inteiro = **um toque**, o da mensagem.
+
+🔑 **O invariante do servidor NÃO mudou, e é isso que segura o token.** `/entrar` sem `ir=1` continua
+sem apontar para o `/auth/callback`. O que mudou é *quem* dá o passo final: antes era um dedo, agora
+é um `location.replace` que só existe em navegador de verdade. **A fronteira do consumo deixou de ser
+um TOQUE e passou a ser a EXECUÇÃO DE JS** — e é por isso que o robô de preview da Meta continua do
+lado de fora: ele busca a URL, recebe HTML e vai embora.
+
+`ehRoboDePreview` (em `lib/auth/navegador-embutido.ts`) é a **segunda** camada, não a primeira: régua
+por marcador POSITIVO (a lição do `WAiOS` vale aqui também) e, sem User-Agent, o lado seguro é **não
+entrar** — o oposto do `ehNavegadorEmbutido`, porque aqui o custo do erro inverteu.
+
+Três decisões do script que não são estilo:
+
+| Decisão | Sem ela |
+|---|---|
+| `location.replace` (nunca `href`) | o "voltar" do navegador cai na tela de novo e reentra com o token **já gasto** — a pessoa logada seria jogada num `/login?error=…` |
+| trava de 60 s por **timestamp** em `sessionStorage` | bfcache/recarga viram laço. Guarda timestamp, **nunca o `t`** — ele carrega o `token_hash` |
+| nada de `<meta http-equiv="refresh">` | robô de preview **segue** meta refresh; era justamente ele que precisávamos deixar de fora |
+
+**Medido em produção (18/08, deploy `56716034`), com o par completo:**
+
+| Quem | O que acontece |
+|---|---|
+| iPhone/WhatsApp (`WAiOS`), **sem nenhum clique** | `/entrar/abrir` → `/entrar?…&ir=1` → `/auth/callback` → `/login` (token de teste inválido, como esperado). `history.length = 2`: o `replace` não empilhou a tela |
+| `facebookexternalhit` | fica **parado** em `/entrar/abrir` depois de 6 s, título "Entrar na Vertho", HTML **sem** o script |
+
+**O buraco do outro lado, que só apareceu ao puxar este fio:** o `?error=` chegava no `/login` desde
+sempre e **ninguém o lia**. Quem clicava num link já usado via a tela de login limpa, sem uma palavra
+— e a leitura natural disso é "o sistema não funciona". Ficou mais provável agora, porque reabrir a
+mensagem antiga do WhatsApp consome sem passar por botão. Hoje o `/login` explica e manda pedir outro
+(pt-BR/pt-PT/en/es), **sem ecoar o texto do Supabase** ("Email link is invalid or has expired" é
+detalhe de fornecedor, em inglês), e limpa o parâmetro da URL para a recarga não repetir o aviso.
+
+⚠️ **O que se perde, explicitamente:** o desvio "prefere entrar pelo navegador?" deixa de ser
+alcançável na prática — a tela não fica mais parada esperando. Quem também usa a Vertho no computador
+pede o link **de lá**, que é onde a sessão precisa nascer de qualquer jeito. Reverter é trocar uma
+condição: parar de renderizar o `AutoEntrar`.
+
+Testes: `tests/unit/security/entrar-auto-entrar.test.ts` (o script é executado num sandbox `vm` e o
+que se observa é o EFEITO — navegou? gravou o quê? —, não o texto dele), validado por mutação em
+quatro pontos: `replace`→`href`, escape de `<` removido, trava de 60 s removida e UA vazio deixando
+de ser robô. Cada uma mata o teste correspondente. O par continua sendo
+`entrar-nao-consome.test.ts`, que guarda o lado do servidor.
 
 ### 9.3 O que continua aberto — e por quê
 
