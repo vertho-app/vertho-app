@@ -39,6 +39,7 @@
     "defaultSubtitle": "Sua jornada de desenvolvimento",
     "emailPrompt": "Digite seu e-mail para acessar",
     "unifiedPrompt": "Entre com seu e-mail ou WhatsApp para acessar",
+    "chooseOrgPrompt": "Em qual organização você quer entrar?",
     "orDivider": "ou",
     "whatsappPhonePrompt": "Digite seu WhatsApp para receber o código",
     "whatsappCodePrompt": "Digite o código que enviamos no seu WhatsApp",

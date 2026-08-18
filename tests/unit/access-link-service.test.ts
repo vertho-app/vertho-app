@@ -113,3 +113,79 @@ describe('sendAccessLink (status explícito por canal)', () => {
     expect(r.anySent).toBe(true);
   });
 });
+
+/**
+ * POR QUAL CANAL o link saiu — a pergunta que `whatsapp: 'sent'` não responde.
+ *
+ * 🔴 Medido em 18/08/2026: o parâmetro do botão era derivado do HOST do
+ * callback, e `app.vertho.ai` (o `NEXT_PUBLIC_APP_URL`) é subdomínio reservado.
+ * Quem pedia o link no endereço genérico caía no legado da Z-API — desconectada
+ * desde 11/08 — e não recebia nada no WhatsApp, só o e-mail. Os testes antigos
+ * não pegariam: com a Z-API mockada de pé, o legado devolve `sent` alegremente.
+ * Por isso aqui se observa a URL chamada, não o veredito.
+ */
+describe('🔴 o link de acesso sai pela Cloud API, não pelo legado', () => {
+  const CALLBACK_GENERICO = 'https://app.vertho.ai/auth/callback?token_hash=pkce_abc12345&type=email&next=%2Fdashboard';
+  const base = { to: 'a@b.com', nome: 'Ana', empresaNome: 'X', locale: 'pt-BR' as const, telefone: '11999998888' };
+  let chamadas: Array<{ url: string; body: any }>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    chamadas = [];
+    process.env.RESEND_API_KEY = 'rk';
+    process.env.ZAPI_INSTANCE_ID = 'inst';
+    process.env.ZAPI_TOKEN = 'tok';
+    // Cloud API configurada e template de acesso ligado — como em produção.
+    process.env.META_WHATSAPPBUSINESS_API = 'meta-token';
+    process.env.PHONE_NUMBER_ID = '123456';
+    process.env.WHATSAPP_TEMPLATE_ACESSO = 'acesso_vertho';
+    sendMock.mockResolvedValue({ id: 'em_1' });
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: any) => {
+      chamadas.push({ url: String(url), body: init?.body ? JSON.parse(String(init.body)) : null });
+      if (String(url).endsWith('/status')) {
+        return new Response(JSON.stringify({ connected: true, session: true, smartphoneConnected: true }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ messages: [{ id: 'wamid.X' }] }), { status: 200 });
+    }));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.META_WHATSAPPBUSINESS_API;
+    delete process.env.PHONE_NUMBER_ID;
+    delete process.env.WHATSAPP_TEMPLATE_ACESSO;
+  });
+
+  const foiPelaGraph = () => chamadas.some((c) => c.url.includes('graph.facebook.com'));
+
+  it('host SEM tenant + tenantSlug → template da Cloud API, com o slug do banco no botão', async () => {
+    const r = await sendAccessLink({
+      ...base, channels: ['whatsapp'], whatsappLink: CALLBACK_GENERICO, tenantSlug: 'ibipeba',
+    });
+    expect(r.whatsapp).toBe('sent');
+    expect(foiPelaGraph()).toBe(true);
+    const envio = chamadas.find((c) => c.url.includes('graph.facebook.com'))!;
+    expect(JSON.stringify(envio.body)).toContain('ibipeba~pkce_abc12345');
+  });
+
+  it('o mesmo pedido SEM tenantSlug cai no legado — o check pode falhar', async () => {
+    // Guarda contra o teste que passa por acidente: se este caso também fosse
+    // pela Graph, o de cima não estaria provando nada.
+    const r = await sendAccessLink({
+      ...base, channels: ['whatsapp'], whatsappLink: CALLBACK_GENERICO,
+    });
+    expect(foiPelaGraph()).toBe(false);
+    expect(r.whatsapp).toBe('sent'); // legado "funciona" no teste; em produção, não
+  });
+
+  it('host DE tenant já resolvia sozinho — o slug do banco não atrapalha', async () => {
+    const r = await sendAccessLink({
+      ...base, channels: ['whatsapp'],
+      whatsappLink: 'https://macae.vertho.ai/auth/callback?token_hash=pkce_abc12345&type=email&next=%2Fdashboard',
+      tenantSlug: 'ibipeba',
+    });
+    expect(r.whatsapp).toBe('sent');
+    const envio = chamadas.find((c) => c.url.includes('graph.facebook.com'))!;
+    // O host vence quando existe: é onde a pessoa já está.
+    expect(JSON.stringify(envio.body)).toContain('macae~pkce_abc12345');
+  });
+});

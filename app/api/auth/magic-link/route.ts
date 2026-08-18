@@ -5,6 +5,7 @@ import { authLimiter } from '@/lib/rate-limit';
 import { resolveAppLocale } from '@/lib/i18n';
 import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
 import { sendAccessLink, recipientFromLookup } from '@/lib/notifications/access-link-service';
+import { tenantUrl } from '@/lib/domain';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   try {
-    const { email, redirectTo, locale: bodyLocale } = await req.json();
+    const { email, redirectTo, locale: bodyLocale, empresaSlug } = await req.json();
     const locale = resolveAppLocale(bodyLocale, req.cookies.get('vertho-locale')?.value);
     if (!email) return NextResponse.json({ error: 'Email obrigatório' }, { status: 400 });
 
@@ -25,15 +26,27 @@ export async function POST(req: NextRequest) {
     // Só enviamos link a quem é colaborador (de alguma empresa) ou platform admin.
     // COM subdomínio: exigimos que o email pertença ÀQUELA empresa (fecha o
     // open-relay e o vazamento cross-tenant). SEM subdomínio (apex): o magic link
-    // é GLOBAL por email (o tenant é resolvido só no login), então um email em >1
-    // empresa NÃO é ambíguo aqui — pegamos um registro representativo p/ nome e
-    // telefone da mensagem. (findColabByEmail é fail-closed na ambiguidade por ser
-    // usado em autorização; usá-lo aqui causava "sucesso silencioso" p/ emails
-    // duplicados em tenants — o usuário existia mas nada era enviado.)
-    const slug = getTenantSlug(req);
+    // é GLOBAL por email — o tenant vem da ESCOLHA da pessoa na tela de login, e
+    // só quando ela não escolhe é que se pega um registro representativo.
+    // (findColabByEmail é fail-closed na ambiguidade por ser usado em
+    // autorização; usá-lo aqui causava "sucesso silencioso" p/ emails duplicados
+    // em tenants — o usuário existia mas nada era enviado.)
+    //
+    // O tenant sai do subdomínio; no endereço genérico (`app.vertho.ai`, apex)
+    // não há subdomínio, e aí vale a organização que a pessoa ESCOLHEU na tela
+    // de login (`/api/auth/check-email` devolve a lista quando o e-mail está em
+    // mais de uma). A escolha é do cliente, então nunca é confiada: ela só
+    // ESCOPA a busca — se o e-mail não estiver naquela empresa, não acha nada e
+    // o fluxo devolve sucesso genérico sem enviar.
+    const slugDoHost = getTenantSlug(req);
+    const slugEscolhido = typeof empresaSlug === 'string' && /^[a-z0-9][a-z0-9-]{0,62}$/.test(empresaSlug.trim().toLowerCase())
+      ? empresaSlug.trim().toLowerCase()
+      : null;
+    const slugAlvo = slugDoHost || slugEscolhido;
+
     let colab: { nome_completo: string | null; telefone: string | null; empresa_id: string } | null = null;
-    if (slug) {
-      const { data: empresa } = await sb.from('empresas').select('id').eq('slug', slug).maybeSingle();
+    if (slugAlvo) {
+      const { data: empresa } = await sb.from('empresas').select('id').eq('slug', slugAlvo).maybeSingle();
       if (empresa) {
         const { data } = await sb.from('colaboradores')
           .select('nome_completo, telefone, empresa_id')
@@ -42,9 +55,17 @@ export async function POST(req: NextRequest) {
         colab = data as typeof colab;
       }
     } else {
+      // Sem tenant e sem escolha: o mesmo e-mail existe em mais de uma empresa
+      // nesta base, e `limit(1)` SEM `order` deixa o registro a critério do
+      // planner. Isso já mordeu: o cadastro sorteado podia ser um sem telefone
+      // (`teste-piloto`), e aí o WhatsApp era pulado como "colaborador sem
+      // telefone" — um silêncio que nem telemetria deixava. Ordenar por
+      // telefone-primeiro torna a escolha determinística E enviável.
       const { data } = await sb.from('colaboradores')
         .select('nome_completo, telefone, empresa_id')
         .eq('email', trimmed)
+        .order('telefone', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
         .limit(1).maybeSingle();
       colab = data as typeof colab;
     }
@@ -94,9 +115,10 @@ export async function POST(req: NextRequest) {
     const actionLink = linkData.properties.action_link;
 
     const empresa = colab?.empresa_id
-      ? (await sb.from('empresas').select('nome').eq('id', colab.empresa_id).maybeSingle()).data
+      ? (await sb.from('empresas').select('nome, slug').eq('id', colab.empresa_id).maybeSingle()).data
       : null;
     const empresaNome = empresa?.nome || 'Vertho';
+    const slugDoTenant = (empresa as { slug?: string } | null)?.slug || null;
 
     // RC vai direto ao Portal do Representante (evita o flash no /dashboard, que
     // de todo modo redirecionaria via guard). Deep-links /representante/* passam.
@@ -104,10 +126,18 @@ export async function POST(req: NextRequest) {
     const nextPath = isRep && !redirect.nextPath.startsWith('/representante')
       ? '/representante' : redirect.nextPath;
 
+    // A sessão precisa nascer no subdomínio do TENANT: o cookie não declara
+    // `domain`, então fica preso ao host exato. Entrar por `app.vertho.ai`
+    // deixava a pessoa logada num host sem tenant — o que o middleware registra
+    // como `[authz] email ambíguo (multi-tenant) sem tenant resolvido` e trata
+    // fail-closed. Quando sabemos a empresa, o link vai para a casa dela; o
+    // `token_hash` é global (é o mesmo despacho que o `/entrar` faz).
+    const origemCallback = slugDoTenant ? tenantUrl(slugDoTenant) : redirect.origin;
+
     // Callback server-side com token_hash — evita PKCE quebrar quando o link é
     // aberto em outro navegador (email) ou no app do WhatsApp.
     const callbackLink = tokenHash
-      ? `${redirect.origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`
+      ? `${origemCallback}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`
       : null;
 
     const result = await sendAccessLink({
@@ -119,6 +149,8 @@ export async function POST(req: NextRequest) {
       locale,
       emailLink: callbackLink || actionLink,
       whatsappLink: callbackLink,
+      // Rede de segurança do botão do template quando o host não tem tenant.
+      tenantSlug: slugDoTenant,
     });
 
     // NUNCA reportar sucesso se nenhum canal foi realmente enviado (fim do

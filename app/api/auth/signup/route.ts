@@ -124,6 +124,8 @@ export async function POST(req: NextRequest) {
       locale,
       emailLink: callbackLink || linkData.properties.action_link,
       whatsappLink: callbackLink,
+      // Rede de segurança do botão do template quando o host não tem tenant.
+      tenantSlug: slug,
     });
 
     // O cadastro JÁ existe; se nenhum canal saiu, devolve sucesso COM warning

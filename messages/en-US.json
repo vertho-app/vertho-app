@@ -39,6 +39,7 @@
     "defaultSubtitle": "Your development journey",
     "emailPrompt": "Enter your email to sign in",
     "unifiedPrompt": "Sign in with your email or WhatsApp",
+    "chooseOrgPrompt": "Which organization do you want to sign in to?",
     "orDivider": "or",
     "whatsappPhonePrompt": "Enter your WhatsApp number to receive the code",
     "whatsappCodePrompt": "Enter the code we sent to your WhatsApp",

@@ -5,7 +5,7 @@ import type { AppLocale } from '@/i18n/routing';
 import { magicLinkEmail, magicLinkWhatsapp, signupEmail, signupWhatsapp } from '@/lib/i18n-auth-templates';
 import { sendWhatsapp } from '@/lib/whatsapp';
 import { enviarPorTemplate } from '@/lib/notifications/pilula-template';
-import { derivarParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
+import { derivarParametroAcesso, parametroAcessoParaTenant } from '@/lib/auth/magic-link-whatsapp';
 import { isTenantDemo } from '@/lib/demo/envio-guard';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { createSupabaseAdmin } from '@/lib/supabase';
@@ -59,6 +59,15 @@ export type SendAccessLinkInput = {
    * está desconectada desde 11/08 (93 magic links falharam por isso).
    */
   acessoParam?: string | null;
+  /**
+   * Slug do tenant do destinatário — a rede de segurança quando o host de
+   * origem não tem tenant (`app.vertho.ai`, o apex, `www`).
+   *
+   * 🔴 Sem ele, quem pede o link no endereço genérico não recebe NADA pelo
+   * WhatsApp (medido 18/08: 2 falhas no legado, 100% delas de login vindo do
+   * host sem tenant). Vem do banco, nunca do cliente.
+   */
+  tenantSlug?: string | null;
 };
 
 /**
@@ -176,7 +185,15 @@ async function enviarWhatsapp(p: SendAccessLinkInput, out: SendAccessLinkResult)
   // legado morto: 28 falhas com "zapi: saúde: desconectada" entre 14 e 16/08.
   // O `whatsappLink` que TODOS passam já carrega tenant + token_hash, então a
   // regra mora aqui, uma vez, e o próximo call-site nasce certo.
-  const acessoParam = p.acessoParam || derivarParametroAcesso(p.whatsappLink);
+  //
+  // 🔑 E o host nem sempre é de tenant: `app.vertho.ai` (o `NEXT_PUBLIC_APP_URL`)
+  // é subdomínio RESERVADO, então quem pedia o link ali derivava `null` e caía
+  // no legado — 18/08, 2 de 9 envios do dia. O tenant do destinatário é
+  // conhecido pelo chamador, e é ele quem decide em qual subdomínio a sessão
+  // precisa nascer. Terceiro degrau: banco > host > nada.
+  const acessoParam = p.acessoParam
+    || derivarParametroAcesso(p.whatsappLink)
+    || parametroAcessoParaTenant(p.whatsappLink, p.tenantSlug);
 
   if (acessoParam) {
     const viaTemplate = await enviarPorTemplate('acesso', {

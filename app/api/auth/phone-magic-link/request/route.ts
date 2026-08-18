@@ -97,6 +97,8 @@ export async function POST(req: NextRequest) {
       empresaId: empresa.id, // gate de tenant-demo
       locale,
       whatsappLink: link,
+      // Rede de segurança do botão do template quando o host não tem tenant.
+      tenantSlug: slug,
       channels: ['whatsapp'],
     });
 

@@ -14,7 +14,11 @@
 // um slug que não é tenant nenhum, e link de acesso apontando para o lugar
 // errado é pior que não mandar.
 import { describe, it, expect } from 'vitest';
-import { derivarParametroAcesso, lerParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
+import {
+  derivarParametroAcesso,
+  lerParametroAcesso,
+  parametroAcessoParaTenant,
+} from '@/lib/auth/magic-link-whatsapp';
 
 const cb = (host: string, token = 'pkce_a1b2c3d4e5f6') =>
   `https://${host}/auth/callback?token_hash=${token}&type=email&next=%2Fdashboard`;
@@ -76,5 +80,57 @@ describe('🔴 recusa tudo que não é inequivocamente um tenant nosso', () => {
     for (const v of [null, undefined, '', 'não é url', 'javascript:alert(1)']) {
       expect(derivarParametroAcesso(v as any)).toBeNull();
     }
+  });
+});
+
+// `parametroAcessoParaTenant` — o degrau que o host não alcança.
+//
+// 🔴 Medido em 18/08/2026: o slug saía do HOST, e `app.vertho.ai` (o valor de
+// `NEXT_PUBLIC_APP_URL`, o endereço genérico) é reservado. Quem pedia o link
+// dali derivava `null`, caía no legado da Z-API — desconectada desde 11/08 — e
+// não recebia NADA no WhatsApp, só o e-mail. No dia: 7 envios pela Cloud API e
+// 2 falhas, as duas do mesmo e-mail, cujo login sai do host genérico.
+//
+// A empresa do destinatário é conhecida; ela é que decide em qual subdomínio a
+// sessão precisa nascer. O slug passa a vir do BANCO quando o host não serve.
+describe('parâmetro montado com o tenant do banco', () => {
+  const token = 'pkce_a1b2c3d4e5f6';
+
+  it('🔴 host genérico (`app`) + tenant conhecido → o link SAI', () => {
+    expect(parametroAcessoParaTenant(cb('app.vertho.ai', token), 'ibipeba'))
+      .toBe(`ibipeba~${token}`);
+  });
+
+  it('vale para o apex e os outros reservados — é o caso que se quer redimir', () => {
+    for (const host of ['vertho.ai', 'www.vertho.ai', 'admin.vertho.ai']) {
+      expect(parametroAcessoParaTenant(cb(host, token), 'macae'), host).toBe(`macae~${token}`);
+    }
+  });
+
+  it('o tenant do banco vence o subdomínio do link (a sessão nasce na casa certa)', () => {
+    expect(parametroAcessoParaTenant(cb('app.vertho.ai', token), 'teste-piloto'))
+      .toBe(`teste-piloto~${token}`);
+    expect(lerParametroAcesso(parametroAcessoParaTenant(cb('app.vertho.ai', token), 'teste-piloto')))
+      .toEqual({ slug: 'teste-piloto', tokenHash: token });
+  });
+
+  it('🔴 host de FORA continua recusado — slug do banco não redime domínio alheio', () => {
+    // Sem isto, a função viraria um oráculo: qualquer URL com `token_hash`
+    // ganharia um parâmetro válido, inclusive a de um domínio sósia.
+    expect(parametroAcessoParaTenant(cb('ibipeba.evil.com', token), 'ibipeba')).toBeNull();
+    expect(parametroAcessoParaTenant(cb('axvertho.ai', token), 'ibipeba')).toBeNull();
+    expect(parametroAcessoParaTenant('https://xyz.supabase.co/auth/v1/verify?token=abc', 'ibipeba')).toBeNull();
+  });
+
+  it('sem tenant utilizável não inventa um', () => {
+    for (const slug of [null, undefined, '', '   ', 'app', 'www', 'Slug Inválido', 'ponto.no.meio']) {
+      expect(parametroAcessoParaTenant(cb('app.vertho.ai', token), slug as any), String(slug)).toBeNull();
+    }
+  });
+
+  it('as outras regras do callback continuam valendo', () => {
+    expect(parametroAcessoParaTenant(cb('app.vertho.ai', token).replace('https:', 'http:'), 'macae')).toBeNull();
+    expect(parametroAcessoParaTenant('https://app.vertho.ai/dashboard?token_hash=abc123def456', 'macae')).toBeNull();
+    expect(parametroAcessoParaTenant('https://app.vertho.ai/auth/callback?type=email', 'macae')).toBeNull();
   });
 });

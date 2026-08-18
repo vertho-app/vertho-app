@@ -24,6 +24,9 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [showSignup, setShowSignup] = useState(false);
+  // Organizações do e-mail quando o login não vem de um subdomínio de tenant.
+  // Vazio = nada a perguntar (o caso normal: subdomínio, ou uma empresa só).
+  const [orgs, setOrgs] = useState<Array<{ slug: string; nome: string }>>([]);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -135,6 +138,16 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
         setStatus('error');
         return;
       }
+      // Sem subdomínio de tenant, o mesmo e-mail pode existir em mais de uma
+      // organização. Perguntar é o que faz o link nascer NA CASA certa: o
+      // cookie de sessão fica preso ao host exato, e o botão do template de
+      // WhatsApp precisa do slug para existir. Antes disso, o registro era
+      // sorteado e a sessão nascia num host sem tenant.
+      if (Array.isArray(check.orgs) && check.orgs.length > 1) {
+        setOrgs(check.orgs);
+        setStatus('idle');
+        return;
+      }
       // exists === true → segue fluxo magic-link tradicional
     } catch (e: any) {
       setErrorMsg(t('errors.network', { message: e.message }));
@@ -142,15 +155,32 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
       return;
     }
 
+    await enviarMagicLink(trimmed);
+  }
+
+  /**
+   * Pede o link de acesso. `empresaSlug` só viaja quando a pessoa escolheu a
+   * organização na tela — no subdomínio do tenant ele é ignorado pelo servidor,
+   * que prefere o host.
+   */
+  async function enviarMagicLink(trimmed: string, empresaSlug?: string) {
+    setStatus('loading');
+    setErrorMsg('');
+
     // /api/auth/magic-link cuida de TUDO server-side:
     // - gera link via admin.generateLink (sem rate limit)
     // - envia email via Resend
-    // - dispara WhatsApp via Z-API se telefone cadastrado
+    // - dispara WhatsApp pelo template da Cloud API
     try {
       const res = await fetch('/api/auth/magic-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmed, redirectTo: `${window.location.origin}${redirectTo}`, locale }),
+        body: JSON.stringify({
+          email: trimmed,
+          redirectTo: `${window.location.origin}${redirectTo}`,
+          locale,
+          ...(empresaSlug ? { empresaSlug } : {}),
+        }),
       });
       const data = await res.json();
       if (data?.error) {
@@ -273,9 +303,11 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
 
   const promptText = awaitingCode
     ? t('whatsappCodePrompt')
-    : mode === 'password'
-      ? t('emailPrompt')
-      : t('unifiedPrompt');
+    : orgs.length > 1
+      ? t('chooseOrgPrompt')
+      : mode === 'password'
+        ? t('emailPrompt')
+        : t('unifiedPrompt');
 
   return (
     <div
@@ -358,6 +390,34 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
               <p className="text-danger text-sm mt-3">{errorMsg}</p>
             )}
           </form>
+        ) : orgs.length > 1 ? (
+          /* ── Em qual organização? (só sem subdomínio de tenant) ── */
+          <div className="flex flex-col gap-2">
+            {orgs.map((org) => (
+              <button
+                key={org.slug}
+                type="button"
+                disabled={status === 'loading'}
+                onClick={() => { setOrgs([]); enviarMagicLink(email.trim().toLowerCase(), org.slug); }}
+                className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-base cursor-pointer transition-colors hover:bg-white/[0.14] disabled:opacity-60"
+                onFocus={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = accentColor)}
+                onBlur={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = '')}
+              >
+                {org.nome}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => { setOrgs([]); setStatus('idle'); setErrorMsg(''); }}
+              className="mt-1 text-sm font-medium hover:underline"
+              style={{ color: accentColor }}
+            >
+              {t('useAnotherEmail')}
+            </button>
+            {status === 'error' && errorMsg && (
+              <p className="text-danger text-sm mt-1">{errorMsg}</p>
+            )}
+          </div>
         ) : status === 'sent' ? (
           /* ── Link enviado ── */
           <div className="bg-white/10 rounded-xl p-6 border border-white/15">
