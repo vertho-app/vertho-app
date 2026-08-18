@@ -71,6 +71,16 @@ const TODOS = process.argv.includes('--todos');
  * 42 (28/07) perdeu ~15% pelo mesmo motivo.
  */
 const INTERVALO_S = Number(arg('intervalo')) || 150;
+/**
+ * Teto de disparos por execução (`--limite`).
+ *
+ * 🔴 Medido em 17/08/2026: um disparo de 19 células com espaçamento de 150s leva
+ * ~50 min, e o processo foi MORTO duas vezes antes de terminar (10 de 19 e
+ * depois 3 de 8). O trabalho não se perdeu porque a checagem de "já tem deck" é
+ * por célula — mas retomar na mão é um passo que só existe porque a execução era
+ * longa demais. Blocos pequenos rodam do começo ao fim.
+ */
+const LIMITE = Number(arg('limite')) || 0;
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Declarou preferência DE VERDADE (não é o default de quem deixou tudo em branco). */
@@ -175,7 +185,11 @@ async function main() {
     c.jaTem = existente ? String((existente as any).status) : null;
   }
 
-  const pendentes = [...celulas.values()].filter((c) => !c.jaTem);
+  const todasPendentes = [...celulas.values()].filter((c) => !c.jaTem);
+  const pendentes = LIMITE > 0 ? todasPendentes.slice(0, LIMITE) : todasPendentes;
+  if (pendentes.length < todasPendentes.length) {
+    console.log(`⚠️ teto de ${LIMITE}: ${todasPendentes.length - pendentes.length} célula(s) ficam para a próxima execução\n`);
+  }
   const pessoas = [...celulas.values()].reduce((n, c) => n + c.pessoas.length, 0);
   console.log(`${TODOS ? 'coorte' : 'declararam vídeo'}: ${pessoas} pessoa(s) · ${celulas.size} célula(s) · ${pendentes.length} sem deck\n`);
   for (const c of celulas.values()) {
@@ -200,7 +214,24 @@ async function main() {
       desafioTexto: c.desafio, kitId: c.kitId, pppBrief,
       createdBy: TODOS ? 'kit:coorte' : 'kit:preferencia-video',
     });
-    console.log(`▶ ${++i}/${pendentes.length} DISC ${c.disc} (${c.pessoas.length}p): ${r.error ? `❌ ${r.error}` : `${r.reused ? '♻️ reusado' : '✅ disparado'} ${r.id} status=${r.status}`}`);
+    /*
+     * 🔑 `23505` AQUI É REUSO, NÃO FALHA — e a distinção não é cosmética.
+     *
+     * `uq_videos_gerados_celula` é UNIQUE PARCIAL em
+     * (módulo × empresa × cargo × DISC) `WHERE status <> 'error'`: o banco admite
+     * uma célula viva só. Como este script lê o estado no início e dispara
+     * minutos depois, o snapshot envelhece — outro processo (ou o disparo
+     * anterior deste mesmo lote) pode ter criado a linha nesse intervalo.
+     *
+     * Medido em 17/08/2026: a colisão apareceu, e ela é o índice fazendo o
+     * trabalho que a minha leitura não podia fazer. Reportar como ❌ mandaria
+     * alguém investigar um render que não foi perdido — e, pior, tentar de novo.
+     */
+    const jaExistia = /duplicate key|23505|uq_videos_gerados_celula/i.test(String(r.error || ''));
+    const desfecho = r.error
+      ? (jaExistia ? '♻️ já existia (outra execução criou)' : `❌ ${r.error}`)
+      : `${r.reused ? '♻️ reusado' : '✅ disparado'} ${r.id} status=${r.status}`;
+    console.log(`▶ ${++i}/${pendentes.length} DISC ${c.disc} (${c.pessoas.length}p): ${desfecho}`);
     // Espaça o PRÓXIMO disparo: é a narração de um que não pode disputar TTS com
     // a do seguinte.
     if (i < pendentes.length) await dormir(INTERVALO_S * 1000);
