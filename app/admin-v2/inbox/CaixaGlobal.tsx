@@ -99,7 +99,7 @@ export default function CaixaGlobal() {
   }, [recarregarCaixa, recarregarFila]);
 
   const conversa = useConversa(recarregar);
-  const { abrir, atualizar, estaAtiva, thread, aviso, rascunho, escrever, enviar, enviando, ativa, anexo, anexar, enviarAnexo } = conversa;
+  const { abrir, fechar, atualizar, estaAtiva, thread, aviso, rascunho, escrever, enviar, enviando, ativa, anexo, anexar, enviarAnexo } = conversa;
 
   useEffect(() => { void recarregar(); }, [recarregar]);
 
@@ -290,9 +290,19 @@ export default function CaixaGlobal() {
         </span>
       </div>
 
+      {/*
+        No celular as duas colunas viram uma só, e aí lista e conversa se
+        ALTERNAM — empilhar as duas fazia o toque numa mensagem parecer não ter
+        efeito, com o campo de resposta fora da tela (18/08/2026). No desktop
+        nada muda: as duas convivem.
+      */}
       <div className="grid gap-4 lg:grid-cols-[330px_1fr]">
         {/* Lista */}
-        <div className="max-h-[560px] overflow-y-auto rounded-xl border border-white/[0.08]">
+        <div
+          className={`max-h-[560px] overflow-y-auto rounded-xl border border-white/[0.08] ${
+            ativa ? 'hidden lg:block' : ''
+          }`}
+        >
           {visiveis.length === 0 && (
             <p className="px-3.5 py-6 text-center text-[12px] text-[var(--ink-faint)]">
               {caixa.conversas.length === 0 ? 'Nenhuma mensagem recebida ainda.' : 'Nenhuma conversa neste filtro.'}
@@ -350,6 +360,7 @@ export default function CaixaGlobal() {
           onEnviar={enviar}
           enviando={enviando}
           onAtualizar={atualizar}
+          onVoltar={fechar}
           contexto={caixa.empresas.find((e) => e.id === ativa?.empresaId)?.nome ?? null}
           anexo={anexo}
           onAnexar={anexar}

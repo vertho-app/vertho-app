@@ -1,6 +1,7 @@
 'use client';
 
-import { Send, Lock, RefreshCw, CheckCheck, Check, AlertTriangle, Mic, Image as ImageIcon, FileText, Paperclip, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { Send, Lock, RefreshCw, CheckCheck, Check, AlertTriangle, Mic, Image as ImageIcon, FileText, Paperclip, X, ArrowLeft } from 'lucide-react';
 import type { ThreadCompleta } from '@/lib/inbox/tipos';
 import { restanteLegivel } from '@/lib/inbox/janela';
 import { MIMES_ACEITOS } from '@/lib/inbox/anexos';
@@ -65,6 +66,7 @@ export default function ThreadView({
   onEnviar,
   enviando,
   onAtualizar,
+  onVoltar,
   contexto,
   anexo,
   onAnexar,
@@ -82,10 +84,38 @@ export default function ThreadView({
   anexo: File | null;
   onAnexar: (f: File | null) => void;
   onEnviarAnexo: () => void;
+  /**
+   * Volta para a lista — só existe no celular, onde as colunas se alternam em
+   * vez de conviver. Ausente no desktop, onde a lista nunca sai da tela.
+   */
+  onVoltar?: () => void;
 }) {
+  const raiz = useRef<HTMLDivElement | null>(null);
+  const telefone = thread?.telefone ?? null;
+
+  /**
+   * 🔴 NO CELULAR, ABRIR A CONVERSA NÃO MOSTRAVA A CONVERSA (18/08/2026).
+   *
+   * Abaixo de `lg` o grid vira UMA coluna: a lista (até 560px de altura, com
+   * rolagem própria) e a conversa DEPOIS dela no documento. Quem tocava numa
+   * mensagem no telefone via a linha destacar e mais nada — o campo de resposta
+   * nascia uns 600px abaixo do dedo, fora da tela. O relato que chega é "não
+   * abre o campo de resposta", e no desktop nada disso aparece.
+   *
+   * A alternância lista↔conversa (nas duas caixas) resolve o principal; este
+   * scroll cuida do resto da página, que continua acima. Depende do TELEFONE, e
+   * não do objeto `thread`: o polling de 15s devolve um objeto novo a cada
+   * volta, e depender dele arrastaria a tela sozinha enquanto alguém lê.
+   */
+  useEffect(() => {
+    if (!telefone || typeof window === 'undefined') return;
+    if (!window.matchMedia('(max-width: 1023px)').matches) return;
+    raiz.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [telefone]);
+
   if (!thread) {
     return (
-      <div className="flex min-h-[560px] flex-col rounded-xl border border-white/[0.08]">
+      <div className="hidden min-h-[560px] flex-col rounded-xl border border-white/[0.08] lg:flex">
         <p className="m-auto text-[13px] text-[var(--ink-faint)]">Selecione uma conversa.</p>
       </div>
     );
@@ -94,9 +124,22 @@ export default function ThreadView({
   const j = thread.janela;
 
   return (
-    <div className="flex min-h-[560px] flex-col rounded-xl border border-white/[0.08]">
+    <div
+      ref={raiz}
+      className="flex min-h-[70dvh] flex-col rounded-xl border border-white/[0.08] lg:min-h-[560px]"
+    >
       <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3">
-        <div className="min-w-0">
+        {onVoltar && (
+          <button
+            type="button"
+            onClick={onVoltar}
+            aria-label="Voltar para as conversas"
+            className="-ml-1 shrink-0 rounded-lg p-1.5 text-[var(--ink-faint)] transition-colors hover:bg-white/[0.05] hover:text-[var(--cyan)] lg:hidden"
+          >
+            <ArrowLeft size={16} />
+          </button>
+        )}
+        <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-semibold">{thread.nome || thread.telefone}</p>
           <p className="font-mono text-[10px] text-[var(--ink-faint)]">
             {thread.telefone}
@@ -249,9 +292,16 @@ export default function ThreadView({
                 type="button"
                 onClick={anexo ? onEnviarAnexo : onEnviar}
                 disabled={enviando || (!anexo && !rascunho.trim())}
-                className="flex items-center gap-1.5 rounded-lg bg-[var(--cyan)] px-3.5 py-2.5 text-[13px] font-medium text-[#0f2b54] disabled:opacity-40"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--cyan)] px-3 py-2.5 text-[13px] font-medium text-[#0f2b54] disabled:opacity-40 sm:px-3.5"
+                aria-label={anexo ? 'Enviar arquivo' : 'Enviar'}
               >
-                <Send size={14} /> {enviando ? 'Enviando…' : anexo ? 'Enviar arquivo' : 'Enviar'}
+                {/* No celular a linha do composer disputa ~390px com clipe,
+                    campo e emoji: o rótulo sai e fica o ícone, que é o que a
+                    pessoa procura ali. */}
+                <Send size={14} />
+                <span className="hidden sm:inline">
+                  {enviando ? 'Enviando…' : anexo ? 'Enviar arquivo' : 'Enviar'}
+                </span>
               </button>
             </div>
           </div>

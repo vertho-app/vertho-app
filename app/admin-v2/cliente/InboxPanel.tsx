@@ -45,7 +45,7 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
   }, [empresaId, incluirSemResposta]);
 
   const conversa = useConversa(recarregar);
-  const { abrir, atualizar, estaAtiva, thread, aviso, rascunho, escrever, enviar, enviando, ativa, anexo, anexar, enviarAnexo } = conversa;
+  const { abrir, fechar, atualizar, estaAtiva, thread, aviso, rascunho, escrever, enviar, enviando, ativa, anexo, anexar, enviarAnexo } = conversa;
 
   useEffect(() => { void recarregar(); }, [recarregar]);
 
@@ -112,9 +112,15 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
   return (
     <div className="flex flex-col gap-3">
       {controle}
+      {/* Lista e conversa se ALTERNAM no celular — ver o comentário em
+          `_inbox/ThreadView.tsx`: empilhadas, o toque parecia não fazer nada. */}
       <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
         {/* Lista de conversas */}
-        <div className="max-h-[560px] overflow-y-auto rounded-xl border border-white/[0.08]">
+        <div
+          className={`max-h-[560px] overflow-y-auto rounded-xl border border-white/[0.08] ${
+            ativa ? 'hidden lg:block' : ''
+          }`}
+        >
           {conversas.map((c) => {
             const on = estaAtiva({ empresaId, telefone: c.telefone });
             return (
@@ -158,6 +164,7 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
           onEnviar={enviar}
           enviando={enviando}
           onAtualizar={atualizar}
+          onVoltar={fechar}
           anexo={anexo}
           onAnexar={anexar}
           onEnviarAnexo={enviarAnexo}

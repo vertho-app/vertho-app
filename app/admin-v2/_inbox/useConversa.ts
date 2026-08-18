@@ -75,6 +75,21 @@ export function useConversa(aoMudarLista?: () => void) {
     void carregar(alvo, true);
   }, [carregar]);
 
+  /**
+   * Fecha a conversa aberta — é o "voltar" da lista no celular, onde as duas
+   * colunas não cabem lado a lado.
+   *
+   * ⚠️ NÃO limpa rascunho nem anexo: eles são POR CONVERSA (regra 1 acima), e
+   * quem volta para a lista para conferir outra coisa espera achar o texto onde
+   * deixou. Zerar aqui reintroduziria, pela porta dos fundos, a perda de texto
+   * que o rascunho por conversa existe para evitar.
+   */
+  const fechar = useCallback(() => {
+    setAtiva(null);
+    setThread(null);
+    setAviso(null);
+  }, []);
+
   const atualizar = useCallback(() => {
     if (ativa) void carregar(ativa, false);
   }, [ativa, carregar]);
@@ -247,7 +262,7 @@ export function useConversa(aoMudarLista?: () => void) {
   );
 
   return {
-    ativa, thread, aviso, setAviso, rascunho, escrever, enviar, enviando, abrir, atualizar, estaAtiva,
+    ativa, thread, aviso, setAviso, rascunho, escrever, enviar, enviando, abrir, fechar, atualizar, estaAtiva,
     anexo, anexar, enviarAnexo,
   };
 }
