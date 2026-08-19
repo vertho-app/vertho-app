@@ -126,13 +126,48 @@ export async function POST(req: NextRequest) {
     const nextPath = isRep && !redirect.nextPath.startsWith('/representante')
       ? '/representante' : redirect.nextPath;
 
+    // 🔴 O DESTINO PEDIDO MANDA NO HOST — antes do cadastro (medido 19/08/2026)
+    // ────────────────────────────────────────────────────────────────────────
+    // O painel da plataforma (`/admin`, `/admin-v2`) vive no endereço genérico,
+    // que NÃO é tenant. A régua que decide quem entra ali é o e-mail
+    // (`platform_admins`), não a empresa — mas o link era montado olhando só o
+    // CADASTRO: "tem colaborador ⇒ manda para o subdomínio dele".
+    //
+    // Os três platform admins têm cadastro de colaborador. Resultado, medido no
+    // dia: às 08:58 a sessão do Samuel morreu (`refresh_token_not_found`), ele
+    // pediu o link às 08:59, entrou às 08:59:24 — no subdomínio do tenant — e
+    // às 09:00 o `/admin/dashboard` ainda respondia 307. O link levava para uma
+    // casa que não era a que ele tinha pedido, e o ciclo se repetia: nenhum
+    // pedido de link conseguia devolvê-lo ao painel.
+    //
+    // 🔑 A regra que faltava: o cadastro diz onde é a casa da pessoa; o
+    // `next` diz para onde ELA pediu para ir. Quando o destino é o painel da
+    // plataforma e o e-mail é de admin, a sessão precisa nascer no host de onde
+    // o pedido saiu (`redirect.origin`, já validado contra open redirect).
+    const destinoEhPainelPlataforma = /^\/admin(-v2)?(\/|$|\?)/.test(nextPath);
+    // A consulta de `platform_admins` acima só acontece quando NÃO há
+    // colaborador — e é exatamente a mesma pessoa que precisa das duas coisas.
+    // Aqui a pergunta é outra e tem que ser feita de novo, sem o `if`.
+    let ehAdminDaPlataforma = !!platformAdmin;
+    if (destinoEhPainelPlataforma && !ehAdminDaPlataforma) {
+      const { data: adminDoDestino } = await sb.from('platform_admins')
+        .select('email').eq('email', trimmed).maybeSingle();
+      ehAdminDaPlataforma = !!adminDoDestino;
+    }
+    // ⚠️ `nextPath` vem do cliente (via `redirectTo`), então ele sozinho não
+    // decide nada: sem o e-mail estar em `platform_admins`, pedir `/admin` não
+    // muda o host — só levaria a pessoa a um painel que o gate recusa.
+    const paraPainelPlataforma = destinoEhPainelPlataforma && ehAdminDaPlataforma;
+
     // A sessão precisa nascer no subdomínio do TENANT: o cookie não declara
     // `domain`, então fica preso ao host exato. Entrar por `app.vertho.ai`
     // deixava a pessoa logada num host sem tenant — o que o middleware registra
     // como `[authz] email ambíguo (multi-tenant) sem tenant resolvido` e trata
     // fail-closed. Quando sabemos a empresa, o link vai para a casa dela; o
     // `token_hash` é global (é o mesmo despacho que o `/entrar` faz).
-    const origemCallback = slugDoTenant ? tenantUrl(slugDoTenant) : redirect.origin;
+    const origemCallback = paraPainelPlataforma
+      ? redirect.origin
+      : slugDoTenant ? tenantUrl(slugDoTenant) : redirect.origin;
 
     // Callback server-side com token_hash — evita PKCE quebrar quando o link é
     // aberto em outro navegador (email) ou no app do WhatsApp.
@@ -148,9 +183,15 @@ export async function POST(req: NextRequest) {
       empresaId: colab?.empresa_id ?? null, // gate de tenant-demo
       locale,
       emailLink: callbackLink || actionLink,
-      whatsappLink: callbackLink,
+      // ⚠️ O WhatsApp NÃO consegue endereçar o painel da plataforma, e mandá-lo
+      // assim mesmo seria pior que não mandar: o botão do template aprovado
+      // carrega `<slug>~<token_hash>` e o `/entrar` sempre despacha para o
+      // SUBDOMÍNIO do slug. O e-mail levaria ao painel e o WhatsApp ao tenant —
+      // dois destinos para o mesmo pedido, e o segundo queimando o token de uso
+      // único do primeiro. Aqui o canal é pulado com motivo, não silenciosamente.
+      whatsappLink: paraPainelPlataforma ? null : callbackLink,
       // Rede de segurança do botão do template quando o host não tem tenant.
-      tenantSlug: slugDoTenant,
+      tenantSlug: paraPainelPlataforma ? null : slugDoTenant,
     });
 
     // NUNCA reportar sucesso se nenhum canal foi realmente enviado (fim do
