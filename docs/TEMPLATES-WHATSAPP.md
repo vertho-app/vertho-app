@@ -38,6 +38,7 @@ cai no caminho legado — silenciosamente, que é o motivo da R13 existir.
 | 7 | `acesso_vertho` | UTILITY | `acesso` · `WHATSAPP_TEMPLATE_ACESSO` | Magic link pedido no login | `lib/notifications/access-link-service.ts:172` |
 | 8 | `otp_acesso` | AUTHENTICATION | — (nome fixo no código) | Código de 6 dígitos do login por telefone | `app/api/auth/phone-otp/request/route.ts:83` |
 | 9 | `plano_desenvolvimento` | UTILITY | `plano` · `WHATSAPP_TEMPLATE_PLANO` | Relatório individual: pelo cron `avisar_planos` (só **depois do corte**) ou pela tela, sob demanda | `lib/notifications/avisar-plano-pronto.ts` · `/admin-v2/cliente` → "Planos (PDI)" |
+| 10 | `avaliacao_pendente` | UTILITY | — (nome fixo no script) | Cobrança deliberada de quem **já fez o mapeamento comportamental e nunca iniciou** o assessment | `scripts/_convite-avaliacao.ts` |
 
 🔑 **Dois gatilhos, réguas diferentes — 17/08.** O CRON usa o `CORTE_ISO` fixo e roda sem ninguém
 olhando. A TELA ignora o corte de propósito: há prévia com números e um humano confirmando, então a

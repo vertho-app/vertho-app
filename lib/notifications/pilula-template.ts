@@ -273,6 +273,26 @@ const CONTRATOS: Record<string, MontarParams> = {
   }),
 
   /**
+   * Assessment de competências NUNCA iniciado. APPROVED/UTILITY — corpo
+   * conferido na Meta em 19/08/2026 (não deduzido do nome):
+   * `{{1}}`=nome, `{{2}}`=instituição, `{{3}}`=link. Sem botão.
+   *
+   * 🔴 `{{2}}` É A INSTITUIÇÃO, não a Vertho — mesma regra do `boas_vindas_v2`,
+   * e aqui o corpo a coloca em "no programa da {{2}}": trocar pela fornecedora
+   * descreveria um programa que a pessoa não reconhece.
+   *
+   * O link é `/dashboard/assessment`, a tela onde a avaliação começa — não a
+   * porta do tenant. Quem chega sem sessão viva cai no login e pede o magic link
+   * (`acesso_vertho`); mandar todo mundo para `/entrar` custaria um passo a quem
+   * está logado, que é a maioria do alvo (o convite é para quem JÁ fez o
+   * mapeamento comportamental dentro do app).
+   */
+  avaliacao_pendente: (a) => ({
+    params: [a.nome, a.instituicao || '', `${a.baseUrl}/dashboard/assessment`],
+    botaoParam: null,
+  }),
+
+  /**
    * PRIMEIRO CONTATO da turma. APPROVED/UTILITY — corpo conferido na Meta em
    * 17/08/2026: `{{1}}`=nome, `{{2}}`=instituição, `{{3}}`=link. Sem botão.
    *
