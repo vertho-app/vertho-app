@@ -9,7 +9,7 @@ import {
   Mail, MessageCircle, FileBarChart, Filter, Eye, Tag, Users,
   Paperclip, FileText, X,
 } from 'lucide-react';
-import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio, dispararMensagemCustomizada, enviarMagicLinksWhatsApp } from './actions';
+import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio, dispararMensagemCustomizada, enviarMagicLinksWhatsApp, listarTemplatesDeEnvio, previewTemplateWhatsApp, dispararTemplateWhatsApp } from './actions';
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
@@ -101,6 +101,15 @@ export default function EnviosPage() {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
 
+  // ── Modo TEMPLATE (aba WhatsApp) ──────────────────────────────────────────
+  // A aba deixou de ter editor: fora da janela de 24h a Meta só entrega
+  // template aprovado, e o provedor de texto livre não entrega desde 13/08.
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [templateSel, setTemplateSel] = useState('');
+  const [previewLote, setPreviewLote] = useState<any>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const templateAtual = templates.find((x) => x.template === templateSel) || null;
+
   // Colaboradores para contagem
   const [colabs, setColabs] = useState([]);
   const [cargos, setCargos] = useState([]);
@@ -131,6 +140,40 @@ export default function EnviosPage() {
     setAssunto(tab === 'email' ? t('subjects.assessment') : tab === 'relatorios-email' ? t('subjects.report') : '');
     setResult(null);
   }, [tab]);
+
+  // Templates disponíveis — carregados uma vez, ao entrar na aba WhatsApp.
+  useEffect(() => {
+    if (tab !== 'whatsapp' || templates.length) return;
+    listarTemplatesDeEnvio().then((r: any) => {
+      if (!r?.success) return;
+      setTemplates(r.data || []);
+      if (!templateSel && r.data?.length) setTemplateSel(r.data[0].template);
+    });
+  }, [tab]);
+
+  /*
+   * Prévia do lote a cada mudança de template ou de filtro.
+   *
+   * É o servidor que responde quem entra — e, principalmente, quem NÃO entra e
+   * por quê. A contagem local de `destinatarios` não serve aqui: ela não sabe
+   * quem já recebeu este template nem quem tem parâmetro sem valor.
+   */
+  useEffect(() => {
+    if (tab !== 'whatsapp' || !empresaId || !templateSel) { setPreviewLote(null); return; }
+    let cancelado = false;
+    setLoadingPreview(true);
+    previewTemplateWhatsApp(empresaId, templateSel, {
+      cargo: filtroCargo || undefined,
+      voto: filtroVoto !== 'todos' ? filtroVoto : undefined,
+      disc: filtroDisc !== 'todos' ? filtroDisc : undefined,
+      mapeamentoCompleto: filtroMapeamento === 'todos' ? undefined : filtroMapeamento === 'completo',
+    }).then((r: any) => {
+      if (cancelado) return;
+      setPreviewLote(r?.success ? r.data : { erro: r?.error });
+      setLoadingPreview(false);
+    });
+    return () => { cancelado = true; };
+  }, [tab, empresaId, templateSel, filtroCargo, filtroVoto, filtroDisc, filtroMapeamento]);
 
   async function handleSelectEmpresa(id) {
     setEmpresaId(id);
@@ -234,7 +277,38 @@ export default function EnviosPage() {
     });
   }
 
+  async function handleDispararTemplate() {
+    if (!empresaId || !templateSel || !previewLote?.total) return;
+    const ok = await confirmDialog({
+      title: t('sendButton', { count: previewLote.total }),
+      message: t('templateMode.confirm', { total: previewLote.total, template: templateSel }),
+      severity: 'normal',
+    });
+    if (!ok) return;
+
+    setSending(true);
+    setResult(null);
+    const r: any = await dispararTemplateWhatsApp(empresaId, templateSel, {
+      cargo: filtroCargo || undefined,
+      voto: filtroVoto !== 'todos' ? filtroVoto : undefined,
+      disc: filtroDisc !== 'todos' ? filtroDisc : undefined,
+      mapeamentoCompleto: filtroMapeamento === 'todos' ? undefined : filtroMapeamento === 'completo',
+    });
+    setResult(r);
+    setSending(false);
+    // Recarrega a prévia: quem acabou de receber sai do alvo pela idempotência.
+    const p: any = await previewTemplateWhatsApp(empresaId, templateSel, {
+      cargo: filtroCargo || undefined,
+      voto: filtroVoto !== 'todos' ? filtroVoto : undefined,
+      disc: filtroDisc !== 'todos' ? filtroDisc : undefined,
+      mapeamentoCompleto: filtroMapeamento === 'todos' ? undefined : filtroMapeamento === 'completo',
+    });
+    if (p?.success) setPreviewLote(p.data);
+  }
+
   async function handleDisparar() {
+    // Aba WhatsApp: disparo por TEMPLATE, e o alvo quem decide é o servidor.
+    if (tab === 'whatsapp') return handleDispararTemplate();
     if (!empresaId || !mensagem.trim()) return;
 
     const canal = (tab === 'email' || tab === 'relatorios-email') ? 'email' : 'whatsapp';
@@ -474,8 +548,42 @@ export default function EnviosPage() {
                 </div>
               </div>
 
-              {/* Editor de mensagem */}
-              <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+              {/* Modo TEMPLATE — aba WhatsApp */}
+              {tab === 'whatsapp' && (
+                <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+                  <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-1"><MessageCircle size={12} /> {t('templateMode.title')}</p>
+                  <p className="text-[10px] text-gray-500 leading-relaxed mb-3">{t('templateMode.why')}</p>
+
+                  {templates.length === 0 ? (
+                    <p className="text-xs text-gray-500">{t('templateMode.loading')}</p>
+                  ) : (
+                    <>
+                      <select value={templateSel} onChange={e => setTemplateSel(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none mb-3" style={{ background: '#091D35' }}>
+                        {templates.map((tp: any) => <option key={tp.template} value={tp.template}>{tp.template}</option>)}
+                      </select>
+
+                      {templateAtual && (
+                        <>
+                          <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('templateMode.target')}</p>
+                          <p className="text-[11px] text-gray-300 mb-3">{templateAtual.alvoSugerido}</p>
+                          <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('templateMode.variables')}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {templateAtual.variaveis.map((v: string, i: number) => (
+                              <span key={i} className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold text-cyan-400 border border-cyan-400/30">
+                                <Tag size={9} /> {`{{${i + 1}}}`} · {v}
+                              </span>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Editor de mensagem (texto livre — e-mail e relatórios) */}
+              {tab !== 'whatsapp' && <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
                 {/* Assunto (só email) */}
                 {(tab === 'email' || tab === 'relatorios-email') && (
                   <div className="mb-3">
@@ -512,15 +620,33 @@ export default function EnviosPage() {
                   <span>{t.rich('editor.formatHint', { strong: chunks => <strong className="text-gray-400">{chunks}</strong>, em: chunks => <em className="text-gray-400">{chunks}</em> })}</span>
                   <span>{t('editor.chars', { count: mensagem.length })}</span>
                 </div>
-              </div>
+              </div>}
 
               {/* Botão disparar */}
-              <button onClick={handleDisparar} disabled={sending || destinatarios.length === 0}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-colors"
-                style={{ background: sending ? '#374151' : 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-                {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                {sending ? t('sending') : t('sendButton', { count: destinatarios.length })}
-              </button>
+              {(() => {
+                // Quantos vão receber: no modo template quem conta é o SERVIDOR
+                // (aplica idempotência e exclusões que a tela não conhece).
+                const total = tab === 'whatsapp' ? (previewLote?.total ?? 0) : destinatarios.length;
+                const bloqueado = sending || total === 0 || (tab === 'whatsapp' && (loadingPreview || !templateSel));
+                return (
+                  <button onClick={handleDisparar} disabled={bloqueado}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-colors"
+                    style={{ background: sending ? '#374151' : 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                    {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                    {sending ? t('sending') : t('sendButton', { count: total })}
+                  </button>
+                );
+              })()}
+
+              {/* Relatórios por WhatsApp seguem no caminho de texto livre, que
+                  não entrega desde 13/08 — dizer isso é melhor que deixar o
+                  botão prometer. */}
+              {tab === 'relatorios-whatsapp' && (
+                <div className="flex items-start gap-2 px-4 py-3 rounded-xl text-xs bg-amber-400/10 text-amber-300">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  <span>{t('templateMode.legacyReports')}</span>
+                </div>
+              )}
 
               {result && (
                 <div className={`flex items-start gap-2 px-4 py-3 rounded-xl text-xs ${
@@ -538,14 +664,48 @@ export default function EnviosPage() {
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
                 <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Eye size={12} /> {t('preview.title')}</p>
                 <div className="rounded-lg p-4 text-sm text-gray-300 leading-relaxed whitespace-pre-wrap" style={{ background: '#091D35' }}>
-                  {previewMsg
-                    ? renderWaMarkdown(previewMsg)
-                    : <span className="text-gray-600 italic">{t('preview.empty')}</span>}
+                  {tab === 'whatsapp'
+                    ? (previewLote?.amostra?.length
+                        // Corpo REAL do template com os params da 1ª pessoa do
+                        // lote — não um exemplo inventado: é literalmente o que
+                        // a Meta vai renderizar.
+                        ? renderWaMarkdown(
+                            (previewLote.corpo || '').replace(/\{\{(\d)\}\}/g, (_m: string, n: string) =>
+                              previewLote.amostra[0].params[Number(n) - 1] ?? `{{${n}}}`),
+                          )
+                        : <span className="text-gray-600 italic">{previewLote?.erro || t('preview.empty')}</span>)
+                    : (previewMsg
+                        ? renderWaMarkdown(previewMsg)
+                        : <span className="text-gray-600 italic">{t('preview.empty')}</span>)}
                 </div>
+                {tab === 'whatsapp' && previewLote?.amostra?.[0] && (
+                  <p className="text-[9px] text-gray-600 mt-2">{t('templateMode.previewOf', { nome: previewLote.amostra[0].nome })}</p>
+                )}
               </div>
 
-              {/* Variáveis disponíveis */}
-              <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+              {/* Composição do lote — quem entra, quem NÃO entra e por quê */}
+              {tab === 'whatsapp' && previewLote && !previewLote.erro && (
+                <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">{t('templateMode.batch')}</p>
+                  <div className="flex items-center gap-1.5 text-[11px] text-cyan-400 font-semibold mb-2">
+                    <Users size={12} /> {t('templateMode.recipients', { count: previewLote.total })}
+                  </div>
+                  {previewLote.jaReceberam > 0 && (
+                    <p className="text-[10px] text-gray-400 mb-1">{t('templateMode.already', { count: previewLote.jaReceberam })}</p>
+                  )}
+                  {previewLote.excluidos?.map((e: any, i: number) => (
+                    <p key={i} className="text-[10px] text-amber-300/80 mb-1">
+                      {e.quantidade} · {e.motivo}
+                      {e.amostra?.length ? <span className="text-gray-600"> — {e.amostra.slice(0, 3).join(', ')}{e.quantidade > 3 ? '…' : ''}</span> : null}
+                    </p>
+                  ))}
+                  {previewLote.avisoTeto ? <p className="text-[10px] text-amber-300/80 mt-1">{previewLote.avisoTeto}</p> : null}
+                  <p className="text-[9px] text-gray-600 mt-2 leading-relaxed">{t('templateMode.deliveryNote')}</p>
+                </div>
+              )}
+
+              {/* Variáveis disponíveis (modo texto — o template tem as suas) */}
+              {tab !== 'whatsapp' && <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
                 <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">{t('variables.available')}</p>
                 <div className="space-y-1.5">
                   {VARIAVEIS.map(v => (
@@ -555,7 +715,7 @@ export default function EnviosPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </div>}
 
               {/* Dicas */}
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>

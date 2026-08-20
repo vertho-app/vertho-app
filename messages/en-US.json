@@ -3498,6 +3498,20 @@
     "insightPlaceholder": "Pain/offer/approach hypothesis generation by AI enters Step 5 (on-demand, curly)."
   },
   "AdminWhatsapp": {
+    "templateMode": {
+      "title": "Approved template",
+      "why": "Outside the 24-hour window, WhatsApp only delivers templates approved by Meta. Free text does not go out — which is why this tab no longer has an editor.",
+      "loading": "Loading templates…",
+      "target": "Typical audience",
+      "variables": "Template variables",
+      "confirm": "Queue template {template} for {total} people?",
+      "legacyReports": "Report delivery over WhatsApp uses free text, which has not been delivered since Aug 13. To announce the plan, use the plano_desenvolvimento template on the WhatsApp tab.",
+      "previewOf": "Preview using data from {nome}",
+      "batch": "Batch composition",
+      "recipients": "{count} will receive",
+      "already": "{count} already received this template (skipped)",
+      "deliveryNote": "Sending queues the messages at the cadence policy rate. Confirmed delivery shows up later, when Meta returns the status."
+    },
     "title": "Submissions",
     "selectCompany": "Select a company...",
     "sending": "Sending...",

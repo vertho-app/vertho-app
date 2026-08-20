@@ -3498,6 +3498,20 @@
     "insightPlaceholder": "Geração de hipótese de dor / oferta / abordagem por IA entra na Etapa 5 (on-demand, cacheado)."
   },
   "AdminWhatsapp": {
+    "templateMode": {
+      "title": "Template aprovado",
+      "why": "Fora da janela de 24 horas, o WhatsApp entrega apenas template aprovado pela Meta. Texto livre não sai — por isso esta aba deixou de ter editor.",
+      "loading": "Carregando templates…",
+      "target": "Alvo típico",
+      "variables": "Variáveis do template",
+      "confirm": "Enfileirar o template {template} para {total} pessoa(s)?",
+      "legacyReports": "O envio de relatórios por WhatsApp usa texto livre, que não é entregue desde 13/08. Para avisar sobre o plano, use o template plano_desenvolvimento na aba WhatsApp.",
+      "previewOf": "Prévia com os dados de {nome}",
+      "batch": "Composição do lote",
+      "recipients": "{count} vão receber",
+      "already": "{count} já receberam este template (pulados)",
+      "deliveryNote": "O disparo enfileira as mensagens no ritmo da política de cadência. A entrega confirmada aparece depois, quando a Meta devolve o status."
+    },
     "title": "Envios",
     "selectCompany": "Selecione uma empresa...",
     "sending": "Enviando...",

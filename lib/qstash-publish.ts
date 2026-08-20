@@ -55,6 +55,31 @@ export async function publicarWhatsappCis(payload: any, delaySec: number = 0): P
   await publicarQStash('/api/webhooks/qstash/whatsapp-cis', payload, delaySec);
 }
 
+/**
+ * Enfileira um TEMPLATE da Cloud API no mesmo webhook — canal diferente, gate
+ * diferente.
+ *
+ * 🔴 NÃO dá para reusar `publicarWhatsappCis`: ela chama
+ * `assertWhatsappAvailable`, que só conhece os provedores de `lib/whatsapp`
+ * (Z-API, WaSender). Com a Z-API desconectada desde 11/08, publicar template
+ * por lá LANÇARIA "WhatsApp indisponível" — barrando o canal que está de pé por
+ * causa da saúde do que morreu. A saúde relevante aqui é a da Cloud API, e ela
+ * se resume a estar configurada: quem confirma entrega é o webhook de status.
+ *
+ * Lança, nunca "pula": sucesso implícito num publicador é como uma coorte
+ * inteira fica sem mensagem com o banco dizendo que saiu.
+ */
+export async function publicarTemplateCloudCis(payload: any, delaySec: number = 0): Promise<void> {
+  if (!process.env.QSTASH_TOKEN) {
+    throw new Error('QSTASH_TOKEN não configurado — canal WhatsApp indisponível');
+  }
+  const { cloudApiConfigurada } = await import('@/lib/whatsapp/cloud-api');
+  if (!cloudApiConfigurada()) {
+    throw new Error('Cloud API não configurada — template não pode ser enfileirado');
+  }
+  await publicarQStash('/api/webhooks/qstash/whatsapp-cis', payload, delaySec);
+}
+
 /** Enfileira uma task interna (rota worker própria, sem checagem de WhatsApp). */
 export async function publicarQStashTask(caminho: string, payload: any): Promise<void> {
   if (!process.env.QSTASH_TOKEN) {

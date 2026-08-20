@@ -3546,6 +3546,20 @@
     }
   },
   "AdminWhatsapp": {
+    "templateMode": {
+      "title": "Template aprovado",
+      "why": "Fora da janela de 24 horas, o WhatsApp entrega apenas template aprovado pela Meta. Texto livre não é enviado — por isso este separador deixou de ter editor.",
+      "loading": "A carregar templates…",
+      "target": "Alvo típico",
+      "variables": "Variáveis do template",
+      "confirm": "Colocar o template {template} em fila para {total} pessoa(s)?",
+      "legacyReports": "O envio de relatórios por WhatsApp usa texto livre, que não é entregue desde 13/08. Para avisar sobre o plano, utilize o template plano_desenvolvimento no separador WhatsApp.",
+      "previewOf": "Pré-visualização com os dados de {nome}",
+      "batch": "Composição do lote",
+      "recipients": "{count} vão receber",
+      "already": "{count} já receberam este template (ignorados)",
+      "deliveryNote": "O disparo coloca as mensagens em fila no ritmo da política de cadência. A entrega confirmada aparece depois, quando a Meta devolve o estado."
+    },
     "title": "Envios",
     "selectCompany": "Selecione uma empresa...",
     "sending": "Enviando...",

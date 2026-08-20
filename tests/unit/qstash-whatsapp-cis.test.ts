@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => ({
     connected: true,
     configured: true,
   },
+  cloud: {
+    ok: true,
+  },
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -89,8 +92,14 @@ vi.mock('@/lib/whatsapp', () => ({
   })),
 }));
 
+vi.mock('@/lib/whatsapp/cloud-api', () => ({
+  enviarTemplateCloud: vi.fn(async () => ({ ok: mocks.cloud.ok, reason: mocks.cloud.ok ? undefined : 'Meta 131049' })),
+  cloudApiConfigurada: () => true,
+}));
+
 const { POST } = await import('@/app/api/webhooks/qstash/whatsapp-cis/route');
 const { sendWhatsapp } = await import('@/lib/whatsapp');
+const { enviarTemplateCloud } = await import('@/lib/whatsapp/cloud-api');
 
 function makeReq(body: any) {
   return mockPOST('http://localhost:3000/api/webhooks/qstash/whatsapp-cis', body);
@@ -108,6 +117,7 @@ describe('qstash whatsapp-cis webhook', () => {
     mocks.supabaseState.updates = [];
     mocks.zapi.connected = true;
     mocks.zapi.configured = true;
+    mocks.cloud.ok = true;
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
   });
 
@@ -319,5 +329,80 @@ describe('qstash whatsapp-cis webhook', () => {
 
     expect(res.status).toBe(503);
     expect(mocks.supabaseState.updates).toHaveLength(0);
+  });
+  /*
+   * MODO TEMPLATE (Cloud API) — o caminho que a tela de Envios passou a usar.
+   *
+   * O schema deste webhook é `.strict()`, e o arquivo já carrega o aviso de que
+   * publicar campo novo sem declará-lo faz o Zod recusar o payload INTEIRO e a
+   * mensagem não sair. Estes testes existem para que isso seja pego aqui, e não
+   * num lote real.
+   */
+  describe('modo template', () => {
+    it('entrega pela Cloud API e NÃO usa o provedor de texto livre', async () => {
+      const res = await POST(makeReq({
+        telefone: '5522999999999',
+        template: 'avaliacao_competencias',
+        templateParams: ['Maria', 'Autocuidado e bem-estar profissional', 'https://macae.vertho.ai/dashboard/assessment'],
+        colaboradorId: '33333333-3333-4333-8333-333333333333',
+        empresaId: '44444444-4444-4444-8444-444444444444',
+      }));
+
+      expect(res.status).toBe(200);
+      expect(await json(res)).toMatchObject({ success: true, via: 'cloud-api', template: 'avaliacao_competencias' });
+      expect(enviarTemplateCloud).toHaveBeenCalledTimes(1);
+      // O provedor legado está desconectado desde 11/08; passar por ele aqui
+      // seria mandar a mensagem pelo canal que não entrega.
+      expect(sendWhatsapp).not.toHaveBeenCalled();
+    });
+
+    it('grava o kind da telemetria como o NOME DO TEMPLATE', async () => {
+      await POST(makeReq({
+        telefone: '5522999999999',
+        template: 'boas_vindas_v2',
+        templateParams: ['Maria', 'Secretaria', 'https://macae.vertho.ai/entrar'],
+        colaboradorId: '33333333-3333-4333-8333-333333333333',
+      }));
+
+      // Sem isso, duas copies do mesmo momento viram uma métrica só — e a
+      // idempotência de quem publica deixa de distinguir uma da outra.
+      expect(enviarTemplateCloud).toHaveBeenCalledWith(
+        expect.objectContaining({ template: 'boas_vindas_v2' }),
+        expect.objectContaining({ motivo: 'boas_vindas_v2' }),
+      );
+    });
+
+    it('template sem contrato é recusado com 400 — e sem tentar enviar', async () => {
+      const res = await POST(makeReq({
+        telefone: '5522999999999',
+        template: 'template_que_nao_existe',
+        templateParams: ['Maria'],
+      }));
+
+      // 400 e não 503: retentar não faz template desconhecido passar a existir,
+      // e deixar na fila só produz repetição eterna.
+      expect(res.status).toBe(400);
+      expect(enviarTemplateCloud).not.toHaveBeenCalled();
+    });
+
+    it('falha da Meta devolve 503 para o QStash retentar', async () => {
+      mocks.cloud.ok = false;
+
+      const res = await POST(makeReq({
+        telefone: '5522999999999',
+        template: 'avaliacao_competencias',
+        templateParams: ['Maria', 'Autocuidado', 'https://macae.vertho.ai/dashboard/assessment'],
+      }));
+
+      expect(res.status).toBe(503);
+    });
+
+    it('payload sem `mensagem` E sem `template` é recusado', async () => {
+      const res = await POST(makeReq({ telefone: '5522999999999', colaboradorId: '33333333-3333-4333-8333-333333333333' }));
+
+      expect(res.status).toBe(400);
+      expect(enviarTemplateCloud).not.toHaveBeenCalled();
+      expect(sendWhatsapp).not.toHaveBeenCalled();
+    });
   });
 });

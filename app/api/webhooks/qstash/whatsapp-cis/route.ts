@@ -11,7 +11,8 @@ import { sendWhatsapp, type WaSendMeta } from '@/lib/whatsapp';
 // Lazy Receiver — só instancia se as keys existirem
 const whatsappPayloadSchema = z.object({
   telefone: z.string().trim().min(8).max(32),
-  mensagem: z.string().trim().min(1).max(4000),
+  /** Texto livre (caminho legado Z-API/WaSender). Opcional desde o modo `template`. */
+  mensagem: z.string().trim().min(1).max(4000).optional(),
   envioId: z.string().uuid().optional(),
   // Carimbo pós-envio da pílula diária (fase 4): quando presentes, após o
   // sendWhatsapp ok o webhook grava o carimbo do canal em fase4_envios — quem
@@ -52,7 +53,30 @@ const whatsappPayloadSchema = z.object({
   // `pulse` entrou em 11/08/2026, quando o convite do Pulso deixou de sair
   // síncrono (1,2s por mensagem, dentro da action) e passou por esta fila.
   kindEnvio: z.enum(['broadcast', 'relatorio', 'magic_link', 'nudge', 'evidencia', 'pulse']).optional(),
-}).strict();
+  /**
+   * Modo TEMPLATE (20/08/2026) — o caminho da Cloud API oficial.
+   *
+   * Quando presente, `mensagem` não é usada e o envio vai por
+   * `enviarTemplateCloud` em vez de `sendWhatsapp`. Existe porque a tela de
+   * Envios deixou de mandar texto livre: fora da janela de 24h a Meta só
+   * entrega template aprovado, e os provedores de `lib/whatsapp` (Z-API,
+   * WaSender) não falam esse protocolo.
+   *
+   * 🔒 O nome NÃO é enum aqui, e isso é deliberado: a lista viveria em dois
+   * lugares e envelheceria. A validação é contra `contratoDoTemplate` — fonte
+   * única, fail-closed: template sem contrato não sai. Nome livre seria o
+   * payload escolhendo o que enviar; contrato conhecido é a allowlist real.
+   */
+  template: z.string().trim().min(1).max(80).optional(),
+  templateParams: z.array(z.string().max(1000)).max(10).optional(),
+}).strict()
+  // `mensagem` era obrigatória no schema; com o modo template ela deixa de ser,
+  // mas o payload continua tendo de dizer O QUE enviar — um dos dois, nunca
+  // nenhum. Sem este refino, payload sem ambos passaria no parse e morreria
+  // depois, como 400 genérico.
+  .refine((p) => !!p.template || !!p.mensagem, {
+    message: 'informe `mensagem` (texto livre) ou `template` (Cloud API)',
+  });
 
 async function verifyQStashSignature(req, body) {
   const currentKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
@@ -247,11 +271,48 @@ export async function POST(req) {
 
     const {
       telefone, mensagem, envioId, fase4EnvioId, carimboCampo, documentoUrl, documentoNome,
-      colaboradorId, empresaId, kindEnvio,
+      colaboradorId, empresaId, kindEnvio, template, templateParams,
     } = payload;
 
-    if (!telefone || !mensagem) {
-      return NextResponse.json({ error: 'telefone e mensagem obrigatórios' }, { status: 400 });
+    if (!telefone) {
+      return NextResponse.json({ error: 'telefone obrigatório' }, { status: 400 });
+    }
+
+    /*
+     * MODO TEMPLATE — Cloud API oficial.
+     *
+     * Sai antes do caminho legado porque não compartilha nada com ele: outro
+     * protocolo, outro provedor e outra telemetria (o `kind` é o NOME DO
+     * TEMPLATE, o que permite medir cada copy em separado e sustenta a
+     * idempotência de quem publica).
+     *
+     * Falha aqui devolve 503 pelo mesmo motivo do texto: o QStash retenta, e
+     * indisponibilidade momentânea da Meta não pode virar pessoa sem mensagem.
+     */
+    if (template) {
+      const { contratoDoTemplate } = await import('@/lib/notifications/pilula-template');
+      if (!contratoDoTemplate(template)) {
+        // Fail-closed e SEM retry: template desconhecido não melhora tentando de
+        // novo. 400 tira a mensagem da fila em vez de deixá-la ressuscitando.
+        console.error(`[qstash/whatsapp-cis] template "${template}" sem contrato — envio recusado`);
+        return NextResponse.json({ error: `template "${template}" não tem contrato` }, { status: 400 });
+      }
+      const { enviarTemplateCloud } = await import('@/lib/whatsapp/cloud-api');
+      const rt = await enviarTemplateCloud(
+        { phone: telefone, template, params: templateParams || [], botaoParam: null },
+        { motivo: template, empresaId: empresaId ?? null, colaboradorId: colaboradorId ?? null, dedupeKey: `${template}:${colaboradorId ?? telefone}` },
+      );
+      console.log(`[qstash/whatsapp-cis] template=${template} phone=***${telefone.replace(/\D/g, '').slice(-4)} ok=${rt.ok}${rt.ok ? '' : ` motivo=${rt.reason}`}`);
+      if (!rt.ok) return NextResponse.json({ error: rt.reason || 'Cloud API indisponível' }, { status: 503 });
+
+      // Carimbo por canal continua valendo: se um template de cadência for
+      // enfileirado por aqui um dia, a prova de entrega é a mesma do texto.
+      const carimbo = await carimbarPilulaWhatsAppEntregue(fase4EnvioId, carimboCampo);
+      return NextResponse.json({ success: true, via: 'cloud-api', template, carimboFase4: carimbo });
+    }
+
+    if (!mensagem) {
+      return NextResponse.json({ error: 'mensagem obrigatória no modo texto' }, { status: 400 });
     }
 
     if (await envioJaFinalizado(envioId)) {

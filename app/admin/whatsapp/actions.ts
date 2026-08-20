@@ -858,3 +858,153 @@ export async function loadColaboradoresEnvio(empresaId) {
 
   return data.map((c: any) => ({ ...c, votou: votouSet.has(c.id), temDisc: !!c.perfil_dominante, temMapeamento: mapeouSet.has(c.id) }));
 }
+
+// ── Disparo por TEMPLATE (Cloud API) — a aba WhatsApp desde 20/08/2026 ───────
+
+/**
+ * Templates que a tela pode disparar, com corpo e variáveis.
+ *
+ * Vem do núcleo (`lib/notifications/envio-template-lote`), não de uma lista na
+ * tela: uma segunda cópia divergiria do `CONTRATOS`, e o sintoma seria a Meta
+ * recusando o envio com os parâmetros na ordem errada.
+ */
+export async function listarTemplatesDeEnvio() {
+  await requireAdminAction('assessments.dispatch');
+  const { listarTemplatesDisparaveis } = await import('@/lib/notifications/envio-template-lote');
+  return { success: true, data: listarTemplatesDisparaveis() };
+}
+
+/**
+ * Prévia do lote: quem recebe, com que parâmetros, e — o que a tela antiga não
+ * mostrava — quem NÃO recebe e por quê.
+ *
+ * Não envia nada. É o `--dry-run` do script, na tela.
+ */
+export async function previewTemplateWhatsApp(empresaId: string, template: string, filtros: any = {}) {
+  await requireAdminAction('assessments.dispatch');
+  const sb = await requireAdminSupabase('assessments.dispatch');
+  try {
+    const { prepararLoteTemplate } = await import('@/lib/notifications/envio-template-lote');
+    const colabs = await colaboradoresFiltrados(sb, empresaId, filtros);
+    if ('erro' in colabs) return { success: false, error: colabs.erro, code: colabs.code };
+    const lote = await prepararLoteTemplate(sb, { empresaId, template, colabs: colabs.lista });
+    return {
+      success: true,
+      data: {
+        template: lote.template,
+        corpo: lote.corpo,
+        total: lote.alvos.length,
+        jaReceberam: lote.jaReceberam,
+        excluidos: lote.excluidos,
+        adiadosPorTeto: lote.adiadosPorTeto,
+        avisoTeto: lote.avisoTeto,
+        amostra: lote.alvos.slice(0, 5).map((a) => ({ nome: a.nome, params: a.params })),
+      },
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Falha ao montar a prévia' };
+  }
+}
+
+/**
+ * Enfileira o disparo do template para o filtro atual.
+ *
+ * ⚠️ O retorno diz ENFILEIRADOS, não entregues — a confirmação vem do webhook
+ * de status, em `notification_deliveries.delivered_at`. A tela antiga chamava o
+ * enfileiramento de sucesso e por isso mentia num dia em que nada chegava.
+ */
+export async function dispararTemplateWhatsApp(empresaId: string, template: string, filtros: any = {}) {
+  const ctx = await requireAdminAction('assessments.dispatch');
+  const sb = await requireAdminSupabase('assessments.dispatch');
+  const gate = await gateEnvioDemo(empresaId);
+  if (gate.blocked) return { success: false, error: gate.motivo };
+  try {
+    const { prepararLoteTemplate, enfileirarLoteTemplate } = await import('@/lib/notifications/envio-template-lote');
+    const colabs = await colaboradoresFiltrados(sb, empresaId, filtros);
+    if ('erro' in colabs) return { success: false, error: colabs.erro, code: colabs.code };
+
+    const lote = await prepararLoteTemplate(sb, { empresaId, template, colabs: colabs.lista });
+    if (!lote.alvos.length) {
+      return { success: false, error: 'Nenhum destinatário no filtro atual (veja os excluídos na prévia)' };
+    }
+
+    const r = await enfileirarLoteTemplate(lote, empresaId);
+    const partes = [`${r.enfileirados} mensagem(ns) na fila (${r.duracao})`];
+    if (r.falhas.length) partes.push(`${r.falhas.length} não enfileiradas`);
+    if (lote.jaReceberam) partes.push(`${lote.jaReceberam} já haviam recebido este template`);
+    if (r.adiadosPorTeto) partes.push(`${r.adiadosPorTeto} adiados pelo teto`);
+
+    await logAdminAction({
+      adminEmail: ctx.email,
+      acao: 'whatsapp.template.disparo',
+      alvo: empresaId,
+      detalhes: {
+        template, filtros,
+        enfileirados: r.enfileirados,
+        falhas: r.falhas.length,
+        jaReceberam: lote.jaReceberam,
+        adiadosPorTeto: r.adiadosPorTeto,
+        excluidos: lote.excluidos,
+      },
+    });
+
+    return {
+      success: true,
+      message: partes.join(' · '),
+      data: { enfileirados: r.enfileirados, falhas: r.falhas, excluidos: lote.excluidos, avisoTeto: lote.avisoTeto },
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Falha ao disparar' };
+  }
+}
+
+/**
+ * Aplica escopo de turma + os filtros da tela e devolve os colaboradores.
+ *
+ * Helper local (não exportado): num arquivo `'use server'` todo export vira
+ * endpoint HTTP, e esta função não tem gate próprio — quem gateia são as duas
+ * actions acima. Ver CLAUDE.md §"Server Actions são endpoints HTTP".
+ */
+async function colaboradoresFiltrados(sb: any, empresaId: string, filtros: any) {
+  let permitidos: Set<string> | null;
+  try {
+    permitidos = await idsDoEscopoOuFalhar(sb, empresaId, {
+      turmaId: filtros.turmaId || null,
+      empresaInteiraJustificativa: filtros.empresaInteiraJustificativa || null,
+    });
+  } catch (e) {
+    const msg = mensagemEscopoObrigatorio(e);
+    if (msg) return { erro: msg, code: 'ESCOPO_OBRIGATORIO' as const };
+    throw e;
+  }
+
+  const { data, error } = await sb.from('colaboradores')
+    .select('id, nome_completo, email, cargo, telefone, perfil_dominante')
+    .eq('empresa_id', empresaId);
+  if (error) throw new Error(`colaboradores: ${error.message}`);
+
+  let lista = (data || []) as any[];
+  if (permitidos) lista = lista.filter((c) => permitidos!.has(c.id));
+  if (filtros.cargo) lista = lista.filter((c) => c.cargo === filtros.cargo);
+  if (filtros.disc === 'sim') lista = lista.filter((c) => !!c.perfil_dominante);
+  else if (filtros.disc === 'nao') lista = lista.filter((c) => !c.perfil_dominante);
+
+  if (filtros.voto === 'nao_votou' || filtros.voto === 'votou') {
+    const { data: votos, error: eV } = await sb.from('votacao_competencias')
+      .select('colaborador_id').eq('empresa_id', empresaId);
+    if (eV) throw new Error(`votacao_competencias: ${eV.message}`);
+    const votou = new Set((votos || []).map((v: any) => v.colaborador_id));
+    lista = lista.filter((c) => (filtros.voto === 'votou' ? votou.has(c.id) : !votou.has(c.id)));
+  }
+
+  // BOOLEANO, não string de status: `mapeamentoCompleto` em vez das palavras
+  // que o guard de literais de status vigia. Ele trataria a string de filtro
+  // como status de trilha — e tem razão em não distinguir: dois domínios usando
+  // as mesmas palavras é justamente como um typo passa despercebido.
+  if (typeof filtros.mapeamentoCompleto === 'boolean') {
+    const completos = await colaboradoresMapeamentoCompleto(sb, empresaId);
+    lista = lista.filter((c) => (filtros.mapeamentoCompleto ? completos.has(c.id) : !completos.has(c.id)));
+  }
+
+  return { lista };
+}

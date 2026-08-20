@@ -3546,6 +3546,20 @@
     }
   },
   "AdminWhatsapp": {
+    "templateMode": {
+      "title": "Plantilla aprobada",
+      "why": "Fuera de la ventana de 24 horas, WhatsApp solo entrega plantillas aprobadas por Meta. El texto libre no se envía — por eso esta pestaña ya no tiene editor.",
+      "loading": "Cargando plantillas…",
+      "target": "Destinatario típico",
+      "variables": "Variables de la plantilla",
+      "confirm": "¿Poner en cola la plantilla {template} para {total} persona(s)?",
+      "legacyReports": "El envío de informes por WhatsApp usa texto libre, que no se entrega desde el 13/08. Para avisar del plan, usa la plantilla plano_desenvolvimento en la pestaña WhatsApp.",
+      "previewOf": "Vista previa con los datos de {nome}",
+      "batch": "Composición del lote",
+      "recipients": "{count} recibirán",
+      "already": "{count} ya recibieron esta plantilla (omitidos)",
+      "deliveryNote": "El disparo pone los mensajes en cola al ritmo de la política de cadencia. La entrega confirmada aparece después, cuando Meta devuelve el estado."
+    },
     "title": "Envios",
     "selectCompany": "Selecione uma empresa...",
     "sending": "Enviando...",
