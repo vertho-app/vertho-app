@@ -538,16 +538,55 @@ function extrairTitulo(texto: string, fallback: string, formato: string) {
 }
 
 /**
- * Importa todos os vídeos da library do Bunny pra micro_conteudos.
- * Idempotente: pula vídeos já importados (matched por bunny_video_id).
- * Cria entries com tags vazias — admin completa depois (manual ou via IA).
+ * Importa vídeos PRÉ-PRODUZIDOS da library do Bunny para `micro_conteudos`.
+ * Idempotente: pula os já importados (por `bunny_video_id`).
+ *
+ * 🔴 O QUE ESTA FUNÇÃO NÃO PODE IMPORTAR (19/08/2026)
+ * ──────────────────────────────────────────────────
+ * A library do Bunny é **compartilhada entre tenants** e é onde vivem os vídeos
+ * NOMINAIS — os `videos_personalizados`, com "Olá, «nome»" e título
+ * "«primeiro nome» · «célula»". Medido no dia: **1.076 personalizados prontos**
+ * (macae 557, ibipeba 512) e 144 decks, contra 6 pré-produzidos no acervo.
+ *
+ * A busca pede os **200 mais recentes por data** — ou seja, hoje ela traz
+ * praticamente só personalizados. Antes desta guarda, um clique inseria
+ * centenas de vídeos com o nome de uma pessoa como conteúdo **global**
+ * (`empresa_id` nulo), `ativo: true`, `contexto: 'generico'`, `cargo: 'todos'`,
+ * `nivel 1..4` — isto é: visíveis no acervo de TODOS os tenants e elegíveis
+ * para o motor de trilha servir a qualquer pessoa.
+ *
+ * A rota `/api/video-download` já carregava esse aviso ("a library é
+ * compartilhada e recebe os personalizados"); o import ficou sem a mesma régua.
+ * Três mudanças, e as três são a mesma ideia — **nada entra no acervo por
+ * acidente**:
+ *
+ *  1. **GUID que a plataforma gerou não entra.** Cruzamos com
+ *     `videos_personalizados` e `videos_gerados` — eles já têm caminho próprio
+ *     (a trilha os resolve ao vivo) e não são material editorial.
+ *  2. **Escopo obrigatório.** Sem empresa escolhida a função RECUSA, em vez de
+ *     gravar global. Import global é o que espalha para os outros tenants.
+ *  3. **Entra `ativo: false`.** O que chega de fora passa por revisão antes de
+ *     o motor poder servir — o custo de revisar é de quem importa; o custo de
+ *     não revisar seria de quem recebe o conteúdo.
  */
-export async function importarVideosBunny() {
+export async function importarVideosBunny(empresaId?: string | null) {
   try {
     const sb = await requireAdminSupabase('content.manage');
     const lib = process.env.BUNNY_LIBRARY_ID;
     const key = process.env.BUNNY_STREAM_API_KEY;
     if (!lib || !key) return { error: 'BUNNY_LIBRARY_ID/BUNNY_STREAM_API_KEY ausentes' };
+
+    // ⚠️ Server Action é endpoint HTTP: `empresaId` vem do cliente. Ele não
+    // concede acesso (o gate acima é de plataforma) — o que ele faz é ESCOPAR o
+    // que vai ser gravado, e por isso precisa existir de verdade.
+    const alvo = (empresaId || '').trim();
+    if (!alvo || alvo === 'all') {
+      return { error: 'Escolha a empresa no filtro antes de importar — import sem empresa vira acervo global, visível a todos os clientes.' };
+    }
+    const { data: empresaAlvo, error: errEmpresa } = await sb.from('empresas')
+      .select('id').eq('id', alvo).maybeSingle();
+    if (errEmpresa) return { error: `Falha ao validar empresa: ${errEmpresa.message}` };
+    if (!empresaAlvo) return { error: 'Empresa não encontrada' };
 
     const res = await fetch(
       `https://video.bunnycdn.com/library/${lib}/videos?page=1&itemsPerPage=200&orderBy=date`,
@@ -561,9 +600,33 @@ export async function importarVideosBunny() {
       .select('bunny_video_id').not('bunny_video_id', 'is', null);
     const jaImportados = new Set((existentes || []).map(e => e.bunny_video_id));
 
-    const novos = items.filter(v => !jaImportados.has(v.guid));
+    // Os GUIDs que a própria plataforma produziu. `error` conferido nos dois:
+    // uma falha de leitura aqui devolveria lista vazia, e lista vazia significa
+    // "pode importar tudo" — exatamente o estrago que esta guarda evita.
+    const { data: perso, error: errPerso } = await sb.from('videos_personalizados')
+      .select('bunny_video_id').not('bunny_video_id', 'is', null);
+    if (errPerso) return { error: `Falha ao ler vídeos personalizados: ${errPerso.message}` };
+    const { data: decks, error: errDecks } = await sb.from('videos_gerados')
+      .select('bunny_video_id').not('bunny_video_id', 'is', null);
+    if (errDecks) return { error: `Falha ao ler vídeos gerados: ${errDecks.message}` };
+
+    const daPlataforma = new Set<string>([
+      ...(perso || []).map((v: any) => v.bunny_video_id),
+      ...(decks || []).map((v: any) => v.bunny_video_id),
+    ].filter(Boolean));
+
+    const novos = items.filter(v => !jaImportados.has(v.guid) && !daPlataforma.has(v.guid));
+    const nominaisIgnorados = items.filter(v => daPlataforma.has(v.guid)).length;
     if (novos.length === 0) {
-      return { ok: true, importados: 0, total: items.length, message: 'Nenhum vídeo novo' };
+      return {
+        ok: true,
+        importados: 0,
+        total: items.length,
+        nominaisIgnorados,
+        message: nominaisIgnorados
+          ? `Nenhum vídeo novo (${nominaisIgnorados} da própria plataforma foram ignorados)`
+          : 'Nenhum vídeo novo',
+      };
     }
 
     const linhas = novos.map(v => ({
@@ -573,6 +636,7 @@ export async function importarVideosBunny() {
       duracao_min: v.length ? Math.round(v.length / 60 * 10) / 10 : null,
       url: `https://iframe.mediadelivery.net/embed/${lib}/${v.guid}`,
       bunny_video_id: v.guid,
+      empresa_id: empresaAlvo.id,
       competencia: 'Não classificado',
       descritor: null,
       nivel_min: 1.0,
@@ -582,13 +646,15 @@ export async function importarVideosBunny() {
       cargo: 'todos',
       setor: 'todos',
       origem: 'pre_produzido',
-      ativo: true,
+      // Chega desligado: sem competência nem descritor, o motor não teria como
+      // escolher bem — e um vídeo importado por engano ficaria elegível na hora.
+      ativo: false,
     }));
 
     const { error } = await sb.from('micro_conteudos').insert(linhas);
     if (error) return { error: error.message };
 
-    return { ok: true, importados: novos.length, total: items.length };
+    return { ok: true, importados: novos.length, total: items.length, nominaisIgnorados };
   } catch (err) {
     console.error('[importarVideosBunny]', err);
     return { error: err?.message || 'Erro' };

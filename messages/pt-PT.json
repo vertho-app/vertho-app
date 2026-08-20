@@ -2060,6 +2060,7 @@
     "logs": {
       "importingBunny": "A importar vídeos do Bunny Stream...",
       "importedBunny": "{imported} novos / {total} no total",
+      "ignoredPlatformVideos": "{count} vídeo(s) da própria plataforma foram ignorados — personalizados e decks não entram no acervo.",
       "askingAi": "A pedir IA para classificar: {title}",
       "aiSuggested": "IA sugeriu: {competency} (confiança {confidence})",
       "tagsApplied": "Tags aplicadas",

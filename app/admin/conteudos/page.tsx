@@ -83,9 +83,18 @@ export default function ConteudosAdminPage() {
   async function handleImportar() {
     setBusy(true);
     addLog(t('logs.importingBunny'), 'info');
-    const r = await importarVideosBunny();
+    // A empresa do filtro ESCOPA o que vai ser gravado. Sem ela, a action
+    // recusa: a library do Bunny é compartilhada, e importar sem empresa punha
+    // vídeo no acervo global — visível a todos os clientes.
+    const r = await importarVideosBunny(empresaFiltro);
     if (r.ok) {
       addLog(`✅ ${t('logs.importedBunny', { imported: r.importados, total: r.total })}`, 'success');
+      // Os ignorados são os vídeos que a PRÓPRIA plataforma gerou (personalizados
+      // e decks). Dizer quantos foram é o que separa "não achou nada" de "achou e
+      // recusou de propósito" — sem isso, o zero parece falha de integração.
+      if (r.nominaisIgnorados) {
+        addLog(t('logs.ignoredPlatformVideos', { count: r.nominaisIgnorados }), 'info');
+      }
       await carregar();
     } else {
       addLog(`❌ ${r.error}`, 'error');
