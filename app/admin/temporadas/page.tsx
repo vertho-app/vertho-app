@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X, Unlock, Download, CalendarDays } from 'lucide-react';
+import { guidDoEmbedBunny } from '@/lib/conteudo/bunny-embed';
 import BackButton from '@/components/back-button';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useConfirm } from '@/components/admin/confirm-dialog';
@@ -439,12 +440,11 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onPreparar,
 function linkDownload(f, { fid, videoEmbed, colaboradorId, nomeArquivo }) {
   const nome = encodeURIComponent(nomeArquivo);
   if (f === 'video') {
-    const guid = String(videoEmbed || '').split('/').filter(Boolean).pop();
-    // GUID do Bunny é UUID: se o embed vier em outro formato, é melhor não
-    // oferecer o botão do que mandar o admin para um 400.
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(guid || '')
-      ? `/api/video-download/${guid}?name=${nome}`
-      : null;
+    // O embed carrega querystring (`?autoplay=false&responsive=true`), então o
+    // guid sai por regex sobre o CAMINHO — ver `guidDoEmbedBunny`. Se o formato
+    // mudar, o botão some em vez de mandar o admin para um 400.
+    const guid = guidDoEmbedBunny(videoEmbed);
+    return guid ? `/api/video-download/${guid}?name=${nome}` : null;
   }
   if (!fid || !colaboradorId) return null;
   const rota = f === 'audio' ? 'podcast' : 'pdf';
