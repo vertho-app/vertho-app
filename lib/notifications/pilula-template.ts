@@ -53,6 +53,16 @@ export interface PilulaTemplateArgs {
    * que não diz.
    */
   linkDireto?: string | null;
+  /**
+   * Nome da COMPETÊNCIA que a pessoa vai avaliar — só para
+   * `avaliacao_competencias`.
+   *
+   * Não é `tema` (que descreve o conteúdo da semana) nem derivável de
+   * `semana`/`formato`: a régua é `cargos_empresa.top5_workshop`, a mesma que a
+   * tela do assessment usa para escolher o próximo cenário. Reaproveitar `tema`
+   * faria a mensagem prometer uma competência e a tela abrir outra.
+   */
+  competencia?: string | null;
 }
 
 export interface ResultadoPilulaTemplate {
@@ -289,6 +299,24 @@ const CONTRATOS: Record<string, MontarParams> = {
    */
   avaliacao_pendente: (a) => ({
     params: [a.nome, a.instituicao || '', `${a.baseUrl}/dashboard/assessment`],
+    botaoParam: null,
+  }),
+
+  /**
+   * Assessment parado DEPOIS do mapeamento comportamental. Submetido em
+   * 20/08/2026 como UTILITY — ⚠️ enquanto não estiver APPROVED, a categoria é
+   * provisória e o envio é recusado pela Meta.
+   * `{{1}}`=nome, `{{2}}`=COMPETÊNCIA, `{{3}}`=link. Sem botão.
+   *
+   * Existe porque o `avaliacao_pendente` fala em "avaliação de perfil", e para
+   * quem já concluiu o mapeamento essa frase descreve o passo ERRADO — medido:
+   * 19 entregues, 11 lidas, 2 respostas. Ver `lib/whatsapp/templates.ts`.
+   *
+   * `{{2}}` vem de `cargos_empresa.top5_workshop` (a régua da tela), nunca de
+   * `tema`: prometer uma competência e abrir outra é pior que não mandar.
+   */
+  avaliacao_competencias: (a) => ({
+    params: [a.nome, a.competencia || '', `${a.baseUrl}/dashboard/assessment`],
     botaoParam: null,
   }),
 

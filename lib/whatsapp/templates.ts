@@ -270,6 +270,34 @@ export const TEMPLATES = {
   },
 
   /**
+   * Avaliação parada DEPOIS do mapeamento comportamental — o `avaliacao_pendente`
+   * escrito para quem já deu o primeiro passo.
+   *
+   * 🔑 POR QUE UM SEGUNDO TEMPLATE PARA O MESMO MOMENTO. O corpo do
+   * `avaliacao_pendente` diz "sua avaliação **de perfil** ainda não foi
+   * iniciada", e no vocabulário do produto "perfil comportamental" é justamente
+   * o que essa pessoa ACABOU de concluir (as telas dizem "SEU PERFIL
+   * COMPORTAMENTAL"; o assessment aparece como "avaliação"). Para quem se mapeou
+   * há dias, a frase se lê como mensagem desatualizada.
+   *
+   * Medido em 19-20/08/2026, nos 19 professores de Macaé nesse estado exato:
+   * 19/19 entregues, **11 abriram** e apenas **2 responderam** — e nenhuma nova
+   * nas 18h seguintes. Não foi alcance nem canal: a mensagem chegou, foi lida e
+   * não moveu.
+   *
+   * Duas diferenças deliberadas: RECONHECE o passo já dado ("Você concluiu o
+   * mapeamento comportamental") e NOMEIA a competência em `{{2}}` — o que também
+   * empurra para UTILITY, já que corpo vago é MARKETING por definição.
+   */
+  avaliacao_competencias: {
+    name: 'avaliacao_competencias',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Você concluiu o mapeamento comportamental, mas sua avaliação de {{2}} ainda não foi iniciada.\n\nVocê pode começar em:\n{{3}}\n\nSão 4 cenários, cerca de 10 minutos, e é ela que define a sua trilha de desenvolvimento.',
+    example: ['Maria', 'Autocuidado e bem-estar profissional', 'https://macae.vertho.ai/dashboard/assessment'],
+  },
+
+  /**
    * Avaliação COMEÇADA E PARADA — com o denominador na mensagem.
    *
    * Medido: **39 pessoas** com cenários parcialmente respondidos (29 só em

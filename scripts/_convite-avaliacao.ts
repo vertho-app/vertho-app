@@ -1,6 +1,8 @@
 /* eslint-disable */
 /**
- * Convite ao ASSESSMENT DE COMPETÊNCIAS por WhatsApp (`avaliacao_pendente`, UTILITY).
+ * Convite ao ASSESSMENT DE COMPETÊNCIAS por WhatsApp (`avaliacao_competencias`,
+ * UTILITY) — ou `avaliacao_pendente` por `--template=`, para quem não deu passo
+ * nenhum.
  *
  * ALVO: quem já fez o mapeamento comportamental e **nunca iniciou** a avaliação
  * — o degrau exato onde a jornada para. Medido em 19/08/2026 nos professores de
@@ -14,9 +16,10 @@
  * pessoa. Um gatilho automático cobraria também quem se mapeou ontem, quem está
  * em tenant de outra fase e quem entrou por engano no cadastro.
  *
- * IDEMPOTENTE: quem já tem entrega `kind='avaliacao_pendente'` no WhatsApp é
- * pulado. Rodar duas vezes não manda duas. (`--reenviar` ignora a guarda, para o
- * caso deliberado de segunda cobrança.)
+ * IDEMPOTENTE POR TEMPLATE: quem já tem entrega com `kind` = o template desta
+ * execução é pulado. Rodar duas vezes não manda duas — mas trocar a COPY alcança
+ * de novo quem a anterior não moveu, e o resumo diz quantos estão nessa segunda
+ * cobrança. (`--reenviar` ignora a guarda, para o caso deliberado.)
  *
  * Uso:
  *   npx tsx scripts/_convite-avaliacao.ts --empresa=macae                 → dry-run
@@ -36,7 +39,14 @@ import { hasDiscMapeado } from '@/lib/disc-status';
 const arg = (n: string) => process.argv.find((a) => a.startsWith(`--${n}=`))?.split('=')[1];
 const SLUG = arg('empresa');
 const CARGO = arg('cargo');
-const TEMPLATE = arg('template') || 'avaliacao_pendente';
+/**
+ * Default = `avaliacao_competencias`, o template escrito para quem JÁ fez o
+ * mapeamento comportamental — que é o alvo deste script. O `avaliacao_pendente`
+ * segue disponível por `--template=` e serve ao outro estado: quem não deu passo
+ * nenhum (nem DISC, nem cenário), para quem "avaliação de perfil" é a descrição
+ * correta.
+ */
+const TEMPLATE = arg('template') || 'avaliacao_competencias';
 const LIMITE = Number(arg('limite')) || maxPorDisparo();
 const ENVIAR = process.argv.includes('--enviar');
 const REENVIAR = process.argv.includes('--reenviar');
@@ -93,27 +103,60 @@ async function main() {
     for (const r of (data as any[]) || []) if (r.r1) respondentes.add(r.colaborador_id);
   }
 
-  // Já receberam este convite? A telemetria é a fonte — rodar de novo não pode mandar duas.
+  // Já receberam este convite? A telemetria é a fonte — rodar de novo não pode
+  // mandar duas.
+  //
+  // 🔑 A guarda é POR TEMPLATE (`kind` = nome do template), não por "convite ao
+  // assessment" em geral: `avaliacao_pendente` e `avaliacao_competencias`
+  // descrevem o MESMO momento com textos diferentes, e o segundo existe
+  // justamente para alcançar de novo quem o primeiro não moveu. Uma guarda
+  // genérica tornaria a correção de copy inaplicável — mas ela também não pode
+  // ser invisível: quem já recebeu OUTRO convite aparece no resumo, porque essa
+  // pessoa está recebendo a segunda cobrança sobre o mesmo assunto.
   const { data: jaForam, error: eJ } = await sb.from('notification_deliveries')
-    .select('colaborador_id').eq('empresa_id', empresaId)
-    .eq('kind', 'avaliacao_pendente').eq('channel', 'whatsapp');
+    .select('colaborador_id, kind').eq('empresa_id', empresaId)
+    .in('kind', ['avaliacao_pendente', 'avaliacao_competencias']).eq('channel', 'whatsapp');
   if (eJ) throw new Error(`telemetria: ${eJ.message}`);
-  const recebidos = new Set((jaForam || []).map((d: any) => d.colaborador_id));
+  const recebidos = new Set((jaForam || []).filter((d: any) => d.kind === TEMPLATE).map((d: any) => d.colaborador_id));
+  const receberamOutro = new Set((jaForam || []).filter((d: any) => d.kind !== TEMPLATE).map((d: any) => d.colaborador_id));
+
+  // A COMPETÊNCIA anunciada sai de `cargos_empresa.top5_workshop`, a mesma régua
+  // que a tela do assessment usa para escolher o próximo cenário. Sem ela o
+  // `{{2}}` sairia vazio ("sua avaliação de  ainda não foi iniciada"), então
+  // quem não tem competência resolvida NÃO recebe — falha alta na construção,
+  // que é onde há humano para corrigir.
+  const { data: cargos, error: eCg } = await sb.from('cargos_empresa')
+    .select('nome, top5_workshop').eq('empresa_id', empresaId);
+  if (eCg) throw new Error(`cargos_empresa: ${eCg.message}`);
+  const top5Do = new Map<string, string[]>(
+    (cargos || []).map((c: any) => [String(c.nome || '').toLowerCase(), (c.top5_workshop || []) as string[]]));
+  const competenciaDe = (c: any): string | null =>
+    (top5Do.get(String(c.cargo || '').toLowerCase()) || [])[0] || null;
 
   const fila = mapeados
-    .map((c: any) => ({ ...c, fone: c.whatsapp || c.telefone }))
+    .map((c: any) => ({ ...c, fone: c.whatsapp || c.telefone, competencia: competenciaDe(c) }))
     .filter((c: any) => !respondentes.has(c.id))
     .filter((c: any) => c.fone)
+    .filter((c: any) => c.competencia)
     .filter((c: any) => REENVIAR || !recebidos.has(c.id));
+
+  const semCompetencia = mapeados.filter((c: any) => !respondentes.has(c.id) && !competenciaDe(c));
+  if (semCompetencia.length) {
+    console.log(`  ⚠️ sem competência no top5_workshop do cargo, ficam de fora: ${semCompetencia.length}`);
+    for (const c of semCompetencia.slice(0, 5)) console.log(`       · ${c.nome_completo} (${c.cargo})`);
+  }
 
   const semFone = mapeados.filter((c: any) => !respondentes.has(c.id) && !(c.whatsapp || c.telefone));
 
   console.log(`${empresa.nome}${CARGO ? ` · cargo ~ "${CARGO}"` : ''}`);
   console.log(`  no escopo: ${doCargo.length} · com mapeamento comportamental: ${mapeados.length} · destes, já responderam o assessment: ${respondentes.size}`);
   console.log(`  ALVO (mapeado, sem assessment, com telefone, sem convite): ${fila.length}`);
-  if (recebidos.size) console.log(`  já receberam este convite antes: ${recebidos.size}${REENVIAR ? ' (--reenviar: incluídos assim mesmo)' : ' (pulados)'}`);
+  if (recebidos.size) console.log(`  já receberam ESTE template antes: ${recebidos.size}${REENVIAR ? ' (--reenviar: incluídos assim mesmo)' : ' (pulados)'}`);
+  const segundaCobranca = fila.filter((c: any) => receberamOutro.has(c.id)).length;
+  if (segundaCobranca) console.log(`  ⚠️ ${segundaCobranca} do lote já receberam OUTRO convite ao assessment — para eles esta é a 2ª cobrança`);
   if (semFone.length) console.log(`  ⚠️ sem telefone, ficam de fora: ${semFone.length}`);
-  console.log(`  template: ${TEMPLATE} · instituição no {{2}}: "${empresa.nome}" · link: ${baseUrl}/dashboard/assessment`);
+  const comps = [...new Set(fila.map((c: any) => c.competencia))];
+  console.log(`  template: ${TEMPLATE} · competência(s) anunciada(s): ${comps.join(' | ') || '—'} · link: ${baseUrl}/dashboard/assessment`);
 
   const lote = fila.slice(0, LIMITE);
   if (lote.length < fila.length) console.log(`  ⚠️ teto de ${LIMITE}: ${fila.length - lote.length} ficam para a próxima execução`);
@@ -122,6 +165,7 @@ async function main() {
   const args = (c: any) => ({
     telefone: c.fone, nome: primeiroNome(c.nome_completo), semana: 1, tema: '',
     slug: (empresa as any).slug, baseUrl, instituicao: (empresa as any).nome,
+    competencia: c.competencia,
   }) as any;
 
   if (!ENVIAR) {
@@ -143,7 +187,10 @@ async function main() {
     const { params, botaoParam } = montar(args(c));
     const r = await enviarTemplateCloud(
       { phone: c.fone, template: TEMPLATE, params, botaoParam },
-      { motivo: 'avaliacao_pendente', empresaId, colaboradorId: c.id, dedupeKey: `avaliacao_pendente:${c.id}` },
+      // `motivo` vira o `kind` da telemetria: gravar o NOME DO TEMPLATE é o que
+      // permite medir as duas copies separadamente e o que faz a guarda de
+      // idempotência acima funcionar por template.
+      { motivo: TEMPLATE, empresaId, colaboradorId: c.id, dedupeKey: `${TEMPLATE}:${c.id}` },
     );
     if (r.ok) ok++; else falha++;
     console.log(`  ${i + 1}/${lote.length} ${c.nome_completo} · ${r.ok ? 'ok' : 'FALHOU: ' + r.reason}`);

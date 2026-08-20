@@ -430,7 +430,28 @@ papel desligado aparece como `(desligado)`, que é o caso que o silêncio escond
 
 ---
 
-## 5. Fila da Meta (18/08)
+## 5. Fila da Meta (20/08)
+
+⏳ **`avaliacao_competencias`** — PENDING/UTILITY (provisória), submetido em 20/08/2026
+(`id=2012427279422433`). Reescrita do `avaliacao_pendente` para quem **já concluiu o mapeamento
+comportamental** e parou antes do assessment.
+
+🔑 **Por que dois templates para o mesmo momento.** O corpo do `avaliacao_pendente` diz *"sua
+avaliação **de perfil** ainda não foi iniciada"*, e no vocabulário do produto "perfil comportamental"
+é exatamente o passo que essa pessoa acabou de dar (as telas dizem "SEU PERFIL COMPORTAMENTAL"; o
+assessment aparece como "avaliação"). Para ela, a frase se lê como mensagem desatualizada.
+`Medido 19-20/08:` nos 19 professores de Macaé nesse estado, **19 entregues · 11 abriram · 2
+responderam**, e nada nas 18h seguintes — não foi alcance nem canal, foi a copy.
+
+A nova RECONHECE o passo dado e NOMEIA a competência em `{{2}}` (que vem de
+`cargos_empresa.top5_workshop`, a régua da própria tela). A fiação já está pronta: contrato em
+`CONTRATOS` e `scripts/_convite-avaliacao.ts` com ele como default — enquanto estiver PENDING o
+envio volta `132001`, que é falha ALTA e visível, não silenciosa.
+
+⚠️ **Se voltar MARKETING, aceitar** e usar assim mesmo ou voltar ao `avaliacao_pendente` — não
+re-submeter variação limítrofe (§3.1).
+
+### Estado anterior (18/08)
 
 **22 aprovados · 1 pendente · 2 rejeitados.**
 
