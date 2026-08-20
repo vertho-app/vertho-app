@@ -3510,7 +3510,10 @@
       "batch": "Composição do lote",
       "recipients": "{count} vão receber",
       "already": "{count} já receberam este template (pulados)",
-      "deliveryNote": "O disparo enfileira as mensagens no ritmo da política de cadência. A entrega confirmada aparece depois, quando a Meta devolve o status."
+      "deliveryNote": "O disparo enfileira as mensagens no ritmo da política de cadência. A entrega confirmada aparece depois, quando a Meta devolve o status.",
+      "tipFixed": "O corpo é fixo e aprovado pela Meta — não dá para formatar nem editar aqui.",
+      "tipNoAttachment": "Template não leva anexo: só templates com cabeçalho de documento aceitam, e nenhum dos nossos tem.",
+      "tipOnlyWhatsapp": "Só entram colaboradores com WhatsApp cadastrado."
     },
     "title": "Envios",
     "selectCompany": "Selecione uma empresa...",
@@ -3588,7 +3591,7 @@
       "title": "Dicas",
       "bold": "• Use *texto* para negrito",
       "italic": "• Use _texto_ para itálico",
-      "interval": "• Intervalo de 1s entre envios para evitar bloqueio",
+      "interval": "• As mensagens saem espaçadas pela política de cadência, para proteger o número",
       "emailIncluded": "• Todos os colaboradores com email serão incluídos",
       "whatsappIncluded": "• Apenas colaboradores com WhatsApp cadastrado serão incluídos",
       "firstName": "• O primeiro nome é usado automaticamente no {{nome}}"

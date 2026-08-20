@@ -3558,7 +3558,10 @@
       "batch": "Composición del lote",
       "recipients": "{count} recibirán",
       "already": "{count} ya recibieron esta plantilla (omitidos)",
-      "deliveryNote": "El disparo pone los mensajes en cola al ritmo de la política de cadencia. La entrega confirmada aparece después, cuando Meta devuelve el estado."
+      "deliveryNote": "El disparo pone los mensajes en cola al ritmo de la política de cadencia. La entrega confirmada aparece después, cuando Meta devuelve el estado.",
+      "tipFixed": "El cuerpo es fijo y está aprobado por Meta: aquí no se puede formatear ni editar.",
+      "tipNoAttachment": "La plantilla no lleva adjunto: solo lo aceptan las plantillas con encabezado de documento, y ninguna de las nuestras lo tiene.",
+      "tipOnlyWhatsapp": "Solo entran colaboradores con WhatsApp registrado."
     },
     "title": "Envios",
     "selectCompany": "Selecione uma empresa...",
@@ -3636,7 +3639,7 @@
       "title": "Dicas",
       "bold": "• Use *texto* para negrito",
       "italic": "• Use _texto_ para itálico",
-      "interval": "• Intervalo de 1s entre envios para evitar bloqueio",
+      "interval": "• Los mensajes salen espaciados según la política de cadencia, para proteger el número",
       "emailIncluded": "• Todos os colaboradores com email serão incluídos",
       "whatsappIncluded": "• Apenas colaboradores com WhatsApp cadastrado serão incluídos",
       "firstName": "• O primeiro nome é usado automaticamente no {{nome}}"

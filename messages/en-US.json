@@ -3510,7 +3510,10 @@
       "batch": "Batch composition",
       "recipients": "{count} will receive",
       "already": "{count} already received this template (skipped)",
-      "deliveryNote": "Sending queues the messages at the cadence policy rate. Confirmed delivery shows up later, when Meta returns the status."
+      "deliveryNote": "Sending queues the messages at the cadence policy rate. Confirmed delivery shows up later, when Meta returns the status.",
+      "tipFixed": "The body is fixed and approved by Meta — it cannot be formatted or edited here.",
+      "tipNoAttachment": "Templates carry no attachment: only templates with a document header accept one, and none of ours has it.",
+      "tipOnlyWhatsapp": "Only people with a WhatsApp number on file are included."
     },
     "title": "Submissions",
     "selectCompany": "Select a company...",
@@ -3588,7 +3591,7 @@
       "title": "Tips",
       "bold": "• Use *text* for bold",
       "italic": "• Use _text_ for italics",
-      "interval": "• 1s interval between sending to avoid blocking",
+      "interval": "• Messages go out spaced by the cadence policy, to protect the number",
       "emailIncluded": "• All employees with email will be included",
       "whatsappIncluded": "• Only employees with registered WhatsApp will be included",
       "firstName": "• The first name is automatically used in {{nome}}"

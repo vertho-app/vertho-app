@@ -516,8 +516,12 @@ export default function EnviosPage() {
                   </label>
                 )}
 
-                {/* Anexo adicional — disponível em todas as abas */}
-                <div className="mt-3 pt-3 border-t border-white/[0.04]">
+                {/* Anexo adicional — NÃO existe no modo template.
+                    `enviarTemplateCloud` monta apenas `body` e `button`: anexo
+                    só viajaria em template com cabeçalho de documento, e nenhum
+                    dos nossos tem. Deixar o seletor aqui aceitaria o arquivo e o
+                    descartaria em silêncio. */}
+                {tab !== 'whatsapp' && <div className="mt-3 pt-3 border-t border-white/[0.04]">
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Paperclip size={11} className="text-gray-400" />
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('attachments.additional')}</span>
@@ -545,7 +549,7 @@ export default function EnviosPage() {
                       </p>
                     </>
                   )}
-                </div>
+                </div>}
               </div>
 
               {/* Modo TEMPLATE — aba WhatsApp */}
@@ -720,13 +724,25 @@ export default function EnviosPage() {
               {/* Dicas */}
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
                 <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">{t('tips.title')}</p>
-                <ul className="space-y-1 text-[10px] text-gray-400">
-                  <li>{t('tips.bold')}</li>
-                  <li>{t('tips.italic')}</li>
-                  <li>{t('tips.interval')}</li>
-                  <li>{tab === 'email' ? t('tips.emailIncluded') : t('tips.whatsappIncluded')}</li>
-                  <li>{t('tips.firstName')}</li>
-                </ul>
+                {tab === 'whatsapp' ? (
+                  // Markdown do WhatsApp não se aplica: o corpo é fixo, aprovado
+                  // pela Meta, e a tela não edita nada dele.
+                  <ul className="space-y-1 text-[10px] text-gray-400">
+                    <li>• {t('templateMode.tipFixed')}</li>
+                    <li>• {t('templateMode.tipNoAttachment')}</li>
+                    <li>{t('tips.interval')}</li>
+                    <li>• {t('templateMode.tipOnlyWhatsapp')}</li>
+                    <li>{t('tips.firstName')}</li>
+                  </ul>
+                ) : (
+                  <ul className="space-y-1 text-[10px] text-gray-400">
+                    <li>{t('tips.bold')}</li>
+                    <li>{t('tips.italic')}</li>
+                    <li>{t('tips.interval')}</li>
+                    <li>{tab === 'email' ? t('tips.emailIncluded') : t('tips.whatsappIncluded')}</li>
+                    <li>{t('tips.firstName')}</li>
+                  </ul>
+                )}
               </div>
             </div>
           </div>}
