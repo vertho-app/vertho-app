@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
+import { logAdminAction } from '@/lib/audit';
+import { servirComoDownload } from '@/lib/conteudo/download';
 import { extractNarration, generatePersonalizedPodcastAudio } from '@/lib/gemini-tts';
 
 export const runtime = 'nodejs';
@@ -8,6 +10,19 @@ export const maxDuration = 300; // fallback on-demand p/ colab sem cache pré-aq
 
 function redirectTo(url: string) {
   return NextResponse.redirect(url, { status: 302 });
+}
+
+/**
+ * `?download=1` — o mesmo arquivo, com nome e como anexo.
+ *
+ * O 302 leva ao Storage, que serve `inline` e com nome de hash; e o atributo
+ * `download` do `<a>` e ignorado entre origens. Sem isto, "baixar o podcast da
+ * Taluana" entrega um `a7f3….mp3` que nao diz de quem e.
+ */
+async function entregar(url: string, req: Request): Promise<Response> {
+  const q = new URL(req.url).searchParams;
+  if (q.get('download') !== '1') return redirectTo(url);
+  return servirComoDownload(url, q.get('name'), 'mp3');
 }
 
 function sanitizeSegment(value: string) {
@@ -24,6 +39,28 @@ async function downloadBaseAudio(sb: ReturnType<typeof createSupabaseAdmin>, con
   const response = await fetch(content.url);
   if (!response.ok) return null;
   return Buffer.from(await response.arrayBuffer());
+}
+
+/**
+ * Material NOMINAL saindo da plataforma deixa rastro — mas so quando e de OUTRA
+ * pessoa. O colaborador ouvindo o proprio podcast e uso normal, nao evento de
+ * auditoria; registrar isso encheria o log e escondria o que importa.
+ */
+async function registrarAuditoria(
+  auth: any,
+  alvo: { id: string; nome_completo?: string | null } | null,
+  conteudoId: string,
+  req: Request,
+): Promise<void> {
+  if (!alvo || alvo.id === auth.colaborador?.id) return;
+  const baixou = new URL(req.url).searchParams.get('download') === '1';
+  await logAdminAction({
+    adminEmail: auth.email,
+    acao: baixou ? 'conteudo.download_podcast' : 'conteudo.abrir_podcast',
+    alvo: alvo.nome_completo || alvo.id,
+    detalhes: { conteudoId, colaboradorId: alvo.id },
+    resultado: 'ok',
+  });
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -70,7 +107,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!nome) {
     // Sem colaborador (ex.: admin): serve o áudio-base pré-gerado (sem nome).
     return content.url
-      ? redirectTo(content.url)
+      ? entregar(content.url, req)
       : NextResponse.json({ error: 'Podcast ainda não gerado' }, { status: 404 });
   }
 
@@ -84,7 +121,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const cached = await sb.storage.from('conteudos').download(cachePath);
   if (!cached.error && cached.data) {
     const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(cachePath);
-    return redirectTo(publicUrl);
+    await registrarAuditoria(auth, alvo, content.id, req);
+    return entregar(publicUrl, req);
   }
 
   try {
@@ -98,7 +136,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(cachePath);
-      return redirectTo(publicUrl);
+      await registrarAuditoria(auth, alvo, content.id, req);
+      return entregar(publicUrl, req);
     }
   } catch (err) {
     console.error('[podcast personalizado]', err);

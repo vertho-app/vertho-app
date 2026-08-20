@@ -419,6 +419,38 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onPreparar,
   );
 }
 
+/**
+ * Link de DOWNLOAD do que a pessoa recebeu, por formato (19/08/2026).
+ *
+ * 🔑 Três destinos diferentes, e a razão de cada um:
+ *  - **vídeo** → `/api/video-download/{guid}`: o GUID sai do próprio
+ *    `video_embed` do snapshot (`…/embed/{lib}/{guid}`), então não há consulta
+ *    nova. A rota faz stream do MP4 do Bunny (o embed é uma PÁGINA, não um
+ *    arquivo).
+ *  - **áudio** → a rota do colaborador com `?colaboradorId=`, que serve o
+ *    podcast COM a saudação nominal — o mesmo que ela ouve.
+ *  - **texto/case** → idem para o PDF. ⚠️ Sem `colaboradorId` a rota resolve a
+ *    personalização pela SESSÃO de quem clica: o admin baixaria o genérico com
+ *    cara de ser o dela. Era a letra miúda desta tela; virou parâmetro.
+ *
+ * `download=1` existe porque o 302 leva ao Storage, que serve `inline` e com
+ * nome de hash — e o atributo `download` do `<a>` é ignorado entre origens.
+ */
+function linkDownload(f, { fid, videoEmbed, colaboradorId, nomeArquivo }) {
+  const nome = encodeURIComponent(nomeArquivo);
+  if (f === 'video') {
+    const guid = String(videoEmbed || '').split('/').filter(Boolean).pop();
+    // GUID do Bunny é UUID: se o embed vier em outro formato, é melhor não
+    // oferecer o botão do que mandar o admin para um 400.
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(guid || '')
+      ? `/api/video-download/${guid}?name=${nome}`
+      : null;
+  }
+  if (!fid || !colaboradorId) return null;
+  const rota = f === 'audio' ? 'podcast' : 'pdf';
+  return `/api/conteudo/${fid}/${rota}?colaboradorId=${colaboradorId}&download=1&name=${nome}`;
+}
+
 const DISC_CLS = {
   D: 'bg-red-500/15 text-red-300 border-red-500/30',
   I: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
@@ -515,8 +547,44 @@ function SemanaModal({ det, onClose }) {
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">⚠ deck genérico — sem a saudação nominal</span>
                     )}
                   </div>
+                  {/* ── Baixar o material DELA ────────────────────────────────
+                      Os mesmos formatos da linha de cima, agora como arquivo com
+                      nome legível. O gate real está nas ROTAS (platform admin,
+                      RH/gestor do tenant): esconder botão não protege nada. */}
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    <span className="text-[10px] text-gray-500">baixar:</span>
+                    {(() => {
+                      const nomePessoa = (t.colab?.nome_completo || 'colaborador').split(' ')[0];
+                      const links = formatos.map(f => {
+                        const fid = c.formatos_disponiveis?.[f]?.id || (f === c.formato_core ? c.core_id : null);
+                        const href = linkDownload(f, {
+                          fid,
+                          videoEmbed: c.video_embed,
+                          colaboradorId: t.colaborador_id,
+                          nomeArquivo: `Semana ${semana} · ${nomePessoa} · ${e.descritor || c.core_titulo || f}`,
+                        });
+                        return { f, href };
+                      }).filter(x => x.href);
+                      if (!links.length) return <span className="text-[10px] text-gray-600">—</span>;
+                      return links.map(({ f, href }) => {
+                        const FIcon = FORMAT_ICON[f] || FileText;
+                        const ext = f === 'video' ? 'mp4' : f === 'audio' ? 'mp3' : 'pdf';
+                        return (
+                          <a key={f} href={href}
+                            title={f === 'audio'
+                              ? 'Baixa o MP3 com a saudação nominal (cache frio leva ~2min na 1ª vez)'
+                              : f === 'video'
+                                ? 'Baixa o MP4 que a pessoa vê'
+                                : 'Baixa o PDF DESTA pessoa (personalizado por DISC + PPP)'}
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-white/15 bg-white/[0.04] text-gray-300 hover:bg-white/10 transition-colors">
+                            <Download size={9} /><FIcon size={9} />{ext}
+                          </a>
+                        );
+                      });
+                    })()}
+                  </div>
                   <div className="text-[9px] text-gray-600 mt-1">
-                    Vídeo e podcast abrem o que a pessoa recebe, com a saudação nominal (podcast com cache frio leva ~2min na 1ª vez). PDF abre a versão genérica — a personalização por DISC resolve pela sessão do colaborador.
+                    Vídeo e podcast abrem o que a pessoa recebe, com a saudação nominal (podcast com cache frio leva ~2min na 1ª vez). O PDF <b>aberto</b> é a versão genérica — o PDF <b>baixado</b> é o desta pessoa (DISC + PPP). Downloads de material nominal ficam no log de auditoria.
                   </div>
                   {c.desafio_texto && (
                     <div className="mt-3 rounded bg-cyan-500/5 border border-cyan-500/20 p-2.5">
