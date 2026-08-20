@@ -305,6 +305,22 @@ Casa: script, action, cron ou tela que mande mais de uma mensagem.
 - Operação que **só** o cron alcança precisa de caminho por sessão: `CRON_SECRET` é *Sensitive* e
   ninguém consegue lê-lo; regravar derruba os crons agendados.
 
+## 29. Fila com retentativa / teto de tentativas (`t0_tentativas`, `MAX_TENTATIVAS_*`, backoff)
+
+Casa: qualquer varredura que re-tenta entrega e desiste depois de N vezes.
+
+- 🔴 **De quem é a falha que está gastando a cota?** Erro do CANAL (fornecedor fora, template não
+  aprovado, credencial vencida) repete idêntico a cada rodada e zera o saldo de quem não tem culpa.
+  Medido 18-19/08: um lead do CONARH esgotou 10 tentativas contra a Z-API caída **1h30 antes** de o
+  template aprovar — quando o canal voltou, o teto já o tinha expulsado (F-C12).
+- 🔴 **O botão manual herda o teto do automático?** Se herda, a tela mostra a pendência e a ação não
+  faz nada para ela. Quem decide insistir num disparo humano é o **servidor**, não o corpo do
+  pedido (`incluirEsgotados: body?.x !== false`, não `=== true`).
+- **O que a tela LISTA e o que ela CONTA vêm da mesma janela?** Contador da campanha + lista do dia
+  produzem "1 pendente" sem nenhuma linha visível — aviso sem rosto.
+- Conferir o carimbo do erro antes de culpar a rodada atual: `t0_erro` inalterado prova que **nenhuma
+  tentativa nova aconteceu**, e não que a nova tentativa falhou igual.
+
 ## 22. Sempre (base fixa — cite, não copie)
 
 `docs/CHECKLISTS.md` §1. Os três que mais reincidem:

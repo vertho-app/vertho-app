@@ -379,6 +379,14 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   payload INTEIRO e **a mensagem não sai**. Falha total, não parcial (14/08). Mesma classe: o
   `motivo` da telemetria era o literal `'pilula'` sob um comentário que prometia exaustividade do
   TypeScript; promessa em comentário não é garantia — hoje é `satisfies Record<...>`.
+- NÃO debitar tentativa de retentativa quando quem falhou foi o **CANAL**. O teto existe para o
+  automático não martelar sozinho; se o fornecedor caiu ou o template não aprovou, a cota é do
+  destinatário e quem a gastou foi avaria nossa — aí, quando o canal volta, o teto já expulsou
+  exatamente quem nunca recebeu nada. Medido 18-19/08: o único lead da feira esgotou as 10
+  tentativas contra a Z-API caída **1h30 antes** de o template aprovar, e ficou fora do cron **e do
+  botão** (a tela dizia "1 recorte não chegou" e a ação não fazia nada para ele). Corolário: em
+  disparo MANUAL quem decide insistir é o **servidor**, não o corpo do pedido — herdar o teto do
+  automático transforma a tela em enfeite. `docs/FMEA-PIPELINE.md` §F-C12.
 - NÃO afirmar que uma task de IA roda no modelo X só porque está em `DEFAULT_TASK_MODELS`. `callAI`
   faz `aiConfig?.model || DEFAULT_MODEL` (`claude-sonnet-4-6`) e **não** consulta `getModelForTask` —
   o `taskKey` só marca o custo no ledger. Nos fluxos de assessment/relatório quem passa o modelo é a

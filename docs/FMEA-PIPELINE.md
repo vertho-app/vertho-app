@@ -694,6 +694,34 @@ enum novo sem mapa **quebra o build**.
 **Classe:** contrato entre dois processos que falam por JSON não é verificado pelo compilador. E
 comentário que promete uma garantia não a implementa.
 
+### F-C12 · Cota de retentativa consumida por avaria do CANAL torna o resgate inalcançável ✅ (corrigido 19/08, `984607e3`)
+
+**Gatilho:** `lib/conarh/reenvio-t0.ts:33,124` — `MAX_TENTATIVAS_AUTOMATICAS = 10` +
+`query.lt('t0_tentativas', MAX_TENTATIVAS_AUTOMATICAS)`, herdado por
+`app/api/conarh/reenviar-t0/route.ts` porque a tela mandava corpo vazio.
+
+**Medido (18-19/08, feira do CONARH):** o único lead real da feira foi capturado às 15:19 do dia 1.
+O `recorte_demonstracao` ainda estava PENDING na Meta e a Z-API está caída desde 11/08, então o cron
+tentou de 15 em 15 min e **esgotou as 10 tentativas por volta das 17:50** — sempre com o mesmo erro,
+`zapi: saúde: desconectada`. O template foi aprovado às **19:21**; a essa altura o lead já estava
+fora do cron **e do botão**. A tela mostrava "1 recorte não chegou" e oferecia uma ação que, para
+ele, não fazia nada. A entrega só saiu às **10:45 do dia seguinte**, na 11ª tentativa, depois da
+correção — 19h25 após a captura, `delivered` confirmado pela Meta 13s depois do envio.
+
+**Classe: contador de tentativa que não distingue de QUEM é a falha.** A cota é do destinatário, mas
+quem a gastou foi a avaria do sistema (fornecedor fora, template não aprovado). Quando o canal
+volta, o teto já expulsou exatamente quem nunca recebeu nada. Vale para toda fila com retentativa:
+falha de canal não devia debitar a cota do destinatário.
+
+**Correção:** a decisão de insistir mudou de lado. A rota manual — que só é chamada por gente com a
+chave — passou a incluir os esgotados **por padrão** (`incluirEsgotados: body?.incluirEsgotados
+!== false`); o cron segue conservador. Guarda: `tests/unit/conarh-reenviar-t0-rota.test.ts`
+(5 casos, validado por mutação: com o default anterior, corpo vazio e valor lixo falham).
+
+⚠️ **Aberto:** `/conarh/fila` lista só as capturas **do dia** (`criado_em >= inicioHojeBRT`), enquanto
+o contador de pendências é da **campanha inteira**. Um lead devendo desde ontem aparece no número e
+não na lista — o aviso fica sem rosto.
+
 ### F-I15 · Régua oficial faz variantes do modelo COLIDIREM e o upsert perde a avaliação inteira ✅ (corrigido 14/08)
 
 **Gatilho:** `lib/ia4-avaliacao.ts` — `descritor: resolverNomeOficial(d.nome, ctx.descsOficiais)` no
