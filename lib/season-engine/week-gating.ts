@@ -4,6 +4,8 @@
  * SP é UTC-3 sem DST → 03:00 BRT == 06:00 UTC.
  */
 
+import { PROGRESSO } from '@/lib/status';
+
 const SP_OFFSET_HOURS = 3; // BRT = UTC-3
 const UNLOCK_HOUR_BRT = 3; // 03:00 BRT
 const UNLOCK_HOUR_UTC = UNLOCK_HOUR_BRT + SP_OFFSET_HOURS; // 06:00 UTC
@@ -64,6 +66,116 @@ export function semanaLiberadaPorData(dataInicio: string | null | undefined, n: 
  */
 export function entregaEhReal(dataInicio: string | null | undefined, semana: number | string): boolean {
   return semanaLiberadaPorData(dataInicio, semana);
+}
+
+// ── Conclusão da semana: quantos turnos de IA encerram a conversa ───────────
+//
+// Viviam dentro de `app/api/temporada/reflection/route.ts` (e o da semana 13
+// dentro de `evaluation`), onde só o servidor enxergava. A tela precisa do MESMO
+// número para dizer "faltam 3 respostas" — e número de régua repetido em dois
+// arquivos é como a tela passa a prometer o que a rota nega.
+
+/** Evidências de 1 descritor: 6 IA + 6 colab. */
+export const MAX_TURNS_SOCRATIC = 12;
+/** Cenário escrito, 3 descritores: 10 IA + 10 colab. */
+export const MAX_TURNS_ANALYTIC = 20;
+/** Relato de missão prática, 3 descritores: 10 IA + 10 colab. */
+export const MAX_TURNS_MISSAO_FEEDBACK = 20;
+/** Semana 13 (qualitativa) conta turnos de IA DIRETO, sem dividir por 2. */
+export const TURNOS_IA_AVALIACAO_QUALITATIVA = 12;
+
+/** Slot do JSONB onde a conversa daquela semana mora. */
+export function slotDaConversa(semana: number | string, tipoSemana?: string | null): 'reflexao' | 'feedback' {
+  return tipoSemana === 'aplicacao' || Number(semana) === 14 ? 'feedback' : 'reflexao';
+}
+
+/**
+ * Turnos de IA necessários para a semana ser dada por concluída — a mesma conta
+ * que as rotas fazem para virar `finished`.
+ */
+export function turnosIaNecessarios(
+  semana: number | string,
+  tipoSemana?: string | null,
+  modoAplicacao?: string | null,
+): number {
+  if (Number(semana) === 13) return TURNOS_IA_AVALIACAO_QUALITATIVA;
+  if (tipoSemana === 'aplicacao') {
+    return (modoAplicacao === 'pratica' ? MAX_TURNS_MISSAO_FEEDBACK : MAX_TURNS_ANALYTIC) / 2;
+  }
+  return MAX_TURNS_SOCRATIC / 2;
+}
+
+/** Turnos de IA já gravados no transcript de um registro de progresso. */
+export function contarTurnosIa(progresso: any, semana: number | string, tipoSemana?: string | null): number {
+  const slot = slotDaConversa(semana, tipoSemana);
+  const transcript = progresso?.[slot]?.transcript_completo;
+  if (!Array.isArray(transcript)) return 0;
+  return transcript.filter((m: any) => m?.role === 'assistant').length;
+}
+
+export interface AcessoSemana {
+  liberada: boolean;
+  /** 'data' = calendário ainda não chegou · 'anterior' = semana N-1 não concluída. */
+  motivo?: 'data' | 'anterior';
+  /** Semana que precisa ser concluída antes (motivo 'anterior'). */
+  semanaPendente?: number;
+  /** Rótulo da liberação (motivo 'data'), ex. "seg 12/05". */
+  liberaEm?: string;
+  /** Progresso da conversa pendente — `null` quando o chamador não trouxe o transcript. */
+  turnosFeitos?: number | null;
+  turnosNecessarios?: number;
+}
+
+/**
+ * A pessoa pode abrir esta semana? Régua ÚNICA — o servidor decide com ela
+ * (`checarGatesSemana`) e a tela explica com ela.
+ *
+ * 🔴 Por que ela existe (medido 20/08/2026, Ibipeba): a régua morava só nas
+ * rotas de conversa, e a PÁGINA da semana não tinha gate nenhum. A cadência
+ * manda o link da semana do CALENDÁRIO (`fase4_envios.semana_atual`), então quem
+ * atrasou abria a semana 6, via o conteúdo e tomava 403 mudo ao tentar
+ * conversar. 19 de 36 pessoas estavam sem nenhuma semana concluída, e a que mais
+ * perto chegou parou a 1 turno — 36 dias parada. A régua sequencial é
+ * deliberada; o que faltava era ela ser DITA.
+ *
+ * `progresso` aceita array (como vem de `loadTemporadaPorEmail`) ou mapa por
+ * semana. Sem transcript no registro, `turnosFeitos` sai `null` — a decisão de
+ * liberar não muda, só o detalhe da explicação.
+ */
+export function avaliarAcessoSemana(input: {
+  dataInicio: string | null | undefined;
+  plano: any[] | null | undefined;
+  progresso: any[] | Record<string | number, any> | null | undefined;
+  semana: number | string;
+  now?: Date;
+}): AcessoSemana {
+  const semana = Number(input.semana);
+  const plano = Array.isArray(input.plano) ? input.plano : [];
+  const slotPlano = plano.find((s: any) => Number(s?.semana) === semana);
+  const semanaCal = slotPlano?.calendario_semana ?? semana;
+
+  if (!semanaLiberadaPorData(input.dataInicio, semanaCal, input.now ?? new Date())) {
+    return { liberada: false, motivo: 'data', liberaEm: formatarLiberacao(input.dataInicio, semanaCal) };
+  }
+
+  if (semana <= 1) return { liberada: true };
+
+  const progressos = Array.isArray(input.progresso)
+    ? input.progresso
+    : Object.values(input.progresso || {});
+  const anteriorNum = semana - 1;
+  const anterior = progressos.find((p: any) => Number(p?.semana) === anteriorNum);
+  if (anterior?.status === PROGRESSO.CONCLUIDO) return { liberada: true };
+
+  const tipoAnterior = plano.find((s: any) => Number(s?.semana) === anteriorNum)?.tipo;
+  const temTranscript = anterior?.[slotDaConversa(anteriorNum, tipoAnterior)]?.transcript_completo;
+  return {
+    liberada: false,
+    motivo: 'anterior',
+    semanaPendente: anteriorNum,
+    turnosFeitos: Array.isArray(temTranscript) ? contarTurnosIa(anterior, anteriorNum, tipoAnterior) : null,
+    turnosNecessarios: turnosIaNecessarios(anteriorNum, tipoAnterior, anterior?.feedback?.modo),
+  };
 }
 
 /**

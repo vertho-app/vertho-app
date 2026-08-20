@@ -12,6 +12,7 @@ import { parseJsonIA } from '@/lib/ai-json';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
 import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine/progresso-semana';
 import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { TURNOS_IA_AVALIACAO_QUALITATIVA } from '@/lib/season-engine/week-gating';
 import { buscarCenarioBComFallback } from '@/lib/season-engine/cenario-b';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
@@ -136,7 +137,9 @@ export async function POST(request) {
         historico.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
       }
       const turnsIA = historico.filter(m => m.role === 'assistant').length;
-      const TOTAL = 12;
+      // Régua única (week-gating): a tela da semana usa o MESMO número para
+      // dizer quantas respostas faltam para a semana 13 concluir.
+      const TOTAL = TURNOS_IA_AVALIACAO_QUALITATIVA;
 
       // Coleta insights das semanas anteriores à acumulada pra contextualizar
       const { data: outrasSem } = await sb.from('temporada_semana_progresso')

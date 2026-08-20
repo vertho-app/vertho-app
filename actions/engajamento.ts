@@ -23,7 +23,12 @@ import {
  */
 
 const FORMATOS = ['video', 'audio', 'texto', 'case'];
-const TIPOS = ['abertura', 'formato', 'audio_fim'];
+// 'bloqueio' (20/08/2026): a pessoa CHEGOU na semana mas ela estava trancada —
+// tentativa frustrada, não consumo. Antes caía no default 'abertura' e inflava a
+// métrica justamente de quem não conseguiu ver nada. Os consumidores filtram por
+// `tipo === 'abertura'`, então o valor novo não entra em nenhuma contagem
+// existente: ele só deixa de mentir na que já havia.
+const TIPOS = ['abertura', 'formato', 'audio_fim', 'bloqueio'];
 
 /**
  * Loga um evento do colaborador na tela da semana. Best-effort: NUNCA lança pro

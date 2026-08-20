@@ -886,6 +886,15 @@
     "missionVideo": {
       "title": "Mission week",
       "watch": "How this week works"
+    },
+    "locked": {
+      "title": "Week {week} isn't open yet",
+      "becauseDate": "It opens on {date}.",
+      "becausePrevious": "Week {week} needs to be completed first.",
+      "rule": "The track is sequential: each week opens only after the previous one is completed — and what completes a week is the evidence conversation with the Mentor, not just opening the content.",
+      "missing": "In week {week}, about {count} more replies from you will close the conversation.",
+      "notStarted": "The evidence conversation for week {week} hasn't started yet.",
+      "goToWeek": "Go to week {week}"
     }
   },
   "SeasonDone": {

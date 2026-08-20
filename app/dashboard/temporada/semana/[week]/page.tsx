@@ -4,9 +4,9 @@ import { useEffect, useRef, useState, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { formatarLiberacao } from '@/lib/season-engine/week-gating';
+import { formatarLiberacao, avaliarAcessoSemana } from '@/lib/season-engine/week-gating';
 import ReactMarkdown from 'react-markdown';
-import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle } from 'lucide-react';
+import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle, Lock } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { loadTemporadaPorEmail, marcarConteudoConsumido } from '@/actions/temporadas';
 import { resolverVideoDaSemana } from '@/actions/gerar-video';
@@ -66,6 +66,11 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
 
   // Telemetria: loga a ABERTURA do conteúdo (uma vez), com atribuição por pílula
   // (?p=1|2) e formato (?formato=) vindos do deep-link. Best-effort, nunca quebra.
+  //
+  // 🔑 Semana bloqueada loga `bloqueio`, NÃO `abertura`: a cadência manda o link
+  // da semana do calendário, então quem está atrasado cai aqui toda semana — e
+  // contar isso como abertura fazia a /admin/engajamento medir tentativa
+  // frustrada como consumo de conteúdo.
   const aberturaLogada = useRef(false);
   useEffect(() => {
     const trilhaId = data?.trilha?.id;
@@ -73,7 +78,19 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     aberturaLogada.current = true;
     const pRaw = Number(searchParams.get('p'));
     const pilula = pRaw === 1 || pRaw === 2 ? pRaw : null;
-    registrarEventoTrilha({ trilhaId, semana: semanaNum, pilula, formato: searchParams.get('formato'), tipo: 'abertura' }).catch(() => {});
+    const liberada = avaliarAcessoSemana({
+      dataInicio: data?.trilha?.data_inicio,
+      plano: data?.trilha?.temporada_plano,
+      progresso: data?.progresso,
+      semana: semanaNum,
+    }).liberada;
+    registrarEventoTrilha({
+      trilhaId,
+      semana: semanaNum,
+      pilula,
+      formato: searchParams.get('formato'),
+      tipo: liberada ? 'abertura' : 'bloqueio',
+    }).catch(() => {});
   }, [data?.trilha?.id, semanaNum]);
 
   // Só libera "Marcar como realizado" depois que o colab abriu o link do conteúdo
@@ -136,6 +153,26 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
 
   const semana = (data.trilha.temporada_plano || []).find(s => s.semana === semanaNum);
   if (!semana) return <Center><p className="text-gray-400">{t('errors.invalidWeek')}</p></Center>;
+
+  // 🔴 GATE DA SEMANA — a mesma régua que as rotas de conversa aplicam.
+  //
+  // Até 20/08/2026 esta página não tinha gate nenhum: quem abria o link da
+  // cadência (que aponta para a semana do CALENDÁRIO) via o conteúdo e só
+  // descobria o bloqueio ao tentar conversar, num 403 que a tela engolia. Medido
+  // em Ibipeba: 19 de 36 pessoas sem nenhuma semana concluída, uma delas parada
+  // 36 dias a UM turno de destravar, e a reclamação chegando por WhatsApp
+  // ("não estou conseguindo acessar os conteúdos das próximas semanas").
+  // O bloqueio é intencional; o que faltava era ele ser dito — e dizer o que
+  // exatamente falta, porque ninguém adivinha que é a conversa que conclui.
+  const acesso = avaliarAcessoSemana({
+    dataInicio: data.trilha.data_inicio,
+    plano: data.trilha.temporada_plano,
+    progresso: data.progresso,
+    semana: semanaNum,
+  });
+  if (!acesso.liberada) {
+    return <SemanaBloqueada acesso={acesso} semana={semanaNum} onIr={(n) => router.push(`/dashboard/temporada/semana/${n}`)} t={t} />;
+  }
 
   const isAplicacao = semana.tipo === 'aplicacao';
   const isAvaliacao = semana.tipo === 'avaliacao';
@@ -819,4 +856,64 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
 
 function Center({ children }) {
   return <div className="min-h-screen flex items-center justify-center bg-[#0a0e1a] text-white">{children}</div>;
+}
+
+/**
+ * Semana ainda não liberada — a tela que EXPLICA em vez de só negar.
+ *
+ * Três coisas, nesta ordem, porque é a ordem das perguntas de quem chegou aqui
+ * por um link do WhatsApp: (1) o que está acontecendo; (2) por que — a régua da
+ * trilha, dita com todas as letras; (3) o que fazer AGORA, com o botão já
+ * apontando para a semana que destrava.
+ */
+function SemanaBloqueada({ acesso, semana, onIr, t }) {
+  const porData = acesso.motivo === 'data';
+  const pendente = acesso.semanaPendente;
+  const faltam = typeof acesso.turnosFeitos === 'number' && acesso.turnosNecessarios
+    ? Math.max(acesso.turnosNecessarios - acesso.turnosFeitos, 1)
+    : null;
+
+  return (
+    <PageContainer>
+      <BackButton href="/dashboard/temporada" />
+      {/* `padding` é prop, não className: o default `p-5 md:p-6` continuaria na
+          string de classes e o vencedor viraria a ordem do CSS, não a intenção. */}
+      <GlassCard className="mt-6" padding="p-6 sm:p-8">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl p-2.5 bg-amber-500/10 border border-amber-400/25 flex-shrink-0">
+            <Lock size={20} className="text-amber-300" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">
+              {t('locked.title', { week: semana })}
+            </h1>
+            <p className="mt-2 text-gray-300 leading-relaxed">
+              {porData
+                ? t('locked.becauseDate', { date: acesso.liberaEm })
+                : t('locked.becausePrevious', { week: pendente })}
+            </p>
+
+            {!porData && (
+              <>
+                <p className="mt-4 text-sm text-gray-400 leading-relaxed">
+                  {t('locked.rule')}
+                </p>
+                <p className="mt-3 text-sm text-amber-200/90 leading-relaxed">
+                  {faltam === null
+                    ? t('locked.notStarted', { week: pendente })
+                    : t('locked.missing', { count: faltam, week: pendente })}
+                </p>
+                <button
+                  onClick={() => onIr(pendente)}
+                  className="mt-6 inline-flex items-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-400 px-5 py-2.5 text-sm font-bold text-white transition"
+                >
+                  {t('locked.goToWeek', { week: pendente })}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </GlassCard>
+    </PageContainer>
+  );
 }

@@ -10,6 +10,7 @@ import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedbac
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { MAX_TURNS_SOCRATIC, MAX_TURNS_ANALYTIC, MAX_TURNS_MISSAO_FEEDBACK } from '@/lib/season-engine/week-gating';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { deveEncerrarSemFechamento, montarReportDegustacao } from '@/lib/season-engine/programa-custom';
 import { PROGRESSO, TRILHA } from '@/lib/status';
@@ -191,9 +192,9 @@ REGRAS:
   return validateExtracaoAnalytic(parseExtracaoResponse(resp), descritores);
 }
 
-const MAX_TURNS_SOCRATIC = 12; // 6 IA + 6 colab — evidências de 1 descritor
-const MAX_TURNS_ANALYTIC = 20; // 10 IA + 10 colab — cenário escrito, 3 descritores
-const MAX_TURNS_MISSAO_FEEDBACK = 20; // 10 IA + 10 colab — relato de missão prática, 3 descritores
+// Os tetos vivem em `lib/season-engine/week-gating` desde 20/08/2026: a TELA da
+// semana precisa do mesmo número para dizer quantas respostas ainda faltam, e
+// régua duplicada é como a UI passa a prometer o que esta rota nega.
 
 /**
  * POST /api/temporada/reflection

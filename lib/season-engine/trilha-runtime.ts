@@ -15,8 +15,7 @@
 
 import { getProgramaConfig, getProgramaConfigByModo, type ProgramaConfig } from './programa-config';
 import { parseConfigSnapshot, parseProgramaCustom, derivarConfigCustom } from './programa-custom';
-import { semanaLiberadaPorData, formatarLiberacao } from './week-gating';
-import { PROGRESSO } from '@/lib/status';
+import { avaliarAcessoSemana } from './week-gating';
 
 interface TrilhaRuntime {
   id: string;
@@ -125,21 +124,29 @@ export async function checarGatesSemana(
   trilha: TrilhaRuntime,
   semana: number | string,
 ): Promise<{ error: string; status: number } | null> {
-  const semanaCal = semanaCalendarioDoPlano(trilha, semana);
-  if (!semanaLiberadaPorData(trilha.data_inicio, semanaCal)) {
+  // A régua mora em `avaliarAcessoSemana` (week-gating), que a TELA também usa
+  // para explicar o bloqueio. Duas cópias da mesma regra é como a lista passou a
+  // liberar o que a rota nega — ver o comentário da função lá.
+  const { data: prev } = Number(semana) > 1
+    ? await sb.from('temporada_semana_progresso')
+        .select('semana, status').eq('trilha_id', trilha.id).eq('semana', Number(semana) - 1).maybeSingle()
+    : { data: null };
+
+  const acesso = avaliarAcessoSemana({
+    dataInicio: trilha.data_inicio,
+    plano: Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [],
+    progresso: prev ? [prev] : [],
+    semana,
+  });
+  if (acesso.liberada) return null;
+
+  if (acesso.motivo === 'data') {
     return {
-      error: `Semana ${semana} ainda bloqueada. Libera ${formatarLiberacao(trilha.data_inicio, semanaCal)}.`,
+      error: `Semana ${semana} ainda bloqueada. Libera ${acesso.liberaEm}.`,
       status: 403,
     };
   }
-  if (Number(semana) > 1) {
-    const { data: prev } = await sb.from('temporada_semana_progresso')
-      .select('status').eq('trilha_id', trilha.id).eq('semana', Number(semana) - 1).maybeSingle();
-    if (prev?.status !== PROGRESSO.CONCLUIDO) {
-      return { error: `Conclua a semana ${Number(semana) - 1} antes.`, status: 403 };
-    }
-  }
-  return null;
+  return { error: `Conclua a semana ${acesso.semanaPendente} antes.`, status: 403 };
 }
 
 /**
