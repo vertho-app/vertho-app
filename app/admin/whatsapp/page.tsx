@@ -9,7 +9,7 @@ import {
   Mail, MessageCircle, FileBarChart, Filter, Eye, Tag, Users,
   Paperclip, FileText, X,
 } from 'lucide-react';
-import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio, dispararMensagemCustomizada, enviarMagicLinksWhatsApp, listarTemplatesDeEnvio, previewTemplateWhatsApp, dispararTemplateWhatsApp } from './actions';
+import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio, loadTurmasEnvio, dispararMensagemCustomizada, enviarMagicLinksWhatsApp, listarTemplatesDeEnvio, previewTemplateWhatsApp, dispararTemplateWhatsApp } from './actions';
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
@@ -24,6 +24,13 @@ const TABS = [
   { key: 'relatorios-email', labelKey: 'tabs.emailReports', icon: Mail, color: 'text-purple-400' },
   { key: 'relatorios-whatsapp', labelKey: 'tabs.whatsappReports', icon: MessageCircle, color: 'text-purple-400' },
 ];
+
+/**
+ * Valor do seletor para "empresa inteira" — escolha CONSCIENTE, não default.
+ * O servidor só aceita com justificativa (≥ 10 caracteres), que vai para o
+ * `admin_audit_log`; aqui o valor é sentinela, nunca id de turma.
+ */
+const EMPRESA_INTEIRA = '__empresa_inteira__';
 
 const VARIAVEIS = [
   { tag: '{{nome}}', label: 'Nome', exemplo: 'Maria' },
@@ -101,6 +108,46 @@ export default function EnviosPage() {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
 
+  // ── ESCOPO da ação em lote (mig 210) ──────────────────────────────────────
+  // Com 2+ turmas ativas o servidor RECUSA lote sem escopo (`idsDoEscopoOuFalhar`).
+  // Até 21/08/2026 a tela não tinha onde escolher: a recusa aparecia na prévia e
+  // não havia ação correspondente — a régua existia e o operador ficava sem saída.
+  const [turmas, setTurmas] = useState<any[]>([]);
+  const [escopo, setEscopo] = useState<string>('');           // '' = não escolhido · id da turma · EMPRESA_INTEIRA
+  const [justificativa, setJustificativa] = useState('');
+
+  // Derivações do escopo. Ficam ANTES dos effects de propósito: elas entram no
+  // array de dependências, que é avaliado durante o render — declaradas depois,
+  // o `const` cairia na TDZ e a tela quebraria antes de pintar.
+  const escopoTurmaId = escopo && escopo !== EMPRESA_INTEIRA ? escopo : null;
+  const justificativaOk = justificativa.trim().length >= 10;
+  const exigeEscopo = turmas.length >= 2;
+  const escopoPendente = exigeEscopo && !escopoTurmaId && !(escopo === EMPRESA_INTEIRA && justificativaOk);
+
+  /** Escopo no formato que as actions leem (ver `lib/turmas/escopo.ts`). */
+  function filtrosDeEscopo() {
+    return {
+      turmaId: escopoTurmaId || undefined,
+      empresaInteiraJustificativa: escopo === EMPRESA_INTEIRA ? justificativa.trim() : undefined,
+    };
+  }
+
+  /**
+   * Filtros do lote de TEMPLATE — uma fonte só para prévia e disparo.
+   *
+   * Estavam duplicados em três lugares; prévia e disparo com objetos diferentes
+   * é como a tela mostra um alvo e envia para outro.
+   */
+  function filtrosDoLoteTemplate() {
+    return {
+      cargo: filtroCargo || undefined,
+      voto: filtroVoto !== 'todos' ? filtroVoto : undefined,
+      disc: filtroDisc !== 'todos' ? filtroDisc : undefined,
+      mapeamentoCompleto: filtroMapeamento === 'todos' ? undefined : filtroMapeamento === 'completo',
+      ...filtrosDeEscopo(),
+    };
+  }
+
   // ── Modo TEMPLATE (aba WhatsApp) ──────────────────────────────────────────
   // A aba deixou de ter editor: fora da janela de 24h a Meta só entrega
   // template aprovado, e o provedor de texto livre não entrega desde 13/08.
@@ -162,36 +209,47 @@ export default function EnviosPage() {
     if (tab !== 'whatsapp' || !empresaId || !templateSel) { setPreviewLote(null); return; }
     let cancelado = false;
     setLoadingPreview(true);
-    previewTemplateWhatsApp(empresaId, templateSel, {
-      cargo: filtroCargo || undefined,
-      voto: filtroVoto !== 'todos' ? filtroVoto : undefined,
-      disc: filtroDisc !== 'todos' ? filtroDisc : undefined,
-      mapeamentoCompleto: filtroMapeamento === 'todos' ? undefined : filtroMapeamento === 'completo',
-    }).then((r: any) => {
+    previewTemplateWhatsApp(empresaId, templateSel, filtrosDoLoteTemplate()).then((r: any) => {
       if (cancelado) return;
       setPreviewLote(r?.success ? r.data : { erro: r?.error });
       setLoadingPreview(false);
     });
     return () => { cancelado = true; };
-  }, [tab, empresaId, templateSel, filtroCargo, filtroVoto, filtroDisc, filtroMapeamento]);
+    // Dep é `justificativaOk` (booleano), não o texto: o que a prévia precisa
+    // saber é se o escopo passou a ser aceito — refazer o lote a cada tecla
+    // seria uma chamada pesada por caractere.
+  }, [tab, empresaId, templateSel, filtroCargo, filtroVoto, filtroDisc, filtroMapeamento, escopo, justificativaOk]);
 
   async function handleSelectEmpresa(id) {
     setEmpresaId(id);
     setResult(null);
-    if (!id) { setStatus(null); setColabs([]); return; }
+    // Escopo é POR EMPRESA: manter a turma da empresa anterior selecionada
+    // mandaria o id de outro tenant e o servidor recusaria ("turma não
+    // encontrada nesta empresa") — pior, com cara de bug da tela.
+    setEscopo('');
+    setJustificativa('');
+    if (!id) { setStatus(null); setColabs([]); setTurmas([]); return; }
     setLoadingStatus(true);
-    const [s, c] = await Promise.all([
+    const [s, c, t] = await Promise.all([
       loadWhatsappStatus(id),
       loadColaboradoresEnvio(id),
+      loadTurmasEnvio(id),
     ]);
     if (s.success) setStatus(s.data);
     setColabs(c || []);
     setCargos([...new Set((c || []).map(x => x.cargo).filter(Boolean))].sort());
+    setTurmas((t as any)?.success ? ((t as any).data || []) : []);
     setLoadingStatus(false);
   }
 
+  // Pessoas sem participação ativa: NÃO entram quando o escopo é uma turma.
+  // Mostrado na tela porque proteção invisível vira gente sem comunicação sem
+  // ninguém saber — o mesmo defeito do `adiadosPorTeto`.
+  const semTurma = colabs.filter((c: any) => !c.turmaId).length;
+
   // Destinatários filtrados
   const destinatarios = colabs.filter(c => {
+    if (escopoTurmaId && c.turmaId !== escopoTurmaId) return false;
     if (filtroCargo && c.cargo !== filtroCargo) return false;
     if (filtroVoto === 'nao_votou' && c.votou) return false;
     if (filtroVoto === 'votou' && !c.votou) return false;
@@ -278,7 +336,7 @@ export default function EnviosPage() {
   }
 
   async function handleDispararTemplate() {
-    if (!empresaId || !templateSel || !previewLote?.total) return;
+    if (!empresaId || !templateSel || !previewLote?.total || escopoPendente) return;
     const ok = await confirmDialog({
       title: t('sendButton', { count: previewLote.total }),
       message: t('templateMode.confirm', { total: previewLote.total, template: templateSel }),
@@ -288,28 +346,18 @@ export default function EnviosPage() {
 
     setSending(true);
     setResult(null);
-    const r: any = await dispararTemplateWhatsApp(empresaId, templateSel, {
-      cargo: filtroCargo || undefined,
-      voto: filtroVoto !== 'todos' ? filtroVoto : undefined,
-      disc: filtroDisc !== 'todos' ? filtroDisc : undefined,
-      mapeamentoCompleto: filtroMapeamento === 'todos' ? undefined : filtroMapeamento === 'completo',
-    });
+    const r: any = await dispararTemplateWhatsApp(empresaId, templateSel, filtrosDoLoteTemplate());
     setResult(r);
     setSending(false);
     // Recarrega a prévia: quem acabou de receber sai do alvo pela idempotência.
-    const p: any = await previewTemplateWhatsApp(empresaId, templateSel, {
-      cargo: filtroCargo || undefined,
-      voto: filtroVoto !== 'todos' ? filtroVoto : undefined,
-      disc: filtroDisc !== 'todos' ? filtroDisc : undefined,
-      mapeamentoCompleto: filtroMapeamento === 'todos' ? undefined : filtroMapeamento === 'completo',
-    });
+    const p: any = await previewTemplateWhatsApp(empresaId, templateSel, filtrosDoLoteTemplate());
     if (p?.success) setPreviewLote(p.data);
   }
 
   async function handleDisparar() {
     // Aba WhatsApp: disparo por TEMPLATE, e o alvo quem decide é o servidor.
     if (tab === 'whatsapp') return handleDispararTemplate();
-    if (!empresaId || !mensagem.trim()) return;
+    if (!empresaId || !mensagem.trim() || escopoPendente) return;
 
     const canal = (tab === 'email' || tab === 'relatorios-email') ? 'email' : 'whatsapp';
     const total = destinatarios.length;
@@ -324,7 +372,7 @@ export default function EnviosPage() {
     setSending(true);
     setResult(null);
 
-    const filtros: any = {};
+    const filtros: any = { ...filtrosDeEscopo() };
     if (filtroCargo) filtros.cargo = filtroCargo;
     if (filtroVoto !== 'todos') filtros.voto = filtroVoto;
     if (filtroDisc !== 'todos') filtros.disc = filtroDisc;
@@ -336,6 +384,56 @@ export default function EnviosPage() {
     setSending(false);
     const s = await loadWhatsappStatus(empresaId);
     if (s.success) setStatus(s.data);
+  }
+
+  /**
+   * Seletor de ESCOPO — a turma, ou a empresa inteira com justificativa.
+   *
+   * É uma FUNÇÃO chamada (`{escopoUI()}`), não um componente `<EscopoUI/>`:
+   * declarado dentro do componente, o React remontaria a subárvore a cada
+   * render e o campo de justificativa perderia o foco a cada tecla.
+   */
+  function escopoUI() {
+    if (!turmas.length) return null;
+    return (
+      <div className="mb-3">
+        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('scope.label')}</p>
+        <select
+          value={escopo}
+          onChange={e => { setEscopo(e.target.value); setResult(null); }}
+          className={`w-full px-3 py-2 rounded-lg text-xs text-white border outline-none ${escopoPendente ? 'border-amber-400/60' : 'border-white/10'}`}
+          style={{ background: '#091D35' }}>
+          <option value="">{exigeEscopo ? t('scope.choose') : t('scope.wholeCompany')}</option>
+          {turmas.map((tu: any) => (
+            <option key={tu.id} value={tu.id}>
+              {tu.nome} ({colabs.filter((c: any) => c.turmaId === tu.id).length})
+            </option>
+          ))}
+          {exigeEscopo && <option value={EMPRESA_INTEIRA}>{t('scope.wholeCompanyJustified')}</option>}
+        </select>
+
+        {escopo === EMPRESA_INTEIRA && (
+          <>
+            <input
+              value={justificativa}
+              onChange={e => setJustificativa(e.target.value)}
+              placeholder={t('scope.justificationPlaceholder')}
+              className="w-full mt-2 rounded-lg border border-white/10 bg-[#091D35] text-white text-xs px-3 py-2 focus:outline-none focus:border-cyan-400/50" />
+            <p className="text-[9px] text-gray-500 mt-1">{t('scope.justificationHint')}</p>
+          </>
+        )}
+
+        {escopoPendente && (
+          <p className="text-[10px] text-amber-300 mt-2 leading-relaxed">{t('scope.required', { count: turmas.length })}</p>
+        )}
+
+        {/* Quem está sem turma NÃO entra num envio por turma. Dizer o número é
+            o que separa "protegido" de "esquecido em silêncio". */}
+        {escopoTurmaId && semTurma > 0 && (
+          <p className="text-[10px] text-gray-400 mt-2">{t('scope.withoutClass', { count: semTurma })}</p>
+        )}
+      </div>
+    );
   }
 
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
@@ -388,6 +486,7 @@ export default function EnviosPage() {
                 <Key size={14} className="text-teal-400" /> {t('magic.title')}
               </h3>
               <p className="text-xs text-gray-400 mb-4">{t('magic.description')}</p>
+              {escopoUI()}
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <div>
                   <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.role')}</p>
@@ -425,12 +524,14 @@ export default function EnviosPage() {
                   </select>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] text-teal-400 font-semibold mb-4">
-                <Users size={12} />
-                {t('magic.eligible', { count: destinatarios.filter((c: any) => c.telefone && c.email).length })}
-              </div>
+              {!escopoPendente && (
+                <div className="flex items-center gap-1.5 text-[10px] text-teal-400 font-semibold mb-4">
+                  <Users size={12} />
+                  {t('magic.eligible', { count: destinatarios.filter((c: any) => c.telefone && c.email).length })}
+                </div>
+              )}
               <button
-                disabled={sending || !empresaId}
+                disabled={sending || !empresaId || escopoPendente}
                 onClick={async () => {
                   const totalElegivel = destinatarios.filter((c: any) => c.telefone && c.email).length;
                   const ok = await confirmDialog({
@@ -440,11 +541,11 @@ export default function EnviosPage() {
                   });
                   if (!ok) return;
                   setSending(true); setResult(null);
-                  const filtros: any = {};
-    if (filtroCargo) filtros.cargo = filtroCargo;
-    if (filtroVoto !== 'todos') filtros.voto = filtroVoto;
-    if (filtroDisc !== 'todos') filtros.disc = filtroDisc;
-    if (filtroMapeamento !== 'todos') filtros.mapeamento = filtroMapeamento;
+                  const filtros: any = { ...filtrosDeEscopo() };
+                  if (filtroCargo) filtros.cargo = filtroCargo;
+                  if (filtroVoto !== 'todos') filtros.voto = filtroVoto;
+                  if (filtroDisc !== 'todos') filtros.disc = filtroDisc;
+                  if (filtroMapeamento !== 'todos') filtros.mapeamento = filtroMapeamento;
                   const r = await enviarMagicLinksWhatsApp(empresaId, filtros);
                   setResult(r); setSending(false);
                 }}
@@ -467,6 +568,7 @@ export default function EnviosPage() {
               {/* Filtros */}
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
                 <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Filter size={12} /> {t('filters.title')}</p>
+                {escopoUI()}
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <div>
                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.role')}</p>
@@ -504,10 +606,15 @@ export default function EnviosPage() {
                     </select>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] text-cyan-400 font-semibold">
-                  <Users size={12} />
-                  {t((tab === 'email' || tab === 'relatorios-email') ? 'filters.emailRecipients' : 'filters.whatsappRecipients', { count: destinatarios.length })}
-                </div>
+                {/* Sem escopo escolhido a contagem seria a empresa inteira — um
+                    número que não descreve nenhum envio possível. Some com ele
+                    em vez de deixá-lo prometer 17 onde o servidor recusa. */}
+                {!escopoPendente && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-cyan-400 font-semibold">
+                    <Users size={12} />
+                    {t((tab === 'email' || tab === 'relatorios-email') ? 'filters.emailRecipients' : 'filters.whatsappRecipients', { count: destinatarios.length })}
+                  </div>
+                )}
                 {(tab === 'relatorios-email' || tab === 'relatorios-whatsapp') && (
                   <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
                     <input type="checkbox" checked={anexarPDF} onChange={e => setAnexarPDF(e.target.checked)}
@@ -631,7 +738,7 @@ export default function EnviosPage() {
                 // Quantos vão receber: no modo template quem conta é o SERVIDOR
                 // (aplica idempotência e exclusões que a tela não conhece).
                 const total = tab === 'whatsapp' ? (previewLote?.total ?? 0) : destinatarios.length;
-                const bloqueado = sending || total === 0 || (tab === 'whatsapp' && (loadingPreview || !templateSel));
+                const bloqueado = sending || total === 0 || escopoPendente || (tab === 'whatsapp' && (loadingPreview || !templateSel));
                 return (
                   <button onClick={handleDisparar} disabled={bloqueado}
                     className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-colors"

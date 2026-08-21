@@ -3507,6 +3507,16 @@
     "insightPlaceholder": "Pain/offer/approach hypothesis generation by AI enters Step 5 (on-demand, curly)."
   },
   "AdminWhatsapp": {
+    "scope": {
+      "label": "Cohort (send scope)",
+      "choose": "— choose the cohort —",
+      "wholeCompany": "Whole company",
+      "wholeCompanyJustified": "Whole company (requires justification)",
+      "justificationPlaceholder": "Why does this send need to reach every cohort?",
+      "justificationHint": "At least 10 characters. It is recorded in the audit log.",
+      "required": "This company has {count} active cohorts. Choose the cohort — or \"whole company\" with a justification — before sending.",
+      "withoutClass": "{count} person(s) with no cohort are not included in this send."
+    },
     "templateMode": {
       "title": "Approved template",
       "why": "Outside the 24-hour window, WhatsApp only delivers templates approved by Meta. Free text does not go out — which is why this tab no longer has an editor.",

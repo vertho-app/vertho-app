@@ -3555,6 +3555,16 @@
     }
   },
   "AdminWhatsapp": {
+    "scope": {
+      "label": "Grupo (alcance del envío)",
+      "choose": "— elige el grupo —",
+      "wholeCompany": "Empresa entera",
+      "wholeCompanyJustified": "Empresa entera (exige justificación)",
+      "justificationPlaceholder": "¿Por qué este envío debe alcanzar a todos los grupos?",
+      "justificationHint": "Mínimo de 10 caracteres. Queda registrado en el log de auditoría.",
+      "required": "Esta empresa tiene {count} grupos activos. Elige el grupo — o \"empresa entera\" con justificación — antes de enviar.",
+      "withoutClass": "{count} persona(s) sin grupo no entran en este envío."
+    },
     "templateMode": {
       "title": "Plantilla aprobada",
       "why": "Fuera de la ventana de 24 horas, WhatsApp solo entrega plantillas aprobadas por Meta. El texto libre no se envía — por eso esta pestaña ya no tiene editor.",

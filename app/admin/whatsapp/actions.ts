@@ -10,6 +10,7 @@ import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
 import { publicarWhatsappCis } from '@/lib/qstash-publish';
 import { aplicarTetoLote, atrasosDoLote, criarRelogioCadencia, duracaoEstimada, intervaloLoteMs, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
+import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
 
 /**
  * Fila residual tolerada antes de um disparo em lote. Zero: qualquer mensagem
@@ -824,6 +825,33 @@ ${magicLink}
   }
 }
 
+/**
+ * Turmas ATIVAS da empresa — o seletor de escopo desta tela.
+ *
+ * Existe porque o fail-closed de `idsDoEscopoOuFalhar` recusa lote sem turma
+ * quando há 2+ safras, e até 21/08/2026 a tela não tinha ONDE escolher: o
+ * operador via a recusa na prévia e não tinha ação correspondente — bloqueio
+ * total do envio no tenant de Macaé.
+ *
+ * Gate `assessments.dispatch` (o mesmo das ações desta tela) em vez de reusar
+ * `listarTurmas` de `@/actions/turmas`, que exige `content.manage`: emprestar a
+ * permissão de outra área faria o seletor sumir justamente para quem opera o
+ * envio, e o bloqueio voltaria sem sintoma novo.
+ */
+export async function loadTurmasEnvio(empresaId: string) {
+  await requireAdminAction('assessments.dispatch');
+  const sb = await requireAdminSupabase('assessments.dispatch');
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const encerradas = `(${TURMA_ENCERRADAS.map((s) => `"${s}"`).join(',')})`;
+  const { data, error } = await sb.from('turmas')
+    .select('id, nome, status, data_inicio')
+    .eq('empresa_id', empresaId)
+    .not('status', 'in', encerradas)
+    .order('created_at');
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: data || [] };
+}
+
 export async function loadColaboradoresEnvio(empresaId) {
   await requireAdminAction();
   const sb = await requireAdminSupabase();
@@ -856,7 +884,23 @@ export async function loadColaboradoresEnvio(empresaId) {
   // seu cargo (regra do assessment: pendentes==0).
   const mapeouSet = await colaboradoresMapeamentoCompleto(sb, empresaId);
 
-  return data.map((c: any) => ({ ...c, votou: votouSet.has(c.id), temDisc: !!c.perfil_dominante, temMapeamento: mapeouSet.has(c.id) }));
+  // Participação ATIVA (mig 210): sem ela a contagem da tela conta a empresa
+  // inteira e promete um alvo que o servidor vai recortar por turma — o número
+  // "17 destinatários" descrevendo um envio de 4. Só UMA participação ativa por
+  // pessoa (índice parcial), então o Map basta.
+  const { data: membros } = await sb.from('turma_membros')
+    .select('colaborador_id, turma_id')
+    .eq('empresa_id', empresaId)
+    .eq('status', TURMA_MEMBRO.ATIVO);
+  const turmaDe = new Map<string, string>((membros || []).map((m: any) => [m.colaborador_id, m.turma_id]));
+
+  return data.map((c: any) => ({
+    ...c,
+    votou: votouSet.has(c.id),
+    temDisc: !!c.perfil_dominante,
+    temMapeamento: mapeouSet.has(c.id),
+    turmaId: turmaDe.get(c.id) || null,
+  }));
 }
 
 // ── Disparo por TEMPLATE (Cloud API) — a aba WhatsApp desde 20/08/2026 ───────

@@ -3555,6 +3555,16 @@
     }
   },
   "AdminWhatsapp": {
+    "scope": {
+      "label": "Turma (âmbito do envio)",
+      "choose": "— escolha a turma —",
+      "wholeCompany": "Empresa inteira",
+      "wholeCompanyJustified": "Empresa inteira (exige justificação)",
+      "justificationPlaceholder": "Porque é que este envio tem de abranger todas as turmas?",
+      "justificationHint": "Mínimo de 10 caracteres. Fica registado no registo de auditoria.",
+      "required": "Esta empresa tem {count} turmas ativas. Escolha a turma — ou \"empresa inteira\" com justificação — antes de disparar.",
+      "withoutClass": "{count} pessoa(s) sem turma não entram neste envio."
+    },
     "templateMode": {
       "title": "Template aprovado",
       "why": "Fora da janela de 24 horas, o WhatsApp entrega apenas template aprovado pela Meta. Texto livre não é enviado — por isso este separador deixou de ter editor.",

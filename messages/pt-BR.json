@@ -3507,6 +3507,16 @@
     "insightPlaceholder": "Geração de hipótese de dor / oferta / abordagem por IA entra na Etapa 5 (on-demand, cacheado)."
   },
   "AdminWhatsapp": {
+    "scope": {
+      "label": "Turma (escopo do envio)",
+      "choose": "— escolha a turma —",
+      "wholeCompany": "Empresa inteira",
+      "wholeCompanyJustified": "Empresa inteira (exige justificativa)",
+      "justificationPlaceholder": "Por que este envio precisa atingir todas as turmas?",
+      "justificationHint": "Mínimo de 10 caracteres. Fica registrado no log de auditoria.",
+      "required": "Esta empresa tem {count} turmas ativas. Escolha a turma — ou \"empresa inteira\" com justificativa — antes de disparar.",
+      "withoutClass": "{count} pessoa(s) sem turma não entram neste envio."
+    },
     "templateMode": {
       "title": "Template aprovado",
       "why": "Fora da janela de 24 horas, o WhatsApp entrega apenas template aprovado pela Meta. Texto livre não sai — por isso esta aba deixou de ter editor.",
