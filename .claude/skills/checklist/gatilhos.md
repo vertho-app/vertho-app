@@ -199,9 +199,11 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 ## 21. Doc (`CLAUDE.md`, `docs/**`)
 
 - `.md` novo só em `docs/` (guard: `docs-location-guard`) — 4 exceções de contrato.
-- 🔴 As **5 fontes do Project** (claude.ai) não se atualizam sozinhas: `CLAUDE.md`,
-  `docs/ARQUITETURA.md`, `docs/PIPELINE-TRILHA.md`, `docs/FMEA-PIPELINE.md`,
-  `docs/PASSO-A-PASSO-VERTHO.md`. Tocou uma delas ⇒ avisar para re-subir (skill `fechar` §3.1).
+- 🔴 As fontes do Project (claude.ai) não se atualizam sozinhas, e são **16, não 5** (conferido na
+  interface em 16/08/2026 — esta linha dizia 5 e deixou passar 7 defasadas, entre elas o `CLAUDE.md`,
+  com 191 linhas contra 423 do repo). A lista vive na skill `fechar` §3.1; tocou uma delas ⇒ avisar
+  para re-subir. Fonte defasada é pior que ausente: responde com autoridade sobre um sistema que já
+  mudou, e fora do Claude Code não há repositório para conferir.
 - Não escrever doc que **enumera cobertura** ("cobre 5 tabelas") — aponte para a constante do teste.
 - 🔴 O repo é **público**: dump de tenant, nota de sessão e lacuna de segurança **aberta** ficam fora.
 
@@ -355,3 +357,27 @@ Casa: qualquer lugar que decida "esta pessoa pode abrir isto agora".
   devolve sucesso com o CI vermelho, e o `Smoke Test` verde ao lado do `TypeScript` vermelho faz a
   lista parecer saudável de relance — em 13/08 foram **5 commits e 3h18 em vermelho, três deles
   meus**, empurrados por cima sem ninguém ver.
+
+## 24. Trocar o MECANISMO de uma tela (editor → seletor, canal A → canal B)
+
+Casa: qualquer tela onde o *como* muda mas o *o quê* continua — envio, upload, formulário que passa
+a falar com outro serviço.
+
+- 🔴 **Varrer os controles VIZINHOS, um por um.** Cada um alimentava o mecanismo antigo. Medido
+  20/08/2026 na aba WhatsApp da tela de Envios: o editor saiu, o **seletor de anexo logo acima
+  ficou** — a pessoa escolhia o arquivo e a mensagem saía sem ele, calada (`enviarTemplateCloud`
+  monta só `body`/`button`). Junto sobraram dicas ensinando `*negrito*` para um corpo FIXO e "1s
+  entre envios" com a política em 6s desde 17/08. **Nenhum teste pega isto** — quem achou foi o
+  dono olhando a tela. Faça a lista dos controles ANTES de mexer e marque cada um: continua, muda
+  ou some.
+- 🔴 **Gate de disponibilidade fala de UM canal.** Reusar o do mecanismo velho barra o novo pela
+  saúde de quem morreu: `assertWhatsappAvailable` só conhece Z-API/WaSender e recusaria template da
+  Cloud API. Ver de qual canal o gate fala antes de reaproveitá-lo.
+- 🔴 **O que a tela reporta é o ENFILEIRAMENTO, não a entrega** — dizer isso na própria tela. "N
+  agendados" com o desfecho chegando depois, por webhook, é como a tela mentiu por 7 dias.
+- ⚠️ Número em texto de UI/tradução (intervalo, teto, prazo) envelhece calado: descreva a regra e
+  deixe o valor na constante que manda (`lib/whatsapp/cadencia.ts`).
+- Contrato ≠ preenchimento: se a tela ficou genérica sobre N variantes, cada uma precisa dizer de
+  ONDE sai cada valor (`RESOLVEDORES` em `lib/notifications/envio-template-lote.ts`).
+
+Detalhe: `docs/FMEA-PIPELINE.md` §F-C13 · `docs/INBOX-WHATSAPP.md` §2.1.

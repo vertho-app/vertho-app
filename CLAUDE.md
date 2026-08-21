@@ -374,6 +374,16 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   E NÃO apague template para recriar: o nome fica QUEIMADO enquanto a exclusão processa (muito mais
   que o "menos de 1 minuto" do erro). Crie com nome NOVO e só então apague. Detalhe:
   `docs/INBOX-WHATSAPP.md` + memória `project_meta_template_categoria`.
+- NÃO trocar o mecanismo de uma tela sem varrer os **controles VIZINHOS** — cada um alimentava o
+  mecanismo antigo, e o que sobra aceita entrada que ninguém lê. Medido 20/08: a aba WhatsApp virou
+  disparo por TEMPLATE, o editor saiu e o **seletor de anexo logo acima ficou** — a pessoa escolhia
+  o arquivo e a mensagem saía sem ele, calada (`enviarTemplateCloud` monta só `body`/`button`;
+  anexo exigiria template com cabeçalho de documento e nenhum dos nossos tem). Junto vieram dicas
+  ensinando `*negrito*` para um corpo FIXO e "1s entre envios" com a política em 6s. **Nenhum teste
+  pega isso**; quem achou foi o dono olhando a tela. Mesma família de "campo de UI ↔ régua do
+  servidor". E antes de reusar um **gate de disponibilidade**, veja de qual canal ele fala:
+  `assertWhatsappAvailable` só conhece Z-API/WaSender e barraria o template pela saúde do provedor
+  MORTO. Detalhe: `docs/FMEA-PIPELINE.md` §F-C13 + `docs/INBOX-WHATSAPP.md` §2.1.
 - NÃO adicionar coluna de carimbo de WhatsApp sem tocar no ENUM de `carimboCampo` do webhook
   `whatsapp-cis`. O schema é `.strict()`: campo fora do enum não degrada o carimbo — o Zod recusa o
   payload INTEIRO e **a mensagem não sai**. Falha total, não parcial (14/08). Mesma classe: o

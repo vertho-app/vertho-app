@@ -761,6 +761,48 @@ chave — passou a incluir os esgotados **por padrão** (`incluirEsgotados: body
 o contador de pendências é da **campanha inteira**. Um lead devendo desde ontem aparece no número e
 não na lista — o aviso fica sem rosto.
 
+### F-C13 · Tela de envio sobrevive à troca de PROTOCOLO do canal e segue reportando sucesso ✅ (corrigido 20/08, `7a5db815` + `418525d6`)
+
+**Gatilho:** `app/admin/whatsapp/actions.ts::dispararMensagemCustomizada` → `publicarWhatsappCis` →
+webhook `whatsapp-cis` → `sendWhatsapp` (`lib/whatsapp/index.ts:34`, `REGISTRY` = **zapi + wasender**,
+nenhum deles Cloud API).
+
+**Medido (20/08, contagem exata em 14 dias de `notification_deliveries`):**
+
+| caminho | resultado |
+|---|---|
+| Cloud API + template (cadência, scripts) | **392 sucessos, 0 falhas** |
+| texto livre — o da tela | **127 sucessos, o último em 13/08 12:50** |
+| falhas sem provider | **633**, todas `zapi: saúde: desconectada` |
+
+**Classe: o canal não caiu, trocou de PROTOCOLO.** Reconectar o provedor não resolveria — fora da
+janela de 24h a Meta só entrega **template aprovado**, e "escrever a mensagem na hora e mandar para
+um filtro de pessoas" deixou de existir como operação. A tela continuava oferecendo essa operação e
+reportava **"N agendados"** no enfileiramento, com o desfecho chegando depois no webhook e nunca
+voltando para quem clicou: sucesso na tela, ninguém recebendo.
+
+**Correção:** núcleo `lib/notifications/envio-template-lote.ts` (resolve os parâmetros de cada
+template — `{{2}}` é instituição num e competência noutro —, idempotência por `kind`, teto e
+espaçamento da política única, e devolve **quem não entra no lote e por quê**); webhook ganhou o
+modo template; a aba WhatsApp virou SELETOR de template, não editor. A tela **enfileira**
+(`LIMIAR_ENVIO_DIRETO = 1`: 6s × 40 pessoas são 4 min dentro de uma Server Action).
+
+⚠️ **Três armadilhas da conversão, todas medidas:**
+
+1. **Gate de disponibilidade herdado barra o canal VIVO.** `publicarWhatsappCis` chama
+   `assertWhatsappAvailable`, que só conhece Z-API/WaSender — publicar template por ela lançaria
+   "WhatsApp indisponível" por causa da saúde do provedor MORTO. Daí `publicarTemplateCloudCis`.
+2. **Os controles VIZINHOS sobrevivem à troca de mecanismo.** O editor saiu e o **seletor de anexo
+   logo acima dele ficou**: a pessoa escolhia o arquivo e a mensagem saía sem ele, calada —
+   `enviarTemplateCloud` monta só `body` e `button`, e anexo exigiria template com cabeçalho de
+   documento (nenhum dos nossos tem). Junto, as dicas ensinavam `*negrito*` para um corpo FIXO e
+   prometiam "1s entre envios" com a política em 6s desde 17/08. Nenhum teste pega isso — quem achou
+   foi o dono olhando a tela.
+3. **Template desconhecido é 400, não 503.** Retentar não faz nome inexistente passar a existir;
+   503 deixaria a mensagem ressuscitando na fila. Fail-closed contra `contratoDoTemplate` (fonte
+   única, não um enum duplicado). Guarda: `tests/unit/qstash-whatsapp-cis.test.ts` (5 casos) +
+   `tests/unit/envio-template-lote.test.ts` (13), validados por mutação.
+
 ### F-I15 · Régua oficial faz variantes do modelo COLIDIREM e o upsert perde a avaliação inteira ✅ (corrigido 14/08)
 
 **Gatilho:** `lib/ia4-avaliacao.ts` — `descritor: resolverNomeOficial(d.nome, ctx.descsOficiais)` no

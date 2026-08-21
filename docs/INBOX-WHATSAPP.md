@@ -124,6 +124,40 @@ mesma rodada. Doc velho que ensina o errado é uma classe de problema já catalo
 
 ---
 
+## 2.1 A tela de Envios saiu do texto livre (20/08/2026)
+
+Este doc trata da migração para a Cloud API; a consequência que faltava registrar é a que atingiu a
+**tela de Envios** (`/admin/whatsapp`), que não é inbox mas fala pelo mesmo número.
+
+`Medido em 20/08` (contagem exata, 14 dias de `notification_deliveries`): **392 entregas pela Cloud
+API contra 0 por texto livre**, último sucesso do caminho antigo em **13/08 12:50**, e **633 falhas**
+`zapi: saúde: desconectada`. A aba WhatsApp ainda oferecia o caminho antigo — e reportava
+*"N agendados"* no enfileiramento, sem nunca devolver o desfecho.
+
+🔑 **A operação "escrever a mensagem na hora e mandar para um filtro de pessoas" não existe mais.**
+Fora da janela de 24h a Meta só entrega template aprovado. O que existe é:
+
+| operação | caminho | onde |
+|---|---|---|
+| campanha / cobrança dirigida | **template aprovado** | tela de Envios, aba WhatsApp · `scripts/_convite-avaliacao.ts` |
+| conversa com quem escreveu | texto livre na janela de 24h | a inbox (§5.1) |
+| cadência automática | template, por papel/env | cron diário |
+
+**O que a tela virou:** seletor de template (não editor), com o corpo literal aprovado, prévia
+renderizada com os parâmetros da PRIMEIRA pessoa do lote, e a composição do lote — quantos recebem,
+quantos já receberam aquele template (idempotência por `kind`) e **quem fica de fora com o motivo**.
+Núcleo headless em `lib/notifications/envio-template-lote.ts`; a tela **enfileira** no QStash porque
+`LIMIAR_ENVIO_DIRETO = 1` (6s × 40 pessoas = 4 min dentro de uma Server Action).
+
+⚠️ **Template não leva anexo.** `enviarTemplateCloud` monta apenas `body` e `button`; anexo exigiria
+template com cabeçalho de documento e nenhum dos nossos tem. O seletor de arquivo continuou visível
+por um commit e a mensagem saía sem ele, calada — ver F-C13 do `docs/FMEA-PIPELINE.md`.
+
+⚠️ **O webhook `whatsapp-cis` ganhou modo template** (`template` + `templateParams`), validado contra
+`contratoDoTemplate` — fonte única, não enum duplicado. Nome sem contrato responde **400** (não 503:
+retentar não faz template inexistente existir). O schema é `.strict()`, então campo novo exige tocar
+nos dois lados no mesmo commit — a mesma armadilha do F-C11.
+
 ## 3. Escopo
 
 ### 3.1 O que ENTRA

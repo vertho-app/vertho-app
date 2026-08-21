@@ -38,7 +38,7 @@ cai no caminho legado — silenciosamente, que é o motivo da R13 existir.
 | 7 | `acesso_vertho` | UTILITY | `acesso` · `WHATSAPP_TEMPLATE_ACESSO` | Magic link pedido no login | `lib/notifications/access-link-service.ts:172` |
 | 8 | `otp_acesso` | AUTHENTICATION | — (nome fixo no código) | Código de 6 dígitos do login por telefone | `app/api/auth/phone-otp/request/route.ts:83` |
 | 9 | `plano_desenvolvimento` | UTILITY | `plano` · `WHATSAPP_TEMPLATE_PLANO` | Relatório individual: pelo cron `avisar_planos` (só **depois do corte**) ou pela tela, sob demanda | `lib/notifications/avisar-plano-pronto.ts` · `/admin-v2/cliente` → "Planos (PDI)" |
-| 10 | `avaliacao_pendente` | UTILITY | — (nome fixo no script) | Cobrança deliberada de quem **já fez o mapeamento comportamental e nunca iniciou** o assessment | `scripts/_convite-avaliacao.ts` |
+| 10 | `avaliacao_pendente` | UTILITY | — (nome fixo no script/tela) | Cobrança deliberada de quem nunca iniciou o assessment | `scripts/_convite-avaliacao.ts` · **tela de Envios** (aba WhatsApp) |
 
 🔑 **Dois gatilhos, réguas diferentes — 17/08.** O CRON usa o `CORTE_ISO` fixo e roda sem ninguém
 olhando. A TELA ignora o corte de propósito: há prévia com números e um humano confirmando, então a
@@ -76,6 +76,9 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `resultado_perfil` | nome | link | — | — | — |
 | `plano_desenvolvimento` | nome | link de `/dashboard/pdi` | — | — | — |
 | `recorte_demonstracao` ⏳ | nome | link do Mapa (`linkDireto`) | — | — | — |
+| `avaliacao_pendente` | nome | **instituição** | link de `/dashboard/assessment` | — | — |
+| `avaliacao_competencias` ⏳ | nome | **competência** (`top5_workshop`) | link de `/dashboard/assessment` | — | — |
+| `boas_vindas_v2` | nome | **instituição** | link de `/entrar` | — | — |
 | `acesso_vertho` | *(corpo sem variável)* | | | | URL: `app.vertho.ai/entrar?t={{1}}` |
 | `otp_acesso` | código | — | — | — | COPY_CODE nativo |
 
@@ -85,6 +88,17 @@ pílulas anunciando "vídeo" numa semana sem vídeo.
 
 ⚠️ **Corpo sem variável NÃO leva componente.** O `acesso_vertho` tem texto fixo; mandar
 `parameters: []` faz a Meta recusar a mensagem inteira. Ver `lib/whatsapp/cloud-api.ts:554`.
+
+🔑 **Contrato ≠ preenchimento.** O `CONTRATOS` diz a ORDEM dos parâmetros; quem diz de ONDE sai cada
+valor é o mapa `RESOLVEDORES` em `lib/notifications/envio-template-lote.ts` — e os dois são
+necessários, porque `{{2}}` é *instituição* num template e *competência* noutro. Só os cinco com
+resolvedor aparecem na tela de Envios (`avaliacao_competencias`, `avaliacao_pendente`,
+`boas_vindas_v2`, `resultado_perfil`, `plano_desenvolvimento`).
+
+Ficam **fora da tela por decisão**: os da CADÊNCIA (dependem de semana/tema/formato da trilha e têm
+dono — o cron; disparar à mão anunciaria uma semana que o motor não considera entregue),
+`acesso_vertho`/`otp_acesso` (carregam CREDENCIAL, gerada por pessoa — o caminho é o botão de magic
+link) e `recorte_demonstracao` (destinatário é lead, não colaborador).
 
 ---
 
@@ -114,9 +128,9 @@ pensar — a decisão de **quando** dispara.
 | `trilha_liberada_v2` | Trilha liberada para a pessoa | nome · área · nº de semanas · link | Substitui o `trilha_liberada` (MARKETING) |
 | `trilha_concluida` | Fim das 7 semanas | nome · área · nº de semanas · link do resultado | ⚠️ O dono pediu que **não** dispare sozinho sem aprovação dele |
 | ~~`plano_desenvolvimento`~~ | — | — | ✅ **LIGADO em 16/08** (papel `plano`). Ver §1 |
-| `avaliacao_pendente` | Assessment nunca iniciado | nome · empresa · link | ~187 pessoas nesse estado (medido 15/08) |
+| ~~`avaliacao_pendente`~~ | — | — | ✅ **LIGADO em 19/08** — `scripts/_convite-avaliacao.ts` e a tela de Envios. Ver §1 |
 | `avaliacao_parcial` | Assessment parcial | nome · respondidos · total · link | O par `{{2}}`/`{{3}}` exige contar cenários — não é só um link |
-| `boas_vindas_v2` | Convite ao programa | nome · empresa · link | O momento mais arriscado: 1ª mensagem, de um número desconhecido |
+| ~~`boas_vindas_v2`~~ | — | — | ✅ **LIGADO** — `scripts/_boas-vindas-turma.ts` e a tela de Envios. Segue sendo o momento mais arriscado: 1ª mensagem, de um número desconhecido |
 
 🔑 **Aprovar não é ligar, e ligar não é disparar.** Foram esses dois degraus que deixaram
 `resultado_perfil` aprovado e sem consumidor por semanas, com ~120 pessoas sem saber que o
