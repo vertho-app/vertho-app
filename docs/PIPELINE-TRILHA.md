@@ -10,7 +10,7 @@ cada afirmação carrega `arquivo:linha`. Onde o código não decide, está marc
 
 > **Errata 17/07/2026** (verificação completa: `docs/FMEA-PIPELINE.md` §6) — **incorporada ao corpo em 28/07/2026**:
 > 1. Kit gera **3 formatos** (`['audio','texto','case']`, `actions/kits.ts`), não 4 — o vídeo do kit não é micro_conteudo (é `dispararVideoDoKit` → `videos_gerados`). Real: **12 micro_conteudos + 4 vídeos de célula** por brief.
-> 2. O "gate real na leitura" (`checarGatesSemana`) só existe nas 4 rotas de chat — `loadTemporada` e a week page **não gateiam**: semana futura é legível por URL direta.
+> 2. ~~O "gate real na leitura" (`checarGatesSemana`) só existe nas 4 rotas de chat — `loadTemporada` e a week page **não gateiam**: semana futura é legível por URL direta~~ ✅ **20/08/2026** (`7ea60717`): a week page passou a gatear **e a explicar**. ⚠️ Este item ficou **34 dias** aberto aqui e só virou trabalho quando uma colaboradora reclamou por WhatsApp — achado sem consequência visível não é priorizado. `loadTemporada` segue sem gate de propósito (a leitura traz o plano inteiro; quem nega é a tela).
 > 3. ~~"Idempotente por dia" omite: o carimbo `ultima_pilulaN_em` grava **mesmo com os 2 canais falhando** (`cron-jobs.ts:370`) — perda permanente, sem retry~~ ✅ **27/07**: o carimbo passou a ser **POR CANAL** (`lib/notifications/carimbo-canal.ts`) — canal sem sucesso não carimba e o dia segue pendente; + lock diário de execução (mig 187).
 > 4. "Nunca quebra a entrega" tem exceções: PDF sem genérico → JSON 404 cru; podcast sem TTS nem áudio-base → 404 player mudo.
 > 5. Caminhos: `lib/kit/*` → `lib/season-engine/kit/*` (corpo já usa o caminho completo; números de linha pontuais revistos).
@@ -368,11 +368,22 @@ contra a classe de bug "título ≠ blocos".
 unlock(N) = data_inicio + (N−1) × 7 dias, às 03:00 BRT / 06:00 UTC
 ```
 
-Gate real na leitura: `checarGatesSemana` (`lib/season-engine/trilha-runtime.ts`) — **temporal**
-(pela `calendario_semana` do snapshot do plano, não da config) **+ progressão** (semana N exige
-N−1 concluída). ⚠️ **Só roda nas 4 rotas de chat** (reflection, evaluation, tira-duvidas,
-missao). `loadTemporada` e a week page **não gateiam**: semana futura é legível por URL direta —
-o dashboard só desabilita o clique.
+Régua ÚNICA desde 20/08/2026: **`avaliarAcessoSemana`** (`week-gating.ts`) — **temporal** (pela
+`calendario_semana` do snapshot do plano, não da config) **+ progressão** (semana N exige N−1
+`concluido`). `checarGatesSemana` (`trilha-runtime.ts`) é o invólucro server das 4 rotas de chat;
+a **week page** chama a mesma função e, quando nega, EXPLICA (o que falta, a regra e o botão para a
+semana que destrava).
+
+🔑 **O que conclui a semana é a CONVERSA, não abrir o conteúdo**: `finished` sai de
+`turnos_da_IA >= maxTurns/2` — **6** em semana de conteúdo, **10** na de aplicação, **12** na
+semana 13. Os tetos vivem no `week-gating` (eram literais dentro das rotas): a tela precisa do mesmo
+número para dizer quantas respostas faltam.
+
+⚠️ **Duas portas ainda usam critério próprio, e é dívida conhecida** (ver F-I21):
+a **lista** (`app/dashboard/temporada/page.tsx:158`) libera também por `em_andamento`, e
+`marcarConteudoConsumido` (`actions/temporadas.ts:709`) grava progresso `em_andamento` em **qualquer**
+semana sem passar por gate — é assim que aparece gente com as semanas 2, 3 e 5 abertas sem nenhuma
+concluída.
 
 ---
 

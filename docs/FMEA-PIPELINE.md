@@ -694,6 +694,45 @@ enum novo sem mapa **quebra o build**.
 **Classe:** contrato entre dois processos que falam por JSON não é verificado pelo compilador. E
 comentário que promete uma garantia não a implementa.
 
+### F-I21 · A régua sequencial existia, era intencional — e ninguém era avisado 🟡 (corrigido em parte, 20/08, `7ea60717`)
+
+**Gatilho:** `app/dashboard/temporada/semana/[week]/page.tsx` — 822 linhas, **zero** gate, enquanto
+`lib/season-engine/trilha-runtime.ts:136` devolvia 403 nas 4 rotas de conversa.
+
+**A mesma decisão morava em três lugares, com critérios diferentes:**
+
+| Porta | Critério até 20/08 |
+|---|---|
+| 4 rotas de conversa | anterior `concluido` → 403 |
+| lista de semanas (`temporada/page.tsx:158`) | liberava também por `em_andamento` |
+| página da semana | **nenhum** — URL direta abria qualquer semana |
+
+**Classe: a porta mais permissiva vira a promessa, a mais restritiva vira a experiência.** Régua
+duplicada não diverge com o tempo — ela já nasce divergente, e o descompasso só aparece quando
+alguém reclama. Some a isso o fato de que a cadência corre pelo CALENDÁRIO
+(`fase4_envios.semana_atual`) e manda `deepLinkSemana(baseUrl, semana)`: **o sistema convidava toda
+semana para uma porta que ele mesmo trancava.**
+
+**Medido (20/08/2026, Ibipeba — 36 trilhas ativas, início 13/07, semana 6 do calendário):** 19 de 36
+**sem nenhuma semana concluída**. Uma pessoa parou em **5 de 6** turnos e ficou **36 dias** parada; a
+que reclamou tinha parado em **3 de 6** às 08:27 e escreveu às 08:28 ("não estou conseguindo acessar
+os conteúdos das próximas semanas"). O gate não estava quebrado — estava **mudo**, e o que conclui
+uma semana (a conversa, não abrir o conteúdo) não está dito em lugar nenhum da tela.
+
+**Correção:** `avaliarAcessoSemana` vira a régua única (servidor decide, tela explica); a página
+passa a mostrar o que falta, a regra em português e o botão para a semana pendente; os tetos de turno
+saem das rotas para o `week-gating`; semana trancada loga `bloqueio` em vez de `abertura` (a métrica
+de abertura inflava justamente com quem não viu nada). Guarda:
+`tests/unit/week-gating-acesso.test.ts` (13 casos, validados por mutação).
+
+🚧 **Aberto:** a lista ainda libera por `em_andamento` e `marcarConteudoConsumido`
+(`actions/temporadas.ts:709`) continua criando progresso `em_andamento` em qualquer semana sem gate —
+a raiz dos registros órfãos que destravam o botão da lista.
+
+⚠️ **O buraco estava documentado desde 17/07** na errata 2 de `docs/PIPELINE-TRILHA.md` e ficou 34
+dias sem virar trabalho. Achado sem consequência visível não é priorizado; o que o tornou urgente foi
+uma frase de uma pessoa.
+
 ### F-C12 · Cota de retentativa consumida por avaria do CANAL torna o resgate inalcançável ✅ (corrigido 19/08, `984607e3`)
 
 **Gatilho:** `lib/conarh/reenvio-t0.ts:33,124` — `MAX_TENTATIVAS_AUTOMATICAS = 10` +

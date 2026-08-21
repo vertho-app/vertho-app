@@ -379,6 +379,14 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   payload INTEIRO e **a mensagem não sai**. Falha total, não parcial (14/08). Mesma classe: o
   `motivo` da telemetria era o literal `'pilula'` sob um comentário que prometia exaustividade do
   TypeScript; promessa em comentário não é garantia — hoje é `satisfies Record<...>`.
+- NÃO deixar a mesma decisão de acesso escrita em mais de um lugar — e gate que NEGA tem que **dizer
+  o que falta**. Medido 20/08: a régua de liberação da semana vivia em três portas com critérios
+  diferentes (rotas exigiam a anterior `concluido`, a lista liberava por `em_andamento`, a página da
+  semana não tinha gate nenhum) enquanto a cadência mandava o link da semana do CALENDÁRIO — o
+  produto convidava para a porta que ele mesmo trancava, e 19 de 36 pessoas de Ibipeba estavam sem
+  nenhuma semana concluída, uma delas a **um turno** de destravar, parada 36 dias. A porta mais
+  permissiva vira a promessa; a mais restritiva vira a experiência. Régua única +
+  `docs/FMEA-PIPELINE.md` §F-I21.
 - NÃO debitar tentativa de retentativa quando quem falhou foi o **CANAL**. O teto existe para o
   automático não martelar sozinho; se o fornecedor caiu ou o template não aprovou, a cota é do
   destinatário e quem a gastou foi avaria nossa — aí, quando o canal volta, o teto já expulsou

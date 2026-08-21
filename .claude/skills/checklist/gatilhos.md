@@ -321,6 +321,24 @@ Casa: qualquer varredura que re-tenta entrega e desiste depois de N vezes.
 - Conferir o carimbo do erro antes de culpar a rodada atual: `t0_erro` inalterado prova que **nenhuma
   tentativa nova aconteceu**, e não que a nova tentativa falhou igual.
 
+## 30. Gate de acesso numa tela (semana, etapa, área liberada por progresso/data)
+
+Casa: qualquer lugar que decida "esta pessoa pode abrir isto agora".
+
+- 🔴 **Quantas portas decidem isso?** Liste-as antes de mexer: rota de API, listagem (botão
+  desabilitado), página de destino, deep-link do envio. Medido 20/08: eram três com critérios
+  DIFERENTES e a quarta (a cadência) ignorava todas — a mais permissiva vira a promessa e a mais
+  restritiva vira a experiência (F-I21).
+- 🔴 **O gate DIZ o que falta?** Negar sem explicar chega ao suporte como "não consigo acessar". A
+  régua ("o que conclui a etapa é a conversa, não abrir o conteúdo") tem que estar na tela, com o
+  número que falta e o caminho de volta.
+- **Para onde o envio manda a pessoa?** Link que aponta para a etapa do CALENDÁRIO enquanto o gate
+  cobra PROGRESSO convida para a porta trancada, semana após semana.
+- **Telemetria:** tentativa bloqueada não pode contar como abertura. Allowlist de `tipo` com default
+  silencioso transforma frustração em métrica de engajamento.
+- Ao mover a régua para uma função compartilhada, cheque se ela é importável pelo CLIENTE
+  (`server-only` no arquivo impede) e passe `now` explícito em teste — a liberação vira às 06:00 UTC.
+
 ## 22. Sempre (base fixa — cite, não copie)
 
 `docs/CHECKLISTS.md` §1. Os três que mais reincidem:
