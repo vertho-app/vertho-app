@@ -5,12 +5,12 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
-import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, Briefcase, ShieldCheck } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import type { TenantTheme } from '@/lib/ui-resolver';
 
-type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean; rhOnly?: boolean };
+type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean };
 
 // Fallback = tema Vertho atual (usado se o layout não passar theme).
 const DEFAULT_THEME: TenantTheme = {
@@ -40,7 +40,10 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', labelKey: 'home', icon: Home },
   { href: '/dashboard/gestor', labelKey: 'team', icon: Users2, gestorOnly: true },
   { href: '/dashboard/gestor/ranking', labelKey: 'ranking', icon: ListOrdered, gestorOnly: true },
-  { href: '/dashboard/gestor/selecao', labelKey: 'selection', icon: Briefcase, rhOnly: true },
+  // Seleção saiu daqui em 24/08/2026: era a única tela de OPERAÇÃO no menu do
+  // cliente (criar vaga · gerar perfil · avaliar candidatos) e virou operação da
+  // Vertho em /admin. O ranking das vagas segue visível em .../ranking, que já
+  // inclui `eh_vaga`. Ver o docstring de `gestor/selecao/page.tsx`.
   { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock },
   { href: '/dashboard/temporada', labelKey: 'season', icon: Play },
   { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp },
@@ -55,13 +58,12 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   const [user, setUser] = useState<any>(null);
   const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
-  const isRH = colaborador?.role === 'rh';
   // Quem administra a plataforma também é colaborador de algum tenant, e entrar
   // por um deles não é erro — mas daqui não havia caminho de volta ao painel
   // (medido 24/08/2026: nenhum link para /admin fora do próprio /admin). Quem
   // decide é o servidor, no /api/me; o gate real é o layout de /admin.
   const ehAdminDaPlataforma = colaborador?.platformAdmin === true;
-  const navItems = NAV_ITEMS.filter((it) => (!it.gestorOnly || isGestorOuRH) && (!it.rhOnly || isRH));
+  const navItems = NAV_ITEMS.filter((it) => !it.gestorOnly || isGestorOuRH);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
