@@ -564,6 +564,63 @@ Ao consertar identidade de quem **ja entrou** (`last_sign_in_at` preenchido), re
 existente em vez de apontar o colaborador pra uma conta nova: a conta nova nao tem historico e a pessoa
 nao sabe que ela existe. Checklist operacional em `docs/CHECKLISTS.md` §3.
 
+### 3.1.3 "Entrar em qual?" — o inventario de destinos nao cabe numa tabela so (24/08/2026)
+
+Sem subdominio (`app.vertho.ai`, apex) o mesmo e-mail pode existir em varias empresas, e a tela de
+login pergunta em qual entrar (`app/login/login-form.tsx`, alimentada por `/api/auth/check-email`).
+A lista vinha **so de `colaboradores`** — e quem administra a plataforma **nao e colaborador de uma
+empresa "Vertho"**: esse papel vive em `platform_admins`. Nao existe tenant da Vertho para aparecer
+na lista.
+
+Medido em 24/08: os **3** platform admins tem cadastro de colaborador em **4, 4 e 2** empresas — ou
+seja, os tres caem nessa tela, e nenhuma das opcoes levava ao painel.
+
+**Por que isso e pior que "faltar um botao":** o destino escolhido decide **em que host a sessao
+nasce** (§"O DESTINO PEDIDO MANDA NO HOST" em `app/api/auth/magic-link/route.ts`). Escolher uma
+empresa faz o link nascer no subdominio dela; o cookie de sessao e host-only, e o painel vive no
+endereco generico. Do `/dashboard` nao havia link de volta, entao o painel so era alcancavel
+digitando a URL — e ai a pessoa chegava deslogada no host generico. E o mesmo laco de 19/08.
+
+O que a tela faz agora:
+
+| situacao | comportamento |
+|---|---|
+| e-mail em 2+ empresas | lista as empresas (tenants de demo fora — `isTenantDemo` bloqueia o envio real) |
+| e-mail em `platform_admins` | ganha **"Administracao Vertho"** no topo, com `next=/admin/dashboard` |
+| admin com **1** empresa | 1 empresa + painel = 2 escolhas reais, entao o minimo de organizacoes cai para 1 |
+| ja pediu o painel (`?redirect=/admin/...`) | **nao pergunta**: nesse caso o servidor descarta a empresa escolhida |
+
+🔑 **A regua da opcao e deliberadamente a MESMA do `magic-link`: `platform_admins`, e nao o fallback
+`ADMIN_EMAILS`.** Quem decide o host e aquela rota; oferecer aqui uma opcao que ela nao reconhecesse
+daria um botao mandando a sessao para o subdominio de um tenant — o painel continuaria inalcancavel,
+agora com um botao prometendo o contrario. (Sobre as duas reguas de `ADMIN_EMAILS`, ver §3.1 e o
+`lib/authz-plataforma.ts`.)
+
+**Custo aceito:** `/api/auth/check-email` e publico e agora devolve um bit de enumeracao ("este
+e-mail administra a plataforma"). A lista de organizacoes que ele ja devolvia e um dado mais
+sensivel que esse bit, o rate limit por IP vale para os dois, e o acesso continua preso ao link de
+uso unico — o botao nao abre porta, so mostra onde ela esta.
+
+**Portas para os paineis** (o `/admin-v2` era mao unica: o `ShellV2` tinha dois links de volta para
+`/admin/dashboard` e nenhuma tela do `/admin` apontava para ele):
+
+| porta | destino |
+|---|---|
+| tela de escolha no login | `/admin/dashboard` (sessao nasce no host generico) |
+| atalho no shell do `/dashboard` (so platform admin, via `/api/me`) | `/admin/dashboard` |
+| chip "arquitetura v2" no `AdminHeader` | `/admin-v2` |
+| raiz `app.vertho.ai/` (`app/page.tsx`) e `start_url` do PWA sem tenant | `/admin-v2` |
+| push da caixa de entrada | `/admin-v2/inbox` |
+
+⚠️ O atalho nasceu como icone cinza de 14px entre o refresh e a engrenagem, e o dono **nao o achou
+na tela que ele mesmo pediu**. Destino que ninguem encontra nao e caminho: virou chip com rotulo e a
+cor do sistema. O link de push/e-mail do painel sai **so por e-mail** — o botao do template de
+WhatsApp carrega `<slug>~<token_hash>` e sempre despacha para o SUBDOMINIO do slug.
+
+Guarda: `tests/unit/login-escolha-organizacao.test.ts` (validado por mutacao) — inclui um teste de
+coerencia que remonta a regex de host do `magic-link` e confere que ela reconhece o destino que o
+login manda. Sem ele, trocar o destino do botao volta a mandar a sessao para o tenant, calado.
+
 ### 3.2 Resolucao do Tenant
 ```
 lib/tenant-resolver.js:

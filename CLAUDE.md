@@ -444,6 +444,17 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   faz `warn`: **40 micro-conteúdos nasceram sem PDF** e ainda pagaram a expansão de IA dele. E
   quando o diagnóstico estiver certo, **conserte a FUNÇÃO, não o chamador** — em 05/08 o contorno
   entrou num script e a função ficou quebrada mais 11 dias. `docs/FMEA-PIPELINE.md` §F-I18.
+- NÃO montar a lista de destinos de uma tela a partir de **UMA tabela** quando a pessoa pode ter mais
+  de um papel. A tela "em qual organizacao voce quer entrar?" enumerava só `colaboradores`, e quem
+  administra a plataforma **não é colaborador de uma empresa "Vertho"** — esse papel vive em
+  `platform_admins`. Medido 24/08: os 3 platform admins têm cadastro em 4, 4 e 2 empresas, então os
+  três caíam nessa tela e **nenhuma opção levava ao painel**. E o custo não é "faltou um botão": o
+  destino escolhido decide **em que host a sessão nasce** (cookie host-only), então escolher uma
+  empresa prendia a sessão no subdomínio dela, longe do painel. Dois corolários da mesma rodada:
+  caminho de **mão única** não é par de portas (o `ShellV2` tinha dois links de volta para `/admin` e
+  nenhuma tela do `/admin` apontava para o v2), e **destino que ninguém encontra não é caminho** — o
+  atalho novo nasceu como ícone cinza de 14px entre outros dois iguais, e o dono não o achou na tela
+  que ele mesmo pediu. Detalhe: `docs/ARQUITETURA.md` §3.1.3.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.

@@ -341,6 +341,27 @@ Casa: qualquer lugar que decida "esta pessoa pode abrir isto agora".
 - Ao mover a régua para uma função compartilhada, cheque se ela é importável pelo CLIENTE
   (`server-only` no arquivo impede) e passe `now` explícito em teste — a liberação vira às 06:00 UTC.
 
+## 31. Tela que ENUMERA destinos (escolher organização, portal, painel, "ir para…")
+
+Casa: qualquer lista de "para onde você quer ir" montada a partir de uma consulta.
+
+- 🔴 **De quantas tabelas sai o inventário?** A pessoa pode ter mais de um papel, e a tabela óbvia
+  cobre um só. Medido 24/08/2026: a tela "entrar em qual organização?" lia só `colaboradores`, e
+  quem administra a plataforma **não é colaborador de uma empresa "Vertho"** (o papel vive em
+  `platform_admins`) — os 3 platform admins, todos com 2 a 4 vínculos, caíam na tela sem nenhuma
+  opção que levasse ao painel.
+- 🔴 **A escolha decide mais do que a navegação?** Aqui ela decide **em que host a sessão nasce**
+  (cookie host-only) — escolher uma empresa prendia a sessão no subdomínio dela, longe do painel. A
+  régua da opção tem que ser a MESMA de quem consome a escolha (`platform_admins`, não
+  `ADMIN_EMAILS`), senão o botão promete um destino e entrega outro.
+- **Existe o caminho de VOLTA — e o de IDA?** O `ShellV2` tinha dois links para `/admin` e nenhuma
+  tela do `/admin` apontava para o v2: a única entrada era um redirect automático, que ninguém vê
+  acontecer.
+- **O atalho é ENCONTRÁVEL?** Ícone cinza de 14px ao lado de outros dois iguais não é porta: o dono
+  não achou o botão na tela que ele mesmo pediu, no mesmo dia. Rótulo + cor do sistema.
+
+Detalhe: `docs/ARQUITETURA.md` §3.1.3 · memória `project_login_escolha_organizacao`.
+
 ## 22. Sempre (base fixa — cite, não copie)
 
 `docs/CHECKLISTS.md` §1. Os três que mais reincidem:
