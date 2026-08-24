@@ -9,6 +9,13 @@ import { locales } from '@/i18n/routing';
 import SignupModal from './signup-modal';
 import AvisoNavegadorEmbutido from '@/components/auth/aviso-navegador-embutido';
 
+// O painel da equipe Vertho não é um tenant: ele vive no endereço genérico
+// (`app.vertho.ai`), e é o `next` pedido — não o cadastro — que faz a sessão
+// nascer lá (ver o bloco "O DESTINO PEDIDO MANDA NO HOST" em
+// `api/auth/magic-link`). `/admin` sozinho não tem página: a porta é o dashboard.
+const DESTINO_PAINEL = '/admin/dashboard';
+const ehDestinoDoPainel = (path: string) => /^\/admin(-v2)?(\/|$|\?)/.test(path);
+
 export default function LoginForm({ branding, embutido = false, ios = false }: { branding: any; embutido?: boolean; ios?: boolean }) {
   const t = useTranslations('Login');
   const common = useTranslations('Common');
@@ -27,6 +34,9 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
   // Organizações do e-mail quando o login não vem de um subdomínio de tenant.
   // Vazio = nada a perguntar (o caso normal: subdomínio, ou uma empresa só).
   const [orgs, setOrgs] = useState<Array<{ slug: string; nome: string }>>([]);
+  // Equipe Vertho: o painel da plataforma entra como uma opção a mais na mesma
+  // tela. Não é uma empresa — por isso não cabe em `orgs`.
+  const [painelAdmin, setPainelAdmin] = useState(false);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -166,8 +176,30 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
       // cookie de sessão fica preso ao host exato, e o botão do template de
       // WhatsApp precisa do slug para existir. Antes disso, o registro era
       // sorteado e a sessão nascia num host sem tenant.
-      if (Array.isArray(check.orgs) && check.orgs.length > 1) {
-        setOrgs(check.orgs);
+      //
+      // Para quem administra a plataforma há um destino a mais, que não é
+      // empresa nenhuma: o painel. Sem ele na lista, os platform admins (todos
+      // com cadastro em 2+ empresas) só tinham como escolher um tenant — e a
+      // sessão nascia no subdomínio, longe do painel.
+      const listaOrgs: Array<{ slug: string; nome: string }> =
+        Array.isArray(check.orgs) ? check.orgs : [];
+      const painel = check.painelPlataforma === true;
+
+      // Quem JÁ pediu o painel (`/login?redirect=/admin/...`) não tem o que
+      // escolher: nesse caso a rota do magic link ignora a organização e manda a
+      // sessão nascer no host genérico. Perguntar aqui seria uma pergunta cuja
+      // resposta é jogada fora.
+      if (painel && ehDestinoDoPainel(redirectTo)) {
+        await enviarMagicLink(trimmed);
+        return;
+      }
+      if (painel && listaOrgs.length === 0) {
+        await enviarMagicLink(trimmed, undefined, DESTINO_PAINEL);
+        return;
+      }
+      if (listaOrgs.length + (painel ? 1 : 0) > 1) {
+        setOrgs(listaOrgs);
+        setPainelAdmin(painel);
         setStatus('idle');
         return;
       }
@@ -185,8 +217,12 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
    * Pede o link de acesso. `empresaSlug` só viaja quando a pessoa escolheu a
    * organização na tela — no subdomínio do tenant ele é ignorado pelo servidor,
    * que prefere o host.
+   *
+   * `destino` sobrescreve o `redirectTo` da página para esta chamada só. Existe
+   * para a opção do painel: o destino é o que decide o HOST em que a sessão
+   * nasce, então mandar `/dashboard` (o padrão) devolveria a pessoa ao tenant.
    */
-  async function enviarMagicLink(trimmed: string, empresaSlug?: string) {
+  async function enviarMagicLink(trimmed: string, empresaSlug?: string, destino?: string) {
     setStatus('loading');
     setErrorMsg('');
 
@@ -200,7 +236,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: trimmed,
-          redirectTo: `${window.location.origin}${redirectTo}`,
+          redirectTo: `${window.location.origin}${destino || redirectTo}`,
           locale,
           ...(empresaSlug ? { empresaSlug } : {}),
         }),
@@ -324,9 +360,13 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
     }
   }
 
+  // Uma régua só para a lista e para o texto acima dela — as duas divergindo
+  // dariam um "Entre com seu e-mail" em cima de uma lista de organizações.
+  const mostrarEscolhaDeOrg = orgs.length + (painelAdmin ? 1 : 0) > 1;
+
   const promptText = awaitingCode
     ? t('whatsappCodePrompt')
-    : orgs.length > 1
+    : mostrarEscolhaDeOrg
       ? t('chooseOrgPrompt')
       : mode === 'password'
         ? t('emailPrompt')
@@ -420,9 +460,27 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
               <p className="text-danger text-sm mt-3">{errorMsg}</p>
             )}
           </form>
-        ) : orgs.length > 1 ? (
+        ) : mostrarEscolhaDeOrg ? (
           /* ── Em qual organização? (só sem subdomínio de tenant) ── */
           <div className="flex flex-col gap-2">
+            {/* Equipe Vertho: primeiro da lista porque é o destino de quem
+                administra a plataforma — as empresas abaixo são o cadastro de
+                colaborador da mesma pessoa. */}
+            {painelAdmin && (
+              <button
+                type="button"
+                disabled={status === 'loading'}
+                onClick={() => {
+                  setOrgs([]);
+                  setPainelAdmin(false);
+                  enviarMagicLink(email.trim().toLowerCase(), undefined, DESTINO_PAINEL);
+                }}
+                className="w-full py-3.5 px-4 rounded-xl border-2 bg-white/[0.08] text-white text-base font-semibold cursor-pointer transition-colors hover:bg-white/[0.14] disabled:opacity-60"
+                style={{ borderColor: accentColor }}
+              >
+                {t('platformPanelOption')}
+              </button>
+            )}
             {orgs.map((org) => (
               <button
                 key={org.slug}
@@ -438,7 +496,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
             ))}
             <button
               type="button"
-              onClick={() => { setOrgs([]); setStatus('idle'); setErrorMsg(''); }}
+              onClick={() => { setOrgs([]); setPainelAdmin(false); setStatus('idle'); setErrorMsg(''); }}
               className="mt-1 text-sm font-medium hover:underline"
               style={{ color: accentColor }}
             >

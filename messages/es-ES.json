@@ -40,6 +40,7 @@
     "emailPrompt": "Introduce tu correo para acceder",
     "unifiedPrompt": "Entra con tu correo o WhatsApp para acceder",
     "chooseOrgPrompt": "¿En qué organización quieres entrar?",
+    "platformPanelOption": "Administración Vertho",
     "orDivider": "o",
     "whatsappPhonePrompt": "Introduce tu WhatsApp para recibir el código",
     "whatsappCodePrompt": "Introduce el código que enviamos a tu WhatsApp",
@@ -118,6 +119,7 @@
       "evolution": "Evolución",
       "profile": "Perfil"
     },
+    "platformPanel": "Administración Vertho",
     "logout": "Salir"
   },
   "NotFound": {

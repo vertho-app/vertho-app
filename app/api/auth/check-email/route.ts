@@ -21,14 +21,17 @@ export const dynamic = 'force-dynamic';
  * Empresas em que este e-mail é colaborador — só para a tela de login perguntar
  * "entrar em qual?" quando o pedido não vem de um subdomínio de tenant.
  *
- * Devolve lista VAZIA quando há 0 ou 1 empresa: com uma só não há o que
- * perguntar, e a lista de tamanho 1 revelaria onde a pessoa trabalha sem
- * necessidade nenhuma. Tenants de demonstração ficam de fora porque o envio
- * real é bloqueado neles (`isTenantDemo`) — seria uma opção que não envia nada.
+ * Devolve lista VAZIA quando ela tem menos que `minimo` empresas: sem escolha a
+ * fazer não há o que perguntar, e uma lista de tamanho 1 revelaria onde a pessoa
+ * trabalha sem necessidade nenhuma. O `minimo` é 2 no caso comum e 1 para quem
+ * administra a plataforma, que ganha o painel como opção extra na mesma tela.
+ * Tenants de demonstração ficam de fora porque o envio real é bloqueado neles
+ * (`isTenantDemo`) — seria uma opção que não envia nada.
  */
 async function organizacoesDoEmail(
   sb: ReturnType<typeof createSupabaseAdmin>,
   email: string,
+  minimo = 2,
 ): Promise<Array<{ slug: string; nome: string }>> {
   const { data: vinculos, error } = await sb
     .from('colaboradores')
@@ -37,7 +40,7 @@ async function organizacoesDoEmail(
   if (error || !vinculos?.length) return [];
 
   const ids = [...new Set(vinculos.map((v: any) => v.empresa_id).filter(Boolean))];
-  if (ids.length < 2) return [];
+  if (!ids.length) return [];
 
   const { data: empresas } = await sb
     .from('empresas')
@@ -45,9 +48,41 @@ async function organizacoesDoEmail(
     .in('id', ids)
     .order('nome', { ascending: true });
 
-  return (empresas || [])
+  const lista = (empresas || [])
     .filter((e: any) => e.slug && !e.is_demo)
     .map((e: any) => ({ slug: e.slug as string, nome: (e.nome as string) || e.slug }));
+
+  // O corte é sobre a lista JÁ FILTRADA, e não sobre a contagem de vínculos: quem
+  // tem dois cadastros mas um deles em tenant de demonstração veria uma opção só
+  // — que não é escolha nenhuma e ainda revela onde a pessoa trabalha.
+  return lista.length >= minimo ? lista : [];
+}
+
+/**
+ * Este e-mail administra a PLATAFORMA (equipe Vertho)?
+ *
+ * A régua é deliberadamente a MESMA do `/api/auth/magic-link` (`platform_admins`,
+ * e não o fallback `ADMIN_EMAILS`): é aquela rota que decide em que host a sessão
+ * nasce quando o destino é o painel. Oferecer aqui uma opção que ela não
+ * reconhecesse daria um botão que manda a sessão para o subdomínio de um tenant —
+ * o painel continuaria inalcançável, agora com um botão prometendo o contrário.
+ */
+async function ehAdminDaPlataforma(
+  sb: ReturnType<typeof createSupabaseAdmin>,
+  email: string,
+): Promise<boolean> {
+  const { data, error } = await sb.from('platform_admins')
+    .select('email').eq('email', email).maybeSingle();
+  if (error) {
+    // Fail-closed e AUDÍVEL. A falha aqui se disfarça de resposta legítima — a
+    // opção do painel simplesmente não aparece, e a tela fica idêntica à de quem
+    // não é admin. Sem esta linha, banco fora do ar viraria "a Juliane não é
+    // sócia". O e-mail não vai para o log: é PII, e o que importa é que a
+    // consulta caiu, não de quem.
+    console.error('[check-email] platform_admins indisponível:', error.message);
+    return false;
+  }
+  return !!data;
 }
 
 export async function POST(req: NextRequest) {
@@ -79,10 +114,27 @@ export async function POST(req: NextRequest) {
       // tenant resolvido — o `[authz] email ambíguo (multi-tenant)` dos logs.
       // Devolvendo as organizações do e-mail, a tela de login pergunta em vez
       // de sortear.
+      //
+      // ⚠️ E a lista de organizações não esgota os destinos possíveis: os 3
+      // platform admins têm cadastro de colaborador em 2 a 4 empresas (medido
+      // 24/08/2026), então TODOS caem nesta tela — e o painel da plataforma não
+      // é uma empresa, logo não aparecia em lugar nenhum. Escolher qualquer
+      // organização faz a sessão nascer no subdomínio dela, e do dashboard não
+      // há caminho de volta: o painel ficava acessível só por URL digitada.
+      //
+      // O custo de devolver isto num endpoint público é um bit de enumeração
+      // ("este e-mail administra a plataforma"). Ele é aceito porque a própria
+      // lista de organizações já é um dado mais sensível que ele, o rate limit
+      // por IP vale para os dois, e o acesso continua dependendo do link de uso
+      // único — o botão não abre porta nenhuma, só mostra onde ela está.
+      const painelPlataforma = await ehAdminDaPlataforma(sb, trimmed);
       return NextResponse.json({
         exists: true,
         allowSignup: false,
-        orgs: await organizacoesDoEmail(sb, trimmed),
+        // Com o painel na tela, UMA organização já é uma escolha de verdade
+        // ("Bett" ou "Administração Vertho") — por isso o mínimo cai para 1.
+        orgs: await organizacoesDoEmail(sb, trimmed, painelPlataforma ? 1 : 2),
+        painelPlataforma,
       });
     }
 

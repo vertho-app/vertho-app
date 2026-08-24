@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
-import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, Briefcase } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, Briefcase, ShieldCheck } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import type { TenantTheme } from '@/lib/ui-resolver';
@@ -53,9 +53,14 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   const pathname = usePathname();
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
-  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string } | null>(null);
+  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
   const isRH = colaborador?.role === 'rh';
+  // Quem administra a plataforma também é colaborador de algum tenant, e entrar
+  // por um deles não é erro — mas daqui não havia caminho de volta ao painel
+  // (medido 24/08/2026: nenhum link para /admin fora do próprio /admin). Quem
+  // decide é o servidor, no /api/me; o gate real é o layout de /admin.
+  const ehAdminDaPlataforma = colaborador?.platformAdmin === true;
   const navItems = NAV_ITEMS.filter((it) => (!it.gestorOnly || isGestorOuRH) && (!it.rhOnly || isRH));
 
   useEffect(() => {
@@ -173,6 +178,16 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
           })}
         </nav>
 
+        {ehAdminDaPlataforma && (
+          <button
+            onClick={() => router.push('/admin/dashboard')}
+            title={t('platformPanel')}
+            className="text-gray-500 hover:text-white transition-colors"
+          >
+            <ShieldCheck size={20} />
+          </button>
+        )}
+
         <button onClick={handleLogout} title={t('logout')} className="text-gray-500 hover:text-red-400 transition-colors">
           <LogOut size={20} />
         </button>
@@ -193,6 +208,15 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
             size={32}
             onClick={() => router.push('/dashboard/perfil')}
           />
+          {ehAdminDaPlataforma && (
+            <button
+              onClick={() => router.push('/admin/dashboard')}
+              className="text-gray-500 hover:text-white transition-colors"
+              title={t('platformPanel')}
+            >
+              <ShieldCheck size={18} />
+            </button>
+          )}
           <button onClick={handleLogout} className="text-gray-500 hover:text-white transition-colors" title={t('logout')}>
             <LogOut size={18} />
           </button>

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { findColabByEmail } from '@/lib/authz';
+import { findColabByEmail, isPlatformAdmin } from '@/lib/authz';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { resolveAppLocale } from '@/lib/i18n';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
@@ -17,6 +17,12 @@ export async function GET() {
       'nome_completo, foto_url, avatar_preset, role, locale, empresa_id',
     );
 
+    // Atalho para o painel no shell do dashboard. É só EXIBIÇÃO: o gate de
+    // verdade continua no layout de `/admin`, que refaz a pergunta server-side —
+    // este campo não concede nada, e sem ele quem administra a plataforma entrava
+    // por um tenant e não tinha caminho de volta ao painel.
+    const platformAdmin = await isPlatformAdmin(user.email);
+
     let locale = resolveAppLocale((data as any)?.locale);
     if ((data as any)?.empresa_id) {
       try {
@@ -30,12 +36,13 @@ export async function GET() {
       } catch {}
     }
 
-    return NextResponse.json(data ? { ...data, locale } : {
+    return NextResponse.json(data ? { ...data, locale, platformAdmin } : {
       nome_completo: user.email,
       foto_url: null,
       avatar_preset: null,
       role: 'colaborador',
       locale,
+      platformAdmin,
     });
   } catch (err) {
     console.error('[/api/me]', err);
