@@ -185,12 +185,23 @@ export async function gerarKitSemanal({
     let kits: Awaited<ReturnType<typeof gerarKit>>[] = [];
 
     // ── Caminho LOTE (Batch API −50%) ─────────────────────────────────────────
-    // Vale a pena só com fan-out (≥2 DISC). Resolve brief+PPP 1× (evita corrida),
-    // roda os DISC CONCORRENTES e o collector agrupa as chamadas num batch async.
-    // Qualquer falha do batch → o próprio collector cai em callAI síncrono; uma
-    // falha estrutural aqui → fallback ao loop sequencial abaixo.
+    // Resolve brief+PPP 1× (evita corrida), roda os DISC CONCORRENTES e o collector
+    // agrupa as chamadas num batch async. Qualquer falha do batch → o próprio
+    // collector cai em callAI síncrono; uma falha estrutural aqui → fallback ao
+    // loop sequencial abaixo.
+    //
+    // 🔑 Quem decide é o PARÂMETRO, não a quantidade de DISC. Até 24/08 havia um
+    // `&& discs.length >= 2` aqui, e ele silenciava o pedido: o job nascia com
+    // `useBatch: true` gravado em `kit_jobs.params` e rodava síncrono assim mesmo
+    // (medido nessa data — 7 dos 11 DISC de uma rodada, ~$0,77 a mais). Item de 1
+    // DISC também loteia: `Medido:` em `ia_batches` (30 dias, feature kit_semanal)
+    // a duração é do BATCH, não do item — 1 item levou 136s, 6 itens levaram 130s.
+    // O custo do lote é latência (~2 batches em série por kit: desafio, depois os
+    // formatos), e quem sabe se dá para esperar é o CHAMADOR: `enqueueKit` e
+    // `planejarKitsCoorte` seguem pedindo lote só com ≥2 DISC (a tela não muda),
+    // e script de horizonte pode pedir lote de 1.
     let batchOk = false;
-    if (useBatch && discs.length >= 2) {
+    if (useBatch) {
       try {
         await onProgress?.({ done: 0, total, current: `lote (batch) — preparando núcleo…`, kits: [] });
         const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, perfilPublico };
