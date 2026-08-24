@@ -716,8 +716,17 @@ export default function PerfilComportamentalPage() {
       {/* ── Liderança ── */}
       <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
         <p className="text-xs font-extrabold uppercase tracking-[2px] text-brand-400 mb-4">{t('sections.leadership')}</p>
+        {/* Régua ÚNICA 0-100 em todos os blocos desta tela (DISC, Liderança,
+            Competências). Antes a Liderança usava max={50} — a escala nativa
+            dela, já que `lid_X = DISC_X / 2` (computeLeadership no mapeamento)
+            e os 4 estilos somam 100 contra os 200 do DISC. Só que o número ao
+            lado é o mesmo em todos os blocos: com duas réguas, um Executivo 39
+            desenhava a MESMA barra de um Conformidade 78, e a tela convidava a
+            uma comparação que ela mesma invalidava. Com régua única a barra
+            passa a ser lida direto pelo número — a Liderança fica visualmente
+            menor porque ela É metade do DISC. */}
         {lead.map(l => (
-          <Bar key={l.label} label={l.label} value={l.value} max={50} color={l.color} />
+          <Bar key={l.label} label={l.label} value={l.value} max={100} color={l.color} />
         ))}
       </div>
 

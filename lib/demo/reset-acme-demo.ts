@@ -166,16 +166,29 @@ const PERSONAS = [
   { key: 'renato', nome_completo: 'Renato Alves', email: 'renato.demo@vertho.ai', cargo: 'Coordenador de Operações', role: 'colaborador', area_depto: 'Operações', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'DS', d_natural: 62, i_natural: 38, s_natural: 58, c_natural: 46, scenario: 'novo', responder: [] as string[] },
 ];
 
-// Colunas comportamentais (comp_*/lid_*) DETERMINÍSTICAS a partir do DISC — mesma
-// fórmula do simulador-disc, sem o ruído aleatório (reproduzível a cada reset). O
-// motor de Adequação (fit v2) LÊ essas colunas do colaborador; sem elas o bloco
-// competências/liderança fica 0 e os knockouts de traço (ex.: Organização,
-// Prudência) reprovam mesmo com DISC perfeito. Ver [[project_ranking_adequacao]].
+// Colunas comportamentais (comp_*/lid_*) DETERMINÍSTICAS a partir do DISC — as
+// comp_* seguem a fórmula do simulador-disc sem o ruído aleatório (reproduzível
+// a cada reset). O motor de Adequação (fit v2) LÊ essas colunas do colaborador;
+// sem elas o bloco competências/liderança fica 0 e os knockouts de traço (ex.:
+// Organização, Prudência) reprovam mesmo com DISC perfeito.
+// Ver [[project_ranking_adequacao]].
+//
+// 🔴 As lid_* seguem o MAPEAMENTO REAL (`computeLeadership`), não o simulador.
+// A régua do produto é `lid_X = DISC_X / 2` — medido em 24/08: 199 dos 218
+// colaboradores com DISC batem exatamente (Macaé 138/138, Ibipeba 52/52, Elo
+// 6/6, UniAnchieta 2/2). O simulador usa outra coisa (0,7·D + 0,3·C etc.) numa
+// escala 0-100, e o demo herdara ISSO: as personas saíam com Metódico 71 /
+// Sistemático 74 onde o produto real daria 32 e 39. Um número que a plataforma
+// nunca produz não pode aparecer numa demo — e ainda estourava a barra da tela.
 function comportamentosDoDisc(D: number, I: number, S: number, C: number) {
   const cl = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
+  // Mesmo arredondamento do caminho real: executivo/motivador com 1 casa,
+  // metódico/sistemático inteiros (mapeamento-actions.ts:116-119).
+  const meio1 = (v: number) => Math.round((v / 2) * 10) / 10;
+  const meio0 = (v: number) => Math.round(v / 2);
   return {
-    lid_executivo: cl(D * 0.7 + C * 0.3), lid_motivador: cl(I * 0.8 + D * 0.2),
-    lid_metodico: cl(S * 0.5 + C * 0.5), lid_sistematico: cl(C * 0.7 + S * 0.3),
+    lid_executivo: meio1(D), lid_motivador: meio1(I),
+    lid_metodico: meio0(S), lid_sistematico: meio0(C),
     comp_ousadia: cl(D), comp_comando: cl(D), comp_objetividade: cl(D),
     comp_assertividade: cl((D + I) / 2), comp_persuasao: cl(I), comp_extroversao: cl(I),
     comp_entusiasmo: cl(I), comp_sociabilidade: cl((I + S) / 2), comp_empatia: cl(S),
