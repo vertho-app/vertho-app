@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { extname } from 'path';
 import { describe, it, expect } from 'vitest';
+import { semComentarios } from '../../helpers/fonte';
 
 /**
  * Guard: literais de STATUS hardcoded ('concluido' vs 'concluida' etc.) —
@@ -54,7 +55,12 @@ function scanTracked(counts: Record<string, number>) {
   for (const rel of arquivos()) {
     let content: string;
     try { content = readFileSync(rel, 'utf-8'); } catch { continue; }
-    const n = (content.match(PADRAO) || []).length;
+    // 🔴 Sem descartar comentário, a PROSA que explica o guard vira violação:
+    // em 24/08 um docstring de `lib/ai-batch.ts` que cita 'submetido' e
+    // 'concluido' ao descrever a recuperação do lote derrubou o CI. Guard que
+    // acusa o texto que o documenta treina a ignorar o guard — e o helper para
+    // isto já existia, usado pelo `tenant-mutation-guard`.
+    const n = (semComentarios(content).match(PADRAO) || []).length;
     if (n > 0) counts[rel] = n;
   }
 }

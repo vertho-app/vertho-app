@@ -15,7 +15,8 @@ import { join } from 'path';
  *  1. **`retries.default` no `trigger.config.ts` é proibido.** O executor faz
  *     `const retry = this.task.retry ?? retriesConfig?.default`
  *     (`@trigger.dev/core` workers/taskExecutor.js:676): um default no config
- *     alcança TODA task sem `retry` próprio. Hoje são 8 — inclusive
+ *     alcança TODA task sem `retry` próprio. `Medido em 24/08:` das 12 tasks,
+ *     9 estavam sem retry antes do C3 e **4 seguem sem** — inclusive
  *     `render-video`, `render-chunk` e `gerar-video-modulo`, que nunca passaram
  *     por auditoria de idempotência e onde repetir custa render e HeyGen.
  *
@@ -134,5 +135,82 @@ describe('trigger: `retry` só com o contrato que o torna seguro', () => {
       curtas,
       'backoff curto num lote de IA: as 3 tentativas caberiam na mesma indisponibilidade do fornecedor',
     ).toEqual([]);
+  });
+
+  /**
+   * ── 🔴 Achado de revisão (24/08): o `done` ficou best-effort em 3 tasks ────
+   *
+   * O contrato de `lib/ia-jobs.ts` diz que status FINAL é checkpoint, e eu
+   * apliquei isso ao manuscrito e ao blueprint e **não estendi** a IA2, IA3 e
+   * IA4 — nem aos early-returns de "nada a fazer". Seis sites.
+   *
+   * Um `done` que não grava e não reclama é pior que um erro: a task termina com
+   * sucesso no Trigger, `ia_jobs` fica `running` PARA SEMPRE, a tela faz polling
+   * eterno e `jaTemLoteAtivo` trava a fase daquela empresa de forma permanente
+   * (ele só libera em done/error/cancelled). Falhando alto, o `retry` pega.
+   */
+  it('🔴 todo `status: done` é CHECKPOINT, nunca best-effort', () => {
+    const cruas: string[] = [];
+    for (const t of tasksDoRepo().filter((x) => x.fonte.includes('criarPatchJob'))) {
+      const linhas = t.fonte.split('\n');
+      linhas.forEach((linha, i) => {
+        if (!/status:\s*'done'/.test(linha)) return;
+        // A chamada pode estar na mesma linha ou na anterior (objeto multilinha).
+        const janela = `${linhas[i - 1] ?? ''}\n${linha}`;
+        if (!/patchCritico\(/.test(janela)) cruas.push(`${t.arquivo}:${i + 1}`);
+      });
+    }
+
+    expect(
+      cruas,
+      'grava `done` com `patch` (best-effort): se a escrita falhar em silêncio o job fica '
+      + '`running` para sempre — polling eterno na tela e a fase travada pelo guard anti-duplicata',
+    ).toEqual([]);
+  });
+
+  /**
+   * ── 🔴 Achado de revisão (24/08): as ondas de CHECK sem 2ª fonte ──────────
+   *
+   * IA3 e IA4 submetem DOIS lotes no mesmo job (geração e check). A recuperação
+   * por `ia_batches` estava só na geração; o check recuperava apenas por
+   * `params.batchIdChk`. Uma run morta entre submeter o lote de check e
+   * persistir o id órfanava um lote PAGO — exatamente a janela que o C3 fechou
+   * do outro lado.
+   */
+  it('🔴 toda submissão de lote tem 2ª fonte de recuperação', () => {
+    const semSegundaFonte: string[] = [];
+
+    for (const t of tasksDoRepo().filter((x) => x.fonte.includes('criarPatchJob'))) {
+      // Cada `let batchId… = pp.<algo> ??` é um ponto de retomada; todos têm
+      // que consultar o rastro quando `params` não tem o id.
+      for (const m of t.fonte.matchAll(/let\s+(batchId\w*)[^=]*=\s*pp\.\w+\s*\?\?([^;]*);/g)) {
+        if (!/batchPendenteDoJob/.test(m[2])) {
+          semSegundaFonte.push(`${t.arquivo}::${m[1]}`);
+        }
+      }
+    }
+
+    expect(
+      semSegundaFonte,
+      'ponto de retomada que só olha `params`: se o checkpoint do id falhou, o lote PAGO '
+      + 'fica órfão e a próxima tentativa submete outro. Use batchPendenteDoJob(jobId, feature).',
+    ).toEqual([]);
+  });
+
+  /**
+   * A recuperação tem que enxergar lote já CONCLUÍDO. As tasks fecham o rastro
+   * (`encerrarBatch(CONCLUIDO)`) ANTES de persistir os itens um a um — filtrar
+   * só 'submetido' deixava órfão o lote de quem morreu nesse meio.
+   */
+  it('🔴 a recuperação não filtra apenas `submetido`', () => {
+    const fonte = readFileSync('lib/ai-batch.ts', 'utf-8');
+    const corpo = fonte.slice(fonte.indexOf('export async function batchPendenteDoJob'));
+    const consulta = corpo.slice(0, corpo.indexOf('maybeSingle'));
+
+    expect(
+      /IA_BATCH\.CONCLUIDO/.test(consulta),
+      'batchPendenteDoJob voltou a ignorar lote concluído — mas o rastro é fechado ANTES '
+      + 'da persistência dos itens, então é justamente aí que a retomada precisa dele',
+    ).toBe(true);
   });
 });

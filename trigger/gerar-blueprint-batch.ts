@@ -39,7 +39,7 @@ import { IA_BATCH } from '@/lib/status';
  *
  * ✅ `retry` CONCEDIDO em 24/08, com os quatro pré-requisitos acima de pé. Ele é
  * declarado AQUI, na task — nunca por `retries.default` no `trigger.config.ts`,
- * que alcançaria as 9 tasks sem retry, incluindo render/HeyGen (medido: o
+ * que alcançaria as tasks sem retry próprio (9 então, 4 hoje), incluindo render/HeyGen (medido: o
  * executor faz `this.task.retry ?? retriesConfig?.default`, então o default é
  * global de verdade).
  *

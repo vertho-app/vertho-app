@@ -48,7 +48,7 @@ import { IA_BATCH } from '@/lib/status';
  * não desvia para o síncrono — o lote está pago e vai entregar.
  *
  * ✅ `retry` CONCEDIDO em 24/08, POR TASK — nunca por `retries.default` no
- * `trigger.config.ts`, que alcançaria as 9 tasks sem retry (o executor faz
+ * `trigger.config.ts`, que alcançaria as tasks sem retry próprio (9 então, 4 hoje) (o executor faz
  * `this.task.retry ?? retriesConfig?.default`).
  *
  * ⚠️ Aqui o `feature` na recuperação do lote não é capricho: esta task submete
@@ -250,7 +250,16 @@ export const gerarIA3BatchTask = task({
 
         let respostasChk = new Map<string, string>();
         const ledgerChk = { feature: 'ia3_check', empresaId, jobId: payload.jobId };
-        let batchIdChk: string | null = pp.batchIdChk ?? null;
+        /**
+         * 2ª fonte da retomada, igual à onda de GERAÇÃO acima. Faltava aqui
+         * (achado de revisão, 24/08): a onda de check tinha só `params`, então
+         * uma run morta entre submeter o lote de check e persistir o id órfanava
+         * um lote PAGO — a mesma janela que o C3 fechou do outro lado.
+         *
+         * ⚠️ A `feature` é o que separa as duas ondas do MESMO job: sem ela, a
+         * retomada do check poderia colher o lote da geração.
+         */
+        let batchIdChk: string | null = pp.batchIdChk ?? (await batchPendenteDoJob(payload.jobId, 'ia3_check'));
         try {
           // Só os NÃO checados entram no lote — o custo de IA está aqui, não na
           // montagem do prompt (que é só query).
@@ -337,7 +346,7 @@ export const gerarIA3BatchTask = task({
 
       const okCount = resultados.filter((r) => r.ok).length;
       const errCount = resultados.length - okCount;
-      await patch({
+      await patchCritico({
         status: 'done',
         error: null,
         result_ids: gerados.map((g) => g.cenarioId).filter(Boolean),

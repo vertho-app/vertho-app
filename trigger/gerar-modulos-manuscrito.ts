@@ -40,7 +40,7 @@ import { auditarModulosCore } from '@/lib/modulo-base-auditor';
  *
  * Declarado AQUI, na task, nunca por `retries.default` no `trigger.config.ts`
  * (o executor faz `this.task.retry ?? retriesConfig?.default`, então o default
- * alcançaria as 9 tasks sem retry, render/HeyGen inclusive).
+ * alcançaria as tasks sem retry próprio (9 então, 4 hoje), render/HeyGen inclusive).
  *
  * ⚠️ Esta foi a task que exigiu mais que as outras para o retry ficar seguro,
  * porque a idempotência dela é por EXISTÊNCIA no banco e não por chave em
@@ -136,7 +136,7 @@ export const gerarModulosManuscritoTask = task({
       const pushProgress = (current: string) => patch({ progress: { done, total, current, resultados, pulados } });
 
       if (!total) {
-        await patch({
+        await patchCritico({
           status: 'done',
           progress: { done: 0, total: 0, current: `nada a gerar (${pulados} módulo(s) já existem)`, resultados: [], pulados },
           result_ids: [],

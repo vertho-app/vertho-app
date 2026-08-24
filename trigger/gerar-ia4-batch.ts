@@ -38,7 +38,7 @@ import { IA_BATCH } from '@/lib/status';
  * falha do BATCH inteiro cai no fallback síncrono item a item.
  *
  * ✅ `retry` CONCEDIDO em 24/08, POR TASK — nunca por `retries.default` no
- * `trigger.config.ts`, que alcançaria as 9 tasks sem retry (o executor faz
+ * `trigger.config.ts`, que alcançaria as tasks sem retry próprio (9 então, 4 hoje) (o executor faz
  * `this.task.retry ?? retriesConfig?.default`).
  *
  * ⚠️ As DUAS ondas (avaliação e check) vivem sob o mesmo `jobId`, então a
@@ -110,7 +110,7 @@ export const gerarIA4BatchTask = task({
 
       const { data: respostas } = await tdb.from('respostas').select('*').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
       if (!respostas?.length && !checkOnlyIds.length) {
-        await patch({ status: 'done', progress: { done: total, total, current: 'nada a avaliar', resultados: [] } });
+        await patchCritico({ status: 'done', progress: { done: total, total, current: 'nada a avaliar', resultados: [] } });
         return { ok: true, jobId: payload.jobId, okCount: 0, errCount: 0 };
       }
 
@@ -220,7 +220,16 @@ export const gerarIA4BatchTask = task({
 
         let respostasChk = new Map<string, string>();
         const ledgerChk = { feature: 'ia4_check', empresaId, jobId: payload.jobId };
-        let batchIdChk: string | null = pp.batchIdChk ?? null;
+        /**
+         * 2ª fonte da retomada, igual à onda de GERAÇÃO acima. Faltava aqui
+         * (achado de revisão, 24/08): a onda de check tinha só `params`, então
+         * uma run morta entre submeter o lote de check e persistir o id órfanava
+         * um lote PAGO — a mesma janela que o C3 fechou do outro lado.
+         *
+         * ⚠️ A `feature` é o que separa as duas ondas do MESMO job: sem ela, a
+         * retomada do check poderia colher o lote da geração.
+         */
+        let batchIdChk: string | null = pp.batchIdChk ?? (await batchPendenteDoJob(payload.jobId, 'ia4_check'));
         try {
           // Só os NÃO checados entram no lote — é aí que está o custo de IA.
           const reqs: BatchReq[] = checks
@@ -309,7 +318,7 @@ export const gerarIA4BatchTask = task({
 
       const okCount = resultados.filter((r) => r.ok).length;
       const errCount = resultados.length - okCount;
-      await patch({
+      await patchCritico({
         status: 'done',
         error: null,
         result_ids: avaliadas.map((a) => a.resp.id),

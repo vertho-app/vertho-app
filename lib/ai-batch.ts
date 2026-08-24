@@ -152,9 +152,25 @@ export async function encerrarBatch(batchId: string, status: IaBatchStatus, erro
  * Isso é verdade sobre a API e irrelevante para o problema: quem precisa lembrar
  * do lote é o NOSSO rastro, não o fornecedor.
  *
- * Devolve o mais RECENTE ainda em 'submetido'. Nunca lança: se a consulta
- * falhar, o pior caso é o comportamento antigo (criar outro lote), e derrubar a
- * task por causa de uma tentativa de recuperação seria trocar um custo por um pior.
+ * Devolve o mais RECENTE em 'submetido' **ou 'concluido'**. Nunca lança: se a
+ * consulta falhar, o pior caso é o comportamento antigo (criar outro lote), e
+ * derrubar a task por causa de uma tentativa de recuperação seria trocar um
+ * custo por um pior.
+ *
+ * 🔴 **Por que 'concluido' também entra** (achado de revisão, 24/08). A ordem
+ * real das tasks é: colher o lote → `encerrarBatch(CONCLUIDO)` → **só então**
+ * persistir item a item. Filtrar apenas 'submetido' deixava aberta exatamente a
+ * janela que esta função existe para fechar:
+ *
+ *   1. o `patch` do `batchId` falha (a janela original);
+ *   2. a run segue com o id em memória, colhe e fecha o rastro como 'concluido';
+ *   3. a run morre antes de persistir os itens;
+ *   4. a retomada não acha `params.batchId` **nem** o rastro — e paga outro lote.
+ *
+ * Recolher um batch já concluído é GRÁTIS (a Anthropic guarda os resultados por
+ * 29 dias) e idempotente: os itens já persistidos estão na chave por item, e o
+ * `fetch` só repõe o que falta. O risco de pegar um lote de outra rodada não
+ * existe — cada disparo cria um `ia_jobs` novo, então `job_id` é único por rodada.
  *
  * ⚠️ `feature` NÃO é opcional por capricho: IA3 e IA4 submetem DUAS ondas no
  * mesmo job (geração e check). Sem o filtro, a retomada da geração poderia
@@ -167,7 +183,7 @@ export async function batchPendenteDoJob(jobId: string, feature: string): Promis
       .select('batch_id')
       .eq('job_id', jobId)
       .eq('feature', feature)
-      .eq('status', IA_BATCH.SUBMETIDO)
+      .in('status', [IA_BATCH.SUBMETIDO, IA_BATCH.CONCLUIDO])
       .order('criado_em', { ascending: false })
       .limit(1)
       .maybeSingle();

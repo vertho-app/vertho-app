@@ -122,7 +122,7 @@ export const gerarIA2BatchTask = task({
         patchCritico({ progress: { done, total, current, resultados }, result_ids: [...persistidos] });
 
       if (!pendentes.length) {
-        await patch({
+        await patchCritico({
           status: 'done', error: null, result_ids: [...persistidos],
           progress: { done: total, total, current: `nada a fazer (${jaFeitos} cargo(s) já persistidos)`, resultados: [] },
         });
@@ -235,7 +235,7 @@ export const gerarIA2BatchTask = task({
 
       const okCount = resultados.filter((r) => r.ok).length;
       const errCount = resultados.length - okCount;
-      await patch({
+      await patchCritico({
         status: 'done',
         error: null,
         result_ids: [...persistidos],
