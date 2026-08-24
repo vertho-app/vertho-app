@@ -1,0 +1,9 @@
+{
+  "description": "E3 (auditoria 22/08) — exports de action de admin sem gate server-side reconhecido. Todo export 'use server' é endpoint HTTP, então o gate do vizinho não protege este. Esta lista SÓ ENCOLHE e cada entrada exige motivo escrito. Guard: tests/unit/security/admin-actions-require-auth.test.ts",
+  "allowlist": {
+    "app/admin/_shell/actions.ts": {
+      "motivo": "loadAdminShellPermissoes é o 'quem sou eu' do shell: não recebe parâmetro nenhum, deriva tudo da SESSÃO (getAuthenticatedEmailFromAction + getUserContext) e retorna { role: null, permissions: [] } se não for platform admin. O gate É o early return `if (!ctx?.isPlatformAdmin)`, na forma de PROPRIEDADE — e o regex do guard só aceita isPlatformAdmin como CHAMADA, de propósito (a propriedade costuma ser bypass do admin dentro de uma regra maior, não a régua). Preferimos a exceção declarada a afrouxar o predicado para os outros 173 exports.",
+      "exports": ["loadAdminShellPermissoes"]
+    }
+  }
+}
