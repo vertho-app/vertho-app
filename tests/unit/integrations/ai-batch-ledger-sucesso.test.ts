@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   batches: [] as any[],
   /** Opções passadas ao `create` do batch. */
   criados: [] as any[],
+  /** Programa a falha do UPDATE de `ia_batches` (fecho do rastro). */
+  erroAoFechar: null as string | null,
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -30,7 +32,9 @@ vi.mock('@/lib/supabase', () => ({
         if (tabela === 'ia_batches') mocks.batches.push(...arr);
         return { error: null };
       },
-      update: () => ({ eq: async () => ({ error: null }) }),
+      update: () => ({
+        eq: async () => (mocks.erroAoFechar ? { error: { message: mocks.erroAoFechar } } : { error: null }),
+      }),
     }),
   }),
 }));
@@ -74,7 +78,7 @@ vi.mock('@anthropic-ai/sdk', () => ({
 
 import { createAIBatchCollector, submitClaudeBatch } from '@/lib/ai-batch';
 
-beforeEach(() => { mocks.ledger = []; mocks.batches = []; mocks.criados = []; });
+beforeEach(() => { mocks.ledger = []; mocks.batches = []; mocks.criados = []; mocks.erroAoFechar = null; });
 
 describe('C7 · o batch que SUCEDE leva a etiqueta do call-site', () => {
   it('🔴 submitClaudeBatch com ledger grava a feature do call-site, não "batch"', async () => {
@@ -120,5 +124,48 @@ describe('C7 · o batch que SUCEDE leva a etiqueta do call-site', () => {
 
     expect(texto).toBe('saida-do-lote');
     expect(mocks.ledger[0].feature, 'o collector engolia a etiqueta e gravava "batch"').toBe('kit_semanal');
+  });
+});
+
+/**
+ * A fresta que apareceu ao CORRIGIR o C2 (achada em revisão, 24/08).
+ *
+ * `encerrarBatch` é best-effort e não lança — mas engolia também o `{ error }`
+ * que o supabase-js RETORNA. Falhar em fechar o rastro produzia exatamente o
+ * estado que o C2 existe para eliminar (linha eternamente 'submetido'), e sem
+ * nenhum vestígio. Um remédio que falha em silêncio é indistinguível da doença.
+ */
+describe('encerrarBatch · falha em fechar o rastro deixa vestígio', () => {
+  it('🔴 erro do banco vira aviso — não some, e não derruba a geração', async () => {
+    mocks.erroAoFechar = 'permission denied for table ia_batches';
+    const { encerrarBatch } = await import('@/lib/ai-batch');
+
+    const avisos: string[] = [];
+    const original = console.warn;
+    console.warn = (...a: any[]) => { avisos.push(a.map(String).join(' ')); };
+    try {
+      // Não lança: fechar rastro nunca pode derrubar a geração.
+      await expect(encerrarBatch('msgbatch_x', 'concluido' as any)).resolves.toBeUndefined();
+    } finally {
+      console.warn = original;
+    }
+
+    expect(
+      avisos.some((a) => a.includes('msgbatch_x') && a.includes('permission denied')),
+      'o erro do supabase-js foi engolido — rastro preso em "submetido" sem vestígio',
+    ).toBe(true);
+  });
+
+  it('sem erro, não polui o log', async () => {
+    const { encerrarBatch } = await import('@/lib/ai-batch');
+    const avisos: string[] = [];
+    const original = console.warn;
+    console.warn = (...a: any[]) => { avisos.push(a.map(String).join(' ')); };
+    try {
+      await encerrarBatch('msgbatch_ok', 'concluido' as any);
+    } finally {
+      console.warn = original;
+    }
+    expect(avisos).toHaveLength(0);
   });
 });

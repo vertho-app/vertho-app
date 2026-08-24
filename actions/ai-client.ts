@@ -26,8 +26,10 @@ import { cookies } from 'next/headers';
 import { AppLocale, defaultLocale } from '@/i18n/routing';
 import { localeCookieName, localeLanguageName, resolveAppLocale } from '@/lib/i18n';
 import { costFromTokens } from '@/lib/ia-cost-catalog';
-// Predicados PUROS vivem em lib/: este arquivo é `'use server'` e todo export dele
-// precisa ser async — exportar predicado síncrono aqui passa no tsc e quebra o BUILD.
+// Predicados PUROS vivem em lib/. ⚠️ Este comentário dizia que o arquivo é
+// `'use server'` e que todo export precisa ser async — deixou de valer em 24/08
+// (A8, ver o cabeçalho acima). A regra de ORGANIZAÇÃO continua: predicado puro
+// mora em `lib/`, não aqui.
 import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';

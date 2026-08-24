@@ -123,10 +123,17 @@ export async function registrarBatch(batchId: string, itens: number, ledger?: { 
  */
 export async function encerrarBatch(batchId: string, status: IaBatchStatus, erro?: string) {
   try {
-    await (await sbInfra()).from('ia_batches')
+    const { error } = await (await sbInfra()).from('ia_batches')
       .update({ status, erro: erro?.slice(0, 500) ?? null, concluido_em: new Date().toISOString() })
       .eq('batch_id', batchId);
-  } catch { /* rastro é observabilidade, nunca bloqueia a geração */ }
+    // O `{ error }` do supabase-js não lança, então o `catch` abaixo nunca o
+    // via: falhar em FECHAR o rastro produzia exatamente o estado que o C2
+    // existe para eliminar — linha eternamente 'submetido' —, e em silêncio.
+    // Continua best-effort (não lança), mas agora deixa vestígio.
+    if (error) console.warn(`[ia-batch] rastro de ${batchId} não fechado:`, error.message);
+  } catch (e: any) {
+    console.warn(`[ia-batch] rastro de ${batchId} não fechado:`, e?.message);
+  }
 }
 
 export interface BatchStatus {

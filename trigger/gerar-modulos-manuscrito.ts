@@ -109,6 +109,14 @@ export const gerarModulosManuscritoTask = task({
       if (pp.pularBatch === true) {
         await pushProgress(`síncrono (batch pulado) — ${total} módulo(s)…`);
       } else {
+        // 🔴 Declarado FORA do try de propósito. Na versão anterior o id vivia
+        // dentro do bloco e o `catch` tentava fechar `pp.batchId` — que é o
+        // params ANTIGO, ainda vazio na primeira execução, porque `patch()`
+        // grava no banco mas não reatribui a variável local. Resultado: o
+        // rastro do batch recém-criado NUNCA era fechado justamente no caminho
+        // de falha, que é onde ele mais importa. É a mesma classe do C2, criada
+        // ao corrigir o C2.
+        let batchIdAtivo: string | null = pp.batchId ?? null;
         try {
           let batchId: string = pp.batchId;
           if (!batchId) {
@@ -116,6 +124,7 @@ export const gerarModulosManuscritoTask = task({
               customId: r.customId, system: r.system, user: r.user, model, maxTokens: MAX_TOKENS,
             }));
             batchId = await createClaudeBatch(batch, { ledger: { feature: 'modulo_base_autor', empresaId } });
+            batchIdAtivo = batchId;
             await patch({ params: { ...pp, batchId }, progress: { done: 0, total, current: `batch criado (${total}) — aguardando…`, resultados: [], pulados } });
           }
           // Espera destacada. Cada wait.for é checkpointado; horas de fila não
@@ -141,8 +150,7 @@ export const gerarModulosManuscritoTask = task({
           // O rastro também fecha no caminho RUIM: sem isto, falhar aqui é
           // indistinguível de batch ainda em voo.
           try {
-            const idParaFechar = pp.batchId;
-            if (idParaFechar) await encerrarBatch(idParaFechar, IA_BATCH.ERRO, e?.message);
+            if (batchIdAtivo) await encerrarBatch(batchIdAtivo, IA_BATCH.ERRO, e?.message);
           } catch { /* observabilidade nunca bloqueia o fallback */ }
         }
       }

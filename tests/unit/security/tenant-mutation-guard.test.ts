@@ -32,9 +32,10 @@ import { semComentarios } from '../../helpers/fonte';
  * e `reflection`. Zero declarado onde o número real é 27 é pior que allowlist
  * grande: a lista vazia afirmava que a classe estava fechada.
  *
- * Dos 27, 21 receberam o predicado — o tenant estava no escopo em todos — e 6
- * ficaram na allowlist COM MOTIVO, por serem jobs de plataforma (cross-tenant
- * por desenho).
+ * Dos 27, **24 receberam o predicado** — o tenant estava no escopo em todos — e
+ * **3** ficaram na allowlist COM MOTIVO, por serem jobs de plataforma
+ * (cross-tenant por desenho). O número bate com `config/tenant-mutation-allowlist.json`;
+ * se divergir de novo, é a allowlist que manda.
  *
  * ⚠️ O que ele NÃO mede, para ninguém ler cobertura demais: a régua que sanciona
  * `tdb`/`escopoTenantDaLinha` olha o RECEIVER, não o payload nem o chamador. A
