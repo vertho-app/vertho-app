@@ -32,6 +32,10 @@ const mocks = vi.hoisted(() => ({
   /** O que foi persistido em cada onda. */
   cenariosPersistidos: [] as string[],
   checksPersistidos: [] as string[],
+  /** Faz o UPDATE que grava o batchId falhar — a JANELA (na forma real: { error }). */
+  matarAntesDePersistir: false,
+  /** O que `ia_batches` responde por (job, feature) — 2ª fonte da retomada. */
+  batchNoRastro: null as string | null,
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -54,6 +58,16 @@ function criarClient() {
     update: (campos: any) => ({
       eq: async (_c: string, id: string) => {
         if (b._tabela === 'ia_jobs') {
+          // A JANELA, na forma REAL do supabase-js: RESOLVE com `{ error }`.
+          //
+          // Só a PRIMEIRA gravação do id falha — é isso que a janela é: um
+          // instante ruim, não um banco permanentemente quebrado. Matar todos os
+          // checkpoints seguintes mediria outra coisa (e derrubaria a run por um
+          // `patchCritico` posterior, escondendo o que este caso quer ver).
+          if (mocks.matarAntesDePersistir && (campos?.params?.batchIdGen || campos?.params?.batchIdChk)) {
+            mocks.matarAntesDePersistir = false;
+            return { error: { message: 'runtime morreu antes de persistir o batchId' } };
+          }
           mocks.patches.push(campos);
           mocks.jobs.set(id, { ...mocks.jobs.get(id), ...campos });
         }
@@ -81,7 +95,7 @@ vi.mock('@/lib/ai-batch', () => ({
   fetchClaudeBatchResults: async (id: string) => (String(id).startsWith('claude_1') ? mocks.respGen : mocks.respChk),
   fetchOpenAIBatchResults: async () => mocks.respChk,
   encerrarBatch: async () => undefined,
-  batchPendenteDoJob: async () => null,
+  batchPendenteDoJob: async () => mocks.batchNoRastro,
 }));
 
 vi.mock('@trigger.dev/sdk', () => ({ task: (cfg: any) => cfg, wait: { for: async () => undefined } }));
@@ -115,6 +129,8 @@ beforeEach(() => {
   mocks.cenariosPersistidos = []; mocks.checksPersistidos = [];
   mocks.respGen = new Map([['i0', '{"x":1}']]);
   mocks.respChk = new Map([['k0', '{"y":1}']]);
+  mocks.matarAntesDePersistir = false;
+  mocks.batchNoRastro = null;
 });
 
 function jobIA3(extra: any = {}) {
@@ -189,6 +205,45 @@ describe('C3 · IA3: duas ondas, dois ids persistidos', () => {
     const comChecados = mocks.patches.filter((p) => Array.isArray(p?.params?.checados) && p.params.checados.length);
     expect(comGerados.length, 'geradosPorItem só apareceu no fim — não retoma nada').toBeGreaterThan(0);
     expect(comChecados.length, 'checados só apareceu no fim — não retoma nada').toBeGreaterThan(0);
+  });
+
+  /**
+   * 5º PRÉ-REQUISITO — a falha ENTRE submeter e persistir. Manuscrito e IA2 já
+   * tinham; IA3/IA4 não, e sem ele o plano não autoriza conceder `retry`.
+   *
+   * O que se prova: falhar ao GRAVAR o id não descarta o lote pago. Antes, o
+   * erro caía no catch do bloco de batch — que trata tudo como "batch
+   * indisponível" — e desviava para o síncrono, pagando o caro por cima do que
+   * já ia entregar.
+   */
+  it('🔴 falha ao persistir o batchIdGen NÃO descarta o lote pago', async () => {
+    mocks.jobs = new Map([[JOB, jobIA3()]]);
+    mocks.matarAntesDePersistir = true;
+
+    await rodarIA3();
+
+    expect(mocks.claudeCriados, 'o lote foi criado e pago').toHaveLength(1);
+    expect(
+      mocks.sincronasGen,
+      'caiu no caminho caro por um erro de GRAVAÇÃO, com o lote entregando',
+    ).toBe(0);
+    expect(mocks.cenariosPersistidos, 'o resultado do lote não foi colhido').toHaveLength(1);
+  });
+
+  /**
+   * E o outro lado da mesma janela: se a run morre ali, o id não está em
+   * `params` — mas está no rastro (mig 225). A retomada não pode criar outro.
+   */
+  it('🔴 sem batchIdGen em params, a geração é recuperada pelo RASTRO', async () => {
+    mocks.jobs = new Map([[JOB, { ...jobIA3(), status: 'running' }]]);
+    mocks.batchNoRastro = 'claude_orfao';
+
+    await rodarIA3();
+
+    expect(
+      mocks.claudeCriados,
+      'criou lote novo ignorando o que já estava pago e registrado em ia_batches',
+    ).toHaveLength(0);
   });
 
   it('🔴 job `done` não reexecuta (aqui custaria DOIS lotes)', async () => {

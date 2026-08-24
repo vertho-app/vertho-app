@@ -33,6 +33,8 @@ const mocks = vi.hoisted(() => ({
   respostasBatch: new Map<string, string>(),
   /** O que `ia_batches` responde quando o params.batchId não foi gravado. */
   batchNoRastro: null as string | null,
+  /** customIds que foram REALMENTE ao lote. */
+  enviadosAoLote: [] as string[],
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -67,9 +69,12 @@ vi.mock('@/lib/supabase', () => ({
 vi.mock('@/lib/tenant-db', () => ({ tenantDb: () => ({ from: () => ({}) }) }));
 
 vi.mock('@/lib/ai-batch', () => ({
-  createClaudeBatch: async () => {
+  createClaudeBatch: async (reqs: any[]) => {
     const id = `msgbatch_${mocks.batchesCriados.length + 1}`;
     mocks.batchesCriados.push(id);
+    // O custo sai na SUBMISSÃO. Guardar o que foi enviado é o que separa
+    // "pulei no loop" de "não paguei" — ver o comentário no caso abaixo.
+    mocks.enviadosAoLote = reqs.map((r) => r.customId);
     return id;
   },
   pollClaudeBatch: async () => {
@@ -116,6 +121,7 @@ beforeEach(() => {
   mocks.loteConsultado = false;
   mocks.matarAntesDePersistir = false;
   mocks.batchNoRastro = null;
+  mocks.enviadosAoLote = [];
   // Por padrão o batch responde os dois cargos.
   mocks.respostasBatch = new Map([['c0', '{"a":1}'], ['c1', '{"a":2}']]);
 });
@@ -200,7 +206,7 @@ describe('C3 · IA2: a janela deixou de custar um lote (mig 225)', () => {
 });
 
 describe('C3 · IA2: chave idempotente por item', () => {
-  it('🔴 cargo já persistido é PULADO na retomada', async () => {
+  it('🔴 cargo já persistido não é regravado NEM entra no lote', async () => {
     mocks.jobs.set(JOB, {
       ...structuredClone(jobBase), status: 'running', result_ids: ['Diretor'],
     });
@@ -208,6 +214,14 @@ describe('C3 · IA2: chave idempotente por item', () => {
     await rodar();
 
     expect(mocks.gravados, 'regravou um cargo que já estava pronto').toEqual(['Coordenador']);
+    // 🔑 Pular no LOOP não basta: o custo de IA sai na SUBMISSÃO. Um item já
+    // pronto que vai ao lote é pago de novo, mesmo que a resposta seja
+    // descartada depois. Esta asserção nasceu de uma mutação no blueprint que
+    // passou verde justamente por faltar ela.
+    expect(
+      mocks.enviadosAoLote,
+      'o cargo já feito foi submetido ao lote — IA paga duas vezes',
+    ).toEqual(['c1']);
   });
 
   it('o checkpoint é INCREMENTAL — result_ids cresce durante o lote, não só no fim', async () => {
