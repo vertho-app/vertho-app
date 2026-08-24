@@ -17,7 +17,14 @@ for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
 const ANTHROPIC = env.ANTHROPIC_API_KEY;
 const SUPA = env.NEXT_PUBLIC_SUPABASE_URL;
 const SRK = env.SUPABASE_SERVICE_ROLE_KEY;
-const MODEL = 'claude-opus-4-6'; // alinhado ao prod (task conteudo_video). Preço = 4.8 ($5/$25).
+/**
+ * ⚠️ Este literal já esteve ERRADO dizendo que estava certo: até 24/08 era
+ * `claude-opus-4-6` com o comentário "alinhado ao prod", e o id não existia mais
+ * em `MODELOS_DISPONIVEIS` nem em `DEFAULT_TASK_MODELS` — foi o exemplo do D8 da
+ * auditoria de 22/08. Copiar o id do prod para um comentário é o que envelhece;
+ * a fonte viva é `lib/ai-tasks.ts` (`DEFAULT_TASK_MODELS.conteudo_video`).
+ */
+const MODEL = 'claude-opus-5'; // conferir contra DEFAULT_TASK_MODELS.conteudo_video antes de medir custo
 const MAX_TOKENS = 8000;
 const MODULE_IDS = [
   'bbcd7218-faef-4da9-9622-2464f4ab6741',

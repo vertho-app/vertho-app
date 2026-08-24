@@ -27,7 +27,7 @@
     "app/api/notifications/subscriptions/disable/route.ts": 1,
     "app/api/notifications/opened/route.ts": 1,
     "app/api/notifications/optin-event/route.ts": 1,
-    "lib/i18n-server.ts": 2,
+    "lib/i18n-server.ts": 1,
     "lib/permissions.ts": 1,
     "actions/ai-client.ts": 1,
     "lib/ai-batch.ts": 1,

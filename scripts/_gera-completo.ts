@@ -54,7 +54,9 @@ log('gerando roteiro (Opus 4.6 + thinking)…');
 const res = await fetch('https://api.anthropic.com/v1/messages', {
   method: 'POST',
   headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-  body: JSON.stringify({ model: 'claude-opus-4-6', max_tokens: MAXTOK, thinking: { type: 'enabled', budget_tokens: THINK }, system, messages: [{ role: 'user', content: user }] }),
+  // `{type:'enabled', budget_tokens}` foi removido na geracao 5 (400) e
+  // `claude-opus-4-6` nao existe mais. Ver ia-request-cru-guard.
+  body: JSON.stringify({ model: 'claude-opus-5', max_tokens: MAXTOK, thinking: { type: 'adaptive' }, system, messages: [{ role: 'user', content: user }] }),
 });
 const j: any = await res.json();
 if (!res.ok) throw new Error('anthropic ' + res.status + ': ' + JSON.stringify(j).slice(0, 300));

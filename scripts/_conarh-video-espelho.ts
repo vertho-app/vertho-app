@@ -285,9 +285,11 @@ async function main() {
     method: 'POST',
     headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-opus-4-6',
+      model: 'claude-opus-5',
       max_tokens: 16000,
-      thinking: { type: 'enabled', budget_tokens: 8000 },
+      // Geracao 5 removeu `{type:'enabled', budget_tokens}` (400). Ver
+      // tests/unit/integrations/ia-request-cru-guard.test.ts.
+      thinking: { type: 'adaptive' },
       system,
       messages: [{ role: 'user', content: user }],
     }),

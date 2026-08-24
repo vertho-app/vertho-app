@@ -136,7 +136,7 @@ async function main() {
   log('módulo:', m.titulo);
   const { system, user } = buildRoteiroPrompt(modulo);
   log('gerando roteiro (Opus 4.6 + thinking)…');
-  const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: 'claude-opus-4-6', max_tokens: 16000, thinking: { type: 'enabled', budget_tokens: 8000 }, system, messages: [{ role: 'user', content: user }] }) });
+  const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': ANTHROPIC, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: 'claude-opus-5', max_tokens: 16000, thinking: { type: 'adaptive' }, system, messages: [{ role: 'user', content: user }] }) });
   const j: any = await r.json();
   if (!r.ok) throw new Error('anthropic ' + r.status + ': ' + JSON.stringify(j).slice(0, 300));
   const roteiro: any = normalizarRoteiro(parseRoteiro((j.content || []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join(''))!);

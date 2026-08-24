@@ -12,13 +12,25 @@ function makeRequest(ip: string = '1.2.3.4'): Request {
 // in-memory — é esse comportamento que estes testes cobrem.
 
 describe('createRateLimiter', () => {
+  /**
+   * E4 (auditoria de 22/08): o identificador era `allow-test-${Math.random()}`,
+   * e o balde do fallback e keyed POR identificador — o laco afirmava tres vezes
+   * "a primeira request de uma chave nova passa", nao "tres passam". Provado por
+   * mutacao: com maxRequests 3 -> 1 ele continuava VERDE.
+   *
+   * Com a chave FIXA, a terceira ainda passa e a quarta bloqueia — que e o que
+   * a frase do titulo promete.
+   */
   it('permite ate maxRequests dentro da window', async () => {
     const limiter = createRateLimiter({ maxRequests: 3, windowMs: 60_000 });
     const req = makeRequest('test-allow-1');
+    const id = `allow-test-${Date.now()}`;
 
     for (let i = 0; i < 3; i++) {
-      expect(await limiter.check(req, `allow-test-${Math.random()}`)).toBeNull();
+      expect(await limiter.check(req, id), `a request ${i + 1} de 3 foi bloqueada`).toBeNull();
     }
+    // E a de numero 4 tem que bloquear — senao "ate maxRequests" nao mede teto.
+    expect(await limiter.check(req, id), 'passou da 4a com maxRequests=3').not.toBeNull();
   });
 
   it('retorna 429 apos exceder maxRequests', async () => {

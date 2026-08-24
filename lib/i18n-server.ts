@@ -43,24 +43,41 @@ export async function getTenantDefaultLocaleBySlug(slug: string | null | undefin
   }
 }
 
+/**
+ * Locale da pessoa: o dela, senão o default da empresa DELA.
+ *
+ * ── B13 (auditoria de 22/08): era `.eq('email')` + `.limit(1)` ────────────
+ *
+ * Consultar `colaboradores` por e-mail sem escopo de tenant é o padrão que o
+ * CLAUDE.md proíbe, e o `.limit(1)` sem `order` por cima deixava o planner
+ * escolher a linha: para quem existe em 2+ empresas, qual empresa responde é
+ * sorteio. `Medido em 24/08:` **os 3 platform admins têm cadastro em 2 a 4
+ * empresas** — não é hipótese.
+ *
+ * Aqui o pior sintoma é barato (a interface abre em pt-PT em vez de pt-BR, ou
+ * vice-versa — o app roda os dois desde a mig 114). O valor de fechar é tirar
+ * da base mais uma cópia da régua errada: o mesmo `.eq('email')` sem tenant,
+ * noutro consumidor, decide AUTORIZAÇÃO.
+ *
+ * `findColabByEmail` resolve o tenant pelo cookie/header e é **fail-closed**
+ * quando não consegue: e-mail ambíguo sem tenant resolvido devolve null em vez
+ * de escolher um. Aqui isso significa "não gravo cookie de locale" — a request
+ * segue com o default do tenant, que é o certo. Antes, sortear a empresa
+ * gravava um cookie de 1 ano com o idioma da empresa errada.
+ */
 export async function getLocaleForEmail(email: string | null | undefined): Promise<AppLocale | null> {
   if (!email) return null;
 
   try {
-    const sb = createSupabaseAdmin();
-    const { data, error } = await sb
-      .from('colaboradores')
-      .select('locale, empresas(default_locale)')
-      .eq('email', email.trim().toLowerCase())
-      .limit(1)
-      .maybeSingle();
+    const { findColabByEmail } = await import('@/lib/authz');
+    const colab = await findColabByEmail(email, 'locale, empresa_id, empresas(default_locale)') as any;
+    if (!colab) return null;
 
-    if (error) return null;
-    const empresaLocale = Array.isArray((data as any)?.empresas)
-      ? (data as any)?.empresas?.[0]?.default_locale
-      : (data as any)?.empresas?.default_locale;
+    const empresaLocale = Array.isArray(colab.empresas)
+      ? colab.empresas?.[0]?.default_locale
+      : colab.empresas?.default_locale;
 
-    return resolveAppLocale((data as any)?.locale, empresaLocale);
+    return resolveAppLocale(colab.locale, empresaLocale);
   } catch {
     return null;
   }

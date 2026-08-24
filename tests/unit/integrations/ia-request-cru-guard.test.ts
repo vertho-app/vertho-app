@@ -38,6 +38,35 @@ import { join, relative, sep } from 'node:path';
 
 const RAIZ = join(__dirname, '..', '..', '..');
 const DIRS = ['actions', 'lib', 'app', 'trigger', 'components'];
+
+/**
+ * ── D4/C8 (auditoria de 22/08), medidos em 24/08 ──────────────────────────
+ *
+ * Os dois achados diziam que a guarda não varria `scripts/` e `workers/`, e os
+ * dois foram REFUTADOS por alcance ("script não vai a produção"). Ao medir, a
+ * refutação acertou uma e errou a outra:
+ *
+ *  · **`worker-hetzner/` não tem alvo.** O único request cru dele
+ *    (`personalizar.mjs`) é TTS do Gemini — a modalidade que a decisão de 11/08
+ *    declara legítima, porque `callAI` só transporta texto. Sem parâmetro de
+ *    raciocínio, sem risco de troca de geração. **C8 refutado, corretamente.**
+ *
+ *  · **`scripts/` tem alvo, e é o formato MORTO.** Três scripts versionados
+ *    montam `thinking: { type: 'enabled', budget_tokens }` — exatamente o que a
+ *    geração 5 removeu e que custou 5 dias de vídeo zerado. Dois deles ainda
+ *    pedem `claude-opus-4-6`, id que não existe em `MODELOS_DISPONIVEIS` nem em
+ *    `DEFAULT_TASK_MODELS`. Eles não vão a produção — **quebram quando alguém
+ *    os roda**, com um 400 da API que não diz "seu formato é de outra geração".
+ *
+ * E a premissa "script não roda em produção" é falsa nesta base: as 10 execuções
+ * de score do Radar saíram de `scripts/radarempresas-score.ts`, contra o banco
+ * de produção (medido em 24/08, achado B7).
+ *
+ * Por isso `scripts/` entra APENAS no invariante 2 (parâmetro de raciocínio), que
+ * é o sinal que separa risco de rotina. O invariante 1 continua fora: script que
+ * fala HTTP cru com a Anthropic para medir custo/latência é o uso legítimo deles.
+ */
+const DIRS_RACIOCINIO = [...DIRS, 'scripts'];
 const IGNORAR = new Set(['node_modules', '.next', '.git', 'dist', 'build']);
 
 // Allowlists de DÍVIDA DECLARADA: só podem ENCOLHER. Acrescentar arquivo aqui para
@@ -76,10 +105,13 @@ function varrer(dir: string, saida: string[] = []): string[] {
 
 // Varre o DIRETÓRIO, não `git ls-files`: arquivo novo nasce untracked, e é
 // justamente nessa janela que alguém cola um `fetch` de exemplo da documentação.
-const ARQUIVOS = DIRS.flatMap((d) => varrer(join(RAIZ, d))).map((caminho) => ({
+const ler = (caminho: string) => ({
   rel: relative(RAIZ, caminho).split(sep).join('/'),
   texto: readFileSync(caminho, 'utf8'),
-}));
+});
+const ARQUIVOS = DIRS.flatMap((d) => varrer(join(RAIZ, d))).map(ler);
+/** Escopo do invariante 2: o de produção MAIS `scripts/` — ver o bloco no topo. */
+const ARQUIVOS_RACIOCINIO = DIRS_RACIOCINIO.flatMap((d) => varrer(join(RAIZ, d))).map(ler);
 
 describe('IA · nenhum request cru de Anthropic fora do wrapper', () => {
   it('há arquivos para varrer (a guarda não pode passar por varrer zero)', () => {
@@ -104,7 +136,7 @@ describe('IA · nenhum request cru de Anthropic fora do wrapper', () => {
     // Com dois-pontos: casa atribuição real e ignora as menções em comentário/prosa,
     // que são desejáveis — é assim que a lição fica no código.
     const VOCABULARIO = /(?:budget_tokens|thinkingBudget|thinkingConfig|reasoning_effort)\s*:/;
-    const infratores = ARQUIVOS
+    const infratores = ARQUIVOS_RACIOCINIO
       .filter((a) => VOCABULARIO.test(a.texto))
       .map((a) => a.rel)
       .filter((rel) => !PODE_DECIDIR_RACIOCINIO.includes(rel) && !EH_CONTEUDO(rel));
