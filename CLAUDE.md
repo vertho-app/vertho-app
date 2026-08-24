@@ -455,6 +455,12 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   nenhuma tela do `/admin` apontava para o v2), e **destino que ninguém encontra não é caminho** — o
   atalho novo nasceu como ícone cinza de 14px entre outros dois iguais, e o dono não o achou na tela
   que ele mesmo pediu. Detalhe: `docs/ARQUITETURA.md` §3.1.3.
+- NÃO rodar **`npm audit fix --omit=dev`**. A flag filtra o que ele AUDITA e ele reescreve o
+  `package-lock.json` INTEIRO — sem as devDependencies. Medido 24/08: 797 inserções/1.351
+  deleções no lock, `tsc` sumindo e build com exit 1; e restaurar o lock não basta, porque o
+  `node_modules` passa a falhar em cadeia com `ENOTEMPTY` (o conserto é renomear a pasta e
+  `npm ci`). Para triar sem tocar em nada: `npm audit --omit=dev --json` e `--dry-run`.
+  Gatilho §`npm audit` da skill `checklist`.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
