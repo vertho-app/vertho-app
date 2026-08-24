@@ -1,0 +1,1398 @@
+{
+  "description": "E11 (auditoria 22/08) — estoque CONGELADO da classe \"error não checado\": o supabase-js retorna { data, error } e não lança, então quem ignora o retorno vira falha silenciosa. Chave = arquivo, valor = fingerprints (hash do trecho normalizado). Por fingerprint e não por contagem porque contagem deixa a dívida TROCAR DE LUGAR sem o guard ver (modo de falha documentado no E8). Esta lista SÓ ENCOLHE. Guard: tests/unit/security/error-nao-checado-guard.test.ts",
+  "total_declarado": 1004,
+  "gerado_em": "2026-08-24",
+  "allowlist": {
+    "actions/adequacao-cargo.ts": {
+      "61f066c7": 1,
+      "b9910499": 1
+    },
+    "actions/ai-client.ts": {
+      "1dd9f9dd": 1
+    },
+    "actions/assessment-descritores.ts": {
+      "6b230360": 1,
+      "98cbedbb": 1,
+      "f98842b4": 1
+    },
+    "actions/automacao-envios.ts": {
+      "4d3040e3": 1,
+      "ce11f50d": 1
+    },
+    "actions/blueprint.ts": {
+      "049bb8f4": 1,
+      "0a57d84d": 1,
+      "78d2f013": 1
+    },
+    "actions/bunny-stats.ts": {
+      "1b2d4e6e": 1,
+      "27c54c69": 1
+    },
+    "actions/calibracao.ts": {
+      "02d7cec1": 1,
+      "4d9be4a6": 1,
+      "80b217cb": 1,
+      "886e56ed": 1,
+      "a5ea6b3e": 1,
+      "ca246a88": 1,
+      "ef456102": 1
+    },
+    "actions/cargo-extracao.ts": {
+      "388e7f7c": 1,
+      "3afcf321": 1,
+      "7b58d2da": 1
+    },
+    "actions/certificado.ts": {
+      "287ee659": 1
+    },
+    "actions/competencias.ts": {
+      "a8b94292": 1
+    },
+    "actions/conteudos-metrics.ts": {
+      "4b63283f": 1,
+      "50a0d832": 1,
+      "9dec8fca": 1
+    },
+    "actions/conteudos.ts": {
+      "72337421": 1,
+      "13cdcd60": 1,
+      "399c957d": 1,
+      "3abedcbc": 1,
+      "569b7319": 1,
+      "663ce42b": 1,
+      "84bd27bd": 1,
+      "8bb168e4": 1,
+      "8f05c842": 1,
+      "98fcadb3": 1,
+      "c0fe4fb0": 1,
+      "ea5875c9": 1,
+      "ee7c6630": 1
+    },
+    "actions/cron-jobs.ts": {
+      "83679298": 1,
+      "33ceee70": 1,
+      "382e9de9": 1,
+      "5c1262c3": 1,
+      "62b20f68": 1,
+      "8a709cd0": 1,
+      "9053b583": 1,
+      "9d35543f": 1,
+      "bf207f79": 1,
+      "bfe74dea": 1,
+      "e9e3bc1d": 1,
+      "f1fc9912": 1,
+      "f2dad0f6": 2
+    },
+    "actions/dna-organizacional.ts": {
+      "ff42a1aa": 1
+    },
+    "actions/engajamento.ts": {
+      "6d0de3ab": 1,
+      "a2c4666d": 1
+    },
+    "actions/escolas.ts": {
+      "013cbd0f": 1,
+      "26cc3ed0": 1,
+      "7208c3b7": 1,
+      "72646ec4": 1,
+      "758d9044": 1,
+      "a1aa90c3": 1,
+      "a5ac77ce": 1,
+      "b0c5f7ba": 1,
+      "b4a07eca": 1
+    },
+    "actions/evolucao-granular.ts": {
+      "337494e4": 1
+    },
+    "actions/evolution-report.ts": {
+      "0abb7cb9": 1,
+      "89f912e0": 1,
+      "b994f7fb": 1
+    },
+    "actions/extracao-video.ts": {
+      "222e516f": 2,
+      "3e0f9ca4": 3,
+      "6d375774": 1,
+      "b0e90130": 1,
+      "bb78ba69": 1,
+      "fd2607e2": 1
+    },
+    "actions/fase1.ts": {
+      "016b7d92": 1,
+      "072253c6": 1,
+      "0bcf344e": 1,
+      "1e41e9a0": 1,
+      "24b230ad": 1,
+      "286da176": 1,
+      "2c1e5715": 1,
+      "30dc57b7": 1,
+      "3bb8386f": 1,
+      "5bd7d988": 1,
+      "614be2a2": 1,
+      "67cbfe85": 1,
+      "69c24480": 1,
+      "88e370e1": 1,
+      "9bd6f606": 1,
+      "9c385bdd": 1,
+      "9ca8b0ce": 1,
+      "9f809dd7": 1,
+      "afab8e84": 1,
+      "bf5b0464": 1,
+      "c140b9d9": 1,
+      "d8793ea7": 1,
+      "e5e90a40": 1,
+      "ef1c0373": 1,
+      "f25fced0": 1,
+      "f95f7067": 1,
+      "fad8c177": 1
+    },
+    "actions/fase2.ts": {
+      "1a6a384e": 1,
+      "204586c9": 1,
+      "284f261d": 1,
+      "28b46fe5": 1,
+      "5ad18789": 1,
+      "682c95f4": 1,
+      "976d8f78": 1,
+      "ce11f50d": 1
+    },
+    "actions/fase3.ts": {
+      "041942bf": 1,
+      "04ebf81e": 1,
+      "63a8b14a": 1,
+      "783e8255": 2,
+      "a42e4ef0": 1,
+      "b601d527": 1,
+      "cfd1de7b": 1,
+      "d9a8903a": 1
+    },
+    "actions/fase4.ts": {
+      "07f35498": 1,
+      "18a07841": 1,
+      "1bec12ad": 1,
+      "25d0af13": 1,
+      "4b3909a6": 1,
+      "50f35d2d": 1,
+      "7fef1092": 1,
+      "9473348d": 1,
+      "99b040ac": 1,
+      "9f3a86c8": 1,
+      "ad117fd0": 1,
+      "bfab053d": 1,
+      "dac6701f": 1,
+      "ed557c8d": 1,
+      "fa52682e": 1
+    },
+    "actions/fase5/cenarios-b.ts": {
+      "37391c49": 1,
+      "390cdcf0": 1,
+      "63fed0c1": 1,
+      "72e290ff": 1,
+      "7bf74a56": 1,
+      "7da1123a": 1,
+      "847c3cb6": 1,
+      "93aa2390": 1,
+      "9bbcd604": 1,
+      "a93bef11": 1,
+      "b0345fa0": 1,
+      "b9d39749": 1,
+      "cfa6f050": 1,
+      "d0eddb9e": 1,
+      "d368053d": 1,
+      "de0cd495": 1,
+      "e42fb649": 1,
+      "e6c0de43": 1
+    },
+    "actions/fase5/evolucao.ts": {
+      "011084af": 1,
+      "79ed6cbc": 1,
+      "8011ae13": 1,
+      "8e7174da": 1,
+      "9ffea742": 1,
+      "a93bef11": 2,
+      "adc1e03a": 1,
+      "df755a54": 1,
+      "e02f70ff": 1
+    },
+    "actions/fase5/reavaliacao.ts": {
+      "91186103": 1,
+      "08c3675c": 1,
+      "19f90a25": 1,
+      "59e41313": 1,
+      "62b29aff": 1,
+      "7df6bad3": 1,
+      "96ce60d0": 1,
+      "b86389b8": 1,
+      "e02f70ff": 1
+    },
+    "actions/fase5/relatorios-envios.ts": {
+      "96144237": 1,
+      "09efc98c": 1,
+      "3100de4a": 1,
+      "43f1d281": 2,
+      "bb4b553c": 2,
+      "d62ff87e": 1,
+      "e193df52": 1,
+      "e6c0de43": 1,
+      "f6d1f93e": 1,
+      "f9c88fec": 1,
+      "fc84d150": 3
+    },
+    "actions/fit-v2.ts": {
+      "10fb73c1": 1,
+      "1ad0ad39": 1,
+      "21d59bcf": 1,
+      "497413ff": 1,
+      "4c286c9d": 1,
+      "5b3740f8": 1,
+      "6f877367": 1,
+      "73b8ffa0": 1,
+      "9d56cf8f": 1,
+      "a3aecca3": 1,
+      "afde9148": 1,
+      "b99d6d55": 1,
+      "bf778af6": 1,
+      "d492edcc": 1,
+      "fb241015": 1
+    },
+    "actions/gerar-video.ts": {
+      "24920ae5": 1,
+      "2ffea0ba": 1,
+      "33784cd0": 1,
+      "52ebfa98": 1,
+      "57054b15": 1,
+      "57b9cd61": 1,
+      "5de63ede": 1,
+      "5f60facb": 1,
+      "7884862b": 1,
+      "9cee65b2": 1,
+      "c6130c85": 1,
+      "ca768a6a": 1
+    },
+    "actions/ia-pipeline-batch.ts": {
+      "2d6840bc": 4,
+      "3721fd50": 1,
+      "4ff683bc": 1,
+      "52bc884a": 1,
+      "537abfb5": 1,
+      "6e7df88a": 1,
+      "b21e2a78": 1,
+      "b929e71a": 1,
+      "c8cd0521": 1,
+      "e2af6848": 1
+    },
+    "actions/kits.ts": {
+      "921804a5": 1,
+      "ecaba035": 1
+    },
+    "actions/manuscrito-batch.ts": {
+      "2d6840bc": 1,
+      "61e748bf": 1,
+      "743f19ba": 1
+    },
+    "actions/modulos-base.ts": {
+      "0113075a": 1,
+      "0e1b26bf": 1,
+      "0e9649c3": 1,
+      "1a3550ba": 1,
+      "2d69cf1f": 1,
+      "36fc1610": 1,
+      "3b393858": 1,
+      "62f7cf23": 1,
+      "83c28795": 1,
+      "8a6ae7a1": 1,
+      "90235a88": 1,
+      "a3eff90d": 1,
+      "ad9b4494": 1,
+      "b47356d5": 1,
+      "bbcaa004": 1,
+      "bc8f3c38": 1,
+      "c36ba973": 1,
+      "d76e8fee": 1,
+      "dcebcaf2": 1
+    },
+    "actions/onboarding.ts": {
+      "8cbbb433": 1,
+      "d3f082b6": 1
+    },
+    "actions/perfil-externo.ts": {
+      "31796407": 1,
+      "4841895e": 1,
+      "4f62cc4a": 1,
+      "c08fb79e": 2,
+      "cd23e773": 1,
+      "f5050345": 2
+    },
+    "actions/perfil-organizacional.ts": {
+      "b9910499": 1
+    },
+    "actions/ppp.ts": {
+      "868d0eae": 1,
+      "dac6701f": 1
+    },
+    "actions/preferencias-aprendizagem.ts": {
+      "975e1ce1": 1
+    },
+    "actions/pulse/admin.ts": {
+      "13624425": 1,
+      "0dd0cc04": 1,
+      "0e3090b0": 1,
+      "12597db2": 1,
+      "47f41408": 2,
+      "a1d4e217": 1,
+      "b6c4f045": 1,
+      "c051245a": 1,
+      "cedf8bf1": 1,
+      "feefbd97": 1
+    },
+    "actions/pulse/classify.ts": {
+      "03b97105": 1,
+      "271c12bb": 1,
+      "687049ba": 1,
+      "b4763c89": 1
+    },
+    "actions/pulse/dashboard.ts": {
+      "22083600": 1,
+      "56c33887": 1,
+      "654976e5": 1,
+      "7911a36a": 1,
+      "a7c6b6bb": 1,
+      "f168b7fe": 1
+    },
+    "actions/pulse/envio.ts": {
+      "0d4b884b": 1,
+      "63fca31c": 1,
+      "6d359217": 1,
+      "a24479cc": 1,
+      "a7c6b6bb": 1,
+      "b749b3cf": 1,
+      "bbbc82e2": 1
+    },
+    "actions/pulse/export.ts": {
+      "4f39cf6e": 1,
+      "df0fdf7f": 1,
+      "e0db212d": 1
+    },
+    "actions/pulse/responder.ts": {
+      "3a746f37": 1,
+      "4a73f0c1": 1,
+      "7bf393bb": 1,
+      "838515cb": 1,
+      "94caed33": 1,
+      "a7736379": 1,
+      "bb936023": 2,
+      "e67305bb": 2
+    },
+    "actions/pulse/signals.ts": {
+      "09e0ef30": 1,
+      "471d265a": 1,
+      "7d688042": 1,
+      "9d057dfb": 1,
+      "adda6aad": 1
+    },
+    "actions/radarempresas/busca.ts": {
+      "3e6f440f": 1,
+      "7acd568f": 1,
+      "92e4db50": 1,
+      "9776c337": 1,
+      "aa5a556f": 1,
+      "c2bef6c2": 1,
+      "c76c313c": 1,
+      "d76a0543": 1,
+      "dd949138": 1,
+      "f6a22197": 1,
+      "f90c11fd": 1
+    },
+    "actions/radarempresas/listas.ts": {
+      "1d1262c3": 1,
+      "479261d4": 1,
+      "528e0dff": 1,
+      "776f741e": 1,
+      "cfe2a303": 1
+    },
+    "actions/radarempresas/scoring.ts": {
+      "01879394": 1,
+      "1ba16411": 1,
+      "2a93e231": 1,
+      "33ecb0c1": 1,
+      "34b9a5ee": 1,
+      "421b7484": 1,
+      "9baf1c75": 1
+    },
+    "actions/recalcular-impacto-conteudo.ts": {
+      "58e5c517": 1,
+      "f871f0a6": 1
+    },
+    "actions/relatorios-load.ts": {
+      "d9a8903a": 1
+    },
+    "actions/relatorios.ts": {
+      "16d45e67": 1,
+      "16d6c03f": 1,
+      "22a0fe95": 1,
+      "3d50bbe9": 1,
+      "4dc4d5f8": 1,
+      "6e527704": 1,
+      "85f1a777": 1,
+      "902d9c6e": 1,
+      "970d6a46": 1,
+      "a93bef11": 2,
+      "a9bb4b27": 1,
+      "bc80118d": 1,
+      "e50c215c": 1,
+      "ea89a8f9": 1,
+      "f95f7067": 1
+    },
+    "actions/sales/accounts.ts": {
+      "0c789f36": 1,
+      "34ccc2da": 1,
+      "cf077f86": 1,
+      "d6fbaef0": 1,
+      "e1c779cf": 1
+    },
+    "actions/sales/ai-assistant.ts": {
+      "ac8faa77": 1
+    },
+    "actions/sales/commissions-admin.ts": {
+      "922f2fe7": 1
+    },
+    "actions/sales/commissions.ts": {
+      "d33ec948": 1
+    },
+    "actions/sales/contacts.ts": {
+      "39308d17": 1,
+      "4d1f3e69": 1,
+      "5d82ac02": 1,
+      "5f061fb3": 1,
+      "66d3f2ba": 1
+    },
+    "actions/sales/demo-access.ts": {
+      "2978a271": 1,
+      "b7bfe044": 1
+    },
+    "actions/sales/opportunities.ts": {
+      "28490308": 1,
+      "18ce8779": 1,
+      "2282e28d": 1,
+      "49a7de40": 1,
+      "5d82ac02": 1,
+      "9620d1ec": 1,
+      "c50fded3": 1,
+      "dd3cd5f5": 1,
+      "ea86415d": 1,
+      "f12028b2": 1
+    },
+    "actions/sales/proposal-share.ts": {
+      "01ac7eff": 1,
+      "31ebf964": 1,
+      "c96b28a0": 1
+    },
+    "actions/sales/proposals.ts": {
+      "86060834": 3,
+      "1978cf68": 1,
+      "2b9adb28": 1,
+      "3a7c539f": 1,
+      "3ed84f3e": 1,
+      "466b04cf": 1,
+      "50f5e08b": 1,
+      "613bb655": 1,
+      "7cae6edb": 1,
+      "895f8f66": 1,
+      "897d3b9d": 1,
+      "acf095aa": 1,
+      "b51108d9": 1,
+      "cdcc9787": 1,
+      "e3f79bb8": 1,
+      "f4a22141": 3
+    },
+    "actions/sales/representatives.ts": {
+      "675c76e7": 1
+    },
+    "actions/selecao.ts": {
+      "0448b8fc": 1,
+      "5cbd41d8": 1,
+      "7211642e": 1,
+      "806c533e": 1,
+      "c8ad0be3": 1
+    },
+    "actions/simulador-conversas.ts": {
+      "76440380": 1,
+      "11ee898e": 1,
+      "2c8ce7c1": 1,
+      "759a5edb": 1,
+      "b3337e52": 1,
+      "d298930b": 1
+    },
+    "actions/simulador-disc.ts": {
+      "e7866233": 1
+    },
+    "actions/temporada-concluida.ts": {
+      "07e23095": 1,
+      "5e019a11": 1
+    },
+    "actions/temporadas.ts": {
+      "29122773": 1,
+      "0032061f": 1,
+      "04ca9f6f": 1,
+      "084cb575": 1,
+      "1d70e8d7": 1,
+      "20cea226": 1,
+      "52ce48c9": 1,
+      "5d86b0ad": 1,
+      "775acf0d": 1,
+      "8897f92e": 1,
+      "8bfac515": 1,
+      "99c8a033": 1,
+      "a9a66086": 1,
+      "b9ba62cb": 1,
+      "ba9a56b9": 1,
+      "c4b2c987": 1,
+      "cfdc3b07": 1,
+      "d8fdae90": 1,
+      "e0dee08e": 1,
+      "e7cf2fe9": 1,
+      "e9c349c3": 1,
+      "f89c0147": 1
+    },
+    "actions/trilhas-load.ts": {
+      "54ad87a6": 1,
+      "9473348d": 1,
+      "c32f9cbe": 1
+    },
+    "actions/turmas.ts": {
+      "1b4d0930": 1,
+      "41d0a2ce": 1,
+      "9574a8cc": 1,
+      "e9072048": 1
+    },
+    "actions/tutor-evidencia.ts": {
+      "d90da0d6": 1,
+      "d9548879": 1,
+      "da428cd2": 1,
+      "f1686d94": 1
+    },
+    "actions/video-analytics.ts": {
+      "da3a2b6e": 1
+    },
+    "actions/video-tracking.ts": {
+      "000f4b62": 1,
+      "5d96e526": 1,
+      "6ecd17c6": 1,
+      "fe5b6645": 1
+    },
+    "actions/votacao.ts": {
+      "3286b61d": 1,
+      "40e3d648": 1,
+      "62d0124b": 1,
+      "695a69ba": 1,
+      "cbbdc6f4": 1,
+      "e5af1001": 4
+    },
+    "actions/whatsapp-lote.ts": {
+      "879cc8b8": 1,
+      "c7ede391": 1,
+      "ce11f50d": 2
+    },
+    "app/actions/beto.ts": {
+      "2760953d": 1,
+      "37aea91e": 1,
+      "d3e07e0a": 1
+    },
+    "app/admin-v2/actions.ts": {
+      "4bbab016": 1,
+      "b9fc56fb": 1
+    },
+    "app/admin-v2/cliente/inbox-actions.ts": {
+      "9feaf6af": 1,
+      "d5290d50": 1,
+      "f2a64779": 1
+    },
+    "app/admin-v2/cliente/planos-actions.ts": {
+      "f4d4a967": 1
+    },
+    "app/admin-v2/inbox/inbox-actions.ts": {
+      "26aecdc6": 2
+    },
+    "app/admin/auditoria/actions.ts": {
+      "ffd5700e": 1
+    },
+    "app/admin/cargos/actions.ts": {
+      "0b2aab6f": 1,
+      "20ac337b": 1,
+      "4b04cfb8": 1,
+      "7d5e0c0f": 1,
+      "86b2d58e": 1,
+      "ad0cbc50": 1,
+      "e3d0fd14": 2,
+      "f9abb5f7": 1
+    },
+    "app/admin/competencias/actions.ts": {
+      "02f2b0df": 1,
+      "9a6bfa9e": 1,
+      "cde0b78f": 1
+    },
+    "app/admin/empresas/[empresaId]/actions.ts": {
+      "2f042ab7": 1,
+      "45fe1a10": 1,
+      "51eafa21": 1,
+      "73ba3400": 1,
+      "7e50c1b5": 1,
+      "9fb122f5": 1,
+      "aadee628": 1,
+      "b93527ef": 1,
+      "db052a0e": 1,
+      "e8e75dc4": 1
+    },
+    "app/admin/empresas/[empresaId]/configuracoes/actions.ts": {
+      "03f67dcf": 1,
+      "12452c4f": 1,
+      "4ab1f5eb": 1,
+      "4f5825f1": 1,
+      "63feb438": 1,
+      "70b348de": 1,
+      "e6a657a2": 1,
+      "ef8f0afc": 2
+    },
+    "app/admin/empresas/gerenciar/actions.ts": {
+      "393993c4": 1,
+      "7efe1b0d": 1,
+      "a94f50b4": 1,
+      "e01d7214": 1,
+      "f7e9d33f": 2,
+      "ff699891": 1
+    },
+    "app/admin/permissoes/actions.ts": {
+      "9032cf56": 1
+    },
+    "app/admin/platform-admins/actions.ts": {
+      "8fb3ba81": 1,
+      "c92b8c38": 1,
+      "e498f587": 2
+    },
+    "app/admin/ppp/actions.ts": {
+      "0bbb5d1e": 1,
+      "2a73581d": 1,
+      "94219c5e": 1
+    },
+    "app/admin/radar/actions.ts": {
+      "8ab4c723": 1
+    },
+    "app/admin/radar/funnel-bett/actions.ts": {
+      "8bc185dd": 1,
+      "ca93fdab": 1
+    },
+    "app/admin/radar/funnel/page.tsx": {
+      "1884ff57": 1,
+      "7f3a93a6": 1,
+      "c91e5287": 1
+    },
+    "app/admin/radar/qualidade-dados/page.tsx": {
+      "38a788b9": 1,
+      "ebc72c5c": 1
+    },
+    "app/admin/vertho/auditoria-sem14/actions.ts": {
+      "26b964ef": 1,
+      "5b1df2ba": 1,
+      "5b305c0d": 1,
+      "789855e8": 1,
+      "7ab87ce2": 1,
+      "dbcd4afd": 1
+    },
+    "app/admin/vertho/avaliacao-acumulada/actions.ts": {
+      "d312f45c": 1
+    },
+    "app/admin/vertho/knowledge-base/actions.ts": {
+      "6e1d58d7": 1,
+      "8793d8d6": 1,
+      "fc779f9a": 1
+    },
+    "app/admin/whatsapp/actions.ts": {
+      "0b0a728c": 1,
+      "1d2ff68e": 1,
+      "462c3971": 1,
+      "cfbad400": 2,
+      "f1624219": 3,
+      "f3474169": 2
+    },
+    "app/api/assessment/route.ts": {
+      "32499fc6": 1,
+      "4cfb4524": 1,
+      "d98909b8": 1,
+      "e3a07149": 1,
+      "fcd9560e": 1
+    },
+    "app/api/auth/cargos/route.ts": {
+      "8bcdd6dd": 1,
+      "a9018753": 1
+    },
+    "app/api/auth/check-email/route.ts": {
+      "5a563372": 1,
+      "94edfd03": 1,
+      "fe4ccafa": 1
+    },
+    "app/api/auth/magic-link-whatsapp/route.ts": {
+      "a2625321": 1,
+      "b58ba3ab": 1
+    },
+    "app/api/auth/magic-link/route.ts": {
+      "0215ca60": 1,
+      "084cbc0d": 1,
+      "33478f20": 1,
+      "72cd557c": 1,
+      "bb3d919a": 1,
+      "e80780a7": 1
+    },
+    "app/api/auth/phone-magic-link/request/route.ts": {
+      "a7015c67": 1,
+      "a93aec4b": 1,
+      "b2606245": 1
+    },
+    "app/api/auth/phone-otp/request/route.ts": {
+      "b2606245": 1,
+      "f9747bfd": 1
+    },
+    "app/api/auth/phone-otp/verify/route.ts": {
+      "75e8121e": 1,
+      "8bcdd6dd": 1,
+      "a7015c67": 1
+    },
+    "app/api/auth/signup/route.ts": {
+      "3348a35a": 1,
+      "7bdfd4a0": 1
+    },
+    "app/api/cenarios/route.ts": {
+      "37f87af1": 1
+    },
+    "app/api/chat/route.ts": {
+      "1dd3fde0": 1,
+      "5e6fdfb6": 1,
+      "9098e855": 1,
+      "cd8bb880": 1
+    },
+    "app/api/colaboradores/route.ts": {
+      "c939f6a2": 2
+    },
+    "app/api/conteudo/[id]/podcast/route.ts": {
+      "fc7424a6": 1
+    },
+    "app/api/gestor/plenaria/pdf/route.ts": {
+      "50bcb193": 1
+    },
+    "app/api/internal/pregerar-podcast/route.ts": {
+      "0979ba60": 1,
+      "314110b2": 1,
+      "9945665d": 1
+    },
+    "app/api/me/route.ts": {
+      "ad842c3d": 1
+    },
+    "app/api/radar/lead-pdf/route.ts": {
+      "32e558a2": 1,
+      "4cc5e27b": 1,
+      "c2f1bc1d": 1,
+      "c3471f31": 1
+    },
+    "app/api/relatorios/pdf/route.ts": {
+      "0887a386": 1,
+      "15ede49b": 1,
+      "4c57dc11": 1,
+      "72897c49": 1,
+      "7751b74f": 1
+    },
+    "app/api/sales/materials/[id]/download/route.ts": {
+      "6c14f1fd": 1
+    },
+    "app/api/temporada/evaluation/route.ts": {
+      "0f1a794f": 1,
+      "4042992b": 1,
+      "5b1df2ba": 1,
+      "6c8bb20f": 1,
+      "86edef3f": 1,
+      "96dd325e": 1,
+      "a9c7913f": 1,
+      "b3a5cdf2": 1,
+      "b42a7301": 1,
+      "c55e9b27": 1,
+      "c6f63772": 1,
+      "e31555ac": 1
+    },
+    "app/api/temporada/reflection/route.ts": {
+      "099bf30f": 1,
+      "1970e39e": 1,
+      "2d912a6c": 1,
+      "5996d145": 1,
+      "5b1df2ba": 1,
+      "ded4ebca": 1,
+      "e31555ac": 1,
+      "e3ddce6c": 1
+    },
+    "app/api/temporada/tira-duvidas/route.ts": {
+      "99110186": 1,
+      "131f6e86": 1,
+      "5b1df2ba": 1,
+      "8f001535": 1,
+      "bed50f56": 1,
+      "c2edaeff": 1,
+      "e31555ac": 1
+    },
+    "app/api/upload-logo/route.ts": {
+      "a2bc203a": 1
+    },
+    "app/api/webhooks/bunny/route.ts": {
+      "000f4b62": 1
+    },
+    "app/api/webhooks/qstash/whatsapp-cis/route.ts": {
+      "3acb3d34": 1
+    },
+    "app/api/webhooks/whatsapp-cloud/route.ts": {
+      "57b9cd61": 1
+    },
+    "app/api/webhooks/zapi/disconnected/route.ts": {
+      "52052341": 1
+    },
+    "app/conarh/mapa/[id]/page.tsx": {
+      "bfccadad": 1
+    },
+    "app/dashboard/assessment/assessment-actions.ts": {
+      "58954982": 1,
+      "5073ca5e": 1,
+      "672b8b43": 1,
+      "8d56e745": 1,
+      "a798c243": 1,
+      "af1504a3": 1,
+      "c1c707d7": 1
+    },
+    "app/dashboard/assessment/chat/page.tsx": {
+      "542c29e7": 1,
+      "57c0cdb2": 1
+    },
+    "app/dashboard/evolucao/evolucao-actions.ts": {
+      "15c28855": 1,
+      "a6a4c77c": 1,
+      "ff2ceca2": 1
+    },
+    "app/dashboard/gestor/actions.ts": {
+      "2415eac2": 1,
+      "2ed56a6d": 1,
+      "2f43746e": 1,
+      "376b84ba": 1,
+      "5cb8c0e2": 1,
+      "b75c0fbb": 1,
+      "c61f5adb": 1,
+      "e8f6482b": 1
+    },
+    "app/dashboard/gestor/equipe-evolucao/actions.ts": {
+      "288efe18": 1,
+      "48cd6fe1": 1,
+      "a8832b8d": 1,
+      "ab4c168d": 1,
+      "cf844fec": 1,
+      "f0d80b7b": 1
+    },
+    "app/dashboard/pdi/pdi-actions.ts": {
+      "24c8e909": 1,
+      "5073ca5e": 1,
+      "50caf6fc": 1,
+      "70d79cad": 1,
+      "d3e07e0a": 1,
+      "f73e57ed": 1
+    },
+    "app/dashboard/perfil-comportamental/mapeamento/mapeamento-actions.ts": {
+      "ca4ba920": 1
+    },
+    "app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts": {
+      "e48db5e9": 1,
+      "eda8c579": 1
+    },
+    "app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts": {
+      "0f6a9ade": 1,
+      "3dc76f08": 1,
+      "b772fedb": 1,
+      "cb14a07d": 1,
+      "d7022101": 1,
+      "e315a584": 1
+    },
+    "app/dashboard/perfil/perfil-actions.ts": {
+      "5d7aadd0": 1,
+      "5ef12371": 1,
+      "86733ad1": 1,
+      "cc897572": 1
+    },
+    "app/dashboard/praticar/praticar-actions.ts": {
+      "582380c8": 1,
+      "9e039fde": 1,
+      "c7d86c8d": 1
+    },
+    "app/proposta/[token]/pdf/route.ts": {
+      "191cec6d": 1
+    },
+    "app/radar/actions.ts": {
+      "25efe607": 1,
+      "75812cf9": 1,
+      "80afb488": 1,
+      "8be9bb5e": 1,
+      "c5689be3": 1,
+      "d372fe9a": 1,
+      "fd593429": 1
+    },
+    "app/radar/municipio/[ibge]/page.tsx": {
+      "dbdcb7ee": 1
+    },
+    "app/radarbett/comparar/page.tsx": {
+      "2e5dc02c": 1,
+      "5075bdb8": 1,
+      "8b731d44": 1,
+      "da64f6aa": 1
+    },
+    "lib/adequacao-cargo/aggregate.ts": {
+      "5964c7fb": 1
+    },
+    "lib/ai-batch.ts": {
+      "6598b868": 1,
+      "7d296373": 1,
+      "fb343a58": 1
+    },
+    "lib/ai-tasks.ts": {
+      "13d71d4e": 1
+    },
+    "lib/audit.ts": {
+      "daad68ae": 1
+    },
+    "lib/auth/request-context.ts": {
+      "65ba671c": 1,
+      "d6a56d0a": 1
+    },
+    "lib/authz.ts": {
+      "16528740": 1,
+      "0534bb3b": 1,
+      "4104b83d": 1,
+      "d79ef787": 1
+    },
+    "lib/blueprint/core.ts": {
+      "0891f55c": 1,
+      "1e5e9623": 1,
+      "2892f951": 1,
+      "575fb2be": 1,
+      "63dfbc23": 1,
+      "8b58dfa2": 1,
+      "a85a55fb": 1,
+      "ba717818": 1,
+      "e50dcb86": 1
+    },
+    "lib/blueprint/resumo.ts": {
+      "27532965": 1
+    },
+    "lib/cargo-contexto.ts": {
+      "745970ee": 1
+    },
+    "lib/check-ia4-core.ts": {
+      "1b68bb9c": 1,
+      "1ef5746c": 1,
+      "33df66f3": 1,
+      "6c10396b": 1,
+      "bd1514e8": 1,
+      "e6b69a7c": 1
+    },
+    "lib/competencia-conhecimento.ts": {
+      "c9531611": 1
+    },
+    "lib/conarh/entrega-t0.ts": {
+      "7e234c8d": 1,
+      "fa30290b": 1
+    },
+    "lib/conarh/regua.ts": {
+      "0ef2cdfd": 1,
+      "2dd8afd7": 1,
+      "3f6ae071": 1,
+      "480aeee3": 2
+    },
+    "lib/cron-lock.ts": {
+      "12e00cf1": 1,
+      "34ba4b9a": 1,
+      "858dd8ea": 1,
+      "94b40219": 1
+    },
+    "lib/degradacao.ts": {
+      "0958c7b5": 1
+    },
+    "lib/demo/envio-guard.ts": {
+      "c5f9acd1": 1
+    },
+    "lib/demo/reset-acme-demo.ts": {
+      "0bd40a4a": 1,
+      "0bdee3bb": 1,
+      "139ab50b": 1,
+      "266dd911": 1,
+      "3176e383": 1,
+      "9032ecd3": 1,
+      "a5759cf5": 1,
+      "c8a35917": 1,
+      "ce80ee62": 1,
+      "d40b38fb": 1,
+      "feeb8d16": 1
+    },
+    "lib/dna-organizacional/aggregate.ts": {
+      "06795c9e": 1,
+      "f7d4c2af": 1
+    },
+    "lib/fase4/trigger-diario-empresa.ts": {
+      "0d4a8293": 1,
+      "1ffffabb": 1,
+      "3d33b8e1": 1,
+      "4154f43a": 1,
+      "7b351610": 1,
+      "9de3f37d": 1,
+      "b6d43607": 1,
+      "e221bc5d": 1
+    },
+    "lib/home/loaders.ts": {
+      "1038b085": 1,
+      "1f940a75": 1,
+      "24d5230e": 1,
+      "5073ca5e": 1,
+      "5446f892": 1,
+      "6807c12d": 1,
+      "9170a09c": 1,
+      "c1c707d7": 1,
+      "de3f9585": 1,
+      "e6677724": 1
+    },
+    "lib/ia2-gabarito.ts": {
+      "45568654": 1,
+      "2b73b18e": 1,
+      "4a55e65b": 1,
+      "4bccd0e1": 1,
+      "748340f5": 1,
+      "a2ee4986": 1,
+      "aa0d9fb9": 1,
+      "dea5b34d": 1,
+      "defbc100": 1
+    },
+    "lib/ia3-cenarios.ts": {
+      "22277982": 1,
+      "0016d79d": 1,
+      "10770c86": 1,
+      "1a1f016d": 1,
+      "251008b9": 1,
+      "2afc4c40": 1,
+      "38dadfb3": 1,
+      "76ee98cd": 1,
+      "9b32c816": 1,
+      "defbc100": 1
+    },
+    "lib/ia4-avaliacao.ts": {
+      "4bb763a4": 1,
+      "537430ad": 1,
+      "950488c9": 1,
+      "a0add070": 1,
+      "a623bf19": 1,
+      "fc84d150": 1
+    },
+    "lib/ia4-reavaliacao.ts": {
+      "02420f14": 1,
+      "24ba3d81": 1,
+      "3a8fa8d5": 1,
+      "7fdb939f": 1,
+      "c20bdf72": 1,
+      "dbafa6ef": 1
+    },
+    "lib/manuscrito-modulos.ts": {
+      "cab3b176": 1
+    },
+    "lib/modulo-base-auditor.ts": {
+      "0d32ab16": 1,
+      "598cd261": 1,
+      "bab3d06f": 1,
+      "ce7ae0c5": 1
+    },
+    "lib/modulo-base-refino.ts": {
+      "1a590572": 1,
+      "598cd261": 1
+    },
+    "lib/modulos-base/pipeline.ts": {
+      "2223d011": 1,
+      "865bc06b": 1,
+      "8a2c49a4": 1,
+      "bbb120c5": 1,
+      "d52fa012": 1,
+      "ff30abe2": 1
+    },
+    "lib/modulos-base/publicar.ts": {
+      "80c34f8f": 1,
+      "ce1d7868": 1
+    },
+    "lib/notifications/avisar-plano-pronto.ts": {
+      "33cc0e07": 1,
+      "407764d4": 1
+    },
+    "lib/notifications/inbox-push.ts": {
+      "27097557": 1,
+      "7bf45135": 1,
+      "d22127dd": 1
+    },
+    "lib/notifications/push-core.ts": {
+      "dd20ba66": 1
+    },
+    "lib/notify-tutor.ts": {
+      "63581dbe": 1,
+      "7df6a378": 1,
+      "fb454978": 1
+    },
+    "lib/perfil-organizacional/aggregate.ts": {
+      "1376ebe8": 1
+    },
+    "lib/phone-otp.ts": {
+      "1e0cf9d5": 1,
+      "66d00cef": 1,
+      "6eec249a": 1,
+      "73fc3b16": 1
+    },
+    "lib/pipeline-health/coleta.ts": {
+      "0a63a428": 1,
+      "486cff81": 1,
+      "63bbce79": 1,
+      "84ca3d72": 1,
+      "8e55c765": 1,
+      "8f065935": 1,
+      "96349be3": 1,
+      "aed0171d": 1,
+      "ee7c6630": 1
+    },
+    "lib/radar/eventos.ts": {
+      "28900711": 1
+    },
+    "lib/radar/ia-narrativa-radarbett.ts": {
+      "21151044": 1,
+      "668cfe75": 1,
+      "b27eb1a2": 1,
+      "ed17d53f": 1
+    },
+    "lib/radar/ia-narrativa.ts": {
+      "8b8140fb": 1,
+      "ae16deec": 1
+    },
+    "lib/radar/proposta-pdf-data.ts": {
+      "fbea7fda": 1
+    },
+    "lib/radar/queries.ts": {
+      "68525037": 1,
+      "3d98a088": 1,
+      "41e86a8a": 1,
+      "4389d774": 1,
+      "5ab89784": 1,
+      "7bddc8e1": 1,
+      "80b194ea": 1,
+      "8f066601": 1,
+      "aa17d080": 1,
+      "aaa64c14": 1,
+      "afdb0aa9": 1,
+      "bf8b6666": 1,
+      "c57ca502": 1,
+      "d39b8642": 1,
+      "d9deda51": 1,
+      "e0444c17": 1,
+      "f01e49fe": 1,
+      "ff95aa91": 1
+    },
+    "lib/radar/stats.ts": {
+      "ce9b16ee": 1,
+      "e6f1672f": 1
+    },
+    "lib/radar/vaar-derivado.ts": {
+      "30066675": 1,
+      "6793eabb": 1
+    },
+    "lib/radar/vaar-estimativa.ts": {
+      "1c58c6f5": 1,
+      "2df2c3ed": 1,
+      "fe79ae29": 1
+    },
+    "lib/rag.ts": {
+      "20cfc735": 1,
+      "2a9df31e": 1
+    },
+    "lib/relatorio-comportamental/relatorio-core.ts": {
+      "51052e86": 1,
+      "55617d6c": 1,
+      "c237f533": 1,
+      "cf2e1f1f": 1
+    },
+    "lib/relatorio-individual-prompt.ts": {
+      "27223824": 1,
+      "235cade8": 1,
+      "45eaf0cc": 1,
+      "6a535c21": 1,
+      "7e86babd": 1,
+      "a93bef11": 1,
+      "b22c2b6b": 1,
+      "b601d527": 1,
+      "f061f945": 1,
+      "fa4a8ec1": 1
+    },
+    "lib/repositories/cargos-empresa-repo.ts": {
+      "58225ca2": 1,
+      "f5ab94a6": 1
+    },
+    "lib/repositories/colaboradores-repo.ts": {
+      "34672792": 1,
+      "58bb2563": 1,
+      "c24f679b": 1
+    },
+    "lib/repositories/conteudos-repo.ts": {
+      "4ec204f8": 2
+    },
+    "lib/repositories/trilhas-repo.ts": {
+      "7a45184f": 1
+    },
+    "lib/sales/permissions.ts": {
+      "48b397d9": 1
+    },
+    "lib/season-engine/avaliacao-acumulada-core.ts": {
+      "0bcc1e0d": 1,
+      "141e6005": 1,
+      "1bb394fb": 2,
+      "22cabdb1": 1,
+      "68ccfc0d": 1,
+      "c2473a3d": 1,
+      "c79db2b2": 1,
+      "d3bf0162": 1,
+      "e3fa1d9c": 1,
+      "f6142a6d": 1
+    },
+    "lib/season-engine/encadear-jornada.ts": {
+      "12d5439f": 1,
+      "2e0f9e1a": 1,
+      "819ce08a": 1,
+      "8b0d0e54": 1
+    },
+    "lib/season-engine/evidencias-fechamento.ts": {
+      "0a6b3ff2": 1,
+      "2c588deb": 1
+    },
+    "lib/season-engine/evolution-report-core.ts": {
+      "119dae49": 1,
+      "28304b42": 1
+    },
+    "lib/season-engine/formato-anunciado.ts": {
+      "5b7d1f6a": 1,
+      "d58139f5": 1
+    },
+    "lib/season-engine/kit/contexto-empresa.ts": {
+      "7e90995f": 1,
+      "8c6327f6": 1,
+      "d096b6c5": 1
+    },
+    "lib/season-engine/kit/desafio-semana.ts": {
+      "48f5ae08": 1
+    },
+    "lib/season-engine/kit/entrega-semana.ts": {
+      "ed718dc5": 1
+    },
+    "lib/season-engine/kit/plano-coorte.ts": {
+      "10d47c23": 1,
+      "426b209f": 1,
+      "77f8f332": 1,
+      "885c8fe7": 1,
+      "a4999f74": 1,
+      "e0b12c0d": 1
+    },
+    "lib/season-engine/modulo-base-integration.ts": {
+      "8fdceddb": 1
+    },
+    "lib/season-engine/perfil-publico.ts": {
+      "4aaa1814": 1
+    },
+    "lib/season-engine/regua.ts": {
+      "3afe7532": 1,
+      "895b53e9": 1
+    },
+    "lib/season-engine/simulador-core.ts": {
+      "3128d4d1": 1,
+      "38df9760": 1,
+      "5b508487": 2,
+      "678b0da8": 1,
+      "785459a3": 2,
+      "8b88355b": 1,
+      "95150f06": 1,
+      "a4667a48": 1,
+      "b6900428": 2
+    },
+    "lib/season-engine/trilha-core.ts": {
+      "95703150": 1,
+      "115a607b": 1,
+      "19250c96": 1,
+      "3bd74f02": 1,
+      "3dbb7c0c": 2,
+      "4ad7dd88": 2,
+      "7ca9943e": 1,
+      "8546775f": 1,
+      "8919b4bd": 1,
+      "89aaaf7b": 1,
+      "9317dfb0": 1,
+      "a37788c7": 1,
+      "ac49dfa9": 2,
+      "be4cf204": 1,
+      "c6cfb099": 2,
+      "cadf6c33": 2,
+      "cbc352a1": 1,
+      "e5b1041d": 1
+    },
+    "lib/season-engine/trilha-runtime.ts": {
+      "651d4725": 1,
+      "d7831fc4": 2
+    },
+    "lib/tenant-db.ts": {
+      "b5489455": 1
+    },
+    "lib/turmas/contexto.ts": {
+      "7ad2e664": 1,
+      "a406ca82": 1,
+      "bc026fed": 1,
+      "ee7c6630": 1
+    },
+    "lib/turmas/escopo.ts": {
+      "177c28f0": 1,
+      "5373e2d4": 1,
+      "c5c630f9": 1,
+      "e8a03def": 1
+    },
+    "lib/turmas/portfolio.ts": {
+      "6b3e394c": 1
+    },
+    "lib/versioning.ts": {
+      "a70687a8": 1,
+      "bb53c4fa": 1,
+      "e0755ef2": 1,
+      "f8cc20d4": 1
+    },
+    "lib/video/reconciliar-personalizados.ts": {
+      "87269461": 1
+    },
+    "trigger/acumulada-piloto.ts": {
+      "219252b6": 1
+    },
+    "trigger/gerar-blueprint-batch.ts": {
+      "0670c3ed": 1,
+      "3ca2790c": 1
+    },
+    "trigger/gerar-ia2-batch.ts": {
+      "0670c3ed": 1
+    },
+    "trigger/gerar-ia3-batch.ts": {
+      "036e6a80": 1,
+      "0670c3ed": 1
+    },
+    "trigger/gerar-ia4-batch.ts": {
+      "0670c3ed": 1,
+      "15cad737": 1,
+      "2f5df40a": 1,
+      "a40d5a6d": 1
+    },
+    "trigger/gerar-kit.ts": {
+      "66fa704a": 1
+    },
+    "trigger/gerar-modulos-manuscrito.ts": {
+      "0670c3ed": 1
+    }
+  }
+}

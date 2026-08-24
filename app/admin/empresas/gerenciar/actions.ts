@@ -576,7 +576,9 @@ type DerivarGestorResult = {
   error?: string;
   vinculados: number;
   naoEncontrados: { colab: string; gestor_nome: string }[];
-  ambiguos: { colab: string; gestor_nome: string; matches: number }[];
+  ambiguos: { colab: string; gestor_nome: string; matches: number; motivo?: 'homonimos' | 'apenas-parcial' }[];
+  /** Updates que o banco recusou — presente só quando houve alguma. */
+  falhas?: { id: string; erro: string }[];
 };
 
 const _derivarGestorEmailPorNome = protectedLoader<[string], DerivarGestorResult>(
@@ -586,64 +588,98 @@ const _derivarGestorEmailPorNome = protectedLoader<[string], DerivarGestorResult
   const sb = await requireAdminSupabase();
 
   // 1. Pega todos os colabs com gestor_nome mas sem gestor_email
-  const { data: pendentes } = await sb.from('colaboradores')
+  const { data: pendentes, error: errPendentes } = await sb.from('colaboradores')
     .select('id, nome_completo, gestor_nome')
     .eq('empresa_id', empresaId)
     .not('gestor_nome', 'is', null)
     .is('gestor_email', null);
+  // Sem esta checagem, falha de leitura vira "nenhum pendente" — a tela diz
+  // "0 vinculados" e o admin conclui que já estava tudo certo.
+  if (errPendentes) {
+    return { success: false, error: `Falha ao ler pendentes: ${errPendentes.message}`, vinculados: 0, naoEncontrados: [], ambiguos: [] };
+  }
 
   if (!pendentes?.length) {
     return { success: true, vinculados: 0, naoEncontrados: [], ambiguos: [] };
   }
 
   // 2. Pega todos os colabs da empresa (potenciais gestores)
-  const { data: todos } = await sb.from('colaboradores')
+  const { data: todos, error: errTodos } = await sb.from('colaboradores')
     .select('id, nome_completo, email')
     .eq('empresa_id', empresaId);
+  // Idem: lista vazia por falha viraria "nenhum gestor encontrado" para TODOS.
+  if (errTodos) {
+    return { success: false, error: `Falha ao ler colaboradores: ${errTodos.message}`, vinculados: 0, naoEncontrados: [], ambiguos: [] };
+  }
   const candidatos = (todos || []).filter((c: any) => c.email);
 
   // Função de match: normaliza espaços, remove acentos, ilike
   const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
 
   const naoEncontrados: { colab: string; gestor_nome: string }[] = [];
-  const ambiguos: { colab: string; gestor_nome: string; matches: number }[] = [];
+  const ambiguos: DerivarGestorResult['ambiguos'] = [];
   const updates: { id: string; gestor_email: string }[] = [];
 
+  // B10 (auditoria 22/08) — só o match EXATO vincula.
+  //
+  // O casamento antigo aceitava substring nos DOIS sentidos, e só desempatava
+  // quando havia mais de um candidato: com um único parcial, "Ana" era vinculada
+  // a "Mariana Souza" sem nada na tela. E `gestor_email` governa QUEM VÊ QUEM —
+  // vínculo errado entrega a evolução de um liderado ao gestor errado. O campo
+  // está preenchido em 299 de 400 colaboradores, ou seja, é caminho usado.
+  //
+  // Agora: exato vincula; parcial vira AMBÍGUO (fica visível para o admin
+  // resolver, em vez de virar um vínculo silencioso).
   for (const p of pendentes as any[]) {
     const alvo = normalizar(p.gestor_nome);
-    const matches = candidatos.filter((c: any) => {
+    const exatos = candidatos.filter((c: any) => normalizar(c.nome_completo || '') === alvo);
+
+    if (exatos.length === 1) {
+      updates.push({ id: p.id, gestor_email: exatos[0].email.toLowerCase() });
+      continue;
+    }
+    if (exatos.length > 1) {
+      // Homônimos: ninguém pode decidir isto por nome.
+      ambiguos.push({ colab: p.nome_completo, gestor_nome: p.gestor_nome, matches: exatos.length, motivo: 'homonimos' });
+      continue;
+    }
+
+    const parciais = candidatos.filter((c: any) => {
       const nome = normalizar(c.nome_completo || '');
-      // Match exato ou contém
-      return nome === alvo || nome.includes(alvo) || alvo.includes(nome);
+      return nome.includes(alvo) || alvo.includes(nome);
     });
-    if (matches.length === 0) {
+    if (parciais.length === 0) {
       naoEncontrados.push({ colab: p.nome_completo, gestor_nome: p.gestor_nome });
-    } else if (matches.length > 1) {
-      // Tenta match exato como desempate
-      const exato = matches.filter((c: any) => normalizar(c.nome_completo) === alvo);
-      if (exato.length === 1) {
-        updates.push({ id: p.id, gestor_email: exato[0].email.toLowerCase() });
-      } else {
-        ambiguos.push({ colab: p.nome_completo, gestor_nome: p.gestor_nome, matches: matches.length });
-      }
     } else {
-      updates.push({ id: p.id, gestor_email: matches[0].email.toLowerCase() });
+      ambiguos.push({ colab: p.nome_completo, gestor_nome: p.gestor_nome, matches: parciais.length, motivo: 'apenas-parcial' });
     }
   }
 
-  // 3. Aplica updates em lote (1 update por colab)
+  // 3. Aplica updates (1 por colab) — contando ESCRITAS, não intenções.
+  //
+  // `vinculados: updates.length` reportava o que a função PRETENDIA fazer: o
+  // laço não capturava `{ error }`, então falha de banco saía como "N vinculados".
+  // O `.select('id')` faz o Postgres devolver as linhas realmente afetadas — se
+  // o id não casar (linha de outro tenant, por exemplo), o update volta vazio
+  // sem erro, e isso também não é vínculo.
+  let vinculados = 0;
+  const falhas: { id: string; erro: string }[] = [];
   for (const u of updates) {
-    await sb.from('colaboradores')
+    const { data: afetadas, error } = await sb.from('colaboradores')
       .update({ gestor_email: u.gestor_email })
       .eq('id', u.id)
-      .eq('empresa_id', empresaId);
+      .eq('empresa_id', empresaId)
+      .select('id');
+    if (error) { falhas.push({ id: u.id, erro: error.message }); continue; }
+    vinculados += afetadas?.length || 0;
   }
 
   return {
     success: true,
-    vinculados: updates.length,
+    vinculados,
     naoEncontrados,
     ambiguos,
+    ...(falhas.length ? { falhas } : {}),
   };
 }, 'users.manage');
 
