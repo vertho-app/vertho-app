@@ -1,8 +1,9 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { RefreshCw, Settings } from 'lucide-react';
+import { RefreshCw, Settings, LayoutGrid } from 'lucide-react';
 import { monoStyle as mono, serifStyle as serif } from './nav-items';
 import EmpresaFilter from './EmpresaFilter';
 import AdminMobileNav from './AdminMobileNav';
@@ -36,6 +37,19 @@ export default function AdminHeader() {
           t={t}
           locale={locale}
         />
+        {/* Ida para a arquitetura nova. O ShellV2 já tinha o caminho de VOLTA
+            (dois links para /admin/dashboard), e o de ida não existia em lugar
+            nenhum: a única porta para o v2 era a raiz do host genérico, que
+            redireciona sozinha — quem entrasse por aqui ficava sem saber que ele
+            existe. Um par de portas, não uma via de mão única. */}
+        <Link
+          href="/admin-v2"
+          title={t('header.adminV2')}
+          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
+          style={{ color: 'rgba(255,255,255,.5)' }}
+        >
+          <LayoutGrid size={14} />
+        </Link>
         <button onClick={triggerRefresh} disabled={refreshing} title={t('header.refresh')}
           className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
           style={{ color: 'rgba(255,255,255,.5)' }}

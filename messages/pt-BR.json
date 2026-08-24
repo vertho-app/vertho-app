@@ -319,6 +319,7 @@
     },
     "header": {
       "title": "Painel <em>Admin</em>",
+      "adminV2": "Arquitetura nova (/admin-v2)",
       "refresh": "Atualizar",
       "notifications": "Notificações",
       "settings": "Configurações"
