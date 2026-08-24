@@ -891,7 +891,7 @@
       "title": "Semana {week} ainda não liberada",
       "becauseDate": "Ela abre {date}.",
       "becausePrevious": "Antes dela, falta concluir a semana {week}.",
-      "rule": "A trilha é sequencial: cada semana só abre depois que a anterior é concluída — e o que conclui uma semana é a conversa de evidências com a Mentora, não só abrir o conteúdo.",
+      "rule": "A trilha é sequencial: cada semana só abre depois que a anterior é concluída — e o que conclui uma semana é a conversa de evidências, não só abrir o conteúdo.",
       "missing": "Na semana {week}, faltam cerca de {count} respostas suas na conversa para ela fechar.",
       "notStarted": "A conversa de evidências da semana {week} ainda não começou.",
       "videoTitle": "Sua jornada semanal",

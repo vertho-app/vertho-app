@@ -113,6 +113,9 @@ describe('chave interna ≠ nome na Meta', () => {
     ['evidencia_semanal', 'registro_evidencia'],
     ['nudge_desafio', 'registro_desafio'],
     ['perfil_disponivel', 'resultado_perfil'],
+    // v1 ficou preso na fila com a copy errada e a Meta não edita template em
+    // revisão (23/08) — o `_v2` é o que existe de verdade lá.
+    ['semana_pendente', 'semana_pendente_v2'],
   ];
 
   it.each(RENOMEADOS)('a chave %s aponta para o template %s', (chave, nomeNaMeta) => {

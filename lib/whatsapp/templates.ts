@@ -486,13 +486,38 @@ export const TEMPLATES = {
    * para a semana trancada repetiria o erro que a mensagem existe para corrigir.
    */
   semana_pendente: {
-    name: 'semana_pendente',
+    /**
+     * ⚠️ `_v2` PORQUE O v1 JÁ ESTAVA NA FILA (23/08). A 1ª submissão
+     * (`semana_pendente`, id=28457950447135990) saiu com "com a Mentora"; a Meta
+     * recusa edição de template em revisão — `error_subcode 2388003`: *"só podem
+     * ser editados se tiverem sido rejeitados"*. Apagar para recriar deixaria o
+     * nome QUEIMADO enquanto a exclusão processa (mordeu em 14/08), então o nome
+     * novo entra em paralelo e o v1 só sai depois que este aprovar.
+     *
+     * Chave estável e `name` divergente é o precedente da casa
+     * (`perfil_disponivel` → `resultado_perfil`), e o teste `RENOMEADOS` congela
+     * o par: mandar a CHAVE para a API daria "template not found" na hora do
+     * envio, em produção, para gente real.
+     */
+    name: 'semana_pendente_v2',
     category: 'UTILITY',
     language: 'pt_BR',
     // `{{3}}` aparece UMA vez ("Ela" retoma a referência): nenhum dos 17
     // aprovados repete variável, então repetir seria estrear um formato não
     // testado numa submissão em que o nome recusado fica QUEIMADO.
-    body: 'Olá, {{1}}. Sua trilha está na semana {{2}}, e a semana {{3}} continua pendente.\n\nEla é concluída na conversa de evidências com a Mentora. A explicação em vídeo está na própria página.',
+    //
+    // 🔴 NÃO DIZ "MENTORA" (corrigido 23/08, apontado pelo dono). A 1ª versão
+    // dizia "a conversa de evidências com a Mentora", copiado de `locked.rule` —
+    // e essa é a ÚNICA ocorrência da palavra em todo o `pt-BR.json`. Não é
+    // vocabulário do produto: a tela chama o card de "Evidências" e o botão de
+    // "Levantar evidências". Pior, o que a pessoa reconhece como mentor é o
+    // **Beto**, um assistente conversacional que vive noutro lugar e NÃO conclui
+    // semana nenhuma — a copy empurraria justamente para o componente errado.
+    // O nome na mensagem tem que ser o nome do botão que ela vai apertar.
+    // "SOMENTE" é o miolo da mensagem, não ênfase: a crença que trava essas
+    // pessoas é que abrir o conteúdo já conclui. Dizer apenas ONDE se conclui
+    // deixaria essa crença de pé.
+    body: 'Olá, {{1}}. Sua trilha está na semana {{2}}, e a semana {{3}} continua pendente.\n\nEla somente é concluída na conversa de evidências. A explicação em vídeo está na página da semana.',
     example: ['Maria', '6', '5'],
     botao: {
       // Rótulo funcional: "Continuar agora" seria chamada de ação (→ MARKETING).

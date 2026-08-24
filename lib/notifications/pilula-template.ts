@@ -251,7 +251,7 @@ const CONTRATOS: Record<string, MontarParams> = {
    * template que anuncia "a semana continua pendente" e leva a lugar nenhum é
    * pior que silêncio — e `semana - 1` como defesa seria a régua duplicada.
    */
-  semana_pendente: (a) => ({
+  semana_pendente_v2: (a) => ({
     params: [a.nome, String(a.semana), String(a.semanaPendente ?? '')],
     botaoParam: caminhoDoBotao({
       slug: a.slug,
