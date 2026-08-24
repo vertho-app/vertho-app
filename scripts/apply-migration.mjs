@@ -16,6 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { argv, exit } from 'node:process';
 import pg from 'pg';
+import { sslSupabase } from './_pg-ssl.mjs';
 
 const url = process.env.DATABASE_URL;
 if (!url) {
@@ -30,7 +31,11 @@ if (!checkOnly && files.length === 0) {
   exit(1);
 }
 
-const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+// TLS: verifica o certificado quando a CA está disponível, e AVISA alto quando
+// não está (ver scripts/_pg-ssl.mjs). Este script fala com o pooler de PRODUÇÃO
+// carregando credencial — `rejectUnauthorized: false` aceitava qualquer
+// certificado, e um intermediário leria a senha.
+const client = new pg.Client({ connectionString: url, ssl: sslSupabase() });
 await client.connect();
 console.log('✓ conectado ao Postgres');
 
