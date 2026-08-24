@@ -21,6 +21,8 @@ export default function ChatPage() {
   const [sessaoId, setSessaoId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  /** Turno ainda não confirmado pelo servidor — ver `handleSend` (B5). */
+  const turnoPendente = useRef({ texto: null, id: null });
   const [loading, setLoading] = useState(false);
   const [initLoading, setInitLoading] = useState(true);
   const [fase, setFase] = useState('cenario');
@@ -97,6 +99,15 @@ export default function ChatPage() {
     if (!input.trim() || loading || status === 'concluido') return;
 
     const msg = input.trim();
+    // Idempotência do turno (B5, mig 222): o id acompanha a MENSAGEM, não o
+    // envio. Se o turno chegou a ser gravado e a requisição morreu depois (rede,
+    // lambda reexecutada, duplo envio), reenviar o mesmo texto reusa o id e o
+    // servidor reconhece o turno em vez de criar um segundo — turno duplicado
+    // encurta a conversa contra MAX_TURNOS, que é quem fecha a semana.
+    if (turnoPendente.current.texto !== msg) {
+      turnoPendente.current = { texto: msg, id: crypto.randomUUID() };
+    }
+    const turnId = turnoPendente.current.id;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: msg }]);
     setLoading(true);
@@ -112,6 +123,7 @@ export default function ChatPage() {
           colaboradorId: colab.id,
           competenciaId,
           mensagem: msg,
+          turnId,
         }),
       });
 
@@ -122,6 +134,9 @@ export default function ChatPage() {
         setLoading(false);
         return;
       }
+
+      // Confirmado: o próximo envio é um turno novo.
+      turnoPendente.current = { texto: null, id: null };
 
       setSessaoId(data.sessaoId);
       setFase(data.fase);

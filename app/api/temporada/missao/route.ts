@@ -5,6 +5,7 @@ import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { checarGatesSemana } from '@/lib/season-engine/trilha-runtime';
 import { PROGRESSO } from '@/lib/status';
+import { gravarProgressoSemana } from '@/lib/season-engine/progresso-semana';
 
 /**
  * POST /api/temporada/missao
@@ -40,9 +41,15 @@ export async function POST(request) {
 
     const sb = createSupabaseAdmin();
 
-    const { data: trilha } = await sb.from('trilhas')
+    const { data: trilha, error: errTrilha } = await sb.from('trilhas')
       .select('id, empresa_id, colaborador_id, temporada_plano, data_inicio')
       .eq('id', trilhaId).maybeSingle();
+    // Falha de LEITURA não é "não encontrada": 404 manda o cliente desistir de
+    // um dado que existe. B4 da auditoria 22/08.
+    if (errTrilha) {
+      console.error('[missao] leitura da trilha:', errTrilha.message);
+      return NextResponse.json({ error: 'Não foi possível ler a trilha. Tente novamente.' }, { status: 500 });
+    }
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
 
     // Se body trouxe colaboradorId, precisa bater com o dono da trilha.
@@ -63,8 +70,15 @@ export async function POST(request) {
     const gate = await checarGatesSemana(sb, trilha, semana);
     if (gate) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
-    const { data: prog } = await sb.from('temporada_semana_progresso')
+    const { data: prog, error: errProg } = await sb.from('temporada_semana_progresso')
       .select('*').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
+    // 🔴 Sem esta checagem, falha de leitura vira `prog = null` e o fluxo cai no
+    // ramo de INSERT — criando uma segunda linha para (trilha, semana) em vez de
+    // atualizar a que existe.
+    if (errProg) {
+      console.error('[missao] leitura do progresso:', errProg.message);
+      return NextResponse.json({ error: 'Não foi possível ler o progresso da semana. Tente novamente.' }, { status: 500 });
+    }
 
     const existente = prog?.feedback || { transcript_completo: [] };
     const temChat = Array.isArray(existente.transcript_completo) && existente.transcript_completo.length > 0;
@@ -91,11 +105,12 @@ export async function POST(request) {
       iniciado_em: prog?.iniciado_em || new Date().toISOString(),
     };
 
-    if (prog) {
-      await sb.from('temporada_semana_progresso').update(payload).eq('id', prog.id);
-    } else {
-      await sb.from('temporada_semana_progresso').insert(payload);
-    }
+    // A TERCEIRA irmã. O fix do F10 (09-11/08) trocou este mesmo padrão em
+    // `/evaluation` e `/reflection` pelo helper que LANÇA quando a gravação
+    // falha; a rota de missão ficou de fora e continuou respondendo `ok: true`
+    // com o slot vazio — a pessoa escreve o compromisso, a tela confirma, e o
+    // gate sequencial a prende numa semana que o sistema disse ter salvo.
+    await gravarProgressoSemana(sb, payload, prog?.id);
 
     return NextResponse.json({ ok: true, modo, compromisso: novoFeedback.compromisso });
   } catch (err) {

@@ -11,6 +11,7 @@ import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { consolidarNotasIA4, blocoConsolidacao, normalizarNiveisDaAvaliacao } from '@/lib/ia4-avaliacao';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
 // Turno do chat + encerramento (avaliação + auditoria, 2× 8192 tokens) podem
 // levar minutos com retry/backoff — sem isso a rota cai no default da Vercel
@@ -27,6 +28,37 @@ const MIN_EVIDENCIAS_ENCERRAR = 2;
 const MIN_MESSAGE_LENGTH = 10;
 const MAX_MESSAGE_LENGTH = 4096;
 
+/** Violação de índice único no Postgres — aqui significa "este turno já foi gravado". */
+const PG_UNIQUE_VIOLATION = '23505';
+
+/**
+ * B5 da auditoria 22/08 — a classificação que faltava.
+ *
+ * O supabase-js **retorna** `{ error }` em vez de lançar, então o `try/catch`
+ * do handler nunca via falha de banco: das sete escritas da rota, seis eram
+ * silenciosas, e nove leituras idem. O efeito não é perder um log — é perder um
+ * TURNO: `totalTurnos` é derivado de `mensagens_chat`, e `decidirFase` e
+ * `deveEncerrar` leem esse contador contra MAX_TURNOS. Turno que não gravou não
+ * volta; a conversa precisa de um turno a mais para fechar, e quem fecha a
+ * semana é a conversa.
+ *
+ * Cada leitura/escrita foi classificada em CRÍTICA (lança → 500, e o cliente
+ * não marca nada como salvo) ou BEST-EFFORT (degrada registrando). O critério é
+ * o da casa: na construção do que decide o destino da pessoa, falhe alto; no
+ * que só descreve, degrade registrando.
+ *
+ * CRÍTICAS: histórico e competência (insumo do prompt e do contador), turno do
+ * usuário, resposta do assistente, fase/confiança da sessão, persistência da
+ * avaliação final.
+ * BEST-EFFORT: versão do prompt, mensagem de aviso do fallback de IA,
+ * `sys_config` da empresa (tem default).
+ */
+function exigir<T>(res: { data: T | null; error: any } | any, oQue: string): T {
+  if (res?.error) throw new Error(`${oQue}: ${res.error.message}`);
+  if (res?.data === null || res?.data === undefined) throw new Error(`${oQue}: sem resultado`);
+  return res.data as T;
+}
+
 // ── POST /api/chat ──────────────────────────────────────────────────────────
 
 export async function POST(req) {
@@ -41,7 +73,7 @@ export async function POST(req) {
     if (limited) return limited;
 
     const body = await req.json();
-    const { sessaoId, empresaId, colaboradorId, competenciaId, mensagem } = body;
+    const { sessaoId, empresaId, colaboradorId, competenciaId, mensagem, turnId } = body;
 
     if (!empresaId || !colaboradorId || !competenciaId || !mensagem?.trim()) {
       return NextResponse.json({ ok: false, error: 'Campos obrigatórios: empresaId, colaboradorId, competenciaId, mensagem' }, { status: 400 });
@@ -101,14 +133,21 @@ export async function POST(req) {
       sessao = data;
     } else {
       // Busca sessão ativa existente para esta competência
-      const { data: existente } = await tdb.from('sessoes_avaliacao')
+      // `maybeSingle` e não `single`: com `single`, "nenhuma sessão aberta" —
+      // que é o caso NORMAL do primeiro acesso — volta como `error` (PGRST116),
+      // indistinguível de falha de banco. Com a distinção, dá para exigir.
+      const resExistente = await tdb.from('sessoes_avaliacao')
         .select('*')
         .eq('colaborador_id', colaboradorId)
         .eq('competencia_id', competenciaId)
         .eq('status', 'em_andamento')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
+      if (resExistente.error) {
+        throw new Error(`não foi possível ler a sessão em andamento: ${resExistente.error.message}`);
+      }
+      const existente = resExistente.data;
 
       if (existente) {
         sessao = existente;
@@ -163,24 +202,62 @@ export async function POST(req) {
       sb.from('empresas').select('nome, sys_config').eq('id', empresaId).single(),
     ]);
 
-    const comp = compResult.data;
-    const cenario = cenarioResult.data;
+    // CRÍTICAS — são o insumo do prompt e do contador de turno.
+    const comp = exigir<any>(compResult, 'não foi possível ler a competência');
+    // 🔴 O histórico é o pior dos nove: sem checagem, falha de leitura vira lista
+    // VAZIA em vez de erro, `totalTurnos` volta a 1 e a conversa recomeça do zero
+    // — com a pessoa achando que respondeu.
+    if ((histResult as any)?.error) {
+      throw new Error(`não foi possível ler o histórico da conversa: ${(histResult as any).error.message}`);
+    }
     const historico = histResult.data || [];
+    // O cenário é o enunciado: se a sessão TEM cenário e ele não pôde ser lido,
+    // conduzir a conversa sem ele muda a natureza da avaliação.
+    if (sessao.cenario_id && (cenarioResult as any)?.error) {
+      throw new Error(`não foi possível ler o cenário da sessão: ${(cenarioResult as any).error.message}`);
+    }
+    const cenario = cenarioResult.data;
+    // BEST-EFFORT — `sys_config` só escolhe o modelo, e há default.
+    if ((empresaResult as any)?.error) {
+      console.warn('[chat] sys_config indisponível, usando default:', (empresaResult as any).error.message);
+      await registrarDegradacao({
+        fluxo: 'chat', tipo: DEGRADACAO.CHAT_METADADO_NAO_GRAVADO,
+        chave: `sys_config:${empresaId}`, empresaId, colaboradorId,
+        detalhe: { etapa: 'leitura_sys_config', erro: (empresaResult as any).error.message },
+      }, sb);
+    }
     const empresa = empresaResult.data;
     const sysConfig = empresa?.sys_config || {};
     const modeloAvaliador = sysConfig?.ai?.modelo_padrao || DEFAULT_AVALIADOR;
 
     // ── 3. Salvar mensagem do usuário ───────────────────────────────────────
 
-    await sb.from('mensagens_chat').insert({
+    // CRÍTICA — e IDEMPOTENTE (mig 222).
+    //
+    // O turno é a unidade de tudo o que vem depois: o contador sai daqui. Falhar
+    // silenciosamente aqui tira um turno da conta PARA SEMPRE; e um retry cego
+    // (rede caiu depois da IA responder, lambda reexecutada, duplo envio)
+    // gravaria o MESMO turno duas vezes, o que ENCURTA a conversa contra
+    // MAX_TURNOS. `client_turn_id` vem do cliente e é estável entre retries da
+    // mesma mensagem — o índice único parcial `(sessao_id, client_turn_id)`
+    // transforma a segunda tentativa em 23505, que aqui NÃO é erro: é a prova de
+    // que o turno já está gravado.
+    const { error: errTurno } = await sb.from('mensagens_chat').insert({
       sessao_id: sessao.id,
       role: 'user',
       content: msgTrimmed,
+      client_turn_id: turnId || null,
     });
+    const turnoJaGravado = errTurno?.code === PG_UNIQUE_VIOLATION;
+    if (errTurno && !turnoJaGravado) {
+      throw new Error(`não foi possível gravar a sua resposta: ${errTurno.message}`);
+    }
 
     // ── 4. Contar turnos ────────────────────────────────────────────────────
 
-    const totalTurnos = historico.filter(m => m.role === 'user').length + 1;
+    // No retry, o turno já está no histórico que acabamos de ler — somar +1 de
+    // novo contaria a mesma resposta duas vezes.
+    const totalTurnos = historico.filter(m => m.role === 'user').length + (turnoJaGravado ? 0 : 1);
 
     // ── 5. Montar prompt e chamar IA ────────────────────────────────────────
 
@@ -194,15 +271,27 @@ export async function POST(req) {
       );
       const versaoRegua = (comp as any)?.versao_regua || 1;
       if (promptVersionId) {
-        await sb.from('sessoes_avaliacao')
+        // BEST-EFFORT: versionamento do prompt é rastro de análise, não decide
+        // nada do que a pessoa recebe. Degrada registrando.
+        const { error: errVersao } = await sb.from('sessoes_avaliacao')
           .update({ prompt_version_id: promptVersionId, versao_regua: versaoRegua })
           .eq('id', sessao.id);
+        if (errVersao) {
+          console.warn('[chat] versão do prompt não gravada:', errVersao.message);
+          await registrarDegradacao({
+            fluxo: 'chat', tipo: DEGRADACAO.CHAT_METADADO_NAO_GRAVADO,
+            chave: `prompt_version:${sessao.id}`, empresaId, colaboradorId,
+            detalhe: { etapa: 'update_prompt_version', erro: errVersao.message },
+          }, sb);
+        }
       }
     }
 
     const messages = [
       ...historico.map(m => ({ role: m.role, content: m.content })),
-      { role: 'user', content: msgTrimmed },
+      // No retry a mensagem já veio no histórico; repetir aqui a mandaria
+      // duplicada para a IA.
+      ...(turnoJaGravado ? [] : [{ role: 'user', content: msgTrimmed }]),
     ];
 
     let rawResponse;
@@ -220,12 +309,22 @@ export async function POST(req) {
       });
     } catch (llmError) {
       // Fallback: salvar erro mas não derrubar sessão
-      await sb.from('mensagens_chat').insert({
+      // BEST-EFFORT: este ramo JÁ é o caminho degradado (a IA falhou). Derrubar
+      // a resposta por não conseguir gravar o aviso deixaria a pessoa sem nada.
+      const { error: errAviso } = await sb.from('mensagens_chat').insert({
         sessao_id: sessao.id,
         role: 'assistant',
         content: 'Desculpe, tive um problema técnico. Pode repetir sua resposta?',
         metadata: { error: llmError.message },
       });
+      if (errAviso) {
+        console.warn('[chat] aviso de falha de IA não gravado:', errAviso.message);
+        await registrarDegradacao({
+          fluxo: 'chat', tipo: DEGRADACAO.CHAT_METADADO_NAO_GRAVADO,
+          chave: `fallback_ia:${sessao.id}`, empresaId, colaboradorId,
+          detalhe: { etapa: 'insert_fallback_ia', erro: errAviso.message, erro_ia: llmError.message },
+        }, sb);
+      }
       return NextResponse.json({
         ok: true,
         sessaoId: sessao.id,
@@ -259,12 +358,17 @@ export async function POST(req) {
 
     // ── 8. Salvar resposta do assistant ─────────────────────────────────────
 
-    await sb.from('mensagens_chat').insert({
+    // CRÍTICA: sem a resposta no histórico, o próximo turno conversa com um
+    // passado que não existe — e a IA4 avalia o transcript.
+    const { error: errResposta } = await sb.from('mensagens_chat').insert({
       sessao_id: sessao.id,
       role: 'assistant',
       content: visibleMessage,
       metadata: meta,
     });
+    if (errResposta) {
+      throw new Error(`não foi possível gravar a resposta da conversa: ${errResposta.message}`);
+    }
 
     // ── 9. Atualizar sessão ─────────────────────────────────────────────────
 
@@ -275,7 +379,12 @@ export async function POST(req) {
       aprofundamentos: nextFase === 'aprofundamento' ? (sessao.aprofundamentos || 0) + 1 : sessao.aprofundamentos,
     };
 
-    await sb.from('sessoes_avaliacao').update(updates).eq('id', sessao.id);
+    // CRÍTICA: é aqui que a fase e a confiança avançam. Perder este update
+    // deixa a sessão parada numa fase que a conversa já passou.
+    const { error: errSessao } = await sb.from('sessoes_avaliacao').update(updates).eq('id', sessao.id);
+    if (errSessao) {
+      throw new Error(`não foi possível atualizar a sessão: ${errSessao.message}`);
+    }
 
     // ── 10. Se deve encerrar → avaliação + auditoria ────────────────────────
 
@@ -790,7 +899,10 @@ REGRAS:
 
   // ── Etapa 4: Persistir ────────────────────────────────────────────────
 
-  await sb.from('sessoes_avaliacao').update({
+  // CRÍTICA, e a pior das sete: sem ela a avaliação final volta para o cliente
+  // com nota e nível preenchidos SEM a sessão ter sido concluída no banco — a
+  // pessoa vê o resultado, a sessão continua `em_andamento`, e a semana não fecha.
+  const { error: errPersist } = await sb.from('sessoes_avaliacao').update({
     status: audit?.status === 'reprovado' ? 'reprovado' : 'concluido',
     fase: 'concluida',
     rascunho_avaliacao: rascunho,
@@ -804,6 +916,9 @@ REGRAS:
     eval_prompt_version_id: evalPromptVersionId,
     audit_prompt_version_id: auditPromptVersionId,
   }).eq('id', sessaoId);
+  if (errPersist) {
+    throw new Error(`não foi possível salvar a avaliação final: ${errPersist.message}`);
+  }
 
   return avaliacaoFinal;
 }

@@ -146,10 +146,21 @@ export const DEGRADACAO = {
    * erro morria num `console.error` que ninguém lê (15/08/2026).
    */
   INBOX_ESCRITA_PERDIDA: 'inbox-escrita-perdida',
+  /**
+   * chat (assessment): uma escrita ACESSÓRIA do turno falhou — o registro da
+   * versão do prompt, ou a mensagem de aviso do fallback de IA.
+   *
+   * `aviso`, e a distinção é o ponto: no turno do chat, o que decide o destino
+   * da pessoa (o turno do usuário, a resposta do assistente, a fase da sessão e
+   * a avaliação final) falha ALTO — a rota devolve 500 e o cliente não marca
+   * nada como salvo. O que só descreve a conversa degrada e vira esta linha.
+   * B5 da auditoria 22/08: antes, as sete escritas eram igualmente silenciosas.
+   */
+  CHAT_METADADO_NAO_GRAVADO: 'chat-metadado-nao-gravado',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
-export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio';
+export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat';
 export type DegradacaoSeveridade = 'info' | 'aviso' | 'critico';
 
 export interface DegradacaoInput {

@@ -38,6 +38,17 @@ export interface FalhaSpec {
   mensagem: string;
   /** Código Postgres, quando o código sob teste distingue (ex. '23505'). */
   code?: string;
+  /**
+   * Filtro pelo PAYLOAD da escrita — para falhar em uma escrita específica
+   * quando a mesma (tabela, op) acontece mais de uma vez no fluxo.
+   *
+   * Nasceu no B5 (24/08): `/api/chat` insere DUAS linhas em `mensagens_chat` por
+   * turno (a do usuário e a do assistente), com destinos opostos — a do usuário
+   * é idempotente e trata `23505` como "já gravei", a do assistente é crítica.
+   * Sem este filtro, programar a falha do turno derrubava também a resposta, e o
+   * teste media outra coisa que não a invariante que descreve.
+   */
+  quando?: (payload: any) => boolean;
 }
 
 export interface Escrita {
@@ -101,8 +112,13 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
   const contagem = opts.contagem || (() => null);
   const escrita = opts.escrita || (() => null);
 
-  const acharFalha = (tabela: string, op: Operacao): FalhaSpec | null =>
-    falhas.find((f) => (!f.tabela || f.tabela === tabela) && (!f.op || f.op === op)) || null;
+  const acharFalha = (tabela: string, op: Operacao, payload?: any): FalhaSpec | null =>
+    falhas.find(
+      (f) =>
+        (!f.tabela || f.tabela === tabela) &&
+        (!f.op || f.op === op) &&
+        (!f.quando || f.quando(payload)),
+    ) || null;
 
   const erroDe = (f: FalhaSpec) => ({ message: f.mensagem, code: f.code ?? null, details: null, hint: null });
 
@@ -115,7 +131,7 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
     const registrar = (metodo: string, args: any[]) => { chamadas.push({ tabela, metodo, args }); };
 
     const resultadoLista = () => {
-      const f = acharFalha(tabela, op);
+      const f = acharFalha(tabela, op, payload);
       if (f) return { data: null, error: erroDe(f), count: null };
       if (op !== 'select') {
         escritas.push({ tabela, op, payload });
@@ -140,13 +156,13 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
       range: filtro('range'), filter: filtro('filter'),
 
       maybeSingle: async () => {
-        const f = acharFalha(tabela, op);
+        const f = acharFalha(tabela, op, payload);
         if (f) return { data: null, error: erroDe(f) };
         if (op !== 'select') { escritas.push({ tabela, op, payload }); return { data: payload, error: null }; }
         return { data: resolver(tabela, cols), error: null };
       },
       single: async () => {
-        const f = acharFalha(tabela, op);
+        const f = acharFalha(tabela, op, payload);
         if (f) return { data: null, error: erroDe(f) };
         if (op !== 'select') { escritas.push({ tabela, op, payload }); return { data: payload, error: null }; }
         return { data: resolver(tabela, cols), error: null };
