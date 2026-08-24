@@ -28,7 +28,7 @@
 | **Icones** | Lucide React | 1.7.0 | ✅ |
 | **Banco de Dados** | Supabase (PostgreSQL) | — | ✅ |
 | **Auth** | Supabase Auth (Magic Link + Senha) | — | ✅ |
-| **IA Principal** | Anthropic SDK (Claude Sonnet 4.6) | 0.96.0 | ✅ |
+| **IA Principal** | Anthropic SDK (modelo em `lib/ai-tasks.ts`) | 0.96.0 | ✅ |
 | **IA Secundaria** | Google Gemini · OpenAI (`gpt-5.x`) · **Kimi/Moonshot** (`kimi*`, OpenAI-compatible) | via wrapper unico | ✅ |
 | **IA Validacao** | **GPT 5.6 Terra** — 7 auditores 2a-IA `pinned` em `lib/ai-tasks.ts` (desde 22/07) | — | ✅ |
 | **IA Leve** | Claude Haiku 4.5 (Tira-Duvidas, Simulador) | via SDK | ✅ |
@@ -690,7 +690,14 @@ fora dessa correção — foi assim que o vídeo passou 5 dias gerando zero (`do
 §F-I14). Guardas: `tests/unit/integrations/ai-thinking-geracao.test.ts` (formato por geração) e
 `ia-request-cru-guard.test.ts` (ninguém fala HTTP cru com a Anthropic).
 
-Modelos: Claude Sonnet 4.6, Claude Opus 4.6, Claude Haiku 4.5, Gemini 3 Flash, Gemini 3.1 Pro
+Modelos: **a lista viva está em `lib/ai-tasks.ts`** — `MODELOS_DISPONIVEIS` (o catálogo que a
+tela oferece) e `DEFAULT_TASK_MODELS` (o pino por task). O fallback de provedor é
+`AI_FALLBACK_MODEL` em `actions/ai-client.ts`, e a env do Vercel vence o código.
+
+⚠️ Esta linha enumerava cinco ids e **nenhum dos seis atuais estava entre eles** (D8 da
+auditoria de 22/08); também não citava OpenAI nem Kimi, que é justamente por onde o fallback
+sai. Um catálogo escrito em doc envelhece a cada geração — e o **contrato dos parâmetros muda
+junto com ela**, que é o que custou 5 dias de vídeo em `docs/FMEA-PIPELINE.md` §F-I14.
 
 ### 5.2 Motor Conversacional (api/chat/route.js)
 - System prompt: ~120 linhas

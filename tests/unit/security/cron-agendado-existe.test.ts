@@ -12,6 +12,7 @@
 // deixar de rodar, e o sintoma seria silêncio.
 import { readFileSync } from 'fs';
 import { describe, it, expect } from 'vitest';
+import { ACOES_SO_MANUAIS } from '@/app/api/cron/route';
 
 const vercelJson = JSON.parse(readFileSync('vercel.json', 'utf-8'));
 const handler = readFileSync('app/api/cron/route.ts', 'utf-8');
@@ -55,5 +56,57 @@ describe('cron agendado ↔ handler', () => {
     expect(posVoo, 'postflight_entrega precisa estar agendado').toBeTruthy();
     expect(hora(posVoo!.schedule)).toBe(hora(disparo!.schedule));
     expect(minuto(posVoo!.schedule) - minuto(disparo!.schedule)).toBeGreaterThanOrEqual(30);
+  });
+
+  /**
+   * ── O lado que faltava (D10 da auditoria de 22/08) ────────────────────────
+   *
+   * O guard só olhava `vercel.json → handler`. O buraco estava no sentido
+   * inverso: um case podia existir sem agendamento nenhum e nada dizia isso.
+   * Foi assim que o cabeçalho do arquivo documentou 3 actions de 15, DUAS delas
+   * sem cron, e ninguém percebeu por meses — o custo aparece quando alguém
+   * investiga "o cron não rodou" e acredita no que está escrito ali.
+   *
+   * Agora todo case tem que declarar um lado: agendado no `vercel.json`, ou
+   * listado em `ACOES_SO_MANUAIS`.
+   */
+  it('🔴 todo case do handler ou está agendado, ou está declarado como manual', () => {
+    const agendadas = new Set(acoesAgendadas());
+    const manuais = new Set<string>(ACOES_SO_MANUAIS);
+
+    const orfas = [...acoesTratadas()].filter((a) => !agendadas.has(a) && !manuais.has(a));
+
+    expect(
+      orfas,
+      'case sem cron e sem declaração: se é manual, entre em ACOES_SO_MANUAIS (com o motivo); '
+      + 'se devia rodar sozinho, falta a entrada no vercel.json — e o sintoma seria silêncio',
+    ).toEqual([]);
+  });
+
+  it('🔴 nada em `ACOES_SO_MANUAIS` está agendado (senão o comentário mente)', () => {
+    const agendadas = new Set(acoesAgendadas());
+    const contradicao = [...ACOES_SO_MANUAIS].filter((a) => agendadas.has(a));
+
+    expect(
+      contradicao,
+      'declarada como manual e agendada no vercel.json ao mesmo tempo — alguém ligou o cron e não tirou daqui',
+    ).toEqual([]);
+  });
+
+  /**
+   * O cabeçalho não repete horário: `vercel.json` é a fonte. Uma tabela de
+   * horários aqui envelhece calada — e a que existia estava com UTC e BRT
+   * TROCADOS nas três linhas, mandando quem depura procurar 3 h fora da janela.
+   */
+  it('🔴 o cabeçalho do handler não enumera horário de agendamento', () => {
+    const cabecalho = handler.slice(0, handler.indexOf('export async function GET'));
+    // Um horário concreto seguido de fuso é o padrão que envelhece: "05:00 UTC".
+    const horarios = [...cabecalho.matchAll(/\b\d{1,2}:\d{2}\s*(UTC|BRT)\b/gi)].map((m) => m[0]);
+
+    expect(
+      horarios,
+      'horário literal no cabeçalho: os horários vivem no vercel.json, e uma cópia aqui envelhece calada '
+      + '(a que existia trocava UTC por BRT nas três linhas)',
+    ).toEqual([]);
   });
 });

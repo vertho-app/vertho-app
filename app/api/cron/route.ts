@@ -9,15 +9,43 @@ import { safeSecretEqual } from '@/lib/secure-compare';
 export const maxDuration = 800;
 
 /**
- * GET /api/cron?action=cleanup_sessoes|trigger_segunda|trigger_quinta
+ * GET /api/cron?action=<uma das do switch abaixo>
  *
- * Executado automaticamente pelo Vercel Cron:
- *   - cleanup_sessoes: diário às 02:00 UTC (05:00 BRT)
- *   - trigger_segunda: segunda-feira às 08:00 UTC (11:00 BRT)
- *   - trigger_quinta:  quinta-feira às 08:00 UTC (11:00 BRT)
+ * 🔑 **Os horários vivem no `vercel.json`, e só lá.** É o arquivo que o Vercel
+ * lê; qualquer tabela aqui é cópia, e cópia envelhece calada. Este cabeçalho
+ * apontava três actions — duas delas SEM cron nenhum — e trocava UTC por BRT nas
+ * três (D10 da auditoria de 22/08). Quem depurasse "o cron não rodou" a partir
+ * daqui procuraria a execução três horas fora da janela real, e num arquivo onde
+ * uma quinta perdida atrasa a jornada em uma semana inteira, sem catch-up.
+ *
+ * Para converter: **o cron do Vercel é UTC, e Brasília é UTC−3** (sem horário de
+ * verão desde 2019). `0 5 * * *` sai às 2 da manhã em Brasília, não às 5 — e um
+ * agendamento nas três primeiras horas do dia UTC cai no dia ANTERIOR em BRT.
+ *
+ * As actions que NÃO têm agendamento estão em `ACOES_SO_MANUAIS` logo abaixo, e
+ * o guard confere os dois lados: agendado sem case, e case que não declarou de
+ * que lado está. Nenhuma lista de horário aqui para envelhecer.
  *
  * Protegido por CRON_SECRET (header Authorization ou query param).
  */
+
+/**
+ * Cases que existem só para disparo MANUAL (botão de admin, curl, replay) — não
+ * há entrada no `vercel.json` para eles, e isso é decisão, não esquecimento.
+ *
+ * ⚠️ Esta lista é conferida por `tests/unit/security/cron-agendado-existe.test.ts`
+ * nos dois sentidos: nenhuma delas pode estar agendada, e todo case fora dela
+ * tem que estar. Um case novo obriga a escolher um lado — que é o que faltava
+ * quando o cabeçalho documentava 3 de 15.
+ */
+export const ACOES_SO_MANUAIS = [
+  // seg = pílula única; qui = evidência. Quem roda hoje é o `trigger_diario`,
+  // que cobre os dois e respeita a cadência configurada por empresa.
+  'trigger_segunda',
+  'trigger_quinta',
+  // Recálculo pontual de taxa: roda quando alguém muda a régua, não por relógio.
+  'recalcular_taxa',
+] as const;
 export async function GET(req) {
   // Autenticação: Vercel envia Authorization: Bearer <CRON_SECRET>
   const authHeader = req.headers.get('authorization');
@@ -196,8 +224,8 @@ export async function GET(req) {
         result = await conarhReenvioT0();
         break;
 
-      // Legados (disparo manual): seg = pílula única; qui = evidência. O cron
-      // agora usa trigger_diario, que cobre os 2 e respeita a cadência configurada.
+      // Legados — ver `ACOES_SO_MANUAIS` no topo (o guard confere que seguem
+      // fora do vercel.json).
       case 'trigger_segunda':
         result = await triggerSegunda();
         break;

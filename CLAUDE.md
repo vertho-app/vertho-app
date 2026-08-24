@@ -50,7 +50,10 @@ no repo** — o repositório é público.
 - **Runtime**: Next.js 16 (App Router) + React — **TypeScript em todo o projeto** (~670 arquivos `.ts/.tsx`). NÃO escrever JavaScript.
 - **Banco**: Supabase (PostgreSQL). O app acessa via **supabase-js/PostgREST** (não `pg` direto, exceto scripts).
 - **Estilo**: Tailwind CSS.
-- **LLM**: **Claude API** via `@anthropic-ai/sdk` — sempre por `callAI`/`callAIChat` (`actions/ai-client.ts`). Default `claude-sonnet-4-6`; `claude-opus-4-6` só para roteiros de vídeo. Fallback de provedor `gpt-5.4-2026-03-05` (OpenAI — o alias puro morreu p/ a chave); Gemini e **Kimi/Moonshot (`kimi*`, OpenAI-compatible)** também suportados. Modelos reasoning: `options.reasoningEffort` (kimi-k3, gpt-5.x).
+- **LLM**: **Claude API** via `@anthropic-ai/sdk` — sempre por `callAI`/`callAIChat` (`actions/ai-client.ts`). Gemini, OpenAI e **Kimi/Moonshot (`kimi*`, OpenAI-compatible)** também suportados; modelos reasoning usam `options.reasoningEffort` (kimi-k3, gpt-5.x).
+  - **Que modelo roda o quê se lê em `lib/ai-tasks.ts`** — `MODELOS_DISPONIVEIS` (o catálogo oferecido na tela) e `DEFAULT_TASK_MODELS` (o pino por task). O default de quem não passa modelo é o `DEFAULT_MODEL` de `actions/ai-client.ts`; o fallback de provedor é `AI_FALLBACK_MODEL` (env vence o código).
+  - ⚠️ **Este resumo não repete os ids de propósito** (D8 da auditoria de 22/08): ele listava `claude-opus-4-6` para roteiro de vídeo — id que não existe em nenhuma das duas constantes, só na tabela de preços legada — e um fallback de duas gerações atrás. As **4 afirmações de modelo estavam erradas**, e é justamente daqui que sai decisão de custo e script novo: foi assim que `scripts/spike-batch-roteiros.ts` nasceu com um id de outra geração e o comentário "alinhado ao prod". Catálogo se lê no arquivo, não aqui — a mesma regra que esta base já aplica à cobertura de guard.
+  - 🔑 E lembre que `callAI` faz `aiConfig?.model || DEFAULT_MODEL` e **não** consulta `getModelForTask`: estar em `DEFAULT_TASK_MODELS` não prova em que modelo a task rodou (ver §"NÃO fazer").
 - **Jobs de fundo**: Trigger.dev v4 (`trigger/`).
 - **Deploy**: Vercel (via `git push`).
 - **Vídeo**: Bunny Stream (hosting) + HeyGen (avatar) + Remotion (render, `RENDER_BACKEND=hetzner`).
