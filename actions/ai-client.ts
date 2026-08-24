@@ -1,4 +1,25 @@
-'use server';
+/**
+ * 🔴 A8 (auditoria 22/08) — ESTE ARQUIVO NÃO É MAIS `'use server'`, de propósito.
+ *
+ * Com a diretiva, todo export virava endpoint HTTP: `callAI` e `callAIChat`
+ * estavam no `server-reference-manifest.json` (medido no build de 24/08, 485
+ * entradas — os dois ids entre elas). O servidor ACEITAVA os ids. Quem os
+ * tivesse executava prompt arbitrário, com `model` e `maxTokens` à escolha, na
+ * conta da Vertho — sem sessão, sem `taskKey`, sem teto.
+ *
+ * O atenuante era acidental: os ids não apareciam em `.next/static/chunks`,
+ * então o browser não os publicava. "Não publicado hoje" não é gate, e a
+ * advisory GHSA-955p-x3mx-jcvp (que afeta a faixa em que estamos) baixa o custo
+ * de enumerar exatamente esse tipo de id.
+ *
+ * `Medido antes de tirar:` os **62 importadores** deste módulo são todos de
+ * SERVIDOR — nenhum client component o importa. A diretiva não servia a
+ * ninguém; só criava dois endpoints. É o padrão que o CLAUDE.md já descreve:
+ * núcleo sem gate fora de `'use server'`, e a action que precisar aplica o gate.
+ *
+ * ⚠️ Se um dia uma tela precisar chamar IA do cliente, o caminho NÃO é devolver
+ * a diretiva aqui — é criar uma action fina, com gate e `taskKey`, que delega.
+ */
 
 import Anthropic from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
@@ -369,20 +390,37 @@ async function callClaude(
   if (maxTokens > 8192) {
     let text = '';
     const uso: LedgerUsage = { inTokens: 0, outTokens: 0, cacheRead: 0, cacheWrite: 0 };
-    const stream = await client.messages.stream(params);
-    for await (const event of stream as any) {
-      if (event.type === 'content_block_delta' && event.delta?.text) {
-        text += event.delta.text;
-      } else if (event.type === 'message_start' && event.message?.usage) {
-        uso.inTokens = event.message.usage.input_tokens || 0;
-        uso.cacheRead = event.message.usage.cache_read_input_tokens || 0;
-        uso.cacheWrite = event.message.usage.cache_creation_input_tokens || 0;
-      } else if (event.type === 'message_delta' && event.usage?.output_tokens != null) {
-        uso.outTokens = event.usage.output_tokens;
+    // C1 (auditoria 22/08): o `timeout` do construtor limita o FETCH, e o fetch
+    // de um stream resolve quando chegam os HEADERS — o corpo e consumido
+    // depois, sem relogio nenhum. No ramo que gera as respostas CARAS
+    // (maxTokens > 8192: blueprint, modulo-base, IA4) nao havia deadline.
+    //
+    // Medido em 24/08, 30 dias de ia_usage_log: tres features tem p95 ACIMA do
+    // teto nominal de 120 s — modulo_base_autor 227 s, blueprint_gerar 164 s
+    // (max 277 s), ia4_avaliacao 156 s — e registram 100% de sucesso. Se o
+    // relogio valesse, elas falhariam; o proprio dado prova que ele nao valia.
+    // E esse p95 e de SOBREVIVENTES: o log tem 3632 linhas 'ok' e nenhuma de
+    // erro, porque a chamada que morre nao chega a registrar. O real e maior.
+    const abortador = new AbortController();
+    const relogio = setTimeout(() => abortador.abort(), options.timeoutMs ?? AI_TIMEOUT_MS);
+    try {
+      const stream = await client.messages.stream(params, { signal: abortador.signal });
+      for await (const event of stream as any) {
+        if (event.type === 'content_block_delta' && event.delta?.text) {
+          text += event.delta.text;
+        } else if (event.type === 'message_start' && event.message?.usage) {
+          uso.inTokens = event.message.usage.input_tokens || 0;
+          uso.cacheRead = event.message.usage.cache_read_input_tokens || 0;
+          uso.cacheWrite = event.message.usage.cache_creation_input_tokens || 0;
+        } else if (event.type === 'message_delta' && event.usage?.output_tokens != null) {
+          uso.outTokens = event.usage.output_tokens;
+        }
       }
+      await registrarUsoIA('anthropic', model, uso, Date.now() - t0, options);
+      return text;
+    } finally {
+      clearTimeout(relogio);
     }
-    await registrarUsoIA('anthropic', model, uso, Date.now() - t0, options);
-    return text;
   }
 
   const response = await client.messages.create(params);
@@ -403,7 +441,14 @@ async function callClaudeChat(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: AI_TIMEOUT_MS, maxRetries: 1 });
+  // C9: os overrides do chamador valiam em `callAI` e eram IGNORADOS aqui — quem
+  // passava timeoutMs/maxRetries para uma conversa recebia o default sem aviso,
+  // e a leitura do call-site dizia outra coisa.
+  const client = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    timeout: options.timeoutMs ?? AI_TIMEOUT_MS,
+    maxRetries: options.maxRetries ?? 1,
+  });
 
   // HISTORY CACHING (S3, o lever medido como o maior): cacheia o prefixo
   // `system + histórico congelado`, lido a 0,1× nos turnos seguintes. O piloto
@@ -467,20 +512,37 @@ async function callClaudeChat(
   if (maxTokens > 8192) {
     let text = '';
     const uso: LedgerUsage = { inTokens: 0, outTokens: 0, cacheRead: 0, cacheWrite: 0 };
-    const stream = await client.messages.stream(params);
-    for await (const event of stream as any) {
-      if (event.type === 'content_block_delta' && event.delta?.text) {
-        text += event.delta.text;
-      } else if (event.type === 'message_start' && event.message?.usage) {
-        uso.inTokens = event.message.usage.input_tokens || 0;
-        uso.cacheRead = event.message.usage.cache_read_input_tokens || 0;
-        uso.cacheWrite = event.message.usage.cache_creation_input_tokens || 0;
-      } else if (event.type === 'message_delta' && event.usage?.output_tokens != null) {
-        uso.outTokens = event.usage.output_tokens;
+    // C1 (auditoria 22/08): o `timeout` do construtor limita o FETCH, e o fetch
+    // de um stream resolve quando chegam os HEADERS — o corpo e consumido
+    // depois, sem relogio nenhum. No ramo que gera as respostas CARAS
+    // (maxTokens > 8192: blueprint, modulo-base, IA4) nao havia deadline.
+    //
+    // Medido em 24/08, 30 dias de ia_usage_log: tres features tem p95 ACIMA do
+    // teto nominal de 120 s — modulo_base_autor 227 s, blueprint_gerar 164 s
+    // (max 277 s), ia4_avaliacao 156 s — e registram 100% de sucesso. Se o
+    // relogio valesse, elas falhariam; o proprio dado prova que ele nao valia.
+    // E esse p95 e de SOBREVIVENTES: o log tem 3632 linhas 'ok' e nenhuma de
+    // erro, porque a chamada que morre nao chega a registrar. O real e maior.
+    const abortador = new AbortController();
+    const relogio = setTimeout(() => abortador.abort(), options.timeoutMs ?? AI_TIMEOUT_MS);
+    try {
+      const stream = await client.messages.stream(params, { signal: abortador.signal });
+      for await (const event of stream as any) {
+        if (event.type === 'content_block_delta' && event.delta?.text) {
+          text += event.delta.text;
+        } else if (event.type === 'message_start' && event.message?.usage) {
+          uso.inTokens = event.message.usage.input_tokens || 0;
+          uso.cacheRead = event.message.usage.cache_read_input_tokens || 0;
+          uso.cacheWrite = event.message.usage.cache_creation_input_tokens || 0;
+        } else if (event.type === 'message_delta' && event.usage?.output_tokens != null) {
+          uso.outTokens = event.usage.output_tokens;
+        }
       }
+      await registrarUsoIA('anthropic', model, uso, Date.now() - t0, options);
+      return text;
+    } finally {
+      clearTimeout(relogio);
     }
-    await registrarUsoIA('anthropic', model, uso, Date.now() - t0, options);
-    return text;
   }
 
   const response = await client.messages.create(params);

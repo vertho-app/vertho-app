@@ -52,6 +52,16 @@ const AI_MODELS = [
 // picker abre com os modelos RESOLVIDOS da config (override da empresa →
 // default por task) — antes os defaults eram hardcoded aqui e o override de
 // check salvo em Configurações → IA era config MORTA (nada o lia).
+/**
+ * Fases que TÊM caminho de lote (Batch API, −50%, assíncrono).
+ *
+ * A lista existe para o default não prometer lote onde ele não existe: nas
+ * demais, `'agora'` não é uma escolha cara, é o único caminho. Se uma fase nova
+ * ganhar task de lote, o nome entra aqui — e o dia em que o ramo `modo === 'lote'`
+ * for escrito sem acrescentar o nome, o botão fica sem efeito visível.
+ */
+const FASES_COM_LOTE = new Set(['blueprint', 'ia2', 'ia3', 'ia4']);
+
 const DUAL_TASK_KEYS: Record<string, [string, string]> = {
   'ia3': ['ia3_cenarios', 'ia3_check'],
   'ia4': ['ia4_avaliar', 'ia4_check'],
@@ -235,7 +245,15 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   const [bgJobs, setBgJobs] = useState<Array<{ jobId: string; label: string; done: number; total: number; current?: string }>>([]);
   const bgJobsRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);
-  const [modo, setModo] = useState<'agora' | 'lote'>('agora');
+  /**
+   * C4 (auditoria 22/08): o default era `'agora'` — o caminho CARO — e voltava a
+   * `'agora'` a cada abertura do picker. `Medido no histórico inteiro de
+   * ia_jobs:` `ia2` = 0 execuções em lote, `ia4` = 0. O síncrono gastou
+   * US$ 87,08 em features que TÊM task de lote, contra US$ 265,72 totais:
+   * US$ 43,5 a mais, 33% do gasto de IA indo pelo botão errado por default.
+   * Não é preferência de ninguém — é o default que ninguém trocou.
+   */
+  const [modo, setModo] = useState<'agora' | 'lote'>('lote');
 
   const refreshTop10 = useCallback(async () => {
     const [t, c, g] = await Promise.all([
@@ -679,7 +697,10 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   function onActionClick(actionKey: string, label: string, isAI?: any) {
     if (pendingAction) return;
     if (isAI) {
-      setModo('agora');
+      // Lote onde ele existe (blueprint, ia2, ia3, ia4): −50% de custo e não
+      // prende a aba. `'agora'` continua disponível, como escolha EXPLÍCITA de
+      // depuração — e para as fases que não têm lote é o único caminho.
+      setModo(FASES_COM_LOTE.has(actionKey) ? 'lote' : 'agora');
       // Dual: abre o picker já com os modelos RESOLVIDOS da config da empresa
       // (override por task → default por task) — a config deixa de ser morta.
       if (isAI === 'dual' && DUAL_TASK_KEYS[actionKey]) {
@@ -1280,7 +1301,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                         style={modo === mo
                           ? { background: 'rgba(52,197,204,.15)', color: '#34c5cc', borderColor: 'rgba(52,197,204,.4)' }
                           : { background: '#091D35', color: 'rgba(255,255,255,.5)', borderColor: 'rgba(255,255,255,.08)' }}>
-                        {mo === 'agora' ? 'Agora' : 'Em lote −50%'}
+                        {mo === 'agora' ? 'Agora (depuração)' : 'Em lote −50%'}
                       </button>
                     ))}
                   </div>
@@ -1325,7 +1346,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                         style={modo === mo
                           ? { background: 'rgba(52,197,204,.15)', color: '#34c5cc', borderColor: 'rgba(52,197,204,.4)' }
                           : { background: '#091D35', color: 'rgba(255,255,255,.5)', borderColor: 'rgba(255,255,255,.08)' }}>
-                        {mo === 'agora' ? 'Agora' : 'Em lote −50%'}
+                        {mo === 'agora' ? 'Agora (depuração)' : 'Em lote −50%'}
                       </button>
                     ))}
                   </div>

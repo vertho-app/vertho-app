@@ -156,6 +156,35 @@ describe.skipIf(!temBuild)('Guard: action id de action com `internal` não vaza 
     }
   });
 
+  /**
+   * A8 (auditoria 22/08) — o wrapper de IA não pode voltar a ser endpoint.
+   *
+   * `actions/ai-client.ts` era `'use server'`, então `callAI` e `callAIChat`
+   * estavam no `server-reference-manifest.json`: o servidor ACEITAVA os ids.
+   * Quem os tivesse executava prompt arbitrário, com `model` e `maxTokens` à
+   * escolha, na conta da Vertho — sem sessão, sem `taskKey`, sem teto. O único
+   * atenuante era acidental (não estavam publicados no bundle do cliente), e
+   * "não publicado hoje" não é gate.
+   *
+   * A diretiva saiu em 24/08 — `Medido:` o manifesto foi de 485 para 483
+   * entradas e os dois ids sumiram; os 62 importadores são todos de servidor.
+   * Este teste é o que impede a diretiva de voltar em silêncio: diferente do
+   * caso acima, aqui nem PUBLICADO no cliente basta — o problema é EXISTIR como
+   * endpoint.
+   */
+  it('o wrapper de IA não é endpoint (nem publicado, nem aceito pelo servidor)', () => {
+    const proibidos = ['callAI', 'callAIChat'];
+    const viraramEndpoint = proibidos.filter((n) => nomeParaIds.has(n));
+    if (viraramEndpoint.length > 0) {
+      throw new Error(
+        `${viraramEndpoint.join(', ')} voltou(aram) a ser Server Action.\n` +
+        'Alguém repôs `use server` em actions/ai-client.ts — e ali todo export vira\n' +
+        'endpoint HTTP que executa prompt arbitrário na conta da Vertho.\n' +
+        'Se uma TELA precisa chamar IA, crie uma action fina COM gate e taskKey que delegue.',
+      );
+    }
+  });
+
   /** Regressão nominal: as 3 fechadas em 09/07 não podem voltar a existir. */
   it('as actions de bypass removidas continuam inexistentes', () => {
     const removidas = ['gerarTemporadaInternal'];
