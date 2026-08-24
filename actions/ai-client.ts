@@ -179,7 +179,7 @@ export async function callAI(
   const dispatch = (m: string) => {
     if (m.startsWith('gemini')) return callGemini(sysForConcat, combinedUser, m, maxTokens, options);
     // kimi* (Moonshot) é OpenAI-compatible — mesmo caminho REST, base/chave próprias.
-    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4') || m.startsWith('kimi')) return callOpenAI(sysForConcat, combinedUser, m, maxTokens, options);
+    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4') || m.startsWith('kimi') || m.startsWith('grok')) return callOpenAI(sysForConcat, combinedUser, m, maxTokens, options);
     return callClaude(localizedSystem, user, m, maxTokens, options);
   };
 
@@ -230,7 +230,7 @@ export async function callAIChat(
   const suffixConcat = [localizedSystem, options.systemSuffix, options.userSuffix].filter(Boolean).join('\n\n');
   const dispatch = (m: string) => {
     if (m.startsWith('gemini')) return callGeminiChat(suffixConcat, messages, m, maxTokens, options);
-    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4') || m.startsWith('kimi')) return callOpenAIChat(suffixConcat, messages, m, maxTokens, options);
+    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4') || m.startsWith('kimi') || m.startsWith('grok')) return callOpenAIChat(suffixConcat, messages, m, maxTokens, options);
     return callClaudeChat(localizedSystem, messages, m, maxTokens, options);
   };
 
@@ -276,7 +276,7 @@ interface LedgerUsage {
 }
 
 async function registrarUsoIA(
-  provider: 'anthropic' | 'gemini' | 'openai' | 'kimi',
+  provider: 'anthropic' | 'gemini' | 'openai' | 'kimi' | 'xai',
   model: string,
   u: LedgerUsage | null,
   latencyMs: number,
@@ -327,6 +327,17 @@ function ehClaudeAdaptativo(model: string): boolean {
 /** Aplica thinking/effort no corpo da chamada Claude conforme a geração. */
 function aplicarThinkingClaude(params: any, model: string, options: AICallOptions) {
   if (ehClaudeAdaptativo(model)) {
+    // A geração 5 (e Opus 4.7/4.8) REMOVEU os parâmetros de sampling: mandar
+    // `temperature` devolve 400 "`temperature` is deprecated for this model".
+    // Medido em 24/08/2026 ao trocar o Modo Cena para opus-5 — a 1ª chamada
+    // morreu no 400. Isto NÃO é problema de um caller: 16 arquivos passam
+    // `temperature` hoje (arguicao, cenarios-b, conteudos, extrator de cargo…)
+    // e a tela de modelos JÁ oferece opus-5 e sonnet-5. Qualquer um deles
+    // quebraria no instante em que o operador escolhesse um modelo da geração 5.
+    // Por isso o corte é aqui, na função, e não no chamador que descobriu.
+    delete params.temperature;
+    delete params.top_p;
+    delete params.top_k;
     if (options.thinking) params.thinking = { type: 'adaptive' };
     // `effort` é GA nesses modelos e vive DENTRO de output_config.
     if (options.reasoningEffort) {
@@ -604,6 +615,40 @@ async function callGemini(
 
 // ── OpenAI (REST) ───────────────────────────────────────────────────────────
 
+/**
+ * Provedores OpenAI-compatible: mesmo protocolo `/chat/completions`, base e
+ * chave próprias. Kimi (Moonshot) e Grok (xAI) entram por aqui.
+ *
+ * Vive num lugar só porque a resolução estava DUPLICADA em `callOpenAI` e
+ * `callOpenAIChat` — quatro ternários `isKimi` entre os dois. Somar um terceiro
+ * provedor nesse formato é o padrão dos gêmeos que divergem: quem adicionasse
+ * só num deles teria o modelo funcionando em `callAI` e falhando em
+ * `callAIChat`, que é justamente o caminho do chat — e portanto da cena.
+ */
+const PROVEDORES_OPENAI_COMPAT = [
+  { prefixo: 'kimi', provider: 'kimi', env: 'KIMI_API_KEY', url: 'https://api.moonshot.ai/v1/chat/completions' },
+  { prefixo: 'grok', provider: 'xai',  env: 'XAI_API_KEY',  url: 'https://api.x.ai/v1/chat/completions' },
+] as const;
+
+/**
+ * `provider` sai daqui junto com a chave de propósito: ele vira
+ * `ia_usage_log.provider`. Resolvido em separado, um provedor novo entraria no
+ * ledger como 'openai' — e o painel de custo passaria a somar xAI dentro da
+ * OpenAI, sem nada acusando.
+ */
+type ProvedorCompat = 'openai' | 'kimi' | 'xai';
+function resolverProvedorCompat(model: string): { apiKey: string; url: string; provider: ProvedorCompat } {
+  const p = PROVEDORES_OPENAI_COMPAT.find((x) => model.startsWith(x.prefixo));
+  const env = p?.env ?? 'OPENAI_API_KEY';
+  const apiKey = process.env[env];
+  if (!apiKey) throw new Error(`${env} not set`);
+  return {
+    apiKey,
+    url: p?.url ?? 'https://api.openai.com/v1/chat/completions',
+    provider: p?.provider ?? 'openai',
+  };
+}
+
 async function callOpenAI(
   system: string,
   user: string,
@@ -611,15 +656,8 @@ async function callOpenAI(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  // kimi* (Moonshot) fala o MESMO protocolo chat/completions — só muda base + chave.
-  const isKimi = model.startsWith('kimi');
-  const apiKey = isKimi ? process.env.KIMI_API_KEY : process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error(isKimi ? 'KIMI_API_KEY not set' : 'OPENAI_API_KEY not set');
+  const { apiKey, url, provider } = resolverProvedorCompat(model);
   const t0 = Date.now();
-
-  const url = isKimi
-    ? 'https://api.moonshot.ai/v1/chat/completions'
-    : 'https://api.openai.com/v1/chat/completions';
 
   const isNew = model.startsWith('gpt-5') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
   const body: any = {
@@ -650,7 +688,7 @@ async function callOpenAI(
   const data = await res.json();
   const uo = data.usage;
   const cachedIn = uo?.prompt_tokens_details?.cached_tokens || 0;
-  await registrarUsoIA(isKimi ? 'kimi' : 'openai', model, uo ? {
+  await registrarUsoIA(provider, model, uo ? {
     inTokens: (uo.prompt_tokens || 0) - cachedIn,
     outTokens: uo.completion_tokens || 0,
     cacheRead: cachedIn,
@@ -713,9 +751,7 @@ async function callOpenAIChat(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const isKimi = model.startsWith('kimi');
-  const apiKey = isKimi ? process.env.KIMI_API_KEY : process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error(isKimi ? 'KIMI_API_KEY not set' : 'OPENAI_API_KEY not set');
+  const { apiKey, url, provider } = resolverProvedorCompat(model);
   const t0 = Date.now();
 
   const isNew = model.startsWith('gpt-5') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
@@ -726,7 +762,7 @@ async function callOpenAIChat(
     messages: [{ role: 'system', content: system }, ...messages],
   };
 
-  const res = await fetch(isKimi ? 'https://api.moonshot.ai/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions', {
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -744,7 +780,7 @@ async function callOpenAIChat(
   const data = await res.json();
   const uo = data.usage;
   const cachedIn = uo?.prompt_tokens_details?.cached_tokens || 0;
-  await registrarUsoIA(isKimi ? 'kimi' : 'openai', model, uo ? {
+  await registrarUsoIA(provider, model, uo ? {
     inTokens: (uo.prompt_tokens || 0) - cachedIn,
     outTokens: uo.completion_tokens || 0,
     cacheRead: cachedIn,

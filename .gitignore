@@ -104,3 +104,8 @@ data-pipeline/radarempresas/**/_vt/
 # worker de render Hetzner: bundle (artefato) e .env (segredos) nunca vão pro git
 worker-hetzner/spike-bundle/
 worker-hetzner/.env
+
+# Saídas de medição do Modo Cena: transcrições de cena com contexto de tenant
+# (escolas, PPP, personagens reais). O repo é público — nunca entram.
+cena-*.json
+tri-*.json

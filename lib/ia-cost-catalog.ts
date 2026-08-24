@@ -60,6 +60,13 @@ export const MODELS = {
   'gpt-5.1':                    { label: 'GPT 5.1 (fallback)',  inUsd: 5,    outUsd: 15 },
   // Moonshot (provider kimi no ai-client). Reasoning: o out inclui o thinking.
   'kimi-k3':                    { label: 'Kimi K3',             inUsd: 3,    outUsd: 15 },
+  // xAI (provider xai no ai-client). Preço LIDO da própria API em 24/08/2026
+  // (`GET /v1/language-models`), não de tabela de terceiro: prompt 20000 e
+  // completion 60000, na unidade de 1e-10 USD/token → $2 e $6 por 1M.
+  // ⚠️ A xAI cobra o DOBRO acima de 200k tokens de contexto ($4/$12) e o cache
+  // de prompt sai por $0,50/1M. Este catálogo é de faixa única: uma chamada de
+  // contexto longo fica SUBESTIMADA aqui.
+  'grok-4.6':                   { label: 'Grok 4.6',            inUsd: 2,    outUsd: 6 },
   // Embeddings (sem custo de output)
   'voyage-3-large':             { label: 'Voyage-3-large (embed)', inUsd: 0.18, outUsd: 0 },
   // TTS — por token. Input = texto; Output = tokens de áudio (custo dominante).

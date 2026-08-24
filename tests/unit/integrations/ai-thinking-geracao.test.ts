@@ -72,4 +72,33 @@ describe('ai-client · thinking e effort por geração de modelo Claude', () => 
     expect(ultimo().thinking).toBeUndefined();
     expect(ultimo().output_config).toBeUndefined();
   });
+
+  // ── Sampling removido na geração 5 (medido 24/08/2026) ──────────────────────
+  // Mesma família de bug do thinking, e igualmente latente: 16 arquivos passam
+  // `temperature` e a tela de modelos já oferece opus-5/sonnet-5. Quem escolher
+  // um deles recebe 400 "`temperature` is deprecated for this model" — não um
+  // resultado pior, uma rota morta.
+  it('geração 5 NÃO recebe temperature (a API devolve 400)', async () => {
+    await callAI('SYS', 'USER', { model: 'claude-opus-5' }, 4096, { temperature: 0.7 });
+    expect(
+      ultimo().temperature,
+      'temperature na geração 5 = 400 invalid_request_error, não degradação',
+    ).toBeUndefined();
+  });
+
+  it('geração 5 NÃO recebe top_p nem top_k', async () => {
+    await callAI('SYS', 'USER', { model: 'claude-sonnet-5' }, 4096, {
+      temperature: 0.2, top_p: 0.9, top_k: 40,
+    } as any);
+    expect(ultimo().top_p).toBeUndefined();
+    expect(ultimo().top_k).toBeUndefined();
+  });
+
+  it('geração 4.6 CONTINUA recebendo temperature — o corte é por geração, não geral', async () => {
+    await callAI('SYS', 'USER', { model: 'claude-sonnet-4-6' }, 4096, { temperature: 0.7 });
+    expect(
+      ultimo().temperature,
+      'cortar temperature no 4.6 mudaria o comportamento de 16 call-sites em produção',
+    ).toBe(0.7);
+  });
 });

@@ -380,6 +380,12 @@ export function montarAlternativasIA3(resultado: any, cen: any, perguntas: any[]
     fator_complicador: cen.fator_complicador || null,
     dilema_etico: cen.dilema_etico || resultado.dilema_etico || null,
     armadilha_de_resposta_generica: cen.armadilha_de_resposta_generica || null,
+    // O prompt da IA3 PEDE `stakeholders_centrais` (máx. 2) e o persistidor não
+    // gravava — o campo existia na resposta do modelo e morria aqui. Quem
+    // derivava a persona da cena tinha de adivinhar o "quem" pelo texto do
+    // contexto. Campo pedido e não persistido é o mesmo bug de ler chave que
+    // ninguém escreve, só que do lado da escrita.
+    stakeholders_centrais: cen.stakeholders_centrais || null,
     confianca_cenario: typeof cen.confianca_cenario === 'number' ? Math.max(0, Math.min(1, cen.confianca_cenario)) : null,
     riscos_do_cenario: cen.riscos_do_cenario || null,
     mapa_cobertura_descritores: resultado.mapa_cobertura_descritores || null,
