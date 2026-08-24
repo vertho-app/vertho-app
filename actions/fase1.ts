@@ -5,7 +5,7 @@ import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import type { FaseCarreira } from '@/lib/season-engine/programa-config';
-import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase, requireLinhaSupabase } from '@/lib/admin-supabase';
 import { hasDiscMapeado } from '@/lib/disc-status';
 import {
   buscarContextoPPP, buscarValores,
@@ -293,9 +293,11 @@ export async function adicionarTop10(empresaId: string, cargo: string, competenc
 }
 
 export async function removerTop10(id: string) {
-  // Não recebe empresaId. Descobre via raw + valida tenant pra defesa em profundidade.
-  const sbRaw = await requireAdminSupabase('content.manage');
-  const { data: row } = await sbRaw.from('top10_cargos').select('empresa_id').eq('id', id).maybeSingle();
+  // A5: o id vem do cliente e `content.manage` está no papel `rh`. `tenantDb` da
+  // linha ESCOPA a escrita; quem AUTORIZA o chamador naquela linha é o gate.
+  const { linha: row } = await requireLinhaSupabase<{ empresa_id: string }>(
+    'top10_cargos', id, 'content.manage', 'top10.remover',
+  );
   if (!row) return { success: false, error: 'Não encontrado' };
   const tdb = tenantDb(row.empresa_id);
   const { error } = await tdb.from('top10_cargos').delete().eq('id', id);

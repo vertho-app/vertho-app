@@ -17,7 +17,7 @@
  * Ver docs/EXTRACAO-MANUSCRITO.md.
  */
 import { tasks } from '@trigger.dev/sdk';
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { regionOpts } from '@/lib/trigger-region';
 import { parsearManuscrito, TRANSICOES, type ManuscritoParseResult } from '@/lib/manuscrito-parser';
@@ -70,7 +70,9 @@ export async function analisarManuscrito(opts: {
   locale?: string;
 }): Promise<{ preview?: PreviewManuscrito; error?: string }> {
   try {
-    const sb = await requireAdminSupabase('content.manage');
+    // A5: `empresaId` vem do cliente. Nulo = catálogo canônico (global), que a
+    // partir de 24/08 é só platform admin.
+    const sb = await requireEmpresaSupabase(opts.empresaId, 'content.manage', 'manuscrito.analisar');
     if (!opts.arquivoBase64) return { error: 'arquivoBase64 obrigatório' };
     if (opts.filename && !opts.filename.toLowerCase().endsWith('.docx')) {
       return { error: 'Suba o .docx original. PDFs impressos perdem a camada de texto e não podem ser processados.' };

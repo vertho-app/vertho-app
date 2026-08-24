@@ -1,6 +1,6 @@
 'use server';
 
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 
 // ── Criar nova empresa com auto-slug ────────────────────────────────────────
 
@@ -53,7 +53,9 @@ export async function criarNovaEmpresa(dados: any) {
 // ── Importar colaboradores em lote (dedup por email) ────────────────────────
 
 export async function importarColaboradoresLote(empresaId: string, colaboradores: any[]) {
-  const sb = await requireAdminSupabase('users.manage');
+  // A5: CRIA gente no tenant que o cliente escolher — `users.manage` está no
+  // papel `rh`, e foi pensado para a PRÓPRIA empresa (decisão de 24/08).
+  const sb = await requireEmpresaSupabase(empresaId, 'users.manage', 'onboarding.importar_colaboradores');
   try {
     if (!Array.isArray(colaboradores) || !colaboradores.length) {
       return { success: false, error: 'Lista de colaboradores vazia' };
@@ -105,7 +107,7 @@ export async function importarColaboradoresLote(empresaId: string, colaboradores
 // ── Configurar competências iniciais ────────────────────────────────────────
 
 export async function configurarCompetencias(empresaId: string, competencias: any[]) {
-  const sb = await requireAdminSupabase('content.manage');
+  const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'onboarding.configurar_competencias');
   try {
     if (!Array.isArray(competencias) || !competencias.length) {
       return { success: false, error: 'Lista de competências vazia' };

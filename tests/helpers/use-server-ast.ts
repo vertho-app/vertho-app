@@ -84,8 +84,34 @@ export interface ExportUseServer {
   nome: string;
   /** Corpo já com delegação de 1 nível e sem comentários. */
   corpo: string;
-  /** Nomes de parâmetros + nomes de campo do tipo dos parâmetros. */
+  /** Nomes de parâmetros + nomes de campo do tipo INLINE dos parâmetros. */
   params: string[];
+  /**
+   * Ids que chegam pelo cliente sem aparecer na assinatura: campo de um tipo
+   * NOMEADO (`p: EnqueueKitParams`) e acesso `p.empresaId` no corpo.
+   *
+   * ⚠️ Ponto cego achado na Sprint 2 (24/08), corrigindo a classe A5: dois
+   * exports da MESMA classe passaram batido porque o id não era um parâmetro
+   * com nome de id — `enqueueKit(p: EnqueueKitParams)` (interface declarada
+   * fora da assinatura) e `salvarCompetenciaBase(comp: any)` (o id vinha em
+   * `comp.id`). O guard achou 20 e a classe tinha 22. Separado de `params` de
+   * propósito: quem consome decide se quer o sinal mais largo, em vez de dois
+   * guards mudarem de sensibilidade no mesmo commit.
+   */
+  paramsIndiretos: string[];
+}
+
+/** Nomes de propriedade de interfaces e type aliases declarados no arquivo. */
+function camposDeTiposLocais(sf: ts.SourceFile): Map<string, string[]> {
+  const mapa = new Map<string, string[]>();
+  for (const node of sf.statements) {
+    if (ts.isInterfaceDeclaration(node)) {
+      mapa.set(node.name.text, node.members.map((m) => m.name?.getText(sf) || '').filter(Boolean));
+    } else if (ts.isTypeAliasDeclaration(node) && ts.isTypeLiteralNode(node.type)) {
+      mapa.set(node.name.text, node.type.members.map((m) => m.name?.getText(sf) || '').filter(Boolean));
+    }
+  }
+  return mapa;
 }
 
 /**
@@ -113,10 +139,29 @@ export function exportsUseServer(): ExportUseServer[] {
     let src: string;
     try { src = readFileSync(file, 'utf-8'); } catch { continue; }
     if (!src.includes("'use server'")) continue; // filtro barato antes do parse
+    out.push(...analisarFonte(file, src));
+  }
+  return out;
+}
 
+/**
+ * A mesma varredura, sobre um fonte em MEMÓRIA.
+ *
+ * Existe para que um guard consiga exercitar o próprio predicado quando a
+ * allowlist dele esvazia. Sem isto, o dia em que o último achado real é
+ * corrigido é o dia em que o guard passa a rodar contra denominador zero: ele
+ * fica verde por não ter o que achar, e um afrouxamento do predicado vira
+ * indistinguível de "a dívida acabou". As fixtures do `gate-permissao-guard`
+ * usam esta função — código sintético, mas passando pela máquina AST de
+ * verdade, não por uma regex paralela que envelheceria sozinha.
+ */
+export function analisarFonte(file: string, src: string): ExportUseServer[] {
+  const out: ExportUseServer[] = [];
+  {
     const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-    if (!isUseServer(sf)) continue;
+    if (!isUseServer(sf)) return out;
     const locais = funcoesLocais(sf);
+    const camposDeTipo = camposDeTiposLocais(sf);
 
     for (const node of sf.statements) {
       let nome: string | null = null;
@@ -135,15 +180,30 @@ export function exportsUseServer(): ExportUseServer[] {
       if (!nome || !fn) continue;
 
       const params: string[] = [];
+      const paramsIndiretos: string[] = [];
+      const nomesDeParam: string[] = [];
       for (const p of fn.parameters) {
-        if (ts.isIdentifier(p.name)) params.push(p.name.text);
+        if (ts.isIdentifier(p.name)) { params.push(p.name.text); nomesDeParam.push(p.name.text); }
         else if (ts.isObjectBindingPattern(p.name)) {
           for (const el of p.name.elements) params.push(el.name.getText(sf));
         }
         if (p.type) {
-          const m = p.type.getText(sf).match(/\b\w*[Ii]d\b/g);
+          const texto = p.type.getText(sf);
+          const m = texto.match(/\b\w*[Ii]d\b/g);
           if (m) params.push(...m);
+          // Tipo NOMEADO: os campos moram na declaração, não na assinatura.
+          for (const campos of [camposDeTipo.get(texto.replace(/\s*\|\s*(null|undefined)/g, '').trim())]) {
+            if (campos) paramsIndiretos.push(...campos);
+          }
         }
+      }
+
+      // `p.empresaId` / `comp.id` — id do cliente que só aparece no corpo.
+      if (nomesDeParam.length > 0) {
+        const acesso = new RegExp(`\\b(?:${nomesDeParam.join('|')})\\.(\\w+)`, 'g');
+        let a: RegExpExecArray | null;
+        const corpoDoExport = semComentarios(fn.getText(sf));
+        while ((a = acesso.exec(corpoDoExport)) !== null) paramsIndiretos.push(a[1]);
       }
 
       out.push({
@@ -152,6 +212,7 @@ export function exportsUseServer(): ExportUseServer[] {
         nome,
         corpo: corpoComDelegacao(fn, sf, locais),
         params,
+        paramsIndiretos: [...new Set(paramsIndiretos)],
       });
     }
   }

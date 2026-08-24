@@ -2,7 +2,7 @@
 
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireEmpresaSupabase } from '@/lib/admin-supabase';
 
 // ── Extrair contexto organizacional (PPP educacional / Dossiê corporativo) ──
 
@@ -15,7 +15,9 @@ interface ExtrairPPPOpts {
 }
 
 export async function extrairPPP(empresaId: string, { urls = [], textos = [], model, enriquecerWeb = false, nomeEscola }: ExtrairPPPOpts = {}) {
-  const sb = await requireAdminSupabase('content.manage');
+  // A5: além de ler a empresa pelo id do cliente, faz scrape de URL também
+  // escolhida por ele — o gate tem de confrontar o tenant antes das duas coisas.
+  const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'ppp.extrair');
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, segmento')

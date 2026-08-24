@@ -32,7 +32,18 @@ const sb = criarSupabaseMock({
 });
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
-vi.mock('@/lib/admin-supabase', () => ({ requireAdminSupabase: async () => sb.client }));
+/**
+ * ⚠️ O gate está MOCKADO aqui de propósito: este arquivo testa o que pode virar
+ * acervo, não quem pode importar. Verde aqui não diz nada sobre autorização — a
+ * dimensão de tenant de `importarVideosBunny` (A5, Sprint 2 de 24/08, quando ela
+ * passou de `requireAdminSupabase` para `requireEmpresaSupabase`) é exercitada em
+ * `a5-gate-tenant.test.ts`, com o helper REAL.
+ */
+vi.mock('@/lib/admin-supabase', () => ({
+  requireAdminSupabase: async () => sb.client,
+  requireEmpresaSupabase: async () => sb.client,
+  requireLinhaSupabase: async () => ({ sb: sb.client, linha: { empresa_id: EMPRESA } }),
+}));
 
 /** A library devolve os três: dois da plataforma, um pré-produzido de verdade. */
 const RESPOSTA_BUNNY = {

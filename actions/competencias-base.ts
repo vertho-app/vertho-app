@@ -1,6 +1,15 @@
 'use server';
 
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requirePlataformaSupabase } from '@/lib/admin-supabase';
+
+/**
+ * ⚠️ `competencias_base` é o CATÁLOGO GLOBAL — as linhas não têm `empresa_id` e
+ * servem TODOS os tenants. Gatar escrita aqui por `content.manage` (permissão do
+ * papel `rh`) deixava o RH de qualquer cliente alterar/apagar competência que
+ * todo mundo usa. Decisão de produto de 24/08: escrita no catálogo global é
+ * `requirePlataformaSupabase` — platform_admin, mais a permissão granular.
+ * Leitura segue em `admin.access`, que o papel `rh` não tem.
+ */
 
 // ── Load competências base (globais, por segmento) ──────────────────────────
 
@@ -23,7 +32,7 @@ export async function loadCompetenciasBase(segmento: string | null) {
 // ── Salvar competência base ─────────────────────────────────────────────────
 
 export async function salvarCompetenciaBase(comp: any) {
-  const sb = await requireAdminSupabase('content.manage');
+  const sb = await requirePlataformaSupabase('content.manage');
   try {
     const registro = {
       nome: comp.nome,
@@ -57,7 +66,7 @@ export async function salvarCompetenciaBase(comp: any) {
 // ── Excluir competência base ────────────────────────────────────────────────
 
 export async function excluirCompetenciaBase(id: string) {
-  const sb = await requireAdminSupabase('content.manage');
+  const sb = await requirePlataformaSupabase('content.manage');
   try {
     const { error } = await sb.from('competencias_base').delete().eq('id', id);
     if (error) return { success: false, error: error.message };

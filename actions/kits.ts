@@ -8,7 +8,7 @@
  * Fase 1 = on-demand (um (tema × DISC) por chamada) para validar a coesão antes
  * de escalar para o lote (Fase 2: 4 DISC × 4 formatos, agendado por coorte).
  */
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireEmpresaSupabase, requireLinhaSupabase } from '@/lib/admin-supabase';
 import { resolverOuCriarBrief, gerarKitDesafio, type DiscLetter } from '@/lib/season-engine/kit/brief';
 import { resolverPerfilPublicoDaEmpresa, type RegistroPublico } from '@/lib/season-engine/perfil-publico';
 import { levantarPlanoKitsCoorte } from '@/lib/season-engine/kit/plano-coorte';
@@ -65,7 +65,9 @@ export async function gerarKit({
   aiRun, briefPreResolvido, pppBriefPreResolvido, perfilPublico: perfilPublicoIn, skipVideo = false,
 }: GerarKitParams) {
   try {
-    const sb = sbIn || await requireAdminSupabase('content.manage');
+    // A5: `empresaId` vem do cliente (kit custa IA e grava no acervo dele).
+    // `sbIn` = chamada interna (lote/task) que já passou pelo gate.
+    const sb = sbIn || await requireEmpresaSupabase(empresaId, 'content.manage', 'kit.gerar');
     if (!competencia || !descritor || !disc) {
       return { success: false, error: 'competencia, descritor e disc obrigatórios' };
     }
@@ -176,7 +178,7 @@ export async function gerarKitSemanal({
 }: GerarKitSemanalParams) {
   try {
     const total = discs.length;
-    const sbk = sb || await requireAdminSupabase('content.manage');
+    const sbk = sb || await requireEmpresaSupabase(empresaId, 'content.manage', 'kit.gerar_semanal');
     const skipVideo = !incluirVideo;
     // Registro/domínio por público resolvido 1× p/ todos os DISC (núcleo+desafio coesos).
     const perfilPublico = perfilPublicoIn ?? await resolverPerfilPublicoDaEmpresa(sbk, empresaId, cargo);
@@ -277,7 +279,10 @@ export interface EnqueueKitParams {
 /** Cria o job em kit_jobs e dispara o task gerar-kit. Retorna o jobId p/ polling. */
 export async function enqueueKit(p: EnqueueKitParams) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
+    // ⚠️ O guard G-A5 NÃO via este export: o id do cliente vem dentro de `p`
+    // (tipo nomeado), e o predicado só olhava parâmetros com cara de id. Mesma
+    // classe dos outros — gate por tenant, não por permissão.
+    const sb = await requireEmpresaSupabase(p.empresaId, 'content.manage', 'kit.enqueue');
     if (!p.competencia || !p.descritor) return { success: false as const, error: 'competência e descritor obrigatórios' };
     const discs = (p.discs?.length ? p.discs : ['D', 'I', 'S', 'C']) as DiscLetter[];
     const jobParams = {
@@ -308,11 +313,13 @@ export async function enqueueKit(p: EnqueueKitParams) {
 /** Status do job (polling). */
 export async function statusKit(jobId: string) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
-    const { data } = await sb.from('kit_jobs')
-      .select('id, status, progress, kit_ids, error, competencia, descritor, updated_at')
-      .eq('id', jobId).maybeSingle();
-    return data || null;
+    // A5: o jobId vem do cliente; o polling lia status/competência/descritor de
+    // job alheio. Leitura, mas é leitura de outro tenant.
+    const { linha } = await requireLinhaSupabase(
+      'kit_jobs', jobId, 'content.manage', 'kit.status',
+      'id, status, progress, kit_ids, error, competencia, descritor, updated_at',
+    );
+    return linha || null;
   } catch {
     return null;
   }
@@ -333,7 +340,7 @@ export async function planejarKitsCoorte(
   opts: { executar?: boolean; incluirVideo?: boolean; contexto?: string; nivelMin?: number; nivelMax?: number; semanaMax?: number; turmaId?: string | null } = {},
 ) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
+    const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'kit.planejar_coorte');
     const base = await levantarPlanoKitsCoorte(sb, empresaId, opts);
     if ('error' in base) return { error: base.error as string };
     const { plano, totalFaltantes } = base;

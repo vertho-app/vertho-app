@@ -6,7 +6,7 @@ import { promptVideoScript } from '@/lib/season-engine/prompts/video-script';
 import { promptPodcastScript } from '@/lib/season-engine/prompts/podcast-script';
 import { promptTextContent } from '@/lib/season-engine/prompts/text-content';
 import { promptCaseStudy } from '@/lib/season-engine/prompts/case-study';
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase, requireLinhaSupabase } from '@/lib/admin-supabase';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { resolverModuloBaseParaConteudo, enriquecerPromptComModuloBase } from '@/lib/season-engine/modulo-base-integration';
 import { getModelForTask } from '@/lib/ai-tasks';
@@ -110,7 +110,10 @@ export async function gerarConteudoIA({
   empresaId = null, aiConfig = {}, kit, sb: sbIn, aiRun, forcar = false,
 }: GerarConteudoParams) {
   try {
-    const sb = sbIn || await requireAdminSupabase('content.manage');
+    // A5: `empresaId` vem do cliente. `sbIn` = chamada interna (lote/task) que já
+    // passou pelo gate — sem ele, o tenant é confrontado aqui. `empresaId` nulo é
+    // o catálogo GLOBAL: só platform admin (decisão de produto de 24/08).
+    const sb = sbIn || await requireEmpresaSupabase(empresaId, 'content.manage', 'conteudo.gerar_ia');
     if (!formato || !competencia || !descritor) {
       return { success: false, error: 'formato, competencia e descritor obrigatórios' };
     }
@@ -397,7 +400,7 @@ export async function gerarConteudoLote({
   empresaId = null, aiConfig = {},
 }: GerarConteudoLoteParams) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
+    const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'conteudo.gerar_lote');
     if (!formato || !competencia) {
       return { success: false, error: 'formato e competencia obrigatórios' };
     }
@@ -571,18 +574,21 @@ function extrairTitulo(texto: string, fallback: string, formato: string) {
  */
 export async function importarVideosBunny(empresaId?: string | null) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
-    const lib = process.env.BUNNY_LIBRARY_ID;
-    const key = process.env.BUNNY_STREAM_API_KEY;
-    if (!lib || !key) return { error: 'BUNNY_LIBRARY_ID/BUNNY_STREAM_API_KEY ausentes' };
-
-    // ⚠️ Server Action é endpoint HTTP: `empresaId` vem do cliente. Ele não
-    // concede acesso (o gate acima é de plataforma) — o que ele faz é ESCOPAR o
-    // que vai ser gravado, e por isso precisa existir de verdade.
+    // ⚠️ Server Action é endpoint HTTP: `empresaId` vem do cliente.
+    // 🔴 Até 24/08 este comentário dizia que o gate acima "é de plataforma" e que
+    // o `empresaId` só ESCOPAVA a gravação. Era falso: `requireAdminSupabase`
+    // confere apenas a permissão, e `content.manage` está no papel `rh` — o gate
+    // não decidia tenant nenhum. Agora o id é confrontado com o contexto
+    // autenticado ANTES de qualquer leitura (A5 da auditoria 22/08).
     const alvo = (empresaId || '').trim();
     if (!alvo || alvo === 'all') {
       return { error: 'Escolha a empresa no filtro antes de importar — import sem empresa vira acervo global, visível a todos os clientes.' };
     }
+    const sb = await requireEmpresaSupabase(alvo, 'content.manage', 'conteudo.importar_bunny');
+    const lib = process.env.BUNNY_LIBRARY_ID;
+    const key = process.env.BUNNY_STREAM_API_KEY;
+    if (!lib || !key) return { error: 'BUNNY_LIBRARY_ID/BUNNY_STREAM_API_KEY ausentes' };
+
     const { data: empresaAlvo, error: errEmpresa } = await sb.from('empresas')
       .select('id').eq('id', alvo).maybeSingle();
     if (errEmpresa) return { error: `Falha ao validar empresa: ${errEmpresa.message}` };
@@ -726,8 +732,11 @@ export async function listarConteudos({ formato, competencia, semClassificacao, 
  */
 export async function atualizarConteudo(id: string, patch: any) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
     if (!id) return { error: 'id obrigatório' };
+    // A5: o id vem do cliente e `content.manage` está no papel `rh` — quem
+    // autoriza é o tenant DA LINHA, não a permissão.
+    const { sb, linha } = await requireLinhaSupabase('micro_conteudos', id, 'content.manage', 'conteudo.atualizar');
+    if (!linha) return { error: 'Conteúdo não encontrado' };
     const allowed = ['titulo','descricao','pilar','competencia','descritor','nivel_min','nivel_max',
                      'tipo_conteudo','contexto','cargo','setor','apresentador','ativo','duracao_min'];
     const clean: Record<string, any> = {};
@@ -817,14 +826,11 @@ async function resolveSectionBase64(sb: any, c: any): Promise<string | null> {
  */
 export async function gerarConteudoFinal(id: string) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
     if (!id) return { success: false, error: 'id obrigatório' };
-
-    const { data: c } = await sb
-      .from('micro_conteudos')
-      .select('*, empresa:empresas(nome)')
-      .eq('id', id)
-      .maybeSingle();
+    // A5: gate pelo tenant da linha; a linha já volta do gate (sem re-fetch).
+    const { sb, linha: c } = await requireLinhaSupabase<any>(
+      'micro_conteudos', id, 'content.manage', 'conteudo.gerar_final', '*, empresa:empresas(nome)',
+    );
     if (!c) return { success: false, error: 'Conteúdo não encontrado' };
     if (c.formato !== 'texto' && c.formato !== 'case') {
       return { success: false, error: 'PDF final disponível apenas para texto e case' };
@@ -1191,14 +1197,10 @@ export async function prepararAudioPersonalizado({ contentId, colab }: { content
  */
 export async function gerarPodcastAudio(id: string) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
     if (!id) return { success: false, error: 'id obrigatório' };
-
-    const { data: c } = await sb
-      .from('micro_conteudos')
-      .select('*, empresa:empresas(nome)')
-      .eq('id', id)
-      .maybeSingle();
+    const { sb, linha: c } = await requireLinhaSupabase<any>(
+      'micro_conteudos', id, 'content.manage', 'conteudo.podcast_audio', '*, empresa:empresas(nome)',
+    );
     if (!c) return { success: false, error: 'Conteúdo não encontrado' };
     if (c.formato !== 'audio') {
       return { success: false, error: 'Áudio TTS disponível apenas para o formato áudio' };
@@ -1239,17 +1241,14 @@ export async function gerarPodcastAudio(id: string) {
  */
 export async function aprovarRoteiroPodcastEGerarAudio(id: string, roteiro: string) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
     if (!id) return { success: false, error: 'id obrigatório' };
     if (!roteiro?.trim() || roteiro.trim().length < 20) {
       return { success: false, error: 'Roteiro muito curto para gerar áudio' };
     }
 
-    const { data: c } = await sb
-      .from('micro_conteudos')
-      .select('id, formato')
-      .eq('id', id)
-      .maybeSingle();
+    const { sb, linha: c } = await requireLinhaSupabase<{ formato: string }>(
+      'micro_conteudos', id, 'content.manage', 'conteudo.podcast_aprovar', 'id, formato',
+    );
     if (!c) return { success: false, error: 'Conteúdo não encontrado' };
     if (c.formato !== 'audio') {
       return { success: false, error: 'Aprovação de roteiro disponível apenas para podcast' };
@@ -1280,11 +1279,11 @@ export async function aprovarRoteiroPodcastEGerarAudio(id: string, roteiro: stri
  */
 export async function excluirConteudoFinal(id: string) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
     if (!id) return { success: false, error: 'id obrigatório' };
 
-    const { data: c } = await sb.from('micro_conteudos')
-      .select('id, storage_path, url, competencia').eq('id', id).maybeSingle();
+    const { sb, linha: c } = await requireLinhaSupabase<{ storage_path: string | null; url: string | null; competencia: string | null }>(
+      'micro_conteudos', id, 'content.manage', 'conteudo.excluir_final', 'id, storage_path, url, competencia',
+    );
     if (!c) return { success: false, error: 'Conteúdo não encontrado' };
 
     // Prefixos de artefatos gerados pela plataforma (PDF final premium + PDFs
@@ -1318,8 +1317,10 @@ export async function excluirConteudoFinal(id: string) {
 
 export async function deletarConteudo(id: string) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
-    await deleteConteudoInTenantDaLinha(sb, id); // false = já não existia (delete idempotente)
+    if (!id) return { error: 'id obrigatório' };
+    const { sb, linha } = await requireLinhaSupabase('micro_conteudos', id, 'content.manage', 'conteudo.deletar');
+    if (!linha) return { ok: true }; // já não existia (delete idempotente)
+    await deleteConteudoInTenantDaLinha(sb, id);
     return { ok: true };
   } catch (err) {
     return { error: err?.message || 'Erro' };
