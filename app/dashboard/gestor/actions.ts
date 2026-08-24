@@ -47,7 +47,9 @@ export type EquipeRow = {
   cargo: string | null;
   status: 'em_andamento' | 'pausada' | 'concluida' | 'sem_trilha' | 'arquivada';
   competenciaFoco: string | null;
-  semana: number | null; // 1..14 ou null
+  semana: number | null; // 1..N do PROGRAMA dela (jornada 7, onboarding 10…) ou null
+  /** Duração do programa DESTA pessoa — o teto da barra de progresso (D1). */
+  totalSemanas: number | null;
   delta: number | null; // só quando concluida
   perfilDominante: string | null;
   fontePerfilExterno: string | null;
@@ -389,9 +391,11 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   const equipe: EquipeRow[] = liderados.map((c: any) => {
     const t = trilhaPorColab.get(c.id);
     let semana: number | null = null;
+    let totalSemanas: number | null = null;
     if (t?.data_inicio && (t.status === 'ativa' || t.status === 'pausada')) {
       const dias = Math.max(1, Math.floor((Date.now() - new Date(t.data_inicio).getTime()) / (24 * 3600 * 1000)));
-      semana = Math.min(getProgramaConfigDaTrilha(t).semanas, Math.ceil(dias / 7));
+      totalSemanas = getProgramaConfigDaTrilha(t).semanas;
+      semana = Math.min(totalSemanas, Math.ceil(dias / 7));
     }
     let delta: number | null = null;
     if (t?.status === 'concluida' && t.evolution_report) {
@@ -413,6 +417,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       status,
       competenciaFoco: t?.competencia_foco || null,
       semana,
+      totalSemanas,
       delta,
       perfilDominante: c.perfil_dominante || null,
       fontePerfilExterno: c.perfil_externo_fonte || null,

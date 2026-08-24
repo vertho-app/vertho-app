@@ -1,4 +1,5 @@
 import { task, wait } from '@trigger.dev/sdk';
+import { criarPatchJob } from '@/lib/ia-jobs';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import {
@@ -12,7 +13,7 @@ import {
 import {
   createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults,
   createOpenAIBatch, pollOpenAIBatch, fetchOpenAIBatchResults,
-  encerrarBatch, type BatchReq,
+  encerrarBatch, batchPendenteDoJob, type BatchReq,
 } from '@/lib/ai-batch';
 import { IA_BATCH } from '@/lib/status';
 
@@ -41,8 +42,9 @@ export const gerarIA4BatchTask = task({
   maxDuration: 3600,
   run: async (payload: { jobId: string }) => {
     const sb = createSupabaseAdmin();
-    const patch = (f: Record<string, unknown>) =>
-      sb.from('ia_jobs').update({ ...f, updated_at: new Date().toISOString() }).eq('id', payload.jobId);
+    // `patch` = progresso (best-effort) · `patchCritico` = checkpoint (falha alto).
+    // O `{ error }` do supabase-js NÃO lança — ver lib/ia-jobs.ts.
+    const { patch, patchCritico } = criarPatchJob(sb, payload.jobId);
 
     const { data: job, error: errJob } = await sb.from('ia_jobs').select('*').eq('id', payload.jobId).maybeSingle();
     if (errJob) throw new Error(`não foi possível ler o ia_job ${payload.jobId}: ${errJob.message}`);
@@ -87,7 +89,7 @@ export const gerarIA4BatchTask = task({
       const paramsAcum: Record<string, any> = { ...pp };
       const salvarParams = (novos: Record<string, any>) => {
         Object.assign(paramsAcum, novos);
-        return patch({ params: { ...paramsAcum } });
+        return patchCritico({ params: { ...paramsAcum } });
       };
       const salvarCheckpoint = () => salvarParams({ avaliados: [...avaliados], checados: [...checados] });
 
@@ -127,11 +129,12 @@ export const gerarIA4BatchTask = task({
       let respostasGen = new Map<string, string>();
       const aAvaliar = preparados.filter((p) => !avaliados.has(p.resp.id));
       if (aAvaliar.length && genModel.startsWith('claude')) {
-        let batchIdGen: string | null = pp.batchIdGen ?? null;
+        // `ia_batches.job_id` (mig 225) é a 2ª fonte quando o id não foi gravado.
+        let batchIdGen: string | null = pp.batchIdGen ?? (await batchPendenteDoJob(payload.jobId, 'ia4_avaliacao'));
         try {
           if (!batchIdGen) {
             const reqs: BatchReq[] = aAvaliar.map((p) => ({ customId: p.customId, system: IA4_SYSTEM, user: p.user, model: genModel, maxTokens: IA4_MAX_TOKENS }));
-            batchIdGen = await createClaudeBatch(reqs, { ledger: { feature: 'ia4_avaliacao', empresaId } });
+            batchIdGen = await createClaudeBatch(reqs, { ledger: { feature: 'ia4_avaliacao', empresaId, jobId: payload.jobId } });
             // Persistência ≠ fornecedor: o lote está pago e vai entregar.
             try {
               await salvarParams({ batchIdGen });
@@ -204,7 +207,7 @@ export const gerarIA4BatchTask = task({
         }
 
         let respostasChk = new Map<string, string>();
-        const ledgerChk = { feature: 'ia4_check', empresaId };
+        const ledgerChk = { feature: 'ia4_check', empresaId, jobId: payload.jobId };
         let batchIdChk: string | null = pp.batchIdChk ?? null;
         try {
           // Só os NÃO checados entram no lote — é aí que está o custo de IA.

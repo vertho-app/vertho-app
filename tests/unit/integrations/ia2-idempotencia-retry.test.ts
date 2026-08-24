@@ -31,6 +31,8 @@ const mocks = vi.hoisted(() => ({
   sincronas: 0,
   /** Respostas que o batch devolve, por customId. */
   respostasBatch: new Map<string, string>(),
+  /** O que `ia_batches` responde quando o params.batchId não foi gravado. */
+  batchNoRastro: null as string | null,
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -44,8 +46,11 @@ vi.mock('@/lib/supabase', () => ({
         update: (campos: any) => ({
           eq: async (_c: string, id: string) => {
             if (tabela === 'ia_jobs') {
+              // 🔑 A forma REAL da falha do supabase-js: RESOLVE com `{ error }`,
+              // não lança. A primeira versão deste mock usava `throw`, e por isso
+              // os testes de idempotência não viam o furo do `patch` sem checagem.
               if (mocks.matarAntesDePersistir && campos?.params?.batchId) {
-                throw new Error('runtime morreu antes de persistir o batchId');
+                return { error: { message: 'runtime morreu antes de persistir o batchId' } };
               }
               mocks.patches.push(campos);
               mocks.jobs.set(id, { ...mocks.jobs.get(id), ...campos });
@@ -73,6 +78,8 @@ vi.mock('@/lib/ai-batch', () => ({
   },
   fetchClaudeBatchResults: async () => mocks.respostasBatch,
   encerrarBatch: async () => undefined,
+  /** A 2ª fonte da retomada: o rastro em `ia_batches` por (job_id, feature). */
+  batchPendenteDoJob: async () => mocks.batchNoRastro,
 }));
 
 vi.mock('@trigger.dev/sdk', () => ({ task: (cfg: any) => cfg, wait: { for: async () => undefined } }));
@@ -108,6 +115,7 @@ beforeEach(() => {
   mocks.sincronas = 0;
   mocks.loteConsultado = false;
   mocks.matarAntesDePersistir = false;
+  mocks.batchNoRastro = null;
   // Por padrão o batch responde os dois cargos.
   mocks.respostasBatch = new Map([['c0', '{"a":1}'], ['c1', '{"a":2}']]);
 });
@@ -151,6 +159,43 @@ describe('C3 · IA2: batch destacado com id persistido', () => {
       'o lote pago foi descartado por erro de GRAVAÇÃO, e o síncrono pagou por cima',
     ).toBe(true);
     expect(mocks.sincronas, 'caiu no caminho caro mesmo com o lote entregando').toBe(0);
+  });
+});
+
+describe('C3 · IA2: a janela deixou de custar um lote (mig 225)', () => {
+  /**
+   * 🔑 O furo que eu tinha DOCUMENTADO como "sem conserto por código nosso".
+   *
+   * Entre `createClaudeBatch` retornar e o `patch` gravar o id existe uma
+   * janela. Se a run morre ali, `params.batchId` fica vazio — e eu concluí que
+   * não havia saída porque a Batch API da Anthropic não expõe chave de
+   * idempotência na criação.
+   *
+   * A conclusão estava errada: quem precisa lembrar do lote é o NOSSO rastro.
+   * `ia_batches` já gravava a linha no instante da criação; faltava o `job_id`
+   * (mig 225). Com ele, a retomada tem uma segunda fonte e a janela para de
+   * custar um lote pago.
+   */
+  it('🔴 sem params.batchId, o lote é recuperado pelo RASTRO — não nasce outro', async () => {
+    mocks.jobs.set(JOB, { ...structuredClone(jobBase), status: 'running' }); // params SEM batchId
+    mocks.batchNoRastro = 'msgbatch_orfao';
+
+    await rodar();
+
+    expect(
+      mocks.batchesCriados,
+      'criou um lote novo ignorando o que já estava pago e registrado',
+    ).toHaveLength(0);
+    expect(mocks.loteConsultado, 'não chegou a consultar o lote recuperado').toBe(true);
+  });
+
+  it('sem params.batchId E sem rastro, aí sim cria (é a primeira execução)', async () => {
+    mocks.jobs.set(JOB, { ...structuredClone(jobBase), status: 'running' });
+    mocks.batchNoRastro = null;
+
+    await rodar();
+
+    expect(mocks.batchesCriados).toHaveLength(1);
   });
 });
 

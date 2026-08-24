@@ -1,4 +1,5 @@
 import { task } from '@trigger.dev/sdk';
+import { criarPatchJob } from '@/lib/ia-jobs';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { buildBlueprintReq, persistBlueprintFromText } from '@/lib/blueprint/core';
 import { submitClaudeBatch, type BatchReq } from '@/lib/ai-batch';
@@ -20,8 +21,9 @@ export const gerarBlueprintBatchTask = task({
   maxDuration: 3600, // até 1h (batch async + persistência por colab)
   run: async (payload: { jobId: string }) => {
     const sb = createSupabaseAdmin();
-    const patch = (f: Record<string, unknown>) =>
-      sb.from('ia_jobs').update({ ...f, updated_at: new Date().toISOString() }).eq('id', payload.jobId);
+    // `patch` = progresso (best-effort) · `patchCritico` = checkpoint (falha alto).
+    // O `{ error }` do supabase-js NÃO lança — ver lib/ia-jobs.ts.
+    const { patch, patchCritico } = criarPatchJob(sb, payload.jobId);
 
     const { data: job } = await sb.from('ia_jobs').select('*').eq('id', payload.jobId).maybeSingle();
     if (!job) throw new Error('ia_job não encontrado: ' + payload.jobId);

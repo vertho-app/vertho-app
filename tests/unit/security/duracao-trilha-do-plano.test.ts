@@ -41,14 +41,41 @@ const SITES: Array<{ arquivo: string; helper: RegExp; minimo: number; oQueMostra
   {
     arquivo: 'lib/home/loaders.ts',
     helper: /totalSemanasDoPlano\s*\(/g,
-    minimo: 4, // semana atual · "Semana X de N" · horizonte dos marcos · fim
-    oQueMostra: 'o "Semana X de N" da home e o horizonte do card "Próximo marco"',
+    minimo: 5, // semana atual · "Semana X de N" · horizonte · fim · total da pílula
+    oQueMostra: 'o "Semana X de N" da home, o horizonte do card "Próximo marco" e a barra da fase 4',
   },
   {
     arquivo: 'app/dashboard/gestor/actions.ts',
     helper: /getProgramaConfigDaTrilha\s*\(/g,
     minimo: 3, // distribuição por semana · semana do liderado · fim de trilha
     oQueMostra: 'a semana atual de cada liderado, a distribuição por semana e o alerta de fim de trilha',
+  },
+  {
+    // 🔴 O site que ESCAPOU da primeira rodada do D1 (24/08). O literal vivia
+    // DENTRO da interpolação do i18n — `t('header.weekOf', { total: 14 })` —, e
+    // procurar a string "de 14" não acha isso. É a tela onde a pessoa passa a
+    // trilha inteira: numa jornada de 7 semanas ela lia "Semana 3 de 14" em
+    // toda visita.
+    arquivo: 'app/dashboard/temporada/semana/[week]/page.tsx',
+    helper: /totalSemanasDoPlano\s*\(/g,
+    minimo: 1,
+    oQueMostra: 'o "Semana X de N" do cabeçalho da própria semana',
+  },
+  {
+    // Barra de progresso do hub do gestor: o TETO era 14, então uma jornada de
+    // 7 semanas nunca passava de 50% — a barra dizia "metade" para quem tinha
+    // terminado.
+    arquivo: 'app/dashboard/gestor/page.tsx',
+    helper: /totalSemanas[^A-Za-z]/g,
+    minimo: 1,
+    oQueMostra: 'a largura da barra de progresso de cada liderado',
+  },
+  {
+    // Barra da fase 4 na home do colaborador.
+    arquivo: 'app/dashboard/page.tsx',
+    helper: /totalSemanasTrilha[^A-Za-z]/g,
+    minimo: 2,
+    oQueMostra: 'o avanço dentro da fase 4 na home',
   },
 ];
 

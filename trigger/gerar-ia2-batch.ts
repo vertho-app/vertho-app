@@ -1,8 +1,9 @@
 import { task, wait } from '@trigger.dev/sdk';
+import { criarPatchJob } from '@/lib/ia-jobs';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { carregarContextoIA2, montarPromptIA2, persistirGabaritoIA2 } from '@/lib/ia2-gabarito';
-import { createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults, encerrarBatch, type BatchReq } from '@/lib/ai-batch';
+import { createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults, encerrarBatch, batchPendenteDoJob, type BatchReq } from '@/lib/ai-batch';
 import { IA_BATCH } from '@/lib/status';
 
 /**
@@ -48,8 +49,9 @@ export const gerarIA2BatchTask = task({
   maxDuration: 3600, // até 1h (batch async + persistência por cargo)
   run: async (payload: { jobId: string }) => {
     const sb = createSupabaseAdmin();
-    const patch = (f: Record<string, unknown>) =>
-      sb.from('ia_jobs').update({ ...f, updated_at: new Date().toISOString() }).eq('id', payload.jobId);
+    // `patch` = progresso (best-effort) · `patchCritico` = checkpoint (falha alto).
+    // O `{ error }` do supabase-js NÃO lança — ver lib/ia-jobs.ts.
+    const { patch, patchCritico } = criarPatchJob(sb, payload.jobId);
 
     const { data: job, error: errJob } = await sb.from('ia_jobs').select('*').eq('id', payload.jobId).maybeSingle();
     // Falha de LEITURA não é "job não existe" — com retry ligado, tratar as duas
@@ -112,7 +114,7 @@ export const gerarIA2BatchTask = task({
       const resultados: Array<{ cargo: string; ok: boolean; error?: string; message?: string }> = [];
       let done = jaFeitos;
       const pushProgress = (current: string) =>
-        patch({ progress: { done, total, current, resultados }, result_ids: [...persistidos] });
+        patchCritico({ progress: { done, total, current, resultados }, result_ids: [...persistidos] });
 
       if (!pendentes.length) {
         await patch({
@@ -139,7 +141,9 @@ export const gerarIA2BatchTask = task({
        * espera é `wait.for` (checkpointada: não consome maxDuration).
        */
       let respostas = new Map<string, string>();
-      let batchIdAtivo: string | null = pp.batchId ?? null;
+      // A janela deixou de custar um lote: `ia_batches.job_id` (mig 225) é a
+      // segunda fonte quando `params.batchId` não chegou a ser gravado.
+      let batchIdAtivo: string | null = pp.batchId ?? (await batchPendenteDoJob(payload.jobId, 'ia2_gabarito'));
       try {
         if (!batchIdAtivo) {
           const reqs: BatchReq[] = pendentes.map((it) => {
@@ -149,7 +153,7 @@ export const gerarIA2BatchTask = task({
             });
             return { customId: it.customId, system, user, model, maxTokens: 8192 };
           });
-          batchIdAtivo = await createClaudeBatch(reqs, { ledger: { feature: 'ia2_gabarito', empresaId } });
+          batchIdAtivo = await createClaudeBatch(reqs, { ledger: { feature: 'ia2_gabarito', empresaId, jobId: payload.jobId } });
 
           /**
            * 🔑 Erro de PERSISTÊNCIA não é erro de FORNECEDOR — a lição medida no
@@ -163,7 +167,7 @@ export const gerarIA2BatchTask = task({
            * é o que torna o lote recuperável se esta run morrer.
            */
           try {
-            await patch({ params: { ...pp, batchId: batchIdAtivo } });
+            await patchCritico({ params: { ...pp, batchId: batchIdAtivo } });
           } catch (ePersist: any) {
             console.error(
               `[gerar-ia2-batch] batchId ${batchIdAtivo} NÃO persistido (${ePersist?.message}) — ` +

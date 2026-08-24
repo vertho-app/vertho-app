@@ -379,6 +379,8 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
       pilula = {
         titulo: cursoSemana?.nome || `Pílula da semana ${semanaAtual}`,
         semana: semanaAtual,
+        // D1: a barra da home dividia por 14 fixo. Quem manda é o plano.
+        totalSemanas: totalSemanasDoPlano(trilha?.temporada_plano, TOTAL_SEMANAS_FALLBACK),
         status: concluida ? 'concluida' : 'em-curso',
         ehImplementacao: ehSemanaDeImplementacao(trilha?.temporada_plano, semanaAtual),
       };

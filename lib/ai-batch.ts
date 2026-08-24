@@ -50,7 +50,7 @@ function anthropicClient() {
  */
 export async function createClaudeBatch(
   reqs: BatchReq[],
-  opts: { locale?: AppLocale; ledger?: { feature?: string; empresaId?: string | null } } = {},
+  opts: { locale?: AppLocale; ledger?: { feature?: string; empresaId?: string | null; jobId?: string | null } } = {},
 ): Promise<string> {
   const locale = opts.locale || defaultLocale;
   const requests = reqs.map((r) => {
@@ -93,13 +93,16 @@ async function sbInfra() {
   return createSupabaseAdmin();
 }
 
-export async function registrarBatch(batchId: string, itens: number, ledger?: { feature?: string; empresaId?: string | null }) {
+export async function registrarBatch(batchId: string, itens: number, ledger?: { feature?: string; empresaId?: string | null; jobId?: string | null }) {
   try {
     const { error } = await (await sbInfra()).from('ia_batches').insert({
       batch_id: batchId,
       itens,
       feature: ledger?.feature ?? null,
       empresa_id: ledger?.empresaId ?? null,
+      // C3: sem isto, um lote pago cujo id não chegou a ser gravado em
+      // `ia_jobs.params` fica sem dono — e a execução seguinte cria outro.
+      job_id: ledger?.jobId ?? null,
     });
     if (error) console.warn('[ia-batch] rastro não gravado:', error.message);
   } catch (e: any) {
@@ -133,6 +136,49 @@ export async function encerrarBatch(batchId: string, status: IaBatchStatus, erro
     if (error) console.warn(`[ia-batch] rastro de ${batchId} não fechado:`, error.message);
   } catch (e: any) {
     console.warn(`[ia-batch] rastro de ${batchId} não fechado:`, e?.message);
+  }
+}
+
+/**
+ * Recupera o lote PAGO de um job cujo `params.batchId` não chegou a ser gravado.
+ *
+ * É a segunda fonte da retomada, e existe por causa da janela entre criar o
+ * batch e persistir o id: se a run morre ali, `ia_jobs.params` não tem o id, mas
+ * `ia_batches` TEM a linha — gravada no instante da criação, com `job_id` desde
+ * a mig 225.
+ *
+ * 🔑 Eu havia documentado essa janela como "sem conserto por código nosso",
+ * porque a Batch API da Anthropic não expõe chave de idempotência na criação.
+ * Isso é verdade sobre a API e irrelevante para o problema: quem precisa lembrar
+ * do lote é o NOSSO rastro, não o fornecedor.
+ *
+ * Devolve o mais RECENTE ainda em 'submetido'. Nunca lança: se a consulta
+ * falhar, o pior caso é o comportamento antigo (criar outro lote), e derrubar a
+ * task por causa de uma tentativa de recuperação seria trocar um custo por um pior.
+ *
+ * ⚠️ `feature` NÃO é opcional por capricho: IA3 e IA4 submetem DUAS ondas no
+ * mesmo job (geração e check). Sem o filtro, a retomada da geração poderia
+ * receber o lote do CHECK — e colher respostas de check achando que são
+ * cenários é pior que criar um lote a mais.
+ */
+export async function batchPendenteDoJob(jobId: string, feature: string): Promise<string | null> {
+  try {
+    const { data, error } = await (await sbInfra()).from('ia_batches')
+      .select('batch_id')
+      .eq('job_id', jobId)
+      .eq('feature', feature)
+      .eq('status', IA_BATCH.SUBMETIDO)
+      .order('criado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.warn(`[ia-batch] recuperação por job ${jobId} falhou: ${error.message}`);
+      return null;
+    }
+    return (data as any)?.batch_id ?? null;
+  } catch (e: any) {
+    console.warn(`[ia-batch] recuperação por job ${jobId} falhou: ${e?.message}`);
+    return null;
   }
 }
 
@@ -214,7 +260,7 @@ export async function submitClaudeBatch(
   opts: {
     pollMs?: number; budgetMs?: number; locale?: AppLocale;
     /** Etiqueta do ledger (feature/empresa). Sem isto o custo cai como 'batch' genérico. */
-    ledger?: { feature?: string; empresaId?: string | null };
+    ledger?: { feature?: string; empresaId?: string | null; jobId?: string | null };
   } = {},
 ): Promise<Map<string, string>> {
   const batchId = await createClaudeBatch(reqs, { locale: opts.locale, ledger: opts.ledger });
@@ -273,7 +319,7 @@ export function createAIBatchCollector(
      * então não entra na métrica de untagged e a lacuna se esconde DENTRO do
      * número que está verde. `Medido:` 232 chamadas / US$ 5,65 assim.
      */
-    ledger?: { feature?: string; empresaId?: string | null };
+    ledger?: { feature?: string; empresaId?: string | null; jobId?: string | null };
   } = {},
 ): { run: AIRun } {
   let queue: Pending[] = [];
@@ -346,7 +392,7 @@ function openaiHeaders(): Record<string, string> {
 /** Sobe o JSONL e cria o batch; devolve o id (metade "submeter" do padrão destacado). */
 export async function createOpenAIBatch(
   reqs: BatchReq[],
-  opts: { locale?: AppLocale; ledger?: { feature?: string; empresaId?: string | null } } = {},
+  opts: { locale?: AppLocale; ledger?: { feature?: string; empresaId?: string | null; jobId?: string | null } } = {},
 ): Promise<string> {
   const locale = opts.locale || defaultLocale;
   const jsonl = reqs.map((r) => JSON.stringify({
@@ -440,7 +486,7 @@ export async function fetchOpenAIBatchResults(
  */
 export async function submitOpenAIBatch(
   reqs: BatchReq[],
-  opts: { pollMs?: number; budgetMs?: number; locale?: AppLocale; ledger?: { feature?: string; empresaId?: string | null } } = {},
+  opts: { pollMs?: number; budgetMs?: number; locale?: AppLocale; ledger?: { feature?: string; empresaId?: string | null; jobId?: string | null } } = {},
 ): Promise<Map<string, string>> {
   const batchId = await createOpenAIBatch(reqs, { locale: opts.locale, ledger: opts.ledger });
   const budgetMs = opts.budgetMs ?? 40 * 60_000;

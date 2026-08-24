@@ -1,4 +1,5 @@
 import { task, wait } from '@trigger.dev/sdk';
+import { criarPatchJob } from '@/lib/ia-jobs';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import {
   montarContextoIA3, buildIA3SystemPrompt, buildIA3UserPrompt,
@@ -9,7 +10,7 @@ import {
 import {
   createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults,
   createOpenAIBatch, pollOpenAIBatch, fetchOpenAIBatchResults,
-  encerrarBatch, type BatchReq,
+  encerrarBatch, batchPendenteDoJob, type BatchReq,
 } from '@/lib/ai-batch';
 import { IA_BATCH } from '@/lib/status';
 
@@ -54,8 +55,9 @@ export const gerarIA3BatchTask = task({
   maxDuration: 3600,
   run: async (payload: { jobId: string }) => {
     const sb = createSupabaseAdmin();
-    const patch = (f: Record<string, unknown>) =>
-      sb.from('ia_jobs').update({ ...f, updated_at: new Date().toISOString() }).eq('id', payload.jobId);
+    // `patch` = progresso (best-effort) · `patchCritico` = checkpoint (falha alto).
+    // O `{ error }` do supabase-js NÃO lança — ver lib/ia-jobs.ts.
+    const { patch, patchCritico } = criarPatchJob(sb, payload.jobId);
 
     const { data: job, error: errJob } = await sb.from('ia_jobs').select('*').eq('id', payload.jobId).maybeSingle();
     if (errJob) throw new Error(`não foi possível ler o ia_job ${payload.jobId}: ${errJob.message}`);
@@ -108,7 +110,7 @@ export const gerarIA3BatchTask = task({
       const paramsAcum: Record<string, any> = { ...pp };
       const salvarParams = (novos: Record<string, any>) => {
         Object.assign(paramsAcum, novos);
-        return patch({ params: { ...paramsAcum } });
+        return patchCritico({ params: { ...paramsAcum } });
       };
 
       // total = geração + (check, se houver) — a barra reflete as duas ondas.
@@ -136,11 +138,12 @@ export const gerarIA3BatchTask = task({
         .filter((p): p is Extract<typeof preparados[number], { ctx: any }> => 'ctx' in p)
         .filter((p) => !geradosPorItem[chaveItem(p.item)]);
       if (batcaveis.length && genModel.startsWith('claude')) {
-        let batchIdGen: string | null = pp.batchIdGen ?? null;
+        // `ia_batches.job_id` (mig 225) é a 2ª fonte quando o id não foi gravado.
+        let batchIdGen: string | null = pp.batchIdGen ?? (await batchPendenteDoJob(payload.jobId, 'ia3_cenarios'));
         try {
           if (!batchIdGen) {
             const reqs: BatchReq[] = batcaveis.map((p) => ({ customId: p.customId, system: p.system, user: p.user, model: genModel, maxTokens: 6144 }));
-            batchIdGen = await createClaudeBatch(reqs, { ledger: { feature: 'ia3_cenarios', empresaId } });
+            batchIdGen = await createClaudeBatch(reqs, { ledger: { feature: 'ia3_cenarios', empresaId, jobId: payload.jobId } });
             // Persistência ≠ fornecedor: o lote está pago; seguir com o id em
             // memória é melhor que descartá-lo pelo caminho caro.
             try {
@@ -237,7 +240,7 @@ export const gerarIA3BatchTask = task({
         }
 
         let respostasChk = new Map<string, string>();
-        const ledgerChk = { feature: 'ia3_check', empresaId };
+        const ledgerChk = { feature: 'ia3_check', empresaId, jobId: payload.jobId };
         let batchIdChk: string | null = pp.batchIdChk ?? null;
         try {
           // Só os NÃO checados entram no lote — o custo de IA está aqui, não na

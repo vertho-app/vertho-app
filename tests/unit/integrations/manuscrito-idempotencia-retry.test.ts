@@ -35,6 +35,8 @@ const mocks = vi.hoisted(() => ({
   matarAntesDePersistir: false,
   /** O lote chegou a ser consultado/colhido? (prova que não foi descartado) */
   loteConsultado: false,
+  /** O que `ia_batches` responde quando params.batchId não foi gravado. */
+  batchNoRastro: null as string | null,
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -50,9 +52,11 @@ vi.mock('@/lib/supabase', () => ({
           return {
             eq: async (_c: string, id: string) => {
               if (tabela === 'ia_jobs') {
-                // A morte na janela: o batchId chega para ser gravado e não é.
+                // A morte na janela, na forma REAL do supabase-js: a promise
+                // RESOLVE com `{ error }` — não lança. Usar `throw` aqui era o
+                // que escondia o `patch` sem checagem de erro.
                 if (mocks.matarAntesDePersistir && alvo?.params?.batchId) {
-                  throw new Error('runtime morreu antes de persistir o batchId');
+                  return { error: { message: 'runtime morreu antes de persistir o batchId' } };
                 }
                 mocks.patches.push(alvo);
                 mocks.jobs.set(id, { ...mocks.jobs.get(id), ...alvo });
@@ -80,6 +84,8 @@ vi.mock('@/lib/ai-batch', () => ({
   },
   fetchClaudeBatchResults: async () => new Map<string, string>(),
   encerrarBatch: async () => undefined,
+  /** 2ª fonte da retomada (mig 225): o rastro em `ia_batches` por (job, feature). */
+  batchPendenteDoJob: async () => mocks.batchNoRastro,
   type: {},
 }));
 
@@ -114,6 +120,7 @@ beforeEach(() => {
   mocks.patches = [];
   mocks.matarAntesDePersistir = false;
   mocks.loteConsultado = false;
+  mocks.batchNoRastro = null;
 });
 
 async function rodar() {

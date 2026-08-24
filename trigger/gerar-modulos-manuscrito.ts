@@ -1,6 +1,7 @@
 import { task, wait } from '@trigger.dev/sdk';
+import { criarPatchJob } from '@/lib/ia-jobs';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults, encerrarBatch, type BatchReq } from '@/lib/ai-batch';
+import { createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults, encerrarBatch, batchPendenteDoJob, type BatchReq } from '@/lib/ai-batch';
 import { IA_BATCH } from '@/lib/status';
 import { parsearManuscrito } from '@/lib/manuscrito-parser';
 import {
@@ -40,8 +41,9 @@ export const gerarModulosManuscritoTask = task({
   maxDuration: 3600,
   run: async (payload: { jobId: string }) => {
     const sb = createSupabaseAdmin();
-    const patch = (f: Record<string, unknown>) =>
-      sb.from('ia_jobs').update({ ...f, updated_at: new Date().toISOString() }).eq('id', payload.jobId);
+    // `patch` = progresso (best-effort) · `patchCritico` = checkpoint (falha alto).
+    // O `{ error }` do supabase-js NÃO lança — ver lib/ia-jobs.ts.
+    const { patch, patchCritico } = criarPatchJob(sb, payload.jobId);
 
     const { data: job, error: errJob } = await sb.from('ia_jobs').select('*').eq('id', payload.jobId).maybeSingle();
     // Falha de LEITURA não é "job não existe": com o retry ligado, tratar as
@@ -140,14 +142,18 @@ export const gerarModulosManuscritoTask = task({
         // rastro do batch recém-criado NUNCA era fechado justamente no caminho
         // de falha, que é onde ele mais importa. É a mesma classe do C2, criada
         // ao corrigir o C2.
-        let batchIdAtivo: string | null = pp.batchId ?? null;
+        // 🔑 A janela (criar o lote → gravar o id) deixou de custar um lote: se
+        // `params.batchId` está vazio, o rastro em `ia_batches` responde por
+        // `job_id` (mig 225). Só depois de as DUAS fontes falharem é que se cria
+        // um lote novo.
+        let batchIdAtivo: string | null = pp.batchId ?? (await batchPendenteDoJob(payload.jobId, 'modulo_base_autor'));
         try {
-          let batchId: string = pp.batchId;
+          let batchId: string = batchIdAtivo || '';
           if (!batchId) {
             const batch: BatchReq[] = pendentes.map((r) => ({
               customId: r.customId, system: r.system, user: r.user, model, maxTokens: MAX_TOKENS,
             }));
-            batchId = await createClaudeBatch(batch, { ledger: { feature: 'modulo_base_autor', empresaId } });
+            batchId = await createClaudeBatch(batch, { ledger: { feature: 'modulo_base_autor', empresaId, jobId: payload.jobId } });
             batchIdAtivo = batchId;
             /**
              * 🔑 Erro de PERSISTÊNCIA não é erro de FORNECEDOR.
@@ -160,7 +166,7 @@ export const gerarModulosManuscritoTask = task({
              * com o id em memória; `ia_batches` mantém o lote rastreável.
              */
             try {
-              await patch({ params: { ...pp, batchId }, progress: { done: 0, total, current: `batch criado (${total}) — aguardando…`, resultados: [], pulados } });
+              await patchCritico({ params: { ...pp, batchId }, progress: { done: 0, total, current: `batch criado (${total}) — aguardando…`, resultados: [], pulados } });
             } catch (ePersist: any) {
               console.error(
                 `[gerar-modulos-manuscrito] batchId ${batchId} NÃO persistido (${ePersist?.message}) — ` +

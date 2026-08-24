@@ -81,6 +81,7 @@ vi.mock('@/lib/ai-batch', () => ({
   fetchClaudeBatchResults: async (id: string) => (String(id).startsWith('claude_1') ? mocks.respGen : mocks.respChk),
   fetchOpenAIBatchResults: async () => mocks.respChk,
   encerrarBatch: async () => undefined,
+  batchPendenteDoJob: async () => null,
 }));
 
 vi.mock('@trigger.dev/sdk', () => ({ task: (cfg: any) => cfg, wait: { for: async () => undefined } }));

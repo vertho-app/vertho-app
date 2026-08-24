@@ -114,7 +114,10 @@ export default function DashboardHomePage() {
   const firstName = (colaborador.nome_completo || '').split(' ')[0] || t('fallbackFirstName');
   const faseNum: number = kpis?.fase?.numero || 1;
   const faseTitulo = kpis?.fase?.titulo || t('fallbackPhaseTitle');
-  const pct = kpis?.fase?.concluida ? 100 : Math.round(((faseNum - 1) / 5) * 100 + (kpis?.pilula?.semana ? (kpis.pilula.semana / 14) * 20 : 0));
+  // D1: o avanço DENTRO da fase 4 é sobre o total do programa da pessoa, não
+  // sobre 14 fixo — numa jornada de 7 semanas a barra travava na metade.
+  const totalSemanasTrilha = kpis?.pilula?.totalSemanas || 14;
+  const pct = kpis?.fase?.concluida ? 100 : Math.round(((faseNum - 1) / 5) * 100 + (kpis?.pilula?.semana ? (kpis.pilula.semana / totalSemanasTrilha) * 20 : 0));
   const competencia = data.competenciaFoco;
   const phaseTokens = PHASE_TOKENS[faseNum] ?? PHASE_TOKENS[2];
 

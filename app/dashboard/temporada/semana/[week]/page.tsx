@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { formatarLiberacao, avaliarAcessoSemana } from '@/lib/season-engine/week-gating';
+import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import ReactMarkdown from 'react-markdown';
 import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle, Lock } from 'lucide-react';
 import BackButton from '@/components/back-button';
@@ -297,7 +298,11 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
       {/* Header */}
       <div className="mb-6">
         <div className="text-xs uppercase text-brand-400 mb-1">
-          {t('header.weekOf', { week: semanaNum, total: 14 })} · {isAplicacao ? t('type.practice') : isAvaliacao ? t('type.assessment') : t('type.episode')}
+          {/* D1: "Semana 3 de 14" numa jornada de 7 — nesta tela, que é onde a
+              pessoa passa a trilha inteira. O literal estava DENTRO da
+              interpolação do i18n, que é por onde ele escapou da primeira
+              varredura: procurar a string "de 14" não acha `total: 14`. */}
+          {t('header.weekOf', { week: semanaNum, total: totalSemanasDoPlano(data.trilha.temporada_plano, 14) })} · {isAplicacao ? t('type.practice') : isAvaliacao ? t('type.assessment') : t('type.episode')}
         </div>
         <h1 className="text-2xl font-bold text-white">{descritoresLabel}</h1>
         {/* Semana de aplicação (4/8/12) funciona diferente das de conteúdo — não tem

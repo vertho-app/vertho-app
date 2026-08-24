@@ -401,7 +401,10 @@ function EquipeSection({ equipe }: { equipe: any[] }) {
                 <div className="hidden sm:block w-20">
                   <div className="text-[9px] text-white/45 mb-0.5 text-right">{t('team.weekProgress', { week: e.semana })}</div>
                   <div className="h-1 rounded-full overflow-hidden bg-white/[0.06]">
-                    <div className="h-full rounded-full" style={{ width: `${(e.semana / 14) * 100}%`, background: '#34c5cc' }} />
+                    {/* D1: o TETO da barra é o programa da pessoa. Com 14 fixo,
+                        uma jornada de 7 semanas nunca passa de 50% — a barra diz
+                        "metade" para quem terminou. */}
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, (e.semana / (e.totalSemanas || 14)) * 100)}%`, background: '#34c5cc' }} />
                   </div>
                 </div>
               )}
