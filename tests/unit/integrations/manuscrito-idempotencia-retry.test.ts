@@ -33,6 +33,8 @@ const mocks = vi.hoisted(() => ({
   patches: [] as any[],
   /** Faz o `patch` que grava o batchId falhar — simula a morte na janela. */
   matarAntesDePersistir: false,
+  /** O lote chegou a ser consultado/colhido? (prova que não foi descartado) */
+  loteConsultado: false,
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -72,7 +74,10 @@ vi.mock('@/lib/ai-batch', () => ({
     mocks.batchesCriados.push(id);
     return id;
   },
-  pollClaudeBatch: async () => ({ ended: true, counts: { processing: 0, succeeded: 1, errored: 0, canceled: 0, expired: 0 } }),
+  pollClaudeBatch: async () => {
+    mocks.loteConsultado = true;
+    return { ended: true, counts: { processing: 0, succeeded: 1, errored: 0, canceled: 0, expired: 0 } };
+  },
   fetchClaudeBatchResults: async () => new Map<string, string>(),
   encerrarBatch: async () => undefined,
   type: {},
@@ -108,6 +113,7 @@ beforeEach(() => {
   mocks.batchesCriados = [];
   mocks.patches = [];
   mocks.matarAntesDePersistir = false;
+  mocks.loteConsultado = false;
 });
 
 async function rodar() {
@@ -152,27 +158,29 @@ describe('C3 · a janela entre submeter e persistir', () => {
   });
 
   /**
-   * ⚠️ O caso que NÃO tem conserto por código nosso — e que, MEDIDO, é pior do
-   * que a descrição do plano supunha.
+   * 🔑 ERRO DE PERSISTÊNCIA ≠ ERRO DE FORNECEDOR — a distinção que este caso
+   * mediu, e que passou a valer nas duas tasks.
    *
-   * A hipótese era "a task morre e o retry cria outro lote". O que acontece de
-   * fato: a falha ao persistir o `batchId` cai no `catch` do bloco de batch, que
-   * trata qualquer erro ali como "batch indisponível" e desvia para o FALLBACK
-   * SÍNCRONO. Ou seja, numa única execução paga-se **o lote órfão + o caminho
-   * caro** — sem retry nenhum envolvido.
+   * Antes: falhar ao gravar o `batchId` caía no `catch` do bloco de batch, que
+   * trata tudo como "batch indisponível" e desvia para o FALLBACK SÍNCRONO. Numa
+   * única execução pagava-se **o lote órfão + o caminho caro** — sem retry
+   * nenhum envolvido. O lote estava pago e ia entregar; o código o descartava.
    *
-   * Isso reforça a ordem do C3: o `retry` desta task só faz sentido depois que a
-   * janela for reconhecida, e o fallback não pode transformar erro de PERSISTÊNCIA
-   * em erro de FORNECEDOR — são coisas diferentes, e só uma justifica repagar.
+   * Agora a falha de gravação é gritada e a run SEGUE com o id em memória: o
+   * lote é consultado e colhido normalmente. O que sobra de risco é só a run
+   * MORRER nessa janela — e aí o lote fica órfão RASTREÁVEL (`ia_batches`).
    */
-  it('🔴 morrer NA janela: o lote fica órfão e o catch ainda desvia para o síncrono', async () => {
+  it('🔴 falha ao persistir o batchId NÃO descarta o lote pago', async () => {
     mocks.matarAntesDePersistir = true;
 
-    // Não lança: o catch do batch engole e segue para o síncrono.
     const r: any = await rodar();
     expect(r.ok).toBe(true);
 
     expect(mocks.batchesCriados, 'o lote foi criado e pago').toHaveLength(1);
+    expect(
+      mocks.loteConsultado,
+      'o lote pago foi DESCARTADO por um erro de gravação — é o caminho caro por cima do que já ia entregar',
+    ).toBe(true);
     const job = mocks.jobs.get(JOB);
     expect(
       job.params.batchId,

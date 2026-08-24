@@ -149,7 +149,24 @@ export const gerarModulosManuscritoTask = task({
             }));
             batchId = await createClaudeBatch(batch, { ledger: { feature: 'modulo_base_autor', empresaId } });
             batchIdAtivo = batchId;
-            await patch({ params: { ...pp, batchId }, progress: { done: 0, total, current: `batch criado (${total}) — aguardando…`, resultados: [], pulados } });
+            /**
+             * 🔑 Erro de PERSISTÊNCIA não é erro de FORNECEDOR.
+             *
+             * Medido ao escrever o teste da janela (C3, 24/08): falhar aqui caía
+             * no `catch` de baixo, que trata tudo como "batch indisponível" e
+             * desvia para o síncrono. O lote JÁ ESTÁ PAGO e vai entregar —
+             * pagar o caminho caro por cima dele é cobrar duas vezes pela mesma
+             * coisa, numa única execução. Agora a falha é gritada e a run segue
+             * com o id em memória; `ia_batches` mantém o lote rastreável.
+             */
+            try {
+              await patch({ params: { ...pp, batchId }, progress: { done: 0, total, current: `batch criado (${total}) — aguardando…`, resultados: [], pulados } });
+            } catch (ePersist: any) {
+              console.error(
+                `[gerar-modulos-manuscrito] batchId ${batchId} NÃO persistido (${ePersist?.message}) — ` +
+                'seguindo com ele em memória; se a run morrer, o lote fica órfão RASTREÁVEL em ia_batches',
+              );
+            }
           }
           // Espera destacada. Cada wait.for é checkpointado; horas de fila não
           // consomem maxDuration. Teto generoso de 24h (limite do próprio batch).
