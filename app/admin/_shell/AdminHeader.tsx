@@ -41,14 +41,21 @@ export default function AdminHeader() {
             (dois links para /admin/dashboard), e o de ida não existia em lugar
             nenhum: a única porta para o v2 era a raiz do host genérico, que
             redireciona sozinha — quem entrasse por aqui ficava sem saber que ele
-            existe. Um par de portas, não uma via de mão única. */}
+            existe. Um par de portas, não uma via de mão única.
+
+            ⚠️ Nasceu como ícone cinza de 14px entre o refresh e a engrenagem, e
+            o dono não o achou na própria tela (24/08) — destino que ninguém
+            encontra não é caminho. Daí o CHIP com rótulo e a cor do sistema, que
+            é como o ShellV2 marca os atalhos dele. */}
         <Link
           href="/admin-v2"
           title={t('header.adminV2')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
-          style={{ color: 'rgba(255,255,255,.5)' }}
+          className="flex items-center gap-1.5 shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-[#34c5cc]/10"
+          style={{ ...mono, color: '#34c5cc', borderColor: 'rgba(52,197,204,.4)' }}
         >
-          <LayoutGrid size={14} />
+          <LayoutGrid size={13} />
+          <span className="hidden sm:inline">arquitetura v2</span>
+          <span className="sm:hidden">v2</span>
         </Link>
         <button onClick={triggerRefresh} disabled={refreshing} title={t('header.refresh')}
           className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
