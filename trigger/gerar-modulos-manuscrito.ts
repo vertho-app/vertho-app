@@ -1,6 +1,7 @@
 import { task, wait } from '@trigger.dev/sdk';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults, type BatchReq } from '@/lib/ai-batch';
+import { createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults, encerrarBatch, type BatchReq } from '@/lib/ai-batch';
+import { IA_BATCH } from '@/lib/status';
 import { parsearManuscrito } from '@/lib/manuscrito-parser';
 import {
   resolverDescritores,
@@ -114,7 +115,7 @@ export const gerarModulosManuscritoTask = task({
             const batch: BatchReq[] = pendentes.map((r) => ({
               customId: r.customId, system: r.system, user: r.user, model, maxTokens: MAX_TOKENS,
             }));
-            batchId = await createClaudeBatch(batch);
+            batchId = await createClaudeBatch(batch, { ledger: { feature: 'modulo_base_autor', empresaId } });
             await patch({ params: { ...pp, batchId }, progress: { done: 0, total, current: `batch criado (${total}) — aguardando…`, resultados: [], pulados } });
           }
           // Espera destacada. Cada wait.for é checkpointado; horas de fila não
@@ -127,8 +128,22 @@ export const gerarModulosManuscritoTask = task({
             await wait.for({ seconds: 60 });
           }
           respostas = await fetchClaudeBatchResults(batchId, { feature: 'modulo_base_autor', empresaId });
+          // C2 (auditoria 22/08): fecha o rastro. Esta task usa o padrão
+          // DESTACADO — submete, espera em `wait.for` checkpointado, colhe
+          // depois — e `encerrarBatch` era privada, chamada só por
+          // `submitClaudeBatch`. Resultado: o batch terminava, os resultados
+          // eram colhidos, e a linha ficava em 'submetido' para sempre. Foi
+          // assim que 6 das 8 linhas de `ia_batches` viraram falso positivo do
+          // `_batches-orfaos.mjs` — todas concluídas, nenhuma órfã.
+          await encerrarBatch(batchId, IA_BATCH.CONCLUIDO);
         } catch (e: any) {
           console.warn(`[gerar-modulos-manuscrito] batch falhou (${e?.message}) — fallback síncrono por módulo`);
+          // O rastro também fecha no caminho RUIM: sem isto, falhar aqui é
+          // indistinguível de batch ainda em voo.
+          try {
+            const idParaFechar = pp.batchId;
+            if (idParaFechar) await encerrarBatch(idParaFechar, IA_BATCH.ERRO, e?.message);
+          } catch { /* observabilidade nunca bloqueia o fallback */ }
         }
       }
 

@@ -68,7 +68,7 @@ export const gerarIA3BatchTask = task({
       if (batcaveis.length && genModel.startsWith('claude')) {
         try {
           const reqs: BatchReq[] = batcaveis.map((p) => ({ customId: p.customId, system: p.system, user: p.user, model: genModel, maxTokens: 6144 }));
-          respostasGen = await submitClaudeBatch(reqs, { budgetMs: 35 * 60_000 });
+          respostasGen = await submitClaudeBatch(reqs, { budgetMs: 35 * 60_000, ledger: { feature: 'ia3_cenarios', empresaId } });
         } catch (e: any) {
           console.warn(`[gerar-ia3-batch] batch geração falhou (${e?.message}) — fallback síncrono por item`);
         }
@@ -136,7 +136,7 @@ export const gerarIA3BatchTask = task({
           if (checkModel.startsWith('gpt')) {
             respostasChk = await submitOpenAIBatch(reqs, { budgetMs: 20 * 60_000, ledger: { feature: 'ia3_check', empresaId } });
           } else if (checkModel.startsWith('claude')) {
-            respostasChk = await submitClaudeBatch(reqs, { budgetMs: 20 * 60_000 });
+            respostasChk = await submitClaudeBatch(reqs, { budgetMs: 20 * 60_000, ledger: { feature: 'ia3_check', empresaId } });
           }
           // Outros provedores (gemini/kimi): sem Batch API aqui → mapa vazio = síncrono.
         } catch (e: any) {

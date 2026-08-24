@@ -201,7 +201,9 @@ export async function gerarKitSemanal({
         }
         const brief = await resolverOuCriarBrief(sbk, { ...baseParams, pppBrief });
         const { createAIBatchCollector } = await import('@/lib/ai-batch');
-        const { run } = createAIBatchCollector(aiConfig?.model || 'claude-sonnet-4-6');
+        const { run } = createAIBatchCollector(aiConfig?.model || 'claude-sonnet-4-6', {
+          ledger: { feature: 'kit_semanal', empresaId },
+        });
 
         await onProgress?.({ done: 0, total, current: `lote (batch) — gerando ${discs.length} DISC…`, kits: [] });
         let done = 0;

@@ -93,7 +93,7 @@ async function sbInfra() {
   return createSupabaseAdmin();
 }
 
-async function registrarBatch(batchId: string, itens: number, ledger?: { feature?: string; empresaId?: string | null }) {
+export async function registrarBatch(batchId: string, itens: number, ledger?: { feature?: string; empresaId?: string | null }) {
   try {
     const { error } = await (await sbInfra()).from('ia_batches').insert({
       batch_id: batchId,
@@ -107,8 +107,21 @@ async function registrarBatch(batchId: string, itens: number, ledger?: { feature
   }
 }
 
-/** Fecha o rastro. Também best-effort — ver `registrarBatch`. */
-async function encerrarBatch(batchId: string, status: IaBatchStatus, erro?: string) {
+/**
+ * Fecha o rastro de um batch. Best-effort — ver `registrarBatch`.
+ *
+ * 🔴 C2 (auditoria 22/08): era PRIVADA, e só `submitClaudeBatch` a chamava.
+ * Quem usa o padrão DESTACADO — submeter agora, colher depois, que é o que o
+ * docstring deste módulo recomenda para lote lento — não tinha como fechar o
+ * rastro. `Medido em 24/08:` das 8 linhas de `ia_batches`, **6 estavam em
+ * 'submetido' para sempre**; consultadas em `GET /v1/messages/batches`, as seis
+ * tinham TERMINADO com 100% de sucesso (54 itens, zero erro).
+ *
+ * O efeito não é cosmético: `scripts/_batches-orfaos.mjs` existe para achar
+ * batch pago e não colhido, e com esse rastro ele era 100% falso positivo — um
+ * alarme que cresce um por lote e que ninguém pode levar a sério.
+ */
+export async function encerrarBatch(batchId: string, status: IaBatchStatus, erro?: string) {
   try {
     await (await sbInfra()).from('ia_batches')
       .update({ status, erro: erro?.slice(0, 500) ?? null, concluido_em: new Date().toISOString() })
@@ -243,7 +256,18 @@ interface Pending extends BatchReq {
  */
 export function createAIBatchCollector(
   defaultModel: string,
-  opts: { windowMs?: number; budgetMs?: number; locale?: AppLocale } = {},
+  opts: {
+    windowMs?: number; budgetMs?: number; locale?: AppLocale;
+    /**
+     * Etiqueta do ledger (C7, auditoria 22/08).
+     *
+     * Sem ela, o caminho de SUCESSO — o default e o barato — gravava
+     * `feature: 'batch'`. E `'batch'` é pior que `untagged`: PARECE etiqueta,
+     * então não entra na métrica de untagged e a lacuna se esconde DENTRO do
+     * número que está verde. `Medido:` 232 chamadas / US$ 5,65 assim.
+     */
+    ledger?: { feature?: string; empresaId?: string | null };
+  } = {},
 ): { run: AIRun } {
   let queue: Pending[] = [];
   let timer: any = null;
@@ -263,7 +287,7 @@ export function createAIBatchCollector(
 
   async function doFlush(batch: Pending[]) {
     try {
-      const results = await submitClaudeBatch(batch, { budgetMs: opts.budgetMs, locale: opts.locale });
+      const results = await submitClaudeBatch(batch, { budgetMs: opts.budgetMs, locale: opts.locale, ledger: opts.ledger });
       for (const p of batch) {
         const text = results.get(p.customId);
         if (text != null && text.trim()) p.resolve(text);
@@ -313,7 +337,10 @@ function openaiHeaders(): Record<string, string> {
 }
 
 /** Sobe o JSONL e cria o batch; devolve o id (metade "submeter" do padrão destacado). */
-export async function createOpenAIBatch(reqs: BatchReq[], opts: { locale?: AppLocale } = {}): Promise<string> {
+export async function createOpenAIBatch(
+  reqs: BatchReq[],
+  opts: { locale?: AppLocale; ledger?: { feature?: string; empresaId?: string | null } } = {},
+): Promise<string> {
   const locale = opts.locale || defaultLocale;
   const jsonl = reqs.map((r) => JSON.stringify({
     custom_id: r.customId,
@@ -344,6 +371,10 @@ export async function createOpenAIBatch(reqs: BatchReq[], opts: { locale?: AppLo
   });
   if (!bRes.ok) throw new Error(`OpenAI batch create ${bRes.status}: ${(await bRes.text()).slice(0, 300)}`);
   const batch = await bRes.json();
+  // C2: o lado OpenAI não registrava rastro NENHUM — `ia_batches` tinha zero
+  // linha de OpenAI, então o custo do check (que é metade do par dual) não
+  // aparecia em lugar nenhum como lote.
+  await registrarBatch(batch.id, reqs.length, opts.ledger);
   return batch.id;
 }
 
@@ -404,7 +435,7 @@ export async function submitOpenAIBatch(
   reqs: BatchReq[],
   opts: { pollMs?: number; budgetMs?: number; locale?: AppLocale; ledger?: { feature?: string; empresaId?: string | null } } = {},
 ): Promise<Map<string, string>> {
-  const batchId = await createOpenAIBatch(reqs, { locale: opts.locale });
+  const batchId = await createOpenAIBatch(reqs, { locale: opts.locale, ledger: opts.ledger });
   const budgetMs = opts.budgetMs ?? 40 * 60_000;
   const pollMs = opts.pollMs ?? 10_000;
   const deadline = Date.now() + budgetMs;
@@ -412,11 +443,25 @@ export async function submitOpenAIBatch(
   for (;;) {
     const st = await pollOpenAIBatch(batchId);
     if (st.ended) {
-      if (st.status !== 'completed') throw new Error(`OpenAI batch ${batchId} terminou como ${st.status}`);
-      if (!st.outputFileId) throw new Error(`OpenAI batch ${batchId} sem output_file_id`);
-      return fetchOpenAIBatchResults(st.outputFileId, opts.ledger || {});
+      // Fecha o rastro nos três desfechos — inclusive nos ruins. Rastro que só
+      // fecha no caminho feliz deixa a falha indistinguível do batch em voo.
+      if (st.status !== 'completed') {
+        await encerrarBatch(batchId, IA_BATCH.ERRO, `terminou como ${st.status}`);
+        throw new Error(`OpenAI batch ${batchId} terminou como ${st.status}`);
+      }
+      if (!st.outputFileId) {
+        await encerrarBatch(batchId, IA_BATCH.ERRO, 'sem output_file_id');
+        throw new Error(`OpenAI batch ${batchId} sem output_file_id`);
+      }
+      const out = await fetchOpenAIBatchResults(st.outputFileId, opts.ledger || {});
+      await encerrarBatch(batchId, IA_BATCH.CONCLUIDO);
+      return out;
     }
-    if (Date.now() > deadline) throw new Error(`OpenAI batch ${batchId} excedeu ${Math.round(budgetMs / 60000)}min`);
+    if (Date.now() > deadline) {
+      // Como no lado Claude: NÃO cancela — o batch termina, e o rastro em
+      // 'submetido' é o que permite colhê-lo depois.
+      throw new Error(`OpenAI batch ${batchId} excedeu ${Math.round(budgetMs / 60000)}min (rastro em ia_batches, recuperável)`);
+    }
     await sleep(pollMs);
   }
 }

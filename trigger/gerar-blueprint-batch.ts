@@ -59,7 +59,10 @@ export const gerarBlueprintBatchTask = task({
       // 2) Submete o batch. Falha total → mapa vazio → cada colab cai no síncrono.
       let respostas = new Map<string, string>();
       if (reqs.length) {
-        try { respostas = await submitClaudeBatch(reqs, { budgetMs: 40 * 60_000 }); }
+        // C7: a mesma etiqueta do caminho síncrono (`taskKey: 'blueprint_gerar'`
+        // logo abaixo). Sem ela o lote — que é o caminho PADRÃO — caía como
+        // `feature: 'batch'` no ledger.
+        try { respostas = await submitClaudeBatch(reqs, { budgetMs: 40 * 60_000, ledger: { feature: 'blueprint_gerar', empresaId } }); }
         catch (e: any) { console.warn(`[gerar-blueprint-batch] batch falhou (${e?.message}) — fallback síncrono por colab`); }
       }
 

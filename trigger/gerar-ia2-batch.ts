@@ -72,7 +72,7 @@ export const gerarIA2BatchTask = task({
           });
           return { customId: it.customId, system, user, model, maxTokens: 8192 };
         });
-        respostas = await submitClaudeBatch(reqs, { budgetMs: 40 * 60_000 });
+        respostas = await submitClaudeBatch(reqs, { budgetMs: 40 * 60_000, ledger: { feature: 'ia2_gabarito', empresaId } });
       } catch (e: any) {
         console.warn(`[gerar-ia2-batch] batch falhou (${e?.message}) — fallback síncrono por cargo`);
       }
