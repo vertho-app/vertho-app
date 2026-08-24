@@ -4,13 +4,13 @@ Tenant `acme-demo` (empresa "ACME Demo") que os vendedores usam nas demos para c
 
 ## O que o cliente vê ao abrir (tudo pronto, SEM IA no reset)
 - **6 personas** em estágios diferentes da jornada e em **áreas diferentes** (mostra que a plataforma vai além do comercial):
-  - **Ana** (Representante Comercial, I, novo), **Paulo** (Rep. Comercial, ID, parcial), **Bruna** (Rep. Comercial, CS, completo), **Carla** (Gerente Comercial, D, gestora).
+  - **Ana** (Representante Comercial, IS, novo), **Paulo** (Rep. Comercial, IC, parcial), **Bruna** (Rep. Comercial, CS, completo), **Carla** (Gerente Comercial, D, gestora).
   - **Mariana** (Analista Financeiro, CS, completo) e **Renato** (Coordenador de Operações, DS, novo) — cargos fora de vendas (Financeiro e Operações).
 - **DISC / Perfil Comportamental** das 6 (narrativas LLM `report_texts` congeladas → relatório abre instantâneo).
 - **Mapeamento de competências avaliado** (respostas com nota da IA4 + `descriptor_assessments`): Bruna 5, Mariana 5 (30 `descriptor_assessments` congelados), Paulo 2.
 - **2 jornadas/trilhas** de 14 semanas: Bruna (Negociação e Fechamento) e Paulo (Orientação a Metas e Resultados).
 - **4 cargos completos** (competências + descritores + Top10 + cenários com rubrica N1-N4): Representante Comercial, Gerente Comercial, Analista Financeiro, Coordenador de Operações.
-- **Adequação / Ranking real por cargo**: as personas nascem com colunas comportamentais (`comp_*`/`lid_*`) derivadas do DISC → o motor de fit as pontua. Aderências de referência (medidas em 24/08, já com a régua de liderança corrigida): Mariana/Financeiro **92,2** (Alta), Renato/Operações **88,8** (Excelente), Carla/Gerente **85,8** (Alta, "com ressalvas"), Ana/Representante **78,6** (Alta), Paulo/Representante **86,8** mas **"Não recomendado"** (knockout de Persistência — nota alta não passa por cima de requisito eliminatório), Bruna/Representante **49,9** (Baixa — CS não casa com D/I do cargo). ⚠️ O fit NÃO é pré-computado no reset (o colab nasce sem `fit_resultado`) → na demo, clicar **"Calcular Fit"** 1x por cargo em `/admin/fit` popula o ranking.
+- **Adequação / Ranking real por cargo**: as personas nascem com colunas comportamentais (`comp_*`/`lid_*`) derivadas do DISC → o motor de fit as pontua. Aderências de referência (medidas em 24/08, com as personas já na régua do produto): Mariana/Financeiro **95,0** (Excelente), Renato/Operações **89,1** (Excelente), Carla/Gerente **87,8** (Excelente), Paulo/Representante **83,6** mas **"Não recomendado"** (knockout de Persistência — nota alta não passa por cima de requisito eliminatório), Ana/Representante **83,3** (Alta), Bruna/Representante **46,2** (Baixa — CS não casa com D/I do cargo). ⚠️ O fit NÃO é pré-computado no reset (o colab nasce sem `fit_resultado`) → na demo, clicar **"Calcular Fit"** 1x por cargo em `/admin/fit` popula o ranking.
 - Envios reais **desligados** (gate por tenant `empresas.is_demo` no `envio-guard` + personas com e-mail `*.demo@vertho.ai` interno e sem telefone → WhatsApp no-op).
 
 ## Reset
@@ -25,7 +25,9 @@ Três caminhos, uma fonte única (`lib/demo/reset-acme-demo.ts::resetAcmeDemo`, 
 ## Fixture congelado
 O reset semeia de `lib/demo/acme-demo-fixture.json` (golden state VERSIONADO), **não** do acme vivo → a demo é estável e imune a mexidas no `acme`. O fixture guarda:
 - Estrutura: empresa + competências + cargos + top10 + cenários (com source ids para remapeamento).
-- `personaArtifacts` por e-mail: respostas avaliadas + descriptor_assessments + `report_texts` + trilha (row + progresso semanal).
+- `personaArtifacts` por e-mail: respostas avaliadas + descriptor_assessments + `report_texts` + trilha (row + progresso semanal). **Os 6 relatórios estão congelados** (eram 4 até 24/08 — Mariana e Renato abriam a tela de perfil disparando IA ao vivo).
+- 🔴 **O merge das duas fontes é chave a chave** (`mesclarPersonaArtifacts`), nunca spread raso. Uma persona pode existir no fixture E no `acme-demo-extra-artifacts.json`: a Mariana tem avaliações no extra e relatório no fixture, e o spread raso fazia a entrada do extra substituir a do fixture INTEIRA — o relatório dela sumia em todo reset. O sintoma aparece longe da causa: congelar o artefato no arquivo "certo" não resolve, porque o problema é o merge.
+- ⚠️ **Recalibrou o DISC de uma persona? Regere o relatório dela.** `report_texts` é narrativa gerada A PARTIR do DISC, e o reset RESTAURA o texto congelado toda madrugada — sem recongelar, o texto errado volta sozinho mesmo depois de corrigido no banco. O core (`gerarEsalvarRelatorioComportamentalCore`) reusa cache fresco, então limpe `report_texts` antes de regerar, senão ele devolve o texto velho e o script "passa".
 
 Os artefatos pesados são **gerados 1x e congelados**, replicados no reset sem custo de IA (best-effort — falha num artefato não derruba o reset, só deixa a demo sem aquele item).
 
@@ -36,6 +38,20 @@ Alguns cargos são construídos **fresco no código** do reset, não vêm do fix
 
 ### Colunas comportamentais (`comp_*`/`lid_*`)
 O motor de Adequação (fit v2) lê colunas **comportamentais** do colaborador (`comp_*`/`lid_*`), DERIVADAS do DISC — **não** os `descriptor_assessments`. `insertPersonas` popula essas colunas deterministicamente do DISC (`comportamentosDoDisc`), senão o ranking sai vazio/"Não recomendado" mesmo com DISC perfeito.
+
+🔑 **As personas seguem a régua do produto, e isso é travado por teste**
+(`tests/unit/demo-personas-regua.test.ts`): DISC somando **200**, `perfil_dominante`
+igual ao que `deriveProfile` deriva, `comp_*` pela regressão canônica e `lid_*` = DISC/2.
+Até 24/08 as `comp_*` eram uma TERCEIRA derivação (`cl(D)`, `cl((D+I)/2)`…) e o DISC somava
+180-204 — a demo exibia números que a plataforma real não produz. O caso que mostra por que
+isso não é cosmético: o "Não recomendado" do Paulo vinha de um `comp_persistencia = S = 24`,
+e a regressão daria **50** para o mesmo DISC. Como alinhar apagaria os dois efeitos de
+vitrine, o DISC das personas foi **recalibrado** (busca em grade de 18 mil perfis, com o
+próprio motor de fit como oráculo) para produzi-los PELA régua: Paulo `D36 I84 S18 C62`
+(fit 83,6 + knockout) e Bruna `D24 I27 S69 C80` (fit 46,2 sem knockout). ⚠️ O perfil do
+Paulo deixou de ser "ID" porque **"ID com Persistência insuficiente" é aritmeticamente
+impossível** no produto — Persistência ≈ `0,58·D + 0,61·S`, então D alto já garante o piso
+do cargo. A primeira letra (que ancora a geração de conteúdo do kit) foi preservada.
 
 ⚠️ **Duas réguas de liderança convivem no código — a do produto é `lid_X = DISC_X / 2`** (`computeLeadership`, no mapeamento que o colaborador percorre). Medido em 24/08: 199 dos 218 colaboradores com DISC seguem essa régua (Macaé 138/138, Ibipeba 52/52, Elo 6/6, UniAnchieta 2/2). Como o DISC natural é normalizado para somar **200** (não 100), a liderança soma 100 e cada estilo vive em 0-50. O `simulador-disc` usa OUTRA fórmula (`0,7·D + 0,3·C` etc.) numa escala 0-100 — todo tenant populado por ele nasce fora da régua (`projetomacae` 13 pessoas, `acme` 4). O `comportamentosDoDisc` do demo seguia o simulador e foi alinhado ao produto; as `comp_*` seguem o simulador de propósito (não têm equivalente no mapeamento). Consequência para quem mexe no fit: `liderancaFit` normaliza ideal e real para soma 100, então o motor é **imune à escala** e **sensível à fórmula** — trocar uma pela outra muda o score dos cargos de liderança (aqui: Renato 87,9→88,8 e Carla 87,9→85,8), e não muda nada nos demais.
 
