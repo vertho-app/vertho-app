@@ -10,6 +10,7 @@ import { getModelForTask, DEFAULT_TASK_MODELS } from '@/lib/ai-tasks';
 import { travaRegeneracao } from '@/lib/ia3-cenarios';
 import { buscarContextoPPP, buscarValoresDaRede } from '@/lib/ia2-gabarito';
 import { TEMP, type Fase5Config } from './_shared';
+import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
 
 // System prompt do check de cenário B — harmonizado com o check do cenário A
 const CHECK_CEN_B_SYSTEM = `Você é o auditor de qualidade do Cenário B da Vertho.
@@ -280,23 +281,30 @@ async function avaliarCenB(sb: any, cen: any, comp: any, descritoresTexto: strin
 /** Persiste o resultado do check numa row existente (shape do Cenário B). */
 async function persistirCheckCenB(sb: any, cenId: string, resultado: any, statusCheck: string) {
   const { data: cenLinha } = await sb.from('banco_cenarios').select('empresa_id').eq('id', cenId).maybeSingle();
-  const qChk0 = sb.from('banco_cenarios').update({
-    nota_check: resultado.nota,
-    status_check: statusCheck,
-    dimensoes_check: resultado.dimensoes || null,
-    justificativa_check: resultado.justificativa || null,
-    sugestao_check: resultado.sugestao || null,
-    alertas_check: {
-      alertas: resultado.alertas || [],
-      ponto_mais_forte: resultado.ponto_mais_forte || null,
-      ponto_mais_fraco: resultado.ponto_mais_fraco || null,
-      problema_principal_vs_cenario_a: resultado.problema_principal_vs_cenario_a || null,
-      riscos_de_triangulacao: resultado.riscos_de_triangulacao || [],
-      perguntas_com_risco: resultado.perguntas_com_risco || [],
-    },
-    checked_at: new Date().toISOString(),
-  }).eq('id', cenId);
-  await (cenLinha?.empresa_id ? qChk0.eq('empresa_id', cenLinha.empresa_id) : qChk0.is('empresa_id', null));
+  const { error: errCheck } = await escopoTenantDaLinha(
+    sb.from('banco_cenarios').update({
+      nota_check: resultado.nota,
+      status_check: statusCheck,
+      dimensoes_check: resultado.dimensoes || null,
+      justificativa_check: resultado.justificativa || null,
+      sugestao_check: resultado.sugestao || null,
+      alertas_check: {
+        alertas: resultado.alertas || [],
+        ponto_mais_forte: resultado.ponto_mais_forte || null,
+        ponto_mais_fraco: resultado.ponto_mais_fraco || null,
+        problema_principal_vs_cenario_a: resultado.problema_principal_vs_cenario_a || null,
+        riscos_de_triangulacao: resultado.riscos_de_triangulacao || [],
+        perguntas_com_risco: resultado.perguntas_com_risco || [],
+      },
+      checked_at: new Date().toISOString(),
+    }).eq('id', cenId),
+    cenLinha,
+  );
+  // O guard E11 pegou este site quando a refatoração do D2 trocou a FORMA da
+  // escrita: o `error` nunca foi checado aqui, mas antes o padrão não era
+  // detectável. Nota do check que não grava é nota que some — a tela mostra o
+  // cenário como não-checado e alguém paga a IA de novo.
+  if (errCheck) console.error('[persistirCheckCenB] check não gravado:', errCheck.message);
 }
 
 /** Avalia E persiste (contrato original — checks avulsos/lote usam este). */
@@ -594,7 +602,8 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
     }
 
     const { data: cenLinhaRg } = await sbRaw.from('banco_cenarios').select('empresa_id').eq('id', cenarioId).maybeSingle();
-    let qRg = sbRaw.from('banco_cenarios').update({
+    const { error: updErr } = await escopoTenantDaLinha(
+      sbRaw.from('banco_cenarios').update({
       titulo: cenarioData.titulo,
       descricao: cenarioData.descricao,
       p1: cenarioData.p1,
@@ -602,9 +611,9 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
       p3: cenarioData.p3,
       p4: cenarioData.p4,
       alternativas: alternativasB,
-    }).eq('id', cenarioId);
-    qRg = cenLinhaRg?.empresa_id ? qRg.eq('empresa_id', cenLinhaRg.empresa_id) : qRg.is('empresa_id', null);
-    const { error: updErr } = await qRg;
+    }).eq('id', cenarioId),
+      cenLinhaRg,
+    );
     if (updErr) return { success: false, error: `${updErr.message} — versão anterior preservada` };
     await persistirCheckCenB(sbRaw, cenarioId, av.resultado, av.statusCheck);
 

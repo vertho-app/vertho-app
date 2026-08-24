@@ -61,13 +61,16 @@ export async function salvarLocalePerfil(localeValue) {
     const email = await getAuthenticatedEmailFromAction();
     if (!email) return { success: true, locale, persisted: false };
 
-    const colab: any = await findColabByEmail(email, 'id');
+    const colab: any = await findColabByEmail(email, 'id, empresa_id');
     if (!colab) return { success: true, locale, persisted: false };
 
     const sb = createSupabaseAdmin();
+    // D2: o predicado de tenant repete o que a sessão já provou — o `colab`
+    // veio de findColabByEmail, que resolve pelo header do tenant. Mutação por
+    // id sozinho não carrega essa prova para o WHERE.
     const { error } = await sb.from('colaboradores')
       .update({ locale })
-      .eq('id', colab.id);
+      .eq('id', colab.id).eq('empresa_id', colab.empresa_id);
 
     if (error) {
       const msg = error.message || '';
@@ -114,7 +117,7 @@ export async function salvarFotoPerfil({ base64, mime }) {
 
     const { error: updErr } = await sb.from('colaboradores')
       .update({ foto_url: url, avatar_preset: null })
-      .eq('id', colab.id);
+      .eq('id', colab.id).eq('empresa_id', colab.empresa_id);
     if (updErr) return { error: updErr.message };
 
     // Remove foto anterior do bucket (melhor esforço)
@@ -144,13 +147,13 @@ export async function salvarAvatarPreset(presetId) {
     const valid = AVATAR_PRESETS.some(p => p.id === presetId);
     if (!valid) return { error: 'Preset inválido' };
 
-    const colab: any = await findColabByEmail(email, 'id, foto_url');
+    const colab: any = await findColabByEmail(email, 'id, empresa_id, foto_url');
     if (!colab) return { error: 'Colaborador não encontrado' };
 
     const sb = createSupabaseAdmin();
     await sb.from('colaboradores')
       .update({ avatar_preset: presetId, foto_url: null })
-      .eq('id', colab.id);
+      .eq('id', colab.id).eq('empresa_id', colab.empresa_id);
 
     if (colab.foto_url) {
       const m = colab.foto_url.match(/\/avatars\/([^?]+)/);
@@ -174,13 +177,13 @@ export async function removerAvatar() {
     const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
     const email = await getAuthenticatedEmailFromAction();
     if (!email) return { error: 'Não autenticado' };
-    const colab: any = await findColabByEmail(email, 'id, foto_url');
+    const colab: any = await findColabByEmail(email, 'id, empresa_id, foto_url');
     if (!colab) return { error: 'Colaborador não encontrado' };
 
     const sb = createSupabaseAdmin();
     await sb.from('colaboradores')
       .update({ avatar_preset: null, foto_url: null })
-      .eq('id', colab.id);
+      .eq('id', colab.id).eq('empresa_id', colab.empresa_id);
 
     if (colab.foto_url) {
       const m = colab.foto_url.match(/\/avatars\/([^?]+)/);

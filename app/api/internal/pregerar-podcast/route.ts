@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { safeSecretEqual } from '@/lib/secure-compare';
 import { extractNarration, generatePersonalizedPodcastAudio } from '@/lib/gemini-tts';
+import { escopoTenantDaLinha } from '@/lib/repositories/conteudos-repo';
 
 /**
  * Pré-geração do áudio de podcast, no runtime da Vercel (onde o lamejs/encoder MP3
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
 
   const sb = createSupabaseAdmin();
   const { data: content } = await sb.from('micro_conteudos')
-    .select('id, formato, conteudo_inline').eq('id', id).maybeSingle();
+    .select('id, empresa_id, formato, conteudo_inline').eq('id', id).maybeSingle();
   if (!content) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
   if (content.formato !== 'audio') return NextResponse.json({ error: 'não é áudio' }, { status: 400 });
 
@@ -67,6 +68,11 @@ export async function POST(req: Request) {
     .upload(path, audio.buffer, { contentType: audio.contentType, upsert: true });
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
   const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(path);
-  await sb.from('micro_conteudos').update({ url: publicUrl }).eq('id', id);
+  // `micro_conteudos` é tabela MISTA (linhas da empresa + catálogo global): o
+  // predicado tem de repetir o tenant DA LINHA lida, não um empresa_id fixo.
+  await escopoTenantDaLinha(
+    sb.from('micro_conteudos').update({ url: publicUrl }).eq('id', id),
+    content,
+  );
   return NextResponse.json({ ok: true, url: publicUrl, bytes: audio.buffer.length });
 }

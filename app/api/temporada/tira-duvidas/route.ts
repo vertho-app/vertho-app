@@ -236,7 +236,7 @@ export async function POST(request) {
     const novoDados = { ...dados, transcript_completo: historico };
     await sb.from('temporada_semana_progresso')
       .update({ tira_duvidas: novoDados })
-      .eq('id', prog.id);
+      .eq('id', prog.id).eq('empresa_id', trilha.empresa_id);
 
     // Telemetria — log da chamada pra rate limit futuro + custo
     await sb.from('ia_usage_log').insert({

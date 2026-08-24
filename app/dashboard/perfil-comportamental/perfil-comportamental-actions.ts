@@ -10,7 +10,11 @@ import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 const INSIGHTS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
 const COLS = [
-  'id', 'nome_completo', 'perfil_dominante', 'mapeamento_em',
+  // `empresa_id` não é cosmético: as mutações desta tela usam
+  // `.eq('id').eq('empresa_id')` (D2), e sem a coluna aqui o predicado filtraria
+  // por `undefined` e casaria 0 linhas — falha silenciosa, do jeito exato que a
+  // sprint está fechando.
+  'id', 'empresa_id', 'nome_completo', 'perfil_dominante', 'mapeamento_em',
   // DISC Natural
   'd_natural', 'i_natural', 's_natural', 'c_natural',
   // Liderança
@@ -189,7 +193,7 @@ export async function gerarInsightsExecutivos(opts: any = {}) {
     const sb = createSupabaseAdmin();
     await sb.from('colaboradores')
       .update({ insights_executivos: insights, insights_executivos_at: new Date().toISOString() })
-      .eq('id', colab.id);
+      .eq('id', colab.id).eq('empresa_id', colab.empresa_id);
 
     return { insights, cached: false };
   } catch (err) {

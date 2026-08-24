@@ -12,13 +12,11 @@
 type Sb = any; // supabase admin client (mesmo `any` pragmático dos outros repos)
 
 /**
- * Aplica o predicado de tenant DA LINHA num builder de mutação já filtrado
- * por id. Use quando a linha (com empresa_id) JÁ está em mãos — evita o
- * re-fetch. Reconhecido pelo guard tenant-mutation como camada sancionada.
+ * Reexport: a regra é a mesma para toda tabela MISTA, não só para conteúdo.
+ * Mudou de casa em 24/08 (D2) — ver `lib/tenant-predicado.ts` para o porquê.
  */
-export function escopoTenantDaLinha(q: any, linha: { empresa_id?: string | null } | null | undefined) {
-  return linha?.empresa_id ? q.eq('empresa_id', linha.empresa_id) : q.is('empresa_id', null);
-}
+import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
+export { escopoTenantDaLinha };
 
 /**
  * UPDATE por id com predicado de tenant da linha (re-fetch do empresa_id).

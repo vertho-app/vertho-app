@@ -81,7 +81,8 @@ export async function POST(req: NextRequest) {
     // Sincroniza colaboradores.email SÓ quando a identidade é o proxy (colab
     // phone-only com e-mail vazio/divergente). NUNCA sobrescreve um e-mail REAL.
     if (isProxyEmail(authEmail) && (colab.email || '').toLowerCase() !== authEmail) {
-      await sb.from('colaboradores').update({ email: authEmail }).eq('id', colab.id);
+      await sb.from('colaboradores').update({ email: authEmail })
+        .eq('id', colab.id).eq('empresa_id', empresa.id);
     }
 
     // Redirect destino — allowlist de host (mesmo helper das rotas irmãs de

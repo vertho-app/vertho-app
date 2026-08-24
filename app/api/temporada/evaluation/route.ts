@@ -345,7 +345,7 @@ export async function POST(request) {
               const claimStamp = new Date().toISOString();
               await sb.from('temporada_semana_progresso')
                 .update({ acumulada_status: 'processing', acumulada_erro: null, acumulada_started_at: claimStamp })
-                .eq('trilha_id', trilhaId).eq('semana', semAcumulada);
+                .eq('trilha_id', trilhaId).eq('semana', semAcumulada).eq('empresa_id', trilha.empresa_id);
               after(async () => {
                 try {
                   // N2 (fail-safe): se já concluiu (Trigger/outra req) ou se outra
@@ -360,11 +360,11 @@ export async function POST(request) {
                   await gerarAvaliacaoAcumuladaCore(trilhaId, { empresaId: auth.empresaId });
                   await sb.from('temporada_semana_progresso')
                     .update({ acumulada_status: 'done', acumulada_erro: null })
-                    .eq('trilha_id', trilhaId).eq('semana', semAcumulada);
+                    .eq('trilha_id', trilhaId).eq('semana', semAcumulada).eq('empresa_id', trilha.empresa_id);
                 } catch (e2: any) {
                   await sb.from('temporada_semana_progresso')
                     .update({ acumulada_status: 'error', acumulada_erro: String(e2?.message || e2).slice(0, 500) })
-                    .eq('trilha_id', trilhaId).eq('semana', semAcumulada);
+                    .eq('trilha_id', trilhaId).eq('semana', semAcumulada).eq('empresa_id', trilha.empresa_id);
                 }
               });
             }

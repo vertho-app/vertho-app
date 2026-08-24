@@ -18,9 +18,15 @@ export const acumuladaPilotoTask = task({
   retry: { maxAttempts: 3 },
   run: async (payload: { trilhaId: string; semanaAcumulada: number; empresaId: string | null }) => {
     const sb = createSupabaseAdmin();
-    const patch = (f: Record<string, unknown>) =>
-      sb.from('temporada_semana_progresso').update(f)
+    const patch = (f: Record<string, unknown>) => {
+      // D2: o predicado de tenant entra quando o payload o traz. `empresaId`
+      // nulo é trilha antiga (o campo é opcional na task) — aí a chave
+      // (trilha_id, semana) segue sozinha, e é por isso que este arquivo
+      // continua na allowlist do guard, com esse motivo escrito.
+      const q = sb.from('temporada_semana_progresso').update(f)
         .eq('trilha_id', payload.trilhaId).eq('semana', payload.semanaAcumulada);
+      return payload.empresaId ? q.eq('empresa_id', payload.empresaId) : q;
+    };
 
     try {
       // ── Idempotência (auditoria 09-10/08, confirmado no gate de 10/08) ──────

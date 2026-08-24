@@ -1,5 +1,6 @@
 import { createSupabaseAdmin } from './supabase';
 import { createHash } from 'crypto';
+import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
 
 /**
  * Registra ou reutiliza uma versão de prompt.
@@ -54,15 +55,19 @@ export async function getOrCreatePromptVersion(tipo, modelo, conteudo, metadata 
 export async function incrementarVersaoRegua(competenciaId) {
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('competencias')
-    .select('versao_regua')
+    .select('versao_regua, empresa_id')
     .eq('id', competenciaId)
     .single();
 
   const novaVersao = (data?.versao_regua || 1) + 1;
 
-  await sb.from('competencias')
-    .update({ versao_regua: novaVersao })
-    .eq('id', competenciaId);
+  // D2: `competencias` é tabela MISTA (empresa + catálogo global). O predicado
+  // repete o tenant DA LINHA lida — se o id trocar de tenant entre a leitura e a
+  // escrita, casa 0 linhas em vez de versionar a régua alheia.
+  await escopoTenantDaLinha(
+    sb.from('competencias').update({ versao_regua: novaVersao }).eq('id', competenciaId),
+    data,
+  );
 
   return novaVersao;
 }

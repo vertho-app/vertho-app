@@ -456,7 +456,7 @@ export async function POST(request) {
         evolution_report: montarReportDegustacao(trilha),
         evolution_generated_at: new Date().toISOString(),
         status: TRILHA.CONCLUIDA,
-      }).eq('id', trilhaId);
+      }).eq('id', trilhaId).eq('empresa_id', trilha.empresa_id);
     }
 
     // Modo Piloto: ao concluir a ÚLTIMA semana de conteúdo (sem 2), dispara a
@@ -474,7 +474,7 @@ export async function POST(request) {
       const semAcum = programaConfig.semanaAcumulada;
       await sb.from('temporada_semana_progresso')
         .update({ acumulada_status: 'processing', acumulada_erro: null, acumulada_started_at: new Date().toISOString() })
-        .eq('trilha_id', trilhaId).eq('semana', semAcum);
+        .eq('trilha_id', trilhaId).eq('semana', semAcum).eq('empresa_id', trilha.empresa_id);
       try {
         await tasks.trigger<typeof acumuladaPilotoTask>(
           'acumulada-piloto', { trilhaId, semanaAcumulada: semAcum, empresaId: auth.empresaId }, regionOpts(),
@@ -490,11 +490,11 @@ export async function POST(request) {
             await gerarAvaliacaoAcumuladaCore(trilhaId, { empresaId: auth.empresaId });
             await sb.from('temporada_semana_progresso')
               .update({ acumulada_status: 'done', acumulada_erro: null })
-              .eq('trilha_id', trilhaId).eq('semana', semAcum);
+              .eq('trilha_id', trilhaId).eq('semana', semAcum).eq('empresa_id', trilha.empresa_id);
           } catch (e2: any) {
             await sb.from('temporada_semana_progresso')
               .update({ acumulada_status: 'error', acumulada_erro: String(e2?.message || e2).slice(0, 500) })
-              .eq('trilha_id', trilhaId).eq('semana', semAcum);
+              .eq('trilha_id', trilhaId).eq('semana', semAcum).eq('empresa_id', trilha.empresa_id);
           }
         });
       }

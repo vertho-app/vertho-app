@@ -133,5 +133,5 @@ async function concluirPilulaSeMapeada(colaboradorId, empresaId, videoId) {
 
   await sb.from('temporada_semana_progresso')
     .update({ conteudo_consumido: arr })
-    .eq('id', progresso.id);
+    .eq('id', progresso.id).eq('empresa_id', empresaId);
 }

@@ -70,7 +70,8 @@ export async function POST(req: NextRequest) {
     // Só sincroniza colaboradores.email quando a identidade é o proxy. NUNCA
     // sobrescreve um e-mail real cadastrado.
     if (isProxyEmail(authEmail) && (colab.email || '').toLowerCase() !== authEmail) {
-      await sb.from('colaboradores').update({ email: authEmail }).eq('id', colab.id);
+      await sb.from('colaboradores').update({ email: authEmail })
+        .eq('id', colab.id).eq('empresa_id', empresa.id);
     }
 
     const redirect = resolveSafeAuthRedirect(req, redirectTo);

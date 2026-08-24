@@ -113,7 +113,11 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'nenhum campo editável informado' }, { status: 400 });
   }
 
-  const { data, error } = await sb.from('colaboradores').update(fields).eq('id', id).select().single();
+  // O `.eq('empresa_id')` repete o tenant JÁ verificado por assertTenantAccess:
+  // fecha a janela entre a leitura e a escrita (id que muda de tenant no meio
+  // casa 0 linhas em vez de gravar no lugar errado). D2 da auditoria 22/08.
+  const { data, error } = await sb.from('colaboradores').update(fields)
+    .eq('id', id).eq('empresa_id', existente.empresa_id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }
@@ -136,7 +140,8 @@ export async function DELETE(req: Request) {
   const guard = assertTenantAccess(auth, existente.empresa_id);
   if (guard) return guard;
 
-  const { error } = await sb.from('colaboradores').delete().eq('id', id);
+  const { error } = await sb.from('colaboradores').delete()
+    .eq('id', id).eq('empresa_id', existente.empresa_id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
 }

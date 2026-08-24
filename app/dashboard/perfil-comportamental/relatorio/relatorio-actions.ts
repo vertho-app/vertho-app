@@ -63,7 +63,7 @@ export async function loadBehavioralReport(opts: any = {}) {
 
     // 3) Salva cache
     const sb = createSupabaseAdmin();
-    await persistReportTexts(sb, colab.id, texts);
+    await persistReportTexts(sb, colab.id, texts, colab.empresa_id);
 
     return { raw, texts, cached: false };
   } catch (err) {
@@ -200,7 +200,7 @@ async function _ensureTextos(colab: any) {
   if (!texts) {
     texts = await gerarTextosLLM(raw, colab.empresa_id);
     const sb = createSupabaseAdmin();
-    const reportGeneratedAt = await persistReportTexts(sb, colab.id, texts);
+    const reportGeneratedAt = await persistReportTexts(sb, colab.id, texts, colab.empresa_id);
     colab.report_texts = texts;
     colab.report_generated_at = reportGeneratedAt;
     colab.comportamental_audio_path = null;
@@ -292,7 +292,7 @@ async function gerarEsalvarDevolutivaComportamental({ colab: inputColab, colabId
 
     await sb.from('colaboradores')
       .update({ comportamental_audio_path: path, comportamental_audio_at: new Date().toISOString() })
-      .eq('id', colab.id);
+      .eq('id', colab.id).eq('empresa_id', colab.empresa_id);
 
     return { success: true, path };
   } catch (err) {

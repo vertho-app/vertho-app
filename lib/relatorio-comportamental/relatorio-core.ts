@@ -47,7 +47,7 @@ export function isFreshReportCache(texts: unknown, generatedAt: unknown): boolea
   return Date.now() - new Date(String(generatedAt)).getTime() < CACHE_MAX_AGE_MS;
 }
 
-export async function persistReportTexts(sb: any, colabId: string, texts: any) {
+export async function persistReportTexts(sb: any, colabId: string, texts: any, empresaId?: string | null) {
   const generatedAt = new Date().toISOString();
   await sb.from('colaboradores')
     .update({
@@ -57,7 +57,8 @@ export async function persistReportTexts(sb: any, colabId: string, texts: any) {
       comportamental_audio_path: null,
       comportamental_audio_at: null,
     })
-    .eq('id', colabId);
+    // D2: o tenant vem do chamador — os três já têm o colab em mãos.
+    .eq('id', colabId).eq('empresa_id', empresaId);
   return generatedAt;
 }
 
@@ -143,7 +144,7 @@ export async function gerarEsalvarRelatorioComportamentalCore({ colab: inputCola
     if (isFreshReportCache(colab.report_texts, colab.report_generated_at)) texts = colab.report_texts;
     if (!texts) {
       texts = await gerarTextosLLM(raw, colab.empresa_id);
-      await persistReportTexts(sb, colab.id, texts);
+      await persistReportTexts(sb, colab.id, texts, colab.empresa_id);
     }
 
     // 1.5) Resumo executivo (arquétipo + tags + insights) — vindos do mesmo lib da tela
@@ -167,7 +168,7 @@ export async function gerarEsalvarRelatorioComportamentalCore({ colab: inputCola
     // 4) Salva path
     await sb.from('colaboradores')
       .update({ comportamental_pdf_path: path })
-      .eq('id', colab.id);
+      .eq('id', colab.id).eq('empresa_id', colab.empresa_id);
 
     return { success: true, path, filename };
   } catch (err) {

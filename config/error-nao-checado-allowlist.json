@@ -577,7 +577,7 @@
     "actions/video-tracking.ts": {
       "000f4b62": 1,
       "5d96e526": 1,
-      "6ecd17c6": 1,
+      "c6b4c492": 1,
       "fe5b6645": 1
     },
     "actions/votacao.ts": {
@@ -743,7 +743,7 @@
       "e80780a7": 1
     },
     "app/api/auth/phone-magic-link/request/route.ts": {
-      "a7015c67": 1,
+      "3cd4cdd9": 1,
       "a93aec4b": 1,
       "b2606245": 1
     },
@@ -752,9 +752,9 @@
       "f9747bfd": 1
     },
     "app/api/auth/phone-otp/verify/route.ts": {
+      "3cd4cdd9": 1,
       "75e8121e": 1,
-      "8bcdd6dd": 1,
-      "a7015c67": 1
+      "8bcdd6dd": 1
     },
     "app/api/auth/signup/route.ts": {
       "3348a35a": 1,
@@ -780,8 +780,8 @@
     },
     "app/api/internal/pregerar-podcast/route.ts": {
       "0979ba60": 1,
-      "314110b2": 1,
-      "9945665d": 1
+      "46d31f6a": 1,
+      "8a74c4ed": 1
     },
     "app/api/me/route.ts": {
       "ad842c3d": 1
@@ -803,36 +803,36 @@
       "6c14f1fd": 1
     },
     "app/api/temporada/evaluation/route.ts": {
+      "0026b0a4": 1,
       "0f1a794f": 1,
       "4042992b": 1,
       "5b1df2ba": 1,
-      "6c8bb20f": 1,
       "86edef3f": 1,
       "96dd325e": 1,
-      "a9c7913f": 1,
       "b3a5cdf2": 1,
       "b42a7301": 1,
-      "c55e9b27": 1,
+      "b48863d0": 1,
       "c6f63772": 1,
-      "e31555ac": 1
+      "e31555ac": 1,
+      "ffb80b7b": 1
     },
     "app/api/temporada/reflection/route.ts": {
-      "099bf30f": 1,
-      "1970e39e": 1,
-      "2d912a6c": 1,
+      "0a275771": 1,
+      "11fe8ba9": 1,
+      "24c4eb14": 1,
       "5996d145": 1,
       "5b1df2ba": 1,
+      "b2d0f1b2": 1,
       "ded4ebca": 1,
-      "e31555ac": 1,
-      "e3ddce6c": 1
+      "e31555ac": 1
     },
     "app/api/temporada/tira-duvidas/route.ts": {
       "99110186": 1,
       "131f6e86": 1,
       "5b1df2ba": 1,
-      "8f001535": 1,
       "bed50f56": 1,
       "c2edaeff": 1,
+      "c7074035": 1,
       "e31555ac": 1
     },
     "app/api/upload-logo/route.ts": {
@@ -901,21 +901,21 @@
       "ca4ba920": 1
     },
     "app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts": {
-      "e48db5e9": 1,
+      "738352b2": 1,
       "eda8c579": 1
     },
     "app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts": {
       "0f6a9ade": 1,
+      "2ec9d31c": 1,
       "3dc76f08": 1,
       "b772fedb": 1,
-      "cb14a07d": 1,
       "d7022101": 1,
       "e315a584": 1
     },
     "app/dashboard/perfil/perfil-actions.ts": {
-      "5d7aadd0": 1,
       "5ef12371": 1,
-      "86733ad1": 1,
+      "8ff2893b": 1,
+      "b06878b1": 1,
       "cc897572": 1
     },
     "app/dashboard/praticar/praticar-actions.ts": {
@@ -1213,8 +1213,8 @@
     },
     "lib/relatorio-comportamental/relatorio-core.ts": {
       "51052e86": 1,
-      "55617d6c": 1,
-      "c237f533": 1,
+      "7f34c2f9": 1,
+      "c710ae5d": 1,
       "cf2e1f1f": 1
     },
     "lib/relatorio-individual-prompt.ts": {
@@ -1360,10 +1360,10 @@
       "6b3e394c": 1
     },
     "lib/versioning.ts": {
+      "287aadc5": 1,
       "a70687a8": 1,
-      "bb53c4fa": 1,
-      "e0755ef2": 1,
-      "f8cc20d4": 1
+      "aed08c91": 1,
+      "bb53c4fa": 1
     },
     "lib/video/reconciliar-personalizados.ts": {
       "87269461": 1

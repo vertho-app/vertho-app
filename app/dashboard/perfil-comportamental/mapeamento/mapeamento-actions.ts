@@ -163,7 +163,7 @@ export async function salvarPerfilComportamental(resultados) {
       insights_executivos: null,
       insights_executivos_at: null,
     })
-    .eq('id', colab.id);
+    .eq('id', colab.id).eq('empresa_id', colab.empresa_id);
 
   if (error) return { success: false, error: error.message };
 

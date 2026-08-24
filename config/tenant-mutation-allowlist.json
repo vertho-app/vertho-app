@@ -1,4 +1,13 @@
 {
-  "description": "Mutações RAW (update/delete sem tenantDb e sem predicado de tenant no WHERE) em tabelas tenant-owned/mistas. ZERADA em 03/07/2026 — toda mutação nova precisa de .eq('empresa_id', ...) (tenant) OU .is('empresa_id', null) (catálogo global) OU tenantDb. Allowlist vazia é o estado normal; adicionar entrada exige justificativa em code review.",
-  "allowlist": {}
+  "description": "Mutações RAW (update/delete sem tenantDb e sem predicado de tenant no WHERE) em tabelas tenant-owned/mistas. Para sair: tenantDb(...), .eq('empresa_id', ...) / .is('empresa_id', null), ou escopoTenantDaLinha(...). 🔴 A lista foi ZERADA em 03/07 e a descrição dizia 'dívida ZERADA' — mas o scan só olhava ['actions','app/admin'] e, dentro deles, só arquivos que mencionavam requireAdminSupabase. Com o denominador certo (24/08, item D2), apareceram 27 sites em 17 arquivos: 24 receberam o predicado e 3 ficaram aqui, com motivo. Esta lista SÓ ENCOLHE, e cada entrada exige o porquê escrito. Guard: tests/unit/security/tenant-mutation-guard.test.ts",
+  "motivos": {
+    "actions/conteudos-metrics.ts": "recalcularTaxaConclusao é job de PLATAFORMA (cron/admin): varre as trilhas de TODOS os tenants e recalcula a métrica de cada micro_conteudo. Cross-tenant é o desenho, não o defeito — o id vem da agregação interna, nunca do cliente. Escopar por tenant aqui exigiria rodar o job N vezes e mudaria o número que ele calcula.",
+    "lib/demo/reset-acme-demo.ts": "Reset do tenant de DEMO: apaga e recria o acme-demo inteiro a partir de um snapshot. Ele opera sobre um tenant fixo (destId) e é chamado só pelo cron do reset das 4h e pelo botão de admin. Predicado por linha não se aplica — o alvo é o tenant todo.",
+    "trigger/acumulada-piloto.ts": "A task já aplica `.eq('empresa_id')` quando o payload traz `empresaId`, mas o campo é `string | null`: trilha antiga foi disparada sem ele, e nesses casos a chave (trilha_id, semana) segue sozinha. O predicado condicional fica FORA da cadeia, que é o que o guard lê. Sai desta lista quando `empresaId` virar obrigatório no payload (exige backfill das trilhas em voo)."
+  },
+  "allowlist": {
+    "actions/conteudos-metrics.ts": 1,
+    "lib/demo/reset-acme-demo.ts": 1,
+    "trigger/acumulada-piloto.ts": 1
+  }
 }

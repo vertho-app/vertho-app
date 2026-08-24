@@ -12,6 +12,7 @@ import {
   carregarContextoIA2, montarPromptIA2, validarGabaritoIA2, persistirGabaritoIA2,
 } from '@/lib/ia2-gabarito';
 import { gerarCenarioIA3Core, checkCenarioIA3Core, regenerarCenarioIA3ComTrava } from '@/lib/ia3-cenarios';
+import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
 
 // ── IA1: Selecionar top 10 competências por cargo ───────────────────────────
 // Seleciona das competências JÁ CADASTRADAS na empresa (tabela competencias).
@@ -328,9 +329,10 @@ export async function excluirCenario(cenarioId: string) {
   // Predicado de tenant explícito (mutação sobre linha lida): empresa OU catálogo global
   const { data: cenLinha } = await sbRaw.from('banco_cenarios').select('empresa_id').eq('id', cenarioId).maybeSingle();
   if (!cenLinha) return { success: false, error: 'Cenário não encontrado' };
-  let qDel = sbRaw.from('banco_cenarios').delete().eq('id', cenarioId);
-  qDel = cenLinha.empresa_id ? qDel.eq('empresa_id', cenLinha.empresa_id) : qDel.is('empresa_id', null);
-  const { error } = await qDel;
+  const { error } = await escopoTenantDaLinha(
+    sbRaw.from('banco_cenarios').delete().eq('id', cenarioId),
+    cenLinha,
+  );
   if (error) return { success: false, error: error.message };
   return { success: true };
 }

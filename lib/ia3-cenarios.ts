@@ -14,6 +14,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { callAI, type AIConfig } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
 import { buscarContextoPPP, buscarValores } from '@/lib/ia2-gabarito';
+import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
 
 // ── Prompts (movidos VERBATIM de fase1.ts) ──────────────────────────────────
 
@@ -549,7 +550,8 @@ export function normalizarResultadoCheckIA3(resultado: any): { resultado: any; s
 export async function persistirCheckIA3(sbRaw: any, cen: any, resultado: any, statusCheck: string):
   Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: cenLinhaChk } = await sbRaw.from('banco_cenarios').select('empresa_id').eq('id', cen.id).maybeSingle();
-  let qChk = sbRaw.from('banco_cenarios').update({
+  const { data: updated, error: updErr } = await escopoTenantDaLinha(
+    sbRaw.from('banco_cenarios').update({
     nota_check: resultado.nota,
     status_check: statusCheck,
     dimensoes_check: resultado.dimensoes || null,
@@ -563,9 +565,9 @@ export async function persistirCheckIA3(sbRaw: any, cen: any, resultado: any, st
       perguntas_com_risco: resultado.perguntas_com_risco || [],
     },
     checked_at: new Date().toISOString(),
-  }).eq('id', cen.id);
-  qChk = cenLinhaChk?.empresa_id ? qChk.eq('empresa_id', cenLinhaChk.empresa_id) : qChk.is('empresa_id', null);
-  const { data: updated, error: updErr } = await qChk.select('id, nota_check');
+  }).eq('id', cen.id),
+    cenLinhaChk,
+  ).select('id, nota_check');
 
   if (updErr) return { ok: false, error: `Check UPDATE falhou: ${updErr.message} (cen.id: ${cen.id})` };
   if (!updated?.length) return { ok: false, error: `Check UPDATE: 0 linhas afetadas (cen.id: ${cen.id})` };

@@ -235,9 +235,11 @@ export async function salvarEhLideranca(cargoId: string, ehLideranca: boolean) {
     if (!uuidRegex.test(cargoId)) return { success: false, error: 'Cargo precisa estar em cargos_empresa' };
     const { data: cargo } = await sb.from('cargos_empresa')
       .select('nome, empresa_id').eq('id', cargoId).maybeSingle();
+    // D2: `cargo.empresa_id` já estava lido aqui e não ia para o WHERE —
+    // `cargos_empresa` é tenant-owned, e o id vem do cliente.
     const { error } = await sb.from('cargos_empresa')
       .update({ eh_lideranca: !!ehLideranca })
-      .eq('id', cargoId);
+      .eq('id', cargoId).eq('empresa_id', cargo?.empresa_id);
     if (error) return { success: false, error: error.message };
 
     // Invalida fits existentes desse cargo (vão ser recalculados sob nova regra)
