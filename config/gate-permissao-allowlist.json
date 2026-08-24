@@ -1,0 +1,73 @@
+{
+  "description": "G-A5 (auditoria 22/08) — exports 'use server' que exigem uma permissão do papel `rh`, recebem id do CLIENTE e NÃO confrontam o tenant. Gate de permissão não é gate de tenant. Esta lista SÓ ENCOLHE, e cada entrada exige motivo escrito: allowlist sem motivo é dívida anônima. Guard: tests/unit/security/gate-permissao-guard.test.ts",
+  "allowlist": {
+    "actions/conteudos.ts": {
+      "motivo": "A5 — 10 exports mutam acervo/PPP/kits pelo predicado 'tenant da linha' (escopa a escrita, não autoriza o chamador) ou recebem empresaId cru. 4 deles (gerarConteudoIA, gerarConteudoLote, importarVideosBunny, aplicarTagsIA) foram achados pelo GUARD, não pela leitura manual. Correção na Sprint 2.",
+      "exports": [
+        "atualizarConteudo",
+        "gerarConteudoFinal",
+        "gerarPodcastAudio",
+        "aprovarRoteiroPodcastEGerarAudio",
+        "excluirConteudoFinal",
+        "deletarConteudo",
+        "gerarConteudoIA",
+        "gerarConteudoLote",
+        "importarVideosBunny",
+        "aplicarTagsIA"
+      ]
+    },
+    "actions/fase1.ts": {
+      "motivo": "A5 — removerTop10 lê o empresa_id da linha e escopa com tenantDb, sem autorizar o chamador nela. Correção na Sprint 2.",
+      "exports": [
+        "removerTop10"
+      ]
+    },
+    "actions/competencias-base.ts": {
+      "motivo": "A5 — excluirCompetenciaBase apaga do CATALOGO GLOBAL (competencias_base serve todos os tenants) com .delete().eq('id') puro. Decisão de produto tomada: catálogo global = platform_admin apenas. Correção na Sprint 2.",
+      "exports": [
+        "excluirCompetenciaBase"
+      ]
+    },
+    "actions/onboarding.ts": {
+      "motivo": "A5 — configurarCompetencias grava empresa_id vindo do cliente; importarColaboradoresLote CRIA colaborador em tenant escolhido pelo cliente (users.manage está no papel rh). Correção na Sprint 2.",
+      "exports": [
+        "configurarCompetencias",
+        "importarColaboradoresLote"
+      ]
+    },
+    "actions/ppp.ts": {
+      "motivo": "A5 — extrairPPP lê a empresa pelo id do cliente e faz scrape de URL também escolhida por ele. Correção na Sprint 2.",
+      "exports": [
+        "extrairPPP"
+      ]
+    },
+    "actions/kits.ts": {
+      "motivo": "A5 — planejarKitsCoorte planeja/gera kits no tenant pedido; statusKit lê status de job alheio por jobId (leitura, severidade menor). Correção na Sprint 2.",
+      "exports": [
+        "planejarKitsCoorte",
+        "statusKit",
+        "gerarKit",
+        "gerarKitSemanal"
+      ]
+    },
+    "actions/fase2.ts": {
+      "motivo": "A4 — defeito de FORMA com caminho MORTO: o action id não está no server-reference-manifest.json do build (verificado em 23/08) e não há chamador vivo. Corrigir junto de quem religar a tela; esta entrada tem de sair no mesmo commit.",
+      "exports": [
+        "dispararEmails"
+      ]
+    },
+    "actions/whatsapp-lote.ts": {
+      "motivo": "A4 — idem: ids ausentes do manifesto do build; o único importador (app/admin/whatsapp/page.tsx) importa e nunca invoca, resíduo da troca de mecanismo de 20/08. Sai no commit que religar a tela.",
+      "exports": [
+        "dispararLinksCIS",
+        "dispararRelatoriosLote"
+      ]
+    },
+    "actions/manuscrito-batch.ts": {
+      "motivo": "A5 — analisarManuscrito recebe empresaId do cliente e queima IA no orçamento dele. Achado pelo guard. Correção na Sprint 2.",
+      "exports": [
+        "analisarManuscrito"
+      ]
+    }
+  }
+}
