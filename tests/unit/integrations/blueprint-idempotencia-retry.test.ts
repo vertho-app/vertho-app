@@ -32,6 +32,8 @@ const mocks = vi.hoisted(() => ({
   /** Chamadas ao caminho síncrono — é o caro, e aqui é "feature". */
   sincronas: 0,
   respostasBatch: new Map<string, string>(),
+  /** Faz a persistencia LANCAR (o unico ponto do loop sem try local). */
+  persistLanca: false,
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -86,6 +88,7 @@ vi.mock('@/lib/blueprint/core', () => ({
     customId: colaboradorId,
   }),
   persistBlueprintFromText: async (_e: string, id: string) => {
+    if (mocks.persistLanca) throw new Error('persist explodiu');
     mocks.persistidos.push(id);
     return { ok: true };
   },
@@ -113,9 +116,17 @@ beforeEach(() => {
   mocks.respostasBatch = new Map([['c1', 'texto-1'], ['c2', 'texto-2']]);
 });
 
-async function rodar() {
+/**
+ * O 2º argumento do `run` é o SDK quem passa; `ctx.attempt.number` é o que
+ * decide se o `catch` grava `status: 'error'` ou mantém `running`.
+ */
+const ctxDaTentativa = (numero = 1, maxAttempts = 3) => ({
+  ctx: { attempt: { number: numero }, run: { maxAttempts } },
+});
+
+async function rodar(tentativa = 1, maxAttempts = 3) {
   const mod = await import('@/trigger/gerar-blueprint-batch');
-  return (mod as any).gerarBlueprintBatchTask.run({ jobId: JOB });
+  return (mod as any).gerarBlueprintBatchTask.run({ jobId: JOB }, ctxDaTentativa(tentativa, maxAttempts));
 }
 
 describe('C3 · blueprint: batch destacado com id persistido', () => {
@@ -207,5 +218,47 @@ describe('C3 · blueprint: reentrância e fallback', () => {
 
     expect(mocks.sincronas, 'quem não voltou no lote deveria ir ao síncrono').toBe(1);
     expect(mocks.persistidos).toEqual(['c1', 'c2']);
+  });
+});
+
+/**
+ * ── `retry` concedido (24/08): o que ele muda no `catch` ───────────────────
+ *
+ * O ponta-a-ponta do que `lib/ia-jobs::registrarFalhaDaTentativa` decide — aqui
+ * o que se prova é que o `ctx` chega até lá pela assinatura do `run`. Um teste
+ * só do helper passaria verde com a task ignorando o 2º argumento.
+ */
+describe('C3 · blueprint: falha de UMA tentativa ≠ falha do JOB', () => {
+  beforeEach(() => {
+    mocks.persistLanca = false;
+  });
+
+  it('🔴 falhou na tentativa 1 de 3: o job segue `running`', async () => {
+    mocks.persistLanca = true;
+
+    await expect(rodar(1, 3)).rejects.toThrow(/persist explodiu/);
+
+    const job = mocks.jobs.get(JOB);
+    expect(
+      job.status,
+      'gravou `error` com duas tentativas pela frente — solta o guard anti-duplicata (`jaTemLoteAtivo` só barra queued/running) e a tela anuncia falha de um lote que ainda vai terminar',
+    ).toBe('running');
+    expect(job.error).toMatch(/tentativa 1\/3/);
+  });
+
+  it('falhou na ÚLTIMA: aí sim `error`, senão o job nunca fecha', async () => {
+    mocks.persistLanca = true;
+
+    await expect(rodar(3, 3)).rejects.toThrow(/persist explodiu/);
+
+    expect(mocks.jobs.get(JOB).status).toBe('error');
+  });
+
+  it('o `throw` sobe SEMPRE — sem ele o Trigger não retenta nada', async () => {
+    mocks.persistLanca = true;
+    // Em qualquer tentativa: engolir a exceção depois de gravar o status faria a
+    // run terminar "com sucesso" e o retry nunca aconteceria.
+    await expect(rodar(1, 3)).rejects.toThrow();
+    await expect(rodar(3, 3)).rejects.toThrow();
   });
 });

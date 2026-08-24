@@ -1,5 +1,5 @@
 import { task, wait } from '@trigger.dev/sdk';
-import { criarPatchJob } from '@/lib/ia-jobs';
+import { criarPatchJob, registrarFalhaDaTentativa } from '@/lib/ia-jobs';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import {
@@ -36,11 +36,23 @@ import { IA_BATCH } from '@/lib/status';
  *
  * Resiliência (mesmo contrato do IA2/IA3): falha POR-ITEM registra e segue;
  * falha do BATCH inteiro cai no fallback síncrono item a item.
+ *
+ * ✅ `retry` CONCEDIDO em 24/08, POR TASK — nunca por `retries.default` no
+ * `trigger.config.ts`, que alcançaria as 9 tasks sem retry (o executor faz
+ * `this.task.retry ?? retriesConfig?.default`).
+ *
+ * ⚠️ As DUAS ondas (avaliação e check) vivem sob o mesmo `jobId`, então a
+ * recuperação do lote filtra por `feature` — sem isso, uma retomada colheria as
+ * respostas do check achando que são da avaliação.
  */
+const MAX_TENTATIVAS = 3;
+
 export const gerarIA4BatchTask = task({
   id: 'gerar-ia4-batch',
   maxDuration: 3600,
-  run: async (payload: { jobId: string }) => {
+  // Backoff longo: a falha típica é FORNECEDOR, não corrida.
+  retry: { maxAttempts: MAX_TENTATIVAS, minTimeoutInMs: 30_000, maxTimeoutInMs: 300_000, factor: 4 },
+  run: async (payload: { jobId: string }, { ctx }) => {
     const sb = createSupabaseAdmin();
     // `patch` = progresso (best-effort) · `patchCritico` = checkpoint (falha alto).
     // O `{ error }` do supabase-js NÃO lança — ver lib/ia-jobs.ts.
@@ -305,7 +317,10 @@ export const gerarIA4BatchTask = task({
       });
       return { ok: true, jobId: payload.jobId, okCount, errCount };
     } catch (e: any) {
-      await patch({ status: 'error', error: String(e?.message || e).slice(0, 500) });
+      // `error` só na ÚLTIMA tentativa: antes disso o job segue `running`, senão
+      // o guard anti-duplicata solta e a tela anuncia falha de um lote que ainda
+      // vai retentar.
+      await registrarFalhaDaTentativa(patch, e, ctx, MAX_TENTATIVAS);
       throw e;
     }
   },

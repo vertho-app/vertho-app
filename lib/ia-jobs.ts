@@ -52,3 +52,72 @@ export function criarPatchJob(sb: any, jobId: string): PatchJob {
     patchCritico: (campos) => gravar(campos, true),
   };
 }
+
+/**
+ * ── C3, passo final (24/08): quem grava `error` decide quem pode disparar ──
+ *
+ * Com `retry` ligado, o `catch` de uma task passa a rodar em tentativas que
+ * **não são a última**. Gravar `status: 'error'` ali quebra duas coisas que
+ * ninguém associaria ao retry:
+ *
+ *  1. **O guard anti-duplicata solta.** `jaTemLoteAtivo` (actions/ia-pipeline-batch.ts)
+ *     bloqueia lote novo da mesma fase só enquanto o status é `queued`/`running`.
+ *     Um job em `error` com retentativa AGENDADA não bloqueia nada — e as duas
+ *     runs processariam a mesma fila em corrida.
+ *  2. **A tela anuncia falha de um lote que vai terminar bem.** Os quatro
+ *     leitores de progresso param o polling em `done`/`error` e mostram "Lote
+ *     falhou"; o operador reage disparando de novo, o que fecha o círculo com (1).
+ *
+ * Enquanto houver tentativa pela frente, o job continua `running` — o `error`
+ * é preenchido mesmo assim, porque é o rastro do que falhou e nenhum leitor o
+ * mostra sem o status.
+ *
+ * ⚠️ `ctx.run.maxAttempts` VENCE o valor declarado na task: o executor faz
+ * `retry.maxAttempts = Math.max(execution.run.maxAttempts, 1)` quando o trigger
+ * mandou um override (`@trigger.dev/core` taskExecutor.js:698). Ler só a
+ * constante local faria a task se achar na última tentativa antes da hora.
+ */
+export interface CtxTentativa {
+  attempt?: { number?: number };
+  run?: { maxAttempts?: number };
+}
+
+export function ehUltimaTentativa(ctx: CtxTentativa | undefined, maxDeclarado: number): boolean {
+  /**
+   * 🔑 Sem `attempt.number` a resposta é SIM, e isso é deliberado (achado ao
+   * escrever o teste): manter o job `running` é a afirmação positiva "vem outra
+   * tentativa", e afirmação positiva precisa de evidência. Sem ela — chamada
+   * headless, script, o SDK mudando de forma — ninguém retentaria, e o job
+   * ficaria `running` PARA SEMPRE: tela em polling eterno e a fase travada pelo
+   * guard anti-duplicata, que é pior que anunciar erro cedo demais.
+   */
+  const atual = ctx?.attempt?.number;
+  if (typeof atual !== 'number') return true;
+  const max = ctx?.run?.maxAttempts ?? maxDeclarado;
+  return atual >= max;
+}
+
+/**
+ * Grava a falha da tentativa: `error` só na última, `running` nas demais.
+ * Sempre best-effort — se nem isto gravar, o `throw` que vem a seguir é que
+ * manda, e insistir aqui só trocaria a causa real por um erro de escrita.
+ */
+export async function registrarFalhaDaTentativa(
+  patch: PatchJob['patch'],
+  erro: unknown,
+  ctx: CtxTentativa | undefined,
+  maxDeclarado: number,
+): Promise<void> {
+  const msg = String((erro as any)?.message || erro).slice(0, 500);
+  const atual = ctx?.attempt?.number ?? 1;
+  const max = ctx?.run?.maxAttempts ?? maxDeclarado;
+
+  if (ehUltimaTentativa(ctx, maxDeclarado)) {
+    await patch({ status: 'error', error: msg });
+    return;
+  }
+  await patch({
+    status: 'running',
+    error: `tentativa ${atual}/${max} falhou (vai retentar): ${msg}`.slice(0, 500),
+  });
+}

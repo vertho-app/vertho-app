@@ -144,9 +144,17 @@ function jobIA3(extra: any = {}) {
   };
 }
 
-async function rodarIA3() {
+/**
+ * O 2º argumento do `run` é o SDK quem passa; `ctx.attempt.number` é o que
+ * decide se o `catch` grava `status: 'error'` ou mantém `running`.
+ */
+const ctxDaTentativa = (numero = 1, maxAttempts = 3) => ({
+  ctx: { attempt: { number: numero }, run: { maxAttempts } },
+});
+
+async function rodarIA3(tentativa = 1, maxAttempts = 3) {
   const mod = await import('@/trigger/gerar-ia3-batch');
-  return (mod as any).gerarIA3BatchTask.run({ jobId: JOB });
+  return (mod as any).gerarIA3BatchTask.run({ jobId: JOB }, ctxDaTentativa(tentativa, maxAttempts));
 }
 
 describe('C3 · IA3: duas ondas, dois ids persistidos', () => {

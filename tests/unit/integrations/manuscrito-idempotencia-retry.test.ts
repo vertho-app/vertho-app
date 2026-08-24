@@ -31,12 +31,30 @@ const mocks = vi.hoisted(() => ({
   batchesCriados: [] as string[],
   /** `patch()` aplicados, na ordem. */
   patches: [] as any[],
-  /** Faz o `patch` que grava o batchId falhar — simula a morte na janela. */
+  /**
+   * Faz a gravação do batchId falhar — simula a morte na janela.
+   *
+   * ⚠️ Só a PRIMEIRA. A janela é um INSTANTE ruim, não um banco permanentemente
+   * quebrado: matar toda gravação que mencione o `batchId` derrubava o
+   * `patchCritico` do `done` lá no fim e escondia o que o caso mede.
+   */
   matarAntesDePersistir: false,
+  gravacoesDoBatchIdMortas: 0,
   /** O lote chegou a ser consultado/colhido? (prova que não foi descartado) */
   loteConsultado: false,
   /** O que `ia_batches` responde quando params.batchId não foi gravado. */
   batchNoRastro: null as string | null,
+  /** Ids que a AUDITORIA Dual-IA recebeu — ~US$0,10 cada, é onde o retry doeria. */
+  auditados: [] as string[][],
+  /** Módulos que o banco diz ainda NÃO ter `auditoria_ia` preenchida. */
+  semVeredito: ['mod-1'] as string[],
+  /** Ids que `persistirModulo` devolve, na ordem das chamadas. */
+  idsPersistidos: ['mod-1'] as string[],
+  chamadasPersistir: 0,
+  /** Faz a leitura de quem ja tem veredito devolver { error }. */
+  erroNoVeredito: false,
+  /** Faz a gravacao do `done` falhar (era best-effort; virou checkpoint). */
+  matarODone: false,
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -44,8 +62,28 @@ vi.mock('@/lib/supabase', () => ({
     from: (tabela: string) => {
       const builder: any = {
         _id: null as string | null,
+        _in: null as string[] | null,
         select: () => builder,
         eq: (_c: string, v: any) => { builder._id = v; return builder; },
+        /**
+         * ⚠️ `.in()` faltava, e o efeito era invisível: a consulta de quem já
+         * tem veredito explodia com TypeError DENTRO do try da auditoria, que
+         * loga e segue. O teste passava verde sem nunca exercitar o caminho.
+         */
+        in: (_c: string, ids: string[]) => { builder._in = ids; return builder; },
+        /**
+         * 🔑 O `.in()` FILTRA de verdade. Ignora-lo tornava a lista de auditoria
+         * independente de `idsCriados`, e a mutacao "os ids nao atravessam a
+         * retomada" passava verde neste caso (medido em 24/08).
+         */
+        is: async () => (mocks.erroNoVeredito
+          ? { data: null, error: { message: 'timeout ao ler auditoria_ia' } }
+          : {
+            data: mocks.semVeredito
+              .filter((id) => !builder._in || builder._in.includes(id))
+              .map((id) => ({ id })),
+            error: null,
+          }),
         maybeSingle: async () => ({ data: mocks.jobs.get(builder._id) ?? null, error: null }),
         update: (campos: any) => {
           const alvo = { ...campos };
@@ -55,7 +93,11 @@ vi.mock('@/lib/supabase', () => ({
                 // A morte na janela, na forma REAL do supabase-js: a promise
                 // RESOLVE com `{ error }` — não lança. Usar `throw` aqui era o
                 // que escondia o `patch` sem checagem de erro.
-                if (mocks.matarAntesDePersistir && alvo?.params?.batchId) {
+                if (mocks.matarODone && alvo?.status === 'done') {
+                  return { error: { message: 'pool esgotado' } };
+                }
+                if (mocks.matarAntesDePersistir && alvo?.params?.batchId && !mocks.gravacoesDoBatchIdMortas) {
+                  mocks.gravacoesDoBatchIdMortas++;
                   return { error: { message: 'runtime morreu antes de persistir o batchId' } };
                 }
                 mocks.patches.push(alvo);
@@ -105,7 +147,35 @@ vi.mock('@/lib/manuscrito-modulos', () => ({
   ],
   modulosExistentes: async () => new Set<string>(),
   chaveModulo: (c: string, a: string, b: string) => `${c}:${a}:${b}`,
-  persistirModulo: async () => ({ id: 'mod-1' }),
+  persistirModuloDeManuscrito: async () => ({ id: mocks.idsPersistidos[mocks.chamadasPersistir++] ?? 'mod-x' }),
+}));
+
+/**
+ * O nome importa: era `persistirModulo` aqui e `persistirModuloDeManuscrito` na
+ * task. O mock nao casava, a persistencia real nunca rodava, `idsCriados` ficava
+ * VAZIO e a auditoria do passo 5 jamais era exercitada. O arquivo passava verde.
+ */
+vi.mock('@/lib/modulo-base-autor', () => ({
+  extractCorpo: (t: string) => (t ? { titulo: 'M', conteudo_central: {} } : null),
+  validarCorpo: () => [] as string[],
+}));
+
+vi.mock('@/actions/ai-client', () => ({
+  // Sem este mock a task chamava a API de verdade, falhava por credencial e
+  // TODO modulo virava 'IA falhou' — de novo com `idsCriados` vazio.
+  callAI: async () => JSON.stringify({ titulo: 'M', conteudo_central: {} }),
+}));
+
+/**
+ * A auditoria Dual-IA custa ~US$0,10 por módulo e roda FORA do batch. Era o
+ * ponto onde uma retomada pagava de novo sem que nada indicasse.
+ */
+vi.mock('@/lib/modulo-base-auditor', () => ({
+  auditarModulosCore: async (_sb: any, ids: string[], opts: any) => {
+    mocks.auditados.push([...ids]);
+    for (const id of ids) await opts?.onItem?.(id, true);
+    return { ok: ids.length, falhas: [] as string[] };
+  },
 }));
 
 const JOB = 'job-1';
@@ -119,14 +189,29 @@ beforeEach(() => {
   mocks.batchesCriados = [];
   mocks.patches = [];
   mocks.matarAntesDePersistir = false;
+  mocks.gravacoesDoBatchIdMortas = 0;
   mocks.loteConsultado = false;
   mocks.batchNoRastro = null;
+  mocks.auditados = [];
+  mocks.semVeredito = ['mod-1'];
+  mocks.idsPersistidos = ['mod-1'];
+  mocks.chamadasPersistir = 0;
+  mocks.erroNoVeredito = false;
+  mocks.matarODone = false;
 });
 
-async function rodar() {
+/**
+ * O 2º argumento do `run` é o SDK quem passa; `ctx.attempt.number` é o que
+ * decide se o `catch` grava `status: 'error'` ou mantém `running`.
+ */
+const ctxDaTentativa = (numero = 1, maxAttempts = 3) => ({
+  ctx: { attempt: { number: numero }, run: { maxAttempts } },
+});
+
+async function rodar(tentativa = 1, maxAttempts = 3) {
   const mod = await import('@/trigger/gerar-modulos-manuscrito');
   const t: any = (mod as any).gerarModulosManuscritoTask;
-  return t.run({ jobId: JOB });
+  return t.run({ jobId: JOB }, ctxDaTentativa(tentativa, maxAttempts));
 }
 
 describe('C3 · reentrância: job já concluído não reexecuta', () => {
@@ -188,11 +273,23 @@ describe('C3 · a janela entre submeter e persistir', () => {
       mocks.loteConsultado,
       'o lote pago foi DESCARTADO por um erro de gravação — é o caminho caro por cima do que já ia entregar',
     ).toBe(true);
-    const job = mocks.jobs.get(JOB);
     expect(
-      job.params.batchId,
-      'o id chegou a ser persistido — a janela não foi exercitada',
-    ).toBeUndefined();
+      mocks.gravacoesDoBatchIdMortas,
+      'a gravação do batchId não chegou a falhar — a janela não foi exercitada',
+    ).toBe(1);
+
+    /**
+     * 🔑 Medido ao rodar este caso depois do acumulador de params (24/08): o id
+     * NÃO se perde mais. `salvarParams` guarda em memória antes de gravar, então
+     * o checkpoint do `done` o carrega junto — a run fecha com o rastro completo.
+     * Antes, o `{ ...pp, batchId }` cru morria com a gravação que falhou.
+     *
+     * Isso NÃO apaga a janela: se a run morrer entre a falha e o fim, nada é
+     * gravado. É exatamente para esse resto que existe a 2ª fonte (`ia_batches`,
+     * mig 225) exercitada no caso seguinte.
+     */
+    const job = mocks.jobs.get(JOB);
+    expect(job.params.batchId, 'o id sumiu junto com a gravação que falhou').toBe('msgbatch_1');
 
     // 🔑 E aqui a notícia boa, que só apareceu ao exercitar: o early-return de
     // `done` CONTÉM o estrago. A task terminou (pelo síncrono), marcou `done`, e
@@ -214,11 +311,132 @@ describe('C3 · a janela entre submeter e persistir', () => {
    * Órfão detectável é dívida; órfão invisível era o C2.
    */
   it('o lote órfão fica RASTREÁVEL (é o que separa este caso do C2)', async () => {
-    mocks.matarAntesDePersistir = true;
+    // A run morre de vez: nem o fechamento grava o id. É o pior caso da janela.
+    mocks.jobs.set(JOB, { ...structuredClone(jobBase), status: 'running' });
+    mocks.batchNoRastro = 'msgbatch_orfao';
+
     await rodar();
-    expect(mocks.batchesCriados).toHaveLength(1);
-    // `createClaudeBatch` chama `registrarBatch` internamente (mockado aqui),
-    // e é essa linha que o script de órfãos lê. O contrato está no ai-batch.
-    expect(mocks.jobs.get(JOB).params.batchId).toBeUndefined();
+
+    // `createClaudeBatch` chama `registrarBatch` internamente (mockado aqui), e é
+    // essa linha que a retomada — e o script de órfãos — leem. Sem ela, o lote
+    // pago seria invisível: era exatamente o C2.
+    expect(
+      mocks.batchesCriados,
+      'criou um lote NOVO ignorando o que já estava pago e registrado',
+    ).toHaveLength(0);
+    expect(mocks.loteConsultado, 'o lote do rastro não foi colhido').toBe(true);
+  });
+});
+
+/**
+ * ── O que esta task exigiu ALÉM das outras para o retry ficar seguro ───────
+ *
+ * A idempotência daqui é por EXISTÊNCIA no banco (`modulosExistentes`), não por
+ * chave em `params`: o módulo já criado é PULADO na tentativa seguinte. Barato
+ * — e foi por isso que passou despercebido que a lista de ids ficava na RUN.
+ *
+ * Uma segunda tentativa perdia de vista os módulos da primeira, e com eles:
+ *  · a AUDITORIA Dual-IA, que roda sobre essa lista — o gate que de fato
+ *    reprova simplesmente não passaria neles, e ficariam publicáveis sem nota;
+ *  · o `result_ids`, que REGREDIA — a tela mostrando menos do que o job criou.
+ *
+ * Nenhum dos dois aparece como erro em lugar nenhum.
+ */
+describe('C3 · manuscrito: os ids atravessam a retomada', () => {
+  it('🔴 o módulo criado numa tentativa anterior continua no `result_ids`', async () => {
+    mocks.jobs.set(JOB, {
+      ...structuredClone(jobBase), status: 'running',
+      params: { ...jobBase.params, modulosCriados: ['mod-anterior'] },
+    });
+
+    await rodar();
+
+    expect(
+      mocks.jobs.get(JOB).result_ids,
+      'o job esqueceu o que criou na tentativa anterior — a tela mostra menos módulos do que existem',
+    ).toEqual(['mod-anterior', 'mod-1']);
+  });
+
+  it('🔴 o módulo da tentativa anterior TAMBÉM é auditado', async () => {
+    mocks.jobs.set(JOB, {
+      ...structuredClone(jobBase), status: 'running',
+      params: { ...jobBase.params, modulosCriados: ['mod-anterior'] },
+    });
+    mocks.semVeredito = ['mod-anterior', 'mod-1']; // nenhum dos dois tem veredito
+
+    await rodar();
+
+    expect(
+      mocks.auditados[0],
+      'o módulo da tentativa anterior ficou sem o gate Dual-IA — publicável sem nota, e nada acusa',
+    ).toEqual(['mod-anterior', 'mod-1']);
+  });
+
+  /**
+   * O outro lado da mesma moeda: auditar de novo o que já tem veredito é pagar
+   * ~US$0,10 por módulo por nada. A chave por item vem do BANCO (`auditoria_ia`
+   * preenchida), que é a fonte da verdade — um checkpoint em `params` diria o
+   * mesmo e ainda poderia estar defasado.
+   */
+  it('🔴 quem JÁ tem veredito não é auditado de novo', async () => {
+    mocks.jobs.set(JOB, {
+      ...structuredClone(jobBase), status: 'running',
+      params: { ...jobBase.params, modulosCriados: ['mod-anterior'] },
+    });
+    mocks.semVeredito = ['mod-1']; // 'mod-anterior' já foi auditado antes
+
+    await rodar();
+
+    expect(
+      mocks.auditados[0],
+      'repagou a auditoria de um módulo que já tinha veredito',
+    ).toEqual(['mod-1']);
+  });
+
+  it('todos já auditados: a auditoria nem é chamada', async () => {
+    mocks.jobs.set(JOB, {
+      ...structuredClone(jobBase), status: 'running',
+      params: { ...jobBase.params, modulosCriados: ['mod-anterior'] },
+    });
+    mocks.semVeredito = [];
+
+    await rodar();
+
+    expect(mocks.auditados, 'chamou a auditoria com lista vazia').toEqual([]);
+  });
+
+  /**
+   * ⚠️ Se a LEITURA de quem já tem veredito falhar, audita TODOS. O gate vale
+   * mais que os centavos: módulo publicável sem veredito é o estrago maior.
+   */
+  it('leitura do veredito falhando → audita todos (fail-safe pelo GATE, não pelo custo)', async () => {
+    mocks.erroNoVeredito = true;
+    mocks.jobs.set(JOB, {
+      ...structuredClone(jobBase), status: 'running',
+      params: { ...jobBase.params, modulosCriados: ['mod-anterior'] },
+    });
+
+    await rodar();
+
+    expect(mocks.auditados[0]).toEqual(['mod-anterior', 'mod-1']);
+  });
+
+  /**
+   * O `done` era `patch` (best-effort). Uma gravação que falha em silêncio ali
+   * deixa o job `running` PARA SEMPRE: polling eterno na tela e a fase travada
+   * pelo guard anti-duplicata, que só libera em `done`/`error`/`cancelled`.
+   */
+  it('🔴 o `done` é CHECKPOINT: se não gravar, a run falha alto', async () => {
+    mocks.matarODone = true;
+    await expect(rodar()).rejects.toThrow(/checkpoint não gravado/);
+  });
+
+  it('o `done` carrega o params ACUMULADO, não o lido no início', async () => {
+    await rodar();
+    const job = mocks.jobs.get(JOB);
+    expect(job.status).toBe('done');
+    expect(job.params.batchId, 'o batchId gravado durante a run sumiu no fechamento').toBe('msgbatch_1');
+    expect(job.params.modulosCriados).toEqual(['mod-1']);
+    expect(job.params.docxBase64, 'o DOCX de 360KB continuou no job').toBeUndefined();
   });
 });

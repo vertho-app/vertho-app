@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { criarPatchJob } from '@/lib/ia-jobs';
+import { criarPatchJob, ehUltimaTentativa, registrarFalhaDaTentativa } from '@/lib/ia-jobs';
 
 /**
  * 🔴 O furo que os testes de idempotência do C3 NÃO pegavam (achado em revisão,
@@ -95,5 +95,76 @@ describe('criarPatchJob · o `{ error }` do supabase-js não escapa', () => {
     };
     const { patchCritico } = criarPatchJob(sbQueLanca, 'job-1');
     await expect(patchCritico({ status: 'done' })).rejects.toThrow(/ECONNRESET/);
+  });
+});
+
+/**
+ * ── C3, passo final: quem grava `error` decide quem pode disparar ──────────
+ *
+ * Com `retry` ligado (24/08), o `catch` das cinco tasks passou a rodar em
+ * tentativas que NÃO são a última. Gravar `status: 'error'` ali quebra duas
+ * coisas que ninguém associaria ao retry — e as duas foram lidas no consumidor,
+ * não supostas:
+ *
+ *  1. `jaTemLoteAtivo` (actions/ia-pipeline-batch.ts) bloqueia lote novo da
+ *     mesma fase com `.in('status', ['queued','running'])`. Um job em `error`
+ *     com retentativa AGENDADA não bloqueia nada;
+ *  2. os quatro leitores de progresso param o polling em `done`/`error` e
+ *     mostram "Lote falhou" — o operador reage disparando de novo, o que fecha
+ *     o círculo com (1): duas runs na mesma fila.
+ */
+describe('C3 · a falha de UMA tentativa não é a falha do JOB', () => {
+  const patchFalso = () => {
+    const gravados: any[] = [];
+    return { gravados, patch: async (c: any) => { gravados.push(c); } };
+  };
+
+  it('tentativa 1 de 3: o job segue `running` — o guard anti-duplicata continua de pé', async () => {
+    const { gravados, patch } = patchFalso();
+    await registrarFalhaDaTentativa(patch, new Error('Anthropic 529'), { attempt: { number: 1 }, run: { maxAttempts: 3 } }, 3);
+
+    expect(
+      gravados[0].status,
+      'gravou `error` com retentativa pela frente — solta o guard e a tela anuncia falha do que ainda vai terminar',
+    ).toBe('running');
+    expect(gravados[0].error, 'o rastro do que falhou sumiu').toMatch(/Anthropic 529/);
+    expect(gravados[0].error, 'não diz que vai retentar').toMatch(/tentativa 1\/3/);
+  });
+
+  it('🔴 última tentativa: aí sim `error` — senão o job fica `running` para sempre', async () => {
+    const { gravados, patch } = patchFalso();
+    await registrarFalhaDaTentativa(patch, new Error('Anthropic 529'), { attempt: { number: 3 }, run: { maxAttempts: 3 } }, 3);
+
+    expect(gravados[0].status).toBe('error');
+    expect(gravados[0].error).toBe('Anthropic 529');
+  });
+
+  /**
+   * ⚠️ `ctx.run.maxAttempts` VENCE a constante da task: o executor faz
+   * `retry.maxAttempts = Math.max(execution.run.maxAttempts, 1)` quando o
+   * trigger mandou um override (@trigger.dev/core taskExecutor.js:698). Ler só
+   * a constante local faria a task se achar na última tentativa antes da hora —
+   * e gravar `error` cedo é exatamente o bug que esta régua existe para evitar.
+   */
+  it('🔑 o override do trigger vence a constante declarada na task', () => {
+    // Task declara 3; o disparo pediu 5. Na 3ª ainda há duas pela frente.
+    expect(ehUltimaTentativa({ attempt: { number: 3 }, run: { maxAttempts: 5 } }, 3)).toBe(false);
+    // E no sentido inverso: disparo pediu 2, a 2ª é a última mesmo com 3 declarado.
+    expect(ehUltimaTentativa({ attempt: { number: 2 }, run: { maxAttempts: 2 } }, 3)).toBe(true);
+  });
+
+  it('sem ctx (chamada headless/teste antigo), trata como tentativa única', async () => {
+    const { gravados, patch } = patchFalso();
+    await registrarFalhaDaTentativa(patch, new Error('boom'), undefined, 3);
+    expect(
+      gravados[0].status,
+      'sem ctx o job ficaria `running` para sempre — ninguém retentaria para fechá-lo',
+    ).toBe('error');
+  });
+
+  it('a mensagem é truncada — `error` é coluna, não depósito de stack', async () => {
+    const { gravados, patch } = patchFalso();
+    await registrarFalhaDaTentativa(patch, new Error('x'.repeat(900)), { attempt: { number: 1 }, run: { maxAttempts: 3 } }, 3);
+    expect(gravados[0].error.length).toBeLessThanOrEqual(500);
   });
 });

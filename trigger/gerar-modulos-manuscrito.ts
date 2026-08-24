@@ -1,5 +1,5 @@
 import { task, wait } from '@trigger.dev/sdk';
-import { criarPatchJob } from '@/lib/ia-jobs';
+import { criarPatchJob, registrarFalhaDaTentativa } from '@/lib/ia-jobs';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults, encerrarBatch, batchPendenteDoJob, type BatchReq } from '@/lib/ai-batch';
 import { IA_BATCH } from '@/lib/status';
@@ -35,11 +35,29 @@ import { auditarModulosCore } from '@/lib/modulo-base-auditor';
  * O DOCX viaja em `params.docxBase64` (~360KB) e é RE-PARSEADO aqui. O parser é
  * determinístico, então re-parsear é mais barato e mais seguro que serializar as
  * 18 fatias de 65k chars no jsonb.
+ *
+ * ── C3 (auditoria 22/08), passo final — `retry` concedido em 24/08 ─────────
+ *
+ * Declarado AQUI, na task, nunca por `retries.default` no `trigger.config.ts`
+ * (o executor faz `this.task.retry ?? retriesConfig?.default`, então o default
+ * alcançaria as 9 tasks sem retry, render/HeyGen inclusive).
+ *
+ * ⚠️ Esta foi a task que exigiu mais que as outras para o retry ficar seguro,
+ * porque a idempotência dela é por EXISTÊNCIA no banco e não por chave em
+ * `params`: o que já existe é pulado, então uma segunda tentativa perdia de
+ * vista os módulos da primeira — e com eles a auditoria Dual-IA e o `result_ids`.
+ * Ver os dois blocos marcados 🔑 abaixo.
  */
+const MAX_TENTATIVAS = 3;
+
 export const gerarModulosManuscritoTask = task({
   id: 'gerar-modulos-manuscrito',
   maxDuration: 3600,
-  run: async (payload: { jobId: string }) => {
+  // Backoff longo: a falha típica é FORNECEDOR (Anthropic/OpenAI/Supabase), não
+  // corrida. Retentar em 1s (default do SDK) gastaria as 3 tentativas dentro da
+  // mesma indisponibilidade.
+  retry: { maxAttempts: MAX_TENTATIVAS, minTimeoutInMs: 30_000, maxTimeoutInMs: 300_000, factor: 4 },
+  run: async (payload: { jobId: string }, { ctx }) => {
     const sb = createSupabaseAdmin();
     // `patch` = progresso (best-effort) · `patchCritico` = checkpoint (falha alto).
     // O `{ error }` do supabase-js NÃO lança — ver lib/ia-jobs.ts.
@@ -82,6 +100,14 @@ export const gerarModulosManuscritoTask = task({
       const createdBy: string = pp.createdBy || 'importar-manuscrito';
 
       if (!pp.docxBase64) throw new Error('params.docxBase64 ausente');
+
+      // `pp` é o params LIDO e nunca muda; gravar `{ ...pp, algo }` a cada
+      // checkpoint apaga o anterior (foi assim que o batchIdGen sumia no IA3).
+      const paramsAcum: Record<string, any> = { ...pp };
+      const salvarParams = (novos: Record<string, any>) => {
+        Object.assign(paramsAcum, novos);
+        return patchCritico({ params: { ...paramsAcum } });
+      };
 
       // 1) Re-parse determinístico (custo zero, sem IA).
       const parse = await parsearManuscrito(Buffer.from(pp.docxBase64, 'base64'));
@@ -166,7 +192,8 @@ export const gerarModulosManuscritoTask = task({
              * com o id em memória; `ia_batches` mantém o lote rastreável.
              */
             try {
-              await patchCritico({ params: { ...pp, batchId }, progress: { done: 0, total, current: `batch criado (${total}) — aguardando…`, resultados: [], pulados } });
+              await salvarParams({ batchId });
+              await patch({ progress: { done: 0, total, current: `batch criado (${total}) — aguardando…`, resultados: [], pulados } });
             } catch (ePersist: any) {
               console.error(
                 `[gerar-modulos-manuscrito] batchId ${batchId} NÃO persistido (${ePersist?.message}) — ` +
@@ -204,7 +231,21 @@ export const gerarModulosManuscritoTask = task({
 
       // 4) Um módulo por vez: resposta do batch OU síncrono; valida; persiste.
       const { callAI } = await import('@/actions/ai-client');
-      const idsCriados: string[] = [];
+      /**
+       * 🔑 C3 (24/08) — os ids ATRAVESSAM a retomada, e não é detalhe de tela.
+       *
+       * A idempotência desta task é por EXISTÊNCIA no banco (`modulosExistentes`
+       * lá em cima), então numa segunda tentativa o módulo já criado é PULADO e
+       * nunca entraria nesta lista. Duas consequências caras, as duas silenciosas:
+       *
+       *  · a **auditoria Dual-IA** do passo 5 roda sobre esta lista — o gate que
+       *    de fato reprova simplesmente não passaria nos módulos da tentativa
+       *    anterior, e eles ficariam publicáveis sem nota;
+       *  · `result_ids` REGRIDE: a tela mostraria menos módulos do que o job criou.
+       *
+       * Por isso a lista vive em `params`, não na run.
+       */
+      const idsCriados: string[] = Array.isArray(pp.modulosCriados) ? [...pp.modulosCriados] : [];
 
       for (const r of pendentes) {
         const rotulo = `${r.descritor} ${r.nivel_entrada}→${r.nivel_destino}`;
@@ -245,6 +286,7 @@ export const gerarModulosManuscritoTask = task({
           resultados.push({ modulo: rotulo, ok: false, error: ins.error });
         } else {
           idsCriados.push(ins.id!);
+          await salvarParams({ modulosCriados: [...idsCriados] }); // checkpoint incremental
           resultados.push({ modulo: rotulo, ok: true, id: ins.id, avisos });
         }
         done++;
@@ -262,24 +304,50 @@ export const gerarModulosManuscritoTask = task({
       let auditados = 0;
       if (idsCriados.length && pp.auditar !== false) {
         try {
-          await pushProgress(`auditando ${idsCriados.length} módulo(s)…`);
-          const r = await auditarModulosCore(sb, idsCriados, {
-            promoverParaRevisao: true,
-            onItem: async (_id, bom) => {
-              if (bom) auditados++;
-              await pushProgress(`auditando ${auditados}/${idsCriados.length}…`);
-            },
-          });
-          if (r.falhas.length) console.warn('[gerar-modulos-manuscrito] auditoria:', r.falhas.join(' · '));
+          /**
+           * Chave por item da AUDITORIA — e ela vem do BANCO, não de `params`.
+           * `auditoria_ia` preenchida é a prova de que o módulo já foi auditado;
+           * um checkpoint em `params` diria a mesma coisa e ainda poderia estar
+           * defasado. Sem este filtro, uma retomada repagaria ~US$0,10 por
+           * módulo já auditado.
+           *
+           * ⚠️ Se a LEITURA falhar, audita todos: o gate Dual-IA vale mais que
+           * os centavos, e módulo publicável sem veredito é o estrago maior.
+           */
+          const { data: pendAud, error: errAud } = await sb
+            .from('modulos_base_conteudo')
+            .select('id').in('id', idsCriados).is('auditoria_ia', null);
+          if (errAud) {
+            console.warn(`[gerar-modulos-manuscrito] não deu para saber quem já foi auditado (${errAud.message}) — auditando os ${idsCriados.length}`);
+          }
+          const aAuditar = errAud ? idsCriados : (pendAud || []).map((m: any) => m.id);
+          if (aAuditar.length) {
+            await pushProgress(`auditando ${aAuditar.length} módulo(s)…`);
+            const r = await auditarModulosCore(sb, aAuditar, {
+              promoverParaRevisao: true,
+              onItem: async (_id, bom) => {
+                if (bom) auditados++;
+                await pushProgress(`auditando ${auditados}/${aAuditar.length}…`);
+              },
+            });
+            if (r.falhas.length) console.warn('[gerar-modulos-manuscrito] auditoria:', r.falhas.join(' · '));
+          } else {
+            console.warn(`[gerar-modulos-manuscrito] os ${idsCriados.length} módulos já tinham veredito — auditoria pulada (retomada)`);
+          }
         } catch (e: any) {
           console.warn('[gerar-modulos-manuscrito] auditoria falhou inteira:', e?.message);
         }
       }
 
       // 6) Descarta o DOCX do job — 360KB de base64 não precisam viver pra sempre.
-      const { docxBase64: _descartado, ...paramsSemDocx } = pp;
+      // Sai do ACUMULADO, não de `pp`: senão o `modulosCriados`/`batchId` gravados
+      // ao longo da run voltariam ao valor que tinham quando a run começou.
+      const { docxBase64: _descartado, ...paramsSemDocx } = paramsAcum;
 
-      await patch({
+      // `patchCritico`: era `patch` (best-effort), e um `done` que não grava em
+      // silêncio deixa o job `running` PARA SEMPRE — a tela faz polling eterno e
+      // o guard anti-duplicata nunca libera a fase. Falhando alto, o retry pega.
+      await patchCritico({
         status: 'done',
         error: null,
         params: paramsSemDocx,
@@ -292,7 +360,10 @@ export const gerarModulosManuscritoTask = task({
       });
       return { ok: true, jobId: payload.jobId, okCount, errCount, pulados, auditados };
     } catch (e: any) {
-      await patch({ status: 'error', error: String(e?.message || e).slice(0, 500) });
+      // `error` só na ÚLTIMA tentativa: antes disso o job segue `running`, senão
+      // o guard anti-duplicata solta e a tela anuncia falha de um lote que ainda
+      // vai retentar.
+      await registrarFalhaDaTentativa(patch, e, ctx, MAX_TENTATIVAS);
       throw e;
     }
   },

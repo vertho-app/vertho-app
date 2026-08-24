@@ -126,10 +126,18 @@ beforeEach(() => {
   mocks.respostasBatch = new Map([['c0', '{"a":1}'], ['c1', '{"a":2}']]);
 });
 
-async function rodar() {
+/**
+ * O 2º argumento do `run` é o SDK quem passa; `ctx.attempt.number` é o que
+ * decide se o `catch` grava `status: 'error'` ou mantém `running`.
+ */
+const ctxDaTentativa = (numero = 1, maxAttempts = 3) => ({
+  ctx: { attempt: { number: numero }, run: { maxAttempts } },
+});
+
+async function rodar(tentativa = 1, maxAttempts = 3) {
   const mod = await import('@/trigger/gerar-ia2-batch');
   const t: any = (mod as any).gerarIA2BatchTask;
-  return t.run({ jobId: JOB });
+  return t.run({ jobId: JOB }, ctxDaTentativa(tentativa, maxAttempts));
 }
 
 describe('C3 · IA2: batch destacado com id persistido', () => {

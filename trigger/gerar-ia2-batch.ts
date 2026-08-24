@@ -1,5 +1,5 @@
 import { task, wait } from '@trigger.dev/sdk';
-import { criarPatchJob } from '@/lib/ia-jobs';
+import { criarPatchJob, registrarFalhaDaTentativa } from '@/lib/ia-jobs';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { carregarContextoIA2, montarPromptIA2, persistirGabaritoIA2 } from '@/lib/ia2-gabarito';
@@ -40,14 +40,19 @@ import { IA_BATCH } from '@/lib/status';
  * síncrono — o lote está pago e vai entregar; pagar o caminho caro por cima dele
  * é cobrar duas vezes pela mesma coisa.
  *
- * 🚧 `retry` continua NÃO declarado aqui. Ele vem depois que as quatro tasks
- * tiverem estes pré-requisitos — e nunca por default no `trigger.config.ts`, que
- * alcançaria 9 tasks, incluindo as de render/HeyGen.
+ * ✅ `retry` CONCEDIDO em 24/08, com os pré-requisitos de pé. Declarado AQUI, na
+ * task — nunca por `retries.default` no `trigger.config.ts`, que alcançaria as 9
+ * tasks sem retry, render/HeyGen inclusive (`this.task.retry ?? retriesConfig?.default`).
  */
+const MAX_TENTATIVAS = 3;
+
 export const gerarIA2BatchTask = task({
   id: 'gerar-ia2-batch',
   maxDuration: 3600, // até 1h (batch async + persistência por cargo)
-  run: async (payload: { jobId: string }) => {
+  // Backoff longo: a falha típica é FORNECEDOR, não corrida — retentar em 1s (o
+  // default do SDK) gastaria as 3 tentativas na mesma indisponibilidade.
+  retry: { maxAttempts: MAX_TENTATIVAS, minTimeoutInMs: 30_000, maxTimeoutInMs: 300_000, factor: 4 },
+  run: async (payload: { jobId: string }, { ctx }) => {
     const sb = createSupabaseAdmin();
     // `patch` = progresso (best-effort) · `patchCritico` = checkpoint (falha alto).
     // O `{ error }` do supabase-js NÃO lança — ver lib/ia-jobs.ts.
@@ -242,7 +247,10 @@ export const gerarIA2BatchTask = task({
       });
       return { ok: true, jobId: payload.jobId, okCount: okCount + jaFeitos, errCount };
     } catch (e: any) {
-      await patch({ status: 'error', error: String(e?.message || e).slice(0, 500) });
+      // `error` só na ÚLTIMA tentativa: antes disso o job segue `running`, senão
+      // o guard anti-duplicata solta e a tela anuncia falha de um lote que ainda
+      // vai retentar.
+      await registrarFalhaDaTentativa(patch, e, ctx, MAX_TENTATIVAS);
       throw e;
     }
   },

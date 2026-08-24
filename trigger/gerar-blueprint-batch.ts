@@ -1,5 +1,5 @@
 import { task, wait } from '@trigger.dev/sdk';
-import { criarPatchJob } from '@/lib/ia-jobs';
+import { criarPatchJob, registrarFalhaDaTentativa } from '@/lib/ia-jobs';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { buildBlueprintReq, persistBlueprintFromText } from '@/lib/blueprint/core';
 import {
@@ -37,14 +37,26 @@ import { IA_BATCH } from '@/lib/status';
  *     (ids, não nomes: `result_ids` guarda nome, que não é chave);
  *  4. early-return de `done`.
  *
- * 🚧 `retry` continua NÃO declarado. Ele é o passo seguinte, POR TASK, e nunca
- * por default no `trigger.config.ts` — o default alcança 9 tasks, incluindo as
- * de render/HeyGen, onde duplicar é outro tipo de estrago.
+ * ✅ `retry` CONCEDIDO em 24/08, com os quatro pré-requisitos acima de pé. Ele é
+ * declarado AQUI, na task — nunca por `retries.default` no `trigger.config.ts`,
+ * que alcançaria as 9 tasks sem retry, incluindo render/HeyGen (medido: o
+ * executor faz `this.task.retry ?? retriesConfig?.default`, então o default é
+ * global de verdade).
+ *
+ * ⚠️ Aqui uma retentativa que reaproveite o lote NÃO é grátis como nas outras:
+ * quem não voltar no batch cai no síncrono. Por isso a 2ª fonte do `batchId`
+ * importa mais nesta task do que em qualquer outra.
  */
+const MAX_TENTATIVAS = 3;
+
 export const gerarBlueprintBatchTask = task({
   id: 'gerar-blueprint-batch',
   maxDuration: 3600, // até 1h (batch async + persistência por colab)
-  run: async (payload: { jobId: string }) => {
+  // Backoff longo de propósito: a falha típica aqui é FORNECEDOR (Anthropic,
+  // Supabase), não corrida — retentar em 1s (o default do SDK) só gastaria as
+  // três tentativas dentro da mesma indisponibilidade.
+  retry: { maxAttempts: MAX_TENTATIVAS, minTimeoutInMs: 30_000, maxTimeoutInMs: 300_000, factor: 4 },
+  run: async (payload: { jobId: string }, { ctx }) => {
     const sb = createSupabaseAdmin();
     // `patch` = progresso (best-effort) · `patchCritico` = checkpoint (falha alto).
     // O `{ error }` do supabase-js NÃO lança — ver lib/ia-jobs.ts.
@@ -182,7 +194,10 @@ export const gerarBlueprintBatchTask = task({
       });
       return { ok: true, jobId: payload.jobId, okCount, errCount };
     } catch (e: any) {
-      await patch({ status: 'error', error: String(e?.message || e).slice(0, 500) });
+      // `error` só na ÚLTIMA tentativa: antes disso o job segue `running`, senão
+      // o guard anti-duplicata solta e a tela anuncia falha de um lote que ainda
+      // vai retentar (e aqui "disparar de novo" custa lote + síncrono).
+      await registrarFalhaDaTentativa(patch, e, ctx, MAX_TENTATIVAS);
       throw e;
     }
   },
