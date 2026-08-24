@@ -155,7 +155,7 @@ async function auditExport(sb: any, kind: string, src: any, n: number) {
 export async function exportarCSV(
   src: { listaId?: string; filtros?: RadarFiltros },
 ): Promise<{ ok: true; csv: string; n: number } | { ok: false; error: string }> {
-  const sb = await requireAdminSupabase('exports.run');
+  const sb = await requireAdminSupabase('radar_empresas.access');
   const r = await montarExport(sb, src);
   if (r.ok === false) return r;
   const csv = [
@@ -171,7 +171,7 @@ export async function exportarCSV(
 export async function exportarXLSX(
   src: { listaId?: string; filtros?: RadarFiltros },
 ): Promise<{ ok: true; base64: string; n: number } | { ok: false; error: string }> {
-  const sb = await requireAdminSupabase('exports.run');
+  const sb = await requireAdminSupabase('radar_empresas.access');
   const r = await montarExport(sb, src);
   if (r.ok === false) return r;
 

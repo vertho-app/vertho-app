@@ -18,6 +18,8 @@ let sessao: any = null;
 // Tenant do REGISTRO alvo (a vítima). Nos testes cross-tenant é 'emp-B';
 // no teste positivo é 'emp-A' (mesmo tenant do RH da sessão).
 let tenantDoRegistro = 'emp-B';
+// Auditoria 22/08 (A2/A3): permite exercitar a dimensão PERMISSÃO, não só a de tenant.
+let temPermissao = true;
 
 function makeClient() {
   const from = (table: string) => {
@@ -58,7 +60,7 @@ vi.mock('@/lib/auth/action-context', () => ({
   },
   getAuthenticatedEmailFromAction: async () => sessao?.email || null,
 }));
-vi.mock('@/lib/permissions', () => ({ can: async () => true }));
+vi.mock('@/lib/permissions', () => ({ can: async () => temPermissao }));
 vi.mock('@/lib/audit', () => ({ logAdminAction: vi.fn() }));
 vi.mock('@/lib/vercel-domain', () => ({ addVercelDomain: vi.fn(), removeVercelDomain: vi.fn() }));
 vi.mock('@/i18n/routing', () => ({ isAppLocale: () => true, locales: ['pt-BR', 'en-US'] }));
@@ -72,12 +74,15 @@ import { gerarCenariosBLote } from '@/actions/fase5/cenarios-b';
 import { salvarCompetencia, excluirCompetencia, importarCompetenciasCSV, copiarBaseParaEmpresa } from '@/app/admin/competencias/actions';
 import { excluirPPP } from '@/app/admin/ppp/actions';
 import { salvarConfig, salvarLocaleEmpresa, atualizarProgramaModo, atualizarRole } from '@/app/admin/empresas/[empresaId]/configuracoes/actions';
+// Auditoria 22/08 — A2 (sys_config), A3 (upload de perfil externo)
+import { toggleVotacao, togglePerfilComportamental, toggleMapeamentoCenarios } from '@/actions/votacao';
+import { setEmpresaFonteExterna, uploadPerfilPdf } from '@/actions/perfil-externo';
 
 const OUTRO_TENANT = 'emp-B';
 const rhEmpA = { role: 'rh', empresaId: 'emp-A', email: 'rh@a.com', colaborador: { id: 'rh-1' }, isPlatformAdmin: false };
 const FORBIDDEN = /FORBIDDEN|acesso restrito|sem acesso/i;
 
-beforeEach(() => { sessao = rhEmpA; tenantDoRegistro = 'emp-B'; });
+beforeEach(() => { sessao = rhEmpA; tenantDoRegistro = 'emp-B'; temPermissao = true; });
 
 describe('RH cross-tenant é barrado (Grupo A)', () => {
   it('salvarNotaAssessment — não grava nota em outro tenant', async () => {
@@ -139,6 +144,60 @@ describe('RH cross-tenant é barrado (Grupo A)', () => {
   it('atualizarRole — não promove/rebaixa colab de outro tenant (escalada)', async () => {
     await expect(atualizarRole('c1', 'rh', OUTRO_TENANT)).rejects.toThrow(FORBIDDEN);
   });
+
+  // ── Auditoria 22/08 — A2: 4 escritas em empresas.sys_config ────────────────
+  // Estavam com `requireAdminSupabase('settings.company.manage')`, que confere
+  // permissão e NÃO tenant. `settings.company.manage` está no role rh.
+
+  it('A2 toggleVotacao — não abre/fecha a votação de outro tenant', async () => {
+    await expect(toggleVotacao(OUTRO_TENANT, true)).rejects.toThrow(FORBIDDEN);
+  });
+
+  it('A2 togglePerfilComportamental — não bloqueia o perfil de outro tenant', async () => {
+    await expect(togglePerfilComportamental(OUTRO_TENANT, false)).rejects.toThrow(FORBIDDEN);
+  });
+
+  it('A2 toggleMapeamentoCenarios — não libera/trava cenários de outro tenant', async () => {
+    await expect(toggleMapeamentoCenarios(OUTRO_TENANT, true)).rejects.toThrow(FORBIDDEN);
+  });
+
+  it('A2 setEmpresaFonteExterna — não carimba opq32 num tenant que faz DISC nativo', async () => {
+    await expect(setEmpresaFonteExterna(OUTRO_TENANT, 'opq32')).rejects.toThrow(FORBIDDEN);
+  });
+
+  // ── Auditoria 22/08 — A3: upload de perfil externo ─────────────────────────
+
+  it('A3 uploadPerfilPdf — não grava PDF nem zera o perfil de colab de outro tenant', async () => {
+    const fd = new FormData();
+    fd.set('colab_id', 'c1');
+    fd.set('fonte', 'opq32');
+    await expect(uploadPerfilPdf(OUTRO_TENANT, fd)).rejects.toThrow(FORBIDDEN);
+  });
+});
+
+/**
+ * Auditoria 22/08 — a dimensão que o gate ANTERIOR conferia e que a troca ingênua
+ * para `requireEmpresaSupabase` teria PERDIDO: para o papel `rh` aquele helper ignora
+ * o parâmetro `permission` (só o ramo platform_admin chama `can`). Por isso os 5 sites
+ * usam `requireEmpresaSupabaseStrict`, que confere permissão para TODO papel.
+ */
+describe('permissão continua valendo para o RH, no PRÓPRIO tenant (A2/A3)', () => {
+  it('toggleVotacao — RH da empresa certa SEM settings.company.manage é barrado', async () => {
+    temPermissao = false;
+    await expect(toggleVotacao('emp-A', true)).rejects.toThrow(FORBIDDEN);
+  });
+
+  it('setEmpresaFonteExterna — RH da empresa certa SEM a permissão é barrado', async () => {
+    temPermissao = false;
+    await expect(setEmpresaFonteExterna('emp-A', 'opq32')).rejects.toThrow(FORBIDDEN);
+  });
+
+  it('uploadPerfilPdf — RH da empresa certa SEM content.manage é barrado', async () => {
+    temPermissao = false;
+    const fd = new FormData();
+    fd.set('colab_id', 'c1');
+    await expect(uploadPerfilPdf('emp-A', fd)).rejects.toThrow(FORBIDDEN);
+  });
 });
 
 describe('gates legítimos seguem abertos', () => {
@@ -158,6 +217,11 @@ describe('gates legítimos seguem abertos', () => {
     sessao = { role: null, empresaId: null, email: 'admin@vertho.ai', colaborador: null, isPlatformAdmin: true };
     const r: any = await salvarCompetencia(OUTRO_TENANT, { nome: 'X' });
     expect(r.error).toBeUndefined();
+  });
+
+  it('A2 toggleVotacao — RH passa no PRÓPRIO tenant, com permissão', async () => {
+    const r: any = await toggleVotacao('emp-A', true);
+    expect(r.success).toBe(true);
   });
 
   it('colaborador sem role de RH é barrado MESMO no próprio tenant (salvarConfig)', async () => {

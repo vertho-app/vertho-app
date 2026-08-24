@@ -6,7 +6,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { isMapeamentoCenariosLiberado, isPerfilComportamentalLiberado } from '@/lib/votacao/status';
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabaseStrict } from '@/lib/admin-supabase';
 import { carregarVotacaoStatus } from '@/lib/home/loaders';
 
 // Heurística leve pra classificar device a partir do user-agent.
@@ -150,7 +150,7 @@ export async function salvarVoto(competencias: string[], sugestaoNova?: string) 
 // ── Admin: abrir/fechar votação ───────────────────────────────────────────
 
 export async function toggleVotacao(empresaId: string, ativa: boolean) {
-  const sb = await requireAdminSupabase('settings.company.manage');
+  const sb = await requireEmpresaSupabaseStrict(empresaId, 'settings.company.manage');
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', empresaId).maybeSingle();
 
@@ -174,7 +174,7 @@ export async function toggleVotacao(empresaId: string, ativa: boolean) {
 }
 
 export async function togglePerfilComportamental(empresaId: string, liberado: boolean) {
-  const sb = await requireAdminSupabase('settings.company.manage');
+  const sb = await requireEmpresaSupabaseStrict(empresaId, 'settings.company.manage');
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', empresaId).maybeSingle();
 
@@ -200,7 +200,7 @@ export async function togglePerfilComportamental(empresaId: string, liberado: bo
 }
 
 export async function toggleMapeamentoCenarios(empresaId: string, liberado: boolean) {
-  const sb = await requireAdminSupabase('settings.company.manage');
+  const sb = await requireEmpresaSupabaseStrict(empresaId, 'settings.company.manage');
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', empresaId).maybeSingle();
 

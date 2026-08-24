@@ -11,6 +11,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 let configAtual: any = {};
 let configGravada: any = null;
+// RH do PRÓPRIO tenant, com permissão — o caminho legítimo. O gate real roda sobre isto.
+let sessao: any = null;
 
 function makeClient() {
   const from = () => {
@@ -26,10 +28,27 @@ function makeClient() {
   return { from };
 }
 
-vi.mock('@/lib/admin-supabase', () => ({
-  requireAdminSupabase: async () => makeClient(),
-}));
+/**
+ * ⚠️ Auditoria 22/08 (A2): este arquivo mockava `@/lib/admin-supabase` INTEIRO — ou seja,
+ * apagava o gate de autorização e exercitava só a cascata. Os 6 casos ficavam verdes com
+ * a escrita cross-tenant aberta, e verde aqui não dizia nada sobre quem podia gravar.
+ *
+ * Agora mockamos os LEAFS (sessão e banco) e deixamos o gate REAL rodar:
+ * `requireEmpresaSupabaseStrict` → `can` + `requireEmpresaSupabase`. A cascata continua
+ * sendo o objeto do teste; a diferença é que ela roda atrás do gate de verdade.
+ * O cross-tenant e a permissão têm casos próprios em
+ * `tests/unit/security/admin-actions-tenant-gate.test.ts`.
+ */
+vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => makeClient() }));
 vi.mock('@/lib/tenant-db', () => ({ tenantDb: () => makeClient() }));
+vi.mock('@/lib/auth/action-context', () => ({
+  requireUserAction: async () => sessao,
+  requirePermissionAction: async () => sessao,
+  requireAdminAction: async () => sessao,
+  assertTenantAccessAction: async () => {},
+  getAuthenticatedEmailFromAction: async () => sessao?.email || null,
+}));
+vi.mock('@/lib/permissions', () => ({ can: async () => true }));
 
 import {
   togglePerfilComportamental,
@@ -39,7 +58,10 @@ import {
 
 const EMP = 'emp-1';
 
-beforeEach(() => { configGravada = null; });
+beforeEach(() => {
+  configGravada = null;
+  sessao = { role: 'rh', empresaId: EMP, email: 'rh@emp.com', colaborador: { id: 'rh-1' }, isPlatformAdmin: false };
+});
 
 describe('tenant COM fonte externa (opq32)', () => {
   beforeEach(() => {

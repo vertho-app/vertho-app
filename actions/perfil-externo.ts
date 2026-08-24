@@ -1,7 +1,7 @@
 'use server';
 
 import { tenantDb } from '@/lib/tenant-db';
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabaseStrict } from '@/lib/admin-supabase';
 import {
   montarOPQ32Profile,
   extrairMetadadosOPQ32,
@@ -31,7 +31,7 @@ export async function setEmpresaFonteExterna(
   empresaId: string,
   fonte: 'opq32' | 'hogan' | 'mbti' | 'big5' | null,
 ): Promise<{ success: boolean; error?: string }> {
-  const sb = await requireAdminSupabase('settings.company.manage');
+  const sb = await requireEmpresaSupabaseStrict(empresaId, 'settings.company.manage');
   const { data: emp } = await sb
     .from('empresas')
     .select('sys_config')
@@ -133,7 +133,7 @@ export async function uploadPerfilPdf(
   empresaId: string,
   formData: FormData,
 ): Promise<{ success: boolean; error?: string; path?: string }> {
-  const sb = await requireAdminSupabase('content.manage');
+  const sb = await requireEmpresaSupabaseStrict(empresaId, 'content.manage');
   const colabId = String(formData.get('colab_id') || '');
   const fonte = String(formData.get('fonte') || 'opq32') as 'opq32';
   const file = formData.get('file') as File | null;
