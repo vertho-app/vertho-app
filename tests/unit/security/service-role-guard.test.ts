@@ -1,7 +1,33 @@
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { join, extname } from 'path';
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { semComentarios } from '../../helpers/fonte';
+
+/**
+ * A contagem é de CHAMADA, não de menção.
+ *
+ * Até 24/08 este guard casava `createSupabaseAdmin(` no texto cru, então um
+ * docstring que explicasse o helper somava à dívida. Apareceu na Sprint 2 da
+ * auditoria 22/08: centralizar o service-role de `lib/admin-supabase.ts` numa
+ * função só levou o arquivo de 3 chamadas reais para 1 — e a contagem do guard
+ * SUBIU para 5, porque os 4 comentários que explicavam a centralização contavam
+ * como uso. O incentivo estava invertido: documentar o gate aumentava a dívida
+ * medida, e a saída fácil seria inflar a allowlist.
+ *
+ * É o mesmo motivo pelo qual `semComentarios` existe (mutação de 10/08 no
+ * ownership-guard) — este guard é que ainda não a usava.
+ */
+function contarChamadas(conteudo: string): number {
+  const limpo = semComentarios(conteudo);
+  let idx = 0;
+  let n = 0;
+  while ((idx = limpo.indexOf(SEARCH_PATTERN, idx)) !== -1) {
+    n++;
+    idx += SEARCH_PATTERN.length;
+  }
+  return n;
+}
 
 const config = JSON.parse(
   readFileSync('config/service-role-allowlist.json', 'utf-8')
@@ -36,12 +62,7 @@ function scanDir(dir: string, counts: Record<string, number>) {
     let content: string;
     try { content = readFileSync(full, 'utf-8'); } catch { continue; }
 
-    let idx = 0;
-    let n = 0;
-    while ((idx = content.indexOf(SEARCH_PATTERN, idx)) !== -1) {
-      n++;
-      idx += SEARCH_PATTERN.length;
-    }
+    const n = contarChamadas(content);
     if (n > 0) {
       counts[rel] = n;
     }
@@ -76,12 +97,7 @@ function countTracked(files: string[], counts: Record<string, number>) {
     let content: string;
     try { content = readFileSync(rel, 'utf-8'); } catch { continue; }
 
-    let idx = 0;
-    let n = 0;
-    while ((idx = content.indexOf(SEARCH_PATTERN, idx)) !== -1) {
-      n++;
-      idx += SEARCH_PATTERN.length;
-    }
+    const n = contarChamadas(content);
     if (n > 0) counts[rel] = n;
   }
 }
@@ -113,6 +129,31 @@ describe('Guard: createSupabaseAdmin() allowlist com contagem', () => {
     }
   });
 
+  /**
+   * E8 da auditoria 22/08: "duas allowlists não encolhem". Sem este teste, a
+   * lista só cresce — quem REMOVE um uso de service-role deixa a folga para
+   * trás, e a folga é permissão pré-aprovada para o próximo uso entrar sem
+   * ninguém decidir nada. `Medido 24/08:` 12 unidades de folga e 5 entradas
+   * cujo arquivo já não usava service-role nenhum.
+   */
+  it('sem folga: a contagem da allowlist é o REAL, não um teto herdado', () => {
+    const folga = Object.entries(allowlist)
+      .map(([f, exp]) => [f, exp, realCounts[f] || 0] as const)
+      .filter(([, exp, atual]) => atual < exp);
+
+    if (folga.length > 0) {
+      throw new Error(
+        `${folga.length} entrada(s) com folga (a lista deve encolher junto):\n` +
+        folga.map(([f, exp, atual]) =>
+          atual === 0
+            ? `  🗑️ ${f}: não usa mais service-role — remova a entrada`
+            : `  ⬇️ ${f}: allowlist ${exp}, real ${atual} — baixe para ${atual}`,
+        ).join('\n') +
+        '\n\nFolga é permissão pré-aprovada: o próximo uso entra sem passar por decisão nenhuma.',
+      );
+    }
+  });
+
   it('contagem não aumentou em nenhum arquivo allowlisted', () => {
     const increased: string[] = [];
     for (const [file, expected] of Object.entries(allowlist)) {
@@ -128,5 +169,26 @@ describe('Guard: createSupabaseAdmin() allowlist com contagem', () => {
         '\n\nSe intencional, atualize a contagem em config/service-role-allowlist.json'
       );
     }
+  });
+});
+
+/**
+ * O guard tem de poder FALHAR pelo motivo certo — e contar a coisa certa.
+ *
+ * Sem estes dois casos, "contagem 1" em `lib/admin-supabase.ts` seria indistinguível
+ * de "o contador parou de ver o arquivo".
+ */
+describe('o contador conta CHAMADA, não menção', () => {
+  it('comentário que cita o helper não soma', () => {
+    const fonte = `
+      /** Este módulo centraliza createSupabaseAdmin() num lugar só. */
+      // nunca chame createSupabaseAdmin() fora daqui
+      function cliente() { return createSupabaseAdmin(); }
+    `;
+    expect(contarChamadas(fonte)).toBe(1);
+  });
+
+  it('chamada de verdade soma (o contador não ficou cego)', () => {
+    expect(contarChamadas('const a = createSupabaseAdmin(); const b = createSupabaseAdmin();')).toBe(2);
   });
 });
