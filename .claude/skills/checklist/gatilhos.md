@@ -381,3 +381,47 @@ a falar com outro serviço.
   ONDE sai cada valor (`RESOLVEDORES` em `lib/notifications/envio-template-lote.ts`).
 
 Detalhe: `docs/FMEA-PIPELINE.md` §F-C13 · `docs/INBOX-WHATSAPP.md` §2.1.
+
+---
+
+## Vou encadear verificação e push no mesmo comando (`&&`)
+
+Casa: `npm run test:unit … && git commit … && git push`, ou qualquer variante em que um comando de
+**leitura** fica antes de um de **escrita irreversível**.
+
+- 🔴 **`grep` retorna SUCESSO quando ACHA a linha — inclusive `FAIL`.** Medido 23/08/2026: rodei
+  `npm run test:unit | grep -E "Test Files|Tests |FAIL" && git commit && git push`. A suíte imprimiu
+  `1 failed | 220 passed`, o grep casou, o `&&` seguiu, e `7713d48e` foi para o GitHub com o CI
+  vermelho (`TypeScript failure`). **O filtro que eu pus para LER o resultado virou o portão que o
+  APROVOU.**
+- 🔴 **Rode, LEIA, e só então commite em chamada separada.** Não existe filtro de texto que sirva de
+  gate: exit code de `grep` fala sobre casamento, não sobre saúde da suíte.
+- ⚠️ O vermelho daquele dia era a classe já conhecida: o `service-role-guard` varre `git ls-files`,
+  então só enxergou o script novo **depois** do `git add` — e a suíte tinha rodado **antes**. A ordem
+  correta é `git add` → suíte inteira → commit. Ver `feedback_guard_varre_tracked`.
+- ⚠️ **Smoke verde não absolve:** no MESMO SHA quebrado, `Smoke Test success` e
+  `TypeScript failure`. Conferir `gh run list` pelo **nome do workflow**, não pela impressão da lista.
+
+---
+
+## Vou reusar uma régua de gate num consumidor novo
+
+Casa: pegar `avaliarAcessoSemana`, `checarGates*`, `canAccess*` — qualquer função que responde
+"pode?" — e usá-la fora da tela para onde foi escrita.
+
+- 🔴 **Pergunte quantas tentativas o consumidor tem.** Tela = várias (a pessoa clica de novo, então
+  devolver UM degrau basta). Mensagem, link, redirect, e-mail = **uma**. Medido 23/08/2026: usar
+  `avaliarAcessoSemana(...).semanaPendente` direto na cadência mandou as 32 pessoas bloqueadas de
+  Ibipeba para a semana 5, com **18 delas presas na semana 1** — outra porta fechada. A correção é a
+  MESMA régua em laço até o ponto fixo (`primeiraSemanaAcessivel`), nunca um critério novo.
+- 🔴 **Régua com ramo TEMPORAL: verifique no instante em que o código vai rodar.** O dry-run num
+  domingo dizia que as 38 de Macaé estavam bloqueadas por DATA; o de-para real só apareceu com
+  `--em=2026-08-24T11:00:00Z`, a hora do cron. Verificação no horário errado responde outra pergunta
+  e parece resposta.
+- 🔴 **Imprima o OBSERVADO por pessoa, não um veredito.** Suíte e typecheck passavam com o bug acima;
+  quem acusou foi um dry-run listando *nome → semana que vai sair*.
+- ⚠️ **Leitura que falha não pode virar conclusão.** Se o insumo do gate (progresso, permissões) não
+  foi lido, degrade para o comportamento anterior — mapa vazio é indistinguível de "ninguém concluiu
+  nada", e mandaria a coorte inteira para a semana 1.
+
+Detalhe: `docs/FMEA-PIPELINE.md` §F-I22 · memória `feedback_regua_um_degrau_vs_ponto_fixo`.

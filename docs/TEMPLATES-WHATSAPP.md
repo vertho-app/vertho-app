@@ -444,7 +444,41 @@ papel desligado aparece como `(desligado)`, que é o caso que o silêncio escond
 
 ---
 
-## 5. Fila da Meta (20/08)
+## 5. Fila da Meta (23/08)
+
+⏳ **`semana_pendente_v2`** — PENDING/UTILITY (provisória), submetido 23/08/2026
+(`id=28202583309372601`). Afirma que a semana anterior continua pendente e leva, **em botão**, para a
+semana que DESTRAVA — nunca para a trancada, que é o defeito que ele existe para corrigir.
+Papel `pendencia` · `WHATSAPP_TEMPLATE_PENDENCIA` (ainda **não gravada** — desligado de propósito).
+Contrato: `{{1}}`=nome, `{{2}}`=semana do calendário, `{{3}}`=semana pendente; botão `<slug>/<semana
+PENDENTE>`. Fail-closed sem `semanaPendente`: corpo com buraco e botão `/NaN` não dão erro na API,
+chegam assim na mão da pessoa.
+
+🔴 **TEMPLATE `PENDING` NÃO SE EDITA — e isso define o custo de errar a copy.** A v1
+(`semana_pendente`, `id=28457950447135990`) saiu dizendo *"a conversa de evidências com a Mentora"*.
+Ao tentar corrigir:
+
+```
+HTTP 400 · error_subcode 2388003
+"Os modelos de mensagem só podem ser editados se tiverem sido rejeitados."
+```
+
+Como apagar QUEIMA o nome enquanto a exclusão processa (§14/08), o caminho foi `_v2` em paralelo — o
+v1 só sai depois que este aprovar. **O dry-run do `_sync-templates-whatsapp.ts` é o último ponto
+barato de revisão da copy**; depois do `--executar`, corrigir custa um nome novo.
+
+🔑 **Por que "Mentora" estava errado, e a régua que sai disso.** Era a **única** ocorrência da palavra
+em todo o `pt-BR.json` — não é vocabulário do produto. A tela chama o card de "Evidências" e o botão
+de "Levantar evidências"; e o que a pessoa reconhece como mentor é o **Beto**, que vive noutra tela e
+não conclui semana nenhuma. A copy empurraria para o componente errado. **O nome na mensagem tem que
+ser o nome do BOTÃO que a pessoa vai apertar** — se a palavra não aparece na tela de destino, não
+pode aparecer na mensagem. A frase errada estava também em `SeasonWeek.locked.rule` (4 idiomas),
+corrigida no mesmo commit: copiar copy de uma tela não a valida, a tela pode ser a origem do erro.
+
+⚠️ **Não é bloqueante para a cadência.** O redirecionamento para a semana acessível (F-I22) roda pelo
+`conteudo_semana`, já aprovado. Este template é o reforço explícito quando aprovar.
+
+### Estado anterior (20/08)
 
 ⏳ **`avaliacao_competencias`** — PENDING/UTILITY (provisória), submetido em 20/08/2026
 (`id=2012427279422433`). Reescrita do `avaliacao_pendente` para quem **já concluiu o mapeamento

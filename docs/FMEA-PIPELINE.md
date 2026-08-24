@@ -733,6 +733,51 @@ a raiz dos registros órfãos que destravam o botão da lista.
 dias sem virar trabalho. Achado sem consequência visível não é priorizado; o que o tornou urgente foi
 uma frase de uma pessoa.
 
+### F-I22 · A cadência anunciava a semana do CALENDÁRIO, que a pessoa não podia abrir ✅ (corrigido 23/08, `7713d48e`)
+
+**Gatilho:** `lib/fase4/trigger-diario-empresa.ts` — `const semana = envio.semana_atual` alimentava
+conteúdo, tema, formato e deep-link. É a outra metade do F-I21: lá a TELA passou a explicar o
+bloqueio; aqui a MENSAGEM parou de convidar para ele.
+
+**Medido na véspera do disparo de 24/08** (Ibipeba + Macaé, 74 ativos):
+
+| | coorte | conseguem abrir a semana do calendário | presas na semana 1 |
+|---|---|---|---|
+| ibipeba (calendário 6) | 36 | 4 | 18 |
+| macae (calendário 2) | 38 | 5 | 33 |
+
+**51 das 74 presas na semana 1**, e **45 sem nenhum turno de conversa** na semana pendente. Não era
+atraso de um passo — a maioria nunca engatou. E `em_andamento` enganava: dos 34 registros abertos de
+Macaé, **31 tinham zero turnos de `assistant`** (o registro nasce ao tocar a semana, não ao
+conversar).
+
+**Correção:** `primeiraSemanaAcessivel` (`week-gating.ts`) — `avaliarAcessoSemana` aplicada até o
+**ponto fixo** — escolhe a semana de ENTREGA. Não depende de template novo da Meta: o
+`conteudo_semana` aprovado já tem os campos (semana, tema, link).
+
+🔴 **Um degrau não bastava.** A 1ª versão usava `avaliarAcessoSemana(...).semanaPendente` direto, e o
+dry-run mostrou as 32 bloqueadas de Ibipeba apontando **todas para a semana 5**, com 18 presas na 1 —
+o link cairia noutra porta fechada. O gate desce um degrau por vez porque foi feito para a tela, onde
+a pessoa clica de novo; uma mensagem tem um destino só.
+
+🔴 **`semanaCalendario` × `semana` não podem se misturar.** Só o calendário avança na quinta e decide
+o fim da temporada: `semana + 1` sobre a semana de entrega reescreveria `semana_atual` para trás toda
+quinta, e quem está preso na 1 **nunca concluiria o programa**.
+
+⚠️ **Fail-safe:** o redirecionamento só vale com `progressoConfiavel`. Mapa de progresso vazio é
+indistinguível de "ninguém concluiu nada" — sem a trava, uma falha de leitura mandaria a coorte
+INTEIRA para a semana 1, inclusive quem está em dia.
+
+Interruptor: `CADENCIA_SEMANA_ACESSIVEL=0` (restaura o comportamento antigo sem deploy).
+Verificação: `scripts/_dryrun-semana-acessivel.ts --empresa=<slug> --em=<ISO>` imprime o destino de
+cada pessoa — **com `--em` na hora do cron**, porque o gate tem ramo temporal e rodar em outro
+horário responde outra pergunta (no domingo, as 38 de Macaé apareciam bloqueadas por DATA).
+Guarda: `tests/unit/primeira-semana-acessivel.test.ts` (8 casos; com o laço em 1 degrau, 3 caem).
+
+🚧 **Aberto:** `lib/pipeline-health/coleta.ts` (pré-voo) continua resolvendo a semana por
+`fase4_envios.semana_atual` — mede a régua ANTIGA. Hoje não causa dano porque os kits cobrem todas as
+semanas, mas é o gêmeo que não roda: em algum momento dirá "ok" sobre uma entrega que não é a real.
+
 ### F-C12 · Cota de retentativa consumida por avaria do CANAL torna o resgate inalcançável ✅ (corrigido 19/08, `984607e3`)
 
 **Gatilho:** `lib/conarh/reenvio-t0.ts:33,124` — `MAX_TENTATIVAS_AUTOMATICAS = 10` +

@@ -385,6 +385,30 @@ a **lista** (`app/dashboard/temporada/page.tsx:158`) libera também por `em_anda
 semana sem passar por gate — é assim que aparece gente com as semanas 2, 3 e 5 abertas sem nenhuma
 concluída.
 
+#### `primeiraSemanaAcessivel` — a régua até o ponto fixo (23/08/2026, F-I22)
+
+`avaliarAcessoSemana` responde *"posso abrir ESTA?"* e, quando nega, oferece **um degrau**
+(`semanaPendente` = N−1). Isso basta na tela, onde a pessoa clica de novo e desce mais um. **Não
+basta onde existe um destino só** — mensagem, link, redirect: medido em 23/08, as 32 pessoas
+bloqueadas de Ibipeba apontavam todas para a semana 5, com **18 presas na semana 1**.
+
+`primeiraSemanaAcessivel(...)` é a MESMA função em laço até estabilizar (teto de 20 voltas, para se o
+degrau não descer). Não reimplemente o critério no consumidor novo: é assim que nascem as portas
+divergentes da F-I21.
+
+**Quem consome:** a cadência (`trigger-diario-empresa.ts`) — a pílula anuncia a semana que a pessoa
+CONSEGUE abrir. Duas semanas coexistem e não se misturam:
+
+| variável | papel | usada em |
+|---|---|---|
+| `semanaCalendario` (`fase4_envios.semana_atual`) | o relógio: avança na quinta, decide o fim | avanço, `> totalSemanas` |
+| `semana` (acessível) | o que a pessoa recebe: conteúdo, tema, formato, link | pílula, missão, evidência |
+
+`semana + 1` no avanço reescreveria o relógio para trás e quem está preso na 1 nunca terminaria.
+
+Interruptor `CADENCIA_SEMANA_ACESSIVEL=0`. Verificação:
+`scripts/_dryrun-semana-acessivel.ts --empresa=<slug> --em=<ISO na hora do cron>`.
+
 ---
 
 ## Camada 4 — Micro-conteúdo
