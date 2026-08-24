@@ -15,6 +15,7 @@ import { SCORING_VERSION } from '../lib/radarempresas/score';
 import {
   scoreEstab, type CnaeRegra, type ContextoLookup,
 } from '../lib/radarempresas/score-resolve';
+import { calcularPriorityRank } from '../lib/radarempresas/priority-rank';
 
 const env = readFileSync('.env.local', 'utf8').split('\n').filter(l => l && !l.startsWith('#'))
   .reduce((a: any, l) => { const i = l.indexOf('='); if (i > 0) a[l.slice(0, i).trim()] = l.slice(i + 1).trim(); return a; }, {});
@@ -40,8 +41,13 @@ console.log(`Allowlist: ${mapa?.length} regras · Denylist: ${denySet.length} pr
 // Empresas (capital/porte/razão) por cnpj_basico
 const empMap = new Map<string, any>();
 for (let from = 0; ; from += 1000) {
-  const { data } = await sb.from('radarempresas_empresas')
-    .select('cnpj_basico, capital_social, porte_empresa, razao_social').range(from, from + 999);
+  const { data, error } = await sb.from('radarempresas_empresas')
+    .select('cnpj_basico, capital_social, porte_empresa, razao_social')
+    .order('cnpj_basico').range(from, from + 999);
+  // Falha ALTO: este mapa alimenta porte e capital de TODO estabelecimento. Uma
+  // pagina perdida em silencio pontua mil empresas como se nao tivessem porte
+  // nem capital, e o job fecha "done" com 93.710 scores errados.
+  if (error) throw new Error(`radarempresas_empresas (offset ${from}): ${error.message}`);
   if (!data?.length) break;
   for (const e of data as any[]) empMap.set(e.cnpj_basico, e);
   if (data.length < 1000) break;
@@ -108,8 +114,11 @@ const ctx: ContextoLookup = (k) => ({
 // Multiunidade: nº estab por cnpj_basico
 const grupo = new Map<string, number>();
 for (let from = 0; ; from += 1000) {
-  const { data } = await sb.from('radarempresas_estabelecimentos')
-    .select('cnpj_basico').range(from, from + 999);
+  const { data, error } = await sb.from('radarempresas_estabelecimentos')
+    .select('cnpj_basico').order('id').range(from, from + 999);
+  // Daqui sai `qtd_estabelecimentos_grupo`: pagina perdida = rede contada como
+  // unidade unica, e isso muda o score.
+  if (error) throw new Error(`contagem de estabelecimentos (offset ${from}): ${error.message}`);
   if (!data?.length) break;
   for (const r of data as any[]) grupo.set(r.cnpj_basico, (grupo.get(r.cnpj_basico) || 0) + 1);
   if (data.length < 1000) break;
@@ -120,9 +129,12 @@ const t0 = Date.now();
 const allRows: any[] = [];
 const elegiveis: { id: string; score: number }[] = [];
 for (let from = 0; ; from += 500) {
-  const { data: ests } = await sb.from('radarempresas_estabelecimentos')
+  const { data: ests, error: errEst } = await sb.from('radarempresas_estabelecimentos')
     .select('id, cnpj_basico, cnpj_completo, is_matriz, cnae_principal, has_email, has_phone, has_fantasia, company_age_years')
-    .range(from, from + 499);
+    .order('id').range(from, from + 499);
+  // A varredura principal: parar aqui em silencio nao "processa menos", ele
+  // grava um percentil calculado sobre uma amostra e chama de ranking.
+  if (errEst) throw new Error(`estabelecimentos (offset ${from}): ${errEst.message}`);
   if (!ests?.length) break;
 
   for (const est of ests as any[]) {
@@ -161,11 +173,14 @@ for (let from = 0; ; from += 500) {
   if (ests.length < 500) break;
 }
 
-// priority_rank: percentil do score entre os ELEGÍVEIS (segmento + não-micro)
-elegiveis.sort((a, b) => a.score - b.score);
+// priority_rank: percentil do score entre os ELEGÍVEIS (segmento + não-micro).
+// 🔑 A conta vive em lib/radarempresas/priority-rank.ts — mesma fonte da action
+// `rodarScores`. Era o último pedaço duplicado entre os dois, e por isso o B7
+// (empate resolvido pela ordem de varredura) existia nos DOIS ao mesmo tempo.
+// Quem de fato gravou as 74.285 linhas foi ESTE script: a action não tem
+// chamador em tela nenhuma.
 const ne = elegiveis.length;
-const rankById = new Map<string, number>();
-elegiveis.forEach((e, idx) => rankById.set(e.id, ne > 1 ? Math.round((idx / (ne - 1)) * 1000) / 10 : 50));
+const rankById = calcularPriorityRank(elegiveis);
 for (const row of allRows) row.priority_rank = rankById.get(row.estabelecimento_id) ?? null;
 console.log(`Priority rank: ${ne} elegíveis de ${allRows.length}`);
 

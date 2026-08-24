@@ -2,6 +2,7 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { calcularScore, classificarHelper, SCORING_VERSION, type ScoreInput } from '@/lib/radarempresas/score';
+import { calcularPriorityRank } from '@/lib/radarempresas/priority-rank';
 
 const TETO_VAL: Record<string, number> = { boa: 79, nutrir: 59, baixa: 39 };
 
@@ -131,9 +132,15 @@ export async function rodarScores(
       let from = 0;
       const page = 1000;
       for (;;) {
-        const { data } = await sb.from('radarempresas_empresas')
+        const { data, error } = await sb.from('radarempresas_empresas')
           .select('cnpj_basico, capital_social, porte_empresa, razao_social')
+          .order('cnpj_basico')
           .range(from, from + page - 1);
+        // Falha ALTO: este mapa alimenta porte e capital de TODO estabelecimento.
+        // Uma página perdida em silêncio não quebra nada — só faz mil empresas
+        // serem pontuadas como se não tivessem porte nem capital, e o job fecha
+        // "done" com 93.710 scores errados. É construção: tem humano para agir.
+        if (error) throw new Error(`radarempresas_empresas (offset ${from}): ${error.message}`);
         if (!data?.length) break;
         for (const e of data as any[]) {
           empMap.set(e.cnpj_basico, { capital_social: e.capital_social, porte_empresa: e.porte_empresa, razao_social: e.razao_social });
@@ -149,9 +156,13 @@ export async function rodarScores(
       let from = 0;
       const page = 1000;
       for (;;) {
-        const { data } = await sb.from('radarempresas_estabelecimentos')
+        const { data, error } = await sb.from('radarempresas_estabelecimentos')
           .select('cnpj_basico')
+          .order('id')
           .range(from, from + page - 1);
+        // Mesma régua: daqui sai `qtd_estabelecimentos_grupo` (multiunidade),
+        // que entra no score. Página perdida = rede contada como unidade única.
+        if (error) throw new Error(`contagem de estabelecimentos (offset ${from}): ${error.message}`);
         if (!data?.length) break;
         for (const r of data as any[]) {
           grupoCount.set(r.cnpj_basico, (grupoCount.get(r.cnpj_basico) || 0) + 1);
@@ -170,8 +181,16 @@ export async function rodarScores(
     for (;;) {
       const { data: estabs, error } = await sb.from('radarempresas_estabelecimentos')
         .select('id, cnpj_basico, cnpj_completo, is_matriz, cnae_principal, has_email, has_phone, has_fantasia, company_age_years')
+        .order('id')
         .range(from, from + page - 1);
-      if (error) { erros++; break; }
+      /**
+       * 🔴 Era `{ erros++; break; }`: contava UM erro e saía do laço, e o
+       * `priority_rank` seguia sendo calculado sobre o que tinha chegado até ali.
+       * O job fechava `done` com um percentil tirado de uma AMOSTRA e o chamava
+       * de ranking — e `rows_processed` mostrava o número menor sem que nada
+       * dissesse por quê. Falhar aqui é construção: tem humano para reagir.
+       */
+      if (error) throw new Error(`estabelecimentos (offset ${from}): ${error.message}`);
       if (!estabs?.length) break;
 
       for (const est of estabs as any[]) {
@@ -240,10 +259,7 @@ export async function rodarScores(
     }
 
     // priority_rank: percentil entre elegíveis (segmento + não-micro)
-    elegiveis.sort((a, b) => a.score - b.score);
-    const ne = elegiveis.length;
-    const rankById = new Map<string, number>();
-    elegiveis.forEach((e, idx) => rankById.set(e.id, ne > 1 ? Math.round((idx / (ne - 1)) * 1000) / 10 : 50));
+    const rankById = calcularPriorityRank(elegiveis);
     for (const row of allRows) row.priority_rank = rankById.get(row.estabelecimento_id) ?? null;
 
     let processados = 0;

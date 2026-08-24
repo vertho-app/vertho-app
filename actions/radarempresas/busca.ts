@@ -172,6 +172,7 @@ export async function loadRadarKpis(): Promise<RadarKpis> {
     const { data } = await sb.from('radarempresas_scores')
       .select('score_explanation')
       .gte('priority_rank', 90)
+      .order('estabelecimento_id')
       .range(from, from + 999);
     if (!data?.length) break;
     for (const s of data as any[]) {
