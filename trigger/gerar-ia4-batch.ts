@@ -1,4 +1,4 @@
-import { task } from '@trigger.dev/sdk';
+import { task, wait } from '@trigger.dev/sdk';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import {
@@ -9,7 +9,12 @@ import {
 import {
   montarCheckIA4Prompt, processCheckResult, persistirCheckIA4, checarUmaRespostaCore,
 } from '@/lib/check-ia4-core';
-import { submitClaudeBatch, submitOpenAIBatch, type BatchReq } from '@/lib/ai-batch';
+import {
+  createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults,
+  createOpenAIBatch, pollOpenAIBatch, fetchOpenAIBatchResults,
+  encerrarBatch, type BatchReq,
+} from '@/lib/ai-batch';
+import { IA_BATCH } from '@/lib/status';
 
 /**
  * IA4 (avaliação das respostas + check da 2ª IA) em LOTE, em BACKGROUND — molde
@@ -39,8 +44,16 @@ export const gerarIA4BatchTask = task({
     const patch = (f: Record<string, unknown>) =>
       sb.from('ia_jobs').update({ ...f, updated_at: new Date().toISOString() }).eq('id', payload.jobId);
 
-    const { data: job } = await sb.from('ia_jobs').select('*').eq('id', payload.jobId).maybeSingle();
+    const { data: job, error: errJob } = await sb.from('ia_jobs').select('*').eq('id', payload.jobId).maybeSingle();
+    if (errJob) throw new Error(`não foi possível ler o ia_job ${payload.jobId}: ${errJob.message}`);
     if (!job) throw new Error('ia_job não encontrado: ' + payload.jobId);
+
+    // C3 — REENTRÂNCIA: job concluído não reexecuta (aqui custaria DOIS lotes).
+    if (job.status === 'done') {
+      console.warn(`[gerar-ia4-batch] job ${payload.jobId} já está done — nada a fazer (reentrância evitada)`);
+      const jaFeitos = Array.isArray(job.result_ids) ? job.result_ids.length : 0;
+      return { ok: true, jobId: payload.jobId, reentrante: true, okCount: jaFeitos, errCount: 0 };
+    }
     await patch({ status: 'running' });
 
     try {
@@ -57,6 +70,27 @@ export const gerarIA4BatchTask = task({
       const total = ids.length * (checkModel ? 2 : 1) + (checkModel ? checkOnlyIds.length : 0);
       const resultados: Array<{ cargo: string; ok: boolean; error?: string; message?: string }> = [];
       let done = 0;
+      /**
+       * C3 — chaves de retomada, uma por onda. `avaliados` guarda os ids de
+       * resposta já persistidos; `checados`, os já auditados pela 2ª IA. As duas
+       * são independentes: a run pode morrer entre elas.
+       */
+      const avaliados = new Set<string>(Array.isArray(pp.avaliados) ? pp.avaliados : []);
+      const checados = new Set<string>(Array.isArray(pp.checados) ? pp.checados : []);
+
+      /**
+       * 🔴 `pp` é o params LIDO no início e nunca muda. Gravar `{ ...pp, algo }`
+       * a cada checkpoint apaga o que os anteriores gravaram — era assim que o
+       * `batchIdGen` sumia no primeiro salvamento e a retomada recriava o lote.
+       * O acumulador é a fonte.
+       */
+      const paramsAcum: Record<string, any> = { ...pp };
+      const salvarParams = (novos: Record<string, any>) => {
+        Object.assign(paramsAcum, novos);
+        return patch({ params: { ...paramsAcum } });
+      };
+      const salvarCheckpoint = () => salvarParams({ avaliados: [...avaliados], checados: [...checados] });
+
       const pushProgress = (current: string) => patch({ progress: { done, total, current, resultados } });
       await patch({ progress: { done: 0, total, current: `lote (batch) — ${ids.length} resposta(s)…`, resultados: [] } });
 
@@ -91,12 +125,31 @@ export const gerarIA4BatchTask = task({
       }
 
       let respostasGen = new Map<string, string>();
-      if (preparados.length && genModel.startsWith('claude')) {
+      const aAvaliar = preparados.filter((p) => !avaliados.has(p.resp.id));
+      if (aAvaliar.length && genModel.startsWith('claude')) {
+        let batchIdGen: string | null = pp.batchIdGen ?? null;
         try {
-          const reqs: BatchReq[] = preparados.map((p) => ({ customId: p.customId, system: IA4_SYSTEM, user: p.user, model: genModel, maxTokens: IA4_MAX_TOKENS }));
-          respostasGen = await submitClaudeBatch(reqs, { budgetMs: 35 * 60_000, ledger: { feature: 'ia4_avaliacao', empresaId } });
+          if (!batchIdGen) {
+            const reqs: BatchReq[] = aAvaliar.map((p) => ({ customId: p.customId, system: IA4_SYSTEM, user: p.user, model: genModel, maxTokens: IA4_MAX_TOKENS }));
+            batchIdGen = await createClaudeBatch(reqs, { ledger: { feature: 'ia4_avaliacao', empresaId } });
+            // Persistência ≠ fornecedor: o lote está pago e vai entregar.
+            try {
+              await salvarParams({ batchIdGen });
+            } catch (ePersist: any) {
+              console.error(`[gerar-ia4-batch] batchIdGen ${batchIdGen} NÃO persistido (${ePersist?.message}) — segue em memória; rastro em ia_batches`);
+            }
+          }
+          for (let i = 0; i < 24 * 60; i++) {
+            const st = await pollClaudeBatch(batchIdGen);
+            if (st.ended) break;
+            await pushProgress(`avaliação: ${st.counts.succeeded}/${aAvaliar.length} prontas…`);
+            await wait.for({ seconds: 60 });
+          }
+          respostasGen = await fetchClaudeBatchResults(batchIdGen, { feature: 'ia4_avaliacao', empresaId });
+          await encerrarBatch(batchIdGen, IA_BATCH.CONCLUIDO);
         } catch (e: any) {
           console.warn(`[gerar-ia4-batch] batch avaliação falhou (${e?.message}) — fallback síncrono por item`);
+          try { if (batchIdGen) await encerrarBatch(batchIdGen, IA_BATCH.ERRO, e?.message); } catch { /* observabilidade */ }
         }
       }
 
@@ -104,6 +157,12 @@ export const gerarIA4BatchTask = task({
       const avaliadas: Array<{ resp: any; rotulo: string }> = [];
 
       for (const p of preparados) {
+        if (avaliados.has(p.resp.id)) {
+          avaliadas.push({ resp: p.resp, rotulo: p.rotulo });
+          resultados.push({ cargo: p.rotulo, ok: true, message: 'avaliação de execução anterior' });
+          done++; await pushProgress(`retomada ${p.rotulo}`);
+          continue;
+        }
         const texto = respostasGen.get(p.customId);
         let r: { success: boolean; message?: string; error?: string };
         if (texto && texto.trim()) {
@@ -118,7 +177,11 @@ export const gerarIA4BatchTask = task({
           r = await avaliarUmaRespostaCore(tdb, sb, p.resp, p.colab, empresa, contextoPPP, aiConfig);
         }
         resultados.push({ cargo: p.rotulo, ok: !!r.success, error: r.error, message: r.message });
-        if (r.success) avaliadas.push({ resp: p.resp, rotulo: p.rotulo });
+        if (r.success) {
+          avaliadas.push({ resp: p.resp, rotulo: p.rotulo });
+          avaliados.add(p.resp.id);
+          await salvarCheckpoint(); // incremental: só serve de retomada se gravar durante
+        }
         done++; await pushProgress(`avaliado ${p.rotulo}`);
       }
 
@@ -141,19 +204,65 @@ export const gerarIA4BatchTask = task({
         }
 
         let respostasChk = new Map<string, string>();
+        const ledgerChk = { feature: 'ia4_check', empresaId };
+        let batchIdChk: string | null = pp.batchIdChk ?? null;
         try {
-          const reqs: BatchReq[] = checks.map((c) => ({ customId: c.customId, system: c.system, user: c.user, model: checkModel, maxTokens: 8192 }));
-          if (checkModel.startsWith('gpt')) {
-            respostasChk = await submitOpenAIBatch(reqs, { budgetMs: 20 * 60_000, ledger: { feature: 'ia4_check', empresaId } });
-          } else if (checkModel.startsWith('claude')) {
-            respostasChk = await submitClaudeBatch(reqs, { budgetMs: 20 * 60_000, ledger: { feature: 'ia4_check', empresaId } });
+          // Só os NÃO checados entram no lote — é aí que está o custo de IA.
+          const reqs: BatchReq[] = checks
+            .filter((c) => !checados.has(c.resp.id))
+            .map((c) => ({ customId: c.customId, system: c.system, user: c.user, model: checkModel, maxTokens: 8192 }));
+          const ehOpenAI = checkModel.startsWith('gpt');
+          const ehClaude = checkModel.startsWith('claude');
+
+          if (reqs.length && (ehOpenAI || ehClaude)) {
+            if (!batchIdChk) {
+              batchIdChk = ehOpenAI
+                ? await createOpenAIBatch(reqs, { ledger: ledgerChk })
+                : await createClaudeBatch(reqs, { ledger: ledgerChk });
+              try {
+                await salvarParams({ batchIdChk });
+              } catch (ePersist: any) {
+                console.error(`[gerar-ia4-batch] batchIdChk ${batchIdChk} NÃO persistido (${ePersist?.message}) — segue em memória; rastro em ia_batches`);
+              }
+            }
+
+            if (ehOpenAI) {
+              let saida: string | null = null;
+              for (let i = 0; i < 24 * 60; i++) {
+                const st = await pollOpenAIBatch(batchIdChk);
+                if (st.ended) {
+                  if (st.status !== 'completed') throw new Error(`OpenAI batch ${batchIdChk} terminou como ${st.status}`);
+                  saida = st.outputFileId;
+                  break;
+                }
+                await pushProgress(`check: aguardando OpenAI (${reqs.length} item(s))…`);
+                await wait.for({ seconds: 60 });
+              }
+              if (!saida) throw new Error(`OpenAI batch ${batchIdChk} sem output_file_id`);
+              respostasChk = await fetchOpenAIBatchResults(saida, ledgerChk);
+            } else {
+              for (let i = 0; i < 24 * 60; i++) {
+                const st = await pollClaudeBatch(batchIdChk);
+                if (st.ended) break;
+                await pushProgress(`check: ${st.counts.succeeded}/${reqs.length} prontos…`);
+                await wait.for({ seconds: 60 });
+              }
+              respostasChk = await fetchClaudeBatchResults(batchIdChk, ledgerChk);
+            }
+            await encerrarBatch(batchIdChk, IA_BATCH.CONCLUIDO);
           }
           // Outros provedores (gemini/kimi): sem Batch API aqui → mapa vazio = síncrono.
         } catch (e: any) {
           console.warn(`[gerar-ia4-batch] batch check falhou (${e?.message}) — fallback síncrono por item`);
+          try { if (batchIdChk) await encerrarBatch(batchIdChk, IA_BATCH.ERRO, e?.message); } catch { /* observabilidade */ }
         }
 
         for (const c of checks) {
+          if (checados.has(c.resp.id)) {
+            resultados.push({ cargo: c.rotulo, ok: true, message: 'check de execução anterior' });
+            done++; await pushProgress(`check retomado ${c.rotulo}`);
+            continue;
+          }
           const texto = respostasChk.get(c.customId);
           let registrado = false;
           if (texto && texto.trim()) {
@@ -170,6 +279,12 @@ export const gerarIA4BatchTask = task({
           if (!registrado) {
             const r: any = await checarUmaRespostaCore(sb, c.resp.id, { model: checkModel });
             resultados.push({ cargo: c.rotulo, ok: !!r.success, error: r.error, message: r.success ? `check ${r.nota}pts (síncrono)` : undefined });
+          }
+          // Checkpoint da 2ª onda: só o que REALMENTE persistiu entra, para a
+          // retomada não pular um check que ficou faltando.
+          if (resultados[resultados.length - 1]?.ok) {
+            checados.add(c.resp.id);
+            await salvarCheckpoint();
           }
           done++; await pushProgress(`check ${c.rotulo}`);
         }
