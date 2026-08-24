@@ -77,12 +77,16 @@ import { salvarConfig, salvarLocaleEmpresa, atualizarProgramaModo, atualizarRole
 // Auditoria 22/08 — A2 (sys_config), A3 (upload de perfil externo)
 import { toggleVotacao, togglePerfilComportamental, toggleMapeamentoCenarios } from '@/actions/votacao';
 import { setEmpresaFonteExterna, uploadPerfilPdf } from '@/actions/perfil-externo';
+import { logAdminAction } from '@/lib/audit';
 
 const OUTRO_TENANT = 'emp-B';
 const rhEmpA = { role: 'rh', empresaId: 'emp-A', email: 'rh@a.com', colaborador: { id: 'rh-1' }, isPlatformAdmin: false };
 const FORBIDDEN = /FORBIDDEN|acesso restrito|sem acesso/i;
 
-beforeEach(() => { sessao = rhEmpA; tenantDoRegistro = 'emp-B'; temPermissao = true; });
+beforeEach(() => {
+  sessao = rhEmpA; tenantDoRegistro = 'emp-B'; temPermissao = true;
+  vi.mocked(logAdminAction).mockClear();
+});
 
 describe('RH cross-tenant é barrado (Grupo A)', () => {
   it('salvarNotaAssessment — não grava nota em outro tenant', async () => {
@@ -227,5 +231,43 @@ describe('gates legítimos seguem abertos', () => {
   it('colaborador sem role de RH é barrado MESMO no próprio tenant (salvarConfig)', async () => {
     sessao = { role: 'colaborador', empresaId: 'emp-A', email: 'c@a.com', colaborador: { id: 'c-1' }, isPlatformAdmin: false };
     await expect(salvarConfig('emp-A', { chave: 'valor' })).rejects.toThrow(FORBIDDEN);
+  });
+});
+
+/**
+ * A vigília do fechamento de gate (Sprint 0) só vale se ELA PRÓPRIA puder falhar.
+ * Aqui provamos que o evento sai, e que os dois motivos são distinguíveis — é essa
+ * distinção que decide se a notícia é "o fix funcionando" ou "quebrei um fluxo".
+ */
+describe('vigília: o gate negado registra em admin_audit_log', () => {
+  it('cross-tenant → motivo `tenant`, mesmo_tenant=false (é o fix funcionando)', async () => {
+    await expect(toggleVotacao(OUTRO_TENANT, true)).rejects.toThrow(FORBIDDEN);
+    expect(logAdminAction).toHaveBeenCalledTimes(1);
+    const arg: any = vi.mocked(logAdminAction).mock.calls[0][0];
+    expect(arg.acao).toBe('gate.forbidden');
+    expect(arg.alvo).toBe('votacao.toggle');
+    expect(arg.resultado).toBe('erro');
+    expect(arg.detalhes.motivo).toBe('tenant');
+    expect(arg.detalhes.mesmo_tenant).toBe(false);
+    // A coluna `empresa_id` tem FK: recebe o tenant de QUEM CHAMOU (real). O id PEDIDO,
+    // que pode ser forjado, vai em `detalhes` — senão a FK derruba o insert e a vigília
+    // fica cega justamente na sondagem cross-tenant.
+    expect(arg.empresaId).toBe('emp-A');
+    expect(arg.detalhes.empresa_id_pedido).toBe(OUTRO_TENANT);
+  });
+
+  it('sem permissão no PRÓPRIO tenant → motivo `permissao`, mesmo_tenant=true (candidato a fluxo quebrado)', async () => {
+    temPermissao = false;
+    await expect(toggleVotacao('emp-A', true)).rejects.toThrow(FORBIDDEN);
+    const arg: any = vi.mocked(logAdminAction).mock.calls[0][0];
+    expect(arg.detalhes.motivo).toBe('permissao');
+    expect(arg.detalhes.mesmo_tenant).toBe(true);
+    expect(arg.detalhes.permissao).toBe('settings.company.manage');
+  });
+
+  it('caminho legítimo NÃO gera evento (senão a vigília vira ruído)', async () => {
+    const r: any = await toggleVotacao('emp-A', true);
+    expect(r.success).toBe(true);
+    expect(logAdminAction).not.toHaveBeenCalled();
   });
 });

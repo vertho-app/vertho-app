@@ -150,7 +150,7 @@ export async function salvarVoto(competencias: string[], sugestaoNova?: string) 
 // ── Admin: abrir/fechar votação ───────────────────────────────────────────
 
 export async function toggleVotacao(empresaId: string, ativa: boolean) {
-  const sb = await requireEmpresaSupabaseStrict(empresaId, 'settings.company.manage');
+  const sb = await requireEmpresaSupabaseStrict(empresaId, 'settings.company.manage', 'votacao.toggle');
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', empresaId).maybeSingle();
 
@@ -174,7 +174,7 @@ export async function toggleVotacao(empresaId: string, ativa: boolean) {
 }
 
 export async function togglePerfilComportamental(empresaId: string, liberado: boolean) {
-  const sb = await requireEmpresaSupabaseStrict(empresaId, 'settings.company.manage');
+  const sb = await requireEmpresaSupabaseStrict(empresaId, 'settings.company.manage', 'votacao.perfil_comportamental');
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', empresaId).maybeSingle();
 
@@ -200,7 +200,7 @@ export async function togglePerfilComportamental(empresaId: string, liberado: bo
 }
 
 export async function toggleMapeamentoCenarios(empresaId: string, liberado: boolean) {
-  const sb = await requireEmpresaSupabaseStrict(empresaId, 'settings.company.manage');
+  const sb = await requireEmpresaSupabaseStrict(empresaId, 'settings.company.manage', 'votacao.mapeamento_cenarios');
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', empresaId).maybeSingle();
 
