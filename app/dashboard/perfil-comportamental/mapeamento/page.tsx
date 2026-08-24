@@ -11,6 +11,7 @@ import Image from 'next/image';
 import VideoModal from '@/components/video-modal';
 import BackButton from '@/components/back-button';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
+import { normalizarDisc, computeLeadership, deriveProfile } from '@/lib/disc-mapeamento';
 
 /* ───────────────────── DATA ───────────────────── */
 
@@ -149,39 +150,10 @@ function scorePairs(pairsAnswers) {
   return bonus;
 }
 
-function normalize(scores, target = 200) {
-  const total = scores.D + scores.I + scores.S + scores.C;
-  if (total === 0) return { D: 50, I: 50, S: 50, C: 50 };
-  const factor = target / total;
-  const result = {
-    D: Math.round(scores.D * factor),
-    I: Math.round(scores.I * factor),
-    S: Math.round(scores.S * factor),
-    C: Math.round(scores.C * factor),
-  };
-  // Fix rounding to exactly target (match GAS behavior)
-  const sum = result.D + result.I + result.S + result.C;
-  if (sum !== target) {
-    const dominant = Object.keys(result).sort((a, b) => result[b] - result[a])[0];
-    result[dominant] += target - sum;
-  }
-  return result;
-}
-
-function computeLeadership(disc) {
-  return {
-    Executivo: Math.round(disc.D / 2 * 10) / 10,
-    Motivador: Math.round(disc.I / 2 * 10) / 10,
-    Metódico: Math.round(disc.S / 2 * 10) / 10,
-    Sistemático: Math.round(disc.C / 2 * 10) / 10,
-  };
-}
-
-function deriveProfile(disc: any) {
-  const sorted = Object.entries(disc).sort((a: any, b: any) => b[1] - a[1]);
-  const acima = sorted.filter(([, v]: [string, any]) => v >= 50).map(([k]) => k).join('');
-  return acima || sorted[0][0];
-}
+// normalizarDisc / computeLeadership / deriveProfile viviam AQUI, dentro da
+// tela — inalcançáveis para o resto do app, que foi como o `simulador-disc`
+// acabou com uma régua própria e divergente. Agora vêm de `lib/disc-mapeamento`
+// (fonte única), importado no topo deste arquivo.
 
 /* ───────────────── PHASES ───────────────── */
 
@@ -302,7 +274,7 @@ export default function MapeamentoPage() {
     const rankScores1 = scoreRankings(rank1);
     const pairBonus1 = scorePairs(pairs1);
     const raw1 = { D: rankScores1.D + pairBonus1.D, I: rankScores1.I + pairBonus1.I, S: rankScores1.S + pairBonus1.S, C: rankScores1.C + pairBonus1.C };
-    const disc = normalize(raw1);
+    const disc = normalizarDisc(raw1);
 
     const lead = computeLeadership(disc);
     const comp = computeDiscCompetenciesNatural(disc);
