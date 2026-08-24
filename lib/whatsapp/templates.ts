@@ -454,6 +454,54 @@ export const TEMPLATES = {
     example: ['Maria', 'https://app.vertho.ai/conarh/mapa/a1b2c3d4'],
   },
 
+  /**
+   * SEMANA PENDENTE — a pessoa é convidada para uma semana que a trilha não abre.
+   *
+   * 🔴 O ESTADO QUE ISTO ENDEREÇA (medido 23/08/2026). A cadência manda o link da
+   * semana do CALENDÁRIO (`fase4_envios.semana_atual`), mas a tela exige a
+   * anterior CONCLUÍDA — e quem conclui é a conversa de evidências, não abrir o
+   * conteúdo. Na segunda-feira 24/08: **32 das 36 pessoas de Ibipeba** (25 sem
+   * ter começado a semana 5) e **34 das 38 de Macaé** recebem a pílula de uma
+   * semana que vai aparecer trancada. A tela já explica e oferece o caminho de
+   * volta (correção de 20/08), mas ela só fala com quem CLICA — quem lê a
+   * mensagem e não clica nunca descobre o que falta.
+   *
+   * 🔑 POR QUE NÃO É O `retomada_trilha`. Aquele afirma outro estado — "sem
+   * registro de atividade há mais de duas semanas" — e dispara por inatividade.
+   * Aqui a pessoa pode estar ATIVA e ainda assim travada: abriu conteúdo, não
+   * fechou a conversa. Mandar a copy de inatividade para quem acabou de abrir a
+   * semana é a classe do "cobrança errada para a pessoa certa" (nºs 2 e 3 do
+   * `docs/TEMPLATES-WHATSAPP.md`).
+   *
+   * ⚠️ O QUE ESTA COPY NÃO DIZ, e é de propósito: COMO a conversa conclui (quantos
+   * turnos, o que responder). Foi exatamente esse tipo de frase — descrever o
+   * funcionamento do programa — que derrubou `trilha_liberada` v1 e
+   * `missao_semana` para MARKETING. A explicação vive na TELA, junto do vídeo
+   * (mesma decisão do `missao_semana_v2`: "o vídeo explicativo continua
+   * existindo — na própria página").
+   *
+   * Link em BOTÃO, não no corpo: é o sinal que mais se correlacionou com
+   * reclassificação (ver `conteudo_semana_v2`). A variável do botão carrega
+   * `<slug>/<semana PENDENTE>` — a semana que destrava, NUNCA a atual: mandar
+   * para a semana trancada repetiria o erro que a mensagem existe para corrigir.
+   */
+  semana_pendente: {
+    name: 'semana_pendente',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    // `{{3}}` aparece UMA vez ("Ela" retoma a referência): nenhum dos 17
+    // aprovados repete variável, então repetir seria estrear um formato não
+    // testado numa submissão em que o nome recusado fica QUEIMADO.
+    body: 'Olá, {{1}}. Sua trilha está na semana {{2}}, e a semana {{3}} continua pendente.\n\nEla é concluída na conversa de evidências com a Mentora. A explicação em vídeo está na própria página.',
+    example: ['Maria', '6', '5'],
+    botao: {
+      // Rótulo funcional: "Continuar agora" seria chamada de ação (→ MARKETING).
+      texto: 'Abrir a semana',
+      url: 'https://app.vertho.ai/ir/{{1}}',
+      exemplo: 'https://app.vertho.ai/ir/ibipeba/5',
+    },
+  },
+
   /** Resultado do assessment comportamental liberado. */
   perfil_disponivel: {
     name: 'resultado_perfil',

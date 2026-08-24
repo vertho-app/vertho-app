@@ -18,6 +18,23 @@ export type FaseCarreira = 'junior' | 'pleno' | 'senior';
  */
 export const APLICACAO_VIDEO_ID = '80f4da74-4384-419f-aab8-89ed346e7b5b';
 
+/**
+ * Tutorial do que CONCLUI uma semana — mostrado na tela de semana trancada.
+ *
+ * 🔴 POR QUE ELE EXISTE (medido 23/08/2026): a régua sequencial é deliberada, mas
+ * o que conclui uma semana é a CONVERSA de evidências, e isso não se adivinha —
+ * abrir o conteúdo parece suficiente. Na segunda 24/08, 32 das 36 pessoas de
+ * Ibipeba e 34 das 38 de Macaé chegam a esta tela; 25 delas sem ter começado a
+ * conversa da semana pendente. Texto já existe na tela desde 20/08; o vídeo é a
+ * mesma explicação para quem não lê.
+ *
+ * ⚠️ `null` = ainda NÃO PRODUZIDO, e a tela omite o player em vez de exibir um
+ * quadro morto. Trocar por um GUID qualquer para "deixar pronto" entregaria erro
+ * de player na primeira tela que essas pessoas veem. Ao publicar no Bunny, este
+ * é o único lugar a mudar.
+ */
+export const CONCLUSAO_VIDEO_ID: string | null = null;
+
 export interface ProgramaConfig {
   modo: ProgramaModo;
   /** Duração total da trilha em semanas. Regular=14, Onboarding=10. */

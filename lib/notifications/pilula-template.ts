@@ -63,6 +63,18 @@ export interface PilulaTemplateArgs {
    * faria a mensagem prometer uma competência e a tela abrir outra.
    */
   competencia?: string | null;
+  /**
+   * Semana que precisa ser CONCLUÍDA para destravar — só para `pendencia`.
+   *
+   * 🔴 Campo próprio, e jamais derivado de `semana - 1`: quem está travado pode
+   * estar várias semanas atrás (medido 23/08: 18 pessoas de Ibipeba na semana 6
+   * do calendário sem NENHUMA semana concluída, ou seja, pendentes na 1). A
+   * régua é `avaliarAcessoSemana(...).semanaPendente`, a mesma que a tela usa
+   * para decidir o bloqueio — derivar aqui produziria uma segunda régua, que é
+   * exatamente como esta base já colecionou três portas com critérios
+   * diferentes para a mesma decisão (F-I21).
+   */
+  semanaPendente?: number | null;
 }
 
 export interface ResultadoPilulaTemplate {
@@ -97,7 +109,7 @@ export function caminhoDoBotao(a: Pick<PilulaTemplateArgs, 'slug' | 'semana' | '
  */
 export type PapelCadencia =
   | 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil' | 'acesso' | 'missao' | 'plano'
-  | 'boas_vindas' | 'recorte';
+  | 'boas_vindas' | 'recorte' | 'pendencia';
 
 const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   pilula: 'WHATSAPP_TEMPLATE_PILULA',
@@ -108,6 +120,16 @@ const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   acesso: 'WHATSAPP_TEMPLATE_ACESSO',
   missao: 'WHATSAPP_TEMPLATE_MISSAO',
   plano: 'WHATSAPP_TEMPLATE_PLANO',
+  /**
+   * Semana do calendário trancada pela anterior não concluída.
+   *
+   * Papel PRÓPRIO, e não um reuso de `retomada`: aquele afirma inatividade de 2+
+   * semanas e dispara por tempo sem envio; este afirma uma PENDÊNCIA e alcança
+   * gente ativa que abriu o conteúdo e não fechou a conversa. Chave separada
+   * também porque cada template aprova em momento diferente — uma chave só
+   * obrigaria a ligar os dois juntos, ou nenhum.
+   */
+  pendencia: 'WHATSAPP_TEMPLATE_PENDENCIA',
   /**
    * CONARH: o recorte da demonstração para o lead que pediu no estande.
    *
@@ -214,6 +236,29 @@ const CONTRATOS: Record<string, MontarParams> = {
   recorte_demonstracao: (a) => ({
     params: [a.nome, a.linkDireto || ''],
     botaoParam: null,
+  }),
+
+  /**
+   * Semana pendente. `{{1}}`=nome, `{{2}}`=semana do calendário, `{{3}}`=semana
+   * pendente. Link em BOTÃO (`<slug>/<semana PENDENTE>`), não no corpo.
+   *
+   * 🔴 O BOTÃO APONTA PARA A PENDENTE, NUNCA PARA A ATUAL. Mandar para a semana
+   * do calendário é o próprio defeito que esta mensagem existe para corrigir: a
+   * pessoa cairia de novo na tela trancada, agora vinda de uma mensagem que
+   * acabou de dizer que ela está trancada.
+   *
+   * Sem `semanaPendente` NÃO ENVIA (o `enviarPorTemplate` barra antes): um
+   * template que anuncia "a semana continua pendente" e leva a lugar nenhum é
+   * pior que silêncio — e `semana - 1` como defesa seria a régua duplicada.
+   */
+  semana_pendente: (a) => ({
+    params: [a.nome, String(a.semana), String(a.semanaPendente ?? '')],
+    botaoParam: caminhoDoBotao({
+      slug: a.slug,
+      semana: Number(a.semanaPendente),
+      formato: null,
+      pilula: null,
+    }),
   }),
 
   registro_evidencia: (a) => ({
@@ -367,6 +412,15 @@ export async function enviarPorTemplate(
     // Chave apontando para template desconhecido: não envia e DIZ. Silêncio aqui
     // viraria "a pílula não sai e ninguém sabe por quê".
     console.error(`[cadencia-template] ${ENV_DO_PAPEL[papel]}="${template}" não tem contrato em CONTRATOS — envio NÃO feito.`);
+    return { tentou: false };
+  }
+
+  // FAIL-CLOSED do papel `pendencia`: sem a semana que destrava, o corpo sairia
+  // com "a semana  continua pendente" e o botão apontaria para `<slug>/NaN`.
+  // Nenhum dos dois dá erro na API — chegam assim na mão da pessoa, que é o modo
+  // de falha caro desta base (a mensagem sem sentido que "funcionou").
+  if (papel === 'pendencia' && !Number.isInteger(Number(a.semanaPendente))) {
+    console.error('[cadencia-template] pendencia sem semanaPendente válida — envio NÃO feito.');
     return { tentou: false };
   }
 

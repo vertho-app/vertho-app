@@ -894,6 +894,8 @@
       "rule": "O percurso é sequencial: cada semana só abre depois de a anterior estar concluída — e o que conclui uma semana é a conversa de evidências com a Mentora, não apenas abrir o conteúdo.",
       "missing": "Na semana {week}, faltam cerca de {count} respostas suas na conversa para a fechar.",
       "notStarted": "A conversa de evidências da semana {week} ainda não começou.",
+      "videoTitle": "Como concluir uma semana",
+      "videoWatch": "Ver como concluir",
       "goToWeek": "Ir para a semana {week}"
     }
   },

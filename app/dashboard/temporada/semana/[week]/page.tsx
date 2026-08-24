@@ -18,7 +18,7 @@ import { registrarEventoTrilha } from '@/actions/engajamento';
 import FirstViewVideo from '@/components/first-view-video';
 // Tutorial da semana de missão (Bunny) — constante única em programa-config,
 // compartilhada com o envio de segunda do triggerDiario.
-import { APLICACAO_VIDEO_ID } from '@/lib/season-engine/programa-config';
+import { APLICACAO_VIDEO_ID, CONCLUSAO_VIDEO_ID } from '@/lib/season-engine/programa-config';
 import { descritorParaHumano, descritoresParaHumano } from '@/lib/descritor-humano';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
@@ -171,7 +171,15 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     semana: semanaNum,
   });
   if (!acesso.liberada) {
-    return <SemanaBloqueada acesso={acesso} semana={semanaNum} onIr={(n) => router.push(`/dashboard/temporada/semana/${n}`)} t={t} />;
+    return (
+      <SemanaBloqueada
+        acesso={acesso}
+        semana={semanaNum}
+        colabId={data.trilha.colaborador_id}
+        onIr={(n) => router.push(`/dashboard/temporada/semana/${n}`)}
+        t={t}
+      />
+    );
   }
 
   const isAplicacao = semana.tipo === 'aplicacao';
@@ -866,7 +874,7 @@ function Center({ children }) {
  * trilha, dita com todas as letras; (3) o que fazer AGORA, com o botão já
  * apontando para a semana que destrava.
  */
-function SemanaBloqueada({ acesso, semana, onIr, t }) {
+function SemanaBloqueada({ acesso, semana, colabId, onIr, t }) {
   const porData = acesso.motivo === 'data';
   const pendente = acesso.semanaPendente;
   const faltam = typeof acesso.turnosFeitos === 'number' && acesso.turnosNecessarios
@@ -903,6 +911,22 @@ function SemanaBloqueada({ acesso, semana, onIr, t }) {
                     ? t('locked.notStarted', { week: pendente })
                     : t('locked.missing', { count: faltam, week: pendente })}
                 </p>
+                {/* O vídeo é a MESMA explicação do texto acima, para quem não lê —
+                    e é aqui que ela precisa estar: esta tela é o destino do link
+                    da cadência para quem está atrasado. Omitido enquanto o vídeo
+                    não existe (`CONCLUSAO_VIDEO_ID` null): player vazio na tela de
+                    bloqueio somaria um erro a quem já bateu numa porta fechada. */}
+                {CONCLUSAO_VIDEO_ID && (
+                  <div className="mt-5">
+                    <FirstViewVideo
+                      videoId={CONCLUSAO_VIDEO_ID}
+                      title={t('locked.videoTitle')}
+                      label={t('locked.videoWatch')}
+                      sectionKey="semana-bloqueada"
+                      colabId={colabId}
+                    />
+                  </div>
+                )}
                 <button
                   onClick={() => onIr(pendente)}
                   className="mt-6 inline-flex items-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-400 px-5 py-2.5 text-sm font-bold text-white transition"
