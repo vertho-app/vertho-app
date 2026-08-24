@@ -67,7 +67,12 @@ const PAGES = [
   paginaDashboard('/dashboard/perfil-comportamental/mapeamento', 'Mapeamento DISC'),
   paginaDashboard('/dashboard/evolucao', 'Evolução'),
 
-  // Estas o proxy barra no servidor. 200 aqui = furo de autorização.
+  // 🔴 O comentário anterior dizia "o proxy barra no servidor" — e isso é FALSO.
+  // Quem redireciona `/admin` e `/admin-v2` sem sessão é o LAYOUT de cada área
+  // (server component), não o proxy. A diferença importa: se alguém escrever uma
+  // página de admin fora do layout, o proxy não a protege — e o comentário
+  // dizia que sim. O check continua o mesmo; a explicação é que estava errada.
+  // 200 aqui = furo de autorização.
   paginaProtegidaAdmin('/admin/dashboard', 'Admin Dashboard'),
   paginaProtegidaAdmin('/admin/empresas/nova', 'Nova Empresa'),
   paginaProtegidaAdmin('/admin/empresas/gerenciar', 'Gerenciar'),
@@ -78,6 +83,17 @@ const PAGES = [
   paginaProtegidaAdmin('/admin/simulador', 'Simulador'),
   paginaProtegidaAdmin('/admin/whatsapp', 'WhatsApp'),
   paginaProtegidaAdmin('/admin/platform-admins', 'Platform Admins'),
+
+  // `/admin-v2` (E10 da auditoria 22/08): o smoke cobria 10 páginas de `/admin`
+  // e ZERO da área nova — que já leva a caixa de entrada do WhatsApp, com
+  // conversa de gente real. Área nova sem check é área que só ganha check depois
+  // do primeiro incidente.
+  paginaProtegidaAdmin('/admin-v2', 'Admin v2 (home)'),
+  paginaProtegidaAdmin('/admin-v2/clientes', 'Admin v2 · Clientes'),
+  paginaProtegidaAdmin('/admin-v2/cliente', 'Admin v2 · Cliente'),
+  paginaProtegidaAdmin('/admin-v2/conteudo', 'Admin v2 · Conteúdo'),
+  paginaProtegidaAdmin('/admin-v2/inbox', 'Admin v2 · Inbox'),
+  paginaProtegidaAdmin('/admin-v2/em-breve', 'Admin v2 · Em breve'),
 ];
 
 // Sem sessão, o certo é 401 (ou 400 quando o corpo é inválido). `500` NÃO entra

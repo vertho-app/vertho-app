@@ -66,6 +66,29 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
           SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
 
+      # A pré-condição, no SHELL — E10 da auditoria 22/08.
+      #
+      # O guard vive atrás de `describe.skipIf(!temBuild)`: sem o manifesto do
+      # build ele SKIPA, e skip é verde. É o mesmo defeito que o `rls-posture`
+      # teve em 10/08 — o job existia para provar algo e passava sem ter
+      # observado nada. Aqui o artefato é um arquivo, então a checagem é direta:
+      # se ele não existe depois do build, o guard não rodou, e o job tem de
+      # parar dizendo isso em vez de reportar sucesso.
+      - name: o guard rodou de verdade? (skip é verde, e verde sem medição mente)
+        run: |
+          # A MESMA condição do `describe.skipIf` do teste — `.next/BUILD_ID` só
+          # existe em build de produção COMPLETO (o `next dev` também popula
+          # `.next/`, e build interrompido não deixa BUILD_ID).
+          faltando=""
+          for artefato in .next/BUILD_ID .next/server/chunks .next/static/chunks; do
+            [ -e "$artefato" ] || faltando="$faltando $artefato"
+          done
+          if [ -n "$faltando" ]; then
+            echo "::error::artefato(s) de build ausente(s):$faltando — o guard de action ids SKIPOU (skipIf é verde) e o job passaria sem ter olhado bundle nenhum. Confira se o 'next build' concluiu."
+            exit 1
+          fi
+          echo "build completo: BUILD_ID=$(cat .next/BUILD_ID)"
+
       - name: Report result
         if: failure()
         run: echo "::error::Um action id de action com flag 'internal' foi publicado no bundle do cliente, ou o guard ficou cego. Rode 'npm run test:action-ids' localmente."

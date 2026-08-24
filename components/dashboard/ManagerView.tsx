@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getSupabase } from '@/lib/supabase-browser';
+import { PROGRESSO } from '@/lib/status';
 import { Users, Loader2 } from 'lucide-react';
 
 export default function ManagerView({ empresaId, areaDepartamento }: { empresaId?: string; areaDepartamento?: string }) {
@@ -33,7 +34,7 @@ export default function ManagerView({ empresaId, areaDepartamento }: { empresaId
           .from('sessoes_avaliacao')
           .select('colaborador_id, status, nivel, nota_decimal')
           .eq('empresa_id', empresaId)
-          .eq('status', 'concluido');
+          .eq('status', PROGRESSO.CONCLUIDO);
 
         // Agrupar por colaborador
         const sessoesMap: Record<string, any[]> = {};
@@ -51,7 +52,7 @@ export default function ManagerView({ empresaId, areaDepartamento }: { empresaId
             ...c,
             avaliacoes: mySessoes.length,
             notaMedia,
-            status: mySessoes.length > 0 ? 'avaliado' : 'pendente',
+            status: mySessoes.length > 0 ? 'avaliado' : PROGRESSO.PENDENTE,
           };
         });
 

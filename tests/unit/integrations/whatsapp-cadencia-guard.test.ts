@@ -145,6 +145,16 @@ const IMPORTA_WRAPPER = new RegExp(
  */
 const WRAPPERS_CLOUD = ['enviarTemplateCloud', 'enviarPorTemplate'];
 
+/**
+ * Importa a política de cadência — por alias OU por caminho relativo.
+ *
+ * Os scripts de `scripts/` rodam sob `tsx` e importam por caminho relativo
+ * (`../lib/…`); o app usa o alias `@/lib/…`. Casar só o alias fazia o guard
+ * acusar um script que ACABARA de adotar a política — e um guard que continua
+ * vermelho depois do conserto certo é um guard que alguém desliga.
+ */
+const IMPORTA_CADENCIA = /from\s+['"](?:@\/|\.{1,2}\/(?:\.\.\/)*)lib\/whatsapp\/cadencia['"]/;
+
 function emiteWhatsapp(a: { rel: string; texto: string }): boolean {
   if (a.rel.startsWith('lib/whatsapp/')) return false;          // o serviço em si
   // `pilula-template` é a camada que RESOLVE o template e chama a Cloud API —
@@ -191,7 +201,15 @@ function enviaDentroDeLoop(rel: string, texto: string): boolean {
         visitar(alvo.expression, loopAgora);
         return;
       }
-      if ((nome === 'sendWhatsapp' || WRAPPERS.includes(nome)) && loopAgora) {
+      // 🔴 E2 (auditoria 22/08): `WRAPPERS_CLOUD` faltava AQUI.
+      //
+      // `emiteWhatsapp()` ganhou os wrappers da Cloud API em 14/08, mas este
+      // detector não — então o invariante "quem envia em loop importa a
+      // política" NUNCA disparou para o canal que está no ar desde 14/08.
+      // Detectava 3 arquivos; com os wrappers, 9. Seis eram invisíveis, e o
+      // preço desse tipo de cegueira já foi medido: 155 mensagens a 2 s
+      // derrubaram o número em 1min47.
+      if ((nome === 'sendWhatsapp' || WRAPPERS.includes(nome) || WRAPPERS_CLOUD.includes(nome)) && loopAgora) {
         achou = true;
         return;
       }
@@ -219,7 +237,7 @@ describe('WhatsApp · a cadência do lote é política, não literal', () => {
     const infratores = ARQUIVOS
       .filter((a) => publicaNaFila(a.texto))
       .filter((a) => !PECAS_CENTRAIS.includes(a.rel))
-      .filter((a) => !a.texto.includes('@/lib/whatsapp/cadencia'))
+      .filter((a) => !IMPORTA_CADENCIA.test(a.texto))
       .map((a) => a.rel);
 
     expect(
@@ -247,7 +265,7 @@ describe('WhatsApp · a cadência do lote é política, não literal', () => {
     const infratores = ARQUIVOS
       .filter(emiteWhatsapp)
       .filter((a) => enviaDentroDeLoop(a.rel, a.texto))
-      .filter((a) => !a.texto.includes('@/lib/whatsapp/cadencia'))
+      .filter((a) => !IMPORTA_CADENCIA.test(a.texto))
       .map((a) => a.rel);
 
     expect(

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getSupabase } from '@/lib/supabase-browser';
+import { PROGRESSO } from '@/lib/status';
 import { Users, BarChart3, Target, Loader2 } from 'lucide-react';
 
 export default function RHView({ empresaId }: { empresaId?: string }) {
@@ -27,7 +28,7 @@ export default function RHView({ empresaId }: { empresaId?: string }) {
           .from('sessoes_avaliacao')
           .select('id, competencia_nome, nivel, nota_decimal')
           .eq('empresa_id', empresaId)
-          .eq('status', 'concluido');
+          .eq('status', PROGRESSO.CONCLUIDO);
 
         const avaliacoesConcluidas = sessoes?.length || 0;
         const notaMedia = avaliacoesConcluidas > 0 && sessoes

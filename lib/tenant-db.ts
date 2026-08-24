@@ -2,6 +2,27 @@
  * Tenant-scoped Supabase client — força filtro por empresa_id em todas
  * as queries tenant-owned, reduzindo risco de vazamento entre empresas.
  *
+ * 🔴 E5 (auditoria 22/08) — O CONTRATO ERA FALSO NOS TRÊS VERBOS DE ESCRITA,
+ * e todo o sistema de guards trata `tdb.` como PROVA de isolamento.
+ *
+ *   insert/upsert:  { empresa_id: tenantId, ...rows }   → o payload VENCIA
+ *   update:         .eq('empresa_id', tenantId)         → o `.eq` escolhe QUAL
+ *                                                          linha; `changes`
+ *                                                          passava intacto
+ *
+ * O spread com o payload DEPOIS do default significava que
+ * `tdb.from('colaboradores').insert({ empresa_id: outro, … })` gravava no outro
+ * tenant — usando o wrapper que existe para impedir exatamente isso. E o
+ * `update` era pior: `tdb.from('colaboradores').update({ empresa_id: outro })`
+ * seleciona uma linha do MEU tenant e a TIRA de lá; o `.eq` não protege o
+ * payload, só escolhe a vítima.
+ *
+ * Hoje o alcance real é pequeno (1 de 29 call-sites carrega `empresa_id` no
+ * payload, com valor interno) — o problema é que a garantia que os guards
+ * assumem não existia. Agora os três verbos LANÇAM quando o payload traz um
+ * `empresa_id` divergente; `null`/`undefined` explícito é tratado como "usa o
+ * tenant" e não como "sem tenant".
+ *
  * Uso:
  *   const tdb = tenantDb(empresaId);
  *   await tdb.from('colaboradores').select('*');           // filtra automaticamente
@@ -46,6 +67,34 @@ export function tenantDb(tenantId: string): TenantDb {
   if (!tenantId) throw new Error('tenantDb: tenantId obrigatório');
   const sb = createSupabaseAdmin();
 
+  /**
+   * O tenant do wrapper VENCE o payload — e divergência é erro, não correção
+   * silenciosa.
+   *
+   * Escrever `{ empresa_id: tenantId, ...row }` (o default ANTES do spread)
+   * deixava o payload sobrescrever; inverter para `{ ...row, empresa_id }`
+   * consertaria o vazamento e criaria outro problema: um call-site que passa o
+   * tenant errado por engano passaria a gravar no tenant certo em silêncio, e
+   * ninguém descobriria que o chamador está errado. Lançar mostra o bug.
+   *
+   * `null`/`undefined` explícito no payload significa "não sei o tenant" — o do
+   * wrapper preenche, sem reclamar.
+   */
+  const comTenant = (row: unknown, verbo: string) => {
+    const obj = { ...(row as Record<string, unknown>) };
+    const doPayload = obj.empresa_id;
+    if (doPayload != null && doPayload !== tenantId) {
+      throw new Error(
+        `tenantDb.${verbo}: payload com empresa_id ${String(doPayload)} sob o tenant ${tenantId}. ` +
+        'O wrapper existe para impedir escrita cross-tenant — use tdb.raw se a operação é mesmo cross-tenant.',
+      );
+    }
+    return { ...obj, empresa_id: tenantId };
+  };
+
+  const normalizar = (rows: unknown, verbo: string) =>
+    Array.isArray(rows) ? rows.map((r) => comTenant(r, verbo)) : comTenant(rows, verbo);
+
   return {
     from(table: string): TenantQueryBuilder {
       const q = sb.from(table);
@@ -55,23 +104,25 @@ export function tenantDb(tenantId: string): TenantDb {
             return (...args: unknown[]) => target.select(...args).eq('empresa_id', tenantId);
           }
           if (prop === 'insert') {
-            return (rows: unknown, opts?: unknown) => {
-              const withTenant = Array.isArray(rows)
-                ? rows.map((r) => ({ empresa_id: tenantId, ...(r as object) }))
-                : { empresa_id: tenantId, ...(rows as object) };
-              return target.insert(withTenant, opts);
-            };
+            return (rows: unknown, opts?: unknown) => target.insert(normalizar(rows, 'insert'), opts);
           }
           if (prop === 'upsert') {
-            return (rows: unknown, opts?: unknown) => {
-              const withTenant = Array.isArray(rows)
-                ? rows.map((r) => ({ empresa_id: tenantId, ...(r as object) }))
-                : { empresa_id: tenantId, ...(rows as object) };
-              return target.upsert(withTenant, opts);
-            };
+            return (rows: unknown, opts?: unknown) => target.upsert(normalizar(rows, 'upsert'), opts);
           }
           if (prop === 'update') {
-            return (changes: unknown) => target.update(changes).eq('empresa_id', tenantId);
+            return (changes: unknown) => {
+              // 🔴 O `.eq` escolhe QUAL linha; ele não olha o que está sendo
+              // gravado. Sem esta checagem, `update({ empresa_id: outro })`
+              // seleciona uma linha do tenant certo e a MOVE para outro.
+              const doPayload = (changes as Record<string, unknown> | null)?.empresa_id;
+              if (doPayload != null && doPayload !== tenantId) {
+                throw new Error(
+                  `tenantDb.update: tentativa de mover linha para o tenant ${String(doPayload)} ` +
+                  `sob o tenant ${tenantId}. Use tdb.raw se a migração entre empresas é intencional.`,
+                );
+              }
+              return target.update(changes).eq('empresa_id', tenantId);
+            };
           }
           if (prop === 'delete') {
             return () => target.delete().eq('empresa_id', tenantId);

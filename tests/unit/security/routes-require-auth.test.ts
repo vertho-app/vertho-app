@@ -45,7 +45,14 @@ import { semComentarios } from '../../helpers/fonte';
  * em carimbo — é a mesma armadilha que este arquivo descreve no topo (casar o
  * import em vez do uso).
  */
-const GATE_SESSAO = /\b(requireUser|requireAdmin|requireRole|requirePermission|requireUserAction|requireAdminAction|requireAdminSupabase|requireEmpresaSupabase|exigirAcessoPlataforma|getAuthenticatedEmail|requireRepresentative\w*|requireCommercialAdmin)\s*\(/;
+/**
+ * `\.auth\.getUser\(` entra na lista porque É o gate em algumas rotas de
+ * leitura (`/api/me` não chama helper nenhum: pega o client de servidor e
+ * pergunta quem é). É `getUser` e não `getSession` de propósito — `getSession`
+ * devolve a sessão em MEMÓRIA e não valida nada, que é a distinção que custou
+ * o laço `/rota` ↔ `/login` em 22/07.
+ */
+const GATE_SESSAO = /\.auth\.getUser\s*\(|\b(requireUser|requireAdmin|requireRole|requirePermission|requireUserAction|requireAdminAction|requireAdminSupabase|requireEmpresaSupabase|requireLinhaSupabase|requirePlataformaSupabase|exigirAcessoPlataforma|checarAcessoPlataforma|getAuthenticatedEmail|requireRepresentative\w*|requireCommercialAdmin)\s*\(/;
 /** Autenticação de MÁQUINA: assinatura de webhook ou segredo compartilhado. */
 const GATE_MAQUINA = /\b(verifyQStashSignature|verifyZapiWebhook|verifyBunnyWebhook|safeSecretEqual)\s*\(|CRON_SECRET|INTERNAL_API_KEY|x-internal-secret/;
 const CSRF = /\bcsrfCheck\s*\(/;
@@ -64,6 +71,22 @@ const PUBLICAS_POR_DESIGN: Record<string, string> = {
   'app/api/auth/phone-otp/request/route.ts': 'pré-sessão: envia o código',
   'app/api/auth/phone-otp/verify/route.ts': 'pré-sessão: troca o código por sessão',
   'app/api/auth/signup/route.ts': 'pré-sessão: cadastro em tenant com allow_open_signup',
+
+  // ── Só-GET (E10, 24/08) ────────────────────────────────────────────────
+  // Até aqui a regra valia só para rotas MUTATIVAS: 21 das 55 são só-GET e não
+  // tinham regra nenhuma. Nada estava aberto — as quatro abaixo foram lidas uma
+  // a uma —, mas "nada aberto hoje" não é um check: a rota só-GET nº 22 nascia
+  // sem ninguém perguntar nada. Leitura vaza dado, não só escrita.
+  'app/api/auth/cargos/route.ts':
+    'pré-sessão: o modal de auto-cadastro precisa dos cargos ANTES de existir sessão. ' +
+    'Devolve só { id, nome } do tenant do header — nada de PII.',
+  'app/api/bunny-thumb/[videoId]/route.ts':
+    'proxy de THUMBNAIL do Bunny (hotlink protection exige Referer do servidor). ' +
+    'Serve imagem por guid; a mesma imagem já é pública no player.',
+  'app/api/ppp/template/route.ts':
+    'gera o formulário de PPP em branco — conteúdo ESTÁTICO, sem dado de tenant nenhum.',
+  'app/api/version/route.ts':
+    'versão do build. Existe para o cliente detectar deploy novo (Skew Protection).',
 };
 
 /** Rotas que autenticam por máquina e por isso não precisam de CSRF. */
@@ -125,6 +148,31 @@ describe('Rotas de API mutativas', () => {
     ).toBe('');
   });
 
+  /**
+   * E10 (auditoria 22/08) — a regra passou a valer para LEITURA também.
+   *
+   * `Medido em 24/08:` 21 das 55 rotas são só-GET. Nenhuma estava aberta, e é
+   * justamente por isso que valia a pena escrever a regra agora: enquanto o
+   * estado é bom, declarar as exceções é barato. Depois, cada rota nova de
+   * leitura entra sem ninguém perguntar — e leitura sem gate vaza dado igual.
+   */
+  it('toda rota só-GET tem autenticação (ou está declarada como pública)', () => {
+    const soGet = todas.filter((r) => r.metodos.length > 0 && r.metodos.every((m) => m === 'GET'));
+    expect(soGet.length, 'nenhuma rota só-GET encontrada — o classificador quebrou').toBeGreaterThan(10);
+
+    const faltando = soGet
+      .filter((r) => !GATE_SESSAO.test(r.src) && !GATE_MAQUINA.test(r.src) && !(r.arquivo in PUBLICAS_POR_DESIGN))
+      .map((r) => `  ❌ ${r.arquivo}`);
+    expect(
+      faltando.join('\n'),
+      faltando.length
+        ? 'Rota de LEITURA sem autenticação nenhuma:\n' + faltando.join('\n') + '\n\n' +
+          'Ou ela exige sessão, ou valida segredo/assinatura, ou entra em ' +
+          'PUBLICAS_POR_DESIGN com o motivo escrito. Leitura sem gate vaza dado igual.'
+        : '',
+    ).toBe('');
+  });
+
   it('quem autentica por COOKIE tem csrfCheck', () => {
     const faltando = mutativas
       .filter((r) => GATE_SESSAO.test(r.src))
@@ -140,8 +188,19 @@ describe('Rotas de API mutativas', () => {
   });
 
   it('rotas públicas pré-sessão têm rate limit (senão viram porta de enumeração/spam)', () => {
+    // A régua é "toca o BANCO ou escreve", não "é pública": o teto existe contra
+    // enumeração e spam, e uma pública que serve conteúdo ESTÁTICO (o formulário
+    // de PPP em branco, a versão do build) ou proxeia uma imagem já pública não
+    // enumera nada. Exigir teto delas seria cerimônia — e cerimônia é como um
+    // guard vira ruído e depois vira `skip`.
+    // `.from('<tabela>')` com literal — `Buffer.from(bytes)` não é consulta ao
+    // banco, e um predicado que não distingue os dois acusa a rota que gera o
+    // PDF em branco.
+    const enumeraOuEscreve = (r: Rota) => /\.\s*from\s*\(\s*['"]/.test(r.src) || r.metodos.some((m) => m !== 'GET');
+
     const faltando = Object.keys(PUBLICAS_POR_DESIGN)
       .filter((f) => todas.some((r) => r.arquivo === f))
+      .filter((f) => enumeraOuEscreve(todas.find((r) => r.arquivo === f)!))
       .filter((f) => !RATE.test(todas.find((r) => r.arquivo === f)!.src))
       .map((f) => `  ❌ ${f}`);
     expect(

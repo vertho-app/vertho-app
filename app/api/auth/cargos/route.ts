@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
+import { authLimiter } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,11 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(req: NextRequest) {
   try {
+    // Rota PRÉ-SESSÃO: sem teto, ela é um canal aberto de varredura dos cargos
+    // de qualquer tenant, um slug por vez. Mesma regra das outras públicas.
+    const limited = await authLimiter.check(req);
+    if (limited) return limited;
+
     const slug = getTenantSlug(req);
     if (!slug) return NextResponse.json({ cargos: [] });
 

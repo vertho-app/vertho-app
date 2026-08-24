@@ -26,16 +26,22 @@ process.loadEnvFile('.env.local');
 import { createSupabaseAdmin } from '../lib/supabase';
 import { enviarPorTemplate } from '../lib/notifications/pilula-template';
 import { tenantUrl } from '../lib/domain';
+import { criarPaceadorSincrono, aplicarTetoLote, intervaloLoteMs } from '../lib/whatsapp/cadencia';
 
 const args = process.argv.slice(2);
 const executar = args.includes('--executar');
 const slug = args.find((a) => a.startsWith('--empresa='))?.split('=')[1];
 /** Teto conservador de propósito: leva pequena, medir, então repetir. */
 const limite = Number(args.find((a) => a.startsWith('--limite='))?.split('=')[1]) || 10;
-/** Espaçamento entre mensagens. A cadência do canal é política, não detalhe. */
-const INTERVALO_MS = 6_000;
-
-const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// 🔴 E2 (auditoria 22/08): aqui vivia `const INTERVALO_MS = 6_000` com um
+// `dormir()` próprio — a QUARTA régua paralela de cadência. Sem jitter,
+// ignorando `WHATSAPP_LOTE_INTERVALO_MS`, com teto só do `--limite`. O comentário
+// dizia que "a cadência do canal é política, não detalhe" e mesmo assim
+// implementava a política de novo, à mão. O precedente é caro: 155 mensagens a
+// 2 s derrubaram o número em 1min47 (11/08).
+//
+// Agora usa a política: `criarPaceadorSincrono()` (intervalo + jitter + orçamento
+// de tempo) e `aplicarTetoLote()` (teto do canal, que nunca corta calado).
 
 async function main() {
   if (!slug) throw new Error('--empresa=<slug> é obrigatório (envio em massa não roda sem alvo explícito)');
@@ -93,7 +99,14 @@ async function main() {
   const baseUrl = tenantUrl(empresa.slug);
   let ok = 0, falha = 0;
 
-  for (const c of alvos as any[]) {
+  // O teto do CANAL vem antes do `--limite` do operador: quem manda é a política.
+  const { enviar: aEnviar, adiados, aviso } = aplicarTetoLote(alvos as any[]);
+  if (aviso) console.log(`  ${aviso}`);
+
+  const paceador = criarPaceadorSincrono();
+  console.log(`  cadencia: ~${intervaloLoteMs()}ms entre mensagens (com jitter)`);
+
+  for (const c of aEnviar as any[]) {
     const telefone = c.whatsapp || c.telefone;
     if (!executar) {
       console.log(`  [dry] ${c.nome_completo} · ${String(telefone).slice(0, 6)}…`);
@@ -111,11 +124,12 @@ async function main() {
     if (r.ok) { ok++; console.log(`  ✓ ${c.nome_completo}`); }
     else { falha++; console.error(`  ✗ ${c.nome_completo}: ${r.reason}`); }
 
-    await dormir(INTERVALO_MS);
+    await paceador.aguardarVez();
   }
 
   if (executar) {
     console.log(`\n${ok} enviadas, ${falha} falhas.`);
+    if (adiados.length) console.log(`${adiados.length} adiadas pelo teto do canal — rode de novo depois.`);
     console.log('⚠️ Antes da próxima leva: conferir o quality_rating do número (health R12).');
   }
 }
