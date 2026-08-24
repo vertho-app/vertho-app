@@ -4,6 +4,9 @@ import fixture from '@/lib/demo/acme-demo-fixture.json';
 // gabaritos (IA2) + cenários ricos com rubrica N1-N4 (IA3). Gerados 1x no
 // acme-demo (scripts/_capture-*) e replicados no reset SEM rodar IA.
 import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
+// Régua canônica de competências — a MESMA que o mapeamento real e o simulador
+// usam. O demo tinha derivação própria; ver comportamentosDoDisc.
+import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 
 /**
  * Reset/seed do tenant ACME Demo (slug `acme-demo`) — versão IN-APP da lógica
@@ -151,19 +154,19 @@ const DEMO_EXTRA_ROLES = [
   },
 ];
 
-const PERSONAS = [
-  { key: 'ana', nome_completo: 'Ana Martins', email: 'ana.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'I', d_natural: 28, i_natural: 72, s_natural: 46, c_natural: 34, scenario: 'novo', responder: [] as string[] },
-  { key: 'paulo', nome_completo: 'Paulo Demo', email: 'paulo.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'ID', d_natural: 66, i_natural: 61, s_natural: 24, c_natural: 31, scenario: 'parcial', responder: ['Negociação e Fechamento', 'Orientação a Metas e Resultados'] },
-  { key: 'bruna', nome_completo: 'Bruna Costa', email: 'bruna.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'CS', d_natural: 24, i_natural: 32, s_natural: 68, c_natural: 74, scenario: 'completo', responder: REPRESENTANTE_TOP5 },
-  { key: 'carla', nome_completo: 'Carla Menezes', email: 'carla.demo@vertho.ai', cargo: 'Gerente Comercial', role: 'gestor', area_depto: COMERCIAL_AREA, gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'D', d_natural: 76, i_natural: 48, s_natural: 28, c_natural: 42, scenario: 'gestor-parcial', responder: [] as string[] },
-  { key: 'mariana', nome_completo: 'Mariana Lopes', email: 'mariana.demo@vertho.ai', cargo: 'Analista Financeiro', role: 'colaborador', area_depto: 'Financeiro', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'CS', d_natural: 22, i_natural: 34, s_natural: 64, c_natural: 78, scenario: 'completo', responder: [
+export const PERSONAS = [
+  { key: 'ana', nome_completo: 'Ana Martins', email: 'ana.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'IS', d_natural: 31, i_natural: 80, s_natural: 51, c_natural: 38, scenario: 'novo', responder: [] as string[] },
+  { key: 'paulo', nome_completo: 'Paulo Demo', email: 'paulo.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'IC', d_natural: 36, i_natural: 84, s_natural: 18, c_natural: 62, scenario: 'parcial', responder: ['Negociação e Fechamento', 'Orientação a Metas e Resultados'] },
+  { key: 'bruna', nome_completo: 'Bruna Costa', email: 'bruna.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'CS', d_natural: 24, i_natural: 27, s_natural: 69, c_natural: 80, scenario: 'completo', responder: REPRESENTANTE_TOP5 },
+  { key: 'carla', nome_completo: 'Carla Menezes', email: 'carla.demo@vertho.ai', cargo: 'Gerente Comercial', role: 'gestor', area_depto: COMERCIAL_AREA, gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'D', d_natural: 79, i_natural: 49, s_natural: 29, c_natural: 43, scenario: 'gestor-parcial', responder: [] as string[] },
+  { key: 'mariana', nome_completo: 'Mariana Lopes', email: 'mariana.demo@vertho.ai', cargo: 'Analista Financeiro', role: 'colaborador', area_depto: 'Financeiro', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'CS', d_natural: 22, i_natural: 34, s_natural: 65, c_natural: 79, scenario: 'completo', responder: [
     'Controle, Precisão e Confiabilidade dos Dados',
     'Análise de Indicadores Financeiros',
     'Organização de Rotinas e Prazos',
     'Comunicação Financeira para Não Especialistas',
     'Critério e Ética no Tratamento de Informações',
   ] },
-  { key: 'renato', nome_completo: 'Renato Alves', email: 'renato.demo@vertho.ai', cargo: 'Coordenador de Operações', role: 'colaborador', area_depto: 'Operações', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'DS', d_natural: 62, i_natural: 38, s_natural: 58, c_natural: 46, scenario: 'novo', responder: [] as string[] },
+  { key: 'renato', nome_completo: 'Renato Alves', email: 'renato.demo@vertho.ai', cargo: 'Coordenador de Operações', role: 'colaborador', area_depto: 'Operações', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'DS', d_natural: 61, i_natural: 37, s_natural: 57, c_natural: 45, scenario: 'novo', responder: [] as string[] },
 ];
 
 // Colunas comportamentais (comp_*/lid_*) DETERMINÍSTICAS a partir do DISC — as
@@ -180,20 +183,50 @@ const PERSONAS = [
 // escala 0-100, e o demo herdara ISSO: as personas saíam com Metódico 71 /
 // Sistemático 74 onde o produto real daria 32 e 39. Um número que a plataforma
 // nunca produz não pode aparecer numa demo — e ainda estourava a barra da tela.
-function comportamentosDoDisc(D: number, I: number, S: number, C: number) {
-  const cl = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
+// 🔴 As comp_* também: elas eram `cl(D)`, `cl((D+I)/2)`… — uma TERCEIRA régua,
+// nem a do produto nem a do simulador. Isso não era cosmético: o motor de fit
+// lê comp_* nos knockouts, e o "Não recomendado" do Paulo saía de um
+// `comp_persistencia = cl(S) = 24` que a regressão canônica jamais produziria
+// para aquele DISC (daria 50). A demo exibia uma reprovação que o produto real
+// não geraria — e o DISC das personas era recalibrado (ver PERSONAS) para que
+// os efeitos de vitrine (knockout do Paulo, aderência baixa da Bruna) voltem a
+// existir PELA régua, não apesar dela.
+/**
+ * Junta os artefatos congelados das duas fontes (fixture principal + extras dos
+ * cargos demo-only) CHAVE A CHAVE dentro de cada persona.
+ *
+ * 🔴 Era um spread raso — e a entrada do extra SUBSTITUÍA a do fixture. A
+ * Mariana existe nos dois (respostas/assessments no extra, relatório no
+ * fixture) e perdia o relatório em TODO reset: a tela de perfil dela disparava
+ * geração de IA ao vivo no meio da demo. O sintoma aparece longe da causa —
+ * congelar o artefato no arquivo "certo" não resolvia, porque o problema era o
+ * merge.
+ */
+export function mesclarPersonaArtifacts(...fontes: any[]): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const fonte of fontes) {
+    for (const [email, artefato] of Object.entries<any>(fonte || {})) {
+      out[email] = { ...(out[email] || {}), ...(artefato || {}) };
+    }
+  }
+  return out;
+}
+
+export function comportamentosDoDisc(D: number, I: number, S: number, C: number) {
   // Mesmo arredondamento do caminho real: executivo/motivador com 1 casa,
   // metódico/sistemático inteiros (mapeamento-actions.ts:116-119).
   const meio1 = (v: number) => Math.round((v / 2) * 10) / 10;
   const meio0 = (v: number) => Math.round(v / 2);
+  const comp = computeDiscCompetenciesNatural({ D, I, S, C });
   return {
     lid_executivo: meio1(D), lid_motivador: meio1(I),
     lid_metodico: meio0(S), lid_sistematico: meio0(C),
-    comp_ousadia: cl(D), comp_comando: cl(D), comp_objetividade: cl(D),
-    comp_assertividade: cl((D + I) / 2), comp_persuasao: cl(I), comp_extroversao: cl(I),
-    comp_entusiasmo: cl(I), comp_sociabilidade: cl((I + S) / 2), comp_empatia: cl(S),
-    comp_paciencia: cl(S), comp_persistencia: cl(S), comp_planejamento: cl((S + C) / 2),
-    comp_organizacao: cl(C), comp_detalhismo: cl(C), comp_prudencia: cl(C), comp_concentracao: cl(C),
+    comp_ousadia: comp.Ousadia, comp_comando: comp.Comando, comp_objetividade: comp.Objetividade,
+    comp_assertividade: comp.Assertividade, comp_persuasao: comp['Persuasão'], comp_extroversao: comp['Extroversão'],
+    comp_entusiasmo: comp.Entusiasmo, comp_sociabilidade: comp.Sociabilidade, comp_empatia: comp.Empatia,
+    comp_paciencia: comp['Paciência'], comp_persistencia: comp['Persistência'], comp_planejamento: comp.Planejamento,
+    comp_organizacao: comp['Organização'], comp_detalhismo: comp.Detalhismo, comp_prudencia: comp['Prudência'],
+    comp_concentracao: comp['Concentração'],
   };
 }
 
@@ -517,10 +550,16 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
   async function applyPersonaArtifacts(destId: string, personaMap: Map<string, string>) {
     // Artefatos avaliados: do fixture principal (acme) + do fixture extra
     // (personas demo-only, ex.: Mariana no Financeiro). Chaveados por e-mail.
-    const artifacts: any = {
-      ...((fixture as any).personaArtifacts || {}),
-      ...((extraArtifacts as any).personaArtifacts || {}),
-    };
+    // 🔴 Merge por PERSONA, não por objeto inteiro. O spread raso
+    // `{...fixture, ...extra}` fazia a entrada do extra SUBSTITUIR a do fixture:
+    // a Mariana existe nos dois (respostas/assessments no extra, relatório no
+    // fixture) e perdia o relatório em todo reset — a persona abria a tela de
+    // perfil disparando IA ao vivo, no meio da demo. Sintoma longe da causa:
+    // congelar o artefato no arquivo "certo" não adiantava nada.
+    const artifacts: any = mesclarPersonaArtifacts(
+      (fixture as any).personaArtifacts,
+      (extraArtifacts as any).personaArtifacts,
+    );
     for (const p of PERSONAS) {
       const colabId = personaMap.get(p.key);
       const a = artifacts[p.email];

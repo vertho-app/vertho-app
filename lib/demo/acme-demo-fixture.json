@@ -5187,90 +5187,87 @@
       "report": {
         "report_texts": {
           "quadrante_C": {
-            "adaptacao": null,
-            "descricao": "Ana tende a ter uma relação mais flexível com normas, procedimentos e detalhes — o que favorece criatividade, agilidade e abertura para soluções não convencionais. Esse padrão pode ser uma vantagem em ambientes que valorizam inovação e adaptabilidade. A atenção necessária está nos contextos que exigem precisão, documentação ou cumprimento rigoroso de processos, onde essa flexibilidade pode gerar lacunas.",
+            "descricao": "Ana tende a ter uma relação mais flexível com regras e procedimentos, preferindo adaptar do que seguir à risca. Isso pode resultar em soluções criativas e agilidade, mas pode também gerar pontos cegos em contextos que exigem precisão, documentação ou atenção a detalhes críticos. Ambientes altamente normativos podem ser fonte de tensão para seu estilo natural.",
             "titulo_traco": "Criador"
           },
           "quadrante_D": {
-            "adaptacao": null,
-            "descricao": "Ana tende a lidar com desafios de forma colaborativa, preferindo construir consenso a impor diretrizes. Diante de conflitos ou problemas complexos, sua inclinação natural é buscar saídas que preservem o relacionamento e o ambiente, o que pode ser um recurso valioso em situações que exigem diplomacia. Esse padrão também pode fazer com que ela hesite em posições mais assertivas quando o contexto demanda decisões firmes e rápidas.",
+            "descricao": "Ana tende a abordar desafios de forma colaborativa, preferindo buscar consenso antes de avançar sozinha. Situações que exigem imposição direta ou decisões de alto risco podem gerar algum desconforto, já que seu estilo natural favorece harmonia em vez de confronto. Isso pode ser uma força em ambientes que valorizam coesão, mas pode demandar atenção quando a situação pede posicionamentos mais firmes e rápidos.",
             "titulo_traco": "Cooperador"
           },
           "quadrante_I": {
-            "adaptacao": null,
-            "descricao": "A dimensão de maior expressão no perfil de Ana é justamente a sua facilidade com pessoas. Ela tende a se comunicar de forma envolvente, com entusiasmo genuíno e uma capacidade natural de criar clima positivo ao seu redor. Esse traço provavelmente faz dela uma profissional lembrada pelo impacto que causa nas pessoas — seja em apresentações, alinhamentos ou conversas informais. O risco de excesso nessa dimensão pode aparecer como tendência a priorizar o relacionamento em detrimento de análises mais criteriosas ou entregas mais técnicas.",
+            "descricao": "Este é provavelmente o traço mais marcante de Ana: ela tende a se comunicar com facilidade, calor e entusiasmo, criando conexões rapidamente. Sua capacidade de persuasão e extroversão elevadas sugerem alguém que não apenas fala bem, mas que genuinamente mobiliza pessoas em torno de ideias. O risco natural desse excesso é ocupar tanto espaço na comunicação que o espaço de escuta se estreite.",
             "titulo_traco": "Comunicador"
           },
           "quadrante_S": {
-            "adaptacao": null,
-            "descricao": "Com um S em faixa intermediária, Ana combina alguma capacidade de adaptação a mudanças com uma dose razoável de estabilidade. Ela provavelmente não é a pessoa que resiste às mudanças, mas também não as busca compulsivamente — tende a avaliar o contexto antes de se ajustar. Em situações de alta demanda, pode alternar entre momentos de foco intenso e episódios de dispersão, especialmente quando o ambiente não oferece estrutura clara.",
-            "titulo_traco": "Executor"
+            "descricao": "Ana apresenta um nível intermediário de estabilidade, o que sugere que ela consegue manter consistência sem ser rígida — um equilíbrio útil em contextos dinâmicos. Ela tende a ser paciente com pessoas, mas provavelmente não com processos longos ou repetitivos. Esse perfil pode funcionar bem em ambientes que alternam estrutura e flexibilidade, desde que haja espaço para variedade.",
+            "titulo_traco": "Planejador"
           },
           "top5_forcas": [
             {
-              "frase": "A facilidade natural de Ana em construir relações torna a conexão com pessoas um de seus recursos mais espontâneos e eficazes.",
-              "competencia": "Sociabilidade"
-            },
-            {
-              "frase": "Seu modo de se engajar com projetos e pessoas tende a ser contagiante, criando energia positiva nos ambientes em que atua.",
-              "competencia": "Entusiasmo"
-            },
-            {
-              "frase": "Ana provavelmente se sente mais energizada em interações, o que favorece contextos colaborativos, apresentações e dinâmicas de grupo.",
+              "frase": "Ana tende a ganhar energia no contato com pessoas, o que a torna naturalmente ativa em ambientes colaborativos e de alta interação.",
               "competencia": "Extroversão"
             },
             {
-              "frase": "A combinação de comunicação envolvente e energia relacional tende a torná-la naturalmente persuasiva em negociações e alinhamentos.",
+              "frase": "Sua capacidade de convencer e engajar é uma das mais desenvolvidas de seu perfil — ela tende a mover pessoas com argumentos e com presença.",
               "competencia": "Persuasão"
             },
             {
-              "frase": "A orientação para pessoas que emerge no perfil de Ana favorece uma escuta mais sensível e a percepção das necessidades dos que estão ao seu redor.",
+              "frase": "O entusiasmo que Ana transmite costuma ser contagiante, funcionando como um catalisador natural em equipes e projetos que precisam de impulso.",
+              "competencia": "Entusiasmo"
+            },
+            {
+              "frase": "Ela tende a construir redes e relacionamentos com facilidade, o que facilita alianças, engajamento e abertura de portas em contextos profissionais.",
+              "competencia": "Sociabilidade"
+            },
+            {
+              "frase": "A sensibilidade ao estado emocional das pessoas ao redor tende a tornar Ana uma interlocutora percebida como humana e confiável.",
               "competencia": "Empatia"
             }
           ],
           "frases_chave": [
-            "Pessoas são seu maior recurso — e também seu maior campo de atenção.",
-            "O entusiasmo abre portas; a consistência as mantém abertas.",
-            "Liderar pelo exemplo relacional é sua força — e seguir até o fim da entrega é seu desafio.",
-            "Flexibilidade é um ativo quando acompanhada de estrutura mínima."
+            "Ana conecta antes de convencer — e convence porque conecta.",
+            "Seu maior motor tende a ser as pessoas: elas a energizam e ela as mobiliza.",
+            "O desafio não é aumentar sua presença, mas saber quando aprofundar antes de avançar.",
+            "Quando equilibra entusiasmo com estrutura, seu potencial de influência se torna ainda mais consistente."
           ],
-          "sintese_perfil": "Ana tende a se apresentar como uma pessoa energética, comunicativa e naturalmente voltada para o contato com as pessoas. Seu modo de funcionar costuma ser movido pela conexão, pelo entusiasmo e pela capacidade de influenciar e engajar os que estão ao seu redor. Em contexto profissional, ela provavelmente se destaca pela facilidade em criar rapport, mobilizar equipes e manter o ambiente motivado. Ao mesmo tempo, sua preferência por ritmo mais flexível e abordagem menos rígida pode ser tanto um diferencial criativo quanto um ponto de atenção quando o contexto exige mais estrutura ou disciplina de execução.",
-          "modo_de_trabalho": "No trabalho, Ana tende a funcionar melhor em ambientes que oferecem variedade, contato com pessoas e liberdade para explorar ideias. Tarefas muito repetitivas, solitárias ou altamente estruturadas por regras podem gerar desconforto ou queda de engajamento. Sob pressão, seu padrão mais automático provavelmente é buscar apoio nas relações — conversar, compartilhar e co-construir saídas — antes de mergulhar em análise isolada.",
+          "sintese_perfil": "Ana tende a funcionar com alta energia relacional e um entusiasmo genuíno que atrai pessoas naturalmente. Seu estilo mais característico é o de quem conecta, convence e anima ambientes — ela tende a se sentir mais motivada em contextos onde há interação, novidade e espaço para influenciar. A combinação entre sua abertura ao contato humano e uma dose moderada de estabilidade sugere alguém que cuida das relações enquanto mantém certa flexibilidade de ritmo. Ao mesmo tempo, sua inclinação menor para o controle e a dominância indica que Ana tende a preferir construir junto a impor, e a inspirar a comandar.",
+          "_schema_version": "natural-only-v1",
+          "modo_de_trabalho": "Ana tende a funcionar melhor em ambientes dinâmicos, com variedade de tarefas e contato constante com pessoas — rotinas excessivamente repetitivas ou isoladas tendem a reduzir seu engajamento. Sob pressão, sua inclinação é agir com rapidez e buscar suporte relacional, o que pode ser uma força em crises que exigem mobilização, mas um risco quando a situação pede análise pausada e execução meticulosa.",
           "top5_desenvolver": [
             {
-              "frase": "Desenvolver maior atenção aos detalhes pode ampliar a qualidade das entregas de Ana em contextos que exigem precisão técnica.",
+              "frase": "Desenvolver maior foco sustentado pode ampliar a qualidade das entregas em momentos que exigem profundidade antes da ação.",
+              "competencia": "Concentração"
+            },
+            {
+              "frase": "Cultivar atenção aos detalhes em situações críticas pode proteger Ana de erros que seu ritmo acelerado às vezes deixa passar.",
               "competencia": "Detalhismo"
             },
             {
-              "frase": "Criar estruturas e rotinas de trabalho pode ajudar Ana a sustentar seus resultados ao longo do tempo, sem depender apenas do impulso do momento.",
-              "competencia": "Organização"
-            },
-            {
-              "frase": "Incorporar uma pausa reflexiva antes de decisões importantes pode evitar comprometimentos assumidos por entusiasmo antes de uma análise mais cuidadosa.",
-              "competencia": "Prudência"
-            },
-            {
-              "frase": "Aprender a sustentar posições com firmeza, mesmo quando há resistência, pode fortalecer a presença de Ana em situações que exigem liderança direta.",
+              "frase": "Fortalecer a capacidade de expressar posições com firmeza — mesmo quando geram desconforto — pode ampliar sua influência em decisões importantes.",
               "competencia": "Assertividade"
             },
             {
-              "frase": "Em ambientes com múltiplos estímulos, cultivar foco sustentado pode ser um diferencial importante para a entrega consistente de resultados.",
-              "competencia": "Concentração"
+              "frase": "Investir em estrutura e organização pessoal pode transformar sua energia natural em resultados mais consistentes e previsíveis.",
+              "competencia": "Organização"
+            },
+            {
+              "frase": "Explorar contextos onde assumir o protagonismo das decisões é necessário pode expandir seu repertório de liderança para além da influência.",
+              "competencia": "Comando"
             }
           ],
-          "lideranca_sintese": "Os dados de estilo de liderança formal não apresentam uma distribuição concentrada em nenhum dos perfis mapeados, o que indica que o estilo de liderança de Ana pode ainda estar em construção ou se manifesta de forma situacional. Considerando seu perfil DISC, o natural de Ana é liderar pelo engajamento — mobilizando pessoas pela energia, pelo relacionamento e pela capacidade de criar entusiasmo ao redor de uma ideia ou objetivo. Ela provavelmente é mais eficaz quando pode inspirar do que quando precisa controlar ou monitorar processos.",
-          "lideranca_trabalhar": "Para ampliar sua eficácia como líder, Ana pode se beneficiar de desenvolver maior consistência na execução e no acompanhamento de resultados, áreas que tendem a ser desafiadoras para perfis com alto I e baixo C. Aprender a equilibrar o foco nas pessoas com atenção às entregas e métricas concretas pode tornar sua liderança mais completa e sustentável no longo prazo.",
-          "relacoes_e_comunicacao": "Ana tende a se comunicar de forma aberta, expressiva e próxima — valorizando o contato humano antes do conteúdo técnico. Em contexto profissional, é provável que seja lembrada pela presença, pelo calor nas interações e pela capacidade de criar um ambiente de confiança com relativa rapidez. Pode ter mais facilidade com pessoas que respondem à comunicação informal e entusiasmada, e alguma dificuldade com perfis mais reservados ou analíticos que esperam objetividade antes do rapport.",
+          "lideranca_sintese": "O estilo de liderança que mais se destaca em Ana é o Motivador — ela tende a liderar pelo entusiasmo, pela capacidade de engajar e pela habilidade de fazer as pessoas acreditarem em uma ideia ou causa. Mais do que dar ordens, sua inclinação natural é criar energia e senso de propósito ao redor dos objetivos. Há também uma presença relevante do estilo Metódico, o que sugere que, quando necessário, Ana consegue sustentar processos e manter a equipe em ritmo — desde que o ambiente não seja excessivamente burocrático.",
+          "lideranca_trabalhar": "Um ponto de atenção para Ana como líder é o equilíbrio entre inspirar e estruturar: equipes precisam de entusiasmo, mas também de clareza sobre o que fazer e como. Desenvolver maior consistência no acompanhamento de compromissos e na comunicação de expectativas concretas pode tornar sua liderança mais completa e sustentável ao longo do tempo.",
+          "relacoes_e_comunicacao": "Ana tende a se comunicar de forma calorosa, aberta e animada — ela costuma criar rapport com facilidade e deixar os ambientes mais leves. Sua preferência natural é pela conversa e pela troca, o que a torna uma interlocutora valorizada em contextos de construção coletiva. O ponto de atenção é garantir que sua energia comunicativa não ocupe o espaço que outros precisam para se expressar.",
           "pontos_desenvolver_pressao": [
-            "Tendência a evitar conversas difíceis ou feedbacks mais duros, priorizando a harmonia do relacionamento em detrimento da clareza necessária.",
-            "Risco de assumir múltiplos compromissos ao mesmo tempo motivada pelo entusiasmo, sem avaliar a real capacidade de entrega.",
-            "Possível dificuldade em sustentar foco quando o ambiente oferece muitos estímulos simultâneos ou quando a tarefa é repetitiva e pouco estimulante.",
-            "Tendência a buscar validação externa com frequência, especialmente de pessoas com quem tem vínculo afetivo ou relação de confiança.",
-            "Risco de reagir a críticas ou rejeições de forma mais emocional do que o contexto exige, especialmente quando percebe que a relação está ameaçada.",
-            "Possibilidade de postergar decisões que impliquem confronto ou desapontamento, gerando ambiguidade nos processos que dependem de sua posição clara."
+            "Tendência a priorizar o relacionamento em detrimento de decisões difíceis que podem gerar conflito",
+            "Risco de dispersão em múltiplas frentes quando a pressão aumenta, comprometendo o foco nas prioridades",
+            "Possibilidade de evitar confrontos necessários em nome da harmonia do grupo",
+            "Tendência a subestimar riscos operacionais ou detalhes críticos quando o entusiasmo com uma ideia é alto",
+            "Risco de dificuldade em manter consistência em processos repetitivos ou de longo prazo sob estresse",
+            "Possibilidade de reagir emocionalmente a críticas diretas, especialmente quando vêm de forma impositiva"
           ]
         },
-        "report_generated_at": "2026-07-03T21:23:20.102+00:00"
+        "report_generated_at": "2026-08-24T20:59:33.241+00:00"
       }
     },
     "bruna.demo@vertho.ai": {
@@ -7674,90 +7671,87 @@
       "report": {
         "report_texts": {
           "quadrante_C": {
-            "adaptacao": null,
-            "descricao": "Bruna tende a levar a sério normas, procedimentos e padrões de qualidade, buscando fazer as coisas do jeito certo antes de fazer rápido. Sua inclinação à precisão a torna uma profissional que detecta riscos e inconsistências com facilidade, sendo uma referência natural em contextos que exigem rigor. O risco dessa tendência em excesso é a paralisia analítica — a dificuldade de avançar sem ter todas as informações necessárias.",
+            "descricao": "Bruna tem uma inclinação natural para a precisão e o cumprimento de padrões — ela valoriza procedimentos bem definidos e tende a sentir desconforto quando as regras são vagas ou ignoradas. Sua atenção ao detalhe e apreço por qualidade são ativos importantes, mas podem, em excesso, levar a um perfeccionismo que retarda entregas ou gera autocrítica desnecessária.",
             "titulo_traco": "Analista"
           },
           "quadrante_D": {
-            "adaptacao": null,
-            "descricao": "Bruna tende a abordar problemas de forma colaborativa, priorizando o consenso e o impacto coletivo antes de tomar decisões unilaterais. Ela provavelmente evita confrontos diretos e pode hesitar em assumir posições de autoridade em situações de conflito. Esse perfil a torna parceira confiável em processos que exigem negociação e harmonia, mas pode limitar sua visibilidade em contextos que valorizam iniciativa e posicionamento assertivo.",
+            "descricao": "Bruna tende a preferir ambientes colaborativos a contextos de confronto direto. Diante de desafios, sua inclinação natural é buscar soluções cuidadosas e considerar o impacto das decisões antes de agir — o que pode ser uma vantagem em cenários complexos, mas também pode gerar hesitação quando a situação exige posicionamento rápido e firme.",
             "titulo_traco": "Cooperador"
           },
           "quadrante_I": {
-            "adaptacao": null,
-            "descricao": "Em contextos sociais e de influência, Bruna tende a ser mais reservada e seletiva do que expressiva ou persuasiva. Ela provavelmente prefere construir relações com base em confiança e consistência ao longo do tempo, em vez de criar rapport rápido com pessoas novas. Sua comunicação tende a ser mais formal e ponderada, o que pode transmitir credibilidade, mas também pode ser lida como distanciamento por perfis mais extrovertidos.",
+            "descricao": "No campo das relações, Bruna tende a ser mais seletiva do que expansiva — ela constrói vínculos de forma gradual e com mais profundidade do que amplitude. Sua comunicação costuma ser reservada e fundamentada, e ela raramente usa o entusiasmo ou o charme como recurso primário de influência. Prefere convencer pela consistência e pela qualidade do argumento do que pela energia relacional.",
             "titulo_traco": "Pesquisador"
           },
           "quadrante_S": {
-            "adaptacao": null,
-            "descricao": "Bruna tende a valorizar ritmo constante, previsibilidade e ambientes onde pode se dedicar com profundidade ao longo do tempo. Ela provavelmente se destaca em contextos que exigem continuidade, suporte sustentado e entrega consistente, sem oscilações. Mudanças abruptas de prioridade ou ambientes muito voláteis podem gerar tensão interna, já que seu padrão natural favorece a estabilidade.",
+            "descricao": "A estabilidade é um dos pilares do funcionamento de Bruna. Ela tende a trabalhar bem em ambientes com ritmo previsível, onde pode organizar seus processos e manter a consistência ao longo do tempo. Mudanças bruscas ou demandas simultâneas sem planejamento prévio podem gerar desconforto — não porque ela seja inflexível, mas porque sua eficácia costuma emergir do preparo.",
             "titulo_traco": "Planejador"
           },
           "top5_forcas": [
             {
-              "frase": "Sua atenção ao detalhe tende a ser uma vantagem competitiva em contextos onde erros custam caro e a qualidade é inegociável.",
-              "competencia": "Detalhismo"
+              "frase": "Pensa à frente de forma estruturada — sua tendência natural é antecipar etapas antes que os problemas apareçam.",
+              "competencia": "Planejamento"
             },
             {
-              "frase": "A tendência de avaliar riscos antes de agir torna Bruna uma profissional que evita decisões precipitadas e protege o coletivo de erros evitáveis.",
+              "frase": "Avalia riscos com cuidado e raramente age no impulso, o que traz segurança às decisões que envolve.",
               "competencia": "Prudência"
             },
             {
-              "frase": "Sua orientação natural para estrutura e método favorece a entrega consistente e a manutenção de processos sólidos ao longo do tempo.",
-              "competencia": "Organização"
-            },
-            {
-              "frase": "A capacidade de sustentar esforço ao longo do tempo, sem perder foco ou motivação, é uma força rara em ambientes de alta demanda.",
+              "frase": "Sustenta processos longos sem perder o foco, sendo uma referência de constância em equipes que operam sob pressão contínua.",
               "competencia": "Paciência"
             },
             {
-              "frase": "Sua sensibilidade ao ambiente e às pessoas ao redor tende a torná-la uma presença estabilizadora em equipes sob pressão.",
-              "competencia": "Empatia"
+              "frase": "Mantém estrutura clara sobre o que precisa ser feito, reduzindo retrabalho e gerando confiança em quem trabalha ao seu redor.",
+              "competencia": "Organização"
+            },
+            {
+              "frase": "Percebe o que outros costumam deixar passar — sua atenção ao detalhe eleva a qualidade das entregas de forma consistente.",
+              "competencia": "Detalhismo"
             }
           ],
           "frases_chave": [
-            "Consistência e cuidado são os alicerces do seu modo de funcionar.",
-            "Sua maior força está em fazer certo — o desafio é aprender a fazer isso com mais visibilidade.",
-            "Bruna tende a ser o tipo de profissional que o time percebe quando falta, não quando está presente.",
-            "O passo seguinte não é mudar quem você é — é deixar que os outros vejam mais do que você já entrega."
+            "Confiança que se constrói pela consistência, não pelo volume.",
+            "Pensa antes de agir — e isso é uma vantagem quando o ritmo permite.",
+            "A qualidade do processo importa tanto quanto a chegada ao resultado.",
+            "Estrutura e cuidado como linguagem natural de entrega."
           ],
-          "sintese_perfil": "Bruna tende a funcionar com uma combinação de cuidado e consistência que a torna confiável e difícil de substituir em ambientes que exigem precisão e entrega. Sua orientação natural aponta para a qualidade do processo tanto quanto para o resultado, com atenção às regras, aos detalhes e ao impacto das decisões antes de agir. Ela costuma preferir ambientes previsíveis e colaborativos, onde pode contribuir de forma sustentada e sem precisar abrir mão de seus padrões. Essa combinação de estabilidade e análise tende a gerar um perfil de forte suporte técnico e humano — mas que pode, em contexto de alta pressão, recuar para zonas de conforto e evitar o confronto necessário.",
-          "modo_de_trabalho": "Bruna tende a trabalhar melhor em contextos onde há clareza de expectativas, processos definidos e espaço para entregar com qualidade, sem constante interrupção. Ela provavelmente se adapta bem a rotinas estruturadas e entrega resultados mais sólidos quando tem tempo para planejar e revisar antes de apresentar. Em situações de alta pressão e ambiguidade, o risco é que ela invista mais energia em análise do que em ação, o que pode ser interpretado como lentidão quando na verdade é cautela.",
+          "sintese_perfil": "Bruna tende a funcionar com uma combinação rara: ao mesmo tempo meticulosa e paciente, ela costuma trazer estrutura e previsibilidade ao ambiente ao redor. Seu ritmo natural é mais reflexivo do que reativo — ela prefere pensar antes de agir e raramente toma decisões sem antes considerar as variáveis envolvidas. A qualidade do que entrega importa tanto quanto o prazo, e isso se reflete na forma como organiza seu trabalho e gere sua energia. Em contextos que valorizam precisão, consistência e planejamento, Bruna tende a se destacar de forma genuína.",
+          "_schema_version": "natural-only-v1",
+          "modo_de_trabalho": "Bruna tende a render melhor quando tem clareza sobre o que se espera dela e espaço para planejar com antecedência. Ambientes com muitas demandas simultâneas e pouca previsibilidade costumam desgastá-la mais do que estimulá-la. Sua entrega tende a ser sólida e sustentável — não necessariamente a mais veloz, mas com alto nível de qualidade e comprometimento com o resultado final.",
           "top5_desenvolver": [
             {
-              "frase": "Desenvolver a capacidade de se posicionar com mais clareza e firmeza pode ampliar significativamente sua influência e visibilidade profissional.",
-              "competencia": "Assertividade"
-            },
-            {
-              "frase": "Exercitar a tomada de riscos calculados em situações de menor impacto pode ajudar Bruna a expandir sua zona de atuação com segurança.",
+              "frase": "Ampliar a disposição para arriscar em cenários de incerteza pode abrir espaço para oportunidades que o excesso de cautela tende a adiar.",
               "competencia": "Ousadia"
             },
             {
-              "frase": "Praticar a comunicação mais direta e concisa — especialmente em reuniões e apresentações — pode tornar suas contribuições ainda mais impactantes.",
-              "competencia": "Objetividade"
+              "frase": "Exercitar um posicionamento mais diretivo em momentos de decisão pode fortalecer sua presença e influência como referência de liderança.",
+              "competencia": "Comando"
             },
             {
-              "frase": "Aprender a construir argumentos que movem pessoas, e não apenas que informam, é uma habilidade que pode ampliar sua capacidade de liderança.",
+              "frase": "Desenvolver formas de apresentar ideias com mais impacto relacional pode ampliar a adesão das pessoas às suas propostas bem elaboradas.",
               "competencia": "Persuasão"
             },
             {
-              "frase": "Ampliar a presença em redes e interações profissionais pode aumentar a visibilidade do seu trabalho e criar novas oportunidades de colaboração.",
+              "frase": "Expressar energia e motivação com mais visibilidade ajuda a engajar equipes e a tornar seu comprometimento mais perceptível para os outros.",
+              "competencia": "Entusiasmo"
+            },
+            {
+              "frase": "Ampliar a presença em espaços coletivos e conversas informais pode fortalecer vínculos estratégicos que favorecem sua atuação profissional.",
               "competencia": "Extroversão"
             }
           ],
-          "lideranca_sintese": "Com os percentuais de liderança zerados, o que os dados sugerem é que Bruna ainda não ocupa — ou não reconhece — um estilo de liderança consolidado no contexto avaliado. Isso não significa ausência de potencial, mas pode indicar que ela ainda está construindo sua identidade como referência para os outros ou que o ambiente atual não tem ativado esse papel. Seu perfil CS tende a gerar uma liderança de bastidores — discreta, técnica e de suporte — mais orientada a garantir que o time funcione bem do que a ocupar o centro das decisões.",
-          "lideranca_trabalhar": "Para ampliar sua eficácia como liderança, Bruna pode se beneficiar de praticar posicionamentos mais visíveis em reuniões e decisões coletivas, tornando sua perspectiva mais presente no processo. Desenvolver a habilidade de dar feedbacks diretos — mesmo quando isso gera desconforto — também é um passo importante para que sua influência vá além do exemplo silencioso.",
-          "relacoes_e_comunicacao": "Bruna tende a construir relações profissionais com base em confiança gradual e consistência, preferindo vínculos mais profundos a uma rede ampla e superficial. Sua comunicação costuma ser cuidadosa e bem elaborada, o que transmite responsabilidade — mas pode ser percebida como excessivamente cautelosa ou difícil de ler por pessoas que esperam respostas rápidas e diretas. Em ambientes de alta colaboração, ela tende a ser uma presença estabilizadora e confiável.",
+          "lideranca_sintese": "O estilo de liderança de Bruna tende a se aproximar do perfil Sistemático e Metódico — ela lidera pela estrutura, pelo exemplo e pela qualidade do processo. Não costuma ser a voz mais alta da sala, mas tende a ser aquela em quem as pessoas confiam para garantir que o que foi planejado será cumprido. Seu engajamento com a equipe se dá mais pela consistência e previsibilidade do que pela motivação emocional direta, o que pode ser muito eficaz em contextos que exigem disciplina e entrega com padrão elevado.",
+          "lideranca_trabalhar": "Um ponto de atenção para Bruna como líder é equilibrar a exigência estrutural com a aproximação humana — equipes também precisam de reconhecimento, energia e conexão emocional para se manterem motivadas. Desenvolver repertório para comunicar expectativas com mais clareza e assertividade, especialmente em situações de baixo desempenho, pode aumentar significativamente sua eficácia na gestão de pessoas.",
+          "relacoes_e_comunicacao": "Bruna tende a construir relações profissionais com base na confiança construída ao longo do tempo, e não na proximidade imediata. Sua comunicação costuma ser objetiva, cuidadosa e baseada em fatos — o que transmite credibilidade, mas pode soar distante para pessoas que esperam mais calor ou abertura emocional no contato. Em dinâmicas de equipe, ela costuma ser percebida como alguém confiável e consistente, ainda que menos expressiva.",
           "pontos_desenvolver_pressao": [
-            "Tendência a recuar e evitar o conflito mesmo quando o posicionamento seria necessário e esperado",
-            "Dificuldade em tomar decisões rápidas sem ter todas as informações disponíveis, gerando lentidão percebida",
-            "Possível excesso de autocrítica diante de erros, tornando o processo de aprendizado mais lento e doloroso",
-            "Risco de acumular sobrecarga silenciosa ao dizer sim para demandas além da capacidade, sem sinalizar o limite",
-            "Tendência a se isolar quando o ambiente se torna muito caótico ou imprevisível, reduzindo a presença no coletivo",
-            "Dificuldade em adaptar rapidamente o plano quando mudanças de rota são impostas sem aviso ou justificativa clara"
+            "Tendência a se fechar no processamento interno, tornando-se menos comunicativa quando o cenário fica imprevisível.",
+            "Pode se tornar excessivamente criteriosa com os próprios entregáveis, adiando conclusões em busca de uma perfeição que nem sempre é necessária.",
+            "Dificuldade em tomar decisões rápidas sem informações suficientes, o que pode gerar percepção de lentidão em situações de urgência.",
+            "Risco de absorver demandas excessivas em silêncio — tende a não verbalizar sobrecarga, o que pode gerar desgaste acumulado.",
+            "Sob pressão prolongada, pode se tornar mais rígida nos processos e menos flexível para adaptar o plano original quando necessário.",
+            "A tendência à cautela pode ser interpretada por outros como falta de iniciativa ou pouco entusiasmo, mesmo quando o envolvimento é alto."
           ]
         },
-        "report_generated_at": "2026-07-03T21:24:06.729+00:00"
+        "report_generated_at": "2026-08-24T21:00:17.795+00:00"
       },
       "trilha": {
         "row": {
@@ -9281,90 +9275,86 @@
       "report": {
         "report_texts": {
           "quadrante_C": {
-            "adaptacao": null,
-            "descricao": "Paulo tende a ter uma relação flexível com regras e procedimentos — preferindo adaptar, improvisar e criar soluções próprias a seguir protocolos ao pé da letra. Isso pode ser uma fonte importante de inovação e agilidade, especialmente em contextos que precisam de movimento. O risco é subestimar a importância de detalhes, revisões e processos que, embora pareçam lentos, evitam retrabalho e garantem qualidade.",
-            "titulo_traco": "Criador"
+            "descricao": "Com um C relevante, Paulo demonstra mais cuidado com qualidade e consistência do que seu perfil de alta influência poderia sugerir à primeira vista. Ele tende a questionar, verificar e buscar embasamento antes de endossar algo — especialmente quando há consequências mais amplas envolvidas. Esse traço tempera o entusiasmo e evita decisões puramente impulsivas, mas pode gerar lentidão quando a situação exige posicionamento rápido.",
+            "titulo_traco": "Analista"
           },
           "quadrante_D": {
-            "adaptacao": null,
-            "descricao": "Paulo tende a encarar problemas com postura proativa e disposição para tomar frente das situações, mesmo quando o cenário é incerto. Sua inclinação natural é ir atrás de resultados, tomar decisões com relativa rapidez e não recuar facilmente diante de obstáculos. Em contextos de pressão, essa característica pode ser um grande diferencial — mas também pode gerar impaciência com processos mais lentos ou com pessoas que precisam de mais tempo para deliberar.",
-            "titulo_traco": "Diretor"
+            "descricao": "Paulo tende a encarar desafios de forma colaborativa mais do que impositiva — prefere construir consenso a vencer pelo confronto direto. Ele não costuma ser o primeiro a bater o punho na mesa, mas quando precisa defender algo em que acredita, faz isso com convicção e argumentação. O risco é que, em situações que exigem decisões rápidas e assertivas, ele pode hesitar ou buscar mais alinhamento do que o momento permite.",
+            "titulo_traco": "Cooperador"
           },
           "quadrante_I": {
-            "adaptacao": null,
-            "descricao": "A influência é um traço expressivo no funcionamento de Paulo — ele tende a se conectar com facilidade com outras pessoas, usar a comunicação como ferramenta de mobilização e criar entusiasmo ao redor de ideias e projetos. Seu estilo tende a ser aberto, expressivo e socialmente ativo, o que favorece ambientes colaborativos e papéis que envolvam convencimento e visibilidade. Um ponto de atenção é que a alta energia social pode, em alguns momentos, sobrepor a escuta — tornando a comunicação mais de mão única do que de troca.",
+            "descricao": "Esta é a dimensão mais expressiva de Paulo — ele tem uma capacidade natural de engajar, entusiasmar e persuadir que raramente passa despercebida. Em contextos de apresentação, negociação ou mobilização de equipes, esse traço se torna um diferencial real. O ponto de atenção está no excesso: quando o entusiasmo supera a escuta, Paulo pode ser percebido como alguém que domina o espaço de fala sem deixar espaço para o outro.",
             "titulo_traco": "Comunicador"
           },
           "quadrante_S": {
-            "adaptacao": null,
-            "descricao": "Paulo provavelmente funciona com ritmo acelerado, baixa tolerância à inércia e preferência por ambientes que mudam e evoluem. Tarefas repetitivas, rotinas muito fixas ou processos que exigem espera tendem a não favorecer seu melhor desempenho. Essa velocidade é uma vantagem real em contextos dinâmicos, mas pode criar tensão em situações que demandam paciência, constância ou execução detalhada ao longo do tempo.",
+            "descricao": "Paulo tende a operar em ritmo acelerado, com baixa tolerância natural à monotonia e à repetição de processos. Ele se adapta rapidamente a mudanças e consegue transitar entre contextos com agilidade — o que é valioso em cenários de transformação. O desafio é que essa intensidade pode gerar impaciência com prazos longos, etapas lentas ou pessoas que precisam de mais tempo para processar e avançar.",
             "titulo_traco": "Executor"
           },
           "top5_forcas": [
             {
-              "frase": "A combinação de D e I elevados sugere que Paulo tende a defender posições com clareza e energia, sem depender de aprovação para se posicionar.",
-              "competencia": "Assertividade"
+              "frase": "Paulo conecta com facilidade e naturalmente amplia sua rede de influência — ambientes sociais e profissionais são terreno fértil para ele.",
+              "competencia": "Extroversão"
             },
             {
-              "frase": "Paulo provavelmente tem facilidade natural em mobilizar pessoas ao redor de ideias, unindo convicção e habilidade de conexão.",
+              "frase": "Sua capacidade de convencer e mobilizar pessoas é uma das forças mais raras e aplicáveis em contextos de liderança, vendas e articulação estratégica.",
               "competencia": "Persuasão"
             },
             {
-              "frase": "Seu perfil indica disposição para assumir riscos calculados e avançar mesmo em situações de incerteza, o que favorece contextos de inovação e mudança.",
-              "competencia": "Ousadia"
-            },
-            {
-              "frase": "A alta influência sugere que Paulo tende a transmitir energia e motivação ao ambiente, influenciando o ânimo do grupo ao seu redor.",
+              "frase": "Ele transmite energia e engajamento de forma genuína, o que tende a elevar o nível motivacional das pessoas ao redor.",
               "competencia": "Entusiasmo"
             },
             {
-              "frase": "A dominância elevada aponta para uma tendência de tomar frente de situações e assumir responsabilidade sobre decisões e direções.",
-              "competencia": "Comando"
+              "frase": "Paulo tem disposição para propor ideias que desafiam o status quo, o que o posiciona bem em contextos que demandam inovação e movimento.",
+              "competencia": "Ousadia"
+            },
+            {
+              "frase": "Apesar do perfil de alta influência, Paulo demonstra atenção ao detalhe acima do esperado — o que adiciona credibilidade ao que comunica.",
+              "competencia": "Detalhismo"
             }
           ],
           "frases_chave": [
-            "Energia, direção e influência — Paulo tende a mover pessoas e situações ao mesmo tempo.",
-            "Sua força está na ação; seu desenvolvimento, na escuta.",
-            "Avança rápido — o desafio é garantir que a equipe venha junto.",
-            "Onde há inércia, Paulo provavelmente é o primeiro a criar movimento."
+            "Energia que conecta — e que precisa de direção para converter em resultado.",
+            "Persuadir é natural; sustentar até o fim é o próximo nível.",
+            "Presença marcante que abre portas — e escuta ativa que as mantém abertas."
           ],
-          "sintese_perfil": "Paulo tende a se apresentar como alguém de presença marcante — direto, energético e naturalmente orientado para resultados e pessoas ao mesmo tempo. Sua combinação de alta dominância com alta influência sugere um estilo que mistura assertividade e capacidade de engajamento, funcionando bem em ambientes que demandam decisão rápida e articulação de pessoas em torno de objetivos. Paulo costuma se mover com velocidade, preferindo ação e visibilidade a processos longos e rotinas rígidas. Seu perfil indica alguém que tende a liderar pelo exemplo e pela persuasão, mais do que pela estrutura ou pelo controle.",
-          "modo_de_trabalho": "Paulo tende a funcionar melhor em ambientes que oferecem variedade, autonomia e desafios concretos — rotinas muito fixas ou burocráticas dificilmente aproveitam seu melhor potencial. Sob pressão, sua tendência é agir antes de parar para analisar, o que pode ser tanto uma vantagem quanto uma armadilha dependendo do contexto. Criar rituais de pausa deliberada — mesmo breves — pode fazer diferença expressiva na qualidade das decisões que toma nos momentos mais críticos.",
+          "sintese_perfil": "Paulo tende a funcionar com alta energia relacional e uma capacidade expressiva marcante — pessoas ao redor percebem sua presença antes mesmo de ele falar. Seu perfil IC combina o impulso de influenciar e conectar com uma orientação analítica que o diferencia de comunicadores puramente intuitivos. Ele se motiva em ambientes dinâmicos, com espaço para articular ideias, mobilizar pessoas e construir pontes entre visões diferentes. Ao mesmo tempo, carrega uma tensão produtiva entre o entusiasmo pelo novo e uma atenção real à qualidade daquilo que entrega — o que pode tanto ser uma força quanto uma fonte de dispersão quando mal calibrada.",
+          "_schema_version": "natural-only-v1",
+          "modo_de_trabalho": "Paulo funciona melhor em ambientes que combinam autonomia, variedade de estímulos e espaço para interagir e comunicar. Rotinas muito rígidas ou trabalhos predominantemente solitários tendem a drenar sua energia ao longo do tempo. Sob pressão de prazo ou entrega, ele pode alternar entre momentos de alta produtividade e dispersão — o que torna estratégico o desenvolvimento de pequenas âncoras de organização pessoal que o ajudem a manter o foco sem perder a fluidez que é sua marca.",
           "top5_desenvolver": [
             {
-              "frase": "Desenvolver tolerância a ritmos diferentes dos seus pode ampliar significativamente a eficácia de Paulo em contextos de equipe e negociação.",
+              "frase": "Desenvolver a capacidade de desacelerar intencionalmente pode ampliar sua eficácia com equipes e processos que operam em ritmo diferente do seu.",
               "competencia": "Paciência"
             },
             {
-              "frase": "Dedicar mais atenção aos detalhes de execução pode evitar lacunas que comprometem entregas que começam com excelente intenção.",
-              "competencia": "Detalhismo"
+              "frase": "Cultivar o hábito de sustentar iniciativas até a conclusão — mesmo após o entusiasmo inicial arrefecer — é uma oportunidade de aumentar seu impacto de longo prazo.",
+              "competencia": "Persistência"
             },
             {
-              "frase": "Criar o hábito de pausar antes de decidir em situações de alta pressão pode reduzir erros que surgem da velocidade sem reflexão suficiente.",
-              "competencia": "Prudência"
-            },
-            {
-              "frase": "Ampliar a escuta ativa e considerar o estado emocional das pessoas ao redor pode tornar sua liderança mais inclusiva e sustentável.",
-              "competencia": "Empatia"
-            },
-            {
-              "frase": "Estruturar melhor as etapas de um projeto antes de avançar pode trazer consistência e previsibilidade às iniciativas que Paulo conduz.",
+              "frase": "Investir em estruturar melhor o caminho antes de agir pode evitar retrabalho e fortalecer a percepção de Paulo como alguém de quem se pode depender.",
               "competencia": "Planejamento"
+            },
+            {
+              "frase": "Criar sistemas simples de acompanhamento e priorização pode liberar energia que hoje é consumida em reatividade e retomadas.",
+              "competencia": "Organização"
+            },
+            {
+              "frase": "Em decisões com maior impacto, incorporar uma pausa reflexiva antes de posicionar-se pode elevar a qualidade das escolhas e reduzir exposição a riscos desnecessários.",
+              "competencia": "Prudência"
             }
           ],
-          "lideranca_sintese": "Com base na distribuição do perfil, Paulo tende a exercer uma liderança de natureza diretiva e inspiradora — mais voltada para mobilizar pessoas e avançar em direção a resultados do que para construir estrutura ou garantir processos. Ele provavelmente lidera melhor quando tem autonomia para decidir e agir com velocidade, e tende a engajar equipes pela energia e pelo senso de urgência que transmite. Seu estilo pode gerar tração em momentos de mudança, lançamento de projetos e situações que exigem coragem para avançar.",
-          "lideranca_trabalhar": "Um desenvolvimento importante para Paulo como líder é aprender a calibrar o ritmo — reconhecendo que nem todos os membros da equipe se movem com a mesma velocidade ou segurança que ele. Criar espaços mais estruturados de escuta, feedforward e acompanhamento pode transformar seu impacto de pontual e intenso para consistente e multiplicador.",
-          "relacoes_e_comunicacao": "Paulo tende a se comunicar de forma direta, expressiva e energizada — o que facilita conexões rápidas e gera presença nos ambientes em que atua. Seu estilo relacional provavelmente é mais orientado à ação e ao resultado do que à troca emocional profunda, o que pode gerar boa sinergia com pessoas de perfil semelhante, mas exige ajuste com quem valoriza mais a escuta e a reflexão. Cultivar curiosidade genuína sobre o ponto de vista do outro pode ampliar muito a qualidade das suas relações profissionais.",
+          "lideranca_sintese": "O estilo de liderança de Paulo é predominantemente Motivador — ele tende a liderar pelo exemplo do entusiasmo, pela capacidade de inspirar e pela habilidade de criar energia coletiva em torno de uma ideia ou objetivo. Ele não é o líder que planeja cada etapa com precisão; ele é o líder que faz as pessoas acreditarem que vale a pena tentar. A presença do estilo Sistemático em segundo lugar indica que, quando o contexto exige, Paulo consegue estruturar e acompanhar com mais rigor — o que amplia seu repertório de liderança. O desafio está em equilibrar o impulso motivacional com consistência de execução, garantindo que o movimento gerado se converta em resultado concreto.",
+          "lideranca_trabalhar": "Paulo pode se beneficiar de desenvolver maior disciplina no acompanhamento de metas e entregas — não para controlar, mas para garantir que a energia gerada por ele se converta em tração real. Trabalhar a escuta ativa nas interações de liderança é outro ponto relevante: líderes com alto poder de influência às vezes precisam se esforçar conscientemente para abrir espaço para perspectivas diferentes da sua. Por fim, aprender a diferenciar quando engajar e quando decidir é uma habilidade que pode tornar Paulo um líder ainda mais eficaz.",
+          "relacoes_e_comunicacao": "Paulo tende a ser percebido como alguém acessível, animado e genuinamente interessado nas pessoas — o que facilita a construção de vínculos profissionais com rapidez. Sua comunicação é naturalmente expressiva e convincente, com boa capacidade de adaptar o discurso ao interlocutor. O ponto de atenção é garantir que essa fluência comunicativa não se sobreponha à escuta: relacionamentos de alta qualidade também se constroem no silêncio e na atenção ao que o outro traz.",
           "pontos_desenvolver_pressao": [
-            "Tendência a acelerar decisões sem considerar informações importantes ainda em curso",
-            "Possível impaciência com pessoas que precisam de mais tempo para processar ou concordar",
-            "Risco de sobrepor a fala à escuta, reduzindo a percepção sobre o que os outros realmente sentem ou precisam",
-            "Tendência a assumir controle unilateral em situações de crise, dificultando a participação da equipe",
-            "Possível desconsideração de detalhes e processos na pressa por resultados rápidos",
-            "Risco de reagir de forma intensa ou direta em conflitos, antes de construir contexto e buscar entendimento"
+            "Sob pressão, Paulo tende a acelerar ainda mais o ritmo de fala e ação, o que pode gerar a percepção de atropelamento ou falta de escuta.",
+            "Em situações de alta tensão, pode priorizar o relacionamento e a harmonia a ponto de adiar conversas difíceis que precisariam acontecer.",
+            "O entusiasmo em momentos críticos pode ser lido pelos outros como superficialidade ou falta de seriedade diante do problema.",
+            "A baixa paciência natural tende a se intensificar sob pressão, tornando mais difícil sustentar processos longos ou pessoas com ritmo mais lento.",
+            "Paulo pode dispersar foco ao tentar resolver múltiplas frentes simultaneamente, perdendo profundidade nas questões mais críticas.",
+            "Em cenários de conflito, há tendência de buscar saídas rápidas e conciliatórias que resolvem a tensão imediata mas não endereçam a causa raiz do problema."
           ]
         },
-        "report_generated_at": "2026-07-03T21:25:42.016+00:00"
+        "report_generated_at": "2026-08-24T21:02:43.496+00:00"
       },
       "trilha": {
         "row": {
@@ -9917,90 +9907,261 @@
       "report": {
         "report_texts": {
           "quadrante_C": {
-            "adaptacao": null,
-            "descricao": "Carla tende a ter uma relação flexível com regras e procedimentos — ela os respeita quando fazem sentido, mas questiona naturalmente protocolos que parecem burocráticos ou que desaceleram o que importa. Essa característica pode ser um ativo em ambientes que valorizam inovação e agilidade, mas também pode gerar atritos em contextos que exigem conformidade ou execução metódica. A tendência a priorizar o resultado sobre o processo pode ser percebida como informal ou, em excesso, como descuidada.",
+            "descricao": "Carla lida com regras e procedimentos de forma pragmática — o que funciona importa mais do que o protocolo pelo protocolo. Ela tende a encontrar seus próprios caminhos dentro das estruturas, valorizando a entrega sobre a forma. Há abertura para inovação e flexibilidade, embora o detalhismo elevado nas competências indique que, quando o contexto exige rigor, ela consegue se ajustar.",
             "titulo_traco": "Criador"
           },
           "quadrante_D": {
-            "adaptacao": null,
-            "descricao": "Carla tende a enfrentar desafios de forma direta, com pouca hesitação e forte inclinação para assumir o controle da situação. Em momentos de adversidade, sua tendência é propor soluções e movimentar o ambiente ao redor, mais do que aguardar consenso. O risco desse padrão está na velocidade: decisões tomadas com muita agilidade podem desconsiderar nuances importantes ou deixar outras pessoas sem espaço de contribuição.",
+            "descricao": "Carla tende a encarar desafios de frente, com pouco espaço para hesitação. Diante de um problema, a resposta natural é agir — estruturar uma solução e ir atrás dela. Esse padrão pode ser uma força enorme em contextos que demandam velocidade, mas pode gerar desgaste quando o cenário exige mais deliberação ou escuta antes da decisão.",
             "titulo_traco": "Diretor"
           },
           "quadrante_I": {
-            "adaptacao": null,
-            "descricao": "A dimensão de influência de Carla está em um ponto intermediário — ela pode ser comunicativa e persuasiva quando o contexto exige, mas essa não é necessariamente sua forma padrão de se mover. Em relações profissionais, tende a ser mais seletiva do que expansiva, priorizando conexões com propósito em vez de interações amplas e abertas. Esse perfil pode passar uma imagem de objetividade e foco, mas também pode ser lido como distância ou falta de abertura por quem espera mais calor relacional.",
+            "descricao": "Com influência em zona de transição, Carla pode alternar entre momentos de comunicação mais aberta e momentos de maior reserva — dependendo do contexto e da confiança estabelecida. Ela tende a ser mais seletiva em suas conexões do que expansiva por padrão. A persuasão acontece mais pela credibilidade e pela consistência do que pelo carisma imediato.",
             "titulo_traco": "Pesquisador"
           },
           "quadrante_S": {
-            "adaptacao": null,
-            "descricao": "Carla tende a operar bem em contextos de mudança e variação de ritmo — ambientes estáveis e repetitivos podem parecer pouco estimulantes para ela. Sua inclinação é para a ação, para transitar entre demandas e para se adaptar rapidamente a novos cenários. Por outro lado, esse baixo índice de estabilidade pode se manifestar como impaciência com processos lentos ou com pessoas que precisam de mais tempo para processar e se posicionar.",
+            "descricao": "Carla opera em ritmo acelerado e tende a se mover rapidamente entre demandas. A preferência natural é por ação e mudança, não por constância e repetição. Isso pode gerar impaciência com processos longos ou com pessoas que precisam de mais tempo para processar — um ponto que merece atenção especialmente em posições de liderança.",
             "titulo_traco": "Executor"
           },
           "top5_forcas": [
             {
-              "frase": "A disposição natural de Carla para assumir riscos calculados e ir além do conforto é um diferencial em contextos que exigem coragem para decidir e agir.",
-              "competencia": "Ousadia"
-            },
-            {
-              "frase": "Sua tendência a ir direto ao ponto, sem rodeios desnecessários, confere clareza às suas comunicações e agilidade nas decisões.",
-              "competencia": "Objetividade"
-            },
-            {
-              "frase": "Carla tende a posicionar suas opiniões com firmeza, o que gera segurança ao redor e facilita o alinhamento em situações de impasse.",
-              "competencia": "Assertividade"
-            },
-            {
-              "frase": "Sua inclinação natural para assumir a liderança em situações de pressão é uma força que pode estabilizar equipes em momentos críticos.",
+              "frase": "A capacidade de assumir o controle de situações e conduzir grupos é um traço central e natural — Carla tende a ocupar esse espaço sem precisar de convite.",
               "competencia": "Comando"
             },
             {
-              "frase": "Quando motivada por um objetivo claro, Carla tem capacidade de mobilizar pessoas ao redor de uma causa com convicção e energia.",
-              "competencia": "Persuasão"
+              "frase": "Carla tende a tomar riscos calculados com mais facilidade do que a média, o que a coloca em vantagem em cenários que exigem decisões sob incerteza.",
+              "competencia": "Ousadia"
+            },
+            {
+              "frase": "Ir direto ao ponto é um padrão natural — ela tende a extrair o essencial de situações complexas sem se perder em rodeios.",
+              "competencia": "Objetividade"
+            },
+            {
+              "frase": "Quando direcionada a um objetivo, Carla consegue manter foco de forma sustentada, o que potencializa sua capacidade de entrega.",
+              "competencia": "Concentração"
+            },
+            {
+              "frase": "Ao contrário do que o perfil de alta dominância poderia sugerir, Carla demonstra capacidade real de atenção ao detalhe — o que qualifica suas entregas e fortalece sua credibilidade.",
+              "competencia": "Detalhismo"
             }
           ],
           "frases_chave": [
-            "Age primeiro, ajusta depois — e prefere errar em movimento a acertar parada.",
-            "Clareza, ritmo e resultado: é nessa direção que sua energia naturalmente flui.",
-            "Pode parecer impaciente, mas o que está por trás é um senso genuíno de urgência.",
-            "Seu maior desafio não é o que entrega — é como leva os outros junto nessa jornada."
+            "Lidera pelo que faz, não pelo que diz.",
+            "Ação é a linguagem natural — o desafio está em saber quando ouvir antes de mover.",
+            "A força de comando é real; o cuidado com o ritmo das pessoas é o que a torna duradoura.",
+            "Entrega com consistência constrói autoridade — a empatia é o que expande o alcance."
           ],
-          "sintese_perfil": "Carla tende a se apresentar como uma profissional de ritmo acelerado, com forte orientação para resultados e baixa tolerância a situações que parecem emperradas ou sem direção clara. Sua energia natural vai para a resolução de problemas e para a tomada de decisão — ela costuma preferir agir a esperar, e tende a se sentir mais viva em ambientes que desafiam e exigem posicionamento. Ao mesmo tempo, carrega uma camada comunicativa que pode surpreender: quando vê oportunidade de engajar pessoas em torno de uma causa ou objetivo, esse lado se ativa com naturalidade. O que mais a move, no entanto, é a sensação de avanço concreto — entregar, resolver, avançar.",
-          "modo_de_trabalho": "Carla tende a funcionar bem em ambientes dinâmicos, com metas claras e autonomia para agir. Rotinas muito rígidas ou processos sem propósito aparente podem drenar sua energia ao longo do tempo. Sob pressão, seu padrão automático é intensificar o ritmo e assumir o controle — o que pode ser muito eficaz em crises pontuais, mas desgastante como modo de operação contínuo.",
+          "sintese_perfil": "Carla tende a funcionar com alta energia direcional — ela entra em um ambiente com disposição para resolver, decidir e mover coisas. Seu modo natural é orientado à ação e ao resultado, com baixa tolerância para ambiguidade e processos lentos. A combinação de uma dominância elevada com influência moderada cria um perfil que lidera pelo exemplo e pela autoridade, mais do que pelo encantamento. Carla costuma inspirar pelo que entrega, não pelo que promete — e isso tem um peso real em ambientes que valorizam consistência e direção.",
+          "_schema_version": "natural-only-v1",
+          "modo_de_trabalho": "Carla funciona bem em ambientes dinâmicos, com desafios reais e autonomia para agir. Rotinas muito rígidas ou burocráticas tendem a reduzir seu engajamento. Sob pressão, o padrão natural é acelerar — o que pode ser uma vantagem em crises, desde que acompanhado de leituras precisas do contexto e das pessoas envolvidas.",
           "top5_desenvolver": [
             {
-              "frase": "Desenvolver a capacidade de desacelerar em momentos específicos pode ampliar a qualidade das decisões e o espaço para outras pessoas contribuírem.",
+              "frase": "Desenvolver a capacidade de desacelerar intencionalmente — especialmente com pessoas em curvas de aprendizado diferentes — pode ampliar muito o alcance da liderança de Carla.",
               "competencia": "Paciência"
             },
             {
-              "frase": "Investir em escuta ativa e consideração pelo ritmo emocional do outro pode fortalecer vínculos e reduzir atritos desnecessários.",
+              "frase": "Criar o hábito de pausar para considerar o estado emocional das pessoas antes de agir pode transformar relações que hoje podem parecer funcionais, mas distantes.",
               "competencia": "Empatia"
             },
             {
-              "frase": "Dar mais atenção ao processo — e não apenas ao resultado — pode aumentar a previsibilidade e a segurança de quem trabalha com ela.",
+              "frase": "A disposição natural para agir rápido é uma força, mas cultivar momentos de avaliação prévia pode evitar retrabalho e conflitos desnecessários.",
+              "competencia": "Prudência"
+            },
+            {
+              "frase": "Investir em estruturação prévia das iniciativas — mesmo que de forma enxuta — tende a aumentar a eficácia das ações e reduzir desgaste na execução.",
               "competencia": "Planejamento"
             },
             {
-              "frase": "Em contextos que exigem precisão, cultivar a atenção aos detalhes antes de finalizar pode evitar retrabalhos e fortalecer a credibilidade técnica.",
-              "competencia": "Detalhismo"
-            },
-            {
-              "frase": "Pausar antes de reagir em situações de tensão pode transformar respostas automáticas em escolhas mais estratégicas e bem recebidas.",
-              "competencia": "Prudência"
+              "frase": "Ampliar o círculo de conexões profissionais de forma mais intencional pode abrir espaços de influência que o estilo mais direto nem sempre alcança naturalmente.",
+              "competencia": "Sociabilidade"
             }
           ],
-          "lideranca_sintese": "Os dados de liderança de Carla não apontam para um estilo consolidado e predominante — o que, longe de ser uma limitação, pode indicar um momento de transição ou uma versatilidade que ainda está sendo reconhecida. Seu perfil comportamental sugere uma liderança de natureza executiva e diretiva: ela tende a liderar pelo exemplo da ação, pela clareza do que precisa ser feito e pela capacidade de tomar decisões sem se perder em debates prolongados. Equipes lideradas por ela provavelmente percebem um ritmo acelerado, alta exigência por resultados e pouca tolerância à paralisia.",
-          "lideranca_trabalhar": "Para ampliar sua eficácia como líder, Carla pode se beneficiar de desenvolver uma presença mais intencional no campo relacional — ouvir antes de concluir, reconhecer o esforço além do resultado e criar espaço para que outros liderem partes do processo. Líderes com seu perfil frequentemente ganham muito ao aprender a diferenciar quando ser diretiva é um ativo e quando isso pode estar sufocando o potencial do time.",
-          "relacoes_e_comunicacao": "No campo relacional, Carla tende a ser direta e eficiente — sua comunicação é orientada ao ponto, sem muitos rodeios, o que é apreciado por quem valoriza clareza. Em contextos profissionais, ela tende a construir relações com propósito e a investir mais em conexões funcionais do que em vínculos afetivos amplos. Isso pode ser lido como objetividade por uns e como frieza por outros, dependendo do estilo de quem está do outro lado.",
+          "lideranca_sintese": "O estilo de liderança de Carla é predominantemente executivo — ela tende a liderar com foco em metas, prazos e resultados concretos. Há uma clareza de direção que transmite confiança e traz estrutura aos times. A presença do estilo sistemático como segundo componente indica que, em certos contextos, Carla também consegue organizar processos e dar consistência às equipes. O componente motivador existe, mas não é o centro — ela tende a engajar pelo exemplo e pela entrega, mais do que por discursos inspiradores.",
+          "lideranca_trabalhar": "O principal ponto de desenvolvimento na liderança de Carla está na gestão do ritmo com as pessoas — aprender a calibrar a velocidade de suas expectativas com a realidade da equipe pode fazer a diferença entre um time que entrega e um time que se desgasta. Criar espaços mais regulares de escuta e feedback pode fortalecer o vínculo com os colaboradores e ampliar sua leitura do grupo.",
+          "relacoes_e_comunicacao": "Carla tende a se comunicar de forma direta e objetiva — ela prefere clareza a diplomacia excessiva. Nas relações profissionais, constrói confiança pela consistência e pela entrega, não pela informalidade. Pode ser percebida como distante por quem espera mais warmth no contato inicial, mas aqueles que trabalham mais próximos tendem a reconhecer sua lealdade e seriedade.",
           "pontos_desenvolver_pressao": [
-            "Tendência a acelerar decisões sem consultar as pessoas envolvidas, o que pode gerar resistência ou sensação de exclusão.",
-            "Possível redução da escuta ativa em situações de pressão, respondendo antes de compreender completamente o contexto.",
-            "Risco de comunicação mais incisiva do que o necessário, podendo ser percebida como agressiva ou impaciente.",
-            "Propensão a assumir o controle de situações que poderiam ser resolvidas colaborativamente, centralizando decisões sem intenção.",
-            "Dificuldade em aceitar ritmos diferentes dos seus, gerando impaciência explícita com pessoas mais reflexivas ou cautelosas.",
-            "Tendência a minimizar processos e procedimentos considerados lentos, o que pode comprometer a qualidade ou criar conflitos com áreas mais estruturadas."
+            "Tendência a aumentar o tom ou a intensidade na comunicação quando os resultados não chegam no ritmo esperado.",
+            "Dificuldade em tolerar processos mais lentos ou decisões que dependem de consenso — o impulso é agir de forma unilateral.",
+            "Possível leitura das dúvidas e hesitações alheias como falta de comprometimento, gerando julgamento precipitado.",
+            "Redução da escuta ativa sob pressão — a urgência pelo resultado pode fazer com que a comunicação se torne mais impositiva e menos receptiva.",
+            "Risco de avançar em decisões sem checar todos os impactos envolvidos, especialmente quando o ambiente exige mais cautela.",
+            "Tendência a assumir sozinha o controle da situação, reduzindo o espaço para a participação e o desenvolvimento da equipe."
           ]
         },
-        "report_generated_at": "2026-07-03T21:24:55.613+00:00"
+        "report_generated_at": "2026-08-24T21:01:03.357+00:00"
+      }
+    },
+    "renato.demo@vertho.ai": {
+      "report": {
+        "report_texts": {
+          "quadrante_C": {
+            "descricao": "Com um C em faixa intermediária, Renato demonstra algum cuidado com qualidade e organização, mas sem rigidez excessiva. Ele consegue seguir processos e procedimentos quando reconhece seu valor, mas provavelmente não se prende a regras por princípio — prefere entender o porquê antes de seguir o como. Isso pode ser um ponto de equilíbrio saudável, desde que não resulte em inconsistência na aplicação de critérios.",
+            "titulo_traco": "Analista"
+          },
+          "quadrante_D": {
+            "descricao": "Renato tende a encarar problemas de frente, com disposição para tomar decisões mesmo quando há incerteza. Seu nível de D indica alguém que prefere agir a esperar, que se incomoda com passividade e que naturalmente assume o protagonismo em situações que pedem resolução. O risco está em desconsiderar etapas ou perspectivas alheias quando a pressão por resultado é alta.",
+            "titulo_traco": "Diretor"
+          },
+          "quadrante_I": {
+            "descricao": "Renato não costuma depender de aprovação social para funcionar bem, e sua influência sobre pessoas tende a vir mais pela credibilidade e pela consistência do que pelo entusiasmo ou pela expressividade. Ele pode ser percebido como reservado em ambientes novos ou em contextos que exigem muita sociabilização. Isso não é distância — é um modo diferente de construir confiança, geralmente mais sólido, embora mais lento.",
+            "titulo_traco": "Pesquisador"
+          },
+          "quadrante_S": {
+            "descricao": "Há uma tendência real em Renato de valorizar previsibilidade, lealdade e continuidade. Ele provavelmente funciona bem em ambientes onde pode criar rotinas e manter vínculos duradouros, e tende a demonstrar comprometimento de forma consistente ao longo do tempo. Mudanças abruptas ou contextos muito instáveis podem gerar desconforto, especialmente quando afetam relações ou processos que ele já consolidou.",
+            "titulo_traco": "Planejador"
+          },
+          "top5_forcas": [
+            {
+              "frase": "Renato tende a assumir a frente das situações com naturalidade, especialmente quando o contexto pede direção clara e alguém disposto a decidir.",
+              "competencia": "Comando"
+            },
+            {
+              "frase": "Uma das forças mais sólidas do perfil: Renato demonstra capacidade de sustentar esforço mesmo diante de obstáculos, sem desistir facilmente do que começou.",
+              "competencia": "Persistência"
+            },
+            {
+              "frase": "Seu raciocínio tende a ir direto ao ponto, filtrando o que é essencial e evitando dispersão — o que favorece decisões mais rápidas e comunicações mais eficazes.",
+              "competencia": "Objetividade"
+            },
+            {
+              "frase": "A combinação de D e S no perfil cria alguém que sabe tanto agir quanto estruturar, conseguindo pensar adiante sem perder o foco no presente.",
+              "competencia": "Planejamento"
+            },
+            {
+              "frase": "Renato demonstra atenção a aspectos que outros podem ignorar, o que contribui para entregas com mais consistência e menos retrabalho.",
+              "competencia": "Detalhismo"
+            }
+          ],
+          "frases_chave": [
+            "Determinação que sustenta — não é só velocidade, é constância.",
+            "Lidera pelo que entrega, não pelo que promete.",
+            "A confiança que Renato oferece é construída com tempo e coerência.",
+            "Seu maior ponto de equilíbrio está entre agir rápido e agir junto."
+          ],
+          "sintese_perfil": "Renato tende a combinar determinação e estabilidade de um jeito pouco comum: consegue agir com firmeza e velocidade quando o contexto exige, mas também demonstra capacidade de sustentar compromissos ao longo do tempo. Seu perfil sugere alguém que se move por resultados concretos e que tem dificuldade com ambiguidade prolongada, buscando clareza e desfecho nas situações. Ao mesmo tempo, a presença relevante de S no seu perfil indica que ele valoriza consistência, confiança e ambientes onde as regras do jogo sejam previsíveis. Essa combinação pode gerar um profissional que lidera pelo exemplo e pela entrega, mais do que pelo carisma ou pela sedução emocional.",
+          "_schema_version": "natural-only-v1",
+          "modo_de_trabalho": "Renato provavelmente funciona melhor em ambientes onde há clareza de papéis, metas definidas e liberdade para executar sem microgestão. Ele consegue sustentar ritmo de trabalho de forma consistente e tende a ser alguém de quem se pode depender. Em situações de alta pressão, sua resposta natural é acelerar a execução, o que pode ser eficaz no curto prazo, mas demandar atenção para não descuidar de aspectos relacionais ou estratégicos que exigem mais pausa e reflexão.",
+          "top5_desenvolver": [
+            {
+              "frase": "Renato pode se beneficiar de ampliar seu repertório para convencer e engajar pessoas com argumentos que vão além da lógica e do fato — conectando também com motivações e emoções.",
+              "competencia": "Persuasão"
+            },
+            {
+              "frase": "Em momentos em que o time precisa de energia e motivação, cultivar uma expressão mais visível de comprometimento pode amplificar o impacto da sua liderança.",
+              "competencia": "Entusiasmo"
+            },
+            {
+              "frase": "Expandir a presença em contextos sociais e construir mais conexões informais pode abrir portas que a competência técnica sozinha não alcança.",
+              "competencia": "Extroversão"
+            },
+            {
+              "frase": "Investir na construção de relações além do necessário para a entrega pode fortalecer sua rede de suporte e ampliar sua influência no médio prazo.",
+              "competencia": "Sociabilidade"
+            },
+            {
+              "frase": "Há espaço para Renato arriscar mais em situações que demandam inovação ou posicionamentos ousados, especialmente quando o contexto protegido por dados e planejamento.",
+              "competencia": "Ousadia"
+            }
+          ],
+          "lideranca_sintese": "O estilo de liderança de Renato é marcado pela combinação entre execução direta e metodicidade — ele lidera predominantemente como alguém que entrega resultados e que estrutura processos, mais do que como alguém que inspira emocionalmente ou que cria ambientes de muito envolvimento. Sua tendência Executiva indica que ele provavelmente define expectativas claras, cobra resultados e dá direção objetiva. O componente Metódico sugere que ele também valoriza consistência, qualidade e processos bem definidos. Há uma presença menor do estilo Motivador, o que indica que o engajamento emocional do time pode demandar esforço consciente — é um músculo que pode ser desenvolvido.",
+          "lideranca_trabalhar": "Renato pode ganhar em eficácia liderando se investir em momentos intencionais de reconhecimento e conexão com as pessoas do time — não apenas em conversas sobre performance, mas em diálogos que demonstrem interesse genuíno pelo desenvolvimento individual. Criar espaço para que o time participe das decisões também pode aumentar o comprometimento coletivo, já que perfis mais voltados à entrega tendem a decidir de forma centralizada sem perceber o impacto disso na motivação das pessoas ao redor.",
+          "relacoes_e_comunicacao": "Renato tende a se comunicar de forma direta e orientada ao conteúdo — ele diz o que precisa ser dito, sem muitos rodeios. Essa clareza é uma força em contextos que exigem objetividade, mas pode ser percebida como frieza ou falta de sensibilidade por pessoas que precisam de mais contexto emocional antes da informação. Construir relações de confiança é algo que Renato faz com consistência ao longo do tempo, não de imediato — e quando investe em um vínculo, tende a ser um parceiro leal e confiável.",
+          "pontos_desenvolver_pressao": [
+            "Tendência a encurtar processos e tomar decisões sem ouvir todas as perspectivas relevantes quando o prazo aperta.",
+            "Possibilidade de se tornar mais controlador e exigente, reduzindo o espaço de autonomia da equipe em momentos críticos.",
+            "Dificuldade em demonstrar vulnerabilidade ou pedir apoio, o que pode isolar Renato justamente quando mais precisaria de suporte.",
+            "Risco de priorizar a entrega sobre as relações, gerando desgaste com pessoas que precisam de mais atenção emocional para performar bem.",
+            "Em situações de instabilidade prolongada, a necessidade de controle pode se intensificar, gerando rigidez onde a flexibilidade seria mais eficaz.",
+            "Possível dificuldade em aceitar críticas ou revisões no próprio trabalho sem interpretar como questionamento à sua autoridade ou competência."
+          ]
+        },
+        "report_generated_at": "2026-08-24T21:03:32.72+00:00"
+      }
+    },
+    "mariana.demo@vertho.ai": {
+      "report": {
+        "report_texts": {
+          "quadrante_C": {
+            "descricao": "A precisão e o rigor são marcas fortes no modo como Mariana se relaciona com processos e informações. Ela provavelmente sente necessidade de entender bem as regras antes de seguir — ou de questioná-las fundamentadamente. O alto peso nesse fator sugere que errar por falta de cuidado é algo que genuinamente a incomoda, o que sustenta um padrão de entrega confiável, mas pode também alimentar uma tendência ao perfeccionismo.",
+            "titulo_traco": "Analista"
+          },
+          "quadrante_D": {
+            "descricao": "Mariana tende a preferir construir consenso a impor soluções. Diante de desafios, é provável que busque entender o cenário com cuidado antes de se mover — o que pode ser uma força em situações que exigem ponderação, mas pode gerar hesitação quando a velocidade importa. Ela provavelmente evita confrontos desnecessários e prefere ambientes em que a colaboração substitui a competição.",
+            "titulo_traco": "Cooperador"
+          },
+          "quadrante_I": {
+            "descricao": "Mariana não costuma usar o carisma ou o entusiasmo como seu principal meio de influência — sua credibilidade tende a vir da consistência e da qualidade do que apresenta. Em grupos, é mais provável que observe antes de falar, e sua comunicação tende a ser mais reflexiva do que espontânea. Isso pode fazê-la parecer reservada em contextos muito interativos, ainda que sua presença seja valorizada quando há necessidade de profundidade.",
+            "titulo_traco": "Pesquisador"
+          },
+          "quadrante_S": {
+            "descricao": "Estabilidade e previsibilidade são provavelmente fontes de conforto e desempenho para Mariana. Ela tende a se dar bem com rotinas bem definidas, entregas estruturadas e ambientes em que há tempo para preparar antes de executar. Mudanças abruptas ou demandas muito aceleradas podem gerar desconforto — não por falta de capacidade, mas porque seu ritmo natural valoriza a consistência acima da velocidade.",
+            "titulo_traco": "Planejador"
+          },
+          "top5_forcas": [
+            {
+              "frase": "Mariana tem uma capacidade natural de antecipar etapas, organizar prioridades e pensar à frente — o que reduz improvisações e aumenta a confiabilidade das entregas.",
+              "competencia": "Planejamento"
+            },
+            {
+              "frase": "Sua tendência a avaliar antes de agir funciona como um filtro de qualidade, ajudando a evitar decisões precipitadas em contextos de incerteza.",
+              "competencia": "Prudência"
+            },
+            {
+              "frase": "Mariana provavelmente sustenta processos longos, relações que exigem escuta e situações em que a espera é necessária — sem perder o foco no resultado.",
+              "competencia": "Paciência"
+            },
+            {
+              "frase": "Sua sensibilidade às necessidades alheias tende a criar vínculos genuínos e a torná-la uma referência de cuidado dentro das equipes em que atua.",
+              "competencia": "Empatia"
+            },
+            {
+              "frase": "A forma estruturada como provavelmente organiza seu trabalho facilita a colaboração, a clareza nos projetos e a gestão do tempo em contextos de múltiplas demandas.",
+              "competencia": "Organização"
+            }
+          ],
+          "frases_chave": [
+            "Mariana entrega com qualidade porque pensa antes de agir.",
+            "Sua força está no rigor — o desenvolvimento está em arriscar mais.",
+            "Cuidar bem do processo é natural; cuidar da própria voz é o próximo passo.",
+            "Confiabilidade é seu ativo mais sólido — aprender a mostrá-la com mais presença pode ampliar seu impacto."
+          ],
+          "sintese_perfil": "Mariana tende a funcionar com uma combinação pouco comum: ao mesmo tempo que aprecia estrutura, método e precisão, carrega uma orientação natural para as pessoas e para o cuidado com o processo. Seu estilo mais provável é o de quem pensa antes de agir, valoriza o planejamento como ferramenta de segurança e prefere ambientes em que as regras fazem sentido. Ela tende a ser percebida como alguém confiável, cuidadosa e detalhista — alguém que entrega o que promete, mas que pode levar tempo antes de se posicionar com mais firmeza. A combinação de prudência com empatia faz de Mariana uma profissional que cuida tanto das tarefas quanto das relações, ainda que sua voz nem sempre apareça no volume que seu pensamento merece.",
+          "_schema_version": "natural-only-v1",
+          "modo_de_trabalho": "No trabalho, Mariana tende a funcionar melhor quando tem clareza sobre as expectativas, tempo para planejar e espaço para revisar antes de entregar. Ambientes muito caóticos ou com mudanças constantes de prioridade provavelmente afetam seu rendimento — não porque ela seja inflexível, mas porque seu melhor desempenho emerge da estrutura, não da improvisação. Sob pressão, o risco mais comum é a tendência a querer fazer tudo com perfeição quando às vezes o suficientemente bom já resolve.",
+          "top5_desenvolver": [
+            {
+              "frase": "Ampliar a disposição para se lançar em territórios menos conhecidos pode abrir espaços de crescimento que a cautela natural ainda não permitiu explorar.",
+              "competencia": "Ousadia"
+            },
+            {
+              "frase": "Desenvolver mais conforto em posições de direção e tomada de decisão autônoma pode fortalecer sua influência em situações que exigem liderança clara.",
+              "competencia": "Comando"
+            },
+            {
+              "frase": "Comunicar posições com mais firmeza — mesmo sem abandonar o respeito pelo outro — pode ajudar Mariana a ser ouvida com o peso que seu pensamento merece.",
+              "competencia": "Assertividade"
+            },
+            {
+              "frase": "Transformar sua profundidade analítica em argumentos mais envolventes pode ampliar sua capacidade de engajar pessoas em torno das suas ideias.",
+              "competencia": "Persuasão"
+            },
+            {
+              "frase": "Expressar mais energia e envolvimento visível pode aproximar Mariana de contextos que valorizam presença e animação como parte da comunicação.",
+              "competencia": "Entusiasmo"
+            }
+          ],
+          "lideranca_sintese": "O estilo de liderança de Mariana tende a ser predominantemente Sistemático, com boa presença do perfil Metódico — o que sugere uma liderança orientada à qualidade, ao processo e à segurança das entregas. Ela provavelmente lidera por meio do exemplo de rigor e consistência, mais do que por mobilização emocional ou imposição de autoridade. Seu time tende a se sentir bem amparado por ela em termos de organização e clareza, mas pode esperar dela também mais visibilidade de direção e posicionamento quando o ambiente exige escolhas difíceis.",
+          "lideranca_trabalhar": "Um caminho de desenvolvimento para Mariana como líder passa por ampliar sua presença nos momentos de decisão visível — tornar mais explícito o raciocínio por trás das escolhas pode fortalecer a confiança do time. Também pode ser útil praticar o engajamento emocional com a equipe de forma mais intencional, reconhecendo que motivar pessoas exige, às vezes, ir além da entrega bem feita e comunicar propósito de forma mais expressiva.",
+          "relacoes_e_comunicacao": "Mariana tende a construir relações com base na confiança gradual e na consistência — mais do que em conexões rápidas ou interações intensas. Sua comunicação é provavelmente cuidadosa, bem estruturada e orientada para a precisão, o que pode ser muito valorizado em contextos técnicos, mas pode parecer contida em ambientes mais informais. Ela provavelmente ouve com atenção genuína, o que a torna uma interlocutora de qualidade mesmo que nem sempre tome a iniciativa de iniciar o diálogo.",
+          "pontos_desenvolver_pressao": [
+            "Tendência a se recolher ou adiar posicionamentos quando percebe conflito iminente ou pressão social elevada.",
+            "Possível excesso de análise antes de agir, gerando paralisia ou atrasos em contextos que exigem decisão rápida.",
+            "Dificuldade em delegar tarefas quando a qualidade do resultado não está garantida, concentrando mais trabalho do que o necessário.",
+            "Risco de absorver demandas dos outros sem explicitar seus próprios limites, especialmente quando o ambiente valoriza colaboração.",
+            "Tendência a evitar o confronto mesmo quando seria necessário para proteger o resultado ou a equipe.",
+            "Possível rigidez diante de mudanças não planejadas, com dificuldade de adaptar o método quando o contexto muda abruptamente."
+          ]
+        },
+        "report_generated_at": "2026-08-24T21:01:53.444+00:00"
       }
     }
   }
