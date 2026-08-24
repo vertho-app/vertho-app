@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext } from '@/lib/authz';
 import { TURMA_MEMBRO } from '@/lib/status';
+import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 
 /**
  * Home do gestor — dados consolidados em uma única chamada:
@@ -223,7 +224,9 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
 
   // ── 2. Trilhas mais recentes por liderado ──
   const { data: trilhas } = await sb.from('trilhas')
-    .select('id, colaborador_id, competencia_foco, numero_temporada, status, evolution_report, criado_em, data_inicio')
+    // D1: `programa_modo` entra para a duração sair do literal 14. É coluna de
+    // TEXTO — `temporada_plano` seria o jsonb inteiro de cada trilha do gestor.
+    .select('id, colaborador_id, competencia_foco, numero_temporada, status, evolution_report, criado_em, data_inicio, programa_modo')
     .in('colaborador_id', liderIds)
     .order('criado_em', { ascending: false });
   const trilhaPorColab = new Map<string, any>();
@@ -247,7 +250,9 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     if (!t.data_inicio) continue;
     const inicio = new Date(t.data_inicio).getTime();
     const dias = Math.max(1, Math.floor((Date.now() - inicio) / (24 * 3600 * 1000)));
-    const semana = Math.min(14, Math.ceil(dias / 7));
+    // D1: o teto é o do PROGRAMA da pessoa (jornada 7, onboarding 10, piloto 3),
+    // não o 14 do formato regular.
+    const semana = Math.min(getProgramaConfigDaTrilha(t).semanas, Math.ceil(dias / 7));
     porSemana.set(semana, (porSemana.get(semana) || 0) + 1);
   }
   const distribuicaoSemanas = [...porSemana.entries()]
@@ -386,7 +391,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     let semana: number | null = null;
     if (t?.data_inicio && (t.status === 'ativa' || t.status === 'pausada')) {
       const dias = Math.max(1, Math.floor((Date.now() - new Date(t.data_inicio).getTime()) / (24 * 3600 * 1000)));
-      semana = Math.min(14, Math.ceil(dias / 7));
+      semana = Math.min(getProgramaConfigDaTrilha(t).semanas, Math.ceil(dias / 7));
     }
     let delta: number | null = null;
     if (t?.status === 'concluida' && t.evolution_report) {
@@ -479,8 +484,13 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
         });
       }
     }
-    // Fim da trilha (semana 14)
-    const fimTrilha = new Date(inicio + 14 * 7 * 24 * 3600 * 1000);
+    // Fim da trilha — na semana em que o PROGRAMA dela acaba.
+    //
+    // D1: com 14 cravado, o alerta de fim NUNCA disparava no fim real de uma
+    // jornada de 7 semanas, e disparava ~7 semanas depois, quando já não há o
+    // que fazer a respeito.
+    const semanasDoPrograma = getProgramaConfigDaTrilha(t).semanas;
+    const fimTrilha = new Date(inicio + semanasDoPrograma * 7 * 24 * 3600 * 1000);
     const diasFim = (fimTrilha.getTime() - Date.now()) / (24 * 3600 * 1000);
     if (diasFim > 0 && diasFim <= 28) {
       timeline.push({

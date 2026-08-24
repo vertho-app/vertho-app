@@ -4,7 +4,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { isMapeamentoCenariosLiberado, isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import type { UserContext } from '@/types';
-import { ehSemanaDeImplementacao } from '@/lib/season-engine/trilha-runtime';
+import { ehSemanaDeImplementacao, totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 
 /**
  * Loaders da home do dashboard — queries PURAS, sem 'use server' e sem auth
@@ -32,7 +32,19 @@ export const JORNADA_COLAB_COLS =
   'id, nome_completo, email, cargo, area_depto, empresa_id, perfil_dominante, perfil_externo_dados, perfil_externo_pdf_path, created_at';
 
 const SEMANA_DIAS = 7;
-const TOTAL_SEMANAS = 14;
+/**
+ * ⚠️ FALLBACK, não a duração. Quem responde "quantas semanas" é o PLANO da
+ * trilha — `totalSemanasDoPlano(plano, TOTAL_SEMANAS_FALLBACK)`.
+ *
+ * D1 (auditoria 22/08): este arquivo já documentava, duas linhas abaixo, que
+ * `SEMANAS_IMPLEMENTACAO` era "fallback histórico" e delegava a
+ * `ehSemanaDeImplementacao(plano, s)` — e deixava o TOTAL sem delegação
+ * nenhuma. Os 5 presets valem 14 (regular), 10 (onboarding), 14 (regular_duo),
+ * 3 (piloto) e 7 (jornada): quem está numa jornada lia "Semana 3 de 14" na
+ * home, e o card "Próximo marco" anunciava pílulas de semanas que não existem
+ * no plano dela.
+ */
+const TOTAL_SEMANAS_FALLBACK = 14;
 // Fallback histórico: o formato de 14 semanas. Quem responde de verdade é o
 // plano da trilha (ver `ehSemanaDeImplementacao`).
 const SEMANAS_IMPLEMENTACAO = [4, 8, 12];
@@ -276,7 +288,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     const { data: progresso } = await sb.from('temporada_semana_progresso')
       .select('semana, status').eq('trilha_id', trilha.id).order('semana');
     const concluidas = (progresso || []).filter(p => p.status === PROGRESSO.CONCLUIDO).length;
-    semanaAtual = Math.min(14, concluidas + 1);
+    semanaAtual = Math.min(totalSemanasDoPlano(trilha.temporada_plano, TOTAL_SEMANAS_FALLBACK), concluidas + 1);
   }
 
   const temporadaStatus = trilha?.status === TRILHA.CONCLUIDA ? 'completed'
@@ -287,7 +299,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     fase: 4,
     titulo: 'Temporada',
     descricao: temPlano
-      ? `Semana ${semanaAtual} de 14 · ${trilha.competencia_foco || ''}`
+      ? `Semana ${semanaAtual} de ${totalSemanasDoPlano(trilha.temporada_plano, TOTAL_SEMANAS_FALLBACK)} · ${trilha.competencia_foco || ''}`
       : 'Aguardando geração da trilha personalizada',
     status: temporadaStatus,
     data: trilha?.criado_em || null,
@@ -430,12 +442,16 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
     if (semanaAtual > 0 && progresso?.created_at) {
       const inicio = new Date(progresso.created_at);
       const marcos = [];
-      for (let s = semanaAtual + 1; s <= TOTAL_SEMANAS; s++) {
+      // D1: o horizonte é o do PLANO desta pessoa. Com 14 fixo, a jornada de 7
+      // semanas ganhava 7 marcos de "próxima pílula" que não existem, e o
+      // "Trilha conclui" caía ~7 semanas depois do fim real.
+      const totalSemanas = totalSemanasDoPlano(trilha?.temporada_plano, TOTAL_SEMANAS_FALLBACK);
+      for (let s = semanaAtual + 1; s <= totalSemanas; s++) {
         const dataSemana = new Date(inicio.getTime() + (s - 1) * SEMANA_DIAS * MS_DIA);
         const diasAte = Math.ceil((dataSemana.getTime() - agora.getTime()) / MS_DIA);
         if (diasAte <= 0) continue;
         const ehImpl = ehSemanaDeImplementacao(trilha?.temporada_plano, s);
-        const ehFim = s === TOTAL_SEMANAS;
+        const ehFim = s === totalSemanas;
         marcos.push({
           tipo: ehFim ? 'fim' : ehImpl ? 'implementacao' : 'pilula',
           semana: s,
