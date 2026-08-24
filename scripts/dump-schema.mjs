@@ -15,11 +15,12 @@
  *   node --env-file=.env.local scripts/dump-schema.mjs > migrations/000-baseline.sql
  */
 import pg from 'pg';
+import { sslSupabase } from './_pg-ssl.mjs';
 
 const url = process.env.DATABASE_URL;
 if (!url) { console.error('ERRO: DATABASE_URL ausente.'); process.exit(1); }
 
-const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString: url, ssl: sslSupabase() });
 await client.connect();
 
 const out = [];

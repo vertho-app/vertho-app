@@ -3,6 +3,7 @@
 // Rodar: node scripts/seed-sales-materials.mjs
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import { sslSupabase } from './_pg-ssl.mjs';
 const require = createRequire(import.meta.url);
 const { Client } = require('pg');
 
@@ -33,7 +34,7 @@ const MATERIAIS = [
   { title: 'Case — Rede municipal (100+ colaboradores)', category: 'case', segment: 'rede_ensino', description: 'Diagnóstico de competências de gestores escolares, trilhas de 14 semanas com tutor de IA e relatórios de evolução por escola.' },
 ];
 
-const client = new Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const client = new Client({ connectionString: url, ssl: sslSupabase() });
 await client.connect();
 try {
   const { rows } = await client.query('SELECT count(*)::int AS n FROM sales_materials');

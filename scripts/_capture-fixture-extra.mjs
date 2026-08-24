@@ -3,12 +3,13 @@
 // cod_comp para o reset remapear). Rodar DEPOIS do pipeline.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import { sslSupabase } from './_pg-ssl.mjs';
 const require = createRequire('C:/GAS/Vertho App/nextjs-app/package.json');
 const { Client } = require('pg');
 const url = fs.readFileSync('C:/GAS/Vertho App/nextjs-app/.env.local','utf8').match(/^DATABASE_URL=(.*)$/m)[1].trim();
 const E = '455f9366-fb4f-4c58-a79e-f94193464744';
 const CARGOS = ['Analista Financeiro', 'Coordenador de Operações', 'Gerente Comercial'];
-const c = new Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const c = new Client({ connectionString: url, ssl: sslSupabase() });
 await c.connect();
 
 // Gabaritos por cargo

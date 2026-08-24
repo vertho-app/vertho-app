@@ -36,6 +36,12 @@ const POLL = parseInt(POLL_INTERVAL_MS, 10);
 const IDLE_MS = parseInt(IDLE_SHUTDOWN_MS, 10);
 const EPHEMERAL_MODE = String(EPHEMERAL || '').toLowerCase() === 'true';
 const CONCURRENCY = parseInt(RENDER_CONCURRENCY || String(Math.max(1, os.cpus().length)), 10);
+// 🚧 TLS sem verificação — ÚLTIMO site desta classe no repo (24/08). Os 13
+// scripts irmãos passaram a usar `scripts/_pg-ssl.mjs`, que verifica quando a CA
+// está presente e avisa quando não está. Este ficou de fora por um motivo, não
+// por esquecimento: o worker é COPIADO sozinho para a VPS Hetzner, sem o resto
+// do repo — o import de `../scripts/` não existiria lá, e a CA em `config/`
+// também não. Fechar aqui exige embutir a lógica e testar NA VPS.
 const pool = new pg.Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 4 });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (...a) => console.log(new Date().toISOString(), ...a);

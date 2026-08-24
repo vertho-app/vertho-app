@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { Client } from 'pg';
+import { sslSupabase } from '../../../scripts/_pg-ssl.mjs';
 
 /**
  * Guard de ESTADO DO BANCO — congela a postura de RLS/segurança estabelecida
@@ -53,7 +54,7 @@ describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
   let client: Client;
 
   beforeAll(async () => {
-    client = new Client({ connectionString: DB!, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 15000 });
+    client = new Client({ connectionString: DB!, ssl: sslSupabase(), connectionTimeoutMillis: 15000 });
     await client.connect();
   });
   afterAll(async () => { await client?.end(); });

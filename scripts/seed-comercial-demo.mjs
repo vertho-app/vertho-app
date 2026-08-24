@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
+import { sslSupabase } from './_pg-ssl.mjs';
 const require = createRequire(import.meta.url);
 const { Client } = require('pg');
 const ENV = fs.readFileSync(new URL('../.env.local', import.meta.url), 'utf8');
@@ -184,7 +185,7 @@ async function insertCommissions(client, repId, propId, accId, p, seq) {
 }
 
 async function run() {
-  const client = new Client({ connectionString: env('DATABASE_URL'), ssl: { rejectUnauthorized: false } });
+  const client = new Client({ connectionString: env('DATABASE_URL'), ssl: sslSupabase() });
   await client.connect();
   try {
     for (const rep of REPS) {

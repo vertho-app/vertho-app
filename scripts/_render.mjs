@@ -4,11 +4,12 @@ import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { personalizar, primeiroNome } from '../worker-hetzner/personalizar.mjs';
+import { sslSupabase } from './_pg-ssl.mjs';
 
 const ID = '710538a8-48b9-4b62-bf15-ce348d5652d7';
 const LIB = process.env.BUNNY_LIBRARY_ID, BKEY = process.env.BUNNY_STREAM_API_KEY;
 const BUNDLE = path.resolve('worker-hetzner/spike-bundle');
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 2 });
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: sslSupabase(), max: 2 });
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
 async function bunny(buf, title) {

@@ -10,6 +10,7 @@
  *   node --env-file=.env.local scripts/_criar-indices-escala.mjs
  */
 import pg from 'pg';
+import { sslSupabase } from './_pg-ssl.mjs';
 
 const url = process.env.DATABASE_URL;
 if (!url) {
@@ -24,7 +25,7 @@ const statements = [
      ON public.colaboradores (lower(email))`,
 ];
 
-const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString: url, ssl: sslSupabase() });
 await client.connect();
 console.log('✓ conectado');
 

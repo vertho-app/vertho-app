@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import pg from 'pg';
 import { tasks } from '@trigger.dev/sdk';
 import { normalizarRoteiro } from '../lib/video/roteiro-prompt';
+import { sslSupabase } from './_pg-ssl.mjs';
 
 const log = (...a: any[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -29,7 +30,7 @@ const roteiro: any = normalizarRoteiro({
 } as any);
 
 async function main() {
-  const sb = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 2 });
+  const sb = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: sslSupabase(), max: 2 });
   let videoId: string | null = null;
   try {
     log('boxes de render ANTES:', (await renderBoxes()).join(', ') || 'nenhuma');

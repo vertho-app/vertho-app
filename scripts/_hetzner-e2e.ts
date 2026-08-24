@@ -12,6 +12,7 @@ import os from 'node:os';
 import pg from 'pg';
 import { tasks } from '@trigger.dev/sdk';
 import { normalizarRoteiro } from '../lib/video/roteiro-prompt';
+import { sslSupabase } from './_pg-ssl.mjs';
 
 const exec = promisify(execFile);
 const log = (...a: any[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
@@ -51,7 +52,7 @@ const roteiro: any = normalizarRoteiro({
 async function main() {
   let id: number | null = null;
   let videoId: string | null = null;
-  const sb = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 3 });
+  const sb = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: sslSupabase(), max: 3 });
   const envPath = os.tmpdir() + '/worker-e2e.env';
   try {
     // 0) registra o job (deck) ANTES, p/ dispatch

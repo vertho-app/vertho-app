@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { montarInputProps } from '../lib/video/montar-inputprops';
 import { transcribeWords } from '../lib/video/whisper-align';
+import { sslSupabase } from './_pg-ssl.mjs';
 
 const exec = promisify(execFile);
 const ID = '710538a8-48b9-4b62-bf15-ce348d5652d7';
@@ -20,7 +21,7 @@ const PRON: [RegExp, string][] = [[/\bVertho\b/gi, 'Vértho'], [/\bPDI\b/g, 'pê
 const aplicar = (t: string) => PRON.reduce((s, [r, x]) => s.replace(r, x), t);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const log = (...a: any[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 2 });
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: sslSupabase(), max: 2 });
 
 async function gemTTS(style: string, text: string) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GK}`;

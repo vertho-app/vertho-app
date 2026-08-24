@@ -12,6 +12,7 @@ import { promisify } from 'node:util';
 import { writeFileSync, rmSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import pg from 'pg';
+import { sslSupabase } from './_pg-ssl.mjs';
 
 const exec = promisify(execFile);
 const log = (...a: any[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
@@ -40,7 +41,7 @@ runcmd:
 
 async function main() {
   let id: number | null = null;
-  const sb = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 2 });
+  const sb = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: sslSupabase(), max: 2 });
   const envPath = os.tmpdir() + '/worker-drain.env';
   try {
     log('alvo VIDEO=' + VIDEO);

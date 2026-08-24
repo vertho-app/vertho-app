@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
+import { sslSupabase } from './_pg-ssl.mjs';
 const raw = readFileSync('.env.local', 'utf-8');
 const env = {};
 for (const l of raw.split(/\r?\n/)) { const i = l.indexOf('='); if (i < 0) continue; env[l.slice(0, i).trim()] = l.slice(i + 1).trim().replace(/^"|"$/g, ''); }
 let TOKEN = null; for (const k of Object.keys(env)) if (/hetzner/i.test(k)) TOKEN = env[k];
 const ID = 'afc585f8-3edc-4e13-95fe-7110022d9bd4';
 const H = (p) => fetch('https://api.hetzner.cloud/v1/' + p, { headers: { Authorization: 'Bearer ' + TOKEN } }).then(r => r.json());
-const client = new pg.Client({ connectionString: env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString: env.DATABASE_URL, ssl: sslSupabase() });
 await client.connect();
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 let cpuBaixo = 0;

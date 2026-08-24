@@ -10,6 +10,7 @@
 // RH/T&D corporativo→empresa, secretaria/rede pública→rede_ensino, transversais→geral.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import { sslSupabase } from './_pg-ssl.mjs';
 const require = createRequire(import.meta.url);
 const { Client } = require('pg');
 const ENV = fs.readFileSync(new URL('../.env.local', import.meta.url), 'utf8');
@@ -209,7 +210,7 @@ PRÓXIMO PASSO: piloto de 2 semanas com 10-15 pessoas (um cargo/área). O diagn�
   },
 ];
 
-const client = new Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const client = new Client({ connectionString: url, ssl: sslSupabase() });
 await client.connect();
 try {
   // 1. Arquiva os placeholders genéricos (mantém os de política).
