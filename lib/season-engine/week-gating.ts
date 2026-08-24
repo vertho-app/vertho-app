@@ -179,6 +179,47 @@ export function avaliarAcessoSemana(input: {
 }
 
 /**
+ * A primeira semana que a pessoa REALMENTE consegue abrir, a partir de `semana`.
+ *
+ * 🔴 POR QUE NÃO BASTA `avaliarAcessoSemana(...).semanaPendente` (medido
+ * 23/08/2026). Aquele gate anda UM passo: se a semana 6 está travada pela 5, ele
+ * devolve 5 — mesmo quando a 5 também está travada pela 4, e assim por diante.
+ * Na TELA isso é aceitável, porque a pessoa clica de novo e desce mais um degrau.
+ * Numa MENSAGEM, não: o dry-run da coorte de Ibipeba mostrou as 32 pessoas
+ * bloqueadas apontando todas para a semana 5, sendo que 28 delas estavam presas
+ * bem antes (18 na semana 1). O link levaria a outra porta fechada — trocando o
+ * defeito de lugar em vez de corrigi-lo.
+ *
+ * Isto NÃO é uma régua nova: é `avaliarAcessoSemana` aplicada até o ponto fixo.
+ * Reimplementar o critério aqui recriaria a divergência entre portas que a F-I21
+ * documenta.
+ *
+ * `motivo: 'data'` interrompe a descida e devolve a semana corrente — não existe
+ * semana anterior a oferecer, e continuar desceria por engano.
+ */
+export function primeiraSemanaAcessivel(input: {
+  dataInicio: string | null | undefined;
+  plano: any[] | null | undefined;
+  progresso: any[] | Record<string | number, any> | null | undefined;
+  semana: number | string;
+  now?: Date;
+}): number {
+  let atual = Number(input.semana);
+  if (!Number.isFinite(atual) || atual < 1) return 1;
+  // Teto de iterações: o gate desce no máximo uma semana por volta, então o
+  // número de semanas basta. Guarda contra plano/progresso inconsistente virar
+  // laço infinito DENTRO do cron — que roda sem ninguém olhando.
+  for (let i = 0; i < 20 && atual > 1; i++) {
+    const acesso = avaliarAcessoSemana({ ...input, semana: atual });
+    if (acesso.liberada) return atual;
+    if (acesso.motivo !== 'anterior' || !acesso.semanaPendente) return atual;
+    if (acesso.semanaPendente >= atual) return atual; // nunca subir/estagnar
+    atual = acesso.semanaPendente;
+  }
+  return atual;
+}
+
+/**
  * Formata a data de liberação para exibição (ex.: "seg 12/05").
  * Horário (03:00) não é exibido — é detalhe de implementação.
  */

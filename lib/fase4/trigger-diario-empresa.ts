@@ -29,6 +29,7 @@ import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido
 import { formatosEntregaveis, escolherFormatoAnunciado } from '@/lib/season-engine/formato-anunciado';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { primeiraSemanaAcessivel } from '@/lib/season-engine/week-gating';
 import { publicarWhatsappCis } from '@/lib/qstash-publish';
 import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
 import { criarRelogioCadencia, maxPorDisparo } from '@/lib/whatsapp/cadencia';
@@ -40,6 +41,21 @@ import { ENVIO } from '@/lib/status';
 
 const TOTAL_SEMANAS = 14;
 const SEMANAS_IMPL = [4, 8, 12]; // Semanas de implementação (sem pílula nova)
+
+/**
+ * A pílula anuncia a semana que a pessoa CONSEGUE ABRIR (default) ou a do
+ * calendário (`CADENCIA_SEMANA_ACESSIVEL=0`).
+ *
+ * Existe como interruptor, e não como decisão fixa, porque isto entrou na
+ * véspera de um disparo real (23/08) e muda o que 74 pessoas recebem: se a
+ * entrega de segunda estranhar, desligar é uma variável de ambiente, não um
+ * deploy. Lida no MÓDULO, então vale para o worker QStash e para o caminho
+ * inline igualmente.
+ *
+ * Desligar restaura exatamente o comportamento anterior — a semana volta a ser
+ * `fase4_envios.semana_atual` em todos os pontos.
+ */
+const SEMANA_ACESSIVEL_LIGADA = process.env.CADENCIA_SEMANA_ACESSIVEL !== '0';
 
 export interface EmpresaDiario {
   id: string;
@@ -108,16 +124,56 @@ export async function processarEmpresaDiario(
   // de cada colaborador na redução é a trilha latest (byte-igual ao
   // `.order(...).limit(1).maybeSingle()` anterior).
   const trilhaPorColab = new Map<string, any>();
+  /** Progresso por colaborador — insumo de `avaliarAcessoSemana` (ver o loop). */
+  const progressoPorColab = new Map<string, any[]>();
+  /**
+   * 🔴 O redirecionamento só vale se o progresso foi REALMENTE lido.
+   *
+   * Sem esta trava, uma falha na leitura cairia no `catch` abaixo (que só faz
+   * `warn`) e deixaria o mapa VAZIO — e mapa vazio, para `avaliarAcessoSemana`,
+   * é indistinguível de "ninguém concluiu nada". O resultado seria a coorte
+   * INTEIRA recebendo a pílula da semana 1, incluindo quem está em dia. Falha de
+   * leitura tem que degradar para o comportamento antigo (calendário), nunca
+   * para uma conclusão sobre dado que não foi lido.
+   */
+  let progressoConfiavel = false;
   try {
     const colabIds = [...new Set((envios as any[]).map((e) => e.colaborador_id))];
+    // `data_inicio`: o gate de acesso precisa dele para o ramo temporal. Sem o
+    // campo, `semanaLiberadaPorData` é fail-closed (devolve false) e TODA semana
+    // pareceria bloqueada por data — o redirecionamento nunca aconteceria e o
+    // silêncio seria indistinguível de "ninguém está travado".
     const { data: trilhas } = await tdb.from('trilhas')
-      .select('colaborador_id, numero_temporada, temporada_plano, competencia_foco')
+      .select('id, colaborador_id, numero_temporada, temporada_plano, competencia_foco, data_inicio')
       .in('colaborador_id', colabIds)
       .order('numero_temporada', { ascending: false });
     for (const t of (trilhas || []) as any[]) {
       if (!trilhaPorColab.has(t.colaborador_id)) trilhaPorColab.set(t.colaborador_id, t);
     }
-  } catch (e: any) { console.warn('[triggerDiario] trilhas bulk:', e?.message); }
+
+    // UMA query para a coorte inteira (não uma por pessoa): o gate precisa do
+    // progresso de TODAS as semanas, não só da anterior, porque `avaliarAcesso`
+    // procura o registro pela semana dentro da lista.
+    const trilhaIds = [...trilhaPorColab.values()].map((t: any) => t.id).filter(Boolean);
+    if (trilhaIds.length) {
+      const { data: progs, error: errProg } = await tdb.from('temporada_semana_progresso')
+        .select('trilha_id, colaborador_id, semana, status, reflexao, feedback')
+        .in('trilha_id', trilhaIds);
+      // supabase-js RETORNA `{ error }`. Sem checar, uma falha viraria "ninguém
+      // concluiu nada" e a cadência inteira seria redirecionada para a semana 1
+      // — uma leitura quebrada mandaria a coorte toda de volta ao começo.
+      if (errProg) throw new Error(`progresso: ${errProg.message}`);
+      for (const p of (progs || []) as any[]) {
+        const lista = progressoPorColab.get(p.colaborador_id) || [];
+        lista.push(p);
+        progressoPorColab.set(p.colaborador_id, lista);
+      }
+      progressoConfiavel = true;
+    }
+  } catch (e: any) {
+    // `progressoConfiavel` fica false → o loop mantém o calendário.
+    console.warn('[triggerDiario] trilhas/progresso bulk:', e?.message);
+  }
 
   // ── Cadência do canal (política única: lib/whatsapp/cadencia) ─────────────
   //
@@ -233,20 +289,69 @@ export async function processarEmpresaDiario(
   }
 
   for (const envio of (envios as any[])) {
-    const semana = envio.semana_atual || 1;
+    /**
+     * DUAS semanas, e confundi-las quebra coisas diferentes:
+     *
+     *  - `semanaCalendario` (`fase4_envios.semana_atual`) é o RELÓGIO do
+     *    programa. Só ela avança na quinta e só ela decide o fim da temporada.
+     *  - `semana` é a que a pessoa CONSEGUE ABRIR hoje, e é ela que escolhe
+     *    conteúdo, tema, formato e link.
+     *
+     * 🔴 POR QUE ELAS SE SEPARARAM (medido 23/08/2026). O gate da tela exige a
+     * semana anterior CONCLUÍDA — e quem conclui é a conversa de evidências.
+     * Enquanto a pílula anunciava sempre o calendário, 32 das 36 pessoas de
+     * Ibipeba e 34 das 38 de Macaé recebiam o tema de uma semana que a tela não
+     * abria. E não era um atraso de um passo: 51 das 74 estavam presas na
+     * semana 1, 45 delas sem nenhum turno de conversa. Anunciar a semana 6 para
+     * quem precisa concluir a 1 é um convite para uma porta fechada.
+     */
+    const semanaCalendario = envio.semana_atual || 1;
+    let semana = semanaCalendario;
+
+    let plan: any = null, conteudosDia: any[] = [], competenciaFoco: any = null;
+    let plano: any[] = [];
+    let totalSemanas = TOTAL_SEMANAS;
+    const trilha = trilhaPorColab.get(envio.colaborador_id);
+    plano = (trilha?.temporada_plano || []) as any[];
+
+    /**
+     * A régua é `avaliarAcessoSemana` — a MESMA que a página da semana aplica.
+     * Não é reimplementada aqui de propósito: em 20/08 esta decisão morava em
+     * três lugares com critérios diferentes, a porta mais permissiva virou a
+     * promessa e a mais restritiva virou a experiência (F-I21). Uma cópia a mais
+     * recriaria exatamente esse defeito, agora entre a mensagem e a tela.
+     *
+     * `motivo: 'data'` NÃO redireciona: aí não existe semana anterior para
+     * oferecer (`semanaPendente` vem indefinido) e o calendário segue mandando,
+     * como antes.
+     */
+    if (SEMANA_ACESSIVEL_LIGADA && progressoConfiavel) {
+      try {
+        // `primeiraSemanaAcessivel` = a régua aplicada até o PONTO FIXO. O gate
+        // cru desce um degrau por vez, e um degrau não basta aqui: no dry-run de
+        // Ibipeba as 32 bloqueadas apontavam todas para a semana 5, com 18 delas
+        // presas na 1 — o link cairia noutra porta fechada.
+        semana = primeiraSemanaAcessivel({
+          dataInicio: trilha?.data_inicio,
+          plano,
+          progresso: progressoPorColab.get(envio.colaborador_id) || [],
+          semana: semanaCalendario,
+        });
+      } catch (e: any) {
+        // Degrada para o comportamento antigo em vez de calar a pessoa: pílula
+        // no calendário é pior que na semana certa, mas é muito melhor que
+        // nenhuma pílula.
+        console.warn('[triggerDiario] acesso-semana:', e?.message);
+      }
+    }
 
     // Plano da semana (temporada_plano) → conteúdos do dia (DUO) p/ pílula e
     // desafio + TAMANHO REAL do plano. O avanço de semana pára no fim do
     // plano (piloto/custom têm 1–4 semanas — antes o cron avançava cego até
     // 14, nudgeando semanas que não existem). Sem trilha/plano → fallback 14
     // (colabs legados, byte-igual ao comportamento anterior).
-    let plan: any = null, conteudosDia: any[] = [], competenciaFoco: any = null;
-    let plano: any[] = [];
-    let totalSemanas = TOTAL_SEMANAS;
     try {
-      const trilha = trilhaPorColab.get(envio.colaborador_id);
       competenciaFoco = trilha?.competencia_foco;
-      plano = (trilha?.temporada_plano || []) as any[];
       totalSemanas = totalSemanasDoPlano(plano, TOTAL_SEMANAS);
       plan = plano.find((s: any) => Number(s.semana) === Number(semana)) || plano[semana - 1] || null;
       if (plan) {
@@ -256,7 +361,9 @@ export async function processarEmpresaDiario(
       }
     } catch (e: any) { console.warn('[triggerDiario] plano:', e?.message); }
 
-    if (semana > totalSemanas) {
+    // Fim da temporada é do CALENDÁRIO: usar a semana de entrega aqui deixaria
+    // quem está travado na 1 rodando para sempre, sem nunca concluir o envio.
+    if (semanaCalendario > totalSemanas) {
       if (hoje === diaEv) await tdb.from('fase4_envios').update({ status: ENVIO.CONCLUIDO }).eq('id', envio.id);
       continue;
     }
@@ -633,8 +740,13 @@ export async function processarEmpresaDiario(
       // produto: o avanço não depende de canal entregue), agora com um papel só.
       if (!mesmoDiaUTC(envio.ultima_evidencia_em, hojeUTC)) {
         stampEv.ultima_evidencia_em = agoraEv;
+        // 🔴 `semanaCalendario + 1`, NUNCA `semana + 1`: quem está travado
+        // recebe a pílula de uma semana antiga, e somar 1 sobre ELA jogaria o
+        // relógio do programa para trás — a pessoa presa na 1 teria
+        // `semana_atual` reescrito para 2 toda quinta, e nunca chegaria ao fim
+        // da temporada. O calendário anda sozinho; a entrega é que espera.
         await tdb.from('fase4_envios')
-          .update({ ...stampEv, semana_atual: semana + 1 })
+          .update({ ...stampEv, semana_atual: semanaCalendario + 1 })
           .eq('id', envio.id);
       } else if (Object.keys(stampEv).length || evidenciaEnfileirada) {
         // Recuperação de canal no mesmo dia: grava os carimbos SEM tocar na semana.
