@@ -67,6 +67,8 @@ vi.mock('@/i18n/routing', () => ({ isAppLocale: () => true, locales: ['pt-BR', '
 vi.mock('@/actions/ai-client', () => ({ callAI: vi.fn() }));
 vi.mock('@/lib/ai-tasks', () => ({ getModelForTask: vi.fn(), DEFAULT_TASK_MODELS: {} }));
 vi.mock('@/lib/ia3-cenarios', () => ({ travaRegeneracao: vi.fn() }));
+vi.mock('@trigger.dev/sdk', () => ({ tasks: { trigger: vi.fn() }, runs: { retrieve: vi.fn() } }));
+vi.mock('@/lib/trigger-region', () => ({ regionOpts: {} }));
 
 import { salvarNotaAssessment, deletarNotaAssessment } from '@/actions/assessment-descritores';
 import { _montarTrilhasLote_legacy } from '@/actions/fase4';
@@ -78,6 +80,8 @@ import { salvarConfig, salvarLocaleEmpresa, atualizarProgramaModo, atualizarRole
 import { toggleVotacao, togglePerfilComportamental, toggleMapeamentoCenarios } from '@/actions/votacao';
 import { setEmpresaFonteExterna, uploadPerfilPdf } from '@/actions/perfil-externo';
 import { logAdminAction } from '@/lib/audit';
+// H0 — um dos 15 call-sites que passam permissão que `rh` NÃO tem.
+import { enqueueIA2Batch } from '@/actions/ia-pipeline-batch';
 
 const OUTRO_TENANT = 'emp-B';
 const rhEmpA = { role: 'rh', empresaId: 'emp-A', email: 'rh@a.com', colaborador: { id: 'rh-1' }, isPlatformAdmin: false };
@@ -183,7 +187,9 @@ describe('RH cross-tenant é barrado (Grupo A)', () => {
  * Auditoria 22/08 — a dimensão que o gate ANTERIOR conferia e que a troca ingênua
  * para `requireEmpresaSupabase` teria PERDIDO: para o papel `rh` aquele helper ignora
  * o parâmetro `permission` (só o ramo platform_admin chama `can`). Por isso os 5 sites
- * usam `requireEmpresaSupabaseStrict`, que confere permissão para TODO papel.
+ * usavam `requireEmpresaSupabaseStrict`. Em 23/08 (H0) esse helper foi DOBRADO no
+ * `requireEmpresaSupabase`, que passou a conferir a permissão para todo papel — o
+ * `Strict` deixou de existir. Estes casos passam a cobrir os 28 call-sites, não 5.
  */
 describe('permissão continua valendo para o RH, no PRÓPRIO tenant (A2/A3)', () => {
   it('toggleVotacao — RH da empresa certa SEM settings.company.manage é barrado', async () => {
@@ -245,7 +251,7 @@ describe('vigília: o gate negado registra em admin_audit_log', () => {
     expect(logAdminAction).toHaveBeenCalledTimes(1);
     const arg: any = vi.mocked(logAdminAction).mock.calls[0][0];
     expect(arg.acao).toBe('gate.forbidden');
-    expect(arg.alvo).toBe('votacao.toggle');
+    expect(arg.alvo).toBe('toggleVotacao');
     expect(arg.resultado).toBe('erro');
     expect(arg.detalhes.motivo).toBe('tenant');
     expect(arg.detalhes.mesmo_tenant).toBe(false);
@@ -269,5 +275,38 @@ describe('vigília: o gate negado registra em admin_audit_log', () => {
     const r: any = await toggleVotacao('emp-A', true);
     expect(r.success).toBe(true);
     expect(logAdminAction).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * H0 (Sprint 1) — a garantia NOVA, que não existia antes de 23/08.
+ *
+ * `requireEmpresaSupabase` conferia a permissão só no ramo platform_admin; para `rh`
+ * bastava ser da empresa certa. Dos 28 call-sites, **15 passam permissão que `rh` não
+ * tem** (`admin.access` ×8, `ai.audit.regenerate` ×7) — e até aqui um RH da empresa
+ * certa atravessava todos eles chamando o action id direto.
+ *
+ * `enqueueIA2Batch` é um desses 15: exige `ai.audit.regenerate`, que NÃO está em
+ * `BASE_ROLE_PERMISSIONS.rh`. Aqui `temPermissao = false` representa esse fato.
+ */
+describe('H0: permissão de plataforma barra o RH mesmo na PRÓPRIA empresa', () => {
+  it('enqueueIA2Batch — RH da empresa certa, sem ai.audit.regenerate, é barrado', async () => {
+    temPermissao = false;
+    const r: any = await enqueueIA2Batch('emp-A');
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(FORBIDDEN);
+
+    const arg: any = vi.mocked(logAdminAction).mock.calls[0][0];
+    expect(arg.alvo).toBe('enqueueIA2Batch');
+    expect(arg.detalhes.motivo).toBe('permissao');
+    expect(arg.detalhes.permissao).toBe('ai.audit.regenerate');
+    // mesmo tenant: não é cross-tenant, é escalada de PERMISSÃO — a dimensão que o H0 fechou
+    expect(arg.detalhes.mesmo_tenant).toBe(true);
+  });
+
+  it('platform admin com a permissão continua passando (não quebramos a plataforma)', async () => {
+    sessao = { role: null, empresaId: null, email: 'admin@vertho.ai', colaborador: null, isPlatformAdmin: true };
+    const r: any = await enqueueIA2Batch('emp-A');
+    expect(r.error).not.toMatch(FORBIDDEN);
   });
 });

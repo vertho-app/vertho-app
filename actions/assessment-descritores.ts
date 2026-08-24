@@ -76,7 +76,7 @@ interface SalvarNotaParams {
 
 export async function salvarNotaAssessment({ empresaId, colaboradorId, competencia, descritor, nota, cargo }: SalvarNotaParams) {
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
-  const sb = await requireEmpresaSupabase(empresaId, 'users.manage');
+  const sb = await requireEmpresaSupabase(empresaId, 'users.manage', 'salvarNotaAssessment');
   try {
     // F-I6: `descritor` é chave do upsert (colaborador+competencia+descritor).
     // Gravar o nome COM prefixo de código ("COO03_D5 — X") cria uma 2ª linha

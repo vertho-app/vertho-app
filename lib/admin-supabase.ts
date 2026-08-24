@@ -18,62 +18,53 @@ export async function requireAdminSupabase(permission: PermissionKey = 'admin.ac
 }
 
 /**
- * Gate TENANT-SCOPED: autoriza platform_admin (qualquer empresa, respeitando a
- * permissão) OU o RH da PRÓPRIA empresa. Permite que o admin de um cliente (ex.: a
- * prefeitura, via projetomacae.vertho.ai) opere ações da sua empresa sem acesso ao
- * painel da plataforma.
+ * Gate TENANT-SCOPED: autoriza platform_admin (qualquer empresa) OU o RH da PRÓPRIA
+ * empresa — **e, nos dois casos, exige a `permission`**. Permite que o admin de um
+ * cliente (ex.: a prefeitura, via projetomacae.vertho.ai) opere ações da sua empresa
+ * sem acesso ao painel da plataforma.
  *
- * SEGURANÇA: para o RH, exige `ctx.empresaId === empresaId`. Como o empresaId sempre
- * é confrontado com o contexto autenticado, adulterá-lo no cliente não vaza dados de
- * outra empresa (cai em FORBIDDEN). Platform admin ignora o empresaId (vê tudo).
- * Recrutamento é função de RH — o gestor de equipe (role=gestor) NÃO passa.
+ * SEGURANÇA (duas dimensões, ambas obrigatórias):
+ *  1. PERMISSÃO — `can(ctx, permission)` para QUALQUER papel;
+ *  2. TENANT — para quem não é platform admin, `ctx.empresaId === empresaId`.
+ * Como o `empresaId` sempre é confrontado com o contexto autenticado, adulterá-lo no
+ * cliente não vaza dado de outra empresa (cai em FORBIDDEN).
+ *
+ * 🔴 **H0 (auditoria 22/08, Sprint 1) — o que mudou e por quê.** Até 23/08 o parâmetro
+ * `permission` valia SÓ no ramo platform_admin; para `rh` ele era IGNORADO — bastava ser
+ * RH da empresa certa. Eram duas réguas numa assinatura só, a mesma classe do
+ * `ADMIN_EMAILS`, e tinha duas consequências: `permission_overrides` não conseguia
+ * restringir RH nenhum por aqui, e quem lesse a chamada
+ * `requireEmpresaSupabase(id, 'ai.audit.regenerate')` concluiria — errado — que o RH
+ * estava barrado.
+ *
+ * Raio de alcance medido antes de virar a chave: dos **28 call-sites, 15 passam
+ * permissão que `rh` NÃO tem** (`admin.access` ×8, `ai.audit.regenerate` ×7). Os 15 são
+ * consumidos **apenas de `/admin`**, que exige `isPlatformAdmin` ou `ADMIN_EMAILS`
+ * (`lib/authz-plataforma.ts::checarAcessoPlataforma`) — logo nenhum RH os alcançava pela
+ * UI, e o aperto não quebra fluxo legítimo. O que ele fecha é a chamada DIRETA ao action
+ * id, que é a escalada.
+ *
+ * `acao` é o rótulo da action para a vigília — ver `registrarGateNegado`.
  */
-export async function requireEmpresaSupabase(empresaId: string, permission: PermissionKey = 'admin.access') {
-  const ctx = await requireUserAction();
-  if (ctx.isPlatformAdmin) {
-    if (!(await can(ctx, permission))) throw new Error(`FORBIDDEN: permissão necessária ${permission}`);
-    return createSupabaseAdmin();
-  }
-  if (ctx.role === 'rh' && empresaId && ctx.empresaId === empresaId) return createSupabaseAdmin();
-  throw new Error('FORBIDDEN: acesso restrito a esta empresa');
-}
-
-/**
- * Gate TENANT-SCOPED **e** com permissão para TODOS os papéis.
- *
- * Diferença para `requireEmpresaSupabase`: lá o parâmetro `permission` só vale para o
- * platform_admin — o RH passa por ser RH da própria empresa, com a permissão IGNORADA
- * (é o comportamento declarado no docstring acima, "respeitando a permissão" está preso
- * ao primeiro ramo). São duas réguas numa assinatura só.
- *
- * Aqui a permissão é conferida ANTES, para qualquer papel, e só então o tenant. Use este
- * quando a action recebe `empresaId` do cliente E a permissão exigida é uma que o papel
- * `rh` possui (`content.manage`, `settings.company.manage`, `exports.run`,
- * `assessments.dispatch`, `users.manage`, …) — senão um RH do tenant A escreve no tenant B.
- *
- * Auditoria 22/08 (A2/A3): 4 escritas em `empresas.sys_config` e o upload de perfil externo
- * estavam com `requireAdminSupabase(perm)`, que confere permissão e NÃO tenant.
- *
- * ⚠️ Não chama `createSupabaseAdmin` — delega, para não alargar a allowlist de service-role.
- */
-export async function requireEmpresaSupabaseStrict(
+export async function requireEmpresaSupabase(
   empresaId: string,
-  permission: PermissionKey,
-  acao: string,
+  permission: PermissionKey = 'admin.access',
+  acao = 'nao_rotulada',
 ) {
   const ctx = await requireUserAction();
 
+  // 1. Permissão — para TODO papel, inclusive rh.
   if (!(await can(ctx, permission))) {
     await registrarGateNegado(ctx, acao, empresaId, permission, 'permissao');
     throw new Error(`FORBIDDEN: permissão necessária ${permission}`);
   }
 
-  try {
-    return await requireEmpresaSupabase(empresaId, permission);
-  } catch (err) {
-    await registrarGateNegado(ctx, acao, empresaId, permission, 'tenant');
-    throw err;
-  }
+  // 2. Tenant — platform admin vê tudo; os demais só a própria empresa.
+  if (ctx.isPlatformAdmin) return createSupabaseAdmin();
+  if (ctx.role === 'rh' && empresaId && ctx.empresaId === empresaId) return createSupabaseAdmin();
+
+  await registrarGateNegado(ctx, acao, empresaId, permission, 'tenant');
+  throw new Error('FORBIDDEN: acesso restrito a esta empresa');
 }
 
 /**

@@ -199,7 +199,7 @@ export async function montarTrilhasLote(empresaId: string) {
 export async function _montarTrilhasLote_legacy(empresaId: string) {
   // Gate TENANT-SCOPED (auditoria 23/07): apaga+recria trilhas — empresaId do
   // client precisa bater com o tenant da sessão.
-  const sb = await requireEmpresaSupabase(empresaId, 'content.manage');
+  const sb = await requireEmpresaSupabase(empresaId, 'content.manage', '_montarTrilhasLote_legacy');
   try {
     // Buscar respostas avaliadas (gaps identificados pela IA4)
     const { data: respostas } = await sb.from('respostas')

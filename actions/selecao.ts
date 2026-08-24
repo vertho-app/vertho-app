@@ -32,7 +32,7 @@ function extrairJson(raw: string): any {
 export async function gerarPerfilVaga(empresaId: string, nomeVaga: string): Promise<{ success: boolean; competencias?: number; error?: string }> {
   try {
     if (!empresaId || !nomeVaga?.trim()) return { success: false, error: 'Empresa e vaga obrigatórios.' };
-    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'gerarPerfilVaga');
     const nome = nomeVaga.trim();
 
     const { data: vaga } = await sb.from('cargos_empresa')
@@ -85,7 +85,7 @@ export async function gerarPerfilVaga(empresaId: string, nomeVaga: string): Prom
 export async function gerarRankingVaga(empresaId: string, nomeVaga: string, opts: { comAnaliseIA?: boolean } = {}): Promise<{ success: boolean; url?: string; avaliados?: number; error?: string }> {
   try {
     if (!empresaId || !nomeVaga?.trim()) return { success: false, error: 'Empresa e vaga obrigatórios.' };
-    const sb = await requireEmpresaSupabase(empresaId, 'admin.access');
+    const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'gerarRankingVaga');
     // Pool de candidatos = ocupantes dos cargos marcados "pool de candidatos" (ex.: "Em busca").
     // Se nenhum cargo estiver marcado, cai para todos com DISC (poolCompleto).
     const { data: poolRows } = await sb.from('cargos_empresa').select('nome').eq('empresa_id', empresaId).eq('eh_pool_candidatos', true);

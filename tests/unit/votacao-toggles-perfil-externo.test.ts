@@ -34,7 +34,7 @@ function makeClient() {
  * a escrita cross-tenant aberta, e verde aqui não dizia nada sobre quem podia gravar.
  *
  * Agora mockamos os LEAFS (sessão e banco) e deixamos o gate REAL rodar:
- * `requireEmpresaSupabaseStrict` → `can` + `requireEmpresaSupabase`. A cascata continua
+ * `requireEmpresaSupabase` (que desde o H0 confere permissão E tenant). A cascata continua
  * sendo o objeto do teste; a diferença é que ela roda atrás do gate de verdade.
  * O cross-tenant e a permissão têm casos próprios em
  * `tests/unit/security/admin-actions-tenant-gate.test.ts`.

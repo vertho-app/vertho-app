@@ -641,7 +641,7 @@ export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}, opts:
   // Sem escape hatch: arquivo `'use server'` → todo export é endpoint HTTP, e a
   // flag seria escolhida pelo CLIENTE (o id desta action estava PUBLICADO no
   // bundle). "Escopado por empresaId" não protege: o empresaId vem do caller.
-  const sbRaw = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+  const sbRaw = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'rodarIA2');
   const tdb = tenantDb(empresaId);
   try {
     // Contexto compartilhado (empresa + PPP + valores + top10 + detalhe + população

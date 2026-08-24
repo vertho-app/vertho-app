@@ -23,7 +23,7 @@ import React from 'react';
 export async function enviarPDFsLote(empresaId: string) {
   // Gate TENANT-SCOPED (auditoria 23/07): envia PDFs DISC confidenciais via
   // WhatsApp — o empresaId vem do client e precisa bater com o tenant da sessão.
-  const sb = await requireEmpresaSupabase(empresaId, 'assessments.dispatch');
+  const sb = await requireEmpresaSupabase(empresaId, 'assessments.dispatch', 'enviarPDFsLote');
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug')

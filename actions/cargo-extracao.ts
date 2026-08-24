@@ -17,7 +17,7 @@ import { achatarExtracao, prepararRevisao, type ExtracaoCargo, type AchatarOpts 
  *  então o badge "atualiza existente" compara só entre vagas, nunca com cargos operacionais. */
 export async function listarCargosDaEmpresa(empresaId: string): Promise<{ cargos: { nome: string; eh_lideranca: boolean }[] }> {
   try {
-    const sb = await requireEmpresaSupabase(empresaId, 'admin.access');
+    const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'listarCargosDaEmpresa');
     const { data } = await sb.from('cargos_empresa').select('nome, eh_lideranca').eq('empresa_id', empresaId).eq('eh_vaga', true);
     const cargos = (data || []).filter((c: any) => c.nome).map((c: any) => ({ nome: c.nome, eh_lideranca: !!c.eh_lideranca })).sort((a: any, b: any) => a.nome.localeCompare(b.nome));
     return { cargos };
@@ -27,7 +27,7 @@ export async function listarCargosDaEmpresa(empresaId: string): Promise<{ cargos
 /** VAGAS abertas da empresa (Módulo de Seleção) — com status de descrição/gabarito. */
 export async function listarVagas(empresaId: string): Promise<{ vagas: { id: string; nome: string; area: string | null; temDescricao: boolean; temGabarito: boolean; ehLideranca: boolean; criadaEm: string | null }[]; erro?: string }> {
   try {
-    const sb = await requireEmpresaSupabase(empresaId, 'admin.access');
+    const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'listarVagas');
     const { data } = await sb.from('cargos_empresa')
       .select('id, nome, area_depto, descricao, gabarito, eh_lideranca, created_at')
       .eq('empresa_id', empresaId).eq('eh_vaga', true).order('created_at', { ascending: false });
@@ -47,7 +47,7 @@ export async function extrairDescricaoCargo(
   input: ExtratorInput,
 ): Promise<{ success: boolean; extracao?: ExtracaoCargo; error?: string }> {
   try {
-    await requireEmpresaSupabase(empresaId, 'admin.access');
+    await requireEmpresaSupabase(empresaId, 'admin.access', 'extrairDescricaoCargo');
     const extracao = await extrairCargo(input);
     return { success: true, extracao: prepararRevisao(extracao) };
   } catch (e: any) {
@@ -69,7 +69,7 @@ export async function salvarRevisaoCargo(
   try {
     if (!empresaId || !nome?.trim()) return { success: false, error: 'Empresa e nome da vaga são obrigatórios.' };
     const nomeCargo = nome.trim();
-    const sb = await requireEmpresaSupabase(empresaId, 'admin.access');
+    const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'salvarRevisaoCargo');
     const { patch, diagnostico } = achatarExtracao(extracaoRevisada, opts);
     if (diagnostico.documentoInvalido) return { success: false, error: 'Documento marcado como inválido — nada a gravar.', diagnostico };
 

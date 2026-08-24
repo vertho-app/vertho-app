@@ -233,7 +233,7 @@ REGRAS:
 export async function enviarLinksPerfil(empresaId: string) {
   // Gate TENANT-SCOPED (auditoria 23/07): dispara e-mail pro roster inteiro —
   // o empresaId vem do client e precisa bater com o tenant da sessão.
-  const sbRaw = await requireEmpresaSupabase(empresaId, 'assessments.dispatch');
+  const sbRaw = await requireEmpresaSupabase(empresaId, 'assessments.dispatch', 'enviarLinksPerfil');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   // Tenant de demonstração: bloqueia disparo real antes de tocar colaboradores.
   const gate = await gateEnvioDemo(empresaId);

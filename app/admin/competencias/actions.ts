@@ -42,7 +42,7 @@ export async function loadCompetenciasBase(segmento: string | null) {
 
 export async function salvarCompetencia(empresaId: string, comp: any) {
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
-  const sb = await requireEmpresaSupabase(empresaId, 'content.manage');
+  const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'salvarCompetencia');
   try {
     const registro = {
       empresa_id: empresaId,
@@ -93,7 +93,7 @@ export async function excluirCompetencia(id: string) {
 
 export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
-  const sb = await requireEmpresaSupabase(empresaId, 'content.manage');
+  const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'importarCompetenciasCSV');
   const { data: existentes } = await sb.from('competencias')
     .select('cod_comp, cod_desc, nome_curto, nome, cargo').eq('empresa_id', empresaId);
   // Dedup por cod_comp+cod_desc (ou cod_comp+nome_curto se cod_desc vazio)
@@ -140,7 +140,7 @@ export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
 
 export async function copiarBaseParaEmpresa(empresaId: string, baseId: string, cargo: string | null = null) {
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
-  const sb = await requireEmpresaSupabase(empresaId, 'content.manage');
+  const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'copiarBaseParaEmpresa');
   try {
     const { data: base, error: errBase } = await sb.from('competencias_base')
       .select('*').eq('id', baseId).single();

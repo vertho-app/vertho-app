@@ -27,7 +27,7 @@ export async function loadConfig(empresaId) {
 
 export async function salvarConfig(empresaId, sysConfig) {
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
-  const sb = await requireEmpresaSupabase(empresaId, 'settings.company.manage');
+  const sb = await requireEmpresaSupabase(empresaId, 'settings.company.manage', 'salvarConfig');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const { error } = await sb.from('empresas')
     .update({ sys_config: sysConfig })
@@ -45,7 +45,7 @@ export async function salvarLocaleEmpresa(empresaId, defaultLocale) {
   // Gate TENANT-SCOPED (auditoria 23/07): settings.locale.manage existe até no
   // role colaborador — sem amarrar ao tenant, qualquer colab mudava o idioma
   // padrão de OUTRA empresa.
-  const sb = await requireEmpresaSupabase(empresaId, 'settings.locale.manage');
+  const sb = await requireEmpresaSupabase(empresaId, 'settings.locale.manage', 'salvarLocaleEmpresa');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   if (!isAppLocale(defaultLocale)) {
     return { success: false, error: `Locale inválido. Use: ${locales.join(', ')}` };
@@ -254,7 +254,7 @@ export async function loadEquipe(empresaId) {
  */
 export async function atualizarProgramaModo(colaboradorId, novoModo, empresaId) {
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
-  const sb = await requireEmpresaSupabase(empresaId, 'users.manage');
+  const sb = await requireEmpresaSupabase(empresaId, 'users.manage', 'atualizarProgramaModo');
   if (!colaboradorId || !empresaId) return { success: false, error: 'colaboradorId e empresaId obrigatórios' };
   const modo = novoModo || null;
   // A allowlist é o contrato: um modo que existe na engine mas não está aqui é
@@ -284,7 +284,7 @@ export async function atualizarProgramaModo(colaboradorId, novoModo, empresaId) 
 export async function atualizarRole(colaboradorId, novoRole, empresaId) {
   // Gate TENANT-SCOPED (auditoria 23/07): RH de um tenant promovia/rebaixava
   // colaborador de OUTRO tenant (escalada) — empresaId precisa bater com a sessão.
-  const sb = await requireEmpresaSupabase(empresaId, 'users.manage');
+  const sb = await requireEmpresaSupabase(empresaId, 'users.manage', 'atualizarRole');
   if (!colaboradorId || !novoRole || !empresaId) return { success: false, error: 'colaboradorId, novoRole e empresaId obrigatórios' };
   const validRoles = ['colaborador', 'gestor', 'rh', 'tutor'];
   if (!validRoles.includes(novoRole)) return { success: false, error: `Role invalido. Use: ${validRoles.join(', ')}` };

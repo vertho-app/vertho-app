@@ -41,7 +41,7 @@ async function jaTemLoteAtivo(sb: any, empresaId: string, fase: string): Promise
 export async function listarJobsAtivosIA(empresaId: string) {
   try {
     if (!empresaId) return [];
-    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'listarJobsAtivosIA');
     const { data } = await sb.from('ia_jobs')
       .select('id, fase, status, progress, created_at')
       .eq('empresa_id', empresaId)
@@ -61,7 +61,7 @@ export async function listarJobsAtivosIA(empresaId: string) {
 export async function enqueueIA2Batch(empresaId: string, aiConfig: AIConfig = {}) {
   try {
     if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
-    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'enqueueIA2Batch');
     const dup = await jaTemLoteAtivo(sb, empresaId, 'ia2');
     if (dup) return { success: false as const, error: `Já existe um lote de IA2 em andamento (${dup.slice(0, 8)}…) — aguarde ou cancele antes de disparar outro.` };
 
@@ -105,7 +105,7 @@ export async function enqueueIA2Batch(empresaId: string, aiConfig: AIConfig = {}
 export async function enqueueIA3Batch(empresaId: string, aiConfig: AIConfig & { checkModel?: string } = {}) {
   try {
     if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
-    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'enqueueIA3Batch');
     const dup = await jaTemLoteAtivo(sb, empresaId, 'ia3');
     if (dup) return { success: false as const, error: `Já existe um lote de IA3 em andamento (${dup.slice(0, 8)}…) — aguarde ou cancele antes de disparar outro.` };
 
@@ -164,7 +164,7 @@ export async function enqueueIA4Batch(
 ) {
   try {
     if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
-    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'enqueueIA4Batch');
     const dup = await jaTemLoteAtivo(sb, empresaId, 'ia4');
     if (dup) return { success: false as const, error: `Já existe um lote de IA4 em andamento (${dup.slice(0, 8)}…) — aguarde ou cancele antes de disparar outro.` };
 
@@ -215,7 +215,7 @@ export async function enqueueIA4Batch(
 export async function enqueueBlueprintBatch(empresaId: string, aiConfig: AIConfig = {}) {
   try {
     if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
-    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate');
+    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'enqueueBlueprintBatch');
     const dup = await jaTemLoteAtivo(sb, empresaId, 'blueprint');
     if (dup) return { success: false as const, error: `Já existe um lote de Blueprints em andamento (${dup.slice(0, 8)}…) — aguarde ou cancele antes de disparar outro.` };
     const tdb = tenantDb(empresaId);

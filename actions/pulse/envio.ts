@@ -84,7 +84,7 @@ export async function enviarConvitesPulso(
 ): Promise<{ ok: true; stats: EnvioStats } | { ok: false; error: string }> {
   // Gate TENANT-SCOPED (auditoria 23/07): disparo real de WhatsApp/email — o
   // empresaId vem do client e precisa bater com o tenant da sessão.
-  const sb = await requireEmpresaSupabase(empresaId, 'assessments.dispatch');
+  const sb = await requireEmpresaSupabase(empresaId, 'assessments.dispatch', 'enviarConvitesPulso');
   const adminEmail = (await getAuthenticatedEmailFromAction()) || 'desconhecido';
 
   // Tenant de demonstração: bloqueia disparo real antes de tocar assignments.

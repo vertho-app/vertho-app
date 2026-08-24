@@ -177,7 +177,7 @@ export async function exportarRankingPDF(cargo: string) {
 }
 /** ADMIN — exporta o PDF do ranking (empresa da rota, gated p/ platform_admin). */
 export async function exportarRankingPDFAdmin(empresaId: string, cargo: string) {
-  const sb = await requireEmpresaSupabase(empresaId, 'admin.access');
+  const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'exportarRankingPDFAdmin');
   return _exportarPDF(sb, empresaId, cargo);
 }
 
