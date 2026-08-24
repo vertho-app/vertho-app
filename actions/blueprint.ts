@@ -25,14 +25,25 @@ import {
 import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import type { AIConfig } from './ai-client';
 
-/** Gera e persiste o Development Blueprint de UM colaborador. Gated. */
+/**
+ * @deprecated STUB de depreciação (C1b, 24/08/2026).
+ *
+ * Gerava UM blueprint de forma síncrona, e a tela chamava isto num laço, um
+ * colaborador por vez, presa na aba. Com o deadline real ligado no stream (C1),
+ * o caminho deixou de ser sustentável: 277 s medidos contra 300 s de
+ * `maxDuration` é margem de 23 s — cabe, e não sustenta SLA nenhum.
+ *
+ * Stub, e não removido, pelo mesmo motivo do `gerarBlueprintsLote`: `'use server'`
+ * publica action id, e o Skew Protection segura o cliente antigo por até 12 h.
+ * Um export que some dá erro opaco; um stub responde o motivo.
+ *
+ * O núcleo (`gerarBlueprintCore`) segue vivo e é o que a task de lote usa.
+ */
 export async function gerarBlueprint(
-  { colaboradorId, aiConfig }: { colaboradorId: string; aiConfig?: AIConfig },
+  _params: { colaboradorId: string; aiConfig?: AIConfig },
 ): Promise<GerarBlueprintResult> {
-  // O tenant só é conhecido após ler o colaborador, então o gate é de permissão
-  // (admin), não de tenant — e o client volta já autorizado.
-  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
-  return gerarBlueprintCore(sbRaw, { colaboradorId, aiConfig });
+  await requireAdminAction('ai.audit.regenerate');
+  return { error: LOTE_DEPRECIADO };
 }
 
 export interface BlueprintLoteDetalhe {
@@ -50,12 +61,19 @@ export interface GerarBlueprintsLoteResult {
   detalhes?: BlueprintLoteDetalhe[];
 }
 
-/** Mensagem única dos lotes síncronos depreciados (F-E4). */
+/**
+ * Mensagem única dos caminhos SÍNCRONOS de blueprint, depreciados (F-E4 + C1b).
+ *
+ * ⚠️ A versão anterior desta mensagem mandava usar "a fila + loop no cliente" —
+ * o caminho que o C1b removeu em 24/08. Mensagem de depreciação que aponta para
+ * outro caminho morto é pior que nenhuma: ela ensina o errado com autoridade.
+ */
 const LOTE_DEPRECIADO =
-  'Lote síncrono de blueprint foi DEPRECIADO (F-E4): N chamadas de IA numa server action '
-  + 'estouram o maxDuration de 300s e o lote morre 504 no meio, sem retomada. Use a fila + '
-  + 'loop no cliente, que já é o caminho da tela: filaBlueprint/filaAuditBlueprint + '
-  + 'gerarBlueprint/auditarBlueprint por colaborador (progresso [i/N], erro por item, botão de parar).';
+  'Geração síncrona de blueprint foi DEPRECIADA (F-E4 + C1b): cada blueprint leva ~2 min '
+  + '(máx medido 277 s contra os 300 s de maxDuration), então o caminho síncrono estoura sob '
+  + 'qualquer variação de carga — e o estouro custa a geração paga mais o retry. '
+  + 'Use `enqueueBlueprintBatch(empresaId)` UMA vez para o lote inteiro: Batch API (−50%), '
+  + 'assíncrono, com job re-adotado ao recarregar a tela.';
 
 /**
  * @deprecated STUB de depreciação (F-E4 do `docs/FMEA-PIPELINE.md`).
@@ -85,18 +103,17 @@ export interface FilaBlueprintResult { success: boolean; error?: string; data?: 
  * Rápida (sem IA) — o cliente itera chamando `gerarBlueprint` por colaborador,
  * evitando o timeout de 300s da Vercel que estourava no lote síncrono.
  */
-export async function filaBlueprint(empresaId: string): Promise<FilaBlueprintResult> {
+/**
+ * @deprecated STUB de depreciação (C1b, 24/08/2026).
+ *
+ * Listava a fila para o laço no cliente, que saiu junto com o caminho síncrono.
+ * Quem monta a fila hoje é `enqueueBlueprintBatch`, do lado do servidor, com a
+ * MESMA regra dos 100% (`resolverFilaBlueprint100`, que segue viva em
+ * `lib/blueprint/core.ts`).
+ */
+export async function filaBlueprint(_empresaId: string): Promise<FilaBlueprintResult> {
   await requireAdminAction('ai.audit.regenerate');
-  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const tdb = tenantDb(empresaId);
-  try {
-    // Regra dos 100%: só colabs com TODAS as competências foco mapeadas.
-    const fila = await resolverFilaBlueprint100(tdb);
-    if (!fila.length) return { success: false, error: 'Nenhum colaborador com as competências foco 100% mapeadas (complete o mapeamento primeiro)' };
-    return { success: true, data: fila.map((c) => ({ id: c.id, nome: c.nome })).sort((a, b) => a.nome.localeCompare(b.nome)) };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+  return { success: false, error: LOTE_DEPRECIADO };
 }
 
 /**

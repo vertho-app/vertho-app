@@ -25,7 +25,7 @@ import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatori
 import { resolveTaskModel } from '@/lib/ai-tasks';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { iniciarEnviosTemporada, pausarEnviosTemporada } from '@/actions/envios-temporada';
-import { gerarBlueprint, auditarBlueprint, filaBlueprint, filaAuditBlueprint } from '@/actions/blueprint';
+import { auditarBlueprint, filaAuditBlueprint } from '@/actions/blueprint';
 import { TURMA_ENCERRADAS } from '@/lib/status';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
@@ -396,35 +396,24 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         setPendingAction(null); return;
       }
       if (actionKey === 'blueprint') {
-        // ── Em lote: Batch API via task Trigger + polling (assíncrono, −50%) ──
-        if (aiConfig?.modo === 'lote') {
-          addLog('📦 Blueprints em lote (Batch API −50%, assíncrono).', 'info');
-          const r: any = await enqueueBlueprintBatch(empresaId, aiConfig);
-          if (!r?.success) { addLog(`❌ ${r?.error || 'Falha ao enfileirar'}`, 'error'); setPendingAction(null); return; }
-          if (!r.jobId) { addLog(`${r.message || 'Nada na fila'}`, 'info'); setPendingAction(null); return; }
-          addLog(`📦 ${r.total} blueprint(s) no lote ${String(r.jobId).slice(0, 8)}… — rodando em segundo plano, pode seguir usando o pipeline.`, 'info');
-          watchJob(r.jobId, 'Blueprints');
-          setPendingAction(null); return;
-        }
-        // ── Agora: fila + loop no CLIENTE (1 server action por colab) ──
-        addLog('📋 Listando colaboradores (foco 100% mapeada)...', 'info');
-        const fila = await filaBlueprint(empresaId);
-        if (!fila?.success || !fila.data?.length) { addLog(`${fila?.error || 'Nenhum colaborador com assessments'}`, fila?.success ? 'success' : 'error'); setPendingAction(null); return; }
-        addLog(`📋 ${fila.data.length} colaborador(es) na fila`, 'info');
-        let ok = 0, erros = 0;
-        for (let i = 0; i < fila.data.length; i++) {
-          if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }
-          const c = fila.data[i];
-          addLog(`⏳ ${i + 1}/${fila.data.length} ${c.nome}...`, 'info');
-          try {
-            const r = await comRetry(() => gerarBlueprint({ colaboradorId: c.id, aiConfig: aiConfig || undefined }));
-            if (r.ok) { ok++; addLog(`✅ ${c.nome}`, 'success'); }
-            else { erros++; addLog(`⚠ ${c.nome}: ${r.error}`, 'error'); }
-          } catch (e: any) {
-            erros++; addLog(`❌ ${c.nome}: ${e?.message || 'falha de rede'} — pulando`, 'error');
-          }
-        }
-        addLog(`🎉 ${ok} blueprint(s) gerado(s)${erros ? ` · ${erros} erro(s)` : ''}`, erros === 0 ? 'success' : 'info');
+        // 🔴 C1b (auditoria 22/08): o blueprint NÃO tem mais caminho síncrono.
+        //
+        // O laço que vivia aqui chamava `gerarBlueprint` uma vez por colaborador,
+        // preso na aba. Com o C1 ligando o deadline real no stream, isso deixou
+        // de ser sustentável: o máximo medido de `blueprint_gerar` é 277 s contra
+        // os 300 s de `maxDuration` da rota. Não é que não caiba — cabe por 23 s.
+        // É que 23 s de margem não sustentam um SLA síncrono: qualquer variação
+        // de carga estoura, e o estouro custa a geração paga MAIS o retry.
+        //
+        // Também sai daqui o `comRetry` de 3 tentativas: numa geração de ~2 min,
+        // retry cego é pagar três vezes pelo mesmo blueprint.
+        addLog('📦 Blueprints em lote (Batch API −50%, assíncrono).', 'info');
+        const r: any = await enqueueBlueprintBatch(empresaId, aiConfig);
+        if (!r?.success) { addLog(`❌ ${r?.error || 'Falha ao enfileirar'}`, 'error'); setPendingAction(null); return; }
+        if (!r.jobId) { addLog(`${r.message || 'Nada na fila'}`, 'info'); setPendingAction(null); return; }
+        addLog(`📦 ${r.total} blueprint(s) no lote ${String(r.jobId).slice(0, 8)}… — rodando em segundo plano.`, 'info');
+        addLog('Pode fechar a aba: o progresso é re-adotado quando você voltar.', 'info');
+        watchJob(r.jobId, 'Blueprints');
         setPendingAction(null); return;
       }
       if (actionKey === 'audit-blueprint') {
@@ -700,6 +689,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
       // Lote onde ele existe (blueprint, ia2, ia3, ia4): −50% de custo e não
       // prende a aba. `'agora'` continua disponível, como escolha EXPLÍCITA de
       // depuração — e para as fases que não têm lote é o único caminho.
+      // O blueprint não tem mais modo: é sempre lote (C1b). As outras fases
+      // nascem em lote e podem cair para 'agora' como depuração explícita.
       setModo(FASES_COM_LOTE.has(actionKey) ? 'lote' : 'agora');
       // Dual: abre o picker já com os modelos RESOLVIDOS da config da empresa
       // (override por task → default por task) — a config deixa de ser morta.
