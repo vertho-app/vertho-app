@@ -31,6 +31,7 @@ import {
   type Status,
 } from '@/lib/modulos-base/pipeline';
 import { publicarModuloCore } from '@/lib/modulos-base/publicar';
+import { escaparLike } from '@/lib/sql-like';
 
 
 
@@ -39,15 +40,52 @@ import { publicarModuloCore } from '@/lib/modulos-base/publicar';
 // CRUD / listagem
 // ════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Página padrão da listagem. A tela pede mais em blocos deste tamanho.
+ *
+ * ⚠️ NÃO exportar: num arquivo `'use server'` **todo export precisa ser função
+ * async** — o `tsc` aceita a constante e o build do Turbopack falha. (E export
+ * aqui não é só um detalhe de sintaxe: cada um vira endpoint HTTP.)
+ */
+const MODULOS_POR_PAGINA = 200;
+
+/**
+ * ── B6 (auditoria de 22/08): a tela mostrava 200 de 283, sem dizer ────────
+ *
+ * O `.limit(200)` era fixo e o único consumidor não paginava, não passava
+ * offset e não exibia total. `Medido em 24/08:` `modulos_base_conteudo` tem
+ * **283 linhas**, então **83 módulos (29% do acervo) não apareciam** e não
+ * tinham como ser alcançados por essa tela.
+ *
+ * Pior que a invisibilidade: o "selecionar tudo" marca o que está na tela, e
+ * "aprovar e publicar" reportava **"200/200 publicado(s)"** — o denominador do
+ * aviso era a fatia, não o acervo, e a mensagem ensinava que o lote cobriu tudo.
+ *
+ * E o corte era por `updated_at DESC`: os 83 excluídos eram justamente os mais
+ * ANTIGOS — os que mais precisam de reauditoria.
+ *
+ * Agora devolve `{ modulos, total, temMais }`, com `count: 'exact'` medindo o
+ * conjunto FILTRADO (não a tabela). A tela mostra "N de M" e busca o resto.
+ *
+ * ⚠️ O desempate por `id` não é enfeite: paginar por uma coluna que empata tem o
+ * mesmo defeito do B7 — entre duas páginas a ordem de um bloco empatado não é
+ * garantida, e a linha some ou vem duas vezes. Hoje os 283 `updated_at` são
+ * distintos, mas o lote do manuscrito grava vários módulos no mesmo instante.
+ */
 export async function listarModulos(filtros: {
   status?: Status; locale?: Locale; competencia_base_id?: string;
   contexto_pedagogico?: string; busca?: string;
   // empresa_id: 'global' = só canônicos (empresa_id null); uuid = exclusivos dessa empresa; undefined = todos.
   empresa_id?: string; pilar?: string;
+  /** Paginação: quantos pular e quantos trazer (default: a 1ª página). */
+  offset?: number; limit?: number;
 } = {}) {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
-  let q = sb.from('modulos_base_conteudo').select(COLS).order('updated_at', { ascending: false });
+  let q = sb.from('modulos_base_conteudo')
+    .select(COLS, { count: 'exact' })
+    .order('updated_at', { ascending: false })
+    .order('id');
   if (filtros.status) q = q.eq('status', filtros.status);
   if (filtros.locale) q = q.eq('locale', filtros.locale);
   // Competência: valor uuid (catálogo global) filtra por id; valor nome (modelo da empresa)
@@ -68,12 +106,15 @@ export async function listarModulos(filtros: {
       const empIds = (ce || []).map((c: any) => c.id);
       if (baseIds.length) ors.push(`competencia_base_id.in.(${baseIds.join(',')})`);
       if (empIds.length) ors.push(`competencia_id.in.(${empIds.join(',')})`);
-      if (!ors.length) return { modulos: [] };
+      if (!ors.length) return { modulos: [], total: 0, offset: 0, temMais: false };
       q = q.or(ors.join(','));
     }
   }
   if (filtros.contexto_pedagogico) q = q.eq('contexto_pedagogico', filtros.contexto_pedagogico);
-  if (filtros.busca) q = q.ilike('titulo', `%${filtros.busca}%`);
+  // Os `%` das pontas sao curinga INTENCIONAL (busca parcial); o que o operador
+  // digitou, nao. Sem escapar, um `_` no termo casa qualquer caractere e a lista
+  // volta mais larga do que a busca pedia.
+  if (filtros.busca) q = q.ilike('titulo', `%${escaparLike(filtros.busca)}%`);
   if (filtros.empresa_id === 'global') q = q.is('empresa_id', null);
   else if (filtros.empresa_id) q = q.eq('empresa_id', filtros.empresa_id);
 
@@ -90,13 +131,16 @@ export async function listarModulos(filtros: {
     const ors: string[] = [];
     if (baseIds.length) ors.push(`competencia_base_id.in.(${baseIds.join(',')})`);
     if (empIds.length) ors.push(`competencia_id.in.(${empIds.join(',')})`);
-    if (!ors.length) return { modulos: [] };
+    if (!ors.length) return { modulos: [], total: 0, offset: 0, temMais: false };
     q = q.or(ors.join(','));
   }
 
-  const { data, error } = await q.limit(200);
+  const offset = Math.max(0, filtros.offset ?? 0);
+  const limit = Math.max(1, filtros.limit ?? MODULOS_POR_PAGINA);
+  const { data, error, count } = await q.range(offset, offset + limit - 1);
   if (error) return { error: error.message };
   const modulos = (data || []) as any[];
+  const total = count ?? modulos.length;
 
   // Resolve o nome da competência dos DOIS catálogos (canônico + empresa), já que
   // módulos da empresa (competencia_id) não aparecem em competencias_base.
@@ -106,7 +150,7 @@ export async function listarModulos(filtros: {
     const nomeDe = new Map((emp || []).map((c: any) => [c.id, c.nome]));
     for (const m of modulos) if (m.competencia_id) m.competencia_nome = nomeDe.get(m.competencia_id) || null;
   }
-  return { modulos };
+  return { modulos, total, offset, temMais: offset + modulos.length < total };
 }
 
 /**

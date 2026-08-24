@@ -33,6 +33,11 @@ export default function ModulosBaseListPage() {
   const router = useRouter();
   const confirmDialog = useConfirm();
   const [modulos, setModulos] = useState<Modulo[]>([]);
+  // B6: quantos existem no filtro, contra quantos estao carregados. A tela
+  // mostrava 200 de 283 sem dizer, e o aviso de lote usava a FATIA como
+  // denominador ("200/200 publicado(s)"), ensinando que cobriu o acervo.
+  const [total, setTotal] = useState(0);
+  const [carregandoMais, setCarregandoMais] = useState(false);
   const [competencias, setCompetencias] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
@@ -51,7 +56,37 @@ export default function ModulosBaseListPage() {
     setSel(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
   function toggleSelTodos() {
+    // Marca o que esta CARREGADO — e o rotulo ao lado diz esse numero, para o
+    // lote nao parecer cobrir o acervo inteiro (era assim que "200/200
+    // publicado(s)" convivia com 83 modulos fora da tela).
     setSel(prev => prev.size === modulos.length ? new Set() : new Set(modulos.map(m => m.id)));
+  }
+
+  /**
+   * O aviso do lote diz quantos do FILTRO ficaram fora. Sem isso, "200/200
+   * publicado(s)" com 83 modulos nao carregados le-se como "o acervo inteiro" —
+   * era o proprio B6: o denominador da mensagem era a fatia.
+   */
+  function foraDaTela() {
+    const resto = total - modulos.length;
+    return resto > 0 ? ` · ⚠️ ${resto} módulo(s) do filtro não estavam carregados` : '';
+  }
+
+  /** Traz a proxima pagina e ANEXA — a selecao atual e preservada. */
+  async function carregarMais() {
+    setCarregandoMais(true);
+    const m = await listarModulos({
+      status: (filtroStatus || undefined) as any,
+      empresa_id: filtroEmpresa || undefined,
+      pilar: filtroPilar || undefined,
+      competencia_base_id: filtroComp || undefined,
+      busca: busca || undefined,
+      offset: modulos.length,
+    });
+    setCarregandoMais(false);
+    if ('error' in m) { setErro(m.error || 'Erro ao carregar mais'); return; }
+    setModulos(prev => [...prev, ...m.modulos]);
+    setTotal((m as any).total ?? 0);
   }
 
   async function rodarLote(
@@ -65,7 +100,7 @@ export default function ModulosBaseListPage() {
     setLoteBusy('');
     if (r && 'error' in r && r.error) { setErro(r.error); return; }
     const falhasTxt = (r as any).falhas?.length ? ` · ${(r as any).falhas.length} falha(s): ${(r as any).falhas.join(' · ')}` : '';
-    setAviso(rotuloOk(r) + falhasTxt);
+    setAviso(rotuloOk(r) + falhasTxt + foraDaTela());
     setSel(new Set());
     carregar();
   }
@@ -102,7 +137,7 @@ export default function ModulosBaseListPage() {
       if ('error' in r && r.error) err++; else ok++;
     }
     setLoteBusy('');
-    setAviso(`${ok}/${ids.length} excluído(s)${err ? ` · ${err} ignorado(s)/erro` : ''}`);
+    setAviso(`${ok}/${ids.length} excluído(s)${err ? ` · ${err} ignorado(s)/erro` : ''}` + foraDaTela());
     setSel(new Set());
     carregar();
   }
@@ -120,7 +155,7 @@ export default function ModulosBaseListPage() {
       competencias.length === 0 ? listarCompetenciasBase() : Promise.resolve({ competencias }),
     ]);
     if ('error' in m) setErro(m.error || 'Erro ao carregar módulos');
-    else { setErro(''); setModulos(m.modulos); }
+    else { setErro(''); setModulos(m.modulos); setTotal((m as any).total ?? m.modulos.length); }
     if ('competencias' in c) setCompetencias((c as any).competencias || []);
     setLoading(false);
   }
@@ -262,7 +297,13 @@ export default function ModulosBaseListPage() {
               <thead>
                 <tr className="bg-white/[0.03] text-white/45 uppercase text-[10px]">
                   <th className="px-3 py-2.5 w-8">
-                    <input type="checkbox" aria-label="Selecionar todos"
+                    <input type="checkbox"
+                      aria-label={modulos.length < total
+                        ? `Selecionar os ${modulos.length} carregados (de ${total})`
+                        : `Selecionar todos os ${total}`}
+                      title={modulos.length < total
+                        ? `Marca os ${modulos.length} carregados — ${total - modulos.length} nao estao na tela`
+                        : undefined}
                       checked={modulos.length > 0 && sel.size === modulos.length}
                       ref={el => { if (el) el.indeterminate = sel.size > 0 && sel.size < modulos.length; }}
                       onChange={toggleSelTodos}
@@ -353,6 +394,28 @@ export default function ModulosBaseListPage() {
                 ))}
               </tbody>
             </table>
+          )}
+
+          {/* B6: a contagem que faltava. Sem ela, "200 de 283" e indistinguivel
+              de "283 de 283" — e o corte por updated_at DESC escondia justamente
+              os mais ANTIGOS, que sao os que mais precisam de reauditoria. */}
+          {!loading && modulos.length > 0 && (
+            <div className="flex items-center justify-between gap-3 border-t border-white/[0.08] bg-white/[0.02] px-4 py-3">
+              <span className="text-xs text-white/55">
+                {modulos.length === total
+                  ? `${total} módulo(s)`
+                  : `${modulos.length} de ${total} carregado(s) · ${total - modulos.length} fora da tela`}
+              </span>
+              {modulos.length < total && (
+                <button
+                  onClick={carregarMais}
+                  disabled={carregandoMais}
+                  className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
+                >
+                  {carregandoMais ? 'Carregando…' : `Carregar mais (${total - modulos.length})`}
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

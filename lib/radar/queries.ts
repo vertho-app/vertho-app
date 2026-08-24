@@ -949,7 +949,10 @@ export async function getDocentesUf(uf: string): Promise<DocentesAgregado | null
     const rows = await fetchAllRows<DocentesAggRow>(() => sb
       .from('diag_mv_docentes_agg')
       .select(DOCENTES_AGG_COLUNAS)
-      .eq('uf', uf));
+      .eq('uf', uf)
+      // (município × rede) é a chave da view — só `municipio_ibge` empataria
+      // entre as redes, que é o mesmo defeito da paginação sem ordem.
+      .order('municipio_ibge').order('rede'));
     // Uma linha por (município × rede) — consolida por rede para o breakdown.
     return agregarDocentes(consolidarPorRede(rows));
   } catch {
@@ -986,6 +989,7 @@ export async function getMunicipio(
   }>(() => sb
     .from('diag_escolas')
     .select('codigo_inep, nome, municipio, uf, rede')
+    .order('codigo_inep')
     .eq('municipio_ibge', ibge));
 
   // Fontes municipais (FUNDEB, PDDE municipal, VAAR, receita prevista) — em paralelo,
@@ -1297,6 +1301,7 @@ export async function getEstadoStats(uf: string): Promise<EstadoStats | null> {
   }>(() => sb
     .from('diag_escolas')
     .select('codigo_inep, municipio_ibge, microrregiao, rede')
+    .order('codigo_inep')
     .eq('uf', uf));
 
   if (!escolas.length) return null;
@@ -1402,6 +1407,7 @@ export async function getRankingMunicipiosUf(uf: string): Promise<RankingMunicip
   }>(() => sb
     .from('diag_escolas')
     .select('codigo_inep, municipio, municipio_ibge')
+    .order('codigo_inep')
     .eq('uf', uf)
     .not('municipio_ibge', 'is', null));
   if (!escolas.length) return [];
@@ -1521,6 +1527,7 @@ export async function listMunicipiosEstadosSitemap(): Promise<{
   }>(() => sb
     .from('diag_escolas')
     .select('municipio_ibge, uf, atualizado_em')
+    .order('codigo_inep')
     .not('municipio_ibge', 'is', null));
   // Dedup municípios e UFs
   const muniMap = new Map<string, string>();
