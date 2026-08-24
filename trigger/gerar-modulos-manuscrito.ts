@@ -43,8 +43,32 @@ export const gerarModulosManuscritoTask = task({
     const patch = (f: Record<string, unknown>) =>
       sb.from('ia_jobs').update({ ...f, updated_at: new Date().toISOString() }).eq('id', payload.jobId);
 
-    const { data: job } = await sb.from('ia_jobs').select('*').eq('id', payload.jobId).maybeSingle();
+    const { data: job, error: errJob } = await sb.from('ia_jobs').select('*').eq('id', payload.jobId).maybeSingle();
+    // Falha de LEITURA não é "job não existe": com o retry ligado, tratar as
+    // duas como a mesma coisa faria a task desistir de um job que está lá.
+    if (errJob) throw new Error(`não foi possível ler o ia_job ${payload.jobId}: ${errJob.message}`);
     if (!job) throw new Error('ia_job não encontrado: ' + payload.jobId);
+
+    // 🔴 C3 (pré-requisito da idempotência) — REENTRÂNCIA.
+    //
+    // Sem isto, uma nova execução de um job JÁ CONCLUÍDO re-parseia o DOCX,
+    // reabre o progresso e — quando `substituirExistentes` está ligado —
+    // REGERA tudo, pagando a IA de novo. `modulosExistentes` protege o caso
+    // normal, mas é exatamente o modo `substituir` que o admin usa para
+    // corrigir um lote ruim: o retry o transformaria em cobrança dupla.
+    //
+    // ⚠️ `done` é o único estado que encerra. `running` segue adiante de
+    // propósito: é aí que mora a retomada pelo mesmo `batchId`, que é o que
+    // torna o retry seguro em vez de caro.
+    if (job.status === 'done') {
+      console.warn(`[gerar-modulos-manuscrito] job ${payload.jobId} já está done — nada a fazer (reentrância evitada)`);
+      return {
+        ok: true, jobId: payload.jobId, reentrante: true,
+        okCount: Array.isArray(job.result_ids) ? job.result_ids.length : 0,
+        errCount: 0, pulados: 0,
+      };
+    }
+
     await patch({ status: 'running' });
 
     try {
