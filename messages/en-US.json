@@ -894,8 +894,8 @@
       "rule": "The track is sequential: each week opens only after the previous one is completed — and what completes a week is the evidence conversation with the Mentor, not just opening the content.",
       "missing": "In week {week}, about {count} more replies from you will close the conversation.",
       "notStarted": "The evidence conversation for week {week} hasn't started yet.",
-      "videoTitle": "How to complete a week",
-      "videoWatch": "See how to complete it",
+      "videoTitle": "Your weekly journey",
+      "videoWatch": "See how to complete a week",
       "goToWeek": "Go to week {week}"
     }
   },

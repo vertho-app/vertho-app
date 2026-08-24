@@ -19,21 +19,40 @@ export type FaseCarreira = 'junior' | 'pleno' | 'senior';
 export const APLICACAO_VIDEO_ID = '80f4da74-4384-419f-aab8-89ed346e7b5b';
 
 /**
+ * Tutorial da JORNADA semanal — abre na 1ª visita à lista de semanas
+ * (`/dashboard/temporada`) e explica a mecânica da trilha inteira.
+ *
+ * Vive aqui, e não como `const` local da página, porque passou a ter DOIS
+ * consumidores (ver `CONCLUSAO_VIDEO_ID`). Duas cópias de um GUID divergem em
+ * silêncio: trocar o vídeo num lugar deixaria o outro servindo o antigo, sem
+ * erro nenhum na tela.
+ */
+export const JORNADA_VIDEO_ID = '4d17fac6-2dda-4c34-8436-bfe4c7f32f62';
+
+/**
  * Tutorial do que CONCLUI uma semana — mostrado na tela de semana trancada.
  *
  * 🔴 POR QUE ELE EXISTE (medido 23/08/2026): a régua sequencial é deliberada, mas
  * o que conclui uma semana é a CONVERSA de evidências, e isso não se adivinha —
  * abrir o conteúdo parece suficiente. Na segunda 24/08, 32 das 36 pessoas de
  * Ibipeba e 34 das 38 de Macaé chegam a esta tela; 25 delas sem ter começado a
- * conversa da semana pendente. Texto já existe na tela desde 20/08; o vídeo é a
+ * conversa da semana pendente. O texto já está na tela desde 20/08; o vídeo é a
  * mesma explicação para quem não lê.
  *
- * ⚠️ `null` = ainda NÃO PRODUZIDO, e a tela omite o player em vez de exibir um
- * quadro morto. Trocar por um GUID qualquer para "deixar pronto" entregaria erro
- * de player na primeira tela que essas pessoas veem. Ao publicar no Bunny, este
- * é o único lugar a mudar.
+ * ✅ REUSA O VÍDEO DA JORNADA em vez de pedir um novo: o passo `evidencias` do
+ * `video-spike/tutorial/storyboard.ts` já narra exatamente esta régua — *"as
+ * Evidências. É uma conversa. (…) É isso que comprova a sua evolução e libera a
+ * próxima semana."* Produzir um quinto tutorial diria a mesma frase com outra
+ * voz, e os tutoriais são gravação MANUAL (não saem do pipeline de IA): o custo
+ * seria real e a informação, duplicada — com duas narrações a divergir na
+ * próxima vez que a régua mudar.
+ *
+ * ⚠️ A tela usa `sectionKey='jornada'` (a mesma da lista de semanas), de
+ * propósito: sendo o MESMO vídeo, quem já o assistiu não deve vê-lo abrir
+ * sozinho de novo — ganha só o botão. Se um dia existir um tutorial específico,
+ * trocar este GUID e a `sectionKey` no mesmo commit.
  */
-export const CONCLUSAO_VIDEO_ID: string | null = null;
+export const CONCLUSAO_VIDEO_ID: string | null = JORNADA_VIDEO_ID;
 
 export interface ProgramaConfig {
   modo: ProgramaModo;

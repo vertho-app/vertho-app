@@ -894,8 +894,8 @@
       "rule": "El itinerario es secuencial: cada semana se abre solo después de completar la anterior — y lo que completa una semana es la conversación de evidencias con la Mentora, no solo abrir el contenido.",
       "missing": "En la semana {week}, faltan unas {count} respuestas tuyas para cerrar la conversación.",
       "notStarted": "La conversación de evidencias de la semana {week} aún no ha empezado.",
-      "videoTitle": "Cómo concluir una semana",
-      "videoWatch": "Ver cómo concluir",
+      "videoTitle": "Tu recorrido semanal",
+      "videoWatch": "Ver cómo concluir una semana",
       "goToWeek": "Ir a la semana {week}"
     }
   },

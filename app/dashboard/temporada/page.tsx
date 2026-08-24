@@ -10,9 +10,10 @@ import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 import { semanaLiberadaPorData, formatarLiberacao } from '@/lib/season-engine/week-gating';
 import FirstViewVideo from '@/components/first-view-video';
 import { descritorParaHumano } from '@/lib/descritor-humano';
-
-// Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a temporada.
-const JORNADA_VIDEO_ID = '4d17fac6-2dda-4c34-8436-bfe4c7f32f62';
+// Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a
+// temporada. A constante mora em programa-config: a tela da semana trancada
+// serve o MESMO vídeo, e duas cópias do GUID divergiriam sem erro visível.
+import { JORNADA_VIDEO_ID } from '@/lib/season-engine/programa-config';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 const TIPO_LABEL_KEY = { conteudo: 'episode', aplicacao: 'practice', avaliacao: 'assessment' };

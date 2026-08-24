@@ -913,16 +913,21 @@ function SemanaBloqueada({ acesso, semana, colabId, onIr, t }) {
                 </p>
                 {/* O vídeo é a MESMA explicação do texto acima, para quem não lê —
                     e é aqui que ela precisa estar: esta tela é o destino do link
-                    da cadência para quem está atrasado. Omitido enquanto o vídeo
-                    não existe (`CONCLUSAO_VIDEO_ID` null): player vazio na tela de
-                    bloqueio somaria um erro a quem já bateu numa porta fechada. */}
+                    da cadência para quem está atrasado. Hoje é o tutorial da
+                    Jornada, cujo passo `evidencias` já narra esta régua.
+
+                    `sectionKey='jornada'` é DELIBERADO: é a chave da lista de
+                    semanas, e sendo o mesmo vídeo, quem já assistiu lá não deve
+                    vê-lo abrir sozinho outra vez — fica só o botão. Uma chave
+                    própria reabriria o modal por cima justamente do texto que diz
+                    o que fazer, para quem acabou de bater numa porta fechada. */}
                 {CONCLUSAO_VIDEO_ID && (
                   <div className="mt-5">
                     <FirstViewVideo
                       videoId={CONCLUSAO_VIDEO_ID}
                       title={t('locked.videoTitle')}
                       label={t('locked.videoWatch')}
-                      sectionKey="semana-bloqueada"
+                      sectionKey="jornada"
                       colabId={colabId}
                     />
                   </div>
