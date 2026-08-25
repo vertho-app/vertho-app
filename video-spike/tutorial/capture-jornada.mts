@@ -49,11 +49,108 @@ async function mint(email: string) {
   return names.map((name, i) => ({ name, value: chunks[i], domain: 'acme-demo.localhost', path: '/', httpOnly: false, secure: false, sameSite: 'Lax' as const }));
 }
 
-const TRILHA = '02b63e87-f864-43ea-806f-fd8c44fd2573';
-async function setConsumed(v: boolean) {
+/**
+ * 🔴 A TRILHA É RESOLVIDA EM RUNTIME, NÃO CRAVADA.
+ *
+ * Havia um GUID literal aqui (`02b63e87-…`) e ele deixou de existir: o reset
+ * diário do acme-demo (04h) recria a trilha da bruna.demo com id novo. O
+ * `UPDATE … where trilha_id='02b63e87-…'` passou a afetar ZERO linhas — sem
+ * erro, sem aviso —, e a captura seguiu com a semana travada. Resultado medido
+ * em 25/08: o beat "evidencias" narrava a conversa mostrando a tela com os
+ * botões DESABILITADOS e "Libera após marcar conteúdo como realizado".
+ *
+ * Id de dado semeado nunca é estável em tenant que reseta. Resolver pelo EMAIL
+ * é o único jeito de o script sobreviver ao próximo reset.
+ */
+async function pg_() {
   const c = new pg.Client({ connectionString: env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
   await c.connect();
-  await c.query(`update temporada_semana_progresso set conteudo_consumido=$1, status='em_andamento' where trilha_id=$2 and semana=1`, [v, TRILHA]);
+  return c;
+}
+
+let TRILHA = '';
+async function resolverTrilha() {
+  const c = await pg_();
+  const { rows } = await c.query(
+    `select t.id from trilhas t
+       join colaboradores co on co.id = t.colaborador_id
+      where co.email = $1
+      order by t.criado_em desc limit 1`,
+    ['bruna.demo@vertho.ai'],
+  );
+  await c.end();
+  if (!rows.length) throw new Error('trilha da bruna.demo não encontrada — rode o reset do acme-demo');
+  TRILHA = rows[0].id;
+  log(`trilha resolvida: ${TRILHA}`);
+}
+
+async function setConsumed(v: boolean) {
+  const c = await pg_();
+  const r = await c.query(`update temporada_semana_progresso set conteudo_consumido=$1, status='em_andamento' where trilha_id=$2 and semana=1`, [v, TRILHA]);
+  await c.end();
+  // FALHA ALTO: um update que não acha a linha é exatamente como esta captura
+  // gravou a tela errada por semanas sem ninguém ver.
+  if (!r.rowCount) throw new Error(`setConsumed(${v}) não afetou nenhuma linha (trilha ${TRILHA}, semana 1)`);
+}
+
+/**
+ * Deixa a conversa de evidências com N turnos de IA já feitos, para capturar o
+ * CONTADOR ("faltam N respostas") e, com N = necessário, a semana CONCLUÍDA.
+ *
+ * A conversa real custaria N chamadas de IA por captura e produziria um texto
+ * diferente a cada rodada — o tutorial mostraria uma conversa que ninguém mais
+ * vai ver. Aqui o transcript é semeado: o que importa no vídeo é o ESTADO da
+ * tela (o contador, a faixa verde), não o conteúdo do papo.
+ */
+/**
+ * ⚠️ AS FALAS PRECISAM VARIAR. A primeira versão repetia o mesmo par de
+ * pergunta/resposta N vezes, e no vídeo isso aparece como a Mentora fazendo a
+ * MESMA pergunta seis vezes seguidas — quem assiste não lê "dado de exemplo",
+ * lê "produto quebrado". O tutorial é a primeira impressão do mecanismo.
+ *
+ * O roteiro segue a progressão real do socrático (situação → o que fez →
+ * reação → o que aprendeu), com o tema da semana 1 do acme-demo.
+ */
+const ROTEIRO_EVIDENCIAS: [string, string][] = [
+  ['Me conta uma situação desta semana em que você precisou que o cliente decidisse mais rápido.',
+   'Tive uma proposta parada há duas semanas com um cliente que só dizia "vou ver".'],
+  ['E o que você fez de diferente dessa vez?',
+   'Coloquei na proposta que a condição de pagamento valia até sexta, e expliquei o porquê.'],
+  ['Como você explicou esse porquê para ele?',
+   'Falei que a agenda de implantação de junho fechava, e que depois disso só entraria em julho.'],
+  ['E como ele reagiu a essa razão?',
+   'Ele parou de adiar. Respondeu no mesmo dia pedindo para fechar ainda naquela semana.'],
+  ['O que te parece que fez a diferença: o prazo ou a explicação?',
+   'A explicação. Prazo sozinho eu já tinha tentado antes e ele ignorava.'],
+  ['O que você faria diferente na próxima proposta com base nisso?',
+   'Colocar a razão concreta logo no começo, e não como argumento de última hora.'],
+];
+
+async function semearConversa(turnosIa: number, concluida: boolean) {
+  const msgs: { role: string; content: string }[] = [];
+  for (let i = 0; i < turnosIa; i++) {
+    const [ia, colab] = ROTEIRO_EVIDENCIAS[i % ROTEIRO_EVIDENCIAS.length];
+    msgs.push({ role: 'assistant', content: ia });
+    msgs.push({ role: 'user', content: colab });
+  }
+  const c = await pg_();
+  const r = await c.query(
+    `update temporada_semana_progresso
+        set reflexao = $1, status = $2
+      where trilha_id = $3 and semana = 1`,
+    [JSON.stringify({ transcript_completo: msgs }), concluida ? 'concluido' : 'em_andamento', TRILHA],
+  );
+  await c.end();
+  if (!r.rowCount) throw new Error('semearConversa não afetou nenhuma linha');
+}
+
+/** Devolve a semana 1 ao estado inicial — captura não pode deixar rastro. */
+async function limparConversa() {
+  const c = await pg_();
+  await c.query(
+    `update temporada_semana_progresso set reflexao = null, status = 'em_andamento', conteudo_consumido = false where trilha_id = $1 and semana = 1`,
+    [TRILHA],
+  );
   await c.end();
 }
 
@@ -135,6 +232,7 @@ async function injectVideoChip(page: Page) {
 
 async function main() {
   mkdirSync(IMGDIR, { recursive: true }); mkdirSync(OUT_DIR, { recursive: true });
+  await resolverTrilha();
   const cookies = await mint('bruna.demo@vertho.ai');
   const browser = await chromium.launch({ headless: true });
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 2 });
@@ -179,20 +277,61 @@ async function main() {
   // A barra "Sua semana": o novo lugar onde a régua da conclusão é dita.
   await shot(page, 'estado', await bboxDoBloco(page, /SUA SEMANA/i));
 
-  // Recarrega para o estado persistido (o clique acima já gravou o consumo).
-  // `setConsumed(true)` continua aqui como GARANTIA determinística: se a
-  // gravação assíncrona não tiver concluído, a captura seguinte pegaria a tela
-  // no meio do caminho — e captura instável é como um tutorial passa a mostrar
-  // uma tela que ninguém vê.
+  // Recarrega para o estado persistido. `setConsumed(true)` é a GARANTIA
+  // determinística — e agora FALHA ALTO se não achar a linha, que foi
+  // exatamente como esta captura gravou a tela travada sem ninguém ver.
   await setConsumed(true);
   await page.goto(`${BASE}/dashboard/temporada/semana/1`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.getByText(/Criação de senso de urgência/i).first().waitFor({ timeout: 15000 });
+  // Espera pelo ESTADO, não pelo relógio: o botão de Evidências só fica
+  // clicável depois de a tela ler o progresso. Capturar antes disso é como o
+  // beat "evidencias" acabou mostrando a tela com os botões cinza.
+  await page.getByRole('button', { name: /Levantar evidências/i }).first()
+    .waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+  await page.waitForFunction(
+    () => !document.body.innerText.includes('Libera após marcar conteúdo'),
+    undefined, { timeout: 15000 },
+  ).catch(() => {});
   await settle();
   await injectVideoChip(page);
   const bTd = await frameTarget(page, /TIRA-DÚVIDAS/i);
   await shot(page, 'tiraduvidas', bTd);
   const bEv = await frameTarget(page, /EVIDÊNCIAS/i);
   await shot(page, 'evidencias', bEv);
+
+  /*
+   * ── OS TRÊS ESTADOS QUE FALTAVAM (pedido do dono, 25/08) ──────────────────
+   * O tutorial FALAVA das evidências e nunca mostrava o que acontece ao clicar:
+   * a conversa abrindo, o contador andando e a semana fechando. Quem assiste
+   * ouve "é o passo mais importante" e não vê nenhum deles.
+   */
+
+  // 1) A CONVERSA ABERTA — o clique real no botão.
+  await page.getByRole('button', { name: /Levantar evidências/i }).first().click().catch(() => {});
+  await page.waitForTimeout(2500);
+  await shot(page, 'conversa', await frameTarget(page, /EVIDÊNCIAS/i));
+
+  // 2) O CONTADOR — semeia 3 de 6 turnos e mostra "faltam 3 respostas".
+  await semearConversa(3, false);
+  await page.goto(`${BASE}/dashboard/temporada/semana/1`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.getByText(/Faltam .* respostas/i).first().waitFor({ timeout: 20000 }).catch(() => {});
+  await settle();
+  // `bbox` e nao `bboxDoBloco`: o contador e uma LINHA dentro do card da
+  // conversa, e subir ate o cartao emolduraria o chat inteiro (a primeira
+  // tentativa devolveu 1920x1146 — a pagina toda). Aqui o alvo e a frase.
+  await shot(page, 'progresso', await bbox(page, /Faltam .* respostas/i));
+
+  // 3) A SEMANA CONCLUÍDA — a faixa verde, o marco que a pessoa nunca via.
+  await semearConversa(6, true);
+  await page.goto(`${BASE}/dashboard/temporada/semana/1`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.getByText(/Semana 1 concluída/i).first().waitFor({ timeout: 20000 }).catch(() => {});
+  await settle();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot(page, 'concluida', await bboxDoBloco(page, /Semana 1 concluída/i));
+
+  // Captura não deixa rastro: devolve a semana ao estado inicial.
+  await limparConversa();
+  log('estado da bruna.demo restaurado');
 
   await browser.close();
   const out = path.join(OUT_DIR, 'jornada.frames.json');

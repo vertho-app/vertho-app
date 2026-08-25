@@ -221,8 +221,38 @@ export const JORNADA: Flow = {
        * tela passou a mostrar em 25/08.
        */
       id: 'evidencias', title: 'Evidências', cuts: FULL, captureId: 'evidencias',
-      narration: 'E o passo mais importante: as Evidências. É uma conversa. Você conta como colocou o aprendizado em prática, sem precisar anexar nenhum arquivo. A conversa tem um fim, e a própria tela mostra quantas respostas ainda faltam. É isso que comprova a sua evolução e libera a próxima semana.',
+      narration: 'E o passo mais importante: as Evidências. É aqui que a semana se conclui — não em outro lugar.',
       highlight: { label: 'É uma conversa' },
+    },
+    {
+      /*
+       * 🔴 O TUTORIAL FALAVA DAS EVIDÊNCIAS E NUNCA MOSTRAVA O QUE ACONTECE AO
+       * CLICAR (apontado pelo dono, 25/08). Quem assiste ouvia "é o passo mais
+       * importante" e via um botão parado: nem a conversa abrindo, nem o
+       * contador andando, nem a semana fechando.
+       *
+       * Estes três beats existem porque a régua que trava 61 pessoas é
+       * justamente esta — e explicá-la sem mostrá-la é o mesmo erro da tela que
+       * dizia a regra em letra de legenda.
+       */
+      id: 'conversa', title: 'A conversa abre', cuts: FULL, captureId: 'conversa',
+      narration: 'Ao clicar em Levantar evidências, a conversa começa. Você conta como colocou o aprendizado em prática — sem anexar nenhum arquivo, sem formulário.',
+      highlight: { label: 'Clique e comece' },
+    },
+    {
+      /*
+       * ⚠️ O número NÃO é cravado na narração: são 6 respostas na semana de
+       * conteúdo e 10 na de aplicação (`turnosIaNecessarios`), e este tutorial
+       * é genérico. A frase ensina a OLHAR o contador; a tela diz o número.
+       */
+      id: 'progresso', title: 'Quanto falta', cuts: FULL, captureId: 'progresso',
+      narration: 'A conversa tem um fim, e a tela mostra quantas respostas ainda faltam. Você não precisa adivinhar quando terminou.',
+      highlight: { label: 'Quantas faltam' },
+    },
+    {
+      id: 'concluida', title: 'Semana concluída', cuts: FULL, captureId: 'concluida',
+      narration: 'Quando a conversa fecha, a semana é dada como concluída e a próxima libera. É isso que comprova a sua evolução na trilha.',
+      highlight: { label: 'Semana fechada' },
     },
     {
       id: 'fecho', title: 'Fecho', cuts: FULL, kind: 'cartela',

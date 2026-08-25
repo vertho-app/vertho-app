@@ -28,18 +28,23 @@ export const APLICACAO_VIDEO_ID = '80f4da74-4384-419f-aab8-89ed346e7b5b';
  * erro nenhum na tela.
  */
 /*
- * ⚠️ GUID TROCADO EM 25/08/2026 (antigo: 4d17fac6-2dda-4c34-8436-bfe4c7f32f62).
+ * ⚠️ GUID TROCADO 2× EM 25/08/2026.
+ *   4d17fac6 (original) → bf1b38c0 (1ª refação) → 1279ee99 (esta)
  *
- * O tutorial foi refeito porque a narração passou a ENSINAR O ERRADO: o passo
- * "Marcar como realizado" dizia *"é esse passo que destrava o resto da semana"*,
- * e o botão saiu do caminho quando abrir o conteúdo passou a destravar sozinho.
- * O passo virou "O que destrava a semana", sobre a barra "Sua semana".
+ * A 1ª refação corrigiu a MENTIRA: o passo "Marcar como realizado" narrava
+ * *"é esse passo que destrava o resto da semana"*, e o botão tinha saído do
+ * caminho. Virou "O que destrava a semana", sobre a barra "Sua semana".
  *
- * O antigo NÃO foi apagado no mesmo instante, de propósito: sai depois que este
- * estiver provado no ar — a mesma ordem que o `semana_pendente_v2` seguiu em
- * relação ao v1 na Meta. Apagar primeiro deixa sem os dois se algo falhar.
+ * A 2ª (esta) fechou o que o dono apontou ao ASSISTIR: o tutorial falava das
+ * Evidências e nunca mostrava o que acontece ao clicar. Entraram três beats —
+ * a conversa abrindo, o contador de respostas e a semana concluída. 11 beats,
+ * 2min17.
+ *
+ * Os antigos NÃO são apagados junto: saem depois que este estiver provado no
+ * ar — a mesma ordem que o `semana_pendente_v2` seguiu em relação ao v1 na
+ * Meta. Apagar primeiro deixa sem os dois se algo falhar.
  */
-export const JORNADA_VIDEO_ID = 'bf1b38c0-8d77-421f-bd4c-3161cf7afc08';
+export const JORNADA_VIDEO_ID = '1279ee99-1b7e-4b59-8f96-50210929e89b';
 
 /**
  * Tutorial do que CONCLUI uma semana — mostrado na tela de semana trancada.
