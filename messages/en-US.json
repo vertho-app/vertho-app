@@ -3992,7 +3992,16 @@
     "done": {
       "title": "Congratulations, {name}!",
       "description": "You have completed all competency assessments.<br></br>You will soon receive your personalized report.",
-      "watchVideo": "Watch: thank you and next steps (PDI and Season)"
+      "watchVideo": "Watch: thank you and next steps (PDI and Season)",
+      "resultTitle": "Assessment results",
+      "resultSubtitle": "{name}, these are the consolidated findings from your assessment.",
+      "resultSummary": "{evaluated} of {total} competencies analyzed",
+      "level": "Level",
+      "score": "Score",
+      "analysisPending": "Analysis in progress",
+      "strength": "Strength",
+      "attention": "Development point",
+      "viewPdi": "View my development plan →"
     }
   },
   "ManagerDashboard": {

@@ -3992,7 +3992,16 @@
     "done": {
       "title": "Parabéns, {name}!",
       "description": "Você completou todas as avaliações de competências.<br></br>Em breve você receberá seu relatório personalizado.",
-      "watchVideo": "Assista: agradecimento e próximas etapas (PDI e Temporada)"
+      "watchVideo": "Assista: agradecimento e próximas etapas (PDI e Temporada)",
+      "resultTitle": "Resultado da avaliação",
+      "resultSubtitle": "{name}, estas são as evidências consolidadas do seu mapeamento.",
+      "resultSummary": "{evaluated} de {total} competências com análise concluída",
+      "level": "Nível",
+      "score": "Nota",
+      "analysisPending": "Análise em processamento",
+      "strength": "Destaque",
+      "attention": "Ponto de atenção",
+      "viewPdi": "Ver meu PDI →"
     }
   },
   "ManagerDashboard": {

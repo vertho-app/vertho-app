@@ -96,8 +96,11 @@ export default function AssessmentPage() {
     setSaving(false);
     if (r.error) { flash(r.error); return; }
     setSaveResult(r);
-    if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);
-    else setPhase(PHASE.CONFIRM);
+    if (r.concluiuTudo) {
+      const refreshed: any = await getDiagnosticoDoDia();
+      if (refreshed && !refreshed.error) setData(refreshed);
+      setPhase(PHASE.CONCLUIDO);
+    } else setPhase(PHASE.CONFIRM);
   }
 
   // ══════════════ RENDERS ══════════════
@@ -332,15 +335,81 @@ export default function AssessmentPage() {
       {phase === PHASE.CONCLUIDO && (
         <div className="rounded-2xl p-6 border border-brand-400/30 text-center" style={{ background: 'linear-gradient(135deg, rgba(45,212,191,0.08), rgba(252,211,77,0.05))' }}>
           <Trophy size={56} className="text-amber-400 mx-auto mb-3" />
-          <p className="text-xl font-black text-white mb-1">{t('done.title', { name: data?.colaborador?.nome?.split(' ')[0] || '' })}</p>
-          <p className="text-sm text-gray-300 mb-5">
-            {t.rich('done.description', { br: () => <br /> })}
-          </p>
+          {Array.isArray(data?.resultados) && data.resultados.length > 0 ? (
+            <>
+              <p className="text-xl font-black text-white mb-1">{t('done.resultTitle')}</p>
+              <p className="text-sm text-gray-300 mb-1">
+                {t('done.resultSubtitle', { name: data?.colaborador?.nome?.split(' ')[0] || '' })}
+              </p>
+              <p className="text-[11px] text-brand-300 mb-5">
+                {t('done.resultSummary', {
+                  evaluated: data.resultados.filter((item: any) => item.avaliada).length,
+                  total: data.resultados.length,
+                })}
+              </p>
 
-          <button onClick={() => router.push('/dashboard')}
-            className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition">
-            {t('confirm.dashboard')}
-          </button>
+              <div className="space-y-3 text-left mb-5">
+                {data.resultados.map((resultado: any) => (
+                  <div key={resultado.competencia} className="rounded-xl border border-white/[0.08] bg-[#091D35]/80 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-bold text-white leading-snug">{resultado.competencia}</p>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {resultado.nivel != null && (
+                          <span className="rounded-full bg-brand-400/15 px-2 py-1 text-[10px] font-extrabold text-brand-300">
+                            {t('done.level')} N{Math.round(resultado.nivel)}
+                          </span>
+                        )}
+                        {resultado.nota != null && (
+                          <span className="rounded-full bg-white/[0.06] px-2 py-1 text-[10px] font-bold text-white/65">
+                            {t('done.score')} {Number(resultado.nota).toFixed(1)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {!resultado.avaliada && (
+                      <p className="mt-2 text-xs text-amber-300">{t('done.analysisPending')}</p>
+                    )}
+                    {resultado.feedback && (
+                      <p className="mt-2 text-xs leading-relaxed text-gray-400">
+                        {resultado.feedback.length > 320 ? `${resultado.feedback.slice(0, 320)}…` : resultado.feedback}
+                      </p>
+                    )}
+                    {resultado.pontosFortes?.[0] && (
+                      <p className="mt-2 border-l-2 border-emerald-400/40 pl-2 text-[11px] leading-relaxed text-emerald-100/75">
+                        <span className="font-bold text-emerald-300">{t('done.strength')}:</span> {resultado.pontosFortes[0]}
+                      </p>
+                    )}
+                    {resultado.pontosAtencao?.[0] && (
+                      <p className="mt-2 border-l-2 border-amber-400/40 pl-2 text-[11px] leading-relaxed text-amber-100/75">
+                        <span className="font-bold text-amber-300">{t('done.attention')}:</span> {resultado.pontosAtencao[0]}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xl font-black text-white mb-1">{t('done.title', { name: data?.colaborador?.nome?.split(' ')[0] || '' })}</p>
+              <p className="text-sm text-gray-300 mb-5">
+                {t.rich('done.description', { br: () => <br /> })}
+              </p>
+            </>
+          )}
+
+          <div className="flex flex-col gap-2">
+            {data?.temPdi && (
+              <button onClick={() => router.push('/dashboard/pdi')}
+                className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition">
+                {t('done.viewPdi')}
+              </button>
+            )}
+            <button onClick={() => router.push('/dashboard')}
+              className="w-full py-3 rounded-xl font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition">
+              {t('confirm.dashboard')}
+            </button>
+          </div>
         </div>
       )}
     </div>

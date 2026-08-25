@@ -3141,7 +3141,16 @@
     "done": {
       "title": "¡Felicidades, {name}!",
       "description": "Has completado todas las evaluaciones de competencias.<br></br>Pronto recibirás tu informe personalizado.",
-      "watchVideo": "Mira: agradecimiento y próximos pasos (PDI y Temporada)"
+      "watchVideo": "Mira: agradecimiento y próximos pasos (PDI y Temporada)",
+      "resultTitle": "Resultado de la evaluación",
+      "resultSubtitle": "{name}, estas son las evidencias consolidadas de tu evaluación.",
+      "resultSummary": "{evaluated} de {total} competencias con análisis concluido",
+      "level": "Nivel",
+      "score": "Nota",
+      "analysisPending": "Análisis en proceso",
+      "strength": "Fortaleza",
+      "attention": "Punto de mejora",
+      "viewPdi": "Ver mi plan de desarrollo →"
     }
   },
   "AdminRadarFunnel": {

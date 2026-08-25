@@ -155,10 +155,11 @@ async function _getDiagnosticoDoDia() {
   const top5ComCenario = await resolverTop5ComCenario(sb, colab.empresa_id, colab.cargo, top5, (colab as any).escola_id || null);
 
   // Respostas já dadas pelo colaborador (filtra por competencia_id — mais confiável)
-  const { data: respostas } = await sb.from('respostas')
-    .select('competencia_id')
+  const { data: respostas, error: respostasError } = await sb.from('respostas')
+    .select('competencia_id, competencia_nome, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, avaliacao_ia')
     .eq('colaborador_id', colab.id)
     .eq('empresa_id', colab.empresa_id);
+  if (respostasError) return { error: respostasError.message };
   const jaRespondidasIds = new Set((respostas || []).map(r => r.competencia_id).filter(Boolean));
 
   // Pega o primeiro do top5 que ainda não foi respondido (por id)
@@ -177,10 +178,54 @@ async function _getDiagnosticoDoDia() {
 
   // Concluiu todas (só se havia competências pra responder e todas foram respondidas)
   if (!pendentes.length) {
+    const respostaPorNome = new Map((respostas || []).map((row: any) => [
+      String(row.competencia_nome || '').trim().toLowerCase(),
+      row,
+    ]));
+    const resultados = top5.map((competencia: string) => {
+      const row: any = respostaPorNome.get(String(competencia).trim().toLowerCase());
+      const avaliacao = typeof row?.avaliacao_ia === 'string'
+        ? (() => { try { return JSON.parse(row.avaliacao_ia); } catch { return null; } })()
+        : row?.avaliacao_ia;
+      const consolidacao = avaliacao?.consolidacao || {};
+      const nivelRaw = row?.nivel_ia4 ?? consolidacao.nivel_geral ?? consolidacao.nivel;
+      const notaRaw = row?.nota_ia4 ?? consolidacao.nota_geral ?? consolidacao.nota_decimal;
+      const nivel = Number(nivelRaw);
+      const nota = Number(notaRaw);
+      const lista = (value: any): string[] => Array.isArray(value)
+        ? value.map((item) => String(item || '').trim()).filter(Boolean)
+        : (typeof value === 'string' && value.trim() ? [value.trim()] : []);
+      const pontosFortes = lista(row?.pontos_fortes ?? avaliacao?.pontos_fortes);
+      const pontosAtencao = lista(row?.pontos_atencao ?? avaliacao?.pontos_atencao ?? avaliacao?.pontos_melhoria);
+      const feedback = String(
+        row?.feedback_ia4
+        || avaliacao?.resumo_geral
+        || avaliacao?.feedback?.resumo
+        || consolidacao?.resumo
+        || '',
+      ).trim();
+      return {
+        competencia,
+        avaliada: Number.isFinite(nivel) || Number.isFinite(nota) || Boolean(feedback),
+        nivel: Number.isFinite(nivel) ? nivel : null,
+        nota: Number.isFinite(nota) ? nota : null,
+        pontosFortes,
+        pontosAtencao,
+        feedback,
+      };
+    });
+    const { count: pdiCount, error: pdiError } = await sb.from('relatorios')
+      .select('id', { count: 'exact', head: true })
+      .eq('empresa_id', colab.empresa_id)
+      .eq('colaborador_id', colab.id)
+      .eq('tipo', 'individual');
+    if (pdiError) return { error: pdiError.message };
     return {
       colaborador: colaboradorPayload,
       progresso,
       concluiuTudo: true,
+      resultados,
+      temPdi: (pdiCount || 0) > 0,
       cenarioDoDia: null,
       respondeuHoje: false,
     };
