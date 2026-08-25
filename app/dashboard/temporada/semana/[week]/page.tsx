@@ -415,34 +415,69 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
         mostrada onde a decisão acontece. Some quando a semana está concluída —
         aviso que fica depois de resolvido é aviso que se aprende a ignorar.
       */}
-      {!chatFinished && !isAvaliacao && (
-        <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-          <div className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">
-            {t('progress.title')}
+      {!isAvaliacao && (
+        chatFinished ? (
+          /*
+            SEMANA CONCLUÍDA — e este é o momento de MAIOR valor do produto.
+            A 1ª versão desta barra simplesmente SUMIA quando `chatFinished`, com
+            o argumento de que aviso resolvido vira ruído. Errado aqui: o que
+            sobrava era um texto verde de 11px no rodapé do card de Evidências,
+            então o indicador que a pessoa vinha acompanhando desaparecia
+            exatamente quando ela venceu. Some o que COBRA; o que CELEBRA fica.
+          */
+          <div className="mb-6 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3">
+            <div className="flex items-center gap-2 text-emerald-300 font-bold text-sm">
+              <Check size={18} className="shrink-0" />
+              {t('progress.weekDone', { week: semanaNum })}
+            </div>
+            <p className="mt-1 text-xs text-emerald-200/80">
+              {semanaNum >= totalSemanasDoPlano(data.trilha.temporada_plano, 14)
+                ? t('progress.seasonDone')
+                : t('progress.nextOpens', { date: formatarLiberacao(data.trilha.data_inicio, semanaNum + 1) })}
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            <span className={`flex items-center gap-1.5 ${podeConversar ? 'text-emerald-400' : 'text-gray-400'}`}>
-              {podeConversar ? <Check size={13} /> : <span className="w-[13px] text-center">1</span>}
-              {t('progress.stepContent')}
-              <span className="text-gray-500">· {podeConversar ? t('progress.contentDone') : t('progress.contentPending')}</span>
-            </span>
-            <span className="text-gray-600">→</span>
-            <span className={`flex items-center gap-1.5 ${turnosFeitos > 0 ? 'text-brand-400' : 'text-gray-400'}`}>
-              <span className="w-[13px] text-center">2</span>
-              {t('progress.stepEvidence')}
-              <span className="text-gray-500">
-                · {turnosFeitos > 0
-                    ? t('progress.evidenceProgress', { done: turnosFeitos, total: turnosNecessarios })
-                    : t('progress.evidenceNotStarted')}
+        ) : (
+          <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <div className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">
+              {t('progress.title')}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              <span className={`flex items-center gap-1.5 ${podeConversar ? 'text-emerald-400' : 'text-gray-400'}`}>
+                {podeConversar ? <Check size={13} /> : <span className="w-[13px] text-center">1</span>}
+                {t('progress.stepContent')}
+                <span className="text-gray-500">· {podeConversar ? t('progress.contentDone') : t('progress.contentPending')}</span>
               </span>
-            </span>
-            <span className="text-gray-600">→</span>
-            <span className="flex items-center gap-1.5 text-gray-500">
-              <span className="w-[13px] text-center">3</span>{t('progress.stepDone')}
-            </span>
+              <span className="text-gray-600">→</span>
+              <span className={`flex items-center gap-1.5 ${turnosFeitos > 0 ? 'text-brand-400' : 'text-gray-400'}`}>
+                <span className="w-[13px] text-center">2</span>
+                {t('progress.stepEvidence')}
+                <span className="text-gray-500">
+                  · {turnosFeitos > 0
+                      ? t('progress.evidenceProgress', { done: turnosFeitos, total: turnosNecessarios })
+                      : t('progress.evidenceNotStarted')}
+                </span>
+              </span>
+              <span className="text-gray-600">→</span>
+              <span className="flex items-center gap-1.5 text-gray-500">
+                <span className="w-[13px] text-center">3</span>{t('progress.stepDone')}
+              </span>
+            </div>
+            {/*
+              A REGRA GANHOU PESO (pedido do dono, 25/08). Era um `<p>` de 11px
+              em amber/80 — do tamanho de uma legenda, para a frase que explica
+              por que a semana não fecha. É ela que desfaz a crença que trava
+              essas pessoas ("abri o conteúdo, então terminei"), então tem que
+              competir com o conteúdo da página, não sussurrar embaixo dele.
+              Faixa própria, ícone, borda e texto de 13px.
+            */}
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2">
+              <Sparkles size={15} className="text-amber-300 shrink-0 mt-px" />
+              <p className="text-[13px] leading-snug text-amber-100 font-medium">
+                {t('progress.closesHere')}
+              </p>
+            </div>
           </div>
-          <p className="mt-2 text-[11px] text-amber-300/80">{t('progress.closesHere')}</p>
-        </div>
+        )
       )}
 
       {/* Vínculo com o PDI (Blueprint) — só quando a trilha é dirigida pelo blueprint. */}
@@ -536,11 +571,18 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
             {!conteudoConsumido && !nadaParaAbrir && (
               <p className="mt-4 text-xs text-amber-300/80">{t('content.openToUnlock')}</p>
             )}
-            {conteudoConsumido && (
-              <div className="mt-4 flex items-center gap-2 text-emerald-400 text-xs">
-                <Check size={14} /> {t('content.done')}
-              </div>
-            )}
+            {/*
+              O "✓ Conteúdo realizado" saiu daqui (25/08/2026, pedido do dono).
+              A barra de estado no topo já diz "Conteúdo · feito" — repetir no
+              rodapé dá a um passo CUMPRIDO o mesmo peso visual do que ainda
+              falta, que é o oposto do que esta tela precisa comunicar. O estado
+              não sumiu: passou a ter um lugar só.
+
+              A chave `content.done` fica no i18n de propósito, sem consumidor:
+              removê-la exigiria mexer nos 4 locales para poupar 4 linhas, e ela
+              é o rótulo natural se o estado voltar a ser mostrado em algum
+              lugar. Está registrada aqui para não virar mistério.
+            */}
           </GlassCard>
 
           {entregasComDesafio.length > 0 && (

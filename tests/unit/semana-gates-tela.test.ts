@@ -121,9 +121,32 @@ describe('itens 3 e 4 — a régua passou a ser dita', () => {
     expect(TELA).toContain("chatHistory.filter((m) => m?.role === 'assistant').length");
   });
 
-  it('a barra de estado some quando a semana está concluída', () => {
-    // Aviso que fica depois de resolvido é aviso que se aprende a ignorar.
-    expect(TELA).toContain("{!chatFinished && !isAvaliacao && (");
+  it('a barra NÃO some ao concluir — ela vira o estado de conclusão', () => {
+    // 🔴 CORRIGIDO EM 25/08 (dono, olhando a tela). A 1ª versão fazia a barra
+    // sumir com `{!chatFinished && ...}`, no argumento de que aviso resolvido
+    // vira ruído. Errado neste caso: o que sobrava era um texto verde de 11px
+    // no rodapé do card, então o indicador que a pessoa vinha acompanhando
+    // desaparecia exatamente quando ela venceu. Some o que COBRA; o que CELEBRA
+    // fica. A régua correta é: aviso de PENDÊNCIA some ao ser resolvido, marco
+    // de CONCLUSÃO aparece.
+    expect(TELA).toContain('{!isAvaliacao && (');
+    expect(TELA).toContain('chatFinished ? (');
+    expect(TELA).toContain("t('progress.weekDone', { week: semanaNum })");
+    expect(TELA).not.toContain('{!chatFinished && !isAvaliacao && (');
+  });
+
+  it('a regra de conclusão tem peso visual, não é legenda', () => {
+    // Era um `<p>` de 11px em amber/80 — do tamanho de uma nota de rodapé, para
+    // a frase que desfaz a crença que trava essas pessoas. Agora tem faixa
+    // própria, borda, ícone e 13px.
+    expect(TELA).toContain('border-amber-400/30 bg-amber-400/10');
+    expect(TELA).not.toContain('<p className="mt-2 text-[11px] text-amber-300/80">{t(\'progress.closesHere\')}</p>');
+  });
+
+  it('o "✓ Conteúdo realizado" saiu do rodapé do card', () => {
+    // Duplicava o "Conteúdo · feito" da barra, dando a um passo CUMPRIDO o
+    // mesmo peso do que ainda falta.
+    expect(TELA).not.toContain("<Check size={14} /> {t('content.done')}");
   });
 
   it('o contador só aparece depois do 1º turno', () => {
@@ -159,5 +182,42 @@ describe('a régua de turnos, que a tela agora exibe', () => {
   it('semana de aplicação pede mais — exibir 6 nela seria promessa falsa', () => {
     expect(turnosIaNecessarios(4, 'aplicacao')).toBe(10);
     expect(turnosIaNecessarios(4, 'aplicacao', 'pratica')).toBe(10);
+  });
+});
+
+/**
+ * A LISTA de semanas (`/dashboard/temporada`) é onde a pessoa ESCOLHE para onde
+ * ir — e era onde a semana começada e não terminada se distinguia das outras
+ * apenas por uma borda colorida. Cor sozinha lê-se como "você está aqui", não
+ * como "falta terminar".
+ */
+describe('lista de semanas — a incompleta passou a se anunciar', () => {
+  const LISTA = readFileSync(
+    join(process.cwd(), 'app/dashboard/temporada/page.tsx'),
+    'utf-8',
+  );
+
+  it('usa a MESMA régua da tela da semana e das rotas', () => {
+    expect(LISTA).toContain('turnosIaNecessarios(s.semana, s.tipo, p?.feedback?.modo)');
+    expect(LISTA).toContain('contarTurnosIa(p, s.semana, s.tipo)');
+    // Um número escrito aqui seria a 3ª cópia da régua.
+    expect(LISTA).not.toMatch(/faltam\s*=\s*\d+/);
+  });
+
+  it('diz quantas faltam, e distingue "não começou" de "parou no meio"', () => {
+    expect(LISTA).toContain("t('week.notStarted')");
+    expect(LISTA).toContain("t('week.incompleteOne')");
+    expect(LISTA).toContain("t('week.incomplete', { count: faltam })");
+  });
+
+  it('só na semana EM ANDAMENTO — concluída e bloqueada não ganham o aviso', () => {
+    expect(LISTA).toContain('{emAndamento && faltam > 0 && (');
+  });
+
+  it('as chaves existem em pt-BR', () => {
+    const season = (ptBR as any).Season;
+    for (const k of ['incomplete', 'incompleteOne', 'notStarted']) {
+      expect(season.week?.[k], `Season.week.${k}`).toBeTruthy();
+    }
   });
 });

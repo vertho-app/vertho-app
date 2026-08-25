@@ -7,7 +7,7 @@ import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, BookOpen, Target, Sparkles, Lock, Check, Play, Video, FileText, Headphones, Award } from 'lucide-react';
 import { loadTemporadaPorEmail } from '@/actions/temporadas';
 import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
-import { semanaLiberadaPorData, formatarLiberacao } from '@/lib/season-engine/week-gating';
+import { semanaLiberadaPorData, formatarLiberacao, turnosIaNecessarios, contarTurnosIa } from '@/lib/season-engine/week-gating';
 import FirstViewVideo from '@/components/first-view-video';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 // Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a
@@ -163,6 +163,23 @@ export default function TemporadaPage() {
                   : t('locked.completePrevious'))
               : '';
 
+            /*
+              QUANTO FALTA PARA A SEMANA FECHAR — na tela onde a pessoa ESCOLHE
+              para onde ir.
+              🔴 Antes, a semana começada e não terminada se distinguia das
+              outras só por uma BORDA colorida. Cor sozinha lê-se como "você
+              está aqui", não como "falta terminar" — e "falta terminar" é o
+              estado de 13 das 61 pessoas travadas em 25/08/2026, seis delas a
+              uma única resposta de distância (medido).
+              Mesma régua da tela da semana e das rotas (`turnosIaNecessarios`),
+              nunca um número escrito aqui: era assim que esta base colecionava
+              portas com critérios diferentes para a mesma decisão.
+            */
+            const turnosFeitos = emAndamento ? contarTurnosIa(p, s.semana, s.tipo) : 0;
+            const faltam = emAndamento
+              ? Math.max(turnosIaNecessarios(s.semana, s.tipo, p?.feedback?.modo) - turnosFeitos, 0)
+              : 0;
+
             const Icon = s.tipo === 'aplicacao' ? Target : s.tipo === 'avaliacao' ? Sparkles : (FORMAT_ICON[s.conteudo?.formato_core] || BookOpen);
 
             return (
@@ -211,6 +228,15 @@ export default function TemporadaPage() {
                 )}
                 {!liberada && motivoBloqueio && (
                   <div className="text-[9px] text-gray-500 mt-0.5 truncate">{motivoBloqueio}</div>
+                )}
+                {emAndamento && faltam > 0 && (
+                  <div className="text-[9px] text-amber-300 mt-0.5 truncate font-medium">
+                    {turnosFeitos === 0
+                      ? t('week.notStarted')
+                      : faltam === 1
+                        ? t('week.incompleteOne')
+                        : t('week.incomplete', { count: faltam })}
+                  </div>
                 )}
               </button>
             );

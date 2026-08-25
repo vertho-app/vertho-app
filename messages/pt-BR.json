@@ -914,7 +914,10 @@
       "evidenceProgress": "{done} de {total} respostas",
       "evidenceNotStarted": "não começou",
       "closesHere": "A semana só é concluída na conversa de evidências — abrir o conteúdo não conclui.",
-      "doneAll": "Concluída. A próxima já está liberada."
+      "doneAll": "Concluída. A próxima já está liberada.",
+      "weekDone": "Semana {week} concluída",
+      "nextOpens": "A semana seguinte libera {date}.",
+      "seasonDone": "Você concluiu todas as semanas da sua trilha."
     }
   },
   "SeasonDone": {
@@ -1036,7 +1039,12 @@
       "title": "Evolution Report",
       "nextStep": "Próximo passo:"
     },
-    "pilotClosing": "Fechamento"
+    "pilotClosing": "Fechamento",
+    "week": {
+      "incomplete": "faltam {count} respostas",
+      "incompleteOne": "falta 1 resposta",
+      "notStarted": "conversa não começou"
+    }
   },
   "Pdi": {
     "video": {
