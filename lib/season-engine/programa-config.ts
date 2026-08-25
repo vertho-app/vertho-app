@@ -27,7 +27,19 @@ export const APLICACAO_VIDEO_ID = '80f4da74-4384-419f-aab8-89ed346e7b5b';
  * silêncio: trocar o vídeo num lugar deixaria o outro servindo o antigo, sem
  * erro nenhum na tela.
  */
-export const JORNADA_VIDEO_ID = '4d17fac6-2dda-4c34-8436-bfe4c7f32f62';
+/*
+ * ⚠️ GUID TROCADO EM 25/08/2026 (antigo: 4d17fac6-2dda-4c34-8436-bfe4c7f32f62).
+ *
+ * O tutorial foi refeito porque a narração passou a ENSINAR O ERRADO: o passo
+ * "Marcar como realizado" dizia *"é esse passo que destrava o resto da semana"*,
+ * e o botão saiu do caminho quando abrir o conteúdo passou a destravar sozinho.
+ * O passo virou "O que destrava a semana", sobre a barra "Sua semana".
+ *
+ * O antigo NÃO foi apagado no mesmo instante, de propósito: sai depois que este
+ * estiver provado no ar — a mesma ordem que o `semana_pendente_v2` seguiu em
+ * relação ao v1 na Meta. Apagar primeiro deixa sem os dois se algo falhar.
+ */
+export const JORNADA_VIDEO_ID = 'bf1b38c0-8d77-421f-bd4c-3161cf7afc08';
 
 /**
  * Tutorial do que CONCLUI uma semana — mostrado na tela de semana trancada.
@@ -39,10 +51,10 @@ export const JORNADA_VIDEO_ID = '4d17fac6-2dda-4c34-8436-bfe4c7f32f62';
  * conversa da semana pendente. O texto já está na tela desde 20/08; o vídeo é a
  * mesma explicação para quem não lê.
  *
- * ✅ REUSA O VÍDEO DA JORNADA em vez de pedir um novo: o passo `evidencias` do
- * `video-spike/tutorial/storyboard.ts` já narra exatamente esta régua — *"as
- * Evidências. É uma conversa. (…) É isso que comprova a sua evolução e libera a
- * próxima semana."* Produzir um quinto tutorial diria a mesma frase com outra
+ * ✅ REUSA O VÍDEO DA JORNADA em vez de pedir um novo: os passos `estado` e
+ * `evidencias` do `video-spike/tutorial/storyboard.ts` narram exatamente esta
+ * régua — *"a semana só é concluída na conversa de evidências"* e *"é isso que
+ * comprova a sua evolução e libera a próxima semana"*. Produzir um quinto tutorial diria a mesma frase com outra
  * voz, e os tutoriais são gravação MANUAL (não saem do pipeline de IA): o custo
  * seria real e a informação, duplicada — com duas narrações a divergir na
  * próxima vez que a régua mudar.

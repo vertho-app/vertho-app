@@ -81,6 +81,34 @@ function union(a: Box | null, b: Box | null): Box | null {
 async function bbox(page: Page, re: RegExp) {
   return await page.getByText(re).first().boundingBox().catch(() => null);
 }
+/**
+ * BBox do BLOCO que contém o texto, não do texto em si.
+ *
+ * 🔴 `bbox()` mede o rótulo: para a barra "Sua semana" isso deu 986×15px, e o
+ * highlight desenhou uma moldura de 15px de altura em volta do título — com a
+ * borda passando POR CIMA da linha de passos, que é justamente a informação que
+ * o beat existe para mostrar. Destacar o rótulo e esconder o conteúdo é pior
+ * que não destacar nada.
+ *
+ * Sobe do texto até o ancestral que é o cartão (o `rounded-xl` do layout) e
+ * devolve o retângulo dele.
+ */
+async function bboxDoBloco(page: Page, re: RegExp) {
+  const alvo = page.getByText(re).first();
+  if (!(await alvo.count().catch(() => 0))) return null;
+  const box = await alvo.evaluate((el) => {
+    let n: HTMLElement | null = el as HTMLElement;
+    for (let i = 0; i < 6 && n; i++) {
+      if (/rounded-xl/.test(n.className || '')) break;
+      n = n.parentElement;
+    }
+    if (!n) return null;
+    const r = n.getBoundingClientRect();
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  }).catch(() => null);
+  return box;
+}
+
 async function frameTarget(page: Page, re: RegExp) {
   const loc = page.getByText(re).first();
   if (!(await loc.count().catch(() => 0))) return null;
@@ -149,7 +177,7 @@ async function main() {
   await chips.first().click().catch(() => {});
   await page.waitForTimeout(1200);
   // A barra "Sua semana": o novo lugar onde a régua da conclusão é dita.
-  await shot(page, 'estado', await bbox(page, /SUA SEMANA/i));
+  await shot(page, 'estado', await bboxDoBloco(page, /SUA SEMANA/i));
 
   // Recarrega para o estado persistido (o clique acima já gravou o consumo).
   // `setConsumed(true)` continua aqui como GARANTIA determinística: se a
