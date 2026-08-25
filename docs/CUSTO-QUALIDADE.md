@@ -484,6 +484,52 @@ bateram em todos os nove — o que sobra é qualidade de escrita, e essa decisã
 para leitura cega (artefato `e8161cfa-fead-4bee-a9d1-fac9c9df0421`, 9 PDIs
 anonimizados A–I sobre persona fictícia).
 
+### Calibração do `ia3_check` — 25/08/2026: é o `erro_grave`, não a escala
+
+`scripts/_calibrar-ia3-check.ts`. O controle do piloto tinha achado que cenários
+guardados com 92 voltavam com 38–60 pelo caminho idêntico ao da produção. Três
+hipóteses, e o script separou as três.
+
+**(C) O check É reprodutível.** Mesmo cenário, 3 re-checks: 58, 60, 60 —
+amplitude de **2 pontos**. Não é ruído; a divergência significa alguma coisa.
+
+**(B) Diverge em TODOS os tenants**, não só na ACME Demo (que tinha o override
+para o `gpt-5.4` morto): Ibipeba −30, Teste Piloto −37, Boehringer −38, Elo −32,
+Macaé −29, mas também ACME −8, Bett −13, UniAnchieta −2. Espalhado demais para
+ser o override.
+
+**A causa real é o `erro_grave`,** que é binário e trava a nota em 60:
+
+| guardada | nota bruta | `erro_grave` | delta |
+|---:|---:|---|---:|
+| 88 | **60** | **true** | −28 |
+| 92 | 87 | false | −5 |
+| 97 | 88 | false | −9 |
+
+Com `erro_grave=false` o delta é −5/−9 — variação normal entre auditores. **Toda
+a divergência vem do flag disparando.** Não houve deriva de escala.
+
+🔑 **E o flag não é sustentado pelo próprio texto do modelo.** No caso que
+disparou, a justificativa diz *"O instrumento tem metadados detalhados,
+descritores mapeados e perguntas abertas com intenção diagnóstica clara"* — texto
+elogioso junto de `erro_grave=true` e nota 60. O modelo levantou uma bandeira que
+o raciocínio dele mesmo não apoia.
+
+⚠️ **Onde isso fere a doutrina do projeto:** o comentário de
+`normalizarResultadoCheckIA3` diz *"Clamp erro_grave×nota + status derivado EM
+CÓDIGO"*. Mas o código só deriva o **status** a partir da **nota** — e quem
+domina a nota é um **booleano declarado pelo modelo**, sem lastro dimensional.
+Os nove critérios de erro grave são majoritariamente subjetivos ("trade-off muito
+fraco", "teatral demais", "resposta genérica suficiente"), então cada auditor
+traça a linha em outro lugar e a nota inteira vira refém disso.
+
+**Remédio proposto (decisão do dono):** derivar `erro_grave` em CÓDIGO a partir
+das 7 dimensões que o check já devolve — vários dos nove critérios têm dimensão
+correspondente (`clareza_tradeoff`, `cobertura_descritores`,
+`aderencia_competencia`). Um `erro_grave` que nenhuma dimensão corrobora é
+bandeira sem lastro. Enquanto isso não mudar, `status_check` não compara no tempo
+e o bloco E1 continua sem instrumento.
+
 ### Piloto E1 (Qwen × Sonnet 4.6 em cenários) — 25/08/2026: INCONCLUSIVO, e o motivo importa
 
 `scripts/_piloto-qwen-e1-cenarios.ts` gera cenários com os dois modelos SEM
