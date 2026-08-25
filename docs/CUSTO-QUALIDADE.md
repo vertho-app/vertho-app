@@ -167,10 +167,32 @@ Haiku (overhead netável, `sim_aluno`); mentor no modelo do braço.
 > truncamento manda e o 4.6 fica. O que falta para o PDI é só o julgamento de
 > qualidade de escrita (leitura cega), não custo nem robustez.
 
-**Decisão em aberto p/ o dono — `acumulada_check` (Luna 401):**
-(a) consertar a permissão da chave sk-proj no dashboard OpenAI; (b) repointar o
-check p/ um modelo confiável (muda o custo da Onda 0); (c) fallback no 401. É
-decisão porque afeta a economia da Onda 0.
+**~~Decisão em aberto p/ o dono — `acumulada_check` (Luna 401)~~ — FECHADA em 25/08/2026.**
+As opções eram: (a) consertar a permissão da chave sk-proj no dashboard OpenAI;
+(b) repointar o check p/ um modelo confiável (muda o custo da Onda 0); (c) fallback no 401.
+
+**Fechou por (b), sem ninguém decidir isso explicitamente:** a padronização de
+22/07 moveu TODAS as dupla-checagens para `gpt-5.6-terra`, e com isso o Luna saiu
+de todos os defaults de produção. `Medido:` 25/08 — `gpt-5.6-luna` não aparece em
+`DEFAULT_TASK_MODELS`; sobra só como opção de dropdown, fallback do radarbett
+(dormant, atrás de gate) e allowlist do chat-simulador. Nenhum caminho vivo
+dependia mais do 401 — a "decisão em aberto" estava aberta contra um problema que
+já não existia.
+
+**E o 401 também não reproduz mais.** `Medido:` 25/08/2026, 6 chamadas a
+`gpt-5.6-luna` com a MESMA forma da produção (`/v1/chat/completions`,
+`max_completion_tokens`, system+user, chave `sk-proj-` do `.env.local`):
+**6 de 6 → HTTP 200**, contra as 4-de-6 falhas registradas na S2. Sem repro, a
+causa raiz (permissão de modelo no projeto OpenAI vs. rotação de chave) fica sem
+veredito — mas o Luna deixa de ser bloqueio para adoção futura em F2
+(classificação/micro-saída de alto volume).
+
+⚠️ O que NÃO foi medido: qualidade. O `_comparar-auditor-mb.ts` registra que o
+Luna **reprovou** como auditor de módulo-base onde o Terra passou. Liberar o Luna
+por disponibilidade não o promove a auditor — segue valendo para tarefa de
+classificação curta, e sob a regra cross-família (se o classificador `pulse_classify`
+for para Luna, `pulse_audit` não pode ficar em OpenAI; o guard em
+`tests/unit/ai-dual-familia.test.ts` derruba o par).
 
 ### S3+S4 · Cache do chat socrático — VALIDADO pelo harness (a S4 fez o trabalho)
 

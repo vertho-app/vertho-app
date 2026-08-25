@@ -281,7 +281,15 @@ export async function auditarBlueprintCore(
     let semantico = { checks: [] as BlueprintAuditReport['checks'], resumo: '' };
     try {
       const { system, user } = buildBlueprintAuditPrompt(blueprint);
-      const resp = await callAI(system, user, aiConfig || {}, 4000, { taskKey: 'blueprint_audit' });
+      // O modelo do AUDITOR é decisão do servidor, não do cliente. Até 25/08/2026
+      // esta chamada repassava o `aiConfig` que chega da action (vindo da tela) e,
+      // sem `blueprint_audit` em DEFAULT_TASK_MODELS, caía no mesmo
+      // `claude-sonnet-4-6` do gerador — auditoria da própria família. Mesmo
+      // padrão dos outros 7 auditores (`aiConfig?.model || getModelForTask`): o
+      // override explícito continua valendo, o DEFAULT deixa de ser herdado.
+      const { getModelForTask } = await import('@/lib/ai-tasks');
+      const auditorModel = aiConfig?.model || await getModelForTask(empresaId, 'blueprint_audit');
+      const resp = await callAI(system, user, { model: auditorModel }, 4000, { taskKey: 'blueprint_audit' });
       const parsed = await extractJSON(resp);
       if (parsed) semantico = parseAuditResponse(parsed);
     } catch (err: any) {

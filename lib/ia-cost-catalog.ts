@@ -42,6 +42,15 @@ export const MODELS = {
   'claude-haiku-4-5':          { label: 'Claude Haiku 4.5',    inUsd: 1,    outUsd: 5 },
   'claude-haiku-4-5-20251001': { label: 'Claude Haiku 4.5',    inUsd: 1,    outUsd: 5 },
   // Google
+  // 3.7 Flash (lançado 13/08/2026). Preço LIDO da Artificial Analysis em
+  // 25/08/2026: $0,75 in / $3,75 out, cached input com 90% de desconto — que é
+  // exatamente o 0,1× que `costFromTokens` já aplica em cacheRead.
+  // ⚠️ Uma fonte secundária afirma que este é preço INTRODUTÓRIO até 31/12/2026,
+  // subindo para $1,50/$7,50 em janeiro. NÃO confirmado na doc oficial do Google
+  // nem na AA. Fica registrado como pendência, não como fato: a lição do Sonnet 5
+  // aqui embaixo é que projeção de mudança de preço envelhece mal nos dois
+  // sentidos. Conferir na fonte oficial antes de qualquer conta de 2027.
+  'gemini-3.7-flash':      { label: 'Gemini 3.7 Flash',      inUsd: 0.75, outUsd: 3.75 },
   'gemini-3.6-flash':      { label: 'Gemini 3.6 Flash',      inUsd: 1.50, outUsd: 9 },
   'gemini-3.1-flash-lite':     { label: 'Gemini 3.1 Flash Lite',      inUsd: 0.25, outUsd: 1.50 },
   'gemini-3.5-flash':     { label: 'Gemini 3.5 Flash',      inUsd: 1.50, outUsd: 9 },
@@ -67,6 +76,21 @@ export const MODELS = {
   // de prompt sai por $0,50/1M. Este catálogo é de faixa única: uma chamada de
   // contexto longo fica SUBESTIMADA aqui.
   'grok-4.6':                   { label: 'Grok 4.6',            inUsd: 2,    outUsd: 6 },
+  // ── Candidatos avaliados em 25/08/2026 — CATALOGADOS, AINDA NÃO CHAMÁVEIS ──
+  // 🔴 Os dois abaixo NÃO têm rota em `actions/ai-client.ts`. O `dispatch` (:182)
+  // testa uma lista fixa de prefixos (gpt/o1/o3/o4/kimi/grok/gemini) e o ÚLTIMO
+  // caso é `return callClaude(...)`. Então `qwen*` e `muse*` seriam enviados à
+  // API da Anthropic com um id que ela não conhece: falham como erro DA ANTHROPIC
+  // no Sentry — parece queda de provedor, é modelo inexistente.
+  // Para tornar chamáveis, DOIS lugares precisam concordar: `PROVEDORES_OPENAI_COMPAT`
+  // (:629) e a lista de prefixos do `dispatch` (:182). Só o primeiro não basta.
+  // Entram aqui agora porque `costFromTokens` devolve null para modelo fora deste
+  // mapa — e linha de ledger sem custo cega justamente o instrumento que decide
+  // se o modelo vale a pena.
+  // Alibaba (Qwen3.8-Max, 03/08/2026 — 1M de contexto, multimodal, 21 tok/s).
+  'qwen3.8-max':                { label: 'Qwen3.8 Max',         inUsd: 2,    outUsd: 6 },
+  // Meta Superintelligence Labs (Muse Spark 1.2, 05/08/2026 — 1M de contexto).
+  'muse-spark-1.2':             { label: 'Muse Spark 1.2',      inUsd: 1.25, outUsd: 4.25 },
   // Embeddings (sem custo de output)
   'voyage-3-large':             { label: 'Voyage-3-large (embed)', inUsd: 0.18, outUsd: 0 },
   // TTS — por token. Input = texto; Output = tokens de áudio (custo dominante).

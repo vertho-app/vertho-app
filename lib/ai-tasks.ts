@@ -53,11 +53,25 @@ export const AI_TASKS = [
   { key: 'modulo_base_autor',   label: 'Módulo-Base — Rascunho assistido / Import docx', fase: 'Vertho' },
   { key: 'modulo_base_auditor', label: 'Módulo-Base — Auditor (valida o que a autora gerou)', fase: 'Vertho' },
   { key: 'descritor_reancoragem', label: 'Descritores — Reancoragem de avaliação livre à régua oficial', fase: 'Vertho' },
+
+  // ── Development Blueprint (Dual-IA) ──────────────────────
+  // Ausentes até 25/08/2026. Os dois taskKeys já existiam nos call-sites
+  // (`blueprint_gerar`, `blueprint_audit`) e etiquetavam o ledger, mas nenhum
+  // dos dois estava aqui nem em DEFAULT_TASK_MODELS — então os DOIS caíam no
+  // FALLBACK_GLOBAL e o auditor auditava o gerador com o MESMO modelo. Não era
+  // entrada errada na tabela: era par que nunca passou por tabela nenhuma.
+  { key: 'blueprint_gerar', label: 'Blueprint — Gerador (PDI + trilha)', fase: 'Blueprint' },
+  { key: 'blueprint_audit', label: 'Blueprint — Auditor semântico (check dual)', fase: 'Blueprint' },
 ];
 
 export const MODELOS_DISPONIVEIS = [
   { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
   { id: 'claude-opus-5', label: 'Claude Opus 5' },
+  // 3.7 Flash entra no dropdown; `qwen3.8-max` e `muse-spark-1.2` NÃO, mesmo já
+  // catalogados em ia-cost-catalog: os dois não têm rota em ai-client (cairiam
+  // no callClaude e falhariam etiquetados como Anthropic). Modelo selecionável
+  // que não pode ser chamado é armadilha, não opção.
+  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
   { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
   { id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol' },
   { id: 'gpt-5.6-terra', label: 'GPT 5.6 Terra' },
@@ -95,6 +109,12 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   ia4_check:           'gpt-5.6-terra',
   cenarios_b_check:    'gpt-5.6-terra',
   pulse_audit:         'gpt-5.6-terra',
+  // Blueprint (25/08/2026): o auditor semântico (`lib/blueprint/audit.ts`) roda
+  // sobre o que `BLUEPRINT_SYSTEM` gerou. Sem esta linha os dois lados caíam em
+  // `claude-sonnet-4-6` — auditoria da mesma família, que é o único modo de
+  // falha que o padrão Dual-IA existe para impedir. Travado pelo guard em
+  // `tests/unit/ai-dual-familia.test.ts`.
+  blueprint_audit:     'gpt-5.6-terra',
   // Roteiro de vídeo — peça criativa de alta alavancagem (reaproveitada por
   // célula): Opus 5 + extended thinking ($5/$25) pela
   // aderência a muitas regras + fidelidade pedagógica. Thinking é ativado no
@@ -147,6 +167,7 @@ export const PINNED_TASKS = new Set([
   'ia4_check',
   'cenarios_b_check',
   'pulse_audit',
+  'blueprint_audit',
   // As 4 de saída longa acima. Pinadas porque, SEM isto, a troca para Sonnet 5
   // seria config morta: as 10 empresas têm `modelo_padrao: claude-sonnet-4-6`, que
   // vence o default por-task na precedência (medido em 12/08 — nenhuma tem override
@@ -195,3 +216,69 @@ export async function getModelForTask(empresaId, taskKey) {
     return DEFAULT_TASK_MODELS[taskKey] || FALLBACK_GLOBAL;
   }
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Invariante Dual-IA: auditor NUNCA da mesma família do gerador
+ * ────────────────────────────────────────────────────────────────────────────
+ * Por que isto vive AQUI e não em `lib/ia-cost-catalog.ts`:
+ *
+ * O catálogo de custo já tinha a regra implementada (`crossLlmCheck`, mapa
+ * bidirecional gerador↔auditor, aplicado por `applyPreset`). Só que os únicos
+ * consumidores dele são `app/admin/vertho/orcamento` e `.../simulador-custo` —
+ * duas TELAS DE SIMULAÇÃO. Nada em `ai-client.ts`, `ai-tasks.ts`, actions ou
+ * triggers lê aquilo. A regra estava escrita onde não decidia nada, e foi
+ * exatamente por isso que `blueprint_audit` pôde nascer auditando
+ * `blueprint_gerar` com o mesmo `claude-sonnet-4-6`: o par nunca passou por
+ * `crossLlmCheck`, porque `crossLlmCheck` não está no caminho de execução.
+ *
+ * Aqui a regra fica onde o modelo é DECIDIDO (`resolveTaskModel`), e o guard em
+ * `tests/unit/ai-dual-familia.test.ts` a executa contra os pares reais.
+ */
+
+/** Família (vendor) de um id de modelo. Fail-closed: id desconhecido lança. */
+export function familiaDoModelo(modelId: string): string {
+  const m = String(modelId || '');
+  if (m.startsWith('claude')) return 'anthropic';
+  if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return 'openai';
+  if (m.startsWith('gemini')) return 'google';
+  if (m.startsWith('grok')) return 'xai';
+  if (m.startsWith('kimi')) return 'moonshot';
+  if (m.startsWith('qwen')) return 'alibaba';
+  if (m.startsWith('muse')) return 'meta';
+  // Fail-closed de propósito: devolver 'desconhecida' faria um id novo passar no
+  // guard por ser "diferente" de tudo — falso NEGATIVO no único check que existe.
+  throw new Error(`familiaDoModelo: família desconhecida para "${m}". Adicione o prefixo aqui ANTES de usar o modelo.`);
+}
+
+/**
+ * Pares Dual-IA cujos DOIS lados resolvem o modelo por `resolveTaskModel`.
+ * Chaves conferidas contra os `taskKey:` reais dos call-sites (25/08/2026).
+ */
+export const DUAL_IA_PARES: Array<{ gerador: string; auditor: string; onde: string }> = [
+  { gerador: 'ia3_cenarios',      auditor: 'ia3_check',           onde: 'lib/ia3-cenarios.ts' },
+  { gerador: 'ia4_avaliacao',     auditor: 'ia4_check',           onde: 'lib/check-ia4-core.ts' },
+  { gerador: 'cenarios_b',        auditor: 'cenarios_b_check',    onde: 'actions/fase5/cenarios-b.ts' },
+  { gerador: 'acumulada_primaria',auditor: 'acumulada_check',     onde: 'lib/season-engine/avaliacao-acumulada-core.ts' },
+  { gerador: 'sem14_scorer',      auditor: 'sem14_check',         onde: 'lib/season-engine/fechamento-scorer.ts' },
+  { gerador: 'modulo_base_autor', auditor: 'modulo_base_auditor', onde: 'lib/modulo-base-auditor.ts' },
+  { gerador: 'pulse_classify',    auditor: 'pulse_audit',         onde: 'actions/pulse/classify.ts' },
+  { gerador: 'blueprint_gerar',   auditor: 'blueprint_audit',     onde: 'lib/blueprint/core.ts' },
+];
+
+/**
+ * Pares Dual-IA que o guard NÃO cobre, e por quê.
+ *
+ * Existe para que o verde do guard não seja lido como cobertura que ele não tem.
+ * O teste confirma que estes taskKeys continuam FORA da tabela — se alguém os
+ * trouxer para `DEFAULT_TASK_MODELS`, o teste manda mover o par para
+ * `DUAL_IA_PARES` em vez de deixar a exceção envelhecer em silêncio.
+ */
+export const PARES_FORA_DA_TABELA: Array<{ gerador: string; auditor: string; porque: string }> = [
+  {
+    gerador: 'chat_fase3_eval',
+    auditor: 'chat_fase3_audit',
+    porque: 'app/api/chat/route.ts escolhe o auditor por const hardcoded (DEFAULT_VALIDADOR = gemini-3.1-flash-lite) '
+      + 'e o eval por sys_config.ai.modelo_padrao — nenhum dos dois passa por resolveTaskModel. '
+      + 'Cross-família HOJE (Claude vs Google), mas por acidente de hardcode, não por invariante travado.',
+  },
+];

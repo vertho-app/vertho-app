@@ -220,7 +220,10 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
       semanaFinal, semanasEvidencia, notaPrograma,
     });
     const systemCheck = regeracao ? sCheck + APPENDIX_CHECK_REGEN(regeracao.feedbackAuditoria) : sCheck;
-    // 2ª IA (auditor) configurável — default GPT 5.6 Luna (DEFAULT_TASK_MODELS.sem14_check).
+    // 2ª IA (auditor) configurável — default GPT 5.6 **Terra** (DEFAULT_TASK_MODELS.sem14_check).
+    // Este comentário dizia "Luna" até 25/08/2026; o default virou Terra em 22/07,
+    // quando todas as dupla-checagens foram padronizadas. Comentário de modelo
+    // envelhece calado: quem lê daqui decide a troca pelo texto, não pela tabela.
     // Caller pode passar checkModel resolvido por empresa; senão cai no default da task.
     const sem14CheckModel = checkModel || DEFAULT_TASK_MODELS['sem14_check'];
     const rCheck = await callAI(systemCheck, uCheck, sem14CheckModel ? { model: sem14CheckModel } : {}, 8000, { taskKey: 'sem14_check' });
