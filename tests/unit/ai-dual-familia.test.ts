@@ -133,14 +133,61 @@ describe('Dual-IA — auditor de família diferente do gerador', () => {
   it('todo modelo do dropdown tem preço E rota', async () => {
     const { MODELS } = await import('@/lib/ia-cost-catalog');
     const { MODELOS_DISPONIVEIS } = await import('@/lib/ai-tasks');
-    // Prefixos que `dispatch` (actions/ai-client.ts:182) sabe rotear. O último
-    // caso de lá é `callClaude`, então prefixo desconhecido não falha limpo:
-    // vira erro da Anthropic. Oferecer no dropdown o que não roteia é armadilha.
-    const ROTEAVEIS = /^(claude|gpt|o1|o3|o4|kimi|grok|gemini)/;
+    // `modeloTemRota` é o MESMO predicado que o dispatch usa — não uma regex
+    // paralela. Uma cópia aqui viraria a quinta fonte de verdade da mesma
+    // pergunta, e o guard passaria a atestar a si mesmo em vez de atestar o
+    // roteador: verde enquanto a produção manda o modelo para a Anthropic.
+    const { modeloTemRota } = await import('@/lib/ai-provedores');
     for (const { id } of MODELOS_DISPONIVEIS as Array<{ id: string }>) {
       expect((MODELS as Record<string, unknown>)[id], `dropdown sem preço: ${id}`).toBeTruthy();
-      expect(ROTEAVEIS.test(id), `dropdown sem rota em ai-client: ${id}`).toBe(true);
+      expect(modeloTemRota(id), `dropdown sem rota em ai-client: ${id}`).toBe(true);
     }
+  });
+
+  it('todo provedor OpenAI-compatible declara prefixo, provider, env e url', async () => {
+    const { PROVEDORES_OPENAI_COMPAT } = await import('@/lib/ai-provedores');
+    for (const p of PROVEDORES_OPENAI_COMPAT) {
+      expect(p.prefixo, 'prefixo vazio').toBeTruthy();
+      // `provider` vira ia_usage_log.provider. Se dois provedores compartilhassem
+      // o rótulo, o painel de custo somaria um dentro do outro sem nada acusar.
+      expect(p.env, `provedor ${p.prefixo} sem env`).toMatch(/_API(_KEY)?$/);
+      expect(p.url, `provedor ${p.prefixo} com url suspeita`).toMatch(/^https:\/\/.+\/chat\/completions$/);
+    }
+    const rotulos = PROVEDORES_OPENAI_COMPAT.map((p) => p.provider);
+    expect(new Set(rotulos).size, `provider duplicado: ${rotulos.join(', ')}`).toBe(rotulos.length);
+  });
+
+  /**
+   * `Medido em 25/08/2026` ao ligar o Muse Spark 1.2 — respostas REAIS da
+   * api.meta.ai, não inventadas para o teste.
+   */
+  it('resposta 200 com conteúdo vazio e tokens gastos FALHA em vez de virar ""', async () => {
+    const { conteudoOuFalhaAlto } = await import('@/lib/ai-provedores');
+    // Payload real: max_tokens=32, tudo consumido em raciocínio.
+    const respostaReal = {
+      choices: [{ finish_reason: 'length', message: { content: '', role: 'assistant' } }],
+      usage: { completion_tokens: 32, prompt_tokens: 20, completion_tokens_details: { reasoning_tokens: 32 } },
+    };
+    expect(() => conteudoOuFalhaAlto(respostaReal, 'muse-spark-1.2'))
+      .toThrow(/conteúdo VAZIO após 32 tokens.*32 deles de raciocínio.*finish_reason=length/s);
+  });
+
+  it('resposta normal passa intacta — o fail-loud não muda o caminho feliz', async () => {
+    const { conteudoOuFalhaAlto } = await import('@/lib/ai-provedores');
+    // Payload real: mesmo prompt com max_tokens=600 → 125 tokens de raciocínio + "OK".
+    const ok = {
+      choices: [{ finish_reason: 'stop', message: { content: 'OK', role: 'assistant' } }],
+      usage: { completion_tokens: 136, completion_tokens_details: { reasoning_tokens: 125 } },
+    };
+    expect(conteudoOuFalhaAlto(ok, 'muse-spark-1.2')).toBe('OK');
+  });
+
+  it('vazio SEM tokens gastos continua devolvendo "" (não é o mesmo defeito)', async () => {
+    const { conteudoOuFalhaAlto } = await import('@/lib/ai-provedores');
+    // Aqui o modelo não gastou nada: é outra classe de resposta degenerada, e
+    // transformá-la em exceção mudaria comportamento de quem já convive com ela.
+    expect(conteudoOuFalhaAlto({ choices: [{ message: { content: '' } }], usage: { completion_tokens: 0 } }, 'gpt-5.6-terra')).toBe('');
+    expect(conteudoOuFalhaAlto({}, 'gpt-5.6-terra')).toBe('');
   });
 
   it('as exceções fora da tabela continuam fora (senão viram par não verificado)', () => {

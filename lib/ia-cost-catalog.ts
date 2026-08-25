@@ -76,21 +76,21 @@ export const MODELS = {
   // de prompt sai por $0,50/1M. Este catálogo é de faixa única: uma chamada de
   // contexto longo fica SUBESTIMADA aqui.
   'grok-4.6':                   { label: 'Grok 4.6',            inUsd: 2,    outUsd: 6 },
-  // ── Candidatos avaliados em 25/08/2026 — CATALOGADOS, AINDA NÃO CHAMÁVEIS ──
-  // 🔴 Os dois abaixo NÃO têm rota em `actions/ai-client.ts`. O `dispatch` (:182)
-  // testa uma lista fixa de prefixos (gpt/o1/o3/o4/kimi/grok/gemini) e o ÚLTIMO
-  // caso é `return callClaude(...)`. Então `qwen*` e `muse*` seriam enviados à
-  // API da Anthropic com um id que ela não conhece: falham como erro DA ANTHROPIC
-  // no Sentry — parece queda de provedor, é modelo inexistente.
-  // Para tornar chamáveis, DOIS lugares precisam concordar: `PROVEDORES_OPENAI_COMPAT`
-  // (:629) e a lista de prefixos do `dispatch` (:182). Só o primeiro não basta.
-  // Entram aqui agora porque `costFromTokens` devolve null para modelo fora deste
-  // mapa — e linha de ledger sem custo cega justamente o instrumento que decide
-  // se o modelo vale a pena.
-  // Alibaba (Qwen3.8-Max, 03/08/2026 — 1M de contexto, multimodal, 21 tok/s).
+  // ── Ligados em 25/08/2026 (rota em `lib/ai-provedores.ts`, chamada real 200) ──
+  // Alibaba — Qwen3.8-Max (03/08/2026): 1M de contexto, multimodal, ~21 tok/s.
+  // ⚠️ LENTO e VERBOSO: desqualificado para célula interativa, bom para lote.
   'qwen3.8-max':                { label: 'Qwen3.8 Max',         inUsd: 2,    outUsd: 6 },
-  // Meta Superintelligence Labs (Muse Spark 1.2, 05/08/2026 — 1M de contexto).
+  // Meta Superintelligence Labs — Muse Spark 1.2 (05/08/2026): 1M de contexto.
+  // ⚠️ Modelo de RACIOCÍNIO, e o raciocínio sai DENTRO de `completion_tokens`:
+  // medido em 25/08, gastou 125 tokens de raciocínio para responder "OK" — ou
+  // seja, o custo real por tarefa é bem acima do que $4,25/1M sugere numa conta
+  // feita só sobre o texto visível. Com teto apertado devolve 200 + conteúdo
+  // VAZIO (por isso o `conteudoOuFalhaAlto` em ai-client).
   'muse-spark-1.2':             { label: 'Muse Spark 1.2',      inUsd: 1.25, outUsd: 4.25 },
+  // ⚠️ Cache dos dois: o `costFromTokens` aplica 0,1× fixo em cacheRead. No Qwen
+  // o read implícito é $0,25/1M (0,125×) e o explícito $0,17 (0,085×); no Muse,
+  // $0,15 (0,12×). A aproximação sub/superestima o cache em poucos centavos por
+  // milhão — aceitável, mas não é exato como no Claude e no Gemini 3.7.
   // Embeddings (sem custo de output)
   'voyage-3-large':             { label: 'Voyage-3-large (embed)', inUsd: 0.18, outUsd: 0 },
   // TTS — por token. Input = texto; Output = tokens de áudio (custo dominante).

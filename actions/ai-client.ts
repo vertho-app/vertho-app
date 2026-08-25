@@ -31,6 +31,7 @@ import { costFromTokens } from '@/lib/ia-cost-catalog';
 // (A8, ver o cabeçalho acima). A regra de ORGANIZAÇÃO continua: predicado puro
 // mora em `lib/`, não aqui.
 import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
+import { PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto } from '@/lib/ai-provedores';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -179,7 +180,7 @@ export async function callAI(
   const dispatch = (m: string) => {
     if (m.startsWith('gemini')) return callGemini(sysForConcat, combinedUser, m, maxTokens, options);
     // kimi* (Moonshot) é OpenAI-compatible — mesmo caminho REST, base/chave próprias.
-    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4') || m.startsWith('kimi') || m.startsWith('grok')) return callOpenAI(sysForConcat, combinedUser, m, maxTokens, options);
+    if (ehOpenAICompat(m)) return callOpenAI(sysForConcat, combinedUser, m, maxTokens, options);
     return callClaude(localizedSystem, user, m, maxTokens, options);
   };
 
@@ -230,7 +231,7 @@ export async function callAIChat(
   const suffixConcat = [localizedSystem, options.systemSuffix, options.userSuffix].filter(Boolean).join('\n\n');
   const dispatch = (m: string) => {
     if (m.startsWith('gemini')) return callGeminiChat(suffixConcat, messages, m, maxTokens, options);
-    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4') || m.startsWith('kimi') || m.startsWith('grok')) return callOpenAIChat(suffixConcat, messages, m, maxTokens, options);
+    if (ehOpenAICompat(m)) return callOpenAIChat(suffixConcat, messages, m, maxTokens, options);
     return callClaudeChat(localizedSystem, messages, m, maxTokens, options);
   };
 
@@ -276,7 +277,7 @@ interface LedgerUsage {
 }
 
 async function registrarUsoIA(
-  provider: 'anthropic' | 'gemini' | 'openai' | 'kimi' | 'xai',
+  provider: 'anthropic' | 'gemini' | 'openai' | 'kimi' | 'xai' | 'qwen' | 'meta',
   model: string,
   u: LedgerUsage | null,
   latencyMs: number,
@@ -617,18 +618,22 @@ async function callGemini(
 
 /**
  * Provedores OpenAI-compatible: mesmo protocolo `/chat/completions`, base e
- * chave próprias. Kimi (Moonshot) e Grok (xAI) entram por aqui.
+ * chave próprias. Kimi (Moonshot), Grok (xAI), Qwen (Alibaba) e Muse Spark
+ * (Meta) entram por aqui.
  *
- * Vive num lugar só porque a resolução estava DUPLICADA em `callOpenAI` e
- * `callOpenAIChat` — quatro ternários `isKimi` entre os dois. Somar um terceiro
- * provedor nesse formato é o padrão dos gêmeos que divergem: quem adicionasse
- * só num deles teria o modelo funcionando em `callAI` e falhando em
- * `callAIChat`, que é justamente o caminho do chat — e portanto da cena.
+ * A lista MUDOU DE ARQUIVO em 25/08/2026 → `lib/ai-provedores.ts`. Ela vivia
+ * aqui porque a resolução estava DUPLICADA em `callOpenAI` e `callOpenAIChat`
+ * (quatro ternários `isKimi` entre os dois) — o padrão dos gêmeos que divergem.
+ * Só que a MESMA pergunta ("este id tem rota?") também era feita pelos dois
+ * `dispatch`, com a lista de prefixos escrita à mão em cada um, e pelo guard de
+ * `MODELOS_DISPONIVEIS` na suíte: quatro cópias. Como o último caso do dispatch
+ * é `return callClaude(...)`, quem somasse um provedor em menos de quatro
+ * lugares tinha o modelo indo para a Anthropic com um id que ela não conhece —
+ * e falhando etiquetado como Anthropic no Sentry, que parece queda de provedor.
+ *
+ * Agora `ehOpenAICompat` deriva da constante, e os dois dispatch, o
+ * `resolverProvedorCompat` e o guard leem todos daquele módulo.
  */
-const PROVEDORES_OPENAI_COMPAT = [
-  { prefixo: 'kimi', provider: 'kimi', env: 'KIMI_API_KEY', url: 'https://api.moonshot.ai/v1/chat/completions' },
-  { prefixo: 'grok', provider: 'xai',  env: 'XAI_API_KEY',  url: 'https://api.x.ai/v1/chat/completions' },
-] as const;
 
 /**
  * `provider` sai daqui junto com a chave de propósito: ele vira
@@ -636,7 +641,7 @@ const PROVEDORES_OPENAI_COMPAT = [
  * ledger como 'openai' — e o painel de custo passaria a somar xAI dentro da
  * OpenAI, sem nada acusando.
  */
-type ProvedorCompat = 'openai' | 'kimi' | 'xai';
+type ProvedorCompat = 'openai' | 'kimi' | 'xai' | 'qwen' | 'meta';
 function resolverProvedorCompat(model: string): { apiKey: string; url: string; provider: ProvedorCompat } {
   const p = PROVEDORES_OPENAI_COMPAT.find((x) => model.startsWith(x.prefixo));
   const env = p?.env ?? 'OPENAI_API_KEY';
@@ -693,7 +698,7 @@ async function callOpenAI(
     outTokens: uo.completion_tokens || 0,
     cacheRead: cachedIn,
   } : null, Date.now() - t0, options);
-  return data.choices?.[0]?.message?.content || '';
+  return conteudoOuFalhaAlto(data, model);
 }
 
 // ── Multi-turn variants ────────────────────────────────────────────────────
@@ -785,5 +790,5 @@ async function callOpenAIChat(
     outTokens: uo.completion_tokens || 0,
     cacheRead: cachedIn,
   } : null, Date.now() - t0, options);
-  return data.choices?.[0]?.message?.content || '';
+  return conteudoOuFalhaAlto(data, model);
 }

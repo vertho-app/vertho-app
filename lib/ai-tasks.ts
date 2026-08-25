@@ -67,12 +67,16 @@ export const AI_TASKS = [
 export const MODELOS_DISPONIVEIS = [
   { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
   { id: 'claude-opus-5', label: 'Claude Opus 5' },
-  // 3.7 Flash entra no dropdown; `qwen3.8-max` e `muse-spark-1.2` NÃO, mesmo já
-  // catalogados em ia-cost-catalog: os dois não têm rota em ai-client (cairiam
-  // no callClaude e falhariam etiquetados como Anthropic). Modelo selecionável
-  // que não pode ser chamado é armadilha, não opção.
   { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
   { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+  // Qwen e Muse Spark entraram no dropdown em 25/08/2026, DEPOIS da rota existir
+  // em ai-client (PROVEDORES_OPENAI_COMPAT + o `ehOpenAICompat` derivado dela) e
+  // de a chamada real responder 200 com as chaves do projeto. Um modelo aqui sem
+  // rota lá cairia no `callClaude` e falharia etiquetado como Anthropic — por isso
+  // o guard em `tests/unit/ai-dual-familia.test.ts` exige preço E rota para tudo
+  // que aparece nesta lista.
+  { id: 'qwen3.8-max', label: 'Qwen3.8 Max' },
+  { id: 'muse-spark-1.2', label: 'Muse Spark 1.2' },
   { id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol' },
   { id: 'gpt-5.6-terra', label: 'GPT 5.6 Terra' },
   { id: 'gpt-5.6-luna', label: 'GPT 5.6 Luna' },
