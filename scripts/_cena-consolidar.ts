@@ -25,7 +25,7 @@ const linhas = B.rodadas.map((r: any, k: number) => {
     beats: ctx.beats,
     beatsCumpridos: origem.rodadas[k].estado.beatsCumpridos,
   });
-  return { nivel: r.nivel, enc: c.media, abe: c.abertura.media, nEnc: c.nivel, nAbe: c.abertura.nivel };
+  return { nivel: r.nivel, enc: c.encerramento.media, abe: c.media, nEnc: c.encerramento.nivel, nAbe: c.nivel };
 });
 
 console.log('ator   n   encerramento              abertura');

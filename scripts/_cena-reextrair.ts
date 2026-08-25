@@ -102,8 +102,8 @@ const f2 = (n: number) => (Number.isFinite(n) ? n.toFixed(2) : ' -- ');
       const n = nivelDaEvidencia(e); a[n] = (a[n] ?? 0) + 1; return a;
     }, {});
     console.log(
-      `[${k + 1}] ator N${r.nivel}  enc ${f2(consolidacao.media ?? NaN)} (N${consolidacao.nivel ?? '-'})` +
-      `  abe ${f2(consolidacao.abertura.media ?? NaN)} (N${consolidacao.abertura.nivel ?? '-'})` +
+      `[${k + 1}] ator N${r.nivel}  AUT ${f2(consolidacao.media ?? NaN)} (N${consolidacao.nivel ?? '-'})` +
+      `  assist ${f2(consolidacao.encerramento.media ?? NaN)} (N${consolidacao.encerramento.nivel ?? '-'})` +
       `  antes ${f2(r.consolidacao?.media ?? NaN)}` +
       `  | ${Object.entries(cts).map(([n, c]) => `${n}:${c}`).join(' ')}`,
     );
@@ -121,12 +121,12 @@ const f2 = (n: number) => (Number.isFinite(n) ? n.toFixed(2) : ' -- ');
   for (const nv of [1, 3]) {
     const g = validas.filter((x) => x.nivel === nv);
     if (!g.length) continue;
-    const enc = media(g.map((x) => x.consolidacao.media).filter((n: any) => n != null));
-    const abe = media(g.map((x) => x.consolidacao.abertura.media).filter((n: any) => n != null));
+    const enc = media(g.map((x) => x.consolidacao.encerramento.media).filter((n: any) => n != null));
+    const abe = media(g.map((x) => x.consolidacao.media).filter((n: any) => n != null));
     const antes = media(g.map((x) => x.antes?.media).filter((n: any) => n != null));
     resumo[nv] = { enc, abe };
-    const niveisEnc = g.map((x) => `N${x.consolidacao.nivel ?? '-'}`).join(' ');
-    const niveisAbe = g.map((x) => `N${x.consolidacao.abertura.nivel ?? '-'}`).join(' ');
+    const niveisEnc = g.map((x) => `N${x.consolidacao.encerramento.nivel ?? '-'}`).join(' ');
+    const niveisAbe = g.map((x) => `N${x.consolidacao.nivel ?? '-'}`).join(' ');
     console.log(`N${nv}    ${String(g.length).padEnd(3)} ${f2(enc)} [${niveisEnc}]   ${f2(abe)} [${niveisAbe}]   ${f2(antes)}`);
   }
   if (resumo[1] && resumo[3]) {

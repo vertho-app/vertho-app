@@ -114,10 +114,14 @@ describe('2 · o extrator PODE emitir várias evidências por descritor', () => 
     expect(system).toContain('"turno"');
   });
 
-  it('o schema pede provocado — senão o eco do molde vira nível-meta', () => {
+  it('provocado é ECO, não resposta a cobrança — a definição larga capava o N3', () => {
+    // Auditoria de 25/08 sobre as 134 evidências: das 69 marcadas provocado, o
+    // elemento concreto estava na fala anterior do interlocutor em ZERO. A flag
+    // pegava resposta a cobrança — que é o beat 2 funcionando, e é o que o N3 é.
     const { system } = promptExtracao(ctxCheio, 'transcrição');
     expect(system).toContain('"provocado"');
-    expect(system).toContain('NÃO é n3_meta');
+    expect(system, 'o teste tem de ser literal, não "ele cobrou?"').toContain('APARECE PRONTO');
+    expect(system).toContain('NÃO é — o nome não estava lá');
   });
 
   // O classificador ancorado (25/08) só é ancorado se as âncoras chegarem ao
@@ -139,7 +143,8 @@ describe('2 · o extrator PODE emitir várias evidências por descritor', () => 
       { indice: 1, veredito: 'demonstrou', forca: 'forte', citacao: 'b', beat: 1, turno: 5 },
     ];
     const c = consolidarCena(evs);
-    expect(c.notas[0]).toBe(3.2);
+    expect(c.encerramento.notas[0], 'o assistido é o do turno 5, não o do turno 2').toBe(3.2);
+    expect(c.notas[0], 'e a autonomia é a do turno 2').toBe(1.4);
     expect(c.recuperou).toEqual([1]);
   });
 });

@@ -379,14 +379,25 @@ descritor, o que a conversa REALMENTE sustentou.
    numerar as linhas 1, 2, 3… 18 num cenário de 6 descritores. As seis primeiras
    entradas foram lidas como D1–D6 e as outras doze, descartadas — a nota inteira
    media "como foram os seis primeiros momentos", não os seis descritores.
-10. "provocado" é true quando o elemento concreto da citação (nome, prazo, número,
-    rito, responsável) foi PEDIDO ou ENTREGUE pronto na fala imediatamente anterior
-    do interlocutor — e o avaliado só preencheu o molde. Ecoar "três dias" depois
-    de ouvir "quero o número de dias" NÃO é n3_meta. É no máximo
-    n2_em_desenvolvimento, e "provocado" TEM que ser true.
+10. 🔴 "provocado" É ECO, NÃO É RESPOSTA A COBRANÇA. Marque true SÓ quando o
+    elemento concreto da citação (nome, prazo, número, rito, responsável)
+    APARECE PRONTO na fala imediatamente anterior do interlocutor e o avaliado
+    o repetiu. Ouvir "põe a Roseli como responsável" e responder "a Roseli fica
+    responsável" é provocado. Ouvir "e quem fica responsável?" e responder "a
+    Roseli" NÃO é — o nome não estava lá, quem o produziu foi o avaliado.
 
-    "n3_meta" exige que o avaliado tenha INTRODUZIDO o elemento sozinho, antes
-    de o interlocutor nomear o formato.
+    A pergunta que decide é literal: **o elemento está na fala anterior do
+    interlocutor?** Não é "ele cobrou?" nem "ele pediu?".
+
+    ⚠️ Medido em 25/08/2026, auditando as 134 evidências da fase 0c contra a
+    transcrição: das 69 marcadas provocado, o elemento concreto estava na fala
+    anterior em ZERO. Nenhuma. O que a flag pegou foram respostas a cobrança —
+    "eu vou te encontrar toda sexta, quinze minutos" marcado como provocado
+    porque o interlocutor havia exigido acompanhamento. Isso é o beat 2 fazendo
+    exatamente o trabalho dele, e responder à pressão do cargo É o nível-meta da
+    régua: ninguém define meta e prazo no vácuo. Com a definição larga, 76% das
+    evidências n2/n3 vinham marcadas — uma flag que marca quase tudo não separa
+    nada, e ainda ameaça capar justamente o comportamento que se quer medir.
 
     ⚠️ Medido em 25/08/2026 (fase 0c): o interlocutor disse "quero um número:
     quantos dias de adaptação e quantos itens prontos" e o avaliado repetiu os

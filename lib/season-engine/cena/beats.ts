@@ -427,9 +427,45 @@ export const TETO_CENA = 3.4; // logo abaixo do TETO_N3 (3,5) da régua oficial
 /** Notas de veredito, expostas para o teste estrutural do teto. */
 export const NOTAS_DE_VEREDITO: Readonly<Record<string, number>> = NOTA_POR_VEREDITO;
 
-export interface ConsolidacaoCena {
-  /** Nota por descritor, índice 1..6. `null` = sem sinal, lacuna declarada. */
+/** Uma das duas leituras da cena, com a mesma forma. */
+export interface MedidaDaCena {
   notas: Array<number | null>;
+  media: number | null;
+  nivel: Nivel | null;
+}
+
+export interface ConsolidacaoCena {
+  /**
+   * 🔑 O TOPO É A AUTONOMIA — a PRIMEIRA evidência de cada descritor, antes de
+   * o interlocutor ensinar o formato. `notas`, `media` e `nivel` são ela, e é
+   * daqui que PDI e trilha leem.
+   *
+   * Não é o primeiro turno da conversa: é o primeiro momento DAQUELE descritor.
+   * D4 (sustentabilidade) só nasce no beat 4, depois de 6-8 turnos — o que se
+   * mede é o primeiro movimento na faceta, não o nervosismo de abertura.
+   *
+   * A escolha está medida (25/08/2026, 10 cenas, mesma transcrição): a
+   * autonomia põe 5 de 5 atores N1 em N1 sob as duas regras de série; o
+   * encerramento deixa 2 vazarem para N2. E o encerramento tem **dose
+   * endógena** — o interlocutor dita mais para quem trava e menos para quem
+   * anda, então duas pessoas com o mesmo encerramento fizeram provas
+   * diferentes. A régua descreve HÁBITO ("define metas", "acompanha com
+   * regularidade"); quem só produz o nível-meta com o molde na mão não é o
+   * nível-meta da régua — é treinável, e isso tem nome próprio abaixo.
+   */
+  notas: Array<number | null>;
+  /**
+   * ASSISTIDO — a última evidência de cada descritor, com todo o apoio que a
+   * cena deu no caminho. Vira *coachability* na devolutiva, junto com
+   * `recuperou`/`piorou`.
+   *
+   * ⚠️ NUNCA compõe o nível. Nem por média com a autonomia, nem por "crédito
+   * pela recuperação": no dia em que compuser, o andaime do interlocutor volta
+   * para dentro da nota pela porta dos fundos — que é exatamente o defeito que
+   * a separação existe para impedir. Com ATOR SIMULADO ele é artefato por
+   * construção; só vira leitura com gente.
+   */
+  encerramento: MedidaDaCena;
   /** Índices que voltaram sem sinal — a métrica que decide se a cena substitui. */
   semSinal: number[];
   /** Descritores cuja evidência foi FRACA: a nota vale, a confiança não. */
@@ -469,14 +505,7 @@ export interface ConsolidacaoCena {
    * sem ele, "o beat 1 aconteceu" deixa de significar "D1 foi sondado".
    */
   forasDoMapa: Array<{ descritor: number; beat: number }>;
-  /**
-   * ABERTURA: nota e nível pela PRIMEIRA evidência de cada descritor.
-   *
-   * É o hábito autônomo — o que a pessoa faz antes de o interlocutor ensinar o
-   * formato. Com cena didática, é esta medida que discrimina; o encerramento
-   * mede o quanto ela aprende durante a conversa.
-   */
-  abertura: { notas: Array<number | null>; media: number | null; nivel: Nivel | null };
+
 }
 
 /**
@@ -493,8 +522,9 @@ export function consolidarCena(
   numDescritores = 6,
   ocorrido?: { beats: BeatDaCena[]; beatsCumpridos: number[] },
 ): ConsolidacaoCena {
+  // `notas` = AUTONOMIA (primeira evidência) — o topo, o que vira rótulo.
   const notas: Array<number | null> = Array.from({ length: numDescritores }, () => null);
-  const notasAbertura: Array<number | null> = Array.from({ length: numDescritores }, () => null);
+  const notasEncerramento: Array<number | null> = Array.from({ length: numDescritores }, () => null);
 
   /**
    * 🔴 MEDIDO NA FASE 0 (24/08/2026): sem este filtro, a cobertura reportada
@@ -626,7 +656,8 @@ export function consolidarCena(
     };
     const trilha = serie.map(notaDe);
     const final = trilha[trilha.length - 1];
-    notas[i - 1] = Math.min(final, TETO_CENA);
+    notas[i - 1] = Math.min(trilha[0], TETO_CENA);
+    notasEncerramento[i - 1] = Math.min(final, TETO_CENA);
 
     /**
      * ABERTURA — a PRIMEIRA evidência de cada descritor, guardada em separado.
@@ -651,8 +682,6 @@ export function consolidarCena(
      * encerramento deixa 2 vazarem para N2. Mas trocar a fonte do rótulo muda o
      * que "a nota da cena" significa para PDI e trilha; não é ajuste de código.
      */
-    notasAbertura[i - 1] = Math.min(notaDe(serie[0]), TETO_CENA);
-
     if (trilha.length > 1) {
       if (final > trilha[0]) recuperou.push(i);
       else if (final < trilha[0]) piorou.push(i);
@@ -695,12 +724,20 @@ export function consolidarCena(
       taxa: numDescritores ? Number((medidas.length / numDescritores).toFixed(3)) : 0,
     },
     indicesInvalidos: [...new Set(foraDaFaixa)].sort((a, b) => a - b),
-    abertura: (() => {
-      const ms = notasAbertura.filter((n): n is number => n != null);
+    /**
+     * O encerramento herda a MESMA régua de supressão — cobertura, índice
+     * inválido e confiança são propriedades da cena, não da leitura. Se a
+     * supressão valesse só para uma delas, a outra circularia com rótulo em
+     * cena que o próprio código considera insuficiente.
+     */
+    encerramento: (() => {
+      const ms = notasEncerramento.filter((n): n is number => n != null);
       const m = ms.length ? Number((ms.reduce((a, b) => a + b, 0) / ms.length).toFixed(2)) : null;
-      // Mesma régua de supressão do encerramento: rótulo só com cobertura cheia.
-      const publicavel = m != null && ms.length === numDescritores && !foraDaFaixa.length;
-      return { notas: notasAbertura, media: m, nivel: publicavel ? nivelDaNota(m) : null };
+      return {
+        notas: notasEncerramento,
+        media: m,
+        nivel: nivelSuprimidoPorque || m == null ? null : nivelDaNota(m),
+      };
     })(),
     forasDoMapa,
   };

@@ -176,7 +176,8 @@ describe('consolidarCena — nota em código, lacuna declarada', () => {
     // Errou no beat 1 e reparou no beat 3. Em liderança isso é a competência
     // aparecendo; o `Math.min` anterior devolvia 1,4 e apagava a recuperação.
     const c = consolidarCena([ev(1, 'falhou', 'moderada', 1), ev(1, 'demonstrou', 'forte', 3)]);
-    expect(c.notas[0]).toBe(3.2);
+    expect(c.encerramento.notas[0], 'o desempenho ASSISTIDO é o do fim').toBe(3.2);
+    expect(c.notas[0], 'a AUTONOMIA continua sendo o que ela fez sozinha').toBe(1.4);
     expect(c.recuperou).toEqual([1]);
     expect(c.piorou).toEqual([]);
   });
@@ -194,8 +195,8 @@ describe('consolidarCena — nota em código, lacuna declarada', () => {
       { indice: 1, veredito: 'falhou', forca: 'moderada', citacao: 'a gente vê', beat: 1, turno: 1, provocado: false },
       { indice: 1, veredito: 'demonstrou', forca: 'forte', citacao: 'menos de três dias', beat: 4, turno: 8, provocado: true },
     ]);
-    expect(c.notas[0], 'eco não pode promover N1 a N3').toBe(2.2);
-    expect(c.abertura.notas[0], 'e o hábito autônomo continua sendo o N1 da abertura').toBe(1.4);
+    expect(c.encerramento.notas[0], 'eco não pode promover N1 a N3').toBe(2.2);
+    expect(c.notas[0], 'e o hábito autônomo continua sendo o N1 da abertura').toBe(1.4);
     expect(c.recuperou, 'subiu de 1,4 para 2,2 — é trajetória, e aparece').toEqual([1]);
   });
 
@@ -204,7 +205,8 @@ describe('consolidarCena — nota em código, lacuna declarada', () => {
       { indice: 1, veredito: 'falhou', forca: 'moderada', citacao: 'a', beat: 1, turno: 1, provocado: false },
       { indice: 1, veredito: 'demonstrou', forca: 'forte', citacao: 'b', beat: 3, turno: 5, provocado: false },
     ]);
-    expect(c.notas[0]).toBe(3.2);
+    expect(c.encerramento.notas[0]).toBe(3.2);
+    expect(c.notas[0]).toBe(1.4);
     expect(c.recuperou).toEqual([1]);
   });
 
@@ -217,7 +219,8 @@ describe('consolidarCena — nota em código, lacuna declarada', () => {
 
   it('PIORA também fica visível', () => {
     const c = consolidarCena([ev(1, 'demonstrou', 'forte', 1), ev(1, 'falhou', 'forte', 3)]);
-    expect(c.notas[0]).toBe(1.4);
+    expect(c.encerramento.notas[0]).toBe(1.4);
+    expect(c.notas[0], 'quem abre no nível-meta e desaba abre no nível-meta').toBe(3.2);
     expect(c.piorou).toEqual([1]);
   });
 
@@ -350,32 +353,52 @@ describe('ABERTURA — o hábito autônomo, separado da coachability', () => {
   const ev = (indice: number, nivel: any, turno: number, beat = 1): EvidenciaDescritor =>
     ({ indice, nivel, veredito: 'sem_sinal', forca: 'forte', citacao: '...', beat, turno });
 
-  // 🔴 Medido 25/08/2026: no braço N1 os vereditos vão de 76% n1_gap no início a
-  // 44% n3_meta no fim. O extrator acerta o N1 na abertura; quem muda é o
-  // avaliado, porque a cena ENSINA. Com interlocutor didático não existe
-  // agregador único que deixe N1=N1 e N3=N3 — por isso são duas medidas.
-  it('abertura pega a PRIMEIRA evidência; encerramento pega a última', () => {
+  // 🔴 ESTE É O TESTE QUE TRANCA A DECISÃO DE 25/08/2026.
+  //
+  // Se alguém devolver o encerramento ao topo — por achar que "a nota final é a
+  // última", ou para "dar crédito pela recuperação" —, ele cai. O rótulo que
+  // alimenta PDI e trilha é a AUTONOMIA, e a razão está medida: o encerramento
+  // tem DOSE ENDÓGENA. O interlocutor dita mais para quem trava e menos para
+  // quem anda, então duas pessoas com o mesmo encerramento fizeram provas
+  // diferentes — e a prova mais fácil vai justamente para quem foi melhor.
+  it('o TOPO é a autonomia: quem abre em N1 e fecha em N3 publica N1', () => {
     const c = consolidarCena([
       ev(1, 'n1_gap', 1), ev(1, 'n3_meta', 9),
       ev(2, 'n1_gap', 2), ev(2, 'n3_meta', 8),
       ev(3, 'n1_gap', 1), ev(4, 'n1_gap', 1), ev(5, 'n1_gap', 1), ev(6, 'n1_gap', 1),
     ]);
-    expect(c.media, 'encerramento = quem aprendeu durante a conversa').toBe(2.0);
-    expect(c.abertura.media, 'abertura = o que a pessoa fez sozinha').toBe(1.4);
-    expect(c.abertura.nivel).toBe(1);
-    expect(c.nivel).toBe(2);
+    expect(c.media, 'autonomia = o que a pessoa fez antes de a cena ensinar').toBe(1.4);
+    expect(c.nivel, 'e é ele que sai como rótulo').toBe(1);
+    expect(c.encerramento.media, 'o assistido fica ao lado, não some').toBe(2.0);
+    expect(c.encerramento.nivel).toBe(2);
+    expect(c.recuperou, 'a diferença entre os dois é a coachability, e tem nome').toEqual([1, 2]);
   });
 
-  it('sem deriva, abertura e encerramento coincidem', () => {
+  it('sem deriva, as duas medidas coincidem', () => {
     const evs = [1, 2, 3, 4, 5, 6].map((i) => ev(i, 'n3_meta', 1));
     const c = consolidarCena(evs);
-    expect(c.abertura.media).toBe(c.media);
+    expect(c.encerramento.media).toBe(c.media);
   });
 
-  it('abertura não publica nível com cobertura incompleta', () => {
+  it('a supressão é da CENA, não da leitura: cobertura incompleta cala as duas', () => {
+    // Se a régua valesse só para uma delas, a outra circularia com rótulo numa
+    // cena que o próprio código considera insuficiente.
     const c = consolidarCena([ev(1, 'n3_meta', 1), ev(2, 'n3_meta', 1)]);
-    expect(c.abertura.media).toBe(3.2);
-    expect(c.abertura.nivel).toBeNull();
+    expect(c.media).toBe(3.2);
+    expect(c.nivel).toBeNull();
+    expect(c.encerramento.media).toBe(3.2);
+    expect(c.encerramento.nivel, 'o assistido cala junto').toBeNull();
+  });
+
+  it('confiança baixa cala as DUAS medidas', () => {
+    const fracas = [1, 2, 3, 4, 5, 6].map((i) => ({
+      indice: i, nivel: 'n2_em_desenvolvimento' as const, forca: 'fraca' as const,
+      citacao: 'x', beat: 1, turno: 1,
+    }));
+    const c = consolidarCena(fracas);
+    expect(c.nivel).toBeNull();
+    expect(c.encerramento.nivel).toBeNull();
+    expect(c.nivelSuprimidoPorque).toContain('fraca');
   });
 
   it('o veredito antigo ainda é lido — artefatos de antes de 25/08 continuam válidos', () => {
