@@ -572,7 +572,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   }
 
   async function insertDemoPPP(destId: string) {
-    await must('insert ppp demo', sb.from('ppp_escolas').insert({
+    const result = await sb.from('ppp_escolas').insert({
       empresa_id: destId,
       escola: profile.pppNome,
       fonte: 'json',
@@ -580,12 +580,13 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       extracao: JSON.stringify(profile.ppp),
       valores: profile.valores,
       extracted_at: new Date().toISOString(),
-    }));
+    });
+    await must('insert ppp demo', result);
   }
 
   async function insertDemoExtraRoles(destId: string) {
     for (const role of DEMO_EXTRA_ROLES) {
-      await must(`insert cargo ${role.nome}`, sb.from('cargos_empresa').insert({
+      const cargoResult = await sb.from('cargos_empresa').insert({
         empresa_id: destId,
         nome: role.nome,
         area_depto: role.area_depto,
@@ -599,7 +600,8 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         fit_versao: '2.0',
         eh_lideranca: role.nome.includes('Coordenador') || role.nome.includes('Gerente'),
         gabarito: brand((extraArtifacts.gabaritos as Record<string, any>)?.[role.nome] ?? null),
-      }));
+      });
+      await must(`insert cargo ${role.nome}`, cargoResult);
 
       // Prefixo do código da competência por cargo (evita colisão entre cargos).
       const codPrefix = role.nome.startsWith('Analista') ? 'FIN'
@@ -649,12 +651,13 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
               sugestao_check: capt.sugestao_check, alertas_check: capt.alertas_check, ppp_escola_id: null,
             }
           : demoScenarioFor(role.nome, nome);
-        await must(`insert cenario ${role.nome} ${nome}`, sb.from('banco_cenarios').insert({
+        const cenarioResult = await sb.from('banco_cenarios').insert({
           empresa_id: destId,
           cargo: role.nome,
           competencia_id: firstComp.id,
           ...brand(cenarioData),
-        }));
+        });
+        await must(`insert cenario ${role.nome} ${nome}`, cenarioResult);
       }
     }
   }
