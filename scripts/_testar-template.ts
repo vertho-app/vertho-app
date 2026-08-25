@@ -31,7 +31,7 @@
 process.loadEnvFile('.env.local');
 
 import { enviarPorTemplate, templateAtivo, contratoDoTemplate, type PapelCadencia } from '../lib/notifications/pilula-template';
-import { TEMPLATES, renderTemplate } from '../lib/whatsapp/templates';
+import { TEMPLATES, renderTemplate, type TemplateDef } from '../lib/whatsapp/templates';
 import { tenantUrl } from '../lib/domain';
 
 const args = process.argv.slice(2);
@@ -93,7 +93,10 @@ async function main() {
   const montar = contratoDoTemplate(template);
   if (montar) {
     const { params, botaoParam } = montar(dados as any);
-    const def = Object.values(TEMPLATES).find((t) => t.name === template);
+    // Cast como em `corpoDoTemplatePorNome`: `TEMPLATES` é `as const`, então
+    // `Object.values` devolve um UNION de literais e só alguns membros têm
+    // `botao` — sem isto o acesso não compila (pegou no build da Vercel).
+    const def = Object.values(TEMPLATES).find((t) => t.name === template) as TemplateDef | undefined;
     console.log('\n─── o que a pessoa recebe ───');
     if (def) console.log(renderTemplate(def, params));
     if (botaoParam) console.log(`\n[botão "${def?.botao?.texto ?? '—'}"] https://app.vertho.ai/ir/${botaoParam}`);
