@@ -151,7 +151,18 @@ async function falaDoAluno(
     role: (m.role === 'assistant' ? 'user' : 'assistant') as 'user' | 'assistant',
     content: m.content.replace(/\[META\][\s\S]*?\[\/META\]/g, '').trim(),
   }));
-  return (await callAIChat(promptAlunoSimulado(cargo, nivel, descritores), msgs, MODELO_ALUNO, 1200, {
+  /**
+   * 🔴 3.000 e não 1.200: o Kimi K3 RACIOCINA, e o teto de saída é dividido
+   * entre raciocínio e texto. Medido na fase 0e — uma cena morreu com
+   * "resposta 200 com conteúdo VAZIO após 138 tokens de saída (123 deles de
+   * raciocínio)". O wrapper falha alto nesse caso de propósito (devolver "" faria
+   * o chamador tratar como resposta válida), então o sintoma é a cena inteira
+   * quebrando no meio — depois de já ter pago todos os turnos anteriores.
+   *
+   * É a mesma armadilha já registrada para o Opus 5 nos tetos de `MAX_TOKENS`
+   * do núcleo, aqui no ator, que ficou de fora quando o modelo trocou.
+   */
+  return (await callAIChat(promptAlunoSimulado(cargo, nivel, descritores), msgs, MODELO_ALUNO, 3000, {
     temperature: 0.8, reasoningEffort: 'low', taskKey: 'sim_aluno', ...LEDGER_SIM,
   })).trim();
 }

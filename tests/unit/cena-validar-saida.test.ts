@@ -3,7 +3,7 @@
 // apareceram depois de rodar — porque nada olhava o resultado. Média e nível
 // sempre saem, inclusive quando a entrada não faz sentido.
 import { describe, expect, it } from 'vitest';
-import { validarSaidaDaCena, saidaConfiavel, normalizar, type EntradaValidacao } from '@/lib/season-engine/cena/validar-saida';
+import { validarSaidaDaCena, saidaConfiavel, normalizar, semConectorDeBorda, type EntradaValidacao } from '@/lib/season-engine/cena/validar-saida';
 import { consolidarCena, type EvidenciaDescritor } from '@/lib/season-engine/cena/beats';
 
 const FALA_1 = 'Olha, eu vou tirar o levantamento de dados da sua lista e passar para a Roseli, até sexta-feira.';
@@ -223,5 +223,49 @@ describe('o classificador ancorado (25/08) e o artefato velho convivem', () => {
     const evs = [{ indice: 1, nivel: 'sem_sinal', forca: 'fraca', citacao: '', beat: 1, turno: 2 } as any];
     const vs = validarSaidaDaCena(entrada({ evidencias: evs, consolidacao: consolidarCena(evs) }));
     expect(vs.filter((x) => x.severidade === 'erro')).toEqual([]);
+  });
+});
+
+describe('emenda: o conector da borda é do extrator, não do falante', () => {
+  // 🔴 Medido na fase 0e: uma cena INTEIRA foi invalidada por isto. O avaliado
+  // disse "…zero tolerância escrito, não na minha cabeça, e as outras mães
+  // vendo, POR ISSO o segundo episódio da Dona Rute já ter consequência formal";
+  // o extrator cortou o meio e emendou com "e" no lugar de "por isso". Nada
+  // mudou de sentido, e a régua reprovou citação honesta.
+  //
+  // ⚠️ Esta regra foi escrita DEPOIS de ver este caso. Ela é defensável por si
+  // — emenda precisa de tecido conjuntivo nas bordas, é assim que citação
+  // emendada funciona em qualquer texto —, mas o ajuste não foi validado em
+  // dado que ele nunca viu.
+  const FALA = 'Isso eu trato como falha do combinado e escalo pra direção com registro formal, ' +
+    'zero tolerância escrito, não na minha cabeça, e as outras mães vendo, por isso o segundo ' +
+    'episódio da Dona Rute já ter consequência formal e visível.';
+
+  it('aceita a emenda quando só o conector da borda difere', () => {
+    const vs = validarSaidaDaCena(entrada({
+      falasDoAvaliado: [FALA],
+      evidencias: [ev(1, 'demonstrou',
+        'zero tolerância escrito, não na minha cabeça... e o segundo episódio da Dona Rute já ter consequência formal')],
+    }));
+    expect(vs.filter((x) => x.severidade === 'erro')).toEqual([]);
+  });
+
+  it('mas o MIOLO continua tendo de bater palavra por palavra', () => {
+    const vs = validarSaidaDaCena(entrada({
+      falasDoAvaliado: [FALA],
+      evidencias: [ev(1, 'demonstrou',
+        'zero tolerância escrito, não na minha cabeça... e o segundo episódio da Dona Rute será punido com advertência')],
+    }));
+    expect(
+      vs.some((x) => x.severidade === 'erro' && x.campo === 'evidencias.citacao'),
+      'senão a tolerância de borda viraria licença para parafrasear',
+    ).toBe(true);
+  });
+
+  it('semConectorDeBorda tira só a borda, nunca o miolo', () => {
+    expect(semConectorDeBorda('e o segundo episodio')).toBe('o segundo episodio');
+    expect(semConectorDeBorda('por isso o segundo episodio e a mae')).toBe('o segundo episodio e a mae');
+    expect(semConectorDeBorda('entrego ate sexta e')).toBe('entrego ate sexta');
+    expect(semConectorDeBorda('entrego e recebo'), 'conector no meio fica').toBe('entrego e recebo');
   });
 });

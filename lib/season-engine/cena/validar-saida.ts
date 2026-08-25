@@ -80,6 +80,35 @@ export function normalizar(t: string): string {
 /** Citação curta demais não dá para verificar — e não dá para auditar depois. */
 export const MIN_CITACAO = 25;
 
+/**
+ * Tira a conjunção da BORDA de um fragmento de emenda.
+ *
+ * 🔴 Medido 25/08/2026 (fase 0e): o extrator devolveu
+ * `"Zero tolerância escrito, não na minha cabeça... e o segundo episódio da
+ * Dona Rute já ter consequência formal e visível"`. Os dois trechos existem na
+ * fala, contíguos — o que a pessoa disse no meio foi *"e as outras mães vendo,
+ * por isso o segundo episódio…"*. O extrator cortou o meio e escreveu "e" no
+ * lugar de "por isso". Nada mudou de sentido, e a cena INTEIRA foi invalidada.
+ *
+ * Emenda com reticências PRECISA de tecido conjuntivo nas bordas — é assim que
+ * citação emendada funciona em qualquer texto. A palavra colada ao "..." é do
+ * extrator, não do falante, e cobrar literalidade dela reprova citação honesta.
+ *
+ * ⚠️ Só a BORDA, e só conector. O miolo continua tendo de bater palavra por
+ * palavra, senão isto viraria licença para parafrasear.
+ */
+const CONECTORES = ['e', 'mas', 'entao', 'porque', 'que', 'e que', 'ou', 'ai', 'dai', 'por isso', 'entretanto', 'porem'];
+export function semConectorDeBorda(fragmento: string): string {
+  let f = fragmento.trim();
+  for (const c of CONECTORES) {
+    if (f.startsWith(c + ' ')) { f = f.slice(c.length + 1); break; }
+  }
+  for (const c of CONECTORES) {
+    if (f.endsWith(' ' + c)) { f = f.slice(0, -(c.length + 1)); break; }
+  }
+  return f.trim();
+}
+
 export function validarSaidaDaCena(e: EntradaValidacao): Violacao[] {
   const v: Violacao[] = [];
   const erro = (campo: string, detalhe: string) => v.push({ severidade: 'erro', campo, detalhe });
@@ -164,7 +193,8 @@ export function validarSaidaDaCena(e: EntradaValidacao): Violacao[] {
      * que se quer: quanto mais literal e mais completa, melhor para o humano
      * auditar. Cada fragmento é verificado por si.
      */
-    const fragmentos = ev.citacao.split(/\.{2,}|…/).map(normalizar).filter((f) => f.length >= MIN_CITACAO);
+    const fragmentos = ev.citacao.split(/\.{2,}|…/)
+      .map(normalizar).map(semConectorDeBorda).filter((f) => f.length >= MIN_CITACAO);
     const paraVerificar = fragmentos.length ? fragmentos : [c];
     const ausentes = paraVerificar.filter((f) => !transcricao.includes(f));
     if (ausentes.length) {
