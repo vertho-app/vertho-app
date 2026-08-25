@@ -25,7 +25,7 @@ export type GestorKpi = {
 };
 
 export type GestorAlerta = {
-  tipo: 'checkpoint_atrasado' | 'sem_perfil' | 'estagnado';
+  tipo: 'checkpoint_atrasado' | 'sem_perfil' | 'sem_mapeamento' | 'estagnado';
   count: number;
   mensagem: string;
 };
@@ -312,6 +312,64 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     for (const r of (cont || [])) ativosSet.add(r.colaborador_id);
   } catch { /* tabela pode não existir em ambientes legacy */ }
 
+  // Quando empresa usa fonte externa (OPQ32 etc.), DISC é ignorado:
+  // 'sem perfil' = sem perfil_externo_dados (PDF não foi extraído).
+  // Caso contrário, conta DISC como antes.
+  //
+  // 🔑 UMA régua, três consumidores: os dois alertas de "sinais de atenção" e o
+  // motivo de cada linha "SEM TRILHA". Enquanto a expressão estava escrita duas
+  // vezes, o card podia dizer "12 sem perfil" e as linhas marcarem 13 — e
+  // ninguém saberia qual das duas está certa.
+  const temPerfil = (c: any) =>
+    fonteExterna ? !!c.perfil_externo_dados : (!!c.perfil_dominante || !!c.perfil_externo_dados);
+
+  // ── 7a. POR QUE cada um está sem trilha ──
+  //
+  // "SEM TRILHA" sozinho não diz o que fazer, e as duas causas pedem ações
+  // opostas: quem não tem perfil precisa fazer o mapeamento comportamental;
+  // quem já tem precisa da rodada de avaliação. `Medido em 25/08:` das 313
+  // pessoas sem trilha na base, 177 param na primeira e 133 na segunda.
+  //
+  // A régua é a do GERADOR, não um palpite: `gerarTemporadaCoreHeadless` recusa
+  // com "Colaborador ainda não tem avaliação (descriptor_assessments)" — é essa
+  // tabela que destrava a trilha, não `respostas`. E o perfil vem antes porque
+  // sem ele a pessoa nem alcança o mapeamento (é o gate da home).
+  //
+  // O terceiro caso é o que não se pode chamar de pendência DELA: perfil feito,
+  // avaliação feita, trilha não gerada — a bola está com a gente. São 3 pessoas
+  // hoje (acme-demo, ibipeba), e rotulá-las como "sem mapeamento" seria cobrar
+  // de quem já fez a parte dela.
+  const semTrilhaIds = liderados.filter((c: any) => !trilhaPorColab.get(c.id)).map((c: any) => c.id);
+  const comAssessment = new Set<string>();
+  let assessmentIndisponivel = false;
+  if (semTrilhaIds.length > 0) {
+    // Só quem está sem trilha: a tabela tem uma linha por DESCRITOR, então
+    // varrer a equipe inteira multiplicaria o payload por ~10 sem necessidade.
+    const { data: das, error: errDas } = await sb.from('descriptor_assessments')
+      .select('colaborador_id')
+      .eq('empresa_id', empresaId)
+      .in('colaborador_id', semTrilhaIds);
+    if (errDas) {
+      // Consulta falhou → o Set fica vazio → todo mundo com perfil viraria "sem
+      // mapeamento". Acusar a pessoa por um erro nosso é pior que não dizer
+      // nada, então o motivo some e o rótulo volta a ser só "SEM TRILHA".
+      console.error('[gestor] descriptor_assessments falhou:', errDas.message);
+      assessmentIndisponivel = true;
+    }
+    for (const d of das || []) comAssessment.add(d.colaborador_id);
+  }
+
+  const motivoSemTrilha = (c: any): EquipeRow['motivoSemTrilha'] => {
+    // Quem TEM trilha não tem motivo — e a checagem mora aqui, não em cada
+    // chamador: `comAssessment` só foi consultado para quem está sem trilha,
+    // então sem esta linha alguém em jornada cairia em "sem mapeamento" só por
+    // não estar no Set. Um segundo consumidor (o alerta) quase nasceu com isso.
+    if (trilhaPorColab.get(c.id)) return null;
+    if (!temPerfil(c)) return 'sem_perfil';
+    if (assessmentIndisponivel) return null;
+    return comAssessment.has(c.id) ? 'aguardando_geracao' : 'sem_mapeamento';
+  };
+
   // ── 5. Alertas ──
   const alertas: GestorAlerta[] = [];
   const cpAtrasados = cpPendentes.filter((cp: any) => {
@@ -325,16 +383,6 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       mensagem: `${cpAtrasados.length} checkpoint${cpAtrasados.length === 1 ? '' : 's'} pendente${cpAtrasados.length === 1 ? '' : 's'} há mais de 7 dias`,
     });
   }
-  // Quando empresa usa fonte externa (OPQ32 etc.), DISC é ignorado:
-  // 'sem perfil' = sem perfil_externo_dados (PDF não foi extraído).
-  // Caso contrário, conta DISC como antes.
-  //
-  // 🔑 UMA régua, dois consumidores: este alerta e o motivo de cada linha "SEM
-  // TRILHA" (seção 7). Enquanto a expressão estava escrita duas vezes, o card
-  // podia dizer "12 sem perfil" e as linhas marcarem 13 — e ninguém saberia
-  // qual das duas está certa.
-  const temPerfil = (c: any) =>
-    fonteExterna ? !!c.perfil_externo_dados : (!!c.perfil_dominante || !!c.perfil_externo_dados);
   const semPerfil = liderados.filter((c: any) => !temPerfil(c)).length;
   if (semPerfil > 0) {
     const fonteLabel = fonteExterna === 'opq32' ? 'OPQ32' : fonteExterna || 'comportamental';
@@ -344,6 +392,21 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       mensagem: fonteExterna
         ? `${semPerfil} liderado${semPerfil === 1 ? ' ainda não tem' : 's ainda não têm'} ${fonteLabel} carregado`
         : `${semPerfil} liderado${semPerfil === 1 ? '' : 's'} sem perfil comportamental mapeado`,
+    });
+  }
+  // Etapa SEGUINTE do funil: tem perfil, falta o mapeamento de competências —
+  // que é o que o gerador de temporada exige (`descriptor_assessments`).
+  //
+  // Conta EXATAMENTE quem a lista marca com esse motivo, em vez de refazer a
+  // expressão: alerta e linha não podem discordar. Quem ainda não tem perfil
+  // fica de fora de propósito — já está no alerta de cima, e a ação dele é
+  // outra; somar os dois contaria a mesma pessoa duas vezes.
+  const semMapeamento = liderados.filter((c: any) => motivoSemTrilha(c) === 'sem_mapeamento').length;
+  if (semMapeamento > 0) {
+    alertas.push({
+      tipo: 'sem_mapeamento',
+      count: semMapeamento,
+      mensagem: `${semMapeamento} liderado${semMapeamento === 1 ? '' : 's'} sem mapeamento de competências`,
     });
   }
   // Estagnado: trilha ativa criada há >21 dias mas sem evolution_report e sem checkpoint respondido
@@ -406,48 +469,6 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       }
     }
   }
-
-  // ── 7a. POR QUE cada um está sem trilha ──
-  //
-  // "SEM TRILHA" sozinho não diz o que fazer, e as duas causas pedem ações
-  // opostas: quem não tem perfil precisa fazer o mapeamento comportamental;
-  // quem já tem precisa da rodada de avaliação. `Medido em 25/08:` das 313
-  // pessoas sem trilha na base, 177 param na primeira e 133 na segunda.
-  //
-  // A régua é a do GERADOR, não um palpite: `gerarTemporadaCoreHeadless` recusa
-  // com "Colaborador ainda não tem avaliação (descriptor_assessments)" — é essa
-  // tabela que destrava a trilha, não `respostas`. E o perfil vem antes porque
-  // sem ele a pessoa nem alcança o mapeamento (é o gate da home).
-  //
-  // O terceiro caso é o que não se pode chamar de pendência DELA: perfil feito,
-  // avaliação feita, trilha não gerada — a bola está com a gente. São 3 pessoas
-  // hoje (acme-demo, ibipeba), e rotulá-las como "sem mapeamento" seria cobrar
-  // de quem já fez a parte dela.
-  const semTrilhaIds = liderados.filter((c: any) => !trilhaPorColab.get(c.id)).map((c: any) => c.id);
-  const comAssessment = new Set<string>();
-  let assessmentIndisponivel = false;
-  if (semTrilhaIds.length > 0) {
-    // Só quem está sem trilha: a tabela tem uma linha por DESCRITOR, então
-    // varrer a equipe inteira multiplicaria o payload por ~10 sem necessidade.
-    const { data: das, error: errDas } = await sb.from('descriptor_assessments')
-      .select('colaborador_id')
-      .eq('empresa_id', empresaId)
-      .in('colaborador_id', semTrilhaIds);
-    if (errDas) {
-      // Consulta falhou → o Set fica vazio → todo mundo com perfil viraria "sem
-      // mapeamento". Acusar a pessoa por um erro nosso é pior que não dizer
-      // nada, então o motivo some e o rótulo volta a ser só "SEM TRILHA".
-      console.error('[gestor] descriptor_assessments falhou:', errDas.message);
-      assessmentIndisponivel = true;
-    }
-    for (const d of das || []) comAssessment.add(d.colaborador_id);
-  }
-
-  const motivoSemTrilha = (c: any): EquipeRow['motivoSemTrilha'] => {
-    if (!temPerfil(c)) return 'sem_perfil';
-    if (assessmentIndisponivel) return null;
-    return comAssessment.has(c.id) ? 'aguardando_geracao' : 'sem_mapeamento';
-  };
 
   const equipe: EquipeRow[] = liderados.map((c: any) => {
     const t = trilhaPorColab.get(c.id);

@@ -25,12 +25,16 @@ const COLABS = [
   { id: 'p3', nome_completo: 'Pronto', cargo: 'Diretor(a)', email: 'p3@x.com', perfil_dominante: 'S', perfil_externo_dados: null, gestor_email: null },
 ];
 
+/** Trilhas do tenant — os testes trocam para exercitar quem JA esta em jornada. */
+let TRILHAS: any[] = [];
+
 const sb = criarSupabaseMock({
   resolver: (tabela) => (tabela === 'empresas' ? { sys_config: {} } : null),
   lista: (tabela) => {
     if (tabela === 'colaboradores') return COLABS;
     // Só p3 fez a avaliação; ninguém tem trilha.
     if (tabela === 'descriptor_assessments') return [{ colaborador_id: 'p3' }];
+    if (tabela === 'trilhas') return TRILHAS;
     return [];
   },
 });
@@ -56,7 +60,7 @@ const motivos = async () => {
 };
 
 describe('motivo de estar sem trilha', () => {
-  beforeEach(() => sb.reset());
+  beforeEach(() => { sb.reset(); TRILHAS = []; });
 
   it('separa as duas pendências DA PESSOA', async () => {
     const m = await motivos();
@@ -80,10 +84,30 @@ describe('motivo de estar sem trilha', () => {
     expect(m.p3).toBeNull();
   });
 
-  it('o alerta "sem perfil" e os rótulos das linhas contam a MESMA coisa', async () => {
+  it('quem JÁ está em trilha não tem motivo — nem vira alerta', async () => {
+    // `comAssessment` só é consultado para quem está sem trilha. Sem a guarda,
+    // p2 (em jornada) cairia em "sem mapeamento" só por não estar no Set — e o
+    // alerta contaria gente que está andando.
+    TRILHAS = [{ id: 't1', colaborador_id: 'p2', status: 'ativa', criado_em: '2026-08-01', data_inicio: '2026-08-01' }];
     const r: any = await getGestorHomeData();
-    const alerta = (r.alertas || []).find((a: any) => a.tipo === 'sem_perfil');
-    const linhas = (r.equipe || []).filter((e: any) => e.motivoSemTrilha === 'sem_perfil').length;
-    expect(alerta?.count).toBe(linhas);
+    const m = Object.fromEntries((r.equipe || []).map((e: any) => [e.colabId, e.motivoSemTrilha]));
+    expect(m.p2).toBeNull();
+    expect((r.alertas || []).find((a: any) => a.tipo === 'sem_mapeamento')).toBeUndefined();
+  });
+
+  it('cada alerta conta o MESMO que os rótulos das linhas', async () => {
+    const r: any = await getGestorHomeData();
+    for (const tipo of ['sem_perfil', 'sem_mapeamento'] as const) {
+      const alerta = (r.alertas || []).find((a: any) => a.tipo === tipo);
+      const linhas = (r.equipe || []).filter((e: any) => e.motivoSemTrilha === tipo).length;
+      expect(alerta?.count ?? 0).toBe(linhas);
+    }
+  });
+
+  it('o alerta de mapeamento fala "mapeamento de competências", nunca "avaliação"', async () => {
+    const r: any = await getGestorHomeData();
+    const a = (r.alertas || []).find((x: any) => x.tipo === 'sem_mapeamento');
+    expect(a?.mensagem).toContain('mapeamento de competências');
+    expect(a?.mensagem).not.toMatch(/avalia/i);
   });
 });

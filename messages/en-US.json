@@ -163,8 +163,8 @@
       "waitingScenarios": "Waiting for scenario mapping release",
       "waitingRoleSetup": "Waiting for your role's competencies",
       "behavioral": "Start behavioral assessment",
-      "continueAssessment": "Continue review",
-      "startAssessment": "Start assessment",
+      "continueAssessment": "Continue mapping",
+      "startAssessment": "Start competency mapping",
       "viewResult": "View my result"
     },
     "header": {
@@ -245,7 +245,7 @@
   "DashboardJourney": {
     "cta": {
       "1": "Start behavioral assessment",
-      "2": "Start assessment",
+      "2": "Start competency mapping",
       "3": "View my IDP",
       "4": "See my season",
       "5": "See my evolution",
@@ -255,7 +255,7 @@
     },
     "phaseDescriptions": {
       "1": "Mapping your behavioral profile.",
-      "2": "Assessment of skills through situational scenarios.",
+      "2": "Competency mapping through situational scenarios.",
       "3": "Your individual development plan based on results.",
       "4": "14-week season with content, practice and reflection.",
       "5": "Measuring post-training evolution and consolidation of advances.",
@@ -292,7 +292,7 @@
       "eyebrow": "Next step",
       "finish": "Complete {title}",
       "followEvolution": "Track your evolution",
-      "external": "Your next step takes place in Vertho's skills assessment.",
+      "external": "Your next step takes place in Vertho's competency mapping.",
       "default": "Finish this phase to advance on your development journey.",
       "done": "View your consolidated progress report and next steps."
     }
@@ -1087,13 +1087,13 @@
     },
     "empty": {
       "preparingTitle": "PDI in preparation",
-      "assessmentTitle": "Assessment in progress",
-      "preparingSubtitle": "You have already completed all assessments. Your Individual Development Plan will be generated shortly by the team.",
+      "assessmentTitle": "Mapping in progress",
+      "preparingSubtitle": "You have already completed the competency mapping. Your Individual Development Plan will be generated shortly by the team.",
       "progressSubtitle": "You have already answered {done}/{total} competencies. Complete them all so that your PDI is generated.",
-      "notStartedSubtitle": "Your Individual Development Plan will be created after you complete the competency assessment.",
+      "notStartedSubtitle": "Your Individual Development Plan will be created after you complete the competency mapping.",
       "backDashboard": "Return to dashboard",
-      "continueAssessment": "Continue review →",
-      "goAssessment": "Go to Assessment"
+      "continueAssessment": "Continue mapping →",
+      "goAssessment": "Go to mapping"
     },
     "sections": {
       "developingDescriptors": "Descriptors in Development",
@@ -1124,8 +1124,8 @@
     "descriptorFallback": "{number} descriptor",
     "empty": {
       "title": "No evolution data yet",
-      "subtitle": "Your details will appear here after completing the assessments.",
-      "card": "Complete competency assessments to monitor your progress."
+      "subtitle": "Your details will appear here after completing the competency mapping.",
+      "card": "Complete the competency mapping to monitor your progress."
     },
     "classification": {
       "confirmed": "Evolution confirmed",
@@ -1155,7 +1155,7 @@
     }
   },
   "AssessmentChat": {
-    "fallbackTitle": "Assessment",
+    "fallbackTitle": "Competency mapping",
     "confidence": "Trust",
     "statusDone": "Completed",
     "inputPlaceholder": "Describe how you would act...",
@@ -1173,11 +1173,11 @@
       "api": "API error"
     },
     "empty": {
-      "title": "Send a message to start the evaluation.",
+      "title": "Send a message to start the mapping.",
       "subtitle": "Describe how you would act in the scenario presented."
     },
     "final": {
-      "title": "Assessment Complete",
+      "title": "Mapping Complete",
       "level": "Level",
       "score": "Note",
       "gap": "Gap",
@@ -4058,7 +4058,7 @@
       "reason": {
         "sem_perfil": "behavioral profile missing",
         "sem_perfil_externo": "{fonte} missing",
-        "sem_mapeamento": "competency assessment missing",
+        "sem_mapeamento": "competency mapping missing",
         "aguardando_geracao": "ready to start — track not generated yet"
       }
     },

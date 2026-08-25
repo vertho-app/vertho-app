@@ -163,8 +163,8 @@
       "waitingScenarios": "A aguardar libertação do mapeamento de cenários",
       "waitingRoleSetup": "A aguardar as competências da sua função",
       "behavioral": "Fazer diagnóstico comportamental",
-      "continueAssessment": "Continuar avaliação",
-      "startAssessment": "Iniciar avaliação",
+      "continueAssessment": "Continuar mapeamento",
+      "startAssessment": "Iniciar mapeamento de competências",
       "viewResult": "Ver o meu resultado"
     },
     "header": {
@@ -245,7 +245,7 @@
   "DashboardJourney": {
     "cta": {
       "1": "Fazer diagnóstico comportamental",
-      "2": "Iniciar avaliação",
+      "2": "Iniciar mapeamento de competências",
       "3": "Ver o meu PDI",
       "4": "Ver a minha temporada",
       "5": "Ver a minha evolução",
@@ -255,7 +255,7 @@
     },
     "phaseDescriptions": {
       "1": "Mapeamento do seu perfil comportamental.",
-      "2": "Avaliação de competências por cenários situacionais.",
+      "2": "Mapeamento de competências por cenários situacionais.",
       "3": "O seu plano de desenvolvimento individual baseado nos resultados.",
       "4": "Temporada de 14 semanas com conteúdo, prática e reflexão.",
       "5": "Medição de evolução pós-capacitação e consolidação dos avanços.",
@@ -292,7 +292,7 @@
       "eyebrow": "Próximo passo",
       "finish": "Concluir {title}",
       "followEvolution": "Acompanhar a sua evolução",
-      "external": "A sua próxima etapa acontece na avaliação de competências da Vertho.",
+      "external": "A sua próxima etapa acontece no mapeamento de competências da Vertho.",
       "default": "Finalize esta fase para avançar no seu percurso de desenvolvimento.",
       "done": "Visualize o seu relatório consolidado de evolução e próximos passos."
     }
@@ -1087,13 +1087,13 @@
     },
     "empty": {
       "preparingTitle": "PDI em preparação",
-      "assessmentTitle": "Avaliação em curso",
-      "preparingSubtitle": "Já concluiu todas as avaliações. O seu Plano de Desenvolvimento Individual será gerado em breve pela equipa.",
+      "assessmentTitle": "Mapeamento em curso",
+      "preparingSubtitle": "Já concluiu o mapeamento de competências. O seu Plano de Desenvolvimento Individual será gerado em breve pela equipa.",
       "progressSubtitle": "Já respondeu a {done}/{total} competências. Complete todas para que o seu PDI seja gerado.",
-      "notStartedSubtitle": "O seu Plano de Desenvolvimento Individual será criado depois de completar a avaliação de competências.",
+      "notStartedSubtitle": "O seu Plano de Desenvolvimento Individual será criado depois de completar o mapeamento de competências.",
       "backDashboard": "Voltar ao dashboard",
-      "continueAssessment": "Continuar avaliação →",
-      "goAssessment": "Ir para Avaliação"
+      "continueAssessment": "Continuar mapeamento →",
+      "goAssessment": "Ir para o mapeamento"
     },
     "sections": {
       "developingDescriptors": "Descritores em Desenvolvimento",
@@ -1124,8 +1124,8 @@
     "descriptorFallback": "Descritor {number}",
     "empty": {
       "title": "Ainda sem dados de evolução",
-      "subtitle": "Os seus dados aparecerão aqui depois de completar as avaliações.",
-      "card": "Complete as avaliações de competências para acompanhar a sua evolução."
+      "subtitle": "Os seus dados aparecerão aqui depois de completar o mapeamento de competências.",
+      "card": "Complete o mapeamento de competências para acompanhar a sua evolução."
     },
     "classification": {
       "confirmed": "Evolução confirmada",
@@ -1155,7 +1155,7 @@
     }
   },
   "AssessmentChat": {
-    "fallbackTitle": "Avaliação",
+    "fallbackTitle": "Mapeamento de competências",
     "confidence": "Confiança",
     "statusDone": "Concluída",
     "inputPlaceholder": "Descreva como agiria...",
@@ -1173,11 +1173,11 @@
       "api": "Erro na API"
     },
     "empty": {
-      "title": "Envie uma mensagem para iniciar a avaliação.",
+      "title": "Envie uma mensagem para iniciar o mapeamento.",
       "subtitle": "Descreva como agiria no cenário apresentado."
     },
     "final": {
-      "title": "Avaliação Concluída",
+      "title": "Mapeamento Concluído",
       "level": "Nível",
       "score": "Nota",
       "gap": "Lacuna",
@@ -4058,7 +4058,7 @@
       "reason": {
         "sem_perfil": "falta o mapeamento comportamental",
         "sem_perfil_externo": "falta o {fonte}",
-        "sem_mapeamento": "falta a avaliação de competências",
+        "sem_mapeamento": "falta o mapeamento de competências",
         "aguardando_geracao": "pronto para começar — percurso ainda não gerado"
       }
     },
