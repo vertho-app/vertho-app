@@ -832,7 +832,8 @@
       "done": "Content carried out",
       "availableIn": "Available at:",
       "preparingFormats": "We are preparing more formats for this episode. Focus on the challenge and reflection below.",
-      "openContent": "Open content →"
+      "openContent": "Open content →",
+      "openToUnlock": "Open one of the formats above to unlock this week’s conversations."
     },
     "challenge": {
       "title": "Challenge of the week",

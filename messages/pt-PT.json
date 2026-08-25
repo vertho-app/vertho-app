@@ -836,7 +836,8 @@
       "done": "Conteúdo realizado",
       "availableIn": "Disponível em:",
       "preparingFormats": "Estamos a preparar mais formatos para este episódio. Foque-se no desafio e na reflexão abaixo.",
-      "openContent": "Abrir conteúdo →"
+      "openContent": "Abrir conteúdo →",
+      "openToUnlock": "Abra um dos formatos acima para desbloquear as conversas desta semana."
     },
     "challenge": {
       "title": "Desafio da semana",

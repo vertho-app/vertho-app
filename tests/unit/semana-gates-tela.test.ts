@@ -61,6 +61,35 @@ describe('item 2 — o degrau manual deixou de ser catraca', () => {
     expect(TELA).not.toContain('disabled={!conteudoConsumido}');
   });
 
+  it('🔴 TODO formato com fonte conta como abertura, não só texto/case', () => {
+    // O bug que sobrou da 1ª rodada: só o ramo texto/case (um `<a>` que sai da
+    // página) chamava `onAbrirConteudo`. Quem preferia ÁUDIO clicava, ouvia o
+    // conteúdo inteiro e os botões seguiam cinza; no vídeo a abertura dependia
+    // de o player emitir `play` por postMessage.
+    const chipInline = 'onClick={() => { if (tem) { setFormatoAtivo(f); onAbrirConteudo?.(); logFormato(f); } }}';
+    expect(TELA).toContain(chipInline);
+    // A forma antiga (sem a abertura) não volta.
+    expect(TELA).not.toContain('onClick={() => { if (tem) { setFormatoAtivo(f); logFormato(f); } }}');
+  });
+
+  it('abrir o conteúdo MARCA — o botão manual deixou de ser um passo', () => {
+    expect(TELA).toContain('if (!conteudoConsumido) handleConsumido();');
+  });
+
+  it('o botão manual sobrevive SÓ onde não há o que abrir', () => {
+    // Removê-lo de vez tornaria a pílula sem fonte abrível (`nadaParaAbrir`)
+    // inalcançável: não há clique possível e a semana ficaria sem caminho.
+    expect(TELA).toContain('{!conteudoConsumido && nadaParaAbrir && (');
+    // E não pode voltar a aparecer ao lado de conteúdo já aberto.
+    expect(TELA).not.toContain('{!conteudoConsumido && (\n              <div className="mt-4">');
+  });
+
+  it('a instrução não promete um botão que saiu do caminho', () => {
+    // `openBeforeComplete` dizia "abra antes de MARCAR COMO REALIZADO".
+    expect(TELA).toContain("t('content.openToUnlock')");
+    expect(TELA).not.toContain("t('content.openBeforeComplete')");
+  });
+
   it('a métrica continua sendo alimentada — entrar na conversa grava o consumo', () => {
     // Sem isto, tirar o gate faria `conteudo_consumido` parar de ser preenchido
     // e o painel de engajamento passaria a subnotificar em silêncio.

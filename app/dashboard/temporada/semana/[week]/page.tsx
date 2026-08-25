@@ -480,24 +480,61 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                   setFormatoAtivo={(formato) => setFormatoAtivo(prev => ({ ...(typeof prev === 'object' && prev !== null ? prev : {}), [idx]: formato }))}
                   trilhaId={data.trilha.id}
                   semana={semanaNum}
-                  onAbrirConteudo={() => setAbriuConteudo(true)}
+                  /*
+                   * Abrir um formato JÁ marca a semana como realizada.
+                   *
+                   * O botão manual existia para o sistema, não para a pessoa:
+                   * ela abria o conteúdo e ainda precisava confirmar num
+                   * segundo clique que tinha aberto. Agora o clique no formato
+                   * faz as duas coisas — libera a conversa (estado local, na
+                   * hora) e grava o consumo (persistente).
+                   *
+                   * ⚠️ O QUE ISSO FAZ COM A MÉTRICA, dito de propósito:
+                   * `conteudo_consumido` passa a significar "ABRIU o conteúdo".
+                   * Na prática já significava isso — o botão só ficava clicável
+                   * depois de abrir, então marcava quem tinha aberto E lembrado
+                   * de confirmar. O sinal de consumo REAL nunca foi este campo;
+                   * é `videos_watched.play_finished` e o `audio_fim` da
+                   * telemetria. O que muda é que ele deixa de subnotificar por
+                   * esquecimento.
+                   */
+                  onAbrirConteudo={() => {
+                    setAbriuConteudo(true);
+                    if (!conteudoConsumido) handleConsumido();
+                  }}
                   onAutoConsumido={() => !conteudoConsumido && handleConsumido()}
                   onSemFonte={() => setSemFonte((p) => (p[idx] ? p : { ...p, [idx]: true }))}
                   t={t}
                 />
               </div>
             ))}
-            {!conteudoConsumido && (
+            {/*
+              O BOTÃO MANUAL SÓ SOBREVIVE ONDE NÃO HÁ O QUE ABRIR.
+
+              Com a abertura marcando sozinha, um "Marcar como realizado" ao
+              lado de um conteúdo já aberto anuncia um passo pendente que não
+              existe mais — e essa tela acabou de sair de três gates encadeados.
+              Ele NÃO foi removido: a pílula sem nenhuma fonte abrível
+              (`nadaParaAbrir`) não tem clique possível, e sem este botão a
+              semana ficaria sem caminho para fechar. Tirar o controle inteiro
+              tornaria esse caso inalcançável.
+
+              Quem ainda não abriu nada vê a instrução, não um botão cinza:
+              o que falta é abrir o conteúdo, e é isso que a frase diz — por
+              isso `content.openToUnlock` e não `content.openBeforeComplete`,
+              que dizia "abra antes de MARCAR COMO REALIZADO" e passou a
+              descrever um botão que já não está neste caminho.
+            */}
+            {!conteudoConsumido && nadaParaAbrir && (
               <div className="mt-4">
-                <button onClick={handleConsumido} disabled={!abriuConteudo && !nadaParaAbrir}
-                  title={!abriuConteudo && !nadaParaAbrir ? t('content.openBeforeComplete') : ''}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${abriuConteudo || nadaParaAbrir ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-white/10 text-gray-500 cursor-not-allowed'}`}>
+                <button onClick={handleConsumido}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition bg-emerald-600 hover:bg-emerald-700 text-white">
                   <Check size={14} /> {t('content.markDone')}
                 </button>
-                {!abriuConteudo && !nadaParaAbrir && (
-                  <p className="mt-2 text-xs text-amber-300/80">{t('content.openBeforeComplete')}</p>
-                )}
               </div>
+            )}
+            {!conteudoConsumido && !nadaParaAbrir && (
+              <p className="mt-4 text-xs text-amber-300/80">{t('content.openToUnlock')}</p>
             )}
             {conteudoConsumido && (
               <div className="mt-4 flex items-center gap-2 text-emerald-400 text-xs">
@@ -977,8 +1014,16 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
             );
           }
           // áudio/vídeo → seleciona e toca inline abaixo
+          //
+          // 🔴 `onAbrirConteudo` AQUI TAMBÉM (25/08/2026). Só o ramo texto/case
+          // acima o chamava, porque ele é um `<a>` que sai da página. Resultado:
+          // quem prefere ÁUDIO clicava, ouvia o conteúdo inteiro e os botões de
+          // Evidências e Tira-Dúvidas continuavam cinza — e no vídeo a abertura
+          // dependia de o player emitir `play` por postMessage, que pode nunca
+          // chegar. Abrir é abrir, independentemente de o formato levar para
+          // outra aba ou tocar aqui dentro.
           return (
-            <button key={f} onClick={() => { if (tem) { setFormatoAtivo(f); logFormato(f); } }} disabled={!tem} className={cls}>
+            <button key={f} onClick={() => { if (tem) { setFormatoAtivo(f); onAbrirConteudo?.(); logFormato(f); } }} disabled={!tem} className={cls}>
               <Icon size={12} /> {f}
             </button>
           );
