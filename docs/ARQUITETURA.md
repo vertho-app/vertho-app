@@ -1936,6 +1936,83 @@ Antes: 4 actions em paralelo + 1 sequencial + 1 API route por pageview, cada uma
 
 ---
 
+## 26. Superfície do RH (Admin da empresa) — 24-25/08/2026
+
+**Decisão de produto: a Vertho opera, o cliente consome.** Configuração, conteúdo, disparo e
+geração de artefato são da plataforma; o papel `rh` vê resultado e leva embora. Toda tela nova do
+cliente nasce sob essa régua.
+
+### 26.1 O papel não é participante
+
+`Medido 25/08:` **0 dos 8 colaboradores com `role='rh'` têm sessão de avaliação**. Mesmo assim a
+home desenhava a jornada de 5 fases com o CTA convidando a "fazer o mapeamento comportamental" —
+a tela pedia à administradora o diagnóstico que ela aplica nos outros. Hoje:
+
+- `app/dashboard/home-rh.tsx` — home própria: funil do tenant, atalhos e os relatórios gerenciais.
+  `app/dashboard/page.tsx` desvia para ela quando `view === 'rh'`.
+- `app/dashboard/home-actions.ts` — para o RH, os cinco loaders de jornada (KPIs, vídeos, pulsos,
+  votação, capacitação) **não rodam**: alimentavam blocos que a home dele não desenha.
+- `dashboard-shell.tsx` — Jornada, Temporada e Evolução saem do menu (`participante: true`).
+- `/dashboard/gestor` (rotulada **Colaboradores** no escopo RH) e `/dashboard/gestor/ranking` são
+  as duas telas de leitura; `/dashboard/gestor/selecao` foi aposentada (redireciona ao ranking).
+
+### 26.2 O funil, e por que ele substituiu três números
+
+`carregarPanoramaRH` (`lib/home/loaders.ts`) devolve pessoas → com perfil → com mapeamento de
+competências → em jornada, e a jornada aberta em **em dia × atrasada**.
+`Medido em macae 25/08:` 283 → 144 → 38 → 38, dessas **8 em dia e 30 atrasadas**. "38 em jornada
+ativa" lia como saúde; estar numa trilha não é estar andando nela.
+
+- Régua de atraso: `lib/season-engine/atraso.ts` — cruza a semana da PESSOA (`concluídas + 1`, a
+  mesma conta que a home já fazia) com a semana liberada pelo CALENDÁRIO (`semanaLiberadaEm`,
+  06:00 UTC). `null` quando a trilha não tem `data_inicio`: "não sei" nunca vira "atrasada", então
+  `emDia + atrasadas` pode ser menor que `emJornada`.
+- "Tem perfil" é `perfil_dominante` (ou `perfil_externo_dados` em empresa com fonte externa),
+  **nunca `disc_resultados`** — ver o "NÃO fazer" do `CLAUDE.md`.
+
+### 26.3 Por que cada pessoa está sem trilha
+
+`getGestorHomeData` carimba `motivoSemTrilha` em cada linha: `sem_perfil` → `sem_mapeamento` →
+`aguardando_geracao`. A régua é a do GERADOR, não um palpite: `gerarTemporadaCoreHeadless` recusa
+com *"Colaborador ainda não tem avaliação (`descriptor_assessments`)"* — é essa tabela que
+destrava a trilha, não `respostas`. `Medido 25/08` nas 313 pessoas sem trilha da base: 177 param
+no perfil, 133 no mapeamento, **3** fizeram as duas e esperam a geração — e esses 3 têm rótulo
+próprio porque a pendência é NOSSA. Falha na consulta apaga o motivo em vez de acusar.
+
+Os mesmos números viram até 3 **cards de ação** (o card de checkpoints é do gestor e ficava zerado
+o ano inteiro para o RH), e clicar filtra a tabela — número que não vira nome não é ação.
+
+### 26.4 Relatórios gerenciais (etapa 5 do CONARH, sem o do Gestor)
+
+`carregarRelatoriosGerenciais` lista o que **já existe**, com data, sem gerar nada:
+
+| Documento | Onde mora |
+|---|---|
+| Relatório de RH | linha em `relatorios` (`tipo='rh'`) → `/api/relatorios/pdf?id=` (a rota já autoriza `rh` do mesmo tenant) |
+| Perfil Organizacional | `conteudos/final/perfil-org/{empresaId}-{ts}.pdf` |
+| DNA Organizacional | `conteudos/final/dna/{empresaId}-{ts}.pdf` |
+
+🔴 O `search` do Storage é **substring**, não prefixo: filtrar por `startsWith` em código, senão
+arquivo de outra empresa cujo nome contenha o id entra na lista. E o mais recente vem do timestamp
+do NOME (ibipeba tem 11 perfis acumulados).
+
+### 26.5 Evolução só depois do fechamento
+
+O veredito (confirmada · parcial · estagnação · regressão) nasce do Evolution Report, que só existe
+no fechamento. Sem nenhuma trilha concluída, `/dashboard/gestor/equipe-evolucao` desenhava seis
+KPIs zerados e uma lista de "em andamento" sem delta — `medido em macae:` 0 encerradas de 282, com
+o título anunciando "Total 282". Hoje `resumo.encerradas === 0` troca tudo por um estado vazio
+(inclusive o botão de Plenária PDF, que sairia em branco), e o atalho da home só aparece com
+`jornadasEncerradas > 0`.
+
+### 26.6 Vocabulário
+
+Sempre **"mapeamento de competências"**, nunca "avaliação" — exceto a **avaliação final/de
+fechamento** (semana 14, Cenário B), que é outro evento e mantém o nome. "Liderado" é palavra de
+gestor; para o RH são **colaboradores**. 64 strings trocadas nos 4 locales em 25/08.
+
+---
+
 *Documento validado contra o codigo-fonte local em 25/05/2026 (patches pós-response/demo em 07/07/2026; seção 25 em 04/08/2026).*
 *~429 arquivos TS/TSX + ~72 JS/MJS | arquivos SQL 022-169 (com gaps) | vertho.ai*
 *Revisao: 07/07/2026 (HEAD `83c8092a` — padroes pos-response Trigger.dev + tenant de demo/contas internas; base 25/05 `2730cd7`)*

@@ -470,6 +470,15 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   Não é cosmético: o motor de fit lê `comp_*` nos knockouts, e a demo exibia uma reprovação que a
   plataforma não consegue produzir. Ao mexer nisso, lembre que `liderancaFit` normaliza os dois
   lados → **imune à ESCALA, sensível à FÓRMULA**. Detalhe: `docs/ARQUITETURA.md` §3.7.
+- NÃO responder "tem perfil comportamental?" por **`disc_resultados`** — a coluna que TODO gate do
+  app usa é **`perfil_dominante`** (e `perfil_externo_dados` em empresa com fonte externa). Medido
+  25/08 em `macae`: **144 contra 105**, porque importação carimba a letra e não grava o JSON. Contei
+  pelo JSON num card novo e ele passou a mostrar um número que nenhuma outra tela reconhecia. A
+  régua completa está em `getGestorHomeData::temPerfil` — uma função, três consumidores.
+  Detalhe: `docs/ARQUITETURA.md` §26.2.
+- NÃO tratar o papel **`rh` como participante**: ele é o *Admin da empresa* e, pela decisão de
+  24/08/2026, **a Vertho opera e o cliente consome** — configuração, conteúdo, disparo e geração
+  são da plataforma. Tela nova do cliente nasce só de leitura. `docs/ARQUITETURA.md` §26.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
