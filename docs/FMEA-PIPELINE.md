@@ -778,6 +778,58 @@ Guarda: `tests/unit/primeira-semana-acessivel.test.ts` (8 casos; com o laço em 
 `fase4_envios.semana_atual` — mede a régua ANTIGA. Hoje não causa dano porque os kits cobrem todas as
 semanas, mas é o gêmeo que não roda: em algum momento dirá "ok" sobre uma entrega que não é a real.
 
+### F-I23 · Três gates em série, e o primeiro morria no F5 ✅ (corrigido 25/08, `4d697acf`+`f02be3bf`)
+
+**Gatilho:** `app/dashboard/temporada/semana/[week]/page.tsx:99` — `const [abriuConteudo,
+setAbriuConteudo] = useState(false)`, **nunca hidratado do banco**. Ele liberava "Marcar como
+realizado", que liberava `conteudo_consumido`, que liberava Evidências e Tira-Dúvidas.
+
+**Medido em 25/08** (61 pessoas travadas em Ibipeba + Macaé, por CAUSA, censo):
+
+| causa | n |
+|---|---|
+| **abriu o conteúdo e ficou travada** | **24** |
+| nunca abriu nada | 17 |
+| podia clicar em Evidências e não clicou | 7 |
+| começou a conversa e parou (6 no turno 1; 2 a UM turno) | 13 |
+
+As 24 tinham evento de abertura em `trilha_eventos` na semana em que estavam paradas: quem abria o
+conteúdo na segunda e voltava na terça encontrava "abra o conteúdo antes de concluir" — tendo
+aberto. **O dado sempre existiu e ninguém o lia de volta.**
+
+**Correção:** `jaAbriuConteudoDaSemana` hidrata de `trilha_eventos` (só LIGA — um `false` da rede não
+apaga o clique da sessão); `podeConversar = conteudoConsumido || abriuConteudo || nadaParaAbrir`
+substitui os dois gates antigos; entrar na conversa grava o consumo (a métrica não morre).
+
+🔴 **Trocar o gate exige varrer quem ALIMENTA o gate.** A 1ª correção deixou `onAbrirConteudo` só no
+ramo texto/case (um `<a>` que abre PDF): quem preferia **áudio** clicava, ouvia o conteúdo inteiro e
+os botões seguiam cinza; no vídeo dependia de o player emitir `play` por postMessage. Mesma família
+de F-C13 (controles vizinhos sobrevivem à troca de mecanismo).
+
+Guarda: `tests/unit/semana-gates-tela.test.ts` (28 asserções estáticas sobre as duas telas, validadas
+por mutação).
+
+### F-I24 · Um campo, duas perguntas, seis réguas — e duas escritas que se destruíam ✅ (corrigido 25/08, `4d697acf`)
+
+**Gatilho:** `temporada_semana_progresso.conteudo_consumido` — boolean pela marcação manual
+(`actions/temporadas.ts::marcarConteudoConsumido`) **ou** array de cursos pelo video-tracking
+(`actions/video-tracking.ts::concluirPilulaSeMapeada`). Seis leitores, réguas divergentes: a tela
+fazia `!v` (array vazio é truthy → **liberava**), o painel fazia `some(concluido)` (→ não consumido).
+Duas dessas leituras são catraca de ESTADO: `trilha-core.ts::temTrabalhoDoColaborador` decide se a
+semana pode ser REESCRITA, e `api/temporada/tira-duvidas` responde 403.
+
+E as escritas se apagavam: `marcarConteudoConsumido` gravava `true` cru (matando a lista de cursos) e
+`concluirPilulaSeMapeada` fazia `Array.isArray(x) ? [...x] : []` (matando o `true`).
+
+🔑 **`Medido:` não tinha detonado — e é por isso que deu para arrumar barato.** Censo: **941 linhas,
+838 `false`, 103 `true`, ZERO arrays**; e o ramo que grava array é **inalcançável** (exige
+`trilhas.cursos[].bunny_video_id`, e **0 de 87** trilhas têm `cursos`). Registrar o denominador é
+parte do achado: isto não foi conserto de incidente.
+
+**Correção:** `lib/season-engine/consumo-conteudo.ts` é fonte única — `consumiuConteudo` (booleana,
+array vazio = `false`), `cursosConcluidos` (a outra pergunta), e as duas escritas preservam o formato
+uma da outra. Sem migration, sem backfill. Guarda: `tests/unit/consumo-conteudo.test.ts`.
+
 ### F-C12 · Cota de retentativa consumida por avaria do CANAL torna o resgate inalcançável ✅ (corrigido 19/08, `984607e3`)
 
 **Gatilho:** `lib/conarh/reenvio-t0.ts:33,124` — `MAX_TENTATIVAS_AUTOMATICAS = 10` +

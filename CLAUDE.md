@@ -479,6 +479,23 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
 - NÃO tratar o papel **`rh` como participante**: ele é o *Admin da empresa* e, pela decisão de
   24/08/2026, **a Vertho opera e o cliente consome** — configuração, conteúdo, disparo e geração
   são da plataforma. Tela nova do cliente nasce só de leitura. `docs/ARQUITETURA.md` §26.
+- NÃO guardar em `useState` um estado que decide ACESSO. Ele morre no F5, e o que sobra é uma porta
+  que fecha sozinha quando a pessoa volta. Medido 25/08: `abriuConteudo` era `useState(false)` e
+  liberava a cadeia "Marcar como realizado" → Evidências; das 61 pessoas travadas em Ibipeba e Macaé,
+  **24 tinham evento de abertura registrado** na semana em que estavam paradas — abriram o conteúdo,
+  voltaram no dia seguinte e encontraram "abra o conteúdo antes de concluir". O dado estava em
+  `trilha_eventos` desde sempre e ninguém o lia de volta. Conveniência (aba, filtro) pode viver em
+  estado local; gate, não. E ao trocar um gate, **varra quem ALIMENTA o gate**: a 1ª correção deixou
+  só texto/case liberando, e quem preferia áudio seguia com os botões cinza. `docs/FMEA-PIPELINE.md`
+  §F-I23.
+- NÃO confiar em suíte verde para julgar TELA ou VÍDEO. Guard estático prova que o código chama a
+  função certa; só a imagem prova o que a pessoa vê. Medido 25/08: **seis defeitos numa rodada, zero
+  achados por teste** — três estados contraditórios na mesma dobra, destaque de vídeo emoldurando o
+  rótulo errado, a conclusão mandando esperar por uma data já passada, o modal do próprio tutorial
+  cobrindo a captura do tutorial. Em TODOS, cada ponto isolado estava correto: o que falhava era a
+  composição, e composição não tem asserção. Extraia o screenshot da tela no estado real e um frame
+  de cada beat do vídeo ANTES de entregar. Corolário: log que imprime `bbox=—` e segue com `✓` é o
+  pior formato possível — alvo não encontrado tem que LANÇAR.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.

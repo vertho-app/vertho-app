@@ -525,3 +525,47 @@ permissão exigida por qualquer action já existente.
   plataforma curto-circuita todo gate, então testar com a equipe Vertho não reproduz nada.
 
 Detalhe: memória `project_rh_admin_da_empresa`.
+
+---
+
+## §39 — Mexeu em TELA (`app/dashboard/**`) ou no PIPELINE DE VÍDEO (`video-spike/tutorial/**`)
+
+**Casa quando:** o diff toca componente de tela com estado/gate, ou qualquer arquivo de
+`video-spike/tutorial/`.
+
+**O que conferir — e nenhuma destas sai de teste:**
+
+- 🔴 **Extraia a IMAGEM antes de entregar.** Screenshot da tela no estado real; para vídeo, um frame
+  de CADA beat (`ffmpeg -ss <t> -i out.mp4 -frames:v 1 f.png`). Medido 25/08/2026: **seis defeitos
+  numa rodada, zero achados por teste** — e em todos, cada ponto isolado estava correto. Guard prova
+  contrato; imagem prova experiência. `feedback_so_a_imagem_prova_o_visual`.
+- 🔴 **Estado que decide ACESSO não pode viver só em `useState`.** Morre no F5. Se o gate depende
+  dele, hidrate da fonte persistente — e faça a hidratação só LIGAR, nunca desligar (um `false` da
+  rede não pode apagar o clique da sessão). §F-I23 do FMEA.
+- ⚠️ **Trocou o predicado de um gate? Varra quem o ALIMENTA.** Os controles vizinhos continuam
+  alimentando o mecanismo antigo — em 25/08 só texto/case chamavam `onAbrirConteudo`, e quem
+  preferia áudio ficou com os botões cinza. Irmão do §F-C13.
+- ⚠️ **Copy envelhece junto com o mecanismo.** Ao tirar um botão do caminho, grepe o texto que o
+  nomeia: `openBeforeComplete` seguia dizendo "abra antes de MARCAR COMO REALIZADO" depois de o
+  botão sair.
+
+**Só pipeline de vídeo:**
+
+- 🔴 **Id de dado semeado NÃO é estável em tenant que reseta.** O `capture-jornada` tinha a trilha
+  cravada; o reset das 04h recria com id novo e o `UPDATE` passou a afetar **zero linhas, sem erro**.
+  Resolva pelo e-mail e **lance** se `rowCount = 0`.
+- 🔴 **`narrate` congela o take porque o MP3 EXISTE — não compara o texto.** Mudar o roteiro não
+  muda o áudio: o beat sai com a narração velha sobre o frame novo. Apague o mp3 do beat ou use
+  `--force`.
+- ⚠️ **Espere por ESTADO, não por relógio.** `waitForTimeout` depois de abrir uma conversa capturou
+  "pensando…" — o beat que narra a conversa começando exibia um spinner.
+- ⚠️ **`getByText(...).first()` pega o primeiro do DOM, não o que importa** — "Evidências" aparece na
+  barra de estado antes do card, e o destaque nunca caiu no botão. E `bbox()` mede o TEXTO: para
+  emoldurar um bloco, suba até o cartão.
+- ⚠️ **Trocar o vídeo troca o GUID** → atualize `programa-config.ts`, deploye, e só então apague o
+  antigo (`_bunny-troca.mjs` apaga ANTES de subir). O GUID também vive em
+  `tests/unit/videos-publicos.test.ts` — lá ele deve vir da CONSTANTE, senão o guard passa a testar
+  um alvo morto e reporta verde.
+
+Detalhe: memórias `feedback_so_a_imagem_prova_o_visual`, `project_video_tutorial_pipeline`,
+`project_semana_gate_sequencial`.
