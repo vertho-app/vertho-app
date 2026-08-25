@@ -532,6 +532,14 @@ export interface ConsolidacaoCena {
    */
   indicesInvalidos: number[];
   /**
+   * Descritores que ESTA cena não consegue observar, declarados na entrada.
+   *
+   * Vazio = a cena cobre a régua inteira. Não-vazio significa que o nível de
+   * competência NÃO sai daqui: sai da bateria que junta as cenas. Ver o
+   * comentário em `consolidarCena`.
+   */
+  foraDoAlcance: number[];
+  /**
    * Evidências descartadas por virem de um beat que NÃO mede aquele descritor.
    *
    * Vazio é o esperado. Não-vazio significa que o extrator não está respeitando
@@ -554,7 +562,28 @@ export interface ConsolidacaoCena {
 export function consolidarCena(
   evidencias: EvidenciaDescritor[],
   numDescritores = 6,
-  ocorrido?: { beats: BeatDaCena[]; beatsCumpridos: number[] },
+  ocorrido?: {
+    beats: BeatDaCena[];
+    beatsCumpridos: number[];
+    /**
+     * Os descritores que ESTA cena consegue observar.
+     *
+     * 🔴 Medido em 25/08/2026: o mapa descritor↔beat da IA3 diz o que se QUER
+     * medir; nunca ninguém perguntou o que a cena OFERECE para observar. Os
+     * dois foram tratados como a mesma coisa, e o resultado é cobrar 6/6 de
+     * uma cena que observa 4 — com os outros 2 entrando na média como nota
+     * baixa em vez de lacuna.
+     *
+     * D2 ("escuta TODAS AS PARTES") e D4 ("acordo com compromissos DE AMBOS")
+     * não têm como acontecer com uma só das partes na sala. Eles fecharam em
+     * 2,44 e 2,24 enquanto os outros quatro chegaram a 3,00 · 3,00 · 3,20 ·
+     * 2,80. Não é o avaliado que falhou neles: é a cena que não os oferece.
+     *
+     * Ausente = todos observáveis (comportamento anterior, para artefatos e
+     * chamadores que não declaram nada).
+     */
+    observaveis?: number[];
+  },
 ): ConsolidacaoCena {
   // `notas` = AUTONOMIA (primeira evidência) — o topo, o que vira rótulo.
   const notas: Array<number | null> = Array.from({ length: numDescritores }, () => null);
@@ -580,6 +609,23 @@ export function consolidarCena(
           .flatMap((b) => b.descritores),
       )
     : null;
+
+  /**
+   * FORA DO ALCANCE ≠ SEM SINAL POR ACASO.
+   *
+   * "O beat não aconteceu" é acidente da conversa: da próxima vez pode
+   * acontecer. "A cena não observa este descritor" é propriedade do desenho:
+   * nunca vai acontecer, e insistir produz nota baixa sistemática que parece
+   * gap da pessoa. Os dois viram lacuna, mas só um deles é defeito de desenho —
+   * e por isso saem em campos separados.
+   */
+  const observaveis = ocorrido?.observaveis?.length
+    ? new Set(ocorrido.observaveis.filter((i) => Number.isInteger(i) && i >= 1 && i <= numDescritores))
+    : null;
+  const foraDoAlcance: number[] = [];
+  if (observaveis) {
+    for (let i = 1; i <= numDescritores; i++) if (!observaveis.has(i)) foraDoAlcance.push(i);
+  }
 
   /**
    * Um descritor pode aparecer em mais de um beat (o mapa da IA3 permite, ex.:
@@ -619,6 +665,7 @@ export function consolidarCena(
       continue;
     }
     if (nivelDaEvidencia(ev) === 'sem_sinal') continue;
+    if (observaveis && !observaveis.has(i)) continue; // a cena não observa isto
     if (alcancaveis && !alcancaveis.has(i)) continue; // beat não aconteceu → lacuna
 
     /**
@@ -737,7 +784,22 @@ export function consolidarCena(
   if (foraDaFaixa.length) {
     nivelSuprimidoPorque = `extração inválida: ${foraDaFaixa.length} índice(s) fora de 1..${numDescritores}`;
   } else if (media == null) nivelSuprimidoPorque = 'nenhum descritor medido';
-  else if (medidas.length < numDescritores) {
+  else if (foraDoAlcance.length) {
+    /**
+     * Cena que não observa a régua inteira NÃO publica nível de competência —
+     * mesmo tendo medido bem tudo o que consegue observar.
+     *
+     * A nota dos 4 observáveis é legítima e vai em `media`, para a BATERIA
+     * agregar. O que não pode circular é o rótulo N1–N4 da competência saindo
+     * de 4 de 6 descritores: quem lê "N2" não vê que dois nunca tiveram
+     * chance de aparecer. É a mesma razão de suprimir por cobertura — a
+     * diferença é que aqui o buraco é de desenho, e some ao juntar as cenas
+     * da bateria, não ao rodar esta de novo.
+     */
+    nivelSuprimidoPorque =
+      `cena observa ${numDescritores - foraDoAlcance.length} de ${numDescritores} descritores ` +
+      `(fora do alcance: ${foraDoAlcance.map((i) => `D${i}`).join(', ')}) — nível é da BATERIA`;
+  } else if (medidas.length < numDescritores) {
     nivelSuprimidoPorque = `cobertura ${medidas.length}/${numDescritores}`;
   } else if (baixaConfianca.length * 2 > numDescritores) {
     nivelSuprimidoPorque = `${baixaConfianca.length} de ${numDescritores} descritores com evidência fraca`;
@@ -758,6 +820,7 @@ export function consolidarCena(
       taxa: numDescritores ? Number((medidas.length / numDescritores).toFixed(3)) : 0,
     },
     indicesInvalidos: [...new Set(foraDaFaixa)].sort((a, b) => a - b),
+    foraDoAlcance,
     /**
      * O encerramento herda a MESMA régua de supressão — cobertura, índice
      * inválido e confiança são propriedades da cena, não da leitura. Se a

@@ -40,6 +40,7 @@ import {
 } from '@/lib/season-engine/cena/arquivo';
 import { validarSaidaDaCena, saidaConfiavel } from '@/lib/season-engine/cena/validar-saida';
 import { medirDitado, TETO_DITADO } from '@/lib/season-engine/cena/ditado';
+import { auditarAlcancabilidade } from '@/lib/season-engine/cena/blueprint';
 
 // O aluno é OVERHEAD de medição (netável pelo `source: 'simulator'`), mas o
 // modelo dele NÃO é escolha de custo — é de validade da medida, por dois motivos:
@@ -243,7 +244,8 @@ async function rodarUmaCena(
   // momento não foi criado é lacuna, mesmo que o extrator tenha escrito nota.
   const consolidacao = extracao
     ? consolidarCena(extracao.evidencias, ctx.descritores.length,
-        { beats: ctx.beats, beatsCumpridos: estado.beatsCumpridos })
+        { beats: ctx.beats, beatsCumpridos: estado.beatsCumpridos,
+          observaveis: ctx.descritoresObservaveis })
     : null;
   /**
    * VALIDA ANTES DE DEIXAR VIRAR NÚMERO.
@@ -316,6 +318,31 @@ async function cmdCena(slug: string, codComp: string) {
    */
   const cenObj = { ...(alt.cenario || {}), ...alt };
 
+  /**
+   * Quais descritores ESTA cena observa — decisão HUMANA, via `--observaveis`.
+   *
+   * A auditoria de `blueprint.ts` levanta a suspeita; ela não decide. Sem a
+   * flag, a cena roda como antes (todos observáveis) e a suspeita é IMPRESSA:
+   * o custo de não declarar tem de aparecer na tela, senão o teto de desenho
+   * volta a ser lido como gap da pessoa.
+   */
+  const observaveis = arg('observaveis')
+    ? arg('observaveis').split(',').map((n) => Number(n.trim())).filter(Number.isInteger)
+    : undefined;
+  const suspeitas = auditarAlcancabilidade(descritores);
+  if (suspeitas.length && !observaveis) {
+    console.log('\n⚠️  A auditoria de alcançabilidade levantou suspeita nestes descritores:');
+    for (const sp of suspeitas) {
+      console.log(`     D${sp.indice} ${sp.nomeCurto} — ${sp.risco} [${sp.marcador}]`);
+    }
+    console.log('     Rodando SEM --observaveis: eles entram na média como se a cena os medisse.');
+  } else if (observaveis) {
+    const fora = descritores.map((d) => d.indice).filter((i) => !observaveis.includes(i));
+    console.log(`
+→ cena observa D${observaveis.join(' D')}` +
+      `${fora.length ? `  · fora do alcance: D${fora.join(' D')}` : ''}`);
+  }
+
   const { beats, erros } = montarBeatsDaCena((alt.perguntas || []) as PerguntaIA3[], descritores.length);
   if (erros.length) {
     // Falha alta na construção: cena montada sobre cenário com buraco produziria
@@ -339,6 +366,7 @@ async function cmdCena(slug: string, codComp: string) {
     },
     descritores,
     beats,
+    descritoresObservaveis: observaveis,
   };
 
   console.log(`\nCENA — ${slug} / ${cargo} / ${codComp}`);
@@ -443,6 +471,9 @@ async function cmdCena(slug: string, codComp: string) {
     console.log(`  beats cumpridos:      ${r.estado.beatsCumpridos.join(', ') || 'nenhum'}`);
     console.log(`  cobertura:            ${c ? `${c.cobertura.medidos}/${c.cobertura.total}` : 'sem extração'}`);
     console.log(`  descritores sem sinal:${c?.semSinal.length ? ' ' + c.semSinal.map((d: number) => `D${d}`).join(', ') : ' nenhum'}`);
+    if (c?.foraDoAlcance.length) {
+      console.log(`  FORA DO ALCANCE:      ${c.foraDoAlcance.map((d: number) => `D${d}`).join(', ')} — a cena não os observa (não é gap da pessoa)`);
+    }
     console.log(`  AUTONOMIA (rótulo):   ${c?.media ?? '—'} / ${c?.nivel ? `N${c.nivel}` : '—'}${c?.nivelSuprimidoPorque ? ` (suprimido: ${c.nivelSuprimidoPorque})` : ''}`);
     console.log(`  assistido (fim):      ${c?.encerramento.media ?? '—'} / ${c?.encerramento.nivel ? `N${c.encerramento.nivel}` : '—'}`);
     // Os dois observáveis do pré-registro da 0d. Sem eles a rodada não responde

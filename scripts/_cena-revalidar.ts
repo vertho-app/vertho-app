@@ -28,6 +28,16 @@ if (!combinado || !existsSync(combinado)) {
   console.error('uso: _cena-revalidar.ts <combinado.json>');
   process.exit(1);
 }
+/**
+ * `--observaveis 1,3,5,6` reconsolida declarando o que a cena de fato observa.
+ * Serve para ler uma rodada JÁ GRAVADA sob a régua de alcance — sem IA, sem
+ * cena nova, e sem tocar no shard.
+ */
+const iObs = process.argv.indexOf('--observaveis');
+const observaveis = iObs > 0 && process.argv[iObs + 1]
+  ? process.argv[iObs + 1].split(',').map((n) => Number(n.trim())).filter(Number.isInteger)
+  : undefined;
+
 const d = JSON.parse(readFileSync(combinado, 'utf-8'));
 const ctx = d.ctx;
 const nd = ctx.descritores.length;
@@ -42,7 +52,7 @@ for (let n = 1; n <= 30; n++) {
     continue;
   }
   const c = consolidarCena(r.extracao.evidencias, nd, {
-    beats: ctx.beats, beatsCumpridos: r.estado.beatsCumpridos,
+    beats: ctx.beats, beatsCumpridos: r.estado.beatsCumpridos, observaveis,
   });
   const vs = validarSaidaDaCena({
     numDescritores: nd,

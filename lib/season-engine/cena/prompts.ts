@@ -61,6 +61,14 @@ export interface ContextoCena {
   cenario: CenarioDaCena;
   descritores: DescritorDaRegua[];
   beats: BeatDaCena[];
+  /**
+   * Índices que ESTA cena consegue observar. Ausente = todos.
+   *
+   * Declarado por humano (a auditoria de `blueprint.ts` só levanta suspeita).
+   * O que fica de fora não é gap da pessoa — é descritor cujo nível-meta a cena
+   * não oferece como comportamento executável. Ver `consolidarCena`.
+   */
+  descritoresObservaveis?: number[];
 }
 
 const listarDescritoresN3 = (ds: DescritorDaRegua[]) =>
@@ -487,7 +495,18 @@ ${ctx.competencia}
 ═══ RÉGUA — os ${ctx.descritores.length} descritores ═══
 ${descritores}
 
-═══ MOMENTOS QUE A CENA DEVIA CRIAR ═══
+${(() => {
+    const fora = (ctx.descritores.map((d) => d.indice))
+      .filter((i) => ctx.descritoresObservaveis?.length && !ctx.descritoresObservaveis.includes(i));
+    return fora.length
+      ? `═══ 🔴 DESCRITORES QUE ESTA CENA NÃO OBSERVA ═══
+${fora.map((i) => `D${i}`).join(', ')} — o comportamento-meta deles exige algo que esta
+conversa não oferece (a outra parte presente, ou tempo). Emita "sem_sinal" para
+eles, SEMPRE. Prometer fazer não é fazer, e uma nota tirada de promessa vira
+gap de desenvolvimento que a pessoa não tem.
+
+` : '';
+  })()}═══ MOMENTOS QUE A CENA DEVIA CRIAR ═══
 ${ctx.beats.map((b) => `Beat ${b.numero} (${b.pilar}) — descritores ${b.descritores.map((d) => `D${d}`).join(', ')}: ${b.sinalDeCumprido}`).join('\n')}
 
 ═══ TRANSCRIÇÃO ═══

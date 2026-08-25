@@ -446,3 +446,56 @@ describe('a cessão declarada FECHA a cena — o espelho que faltava', () => {
     expect(v.motivo).toBe('ruptura');
   });
 });
+
+describe('FORA DO ALCANCE — a cena não observa, logo não é gap da pessoa', () => {
+  // 🔴 Medido na fase 0e, desagregando por descritor: D2 (2,44) e D4 (2,24)
+  // ficaram parados enquanto D1/D3/D5/D6 chegaram a 3,00 · 3,00 · 3,20 · 2,80.
+  // São exatamente os dois cujo N3 exige a outra parte na sala — "escuta TODAS
+  // AS PARTES" e "acordo com compromissos DE AMBOS". A mãe não está na cena.
+  // Sem eles, o braço fecha em 3,00: o nível-meta cravado.
+  const beats = beatsOk();
+  const evs = (nivel: any) => [1, 2, 3, 4, 5, 6].map((i) => ({
+    indice: i, nivel, forca: 'forte' as const, citacao: 'x',
+    beat: beats.find((b) => b.descritores.includes(i))!.numero, turno: 1,
+  }));
+
+  it('descritor não-observável não entra na conta, mesmo com evidência extraída', () => {
+    const c = consolidarCena(evs('n3_meta'), 6, {
+      beats, beatsCumpridos: [1, 2, 3, 4], observaveis: [1, 3, 5, 6],
+    });
+    expect(c.foraDoAlcance).toEqual([2, 4]);
+    expect(c.notas[1], 'D2 não pode virar nota').toBeNull();
+    expect(c.notas[3], 'D4 tampouco').toBeNull();
+    expect(c.cobertura.medidos).toBe(4);
+  });
+
+  it('e a cena NÃO publica nível de competência — isso é da bateria', () => {
+    // Publicar N3 a partir de 4 de 6 é a "nota com buraco" que este arquivo
+    // existe para impedir. A média fica, para a bateria agregar; o rótulo não.
+    const c = consolidarCena(evs('n3_meta'), 6, {
+      beats, beatsCumpridos: [1, 2, 3, 4], observaveis: [1, 3, 5, 6],
+    });
+    expect(c.media, 'o que foi medido continua valendo').toBe(3.2);
+    expect(c.nivel).toBeNull();
+    expect(c.nivelSuprimidoPorque).toContain('BATERIA');
+    expect(c.nivelSuprimidoPorque).toContain('D2, D4');
+  });
+
+  it('fora do alcance é DIFERENTE de beat que não aconteceu', () => {
+    // O primeiro é propriedade do desenho — rodar de novo não resolve. O
+    // segundo é acidente da conversa. Os dois viram lacuna e saem em campos
+    // separados, senão o defeito de desenho se disfarça de azar.
+    const c = consolidarCena(evs('n3_meta'), 6, {
+      beats, beatsCumpridos: [1, 2], observaveis: [1, 3, 5, 6],
+    });
+    expect(c.foraDoAlcance).toEqual([2, 4]);
+    expect(c.semSinal, 'D3/D5/D6 caíram por beat não cumprido, não por alcance')
+      .toEqual(expect.arrayContaining([5, 6]));
+  });
+
+  it('sem declaração de observáveis, nada muda — artefatos antigos seguem iguais', () => {
+    const c = consolidarCena(evs('n3_meta'), 6, { beats, beatsCumpridos: [1, 2, 3, 4] });
+    expect(c.foraDoAlcance).toEqual([]);
+    expect(c.nivel).toBe(3);
+  });
+});
