@@ -98,8 +98,14 @@ export async function listarEquipeEvolucao() {
     };
   });
 
+  // Só quem TEM veredito conta como jornada encerrada. É o que decide se esta
+  // tela tem o que mostrar: sem nenhuma trilha concluída ela desenha seis KPIs
+  // zerados e uma lista de "em andamento" sem delta — a promessa de evolução
+  // sem evolução nenhuma. Em Macaé isso é 0 de 282.
+  const VEREDITOS = ['evolucao_confirmada', 'evolucao_parcial', 'estagnacao', 'regressao'];
   const resumo = {
     total: rows.length,
+    encerradas: rows.filter(r => VEREDITOS.includes(r.status)).length,
     emAndamento: rows.filter(r => r.status === 'em_andamento').length,
     evolucaoConfirmada: rows.filter(r => r.status === 'evolucao_confirmada').length,
     evolucaoParcial: rows.filter(r => r.status === 'evolucao_parcial').length,
@@ -108,7 +114,7 @@ export async function listarEquipeEvolucao() {
     semTrilha: rows.filter(r => r.status === 'sem_trilha').length,
   };
 
-  return { ok: true, rows, resumo };
+  return { ok: true, rows, resumo, escopo: isRH ? 'rh' : isGestor ? 'gestor' : 'tutor' };
 }
 
 /**

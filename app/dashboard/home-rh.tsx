@@ -15,7 +15,7 @@
  */
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Users2, Brain, Route, ListOrdered, TrendingUp, ArrowRight, ClipboardCheck, CalendarCheck, CalendarClock } from 'lucide-react';
+import { Users2, Brain, Route, ListOrdered, TrendingUp, ArrowRight, ClipboardCheck, CalendarCheck, CalendarClock, FileText, Download } from 'lucide-react';
 
 const serifStyle: React.CSSProperties = {
   fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
@@ -25,6 +25,30 @@ const serifStyle: React.CSSProperties = {
 
 const ACCENT = 'var(--brand-400, #34C5CC)';
 
+type Relatorio = { url: string; em: string | null } | null;
+type RelatoriosGerenciais = { rh: Relatorio; perfilOrg: Relatorio; dna: Relatorio } | null;
+
+/** Um documento pronto: abre em aba nova, com a data da geracao. */
+function Documento({ titulo, descricao, em, url }: { titulo: string; descricao: string; em: string | null; url: string }) {
+  const quando = em ? new Date(em).toLocaleDateString('pt-BR') : null;
+  return (
+    <a href={url} target="_blank" rel="noreferrer"
+      className="w-full text-left rounded-[22px] p-4 flex items-start gap-4 transition-all active:scale-[0.99] block"
+      style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+        style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid color-mix(in oklab, ${ACCENT} 22%, transparent)` }}>
+        <FileText size={18} style={{ color: ACCENT }} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h4 className="mb-0.5" style={{ ...serifStyle, fontSize: 17, color: '#fff' }}>{titulo}</h4>
+        <p className="text-sm text-white/55 leading-relaxed">{descricao}</p>
+        {quando && <p className="text-[10px] text-white/35 mt-1">{quando}</p>}
+      </div>
+      <Download size={17} className="mt-1 shrink-0" style={{ color: ACCENT }} />
+    </a>
+  );
+}
+
 type Panorama = {
   empresaNome: string | null;
   pessoas: number;
@@ -33,6 +57,7 @@ type Panorama = {
   emJornada: number;
   emDia: number;
   atrasadas: number;
+  jornadasEncerradas: number;
   indisponivel: boolean;
 };
 
@@ -91,13 +116,13 @@ function Atalho({ titulo, descricao, icon: Icon, onClick }: { titulo: string; de
   );
 }
 
-export default function HomeRH({ firstName, panorama }: { firstName: string; panorama: Panorama | null }) {
+export default function HomeRH({ firstName, panorama, relatorios }: { firstName: string; panorama: Panorama | null; relatorios: RelatoriosGerenciais }) {
   const t = useTranslations('DashboardHome');
   const router = useRouter();
 
   const p: Panorama = panorama ?? {
     empresaNome: null, pessoas: 0, comPerfil: 0, comMapeamento: 0,
-    emJornada: 0, emDia: 0, atrasadas: 0, indisponivel: true,
+    emJornada: 0, emDia: 0, atrasadas: 0, jornadasEncerradas: 0, indisponivel: true,
   };
 
   return (
@@ -149,13 +174,39 @@ export default function HomeRH({ firstName, panorama }: { firstName: string; pan
             icon={ListOrdered}
             onClick={() => router.push('/dashboard/gestor/ranking')}
           />
-          <Atalho
-            titulo={t('rh.evolution')}
-            descricao={t('rh.evolutionDescription')}
-            icon={TrendingUp}
-            onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
-          />
+          {/* Só depois que a primeira jornada encerra: o veredito de evolução
+              nasce no fechamento, então antes disso o atalho leva a seis KPIs
+              zerados. Atalho para o vazio ensina a ignorar o menu. */}
+          {p.jornadasEncerradas > 0 && (
+            <Atalho
+              titulo={t('rh.evolution')}
+              descricao={t('rh.evolutionDescription')}
+              icon={TrendingUp}
+              onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
+            />
+          )}
         </section>
+
+        {/* Os documentos de GESTÃO — o que o RH leva para a diretoria. Só os
+            que EXISTEM aparecem: card de relatório que ainda não foi gerado é
+            uma porta fechada com placa de porta aberta. O Relatório do Gestor
+            fica de fora de propósito — é da liderança direta, não do RH. */}
+        {relatorios && (relatorios.rh || relatorios.perfilOrg || relatorios.dna) && (
+          <section className="space-y-3">
+            <h3 className="text-[11px] font-bold tracking-[0.18em] uppercase" style={{ color: ACCENT }}>
+              {t('rh.reports')}
+            </h3>
+            {relatorios.rh && (
+              <Documento titulo={t('rh.reportHr')} descricao={t('rh.reportHrDescription')} em={relatorios.rh.em} url={relatorios.rh.url} />
+            )}
+            {relatorios.perfilOrg && (
+              <Documento titulo={t('rh.reportProfile')} descricao={t('rh.reportProfileDescription')} em={relatorios.perfilOrg.em} url={relatorios.perfilOrg.url} />
+            )}
+            {relatorios.dna && (
+              <Documento titulo={t('rh.reportDna')} descricao={t('rh.reportDnaDescription')} em={relatorios.dna.em} url={relatorios.dna.url} />
+            )}
+          </section>
+        )}
 
         {/* Diz por que não há botão de operar aqui — sem isto a tela parece
             incompleta, e a pergunta "cadê importar/disparar?" volta. */}

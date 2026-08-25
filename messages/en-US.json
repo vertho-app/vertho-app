@@ -242,6 +242,13 @@
       "rankingDescription": "How closely people match each role and opening.",
       "evolution": "Team evolution",
       "evolutionDescription": "How levels moved between seasons.",
+      "reports": "Company reports",
+      "reportHr": "HR report",
+      "reportHrDescription": "The cycle read for whoever owns the program: where the team stands and what to do next.",
+      "reportProfile": "Organizational Profile",
+      "reportProfileDescription": "The organization's behavioral map — aggregated DISC and leadership styles.",
+      "reportDna": "Organizational DNA",
+      "reportDnaDescription": "The culture read: how the organization decides, communicates and learns.",
       "operatedByVertho": "Setup, content and messaging are run by Vertho. Talk to us whenever you need a change."
     }
   },

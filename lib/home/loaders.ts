@@ -618,7 +618,7 @@ export async function carregarPanoramaRH(empresaId: string) {
     .select('nome, sys_config').eq('id', empresaId).maybeSingle();
   const fonteExterna = (empresaRes.data?.sys_config as any)?.perfil_externo_fonte ?? null;
 
-  const [pessoasRes, comPerfilRes, trilhasRes, assessRes] = await Promise.all([
+  const [pessoasRes, comPerfilRes, trilhasRes, encerradasRes, assessRes] = await Promise.all([
     tdb.from('colaboradores')
       .select('id', { count: 'exact', head: true }),
     // 🔑 `perfil_dominante`, não `disc_resultados`. É a MESMA coluna que o resto
@@ -638,13 +638,20 @@ export async function carregarPanoramaRH(empresaId: string) {
     tdb.from('trilhas')
       .select('id, colaborador_id, data_inicio, temporada_plano')
       .eq('status', TRILHA.ATIVA),
+    // Jornadas ENCERRADAS: é o que libera a tela de evolução. O veredito
+    // (confirmada · parcial · estagnação · regressão) nasce no fechamento, então
+    // antes da primeira conclusão aquela tela é seis KPIs zerados — e um atalho
+    // para ela é um convite para o vazio.
+    tdb.from('trilhas')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', TRILHA.CONCLUIDA),
     // Uma linha por DESCRITOR avaliado — o maior tenant hoje tem 576 (macae).
     // Traz só a coluna que identifica a pessoa e deduplica em código: é o
     // "quantas PESSOAS" que a tela pergunta, não quantas notas existem.
     tdb.from('descriptor_assessments').select('colaborador_id'),
   ]);
 
-  const erro = pessoasRes.error || comPerfilRes.error || trilhasRes.error || assessRes.error;
+  const erro = pessoasRes.error || comPerfilRes.error || trilhasRes.error || assessRes.error || encerradasRes.error;
   if (erro) console.error('[panorama-rh] contagens falharam:', erro.message);
 
   const trilhas = trilhasRes.data || [];
@@ -689,6 +696,73 @@ export async function carregarPanoramaRH(empresaId: string) {
     emJornada,
     emDia,
     atrasadas,
+    jornadasEncerradas: encerradasRes.count || 0,
     indisponivel: !!erro,
+  };
+}
+
+// ── Relatórios gerenciais da empresa (o que o RH leva para a diretoria) ────
+
+/**
+ * Os três documentos de GESTÃO que a plataforma entrega no fim do ciclo —
+ * Relatório de RH, Perfil Organizacional e DNA Organizacional. É a etapa 5 do
+ * material do CONARH menos o Relatório do Gestor, que é da liderança direta e
+ * não do RH.
+ *
+ * Consome, não gera: os três nascem de ações de plataforma
+ * (`gerarDnaOrganizacional`, `gerarPerfilOrganizacional`, e o de RH pelo
+ * pipeline de relatórios). Aqui só se lê o que já existe — pela decisão de
+ * 24/08, quem gera é a Vertho.
+ *
+ * Onde cada um mora é diferente, e é por isso que este loader existe:
+ *  · RH        → linha em `relatorios` (tipo='rh'), PDF por `/api/relatorios/pdf`
+ *                — rota que já autoriza `rh` do mesmo tenant;
+ *  · DNA e PO  → arquivo em `conteudos/final/{dna,perfil-org}/{empresaId}-{ts}.pdf`,
+ *                sem índice em tabela. Lista-se o diretório e filtra-se pelo
+ *                PREFIXO do tenant — `search` do Storage é substring, então
+ *                confiar só nele deixaria passar arquivo de outra empresa cujo
+ *                nome contivesse o id.
+ *
+ * `Medido em 25/08`: macae tem 1 DNA e 1 PO (nenhum RH); ibipeba tem os três.
+ */
+export async function carregarRelatoriosGerenciais(empresaId: string) {
+  const tdb = tenantDb(empresaId);
+
+  const maisRecenteNoStorage = async (pasta: string) => {
+    const { data, error } = await tdb.storage.from('conteudos').list(pasta, {
+      limit: 1000,
+      search: empresaId,
+    });
+    if (error) { console.error(`[relatorios-gerenciais] list ${pasta}:`, error.message); return null; }
+    const prefixo = `${empresaId}-`;
+    const arquivos = (data || [])
+      .filter((f: any) => f.name.startsWith(prefixo) && f.name.endsWith('.pdf'))
+      // O nome carrega o timestamp da geração — ordenar por ele evita depender
+      // de `created_at`, que o Storage nem sempre devolve preenchido.
+      .sort((a: any, b: any) => Number(b.name.slice(prefixo.length, -4)) - Number(a.name.slice(prefixo.length, -4)));
+    if (arquivos.length === 0) return null;
+    const nome = arquivos[0].name;
+    const { data: pub } = tdb.storage.from('conteudos').getPublicUrl(`${pasta}/${nome}`);
+    const ts = Number(nome.slice(prefixo.length, -4));
+    return { url: pub.publicUrl, em: Number.isFinite(ts) ? new Date(ts).toISOString() : null };
+  };
+
+  const [rhRes, dna, perfilOrg] = await Promise.all([
+    tdb.from('relatorios')
+      .select('id, gerado_em')
+      .eq('tipo', 'rh')
+      .order('gerado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    maisRecenteNoStorage('final/dna'),
+    maisRecenteNoStorage('final/perfil-org'),
+  ]);
+
+  if (rhRes.error) console.error('[relatorios-gerenciais] relatorio de RH:', rhRes.error.message);
+
+  return {
+    rh: rhRes.data ? { url: `/api/relatorios/pdf?id=${rhRes.data.id}`, em: rhRes.data.gerado_em } : null,
+    perfilOrg,
+    dna,
   };
 }

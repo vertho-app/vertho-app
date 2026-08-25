@@ -73,6 +73,7 @@ export default function DashboardHomePage() {
   const [votacaoAberta, setVotacaoAberta] = useState<any>(null);
   const [pulsosPendentes, setPulsosPendentes] = useState<any[]>([]);
   const [panoramaRH, setPanoramaRH] = useState<any>(null);
+  const [relatoriosRH, setRelatoriosRH] = useState<any>(null);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -88,6 +89,7 @@ export default function DashboardHomePage() {
         if (r && !r.error) {
           if (r.dashboard && !r.dashboard.error) setData(r.dashboard);
           if (r.panoramaRH) setPanoramaRH(r.panoramaRH);
+          if (r.relatoriosRH) setRelatoriosRH(r.relatoriosRH);
           if (r.kpis && !r.kpis.error) setKpis(r.kpis);
           setUltimosVideos(r.ultimosVideos?.items || []);
           setPulsosPendentes(Array.isArray(r.pulsos) ? r.pulsos : []);
@@ -119,7 +121,7 @@ export default function DashboardHomePage() {
   // O Admin da empresa não percorre a jornada — daqui pra baixo é tudo tela de
   // participante (barra de 5 fases, CTA de mapeamento, foco da semana, pílula).
   // Ver o docstring de `home-rh.tsx`.
-  if (data.view === 'rh') return <HomeRH firstName={firstName} panorama={panoramaRH} />;
+  if (data.view === 'rh') return <HomeRH firstName={firstName} panorama={panoramaRH} relatorios={relatoriosRH} />;
 
   const faseNum: number = kpis?.fase?.numero || 1;
   const faseTitulo = kpis?.fase?.titulo || t('fallbackPhaseTitle');

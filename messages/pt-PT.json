@@ -242,6 +242,13 @@
       "rankingDescription": "A aderência das pessoas ao perfil de cada função e vaga.",
       "evolution": "Evolução da equipa",
       "evolutionDescription": "Como os níveis avançaram entre as temporadas.",
+      "reports": "Relatórios da empresa",
+      "reportHr": "Relatório de RH",
+      "reportHrDescription": "A leitura do ciclo para quem responde pelo programa: onde a equipa está e o que fazer a seguir.",
+      "reportProfile": "Perfil Organizacional",
+      "reportProfileDescription": "O mapeamento comportamental da organização — DISC e estilos de liderança agregados.",
+      "reportDna": "DNA Organizacional",
+      "reportDnaDescription": "A leitura de cultura: como a organização decide, comunica e aprende.",
       "operatedByVertho": "Configuração, conteúdo e envios são operados pela Vertho. Fale connosco quando precisar de uma alteração."
     }
   },

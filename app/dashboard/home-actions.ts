@@ -11,6 +11,7 @@ import {
   carregarVotacaoStatus,
   carregarCapacitacoes,
   carregarPanoramaRH,
+  carregarRelatoriosGerenciais,
   JORNADA_COLAB_COLS,
   type HomeSharedData,
 } from '@/lib/home/loaders';
@@ -81,13 +82,15 @@ export async function loadHomeData() {
   // capacitação) alimentam blocos que a home do RH não desenha — rodá-los seria
   // pagar seis consultas por pageview para jogar fora. Ver `carregarPanoramaRH`.
   if (getDashboardView(ctx) === 'rh') {
-    const [dashboardRH, panoramaRH] = await Promise.allSettled([
+    const [dashboardRH, panoramaRH, relatoriosRH] = await Promise.allSettled([
       carregarDashboardData(ctx, shared),
       carregarPanoramaRH(colab.empresa_id),
+      carregarRelatoriosGerenciais(colab.empresa_id),
     ]);
     return {
       dashboard: dashboardRH.status === 'fulfilled' ? dashboardRH.value : { error: 'Erro ao carregar dashboard' },
       panoramaRH: panoramaRH.status === 'fulfilled' ? panoramaRH.value : null,
+      relatoriosRH: relatoriosRH.status === 'fulfilled' ? relatoriosRH.value : null,
       kpis: null,
       ultimosVideos: { items: [] as any[] },
       pulsos: [] as any[],
@@ -117,6 +120,7 @@ export async function loadHomeData() {
   return {
     dashboard: val(dashboardR, { error: 'Erro ao carregar dashboard' }),
     panoramaRH: null,
+    relatoriosRH: null,
     kpis: val(kpisR, { error: 'Erro ao carregar KPIs' }),
     ultimosVideos: val(videosR, { items: [] as any[] }),
     pulsos: val(pulsosR, [] as any[]),

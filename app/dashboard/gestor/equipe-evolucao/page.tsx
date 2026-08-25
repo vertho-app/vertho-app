@@ -29,6 +29,7 @@ export default function EquipeEvolucaoPage() {
   const [detalhe, setDetalhe] = useState(null);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
   const [checkpoints, setCheckpoints] = useState([]);
+  const [escopo, setEscopo] = useState('gestor');
 
   async function carregar() {
     setLoading(true);
@@ -37,7 +38,7 @@ export default function EquipeEvolucaoPage() {
       listarCheckpointsPendentes(),
     ]);
     if (r.error) setError(r.error);
-    else { setRows(r.rows); setResumo(r.resumo); }
+    else { setRows(r.rows); setResumo(r.resumo); setEscopo(r.escopo || 'gestor'); }
     if (cp.ok) setCheckpoints(cp.rows);
     setLoading(false);
   }
@@ -79,7 +80,10 @@ export default function EquipeEvolucaoPage() {
   return (
     <PageContainer>
       <BackButton href="/dashboard" />
+      {/* A plenária consolida o antes × depois — sem jornada encerrada ela sai
+          em branco, e um PDF vazio é pior que um botão ausente. */}
       <div className="flex items-center justify-end mb-4 flex-wrap gap-2">
+        {resumo && resumo.encerradas > 0 && (
         <button onClick={async () => {
           const { data: { session } } = await sb.auth.getSession();
           const res = await fetch('/api/gestor/plenaria/pdf', {
@@ -96,6 +100,7 @@ export default function EquipeEvolucaoPage() {
         }} className="flex items-center gap-2 text-xs text-brand-400 border border-brand-400/30 hover:bg-brand-400/10 rounded-full px-3 py-1.5">
           <FileDown size={12} /> Plenária PDF
         </button>
+        )}
       </div>
 
       <div className="mb-6">
@@ -103,10 +108,30 @@ export default function EquipeEvolucaoPage() {
           <Users size={20} className="text-brand-400" />
           <h1 className="text-2xl font-bold text-white">Evolução da equipe</h1>
         </div>
-        <p className="text-sm text-gray-400">Visão consolidada do desenvolvimento dos liderados.</p>
+        <p className="text-sm text-gray-400">
+          Visão consolidada do desenvolvimento {escopo === 'rh' ? 'dos colaboradores' : 'dos liderados'}.
+        </p>
       </div>
 
-      {resumo && (
+      {/* A evolução só existe DEPOIS que uma jornada encerra: o veredito
+          (confirmada · parcial · estagnação · regressão) vem do Evolution
+          Report, que nasce no fechamento. Sem nenhuma encerrada, esta tela
+          desenhava seis KPIs zerados e uma lista de "em andamento" sem delta —
+          prometia evolução e não tinha nenhuma. Em Macaé, 0 de 282. */}
+      {resumo && resumo.encerradas === 0 && (
+        <div className="rounded-2xl border border-white/[0.08] p-6 text-center" style={{ background: '#0F2A4A' }}>
+          <Clock size={24} className="text-brand-400/70 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-white mb-1">Nenhuma jornada encerrada ainda</p>
+          <p className="text-[12px] text-gray-400 leading-relaxed max-w-[460px] mx-auto">
+            A comparação antes × depois aparece aqui quando a primeira jornada chegar ao fim.
+            {resumo.emAndamento > 0
+              ? ` Hoje ${resumo.emAndamento} ${resumo.emAndamento === 1 ? 'está' : 'estão'} em andamento.`
+              : ''}
+          </p>
+        </div>
+      )}
+
+      {resumo && resumo.encerradas > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 mb-6">
           <Card label="Total" valor={resumo.total} cor="text-white" />
           <Card label="Em andamento" valor={resumo.emAndamento} cor="text-brand-300" />
@@ -143,6 +168,7 @@ export default function EquipeEvolucaoPage() {
         </div>
       )}
 
+      {resumo && resumo.encerradas > 0 && (
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <select value={filtro} onChange={e => setFiltro(e.target.value)}
           className="bg-white/5 border border-white/10 rounded px-2 py-1.5 text-xs text-white">
@@ -158,11 +184,14 @@ export default function EquipeEvolucaoPage() {
           <option value="nome" className="bg-[#0d1426]">Nome A-Z</option>
         </select>
       </div>
+      )}
 
       {loading ? (
         <Center><Loader2 size={28} className="animate-spin text-brand-400" /></Center>
-      ) : filtrados.length === 0 ? (
-        <p className="text-center py-12 text-sm text-gray-500">Nenhum liderado encontrado.</p>
+      ) : (resumo && resumo.encerradas === 0) ? null : filtrados.length === 0 ? (
+        <p className="text-center py-12 text-sm text-gray-500">
+          {escopo === 'rh' ? 'Nenhum colaborador encontrado.' : 'Nenhum liderado encontrado.'}
+        </p>
       ) : (
         <div className="space-y-2">
           {filtrados.map(r => {
