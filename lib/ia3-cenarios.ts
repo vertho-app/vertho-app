@@ -397,10 +397,45 @@ export async function persistirCenarioIA3(tdb: any, args: {
   compId: string; cargoNome: string; pppEscolaId: string | null;
   titulo: string; contexto: string; alternativas: Record<string, any>;
 }): Promise<{ ok: true; cenarioId: string | null } | { ok: false; error: string }> {
-  const delQuery = tdb.from('banco_cenarios').delete()
+  /**
+   * O `delete` só alcança cenário SEM resposta ligada.
+   *
+   * 🔴 MEDIDO EM 25/08/2026: este `delete` + `insert` é a origem de **17 de 246
+   * respostas apontando para um cenário que não existe mais** — 15 no acme
+   * (14/04) e 2 no ibipeba (02/06), todas já avaliadas. Existe nota e não existe
+   * mais o enunciado que a produziu: ninguém consegue reconstruir a que situação
+   * a pessoa respondeu, nem contestar a avaliação.
+   *
+   * Preservar em vez de apagar tem um efeito colateral DESEJADO: passa a existir
+   * mais de um cenário por (competência × cargo × escola), e o histórico deixa
+   * de ser reescrito. Quem lê por `respostas.cenario_id` (IA4 e o check) não
+   * muda — eles buscam por id. Quem lista por chave passa a ver mais de um e
+   * precisa ordenar; ver o aviso em `cenario-b.ts`.
+   *
+   * A migration 226 põe a mesma regra no banco (FK `ON DELETE RESTRICT`), para
+   * que um caminho futuro que esqueça esta checagem falhe alto em vez de apagar.
+   */
+  const baseSel = tdb.from('banco_cenarios').select('id')
     .eq('competencia_id', args.compId)
     .eq('cargo', args.cargoNome);
-  await (args.pppEscolaId ? delQuery.eq('ppp_escola_id', args.pppEscolaId) : delQuery.is('ppp_escola_id', null));
+  const { data: existentes, error: errSel } = await (args.pppEscolaId
+    ? baseSel.eq('ppp_escola_id', args.pppEscolaId)
+    : baseSel.is('ppp_escola_id', null));
+  if (errSel) return { ok: false, error: `Erro ao ler cenários existentes: ${errSel.message}` };
+
+  const ids = (existentes || []).map((c: any) => c.id);
+  if (ids.length) {
+    const { data: comResposta, error: errResp } = await tdb.from('respostas')
+      .select('cenario_id').in('cenario_id', ids);
+    if (errResp) return { ok: false, error: `Erro ao checar respostas: ${errResp.message}` };
+
+    const protegidos = new Set((comResposta || []).map((r: any) => r.cenario_id));
+    const apagaveis = ids.filter((id: string) => !protegidos.has(id));
+    if (apagaveis.length) {
+      const { error: errDel } = await tdb.from('banco_cenarios').delete().in('id', apagaveis);
+      if (errDel) return { ok: false, error: `Erro ao limpar cenário anterior: ${errDel.message}` };
+    }
+  }
 
   const { data: inserted, error: insertErr } = await tdb.from('banco_cenarios').insert({
     competencia_id: args.compId,

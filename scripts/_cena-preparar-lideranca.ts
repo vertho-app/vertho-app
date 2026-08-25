@@ -178,11 +178,15 @@ async function montarPlano(empresaId: string): Promise<Item[]> {
     const { data: existentes, error: errB } = await tdb.from('banco_cenarios')
       .select('id, ppp_escola_id, competencia_id').eq('cargo', alvo.cargo);
     if (errB) throw new Error(`banco_cenarios: ${errB.message}`);
-    const jaTem = new Set(
-      (existentes || [])
-        .filter((b: any) => idsDaComp.has(b.competencia_id))
-        .map((b: any) => String(b.ppp_escola_id ?? 'REDE')),
-    );
+    // Quantos cenários já existem por chave de PPP — é a contagem, não o
+    // booleano, que permite completar um pool sem refazer o que já está bom.
+    const contagemPorChave = new Map<string, number>();
+    (existentes || [])
+      .filter((b: any) => idsDaComp.has(b.competencia_id))
+      .forEach((b: any) => {
+        const k = String(b.ppp_escola_id ?? 'REDE');
+        contagemPorChave.set(k, (contagemPorChave.get(k) ?? 0) + 1);
+      });
 
     // Agrupa a coorte por PPP: uma pessoa sem escola (ou escola sem PPP) cai no
     // cenário de REDE, que é o que os cargos de secretaria já usam.
@@ -197,11 +201,25 @@ async function montarPlano(empresaId: string): Promise<Item[]> {
       else porPpp.set(chave, { escola: nome, ppp, pessoas: 1 });
     }
 
+    /**
+     * UM item por chave (competência × PPP) — e não é limitação do script.
+     *
+     * 🔴 MEDIDO EM 25/08/2026: `persistirCenarioIA3` faz `delete` + `insert`,
+     * então **gerar de novo SUBSTITUI** o cenário daquela chave. Eu escrevi um
+     * `--pool N` presumindo semântica de insert e o resultado foi destrutivo:
+     * seis cenários bons foram sobrescritos, inclusive o único que tinha
+     * chegado a 92 (`aprovado`), e quatro dos seis pioraram. Não há histórico —
+     * o `delete` apagou a linha.
+     *
+     * Enquanto o modelo for "um cenário por competência por escola", pool e
+     * rotação não existem por este caminho. A rodada 2 usaria a MESMA situação
+     * da rodada 1, e parte do delta seria memória.
+     */
     for (const [chave, v] of porPpp) {
       itens.push({
         cargo: alvo.cargo, codComp: alvo.codComp, competencia, competenciaId,
         pppEscolaId: v.ppp, escola: v.escola, pessoas: v.pessoas,
-        jaExiste: jaTem.has(chave),
+        jaExiste: (contagemPorChave.get(chave) ?? 0) > 0,
       });
     }
   }

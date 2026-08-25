@@ -34,21 +34,40 @@ describe('gateAcumuladaPiloto (B2)', () => {
 // ── B1: fallback do Cenário B para 'todos' ─────────────────────────────────
 function mockSb(byCargo: Record<string, any>) {
   let calls = 0;
+  let ordenou = false;
   const from = () => {
     let cargo = '';
     const b: any = {
       select: () => b,
       eq: (col: string, val: string) => { if (col === 'cargo') cargo = val; return b; },
+      // `order` entrou em 25/08/2026 e é obrigatório na cadeia: sem ele o
+      // `.limit(1)` devolvia um Cenário B sorteado pelo planner — e há 3 pares
+      // (empresa × cargo) com CINCO cenário_b cada em produção. O mock precisa
+      // aceitá-lo, mas o teste abaixo também passa a EXIGIR que ele exista.
+      order: () => { ordenou = true; return b; },
       limit: () => b,
       maybeSingle: async () => { calls++; return { data: byCargo[cargo] ?? null, error: null }; },
     };
     return b;
   };
-  return { sb: { from }, getCalls: () => calls };
+  return { sb: { from }, getCalls: () => calls, ordenou: () => ordenou };
 }
 const CEN = (cargo: string) => ({ id: `cen-${cargo}`, titulo: 't', descricao: `desc ${cargo}`, alternativas: {} });
 
 describe('buscarCenarioBComFallback (B1)', () => {
+  // Guarda do sorteio (25/08/2026): há 3 pares (empresa × cargo) com CINCO
+  // cenário_b em produção. Sem `order`, o `.limit(1)` serve um deles a esmo e a
+  // avaliação de fechamento pode mudar de enunciado entre duas leituras da
+  // MESMA pessoa — sem erro nenhum na tela.
+  it('ORDENA antes do limit — senão o Cenário B servido é sorteado', async () => {
+    const m = mockSb({ Vendedor: CEN('Vendedor') });
+    await buscarCenarioBComFallback(m.sb, 'emp', 'Vendedor');
+    expect(
+      m.ordenou(),
+      '.limit(1) sem order numa consulta que DECIDE = conclusão sorteada pelo planner',
+    ).toBe(true);
+  });
+
   it('usa o cenário do CARGO específico quando existe (sem fallback)', async () => {
     const { sb, getCalls } = mockSb({ Vendedor: CEN('Vendedor') });
     const r = await buscarCenarioBComFallback(sb, 'emp', 'Vendedor');

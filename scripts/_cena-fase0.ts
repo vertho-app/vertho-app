@@ -313,8 +313,29 @@ async function cmdCena(slug: string, codComp: string) {
   console.log(`\nInterlocutor: ${persona.quem} (${persona.relacao})`);
   console.log(`Cede quando: ${persona.o_que_faz_ceder}`);
 
+  const saidaParcial = arg('saida', `cena-${slug}-${codComp.toLowerCase()}.json`);
+  const gravar = (rs: any[]) => writeFileSync(
+    saidaParcial,
+    JSON.stringify({ cenarioId: cen.id, ctx: { ...ctx, descritores }, persona, rodadas: rs }, null, 2),
+  );
+
+  /**
+   * Grava DEPOIS DE CADA CENA, não no fim.
+   *
+   * 🔴 Custo medido (24/08/2026): uma rodada de n=5 foi interrompida com 9 das
+   * 10 cenas já extraídas, e **US$ 3,48 viraram zero resultado** — o script
+   * montava `rodadas` em memória e só serializava na última linha. Trabalho de
+   * 40 minutos que não sobrevive a um Ctrl+C não é medição, é aposta.
+   *
+   * O arquivo parcial também serve de retomada: dá para ler o que já rodou em
+   * vez de repagar tudo.
+   */
   const rodadas: any[] = [];
-  for (const nivel of niveis) rodadas.push(await rodarUmaCena(ctx, persona, cargo, nivel, teto, emp.id));
+  for (const nivel of niveis) {
+    rodadas.push(await rodarUmaCena(ctx, persona, cargo, nivel, teto, emp.id));
+    gravar(rodadas);
+    console.log(`  … ${rodadas.length}/${niveis.length} cenas gravadas em ${saidaParcial}`);
+  }
 
   console.log(`\n${'═'.repeat(72)}\nRELATÓRIO DA FASE 0\n${'═'.repeat(72)}`);
   for (const r of rodadas) {
