@@ -484,6 +484,45 @@ bateram em todos os nove — o que sobra é qualidade de escrita, e essa decisã
 para leitura cega (artefato `e8161cfa-fead-4bee-a9d1-fac9c9df0421`, 9 PDIs
 anonimizados A–I sobre persona fictícia).
 
+### Piloto E1 (Qwen × Sonnet 4.6 em cenários) — 25/08/2026: INCONCLUSIVO, e o motivo importa
+
+`scripts/_piloto-qwen-e1-cenarios.ts` gera cenários com os dois modelos SEM
+persistir e usa o `ia3_check` (Terra, cross-família de ambos) como juiz.
+
+**Números:** Sonnet 4.6 média 63,00 (4/4 `revisar`, 68s) · Qwen 80,00 (3 de 4 em
+`aprovado_com_ressalvas`, 331s). Parece vitória do Qwen. **Não conte como uma.**
+
+Antes de rodar ficou fixado que o Sonnet 4.6 tinha que sair perto de 88 — o piso
+da produção no mesmo tenant — para a medição valer. Saiu 63. O controle
+(`_piloto-controle-harness.ts`) re-checou cenários JÁ PERSISTIDOS pelo mesmo
+caminho: os quatro guardados com **92 voltaram com 38–60, delta médio −38**.
+
+A chamada do piloto é idêntica à de `checkCenarioIA3Core` (mesmo prompt, modelo,
+teto e normalização), então não é o harness que erra: **a nota guardada e a nota
+de hoje não estão na mesma escala.** A suspeita principal é o auditor — a ACME
+Demo tinha override de `ia3_check` para `gpt-5.4`, que morreu (403) e saiu na
+migration 227; se aquelas notas de 92 vieram dele, o limiar absoluto
+(`>=90 aprovado`, `>=80 ressalvas`) está sendo aplicado a notas de auditores não
+calibrados entre si.
+
+⛔ **Enquanto isso não fechar, `status_check` não é comparável no tempo** — e a
+pergunta deixa de ser sobre o Qwen. O próximo passo está escrito no controle:
+repetir a amostra ATRAVESSANDO tenants. Se só a ACME Demo divergir, é dela; se
+divergir em todos, é do auditor de hoje contra o histórico.
+
+Dois achados do piloto que independem disso:
+
+1. **`descricao`, não `contexto`.** A 1ª rodada deu 58 nos DOIS modelos porque o
+   `cen` montado em memória usava `contexto`; `montarCheckIA3Prompt` lê
+   `cen.descricao`, e o rename só acontece dentro de `persistirCenarioIA3`. O
+   auditor recebeu seis cenários sem enunciado. Defeito que deprime os dois lados
+   por igual não parece defeito — parece empate.
+2. **Qwen estoura o orçamento da plataforma no E1 síncrono.** 331s de média (contra
+   68s), e na 1ª rodada 2 de 4 morreram em `UND_ERR_HEADERS_TIMEOUT` — o teto de
+   headers do undici, 300s, que fica ABAIXO do `AbortSignal` e por isso ignora o
+   `timeoutMs`. As rotas de admin têm `maxDuration` de 300s: não é "lento", é
+   inviável nesse caminho. Só entraria por Trigger.dev ou Batch.
+
 ### Painel cego cross-família — 25/08/2026 (a leitura humana SEGUE PENDENTE)
 
 `scripts/_pdi-leitura-cega-painel.ts`. Os 9 corpos são extraídos do artefato com
