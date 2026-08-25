@@ -4054,7 +4054,13 @@
       "arquivada": "archived"
     },
     "team": {
-      "weekProgress": "wk {week}/14"
+      "weekProgress": "wk {week}/14",
+      "reason": {
+        "sem_perfil": "behavioral profile missing",
+        "sem_perfil_externo": "{fonte} missing",
+        "sem_mapeamento": "competency assessment missing",
+        "aguardando_geracao": "ready to start — track not generated yet"
+      }
     },
     "profiles": {
       "behavioral": "behavioral",

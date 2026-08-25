@@ -16,8 +16,11 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
  *     falha de contagem virava o estado da pessoa na tela.
  */
 
+/** `sys_config` da empresa — os testes trocam para exercitar a fonte externa. */
+let sysConfig: any = {};
+
 const sb = criarSupabaseMock({
-  resolver: (tabela) => (tabela === 'empresas' ? { nome: 'Prefeitura de Exemplo' } : null),
+  resolver: (tabela) => (tabela === 'empresas' ? { nome: 'Prefeitura de Exemplo', sys_config: sysConfig } : null),
   contagem: (tabela) => (tabela === 'colaboradores' ? 7 : null),
   lista: (tabela) =>
     tabela === 'trilhas'
@@ -40,7 +43,7 @@ vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 import { carregarPanoramaRH } from '@/lib/home/loaders';
 
 describe('panorama do RH', () => {
-  beforeEach(() => sb.reset());
+  beforeEach(() => { sb.reset(); sysConfig = {}; });
 
   it('conta PESSOAS em jornada, não linhas de trilha', async () => {
     const p = await carregarPanoramaRH('emp-1');
@@ -64,6 +67,22 @@ describe('panorama do RH', () => {
     expect(sb.usou('trilhas', 'eq', 'empresa_id')).toBe(true);
     const status = sb.chamadas.find((c) => c.tabela === 'trilhas' && c.metodo === 'eq' && c.args[0] === 'status');
     expect(status?.args[1]).toBe('ativa');
+  });
+
+  it('"com perfil" usa perfil_dominante — a mesma coluna que os gates do app', async () => {
+    await carregarPanoramaRH('emp-1');
+    const filtro = sb.chamadas.find((c) => c.tabela === 'colaboradores' && c.metodo === 'or');
+    // Contar por `disc_resultados` daria 105 onde a tela de Equipe trata 144
+    // como mapeadas (medido em `macae`): dois números para a mesma pergunta.
+    expect(filtro?.args[0]).toContain('perfil_dominante');
+    expect(sb.usou('colaboradores', 'not', 'disc_resultados')).toBe(false);
+  });
+
+  it('empresa com fonte externa conta o PDF extraído, não o DISC', async () => {
+    sysConfig = { perfil_externo_fonte: 'opq32' };
+    await carregarPanoramaRH('emp-1');
+    expect(sb.usou('colaboradores', 'not', 'perfil_externo_dados')).toBe(true);
+    expect(sb.chamadas.some((c) => c.tabela === 'colaboradores' && c.metodo === 'or')).toBe(false);
   });
 
   it('falha de contagem marca indisponivel — não vira "0 pessoas"', async () => {

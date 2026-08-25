@@ -194,7 +194,7 @@ export default function GestorHomePage() {
       </section>
 
       {/* Seção 2 — Equipe em trilha (tabela com filtros) */}
-      <EquipeSection equipe={data.equipe || []} />
+      <EquipeSection equipe={data.equipe || []} fonteExterna={data.empresaPerfilExternoFonte} />
 
       {/* Seção 3 — Mapa de perfis comportamentais (DISC ou OPQ32) */}
       <PerfisSection perfis={data.perfis || []} fonteExterna={data.empresaPerfilExternoFonte} />
@@ -354,7 +354,7 @@ function AvaliarBtn({
 
 // ════════════════ Etapa 2 — Equipe em trilha ════════════════
 
-function EquipeSection({ equipe }: { equipe: any[] }) {
+function EquipeSection({ equipe, fonteExterna }: { equipe: any[]; fonteExterna?: string | null }) {
   const t = useTranslations('ManagerDashboard');
   const router = useRouter();
   const [filtro, setFiltro] = useState<'todos' | 'em_andamento' | 'sem_trilha' | 'concluida'>('todos');
@@ -393,6 +393,17 @@ function EquipeSection({ equipe }: { equipe: any[] }) {
                     isto, duas jornadas distintas parecem uma só. */}
                 {e.turma && <> · <span className="text-white/60">{e.turma}</span></>}
                 {e.competenciaFoco && <> · <span className="text-brand-300/70">{e.competenciaFoco}</span></>}
+                {/* "SEM TRILHA" sozinho não diz o que fazer — e as causas pedem
+                    ações opostas (fazer o mapeamento comportamental × rodar a
+                    avaliação). Quando a pendência é nossa, o texto diz isso em
+                    vez de cobrar a pessoa. */}
+                {e.motivoSemTrilha && (
+                  <> · <span style={{ color: e.motivoSemTrilha === 'aguardando_geracao' ? 'rgba(154,226,230,0.75)' : 'rgba(252,211,77,0.85)' }}>
+                    {e.motivoSemTrilha === 'sem_perfil' && fonteExterna
+                      ? t('team.reason.sem_perfil_externo', { fonte: fonteExterna === 'opq32' ? 'OPQ32' : fonteExterna })
+                      : t(`team.reason.${e.motivoSemTrilha}`)}
+                  </span></>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">

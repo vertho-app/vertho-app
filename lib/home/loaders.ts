@@ -610,13 +610,30 @@ export async function carregarPanoramaRH(empresaId: string) {
   // linha do tenant (a chave é `id`, não `empresa_id`), então vai pelo `raw`.
   const tdb = tenantDb(empresaId);
 
-  const [empresaRes, pessoasRes, comPerfilRes, trilhasRes] = await Promise.all([
-    tdb.raw.from('empresas').select('nome').eq('id', empresaId).maybeSingle(),
+  // A empresa vem antes das contagens porque a régua de "tem perfil" depende
+  // dela: quem usa fonte externa (OPQ32, Hogan) não faz DISC, e ali "sem perfil"
+  // é "sem o PDF extraído".
+  const empresaRes = await tdb.raw.from('empresas')
+    .select('nome, sys_config').eq('id', empresaId).maybeSingle();
+  const fonteExterna = (empresaRes.data?.sys_config as any)?.perfil_externo_fonte ?? null;
+
+  const [pessoasRes, comPerfilRes, trilhasRes] = await Promise.all([
     tdb.from('colaboradores')
       .select('id', { count: 'exact', head: true }),
-    tdb.from('colaboradores')
-      .select('id', { count: 'exact', head: true })
-      .not('disc_resultados', 'is', null),
+    // 🔑 `perfil_dominante`, não `disc_resultados`. É a MESMA coluna que o resto
+    // do app usa para decidir se a pessoa tem perfil — o gate da home
+    // (`precisaMapeamentoDISC`), o alerta do gestor e o mapa de perfis. Medido em
+    // 25/08 no tenant `macae`: 144 pessoas têm `perfil_dominante` e só 105 têm
+    // `disc_resultados` (as 39 vieram por importação, que carimba a letra e não
+    // grava o JSON). Contar pelo JSON fazia este card dizer 105 enquanto a tela
+    // de Equipe tratava 144 como mapeadas — dois números para a mesma pergunta.
+    fonteExterna
+      ? tdb.from('colaboradores')
+          .select('id', { count: 'exact', head: true })
+          .not('perfil_externo_dados', 'is', null)
+      : tdb.from('colaboradores')
+          .select('id', { count: 'exact', head: true })
+          .or('perfil_dominante.not.is.null,perfil_externo_dados.not.is.null'),
     tdb.from('trilhas')
       .select('colaborador_id')
       .eq('status', TRILHA.ATIVA),

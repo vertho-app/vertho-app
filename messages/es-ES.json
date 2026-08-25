@@ -4054,7 +4054,13 @@
       "arquivada": "archivada"
     },
     "team": {
-      "weekProgress": "sem {week}/14"
+      "weekProgress": "sem {week}/14",
+      "reason": {
+        "sem_perfil": "falta el mapeo comportamental",
+        "sem_perfil_externo": "falta el {fonte}",
+        "sem_mapeamento": "falta la evaluación de competencias",
+        "aguardando_geracao": "listo para empezar — itinerario aún no generado"
+      }
     },
     "profiles": {
       "behavioral": "conductuales",
