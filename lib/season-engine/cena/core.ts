@@ -485,9 +485,16 @@ export async function extrairEvidenciasCena(
 
   ext.leitura_geral = desmascarar(String(ext.leitura_geral ?? ''), opts.pii);
   ext.momento_decisivo = desmascarar(String(ext.momento_decisivo ?? ''), opts.pii);
-  ext.evidencias = ext.evidencias.map((e) => ({
+  /**
+   * `descritor` é o nome canônico; `indice` fica como fallback de compatibilidade
+   * e NUNCA como preferência. O campo foi renomeado em 25/08/2026 porque com o
+   * nome "indice" o modelo passou a numerar as ENTRADAS (1…18 em 6 descritores),
+   * e a consolidação lia as seis primeiras como D1–D6.
+   */
+  ext.evidencias = ext.evidencias.map((e: any) => ({
     ...e,
-    indice: Number(e.indice),
+    indice: Number(e.descritor ?? e.indice),
+    turno: e.turno == null ? null : Number(e.turno),
     citacao: desmascarar(String(e.citacao ?? ''), opts.pii),
     beat: e.beat == null ? null : Number(e.beat),
   }));

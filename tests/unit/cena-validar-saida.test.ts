@@ -1,0 +1,192 @@
+// Cada `it` aqui corresponde a um jeito de a cena produzir número sem
+// significado. Três rodadas de medição foram perdidas por defeitos que só
+// apareceram depois de rodar — porque nada olhava o resultado. Média e nível
+// sempre saem, inclusive quando a entrada não faz sentido.
+import { describe, expect, it } from 'vitest';
+import { validarSaidaDaCena, saidaConfiavel, normalizar, type EntradaValidacao } from '@/lib/season-engine/cena/validar-saida';
+import { consolidarCena, type EvidenciaDescritor } from '@/lib/season-engine/cena/beats';
+
+const FALA_1 = 'Olha, eu vou tirar o levantamento de dados da sua lista e passar para a Roseli, até sexta-feira.';
+const FALA_2 = 'Se a Roseli não conseguir, eu mesmo faço no domingo e você recebe segunda de manhã.';
+
+const ev = (
+  indice: number, veredito: any, citacao: string, turno = 2, beat = 1, forca: any = 'forte',
+): EvidenciaDescritor => ({ indice, veredito, forca, citacao, beat, turno });
+
+function entrada(over: Partial<EntradaValidacao> = {}): EntradaValidacao {
+  const evidencias = over.evidencias ?? [
+    ev(1, 'demonstrou', 'vou tirar o levantamento de dados da sua lista e passar para a Roseli'),
+    ev(2, 'demonstrou', 'Se a Roseli não conseguir, eu mesmo faço no domingo'),
+  ];
+  return {
+    numDescritores: 6,
+    totalBeats: 4,
+    turnos: 8,
+    beatsCumpridos: [1, 2, 3, 4],
+    contrato: { armadilha: 'alinhar com todos não resolve', tradeoff: 'A ou B', complicador: 'prazo curto' },
+    evidencias,
+    consolidacao: consolidarCena(evidencias),
+    falasDoAvaliado: [FALA_1, FALA_2],
+    ...over,
+  };
+}
+
+describe('validarSaidaDaCena · o caminho feliz', () => {
+  it('saída íntegra não gera erro', () => {
+    const vs = validarSaidaDaCena(entrada());
+    expect(vs.filter((x) => x.severidade === 'erro')).toEqual([]);
+    expect(saidaConfiavel(vs)).toBe(true);
+  });
+});
+
+describe('a citação tem de ser LITERAL', () => {
+  it('paráfrase é ERRO — é o alicerce da âncora humana', () => {
+    // O avaliador humano classifica CONTRA a citação. Se ela for paráfrase, não
+    // há o que auditar — e paráfrase é indistinguível de invenção.
+    const vs = validarSaidaDaCena(entrada({
+      evidencias: [ev(1, 'demonstrou', 'ele disse que iria repassar a tarefa para outra pessoa da equipe')],
+    }));
+    expect(vs.some((x) => x.severidade === 'erro' && x.campo === 'evidencias.citacao')).toBe(true);
+  });
+
+  it('tolera acento, caixa e pontuação — não é comparação exata', () => {
+    const vs = validarSaidaDaCena(entrada({
+      evidencias: [ev(1, 'demonstrou', 'VOU TIRAR O LEVANTAMENTO DE DADOS DA SUA LISTA, e passar para a Roseli!')],
+    }));
+    expect(vs.filter((x) => x.severidade === 'erro')).toEqual([]);
+  });
+
+  it('EMENDA com reticências é legítima — cada fragmento é verificado por si', () => {
+    // Medido 25/08/2026: o extrator une dois trechos reais com "...". Recusar
+    // isso reprovaria citação honesta e treinaria o extrator a citar menos —
+    // o oposto do que a auditoria humana precisa.
+    const vs = validarSaidaDaCena(entrada({
+      evidencias: [ev(1, 'demonstrou',
+        'vou tirar o levantamento de dados da sua lista... eu mesmo faço no domingo e você recebe segunda')],
+    }));
+    expect(vs.filter((x) => x.severidade === 'erro')).toEqual([]);
+  });
+
+  it('mas emenda com fragmento INVENTADO continua sendo erro', () => {
+    const vs = validarSaidaDaCena(entrada({
+      evidencias: [ev(1, 'demonstrou',
+        'vou tirar o levantamento de dados da sua lista... e prometo que nunca mais vai acontecer isso aqui')],
+    }));
+    expect(vs.some((x) => x.severidade === 'erro' && x.campo === 'evidencias.citacao')).toBe(true);
+  });
+
+  it('citação curta demais é AVISO, não erro — não dá para verificar nem auditar', () => {
+    const vs = validarSaidaDaCena(entrada({ evidencias: [ev(1, 'demonstrou', 'até sexta')] }));
+    expect(vs.some((x) => x.severidade === 'aviso' && x.campo === 'evidencias.citacao')).toBe(true);
+    expect(saidaConfiavel(vs)).toBe(true);
+  });
+
+  it('sem_sinal não precisa de citação', () => {
+    const vs = validarSaidaDaCena(entrada({ evidencias: [ev(1, 'sem_sinal', '')] }));
+    expect(vs.filter((x) => x.severidade === 'erro')).toEqual([]);
+  });
+});
+
+describe('o índice tem de ser descritor, não contador de linha', () => {
+  it('índice fora da faixa é ERRO', () => {
+    const evs = Array.from({ length: 9 }, (_, k) => ev(k + 1, 'demonstrou', 'vou tirar o levantamento de dados da sua lista'));
+    const vs = validarSaidaDaCena(entrada({ evidencias: evs, consolidacao: consolidarCena(evs) }));
+    expect(vs.some((x) => x.severidade === 'erro' && x.campo === 'evidencias.descritor')).toBe(true);
+  });
+
+  it('pega o contador DISFARÇADO: 1,2,3…6 na ordem, com mais entradas depois', () => {
+    // Este é o caso que passou batido em 25/08: os índices ficam dentro de 1..6
+    // e mesmo assim são contador. Só a FORMA denuncia.
+    const evs = [
+      ...Array.from({ length: 6 }, (_, k) => ev(k + 1, 'falhou', 'vou tirar o levantamento de dados da sua lista')),
+      ev(7, 'demonstrou', 'Se a Roseli não conseguir, eu mesmo faço no domingo'),
+    ];
+    const vs = validarSaidaDaCena(entrada({ evidencias: evs, consolidacao: consolidarCena(evs) }));
+    expect(
+      vs.some((x) => x.severidade === 'erro' && x.detalhe.includes('contador')),
+      'sem isto, 1..6 em sequência passa por cobertura completa',
+    ).toBe(true);
+  });
+});
+
+describe('turno, beat e enums', () => {
+  it('turno fora da cena é ERRO', () => {
+    const vs = validarSaidaDaCena(entrada({
+      evidencias: [ev(1, 'demonstrou', 'vou tirar o levantamento de dados da sua lista', 99)],
+    }));
+    expect(vs.some((x) => x.campo === 'evidencias.turno')).toBe(true);
+  });
+
+  it('beat inexistente é ERRO', () => {
+    const vs = validarSaidaDaCena(entrada({
+      evidencias: [ev(1, 'demonstrou', 'vou tirar o levantamento de dados da sua lista', 2, 9)],
+    }));
+    expect(vs.some((x) => x.campo === 'evidencias.beat' && x.severidade === 'erro')).toBe(true);
+  });
+
+  it('evidência num beat NÃO cumprido é aviso', () => {
+    const vs = validarSaidaDaCena(entrada({
+      beatsCumpridos: [1],
+      evidencias: [ev(1, 'demonstrou', 'vou tirar o levantamento de dados da sua lista', 2, 3)],
+    }));
+    expect(vs.some((x) => x.severidade === 'aviso' && x.campo === 'evidencias.beat')).toBe(true);
+  });
+
+  it('veredito e força fora do enum são ERRO', () => {
+    const vs = validarSaidaDaCena(entrada({
+      evidencias: [ev(1, 'excelente' as any, 'vou tirar o levantamento de dados da sua lista', 2, 1, 'altissima' as any)],
+    }));
+    expect(vs.some((x) => x.campo === 'evidencias.veredito')).toBe(true);
+    expect(vs.some((x) => x.campo === 'evidencias.forca')).toBe(true);
+  });
+});
+
+describe('a aritmética da consolidação tem de fechar', () => {
+  it('média informada diferente da calculada é ERRO', () => {
+    const e = entrada();
+    const vs = validarSaidaDaCena({ ...e, consolidacao: { ...e.consolidacao, media: 3.9 } });
+    expect(vs.some((x) => x.campo === 'consolidacao.media')).toBe(true);
+  });
+
+  it('cobertura que não bate com as notas é ERRO', () => {
+    const e = entrada();
+    const vs = validarSaidaDaCena({
+      ...e,
+      consolidacao: { ...e.consolidacao, cobertura: { medidos: 6, total: 6, taxa: 1 } },
+    });
+    expect(vs.some((x) => x.campo === 'consolidacao.cobertura')).toBe(true);
+  });
+
+  it('nível publicado JUNTO com motivo de supressão é ERRO', () => {
+    const e = entrada();
+    const vs = validarSaidaDaCena({
+      ...e,
+      consolidacao: { ...e.consolidacao, nivel: 3, nivelSuprimidoPorque: 'cobertura 2/6' },
+    });
+    expect(vs.some((x) => x.campo === 'consolidacao.nivel')).toBe(true);
+  });
+
+  it('nível nulo SEM motivo é ERRO', () => {
+    const e = entrada();
+    const vs = validarSaidaDaCena({
+      ...e,
+      consolidacao: { ...e.consolidacao, nivel: null, nivelSuprimidoPorque: null },
+    });
+    expect(vs.some((x) => x.campo === 'consolidacao.nivel')).toBe(true);
+  });
+});
+
+describe('o contrato de entrada', () => {
+  it('armadilha vazia é ERRO — foi o estado das 20 primeiras cenas', () => {
+    const vs = validarSaidaDaCena(entrada({
+      contrato: { armadilha: '', tradeoff: 'A ou B', complicador: 'prazo' },
+    }));
+    expect(vs.some((x) => x.campo === 'contrato' && x.detalhe.includes('armadilha'))).toBe(true);
+  });
+});
+
+describe('normalizar', () => {
+  it('remove acento, caixa e pontuação, colapsa espaço', () => {
+    expect(normalizar('  Até   SEXTA-feira, sim!  ')).toBe('ate sexta feira sim');
+  });
+});

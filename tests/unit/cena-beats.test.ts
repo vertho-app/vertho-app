@@ -241,6 +241,28 @@ describe('consolidarCena — nota em código, lacuna declarada', () => {
     expect(r.nivelSuprimidoPorque).toContain('evidência fraca');
   });
 
+  // ── Extração inválida não pode virar nota (medido 25/08/2026) ─────────────
+  // O extrator passou a numerar as ENTRADAS (1…18 num cenário de 6 descritores)
+  // em vez de apontar o descritor. As seis primeiras foram lidas como D1–D6, as
+  // doze restantes descartadas em silêncio, e a cobertura ainda dizia 6/6 —
+  // porque 1…6 sempre existem. O `continue` calado escondeu o defeito.
+  it('índice fora da faixa SUPRIME o nível e é reportado, não descartado calado', () => {
+    const evs = Array.from({ length: 18 }, (_, k) =>
+      ev(k + 1, k < 6 ? 'falhou' : 'demonstrou', 'forte', 1));
+    const c = consolidarCena(evs);
+    expect(c.indicesInvalidos, 'os índices 7..18 têm de aparecer').toEqual(
+      [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+    );
+    expect(c.nivel, 'extração malformada não pode produzir nível').toBeNull();
+    expect(c.nivelSuprimidoPorque).toContain('extração inválida');
+  });
+
+  it('extração sã não reporta índice inválido', () => {
+    const c = consolidarCena([1, 2, 3, 4, 5, 6].map((i) => ev(i, 'demonstrou', 'forte')));
+    expect(c.indicesInvalidos).toEqual([]);
+    expect(c.nivel).toBe(3);
+  });
+
   it('ignora índice fora da faixa em vez de estourar', () => {
     const c = consolidarCena([ev(9, 'demonstrou', 'forte'), ev(1, 'tentou', 'forte')]);
     expect(c.cobertura.medidos).toBe(1);

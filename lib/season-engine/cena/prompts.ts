@@ -365,13 +365,23 @@ descritor, o que a conversa REALMENTE sustentou.
 8. Toda entrada tem citação curta e literal do que o avaliado disse${origemDebrief ? ' (na cena ou no debrief)' : ''},
    e o TURNO em que ela apareceu. O turno é o que ordena a trajetória — sem ele,
    "recuperou" e "piorou" ficam indistinguíveis.
+9. 🔴 "descritor" É O NÚMERO DO DESCRITOR (D1 a D${ctx.descritores.length}), NÃO a ordem da entrada.
+   Duas entradas seguidas podem ter o MESMO "descritor", e o "descritor" 3 pode
+   aparecer antes do 1. Nunca numere as entradas em sequência.
+
+   ⚠️ Medido em 25/08/2026: com o campo chamado "indice", o modelo passou a
+   numerar as linhas 1, 2, 3… 18 num cenário de 6 descritores. As seis primeiras
+   entradas foram lidas como D1–D6 e as outras doze, descartadas — a nota inteira
+   media "como foram os seis primeiros momentos", não os seis descritores.
 
 ═══ FORMATO (APENAS JSON, sem markdown) ═══
 {
   "leitura_geral": "2 a 3 frases sobre como a pessoa se comportou sob pressão",
   "momento_decisivo": "o turno em que a cena virou (ou não virou) e por quê",
   "evidencias": [
-    { "indice": 1, "turno": 3, "beat": 1, "veredito": "demonstrou|tentou|falhou|sem_sinal", "forca": "fraca|moderada|forte", "citacao": "trecho literal" }
+    { "descritor": 4, "turno": 3, "beat": 1, "veredito": "demonstrou|tentou|falhou|sem_sinal", "forca": "fraca|moderada|forte", "citacao": "trecho literal" },
+    { "descritor": 4, "turno": 7, "beat": 3, "veredito": "demonstrou", "forca": "forte", "citacao": "o mesmo descritor, mais tarde na cena" },
+    { "descritor": 1, "turno": 8, "beat": 4, "veredito": "tentou", "forca": "moderada", "citacao": "fora de ordem, e isso é normal" }
   ]
 }`;
 

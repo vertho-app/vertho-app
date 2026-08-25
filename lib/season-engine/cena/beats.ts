@@ -407,6 +407,14 @@ export interface ConsolidacaoCena {
   nivelSuprimidoPorque: string | null;
   /** Cobertura efetiva: quantos dos N descritores saíram com sinal. */
   cobertura: { medidos: number; total: number; taxa: number };
+  /**
+   * Índices de descritor que a extração devolveu FORA da faixa 1..N.
+   *
+   * Vazio é o esperado. Não-vazio significa que o extrator não está apontando
+   * descritor — provavelmente está numerando as entradas —, e **a consolidação
+   * inteira não vale**. Ver o comentário em `consolidarCena`.
+   */
+  indicesInvalidos: number[];
 }
 
 /**
@@ -460,10 +468,28 @@ export function consolidarCena(
    * trajetória fica visível em `recuperou` / `piorou`. Média não distingue
    * "estável em 2,2" de "1,4 que virou 3,2" — e são pessoas diferentes.
    */
+  /**
+   * 🔴 ÍNDICE FORA DA FAIXA NÃO É RUÍDO — É EXTRAÇÃO INVÁLIDA.
+   *
+   * A versão anterior fazia `continue` em silêncio, e foi isso que escondeu o
+   * pior defeito do módulo (medido 25/08/2026): o extrator passou a numerar as
+   * ENTRADAS em vez de apontar o descritor — 18 evidências numeradas 1…18 num
+   * cenário de 6 descritores. As seis primeiras foram lidas como D1–D6, as doze
+   * restantes descartadas caladas, e a nota inteira mediu "como foram os seis
+   * primeiros momentos". A cobertura ainda dizia 6/6, porque 1…6 sempre existem.
+   *
+   * Um `continue` sobre dado que não devia existir é fallback invisível — o que
+   * este projeto proíbe. Agora conta e devolve: quem consome decide, mas ninguém
+   * decide sem saber.
+   */
+  const foraDaFaixa: number[] = [];
   const porDescritor = new Map<number, EvidenciaDescritor[]>();
   for (const ev of evidencias) {
     const i = ev.indice;
-    if (!Number.isInteger(i) || i < 1 || i > numDescritores) continue;
+    if (!Number.isInteger(i) || i < 1 || i > numDescritores) {
+      if (Number.isFinite(Number(i))) foraDaFaixa.push(Number(i));
+      continue;
+    }
     if (ev.veredito === 'sem_sinal') continue;
     if (alcancaveis && !alcancaveis.has(i)) continue; // beat não aconteceu → lacuna
     if (!(ev.veredito in NOTA_POR_VEREDITO)) continue;
@@ -500,7 +526,9 @@ export function consolidarCena(
   // auditoria; o rótulo é que não pode circular pela metade, porque quem lê
   // "N2" não vê que ele veio de 3 dos 6 descritores.
   let nivelSuprimidoPorque: string | null = null;
-  if (media == null) nivelSuprimidoPorque = 'nenhum descritor medido';
+  if (foraDaFaixa.length) {
+    nivelSuprimidoPorque = `extração inválida: ${foraDaFaixa.length} índice(s) fora de 1..${numDescritores}`;
+  } else if (media == null) nivelSuprimidoPorque = 'nenhum descritor medido';
   else if (medidas.length < numDescritores) {
     nivelSuprimidoPorque = `cobertura ${medidas.length}/${numDescritores}`;
   } else if (baixaConfianca.length * 2 > numDescritores) {
@@ -521,5 +549,6 @@ export function consolidarCena(
       total: numDescritores,
       taxa: numDescritores ? Number((medidas.length / numDescritores).toFixed(3)) : 0,
     },
+    indicesInvalidos: [...new Set(foraDaFaixa)].sort((a, b) => a - b),
   };
 }

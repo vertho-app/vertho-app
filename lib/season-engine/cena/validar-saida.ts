@@ -1,0 +1,181 @@
+/**
+ * VALIDAÇÃO DA SAÍDA DA CENA — pura, sem IA e sem banco.
+ *
+ * ═══ POR QUE ESTE ARQUIVO EXISTE ═══
+ *
+ * Três rodadas de medição foram invalidadas por defeito meu, e as três só foram
+ * descobertas DEPOIS de rodar, por acaso:
+ *
+ *   1. a persona nascia cega à armadilha (leitor buscava chave inexistente);
+ *   2. a tabela cruzava proficiência com confiança;
+ *   3. o extrator numerava as ENTRADAS (1…18) em vez de apontar o descritor, e
+ *      a consolidação lia as seis primeiras como D1–D6 — descartando o resto
+ *      em silêncio, com a cobertura ainda dizendo 6/6.
+ *
+ * O padrão comum não é "errei três vezes": é que **nada olhava o resultado**. O
+ * script imprimia média e nível, e média e nível sempre saem — mesmo quando o
+ * que entrou não faz sentido. Um número que sempre aparece não é medida.
+ *
+ * Aqui cada `it` da suíte tem um par: uma invariante que, quebrada, **impede o
+ * relatório de sair**. A regra é a do FMEA: na CONSTRUÇÃO falhe alto. Uma cena
+ * de medição é construção — há um humano na frente, e é melhor perder a cena do
+ * que publicar uma nota que ninguém sabe do que é feita.
+ */
+
+import type { ConsolidacaoCena, EvidenciaDescritor } from './beats';
+
+export type Severidade = 'erro' | 'aviso';
+
+export interface Violacao {
+  severidade: Severidade;
+  campo: string;
+  detalhe: string;
+}
+
+export interface EntradaValidacao {
+  numDescritores: number;
+  totalBeats: number;
+  turnos: number;
+  beatsCumpridos: number[];
+  contrato: { armadilha: string; tradeoff: string; complicador: string };
+  evidencias: EvidenciaDescritor[];
+  consolidacao: ConsolidacaoCena;
+  /** Só as falas do AVALIADO — é nelas que a citação tem de existir. */
+  falasDoAvaliado: string[];
+}
+
+/**
+ * Normalização para comparar citação com transcrição: sem acento, sem caixa,
+ * espaços colapsados e pontuação de borda removida.
+ *
+ * Deliberadamente TOLERANTE. O objetivo é pegar paráfrase e invenção, não punir
+ * o extrator por ter aparado uma vírgula. Um comparador exato geraria ruído que
+ * ninguém leria — e alarme que ninguém lê é alarme desligado.
+ */
+export function normalizar(t: string): string {
+  return String(t ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Citação curta demais não dá para verificar — e não dá para auditar depois. */
+export const MIN_CITACAO = 25;
+
+export function validarSaidaDaCena(e: EntradaValidacao): Violacao[] {
+  const v: Violacao[] = [];
+  const erro = (campo: string, detalhe: string) => v.push({ severidade: 'erro', campo, detalhe });
+  const aviso = (campo: string, detalhe: string) => v.push({ severidade: 'aviso', campo, detalhe });
+
+  // ── Contrato de entrada ───────────────────────────────────────────────────
+  if (!e.contrato.armadilha.trim()) erro('contrato', 'armadilha vazia — o personagem não sabe o que recusar');
+  if (!e.contrato.tradeoff.trim()) erro('contrato', 'tradeoff vazio');
+  if (!e.contrato.complicador.trim()) erro('contrato', 'fator complicador vazio');
+
+  // ── Domínio dos índices ───────────────────────────────────────────────────
+  if (e.consolidacao.indicesInvalidos.length) {
+    erro('evidencias.descritor',
+      `índices fora de 1..${e.numDescritores}: ${e.consolidacao.indicesInvalidos.join(', ')} — ` +
+      'sinal de que o extrator numerou as ENTRADAS em vez de apontar o descritor');
+  }
+
+  // Numeração sequencial disfarçada: mesmo dentro da faixa, se os índices forem
+  // exatamente 1,2,3…N na ordem em que aparecem, é contador, não descritor.
+  const seq = e.evidencias.map((x) => x.indice);
+  const pareceContador = seq.length >= e.numDescritores &&
+    seq.slice(0, e.numDescritores).every((n, k) => n === k + 1) &&
+    new Set(seq.slice(0, e.numDescritores)).size === e.numDescritores;
+  if (pareceContador && seq.length > e.numDescritores) {
+    erro('evidencias.descritor', 'os primeiros índices são 1,2,3… na ordem — provável contador de linha');
+  }
+
+  // ── Turnos e beats ────────────────────────────────────────────────────────
+  for (const ev of e.evidencias) {
+    if (ev.turno != null && (ev.turno < 1 || ev.turno > e.turnos)) {
+      erro('evidencias.turno', `turno ${ev.turno} fora de 1..${e.turnos}`);
+    }
+    if (ev.beat != null && (ev.beat < 1 || ev.beat > e.totalBeats)) {
+      erro('evidencias.beat', `beat ${ev.beat} fora de 1..${e.totalBeats}`);
+    }
+    if (ev.beat != null && !e.beatsCumpridos.includes(ev.beat)) {
+      aviso('evidencias.beat', `evidência no beat ${ev.beat}, que não consta como cumprido`);
+    }
+    if (!['demonstrou', 'tentou', 'falhou', 'sem_sinal'].includes(ev.veredito)) {
+      erro('evidencias.veredito', `veredito desconhecido: ${ev.veredito}`);
+    }
+    if (!['fraca', 'moderada', 'forte'].includes(ev.forca)) {
+      erro('evidencias.forca', `força desconhecida: ${ev.forca}`);
+    }
+  }
+
+  // ── A citação é literal? ──────────────────────────────────────────────────
+  //
+  // Nunca tinha sido conferido, e é o alicerce do protocolo de âncora: os
+  // avaliadores humanos classificam CONTRA a citação. Se o extrator parafraseia,
+  // não há o que auditar — e a paráfrase é indistinguível da invenção.
+  const transcricao = normalizar(e.falasDoAvaliado.join('  '));
+  for (const ev of e.evidencias) {
+    if (ev.veredito === 'sem_sinal') continue;
+    const c = normalizar(ev.citacao);
+    if (!c) { erro('evidencias.citacao', `D${ev.indice} sem citação`); continue; }
+    if (c.length < MIN_CITACAO) {
+      aviso('evidencias.citacao', `D${ev.indice}: citação curta demais para verificar ("${ev.citacao}")`);
+      continue;
+    }
+    /**
+     * Reticências marcam EMENDA, e emenda é citação legítima.
+     *
+     * Medido em 25/08/2026: o extrator devolveu `"…precisa tratar no
+     * planejamento do próximo semestre... Anota aí"` — os dois fragmentos
+     * existem na fala, separados por outras frases. Recusar isso reprovaria
+     * citação honesta e treinaria o extrator a citar menos, que é o oposto do
+     * que se quer: quanto mais literal e mais completa, melhor para o humano
+     * auditar. Cada fragmento é verificado por si.
+     */
+    const fragmentos = ev.citacao.split(/\.{2,}|…/).map(normalizar).filter((f) => f.length >= MIN_CITACAO);
+    const paraVerificar = fragmentos.length ? fragmentos : [c];
+    const ausentes = paraVerificar.filter((f) => !transcricao.includes(f));
+    if (ausentes.length) {
+      erro('evidencias.citacao',
+        `D${ev.indice}: citação NÃO aparece na fala do avaliado — paráfrase ou invenção: "${ev.citacao.slice(0, 70)}"`);
+    }
+  }
+
+  // ── Aritmética da consolidação ────────────────────────────────────────────
+  const notas = e.consolidacao.notas;
+  if (notas.length !== e.numDescritores) {
+    erro('consolidacao.notas', `${notas.length} notas para ${e.numDescritores} descritores`);
+  }
+  const medidas = notas.filter((n): n is number => n != null);
+  if (e.consolidacao.cobertura.medidos !== medidas.length) {
+    erro('consolidacao.cobertura', `medidos=${e.consolidacao.cobertura.medidos} mas há ${medidas.length} notas`);
+  }
+  const semSinalEsperado = notas.map((n, k) => (n == null ? k + 1 : 0)).filter(Boolean);
+  if (JSON.stringify(e.consolidacao.semSinal) !== JSON.stringify(semSinalEsperado)) {
+    erro('consolidacao.semSinal', `semSinal=${e.consolidacao.semSinal} não bate com as notas nulas`);
+  }
+  if (medidas.length) {
+    const media = Number((medidas.reduce((a, b) => a + b, 0) / medidas.length).toFixed(2));
+    if (Math.abs(media - (e.consolidacao.media ?? -1)) > 0.005) {
+      erro('consolidacao.media', `média informada ${e.consolidacao.media}, calculada ${media}`);
+    }
+  } else if (e.consolidacao.media != null) {
+    erro('consolidacao.media', 'média não-nula sem nenhuma nota');
+  }
+
+  // Nível: ou é null com motivo, ou é coerente com a média.
+  if (e.consolidacao.nivel == null && !e.consolidacao.nivelSuprimidoPorque) {
+    erro('consolidacao.nivel', 'nível nulo sem motivo declarado');
+  }
+  if (e.consolidacao.nivel != null && e.consolidacao.nivelSuprimidoPorque) {
+    erro('consolidacao.nivel', 'nível publicado E motivo de supressão ao mesmo tempo');
+  }
+
+  return v;
+}
+
+/** `true` quando não há nenhum `erro` — avisos não bloqueiam. */
+export const saidaConfiavel = (vs: Violacao[]) => !vs.some((x) => x.severidade === 'erro');

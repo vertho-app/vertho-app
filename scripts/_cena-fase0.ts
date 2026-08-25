@@ -34,6 +34,7 @@ import {
   type ContextoCena, type DescritorDaRegua, type EstadoCena, type PersonaInterlocutor,
 } from '@/lib/season-engine/cena/core';
 import { consolidarCena, montarBeatsDaCena, type PerguntaIA3 } from '@/lib/season-engine/cena/beats';
+import { validarSaidaDaCena, saidaConfiavel } from '@/lib/season-engine/cena/validar-saida';
 
 // O aluno é OVERHEAD de medição (netável pelo `source: 'simulator'`), mas o
 // modelo dele NÃO é escolha de custo — é de validade da medida, por dois motivos:
@@ -247,7 +248,45 @@ async function rodarUmaCena(
     ? consolidarCena(extracao.evidencias, ctx.descritores.length,
         { beats: ctx.beats, beatsCumpridos: estado.beatsCumpridos })
     : null;
-  return { nivel, estado, extracao, consolidacao, transcricao: transcrever(estado) };
+  /**
+   * VALIDA ANTES DE DEIXAR VIRAR NÚMERO.
+   *
+   * Três rodadas de medição foram perdidas porque nada olhava o resultado —
+   * média e nível sempre saem, inclusive sobre entrada sem sentido. Agora cada
+   * cena é auditada, as violações viajam no JSON, e o relatório recusa agregar
+   * se houver erro.
+   */
+  const violacoes = extracao && consolidacao
+    ? validarSaidaDaCena({
+        numDescritores: ctx.descritores.length,
+        totalBeats: ctx.beats.length,
+        turnos: estado.turno,
+        beatsCumpridos: estado.beatsCumpridos,
+        contrato: {
+          armadilha: ctx.cenario.armadilhaGenerica,
+          tradeoff: ctx.cenario.tradeoffTestado,
+          complicador: ctx.cenario.fatorComplicador,
+        },
+        evidencias: extracao.evidencias,
+        consolidacao,
+        falasDoAvaliado: estado.historico.filter((m) => m.role === 'user').map((m) => m.content),
+      })
+    : [{ severidade: 'erro' as const, campo: 'extracao', detalhe: 'extração ausente' }];
+
+  const erros = violacoes.filter((x) => x.severidade === 'erro');
+  const avisos = violacoes.filter((x) => x.severidade === 'aviso');
+  if (erros.length) {
+    console.log(`  [N${nivel}] ✗ SAÍDA INVÁLIDA — ${erros.length} erro(s):`);
+    erros.slice(0, 8).forEach((x) => console.log(`        ${x.campo}: ${x.detalhe.slice(0, 150)}`));
+  } else if (avisos.length) {
+    console.log(`  [N${nivel}] ⚠ ${avisos.length} aviso(s) — resultado vale, mas leia`);
+  }
+
+  return {
+    nivel, estado, extracao, consolidacao, violacoes,
+    confiavel: saidaConfiavel(violacoes),
+    transcricao: transcrever(estado),
+  };
 }
 
 async function cmdCena(slug: string, codComp: string) {
@@ -347,6 +386,15 @@ async function cmdCena(slug: string, codComp: string) {
     console.log(`  nota média / nível:   ${c?.media ?? '—'} / ${c?.nivel ? `N${c.nivel}` : '—'}`);
     console.log(`  encerramentos negados:${r.estado.encerramentosNegados.length} ${r.estado.encerramentosNegados.map((e: any) => `t${e.turno}/beat${e.beat}`).join(' ')}`);
     console.log(`  guarda barrou:        ${r.estado.bloqueios.length}`);
+  }
+
+  const invalidas = rodadas.filter((r: any) => !r.confiavel);
+  if (invalidas.length) {
+    console.log(`\n🔴 ${invalidas.length} de ${rodadas.length} cenas com SAÍDA INVÁLIDA.`);
+    console.log('   Nenhuma agregação é publicada — três rodadas já foram perdidas por');
+    console.log('   confiar num número que sempre sai. Corrija a causa e rode de novo.');
+    console.log(`\n→ ${saidaParcial} (para diagnóstico)\n`);
+    return;
   }
 
   const comNota = rodadas.filter((r) => r.consolidacao?.media != null);
