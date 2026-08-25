@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { PERSONAS, comportamentosDoDisc, mesclarPersonaArtifacts } from '@/lib/demo/reset-acme-demo';
+import { DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, mesclarPersonaArtifacts } from '@/lib/demo/reset-acme-demo';
+import { DEMO_PERSONAS } from '@/lib/sales/demo-personas';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile, DISC_SOMA_ALVO } from '@/lib/disc-mapeamento';
 import fixture from '@/lib/demo/acme-demo-fixture.json';
@@ -14,6 +15,15 @@ import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
  * `comp_persistencia = S = 24` impossível pela regressão canônica.
  */
 describe('Personas do acme-demo seguem a régua do produto', () => {
+  it('o RH existe como acesso, mas não entra na lista de participantes', () => {
+    expect(PERSONAS.some((p) => p.email === DEMO_RH_PERSONA.email)).toBe(false);
+    expect(DEMO_PERSONAS.find((p) => p.key === DEMO_RH_PERSONA.key)).toMatchObject({
+      email: DEMO_RH_PERSONA.email,
+      papel: 'RH',
+      disc: null,
+    });
+  });
+
   it('todo DISC soma 200', () => {
     for (const p of PERSONAS as any[]) {
       const soma = p.d_natural + p.i_natural + p.s_natural + p.c_natural;

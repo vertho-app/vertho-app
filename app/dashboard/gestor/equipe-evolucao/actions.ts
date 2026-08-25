@@ -36,7 +36,7 @@ export async function listarEquipeEvolucao() {
   }
 
   let colabQ = sb.from('colaboradores')
-    .select('id, nome_completo, cargo, email, area_depto, gestor_email')
+    .select('id, nome_completo, cargo, email, area_depto, gestor_email, role')
     .eq('empresa_id', empresaId)
     .neq('id', meuId);
   if (isGestor && meuEmail) {
@@ -48,6 +48,7 @@ export async function listarEquipeEvolucao() {
   }
   let { data: colabs } = await colabQ;
   // Segunda trava, em CÓDIGO: o banco filtra por padrão, a igualdade decide.
+  colabs = (colabs || []).filter((c: any) => c.role !== 'rh');
   if (isGestor && meuEmail) colabs = (colabs || []).filter((c: any) => mesmoEmail(c.gestor_email, meuEmail));
   if (!colabs?.length) return { ok: true, rows: [], resumo: { total: 0 } };
 

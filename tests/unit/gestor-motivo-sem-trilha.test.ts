@@ -23,6 +23,7 @@ const COLABS = [
   { id: 'p1', nome_completo: 'Sem Perfil', cargo: 'Professor(a)', email: 'p1@x.com', perfil_dominante: null, perfil_externo_dados: null, gestor_email: null },
   { id: 'p2', nome_completo: 'Perfil Sem Avaliacao', cargo: 'Professor(a)', email: 'p2@x.com', perfil_dominante: 'D', perfil_externo_dados: null, gestor_email: null },
   { id: 'p3', nome_completo: 'Pronto', cargo: 'Diretor(a)', email: 'p3@x.com', perfil_dominante: 'S', perfil_externo_dados: null, gestor_email: null },
+  { id: 'rh2', nome_completo: 'Outro RH', cargo: 'Analista de RH', email: 'rh2@x.com', perfil_dominante: null, perfil_externo_dados: null, gestor_email: null, role: 'rh' },
 ];
 
 /** Trilhas do tenant — os testes trocam para exercitar quem JA esta em jornada. */
@@ -72,6 +73,11 @@ describe('motivo de estar sem trilha', () => {
     const m = await motivos();
     expect(m.p3).toBe('aguardando_geracao');
     expect(m.p3).not.toBe('sem_mapeamento');
+  });
+
+  it('não trata outra conta de RH como participante pendente', async () => {
+    const m = await motivos();
+    expect(m).not.toHaveProperty('rh2');
   });
 
   it('consulta indisponível apaga o motivo em vez de acusar', async () => {

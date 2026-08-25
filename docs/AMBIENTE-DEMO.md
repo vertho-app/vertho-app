@@ -3,9 +3,10 @@
 Tenant `acme-demo` (empresa "ACME Demo") que os vendedores usam nas demos para clientes. Nasce com um estado rico e é resetado ao estado inicial sob demanda e toda madrugada.
 
 ## O que o cliente vê ao abrir (tudo pronto, SEM IA no reset)
-- **6 personas** em estágios diferentes da jornada e em **áreas diferentes** (mostra que a plataforma vai além do comercial):
+- **6 participantes** em estágios diferentes da jornada e em **áreas diferentes**, mais **1 persona de RH** que consome o panorama da empresa:
   - **Ana** (Representante Comercial, IS, novo), **Paulo** (Rep. Comercial, IC, parcial), **Bruna** (Rep. Comercial, CS, completo), **Carla** (Gerente Comercial, D, gestora).
   - **Mariana** (Analista Financeiro, CS, completo) e **Renato** (Coordenador de Operações, DS, novo) — cargos fora de vendas (Financeiro e Operações).
+  - **Helena** (Gerente de Recursos Humanos, papel `rh`) — sem DISC/trilha por desenho; vê o funil, colaboradores, ranking e relatórios e não entra nas métricas de participantes.
 - **DISC / Perfil Comportamental** das 6 (narrativas LLM `report_texts` congeladas → relatório abre instantâneo).
 - **Mapeamento de competências avaliado** (respostas com nota da IA4 + `descriptor_assessments`): Bruna 5, Mariana 5 (30 `descriptor_assessments` congelados), Paulo 2.
 - **2 jornadas/trilhas** de 14 semanas: Bruna (Negociação e Fechamento) e Paulo (Orientação a Metas e Resultados).
@@ -21,6 +22,26 @@ Três caminhos, uma fonte única (`lib/demo/reset-acme-demo.ts::resetAcmeDemo`, 
 | **Sob demanda** | Botão "Resetar demo agora" em `/admin/demo` (server action `resetarDemoAcme`, gated a platform admin + `admin_audit_log`) | Vendedor prepara demo limpa na hora |
 | **Noturno** | `/api/cron?action=reset_demo` (gated CRON_SECRET) + `vercel.json` `0 7 * * *` (04h BRT). Falha → 500 (log Vercel) + audit | Automático |
 | **Manual (CLI)** | `npm run reset:demo` (= `npx tsx scripts/seed-acme-demo.ts`) — DELEGA ao reset canônico (mesmo fixture + artefatos do botão/cron) | CLI/scripts/CI |
+
+## Acesso temporário para prospect
+
+Para uma degustação assíncrona, use as três contas estáveis no mesmo tenant:
+
+| Visão | Conta |
+|---|---|
+| Participante | `bruna.demo@vertho.ai` |
+| Liderança | `carla.demo@vertho.ai` |
+| RH | `helena.demo@vertho.ai` |
+
+Depois do reset, abra `/admin/demo` e clique **Preparar acessos temporários**. A ação
+valida que o alvo é `acme-demo` com `is_demo=true`, confere as três personas e
+cria/rotaciona uma senha temporária única. A senha aparece apenas na tela e não é
+gravada no repositório nem no log de auditoria.
+
+O prospect entra em `https://acme-demo.vertho.ai/login`, escolhe **Entrar com senha**
+e usa **Sair** antes de trocar de visão. O reset noturno recompõe os dados do tenant,
+mas não altera os usuários do Auth; use o mesmo botão ao fim da degustação para
+rotacionar a credencial.
 
 ## Fixture congelado
 O reset semeia de `lib/demo/acme-demo-fixture.json` (golden state VERSIONADO), **não** do acme vivo → a demo é estável e imune a mexidas no `acme`. O fixture guarda:

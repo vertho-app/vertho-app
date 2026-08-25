@@ -202,7 +202,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // Fail-closed: se zero match, retorna lista vazia.
   const meuEmail = ctx.colaborador.email?.toLowerCase().trim();
   let colabQ = sb.from('colaboradores')
-    .select('id, nome_completo, cargo, email, area_depto, perfil_dominante, perfil_externo_dados, perfil_externo_pdf_path, foto_url, gestor_email')
+    .select('id, nome_completo, cargo, email, area_depto, perfil_dominante, perfil_externo_dados, perfil_externo_pdf_path, foto_url, gestor_email, role')
     .eq('empresa_id', empresaId)
     .neq('id', meuId);
   if (isGestor && meuEmail) {
@@ -224,7 +224,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // exata (case-insensitive): é a MESMA régua do gate de posse em
   // getPerfilExternoPdfUrl, então ver e abrir nunca divergem.
   const liderados = (colabs || []).filter((c: any) =>
-    !isGestor || !meuEmail || (c.gestor_email || '').toLowerCase().trim() === meuEmail,
+    c.role !== 'rh' && (!isGestor || !meuEmail || (c.gestor_email || '').toLowerCase().trim() === meuEmail),
   );
   const liderId2obj = new Map(liderados.map((c: any) => [c.id, c]));
   const liderIds = liderados.map((c: any) => c.id);

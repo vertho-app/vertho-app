@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { MonitorPlay, Loader2, ExternalLink, ShieldCheck, Info } from 'lucide-react';
 import { listarPersonasDemo, entrarNoDemoComoPersona } from '@/actions/sales/demo-access';
 
-type Persona = { key: string; nome: string; papel: string; cenario: string; disc: string; hint: string };
+type Persona = { key: string; nome: string; papel: string; cenario: string; disc: string | null; hint: string };
 
 const DISC_COR: Record<string, string> = { D: '#EF4444', I: '#F59E0B', S: '#22C55E', C: '#3B82F6' };
 
@@ -79,12 +79,14 @@ export default function DemoPage() {
               style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)' }}>
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                  style={{ background: `${DISC_COR[p.disc] || '#64748B'}22`, color: DISC_COR[p.disc] || '#94a3b8', border: `1px solid ${DISC_COR[p.disc] || '#64748B'}55` }}>
+                  style={{ background: `${DISC_COR[p.disc || ''] || '#64748B'}22`, color: DISC_COR[p.disc || ''] || '#94a3b8', border: `1px solid ${DISC_COR[p.disc || ''] || '#64748B'}55` }}>
                   {p.nome.split(' ').map((n) => n[0]).slice(0, 2).join('')}
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-white truncate">{p.nome}</p>
-                  <p className="text-[11px] text-gray-400">{p.papel} · {p.cenario} · DISC {p.disc}</p>
+                  <p className="text-[11px] text-gray-400">
+                    {p.papel} · {p.cenario}{p.disc ? ` · DISC ${p.disc}` : ''}
+                  </p>
                 </div>
               </div>
               <p className="text-[11px] text-gray-500 leading-relaxed flex-1 mb-3">{p.hint}</p>

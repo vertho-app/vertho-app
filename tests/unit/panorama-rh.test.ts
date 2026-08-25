@@ -61,6 +61,16 @@ describe('panorama do RH', () => {
     expect(p.indisponivel).toBe(false);
   });
 
+  it('não inclui contas de RH no funil de participantes', async () => {
+    await carregarPanoramaRH('emp-1');
+    const exclusoes = sb.chamadas.filter((c) =>
+      c.tabela === 'colaboradores' && c.metodo === 'neq'
+      && c.args[0] === 'role' && c.args[1] === 'rh',
+    );
+    // Uma exclusão no total de pessoas e outra no total com perfil.
+    expect(exclusoes).toHaveLength(2);
+  });
+
   it('escopa por tenant e só olha trilha ATIVA', async () => {
     await carregarPanoramaRH('emp-1');
     expect(sb.usou('colaboradores', 'eq', 'empresa_id')).toBe(true);

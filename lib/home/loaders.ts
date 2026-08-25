@@ -620,7 +620,8 @@ export async function carregarPanoramaRH(empresaId: string) {
 
   const [pessoasRes, comPerfilRes, trilhasRes, encerradasRes, assessRes] = await Promise.all([
     tdb.from('colaboradores')
-      .select('id', { count: 'exact', head: true }),
+      .select('id', { count: 'exact', head: true })
+      .neq('role', 'rh'),
     // 🔑 `perfil_dominante`, não `disc_resultados`. É a MESMA coluna que o resto
     // do app usa para decidir se a pessoa tem perfil — o gate da home
     // (`precisaMapeamentoDISC`), o alerta do gestor e o mapa de perfis. Medido em
@@ -631,9 +632,11 @@ export async function carregarPanoramaRH(empresaId: string) {
     fonteExterna
       ? tdb.from('colaboradores')
           .select('id', { count: 'exact', head: true })
+          .neq('role', 'rh')
           .not('perfil_externo_dados', 'is', null)
       : tdb.from('colaboradores')
           .select('id', { count: 'exact', head: true })
+          .neq('role', 'rh')
           .or('perfil_dominante.not.is.null,perfil_externo_dados.not.is.null'),
     tdb.from('trilhas')
       .select('id, colaborador_id, data_inicio, temporada_plano')

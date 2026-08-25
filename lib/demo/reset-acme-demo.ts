@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { randomBytes } from 'node:crypto';
 import fixture from '@/lib/demo/acme-demo-fixture.json';
 // Artefatos de IA CONGELADOS dos cargos extra (Financeiro/Operações/Gerente):
 // gabaritos (IA2) + cenários ricos com rubrica N1-N4 (IA3). Gerados 1x no
@@ -48,6 +49,21 @@ const DEMO_MANAGER = {
   email: 'carla.demo@vertho.ai',
   whatsapp: null as string | null,
 };
+
+/**
+ * A administradora da empresa vive no mesmo tenant, mas NÃO é uma participante
+ * da jornada. Mantê-la fora de `PERSONAS` é deliberado: aquela lista passa pela
+ * régua DISC, recebe artefatos e entra no ranking; o papel `rh` só consome o
+ * panorama e os relatórios da organização.
+ */
+export const DEMO_RH_PERSONA = {
+  key: 'helena',
+  nome_completo: 'Helena Duarte',
+  email: 'helena.demo@vertho.ai',
+  cargo: 'Gerente de Recursos Humanos',
+  role: 'rh',
+  area_depto: 'Recursos Humanos',
+} as const;
 
 const ACME_DEMO_PPP = {
   perfil_instituicao: {
@@ -240,6 +256,14 @@ export interface ResetDemoResult {
   ok: boolean;
   empresaId?: string;
   counts?: Record<string, number | null>;
+  error?: string;
+}
+
+export interface DemoAccessResult {
+  ok: boolean;
+  url?: string;
+  senha?: string;
+  acessos?: Array<{ visao: string; nome: string; email: string }>;
   error?: string;
 }
 
@@ -482,6 +506,26 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
       }).select('id').single());
       idMap.set(p.key, inserted.id);
     }
+
+    // O RH precisa de uma linha em colaboradores para resolver tenant e papel,
+    // mas nasce sem DISC, avaliação ou trilha: ela administra o programa, não o
+    // percorre. As métricas do RH excluem `role='rh'`, portanto esta conta não
+    // cria um gargalo fictício no próprio funil que ela consulta.
+    const rh = await must('insert persona rh', sb.from('colaboradores').insert({
+      empresa_id: destId,
+      nome_completo: DEMO_RH_PERSONA.nome_completo,
+      email: DEMO_RH_PERSONA.email,
+      cargo: DEMO_RH_PERSONA.cargo,
+      role: DEMO_RH_PERSONA.role,
+      area_depto: DEMO_RH_PERSONA.area_depto,
+      gestor_nome: null,
+      gestor_email: null,
+      gestor_whatsapp: null,
+      perfil_dominante: null,
+      disc_resultados: null,
+    }).select('id').single());
+    idMap.set(DEMO_RH_PERSONA.key, rh.id);
+
     return idMap;
   }
 
@@ -705,5 +749,80 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
   } catch (err: any) {
     console.error('[reset-demo] ERRO:', err?.message);
     return { ok: false, error: err?.message || 'erro desconhecido' };
+  }
+}
+
+/**
+ * Cria/rotaciona a senha das três contas que um prospect recebe. O caller é
+ * responsável pelo gate de platform admin e pelo audit log; este núcleo repete
+ * as travas de alvo para nunca alterar credenciais fora do tenant de demo.
+ */
+export async function prepararAcessosDemo(): Promise<DemoAccessResult> {
+  const acessos = [
+    { visao: 'Participante', nome: 'Bruna Costa', email: 'bruna.demo@vertho.ai', role: 'colaborador' },
+    { visao: 'Liderança', nome: 'Carla Menezes', email: 'carla.demo@vertho.ai', role: 'gestor' },
+    { visao: 'RH', nome: DEMO_RH_PERSONA.nome_completo, email: DEMO_RH_PERSONA.email, role: DEMO_RH_PERSONA.role },
+  ] as const;
+
+  try {
+    const sb = createSupabaseAdmin();
+    const { data: empresa, error: empresaError } = await sb.from('empresas')
+      .select('id, is_demo')
+      .eq('slug', DEMO_SLUG)
+      .maybeSingle();
+    if (empresaError) throw new Error(`carregar tenant: ${empresaError.message}`);
+    if (!empresa?.id || empresa.is_demo !== true) {
+      throw new Error('O tenant acme-demo não existe ou não está marcado como demonstração.');
+    }
+
+    const emails = acessos.map((a) => a.email);
+    const { data: colabs, error: colabsError } = await sb.from('colaboradores')
+      .select('email, role')
+      .eq('empresa_id', empresa.id)
+      .in('email', emails);
+    if (colabsError) throw new Error(`validar personas: ${colabsError.message}`);
+    for (const acesso of acessos) {
+      const colab = (colabs || []).find((c) => c.email?.toLowerCase() === acesso.email);
+      if (!colab || colab.role !== acesso.role) {
+        throw new Error(`${acesso.email} não existe no acme-demo com role=${acesso.role}. Resete o ambiente antes de preparar os acessos.`);
+      }
+    }
+
+    async function buscarUsuario(email: string) {
+      const perPage = 200;
+      for (let page = 1; page <= 50; page++) {
+        const { data, error } = await sb.auth.admin.listUsers({ page, perPage });
+        if (error) throw new Error(`listar usuários: ${error.message}`);
+        // O SDK declara `User[] | []`; a anotação evita o callback `never`.
+        const users = data.users as Array<{ id: string; email?: string }>;
+        const user = users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+        if (user) return user;
+        if (users.length < perPage) return null;
+      }
+      throw new Error('Busca de usuário excedeu 10.000 contas.');
+    }
+
+    const senha = `Demo-${randomBytes(9).toString('base64url')}-Aa7!`;
+    // Só depois de validar tenant + as três personas exatas alteramos o Auth.
+    for (const acesso of acessos) {
+      const existente = await buscarUsuario(acesso.email);
+      if (existente) {
+        const { error } = await sb.auth.admin.updateUserById(existente.id, { password: senha, email_confirm: true });
+        if (error) throw new Error(`atualizar ${acesso.email}: ${error.message}`);
+      } else {
+        const { error } = await sb.auth.admin.createUser({ email: acesso.email, password: senha, email_confirm: true });
+        if (error) throw new Error(`criar ${acesso.email}: ${error.message}`);
+      }
+    }
+
+    return {
+      ok: true,
+      url: 'https://acme-demo.vertho.ai/login',
+      senha,
+      acessos: acessos.map(({ visao, nome, email }) => ({ visao, nome, email })),
+    };
+  } catch (error: any) {
+    console.error('[demo-access] preparar contas:', error?.message);
+    return { ok: false, error: error?.message || 'erro desconhecido' };
   }
 }

@@ -8,6 +8,7 @@
     "admin": "<e-mail que esteja na tabela platform_admins>",
     "colab": "<colaborador da demo com trilha ativa>",
     "gestor": "<colaborador da demo com role=gestor e liderados>",
+    "rh": "<colaborador da demo com role=rh>",
     "rep": "<e-mail com linha em sales_representatives>"
   },
   "ids": {
