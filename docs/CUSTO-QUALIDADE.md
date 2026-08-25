@@ -484,6 +484,55 @@ bateram em todos os nove — o que sobra é qualidade de escrita, e essa decisã
 para leitura cega (artefato `e8161cfa-fead-4bee-a9d1-fac9c9df0421`, 9 PDIs
 anonimizados A–I sobre persona fictícia).
 
+### Painel cego cross-família — 25/08/2026 (a leitura humana SEGUE PENDENTE)
+
+`scripts/_pdi-leitura-cega-painel.ts`. Os 9 corpos são extraídos do artefato com
+o `data-slug` removido (o slug é o gabarito do botão "revelar"), e o payload é
+conferido contra qualquer nome de modelo — se vazar, o script **aborta** em vez
+de rodar cego-de-mentira. Quatro juízes, um por família, teto 16k, 300s.
+
+🔑 **O viés foi MEDIDO, não ignorado.** Todo juiz disponível é também
+concorrente: dos 9 textos, 4 são Claude, 3 GPT, 1 Gemini, 1 Kimi. Então o script
+calcula, por juiz, a posição média que ele deu à própria família contra as
+outras, e publica um agregado **neutralizado** — cada texto pontuado só por
+juízes de OUTRA família.
+
+| Juiz | própria família | outras | veredito |
+|---|---:|---:|---|
+| `gpt-5.6-sol` | 3,33 | 5,83 | 🔴 favorece a própria em 2,5 posições |
+| `gemini-3.7-flash` | 4,00 | 5,13 | sem viés claro |
+| `kimi-k3` | 5,00 | 5,00 | sem viés claro |
+| `qwen3.8-max` | — | — | **sem texto próprio no conjunto: juiz neutro** |
+
+**Ranking neutralizado** (1 = melhor): C `opus-5 high+thinking` **1,00** ·
+A `sonnet-5` **3,00** · H `sonnet-5 high` 5,50 · E `sonnet-4-6` 5,75 ·
+F `kimi-k3 low` 6,00 · B/D `luna low`/`gemini-3.6` 6,67 · G/I `terra high`/`luna high` 7,00.
+
+Três coisas que isto move:
+
+1. **C foi primeiro para os QUATRO juízes** — inclusive o neutro (Qwen) e o
+   enviesado a favor da OpenAI. É o achado mais robusto do conjunto.
+2. **Sonnet 5 (3,00) acima do 4.6 (5,75)** — os quatro pins de saída longa
+   deixam de estar apoiados só em custo. Fraco, mas na direção do que já estava
+   decidido, e não contra.
+3. **`sonnet-5` bateu `sonnet-5 high`** (3,00 vs 5,50): mais esforço não
+   escreveu melhor. Pagar `effort: high` em PROSA não se justifica com este dado.
+
+⚠️ **O que isto NÃO é.** n=4, juízes LLM, e os quatro primeiros lugares são todos
+Claude — o que pode ser qualidade ou pode ser um viés sistemático de estilo que
+todo juiz LLM compartilha. Não dá para separar as duas hipóteses com juiz LLM
+nenhum. **A leitura humana continua sendo o veredito**, e o artefato está intacto
+para ela; isto é insumo que diz por onde começar (C e A) e o que já dá para parar
+de pagar (`effort: high` em prosa).
+
+⚠️ **Dois juízes falharam na primeira rodada, e as duas falhas ensinam:**
+`kimi-k3` gastou **3.997 de 4.000 tokens em raciocínio** e devolveu conteúdo
+VAZIO com HTTP 200 — pego pelo `conteudoOuFalhaAlto` (25/08); antes ele viraria
+`""` silencioso e o juiz entraria na apuração como se tivesse votado. E
+`qwen3.8-max` estourou os 120s do timeout padrão, exatamente como os ~21 tok/s
+medidos previam. Modelo que raciocina precisa de teto folgado; modelo lento
+precisa de timeout próprio.
+
 **A única métrica objetiva que discriminou foi densidade** — bytes de markdown
 legível ÷ tokens de saída, isto é, quanto do que se paga vira texto que a pessoa lê:
 
