@@ -39,6 +39,7 @@ import {
   adquirirLock, carregarShards, escreverAtomico, shardPath,
 } from '@/lib/season-engine/cena/arquivo';
 import { validarSaidaDaCena, saidaConfiavel } from '@/lib/season-engine/cena/validar-saida';
+import { medirDitado, TETO_DITADO } from '@/lib/season-engine/cena/ditado';
 
 // O aluno é OVERHEAD de medição (netável pelo `source: 'simulator'`), mas o
 // modelo dele NÃO é escolha de custo — é de validade da medida, por dois motivos:
@@ -400,7 +401,16 @@ async function cmdCena(slug: string, codComp: string) {
     console.log(`  beats cumpridos:      ${r.estado.beatsCumpridos.join(', ') || 'nenhum'}`);
     console.log(`  cobertura:            ${c ? `${c.cobertura.medidos}/${c.cobertura.total}` : 'sem extração'}`);
     console.log(`  descritores sem sinal:${c?.semSinal.length ? ' ' + c.semSinal.map((d: number) => `D${d}`).join(', ') : ' nenhum'}`);
-    console.log(`  nota média / nível:   ${c?.media ?? '—'} / ${c?.nivel ? `N${c.nivel}` : '—'}`);
+    console.log(`  AUTONOMIA (rótulo):   ${c?.media ?? '—'} / ${c?.nivel ? `N${c.nivel}` : '—'}${c?.nivelSuprimidoPorque ? ` (suprimido: ${c.nivelSuprimidoPorque})` : ''}`);
+    console.log(`  assistido (fim):      ${c?.encerramento.media ?? '—'} / ${c?.encerramento.nivel ? `N${c.encerramento.nivel}` : '—'}`);
+    // Os dois observáveis do pré-registro da 0d. Sem eles a rodada não responde
+    // o que ela foi feita para responder — e "o observável existe ANTES" é regra
+    // desta base, não zelo.
+    const dit = medirDitado(r.extracao?.evidencias ?? [], r.estado.historico);
+    console.log(`  ditação nas citações: ${dit.ditadas}/${dit.ditadas + dit.proprias}` +
+      `${dit.taxa == null ? ' (indecidível)' : ` = ${(100 * dit.taxa).toFixed(0)}%`}` +
+      `${dit.taxa != null && dit.taxa > TETO_DITADO ? '  🔴 ACIMA DO TETO' : ''}`);
+    console.log(`  interlocutor ditou:   ${r.estado.ditados.length}${r.estado.ditados.length ? ' ' + r.estado.ditados.map((d: any) => `t${d.turno}(${d.elemento})`).join(' ') : ''}`);
     console.log(`  encerramentos negados:${r.estado.encerramentosNegados.length} ${r.estado.encerramentosNegados.map((e: any) => `t${e.turno}/beat${e.beat}`).join(' ')}`);
     console.log(`  guarda barrou:        ${r.estado.bloqueios.length}`);
   }
@@ -412,6 +422,34 @@ async function cmdCena(slug: string, codComp: string) {
     console.log('   confiar num número que sempre sai. Corrija a causa e rode de novo.');
     console.log(`\n→ ${saidaParcial} (para diagnóstico)\n`);
     return;
+  }
+
+  /**
+   * O agregado do pré-registro da 0d: por braço, autonomia e assistido, e as
+   * duas taxas que dizem se a cena vale como medida. Impasse e turnos entram
+   * porque foram PREVISTOS para subir — sem a linha, "subiu" vira impressão.
+   */
+  const braços = [...new Set(rodadas.map((r: any) => r.nivel))].sort();
+  if (braços.length) {
+    const md = (xs: number[]) => (xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(2) : '—');
+    console.log(`
+${'─'.repeat(72)}
+POR BRAÇO
+`);
+    console.log('ator  n   autonomia            assistido   turnos  impasse  ditação');
+    for (const nv of braços) {
+      const g = rodadas.filter((r: any) => r.nivel === nv && r.consolidacao);
+      if (!g.length) continue;
+      const aut = md(g.map((r: any) => r.consolidacao.media).filter((n: any) => n != null));
+      const ass = md(g.map((r: any) => r.consolidacao.encerramento.media).filter((n: any) => n != null));
+      const turnos = md(g.map((r: any) => r.estado.turno));
+      const impasse = g.filter((r: any) => r.estado.motivoFim === 'impasse').length;
+      const taxas = g.map((r: any) => medirDitado(r.extracao?.evidencias ?? [], r.estado.historico).taxa)
+        .filter((t: any): t is number => t != null);
+      const niveis = g.map((r: any) => `N${r.consolidacao.nivel ?? '-'}`).join(' ');
+      console.log(`N${nv}    ${String(g.length).padEnd(3)} ${aut} [${niveis}]   ${ass}       ${turnos}    ` +
+        `${impasse}/${g.length}      ${taxas.length ? (100 * taxas.reduce((a, b) => a + b, 0) / taxas.length).toFixed(0) + '%' : '—'}`);
+    }
   }
 
   const comNota = rodadas.filter((r) => r.consolidacao?.media != null);
