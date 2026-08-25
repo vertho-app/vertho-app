@@ -523,12 +523,34 @@ Os nove critérios de erro grave são majoritariamente subjetivos ("trade-off mu
 fraco", "teatral demais", "resposta genérica suficiente"), então cada auditor
 traça a linha em outro lugar e a nota inteira vira refém disso.
 
-**Remédio proposto (decisão do dono):** derivar `erro_grave` em CÓDIGO a partir
-das 7 dimensões que o check já devolve — vários dos nove critérios têm dimensão
-correspondente (`clareza_tradeoff`, `cobertura_descritores`,
-`aderencia_competencia`). Um `erro_grave` que nenhuma dimensão corrobora é
-bandeira sem lastro. Enquanto isso não mudar, `status_check` não compara no tempo
-e o bloco E1 continua sem instrumento.
+**~~Remédio proposto: derivar `erro_grave` em código~~ — REFUTADO no mesmo dia.**
+
+A hipótese acima ("bandeira sem lastro") foi tirada de UM caso, olhando só a
+justificativa. `scripts/_medir-erro-grave-ia3.ts` mediu os dois elos em 8
+cenários e derrubou os dois:
+
+| | resultado |
+|---|---|
+| clamp `if (erro_grave && nota > 60)` ATUA? | **0 de 8** — nunca |
+| `erro_grave` disparou COM dimensão baixa? | **5 de 5** — sempre |
+| `erro_grave` SEM lastro dimensional? | **0** |
+
+O modelo já devolve a nota baixa junto do flag (`nota = 60`, e o clamp exige
+`> 60`), então **derivar `erro_grave` em código não mudaria nota nenhuma**. E o
+flag nunca esteve desamparado: as dimensões que o sustentam são
+`cobertura_descritores = 0`, `poder_discriminante = 0`, `contencao_sobriedade = 2`.
+
+**O que sobra, então:** o auditor de hoje simplesmente pontua mais baixo, com
+justificativa dimensional. Não é flag quebrado, não é deriva de escala, não é
+ruído (reprodutibilidade ±2). A pergunta volta a ser *qual dos dois auditores
+está certo* — e isso nenhuma medição de auto-consistência responde.
+
+🔑 **A pista acionável que sobrou:** `contencao_sobriedade` é a dimensão MAIS
+BAIXA em quase toda a amostra (4, 6, 2, 5, 2, 6, 5). Ou os cenários do acervo são
+elaborados demais para uso real, ou o Terra pesa demais essa dimensão. Isso é
+testável: pedir o mesmo check a um auditor de outra família e ver se a
+`contencao_sobriedade` continua sendo a menor. Se continuar, o problema é o
+acervo; se não, é o auditor.
 
 ### Piloto E1 (Qwen × Sonnet 4.6 em cenários) — 25/08/2026: INCONCLUSIVO, e o motivo importa
 
