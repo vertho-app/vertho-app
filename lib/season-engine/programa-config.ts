@@ -29,22 +29,30 @@ export const APLICACAO_VIDEO_ID = '80f4da74-4384-419f-aab8-89ed346e7b5b';
  */
 /*
  * ⚠️ GUID TROCADO 2× EM 25/08/2026.
- *   4d17fac6 (original) → bf1b38c0 (1ª refação) → 1279ee99 (esta)
+ *   4d17fac6 (original) → bf1b38c0 → 1279ee99 → 64c4f43d (esta)
  *
  * A 1ª refação corrigiu a MENTIRA: o passo "Marcar como realizado" narrava
  * *"é esse passo que destrava o resto da semana"*, e o botão tinha saído do
  * caminho. Virou "O que destrava a semana", sobre a barra "Sua semana".
  *
- * A 2ª (esta) fechou o que o dono apontou ao ASSISTIR: o tutorial falava das
+ * A 2ª fechou o que o dono apontou ao ASSISTIR: o tutorial falava das
  * Evidências e nunca mostrava o que acontece ao clicar. Entraram três beats —
  * a conversa abrindo, o contador de respostas e a semana concluída. 11 beats,
  * 2min17.
+ *
+ * A 3ª (esta) corrigiu quatro defeitos que só aparecem VENDO o vídeo:
+ *   · o modal do próprio tutorial abria por cima da lista de semanas, e o beat
+ *     "sua trilha" saía com a moldura VAZIA;
+ *   · o destaque de "Evidências" pegava o item da BARRA, então o botão que a
+ *     pessoa precisa apertar nunca era realçado em momento nenhum;
+ *   · o card da conversa aterrissava atrás da legenda (agora centralizado);
+ *   · o frame da conversa mostrava "pensando…" — esperava relógio, não estado.
  *
  * Os antigos NÃO são apagados junto: saem depois que este estiver provado no
  * ar — a mesma ordem que o `semana_pendente_v2` seguiu em relação ao v1 na
  * Meta. Apagar primeiro deixa sem os dois se algo falhar.
  */
-export const JORNADA_VIDEO_ID = '1279ee99-1b7e-4b59-8f96-50210929e89b';
+export const JORNADA_VIDEO_ID = '64c4f43d-7c5d-4b1e-9433-725a1dddbf34';
 
 /**
  * Tutorial do que CONCLUI uma semana — mostrado na tela de semana trancada.

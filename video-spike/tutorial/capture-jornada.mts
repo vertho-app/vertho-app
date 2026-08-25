@@ -206,6 +206,63 @@ async function bboxDoBloco(page: Page, re: RegExp) {
   return box;
 }
 
+/**
+ * Rola até o elemento ficar no MEIO da viewport e devolve o bbox dele.
+ *
+ * `frameTarget` posiciona o alvo a 220px do topo, o que joga cards longos para
+ * o rodapé — e o rodapé é onde a legenda do vídeo fica. Medido em 25/08: o card
+ * de Evidências saía atrás da legenda, com o destaque cortado. Centralizar é o
+ * único jeito de o alvo caber entre o cabeçalho da etapa e a legenda.
+ */
+async function centralizar(page: Page, loc: ReturnType<Page['locator']>) {
+  if (!(await loc.count().catch(() => 0))) return null;
+  await loc.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior })).catch(() => {});
+  await page.waitForTimeout(500);
+  return await loc.boundingBox().catch(() => null);
+}
+
+/**
+ * O CARD de Evidências — e não o item "2 Evidências" da barra "Sua semana".
+ *
+ * As duas coisas têm o mesmo texto, e a barra vem ANTES no DOM: qualquer
+ * `getByText(/Evidências/i).first()` casa com o rótulo de ESTADO, não com o
+ * card onde a conversa acontece. Foi assim que o beat saiu destacando a barra e
+ * o botão que a pessoa precisa apertar nunca apareceu realçado no vídeo todo.
+ *
+ * O rótulo do card é o único em `text-purple-400`.
+ */
+async function bboxCardEvidencias(page: Page) {
+  const box = await page.evaluate(() => {
+    const rotulo = Array.from(document.querySelectorAll('span.text-purple-400'))
+      .find((el) => /evid[êe]ncias/i.test(el.textContent || ''));
+    if (!rotulo) return null;
+    let n: HTMLElement | null = rotulo as HTMLElement;
+    for (let i = 0; i < 6 && n; i++) {
+      if (/rounded-xl|rounded-2xl/.test(n.className || '')) break;
+      n = n.parentElement;
+    }
+    if (!n) return null;
+    n.scrollIntoView({ block: 'center' });
+    const r = n.getBoundingClientRect();
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  }).catch(() => null);
+  await page.waitForTimeout(500);
+  if (!box) return null;
+  // Relê depois do scroll — o rect de antes está no sistema de coordenadas velho.
+  return await page.evaluate(() => {
+    const rotulo = Array.from(document.querySelectorAll('span.text-purple-400'))
+      .find((el) => /evid[êe]ncias/i.test(el.textContent || ''));
+    let n: HTMLElement | null = (rotulo as HTMLElement) || null;
+    for (let i = 0; i < 6 && n; i++) {
+      if (/rounded-xl|rounded-2xl/.test(n.className || '')) break;
+      n = n.parentElement;
+    }
+    if (!n) return null;
+    const r = n.getBoundingClientRect();
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  }).catch(() => null);
+}
+
 async function frameTarget(page: Page, re: RegExp) {
   const loc = page.getByText(re).first();
   if (!(await loc.count().catch(() => 0))) return null;
@@ -245,6 +302,33 @@ async function main() {
     document.documentElement.appendChild(s);
   });
   const settle = () => page.waitForTimeout(800);
+
+  /*
+   * 🔴 O MODAL DO TUTORIAL COBRIA A PRÓPRIA CAPTURA DO TUTORIAL.
+   *
+   * `FirstViewVideo` abre sozinho na 1ª visita de cada seção, marcando o visto
+   * em `localStorage` por colaborador. A captura roda sempre em sessão NOVA —
+   * então o modal abria por cima da lista de semanas, e o beat "sua-trilha"
+   * saiu com a moldura de destaque VAZIA, emoldurando a grade que estava atrás
+   * do modal. O vídeo mostrava o próprio player, tocando a versão anterior.
+   *
+   * Marcar como visto ANTES de navegar é o que reproduz o que a pessoa vê no
+   * segundo acesso em diante — que é o estado que o tutorial descreve.
+   */
+  await page.addInitScript(() => {
+    try {
+      for (const secao of ['jornada', 'semana-aplicacao', 'pdi']) {
+        for (const k of Object.keys(localStorage)) {
+          if (k.startsWith(`vertho:video-visto:${secao}:`)) localStorage.removeItem(k);
+        }
+      }
+      // Marca QUALQUER colaborador: a chave inclui o id, que o script não tem
+      // aqui. O hook só abre quando a chave está AUSENTE, então um valor
+      // gravado sob o prefixo certo no primeiro render já basta.
+      const orig = localStorage.getItem.bind(localStorage);
+      localStorage.getItem = (k: string) => (k.startsWith('vertho:video-visto:') ? '1' : orig(k));
+    } catch { /* localStorage indisponível */ }
+  });
   // Estado inicial: semana ainda NÃO consumida — é assim que a pessoa chega,
   // e é o que faz a barra "Sua semana" mostrar o passo de conteúdo pendente.
   await setConsumed(false);
@@ -254,7 +338,21 @@ async function main() {
   await page.waitForLoadState('networkidle', { timeout: 12000 }).catch(() => {});
   await settle();
   await page.evaluate(() => window.scrollTo(0, 0));
-  await shot(page, 'temporada', await bbox(page, /Negociação e Fechamento/i));
+  /*
+   * A GRADE de semanas, não o título: o beat narra "cada semana traz um tema
+   * ligado à sua competência… elas se abrem no seu ritmo", e emoldurar o
+   * cabeçalho destaca justamente o que a frase NÃO está descrevendo.
+   *
+   * União dos cards, e não `parentElement` de um deles: a tentativa por
+   * `evaluate` + pai devolveu null e o beat saiu SEM destaque nenhum — falha
+   * que só aparece no log como `bbox=—`, fácil de passar batido.
+   */
+  const cards = page.getByRole('button', { name: /^Sem \d+/ });
+  let bGrade: Box | null = null;
+  const nCards = await cards.count().catch(() => 0);
+  for (let i = 0; i < nCards; i++) bGrade = union(bGrade, await cards.nth(i).boundingBox().catch(() => null));
+  if (!bGrade) throw new Error('grade de semanas não encontrada — o beat sairia sem destaque');
+  await shot(page, 'temporada', bGrade);
 
   // /semana/1 — topo (episódio + conteúdo)
   await page.goto(`${BASE}/dashboard/temporada/semana/1`, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -296,7 +394,14 @@ async function main() {
   await injectVideoChip(page);
   const bTd = await frameTarget(page, /TIRA-DÚVIDAS/i);
   await shot(page, 'tiraduvidas', bTd);
-  const bEv = await frameTarget(page, /EVIDÊNCIAS/i);
+  /*
+   * 🔴 O DESTAQUE APONTAVA PARA A BARRA, NÃO PARA O BOTÃO (dono, 25/08).
+   * `getByText(/EVIDÊNCIAS/i).first()` casa primeiro com o item "2 Evidências"
+   * do topo — o beat narrava "é uma conversa" emoldurando um rótulo de estado,
+   * e o botão que a pessoa precisa apertar nunca era destacado em momento
+   * nenhum do vídeo.
+   */
+  const bEv = await centralizar(page, page.getByRole('button', { name: /Levantar evidências/i }).first());
   await shot(page, 'evidencias', bEv);
 
   /*
@@ -308,8 +413,21 @@ async function main() {
 
   // 1) A CONVERSA ABERTA — o clique real no botão.
   await page.getByRole('button', { name: /Levantar evidências/i }).first().click().catch(() => {});
-  await page.waitForTimeout(2500);
-  await shot(page, 'conversa', await frameTarget(page, /EVIDÊNCIAS/i));
+  /*
+   * ESPERA PELO ESTADO, NÃO PELO RELÓGIO. Com `waitForTimeout(2500)` o frame
+   * saiu mostrando "pensando…" — o beat narra a conversa começando e o vídeo
+   * exibia um spinner. A primeira fala da Mentora leva o tempo que a IA levar.
+   */
+  await page.waitForFunction(
+    () => {
+      const t = document.body.innerText;
+      return !/pensando/i.test(t) && /Ol[áa]!|Essa semana o desafio/i.test(t);
+    },
+    undefined,
+    { timeout: 60000 },
+  ).catch(() => {});
+  await page.waitForTimeout(600);
+  await shot(page, 'conversa', await bboxCardEvidencias(page));
 
   // 2) O CONTADOR — semeia 3 de 6 turnos e mostra "faltam 3 respostas".
   await semearConversa(3, false);
@@ -319,7 +437,9 @@ async function main() {
   // `bbox` e nao `bboxDoBloco`: o contador e uma LINHA dentro do card da
   // conversa, e subir ate o cartao emolduraria o chat inteiro (a primeira
   // tentativa devolveu 1920x1146 — a pagina toda). Aqui o alvo e a frase.
-  await shot(page, 'progresso', await bbox(page, /Faltam .* respostas/i));
+  // Centralizado: o contador vive no PÉ do card da conversa, e sem isto ele
+  // aterrissa exatamente sobre a legenda do vídeo.
+  await shot(page, 'progresso', await centralizar(page, page.getByText(/Faltam .* respostas/i).first()));
 
   // 3) A SEMANA CONCLUÍDA — a faixa verde, o marco que a pessoa nunca via.
   await semearConversa(6, true);
