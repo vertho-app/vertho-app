@@ -254,6 +254,29 @@ export interface EstadoParaEncerrar {
   motivoDoModelo: MotivoFim | null;
   /** Turnos consecutivos sem nenhum beat novo — matéria-prima do impasse. */
   turnosSemAvanco: number;
+  /**
+   * O personagem declarou, no [META], que a condição de cessão dele foi
+   * satisfeita. É INSUMO, como `modeloPediuEncerrar` — mas insumo que faltava.
+   *
+   * 🔴 MEDIDO NA FASE 0d (25/08/2026): a cena 4 do braço N3 terminou marcada
+   * como IMPASSE com `condicao_de_cessao_satisfeita: true`, `movimento:
+   * "ceder"`, os quatro beats cumpridos e a persona dizendo "Isso eu consigo
+   * olhar e cobrar. Aceito" e "Está bem. Eu vou nessa". O que faltou foi o
+   * `encerrar: true` do modelo — e o impasse saiu por esgotamento de turnos
+   * sem avanço.
+   *
+   * O defeito é o ESPELHO da filosofia deste arquivo. Ela foi escrita contra
+   * o modelo encerrar CEDO ("um modelo treinado para ajudar encerra assim que
+   * a cena resolve"), e por isso o código nunca confiou no `encerrar`. Só que
+   * na outra direção o código continuou dependendo exatamente dele: o
+   * personagem cedeu, disse que cedeu, e a cena foi rotulada como se ninguém
+   * tivesse chegado a lugar nenhum.
+   *
+   * Custo: o ramo pré-registrado da 0d disparou com "impasse 100% no braço N3"
+   * — e 1 dos 3 era este defeito. A conclusão sobre a condição de cessão
+   * estava apoiada num número contaminado.
+   */
+  condicaoSatisfeita: boolean;
 }
 
 export interface VeredictoEncerramento {
@@ -294,6 +317,17 @@ export function podeEncerrar(estado: EstadoParaEncerrar): VeredictoEncerramento 
   }
   if (estado.modeloPediuEncerrar) {
     return { encerrar: true, motivo: estado.motivoDoModelo ?? 'acordo', negadoPorBeatPendente: null };
+  }
+  /**
+   * Beats completos + o personagem cedeu = ACORDO, decidido pelo CÓDIGO.
+   *
+   * Vem antes do impasse de propósito: impasse é "ninguém saiu do lugar", e
+   * uma condição de cessão satisfeita é o oposto disso. Só alcança aqui quando
+   * não há beat pendente — então nunca fecha uma cena pela metade, que é a
+   * garantia que este arquivo existe para dar.
+   */
+  if (estado.condicaoSatisfeita) {
+    return { encerrar: true, motivo: 'acordo', negadoPorBeatPendente: null };
   }
   if (estado.turnosSemAvanco >= TURNOS_PARA_IMPASSE) {
     return { encerrar: true, motivo: 'impasse', negadoPorBeatPendente: null };

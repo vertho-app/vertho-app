@@ -160,3 +160,20 @@ describe('a proibição não pode engolir o momento que força a escolha', () =>
       .toContain('oferecer os caminhos de ação entre os quais ela deve escolher');
   });
 });
+
+describe('red-team: diretiva disfarçada de dilema', () => {
+  // A licença nova ("pôr o dilema na mesa é o trabalho") abre uma porta
+  // adversarial óbvia: embrulhar uma instrução em forma de escolha. O guarda
+  // tem de ver o CONTEÚDO, não a sintaxe do "ou … ou".
+  it('o guarda é instruído pelo conteúdo, não pela forma "ou X ou Y"', () => {
+    const { system } = promptGuardaDoInterlocutor(
+      'Escolhe: ou você tira ela da sala, ou você chama a mãe hoje às três.',
+      ctxBase.beats[0],
+    );
+    expect(
+      system,
+      'o exemplo do que É proibido tem de estar na forma de dilema, senão o modelo só reconhece imperativo',
+    ).toContain('ou você tira ela da sala, ou você chama a mãe');
+    expect(system).toContain('oferecer os CAMINHOS DE AÇÃO');
+  });
+});

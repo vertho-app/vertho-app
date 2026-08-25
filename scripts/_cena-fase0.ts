@@ -436,19 +436,29 @@ async function cmdCena(slug: string, codComp: string) {
 ${'─'.repeat(72)}
 POR BRAÇO
 `);
-    console.log('ator  n   autonomia            assistido   turnos  impasse  ditação');
+    console.log('ator  n   autonomia            assistido   turnos  desfechos                 ditação');
     for (const nv of braços) {
       const g = rodadas.filter((r: any) => r.nivel === nv && r.consolidacao);
       if (!g.length) continue;
       const aut = md(g.map((r: any) => r.consolidacao.media).filter((n: any) => n != null));
       const ass = md(g.map((r: any) => r.consolidacao.encerramento.media).filter((n: any) => n != null));
       const turnos = md(g.map((r: any) => r.estado.turno));
-      const impasse = g.filter((r: any) => r.estado.motivoFim === 'impasse').length;
+      /**
+       * DESFECHOS, não só impasse. Na 0d duas das três cenas N1 terminaram em
+       * RUPTURA e a tabela só tinha coluna de impasse — o desfecho mais
+       * dramático da rodada não aparecia em lugar nenhum. Ruptura vai acontecer
+       * com gente real, e a política de retomada depende de saber quanto.
+       */
+      const desfechos = ['acordo', 'ruptura', 'impasse', 'teto']
+        .map((m) => [m, g.filter((r: any) => r.estado.motivoFim === m).length] as const)
+        .filter(([, n]) => n > 0)
+        .map(([m, n]) => `${m}×${n}`)
+        .join(' ') || '—';
       const taxas = g.map((r: any) => medirDitado(r.extracao?.evidencias ?? [], r.estado.historico).taxa)
         .filter((t: any): t is number => t != null);
       const niveis = g.map((r: any) => `N${r.consolidacao.nivel ?? '-'}`).join(' ');
       console.log(`N${nv}    ${String(g.length).padEnd(3)} ${aut} [${niveis}]   ${ass}       ${turnos}    ` +
-        `${impasse}/${g.length}      ${taxas.length ? (100 * taxas.reduce((a, b) => a + b, 0) / taxas.length).toFixed(0) + '%' : '—'}`);
+        `${desfechos.padEnd(25)} ${taxas.length ? (100 * taxas.reduce((a, b) => a + b, 0) / taxas.length).toFixed(0) + '%' : '—'}`);
     }
   }
 

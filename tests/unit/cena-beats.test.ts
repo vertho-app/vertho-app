@@ -37,6 +37,7 @@ const estadoBase = (over: Partial<Parameters<typeof podeEncerrar>[0]> = {}) => (
   modeloPediuEncerrar: false,
   motivoDoModelo: null,
   turnosSemAvanco: 0,
+  condicaoSatisfeita: false,
   ...over,
 });
 
@@ -404,5 +405,44 @@ describe('ABERTURA — o hábito autônomo, separado da coachability', () => {
   it('o veredito antigo ainda é lido — artefatos de antes de 25/08 continuam válidos', () => {
     const antigo: EvidenciaDescritor = { indice: 1, veredito: 'demonstrou', forca: 'forte', citacao: '...', beat: 1, turno: 1 };
     expect(consolidarCena([antigo]).notas[0]).toBe(3.2);
+  });
+});
+
+describe('a cessão declarada FECHA a cena — o espelho que faltava', () => {
+  // 🔴 Medido na fase 0d: a cena 4 do braço N3 terminou como IMPASSE com
+  // `condicao_de_cessao_satisfeita: true`, `movimento: "ceder"`, os quatro
+  // beats cumpridos e a persona dizendo "Está bem. Eu vou nessa". Faltou só o
+  // `encerrar: true` do modelo.
+  //
+  // O defeito é o espelho da filosofia deste arquivo: ela foi escrita contra o
+  // modelo encerrar CEDO, e por isso o código nunca confiou no `encerrar` —
+  // mas na outra direção continuou dependendo exatamente dele. Resultado: o
+  // ramo pré-registrado disparou com "impasse 100% no braço N3", e 1 dos 3
+  // era isto.
+  const cede = (over: any = {}) => podeEncerrar(estadoBase({ condicaoSatisfeita: true, ...over }));
+
+  it('beats completos + cessão declarada = ACORDO, sem o modelo pedir', () => {
+    const v = cede({ modeloPediuEncerrar: false });
+    expect(v).toMatchObject({ encerrar: true, motivo: 'acordo' });
+  });
+
+  it('mas NÃO fecha com beat pendente — a garantia central não afrouxa', () => {
+    const v = cede({ beatsCumpridos: [1, 2] });
+    expect(v.encerrar, 'cessão não compra cobertura').toBe(false);
+  });
+
+  it('cessão vence o impasse: quem cedeu não está parado', () => {
+    const v = cede({ turnosSemAvanco: 9 });
+    expect(v.motivo, 'impasse é "ninguém saiu do lugar" — o oposto disto').toBe('acordo');
+  });
+
+  it('sem cessão, o impasse continua sendo impasse', () => {
+    const v = podeEncerrar(estadoBase({ condicaoSatisfeita: false, turnosSemAvanco: 9 }));
+    expect(v).toMatchObject({ encerrar: true, motivo: 'impasse' });
+  });
+
+  it('ruptura ainda passa por cima de tudo', () => {
+    const v = cede({ beatsCumpridos: [], modeloPediuEncerrar: true, motivoDoModelo: 'ruptura' });
+    expect(v.motivo).toBe('ruptura');
   });
 });

@@ -489,9 +489,11 @@ export async function turnoCena(
   const avancou = beatsCumpridos.length > estado.beatsCumpridos.length;
   const turnosSemAvanco = avancou ? 0 : estado.turnosSemAvanco + 1;
 
+  const cedeu = estado.condicaoSatisfeita || meta?.condicao_de_cessao_satisfeita === true;
   const veredicto = podeEncerrar({
     turno: novoTurno,
     tetoTurnos: teto,
+    condicaoSatisfeita: cedeu,
     beats: ctx.beats,
     beatsCumpridos,
     modeloPediuEncerrar: meta?.encerrar === true,
@@ -509,7 +511,7 @@ export async function turnoCena(
       descritoresTocados,
       turnosSemAvanco,
       beatProvocado: beatAProvocar.numero,
-      condicaoSatisfeita: estado.condicaoSatisfeita || meta?.condicao_de_cessao_satisfeita === true,
+      condicaoSatisfeita: cedeu,
       concluida: veredicto.encerrar,
       motivoFim: veredicto.motivo,
       encerramentosNegados: veredicto.negadoPorBeatPendente
