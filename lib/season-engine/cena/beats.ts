@@ -54,37 +54,44 @@ export const BEATS_CANONICOS: readonly BeatCanonico[] = Object.freeze([
     numero: 1,
     pilar: 'ESCOLHA',
     comoOInterlocutorCria:
-      'Feche as saídas fáceis. Deixe explícito que atender os dois lados não cabe — ' +
-      'tempo, gente ou dinheiro não dão. Force o avaliado a preterir alguma coisa na sua frente.',
+      'Ponha o caso na mesa pela SUPERFÍCIE: a versão conveniente, verdadeira e ' +
+      'incompleta. Deixe claro que já está resolvido, ou que não há o que fazer. ' +
+      'Quem quiser mais fundo vai ter de perguntar.',
     sinalDeCumprido:
-      'O avaliado escolheu uma direção sabendo o que ela custa, ou recusou escolher (que também é sinal).',
+      'O gestor recusou a versão pronta e pediu o caso concreto — ou aceitou a ' +
+      'superfície e seguiu adiante (que também é sinal).',
   },
   {
     numero: 2,
     pilar: 'COMO',
     comoOInterlocutorCria:
-      'Aceite a direção só no discurso e resista na execução: "e como você faz isso comigo dizendo não?". ' +
-      'Peça o passo concreto, não o princípio.',
+      'Responda em GENERALIDADE quando ele sondar: "conversei com ela", "ficou tudo ' +
+      'certo", "a gente se entendeu". Nunca ofereça o exemplo; espere ser cobrado por ele.',
     sinalDeCumprido:
-      'O avaliado descreveu um passo executável diante de resistência declarada — ou ficou no princípio.',
+      'O gestor pediu o exemplo específico — o que foi dito, por quem, quando — em ' +
+      'vez de aceitar o resumo.',
   },
   {
     numero: 3,
     pilar: 'TENSAO_HUMANA',
     comoOInterlocutorCria:
-      'Traga a pessoa para dentro: magoe-se, exalte-se, discorde do julgamento do avaliado sobre você. ' +
-      'Este é o beat que a prova escrita quase não alcança — não o abrevie.',
+      'Quando a sondagem chegar perto do que dói, reaja como gente: magoe-se, ' +
+      'defenda-se, questione por que ele está perguntando isso. Este é o beat que ' +
+      'separa quem sustenta a pergunta de quem recua para não constranger.',
     sinalDeCumprido:
-      'O avaliado lidou com a reação humana sem ignorá-la nem capitular a ela — ou fez uma das duas.',
+      'O gestor sustentou a investigação sem desistir nem endurecer — ou recuou ' +
+      'diante do desconforto e deixou o fato onde estava.',
   },
   {
     numero: 4,
     pilar: 'SUSTENTABILIDADE',
     comoOInterlocutorCria:
-      'Teste o depois: "e daqui a um mês, quando estivermos no mesmo lugar?". ' +
-      '⚠️ Este beat NÃO nasce sozinho numa conversa quente — se você não o provocar, ele não acontece.',
+      'Ofereça o encerramento fácil: "então tá, vou tentar de novo". ' +
+      '⚠️ Este beat NÃO nasce sozinho — se você não oferecer a saída morna, ' +
+      'ninguém testa se o gestor fecha com algo verificável.',
     sinalDeCumprido:
-      'O avaliado disse como saberia que funcionou, com algo verificável — ou prometeu sem critério.',
+      'O gestor fechou com o que ele mesmo vai conferir e quando — ou aceitou a ' +
+      'promessa sem critério.',
   },
 ]);
 
@@ -245,6 +252,52 @@ export function validarContratoDaCena(c: ContratoCena): string[] {
   const semN3 = (c.descritores ?? []).filter((d) => !String(d?.n3 ?? '').trim()).length;
   if (semN3) faltando.push(`${semN3} descritor(es) sem nível-meta`);
   return faltando;
+}
+
+/**
+ * COBERTURA POR ENGENHARIA, na leitura (b): cada descritor precisa de um FATO
+ * ENTERRADO que só aflore sob a sondagem característica dele.
+ *
+ * 🔑 É o contrato que substitui — e completa — o mapa descritor↔beat. Os beats
+ * criam os MOMENTOS da sondagem; os fatos enterrados criam a EVIDÊNCIA. Um
+ * descritor sem fato enterrado não tem como ser medido nesta cena: não há nada
+ * para o gestor descobrir, e a nota dele sairia da forma da pergunta, não do
+ * que ela alcançou.
+ *
+ * Falha alto, como todo contrato de construção deste módulo: cena montada sobre
+ * gabarito incompleto produz nota com buraco silencioso.
+ */
+export function validarGabaritoDaCena(
+  fatos: { enterrados?: Array<{ descritor: number; fato?: string; so_revela_se?: string }> } | undefined,
+  numDescritores: number,
+): string[] {
+  const erros: string[] = [];
+  const enterrados = fatos?.enterrados ?? [];
+  if (!enterrados.length) return ['a persona não trouxe fatos enterrados — sem gabarito não há o que sondar'];
+
+  const porDescritor = new Map<number, number>();
+  for (const e of enterrados) {
+    const i = Number(e?.descritor);
+    if (!Number.isInteger(i) || i < 1 || i > numDescritores) {
+      erros.push(`fato apontando descritor fora de 1..${numDescritores}: ${e?.descritor}`);
+      continue;
+    }
+    if (!String(e?.fato ?? '').trim()) erros.push(`D${i}: fato vazio`);
+    if (!String(e?.so_revela_se ?? '').trim()) {
+      // Sem a condição, o interlocutor não sabe quando soltar — e solta sempre.
+      erros.push(`D${i}: sem "so_revela_se" — o fato sairia de graça`);
+    }
+    porDescritor.set(i, (porDescritor.get(i) ?? 0) + 1);
+  }
+  const sem: number[] = [];
+  for (let i = 1; i <= numDescritores; i++) if (!porDescritor.has(i)) sem.push(i);
+  if (sem.length) {
+    erros.push(
+      `sem fato enterrado: ${sem.map((i) => `D${i}`).join(', ')} — ` +
+      'não há o que o gestor descubra nesses, então a cena não os mede',
+    );
+  }
+  return erros;
 }
 
 /** Índices de descritor que nenhum beat cumprido ainda tocou. */

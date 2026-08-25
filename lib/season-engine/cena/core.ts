@@ -19,7 +19,7 @@ import { callAI, callAIChat, type AIConfig } from '@/actions/ai-client';
 import { parseJsonIA } from '@/lib/ai-json';
 import { maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import {
-  podeEncerrar, proximoBeat, validarContratoDaCena,
+  podeEncerrar, proximoBeat, validarContratoDaCena, validarGabaritoDaCena,
   type BeatDaCena, type EvidenciaDescritor, type MotivoFim,
 } from './beats';
 import {
@@ -246,6 +246,15 @@ export async function gerarPersona(ctx: ContextoCena, opts: OpcoesCena = {}): Pr
    * `relacao`: casar palavra-chave em texto livre é o que fez a flag
    * `provocado` degenerar a 76% neste mesmo módulo.
    */
+  const erradoNoGabarito = validarGabaritoDaCena(persona.fatos, ctx.descritores.length);
+  if (erradoNoGabarito.length) {
+    throw new Error(
+      `Gabarito da cena inválido — ${erradoNoGabarito.join('; ')}. ` +
+      'Sob a leitura (b) o que se mede é o gestor CHEGAR aos fatos; sem fato enterrado ' +
+      'por descritor, a nota sairia da forma da pergunta e não do que ela alcançou.',
+    );
+  }
+
   if (persona.relacao_hierarquica !== 'liderado_direto') {
     throw new Error(
       `Persona não é liderado direto (relacao_hierarquica=${JSON.stringify(persona.relacao_hierarquica)}). ` +
@@ -610,10 +619,24 @@ export async function extrairEvidenciasCena(
 }
 
 export interface TriagemAdequacao {
-  por_descritor: Array<{ indice: number; cabe: 'sim' | 'parcial' | 'nao'; porque: string }>;
-  veredito: 'adequada' | 'parcial' | 'inadequada';
+  por_descritor: Array<{ indice: number; sondavel: boolean; que_pergunta_revelaria: string }>;
+  /**
+   * A decisão é da COMPETÊNCIA INTEIRA, e é por isso que não há "parcial".
+   *
+   * 🔴 O roteamento é por competência: ou ela vai para a cena, ou vai para o
+   * cenário escrito. Não existe metade — se UM descritor não puder ser cobrado
+   * numa conversa de feedback, a competência inteira vai para o escrito.
+   *
+   * A versão anterior tinha `parcial` e uma lista de descritores "que ficam de
+   * fora", o que implicava cena medindo 4 de 6. Isso confundia duas coisas: o
+   * que a cena alcança (propriedade do desenho) e o que se decide medir nela
+   * (roteamento). Com roteamento por competência, cobertura 6/6 por cena volta
+   * a ser a exigência certa.
+   */
+  destino: 'cena' | 'cenario_escrito';
   justificativa: string;
-  se_parcial_quais_descritores_ficam_de_fora?: number[];
+  /** Quais descritores empurraram a competência para o escrito. */
+  descritores_que_impedem?: number[];
 }
 
 /**

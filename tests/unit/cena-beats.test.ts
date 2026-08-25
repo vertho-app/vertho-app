@@ -312,7 +312,7 @@ describe('BEATS_CANONICOS', () => {
     expect(BEATS_CANONICOS.map((b) => b.numero)).toEqual([1, 2, 3, 4]);
     // O beat 4 carrega o aviso de que ele não nasce sozinho numa conversa quente
     // — é o que a prova escrita pega de graça e a cena precisa provocar.
-    expect(BEATS_CANONICOS[3].comoOInterlocutorCria).toContain('não o provocar');
+    expect(BEATS_CANONICOS[3].comoOInterlocutorCria).toContain('NÃO nasce sozinho');
   });
 });
 

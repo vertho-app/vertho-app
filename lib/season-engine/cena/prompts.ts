@@ -17,6 +17,9 @@
 
 import type { BeatDaCena } from './beats';
 
+/** Quebra de linha nomeada — dentro de template aninhado, escapar some fácil. */
+const NL = String.fromCharCode(10);
+
 /** Descritor na forma em que a régua vive em `competencias`. */
 export interface DescritorDaRegua {
   indice: number;
@@ -95,9 +98,40 @@ export interface PersonaInterlocutor {
   relacao: string;
   objetivo: string;
   o_que_nunca_aceita: string;
+  /**
+   * Sob a leitura (b), ceder NÃO é aceitar a solução do gestor — é parar de
+   * desviar. A condição descreve a pergunta que o liderado não consegue driblar.
+   */
   o_que_faz_ceder: string;
   tom: string;
   primeira_fala: string;
+  /**
+   * O GABARITO da cena: os fatos do caso, divididos entre o que o liderado
+   * conta sozinho e o que só sai sob sondagem.
+   *
+   * 🔑 É isto que torna a medida verificável em vez de impressionista. Sem
+   * gabarito, o único sinal seria a FORMA da pergunta, e a nota dependeria de
+   * estilo; com ele, dá para perguntar o que importa: **o gestor chegou aos
+   * fatos que mudavam a decisão?** Cada fato enterrado pertence a um descritor,
+   * e é o descritor que ele revela quando aflora.
+   */
+  fatos?: FatosDaCena;
+}
+
+export interface FatoEnterrado {
+  /** Índice 1..N do descritor que este fato revela quando aflora. */
+  descritor: number;
+  /** O que aconteceu, e que o liderado NÃO conta espontaneamente. */
+  fato: string;
+  /** A sondagem que o faz sair. Vago não basta; tem de ser específica. */
+  so_revela_se: string;
+}
+
+export interface FatosDaCena {
+  /** O que o liderado põe na mesa sem ser perguntado. A versão conveniente. */
+  superficie: string[];
+  /** Um por descritor, no mínimo — é o contrato de cobertura da leitura (b). */
+  enterrados: FatoEnterrado[];
 }
 
 /**
@@ -132,10 +166,28 @@ sobretudo, sob que condição essa pessoa muda de posição.
 
 1. Dentro dessa restrição, o interlocutor sai do cenário, não do cargo. Use os stakeholders que o cenário já nomeia.
 2. Ele tem agenda PRÓPRIA e legítima — não é vilão, não é obstáculo decorativo.
-3. \`o_que_faz_ceder\` é a régua da cena: derive do nível-meta abaixo. Só cede quando o
-   avaliado faz AQUILO, e não quando fala bonito sobre aquilo.
+3. 🔑 O QUE SE MEDE É A PROFUNDIDADE DA SONDAGEM, não a solução. O liderado
+   resiste a ENTREGAR OS FATOS, não a aceitar a proposta. \`o_que_faz_ceder\` é
+   a pergunta que ele não consegue desviar — específica, sobre um fato, sem
+   saída pela generalidade.
+
+   Errado: "cede quando ela apresentar um plano com prazo e responsável".
+   Certo:  "cede quando ela perguntar o que EU disse na reunião, em vez de
+            perguntar como foi a reunião".
+
 4. \`o_que_nunca_aceita\` tem que incluir a armadilha de resposta genérica do cenário.
 5. A primeira fala já entra em tensão. Nada de "oi, tudo bem, podemos conversar?".
+6. 🔑 OS FATOS SÃO O GABARITO. Divida o caso em duas camadas:
+   - \`superficie\`: o que você conta sozinho, na primeira fala e logo depois. É
+     a versão conveniente — verdadeira, incompleta, e que não incrimina ninguém.
+   - \`enterrados\`: UM POR DESCRITOR, no mínimo. Cada um é um fato que muda a
+     leitura do caso e que você só solta se o gestor fizer a pergunta certa.
+     \`so_revela_se\` descreve essa pergunta — e ela tem de ser a sondagem
+     característica DAQUELE descritor, não "se ele insistir".
+
+   O fato enterrado é o que separa quem investiga de quem aceita a superfície.
+   Se um descritor não tiver fato enterrado possível neste caso, a competência
+   não deveria estar na cena — diga isso em vez de inventar.
 
 ═══ FORMATO (APENAS JSON, sem markdown) ═══
 {
@@ -146,7 +198,17 @@ sobretudo, sob que condição essa pessoa muda de posição.
   "o_que_nunca_aceita": "o que ele rejeita mesmo dito com educação",
   "o_que_faz_ceder": "a condição única e observável sob a qual ele muda de posição",
   "tom": "como fala (direto, magoado, formal, impaciente...)",
-  "primeira_fala": "a fala de abertura, no máximo 45 palavras, já em tensão"
+  "primeira_fala": "a fala de abertura, no máximo 45 palavras, já em tensão",
+  "fatos": {
+    "superficie": ["o que você conta sem ser perguntado — a versão conveniente"],
+    "enterrados": [
+      {
+        "descritor": 1,
+        "fato": "o que realmente aconteceu e muda a leitura do caso",
+        "so_revela_se": "a pergunta característica deste descritor, que você não consegue desviar"
+      }
+    ]
+  }
 }`;
 
   const user = `═══ CARGO DO AVALIADO ═══
@@ -212,6 +274,33 @@ nem porque a outra pessoa se esforçou. Empatia sem isso não move você.
 
 ═══ A ARMADILHA (não caia nela) ═══
 ${ctx.cenario.armadilhaGenerica}
+${(() => {
+  const f = persona.fatos;
+  if (!f?.enterrados?.length) return '';
+  return `
+═══ 🔑 O QUE VOCÊ SABE, E O QUE VOCÊ NÃO CONTA ═══
+
+Você viveu este caso. Sabe TUDO o que aconteceu. Mas você é uma pessoa numa
+conversa difícil com quem te lidera: você conta a versão que te convém, e o
+resto só sai se perguntarem direito.
+
+O QUE VOCÊ OFERECE SOZINHO:
+${(f.superficie ?? []).map((x) => `- ${x}`).join(NL) || '- (nada além da primeira fala)'}
+
+O QUE VOCÊ SÓ ENTREGA SE FOR SONDADO — um por vez, nunca de bandeja:
+${f.enterrados.map((e, i) => `${i + 1}. ${e.fato}${NL}   SÓ SAI SE: ${e.so_revela_se}`).join(NL)}
+
+Regras destes fatos, e elas são o coração da cena:
+- Se a pergunta for genérica ("como foi?", "e aí?", "me conta"), você responde
+  com a superfície e MUDA de assunto. Não entregue nada de baixo.
+- Se a pergunta chegar perto mas não acertar, dê uma resposta parcial que
+  convide a insistir — e pare aí.
+- Quando a sondagem descrita acontecer, entregue o fato INTEIRO, sem rodeio.
+  Você não está escondendo por má-fé: ninguém tinha perguntado.
+- NUNCA entregue mais de um fato enterrado no mesmo turno.
+- E nunca diga que existe algo escondido ("tem uma coisa que eu não falei").
+  Se ele não perguntar, ele não fica sabendo. É esse o teste.`;
+})()}
 
 ═══ COMO FALAR ═══
 - Português do Brasil, primeira pessoa, fala de gente. No máximo 70 palavras.
@@ -417,8 +506,27 @@ descritor, o que a conversa REALMENTE sustentou.
    e um responsável não é, por si, o nível-meta. O extrator classificava
    ocorrência e o sistema lia maturidade. São coisas diferentes, e a diferença
    inflava a nota de quem apenas agiu.
-3. "n3_meta" = o comportamento corresponde à descrição N3, com ação observável na
-   cena. Fala sobre o comportamento não é ter o comportamento.
+3. 🔑 A PERGUNTA DO GESTOR É O COMPORTAMENTO. Esta cena não pede que ele execute
+   a régua ali — pede que ele demonstre conhecê-la pelo que EXIGE e pelo que
+   RECUSA. Quem domina o assunto pergunta "você chegou a sentar com ela? o que
+   ela disse que te surpreendeu?"; quem não domina aceita "conversei e ficou
+   tudo bem" e segue adiante.
+
+   ⚠️ ISTO INVERTE A REGRA ANTERIOR, que dizia "fala sobre o comportamento não é
+   ter o comportamento". Aquilo valia quando se media o avaliado RESOLVENDO um
+   problema. Aqui se mede o avaliado INVESTIGANDO um caso, e a investigação
+   acontece em palavras — as perguntas dele são atos executados na cena.
+
+   O que continua NÃO valendo é narrativa hipotética sobre si mesmo:
+   - "eu teria escutado as duas partes"        → fraco, é intenção
+   - "você escutou a mãe? o que ela trouxe?"   → EXECUTADO, é a régua aparecendo
+
+   A régua não é "falar × fazer". É **exigiu o padrão × aceitou a superfície**.
+
+3b. E o sinal mais forte de todos é o FATO QUE AFLOROU. O liderado guarda fatos
+   que só saem sob a sondagem certa. Quando um deles aparece na transcrição, o
+   gestor chegou lá — e isso vale mais do que a elegância da pergunta. Quando
+   não aparece, ele não chegou, por melhor que a conversa tenha soado.
 4. "n2_em_desenvolvimento" = corresponde ao N2: há ação real e concreta, mas
    incompleta, parcial ou sem o critério que o N3 exige. É um nível legítimo, NÃO
    um N3 malfeito.
@@ -560,30 +668,55 @@ ${transcricao}`;
  * na frente.
  */
 export function promptTriagemAdequacao(cargo: string, competencia: string, descritores: DescritorDaRegua[]) {
-  const system = `Você avalia se uma competência pode ser medida por SIMULAÇÃO DE CONVERSA.
+  const system = `Você decide se uma competência vai para a CENA ou para o CENÁRIO ESCRITO.
 
-O formato: o avaliado conversa por 10 a 14 turnos com um interlocutor de IA que
-resiste — um subordinado, um par, um gestor, um cliente, uma família. Mede-se o
-que ele FAZ na conversa, não o que ele diz que faria.
+═══ O QUE É A CENA ═══
+Uma CONVERSA DE FEEDBACK de 10 a 14 turnos entre o avaliado — um gestor — e um
+LIDERADO DIRETO dele. O liderado traz um caso vivido, com fatos que ele conta
+pela metade: parte na superfície, parte só se for perguntado.
 
-═══ O QUE CABE ═══
-Descritores cujo comportamento aparece NA INTERAÇÃO: escutar, mediar, dar
-feedback, negociar, sustentar decisão impopular, acolher, discordar, alinhar.
+🔑 O QUE SE MEDE É A PROFUNDIDADE DA SONDAGEM. Não é o gestor executar o
+comportamento da régua ali — é ele demonstrar que conhece o padrão pelo que
+EXIGE e pelo que RECUSA. Quem domina gestão de conflitos pergunta "você chegou
+a sentar com a mãe? o que ela disse que te surpreendeu?"; quem não domina aceita
+"conversei com ela e ficou tudo bem" e segue em frente.
 
-═══ O QUE NÃO CABE ═══
-Descritores que vivem fora de uma conversa: rotina pessoal, regulação emocional
-privada, organização de documento, análise feita sozinho, hábito ao longo de
-meses. Forçá-los numa cena inventa um conflito que a competência não tem — e a
-nota passa a medir o instrumento, não a pessoa.
+Perguntar É o comportamento, aqui. A pergunta que o gestor faz revela a régua
+que ele carrega na cabeça.
 
-Julgue descritor a descritor. Não seja generoso: na dúvida, "parcial".
+═══ CABE NA CENA ═══
+Competência cujo padrão o gestor consegue COBRAR e INVESTIGAR conversando com
+quem viveu o caso: sondar, pedir exemplo concreto, recusar resposta genérica,
+checar se o outro lado foi ouvido, cobrar critério, prazo e responsável, testar
+como se saberá que funcionou.
+
+⚠️ O terceiro do caso — a mãe, o cliente, a Secretaria — NÃO entra na cena. Isso
+não impede: o gestor é medido por exigir que ele tenha sido ouvido, não por
+ouvi-lo ali.
+
+═══ VAI PARA O CENÁRIO ESCRITO ═══
+Competência cujo objeto é o PRÓPRIO GESTOR e não a equipe: autocuidado,
+regulação emocional privada, rotina pessoal, organização do próprio trabalho.
+Não existe conversa de feedback com um liderado sobre o bem-estar do gestor —
+forçá-la inventa um conflito que a competência não tem, e a nota passa a medir
+o instrumento.
+
+Também vai para o escrito o que não tem caso vivido para sondar: análise
+documental, conformidade, produto feito sozinho sem interlocutor.
+
+═══ A DECISÃO É DA COMPETÊNCIA INTEIRA ═══
+Não existe "metade na cena, metade no escrito". Se UM descritor não puder ser
+cobrado numa conversa de feedback, a competência inteira vai para o escrito —
+a cena mede os seis ou não mede nenhum. Na dúvida, "cenario_escrito".
 
 ═══ FORMATO (APENAS JSON) ═══
 {
-  "por_descritor": [ { "indice": 1, "cabe": "sim|parcial|nao", "porque": "uma frase" } ],
-  "veredito": "adequada|parcial|inadequada",
+  "por_descritor": [
+    { "indice": 1, "sondavel": true, "que_pergunta_revelaria": "a pergunta que o gestor faria para investigar isto" }
+  ],
+  "destino": "cena|cenario_escrito",
   "justificativa": "2 frases",
-  "se_parcial_quais_descritores_ficam_de_fora": [3, 5]
+  "descritores_que_impedem": [3, 5]
 }`;
 
   const user = `═══ CARGO ═══

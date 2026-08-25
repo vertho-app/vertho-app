@@ -18,6 +18,10 @@ const mocks = vi.hoisted(() => ({
   instrucoes: [] as string[],
   /** O que o modelo devolve em `relacao_hierarquica` ao desenhar a persona. */
   hierarquiaDaPersona: 'liderado_direto' as string | undefined,
+  /** O gabarito: um fato enterrado por descritor, salvo quando o teste mexe. */
+  enterrados: [1, 2, 3, 4, 5, 6].map((i) => ({
+    descritor: i, fato: `fato de D${i}`, so_revela_se: `o gestor perguntar por D${i}`,
+  })) as any[],
 }));
 
 vi.mock('@/actions/ai-client', () => ({
@@ -38,6 +42,10 @@ vi.mock('@/actions/ai-client', () => ({
         relacao: 'professora da escola que o avaliado dirige',
         objetivo: 'x', o_que_nunca_aceita: 'y', o_que_faz_ceder: 'z',
         tom: 'firme', primeira_fala: 'Olha.',
+        fatos: {
+          superficie: ['conversei com ela e ficou tudo bem'],
+          enterrados: mocks.enterrados,
+        },
       });
     }
     return '{}';
@@ -47,7 +55,7 @@ vi.mock('@/lib/pii-masker', () => ({ maskTextPII: (t: string) => t, unmaskPII: (
 
 import { gerarPersona, turnoCena, abrirCena, type EstadoCena } from '@/lib/season-engine/cena/core';
 import { consolidarCena, montarBeatsDaCena, type EvidenciaDescritor, type PerguntaIA3 } from '@/lib/season-engine/cena/beats';
-import { promptAlunoSimulado, promptExtracao, promptPersona } from '@/lib/season-engine/cena/prompts';
+import { buildInterlocutorSystemEstavel, promptAlunoSimulado, promptExtracao, promptPersona } from '@/lib/season-engine/cena/prompts';
 
 const perguntas: PerguntaIA3[] = [
   { numero: 1, descritores_primarios: [1, 2] },
@@ -234,5 +242,55 @@ describe('5 · o interlocutor é SEMPRE liderado direto', () => {
       await expect(gerarPersona(ctxCheio), `hierarquia=${h}`).rejects.toThrow(/liderado direto/);
     }
     mocks.hierarquiaDaPersona = 'liderado_direto';
+  });
+});
+
+describe('6 · o gabarito é o contrato de cobertura da leitura (b)', () => {
+  // Sob (b), o que se mede é o gestor CHEGAR aos fatos. Um descritor sem fato
+  // enterrado não tem como ser medido: não há nada para descobrir, e a nota
+  // sairia da forma da pergunta em vez do que ela alcançou.
+  it('persona sem fatos enterrados ABORTA a cena', async () => {
+    mocks.enterrados = [];
+    await expect(gerarPersona(ctxCheio)).rejects.toThrow(/sem gabarito não há o que sondar/);
+  });
+
+  it('descritor sem fato enterrado ABORTA, e diz qual', async () => {
+    mocks.enterrados = [1, 2, 3, 4].map((i) => ({
+      descritor: i, fato: 'x', so_revela_se: 'y',
+    }));
+    await expect(gerarPersona(ctxCheio)).rejects.toThrow(/D5, D6/);
+  });
+
+  it('fato sem "so_revela_se" ABORTA — sairia de graça', async () => {
+    // Sem a condição, o interlocutor não sabe quando soltar, e solta sempre.
+    // Aí não há sondagem para medir: todo gestor chegaria a todo fato.
+    mocks.enterrados = [1, 2, 3, 4, 5, 6].map((i) => ({
+      descritor: i, fato: 'x', so_revela_se: i === 3 ? '' : 'y',
+    }));
+    await expect(gerarPersona(ctxCheio)).rejects.toThrow(/D3: sem "so_revela_se"/);
+  });
+
+  it('o interlocutor recebe os fatos, com a ordem de não entregar de bandeja', () => {
+    const sys = buildInterlocutorSystemEstavel(ctxCheio, {
+      quem: 'Fátima', relacao: 'professora', objetivo: 'x', o_que_nunca_aceita: 'y',
+      o_que_faz_ceder: 'z', tom: 'firme', primeira_fala: 'Olha.',
+      fatos: {
+        superficie: ['conversei com ela e ficou tudo bem'],
+        enterrados: [{ descritor: 2, fato: 'nunca ouvi a mãe', so_revela_se: 'ele perguntar pelo outro lado' }],
+      },
+    } as any, 14);
+    expect(sys).toContain('O QUE VOCÊ SÓ ENTREGA SE FOR SONDADO');
+    expect(sys).toContain('nunca ouvi a mãe');
+    expect(sys).toContain('SÓ SAI SE: ele perguntar pelo outro lado');
+    expect(sys, 'e não pode denunciar que existe algo escondido')
+      .toContain('nunca diga que existe algo escondido');
+  });
+
+  it('o extrator sabe que PERGUNTAR é o comportamento', () => {
+    const { system } = promptExtracao(ctxCheio, 'transcrição');
+    expect(system).toContain('A PERGUNTA DO GESTOR É O COMPORTAMENTO');
+    expect(system, 'a regra antiga tem de estar explicitamente revogada')
+      .toContain('ISTO INVERTE A REGRA ANTERIOR');
+    expect(system).toContain('exigiu o padrão × aceitou a superfície');
   });
 });

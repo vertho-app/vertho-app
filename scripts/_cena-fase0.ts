@@ -186,35 +186,36 @@ async function cmdTriagem(slug: string, cargo: string) {
   for (const [codComp, nome] of comps) {
     const descritores = await lerDescritores(emp.id, cargo, codComp);
     const t = await triarAdequacao(cargo, String(nome), descritores, { ledger: { empresaId: emp.id } });
-    const fora = t?.se_parcial_quais_descritores_ficam_de_fora ?? [];
-    const marca = { adequada: '++', parcial: ' ~', inadequada: '--' }[t?.veredito ?? 'parcial'] ?? ' ?';
-    console.log(`${marca}  ${codComp}  ${String(nome).padEnd(46)} ${t?.veredito ?? 'erro'}${fora.length ? `  (fora: ${fora.map((d) => `D${d}`).join(',')})` : ''}`);
+    const fora = t?.descritores_que_impedem ?? [];
+    const marca = t?.destino === 'cena' ? 'CENA   ' : 'ESCRITO';
+    console.log(`${marca}  ${codComp}  ${String(nome).padEnd(46)}${fora.length ? `  impedem: ${fora.map((d) => `D${d}`).join(',')}` : ''}`);
     if (t?.justificativa) console.log(`    ${t.justificativa}`);
     linhas.push({ codComp, nome, ...t });
   }
 
-  // ⚠️ NÃO ranquear pelo RÓTULO. Na 1ª rodada (24/08) as 13 competências
-  // voltaram "parcial" — o prompt manda preferir "parcial" na dúvida — e o
-  // resumo dizia "0 de 13 adequadas", inútil para escolher. O que separa é
-  // QUANTOS descritores caem fora: variou de 1 a 4, e o check da 2ª IA depois
-  // confirmou a ordem, reprovando DIR08, que a triagem punha com 3 fora.
-  const contarFora = (l: any) => {
-    const declarados = Array.isArray(l?.se_parcial_quais_descritores_ficam_de_fora)
-      ? l.se_parcial_quais_descritores_ficam_de_fora.length : 0;
-    const porDescritor = Array.isArray(l?.por_descritor)
-      ? l.por_descritor.filter((d: any) => d?.cabe === 'nao').length : 0;
-    // O maior dos dois: o modelo às vezes preenche só um dos campos.
-    return Math.max(declarados, porDescritor);
-  };
-  const ranking = [...linhas].sort((a, b) => contarFora(a) - contarFora(b));
-  console.log('\nRANKING — quantos descritores a cena NÃO alcança (menor é melhor)\n');
-  for (const l of ranking) {
-    const parciais = Array.isArray(l?.por_descritor)
-      ? l.por_descritor.filter((d: any) => d?.cabe === 'parcial').length : 0;
-    console.log(`  ${contarFora(l)} fora · ${parciais} parcial   ${l.codComp}  ${String(l.nome).slice(0, 44)}`);
+  /**
+   * O roteamento é BINÁRIO por competência, então o relatório é uma LISTA DE
+   * DESTINOS — não um ranking.
+   *
+   * ⚠️ A versão anterior ranqueava por "quantos descritores caem fora", porque
+   * o prompt mandava preferir "parcial" na dúvida e as 13 competências voltavam
+   * parciais, deixando o rótulo inútil para escolher. Com destino binário o
+   * rótulo volta a decidir; o contador vira diagnóstico de POR QUE foi para o
+   * escrito, não critério de escolha.
+   */
+  const impedem = (l: any) => (Array.isArray(l?.descritores_que_impedem) ? l.descritores_que_impedem : []);
+  const naCena = linhas.filter((l) => l.destino === 'cena');
+  const noEscrito = linhas.filter((l) => l.destino !== 'cena');
+  console.log(`${'='.repeat(72)}`);
+  console.log(`ROTEAMENTO — ${naCena.length} para a CENA, ${noEscrito.length} para o CENÁRIO ESCRITO`);
+  console.log('');
+  for (const l of naCena) console.log(`  CENA     ${l.codComp}  ${String(l.nome).slice(0, 50)}`);
+  for (const l of noEscrito) {
+    const ds = impedem(l);
+    console.log(`  ESCRITO  ${l.codComp}  ${String(l.nome).slice(0, 44)}` +
+      `${ds.length ? `  — impedem: ${ds.map((d: number) => `D${d}`).join(',')}` : ''}`);
   }
-  const melhor = ranking[0];
-  console.log(`\nMelhor candidata: ${melhor?.codComp} — ${melhor?.nome} (${contarFora(melhor)} fora)\n`);
+  console.log('');
   const saida = arg('saida', `triagem-${slug}-${codigoArquivo(cargo)}.json`);
   writeFileSync(saida, JSON.stringify(linhas, null, 2));
   console.log(`→ ${saida}`);
