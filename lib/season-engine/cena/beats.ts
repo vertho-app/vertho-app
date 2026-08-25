@@ -306,12 +306,42 @@ export function podeEncerrar(estado: EstadoParaEncerrar): VeredictoEncerramento 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type VereditoDescritor = 'demonstrou' | 'tentou' | 'falhou' | 'sem_sinal';
+
+/** O nível que o extrator ancorado devolve. */
+export type NivelDescritor = 'n1_gap' | 'n2_em_desenvolvimento' | 'n3_meta' | 'sem_sinal';
+
+/**
+ * Compatibilidade com artefatos gravados antes de 25/08/2026, quando o extrator
+ * classificava OCORRÊNCIA (demonstrou/tentou/falhou) e o código lia MATURIDADE.
+ * A tradução é 1:1 porque era exatamente essa a leitura implícita — o que muda
+ * é que agora o modelo escolhe o nível olhando as três âncoras, em vez de o
+ * código inferir maturidade a partir de "houve ação".
+ */
+export const VEREDITO_PARA_NIVEL: Record<VereditoDescritor, NivelDescritor> = {
+  demonstrou: 'n3_meta',
+  tentou: 'n2_em_desenvolvimento',
+  falhou: 'n1_gap',
+  sem_sinal: 'sem_sinal',
+};
+
+export const nivelDaEvidencia = (e: { nivel?: NivelDescritor; veredito?: VereditoDescritor }): NivelDescritor =>
+  e.nivel ?? VEREDITO_PARA_NIVEL[e.veredito ?? 'sem_sinal'] ?? 'sem_sinal';
 export type ForcaEvidencia = 'fraca' | 'moderada' | 'forte';
 
 export interface EvidenciaDescritor {
   /** Índice 1..6 — o mesmo D-n do mapa de cobertura e de `d{n}_nota`. */
   indice: number;
-  veredito: VereditoDescritor;
+  /**
+   * O nível ancorado — a forma canônica desde 25/08/2026.
+   *
+   * Opcional só por COMPATIBILIDADE: artefatos gravados antes dessa data trazem
+   * `veredito` no lugar. Uma evidência sem nenhum dos dois não é "neutra": é
+   * ilegível, e `validarSaidaDaCena` a trata como erro em vez de deixá-la virar
+   * `sem_sinal` silencioso.
+   */
+  nivel?: NivelDescritor;
+  /** @deprecated Compat com artefatos anteriores a 25/08/2026. Use `nivel`. */
+  veredito?: VereditoDescritor;
   forca: ForcaEvidencia;
   citacao: string;
   /** Em qual beat a evidência apareceu (null = veio do debrief). */
@@ -326,6 +356,22 @@ export interface EvidenciaDescritor {
    * que já mordeu aqui em `.limit()` sem `order`.
    */
   turno?: number | null;
+  /**
+   * O elemento concreto da citação (nome, prazo, número, rito) foi PEDIDO ou
+   * ENTREGUE pronto na fala anterior do interlocutor — o avaliado só preencheu
+   * o molde.
+   *
+   * 🔴 MEDIDO NA FASE 0c (25/08/2026): o interlocutor disse "quero um número:
+   * quantos dias de adaptação e quantos itens prontos" e o avaliado repetiu os
+   * dois números. O extrator marcou `demonstrou/forte`. Last-wins promoveu D1
+   * de 1,4 para 3,2. Quatro de cinco atores N1 saíram N2. O único que ficou N1
+   * foi o que NÃO ecoou.
+   *
+   * O corte de "falhou" PEGOU no começo da cena. O que não pegou foi tratar o
+   * eco do molde como competência. `provocado` não mexe na tabela (1,4 · 2,2 ·
+   * 3,2): só decide QUAL evidência entra na last-wins. Eco não recupera.
+   */
+  provocado?: boolean;
 }
 
 /**
@@ -350,10 +396,10 @@ export interface EvidenciaDescritor {
  *
  * ⚠️ `demonstrou` NÃO alcança N4 de propósito — ver `TETO_CENA`.
  */
-const NOTA_POR_VEREDITO: Record<Exclude<VereditoDescritor, 'sem_sinal'>, number> = {
-  demonstrou: 3.2, // N3 — nível-meta
-  tentou:     2.2, // N2 — em desenvolvimento
-  falhou:     1.4, // N1 — lacuna
+const NOTA_POR_VEREDITO: Record<Exclude<NivelDescritor, 'sem_sinal'>, number> = {
+  n3_meta:               3.2, // meio do N3
+  n2_em_desenvolvimento: 2.2, // meio do N2
+  n1_gap:                1.4, // meio do N1
 };
 
 /**
@@ -415,6 +461,22 @@ export interface ConsolidacaoCena {
    * inteira não vale**. Ver o comentário em `consolidarCena`.
    */
   indicesInvalidos: number[];
+  /**
+   * Evidências descartadas por virem de um beat que NÃO mede aquele descritor.
+   *
+   * Vazio é o esperado. Não-vazio significa que o extrator não está respeitando
+   * o mapa descritor↔beat — e o mapa É o contrato de cobertura deste módulo:
+   * sem ele, "o beat 1 aconteceu" deixa de significar "D1 foi sondado".
+   */
+  forasDoMapa: Array<{ descritor: number; beat: number }>;
+  /**
+   * ABERTURA: nota e nível pela PRIMEIRA evidência de cada descritor.
+   *
+   * É o hábito autônomo — o que a pessoa faz antes de o interlocutor ensinar o
+   * formato. Com cena didática, é esta medida que discrimina; o encerramento
+   * mede o quanto ela aprende durante a conversa.
+   */
+  abertura: { notas: Array<number | null>; media: number | null; nivel: Nivel | null };
 }
 
 /**
@@ -432,6 +494,7 @@ export function consolidarCena(
   ocorrido?: { beats: BeatDaCena[]; beatsCumpridos: number[] },
 ): ConsolidacaoCena {
   const notas: Array<number | null> = Array.from({ length: numDescritores }, () => null);
+  const notasAbertura: Array<number | null> = Array.from({ length: numDescritores }, () => null);
 
   /**
    * 🔴 MEDIDO NA FASE 0 (24/08/2026): sem este filtro, a cobertura reportada
@@ -483,6 +546,7 @@ export function consolidarCena(
    * decide sem saber.
    */
   const foraDaFaixa: number[] = [];
+  const forasDoMapa: Array<{ descritor: number; beat: number }> = [];
   const porDescritor = new Map<number, EvidenciaDescritor[]>();
   for (const ev of evidencias) {
     const i = ev.indice;
@@ -490,9 +554,33 @@ export function consolidarCena(
       if (Number.isFinite(Number(i))) foraDaFaixa.push(Number(i));
       continue;
     }
-    if (ev.veredito === 'sem_sinal') continue;
+    if (nivelDaEvidencia(ev) === 'sem_sinal') continue;
     if (alcancaveis && !alcancaveis.has(i)) continue; // beat não aconteceu → lacuna
-    if (!(ev.veredito in NOTA_POR_VEREDITO)) continue;
+
+    /**
+     * 🔴 O BEAT DECLARADO TEM DE MEDIR AQUELE DESCRITOR.
+     *
+     * Medido em 25/08/2026: **31 de 171 evidências (18,1%)** vinham de um beat
+     * que não mede o descritor que elas pontuavam — e em 17 de 60 resultados
+     * finais foi uma delas que venceu. D1 (que pertence só ao beat 1) fechava
+     * em 3,20 com uma fala do beat 4 sobre indicadores.
+     *
+     * Isso esvazia a garantia central do módulo. O mapa descritor↔beat É o
+     * contrato de cobertura: se D1 pode ser decidido por qualquer momento da
+     * conversa, então "o beat 1 aconteceu" deixa de significar "D1 foi
+     * sondado", e a cobertura 6/6 vira contagem de linhas outra vez.
+     *
+     * O validador conferia que o beat EXISTE e foi CUMPRIDO — nunca que ele
+     * mede aquele descritor. Faltava esta linha, não outra checagem.
+     */
+    if (ocorrido && ev.beat != null) {
+      const beatDaEvidencia = ocorrido.beats.find((b) => b.numero === ev.beat);
+      if (beatDaEvidencia && !beatDaEvidencia.descritores.includes(i)) {
+        forasDoMapa.push({ descritor: i, beat: ev.beat });
+        continue;
+      }
+    }
+    if (!(nivelDaEvidencia(ev) in NOTA_POR_VEREDITO)) continue;
     porDescritor.set(i, [...(porDescritor.get(i) ?? []), ev]);
   }
 
@@ -504,16 +592,73 @@ export function consolidarCena(
     // Ordem TEMPORAL: turno manda; beat é fallback; debrief (sem os dois) fecha.
     const quando = (e: EvidenciaDescritor) => e.turno ?? (e.beat != null ? e.beat : 999);
     const ordenadas = [...evs].sort((a, b) => quando(a) - quando(b));
-    const trilha = ordenadas.map((e) => NOTA_POR_VEREDITO[e.veredito as keyof typeof NOTA_POR_VEREDITO]);
+    /**
+     * A SÉRIE É A CENA INTEIRA. `provocado` não remove evidência — só limita o
+     * quanto ela pode valer (ver `notaDe`).
+     *
+     * 🔴 A versão anterior tirava da série toda evidência provocada quando
+     * houvesse ao menos uma espontânea. Ela nasceu contra o extrator de
+     * OCORRÊNCIA, que rotulava eco de molde como `demonstrou`. Com o
+     * classificador ancorado (25/08) o eco já sai `n2_em_desenvolvimento` +
+     * `provocado: true` — e o filtro passou a punir duas vezes a mesma coisa.
+     *
+     * Medido na re-extração de 25/08 (10 cenas, 134 evidências): das 41
+     * evidências provocadas que o filtro descartava, **40 eram n2 e 1 era n1 —
+     * NENHUMA era n3**. Ou seja, ele já não removia nota inflada; removia o
+     * miolo da cena. E em **27 dos 59 descritores** a evidência descartada era
+     * a ÚLTIMA — então o campo chamado "encerramento" não era o fim da cena,
+     * era o fim do trecho espontâneo. O braço N1 fechava em 1,51 contra 1,51 de
+     * abertura: os dois campos mediam quase a mesma coisa, e a separação de
+     * 1,02 entre os braços vinha de ter cortado fora a deriva, não de medi-la.
+     *
+     * Com a série completa, a deriva aparece: N1 abre em 1,56 e fecha em 1,93,
+     * com 2 dos 5 atores N1 vazando para N2 no encerramento — enquanto a
+     * ABERTURA segura os 5 em N1. É esse o achado, e escondê-lo com um filtro
+     * seria comprar número bonito com medida errada.
+     */
+    const serie = ordenadas;
+    const notaDe = (e: EvidenciaDescritor) => {
+      const v = nivelDaEvidencia(e) as keyof typeof NOTA_POR_VEREDITO;
+      // Só-provocado: o teto é o N2. Nível-meta ditado pelo interlocutor não é
+      // nível-meta da pessoa — é eco do molde que ela recebeu pronto.
+      if (e.provocado && v === 'n3_meta') return NOTA_POR_VEREDITO.n2_em_desenvolvimento;
+      return NOTA_POR_VEREDITO[v];
+    };
+    const trilha = serie.map(notaDe);
     const final = trilha[trilha.length - 1];
     notas[i - 1] = Math.min(final, TETO_CENA);
+
+    /**
+     * ABERTURA — a PRIMEIRA evidência de cada descritor, guardada em separado.
+     *
+     * 🔴 MEDIDO EM 25/08/2026 e é o achado que reorganiza a medida: no braço N1,
+     * os vereditos vão de **76% n1_gap no início** a **44% n3_meta no fim**. O
+     * extrator acerta o N1 na abertura; quem muda é o avaliado, porque o
+     * interlocutor fecha saídas e dita o formato turno após turno.
+     *
+     * Com um interlocutor didático NÃO EXISTE agregador único que deixe N1=N1 e
+     * N3=N3 ao mesmo tempo — os dois sobem porque a cena ensina. Então são duas
+     * medidas com significados diferentes:
+     *   · ABERTURA     → hábito autônomo, o que a pessoa faz ANTES de a cena
+     *                     ensinar o formato.
+     *   · ENCERRAMENTO → coachability: o quanto ela incorpora durante a
+     *                     conversa. É o que `media`/`nivel` publicam HOJE.
+     *
+     * ⚠️ Qual das duas deve carregar o RÓTULO é decisão de produto em aberto, e
+     * o código não finge que já foi tomada: `nivel` continua vindo do
+     * encerramento. A evidência (re-extração de 25/08) aponta para a abertura —
+     * ela põe 5 de 5 atores N1 em N1 sob as DUAS regras de série, enquanto o
+     * encerramento deixa 2 vazarem para N2. Mas trocar a fonte do rótulo muda o
+     * que "a nota da cena" significa para PDI e trilha; não é ajuste de código.
+     */
+    notasAbertura[i - 1] = Math.min(notaDe(serie[0]), TETO_CENA);
 
     if (trilha.length > 1) {
       if (final > trilha[0]) recuperou.push(i);
       else if (final < trilha[0]) piorou.push(i);
     }
     // Confiança: a FORÇA vive aqui e só aqui — nunca na nota.
-    if (ordenadas.every((e) => e.forca === 'fraca')) baixaConfianca.push(i);
+    if (serie.every((e) => e.forca === 'fraca')) baixaConfianca.push(i);
   }
 
   const semSinal: number[] = [];
@@ -550,5 +695,13 @@ export function consolidarCena(
       taxa: numDescritores ? Number((medidas.length / numDescritores).toFixed(3)) : 0,
     },
     indicesInvalidos: [...new Set(foraDaFaixa)].sort((a, b) => a - b),
+    abertura: (() => {
+      const ms = notasAbertura.filter((n): n is number => n != null);
+      const m = ms.length ? Number((ms.reduce((a, b) => a + b, 0) / ms.length).toFixed(2)) : null;
+      // Mesma régua de supressão do encerramento: rótulo só com cobertura cheia.
+      const publicavel = m != null && ms.length === numDescritores && !foraDaFaixa.length;
+      return { notas: notasAbertura, media: m, nivel: publicavel ? nivelDaNota(m) : null };
+    })(),
+    forasDoMapa,
   };
 }

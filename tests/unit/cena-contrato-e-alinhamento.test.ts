@@ -36,7 +36,7 @@ vi.mock('@/lib/pii-masker', () => ({ maskTextPII: (t: string) => t, unmaskPII: (
 
 import { gerarPersona, turnoCena, abrirCena, type EstadoCena } from '@/lib/season-engine/cena/core';
 import { consolidarCena, montarBeatsDaCena, type EvidenciaDescritor, type PerguntaIA3 } from '@/lib/season-engine/cena/beats';
-import { promptExtracao } from '@/lib/season-engine/cena/prompts';
+import { promptAlunoSimulado, promptExtracao } from '@/lib/season-engine/cena/prompts';
 
 const perguntas: PerguntaIA3[] = [
   { numero: 1, descritores_primarios: [1, 2] },
@@ -114,6 +114,23 @@ describe('2 · o extrator PODE emitir várias evidências por descritor', () => 
     expect(system).toContain('"turno"');
   });
 
+  it('o schema pede provocado — senão o eco do molde vira nível-meta', () => {
+    const { system } = promptExtracao(ctxCheio, 'transcrição');
+    expect(system).toContain('"provocado"');
+    expect(system).toContain('NÃO é n3_meta');
+  });
+
+  // O classificador ancorado (25/08) só é ancorado se as âncoras chegarem ao
+  // modelo. Mostrando apenas o N3, a pergunta que sobra é "chegou lá ou não?" —
+  // ocorrência de novo, com outro nome nos campos.
+  it('o prompt mostra as TRÊS âncoras de cada descritor, não só a meta', () => {
+    const { system, user } = promptExtracao(ctxCheio, 'transcrição');
+    expect(user).toContain('n1_gap:');
+    expect(user).toContain('n2_em_desenvolvimento:');
+    expect(user).toContain('n3_meta:');
+    expect(system, 'o schema tem de pedir o campo novo').toContain('"nivel"');
+  });
+
   it('a trajetória ordena por turno, não por beat', () => {
     // Duas evidências no MESMO beat: só o turno as separa. Ordenar por beat
     // empataria, e a recuperação sairia como piora ou sumiria.
@@ -162,5 +179,15 @@ describe('3 · o juiz avalia o beat PROVOCADO, não o próximo pendente', () => 
   it('abrirCena registra o beat de abertura', () => {
     const { estado: e } = abrirCena(persona, ctxCheio.beats[0].numero);
     expect(e.beatProvocado).toBe(1);
+  });
+});
+
+describe('4 · o ator N1 é instruído a NÃO recuperar', () => {
+  it('N1 recebe a trava; N3 não', () => {
+    const n1 = promptAlunoSimulado('Gestão Escolar', 1, descritores);
+    const n3 = promptAlunoSimulado('Gestão Escolar', 3, descritores);
+    expect(n1).toContain('Você NÃO se recupera');
+    expect(n1).toContain('PROIBIDO');
+    expect(n3).not.toContain('Você NÃO se recupera');
   });
 });

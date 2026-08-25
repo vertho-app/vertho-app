@@ -190,3 +190,38 @@ describe('normalizar', () => {
     expect(normalizar('  Até   SEXTA-feira, sim!  ')).toBe('ate sexta feira sim');
   });
 });
+
+describe('o classificador ancorado (25/08) e o artefato velho convivem', () => {
+  const CIT = 'vou tirar o levantamento de dados da sua lista e passar para a Roseli';
+  const evNivel = (nivel: any): any => ({ indice: 1, nivel, forca: 'forte', citacao: CIT, beat: 1, turno: 2 });
+
+  it('evidência só com "nivel" passa — é a forma canônica agora', () => {
+    const evs = [evNivel('n3_meta')];
+    const vs = validarSaidaDaCena(entrada({ evidencias: evs, consolidacao: consolidarCena(evs) }));
+    expect(vs.filter((x) => x.severidade === 'erro')).toEqual([]);
+  });
+
+  it('evidência só com "veredito" continua passando — artefato de antes da troca', () => {
+    const evs = [ev(1, 'demonstrou', CIT)];
+    const vs = validarSaidaDaCena(entrada({ evidencias: evs, consolidacao: consolidarCena(evs) }));
+    expect(vs.filter((x) => x.severidade === 'erro')).toEqual([]);
+  });
+
+  it('SEM nenhum dos dois é ERRO — senão o descritor sumia como "a cena não exigiu"', () => {
+    const evs = [{ indice: 1, forca: 'forte', citacao: CIT, beat: 1, turno: 2 } as any];
+    const vs = validarSaidaDaCena(entrada({ evidencias: evs, consolidacao: consolidarCena(evs) }));
+    expect(vs.some((x) => x.severidade === 'erro' && x.campo === 'evidencias.nivel')).toBe(true);
+  });
+
+  it('nível fora do enum é ERRO', () => {
+    const evs = [evNivel('n4_referencia')];
+    const vs = validarSaidaDaCena(entrada({ evidencias: evs, consolidacao: consolidarCena(evs) }));
+    expect(vs.some((x) => x.detalhe.includes('nível desconhecido'))).toBe(true);
+  });
+
+  it('sem_sinal por "nivel" dispensa citação, como já dispensava por veredito', () => {
+    const evs = [{ indice: 1, nivel: 'sem_sinal', forca: 'fraca', citacao: '', beat: 1, turno: 2 } as any];
+    const vs = validarSaidaDaCena(entrada({ evidencias: evs, consolidacao: consolidarCena(evs) }));
+    expect(vs.filter((x) => x.severidade === 'erro')).toEqual([]);
+  });
+});

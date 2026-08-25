@@ -332,25 +332,31 @@ descritor, o que a conversa REALMENTE sustentou.
 
 ═══ PRINCÍPIOS INEGOCIÁVEIS ═══
 1. Só o que foi dito ou feito na conversa. Não complete lacunas, não infira intenção boa.
-2. "demonstrou" exige ação observável NA CENA com consequência. Falar sobre o
-   comportamento não é ter o comportamento.
-3. "tentou" = movimento REAL na direção certa, começado e incompleto. Exige um
-   passo concreto: nomeou um responsável, marcou um prazo, fez a pergunta certa.
-4. "falhou" = fez o oposto, OU a situação exigiu e ele não fez, OU respondeu com
-   generalidade, promessa sem critério, adiamento ou pedido de desculpa no lugar
-   da ação. Enrolar não é tentar.
+2. 🔴 VOCÊ CLASSIFICA O NÍVEL, NÃO A OCORRÊNCIA. Para cada momento, leia as TRÊS
+   âncoras do descritor (N1, N2 e N3, dadas abaixo) e diga a QUAL delas o
+   comportamento observado corresponde. Não pergunte "ele fez alguma coisa?" —
+   pergunte "o que ele fez é o N1, o N2 ou o N3 deste descritor?".
 
-   ⚠️ Este corte foi MEDIDO em 24/08/2026 e corrigido: com a definição anterior
-   ("fez o oposto, ou não fez"), 67% das evidências de um avaliado deliberadamente
-   fraco voltavam como "tentou" e só 10% como "falhou" — e o instrumento inteiro
-   promovia um degrau. Comportamento genérico que não chega a lugar nenhum é
-   falha, não tentativa incompleta.
-5. "sem_sinal" = a conversa não chegou a exigir isso. NÃO é nota baixa — é lacuna.
+   ⚠️ POR QUE ISTO MUDOU (25/08/2026): antes você via apenas a meta N3 e
+   respondia demonstrou / tentou / falhou, e o código traduzia demonstrou → N3.
+   Mas uma AÇÃO CONCRETA pode ser um N2 perfeitamente legítimo — marcar uma data
+   e um responsável não é, por si, o nível-meta. O extrator classificava
+   ocorrência e o sistema lia maturidade. São coisas diferentes, e a diferença
+   inflava a nota de quem apenas agiu.
+3. "n3_meta" = o comportamento corresponde à descrição N3, com ação observável na
+   cena. Fala sobre o comportamento não é ter o comportamento.
+4. "n2_em_desenvolvimento" = corresponde ao N2: há ação real e concreta, mas
+   incompleta, parcial ou sem o critério que o N3 exige. É um nível legítimo, NÃO
+   um N3 malfeito.
+5. "n1_gap" = corresponde ao N1: generalidade, promessa sem critério, adiamento,
+   desculpa no lugar da ação, ou fazer o oposto. Enrolar é N1.
+6. "sem_sinal" = a conversa não chegou a exigir isso. NÃO é nota baixa — é lacuna.
    Prefira "sem_sinal" a inventar evidência fraca. Um buraco declarado é dado; um
    buraco preenchido por suposição é erro que vira PDI errado.
-6. Força: fraca (genérica/abstrata) · moderada (concreta, sem consequência clara) ·
-   forte (concreta, com ação e consequência visível na cena).
-7. UMA entrada por MOMENTO em que o descritor apareceu — não uma por descritor.
+7. FORÇA é CONFIANÇA na leitura, não qualidade do comportamento — eixo separado
+   do nível: fraca (trecho ambíguo, dá para ler de duas formas) · moderada (claro,
+   mas curto) · forte (inequívoco). Um n1_gap pode ter força forte.
+8. UMA entrada por MOMENTO em que o descritor apareceu — não uma por descritor.
    Se o mesmo descritor aparece duas ou três vezes ao longo da cena, emita duas ou
    três entradas, cada uma com o seu turno.
 
@@ -373,22 +379,50 @@ descritor, o que a conversa REALMENTE sustentou.
    numerar as linhas 1, 2, 3… 18 num cenário de 6 descritores. As seis primeiras
    entradas foram lidas como D1–D6 e as outras doze, descartadas — a nota inteira
    media "como foram os seis primeiros momentos", não os seis descritores.
+10. "provocado" é true quando o elemento concreto da citação (nome, prazo, número,
+    rito, responsável) foi PEDIDO ou ENTREGUE pronto na fala imediatamente anterior
+    do interlocutor — e o avaliado só preencheu o molde. Ecoar "três dias" depois
+    de ouvir "quero o número de dias" NÃO é n3_meta. É no máximo
+    n2_em_desenvolvimento, e "provocado" TEM que ser true.
+
+    "n3_meta" exige que o avaliado tenha INTRODUZIDO o elemento sozinho, antes
+    de o interlocutor nomear o formato.
+
+    ⚠️ Medido em 25/08/2026 (fase 0c): o interlocutor disse "quero um número:
+    quantos dias de adaptação e quantos itens prontos" e o avaliado repetiu os
+    dois. O extrator marcou demonstrou/forte. A consolidação (last-wins) promoveu
+    D1 de 1,4 para 3,2. Quatro de cinco atores N1 saíram N2. O único que ficou N1
+    foi o que NÃO ecoou. O corte de "falhou" PEGOU no começo; o que não pegou
+    foi tratar o eco do molde como competência.
 
 ═══ FORMATO (APENAS JSON, sem markdown) ═══
 {
   "leitura_geral": "2 a 3 frases sobre como a pessoa se comportou sob pressão",
   "momento_decisivo": "o turno em que a cena virou (ou não virou) e por quê",
   "evidencias": [
-    { "descritor": 4, "turno": 3, "beat": 1, "veredito": "demonstrou|tentou|falhou|sem_sinal", "forca": "fraca|moderada|forte", "citacao": "trecho literal" },
-    { "descritor": 4, "turno": 7, "beat": 3, "veredito": "demonstrou", "forca": "forte", "citacao": "o mesmo descritor, mais tarde na cena" },
-    { "descritor": 1, "turno": 8, "beat": 4, "veredito": "tentou", "forca": "moderada", "citacao": "fora de ordem, e isso é normal" }
+    { "descritor": 4, "turno": 3, "beat": 1, "nivel": "n3_meta|n2_em_desenvolvimento|n1_gap|sem_sinal", "forca": "fraca|moderada|forte", "citacao": "trecho literal", "provocado": false, "comentario": "por que ESTA âncora e não a vizinha" },
+    { "descritor": 4, "turno": 7, "beat": 3, "nivel": "n3_meta", "forca": "forte", "citacao": "o mesmo descritor, mais tarde na cena", "provocado": false, "comentario": "..." },
+    { "descritor": 1, "turno": 8, "beat": 4, "nivel": "n2_em_desenvolvimento", "forca": "moderada", "citacao": "eco do número que o interlocutor acabou de pedir", "provocado": true, "comentario": "..." }
   ]
-}`;
+}
+
+⚠️ "comentario" é UMA frase dizendo por que o comportamento corresponde a ESTA
+âncora e não à vizinha. É o que o avaliador humano lê ao lado da citação para
+concordar ou discordar — sem ele, a classificação não é auditável, só aceita.
+
+⚠️ O beat é o do MOMENTO da citação, e cada beat mede só os descritores listados
+abaixo. Uma evidência de D5 num beat que não mede D5 é descartada pelo código —
+prefira "sem_sinal" a pendurar o descritor no beat errado.`;
 
   const descritores = ctx.descritores
     .map(
       (d) =>
-        `D${d.indice} — ${d.nomeCurto}\n  o que é: ${d.descritorCompleto}\n  nível-meta: ${d.n3}\n  evidência esperada: ${d.evidenciasEsperadas}`,
+        // As TRÊS âncoras, não só a meta: é contra elas que a classificação é
+        // feita. Mostrar apenas o N3 obriga o modelo a responder "chegou lá ou
+        // não", que é ocorrência — e ocorrência lida como nível infla a nota.
+        `D${d.indice} — ${d.nomeCurto}\n  o que é: ${d.descritorCompleto}\n` +
+        `  n1_gap: ${d.n1}\n  n2_em_desenvolvimento: ${d.n2}\n  n3_meta: ${d.n3}\n` +
+        `  evidência esperada: ${d.evidenciasEsperadas}`,
     )
     .join('\n\n');
 
@@ -466,4 +500,52 @@ ${competencia}
 ${descritores.map((d) => `D${d.indice} — ${d.nomeCurto}: ${d.descritorCompleto}\n  nível-meta: ${d.n3}`).join('\n\n')}`;
 
   return { system, user };
+}
+
+/**
+ * Ator simulado da fase 0 — o mesmo contrato do extrator, do outro lado.
+ *
+ * 🔴 MEDIDO NA FASE 0c: quatro de cinco "N1" terminaram em acordo, e falas como
+ * "Hoje eu faço a adaptação do Marcos. Quinta, 20 minutos…" são comportamento
+ * N3. O extrator estava certo em marcar demonstrou; quem não sustentou o N1
+ * foi o ator (modelo treinado para ajudar). Sem este bloco, a fase 0 mede
+ * "o modelo consegue fingir N1?", não o instrumento.
+ */
+export function promptAlunoSimulado(
+  cargo: string,
+  nivel: 1 | 2 | 3 | 4,
+  descritores: DescritorDaRegua[],
+): string {
+  const faixa = { 1: 'n1', 2: 'n2', 3: 'n3', 4: 'n4' }[nivel] as 'n1' | 'n2' | 'n3' | 'n4';
+  const n1 = nivel === 1
+    ? `
+
+═══ SE O SEU NÍVEL É N1, ISTO É INEGOCIÁVEL ═══
+Você NÃO se recupera. Pressão te deixa PIOR: mais vago, mais adiamento, mais
+empurrar a carga para o outro. Pedido de desculpa sem mudar o plano é o máximo.
+
+PROIBIDO, mesmo no último turno, mesmo quando a outra pessoa ditou o molde:
+- nomear dia, hora, duração, número, indicador, caderno, ata, responsável novo
+- dizer "eu mesmo faço" como plano
+- repetir o número ou o rito que a outra pessoa acabou de pedir
+
+Se pedirem um número, você não tem. Se ditarem um rito, você concorda no vago
+("a gente vê", "depois eu organizo") e não operacionaliza. Não corrija o rumo.`
+    : '';
+
+  return `Você é ${cargo} e está numa conversa difícil de trabalho, ao vivo.
+
+Você NÃO é assistente. Você é esta pessoa, respondendo em tempo real.
+
+═══ SEU NÍVEL DE MATURIDADE ═══
+Você se comporta EXATAMENTE assim — nem melhor, nem pior:
+${descritores.map((d) => `- ${d.nomeCurto}: ${d[faixa]}`).join('\n')}
+
+═══ COMO RESPONDER ═══
+- Português do Brasil, primeira pessoa, no máximo 70 palavras.
+- Fala de conversa, não de redação. Sem títulos, sem listas, sem "em primeiro lugar".
+- Não narre o que você está fazendo. Fale.
+- NUNCA mencione nível, competência, descritor, avaliação ou que isto é uma simulação.
+- Se o seu nível é baixo, deixe as fraquezas aparecerem naturalmente: generalize,
+  desconverse, prometa sem critério, ceda cedo ou endureça sem escutar. Não corrija o rumo.${n1}`;
 }

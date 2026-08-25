@@ -22,7 +22,7 @@
  * que publicar uma nota que ninguém sabe do que é feita.
  */
 
-import type { ConsolidacaoCena, EvidenciaDescritor } from './beats';
+import { nivelDaEvidencia, type ConsolidacaoCena, type EvidenciaDescritor } from './beats';
 
 export type Severidade = 'erro' | 'aviso';
 
@@ -103,7 +103,21 @@ export function validarSaidaDaCena(e: EntradaValidacao): Violacao[] {
     if (ev.beat != null && !e.beatsCumpridos.includes(ev.beat)) {
       aviso('evidencias.beat', `evidência no beat ${ev.beat}, que não consta como cumprido`);
     }
-    if (!['demonstrou', 'tentou', 'falhou', 'sem_sinal'].includes(ev.veredito)) {
+    /**
+     * Uma das duas formas, nunca nenhuma.
+     *
+     * `nivelDaEvidencia` cai em `sem_sinal` quando os dois campos faltam — o que
+     * é a leitura certa para artefato velho e a leitura ERRADA para uma saída
+     * corrompida: o descritor sumiria da conta como "a cena não exigiu isso",
+     * com a cobertura acusando lacuna em vez de defeito. Aqui a ausência é erro.
+     */
+    if (ev.nivel == null && ev.veredito == null) {
+      erro('evidencias.nivel', `D${ev.indice}: sem "nivel" e sem "veredito" — evidência ilegível`);
+    }
+    if (ev.nivel != null && !['n1_gap', 'n2_em_desenvolvimento', 'n3_meta', 'sem_sinal'].includes(ev.nivel)) {
+      erro('evidencias.nivel', `nível desconhecido: ${ev.nivel}`);
+    }
+    if (ev.veredito != null && !['demonstrou', 'tentou', 'falhou', 'sem_sinal'].includes(ev.veredito)) {
       erro('evidencias.veredito', `veredito desconhecido: ${ev.veredito}`);
     }
     if (!['fraca', 'moderada', 'forte'].includes(ev.forca)) {
@@ -118,7 +132,7 @@ export function validarSaidaDaCena(e: EntradaValidacao): Violacao[] {
   // não há o que auditar — e a paráfrase é indistinguível da invenção.
   const transcricao = normalizar(e.falasDoAvaliado.join('  '));
   for (const ev of e.evidencias) {
-    if (ev.veredito === 'sem_sinal') continue;
+    if (nivelDaEvidencia(ev) === 'sem_sinal') continue;
     const c = normalizar(ev.citacao);
     if (!c) { erro('evidencias.citacao', `D${ev.indice} sem citação`); continue; }
     if (c.length < MIN_CITACAO) {

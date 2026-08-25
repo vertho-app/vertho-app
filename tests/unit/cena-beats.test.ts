@@ -181,6 +181,40 @@ describe('consolidarCena — nota em código, lacuna declarada', () => {
     expect(c.piorou).toEqual([]);
   });
 
+  it('eco do molde não chega ao nível-meta — mas conta como o N2 que é', () => {
+    // Fase 0c: interlocutor ditou o número, avaliado repetiu, extrator marcou
+    // demonstrou, last-wins subiu D1 de 1,4 para 3,2. Quatro N1 viraram N2.
+    //
+    // O teto é a correção; APAGAR a evidência não é. Medido na re-extração de
+    // 25/08: o filtro que tirava provocadas da série descartava 40 n2 e 1 n1 e
+    // NENHUM n3 — deixou de conter inflação e passou a truncar a cena, com a
+    // última evidência sumindo em 27 dos 59 descritores. Preencher o molde que
+    // acabaram de te dar é um N2 legítimo; dizer que nada aconteceu é falso.
+    const c = consolidarCena([
+      { indice: 1, veredito: 'falhou', forca: 'moderada', citacao: 'a gente vê', beat: 1, turno: 1, provocado: false },
+      { indice: 1, veredito: 'demonstrou', forca: 'forte', citacao: 'menos de três dias', beat: 4, turno: 8, provocado: true },
+    ]);
+    expect(c.notas[0], 'eco não pode promover N1 a N3').toBe(2.2);
+    expect(c.abertura.notas[0], 'e o hábito autônomo continua sendo o N1 da abertura').toBe(1.4);
+    expect(c.recuperou, 'subiu de 1,4 para 2,2 — é trajetória, e aparece').toEqual([1]);
+  });
+
+  it('recuperação ESPONTÂNEA continua valendo — a tabela não mudou', () => {
+    const c = consolidarCena([
+      { indice: 1, veredito: 'falhou', forca: 'moderada', citacao: 'a', beat: 1, turno: 1, provocado: false },
+      { indice: 1, veredito: 'demonstrou', forca: 'forte', citacao: 'b', beat: 3, turno: 5, provocado: false },
+    ]);
+    expect(c.notas[0]).toBe(3.2);
+    expect(c.recuperou).toEqual([1]);
+  });
+
+  it('só-provocado não passa de tentou — demonstrou ditado não existe', () => {
+    const c = consolidarCena([
+      { indice: 1, veredito: 'demonstrou', forca: 'forte', citacao: 'três dias', beat: 4, turno: 8, provocado: true },
+    ]);
+    expect(c.notas[0]).toBe(2.2);
+  });
+
   it('PIORA também fica visível', () => {
     const c = consolidarCena([ev(1, 'demonstrou', 'forte', 1), ev(1, 'falhou', 'forte', 3)]);
     expect(c.notas[0]).toBe(1.4);
@@ -275,5 +309,77 @@ describe('BEATS_CANONICOS', () => {
     // O beat 4 carrega o aviso de que ele não nasce sozinho numa conversa quente
     // — é o que a prova escrita pega de graça e a cena precisa provocar.
     expect(BEATS_CANONICOS[3].comoOInterlocutorCria).toContain('não o provocar');
+  });
+});
+
+describe('o beat declarado tem de MEDIR aquele descritor', () => {
+  const ev = (indice: number, veredito: any, beat: number, turno = 1): EvidenciaDescritor =>
+    ({ indice, veredito, forca: 'forte', citacao: '...', beat, turno });
+
+  // 🔴 Medido 25/08/2026: 31 de 171 evidências (18,1%) vinham de um beat que
+  // não mede o descritor que pontuavam, e em 17 de 60 resultados finais foi uma
+  // delas que VENCEU — D1, que pertence só ao beat 1, fechava em 3,20 com uma
+  // fala do beat 4. Isso esvazia a garantia central: se D1 pode ser decidido em
+  // qualquer momento, "o beat 1 aconteceu" deixa de significar "D1 foi sondado".
+  it('descarta evidência de beat incompatível e a REPORTA', () => {
+    const beats = beatsOk(); // b1→[1,2] b2→[2,3] b3→[4,5] b4→[5,6]
+    const c = consolidarCena(
+      [ev(1, 'falhou', 1), ev(1, 'demonstrou', 4)],
+      6,
+      { beats, beatsCumpridos: [1, 2, 3, 4] },
+    );
+    expect(c.notas[0], 'a evidência do beat 4 não pode decidir D1').toBe(1.4);
+    expect(c.forasDoMapa).toEqual([{ descritor: 1, beat: 4 }]);
+  });
+
+  it('evidência no beat certo continua valendo', () => {
+    const beats = beatsOk();
+    const c = consolidarCena([ev(1, 'demonstrou', 1)], 6, { beats, beatsCumpridos: [1, 2, 3, 4] });
+    expect(c.notas[0]).toBe(3.2);
+    expect(c.forasDoMapa).toEqual([]);
+  });
+
+  it('sem o mapa (nenhum beat informado) nada é descartado', () => {
+    const c = consolidarCena([ev(1, 'demonstrou', 4)]);
+    expect(c.notas[0]).toBe(3.2);
+    expect(c.forasDoMapa).toEqual([]);
+  });
+});
+
+describe('ABERTURA — o hábito autônomo, separado da coachability', () => {
+  const ev = (indice: number, nivel: any, turno: number, beat = 1): EvidenciaDescritor =>
+    ({ indice, nivel, veredito: 'sem_sinal', forca: 'forte', citacao: '...', beat, turno });
+
+  // 🔴 Medido 25/08/2026: no braço N1 os vereditos vão de 76% n1_gap no início a
+  // 44% n3_meta no fim. O extrator acerta o N1 na abertura; quem muda é o
+  // avaliado, porque a cena ENSINA. Com interlocutor didático não existe
+  // agregador único que deixe N1=N1 e N3=N3 — por isso são duas medidas.
+  it('abertura pega a PRIMEIRA evidência; encerramento pega a última', () => {
+    const c = consolidarCena([
+      ev(1, 'n1_gap', 1), ev(1, 'n3_meta', 9),
+      ev(2, 'n1_gap', 2), ev(2, 'n3_meta', 8),
+      ev(3, 'n1_gap', 1), ev(4, 'n1_gap', 1), ev(5, 'n1_gap', 1), ev(6, 'n1_gap', 1),
+    ]);
+    expect(c.media, 'encerramento = quem aprendeu durante a conversa').toBe(2.0);
+    expect(c.abertura.media, 'abertura = o que a pessoa fez sozinha').toBe(1.4);
+    expect(c.abertura.nivel).toBe(1);
+    expect(c.nivel).toBe(2);
+  });
+
+  it('sem deriva, abertura e encerramento coincidem', () => {
+    const evs = [1, 2, 3, 4, 5, 6].map((i) => ev(i, 'n3_meta', 1));
+    const c = consolidarCena(evs);
+    expect(c.abertura.media).toBe(c.media);
+  });
+
+  it('abertura não publica nível com cobertura incompleta', () => {
+    const c = consolidarCena([ev(1, 'n3_meta', 1), ev(2, 'n3_meta', 1)]);
+    expect(c.abertura.media).toBe(3.2);
+    expect(c.abertura.nivel).toBeNull();
+  });
+
+  it('o veredito antigo ainda é lido — artefatos de antes de 25/08 continuam válidos', () => {
+    const antigo: EvidenciaDescritor = { indice: 1, veredito: 'demonstrou', forca: 'forte', citacao: '...', beat: 1, turno: 1 };
+    expect(consolidarCena([antigo]).notas[0]).toBe(3.2);
   });
 });
