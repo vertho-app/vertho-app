@@ -73,10 +73,35 @@ export function adquirirLock(saida: string): () => void {
   try {
     fd = openSync(lock, 'wx');
   } catch (e: any) {
-    const pid = existsSync(lock) ? readFileSync(lock, 'utf8').trim() : '?';
+    /**
+     * Lock órfão: o dono morreu sem soltar.
+     *
+     * 🔴 Medido 25/08/2026: a fase 0d foi interrompida no meio, o `finally` que
+     * solta o lock nunca rodou, e a retomada seguinte morreu em EEXIST antes de
+     * escrever um byte. A mensagem mandava "apague se for lixo de um crash" —
+     * e quem lê não tem como saber se é. O código tem: basta perguntar se o pid
+     * gravado ainda existe.
+     *
+     * `process.kill(pid, 0)` não mata nada — só testa se o processo está vivo.
+     * Se estiver, o lock é legítimo e a falha continua sendo falha. Se não,
+     * ele é lixo, e roubá-lo é correto — mas NUNCA em silêncio, porque um lock
+     * roubado por engano é dois processos escrevendo no mesmo arquivo.
+     */
+    const bruto = existsSync(lock) ? readFileSync(lock, 'utf8').trim() : '';
+    const pid = Number(bruto);
+    const vivo = Number.isInteger(pid) && pid > 0 && (() => {
+      try { process.kill(pid, 0); return true; } catch (err: any) { return err?.code === 'EPERM'; }
+    })();
+    if (!vivo) {
+      console.warn(`[cena] lock órfão em ${lock} (pid ${bruto || '?'} não está vivo) — assumindo e seguindo`);
+      try { unlinkSync(lock); } catch { /* corrida com outro que também assumiu */ }
+      fd = openSync(lock, 'wx');
+      try { writeSync(fd, String(process.pid)); } finally { closeSync(fd); }
+      return () => { try { unlinkSync(lock); } catch { /* já foi */ } };
+    }
     throw new Error(
-      `já existe um processo gravando ${saida} (lock ${lock}, pid ${pid}). ` +
-      'Se for lixo de um crash, apague o .lock e retome.',
+      `já existe um processo gravando ${saida} (lock ${lock}, pid ${bruto || '?'}, VIVO). ` +
+      'Espere ele terminar — apagar o lock aqui põe dois processos no mesmo arquivo.',
       { cause: e },
     );
   }
