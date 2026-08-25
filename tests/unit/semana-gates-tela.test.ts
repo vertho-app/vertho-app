@@ -143,6 +143,30 @@ describe('itens 3 e 4 — a régua passou a ser dita', () => {
     expect(TELA).not.toContain('<p className="mt-2 text-[11px] text-amber-300/80">{t(\'progress.closesHere\')}</p>');
   });
 
+  it('🔴 a conclusão tem TRÊS estados — atrasado não recebe data no passado', () => {
+    // "A semana seguinte libera seg 01/09" é uma data JÁ PASSADA para quem
+    // concluiu uma semana atrasada — e atrasado é a maioria de quem vê esta
+    // faixa (as 61 travadas de 25/08 concluem semanas cujo sucessor liberou há
+    // tempo). Mandava esperar por algo que já aconteceu.
+    expect(TELA).toContain('semanaLiberadaPorData(data.trilha.data_inicio, proxima)');
+    expect(TELA).toContain("t('progress.nextAlreadyOpen', { week: proxima })");
+    expect(TELA).toContain("t('progress.seasonDone')");
+    expect(TELA).toContain("t('progress.nextOpens'");
+  });
+
+  it('quando a próxima já está aberta, a tela LEVA — não só avisa', () => {
+    // Mesma decisão do botão do WhatsApp: quem está atrasado precisa de um
+    // caminho, não de um aviso.
+    expect(TELA).toContain("router.push(`/dashboard/temporada/semana/${proxima}`)");
+    expect(TELA).toContain("t('progress.goToNext', { week: proxima })");
+  });
+
+  it('a decisão usa a régua do gate, não uma comparação de datas própria', () => {
+    // Uma `new Date() > ...` aqui seria a 2ª régua temporal do produto.
+    const bloco = TELA.slice(TELA.indexOf('const proxima = semanaNum + 1;'), TELA.indexOf("t('progress.goToNext'"));
+    expect(bloco).not.toMatch(/new Date\(\)\s*[<>]/);
+  });
+
   it('o "✓ Conteúdo realizado" saiu do rodapé do card', () => {
     // Duplicava o "Conteúdo · feito" da barra, dando a um passo CUMPRIDO o
     // mesmo peso do que ainda falta.
@@ -159,7 +183,8 @@ describe('as chaves de i18n que a tela passou a usar existem', () => {
 
   it('o bloco de progresso está completo em pt-BR', () => {
     for (const k of ['title', 'stepContent', 'stepEvidence', 'stepDone', 'contentDone',
-      'contentPending', 'evidenceProgress', 'evidenceNotStarted', 'closesHere']) {
+      'contentPending', 'evidenceProgress', 'evidenceNotStarted', 'closesHere',
+      'weekDone', 'nextOpens', 'nextAlreadyOpen', 'goToNext', 'seasonDone']) {
       expect(sw.progress?.[k], `SeasonWeek.progress.${k}`).toBeTruthy();
     }
     expect(sw.evidence?.remaining).toBeTruthy();

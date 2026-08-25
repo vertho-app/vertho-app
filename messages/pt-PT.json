@@ -917,7 +917,9 @@
       "doneAll": "Concluída. A seguinte já está disponível.",
       "weekDone": "Semana {week} concluída",
       "nextOpens": "A semana seguinte fica disponível {date}.",
-      "seasonDone": "Concluiu todas as semanas da sua trilha."
+      "seasonDone": "Concluiu todas as semanas da sua trilha.",
+      "nextAlreadyOpen": "A semana {week} já está disponível.",
+      "goToNext": "Continuar na semana {week}"
     }
   },
   "SeasonDone": {

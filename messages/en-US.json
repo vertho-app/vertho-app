@@ -917,7 +917,9 @@
       "doneAll": "Completed. The next week is now open.",
       "weekDone": "Week {week} completed",
       "nextOpens": "The next week opens {date}.",
-      "seasonDone": "You have completed every week of your track."
+      "seasonDone": "You have completed every week of your track.",
+      "nextAlreadyOpen": "Week {week} is already open.",
+      "goToNext": "Continue to week {week}"
     }
   },
   "SeasonDone": {

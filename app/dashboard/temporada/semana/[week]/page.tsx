@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { formatarLiberacao, avaliarAcessoSemana, turnosIaNecessarios } from '@/lib/season-engine/week-gating';
+import { formatarLiberacao, avaliarAcessoSemana, turnosIaNecessarios, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import ReactMarkdown from 'react-markdown';
 import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle, Lock } from 'lucide-react';
@@ -430,11 +430,47 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               <Check size={18} className="shrink-0" />
               {t('progress.weekDone', { week: semanaNum })}
             </div>
-            <p className="mt-1 text-xs text-emerald-200/80">
-              {semanaNum >= totalSemanasDoPlano(data.trilha.temporada_plano, 14)
-                ? t('progress.seasonDone')
-                : t('progress.nextOpens', { date: formatarLiberacao(data.trilha.data_inicio, semanaNum + 1) })}
-            </p>
+            {/*
+              🔴 "LIBERA seg 01/09" É UMA DATA NO PASSADO PARA QUEM ESTÁ ATRASADO
+              — e atrasado é a MAIORIA de quem vê esta faixa hoje (das 61 pessoas
+              travadas em 25/08, todas concluem semanas cujo sucessor já liberou
+              há tempo). A frase mandava esperar por algo que já aconteceu, e
+              justamente na tela de quem acabou de destravar uma semana e tem
+              todo o impulso para continuar.
+
+              A régua é `semanaLiberadaPorData`, a MESMA do gate — não uma
+              comparação de datas escrita aqui. Três estados, não dois: acabou a
+              trilha · a próxima já está aberta · a próxima ainda vai abrir.
+            */}
+            {(() => {
+              const total = totalSemanasDoPlano(data.trilha.temporada_plano, 14);
+              if (semanaNum >= total) {
+                return <p className="mt-1 text-xs text-emerald-200/80">{t('progress.seasonDone')}</p>;
+              }
+              const proxima = semanaNum + 1;
+              const jaLiberada = semanaLiberadaPorData(data.trilha.data_inicio, proxima);
+              if (!jaLiberada) {
+                return (
+                  <p className="mt-1 text-xs text-emerald-200/80">
+                    {t('progress.nextOpens', { date: formatarLiberacao(data.trilha.data_inicio, proxima) })}
+                  </p>
+                );
+              }
+              // Já liberada: além de dizer, LEVA. Quem está atrasado precisa de
+              // um caminho, não de um aviso — é a mesma decisão do botão da
+              // mensagem de WhatsApp, que aponta para a semana que destrava.
+              return (
+                <div className="mt-1">
+                  <p className="text-xs text-emerald-200/80">{t('progress.nextAlreadyOpen', { week: proxima })}</p>
+                  <button
+                    onClick={() => router.push(`/dashboard/temporada/semana/${proxima}`)}
+                    className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+                  >
+                    {t('progress.goToNext', { week: proxima })}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
