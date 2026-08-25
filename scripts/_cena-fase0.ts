@@ -452,11 +452,26 @@ POR BRAÇO
     }
   }
 
-  const comNota = rodadas.filter((r) => r.consolidacao?.media != null);
-  if (comNota.length >= 2) {
-    const menor = comNota[0], maior = comNota[comNota.length - 1];
-    const delta = Number((maior.consolidacao.media - menor.consolidacao.media).toFixed(2));
-    console.log(`\nDISCRIMINAÇÃO  N${menor.nivel}=${menor.consolidacao.media}  N${maior.nivel}=${maior.consolidacao.media}  delta=${delta}`);
+  /**
+   * Discriminação = distância entre as MÉDIAS dos braços.
+   *
+   * 🔴 Corrigido 25/08/2026: a versão anterior pegava a primeira e a última
+   * cena da lista. Com uma cena por braço isso era a média; com n=3 virou
+   * "sorteia uma de cada lado" — na 0d imprimiu delta 0,83 comparando duas
+   * cenas individuais, quando a distância entre as médias é 0,86. Número
+   * apresentado como conclusão tem de ser calculado como conclusão.
+   */
+  const comNota = rodadas.filter((r: any) => r.consolidacao?.media != null);
+  const porNivel = new Map<number, number[]>();
+  for (const r of comNota) porNivel.set(r.nivel, [...(porNivel.get(r.nivel) ?? []), r.consolidacao.media]);
+  const medias = [...porNivel.entries()]
+    .map(([nv, xs]) => ({ nv, m: xs.reduce((a, b) => a + b, 0) / xs.length, n: xs.length }))
+    .sort((a, b) => a.nv - b.nv);
+  if (medias.length >= 2) {
+    const baixo = medias[0], alto = medias[medias.length - 1];
+    const delta = Number((alto.m - baixo.m).toFixed(2));
+    console.log(`\nDISCRIMINAÇÃO (autonomia, médias por braço)`);
+    console.log(`  N${baixo.nv}=${baixo.m.toFixed(2)} (n=${baixo.n})   N${alto.nv}=${alto.m.toFixed(2)} (n=${alto.n})   delta=${delta}`);
     console.log(delta >= 0.5
       ? '  → o instrumento separa os níveis.'
       : '  → NÃO separa. A cena não discrimina; corrigir o prompt antes de seguir.');

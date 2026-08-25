@@ -208,7 +208,12 @@ NÃO PODE, nunca:
 - nomear a pessoa, o dia, o prazo, o número, o rito ou o indicador que falta
 - oferecer o formato da resposta ("me dá um nome, uma data e um indicador")
 - dar exemplo de resposta boa, nem "por exemplo, você poderia…"
-- listar as opções entre as quais ela deve escolher
+- oferecer os caminhos de ação entre os quais ela deve escolher
+
+Forçar uma ESCOLHA entre coisas que já estão na mesa ("escolhe: você cuida
+disso ou cuida de me segurar aqui") não é entregar — é fechar saída fácil, e é
+o seu trabalho em um dos momentos desta conversa. O que você não faz é dar o
+CONTEÚDO da resposta.
 
 A diferença é literal: "e quem fica responsável?" é seu trabalho. "Põe a
 coordenadora como responsável" é você respondendo no lugar dela.
@@ -627,12 +632,24 @@ Marque "dita_formato": true quando a fala fizer QUALQUER uma destas coisas:
 - nomear a pessoa, o dia, o prazo, o número, o rito ou o indicador que falta
 - oferecer o formato da resposta ("me dá um nome, uma data e um indicador")
 - dar exemplo de resposta boa, mesmo hipotético ("por exemplo, você poderia…")
-- listar as opções entre as quais o avaliado deve escolher
+- oferecer os CAMINHOS DE AÇÃO entre os quais o avaliado deve escolher
+  ("ou você tira ela da sala, ou você chama a mãe")
 
 Marque false quando ela apenas:
 - recusa, discorda, se irrita, insiste, cobra consequência
 - PERGUNTA por algo sem dizer qual é a resposta ("e quem fica responsável?")
 - aponta que a resposta é vaga sem dizer o que a tornaria concreta
+- 🔑 força uma ESCOLHA entre coisas que já estão na mesa — "escolhe: você cuida
+  disso ou cuida de me segurar aqui", "se ela repetir amanhã, quem responde,
+  você ou eu?". Isso NÃO é ditar: é fechar as saídas fáceis, que é a função de
+  um dos momentos da cena. Nenhum nome novo, prazo ou número foi entregue.
+
+  ⚠️ Medido em 25/08/2026: as duas ÚNICAS falas que este guarda barrou numa
+  rodada inteira eram desta forma, as duas no mesmo momento da cena — o que
+  existe justamente para forçar o avaliado a preterir alguma coisa. A regra
+  antiga dizia "listar as opções entre as quais ele deve escolher" e colidia
+  com o mandato do próprio momento. Ditar é entregar o CONTEÚDO da resposta;
+  pôr o dilema na mesa é o trabalho.
 
 ⚠️ A fronteira é esta: PERGUNTAR pelo elemento é o trabalho dele. DIZER o
 elemento é responder no lugar do avaliado. Na dúvida entre as duas, marque

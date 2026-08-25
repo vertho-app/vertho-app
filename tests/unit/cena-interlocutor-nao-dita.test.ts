@@ -137,3 +137,26 @@ describe('a fala que dita é refeita UMA vez', () => {
     expect(r.fala).toBe('Põe a Roseli e me entrega sexta.');
   });
 });
+
+describe('a proibição não pode engolir o momento que força a escolha', () => {
+  // 🔴 Medido na fase 0d: as DUAS únicas falas que o guarda barrou numa rodada
+  // inteira eram do mesmo tipo e do mesmo momento — "se ela repetir amanhã,
+  // quem responde? Você ou eu?". Nenhuma entrega nome, prazo ou número; as
+  // duas fecham saída fácil, que é literalmente o que aquele momento pede.
+  // A regra antiga ("listar as opções entre as quais ela deve escolher")
+  // colidia com o mandato do beat, e o custo foi uma regeneração em 2 de 3
+  // cenas — paga para trocar uma fala boa por outra.
+  it('o guarda é instruído a NÃO barrar o dilema posto na mesa', () => {
+    const { system } = promptGuardaDoInterlocutor('se ela repetir amanhã, quem responde? Você ou eu?', ctxBase.beats[0]);
+    expect(system).toContain('força uma ESCOLHA entre coisas que já estão na mesa');
+    expect(system, 'a fronteira é o CONTEÚDO da resposta, não a forma do dilema')
+      .toContain('Ditar é entregar o CONTEÚDO da resposta');
+  });
+
+  it('e o interlocutor recebe a mesma licença, para não se autocensurar', () => {
+    const sys = buildInterlocutorSystemEstavel(ctxBase, persona, 14);
+    expect(sys).toContain('não é entregar — é fechar saída fácil');
+    expect(sys, 'o que continua proibido é o caminho de ação pronto')
+      .toContain('oferecer os caminhos de ação entre os quais ela deve escolher');
+  });
+});
