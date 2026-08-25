@@ -11,7 +11,15 @@
 import { EXTRATOR_SYSTEM, EXTRATOR_SCHEMA, EXTRATOR_USER } from './prompts';
 import type { ExtracaoCargo, ItemEvid } from './adapter';
 
-const CARGO_MODEL = process.env.GEMINI_CARGO_MODEL || 'gemini-3.6-flash';
+// 3.7 desde 25/08/2026 (era 3.6). Metade do preço de input e 2,4× mais barato no
+// output ($0,75/$3,75 vs $1,50/$9), com índice AA maior (56 vs o 3.6) e #9 no
+// arena — melhor e mais barato ao mesmo tempo, que é raro o suficiente para
+// desconfiar. Por isso foi CONFERIDO nas duas coisas que este call-site exige,
+// contra os dois modelos lado a lado: structured output (responseSchema) e PDF
+// inline em base64. Mesma resposta, mesmo JSON válido.
+// ⚠️ `GEMINI_CARGO_MODEL` não existe na Vercel (conferido) — este default manda
+// de verdade. Se alguém criar a var, ela vence isto aqui.
+const CARGO_MODEL = process.env.GEMINI_CARGO_MODEL || 'gemini-3.7-flash';
 const MAX_PDF_BYTES = 20 * 1024 * 1024; // 20MB inline (acima → Files API, fora de escopo)
 
 export interface ExtratorInput {

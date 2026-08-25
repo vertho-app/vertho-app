@@ -478,7 +478,10 @@ REGRAS:
 - não aprovar por benevolência
 - leitura_do_lote obrigatória com padrões agregados`;
 
-    const resultado = await callAI(system, user, { model: aiConfig?.model || 'gemini-3.6-flash' }, 8192, { temperature: TEMP });
+    // 3.7 desde 25/08/2026 (era 3.6): auditor cross-familia dos cenarios gerados
+    // pelo Claude. Continua Gemini de proposito — a familia e o que faz a
+    // cross-validation valer; o que mudou foi so a versao, mais barata e melhor.
+    const resultado = await callAI(system, user, { model: aiConfig?.model || 'gemini-3.7-flash' }, 8192, { temperature: TEMP });
     const verificacao = await extractJSON(resultado);
     return {
       success: true,

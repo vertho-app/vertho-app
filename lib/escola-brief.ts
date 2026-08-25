@@ -14,7 +14,10 @@
 
 import { callAI } from '@/actions/ai-client';
 
-const BRIEF_MODEL = process.env.ESCOLA_BRIEF_MODEL || 'gemini-3.6-flash';
+// 3.7 desde 25/08/2026: mesma família, metade do input e 2,4x menos no output,
+// indice maior nos dois leaderboards. Saida de texto puro via callAI — sem
+// modalidade nem schema em jogo aqui. `ESCOLA_BRIEF_MODEL` nao existe na Vercel.
+const BRIEF_MODEL = process.env.ESCOLA_BRIEF_MODEL || 'gemini-3.7-flash';
 
 export interface EscolaBrief {
   /** Etapas/segmentos atendidos. Ex: "Educação Infantil e Fundamental I". */

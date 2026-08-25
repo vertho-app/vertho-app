@@ -14,6 +14,13 @@
 
 import { validarUrlPublica, fetchPublico } from '@/lib/net-guard';
 
+// FICA no 3.6 em 25/08/2026, enquanto os call-sites de TEXTO do Gemini foram
+// para o 3.7 (extrator de cargo, brief da escola, check de cenários). Não é
+// esquecimento: aqui a entrada é VÍDEO por `inlineData`, e a única verificação
+// que fiz do 3.7 cobriu texto, structured output e PDF inline — não vídeo.
+// Trocar sem provar a modalidade é exatamente o risco que já custou 5 dias de
+// zero vídeos gerados (ver o cabeçalho de `ia-request-cru-guard.test.ts`).
+// Próximo candidato à troca, com um vídeo real de teste antes.
 const VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.6-flash';
 const MAX_INLINE_BYTES = 20 * 1024 * 1024; // 20MB: acima disso precisa de Files API (Fase 3)
 
