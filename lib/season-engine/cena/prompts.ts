@@ -80,6 +80,18 @@ const listarDescritoresN3 = (ds: DescritorDaRegua[]) =>
 
 export interface PersonaInterlocutor {
   quem: string;
+  /**
+   * Valor FECHADO, e hoje só existe um: o interlocutor é sempre liderado direto
+   * do avaliado. A cena mede liderança, e liderança se exerce sobre quem se
+   * lidera — um par, o chefe ou um externo produziriam uma conversa difícil que
+   * não é a competência avaliada.
+   *
+   * ⚠️ É campo fechado de propósito, e não checagem de texto sobre `relacao`.
+   * Perguntar ao modelo por um enum e conferir o enum é verificável; casar
+   * palavra-chave em prosa livre é o erro que a flag `provocado` já custou
+   * neste módulo — ela virou julgamento sobre texto e degenerou a 76%.
+   */
+  relacao_hierarquica?: 'liderado_direto';
   relacao: string;
   objetivo: string;
   o_que_nunca_aceita: string;
@@ -109,7 +121,16 @@ Sua tarefa NÃO é escrever a cena. É definir quem está do outro lado da mesa 
 sobretudo, sob que condição essa pessoa muda de posição.
 
 ═══ PRINCÍPIOS ═══
-1. O interlocutor sai do cenário, não do cargo. Use os stakeholders que o cenário já nomeia.
+0. 🔴 O INTERLOCUTOR É SEMPRE UM LIDERADO DIRETO DO AVALIADO. A cena mede
+   liderança, e liderança se exerce sobre quem se lidera. Se o cenário girar
+   em torno de um terceiro — uma mãe, um cliente, a Secretaria, um par —, esse
+   terceiro é ASSUNTO da conversa, não personagem dela: quem senta na mesa é a
+   pessoa da equipe afetada por ele.
+
+   Não invente hierarquia que o cargo não tem, e não escolha o chefe, o par nem
+   o externo, mesmo que o cenário os nomeie primeiro.
+
+1. Dentro dessa restrição, o interlocutor sai do cenário, não do cargo. Use os stakeholders que o cenário já nomeia.
 2. Ele tem agenda PRÓPRIA e legítima — não é vilão, não é obstáculo decorativo.
 3. \`o_que_faz_ceder\` é a régua da cena: derive do nível-meta abaixo. Só cede quando o
    avaliado faz AQUILO, e não quando fala bonito sobre aquilo.
@@ -119,7 +140,8 @@ sobretudo, sob que condição essa pessoa muda de posição.
 ═══ FORMATO (APENAS JSON, sem markdown) ═══
 {
   "quem": "nome e função, brasileiro, plausível na organização",
-  "relacao": "que relação tem com o avaliado (subordinado, par, gestor, cliente, família...)",
+  "relacao_hierarquica": "liderado_direto",
+  "relacao": "como essa subordinação aparece no caso concreto (ex.: professora da escola que o avaliado dirige)",
   "objetivo": "o que ele quer sair dali tendo conseguido",
   "o_que_nunca_aceita": "o que ele rejeita mesmo dito com educação",
   "o_que_faz_ceder": "a condição única e observável sob a qual ele muda de posição",

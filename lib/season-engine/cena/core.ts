@@ -227,6 +227,32 @@ export async function gerarPersona(ctx: ContextoCena, opts: OpcoesCena = {}): Pr
   if (camposDaPersona.length) {
     throw new Error(`Persona da cena incompleta — sem ${camposDaPersona.join(', ')}`);
   }
+
+  /**
+   * 🔴 O INTERLOCUTOR É SEMPRE LIDERADO DIRETO — e agora o código sabe disso.
+   *
+   * A regra é do produto: a cena mede LIDERANÇA, e liderança se exerce sobre
+   * quem se lidera. Um par, o chefe ou um cliente produziriam uma conversa
+   * difícil que não é a competência avaliada.
+   *
+   * Só que o prompt oferecia a lista inteira — "subordinado, par, gestor,
+   * cliente, família..." — e a derivação era livre. Nas duas rodadas medidas a
+   * persona caiu em subordinada direta por ACASO do cenário, não por regra:
+   * um cenário centrado na Secretaria geraria o secretário, e a cena mediria
+   * outra coisa sem nada acusando. É a classe "config declarada ≠ config
+   * aplicada" — a regra existia na cabeça de quem desenhou e não no caminho.
+   *
+   * A conferência é sobre um ENUM que o modelo devolve, nunca sobre a prosa de
+   * `relacao`: casar palavra-chave em texto livre é o que fez a flag
+   * `provocado` degenerar a 76% neste mesmo módulo.
+   */
+  if (persona.relacao_hierarquica !== 'liderado_direto') {
+    throw new Error(
+      `Persona não é liderado direto (relacao_hierarquica=${JSON.stringify(persona.relacao_hierarquica)}). ` +
+      'A cena mede liderança: quem senta na mesa é a pessoa da equipe. ' +
+      'Terceiro citado no cenário — mãe, cliente, Secretaria — é assunto da conversa, não personagem dela.',
+    );
+  }
   return persona;
 }
 

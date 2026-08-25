@@ -16,6 +16,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 const mocks = vi.hoisted(() => ({
   beatsJulgados: [] as string[],
   instrucoes: [] as string[],
+  /** O que o modelo devolve em `relacao_hierarquica` ao desenhar a persona. */
+  hierarquiaDaPersona: 'liderado_direto' as string | undefined,
 }));
 
 vi.mock('@/actions/ai-client', () => ({
@@ -29,6 +31,15 @@ vi.mock('@/actions/ai-client', () => ({
       mocks.beatsJulgados.push(user.split('\n')[1] ?? '');
       return '{"cumprido":true,"porque":"ok"}';
     }
+    if (system.includes('desenha o INTERLOCUTOR')) {
+      return JSON.stringify({
+        quem: 'Fátima, professora do 4º ano',
+        relacao_hierarquica: mocks.hierarquiaDaPersona,
+        relacao: 'professora da escola que o avaliado dirige',
+        objetivo: 'x', o_que_nunca_aceita: 'y', o_que_faz_ceder: 'z',
+        tom: 'firme', primeira_fala: 'Olha.',
+      });
+    }
     return '{}';
   },
 }));
@@ -36,7 +47,7 @@ vi.mock('@/lib/pii-masker', () => ({ maskTextPII: (t: string) => t, unmaskPII: (
 
 import { gerarPersona, turnoCena, abrirCena, type EstadoCena } from '@/lib/season-engine/cena/core';
 import { consolidarCena, montarBeatsDaCena, type EvidenciaDescritor, type PerguntaIA3 } from '@/lib/season-engine/cena/beats';
-import { promptAlunoSimulado, promptExtracao } from '@/lib/season-engine/cena/prompts';
+import { promptAlunoSimulado, promptExtracao, promptPersona } from '@/lib/season-engine/cena/prompts';
 
 const perguntas: PerguntaIA3[] = [
   { numero: 1, descritores_primarios: [1, 2] },
@@ -194,5 +205,34 @@ describe('4 · o ator N1 é instruído a NÃO recuperar', () => {
     expect(n1).toContain('Você NÃO se recupera');
     expect(n1).toContain('PROIBIDO');
     expect(n3).not.toContain('Você NÃO se recupera');
+  });
+});
+
+describe('5 · o interlocutor é SEMPRE liderado direto', () => {
+  // A cena mede LIDERANÇA, e liderança se exerce sobre quem se lidera. A regra
+  // é do produto e não estava no caminho: o prompt oferecia "subordinado, par,
+  // gestor, cliente, família..." e a derivação era livre. Nas duas rodadas
+  // medidas a persona caiu em subordinada direta por ACASO do cenário.
+  it('o prompt proíbe par, chefe e externo, e manda o terceiro virar ASSUNTO', () => {
+    const { system } = promptPersona(ctxCheio);
+    expect(system).toContain('SEMPRE UM LIDERADO DIRETO DO AVALIADO');
+    expect(system, 'o terceiro do cenário não pode virar personagem')
+      .toContain('ASSUNTO da conversa, não personagem dela');
+    expect(system, 'o campo é enum fechado, não prosa').toContain('"relacao_hierarquica": "liderado_direto"');
+  });
+
+  it('liderado direto passa', async () => {
+    mocks.hierarquiaDaPersona = 'liderado_direto';
+    await expect(gerarPersona(ctxCheio)).resolves.toMatchObject({ relacao_hierarquica: 'liderado_direto' });
+  });
+
+  it('par, chefe ou externo ABORTAM a cena', async () => {
+    // Enum devolvido pelo modelo, conferido pelo código. Casar palavra-chave na
+    // prosa de `relacao` seria repetir o erro que fez `provocado` degenerar.
+    for (const h of ['par', 'gestor', 'cliente', undefined]) {
+      mocks.hierarquiaDaPersona = h;
+      await expect(gerarPersona(ctxCheio), `hierarquia=${h}`).rejects.toThrow(/liderado direto/);
+    }
+    mocks.hierarquiaDaPersona = 'liderado_direto';
   });
 });
