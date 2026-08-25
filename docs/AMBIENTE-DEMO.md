@@ -1,6 +1,11 @@
-# Ambiente de Demonstração (ACME Demo)
+# Ambientes de Demonstração
 
 Tenant `acme-demo` (empresa "ACME Demo") que os vendedores usam nas demos para clientes. Nasce com um estado rico e é resetado ao estado inicial sob demanda e toda madrugada.
+
+O tenant `gruposinal` (`https://gruposinal.vertho.ai`) é uma instância contextualizada
+para o Grupo Sinal. Ele usa o mesmo fixture, as mesmas telas e as mesmas regras do
+produto; o seed altera apenas a identidade e o contexto organizacional dos artefatos.
+Os dois tenants permanecem com `is_demo=true` e, portanto, sem disparos automáticos reais.
 
 ## O que o cliente vê ao abrir (tudo pronto, SEM IA no reset)
 - **6 participantes** em estágios diferentes da jornada e em **áreas diferentes**, mais **1 persona de RH** que consome o panorama da empresa:
@@ -15,13 +20,15 @@ Tenant `acme-demo` (empresa "ACME Demo") que os vendedores usam nas demos para c
 - Envios reais **desligados** (gate por tenant `empresas.is_demo` no `envio-guard` + personas com e-mail `*.demo@vertho.ai` interno e sem telefone → WhatsApp no-op).
 
 ## Reset
-Três caminhos, uma fonte única (`lib/demo/reset-acme-demo.ts::resetAcmeDemo`, TENANT-SAFE — todo delete/insert é `.eq('empresa_id')` do acme-demo):
+Os tenants usam uma fonte única (`lib/demo/reset-acme-demo.ts::resetDemoTenant`,
+TENANT-SAFE — todo delete/insert é filtrado pelo `empresa_id` do tenant escolhido):
 
 | Caminho | Como | Quando |
 |---|---|---|
-| **Sob demanda** | Botão "Resetar demo agora" em `/admin/demo` (server action `resetarDemoAcme`, gated a platform admin + `admin_audit_log`) | Vendedor prepara demo limpa na hora |
+| **Sob demanda** | Seletor + botão "Recriar dados" em `/admin/demo` (server action gated a platform admin + `admin_audit_log`) | Vendedor prepara o tenant escolhido |
 | **Noturno** | `/api/cron?action=reset_demo` (gated CRON_SECRET) + `vercel.json` `0 7 * * *` (04h BRT). Falha → 500 (log Vercel) + audit | Automático |
 | **Manual (CLI)** | `npm run reset:demo` (= `npx tsx scripts/seed-acme-demo.ts`) — DELEGA ao reset canônico (mesmo fixture + artefatos do botão/cron) | CLI/scripts/CI |
+| **Grupo Sinal (CLI)** | `npm run reset:demo:gruposinal` | Cria ou recompõe `gruposinal.vertho.ai` |
 
 ## Acesso temporário para prospect
 
@@ -33,15 +40,15 @@ Para uma degustação assíncrona, use as três contas estáveis no mesmo tenant
 | Liderança | `carla.demo@vertho.ai` |
 | RH | `helena.demo@vertho.ai` |
 
-Depois do reset, abra `/admin/demo` e clique **Preparar acessos temporários**. A ação
-valida que o alvo é `acme-demo` com `is_demo=true`, confere as três personas e
-cria/rotaciona uma senha temporária única. A senha aparece apenas na tela e não é
-gravada no repositório nem no log de auditoria.
+Depois do reset, abra `/admin/demo`, escolha o tenant e clique **Gerar links de
+entrada**. A ação valida `is_demo=true`, confere as três personas e gera um magic
+link real e de uso único para cada destino (`/dashboard`, `/dashboard/gestor` e
+home de RH). Os tokens não entram no log de auditoria. A tela permite copiar o
+link ou abrir o WhatsApp com a mensagem pronta; o envio continua sendo uma ação
+humana, preservando o bloqueio automático do ambiente demo.
 
-O prospect entra em `https://acme-demo.vertho.ai/login`, escolhe **Entrar com senha**
-e usa **Sair** antes de trocar de visão. O reset noturno recompõe os dados do tenant,
-mas não altera os usuários do Auth; use o mesmo botão ao fim da degustação para
-rotacionar a credencial.
+Uma senha compartilhada continua disponível na seção de contingência. O reset
+recompõe os dados do tenant, mas não altera os usuários do Auth.
 
 ## Fixture congelado
 O reset semeia de `lib/demo/acme-demo-fixture.json` (golden state VERSIONADO), **não** do acme vivo → a demo é estável e imune a mexidas no `acme`. O fixture guarda:

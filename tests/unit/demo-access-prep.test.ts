@@ -15,16 +15,20 @@ const sb = criarSupabaseMock({
 
 const updateUserById = vi.fn(async () => ({ data: {}, error: null }));
 const createUser = vi.fn(async () => ({ data: {}, error: null }));
+const generateLink = vi.fn(async (args: { email: string; options: { redirectTo: string } }) => ({
+  data: { properties: { hashed_token: `token-${args.email.split('@')[0]}` } },
+  error: null,
+}));
 const listUsers = vi.fn(async () => ({
   data: { users: contas.map((c, i) => ({ id: `u${i + 1}`, email: c.email })), aud: 'authenticated' },
   error: null,
 }));
 
-sb.client.auth = { admin: { listUsers, updateUserById, createUser } };
+sb.client.auth = { admin: { listUsers, updateUserById, createUser, generateLink } };
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 
-import { prepararAcessosDemo } from '@/lib/demo/reset-acme-demo';
+import { gerarMagicLinksDemo, prepararAcessosDemo } from '@/lib/demo/reset-acme-demo';
 
 describe('preparo dos acessos temporários do demo', () => {
   beforeEach(() => {
@@ -32,7 +36,29 @@ describe('preparo dos acessos temporários do demo', () => {
     sb.reset();
     updateUserById.mockClear();
     createUser.mockClear();
+    generateLink.mockClear();
     listUsers.mockClear();
+  });
+
+  it('prepara o mesmo pacote no tenant contextualizado do Grupo Sinal', async () => {
+    const r = await prepararAcessosDemo('gruposinal');
+
+    expect(r.ok).toBe(true);
+    expect(r.url).toBe('https://gruposinal.vertho.ai/login');
+    expect(sb.chamadas).toContainEqual({ tabela: 'empresas', metodo: 'eq', args: ['slug', 'gruposinal'] });
+  });
+
+  it('gera magic links no host e no destino de cada visão', async () => {
+    const r = await gerarMagicLinksDemo('gruposinal');
+
+    expect(r.ok).toBe(true);
+    expect(generateLink).toHaveBeenCalledTimes(3);
+    expect(generateLink.mock.calls.map((call) => call[0].options.redirectTo)).toEqual([
+      'https://gruposinal.vertho.ai/dashboard',
+      'https://gruposinal.vertho.ai/dashboard/gestor',
+      'https://gruposinal.vertho.ai/dashboard',
+    ]);
+    expect(r.acessos?.every((a) => a.url.startsWith('https://gruposinal.vertho.ai/auth/callback?'))).toBe(true);
   });
 
   it('rotaciona exatamente as três contas e devolve uma única senha', async () => {

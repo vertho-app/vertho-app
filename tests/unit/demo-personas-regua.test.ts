@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, mesclarPersonaArtifacts } from '@/lib/demo/reset-acme-demo';
+import { DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, mesclarPersonaArtifacts, personalizarArtefatoDemo } from '@/lib/demo/reset-acme-demo';
 import { DEMO_PERSONAS } from '@/lib/sales/demo-personas';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile, DISC_SOMA_ALVO } from '@/lib/disc-mapeamento';
@@ -15,6 +15,13 @@ import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
  * `comp_persistencia = S = 24` impossível pela regressão canônica.
  */
 describe('Personas do acme-demo seguem a régua do produto', () => {
+  it('personaliza a marca do fixture sem alterar o artefato canônico', () => {
+    const original = { descricao: 'A ACME Demo representa a ACME.', nested: ['time da ACME'] };
+    const branded = personalizarArtefatoDemo(original, 'gruposinal');
+
+    expect(branded).toEqual({ descricao: 'O Grupo Sinal representa o Grupo Sinal.', nested: ['time do Grupo Sinal'] });
+    expect(original.descricao).toContain('ACME');
+  });
   it('o RH existe como acesso, mas não entra na lista de participantes', () => {
     expect(PERSONAS.some((p) => p.email === DEMO_RH_PERSONA.email)).toBe(false);
     expect(DEMO_PERSONAS.find((p) => p.key === DEMO_RH_PERSONA.key)).toMatchObject({

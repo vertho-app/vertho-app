@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantUrl } from '@/lib/domain';
 import { randomBytes } from 'node:crypto';
 import fixture from '@/lib/demo/acme-demo-fixture.json';
 // Artefatos de IA CONGELADOS dos cargos extra (Financeiro/Operações/Gerente):
@@ -30,6 +31,7 @@ import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 
 const DEMO_SLUG = 'acme-demo';
 const DEMO_NAME = 'ACME Demo';
+const GRUPO_SINAL_SLUG = 'gruposinal';
 // Gerente Comercial sai do FIXTURE (o acme não tinha competências/cenários do
 // cargo — só o cargo+Top5) e é construído fresco em DEMO_EXTRA_ROLES (pacote
 // completo). Diretor Geral segue removido da demo.
@@ -112,6 +114,113 @@ const ACME_DEMO_PPP = {
 };
 
 const ACME_DEMO_VALUES = ['Cliente no centro', 'Responsabilidade', 'Colaboração', 'Ética', 'Simplicidade', 'Aprendizado contínuo'];
+
+const GRUPO_SINAL_PPP = {
+  perfil_instituicao: {
+    nome: 'Grupo Sinal',
+    tipo: 'Grupo de concessionárias',
+    segmento: 'Varejo automotivo, vendas e pós-vendas',
+    porte: 'Cerca de 3 mil colaboradores, 75 lojas e mais de 16 marcas',
+    localizacao: 'Operação distribuída, com administrativo em São Paulo',
+  },
+  comunidade_contexto: 'O Grupo Sinal vive uma fase de crescimento acelerado, com expansão recente da rede de lojas e necessidade de sustentar a operação por meio de lideranças mais preparadas, práticas comuns de gestão e desenvolvimento contínuo das equipes de vendas, pós-vendas, oficinas, logística e áreas administrativas.',
+  identidade: {
+    missao: 'Oferecer uma experiência de mobilidade confiável, próxima e consistente em todos os pontos de contato com clientes e equipes.',
+    visao: 'Crescer de forma sustentável, conectando resultado, experiência do cliente e desenvolvimento das pessoas.',
+    principios: ['Cliente no centro', 'Ética', 'Responsabilidade por resultados', 'Colaboração', 'Agilidade', 'Desenvolvimento das pessoas'],
+    concepcao: 'Desempenho combina resultado comercial, qualidade da experiência do cliente, disciplina operacional e comportamentos de liderança observáveis no dia a dia.',
+  },
+  praticas_descritas: [
+    { nome: 'Rito de performance comercial', descricao: 'Acompanhamento de metas, conversão, carteira, oportunidades e planos de ação por loja.', frequencia: 'semanal' },
+    { nome: 'Conversas de desenvolvimento', descricao: 'Feedbacks curtos e frequentes, conectados a situações reais de trabalho e a combinados claros.', frequencia: 'quinzenal' },
+    { nome: 'Revisão de operação e experiência', descricao: 'Leitura integrada de vendas, pós-vendas, oficina, qualidade e experiência do cliente.', frequencia: 'mensal' },
+  ],
+  gestao_participacao: 'As lideranças traduzem as prioridades do grupo e das montadoras para a realidade de cada loja, combinam expectativas, acompanham indicadores e desenvolvem as pessoas na prática.',
+  desafios_metas: {
+    desafios: ['Sustentar o crescimento da rede', 'Alinhar práticas entre lojas e marcas', 'Fortalecer a cultura de feedback', 'Desenvolver lideranças', 'Engajar equipes que trabalham longe do computador'],
+    metas: ['Dar clareza sobre comportamentos esperados', 'Criar uma base de competências', 'Ativar desenvolvimento em ciclos curtos', 'Melhorar a experiência de vendas e pós-vendas'],
+  },
+  vocabulario: [
+    { termo: 'Loja', significado: 'Unidade do grupo que conecta operação, marca, equipe e experiência do cliente.' },
+    { termo: 'Pós-vendas', significado: 'Jornada de relacionamento, serviços, oficina, peças e retenção após a venda do veículo.' },
+    { termo: 'Conversão', significado: 'Transformação de oportunidades e atendimentos em negócios efetivos.' },
+    { termo: 'Montadora', significado: 'Parceira que estabelece padrões, produtos e treinamentos próprios de cada marca.' },
+  ],
+  competencias_priorizadas: [
+    { nome: 'Liderança e desenvolvimento de pessoas', justificativa: 'O crescimento depende de gestores capazes de orientar, dar feedback e sustentar acordos.', relevancia: 'alta' },
+    { nome: 'Comunicação objetiva', justificativa: 'Reduz ruídos entre lojas, áreas administrativas e operação.', relevancia: 'alta' },
+    { nome: 'Orientação ao cliente', justificativa: 'Conecta vendas, pós-vendas e oficina a uma experiência consistente.', relevancia: 'alta' },
+    { nome: 'Responsabilidade por resultados', justificativa: 'Equilibra metas, qualidade, margem e disciplina de execução.', relevancia: 'alta' },
+    { nome: 'Colaboração', justificativa: 'Fortalece a passagem de bastão entre comercial, pós-vendas e áreas de apoio.', relevancia: 'alta' },
+  ],
+  valores_institucionais: ['Cliente no centro', 'Ética', 'Responsabilidade', 'Colaboração', 'Agilidade', 'Desenvolvimento das pessoas'],
+  competencias: [
+    { nome: 'Liderança e desenvolvimento de pessoas', justificativa: 'Transforma feedback e acompanhamento em evolução observável.', relevancia: 'alta' },
+    { nome: 'Comunicação objetiva', justificativa: 'Cria clareza entre equipes, lojas e áreas.', relevancia: 'alta' },
+    { nome: 'Orientação ao cliente', justificativa: 'Mantém a experiência como elo entre venda, serviço e relacionamento.', relevancia: 'alta' },
+  ],
+};
+
+const GRUPO_SINAL_VALUES = ['Cliente no centro', 'Ética', 'Responsabilidade', 'Colaboração', 'Agilidade', 'Desenvolvimento das pessoas'];
+
+export const DEMO_TENANT_PROFILES = {
+  [DEMO_SLUG]: {
+    slug: DEMO_SLUG,
+    nome: DEMO_NAME,
+    marca: DEMO_NAME,
+    segmento: 'corporativo',
+    loginSubtitle: 'Ambiente de treinamento e demonstração da Vertho',
+    logoUrl: null,
+    pppNome: 'ACME Demo - Cultura e Operação',
+    ppp: ACME_DEMO_PPP,
+    valores: ACME_DEMO_VALUES,
+  },
+  [GRUPO_SINAL_SLUG]: {
+    slug: GRUPO_SINAL_SLUG,
+    nome: 'Grupo Sinal — Demonstração',
+    marca: 'Grupo Sinal',
+    segmento: 'corporativo',
+    loginSubtitle: 'Ambiente de demonstração da jornada Vertho para o Grupo Sinal',
+    logoUrl: 'https://www.gruposinal.com.br/assets/logo-grupo-sinal-white.webp',
+    pppNome: 'Grupo Sinal — Contexto organizacional',
+    ppp: GRUPO_SINAL_PPP,
+    valores: GRUPO_SINAL_VALUES,
+  },
+} as const;
+
+export type DemoTenantSlug = keyof typeof DEMO_TENANT_PROFILES;
+
+/** Aplica somente a identidade da empresa aos artefatos congelados. */
+export function personalizarArtefatoDemo<T>(value: T, slug: DemoTenantSlug): T {
+  const profile = DEMO_TENANT_PROFILES[slug];
+  if (slug === DEMO_SLUG) return value;
+  if (typeof value === 'string') {
+    const marca = profile.marca;
+    return value
+      .replace(/\bA ACME Demo\b/g, `O ${marca}`)
+      .replace(/\ba ACME Demo\b/g, `o ${marca}`)
+      .replace(/\bda ACME Demo\b/g, `do ${marca}`)
+      .replace(/\bna ACME Demo\b/g, `no ${marca}`)
+      .replace(/\bpela ACME Demo\b/g, `pelo ${marca}`)
+      .replace(/\bà ACME Demo\b/g, `ao ${marca}`)
+      .replace(/\bA ACME\b/g, `O ${marca}`)
+      .replace(/\ba ACME\b/g, `o ${marca}`)
+      .replace(/\bda ACME\b/g, `do ${marca}`)
+      .replace(/\bna ACME\b/g, `no ${marca}`)
+      .replace(/\bpela ACME\b/g, `pelo ${marca}`)
+      .replace(/\bà ACME\b/g, `ao ${marca}`)
+      .replace(/ACME Demo/g, marca)
+      .replace(/\bACME\b/g, marca) as T;
+  }
+  if (Array.isArray(value)) return value.map((item) => personalizarArtefatoDemo(item, slug)) as T;
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .map(([key, item]) => [key, personalizarArtefatoDemo(item, slug)]),
+    ) as T;
+  }
+  return value;
+}
 
 const DEMO_EXTRA_ROLES = [
   {
@@ -267,10 +376,63 @@ export interface DemoAccessResult {
   error?: string;
 }
 
+export interface DemoMagicLinksResult {
+  ok: boolean;
+  acessos?: Array<{ visao: string; nome: string; email: string; url: string }>;
+  error?: string;
+}
+
+const DEMO_ACCESS_PERSONAS = [
+  { visao: 'Participante', nome: 'Bruna Costa', email: 'bruna.demo@vertho.ai', role: 'colaborador', nextPath: '/dashboard' },
+  { visao: 'Liderança', nome: 'Carla Menezes', email: 'carla.demo@vertho.ai', role: 'gestor', nextPath: '/dashboard/gestor' },
+  { visao: 'RH', nome: DEMO_RH_PERSONA.nome_completo, email: DEMO_RH_PERSONA.email, role: DEMO_RH_PERSONA.role, nextPath: '/dashboard' },
+] as const;
+
+async function validarTenantEAcessosDemo(sb: any, slug: DemoTenantSlug) {
+  const profile = DEMO_TENANT_PROFILES[slug];
+  const { data: empresa, error: empresaError } = await sb.from('empresas')
+    .select('id, is_demo')
+    .eq('slug', profile.slug)
+    .maybeSingle();
+  if (empresaError) throw new Error(`carregar tenant: ${empresaError.message}`);
+  if (!empresa?.id || empresa.is_demo !== true) {
+    throw new Error(`O tenant ${profile.slug} não existe ou não está marcado como demonstração.`);
+  }
+
+  const emails = DEMO_ACCESS_PERSONAS.map((a) => a.email);
+  const { data: colabs, error: colabsError } = await sb.from('colaboradores')
+    .select('email, role')
+    .eq('empresa_id', empresa.id)
+    .in('email', emails);
+  if (colabsError) throw new Error(`validar personas: ${colabsError.message}`);
+  for (const acesso of DEMO_ACCESS_PERSONAS) {
+    const colab = (colabs || []).find((c: any) => c.email?.toLowerCase() === acesso.email);
+    if (!colab || colab.role !== acesso.role) {
+      throw new Error(`${acesso.email} não existe no ${profile.slug} com role=${acesso.role}. Resete o ambiente antes de preparar os acessos.`);
+    }
+  }
+  return { empresa, profile };
+}
+
+async function buscarUsuarioAuth(sb: any, email: string) {
+  const perPage = 200;
+  for (let page = 1; page <= 50; page++) {
+    const { data, error } = await sb.auth.admin.listUsers({ page, perPage });
+    if (error) throw new Error(`listar usuários: ${error.message}`);
+    const users = data.users as Array<{ id: string; email?: string }>;
+    const user = users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    if (user) return user;
+    if (users.length < perPage) return null;
+  }
+  throw new Error('Busca de usuário excedeu 10.000 contas.');
+}
+
 /** Executa o reset completo. NÃO lança — devolve `{ok:false,error}` em falha
  *  (o caller — action/cron — decide como reportar). */
-export async function resetAcmeDemo(): Promise<ResetDemoResult> {
+export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoResult> {
   const sb = createSupabaseAdmin();
+  const profile = DEMO_TENANT_PROFILES[slug];
+  const brand = <T,>(value: T): T => personalizarArtefatoDemo(value, slug);
 
   async function must(label: string, promise: any) {
     const r = await promise;
@@ -306,13 +468,17 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
 
   async function upsertEmpresaDemo(source: any) {
     const payload = {
-      nome: DEMO_NAME, slug: DEMO_SLUG, segmento: source.segmento || 'corporativo',
+      nome: profile.nome, slug: profile.slug, segmento: profile.segmento || source.segmento || 'corporativo',
       is_demo: true, // gate de envio (mig 160): fonte única de "tenant de demonstração"
       sys_config: demoSysConfig(source.sys_config || {}),
-      ui_config: { ...(source.ui_config || {}), login_subtitle: 'Ambiente de treinamento e demonstração da Vertho' },
+      ui_config: {
+        ...(source.ui_config || {}),
+        ...(profile.logoUrl ? { logo_url: profile.logoUrl } : {}),
+        login_subtitle: profile.loginSubtitle,
+      },
       default_locale: source.default_locale || 'pt-BR',
     };
-    const existing = await must('load demo empresa', sb.from('empresas').select('id').eq('slug', DEMO_SLUG).maybeSingle());
+    const existing = await must('load demo empresa', sb.from('empresas').select('id').eq('slug', profile.slug).maybeSingle());
     if (existing?.id) {
       return await must('update demo empresa', sb.from('empresas').update(payload).eq('id', existing.id).select('id,nome,slug').single());
     }
@@ -326,7 +492,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
     if (!rows?.length) return idMap;
     for (const row of rows) {
       if (DEMO_EXCLUDED_ROLES.has(row.cargo)) continue;
-      const inserted = await must('insert competencia', sb.from('competencias').insert({ ...strip(row), empresa_id: destId }).select('id').single());
+      const inserted = await must('insert competencia', sb.from('competencias').insert({ ...strip(brand(row)), empresa_id: destId }).select('id').single());
       idMap.set(row.id, inserted.id);
     }
     return idMap;
@@ -338,7 +504,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
       let top5 = Array.isArray(row.top5_workshop) ? row.top5_workshop : [];
       if (row.nome === 'Representante Comercial') top5 = REPRESENTANTE_TOP5;
       else if (top5.length > 5) top5 = top5.slice(0, 5);
-      return { ...strip(row), empresa_id: destId, top5_workshop: top5 };
+      return { ...strip(brand(row)), empresa_id: destId, top5_workshop: top5 };
     });
     await must('insert cargos', sb.from('cargos_empresa').insert(payload));
   }
@@ -348,7 +514,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
       .map((row: any) => {
         const competenciaId = compMap.get(row.competencia_id);
         if (!competenciaId) return null;
-        return { ...strip(row), empresa_id: destId, competencia_id: competenciaId };
+        return { ...strip(brand(row)), empresa_id: destId, competencia_id: competenciaId };
       })
       .filter(Boolean);
     if (payload.length) await must('insert top10', sb.from('top10_cargos').insert(payload));
@@ -359,7 +525,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
     for (const row of rows || []) {
       const competenciaId = compMap.get(row.competencia_id);
       if (!competenciaId) continue;
-      const inserted = await must('insert cenario', sb.from('banco_cenarios').insert({ ...strip(row), empresa_id: destId, competencia_id: competenciaId, ppp_escola_id: null }).select('id').single());
+      const inserted = await must('insert cenario', sb.from('banco_cenarios').insert({ ...strip(brand(row)), empresa_id: destId, competencia_id: competenciaId, ppp_escola_id: null }).select('id').single());
       idMap.set(row.id, inserted.id);
     }
     return idMap;
@@ -368,7 +534,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
   function demoScenarioFor(cargo: string, compNome: string) {
     return {
       titulo: `${compNome} em uma situação real de ${cargo}`,
-      descricao: `Você atua como ${cargo} na ACME Demo. Durante uma semana crítica, surge uma situação que exige ${compNome.toLowerCase()}. Há pressão de prazo, informações incompletas e impacto para outras áreas. Você precisa decidir como agir, o que comunicar e como acompanhar o resultado sem perder qualidade nem responsabilidade.`,
+      descricao: `Você atua como ${cargo} no ${profile.marca}. Durante uma semana crítica, surge uma situação que exige ${compNome.toLowerCase()}. Há pressão de prazo, informações incompletas e impacto para outras áreas. Você precisa decidir como agir, o que comunicar e como acompanhar o resultado sem perder qualidade nem responsabilidade.`,
       alternativas: {
         perguntas: [
           { numero: 1, texto: 'Qual é o problema principal que você identificaria antes de agir?' },
@@ -408,11 +574,11 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
   async function insertDemoPPP(destId: string) {
     await must('insert ppp demo', sb.from('ppp_escolas').insert({
       empresa_id: destId,
-      escola: 'ACME Demo - Cultura e Operação',
+      escola: profile.pppNome,
       fonte: 'json',
       status: 'extraido',
-      extracao: JSON.stringify(ACME_DEMO_PPP),
-      valores: ACME_DEMO_VALUES,
+      extracao: JSON.stringify(profile.ppp),
+      valores: profile.valores,
       extracted_at: new Date().toISOString(),
     }));
   }
@@ -432,7 +598,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
         top5_workshop: role.competencias.map(([nome]) => nome),
         fit_versao: '2.0',
         eh_lideranca: role.nome.includes('Coordenador') || role.nome.includes('Gerente'),
-        gabarito: (extraArtifacts.gabaritos as Record<string, any>)?.[role.nome] ?? null,
+        gabarito: brand((extraArtifacts.gabaritos as Record<string, any>)?.[role.nome] ?? null),
       }));
 
       // Prefixo do código da competência por cargo (evita colisão entre cargos).
@@ -487,7 +653,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
           empresa_id: destId,
           cargo: role.nome,
           competencia_id: firstComp.id,
-          ...cenarioData,
+          ...brand(cenarioData),
         }));
       }
     }
@@ -606,7 +772,7 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
     );
     for (const p of PERSONAS) {
       const colabId = personaMap.get(p.key);
-      const a = artifacts[p.email];
+      const a = brand(artifacts[p.email]);
       if (!colabId || !a) continue;
       try {
         // Relatório comportamental (DISC) — report_texts congelado → abre sem IA.
@@ -717,12 +883,12 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
   try {
     const demo = await upsertEmpresaDemo((fixture as any).empresa);
 
-    // Garante que o subdomínio acme-demo.vertho.ai está registrado no Vercel
+    // Garante que o subdomínio do tenant demo está registrado no Vercel
     // (sem isso o host não é servido → demo inacessível). Best-effort e
     // idempotente (409 = já existe). Self-healing a cada reset.
     try {
       const { addVercelDomain } = await import('@/lib/vercel-domain');
-      await addVercelDomain(DEMO_SLUG);
+      await addVercelDomain(profile.slug);
     } catch (e: any) {
       console.warn('[reset-demo] addVercelDomain best-effort:', e?.message);
     }
@@ -752,60 +918,28 @@ export async function resetAcmeDemo(): Promise<ResetDemoResult> {
   }
 }
 
+export async function resetAcmeDemo(): Promise<ResetDemoResult> {
+  return resetDemoTenant(DEMO_SLUG);
+}
+
+export async function resetGrupoSinalDemo(): Promise<ResetDemoResult> {
+  return resetDemoTenant(GRUPO_SINAL_SLUG);
+}
+
 /**
  * Cria/rotaciona a senha das três contas que um prospect recebe. O caller é
  * responsável pelo gate de platform admin e pelo audit log; este núcleo repete
  * as travas de alvo para nunca alterar credenciais fora do tenant de demo.
  */
-export async function prepararAcessosDemo(): Promise<DemoAccessResult> {
-  const acessos = [
-    { visao: 'Participante', nome: 'Bruna Costa', email: 'bruna.demo@vertho.ai', role: 'colaborador' },
-    { visao: 'Liderança', nome: 'Carla Menezes', email: 'carla.demo@vertho.ai', role: 'gestor' },
-    { visao: 'RH', nome: DEMO_RH_PERSONA.nome_completo, email: DEMO_RH_PERSONA.email, role: DEMO_RH_PERSONA.role },
-  ] as const;
-
+export async function prepararAcessosDemo(slug: DemoTenantSlug = DEMO_SLUG): Promise<DemoAccessResult> {
   try {
     const sb = createSupabaseAdmin();
-    const { data: empresa, error: empresaError } = await sb.from('empresas')
-      .select('id, is_demo')
-      .eq('slug', DEMO_SLUG)
-      .maybeSingle();
-    if (empresaError) throw new Error(`carregar tenant: ${empresaError.message}`);
-    if (!empresa?.id || empresa.is_demo !== true) {
-      throw new Error('O tenant acme-demo não existe ou não está marcado como demonstração.');
-    }
-
-    const emails = acessos.map((a) => a.email);
-    const { data: colabs, error: colabsError } = await sb.from('colaboradores')
-      .select('email, role')
-      .eq('empresa_id', empresa.id)
-      .in('email', emails);
-    if (colabsError) throw new Error(`validar personas: ${colabsError.message}`);
-    for (const acesso of acessos) {
-      const colab = (colabs || []).find((c) => c.email?.toLowerCase() === acesso.email);
-      if (!colab || colab.role !== acesso.role) {
-        throw new Error(`${acesso.email} não existe no acme-demo com role=${acesso.role}. Resete o ambiente antes de preparar os acessos.`);
-      }
-    }
-
-    async function buscarUsuario(email: string) {
-      const perPage = 200;
-      for (let page = 1; page <= 50; page++) {
-        const { data, error } = await sb.auth.admin.listUsers({ page, perPage });
-        if (error) throw new Error(`listar usuários: ${error.message}`);
-        // O SDK declara `User[] | []`; a anotação evita o callback `never`.
-        const users = data.users as Array<{ id: string; email?: string }>;
-        const user = users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-        if (user) return user;
-        if (users.length < perPage) return null;
-      }
-      throw new Error('Busca de usuário excedeu 10.000 contas.');
-    }
+    const { profile } = await validarTenantEAcessosDemo(sb, slug);
 
     const senha = `Demo-${randomBytes(9).toString('base64url')}-Aa7!`;
     // Só depois de validar tenant + as três personas exatas alteramos o Auth.
-    for (const acesso of acessos) {
-      const existente = await buscarUsuario(acesso.email);
+    for (const acesso of DEMO_ACCESS_PERSONAS) {
+      const existente = await buscarUsuarioAuth(sb, acesso.email);
       if (existente) {
         const { error } = await sb.auth.admin.updateUserById(existente.id, { password: senha, email_confirm: true });
         if (error) throw new Error(`atualizar ${acesso.email}: ${error.message}`);
@@ -817,12 +951,62 @@ export async function prepararAcessosDemo(): Promise<DemoAccessResult> {
 
     return {
       ok: true,
-      url: 'https://acme-demo.vertho.ai/login',
+      url: tenantUrl(profile.slug, '/login'),
       senha,
-      acessos: acessos.map(({ visao, nome, email }) => ({ visao, nome, email })),
+      acessos: DEMO_ACCESS_PERSONAS.map(({ visao, nome, email }) => ({ visao, nome, email })),
     };
   } catch (error: any) {
     console.error('[demo-access] preparar contas:', error?.message);
+    return { ok: false, error: error?.message || 'erro desconhecido' };
+  }
+}
+
+/**
+ * Gera links reais de autenticação, sem disparar e-mail ou WhatsApp. O operador
+ * decide como compartilhar cada URL; assim o gate de envio do tenant demo
+ * continua intacto e o prospect ainda experimenta o acesso em um toque.
+ */
+export async function gerarMagicLinksDemo(slug: DemoTenantSlug): Promise<DemoMagicLinksResult> {
+  try {
+    const sb = createSupabaseAdmin();
+    const { profile } = await validarTenantEAcessosDemo(sb, slug);
+    const acessos: NonNullable<DemoMagicLinksResult['acessos']> = [];
+
+    for (const acesso of DEMO_ACCESS_PERSONAS) {
+      const existente = await buscarUsuarioAuth(sb, acesso.email);
+      if (!existente) {
+        const { error: createError } = await sb.auth.admin.createUser({
+          email: acesso.email,
+          email_confirm: true,
+        });
+        if (createError) throw new Error(`criar ${acesso.email}: ${createError.message}`);
+      }
+
+      const redirectTo = tenantUrl(profile.slug, acesso.nextPath);
+      const { data: link, error: linkError } = await sb.auth.admin.generateLink({
+        type: 'magiclink',
+        email: acesso.email,
+        options: { redirectTo },
+      });
+      const tokenHash = link?.properties?.hashed_token;
+      if (linkError || !tokenHash) {
+        throw new Error(`gerar link de ${acesso.visao}: ${linkError?.message || 'token ausente'}`);
+      }
+
+      acessos.push({
+        visao: acesso.visao,
+        nome: acesso.nome,
+        email: acesso.email,
+        url: tenantUrl(
+          profile.slug,
+          `/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(acesso.nextPath)}`,
+        ),
+      });
+    }
+
+    return { ok: true, acessos };
+  } catch (error: any) {
+    console.error('[demo-access] gerar magic links:', error?.message);
     return { ok: false, error: error?.message || 'erro desconhecido' };
   }
 }
