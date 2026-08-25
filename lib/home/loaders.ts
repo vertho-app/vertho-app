@@ -579,3 +579,59 @@ export async function carregarCapacitacoes(empresaId: string | null, competencia
     return [];
   }
 }
+
+// ── Panorama do RH (Admin da empresa) ──────────────────────────────────────
+
+/**
+ * A home do RH não é a jornada DELE — é o estado da EMPRESA.
+ *
+ * O papel `rh` se chama "Admin da empresa" (`lib/permissions.ts`) e não
+ * participa do programa: medido em 24/08/2026, **0 dos 8 colaboradores com
+ * `role='rh'` têm sessão de avaliação**, e nenhum tem trilha em tenant de
+ * cliente. Mesmo assim a home renderizava a jornada de 5 fases, com o CTA
+ * principal convidando a "fazer o mapeamento comportamental" e a barra de
+ * progresso presa em 0% — a tela pedia à administradora que fizesse o
+ * diagnóstico que ela aplica nos outros.
+ *
+ * ⚠️ Os três números são de PESSOAS, não de ocorrências. `respostas` tem uma
+ * linha por competência respondida, então contá-las e chamar de "avaliados"
+ * multiplicaria cada pessoa pelo tamanho do Top 5 — a classe do "N ocorrências
+ * ≠ N pessoas". Por isso `emJornada` deduplica `colaborador_id` em código (a
+ * pessoa pode ter mais de uma trilha ao longo das temporadas) e os outros dois
+ * contam a própria tabela de pessoas.
+ *
+ * `indisponivel` existe porque `count` vem `null` quando a query falha, e
+ * `null || 0` = 0: sem isso a home anunciaria "0 pessoas" para uma empresa
+ * inteira por causa de um erro de banco — o mesmo modo de falha do F15.
+ */
+export async function carregarPanoramaRH(empresaId: string) {
+  // `tenantDb` e não `createSupabaseAdmin`: os três números são de UMA empresa,
+  // e o wrapper injeta o `empresa_id` em toda cadeia. `empresas` é a própria
+  // linha do tenant (a chave é `id`, não `empresa_id`), então vai pelo `raw`.
+  const tdb = tenantDb(empresaId);
+
+  const [empresaRes, pessoasRes, comPerfilRes, trilhasRes] = await Promise.all([
+    tdb.raw.from('empresas').select('nome').eq('id', empresaId).maybeSingle(),
+    tdb.from('colaboradores')
+      .select('id', { count: 'exact', head: true }),
+    tdb.from('colaboradores')
+      .select('id', { count: 'exact', head: true })
+      .not('disc_resultados', 'is', null),
+    tdb.from('trilhas')
+      .select('colaborador_id')
+      .eq('status', TRILHA.ATIVA),
+  ]);
+
+  const erro = pessoasRes.error || comPerfilRes.error || trilhasRes.error;
+  if (erro) console.error('[panorama-rh] contagens falharam:', erro.message);
+
+  const emJornada = new Set((trilhasRes.data || []).map((t: any) => t.colaborador_id)).size;
+
+  return {
+    empresaNome: empresaRes.data?.nome || null,
+    pessoas: pessoasRes.count || 0,
+    comPerfil: comPerfilRes.count || 0,
+    emJornada,
+    indisponivel: !!erro,
+  };
+}

@@ -10,7 +10,7 @@ import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import type { TenantTheme } from '@/lib/ui-resolver';
 
-type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean };
+type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean; participante?: boolean };
 
 // Fallback = tema Vertho atual (usado se o layout não passar theme).
 const DEFAULT_THEME: TenantTheme = {
@@ -44,9 +44,13 @@ const NAV_ITEMS: NavItem[] = [
   // cliente (criar vaga · gerar perfil · avaliar candidatos) e virou operação da
   // Vertho em /admin. O ranking das vagas segue visível em .../ranking, que já
   // inclui `eh_vaga`. Ver o docstring de `gestor/selecao/page.tsx`.
-  { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock },
-  { href: '/dashboard/temporada', labelKey: 'season', icon: Play },
-  { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp },
+  // `participante`: telas da jornada de quem FAZ o programa. O papel `rh` é o
+  // Admin da empresa e não participa (medido 24/08/2026: 0 dos 8 com role='rh'
+  // têm sessão de avaliação), então para ele são portas para tela vazia — a
+  // mesma razão que tirou a jornada da home dele. Ver `home-rh.tsx`.
+  { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock, participante: true },
+  { href: '/dashboard/temporada', labelKey: 'season', icon: Play, participante: true },
+  { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp, participante: true },
   { href: '/dashboard/perfil', labelKey: 'profile', icon: User },
 ];
 
@@ -58,12 +62,15 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   const [user, setUser] = useState<any>(null);
   const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
+  const ehAdminDaEmpresa = colaborador?.role === 'rh';
   // Quem administra a plataforma também é colaborador de algum tenant, e entrar
   // por um deles não é erro — mas daqui não havia caminho de volta ao painel
   // (medido 24/08/2026: nenhum link para /admin fora do próprio /admin). Quem
   // decide é o servidor, no /api/me; o gate real é o layout de /admin.
   const ehAdminDaPlataforma = colaborador?.platformAdmin === true;
-  const navItems = NAV_ITEMS.filter((it) => !it.gestorOnly || isGestorOuRH);
+  const navItems = NAV_ITEMS.filter((it) =>
+    (!it.gestorOnly || isGestorOuRH) && (!it.participante || !ehAdminDaEmpresa),
+  );
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {

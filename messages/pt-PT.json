@@ -223,6 +223,23 @@
     },
     "manager": {
       "teamEvolution": "Ver evolução da equipa"
+    },
+    "rh": {
+      "titlePrefix": "O panorama da",
+      "fallbackCompany": "sua empresa",
+      "overview": "Panorama",
+      "people": "Pessoas",
+      "withProfile": "Com perfil comportamental",
+      "inJourney": "Em jornada ativa",
+      "unavailable": "Não foi possível carregar os números agora. Recarregue daqui a instantes.",
+      "follow": "Acompanhar",
+      "team": "Equipa",
+      "teamDescription": "O progresso de cada pessoa, no âmbito da empresa inteira.",
+      "ranking": "Ranking de adequação",
+      "rankingDescription": "A aderência das pessoas ao perfil de cada função e vaga.",
+      "evolution": "Evolução da equipa",
+      "evolutionDescription": "Como os níveis avançaram entre as temporadas.",
+      "operatedByVertho": "Configuração, conteúdo e envios são operados pela Vertho. Fale connosco quando precisar de uma alteração."
     }
   },
   "DashboardJourney": {

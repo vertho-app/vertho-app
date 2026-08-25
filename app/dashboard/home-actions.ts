@@ -10,10 +10,12 @@ import {
   carregarPulsosPendentes,
   carregarVotacaoStatus,
   carregarCapacitacoes,
+  carregarPanoramaRH,
   JORNADA_COLAB_COLS,
   type HomeSharedData,
 } from '@/lib/home/loaders';
 import { carregarContextoTurma } from '@/lib/turmas';
+import { getDashboardView } from '@/lib/authz';
 
 /**
  * Carregamento CONSOLIDADO da home do dashboard.
@@ -74,6 +76,26 @@ export async function loadHomeData() {
     respostasCount: respRes.count ?? 0,
   };
 
+  // O RH é ADMIN da empresa, não participante: a home dele é o panorama do
+  // tenant. Os cinco loaders de jornada (KPIs, vídeos, pulsos, votação,
+  // capacitação) alimentam blocos que a home do RH não desenha — rodá-los seria
+  // pagar seis consultas por pageview para jogar fora. Ver `carregarPanoramaRH`.
+  if (getDashboardView(ctx) === 'rh') {
+    const [dashboardRH, panoramaRH] = await Promise.allSettled([
+      carregarDashboardData(ctx, shared),
+      carregarPanoramaRH(colab.empresa_id),
+    ]);
+    return {
+      dashboard: dashboardRH.status === 'fulfilled' ? dashboardRH.value : { error: 'Erro ao carregar dashboard' },
+      panoramaRH: panoramaRH.status === 'fulfilled' ? panoramaRH.value : null,
+      kpis: null,
+      ultimosVideos: { items: [] as any[] },
+      pulsos: [] as any[],
+      votacao: null,
+      capacitacoes: [] as any[],
+    };
+  }
+
   const dashboardP = carregarDashboardData(ctx, shared);
   const jornadaP = carregarJornada(colabJornada, shared);
 
@@ -94,6 +116,7 @@ export async function loadHomeData() {
 
   return {
     dashboard: val(dashboardR, { error: 'Erro ao carregar dashboard' }),
+    panoramaRH: null,
     kpis: val(kpisR, { error: 'Erro ao carregar KPIs' }),
     ultimosVideos: val(videosR, { items: [] as any[] }),
     pulsos: val(pulsosR, [] as any[]),

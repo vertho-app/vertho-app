@@ -223,6 +223,23 @@
     },
     "manager": {
       "teamEvolution": "See team evolution"
+    },
+    "rh": {
+      "titlePrefix": "The overview of",
+      "fallbackCompany": "your company",
+      "overview": "Overview",
+      "people": "People",
+      "withProfile": "With behavioral profile",
+      "inJourney": "On an active journey",
+      "unavailable": "We couldn't load the numbers right now. Try again in a moment.",
+      "follow": "Follow",
+      "team": "Team",
+      "teamDescription": "Each person's progress, across the whole company.",
+      "ranking": "Fit ranking",
+      "rankingDescription": "How closely people match each role and opening.",
+      "evolution": "Team evolution",
+      "evolutionDescription": "How levels moved between seasons.",
+      "operatedByVertho": "Setup, content and messaging are run by Vertho. Talk to us whenever you need a change."
     }
   },
   "DashboardJourney": {

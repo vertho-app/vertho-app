@@ -10,6 +10,7 @@ import {
   Lock, ShieldCheck,
 } from 'lucide-react';
 import { loadHomeData } from './home-actions';
+import HomeRH from './home-rh';
 import VideoModal from '@/components/video-modal';
 import { ContentThumb } from '@/components/content-thumb';
 
@@ -71,6 +72,7 @@ export default function DashboardHomePage() {
   const [ultimosVideos, setUltimosVideos] = useState<any[]>([]);
   const [votacaoAberta, setVotacaoAberta] = useState<any>(null);
   const [pulsosPendentes, setPulsosPendentes] = useState<any[]>([]);
+  const [panoramaRH, setPanoramaRH] = useState<any>(null);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -85,6 +87,7 @@ export default function DashboardHomePage() {
         const r: any = await loadHomeData();
         if (r && !r.error) {
           if (r.dashboard && !r.dashboard.error) setData(r.dashboard);
+          if (r.panoramaRH) setPanoramaRH(r.panoramaRH);
           if (r.kpis && !r.kpis.error) setKpis(r.kpis);
           setUltimosVideos(r.ultimosVideos?.items || []);
           setPulsosPendentes(Array.isArray(r.pulsos) ? r.pulsos : []);
@@ -112,6 +115,12 @@ export default function DashboardHomePage() {
 
   const { colaborador } = data;
   const firstName = (colaborador.nome_completo || '').split(' ')[0] || t('fallbackFirstName');
+
+  // O Admin da empresa não percorre a jornada — daqui pra baixo é tudo tela de
+  // participante (barra de 5 fases, CTA de mapeamento, foco da semana, pílula).
+  // Ver o docstring de `home-rh.tsx`.
+  if (data.view === 'rh') return <HomeRH firstName={firstName} panorama={panoramaRH} />;
+
   const faseNum: number = kpis?.fase?.numero || 1;
   const faseTitulo = kpis?.fase?.titulo || t('fallbackPhaseTitle');
   // D1: o avanço DENTRO da fase 4 é sobre o total do programa da pessoa, não
