@@ -498,6 +498,17 @@ export const TEMPLATES = {
      * (`perfil_disponivel` → `resultado_perfil`), e o teste `RENOMEADOS` congela
      * o par: mandar a CHAVE para a API daria "template not found" na hora do
      * envio, em produção, para gente real.
+     *
+     * ✅ 25/08/2026 — o v1 foi APAGADO na Meta (`hsm_id=28457950447135990`,
+     * `{"success":true}`), depois de o v2 aprovar E de ele ter entregue o
+     * primeiro lote real: 31 pessoas em Ibipeba e 30 em Macaé, 0 falhas. Esta é
+     * a ordem que a regra da casa pede — o v1 só sai quando o substituto está
+     * aprovado e PROVADO, nunca antes, porque apagar primeiro deixa você sem os
+     * dois enquanto a exclusão processa (mordeu em 14/08).
+     *
+     * ⚠️ A chave continua `semana_pendente` de propósito: o nome apagado fica
+     * queimado por um tempo indeterminado, e renomear a chave para casar com o
+     * `name` só trocaria esta divergência documentada por um churn sem ganho.
      */
     name: 'semana_pendente_v2',
     category: 'UTILITY',
