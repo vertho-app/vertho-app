@@ -547,10 +547,43 @@ está certo* — e isso nenhuma medição de auto-consistência responde.
 
 🔑 **A pista acionável que sobrou:** `contencao_sobriedade` é a dimensão MAIS
 BAIXA em quase toda a amostra (4, 6, 2, 5, 2, 6, 5). Ou os cenários do acervo são
-elaborados demais para uso real, ou o Terra pesa demais essa dimensão. Isso é
-testável: pedir o mesmo check a um auditor de outra família e ver se a
-`contencao_sobriedade` continua sendo a menor. Se continuar, o problema é o
-acervo; se não, é o auditor.
+elaborados demais para uso real, ou o Terra pesa demais essa dimensão.
+
+### Três famílias auditando os mesmos cenários — 25/08/2026
+
+`scripts/_ia3-check-3-familias.ts`. Quatro cenários, três auditores, nenhum deles
+da família que GEROU (Claude), então sem auto-preferência.
+
+**Unânime no diagnóstico:** as três apontam `contencao_sobriedade` como a
+dimensão mais fraca — 10 de 11 checks. O Terra NÃO está enviesado nisso: o acervo
+é elaborado demais para uso real.
+
+**Mas a NOTA diverge brutalmente sobre os mesmos textos:**
+
+| auditor | nota média | sobriedade média | veredito com o limiar atual |
+|---|---:|---:|---|
+| `gpt-5.6-terra` | **65,8** | 2,8 | tudo `revisar` |
+| `qwen3.8-max` | **85,3** | 4,7 | `aprovado_com_ressalvas` |
+| `gemini-3.7-flash` | **95,5** | 9,5 | quase tudo `aprovado` |
+
+No mesmo cenário ("Conselho de Classe em Colapso"): Terra 60, Gemini 98, Qwen 84
+— os três dizendo que a sobriedade é o ponto fraco.
+
+🔴 **As famílias concordam sobre O QUE está fraco e discordam sobre QUANTO pesa.**
+Com limiar ABSOLUTO (≥90 aprovado, ≥80 ressalvas), o mesmo cenário é aprovado,
+com ressalvas ou reprovado dependendo apenas de quem auditou. **`status_check`
+não é propriedade do cenário — é do auditor.** A padronização de 22/07 no Terra
+tornou o limiar coerente daí para frente e invalidou a comparação com tudo que
+veio antes; é isso, e não deriva de escala, que produziu o −38 da calibração.
+
+⚠️ **Isto DERRUBA a recomendação de `ia3_check` → Gemini 3.7 Flash** que a grade
+de modelos trazia para o bloco de auditoria de alto volume (por preço e
+velocidade). Como auditor, o Gemini 3.7 dá média **95,5**: aprovaria praticamente
+tudo. Auditor que não reprova não é auditor, e isso vale mais que $0,75/1M.
+
+**Critério que fica no lugar do preço:** promover auditor passa a exigir **taxa
+de reprovação contra um conjunto conhecido**, não índice de leaderboard nem custo
+por token. O Terra fica no `ia3_check`.
 
 ### Piloto E1 (Qwen × Sonnet 4.6 em cenários) — 25/08/2026: INCONCLUSIVO, e o motivo importa
 
