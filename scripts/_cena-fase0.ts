@@ -24,7 +24,7 @@
 //   npx tsx scripts/_cena-fase0.ts cena ibipeba DIR08 --niveis 1,3 --saida cena-dir08.json
 process.loadEnvFile('.env.local');
 
-import { existsSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tenantDb } from '@/lib/tenant-db';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import { buscarContextoPPP } from '@/lib/ia2-gabarito';
@@ -345,9 +345,40 @@ async function cmdCena(slug: string, codComp: string) {
   console.log(`Cenário: "${ctx.cenario.titulo}" (${cen.status_check ?? 'sem check'}${cen.nota_check ? ` ${cen.nota_check}` : ''})`);
   console.log(`Cobertura declarada: ${beats.map((b) => `beat${b.numero}→${b.descritores.map((d) => `D${d}`).join('+')}`).join('  ')}`);
 
-  // A MESMA persona nos dois braços: se cada nível enfrentasse um interlocutor
-  // diferente, a diferença de nota poderia ser do personagem, não do avaliado.
-  const persona = await gerarPersona(ctx, { ledger: { empresaId: emp.id } });
+  /**
+   * A MESMA persona nos dois braços — e, com `--persona`, a mesma ENTRE RODADAS.
+   *
+   * 🔴 O comentário antigo parava na primeira metade e o código também: dentro
+   * de uma execução a persona é única, mas `gerarPersona` é uma chamada de IA
+   * no início de CADA execução. Medido em 25/08/2026, lendo os artefatos:
+   *
+   *     0c → Edileuza Nascimento
+   *     0d → Fátima Nogueira
+   *     0e → Fátima Nascimento
+   *
+   * Nomes, primeira fala e — o que importa — `o_que_faz_ceder` diferentes. Eu
+   * publiquei "único fator alterado entre 0d e 0e: o encerramento" e isso era
+   * FALSO: mudou o encerramento E o personagem. Toda comparação entre rodadas
+   * que eu apresentei como contraste controlado é, na verdade, confundida —
+   * inclusive a tabela que atribuía 0,10 ao andaime e 0,01 ao encerramento.
+   *
+   * Com `--persona <arquivo.json>` a rodada reusa a persona gravada, e aí o
+   * contraste passa a ter só a variável que se quer medir. Sem a flag, gera
+   * nova e AVISA, para ninguém repetir o meu erro por omissão.
+   */
+  const personaDe = arg('persona');
+  let persona: PersonaInterlocutor;
+  if (personaDe) {
+    const anterior = JSON.parse(readFileSync(personaDe, 'utf-8'));
+    if (!anterior?.persona?.o_que_faz_ceder) {
+      throw new Error(`${personaDe} não tem persona gravada — comparação controlada exige a persona da rodada anterior`);
+    }
+    persona = anterior.persona as PersonaInterlocutor;
+    console.log(`\n↺ persona REUSADA de ${personaDe} — contraste controlado`);
+  } else {
+    persona = await gerarPersona(ctx, { ledger: { empresaId: emp.id } });
+    console.log('\n⚠️  persona NOVA (sem --persona): esta rodada NÃO é comparável com as anteriores');
+  }
   console.log(`\nInterlocutor: ${persona.quem} (${persona.relacao})`);
   console.log(`Cede quando: ${persona.o_que_faz_ceder}`);
 
