@@ -703,6 +703,72 @@ export function checarTemplatesLigados(ligados: TemplateLigadoObservado[]): Acha
 }
 
 /** Aplica todas as regras de PRÉ-VOO. */
+/**
+ * R14 — o modelo de IA configurado ainda existe no provedor?
+ *
+ * Nasceu de um caso real (25/08/2026): `ia3_check`/`ia4_check` da ACME Demo com
+ * override explícito para `gpt-5.4`, id que morreu no provedor DEPOIS de ter sido
+ * gravado. Override explícito vence o pin — então os dois auditores Dual-IA
+ * daquele tenant apontavam para o nada, e a única evidência era indireta (15 de
+ * 25 cenários sem check, contra ~100% em todos os outros tenants).
+ *
+ * O ponto que define a forma deste check: **validação de escrita não pega isso**.
+ * O valor era válido quando gravado. Só uma verificação recorrente contra o
+ * provedor separa "configurado" de "ainda existe".
+ */
+export function checarModelosConfigurados(
+  observados: Array<{
+    modelo: string; origens: string[]; familia: string | null;
+    temRota: boolean; temPreco: boolean;
+    existeNoProvedor: boolean | null; motivoCegueira?: string;
+  }>,
+): Achado[] {
+  const obs = observados || [];
+  if (!obs.length) return [];
+  const out: (Achado | null)[] = [];
+  const amostrar = (l: typeof obs) => l.map((o) => `${o.modelo} ← ${o.origens.slice(0, 2).join(', ')}`);
+
+  // Cegueira PRIMEIRO: sem isto, um provedor fora do ar zeraria os achados
+  // abaixo e o silêncio pareceria aprovação.
+  const cegos = obs.filter((o) => o.existeNoProvedor === null);
+  out.push(achado(
+    'modelo-check-cego', 'aviso',
+    'Não foi possível verificar se os modelos configurados ainda existem',
+    cegos.length,
+    `Os modelos podem estar certos ou apontando para nada — este check não conseguiu perguntar ao provedor${cegos[0]?.motivoCegueira ? ` (${cegos[0].motivoCegueira})` : ''}.`,
+    { amostra: amostrar(cegos), acao: 'Conferir as chaves de API do provedor na Vercel (`vercel env ls production`).' },
+  ));
+
+  const inexistentes = obs.filter((o) => o.existeNoProvedor === false);
+  out.push(achado(
+    'modelo-inexistente', 'critico',
+    'Modelo configurado NÃO existe mais no provedor',
+    inexistentes.length,
+    'Toda chamada que resolver para este modelo falha. Quando é um auditor Dual-IA, a segunda opinião simplesmente para de acontecer — e a ausência de check parece "nada a apontar".',
+    { amostra: amostrar(inexistentes), acao: 'Remover o override em `sys_config.ai.modelos` (o default pinado assume) ou apontar para um id vivo.' },
+  ));
+
+  const semRota = obs.filter((o) => !o.temRota);
+  out.push(achado(
+    'modelo-sem-rota', 'critico',
+    'Modelo configurado sem rota no ai-client',
+    semRota.length,
+    'O último caso do dispatch é `callClaude`, então o id vai para a Anthropic e o erro chega ETIQUETADO COMO ANTHROPIC — parece queda de provedor, é modelo sem rota.',
+    { amostra: amostrar(semRota), acao: 'Adicionar o provedor em `lib/ai-provedores.ts` ou trocar o modelo configurado.' },
+  ));
+
+  const semPreco = obs.filter((o) => !o.temPreco);
+  out.push(achado(
+    'modelo-sem-preco', 'aviso',
+    'Modelo configurado sem preço no catálogo',
+    semPreco.length,
+    '`costFromTokens` devolve null e a linha do ledger nasce sem custo — cega justamente o instrumento que decide se o modelo compensa.',
+    { amostra: amostrar(semPreco), acao: 'Adicionar a entrada em `lib/ia-cost-catalog.ts::MODELS`.' },
+  ));
+
+  return out.filter(Boolean) as Achado[];
+}
+
 export function regrasPreflight(entregas: EntregaPrevista[]): Achado[] {
   return [
     checarFormatoPrometido(entregas),

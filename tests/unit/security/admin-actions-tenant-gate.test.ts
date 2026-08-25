@@ -65,7 +65,11 @@ vi.mock('@/lib/audit', () => ({ logAdminAction: vi.fn() }));
 vi.mock('@/lib/vercel-domain', () => ({ addVercelDomain: vi.fn(), removeVercelDomain: vi.fn() }));
 vi.mock('@/i18n/routing', () => ({ isAppLocale: () => true, locales: ['pt-BR', 'en-US'] }));
 vi.mock('@/actions/ai-client', () => ({ callAI: vi.fn() }));
-vi.mock('@/lib/ai-tasks', () => ({ getModelForTask: vi.fn(), DEFAULT_TASK_MODELS: {} }));
+// validarModelosDoSysConfig entra no mock porque salvarConfig passou a validar os
+// modelos antes de gravar (25/08). Devolve [] aqui: este teste mede o GATE DE
+// TENANT, e a validação de modelo é ortogonal — mockar com problema faria o teste
+// falhar por um motivo que ele não está medindo.
+vi.mock('@/lib/ai-tasks', () => ({ getModelForTask: vi.fn(), DEFAULT_TASK_MODELS: {}, validarModelosDoSysConfig: vi.fn(async () => []) }));
 vi.mock('@/lib/ia3-cenarios', () => ({ travaRegeneracao: vi.fn() }));
 vi.mock('@trigger.dev/sdk', () => ({ tasks: { trigger: vi.fn() }, runs: { retrieve: vi.fn() } }));
 vi.mock('@/lib/trigger-region', () => ({ regionOpts: {} }));

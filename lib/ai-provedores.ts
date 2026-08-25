@@ -30,6 +30,65 @@ export const PROVEDORES_OPENAI_COMPAT = [
   { prefixo: 'muse', provider: 'meta', env: 'META_MODEL_API_KEY', url: 'https://api.meta.ai/v1/chat/completions' },
 ] as const;
 
+/**
+ * Lista os ids que o provedor de `modeloExemplo` reconhece hoje.
+ *
+ * Vive AQUI, e não no health-check que a consome, por duas razões:
+ *
+ * 1. `tests/unit/integrations/ia-request-cru-guard.test.ts` proíbe qualquer
+ *    arquivo de produção montar request HTTP cru para o host da Anthropic — e a
+ *    allowlist correspondente está VAZIA de propósito ("acrescentar arquivo ali
+ *    para passar o CI é exatamente o bug que esta guarda existe para pegar").
+ *    O caminho sancionado é o SDK oficial, que é o que o ramo anthropic usa.
+ *    (Sem citar o host literal aqui: o guard casa a STRING, e prosa de
+ *    documentação virando violação treina a ignorar o guard — é o que o próprio
+ *    arquivo dele diz ao isentar os `-html.ts`.)
+ * 2. Quem sabe a base/chave de cada provedor é esta tabela. Uma segunda cópia no
+ *    coletor foi justamente o que produziu falso positivo na primeira rodada.
+ *
+ * O endpoint sai do PREFIXO do id — mesmo critério de `resolverProvedorCompat` —
+ * para que o check pergunte ao mesmo lugar que a chamada real usaria.
+ */
+export type ListagemProvedor = { ids: Set<string> } | { erro: string };
+
+export async function listarModelosDoProvedor(
+  familia: string,
+  modeloExemplo: string,
+): Promise<ListagemProvedor> {
+  const json = async (url: string, headers: Record<string, string>) => {
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  };
+  try {
+    if (familia === 'anthropic') {
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) return { erro: 'ANTHROPIC_API_KEY ausente' };
+      // SDK oficial: sem URL crua, o guard fica satisfeito por CONSTRUÇÃO em vez
+      // de por exceção declarada.
+      const { default: Anthropic } = await import('@anthropic-ai/sdk');
+      const lista = await new Anthropic({ apiKey }).models.list({ limit: 100 });
+      return { ids: new Set((lista?.data || []).map((m: any) => m.id)) };
+    }
+    if (familia === 'google') {
+      const k = process.env.GEMINI_API_KEY;
+      if (!k) return { erro: 'GEMINI_API_KEY ausente' };
+      const d = await json(`https://generativelanguage.googleapis.com/v1beta/models?key=${k}&pageSize=200`, {});
+      // O Gemini devolve `models/gemini-x`; o projeto configura o id nu.
+      return { ids: new Set((d?.models || []).map((m: any) => String(m.name).replace(/^models\//, ''))) };
+    }
+    const p = PROVEDORES_OPENAI_COMPAT.find((x) => modeloExemplo.startsWith(x.prefixo));
+    const env = p?.env ?? 'OPENAI_API_KEY';
+    const url = (p?.url ?? 'https://api.openai.com/v1/chat/completions').replace(/\/chat\/completions$/, '') + '/models';
+    const k = process.env[env];
+    if (!k) return { erro: `${env} ausente` };
+    const d = await json(url, { Authorization: `Bearer ${k}` });
+    return { ids: new Set((d?.data || []).map((m: any) => m.id)) };
+  } catch (err: any) {
+    return { erro: String(err?.message || err).slice(0, 80) };
+  }
+}
+
 /** Prefixos nativos da OpenAI (mesma base/chave default, sem entrada própria). */
 const PREFIXOS_OPENAI_NATIVOS = ['gpt', 'o1', 'o3', 'o4'] as const;
 

@@ -190,6 +190,60 @@ describe('Dual-IA — auditor de família diferente do gerador', () => {
     expect(conteudoOuFalhaAlto({}, 'gpt-5.6-terra')).toBe('');
   });
 
+  describe('validarModelosDoSysConfig — porta de escrita', () => {
+    it('config real das empresas passa', async () => {
+      const { validarModelosDoSysConfig } = await import('@/lib/ai-tasks');
+      expect(await validarModelosDoSysConfig(SYS_CONFIG_REAL)).toEqual([]);
+      expect(await validarModelosDoSysConfig({ ai: { modelo_padrao: 'claude-sonnet-4-6', modelos: { ia3_check: 'gpt-5.6-terra' } } })).toEqual([]);
+      expect(await validarModelosDoSysConfig({})).toEqual([]);
+    });
+
+    it('modelo sem rota é recusado — é o que o dropdown do cliente não garante', async () => {
+      const { validarModelosDoSysConfig } = await import('@/lib/ai-tasks');
+      const p = await validarModelosDoSysConfig({ ai: { modelos: { ia4_check: 'llama-inventado' } } });
+      expect(p).toHaveLength(1);
+      expect(p[0]).toMatch(/não tem rota/);
+    });
+
+    it('modelo com rota e SEM preço é recusado (ledger nasceria sem custo)', async () => {
+      const { validarModelosDoSysConfig } = await import('@/lib/ai-tasks');
+      const p = await validarModelosDoSysConfig({ ai: { modelo_padrao: 'gpt-5.9-que-nao-existe-no-catalogo' } });
+      expect(p[0]).toMatch(/não tem preço/);
+    });
+
+    it('aceita modelo FORA do dropdown que seja válido — a régua não é a curadoria', async () => {
+      const { validarModelosDoSysConfig } = await import('@/lib/ai-tasks');
+      // Snapshot datado do 5.4 e o flash-lite do auditor do chat: os dois têm
+      // preço e rota, e nenhum está em MODELOS_DISPONIVEIS. Travar no dropdown
+      // proibiria configurá-los sem motivo.
+      expect(await validarModelosDoSysConfig({ ai: { modelos: { ia4_check: 'gpt-5.4-2026-03-05', chat_fase3_audit: 'gemini-3.1-flash-lite' } } })).toEqual([]);
+    });
+
+    it('🔑 aceita `gpt-5.4` — e é por isso que esta validação NÃO basta', async () => {
+      const { validarModelosDoSysConfig } = await import('@/lib/ai-tasks');
+      // O caso real da ACME Demo. `gpt-5.4` tem preço no catálogo e tem rota,
+      // então a porta de escrita o aprova — corretamente, porque ele ERA válido
+      // quando foi gravado. Quem pega que ele morreu no provedor é o R14 do
+      // health-check, não isto aqui. Este teste existe para travar essa fronteira:
+      // se alguém "consertar" a validação de escrita para recusar gpt-5.4, estará
+      // resolvendo o sintoma no lugar errado e mascarando a necessidade do R14.
+      expect(await validarModelosDoSysConfig({ ai: { modelos: { ia3_check: 'gpt-5.4' } } })).toEqual([]);
+    });
+
+    it('vazio = sem override, alinhado ao que o resolveTaskModel já faz', async () => {
+      const { validarModelosDoSysConfig, resolveTaskModel } = await import('@/lib/ai-tasks');
+      // A tela DELETA a chave ao escolher "usar o default", mas um caller HTTP
+      // pode mandar ''. O runtime lê isso como sem-override (`if (especifico)`),
+      // então a porta de escrita tem que concordar com o consumidor: recusar o
+      // que o runtime aceita sem dano só travaria save à toa.
+      expect(resolveTaskModel({ ai: { modelos: { ia3_check: '' } } }, 'ia3_check')).toBe('gpt-5.6-terra');
+      expect(await validarModelosDoSysConfig({ ai: { modelos: { ia3_check: '' } } })).toEqual([]);
+      // Lixo que NÃO é texto o runtime devolveria adiante e o dispatch engasgaria.
+      const p = await validarModelosDoSysConfig({ ai: { modelos: { ia3_check: 123 } } });
+      expect(p[0]).toMatch(/precisa ser texto/);
+    });
+  });
+
   it('as exceções fora da tabela continuam fora (senão viram par não verificado)', () => {
     // Se alguém trouxer chat_fase3_* para DEFAULT_TASK_MODELS, este teste falha e
     // manda mover o par para DUAL_IA_PARES — em vez de deixar a exceção envelhecer

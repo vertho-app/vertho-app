@@ -18,10 +18,11 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
-import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados } from './regras';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados } from './regras';
 import { webPushConfigurado } from '@/lib/notifications/providers/webpush';
 import { inspecionarCloudApi } from '@/lib/whatsapp/cloud-api';
 import { inspecionarTemplatesLigados } from '@/lib/whatsapp/templates-ligados';
+import { inspecionarModelosConfigurados } from './coleta-modelos';
 import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
 /**
@@ -285,6 +286,23 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
     // sem este check a única forma de descobrir que a pílula aponta para um
     // template MARKETING é a fatura. Ver `checarTemplatesLigados`.
     achados.push(...checarTemplatesLigados(await inspecionarTemplatesLigados()));
+
+    // R14: os modelos de IA CONFIGURADOS ainda existem no provedor? Terceiro
+    // check que sai para a rede, e pela mesma razão do R12/R13: a resposta não
+    // está em tabela nenhuma. Aqui a razão é mais dura ainda — o defeito nasce
+    // do DRIFT DO PROVEDOR, então nenhuma validação no momento da escrita o
+    // pegaria. Ver `coleta-modelos.ts` para o caso real que originou o check.
+    // LANÇA se a leitura falhar, pelo mesmo motivo de `empresasAtivas` acima: sem
+    // as configs, o R14 varreria só os defaults e o dropdown, não veria override
+    // de tenant nenhum — e devolveria "0 achados". Um check que não conseguiu
+    // olhar diria exatamente o mesmo que um que olhou tudo, que é a falha mais
+    // cara possível num instrumento de alarme. O try/catch deste bloco converte
+    // a exceção num achado crítico 'check-falhou', que é o resultado honesto.
+    const { data: cfgs, error: errCfgs } = await sb.from('empresas').select('nome, sys_config');
+    if (errCfgs) throw new Error(`R14 não conseguiu ler sys_config das empresas: ${errCfgs.message}`);
+    achados.push(...checarModelosConfigurados(
+      await inspecionarModelosConfigurados((cfgs || []).map((e: any) => ({ nome: e.nome, sysConfig: e.sys_config }))),
+    ));
 
     const ungrounded = await contar('kit_briefs', (q: any) => q.is('modulo_base_id', null));
     achados.push(achado('brief-ungrounded', 'aviso', 'Brief sem módulo-base', ungrounded,

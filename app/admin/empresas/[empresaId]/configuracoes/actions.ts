@@ -1,5 +1,6 @@
 'use server';
 
+import { validarModelosDoSysConfig } from '@/lib/ai-tasks';
 import { updateTag } from 'next/cache';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
@@ -29,6 +30,16 @@ export async function salvarConfig(empresaId, sysConfig) {
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
   const sb = await requireEmpresaSupabase(empresaId, 'settings.company.manage', 'salvarConfig');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  // O dropdown de modelos é constraint do CLIENTE: a tela monta os <option> a
+  // partir de MODELOS_DISPONIVEIS, mas `use server` é endpoint HTTP e esta action
+  // gravava o sys_config inteiro sem olhar. A gêmea dez linhas abaixo
+  // (`salvarLocaleEmpresa`) já validava com `isAppLocale`; esta não validava nada.
+  // Régua: tem preço E tem rota — ver `validarModelosDoSysConfig` para por que
+  // NÃO é "está no dropdown", e para o que esta validação deliberadamente não pega.
+  const problemasDeModelo = await validarModelosDoSysConfig(sysConfig);
+  if (problemasDeModelo.length) {
+    return { success: false, error: `Modelo de IA inválido — ${problemasDeModelo.join('; ')}` };
+  }
   const { error } = await sb.from('empresas')
     .update({ sys_config: sysConfig })
     .eq('id', empresaId);

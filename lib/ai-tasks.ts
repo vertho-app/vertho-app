@@ -254,6 +254,56 @@ export async function getModelForTask(empresaId, taskKey) {
   }
 }
 
+/**
+ * Valida os modelos declarados num `sys_config` antes de gravar. Devolve a lista
+ * de problemas — vazia quando está tudo certo.
+ *
+ * Régua: **tem preço E tem rota**, não "está no dropdown".
+ * O dropdown é curadoria; a régua é o que faz a chamada funcionar. Existe modelo
+ * legítimo fora da lista (`gpt-5.4-2026-03-05`, `gemini-3.1-flash-lite`, o Haiku
+ * do simulador), e travar no dropdown proibiria configurá-los sem motivo.
+ *
+ * ⚠️ O QUE ESTA VALIDAÇÃO **NÃO** PEGA — e por isso ela não basta sozinha:
+ * o caso real de 25/08/2026 foi `gpt-5.4` configurado na ACME Demo. O id era
+ * válido no dia em que foi gravado e **morreu no provedor** depois. Validação de
+ * escrita só enxerga o instante da escrita; drift do provedor é invisível para
+ * ela. Quem pega aquilo é o R14 do health-check (`checarModelosConfigurados`),
+ * que pergunta ao provedor de forma recorrente. Esta função é a rede contra
+ * digitação e id inventado; aquela é a rede contra o tempo.
+ */
+export async function validarModelosDoSysConfig(sysConfig: any): Promise<string[]> {
+  // `await import` e não import estático: este módulo é lido por componente de
+  // CLIENTE (a tela de configurações importa AI_TASKS/MODELOS_DISPONIVEIS), e o
+  // estático arrastaria o catálogo de custo inteiro para o bundle do browser.
+  // Mesmo padrão que `getModelForTask` já usa aqui embaixo com o supabase.
+  const { MODELS } = await import('@/lib/ia-cost-catalog');
+  const { modeloTemRota } = await import('@/lib/ai-provedores');
+
+  const ai = sysConfig?.ai || {};
+  const declarados: Array<{ onde: string; modelo: unknown }> = [];
+  if (ai.modelo_padrao) declarados.push({ onde: 'modelo_padrao', modelo: ai.modelo_padrao });
+  for (const [task, modelo] of Object.entries(ai.modelos || {})) declarados.push({ onde: task, modelo });
+
+  const problemas: string[] = [];
+  for (const { onde, modelo } of declarados) {
+    // Vazio = "sem override", e é assim que o RUNTIME já lê: `resolveTaskModel`
+    // faz `if (especifico)`, então string vazia cai no default por task. Recusar
+    // aqui o que o runtime aceita sem dano seria a validação divergindo do
+    // consumidor — e travaria um save por um valor inofensivo.
+    if (modelo === '' || modelo === null || modelo === undefined) continue;
+    if (typeof modelo !== 'string' || !modelo.trim()) {
+      problemas.push(`${onde}: modelo precisa ser texto (recebido: ${typeof modelo})`);
+      continue;
+    }
+    if (!modeloTemRota(modelo)) {
+      problemas.push(`${onde}: "${modelo}" não tem rota no ai-client — a chamada iria para a Anthropic e falharia etiquetada como Anthropic`);
+    } else if (!MODELS[modelo]) {
+      problemas.push(`${onde}: "${modelo}" não tem preço em ia-cost-catalog — a linha do ledger nasceria sem custo`);
+    }
+  }
+  return problemas;
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
  * Invariante Dual-IA: auditor NUNCA da mesma família do gerador
  * ────────────────────────────────────────────────────────────────────────────
