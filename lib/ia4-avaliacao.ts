@@ -164,7 +164,33 @@ export const IA4_CALL_OPTIONS = { timeoutMs: 240000, maxRetries: 0 } as const;
  * se o retry também truncar, a resposta fica SEM avaliação. O teto não é
  * cobrado — só o que sai —, então folga aqui não custa nada.
  */
-export const IA4_MAX_TOKENS = 16000;
+/**
+ * 🔴 REVISTO EM 25/08/2026 — 16.000 → 32.000. O aviso acima aconteceu.
+ *
+ * `Medido:` no ledger, `ia4_avaliacao` com `claude-sonnet-5`: **59 de 297
+ * chamadas (19,9%) saíram com output_tokens == 16.000**, ou seja, exatamente no
+ * teto. Com `claude-sonnet-4-6`: **0 de 91**. Uma em cada cinco avaliações do
+ * modelo pinado desde 12/08 bateu no limite — e "bateu no limite" aqui é JSON
+ * cortado no meio de uma avaliação de competência de uma pessoa real.
+ *
+ * A causa é a que o parágrafo acima previu: no Sonnet 5 o thinking é LIGADO POR
+ * PADRÃO e `max_tokens` é orçamento COMPARTILHADO entre pensar e escrever
+ * (`actions/ai-client.ts:321`). Os 16.000 foram dimensionados em 12/08 contra a
+ * saída do 4.6 (máx. 7.467 → 2,1x de folga); o modelo trocou e a folga sumiu,
+ * porque o teto media o modelo antigo.
+ *
+ * ⚠️ Por que 32.000 e não um número derivado da distribuição: a distribuição do
+ * Sonnet 5 está CENSURADA — tudo que passaria de 16.000 foi registrado como
+ * 16.000, então não dá para calcular o p95 real dele. 32.000 é o dobro do teto
+ * censurado, e só será substituído por um número medido depois de rodar um lote
+ * SEM censura. Teto não é gasto (paga-se o que sai), então errar para cima aqui
+ * custa latência, não dinheiro.
+ *
+ * Regra que este caso estabelece, e que vale para QUALQUER modelo de raciocínio
+ * (Sonnet 5, Opus 5, Qwen, Kimi K3, Muse Spark — os quatro medidos em 25/08):
+ * **revisar o teto ANTES de trocar o modelo, nunca depois.**
+ */
+export const IA4_MAX_TOKENS = 32000;
 
 /** Colunas de perfil que o prompt da IA4 consome — uma lista só, três call-sites. */
 export const IA4_COLAB_COLS =

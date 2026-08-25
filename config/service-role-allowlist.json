@@ -140,7 +140,7 @@
     "app/api/sales/materials/[id]/download/route.ts": 1,
     "app/proposta/[token]/pdf/route.ts": 1,
     "lib/demo/envio-guard.ts": 1,
-    "lib/demo/reset-acme-demo.ts": 1,
+    "lib/demo/reset-acme-demo.ts": 2,
     "lib/sales/permissions.ts": 1,
     "trigger/acumulada-piloto.ts": 1,
     "lib/modulo-base-auditor.ts": 2,
@@ -221,6 +221,9 @@
     "scripts/_watch-render.ts": 1,
     "app/admin-v2/cliente/planos-actions.ts": 2,
     "scripts/_reenviar-p1-whatsapp.ts": 1,
-    "scripts/_dryrun-semana-acessivel.ts": 1
+    "scripts/_dryrun-semana-acessivel.ts": 1,
+    "scripts/_piloto-controle-harness.ts": 1,
+    "scripts/_auditar-tetos-vs-saida.ts": 1,
+    "scripts/_piloto-qwen-e1-cenarios.ts": 1
   }
 }
