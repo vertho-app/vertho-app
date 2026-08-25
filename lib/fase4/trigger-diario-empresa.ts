@@ -23,8 +23,8 @@ import { mesmoDiaUTC, pilulaPendente } from '@/lib/notifications/carimbo-canal';
 import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, tenantUrl } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppNudgeDesafio } from '@/lib/notifications';
-import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao, emailEvidencia } from '@/lib/notifications/pilula-envio';
-import { enviarPilulaPorTemplate, enviarPorTemplate } from '@/lib/notifications/pilula-template';
+import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao, emailEvidencia, emailSemanaPendente } from '@/lib/notifications/pilula-envio';
+import { enviarPilulaPorTemplate, enviarPorTemplate, templateAtivo } from '@/lib/notifications/pilula-template';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { formatosEntregaveis, escolherFormatoAnunciado } from '@/lib/season-engine/formato-anunciado';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
@@ -35,7 +35,7 @@ import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
 import { criarRelogioCadencia, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { enviarPush } from '@/lib/notifications/push-core';
-import { pushPilula, pushMissao, pushEvidencia } from '@/lib/notifications/push-copy';
+import { pushPilula, pushMissao, pushEvidencia, pushSemanaPendente } from '@/lib/notifications/push-copy';
 import { temaPilula } from '@/lib/notifications/pilula-envio';
 import { ENVIO } from '@/lib/status';
 
@@ -258,6 +258,15 @@ export async function processarEmpresaDiario(
   // indistinguível de "o tenant não ligou push". Exatamente o tipo de silêncio
   // que este bloco existe para eliminar, entrando pela porta dos fundos.
   const pushLigado = (empresa as any).sys_config?.notificacoes_push === true;
+  /**
+   * A P2 de quem está travado numa semana anterior vira a mensagem de PENDÊNCIA
+   * (ver o bloco da 2ª pílula). Chave única para os três canais:
+   * `WHATSAPP_TEMPLATE_PENDENCIA` ausente ⇒ nada muda, a pílula sai como antes.
+   *
+   * Lido AQUI e não no módulo por simetria com o resto do arquivo — e porque a
+   * decisão precisa valer igual no worker QStash e no caminho inline.
+   */
+  const pendenciaLigada = !!templateAtivo('pendencia');
   const comPush = new Set<string>();
   if (pushLigado) {
     const { data: eps, error: errEps } = await tdb
@@ -511,6 +520,104 @@ export async function processarEmpresaDiario(
       }
     };
 
+    /**
+     * SEMANA PENDENTE nos três canais — o lugar da P2 de quem está travado.
+     *
+     * Reusa os carimbos `ultima_pilula2_*` de propósito: é o MESMO slot do dia
+     * (mesmo padrão da missão, que reusa os da pílula 1). Sem isso, a pessoa
+     * receberia a pendência E a pílula na mesma terça.
+     *
+     * 🔴 A INVERSÃO QUE PRECISA DE ATENÇÃO. Em todo o resto deste arquivo
+     * `semana` é a ACESSÍVEL e `semanaCalendario` é o relógio. No contrato do
+     * `semana_pendente_v2` é o oposto: `{{2}}` é onde a trilha ESTÁ (calendário)
+     * e `{{3}}` é a que continua PENDENTE (a acessível) — e o botão aponta para
+     * `{{3}}`. Trocar os dois não dá erro em lugar nenhum: sai "sua trilha está
+     * na semana 1, e a semana 6 continua pendente" e o botão leva de volta para
+     * a porta fechada. Travado em `tests/unit/p2-semana-pendente.test.ts`.
+     */
+    const enviarSemanaPendente = async () => {
+      const opts = { semana: semanaCalendario, semanaPendente: semana, baseUrl };
+      const agora = new Date().toISOString();
+      const stamp: Record<string, string> = {};
+
+      if (telefone && !mesmoDiaUTC(envio.ultima_pilula2_whatsapp_em, hojeUTC)) {
+        try {
+          const viaTemplate = await enviarPorTemplate('pendencia', {
+            telefone, nome,
+            // `semana` = calendário e `semanaPendente` = acessível: ver acima.
+            semana: semanaCalendario, semanaPendente: semana,
+            tema: '',
+            slug: (empresa as any).slug, baseUrl,
+            // Sem formato: a mensagem não anuncia conteúdo, anuncia pendência.
+            formato: null, pilula: null,
+            empresaId: empresa.id, colaboradorId: envio.colaborador_id,
+            dedupeKey: `pendencia:${envio.id}:${hojeUTC}`,
+          });
+          // SEM caminho legado, de propósito: não existe texto livre aprovado
+          // para este momento, e o canal de texto livre está morto desde
+          // 13/08/2026 (fora da janela de 24h a Meta só entrega template). Um
+          // `tentou:false` aqui é a Cloud API fora do ar — o e-mail e o push
+          // abaixo ainda dizem a verdade, e o WhatsApp fica PENDENTE e
+          // recuperável, que é a semântica da guarda por canal.
+          if (viaTemplate.tentou) {
+            if (viaTemplate.ok) { pilulas++; stamp.ultima_pilula2_whatsapp_em = agora; } else erros++;
+          }
+        } catch { erros++; }
+      }
+
+      if (email && !mesmoDiaUTC(envio.ultima_pilula2_email_em, hojeUTC)) {
+        const { subject, html } = emailSemanaPendente(nome, opts);
+        // Kind próprio: pendência NÃO é pílula. Reaproveitar o kind faria a
+        // contagem de cadência somar uma cobrança como se fosse entrega de
+        // conteúdo — e é justamente essa contagem que diz se a trilha anda.
+        const r = await enviarEmailPilula(email, subject, html, {
+          kind: 'pendencia',
+          empresaId: empresa.id,
+          colaboradorId: envio.colaborador_id,
+          dedupeKey: `pendencia:${envio.id}:${hojeUTC}`,
+        });
+        if (r.ok) { emails++; stamp.ultima_pilula2_email_em = agora; } else erros++;
+      }
+
+      if (pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio.ultima_pilula2_push_em, hojeUTC)) {
+        const texto = pushSemanaPendente(semana);
+        const r = await enviarPush({
+          colaboradorId: envio.colaborador_id,
+          empresaId: empresa.id,
+          kind: 'pendencia',
+          titulo: texto.titulo,
+          corpo: texto.corpo,
+          // MESMO destino dos outros dois canais: a semana PENDENTE.
+          url: deepLinkSemana(baseUrl, semana),
+          dedupeKey: `pendencia-push:${envio.id}:${hojeUTC}`,
+        });
+        if (r.entregues > 0) { stamp.ultima_pilula2_push_em = agora; } else if (r.falhas > 0) erros++;
+      }
+
+      if (Object.keys(stamp).length) {
+        // O supabase-js RETORNA `{ error }` — try/catch não pega. E aqui a
+        // mensagem JÁ SAIU: carimbo perdido em silêncio significa que o retry
+        // do QStash (ou o cron de amanhã) manda a mesma pendência de novo para
+        // a mesma pessoa. É ENTREGA, então degrada registrando em vez de
+        // derrubar a empresa inteira — mas registra, porque repetição no
+        // WhatsApp é o caminho para o bloqueio, e bloqueio derruba o
+        // `quality_rating` de um número que todos os tenants compartilham.
+        const { error: errStamp } = await tdb.from('fase4_envios')
+          .update({ ...stamp, ultima_pilula2_em: agora }).eq('id', envio.id);
+        if (errStamp) {
+          erros++;
+          await registrarDegradacao({
+            fluxo: 'envio',
+            tipo: DEGRADACAO.TELEMETRIA_ENTREGA_FALHOU,
+            chave: `carimbo-pendencia:${empresa.id}`,
+            empresaId: empresa.id,
+            severidade: 'critico',
+            detalhe: { motivo: errStamp.message, envioId: envio.id, canais: Object.keys(stamp) },
+          });
+        }
+      }
+    };
+
     // Há canal PENDENTE hoje? Ver lib/notifications/carimbo-canal.
     const temPush = comPush.has(envio.colaborador_id);
     const pendente = (wppCol: string, mailCol: string, pushCol?: string) =>
@@ -605,8 +712,38 @@ export async function processarEmpresaDiario(
       }
     }
 
-    // ── 2ª PÍLULA (DUO) ──
-    if (hoje === diaP2 && !ehImpl(semana, plan) && conteudosDia[1] && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em', 'ultima_pilula2_push_em')) {
+    /**
+     * ── 2ª PÍLULA (DUO) — ou a SEMANA PENDENTE, para quem está travado ──
+     *
+     * 🔴 O ESTADO QUE ISTO ENDEREÇA (medido 25/08/2026, no instante do disparo):
+     * **31 das 36 pessoas de Ibipeba** (18 delas pendentes na semana 1, com o
+     * calendário na 6) e **30 das 38 de Macaé** (todas pendentes na 1). Desde
+     * 23/08 a pílula já anuncia a semana que a pessoa CONSEGUE abrir, então o
+     * link não cai mais em porta fechada — mas ela recebe, semana após semana, o
+     * conteúdo da mesma semana 1, sem nunca ser informada do que falta. Abrir o
+     * conteúdo não conclui a semana; quem conclui é a conversa de evidências, e
+     * essa é justamente a crença que trava essas pessoas.
+     *
+     * 🔑 POR QUE NA P2 E NÃO NA P1. A segunda-feira continua entregando
+     * CONTEÚDO (a pessoa não fica sem trilha); a terça, que hoje repetiria o
+     * segundo conteúdo da mesma semana travada, passa a dizer o que destrava.
+     * Uma mensagem a mais no dia seria rajada no número — e o número é
+     * compartilhado por todos os tenants (11/08/2026).
+     *
+     * ⚠️ UMA CHAVE LIGA OS TRÊS CANAIS. O gate é `templateAtivo('pendencia')`,
+     * não uma segunda variável: com `WHATSAPP_TEMPLATE_PENDENCIA` ausente, tudo
+     * volta ao comportamento anterior ÍNTEIRO (pílula nos três canais). Ligar só
+     * o WhatsApp deixaria o e-mail do mesmo dia dizendo "o conteúdo da semana 1
+     * está disponível" — um canal desfazendo o outro, que é pior que os dois
+     * calados. E é a chave que já existe: `templateAtivo` fail-closed sem ela.
+     */
+    const bloqueadaNaAnterior = semana < semanaCalendario;
+    if (
+      hoje === diaP2 && pendenciaLigada && bloqueadaNaAnterior
+      && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em', 'ultima_pilula2_push_em')
+    ) {
+      await enviarSemanaPendente();
+    } else if (hoje === diaP2 && !ehImpl(semana, plan) && conteudosDia[1] && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em', 'ultima_pilula2_push_em')) {
       await enviarPilulaDia(conteudosDia[1], 'ultima_pilula2_em');
     }
 

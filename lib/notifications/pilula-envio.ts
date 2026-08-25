@@ -219,3 +219,52 @@ ${resumo}
 <p style="color:#666;font-size:14px">— Equipe Vertho</p></div>`;
   return { subject, html };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SEMANA PENDENTE: o e-mail que acompanha o template `semana_pendente_v2`.
+//
+// 🔴 POR QUE O E-MAIL TAMBÉM MUDA, e não só o WhatsApp. Nas duas coortes,
+// 74/74 têm e-mail (medido 25/08/2026). Se o WhatsApp dissesse "a semana 1
+// continua pendente" e o e-mail do mesmo dia dissesse "o conteúdo da semana 1
+// está disponível", o segundo REFORÇARIA a crença que trava essas pessoas — a
+// de que abrir o conteúdo conclui a semana. Um canal desfazendo o outro é pior
+// que os dois calados.
+//
+// A substância é a MESMA das três copies (WhatsApp, e-mail, push), de propósito:
+// a pessoa recebe a mesma coisa por caminhos diferentes e reconhece que é uma
+// coisa só. Onde elas divergem é no que o meio permite — o WhatsApp leva botão
+// pelo `app.vertho.ai/ir/…` (a Meta só aceita variável no fim de URL fixa), o
+// e-mail leva o link do TENANT direto.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export type SemanaPendenteOpts = {
+  /** Semana do CALENDÁRIO — onde a trilha está. */
+  semana: number;
+  /** Semana que precisa ser concluída para destravar — o destino do link. */
+  semanaPendente: number;
+  baseUrl: string;
+};
+
+/**
+ * Assunto + HTML do e-mail da semana pendente.
+ *
+ * 🔴 O LINK VAI PARA A PENDENTE, NUNCA PARA A DO CALENDÁRIO. Mandar para a
+ * semana trancada é o defeito que esta mensagem existe para corrigir: a pessoa
+ * cairia na mesma porta fechada, agora vinda de um e-mail que acabou de dizer
+ * que ela está travada.
+ */
+export function emailSemanaPendente(
+  nome: string,
+  opts: SemanaPendenteOpts,
+): { subject: string; html: string } {
+  const link = deepLinkSemana(opts.baseUrl, opts.semanaPendente);
+  const primeiro = (nome || 'Colaborador').split(' ')[0];
+  const subject = `Semana ${opts.semanaPendente} — pendente na sua trilha`;
+  const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
+<p>Olá, ${primeiro}.</p>
+<p>Sua trilha está na <strong>semana ${opts.semana}</strong>, e a <strong>semana ${opts.semanaPendente}</strong> continua pendente.</p>
+<p>Ela somente é concluída na <strong>conversa de evidências</strong> — abrir o conteúdo não conclui a semana. A explicação em vídeo está na página da semana.</p>
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir a semana ${opts.semanaPendente} →</a></p>
+<p style="color:#666;font-size:14px">— Equipe Vertho</p></div>`;
+  return { subject, html };
+}

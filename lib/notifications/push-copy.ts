@@ -75,3 +75,26 @@ export function pushEvidencia(semana: number): TextoPush {
     corpo: limitar('Você ainda não registrou como foi a prática desta semana.', LIMITE_CORPO),
   };
 }
+
+/**
+ * SEMANA PENDENTE: a trilha avançou no calendário e a pessoa segue travada numa
+ * semana anterior, porque quem conclui a semana é a conversa de evidências.
+ *
+ * Recebe a semana PENDENTE, não a do calendário: o título tem que nomear a
+ * semana que a pessoa vai abrir. "Semana 6 pendente" para quem precisa concluir
+ * a 1 manda ela para a porta fechada de novo — o próprio defeito que esta
+ * mensagem existe para corrigir (ver `semana_pendente_v2` em templates.ts).
+ *
+ * O corpo diz ONDE se conclui porque a crença que trava essas pessoas é que
+ * abrir o conteúdo já concluiu a semana. Sem isso, o push repete o convite e
+ * não desfaz o mal-entendido. "Conversa de evidências" é o mesmo vocabulário do
+ * template aprovado e do card da tela ("Evidências") — e deliberadamente NÃO é
+ * "Mentora", que não é palavra do produto e apontaria para o Beto, que não
+ * conclui semana nenhuma.
+ */
+export function pushSemanaPendente(semanaPendente: number): TextoPush {
+  return {
+    titulo: limitar(`Semana ${semanaPendente} pendente`, LIMITE_TITULO),
+    corpo: limitar('Ela só é concluída na conversa de evidências.', LIMITE_CORPO),
+  };
+}

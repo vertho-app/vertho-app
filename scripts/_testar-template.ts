@@ -30,7 +30,8 @@
  */
 process.loadEnvFile('.env.local');
 
-import { enviarPorTemplate, templateAtivo, type PapelCadencia } from '../lib/notifications/pilula-template';
+import { enviarPorTemplate, templateAtivo, contratoDoTemplate, type PapelCadencia } from '../lib/notifications/pilula-template';
+import { TEMPLATES, renderTemplate } from '../lib/whatsapp/templates';
 import { tenantUrl } from '../lib/domain';
 
 const args = process.argv.slice(2);
@@ -66,6 +67,12 @@ async function main() {
     pilula: arg('pilula') ? Number(arg('pilula')) : null,
     empresaId,
     colaboradorId: arg('colab-id') || null,
+    /**
+     * Só o papel `pendencia`: a semana que precisa ser CONCLUÍDA para destravar.
+     * Sem ela o envio é recusado pelo fail-closed de `enviarPorTemplate` — e é
+     * justamente essa recusa que este script deixa visível antes do lote.
+     */
+    semanaPendente: arg('semana-pendente') ? Number(arg('semana-pendente')) : null,
     // Sem dedupe: um teste tem que poder ser repetido.
     dedupeKey: null,
   };
@@ -73,6 +80,25 @@ async function main() {
   console.log(`destino    : ${telefone}`);
   console.log(`link       : ${dados.baseUrl}/dashboard/temporada/semana/${dados.semana}`);
   console.log(`tema       : ${dados.tema}`);
+
+  /**
+   * O CORPO RENDERIZADO e o parâmetro do BOTÃO — o que a pessoa vai ler.
+   *
+   * O dry-run antigo imprimia `tema` e um link montado à mão, que não são o que
+   * sai em template nenhum com botão (o link vive na Meta, e o script só manda
+   * o sufixo). Imprimir o observado é o ponto: um `{{3}}` trocado, ou um botão
+   * apontando para a semana errada, é typecheck-limpo e só apareceria na mão de
+   * quem recebeu.
+   */
+  const montar = contratoDoTemplate(template);
+  if (montar) {
+    const { params, botaoParam } = montar(dados as any);
+    const def = Object.values(TEMPLATES).find((t) => t.name === template);
+    console.log('\n─── o que a pessoa recebe ───');
+    if (def) console.log(renderTemplate(def, params));
+    if (botaoParam) console.log(`\n[botão "${def?.botao?.texto ?? '—'}"] https://app.vertho.ai/ir/${botaoParam}`);
+    console.log('─────────────────────────────');
+  }
 
   if (!executar) {
     console.log('\nDRY-RUN — nada foi enviado. Repita com --executar.');
