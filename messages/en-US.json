@@ -230,7 +230,10 @@
       "overview": "Overview",
       "people": "People",
       "withProfile": "With behavioral profile",
+      "withMapping": "With competency mapping",
       "inJourney": "On an active journey",
+      "onTrack": "Track on time",
+      "behind": "Track behind",
       "unavailable": "We couldn't load the numbers right now. Try again in a moment.",
       "follow": "Follow",
       "team": "Team",
@@ -3998,6 +4001,7 @@
       "fullEvolution": "View full evolution",
       "attentionSignals": "Attention signals · {count}",
       "weeklyAction": "Action this week",
+      "rhActions": "Where to act now",
       "teamTrack": "Team in track",
       "profileMap": "{type} profile map",
       "nextWeeks": "Next 4 weeks"
@@ -4008,6 +4012,7 @@
     },
     "kpis": {
       "led": "Direct reports",
+      "people": "People",
       "inTrack": "{count} in track · {without} without track",
       "inProgress": "In progress",
       "noActiveTrack": "no active track",
@@ -4052,6 +4057,29 @@
       "concluida": "completed",
       "sem_trilha": "no track",
       "arquivada": "archived"
+    },
+    "actions": {
+      "empty": "Nothing stuck right now — everyone is on their next step.",
+      "sem_perfil": {
+        "title": "Unblock those who never started",
+        "body": "{count} haven't done the behavioral profile yet. It's the first gate: no profile, no track.",
+        "chip": "No profile"
+      },
+      "sem_mapeamento": {
+        "title": "Ask for the competency mapping",
+        "body": "{count} already have the profile and stop here. This is the step that creates the track.",
+        "chip": "No mapping"
+      },
+      "atrasada": {
+        "title": "Bring back those who stalled",
+        "body": "{count} are on a track, but the calendar has moved past their week.",
+        "chip": "Behind"
+      },
+      "aguardando_geracao": {
+        "title": "Ready to start",
+        "body": "{count} finished both steps and still have no track. Talk to Vertho to release them.",
+        "chip": "Ready"
+      }
     },
     "team": {
       "weekProgress": "wk {week}/14",

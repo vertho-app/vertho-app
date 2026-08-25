@@ -2,8 +2,9 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext } from '@/lib/authz';
-import { TURMA_MEMBRO } from '@/lib/status';
+import { PROGRESSO, TRILHA, TURMA_MEMBRO } from '@/lib/status';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
+import { estaAtrasada } from '@/lib/season-engine/atraso';
 
 /**
  * Home do gestor — dados consolidados em uma única chamada:
@@ -61,8 +62,8 @@ export type EquipeRow = {
    *
    *  · `sem_perfil`        — falta o mapeamento comportamental (ou o PDF da
    *                          fonte externa). É o primeiro portão: sem ele a
-   *                          pessoa nem alcança a avaliação.
-   *  · `sem_mapeamento`    — tem perfil, falta a rodada de avaliação de
+   *                          pessoa nem alcança o mapeamento.
+   *  · `sem_mapeamento`    — tem perfil, falta a rodada de mapeamento de
    *                          competências (`descriptor_assessments`), que é o
    *                          que o gerador de temporada exige.
    *  · `aguardando_geracao`— fez as duas partes; a trilha é que não foi gerada.
@@ -70,6 +71,11 @@ export type EquipeRow = {
    *  · `null`              — não dá para afirmar (consulta indisponível).
    */
   motivoSemTrilha: 'sem_perfil' | 'sem_mapeamento' | 'aguardando_geracao' | null;
+  /**
+   * Trilha ATIVA cujo calendário já passou da pessoa. `null` = não se aplica
+   * (sem trilha ativa) ou não dá para dizer (trilha sem data de início).
+   */
+  atrasada: boolean | null;
 };
 
 export type PerfilColab = {
@@ -359,6 +365,40 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     for (const d of das || []) comAssessment.add(d.colaborador_id);
   }
 
+  // ── 7b. Quem está ATRASADO na jornada ──
+  //
+  // Estar numa trilha ativa não é estar andando nela: `Medido em 25/08 no macae`,
+  // das 38 ativas **30 estão atrasadas** — todas na semana 2 do calendário sem
+  // ter concluído a 1. O KPI "38 em andamento" sozinho lia como saúde.
+  //
+  // A régua vem de `lib/season-engine/atraso.ts`, que cruza as duas metades que
+  // já existiam (semana da pessoa = concluídas + 1; semana do calendário =
+  // `semanaLiberadaEm`) — inventar uma terceira aqui é como as telas passam a
+  // discordar. Pausada não conta: quem pausou não está atrasado, está parado de
+  // propósito.
+  const atrasoPorColab = new Map<string, boolean | null>();
+  {
+    const emCurso = ativas.filter((t: any) => t.status === TRILHA.ATIVA);
+    const concluidasPorTrilha = new Map<string, number>();
+    if (emCurso.length > 0) {
+      const { data: progs, error: errProg } = await sb.from('temporada_semana_progresso')
+        .select('trilha_id, status')
+        .in('trilha_id', emCurso.map((t: any) => t.id));
+      if (errProg) console.error('[gestor] progresso de semana falhou:', errProg.message);
+      for (const p of progs || []) {
+        if (p.status !== PROGRESSO.CONCLUIDO) continue;
+        concluidasPorTrilha.set(p.trilha_id, (concluidasPorTrilha.get(p.trilha_id) || 0) + 1);
+      }
+    }
+    for (const t of emCurso) {
+      atrasoPorColab.set(t.colaborador_id, estaAtrasada({
+        dataInicio: t.data_inicio,
+        totalSemanas: getProgramaConfigDaTrilha(t).semanas,
+        semanasConcluidas: concluidasPorTrilha.get(t.id) || 0,
+      }));
+    }
+  }
+
   const motivoSemTrilha = (c: any): EquipeRow['motivoSemTrilha'] => {
     // Quem TEM trilha não tem motivo — e a checagem mora aqui, não em cada
     // chamador: `comAssessment` só foi consultado para quem está sem trilha,
@@ -371,6 +411,11 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   };
 
   // ── 5. Alertas ──
+  //
+  // "Liderado" é a palavra do GESTOR: ele tem uma equipe. O RH não lidera a
+  // empresa inteira — para ele são colaboradores. A mesma frase servindo os dois
+  // escopos soava errada em metade das telas, e é a única diferença entre elas.
+  const pessoa = (n: number) => (isRH ? (n === 1 ? 'colaborador' : 'colaboradores') : (n === 1 ? 'liderado' : 'liderados'));
   const alertas: GestorAlerta[] = [];
   const cpAtrasados = cpPendentes.filter((cp: any) => {
     const dias = (Date.now() - new Date(cp.criado_em).getTime()) / (24 * 3600 * 1000);
@@ -390,8 +435,8 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       tipo: 'sem_perfil',
       count: semPerfil,
       mensagem: fonteExterna
-        ? `${semPerfil} liderado${semPerfil === 1 ? ' ainda não tem' : 's ainda não têm'} ${fonteLabel} carregado`
-        : `${semPerfil} liderado${semPerfil === 1 ? '' : 's'} sem perfil comportamental mapeado`,
+        ? `${semPerfil} ${pessoa(semPerfil)} ${semPerfil === 1 ? 'ainda não tem' : 'ainda não têm'} ${fonteLabel} carregado`
+        : `${semPerfil} ${pessoa(semPerfil)} sem perfil comportamental mapeado`,
     });
   }
   // Etapa SEGUINTE do funil: tem perfil, falta o mapeamento de competências —
@@ -406,7 +451,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     alertas.push({
       tipo: 'sem_mapeamento',
       count: semMapeamento,
-      mensagem: `${semMapeamento} liderado${semMapeamento === 1 ? '' : 's'} sem mapeamento de competências`,
+      mensagem: `${semMapeamento} ${pessoa(semMapeamento)} sem mapeamento de competências`,
     });
   }
   // Estagnado: trilha ativa criada há >21 dias mas sem evolution_report e sem checkpoint respondido
@@ -421,7 +466,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     alertas.push({
       tipo: 'estagnado',
       count: estagnados.length,
-      mensagem: `${estagnados.length} liderado${estagnados.length === 1 ? '' : 's'} estagnado${estagnados.length === 1 ? '' : 's'} há 3+ semanas (sem checkpoint respondido)`,
+      mensagem: `${estagnados.length} ${pessoa(estagnados.length)} estagnado${estagnados.length === 1 ? '' : 's'} há 3+ semanas (sem checkpoint respondido)`,
     });
   }
 
@@ -504,6 +549,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       perfilDominante: c.perfil_dominante || null,
       fontePerfilExterno: c.perfil_externo_fonte || null,
       turma: turmaPorColab.get(c.id) || null,
+      atrasada: atrasoPorColab.get(c.id) ?? null,
       motivoSemTrilha: status === 'sem_trilha' ? motivoSemTrilha(c) : null,
     };
   });

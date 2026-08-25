@@ -230,7 +230,10 @@
       "overview": "Panorama",
       "people": "Personas",
       "withProfile": "Con perfil comportamental",
+      "withMapping": "Con mapeo de competencias",
       "inJourney": "En trayecto activo",
+      "onTrack": "Itinerario al día",
+      "behind": "Itinerario atrasado",
       "unavailable": "No se pudieron cargar los números ahora. Vuelve a intentarlo en unos instantes.",
       "follow": "Seguimiento",
       "team": "Equipo",
@@ -3998,6 +4001,7 @@
       "fullEvolution": "Ver evolución completa",
       "attentionSignals": "Señales de atención · {count}",
       "weeklyAction": "Acción de esta semana",
+      "rhActions": "Dónde actuar ahora",
       "teamTrack": "Equipo en ruta",
       "profileMap": "Mapa de perfiles {type}",
       "nextWeeks": "Próximas 4 semanas"
@@ -4008,6 +4012,7 @@
     },
     "kpis": {
       "led": "Liderados",
+      "people": "Colaboradores",
       "inTrack": "{count} en ruta · {without} sin ruta",
       "inProgress": "En curso",
       "noActiveTrack": "sin ruta activa",
@@ -4052,6 +4057,29 @@
       "concluida": "completada",
       "sem_trilha": "sin ruta",
       "arquivada": "archivada"
+    },
+    "actions": {
+      "empty": "Nada bloqueado por ahora — todos con el siguiente paso al día.",
+      "sem_perfil": {
+        "title": "Desbloquear a quien no empezó",
+        "body": "{count} aún no hicieron el mapeo comportamental. Es la primera puerta: sin él no hay itinerario.",
+        "chip": "Sin perfil"
+      },
+      "sem_mapeamento": {
+        "title": "Pedir el mapeo de competencias",
+        "body": "{count} ya tienen el perfil y se detienen aquí. Este paso es el que genera el itinerario.",
+        "chip": "Sin mapeo"
+      },
+      "atrasada": {
+        "title": "Recuperar a quien se detuvo",
+        "body": "{count} están en itinerario, pero el calendario ya pasó de su semana.",
+        "chip": "Atrasados"
+      },
+      "aguardando_geracao": {
+        "title": "Listos para empezar",
+        "body": "{count} completaron las dos etapas y aún no tienen itinerario. Habla con Vertho para liberarlos.",
+        "chip": "Listos"
+      }
     },
     "team": {
       "weekProgress": "sem {week}/14",

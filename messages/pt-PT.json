@@ -230,7 +230,10 @@
       "overview": "Panorama",
       "people": "Pessoas",
       "withProfile": "Com perfil comportamental",
+      "withMapping": "Com mapeamento de competências",
       "inJourney": "Em jornada ativa",
+      "onTrack": "Percurso em dia",
+      "behind": "Percurso atrasado",
       "unavailable": "Não foi possível carregar os números agora. Recarregue daqui a instantes.",
       "follow": "Acompanhar",
       "team": "Equipa",
@@ -3998,6 +4001,7 @@
       "fullEvolution": "Ver evolução completa",
       "attentionSignals": "Sinais de atenção · {count}",
       "weeklyAction": "Ação desta semana",
+      "rhActions": "Onde agir agora",
       "teamTrack": "Equipa em trilha",
       "profileMap": "Mapa de perfis {type}",
       "nextWeeks": "Próximas 4 semanas"
@@ -4008,6 +4012,7 @@
     },
     "kpis": {
       "led": "Liderados",
+      "people": "Colaboradores",
       "inTrack": "{count} em trilha · {without} sem trilha",
       "inProgress": "Em andamento",
       "noActiveTrack": "sem trilha ativa",
@@ -4052,6 +4057,29 @@
       "concluida": "concluída",
       "sem_trilha": "sem trilha",
       "arquivada": "arquivada"
+    },
+    "actions": {
+      "empty": "Nada bloqueado neste momento — toda a gente com o próximo passo em dia.",
+      "sem_perfil": {
+        "title": "Destravar quem ainda não começou",
+        "body": "{count} ainda não fizeram o mapeamento comportamental. É o primeiro portão: sem ele não existe percurso.",
+        "chip": "Sem perfil"
+      },
+      "sem_mapeamento": {
+        "title": "Pedir o mapeamento de competências",
+        "body": "{count} já têm o perfil e param aqui. É este passo que gera o percurso.",
+        "chip": "Sem mapeamento"
+      },
+      "atrasada": {
+        "title": "Retomar quem parou a meio",
+        "body": "{count} estão em percurso, mas o calendário já passou da semana delas.",
+        "chip": "Atrasados"
+      },
+      "aguardando_geracao": {
+        "title": "Prontos para começar",
+        "body": "{count} fizeram as duas etapas e ainda não têm percurso. Fale connosco para libertar.",
+        "chip": "Prontos"
+      }
     },
     "team": {
       "weekProgress": "sem {week}/14",

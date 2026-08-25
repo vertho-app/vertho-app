@@ -15,7 +15,7 @@
  */
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Users2, Brain, Route, ListOrdered, TrendingUp, ArrowRight } from 'lucide-react';
+import { Users2, Brain, Route, ListOrdered, TrendingUp, ArrowRight, ClipboardCheck, CalendarCheck, CalendarClock } from 'lucide-react';
 
 const serifStyle: React.CSSProperties = {
   fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
@@ -29,22 +29,42 @@ type Panorama = {
   empresaNome: string | null;
   pessoas: number;
   comPerfil: number;
+  comMapeamento: number;
   emJornada: number;
+  emDia: number;
+  atrasadas: number;
   indisponivel: boolean;
 };
 
-function Numero({ valor, label, icon: Icon, indisponivel }: { valor: number; label: string; icon: any; indisponivel: boolean }) {
+/**
+ * Um degrau do funil. A BARRA é o que faz o funil funcionar: três números soltos
+ * (283 · 144 · 38) parecem três fatos independentes; em proporção do topo eles
+ * viram a pergunta "onde as pessoas param?" — e a resposta, em Macaé, é entre o
+ * perfil e o mapeamento.
+ */
+function Degrau({
+  valor, total, label, icon: Icon, indisponivel, cor = ACCENT, nota,
+}: { valor: number; total: number; label: string; icon: any; indisponivel: boolean; cor?: string; nota?: string }) {
+  const pct = total > 0 ? Math.round((valor / total) * 100) : 0;
   return (
-    <div
-      className="rounded-[20px] p-4"
-      style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}
-    >
-      <Icon size={16} style={{ color: ACCENT }} />
-      <p className="mt-2 leading-none" style={{ ...serifStyle, fontSize: 32, color: '#fff' }}>
-        {/* Erro de banco não vira "0" na tela — 0 é um estado real da empresa. */}
-        {indisponivel ? '—' : valor}
-      </p>
-      <p className="text-[11px] text-white/50 mt-1.5 leading-snug">{label}</p>
+    <div className="rounded-[18px] p-3.5" style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="flex items-center gap-3">
+        <Icon size={15} style={{ color: cor }} className="shrink-0" />
+        <span className="leading-none tabular-nums" style={{ ...serifStyle, fontSize: 26, color: '#fff' }}>
+          {/* Erro de banco não vira "0" na tela — 0 é um estado real da empresa. */}
+          {indisponivel ? '—' : valor}
+        </span>
+        <span className="text-[12px] text-white/60 flex-1 min-w-0 truncate">{label}</span>
+        {!indisponivel && total > 0 && (
+          <span className="text-[10px] text-white/35 tabular-nums shrink-0" style={{ fontFamily: 'var(--font-mono, monospace)' }}>
+            {pct}%
+          </span>
+        )}
+      </div>
+      <div className="mt-2 h-[3px] rounded-full overflow-hidden bg-white/[0.06]">
+        <div className="h-full rounded-full" style={{ width: `${indisponivel ? 0 : pct}%`, background: cor }} />
+      </div>
+      {nota && <p className="text-[10px] text-white/35 mt-1.5">{nota}</p>}
     </div>
   );
 }
@@ -75,7 +95,10 @@ export default function HomeRH({ firstName, panorama }: { firstName: string; pan
   const t = useTranslations('DashboardHome');
   const router = useRouter();
 
-  const p: Panorama = panorama ?? { empresaNome: null, pessoas: 0, comPerfil: 0, emJornada: 0, indisponivel: true };
+  const p: Panorama = panorama ?? {
+    empresaNome: null, pessoas: 0, comPerfil: 0, comMapeamento: 0,
+    emJornada: 0, emDia: 0, atrasadas: 0, indisponivel: true,
+  };
 
   return (
     <div>
@@ -91,10 +114,19 @@ export default function HomeRH({ firstName, panorama }: { firstName: string; pan
           <h3 className="text-[11px] font-bold tracking-[0.18em] uppercase mb-3" style={{ color: ACCENT }}>
             {t('rh.overview')}
           </h3>
-          <div className="grid grid-cols-3 gap-3">
-            <Numero valor={p.pessoas} label={t('rh.people')} icon={Users2} indisponivel={p.indisponivel} />
-            <Numero valor={p.comPerfil} label={t('rh.withProfile')} icon={Brain} indisponivel={p.indisponivel} />
-            <Numero valor={p.emJornada} label={t('rh.inJourney')} icon={Route} indisponivel={p.indisponivel} />
+          {/* Funil: cada degrau em proporção do TOPO (pessoas), porque a
+              pergunta do RH é "onde elas param?". Os dois últimos são a mesma
+              população da jornada aberta em dia × atrasada — estar numa trilha
+              não é estar andando nela. */}
+          <div className="space-y-2">
+            <Degrau valor={p.pessoas} total={p.pessoas} label={t('rh.people')} icon={Users2} indisponivel={p.indisponivel} />
+            <Degrau valor={p.comPerfil} total={p.pessoas} label={t('rh.withProfile')} icon={Brain} indisponivel={p.indisponivel} />
+            <Degrau valor={p.comMapeamento} total={p.pessoas} label={t('rh.withMapping')} icon={ClipboardCheck} indisponivel={p.indisponivel} />
+            <Degrau valor={p.emJornada} total={p.pessoas} label={t('rh.inJourney')} icon={Route} indisponivel={p.indisponivel} />
+            <div className="grid grid-cols-2 gap-2 pl-3">
+              <Degrau valor={p.emDia} total={p.emJornada} label={t('rh.onTrack')} icon={CalendarCheck} indisponivel={p.indisponivel} cor="#34D399" />
+              <Degrau valor={p.atrasadas} total={p.emJornada} label={t('rh.behind')} icon={CalendarClock} indisponivel={p.indisponivel} cor="#FCD34D" />
+            </div>
           </div>
           {p.indisponivel && (
             <p className="text-[11px] text-amber-400/80 mt-2">{t('rh.unavailable')}</p>

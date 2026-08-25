@@ -23,7 +23,7 @@
     "app/dashboard/gestor/actions.ts": 20,
     "app/dashboard/gestor/equipe-evolucao/actions.ts": 9,
     "app/dashboard/gestor/equipe-evolucao/page.tsx": 1,
-    "app/dashboard/gestor/page.tsx": 5,
+    "app/dashboard/gestor/page.tsx": 3,
     "app/dashboard/page.tsx": 1,
     "app/dashboard/praticar/praticar-actions.ts": 2,
     "app/dashboard/temporada/page.tsx": 6,

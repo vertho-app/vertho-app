@@ -5,6 +5,7 @@ import { isMapeamentoCenariosLiberado, isPerfilComportamentalLiberado } from '@/
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import type { UserContext } from '@/types';
 import { ehSemanaDeImplementacao, totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { estaAtrasada } from '@/lib/season-engine/atraso';
 
 /**
  * Loaders da home do dashboard — queries PURAS, sem 'use server' e sem auth
@@ -617,7 +618,7 @@ export async function carregarPanoramaRH(empresaId: string) {
     .select('nome, sys_config').eq('id', empresaId).maybeSingle();
   const fonteExterna = (empresaRes.data?.sys_config as any)?.perfil_externo_fonte ?? null;
 
-  const [pessoasRes, comPerfilRes, trilhasRes] = await Promise.all([
+  const [pessoasRes, comPerfilRes, trilhasRes, assessRes] = await Promise.all([
     tdb.from('colaboradores')
       .select('id', { count: 'exact', head: true }),
     // 🔑 `perfil_dominante`, não `disc_resultados`. É a MESMA coluna que o resto
@@ -635,20 +636,59 @@ export async function carregarPanoramaRH(empresaId: string) {
           .select('id', { count: 'exact', head: true })
           .or('perfil_dominante.not.is.null,perfil_externo_dados.not.is.null'),
     tdb.from('trilhas')
-      .select('colaborador_id')
+      .select('id, colaborador_id, data_inicio, temporada_plano')
       .eq('status', TRILHA.ATIVA),
+    // Uma linha por DESCRITOR avaliado — o maior tenant hoje tem 576 (macae).
+    // Traz só a coluna que identifica a pessoa e deduplica em código: é o
+    // "quantas PESSOAS" que a tela pergunta, não quantas notas existem.
+    tdb.from('descriptor_assessments').select('colaborador_id'),
   ]);
 
-  const erro = pessoasRes.error || comPerfilRes.error || trilhasRes.error;
+  const erro = pessoasRes.error || comPerfilRes.error || trilhasRes.error || assessRes.error;
   if (erro) console.error('[panorama-rh] contagens falharam:', erro.message);
 
-  const emJornada = new Set((trilhasRes.data || []).map((t: any) => t.colaborador_id)).size;
+  const trilhas = trilhasRes.data || [];
+  const emJornada = new Set(trilhas.map((t: any) => t.colaborador_id)).size;
+  const comMapeamento = new Set((assessRes.data || []).map((a: any) => a.colaborador_id)).size;
+
+  // Progresso das trilhas ativas — uma linha por semana de cada trilha (~530 no
+  // maior tenant). É o que separa "em jornada" de "andando": sem isto, 38 ativas
+  // parecem 38 pessoas em dia, e `Medido em 25/08` 30 delas estão atrasadas.
+  const progressoPorTrilha = new Map<string, number>();
+  if (trilhas.length > 0) {
+    const { data: progs, error: errProg } = await tdb.from('temporada_semana_progresso')
+      .select('trilha_id, status')
+      .in('trilha_id', trilhas.map((t: any) => t.id));
+    if (errProg) console.error('[panorama-rh] progresso falhou:', errProg.message);
+    for (const p of progs || []) {
+      if (p.status !== PROGRESSO.CONCLUIDO) continue;
+      progressoPorTrilha.set(p.trilha_id, (progressoPorTrilha.get(p.trilha_id) || 0) + 1);
+    }
+  }
+
+  let emDia = 0;
+  let atrasadas = 0;
+  for (const t of trilhas) {
+    const atrasada = estaAtrasada({
+      dataInicio: t.data_inicio,
+      totalSemanas: totalSemanasDoPlano(t.temporada_plano, TOTAL_SEMANAS_FALLBACK),
+      semanasConcluidas: progressoPorTrilha.get(t.id) || 0,
+    });
+    // `null` (trilha sem data de início) não entra em nenhum dos dois: a soma
+    // dos dois pode ser menor que `emJornada`, e isso é honesto — melhor que
+    // carimbar "em dia" quem não dá para avaliar.
+    if (atrasada === true) atrasadas++;
+    else if (atrasada === false) emDia++;
+  }
 
   return {
     empresaNome: empresaRes.data?.nome || null,
     pessoas: pessoasRes.count || 0,
     comPerfil: comPerfilRes.count || 0,
+    comMapeamento,
     emJornada,
+    emDia,
+    atrasadas,
     indisponivel: !!erro,
   };
 }

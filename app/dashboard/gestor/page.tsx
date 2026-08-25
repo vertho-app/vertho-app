@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import {
   Users, AlertTriangle, ChevronRight, Loader2, ArrowRight,
   Calendar, TrendingUp, Activity, ClipboardCheck, FileText,
+  Brain, CalendarClock, Rocket, Target,
 } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import { getGestorHomeData, getPerfilExternoPdfUrl, type GestorHomeData, type CheckpointPendenteDetalhado } from './actions';
@@ -20,6 +21,9 @@ export default function GestorHomePage() {
   const [avaliando, setAvaliando] = useState<string | null>(null);
   const [modal, setModal] = useState<{ cp: CheckpointPendenteDetalhado; avaliacao: 'evoluindo' | 'estagnado' | 'regredindo' } | null>(null);
   const [observacao, setObservacao] = useState('');
+  // O filtro da tabela vive AQUI porque os cards de ação o comandam: clicar em
+  // "30 atrasados" tem que virar a lista dos 30, senão o número não vira nome.
+  const [filtroEquipe, setFiltroEquipe] = useState<FiltroEquipe>('todos');
 
   async function carregar() {
     setLoading(true);
@@ -114,7 +118,7 @@ export default function GestorHomePage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <KpiCard
           icon={Users}
-          label={t('kpis.led')}
+          label={data.scope === 'rh' ? t('kpis.people') : t('kpis.led')}
           valor={k.liderados.total}
           subtitulo={t('kpis.inTrack', { count: k.liderados.em_trilha, without: k.liderados.sem_trilha })}
         />
@@ -167,7 +171,13 @@ export default function GestorHomePage() {
         </div>
       )}
 
-      {/* Seção 1 — Ação esta semana (checkpoints pendentes) */}
+      {/* Seção 1 — Ação esta semana (checkpoints pendentes).
+          O RH não avalia ninguém: checkpoint é a leitura que o GESTOR faz do
+          liderado nas semanas 5 e 10, então para ele o card nascia vazio e
+          ficava vazio. No lugar, as ações que movem engajamento. */}
+      {data.scope === 'rh' ? (
+        <AcoesRH equipe={data.equipe || []} onFocar={setFiltroEquipe} />
+      ) : (
       <section className="mb-6">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-white text-base font-bold flex items-center gap-2">
@@ -192,9 +202,15 @@ export default function GestorHomePage() {
           </div>
         )}
       </section>
+      )}
 
       {/* Seção 2 — Equipe em trilha (tabela com filtros) */}
-      <EquipeSection equipe={data.equipe || []} fonteExterna={data.empresaPerfilExternoFonte} />
+      <EquipeSection
+        equipe={data.equipe || []}
+        fonteExterna={data.empresaPerfilExternoFonte}
+        filtro={filtroEquipe}
+        setFiltro={setFiltroEquipe}
+      />
 
       {/* Seção 3 — Mapa de perfis comportamentais (DISC ou OPQ32) */}
       <PerfisSection perfis={data.perfis || []} fonteExterna={data.empresaPerfilExternoFonte} />
@@ -354,18 +370,105 @@ function AvaliarBtn({
 
 // ════════════════ Etapa 2 — Equipe em trilha ════════════════
 
-function EquipeSection({ equipe, fonteExterna }: { equipe: any[]; fonteExterna?: string | null }) {
+/**
+ * As ações do RH, no lugar do card de checkpoints.
+ *
+ * "Ação esta semana" é do GESTOR: checkpoint é a avaliação que ele faz do
+ * liderado nas semanas 5 e 10. Para o RH esse card nasce vazio e fica vazio —
+ * ele não avalia ninguém. O que ele pode fazer para mover engajamento é
+ * destravar quem parou, e cada degrau do funil tem uma ação diferente.
+ *
+ * Sai da MESMA lista que a tabela abaixo (`equipe`), não de uma contagem
+ * paralela — e clicar filtra a tabela, para o número virar nomes. Ordena por
+ * tamanho: o maior lote é onde uma cobrança rende mais.
+ */
+function AcoesRH({ equipe, onFocar }: { equipe: any[]; onFocar: (f: FiltroEquipe) => void }) {
   const t = useTranslations('ManagerDashboard');
-  const router = useRouter();
-  const [filtro, setFiltro] = useState<'todos' | 'em_andamento' | 'sem_trilha' | 'concluida'>('todos');
-  const filtrados = filtro === 'todos' ? equipe : equipe.filter((e) => e.status === filtro);
-  if (equipe.length === 0) return null;
+  const candidatos: { chave: FiltroEquipe; count: number; icon: any }[] = [
+    { chave: 'sem_perfil', count: equipe.filter((e) => e.motivoSemTrilha === 'sem_perfil').length, icon: Brain },
+    { chave: 'sem_mapeamento', count: equipe.filter((e) => e.motivoSemTrilha === 'sem_mapeamento').length, icon: ClipboardCheck },
+    { chave: 'atrasada', count: equipe.filter((e) => e.atrasada === true).length, icon: CalendarClock },
+    { chave: 'aguardando_geracao', count: equipe.filter((e) => e.motivoSemTrilha === 'aguardando_geracao').length, icon: Rocket },
+  ];
+  const acoes = candidatos.filter((a) => a.count > 0).sort((a, b) => b.count - a.count).slice(0, 3);
+
   return (
     <section className="mb-6">
+      <h2 className="text-white text-base font-bold flex items-center gap-2 mb-2">
+        <Target size={16} className="text-brand-400" /> {t('titles.rhActions')}
+      </h2>
+      {acoes.length === 0 ? (
+        <GlassCard>
+          <p className="text-[12px] text-white/55 leading-relaxed text-center py-3">{t('actions.empty')}</p>
+        </GlassCard>
+      ) : (
+        <div className="space-y-2">
+          {acoes.map(({ chave, count, icon: Icon }) => (
+            <button key={chave}
+              onClick={() => {
+                onFocar(chave);
+                document.getElementById('equipe')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              className="w-full text-left rounded-xl border border-white/[0.07] px-4 py-3 flex items-start gap-3 hover:bg-white/[0.03] transition-colors"
+              style={{ background: '#0F2A4A' }}>
+              <div className="w-9 h-9 rounded-lg bg-brand-400/10 flex items-center justify-center shrink-0">
+                <Icon size={16} className="text-brand-300" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-bold text-white">{t(`actions.${chave}.title`)}</p>
+                <p className="text-[11px] text-white/55 leading-relaxed mt-0.5">{t(`actions.${chave}.body`, { count })}</p>
+              </div>
+              <span className="text-[15px] font-bold text-brand-300 tabular-nums shrink-0">{count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Filtros por STATUS (os chips) + os por MOTIVO, que só chegam pelos cards de
+ * ação. As duas listas são a fonte do TIPO e das checagens — repetir os
+ * literais aqui foi o que o `status-literal-guard` recusou, com razão: eram
+ * quatro cópias da mesma enumeração num arquivo só.
+ */
+const FILTROS_STATUS = ['todos', 'em_andamento', 'sem_trilha', 'concluida'] as const;
+const FILTROS_ACAO = ['sem_perfil', 'sem_mapeamento', 'aguardando_geracao', 'atrasada'] as const;
+export type FiltroEquipe = (typeof FILTROS_STATUS)[number] | (typeof FILTROS_ACAO)[number];
+
+function aplicarFiltro(equipe: any[], filtro: FiltroEquipe) {
+  if (filtro === 'todos') return equipe;
+  if (filtro === 'atrasada') return equipe.filter((e) => e.atrasada === true);
+  if (filtro === 'sem_perfil' || filtro === 'sem_mapeamento' || filtro === 'aguardando_geracao') {
+    return equipe.filter((e) => e.motivoSemTrilha === filtro);
+  }
+  return equipe.filter((e) => e.status === filtro);
+}
+
+function EquipeSection({ equipe, fonteExterna, filtro, setFiltro }: {
+  equipe: any[]; fonteExterna?: string | null;
+  filtro: FiltroEquipe; setFiltro: (f: FiltroEquipe) => void;
+}) {
+  const t = useTranslations('ManagerDashboard');
+  const router = useRouter();
+  const filtrados = aplicarFiltro(equipe, filtro);
+  // Filtro vindo de um card de ação não tem chip próprio — sem este, a lista
+  // aparece recortada e nada na tela diz por quê (nem como voltar).
+  const filtroDeAcao = (FILTROS_ACAO as readonly string[]).includes(filtro);
+  if (equipe.length === 0) return null;
+  return (
+    <section className="mb-6" id="equipe">
       <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
         <h2 className="text-white text-base font-bold">{t('titles.teamTrack')}</h2>
         <div className="flex gap-1 p-1 rounded-lg border border-white/[0.06]" style={{ background: '#091D35' }}>
-          {(['todos', 'em_andamento', 'sem_trilha', 'concluida'] as const).map((f) => (
+          {filtroDeAcao && (
+            <button onClick={() => setFiltro('todos')}
+              className="px-2.5 py-1 rounded text-[10px] font-bold bg-amber-400/15 text-amber-300">
+              {t(`actions.${filtro}.chip`)} ✕
+            </button>
+          )}
+          {FILTROS_STATUS.map((f) => (
             <button key={f} onClick={() => setFiltro(f)}
               className={`px-2.5 py-1 rounded text-[10px] font-bold transition-colors ${
                 filtro === f ? 'bg-brand-400/15 text-brand-300' : 'text-white/55 hover:text-white'

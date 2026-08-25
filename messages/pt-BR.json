@@ -230,7 +230,10 @@
       "overview": "Panorama",
       "people": "Pessoas",
       "withProfile": "Com perfil comportamental",
+      "withMapping": "Com mapeamento de competências",
       "inJourney": "Em jornada ativa",
+      "onTrack": "Jornada em dia",
+      "behind": "Jornada atrasada",
       "unavailable": "Não foi possível carregar os números agora. Recarregue em instantes.",
       "follow": "Acompanhar",
       "team": "Equipe",
@@ -3998,6 +4001,7 @@
       "fullEvolution": "Ver evolução completa",
       "attentionSignals": "Sinais de atenção · {count}",
       "weeklyAction": "Ação esta semana",
+      "rhActions": "Onde agir agora",
       "teamTrack": "Equipe em trilha",
       "profileMap": "Mapa de perfis {type}",
       "nextWeeks": "Próximas 4 semanas"
@@ -4008,6 +4012,7 @@
     },
     "kpis": {
       "led": "Liderados",
+      "people": "Colaboradores",
       "inTrack": "{count} em trilha · {without} sem trilha",
       "inProgress": "Em andamento",
       "noActiveTrack": "sem trilha ativa",
@@ -4052,6 +4057,29 @@
       "concluida": "concluída",
       "sem_trilha": "sem trilha",
       "arquivada": "arquivada"
+    },
+    "actions": {
+      "empty": "Nada travado no momento — todo mundo com o próximo passo em dia.",
+      "sem_perfil": {
+        "title": "Destravar quem nem começou",
+        "body": "{count} ainda não fizeram o mapeamento comportamental. É o primeiro portão: sem ele não existe trilha.",
+        "chip": "Sem perfil"
+      },
+      "sem_mapeamento": {
+        "title": "Cobrar o mapeamento de competências",
+        "body": "{count} já têm o perfil e param aqui. É este passo que gera a trilha.",
+        "chip": "Sem mapeamento"
+      },
+      "atrasada": {
+        "title": "Retomar quem parou no meio",
+        "body": "{count} estão em jornada, mas o calendário já passou da semana delas.",
+        "chip": "Atrasados"
+      },
+      "aguardando_geracao": {
+        "title": "Prontos para começar",
+        "body": "{count} fizeram as duas etapas e ainda não têm trilha. Fale com a Vertho para liberar.",
+        "chip": "Prontos"
+      }
     },
     "team": {
       "weekProgress": "sem {week}/14",
