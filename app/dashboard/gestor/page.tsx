@@ -84,13 +84,20 @@ export default function GestorHomePage() {
             {data.scope === 'rh' ? t('scopes.rh') : data.scope === 'tutor' ? t('scopes.tutor') : t('scopes.manager')}
           </p>
           <h1 className="text-white text-2xl font-bold flex items-center gap-2">
-            <Users size={22} className="text-brand-400" /> {data.scope === 'tutor' ? t('titles.tutor') : t('titles.team')}
+            <Users size={22} className="text-brand-400" />{' '}
+            {data.scope === 'rh' ? t('titles.company') : data.scope === 'tutor' ? t('titles.tutor') : t('titles.team')}
           </h1>
         </div>
-        <button onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
-          className="text-[11px] font-bold text-brand-300 hover:text-brand-200 flex items-center gap-1">
-          {t('titles.fullEvolution')} <ArrowRight size={11} />
-        </button>
+        {/* Para o RH este link levava, na maior parte do tempo, a uma tela
+            sem nada: a evolucao so existe depois do fechamento. O caminho dele
+            para la e o atalho da home, que aparece quando ha jornada encerrada.
+            O gestor mantem o link — a tela dele tem os checkpoints tambem. */}
+        {data.scope !== 'rh' && (
+          <button onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
+            className="text-[11px] font-bold text-brand-300 hover:text-brand-200 flex items-center gap-1">
+            {t('titles.fullEvolution')} <ArrowRight size={11} />
+          </button>
+        )}
       </div>
 
       {/* Aviso: gestor sem liderados vinculados */}
@@ -115,7 +122,7 @@ export default function GestorHomePage() {
       )}
 
       {/* Hero — 4 KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <div className={`grid grid-cols-2 ${data.scope === 'rh' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-3 mb-4`}>
         <KpiCard
           icon={Users}
           label={data.scope === 'rh' ? t('kpis.people') : t('kpis.led')}
@@ -132,6 +139,12 @@ export default function GestorHomePage() {
                 .join(' · ')
             : t('kpis.noActiveTrack')}
         />
+        {/* Checkpoint e a leitura que o GESTOR faz do liderado nas semanas 5 e
+            10 — o RH nao responde nenhum, entao o card ficava em 0 quase o ano
+            inteiro. Numero que nao se move nao e indicador, e ocupa o lugar de
+            um que se move. O sinal de engajamento do RH esta logo abaixo, nos
+            cards de acao. */}
+        {data.scope !== 'rh' && (
         <KpiCard
           icon={ClipboardCheck}
           label={t('kpis.checkpoints')}
@@ -140,6 +153,7 @@ export default function GestorHomePage() {
           acento={k.checkpoints.pendentes > 0 ? 'amber' : 'gray'}
           sufixo={k.checkpoints.pendentes > 0 ? t('kpis.pending') : ''}
         />
+        )}
         <KpiCard
           icon={Activity}
           label={t('kpis.weeklyActivity')}
