@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
 import { isInternalEmail } from '@/lib/internal-emails';
+import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 
 /**
  * Recalcula taxa_conclusao de todos os micro_conteudos core usados em trilhas.
@@ -52,7 +53,9 @@ export async function recalcularTaxaConclusao() {
       .select('trilha_id, semana, conteudo_consumido');
     const consumidoMap = new Set<string>();
     for (const p of (progresso || [])) {
-      if (p.conteudo_consumido) consumidoMap.add(`${p.trilha_id}::${p.semana}`);
+      // Régua ÚNICA: a métrica de consumo tem que responder a mesma pergunta
+      // que a tela e o painel de engajamento respondem.
+      if (consumiuConteudo(p.conteudo_consumido)) consumidoMap.add(`${p.trilha_id}::${p.semana}`);
     }
 
     // Calcula e atualiza

@@ -17,6 +17,7 @@ import { protectedAction, DomainError } from '@/lib/auth/protected-action';
 import { findTrilhaComTenant, updateTrilhaInTenant, updateSemanaProgressoInTenant } from '@/lib/repositories/trilhas-repo';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { PROGRESSO, TRILHA } from '@/lib/status';
+import { marcarSemanaConsumida } from '@/lib/season-engine/consumo-conteudo';
 
 interface GerarTemporadaParams {
   colaboradorId?: string;
@@ -720,10 +721,22 @@ export async function marcarConteudoConsumido(trilhaId: string, semana: number) 
     if (!ctx.colaborador?.id || t.colaborador_id !== ctx.colaborador.id) {
       return { error: 'não autorizado' };
     }
-    const { data: existente } = await sb.from('temporada_semana_progresso')
-      .select('id, iniciado_em').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
+    const { data: existente, error: errLeitura } = await sb.from('temporada_semana_progresso')
+      .select('id, iniciado_em, conteudo_consumido').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
+    // O supabase-js RETORNA `{ error }`. Aqui a leitura NÃO é opcional: o valor
+    // atual decide o formato que será gravado (`marcarSemanaConsumida`). Falha
+    // silenciosa devolveria `existente = undefined`, o payload viraria `true`
+    // cru e sobrescreveria um array de cursos — a destruição exata que esta
+    // mudança existe para impedir. Falha alto: é construção de estado, não
+    // entrega, e há um humano na tela para retentar.
+    if (errLeitura) return { error: `Não consegui ler o progresso da semana: ${errLeitura.message}` };
     const payload = {
-      conteudo_consumido: true,
+      // NÃO é `true` cru: `conteudo_consumido` tem dois escritores com formatos
+      // diferentes (aqui boolean, `concluirPilulaSeMapeada` array de cursos) e,
+      // até 25/08/2026, cada escrita apagava a da outra. `marcarSemanaConsumida`
+      // preserva o formato que já estiver na linha. Hoje é inócuo (0 de 941
+      // linhas em array), e é exatamente por isso que dá para arrumar agora.
+      conteudo_consumido: marcarSemanaConsumida(existente?.conteudo_consumido, semana),
       status: PROGRESSO.EM_ANDAMENTO,
       iniciado_em: existente?.iniciado_em || new Date().toISOString(),
     };

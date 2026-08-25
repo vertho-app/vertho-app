@@ -884,7 +884,9 @@
       "placeholderScenario": "Descreva como conduziria... (Shift+Enter para nova linha)",
       "placeholderDefault": "A sua resposta... (Shift+Enter para nova linha)",
       "doneSeason": "✓ Conversa concluída · Temporada finalizada",
-      "doneNextWeek": "✓ Conversa concluída · Próxima semana liberta em {date}"
+      "doneNextWeek": "✓ Conversa concluída · Próxima semana liberta em {date}",
+      "remaining": "Faltam {count} respostas suas para concluir a semana {week}.",
+      "remainingOne": "Falta 1 resposta sua para concluir a semana {week}."
     },
     "missionVideo": {
       "title": "Semana de missão",
@@ -900,6 +902,18 @@
       "videoTitle": "A sua jornada semanal",
       "videoWatch": "Ver como concluir uma semana",
       "goToWeek": "Ir para a semana {week}"
+    },
+    "progress": {
+      "title": "A sua semana",
+      "stepContent": "Conteúdo",
+      "stepEvidence": "Evidências",
+      "stepDone": "Semana concluída",
+      "contentDone": "feito",
+      "contentPending": "por fazer",
+      "evidenceProgress": "{done} de {total} respostas",
+      "evidenceNotStarted": "não começou",
+      "closesHere": "A semana só fica concluída na conversa de evidências — abrir o conteúdo não a conclui.",
+      "doneAll": "Concluída. A seguinte já está disponível."
     }
   },
   "SeasonDone": {

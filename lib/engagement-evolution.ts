@@ -1,3 +1,4 @@
+import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 export interface EngagementEnrollment {
   colaboradorId: string;
   nome: string;
@@ -103,15 +104,8 @@ function pct(value: number, total: number): number {
   return total > 0 ? Math.round((value / total) * 100) : 0;
 }
 
-function consumedFlag(value: unknown): boolean {
-  if (value === true) return true;
-  if (!Array.isArray(value)) return false;
-  return value.some((item) => (
-    item != null
-    && typeof item === 'object'
-    && Boolean((item as { concluido?: unknown }).concluido)
-  ));
-}
+/** Régua ÚNICA — ver `lib/season-engine/consumo-conteudo` (era a 2ª de seis cópias). */
+const consumedFlag = consumiuConteudo;
 
 function scoreState(state: Omit<PersonWeekState, 'score'>): number {
   return (state.activated ? 20 : 0)

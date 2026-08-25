@@ -1,0 +1,134 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { turnosIaNecessarios } from '@/lib/season-engine/week-gating';
+import ptBR from '@/messages/pt-BR.json';
+
+/**
+ * A tela da semana travava a pessoa em três gates ENCADEADOS, e os dois
+ * primeiros eram defeito, não desenho:
+ *
+ *   abrir conteúdo → "Marcar como realizado" → "Iniciar Evidências" → 6 turnos
+ *        ↑                     ↑
+ *   useState(false)     era pré-requisito
+ *   (perdia no F5)      da conversa
+ *
+ * Medido em 25/08/2026, nas 61 pessoas travadas de Ibipeba e Macaé:
+ *   · 24 tinham evento de ABERTURA na semana em que estavam paradas e mesmo
+ *     assim o botão "Marcar como realizado" estava cinza (estado de React que
+ *     não sobrevive a recarregar a página);
+ *   · 7 podiam clicar em Evidências e não clicaram;
+ *   · 13 começaram a conversa e pararam — 6 delas no turno 1, sem nenhum
+ *     indicador de quantos faltavam; 2 estavam a UM turno de destravar.
+ *
+ * Estas asserções são estáticas (mesmo padrão de `ppp-rede-guard`): montar a
+ * página inteira exigiria Supabase, next-intl e rotas de chat, e o que precisa
+ * ser travado aqui é o CONTRATO entre a tela e as réguas — não a renderização.
+ * Validado por mutação: desfazer qualquer um dos quatro pontos deixa vermelho.
+ */
+
+const TELA = readFileSync(
+  join(process.cwd(), 'app/dashboard/temporada/semana/[week]/page.tsx'),
+  'utf-8',
+);
+
+describe('item 1 — abriuConteudo sobrevive à sessão', () => {
+  it('a tela hidrata o estado do histórico, não só do clique de agora', () => {
+    expect(TELA).toContain('jaAbriuConteudoDaSemana(semanaNum)');
+  });
+
+  it('a consulta não recebe escopo do CLIENTE — colaborador e tenant vêm da sessão', () => {
+    // A 1ª versão passava `trilhaId` e a action lia `trilhas` com service-role
+    // para conferir o dono. Sem parâmetro de escopo não há o que forjar, e o
+    // guard de service-role deixou de contar mais uma chamada.
+    expect(TELA).not.toContain('jaAbriuConteudoDaSemana(trilhaId');
+  });
+
+  it('a hidratação só LIGA — um `false` da rede não apaga o clique desta sessão', () => {
+    // `if (r?.abriu) setAbriuConteudo(true)` e nunca `setAbriuConteudo(r.abriu)`:
+    // a segunda forma reintroduz o botão cinza quando a leitura falha.
+    expect(TELA).toContain('if (vivo && r?.abriu) setAbriuConteudo(true)');
+    expect(TELA).not.toContain('setAbriuConteudo(r.abriu)');
+    expect(TELA).not.toContain('setAbriuConteudo(!!r');
+  });
+});
+
+describe('item 2 — o degrau manual deixou de ser catraca', () => {
+  it('Evidências e Tira-Dúvidas passam pelo MESMO predicado', () => {
+    expect(TELA).toContain('const podeConversar = conteudoConsumido || abriuConteudo || nadaParaAbrir;');
+    // Os dois gates antigos, que exigiam a marcação manual, não voltam.
+    expect(TELA).not.toContain('disabled={(!conteudoConsumido && !isAplicacao && !isAvaliacao)');
+    expect(TELA).not.toContain('disabled={!conteudoConsumido}');
+  });
+
+  it('a métrica continua sendo alimentada — entrar na conversa grava o consumo', () => {
+    // Sem isto, tirar o gate faria `conteudo_consumido` parar de ser preenchido
+    // e o painel de engajamento passaria a subnotificar em silêncio.
+    expect(TELA).toContain('marcarConteudoConsumido(data.trilha.id, semanaNum)');
+  });
+
+  it('o pré-requisito da ROTA do tira-dúvidas continua satisfeito antes de abrir', () => {
+    // A rota responde 403 sem consumo. Liberar o botão sem gravar trocaria um
+    // botão cinza por um erro mudo.
+    //
+    // `setTdOpen(true)` aparece duas vezes (a outra reabre a caixa ao carregar
+    // um transcript existente, que não precisa marcar nada). A que interessa é
+    // a do onClick do botão — a ÚLTIMA, dentro do JSX.
+    const iBotao = TELA.lastIndexOf('setTdOpen(true);');
+    const vizinhanca = TELA.slice(Math.max(iBotao - 500, 0), iBotao);
+    expect(vizinhanca).toContain('marcarConteudoConsumido(data.trilha.id, semanaNum)');
+  });
+});
+
+describe('itens 3 e 4 — a régua passou a ser dita', () => {
+  it('usa a régua REAL de turnos, não um número escrito na tela', () => {
+    expect(TELA).toContain('turnosIaNecessarios(semanaNum, semana?.tipo, progressoSemana?.feedback?.modo)');
+    // Um literal aqui seria a 2ª cópia da régua — a origem da divergência que
+    // este trabalho inteiro existe para não repetir.
+    expect(TELA).not.toMatch(/turnosNecessarios\s*=\s*\d+/);
+  });
+
+  it('conta turno de IA (assistant), que é o que as rotas contam', () => {
+    expect(TELA).toContain("chatHistory.filter((m) => m?.role === 'assistant').length");
+  });
+
+  it('a barra de estado some quando a semana está concluída', () => {
+    // Aviso que fica depois de resolvido é aviso que se aprende a ignorar.
+    expect(TELA).toContain("{!chatFinished && !isAvaliacao && (");
+  });
+
+  it('o contador só aparece depois do 1º turno', () => {
+    expect(TELA).toContain('{turnosFeitos > 0 && turnosFaltando > 0 && (');
+  });
+});
+
+describe('as chaves de i18n que a tela passou a usar existem', () => {
+  const sw = (ptBR as any).SeasonWeek;
+
+  it('o bloco de progresso está completo em pt-BR', () => {
+    for (const k of ['title', 'stepContent', 'stepEvidence', 'stepDone', 'contentDone',
+      'contentPending', 'evidenceProgress', 'evidenceNotStarted', 'closesHere']) {
+      expect(sw.progress?.[k], `SeasonWeek.progress.${k}`).toBeTruthy();
+    }
+    expect(sw.evidence?.remaining).toBeTruthy();
+    expect(sw.evidence?.remainingOne).toBeTruthy();
+  });
+
+  it('a copy nomeia a conversa de evidências — o vocabulário do botão, não "Mentora"', () => {
+    // Mesma decisão da copy do WhatsApp (23/08): "Mentora" não é palavra do
+    // produto e apontaria para o Beto, que não conclui semana nenhuma.
+    expect(sw.progress.closesHere).toContain('evidências');
+    expect(sw.progress.closesHere.toLowerCase()).not.toContain('mentora');
+  });
+});
+
+describe('a régua de turnos, que a tela agora exibe', () => {
+  it('semana de conteúdo fecha em 6 turnos de IA', () => {
+    expect(turnosIaNecessarios(1, 'conteudo')).toBe(6);
+  });
+
+  it('semana de aplicação pede mais — exibir 6 nela seria promessa falsa', () => {
+    expect(turnosIaNecessarios(4, 'aplicacao')).toBe(10);
+    expect(turnosIaNecessarios(4, 'aplicacao', 'pratica')).toBe(10);
+  });
+});

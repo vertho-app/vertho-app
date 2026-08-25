@@ -10,6 +10,7 @@ import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/pr
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import type { AIConfig } from '@/actions/ai-client';
 import { PROGRESSO, TRILHA } from '@/lib/status';
+import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 
 /**
  * Gera uma temporada pra um colaborador, focada em 1 competência.
@@ -947,7 +948,13 @@ export async function persistirTrilha(tdb: any, args: {
  * primeiro grupo — nunca o segundo.
  */
 export function temTrabalhoDoColaborador(r: any): boolean {
-  return !!(r?.reflexao || r?.feedback || r?.tira_duvidas || r?.conteudo_consumido);
+  // `consumiuConteudo` e não o truthy cru: esta é a catraca que decide se uma
+  // semana pode ser REESCRITA, e `conteudo_consumido` pode chegar como array
+  // (video-tracking). Um array vazio é truthy em JS — bloquearia a regeneração
+  // alegando trabalho que não existe. Hoje não há array nenhum no banco (0 de
+  // 941, censo de 25/08/2026), então isto não muda comportamento; muda o que
+  // acontece no dia em que o primeiro curso for cadastrado.
+  return !!(r?.reflexao || r?.feedback || r?.tira_duvidas) || consumiuConteudo(r?.conteudo_consumido);
 }
 
 /**

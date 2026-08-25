@@ -12,6 +12,7 @@ import { carregarConhecimentoDescritor, formatBlocoConhecimentoDescritor, carreg
 import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
 import { carregarBlueprintResumo } from '@/lib/blueprint/resumo';
 import { buscarConteudosRelacionados, formatConteudosRelacionadosBloco } from '@/lib/conteudos-relacionados';
+import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 
 // callAIChat por pergunta pode levar dezenas de segundos (com retry, mais).
 export const maxDuration = 300;
@@ -72,7 +73,10 @@ export async function POST(request) {
     // Carrega progresso — exige conteudo_consumido.
     const { data: prog } = await sb.from('temporada_semana_progresso')
       .select('*').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
-    if (!prog?.conteudo_consumido) {
+    // Régua ÚNICA (`consumiuConteudo`): isto é catraca de ROTA, não rótulo de
+    // tela — com o truthy cru, um array vazio abria o tira-dúvidas para quem o
+    // painel de engajamento contava como não-consumido.
+    if (!consumiuConteudo(prog?.conteudo_consumido)) {
       return NextResponse.json({ error: 'Marque o conteúdo como realizado antes de tirar dúvidas.' }, { status: 403 });
     }
 

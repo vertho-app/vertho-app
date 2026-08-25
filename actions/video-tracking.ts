@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUserAction } from '@/lib/auth/action-context';
+import { marcarCursoConcluido } from '@/lib/season-engine/consumo-conteudo';
 
 /**
  * Registra um evento de reprodução de vídeo Bunny capturado via
@@ -122,14 +123,12 @@ async function concluirPilulaSeMapeada(colaboradorId, empresaId, videoId) {
     .maybeSingle();
   if (!progresso) return;
 
-  const arr = Array.isArray(progresso.conteudo_consumido) ? [...progresso.conteudo_consumido] : [];
-  const j = arr.findIndex(p => p?.semana === semanaMatch);
-  if (j >= 0) {
-    if (arr[j].concluido) return; // já concluído
-    arr[j] = { ...arr[j], concluido: true, concluido_em: new Date().toISOString() };
-  } else {
-    arr.push({ semana: semanaMatch, concluido: true, concluido_em: new Date().toISOString() });
-  }
+  // O `Array.isArray(x) ? [...x] : []` anterior DESCARTAVA um `true` que a
+  // pessoa tivesse gravado ao marcar a semana como realizada: o array nascia
+  // vazio e a semana voltava a contar como não consumida. `marcarCursoConcluido`
+  // carrega esse `true` para dentro da lista. Simétrico de
+  // `marcarSemanaConsumida` — as duas escritas param de se destruir.
+  const arr = marcarCursoConcluido(progresso.conteudo_consumido, semanaMatch);
 
   await sb.from('temporada_semana_progresso')
     .update({ conteudo_consumido: arr })

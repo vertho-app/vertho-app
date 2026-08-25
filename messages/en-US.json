@@ -884,7 +884,9 @@
       "placeholderScenario": "Describe how you would conduct... (Shift+Enter to new line)",
       "placeholderDefault": "Your answer... (Shift+Enter to new line)",
       "doneSeason": "✓ Conversation completed · Season finished",
-      "doneNextWeek": "✓ Conversation completed · Next week releases {date}"
+      "doneNextWeek": "✓ Conversation completed · Next week releases {date}",
+      "remaining": "{count} more replies to complete week {week}.",
+      "remainingOne": "1 more reply to complete week {week}."
     },
     "missionVideo": {
       "title": "Mission week",
@@ -900,6 +902,18 @@
       "videoTitle": "Your weekly journey",
       "videoWatch": "See how to complete a week",
       "goToWeek": "Go to week {week}"
+    },
+    "progress": {
+      "title": "Your week",
+      "stepContent": "Content",
+      "stepEvidence": "Evidence",
+      "stepDone": "Week completed",
+      "contentDone": "done",
+      "contentPending": "to do",
+      "evidenceProgress": "{done} of {total} replies",
+      "evidenceNotStarted": "not started",
+      "closesHere": "The week is only completed in the evidence conversation — opening the content does not complete it.",
+      "doneAll": "Completed. The next week is now open."
     }
   },
   "SeasonDone": {

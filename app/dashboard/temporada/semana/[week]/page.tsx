@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { formatarLiberacao, avaliarAcessoSemana } from '@/lib/season-engine/week-gating';
+import { formatarLiberacao, avaliarAcessoSemana, turnosIaNecessarios } from '@/lib/season-engine/week-gating';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import ReactMarkdown from 'react-markdown';
 import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle, Lock } from 'lucide-react';
@@ -15,7 +15,8 @@ import { useBunnyTracking } from '@/lib/use-bunny-tracking';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
-import { registrarEventoTrilha } from '@/actions/engajamento';
+import { registrarEventoTrilha, jaAbriuConteudoDaSemana } from '@/actions/engajamento';
+import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import FirstViewVideo from '@/components/first-view-video';
 // Tutorial da semana de missão (Bunny) — constante única em programa-config,
 // compartilhada com o envio de segunda do triggerDiario.
@@ -94,8 +95,36 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     }).catch(() => {});
   }, [data?.trilha?.id, semanaNum]);
 
-  // Só libera "Marcar como realizado" depois que o colab abriu o link do conteúdo
-  // (ou, pra vídeo, o auto-consumido dispara no 80% via postMessage).
+  // Hidrata `abriuConteudo` do histórico (ver o comentário do estado). Só LIGA,
+  // nunca desliga: um `false` da rede não pode apagar o clique que a pessoa
+  // acabou de dar nesta sessão.
+  useEffect(() => {
+    const trilhaId = data?.trilha?.id;
+    if (!trilhaId) return;
+    let vivo = true;
+    jaAbriuConteudoDaSemana(semanaNum)
+      .then((r) => { if (vivo && r?.abriu) setAbriuConteudo(true); })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, [data?.trilha?.id, semanaNum]);
+
+  /**
+   * A pessoa já abriu o conteúdo desta semana?
+   *
+   * 🔴 ISTO ERA `useState(false)` PURO, e essa era a trava mais cara da tela.
+   * O estado só subia com um clique da sessão ATUAL: quem abria o conteúdo na
+   * segunda e voltava na terça encontrava "Marcar como realizado" desabilitado
+   * dizendo "abra o conteúdo antes de concluir" — tendo aberto. E como
+   * Evidências dependia da marcação, a semana inteira ficava presa a um estado
+   * de React que não sobrevive a um F5.
+   *
+   * Medido em 25/08/2026: das 61 pessoas travadas em Ibipeba e Macaé, **24
+   * tinham evento de abertura registrado na semana em que estavam paradas**.
+   * O dado sempre esteve em `trilha_eventos`; ninguém o lia de volta.
+   *
+   * Começa `false` e é hidratado pelo efeito abaixo — o clique da sessão atual
+   * continua valendo na hora, sem esperar a rede.
+   */
   const [abriuConteudo, setAbriuConteudo] = useState(false);
   // Pílulas SEM nenhuma fonte abrível (sem formato com url/id e sem vídeo): o
   // viewer reporta por índice. Se TODAS estiverem sem fonte, o gate "abra antes
@@ -201,7 +230,11 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   /** Entregas que trazem tarefa: 2 nos modos de 14 semanas, 1 na jornada. */
   const entregasComDesafio = entregasConteudo.filter((e: any) => e?.conteudo?.desafio_texto);
   const progressoSemana = (data.progresso || []).find(p => p.semana === semanaNum);
-  const conteudoConsumido = progressoSemana?.conteudo_consumido;
+  // Régua ÚNICA (`consumiuConteudo`) — era `progressoSemana?.conteudo_consumido`
+  // cru, e o campo pode chegar como ARRAY (video-tracking). Array vazio é
+  // truthy em JS: a tela diria "consumido" e liberaria Evidências enquanto o
+  // painel de engajamento contava a mesma pessoa como não-consumida.
+  const conteudoConsumido = consumiuConteudo(progressoSemana?.conteudo_consumido);
 
   async function handleConsumido() {
     await marcarConteudoConsumido(data.trilha.id, semanaNum);
@@ -215,8 +248,53 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const isEvalSemana = semanaNum === 13 || semanaNum === 14;
   const endpoint = isEvalSemana ? '/api/temporada/evaluation' : '/api/temporada/reflection';
 
+  /**
+   * A pessoa pode sair da leitura e ir para a conversa?
+   *
+   * 🔑 O DEGRAU MANUAL DEIXA DE SER CATRACA. Antes, Evidências e Tira-Dúvidas
+   * exigiam `conteudo_consumido`, que só existia se a pessoa tivesse clicado em
+   * "Marcar como realizado" — um botão que serve ao SISTEMA (métrica), não a
+   * ela: quem abriu o conteúdo já consumiu, e o app já sabia disso por
+   * `trilha_eventos`. Eram três gates em série (abrir → marcar → conversar) e
+   * cada um invisível até você bater nele.
+   *
+   * Agora abrir o conteúdo basta. A marcação não some — `startChat` a grava
+   * (ver abaixo), então a métrica continua sendo alimentada e fica MAIS
+   * verdadeira: passa a significar "consumiu e foi conversar", em vez de
+   * "lembrou de clicar num botão".
+   *
+   * `nadaParaAbrir` continua valendo: pílula sem nenhuma fonte abrível tornaria
+   * a condição insatisfazível e travaria a semana em cadeia.
+   */
+  const podeConversar = conteudoConsumido || abriuConteudo || nadaParaAbrir;
+
+  /**
+   * Progresso da conversa que CONCLUI a semana.
+   *
+   * 🔴 Não havia NADA disto na tela (medido 25/08/2026). A pessoa respondia e
+   * nada dizia se faltava uma resposta ou cinco — e o modo do histograma de
+   * quem abandonou é parar no **turno 1**: 6 das 13 que começaram. Quem não vê
+   * um fim não sabe que está perto dele; duas pessoas pararam a UM turno de
+   * destravar a semana, uma delas parada havia mais de um mês.
+   *
+   * A régua é `turnosIaNecessarios`, a MESMA que as rotas usam para virar
+   * `finished` e que a tela BLOQUEADA já usava para dizer "faltam N". Ela só
+   * nunca tinha sido mostrada para quem está DENTRO da conversa — exatamente
+   * quem precisa dela. Nenhum número novo: o que faltava era ele ser dito.
+   */
+  const turnosFeitos = chatHistory.filter((m) => m?.role === 'assistant').length;
+  const turnosNecessarios = turnosIaNecessarios(semanaNum, semana?.tipo, progressoSemana?.feedback?.modo);
+  const turnosFaltando = Math.max(turnosNecessarios - turnosFeitos, 0);
+
   async function startChat() {
     setChatStarted(true);
+    // Registra o consumo ao ENTRAR na conversa, para quem chegou aqui sem ter
+    // clicado no botão manual. Best-effort e idempotente: se falhar, a conversa
+    // acontece do mesmo jeito — o que não pode é a métrica virar pré-requisito
+    // da experiência de novo.
+    if (!conteudoConsumido) {
+      marcarConteudoConsumido(data.trilha.id, semanaNum).catch(() => {});
+    }
     setChatBusy(true);
     const r = await fetch(endpoint, {
       method: 'POST',
@@ -321,6 +399,51 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
           </div>
         )}
       </div>
+
+      {/*
+        ESTADO DA SEMANA — o que falta para ela fechar, dito antes de tudo.
+
+        🔴 POR QUE NO TOPO E NÃO EM MAIS UM CARD. A régua sequencial sempre
+        existiu, mas só era DITA na tela da semana TRANCADA — ou seja, para quem
+        já bateu na porta fechada. Quem está na semana que consegue abrir via
+        três cards de peso visual igual (conteúdo, tira-dúvidas, evidências) e
+        nada indicando que só um deles conclui a semana. Medido em 25/08/2026:
+        das 61 pessoas travadas, 7 podiam clicar em Evidências e não clicaram, e
+        13 começaram a conversa e pararam — 6 delas no primeiro turno.
+
+        Não é decoração: é a mesma régua do gate (`turnosIaNecessarios`),
+        mostrada onde a decisão acontece. Some quando a semana está concluída —
+        aviso que fica depois de resolvido é aviso que se aprende a ignorar.
+      */}
+      {!chatFinished && !isAvaliacao && (
+        <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+          <div className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">
+            {t('progress.title')}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            <span className={`flex items-center gap-1.5 ${podeConversar ? 'text-emerald-400' : 'text-gray-400'}`}>
+              {podeConversar ? <Check size={13} /> : <span className="w-[13px] text-center">1</span>}
+              {t('progress.stepContent')}
+              <span className="text-gray-500">· {podeConversar ? t('progress.contentDone') : t('progress.contentPending')}</span>
+            </span>
+            <span className="text-gray-600">→</span>
+            <span className={`flex items-center gap-1.5 ${turnosFeitos > 0 ? 'text-brand-400' : 'text-gray-400'}`}>
+              <span className="w-[13px] text-center">2</span>
+              {t('progress.stepEvidence')}
+              <span className="text-gray-500">
+                · {turnosFeitos > 0
+                    ? t('progress.evidenceProgress', { done: turnosFeitos, total: turnosNecessarios })
+                    : t('progress.evidenceNotStarted')}
+              </span>
+            </span>
+            <span className="text-gray-600">→</span>
+            <span className="flex items-center gap-1.5 text-gray-500">
+              <span className="w-[13px] text-center">3</span>{t('progress.stepDone')}
+            </span>
+          </div>
+          <p className="mt-2 text-[11px] text-amber-300/80">{t('progress.closesHere')}</p>
+        </div>
+      )}
 
       {/* Vínculo com o PDI (Blueprint) — só quando a trilha é dirigida pelo blueprint. */}
       {semana.acao_pdi && (
@@ -561,11 +684,17 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
           </div>
 
           {!tdOpen ? (
-            <button onClick={() => setTdOpen(true)}
-              disabled={!conteudoConsumido}
-              title={!conteudoConsumido ? t('qa.markContentFirst') : ''}
+            <button onClick={() => {
+                // A ROTA do tira-dúvidas exige consumo (403). Liberar o botão
+                // sem gravar a marcação trocaria um botão cinza por um erro
+                // mudo — pior. Grava e abre.
+                if (!conteudoConsumido) marcarConteudoConsumido(data.trilha.id, semanaNum).catch(() => {});
+                setTdOpen(true);
+              }}
+              disabled={!podeConversar}
+              title={!podeConversar ? t('qa.markContentFirst') : ''}
               className="w-full px-4 py-3 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold">
-              {conteudoConsumido ? t('qa.ask') : t('qa.unlockAfterContent')}
+              {podeConversar ? t('qa.ask') : t('qa.unlockAfterContent')}
             </button>
           ) : (
             <>
@@ -647,7 +776,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
             return (
               <button
                 onClick={startChat}
-                disabled={(!conteudoConsumido && !isAplicacao && !isAvaliacao) || aplicacaoSemModo}
+                disabled={(!podeConversar && !isAplicacao && !isAvaliacao) || aplicacaoSemModo}
                 title={aplicacaoSemModo ? t('evidence.chooseMissionFirst') : ''}
                 className="w-full px-4 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold"
               >
@@ -680,6 +809,24 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
 
               {!chatFinished ? (
                 <div className="space-y-2">
+                  {/*
+                    Quantas respostas ainda faltam — a informação que a pessoa
+                    precisa EXATAMENTE aqui, e que a tela nunca deu. Ver o
+                    comentário de `turnosFeitos`: o abandono se concentra no
+                    primeiro turno, que é onde uma conversa sem fim visível
+                    parece infinita.
+
+                    Só aparece depois do 1º turno da IA: antes disso, o número
+                    seria o total e soaria como uma tarefa de 6 passos anunciada
+                    na porta — o oposto do efeito desejado.
+                  */}
+                  {turnosFeitos > 0 && turnosFaltando > 0 && (
+                    <p className="text-[11px] text-brand-300/90">
+                      {turnosFaltando === 1
+                        ? t('evidence.remainingOne', { week: semanaNum })
+                        : t('evidence.remaining', { count: turnosFaltando, week: semanaNum })}
+                    </p>
+                  )}
                   <div className="flex gap-2">
                     <textarea
                       value={chatInput}

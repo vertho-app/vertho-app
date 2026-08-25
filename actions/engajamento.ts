@@ -9,6 +9,7 @@ import {
   buildEngagementEvolutionDashboard,
   type EngagementEvolutionDashboard,
 } from '@/lib/engagement-evolution';
+import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 
 /**
  * Telemetria de engajamento da trilha. Duas frentes:
@@ -78,12 +79,13 @@ export async function registrarEventoTrilha(input: {
   }
 }
 
-/** conteudo_consumido é boolean (marcarConteudoConsumido) OU array (video-tracking). */
-function consumiuFlag(v: any): boolean {
-  if (v === true) return true;
-  if (Array.isArray(v)) return v.some((x: any) => x?.concluido);
-  return false;
-}
+/**
+ * Régua ÚNICA — `lib/season-engine/consumo-conteudo`. Era uma cópia local, e
+ * havia outras cinco pelo app com critérios que discordavam entre si (a da tela
+ * da semana tratava array vazio como CONSUMIDO). Cópia de régua não diverge no
+ * dia em que nasce; diverge na primeira correção que só um dos lados recebe.
+ */
+const consumiuFlag = consumiuConteudo;
 
 const fmtsDistintos = (evs: any[], pilula: number | null) =>
   [...new Set(
@@ -358,4 +360,60 @@ export async function getEvolucaoEngajamentoEmpresa(
   });
 
   return { ok: true, data: dashboard };
+}
+
+/**
+ * A pessoa JÁ ABRIU o conteúdo desta semana — em qualquer sessão, qualquer dia?
+ *
+ * 🔴 POR QUE ISTO EXISTE (medido 25/08/2026). A tela guardava essa resposta num
+ * `useState(false)` que só era setado por um clique da sessão ATUAL. Quem abria
+ * o conteúdo na segunda e voltava na terça encontrava o botão "Marcar como
+ * realizado" desabilitado, com a mensagem "abra o conteúdo antes de concluir" —
+ * tendo aberto. E como "Iniciar Evidências" exigia a marcação, a semana inteira
+ * ficava trancada por um estado de React que não sobrevive a um F5.
+ *
+ * O tamanho disso: das 61 pessoas travadas em Ibipeba e Macaé, **24 tinham
+ * evento de abertura registrado na semana em que estavam paradas**. Não era
+ * desinteresse — era um botão cinza que deveria estar verde.
+ *
+ * A fonte é `trilha_eventos`, que já registrava tudo o que era preciso desde
+ * sempre. Nenhuma coluna nova: o dado existia e ninguém o lia de volta.
+ *
+ * ⚠️ `tipo: 'bloqueio'` NÃO conta como abertura. Quem cai na semana trancada
+ * pelo link da cadência gera evento toda semana, e tratá-lo como abertura
+ * destravaria o botão de quem nunca viu o conteúdo — o mesmo motivo pelo qual a
+ * telemetria separa os dois tipos.
+ */
+export async function jaAbriuConteudoDaSemana(semana: number) {
+  try {
+    const ctx = await requireUserAction();
+    const colaboradorId = ctx.colaborador?.id;
+    if (!colaboradorId || !ctx.empresaId || !Number.isFinite(Number(semana))) return { abriu: false };
+
+    // 🔑 NADA VINDO DO CLIENTE DECIDE ESCOPO. A 1ª versão recebia `trilhaId` do
+    // cliente, lia `trilhas` com service-role para descobrir o dono e comparava
+    // — o padrão do `registrarEventoTrilha` ao lado. Aqui isso é
+    // desnecessário: quem pergunta "já abri o conteúdo?" só pode perguntar por
+    // si mesmo, e o colaborador e o tenant vêm da SESSÃO. Sem parâmetro de
+    // escopo não há o que forjar, e `tenantDb` põe o `empresa_id` no WHERE.
+    const tdb = tenantDb(ctx.empresaId);
+    const { data, error } = await tdb.from('trilha_eventos')
+      .select('id')
+      .eq('colaborador_id', colaboradorId)
+      .eq('semana', Number(semana))
+      .in('tipo', ['abertura', 'formato'])
+      .limit(1);
+
+    // O supabase-js RETORNA `{ error }`. Falha de leitura NÃO pode virar "não
+    // abriu": isso reintroduziria exatamente o botão travado que esta função
+    // existe para destravar. Devolve o erro e a tela mantém o comportamento da
+    // sessão — o clique de agora ainda libera.
+    if (error) {
+      console.error('[engajamento] jaAbriuConteudoDaSemana:', error.message);
+      return { abriu: false, erro: error.message };
+    }
+    return { abriu: (data?.length || 0) > 0 };
+  } catch {
+    return { abriu: false };
+  }
 }
