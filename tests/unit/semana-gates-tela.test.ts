@@ -84,6 +84,15 @@ describe('item 2 — o degrau manual deixou de ser catraca', () => {
     expect(TELA).not.toContain('{!conteudoConsumido && (\n              <div className="mt-4">');
   });
 
+  it('🔴 a instrução e os botões falam do MESMO estado', () => {
+    // Achado no screenshot da captura do tutorial: a instrução olhava
+    // `conteudoConsumido` (que só atualiza no reload) enquanto os botões já
+    // olhavam `podeConversar`. Depois do clique, a tela dizia "Conteúdo · feito"
+    // na barra E "abra um dos formatos" logo abaixo, com os botões ativos.
+    expect(TELA).toContain('{!podeConversar && (');
+    expect(TELA).not.toContain('{!conteudoConsumido && !nadaParaAbrir && (');
+  });
+
   it('a instrução não promete um botão que saiu do caminho', () => {
     // `openBeforeComplete` dizia "abra antes de MARCAR COMO REALIZADO".
     expect(TELA).toContain("t('content.openToUnlock')");

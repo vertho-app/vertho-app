@@ -604,7 +604,21 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                 </button>
               </div>
             )}
-            {!conteudoConsumido && !nadaParaAbrir && (
+            {/*
+              🔴 `!podeConversar`, NÃO `!conteudoConsumido` (achado 25/08 no
+              screenshot da captura do tutorial). `conteudoConsumido` vem do
+              progresso CARREGADO, e a gravação do consumo é assíncrona — então,
+              logo após o clique que libera a semana, a tela mostrava a barra
+              dizendo "Conteúdo · feito" E esta instrução mandando abrir o
+              conteúdo, com os dois botões já ativos ao lado. Três estados
+              contraditórios na mesma dobra.
+
+              `podeConversar` é o MESMO predicado dos botões, então a instrução
+              e o que ela promete destravar passam a falar do mesmo estado.
+              Nenhum teste pegaria: o contrato estava certo em todos os pontos
+              isolados — quem viu foi a captura de tela.
+            */}
+            {!podeConversar && (
               <p className="mt-4 text-xs text-amber-300/80">{t('content.openToUnlock')}</p>
             )}
             {/*

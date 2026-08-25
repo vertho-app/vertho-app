@@ -183,13 +183,29 @@ export const JORNADA: Flow = {
     },
     {
       id: 'conteudo', title: 'O conteúdo', cuts: FULL, captureId: 'conteudo',
-      narration: 'O conteúdo vem em vários formatos: texto, case, áudio e vídeo. Toque no que combina mais com você e comece por ele.',
+      narration: 'O conteúdo vem em vários formatos: texto, case, áudio e vídeo. Toque no que combina mais com você — e é esse toque que libera o resto da semana.',
       highlight: { label: 'Escolha o formato' },
     },
     {
-      id: 'marcar', title: 'Marcar como realizado', cuts: FULL, captureId: 'marcar',
-      narration: 'Depois de consumir, marque como realizado. É esse passo que destrava o resto da semana.',
-      highlight: { label: 'Marque quando terminar' },
+      /*
+       * 🔴 ERA O PASSO "MARCAR COMO REALIZADO" (refeito em 25/08/2026).
+       *
+       * A narração antiga dizia: "Depois de consumir, marque como realizado. É
+       * ESSE passo que destrava o resto da semana." Virou mentira no dia em que
+       * o botão saiu do caminho — abrir o conteúdo passou a destravar sozinho,
+       * e o botão só sobrevive na pílula sem nada abrível.
+       *
+       * E o dano não era só aqui: este vídeo é o MESMO servido na tela de semana
+       * TRANCADA (`CONCLUSAO_VIDEO_ID`) e o que o WhatsApp `semana_pendente_v2`
+       * referencia. Quem está travado era mandado para um vídeo que mandava
+       * procurar um botão inexistente.
+       *
+       * O passo não sumiu: virou a explicação do que REALMENTE destrava, sobre
+       * a barra "Sua semana" — que é o novo lugar onde a régua é dita.
+       */
+      id: 'estado', title: 'O que destrava a semana', cuts: FULL, captureId: 'estado',
+      narration: 'Aqui em cima você acompanha a sua semana: o conteúdo, a conversa de evidências e a conclusão. Assim que você abre o conteúdo, as conversas liberam — e a semana só é concluída na conversa de evidências.',
+      highlight: { label: 'Onde a semana fecha' },
     },
     {
       id: 'tira-duvidas', title: 'Tira-dúvidas', cuts: FULL, captureId: 'tiraduvidas',
@@ -197,8 +213,15 @@ export const JORNADA: Flow = {
       highlight: { label: 'Pergunte ao mentor' },
     },
     {
+      /*
+       * ⚠️ NÃO CRAVA O NÚMERO DE RESPOSTAS, de propósito: são 6 na semana de
+       * conteúdo e 10 na de aplicação (`turnosIaNecessarios`). Um número aqui
+       * faria o vídeo mentir em um dos dois casos — e este tutorial é genérico,
+       * serve a trilha inteira. O que ele ensina é a OLHAR o contador, que a
+       * tela passou a mostrar em 25/08.
+       */
       id: 'evidencias', title: 'Evidências', cuts: FULL, captureId: 'evidencias',
-      narration: 'E o passo mais importante: as Evidências. É uma conversa. Você conta como colocou o aprendizado em prática, sem precisar anexar nenhum arquivo. É isso que comprova a sua evolução e libera a próxima semana.',
+      narration: 'E o passo mais importante: as Evidências. É uma conversa. Você conta como colocou o aprendizado em prática, sem precisar anexar nenhum arquivo. A conversa tem um fim, e a própria tela mostra quantas respostas ainda faltam. É isso que comprova a sua evolução e libera a próxima semana.',
       highlight: { label: 'É uma conversa' },
     },
     {
