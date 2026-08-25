@@ -499,3 +499,75 @@ describe('FORA DO ALCANCE — a cena não observa, logo não é gap da pessoa', 
     expect(c.nivel).toBe(3);
   });
 });
+
+describe('as três correções que a revisão do alcance expôs', () => {
+  const beats = beatsOk();
+  const evs = [1, 2, 3, 4, 5, 6].map((i) => ({
+    indice: i, nivel: 'n3_meta' as const, forca: 'forte' as const, citacao: 'x',
+    beat: beats.find((b) => b.descritores.includes(i))!.numero, turno: 1,
+  }));
+
+  it('semSinal e foraDoAlcance são DISJUNTOS', () => {
+    // Antes os dois traziam a mesma lista, e a distinção virava enfeite: quem
+    // lesse semSinal entendia "a conversa não chegou" onde a verdade é "esta
+    // cena nunca chega".
+    const c = consolidarCena(evs, 6, { beats, beatsCumpridos: [1, 2, 3, 4], observaveis: [1, 3, 5, 6] });
+    expect(c.foraDoAlcance).toEqual([2, 4]);
+    expect(c.semSinal, 'D2/D4 saem daqui — o buraco deles é de desenho').toEqual([]);
+    expect(c.semSinal.filter((i) => c.foraDoAlcance.includes(i))).toEqual([]);
+  });
+
+  it('lista VAZIA é declaração, não ausência', () => {
+    // `.length` lia [] como "não declarou" e devolvia o comportamento
+    // permissivo justo para quem calculou a lista e obteve zero.
+    const c = consolidarCena(evs, 6, { beats, beatsCumpridos: [1, 2, 3, 4], observaveis: [] });
+    expect(c.foraDoAlcance).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(c.media, 'cena que não observa nada não produz nota').toBeNull();
+  });
+
+  it('cobertura é da CENA; alcance é da COMPETÊNCIA', () => {
+    // Uma cena que observa 4 e mede os 4 aparecia como "4/6" — com a mesma
+    // cara de cena que falhou em medir.
+    const c = consolidarCena(evs, 6, { beats, beatsCumpridos: [1, 2, 3, 4], observaveis: [1, 3, 5, 6] });
+    expect(c.cobertura, 'mediu tudo o que prometeu').toMatchObject({ medidos: 4, total: 4, taxa: 1 });
+    expect(c.alcance, 'e alcança 4 dos 6 da régua').toMatchObject({ observaveis: 4, total: 6 });
+  });
+});
+
+describe('o mapa da IA3 tem de concordar com o alcance da cena', () => {
+  // 🔴 Medido: os beats do piloto declaravam D2 duas vezes e D4 uma como
+  // primários — exatamente os dois que a cena não observa. As cenas fechavam
+  // "4/4 beats cumpridos" e "cobertura 6/6" sem oferecer oportunidade para
+  // dois deles. O validador conferia que o beat existe, foi cumprido e mede
+  // aquele descritor; nenhuma das três perguntas é "a cena consegue observar".
+  const perguntasDoPiloto: PerguntaIA3[] = [
+    { numero: 1, descritores_primarios: [1, 2] },
+    { numero: 2, descritores_primarios: [3, 4] },
+    { numero: 3, descritores_primarios: [2, 5] },
+    { numero: 4, descritores_primarios: [3, 6] },
+  ];
+
+  it('acusa quando um beat declara descritor fora do alcance', () => {
+    const { erros } = montarBeatsDaCena(perguntasDoPiloto, 6, [1, 3, 5, 6]);
+    expect(erros.some((e) => e.includes('discorda do alcance'))).toBe(true);
+    expect(erros.join(' ')).toContain('beat 1 declara D2');
+    expect(erros.join(' ')).toContain('beat 2 declara D4');
+  });
+
+  it('sem alcance declarado, o comportamento é o de antes', () => {
+    expect(montarBeatsDaCena(perguntasDoPiloto, 6).erros).toEqual([]);
+  });
+
+  it('descritor fora do alcance não é cobrado como "sem beat"', () => {
+    // Um mapa coerente com o alcance: só os observáveis aparecem nos beats.
+    const coerente: PerguntaIA3[] = [
+      { numero: 1, descritores_primarios: [1] },
+      { numero: 2, descritores_primarios: [3] },
+      { numero: 3, descritores_primarios: [5] },
+      { numero: 4, descritores_primarios: [6] },
+    ];
+    expect(montarBeatsDaCena(coerente, 6, [1, 3, 5, 6]).erros).toEqual([]);
+    // …e o mesmo mapa cobrando a régua inteira acusa os quatro que faltam.
+    expect(montarBeatsDaCena(coerente, 6).erros.join(' ')).toContain('D2');
+  });
+});

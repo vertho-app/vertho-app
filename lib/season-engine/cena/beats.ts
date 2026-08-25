@@ -125,6 +125,7 @@ export interface MontagemBeats {
 export function montarBeatsDaCena(
   perguntas: PerguntaIA3[],
   numDescritores = 6,
+  observaveis?: number[],
 ): MontagemBeats {
   const erros: string[] = [];
 
@@ -169,8 +170,47 @@ export function montarBeatsDaCena(
     });
   }
 
+  /**
+   * 🔴 O MAPA DA IA3 E O ALCANCE DA CENA TÊM DE CONCORDAR.
+   *
+   * Medido em 25/08/2026: os beats da cena do piloto declaravam
+   *
+   *     beat1 → D1+D2   beat2 → D3+D4   beat3 → D2+D5   beat4 → D3+D6
+   *
+   * ou seja, D2 duas vezes e D4 uma como descritor PRIMÁRIO — e são exatamente
+   * os dois que a cena não consegue observar (o N3 deles exige a outra parte,
+   * que não está na sala). As quatro cenas fechavam "4/4 beats cumpridos" e
+   * "cobertura 6/6" sem nunca terem oferecido oportunidade para dois deles.
+   *
+   * O validador conferia que o beat existe, que foi cumprido e que mede aquele
+   * descritor. Nenhuma dessas três perguntas é "a cena consegue observar isso".
+   * O mapa declara o que se QUER medir; o alcance declara o que a cena OFERECE.
+   * Quando os dois discordam, um dos dois está errado — e seguir em frente é
+   * como a cobertura declarada-e-não-medida acontece.
+   */
+  if (observaveis !== undefined) {
+    const obs = new Set(observaveis);
+    const conflito: string[] = [];
+    for (const b of beats) {
+      for (const d of b.descritores) {
+        if (!obs.has(d)) conflito.push(`beat ${b.numero} declara D${d}`);
+      }
+    }
+    if (conflito.length) {
+      erros.push(
+        `Mapa da IA3 discorda do alcance declarado: ${conflito.join('; ')} — ` +
+        'esses descritores estão fora do que a cena observa. Corrija o mapa OU o alcance; ' +
+        'seguir assim produz "beats cumpridos" sem oportunidade real.',
+      );
+    }
+  }
+
   const semCobertura: string[] = [];
-  for (let i = 1; i <= numDescritores; i++) if (!cobertos.has(i)) semCobertura.push(`D${i}`);
+  // Descritor fora do alcance não precisa de beat: ele não é medido aqui.
+  const exigidos = observaveis !== undefined
+    ? observaveis.filter((i) => Number.isInteger(i) && i >= 1 && i <= numDescritores)
+    : Array.from({ length: numDescritores }, (_, i) => i + 1);
+  for (const i of exigidos) if (!cobertos.has(i)) semCobertura.push(`D${i}`);
   if (semCobertura.length) {
     erros.push(`Descritores sem beat: ${semCobertura.join(', ')} — a cena mediria com buraco`);
   }
@@ -522,7 +562,10 @@ export interface ConsolidacaoCena {
   /** Por que o nível não saiu, quando não saiu. */
   nivelSuprimidoPorque: string | null;
   /** Cobertura efetiva: quantos dos N descritores saíram com sinal. */
+  /** A cena mediu o que se propôs? Denominador = descritores observáveis. */
   cobertura: { medidos: number; total: number; taxa: number };
+  /** Quanto da competência esta cena alcança. `observaveis === total` = régua inteira. */
+  alcance: { observaveis: number; total: number; taxa: number };
   /**
    * Índices de descritor que a extração devolveu FORA da faixa 1..N.
    *
@@ -619,7 +662,14 @@ export function consolidarCena(
    * gap da pessoa. Os dois viram lacuna, mas só um deles é defeito de desenho —
    * e por isso saem em campos separados.
    */
-  const observaveis = ocorrido?.observaveis?.length
+  /**
+   * ⚠️ `!== undefined`, NÃO `.length`. Uma lista VAZIA é uma declaração — "esta
+   * cena não observa nada" — e o `.length` a lia como ausência, devolvendo o
+   * comportamento permissivo justamente para quem calculou a lista e obteve
+   * zero. É a armadilha clássica da veracidade de array vazio, e aqui ela
+   * inverteria o sentido do campo mais novo do módulo.
+   */
+  const observaveis = ocorrido?.observaveis !== undefined
     ? new Set(ocorrido.observaveis.filter((i) => Number.isInteger(i) && i >= 1 && i <= numDescritores))
     : null;
   const foraDoAlcance: number[] = [];
@@ -771,10 +821,25 @@ export function consolidarCena(
     if (serie.every((e) => e.forca === 'fraca')) baixaConfianca.push(i);
   }
 
+  /**
+   * DISJUNTOS por construção.
+   *
+   * 🔴 Sem esta exclusão os dois campos traziam a MESMA lista — D2 e D4 em
+   * `foraDoAlcance` e também em `semSinal` —, e a distinção que o módulo acabou
+   * de publicar virava enfeite: quem lesse `semSinal` continuaria entendendo
+   * "a conversa não chegou nesses" onde a verdade é "esta cena nunca chega".
+   *
+   * `semSinal`      = pertence ao desenho da cena e não apareceu nesta execução.
+   * `foraDoAlcance` = não pertence ao desenho da cena, e nenhuma execução muda.
+   */
   const semSinal: number[] = [];
-  for (let i = 1; i <= numDescritores; i++) if (notas[i - 1] == null) semSinal.push(i);
+  for (let i = 1; i <= numDescritores; i++) {
+    if (notas[i - 1] == null && !foraDoAlcance.includes(i)) semSinal.push(i);
+  }
 
   const medidas = notas.filter((n): n is number => n != null);
+  /** Quantos descritores ESTA cena se propôs a medir. */
+  const esperados = numDescritores - foraDoAlcance.length;
   const media = medidas.length ? medidas.reduce((a, b) => a + b, 0) / medidas.length : null;
 
   // O NÍVEL só sai quando a medida o sustenta. A média fica sempre, para
@@ -799,8 +864,8 @@ export function consolidarCena(
     nivelSuprimidoPorque =
       `cena observa ${numDescritores - foraDoAlcance.length} de ${numDescritores} descritores ` +
       `(fora do alcance: ${foraDoAlcance.map((i) => `D${i}`).join(', ')}) — nível é da BATERIA`;
-  } else if (medidas.length < numDescritores) {
-    nivelSuprimidoPorque = `cobertura ${medidas.length}/${numDescritores}`;
+  } else if (medidas.length < esperados) {
+    nivelSuprimidoPorque = `cobertura ${medidas.length}/${esperados}`;
   } else if (baixaConfianca.length * 2 > numDescritores) {
     nivelSuprimidoPorque = `${baixaConfianca.length} de ${numDescritores} descritores com evidência fraca`;
   }
@@ -814,10 +879,24 @@ export function consolidarCena(
     media: media == null ? null : Number(media.toFixed(2)),
     nivel: nivelSuprimidoPorque ? null : nivelDaNota(media as number),
     nivelSuprimidoPorque,
+    /**
+     * COBERTURA é da CENA: mediu tudo o que se propôs a medir?
+     *
+     * 🔴 Antes o denominador era a régua inteira, e uma cena que observa 4
+     * descritores e mede os 4 aparecia como "4/6" — cobertura incompleta, com
+     * a mesma cara de cena que falhou. São duas perguntas diferentes, e agora
+     * têm dois campos: `cobertura` responde "a cena entregou o que prometeu",
+     * `alcance` responde "quanto da competência esta cena alcança".
+     */
     cobertura: {
       medidos: medidas.length,
+      total: esperados,
+      taxa: esperados ? Number((medidas.length / esperados).toFixed(3)) : 0,
+    },
+    alcance: {
+      observaveis: esperados,
       total: numDescritores,
-      taxa: numDescritores ? Number((medidas.length / numDescritores).toFixed(3)) : 0,
+      taxa: numDescritores ? Number((esperados / numDescritores).toFixed(3)) : 0,
     },
     indicesInvalidos: [...new Set(foraDaFaixa)].sort((a, b) => a - b),
     foraDoAlcance,

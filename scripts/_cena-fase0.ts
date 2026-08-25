@@ -343,7 +343,7 @@ async function cmdCena(slug: string, codComp: string) {
       `${fora.length ? `  · fora do alcance: D${fora.join(' D')}` : ''}`);
   }
 
-  const { beats, erros } = montarBeatsDaCena((alt.perguntas || []) as PerguntaIA3[], descritores.length);
+  const { beats, erros } = montarBeatsDaCena((alt.perguntas || []) as PerguntaIA3[], descritores.length, observaveis);
   if (erros.length) {
     // Falha alta na construção: cena montada sobre cenário com buraco produziria
     // nota com lacuna silenciosa, e nota vira PDI e trilha.
