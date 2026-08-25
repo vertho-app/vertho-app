@@ -52,7 +52,11 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - **Não conte com RLS**: o app roda service-role (`BYPASSRLS`) e as policies são decorativas por
   decisão (CLAUDE.md §Multi-tenant). Tabela nova de PII nasce protegida por **guard**, não por policy.
 - 🔴 `if (error)` em **todo** await de query — supabase-js **retorna** `{ error }`, não lança.
-  Mordeu 2× em 27/07 (Map vazio truthy; carimbo gravado com upsert falho).
+  Mordeu 2× em 27/07 (Map vazio truthy; carimbo gravado com upsert falho). E 1× em 25/08 de um
+  jeito que dura mais: quando a falha só afeta uma **métrica** (o "· N já existiam" do
+  `calcularFitLote`, cuja consulta filtrava coluna inexistente), o produto continua correto e
+  **ninguém reclama** — ao mexer em contador de pulados/reaproveitados, pergunte *a consulta que o
+  alimenta chegou a rodar?*.
 - `.limit(1)` para "representar a empresa" está errado em empresa-rede (1 PPP por escola; Ibipeba: 11).
   Guard: `ppp-rede-guard`. Detalhe: `docs/FMEA-PIPELINE.md` F-I10.
 
