@@ -700,6 +700,54 @@ coluna `colaboradores.perfil_externo_pdf_path`, URL assinada de 10 min):
 - O PDF pode existir **sem** extração (`perfil_externo_dados` null). Quem decide se há
   o que mostrar é o **path**, não os dados.
 
+### 3.7 Régua do mapeamento: DISC → colunas do colaborador (24/08/2026)
+
+Um resultado DISC vira as colunas de `colaboradores` por **quatro** derivações. Todas
+canônicas, todas em `lib/` — e todas já tiveram cópia divergente em produção.
+
+| Parte | Régua | Onde |
+|---|---|---|
+| DISC natural | normalizado para somar **200** (não 100) | `normalizarDisc` (`lib/disc-mapeamento.ts`) |
+| Liderança (`lid_*`) | **`lid_X = DISC_X / 2`** → soma 100, cada estilo em 0-50 | `computeLeadership` (idem) |
+| Perfil dominante | **combo** de TODAS as letras ≥ 50, da maior para a menor ("CS", "ID") | `deriveProfile` (idem) |
+| 16 competências (`comp_*`) | regressão por fator (`disc-natural-v1`) | `computeDiscCompetenciesNatural` (`lib/disc-competencias.ts`) |
+
+`Medido em 24/08/2026:` **199 dos 218** colaboradores com DISC seguem a régua de liderança
+(Macaé 138/138, Ibipeba 52/52, Elo 6/6, UniAnchieta 2/2), e **201** têm soma exatamente 200.
+
+**Por que isso virou seção.** As três primeiras funções viviam DENTRO do componente da tela
+do mapeamento (`app/dashboard/perfil-comportamental/mapeamento/page.tsx`), inalcançáveis
+para o resto do app — então quem precisava delas **copiava**. Foi assim que nasceram duas
+réguas paralelas:
+
+- `actions/simulador-disc.ts` divergia nas quatro (DISC somando 100, liderança por mistura
+  `0,7·D + 0,3·C`, competências por ruído aleatório, perfil de uma letra só). Com soma 100 um
+  combo é aritmeticamente quase impossível, então **ele nunca gerou um** — enquanto no banco
+  real 137 de 201 pessoas têm duas letras. Tenants populados por ele nasceram fora da régua:
+  `projetomacae` (13 pessoas) e `acme` (4), que seguem assim por decisão.
+- `lib/demo/reset-acme-demo.ts` tinha uma TERCEIRA derivação de `comp_*` (`cl(D)`,
+  `cl((D+I)/2)`…).
+
+**O que isso custa quando escapa.** Não é cosmético: o motor de fit lê `comp_*` nos
+knockouts. O "Não recomendado" da persona Paulo saía de um `comp_persistencia = S = 24`; a
+regressão daria **50** para o mesmo DISC, e o knockout não existiria. A demo exibia uma
+reprovação que a plataforma real não consegue produzir — e **"ID com Persistência
+insuficiente" é impossível** aqui, porque Persistência ≈ `0,58·D + 0,61·S` e D alto já
+garante o piso do cargo.
+
+**Sensibilidade do fit:** `liderancaFit` (`lib/scoring/candidate.ts`) normaliza ideal e real
+para soma 100 → o motor é **imune à ESCALA** e **sensível à FÓRMULA**. Multiplicar todos os
+`lid_*` por 2 não muda score nenhum; trocar a fórmula muda os cargos de liderança.
+
+**Na tela**, a régua é única (0-100) em todos os blocos do perfil comportamental. Antes,
+Liderança usava `max={50}` (sua escala nativa) e os outros `max={100}`, com o mesmo número ao
+lado — um Executivo 39 desenhava a MESMA barra de um Conformidade 78, e a tela convidava a
+uma comparação que ela própria invalidava.
+
+Guards: `tests/unit/disc-simulador-regua.test.ts` (invariantes + proíbe redefinir as funções
+fora da fonte única) e `tests/unit/demo-personas-regua.test.ts` (as personas do demo seguem a
+régua). Detalhe do demo: `docs/AMBIENTE-DEMO.md`.
+
 ---
 
 ## 4. RBAC (Controle de Acesso Baseado em Papeis)

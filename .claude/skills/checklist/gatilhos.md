@@ -362,6 +362,31 @@ Casa: qualquer lista de "para onde você quer ir" montada a partir de uma consul
 
 Detalhe: `docs/ARQUITETURA.md` §3.1.3 · memória `project_login_escolha_organizacao`.
 
+## 32. Dado de tenant de DEMO (`lib/demo/**`, personas, fixture do acme-demo)
+
+Casa: mexer nas personas, no `acme-demo-fixture.json` ou em qualquer coluna do tenant de demo.
+
+- 🔴 **Sobrevive ao reset o que está no CÓDIGO ou no FIXTURE — o resto é temporário.** O cron das
+  04h recria as personas do fixture; UPDATE direto no banco some sozinho. Medido 24-25/08/2026: o
+  pré-aquecimento do ranking (`fit_resultados`, que cai por `ON DELETE CASCADE` junto dos
+  colaboradores) zerava toda madrugada, e a resposta "é rodar o script antes da demo" **não é
+  conserto** — hoje o reset pré-computa (`precomputarFit`).
+- 🔴 **Mudou o DISC de uma persona? Regere o relatório dela.** `report_texts` é narrativa gerada A
+  PARTIR do DISC e o reset **restaura o texto congelado** — sem recongelar no fixture, o texto
+  errado volta sozinho depois de corrigido no banco. E limpe `report_texts` antes de regerar: o
+  core reusa cache fresco e devolveria o texto velho, com o script "passando".
+- 🔴 **Artefato congelado vem de DUAS fontes** (`acme-demo-fixture.json` + `acme-demo-extra-artifacts.json`)
+  e o merge é **chave a chave** (`mesclarPersonaArtifacts`). Era spread raso: a persona presente
+  nas duas perdia o que só existia no fixture — congelar no arquivo "certo" não resolvia, porque o
+  problema era o merge.
+- 🔴 **Alinhar dado de demo a uma régua APAGA efeitos de vitrine — meça o que se perde antes.** O
+  "Não recomendado" da persona Paulo vinha de uma `comp_*` fora da régua; alinhar sem recalibrar o
+  DISC teria removido o melhor argumento da demonstração. Recalibrar é busca com o **motor como
+  oráculo** (`calcularFitUnificado` sobre uma grade de perfis), nunca dedução no papel.
+- As personas seguem a régua do produto e há guard: `tests/unit/demo-personas-regua.test.ts`.
+
+Detalhe: `docs/AMBIENTE-DEMO.md` · `docs/ARQUITETURA.md` §3.7 · memória `project_acme_demo`.
+
 ## 22. Sempre (base fixa — cite, não copie)
 
 `docs/CHECKLISTS.md` §1. Os três que mais reincidem:
@@ -446,3 +471,27 @@ Casa: pegar `avaliarAcessoSemana`, `checarGates*`, `canAccess*` — qualquer fun
   nada", e mandaria a coorte inteira para a semana 1.
 
 Detalhe: `docs/FMEA-PIPELINE.md` §F-I22 · memória `feedback_regua_um_degrau_vs_ponto_fixo`.
+
+---
+
+## `npm audit` / mexer em dependências
+
+**Casa quando:** for triar advisories, rodar `npm audit fix`, ou qualquer coisa que reescreva
+`package-lock.json`.
+
+- 🔴 **NUNCA `npm audit fix --omit=dev`.** A flag filtra o que ele AUDITA, mas ele reescreve o
+  lock **inteiro** — e o lock sai sem as devDependencies. `Medido 24/08/2026:` 797 inserções e
+  1.351 deleções no `package-lock.json`, `npx tsc` respondendo *"This is not the tsc command you
+  are looking for"* e o build com exit 1.
+- ⚠️ **Restaurar o lock não basta.** O `node_modules` fica num estado que o npm não limpa:
+  `npm ci` e `npm install` falham em cadeia com `ENOTEMPTY`, num diretório diferente a cada
+  tentativa. O que funciona é `Rename-Item node_modules node_modules.quebrado` → `npm ci` →
+  apagar a órfã com caminho estendido (`cmd /c 'rmdir /s /q "\?\…"'`). Enquanto a órfã existir,
+  `tsc --noEmit` varre dentro dela e reporta erros de terceiros.
+- ✅ **Para triar sem tocar em nada:** `npm audit --omit=dev --json` (só leitura) e
+  `npm audit fix --dry-run`. Se a saída ainda mandar `--force`, o resto é breaking — decida antes
+  de aplicar, não depois.
+- 🔑 **Antes de qualquer install, veja o que está rodando** (`Get-Process node`): há sessões de
+  agentes e o worker do painel na máquina, e um `next dev` do Rodrigo nunca deve ser morto.
+
+Detalhe: memória `reference_npm_audit_fix_lock`.

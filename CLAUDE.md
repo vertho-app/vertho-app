@@ -461,6 +461,15 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   `node_modules` passa a falhar em cadeia com `ENOTEMPTY` (o conserto é renomear a pasta e
   `npm ci`). Para triar sem tocar em nada: `npm audit --omit=dev --json` e `--dry-run`.
   Gatilho §`npm audit` da skill `checklist`.
+- NÃO derivar as colunas comportamentais do DISC por conta própria. A régua tem QUATRO partes
+  (soma **200** · `lid_X = DISC_X/2` · perfil = **combo** de todas ≥ 50 · `comp_*` pela regressão
+  `computeDiscCompetenciesNatural`) e é fonte única em `lib/disc-mapeamento.ts` +
+  `lib/disc-competencias.ts`. Elas viviam DENTRO da tela do mapeamento, e por isso o
+  `simulador-disc` e o reset do demo nasceram com réguas próprias — o simulador divergia nas
+  quatro e **nunca gerava um perfil de duas letras**, sendo que 137 de 201 pessoas reais têm.
+  Não é cosmético: o motor de fit lê `comp_*` nos knockouts, e a demo exibia uma reprovação que a
+  plataforma não consegue produzir. Ao mexer nisso, lembre que `liderancaFit` normaliza os dois
+  lados → **imune à ESCALA, sensível à FÓRMULA**. Detalhe: `docs/ARQUITETURA.md` §3.7.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
