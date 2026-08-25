@@ -64,22 +64,55 @@ export const AI_TASKS = [
   { key: 'blueprint_audit', label: 'Blueprint — Auditor semântico (check dual)', fase: 'Blueprint' },
 ];
 
+/**
+ * Modelos selecionáveis na tela de configuração de IA da empresa.
+ *
+ * Revisto em 25/08/2026 para bater com a rodada de avaliação (AA Intelligence
+ * Index + arena.ai). Agrupado por família, porque a regra que mais restringe a
+ * escolha aqui é a Dual-IA: auditor nunca da mesma família do gerador.
+ *
+ * Três regras para entrar nesta lista, todas travadas pelo guard em
+ * `tests/unit/ai-dual-familia.test.ts`:
+ *   1. ter preço em `lib/ia-cost-catalog.ts` — sem isso `costFromTokens` devolve
+ *      null e a linha do ledger nasce sem custo;
+ *   2. ter rota em `lib/ai-provedores.ts` — o último caso do dispatch é
+ *      `callClaude`, então id sem rota vira erro etiquetado como Anthropic;
+ *   3. o id ser o da PRÓPRIA API. Conferidos em 25/08 com as chaves do projeto:
+ *      `qwen3.8-max` (dashscope-intl), `muse-spark-1.2` (api.meta.ai — NÃO
+ *      `meta/muse-spark-1.2`, que é o id do OpenRouter) e `kimi-k3` (moonshot).
+ *
+ * ⚠️ Ter a chave na Vercel é a 4ª condição, e ela NÃO é verificável daqui: o
+ * guard roda em node, não enxerga o ambiente de destino. `QWEN_API_KEY` e
+ * `META_MODEL_API_KEY` foram para production em 25/08 junto com esta lista.
+ * Modelo novo aqui exige conferir `vercel env ls production` na mesma passada.
+ */
 export const MODELOS_DISPONIVEIS = [
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
+  // ── Anthropic ──
   { id: 'claude-opus-5', label: 'Claude Opus 5' },
-  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
-  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
-  // Qwen e Muse Spark entraram no dropdown em 25/08/2026, DEPOIS da rota existir
-  // em ai-client (PROVEDORES_OPENAI_COMPAT + o `ehOpenAICompat` derivado dela) e
-  // de a chamada real responder 200 com as chaves do projeto. Um modelo aqui sem
-  // rota lá cairia no `callClaude` e falharia etiquetado como Anthropic — por isso
-  // o guard em `tests/unit/ai-dual-familia.test.ts` exige preço E rota para tudo
-  // que aparece nesta lista.
-  { id: 'qwen3.8-max', label: 'Qwen3.8 Max' },
-  { id: 'muse-spark-1.2', label: 'Muse Spark 1.2' },
+  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
+  // O 4.6 estava FORA do dropdown, e isso deixava sem porta a saída que o
+  // comentário de PINNED_TASKS promete: "o override EXPLÍCITO por task segue
+  // valendo — é a saída para voltar ao 4.6 numa empresa específica sem tocar no
+  // código". Ele é o FALLBACK_GLOBAL e o default da maioria das tasks; não poder
+  // selecioná-lo tornava a reversão um deploy em vez de uma configuração.
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  // ── OpenAI ──
   { id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol' },
   { id: 'gpt-5.6-terra', label: 'GPT 5.6 Terra' },
   { id: 'gpt-5.6-luna', label: 'GPT 5.6 Luna' },
+  // ── Google ──
+  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
+  // 3.6 fica: ainda é o default de tarefas vivas (extrator de cargo, brief da
+  // escola, extração de vídeo). Tirar daqui tornaria inselecionável um modelo
+  // que segue em produção.
+  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+  // ── Demais famílias (a diversidade é o ativo: é ela que viabiliza o par
+  //    cross-família quando o gerador não é Claude) ──
+  { id: 'qwen3.8-max', label: 'Qwen3.8 Max' },
+  { id: 'muse-spark-1.2', label: 'Muse Spark 1.2' },
+  // Kimi K3 tinha rota (`kimi`), preço e chave na Vercel desde antes, mas nunca
+  // esteve nesta lista — dava para pagar por ele e não dava para escolhê-lo.
+  { id: 'kimi-k3', label: 'Kimi K3' },
   { id: 'grok-4.6', label: 'Grok 4.6' },
 ];
 

@@ -646,7 +646,18 @@ function resolverProvedorCompat(model: string): { apiKey: string; url: string; p
   const p = PROVEDORES_OPENAI_COMPAT.find((x) => model.startsWith(x.prefixo));
   const env = p?.env ?? 'OPENAI_API_KEY';
   const apiKey = process.env[env];
-  if (!apiKey) throw new Error(`${env} not set`);
+  // Mensagem explícita porque este é o modo de falha que sobra depois que o
+  // modelo entra em MODELOS_DISPONIVEIS: a suíte garante preço e rota, mas roda
+  // em node e NÃO enxerga o ambiente de destino. Um modelo selecionável cuja
+  // chave não subiu para a Vercel só quebra quando um admin o escolhe — e
+  // `${env} not set`, sozinho, não dizia nem qual modelo nem qual o conserto.
+  if (!apiKey) {
+    throw new Error(
+      `${env} não está definida — o modelo "${model}" está selecionável mas não tem chave neste ambiente. `
+      + 'Confira `vercel env ls production`; se faltar, `printf \'%s\' "$CHAVE" | vercel env add ' + env + ' production` '
+      + '(printf sem pipe de echo, que injeta \\n) e REDEPLOY, porque variável nova só vale em deploy novo.',
+    );
+  }
   return {
     apiKey,
     url: p?.url ?? 'https://api.openai.com/v1/chat/completions',
