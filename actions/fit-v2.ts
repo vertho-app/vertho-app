@@ -151,15 +151,32 @@ export async function calcularFitLote(empresaId: string, cargoNome: string, opts
 
   if (!colabs?.length) return { success: false, error: 'Nenhum colaborador com mapeamento encontrado para este cargo' };
 
-  // Se não é forçado, pula colabs que já têm fit_resultado
+  // Se não é forçado, pula colabs que já têm fit_resultado.
+  //
+  // 🔴 A coluna é `cargo_nome`. Filtrar por `cargo` (que não existe em
+  // `fit_resultados`) devolvia `{ data: null, error: 42703 }` — e como o `error`
+  // não era checado, o conjunto saía VAZIO e o "pular quem já tem" nunca pulou
+  // ninguém, desde sempre. Medido em 25/08/2026 contra o banco: a consulta certa
+  // encontra 3 dos 3 representantes do acme-demo, a errada encontra 0.
+  // Benigno (recalcular é determinístico e sem IA), mas o "· N já existiam" da
+  // tela era uma promessa que o código não cumpria.
   let colabsPraCalcular = colabs;
   let pulados = 0;
+  let aviso: string | null = null;
   if (!forcar) {
-    const { data: jaCalculados } = await tdb.from('fit_resultados')
-      .select('colaborador_id').eq('cargo', cargoNome);
-    const jaSet = new Set((jaCalculados || []).map(r => r.colaborador_id));
-    colabsPraCalcular = colabs.filter(c => !jaSet.has(c.id));
-    pulados = colabs.length - colabsPraCalcular.length;
+    const { data: jaCalculados, error: erroJa } = await tdb.from('fit_resultados')
+      .select('colaborador_id').eq('cargo_nome', cargoNome);
+    if (erroJa) {
+      // Degrada RECALCULANDO (o resultado segue correto, só custa tempo) — mas
+      // nunca em silêncio: quem lê a tela precisa saber que "0 já existiam" veio
+      // de uma leitura que falhou, não de um cargo sem histórico.
+      aviso = `não foi possível verificar quem já tinha Fit (${erroJa.message}) — recalculando todos`;
+      console.warn('[calcularFitLote]', aviso);
+    } else {
+      const jaSet = new Set((jaCalculados || []).map(r => r.colaborador_id));
+      colabsPraCalcular = colabs.filter(c => !jaSet.has(c.id));
+      pulados = colabs.length - colabsPraCalcular.length;
+    }
   }
 
   if (colabsPraCalcular.length === 0) {
@@ -189,11 +206,12 @@ export async function calcularFitLote(empresaId: string, cargoNome: string, opts
 
   return {
     success: true,
-    message: `Fit calculado: ${ok} colab${ok !== 1 ? 's' : ''}${pulados > 0 ? ` · ${pulados} já existiam` : ''}${errosDetalhados.length ? ` · ${errosDetalhados.length} erros` : ''}`,
+    message: `Fit calculado: ${ok} colab${ok !== 1 ? 's' : ''}${pulados > 0 ? ` · ${pulados} já existiam` : ''}${errosDetalhados.length ? ` · ${errosDetalhados.length} erros` : ''}${aviso ? ` · ⚠️ ${aviso}` : ''}`,
     total: ok,
     pulados,
     erros: errosDetalhados.length,
     erros_detalhados: errosDetalhados,
+    aviso,
   };
 }
 
