@@ -499,3 +499,29 @@ Detalhe: `docs/FMEA-PIPELINE.md` §F-I22 · memória `feedback_regua_um_degrau_v
   agentes e o worker do painel na máquina, e um `next dev` do Rodrigo nunca deve ser morto.
 
 Detalhe: memória `reference_npm_audit_fix_lock`.
+
+---
+
+## Apertar um gate de permissão / mexer em `BASE_ROLE_PERMISSIONS`
+
+**Casa quando:** mudar `lib/permissions.ts`, `requireEmpresaSupabase`/`requireAdminAction`, ou a
+permissão exigida por qualquer action já existente.
+
+- 🔴 **Medir o alcance por DIRETÓRIO deixa passar o consumidor gêmeo.** O commit H0 (23/08/2026)
+  mediu *"os 15 call-sites são consumidos apenas de `/admin`"* — e `listarVagas` /
+  `gerarRankingVaga` também eram consumidos de `/dashboard/gestor/selecao`, a única tela de verbo
+  do papel `rh`. Ela quebrou em produção e **ninguém viu**: 0 eventos `gate.forbidden` em
+  `admin_audit_log`, porque o único RH de cliente real não abriu a tela naquela semana.
+  Antes de virar a chave, grepe o consumidor em `app/dashboard/**` e `app/api/**`, não só onde a
+  régua nasceu.
+- ⚠️ **Cadeia, não call-site.** Afrouxar o gate de cima não resolve: `gerarRankingVaga` chama
+  `gerarRelatorioAdequacao` e `exportarRankingPDFAdmin`, ambos com o MESMO `admin.access` por
+  baixo. Siga a cadeia até o fim antes de prometer que a tela volta.
+- 🔑 **Encolher um papel desliga varredura junto.** `tests/unit/security/gate-permissao-guard.test.ts`
+  lê `BASE_ROLE_PERMISSIONS.rh` da FONTE: tirar uma permissão do papel remove os exports gatados
+  por ela do escopo do guard, que continua **verde varrendo menos**. Se for cortar, congele a
+  lista do guard no mesmo commit.
+- ✅ **Denominador de quem sente:** conte quem tem o papel e **não** é platform admin — o ramo de
+  plataforma curto-circuita todo gate, então testar com a equipe Vertho não reproduz nada.
+
+Detalhe: memória `project_rh_admin_da_empresa`.
