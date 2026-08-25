@@ -89,6 +89,37 @@ export async function listarModelosDoProvedor(
   }
 }
 
+/**
+ * O provedor deste modelo exige `max_completion_tokens` em vez de `max_tokens`?
+ *
+ * 🔴 MEDIDO EM 25/08/2026, mandando teto 100 e olhando `completion_tokens`:
+ *
+ *   modelo           max_tokens:100      max_completion_tokens:100
+ *   qwen3.8-max      **1.675** 🔴        102 ✅
+ *   muse-spark-1.2   100 ✅              100 ✅
+ *   kimi-k3          100 ✅              100 ✅
+ *   grok-4.6         100 ✅              100 ✅
+ *
+ * O Qwen IGNORA `max_tokens` — 16× o teto pedido. Até esta correção o `isNew`
+ * testava só `gpt-5|o1|o3|o4`, então `qwen*` recebia o campo legado e rodava
+ * SEM TETO EFETIVO: no piloto de cenários, 10 de 10 chamadas passaram dos 6.144
+ * que o código achava estar impondo, uma chegou a 16.735.
+ *
+ * Teto que o código pensa que aplica e o provedor ignora é pior que teto ausente:
+ * a conta de custo, a comparação entre modelos e o gate de `maxDuration` são
+ * todos feitos sobre um número que não existe.
+ *
+ * Os quatro honram `max_completion_tokens`, então mandar o campo novo para todos
+ * os OpenAI-compatible é seguro e elimina a lista por prefixo — que era a fonte
+ * do bug (um provedor novo entra e ninguém lembra de acrescentá-lo).
+ */
+export function usaMaxCompletionTokens(modelId: string): boolean {
+  const m = String(modelId || '');
+  if (m.startsWith('gpt-5') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return true;
+  // Todo provedor OpenAI-compatible com entrada própria: verificado acima.
+  return PROVEDORES_OPENAI_COMPAT.some((p) => m.startsWith(p.prefixo));
+}
+
 /** Prefixos nativos da OpenAI (mesma base/chave default, sem entrada própria). */
 const PREFIXOS_OPENAI_NATIVOS = ['gpt', 'o1', 'o3', 'o4'] as const;
 

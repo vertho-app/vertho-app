@@ -31,7 +31,7 @@ import { costFromTokens } from '@/lib/ia-cost-catalog';
 // (A8, ver o cabeçalho acima). A regra de ORGANIZAÇÃO continua: predicado puro
 // mora em `lib/`, não aqui.
 import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
-import { PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto } from '@/lib/ai-provedores';
+import { PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, usaMaxCompletionTokens } from '@/lib/ai-provedores';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -274,6 +274,17 @@ interface LedgerUsage {
   outTokens: number;
   cacheRead?: number;
   cacheWrite?: number;
+  /**
+   * Motivo de parada do provedor, normalizado. `'truncado'` quando a resposta
+   * bateu no teto (`max_tokens` / `length` / `MAX_TOKENS`).
+   *
+   * Existe porque em 25/08 descobriu-se que `ia4_avaliacao` truncava em 19,9%
+   * das chamadas com Sonnet 5 — e a ÚNICA forma de detectar era a coincidência
+   * `output_tokens == teto`, que só funciona quando se sabe o teto e ele nunca
+   * mudou. Sem este campo, "quais avaliações foram cortadas" é irrespondível
+   * retroativamente, que foi exatamente o que aconteceu.
+   */
+  truncou?: boolean;
 }
 
 async function registrarUsoIA(
@@ -304,7 +315,9 @@ async function registrarUsoIA(
       cache_write_tokens: write || null,
       cost_usd: costFromTokens(model, u),
       latency_ms: latencyMs,
-      status: 'ok',
+      // `status` era a constante 'ok' — coluna que nunca variava. Agora carrega
+      // a truncagem, sem precisar de migration.
+      status: u.truncou ? 'truncado' : 'ok',
       source: options.source || 'wrapper',
     });
   } catch (e: any) {
@@ -426,8 +439,11 @@ async function callClaude(
           uso.inTokens = event.message.usage.input_tokens || 0;
           uso.cacheRead = event.message.usage.cache_read_input_tokens || 0;
           uso.cacheWrite = event.message.usage.cache_creation_input_tokens || 0;
-        } else if (event.type === 'message_delta' && event.usage?.output_tokens != null) {
-          uso.outTokens = event.usage.output_tokens;
+        } else if (event.type === 'message_delta') {
+          if (event.usage?.output_tokens != null) uso.outTokens = event.usage.output_tokens;
+          // `max_tokens` aqui = resposta cortada no teto. No stream o sinal vem
+          // no delta; sem lê-lo, truncagem só apareceria como coincidência.
+          if (event.delta?.stop_reason === 'max_tokens') uso.truncou = true;
         }
       }
       await registrarUsoIA('anthropic', model, uso, Date.now() - t0, options);
@@ -442,6 +458,7 @@ async function callClaude(
   await registrarUsoIA('anthropic', model, u ? {
     inTokens: u.input_tokens || 0, outTokens: u.output_tokens || 0,
     cacheRead: u.cache_read_input_tokens || 0, cacheWrite: u.cache_creation_input_tokens || 0,
+    truncou: (response as any).stop_reason === 'max_tokens',
   } : null, Date.now() - t0, options);
   // Sempre extrai o bloco de texto (não content[0]): modelos com adaptive
   // thinking por padrão (Sonnet 5, Opus 4.8+) devolvem `thinking` em content[0].
@@ -564,6 +581,7 @@ async function callClaudeChat(
   await registrarUsoIA('anthropic', model, u ? {
     inTokens: u.input_tokens || 0, outTokens: u.output_tokens || 0,
     cacheRead: u.cache_read_input_tokens || 0, cacheWrite: u.cache_creation_input_tokens || 0,
+    truncou: (response as any).stop_reason === 'max_tokens',
   } : null, Date.now() - t0, options);
   // Sempre extrai o bloco de texto (não content[0]): modelos com adaptive
   // thinking por padrão (Sonnet 5, Opus 4.8+) devolvem um bloco `thinking` em
@@ -610,6 +628,7 @@ async function callGemini(
     inTokens: (um.promptTokenCount || 0) - (um.cachedContentTokenCount || 0),
     outTokens: um.candidatesTokenCount || 0,
     cacheRead: um.cachedContentTokenCount || 0,
+    truncou: data?.candidates?.[0]?.finishReason === 'MAX_TOKENS',
   } : null, Date.now() - t0, options);
   return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
@@ -675,10 +694,14 @@ async function callOpenAI(
   const { apiKey, url, provider } = resolverProvedorCompat(model);
   const t0 = Date.now();
 
-  const isNew = model.startsWith('gpt-5') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
+  // `usaMaxCompletionTokens` vive em lib/ai-provedores porque a mesma pergunta
+  // era feita nos DOIS gêmeos (callOpenAI e callOpenAIChat) — o padrão que este
+  // arquivo já documenta como "quem adicionasse só num deles teria o modelo
+  // funcionando em callAI e falhando em callAIChat". Medido em 25/08: o Qwen
+  // ignora `max_tokens` e rodava sem teto efetivo.
   const body: any = {
     model,
-    ...(isNew ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
+    ...(usaMaxCompletionTokens(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
     ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
     messages: [
       { role: 'system', content: system },
@@ -708,6 +731,7 @@ async function callOpenAI(
     inTokens: (uo.prompt_tokens || 0) - cachedIn,
     outTokens: uo.completion_tokens || 0,
     cacheRead: cachedIn,
+    truncou: data.choices?.[0]?.finish_reason === 'length',
   } : null, Date.now() - t0, options);
   return conteudoOuFalhaAlto(data, model);
 }
@@ -756,6 +780,7 @@ async function callGeminiChat(
     inTokens: (um.promptTokenCount || 0) - (um.cachedContentTokenCount || 0),
     outTokens: um.candidatesTokenCount || 0,
     cacheRead: um.cachedContentTokenCount || 0,
+    truncou: data?.candidates?.[0]?.finishReason === 'MAX_TOKENS',
   } : null, Date.now() - t0, options);
   return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
@@ -770,10 +795,14 @@ async function callOpenAIChat(
   const { apiKey, url, provider } = resolverProvedorCompat(model);
   const t0 = Date.now();
 
-  const isNew = model.startsWith('gpt-5') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
+  // `usaMaxCompletionTokens` vive em lib/ai-provedores porque a mesma pergunta
+  // era feita nos DOIS gêmeos (callOpenAI e callOpenAIChat) — o padrão que este
+  // arquivo já documenta como "quem adicionasse só num deles teria o modelo
+  // funcionando em callAI e falhando em callAIChat". Medido em 25/08: o Qwen
+  // ignora `max_tokens` e rodava sem teto efetivo.
   const body: any = {
     model,
-    ...(isNew ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
+    ...(usaMaxCompletionTokens(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
     ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
     messages: [{ role: 'system', content: system }, ...messages],
   };
@@ -800,6 +829,7 @@ async function callOpenAIChat(
     inTokens: (uo.prompt_tokens || 0) - cachedIn,
     outTokens: uo.completion_tokens || 0,
     cacheRead: cachedIn,
+    truncou: data.choices?.[0]?.finish_reason === 'length',
   } : null, Date.now() - t0, options);
   return conteudoOuFalhaAlto(data, model);
 }

@@ -144,6 +144,23 @@ describe('Dual-IA — auditor de família diferente do gerador', () => {
     }
   });
 
+  it('todo OpenAI-compatible recebe max_completion_tokens (o Qwen ignora max_tokens)', async () => {
+    const { usaMaxCompletionTokens, PROVEDORES_OPENAI_COMPAT } = await import('@/lib/ai-provedores');
+    // `Medido em 25/08/2026` mandando teto 100 e lendo completion_tokens:
+    //   qwen3.8-max  com max_tokens → 1.675 🔴 ; com max_completion_tokens → 102 ✅
+    //   muse/kimi/grok → honram os dois.
+    // O `isNew` antigo testava só gpt-5|o1|o3|o4, então o Qwen rodava SEM TETO
+    // EFETIVO: 10 de 10 chamadas do piloto passaram dos 6.144 pedidos.
+    expect(usaMaxCompletionTokens('qwen3.8-max'), 'qwen SEM max_completion_tokens roda sem teto').toBe(true);
+    for (const p of PROVEDORES_OPENAI_COMPAT) {
+      expect(usaMaxCompletionTokens(`${p.prefixo}-x`), `provedor ${p.prefixo} ficaria no campo legado`).toBe(true);
+    }
+    expect(usaMaxCompletionTokens('gpt-5.6-terra')).toBe(true);
+    // Claude e Gemini não passam por este caminho — têm ramo próprio no dispatch.
+    expect(usaMaxCompletionTokens('claude-sonnet-5')).toBe(false);
+    expect(usaMaxCompletionTokens('gemini-3.7-flash')).toBe(false);
+  });
+
   it('todo provedor OpenAI-compatible declara prefixo, provider, env e url', async () => {
     const { PROVEDORES_OPENAI_COMPAT } = await import('@/lib/ai-provedores');
     for (const p of PROVEDORES_OPENAI_COMPAT) {

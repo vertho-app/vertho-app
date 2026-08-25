@@ -88,10 +88,33 @@ describe('ai-client · provedores OpenAI-compatible', () => {
     ).toBe('xai');
   });
 
-  it('grok manda max_tokens (não max_completion_tokens, que é dos gpt-5/o-series)', async () => {
-    await callAI('SYS', 'USER', { model: 'grok-4.6' }, 777);
-    expect(ultima().body.max_tokens).toBe(777);
-    expect(ultima().body.max_completion_tokens).toBeUndefined();
+  /**
+   * 🔴 INVERTIDO EM 25/08/2026. Este teste dizia "grok manda max_tokens (não
+   * max_completion_tokens, que é dos gpt-5/o-series)" — uma afirmação sobre a
+   * SPEC da OpenAI, não sobre o que os provedores fazem.
+   *
+   * `Medido:` mandando teto 100 e lendo `completion_tokens` na API real:
+   *   qwen3.8-max     · max_tokens → **1.675** 🔴  · max_completion_tokens → 102 ✅
+   *   muse-spark-1.2  · 100 ✅                      · 100 ✅
+   *   kimi-k3         · 100 ✅                      · 100 ✅
+   *   grok-4.6        · 100 ✅                      · 100 ✅
+   *
+   * O Qwen IGNORA `max_tokens`: 16× o teto pedido. Enquanto a regra era uma
+   * LISTA DE PREFIXOS (`gpt-5|o1|o3|o4`), todo provedor novo entrava por fora
+   * dela e rodava sem teto efetivo — foi o que aconteceu: no piloto de cenários,
+   * 10 de 10 chamadas do Qwen passaram dos 6.144 que o código achava impor.
+   *
+   * A regra passou a ser única (todo OpenAI-compatible manda o campo novo)
+   * justamente para não haver lista que alguém esqueça de atualizar. O Grok
+   * honra os dois, então mudá-lo é neutro — e o que se ganha é a ausência da
+   * lista, que era a fonte do bug.
+   */
+  it('todo OpenAI-compatible manda max_completion_tokens — sem lista de prefixos', async () => {
+    for (const modelo of ['grok-4.6', 'kimi-k3', 'gpt-5.6-terra']) {
+      await callAI('SYS', 'USER', { model: modelo }, 777);
+      expect(ultima().body.max_completion_tokens, `${modelo} ficou no campo legado`).toBe(777);
+      expect(ultima().body.max_tokens, `${modelo} mandou os dois campos`).toBeUndefined();
+    }
   });
 
   it('chave ausente falha com o nome da variável que falta', async () => {
