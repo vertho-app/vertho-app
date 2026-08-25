@@ -82,6 +82,8 @@ const f2 = (n: number) => (Number.isFinite(n) ? n.toFixed(2) : ' -- ');
       evidencias: extracao.evidencias,
       consolidacao,
       falasDoAvaliado: r.estado.historico.filter((m: any) => m.role === 'user').map((m: any) => m.content),
+      historico: r.estado.historico,
+      modo: ctx.modo,
     });
     const erros = violacoes.filter((x) => x.severidade === 'erro');
     if (erros.length) {

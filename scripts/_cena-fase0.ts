@@ -24,7 +24,7 @@
 //   npx tsx scripts/_cena-fase0.ts cena ibipeba DIR08 --niveis 1,3 --saida cena-dir08.json
 process.loadEnvFile('.env.local');
 
-import { writeFileSync } from 'node:fs';
+import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { tenantDb } from '@/lib/tenant-db';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import { buscarContextoPPP } from '@/lib/ia2-gabarito';
@@ -34,6 +34,10 @@ import {
   type ContextoCena, type DescritorDaRegua, type EstadoCena, type PersonaInterlocutor,
 } from '@/lib/season-engine/cena/core';
 import { consolidarCena, montarBeatsDaCena, type PerguntaIA3 } from '@/lib/season-engine/cena/beats';
+import { promptAlunoSimulado } from '@/lib/season-engine/cena/prompts';
+import {
+  adquirirLock, carregarShards, escreverAtomico, shardPath,
+} from '@/lib/season-engine/cena/arquivo';
 import { validarSaidaDaCena, saidaConfiavel } from '@/lib/season-engine/cena/validar-saida';
 
 // O aluno é OVERHEAD de medição (netável pelo `source: 'simulator'`), mas o
@@ -138,25 +142,6 @@ async function lerCenario(empresaId: string, cargo: string, codComp: string) {
 // Aluno simulado
 // ─────────────────────────────────────────────────────────────────────────────
 
-function systemAluno(cargo: string, nivel: 1 | 2 | 3 | 4, descritores: DescritorDaRegua[]) {
-  const faixa = { 1: 'n1', 2: 'n2', 3: 'n3', 4: 'n4' }[nivel] as 'n1' | 'n2' | 'n3' | 'n4';
-  return `Você é ${cargo} e está numa conversa difícil de trabalho, ao vivo.
-
-Você NÃO é assistente. Você é esta pessoa, respondendo em tempo real.
-
-═══ SEU NÍVEL DE MATURIDADE ═══
-Você se comporta EXATAMENTE assim — nem melhor, nem pior:
-${descritores.map((d) => `- ${d.nomeCurto}: ${d[faixa]}`).join('\n')}
-
-═══ COMO RESPONDER ═══
-- Português do Brasil, primeira pessoa, no máximo 70 palavras.
-- Fala de conversa, não de redação. Sem títulos, sem listas, sem "em primeiro lugar".
-- Não narre o que você está fazendo. Fale.
-- NUNCA mencione nível, competência, descritor, avaliação ou que isto é uma simulação.
-- Se o seu nível é baixo, deixe as fraquezas aparecerem naturalmente: generalize,
-  desconverse, prometa sem critério, ceda cedo ou endureça sem escutar. Não corrija o rumo.`;
-}
-
 async function falaDoAluno(
   cargo: string, nivel: 1 | 2 | 3 | 4, descritores: DescritorDaRegua[], estado: EstadoCena,
 ) {
@@ -165,7 +150,7 @@ async function falaDoAluno(
     role: (m.role === 'assistant' ? 'user' : 'assistant') as 'user' | 'assistant',
     content: m.content.replace(/\[META\][\s\S]*?\[\/META\]/g, '').trim(),
   }));
-  return (await callAIChat(systemAluno(cargo, nivel, descritores), msgs, MODELO_ALUNO, 1200, {
+  return (await callAIChat(promptAlunoSimulado(cargo, nivel, descritores), msgs, MODELO_ALUNO, 1200, {
     temperature: 0.8, reasoningEffort: 'low', taskKey: 'sim_aluno', ...LEDGER_SIM,
   })).trim();
 }
@@ -270,6 +255,8 @@ async function rodarUmaCena(
         evidencias: extracao.evidencias,
         consolidacao,
         falasDoAvaliado: estado.historico.filter((m) => m.role === 'user').map((m) => m.content),
+        historico: estado.historico,
+        modo: ctx.modo,
       })
     : [{ severidade: 'erro' as const, campo: 'extracao', detalhe: 'extração ausente' }];
 
@@ -353,31 +340,61 @@ async function cmdCena(slug: string, codComp: string) {
   console.log(`Cede quando: ${persona.o_que_faz_ceder}`);
 
   const saidaParcial = arg('saida', `cena-${slug}-${codComp.toLowerCase()}.json`);
-  const gravar = (rs: any[]) => writeFileSync(
-    saidaParcial,
-    JSON.stringify({ cenarioId: cen.id, ctx: { ...ctx, descritores }, persona, rodadas: rs }, null, 2),
-  );
+  const payload = (rs: any[]) => ({ cenarioId: cen.id, ctx: { ...ctx, descritores }, persona, rodadas: rs });
+  const gravarCombinado = (rs: any[]) => {
+    escreverAtomico(saidaParcial, payload(rs));
+    const bytes = existsSync(saidaParcial) ? statSync(saidaParcial).size : 0;
+    console.log(`  … ${rs.length}/${niveis.length} cenas no combinado ${saidaParcial} (${bytes} bytes)`);
+  };
 
   /**
-   * Grava DEPOIS DE CADA CENA, não no fim.
+   * Grava CADA cena num shard atômico (`foo.r06.json`) ANTES de atualizar o
+   * combinado. Retoma do primeiro shard ausente. Dois processos no mesmo
+   * `--saida` batem no lock.
    *
-   * 🔴 Custo medido (24/08/2026): uma rodada de n=5 foi interrompida com 9 das
-   * 10 cenas já extraídas, e **US$ 3,48 viraram zero resultado** — o script
-   * montava `rodadas` em memória e só serializava na última linha. Trabalho de
-   * 40 minutos que não sobrevive a um Ctrl+C não é medição, é aposta.
-   *
-   * O arquivo parcial também serve de retomada: dá para ler o que já rodou em
-   * vez de repagar tudo.
+   * 🔴 Fase 0c (25/08/2026): o log dizia 10, o arquivo tinha 9, a linha "6/10"
+   * nunca saiu. `writeFileSync` truncava o destino; restart começava
+   * `rodadas = []` e apagava o que já existia; dois processos se sobrescreviam.
    */
-  const rodadas: any[] = [];
-  for (const nivel of niveis) {
-    rodadas.push(await rodarUmaCena(ctx, persona, cargo, nivel, teto, emp.id));
-    gravar(rodadas);
-    console.log(`  … ${rodadas.length}/${niveis.length} cenas gravadas em ${saidaParcial}`);
+  const unlock = adquirirLock(saidaParcial);
+  let rodadas: any[] = [];
+  try {
+    rodadas = carregarShards(saidaParcial, niveis.length) as any[];
+    if (rodadas.length) {
+      console.log(`  ↺ retomando de ${rodadas.length}/${niveis.length} shards já gravados`);
+    }
+    for (let i = rodadas.length; i < niveis.length; i++) {
+      const nivel = niveis[i];
+      const n = i + 1;
+      console.log(`  ▶ cena ${n}/${niveis.length} N${nivel} — começando`);
+      let r: any;
+      try {
+        r = await rodarUmaCena(ctx, persona, cargo, nivel, teto, emp.id);
+      } catch (e: any) {
+        r = {
+          nivel, erro: String(e?.stack || e), confiavel: false,
+          consolidacao: null, extracao: null, estado: null, transcricao: '',
+          violacoes: [{ severidade: 'erro', campo: 'execucao', detalhe: String(e) }],
+        };
+        console.log(`  [N${nivel}] ✗ CENA ${n} QUEBROU — shard gravado como erro, as outras seguem`);
+        console.log(`        ${String(e).slice(0, 200)}`);
+      }
+      const shard = shardPath(saidaParcial, n);
+      escreverAtomico(shard, r);
+      rodadas.push(r);
+      gravarCombinado(rodadas);
+      console.log(`  ✔ cena ${n}/${niveis.length} shard ${shard}`);
+    }
+  } finally {
+    unlock();
   }
 
   console.log(`\n${'═'.repeat(72)}\nRELATÓRIO DA FASE 0\n${'═'.repeat(72)}`);
   for (const r of rodadas) {
+    if (r.erro || !r.estado) {
+      console.log(`\n[aluno N${r.nivel}]  ✗ QUEBROU: ${String(r.erro || 'sem estado').slice(0, 180)}`);
+      continue;
+    }
     const c = r.consolidacao;
     console.log(`\n[aluno N${r.nivel}]  turnos ${r.estado.turno}  fim: ${r.estado.motivoFim}`);
     console.log(`  beats cumpridos:      ${r.estado.beatsCumpridos.join(', ') || 'nenhum'}`);
@@ -407,9 +424,8 @@ async function cmdCena(slug: string, codComp: string) {
       : '  → NÃO separa. A cena não discrimina; corrigir o prompt antes de seguir.');
   }
 
-  const saida = arg('saida', `cena-${slug}-${codComp.toLowerCase()}.json`);
-  writeFileSync(saida, JSON.stringify({ cenarioId: cen.id, ctx: { ...ctx, descritores }, persona, rodadas }, null, 2));
-  console.log(`\n→ ${saida}\n`);
+  gravarCombinado(rodadas);
+  console.log(`\n→ ${saidaParcial}\n`);
 }
 
 async function main() {

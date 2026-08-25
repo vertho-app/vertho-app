@@ -23,31 +23,15 @@
 //
 // Uso: npx tsx scripts/_cena-auditar-provocado.ts cena-fase0c-reextraido.json cena-fase0c.json
 import { readFileSync } from 'node:fs';
+// O detector é o MESMO que o validador usa em produção. Uma cópia aqui daria
+// dois números para a mesma pergunta, e o script é justamente o que decide se
+// a régua de produção está certa — medir a cópia não mediria nada.
+import { classificarCitacao, elementosConcretos, falaAnteriorDoInterlocutor } from '@/lib/season-engine/cena/ditado';
 
 const B = JSON.parse(readFileSync(process.argv[2], 'utf-8'));
 const origem = JSON.parse(readFileSync(process.argv[3], 'utf-8'));
 const ctx = B.ctx;
 const NOTA: Record<string, number> = { n1_gap: 1.4, n2_em_desenvolvimento: 2.2, n3_meta: 3.2 };
-
-const norm = (t: string) =>
-  String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-
-/**
- * Os "elementos concretos" que o prompt manda observar: número, prazo, nome.
- * Palavra comum não conta — o teste é se o CONTEÚDO veio pronto, não se as
- * duas falas usam as mesmas preposições.
- */
-const PARADAS = new Set(['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo']);
-function concretos(t: string): string[] {
-  const s = String(t ?? '');
-  const nums = (s.match(/\b\d+([.,]\d+)?\b/g) ?? []);
-  const numExtenso = (norm(s).match(/\b(um|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\b/g) ?? []);
-  const dias = (norm(s).match(/\b(segunda|terca|quarta|quinta|sexta|sabado|domingo)\b/g) ?? []);
-  // Nome próprio: capitalizada que não abre a frase.
-  const nomes = (s.match(/(?<![.!?]\s|^)\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]{2,}\b/g) ?? [])
-    .filter((n) => !PARADAS.has(norm(n)));
-  return [...new Set([...nums, ...numExtenso, ...dias, ...nomes.map(norm)])];
-}
 
 let aberturasTotal = 0, aberturasProv = 0;
 const porBraco: Record<number, { tot: number; prov: number }> = { 1: { tot: 0, prov: 0 }, 3: { tot: 0, prov: 0 } };
@@ -73,14 +57,14 @@ for (let k = 0; k < B.rodadas.length; k++) {
 
     // ── ditado × produção sob demanda ────────────────────────────────────
     if (e.provocado) {
-      const idx = hist.findIndex((m) => m.role === 'user' && m.turno === e.turno);
-      const antes = idx > 0 ? hist.slice(0, idx).reverse().find((m) => m.role === 'assistant') : null;
-      const cs = concretos(e.citacao);
-      if (!cs.length) semConcreto++;
-      else if (antes && cs.some((c) => norm(antes.content).includes(norm(c)))) ditado++;
+      const anterior = falaAnteriorDoInterlocutor(hist as any, e.turno);
+      const v = classificarCitacao(e.citacao, anterior);
+      if (v === 'sem_elemento') semConcreto++;
+      else if (v === 'ditado') ditado++;
       else {
         sobDemanda++;
         if (amostraSobDemanda.length < 5) {
+          const cs = elementosConcretos(e.citacao);
           amostraSobDemanda.push(`D${e.indice} t${e.turno} [${cs.slice(0, 3).join(', ')}] "${String(e.citacao).slice(0, 90)}"`);
         }
       }
@@ -129,4 +113,4 @@ if (amostraSobDemanda.length) {
 
 console.log('\n5 · A ASSIMETRIA DE SUPRESSÃO');
 console.log(`   rodadas em que a régua de baixa confiança derrubaria o rótulo: ${suprimidasPorConfianca} de ${B.rodadas.length}`);
-console.log('   (o encerramento aplica essa régua; a abertura HOJE não — se ela virar o rótulo, tem de aplicar)\n');
+console.log('   (desde 25/08 a régua vale para as duas leituras — este número diz se isso mudou algo)\n');

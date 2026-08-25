@@ -156,7 +156,7 @@ describe('3 · o juiz avalia o beat PROVOCADO, não o próximo pendente', () => 
     historico: [{ role: 'assistant', content: 'Olha.', turno: 1 }],
     turno: 1, beatsCumpridos: [], descritoresTocados: [], turnosSemAvanco: 0,
     beatProvocado: 1, condicaoSatisfeita: false, concluida: false, motivoFim: null,
-    encerramentosNegados: [], bloqueios: [], ...over,
+    encerramentosNegados: [], bloqueios: [], ditados: [], ...over,
   });
 
   it('julga o beat 1 mesmo quando o próximo pendente já é o 2', async () => {

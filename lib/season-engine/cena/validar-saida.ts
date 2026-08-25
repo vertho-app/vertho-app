@@ -23,6 +23,7 @@
  */
 
 import { nivelDaEvidencia, type ConsolidacaoCena, type EvidenciaDescritor } from './beats';
+import { medirDitado, TETO_DITADO, type FalaDaCena } from './ditado';
 
 export type Severidade = 'erro' | 'aviso';
 
@@ -42,6 +43,20 @@ export interface EntradaValidacao {
   consolidacao: ConsolidacaoCena;
   /** Só as falas do AVALIADO — é nelas que a citação tem de existir. */
   falasDoAvaliado: string[];
+  /**
+   * O histórico COM os papéis, para medir ditação. Opcional: sem ele a
+   * checagem não roda — e é melhor não rodar do que rodar sobre metade dos
+   * dados e devolver uma taxa que parece medida e não é.
+   */
+  historico?: FalaDaCena[];
+  /**
+   * `medicao` (default) aplica o teto de ditação; `ensaio` não.
+   *
+   * O default é o estrito de propósito: quem esquecer o campo numa cena de
+   * medição recebe o teto; quem esquecer num ensaio recebe um aviso a mais.
+   * O erro caro é o outro — medir com o interlocutor ensinando.
+   */
+  modo?: 'medicao' | 'ensaio';
 }
 
 /**
@@ -155,6 +170,25 @@ export function validarSaidaDaCena(e: EntradaValidacao): Violacao[] {
     if (ausentes.length) {
       erro('evidencias.citacao',
         `D${ev.indice}: citação NÃO aparece na fala do avaliado — paráfrase ou invenção: "${ev.citacao.slice(0, 70)}"`);
+    }
+  }
+
+  // ── O interlocutor ENSINOU? ───────────────────────────────────────────────
+  //
+  // Prompt pede, código garante. O prompt do interlocutor proíbe nomear o
+  // elemento que falta; aqui se confere se ele obedeceu — contando quantas
+  // citações trazem elemento concreto que já estava na fala anterior DELE.
+  //
+  // Numa cena de medição isso é ERRO, não aviso: uma cena em que o andaime
+  // aparece no lugar do comportamento não mede o que diz medir, e a régua do
+  // FMEA para construção é falhar alto.
+  if (e.historico?.length && (e.modo ?? 'medicao') === 'medicao') {
+    const d = medirDitado(e.evidencias, e.historico);
+    if (d.taxa != null && d.taxa > TETO_DITADO) {
+      erro('cena.ditado',
+        `${d.ditadas} de ${d.ditadas + d.proprias} citações repetem elemento que o interlocutor ` +
+        `já tinha dito (${(100 * d.taxa).toFixed(0)}%, teto ${(100 * TETO_DITADO).toFixed(0)}%) — ` +
+        'a cena ensinou a resposta antes de medi-la');
     }
   }
 

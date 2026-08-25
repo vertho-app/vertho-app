@@ -24,7 +24,8 @@ import {
 } from './beats';
 import {
   buildInstrucaoDoBeat, buildInterlocutorSystemEstavel,
-  promptExtracao, promptGuarda, promptJuizDeBeat, promptPersona, promptTriagemAdequacao,
+  promptExtracao, promptGuarda, promptGuardaDoInterlocutor, promptJuizDeBeat, promptPersona,
+  promptTriagemAdequacao,
   type ContextoCena, type DescritorDaRegua, type PersonaInterlocutor,
 } from './prompts';
 
@@ -120,6 +121,16 @@ export interface EstadoCena {
   encerramentosNegados: Array<{ turno: number; beat: number }>;
   /** Turnos barrados pelo guarda (tentativa de sair do papel, vazio, impróprio). */
   bloqueios: Array<{ turno: number; veredito: string; motivo: string }>;
+  /**
+   * Turnos em que o INTERLOCUTOR entregou o elemento que devia só cobrar.
+   *
+   * Registra o que sobrou DEPOIS da regeneração — a primeira tentativa some, e
+   * é isso que se quer: o que importa para a medida é a fala que chegou à
+   * pessoa. Lista não-vazia numa cena de medição é sinal de que o personagem
+   * está ensinando, e o teto de ditação (`lib/.../ditado.ts`) confere o efeito
+   * disso nas citações. Um degrada e conta; o outro reprova a cena.
+   */
+  ditados: Array<{ turno: number; elemento: string }>;
 }
 
 export interface PIICena {
@@ -240,6 +251,7 @@ export function abrirCena(
       motivoFim: null,
       encerramentosNegados: [],
       bloqueios: [],
+      ditados: [],
     },
     fala,
   };
@@ -314,6 +326,33 @@ export interface ResultadoTurno {
  * gera nota, convencer o personagem a sair do papel é colar na prova, e o
  * caminho mais barato de impedir é não entregar o texto.
  */
+/**
+ * O interlocutor entregou o elemento que devia só cobrar?
+ *
+ * Mesma política de indisponibilidade do `checarGuarda`: se o leitor cair, a
+ * cena SEGUE. Barrar o personagem por falha do modelo barato pararia uma
+ * avaliação ao vivo por um problema que não é dela — e o teto de ditação
+ * confere o efeito depois, sobre as citações, sem depender de IA nenhuma.
+ * Degradar aqui é seguro justamente porque a rede de baixo é de código.
+ */
+export async function checarDitado(
+  fala: string,
+  beat: BeatDaCena,
+  opts: OpcoesCena = {},
+): Promise<{ dita: boolean; elemento: string }> {
+  const { system, user } = promptGuardaDoInterlocutor(fala, beat);
+  try {
+    const raw = await callAI(system, user, MODELO_LEITOR, MAX_TOKENS.leitor, {
+      temperature: 0, reasoningEffort: 'low',
+      ...opcoesLedger(opts, 'cena_guarda_interlocutor'),
+    });
+    const r = parseJsonIA<{ dita_formato?: boolean; elemento?: string }>(raw);
+    return { dita: r?.dita_formato === true, elemento: String(r?.elemento ?? '') };
+  } catch {
+    return { dita: false, elemento: '' };
+  }
+}
+
 export async function turnoCena(
   ctx: ContextoCena,
   persona: PersonaInterlocutor,
@@ -330,6 +369,7 @@ export async function turnoCena(
       estado: {
         ...estado,
         bloqueios: [...estado.bloqueios, { turno: estado.turno, veredito: guarda.veredito, motivo: guarda.motivo }],
+        ditados: estado.ditados,
       },
       fala: '',
       concluida: false,
@@ -378,7 +418,7 @@ export async function turnoCena(
     .map((m) => `${m.role === 'user' ? 'AVALIADO' : 'INTERLOCUTOR'}: ${stripMeta(m.content)}`)
     .join('\n\n');
 
-  const [raw, julgamento] = await Promise.all([
+  const [rawInicial, julgamento] = await Promise.all([
     callAIChat(
       buildInterlocutorSystemEstavel(ctx, persona, teto),
       histParaIA(historico, opts.pii),
@@ -387,13 +427,51 @@ export async function turnoCena(
       {
         temperature: 0.85, // personagem, não avaliador: variação é realismo
         reasoningEffort: 'low', // presença, não deliberação — e a cena é ao vivo
-        systemSuffix: buildInstrucaoDoBeat(beatAProvocar, novoTurno, teto),
+        systemSuffix: buildInstrucaoDoBeat(beatAProvocar, novoTurno, teto, ctx.modo),
         ...opcoesLedger(opts, 'cena_turno'),
       },
     ),
     // O beat NÃO é marcado pelo [META] do personagem — ver `julgarBeat`.
     julgarBeat(beatJulgado, janela, mensagem, opts),
   ]);
+
+  /**
+   * UMA regeneração quando o personagem entrega o elemento em vez de cobrá-lo.
+   *
+   * Uma, e não um laço: com teto, a cena tem um custo previsível e não trava
+   * numa fala que o leitor insiste em reprovar. O que passar da segunda vez
+   * fica REGISTRADO em `estado.ditados` em vez de sumir — fallback silencioso é
+   * o que esta base proíbe, e a taxa de ditação medida depois sobre as citações
+   * é que decide se a cena vale como medida.
+   *
+   * Só em cena de medição: no ensaio, mostrar a forma é o produto.
+   */
+  let raw = rawInicial;
+  const ditadosNoTurno: Array<{ turno: number; elemento: string }> = [];
+  if ((ctx.modo ?? 'medicao') === 'medicao') {
+    const primeiro = await checarDitado(stripMeta(rawInicial), beatAProvocar, opts);
+    if (primeiro.dita) {
+      const segundo = await callAIChat(
+        buildInterlocutorSystemEstavel(ctx, persona, teto),
+        histParaIA(historico, opts.pii),
+        opts.aiConfig ?? MODELO_PESADO,
+        MAX_TOKENS.turno,
+        {
+          temperature: 0.85,
+          reasoningEffort: 'low',
+          systemSuffix:
+            buildInstrucaoDoBeat(beatAProvocar, novoTurno, teto, ctx.modo) +
+            `\n\n⚠️ Sua resposta anterior ENTREGOU o que você devia só cobrar` +
+            `${primeiro.elemento ? ` (${primeiro.elemento})` : ''}. ` +
+            'Refaça: recuse, cobre a consequência, exija — sem nomear o elemento que falta.',
+          ...opcoesLedger(opts, 'cena_turno'),
+        },
+      );
+      const aindaDita = await checarDitado(stripMeta(segundo), beatAProvocar, opts);
+      raw = segundo;
+      if (aindaDita.dita) ditadosNoTurno.push({ turno: novoTurno, elemento: aindaDita.elemento });
+    }
+  }
 
   const fala = desmascarar(stripMeta(raw), opts.pii);
   const meta = lerMeta(raw);
@@ -438,6 +516,7 @@ export async function turnoCena(
         ? [...estado.encerramentosNegados, { turno: novoTurno, beat: veredicto.negadoPorBeatPendente }]
         : estado.encerramentosNegados,
       bloqueios: estado.bloqueios,
+      ditados: [...estado.ditados, ...ditadosNoTurno],
     },
     fala,
     concluida: veredicto.encerrar,
@@ -497,6 +576,7 @@ export async function extrairEvidenciasCena(
     turno: e.turno == null ? null : Number(e.turno),
     citacao: desmascarar(String(e.citacao ?? ''), opts.pii),
     beat: e.beat == null ? null : Number(e.beat),
+    provocado: e.provocado === true || e.provocado === 'true',
   }));
   return ext;
 }
