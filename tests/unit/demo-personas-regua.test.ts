@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEMO_RESET_TABLES, DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo } from '@/lib/demo/reset-acme-demo';
+import { DEMO_RESET_TABLES, DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo, relatorioIndividualDemoValido } from '@/lib/demo/reset-acme-demo';
 import { DEMO_PERSONAS } from '@/lib/sales/demo-personas';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile, DISC_SOMA_ALVO } from '@/lib/disc-mapeamento';
@@ -17,6 +17,13 @@ import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
 describe('Personas do acme-demo seguem a régua do produto', () => {
   it('limpa relatórios antes de colaboradores para o reset nunca ficar pela metade', () => {
     expect(DEMO_RESET_TABLES.indexOf('relatorios')).toBeLessThan(DEMO_RESET_TABLES.indexOf('colaboradores'));
+  });
+
+  it('só preserva PDI aquecido com competências entre N1 e N4', () => {
+    expect(relatorioIndividualDemoValido({ competencias: [{ nivel_atual: 1 }, { nivel: 4 }] })).toBe(true);
+    expect(relatorioIndividualDemoValido({ competencias: [{ nivel_atual: 0 }] })).toBe(false);
+    expect(relatorioIndividualDemoValido({ competencias: [] })).toBe(false);
+    expect(relatorioIndividualDemoValido('{"competencias":[{"nivel":2}]}')).toBe(true);
   });
   it('personaliza a marca do fixture sem alterar o artefato canônico', () => {
     const original = { descricao: 'A ACME Demo representa a ACME.', nested: ['time da ACME'] };

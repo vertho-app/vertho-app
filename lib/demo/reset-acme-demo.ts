@@ -406,6 +406,34 @@ export const DEMO_RESET_TABLES = [
   'competencias', 'ppp_escolas',
 ] as const;
 
+type DemoWarmSnapshot = {
+  colaboradores: Array<{
+    email: string;
+    comportamental_pdf_path: string | null;
+    comportamental_audio_path: string | null;
+    comportamental_audio_at: string | null;
+  }>;
+  relatorios: Array<{
+    ownerEmail: string | null;
+    tipo: string;
+    conteudo: any;
+    pdf_path: string | null;
+    gerado_em: string | null;
+  }>;
+};
+
+export function relatorioIndividualDemoValido(conteudoRaw: unknown): boolean {
+  let conteudo: any = conteudoRaw;
+  if (typeof conteudoRaw === 'string') {
+    try { conteudo = JSON.parse(conteudoRaw); } catch { return false; }
+  }
+  const competencias = Array.isArray(conteudo?.competencias) ? conteudo.competencias : [];
+  return competencias.length > 0 && competencias.every((competencia: any) => {
+    const nivel = Number(competencia?.nivel_atual ?? competencia?.nivel);
+    return Number.isInteger(nivel) && nivel >= 1 && nivel <= 4;
+  });
+}
+
 export interface DemoAccessResult {
   ok: boolean;
   url?: string;
@@ -492,6 +520,71 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
 
   async function resetTenant(empresaId: string) {
     for (const table of DEMO_RESET_TABLES) await maybeDelete(table, empresaId);
+  }
+
+  async function snapshotWarmArtifacts(empresaId: string): Promise<DemoWarmSnapshot> {
+    const colaboradores = await must('snapshot colaboradores demo', sb.from('colaboradores')
+      .select('id,email,comportamental_pdf_path,comportamental_audio_path,comportamental_audio_at')
+      .eq('empresa_id', empresaId));
+    const relatorios = await must('snapshot relatorios demo', sb.from('relatorios')
+      .select('colaborador_id,tipo,conteudo,pdf_path,gerado_em')
+      .eq('empresa_id', empresaId)
+      .in('tipo', ['individual', 'gestor', 'rh']));
+    const emailPorId = new Map((colaboradores || []).map((colaborador: any) => [colaborador.id, colaborador.email]));
+    return {
+      colaboradores: (colaboradores || [])
+        .filter((colaborador: any) => colaborador.comportamental_pdf_path || colaborador.comportamental_audio_path)
+        .map(({ id, ...colaborador }: any) => colaborador),
+      relatorios: (relatorios || [])
+        .filter((relatorio: any) => relatorio.pdf_path)
+        .filter((relatorio: any) => relatorio.tipo !== 'individual' || relatorioIndividualDemoValido(relatorio.conteudo))
+        .map((relatorio: any) => ({
+          ownerEmail: relatorio.colaborador_id ? emailPorId.get(relatorio.colaborador_id) || null : null,
+          tipo: relatorio.tipo,
+          conteudo: relatorio.conteudo,
+          pdf_path: relatorio.pdf_path,
+          gerado_em: relatorio.gerado_em,
+        })),
+    };
+  }
+
+  async function restoreWarmArtifacts(
+    empresaId: string,
+    personaMap: Map<string, string>,
+    snapshot: DemoWarmSnapshot,
+  ) {
+    const idPorEmail = new Map<string, string>();
+    for (const persona of PERSONAS) {
+      const id = personaMap.get(persona.key);
+      if (id) idPorEmail.set(persona.email, id);
+    }
+    const rhId = personaMap.get(DEMO_RH_PERSONA.key);
+    if (rhId) idPorEmail.set(DEMO_RH_PERSONA.email, rhId);
+
+    for (const artifact of snapshot.colaboradores) {
+      const colaboradorId = idPorEmail.get(artifact.email);
+      if (!colaboradorId) continue;
+      const result = await sb.from('colaboradores').update({
+        comportamental_pdf_path: artifact.comportamental_pdf_path,
+        comportamental_audio_path: artifact.comportamental_audio_path,
+        comportamental_audio_at: artifact.comportamental_audio_at,
+      }).eq('empresa_id', empresaId).eq('id', colaboradorId);
+      if (result.error) throw new Error(`restaurar mídia ${artifact.email}: ${result.error.message}`);
+    }
+
+    for (const relatorio of snapshot.relatorios) {
+      const colaboradorId = relatorio.ownerEmail ? idPorEmail.get(relatorio.ownerEmail) : null;
+      if (relatorio.ownerEmail && !colaboradorId) continue;
+      const result = await sb.from('relatorios').insert({
+        empresa_id: empresaId,
+        colaborador_id: colaboradorId,
+        tipo: relatorio.tipo,
+        conteudo: relatorio.conteudo,
+        pdf_path: relatorio.pdf_path,
+        gerado_em: relatorio.gerado_em || new Date().toISOString(),
+      });
+      if (result.error) throw new Error(`restaurar relatório ${relatorio.tipo}: ${result.error.message}`);
+    }
   }
 
   function demoSysConfig(sourceConfig: any = {}) {
@@ -829,8 +922,8 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   }
 
   // Replay dos artefatos AVALIADOS congelados (mapeamento pronto sem rodar IA no
-  // reset). BEST-EFFORT: falha aqui NÃO derruba o reset — a demo só fica com o
-  // mapeamento não-avaliado (sem regressão). Chaveado por e-mail da persona.
+  // reset). Falha fechada: responder `ok:true` sem estas linhas deixaria as três
+  // visões contando estados diferentes. Chaveado por e-mail da persona.
   async function applyPersonaArtifacts(destId: string, personaMap: Map<string, string>) {
     // Artefatos avaliados: do fixture principal (acme) + do fixture extra
     // (personas demo-only, ex.: Mariana no Financeiro). Chaveados por e-mail.
@@ -848,54 +941,52 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       const colabId = personaMap.get(p.key);
       const a = brand(artifacts[p.email]);
       if (!colabId || !a) continue;
-      try {
-        // Relatório comportamental (DISC) — report_texts congelado → abre sem IA.
-        if (a.report?.report_texts) {
-          await sb.from('colaboradores').update({
-            report_texts: a.report.report_texts,
-            report_generated_at: a.report.report_generated_at || new Date().toISOString(),
-          }).eq('id', colabId);
+      // Relatório comportamental (DISC) — report_texts congelado → abre sem IA.
+      if (a.report?.report_texts) {
+        const result = await sb.from('colaboradores').update({
+          report_texts: a.report.report_texts,
+          report_generated_at: a.report.report_generated_at || new Date().toISOString(),
+        }).eq('id', colabId);
+        if (result.error) throw new Error(`relatório comportamental ${p.email}: ${result.error.message}`);
+      }
+      for (const r of a.respostas || []) {
+        const result = await sb.from('respostas').update({
+          avaliacao_ia: r.avaliacao_ia, nivel_ia4: r.nivel_ia4, nota_ia4: r.nota_ia4,
+          pontos_fortes: r.pontos_fortes, pontos_atencao: r.pontos_atencao,
+          feedback_ia4: r.feedback_ia4, payload_ia4: r.payload_ia4, status_ia4: r.status_ia4,
+        }).eq('colaborador_id', colabId).eq('competencia_nome', r.competencia_nome);
+        if (result.error) throw new Error(`avaliação ${p.email} ${r.competencia_nome}: ${result.error.message}`);
+      }
+      if (a.descriptor_assessments?.length) {
+        // `nivel` é coluna GENERATED ALWAYS — nunca inserir (dá erro).
+        const rows = a.descriptor_assessments.map((d: any) => {
+          const { nivel, ...rest } = d;
+          return { ...rest, empresa_id: destId, colaborador_id: colabId };
+        });
+        const result = await sb.from('descriptor_assessments').insert(rows);
+        if (result.error) throw new Error(`descritores ${p.email}: ${result.error.message}`);
+      }
+      // Trilha (jornada) congelada — conteúdo inline em temporada_plano.
+      if (personaDemoComMapeamentoCompleto(p) && a.trilha?.row) {
+        // Uma trilha pressupõe o Top 5 concluído. O fixture histórico tinha
+        // trilha para o Paulo com só 2/5 competências e fazia as fases da demo
+        // se contradizerem. A data é reancorada no reset para a jornada de
+        // vitrine começar na semana 1, sem nascer artificialmente atrasada.
+        const hojeDemo = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
+        }).format(new Date());
+        const newTrilha = await must(`trilha ${p.email}`, sb.from('trilhas').insert({
+          ...a.trilha.row,
+          empresa_id: destId,
+          colaborador_id: colabId,
+          criado_em: new Date().toISOString(),
+          data_inicio: hojeDemo,
+        }).select('id').single());
+        if (newTrilha?.id && a.trilha.progress?.length) {
+          const rows = a.trilha.progress.map((pr: any) => ({ ...pr, empresa_id: destId, colaborador_id: colabId, trilha_id: newTrilha.id }));
+          const result = await sb.from('temporada_semana_progresso').insert(rows);
+          if (result.error) throw new Error(`progresso ${p.email}: ${result.error.message}`);
         }
-        for (const r of a.respostas || []) {
-          await sb.from('respostas').update({
-            avaliacao_ia: r.avaliacao_ia, nivel_ia4: r.nivel_ia4, nota_ia4: r.nota_ia4,
-            pontos_fortes: r.pontos_fortes, pontos_atencao: r.pontos_atencao,
-            feedback_ia4: r.feedback_ia4, payload_ia4: r.payload_ia4, status_ia4: r.status_ia4,
-          }).eq('colaborador_id', colabId).eq('competencia_nome', r.competencia_nome);
-        }
-        if (a.descriptor_assessments?.length) {
-          // `nivel` é coluna GENERATED ALWAYS — nunca inserir (dá erro).
-          const rows = a.descriptor_assessments.map((d: any) => {
-            const { nivel, ...rest } = d;
-            return { ...rest, empresa_id: destId, colaborador_id: colabId };
-          });
-          await sb.from('descriptor_assessments').insert(rows);
-        }
-        // Trilha (jornada) congelada — conteúdo inline em temporada_plano.
-        if (personaDemoComMapeamentoCompleto(p) && a.trilha?.row) {
-          // Uma trilha pressupõe o Top 5 concluído. O fixture histórico tinha
-          // trilha para o Paulo com só 2/5 competências e fazia as fases da demo
-          // se contradizerem. A data é reancorada no reset para a jornada de
-          // vitrine começar na semana 1, sem nascer artificialmente atrasada.
-          const hojeDemo = new Intl.DateTimeFormat('en-CA', {
-            timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
-          }).format(new Date());
-          const ins = await sb.from('trilhas').insert({
-            ...a.trilha.row,
-            empresa_id: destId,
-            colaborador_id: colabId,
-            criado_em: new Date().toISOString(),
-            data_inicio: hojeDemo,
-          }).select('id').single();
-          if (ins.error) throw new Error(`trilha: ${ins.error.message}`);
-          const newTrilhaId = ins.data?.id;
-          if (newTrilhaId && a.trilha.progress?.length) {
-            const rows = a.trilha.progress.map((pr: any) => ({ ...pr, empresa_id: destId, colaborador_id: colabId, trilha_id: newTrilhaId }));
-            await sb.from('temporada_semana_progresso').insert(rows);
-          }
-        }
-      } catch (e: any) {
-        console.warn(`[reset-demo] artifacts ${p.email}:`, e?.message);
       }
     }
   }
@@ -969,6 +1060,10 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
 
   try {
     const demo = await upsertEmpresaDemo((fixture as any).empresa);
+    // Um reset de sala de demo deve recompor dados, não devolver a experiência
+    // ao estado frio. Guardamos somente artefatos já renderizados e PDIs com
+    // níveis válidos; nenhum conteúdo novo é gerado aqui.
+    const warmSnapshot = await snapshotWarmArtifacts(demo.id);
 
     // Garante que o subdomínio do tenant demo está registrado no Vercel
     // (sem isso o host não é servido → demo inacessível). Best-effort e
@@ -990,10 +1085,11 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     const personaMap = await insertPersonas(demo.id);
     await seedRespostas(demo.id, personaMap);
     await applyPersonaArtifacts(demo.id, personaMap);
+    await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);
     const fitOk = await precomputarFit(demo.id);
 
     const counts: Record<string, number | null> = {};
-    for (const table of ['colaboradores', 'cargos_empresa', 'competencias', 'top10_cargos', 'banco_cenarios', 'respostas']) {
+    for (const table of ['colaboradores', 'cargos_empresa', 'competencias', 'top10_cargos', 'banco_cenarios', 'respostas', 'relatorios']) {
       const r = await sb.from(table).select('*', { count: 'exact', head: true }).eq('empresa_id', demo.id);
       counts[table] = r.count;
     }
