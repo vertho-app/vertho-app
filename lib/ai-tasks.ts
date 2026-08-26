@@ -43,6 +43,7 @@ export const AI_TASKS = [
   // ── Fase 5 — Reavaliação ─────────────────────────────────
   { key: 'cenarios_b', label: 'Geração de Cenários B', fase: 'Fase 5' },
   { key: 'cenarios_b_check', label: 'Cenários B — Validação (check dual)', fase: 'Fase 5' },
+  { key: 'cenarios_lote_check', label: 'Cenários — Relatório de auditoria em lote', fase: 'Fase 5' },
   { key: 'evolucao_fusao', label: 'Evolução (fusão 3 fontes)', fase: 'Fase 5' },
 
   // ── Pulso de Desenvolvimento (Dual-IA) ───────────────────
@@ -152,6 +153,11 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // falha que o padrão Dual-IA existe para impedir. Travado pelo guard em
   // `tests/unit/ai-dual-familia.test.ts`.
   blueprint_audit:     'gpt-5.6-terra',
+  // Relatório de auditoria em lote da tela de Fase 5 (`rh-check`). Estava fora
+  // da padronização de 22/07 porque não tinha taskKey — e por isso rodava em
+  // Gemini enquanto o check por-cenário rodava em Terra, dando ao admin dois
+  // vereditos opostos sobre os mesmos cenários.
+  cenarios_lote_check: 'gpt-5.6-terra',
   // Roteiro de vídeo — peça criativa de alta alavancagem (reaproveitada por
   // célula): Opus 5 + extended thinking ($5/$25) pela
   // aderência a muitas regras + fidelidade pedagógica. Thinking é ativado no
@@ -217,6 +223,11 @@ export const PINNED_TASKS = new Set([
   'pdi_individual',
   'relatorio_gestor',
   'relatorio_rh',
+  // Sem este pin o guard `ai-dual-familia` fica VERMELHO — e com razão: o
+  // `modelo_padrao` das 11 empresas é `claude-sonnet-4-6`, que venceria o default
+  // por-task e devolveria o auditor à família do gerador. Foi assim que o guard
+  // pegou o erro ao registrar esta task (26/08).
+  'cenarios_lote_check',
 ]);
 
 /**
@@ -350,6 +361,7 @@ export const DUAL_IA_PARES: Array<{ gerador: string; auditor: string; onde: stri
   { gerador: 'modulo_base_autor', auditor: 'modulo_base_auditor', onde: 'lib/modulo-base-auditor.ts' },
   { gerador: 'pulse_classify',    auditor: 'pulse_audit',         onde: 'actions/pulse/classify.ts' },
   { gerador: 'blueprint_gerar',   auditor: 'blueprint_audit',     onde: 'lib/blueprint/core.ts' },
+  { gerador: 'ia3_cenarios',      auditor: 'cenarios_lote_check', onde: 'actions/fase5/relatorios-envios.ts' },
 ];
 
 /**

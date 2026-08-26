@@ -478,10 +478,26 @@ REGRAS:
 - não aprovar por benevolência
 - leitura_do_lote obrigatória com padrões agregados`;
 
-    // 3.7 desde 25/08/2026 (era 3.6): auditor cross-familia dos cenarios gerados
-    // pelo Claude. Continua Gemini de proposito — a familia e o que faz a
-    // cross-validation valer; o que mudou foi so a versao, mais barata e melhor.
-    const resultado = await callAI(system, user, { model: aiConfig?.model || 'gemini-3.7-flash' }, 8192, { temperature: TEMP });
+    // 🔴 Terra desde 26/08/2026. Este check estava FORA da padronização de 22/07
+    // que levou todas as dupla-checagens para o `gpt-5.6-terra` — e escapou pelo
+    // mesmo motivo que o `blueprint_audit` escapou: não tinha `taskKey`, então
+    // nunca passou por `getModelForTask` nem por tabela nenhuma.
+    //
+    // Em 25/08 eu o movi de `gemini-3.6` para `gemini-3.7` por preço e
+    // velocidade, e horas depois medi que o Gemini 3.7 COMO AUDITOR dá nota
+    // média 95,5 sobre cenários que o `ia3_check` (Terra) reprova. Ou seja: esta
+    // tela diria ao admin que está tudo aprovado enquanto a checagem
+    // por-cenário marca 93 de 134 como `revisar`. Duas telas do mesmo produto
+    // com vereditos opostos sobre os mesmos cenários é pior que qualquer um dos
+    // dois sozinho.
+    //
+    // Reverter para o 3.6 não resolveria: ele também nunca foi medido como
+    // auditor e também está fora do padrão. O conserto é entrar na régua comum.
+    const { getModelForTask } = await import('@/lib/ai-tasks');
+    const modeloCheck = aiConfig?.model || await getModelForTask(empresaId, 'cenarios_lote_check');
+    const resultado = await callAI(system, user, { model: modeloCheck }, 8192, {
+      temperature: TEMP, taskKey: 'cenarios_lote_check', empresaId,
+    });
     const verificacao = await extractJSON(resultado);
     return {
       success: true,
