@@ -227,6 +227,8 @@
     "scripts/_piloto-qwen-e1-cenarios.ts": 1,
     "scripts/_calibrar-ia3-check.ts": 1,
     "scripts/_medir-erro-grave-ia3.ts": 1,
-    "scripts/_ia3-check-3-familias.ts": 1
+    "scripts/_ia3-check-3-familias.ts": 1,
+    "scripts/_reancorar-limiar-ia3.ts": 1,
+    "scripts/_rechecar-cenarios-legado.ts": 1
   }
 }
