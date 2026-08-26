@@ -7,10 +7,10 @@
 // for lixo de um crash", decisão que quem lê não tem como tomar. O código tem
 // a informação: o pid está gravado no arquivo.
 import { describe, expect, it, afterEach, vi } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { adquirirLock } from '@/lib/season-engine/cena/arquivo';
+import { adquirirLock, baterLock, TETO_LOCK_PARADO_MS } from '@/lib/season-engine/cena/arquivo';
 
 const dirs: string[] = [];
 const novoDestino = () => {
@@ -65,5 +65,48 @@ describe('adquirirLock', () => {
     const solta = adquirirLock(saida);
     expect(aviso).toHaveBeenCalled();
     solta();
+  });
+});
+
+describe('o batimento — porque pid morto volta como VIVO no Windows', () => {
+  // 🔴 Medido 25/08/2026, com o lock de uma rodada que tinha morrido:
+  //
+  //     process.kill(75772, 0)  → OK          (pid ausente do tasklist)
+  //     process.kill(999999, 0) → throw ESRCH (pid que nunca existiu)
+  //
+  // O teste anterior validou com 4194304 — um pid que NUNCA existiu, o ramo
+  // fácil — e passou verde sobre um check que não funciona no caso real: pid
+  // que existiu e morreu. Custou uma rodada travada em EEXIST citando um dono
+  // inexistente.
+  it('lock do PRÓPRIO processo, recém-tocado, continua sendo respeitado', () => {
+    const saida = novoDestino();
+    writeFileSync(`${saida}.lock`, String(process.pid));
+    expect(() => adquirirLock(saida)).toThrow(/VIVO/);
+  });
+
+  it('lock parado além do teto é assumido, mesmo com pid que se diz vivo', () => {
+    const saida = novoDestino();
+    writeFileSync(`${saida}.lock`, String(process.pid)); // pid VIVO de verdade
+    const antigo = new Date(Date.now() - TETO_LOCK_PARADO_MS - 60_000);
+    utimesSync(`${saida}.lock`, antigo, antigo);
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const solta = adquirirLock(saida);
+    expect(aviso).toHaveBeenCalled();
+    expect(String(aviso.mock.calls[0][0])).toContain('sem batimento');
+    solta();
+  });
+
+  it('baterLock renova o batimento', () => {
+    const saida = novoDestino();
+    const solta = adquirirLock(saida);
+    const antigo = new Date(Date.now() - TETO_LOCK_PARADO_MS - 60_000);
+    utimesSync(`${saida}.lock`, antigo, antigo);
+    baterLock(saida);
+    expect(Date.now() - statSync(`${saida}.lock`).mtimeMs).toBeLessThan(5_000);
+    solta();
+  });
+
+  it('bater lock inexistente não explode', () => {
+    expect(() => baterLock(novoDestino())).not.toThrow();
   });
 });

@@ -36,7 +36,7 @@ import {
 import { consolidarCena, montarBeatsDaCena, type PerguntaIA3 } from '@/lib/season-engine/cena/beats';
 import { promptAlunoSimulado } from '@/lib/season-engine/cena/prompts';
 import {
-  adquirirLock, carregarShards, escreverAtomico, shardPath,
+  adquirirLock, baterLock, carregarShards, escreverAtomico, shardPath,
 } from '@/lib/season-engine/cena/arquivo';
 import { validarSaidaDaCena, saidaConfiavel } from '@/lib/season-engine/cena/validar-saida';
 import { medirDitado, TETO_DITADO } from '@/lib/season-engine/cena/ditado';
@@ -453,6 +453,9 @@ async function cmdCena(slug: string, codComp: string) {
       }
       const shard = shardPath(saidaParcial, n);
       escreverAtomico(shard, r);
+      // Batimento: prova para a próxima retomada que este dono estava vivo.
+      // Sem ele, o lock só teria o pid — e pid morto volta como "vivo" no Windows.
+      baterLock(saidaParcial);
       rodadas.push(r);
       gravarCombinado(rodadas);
       console.log(`  ✔ cena ${n}/${niveis.length} shard ${shard}`);
