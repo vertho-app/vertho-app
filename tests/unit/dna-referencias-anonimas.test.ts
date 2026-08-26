@@ -66,4 +66,16 @@ describe('referencias anônimas do DNA', () => {
     const dna = await aggregateDna(makeSb(soN1, COLABS), 'emp-1');
     expect(dna.referencias || []).toHaveLength(0);
   });
+
+  it('exclui a conta de RH do numerador e do denominador do diagnóstico', async () => {
+    const rh = { id: 'rh1', email: 'rh@escola.br', cargo: 'RH', role: 'rh' };
+    const avaliacaoRh = {
+      colaborador_id: 'rh1', competencia: 'Gestão de Pessoas', descritor: 'Acompanhamento',
+      nota: 4, nivel: 'avancado', assessment_date: '2026-07-01',
+    };
+    const dna = await aggregateDna(makeSb([...ASSESS, avaliacaoRh], [...COLABS, rh]), 'emp-1');
+    expect(dna.totalColaboradores).toBe(3);
+    expect(dna.avaliados).toBe(3);
+    expect(dna.competencias.some((competencia) => competencia.nome === 'Gestão de Pessoas')).toBe(false);
+  });
 });

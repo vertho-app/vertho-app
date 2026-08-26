@@ -87,15 +87,23 @@ function pct(d: Dist): Dist {
 const MIN_POR_CARGO_DNA = 3; // cargos com menos avaliados que isso não viram seção
 
 export async function aggregateDna(sb: SupabaseClient, empresaId: string): Promise<DnaAggregate> {
-  const { data: rawRows } = await sb
+  const { data: rawRows, error: assessmentsError } = await sb
     .from('descriptor_assessments')
     .select('colaborador_id, competencia, descritor, nota, nivel, assessment_date')
     .eq('empresa_id', empresaId);
+  if (assessmentsError) throw new Error(`DNA: carregar avaliações: ${assessmentsError.message}`);
   // exclui contas internas @vertho.ai das estatísticas (colab interno → fora)
-  const { data: colabs } = await sb.from('colaboradores').select('id, email, cargo').eq('empresa_id', empresaId);
-  const internalIds = new Set((colabs || []).filter((x: any) => isInternalEmail(x.email)).map((x: any) => x.id as string));
-  const totalColaboradores = (colabs || []).length - internalIds.size;
-  const rows = (rawRows || []).filter((r: any) => !internalIds.has(r.colaborador_id));
+  const { data: colabs, error: colaboradoresError } = await sb.from('colaboradores')
+    .select('id, email, cargo, role').eq('empresa_id', empresaId);
+  if (colaboradoresError) throw new Error(`DNA: carregar colaboradores: ${colaboradoresError.message}`);
+  // A conta de RH administra o programa; não participa do diagnóstico. Se ela
+  // entrar no denominador, o DNA diz "3 de 7" enquanto o panorama (corretamente)
+  // conta 6 participantes. Contas internas seguem fora pela mesma razão.
+  const excluidosIds = new Set((colabs || [])
+    .filter((x: any) => x.role === 'rh' || isInternalEmail(x.email))
+    .map((x: any) => x.id as string));
+  const totalColaboradores = (colabs || []).length - excluidosIds.size;
+  const rows = (rawRows || []).filter((r: any) => !excluidosIds.has(r.colaborador_id));
 
   if (!rows || !rows.length) {
     return {
@@ -122,7 +130,7 @@ export async function aggregateDna(sb: SupabaseClient, empresaId: string): Promi
   const cargoById = new Map<string, string>();
   const totalPorCargo = new Map<string, number>();
   for (const col of colabs || []) {
-    if (internalIds.has((col as any).id)) continue;
+    if (excluidosIds.has((col as any).id)) continue;
     const cg = (((col as any).cargo as string) || '').trim() || '(sem cargo)';
     cargoById.set((col as any).id, cg);
     totalPorCargo.set(cg, (totalPorCargo.get(cg) || 0) + 1);
