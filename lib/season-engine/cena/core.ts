@@ -131,6 +131,13 @@ export interface EstadoCena {
    * disso nas citações. Um degrada e conta; o outro reprova a cena.
    */
   ditados: Array<{ turno: number; elemento: string }>;
+  /**
+   * Fatos do gabarito que o interlocutor declarou ter entregue, e em que turno.
+   *
+   * É o observável central da leitura (b) e o único do módulo que não é
+   * julgamento sobre desempenho: o fato ou aflorou, ou não. Ver `fatos.ts`.
+   */
+  fatosRevelados: Array<{ turno: number; descritor: number }>;
 }
 
 export interface PIICena {
@@ -287,6 +294,7 @@ export function abrirCena(
       encerramentosNegados: [],
       bloqueios: [],
       ditados: [],
+      fatosRevelados: [],
     },
     fala,
   };
@@ -405,6 +413,7 @@ export async function turnoCena(
         ...estado,
         bloqueios: [...estado.bloqueios, { turno: estado.turno, veredito: guarda.veredito, motivo: guarda.motivo }],
         ditados: estado.ditados,
+        fatosRevelados: estado.fatosRevelados,
       },
       fala: '',
       concluida: false,
@@ -524,6 +533,16 @@ export async function turnoCena(
   const avancou = beatsCumpridos.length > estado.beatsCumpridos.length;
   const turnosSemAvanco = avancou ? 0 : estado.turnosSemAvanco + 1;
 
+  /**
+   * O fato que o personagem declara ter entregue neste turno. Insumo, como todo
+   * o resto do [META] — quem confere é `medirFatosAflorados`, procurando o
+   * conteúdo do fato na fala dele.
+   */
+  const fatoBruto = Number(meta?.fato_revelado);
+  const fatoDoTurno = Number.isInteger(fatoBruto) && fatoBruto >= 1 && fatoBruto <= ctx.descritores.length
+    ? fatoBruto
+    : null;
+
   const cedeu = estado.condicaoSatisfeita || meta?.condicao_de_cessao_satisfeita === true;
   const veredicto = podeEncerrar({
     turno: novoTurno,
@@ -554,6 +573,9 @@ export async function turnoCena(
         : estado.encerramentosNegados,
       bloqueios: estado.bloqueios,
       ditados: [...estado.ditados, ...ditadosNoTurno],
+      fatosRevelados: fatoDoTurno == null
+        ? estado.fatosRevelados
+        : [...estado.fatosRevelados, { turno: novoTurno, descritor: fatoDoTurno }],
     },
     fala,
     concluida: veredicto.encerrar,

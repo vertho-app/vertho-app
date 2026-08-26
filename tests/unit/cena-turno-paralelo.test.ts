@@ -70,7 +70,7 @@ const estadoInicial = (): EstadoCena => ({
   turno: 1, beatsCumpridos: [], descritoresTocados: [], turnosSemAvanco: 0, beatProvocado: 1,
   condicaoSatisfeita: false, concluida: false, motivoFim: null,
   encerramentosNegados: [], bloqueios: [],
-  ditados: [],
+  ditados: [], fatosRevelados: [],
 });
 
 describe('turnoCena · interlocutor e juiz em paralelo', () => {

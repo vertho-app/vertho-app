@@ -68,7 +68,7 @@ const estado = (): EstadoCena => ({
   historico: [{ role: 'assistant', content: 'Olha.', turno: 1 }],
   turno: 1, beatsCumpridos: [], descritoresTocados: [], turnosSemAvanco: 0,
   beatProvocado: 1, condicaoSatisfeita: false, concluida: false, motivoFim: null,
-  encerramentosNegados: [], bloqueios: [], ditados: [],
+  encerramentosNegados: [], bloqueios: [], ditados: [], fatosRevelados: [],
 });
 
 beforeEach(() => { mocks.falas = []; mocks.sufixos = []; mocks.ditaEm = []; mocks.iDita = 0; });

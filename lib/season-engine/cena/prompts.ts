@@ -349,12 +349,16 @@ Se ela responder vago, você não completa. Você recusa e espera de novo.`}
   "descritores_tocados": [],
   "movimento": "abrir|resistir|escalar|ceder|romper|fechar",
   "condicao_de_cessao_satisfeita": false,
+  "fato_revelado": null,
   "encerrar": false,
   "motivo_encerramento": null
 }
 [/META]
 
 Regras do [META]:
+- "fato_revelado": o NÚMERO do descritor do fato enterrado que você acabou de
+  entregar neste turno, ou null. Só preencha quando entregar de verdade — é por
+  ele que se sabe que a sondagem chegou. Um por turno, no máximo.
 - "turno" e "beat_atual": copie os números que a instrução do momento informar.
 - "beat_cumprido_agora": true SÓ se a ÚLTIMA mensagem do avaliado cumpriu o sinal daquele momento.
 - "descritores_tocados": índices (1 a ${ctx.descritores.length}) que a última mensagem revelou algo sobre. Vazio é resposta válida.

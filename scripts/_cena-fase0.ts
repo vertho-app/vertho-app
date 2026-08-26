@@ -40,6 +40,7 @@ import {
 } from '@/lib/season-engine/cena/arquivo';
 import { validarSaidaDaCena, saidaConfiavel } from '@/lib/season-engine/cena/validar-saida';
 import { medirDitado, TETO_DITADO } from '@/lib/season-engine/cena/ditado';
+import { medirFatosAflorados } from '@/lib/season-engine/cena/fatos';
 import { auditarAlcancabilidade } from '@/lib/season-engine/cena/blueprint';
 
 // O aluno é OVERHEAD de medição (netável pelo `source: 'simulator'`), mas o
@@ -487,6 +488,13 @@ async function cmdCena(slug: string, codComp: string) {
     console.log(`  ditação nas citações: ${dit.ditadas}/${dit.ditadas + dit.proprias}` +
       `${dit.taxa == null ? ' (indecidível)' : ` = ${(100 * dit.taxa).toFixed(0)}%`}` +
       `${dit.taxa != null && dit.taxa > TETO_DITADO ? '  🔴 ACIMA DO TETO' : ''}`);
+    const mf = medirFatosAflorados(
+      persona.fatos?.enterrados, r.estado.historico,
+      (r.estado.fatosRevelados ?? []).map((x: any) => x.descritor),
+    );
+    console.log(`  FATOS AFLORADOS:      ${mf.aflorados}/${mf.total}` +
+      `${mf.porFato.length ? '  ' + mf.porFato.filter((f) => f.aflorou).map((f) => `D${f.descritor}`).join(' ') : ''}` +
+      `${mf.divergentes.length ? `  ⚠ divergem: ${mf.divergentes.map((d) => `D${d}`).join(' ')}` : ''}`);
     console.log(`  interlocutor ditou:   ${r.estado.ditados.length}${r.estado.ditados.length ? ' ' + r.estado.ditados.map((d: any) => `t${d.turno}(${d.elemento})`).join(' ') : ''}`);
     console.log(`  encerramentos negados:${r.estado.encerramentosNegados.length} ${r.estado.encerramentosNegados.map((e: any) => `t${e.turno}/beat${e.beat}`).join(' ')}`);
     console.log(`  guarda barrou:        ${r.estado.bloqueios.length}`);
@@ -513,7 +521,7 @@ async function cmdCena(slug: string, codComp: string) {
 ${'─'.repeat(72)}
 POR BRAÇO
 `);
-    console.log('ator  n   autonomia            assistido   turnos  desfechos                 ditação');
+    console.log('ator  n   autonomia            assistido   turnos  desfechos                 fatos   ditação');
     for (const nv of braços) {
       const g = rodadas.filter((r: any) => r.nivel === nv && r.consolidacao);
       if (!g.length) continue;
@@ -531,11 +539,18 @@ POR BRAÇO
         .filter(([, n]) => n > 0)
         .map(([m, n]) => `${m}×${n}`)
         .join(' ') || '—';
+      const fatos = g.map((r: any) => medirFatosAflorados(
+        persona.fatos?.enterrados, r.estado.historico,
+        (r.estado.fatosRevelados ?? []).map((x: any) => x.descritor),
+      ));
+      const fatosMed = fatos.length
+        ? (fatos.reduce((a, f) => a + f.aflorados, 0) / fatos.length).toFixed(1) + '/' + (fatos[0]?.total ?? 0)
+        : '—';
       const taxas = g.map((r: any) => medirDitado(r.extracao?.evidencias ?? [], r.estado.historico).taxa)
         .filter((t: any): t is number => t != null);
       const niveis = g.map((r: any) => `N${r.consolidacao.nivel ?? '-'}`).join(' ');
       console.log(`N${nv}    ${String(g.length).padEnd(3)} ${aut} [${niveis}]   ${ass}       ${turnos}    ` +
-        `${desfechos.padEnd(25)} ${taxas.length ? (100 * taxas.reduce((a, b) => a + b, 0) / taxas.length).toFixed(0) + '%' : '—'}`);
+        `${desfechos.padEnd(25)} ${fatosMed.padEnd(7)} ${taxas.length ? (100 * taxas.reduce((a, b) => a + b, 0) / taxas.length).toFixed(0) + '%' : '—'}`);
     }
   }
 
@@ -559,9 +574,24 @@ POR BRAÇO
     const delta = Number((alto.m - baixo.m).toFixed(2));
     console.log(`\nDISCRIMINAÇÃO (autonomia, médias por braço)`);
     console.log(`  N${baixo.nv}=${baixo.m.toFixed(2)} (n=${baixo.n})   N${alto.nv}=${alto.m.toFixed(2)} (n=${alto.n})   delta=${delta}`);
-    console.log(delta >= 0.5
-      ? '  → o instrumento separa os níveis.'
-      : '  → NÃO separa. A cena não discrimina; corrigir o prompt antes de seguir.');
+    /**
+     * 🔴 Veredito só a partir de n=3 por braço.
+     *
+     * A versão anterior imprimia "o instrumento separa os níveis" com UMA cena
+     * de cada lado. É ruído com duas casas: na fase 0e uma única cena moveu a
+     * folga entre os braços de 0,56 para 0,26. Julgamento de discriminação
+     * sobre n=1 é a mesma classe do `.limit()` que decide — conclusão sorteada,
+     * com cara de medida.
+     */
+    const MIN_POR_BRACO = 3;
+    if (baixo.n < MIN_POR_BRACO || alto.n < MIN_POR_BRACO) {
+      console.log(`  → SEM VEREDITO: ${MIN_POR_BRACO} cenas por braço é o mínimo. ` +
+        'Com n menor, uma cena move o delta mais que o instrumento.');
+    } else {
+      console.log(delta >= 0.5
+        ? '  → o instrumento separa os níveis.'
+        : '  → NÃO separa. A cena não discrimina; corrigir o prompt antes de seguir.');
+    }
   }
 
   gravarCombinado(rodadas);
