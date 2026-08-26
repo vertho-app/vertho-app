@@ -45,6 +45,22 @@ const REPRESENTANTE_TOP5 = [
   'Orientação a Metas e Resultados',
 ];
 
+const REPRESENTANTE_FOCO = ['Negociação e Fechamento'];
+
+export function focosValidosDemo(row: any, top5: string[]): string[] {
+  const focoOriginal = [
+    ...(Array.isArray(row.competencias_foco) ? row.competencias_foco : []),
+    row.competencia_foco,
+  ].filter(Boolean);
+  const top5Normalizado = new Map(top5.map((nome) => [nome.trim().toLocaleLowerCase('pt-BR'), nome]));
+  const validos = row.nome === 'Representante Comercial'
+    ? REPRESENTANTE_FOCO
+    : [...new Set(focoOriginal
+        .map((nome: string) => top5Normalizado.get(nome.trim().toLocaleLowerCase('pt-BR')))
+        .filter((nome): nome is string => Boolean(nome)))];
+  return validos.length > 0 ? validos : top5.slice(0, 1);
+}
+
 const COMERCIAL_AREA = 'Comercial';
 const DEMO_MANAGER = {
   nome: 'Carla Menezes',
@@ -233,6 +249,10 @@ const DEMO_EXTRA_ROLES = [
     decisoes_recorrentes: 'Quais variações investigar primeiro; quando escalar inconsistências; como priorizar demandas de fechamento versus análises gerenciais; que premissas usar em projeções.',
     tensoes_comuns: 'Prazos curtos de fechamento; dados incompletos; pressão por respostas rápidas; divergências entre áreas; necessidade de precisão sem travar a operação.',
     contexto_cultural: 'Ambiente orientado a dados, prazos e confiabilidade, com forte necessidade de organização, critério técnico e comunicação objetiva.',
+    competencias_foco: [
+      'Controle, Precisão e Confiabilidade dos Dados',
+      'Análise de Indicadores Financeiros',
+    ],
     competencias: [
       ['Controle, Precisão e Confiabilidade dos Dados', 'Capacidade de revisar informações financeiras, identificar inconsistências e garantir bases confiáveis antes de reportar números.'],
       ['Análise de Indicadores Financeiros', 'Capacidade de interpretar variações, margens, custos e tendências para apoiar decisões de gestão.'],
@@ -251,6 +271,7 @@ const DEMO_EXTRA_ROLES = [
     decisoes_recorrentes: 'Como redistribuir demandas; que urgência atender primeiro; quando escalar desvios; como equilibrar qualidade, prazo e capacidade do time.',
     tensoes_comuns: 'Mudanças de prioridade; sobrecarga do time; falhas de comunicação entre áreas; urgências simultâneas; pressão por produtividade sem perda de qualidade.',
     contexto_cultural: 'Ambiente prático, dinâmico e orientado à execução, no qual liderança próxima, previsibilidade e solução rápida de problemas fazem diferença.',
+    competencias_foco: ['Priorização e Gestão da Rotina Operacional'],
     competencias: [
       ['Priorização e Gestão da Rotina Operacional', 'Capacidade de organizar demandas, sequenciar atividades e manter o time focado no que gera mais impacto.'],
       ['Resolução de Problemas e Gargalos', 'Capacidade de diagnosticar causas, agir rapidamente e prevenir recorrência de problemas operacionais.'],
@@ -269,6 +290,7 @@ const DEMO_EXTRA_ROLES = [
     decisoes_recorrentes: 'Onde concentrar esforço (contas/territórios); em quem investir desenvolvimento; quando entrar pessoalmente num deal; como redistribuir metas; que indicadores cobrar primeiro.',
     tensoes_comuns: 'Pressão por meta versus desenvolvimento do time; deals travados; forecast otimista versus realidade; sobrecarga entre gerir e executar; conflito entre volume e qualidade de pipeline.',
     contexto_cultural: 'Ambiente de alta cobrança por resultado, ritmo acelerado e remuneração variável, no qual liderança próxima, previsibilidade e desenvolvimento de pessoas fazem a diferença.',
+    competencias_foco: ['Coaching e Desenvolvimento de Vendedores'],
     competencias: [
       ['Coaching e Desenvolvimento de Vendedores', 'Capacidade de desenvolver a equipe por meio de feedback, acompanhamento individual e planos de evolução que elevam a performance de cada vendedor.'],
       ['Inteligência de Mercado e Visão Competitiva', 'Capacidade de ler o mercado, monitorar concorrência e traduzir tendências em posicionamento e prioridades comerciais.'],
@@ -293,6 +315,10 @@ export const PERSONAS = [
   ] },
   { key: 'renato', nome_completo: 'Renato Alves', email: 'renato.demo@vertho.ai', cargo: 'Coordenador de Operações', role: 'colaborador', area_depto: 'Operações', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'DS', d_natural: 61, i_natural: 37, s_natural: 57, c_natural: 45, scenario: 'novo', responder: [] as string[] },
 ];
+
+export function personaDemoComMapeamentoCompleto(persona: { scenario?: string }): boolean {
+  return persona.scenario === 'completo';
+}
 
 // Colunas comportamentais (comp_*/lid_*) DETERMINÍSTICAS a partir do DISC — as
 // comp_* seguem a fórmula do simulador-disc sem o ruído aleatório (reproduzível
@@ -504,7 +530,16 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       let top5 = Array.isArray(row.top5_workshop) ? row.top5_workshop : [];
       if (row.nome === 'Representante Comercial') top5 = REPRESENTANTE_TOP5;
       else if (top5.length > 5) top5 = top5.slice(0, 5);
-      return { ...strip(brand(row)), empresa_id: destId, top5_workshop: top5 };
+      // Tenant de demo nunca nasce com foco órfão. Se o fixture antigo não
+      // tiver foco válido, o primeiro item do próprio Top 5 é o fallback.
+      const focos = focosValidosDemo(row, top5);
+      return {
+        ...strip(brand(row)),
+        empresa_id: destId,
+        top5_workshop: top5,
+        competencia_foco: focos[0] || null,
+        competencias_foco: focos,
+      };
     });
     await must('insert cargos', sb.from('cargos_empresa').insert(payload));
   }
@@ -597,6 +632,8 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         tensoes_comuns: role.tensoes_comuns,
         contexto_cultural: role.contexto_cultural,
         top5_workshop: role.competencias.map(([nome]) => nome),
+        competencia_foco: role.competencias_foco[0],
+        competencias_foco: role.competencias_foco,
         fit_versao: '2.0',
         eh_lideranca: role.nome.includes('Coordenador') || role.nome.includes('Gerente'),
         gabarito: brand((extraArtifacts.gabaritos as Record<string, any>)?.[role.nome] ?? null),
@@ -669,6 +706,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         empresa_id: destId, nome_completo: p.nome_completo, email: p.email, cargo: p.cargo, role: p.role,
         area_depto: p.area_depto, gestor_nome: p.gestor_nome, gestor_email: p.gestor_email, gestor_whatsapp: p.gestor_whatsapp,
         perfil_dominante: p.perfil_dominante,
+        mapeamento_em: new Date().toISOString(),
         d_natural: p.d_natural, i_natural: p.i_natural, s_natural: p.s_natural, c_natural: p.c_natural,
         ...comportamentosDoDisc(p.d_natural, p.i_natural, p.s_natural, p.c_natural),
         disc_resultados: { demo: true, estado_demo: p.scenario },
@@ -801,8 +839,21 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
           await sb.from('descriptor_assessments').insert(rows);
         }
         // Trilha (jornada) congelada — conteúdo inline em temporada_plano.
-        if (a.trilha?.row) {
-          const ins = await sb.from('trilhas').insert({ ...a.trilha.row, empresa_id: destId, colaborador_id: colabId }).select('id').single();
+        if (personaDemoComMapeamentoCompleto(p) && a.trilha?.row) {
+          // Uma trilha pressupõe o Top 5 concluído. O fixture histórico tinha
+          // trilha para o Paulo com só 2/5 competências e fazia as fases da demo
+          // se contradizerem. A data é reancorada no reset para a jornada de
+          // vitrine começar na semana 1, sem nascer artificialmente atrasada.
+          const hojeDemo = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
+          }).format(new Date());
+          const ins = await sb.from('trilhas').insert({
+            ...a.trilha.row,
+            empresa_id: destId,
+            colaborador_id: colabId,
+            criado_em: new Date().toISOString(),
+            data_inicio: hojeDemo,
+          }).select('id').single();
           if (ins.error) throw new Error(`trilha: ${ins.error.message}`);
           const newTrilhaId = ins.data?.id;
           if (newTrilhaId && a.trilha.progress?.length) {

@@ -5,6 +5,7 @@ import { getUserContext } from '@/lib/authz';
 import { PROGRESSO, TRILHA, TURMA_MEMBRO } from '@/lib/status';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { estaAtrasada } from '@/lib/season-engine/atraso';
+import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
 
 /**
  * Home do gestor — dados consolidados em uma única chamada:
@@ -346,23 +347,38 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // hoje (acme-demo, ibipeba), e rotulá-las como "sem mapeamento" seria cobrar
   // de quem já fez a parte dela.
   const semTrilhaIds = liderados.filter((c: any) => !trilhaPorColab.get(c.id)).map((c: any) => c.id);
-  const comAssessment = new Set<string>();
+  let comMapeamentoCompleto = new Set<string>();
   let assessmentIndisponivel = false;
   if (semTrilhaIds.length > 0) {
     // Só quem está sem trilha: a tabela tem uma linha por DESCRITOR, então
     // varrer a equipe inteira multiplicaria o payload por ~10 sem necessidade.
     const { data: das, error: errDas } = await sb.from('descriptor_assessments')
-      .select('colaborador_id')
+      .select('colaborador_id, competencia')
       .eq('empresa_id', empresaId)
       .in('colaborador_id', semTrilhaIds);
-    if (errDas) {
+    const cargosSemTrilha = [...new Set(liderados
+      .filter((c: any) => semTrilhaIds.includes(c.id))
+      .map((c: any) => c.cargo)
+      .filter(Boolean))];
+    const { data: cargosMapeamento, error: errCargos } = cargosSemTrilha.length > 0
+      ? await sb.from('cargos_empresa')
+          .select('nome, top5_workshop')
+          .eq('empresa_id', empresaId)
+          .in('nome', cargosSemTrilha)
+      : { data: [], error: null };
+    if (errDas || errCargos) {
       // Consulta falhou → o Set fica vazio → todo mundo com perfil viraria "sem
       // mapeamento". Acusar a pessoa por um erro nosso é pior que não dizer
       // nada, então o motivo some e o rótulo volta a ser só "SEM TRILHA".
-      console.error('[gestor] descriptor_assessments falhou:', errDas.message);
+      console.error('[gestor] conclusão do mapeamento falhou:', errDas?.message || errCargos?.message);
       assessmentIndisponivel = true;
+    } else {
+      comMapeamentoCompleto = colaboradoresComMapeamentoCompleto(
+        liderados.filter((c: any) => semTrilhaIds.includes(c.id)),
+        cargosMapeamento || [],
+        das || [],
+      );
     }
-    for (const d of das || []) comAssessment.add(d.colaborador_id);
   }
 
   // ── 7b. Quem está ATRASADO na jornada ──
@@ -407,7 +423,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     if (trilhaPorColab.get(c.id)) return null;
     if (!temPerfil(c)) return 'sem_perfil';
     if (assessmentIndisponivel) return null;
-    return comAssessment.has(c.id) ? 'aguardando_geracao' : 'sem_mapeamento';
+    return comMapeamentoCompleto.has(c.id) ? 'aguardando_geracao' : 'sem_mapeamento';
   };
 
   // ── 5. Alertas ──

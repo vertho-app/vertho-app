@@ -9,7 +9,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { nivelDaNota } from '@/lib/nivel-regua';
+import { nivelDaNota, nivelOuNull } from '@/lib/nivel-regua';
 
 export interface DadoComp {
   competencia: string;
@@ -56,7 +56,7 @@ PRINCÍPIOS INEGOCIÁVEIS:
 1. Níveis SEMPRE numéricos (1-4). Nível 3 = META.
 2. Nunca mencione scores DISC numéricos. Descreva em linguagem acessível.
 3. DISC/CIS deve aparecer como leitura contextual, não como diagnóstico fechado.
-4. SEMPRE inclua TODAS as competências do input, inclusive pendentes (flag=true).
+4. SEMPRE inclua TODAS as competências do input. O gerador só é chamado depois que todas estiverem avaliadas.
 5. Competências com nível < 3 devem ter um sprint de 30 dias enxuto e executável (no máximo 4 ações prioritárias).
 6. Se CONTEÚDOS RECOMENDADOS forem fornecidos, inclua-os conectados ao gap.
 7. Scripts prontos são bem-vindos quando aumentam a aplicabilidade.
@@ -82,12 +82,6 @@ REGRAS PARA COMPETÊNCIAS NÍVEL 3 OU 4:
 - Foco em manutenção, refinamento, ampliação ou multiplicação
 - Reconhecer força sem acomodar
 
-REGRAS PARA COMPETÊNCIAS PENDENTES (flag=true):
-- Reconhecer que a leitura está incompleta
-- Evitar falsa precisão
-- Sugerir observação ou desenvolvimento exploratório
-- Sprint placeholder: "foco_30_dias" = "Aguardando avaliação — ações a definir" (demais campos vazios ou breves)
-
 RETORNE APENAS JSON VÁLIDO. Português com acentuação correta.
 
 FORMATO OBRIGATÓRIO:
@@ -104,13 +98,13 @@ FORMATO OBRIGATÓRIO:
     "pontos_atencao": ["2-3 áreas de atenção do perfil"]
   },
   "resumo_desempenho": [
-    {"competencia": "nome", "nivel": 0, "nota_decimal": 0.0, "leitura": "síntese curta"}
+    {"competencia": "nome", "nivel": 1, "nota_decimal": 1.0, "leitura": "síntese curta"}
   ],
   "competencias": [
     {
       "nome": "nome EXATO da competência",
-      "nivel": 0,
-      "nota_decimal": 0.0,
+      "nivel": 1,
+      "nota_decimal": 1.0,
       "flag": false,
       "descritores_desenvolvimento": ["comportamentos que precisam de atenção (linguagem de comportamento, não jargão)"],
       "fez_bem": ["2-3 comportamentos positivos observados"],
@@ -327,8 +321,20 @@ export async function buildRelatorioIndividualPrompt(
     }
     const av = r ? (typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia) : null;
     // Blueprint tem precedência (fonte única) → PDI e blueprint mostram o mesmo nível.
-    const nivelEff = nivelBlueprint.get(k) ?? (av?.consolidacao?.nivel_geral || r?.nivel_ia4 || fromAssess?.nivel || 'pendente');
-    const notaEff = av?.consolidacao?.media_descritores || r?.nota_ia4 || fromAssess?.nota_decimal || 'pendente';
+    const nivelEff = nivelOuNull(
+      nivelBlueprint.get(k)
+      ?? av?.consolidacao?.nivel_geral
+      ?? r?.nivel_ia4
+      ?? fromAssess?.nivel,
+    ) ?? 'pendente';
+    const notaRaw = Number(
+      av?.consolidacao?.media_descritores
+      ?? r?.nota_ia4
+      ?? fromAssess?.nota_decimal,
+    );
+    const notaEff = Number.isFinite(notaRaw) && notaRaw >= 1 && notaRaw <= 4
+      ? Number(notaRaw.toFixed(2))
+      : 'pendente';
     return {
       competencia: nomeComp,
       nivel: nivelEff,
@@ -338,6 +344,16 @@ export async function buildRelatorioIndividualPrompt(
       feedback: av?.feedback || r?.feedback_ia4 || (r?.avaliacao_ia ? '' : 'Resposta sem avaliação IA4 (rode IA4 novamente).'),
     };
   });
+
+  // PDI é consequência do mapeamento completo. Persistir um plano com nível
+  // ausente e deixar a camada visual convertê-lo em N0 fabricava uma precisão
+  // que a régua do produto não possui.
+  const semNivelValido = dadosComps.filter((c) => c.nivel === 'pendente' || c.nota_decimal === 'pendente');
+  if (semNivelValido.length > 0) {
+    return {
+      error: `PDI não gerado: competências sem avaliação válida N1–N4: ${semNivelValido.map((c) => c.competencia).join(', ')}`,
+    };
+  }
 
   // Buscar trilha montada (conteúdos recomendados do catálogo Vertho)
   let trilhaTexto = '';
@@ -369,8 +385,7 @@ export async function buildRelatorioIndividualPrompt(
   }
 
   const totalComps = dadosComps.length;
-  const pendentes = dadosComps.filter(c => c.nivel === 'pendente').length;
-  const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\n=== ATENCAO ===\nO array DADOS POR COMPETENCIA contem ${totalComps} competencia(s) do TOP 5 do cargo. ${pendentes > 0 ? `${pendentes} esta(o) marcadas como 'pendente' (sem avaliacao IA4) — voce DEVE incluir essas tambem no output, com flag=true e plano placeholder.` : ''} O array 'competencias' do output DEVE ter EXATAMENTE ${totalComps} itens, na MESMA ordem.\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}${trilhaTexto}${blueprintBlock}`;
+  const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\n=== ATENCAO ===\nO array DADOS POR COMPETENCIA contem ${totalComps} competencia(s) avaliadas. Todos os níveis são inteiros válidos entre N1 e N4. O array 'competencias' do output DEVE ter EXATAMENTE ${totalComps} itens, na MESMA ordem.\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}${trilhaTexto}${blueprintBlock}`;
 
   return { system: RELATORIO_IND_SYSTEM, user, dadosComps, blueprint, colab, empresa };
 }

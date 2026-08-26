@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { colors, fonts, nivelColor, nivelBgColor, nivelLabel } from './styles';
 import ChecklistBox from './ChecklistBox';
 import { descritorParaHumano } from '@/lib/descritor-humano';
+import { nivelOuNull } from '@/lib/nivel-regua';
 
 const s = StyleSheet.create({
   // ── Header navy compacto ────────────────────────────────────────────
@@ -137,9 +138,9 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
   comp: any; index: number; total: number;
   ciclo?: { numero: number; janela: string | null; inicioSemana?: number; comecaAgora: boolean };
 }) {
-  const nivel = comp.nivel || comp.nivel_atual || 0;
-  const isFlag = comp.flag || nivel <= 1;
-  const isStrong = nivel >= 3;
+  const nivel = nivelOuNull(comp.nivel ?? comp.nivel_atual);
+  const isFlag = comp.flag || nivel === null || nivel <= 1;
+  const isStrong = nivel !== null && nivel >= 3;
 
   return (
     <View>
@@ -150,7 +151,7 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
         </View>
         <View style={s.headerRight}>
           <View style={s.badgeLevel}>
-            <Text style={s.badgeLevelText}>N{nivel}</Text>
+            <Text style={s.badgeLevelText}>{nivel === null ? 'Pendente' : `N${nivel}`}</Text>
           </View>
           {isFlag ? (
             <View style={s.badgeAtencao}>

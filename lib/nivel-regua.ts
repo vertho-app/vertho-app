@@ -28,6 +28,12 @@ export type Nivel = 1 | 2 | 3 | 4;
 /** Limite superior (inclusive) do N3 — acima disto é N4. */
 export const TETO_N3 = 3.5;
 
+/** Valida um nível já calculado. Ausente, fracionário ou fora de N1–N4 é nulo. */
+export function nivelOuNull(value: unknown): Nivel | null {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 && n <= 4 ? n as Nivel : null;
+}
+
 /**
  * Converte a nota decimal (1,00–4,00) no nível da régua. Nota fora da faixa é
  * grampeada; nota ausente/inválida vira N1 (o lado conservador — nunca promove

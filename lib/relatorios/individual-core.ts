@@ -7,7 +7,6 @@ import { buildRelatorioIndividualPrompt, normKey } from '@/lib/relatorio-individ
 import { renderToBuffer } from '@react-pdf/renderer';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import { storageSlug } from '@/lib/storage-slug';
-import { PROGRESSO } from '@/lib/status';
 import React from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -93,19 +92,26 @@ export async function gerarRelatorioIndividualCore(
     if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
 
     // Pós-processo: força nivel/nota_decimal dos dados reais (LLM as vezes ignora).
-    const dadosByName = Object.fromEntries(dadosComps.map(d => [normKey(d.competencia), d]));
-    const overlay = (c: any, key: string = 'nome'): any => {
-      const src = dadosByName[normKey(c[key] || c.competencia || c.nome)];
-      if (!src) return c;
+    const overlay = (c: any, src: (typeof dadosComps)[number], key: 'nome' | 'competencia'): any => {
+      if (typeof src.nivel !== 'number' || typeof src.nota_decimal !== 'number') {
+        throw new Error(`PDI sem nível válido para ${src.competencia}`);
+      }
       return {
         ...c,
-        nivel: src.nivel === PROGRESSO.PENDENTE ? null : src.nivel,
-        nota_decimal: src.nota_decimal === PROGRESSO.PENDENTE ? null : src.nota_decimal,
-        flag: src.nivel === PROGRESSO.PENDENTE || (typeof src.nivel === 'number' && src.nivel < 3),
+        [key]: src.competencia,
+        nivel: src.nivel,
+        nota_decimal: src.nota_decimal,
+        flag: src.nivel < 3,
       };
     };
-    if (Array.isArray(relatorio.competencias)) relatorio.competencias = relatorio.competencias.map((c: any) => overlay(c, 'nome'));
-    if (Array.isArray(relatorio.resumo_desempenho)) relatorio.resumo_desempenho = relatorio.resumo_desempenho.map((c: any) => overlay(c, 'competencia'));
+    const alinhar = (items: any[], key: 'nome' | 'competencia') => dadosComps.map((src) => {
+      const item = items.find((c: any) => normKey(c?.[key] || c?.competencia || c?.nome) === normKey(src.competencia));
+      return overlay(item || {}, src, key);
+    });
+    // Mesmo que a IA omita, duplique ou invente uma competência, o documento
+    // persistido acompanha exatamente o input validado — nomes, ordem e N1–N4.
+    relatorio.competencias = alinhar(Array.isArray(relatorio.competencias) ? relatorio.competencias : [], 'nome');
+    relatorio.resumo_desempenho = alinhar(Array.isArray(relatorio.resumo_desempenho) ? relatorio.resumo_desempenho : [], 'competencia');
 
     // Binding real "vira trilha" (Estágio 2): LIDO DO BLUEPRINT, não da IA. Persiste
     // no `conteudo` pra a página "Como este PDI vira trilha" mostrar o vínculo real

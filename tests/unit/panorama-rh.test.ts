@@ -33,7 +33,25 @@ const sb = criarSupabaseMock({
           { colaborador_id: 'p3' },
           { colaborador_id: 'p3' },
         ]
-      : [],
+      : tabela === 'colaboradores'
+        ? [
+            { id: 'p1', cargo: 'Vendas' },
+            { id: 'p2', cargo: 'Vendas' },
+            { id: 'p3', cargo: 'Financeiro' },
+          ]
+        : tabela === 'cargos_empresa'
+          ? [
+              { nome: 'Vendas', top5_workshop: ['Negociação', 'Comunicação'] },
+              { nome: 'Financeiro', top5_workshop: ['Precisão'] },
+            ]
+          : tabela === 'descriptor_assessments'
+            ? [
+                { colaborador_id: 'p1', competencia: 'Negociação' },
+                { colaborador_id: 'p1', competencia: 'Comunicação' },
+                { colaborador_id: 'p2', competencia: 'Negociação' },
+                { colaborador_id: 'p3', competencia: 'Precisão' },
+              ]
+            : [],
 });
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
@@ -49,6 +67,12 @@ describe('panorama do RH', () => {
     const p = await carregarPanoramaRH('emp-1');
     expect(p.emJornada).toBe(3);
     expect(p.emJornada).not.toBe(5);
+  });
+
+  it('conta como mapeado somente quem concluiu o Top 5 do cargo', async () => {
+    const p = await carregarPanoramaRH('emp-1');
+    expect(p.comMapeamento).toBe(2);
+    expect(p.comMapeamento).not.toBe(3);
   });
 
   it('lê os totais do count, não do tamanho da lista', async () => {
@@ -67,8 +91,8 @@ describe('panorama do RH', () => {
       c.tabela === 'colaboradores' && c.metodo === 'neq'
       && c.args[0] === 'role' && c.args[1] === 'rh',
     );
-    // Uma exclusão no total de pessoas e outra no total com perfil.
-    expect(exclusoes).toHaveLength(2);
+    // Total, lista usada para validar conclusão do Top 5 e total com perfil.
+    expect(exclusoes).toHaveLength(3);
   });
 
   it('escopa por tenant e só olha trilha ATIVA', async () => {

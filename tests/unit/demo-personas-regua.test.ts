@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, mesclarPersonaArtifacts, personalizarArtefatoDemo } from '@/lib/demo/reset-acme-demo';
+import { DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo } from '@/lib/demo/reset-acme-demo';
 import { DEMO_PERSONAS } from '@/lib/sales/demo-personas';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile, DISC_SOMA_ALVO } from '@/lib/disc-mapeamento';
@@ -113,5 +113,40 @@ describe('Artefatos congelados: merge por persona', () => {
       .filter((p) => !merged[p.email]?.report?.report_texts)
       .map((p) => p.nome_completo);
     expect(semReport, `sem relatório congelado: ${semReport.join(', ')}`).toEqual([]);
+  });
+
+  it('só persona com mapeamento completo pode receber trilha congelada', () => {
+    const bruna: any = (PERSONAS as any[]).find((p) => p.key === 'bruna');
+    const paulo: any = (PERSONAS as any[]).find((p) => p.key === 'paulo');
+    expect(personaDemoComMapeamentoCompleto(bruna)).toBe(true);
+    expect(personaDemoComMapeamentoCompleto(paulo)).toBe(false);
+  });
+
+  it('corrige foco órfão do fixture e o mantém dentro do Top 5', () => {
+    const top5 = [
+      'Comunicação e Apresentação de Valor',
+      'Negociação e Fechamento',
+      'Relacionamento e Pós-venda',
+      'Resiliência e Constância',
+      'Orientação a Metas e Resultados',
+    ];
+    const focos = focosValidosDemo({
+      nome: 'Representante Comercial',
+      competencia_foco: 'Conhecimento Técnico de Produto e Solução',
+    }, top5);
+    expect(focos).toEqual(['Negociação e Fechamento']);
+    expect(focos.every((foco) => top5.includes(foco))).toBe(true);
+  });
+
+  it('todos os níveis congelados de personas completas pertencem a N1–N4', () => {
+    const merged = mesclarPersonaArtifacts(
+      (fixture as any).personaArtifacts,
+      (extraArtifacts as any).personaArtifacts,
+    );
+    for (const persona of (PERSONAS as any[]).filter(personaDemoComMapeamentoCompleto)) {
+      for (const resposta of merged[persona.email]?.respostas || []) {
+        expect([1, 2, 3, 4], `${persona.nome_completo} · ${resposta.competencia_nome}`).toContain(resposta.nivel_ia4);
+      }
+    }
   });
 });

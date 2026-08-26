@@ -6,6 +6,7 @@ import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import { LevelDots } from './StatusBadge';
 import CompetencyBlock from './CompetencyBlock';
+import { nivelOuNull } from '@/lib/nivel-regua';
 
 const s = StyleSheet.create({
   text: { fontSize: fonts.body, color: colors.textSecondary, lineHeight: 1.65, marginBottom: 4 },
@@ -160,7 +161,10 @@ function PageFooter({ mostrarVertho = true }: { mostrarVertho?: boolean }) {
 }
 
 // ── Status pill helper ──────────────────────────────────────────────────────
-function StatusPill({ nivel }: { nivel: number }) {
+function StatusPill({ nivel }: { nivel: number | null }) {
+  if (nivel === null) return (
+    <View style={s.statusPillAtencao}><Text style={s.statusPillAtencaoText}>Pendente</Text></View>
+  );
   if (nivel <= 1) return (
     <View style={s.statusPillAtencao}><Text style={s.statusPillAtencaoText}>Atenção</Text></View>
   );
@@ -170,7 +174,8 @@ function StatusPill({ nivel }: { nivel: number }) {
   return <View style={s.statusPillBom}><Text style={s.statusPillBomText}>{nivelLabel(nivel)}</Text></View>;
 }
 
-function ProgressBar({ nivel }: { nivel: number }) {
+function ProgressBar({ nivel }: { nivel: number | null }) {
+  if (nivel === null) return <Text style={s.progLabel}>—</Text>;
   const pct = Math.min(100, Math.max(0, (nivel / 4) * 100));
   const fillColor = nivel <= 1 ? '#EF4444' : nivel === 2 ? '#F59E0B' : nivel === 3 ? '#06B6D4' : '#10B981';
   return (
@@ -382,7 +387,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
                 <Text style={{ ...s.tableHeadCell, flex: 1.4, textAlign: 'center' }}>Desempenho</Text>
               </View>
               {(c.resumo_desempenho || competencias).map((comp: any, i: number) => {
-                const nivel = comp.nivel || comp.nivel_atual || 0;
+                const nivel = nivelOuNull(comp.nivel ?? comp.nivel_atual);
                 const rowStyle = i % 2 === 0 ? s.tableRow : s.tableRowAlt;
                 return (
                   <View key={i} style={rowStyle}>
@@ -391,7 +396,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
                     </Text>
                     <View style={{ flex: 0.8, alignItems: 'center' }}>
                       <View style={s.nivelTag}>
-                        <Text style={s.nivelTagText}>N{nivel}</Text>
+                        <Text style={s.nivelTagText}>{nivel === null ? '—' : `N${nivel}`}</Text>
                       </View>
                     </View>
                     <View style={{ flex: 1.4, alignItems: 'center' }}>

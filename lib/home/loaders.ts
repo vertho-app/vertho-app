@@ -6,6 +6,7 @@ import { PROGRESSO, TRILHA } from '@/lib/status';
 import type { UserContext } from '@/types';
 import { ehSemanaDeImplementacao, totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { estaAtrasada } from '@/lib/season-engine/atraso';
+import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
 
 /**
  * Loaders da home do dashboard — queries PURAS, sem 'use server' e sem auth
@@ -59,9 +60,13 @@ export async function carregarDashboardData(ctx: UserContext, shared?: HomeShare
   const view = getDashboardView(ctx);
 
   const progressoQueries = [
-    sb.from('competencias')
-      .select('id', { count: 'exact', head: true })
-      .eq('empresa_id', colab.empresa_id),
+    colab.cargo
+      ? sb.from('cargos_empresa')
+          .select('top5_workshop')
+          .eq('empresa_id', colab.empresa_id)
+          .eq('nome', colab.cargo)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
     sb.from('respostas')
       .select('id', { count: 'exact', head: true })
       .eq('colaborador_id', colab.id)
@@ -74,10 +79,14 @@ export async function carregarDashboardData(ctx: UserContext, shared?: HomeShare
   ] as const;
 
   const [
-    { count: totalComp, error: errComp },
+    { data: cargoEmp, error: errComp },
     { count: respondidas, error: errResp },
     { count: avaliadas, error: errAval },
   ] = await Promise.all(progressoQueries);
+
+  // A régua da Fase 2 é o Top 5 do CARGO. Contar todas as competências da
+  // empresa fazia a Bruna aparecer incompleta mesmo com 5/5 respondidas.
+  const totalComp = Array.isArray(cargoEmp?.top5_workshop) ? cargoEmp.top5_workshop.length : 0;
 
   // `count` vem `null` quando a query falha, e `null || 0` = 0. Sem esta
   // checagem a home mostrava "0 de 0" e "0% de progresso" para quem respondeu
@@ -94,21 +103,8 @@ export async function carregarDashboardData(ctx: UserContext, shared?: HomeShare
   colab.avaliadas = avaliadas || 0;
   colab.progresso = totalComp ? Math.round((respondidas / totalComp) * 100) : 0;
 
-  // Quem decide se HÁ avaliação é o Top 5 do CARGO (`cargos_empresa`), não a
-  // contagem de competências da empresa. Sem essa checagem a home convida a
-  // "Iniciar avaliação" e o assessment responde "Nenhuma competência
-  // configurada para seu cargo" — medido no cargo GR do Boehringer.
-  let cargoSemCompetencias = false;
-  if (!colab.cargo) {
-    cargoSemCompetencias = true;
-  } else {
-    const { data: cargoEmp } = await sb.from('cargos_empresa')
-      .select('top5_workshop')
-      .eq('empresa_id', colab.empresa_id)
-      .eq('nome', colab.cargo)
-      .maybeSingle();
-    cargoSemCompetencias = !((cargoEmp?.top5_workshop as any[])?.length);
-  }
+  // A mesma leitura acima também decide se existe avaliação para iniciar.
+  const cargoSemCompetencias = totalComp === 0;
 
   // Dados de equipe (gestor/rh)
   let teamData = null;
@@ -252,7 +248,8 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
 
   const temPlano = trilha?.temporada_plano && Array.isArray(trilha.temporada_plano) && trilha.temporada_plano.length > 0;
 
-  // Fase 3 — PDI (só disponível depois que a trilha estiver criada pelo gestor)
+  // Fase 3 — PDI. Ele nasce da avaliação completa e antecede a jornada; exigir
+  // trilha aqui invertia o funil e escondia um PDI que já existia.
   const { data: pdi } = await sb.from('relatorios')
     .select('id, gerado_em')
     .eq('colaborador_id', colab.id)
@@ -263,12 +260,12 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     .maybeSingle();
 
   let pdiStatus, pdiDesc;
-  if (!temPlano) {
-    pdiStatus = 'pending';
-    pdiDesc = 'Aguardando o gestor criar sua trilha de desenvolvimento';
-  } else if (pdi) {
+  if (pdi) {
     pdiStatus = 'completed';
     pdiDesc = 'Plano de Desenvolvimento Individual';
+  } else if (!avaliacaoCompleta) {
+    pdiStatus = 'pending';
+    pdiDesc = 'Conclua a avaliação para liberar seu PDI';
   } else {
     pdiStatus = 'pending';
     pdiDesc = 'Aguardando geração do PDI';
@@ -280,7 +277,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     descricao: pdiDesc,
     status: pdiStatus,
     data: pdi?.gerado_em || null,
-    bloqueado: !temPlano,
+    bloqueado: !pdi && !avaliacaoCompleta,
   });
 
   // Fase 4 — Temporada (já carregada acima)
@@ -618,9 +615,12 @@ export async function carregarPanoramaRH(empresaId: string) {
     .select('nome, sys_config').eq('id', empresaId).maybeSingle();
   const fonteExterna = (empresaRes.data?.sys_config as any)?.perfil_externo_fonte ?? null;
 
-  const [pessoasRes, comPerfilRes, trilhasRes, encerradasRes, assessRes] = await Promise.all([
+  const [pessoasRes, participantesRes, comPerfilRes, trilhasRes, encerradasRes, assessRes, cargosRes] = await Promise.all([
     tdb.from('colaboradores')
       .select('id', { count: 'exact', head: true })
+      .neq('role', 'rh'),
+    tdb.from('colaboradores')
+      .select('id, cargo')
       .neq('role', 'rh'),
     // 🔑 `perfil_dominante`, não `disc_resultados`. É a MESMA coluna que o resto
     // do app usa para decidir se a pessoa tem perfil — o gate da home
@@ -651,15 +651,21 @@ export async function carregarPanoramaRH(empresaId: string) {
     // Uma linha por DESCRITOR avaliado — o maior tenant hoje tem 576 (macae).
     // Traz só a coluna que identifica a pessoa e deduplica em código: é o
     // "quantas PESSOAS" que a tela pergunta, não quantas notas existem.
-    tdb.from('descriptor_assessments').select('colaborador_id'),
+    tdb.from('descriptor_assessments').select('colaborador_id, competencia'),
+    tdb.from('cargos_empresa').select('nome, top5_workshop'),
   ]);
 
-  const erro = pessoasRes.error || comPerfilRes.error || trilhasRes.error || assessRes.error || encerradasRes.error;
+  const erro = pessoasRes.error || participantesRes.error || comPerfilRes.error || trilhasRes.error
+    || assessRes.error || cargosRes.error || encerradasRes.error;
   if (erro) console.error('[panorama-rh] contagens falharam:', erro.message);
 
   const trilhas = trilhasRes.data || [];
   const emJornada = new Set(trilhas.map((t: any) => t.colaborador_id)).size;
-  const comMapeamento = new Set((assessRes.data || []).map((a: any) => a.colaborador_id)).size;
+  const comMapeamento = colaboradoresComMapeamentoCompleto(
+    participantesRes.data || [],
+    cargosRes.data || [],
+    assessRes.data || [],
+  ).size;
 
   // Progresso das trilhas ativas — uma linha por semana de cada trilha (~530 no
   // maior tenant). É o que separa "em jornada" de "andando": sem isto, 38 ativas

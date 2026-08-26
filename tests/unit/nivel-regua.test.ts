@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { nivelDaNota, rotuloNivel, TETO_N3 } from '@/lib/nivel-regua';
+import { nivelDaNota, nivelOuNull, rotuloNivel, TETO_N3 } from '@/lib/nivel-regua';
 
 /**
  * A régua: N1 1,00–1,99 · N2 2,00–2,99 · N3 3,00–3,50 · N4 acima de 3,50.
@@ -48,5 +48,13 @@ describe('nivelDaNota — régua oficial nota→nível', () => {
   it('rotuloNivel formata como o produto mostra', () => {
     expect(rotuloNivel(1.9)).toBe('N1');
     expect(rotuloNivel(3.6)).toBe('N4');
+  });
+
+  it('nível já calculado só aceita os quatro degraus existentes', () => {
+    expect([1, 2, 3, 4].map(nivelOuNull)).toEqual([1, 2, 3, 4]);
+    expect(nivelOuNull(0)).toBeNull();
+    expect(nivelOuNull(2.5)).toBeNull();
+    expect(nivelOuNull(null)).toBeNull();
+    expect(nivelOuNull('pendente')).toBeNull();
   });
 });

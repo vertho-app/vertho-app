@@ -23,6 +23,7 @@ const COLABS = [
   { id: 'p1', nome_completo: 'Sem Perfil', cargo: 'Professor(a)', email: 'p1@x.com', perfil_dominante: null, perfil_externo_dados: null, gestor_email: null },
   { id: 'p2', nome_completo: 'Perfil Sem Avaliacao', cargo: 'Professor(a)', email: 'p2@x.com', perfil_dominante: 'D', perfil_externo_dados: null, gestor_email: null },
   { id: 'p3', nome_completo: 'Pronto', cargo: 'Diretor(a)', email: 'p3@x.com', perfil_dominante: 'S', perfil_externo_dados: null, gestor_email: null },
+  { id: 'p4', nome_completo: 'Parcial', cargo: 'Professor(a)', email: 'p4@x.com', perfil_dominante: 'I', perfil_externo_dados: null, gestor_email: null },
   { id: 'rh2', nome_completo: 'Outro RH', cargo: 'Analista de RH', email: 'rh2@x.com', perfil_dominante: null, perfil_externo_dados: null, gestor_email: null, role: 'rh' },
 ];
 
@@ -33,8 +34,15 @@ const sb = criarSupabaseMock({
   resolver: (tabela) => (tabela === 'empresas' ? { sys_config: {} } : null),
   lista: (tabela) => {
     if (tabela === 'colaboradores') return COLABS;
-    // Só p3 fez a avaliação; ninguém tem trilha.
-    if (tabela === 'descriptor_assessments') return [{ colaborador_id: 'p3' }];
+    if (tabela === 'cargos_empresa') return [
+      { nome: 'Professor(a)', top5_workshop: ['Didática', 'Planejamento'] },
+      { nome: 'Diretor(a)', top5_workshop: ['Liderança'] },
+    ];
+    // p3 concluiu; p4 tem uma avaliação, mas ainda falta metade do Top 5.
+    if (tabela === 'descriptor_assessments') return [
+      { colaborador_id: 'p3', competencia: 'Liderança' },
+      { colaborador_id: 'p4', competencia: 'Didática' },
+    ];
     if (tabela === 'trilhas') return TRILHAS;
     return [];
   },
@@ -75,6 +83,12 @@ describe('motivo de estar sem trilha', () => {
     expect(m.p3).not.toBe('sem_mapeamento');
   });
 
+  it('uma competência avaliada não transforma mapeamento parcial em concluído', async () => {
+    const m = await motivos();
+    expect(m.p4).toBe('sem_mapeamento');
+    expect(m.p4).not.toBe('aguardando_geracao');
+  });
+
   it('não trata outra conta de RH como participante pendente', async () => {
     const m = await motivos();
     expect(m).not.toHaveProperty('rh2');
@@ -98,7 +112,9 @@ describe('motivo de estar sem trilha', () => {
     const r: any = await getGestorHomeData();
     const m = Object.fromEntries((r.equipe || []).map((e: any) => [e.colabId, e.motivoSemTrilha]));
     expect(m.p2).toBeNull();
-    expect((r.alertas || []).find((a: any) => a.tipo === 'sem_mapeamento')).toBeUndefined();
+    // O alerta restante é apenas o p4, que de fato continua parcial; p2 não é
+    // contado enquanto já está em jornada.
+    expect((r.alertas || []).find((a: any) => a.tipo === 'sem_mapeamento')?.count).toBe(1);
   });
 
   it('cada alerta conta o MESMO que os rótulos das linhas', async () => {

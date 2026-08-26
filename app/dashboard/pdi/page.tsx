@@ -8,6 +8,7 @@ import { Loader2, Target, AlertCircle, ChevronDown, ChevronUp, CheckCircle, Aler
 import { loadPDI, baixarMeuPdiPdf } from './pdi-actions';
 import { PageContainer, PageHero } from '@/components/page-shell';
 import FirstViewVideo from '@/components/first-view-video';
+import { nivelOuNull } from '@/lib/nivel-regua';
 
 // Vídeo tutorial do PDI (Bunny) — abre na 1ª vez que a pessoa recebe o PDI.
 const PDI_VIDEO_ID = 'b8a4534e-326a-4ba4-b638-befc63294dda';
@@ -27,9 +28,10 @@ function SectionTitle({ children, icon: Icon, color = '#06B6D4' }: { children?: 
 
 function CompetencyBlock({ comp, idx, t }: { comp?: any; idx?: any; t: any }) {
   const [open, setOpen] = useState(idx === 0);
-  const nivel = comp.nivel || comp.nivel_atual || 0;
-  const color = nivelColor(nivel);
-  const isFlag = comp.flag || nivel <= 1;
+  const nivel = nivelOuNull(comp.nivel ?? comp.nivel_atual);
+  const nivelVisual = nivel ?? 1;
+  const color = nivel === null ? '#94A3B8' : nivelColor(nivel);
+  const isFlag = comp.flag || nivel === null || nivel <= 1;
 
   return (
     <div className="rounded-xl border overflow-hidden" style={{
@@ -40,7 +42,7 @@ function CompetencyBlock({ comp, idx, t }: { comp?: any; idx?: any; t: any }) {
       <button onClick={() => setOpen(!open)}
         className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/[0.02] transition-colors">
         <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: nivelBg(nivel) }}>
+          style={{ background: nivel === null ? 'rgba(148,163,184,0.15)' : nivelBg(nivelVisual) }}>
           <Target size={18} style={{ color }} />
         </div>
         <div className="flex-1 min-w-0">
@@ -49,8 +51,8 @@ function CompetencyBlock({ comp, idx, t }: { comp?: any; idx?: any; t: any }) {
             {isFlag && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded text-amber-400 bg-amber-400/10">{t('priority')}</span>}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-xs font-bold" style={{ color }}>N{nivel}</span>
-            <span className="text-[10px] text-gray-500">{nivelLabel(nivel, t)}</span>
+            <span className="text-xs font-bold" style={{ color }}>{nivel === null ? '—' : `N${nivel}`}</span>
+            {nivel !== null && <span className="text-[10px] text-gray-500">{nivelLabel(nivel, t)}</span>}
           </div>
         </div>
         {open ? <ChevronUp size={18} className="text-gray-500 shrink-0" /> : <ChevronDown size={18} className="text-gray-500 shrink-0" />}
@@ -343,13 +345,13 @@ export default function PDIPage() {
           <SectionTitle>{t('sections.performanceSummary')}</SectionTitle>
           <div className="space-y-2">
             {c.resumo_desempenho.map((rd, i) => {
-              const n = rd.nivel || rd.nivel_atual || 0;
+              const n = nivelOuNull(rd.nivel ?? rd.nivel_atual);
               return (
                 <div key={i} className="flex items-center justify-between rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.02)' }}>
                   <span className="text-xs text-white font-semibold truncate">{rd.competencia || rd.nome}</span>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ color: nivelColor(n), background: nivelBg(n) }}>N{n}</span>
-                    <span className="text-[10px]" style={{ color: nivelColor(n) }}>{nivelLabel(n, t)}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ color: n === null ? '#94A3B8' : nivelColor(n), background: n === null ? 'rgba(148,163,184,0.15)' : nivelBg(n) }}>{n === null ? '—' : `N${n}`}</span>
+                    {n !== null && <span className="text-[10px]" style={{ color: nivelColor(n) }}>{nivelLabel(n, t)}</span>}
                   </div>
                 </div>
               );
