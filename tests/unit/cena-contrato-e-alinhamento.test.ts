@@ -206,13 +206,37 @@ describe('3 · o juiz avalia o beat PROVOCADO, não o próximo pendente', () => 
   });
 });
 
-describe('4 · o ator N1 é instruído a NÃO recuperar', () => {
-  it('N1 recebe a trava; N3 não', () => {
+describe('4 · o ator joga o jogo da SONDAGEM, não o de resolver', () => {
+  // 🔴 Medido na primeira rodada sob (b): o ator "N3" fechou em 8 turnos com
+  // acordo — plano bonito, zero sondagem — e os dois braços afloraram 1 de 6
+  // fatos. Nenhuma discriminação, porque nenhum dos dois estava investigando.
+  //
+  // Causa: eu reescrevi cinco contratos para (b) e esqueci o sexto. O prompt do
+  // ator ainda mandava "se comportar no nível X" com os descritores na mão, e a
+  // trava do N1 proibia nomear prazo, número e responsável — que é falha de
+  // quem RESOLVE. Sob (b), o N1 falha por aceitar a primeira versão.
+  it('N1 é instruído a aceitar a primeira versão, e proibido de sondar', () => {
     const n1 = promptAlunoSimulado('Gestão Escolar', 1, descritores);
+    expect(n1).toContain('ACEITA A PRIMEIRA VERSÃO');
+    expect(n1, 'a trava tem de ser sobre sondar, não sobre nomear prazo')
+      .toContain('PROIBIDO, mesmo no último turno: pedir exemplo específico');
+  });
+
+  it('N3 é instruído a investigar ANTES de decidir', () => {
     const n3 = promptAlunoSimulado('Gestão Escolar', 3, descritores);
-    expect(n1).toContain('Você NÃO se recupera');
-    expect(n1).toContain('PROIBIDO');
-    expect(n3).not.toContain('Você NÃO se recupera');
+    expect(n3).toContain('INVESTIGA ANTES DE DECIDIR');
+    expect(n3, 'e o outro lado é parte explícita da sondagem')
+      .toContain('Pergunta a versão de quem não está');
+    expect(n3).not.toContain('ACEITA A PRIMEIRA VERSÃO');
+  });
+
+  it('os dois recebem a régua como critério do que perguntar', () => {
+    for (const nv of [1, 3] as const) {
+      const p = promptAlunoSimulado('Gestão Escolar', nv, descritores);
+      expect(p).toContain('É ela que decide o que você acha importante perguntar');
+      expect(p, 'e a cena é de investigar um caso, não de resolver um problema')
+        .toContain('Ela é verdadeira e INCOMPLETA');
+    }
   });
 });
 
