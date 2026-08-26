@@ -495,8 +495,27 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   }
 
   function demoSysConfig(sourceConfig: any = {}) {
+    // 🔴 `ai.modelos` NÃO é copiado do fixture (25/08/2026).
+    //
+    // O spread abaixo trazia o bloco inteiro, e o fixture carregava
+    // `{ia3_check: 'gpt-5.4', ia4_check: 'gpt-5.4'}` — modelo que MORREU (403
+    // com a chave do projeto). Como override explícito por task vence o pin, os
+    // dois auditores Dual-IA da demo apontavam para o nada.
+    //
+    // A migration 227 limpou isso no banco e o reset das 04h REPÔS: consertei o
+    // sintoma no dado e deixei o escritor de pé. Medido no re-check de hoje —
+    // 20 chamadas morreram com `OpenAI 403 (gpt-5.4)` num tenant que eu tinha
+    // dado por limpo horas antes.
+    //
+    // Política de MODELO é decisão de plataforma (`DEFAULT_TASK_MODELS` +
+    // `PINNED_TASKS`), não característica de tenant. Copiá-la para a demo só
+    // propaga configuração velha; sem ela, a demo resolve pelos pins, que é o
+    // comportamento correto e o que o resto da base já faz.
+    const { ai: aiDaOrigem, ...restoDaOrigem } = sourceConfig || {};
+    const ai = aiDaOrigem ? { ...aiDaOrigem, modelos: {} } : undefined;
     return {
-      ...sourceConfig,
+      ...restoDaOrigem,
+      ...(ai ? { ai } : {}),
       allow_open_signup: true,
       mapeamento_cenarios_liberado: true,
       perfil_comportamental_liberado: true,

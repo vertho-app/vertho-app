@@ -8,10 +8,7 @@
     "segmento": "corporativo",
     "sys_config": {
       "ai": {
-        "modelos": {
-          "ia3_check": "gpt-5.4",
-          "ia4_check": "gpt-5.4"
-        },
+        "modelos": {},
         "modelo_padrao": "claude-sonnet-4-6"
       },
       "envios": {},
