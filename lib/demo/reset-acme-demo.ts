@@ -394,6 +394,18 @@ export interface ResetDemoResult {
   error?: string;
 }
 
+// Ordem é parte da segurança do reset. `relatorios.colaborador_id` usa
+// ON DELETE SET NULL e há unicidade para relatório agregado; se os relatórios
+// não saírem antes das personas, dois documentos podem colidir ao virar NULL e
+// o reset fica pela metade.
+export const DEMO_RESET_TABLES = [
+  'relatorios',
+  'temporada_semana_progresso', 'trilhas', 'reavaliacao_sessoes', 'sessoes_avaliacao',
+  'descriptor_assessments', 'respostas', 'videos_watched', 'fase4_progresso',
+  'banco_cenarios', 'top10_cargos', 'colaboradores', 'cargos_empresa',
+  'competencias', 'ppp_escolas',
+] as const;
+
 export interface DemoAccessResult {
   ok: boolean;
   url?: string;
@@ -467,17 +479,19 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   }
   async function maybeDelete(table: string, empresaId: string) {
     const r = await sb.from(table).delete().eq('empresa_id', empresaId);
-    if (r.error) console.warn(`[reset-demo] skip delete ${table}: ${r.error.message}`);
+    if (!r.error) return;
+    // Compatibilidade com ambientes antigos em que uma tabela opcional nunca
+    // existiu. Qualquer outro erro aborta: continuar depois de uma exclusão
+    // crítica falhar produz um tenant híbrido e viola a idempotência do reset.
+    if (r.error.code === 'PGRST205' || /Could not find the table/i.test(r.error.message)) {
+      console.warn(`[reset-demo] skip delete ${table}: ${r.error.message}`);
+      return;
+    }
+    throw new Error(`delete ${table}: ${r.error.message}`);
   }
 
   async function resetTenant(empresaId: string) {
-    const tables = [
-      'temporada_semana_progresso', 'trilhas', 'reavaliacao_sessoes', 'sessoes_avaliacao',
-      'descriptor_assessments', 'respostas', 'videos_watched', 'fase4_progresso',
-      'banco_cenarios', 'top10_cargos', 'colaboradores', 'cargos_empresa',
-      'competencias', 'ppp_escolas',
-    ];
-    for (const table of tables) await maybeDelete(table, empresaId);
+    for (const table of DEMO_RESET_TABLES) await maybeDelete(table, empresaId);
   }
 
   function demoSysConfig(sourceConfig: any = {}) {

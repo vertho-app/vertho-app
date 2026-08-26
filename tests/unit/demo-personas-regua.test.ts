@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo } from '@/lib/demo/reset-acme-demo';
+import { DEMO_RESET_TABLES, DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo } from '@/lib/demo/reset-acme-demo';
 import { DEMO_PERSONAS } from '@/lib/sales/demo-personas';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile, DISC_SOMA_ALVO } from '@/lib/disc-mapeamento';
@@ -15,6 +15,9 @@ import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
  * `comp_persistencia = S = 24` impossível pela regressão canônica.
  */
 describe('Personas do acme-demo seguem a régua do produto', () => {
+  it('limpa relatórios antes de colaboradores para o reset nunca ficar pela metade', () => {
+    expect(DEMO_RESET_TABLES.indexOf('relatorios')).toBeLessThan(DEMO_RESET_TABLES.indexOf('colaboradores'));
+  });
   it('personaliza a marca do fixture sem alterar o artefato canônico', () => {
     const original = { descricao: 'A ACME Demo representa a ACME.', nested: ['time da ACME'] };
     const branded = personalizarArtefatoDemo(original, 'gruposinal');
