@@ -156,7 +156,7 @@ function CargoDnaBlock({ cargo, avaliados, dna }: { cargo: string; avaliados: nu
     <View style={{ borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 11, marginBottom: 9 }} wrap={false}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 7 }}>
         <Text style={{ fontSize: 11.5, fontWeight: 700, color: C.navy, flex: 1 }}>{cargo}</Text>
-        <Text style={{ fontSize: 8.5, color: C.sub }}>{avaliados} avaliado{avaliados === 1 ? '' : 's'} · {dna.competencias.length} competência{dna.competencias.length === 1 ? '' : 's'}</Text>
+        <Text style={{ fontSize: 8.5, color: C.sub }}>{avaliados} com avaliação iniciada · {dna.competencias.length} competência{dna.competencias.length === 1 ? '' : 's'}</Text>
       </View>
       {/* barra empilhada N1..N4 */}
       <View style={{ flexDirection: 'row', height: 15, borderRadius: 4, overflow: 'hidden', marginBottom: 4 }}>
@@ -197,7 +197,7 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
           <View style={{ flex: 1 }}>
             <Text style={s.hTitle}>RETRATO DE{'\n'}COMPETÊNCIAS</Text>
             <Text style={s.hEmpresa}>{empresaNome}</Text>
-            <Text style={s.hMeta}>{dataRef}  •  {dna.avaliados} profissionais avaliados</Text>
+            <Text style={s.hMeta}>{dataRef}  •  {dna.avaliados} com avaliação iniciada</Text>
           </View>
           {logo ? <Image src={logo} style={s.hLogo} /> : null}
         </View>
@@ -239,7 +239,7 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
                 idx === 0 ? (
                   <View key="sec-cargo" break>
                     <SecTitle>DESCRITORES POR COMPETÊNCIA — POR CARGO</SecTitle>
-                    <Text style={s.anon}>A distribuição de níveis e os descritores de cada competência, recortados por cargo — cada cargo abre em página própria. Cargos com menos de 3 avaliados não aparecem.</Text>
+                    <Text style={s.anon}>A distribuição de níveis e os descritores de cada competência, recortados por cargo — cada cargo abre em página própria. Cargos com menos de 3 pessoas com avaliação iniciada não aparecem.</Text>
                   </View>
                 ) : null,
                 <View key={pc.cargo} break={idx > 0}>

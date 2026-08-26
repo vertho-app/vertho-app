@@ -39,7 +39,7 @@ function resumoDados(dna: DnaAggregate, empresaNome: string, segmento: string | 
   ).join('\n');
   return [
     `${v.org.toUpperCase()}: ${empresaNome} | segmento: ${segmento || 'corporativo'}`,
-    `Avaliados: ${dna.avaliados} de ${dna.totalColaboradores} (${dna.participacaoPct}% de participação) · ${dna.totalAvaliacoes} avaliações de descritores`,
+    `Pessoas com ao menos uma competência avaliada (avaliação iniciada, não necessariamente concluída): ${dna.avaliados} de ${dna.totalColaboradores} (${dna.participacaoPct}% de participação) · ${dna.totalAvaliacoes} avaliações de descritores`,
     `Distribuição geral: N1(gap)=${dna.distGeralPct.n1}% · N2(em desenv.)=${dna.distGeralPct.n2}% · N3(meta)=${dna.distGeralPct.n3}% · N4(referência)=${dna.distGeralPct.n4}%`,
     `\nCompetências (ordenadas por prioridade):\n${comps}`,
     `\nMaiores gaps: ${dna.topGaps.slice(0, 5).map((g) => `${g.descritor} (${g.competencia}, ${g.n1pct}% em N1)`).join(' · ')}`,
