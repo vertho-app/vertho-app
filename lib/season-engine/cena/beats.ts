@@ -68,8 +68,8 @@ export const BEATS_CANONICOS: readonly BeatCanonico[] = Object.freeze([
       'Responda em GENERALIDADE quando ele sondar: "conversei com ela", "ficou tudo ' +
       'certo", "a gente se entendeu". Nunca ofereça o exemplo; espere ser cobrado por ele.',
     sinalDeCumprido:
-      'O gestor pediu o exemplo específico — o que foi dito, por quem, quando — em ' +
-      'vez de aceitar o resumo.',
+      'O gestor pediu o exemplo específico — o que foi dito, por quem, quando — ou ' +
+      'aceitou o resumo e seguiu adiante (que também é sinal, e é o mais comum).',
   },
   {
     numero: 3,

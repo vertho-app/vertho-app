@@ -177,3 +177,19 @@ describe('red-team: diretiva disfarçada de dilema', () => {
     expect(system).toContain('oferecer os CAMINHOS DE AÇÃO');
   });
 });
+
+describe('revelar FATO não é ditar — é o mecanismo da cena', () => {
+  // 🔴 Medido na primeira rodada sob (b): as duas únicas falas barradas pelo
+  // guarda eram o personagem dizendo o prazo e o nome que o gestor tinha
+  // acabado de perguntar. Isso é o gabarito funcionando — o fato aflorou
+  // porque a sondagem chegou. Barrar a revelação destrói o que a cena mede.
+  it('o guarda é instruído a não barrar fato do passado', () => {
+    const { system } = promptGuardaDoInterlocutor(
+      'Você falou que ia acompanhar e não acompanhou. Faz seis semanas.',
+      ctxBase.beats[0],
+    );
+    expect(system).toContain('REVELA UM FATO DO CASO QUE ELA VIVEU');
+    expect(system, 'a fronteira tem de ser temporal, não de conteúdo')
+      .toContain('FATO É PASSADO, e é dela. INSTRUÇÃO É FUTURO');
+  });
+});

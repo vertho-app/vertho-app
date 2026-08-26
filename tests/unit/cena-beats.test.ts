@@ -571,3 +571,26 @@ describe('o mapa da IA3 tem de concordar com o alcance da cena', () => {
     expect(montarBeatsDaCena(coerente, 6).erros.join(' ')).toContain('D2');
   });
 });
+
+describe('todo beat tem saída pelo lado RUIM — senão a cena não anda', () => {
+  // 🔴 Medido na primeira rodada sob (b): o braço N1 bateu no teto de 14 turnos
+  // com UM beat cumprido e cobertura 2/6. Causa: o sinal do beat 2 era só
+  // "o gestor pediu o exemplo específico", sem o ramo negativo. Gestor N1 nunca
+  // pede, o beat nunca fecha, `proximoBeat` devolve 2 para sempre.
+  //
+  // O beat mede se o MOMENTO produziu resposta legível — boa ou ruim. Sinal que
+  // só fecha quando o avaliado acerta transforma cena de gente fraca em cena
+  // travada, e "não andou" vira lacuna de cobertura em vez de nota baixa.
+  it('os quatro sinais aceitam o desfecho negativo', () => {
+    for (const b of BEATS_CANONICOS) {
+      expect(
+        /\bou\b/.test(b.sinalDeCumprido),
+        `beat ${b.numero} (${b.pilar}) não tem ramo negativo: "${b.sinalDeCumprido}"`,
+      ).toBe(true);
+    }
+  });
+
+  it('e o beat 2 em particular, que foi o que travou', () => {
+    expect(BEATS_CANONICOS[1].sinalDeCumprido).toContain('aceitou o resumo');
+  });
+});

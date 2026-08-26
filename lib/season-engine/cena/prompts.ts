@@ -810,6 +810,21 @@ Marque "dita_formato": true quando a fala fizer QUALQUER uma destas coisas:
   ("ou você tira ela da sala, ou você chama a mãe")
 
 Marque false quando ela apenas:
+- 🔑 REVELA UM FATO DO CASO QUE ELA VIVEU, depois de ser sondada. Este é o
+  trabalho dela nesta cena: ela guarda o que aconteceu e entrega quando a
+  pergunta chega. "Eu falei que ia acompanhar e não acompanhei", "a nota dele
+  era 4 e virou 7 sem ninguém explicar", "faz seis semanas" — nada disso é
+  ditar. É o gestor tendo conseguido extrair.
+
+  ⚠️ Medido em 25/08/2026, na primeira rodada do instrumento: as duas únicas
+  falas barradas eram exatamente isto — o personagem dizendo o prazo e o nome
+  que o gestor tinha acabado de perguntar. Barrar a revelação de fato destrói o
+  mecanismo central da cena: sem fato aflorando, não há o que medir.
+
+  A fronteira: FATO É PASSADO, e é dela. INSTRUÇÃO É FUTURO, e é do gestor.
+  "Você não me deu retorno em seis semanas" = fato. "Me dá um retorno em uma
+  semana, por escrito" = instrução, e aí sim é ditar.
+
 - recusa, discorda, se irrita, insiste, cobra consequência
 - PERGUNTA por algo sem dizer qual é a resposta ("e quem fica responsável?")
 - aponta que a resposta é vaga sem dizer o que a tornaria concreta
