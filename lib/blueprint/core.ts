@@ -289,7 +289,7 @@ export async function auditarBlueprintCore(
       // override explícito continua valendo, o DEFAULT deixa de ser herdado.
       const { getModelForTask } = await import('@/lib/ai-tasks');
       const auditorModel = aiConfig?.model || await getModelForTask(empresaId, 'blueprint_audit');
-      const resp = await callAI(system, user, { model: auditorModel }, 4000, { taskKey: 'blueprint_audit' });
+      const resp = await callAI(system, user, { model: auditorModel }, 7000, { taskKey: 'blueprint_audit' });
       const parsed = await extractJSON(resp);
       if (parsed) semantico = parseAuditResponse(parsed);
     } catch (err: any) {

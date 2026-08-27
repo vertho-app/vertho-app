@@ -150,7 +150,7 @@ REGRAS:
 - conexao_com_pratica: true se o colaborador conectou o conteúdo a algo do trabalho real
 - NÃO complete lacunas com "bom senso"
 - NÃO infle qualidade_reflexao`;
-    const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 2000, { taskKey: 'temporada_extracao' });
+    const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 8000, { taskKey: 'temporada_extracao' });
     return validateExtracaoSocratic(parseExtracaoResponse(resp));
   }
 
@@ -188,7 +188,7 @@ REGRAS:
 - alertas_metodologicos: liste se houver risco de viés, falta de base ou inflação
 - NÃO preencha todos os descritores como se todos tivessem aparecido bem
 - NÃO transforme intenção em evidência de execução`;
-  const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 3000, { taskKey: 'temporada_extracao' });
+  const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 8000, { taskKey: 'temporada_extracao' });
   return validateExtracaoAnalytic(parseExtracaoResponse(resp), descritores);
 }
 

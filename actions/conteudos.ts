@@ -197,7 +197,7 @@ export async function gerarConteudoIA({
     const model = taskKey && empresaId ? await getModelForTask(empresaId, taskKey) : aiConfig?.model;
     // texto/case viram PDF e exigem mín. 8.000 caracteres — precisam de mais
     // tokens de saída p/ não truncar antes de atingir o comprimento mínimo.
-    const maxTokens = formato === 'texto' || formato === 'case' ? 8000 : 4096;
+    const maxTokens = formato === 'texto' || formato === 'case' ? 12000 : 8000;
     const ai = aiRun || callAI;
     // O `taskKey` acima já existia — mas só para ESCOLHER O MODELO
     // (`getModelForTask`). Não era repassado ao ledger, então a geração de
@@ -1082,7 +1082,7 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
       competencia: c.competencia, descritor: c.descritor, conteudoCore: c.conteudo_inline,
       arquetipoNome: arq.nome, arquetipoDesc: arq.desc, escolaBrief,
     });
-    const layer = (await callAI(system, user, { model }, 2000, {
+    const layer = (await callAI(system, user, { model }, 3000, {
       temperature: 0.5, taskKey: 'conteudo_personalizacao', empresaId,
     })).trim();
     if (!layer) return { success: true, url: generico, personalized: false };

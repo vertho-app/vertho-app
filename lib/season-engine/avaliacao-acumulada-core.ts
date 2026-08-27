@@ -188,7 +188,7 @@ export async function gerarAvaliacaoAcumuladaParcialCore(trilhaId: string, compe
         nomeColab: colabMasked.nome,
         nivelMetaAlvo,
       });
-      const r = await callAI(system, user, {}, 8000, { taskKey: 'acumulada_primaria' });
+      const r = await callAI(system, user, {}, 12000, { taskKey: 'acumulada_primaria' });
       const primaria = validateAvaliacaoAcumulada(parseJsonIA(r));
       if (primaria?.resumo_geral) primaria.resumo_geral = unmaskPII(primaria.resumo_geral, piiMap);
       acumuladosPorComp.push({ competencia: comp, primaria });
@@ -253,7 +253,7 @@ async function avaliarCompAcumulada(
       nomeColab: colabMasked.nome,
       nivelMetaAlvo,
     });
-    const r = await callAI(system, user, {}, 8000, { taskKey: 'acumulada_primaria', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id });
+    const r = await callAI(system, user, {}, 12000, { taskKey: 'acumulada_primaria', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id });
     primaria = validateAvaliacaoAcumulada(parseJsonIA(r));
     if (primaria?.resumo_geral) primaria.resumo_geral = unmaskPII(primaria.resumo_geral, piiMap);
     if (Array.isArray(primaria?.avaliacao_acumulada)) {
@@ -278,7 +278,7 @@ async function avaliarCompAcumulada(
     });
     // 2ª IA (auditor) configurável — default GPT 5.6 Luna (cross-família, barato).
     const checkModel = await getModelForTask(trilha.empresa_id, 'acumulada_check');
-    const r = await callAI(system, user, { model: checkModel }, 6000, { taskKey: 'acumulada_check', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id });
+    const r = await callAI(system, user, { model: checkModel }, 8000, { taskKey: 'acumulada_check', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id });
     auditoria = validateAvaliacaoAcumuladaCheck(parseJsonIA(r));
     if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
   } catch (err) {

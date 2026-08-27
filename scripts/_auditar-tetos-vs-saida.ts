@@ -107,13 +107,48 @@ const FONTE_SIMULADOR = 'simulator';
  * ⚠️ `conteudo_texto`/`conteudo_case` têm teto 8.000 e `conteudo_podcast` 4.096
  * — o MESMO call-site bifurca por formato (actions/conteudos.ts:200). Assumir
  * 4.096 para os quatro foi o erro do de-para de 25/08.
+ *
+ * 🔴 E ele CONFERE a si mesmo (26/08). A primeira versão era um mapa manual e
+ * ficou obsoleta em MINUTOS: subi os tetos no código e o auditor seguiu
+ * reportando `conteudo_podcast` em 4.096, porque o número morava aqui. É a
+ * mesma classe que este projeto persegue o tempo todo — config declarada ≠
+ * config aplicada — só que dentro do instrumento que existe para pegá-la.
+ * Agora cada entrada traz o `padrao` que precisa existir no arquivo indicado;
+ * se não existir, o auditor FALHA em vez de reportar um número inventado.
  */
-const TETOS_DECLARADOS: Record<string, { teto: number; onde: string }> = {
-  conteudo_texto: { teto: 8000, onde: 'actions/conteudos.ts:200 (formato texto/case)' },
-  conteudo_case: { teto: 8000, onde: 'actions/conteudos.ts:200 (formato texto/case)' },
-  conteudo_podcast: { teto: 4096, onde: 'actions/conteudos.ts:200 (demais formatos)' },
-  missao_feedback: { teto: 2000, onde: 'app/api/temporada/reflection/route.ts:382 (taskKey por ternário)' },
+const TETOS_DECLARADOS: Record<string, { teto: number; onde: string; arquivo: string; padrao: RegExp }> = {
+  conteudo_texto: {
+    teto: 12000, onde: 'actions/conteudos.ts (formato texto/case)',
+    arquivo: 'actions/conteudos.ts', padrao: /'case'\s*\?\s*12000\s*:/,
+  },
+  conteudo_case: {
+    teto: 12000, onde: 'actions/conteudos.ts (formato texto/case)',
+    arquivo: 'actions/conteudos.ts', padrao: /'case'\s*\?\s*12000\s*:/,
+  },
+  conteudo_podcast: {
+    teto: 8000, onde: 'actions/conteudos.ts (demais formatos)',
+    arquivo: 'actions/conteudos.ts', padrao: /'case'\s*\?\s*12000\s*:\s*8000/,
+  },
+  missao_feedback: {
+    teto: 2000, onde: 'app/api/temporada/reflection/route.ts (taskKey por ternário)',
+    arquivo: 'app/api/temporada/reflection/route.ts', padrao: /2000,\s*\{\s*taskKey:\s*tipoConversa/,
+  },
 };
+
+/** Confere que cada teto declarado ainda existe no arquivo que diz existir. */
+function conferirDeclarados(): string[] {
+  const falhas: string[] = [];
+  for (const [task, d] of Object.entries(TETOS_DECLARADOS)) {
+    let src = '';
+    try { src = readFileSync(join(RAIZ, d.arquivo), 'utf-8'); } catch {
+      falhas.push(`${task}: arquivo ${d.arquivo} não existe`); continue;
+    }
+    if (!d.padrao.test(src)) {
+      falhas.push(`${task}: o padrão ${d.padrao} não casa em ${d.arquivo} — o teto declarado (${d.teto}) provavelmente mudou no código`);
+    }
+  }
+  return falhas;
+}
 
 function varrer(dir: string): string[] {
   const out: string[] = [];
@@ -248,6 +283,18 @@ async function main() {
   const arquivos = DIRS.flatMap((d) => { try { return varrer(join(RAIZ, d)); } catch { return []; } });
   const dic = montarDicionarioDeConstantes(arquivos);
   const sites = extrairCallSites(arquivos, dic);
+
+  // Primeiro a autoconferencia: numero declarado que nao existe mais no codigo
+  // e pior que numero ausente — ele parece medicao.
+  const declaradosQuebrados = conferirDeclarados();
+  if (declaradosQuebrados.length) {
+    console.log('🔴 TETOS_DECLARADOS fora de sincronia com o código:');
+    console.log('');
+    for (const f of declaradosQuebrados) console.log(`   ${f}`);
+    console.log('');
+    console.log('Atualize o mapa no topo deste arquivo antes de ler qualquer folga abaixo.');
+    console.log('');
+  }
 
   const sb = createSupabaseAdmin();
   const ledger = await lerLedgerInteiro(sb);
@@ -395,7 +442,7 @@ async function main() {
   }
 
   // Cegueira: um relatório que não falha nunca é lido como "está tudo bem".
-  if (tasksSemTeto.length || apertadas.length || censuradas.length || featuresSemCallSite.length) {
+  if (declaradosQuebrados.length || tasksSemTeto.length || apertadas.length || censuradas.length || featuresSemCallSite.length) {
     console.log('\n🔴 auditoria NÃO limpa — ver acima.');
     process.exitCode = 1;
   } else {

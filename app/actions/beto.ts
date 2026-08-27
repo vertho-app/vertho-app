@@ -92,7 +92,7 @@ ${ctx.competenciaFoco ? `\nCOMPETÊNCIA EM FOCO: ${ctx.competenciaFoco}` : ''}`;
   // callAIChat injeta a instrução de idioma conforme o locale do usuário (cookie
   // vertho-locale) — sem isto o Beto respondia sempre em PT, ignorando a língua
   // selecionada no painel.
-  return callAIChat(systemPrompt, messages, { model: 'claude-sonnet-4-6' }, 500, { taskKey: 'beto' });
+  return callAIChat(systemPrompt, messages, { model: 'claude-sonnet-4-6' }, 1000, { taskKey: 'beto' });
 }
 
 /**

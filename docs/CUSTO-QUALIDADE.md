@@ -909,3 +909,53 @@ RISCO — truncamento, auditor que reprova, Dual-IA preservada —, não de dól
 - **`untagged` = 3.630 chamadas (33% da produção)** sem `taskKey`. Não é teto que
   falta, é etiqueta no call-site.
 - **`ia4_avaliacao`**: lote sem censura antes de redimensionar o teto.
+
+### Fase 1 APLICADA — 26/08/2026
+
+Doze tetos subidos pela régua nova (`max(3× p95, 1,5× o máximo)`), depois de
+canário real nos 12 modelos do dropdown. `5 de 24` tarefas abaixo de 3× viraram
+`2 de 24`.
+
+| task | de | para | latência p95 | nota |
+|---|---:|---:|---:|---|
+| `temporada_extracao` | 2.000 | **8.000** | 42s | 3 call-sites com tetos diferentes (8000/3000/2000) unificados |
+| `conteudo_texto` / `conteudo_case` | 8.000 | **12.000** | 90s / 69s | mesmo ternário |
+| `conteudo_podcast` | 4.096 | **8.000** | 43s | outra ponta do mesmo ternário |
+| `ia3_cenarios` | 6.144 | **10.000** | 71s | cruza 8.192 → passa a usar STREAM |
+| `acumulada_primaria` | 8.000 | **12.000** | 80s | cruza 8.192 → STREAM |
+| `ia1_top10` | 8.192 | **14.000** | 23s | n=2, então +1,5× por "erre para cima" |
+| `blueprint_audit` | 4.000 | **7.000** | 42s | |
+| `ia3_check` | 4.096 | **7.000** | 29s | |
+| `acumulada_check` | 6.000 | **8.000** | 26s | |
+| `conteudo_personalizacao` | 2.000 | **3.000** | 25s | |
+| `beto` | 500 | **1.000** | 9s | |
+
+**Duas ficaram de fora, por motivos opostos:**
+
+- `modulo_base_autor` (2,99×) — **latência**, não folga. p95 de **227s** contra o
+  `maxDuration` de 300s: 76% do relógio consumido. Subir 3% de folga comprando
+  risco de timeout é o trade errado. Se precisar de mais teto, a saída é
+  Trigger.dev, não um número maior na mesma rota.
+- `ia4_avaliacao` (2,00×) — **censura**. p95 = 16.000 = o teto antigo, com 59 de
+  388 paradas nesse valor exato. Precisa de um lote sem censura antes.
+
+### Canário de contrato: 35 de 36
+
+`scripts/_canario-contrato-modelos.ts`, chamada real, 12 modelos × 3 combinações
+(base · `effort:high` · `cachedUserPrefix`). Todos aceitaram o corpo.
+
+A única reprovação foi **minha, não do modelo**: `claude-sonnet-4-6 [cache]`
+devolveu o JSON certo dentro de uma cerca, depois escreveu *"Wait, I need to
+return only valid JSON without code fences"* e repetiu o objeto. Não é
+truncamento nem efeito do cache — é o modelo se autocorrigindo, e ocorreu em 1
+de 3 execuções idênticas.
+
+O canário reprovou porque tinha um parser **próprio**. A produção usa dois, e
+nenhum é esse: `extractJSON` (leniente, 48 call-sites) recupera isso na
+estratégia 2; `parseJsonIA` (estrito, 10 call-sites) lançaria. E a interseção
+entre os 10 call-sites estritos e os que usam `cachedUserPrefix` é **vazia**.
+
+Corrigido: o canário agora mede pelos dois parsers reais e distingue "só o
+leniente salva" (aviso) de "irrecuperável" (bloqueia). Instrumento que não lê
+pelo consumidor inventa um problema que o produto não tem — e esconde um que ele
+tem.

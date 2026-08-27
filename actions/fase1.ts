@@ -152,7 +152,7 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}, opts:
         const system = buildSystemPromptSelecao(compsDoCargo, cargoNome, faseCarreira);
         const user = buildUserPrompt(empresa, cargoInfo, valores, contextoPPP);
 
-        const resposta = await callAI(system, user, aiConfig, 8192, { taskKey: 'ia1_top10' });
+        const resposta = await callAI(system, user, aiConfig, 14000, { taskKey: 'ia1_top10' });
         let resultado = await extractJSON(resposta);
 
         if (resultado?.top10 && Array.isArray(resultado.top10)) {
@@ -172,7 +172,7 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}, opts:
           // Se menos de 7 válidos (de 10), fazer retry
           if (top10Valid.length < Math.min(7, compsDoCargo.length)) {
             console.warn(`[IA1] ${cargoNome}: só ${top10Valid.length} válidos. Retry.`);
-            const retry = await callAI(system, user + '\n\nATENÇÃO: sua resposta anterior não tinha competências suficientes da lista. Use EXATAMENTE os IDs/nomes da lista fornecida.', aiConfig, 8192, { taskKey: 'ia1_top10' });
+            const retry = await callAI(system, user + '\n\nATENÇÃO: sua resposta anterior não tinha competências suficientes da lista. Use EXATAMENTE os IDs/nomes da lista fornecida.', aiConfig, 14000, { taskKey: 'ia1_top10' });
             const retryResult = await extractJSON(retry);
             if (retryResult?.top10?.length > top10Valid.length) {
               resultado.top10 = retryResult.top10;

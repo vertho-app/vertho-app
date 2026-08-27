@@ -465,7 +465,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
   const system = buildIA3SystemPrompt();
   const user = buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS);
 
-  let resposta = await callAI(system, user, aiConfig, 6144, { taskKey: 'ia3_cenarios' });
+  let resposta = await callAI(system, user, aiConfig, 10000, { taskKey: 'ia3_cenarios' });
   let resultado = await extractJSON(resposta);
   if (!resultado) return { success: false, error: 'IA não retornou JSON válido' };
 
@@ -476,7 +476,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
   if (norm.errors.length > 0) {
     console.warn(`[IA3] ${comp.nome}: validação (${norm.errors.join('; ')}). Retry.`);
     const retryUser = user + `\n\n═══ ATENÇÃO: CORREÇÃO NECESSÁRIA ═══\n${norm.errors.join('\n')}\nCorrija e retorne JSON válido.`;
-    resposta = await callAI(system, retryUser, aiConfig, 6144, { taskKey: 'ia3_cenarios' });
+    resposta = await callAI(system, retryUser, aiConfig, 10000, { taskKey: 'ia3_cenarios' });
     const retryResult = await extractJSON(resposta);
     if (retryResult) {
       resultado = retryResult;
@@ -638,7 +638,7 @@ export async function checkCenarioIA3Core(sbRaw: any, args: {
   // Fallback resolve pela task (ia3_check, pinned — default GPT 5.6 Terra).
   const { getModelForTask } = await import('@/lib/ai-tasks');
   const modeloResolvido = modelo || await getModelForTask(cen.empresa_id, 'ia3_check');
-  const resposta = await callAI(system, user, { model: modeloResolvido }, 4096, { taskKey: 'ia3_check', empresaId: cen.empresa_id || undefined });
+  const resposta = await callAI(system, user, { model: modeloResolvido }, 7000, { taskKey: 'ia3_check', empresaId: cen.empresa_id || undefined });
   const resultado = await extractJSON(resposta);
 
   const normed = normalizarResultadoCheckIA3(resultado);
@@ -706,7 +706,7 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
 2. Os limites de sobriedade são inegociáveis: contexto ≤900 caracteres (conte antes de finalizar), máx 2 tensões, máx 2 stakeholders.
 3. Se o feedback pedir mais cobertura, obtenha-a REFORMULANDO perguntas — nunca inflando o contexto.`;
 
-  const resposta = await callAI(system, user, aiConfig, 6144, { taskKey: 'ia3_cenarios' });
+  const resposta = await callAI(system, user, aiConfig, 10000, { taskKey: 'ia3_cenarios' });
   const resultado = await extractJSON(resposta);
   const norm = resultado ? validarRespostaIA3(resultado, descritores.length) : null;
   if (!norm) return { success: false, error: 'IA não retornou cenário válido — NADA foi alterado (a versão atual continua valendo)' };
@@ -725,7 +725,7 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
   const { system: sysChk, user: userChk } = await montarCheckIA3Prompt(sbRaw, candidato);
   const { getModelForTask } = await import('@/lib/ai-tasks');
   const checkModelo = await getModelForTask(cen.empresa_id, 'ia3_check');
-  const respChk = await callAI(sysChk, userChk, { model: checkModelo }, 4096, { taskKey: 'ia3_check', empresaId: cen.empresa_id });
+  const respChk = await callAI(sysChk, userChk, { model: checkModelo }, 7000, { taskKey: 'ia3_check', empresaId: cen.empresa_id });
   const normed = normalizarResultadoCheckIA3(await extractJSON(respChk));
   if (!normed) return { success: false, error: 'Auditoria da candidata falhou — NADA foi alterado (a versão atual continua valendo)' };
 
