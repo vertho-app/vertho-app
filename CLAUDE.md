@@ -502,6 +502,22 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   composição, e composição não tem asserção. Extraia o screenshot da tela no estado real e um frame
   de cada beat do vídeo ANTES de entregar. Corolário: log que imprime `bbox=—` e segue com `✓` é o
   pior formato possível — alvo não encontrado tem que LANÇAR.
+- NÃO deixar **cota no schema** de um prompt competir com regra em prosa — a cota vence. O prompt do
+  PDI dizia "DISC é leitura contextual, NÃO diagnóstico fechado" e "não invente comportamento", e 40
+  linhas abaixo exigia `"pontos_atencao": ["2-3 áreas de atenção do perfil"]` a partir de
+  `D=.. I=.. S=.. C=..`. O modelo pode desobedecer a prosa; não pode deixar de entregar o campo —
+  então inferia, e saía *"tem dificuldade genuína com pressão"* afirmado como fato sobre a pessoa,
+  num PDF que vai para ela. Toda cota (`2-3 itens`, `exatamente N`) é ordem de inventar quando o
+  insumo não sustenta N: escreva `0 a N, e VAZIO se não sustentar`. E **nomeie o padrão proibido**
+  ("nunca escreva 'tem dificuldade com…'"), não só o desejado — abstrato não é verificável.
+  `Medido: 27/08` — a correção derrubou os achados do auditor de **39 → 22** (−44%, 6 de 6 sujeitos,
+  p=0,016); trocar Sonnet 5 por Opus 5 no mesmo teste moveu 39 → 38 (ruído) por +US$ 24,85/mês.
+  **Modelo melhor não conserta prompt que pede a coisa errada.** Detalhe: `docs/CUSTO-QUALIDADE.md`.
+- NÃO ler diferença entre dois modelos sem medir a **variância do instrumento** antes: repita a MESMA
+  medição e veja o ruído. O piloto de 3 sujeitos deu 2×0 a favor do Opus e a rodada de 6 **inverteu
+  um par** (mesma pessoa, mesmos modelos). Ruído de ±1 achado, efeito procurado de 1 a 3 = sorteio.
+  E fixe `timeoutMs` folgado nos DOIS braços: chamada que morre no relógio cria viés de
+  sobrevivência, sumindo justo a execução mais longa.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
