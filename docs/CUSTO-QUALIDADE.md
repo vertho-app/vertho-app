@@ -1288,3 +1288,36 @@ escolha visível sem trocar nada.
 
 As linhas históricas do ledger seguem com `feature = 'arguicao'`: o p95 daquele
 período continua sendo mistura das duas operações, e só o tráfego novo separa.
+
+### 27/08 — guard: toda `taskKey` declarada, e vice-versa
+
+Em UM dia apareceram **três** etiquetas que resolviam modelo por omissão —
+`pulse_classify`, `conteudo_tags` e `arguicao`. Três no mesmo dia não é
+coincidência, é padrão. O guard fecha as duas direções:
+
+- **usada e NÃO declarada** → o operador não consegue configurar o que roda
+- **declarada e NÃO usada** → o operador configura o que não roda
+
+A segunda é pior: a primeira só limita, a segunda **mente**.
+
+🔴 **E foi a segunda que mordeu.** `AI_TASKS` declarava `ia4_avaliar`; o código
+sempre rodou `ia4_avaliacao`. A tela de configuração itera `AI_TASKS` e grava
+`ai.modelos[task.key]` — então o modelo que o operador escolhia para a IA4 ia
+para uma chave que `resolveTaskModel` nunca consultava. **Escolha
+silenciosamente descartada, na tela feita para escolher.** Latente hoje (nenhum
+tenant tem override desde as migrations 227/229), mas viva. Corrigido nos dois
+lugares: o catálogo e o mapa da tela.
+
+**20 tarefas declaradas** que rodavam fora do catálogo — incluindo `sem14_check`
+e `acumulada_check`, que constam de `DUAL_IA_PARES`. Declarar não troca nada (o
+modelo efetivo segue vindo de `DEFAULT_TASK_MODELS`/`FALLBACK_GLOBAL`): só torna
+a escolha **possível**. ⚠️ A tela de configuração ganha 20 linhas.
+
+**Duas listas, ambas só encolhem:** 3 instrumentos (probe/canário — medem, não
+são tarefas do produto) e 6 órfãs `temporada_*`, que estão na tela e **nada lê**.
+Tirá-las é decisão de produto; ficam declaradas até alguém decidir.
+
+⚠️ A primeira lista de instrumentos tinha 6, e 3 delas (`probe_cache_hist`,
+`pdi_compare_0708`, `pdi_compare_4modelos`) só existem no **ledger**, de rodadas
+passadas — o script sumiu do repo. Allowlist com entrada que não corresponde a
+código nenhum é a mesma classe de guard sobre alvo morto.

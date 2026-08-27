@@ -64,7 +64,8 @@ const FASES_COM_LOTE = new Set(['blueprint', 'ia2', 'ia3', 'ia4']);
 
 const DUAL_TASK_KEYS: Record<string, [string, string]> = {
   'ia3': ['ia3_cenarios', 'ia3_check'],
-  'ia4': ['ia4_avaliar', 'ia4_check'],
+  // `ia4_avaliar` não existia como task: o código roda `ia4_avaliacao` (27/08).
+  'ia4': ['ia4_avaliacao', 'ia4_check'],
   'cenarios-b': ['cenarios_b', 'cenarios_b_check'],
 };
 

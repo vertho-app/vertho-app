@@ -12,7 +12,12 @@ export const AI_TASKS = [
   { key: 'ia3_check', label: 'IA3 — Validação (check dual)', fase: 'Fase 1' },
 
   // ── Fase 2 — Avaliação ───────────────────────────────────
-  { key: 'ia4_avaliar', label: 'IA4 — Avaliar respostas', fase: 'Fase 2' },
+  // 🔴 27/08: era `ia4_avaliar`, e o código sempre rodou `ia4_avaliacao`.
+  // A tela de configuração itera AI_TASKS e grava `ai.modelos[task.key]`,
+  // então o modelo que o operador escolhia para a IA4 ia para uma chave que
+  // `resolveTaskModel` nunca consultava: escolha silenciosamente descartada.
+  // Latente (nenhum tenant tem override hoje), mas na tela que o operador usa.
+  { key: 'ia4_avaliacao', label: 'IA4 — Avaliar respostas', fase: 'Fase 2' },
   { key: 'ia4_check', label: 'IA4 — Validação (check dual)', fase: 'Fase 2' },
   { key: 'pdi_individual', label: 'PDI Individual', fase: 'Fase 2' },
   { key: 'relatorio_gestor', label: 'Relatório Gestor', fase: 'Fase 2' },
@@ -79,6 +84,34 @@ export const AI_TASKS = [
   // entrada errada na tabela: era par que nunca passou por tabela nenhuma.
   { key: 'blueprint_gerar', label: 'Blueprint — Gerador (PDI + trilha)', fase: 'Blueprint' },
   { key: 'blueprint_audit', label: 'Blueprint — Auditor semântico (check dual)', fase: 'Blueprint' },
+
+  // ── 27/08: 20 tarefas que RODAVAM sem constar do catálogo ──────────────
+  // A tela de configuração itera AI_TASKS: task ausente daqui é modelo que o
+  // operador NÃO consegue escolher. Estavam todas nessa situação — incluindo
+  // `sem14_check` e `acumulada_check`, que constam de DUAL_IA_PARES.
+  // Declarar não troca nada: o modelo efetivo segue vindo de
+  // DEFAULT_TASK_MODELS ou do FALLBACK_GLOBAL. Só torna a escolha possível.
+  // Guard: tests/unit/security/taskkey-declarada-guard.test.ts
+  { key: 'conversa_fase3', label: 'Chat de avaliação — turno da conversa', fase: 'Fase 3' },
+  { key: 'chat_fase3_eval', label: 'Chat de avaliação — avaliador final', fase: 'Fase 3' },
+  { key: 'chat_fase3_audit', label: 'Chat de avaliação — auditor (check dual)', fase: 'Fase 3' },
+  { key: 'evidencias_socratic', label: 'Chat socrático — extração de evidências', fase: 'Temporadas' },
+  { key: 'tira_duvidas', label: 'Tira-Dúvidas da semana', fase: 'Temporadas' },
+  { key: 'sem13_qualitativa', label: 'Semana 13 — avaliação qualitativa', fase: 'Temporadas' },
+  { key: 'sem14_scorer', label: 'Semana 14 — scorer do fechamento', fase: 'Temporadas' },
+  { key: 'sem14_check', label: 'Semana 14 — check (dual)', fase: 'Temporadas' },
+  { key: 'acumulada_primaria', label: 'Avaliação acumulada — primária', fase: 'Temporadas' },
+  { key: 'acumulada_check', label: 'Avaliação acumulada — check (dual)', fase: 'Temporadas' },
+  { key: 'kit_nucleo', label: 'Kit — núcleo conceitual do tema', fase: 'Kit' },
+  { key: 'kit_desafio', label: 'Kit — desafio da semana', fase: 'Kit' },
+  { key: 'conteudo_layout_plan', label: 'Conteúdo — plano de layout do PDF', fase: 'Conteúdos' },
+  { key: 'conteudo_expansao_pdf', label: 'Conteúdo — expansão para o PDF', fase: 'Conteúdos' },
+  { key: 'escola_brief', label: 'Brief da escola (contexto institucional)', fase: 'Conteúdos' },
+  { key: 'evolucao_plenaria', label: 'Evolução — plenária', fase: 'Fase 5' },
+  { key: 'reavaliacao_chat', label: 'Reavaliação — chat', fase: 'Fase 5' },
+  { key: 'beto', label: 'BETO — assistente do colaborador', fase: 'Assistentes' },
+  { key: 'sim_aluno', label: 'Simulador — aluno', fase: 'Simulador' },
+  { key: 'chat_simulador', label: 'Simulador — chat', fase: 'Simulador' },
 ];
 
 /**
