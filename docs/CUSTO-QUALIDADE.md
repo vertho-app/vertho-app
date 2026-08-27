@@ -1183,3 +1183,58 @@ porque é ele que existe para ser independente.
 teste dava `ReferenceError: MODELOS_DISPONIVEIS is not defined` e eu li as três
 linhas vermelhas como achado. Teste que ERRA não é teste que encontrou algo — o
 `ia4_avaliacao`, que aparecia na lista, na verdade estava protegido pelo pino.
+
+### 27/08 — o check do bloco C existe: `pdi_check`
+
+O exercício inteiro nasceu de "os artefatos IRREVERSÍVEIS não têm auditor", e
+depois passou três dias otimizando modelos **dentro** desse buraco. O PDI é o
+caso mais agudo: sai em PDF, vai para a pessoa avaliada, e nada conferia o que o
+gerador escreveu.
+
+**Duas camadas** (`lib/relatorios/pdi-audit.ts`, puro, no molde de
+`lib/blueprint/audit.ts`):
+
+**1. Estrutural — código, determinístico, grátis.** Confere as promessas
+LITERAIS do prompt. Não é opinião:
+
+| check | o que trava | severidade |
+|---|---|---|
+| `sprint-do-blueprint` | o prompt manda `acao_principal ← acao_principal (igual)`; se o modelo reescreveu, o PDI promete um movimento que a trilha não sustenta | **fail** |
+| `gap-sem-acao` | competência com `flag` (N<3) sem `melhorar`/dicas — a pessoa lê que está abaixo e não recebe caminho | **fail** |
+| `sem-competencias` | zero competências não é aprovação | **fail** |
+| `checklist-3` | o prompt exige EXATAMENTE 3 itens | warn |
+| `perfil-2a-pessoa` | o prompt diz "NUNCA em 3ª pessoa" e dá o exemplo do erro | warn |
+| `jargao-ingles` | termos que o prompt proíbe no texto entregue | warn |
+
+O que um `===` resolve não deve custar uma chamada de IA — e os **números** do
+PDI já estavam protegidos por overlay; o que estava sem rede era a **prosa** e o
+**sprint**, que é o que a pessoa lê e executa.
+
+**2. Semântica — 2ª IA, cross-família.** `pdi_check` em `gpt-5.6-terra` contra o
+gerador em `claude-sonnet-5`. Procura afirmação sem lastro na evidência, análise
+genérica, recomendação desproporcional ao gap e contradição interna. Cada achado
+exige o TRECHO literal — achado sem citação não conta.
+
+Custo estimado: ~US$ 3,32/90 dias sobre as 78 gerações medidas.
+
+**Três decisões que o histórico deste projeto ditou:**
+
+- **Roda ANTES do PDF.** Depois seria auditar coisa já entregue. Travado por teste.
+- **Falha do auditor NÃO vira `pass`.** Resposta que não parseia, ou exceção na
+  chamada, entram como check `fail` dizendo que a auditoria não rodou. "N ok, 0
+  erros" ≠ aprovado.
+- **Sem blueprint, o check de sprint AVISA** em vez de passar por vacuidade —
+  ausência de fonte não é aprovação.
+
+⚠️ E a auditoria **não derruba a geração**: o PDI já foi pago, e o veredito é
+informação sobre ele, não pré-condição. Mas é PERSISTIDO em
+`relatorios.conteudo.auditoria` — auditoria sem rastro é a que ninguém lê.
+
+**Validado por mutação, 7 vezes:** 4 nos checks estruturais (sprint sem
+comparar, gap virando aviso, jargão voltando a casar substring, sem-blueprint
+passando) e 3 no wiring (veredito não persistido, catch virando `pass`,
+auditoria depois do PDF).
+
+⚠️ **Ainda não rodou de ponta a ponta em produção** — o teste cobre o módulo e o
+consumidor, mas gerar um PDI real custa e escreve. A primeira geração é a prova
+que falta.

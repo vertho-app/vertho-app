@@ -17,6 +17,10 @@ export const AI_TASKS = [
   { key: 'pdi_individual', label: 'PDI Individual', fase: 'Fase 2' },
   { key: 'relatorio_gestor', label: 'Relatório Gestor', fase: 'Fase 2' },
   { key: 'relatorio_rh', label: 'Relatório RH', fase: 'Fase 2' },
+  // 27/08: o check que faltava no bloco C. Os artefatos IRREVERSÍVEIS (PDF que
+  // vai para a pessoa) eram os únicos sem 2ª IA — e o exercício de custo nasceu
+  // justamente dessa frase, para depois otimizar modelos DENTRO do buraco.
+  { key: 'pdi_check', label: 'PDI Individual — Auditor (check dual)', fase: 'Fase 2' },
 
   // ── Perfil Comportamental (DISC) ─────────────────────────
   { key: 'relatorio_comportamental', label: 'Relatório Comportamental (textos LLM)', fase: 'Perfil' },
@@ -198,6 +202,8 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // (artefato e8161cfa) nunca foi feita. O que decidiu aqui foi custo + robustez.
   ia4_avaliacao:       'claude-sonnet-5',
   pdi_individual:      'claude-sonnet-5',
+  // Terra porque o gerador é Claude: auditor NUNCA da mesma família.
+  pdi_check:           'gpt-5.6-terra',
   relatorio_gestor:    'claude-sonnet-5',
   relatorio_rh:        'claude-sonnet-5',
 };
@@ -232,6 +238,7 @@ export const PINNED_TASKS = new Set([
   // empresa específica sem tocar no código.
   'ia4_avaliacao',
   'pdi_individual',
+  'pdi_check',
   'relatorio_gestor',
   'relatorio_rh',
   // Sem este pin o guard `ai-dual-familia` fica VERMELHO — e com razão: o
@@ -428,6 +435,7 @@ export const DUAL_IA_PARES: Array<{ gerador: string; auditor: string; onde: stri
   { gerador: 'pulse_classify',    auditor: 'pulse_audit',         onde: 'actions/pulse/classify.ts' },
   { gerador: 'blueprint_gerar',   auditor: 'blueprint_audit',     onde: 'lib/blueprint/core.ts' },
   { gerador: 'ia3_cenarios',      auditor: 'cenarios_lote_check', onde: 'actions/fase5/relatorios-envios.ts' },
+  { gerador: 'pdi_individual',    auditor: 'pdi_check',           onde: 'lib/relatorios/individual-core.ts' },
 ];
 
 /**

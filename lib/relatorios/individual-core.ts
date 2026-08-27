@@ -9,6 +9,10 @@ import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import { storageSlug } from '@/lib/storage-slug';
 import React from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  auditarPdiEstrutural, consolidarAuditoriaPdi, promptAuditoriaPdi, parseAuditoriaPdi,
+} from './pdi-audit';
+import { getModelForTask } from '@/lib/ai-tasks';
 
 /**
  * Relatório Individual (PDI) — núcleo SEM gate.
@@ -145,6 +149,55 @@ export async function gerarRelatorioIndividualCore(
         if (temas.length) blueprintConteudos[comp.nome] = temas;
       }
       relatorio.blueprint_conteudos = blueprintConteudos;
+    }
+
+    // ── AUDITORIA (o check que faltava no bloco C) ─────────────────────────
+    //
+    // Roda ANTES do PDF de propósito: o veredito acompanha o artefato desde a
+    // primeira versão persistida. Depois seria auditoria de coisa já entregue.
+    //
+    // Duas camadas (`lib/relatorios/pdi-audit.ts`): a estrutural é código e não
+    // custa nada — confere as promessas LITERAIS do prompt (sprint copiado do
+    // blueprint, checklist de 3, 2ª pessoa, sem jargão em inglês). A semântica
+    // é a 2ª IA, cross-família por `pdi_check`.
+    //
+    // ⚠️ Falha da auditoria NÃO derruba a geração: o PDI já foi pago e o
+    // veredito é informação sobre ele, não pré-condição. Mas o resultado é
+    // PERSISTIDO junto — auditoria que não deixa rastro é a que ninguém lê.
+    const objetivosBlueprint = blueprint
+      ? (blueprint.competencias || []).flatMap((comp: any) => (comp.objetivos_30_dias || []).map((o: any) => ({
+        competencia: comp.nome,
+        acao_principal: o?.acao_principal,
+        acao_apoio: o?.acao_apoio,
+        ritual: o?.ritual,
+      })))
+      : null;
+    const checks = auditarPdiEstrutural(relatorio, objetivosBlueprint);
+    try {
+      const evidencia = dadosComps
+        .map((d) => `${d.competencia} (N${d.nivel}, ${d.nota_decimal}): ${String((d as any).feedback ?? '').slice(0, 900)}`)
+        .join('\n\n');
+      const modeloCheck = await getModelForTask(empresaId, 'pdi_check');
+      const { system: sysA, user: userA } = promptAuditoriaPdi(relatorio, evidencia);
+      const bruto = await callAI(sysA, userA, { model: modeloCheck }, 6000, {
+        taskKey: 'pdi_check', empresaId, colaboradorId,
+      });
+      checks.push(...parseAuditoriaPdi(await extractJSON(bruto)));
+    } catch (e: any) {
+      // Sem `pass` silencioso: a ausência da 2ª IA entra como achado.
+      console.warn('[pdi_check] auditoria semântica falhou:', e?.message);
+      checks.push({
+        id: 'semantica-indisponivel',
+        categoria: 'semantica',
+        titulo: 'A auditoria semântica não rodou',
+        status: 'fail',
+        detalhe: `Erro ao chamar o auditor: ${String(e?.message ?? e).slice(0, 200)}. Isto NÃO é aprovação.`,
+        ocorrencias: [],
+      });
+    }
+    relatorio.auditoria = consolidarAuditoriaPdi(checks, dadosComps.length);
+    if (relatorio.auditoria.status === 'fail') {
+      console.warn(`[pdi_check] ${colaboradorId?.slice(0, 8)}: ${relatorio.auditoria.resumo}`);
     }
 
     // Gerar PDF
