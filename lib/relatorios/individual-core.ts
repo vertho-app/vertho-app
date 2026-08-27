@@ -174,9 +174,27 @@ export async function gerarRelatorioIndividualCore(
       : null;
     const checks = auditarPdiEstrutural(relatorio, objetivosBlueprint);
     try {
-      const evidencia = dadosComps
-        .map((d) => `${d.competencia} (N${d.nivel}, ${d.nota_decimal}): ${String((d as any).feedback ?? '').slice(0, 900)}`)
-        .join('\n\n');
+      // 🔑 A evidência do auditor é O PROMPT QUE O GERADOR RECEBEU — não uma
+      // reconstrução. Duas tentativas de reconstruir falharam por motivos
+      // diferentes, e a segunda ensinou a regra:
+      //
+      //  1ª: `String(d.feedback)` virou "[object Object]" — `DadoComp.feedback`
+      //      é TIPADO como `string` e recebe o objeto da IA4, e com
+      //      `strict: false` no tsconfig ninguém acusa. O auditor recebia lixo,
+      //      concluía "sem lastro" para tudo, e o veredito era `fail` por
+      //      defeito do INSTRUMENTO.
+      //  2ª: com competências corretas, sobraram achados sobre o PERFIL DISC —
+      //      porque eu mandava só `dadosComps` e o gerador também recebe o
+      //      perfil. O auditor estava certo de novo: aquilo, para ele, não
+      //      tinha lastro.
+      //
+      // Qualquer reconstrução tem esse defeito por construção: ela diverge da
+      // entrada real, e toda divergência vira falso positivo. Falso positivo
+      // ensina a ignorar o veredito, que é pior que não auditar.
+      //
+      // Usando o `user` do gerador, auditor e gerador olham a MESMA coisa por
+      // definição, e o único jeito de divergirem é alguém mudar o prompt.
+      const evidencia = user.slice(0, 40000);
       const modeloCheck = await getModelForTask(empresaId, 'pdi_check');
       const { system: sysA, user: userA } = promptAuditoriaPdi(relatorio, evidencia);
       const bruto = await callAI(sysA, userA, { model: modeloCheck }, 6000, {

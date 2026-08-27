@@ -1321,3 +1321,44 @@ Tirá-las é decisão de produto; ficam declaradas até alguém decidir.
 `pdi_compare_0708`, `pdi_compare_4modelos`) só existem no **ledger**, de rodadas
 passadas — o script sumiu do repo. Allowlist com entrada que não corresponde a
 código nenhum é a mesma classe de guard sobre alvo morto.
+
+### 27/08 — `pdi_check` rodou de verdade, e achou o que devia
+
+Primeira geração real, no tenant de **demo** (ACME, resetado toda madrugada pelo
+fixture — o artefato criado é transitório por construção). Três execuções, e as
+duas primeiras acusaram **defeito do instrumento, não do PDI**:
+
+**1ª — `String(d.feedback)` virou `"[object Object]"`.** `DadoComp.feedback` é
+tipado como `string` e recebe o objeto que a IA4 devolve
+(`{tom_base, resumo_geral, mensagem_positiva…}`); com `strict: false` no
+tsconfig, ninguém acusa. O auditor recebia nível, nota e lixo, concluía
+corretamente "afirmação sem lastro" para TUDO, e o veredito era `fail` por culpa
+da evidência que EU montei.
+
+**2ª — evidência certa nas competências, e sobraram achados sobre o DISC.**
+Porque eu mandava só `dadosComps`, e o gerador também recebe o perfil
+comportamental. O auditor estava certo de novo: aquilo, para ele, não tinha
+lastro.
+
+**3ª — a evidência passou a ser O PROMPT QUE O GERADOR RECEBEU.** Qualquer
+reconstrução diverge da entrada real por construção, e toda divergência vira
+falso positivo — que ensina a ignorar o veredito, o que é pior que não auditar.
+Usando o `user` do gerador, auditor e gerador olham a mesma coisa por definição.
+
+**E aí o achado real, na primeira execução limpa:**
+
+> *"tem dificuldade genuína com pressão e improviso"* — a evidência traz os
+> índices DISC, mas não relata dificuldade de Bruna com pressão ou improviso.
+
+O PDI **infere dificuldades pessoais a partir do perfil DISC e as afirma como
+fato** sobre a pessoa — num documento que vai para ela. Mais duas do mesmo tipo
+("sentir desconforto quando precisa empurrar uma decisão", "você raramente
+promete o que não pode cumprir") e um elogio comparativo sem base ("senso
+crítico que muitos representantes demoram anos para desenvolver").
+
+É exatamente a classe que o bloco C não tinha quem pegasse, e a régua do produto
+já proíbe: *"Perfil CIS/DISC NÃO altera nota — influencia APENAS o tom"*. Aqui
+ele não estava alterando a nota: estava virando **afirmação sobre a pessoa**.
+
+⚠️ Isto é um achado sobre o PROMPT do PDI, e o conserto é dele — não do auditor.
+Fica registrado; a decisão é de quem escreve o prompt.
