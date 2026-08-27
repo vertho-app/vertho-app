@@ -35,7 +35,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { estadoDoPassoConteudo } from '@/lib/season-engine/consumo-conteudo';
+import { estadoDoPassoConteudo, estadoDoPrimeiroPasso } from '@/lib/season-engine/consumo-conteudo';
 import ptBR from '@/messages/pt-BR.json';
 
 const TELA = readFileSync(
@@ -69,6 +69,44 @@ describe('a régua do passo "Conteúdo"', () => {
   });
 });
 
+describe('semana de APLICAÇÃO — o passo é a missão, não o conteúdo', () => {
+  // 61 semanas, 46 pessoas, 4 tenants (inclui `ibipeba`). O resumo dizia
+  // "Conteúdo · a fazer" numa semana que é PRÁTICA e nunca terá conteúdo.
+  const base = { nadaParaAbrir: false, conteudoConsumido: false };
+
+  it('sem missão aceita, o passo é "missao / a-fazer" — nunca "conteudo"', () => {
+    const r = estadoDoPrimeiroPasso({ ...base, semanaEhAplicacao: true, missaoAceita: false });
+    expect(r.passo).toBe('missao');
+    expect(r.estado).toBe('a-fazer');
+  });
+
+  it('com a missão aceita, vira feito', () => {
+    const r = estadoDoPrimeiroPasso({ ...base, semanaEhAplicacao: true, missaoAceita: true });
+    expect(r).toEqual({ passo: 'missao', estado: 'feito' });
+  });
+
+  it('🔴 o defeito escapava por baixo da régua do conteúdo', () => {
+    // Em semana de aplicação não há entrega NENHUMA, então
+    // `entregasConteudo.length > 0` é falso e `nadaParaAbrir` sai `false`:
+    // `estadoDoPassoConteudo` respondia 'a-fazer', não 'sem-conteudo'. Dois
+    // vazios diferentes — "tem entrega, sem fonte" e "não tem entrega" — e só
+    // um deles tinha resposta.
+    expect(estadoDoPassoConteudo(base)).toBe('a-fazer');
+    // A função do primeiro passo é quem separa os dois casos.
+    expect(estadoDoPrimeiroPasso({ ...base, semanaEhAplicacao: true, missaoAceita: false }).passo)
+      .toBe('missao');
+  });
+
+  it('semana de conteúdo não é afetada pela missão', () => {
+    // `missaoAceita` não pode vazar para a semana de conteúdo.
+    const r = estadoDoPrimeiroPasso({
+      nadaParaAbrir: false, conteudoConsumido: true,
+      semanaEhAplicacao: false, missaoAceita: false,
+    });
+    expect(r).toEqual({ passo: 'conteudo', estado: 'feito' });
+  });
+});
+
 describe('a tela usa a régua única — e não uma cópia dela', () => {
   it('o resumo NÃO decide o passo por `podeConversar`', () => {
     // `podeConversar` responde "pode ir para as evidências?" (gate).
@@ -77,17 +115,26 @@ describe('a tela usa a régua única — e não uma cópia dela', () => {
     expect(TELA).not.toMatch(/podeConversar\s*\?\s*t\('progress\.contentDone'\)/);
   });
 
-  it('o resumo se apoia em `estadoDoPassoConteudo`', () => {
-    expect(TELA).toContain('estadoDoPassoConteudo({ nadaParaAbrir, conteudoConsumido })');
+  it('o resumo se apoia em `estadoDoPrimeiroPasso`', () => {
+    expect(TELA).toContain('estadoDoPrimeiroPasso({');
+    // E passa o tipo da semana — sem isso a semana de aplicação volta a cair
+    // no ramo de conteúdo.
+    expect(TELA).toContain('semanaEhAplicacao: isAplicacao');
+    // O estado da missão vem do DADO, não de um marcador inventado.
+    expect(TELA).toContain("missaoAceita: !!progressoSemana?.feedback?.modo");
   });
 
-  it('os três rótulos do passo existem no i18n', () => {
+  it('o rótulo do passo troca conforme a semana', () => {
+    expect(TELA).toContain("primeiroPasso.passo === 'missao' ? t('progress.stepMission') : t('progress.stepContent')");
+  });
+
+  it('os rótulos do passo existem no i18n', () => {
     // O caminho é `SeasonWeek.progress`. Escrever `temporada.progress` (o que
     // eu tinha suposto) faz TODA chave voltar `undefined` — e o teste do bloco
     // abaixo, que exige `undefined`, passaria sem olhar coisa alguma.
     const p = (ptBR as any).SeasonWeek?.progress ?? {};
     expect(Object.keys(p).length, 'SeasonWeek.progress vazio — caminho errado?').toBeGreaterThan(0);
-    for (const chave of ['contentDone', 'contentPending', 'contentNone']) {
+    for (const chave of ['contentDone', 'contentPending', 'contentNone', 'stepContent', 'stepMission']) {
       expect(typeof p[chave], `progress.${chave} ausente`).toBe('string');
       expect(p[chave].length).toBeGreaterThan(0);
     }

@@ -180,3 +180,45 @@ export function estadoDoPassoConteudo(entrada: {
   if (entrada.nadaParaAbrir) return 'sem-conteudo';
   return entrada.conteudoConsumido ? 'feito' : 'a-fazer';
 }
+
+/** O que o primeiro passo do resumo é, nesta semana — e em que estado está. */
+export type PrimeiroPasso =
+  | { passo: 'conteudo'; estado: EstadoConteudo }
+  | { passo: 'missao'; estado: 'feito' | 'a-fazer' };
+
+/**
+ * O primeiro passo do resumo MUDA DE NATUREZA conforme o tipo da semana.
+ *
+ * 🔴 POR QUE (medido 27/08/2026, na mesma rodada que corrigiu o resumo). A
+ * semana de `aplicacao` não tem conteúdo — ela é prática: a pessoa lê a MISSÃO,
+ * escreve um compromisso e o aceita (`feedback.modo`). Mesmo assim o resumo
+ * anunciava "Conteúdo · a fazer" ali, prometendo uma etapa que aquela semana
+ * nunca teria. **61 semanas, 46 pessoas, 4 tenants — incluindo `ibipeba`**.
+ *
+ * E o defeito escapava por baixo de `estadoDoPassoConteudo`: em semana de
+ * aplicação não há entrega NENHUMA, então `entregasConteudo.length > 0` é falso
+ * e `nadaParaAbrir` sai `false` — a régua do "sem conteúdo" nunca era alcançada.
+ * Dois vazios diferentes ("tem entrega, sem fonte" e "não tem entrega") pediam
+ * respostas diferentes, e só um deles tinha.
+ *
+ * 🔑 O estado da missão é DADO, não suposição: `feedback.modo` só existe depois
+ * que a pessoa aceita a missão (ou cai em 'cenario' por retro-compat). Não se
+ * inventou marcador novo para isso.
+ */
+export function estadoDoPrimeiroPasso(entrada: {
+  semanaEhAplicacao: boolean;
+  nadaParaAbrir: boolean;
+  conteudoConsumido: boolean;
+  missaoAceita: boolean;
+}): PrimeiroPasso {
+  if (entrada.semanaEhAplicacao) {
+    return { passo: 'missao', estado: entrada.missaoAceita ? 'feito' : 'a-fazer' };
+  }
+  return {
+    passo: 'conteudo',
+    estado: estadoDoPassoConteudo({
+      nadaParaAbrir: entrada.nadaParaAbrir,
+      conteudoConsumido: entrada.conteudoConsumido,
+    }),
+  };
+}

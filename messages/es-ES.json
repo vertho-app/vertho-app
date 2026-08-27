@@ -932,6 +932,7 @@
     "progress": {
       "title": "Tu semana",
       "stepContent": "Contenido",
+      "stepMission": "Misión",
       "stepEvidence": "Evidencias",
       "stepDone": "Semana completada",
       "contentDone": "hecho",

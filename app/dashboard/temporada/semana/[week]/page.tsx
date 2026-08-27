@@ -16,7 +16,7 @@ import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { registrarEventoTrilha, jaAbriuConteudoDaSemana } from '@/actions/engajamento';
-import { consumiuConteudo, estadoDoPassoConteudo } from '@/lib/season-engine/consumo-conteudo';
+import { consumiuConteudo, estadoDoPrimeiroPasso } from '@/lib/season-engine/consumo-conteudo';
 import FirstViewVideo from '@/components/first-view-video';
 // Tutorial da semana de missão (Bunny) — constante única em programa-config,
 // compartilhada com o envio de segunda do triggerDiario.
@@ -268,11 +268,19 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
    */
   const podeConversar = conteudoConsumido || abriuConteudo || nadaParaAbrir;
 
-  // Régua ÚNICA do passo "Conteúdo" — o porquê dos três estados (e a medição
-  // que os justifica) está em `estadoDoPassoConteudo`. Aqui não se repete a
-  // condição: foi exatamente uma cópia de régua nesta tela que produziu
+  // Régua ÚNICA do primeiro passo do resumo — o porquê (e a medição que o
+  // justifica) está em `estadoDoPrimeiroPasso`. Aqui não se repete condição
+  // nenhuma: foi exatamente uma cópia de régua nesta tela que produziu
   // "Conteúdo · feito" ao lado de um botão pedindo para fazer.
-  const estadoConteudo = estadoDoPassoConteudo({ nadaParaAbrir, conteudoConsumido });
+  //
+  // Em semana de APLICAÇÃO o passo é a MISSÃO, não o conteúdo: `feedback.modo`
+  // só existe depois que a pessoa aceita a missão com um compromisso escrito.
+  const primeiroPasso = estadoDoPrimeiroPasso({
+    semanaEhAplicacao: isAplicacao,
+    nadaParaAbrir,
+    conteudoConsumido,
+    missaoAceita: !!progressoSemana?.feedback?.modo,
+  });
 
   /**
    * Progresso da conversa que CONCLUI a semana.
@@ -484,15 +492,15 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               {t('progress.title')}
             </div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-              <span className={`flex items-center gap-1.5 ${estadoConteudo === 'feito' ? 'text-emerald-400' : 'text-gray-400'}`}>
-                {estadoConteudo === 'feito'
+              <span className={`flex items-center gap-1.5 ${primeiroPasso.estado === 'feito' ? 'text-emerald-400' : 'text-gray-400'}`}>
+                {primeiroPasso.estado === 'feito'
                   ? <Check size={13} />
-                  : <span className="w-[13px] text-center">{estadoConteudo === 'sem-conteudo' ? '—' : '1'}</span>}
-                {t('progress.stepContent')}
+                  : <span className="w-[13px] text-center">{primeiroPasso.estado === 'sem-conteudo' ? '—' : '1'}</span>}
+                {primeiroPasso.passo === 'missao' ? t('progress.stepMission') : t('progress.stepContent')}
                 <span className="text-gray-500">
-                  · {estadoConteudo === 'sem-conteudo'
+                  · {primeiroPasso.estado === 'sem-conteudo'
                       ? t('progress.contentNone')
-                      : estadoConteudo === 'feito'
+                      : primeiroPasso.estado === 'feito'
                         ? t('progress.contentDone')
                         : t('progress.contentPending')}
                 </span>
