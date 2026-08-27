@@ -58,9 +58,23 @@
  * US$ 9,67 de desperdício puro, antes de contar o retrabalho e o risco de um
  * artefato corrompido ser persistido. Erra-se para cima com retorno de 4:1.
  *
- * ⚠️ O limite real do teto NÃO é o preço — é a LATÊNCIA contra o `maxDuration`
- * da rota (300s). `modulo_base_autor` já tem p95 de 227s. Onde o teto generoso
- * ameaça o relógio, a resposta é Trigger.dev/Batch, nunca encolher o teto.
+ * ⚠️ O limite real do teto NÃO é o preço — é a LATÊNCIA. Mas cuidado com a
+ * premissa: eu segurei o teto de `modulo_base_autor` em 26/08 dizendo "p95 de
+ * 227s contra os 300s da rota, 76% do relógio". Fui conferir e **nenhum dos
+ * caminhos que executam essa task tem 300s**: a rota interna declara
+ * `maxDuration = 800` e os três consumidores restantes são tasks do Trigger
+ * (3600s). Os 227s eram 6% do orçamento, não 76%.
+ *
+ * 🔑 E, no call-site que importa, quem limita o relógio é o `timeoutMs` da
+ * chamada — não o `max_tokens`. Com o tempo fixo, teto maior não alonga nada:
+ * só dá espaço para o JSON FECHAR em vez de ser cortado. Os dois parâmetros
+ * limitam coisas diferentes, e confundi-los é o que faz alguém "economizar"
+ * teto achando que está protegendo latência.
+ *
+ * ⚠️ O ledger NÃO registra o contexto de execução (`source` distingue batch de
+ * síncrono, não rota de Trigger), então "estamos perto do timeout?" não é
+ * respondível pelo dado — só lendo o `maxDuration` de quem chama. Lacuna
+ * declarada.
  *
  *   npx tsx --env-file=.env.local scripts/_auditar-tetos-vs-saida.ts
  */
@@ -89,6 +103,20 @@ const FOLGA_SOBRE_MAXIMO = 1.5;
 
 /** Arredonda para cima em passo de 1.000 — teto exato não compra nada. */
 const arredondar = (n: number) => Math.ceil(n / 1000) * 1000;
+
+/**
+ * Tasks em que tetos diferentes sob a MESMA etiqueta são de propósito, porque a
+ * etiqueta cobre operações de naturezas distintas. Exige justificativa escrita:
+ * o valor é impresso ao lado, então ninguém entra aqui só para calar o aviso.
+ *
+ * ⚠️ O conserto ESTRUTURAL destes casos não é unificar o teto — é PARTIR a
+ * `taskKey`, para que o ledger e este auditor consigam distinguir as duas
+ * operações. Enquanto isso não acontece, o p95 delas é uma mistura.
+ */
+const DIVERGENCIA_INTENCIONAL: Record<string, string> = {
+  arguicao: 'turno de conversa (callAIChat, curto por desenho) × avaliação final (callAI). '
+    + 'Unificar o teto esconderia que são duas coisas; o certo é partir a taskKey.',
+};
 
 /**
  * Quem é PRODUÇÃO no ledger. O resto é instrumento nosso e não pode decidir
@@ -376,10 +404,22 @@ async function main() {
 
   // Cegueira 3: a mesma taskKey com tetos DIFERENTES — o min() antigo escondia.
   const divergentes = [...porTask.entries()].filter(([, ss]) => new Set(ss.filter((s) => s.teto !== null).map((s) => s.teto)).size > 1);
-  if (divergentes.length) {
-    console.log(`  ⚠️  mesma taskKey com tetos DIFERENTES (${divergentes.length}) — a folga abaixo usa o MENOR:`);
-    for (const [t, ss] of divergentes) {
+  const naoDeclaradas = divergentes.filter(([t]) => !DIVERGENCIA_INTENCIONAL[t]);
+  const declaradas = divergentes.filter(([t]) => DIVERGENCIA_INTENCIONAL[t]);
+  if (naoDeclaradas.length) {
+    console.log(`  🔴 mesma taskKey com tetos DIFERENTES, sem justificativa (${naoDeclaradas.length}) — a folga abaixo usa o MENOR:`);
+    for (const [t, ss] of naoDeclaradas) {
       console.log(`       ${t}: ${ss.map((s) => `${s.teto} (${s.onde.split('/').pop()})`).join(' · ')}`);
+    }
+    console.log('');
+  }
+  if (declaradas.length) {
+    // Aviso que nunca sai vira ruído, e ruído é ignorado junto com o resto.
+    // Divergência que é DE PROPÓSITO fica visível, mas classificada — e a
+    // justificativa é obrigatória, então ninguém a usa só para calar o guard.
+    console.log(`  ℹ️  divergência INTENCIONAL (${declaradas.length}) — operações diferentes sob a mesma etiqueta:`);
+    for (const [t, ss] of declaradas) {
+      console.log(`       ${t}: ${ss.map((s) => s.teto).join(' / ')} — ${DIVERGENCIA_INTENCIONAL[t]}`);
     }
     console.log('');
   }
@@ -442,7 +482,7 @@ async function main() {
   }
 
   // Cegueira: um relatório que não falha nunca é lido como "está tudo bem".
-  if (declaradosQuebrados.length || tasksSemTeto.length || apertadas.length || censuradas.length || featuresSemCallSite.length) {
+  if (declaradosQuebrados.length || tasksSemTeto.length || apertadas.length || censuradas.length || featuresSemCallSite.length || naoDeclaradas.length) {
     console.log('\n🔴 auditoria NÃO limpa — ver acima.');
     process.exitCode = 1;
   } else {

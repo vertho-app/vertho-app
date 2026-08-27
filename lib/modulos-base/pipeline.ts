@@ -381,11 +381,23 @@ ${texto}`;
 
   const tentar = async (user: string, sufixo: string): Promise<{ secoes: SegSecao[]; diag: string }> => {
     let ultimoDiag = 'sem resposta';
-  // 2 tentativas (não 3): cada chamada densa pode levar ~minutos; 3× estouraria
-  // os 300s da rota síncrona. timeoutMs 150s cobre a geração densa legítima e
-  // maxRetries 0 evita o retry do SDK (que dobraria o tempo por chamada).
+  // 2 tentativas (não 3): cada chamada densa pode levar ~minutos, e o `timeoutMs`
+  // abaixo é o que segura a latência — `maxRetries: 0` evita o retry do SDK, que
+  // dobraria o tempo por chamada.
+  //
+  // ⚠️ O comentário anterior justificava o número pelos "300s da rota síncrona".
+  // A rota que de fato executa isto — `app/api/internal/modulo-from-video` —
+  // declara `maxDuration = 800`, e os dois outros consumidores são tasks do
+  // Trigger (3600s). O 300 era premissa herdada, não medida.
+  //
+  // 🔑 26/08: teto 32.000 → 64.000, unificando a taskKey (as outras 3 chamadas
+  // de `modulo_base_autor` já rodavam em 64k; a MESMA etiqueta com dois tetos é
+  // defeito, e o auditor reportava sempre o menor). Isto NÃO alonga a chamada:
+  // quem limita o relógio é `timeoutMs`, que segue em 180s. `max_tokens` limita
+  // a SAÍDA — com o mesmo tempo disponível, o teto maior só dá espaço para o
+  // JSON FECHAR em vez de ser cortado no meio.
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
-      const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 32000, { timeoutMs: 180000, maxRetries: 0, taskKey: 'modulo_base_autor' }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
+      const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 64000, { timeoutMs: 180000, maxRetries: 0, taskKey: 'modulo_base_autor' }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
       const brutas = parseSecoesBlocos(String(raw || ''));
       if (!brutas.length) { ultimoDiag = `t${tentativa}${sufixo}: raw=${String(raw || '').length}c, 0 blocos`; continue; }
 

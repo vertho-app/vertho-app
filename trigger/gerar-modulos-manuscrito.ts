@@ -155,7 +155,7 @@ export const gerarModulosManuscritoTask = task({
       //    Resumível: se a run reiniciar, retoma o batchId já criado (não recria).
       //    `pularBatch` = botão de emergência manual (vai direto ao síncrono).
       const model = String(pp.model || 'claude-sonnet-4-6');
-      const MAX_TOKENS = 32000; // saída medida ~9,1k tokens; 32k dá folga sem desperdício
+      const MAX_TOKENS = 64000; // 26/08: unificado com o default de chamarIAComRetry. Teto não é gasto — paga-se o que sai — e as outras 2 chamadas da task já rodavam em 64k. Manter 32k aqui deixava a MESMA taskKey com dois tetos, e era o menor que o auditor reportava.
       let respostas = new Map<string, string>();
 
       if (pp.pularBatch === true) {

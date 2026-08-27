@@ -379,7 +379,7 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
 
       const descritoresTexto = descritoresMap[cenA.competencia_id] || '';
       const { system, user } = buildCenBPrompts(empresa, cenA, comp, descritoresTexto, pppContexto);
-      let resultado = await callAI(system, user, aiConfig, 6144, { temperature: TEMP, taskKey: 'cenarios_b', empresaId });
+      let resultado = await callAI(system, user, aiConfig, 32768, { temperature: TEMP, taskKey: 'cenarios_b', empresaId });
       let cenarioData = await extractJSON(resultado);
 
       // ── Validação pós-resposta ──
@@ -400,7 +400,7 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
 
         if (errors.length > 0) {
           console.warn(`[CenB] ${comp.nome}: validação (${errors.join('; ')}). Retry.`);
-          resultado = await callAI(system, user + `\n\n═══ CORREÇÃO NECESSÁRIA ═══\n${errors.join('\n')}`, aiConfig, 6144, { temperature: TEMP, taskKey: 'cenarios_b', empresaId });
+          resultado = await callAI(system, user + `\n\n═══ CORREÇÃO NECESSÁRIA ═══\n${errors.join('\n')}`, aiConfig, 32768, { temperature: TEMP, taskKey: 'cenarios_b', empresaId });
           const retry = await extractJSON(resultado);
           if (retry?.titulo) cenarioData = retry;
         }
@@ -558,7 +558,7 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
     refCenA.cargo = cen.cargo;
 
     const { system, user } = buildCenBPrompts(empresa, refCenA, comp, descritoresTexto, pppContexto, feedbackExtra);
-    const resposta = await callAI(system, user, aiConfig, 6144, { temperature: TEMP, taskKey: 'cenarios_b' });
+    const resposta = await callAI(system, user, aiConfig, 32768, { temperature: TEMP, taskKey: 'cenarios_b' });
     const cenarioData = await extractJSON(resposta);
     if (!cenarioData?.titulo) return { success: false, error: 'IA não retornou cenário válido' };
 

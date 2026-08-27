@@ -179,18 +179,31 @@ export const IA4_CALL_OPTIONS = { timeoutMs: 240000, maxRetries: 0 } as const;
  * saída do 4.6 (máx. 7.467 → 2,1x de folga); o modelo trocou e a folga sumiu,
  * porque o teto media o modelo antigo.
  *
- * ⚠️ Por que 32.000 e não um número derivado da distribuição: a distribuição do
- * Sonnet 5 está CENSURADA — tudo que passaria de 16.000 foi registrado como
- * 16.000, então não dá para calcular o p95 real dele. 32.000 é o dobro do teto
- * censurado, e só será substituído por um número medido depois de rodar um lote
- * SEM censura. Teto não é gasto (paga-se o que sai), então errar para cima aqui
- * custa latência, não dinheiro.
+ * ⚠️ Por que NÃO um número derivado da distribuição: a distribuição do Sonnet 5
+ * está CENSURADA — tudo que passaria de 16.000 foi registrado como 16.000, então
+ * o p95 real dele é desconhecido. Não é estimativa ruim, é ausência de dado.
+ *
+ * 🔑 26/08/2026 — de 32.000 para 64.000, por decisão de régua (Rodrigo): num
+ * fluxo CRÍTICO, teto alto com custo maior é preferível ao risco de quebrar o
+ * JSON. A assimetria está medida nesta própria task: das 388 chamadas em Sonnet
+ * 5, as 59 que bateram no teto custaram US$ 9,67 — 27% do gasto da tarefa — e
+ * entregaram ZERO, porque JSON cortado no meio não é resposta parcial. E
+ * custaram MAIS por chamada (0,164 contra 0,110) justamente por correrem até o
+ * fim. 64.000 alinha com `pdi_individual` e os relatórios, que já rodam nesse
+ * teto no mesmo modelo — ou seja, é valor provado na API, não aposta.
+ *
+ * ⚠️ E o limite REAL desta task nunca foi o teto: `actions/fase3.ts` avalia em
+ * LAÇO SEQUENCIAL, uma chamada por colaborador, com p95 de 156s cada. Três
+ * colaboradores já passam de 300s. Quem tem orçamento para lote é
+ * `trigger/gerar-ia4-batch.ts` (maxDuration 3600 + Batch API); a action síncrona
+ * serve caso avulso. Subir o teto não cria esse risco nem o agrava de forma
+ * relevante — mas não o resolve, e ele é anterior a esta mudança.
  *
  * Regra que este caso estabelece, e que vale para QUALQUER modelo de raciocínio
  * (Sonnet 5, Opus 5, Qwen, Kimi K3, Muse Spark — os quatro medidos em 25/08):
  * **revisar o teto ANTES de trocar o modelo, nunca depois.**
  */
-export const IA4_MAX_TOKENS = 32000;
+export const IA4_MAX_TOKENS = 64000;
 
 /** Colunas de perfil que o prompt da IA4 consome — uma lista só, três call-sites. */
 export const IA4_COLAB_COLS =

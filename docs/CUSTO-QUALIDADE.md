@@ -959,3 +959,59 @@ Corrigido: o canário agora mede pelos dois parsers reais e distingue "só o
 leniente salva" (aviso) de "irrecuperável" (bloqueia). Instrumento que não lê
 pelo consumidor inventa um problema que o produto não tem — e esconde um que ele
 tem.
+
+### 26/08 (cont.) — IA4 e módulo-base: a premissa de latência estava errada
+
+**"Por que o teto da IA4 é 16.000?"** — não é. É **32.000 desde 25/08**; os
+16.000 do relatório são o **p95 histórico**, de quando o teto era 16.000, e
+nenhuma chamada rodou desde 15/08. O número que parecia teto era cicatriz.
+
+**Onde eu errei:** segurei o `modulo_base_autor` dizendo "p95 de 227s contra os
+300s da rota — 76% do relógio". Fui conferir a pedido do Rodrigo e **nenhum
+caminho que executa essa task tem 300s**:
+
+| caminho | limite |
+|---|---:|
+| `app/api/internal/modulo-from-video/route.ts` | `maxDuration = 800` |
+| `trigger/gerar-modulos-manuscrito.ts` (+ Batch API) | `maxDuration = 3600` |
+| `trigger/estruturar-material.ts` · `trigger/extracao-video.ts` | Trigger |
+
+Os 227s eram **6% do orçamento, não 76%**. O 300 era premissa herdada de um
+comentário — inclusive um comentário em `lib/modulos-base/pipeline.ts` que
+justificava o próprio teto por "os 300s da rota síncrona".
+
+**A distinção que resolve o medo de teto alto:** no call-site que importa, quem
+limita o relógio é o **`timeoutMs`** da chamada, não o `max_tokens`. Com o tempo
+fixo em 180s, teto maior não alonga nada — só dá espaço para o JSON **fechar**
+em vez de ser cortado. São dois parâmetros que limitam coisas diferentes, e
+confundi-los é o que faz alguém "economizar" teto achando que protege latência.
+Evidência local contra o medo: `pdi_individual` roda em **64.000** e tem p95 de
+saída de **7.393** — teto folgado não produz saída inflada.
+
+**Aplicado:**
+
+| task | de | para | |
+|---|---:|---:|---|
+| `ia4_avaliacao` | 32.000 | **64.000** | fluxo crítico; alinha com `pdi_individual` e os relatórios, que já rodam nesse teto no mesmo modelo — valor provado na API |
+| `modulo_base_autor` (2 sites) | 32.000 | **64.000** | unifica a taskKey: as outras 2 chamadas já rodavam em 64k |
+| `cenarios_b` (3 sites) | 6.144 | **32.768** | unifica com o 4º site, que já usava 32.768 para a MESMA operação |
+
+**`0 de 24` tarefas abaixo de 3×.**
+
+**O limite real da IA4 nunca foi o teto.** `actions/fase3.ts` avalia em **laço
+sequencial** dentro de uma Server Action, uma chamada por colaborador, p95 de
+156s cada — três colaboradores já passam de 300s. Quem tem orçamento para lote é
+`trigger/gerar-ia4-batch.ts` (3600s + Batch API); a action síncrona serve caso
+avulso. Isso é anterior às mudanças de hoje e continua em aberto.
+
+**Duas lacunas declaradas:**
+
+- **O ledger não registra contexto de execução.** `source` distingue batch de
+  síncrono, não rota de Trigger — então "estamos perto do timeout?" não é
+  respondível pelo dado, só lendo o `maxDuration` de quem chama. Foi por isso
+  que a premissa errada sobreviveu.
+- **`arguicao` tem tetos divergentes DE PROPÓSITO** (2.048 no turno de conversa,
+  4.096 na avaliação final). O conserto não é unificar — é **partir a taskKey**,
+  senão o p95 dela continua sendo uma mistura de duas operações. O auditor agora
+  classifica isso como divergência intencional, com justificativa obrigatória,
+  em vez de repetir um aviso que ninguém pode resolver.
