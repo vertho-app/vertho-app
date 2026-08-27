@@ -420,7 +420,17 @@ type DemoWarmSnapshot = {
     pdf_path: string | null;
     gerado_em: string | null;
   }>;
+  audiosPersonalizadosJornada: Array<{
+    ownerEmail: string;
+    contentId: string;
+    sourcePath: string;
+  }>;
 };
+
+function demoAudioPersonalizadoPath(contentId: string, colaboradorId: string): string {
+  const seguro = (value: string) => String(value || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `final/audio-personalizado/${seguro(contentId)}/${seguro(colaboradorId)}.mp3`;
+}
 
 export function relatorioIndividualDemoValido(conteudoRaw: unknown): boolean {
   let conteudo: any = conteudoRaw;
@@ -530,7 +540,38 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       .select('colaborador_id,tipo,conteudo,pdf_path,gerado_em')
       .eq('empresa_id', empresaId)
       .in('tipo', ['individual', 'gestor', 'rh']));
-    const emailPorId = new Map((colaboradores || []).map((colaborador: any) => [colaborador.id, colaborador.email]));
+    const emailPorId = new Map<string, string>((colaboradores || [])
+      .map((colaborador: any) => [String(colaborador.id), String(colaborador.email)] as const));
+    // O cache de podcast personalizado usa o UUID do colaborador no path. Como
+    // o reset apaga/recria as personas, esse UUID muda e o primeiro play voltava
+    // a pagar TTS (~2-5 min), mesmo com o áudio já pronto. Capturamos somente os
+    // MP3s que pertencem às personas atuais e aos conteúdos deste tenant. Os
+    // arquivos serão MOVIDOS para o UUID novo no restore (não duplicados).
+    const audios = await must('snapshot conteúdos de áudio demo', sb.from('micro_conteudos')
+      .select('id')
+      .eq('empresa_id', empresaId)
+      .eq('formato', 'audio'));
+    const audiosPersonalizadosJornada: DemoWarmSnapshot['audiosPersonalizadosJornada'] = [];
+    for (const audio of audios || []) {
+      // A pasta é a parte estável até o contentId. Construí-la explicitamente
+      // evita listar o Storage inteiro e mantém o reset proporcional ao
+      // catálogo do tenant.
+      const pastaAudio = `final/audio-personalizado/${String(audio.id).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+      const { data: arquivos, error: arquivosError } = await sb.storage.from('conteudos')
+        .list(pastaAudio, { limit: 1000 });
+      if (arquivosError) throw new Error(`snapshot áudio ${audio.id}: ${arquivosError.message}`);
+      for (const arquivo of arquivos || []) {
+        if (!arquivo.name.endsWith('.mp3') || Number(arquivo.metadata?.size || 0) <= 0) continue;
+        const colaboradorId = arquivo.name.slice(0, -4);
+        const ownerEmail = emailPorId.get(colaboradorId);
+        if (!ownerEmail) continue;
+        audiosPersonalizadosJornada.push({
+          ownerEmail,
+          contentId: audio.id,
+          sourcePath: `${pastaAudio}/${arquivo.name}`,
+        });
+      }
+    }
     return {
       colaboradores: (colaboradores || [])
         .filter((colaborador: any) => colaborador.comportamental_pdf_path || colaborador.comportamental_audio_path)
@@ -545,6 +586,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
           pdf_path: relatorio.pdf_path,
           gerado_em: relatorio.gerado_em,
         })),
+      audiosPersonalizadosJornada,
     };
   }
 
@@ -584,6 +626,15 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         gerado_em: relatorio.gerado_em || new Date().toISOString(),
       });
       if (result.error) throw new Error(`restaurar relatório ${relatorio.tipo}: ${result.error.message}`);
+    }
+
+    for (const audio of snapshot.audiosPersonalizadosJornada) {
+      const colaboradorId = idPorEmail.get(audio.ownerEmail);
+      if (!colaboradorId) continue;
+      const destino = demoAudioPersonalizadoPath(audio.contentId, colaboradorId);
+      if (destino === audio.sourcePath) continue;
+      const { error } = await sb.storage.from('conteudos').move(audio.sourcePath, destino);
+      if (error) throw new Error(`restaurar áudio de jornada ${audio.ownerEmail}: ${error.message}`);
     }
   }
 
