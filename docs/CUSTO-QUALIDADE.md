@@ -1122,3 +1122,64 @@ diferentes. Allowlist: 52 → 50, +1 fixture do probe = **51**.
 na tabela `pdis`, que tem **0 linhas** e cujo único leitor é o próprio
 `fase4.ts`. Etiquetar deixaria o ledger mais bonito sem melhorar nada — o que
 essa linha pede é decisão sobre remover, não uma `taskKey`.
+
+### 27/08 — as dez trocas "sem gate": duas já feitas, duas aplicadas, seis não são tabela
+
+Fui aplicar a faixa sem gate (P + B + F1 + F2, dez linhas) e o de-para se
+desfez sob inspeção:
+
+| | quantas | o que são |
+|---|---:|---|
+| **já em produção** | 2 | `3.3` (auditor do chat já é Terra desde 05/08) e `15.5` (`sem14_check` já pinado em Terra) |
+| **troca limpa de tabela** | 2 | `11.5` `conteudo_tags`, `18.1` `pulse_classify` |
+| **NÃO fazer** | 1 | `19.5` — ver abaixo |
+| **exigem CÓDIGO, não tabela** | 5 | `16.4`, `8.3`, `12.5`, `16.5`, `16.6` |
+
+As duas primeiras estavam no de-para porque ele foi construído sobre
+`docs/CATALOGO-PROMPTS-IA.md`, que está atrás do código — a mesma classe de erro
+que o painel externo cometeu ao repetir o id morto do meu comentário.
+
+E os cinco de código são o achado maior: o painel apontou `3.2`/`3.3` como
+"requer código"; medindo, **metade da faixa** é. `12.5` e `8.3` nem passam
+`taskKey`; `16.5`/`16.6` chamam `getModelForTask(null, 'modulo_base_autor')` —
+tomam emprestada a etiqueta do AUTOR, então mudá-los pela tabela moveria o autor
+junto; `16.4` compartilha `taskKey` com o autor pela mesma razão.
+
+**`19.5` sai da lista.** O extrator de evidências da cena usa `MODELO_PESADO`
+(Opus 5) com `reasoningEffort: 'high'`, e o comentário inline diz **"é aqui que
+a nota nasce"** — decisão de 25/08. Rebaixá-lo por −$5,22 é a mesma classe de
+erro já apontada duas vezes nesta rodada. (Se um dia for para mexer, o alvo é
+Sonnet 5, não 4.6: com saída média de 4.184 tokens, bem acima do pivô, ele sai a
+**$5,22** contra $7,84 do 4.6 e $13,06 do Opus — mais barato E melhor que o
+destino que o plano propunha.)
+
+### 🔴 O pino do auditor não bastava — 8 de 10 pares Dual-IA cediam
+
+Ao adicionar `pulse_classify` à tabela, o guard mostrou algo maior. Todo auditor
+está pinado; **nenhum gerador estava** (só `ia4_avaliacao`). Como
+`sys_config.ai.modelo_padrao` sobrescreve qualquer task não pinada, bastava um
+admin escolher no dropdown um modelo da família do auditor para os dois caírem
+juntos:
+
+```
+ia3_cenarios=gpt-5.6-sol       colidiu com ia3_check=gpt-5.6-terra
+cenarios_b=gpt-5.6-sol         colidiu com cenarios_b_check=gpt-5.6-terra
+acumulada_primaria=gpt-5.6-sol colidiu com acumulada_check=gpt-5.6-terra
+sem14_scorer=gpt-5.6-sol       colidiu com sem14_check=gpt-5.6-terra
+modulo_base_autor=gpt-5.6-sol  colidiu com modulo_base_auditor=gpt-5.6-terra
+pulse_classify=gpt-5.6-sol     colidiu com pulse_audit=gpt-5.6-terra
+```
+
+Não falha: a auditoria segue rodando e **aprovando**, com o mesmo modelo dos dois
+lados, sem erro e sem log.
+
+A saída **não** foi pinar os oito — isso tiraria do tenant a escolha de modelo em
+metade do produto. `resolveTaskModel` passa a **calcular** a invariante: se o
+padrão do tenant colidir com a família do parceiro, ele é ignorado e a task fica
+no seu default, com aviso. Quem cede é o gerador; o auditor segura o pino,
+porque é ele que existe para ser independente.
+
+⚠️ **Quase reportei isto como buraco antes de ser verdade.** A primeira versão do
+teste dava `ReferenceError: MODELOS_DISPONIVEIS is not defined` e eu li as três
+linhas vermelhas como achado. Teste que ERRA não é teste que encontrou algo — o
+`ia4_avaliacao`, que aparecia na lista, na verdade estava protegido pelo pino.

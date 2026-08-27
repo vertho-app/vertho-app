@@ -6,6 +6,7 @@ import {
   PARES_FORA_DA_TABELA,
   DEFAULT_TASK_MODELS,
   PINNED_TASKS,
+  MODELOS_DISPONIVEIS,
 } from '@/lib/ai-tasks';
 
 /**
@@ -273,4 +274,30 @@ describe('Dual-IA — auditor de família diferente do gerador', () => {
       ).toBeFalsy();
     }
   });
+});
+/**
+ * 27/08 — o pino do AUDITOR não basta quando o GERADOR não está pinado.
+ *
+ * `resolveTaskModel` deixa `sys_config.ai.modelo_padrao` sobrescrever qualquer
+ * task NÃO pinada. Com o auditor pinado numa família e o gerador solto, basta o
+ * tenant escolher um modelo dessa mesma família no dropdown para os dois
+ * caírem juntos — sem erro, sem log, e com a auditoria virando eco.
+ */
+describe('gerador NÃO pinado × auditor pinado', () => {
+  // TODOS os pares, não só os que têm entrada em DEFAULT_TASK_MODELS: quem não
+  // tem cai no FALLBACK_GLOBAL, que também é sobrescrito por modelo_padrao.
+  // Filtrar por "tem entrada na tabela" escondia justamente os mais expostos.
+  it.each(DUAL_IA_PARES)(
+    '$gerador × $auditor sobrevivem a um modelo_padrao da família do auditor',
+    async ({ gerador, auditor }) => {
+      const famAuditor = familiaDoModelo(DEFAULT_TASK_MODELS[auditor]);
+      // O tenant escolhe, no dropdown, um modelo da MESMA família do auditor.
+      const hostil = MODELOS_DISPONIVEIS.find((m) => familiaDoModelo(m.id) === famAuditor)!;
+      const cfg = { ai: { modelo_padrao: hostil.id } };
+      const mGer = resolveTaskModel(cfg, gerador);
+      const mAud = resolveTaskModel(cfg, auditor);
+      expect(familiaDoModelo(mGer), `${gerador}=${mGer} colidiu com ${auditor}=${mAud}`)
+        .not.toBe(familiaDoModelo(mAud));
+    },
+  );
 });

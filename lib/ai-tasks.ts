@@ -146,6 +146,17 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   ia3_check:           'gpt-5.6-terra',
   ia4_check:           'gpt-5.6-terra',
   cenarios_b_check:    'gpt-5.6-terra',
+  // 27/08: as duas entram por TROCA de modelo, e as duas eram invisiveis antes
+  // — nao estavam em DEFAULT_TASK_MODELS, entao caiam no FALLBACK_GLOBAL
+  // (sonnet-4-6) sem ninguem ter decidido isso.
+  //
+  // `pulse_classify` fecha o par com `pulse_audit` (Terra/OpenAI): Gemini e
+  // Google, entao cross-familia continua valendo. Extracao utilitaria de saida
+  // curta — metade do input e 2,4x menos no output pelo catalogo.
+  pulse_classify:      'gemini-3.7-flash',
+  // `conteudo_tags`: classificacao de conteudo, saida curta, sem auditor a
+  // jusante e sem nota derivada. Bloco F2.
+  conteudo_tags:       'gemini-3.7-flash',
   pulse_audit:         'gpt-5.6-terra',
   // Blueprint (25/08/2026): o auditor semântico (`lib/blueprint/audit.ts`) roda
   // sobre o que `BLUEPRINT_SYSTEM` gerou. Sem esta linha os dois lados caíam em
@@ -237,12 +248,67 @@ export const PINNED_TASKS = new Set([
  *   3. DEFAULT_TASK_MODELS[taskKey] (default por task)
  *   4. 'claude-sonnet-4-6' (default absoluto)
  */
+/**
+ * Resolução SEM a trava de Dual-IA — só para comparar as duas pontas de um par
+ * sem recursão. Nunca use isto para decidir o modelo de uma chamada.
+ */
+function resolverBruto(sysConfig: any, taskKey: string): string {
+  const ai = sysConfig?.ai || {};
+  return ai.modelos?.[taskKey]
+    || (ai.modelo_padrao && !PINNED_TASKS.has(taskKey) ? ai.modelo_padrao : null)
+    || DEFAULT_TASK_MODELS[taskKey]
+    || FALLBACK_GLOBAL;
+}
+
+/** O parceiro de par de uma task (gerador ↔ auditor), ou null. */
+function parceiroDual(taskKey: string): string | null {
+  for (const par of DUAL_IA_PARES) {
+    if (par.gerador === taskKey) return par.auditor;
+    if (par.auditor === taskKey) return par.gerador;
+  }
+  return null;
+}
+
 export function resolveTaskModel(sysConfig, taskKey) {
   const ai = sysConfig?.ai || {};
   const especifico = ai.modelos?.[taskKey];
   if (especifico) return especifico;
-  if (ai.modelo_padrao && !PINNED_TASKS.has(taskKey)) return ai.modelo_padrao;
-  return DEFAULT_TASK_MODELS[taskKey] || FALLBACK_GLOBAL;
+  const base = DEFAULT_TASK_MODELS[taskKey] || FALLBACK_GLOBAL;
+
+  if (ai.modelo_padrao && !PINNED_TASKS.has(taskKey)) {
+    // 🔴 27/08/2026 — o pino do AUDITOR não bastava.
+    //
+    // Todo auditor está pinado; NENHUM gerador estava (só `ia4_avaliacao`).
+    // Como `modelo_padrao` sobrescreve qualquer task não pinada, bastava o
+    // tenant escolher no dropdown um modelo da família do auditor para os dois
+    // caírem juntos. Medido: **8 dos 10 pares** cediam a um `modelo_padrao`
+    // OpenAI — ia3, cenarios_b, acumulada, sem14, modulo_base, pulse… O efeito
+    // não é falhar: é a segunda opinião virar eco, sem erro e sem log.
+    //
+    // A saída NÃO foi pinar os oito — isso tiraria do tenant a escolha de
+    // modelo em metade do produto. A invariante passa a ser CALCULADA: se o
+    // padrão do tenant colidir com a família do parceiro, ele é ignorado
+    // AQUI e a task fica no seu default. Quem cede é o gerador; o auditor
+    // segura o pino, porque é ele que existe para ser independente.
+    const parceiro = parceiroDual(taskKey);
+    if (parceiro) {
+      try {
+        if (familiaDoModelo(ai.modelo_padrao) === familiaDoModelo(resolverBruto(sysConfig, parceiro))) {
+          console.warn(
+            `[ai-tasks] modelo_padrao "${ai.modelo_padrao}" ignorado em "${taskKey}": cairia na mesma `
+            + `família de "${parceiro}" e o Dual-IA viraria eco. Mantido "${base}". `
+            + `Para forçar, configure ai.modelos.${taskKey} explicitamente.`,
+          );
+          return base;
+        }
+      } catch {
+        // Família desconhecida: não dá para provar que é seguro, então não é.
+        return base;
+      }
+    }
+    return ai.modelo_padrao;
+  }
+  return base;
 }
 
 /**
