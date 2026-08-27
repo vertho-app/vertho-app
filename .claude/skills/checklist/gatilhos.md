@@ -569,3 +569,31 @@ Detalhe: memória `project_rh_admin_da_empresa`.
 
 Detalhe: memórias `feedback_so_a_imagem_prova_o_visual`, `project_video_tutorial_pipeline`,
 `project_semana_gate_sequencial`.
+
+## §  Mudança de CONTRATO num módulo com vários componentes
+
+**Casa quando:** o diff muda *o que um número significa* (não a implementação) em módulo que tem
+gerador + ator/fixture + auditor + juiz + extrator + consolidador — ex.: `lib/season-engine/cena/*`,
+os prompts da fase 1-4, o motor de fit.
+
+**Confira:**
+1. **Matriz componente × contrato antes de começar.** Liste quem gera, quem atua, quem audita, quem
+   julga, quem extrai, quem consolida, quem valida — e marque um a um. A peça de **medição** (ator
+   simulado, fixture, seed) é a mais fácil de esquecer, porque não é produto.
+2. **Comentário que descreve o comportamento antigo.** Ao trocar o que um campo publica, `grep` pelo
+   nome do campo nos comentários do próprio arquivo — documentação que fica para trás vira autoridade
+   sobre um sistema que já mudou.
+3. **Guard que virou opcional.** Se a régua nova depende de uma flag/parâmetro, ele é fail-closed ou
+   é decoração.
+
+**Consequência medida (26/08/2026):** no Modo Cena, cinco contratos migraram e o **ator simulado**
+ficou para trás jogando o jogo antigo. Os dois braços do contraste ficaram idênticos — 1 de 6 fatos
+aflorados em ambos — e o instrumento parecia não discriminar quando o problema era o substrato.
+Depois do conserto: 1/6 × 4/6. **Sintoma típico: os dois lados de um contraste ficam iguais.**
+
+Na mesma rodada, e da mesma família: `--observaveis` era aviso e nunca bloqueou (`foraDoAlcance = []`
+em **12 de 12** consolidações) e um comentário de `beats.ts` afirmava que `media`/`nivel` vinham do
+encerramento enquanto o código publicava a abertura.
+
+Detalhe: memórias `feedback_contrato_varre_componentes`, `project_modo_cena`,
+`project_guard_que_nao_roda_no_ci`.
