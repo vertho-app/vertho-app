@@ -1069,3 +1069,56 @@ runtime=desconhecido  orcamento_ms=       —  latency=2846ms  → sem orçament
   perde linhas em silêncio não perde log — perde o dado que decide teto, modelo
   e custo, e esta sessão inteira mostrou o que conclusão sobre ledger incompleto
   produz. A allowlist encolheu de 214 para 213 arquivos (982 → 981 sites).
+
+### 27/08 — o ledger passa a dizer ONDE nasce o `untagged`
+
+`untagged` é **3.630 chamadas, 33% da produção**, sendo **3.109 em Sonnet 4.6 =
+US$ 96,27**. Todas com `empresa_id` NULL — ou seja, sem atribuição de tenant
+também. É o achado F13 de 09-10/08, ainda aberto, e a razão de não fechar é
+estrutural: etiquetar os call-sites conhecidos resolve os de hoje, não os de
+amanhã.
+
+**A allowlist estática diz quais sites EXISTEM sem etiqueta; não diz quais
+RODAM.** E o tráfego recente tem uma assinatura só — input ~2.100, saída ~2.200,
+42s, todo dia, sempre Sonnet 4.6 — o que significa que um punhado dos 52
+responde por quase tudo. Escolher qual etiquetar primeiro sem medir é chute.
+
+Mig 231: `origem_codigo`, preenchido **só quando falta `taskKey`**, com a cadeia
+de nomes de função (`lib/origem-chamada.ts`).
+
+**Nome de função, não `arquivo:linha`** — em produção o código é bundlado e o
+stack devolve `chunks/1234.js:56`, que muda a cada deploy. Nome de função
+sobrevive ao bundle.
+
+**Três defeitos que só apareceram medindo:**
+
+1. **Captura no lugar errado.** Dentro de `registrarUsoIA`, depois de vários
+   awaits, o resultado era `main` — não o call-site. Causa: `return callAI(...)`
+   em posição de cauda numa função async faz o V8 **elidir o frame** do
+   chamador. A captura mudou para a **entrada** de `callAI`/`callAIChat`, onde a
+   pilha ainda é síncrona.
+2. **Filtro de ruído por caminho.** A 1ª versão testava a linha inteira do stack
+   contra `/ai-client|origem-chamada/` — em teste descartava qualquer chamador
+   cujo ARQUIVO tivesse esse nome (o próprio teste sumia, resultado sempre
+   `null`); em produção, bundlado, não descartaria nada. Agora filtra por **nome
+   de função**, que serve nos dois.
+3. **`run`/`handler`/`main` na lista de genéricos.** Zerava exatamente o que mais
+   importa: numa task do Trigger o quadro externo É `run`; numa rota, `handler`.
+
+⚠️ E a asserção que verifica o item 1 **falhou duas vezes em ser um teste**:
+a primeira passava também com a captura movida para depois do await; a segunda
+falhava nos dois estados. As duas pela mesma causa boba — o comentário que
+explica a regra contém a palavra "await", e a asserção procurava a palavra crua.
+Corrigida para comparar **índices** contra uma âncora concreta
+(`await resolveAILocale`). Pego por mutação; sem ela teria ido para produção
+verde e inútil.
+
+**Redução aplicada:** `lib/pulse/dual-ai.ts` (−2). Eram par Dual-IA **declarado
+em `DUAL_IA_PARES`** e mesmo assim caíam em `untagged` — a única coisa que o
+ledger não conseguia confirmar era justamente que o par roda em famílias
+diferentes. Allowlist: 52 → 50, +1 fixture do probe = **51**.
+
+**Um call-site que NÃO vale etiquetar:** `actions/fase4.ts:53` gera PDI e grava
+na tabela `pdis`, que tem **0 linhas** e cujo único leitor é o próprio
+`fase4.ts`. Etiquetar deixaria o ledger mais bonito sem melhorar nada — o que
+essa linha pede é decisão sobre remover, não uma `taskKey`.

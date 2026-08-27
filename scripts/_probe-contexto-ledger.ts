@@ -9,6 +9,11 @@ import { callAI } from '../actions/ai-client';
 import { comContexto } from '../lib/execucao-contexto';
 import { createSupabaseAdmin } from '../lib/supabase';
 
+/** Sem `taskKey` de propósito — é o caso que a mig 231 existe para iluminar. */
+async function funcaoQueEsqueceuAEtiqueta() {
+  return callAI('Responda apenas OK.', 'OK?', { model: 'claude-sonnet-4-6' }, 64, { source: 'canario' });
+}
+
 async function main() {
   const marca = `probe_ctx_${Math.floor(Number(process.env.PROBE_SEQ ?? '1'))}`;
 
@@ -23,18 +28,34 @@ async function main() {
     taskKey: marca, source: 'canario',
   });
 
+  // E sem taskKey: a mig 231 tem de dizer DE ONDE veio.
+  await funcaoQueEsqueceuAEtiqueta();
+
   const sb = createSupabaseAdmin();
   const { data, error } = await sb
     .from('ia_usage_log')
-    .select('feature, runtime, orcamento_ms, latency_ms')
-    .eq('feature', marca)
-    .order('created_at', { ascending: true });
+    .select('feature, runtime, orcamento_ms, latency_ms, origem_codigo')
+    .in('feature', [marca, 'untagged'])
+    .eq('source', 'canario')
+    // DESCENDENTE: interessa a linha DESTA execução. Ordenar ascendente fazia o
+    // `find` pegar a mais ANTIGA — de uma rodada anterior à correção — e o probe
+    // reprovava um wiring que já estava certo.
+    .order('created_at', { ascending: false })
+    .limit(12);
   if (error) throw new Error(error.message);
 
   console.log('\nlinhas gravadas:');
   for (const l of data || []) {
     const frac = l.orcamento_ms ? `${Math.round((l.latency_ms / l.orcamento_ms) * 100)}% do orçamento` : 'sem orçamento';
     console.log(`  runtime=${String(l.runtime).padEnd(13)} orcamento_ms=${String(l.orcamento_ms ?? '—').padStart(8)}  latency=${l.latency_ms}ms  → ${frac}`);
+  }
+
+  const semEtiqueta = (data || []).find((l: any) => l.feature === 'untagged');
+  if (!semEtiqueta?.origem_codigo?.includes('funcaoQueEsqueceuAEtiqueta')) {
+    console.log(`🔴 mig 231: origem da chamada sem taskKey não chegou (${JSON.stringify(semEtiqueta?.origem_codigo)})`);
+    process.exitCode = 1;
+  } else {
+    console.log(`✅ mig 231: chamada sem taskKey aponta para "${semEtiqueta.origem_codigo}"`);
   }
 
   const declarada = (data || []).find((l: any) => l.runtime === 'trigger');

@@ -34,6 +34,7 @@ import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
 import { PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, usaMaxCompletionTokens } from '@/lib/ai-provedores';
 import { fallbackRespeitandoDual } from '@/lib/ai-tasks';
 import { contextoAtual, fracaoDoOrcamento } from '@/lib/execucao-contexto';
+import { origemDaChamada } from '@/lib/origem-chamada';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -98,6 +99,13 @@ export interface AICallOptions {
   //    PADRÃO com o rótulo errado — pior que falhar, porque a tabela mente.
   //  - Gemini: ignorado.
   reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+  /**
+   * INTERNO — preenchido por `callAI`/`callAIChat` quando falta `taskKey`.
+   * Capturado na ENTRADA, onde a pilha ainda e sincrona: dentro de
+   * `registrarUsoIA`, depois de varios awaits, o frame do chamador ja foi
+   * elidido pelo V8 (medido em 27/08). Nao passe isto a mao.
+   */
+  _origemCodigo?: string | null;
 }
 
 export interface ChatMessage {
@@ -174,6 +182,10 @@ export async function callAI(
   options: AICallOptions = {},
 ): Promise<string> {
   const model = aiConfig?.model || DEFAULT_MODEL;
+  // Sem etiqueta: guarda de onde veio ANTES de qualquer await (mig 231).
+  if (!options.taskKey && options._origemCodigo === undefined) {
+    options = { ...options, _origemCodigo: origemDaChamada() };
+  }
   const locale = await resolveAILocale(options.locale);
   const localizedSystem = withLanguageInstruction(system, locale);
 
@@ -242,6 +254,10 @@ export async function callAIChat(
   options: AICallOptions = {},
 ): Promise<string> {
   const model = aiConfig?.model || DEFAULT_MODEL;
+  // Sem etiqueta: guarda de onde veio ANTES de qualquer await (mig 231).
+  if (!options.taskKey && options._origemCodigo === undefined) {
+    options = { ...options, _origemCodigo: origemDaChamada() };
+  }
   const locale = await resolveAILocale(options.locale);
   const localizedSystem = withLanguageInstruction(system, locale);
 
@@ -366,6 +382,12 @@ async function registrarUsoIA(
       // fica 'desconhecido', que é cobertura faltando e não chute.
       runtime: ctx.runtime,
       orcamento_ms: ctx.orcamentoMs ?? null,
+      // Só quando falta etiqueta (mig 231). `untagged` é 33% da produção e o
+      // ledger respondia "quanto" sem responder "onde" — e a allowlist estática
+      // dos 52 call-sites sem `taskKey` diz quais EXISTEM, não quais RODAM.
+      // Custo: um `new Error().stack` na fração de chamadas que ainda não têm
+      // etiqueta, e que encolhe conforme elas ganham uma.
+      origem_codigo: options.taskKey ? null : (options._origemCodigo ?? null),
     });
     if (erroLedger) {
       console.warn(

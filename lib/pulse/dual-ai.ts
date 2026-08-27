@@ -73,7 +73,7 @@ export async function classifyOpenText(
   }
 
   const user = `TEXTO DA RESPOSTA:\n"""${text.trim().slice(0, 2000)}"""\n\nClassifique segundo a taxonomia.`;
-  const raw = await callAI(CLASSIFY_SYSTEM, user, { model: classifierModel }, 512);
+  const raw = await callAI(CLASSIFY_SYSTEM, user, { model: classifierModel }, 512, { taskKey: 'pulse_classify' });
 
   return parseClassifyResponse(raw);
 }
@@ -126,7 +126,7 @@ ${JSON.stringify({ themes: classification.themes, sentiment: classification.sent
 
 Audite.`;
 
-  const raw = await callAI(AUDIT_SYSTEM, user, { model: auditorModel }, 512);
+  const raw = await callAI(AUDIT_SYSTEM, user, { model: auditorModel }, 512, { taskKey: 'pulse_audit' });
   return parseAuditResponse(raw);
 }
 
