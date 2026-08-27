@@ -376,8 +376,88 @@ export const PARES_FORA_DA_TABELA: Array<{ gerador: string; auditor: string; por
   {
     gerador: 'chat_fase3_eval',
     auditor: 'chat_fase3_audit',
-    porque: 'app/api/chat/route.ts escolhe o auditor por const hardcoded (DEFAULT_VALIDADOR = gemini-3.1-flash-lite) '
-      + 'e o eval por sys_config.ai.modelo_padrao — nenhum dos dois passa por resolveTaskModel. '
-      + 'Cross-família HOJE (Claude vs Google), mas por acidente de hardcode, não por invariante travado.',
+    porque: 'app/api/chat/route.ts escolhe o auditor por const hardcoded (DEFAULT_VALIDADOR) e o eval por '
+      + 'sys_config.ai.modelo_padrao — nenhum dos dois passa por resolveTaskModel, então editar '
+      + 'DEFAULT_TASK_MODELS/PINNED_TASKS NÃO move este par. '
+      + '🔴 26/08/2026: este comentário dizia "gemini-3.1-flash-lite" e estava ERRADO desde 05/08 — o valor '
+      + 'é gpt-5.6-terra. Um painel externo leu daqui e repetiu o id morto, que é como doc velho ensina o '
+      + 'errado. Pior que o id: a conclusão que ele sustentava. Com o auditor em Terra (OpenAI), o par só é '
+      + 'cross-família enquanto modelo_padrao for Claude — e modelo_padrao é um dropdown de admin. Escolher '
+      + 'qualquer GPT ali põe gerador e auditor na MESMA família, sem erro, sem log e sem teste (este par '
+      + 'está fora da tabela, logo fora do ai-dual-familia). Guarda: chat-dual-familia.test.ts.',
   },
 ];
+
+/**
+ * Auditor do chat da fase 3, garantido CROSS-FAMÍLIA contra o gerador.
+ *
+ * Por que existe (26/08/2026): `app/api/chat/route.ts` resolvia o gerador por
+ * `sys_config.ai.modelo_padrao` (dropdown do admin) e o auditor por uma const
+ * fixa em `gpt-5.6-terra`. O par só era cross-família ENQUANTO o admin deixasse
+ * o padrão em Claude — escolher qualquer GPT na tela punha gerador e auditor na
+ * mesma família, sem erro, sem log e sem teste, porque este par está em
+ * `PARES_FORA_DA_TABELA` e portanto fora do `ai-dual-familia`.
+ *
+ * A invariante do Dual-IA não pode depender de o operador não clicar na opção
+ * errada. Aqui ela passa a ser calculada.
+ */
+export function auditorCrossFamilia(modeloGerador: string, preferido: string, alternativas: string[]): string {
+  const fam = familiaDoModelo(modeloGerador);
+  if (familiaDoModelo(preferido) !== fam) return preferido;
+  const alt = alternativas.find((m) => familiaDoModelo(m) !== fam);
+  if (!alt) {
+    throw new Error(
+      `auditorCrossFamilia: gerador "${modeloGerador}" (${fam}) e nenhum auditor de outra família em `
+      + `[${[preferido, ...alternativas].join(', ')}]. Dual-IA exige famílias distintas — adicione uma alternativa.`,
+    );
+  }
+  return alt;
+}
+
+/**
+ * Família do PARCEIRO Dual-IA de uma task (gerador ↔ auditor), ou null se a
+ * task não faz parte de nenhum par.
+ *
+ * Serve ao fallback de provedor: quando o primário cai, o substituto não pode
+ * aterrissar na família do parceiro, senão a segunda opinião vira eco. Resolve
+ * pelos DEFAULTS, de propósito — isto roda na trilha de FALHA, onde uma ida ao
+ * banco para ler `sys_config` é mais uma coisa que pode estar quebrada.
+ */
+export function familiaDoParceiroDual(taskKey: string): string | null {
+  if (!taskKey) return null;
+  for (const par of DUAL_IA_PARES) {
+    const parceiro = par.gerador === taskKey ? par.auditor : par.auditor === taskKey ? par.gerador : null;
+    if (!parceiro) continue;
+    const modelo = DEFAULT_TASK_MODELS[parceiro];
+    if (modelo) return familiaDoModelo(modelo);
+  }
+  return null;
+}
+
+/**
+ * Escada de fallback de provedor, respeitando o Dual-IA.
+ *
+ * O knob `AI_FALLBACK_MODEL` é ÚNICO e global (default `gpt-5.6-terra`). Isso
+ * quebra o Dual-IA no pior momento possível: num outage da Anthropic, um gerador
+ * Claude cai para Terra — e Terra é exatamente o auditor de 6 dos 9 pares. A
+ * auditoria seguiria rodando, com o mesmo modelo dos dois lados, sem erro e sem
+ * aviso: o efeito não é falhar, é APROVAR o que deveria ser contestado.
+ *
+ * Aqui a escolha passa a excluir a família do parceiro. Se nada sobra, devolve
+ * null — e quem chama falha em vez de fingir que auditou.
+ */
+export function fallbackRespeitandoDual(
+  modeloPrimario: string,
+  taskKey: string | undefined,
+  preferido: string,
+  escada: string[],
+): string | null {
+  const proibida = taskKey ? familiaDoParceiroDual(taskKey) : null;
+  const famPrimario = familiaDoModelo(modeloPrimario);
+  const serve = (m: string) => {
+    const f = familiaDoModelo(m);
+    return f !== famPrimario && (proibida === null || f !== proibida);
+  };
+  if (serve(preferido)) return preferido;
+  return escada.find(serve) ?? null;
+}

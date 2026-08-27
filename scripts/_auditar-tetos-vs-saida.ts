@@ -6,7 +6,7 @@
  * escreve com o que sobra. Teto justo não vira "resposta curta": vira resposta
  * CORTADA no meio, e em JSON isso é parse quebrado.
  *
- * Medido hoje, em quatro famílias diferentes — não é peculiaridade da Anthropic:
+ * Medido, em quatro famílias diferentes — não é peculiaridade da Anthropic:
  *   · Muse Spark 1.2 · teto 32   → 32/32 em raciocínio, content:"" , finish=length
  *   · Kimi K3        · teto 4000 → 3.997 em raciocínio, content vazio
  *   · Sonnet 5       · teto 4000 → `sim_extracao_qualitativa` truncou 8 de 8
@@ -17,10 +17,33 @@
  * Flash, GPT pré-5.x). Trocar o modelo antes de rever o teto reproduz o
  * truncamento — foi o que travou `modulo_base_autor` no 4.6.
  *
- * Teto não é gasto: paga-se pelos tokens produzidos. Subir é quase de graça; o
- * limite real é `maxDuration` da rota (300s) e o teto de saída do modelo.
+ * ⚠️ CORRIGIDO EM 26/08/2026 — a versão anterior fechava dizendo
+ * "1 task(s) com folga < 2,5x" **sem denominador**, e o denominador era 4 de 36.
+ * Quatro cegueiras empilhadas, todas silenciosas:
  *
- *   node --env-file=.env.local node_modules/.bin/tsx scripts/_auditar-tetos-vs-saida.ts
+ *   1. `.limit(50000)` no ledger devolvia **1.000 linhas de 15.451** — o cap de
+ *      `max-rows` do PostgREST não se desliga pelo `.limit()`. E as 1.000 eram
+ *      as MAIS ANTIGAS, de antes da migração para Sonnet 5.
+ *   2. Teto que não é literal numérico (`IA4_MAX_TOKENS`, `req.maxTokens`) caía
+ *      num `continue`. `ia4_avaliacao` — a task com truncamento medido, 59 de
+ *      297 — era INVISÍVEL para o auditor dela.
+ *   3. `obs.length < 3` descartava 28 tasks sem dizer que descartou.
+ *   4. O ledger mistura três populações e a conta usava as três: produção,
+ *      SIMULADOR (4.435 linhas) e os scripts de piloto. Em `ia3_cenarios` isso
+ *      inflou o p95 de 3.270 para 13.795 — 10 chamadas de um piloto de Qwen
+ *      decidindo o teto da produção.
+ *
+ * A régua nova: **primeiro a cegueira, depois o achado.** O relatório abre com
+ * o denominador e com o que NÃO conseguiu avaliar; um teto irresolvível é uma
+ * FALHA, não um silêncio.
+ *
+ * ⚠️ E "subir o teto é quase de graça" está ERRADO na geração 5. Ali o thinking
+ * é `{type:'adaptive'}` SEM budget próprio (`actions/ai-client.ts:355`), logo o
+ * teto é o único limite do raciocínio: subir dá mais espaço para pensar, e
+ * pensamento é cobrado. No 4.6 o budget é explícito e a frase valia. Dimensione
+ * pelo p95 observado, não "dobre por segurança".
+ *
+ *   npx tsx --env-file=.env.local scripts/_auditar-tetos-vs-saida.ts
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -28,86 +51,310 @@ import { createSupabaseAdmin } from '../lib/supabase';
 
 const RAIZ = join(__dirname, '..');
 const DIRS = ['actions', 'lib', 'app', 'trigger'];
+const BARRA = String.fromCharCode(92);
 
-function varrer(dir: string, out: string[] = []): string[] {
-  for (const n of readdirSync(dir)) {
-    if (n === 'node_modules' || n === '.next' || n.startsWith('.')) continue;
-    const p = join(dir, n);
-    if (statSync(p).isDirectory()) varrer(p, out);
-    else if (/\.tsx?$/.test(n)) out.push(p);
+/** Folga mínima aceitável para um modelo que raciocina (teto ÷ p95). */
+const FOLGA_MINIMA = 2.5;
+
+/**
+ * Quem é PRODUÇÃO no ledger. O resto é instrumento nosso e não pode decidir
+ * teto de produção — mas também não pode sumir do relatório (era a cegueira 4).
+ */
+const FONTES_PRODUCAO = new Set(['wrapper', 'batch', 'batch-sync']);
+const FONTE_SIMULADOR = 'simulator';
+
+/**
+ * Tetos que o parser estático NÃO consegue ler porque a `taskKey` é COMPUTADA
+ * no call-site (`taskKey: taskKey || 'conteudo_gerar'`, ternário por formato).
+ * Cada entrada é leitura manual do código, com o arquivo:linha para reconferir
+ * — e a linha de baixo (`FEATURES_SEM_CALLSITE`) garante que esquecer de
+ * atualizar isto vira um aviso, não um silêncio.
+ *
+ * ⚠️ `conteudo_texto`/`conteudo_case` têm teto 8.000 e `conteudo_podcast` 4.096
+ * — o MESMO call-site bifurca por formato (actions/conteudos.ts:200). Assumir
+ * 4.096 para os quatro foi o erro do de-para de 25/08.
+ */
+const TETOS_DECLARADOS: Record<string, { teto: number; onde: string }> = {
+  conteudo_texto: { teto: 8000, onde: 'actions/conteudos.ts:200 (formato texto/case)' },
+  conteudo_case: { teto: 8000, onde: 'actions/conteudos.ts:200 (formato texto/case)' },
+  conteudo_podcast: { teto: 4096, onde: 'actions/conteudos.ts:200 (demais formatos)' },
+  missao_feedback: { teto: 2000, onde: 'app/api/temporada/reflection/route.ts:382 (taskKey por ternário)' },
+};
+
+function varrer(dir: string): string[] {
+  const out: string[] = [];
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    if (statSync(p).isDirectory()) {
+      if (e !== 'node_modules' && e !== '.next' && e !== 'worktrees') out.push(...varrer(p));
+    } else if (/\.tsx?$/.test(p)) out.push(p);
   }
   return out;
 }
 
-/** Extrai (taskKey, teto) de cada chamada a callAI/callAIChat. */
-function extrairTetos(): Map<string, { teto: number; onde: string }[]> {
-  const mapa = new Map<string, { teto: number; onde: string }[]>();
-  for (const dir of DIRS) {
-    let arquivos: string[];
-    try { arquivos = varrer(join(RAIZ, dir)); } catch { continue; }
-    for (const f of arquivos) {
-      const src = readFileSync(f, 'utf-8');
-      // A chamada pode quebrar linha; casa do `callAI(` até o `)` do options.
-      const re = /callAI(?:Chat)?\s*\(([\s\S]{0,900}?)\)\s*[;,)]/g;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(src))) {
-        const corpo = m[1];
-        const task = corpo.match(/taskKey:\s*'([a-z0-9_]+)'/)?.[1];
-        if (!task) continue;
-        // 4º argumento posicional = maxTokens. Pega o último número solto antes
-        // do objeto de options.
-        const antesDoOptions = corpo.slice(0, corpo.indexOf('{ taskKey') >= 0 ? corpo.indexOf('{ taskKey') : corpo.length);
-        const nums = [...antesDoOptions.matchAll(/(?:^|,)\s*(\d{3,6})\s*(?:,|$)/g)].map((x) => Number(x[1]));
-        const teto = nums.length ? nums[nums.length - 1] : NaN;
-        if (!Number.isFinite(teto)) continue;
-        const lista = mapa.get(task) || [];
-        lista.push({ teto, onde: relative(RAIZ, f).replace(/\\/g, '/') });
-        mapa.set(task, lista);
+const norm = (p: string) => p.split(BARRA).join('/');
+
+// ── Resolução de constantes ────────────────────────────────────────────────
+// Cegueira 2: o teto costuma ser uma constante, não um literal. Montamos um
+// dicionário `NOME -> número` varrendo o repo, e também `OBJETO.chave -> número`
+// para os mapas de teto (ex.: `export const MAX_TOKENS = { turno: 900, ... }`).
+function montarDicionarioDeConstantes(arquivos: string[]): Map<string, number> {
+  const dic = new Map<string, number>();
+  for (const f of arquivos) {
+    const src = readFileSync(f, 'utf-8');
+    for (const m of src.matchAll(/(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*(?::\s*number)?\s*=\s*(\d{2,7})\s*;/g)) {
+      dic.set(m[1], Number(m[2]));
+    }
+    for (const m of src.matchAll(/(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*\{([\s\S]{0,1200}?)\}\s*(?:as const)?\s*;/g)) {
+      const objeto = m[1];
+      for (const c of m[2].matchAll(/([A-Za-z_$][\w$]*)\s*:\s*(\d{2,7})\b/g)) {
+        dic.set(`${objeto}.${c[1]}`, Number(c[2]));
       }
     }
   }
-  return mapa;
+  return dic;
 }
+
+interface CallSite {
+  task: string;
+  onde: string;
+  teto: number | null;
+  expressao: string;
+}
+
+/**
+ * Fatia a lista de argumentos de uma chamada respeitando profundidade e string.
+ * A versão anterior usava `split(',')` sobre um recorte por `indexOf('{ taskKey')`
+ * — que só casa quando as options começam EXATAMENTE assim. Em chamada
+ * multilinha (a maioria) ele pegava um pedaço do objeto de options como se
+ * fosse o teto, e o resultado era um `null` silencioso.
+ */
+function fatiarArgumentos(src: string, aberturaParen: number): string[] | null {
+  let prof = 0;
+  let i = aberturaParen;
+  let aspas: string | null = null;
+  const args: string[] = [];
+  let inicio = aberturaParen + 1;
+  for (; i < src.length; i++) {
+    const c = src[i];
+    const ant = src[i - 1];
+    if (aspas) {
+      if (c === aspas && ant !== BARRA) aspas = null;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === '`') { aspas = c; continue; }
+    if (c === '(' || c === '[' || c === '{') prof++;
+    else if (c === ')' || c === ']' || c === '}') {
+      prof--;
+      if (prof === 0) { args.push(src.slice(inicio, i)); return args.map((a) => a.trim()); }
+    } else if (c === ',' && prof === 1) {
+      args.push(src.slice(inicio, i));
+      inicio = i + 1;
+    }
+    if (i - aberturaParen > 4000) return null; // chamada absurda: desiste explicitamente
+  }
+  return null;
+}
+
+function resolverTeto(expr: string, dic: Map<string, number>): number | null {
+  const e = expr.trim();
+  if (/^\d{2,7}$/.test(e)) return Number(e);
+  if (dic.has(e)) return dic.get(e)!;
+  const curto = e.split('.').slice(-2).join('.');
+  if (dic.has(curto)) return dic.get(curto)!;
+  const ultimo = e.split('.').pop() || '';
+  if (dic.has(ultimo)) return dic.get(ultimo)!;
+  return null;
+}
+
+function extrairCallSites(arquivos: string[], dic: Map<string, number>): CallSite[] {
+  const sites: CallSite[] = [];
+  for (const f of arquivos) {
+    const src = readFileSync(f, 'utf-8');
+    const re = /callAI(?:Chat)?\s*\(/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src))) {
+      const args = fatiarArgumentos(src, m.index + m[0].length - 1);
+      if (!args) continue;
+      const task = args.join(',').match(/taskKey:\s*'([a-z0-9_]+)'/)?.[1];
+      if (!task) continue;
+      // Assinatura: (system, user, aiConfig, maxTokens, options)
+      const expr = args[3] ?? '';
+      sites.push({ task, onde: norm(relative(RAIZ, f)), teto: resolverTeto(expr, dic), expressao: expr.replace(/\s+/g, ' ') });
+    }
+  }
+  return sites;
+}
+
+/** Cegueira 1: PostgREST corta em 1.000 por resposta. Pagina até o fim. */
+async function lerLedgerInteiro(sb: any) {
+  const linhas: Array<{ feature: string; output_tokens: number; source: string | null; model: string }> = [];
+  const PAGINA = 1000;
+  for (let de = 0; ; de += PAGINA) {
+    const { data, error } = await sb
+      .from('ia_usage_log')
+      .select('feature, output_tokens, source, model')
+      .gt('output_tokens', 0)
+      .order('id', { ascending: true })
+      .range(de, de + PAGINA - 1);
+    if (error) throw new Error(`ledger: ${error.message}`);
+    if (!data?.length) break;
+    linhas.push(...data);
+    if (data.length < PAGINA) break;
+  }
+  return linhas;
+}
+
+const p95 = (v: number[]) => {
+  const s = [...v].sort((a, b) => a - b);
+  return s[Math.min(s.length - 1, Math.floor(s.length * 0.95))];
+};
 
 async function main() {
-  const tetos = extrairTetos();
+  const arquivos = DIRS.flatMap((d) => { try { return varrer(join(RAIZ, d)); } catch { return []; } });
+  const dic = montarDicionarioDeConstantes(arquivos);
+  const sites = extrairCallSites(arquivos, dic);
+
   const sb = createSupabaseAdmin();
-  // Saída observada por feature (o ledger é a fonte).
-  const { data: uso } = await sb
-    .from('ia_usage_log')
-    .select('feature, output_tokens')
-    .gt('output_tokens', 0)
-    .limit(50000);
+  const ledger = await lerLedgerInteiro(sb);
 
-  const porFeature = new Map<string, number[]>();
-  for (const r of (uso || []) as any[]) {
-    const l = porFeature.get(r.feature) || [];
+  const prod = new Map<string, number[]>();
+  const simul = new Map<string, number[]>();
+  const exper = new Map<string, number[]>();
+  for (const r of ledger) {
+    const alvo = (r.source === null || FONTES_PRODUCAO.has(r.source)) ? prod
+      : r.source === FONTE_SIMULADOR ? simul : exper;
+    const l = alvo.get(r.feature) || [];
     l.push(r.output_tokens);
-    porFeature.set(r.feature, l);
+    alvo.set(r.feature, l);
   }
-  const p95 = (v: number[]) => { const s = [...v].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(s.length * 0.95))]; };
 
-  const linhas: Array<{ task: string; teto: number; p95: number; n: number; folga: number; onde: string }> = [];
-  for (const [task, ocorrencias] of tetos) {
-    const obs = porFeature.get(task);
-    if (!obs || obs.length < 3) continue;
-    const teto = Math.min(...ocorrencias.map((o) => o.teto)); // o mais APERTADO manda
+  const porTask = new Map<string, CallSite[]>();
+  for (const s of sites) porTask.set(s.task, [...(porTask.get(s.task) || []), s]);
+  for (const [task, d] of Object.entries(TETOS_DECLARADOS)) {
+    if (!porTask.has(task)) porTask.set(task, [{ task, onde: d.onde, teto: d.teto, expressao: '(declarado)' }]);
+  }
+
+  // 🔴 A cegueira que a reconciliação anterior NÃO pegava: ela fechava sobre os
+  // call-sites, então uma feature que existe SÓ no ledger — taskKey computada,
+  // call-site removido, script de terceiro — nunca entrava no universo e o
+  // total batia mesmo assim. É tráfego de produção que o auditor não enxerga.
+  // `untagged`/`batch` não são tarefas: são a AUSÊNCIA de etiqueta. Mandar
+  // "declare o teto" para elas seria conselho errado — o que elas pedem é
+  // taskKey no call-site.
+  const PSEUDO_FEATURES = new Set(['untagged', 'batch']);
+  const semEtiqueta = [...prod.keys()].filter((f) => PSEUDO_FEATURES.has(f));
+  const featuresSemCallSite = [...prod.keys()]
+    .filter((f) => !porTask.has(f) && !PSEUDO_FEATURES.has(f) && (prod.get(f)?.length ?? 0) >= 3)
+    .sort((a, b) => (prod.get(b)?.length ?? 0) - (prod.get(a)?.length ?? 0));
+
+  // ── 1. A CEGUEIRA PRIMEIRO ────────────────────────────────────────────────
+  console.log('══ COBERTURA (o que este auditor consegue avaliar) ══\n');
+  console.log(`  ledger lido .................. ${ledger.length} linhas com output > 0`);
+  console.log(`    produção (${[...FONTES_PRODUCAO].join('/')}/null) . ${[...prod.values()].reduce((a, b) => a + b.length, 0)}`);
+  console.log(`    simulador de custo ......... ${[...simul.values()].reduce((a, b) => a + b.length, 0)}  (não decide teto de produção)`);
+  console.log(`    scripts/experimentos ....... ${[...exper.values()].reduce((a, b) => a + b.length, 0)}  (idem)`);
+  console.log(`  call-sites com taskKey ....... ${sites.length} em ${porTask.size} tasks`);
+
+  const semTeto = sites.filter((s) => s.teto === null);
+  const tasksSemTeto = [...new Set(semTeto.map((s) => s.task))];
+  const semVolume = [...porTask.keys()].filter((t) => !(prod.get(t)?.length));
+  const avaliaveis = [...porTask.keys()].filter((t) => (prod.get(t)?.length ?? 0) > 0 && porTask.get(t)!.some((s) => s.teto !== null));
+  console.log(`  ✅ AVALIADAS ................. ${avaliaveis.length} de ${porTask.size} tasks`);
+
+  // Reconciliação: toda task tem que cair em EXATAMENTE um balde. Se sobrar
+  // resto, existe um descarte que ninguém está vendo — que foi o defeito da
+  // versão anterior. O relatório denuncia a si mesmo.
+  const semTetoResolvivel = [...porTask.keys()].filter(
+    (t) => (prod.get(t)?.length ?? 0) > 0 && !porTask.get(t)!.some((s) => s.teto !== null),
+  );
+  const soma = avaliaveis.length + semVolume.length + semTetoResolvivel.length;
+  console.log(`     ${avaliaveis.length} avaliadas + ${semVolume.length} sem tráfego + ${semTetoResolvivel.length} com tráfego mas sem teto legível = ${soma}`
+    + (soma === porTask.size ? ' ✅ fecha' : ` 🔴 NÃO FECHA (${porTask.size - soma} task(s) em balde nenhum)`));
+  console.log('');
+
+  if (tasksSemTeto.length) {
+    console.log(`  🔴 teto NÃO resolvido (${tasksSemTeto.length} task(s)) — o auditor é cego aqui:`);
+    for (const s of semTeto) console.log(`       ${s.task.padEnd(24)} ${s.expressao.slice(0, 30).padEnd(32)} ${s.onde}`);
+    console.log('');
+  }
+  if (semVolume.length) {
+    console.log(`  ⚠️  sem tráfego de produção (${semVolume.length}): ${semVolume.join(', ')}\n`);
+  }
+  for (const f of semEtiqueta) {
+    const n = prod.get(f)!.length;
+    console.log(`  🔴 '${f}': ${n} chamadas (${(100 * n / [...prod.values()].reduce((a, b) => a + b.length, 0)).toFixed(0)}% da produção) sem taskKey — não é teto que falta, é ETIQUETA no call-site.`);
+  }
+  if (semEtiqueta.length) console.log('');
+  if (featuresSemCallSite.length) {
+    console.log(`  🔴 tráfego de produção SEM call-site legível (${featuresSemCallSite.length}) — taskKey computada ou origem fora do repo.`);
+    console.log(`     São chamadas reais que este auditor NÃO cobre; declare o teto em TETOS_DECLARADOS para trazê-las:`);
+    for (const f of featuresSemCallSite) console.log(`       ${f.padEnd(26)} n=${prod.get(f)!.length}  p95=${p95(prod.get(f)!)}`);
+    console.log('');
+  }
+
+  // Cegueira 3: a mesma taskKey com tetos DIFERENTES — o min() antigo escondia.
+  const divergentes = [...porTask.entries()].filter(([, ss]) => new Set(ss.filter((s) => s.teto !== null).map((s) => s.teto)).size > 1);
+  if (divergentes.length) {
+    console.log(`  ⚠️  mesma taskKey com tetos DIFERENTES (${divergentes.length}) — a folga abaixo usa o MENOR:`);
+    for (const [t, ss] of divergentes) {
+      console.log(`       ${t}: ${ss.map((s) => `${s.teto} (${s.onde.split('/').pop()})`).join(' · ')}`);
+    }
+    console.log('');
+  }
+
+  // ── 2. A FOLGA ────────────────────────────────────────────────────────────
+  const linhas = avaliaveis.map((task) => {
+    const tetos = porTask.get(task)!.map((s) => s.teto).filter((t): t is number => t !== null);
+    const teto = Math.min(...tetos);
+    const obs = prod.get(task)!;
     const p = p95(obs);
-    linhas.push({ task, teto, p95: p, n: obs.length, folga: teto / p, onde: ocorrencias[0].onde });
-  }
-  linhas.sort((a, b) => a.folga - b.folga);
+    const noTeto = obs.filter((o) => o >= teto).length;
+    // Censura NÃO se detecta só contra o teto ATUAL: quando o teto sobe, as
+    // linhas velhas continuam cortadas no teto ANTIGO e passam despercebidas
+    // (`ia4_avaliacao`: p95 = 16.000 = o teto que vigorava, com o teto já em
+    // 32.000). O sinal independente do teto é o PICO — muitas chamadas parando
+    // no MESMO valor exato não é distribuição natural, é régua.
+    const maxObs = Math.max(...obs);
+    const pico = obs.filter((o) => o === maxObs).length;
+    const censurado = pico >= 3 && pico / obs.length >= 0.05 ? { valor: maxObs, pico } : null;
+    return { task, teto, p95: p, n: obs.length, folga: teto / p, noTeto, censurado, onde: porTask.get(task)![0].onde };
+  }).sort((a, b) => a.folga - b.folga);
 
-  console.log('folga = teto ÷ p95 da saída observada. <2x é apertado para modelo que pensa,');
-  console.log('porque o raciocínio divide o MESMO teto com o texto.\n');
-  console.log('  folga  teto    p95    n     task');
+  console.log('══ FOLGA = teto ÷ p95 (só tráfego de PRODUÇÃO) ══\n');
+  console.log('  folga   teto     p95     n   no teto  task');
   for (const l of linhas) {
-    const flag = l.folga < 1.5 ? '🔴' : l.folga < 2.5 ? '⚠️ ' : '✅';
-    console.log(`  ${flag} ${l.folga.toFixed(1)}x  ${String(l.teto).padStart(6)} ${String(l.p95).padStart(6)} ${String(l.n).padStart(5)}  ${l.task}  (${l.onde})`);
+    const flag = l.folga < FOLGA_MINIMA ? '⚠️ ' : '✅';
+    const trunc = l.noTeto > 0 ? `${l.noTeto} (${(100 * l.noTeto / l.n).toFixed(0)}%)` : '—';
+    console.log(`  ${flag} ${l.folga.toFixed(2)}x ${String(l.teto).padStart(6)} ${String(l.p95).padStart(7)} ${String(l.n).padStart(5)} ${trunc.padStart(9)}  ${l.task}  (${l.onde})`);
   }
-  const apertados = linhas.filter((l) => l.folga < 2.5);
-  console.log(`\n${apertados.length} task(s) com folga < 2,5x — cada uma precisa do teto revisto ANTES de receber`);
-  console.log('qualquer modelo de raciocínio (Sonnet 5, Opus 5, Qwen, Kimi, Muse Spark).');
-  process.exit(0);
+
+  const apertadas = linhas.filter((l) => l.folga < FOLGA_MINIMA);
+  const censuradas = linhas.filter((l) => l.censurado);
+  console.log(`\n  ${apertadas.length} de ${linhas.length} avaliadas com folga < ${FOLGA_MINIMA}x`);
+  if (censuradas.length) {
+    console.log(`\n  🔴 DISTRIBUIÇÃO CENSURADA (pico no mesmo valor exato) — aqui o p95 é PISO, não estimativa:`);
+    for (const l of censuradas) {
+      const atual = l.censurado!.valor >= l.teto ? 'no teto ATUAL' : `no teto ANTIGO (hoje ${l.teto})`;
+      console.log(`       ${l.task}: ${l.censurado!.pico} de ${l.n} pararam em ${l.censurado!.valor} — ${atual}`);
+      console.log(`         → dimensionar exige um lote SEM censura; ${FOLGA_MINIMA}× de um p95 cortado só reproduz o corte.`);
+    }
+  }
+  const semCensura = apertadas.filter((l) => !l.censurado);
+  if (semCensura.length) {
+    console.log('');
+    for (const l of semCensura) {
+      console.log(`  → ${l.task}: teto ${l.teto} → sugerido ${Math.ceil(FOLGA_MINIMA * l.p95 / 1000) * 1000} (${FOLGA_MINIMA}× o p95 de ${l.p95})`);
+    }
+  }
+
+  // Cegueira: um relatório que não falha nunca é lido como "está tudo bem".
+  if (tasksSemTeto.length || apertadas.length || censuradas.length || featuresSemCallSite.length) {
+    console.log('\n🔴 auditoria NÃO limpa — ver acima.');
+    process.exitCode = 1;
+  } else {
+    console.log('\n✅ nenhuma task de produção com teto apertado ou censurado.');
+  }
 }
 
-main();
+main().catch((e) => { console.error(e); process.exit(1); });

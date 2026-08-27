@@ -6,6 +6,7 @@ import { extractBlock, stripBlocks } from '@/actions/utils';
 import { getOrCreatePromptVersion } from '@/lib/versioning';
 import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
+import { auditorCrossFamilia } from '@/lib/ai-tasks';
 import { csrfCheck } from '@/lib/csrf';
 import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
@@ -22,6 +23,10 @@ export const maxDuration = 300;
 
 const DEFAULT_AVALIADOR = 'claude-sonnet-4-6';
 const DEFAULT_VALIDADOR = 'gpt-5.6-terra';
+// Auditores de reserva, em ordem, para quando o gerador cair na MESMA família
+// do validador preferido. Ver `auditorCrossFamilia` e o guard
+// `tests/unit/chat-dual-familia.test.ts`.
+const VALIDADORES_ALTERNATIVOS = ['gemini-3.7-flash', 'claude-sonnet-4-6'];
 const MAX_TURNOS = 10;
 const CONFIANCA_ENCERRAR = 80;
 const MIN_EVIDENCIAS_ENCERRAR = 2;
@@ -611,7 +616,11 @@ function decidirFase(faseAtual: string, aprofundamentos: number, confianca: numb
 
 async function encerrarSessao(sb, sessaoId, empresaId, comp, evidencias, messages, ultimaMensagem, sysConfig) {
   const modeloAvaliador = sysConfig?.ai?.modelo_padrao || DEFAULT_AVALIADOR;
-  const modeloValidador = DEFAULT_VALIDADOR;
+  // NÃO é `DEFAULT_VALIDADOR` direto: `modelo_padrao` é um dropdown de admin, e
+  // escolher um GPT ali punha gerador e auditor na mesma família em silêncio —
+  // Dual-IA quebrado sem erro, sem log e sem teste. A invariante passa a ser
+  // calculada a partir da família do gerador. (26/08/2026)
+  const modeloValidador = auditorCrossFamilia(modeloAvaliador, DEFAULT_VALIDADOR, VALIDADORES_ALTERNATIVOS);
 
   // ── Etapa 1: Claude avalia (gera INSUMOS — consolidação em código) ──────
 

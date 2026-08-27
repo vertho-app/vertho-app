@@ -753,3 +753,125 @@ Cortaria ~US$ 1,35 por manuscrito reprovado pela metade. Mesma família do
 a expansão roda ANTES do render, e o render falhava por fonte (F-I18 do
 `docs/FMEA-PIPELINE.md`). Etapa cara que alimenta um artefato opcional deveria
 conferir se o consumidor existe antes de gastar.
+
+---
+
+## 26/08/2026 — O auditor de tetos estava cego, e três números do plano estavam errados
+
+Três painéis externos revisaram o plano de substituição de modelos. Nove achados
+procediam, um caiu — e o mais grave nenhum dos três encontrou: **o instrumento
+que produziu as folgas de teto media 4 de 36 tarefas e fechava sem denominador.**
+
+`scripts/_auditar-tetos-vs-saida.ts` terminava com a linha
+
+```
+1 task(s) com folga < 2,5x
+```
+
+sem dizer *sobre quantas*. Cinco cegueiras empilhadas, todas silenciosas:
+
+| # | Cegueira | Efeito medido |
+|---|---|---|
+| 1 | `.limit(50000)` no ledger | devolvia **1.000 de 15.451** linhas — o cap de `max-rows` do PostgREST não se desliga pelo `.limit()`, e as 1.000 eram as mais ANTIGAS |
+| 2 | teto que não é literal numérico | `IA4_MAX_TOKENS`, `req.maxTokens` → `continue`. A `ia4_avaliacao`, com truncamento medido, era invisível ao auditor dela |
+| 3 | `obs.length < 3` | 28 tasks descartadas em silêncio |
+| 4 | três populações somadas | produção + **simulador** (4.435 linhas) + scripts de piloto |
+| 5 | `taskKey` computada | `conteudo_*` sai de um call-site com chave por ternário; feature que só existe no ledger nunca entrava no universo, e a reconciliação fechava mesmo assim |
+
+A cegueira 4 tem um caso exemplar: em `ia3_cenarios` o p95 "de produção" era
+**13.795**. A produção real é **3.270** — os 16.735 do topo eram **10 chamadas de
+um piloto de Qwen** gravadas no ledger com a MESMA `taskKey`. Instrumento nosso
+decidindo teto de produção.
+
+**Depois da correção:** 24 de 43 tasks avaliadas, ledger inteiro paginado, as três
+populações separadas, e o relatório abre pela cobertura. Um teto irresolvível
+agora é FALHA, não silêncio; a reconciliação (`avaliadas + sem tráfego + sem teto
+legível = total`) denuncia balde escondido.
+
+### O que mudou nos números
+
+| Task | O plano dizia | Medido | Veredito |
+|---|---:|---:|---|
+| `conteudo_texto` | 1,1× | **2,11×** | errado — o teto é 8.000, não 4.096 (o call-site bifurca por formato) |
+| `conteudo_case` | 1,5× | **2,83×** | errado — já está folgado, não precisa de nada |
+| `ia3_cenarios` | 2,1× | **1,88×** | otimista — p95 contaminado pelo piloto |
+| `conteudo_podcast` | 1,7× | 1,68× | certo |
+| `acumulada_primaria` | 2,0× | 2,01× | certo |
+| `ia3_check` | 2,0× | 2,00× | certo |
+
+E **quatro tarefas apertadas que o plano não via**: `temporada_extracao` **1,03×**
+(a pior da base, 2 chamadas já encostando no teto), `blueprint_audit` 1,92×,
+`beto` 2,17×, `conteudo_personalizacao` 2,30×.
+
+### Censura ≠ folga
+
+`ia4_avaliacao` tem p95 = **16.000** = o teto ANTIGO, com **59 de 388** chamadas
+paradas nesse valor exato. Um p95 censurado é PISO, não estimativa: aplicar
+"2,5× o p95" ali só reproduz o corte. O auditor agora detecta censura pelo
+**pico** (muitas chamadas no mesmo valor exato) e não pelo teto vigente — senão
+subir o teto faz a censura histórica desaparecer do relatório sem ter sido
+resolvida. Essa task precisa de um lote sem censura antes de qualquer número.
+
+### "Subir o teto é quase de graça" — errado na geração 5
+
+O docblock do próprio auditor afirmava isso. Na geração 5 o thinking é
+`{type:'adaptive'}` **sem budget próprio** (`actions/ai-client.ts:355`), então
+`max_tokens` é o único limite do raciocínio: subir dá mais espaço para pensar, e
+pensamento é cobrado. No 4.6, com `budget_tokens` explícito, a frase valia — e é
+exatamente nos modelos para os quais o plano migra que ela deixa de valer.
+Régua: dimensionar pelo p95 observado, nunca "dobrar por segurança".
+
+### Duas correções de rota no de-para
+
+**`22.1`/`22.2` → Claude era impossível.** 22.1 manda VÍDEO por `inlineData`
+(`lib/gemini-video.ts:89`) e 22.2 manda ÁUDIO (`trigger/extracao-video.ts:53`);
+Claude não ingere nenhum dos dois. O comentário em `gemini-video.ts:18` é de
+**25/08** e mantém o 3.6 de propósito. Voltaram para o bloco Mídia.
+
+**`3.2`/`3.3` não se movem pela tabela.** `app/api/chat/route.ts` resolve o
+avaliador por `sys_config.ai.modelo_padrao` e o auditor por const hardcoded —
+nenhum passa por `resolveTaskModel`. Editar `DEFAULT_TASK_MODELS` não os toca.
+
+### Dois furos de Dual-IA fechados
+
+**1. O chat da fase 3.** O auditor é `gpt-5.6-terra` desde 05/08 (o comentário em
+`PARES_FORA_DA_TABELA` ainda dizia `gemini-3.1-flash-lite`, e um painel externo
+leu daqui e repetiu o id morto). Com o gerador vindo de um **dropdown de admin**,
+bastava escolher qualquer GPT para gerador e auditor caírem na mesma família —
+sem erro, sem log, sem teste, porque o par está fora da tabela. Agora o auditor é
+calculado (`auditorCrossFamilia`) e `tests/unit/chat-dual-familia.test.ts`
+exercita **toda** opção do dropdown.
+
+**2. O fallback de provedor.** `AI_FALLBACK_MODEL` é um knob ÚNICO e vale
+`gpt-5.6-terra` — o auditor de 6 dos 9 pares. Num outage da Anthropic, todo
+gerador Claude cairia na família do próprio auditor, e o efeito não seria falhar:
+seria **aprovar** com o mesmo modelo dos dois lados. Agora `callAI` e `callAIChat`
+usam `fallbackRespeitandoDual`, que exclui a família do parceiro e devolve `null`
+quando não há substituto — falhar é o comportamento correto.
+⚠️ O guard pegou que a primeira correção tinha ido só no `callAI` e deixado o
+`callAIChat` com o knob direto: a armadilha dos dois caminhos, de novo.
+
+### O headline virou faixa
+
+| Cenário | Δ 90 dias |
+|---|---:|
+| Caso-base (saída igual à medida hoje) | −$34,72 |
+| Saída do Sonnet 5 inflando 31% (medido na IA4) | **−$20,30** |
+| Se a S4 reprovar A, D1 e D2 | −$28,96 |
+
+Um total único seria o melhor caso vendido como expectativa. E para dimensionar o
+que está em jogo: enquanto a faixa discute **$20–35 em 90 dias**, `cena_turno` +
+`cena_extracao` em Opus 5 gastaram **$37,88 em 3 dias**. O ganho deste plano é de
+RISCO — truncamento, auditor que reprova, Dual-IA preservada —, não de dólar.
+
+### Em aberto, declarado
+
+- **Checks do bloco C** (`pdi_check`, `relatorio_check`) continuam **não existindo**.
+  O exercício nasceu de "os artefatos irreversíveis não têm auditor" e o plano
+  otimiza os modelos DENTRO desse buraco. Fica para depois, por escrito.
+- **`AI_FALLBACK_MODEL` na Vercel** é *Sensitive* e ilegível. O código agora é
+  seguro qualquer que seja o valor (a escada corrige a família), mas o valor real
+  segue desconhecido — canário pendente.
+- **`untagged` = 3.630 chamadas (33% da produção)** sem `taskKey`. Não é teto que
+  falta, é etiqueta no call-site.
+- **`ia4_avaliacao`**: lote sem censura antes de redimensionar o teto.

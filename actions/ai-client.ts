@@ -32,6 +32,7 @@ import { costFromTokens } from '@/lib/ia-cost-catalog';
 // mora em `lib/`, não aqui.
 import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
 import { PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, usaMaxCompletionTokens } from '@/lib/ai-provedores';
+import { fallbackRespeitandoDual } from '@/lib/ai-tasks';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -160,6 +161,9 @@ async function withAIRetry<T>(fn: () => Promise<T>, label: string, max = 4): Pro
 // Radar (lib/radar/*, default gpt-5.1) e NÃO afeta este fallback central. Manter
 // os dois nomes separados de propósito — são fallbacks de subsistemas diferentes.
 const AI_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gpt-5.6-terra';
+// Escada consultada quando o preferido acima cairia na família do parceiro
+// Dual-IA da task. Ordem = quem tem mais cobertura de rota/preço primeiro.
+const AI_FALLBACK_ESCADA = ['gemini-3.7-flash', 'claude-sonnet-4-6', 'grok-4.6'];
 
 export async function callAI(
   system: string,
@@ -197,13 +201,28 @@ export async function callAI(
         + 'automaticamente gastaria em outra conta e esconderia o problema. Ação: revisar crédito/billing do provedor.',
       );
     }
-    // Primário sobrecarregado após retries → fallback de provedor (Claude → Gemini).
-    if (isTransientAIError(err) && !model.startsWith('gemini') && AI_FALLBACK_MODEL && AI_FALLBACK_MODEL !== model) {
-      console.warn(`[callAI] ${model} sobrecarregado após retries — fallback p/ ${AI_FALLBACK_MODEL}`);
-      try {
-        return await withAIRetry(() => dispatch(AI_FALLBACK_MODEL), AI_FALLBACK_MODEL, 2);
-      } catch (e2: any) {
-        console.error(`[callAI] fallback ${AI_FALLBACK_MODEL} também falhou:`, e2?.message ?? e2);
+    // Primário sobrecarregado após retries → fallback de provedor.
+    // 🔴 NÃO é mais o knob global direto: `AI_FALLBACK_MODEL` é único para a
+    // base inteira e vale `gpt-5.6-terra`, que é o AUDITOR de 6 dos 9 pares
+    // Dual-IA. Num outage da Anthropic, todo gerador Claude cairia justamente na
+    // família do próprio auditor — e o resultado não seria falhar, seria APROVAR
+    // com o mesmo modelo dos dois lados, sem erro e sem log. (26/08/2026)
+    if (isTransientAIError(err) && !model.startsWith('gemini')) {
+      const alvo = fallbackRespeitandoDual(model, options.taskKey, AI_FALLBACK_MODEL, AI_FALLBACK_ESCADA);
+      if (alvo && alvo !== model) {
+        if (alvo !== AI_FALLBACK_MODEL) {
+          console.warn(`[callAI] fallback padrão (${AI_FALLBACK_MODEL}) violaria o Dual-IA de '${options.taskKey}' — usando ${alvo}`);
+        }
+        console.warn(`[callAI] ${model} sobrecarregado após retries — fallback p/ ${alvo}`);
+        try {
+          return await withAIRetry(() => dispatch(alvo), alvo, 2);
+        } catch (e2: any) {
+          console.error(`[callAI] fallback ${alvo} também falhou:`, e2?.message ?? e2);
+        }
+      } else if (!alvo) {
+        // Falhar é o comportamento CORRETO: sem substituto de outra família, um
+        // fallback qualquer transformaria a auditoria em eco.
+        console.error(`[callAI] sem fallback cross-família para '${options.taskKey}' (primário ${model}) — falhando em vez de auditar com a mesma família.`);
       }
     }
     console.error(`[callAI] Error with model ${model}:`, err);
@@ -238,12 +257,23 @@ export async function callAIChat(
   try {
     return await withAIRetry(() => dispatch(model), model);
   } catch (err: any) {
-    if (isTransientAIError(err) && !model.startsWith('gemini') && AI_FALLBACK_MODEL && AI_FALLBACK_MODEL !== model) {
-      console.warn(`[callAIChat] ${model} sobrecarregado após retries — fallback p/ ${AI_FALLBACK_MODEL}`);
-      try {
-        return await withAIRetry(() => dispatch(AI_FALLBACK_MODEL), AI_FALLBACK_MODEL, 2);
-      } catch (e2: any) {
-        console.error(`[callAIChat] fallback ${AI_FALLBACK_MODEL} também falhou:`, e2?.message ?? e2);
+    // Mesmo tratamento do gêmeo `callAI`: o knob global aterrissaria na família
+    // do parceiro Dual-IA. Este ramo ficou para trás na primeira correção e o
+    // guard `ai-fallback-dual` pegou — os dois caminhos, sempre.
+    if (isTransientAIError(err) && !model.startsWith('gemini')) {
+      const alvo = fallbackRespeitandoDual(model, options.taskKey, AI_FALLBACK_MODEL, AI_FALLBACK_ESCADA);
+      if (alvo && alvo !== model) {
+        if (alvo !== AI_FALLBACK_MODEL) {
+          console.warn(`[callAIChat] fallback padrão (${AI_FALLBACK_MODEL}) violaria o Dual-IA de '${options.taskKey}' — usando ${alvo}`);
+        }
+        console.warn(`[callAIChat] ${model} sobrecarregado após retries — fallback p/ ${alvo}`);
+        try {
+          return await withAIRetry(() => dispatch(alvo), alvo, 2);
+        } catch (e2: any) {
+          console.error(`[callAIChat] fallback ${alvo} também falhou:`, e2?.message ?? e2);
+        }
+      } else if (!alvo) {
+        console.error(`[callAIChat] sem fallback cross-família para '${options.taskKey}' (primário ${model}) — falhando de propósito.`);
       }
     }
     console.error(`[callAIChat] Error with model ${model}:`, err);
