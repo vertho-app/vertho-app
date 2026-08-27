@@ -513,7 +513,12 @@ export default function DashboardHomePage() {
 
         {/* Capacitação recomendada */}
         {capacitacoes.length > 0 && (
-          <section className="pt-1">
+          // `maxWidth` alinhado ao card de progresso (o único da home que já se
+          // protegia): a capa do ContentThumb é `aspect-[1.25/1]`, então em
+          // desktop, sem limite, `grid-cols-2` dava ~880px por card e 704px de
+          // ALTURA — o card desenhado para caber em ~312px aparecia esticado ao
+          // triplo, com um vazio no meio.
+          <section className="pt-1" style={{ maxWidth: 640 }}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[11px] font-bold tracking-[0.18em] uppercase" style={{ color: 'var(--phase-accent)' }}>
                 {t('recommended.title')}
@@ -524,10 +529,19 @@ export default function DashboardHomePage() {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              {capacitacoes.slice(0, 4).map(item => {
+              {capacitacoes.slice(0, 4).map((item, i) => {
                 const isVideo = item.formato === 'video' && item.bunny_video_id;
                 const labelKey = FORMATO_LABEL[item.formato] || 'content';
                 const label = t(`contentFormats.${labelKey}`);
+                // `micro_conteudos` NÃO tem coluna de ordem — `item.ordem` era
+                // sempre undefined e o número grande em itálico, que é o
+                // elemento central da capa, nunca renderizava. O número aqui é
+                // gráfico (a posição no bloco), não identifica o conteúdo.
+                const ordem = i + 1;
+                // E `item.duracao_fmt` não existe em lugar nenhum: a palavra
+                // aparecia uma única vez no repositório, nesta linha, do lado de
+                // quem LÊ. A coluna que a query traz é `duracao_min`.
+                const duracao = item.duracao_min ? `${Math.round(item.duracao_min)} min` : null;
                 return (
                   <article key={item.id}
                     className="rounded-[22px] overflow-hidden cursor-pointer transition-all active:scale-[0.98]"
@@ -538,16 +552,18 @@ export default function DashboardHomePage() {
                     }}>
                     <ContentThumb
                       formato={item.formato}
-                      ordem={item.ordem ?? null}
-                      duracao={item.duracao_fmt ?? null}
+                      ordem={ordem}
+                      duracao={duracao}
                       titulo={item.titulo}
                       bunnyId={item.bunny_video_id}
                     />
+                    {/* O título vive na CAPA, em serif — repeti-lo aqui embaixo
+                        dava a mesma frase duas vezes, coladas. Sobra o rótulo de
+                        formato e o descritor, que são o que a capa não diz. */}
                     <div className="p-3">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold mb-1.5 ${pillColors[item.formato] || pillColors.video}`}>
                         {label}
                       </span>
-                      <h4 className="font-semibold leading-snug mb-0.5 line-clamp-2 text-[13px]">{item.titulo}</h4>
                       <p className="text-[12px] text-white/50 line-clamp-1">{item.descritor || item.competencia || ''}</p>
                     </div>
                   </article>

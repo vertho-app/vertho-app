@@ -63,9 +63,19 @@ export function ContentThumb({
   const isAudio = formato === 'audio';
 
   return (
+    // 🔑 O tipo aqui dentro escala com a LARGURA DO CARD (`cqw`), não com a
+    // viewport — por isso o container de consulta.
+    //
+    // Medido 27/08: com os tamanhos fixos do handoff (título 18px, número
+    // 108px), o componente só ficava certo numa largura. Na home em desktop o
+    // card ia a ~880px e virava um retângulo de 704px de altura com o miolo
+    // vazio; em mobile (390px, dois por linha = ~167px) o título transbordava a
+    // capa — a última palavra ficava cortada pela borda de baixo — e colidia
+    // com o número. O `overflow-hidden` escondia as duas coisas sem erro nenhum.
+    <div style={{ containerType: 'inline-size' }}>
     <div
-      className="relative aspect-[1.25/1] rounded-[18px] overflow-hidden flex flex-col justify-between p-4"
-      style={{ background: t.bg, border: `1px solid ${t.border}` }}
+      className="relative aspect-[1.25/1] rounded-[18px] overflow-hidden flex flex-col justify-between"
+      style={{ background: t.bg, border: `1px solid ${t.border}`, padding: '5cqw' }}
     >
       {/* Bunny thumbnail (duotone) para vídeos que têm asset */}
       {bunnyId && formato === 'video' && (
@@ -80,15 +90,18 @@ export function ContentThumb({
 
       {/* Header: glifo + tipo + duração */}
       <div
-        className="relative z-10 flex items-center gap-2 text-[9.5px] font-semibold tracking-[.18em] uppercase"
-        style={{ color: t.accent }}
+        className="relative z-10 flex items-center gap-1.5 font-semibold tracking-[.16em] uppercase"
+        style={{ color: t.accent, fontSize: 'clamp(8px, 3cqw, 9.5px)' }}
       >
-        <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: 18, lineHeight: '.8' }}>
+        <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: 'clamp(14px, 5.5cqw, 18px)', lineHeight: '.8' }}>
           {t.glyph}
         </span>
         <span>{t.label}</span>
         {duracao && (
-          <span className="ml-auto px-2 py-[2px] rounded-full bg-white/10 border border-white/[.14] text-[9px] text-white/70 tracking-wider">
+          <span
+            className="ml-auto px-2 py-[2px] rounded-full bg-white/10 border border-white/[.14] text-white/70 tracking-wider whitespace-nowrap"
+            style={{ fontSize: 'clamp(8px, 2.8cqw, 9px)' }}
+          >
             {duracao}
           </span>
         )}
@@ -100,11 +113,16 @@ export function ContentThumb({
       {/* Número em itálico — para todos exceto áudio */}
       {!isAudio && ordem != null && (
         <span
-          className="absolute right-[-6px] bottom-[-18px] opacity-90 select-none"
+          className="absolute opacity-90 select-none pointer-events-none"
           style={{
+            // O itálico da Instrument Serif inclina para a direita: com o
+            // `right` negativo do handoff, o segundo dígito era cortado pelo
+            // `overflow-hidden` em qualquer largura.
+            right: '1.5cqw',
+            bottom: '-5cqw',
             fontFamily: "'Instrument Serif', serif",
             fontStyle: 'italic',
-            fontSize: 108,
+            fontSize: '34cqw',
             lineHeight: '.85',
             letterSpacing: '-.04em',
             color: t.accent,
@@ -119,12 +137,13 @@ export function ContentThumb({
       {/* Título (última palavra em itálico) */}
       {titulo && (
         <h3
-          className="relative z-10 max-w-[70%] leading-tight"
-          style={{ fontFamily: "'Instrument Serif', serif", fontSize: 18 }}
+          className="relative z-10 max-w-[68%] leading-tight line-clamp-3"
+          style={{ fontFamily: "'Instrument Serif', serif", fontSize: 'clamp(13px, 5.6cqw, 18px)' }}
         >
           <EmphasizedTitle text={titulo} color={t.accent} />
         </h3>
       )}
+    </div>
     </div>
   );
 }
