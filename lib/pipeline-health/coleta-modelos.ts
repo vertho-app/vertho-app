@@ -53,6 +53,17 @@ export function reunirModelosConfigurados(
 
   for (const [task, modelo] of Object.entries(DEFAULT_TASK_MODELS)) add(modelo, `default:${task}`);
   for (const { id } of MODELOS_DISPONIVEIS) add(id, 'dropdown');
+
+  // 🔴 O fallback de provedor ENTRA na coleta (26/08/2026). Ele é uma env var
+  // que decide comportamento — e na Vercel está marcada *Sensitive*, então
+  // `vercel env pull` devolve `[SENSITIVE]` e NÃO há como provar o que foi
+  // gravado. Sem isto, um `AI_FALLBACK_MODEL` apontando para um id morto ficaria
+  // invisível até o dia do outage, que é exatamente quando ele é usado: o
+  // fallback falharia junto com o primário e o sintoma seria "a IA caiu".
+  // O health roda EM PRODUÇÃO, onde a var existe de verdade — é o único lugar
+  // de onde dá para observar o valor aplicado. Mesma regra do
+  // `checarTemplatesLigados` (R13) para `WHATSAPP_TEMPLATE_PILULA`.
+  add(process.env.AI_FALLBACK_MODEL || 'gpt-5.6-terra', 'env:AI_FALLBACK_MODEL');
   for (const { nome, sysConfig } of sysConfigs) {
     add(sysConfig?.ai?.modelo_padrao, `${nome}:modelo_padrao`);
     for (const [task, modelo] of Object.entries(sysConfig?.ai?.modelos || {})) {

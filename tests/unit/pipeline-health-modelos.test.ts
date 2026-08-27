@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { checarModelosConfigurados } from '@/lib/pipeline-health/regras';
 import { reunirModelosConfigurados } from '@/lib/pipeline-health/coleta-modelos';
 
@@ -122,5 +122,33 @@ describe('reunirModelosConfigurados', () => {
   it('tenant sem bloco ai não quebra a coleta', () => {
     const mapa = reunirModelosConfigurados([{ nome: 'Vazia', sysConfig: {} }, { nome: 'Nula', sysConfig: null }]);
     expect([...mapa.keys()].length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * O fallback de provedor é uma env var que decide comportamento, e na Vercel ela
+ * é *Sensitive* — `vercel env pull` devolve `[SENSITIVE]`, então NÃO existe
+ * forma de provar o valor gravado de fora. O único observável possível é o
+ * health rodando em produção. Sem isto, um id morto em `AI_FALLBACK_MODEL` só
+ * apareceria no dia do outage, junto com o primário caindo.
+ */
+describe('AI_FALLBACK_MODEL entra na coleta do health', () => {
+  const original = process.env.AI_FALLBACK_MODEL;
+  afterEach(() => {
+    if (original === undefined) delete process.env.AI_FALLBACK_MODEL;
+    else process.env.AI_FALLBACK_MODEL = original;
+  });
+
+  it('o valor da env aparece com origem rastreável', () => {
+    process.env.AI_FALLBACK_MODEL = 'modelo-que-nao-existe-9';
+    const mapa = reunirModelosConfigurados([]);
+    expect(mapa.has('modelo-que-nao-existe-9'), 'o fallback não foi coletado — R14 nunca o verificaria').toBe(true);
+    expect(mapa.get('modelo-que-nao-existe-9')).toContain('env:AI_FALLBACK_MODEL');
+  });
+
+  it('sem a env, coleta o default do código (o valor que de fato roda)', () => {
+    delete process.env.AI_FALLBACK_MODEL;
+    const mapa = reunirModelosConfigurados([]);
+    expect(mapa.get('gpt-5.6-terra')).toContain('env:AI_FALLBACK_MODEL');
   });
 });
