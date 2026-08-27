@@ -830,6 +830,64 @@ parte do achado: isto não foi conserto de incidente.
 array vazio = `false`), `cursosConcluidos` (a outra pergunta), e as duas escritas preservam o formato
 uma da outra. Sem migration, sem backfill. Guarda: `tests/unit/consumo-conteudo.test.ts`.
 
+### F-I25 · O contador encerrava a conversa; ninguém olhava se ela tinha FECHADO ✅ (corrigido 27/08)
+
+**Gatilho:** `api/temporada/reflection/route.ts` — `finished = totalTurnsIA >= maxTurns / 2`,
+avaliado **depois** de a IA já ter falado. A régua não lê o texto: se o último turno saiu como
+pergunta, a tela imprime "✓ Conversa concluída" embaixo dela, e a pessoa não pode responder.
+A gêmea (`evaluation/route.ts`, semana 13) tinha `finished = proximoTurnIA >= TOTAL`, idêntico.
+
+🔑 **`Medido:` nas 86 conversas de Evidências concluídas (100% do universo, 27/08):**
+
+| Como o último turno terminou | Qtd | % |
+|---|---|---|
+| Bloco de fechamento (✅/📝/🎯) | 23 | 27% |
+| **Abrindo o SEGUNDO desafio da semana** | 45 | 52% |
+| Pergunta de aprofundamento no meio | 18 | 21% |
+
+Não é só tela: o extrator roda sobre esse transcript, e o fechamento é onde o insight e o
+compromisso são ditos. `compromisso_proxima` saiu **vazio em 48 das 63** cortadas (76%), contra
+3 de 23 (13%) nas que fecharam; `insight_principal` vazio em 15 das 63, contra 0 de 23. Quem lê
+`insight_principal` é a avaliação acumulada (`avaliacao-acumulada-core.ts:318`).
+
+**Causa dos 52%:** o roteiro de 6 turnos foi escrito para UMA tarefa (está no cabeçalho de
+`prompts/socratic.ts`), mas **86 de 86** semanas entregam duas. O bloco `SEQUÊNCIA` mandava
+"distribua os turnos: a primeira metade no 1º, a segunda no 2º" enquanto o mapa de instruções
+seguia monolítico — **nenhum turno dizia "transicione"**. O modelo transicionava onde sobrava
+espaço: o turno 6, exatamente onde o contador corta.
+
+**E o flag já existia, obedecido por um consumidor só.** `manterUmDesafio` +
+`desafioUnicoPorCompetencia` (então `…PorSemana`) estavam em `kit/entrega-semana.ts` desde 05/08,
+ligados na jornada. A TELA aplicava (via `overlayKitNaSemana`); a CONVERSA resolvia o kit entrega
+por entrega e o CRON DE QUINTA juntava os dois com `\n\n`. Em macae, com o flag LIGADO, a pessoa
+lia uma tarefa na tela, recebia duas por WhatsApp e era cobrada nas duas — **6 das 19** conversas
+de lá morreram abrindo um desafio que a tela nunca mostrou. A conversa também resolvia o kit **sem
+`cargo`**, que `cargoServe` trata como curinga (o que a tela barra desde 29/07).
+
+**Correções (todas em 27/08):**
+1. **Fonte única** `resolverDesafiosDaSemana` (`kit/entrega-semana.ts`) — kit por (DISC × cargo),
+   fallback ao plano e a mesma `manterUmDesafio` da tela. Consumida pela conversa e pelo cron.
+2. **`manterUmDesafio` unifica por COMPETÊNCIA, não por semana.** ⚠️ Régua por semana teria apagado
+   a tarefa de uma competência inteira em **92 das 324** semanas de conteúdo de ibipeba (as que
+   trazem 2 competências distintas) — e ela conta na régua de nível igual à outra.
+3. **`desafioUnicoPorCompetencia: true` no `PROGRAMA_REGULAR_DUO`** (`programa_config` é NULL nas
+   75 trilhas, então pega também quem está no meio).
+4. **Roteiro socrático com dois traçados**: com 2 tarefas, a transição é PRESCRITA no turno 4; com
+   1 tarefa e 2 conteúdos, o 2º assunto entra no turno 5. O turno 6 diz que a pessoa não poderá
+   responder.
+5. **Rede de segurança** (`lib/season-engine/fechamento-conversa.ts`): se o teto chega e
+   `pareceFechamento` diz não, pede o fechamento UMA vez mais com o histórico anterior (a fala que
+   não fechou é descartada e não entra no prompt). Se a segunda também não fechar, encerra assim
+   mesmo e registra `conversa-sem-fechamento` no `degradacao_log`. Vale para as 4 conversas.
+
+**Guardas:** `tests/unit/conversa-fechamento.test.ts` (régua + roteiro + contrato da rota) e
+`tests/unit/jornada-desafio-unico.test.ts` (unificação por competência) — validados por mutação.
+`scripts/_verificar-fechamento-conversa.ts` roda a conversa contra a IA real (6/6 fecharam nos três
+cenários; `--forcar-rede` exercita a segunda chamada, que também fechou).
+
+⚠️ **O que isto NÃO prova:** o simulador responde melhor que gente real, e o denominador foi 6. A
+medição que vale é a de produção, refeita depois do deploy — a mesma query do quadro acima.
+
 ### F-C12 · Cota de retentativa consumida por avaria do CANAL torna o resgate inalcançável ✅ (corrigido 19/08, `984607e3`)
 
 **Gatilho:** `lib/conarh/reenvio-t0.ts:33,124` — `MAX_TENTATIVAS_AUTOMATICAS = 10` +

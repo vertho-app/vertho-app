@@ -95,7 +95,7 @@ export async function coletarEntregasPrevistas(
       // Mesmo flag do caminho real: sem isto o health mediria a semana com dois
       // desafios enquanto o colaborador recebe um — o gêmeo que não roda
       // passando verde (a classe de 29/07).
-      desafioUnicoPorSemana: getProgramaConfigDaTrilha(t as any).desafioUnicoPorSemana,
+      desafioUnicoPorCompetencia: getProgramaConfigDaTrilha(t as any).desafioUnicoPorCompetencia,
     });
 
     const itens = Array.isArray(copia.conteudos_dia) && copia.conteudos_dia.length

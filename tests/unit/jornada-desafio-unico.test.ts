@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { manterUmDesafio } from '@/lib/season-engine/kit/entrega-semana';
+import { manterUmDesafio, resolverDesafiosDaSemana } from '@/lib/season-engine/kit/entrega-semana';
 
 /**
  * Jornada (05/08/2026): a semana entrega DUAS pílulas e UMA tarefa.
@@ -9,9 +9,16 @@ import { manterUmDesafio } from '@/lib/season-engine/kit/entrega-semana';
  * ingênua (sempre a primeira), uma semana em que só a segunda pílula tem kit
  * publicado fica SEM tarefa nenhuma — e ninguém percebe, porque a tela
  * simplesmente não mostra o bloco.
+ *
+ * 27/08/2026 — a régua passou a ser UMA TAREFA POR COMPETÊNCIA. O flag foi
+ * ligado no `regular_duo`, onde 92 das 324 semanas de conteúdo de ibipeba
+ * trazem competências DISTINTAS: unificar por semana apagaria a tarefa de uma
+ * competência inteira, e ela continua contando na régua de nível. Os casos de
+ * competência abaixo falham se alguém voltar a unificar por semana.
  */
 
-const comDesafio = (texto: string): { conteudo: Record<string, unknown> } => ({
+const comDesafio = (texto: string, competencia?: string): { competencia?: string; conteudo: Record<string, unknown> } => ({
+  ...(competencia ? { competencia } : {}),
   conteudo: {
     desafio_texto: texto,
     acao_observavel: `observar: ${texto}`,
@@ -20,7 +27,8 @@ const comDesafio = (texto: string): { conteudo: Record<string, unknown> } => ({
     formatos_disponiveis: { texto: { id: 't1' } },
   },
 });
-const semDesafio = (): { conteudo: Record<string, unknown> } => ({
+const semDesafio = (competencia?: string): { competencia?: string; conteudo: Record<string, unknown> } => ({
+  ...(competencia ? { competencia } : {}),
   conteudo: { core_id: 'core-y', formatos_disponiveis: { audio: { id: 'a1' } } },
 });
 
@@ -58,5 +66,89 @@ describe('desafio único por semana', () => {
     const entregas = [comDesafio('única')];
     manterUmDesafio(entregas);
     expect(entregas[0].conteudo.desafio_texto).toBe('única');
+  });
+});
+
+describe('a unificação é por COMPETÊNCIA, não por semana', () => {
+  it('🔴 duas competências distintas mantêm UMA tarefa CADA', () => {
+    // O caso do `regular_duo`: apagar a segunda deixaria uma competência inteira
+    // sem tarefa na semana — e ela conta na régua de nível igual à primeira.
+    const entregas = [
+      comDesafio('fechar o combinado', 'Gestão de Pessoas'),
+      comDesafio('cruzar matrícula e frequência', 'Avaliação e monitoramento'),
+    ];
+    manterUmDesafio(entregas);
+    expect(entregas[0].conteudo.desafio_texto).toBe('fechar o combinado');
+    expect(entregas[1].conteudo.desafio_texto).toBe('cruzar matrícula e frequência');
+  });
+
+  it('mesma competência (grafia diferente) continua com UMA tarefa', () => {
+    // `normalizarComp` é a régua de igualdade — sem ela, " gestão " e "Gestão"
+    // virariam duas competências e a unificação não aconteceria.
+    const entregas = [
+      comDesafio('primeira', 'Planejamento e Organização'),
+      comDesafio('segunda', '  planejamento e organização '),
+    ];
+    manterUmDesafio(entregas);
+    expect(entregas[0].conteudo.desafio_texto).toBe('primeira');
+    expect(entregas[1].conteudo).not.toHaveProperty('desafio_texto');
+  });
+
+  it('sem kit na primeira entrega da competência, a tarefa vem da segunda', () => {
+    const entregas = [
+      semDesafio('Planejamento e Organização'),
+      comDesafio('escalar quando faltar conferente', 'Planejamento e Organização'),
+      comDesafio('revisar o indicador', 'Avaliação e monitoramento'),
+    ];
+    manterUmDesafio(entregas);
+    expect(entregas[1].conteudo.desafio_texto).toBe('escalar quando faltar conferente');
+    expect(entregas[2].conteudo.desafio_texto).toBe('revisar o indicador');
+  });
+});
+
+describe('resolverDesafiosDaSemana — a fonte única das três portas', () => {
+  // `disc: null` faz a resolução do kit ser pulada por construção (o kit é
+  // por DISC), então estes casos exercitam o fallback ao plano e a unificação
+  // sem tocar no Supabase.
+  const semanaPlan = (entregas: any[]) => ({ tipo: 'conteudo', conteudos_dia: entregas });
+
+  it('com o flag LIGADO, duas pílulas da mesma competência devolvem UMA tarefa', async () => {
+    const out = await resolverDesafiosDaSemana(null, semanaPlan([
+      { competencia: 'Planejamento', descritor: 'd1', conteudo: { desafio_texto: 'tarefa 1' } },
+      { competencia: 'Planejamento', descritor: 'd2', conteudo: { desafio_texto: 'tarefa 2' } },
+    ]), { empresaId: 'e1', disc: null, desafioUnicoPorCompetencia: true });
+    expect(out.map((d) => d.desafio_texto)).toEqual(['tarefa 1']);
+  });
+
+  it('com o flag DESLIGADO, devolve as duas — o comportamento dos modos antigos', async () => {
+    const out = await resolverDesafiosDaSemana(null, semanaPlan([
+      { competencia: 'Planejamento', descritor: 'd1', conteudo: { desafio_texto: 'tarefa 1' } },
+      { competencia: 'Planejamento', descritor: 'd2', conteudo: { desafio_texto: 'tarefa 2' } },
+    ]), { empresaId: 'e1', disc: null, desafioUnicoPorCompetencia: false });
+    expect(out.map((d) => d.desafio_texto)).toEqual(['tarefa 1', 'tarefa 2']);
+  });
+
+  it('competências distintas devolvem uma tarefa cada mesmo com o flag ligado', async () => {
+    const out = await resolverDesafiosDaSemana(null, semanaPlan([
+      { competencia: 'Gestão', descritor: 'd1', conteudo: { desafio_texto: 'tarefa A' } },
+      { competencia: 'Avaliação', descritor: 'd2', conteudo: { desafio_texto: 'tarefa B' } },
+    ]), { empresaId: 'e1', disc: null, desafioUnicoPorCompetencia: true });
+    expect(out.map((d) => d.competencia)).toEqual(['Gestão', 'Avaliação']);
+  });
+
+  it('semana no shape single (sem conteudos_dia) devolve a tarefa do plano', async () => {
+    const out = await resolverDesafiosDaSemana(null, { tipo: 'conteudo', descritor: 'd1', conteudo: { desafio_texto: 'única' } }, {
+      empresaId: 'e1', disc: null, competenciaFallback: 'Gestão', desafioUnicoPorCompetencia: true,
+    });
+    expect(out).toEqual([{ competencia: 'Gestão', descritor: 'd1', desafio_texto: 'única', acao_observavel: undefined, criterio_de_execucao: undefined }]);
+  });
+
+  it('entrega sem tarefa nenhuma some da lista (não vira string vazia)', async () => {
+    const out = await resolverDesafiosDaSemana(null, semanaPlan([
+      { competencia: 'Gestão', descritor: 'd1', conteudo: {} },
+      { competencia: 'Avaliação', descritor: 'd2', conteudo: { desafio_texto: 'tarefa B' } },
+    ]), { empresaId: 'e1', disc: null, desafioUnicoPorCompetencia: true });
+    expect(out).toHaveLength(1);
+    expect(out[0].desafio_texto).toBe('tarefa B');
   });
 });

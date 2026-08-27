@@ -3,7 +3,8 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppDesafioQuinta } from '@/lib/notifications';
-import { resolverDesafioDoKit } from '@/lib/season-engine/kit/desafio-semana';
+import { resolverDesafiosDaSemana } from '@/lib/season-engine/kit/entrega-semana';
+import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
 import { processarEmpresaDiario } from '@/lib/fase4/trigger-diario-empresa';
 import { publicarQStashTask, publicarWhatsappCis } from '@/lib/qstash-publish';
@@ -220,10 +221,19 @@ export async function triggerQuinta() {
 
   for (const empresa of empresas) {
     const tdb = tenantDb(empresa.id);
-    const { data: envios } = await tdb.from('fase4_envios')
-      .select('id, colaborador_id, semana_atual, sequencia, status, ultimo_envio, ultima_evidencia_em, colaboradores!inner(nome_completo, email, whatsapp, perfil_dominante)')
+    const { data: envios, error: errEnvios } = await tdb.from('fase4_envios')
+      .select('id, colaborador_id, semana_atual, sequencia, status, ultimo_envio, ultima_evidencia_em, colaboradores!inner(nome_completo, email, whatsapp, perfil_dominante, cargo)')
       .eq('status', 'ativo');
 
+    // `!envios?.length` trata igual duas coisas MUITO diferentes: "esta empresa
+    // não tem ninguém ativo" e "não consegui ler quem está ativo". O segundo
+    // caso pulava a empresa inteira em silêncio, e o cron reportava sucesso —
+    // a mesma classe do F-C4 (`precarregarKits` devolvendo Map vazio truthy).
+    if (errEnvios) {
+      console.error(`[triggerQuinta] leitura de fase4_envios falhou (empresa ${empresa.id}):`, errEnvios.message);
+      totalErros++;
+      continue;
+    }
     if (!envios?.length) continue;
 
     const hojeUTC = new Date().toISOString().slice(0, 10);
@@ -272,24 +282,32 @@ export async function triggerQuinta() {
       let desafioTexto = '';
       if (telefone) {
         try {
-          const { data: trilha } = await tdb.from('trilhas')
-            .select('temporada_plano, competencia_foco')
+          const { data: trilha, error: errTrilha } = await tdb.from('trilhas')
+            .select('temporada_plano, competencia_foco, programa_modo, programa_config')
             .eq('colaborador_id', envio.colaborador_id)
             .order('numero_temporada', { ascending: false }).limit(1).maybeSingle();
+          // Falha de leitura aqui não impede o envio — cai na mensagem genérica
+          // de evidência, que é degradação legítima na ENTREGA. O que não pode
+          // é ser indistinguível de "esta pessoa não tem trilha".
+          if (errTrilha) throw new Error(`leitura da trilha falhou: ${errTrilha.message}`);
           const plano = (trilha?.temporada_plano || []) as any[];
           const plan = plano.find((s: any) => Number(s.semana) === Number(semana)) || plano[semana - 1];
           const disc = String(envio.colaboradores.perfil_dominante || '').trim().charAt(0).toUpperCase();
           if (plan && plan.tipo !== 'aplicacao' && disc) {
-            if (Array.isArray(plan.conteudos_dia) && plan.conteudos_dia.length) {
-              const linhas = await Promise.all(plan.conteudos_dia.map(async (e: any) => {
-                const k = await resolverDesafioDoKit(sbRaw, { empresaId: empresa.id, competencia: e.competencia, descritor: e.descritor, disc }).catch(() => null);
-                return k?.desafio_texto || e.conteudo?.desafio_texto;
-              }));
-              desafioTexto = linhas.filter(Boolean).join('\n\n');
-            } else {
-              const k = await resolverDesafioDoKit(sbRaw, { empresaId: empresa.id, competencia: trilha?.competencia_foco, descritor: plan.descritor, disc }).catch(() => null);
-              desafioTexto = k?.desafio_texto || plan.conteudo?.desafio_texto || '';
-            }
+            // FONTE ÚNICA — a mesma da tela e da conversa de Evidências. Este
+            // trecho juntava TODAS as entregas com `\n\n`, ignorando
+            // `desafioUnicoPorCompetencia`: a pessoa lia uma tarefa na tela e
+            // recebia duas por WhatsApp. E resolvia o kit sem `cargo`, que
+            // `cargoServe` trata como curinga — podia cobrar a tarefa escrita
+            // para outro cargo (o que a tela barra desde 29/07).
+            const desafios = await resolverDesafiosDaSemana(sbRaw, plan, {
+              empresaId: empresa.id,
+              disc,
+              cargo: (envio.colaboradores as any).cargo,
+              competenciaFallback: trilha?.competencia_foco,
+              desafioUnicoPorCompetencia: getProgramaConfigDaTrilha(trilha as any).desafioUnicoPorCompetencia,
+            });
+            desafioTexto = desafios.map((d) => d.desafio_texto).join('\n\n');
           }
         } catch (e: any) { console.warn('[triggerQuinta] resolver desafio:', e?.message); }
 

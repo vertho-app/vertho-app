@@ -37,7 +37,24 @@ export function promptMissaoFeedback({
   const d2 = descritoresCobertos[1] || d1;
   const d3 = descritoresCobertos[2] || d2;
 
-  const instrucaoTurn: string = ({
+  // Fechamento fora do mapa: é o único turno que a rota precisa saber pedir de
+  // novo quando a IA bate no teto sem fechar (ver `fechamento-conversa.ts`).
+  const FECHAMENTO = `TURN 10 — FECHAMENTO OBRIGATÓRIO (ENCERRA A CONVERSA).
+
+⚠️ A conversa termina NESTA mensagem — ${nomeColab} não poderá responder depois
+dela. NÃO faça pergunta, NÃO peça confirmação, NÃO proponha continuar.
+
+- Frase curta reconhecendo o esforço de aplicar na prática (genuíno, sem elogio vazio).
+- Síntese analítica em 3 bullets:
+
+✅ **O que sua prática já demonstrou**: [pontos concretos baseados EXCLUSIVAMENTE no relato]
+🔍 **O que ainda ficou parcial ou pouco sustentado**: [lacunas ou pontos incompletos]
+🎯 **Próximo ponto para fortalecer na prática**: [1 aspecto específico para desenvolver]
+
+- NÃO dê gabarito. NÃO diga "a melhor forma seria...".
+- Máximo 150 palavras totais.`;
+
+  const roteiro: Record<number, string> = {
     1: `TURN 1 — O QUE FOI FEITO DE FATO.
 - Reconheça que ${nomeColab} executou a missão.
 - Peça 1 detalhe aberto do QUE ACONTECEU — "Me conta o que aconteceu no momento em que você [ação mencionada]?"
@@ -93,18 +110,9 @@ export function promptMissaoFeedback({
 - NÃO afirme que se combinaram — pergunte.
 - Máximo 80 palavras. 1 pergunta aberta.`,
 
-    10: `TURN 10 — FECHAMENTO OBRIGATÓRIO (ENCERRA A CONVERSA).
-- Frase curta reconhecendo o esforço de aplicar na prática (genuíno, sem elogio vazio).
-- Síntese analítica em 3 bullets:
-
-✅ **O que sua prática já demonstrou**: [pontos concretos baseados EXCLUSIVAMENTE no relato]
-🔍 **O que ainda ficou parcial ou pouco sustentado**: [lacunas ou pontos incompletos]
-🎯 **Próximo ponto para fortalecer na prática**: [1 aspecto específico para desenvolver]
-
-- NÃO dê gabarito. NÃO diga "a melhor forma seria...".
-- NÃO faça perguntas. NÃO peça confirmação.
-- Máximo 150 palavras totais.`,
-  })[turnIA] || '';
+    10: FECHAMENTO,
+  };
+  const instrucaoTurn: string = turnIA >= 10 ? FECHAMENTO : roteiro[turnIA] || '';
 
   const system = `Você é um avaliador-mentor da Vertho analisando a EVIDÊNCIA REAL trazida por um colaborador sobre a execução de uma missão prática no trabalho.
 
@@ -199,5 +207,5 @@ REGRAS DE USO DO GROUNDING:
   if (turnIA === 1 && messages.length === 0) {
     messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme as regras do TURN 1]' });
   }
-  return { system, systemSuffix: instrucaoTurn, messages };
+  return { system, systemSuffix: instrucaoTurn, messages, fechamentoSuffix: FECHAMENTO };
 }

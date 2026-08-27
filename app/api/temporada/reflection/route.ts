@@ -10,6 +10,8 @@ import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedbac
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { resolverDesafiosDaSemana } from '@/lib/season-engine/kit/entrega-semana';
+import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento } from '@/lib/season-engine/fechamento-conversa';
 import { MAX_TURNS_SOCRATIC, MAX_TURNS_ANALYTIC, MAX_TURNS_MISSAO_FEEDBACK } from '@/lib/season-engine/week-gating';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { deveEncerrarSemFechamento, montarReportDegustacao } from '@/lib/season-engine/programa-custom';
@@ -255,6 +257,11 @@ export async function POST(request) {
     if (!semanaPlan) return NextResponse.json({ error: 'semana fora do plano' }, { status: 400 });
     const competenciaSemana = resolveCompetenciaSemana(trilha, semanaPlan);
 
+    // Config pela FONTE ÚNICA (carimbo da trilha → fallback sys_config).
+    // Resolvida AQUI e não depois de gravar: `desafioUnicoPorCompetencia` decide
+    // quantas tarefas a conversa cobra, e isso é insumo do prompt.
+    const programaConfig = await resolverConfigDaTrilha(sb, trilha);
+
     // Carrega progresso antes pra decidir qual prompt usar em aplicação.
     const { data: prog } = await sb.from('temporada_semana_progresso')
       .select('*').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
@@ -319,21 +326,18 @@ export async function POST(request) {
       console.warn('[reflection] retrieveContext:', err?.message);
     }
 
-    // DESAFIO da semana: PREFERE o do KIT (por DISC do colab); fallback ao plano
-    // (buildSeason). Fase 3 — a cobrança socrática passa a cobrar o desafio do kit.
+    // DESAFIO da semana pela FONTE ÚNICA (`resolverDesafiosDaSemana`): kit por
+    // (DISC × cargo), fallback ao plano, e a mesma unificação por competência
+    // que a TELA aplica. Antes esta rota montava a lista sozinha — sem cargo e
+    // sem o flag —, então cobrava tarefas que a tela não mostrava.
     const discColab = String(colab.perfil_dominante || '').trim().charAt(0).toUpperCase();
-    const { resolverDesafioDoKit } = await import('@/lib/season-engine/kit/desafio-semana');
-    let desafiosLista: { competencia: string; desafio_texto: string }[];
-    if (Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length > 0) {
-      desafiosLista = await Promise.all(semanaPlan.conteudos_dia.map(async (e: any) => {
-        const k = await resolverDesafioDoKit(sb, { empresaId: trilha.empresa_id, competencia: e.competencia, descritor: e.descritor, disc: discColab }).catch(() => null);
-        return { competencia: e.competencia || competenciaSemana.label, desafio_texto: k?.desafio_texto || e.conteudo?.desafio_texto || '' };
-      }));
-    } else {
-      const k = await resolverDesafioDoKit(sb, { empresaId: trilha.empresa_id, competencia: competenciaSemana.label, descritor: semanaPlan.descritor, disc: discColab }).catch(() => null);
-      desafiosLista = [{ competencia: competenciaSemana.label, desafio_texto: k?.desafio_texto || semanaPlan.conteudo?.desafio_texto || '' }];
-    }
-    desafiosLista = desafiosLista.filter((d) => d.desafio_texto);
+    const desafiosLista = await resolverDesafiosDaSemana(sb, semanaPlan, {
+      empresaId: trilha.empresa_id,
+      disc: discColab,
+      cargo: colab.cargo,
+      competenciaFallback: competenciaSemana.label,
+      desafioUnicoPorCompetencia: programaConfig.desafioUnicoPorCompetencia,
+    });
     const desafioTexto = desafiosLista.map((d) => d.desafio_texto).join('\n');
 
     // Monta prompt
@@ -347,6 +351,9 @@ export async function POST(request) {
         descritor: semanaPlan.descritor,
         desafio: desafioTexto,
         desafios: desafiosLista,
+        // Com uma tarefa só cobrindo os 2 conteúdos da semana, é isto que
+        // impede o segundo assunto de sumir da conversa (e da evidência).
+        descritoresCobertos: semanaPlan.descritores_cobertos || [],
         historico: historicoMasked,
         turnIA: proximoTurnIA,
         groundingContext: groundingBlock,
@@ -375,6 +382,10 @@ export async function POST(request) {
       });
     }
 
+    const taskKeyDaConversa = tipoConversa === 'missao_feedback' ? 'missao_feedback'
+      : tipoConversa === 'analytic' ? 'evidencias_analytic'
+      : 'evidencias_socratic';
+
     let respostaIA;
     try {
       respostaIA = await callAIChat(promptData.system, promptData.messages, {}, 2000, {
@@ -382,9 +393,7 @@ export async function POST(request) {
         // ledger não separava semana de CONTEÚDO (socratic) de semana de APLICAÇÃO
         // (missao/analytic) — que têm nº de turnos e custo diferentes. A etiqueta
         // agora segue o mecanismo, e usa o mesmo vocabulário do simulador.
-        taskKey: tipoConversa === 'missao_feedback' ? 'missao_feedback'
-          : tipoConversa === 'analytic' ? 'evidencias_analytic'
-          : 'evidencias_socratic',
+        taskKey: taskKeyDaConversa,
         empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
         // Instrução do turno (volátil) no bloco 2 do system; persona+grounding no
         // bloco 1 cacheado. Estratégia validada na S4 (não-inferior por perfil).
@@ -401,13 +410,56 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Erro na IA' }, { status: 500 });
     }
 
+    const totalTurnsIA = proximoTurnIA;
+    const finished = totalTurnsIA >= maxTurns / 2;
+
+    /**
+     * REDE DE SEGURANÇA DO FECHAMENTO — o contador é o TETO, não o roteiro.
+     *
+     * `finished` sempre foi decidido por contagem, DEPOIS de a IA já ter falado:
+     * se o último turno saiu como pergunta, a tela imprimia "✓ Conversa
+     * concluída" embaixo de uma pergunta sem resposta possível. Medido em 86
+     * conversas de Evidências: **63 terminaram assim** (73%), e o compromisso
+     * saiu vazio em 48 delas — é no fechamento que ele é dito.
+     *
+     * Aqui, quando o teto chega e a fala não fechou, pedimos o fechamento UMA
+     * vez mais, com o histórico ANTERIOR (a fala que não fechou é descartada, e
+     * não entra no prompt: o modelo fecha sobre o que a pessoa realmente disse).
+     * Se a segunda também não fechar, a conversa encerra assim mesmo — deixar a
+     * pessoa presa num turno que não existe seria pior — e a degradação fica
+     * registrada.
+     */
+    if (finished && !pareceFechamento(respostaIA)) {
+      const fechamentoSuffix = (promptData as any).fechamentoSuffix;
+      try {
+        const forcado = await callAIChat(promptData.system, promptData.messages, {}, 2000, {
+          taskKey: taskKeyDaConversa,
+          empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+          systemSuffix: fechamentoSuffix ? reforcoDeFechamento(fechamentoSuffix) : undefined,
+        });
+        const limpo = (forcado || '').trim();
+        // Só troca por algo que fechou de verdade. Um segundo texto que também
+        // termina em pergunta não é melhor que o primeiro — seria pagar uma
+        // chamada para trocar uma conversa cortada por outra.
+        if (limpo && pareceFechamento(limpo)) respostaIA = limpo;
+      } catch (err: any) {
+        console.warn('[reflection] fechamento forçado falhou:', err?.message);
+      }
+      if (!pareceFechamento(respostaIA)) {
+        after(() => registrarConversaSemFechamento(sb, {
+          empresaId: trilha.empresa_id,
+          colaboradorId: trilha.colaborador_id,
+          semana: Number(semana),
+          tipoConversa,
+          tentativas: 2,
+        }));
+      }
+    }
+
     // Despersonaliza resposta antes de persistir/exibir
     respostaIA = unmaskPII(respostaIA, piiMap);
 
     historico.push({ role: 'assistant', content: respostaIA, timestamp: new Date().toISOString(), turn: proximoTurnIA });
-
-    const totalTurnsIA = proximoTurnIA;
-    const finished = totalTurnsIA >= maxTurns / 2;
 
     // Persiste
     const novoSlotData = { ...dados, transcript_completo: historico };
@@ -439,9 +491,6 @@ export async function POST(request) {
     // o catch do handler transforma em 500 — que é o que impede a UI de dar a
     // conversa por encerrada. Mesmo helper da rota gêmea (evaluation).
     await gravarProgressoSemana(sb, upsertPayload, prog?.id);
-
-    // Config pela FONTE ÚNICA (carimbo da trilha → fallback sys_config)
-    const programaConfig = await resolverConfigDaTrilha(sb, trilha);
 
     // Se concluiu, libera próxima semana (status pendente → em_andamento na UI fica visível)
     if (finished && Number(semana) < programaConfig.semanas) {

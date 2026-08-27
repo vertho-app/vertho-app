@@ -2,7 +2,18 @@
  * Conversa socrática nas semanas de conteúdo.
  * Max 6 turns da IA (com 6 respostas do colab = 12 mensagens no total).
  * Estrutura: abertura → contexto → motivação → insight → generalização → fechamento.
+ *
+ * 🔴 O roteiro tem DOIS traçados (27/08/2026), porque um só não cabia. A semana
+ * entrega 2 pílulas; quando as duas são da MESMA competência ela passou a ter
+ * UMA tarefa (`desafioUnicoPorCompetencia`), e o traçado acima serve. Quando são
+ * competências distintas, são duas tarefas — e aí o roteiro monolítico não tinha
+ * nenhum turno para a transição: o modelo abria o segundo desafio onde sobrava
+ * espaço, que era o turno 6, e o contador de `finished` cortava a conversa em
+ * cima da pergunta. Medido em 86 conversas concluídas: **45 terminaram assim**,
+ * contra 23 que chegaram ao bloco de fechamento. Agora a transição é um turno
+ * PRESCRITO (o 4), e o turno 6 diz que a pessoa não vai poder responder.
  */
+import { descritorParaHumano, descritoresParaHumano } from '@/lib/descritor-humano';
 
 interface EstiloDisc {
   tom: string;
@@ -51,37 +62,59 @@ interface PromptSocraticParams {
   desafio: string;
   /** DUO: 1 desafio por competência. Quando >1, a cobrança vai em SEQUÊNCIA. */
   desafios?: DesafioItem[];
+  /**
+   * TODOS os descritores que a semana entregou. Com uma tarefa só cobrindo dois
+   * descritores da mesma competência, é por aqui que o segundo deixa de ficar
+   * invisível: a tarefa é uma, mas a conversa colhe evidência dos dois.
+   */
+  descritoresCobertos?: string[];
   historico: ChatMessage[];
   turnIA: number;
   groundingContext?: string;
 }
 
-export function promptSocratic({ nomeColab, cargo, perfilDominante, competencia, descritor, desafio, desafios, historico, turnIA, groundingContext = '' }: PromptSocraticParams) {
+export function promptSocratic({ nomeColab, cargo, perfilDominante, competencia, descritor, desafio, desafios, descritoresCobertos, historico, turnIA, groundingContext = '' }: PromptSocraticParams) {
   const estilo = estiloPorPerfil(perfilDominante);
   // Lista de desafios (DUO = N por competência). Fallback: o desafio único.
   const lista = (desafios && desafios.length ? desafios : [{ competencia, desafio_texto: desafio }]).filter((d) => d.desafio_texto?.trim());
   const multi = lista.length > 1;
   const desafiosBloco = lista.map((d, i) => `${multi ? `(${i + 1}/${lista.length}) [${d.competencia}] ` : ''}"${d.desafio_texto}"`).join('\n');
-  const instrucaoTurn: string = ({
-    1: `ESTE É O TURN 1 — ABERTURA / CONVITE À REFLEXÃO.
+
+  // Descritores SEM o código da matriz: o prompt manda "não citar o nome
+  // técnico" e vinha recebendo "COO03_D6 — Busca de apoio" na string, então a
+  // instrução brigava com o próprio insumo (79 de 648 itens de plano em ibipeba
+  // trazem o código colado — ver lib/descritor-humano.ts).
+  const descritoresEmJogo = (
+    descritoresCobertos?.length ? descritoresParaHumano(descritoresCobertos) : [descritorParaHumano(descritor)]
+  ).filter(Boolean);
+  const descritorPrincipal = descritoresEmJogo[0] || descritorParaHumano(descritor) || descritor;
+  const descritorSecundario = !multi && descritoresEmJogo.length > 1 ? descritoresEmJogo[1] : '';
+  /**
+   * A conversa tem SEIS turnos de IA e o sexto é o último — depois dele a
+   * pessoa não pode mais responder. Por isso o roteiro é prescrito turno a
+   * turno: o que sobra de assunto para o fim vira mensagem cortada no ar.
+   */
+  const TURN_1_UNICO = `ESTE É O TURN 1 — ABERTURA / CONVITE À REFLEXÃO.
 - Cumprimente ${nomeColab} pelo primeiro nome.
-${multi
-  ? `- Diga que a semana teve ${lista.length} focos/desafios e que vocês vão olhar UM DE CADA VEZ. Comece pelo PRIMEIRO: ${lista[0].desafio_texto.slice(0, 140)}`
-  : `- Referencie brevemente o desafio da semana: ${desafiosBloco}`}
+- Referencie brevemente a tarefa da semana: ${desafiosBloco}
 - Faça UMA pergunta aberta que convide a contar como foi (ex: "Como foi pra você?" ou "O que aconteceu quando você tentou?").
 - Máximo 60 palavras. NÃO faça múltiplas perguntas.
-- Se o desafio for novo e ainda não foi tentado, pergunte o que chamou atenção no conteúdo ou o que pareceu mais relevante pro dia a dia.`,
+- Se a tarefa for nova e ainda não foi tentada, pergunte o que chamou atenção no conteúdo ou o que pareceu mais relevante pro dia a dia.`;
 
-    2: `ESTE É O TURN 2 — CONTEXTO CONCRETO.
+  const TURN_2_CONTEXTO = `ESTE É O TURN 2 — CONTEXTO CONCRETO.
 - Com base no que ${nomeColab} acabou de dizer, investigue o CONTEXTO concreto.
 - Peça detalhes da situação: quando aconteceu, quem estava envolvido, o que disparou a ação ou a hesitação.
 - NÃO julgue. Apenas ajude a pessoa a reconstruir o cenário real.
 - Máximo 50 palavras. UMA pergunta.
-- SE a resposta anterior veio vaga: peça um exemplo específico.`,
+- SE a resposta anterior veio vaga: peça um exemplo específico.`;
 
+  /** Traçado de UMA tarefa — o caso normal desde que a semana passou a ter uma tarefa por competência. */
+  const roteiroUnico: Record<number, string> = {
+    1: TURN_1_UNICO,
+    2: TURN_2_CONTEXTO,
     3: `ESTE É O TURN 3 — MOTIVAÇÃO / POR QUE ISSO IMPORTA.
 - Investigue o PORQUÊ: o que levou ${nomeColab} a agir assim, o que pesou na decisão, o que faria diferente.
-- Conecte ao descritor "${descritor}" de forma natural, sem citar o nome técnico.
+- Conecte ao tema "${descritorPrincipal}" de forma natural, sem citar nome técnico nem código.
 - Máximo 50 palavras. UMA pergunta que faça pensar.
 - SE a resposta anterior veio vaga: peça o contraste entre "como era antes" e "como foi dessa vez".`,
 
@@ -92,14 +125,61 @@ ${multi
 - Máximo 50 palavras. UMA pergunta que traga consciência.
 - SE a resposta anterior veio vaga: pergunte "o que te surpreendeu?" ou "o que você não esperava?".`,
 
-    5: `ESTE É O TURN 5 — GENERALIZAÇÃO PRÁTICA.
+    5: descritorSecundario
+      // A semana entregou DOIS conteúdos e uma tarefa só. Sem este turno, o
+      // segundo assunto não aparece em lugar nenhum da conversa — e ele conta
+      // na régua de nível igual ao primeiro.
+      ? `ESTE É O TURN 5 — O SEGUNDO ÂNGULO DA SEMANA (penúltimo turno).
+- A semana teve DOIS assuntos: "${descritorPrincipal}" e "${descritorSecundario}". Até aqui vocês olharam o primeiro.
+- Puxe o SEGUNDO a partir da MESMA situação que ${nomeColab} já contou — não abra tema novo nem peça outro caso.
+- Ex.: "Nessa mesma situação, como entrou [o segundo assunto, dito em linguagem natural]?"
+- NÃO cite nome técnico nem código de descritor.
+- Máximo 50 palavras. UMA pergunta.`
+      : `ESTE É O TURN 5 — GENERALIZAÇÃO PRÁTICA (penúltimo turno).
 - Investigue como ${nomeColab} vai TRANSFERIR o que percebeu para outras situações.
 - Ajude a expandir: "Em que outra situação do seu dia a dia isso se aplicaria?", "O que muda na próxima vez?"
 - Máximo 50 palavras. UMA pergunta que expanda o aprendizado.
 - SE a resposta anterior veio vaga: pergunte algo concreto como "me dá um exemplo de quando isso pode aparecer de novo?"`,
+  };
 
-    6: `ESTE É O TURN 6 — FECHAMENTO OBRIGATÓRIO.
-- NÃO faça perguntas. Encerre com esta estrutura EXATA (bullets):
+  /**
+   * Traçado de DUAS tarefas (competências distintas). A transição é PRESCRITA
+   * no turno 4 — deixá-la ao critério do modelo é como ela caía no turno 6, o
+   * último, e a conversa morria com o segundo desafio recém-aberto.
+   */
+  const roteiroMulti: Record<number, string> = {
+    1: `ESTE É O TURN 1 — ABERTURA / CONVITE À REFLEXÃO.
+- Cumprimente ${nomeColab} pelo primeiro nome.
+- Diga que a semana teve ${lista.length} focos e que vocês vão olhar UM DE CADA VEZ, começando pelo primeiro.
+- PRIMEIRO foco (${lista[0].competencia}): ${lista[0].desafio_texto.slice(0, 140)}
+- Faça UMA pergunta aberta que convide a contar como foi.
+- Máximo 60 palavras. NÃO faça múltiplas perguntas.`,
+    2: TURN_2_CONTEXTO,
+    3: `ESTE É O TURN 3 — O QUE FICOU DO PRIMEIRO FOCO (último turno sobre ele).
+- Investigue o que ${nomeColab} PERCEBEU no primeiro foco: o que pesou na decisão, o que aprendeu, o que faria diferente.
+- Este é o ÚLTIMO turno sobre este foco — colha o que der agora.
+- Máximo 50 palavras. UMA pergunta.`,
+    4: `ESTE É O TURN 4 — TRANSIÇÃO OBRIGATÓRIA PARA O SEGUNDO FOCO.
+- Reconheça em 1 frase curta o que ${nomeColab} acabou de dizer. NÃO resuma o primeiro foco.
+- Transicione EXPLICITAMENTE: "Agora, sobre o outro foco da semana — ${lista[1]?.competencia || ''}…"
+- SEGUNDA tarefa: ${(lista[1]?.desafio_texto || '').slice(0, 140)}
+- Faça UMA pergunta aberta sobre o que aconteceu com ela.
+- Máximo 60 palavras.`,
+    5: `ESTE É O TURN 5 — APROFUNDAMENTO DO SEGUNDO FOCO (penúltimo turno).
+- Investigue o CONCRETO do segundo foco: a situação, o critério usado, o que ${nomeColab} percebeu.
+- Este é o ÚLTIMO turno de investigação da conversa inteira — no próximo você fecha.
+- Máximo 50 palavras. UMA pergunta.
+- SE a resposta anterior veio vaga: peça um exemplo específico.`,
+  };
+
+  const FECHAMENTO = `ESTE É O TURN 6 — FECHAMENTO OBRIGATÓRIO.
+
+⚠️ A CONVERSA TERMINA NESTA MENSAGEM. ${nomeColab} NÃO poderá responder depois
+dela. Portanto: NÃO faça pergunta (nem retórica), NÃO abra assunto novo, NÃO
+proponha continuar depois. Se ficou algo por explorar, ele entra no fechamento
+como leitura — não como pergunta.
+
+Encerre com esta estrutura EXATA (bullets):
 
 ${multi
   ? lista.map((d) => `✅ **Desafio (${d.competencia})**: [realizado | parcial | não realizado — baseado no relato]`).join('\n')
@@ -109,8 +189,9 @@ ${multi
 
 - Finalize com 1 frase breve de reconhecimento genuíno (sem elogio vazio).
 - Máximo 100 palavras totais.
-- NÃO adicione "dica", "sugestão" ou conselho extra.`,
-  })[turnIA] || '';
+- NÃO adicione "dica", "sugestão" ou conselho extra.`;
+
+  const instrucaoTurn: string = turnIA >= 6 ? FECHAMENTO : (multi ? roteiroMulti : roteiroUnico)[turnIA] || '';
 
   const system = `Você é um mentor de desenvolvimento de competências da Vertho, com postura socrática: curiosa, acolhedora, respeitosa e não-diretiva.
 
@@ -146,13 +227,21 @@ CONTEXTO:
 - Pessoa: ${nomeColab} (${cargo})
 - Perfil DISC dominante: ${perfilDominante || '(não mapeado)'}
 - Competência: ${competencia}
-- Descritor desta semana: ${descritor}
-- ${multi ? `${lista.length} DESAFIOS da semana (um por competência):\n${desafiosBloco}` : `Desafio que ${nomeColab} tinha pra fazer: ${desafiosBloco}`}
+- ${descritoresEmJogo.length > 1 ? `Assuntos da semana: ${descritoresEmJogo.join(' · ')}` : `Assunto desta semana: ${descritorPrincipal}`}
+- ${multi ? `${lista.length} TAREFAS da semana (uma por competência):\n${desafiosBloco}` : `Tarefa que ${nomeColab} tinha pra fazer: ${desafiosBloco}`}
+
+A CONVERSA TEM 6 TURNOS SEUS, E O 6º É O ÚLTIMO — depois dele ${nomeColab} não
+pode mais responder. A instrução de cada turno diz o que fazer nele; siga-a
+mesmo que a conversa pareça pedir outra coisa. Assunto guardado para o fim vira
+pergunta sem resposta.
 ${multi ? `
-SEQUÊNCIA (semana com ${lista.length} desafios):
-- Cobre os desafios UM DE CADA VEZ, na ordem. Explore o primeiro até ter clareza se foi feito e o que a pessoa percebeu; SÓ ENTÃO transicione explicitamente para o próximo ("Agora, sobre o outro foco da semana — [competência]…").
-- Não misture os dois numa pergunta só. Distribua os turnos: a primeira metade da conversa no 1º desafio, a segunda no 2º.
-- No fechamento, dê um veredito SEPARADO para cada desafio.` : ''}
+SEQUÊNCIA (semana com ${lista.length} tarefas, de competências diferentes):
+- Cobre as tarefas UMA DE CADA VEZ, na ordem, e NUNCA as duas na mesma pergunta.
+- A transição para a segunda é no TURNO 4 — nem antes, nem depois. Turnos 1-3 são do primeiro foco; 4-5, do segundo.
+- No fechamento, dê um veredito SEPARADO para cada tarefa.` : ''}${!multi && descritorSecundario ? `
+DOIS ASSUNTOS, UMA TAREFA:
+- A semana entregou dois conteúdos ("${descritorPrincipal}" e "${descritorSecundario}") e UMA tarefa, que serve aos dois.
+- Não trate isso como dois desafios: é uma situação só, olhada por dois ângulos. O segundo ângulo entra no TURNO 5.` : ''}
 
 ADAPTAÇÃO DE ESTILO POR DISC:
 - Tom: ${estilo.tom}
@@ -196,5 +285,5 @@ REGRAS DE USO DO GROUNDING:
     messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme as regras do TURN 1]' });
   }
 
-  return { system: systemComGrounding, systemSuffix: instrucaoTurn, messages };
+  return { system: systemComGrounding, systemSuffix: instrucaoTurn, messages, fechamentoSuffix: FECHAMENTO };
 }

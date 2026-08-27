@@ -157,6 +157,15 @@ export const DEGRADACAO = {
    * B5 da auditoria 22/08: antes, as sete escritas eram igualmente silenciosas.
    */
   CHAT_METADADO_NAO_GRAVADO: 'chat-metadado-nao-gravado',
+  /**
+   * conversa da semana: o teto de turnos foi atingido e a IA não fechou nem na
+   * segunda tentativa — a conversa é encerrada assim mesmo (não dá para deixar
+   * a pessoa presa num turno que não existe), mas o transcript provavelmente
+   * sai sem insight e sem compromisso, e é isso que o extrator consome.
+   * `aviso`: a semana conclui e a pessoa segue; o que degrada é a evidência.
+   * Ver lib/season-engine/fechamento-conversa.ts.
+   */
+  CONVERSA_SEM_FECHAMENTO: 'conversa-sem-fechamento',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

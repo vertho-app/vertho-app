@@ -13,6 +13,7 @@ import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-c
 import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine/progresso-semana';
 import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { TURNOS_IA_AVALIACAO_QUALITATIVA } from '@/lib/season-engine/week-gating';
+import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento } from '@/lib/season-engine/fechamento-conversa';
 import { buscarCenarioBComFallback } from '@/lib/season-engine/cenario-b';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
@@ -157,7 +158,7 @@ export async function POST(request) {
       const insightsAnterioresMask = (insightsAnteriores || []).map(i => maskTextPII(i, piiMapQ));
       const historicoMaskQ = historico.map(m => ({ ...m, content: maskTextPII(m.content, piiMapQ) }));
 
-      const { system, systemSuffix } = promptEvolutionQualitative({
+      const { system, systemSuffix, fechamentoSuffix } = promptEvolutionQualitative({
         nomeColab: colabMaskedQ.nome,
         cargo: colab?.cargo,
         perfilDominante: colab?.perfil_dominante,
@@ -171,11 +172,43 @@ export async function POST(request) {
         messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme o TURN 1]' });
       }
       let respostaIA = (await callAIChat(system, messages, {}, 4000, { taskKey: 'sem13_qualitativa', systemSuffix })).trim();
+
+      const finished = proximoTurnIA >= TOTAL;
+
+      /**
+       * REDE DE SEGURANÇA DO FECHAMENTO — a gêmea de `reflection/route.ts`.
+       * `finished` é contagem, e contagem não olha o que a IA escreveu: se o
+       * turno 12 saiu como pergunta, a tela dá a conversa por concluída em cima
+       * de uma pergunta sem resposta possível.
+       *
+       * `marcadores: false` porque o fechamento desta conversa é em PROSA
+       * (síntese + frase final, sem bullets) — aqui a régua é só não terminar
+       * perguntando.
+       */
+      if (finished && !pareceFechamento(respostaIA, { marcadores: false })) {
+        try {
+          const forcado = (await callAIChat(system, messages, {}, 4000, {
+            taskKey: 'sem13_qualitativa',
+            systemSuffix: fechamentoSuffix ? reforcoDeFechamento(fechamentoSuffix) : systemSuffix,
+          })).trim();
+          if (forcado && pareceFechamento(forcado, { marcadores: false })) respostaIA = forcado;
+        } catch (err: any) {
+          console.warn('[evaluation] fechamento forçado falhou:', err?.message);
+        }
+        if (!pareceFechamento(respostaIA, { marcadores: false })) {
+          after(() => registrarConversaSemFechamento(sb, {
+            empresaId: trilha.empresa_id,
+            colaboradorId: trilha.colaborador_id,
+            semana: Number(semana),
+            tipoConversa: 'sem13_qualitativa',
+            tentativas: 2,
+          }));
+        }
+      }
+
       // Despersonaliza output antes de persistir
       respostaIA = unmaskPII(respostaIA, piiMapQ);
       historico.push({ role: 'assistant', content: respostaIA, timestamp: new Date().toISOString(), turn: proximoTurnIA });
-
-      const finished = proximoTurnIA >= TOTAL;
       const novoSlot = { ...dados, transcript_completo: historico };
       if (finished) {
         // Extrai dados estruturados

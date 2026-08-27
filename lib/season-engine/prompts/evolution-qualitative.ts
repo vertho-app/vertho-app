@@ -247,7 +247,11 @@ ESTILO:
   // instrucao (volátil por turno) sai do system → systemSuffix, p/ o prefixo
   // estável ser cacheado e lido a 0,1× nos turnos 2..N. Output-neutral. Mantém
   // `instrucao` no retorno p/ compat (callers antigos ignoram).
-  return { system, systemSuffix: instrucao, instrucao };
+  //
+  // `fechamentoSuffix`: a instrução do ÚLTIMO turno, que a rota precisa saber
+  // pedir de novo quando bate no teto sem fechar (`fechamento-conversa.ts`).
+  const fechamentoSuffix = instrucaoPorTurn({ turnIA: totalTurns ?? 12, nomeColab, competencia, descritores });
+  return { system, systemSuffix: instrucao, instrucao, fechamentoSuffix };
 }
 
 /**

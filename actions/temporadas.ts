@@ -530,7 +530,7 @@ async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { co
           // Jornada: 1 tarefa por semana. Vem do CARIMBO da trilha (não do
           // sys_config atual da empresa) — trocar o modo da empresa não pode
           // mudar a entrega de quem já está no meio de uma trilha.
-          desafioUnicoPorSemana: getProgramaConfigDaTrilha(trilha).desafioUnicoPorSemana,
+          desafioUnicoPorCompetencia: getProgramaConfigDaTrilha(trilha).desafioUnicoPorCompetencia,
           // `colaboradorId` é o que LIGA o registro de degradação (entrega-semana.ts).
           // Só passa em semana já liberada: o overlay roda no plano INTEIRO (14
           // semanas) a cada leitura e a cada varredura de admin, e degradação em

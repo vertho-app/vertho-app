@@ -23,7 +23,24 @@ export function promptAnalytic({ nomeColab, cargo, competencia, descritoresCober
   const d2 = descritoresCobertos[1] || d1;
   const d3 = descritoresCobertos[2] || d2;
 
-  const instrucaoTurn: Record<number, string> = {
+  // Fechamento fora do mapa: é o único turno que a rota precisa saber pedir de
+  // novo quando a IA bate no teto sem fechar (ver `fechamento-conversa.ts`).
+  const FECHAMENTO = `TURN 10 — FECHAMENTO OBRIGATÓRIO (ENCERRA A CONVERSA).
+
+⚠️ A conversa termina NESTA mensagem — ${nomeColab} não poderá responder depois
+dela. NÃO faça pergunta, NÃO peça confirmação, NÃO proponha continuar.
+
+- Frase curta reconhecendo o esforço (genuíno, sem elogio vazio).
+- Síntese analítica em 3 bullets:
+
+✅ **O que sua resposta já mostra**: [pontos concretos que apareceram]
+🔍 **O que ficou pouco sustentado**: [lacunas ou fragilidades identificadas]
+🎯 **Próximo ponto para fortalecer**: [1 aspecto específico para desenvolver]
+
+- NÃO dê gabarito. NÃO diga "a resposta ideal seria...".
+- Máximo 150 palavras totais.`;
+
+  const roteiro: Record<number, string> = {
     1: `TURN 1 — O QUE APARECEU NA RESPOSTA.
 - Acuse recebimento da resposta de ${nomeColab}.
 - Destaque 1-2 pontos que efetivamente APARECERAM na resposta (cite trechos/ideias literais).
@@ -76,18 +93,9 @@ export function promptAnalytic({ nomeColab, cargo, competencia, descritoresCober
 - "Olhando pra resposta como um todo, o que você fortaleceria?"
 - 1 pergunta ABERTA, sem julgamento. Máximo 80 palavras.`,
 
-    10: `TURN 10 — FECHAMENTO OBRIGATÓRIO (ENCERRA A CONVERSA).
-- Frase curta reconhecendo o esforço (genuíno, sem elogio vazio).
-- Síntese analítica em 3 bullets:
-
-✅ **O que sua resposta já mostra**: [pontos concretos que apareceram]
-🔍 **O que ficou pouco sustentado**: [lacunas ou fragilidades identificadas]
-🎯 **Próximo ponto para fortalecer**: [1 aspecto específico para desenvolver]
-
-- NÃO dê gabarito. NÃO diga "a resposta ideal seria...".
-- NÃO faça perguntas. NÃO peça confirmação.
-- Máximo 150 palavras totais.`,
-  }[turnIA] || '';
+    10: FECHAMENTO,
+  };
+  const instrucaoTurn: string = turnIA >= 10 ? FECHAMENTO : roteiro[turnIA] || '';
 
   const system = `Você é um avaliador-mentor da Vertho que conduz uma conversa de feedback analítico sobre a resposta de um colaborador a um cenário escrito.
 
@@ -152,5 +160,5 @@ ${instrucaoTurn}`;
   if (turnIA === 1 && messages.length === 0) {
     messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme as regras do TURN 1]' });
   }
-  return { system, messages };
+  return { system, messages, fechamentoSuffix: FECHAMENTO };
 }

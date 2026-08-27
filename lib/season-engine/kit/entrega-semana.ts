@@ -10,6 +10,7 @@
 import { resolverDesafioDoKit, cargoServe } from './desafio-semana';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { normDescritor } from '@/lib/blueprint/to-descriptors';
+import { normalizarComp } from '@/lib/workshop-competencias';
 
 const FMTS = ['video', 'audio', 'texto', 'case'] as const;
 export type Formato = (typeof FMTS)[number];
@@ -192,23 +193,115 @@ export async function precarregarKits(
 }
 
 /**
- * Deixa a semana com UM desafio só (jornada): mantém o da primeira entrega que
- * REALMENTE tem desafio e limpa o das demais — conteúdo, formatos e vídeo
- * seguem intactos, porque o que ficou único é a tarefa, não a pílula.
+ * Deixa a semana com UM desafio POR COMPETÊNCIA: mantém o da primeira entrega
+ * que REALMENTE tem desafio em cada competência e limpa o das outras entregas
+ * daquela mesma competência — conteúdo, formatos e vídeo seguem intactos,
+ * porque o que ficou único é a tarefa, não a pílula.
  *
  * "A primeira que tem" e não "a primeira": se o kit da entrega 1 não estiver
  * publicado e o da 2 estiver, escolher cegamente a 1 deixaria a semana SEM
  * tarefa nenhuma — a falha silenciosa clássica desta camada, que já custou 29
  * leituras no genérico com kit na prateleira (29/07).
+ *
+ * 🔴 Por COMPETÊNCIA, e não por semana (27/08/2026). A jornada entrega 2
+ * descritores da MESMA competência — 228 de 228 semanas de conteúdo em macae —
+ * e ali uma tarefa só é o desenho. Mas no `regular_duo` **92 das 324** semanas
+ * de conteúdo de ibipeba trazem 2 competências DISTINTAS: unificar por semana
+ * apagaria a tarefa de uma competência inteira, que continua contando na régua
+ * de nível. Entrega sem `competencia` cai numa chave só — o comportamento
+ * anterior, preservado.
  */
 export function manterUmDesafio(entregas: any[]): void {
   const CAMPOS = ['desafio_texto', 'acao_observavel', 'criterio_de_execucao'] as const;
-  const principal = entregas.findIndex((e) => e?.conteudo?.desafio_texto);
-  if (principal < 0) return; // nenhuma tem desafio: não há o que unificar
-  entregas.forEach((e, i) => {
-    if (i === principal || !e?.conteudo) return;
+  const jaTemTarefa = new Set<string>();
+  for (const e of entregas) {
+    if (!e?.conteudo?.desafio_texto) continue;
+    const chave = normalizarComp(e.competencia);
+    if (!jaTemTarefa.has(chave)) { jaTemTarefa.add(chave); continue; }
     for (const campo of CAMPOS) delete e.conteudo[campo];
-  });
+  }
+}
+
+export interface DesafioDaSemana {
+  competencia: string;
+  descritor: string | null;
+  desafio_texto: string;
+  acao_observavel?: string;
+  criterio_de_execucao?: string;
+}
+
+/**
+ * Fonte ÚNICA de "quais são as TAREFAS desta semana" para quem não passa pelo
+ * overlay completo do plano: a conversa de Evidências e a cobrança de quinta no
+ * WhatsApp. A tela usa `overlayKitNaSemana`, que aplica a mesma
+ * `manterUmDesafio` — as três portas passam a responder o mesmo.
+ *
+ * 🔴 Por que existe (medido 27/08/2026). Cada uma das três montava a lista por
+ * conta própria: a tela via 1 tarefa (overlay + flag), o cron juntava as 2 com
+ * `\n\n` e a conversa resolvia o kit entrega por entrega. Em macae, onde
+ * `desafioUnicoPorCompetencia` já estava LIGADO, a pessoa lia uma tarefa na
+ * tela, recebia duas no WhatsApp e era cobrada nas duas na conversa — **6 das
+ * 19** conversas concluídas de lá terminaram com a IA abrindo, no último turno,
+ * um segundo desafio que a tela nunca mostrou. O flag existia e era obedecido
+ * por um consumidor só.
+ *
+ * ⚠️ `cargo` não é opcional por capricho: `resolverDesafioDoKit` trata cargo
+ * vazio como CURINGA (`cargoServe`), então quem não o passa aceita o kit de
+ * outro cargo — o que a tela barra desde 29/07. A conversa vinha resolvendo sem
+ * ele.
+ */
+export async function resolverDesafiosDaSemana(
+  sb: any,
+  semanaPlan: any,
+  args: {
+    empresaId: string | null;
+    disc: string | null;
+    cargo?: string | null;
+    /** Competência da trilha — usada quando a entrega não traz a dela. */
+    competenciaFallback?: string | null;
+    desafioUnicoPorCompetencia?: boolean;
+  },
+): Promise<DesafioDaSemana[]> {
+  const disc = String(args.disc || '').trim().charAt(0).toUpperCase();
+  const temDisc = ['D', 'I', 'S', 'C'].includes(disc);
+  const entradas: any[] = Array.isArray(semanaPlan?.conteudos_dia) && semanaPlan.conteudos_dia.length
+    ? semanaPlan.conteudos_dia
+    : [{ competencia: args.competenciaFallback, descritor: semanaPlan?.descritor, conteudo: semanaPlan?.conteudo }];
+
+  // Shape `{ competencia, conteudo }` de propósito: é o que `manterUmDesafio`
+  // recebe do overlay. Régua repetida aqui voltaria a divergir da tela.
+  const entregas = await Promise.all(entradas.map(async (e: any) => {
+    const competencia = e?.competencia || args.competenciaFallback || '';
+    const descritor = e?.descritor ?? null;
+    const kit = temDisc
+      ? await resolverDesafioDoKit(sb, { empresaId: args.empresaId, competencia, descritor, disc, cargo: args.cargo }).catch(() => null)
+      : null;
+    const conteudo: Record<string, any> = {};
+    // Kit inteiro ou conteúdo inteiro — nunca o texto de um com o critério do
+    // outro, que é o que sai de um `||` campo a campo.
+    if (kit?.desafio_texto) {
+      conteudo.desafio_texto = kit.desafio_texto;
+      if (kit.acao_observavel) conteudo.acao_observavel = kit.acao_observavel;
+      if (kit.criterio_de_execucao) conteudo.criterio_de_execucao = kit.criterio_de_execucao;
+    } else if (e?.conteudo?.desafio_texto) {
+      conteudo.desafio_texto = e.conteudo.desafio_texto;
+      if (e.conteudo.acao_observavel) conteudo.acao_observavel = e.conteudo.acao_observavel;
+      if (e.conteudo.criterio_de_execucao) conteudo.criterio_de_execucao = e.conteudo.criterio_de_execucao;
+    }
+    return { competencia, descritor, conteudo };
+  }));
+
+  if (args.desafioUnicoPorCompetencia) manterUmDesafio(entregas);
+
+  return entregas
+    .filter((e) => e.conteudo?.desafio_texto)
+    .map((e) => ({
+      competencia: e.competencia,
+      descritor: e.descritor,
+      desafio_texto: e.conteudo.desafio_texto as string,
+      acao_observavel: e.conteudo.acao_observavel as string | undefined,
+      criterio_de_execucao: e.conteudo.criterio_de_execucao as string | undefined,
+    }));
 }
 
 /** Aplica o kit num objeto `conteudo` (mutação): formatos + core preferido + desafio. */
@@ -288,7 +381,7 @@ export async function overlayKitNaSemana(
      * Sem o flag, nada muda — os modos de 14 semanas seguem com um desafio
      * por entrega, que é como as 47 trilhas em andamento foram geradas.
      */
-    desafioUnicoPorSemana?: boolean;
+    desafioUnicoPorCompetencia?: boolean;
   },
 ) {
   if (!semanaPlan || semanaPlan.tipo !== 'conteudo') return;
@@ -296,7 +389,7 @@ export async function overlayKitNaSemana(
     for (const e of semanaPlan.conteudos_dia) {
       await overlayConteudo(sb, e.conteudo, { empresaId: args.empresaId, competencia: e.competencia || args.competenciaFoco, descritor: e.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, kitsCache: args.kitsCache, colaboradorId: args.colaboradorId, semana: semanaPlan.semana });
     }
-    if (args.desafioUnicoPorSemana) manterUmDesafio(semanaPlan.conteudos_dia);
+    if (args.desafioUnicoPorCompetencia) manterUmDesafio(semanaPlan.conteudos_dia);
   } else {
     await overlayConteudo(sb, semanaPlan.conteudo, { empresaId: args.empresaId, competencia: args.competenciaFoco, descritor: semanaPlan.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, kitsCache: args.kitsCache, colaboradorId: args.colaboradorId, semana: semanaPlan.semana });
   }

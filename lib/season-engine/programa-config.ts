@@ -133,11 +133,18 @@ export interface ProgramaConfig {
    */
   semanaEspelhoCalendario?: Record<number, number>;
   /**
-   * Jornada: a semana entrega 2 pílulas mas UMA tarefa. O overlay do kit passa
-   * a manter o desafio de uma entrega só (a primeira que tiver kit publicado).
-   * undefined/false = um desafio por entrega, como nos modos de 14 semanas.
+   * A semana entrega N pílulas mas UMA tarefa POR COMPETÊNCIA. O overlay do kit
+   * mantém o desafio de uma entrega por competência (a primeira que tiver kit
+   * publicado) e limpa o das outras entregas da mesma competência.
+   * undefined/false = um desafio por entrega.
+   *
+   * Chamava-se `desafioUnicoPorSemana` até 27/08/2026, quando a régua passou a
+   * ser por competência — renomeada porque nome que descreve o mecanismo
+   * antigo é como um flag passa a mentir. Nenhuma trilha tinha
+   * `programa_config` carimbado (0 de 75), então não há snapshot com a chave
+   * velha para migrar.
    */
-  desafioUnicoPorSemana?: boolean;
+  desafioUnicoPorCompetencia?: boolean;
   /**
    * Arguição conversacional no fechamento (a "defesa oral" da resposta ao
    * Cenário B). Depois das 4 perguntas fixas, a IA sonda a resposta por até
@@ -255,6 +262,19 @@ export const PROGRAMA_REGULAR_DUO: ProgramaConfig = Object.freeze({
   // Fase D+ (03/07): arguição LIGADA no Regular DUO (default global) — validada
   // no piloto. Onboarding segue OFF (modo à parte; ligar sob demanda).
   arguicao: { ativa: true, maxTurnos: 8 },
+  /**
+   * 🔴 LIGADO em 27/08/2026 (decisão do Rodrigo). As semanas do DUO entregam 2
+   * pílulas, e **232 das 324** semanas de conteúdo de ibipeba trazem os dois
+   * descritores da MESMA competência — duas tarefas para o mesmo tema, cobradas
+   * na mesma conversa de 6 turnos. Medido nas 65 conversas concluídas de lá:
+   * **39 terminaram com a IA abrindo o segundo desafio no turno 6** e sendo
+   * cortada pelo contador; só 13 chegaram ao bloco de fechamento.
+   *
+   * A unificação é por COMPETÊNCIA e não por semana (ver `manterUmDesafio`):
+   * as outras 92 semanas do DUO trazem 2 competências distintas e continuam com
+   * uma tarefa cada, porque as duas contam na régua de nível.
+   */
+  desafioUnicoPorCompetencia: true,
 }) as ProgramaConfig;
 
 /**
@@ -330,7 +350,7 @@ export const PROGRAMA_JORNADA: ProgramaConfig = Object.freeze({
   nivelMetaAlvo: 3,
   numCompetencias: 1,
   conteudosPorSemana: 2,
-  desafioUnicoPorSemana: true,
+  desafioUnicoPorCompetencia: true,
   arguicao: { ativa: true, maxTurnos: 6 },
 }) as ProgramaConfig;
 

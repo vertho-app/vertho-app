@@ -85,7 +85,7 @@ async function main() {
       kitsCache: await precarregarKits(sb, {
         empresaId, disc: (colab as any).perfil_dominante, cargo: (colab as any).cargo,
       }),
-      desafioUnicoPorSemana: getProgramaConfigDaTrilha(trilha as any).desafioUnicoPorSemana,
+      desafioUnicoPorCompetencia: getProgramaConfigDaTrilha(trilha as any).desafioUnicoPorCompetencia,
     });
 
     const itens = Array.isArray(copia.conteudos_dia) && copia.conteudos_dia.length
