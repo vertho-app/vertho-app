@@ -13,6 +13,7 @@ import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado, anteciparInicioTemporada, prepararEntregasJornada, gerarTemporada, verificarProntidaoPiloto } from '@/actions/temporadas';
 import { simularUmaSemanaSimulacao } from '@/actions/simulador-temporada';
 import { getSupabase } from '@/lib/supabase-browser';
+import { rotuloOrigemCompromisso } from '@/lib/season-engine/compromisso';
 
 const STATUS_COLORS = {
   ativa: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -710,7 +711,18 @@ function SemanaDetalhe({ semana, progresso }) {
                 </div>
               )}
               {p.reflexao.insight_principal && <Block titulo={t('detail.insight')} content={p.reflexao.insight_principal} />}
-              {p.reflexao.compromisso_proxima && <Block titulo={t('detail.commitment')} content={p.reflexao.compromisso_proxima} />}
+              {/* Origem junto do texto — ver o comentário longo em
+                  lib/season-engine/compromisso.ts: o campo carregava compromisso
+                  da pessoa, compromisso do mentor e "não houve nenhum" no mesmo
+                  lugar, e este bloco exibia os três igual. */}
+              {p.reflexao.compromisso_proxima && (
+                <Block
+                  titulo={t('detail.commitment')}
+                  content={rotuloOrigemCompromisso(p.reflexao.compromisso_origem)
+                    ? `${p.reflexao.compromisso_proxima} (${rotuloOrigemCompromisso(p.reflexao.compromisso_origem)})`
+                    : p.reflexao.compromisso_proxima}
+                />
+              )}
               {p.reflexao.limites_da_conversa?.length > 0 && (
                 <div className="text-[10px] text-amber-400/70">{p.reflexao.limites_da_conversa.join(' · ')}</div>
               )}

@@ -12,6 +12,7 @@ import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { resolverDesafiosDaSemana } from '@/lib/season-engine/kit/entrega-semana';
 import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento } from '@/lib/season-engine/fechamento-conversa';
+import { normalizarCompromisso } from '@/lib/season-engine/compromisso';
 import { MAX_TURNS_SOCRATIC, MAX_TURNS_ANALYTIC, MAX_TURNS_MISSAO_FEEDBACK } from '@/lib/season-engine/week-gating';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { deveEncerrarSemFechamento, montarReportDegustacao } from '@/lib/season-engine/programa-custom';
@@ -49,6 +50,7 @@ function validateExtracaoSocratic(parsed: any): any {
   if (!parsed.relato_resumo || typeof parsed.relato_resumo !== 'string') parsed.relato_resumo = '';
   if (!parsed.insight_principal || typeof parsed.insight_principal !== 'string') parsed.insight_principal = '';
   if (!parsed.compromisso_proxima || typeof parsed.compromisso_proxima !== 'string') parsed.compromisso_proxima = '';
+  normalizarCompromisso(parsed);
   if (parsed.citacao_chave !== null && typeof parsed.citacao_chave !== 'string') parsed.citacao_chave = null;
   if (!parsed.sinais_extraidos || typeof parsed.sinais_extraidos !== 'object') {
     parsed.sinais_extraidos = { exemplo_concreto: false, autopercepcao: false, compromisso_especifico: false, conexao_com_pratica: false };
@@ -182,7 +184,8 @@ EXTRAIA com base EXCLUSIVA na conversa:
   ${avaliacaoField}
   "relato_resumo": "síntese curta e fiel do que o colaborador relatou",
   "insight_principal": "principal percepção emergente — só se apareceu de fato",
-  "compromisso_proxima": "compromisso plausível assumido — só se foi dito",
+  "compromisso_proxima": "APENAS o texto do compromisso, na voz de quem vai cumprir. String VAZIA se não houver — nunca explique aqui por que não houve",
+  "compromisso_origem": "colaborador|ia|ausente",
   "qualidade_reflexao": "alta|media|baixa",
   "citacao_chave": "trecho curto mais relevante da fala do colaborador, ou null se nada relevante",
   "sinais_extraidos": {
@@ -200,6 +203,8 @@ REGRAS:
 - apareceu: false quando a conversa NÃO trouxe nada sobre aquele assunto. Isso é um resultado válido e esperado; forçar uma leitura para preencher é o pior erro possível aqui, porque ela vira evidência no fechamento.
 - Quando apareceu=false, deixe observacao e trecho_sustentador vazios e use "limite" para dizer o que faltaria perguntar.` : `
 - avaliacao_por_descritor: leitura do assunto da semana pelo que a conversa sustenta; apareceu=false se a conversa não trouxe nada sobre ele.`}
+- compromisso_origem: "colaborador" se a PESSOA disse o que vai fazer; "ia" se quem propôs foi o mentor no fechamento e ela não chegou a assumir; "ausente" se não há compromisso nenhum.
+- ⚠️ compromisso_proxima é SÓ O TEXTO DO COMPROMISSO. Se não houve, devolva "" e marque a origem — NÃO escreva ali frases como "nenhum compromisso foi assumido": esse campo é exibido ao RH como se fosse o compromisso da pessoa, e a explicação vira a promessa.
 - qualidade_reflexao: alta = reflexão profunda com exemplo concreto e insight genuíno; media = reflexão superficial sem detalhe prático; baixa = respostas genéricas ou monossilábicas
 - citacao_chave: trecho curto que melhor sustenta a leitura de qualidade — se a conversa for muito rasa, use null
 - sinais_extraidos: marque true somente se apareceu de forma concreta

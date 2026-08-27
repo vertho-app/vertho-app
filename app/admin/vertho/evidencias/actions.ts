@@ -114,6 +114,9 @@ export async function loadEvidenciaDetalhe(progressoId) {
         desafio_realizado: ref.desafio_realizado,
         qualidade_reflexao: ref.qualidade_reflexao,
         compromisso_proxima: ref.compromisso_proxima,
+        // A ORIGEM viaja junto: sem ela a tela volta a tratar "proposto pelo
+        // mentor" e "assumido pela pessoa" como a mesma coisa.
+        compromisso_origem: ref.compromisso_origem ?? null,
         relato_resumo: ref.relato_resumo,
       },
       transcript: Array.isArray(ref.transcript_completo) ? ref.transcript_completo : [],

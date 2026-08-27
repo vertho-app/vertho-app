@@ -8,6 +8,7 @@ import { Loader2, Sparkles, ChevronRight, X } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { listarEvidencias, loadEvidenciaDetalhe } from './actions';
+import { rotuloOrigemCompromisso } from '@/lib/season-engine/compromisso';
 
 const QUALIDADE_COR = {
   alta: 'text-emerald-300',
@@ -182,7 +183,26 @@ function DetalheModal({ detalhe, loading, onClose, t }) {
                 )}
                 {detalhe.extracao.relato_resumo && <p className="text-gray-300">📝 {detalhe.extracao.relato_resumo}</p>}
                 {detalhe.extracao.insight_principal && <p className="text-emerald-200">💡 {detalhe.extracao.insight_principal}</p>}
-                {detalhe.extracao.compromisso_proxima && <p className="text-cyan-200">🎯 {detalhe.extracao.compromisso_proxima}</p>}
+                {/*
+                  O selo de ORIGEM (27/08/2026): o campo carregava três coisas —
+                  compromisso da pessoa, compromisso proposto pelo mentor no
+                  fechamento, e meta-observação dizendo que não houve nenhum. Os
+                  três saíam aqui com o mesmo 🎯, e quem lê é o RH. Censo das 88
+                  conversas: 20 reais, 16 meta-observação, 52 vazias.
+                */}
+                {detalhe.extracao.compromisso_proxima && (
+                  <p className="text-cyan-200">
+                    🎯 {detalhe.extracao.compromisso_proxima}
+                    {rotuloOrigemCompromisso(detalhe.extracao.compromisso_origem) && (
+                      <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-300/80">
+                        ({rotuloOrigemCompromisso(detalhe.extracao.compromisso_origem)})
+                      </span>
+                    )}
+                  </p>
+                )}
+                {!detalhe.extracao.compromisso_proxima && detalhe.extracao.compromisso_origem === 'ausente' && (
+                  <p className="text-gray-500 text-xs">🎯 A conversa terminou sem compromisso assumido.</p>
+                )}
               </div>
             </section>
 
