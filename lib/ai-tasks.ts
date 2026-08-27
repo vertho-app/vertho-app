@@ -104,6 +104,11 @@ export const AI_TASKS = [
   { key: 'acumulada_check', label: 'Avaliação acumulada — check (dual)', fase: 'Temporadas' },
   { key: 'kit_nucleo', label: 'Kit — núcleo conceitual do tema', fase: 'Kit' },
   { key: 'kit_desafio', label: 'Kit — desafio da semana', fase: 'Kit' },
+  // A tarefa integrada quando a semana entrega 2 descritores da MESMA
+  // competência (27/08/2026). É task à parte de `kit_desafio` de propósito: o
+  // custo dela tem outro denominador — a matriz por PAR é ~2,5× a por descritor
+  // — e misturar as duas no ledger esconderia justamente isso.
+  { key: 'kit_desafio_semana', label: 'Kit — tarefa da semana (2 descritores)', fase: 'Kit' },
   { key: 'conteudo_layout_plan', label: 'Conteúdo — plano de layout do PDF', fase: 'Conteúdos' },
   { key: 'conteudo_expansao_pdf', label: 'Conteúdo — expansão para o PDF', fase: 'Conteúdos' },
   { key: 'escola_brief', label: 'Brief da escola (contexto institucional)', fase: 'Conteúdos' },

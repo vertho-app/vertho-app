@@ -892,6 +892,60 @@ cenários; `--forcar-rede` exercita a segunda chamada, que também fechou).
 ⚠️ **O que isto NÃO prova:** o simulador responde melhor que gente real, e o denominador foi 6. A
 medição que vale é a de produção, refeita depois do deploy — a mesma query do quadro acima.
 
+### F-I26 · O segundo descritor da semana chegava ao fechamento sem evidência nenhuma ✅ (corrigido 27/08)
+
+**Gatilho:** `evidencias-fechamento.ts` e `avaliacao-acumulada-core.ts` creditavam a evidência da
+semana de conteúdo ao `descritor` principal do slot. Creditar os dois dependia de
+`evidenciaPorCobertos`, que valia `programaConfig.modo === 'piloto'` — **só na degustação**.
+
+🔑 **`Medido:` macae (jornada, 38 trilhas):** dos **364** pares trilha×descritor selecionados,
+**136 (37%)** chegavam ao fechamento com `"(sem evidência registrada nas N semanas)"`. São os
+segundos descritores de cada semana, e a jornada não tem semana de missão (`semanasMissao: []`)
+que os alcance por outro caminho. O denominador importa: não é um caso — é mais de um terço da
+régua que a acumulada avalia, chegando lá sem nada para ler.
+
+E mesmo onde creditava os dois, empurrava **a mesma linha** (mesmo insight, mesmo veredito) para
+ambos: isso não é avaliar dois descritores, é repetir um — e a acumulada lê repetição como
+confirmação. A régua vivia em DUAS cópias, com formatação diferente e o mesmo defeito.
+
+**Correção:**
+1. `lib/season-engine/evidencia-semana.ts::linhasDaReflexaoSemanal` é fonte única das duas.
+2. O extrator socrático passa a emitir `avaliacao_por_descritor` — a MESMA estrutura que as
+   semanas de aplicação já produziam, com duas diferenças deliberadas: **sem `nota`** (conversa de
+   reflexão não é avaliação formal; nota aqui seria segunda régua ao lado de `nivelDaNota`) e
+   **com `apareceu`** ("não apareceu na conversa" é resultado legítimo e precisa ser distinguível
+   de "apareceu fraco"). `apareceu` só é `true` com `=== true`: default verdadeiro faria item
+   malformado virar evidência positiva.
+3. Transcript antigo (as 86 conversas já concluídas) cai na leitura da semana creditada a todos os
+   cobertos, e **a linha diz que é leitura da semana** — impreciso, mas dito; "sem evidência" faz a
+   acumulada avaliar no vácuo um descritor que foi trabalhado.
+4. `evidenciaPorCobertos` foi REMOVIDO, não deixado como parâmetro ignorado — flag que não decide
+   mais nada é como a régua velha reaparece.
+
+### F-I27 · A tarefa da semana era do PRIMEIRO descritor, não dos dois ✅ (corrigido 27/08)
+
+**Gatilho:** o kit é idempotente por (empresa × competência × **descritor** × nível × cargo ×
+contexto), então "uma tarefa por competência" (F-I25) apenas ESCOLHIA uma das duas. O segundo
+assunto era entregue como conteúdo e nunca cobrado como prática.
+
+**Correção:** `kit_desafios_semana` (migration 232) guarda a tarefa escrita olhando os DOIS núcleos,
+por (empresa × competência × par ORDENADO × cargo × DISC). `resolverDesafiosDaSemana` a prefere;
+sem ela, fica a do descritor principal e a degradação vai para o `degradacao_log`
+(`desafio-par-ausente`).
+
+⚠️ **O custo cresce mal, e isso está registrado na migration:** a matriz por PAR é ~2,5× a por
+descritor (ibipeba: 37 descritores → **251 pares**), porque o par vem do blueprint de CADA pessoa.
+Kit por descritor é reaproveitado entre pessoas; kit por par quase não é. Por isso a geração é um
+passo declarado (`scripts/_gerar-desafios-par.ts`, que **exige `--executar`** e imprime o
+denominador antes), e **nunca na leitura**: uma chamada de IA no caminho de quem abriu a conversa
+seria latência imprevisível e custo não planejado.
+
+🔴 **Duas armadilhas que só apareceram na primeira execução real:**
+- `.eq('descritores_norm', ['a','b'])` serializa como `a,b` e o Postgres responde `malformed array
+  literal`. Nenhum typecheck pega — o supabase-js aceita o array. Corrigido em `arrayLiteralPg`.
+- `empresa_id` é `NOT NULL` de propósito: `UNIQUE` com coluna nula não impede duplicata (NULL nunca
+  é igual a NULL), a mesma família do índice parcial que já quebrou upsert aqui (`42P10`).
+
 ### F-C12 · Cota de retentativa consumida por avaria do CANAL torna o resgate inalcançável ✅ (corrigido 19/08, `984607e3`)
 
 **Gatilho:** `lib/conarh/reenvio-t0.ts:33,124` — `MAX_TENTATIVAS_AUTOMATICAS = 10` +

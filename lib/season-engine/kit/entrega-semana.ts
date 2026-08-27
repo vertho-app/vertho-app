@@ -11,6 +11,7 @@ import { resolverDesafioDoKit, cargoServe } from './desafio-semana';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { normDescritor } from '@/lib/blueprint/to-descriptors';
 import { normalizarComp } from '@/lib/workshop-competencias';
+import { resolverDesafioDaSemana, chaveDoPar } from './desafio-par';
 
 const FMTS = ['video', 'audio', 'texto', 'case'] as const;
 export type Formato = (typeof FMTS)[number];
@@ -260,6 +261,13 @@ export async function resolverDesafiosDaSemana(
     /** Competência da trilha — usada quando a entrega não traz a dela. */
     competenciaFallback?: string | null;
     desafioUnicoPorCompetencia?: boolean;
+    /**
+     * Só passe em semana já LIBERADA: é ele que liga o registro de degradação
+     * quando a tarefa do par ainda não existe. Sem ele, nada é registrado — a
+     * mesma disciplina do overlay, que não conta varredura de admin como
+     * experiência de alguém.
+     */
+    colaboradorId?: string | null;
   },
 ): Promise<DesafioDaSemana[]> {
   const disc = String(args.disc || '').trim().charAt(0).toUpperCase();
@@ -291,7 +299,10 @@ export async function resolverDesafiosDaSemana(
     return { competencia, descritor, conteudo };
   }));
 
-  if (args.desafioUnicoPorCompetencia) manterUmDesafio(entregas);
+  if (args.desafioUnicoPorCompetencia) {
+    manterUmDesafio(entregas);
+    await aplicarDesafioDoPar(sb, entregas, args);
+  }
 
   return entregas
     .filter((e) => e.conteudo?.desafio_texto)
@@ -302,6 +313,75 @@ export async function resolverDesafiosDaSemana(
       acao_observavel: e.conteudo.acao_observavel as string | undefined,
       criterio_de_execucao: e.conteudo.criterio_de_execucao as string | undefined,
     }));
+}
+
+/**
+ * Troca a tarefa da competência pela do PAR, quando a semana entrega 2+
+ * descritores dela e a peça já foi gerada (`kit_desafios_semana`).
+ *
+ * Sem a peça, fica o que `manterUmDesafio` deixou: o desafio do descritor
+ * principal — a tarefa fala de um assunto e a semana entregou dois. Isso é
+ * degradação de verdade e vai para o `degradacao_log`, não para um `console.warn`.
+ *
+ * ⚠️ Só LÊ. A geração é do lote/fluxo de kit (`gerarDesafioDaSemana`): pôr uma
+ * chamada de IA aqui colocaria latência imprevisível no caminho de quem abriu a
+ * conversa, e o custo da matriz de pares é grande (ver migration 232).
+ */
+async function aplicarDesafioDoPar(
+  sb: any,
+  entregas: { competencia: string; descritor: string | null; conteudo: Record<string, any> }[],
+  args: { empresaId: string | null; disc: string | null; cargo?: string | null; colaboradorId?: string | null },
+): Promise<void> {
+  if (!sb || !args.empresaId) return;
+
+  // Descritores por competência, na ordem em que a semana os entrega.
+  const porComp = new Map<string, { competencia: string; descritores: string[] }>();
+  for (const e of entregas) {
+    const k = normalizarComp(e.competencia);
+    if (!porComp.has(k)) porComp.set(k, { competencia: e.competencia, descritores: [] });
+    if (e.descritor) porComp.get(k)!.descritores.push(e.descritor);
+  }
+
+  for (const [k, grupo] of porComp) {
+    if (chaveDoPar(grupo.descritores).length < 2) continue;
+    // A entrega que ficou com a tarefa desta competência (a que `manterUmDesafio` manteve).
+    const alvo = entregas.find((e) => normalizarComp(e.competencia) === k && e.conteudo?.desafio_texto);
+    if (!alvo) continue;
+
+    let doPar = null;
+    try {
+      doPar = await resolverDesafioDaSemana(sb, {
+        empresaId: args.empresaId, competencia: grupo.competencia,
+        descritores: grupo.descritores, disc: args.disc, cargo: args.cargo,
+      });
+    } catch (err: any) {
+      // Falha de LEITURA (não "não existe"): mantém a tarefa do principal e
+      // registra. Silenciar aqui seria o F-C4 de novo.
+      console.warn('[desafio-par] leitura falhou:', err?.message);
+    }
+
+    if (doPar?.desafio_texto) {
+      alvo.conteudo.desafio_texto = doPar.desafio_texto;
+      alvo.conteudo.acao_observavel = doPar.acao_observavel || alvo.conteudo.acao_observavel;
+      alvo.conteudo.criterio_de_execucao = doPar.criterio_de_execucao || alvo.conteudo.criterio_de_execucao;
+      continue;
+    }
+
+    // `colaboradorId` só vem de quem sabe que a semana é entrega REAL — mesma
+    // disciplina do overlay, que não registra degradação de semana futura
+    // (622 de 622 ocorrências eram varredura de admin, em 04/08).
+    if (args.colaboradorId) {
+      await registrarDegradacao({
+        fluxo: 'overlay',
+        tipo: DEGRADACAO.DESAFIO_PAR_AUSENTE,
+        chave: `${args.empresaId}:${grupo.competencia}:${chaveDoPar(grupo.descritores).join('+')}:${String(args.disc || '').charAt(0).toUpperCase()}`,
+        empresaId: args.empresaId,
+        colaboradorId: args.colaboradorId,
+        severidade: 'aviso',
+        detalhe: { competencia: grupo.competencia, descritores: grupo.descritores, cargo: args.cargo ?? null },
+      }, sb);
+    }
+  }
 }
 
 /** Aplica o kit num objeto `conteudo` (mutação): formatos + core preferido + desafio. */

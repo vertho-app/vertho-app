@@ -306,6 +306,7 @@ export async function triggerQuinta() {
               cargo: (envio.colaboradores as any).cargo,
               competenciaFallback: trilha?.competencia_foco,
               desafioUnicoPorCompetencia: getProgramaConfigDaTrilha(trilha as any).desafioUnicoPorCompetencia,
+              colaboradorId: envio.colaborador_id,
             });
             desafioTexto = desafios.map((d) => d.desafio_texto).join('\n\n');
           }

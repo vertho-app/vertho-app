@@ -118,7 +118,6 @@ export async function regerarScoringComFeedback(progressoId) {
   // as semanas certas do modo (antes: 13 HARDCODED, quebraria piloto/onboarding)
   // e a herdar trava/spec_version/notaPrograma do núcleo no piloto.
   const programaConfig = await resolverConfigDaTrilha(sb, trilha);
-  const isPiloto = programaConfig.modo === 'piloto';
   const competenciasLabel = Array.isArray(trilha.competencias_foco) && trilha.competencias_foco.length > 1
     ? trilha.competencias_foco.join(' + ')
     : trilha.competencia_foco;
@@ -135,7 +134,7 @@ export async function regerarScoringComFeedback(progressoId) {
     .select('feedback').eq('trilha_id', trilha.id).eq('semana', programaConfig.semanaAcumulada).maybeSingle();
   const acumuladoPrimaria = normalizarAcumuladoPrimaria(progAcum?.feedback?.acumulado);
   const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(
-    sb, trilha.id, descritoresComRegua, programaConfig.semanaAcumulada, isPiloto,
+    sb, trilha.id, descritoresComRegua, programaConfig.semanaAcumulada,
   );
 
   // Feedback da auditoria anterior como instrução extra (2ª rodada)

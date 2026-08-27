@@ -305,7 +305,7 @@ export async function POST(request) {
 
         // Agrega evidências de TODAS as semanas até a acumulada. A nota_pos NUNCA
         // sai só do cenário. Piloto: a reflexão da semana evidencia os 2 descritores.
-        const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, semAcumulada, programaConfig.modo === 'piloto');
+        const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, semAcumulada);
 
         // PII masking pra chamadas IA externas (map compartilhado do bloco).
         const respostaMasked = maskTextPII(respostaAgregada, piiMap);

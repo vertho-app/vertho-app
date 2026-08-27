@@ -8,6 +8,7 @@ import { parseJsonIA } from '@/lib/ai-json';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { getModelForTask } from '@/lib/ai-tasks';
 import { PROGRESSO } from '@/lib/status';
+import { linhasDaReflexaoSemanal } from '@/lib/season-engine/evidencia-semana';
 
 /**
  * Núcleo HEADLESS da avaliação acumulada — SEM gate de auth e SEM endpoint HTTP.
@@ -67,15 +68,10 @@ export async function gerarAvaliacaoAcumuladaCore(trilhaId: string, opts?: { emp
   let primariaRet: any = null;
   let auditoriaRet: any = null;
 
-  // Piloto: as semanas de conteúdo têm 2 descritores (conteudos_dia) — a
-  // evidência da reflexão vale pros DOIS (descritores_cobertos). Nos demais
-  // modos o flag fica false e o mapeamento por `descritor` segue byte-igual.
-  const evidenciaPorCobertos = programaConfig.modo === 'piloto';
-
   if (!isMultiComp) {
     // ── Single-comp (Regular legado / regular_single / piloto): shape inalterado ──
     const r = await avaliarCompAcumulada(
-      tdb, sbRaw, trilha, colab, trilha.competencia_foco, descritores, semanaAcumulada, nivelMetaAlvo, evidenciaPorCobertos,
+      tdb, sbRaw, trilha, colab, trilha.competencia_foco, descritores, semanaAcumulada, nivelMetaAlvo,
     );
     if (r.error) return { error: r.error };
     primariaRet = r.primaria;
@@ -230,14 +226,13 @@ export async function gerarAvaliacaoAcumuladaParcialCore(trilhaId: string, compe
 async function avaliarCompAcumulada(
   tdb: any, sbRaw: any, trilha: any, colab: any,
   competencia: string, descritores: any[], semanaAcumulada: number, nivelMetaAlvo: 2 | 3,
-  evidenciaPorCobertos: boolean = false,
 ): Promise<{ primaria?: any; auditoria?: any; error?: string }> {
   // Enriquece com régua + nota_atual fresh (por competência → régua correta)
   const descritoresComRegua = await enriquecerComRegua({ db: tdb, sbGlobal: sbRaw, competencia, descritores });
   const descritoresFresh = await sobreporNotaFresh(tdb, trilha.colaborador_id, competencia, descritoresComRegua);
 
   // Agrega evidências até a semana de acumulada (regular=13)
-  const evidenciasAcumuladas = await agregarEvidencias(tdb, trilha.id, descritoresFresh, trilha.temporada_plano, semanaAcumulada, evidenciaPorCobertos);
+  const evidenciasAcumuladas = await agregarEvidencias(tdb, trilha.id, descritoresFresh, trilha.temporada_plano, semanaAcumulada);
 
   // PII masking pro prompt externo (Claude).
   const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
@@ -291,7 +286,7 @@ async function avaliarCompAcumulada(
 
 // ── Helpers ──
 
-async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[], plano: any, semanaLimite: number = 13, evidenciaPorCobertos: boolean = false) {
+async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[], plano: any, semanaLimite: number = 13) {
   const { data: progressos } = await tdb.from('temporada_semana_progresso')
     .select('semana, tipo, reflexao, feedback')
     .eq('trilha_id', trilhaId).lte('semana', semanaLimite).order('semana');
@@ -305,23 +300,20 @@ async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[],
 
   for (const p of progressos) {
     if (p.tipo === 'conteudo' && p.reflexao) {
-      // Piloto (evidenciaPorCobertos): a reflexão da semana cobre TODOS os
-      // descritores da semana (2 entregas). Demais modos: só o `descritor`
-      // principal, como sempre foi.
-      const descsDaSemana = evidenciaPorCobertos
-        ? (descritoresCobertosPorSem[p.semana]?.length ? descritoresCobertosPorSem[p.semana] : [descritorPorSem[p.semana]])
-        : [descritorPorSem[p.semana]];
-      for (const desc of descsDaSemana) {
-        if (!desc || !linhasPorDescritor[desc]) continue;
-        const partes = [
-          `Sem ${p.semana}`,
-          p.reflexao.insight_principal && `insight: "${p.reflexao.insight_principal}"`,
-          p.reflexao.desafio_realizado && `desafio: ${p.reflexao.desafio_realizado}`,
-          p.reflexao.qualidade_reflexao && `qualidade: ${p.reflexao.qualidade_reflexao}`,
-          p.reflexao.sinais_extraidos?.exemplo_concreto && 'exemplo concreto: sim',
-          p.reflexao.sinais_extraidos?.autopercepcao && 'autopercepção: sim',
-        ].filter(Boolean).join(' · ');
-        linhasPorDescritor[desc].push(partes);
+      // Régua ÚNICA (`linhasDaReflexaoSemanal`), compartilhada com
+      // `evidencias-fechamento`. Quando a conversa traz leitura por descritor,
+      // cada um recebe a SUA; sem ela (transcripts anteriores a 27/08), a
+      // leitura da semana vai para todos os cobertos — creditar só o principal
+      // deixava 136 de 364 pares de macae com "(sem evidência registrada)".
+      const linhas = linhasDaReflexaoSemanal({
+        semana: p.semana,
+        reflexao: p.reflexao,
+        descritorPrincipal: descritorPorSem[p.semana],
+        descritoresCobertos: descritoresCobertosPorSem[p.semana],
+      });
+      for (const l of linhas) {
+        if (!linhasPorDescritor[l.descritor]) continue;
+        linhasPorDescritor[l.descritor].push(l.texto);
       }
     }
     if (p.tipo === 'aplicacao' && p.feedback) {

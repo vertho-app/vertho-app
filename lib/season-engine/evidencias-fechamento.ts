@@ -7,6 +7,8 @@
  * A nota_pos NUNCA sai só do cenário: agrega evidências de TODAS as semanas
  * até a acumulada (conteúdo + prática + auto-percepção).
  */
+import { linhasDaReflexaoSemanal } from '@/lib/season-engine/evidencia-semana';
+
 
 /**
  * Normaliza o payload do acumulado (single OU multi-comp DUO) pro shape que
@@ -36,15 +38,20 @@ export function normalizarAcumuladoPrimaria(acumulado: any) {
 /**
  * Agrega evidências qualitativas de TODAS as semanas até a acumulada numa
  * string estruturada por descritor.
- * Piloto (`evidenciaPorCobertos`): a reflexão da semana evidencia TODOS os
- * `descritores_cobertos` (2 entregas/semana). Demais modos: só o principal.
+ * A reflexão da semana evidencia TODOS os `descritores_cobertos` — a régua está
+ * em `linhasDaReflexaoSemanal` (fonte única com `avaliacao-acumulada-core`).
+ *
+ * ⚠️ O parâmetro `evidenciaPorCobertos` foi REMOVIDO em 27/08/2026. Ele valia
+ * `modo === 'piloto'` e era a única porta para creditar os dois descritores;
+ * fora da degustação, o segundo de cada semana chegava aqui sem nada — 136 de
+ * 364 pares em macae. Deixá-lo como parâmetro ignorado seria pior que removê-lo:
+ * os chamadores continuariam passando um valor que não decide mais nada.
  */
 export async function agregarEvidenciasAteAcumulada(
   sb: any,
   trilhaId: string,
   descritoresComRegua: any[],
   semAcumulada: number = 13,
-  evidenciaPorCobertos: boolean = false,
 ) {
   const { data: progressos } = await sb.from('temporada_semana_progresso')
     .select('semana, tipo, descritor, reflexao, feedback, tira_duvidas')
@@ -62,20 +69,19 @@ export async function agregarEvidenciasAteAcumulada(
   for (const d of descritoresComRegua) linhasPorDescritor[d.descritor] = [];
 
   for (const p of progressos) {
-    // Conteúdo: reflexão socrática
+    // Conteúdo: reflexão socrática. Régua ÚNICA (`linhasDaReflexaoSemanal`),
+    // compartilhada com `avaliacao-acumulada-core` — as duas tinham cópias com
+    // formatação diferente e o mesmo defeito de creditar só o principal.
     if (p.tipo === 'conteudo' && p.reflexao) {
-      const descsDaSemana = evidenciaPorCobertos
-        ? (descritoresCobertosPorSem[p.semana]?.length ? descritoresCobertosPorSem[p.semana] : [descritorPorSem[p.semana]])
-        : [descritorPorSem[p.semana]];
-      for (const desc of descsDaSemana) {
-        if (!desc || !linhasPorDescritor[desc]) continue;
-        const partes = [
-          `Sem ${p.semana} (conteúdo/reflexão)`,
-          p.reflexao.insight_principal && `insight: "${p.reflexao.insight_principal}"`,
-          p.reflexao.desafio_realizado && `desafio: ${p.reflexao.desafio_realizado}`,
-          p.reflexao.qualidade_reflexao && `qualidade: ${p.reflexao.qualidade_reflexao}`,
-        ].filter(Boolean).join(' · ');
-        linhasPorDescritor[desc].push(partes);
+      const linhas = linhasDaReflexaoSemanal({
+        semana: p.semana,
+        reflexao: p.reflexao,
+        descritorPrincipal: descritorPorSem[p.semana],
+        descritoresCobertos: descritoresCobertosPorSem[p.semana],
+      });
+      for (const l of linhas) {
+        if (!linhasPorDescritor[l.descritor]) continue;
+        linhasPorDescritor[l.descritor].push(l.texto);
       }
     }
     // Prática (sems de missão): feedback analítico ou missão

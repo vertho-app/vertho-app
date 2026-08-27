@@ -55,6 +55,25 @@ function validateExtracaoSocratic(parsed: any): any {
   }
   if (parsed.sinais_extraidos.conexao_com_pratica === undefined) parsed.sinais_extraidos.conexao_com_pratica = false;
   if (!Array.isArray(parsed.limites_da_conversa)) parsed.limites_da_conversa = [];
+  // Leitura por descritor (27/08). SEM `nota` de propósito — a conversa de
+  // reflexão não é avaliação formal, e uma nota aqui viraria segunda régua ao
+  // lado de `nivelDaNota`. `apareceu` default TRUE seria pior que inútil: faria
+  // um item malformado virar evidência positiva no fechamento.
+  if (Array.isArray(parsed.avaliacao_por_descritor)) {
+    const forcas = ['fraca', 'moderada', 'forte'];
+    parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor
+      .filter((d: any) => d && typeof d.descritor === 'string' && d.descritor.trim())
+      .map((d: any) => ({
+        descritor: String(d.descritor).trim(),
+        apareceu: d.apareceu === true,
+        forca_evidencia: forcas.includes(d.forca_evidencia) ? d.forca_evidencia : 'fraca',
+        observacao: typeof d.observacao === 'string' ? d.observacao : '',
+        trecho_sustentador: typeof d.trecho_sustentador === 'string' ? d.trecho_sustentador : '',
+        limite: typeof d.limite === 'string' ? d.limite : '',
+      }));
+  } else {
+    parsed.avaliacao_por_descritor = [];
+  }
   return parsed;
 }
 
@@ -122,6 +141,35 @@ async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
     const desafioField = isDuo
       ? `"desafios_realizados": [${compsDuo.map((c) => `{"competencia": "${c}", "status": "sim|parcial|nao"}`).join(', ')}],`
       : `"desafio_realizado": "sim|parcial|nao",`;
+
+    /**
+     * Leitura POR DESCRITOR na semana de conteúdo (27/08/2026).
+     *
+     * A semana cobre 2 descritores e a extração devolvia UMA leitura só, que o
+     * agregador creditava ao descritor principal — deixando o segundo chegar ao
+     * fechamento como "(sem evidência registrada)": 136 de 364 pares em macae.
+     *
+     * A estrutura é a MESMA que as semanas de aplicação já produzem
+     * (`avaliacao_por_descritor`), com duas diferenças deliberadas:
+     *   · SEM `nota` — esta é uma conversa de reflexão, não avaliação formal.
+     *     Emitir nota aqui criaria uma segunda régua competindo com a de nível.
+     *   · COM `apareceu` — "não apareceu na conversa" é um resultado legítimo e
+     *     precisa ser distinguível de "apareceu de forma fraca".
+     */
+    const descsCobertos: string[] = Array.isArray(semanaPlan?.descritores_cobertos) && semanaPlan.descritores_cobertos.length
+      ? semanaPlan.descritores_cobertos
+      : [semanaPlan?.descritor].filter(Boolean);
+    const avaliacaoField = descsCobertos.length ? `"avaliacao_por_descritor": [
+${descsCobertos.map((d: string) => `    {
+      "descritor": "${d}",
+      "apareceu": true|false,
+      "forca_evidencia": "fraca|moderada|forte",
+      "observacao": "o que a conversa sustenta sobre ESTE assunto",
+      "trecho_sustentador": "trecho curto ou paráfrase fiel da fala do colaborador",
+      "limite": "o que faltou para sustentar melhor"
+    }`).join(',\n')}
+  ],` : '';
+
     const user = `MODO: socratic — conversa semanal de reflexão${isDuo ? ` (${compsDuo.length} desafios, um por competência)` : ''}
 Foco: reflexão, insight, compromisso e qualidade da reflexão.
 
@@ -131,6 +179,7 @@ ${transcript}
 EXTRAIA com base EXCLUSIVA na conversa:
 {
   ${desafioField}
+  ${avaliacaoField}
   "relato_resumo": "síntese curta e fiel do que o colaborador relatou",
   "insight_principal": "principal percepção emergente — só se apareceu de fato",
   "compromisso_proxima": "compromisso plausível assumido — só se foi dito",
@@ -146,7 +195,11 @@ EXTRAIA com base EXCLUSIVA na conversa:
 }
 
 REGRAS:
-- ${isDuo ? 'desafios_realizados: avalie CADA competência SEPARADAMENTE (um status por competência), pelo que a pessoa relatou de cada foco' : 'desafio_realizado'}: "sim" se executou e relatou, "parcial" se tentou mas incompleto, "nao" se não tentou
+- ${isDuo ? 'desafios_realizados: avalie CADA competência SEPARADAMENTE (um status por competência), pelo que a pessoa relatou de cada foco' : 'desafio_realizado'}: "sim" se executou e relatou, "parcial" se tentou mas incompleto, "nao" se não tentou${descsCobertos.length > 1 ? `
+- avaliacao_por_descritor: a semana entregou ${descsCobertos.length} assuntos e UMA tarefa que serve aos dois. Avalie CADA assunto pelo que a conversa sustenta SOBRE ELE — não repita a mesma leitura nos dois.
+- apareceu: false quando a conversa NÃO trouxe nada sobre aquele assunto. Isso é um resultado válido e esperado; forçar uma leitura para preencher é o pior erro possível aqui, porque ela vira evidência no fechamento.
+- Quando apareceu=false, deixe observacao e trecho_sustentador vazios e use "limite" para dizer o que faltaria perguntar.` : `
+- avaliacao_por_descritor: leitura do assunto da semana pelo que a conversa sustenta; apareceu=false se a conversa não trouxe nada sobre ele.`}
 - qualidade_reflexao: alta = reflexão profunda com exemplo concreto e insight genuíno; media = reflexão superficial sem detalhe prático; baixa = respostas genéricas ou monossilábicas
 - citacao_chave: trecho curto que melhor sustenta a leitura de qualidade — se a conversa for muito rasa, use null
 - sinais_extraidos: marque true somente se apareceu de forma concreta
@@ -337,6 +390,9 @@ export async function POST(request) {
       cargo: colab.cargo,
       competenciaFallback: competenciaSemana.label,
       desafioUnicoPorCompetencia: programaConfig.desafioUnicoPorCompetencia,
+      // Entrega REAL: os gates de semana já passaram acima, então uma tarefa de
+      // par ausente aqui é experiência de alguém — e vai para o degradacao_log.
+      colaboradorId: trilha.colaborador_id,
     });
     const desafioTexto = desafiosLista.map((d) => d.desafio_texto).join('\n');
 

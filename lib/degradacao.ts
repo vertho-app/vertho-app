@@ -166,6 +166,15 @@ export const DEGRADACAO = {
    * Ver lib/season-engine/fechamento-conversa.ts.
    */
   CONVERSA_SEM_FECHAMENTO: 'conversa-sem-fechamento',
+  /**
+   * overlay: a semana entrega 2 descritores da mesma competência e a TAREFA
+   * integrada dos dois (`kit_desafios_semana`) ainda não foi gerada — fica a do
+   * descritor principal, então a tarefa fala de um assunto e a semana entregou
+   * dois. Degradação legítima na entrega (não dá para gerar IA no caminho de
+   * quem abriu a tela), mas invisível sem isto.
+   * Ver lib/season-engine/kit/desafio-par.ts.
+   */
+  DESAFIO_PAR_AUSENTE: 'desafio-par-ausente',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
