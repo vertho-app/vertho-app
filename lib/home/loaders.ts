@@ -6,6 +6,8 @@ import { PROGRESSO, TRILHA } from '@/lib/status';
 import type { UserContext } from '@/types';
 import { ehSemanaDeImplementacao, totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { estaAtrasada } from '@/lib/season-engine/atraso';
+import { semanaLiberadaEm, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
+import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
 
 /**
@@ -33,7 +35,6 @@ export interface HomeSharedData {
 export const JORNADA_COLAB_COLS =
   'id, nome_completo, email, cargo, area_depto, empresa_id, perfil_dominante, perfil_externo_dados, perfil_externo_pdf_path, created_at';
 
-const SEMANA_DIAS = 7;
 /**
  * ⚠️ FALLBACK, não a duração. Quem responde "quantas semanas" é o PLANO da
  * trilha — `totalSemanasDoPlano(plano, TOTAL_SEMANAS_FALLBACK)`.
@@ -345,24 +346,64 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
     const trilha = shared?.trilha !== undefined
       ? shared.trilha
       : (await sb.from('trilhas')
-          .select('id, cursos, competencia_foco, temporada_plano')
+          .select('id, cursos, competencia_foco, temporada_plano, data_inicio')
           .eq('colaborador_id', colab.id)
           .eq('empresa_id', colab.empresa_id)
           .order('criado_em', { ascending: false })
           .limit(1)
           .maybeSingle()).data;
 
-    const { data: progresso } = await sb.from('temporada_semana_progresso')
-      .select('semana, conteudo_consumido, created_at')
-      .eq('colaborador_id', colab.id)
-      .eq('empresa_id', colab.empresa_id)
-      .order('semana', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const totalSemanas = totalSemanasDoPlano(trilha?.temporada_plano, TOTAL_SEMANAS_FALLBACK);
 
-    const semanaAtual = progresso?.semana || 0;
+    // ── Qual é a semana da pessoa AGORA ─────────────────────────────────
+    //
+    // 🔴 Corrigido em 27/08. Isto vinha de
+    // `.order('semana', {ascending:false}).limit(1)` sobre
+    // `temporada_semana_progresso` — e essa é a MAIOR semana que existe na
+    // tabela, não a semana em que a pessoa está. As 87 trilhas nascem com as
+    // 14 linhas de uma vez (`montarTrilhas`), então aquilo respondia **14 para
+    // todo mundo**, sempre.
+    //
+    // Não foi notado porque o mesmo select pedia `created_at`, coluna que
+    // NUNCA existiu nesta tabela (ela tem `iniciado_em`/`concluido_em`): o
+    // PostgREST devolvia 42703, o supabase-js RETORNA `{ error }` em vez de
+    // lançar, e o `const { data: progresso }` descartava o erro. Com
+    // `progresso` undefined, `semanaAtual` caía para 0 e os três blocos abaixo
+    // (pílula, evidência, próximo marco) ficavam `null` — os cards
+    // simplesmente não apareciam, com 941 linhas de progresso reais no banco.
+    //
+    // Quem responde "que semana liberou" é `week-gating`, a mesma régua da tela
+    // `/dashboard/temporada` (data_inicio + (N-1)*7 dias às 03:00 BRT). Antes
+    // este arquivo refazia a conta à mão a partir de um timestamp de linha, sem
+    // o horário de corte — uma segunda régua para a mesma pergunta.
+    let semanaAtual = 0;
+    for (let n = 1; n <= totalSemanas; n++) {
+      if (semanaLiberadaPorData(trilha?.data_inicio, n, agora)) semanaAtual = n;
+    }
+
+    // O progresso da semana CORRENTE — não o da última linha da tabela.
+    let progresso: any = null;
+    if (semanaAtual > 0) {
+      const { data, error } = await sb.from('temporada_semana_progresso')
+        .select('semana, conteudo_consumido, iniciado_em, concluido_em')
+        .eq('colaborador_id', colab.id)
+        .eq('empresa_id', colab.empresa_id)
+        .eq('semana', semanaAtual)
+        .maybeSingle();
+      // Falha de leitura NÃO pode virar "semana 0" em silêncio: era exatamente
+      // assim que este bloco morria.
+      if (error) {
+        // O `code` do Postgres é a parte acionável (42703 = coluna inexistente,
+        // 42P01 = tabela). Log sem ele obriga a adivinhar a classe do erro.
+        console.error(
+          `[carregarHomeKpis] progresso da semana ${semanaAtual} falhou [${error.code || 'sem code'}]: ${error.message}`,
+        );
+      } else {
+        progresso = data;
+      }
+    }
+
     const cursos = Array.isArray(trilha?.cursos) ? trilha.cursos : [];
-    const cursosProg = Array.isArray(progresso?.conteudo_consumido) ? progresso.conteudo_consumido : [];
 
     // ── 1. Pílula da semana ──────────────────────────────────────────────
     // Os status do CARD de pílula/evidência (concluida, em-curso, pendente…)
@@ -373,12 +414,17 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
     if (semanaAtual > 0) {
       // Tenta achar curso específico da semana; se não houver, usa o índice
       const cursoSemana = cursos[semanaAtual - 1] || null;
-      const concluida = cursosProg.some(p => p?.semana === semanaAtual && p?.concluido);
+      // 🔑 A régua de "consumiu" é UMA só — `consumiuConteudo` (27/08). Aqui
+      // estava `cursosProg.some(p => p?.semana === … && p?.concluido)`, que só
+      // enxerga o formato ARRAY do campo. Das 941 linhas de hoje, **zero** estão
+      // em array (838 `false`, 129 `true`), então essa expressão respondia
+      // `false` mesmo para quem marcou a semana como realizada.
+      const concluida = consumiuConteudo(progresso?.conteudo_consumido);
       pilula = {
         titulo: cursoSemana?.nome || `Pílula da semana ${semanaAtual}`,
         semana: semanaAtual,
         // D1: a barra da home dividia por 14 fixo. Quem manda é o plano.
-        totalSemanas: totalSemanasDoPlano(trilha?.temporada_plano, TOTAL_SEMANAS_FALLBACK),
+        totalSemanas,
         status: concluida ? 'concluida' : 'em-curso',
         ehImplementacao: ehSemanaDeImplementacao(trilha?.temporada_plano, semanaAtual),
       };
@@ -386,7 +432,7 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
 
     // ── 2. Evidência da semana ──────────────────────────────────────────
     let evidencia = null;
-    if (semanaAtual > 0 && progresso?.created_at) {
+    if (semanaAtual > 0) {
       let evid = null;
       try {
         const { data } = await sb.from('capacitacao')
@@ -403,11 +449,18 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
         console.warn('[loadHomeKpis] capacitacao query falhou (tabela pode não existir):', e?.message);
       }
 
-      const inicioCapacitacao = new Date(progresso.created_at);
-      const inicioSemana = new Date(inicioCapacitacao.getTime() + (semanaAtual - 1) * SEMANA_DIAS * MS_DIA);
-      const fimSemana = new Date(inicioSemana.getTime() + SEMANA_DIAS * MS_DIA);
+      // A janela da semana vem da MESMA régua que libera a semana na tela
+      // (`week-gating`), não de aritmética local sobre um timestamp de linha:
+      // a liberação tem hora de corte (03:00 BRT) e refazê-la à mão aqui
+      // produzia uma segunda régua, deslocada em até um dia.
+      const inicioSemana = semanaLiberadaEm(trilha?.data_inicio, semanaAtual);
+      const fimSemana = semanaLiberadaEm(trilha?.data_inicio, semanaAtual + 1);
 
-      if (evid) {
+      if (!inicioSemana || !fimSemana) {
+        // Sem `data_inicio` não há janela — e um card de prazo chutado é pior
+        // que card nenhum.
+        evidencia = null;
+      } else if (evid) {
         evidencia = { status: 'registrada', dataRegistro: evid.created_at };
       } else if (agora >= fimSemana) {
         const diasAtraso = Math.floor((agora.getTime() - fimSemana.getTime()) / MS_DIA);
@@ -439,15 +492,14 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
 
     // ── 4. Próximo marco (countdown em dias) ─────────────────────────────
     let proximoMarco = null;
-    if (semanaAtual > 0 && progresso?.created_at) {
-      const inicio = new Date(progresso.created_at);
+    if (semanaAtual > 0 && trilha?.data_inicio) {
       const marcos = [];
       // D1: o horizonte é o do PLANO desta pessoa. Com 14 fixo, a jornada de 7
       // semanas ganhava 7 marcos de "próxima pílula" que não existem, e o
       // "Trilha conclui" caía ~7 semanas depois do fim real.
-      const totalSemanas = totalSemanasDoPlano(trilha?.temporada_plano, TOTAL_SEMANAS_FALLBACK);
       for (let s = semanaAtual + 1; s <= totalSemanas; s++) {
-        const dataSemana = new Date(inicio.getTime() + (s - 1) * SEMANA_DIAS * MS_DIA);
+        const dataSemana = semanaLiberadaEm(trilha.data_inicio, s);
+        if (!dataSemana) continue;
         const diasAte = Math.ceil((dataSemana.getTime() - agora.getTime()) / MS_DIA);
         if (diasAte <= 0) continue;
         const ehImpl = ehSemanaDeImplementacao(trilha?.temporada_plano, s);

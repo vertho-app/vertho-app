@@ -50,7 +50,10 @@ export async function loadHomeData() {
   // jornada consultavam separadamente na trilha latest.
   const [trilhaRes, empCfgRes, respRes] = await Promise.all([
     sb.from('trilhas')
-      .select('id, cursos, competencia_foco, numero_temporada, status, temporada_plano, criado_em')
+      // `data_inicio` é o que `carregarHomeKpis` usa para saber em que semana a
+      // pessoa está (via week-gating). Sem ela no shared, os cards de pílula,
+      // evidência e próximo marco não têm janela e não aparecem.
+      .select('id, cursos, competencia_foco, numero_temporada, status, temporada_plano, criado_em, data_inicio')
       .eq('colaborador_id', colab.id)
       .eq('empresa_id', colab.empresa_id)
       .order('criado_em', { ascending: false })
