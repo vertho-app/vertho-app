@@ -689,14 +689,23 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                         <span className="text-[10px] uppercase text-brand-400/70 font-semibold">{t('challenge.observe')}</span>
                         <p className="text-xs text-gray-300">{entrega.conteudo.acao_observavel}</p>
                       </div>
-                      {entrega.conteudo.criterio_de_execucao && (
-                        <div>
-                          <span className="text-[10px] uppercase text-brand-400/70 font-semibold">{t('challenge.execution')}</span>
-                          <p className="text-xs text-gray-300">{entrega.conteudo.criterio_de_execucao}</p>
-                        </div>
-                      )}
                     </div>
                   )}
+                  {/*
+                    O "Execução" (`criterio_de_execucao`) saiu daqui em 27/08/2026,
+                    por decisão do dono. Ele passou a ser INSTRUMENTO DE AVALIAÇÃO:
+                    vai para a IA que conduz as Evidências, que antes cobrava sem
+                    saber o que contava como cumprido — o critério era escrito, era
+                    exibido, e o único lugar que julga nunca o via.
+
+                    Mostrá-lo aqui e usá-lo para avaliar ao mesmo tempo convida a
+                    pessoa a escrever PARA o critério, e o que a conversa precisa
+                    colher é o que aconteceu de fato.
+
+                    A chave `challenge.execution` fica no i18n sem consumidor, pelo
+                    mesmo motivo de `content.done` acima: removê-la custaria mexer
+                    nos 4 locales, e ela é o rótulo natural se o bloco voltar.
+                  */}
                 </div>
               ))}
             </div>

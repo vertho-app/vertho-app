@@ -11,6 +11,7 @@ import { resolverModuloBaseParaConteudo } from '@/lib/season-engine/modulo-base-
 import { parseDesafioResponse, type DesafioStructured } from '@/lib/season-engine/prompts/challenge';
 import { ARQUETIPOS } from '@/lib/disc-arquetipos';
 import { blocoCalibracaoPublico, type RegistroPublico } from '@/lib/season-engine/perfil-publico';
+import { BLOCO_EVIDENCIA_E_RELATO } from './regra-evidencia';
 
 export type DiscLetter = 'D' | 'I' | 'S' | 'C';
 
@@ -173,10 +174,12 @@ PRINCÍPIOS INEGOCIÁVEIS:
 - Curto (2–3 frases), concreto, viável (sem grande projeto/autorização), singular.
 - Sem "Esta semana...", sem jargão, sem tom professoral, sem slogan.
 
+${BLOCO_EVIDENCIA_E_RELATO}
+
 LENTE DE PERFIL (${disc} · ${lente.perfil}): a AÇÃO deve ENGAJAR este perfil por: ${lente.engaja}. NUNCA cite DISC, siglas (D/I/S/C) nem o nome do perfil no texto.
 
 RETORNE APENAS JSON VÁLIDO:
-{"desafio_texto":"2-3 frases","acao_observavel":"a ação principal observável","criterio_de_execucao":"como saber que foi feito","por_que_cabe_na_semana":"viabilidade curta"}${p.perfilPublico ? blocoCalibracaoPublico(p.perfilPublico) : ''}`;
+{"desafio_texto":"2-3 frases","acao_observavel":"a ação principal observável","criterio_de_execucao":"o que a pessoa vai conseguir CONTAR que prova que fez","por_que_cabe_na_semana":"viabilidade curta"}${p.perfilPublico ? blocoCalibracaoPublico(p.perfilPublico) : ''}`;
 
   const user = `NÚCLEO DO TEMA (a ação deve aterrar este núcleo):
 - Ideia central: ${nucleo.ideia_central}

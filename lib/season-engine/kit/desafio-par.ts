@@ -23,6 +23,7 @@
 import { callAI } from '@/actions/ai-client';
 import { normDescritor } from '@/lib/blueprint/to-descriptors';
 import { normalizarComp } from '@/lib/workshop-competencias';
+import { BLOCO_EVIDENCIA_E_RELATO } from './regra-evidencia';
 
 export interface DesafioDoPar {
   desafio_texto: string;
@@ -151,10 +152,12 @@ PRINCÍPIOS INEGOCIÁVEIS:
 - Sem "Esta semana...", sem jargão, sem tom professoral, sem slogan.
 - NÃO cite os nomes técnicos dos descritores nem códigos de matriz no texto.
 
+${BLOCO_EVIDENCIA_E_RELATO}
+
 LENTE DE PERFIL (${disc} · ${lente.perfil}): a AÇÃO deve ENGAJAR este perfil por: ${lente.engaja}. NUNCA cite DISC, siglas (D/I/S/C) nem o nome do perfil no texto.
 
 RETORNE APENAS JSON VÁLIDO:
-{"desafio_texto":"2-4 frases","acao_observavel":"a ação principal observável","criterio_de_execucao":"como saber que foi feito — e que os DOIS assuntos apareceram","por_que_cabe_na_semana":"viabilidade curta"}`;
+{"desafio_texto":"2-4 frases","acao_observavel":"a ação principal observável","criterio_de_execucao":"o que a pessoa vai conseguir CONTAR que prova que fez — e que os DOIS assuntos apareceram","por_que_cabe_na_semana":"viabilidade curta"}`;
 
   const user = `OS DOIS ASSUNTOS DA SEMANA (a ação deve aterrar os dois):
 

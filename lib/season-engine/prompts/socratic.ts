@@ -51,7 +51,20 @@ interface ChatMessage {
   content: string;
 }
 
-interface DesafioItem { competencia: string; desafio_texto: string; }
+interface DesafioItem {
+  competencia: string;
+  desafio_texto: string;
+  /**
+   * A régua de "feito" da tarefa — o que a pessoa precisa CONSEGUIR CONTAR.
+   *
+   * 🔴 Chegou aqui em 27/08/2026. Ele era escrito pelo gerador, era exibido na
+   * tela e **nunca chegava a quem cobra**: `DesafioItem` só tinha
+   * `desafio_texto`. A conversa improvisava o que contava como cumprido, e como
+   * a evidência é SEMPRE relato (não há upload em lugar nenhum do produto), o
+   * critério é justamente a régua que separa "fiz" de "falei bonito".
+   */
+  criterio_de_execucao?: string;
+}
 
 interface PromptSocraticParams {
   nomeColab: string;
@@ -79,6 +92,13 @@ export function promptSocratic({ nomeColab, cargo, perfilDominante, competencia,
   const lista = (desafios && desafios.length ? desafios : [{ competencia, desafio_texto: desafio }]).filter((d) => d.desafio_texto?.trim());
   const multi = lista.length > 1;
   const desafiosBloco = lista.map((d, i) => `${multi ? `(${i + 1}/${lista.length}) [${d.competencia}] ` : ''}"${d.desafio_texto}"`).join('\n');
+
+  /**
+   * A régua de "feito" das tarefas da semana. Fica FORA do bloco visível de
+   * desafios: é instrumento de avaliação, não texto para repetir à pessoa —
+   * saiu da tela em 27/08 justamente para não convidar a escrever para ele.
+   */
+  const criteriosBloco = lista.map((d) => d.criterio_de_execucao?.trim()).filter(Boolean);
 
   // Descritores SEM o código da matriz: o prompt manda "não citar o nome
   // técnico" e vinha recebendo "COO03_D6 — Busca de apoio" na string, então a
@@ -234,6 +254,16 @@ A CONVERSA TEM 6 TURNOS SEUS, E O 6º É O ÚLTIMO — depois dele ${nomeColab} 
 pode mais responder. A instrução de cada turno diz o que fazer nele; siga-a
 mesmo que a conversa pareça pedir outra coisa. Assunto guardado para o fim vira
 pergunta sem resposta.
+${criteriosBloco.length ? `
+O QUE CONTA COMO FEITO (uso SEU, não repita como cobrança):
+${criteriosBloco.map((c) => `- ${c}`).join('\n')}
+
+Esta é a régua da tarefa. ${nomeColab} NÃO envia arquivo, foto nem documento — o
+que existe é o que ela contar aqui, então é pelo relato que se distingue quem fez
+de quem só diz que fez. Use a régua para saber ONDE aprofundar: se a resposta não
+traz o que ela descreve, peça o detalhe que falta (o que decidiu, o que mudou,
+como alguém reagiu) em vez de aceitar a fala geral. NUNCA leia a régua em voz
+alta nem transforme a conversa em checklist.` : ''}
 ${multi ? `
 SEQUÊNCIA (semana com ${lista.length} tarefas, de competências diferentes):
 - Cobre as tarefas UMA DE CADA VEZ, na ordem, e NUNCA as duas na mesma pergunta.
