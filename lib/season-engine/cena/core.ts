@@ -20,10 +20,11 @@ import { parseJsonIA } from '@/lib/ai-json';
 import { maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import {
   podeEncerrar, proximoBeat, validarContratoDaCena, validarGabaritoDaCena,
-  type BeatDaCena, type EvidenciaDescritor, type MotivoFim,
+  type BeatDaCena, type EvidenciaDescritor, type MotivoParada, type PedidoDoModelo,
 } from './beats';
 import {
   buildInstrucaoDoBeat, buildInterlocutorSystemEstavel,
+  promptAuditorDoGabarito,
   promptExtracao, promptGuarda, promptGuardaDoInterlocutor, promptJuizDeBeat, promptPersona,
   promptTriagemAdequacao,
   type ContextoCena, type DescritorDaRegua, type PersonaInterlocutor,
@@ -112,7 +113,15 @@ export interface EstadoCena {
   beatProvocado: number | null;
   condicaoSatisfeita: boolean;
   concluida: boolean;
-  motivoFim: MotivoFim | null;
+  /**
+   * POR QUE O MOTOR PAROU — não o que a cena produziu. Isso vive em
+   * `ConsolidacaoCena.resultado`. Ver `MotivoParada`.
+   *
+   * ⚠️ Artefatos gravados antes de 26/08 trazem `motivoFim` com o enum antigo
+   * (`acordo | impasse | ...`); os scripts de leitura traduzem, e a tradução é
+   * explícita para ninguém confundir `impasse` com investigação fracassada.
+   */
+  motivoParada: MotivoParada | null;
   /**
    * Auditoria do modo de falha mais provável: o modelo pediu para encerrar e o
    * código negou porque faltava beat. Se esta lista vier cheia na fase 0, o
@@ -290,7 +299,7 @@ export function abrirCena(
       beatProvocado: primeiroBeat,
       condicaoSatisfeita: false,
       concluida: false,
-      motivoFim: null,
+      motivoParada: null,
       encerramentosNegados: [],
       bloqueios: [],
       ditados: [],
@@ -530,9 +539,6 @@ export async function turnoCena(
     .filter((d: number) => Number.isInteger(d) && d >= 1 && d <= ctx.descritores.length);
   const descritoresTocados = [...new Set([...estado.descritoresTocados, ...tocadosNoTurno])].sort((a, b) => a - b);
 
-  const avancou = beatsCumpridos.length > estado.beatsCumpridos.length;
-  const turnosSemAvanco = avancou ? 0 : estado.turnosSemAvanco + 1;
-
   /**
    * O fato que o personagem declara ter entregue neste turno. Insumo, como todo
    * o resto do [META] — quem confere é `medirFatosAflorados`, procurando o
@@ -543,6 +549,27 @@ export async function turnoCena(
     ? fatoBruto
     : null;
 
+  /**
+   * AVANÇO, no gênero de investigação, é beat novo OU FATO NOVO.
+   *
+   * 🔴 Medido em 26/08/2026: `avancou` só olhava beat, e depois que os quatro
+   * fecham nenhum beat novo é possível — então `turnosSemAvanco` subia sozinho
+   * e a cena parava por inatividade 3 turnos depois, com a investigação ainda
+   * produzindo fato. Dos 8 encerramentos por inatividade daquela rodada, **os 8
+   * tinham os quatro beats cumpridos**: nenhum era conversa travada.
+   *
+   * O critério de progresso tinha ficado no gênero antigo, em que só o beat
+   * media andamento. Aqui o que anda é o gestor chegando a fatos novos.
+   *
+   * Fato REPETIDO não conta: o personagem reentregar o que já contou não é
+   * avanço, e sem esta condição o mesmo fato seguraria a cena para sempre.
+   */
+  const beatNovo = beatsCumpridos.length > estado.beatsCumpridos.length;
+  const fatoNovo = fatoDoTurno != null
+    && !estado.fatosRevelados.some((f) => f.descritor === fatoDoTurno);
+  const turnosSemAvanco = (beatNovo || fatoNovo) ? 0 : estado.turnosSemAvanco + 1;
+
+
   const cedeu = estado.condicaoSatisfeita || meta?.condicao_de_cessao_satisfeita === true;
   const veredicto = podeEncerrar({
     turno: novoTurno,
@@ -551,7 +578,7 @@ export async function turnoCena(
     beats: ctx.beats,
     beatsCumpridos,
     modeloPediuEncerrar: meta?.encerrar === true,
-    motivoDoModelo: (meta?.motivo_encerramento as MotivoFim) ?? null,
+    motivoDoModelo: (meta?.motivo_encerramento as PedidoDoModelo) ?? null,
     turnosSemAvanco,
   });
 
@@ -567,7 +594,7 @@ export async function turnoCena(
       beatProvocado: beatAProvocar.numero,
       condicaoSatisfeita: cedeu,
       concluida: veredicto.encerrar,
-      motivoFim: veredicto.motivo,
+      motivoParada: veredicto.motivo,
       encerramentosNegados: veredicto.negadoPorBeatPendente
         ? [...estado.encerramentosNegados, { turno: novoTurno, beat: veredicto.negadoPorBeatPendente }]
         : estado.encerramentosNegados,
@@ -681,6 +708,44 @@ export async function triarAdequacao(
   });
   try {
     return parseJsonIA<TriagemAdequacao>(raw);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Audita o gabarito da cena — em OUTRA FAMÍLIA, e é por isso que ele não usa
+ * `MODELO_PESADO`.
+ *
+ * O gabarito nasce em Claude (`gerarPersona`). Auditá-lo em Claude seria o
+ * mesmo autor escrevendo e conferindo a prova, que é exatamente o defeito que
+ * este módulo já corrigiu duas vezes: o juiz de beat que era o próprio
+ * personagem, e o guarda que precisa barrar quem manipula o personagem.
+ *
+ * ⚠️ Devolve RELATÓRIO, não veredito executável. Nada no código recusa cena por
+ * causa disto — quem decide refazer é humano, com a lista na frente, do mesmo
+ * jeito que a triagem de competências.
+ */
+export interface AuditoriaDoGabarito {
+  por_descritor: Array<{ descritor: number; dificuldade: 'baixa' | 'media' | 'alta'; problema: string; alinhado: boolean }>;
+  dificuldade_desigual: boolean;
+  piores: number[];
+  veredito: 'justo' | 'revisar' | 'refazer';
+  justificativa: string;
+}
+
+export async function auditarGabarito(
+  ctx: ContextoCena,
+  persona: PersonaInterlocutor,
+  opts: OpcoesCena = {},
+): Promise<AuditoriaDoGabarito | null> {
+  const { system, user } = promptAuditorDoGabarito(ctx, persona);
+  const raw = await callAI(system, user, opts.aiConfig ?? MODELO_LEITOR, MAX_TOKENS.triagem, {
+    temperature: 0.1, reasoningEffort: 'high',
+    ...opcoesLedger(opts, 'cena_auditoria_gabarito'),
+  });
+  try {
+    return parseJsonIA<AuditoriaDoGabarito>(raw);
   } catch {
     return null;
   }

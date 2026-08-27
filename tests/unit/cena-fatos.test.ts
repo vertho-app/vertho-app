@@ -13,7 +13,7 @@
 // degenerarem.
 import { describe, expect, it } from 'vitest';
 import {
-  chavesDoFato, fatoApareceEm, medirFatosAflorados, MIN_CHAVES,
+  chavesDoFato, fatoApareceEm, hashDoGabarito, medirFatosAflorados, MIN_CHAVES,
 } from '@/lib/season-engine/cena/fatos';
 import type { FatoEnterrado } from '@/lib/season-engine/cena/prompts';
 
@@ -76,23 +76,39 @@ describe('medirFatosAflorados — duas fontes, e a divergência é lida por gent
     { role: 'user' as const, content: 'e o que mais?', turno: 1 },
   ]);
 
-  it('conta o fato quando o conteúdo aparece na fala do interlocutor', () => {
+  it('CONFIRMADO exige as duas fontes', () => {
     const m = medirFatosAflorados(FATOS, hist(
       'naquele acordo quem assumiu compromisso fui eu, a Rute não assumiu nada',
-    ));
+    ), [4]);
+    expect(m.porFato.find((f) => f.descritor === 4)).toMatchObject({
+      declarado: true, corroborado: true, estado: 'confirmado', aflorou: true,
+    });
     expect(m.aflorados).toBe(1);
-    expect(m.porFato.find((f) => f.descritor === 4)).toMatchObject({ corroborado: true, aflorou: true });
     expect(m.taxa).toBe(0.5);
   });
 
-  it('conta também quando o interlocutor DECLARA, mesmo sem o texto casar', () => {
-    // A corroboração não veta a declaração: o personagem parafraseia, e falso
-    // negativo aqui apagaria evidência de que o gestor chegou lá.
-    const m = medirFatosAflorados(FATOS, hist('foi tudo por escrito, você viu'), [1]);
-    expect(m.porFato.find((f) => f.descritor === 1)).toMatchObject({
-      declarado: true, corroborado: false, aflorou: true,
+  it('uma fonte só é DISPUTADO, e não conta como aflorado', () => {
+    // 🔴 Medido nas 10 cenas: 14 de 60 pares têm as duas fontes discordando, e
+    // das 23 aflorações elas concordam em 9. Com o OU generoso, o matcher
+    // carregava o resultado sozinho — e o corte dele foi escolhido nessas
+    // mesmas cenas. Enquanto a leitura humana não arbitrar, disputado não
+    // circula como aflorado.
+    const soCorroborado = medirFatosAflorados(FATOS, hist(
+      'naquele acordo quem assumiu compromisso fui eu, a Rute não assumiu nada',
+    ));
+    expect(soCorroborado.porFato.find((f) => f.descritor === 4)).toMatchObject({
+      estado: 'disputado', aflorou: false,
     });
-    expect(m.divergentes, 'e a discordância fica registrada para um humano ler').toEqual([1]);
+    expect(soCorroborado.aflorados, 'nada confirmado').toBe(0);
+    expect(soCorroborado.disputados).toBe(1);
+    expect(soCorroborado.taxa).toBe(0);
+    expect(soCorroborado.taxaComDisputados, 'o TETO da medida fica visível').toBe(0.5);
+
+    const soDeclarado = medirFatosAflorados(FATOS, hist('foi tudo por escrito, você viu'), [1]);
+    expect(soDeclarado.porFato.find((f) => f.descritor === 1)).toMatchObject({
+      declarado: true, corroborado: false, estado: 'disputado', aflorou: false,
+    });
+    expect(soDeclarado.divergentes).toEqual([1]);
   });
 
   it('a fala do AVALIADO não conta — senão citar o assunto viraria descoberta', () => {
@@ -111,5 +127,35 @@ describe('medirFatosAflorados — duas fontes, e a divergência é lida por gent
   it('sem gabarito, a taxa é null — não vira zero disfarçado', () => {
     expect(medirFatosAflorados([], []).taxa).toBeNull();
     expect(medirFatosAflorados(undefined, []).taxa).toBeNull();
+  });
+});
+
+describe('hashDoGabarito — congela o alvo antes da auditoria', () => {
+  // O gabarito virou a régua dentro da cena. Se ele mudar entre a leitura de um
+  // avaliador e a de outro, a auditoria mede alvos diferentes e ninguém percebe.
+  const base: FatoEnterrado[] = [
+    { descritor: 2, fato: 'nunca ouvi a mãe', so_revela_se: 'perguntar pelo outro lado' },
+    { descritor: 1, fato: 'respondi em voz alta', so_revela_se: 'reconstituir o episódio' },
+  ];
+
+  it('é estável a reordenação e a espaçamento — o que não muda a prova', () => {
+    const trocado = [base[1], base[0]];
+    const espacado = base.map((e) => ({ ...e, fato: `  ${e.fato}\n ` }));
+    expect(hashDoGabarito(trocado)).toBe(hashDoGabarito(base));
+    expect(hashDoGabarito(espacado)).toBe(hashDoGabarito(base));
+  });
+
+  it('muda quando a DIFICULDADE muda', () => {
+    const maisDuro = base.map((e, i) => (i === 0 ? { ...e, so_revela_se: 'perguntar duas vezes com nome' } : e));
+    expect(hashDoGabarito(maisDuro)).not.toBe(hashDoGabarito(base));
+  });
+
+  it('muda quando o fato muda, e quando o descritor muda', () => {
+    expect(hashDoGabarito([{ ...base[0], fato: 'outra coisa' }, base[1]])).not.toBe(hashDoGabarito(base));
+    expect(hashDoGabarito([{ ...base[0], descritor: 5 }, base[1]])).not.toBe(hashDoGabarito(base));
+  });
+
+  it('gabarito vazio tem hash — e é sempre o mesmo', () => {
+    expect(hashDoGabarito([])).toBe(hashDoGabarito(undefined));
   });
 });

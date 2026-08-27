@@ -10,6 +10,7 @@
 // Uso: npx tsx scripts/_cena-comparar-rodadas.ts cena-fase0c-reextraido.json cena-fase0c.json cena-fase0d.json
 import { readFileSync } from 'node:fs';
 import { medirDitado } from '@/lib/season-engine/cena/ditado';
+import { lerMotivoParada } from '@/lib/season-engine/cena/beats';
 
 const A = JSON.parse(readFileSync(process.argv[2], 'utf-8'));   // 0c re-extraída
 const Aorig = JSON.parse(readFileSync(process.argv[3], 'utf-8')); // 0c com estado
@@ -23,7 +24,7 @@ A.rodadas.forEach((r: any, k: number) => {
   if (!r?.extracao || !est) return;
   const m = medirDitado(r.extracao.evidencias, est.historico);
   linhas.push({
-    rodada: '0c', nivel: r.nivel, turnos: est.turno, fim: est.motivoFim ?? '-',
+    rodada: '0c', nivel: r.nivel, turnos: est.turno, fim: lerMotivoParada(est) ?? '-',
     cobertura: `${r.consolidacao?.cobertura.medidos}/${r.consolidacao?.cobertura.total}`,
     d: m.ditadas, p: m.proprias, s: m.semElemento, ditados: est.ditados?.length ?? 0,
   });
@@ -32,7 +33,7 @@ for (const r of B.rodadas) {
   if (!r?.extracao || !r.estado) continue;
   const m = medirDitado(r.extracao.evidencias, r.estado.historico);
   linhas.push({
-    rodada: '0d', nivel: r.nivel, turnos: r.estado.turno, fim: r.estado.motivoFim ?? '-',
+    rodada: '0d', nivel: r.nivel, turnos: r.estado.turno, fim: lerMotivoParada(r.estado) ?? '-',
     cobertura: `${r.consolidacao?.cobertura.medidos}/${r.consolidacao?.cobertura.total}`,
     d: m.ditadas, p: m.proprias, s: m.semElemento, ditados: r.estado.ditados?.length ?? 0,
   });

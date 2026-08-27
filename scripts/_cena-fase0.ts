@@ -33,14 +33,16 @@ import {
   abrirCena, extrairEvidenciasCena, gerarPersona, transcrever, triarAdequacao, turnoCena,
   type ContextoCena, type DescritorDaRegua, type EstadoCena, type PersonaInterlocutor,
 } from '@/lib/season-engine/cena/core';
-import { consolidarCena, montarBeatsDaCena, type PerguntaIA3 } from '@/lib/season-engine/cena/beats';
+import {
+  consolidarCena, lerMotivoParada, montarBeatsDaCena, MOTIVOS_PARADA, type PerguntaIA3,
+} from '@/lib/season-engine/cena/beats';
 import { promptAlunoSimulado } from '@/lib/season-engine/cena/prompts';
 import {
   adquirirLock, baterLock, carregarShards, escreverAtomico, shardPath,
 } from '@/lib/season-engine/cena/arquivo';
 import { validarSaidaDaCena, saidaConfiavel } from '@/lib/season-engine/cena/validar-saida';
 import { medirDitado, TETO_DITADO } from '@/lib/season-engine/cena/ditado';
-import { medirFatosAflorados } from '@/lib/season-engine/cena/fatos';
+import { hashDoGabarito, medirFatosAflorados } from '@/lib/season-engine/cena/fatos';
 import { auditarAlcancabilidade } from '@/lib/season-engine/cena/blueprint';
 
 // O aluno é OVERHEAD de medição (netável pelo `source: 'simulator'`), mas o
@@ -413,7 +415,18 @@ async function cmdCena(slug: string, codComp: string) {
   console.log(`Cede quando: ${persona.o_que_faz_ceder}`);
 
   const saidaParcial = arg('saida', `cena-${slug}-${codComp.toLowerCase()}.json`);
-  const payload = (rs: any[]) => ({ cenarioId: cen.id, ctx: { ...ctx, descritores }, persona, rodadas: rs });
+  /**
+   * O HASH DO GABARITO vai no artefato — senão ele existe no código e ninguém
+   * escreve, que é a classe "config declarada ≠ config aplicada".
+   *
+   * É a versão do instrumento que a auditoria humana cita: se ele mudar entre
+   * a leitura de um avaliador e a de outro, os dois auditaram alvos diferentes.
+   */
+  const gabaritoHash = hashDoGabarito(persona.fatos?.enterrados);
+  console.log(`Gabarito: ${persona.fatos?.enterrados?.length ?? 0} fatos · hash ${gabaritoHash}`);
+  const payload = (rs: any[]) => ({
+    cenarioId: cen.id, gabaritoHash, ctx: { ...ctx, descritores }, persona, rodadas: rs,
+  });
   const gravarCombinado = (rs: any[]) => {
     escreverAtomico(saidaParcial, payload(rs));
     const bytes = existsSync(saidaParcial) ? statSync(saidaParcial).size : 0;
@@ -472,7 +485,7 @@ async function cmdCena(slug: string, codComp: string) {
       continue;
     }
     const c = r.consolidacao;
-    console.log(`\n[aluno N${r.nivel}]  turnos ${r.estado.turno}  fim: ${r.estado.motivoFim}`);
+    console.log(`\n[aluno N${r.nivel}]  turnos ${r.estado.turno}  parou: ${lerMotivoParada(r.estado)}  resultado: ${c?.resultado ?? '—'}`);
     console.log(`  beats cumpridos:      ${r.estado.beatsCumpridos.join(', ') || 'nenhum'}`);
     console.log(`  cobertura:            ${c ? `${c.cobertura.medidos}/${c.cobertura.total}` : 'sem extração'}`);
     console.log(`  descritores sem sinal:${c?.semSinal.length ? ' ' + c.semSinal.map((d: number) => `D${d}`).join(', ') : ' nenhum'}`);
@@ -534,8 +547,8 @@ POR BRAÇO
        * dramático da rodada não aparecia em lugar nenhum. Ruptura vai acontecer
        * com gente real, e a política de retomada depende de saber quanto.
        */
-      const desfechos = ['acordo', 'ruptura', 'impasse', 'teto']
-        .map((m) => [m, g.filter((r: any) => r.estado.motivoFim === m).length] as const)
+      const desfechos = [...MOTIVOS_PARADA]
+        .map((m) => [m, g.filter((r: any) => lerMotivoParada(r.estado) === m).length] as const)
         .filter(([, n]) => n > 0)
         .map(([m, n]) => `${m}×${n}`)
         .join(' ') || '—';

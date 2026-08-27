@@ -38,7 +38,37 @@
  * humano ler, não veredito automático.
  */
 
+import { createHash } from 'node:crypto';
+
 import type { FatoEnterrado } from './prompts';
+
+/**
+ * A IMPRESSÃO DIGITAL DO GABARITO — portão de entrada da âncora humana.
+ *
+ * O gabarito virou a régua dentro da cena: ele decide o que o gestor precisa
+ * descobrir e o quanto isso é difícil. Se ele mudar entre a leitura de um
+ * avaliador e a de outro, a auditoria mede alvos diferentes e ninguém percebe —
+ * a versão do instrumento tem de ser uma coisa que se possa citar.
+ *
+ * Entra no hash o que muda a DIFICULDADE: o fato, a condição de revelação e o
+ * descritor. Fica de fora o que é cosmético (ordem, espaçamento), porque
+ * reordenar a lista não muda a prova.
+ *
+ * ⚠️ Isto congela o alvo; **não** o valida. Se a condição de revelação de um
+ * fato for mais dura que a dos outros, o descritor ficou mais difícil por
+ * decisão de quem escreveu — e o hash registra essa decisão sem julgá-la. Quem
+ * julga é a auditoria de outra família (`promptAuditorDoGabarito`).
+ */
+export function hashDoGabarito(enterrados: FatoEnterrado[] | undefined): string {
+  const canonico = (enterrados ?? [])
+    .map((e) => ({
+      d: Number(e.descritor),
+      f: String(e.fato ?? '').replace(/\s+/g, ' ').trim(),
+      s: String(e.so_revela_se ?? '').replace(/\s+/g, ' ').trim(),
+    }))
+    .sort((a, b) => a.d - b.d || a.f.localeCompare(b.f));
+  return createHash('sha256').update(JSON.stringify(canonico)).digest('hex').slice(0, 16);
+}
 
 const PALAVRAS_VAZIAS = new Set([
   'porque', 'quando', 'aquele', 'aquela', 'aquilo', 'depois', 'antes', 'mesmo',
@@ -87,21 +117,49 @@ export interface FalaDoInterlocutor {
   turno?: number;
 }
 
+/**
+ * TRÊS ESTADOS, não um booleano.
+ *
+ * 🔴 Medido nas 10 cenas de 26/08: das 60 combinações cena × fato, **14 (23,3%)
+ * têm as duas fontes discordando** — 13 em que só o matcher achou e 1 em que só
+ * o ator declarou. Das 23 aflorações contadas, as fontes concordam em **9**.
+ *
+ * Chamei isso de "duplo-fonte". Com `declarado || corroborado` era um OU
+ * generoso, e o matcher carregava o resultado sozinho na maioria dos casos —
+ * um detector com corte escolhido porque separou os braços na primeira rodada.
+ *
+ * Enquanto a leitura humana não arbitrar, **`disputado` não conta como
+ * aflorado**. É a mesma regra do nível suprimido: o que não se sustenta não
+ * circula como se sustentasse.
+ */
+export type EstadoDoFato = 'confirmado' | 'disputado' | 'ausente';
+
 export interface VeredictoDoFato {
   descritor: number;
   /** O interlocutor disse, no [META], que entregou este fato. */
   declarado: boolean;
   /** O conteúdo do fato aparece na fala dele. */
   corroborado: boolean;
-  /** `declarado || corroborado` — o lado generoso, e o comentário explica. */
+  estado: EstadoDoFato;
+  /** Só `confirmado`. `disputado` fica de fora até a arbitragem humana. */
   aflorou: boolean;
 }
 
 export interface MedidaDeFatos {
   porFato: VeredictoDoFato[];
+  /** Só os `confirmado`. É o número que pode circular. */
   aflorados: number;
+  /** Os `disputado` — visíveis ao lado, nunca somados por baixo do pano. */
+  disputados: number;
   total: number;
+  /** `aflorados / total`. Estrita, como o campo acima. */
   taxa: number | null;
+  /**
+   * A taxa que sairia com o OU generoso de antes. Fica exposta porque é o
+   * TETO da medida — e a distância entre as duas diz o quanto o resultado
+   * depende de arbitragem que ainda não aconteceu.
+   */
+  taxaComDisputados: number | null;
   /** Fatos em que declaração e corroboração discordam — para humano ler. */
   divergentes: number[];
 }
@@ -125,15 +183,23 @@ export function medirFatosAflorados(
   const porFato: VeredictoDoFato[] = lista.map((e) => {
     const declarado = anunciados.has(e.descritor);
     const corroborado = fatoApareceEm(e.fato, falaDele);
-    return { descritor: e.descritor, declarado, corroborado, aflorou: declarado || corroborado };
+    const estado: EstadoDoFato = declarado && corroborado
+      ? 'confirmado'
+      : (declarado || corroborado) ? 'disputado' : 'ausente';
+    return { descritor: e.descritor, declarado, corroborado, estado, aflorou: estado === 'confirmado' };
   });
 
-  const aflorados = porFato.filter((f) => f.aflorou).length;
+  const aflorados = porFato.filter((f) => f.estado === 'confirmado').length;
+  const disputados = porFato.filter((f) => f.estado === 'disputado').length;
   return {
     porFato,
     aflorados,
+    disputados,
     total: lista.length,
     taxa: lista.length ? Number((aflorados / lista.length).toFixed(3)) : null,
-    divergentes: porFato.filter((f) => f.declarado !== f.corroborado).map((f) => f.descritor),
+    taxaComDisputados: lista.length
+      ? Number(((aflorados + disputados) / lista.length).toFixed(3))
+      : null,
+    divergentes: porFato.filter((f) => f.estado === 'disputado').map((f) => f.descritor),
   };
 }

@@ -13,7 +13,8 @@
 //
 // Uso: npx tsx scripts/_cena-agregar.ts cena-fase0h.json cena-fase0h-b.json
 import { readFileSync, existsSync } from 'node:fs';
-import { medirFatosAflorados } from '@/lib/season-engine/cena/fatos';
+import { hashDoGabarito, medirFatosAflorados } from '@/lib/season-engine/cena/fatos';
+import { lerMotivoParada, MOTIVOS_PARADA } from '@/lib/season-engine/cena/beats';
 import { shardPath } from '@/lib/season-engine/cena/arquivo';
 
 const arquivos = process.argv.slice(2).filter((a) => !a.startsWith('--'));
@@ -26,7 +27,9 @@ let totalFatos = 0;
 
 for (const arq of arquivos) {
   const d = JSON.parse(readFileSync(arq, 'utf-8'));
-  const assinatura = JSON.stringify(d.persona?.fatos?.enterrados ?? []) + '|' + (d.persona?.o_que_faz_ceder ?? '');
+  // O hash do gabarito é a identidade do instrumento. `o_que_faz_ceder` entra
+  // junto porque muda quando a cena fecha, e isso também é a prova.
+  const assinatura = hashDoGabarito(d.persona?.fatos?.enterrados) + '|' + (d.persona?.o_que_faz_ceder ?? '');
   if (personaRef == null) personaRef = assinatura;
   else if (personaRef !== assinatura) {
     console.error(`\n🔴 ${arq} tem persona/gabarito DIFERENTE dos anteriores — agregar aqui misturaria instrumentos.`);
@@ -48,7 +51,7 @@ for (const arq of arquivos) {
     cenas.push({
       nivel: r.nivel, aut: r.consolidacao.media, nivelAut: r.consolidacao.nivel,
       ass: r.consolidacao.encerramento.media, turnos: r.estado.turno,
-      fim: r.estado.motivoFim, fatos: mf.aflorados,
+      fim: lerMotivoParada(r.estado) ?? '-', fatos: mf.aflorados,
       quais: mf.porFato.filter((f) => f.aflorou).map((f) => `D${f.descritor}`),
     });
   }
@@ -57,12 +60,12 @@ for (const arq of arquivos) {
 const med = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
 const f2 = (n: number) => (Number.isFinite(n) ? n.toFixed(2) : ' -- ');
 
-console.log(`\n${cenas.length} cenas válidas, mesma persona (${arquivos.length} arquivo(s))\n`);
+console.log(`\n${cenas.length} cenas válidas · gabarito ${personaRef?.split('|')[0]} (${arquivos.length} arquivo(s))\n`);
 console.log('ator  n   autonomia  níveis            assistido  turnos  desfechos            fatos');
 const resumo: Record<number, { aut: number; fat: number; n: number }> = {} as any;
 for (const nv of [...new Set(cenas.map((c) => c.nivel))].sort()) {
   const g = cenas.filter((c) => c.nivel === nv);
-  const desf = ['acordo', 'ruptura', 'impasse', 'teto']
+  const desf = [...MOTIVOS_PARADA]
     .map((m) => [m, g.filter((c) => c.fim === m).length] as const)
     .filter(([, k]) => k > 0).map(([m, k]) => `${m}×${k}`).join(' ');
   resumo[nv] = { aut: med(g.map((c) => c.aut)), fat: med(g.map((c) => c.fatos)), n: g.length };

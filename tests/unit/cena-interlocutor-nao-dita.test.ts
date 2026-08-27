@@ -64,11 +64,11 @@ const persona: any = {
   o_que_nunca_aceita: 'y', o_que_faz_ceder: 'z', tom: 'firme', primeira_fala: 'Olha.',
 };
 
-const estado = (): EstadoCena => ({
+const estado = (over: Partial<EstadoCena> = {}): EstadoCena => ({
   historico: [{ role: 'assistant', content: 'Olha.', turno: 1 }],
   turno: 1, beatsCumpridos: [], descritoresTocados: [], turnosSemAvanco: 0,
-  beatProvocado: 1, condicaoSatisfeita: false, concluida: false, motivoFim: null,
-  encerramentosNegados: [], bloqueios: [], ditados: [], fatosRevelados: [],
+  beatProvocado: 1, condicaoSatisfeita: false, concluida: false, motivoParada: null,
+  encerramentosNegados: [], bloqueios: [], ditados: [], fatosRevelados: [], ...over,
 });
 
 beforeEach(() => { mocks.falas = []; mocks.sufixos = []; mocks.ditaEm = []; mocks.iDita = 0; });
@@ -191,5 +191,40 @@ describe('revelar FATO não é ditar — é o mecanismo da cena', () => {
     expect(system).toContain('REVELA UM FATO DO CASO QUE ELA VIVEU');
     expect(system, 'a fronteira tem de ser temporal, não de conteúdo')
       .toContain('FATO É PASSADO, e é dela. INSTRUÇÃO É FUTURO');
+  });
+});
+
+describe('fato novo conta como AVANÇO — senão a cena para viva', () => {
+  // 🔴 Medido em 26/08: `avancou` só olhava beat. Depois que os quatro fecham,
+  // nenhum beat novo é possível — então `turnosSemAvanco` subia sozinho e a
+  // cena parava por inatividade 3 turnos depois, com a investigação ainda
+  // produzindo fato. Dos 8 encerramentos daquela rodada, os 8 tinham os quatro
+  // beats cumpridos: nenhum era conversa travada.
+  const comFato = (descritor: number | null) => {
+    mocks.falas = [`Então tá.\n[META]\n{"movimento":"resistir","fato_revelado":${descritor ?? 'null'}}\n[/META]`];
+    mocks.ditaEm = [false];
+  };
+
+  it('fato NOVO zera os turnos sem avanço', async () => {
+    comFato(3);
+    const r = await turnoCena(ctxBase, persona, estado({ turnosSemAvanco: 2, beatsCumpridos: [1, 2, 3, 4] }), 'e o que mais?');
+    expect(r.estado.turnosSemAvanco, 'a investigação andou').toBe(0);
+    expect(r.estado.fatosRevelados).toEqual([{ turno: 2, descritor: 3 }]);
+  });
+
+  it('fato REPETIDO não zera — reentregar o que já contou não é avanço', async () => {
+    comFato(3);
+    const anterior = estado({
+      turnosSemAvanco: 2, beatsCumpridos: [1, 2, 3, 4],
+      fatosRevelados: [{ turno: 1, descritor: 3 }],
+    });
+    const r = await turnoCena(ctxBase, persona, anterior, 'e o que mais?');
+    expect(r.estado.turnosSemAvanco).toBe(3);
+  });
+
+  it('turno sem fato e sem beat novo continua contando parado', async () => {
+    comFato(null);
+    const r = await turnoCena(ctxBase, persona, estado({ turnosSemAvanco: 1, beatsCumpridos: [1, 2, 3, 4] }), 'ok');
+    expect(r.estado.turnosSemAvanco).toBe(2);
   });
 });

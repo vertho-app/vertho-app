@@ -174,7 +174,7 @@ describe('3 · o juiz avalia o beat PROVOCADO, não o próximo pendente', () => 
   const estado = (over: Partial<EstadoCena> = {}): EstadoCena => ({
     historico: [{ role: 'assistant', content: 'Olha.', turno: 1 }],
     turno: 1, beatsCumpridos: [], descritoresTocados: [], turnosSemAvanco: 0,
-    beatProvocado: 1, condicaoSatisfeita: false, concluida: false, motivoFim: null,
+    beatProvocado: 1, condicaoSatisfeita: false, concluida: false, motivoParada: null,
     encerramentosNegados: [], bloqueios: [], ditados: [], fatosRevelados: [], ...over,
   });
 

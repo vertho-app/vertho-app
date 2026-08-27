@@ -289,6 +289,26 @@ export function validarGabaritoDaCena(
     }
     porDescritor.set(i, (porDescritor.get(i) ?? 0) + 1);
   }
+  /**
+   * EXATAMENTE UM por descritor — não "pelo menos um".
+   *
+   * 🔴 Com "pelo menos", dois fatos para D1 e um para cada outro passava: D1
+   * ganhava duas chances de aflorar e pesava o dobro na taxa, sem que nada
+   * acusasse. A métrica é POR DESCRITOR, e ela só é comparável entre eles se
+   * cada um contribuir com no máximo 1.
+   *
+   * É uma decisão, e ela troca flexibilidade por comparabilidade: quem quiser
+   * dois ângulos para o mesmo descritor precisa de duas cenas, não de dois
+   * fatos na mesma.
+   */
+  const duplicados = [...porDescritor.entries()].filter(([, n]) => n > 1).map(([i]) => i);
+  if (duplicados.length) {
+    erros.push(
+      `mais de um fato para ${duplicados.map((i) => `D${i}`).join(', ')} — ` +
+      'a taxa é por descritor, e descritor com dois fatos pesa o dobro',
+    );
+  }
+
   const sem: number[] = [];
   for (let i = 1; i <= numDescritores; i++) if (!porDescritor.has(i)) sem.push(i);
   if (sem.length) {
@@ -335,7 +355,60 @@ export function proximoBeat(beats: BeatDaCena[], beatsCumpridos: number[]): Beat
   return beats.find((b) => !feitos.has(b.numero)) ?? null;
 }
 
-export type MotivoFim = 'acordo' | 'ruptura' | 'impasse' | 'teto';
+/**
+ * POR QUE O MOTOR PAROU — e só isso.
+ *
+ * 🔴 O enum anterior (`acordo | ruptura | impasse | teto`) misturava duas
+ * perguntas: por que a conversa acabou e o que ela produziu. Com isso, "impasse"
+ * era lido como "a investigação falhou" — e na rodada de 26/08 os **8 impasses
+ * tinham os quatro beats cumpridos**: nenhum era conversa travada, todos eram
+ * "os beats acabaram e a cessão não fechou em 3 turnos". O teto pré-registrado
+ * de 40% de impasse foi escrito para o outro significado.
+ *
+ * Agora são dois campos: aqui, por que parou; em `ConsolidacaoCena.resultado`,
+ * o que foi medido.
+ *
+ *   `concluiu`    — o personagem cedeu, com os beats completos
+ *   `ruptura`     — ele encerrou a relação (passa por cima de tudo)
+ *   `inatividade` — turnos sem NENHUM avanço (beat novo ou fato novo)
+ *   `teto`        — acabaram os turnos
+ */
+export type MotivoParada = 'concluiu' | 'ruptura' | 'inatividade' | 'teto';
+
+/**
+ * Lê o motivo de parada de um estado gravado, traduzindo o enum ANTIGO.
+ *
+ * Artefatos anteriores a 26/08/2026 gravaram `motivoFim` com
+ * `acordo | ruptura | impasse | teto`. A tradução fica aqui, num lugar só, e
+ * é explícita de propósito: `impasse` virou `inatividade`, e quem ler um
+ * relatório antigo precisa saber que aquilo NÃO significava "a investigação
+ * falhou" — significava "os beats acabaram e a cessão não fechou".
+ *
+ * Uma função compartilhada, e não uma cópia por script: régua duplicada é
+ * régua que diverge, e este módulo já pagou isso.
+ */
+export function lerMotivoParada(estado: any): MotivoParada | null {
+  if (estado?.motivoParada) return estado.motivoParada as MotivoParada;
+  const legado = estado?.motivoFim;
+  if (!legado) return null;
+  return ({ acordo: 'concluiu', impasse: 'inatividade', ruptura: 'ruptura', teto: 'teto' } as const)[
+    legado as 'acordo' | 'impasse' | 'ruptura' | 'teto'
+  ] ?? null;
+}
+
+/** Os quatro motivos, na ordem em que aparecem nos relatórios. */
+export const MOTIVOS_PARADA: readonly MotivoParada[] = ['concluiu', 'ruptura', 'inatividade', 'teto'];
+
+/** O que o [META] do personagem pode PEDIR. Vocabulário dele, não do motor. */
+export type PedidoDoModelo = 'acordo' | 'ruptura';
+
+/**
+ * O QUE A CENA PRODUZIU — dimensão separada do motivo de parada.
+ *
+ * Sob o gênero de investigação, cobertura é o que a sondagem alcançou: um
+ * descritor sem sinal significa que o gestor não chegou ao fato dele.
+ */
+export type ResultadoDaCena = 'suficiente' | 'parcial' | 'insuficiente';
 
 export interface EstadoParaEncerrar {
   turno: number;
@@ -344,7 +417,7 @@ export interface EstadoParaEncerrar {
   beatsCumpridos: number[];
   /** O modelo pediu para encerrar no [META]. Pedido, não decisão. */
   modeloPediuEncerrar: boolean;
-  motivoDoModelo: MotivoFim | null;
+  motivoDoModelo: PedidoDoModelo | null;
   /** Turnos consecutivos sem nenhum beat novo — matéria-prima do impasse. */
   turnosSemAvanco: number;
   /**
@@ -374,13 +447,13 @@ export interface EstadoParaEncerrar {
 
 export interface VeredictoEncerramento {
   encerrar: boolean;
-  motivo: MotivoFim | null;
+  motivo: MotivoParada | null;
   /** Preenchido quando o modelo quis encerrar e o código NEGOU. Vai para o log. */
   negadoPorBeatPendente: number | null;
 }
 
 /** Quantos turnos parados bastam para chamar de impasse. */
-export const TURNOS_PARA_IMPASSE = 3;
+export const TURNOS_PARA_INATIVIDADE = 3;
 
 /**
  * A direção de cena. Roda em CÓDIGO porque o modelo é parte interessada:
@@ -409,7 +482,7 @@ export function podeEncerrar(estado: EstadoParaEncerrar): VeredictoEncerramento 
     };
   }
   if (estado.modeloPediuEncerrar) {
-    return { encerrar: true, motivo: estado.motivoDoModelo ?? 'acordo', negadoPorBeatPendente: null };
+    return { encerrar: true, motivo: estado.motivoDoModelo === 'ruptura' ? 'ruptura' : 'concluiu', negadoPorBeatPendente: null };
   }
   /**
    * Beats completos + o personagem cedeu = ACORDO, decidido pelo CÓDIGO.
@@ -420,10 +493,10 @@ export function podeEncerrar(estado: EstadoParaEncerrar): VeredictoEncerramento 
    * garantia que este arquivo existe para dar.
    */
   if (estado.condicaoSatisfeita) {
-    return { encerrar: true, motivo: 'acordo', negadoPorBeatPendente: null };
+    return { encerrar: true, motivo: 'concluiu', negadoPorBeatPendente: null };
   }
-  if (estado.turnosSemAvanco >= TURNOS_PARA_IMPASSE) {
-    return { encerrar: true, motivo: 'impasse', negadoPorBeatPendente: null };
+  if (estado.turnosSemAvanco >= TURNOS_PARA_INATIVIDADE) {
+    return { encerrar: true, motivo: 'inatividade', negadoPorBeatPendente: null };
   }
   return { encerrar: false, motivo: null, negadoPorBeatPendente: null };
 }
@@ -619,6 +692,14 @@ export interface ConsolidacaoCena {
   cobertura: { medidos: number; total: number; taxa: number };
   /** Quanto da competência esta cena alcança. `observaveis === total` = régua inteira. */
   alcance: { observaveis: number; total: number; taxa: number };
+  /**
+   * O QUE A CENA PRODUZIU — separado de por que ela parou (`MotivoParada`).
+   *
+   * Sob investigação, descritor sem sinal significa que o gestor **não chegou
+   * ao fato**. Cobertura vira medida, não acidente — e por isso ela é o eixo
+   * deste campo.
+   */
+  resultado: ResultadoDaCena;
   /**
    * Índices de descritor que a extração devolveu FORA da faixa 1..N.
    *
@@ -951,6 +1032,11 @@ export function consolidarCena(
       total: numDescritores,
       taxa: numDescritores ? Number((esperados / numDescritores).toFixed(3)) : 0,
     },
+    resultado: !esperados || medidas.length === 0
+      ? 'insuficiente'
+      : medidas.length === esperados
+        ? 'suficiente'
+        : medidas.length * 2 >= esperados ? 'parcial' : 'insuficiente',
     indicesInvalidos: [...new Set(foraDaFaixa)].sort((a, b) => a - b),
     foraDoAlcance,
     /**

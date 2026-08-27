@@ -1,9 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  BEATS_CANONICOS, TURNOS_PARA_IMPASSE,
-  NOTAS_DE_VEREDITO, TETO_CENA,
-  consolidarCena, descritoresPendentes, montarBeatsDaCena, podeEncerrar, proximoBeat,
-  type BeatDaCena, type EvidenciaDescritor, type PerguntaIA3,
+  BEATS_CANONICOS,
+  MOTIVOS_PARADA,
+  NOTAS_DE_VEREDITO,
+  TETO_CENA,
+  TURNOS_PARA_INATIVIDADE,
+  consolidarCena,
+  descritoresPendentes,
+  lerMotivoParada,
+  montarBeatsDaCena,
+  podeEncerrar,
+  proximoBeat,
+  validarGabaritoDaCena,
+  type BeatDaCena,
+  type EvidenciaDescritor,
+  type PerguntaIA3,
 } from '@/lib/season-engine/cena/beats';
 import { nivelDaNota } from '@/lib/nivel-regua';
 
@@ -103,9 +114,9 @@ describe('podeEncerrar — o código decide, o modelo pede', () => {
     expect(v.negadoPorBeatPendente).toBe(3);
   });
 
-  it('aceita o acordo quando os 4 beats aconteceram', () => {
+  it('aceita o encerramento quando os 4 beats aconteceram', () => {
     const v = podeEncerrar(estadoBase({ modeloPediuEncerrar: true, motivoDoModelo: 'acordo' }));
-    expect(v).toMatchObject({ encerrar: true, motivo: 'acordo' });
+    expect(v).toMatchObject({ encerrar: true, motivo: 'concluiu' });
   });
 
   it('deixa a RUPTURA passar por cima da cobertura — insistir seria cena falsa', () => {
@@ -123,13 +134,13 @@ describe('podeEncerrar — o código decide, o modelo pede', () => {
   });
 
   it('não declara impasse com beat pendente — primeiro tenta cumprir', () => {
-    const v = podeEncerrar(estadoBase({ beatsCumpridos: [1], turnosSemAvanco: TURNOS_PARA_IMPASSE + 2 }));
+    const v = podeEncerrar(estadoBase({ beatsCumpridos: [1], turnosSemAvanco: TURNOS_PARA_INATIVIDADE + 2 }));
     expect(v.encerrar).toBe(false);
   });
 
-  it('declara impasse quando cobriu tudo e a cena parou de andar', () => {
-    const v = podeEncerrar(estadoBase({ turnosSemAvanco: TURNOS_PARA_IMPASSE }));
-    expect(v).toMatchObject({ encerrar: true, motivo: 'impasse' });
+  it('declara INATIVIDADE quando cobriu tudo e a cena parou de andar', () => {
+    const v = podeEncerrar(estadoBase({ turnosSemAvanco: TURNOS_PARA_INATIVIDADE }));
+    expect(v).toMatchObject({ encerrar: true, motivo: 'inatividade' });
   });
 
   it('segue a cena quando ninguém pediu nada', () => {
@@ -423,7 +434,7 @@ describe('a cessão declarada FECHA a cena — o espelho que faltava', () => {
 
   it('beats completos + cessão declarada = ACORDO, sem o modelo pedir', () => {
     const v = cede({ modeloPediuEncerrar: false });
-    expect(v).toMatchObject({ encerrar: true, motivo: 'acordo' });
+    expect(v).toMatchObject({ encerrar: true, motivo: 'concluiu' });
   });
 
   it('mas NÃO fecha com beat pendente — a garantia central não afrouxa', () => {
@@ -431,14 +442,14 @@ describe('a cessão declarada FECHA a cena — o espelho que faltava', () => {
     expect(v.encerrar, 'cessão não compra cobertura').toBe(false);
   });
 
-  it('cessão vence o impasse: quem cedeu não está parado', () => {
+  it('cessão vence a inatividade: quem cedeu não está parado', () => {
     const v = cede({ turnosSemAvanco: 9 });
-    expect(v.motivo, 'impasse é "ninguém saiu do lugar" — o oposto disto').toBe('acordo');
+    expect(v.motivo, 'inatividade é "ninguém saiu do lugar" — o oposto disto').toBe('concluiu');
   });
 
-  it('sem cessão, o impasse continua sendo impasse', () => {
+  it('sem cessão, a parada por inatividade continua valendo', () => {
     const v = podeEncerrar(estadoBase({ condicaoSatisfeita: false, turnosSemAvanco: 9 }));
-    expect(v).toMatchObject({ encerrar: true, motivo: 'impasse' });
+    expect(v).toMatchObject({ encerrar: true, motivo: 'inatividade' });
   });
 
   it('ruptura ainda passa por cima de tudo', () => {
@@ -592,5 +603,76 @@ describe('todo beat tem saída pelo lado RUIM — senão a cena não anda', () =
 
   it('e o beat 2 em particular, que foi o que travou', () => {
     expect(BEATS_CANONICOS[1].sinalDeCumprido).toContain('aceitou o resumo');
+  });
+});
+
+describe('parada × resultado — duas perguntas que eram uma só', () => {
+  // 🔴 Medido em 26/08: os 8 encerramentos por "impasse" tinham os QUATRO beats
+  // cumpridos. Nenhum era conversa travada — todos eram "os beats acabaram e a
+  // cessão não fechou em 3 turnos". O enum misturava por que o motor parou com
+  // o que a cena produziu, e o teto pré-registrado de 40% media o significado
+  // errado.
+  it('o enum de parada não fala de resultado', () => {
+    expect(MOTIVOS_PARADA).toEqual(['concluiu', 'ruptura', 'inatividade', 'teto']);
+    expect(MOTIVOS_PARADA as readonly string[], 'acordo/impasse eram as duas palavras ambíguas')
+      .not.toContain('impasse');
+  });
+
+  it('cessão satisfeita com beats completos = concluiu', () => {
+    expect(podeEncerrar(estadoBase({ condicaoSatisfeita: true }))).toMatchObject({ motivo: 'concluiu' });
+  });
+
+  it('turnos parados sem avanço = inatividade, e não "impasse"', () => {
+    expect(podeEncerrar(estadoBase({ turnosSemAvanco: 9 }))).toMatchObject({ motivo: 'inatividade' });
+  });
+
+  it('o pedido do modelo fala a língua DELE, e o motor traduz', () => {
+    // O [META] emite "acordo" ou "ruptura"; o motor tem o próprio vocabulário.
+    expect(podeEncerrar(estadoBase({ modeloPediuEncerrar: true, motivoDoModelo: 'acordo' })))
+      .toMatchObject({ motivo: 'concluiu' });
+    expect(podeEncerrar(estadoBase({ modeloPediuEncerrar: true, motivoDoModelo: 'ruptura', beatsCumpridos: [] })))
+      .toMatchObject({ motivo: 'ruptura' });
+  });
+
+  it('lerMotivoParada traduz o artefato antigo, num lugar só', () => {
+    // Artefatos anteriores a 26/08 gravaram o enum velho. A tradução é
+    // explícita porque "impasse" NÃO significava investigação fracassada.
+    expect(lerMotivoParada({ motivoFim: 'impasse' })).toBe('inatividade');
+    expect(lerMotivoParada({ motivoFim: 'acordo' })).toBe('concluiu');
+    expect(lerMotivoParada({ motivoFim: 'teto' })).toBe('teto');
+    expect(lerMotivoParada({ motivoParada: 'concluiu', motivoFim: 'impasse' }), 'o campo novo manda')
+      .toBe('concluiu');
+    expect(lerMotivoParada({})).toBeNull();
+  });
+
+  it('resultado é sobre COBERTURA, e é dimensão separada', () => {
+    const beats = beatsOk();
+    const ev = (i: number) => ({
+      indice: i, nivel: 'n2_em_desenvolvimento' as const, forca: 'forte' as const,
+      citacao: 'x', beat: beats.find((b) => b.descritores.includes(i))!.numero, turno: 1,
+    });
+    const cheia = consolidarCena([1, 2, 3, 4, 5, 6].map(ev), 6, { beats, beatsCumpridos: [1, 2, 3, 4] });
+    expect(cheia.resultado).toBe('suficiente');
+    const metade = consolidarCena([1, 2, 3].map(ev), 6, { beats, beatsCumpridos: [1, 2, 3, 4] });
+    expect(metade.resultado).toBe('parcial');
+    const quase = consolidarCena([1].map(ev), 6, { beats, beatsCumpridos: [1, 2, 3, 4] });
+    expect(quase.resultado).toBe('insuficiente');
+  });
+});
+
+describe('gabarito: exatamente UM fato por descritor', () => {
+  const fato = (descritor: number) => ({ descritor, fato: 'algo concreto', so_revela_se: 'o gestor sondar' });
+
+  it('rejeita descritor com DOIS fatos — ele pesaria o dobro na taxa', () => {
+    // A taxa de afloramento é por descritor; dois fatos dão duas chances ao
+    // mesmo descritor, e nada acusava porque a contagem fechava.
+    const erros = validarGabaritoDaCena(
+      { enterrados: [fato(1), fato(1), fato(2), fato(3), fato(4), fato(5), fato(6)] }, 6,
+    );
+    expect(erros.some((e) => e.includes('mais de um fato para D1'))).toBe(true);
+  });
+
+  it('um por descritor passa', () => {
+    expect(validarGabaritoDaCena({ enterrados: [1, 2, 3, 4, 5, 6].map(fato) }, 6)).toEqual([]);
   });
 });

@@ -18,7 +18,7 @@
 //
 // Uso: npx tsx scripts/_cena-revalidar.ts cena-fase0e-n3.json
 import { readFileSync, existsSync } from 'node:fs';
-import { consolidarCena } from '@/lib/season-engine/cena/beats';
+import { consolidarCena, lerMotivoParada, MOTIVOS_PARADA } from '@/lib/season-engine/cena/beats';
 import { validarSaidaDaCena, saidaConfiavel } from '@/lib/season-engine/cena/validar-saida';
 import { medirDitado } from '@/lib/season-engine/cena/ditado';
 import { shardPath } from '@/lib/season-engine/cena/arquivo';
@@ -74,7 +74,7 @@ for (let n = 1; n <= 30; n++) {
     n, nivel: r.nivel, estado: saidaConfiavel(vs) ? 'ok' : 'INVÁLIDA',
     antes: r.confiavel ? 'ok' : 'INVÁLIDA',
     aut: c.media, nivelAut: c.nivel, ass: c.encerramento.media,
-    fim: r.estado.motivoFim, turnos: r.estado.turno,
+    fim: lerMotivoParada(r.estado) ?? '-', turnos: r.estado.turno,
     ditado: medirDitado(r.extracao.evidencias, r.estado.historico),
     erros: vs.filter((x) => x.severidade === 'erro'),
   });
@@ -99,7 +99,7 @@ if (!validas.length) { console.log('\nnenhuma cena válida.\n'); process.exit(0)
 const med = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 for (const nv of [...new Set(validas.map((l) => l.nivel))].sort()) {
   const g = validas.filter((l) => l.nivel === nv);
-  const desf = ['acordo', 'ruptura', 'impasse', 'teto']
+  const desf = [...MOTIVOS_PARADA]
     .map((m) => [m, g.filter((l) => l.fim === m).length] as const)
     .filter(([, k]) => k > 0).map(([m, k]) => `${m}×${k}`).join(' ');
   const dit = g.reduce((a, l) => a + l.ditado.ditadas, 0);

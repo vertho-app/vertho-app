@@ -68,7 +68,7 @@ const persona: any = {
 const estadoInicial = (): EstadoCena => ({
   historico: [{ role: 'assistant', content: 'Olha.', turno: 1 }],
   turno: 1, beatsCumpridos: [], descritoresTocados: [], turnosSemAvanco: 0, beatProvocado: 1,
-  condicaoSatisfeita: false, concluida: false, motivoFim: null,
+  condicaoSatisfeita: false, concluida: false, motivoParada: null,
   encerramentosNegados: [], bloqueios: [],
   ditados: [], fatosRevelados: [],
 });

@@ -180,7 +180,7 @@ sobretudo, sob que condição essa pessoa muda de posição.
 6. 🔑 OS FATOS SÃO O GABARITO. Divida o caso em duas camadas:
    - \`superficie\`: o que você conta sozinho, na primeira fala e logo depois. É
      a versão conveniente — verdadeira, incompleta, e que não incrimina ninguém.
-   - \`enterrados\`: UM POR DESCRITOR, no mínimo. Cada um é um fato que muda a
+   - \`enterrados\`: EXATAMENTE UM POR DESCRITOR — nem zero, nem dois. Cada um é um fato que muda a
      leitura do caso e que você só solta se o gestor fizer a pergunta certa.
      \`so_revela_se\` descreve essa pergunta — e ela tem de ser a sondagem
      característica DAQUELE descritor, não "se ele insistir".
@@ -900,5 +900,86 @@ ${beat.comoOInterlocutorCria}
 
 FALA DO PERSONAGEM:
 ${fala}`;
+  return { system, user };
+}
+
+/**
+ * AUDITOR DO GABARITO — e ele roda em OUTRA FAMÍLIA de modelo.
+ *
+ * O gabarito virou a régua dentro da cena: ele decide o que o gestor tem de
+ * descobrir e o quanto isso é difícil. `validarGabaritoDaCena` confere
+ * **presença** — um fato por descritor, com condição declarada. Nada no código
+ * confere **dificuldade**, e não deveria: se a condição de revelação de D3 for
+ * mais dura que a de D1, o descritor ficou mais difícil por decisão de quem
+ * escreveu, e a nota passa a medir o gabarito.
+ *
+ * 🔑 A auditoria é de família diferente pela mesma razão do juiz de beat e do
+ * guarda: **ninguém faz prova em que o mesmo autor escreve e confere o
+ * gabarito**. O gabarito nasce em Claude; quem o audita não pode ser Claude.
+ *
+ * A saída é RELATÓRIO. Quem decide refazer é humano, com a lista na frente.
+ */
+export function promptAuditorDoGabarito(ctx: ContextoCena, persona: PersonaInterlocutor) {
+  const system = `Você audita o GABARITO de uma cena de avaliação da Vertho.
+
+A cena é uma conversa de feedback: um gestor investiga um caso que um liderado
+conta pela metade. O gabarito lista, por descritor, um FATO que o liderado só
+entrega se o gestor fizer a sondagem certa. É por ele que se mede se o gestor
+chegou lá.
+
+Sua tarefa NÃO é julgar a conversa. É julgar se este gabarito é uma prova justa.
+
+═══ O QUE VOCÊ PROCURA ═══
+1. DIFICULDADE DESIGUAL. As condições de revelação exigem esforços comparáveis?
+   Uma que peça "o gestor perguntar pelo outro lado" e outra que peça "o gestor
+   reconstituir minuto a minuto E cruzar com o registro anterior" não medem a
+   mesma coisa — o segundo descritor ficou mais difícil por decisão de quem
+   escreveu, não por natureza da competência.
+2. ALINHAMENTO. O fato de cada descritor revela mesmo AQUELE descritor, ou
+   revelaria melhor um vizinho?
+3. ALCANCE. A condição de revelação é uma sondagem que um gestor competente
+   faria naturalmente, ou é uma senha que só quem viu o gabarito adivinha?
+4. VAZAMENTO. Algum fato já está na superfície — ou seja, sai sem sondagem
+   nenhuma? Se sai, ele não mede nada.
+5. TAMANHO. O fato é específico e verificável, ou é uma generalidade que o
+   avaliador não consegue reconhecer quando aparecer?
+
+⚠️ Não reescreva o gabarito e não sugira fatos novos. Aponte, com o índice do
+descritor e uma frase. Na dúvida entre "justo" e "duro", diga "duro" — gabarito
+frouxo passa despercebido, gabarito duro vira gap de desenvolvimento que a
+pessoa não tem.
+
+═══ FORMATO (APENAS JSON, sem markdown) ═══
+{
+  "por_descritor": [
+    { "descritor": 1, "dificuldade": "baixa|media|alta", "problema": "vazio se nenhum", "alinhado": true }
+  ],
+  "dificuldade_desigual": true,
+  "piores": [3, 5],
+  "veredito": "justo|revisar|refazer",
+  "justificativa": "2 a 3 frases"
+}`;
+
+  const descritores = ctx.descritores
+    .map((d) => `D${d.indice} — ${d.nomeCurto}\n  nível-meta: ${d.n3}`)
+    .join('\n');
+
+  const enterrados = (persona.fatos?.enterrados ?? [])
+    .map((e) => `D${e.descritor}:\n  fato: ${e.fato}\n  só revela se: ${e.so_revela_se}`)
+    .join('\n\n');
+
+  const user = `═══ A RÉGUA ═══
+${descritores}
+
+═══ O QUE O LIDERADO CONTA SOZINHO (superfície) ═══
+${(persona.fatos?.superficie ?? []).map((x) => `- ${x}`).join(NL) || '(nada)'}
+
+═══ O GABARITO — o que ele só entrega sob sondagem ═══
+${enterrados || '(vazio)'}
+
+═══ O CASO ═══
+${ctx.cenario.titulo}
+${ctx.cenario.contexto}`;
+
   return { system, user };
 }
