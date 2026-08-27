@@ -16,7 +16,7 @@ import {
   type EvidenciaDescritor,
   type PerguntaIA3,
 } from '@/lib/season-engine/cena/beats';
-import { nivelDaNota } from '@/lib/nivel-regua';
+import { nivelDaNota, TETO_N3 } from '@/lib/nivel-regua';
 
 /**
  * A cobertura por engenharia é a única coisa que impede a cena de ser PIOR que
@@ -674,5 +674,45 @@ describe('gabarito: exatamente UM fato por descritor', () => {
 
   it('um por descritor passa', () => {
     expect(validarGabaritoDaCena({ enterrados: [1, 2, 3, 4, 5, 6].map(fato) }, 6)).toEqual([]);
+  });
+});
+
+describe('🔴 O TETO — a cena NÃO emite N4, e agora isso tem prova', () => {
+  // Achado por um painel de revisão em 26/08/2026: mutar `TETO_CENA` de 3,4
+  // para 4,0 deixava a suíte INTEIRAMENTE VERDE. A afirmação "a cena não emite
+  // N4 por construção" estava escrita em comentário, repetida em documento, e
+  // não tinha um único teste segurando.
+  //
+  // É a mesma classe do "guard que não roda no CI": a garantia existia no
+  // arquivo, não no caminho. E é a mais cara de perder — N4 é o nível que a
+  // régua define como referência, e a cena não tem como observá-lo numa
+  // conversa; emitir N4 daqui carimbaria excelência a partir de sondagem.
+  it('a tabela de notas inteira fica abaixo do corte de N4', () => {
+    for (const [rotulo, nota] of Object.entries(NOTAS_DE_VEREDITO)) {
+      expect(nota, `${rotulo} não pode alcançar N4`).toBeLessThanOrEqual(TETO_N3);
+      expect(nivelDaNota(nota), `${rotulo} vira N4`).toBeLessThan(4);
+    }
+  });
+
+  it('o teto da cena fica abaixo do corte de N4 da régua oficial', () => {
+    expect(TETO_CENA).toBeLessThanOrEqual(TETO_N3);
+    expect(nivelDaNota(TETO_CENA), 'o próprio teto já seria N4').toBeLessThan(4);
+  });
+
+  it('NENHUMA combinação de evidências produz nível 4', () => {
+    // Propriedade, não exemplo: varre as notas possíveis em todas as posições
+    // e exige que o rótulo publicado nunca seja 4. Morre se o teto subir OU se
+    // a tabela de notas subir — as duas portas para o N4.
+    const beats = beatsOk();
+    const niveis = ['n1_gap', 'n2_em_desenvolvimento', 'n3_meta'] as const;
+    for (const nv of niveis) {
+      const evs = [1, 2, 3, 4, 5, 6].map((i) => ({
+        indice: i, nivel: nv, forca: 'forte' as const, citacao: 'x',
+        beat: beats.find((b) => b.descritores.includes(i))!.numero, turno: 1,
+      }));
+      const c = consolidarCena(evs, 6, { beats, beatsCumpridos: [1, 2, 3, 4], observaveis: [1, 2, 3, 4, 5, 6] });
+      expect(c.nivel, `tudo em ${nv} produziu N${c.nivel}`).not.toBe(4);
+      expect(c.encerramento.nivel, `encerramento em ${nv} produziu N4`).not.toBe(4);
+    }
   });
 });

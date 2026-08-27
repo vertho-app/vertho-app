@@ -43,7 +43,7 @@ import {
 import { validarSaidaDaCena, saidaConfiavel } from '@/lib/season-engine/cena/validar-saida';
 import { medirDitado, TETO_DITADO } from '@/lib/season-engine/cena/ditado';
 import { hashDoGabarito, medirFatosAflorados } from '@/lib/season-engine/cena/fatos';
-import { auditarAlcancabilidade } from '@/lib/season-engine/cena/blueprint';
+import { auditarAlcancabilidade, exigeAlcanceDeclarado } from '@/lib/season-engine/cena/blueprint';
 
 // O aluno é OVERHEAD de medição (netável pelo `source: 'simulator'`), mas o
 // modelo dele NÃO é escolha de custo — é de validade da medida, por dois motivos:
@@ -59,6 +59,9 @@ import { auditarAlcancabilidade } from '@/lib/season-engine/cena/blueprint';
 //    se as notas subirem, era o ator.
 const MODELO_ALUNO = { model: 'kimi-k3' };
 const LEDGER_SIM = { source: 'simulator' as const };
+
+/** Quebra de linha nomeada: escapar dentro de string some fácil ao editar. */
+const NL = String.fromCharCode(10);
 
 const arg = (nome: string, fallback = '') => {
   const i = process.argv.indexOf(`--${nome}`);
@@ -330,11 +333,41 @@ async function cmdCena(slug: string, codComp: string) {
    * o custo de não declarar tem de aparecer na tela, senão o teto de desenho
    * volta a ser lido como gap da pessoa.
    */
+  const ctxModo = arg('modo') === 'ensaio' ? ('ensaio' as const) : ('medicao' as const);
   const observaveis = arg('observaveis')
     ? arg('observaveis').split(',').map((n) => Number(n.trim())).filter(Number.isInteger)
     : undefined;
   const suspeitas = auditarAlcancabilidade(descritores);
-  if (suspeitas.length && !observaveis) {
+
+  /**
+   * 🔴 FAIL-CLOSED: cena de MEDIÇÃO não roda sem o alcance declarado.
+   *
+   * Antes, a ausência da flag só imprimia aviso — e um painel de revisão mediu
+   * o resultado disso nos artefatos: `foraDoAlcance = []` em **12 de 12**
+   * consolidações. A proteção que eu apresentei como "o código já protege"
+   * NUNCA foi exercida uma vez sequer, porque dependia de um operador lembrar
+   * de uma flag opcional. Aviso que não bloqueia é aviso que não roda.
+   *
+   * Em `--modo ensaio` continua opcional: lá não sai nota.
+   */
+  if (exigeAlcanceDeclarado(ctxModo, observaveis)) {
+    console.error(NL + '🔴 CENA DE MEDIÇÃO SEM --observaveis.' + NL);
+    console.error('   O alcance decide o que vira nota e o que vira lacuna de DESENHO. Sem ele,');
+    console.error('   o que a cena não observa entra na média como se ela medisse — foi o que');
+    console.error('   aconteceu nas 12 consolidações de 26/08.' + NL);
+    if (suspeitas.length) {
+      console.error('   A auditoria suspeita destes (é relatório, quem decide é você):');
+      for (const sp of suspeitas) {
+        console.error(`     D${sp.indice} ${sp.nomeCurto} — ${sp.risco} [${sp.marcador}]`);
+      }
+      console.error('');
+    }
+    console.error('   Competência roteada para a cena observa a régua inteira:');
+    console.error(`     --observaveis ${descritores.map((d) => d.indice).join(',')}` + NL);
+    process.exit(1);
+  }
+
+  if (false) {
     console.log('\n⚠️  A auditoria de alcançabilidade levantou suspeita nestes descritores:');
     for (const sp of suspeitas) {
       console.log(`     D${sp.indice} ${sp.nomeCurto} — ${sp.risco} [${sp.marcador}]`);
@@ -371,6 +404,7 @@ async function cmdCena(slug: string, codComp: string) {
     descritores,
     beats,
     descritoresObservaveis: observaveis,
+    modo: ctxModo,
   };
 
   console.log(`\nCENA — ${slug} / ${cargo} / ${codComp}`);

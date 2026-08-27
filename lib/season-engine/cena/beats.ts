@@ -932,20 +932,26 @@ export function consolidarCena(
      * extrator acerta o N1 na abertura; quem muda é o avaliado, porque o
      * interlocutor fecha saídas e dita o formato turno após turno.
      *
-     * Com um interlocutor didático NÃO EXISTE agregador único que deixe N1=N1 e
-     * N3=N3 ao mesmo tempo — os dois sobem porque a cena ensina. Então são duas
-     * medidas com significados diferentes:
+     * São duas medidas com significados diferentes:
      *   · ABERTURA     → hábito autônomo, o que a pessoa faz ANTES de a cena
-     *                     ensinar o formato.
+     *                     ensinar o formato. **É o que `media`/`nivel` publicam.**
      *   · ENCERRAMENTO → coachability: o quanto ela incorpora durante a
-     *                     conversa. É o que `media`/`nivel` publicam HOJE.
+     *                     conversa. Vive em `encerramento`, ao lado.
      *
-     * ⚠️ Qual das duas deve carregar o RÓTULO é decisão de produto em aberto, e
-     * o código não finge que já foi tomada: `nivel` continua vindo do
-     * encerramento. A evidência (re-extração de 25/08) aponta para a abertura —
-     * ela põe 5 de 5 atores N1 em N1 sob as DUAS regras de série, enquanto o
-     * encerramento deixa 2 vazarem para N2. Mas trocar a fonte do rótulo muda o
-     * que "a nota da cena" significa para PDI e trilha; não é ajuste de código.
+     * 🔴 ESTE COMENTÁRIO JÁ MENTIU, e o erro custou caro. Até 26/08 ele dizia
+     * o contrário — "é o que `media`/`nivel` publicam HOJE" apontando para o
+     * ENCERRAMENTO, e "`nivel` continua vindo do encerramento" — enquanto a
+     * linha logo acima já fazia `notas[i-1] = Math.min(trilha[0], …)`, que é a
+     * abertura. O comentário ficou para trás na mudança de topo, e um painel de
+     * revisão precisou medir o código para descobrir que a documentação dizia o
+     * oposto. Nenhum consumidor pode ler um número enquanto o arquivo afirma
+     * que ele significa outra coisa.
+     *
+     * ⚠️ A premissa original também caiu: o argumento de que "com interlocutor
+     * didático não existe agregador único que deixe N1=N1 e N3=N3" valia no
+     * gênero de negociação, em que o interlocutor ensinava o formato. Sob
+     * investigação ele está PROIBIDO de ditar, e a decisão do rótulo está
+     * marcada como (REABRIR) no registro — não como resolvida.
      */
     if (trilha.length > 1) {
       if (final > trilha[0]) recuperou.push(i);

@@ -166,3 +166,27 @@ export interface AlegacaoDoDescritor {
  * construção — que é exatamente o teto medido em D2 e D4.
  */
 export type NaturezaDaEvidencia = 'executada_na_cena' | 'compromisso_assumido' | 'plano_futuro';
+
+/**
+ * A cena pode rodar sem o alcance declarado?
+ *
+ * 🔴 Não, em medição — e a razão está medida. Enquanto isso era só um aviso no
+ * script, o resultado foi `foraDoAlcance = []` em **12 de 12** consolidações:
+ * a proteção nunca foi exercida uma vez, porque dependia de o operador lembrar
+ * de uma flag opcional. Aviso que não bloqueia é aviso que não roda.
+ *
+ * Está aqui, e não inline no script, para poder ter teste. Guard que vive só
+ * dentro de um `if` de CLI não é verificável — e este módulo já registrou
+ * duas vezes que garantia sem teste é garantia que ninguém observou funcionar.
+ *
+ * Em ensaio é permitido: ali não sai nota, então não há o que contaminar.
+ */
+export function exigeAlcanceDeclarado(
+  modo: 'medicao' | 'ensaio' | undefined,
+  observaveis: number[] | undefined,
+): boolean {
+  if ((modo ?? 'medicao') !== 'medicao') return false;
+  // Lista VAZIA é declaração ("não observa nada"), não ausência — a mesma
+  // distinção que `consolidarCena` faz com `!== undefined`.
+  return observaveis === undefined;
+}

@@ -11,7 +11,7 @@
 // testes dele foram alimentados com os mesmos exemplos de onde os padrões
 // saíram. Aqui a fonte é o texto do N3 e o veredito é humano.
 import { describe, expect, it } from 'vitest';
-import { auditarAlcancabilidade } from '@/lib/season-engine/cena/blueprint';
+import { auditarAlcancabilidade, exigeAlcanceDeclarado } from '@/lib/season-engine/cena/blueprint';
 import type { DescritorDaRegua } from '@/lib/season-engine/cena/prompts';
 
 const d = (indice: number, nomeCurto: string, n3: string): DescritorDaRegua => ({
@@ -89,5 +89,31 @@ describe('o DENOMINADOR — um detector que marca quase tudo não separa nada', 
 
   it('descritor sem texto de nível-meta é ignorado, não marcado', () => {
     expect(auditarAlcancabilidade([d(1, 'x', ''), d(2, 'y', '   ')])).toEqual([]);
+  });
+});
+
+describe('fail-closed do alcance — o guard que nunca rodou', () => {
+  // 🔴 Medido por um painel de revisão em 26/08: `foraDoAlcance = []` em 12 de
+  // 12 consolidações. Enquanto a falta da flag era só um aviso impresso, a
+  // proteção nunca foi exercida uma vez sequer — e os números publicados
+  // incluíam descritores que ninguém tinha declarado como observáveis.
+  it('medição SEM alcance declarado é bloqueada', () => {
+    expect(exigeAlcanceDeclarado('medicao', undefined)).toBe(true);
+    expect(exigeAlcanceDeclarado(undefined, undefined), 'ausência de modo = medição').toBe(true);
+  });
+
+  it('medição COM alcance declarado passa — inclusive a régua inteira', () => {
+    expect(exigeAlcanceDeclarado('medicao', [1, 2, 3, 4, 5, 6])).toBe(false);
+    expect(exigeAlcanceDeclarado('medicao', [1, 3])).toBe(false);
+  });
+
+  it('lista VAZIA é declaração, não ausência', () => {
+    // Mesma distinção que `consolidarCena` faz: [] significa "esta cena não
+    // observa nada", e quem declarou isso declarou conscientemente.
+    expect(exigeAlcanceDeclarado('medicao', [])).toBe(false);
+  });
+
+  it('ensaio nunca é bloqueado — ali não sai nota', () => {
+    expect(exigeAlcanceDeclarado('ensaio', undefined)).toBe(false);
   });
 });
