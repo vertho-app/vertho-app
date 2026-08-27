@@ -1433,3 +1433,70 @@ pior caso) e envolvido em `comContexto`.
 
 **A allowlist do guard de orçamento está VAZIA:** todas as 5 rotas que chamam IA
 declaram contexto.
+
+### 27/08 — modelo melhor × prompt melhor: o experimento que decidiu
+
+Com o `pdi_check` de pé, "Opus 5 entrega PDI melhor que Sonnet 5?" deixou de ser
+opinião. Experimento **pareado** (mesma pessoa nos dois braços, mesmo auditor,
+mesma evidência, sem persistir, `source: 'experimento'`), 6 sujeitos em Ibipeba.
+
+**Resultado: nenhuma direção.**
+
+| | Sonnet 5 | Opus 5 |
+|---|---:|---:|
+| achados semânticos (6 sujeitos) | 39 | 38 |
+| pareado | melhor em 2 | melhor em 3 · 1 empate |
+
+⚠️ **E o piloto de 3 sujeitos tinha dito o contrário** — 2 de 2 a favor do Opus.
+Na rodada completa, um desses pares **inverteu** (5×6 depois de ter sido 6×5),
+com a mesma pessoa e os mesmos modelos. Isso mede a variância entre execuções:
+**±1 achado, do mesmo tamanho do efeito procurado.** O script recusa concluir
+abaixo de 5 pares discordantes justamente por isso — sem essa trava, eu teria
+reportado "2 de 2 a favor do Opus" como sinal.
+
+**Dois achados operacionais no caminho:**
+
+- Uma chamada morreu em `APIUserAbortError`: o teto de tempo do wrapper são
+  120s, e o **Opus 5 mede 101-103s** contra 58s do Sonnet em produção. Chamada
+  que morre por relógio cria **viés de sobrevivência** — some a execução mais
+  longa, que é a mais provável de ter mais achados. Os dois braços passaram a
+  rodar com `timeoutMs: 300s`.
+- `pdi_individual` **não passa `timeoutMs`**, então roda nos mesmos 120s. Hoje o
+  p95 é 75s; subir para Opus 5 encostaria no teto.
+
+### E então o prompt, que era a causa
+
+Os **12 PDIs** deram veredito `fail`, nos dois modelos. Não é o gerador que
+falha: é o pedido. O prompt já dizia, nos princípios inegociáveis:
+
+> **#3** DISC/CIS deve aparecer como leitura contextual, **não como diagnóstico fechado**
+> **#9** **Não invente** comportamento, resultado ou contexto que não esteja sustentado
+
+E o schema, logo abaixo, exigia `"pontos_atencao": ["2-3 áreas de atenção do
+perfil"]` a partir de `D=.. I=.. S=.. C=..`. 🔑 **Cota vence regra em prosa** — o
+modelo tem de entregar o campo, então infere. E o que sai é a leitura de manual
+de C/S alto: *"tem dificuldade genuína com pressão e improviso"*, sobre uma
+pessoa, num documento que vai para ela.
+
+**Correção:** cota `2-3` → `0 a 3, e VAZIO se o perfil não sustentar. NÃO
+preencha por cota`; `descricao` deixou de pedir "como o seu perfil influencia o
+seu desempenho" e passou a pedir tendência em forma de hipótese, com os padrões
+proibidos nomeados; e o princípio **#10** — o perfil é hipótese, não observação,
+e score DISC não é evidência de comportamento.
+
+**Medido nos mesmos 6 sujeitos, mesmo modelo, mesmo auditor:**
+
+| | antes | depois |
+|---|---:|---:|
+| achados semânticos | 39 | **22** |
+| por sujeito | 7·5·6·6·9·6 | 3·4·3·2·5·5 |
+
+**−44%, com 6 de 6 na mesma direção** (teste de sinal: p = 0,016). Quatro dos
+seis caíram 3-4 achados, muito acima do ruído de ±1.
+
+🔑 **A comparação que fecha o exercício:** o upgrade para Opus 5 moveu 39 → 38
+(ruído) por **+US$ 24,85/mês**. A correção do prompt moveu 39 → 22 por **zero**.
+
+⚠️ Melhorou, não resolveu: os 6 ainda dão `fail`, com 22 achados restantes que
+não examinei. Modelo melhor não conserta prompt que pede a coisa errada — e
+prompt corrigido não esgota o que o auditor tem a dizer.

@@ -37,6 +37,9 @@ const INSTRUMENTOS = new Set([
   // corresponde a codigo nenhum e a mesma classe de guard sobre alvo morto —
   // ocupa espaco e nao protege nada.
   'canario_contrato', 'probe_provedor', 'pdi_leitura_cega',
+  // 27/08: o proprio guard pegou estas duas quando eu escrevi o experimento
+  // pareado Opus x Sonnet. Sao instrumento — nao vao para a tela do operador.
+  'pdi_experimento', 'pdi_experimento_check',
 ]);
 
 /**

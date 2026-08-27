@@ -62,6 +62,7 @@ PRINCÍPIOS INEGOCIÁVEIS:
 7. Scripts prontos são bem-vindos quando aumentam a aplicabilidade.
 8. Metas em primeira pessoa e com horizonte claro.
 9. Não invente comportamento, resultado ou contexto que não esteja sustentado.
+10. O perfil comportamental é HIPÓTESE, não observação. Afirmação sobre dificuldade, desconforto ou limitação da pessoa só entra se houver evidência NAS RESPOSTAS — score DISC não é evidência de comportamento. Na dúvida, escreva a tendência e o que ela sugere TESTAR, não o que a pessoa "é".
 
 REGRAS PARA O SPRINT DE 30 DIAS:
 - O sprint é ENXUTO e executável: no máximo 4 ações prioritárias (1 principal + 1 de apoio + 1 evidência + 1 ritual). NUNCA 8 ações, nem 4 semanas de tarefas.
@@ -93,9 +94,9 @@ FORMATO OBRIGATÓRIO:
     "principal_ponto_de_atencao": "texto curto"
   },
   "perfil_comportamental": {
-    "descricao": "Fale DIRETO com a pessoa, em 2ª pessoa e tom de conversa — ex.: 'Elizângela, seu perfil combina...'. NUNCA em 3ª pessoa ('O perfil de Elizângela...'). Como o seu perfil influencia o seu desempenho (2-3 parágrafos). SEM scores numéricos.",
-    "pontos_forca": ["2-3 forças do perfil"],
-    "pontos_atencao": ["2-3 áreas de atenção do perfil"]
+    "descricao": "Fale DIRETO com a pessoa, em 2ª pessoa e tom de conversa — ex.: 'Elizângela, seu perfil combina...'. NUNCA em 3ª pessoa ('O perfil de Elizângela...'). O perfil descreve PREFERÊNCIAS e TENDÊNCIAS, não capacidade nem dificuldade: escreva como hipótese a conferir ('costuma render mais quando...', 'tende a preferir...'), NUNCA como fato observado sobre a pessoa ('tem dificuldade com...', 'sente desconforto ao...', 'raramente consegue...'). 2-3 parágrafos, SEM scores numéricos.",
+    "pontos_forca": ["tendências que costumam ajudar — 0 a 3 itens, só o que o perfil sustenta"],
+    "pontos_atencao": ["tendências que podem pedir atenção, em linguagem de PREFERÊNCIA e não de déficit — 0 a 3 itens, e VAZIO se o perfil não sustentar. NÃO preencha por cota."]
   },
   "resumo_desempenho": [
     {"competencia": "nome", "nivel": 1, "nota_decimal": 1.0, "leitura": "síntese curta"}
