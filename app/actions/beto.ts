@@ -8,6 +8,7 @@ import { DISC_DOUTRINA, buildPerfilComportamentalBlock } from '@/lib/disc-doutri
 import { carregarConhecimentoDescritorPorId, formatBlocoConhecimentoDescritor, carregarModuloBaseParaTutor } from '@/lib/competencia-conhecimento';
 import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
 import { carregarBlueprintResumo } from '@/lib/blueprint/resumo';
+import { resolverContextoSemanal } from '@/lib/fase4/contexto-semanal';
 import { buscarConteudosRelacionados, formatConteudosRelacionadosBloco } from '@/lib/conteudos-relacionados';
 
 const SYSTEM_PROMPT_BASE = `Você é o BETO (Business Evolution & Talent Optimizer), um mentor de desenvolvimento profissional acolhedor e empático da plataforma Vertho Mentor IA.
@@ -119,38 +120,40 @@ async function getBetoContext(email: string): Promise<any> {
     cargoBloco = formatBlocoCargo(cargoInfo, emp?.nome || null);
   } catch { /* best-effort */ }
 
-  // Buscar fase4 ativa
-  const { data: envio } = await sb.from('fase4_envios')
-    .select('semana_atual, sequencia, competencia_id')
-    .eq('colaborador_id', colab.id)
-    .eq('status', 'ativo')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+  // Contexto da semana pela TRILHA — ver `lib/fase4/contexto-semanal.ts`.
+  //
+  // 🔴 Isto lia `fase4_envios.competencia_id`, coluna que NUNCA existiu. O
+  // PostgREST recusa a query inteira (400) quando uma coluna do select não
+  // existe, então `envio` vinha null e a função caía no `return` logo abaixo:
+  // pílula, competência em foco e conhecimento do descritor nunca chegaram ao
+  // prompt do BETO, em 100% das chamadas.
+  const contexto = await resolverContextoSemanal(sb, {
+    colaboradorId: colab.id,
+    empresaId: colab.empresa_id,
+    cargo: colab.cargo,
+  });
 
   // Blueprint independe de Fase 4 — carrega já para valer nos dois caminhos.
   const blueprintResumo = await carregarBlueprintResumo(sb, colab.id);
 
-  if (!envio) return { nome: colab.nome_completo, cargo: colab.cargo, cargoBloco, blueprintResumo, colab };
+  if (!contexto) return { nome: colab.nome_completo, cargo: colab.cargo, cargoBloco, blueprintResumo, colab };
 
-  let pilulaAtual = null;
-  try {
-    const sequencia = typeof envio.sequencia === 'string' ? JSON.parse(envio.sequencia) : envio.sequencia || [];
-    const semana = envio.semana_atual || 1;
-    if (semana <= sequencia.length) {
-      pilulaAtual = sequencia[semana - 1];
-    }
-  } catch {}
+  // A pílula vem do PLANO da trilha, não de `fase4_envios.sequencia`: medido em
+  // 27/08, `sequencia` está vazia nos 75 envios ativos — ela nunca alimentaria
+  // este bloco, mesmo com a query funcionando. O resolvedor já entrega
+  // `titulo/resumo/url`, que é o que o prompt abaixo lê (o bloco cru do plano
+  // usa `core_titulo`/`core_url`/`por_que_cabe_na_semana`).
+  const pilulaAtual = contexto.pilula;
 
   // Competência em foco + conhecimento curado (SÓ definição — rubrica fica de
   // fora por segurança) + Módulo-Base pedagógico (quando autorado).
-  let competenciaFoco = null;
-  let descritorFoco: string | null = null;
+  let competenciaFoco = contexto.competencia;
+  let descritorFoco: string | null = contexto.descritor;
   let conhecimentoDescritor = '';
-  if (envio.competencia_id) {
-    const conhecimento = await carregarConhecimentoDescritorPorId(sb, envio.competencia_id);
-    competenciaFoco = conhecimento?.competencia || null;
-    descritorFoco = conhecimento?.descritor || null;
+  if (contexto.competenciaId) {
+    const conhecimento = await carregarConhecimentoDescritorPorId(sb, contexto.competenciaId);
+    competenciaFoco = conhecimento?.competencia || competenciaFoco;
+    descritorFoco = conhecimento?.descritor || descritorFoco;
     const blocoDescritor = formatBlocoConhecimentoDescritor(conhecimento);
     const blocoModulo = conhecimento?.competencia
       ? await carregarModuloBaseParaTutor(sb, { competenciaNome: conhecimento.competencia, empresaId: colab?.empresa_id })
@@ -173,7 +176,7 @@ async function getBetoContext(email: string): Promise<any> {
   return {
     nome: colab.nome_completo,
     cargo: colab.cargo,
-    semana: envio.semana_atual,
+    semana: contexto.semana,
     pilulaAtual,
     competenciaFoco,
     conhecimentoDescritor,

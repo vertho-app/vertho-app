@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
 import { requireUserAction } from '@/lib/auth/action-context';
+import { resolverContextoSemanal } from '@/lib/fase4/contexto-semanal';
 
 /**
  * Avalia a qualidade de uma evidência submetida pelo colaborador.
@@ -33,29 +34,31 @@ export async function avaliarEvidencia(colaboradorId: string, empresaId: string,
   const sb = createSupabaseAdmin();
 
   try {
-    // Carregar contexto
-    const { data: colab } = await sb.from('colaboradores')
-      .select('nome_completo, cargo, perfil_dominante')
+    // Carregar contexto. O `error` é checado de propósito: este arquivo inteiro
+    // ficou anos entregando avaliação sem contexto porque o retorno do
+    // supabase-js era descartado no destructuring (ele RETORNA `{ error }`, não
+    // lança). Sem o nome/cargo/perfil, a avaliação sai genérica e ninguém vê.
+    const { data: colab, error: errColab } = await sb.from('colaboradores')
+      .select('nome_completo, cargo, perfil_dominante, empresa_id')
       .eq('id', colaboradorId).single();
+    if (errColab) throw new Error(`colaboradores: ${errColab.message}`);
 
-    const { data: envio } = await sb.from('fase4_envios')
-      .select('sequencia, competencia_id')
-      .eq('colaborador_id', colaboradorId)
-      .eq('status', 'ativo')
-      .single();
+    // Contexto da semana pela TRILHA — ver `lib/fase4/contexto-semanal.ts`.
+    //
+    // 🔴 Isto lia `fase4_envios.competencia_id`, coluna que NUNCA existiu. O
+    // PostgREST recusa a query inteira (400), então `envio` vinha null e o
+    // `envio?.competencia_id` engolia em silêncio: `competenciaNome` ficava
+    // vazio em TODA avaliação de evidência, e a `sequencia` (vazia nos 75
+    // envios ativos) nunca daria a pílula.
+    const contexto = await resolverContextoSemanal(sb, {
+      colaboradorId,
+      empresaId: (colab as any)?.empresa_id ?? null,
+      cargo: (colab as any)?.cargo ?? null,
+      semana,
+    });
 
-    let pilulaAtual = null;
-    let competenciaNome = '';
-    try {
-      const seq = typeof envio?.sequencia === 'string' ? JSON.parse(envio.sequencia) : envio?.sequencia || [];
-      if (semana <= seq.length) pilulaAtual = seq[semana - 1];
-    } catch {}
-
-    if (envio?.competencia_id) {
-      const { data: comp } = await sb.from('competencias')
-        .select('nome').eq('id', envio.competencia_id).single();
-      competenciaNome = comp?.nome || '';
-    }
+    const pilulaAtual = contexto?.pilula ?? null;
+    const competenciaNome = contexto?.competencia || '';
 
     const system = `Voce e o tutor da Vertho avaliando uma evidencia de pratica semanal.
 Avalie a evidencia em 5 criterios (0-2 pontos cada, total 0-10):
