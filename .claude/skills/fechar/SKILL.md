@@ -68,11 +68,10 @@ Regras de escrita: o `CLAUDE.md` é resumo operacional — entrada nova ali é *
 
 **Um doc canônico por assunto.** Antes de criar `.md` novo, procure quem já cobre o tema e escreva lá — a consolidação de 27/07 fundiu 21 arquivos em 6 justamente porque o mesmo assunto vivia em 3-5 lugares, com versões que se contradiziam. Doc novo só quando o assunto não tem dono; então acrescente a linha na tabela de índice do `CLAUDE.md`.
 
-### 3.1 As FONTES DO PROJECT (claude.ai) — avisar quando desatualizarem
+### 3.1 As FONTES DO PROJECT (claude.ai) — **sincronizar, não avisar**
 
-**São 16, não 5** (conferido na interface em 16/08/2026 — esta lista já mandou checar só 5 e deixou
-passar 7 defasadas, entre elas o `CLAUDE.md`, que estava com **191 linhas contra 423** do repo).
-Fonte de Project não se atualiza sozinha: fica congelada na versão subida.
+**São 16** e elas ficam congeladas na versão subida. Toda rodada termina com o Project batendo com o
+repo — a receita completa (comandos, refs, armadilhas) está em **`sincronizar-project.md`**, ao lado.
 
 ```
 CLAUDE.md · docs/ARQUITETURA.md · docs/PIPELINE-TRILHA.md · docs/FMEA-PIPELINE.md
@@ -82,17 +81,21 @@ docs/GERADOR-VIDEO-MODULO.md · docs/DESIGN-SYSTEM.md · docs/RESUMO.md
 docs/FEATURES-E-BENEFICIOS.md · docs/LEVANTAMENTO-2026-07.md · docs/plano-refatoracao-final.md
 ```
 
-No fim da rodada, cheque se algum deles foi tocado:
+🔴 **NÃO use `git diff` da rodada como filtro.** Ele só enxerga o que EU mudei, e a defasagem se
+acumula de outras sessões e do trabalho do dono. Compare **as 16 contra o Project**, sempre — a
+contagem do card é `wc -l` + 1.
 
-```bash
-git -C "C:\GAS\Vertho App\nextjs-app" diff --name-only HEAD~1 -- CLAUDE.md docs/ARQUITETURA.md docs/PIPELINE-TRILHA.md docs/FMEA-PIPELINE.md docs/PASSO-A-PASSO-VERTHO.md
-```
+`Medido: 27/08/2026` — pelo diff da rodada eu subiria 4 arquivos; comparando as 16, apareceram **3
+defasadas que o diff não pegava** (`CATALOGO-PROMPTS-IA.md` com **301 linhas** de atraso), e duas das
+4 estavam muito piores que a rodada explicava: `CUSTO-QUALIDADE.md` com **545 linhas no Project
+contra 1.436** no repo.
 
-(ajuste o range se a rodada teve mais de um commit — `HEAD~N` ou `<sha-base>..HEAD`)
+Subir é ação minha, pela extensão do Chrome. **A remoção das versões antigas é irreversível: peça o
+ok antes dela** — e só dela; o upload não precisa de confirmação, porque conviver com a duplicata
+por um minuto não quebra nada.
 
-Se a saída **não** for vazia, avise no fechamento (passo 6), nomeando os arquivos e o que mudou em uma linha cada: *"⚠️ Fontes do Project desatualizadas: re-subir X e Y no claude.ai."* Não é para eu fazer nada além de avisar — subir arquivo no Project é ação do Rodrigo, fora do repo.
-
-Por que importa: uma fonte defasada é pior que fonte ausente — ela responde com autoridade sobre um sistema que já mudou, e fora do Claude Code não há repositório para conferir.
+Por que importa: uma fonte defasada é pior que fonte ausente — ela responde com autoridade sobre um
+sistema que já mudou, e fora do Claude Code não há repositório para conferir.
 
 ## 4. Guarda (se o aprendizado foi um bug)
 
@@ -112,7 +115,7 @@ Termine dizendo, em uma linha cada:
 
 1. o que foi gravado na memória;
 2. quais `.md` mudaram;
-3. **se alguma das 16 fontes do Project mudou** (checagem do passo 3.1) → *"⚠️ Re-subir no claude.ai: …"*. Dá para fazer no lugar do Rodrigo pela extensão do Chrome (`claude-in-chrome`): copiar os `.md` para a pasta da sessão, `file_upload` no input da seção **Context** (o do projeto, não o do chat) e só então remover as versões antigas, identificadas pela **contagem de linhas** — a nova entra com `wc -l + 1`. Remoção é irreversível: pedir o ok antes;
+3. **o resultado da sincronização do Project** — quantas das 16 estavam defasadas, quais subi e a contagem antiga → nova de cada uma. Fechar contando: tem que sobrar **exatamente 16**, um por nome. Se parei antes de remover as velhas esperando o ok, dizer isso explicitamente;
 4. o que **ficou aberto** — o que você não conseguiu verificar.
 
 O que não foi medido tem que sair rotulado como não medido.
