@@ -858,8 +858,6 @@
       "episode": "Episódio"
     },
     "content": {
-      "openBeforeComplete": "Abra o conteúdo antes de marcar como realizado",
-      "markDone": "Marcar como realizado",
       "done": "Conteúdo realizado",
       "availableIn": "Disponível em:",
       "preparingFormats": "Estamos preparando mais formatos para este episódio. Foque no desafio e na reflexão abaixo.",
@@ -938,6 +936,7 @@
       "stepDone": "Semana concluída",
       "contentDone": "feito",
       "contentPending": "a fazer",
+      "contentNone": "sem conteúdo esta semana",
       "evidenceProgress": "{done} de {total} respostas",
       "evidenceNotStarted": "não começou",
       "closesHere": "A semana só é concluída na conversa de evidências — abrir o conteúdo não conclui.",

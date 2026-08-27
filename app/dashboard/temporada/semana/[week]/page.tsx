@@ -16,7 +16,7 @@ import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { registrarEventoTrilha, jaAbriuConteudoDaSemana } from '@/actions/engajamento';
-import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
+import { consumiuConteudo, estadoDoPassoConteudo } from '@/lib/season-engine/consumo-conteudo';
 import FirstViewVideo from '@/components/first-view-video';
 // Tutorial da semana de missão (Bunny) — constante única em programa-config,
 // compartilhada com o envio de segunda do triggerDiario.
@@ -268,6 +268,12 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
    */
   const podeConversar = conteudoConsumido || abriuConteudo || nadaParaAbrir;
 
+  // Régua ÚNICA do passo "Conteúdo" — o porquê dos três estados (e a medição
+  // que os justifica) está em `estadoDoPassoConteudo`. Aqui não se repete a
+  // condição: foi exatamente uma cópia de régua nesta tela que produziu
+  // "Conteúdo · feito" ao lado de um botão pedindo para fazer.
+  const estadoConteudo = estadoDoPassoConteudo({ nadaParaAbrir, conteudoConsumido });
+
   /**
    * Progresso da conversa que CONCLUI a semana.
    *
@@ -478,10 +484,18 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               {t('progress.title')}
             </div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-              <span className={`flex items-center gap-1.5 ${podeConversar ? 'text-emerald-400' : 'text-gray-400'}`}>
-                {podeConversar ? <Check size={13} /> : <span className="w-[13px] text-center">1</span>}
+              <span className={`flex items-center gap-1.5 ${estadoConteudo === 'feito' ? 'text-emerald-400' : 'text-gray-400'}`}>
+                {estadoConteudo === 'feito'
+                  ? <Check size={13} />
+                  : <span className="w-[13px] text-center">{estadoConteudo === 'sem-conteudo' ? '—' : '1'}</span>}
                 {t('progress.stepContent')}
-                <span className="text-gray-500">· {podeConversar ? t('progress.contentDone') : t('progress.contentPending')}</span>
+                <span className="text-gray-500">
+                  · {estadoConteudo === 'sem-conteudo'
+                      ? t('progress.contentNone')
+                      : estadoConteudo === 'feito'
+                        ? t('progress.contentDone')
+                        : t('progress.contentPending')}
+                </span>
               </span>
               <span className="text-gray-600">→</span>
               <span className={`flex items-center gap-1.5 ${turnosFeitos > 0 ? 'text-brand-400' : 'text-gray-400'}`}>
@@ -580,30 +594,38 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               </div>
             ))}
             {/*
-              O BOTÃO MANUAL SÓ SOBREVIVE ONDE NÃO HÁ O QUE ABRIR.
+              O BOTÃO MANUAL SAIU — ele não fazia mais nada neste caminho.
+              (27/08/2026; o botão era `!conteudoConsumido && nadaParaAbrir`.)
 
-              Com a abertura marcando sozinha, um "Marcar como realizado" ao
-              lado de um conteúdo já aberto anuncia um passo pendente que não
-              existe mais — e essa tela acabou de sair de três gates encadeados.
-              Ele NÃO foi removido: a pílula sem nenhuma fonte abrível
-              (`nadaParaAbrir`) não tem clique possível, e sem este botão a
-              semana ficaria sem caminho para fechar. Tirar o controle inteiro
-              tornaria esse caso inalcançável.
+              A justificativa que ele carregava — "sem este botão a semana
+              ficaria sem caminho para fechar" — deixou de valer no MESMO
+              commit que a escreveu (`b76eb17b`, 25/08), e por três motivos que
+              se somam:
 
-              Quem ainda não abriu nada vê a instrução, não um botão cinza:
-              o que falta é abrir o conteúdo, e é isso que a frase diz — por
-              isso `content.openToUnlock` e não `content.openBeforeComplete`,
-              que dizia "abra antes de MARCAR COMO REALIZADO" e passou a
-              descrever um botão que já não está neste caminho.
+                1. `podeConversar` passou a incluir `nadaParaAbrir`, então a
+                   conversa de evidências já está liberada sem clique nenhum;
+                2. `startChat` grava `marcarConteudoConsumido` sozinho ao entrar
+                   na conversa, então a métrica é alimentada sem o botão;
+                3. `handleConsumido` fazia exatamente isso e nada mais.
+
+              E ele não segurava o gate sequencial: quem libera a semana N+1 é
+              `anterior.status === CONCLUIDO` (`week-gating.ts`), gravado pela
+              CONVERSA (`reflection/route.ts`) — `conteudo_consumido` não
+              participa. Removê-lo não tranca ninguém.
+
+              O que sobrava era um botão verde pedindo "marcar como realizado"
+              a três linhas de um resumo que já dizia "Conteúdo · feito", numa
+              semana em que não havia o que marcar. Quem chega aqui vê que a
+              semana não tem conteúdo e segue para as evidências, que é o que
+              fecha a semana.
+
+              🔑 `content.markDone` e `content.openBeforeComplete` saíram dos 4
+              locales junto — ao contrário de `content.done` logo abaixo, que
+              fica registrada de propósito. A diferença: `content.done` é o
+              rótulo de um ESTADO que pode voltar a ser exibido; estas duas
+              nomeiam o BOTÃO que não deve voltar. Deixá-las no i18n seria o
+              convite para recriá-lo.
             */}
-            {!conteudoConsumido && nadaParaAbrir && (
-              <div className="mt-4">
-                <button onClick={handleConsumido}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition bg-emerald-600 hover:bg-emerald-700 text-white">
-                  <Check size={14} /> {t('content.markDone')}
-                </button>
-              </div>
-            )}
             {/*
               🔴 `!podeConversar`, NÃO `!conteudoConsumido` (achado 25/08 no
               screenshot da captura do tutorial). `conteudoConsumido` vem do

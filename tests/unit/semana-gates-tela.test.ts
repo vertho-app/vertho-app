@@ -76,12 +76,35 @@ describe('item 2 — o degrau manual deixou de ser catraca', () => {
     expect(TELA).toContain('if (!conteudoConsumido) handleConsumido();');
   });
 
-  it('o botão manual sobrevive SÓ onde não há o que abrir', () => {
-    // Removê-lo de vez tornaria a pílula sem fonte abrível (`nadaParaAbrir`)
-    // inalcançável: não há clique possível e a semana ficaria sem caminho.
-    expect(TELA).toContain('{!conteudoConsumido && nadaParaAbrir && (');
-    // E não pode voltar a aparecer ao lado de conteúdo já aberto.
-    expect(TELA).not.toContain('{!conteudoConsumido && (\n              <div className="mt-4">');
+  it('o botão manual saiu — ele já não destravava nada (27/08)', () => {
+    // ⚠️ ESTA ASSERÇÃO ERA O CONTRÁRIO ATÉ 27/08, e o motivo de ter virado
+    // está registrado aqui para não parecer que alguém afrouxou um guard.
+    //
+    // A versão anterior exigia `{!conteudoConsumido && nadaParaAbrir && (`,
+    // com a justificativa "removê-lo tornaria a pílula sem fonte abrível
+    // inalcançável: a semana ficaria sem caminho". Essa premissa deixou de
+    // valer no MESMO commit que a escreveu (`b76eb17b`), por três razões que
+    // se somam e que estão no código, não em opinião:
+    //
+    //   1. `podeConversar` passou a incluir `nadaParaAbrir` (asserção acima),
+    //      então a conversa já está liberada sem clique nenhum;
+    //   2. `startChat` grava `marcarConteudoConsumido` ao entrar na conversa,
+    //      então a métrica é alimentada sem o botão;
+    //   3. `handleConsumido` fazia exatamente isso e nada mais.
+    //
+    // E ele não segurava o gate sequencial: quem libera a semana N+1 é
+    // `anterior.status === CONCLUIDO`, gravado pela CONVERSA — o campo
+    // `conteudo_consumido` não participa dessa decisão.
+    //
+    // O que sobrava era um botão verde pedindo "marcar como realizado" a três
+    // linhas de um resumo que já dizia "Conteúdo · feito", numa semana em que
+    // não havia o que marcar. O resumo agora diz "sem conteúdo esta semana"
+    // (ver `tests/unit/semana-passo-conteudo.test.ts`).
+    expect(TELA).not.toContain('{!conteudoConsumido && nadaParaAbrir && (');
+    expect(TELA).not.toContain("t('content.markDone')");
+    // E a abertura automática continua marcando — remover o botão não pode
+    // remover o registro de quem ABRE um formato.
+    expect(TELA).toContain('onAutoConsumido');
   });
 
   it('🔴 a instrução e os botões falam do MESMO estado', () => {

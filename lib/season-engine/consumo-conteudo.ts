@@ -133,3 +133,37 @@ export function marcarCursoConcluido(atual: unknown, semana: number): CursoConcl
   }
   return base;
 }
+
+/** O que o passo "Conteúdo" do resumo da semana está dizendo. */
+export type EstadoConteudo = 'sem-conteudo' | 'feito' | 'a-fazer';
+
+/**
+ * O passo "Conteúdo" do resumo da semana tem TRÊS estados, não dois.
+ *
+ * 🔴 POR QUE EXISTE (medido 27/08/2026). A tela respondia
+ * `podeConversar ? 'feito' : 'a fazer'` — e `podeConversar` inclui
+ * `nadaParaAbrir`. Numa semana sem nenhum formato abrível, o resumo anunciava
+ * "Conteúdo · feito" **antes de a pessoa fazer coisa alguma**, e três linhas
+ * abaixo um botão verde pedia "Marcar como realizado": a mesma dobra dizia que
+ * estava feito e pedia para fazer. Pior, clicar no botão não mudava o resumo —
+ * ele já dizia "feito" —, então a ação não tinha retorno visível.
+ *
+ * Alcance: **106 semanas liberadas, 47 pessoas, 6 tenants**; e 108 das 451
+ * semanas já liberadas (24%) não têm formato nenhum.
+ *
+ * A causa é a de sempre nesta base: uma pergunta respondida com a régua de
+ * OUTRA. `podeConversar` responde "pode ir para as evidências?" (um gate);
+ * este passo responde "o conteúdo foi feito?" (um estado). Eles só coincidem
+ * quando há conteúdo — e é por isso que a divergência ficou invisível.
+ *
+ * 🔑 `nadaParaAbrir` vem PRIMEIRO de propósito: quando a semana não tem o que
+ * abrir, isso é verdade sobre a SEMANA e não muda com o que a pessoa fez. O que
+ * ela fez é contado pelo passo 2 — a conversa, que é quem conclui a semana.
+ */
+export function estadoDoPassoConteudo(entrada: {
+  nadaParaAbrir: boolean;
+  conteudoConsumido: boolean;
+}): EstadoConteudo {
+  if (entrada.nadaParaAbrir) return 'sem-conteudo';
+  return entrada.conteudoConsumido ? 'feito' : 'a-fazer';
+}
