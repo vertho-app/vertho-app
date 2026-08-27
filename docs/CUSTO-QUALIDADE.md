@@ -819,7 +819,41 @@ O docblock do próprio auditor afirmava isso. Na geração 5 o thinking é
 `max_tokens` é o único limite do raciocínio: subir dá mais espaço para pensar, e
 pensamento é cobrado. No 4.6, com `budget_tokens` explícito, a frase valia — e é
 exatamente nos modelos para os quais o plano migra que ela deixa de valer.
-Régua: dimensionar pelo p95 observado, nunca "dobrar por segurança".
+**Mas isso NÃO inverte a decisão** — e a versão anterior desta seção errava ao
+concluir "dimensionar pelo p95, nunca dobrar por segurança". Custo maior por
+raciocínio é **condicional**; desperdício por teto curto é **certo**.
+
+### A régua do teto: erre para CIMA (decisão do Rodrigo, 26/08)
+
+Teto alto com custo maior é preferível ao risco de quebrar um JSON. A assimetria
+está medida na própria base, em `ia4_avaliacao` no Sonnet 5:
+
+| | n | custo | saída média |
+|---|---:|---:|---:|
+| completaram | 238 | US$ 26,06 | 10.242 |
+| **truncaram em 16.000** | **59** | **US$ 9,67** | 16.000 (o teto) |
+
+As 59 consumiram **27% do gasto da tarefa e entregaram zero** — JSON cortado no
+meio não é resposta parcial, é parse quebrado. E custaram **mais por chamada**
+(0,164 contra 0,110) exatamente por correrem até o teto. Um teto folgado teria
+somado ~4k tokens a cada uma: cerca de **US$ 2,36 para evitar US$ 9,67** de
+desperdício puro, antes do retrabalho e do risco de persistir artefato corrompido.
+**Retorno de 4:1 em errar para cima.**
+
+Consequências operacionais:
+
+- `FOLGA_MINIMA` passou de 2,5× para **3×**, e o teto sugerido é o maior entre
+  **3× o p95** e **1,5× o máximo observado** — quem quebra o JSON é a cauda, não
+  a média, e o p95 por definição deixa 5% de fora.
+- **`n` pequeno pede MAIS folga, não menos.** Com n=2 o "p95" é o máximo de duas
+  chamadas: a cauda ainda não apareceu. O auditor agora sugere 1,5× extra nesses
+  casos — o contrário do reflexo de "só subo com dado".
+- **O limite real do teto não é o preço, é a LATÊNCIA** contra o `maxDuration` de
+  300s da rota. `modulo_base_autor` já tem p95 de 227s. Onde o teto generoso
+  ameaça o relógio, a resposta é Trigger.dev/Batch — nunca encolher o teto.
+- ⚠️ **Subir teto pode trocar o caminho de código.** Acima de 8.192 o ramo Claude
+  sai de `messages.create` para `messages.stream`, com outra leitura de uso e
+  outra detecção de truncamento. Das sugestões atuais, cinco cruzam esse limiar.
 
 ### Duas correções de rota no de-para
 

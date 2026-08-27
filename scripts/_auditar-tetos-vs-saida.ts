@@ -37,11 +37,30 @@
  * o denominador e com o que NÃO conseguiu avaliar; um teto irresolvível é uma
  * FALHA, não um silêncio.
  *
- * ⚠️ E "subir o teto é quase de graça" está ERRADO na geração 5. Ali o thinking
- * é `{type:'adaptive'}` SEM budget próprio (`actions/ai-client.ts:355`), logo o
+ * ⚠️ NUANCE, e ela NÃO inverte a decisão. Na geração 5 o thinking é
+ * `{type:'adaptive'}` SEM budget próprio (`actions/ai-client.ts:355`), então o
  * teto é o único limite do raciocínio: subir dá mais espaço para pensar, e
- * pensamento é cobrado. No 4.6 o budget é explícito e a frase valia. Dimensione
- * pelo p95 observado, não "dobre por segurança".
+ * pensamento é cobrado. No 4.6 o budget é explícito e o teto extra é inerte.
+ * Ou seja, subir o teto PODE custar mais — mas o custo é condicional, e o
+ * desperdício do teto curto é certo.
+ *
+ * 🔑 A DECISÃO (Rodrigo, 26/08/2026): **erre para CIMA.** Teto alto com custo
+ * maior é preferível ao risco de quebrar um JSON. A assimetria está medida na
+ * própria base, em `ia4_avaliacao` no Sonnet 5:
+ *
+ *   238 chamadas que completaram ..... US$ 26,06  ·  10.242 tokens de saída
+ *    59 chamadas que truncaram ....... US$  9,67  ·  16.000 (o teto)
+ *
+ * As 59 custaram 27% do gasto da tarefa e entregaram ZERO — JSON cortado no
+ * meio não é resposta parcial, é parse quebrado. E custaram MAIS por chamada
+ * (0,164 contra 0,110) exatamente por correrem até o teto. Um teto folgado
+ * teria acrescentado ~4k tokens a cada uma: cerca de US$ 2,36 para evitar
+ * US$ 9,67 de desperdício puro, antes de contar o retrabalho e o risco de um
+ * artefato corrompido ser persistido. Erra-se para cima com retorno de 4:1.
+ *
+ * ⚠️ O limite real do teto NÃO é o preço — é a LATÊNCIA contra o `maxDuration`
+ * da rota (300s). `modulo_base_autor` já tem p95 de 227s. Onde o teto generoso
+ * ameaça o relógio, a resposta é Trigger.dev/Batch, nunca encolher o teto.
  *
  *   npx tsx --env-file=.env.local scripts/_auditar-tetos-vs-saida.ts
  */
@@ -53,8 +72,23 @@ const RAIZ = join(__dirname, '..');
 const DIRS = ['actions', 'lib', 'app', 'trigger'];
 const BARRA = String.fromCharCode(92);
 
-/** Folga mínima aceitável para um modelo que raciocina (teto ÷ p95). */
-const FOLGA_MINIMA = 2.5;
+/**
+ * Folga mínima aceitável para um modelo que raciocina (teto ÷ p95).
+ * 3× e não 2,5×: com a decisão de errar para CIMA (ver o cabeçalho), o número
+ * que interessa não é "o típico cabe", é "a CAUDA cabe".
+ */
+const FOLGA_MINIMA = 3;
+
+/**
+ * O p95 é a estatística errada para dimensionar teto, e é por isso que ela não
+ * decide sozinha aqui. Por definição, 5% das chamadas passam dele — e são
+ * exatamente essas que truncam. O teto sugerido é o MAIOR entre "3× o típico" e
+ * "1,5× o pior já observado", porque quem quebra o JSON é a cauda, não a média.
+ */
+const FOLGA_SOBRE_MAXIMO = 1.5;
+
+/** Arredonda para cima em passo de 1.000 — teto exato não compra nada. */
+const arredondar = (n: number) => Math.ceil(n / 1000) * 1000;
 
 /**
  * Quem é PRODUÇÃO no ledger. O resto é instrumento nosso e não pode decidir
@@ -318,7 +352,7 @@ async function main() {
     const maxObs = Math.max(...obs);
     const pico = obs.filter((o) => o === maxObs).length;
     const censurado = pico >= 3 && pico / obs.length >= 0.05 ? { valor: maxObs, pico } : null;
-    return { task, teto, p95: p, n: obs.length, folga: teto / p, noTeto, censurado, onde: porTask.get(task)![0].onde };
+    return { task, teto, p95: p, n: obs.length, folga: teto / p, noTeto, censurado, maxObs, onde: porTask.get(task)![0].onde };
   }).sort((a, b) => a.folga - b.folga);
 
   console.log('══ FOLGA = teto ÷ p95 (só tráfego de PRODUÇÃO) ══\n');
@@ -338,13 +372,25 @@ async function main() {
       const atual = l.censurado!.valor >= l.teto ? 'no teto ATUAL' : `no teto ANTIGO (hoje ${l.teto})`;
       console.log(`       ${l.task}: ${l.censurado!.pico} de ${l.n} pararam em ${l.censurado!.valor} — ${atual}`);
       console.log(`         → dimensionar exige um lote SEM censura; ${FOLGA_MINIMA}× de um p95 cortado só reproduz o corte.`);
+      console.log(`         → enquanto isso, erre para CIMA: piso provisório ${arredondar(FOLGA_MINIMA * l.censurado!.valor)} (${FOLGA_MINIMA}× o ponto de corte).`);
     }
   }
   const semCensura = apertadas.filter((l) => !l.censurado);
   if (semCensura.length) {
-    console.log('');
+    console.log('\n  Sugestões (erra-se para CIMA: o desperdício do teto curto é CERTO, o custo do folgado é condicional):');
     for (const l of semCensura) {
-      console.log(`  → ${l.task}: teto ${l.teto} → sugerido ${Math.ceil(FOLGA_MINIMA * l.p95 / 1000) * 1000} (${FOLGA_MINIMA}× o p95 de ${l.p95})`);
+      const porP95 = FOLGA_MINIMA * l.p95;
+      const porMax = FOLGA_SOBRE_MAXIMO * l.maxObs;
+      const alvo = arredondar(Math.max(porP95, porMax));
+      const manda = porMax > porP95 ? `1,5× o MÁXIMO observado (${l.maxObs})` : `${FOLGA_MINIMA}× o p95 (${l.p95})`;
+      const cruzaStream = l.teto <= 8192 && alvo > 8192 ? '  ⚠️ cruza 8.192: o Claude passa a usar STREAM (outro caminho de código)' : '';
+      console.log(`  → ${l.task}: ${l.teto} → ${alvo}   [manda ${manda}]${cruzaStream}`);
+      // Com n pequeno o "p95" é o máximo de um punhado de chamadas: a cauda real
+      // ainda não foi observada. Sob "erre para cima", pouca evidência pede MAIS
+      // folga, não menos — o contrário do reflexo de "só subo com dado".
+      if (l.n < 10) {
+        console.log(`       ⚠️ n=${l.n}: a cauda ainda não apareceu. Sob "erre para cima", use ${arredondar(alvo * 1.5)}.`);
+      }
     }
   }
 
