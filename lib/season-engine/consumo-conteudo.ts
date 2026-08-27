@@ -148,13 +148,26 @@ export type EstadoConteudo = 'sem-conteudo' | 'feito' | 'a-fazer';
  * estava feito e pedia para fazer. Pior, clicar no botão não mudava o resumo —
  * ele já dizia "feito" —, então a ação não tinha retorno visível.
  *
- * Alcance: **106 semanas liberadas, 47 pessoas, 6 tenants**; e 108 das 451
- * semanas já liberadas (24%) não têm formato nenhum.
- *
  * A causa é a de sempre nesta base: uma pergunta respondida com a régua de
  * OUTRA. `podeConversar` responde "pode ir para as evidências?" (um gate);
  * este passo responde "o conteúdo foi feito?" (um estado). Eles só coincidem
  * quando há conteúdo — e é por isso que a divergência ficou invisível.
+ *
+ * ⚠️ ALCANCE, CORRIGIDO EM 27/08 — o commit que trouxe esta função (`e8eaa762`)
+ * afirma "106 semanas, 47 pessoas, 6 tenants" e esse número está ERRADO. Ele
+ * contava como defeito toda semana liberada sem `formatos_disponiveis`, e
+ * semana de **aplicação** e de **avaliação** não tem conteúdo POR DESIGN: são
+ * 61 e 13 semanas em que o vazio é o desenho, não a falha. Recontado pelo tipo:
+ *
+ *   · semanas de CONTEÚDO liberadas: 377 — e só **1** sem o bloco de conteúdo.
+ *     O pipeline de conteúdo está saudável; o alarme dizia o contrário.
+ *   · o caso que ESTA função corrige (semana de conteúdo, com bloco, sem nenhum
+ *     formato abrível): **33 semanas, 6 pessoas, 4 tenants** — e os 4 são
+ *     `teste-piloto`, `projetomacae`, `acme-demo` e `gruposinal`.
+ *
+ * A lição vale mais que o número: contar "semana sem conteúdo" sem separar o
+ * TIPO da semana infla o achado 3× e aponta para o tenant errado. É a mesma
+ * classe de "N ocorrências ≠ N pessoas" que já mordeu o alarme de varredura.
  *
  * 🔑 `nadaParaAbrir` vem PRIMEIRO de propósito: quando a semana não tem o que
  * abrir, isso é verdade sobre a SEMANA e não muda com o que a pessoa fez. O que

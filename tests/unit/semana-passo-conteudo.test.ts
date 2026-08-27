@@ -17,7 +17,20 @@
  * e é por isso que ele tem as duas metades: a régua (comportamento) e o
  * contrato da tela (estático).
  *
- * Alcance do defeito: 106 semanas liberadas, 47 pessoas, 6 tenants.
+ * ⚠️ ALCANCE — o número do commit (`e8eaa762`) está ERRADO e fica registrado
+ * aqui porque a mensagem de commit não se corrige. Ele diz "106 semanas, 47
+ * pessoas, 6 tenants"; isso contava como defeito toda semana sem
+ * `formatos_disponiveis`, e semana de APLICAÇÃO e de AVALIAÇÃO não tem conteúdo
+ * por design. Recontado pelo tipo da semana:
+ *
+ *   · o caso que este arquivo trava: **33 semanas, 6 pessoas, 4 tenants**
+ *     (`teste-piloto`, `projetomacae`, `acme-demo`, `gruposinal`);
+ *   · semanas de conteúdo liberadas: 377, com **1** sem bloco — o pipeline de
+ *     conteúdo está saudável, ao contrário do que o número inflado sugeria;
+ *   · e sobrou um caso MAIOR, ainda aberto: em semana de `aplicacao` o resumo
+ *     diz "Conteúdo · a fazer" para **61 semanas / 46 pessoas**, prometendo
+ *     uma etapa que aquela semana nunca terá (ali `nadaParaAbrir` é `false`,
+ *     porque não há entrega nenhuma — o defeito escapa por baixo desta régua).
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
