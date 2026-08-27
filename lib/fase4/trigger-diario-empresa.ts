@@ -215,22 +215,53 @@ export async function processarEmpresaDiario(
   }
 
   /**
-   * Enfileira UMA mensagem do dia respeitando cadência e teto.
+   * PORTEIRO ÚNICO do canal WhatsApp neste disparo. Pergunte ANTES de mandar,
+   * por QUALQUER caminho. Devolve o atraso em segundos (a unidade do header
+   * `Upstash-Delay`, para quem for pela fila) ou `null` quando a política fechou
+   * a porta — canal desligado pela fila suja, ou teto de volume esgotado.
    *
-   * Devolve `false` quando NÃO enviou por política (canal desligado ou teto
-   * atingido) — o chamador não conta isso como erro nem como envio. Lança o que
+   * 🔴 POR QUE ELE EXISTE, e não a checagem dentro do `agendarWhatsapp`
+   * (26/08/2026). A trava morava no enfileirador, que é o caminho LEGADO. Desde
+   * que a cadência passou a mandar por template da Cloud API, `enviarPorTemplate`
+   * devolve `tentou: true` e o `else` que chama o enfileirador nunca é alcançado:
+   * **615 de 615** mensagens da cadência nos últimos 30 dias saíram por template,
+   * ZERO pela fila. Ou seja, o teto de volume e a trava de fila suja não
+   * governavam mais mensagem nenhuma — e o pior é que nada acusava: o módulo
+   * seguia importado, a guarda estrutural de `whatsapp-cadencia-guard` seguia
+   * verde (ela mede quem IMPORTA a política, não quem a APLICA em cada ramo), e
+   * o único sintoma seria o dia em que uma coorte grande saísse toda em rajada.
+   * Medido em 20/08 com 74 pessoas: 36 mensagens em 24,1s, gap médio de 0,69s.
+   *
+   * Com 74 destinatários isso é inofensivo (o teto técnico da Cloud API é 80
+   * msg/s). A trava é para o dia em que a coorte for de milhares — que é
+   * justamente o dia em que ninguém vai lembrar de reintroduzi-la.
+   *
+   * ⚠️ Ele NÃO reintroduz o espaçamento de 6s no caminho síncrono: o atraso só
+   * tem efeito em quem publica na fila. Aplicar sleep real aqui colocaria
+   * 38 × 6s = 228s dentro da lambda do worker, para proteger de uma taxa que
+   * este canal não tem mais. O que se move é a trava de VOLUME.
+   *
+   * O teto ADIA, não descarta: barrado ANTES do envio, nenhum carimbo de canal é
+   * gravado (nem o síncrono do template, nem o do webhook), então quem fica de
+   * fora continua pendente e entra na execução do dia seguinte. É o que torna o
+   * corte aceitável aqui — num disparo manual o excedente precisa de um segundo
+   * clique; num cron diário o "depois" já existe. E-mail e push seguem: a porta
+   * fechada é a do WhatsApp, não a da pessoa.
+   */
+  const vagaWhatsapp = (): number | null => {
+    if (!canalWhatsappAtivo || relogio.tetoAtingido()) { adiadosPorTeto++; return null; }
+    return relogio.proximo();
+  };
+
+  /**
+   * Enfileira UMA mensagem do dia (caminho legado, texto livre pela fila).
+   *
+   * O `atrasoSeg` vem do porteiro — quem chama JÁ consumiu a vaga. Lança o que
    * `publicarWhatsappCis` lançar, para os `catch` existentes seguirem contando
    * falha de verdade.
-   *
-   * O teto ADIA, não descarta: como o carimbo do canal (`ultima_pilulaN_whatsapp_em`)
-   * só é gravado pelo webhook após a entrega, quem fica de fora continua pendente
-   * e entra na execução do dia seguinte. É o que torna o corte aceitável aqui —
-   * num disparo manual o excedente precisa de um segundo clique; num cron diário
-   * o "depois" já existe.
    */
-  const agendarWhatsapp = async (payload: Record<string, any>): Promise<boolean> => {
-    if (!canalWhatsappAtivo || relogio.tetoAtingido()) { adiadosPorTeto++; return false; }
-    await publicarWhatsappCis(payload, relogio.proximo());
+  const agendarWhatsapp = async (payload: Record<string, any>, atrasoSeg: number): Promise<boolean> => {
+    await publicarWhatsappCis(payload, atrasoSeg);
     return true;
   };
 
@@ -430,7 +461,10 @@ export async function processarEmpresaDiario(
       // afirmando "pílula enviada"; observado em prod 20/07/2026, Ibipeba).
       // Se o webhook nunca confirmar, o canal segue PENDENTE e recuperável —
       // que é exatamente a semântica da guarda por canal.
-      if (telefone && !mesmoDiaUTC(envio[wppCol], hojeUTC)) {
+      // Porteiro ANTES do envio, e depois da guarda de idempotência: consumir
+      // vaga por quem já recebeu hoje gastaria o teto com ninguém.
+      const vaga = telefone && !mesmoDiaUTC(envio[wppCol], hojeUTC) ? vagaWhatsapp() : null;
+      if (vaga !== null) {
         try {
           const viaTemplate = await enviarPilulaPorTemplate({
             telefone, nome, semana, tema: temaPilula(item),
@@ -449,7 +483,7 @@ export async function processarEmpresaDiario(
               mensagem: templateWhatsAppPilula(nome, semana, textoPilulaWhatsapp(item, opts)),
               fase4EnvioId: envio.id,
               carimboCampo: wppCol,
-            });
+            }, vaga);
             if (enfileirou) { pilulas++; whatsappEnfileirado = true; }
           }
         } catch { erros++; }
@@ -540,7 +574,12 @@ export async function processarEmpresaDiario(
       const agora = new Date().toISOString();
       const stamp: Record<string, string> = {};
 
-      if (telefone && !mesmoDiaUTC(envio.ultima_pilula2_whatsapp_em, hojeUTC)) {
+      // Este bloco NUNCA teve trava: como não há caminho legado (ver abaixo), ele
+      // não passava pelo enfileirador, que era onde a trava morava. Era o maior
+      // volume da semana — 61 mensagens na terça 25/08 — inteiramente fora da
+      // política.
+      const vagaPend = telefone && !mesmoDiaUTC(envio.ultima_pilula2_whatsapp_em, hojeUTC) ? vagaWhatsapp() : null;
+      if (vagaPend !== null) {
         try {
           const viaTemplate = await enviarPorTemplate('pendencia', {
             telefone, nome,
@@ -652,7 +691,8 @@ export async function processarEmpresaDiario(
       const agora = new Date().toISOString();
       const stamp: Record<string, string> = {};
       let whatsappEnfileirado = false;
-      if (telefone && !mesmoDiaUTC(envio.ultima_pilula1_whatsapp_em, hojeUTC)) {
+      const vagaMissao = telefone && !mesmoDiaUTC(envio.ultima_pilula1_whatsapp_em, hojeUTC) ? vagaWhatsapp() : null;
+      if (vagaMissao !== null) {
         try {
           // Cloud API primeiro (`missao_semana_v2`, UTILITY desde 16/08/2026).
           // Até aqui a missão só tinha o caminho legado, e ele está morto desde
@@ -677,7 +717,7 @@ export async function processarEmpresaDiario(
               mensagem: templateWhatsAppMissao(nome, optsMissao),
               fase4EnvioId: envio.id,
               carimboCampo: 'ultima_pilula1_whatsapp_em',
-            });
+            }, vagaMissao);
             if (enfileirou) { pilulas++; whatsappEnfileirado = true; }
           }
         } catch { erros++; }
@@ -754,7 +794,8 @@ export async function processarEmpresaDiario(
     if (hoje === diaEv && pendente('ultima_evidencia_whatsapp_em', 'ultima_evidencia_email_em', 'ultima_evidencia_push_em')) {
       // Nudge de inatividade (2+ semanas sem envio) — não avança semana.
       if (ultimoEnvio && (Date.now() - ultimoEnvio) / 86_400_000 >= 14) {
-        if (telefone) {
+        const vagaNudge = telefone ? vagaWhatsapp() : null;
+        if (vagaNudge !== null) {
           const nudgeMsg = `Olá, ${nome}! 👋\n\nNotamos que você está há mais de 2 semanas sem interagir com sua trilha.\n\nQue tal retomar hoje?\n\n— Vertho Mentor IA`;
           // colaboradorId/empresaId: sem eles a entrega é gravada sem dono, e a
           // conta de PESSOAS alcançadas pelo canal (a que se compara com push)
@@ -778,7 +819,7 @@ export async function processarEmpresaDiario(
               const enfileirou = await agendarWhatsapp({
                 telefone, mensagem: nudgeMsg, kindEnvio: 'nudge',
                 colaboradorId: envio.colaborador_id, empresaId: empresa.id,
-              });
+              }, vagaNudge);
               if (enfileirou) nudges++;
             }
           } catch {}
@@ -804,7 +845,8 @@ export async function processarEmpresaDiario(
       const stampEv: Record<string, string> = {};
       let evidenciaEnfileirada = false;
 
-      if (telefone && !mesmoDiaUTC(envio.ultima_evidencia_whatsapp_em, hojeUTC)) {
+      const vagaEv = telefone && !mesmoDiaUTC(envio.ultima_evidencia_whatsapp_em, hojeUTC) ? vagaWhatsapp() : null;
+      if (vagaEv !== null) {
         const mensagem = ehDesafio
           ? templateWhatsAppNudgeDesafio(nome, semana, linkSemana)
           : templateWhatsAppEvidencia(nome, semana, linkSemana);
@@ -833,7 +875,7 @@ export async function processarEmpresaDiario(
               telefone, mensagem, kindEnvio: 'evidencia',
               colaboradorId: envio.colaborador_id, empresaId: empresa.id,
               fase4EnvioId: envio.id, carimboCampo: 'ultima_evidencia_whatsapp_em',
-            });
+            }, vagaEv);
             if (enfileirou) { evidencias++; evidenciaEnfileirada = true; }
           }
         } catch { erros++; }
