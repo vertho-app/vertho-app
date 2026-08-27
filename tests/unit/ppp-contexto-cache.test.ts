@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { assinaturaCurta } from '@/lib/escola-brief';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 /**
  * F-E7 + F-I10 no PDF personalizado.
@@ -51,5 +53,18 @@ describe('assinaturaCurta · discriminador de contexto na chave de cache', () =>
     const chave = (ctx: string) => `final/perso/c1/e1/SC-${assinaturaCurta(ctx)}.pdf`;
     expect(chave('PPP escola A')).not.toBe(chave('PPP escola B'));
     expect(chave('PPP escola A')).toBe(chave('PPP escola A'));
+  });
+
+  it('consulta o PDF em cache antes de resumir o contexto com IA', () => {
+    const source = readFileSync(path.join(process.cwd(), 'actions', 'conteudos.ts'), 'utf8');
+    const inicio = source.indexOf('export async function gerarConteudoFinalPersonalizado');
+    const fim = source.indexOf('export async function prepararAudioPersonalizado', inicio);
+    const funcao = source.slice(inicio, fim);
+    const cache = funcao.indexOf("download(cachePath)");
+    const resumo = funcao.indexOf('await resumirPPP(contextoParaResumir)');
+
+    expect(cache, 'consulta ao cache desapareceu').toBeGreaterThan(-1);
+    expect(resumo, 'resumo institucional desapareceu').toBeGreaterThan(-1);
+    expect(cache, 'cache precisa vencer antes da chamada de IA').toBeLessThan(resumo);
   });
 });

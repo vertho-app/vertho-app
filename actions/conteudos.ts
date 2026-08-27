@@ -1026,6 +1026,8 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
     // numa lente e o kit noutra daria à mesma pessoa dois contextos divergentes para o
     // mesmo tema. 1 PPP → usa direto; N → síntese municipal cacheada.
     let escolaBrief: EscolaBrief | null = null;
+    let contextoParaResumir: string | null = null;
+    let temContextoInstitucional = false;
     let contextoAssinatura = 'sem-ppp';
     if (empresaId) {
       try {
@@ -1033,16 +1035,18 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
         const salvo = (emp?.sys_config as any)?.video_escola || null;
         if (briefPreenchido(salvo)) {
           escolaBrief = salvo;                 // brief manual da empresa tem precedência
+          temContextoInstitucional = true;
           contextoAssinatura = 'brief-manual';
         } else {
           const { resolverContextoEmpresa } = await import('@/lib/season-engine/kit/contexto-empresa');
           const contexto = await resolverContextoEmpresa(sb, empresaId);
           if (contexto) {
-            const resumo = await resumirPPP(contexto);
-            if (briefPreenchido(resumo)) {
-              escolaBrief = resumo;
-              contextoAssinatura = assinaturaCurta(contexto);
-            }
+            // A assinatura depende do CONTEXTO, não do resumo produzido por IA.
+            // Portanto já sabemos a chave do cache sem pagar `resumirPPP`.
+            // O resumo só é necessário num cache miss, para construir o prompt.
+            contextoParaResumir = contexto;
+            temContextoInstitucional = true;
+            contextoAssinatura = assinaturaCurta(contexto);
           }
         }
       } catch (e: any) {
@@ -1052,7 +1056,7 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
 
     // Sem DISC e sem PPP → nada a personalizar: serve a versão genérica.
     const temDisc = Boolean(colab?.perfil_dominante);
-    if (!temDisc && !briefPreenchido(escolaBrief)) {
+    if (!temDisc && !temContextoInstitucional) {
       return { success: true, url: generico, personalized: false };
     }
 
@@ -1075,6 +1079,24 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
         return { success: true, url: publicUrl, personalized: true, cached: true };
       }
     } catch { /* sem cache → gera */ }
+
+    // Só resume o contexto quando realmente vamos gerar um PDF novo. Antes esta
+    // chamada de IA acontecia ANTES da consulta ao Storage: um PDF já pronto
+    // levava 4–8s para abrir porque o endpoint refazia trabalho descartado em
+    // toda requisição. A chave acima continua invalidando quando o PPP muda.
+    if (!escolaBrief && contextoParaResumir) {
+      try {
+        const resumo = await resumirPPP(contextoParaResumir);
+        if (briefPreenchido(resumo)) escolaBrief = resumo;
+      } catch (e: any) {
+        console.warn('[gerarConteudoFinalPersonalizado] resumo institucional falhou:', e?.message);
+      }
+    }
+    // Sem DISC e com um contexto que não pôde virar brief, não há lente segura
+    // para personalizar. O cache válido já teve a chance de ser servido acima.
+    if (!temDisc && !briefPreenchido(escolaBrief)) {
+      return { success: true, url: generico, personalized: false };
+    }
 
     // Camada de personalização (IA)
     const model = await getModelForTask(empresaId, 'conteudo_personalizacao');
