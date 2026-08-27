@@ -1015,3 +1015,57 @@ avulso. Isso é anterior às mudanças de hoje e continua em aberto.
   senão o p95 dela continua sendo uma mistura de duas operações. O auditor agora
   classifica isso como divergência intencional, com justificativa obrigatória,
   em vez de repetir um aviso que ninguém pode resolver.
+
+### 26/08 — a IA4 síncrona delega, e o ledger passa a saber o orçamento
+
+**Delegação.** `rodarIA4` avaliava em laço sequencial dentro de uma Server
+Action, p95 de 156s por volta. Duas voltas já passam de 300s — e não é hipótese:
+em 11/08 a action estourou no meio de um lote e deixou **58 de 72** respostas com
+avaliação gravada e **sem check**, estado que nenhuma tela alcançava depois.
+
+Acima de `IA4_MAX_SINCRONO = 1`, a action delega para `enqueueIA4Batch` →
+`gerar-ia4-batch` (3600s + Batch API, −50%). O limiar é derivado, não escolhido:
+`1 × 156s` cabe em 300s, `2 × 156s` não. Se o enfileiramento falhar, **falha
+alto** — cair no laço síncrono seria escolher o caminho que sabemos que trunca,
+justamente no volume em que ele trunca.
+
+**Contexto de execução no ledger (mig 230).** Duas colunas novas:
+
+| coluna | o que é |
+|---|---|
+| `runtime` | `trigger` · `rota` · `action` · `script` · `desconhecido` |
+| `orcamento_ms` | o `maxDuration` daquele contexto, quando conhecido |
+
+`orcamento_ms` é o **denominador** que faltava: sem ele, `latency_ms` sozinho não
+responde "estamos perto do timeout?". Foi essa ausência que deixou minha premissa
+errada sobre `modulo_base_autor` sobreviver — 227s são **76% de uma rota de 300s
+e 6% de uma task de 3600s**, e nada no dado dizia qual dos dois era.
+
+🔑 **Declarado, nunca farejado.** A alternativa seria detectar por env var do
+Trigger, e a documentação não expõe nenhuma para isso — seria depender de detalhe
+não documentado. `lib/execucao-contexto.ts` usa `AsyncLocalStorage`: quem conhece
+o orçamento o declara (a task sabe seu `maxDuration`), e quem não declara entra
+como `desconhecido` — cobertura que falta, visível, em vez de número inventado.
+`fracaoDoOrcamento` devolve `null` sem orçamento, e `null ≠ 0`: é o que impede
+ler "não declarado" como "sobra tempo". Acima de 80% do orçamento, o wrapper
+avisa na trilha quente.
+
+Provado ponta a ponta por `scripts/_probe-contexto-ledger.ts` — guard prova que o
+código chama, só a linha gravada prova que o valor chegou:
+
+```
+runtime=trigger       orcamento_ms= 3600000  latency=1552ms  → 0% do orçamento
+runtime=desconhecido  orcamento_ms=       —  latency=2846ms  → sem orçamento
+```
+
+**Dois guards da casa pegaram o meu diff, e os dois estavam certos:**
+
+- `task-retry-guard` exige `run: async (…{ ctx })`; eu tinha trocado por
+  `run: (…) =>`. Reescrevi para manter o padrão — não afrouxei o guard para
+  acomodar meu estilo.
+- `error-nao-checado-guard` acusou o insert do ledger como site novo (a
+  allowlist é por **fingerprint**, e eu mudei o conteúdo do insert). O conserto
+  não foi allowlistar: o insert **passou a checar o `error`**. Um ledger que
+  perde linhas em silêncio não perde log — perde o dado que decide teto, modelo
+  e custo, e esta sessão inteira mostrou o que conclusão sobre ledger incompleto
+  produz. A allowlist encolheu de 214 para 213 arquivos (982 → 981 sites).

@@ -12,7 +12,7 @@ import { hasDiscMapeado } from '@/lib/disc-status';
 // `'use server'`, onde todo export vira endpoint e só async é exportável.
 import {
   IA4_COLAB_COLS,
-  avaliarUmaRespostaCore, carregarContextoLoteIA4,
+  avaliarUmaRespostaCore, carregarContextoLoteIA4, IA4_MAX_SINCRONO,
 } from '@/lib/ia4-avaliacao';
 import { reavaliarRespostaCore } from '@/lib/ia4-reavaliacao';
 
@@ -159,6 +159,41 @@ export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
     // Contexto institucional consolidado por empresa (F-I10). Vai no `cachedUserPrefix`
     // do IA4, então é lido 1× por lote — consolidar não multiplica custo.
     const { empresa, contextoPPP } = await carregarContextoLoteIA4(tdb, sbRaw, empresaId);
+
+    // 🔴 Acima do limiar, DELEGA — não tenta e torce (26/08/2026).
+    //
+    // Este laço é sequencial e cada volta é uma chamada de IA com p95 de 156 s
+    // (medido em `ia_usage_log`, 388 chamadas). Duas voltas já são ~312 s, e a
+    // action não declara `maxDuration` — herda o default do segmento. Não é
+    // hipótese: em 11/08 a action estourou 300 s no meio de um lote e deixou
+    // **58 de 72** respostas com avaliação gravada e SEM check, um estado que
+    // nenhuma outra tela alcançava depois (ver `enqueueIA4Batch`).
+    //
+    // O caminho com orçamento para lote já existia — `gerar-ia4-batch`, 3600 s
+    // + Batch API (−50%) — e virou o default da tela em 12/08. O que faltava era
+    // esta porta parar de convidar para a que trava.
+    if (respostas.length > IA4_MAX_SINCRONO) {
+      const { enqueueIA4Batch } = await import('./ia-pipeline-batch');
+      const r = await enqueueIA4Batch(empresaId, aiConfig);
+      if (!r.success) {
+        // Falha ALTO. Cair no laço síncrono aqui seria escolher o caminho que
+        // sabemos que trunca, justamente no volume em que ele trunca.
+        return {
+          success: false,
+          error: `IA4 em lote não pôde ser enfileirada (${r.error}). `
+            + `Com ${respostas.length} respostas, o caminho síncrono estouraria o tempo da action — `
+            + 'não vou rodá-lo como alternativa.',
+        };
+      }
+      return {
+        success: true,
+        jobId: r.jobId,
+        delegado: true as const,
+        message: `${respostas.length} respostas: acima do limite síncrono (${IA4_MAX_SINCRONO}), `
+          + `enfileiradas em lote${r.jobId ? ` (job ${String(r.jobId).slice(0, 8)}…)` : ''}. `
+          + 'Acompanhe pelo painel de lotes.',
+      };
+    }
 
     let avaliadas = 0, erros = 0, ultimoErro = '';
 

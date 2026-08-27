@@ -16,6 +16,7 @@ import {
   encerrarBatch, batchPendenteDoJob, type BatchReq,
 } from '@/lib/ai-batch';
 import { IA_BATCH } from '@/lib/status';
+import { comContexto } from '@/lib/execucao-contexto';
 
 /**
  * IA4 (avaliação das respostas + check da 2ª IA) em LOTE, em BACKGROUND — molde
@@ -52,7 +53,12 @@ export const gerarIA4BatchTask = task({
   maxDuration: 3600,
   // Backoff longo: a falha típica é FORNECEDOR, não corrida.
   retry: { maxAttempts: MAX_TENTATIVAS, minTimeoutInMs: 30_000, maxTimeoutInMs: 300_000, factor: 4 },
-  run: async (payload: { jobId: string }, { ctx }) => {
+  // Declara o orçamento de tempo para o ledger (mig 230). Sem isto, toda
+  // chamada de IA daqui entra como `runtime: 'desconhecido'` e a pergunta
+  // "estamos perto do timeout?" volta a não ter denominador — que foi como uma
+  // premissa errada sobre `modulo_base_autor` sobreviveu.
+  run: async (payload: { jobId: string }, { ctx }) =>
+    comContexto({ runtime: 'trigger', orcamentoMs: 3600 * 1000, onde: 'gerar-ia4-batch' }, async () => {
     const sb = createSupabaseAdmin();
     // `patch` = progresso (best-effort) · `patchCritico` = checkpoint (falha alto).
     // O `{ error }` do supabase-js NÃO lança — ver lib/ia-jobs.ts.
@@ -332,5 +338,5 @@ export const gerarIA4BatchTask = task({
       await registrarFalhaDaTentativa(patch, e, ctx, MAX_TENTATIVAS);
       throw e;
     }
-  },
+  }),
 });

@@ -13,6 +13,7 @@ import {
 } from '@/lib/manuscrito-modulos';
 import { extractCorpo, validarCorpo } from '@/lib/modulo-base-autor';
 import { auditarModulosCore } from '@/lib/modulo-base-auditor';
+import { comContexto } from '@/lib/execucao-contexto';
 
 /**
  * Manuscrito autoral (DOCX) → N Módulos-Base, em BACKGROUND.
@@ -57,7 +58,11 @@ export const gerarModulosManuscritoTask = task({
   // corrida. Retentar em 1s (default do SDK) gastaria as 3 tentativas dentro da
   // mesma indisponibilidade.
   retry: { maxAttempts: MAX_TENTATIVAS, minTimeoutInMs: 30_000, maxTimeoutInMs: 300_000, factor: 4 },
-  run: async (payload: { jobId: string }, { ctx }) => {
+  // Declara o orcamento de tempo para o ledger (mig 230): sem isto as chamadas
+  // daqui entram como runtime 'desconhecido' e "perto do timeout?" fica sem
+  // denominador.
+  run: async (payload: { jobId: string }, { ctx }) =>
+    comContexto({ runtime: 'trigger', orcamentoMs: 3600 * 1000, onde: 'gerar-modulos-manuscrito' }, async () => {
     const sb = createSupabaseAdmin();
     // `patch` = progresso (best-effort) · `patchCritico` = checkpoint (falha alto).
     // O `{ error }` do supabase-js NÃO lança — ver lib/ia-jobs.ts.
@@ -366,5 +371,5 @@ export const gerarModulosManuscritoTask = task({
       await registrarFalhaDaTentativa(patch, e, ctx, MAX_TENTATIVAS);
       throw e;
     }
-  },
+  }),
 });

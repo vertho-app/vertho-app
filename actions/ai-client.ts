@@ -33,6 +33,7 @@ import { costFromTokens } from '@/lib/ia-cost-catalog';
 import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
 import { PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, usaMaxCompletionTokens } from '@/lib/ai-provedores';
 import { fallbackRespeitandoDual } from '@/lib/ai-tasks';
+import { contextoAtual, fracaoDoOrcamento } from '@/lib/execucao-contexto';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -332,8 +333,15 @@ async function registrarUsoIA(
       const base = read + write + u.inTokens;
       console.log(`[ai-cache] ${model} hit=${base ? Math.round((read / base) * 100) : 0}% read=${read} write=${write} fresh=${u.inTokens}`);
     }
+    const ctx = contextoAtual();
     const { createSupabaseAdmin } = await import('@/lib/supabase');
-    await createSupabaseAdmin().from('ia_usage_log').insert({
+    // ⚠️ O `{ error }` do supabase-js NÃO lança, então o catch abaixo nunca via
+    // falha de gravação: o ledger podia estar perdendo linhas em silêncio. Isso
+    // não é perda de log — é perda do DADO que decide teto, modelo e custo, e
+    // esta sessão inteira mostrou o que conclusão sobre ledger incompleto
+    // produz. Best-effort segue sendo best-effort (não derruba a chamada de IA),
+    // mas agora é VISÍVEL. (26/08/2026)
+    const { error: erroLedger } = await createSupabaseAdmin().from('ia_usage_log').insert({
       feature: options.taskKey || 'untagged',
       empresa_id: options.empresaId ?? null,
       colaborador_id: options.colaboradorId ?? null,
@@ -349,7 +357,32 @@ async function registrarUsoIA(
       // a truncagem, sem precisar de migration.
       status: u.truncou ? 'truncado' : 'ok',
       source: options.source || 'wrapper',
+      // Onde isto rodou e com quanto tempo disponível (mig 230). `source`
+      // distingue batch de síncrono, não rota de Trigger — e os orçamentos
+      // diferem por ordem de grandeza. Sem o denominador, "estamos perto do
+      // timeout?" não é respondível pelo dado; foi assim que uma premissa
+      // errada sobre `modulo_base_autor` sobreviveu por não ser contestável.
+      // Declarado por quem sabe (`lib/execucao-contexto.ts`); quem não declara
+      // fica 'desconhecido', que é cobertura faltando e não chute.
+      runtime: ctx.runtime,
+      orcamento_ms: ctx.orcamentoMs ?? null,
     });
+    if (erroLedger) {
+      console.warn(
+        `[ia-ledger] NÃO gravou ${options.taskKey || 'untagged'} (${model}): ${erroLedger.message}. `
+        + 'A chamada de IA foi feita e paga — o custo dela some do ledger, e toda conta sobre esta '
+        + 'feature passa a ter denominador menor que a realidade.',
+      );
+    }
+    // Alerta na trilha quente: 80% do orçamento é onde a próxima chamada um
+    // pouco mais longa vira timeout — e timeout, aqui, é trabalho pago e perdido.
+    const fracao = fracaoDoOrcamento(latencyMs, ctx);
+    if (fracao !== null && fracao >= 0.8) {
+      console.warn(
+        `[ia-ledger] ${options.taskKey || 'untagged'} consumiu ${Math.round(fracao * 100)}% do orçamento `
+        + `(${Math.round(latencyMs / 1000)}s de ${Math.round((ctx.orcamentoMs || 0) / 1000)}s, ${ctx.onde || ctx.runtime}).`,
+      );
+    }
   } catch (e: any) {
     console.warn('[ia-ledger] falha ao registrar uso:', e?.message);
   }

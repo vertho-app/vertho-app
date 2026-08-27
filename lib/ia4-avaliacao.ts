@@ -205,6 +205,22 @@ export const IA4_CALL_OPTIONS = { timeoutMs: 240000, maxRetries: 0 } as const;
  */
 export const IA4_MAX_TOKENS = 64000;
 
+/**
+ * Quantas respostas o caminho SÍNCRONO ainda aceita antes de delegar ao lote.
+ *
+ * Derivado do dado, não escolhido: `ia_usage_log` mede p95 de **156 s** por
+ * chamada de `ia4_avaliacao` (388 chamadas). O laço é sequencial, então duas
+ * voltas já passam dos 300 s que estouraram a action em 11/08 — episódio que
+ * deixou 58 de 72 respostas avaliadas e sem check.
+ *
+ * Por isso 1, e não um número redondo: o síncrono serve ao caso AVULSO (uma
+ * resposta reprocessada à mão). Lote é `gerar-ia4-batch`, que tem 3600 s e o
+ * Batch API. Se o p95 por chamada cair, este número sobe — e a conta para
+ * revisá-lo é `orcamento_ms / p95`, que a mig 230 passou a registrar.
+ */
+export const IA4_MAX_SINCRONO = 1;
+
+
 /** Colunas de perfil que o prompt da IA4 consome — uma lista só, três call-sites. */
 export const IA4_COLAB_COLS =
   'id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, lid_executivo, lid_motivador, lid_metodico, lid_sistematico, perfil_dominante, comp_ousadia, comp_comando, comp_objetividade, comp_assertividade, comp_persuasao, comp_extroversao, comp_entusiasmo, comp_sociabilidade, comp_empatia, comp_paciencia, comp_persistencia, comp_planejamento, comp_organizacao, comp_detalhismo, comp_prudencia, comp_concentracao, perfil_externo_fonte, perfil_externo_dados';
