@@ -851,7 +851,7 @@ junto com ela**, que é o que custou 5 dias de vídeo em `docs/FMEA-PIPELINE.md`
 - Granularidade 0.1 (era 0.5)
 
 ### 5.5 Versionamento de Prompts
-Tabela `prompt_versions` (SHA-256 dedup).
+Tabela `prompt_versions` (SHA-256 dedup). ⚠️ **A TABELA NÃO EXISTE** — nenhuma das 212 migrations a cria (conferido no banco em 27/08/2026). `lib/versioning.ts` escreve nela, o PostgREST recusa, e a função loga e devolve `null`. O único consumidor é `/api/chat`, rota com **0 sessões**; criar ou remover é decisão pendente. Ver `docs/FMEA-PIPELINE.md` §F-D1.
 
 ### 5.6 Tokens
 | Fase | Tokens |
@@ -1115,7 +1115,7 @@ empresas.ui_config / sys_config
 ### Artefatos Gerados por IA
 ```
 relatorios, pdis
-prompt_versions (audit trail SHA-256)
+prompt_versions (audit trail SHA-256)  ← ⚠️ TABELA INEXISTENTE (27/08/2026) — ver §F-D1 do FMEA
 sessoes_avaliacao.rascunho_avaliacao / validacao_audit / avaliacao_final
 trilhas.evolution_report (JSONB — consolida sems 13+14)
 temporada_semana_progresso.feedback.acumulado (avaliacao acumulada)
@@ -1263,7 +1263,7 @@ Padrao das mensagens: explicar **o que** vai acontecer, **escopo** (todos / N it
 - `lib/logger.ts` — logger estruturado
 - Sentry — erros client + server + edge
 - System Health no admin dashboard
-- Prompt versioning em `prompt_versions`
+- Prompt versioning em `prompt_versions` — ⚠️ **a tabela não existe**; o versionamento é sempre nulo (27/08/2026)
 - Check IA4 com nota persistida
 - Paineis Admin Vertho: evidencias, avaliacao acumulada, auditoria sem 14
 

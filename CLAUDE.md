@@ -266,6 +266,12 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
   não lança. Todo await de query tem que checar o retorno (`if (error)`), senão a falha passa
   invisível. Mordeu 2× no mesmo dia (27/07): F-C4 (`precarregarKits` devolvia Map vazio truthy)
   e o upsert de notas da IA4 (falhava e o `avaliacao_ia` era carimbado mesmo assim).
+  - 🔴 **E coluna inexistente no `select` derruba a QUERY INTEIRA (400/`42703`), não o campo** —
+    então `data` vem `null` e o destructuring transforma isso em "não existe registro". Medido
+    27/08: **5 referências fantasma** em código vivo, invisíveis ao `tsc` e aos 3.056 testes.
+    Antes de criar a coluna para calar o compilador, **procure quem ESCREVERIA nela**: em
+    `fase4_envios.competencia_id`, nenhum dos 9 escritores gravava — a coluna nasceria nula.
+    Detalhe e as 4 gavetas de decisão: `docs/FMEA-PIPELINE.md` §F-D1.
 - NÃO interpolar valor vindo de fora em **string de comando** (shell). Server action é endpoint HTTP:
   o valor é escolhido pelo CLIENTE. Use variável de ambiente (`$env:`) ou argv — em 28/07 um
   `contextoDir` concatenado num comando PowerShell do worker era RCE local. E antes de "proteger com

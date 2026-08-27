@@ -1576,3 +1576,78 @@ na IA4 · 0 duplicatas do lado do kit.
     mão via `scripts/_health-check.ts`). **Lição:** instrumentação nova só conta depois de uma
     execução observada de ponta a ponta — inclusive o canal de saída. Um alarme sem destinatário
     é a mesma "documentação que não protege ninguém" que este documento existe para criticar.
+
+---
+
+### F-D1 · Coluna que não existe derruba a QUERY INTEIRA — e o `return` seguinte esconde 🔴 (aberto parcial, 27/08/2026)
+
+**Gatilho:** qualquer `.select('… coluna_que_nao_existe …')` no supabase-js.
+
+**Mecanismo.** O PostgREST recusa a query inteira com **400 / `42703`** quando uma coluna do
+`select` não existe. Não é "o campo vem nulo": é **`data` nulo**. E o supabase-js **retorna**
+`{ error }` em vez de lançar, então `const { data: x } = await …` converte um erro de schema em
+"não há registro" — e a forma do código logo abaixo decide o tamanho do estrago.
+
+**Cinco casos medidos em 27/08, todos em código vivo, todos com `tsc` limpo e 3.056 testes verdes:**
+
+| Referência | Consumidor | Efeito |
+|---|---|---|
+| `temporada_semana_progresso.created_at` | `lib/home/loaders.ts:355` | `semanaAtual` = 0 → 3 cards mortos, com **941 progressos reais** |
+| `fase4_envios.competencia_id` | `app/actions/beto.ts:123` · `actions/tutor-evidencia.ts:41` | `return` 3 linhas depois → **100% das chamadas** do BETO sem contexto |
+| `competencias.gabarito` | `app/api/chat/route.ts:202` | rota com 0 sessões (ver decisão sobre `/api/chat`) |
+| `prompt_versions` (tabela) | `lib/versioning.ts` | versionamento sempre nulo — **e o `ARQUITETURA.md` documenta a tabela** |
+| `fase4_progresso` (tabela dropada) | `app/dashboard/gestor/actions.ts` | atividade do gestor subestimada |
+
+🔴 **Falha calada não deixa buraco na tela — ela se apresenta como conteúdo.** Na home, o card caía
+no fallback do i18n e anunciava *"Novas técnicas de liderança"*: título fixo, igual para todas as
+pessoas, sem relação com a trilha de ninguém.
+
+**Correção — as 4 gavetas, ANTES de tipar.** Tipar transforma cada fantasma em erro que exige
+resposta, e a resposta apressada é criar a coluna. Classifique primeiro:
+
+1. query obsoleta a corrigir;
+2. campo que **mudou de lugar** e precisa apontar para a fonte atual;
+3. funcionalidade legítima que pede migration;
+4. código morto a remover.
+
+`Medido:` das cinco, **nenhuma caiu na gaveta 3**. Em `fase4_envios.competencia_id`, **nenhum dos 9
+escritores da tabela grava o campo** — criá-la daria coluna permanentemente nula. Em
+`competencias.gabarito`, a coluna existe: em `cargos_empresa`. **Sem escritor, a migration só
+preserva a ilusão.** Fonte de referência: `lib/fase4/contexto-semanal.ts`.
+
+⚠️ **Ao apontar para a fonte nova, confira o NOME dos campos lá.** O bloco `conteudo` do plano usa
+`core_titulo`/`core_url`/`por_que_cabe_na_semana` e **zero** `titulo`/`resumo`/`url` — passar o bloco
+cru ao prompt renderiza `Título: undefined`, reintroduzindo o defeito uma camada adiante.
+
+**Por que nenhum teste pega esta classe.** Os **mocks codificam as suposições do código**: um mock
+devolve o que o código pediu, com o nome que o código usou, e não pode discordar dele sobre o que
+existe no banco — *por construção*. Daí 3.056 verdes convivendo com cinco fantasmas. As cinco foram
+achadas **lendo o dado contra o código**, zero por teste. Só contrato contra Postgres real ou o
+esquema virando tipo (`database.types.ts` no CI) mudam o que a suíte enxerga.
+
+**Estado:** `loaders.ts` e `fase4_envios` corrigidos (`e8eaa762`, `fff88081`).
+Abertos: `fase4_progresso`, `banco_cenarios.cargo_id`/`.origin`. Pendentes de decisão de produto:
+`competencias.gabarito` e `prompt_versions` (ambos em `/api/chat`, rota com 0 sessões).
+
+### F-D2 · Duas réguas para a mesma pergunta na MESMA dobra da tela ✅ (fechado 27/08/2026)
+
+**Gatilho:** um gate (`podeConversar`) respondendo a pergunta de um estado (`o conteúdo foi feito?`).
+
+`app/dashboard/temporada/semana/[week]/page.tsx` decidia o passo "Conteúdo" do resumo por
+`podeConversar`, que inclui `nadaParaAbrir`. Numa semana sem formato abrível a tela anunciava
+**"Conteúdo · feito"** e, três linhas abaixo, um botão verde pedia **"Marcar como realizado"** — a
+mesma dobra dizendo que estava feito e pedindo para fazer. Clicar não mudava o resumo (já dizia
+"feito"), então a ação não tinha retorno visível.
+
+**Régua única:** `estadoDoPassoConteudo` / `estadoDoPrimeiroPasso` em
+`lib/season-engine/consumo-conteudo.ts`. Três estados, não dois.
+
+🔑 **Dois vazios diferentes pediam respostas diferentes, e só um tinha.** `nadaParaAbrir` exige
+`entregasConteudo.length > 0`; em semana de **aplicação** não há entrega nenhuma, então saía `false`
+e o resumo dizia "a fazer" — prometendo conteúdo a uma semana que é PRÁTICA (**61 semanas, 46
+pessoas, inclui `ibipeba`**). O primeiro passo passa a ser a **Missão**, com estado real
+(`feedback.modo`, gravado quando a pessoa aceita a missão).
+
+⚠️ **Denominador:** o alarme inicial dizia "108 de 451 semanas (24%) sem conteúdo" — inflado **3×**
+por não separar o TIPO da semana. Recontado: **377 semanas de conteúdo e só 1 sem bloco**. Ver
+`docs/FMEA-PIPELINE.md` §F-O1 e a memória `project_alarme_mede_varredura`.

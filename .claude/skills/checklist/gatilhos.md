@@ -597,3 +597,60 @@ encerramento enquanto o código publicava a abertura.
 
 Detalhe: memórias `feedback_contrato_varre_componentes`, `project_modo_cena`,
 `project_guard_que_nao_roda_no_ci`.
+
+---
+
+## § Vou escrever um teste que afirma que algo NÃO está lá
+
+**Casa quando:** o teste usa `toBeUndefined()`, `not.toContain()`, `toEqual([])`, `not.toMatch()` —
+qualquer asserção de **ausência** sobre estrutura navegada por caminho (JSON de i18n, config,
+payload, colunas de um `select`).
+
+**Confira:** a asserção de ausência é a **única que passa quando você errou o alvo**. Caminho errado
+devolve `undefined` para tudo, e o teste fica verde sem ter olhado coisa alguma. **A mutação também
+não pega** — quebrar a invariante no código de produção não muda o resultado de um teste que lê o
+lugar errado.
+
+A guarda é uma linha acima, provando que o lugar existe:
+
+```ts
+expect(Object.keys(bloco).length, 'caminho errado?').toBeGreaterThan(0);
+expect(bloco.chaveRemovida).toBeUndefined();
+```
+
+**Consequência medida (27/08/2026):** escrevi dois blocos sobre o mesmo JSON de i18n usando
+`temporada.progress` quando o caminho real é `SeasonWeek.progress`. O primeiro exigia uma chave
+**presente** e falhou na hora, me entregando o erro. O segundo — o importante, que impedia o rótulo
+de um botão removido de voltar — **passou verde com o caminho errado**, e teria continuado passando
+para sempre, inclusive se alguém recriasse a chave. Dos dez testes do arquivo, era o único incapaz
+de detectar o que existia para detectar.
+
+Detalhe: memórias `feedback_asercao_de_ausencia`, `feedback_mutacao_mascarada`.
+
+---
+
+## § Achei uma coluna/tabela que o código usa e o banco não tem
+
+**Casa quando:** apareceu `42703`/400 do PostgREST, ou o `tsc` acusou coluna inexistente depois de
+tipar, ou uma leitura devolve `null` sem motivo aparente.
+
+**Confira, nesta ordem:**
+
+1. **A query inteira caiu, não o campo.** `data` vem `null`, e o `if (!x) return` logo abaixo pode
+   estar matando um bloco inteiro em 100% das chamadas — não só "nos N registros da tabela".
+2. **Quem ESCREVERIA nessa coluna?** `git grep "from('<tabela>')"` e olhe os `insert`/`update`/
+   `upsert`. **Sem escritor, criar a coluna dá um campo permanentemente nulo** — a funcionalidade
+   continua morta e você comprou uma migration.
+3. **A coluna existe em OUTRA tabela?** Criá-la onde o código pede instala uma segunda fonte da
+   verdade permanente (caso `competencias.gabarito`, que vive em `cargos_empresa`).
+4. **Ao apontar para a fonte nova, confira o NOME dos campos lá** — o mapeamento errado
+   reintroduz o mesmo defeito uma camada adiante.
+5. **A doc também afirma que existe?** `grep` o nome em `docs/` — doc que descreve schema envelhece
+   sem sinal e é lida como verdade (`prompt_versions` estava em 3 pontos do `ARQUITETURA.md`).
+
+**Consequência medida (27/08/2026):** 5 referências fantasma em código vivo, com `tsc` limpo e 3.056
+testes verdes. O BETO nunca recebeu competência, descritor nem pílula — em 100% das chamadas. A home
+mostrava semana 0 com 941 progressos reais, e o card caía num título fixo do i18n ("Novas técnicas
+de liderança") que parecia conteúdo real.
+
+Detalhe: `docs/FMEA-PIPELINE.md` §F-D1, memória `project_coluna_fantasma_sem_escritor`.
