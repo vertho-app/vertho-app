@@ -1,6 +1,6 @@
 {
-  "description": "E11 (auditoria 22/08) — estoque CONGELADO da classe \"error não checado\": o supabase-js retorna { data, error } e não lança, então quem ignora o retorno vira falha silenciosa. Chave = arquivo, valor = fingerprints (hash do trecho normalizado). Por fingerprint e não por contagem porque contagem deixa a dívida TROCAR DE LUGAR sem o guard ver (modo de falha documentado no E8). Esta lista SÓ ENCOLHE. Guard: tests/unit/security/error-nao-checado-guard.test.ts",
-  "total_declarado": 974,
+  "description": "E11 (auditoria 22/08) — estoque CONGELADO da classe \"error não checado\": o supabase-js retorna { data, error } e não lança, então quem ignora o retorno vira falha silenciosa. Chave = arquivo, valor = fingerprints (hash do trecho normalizado). Por fingerprint e não por contagem porque contagem deixa a dívida TROCAR DE LUGAR sem o guard ver (modo de falha documentado no E8). Esta lista SÓ ENCOLHE. Guard: tests/unit/security/error-nao-checado-guard.test.ts | 27/08/2026: -6 em actions/fase4.ts — nao foi correcao: gerarPDIs e gerarPDIsDescritores foram REMOVIDAS junto com a tabela `pdis` (mig 233), que tinha 0 linhas, nenhuma FK/view/policy e nenhum consumidor. Divida que some porque o codigo saiu conta como paga.",
+  "total_declarado": 968,
   "gerado_em": "2026-08-24",
   "allowlist": {
     "actions/adequacao-cargo.ts": {
@@ -165,18 +165,12 @@
       "07f35498": 1,
       "18a07841": 1,
       "1bec12ad": 1,
-      "25d0af13": 1,
-      "4b3909a6": 1,
-      "50f35d2d": 1,
-      "7fef1092": 1,
       "9473348d": 1,
       "99b040ac": 1,
       "9f3a86c8": 1,
       "ad117fd0": 1,
       "bfab053d": 1,
-      "dac6701f": 1,
-      "ed557c8d": 1,
-      "fa52682e": 1
+      "ed557c8d": 1
     },
     "actions/fase5/cenarios-b.ts": {
       "37391c49": 1,

@@ -417,7 +417,7 @@ import { dispararEmails as _emails, verStatusEnvios as _status } from '@/actions
 import { rodarIA4 as _ia4, rodarIA4Uma as _ia4Uma, listarPendentesIA4 as _listarIA4, verFilaIA4 as _fila } from '@/actions/fase3';
 import { listarPendentesCheck as _listarCheck } from '@/actions/check-ia4';
 import { rechecarResposta as _recheckUma } from '@/actions/fase3';
-import { gerarPDIs as _pdis, gerarPDIsDescritores as _pdisDesc, montarTrilhasLote as _trilhas, criarEstruturaFase4 as _estrutura, iniciarFase4ParaTodos as _iniciar, triggerSegundaFase4 as _trigSeg, triggerQuintaFase4 as _trigQui, getStatusFase4 as _statusF4, salvarCompetenciaFoco as _salvarFoco, loadCompetenciasFoco as _loadFoco } from '@/actions/fase4';
+import { montarTrilhasLote as _trilhas, criarEstruturaFase4 as _estrutura, iniciarFase4ParaTodos as _iniciar, triggerSegundaFase4 as _trigSeg, triggerQuintaFase4 as _trigQui, getStatusFase4 as _statusF4, salvarCompetenciaFoco as _salvarFoco, loadCompetenciasFoco as _loadFoco } from '@/actions/fase4';
 import { gerarCenariosBLote as _cenB, checkCenariosBLote as _checkCenB, checkCenarioBUm as _checkCenBUm, regenerarCenarioB as _regenCenB, regenerarERecheckarCenariosBLote as _regenLote, iniciarReavaliacaoLote as _reav, gerarRelatoriosEvolucaoLote as _evolucao, gerarPlenariaEvolucao as _plenaria, gerarRelatorioRHManual as _rhManual, gerarRelatorioPlenaria as _rhPlen, enviarLinksPerfil as _links, gerarDossieGestor as _dossie, checkCenarios as _checkCen } from '@/actions/fase5';
 import { dispararLinksCIS as _dispCIS, dispararRelatoriosLote as _dispLote } from '@/actions/whatsapp-lote';
 
@@ -447,8 +447,6 @@ export async function listarPendentesCheck(e) { await requireAdminAction(); retu
 export async function checarUmaAvaliacao(respostaId, c) { await requireAdminAction('ai.audit.regenerate'); return _recheckUma(respostaId, c); }
 // Os 6 re-exports de relatório/envio saíram em 15/08 junto com os stubs que
 // eles publicavam (ver `actions/fase3.ts`). A tela usa `actions/relatorios.ts`.
-export async function gerarPDIs(e, c) { await requireAdminAction('ai.audit.regenerate'); return _pdis(e, c); }
-export async function gerarPDIsDescritores(e) { await requireAdminAction('ai.audit.regenerate'); return _pdisDesc(e); }
 export async function montarTrilhasLote(e) { await requireAdminAction('content.manage'); return _trilhas(e); }
 export async function salvarCompetenciaFoco(e, cargo, comp) { await requireAdminAction('content.manage'); return _salvarFoco(e, cargo, comp); }
 export async function loadCompetenciasFoco(e) { await requireAdminAction(); return _loadFoco(e); }

@@ -21,16 +21,13 @@ import { execFileSync } from 'node:child_process';
 
 /** Rotas que chamam IA e AINDA não declaram orçamento. Só encolhe. */
 const ALLOWLIST = new Set<string>([
-  // ⚠️ A 1a versao desta lista tinha 11 entradas — TODA rota com `maxDuration`.
-  // O proprio guard mostrou que 10 delas nao chamam IA: era falsa divida, e
-  // allowlist inflada ensina a ignorar allowlist.
+  // VAZIA desde 27/08. A ultima entrada era `chat-simulador`, que nao declarava
+  // `maxDuration` — e a medicao decidiu: p95 de 13,5s mas MAXIMO de 94s em 2.570
+  // chamadas, o maior consumidor da base. Um pico desses podia estar sendo
+  // cortado sem ninguem saber. Declarado 300s (folga de 3,2x) e envolvido.
   //
-  // Sobra UMA, e por um motivo que nao se resolve aqui: `chat-simulador` NAO
-  // declara `maxDuration`, entao herda o default da plataforma e nao ha
-  // orcamento a declarar. Inventar um numero seria pior que nao ter: o
-  // denominador mentiria. Declarar `maxDuration` nessa rota e decisao de
-  // produto, nao de instrumentacao.
-  'app/api/chat-simulador/route.ts',
+  // Entrada nova aqui e divida DECLARADA e so encolhe: rota que chama IA sem
+  // orcamento volta a deixar "perto do timeout?" sem denominador.
 ]);
 
 function rotasVersionadas(): string[] {

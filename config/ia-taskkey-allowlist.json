@@ -14,11 +14,11 @@
     "tráfego de piloto. O risco real é a próxima onda de lote: sem etiqueta, ela some no agregado.",
     "Ao etiquetar um arquivo, BAIXE o número aqui. Entrada nova é o bug que o guard existe para pegar.",
     "27/08/2026: -2 (lib/pulse/dual-ai.ts). Eram par Dual-IA DECLARADO em DUAL_IA_PARES e mesmo assim caiam em untagged, entao a unica coisa que o ledger nao conseguia confirmar era justamente que o par roda em familias diferentes. 50 chamadas / 27 arquivos.",
-    "27/08/2026: +1 FIXTURE (scripts/_probe-contexto-ledger.ts). Nao e divida: e a chamada deliberadamente SEM taskKey que prova a instrumentacao da mig 231 (origem_codigo). Sem ela o probe nao exercita o caminho que existe para iluminar. Saldo da rodada: 52 -> 51 (-2 reais em lib/pulse/dual-ai.ts, +1 fixture)."
+    "27/08/2026: +1 FIXTURE (scripts/_probe-contexto-ledger.ts). Nao e divida: e a chamada deliberadamente SEM taskKey que prova a instrumentacao da mig 231 (origem_codigo). Sem ela o probe nao exercita o caminho que existe para iluminar. Saldo da rodada: 52 -> 51 (-2 reais em lib/pulse/dual-ai.ts, +1 fixture).",
+    "27/08/2026: -1 (actions/fase4.ts). O call-site sem taskKey era o gerarPDIs legado, removido com a tabela `pdis` (mig 233)."
   ],
   "allowlist": {
     "actions/evolucao-granular.ts": 1,
-    "actions/fase4.ts": 1,
     "actions/fase5/reavaliacao.ts": 1,
     "actions/fase5/relatorios-envios.ts": 4,
     "actions/fit-v2.ts": 1,

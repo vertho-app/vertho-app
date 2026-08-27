@@ -1,117 +1,22 @@
 'use server';
 
-import { callAI, type AIConfig } from './ai-client';
-import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 
-// ── Gerar PDIs (Planos de Desenvolvimento Individual) ───────────────────────
-
-export async function gerarPDIs(empresaId: string, aiConfig: AIConfig = {}) {
-  const sb = await requireAdminSupabase('ai.audit.regenerate');
-  try {
-    const { data: empresa } = await sb.from('empresas')
-      .select('nome, segmento')
-      .eq('id', empresaId).single();
-
-    const { data: relatorios } = await sb.from('relatorios')
-      .select('*, colaboradores!inner(id, nome_completo, cargo)')
-      .eq('empresa_id', empresaId)
-      .eq('tipo', 'individual');
-
-    if (!relatorios?.length) return { success: false, error: 'Nenhum relatório individual. Gere relatórios na Fase 3 primeiro.' };
-
-    const system = `Você é um especialista em desenvolvimento de pessoas e PDI.
-Crie um plano de desenvolvimento individual prático e acionável.
-Responda APENAS com JSON válido.`;
-
-    let gerados = 0;
-
-    for (const rel of relatorios) {
-      const user = `Empresa: ${empresa.nome} (${empresa.segmento})
-Colaborador: ${rel.colaboradores.nome_completo} | Cargo: ${rel.colaboradores.cargo}
-Relatório de competências:
-${JSON.stringify(rel.conteudo, null, 2)}
-
-Gere o PDI:
-{
-  "colaborador": "${rel.colaboradores.nome_completo}",
-  "objetivos": [
-    {
-      "competencia": "...",
-      "nivel_atual": 1-5,
-      "nivel_meta": 1-5,
-      "acoes": [{"acao": "...", "prazo": "...", "tipo": "curso|leitura|pratica|mentoria"}],
-      "indicadores_sucesso": ["..."]
-    }
-  ],
-  "cronograma_semanas": 12,
-  "checkpoints": [{"semana": 4, "meta": "..."}, {"semana": 8, "meta": "..."}, {"semana": 12, "meta": "..."}]
-}`;
-
-      const resultado = await callAI(system, user, aiConfig, 6000);
-      const pdi = await extractJSON(resultado);
-
-      if (pdi) {
-        await sb.from('pdis').upsert({
-          empresa_id: empresaId,
-          colaborador_id: rel.colaboradores.id,
-          conteudo: pdi,
-          status: 'ativo',
-          gerado_em: new Date().toISOString(),
-        }, { onConflict: 'empresa_id,colaborador_id' });
-        gerados++;
-      }
-    }
-
-    return { success: true, message: `${gerados} PDIs gerados` };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-// ── Gerar PDIs com descritores ──────────────────────────────────────────────
-
-export async function gerarPDIsDescritores(empresaId: string) {
-  const sb = await requireAdminSupabase('ai.audit.regenerate');
-  try {
-    const { data: pdis } = await sb.from('pdis')
-      .select('*, colaboradores!inner(nome_completo, cargo)')
-      .eq('empresa_id', empresaId)
-      .eq('status', 'ativo');
-
-    if (!pdis?.length) return { success: false, error: 'Nenhum PDI ativo encontrado' };
-
-    let atualizados = 0;
-
-    for (const pdi of pdis) {
-      const objetivos = pdi.conteudo?.objetivos || [];
-      for (const obj of objetivos) {
-        // Enrich with descriptors from competencias gabarito
-        const { data: comp } = await sb.from('competencias')
-          .select('gabarito')
-          .eq('empresa_id', empresaId)
-          .eq('nome', obj.competencia)
-          .single();
-
-        if (comp?.gabarito) {
-          obj.descritores_nivel_atual = (comp.gabarito as any[]).find((n: any) => n.nivel === obj.nivel_atual);
-          obj.descritores_nivel_meta = (comp.gabarito as any[]).find((n: any) => n.nivel === obj.nivel_meta);
-        }
-      }
-
-      await sb.from('pdis')
-        .update({ conteudo: { ...pdi.conteudo, objetivos } })
-        .eq('id', pdi.id);
-      atualizados++;
-    }
-
-    return { success: true, message: `${atualizados} PDIs enriquecidos com descritores` };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
+// ── PDIs legados: REMOVIDOS em 27/08/2026 ──────────────────────────────────
+//
+// `gerarPDIs` e `gerarPDIsDescritores` escreviam na tabela `pdis`, que tinha
+// **0 linhas**, nenhuma FK, nenhuma view, nenhuma policy, e cujo único leitor
+// era o próprio par. Nenhum `.tsx` as chamava — mas, por serem exports de um
+// arquivo `'use server'`, eram ENDPOINTS HTTP chamáveis, gastando IA para
+// produzir artefato que ninguém consome.
+//
+// O que elas faziam — derivar `objetivos` a partir do relatório — é hoje o
+// Development Blueprint (`objetivos_30_dias`). Antecessor superado, não
+// funcionalidade perdida. A tabela foi removida na migration 233, no MESMO
+// commit: apagar a tabela antes do código deixaria dois endpoints estourando
+// em `relation does not exist`, que é pior que o estado anterior.
 
 // ── Salvar competência foco por cargo ───────────────────────────────────────
 

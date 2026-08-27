@@ -1399,3 +1399,37 @@ cima" acertou, e agora por medida em vez de aposta.
 
 ⚠️ n=15 fecha "o teto antigo cortava" e "o novo não corta". Não fecha o p95 com
 precisão — a cauda além de 18.537 continua não observada.
+
+### 27/08 — `pdis` removida, e o `chat-simulador` ganhou orçamento
+
+**Tabela `pdis` (mig 233).** Conferido antes de apagar: **0 linhas, nenhuma FK
+(entrando ou saindo), nenhuma view, nenhuma policy**, único leitor era o próprio
+escritor, e nenhum `.tsx` chamava `gerarPDIs`.
+
+⚠️ **Mas a ordem importava.** `gerarPDIs`/`gerarPDIsDescritores` eram exports de
+um arquivo `'use server'` — ou seja, **endpoints HTTP chamáveis** (gatados por
+`ai.audit.regenerate`) mesmo sem botão nenhum. Apagar a tabela sem apagar o
+código trocaria "gasta IA à toa" por "500 em produção". Código e DDL saíram no
+mesmo commit.
+
+O que a tabela guardava — `objetivos` derivados do relatório — é hoje o
+Development Blueprint (`objetivos_30_dias`). Antecessor superado.
+
+⚠️ E a migration ia ser a **232**, número que estava livre quando comecei; o
+Rodrigo criou a 232 em paralelo no meio do trabalho. Renumerada para 233 — é
+exatamente por isso que a régua manda conferir o maior N **no instante de criar
+o arquivo**, não no início da rodada.
+
+**Duas allowlists encolheram como consequência**, e é o tipo certo de encolher —
+dívida que some porque o código saiu: `error-nao-checado` 974 → **968** sites (6
+fingerprints de `fase4.ts`), e `ia-taskkey` 28 → **27** arquivos.
+
+**`chat-simulador`.** Não declarava `maxDuration`, então herdava o default da
+plataforma — e sem saber qual, "estamos perto do timeout?" não tinha resposta.
+A medição decidiu: `sim_aluno` tem p95 de 13,5s mas **máximo de 94s em 2.570
+chamadas**, e é o maior consumidor de chamadas da base. Um pico desses podia
+estar sendo cortado sem ninguém saber. Declarado 300s (folga de 3,2× sobre o
+pior caso) e envolvido em `comContexto`.
+
+**A allowlist do guard de orçamento está VAZIA:** todas as 5 rotas que chamam IA
+declaram contexto.
