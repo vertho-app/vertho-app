@@ -114,8 +114,10 @@ const arredondar = (n: number) => Math.ceil(n / 1000) * 1000;
  * operações. Enquanto isso não acontece, o p95 delas é uma mistura.
  */
 const DIVERGENCIA_INTENCIONAL: Record<string, string> = {
-  arguicao: 'turno de conversa (callAIChat, curto por desenho) × avaliação final (callAI). '
-    + 'Unificar o teto esconderia que são duas coisas; o certo é partir a taskKey.',
+  // 27/08: `arguicao` SAIU daqui — a divergencia foi resolvida na fonte, e nao
+  // tolerada. A etiqueta foi PARTIDA em `arguicao_turno` (2.048) e
+  // `arguicao_avaliacao` (4.096), que era o conserto estrutural que este
+  // comentario apontava. Entrada aqui e ultimo recurso, nao arquivo morto.
 };
 
 /**

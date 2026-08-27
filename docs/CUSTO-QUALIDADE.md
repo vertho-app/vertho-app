@@ -1267,3 +1267,24 @@ allowlist inflada ensina a ignorar allowlist. Sobrou **uma**:
 `chat-simulador`, que não declara `maxDuration` — então não há orçamento a
 declarar, e inventar um número faria o denominador mentir. Declarar
 `maxDuration` ali é decisão de produto, não de instrumentação.
+
+### 27/08 — `arguicao` partida em duas
+
+O auditor de tetos reportava `arguicao` com 2.048 / 2.048 / 4.096 e eu havia
+classificado como **divergência intencional**, anotando que o conserto real era
+partir a `taskKey`. Feito: `arguicao_turno` (conversa, teto 2.048) e
+`arguicao_avaliacao` (JSON de evidências, teto 4.096).
+
+Divergência tolerada é aviso que nunca sai — e aviso que nunca sai é ignorado
+junto com o resto. A entrada saiu de `DIVERGENCIA_INTENCIONAL`, que volta a ser
+último recurso em vez de arquivo morto.
+
+⚠️ **E nenhuma das duas estava em `AI_TASKS`.** A etiqueta `arguicao` marcava o
+ledger sem constar do catálogo: não era roteável por `getModelForTask`, não
+aparecia na tela de modelos, e rodava no `FALLBACK_GLOBAL` **sem ninguém ter
+decidido isso** — o mesmo padrão de `pulse_classify` e `conteudo_tags`. As duas
+foram declaradas com o valor incumbente (`claude-sonnet-4-6`), tornando a
+escolha visível sem trocar nada.
+
+As linhas históricas do ledger seguem com `feature = 'arguicao'`: o p95 daquele
+período continua sendo mistura das duas operações, e só o tráfego novo separa.

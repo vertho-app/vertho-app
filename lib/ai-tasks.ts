@@ -35,6 +35,18 @@ export const AI_TASKS = [
   { key: 'temporada_qualitativa', label: 'Avaliação qualitativa (sem 13)', fase: 'Temporadas' },
   { key: 'temporada_rubrica', label: 'Cenário + pontuação final (sem 14)', fase: 'Temporadas' },
   { key: 'temporada_extracao', label: 'Extração estruturada (JSON dos chats)', fase: 'Temporadas' },
+  // 27/08: a etiqueta `arguicao` PARTIDA em duas. Ela cobria operações de
+  // naturezas diferentes — turno de conversa (curto por desenho, teto 2.048) e
+  // avaliação final em JSON (teto 4.096) — e o auditor de tetos reportava a
+  // divergência sem poder resolvê-la: o p95 da task era mistura de duas coisas.
+  //
+  // ⚠️ E nenhuma das duas estava aqui. `arguicao` etiquetava o ledger sem
+  // constar do catálogo, então não era roteável por `getModelForTask` nem
+  // aparecia na tela de modelos: rodava no FALLBACK_GLOBAL sem ninguém ter
+  // decidido isso. Declarar torna a escolha visível — o valor abaixo é o
+  // incumbente, não uma troca.
+  { key: 'arguicao_turno', label: 'Arguição — Turno da conversa', fase: 'Temporadas' },
+  { key: 'arguicao_avaliacao', label: 'Arguição — Avaliação final (evidências)', fase: 'Temporadas' },
 
   // ── Banco de Conteúdos ───────────────────────────────────
   { key: 'conteudo_video', label: 'Gerar roteiro de vídeo', fase: 'Conteúdos' },
@@ -161,6 +173,9 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // `conteudo_tags`: classificacao de conteudo, saida curta, sem auditor a
   // jusante e sem nota derivada. Bloco F2.
   conteudo_tags:       'gemini-3.7-flash',
+  // Incumbentes tornados explícitos (antes: FALLBACK_GLOBAL por omissão).
+  arguicao_turno:      'claude-sonnet-4-6',
+  arguicao_avaliacao:  'claude-sonnet-4-6',
   pulse_audit:         'gpt-5.6-terra',
   // Blueprint (25/08/2026): o auditor semântico (`lib/blueprint/audit.ts`) roda
   // sobre o que `BLUEPRINT_SYSTEM` gerou. Sem esta linha os dois lados caíam em
