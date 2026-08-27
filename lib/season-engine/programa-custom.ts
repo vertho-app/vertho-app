@@ -86,6 +86,10 @@ export function derivarConfigCustom(inputs: ProgramaCustomInputs): ProgramaConfi
       nivelMetaAlvo: 3,
       numCompetencias,
       conteudosPorSemana: 2,
+      // Uma tarefa por competência por semana (27/08/2026), como no piloto e na
+      // jornada. Com `numCompetencias >= 2` a régua devolve uma tarefa CADA —
+      // ela unifica por competência, não por semana (ver `manterUmDesafio`).
+      desafioUnicoPorCompetencia: true,
       // Fechamento libera no CALENDÁRIO da última semana de conteúdo; o gate
       // real é a progressão ("anterior concluída") — nunca espera semana extra.
       semanaEspelhoCalendario: { [semanaFech]: semanas },
@@ -108,6 +112,7 @@ export function derivarConfigCustom(inputs: ProgramaCustomInputs): ProgramaConfi
     nivelMetaAlvo: 3,
     numCompetencias,
     conteudosPorSemana: 2,
+    desafioUnicoPorCompetencia: true,
     arguicao: { ativa: false, maxTurnos: 0 },
   };
 }

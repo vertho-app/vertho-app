@@ -312,6 +312,18 @@ export const PROGRAMA_PILOTO: ProgramaConfig = Object.freeze({
   // Fase D (03/07): arguição LIGADA no piloto — testbed de degustação (2 sem).
   // Regular/DUO/onboarding seguem OFF até validar aqui. 4 turnos (janela curta).
   arguicao: { ativa: true, maxTurnos: 4 },
+  /**
+   * 🔴 LIGADO em 27/08/2026, fechando o último modo que ainda cobrava duas
+   * tarefas numa conversa de 6 turnos. As 2 entregas da semana do piloto são da
+   * MESMA competência por construção (`numCompetencias: 1`, top-4 descritores
+   * por gap), então aqui a unificação por competência sempre resulta em uma
+   * tarefa — o mesmo desenho da jornada.
+   *
+   * Numa degustação isso pesa mais do que no programa cheio: são 2 semanas para
+   * a pessoa formar opinião sobre o produto, e a conversa cortada no meio era
+   * metade do que ela via.
+   */
+  desafioUnicoPorCompetencia: true,
 }) as ProgramaConfig;
 
 /**

@@ -870,8 +870,12 @@ de lá morreram abrindo um desafio que a tela nunca mostrou. A conversa também 
 2. **`manterUmDesafio` unifica por COMPETÊNCIA, não por semana.** ⚠️ Régua por semana teria apagado
    a tarefa de uma competência inteira em **92 das 324** semanas de conteúdo de ibipeba (as que
    trazem 2 competências distintas) — e ela conta na régua de nível igual à outra.
-3. **`desafioUnicoPorCompetencia: true` no `PROGRAMA_REGULAR_DUO`** (`programa_config` é NULL nas
-   75 trilhas, então pega também quem está no meio).
+3. **`desafioUnicoPorCompetencia: true` em TODOS os modos que entregam 2 conteúdos por semana** —
+   `PROGRAMA_REGULAR_DUO`, `PROGRAMA_PILOTO` e as duas configs de `derivarConfigCustom`
+   (`programa_config` é NULL nas 75 trilhas, então pega também quem está no meio). O flag existiu
+   22 dias ligado só na jornada; um guard passa a exigi-lo de quem entrega mais de um conteúdo por
+   semana, para que modo NOVO não nasça sem ele — a metade do defeito que não era a régua, e sim
+   ela não ser a mesma em todo lugar.
 4. **Roteiro socrático com dois traçados**: com 2 tarefas, a transição é PRESCRITA no turno 4; com
    1 tarefa e 2 conteúdos, o 2º assunto entra no turno 5. O turno 6 diz que a pessoa não poderá
    responder.

@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { manterUmDesafio, resolverDesafiosDaSemana } from '@/lib/season-engine/kit/entrega-semana';
+import {
+  PROGRAMA_REGULAR, PROGRAMA_ONBOARDING, PROGRAMA_REGULAR_DUO, PROGRAMA_PILOTO, PROGRAMA_JORNADA,
+} from '@/lib/season-engine/programa-config';
+import { derivarConfigCustom } from '@/lib/season-engine/programa-custom';
+import type { ProgramaConfig } from '@/lib/season-engine/programa-config';
 
 /**
  * Jornada (05/08/2026): a semana entrega DUAS pílulas e UMA tarefa.
@@ -150,5 +155,55 @@ describe('resolverDesafiosDaSemana — a fonte única das três portas', () => {
     ]), { empresaId: 'e1', disc: null, desafioUnicoPorCompetencia: true });
     expect(out).toHaveLength(1);
     expect(out[0].desafio_texto).toBe('tarefa B');
+  });
+});
+
+/**
+ * 🔑 O flag existiu 22 dias LIGADO na jornada e obedecido por um consumidor só
+ * (a tela). O que faltava não era a régua — era ela ser a mesma em todo lugar.
+ * Este guard fecha a outra metade: modo que entrega mais de um conteúdo por
+ * semana e NASCE sem o flag volta a cobrar duas tarefas numa conversa de 6
+ * turnos, e o sintoma só aparece semanas depois, no transcript de alguém.
+ *
+ * O predicado espelha as duas portas de `build-season.ts` que produzem
+ * `conteudos_dia`: `ehSemanaDeEntregaMultipla` (conteudosPorSemana > 1) e
+ * `isRegularDuoContentWeek` (2 competências em paralelo).
+ */
+function entregaMaisDeUmConteudoPorSemana(c: ProgramaConfig): boolean {
+  if ((c.conteudosPorSemana || 1) > 1) return true;
+  return !c.semanaParaCompetenciaIdx && !!c.competenciasNaMissao && (c.numCompetencias || 1) >= 2;
+}
+
+describe('guard: quem entrega 2 conteúdos por semana declara 1 tarefa por competência', () => {
+  const MODOS: [string, ProgramaConfig][] = [
+    ['REGULAR', PROGRAMA_REGULAR],
+    ['ONBOARDING', PROGRAMA_ONBOARDING],
+    ['REGULAR_DUO', PROGRAMA_REGULAR_DUO],
+    ['PILOTO', PROGRAMA_PILOTO],
+    ['JORNADA', PROGRAMA_JORNADA],
+  ];
+
+  for (const [nome, cfg] of MODOS) {
+    it(`${nome}: ${entregaMaisDeUmConteudoPorSemana(cfg) ? 'entrega 2 → exige o flag' : 'entrega 1 → o flag é indiferente'}`, () => {
+      if (entregaMaisDeUmConteudoPorSemana(cfg)) {
+        expect(cfg.desafioUnicoPorCompetencia).toBe(true);
+      } else {
+        // Sem entrega múltipla não há o que unificar — ligar ou não é inócuo.
+        expect(['boolean', 'undefined']).toContain(typeof cfg.desafioUnicoPorCompetencia);
+      }
+    });
+  }
+
+  it('o modo Personalizado (derivado, não constante) também declara', () => {
+    // `derivarConfigCustom` monta a config em runtime a partir de
+    // `sys_config.programa_custom` — não é varrida pelo laço acima, e é onde
+    // uma divergência passaria despercebida por mais tempo.
+    for (const fechamento of [true, false]) {
+      for (const numCompetencias of [1, 2]) {
+        const cfg = derivarConfigCustom({ semanas: 2, numCompetencias, fechamento });
+        expect(entregaMaisDeUmConteudoPorSemana(cfg)).toBe(true);
+        expect(cfg.desafioUnicoPorCompetencia).toBe(true);
+      }
+    }
   });
 });
