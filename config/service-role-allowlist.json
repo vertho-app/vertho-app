@@ -231,6 +231,7 @@
     "scripts/_reancorar-limiar-ia3.ts": 1,
     "scripts/_rechecar-cenarios-legado.ts": 1,
     "scripts/_probe-contexto-ledger.ts": 1,
-    "scripts/_probe-pdi-check.ts": 1
+    "scripts/_probe-pdi-check.ts": 1,
+    "scripts/_medir-ia4-sem-censura.ts": 1
   }
 }

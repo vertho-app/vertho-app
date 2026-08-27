@@ -1362,3 +1362,40 @@ ele não estava alterando a nota: estava virando **afirmação sobre a pessoa**.
 
 ⚠️ Isto é um achado sobre o PROMPT do PDI, e o conserto é dele — não do auditor.
 Fica registrado; a decisão é de quem escreve o prompt.
+
+### 27/08 — IA4 sem censura: o número que faltava desde 25/08
+
+`scripts/_medir-ia4-sem-censura.ts`, 15 avaliações reais em Ibipeba, teto já em
+64.000, **sem persistir** e com `source: 'medicao'`.
+
+| | |
+|---|---:|
+| min · p50 | 7.175 · 10.675 |
+| **p95** | **18.537** |
+| max | 18.537 |
+| acima dos 16.000 antigos | **2 de 15 (13%)** |
+| no teto de 64.000 | 0 |
+| custo | US$ 1,93 |
+
+**Os 16.000 nunca foram o comportamento do modelo — eram a régua.** As duas
+maiores (18.537 e 18.151) teriam sido cortadas no meio de um JSON de avaliação
+de competência de uma pessoa real; a terceira (15.857) escapou por **143
+tokens**. Os 13% batem com os 19,9% históricos.
+
+A folga hoje é **64.000 ÷ 18.537 = 3,45×** — acima da régua de 3× e sem exagero:
+a própria régua (`max(3× p95, 1,5× o máximo)`) sugeriria 56.000. O "erre para
+cima" acertou, e agora por medida em vez de aposta.
+
+**Três decisões de desenho que tornam o número confiável:**
+
+- **Não persiste.** Reavaliar sobrescreveria a nota de gente real por um motivo
+  de instrumentação. O núcleo é partido em MONTAR/CHAMAR/PERSISTIR de propósito;
+  o script usa os dois primeiros e para.
+- **`source: 'medicao'`**, fora da população que o auditor de tetos usa. Sem
+  isso eu repetiria o erro que encontrei ontem, quando 10 chamadas de um piloto
+  de Qwen inflaram o p95 do `ia3_cenarios` de 3.270 para 13.795.
+- **O ledger é a fonte**, não o texto retornado: `output_tokens` e truncagem vêm
+  da linha gravada.
+
+⚠️ n=15 fecha "o teto antigo cortava" e "o novo não corta". Não fecha o p95 com
+precisão — a cauda além de 18.537 continua não observada.

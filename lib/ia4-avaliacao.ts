@@ -179,9 +179,27 @@ export const IA4_CALL_OPTIONS = { timeoutMs: 240000, maxRetries: 0 } as const;
  * saída do 4.6 (máx. 7.467 → 2,1x de folga); o modelo trocou e a folga sumiu,
  * porque o teto media o modelo antigo.
  *
- * ⚠️ Por que NÃO um número derivado da distribuição: a distribuição do Sonnet 5
- * está CENSURADA — tudo que passaria de 16.000 foi registrado como 16.000, então
- * o p95 real dele é desconhecido. Não é estimativa ruim, é ausência de dado.
+ * ✅ MEDIDO EM 27/08/2026, e o teto está certo por medida, não por aposta.
+ *
+ * A distribuição histórica estava CENSURADA — tudo que passaria de 16.000 foi
+ * registrado como 16.000 — então o p95 dela não era estimativa ruim, era
+ * ausência de dado. `scripts/_medir-ia4-sem-censura.ts` rodou 15 avaliações
+ * reais em Ibipeba com o teto já em 64.000, SEM persistir (o núcleo é partido
+ * em MONTAR/CHAMAR/PERSISTIR justamente para isto) e com `source: 'medicao'`,
+ * fora da população que decide teto de produção:
+ *
+ *   min 7.175 · p50 10.675 · p95 18.537 · max 18.537
+ *   2 de 15 (13%) ACIMA dos 16.000 antigos — consistente com os 19,9% históricos
+ *   0 de 15 no teto de 64.000
+ *
+ * 🔑 O que isso prova: os 16.000 nunca foram o comportamento do modelo, eram a
+ * RÉGUA. As duas maiores (18.537 e 18.151) teriam sido cortadas no meio de um
+ * JSON de avaliação de competência de uma pessoa real, e a terceira (15.857)
+ * escapou por 143 tokens.
+ *
+ * A folga hoje é 64.000 ÷ 18.537 = **3,45×**, acima da régua de 3× e abaixo do
+ * exagero: a própria régua (`max(3× p95, 1,5× o máximo)`) sugeriria 56.000.
+ * Custo da medição: US$ 1,93.
  *
  * 🔑 26/08/2026 — de 32.000 para 64.000, por decisão de régua (Rodrigo): num
  * fluxo CRÍTICO, teto alto com custo maior é preferível ao risco de quebrar o
