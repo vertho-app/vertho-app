@@ -13,6 +13,7 @@ import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { consolidarNotasIA4, blocoConsolidacao, normalizarNiveisDaAvaliacao } from '@/lib/ia4-avaliacao';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
+import { comContexto } from '@/lib/execucao-contexto';
 
 // Turno do chat + encerramento (avaliação + auditoria, 2× 8192 tokens) podem
 // levar minutos com retry/backoff — sem isso a rota cai no default da Vercel
@@ -67,6 +68,8 @@ function exigir<T>(res: { data: T | null; error: any } | any, oQue: string): T {
 // ── POST /api/chat ──────────────────────────────────────────────────────────
 
 export async function POST(req) {
+  // Orcamento de tempo declarado para o ledger (mig 230).
+  return comContexto({ runtime: 'rota', orcamentoMs: 300 * 1000, onde: 'api/chat' }, async () => {
   try {
     const csrf = csrfCheck(req);
     if (csrf) return csrf;
@@ -414,6 +417,7 @@ export async function POST(req) {
     console.error('[POST /api/chat]', err);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

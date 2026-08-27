@@ -1238,3 +1238,32 @@ auditoria depois do PDF).
 ⚠️ **Ainda não rodou de ponta a ponta em produção** — o teste cobre o módulo e o
 consumidor, mas gerar um PDI real custa e escreve. A primeira geração é a prova
 que falta.
+
+### 27/08 — a instrumentação de orçamento cobria zero do tráfego real
+
+Um dia depois da mig 230, medi: **145 de 145 chamadas de produção entraram como
+`runtime: 'desconhecido'`.** Eu tinha instrumentado duas tasks do Trigger, e
+**nenhuma delas carrega tráfego** — a instrumentação existia e não cobria nada.
+É a mesma classe do guard que não roda no CI: só prova o que se observou fazer.
+
+**Quatro rotas envolvidas**, cada uma declarando o próprio `maxDuration`:
+`api/chat`, `api/temporada/reflection`, `api/temporada/evaluation`,
+`api/temporada/tira-duvidas`.
+
+**E de onde vem o tráfego do Modo Cena:** de **scripts** (`_cena-fase0.ts`,
+`_cena-reextrair.ts`), não de rota nem de action. Os 1.087 `cena_turno` em Opus 5
+que eu apontei como "o item mais caro da plataforma" são **rajada de
+desenvolvimento**, não carga de produção. Isso rebaixa a prioridade de mexer
+neles — e é exatamente o tipo de coisa que só aparece perguntando por onde a
+chamada entra.
+
+**Guard novo** (`tests/unit/security/rota-orcamento-guard.test.ts`): rota que
+chama IA declara contexto, e o orçamento declarado **bate com o `maxDuration`
+real** — denominador que mente é pior que denominador ausente.
+
+⚠️ A primeira allowlist tinha **11 entradas — toda rota com `maxDuration`** — e o
+próprio guard mostrou que **10 delas nem chamam IA**. Era falsa dívida, e
+allowlist inflada ensina a ignorar allowlist. Sobrou **uma**:
+`chat-simulador`, que não declara `maxDuration` — então não há orçamento a
+declarar, e inventar um número faria o denominador mentir. Declarar
+`maxDuration` ali é decisão de produto, não de instrumentação.

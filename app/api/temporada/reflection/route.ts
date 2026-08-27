@@ -18,6 +18,7 @@ import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
 import type { acumuladaPilotoTask } from '@/trigger/acumulada-piloto';
 import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine/progresso-semana';
+import { comContexto } from '@/lib/execucao-contexto';
 
 // Conclusão de semana pode disparar a acumulada (após IA) e o chat usa callAI —
 // dá margem além dos 60s default. Fluid até 300s.
@@ -206,6 +207,8 @@ REGRAS:
  * Retorna: { message, turnIA, finished, history }
  */
 export async function POST(request) {
+  // Orcamento de tempo declarado para o ledger (mig 230).
+  return comContexto({ runtime: 'rota', orcamentoMs: 300 * 1000, onde: 'api/temporada/reflection' }, async () => {
   try {
     const csrf = csrfCheck(request);
     if (csrf) return csrf;
@@ -553,6 +556,7 @@ export async function POST(request) {
     console.error('[reflection]', err);
     return NextResponse.json({ error: err?.message || 'Erro' }, { status: 500 });
   }
+  });
 }
 
 function resolveCompetenciaSemana(trilha: any, semanaPlan: any): { label: string; competencias: string[] } {

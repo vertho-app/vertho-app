@@ -17,6 +17,7 @@ import { buscarCenarioBComFallback } from '@/lib/season-engine/cenario-b';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { PROGRESSO } from '@/lib/status';
+import { comContexto } from '@/lib/execucao-contexto';
 
 // Fechamento encadeia arguição (até 4 turnos) + extração + scorer + check 2ª IA
 // + Evolution Report num único request — passa dos 60s default. Fluid até 300s.
@@ -57,6 +58,10 @@ function montarCtxArguicao(opts: {
 }
 
 export async function POST(request) {
+  // Declara o orcamento de tempo para o ledger (mig 230): sem isto toda
+  // chamada de IA daqui entra como runtime "desconhecido" e a pergunta
+  // "estamos perto do timeout?" fica sem denominador.
+  return comContexto({ runtime: 'rota', orcamentoMs: 300 * 1000, onde: 'api/temporada/evaluation' }, async () => {
   try {
     const csrf = csrfCheck(request);
     if (csrf) return csrf;
@@ -478,6 +483,7 @@ export async function POST(request) {
     console.error('[VERTHO] /evaluation:', err);
     return NextResponse.json({ error: err?.message }, { status: 500 });
   }
+  });
 }
 
 

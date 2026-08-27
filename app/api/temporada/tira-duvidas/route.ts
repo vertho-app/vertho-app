@@ -13,6 +13,7 @@ import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
 import { carregarBlueprintResumo } from '@/lib/blueprint/resumo';
 import { buscarConteudosRelacionados, formatConteudosRelacionadosBloco } from '@/lib/conteudos-relacionados';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
+import { comContexto } from '@/lib/execucao-contexto';
 
 // callAIChat por pergunta pode levar dezenas de segundos (com retry, mais).
 export const maxDuration = 300;
@@ -29,6 +30,10 @@ export const maxDuration = 300;
  * Gates temporais idênticos aos demais endpoints.
  */
 export async function POST(request) {
+  // Declara o orcamento de tempo para o ledger (mig 230): sem isto toda
+  // chamada de IA daqui entra como runtime "desconhecido" e a pergunta
+  // "estamos perto do timeout?" fica sem denominador.
+  return comContexto({ runtime: 'rota', orcamentoMs: 300 * 1000, onde: 'api/temporada/tira-duvidas' }, async () => {
   try {
     const csrf = csrfCheck(request);
     if (csrf) return csrf;
@@ -260,6 +265,7 @@ export async function POST(request) {
     console.error('[tira-duvidas]', err);
     return NextResponse.json({ error: err?.message || 'Erro' }, { status: 500 });
   }
+  });
 }
 
 function resolveCompetenciaSemana(trilha: any, semanaPlan: any): string {
