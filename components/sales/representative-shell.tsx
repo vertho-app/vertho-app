@@ -7,7 +7,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Briefcase, Coins, FileText, LayoutDashboard, Lightbulb, LogOut, Menu, MonitorPlay, Target, X,
+  Briefcase, Coins, FileText, Headphones, LayoutDashboard, Lightbulb, LogOut, Menu, MonitorPlay, Target, X,
 } from 'lucide-react';
 import { ConfirmDialogProvider } from '@/components/admin/confirm-dialog';
 import { Toaster } from 'sonner';
@@ -24,6 +24,7 @@ const NAV = [
   { key: 'propostas', label: 'Propostas', sub: 'Aprovação e envio', href: '/representante/propostas', icon: FileText },
   { key: 'comissoes', label: 'Comissões', sub: 'A receber e pagas', href: '/representante/comissoes', icon: Coins },
   { key: 'carteira', label: 'Carteira', sub: 'Carteira ativa', href: '/representante/carteira', icon: Briefcase },
+  { key: 'copiloto', label: 'Copiloto PACE', sub: 'Planejar e conduzir conversas', href: '/copiloto', icon: Headphones },
   { key: 'inteligencia', label: 'Inteligência Comercial', sub: 'Materiais e playbooks', href: '/representante/inteligencia-comercial', icon: Lightbulb },
   { key: 'demo', label: 'Ambiente de Demonstração', sub: 'Treinar e apresentar', href: '/representante/demo', icon: MonitorPlay },
 ] as const;

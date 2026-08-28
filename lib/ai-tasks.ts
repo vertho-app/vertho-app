@@ -117,6 +117,9 @@ export const AI_TASKS = [
   { key: 'beto', label: 'BETO — assistente do colaborador', fase: 'Assistentes' },
   { key: 'sim_aluno', label: 'Simulador — aluno', fase: 'Simulador' },
   { key: 'chat_simulador', label: 'Simulador — chat', fase: 'Simulador' },
+  { key: 'copiloto_pesquisa_empresa', label: 'Copiloto PACE — pesquisa pública', fase: 'Copiloto' },
+  { key: 'copiloto_planejamento', label: 'Copiloto PACE — planejamento da conversa', fase: 'Copiloto' },
+  { key: 'copiloto_ao_vivo', label: 'Copiloto PACE — leitura ao vivo', fase: 'Copiloto' },
 ];
 
 /**
@@ -180,6 +183,9 @@ export const MODELOS_DISPONIVEIS = [
  * Gemini Flash auditando Claude, e do Pulso classifier + auditor).
  */
 export const DEFAULT_TASK_MODELS: Record<string, string> = {
+  copiloto_pesquisa_empresa: 'gpt-5.5',
+  copiloto_planejamento:     'gpt-5.6-terra',
+  copiloto_ao_vivo:          'gemini-3.7-flash',
   // Módulos-Base — autora (extração/segmentação/estruturação) em Claude Sonnet 4.6
   // (24/06): qualidade pedagógica e aderência ao spec acima do Gemini Flash, que
   // entregava segmentação/estruturação mais rasa. Custo/latência maiores, aceitos

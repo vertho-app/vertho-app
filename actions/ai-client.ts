@@ -410,6 +410,117 @@ async function registrarUsoIA(
   }
 }
 
+export type OpenAIWebSearchSource = {
+  title: string;
+  url: string;
+};
+
+type OpenAIJsonSchemaFormat = {
+  name: string;
+  strict: boolean;
+  schema: Record<string, unknown>;
+};
+
+/**
+ * Busca pública com a Responses API da OpenAI.
+ *
+ * Vive no mesmo wrapper das demais gerações para que autenticação do provedor,
+ * timeout e ledger de custo não nasçam num segundo caminho invisível. O caller
+ * deve mandar apenas dados que podem ir para a internet; o copiloto, por
+ * exemplo, envia nome/site públicos e mantém briefing/transcrição fora daqui.
+ */
+export async function callOpenAIWebSearch(
+  prompt: string,
+  format: OpenAIJsonSchemaFormat,
+  options: AICallOptions & { model?: string; maxOutputTokens?: number } = {},
+): Promise<{ text: string; sources: OpenAIWebSearchSource[] }> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY não configurada');
+
+  const model = options.model || process.env.OPENAI_WEB_SEARCH_MODEL || 'gpt-5.5';
+  const startedAt = Date.now();
+  const res = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      store: false,
+      tools: [{ type: 'web_search' }],
+      tool_choice: 'auto',
+      include: ['web_search_call.action.sources'],
+      input: prompt,
+      max_output_tokens: options.maxOutputTokens || 12000,
+      text: { format: { type: 'json_schema', ...format } },
+    }),
+    signal: AbortSignal.timeout(options.timeoutMs ?? 180000),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`OpenAI Responses ${res.status}: ${detail.slice(0, 1200)}`);
+  }
+
+  const data: any = await res.json();
+  const usage = data?.usage;
+  const cachedInput = usage?.input_tokens_details?.cached_tokens || 0;
+  await registrarUsoIA('openai', model, usage ? {
+    inTokens: Math.max(0, (usage.input_tokens || 0) - cachedInput),
+    outTokens: usage.output_tokens || 0,
+    cacheRead: cachedInput,
+    truncou: data?.status === 'incomplete',
+  } : null, Date.now() - startedAt, {
+    ...options,
+    taskKey: options.taskKey || 'openai_web_search',
+    source: options.source || 'responses-web-search',
+  });
+
+  const text = typeof data?.output_text === 'string'
+    ? data.output_text
+    : (data?.output || [])
+        .filter((item: any) => item?.type === 'message')
+        .flatMap((item: any) => item?.content || [])
+        .map((part: any) => part?.text || part?.output_text || '')
+        .filter(Boolean)
+        .join('\n');
+
+  const candidates: OpenAIWebSearchSource[] = [];
+  for (const item of data?.output || []) {
+    if (item?.type === 'web_search_call') {
+      for (const source of item?.action?.sources || []) {
+        candidates.push({ title: source?.title || source?.url || 'Fonte', url: source?.url || '' });
+      }
+    }
+    if (item?.type === 'message') {
+      for (const part of item?.content || []) {
+        for (const annotation of part?.annotations || []) {
+          if (annotation?.type === 'url_citation') {
+            candidates.push({ title: annotation?.title || annotation?.url || 'Fonte', url: annotation?.url || '' });
+          }
+        }
+      }
+    }
+  }
+
+  const seen = new Set<string>();
+  const sources = candidates.filter((source) => {
+    try {
+      const parsed = new URL(source.url);
+      if (!['http:', 'https:'].includes(parsed.protocol) || seen.has(parsed.href)) return false;
+      source.url = parsed.href;
+      seen.add(parsed.href);
+      return true;
+    } catch {
+      return false;
+    }
+  }).slice(0, 16);
+
+  if (!text.trim()) throw new Error('A pesquisa não retornou conteúdo estruturado');
+  return { text, sources };
+}
+
 // ── Thinking / effort por geração de modelo Claude ──────────────────────────
 // A geração 5 (e Opus 4.7/4.8) REMOVEU `thinking:{type:'enabled',budget_tokens}`
 // — mandar isso devolve 400 "not supported for this model. Use thinking.type.
