@@ -4,6 +4,7 @@ import { extractJSON } from '@/actions/utils';
 import { csrfCheck } from '@/lib/csrf';
 import { createRateLimiter } from '@/lib/rate-limit';
 import { requireRepresentativeOrAdminRequest } from '@/lib/copiloto/auth';
+import { buildFallbackLiveReading } from '@/lib/copiloto/live-support';
 import { DISCOVERY_CHECKLIST, PACE_PHASES, type DiscoveryKey, type PacePhase } from '@/lib/copiloto/types';
 
 export const runtime = 'nodejs';
@@ -21,6 +22,33 @@ function clean(value: unknown, max: number): string {
 function phaseAfter(current: PacePhase, read: unknown): PacePhase {
   const next = PACE_PHASES.includes(read as PacePhase) ? read as PacePhase : current;
   return PACE_PHASES.indexOf(next) > PACE_PHASES.indexOf(current) ? next : current;
+}
+
+async function generateLiveReading(system: string, prompt: string): Promise<{
+  parsed: any;
+  recoveredProvider: boolean;
+} | null> {
+  const preferredModel = process.env.COPILOTO_LIVE_MODEL || 'gpt-5.6-luna';
+  const models = [...new Set([preferredModel, 'gpt-5.6-luna'])];
+
+  for (let index = 0; index < models.length; index += 1) {
+    const model = models[index];
+    try {
+      const raw = await callAI(
+        system,
+        prompt,
+        { model },
+        1800,
+        { taskKey: 'copiloto_ao_vivo', timeoutMs: 12000, reasoningEffort: 'low' },
+      );
+      const parsed = await extractJSON(raw);
+      if (!parsed) throw new Error('leitura sem JSON válido');
+      return { parsed, recoveredProvider: index > 0 };
+    } catch (error: any) {
+      console.error(`[copiloto/live] modelo ${model} falhou:`, error?.message || error);
+    }
+  }
+  return null;
 }
 
 export async function POST(req: Request) {
@@ -68,15 +96,15 @@ Contexto privado:\n${clean(body?.context, 10000)}
 JSON:
 {"fase":"preparar|analisar|cocriar|engajar","sinal":"objecao|sinal_de_compra|duvida|abertura|neutro","objecao":null,"descobertas_cobertas":["chaves"],"alerta":null,"foco":"frase curta","perguntas":[{"texto":"até 120 caracteres","porque":"motivo curto"}]}`;
 
-    const raw = await callAI(
-      system,
-      prompt,
-      { model: process.env.COPILOTO_LIVE_MODEL || 'gemini-3.7-flash' },
-      1800,
-      { taskKey: 'copiloto_ao_vivo', timeoutMs: 30000 },
-    );
-    const parsed: any = await extractJSON(raw);
-    if (!parsed) throw new Error('leitura sem JSON válido');
+    const generated = await generateLiveReading(system, prompt);
+    const fallbackReading = buildFallbackLiveReading(plan, currentPhase, covered);
+    if (!generated) {
+      return NextResponse.json({
+        reading: fallbackReading,
+        meta: { mode: 'local_fallback', generatedAt: new Date().toISOString() },
+      });
+    }
+    const parsed = generated.parsed;
 
     const mergedCovered = [...new Set([
       ...covered,
@@ -84,6 +112,7 @@ JSON:
     ])] as DiscoveryKey[];
     const phase = phaseAfter(currentPhase, parsed?.fase);
     const signal = SIGNALS.has(parsed?.sinal) ? parsed.sinal : 'neutro';
+    const normalizedFallback = buildFallbackLiveReading(plan, phase, mergedCovered);
     const questions = (Array.isArray(parsed?.perguntas) ? parsed.perguntas : []).slice(0, 3).map((item: any) => ({
       text: clean(item?.texto, 120), why: clean(item?.porque, 100),
     })).filter((item: any) => item.text);
@@ -96,8 +125,12 @@ JSON:
         signal,
         objection: clean(parsed?.objecao, 600) || null,
         alert: clean(parsed?.alerta, 400) || null,
-        focus: clean(parsed?.foco, 300),
-        questions,
+        focus: clean(parsed?.foco, 300) || normalizedFallback.focus,
+        questions: questions.length ? questions : normalizedFallback.questions,
+      },
+      meta: {
+        mode: generated.recoveredProvider ? 'provider_fallback' : 'ai',
+        generatedAt: new Date().toISOString(),
       },
     });
   } catch (error: any) {

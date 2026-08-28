@@ -21,9 +21,11 @@ import { selectImmediateQuestions } from './local-bank';
 import styles from './copiloto.module.css';
 
 type Tab = 'clientes' | 'planejamento' | 'ao-vivo' | 'pos-reuniao';
+type LiveAnalysisState = 'idle' | 'active' | 'fallback' | 'error';
 
 const PLAN_STORAGE_KEY = 'vertho-copiloto-plan-v1';
 const ASR_URL = process.env.NEXT_PUBLIC_COPILOTO_ASR_URL || 'ws://127.0.0.1:8765';
+const LIVE_ANALYSIS_COOLDOWN_MS = 3500;
 
 const PHASE_LABELS: Record<PacePhase, string> = {
   preparar: 'Preparar', analisar: 'Analisar', cocriar: 'Cocriar', engajar: 'Engajar',
@@ -310,9 +312,10 @@ export default function CopilotClient({
 
   const [captureState, setCaptureState] = useState<CaptureState>('parado');
   const [utterances, setUtterances] = useState<LiveUtterance[]>([]);
-  const [partial, setPartial] = useState('');
+  const [partial, setPartial] = useState<{ channel: LiveUtterance['channel']; text: string } | null>(null);
   const [reading, setReading] = useState<LiveReading>(EMPTY_READING);
   const [thinking, setThinking] = useState(false);
+  const [liveAnalysisState, setLiveAnalysisState] = useState<LiveAnalysisState>('idle');
 
   const [posts, setPosts] = useState<SupernormalPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
@@ -325,6 +328,10 @@ export default function CopilotClient({
   const planRef = useRef<CopilotPlan | null>(null);
   const contextRef = useRef('');
   const processingRef = useRef(false);
+  const pendingAnalysisRef = useRef(false);
+  const analysisInputRef = useRef<LiveUtterance[]>([]);
+  const lastAnalysisStartedAtRef = useRef(0);
+  const processLiveTurnRef = useRef<(nextUtterances: LiveUtterance[]) => void>(() => undefined);
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -363,8 +370,14 @@ export default function CopilotClient({
   }, [planning]);
 
   const processLiveTurn = useCallback(async (nextUtterances: LiveUtterance[]) => {
-    if (processingRef.current || !nextUtterances.length) return;
+    analysisInputRef.current = nextUtterances;
+    if (!nextUtterances.length) return;
+    if (processingRef.current) {
+      pendingAnalysisRef.current = true;
+      return;
+    }
     processingRef.current = true;
+    lastAnalysisStartedAtRef.current = Date.now();
     setThinking(true);
     try {
       const res = await fetchAuth('/api/copiloto/live', {
@@ -376,37 +389,80 @@ export default function CopilotClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Falha ao ler a conversa');
+      if (!data?.reading) throw new Error('A leitura ao vivo voltou vazia');
       setReading(data.reading);
+      setLiveAnalysisState(data?.meta?.mode === 'local_fallback' ? 'fallback' : 'active');
       setError(null);
     } catch (err: any) {
+      setLiveAnalysisState('error');
       setError(err?.message || 'Falha ao atualizar o apoio ao vivo');
     } finally {
       processingRef.current = false;
       setThinking(false);
+      if (pendingAnalysisRef.current) {
+        pendingAnalysisRef.current = false;
+        const cooldown = Math.max(0, LIVE_ANALYSIS_COOLDOWN_MS - (Date.now() - lastAnalysisStartedAtRef.current));
+        if (timerRef.current) window.clearTimeout(timerRef.current);
+        timerRef.current = window.setTimeout(() => {
+          timerRef.current = null;
+          processLiveTurnRef.current(analysisInputRef.current);
+        }, cooldown);
+      }
     }
   }, []);
+
+  useEffect(() => { processLiveTurnRef.current = (next) => { void processLiveTurn(next); }; }, [processLiveTurn]);
+
+  const scheduleLiveAnalysis = useCallback((nextUtterances: LiveUtterance[], settleMs = 650) => {
+    if (!nextUtterances.length) return;
+    analysisInputRef.current = nextUtterances;
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    const cooldown = Math.max(0, LIVE_ANALYSIS_COOLDOWN_MS - (Date.now() - lastAnalysisStartedAtRef.current));
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      void processLiveTurn(analysisInputRef.current);
+    }, Math.max(settleMs, cooldown));
+  }, [processLiveTurn]);
 
   const onSegment = useCallback((payload: Parameters<typeof toUtterance>[0]) => {
     const utterance = toUtterance(payload);
     const next = [...utterancesRef.current, utterance].slice(-200);
     utterancesRef.current = next;
     setUtterances(next);
-    setPartial('');
+    setPartial(null);
 
-    if (payload.canal === 'cliente') {
-      const currentPlan = planRef.current;
-      if (currentPlan) {
-        const immediate = selectImmediateQuestions(
-          currentPlan,
-          readingRef.current,
-          next.filter((item) => item.channel === 'vendedor').map((item) => item.text),
-        );
-        if (immediate.length) setReading((current) => ({ ...current, questions: immediate }));
-      }
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-      timerRef.current = window.setTimeout(() => void processLiveTurn(next), 350);
-    }
-  }, [processLiveTurn]);
+    const immediate = selectImmediateQuestions(
+      planRef.current,
+      readingRef.current,
+      next.filter((item) => item.channel === 'vendedor').map((item) => item.text),
+    );
+    if (immediate.length) setReading((current) => ({ ...current, questions: immediate }));
+
+    // O ASR pode inverter ou não separar os canais conforme a fonte de áudio.
+    // Toda fala finalizada aciona a análise; a IA usa o rótulo apenas como contexto.
+    scheduleLiveAnalysis(next);
+  }, [scheduleLiveAnalysis]);
+
+  const onPartial = useCallback((payload: Parameters<typeof toUtterance>[0]) => {
+    const partialText = payload.texto.trim();
+    if (!partialText) return;
+    setPartial({ channel: payload.canal, text: partialText });
+    const sellerUtterances = utterancesRef.current
+      .filter((item) => item.channel === 'vendedor')
+      .map((item) => item.text);
+    if (payload.canal === 'vendedor') sellerUtterances.push(partialText);
+    const immediate = selectImmediateQuestions(planRef.current, readingRef.current, sellerUtterances);
+    if (immediate.length) setReading((current) => ({ ...current, questions: immediate }));
+    if (partialText.length < 24) return;
+    const preview = [...utterancesRef.current, {
+      channel: payload.canal,
+      text: partialText,
+      at: Date.now(),
+    }].slice(-200);
+    // Se o Whisper demorar para fechar o segmento, a parcial ainda mantém o
+    // Copiloto responsivo. O debounce substitui versões anteriores da mesma fala.
+    scheduleLiveAnalysis(preview, 1200);
+  }, [scheduleLiveAnalysis]);
 
   async function generatePlan(event: FormEvent) {
     event.preventDefault();
@@ -497,10 +553,12 @@ export default function CopilotClient({
 
   async function startCapture() {
     setError(null);
+    setLiveAnalysisState('idle');
+    pendingAnalysisRef.current = false;
     const capture = new LocalMeetingCapture({
       url: ASR_URL,
       onSegment,
-      onPartial: (payload) => { if (payload.canal === 'cliente') setPartial(payload.texto); },
+      onPartial,
       onState: setCaptureState,
       onError: setError,
     });
@@ -511,7 +569,7 @@ export default function CopilotClient({
   function stopCapture() {
     captureRef.current?.stop();
     captureRef.current = null;
-    setPartial('');
+    setPartial(null);
   }
 
   const loadPosts = useCallback(async () => {
@@ -700,7 +758,18 @@ export default function CopilotClient({
 
           <div className={styles.liveGrid}>
             <section className={styles.nextMove}>
-              <div className={styles.liveLabel}><Radio size={15} /> Próxima melhor intervenção {thinking && <span><LoaderCircle size={13} className={styles.spin} /> analisando</span>}</div>
+              <div className={styles.liveLabel}>
+                <Radio size={15} /> Próxima melhor intervenção
+                {thinking
+                  ? <span><LoaderCircle size={13} className={styles.spin} /> analisando</span>
+                  : liveAnalysisState === 'active'
+                    ? <span className={styles.connected}><Check size={13} /> IA ativa</span>
+                    : liveAnalysisState === 'fallback'
+                      ? <span className={styles.degraded}><CircleAlert size={13} /> banco local</span>
+                      : liveAnalysisState === 'error'
+                        ? <span className={styles.failed}><WifiOff size={13} /> análise falhou</span>
+                        : null}
+              </div>
               <h3>{reading.focus}</h3>
               <div className={styles.suggestionList}>
                 {reading.questions.length ? reading.questions.map((question, index) => (
@@ -723,7 +792,7 @@ export default function CopilotClient({
               <div className={styles.transcript}>
                 {!utterances.length && !partial && <p className={styles.transcriptEmpty}>A transcrição não é salva no servidor do Copiloto.</p>}
                 {utterances.slice(-40).map((item, index) => <p key={`${item.at}-${index}`} data-channel={item.channel}><span>{item.channel === 'cliente' ? 'Cliente' : 'Você'}</span>{item.text}</p>)}
-                {partial && <p data-channel="cliente" className={styles.partial}><span>Cliente</span>{partial}</p>}
+                {partial && <p data-channel={partial.channel} className={styles.partial}><span>{partial.channel === 'cliente' ? 'Cliente' : 'Você'}</span>{partial.text}</p>}
               </div>
             </section>
           </div>

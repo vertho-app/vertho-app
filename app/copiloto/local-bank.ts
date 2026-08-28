@@ -1,4 +1,5 @@
 import type { CopilotPlan, DiscoveryKey, LiveReading, PaceQuestion } from '@/lib/copiloto/types';
+import { genericLiveQuestions } from '@/lib/copiloto/live-support';
 
 const PHASE_ORDER = ['preparar', 'analisar', 'cocriar', 'engajar'] as const;
 
@@ -30,12 +31,12 @@ function score(question: PaceQuestion, reading: LiveReading): number {
 }
 
 export function selectImmediateQuestions(
-  plan: CopilotPlan,
+  plan: CopilotPlan | null,
   reading: LiveReading,
   sellerUtterances: string[],
 ): Array<{ text: string; why: string }> {
   const usedDiscoveries = new Set<DiscoveryKey>();
-  return plan.questions
+  const selected = (plan?.questions || [])
     .filter((question) => !alreadyAsked(question, sellerUtterances))
     .map((question) => ({ question, points: score(question, reading) }))
     .filter((item) => item.points >= 0)
@@ -48,4 +49,11 @@ export function selectImmediateQuestions(
     })
     .slice(0, 3)
     .map(({ question }) => ({ text: question.text, why: question.why }));
+
+  if (selected.length === 3) return selected;
+  const usedTexts = new Set(selected.map((item) => normalize(item.text)));
+  const generic = genericLiveQuestions(reading.pending, 3)
+    .filter((item) => !usedTexts.has(normalize(item.text)))
+    .slice(0, 3 - selected.length);
+  return [...selected, ...generic];
 }
