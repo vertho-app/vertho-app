@@ -453,6 +453,7 @@ export async function callOpenAIWebSearch(
       include: ['web_search_call.action.sources'],
       input: prompt,
       max_output_tokens: options.maxOutputTokens || 12000,
+      ...(options.reasoningEffort ? { reasoning: { effort: options.reasoningEffort } } : {}),
       text: { format: { type: 'json_schema', ...format } },
     }),
     signal: AbortSignal.timeout(options.timeoutMs ?? 180000),

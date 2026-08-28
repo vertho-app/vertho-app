@@ -1,10 +1,15 @@
-const SOCIAL_HOSTS = new Set([
+const SOCIAL_HOSTS = [
   'linkedin.com', 'instagram.com', 'x.com', 'twitter.com', 'facebook.com',
   'youtube.com', 'tiktok.com',
-]);
+];
 
 function normalizedHost(hostname: string): string {
   return hostname.toLowerCase().replace(/^(www\.|m\.|mobile\.)/, '');
+}
+
+function socialRootHost(hostname: string): string | null {
+  const host = normalizedHost(hostname);
+  return SOCIAL_HOSTS.find((root) => host === root || host.endsWith(`.${root}`)) || null;
 }
 
 function parsedSocialUrl(value: string): URL | null {
@@ -13,8 +18,8 @@ function parsedSocialUrl(value: string): URL | null {
   try {
     const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
     if (!['http:', 'https:'].includes(url.protocol)) return null;
-    const host = normalizedHost(url.hostname);
-    if (!SOCIAL_HOSTS.has(host)) return null;
+    const host = socialRootHost(url.hostname);
+    if (!host) return null;
     const path = url.pathname.replace(/\/+$/, '');
     if (!path || path === '/') return null;
     url.protocol = 'https:';
@@ -53,10 +58,36 @@ export function parseOfficialSocialUrls(value: unknown): string[] {
 export function isSocialUrl(value: string | null): boolean {
   if (!value) return false;
   try {
-    return SOCIAL_HOSTS.has(normalizedHost(new URL(value).hostname));
+    return !!socialRootHost(new URL(value).hostname);
   } catch {
     return false;
   }
+}
+
+function webHost(value: string, allowMissingProtocol = false): string | null {
+  try {
+    const url = new URL(allowMissingProtocol && !/^https?:\/\//i.test(value) ? `https://${value}` : value);
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    return url.hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
+export function isExternalNewsUrl(value: string | null, officialSite: string): boolean {
+  if (!value || isSocialUrl(value)) return false;
+  const sourceHost = webHost(value);
+  if (!sourceHost) return false;
+  const officialHost = webHost(officialSite.trim(), true);
+  return !officialHost || (sourceHost !== officialHost && !sourceHost.endsWith(`.${officialHost}`));
+}
+
+export function isOfficialSiteUrl(value: string | null, officialSite: string): boolean {
+  if (!value) return false;
+  const sourceHost = webHost(value);
+  const officialHost = webHost(officialSite.trim(), true);
+  return !!sourceHost && !!officialHost
+    && (sourceHost === officialHost || sourceHost.endsWith(`.${officialHost}`));
 }
 
 export function isOfficialSocialProfile(value: string | null, officialProfiles: string[]): boolean {

@@ -276,6 +276,15 @@
 .objectives p { margin: 8px 0 0; color: #e1edf4; font-size: 12px; line-height: 1.55; }
 .valueSummary { display: flex; align-items: flex-start; gap: 10px; margin: 18px 0 0; padding: 15px 18px; border-left: 2px solid var(--cyan); background: rgba(66,212,215,.055); color: #cce4ed; font-size: 12px; line-height: 1.6; }
 .valueSummary svg { flex: 0 0 auto; color: var(--cyan); margin-top: 2px; }
+.researchAudit { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 16px 0 0; border: 1px solid var(--line); background: var(--line); }
+.researchAudit article { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 13px 15px; background: #081d33; }
+.researchAudit article > svg { color: #68839b; }
+.researchAudit article[data-status="found"] > svg { color: var(--mint); }
+.researchAudit article[data-status="none"] > svg, .researchAudit article[data-status="unavailable"] > svg { color: #d8ad68; }
+.researchAudit article div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.researchAudit article span { color: #6f8aa1; font: 750 8px/1 var(--font-inter); letter-spacing: .1em; text-transform: uppercase; }
+.researchAudit article strong { overflow: hidden; color: #d7e7f2; font-size: 11px; line-height: 1.35; text-overflow: ellipsis; }
+.researchAudit article em { border: 1px solid rgba(138,217,201,.18); padding: 4px 6px; color: #8fbfc3; font: 700 8px/1 var(--font-inter); font-style: normal; white-space: nowrap; }
 
 .dossierGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
 .dossierBlock { border: 1px solid var(--line); background: rgba(5, 23, 40, .5); padding: 22px; min-width: 0; }
@@ -439,7 +448,7 @@
   .tabs button small { display: none; }
   .tabs button > span { font-size: 10px; }
   .runway { padding-left: 0; }
-  .twoFields, .objectives, .questionColumns, .sources > div { grid-template-columns: 1fr; }
+  .twoFields, .objectives, .questionColumns, .sources > div, .researchAudit { grid-template-columns: 1fr; }
   .contextFieldHeader { align-items: flex-start; flex-direction: column; }
   .clientDetailHeader, .memoryBoard, .conversationHistory { padding-left: 16px; padding-right: 16px; }
   .clientActions, .clientActions button, .memoryGrid { width: 100%; }

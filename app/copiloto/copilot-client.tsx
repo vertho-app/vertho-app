@@ -6,7 +6,7 @@ import Image from 'next/image';
 import {
   ArrowLeft, AudioLines, Building2, Check, ChevronRight, CircleAlert, Clock3,
   ClipboardPaste, Database, ExternalLink, FileText, Headphones, LoaderCircle, Mic, Radio,
-  RefreshCw, Search, ShieldCheck, Sparkles, Square, UsersRound, Wifi, WifiOff,
+  Newspaper, RefreshCw, Search, Share2, ShieldCheck, Sparkles, Square, UsersRound, Wifi, WifiOff,
 } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import {
@@ -43,11 +43,14 @@ function formatDate(value: string): string {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(date);
 }
 
-function sourceChannel(value: string): 'LinkedIn' | 'Instagram' | 'X' | 'Web' {
+function sourceChannel(value: string): 'LinkedIn' | 'Instagram' | 'Facebook' | 'YouTube' | 'TikTok' | 'X' | 'Web' {
   try {
     const host = new URL(value).hostname.toLowerCase();
     if (host === 'linkedin.com' || host.endsWith('.linkedin.com')) return 'LinkedIn';
     if (host === 'instagram.com' || host.endsWith('.instagram.com')) return 'Instagram';
+    if (host === 'facebook.com' || host.endsWith('.facebook.com')) return 'Facebook';
+    if (host === 'youtube.com' || host.endsWith('.youtube.com')) return 'YouTube';
+    if (host === 'tiktok.com' || host.endsWith('.tiktok.com')) return 'TikTok';
     if (host === 'x.com' || host.endsWith('.x.com') || host === 'twitter.com' || host.endsWith('.twitter.com')) return 'X';
   } catch {
     // URLs já são validadas no servidor; o fallback mantém o dossiê utilizável.
@@ -105,6 +108,48 @@ function PlanDossier({ plan, onGoLive }: { plan: CopilotPlan; onGoLive: () => vo
       </div>
 
       {plan.valueSummary && <p className={styles.valueSummary}><Sparkles size={16} /> {plan.valueSummary}</p>}
+
+      {plan.researchAudit && (
+        <div className={styles.researchAudit} aria-label="Rastreabilidade da pesquisa pública">
+          <article data-status={plan.researchAudit.site.status}>
+            <Building2 size={17} />
+            <div><span>Site oficial</span><strong>{
+              plan.researchAudit.site.status === 'found'
+                ? `${plan.researchAudit.site.signalsFound} ${plan.researchAudit.site.signalsFound === 1 ? 'sinal usado' : 'sinais usados'}`
+                : plan.researchAudit.site.status === 'unavailable'
+                  ? 'Busca não concluiu nesta tentativa'
+                  : plan.researchAudit.site.status === 'none'
+                    ? 'Nenhum fato verificável encontrado'
+                    : 'Busca não solicitada'
+            }</strong></div>
+          </article>
+          <article data-status={plan.researchAudit.news.status}>
+            <Newspaper size={17} />
+            <div><span>Imprensa externa</span><strong>{
+              plan.researchAudit.news.status === 'found'
+                ? `${plan.researchAudit.news.signalsFound} ${plan.researchAudit.news.signalsFound === 1 ? 'notícia usada' : 'notícias usadas'}`
+                : plan.researchAudit.news.status === 'unavailable'
+                  ? 'Busca não concluiu nesta tentativa'
+                  : plan.researchAudit.news.status === 'none'
+                    ? 'Nenhuma notícia externa verificável'
+                    : 'Busca não solicitada'
+            }</strong></div>
+          </article>
+          <article data-status={plan.researchAudit.social.status}>
+            <Share2 size={17} />
+            <div><span>Redes oficiais</span><strong>{
+              plan.researchAudit.social.status === 'found'
+                ? `${plan.researchAudit.social.signalsFound} ${plan.researchAudit.social.signalsFound === 1 ? 'post público usado' : 'posts públicos usados'}`
+                : plan.researchAudit.social.status === 'unavailable'
+                  ? 'Busca não concluiu nesta tentativa'
+                  : plan.researchAudit.social.status === 'none'
+                    ? 'Nenhum post público indexado'
+                    : 'Nenhum perfil informado'
+            }</strong></div>
+            {!!plan.researchAudit.social.profilesConsulted && <em>{plan.researchAudit.social.profilesConsulted} {plan.researchAudit.social.profilesConsulted === 1 ? 'perfil' : 'perfis'}</em>}
+          </article>
+        </div>
+      )}
 
       <div className={styles.dossierGrid}>
         <section className={classNames(styles.dossierBlock, styles.wideBlock)}>
@@ -567,7 +612,7 @@ export default function CopilotClient({
               </button>
               {plan && <button type="button" className={styles.secondaryButton} onClick={clearPlan}>Limpar</button>}
             </div>
-            {planning && <p className={styles.waitCopy}>A IA está cruzando site, notícias e contexto comercial. Uma pesquisa profunda pode levar alguns minutos.</p>}
+            {planning && <p className={styles.waitCopy}>A IA está pesquisando em três trilhas separadas: site oficial, imprensa externa e redes oficiais. Isso pode levar alguns minutos.</p>}
           </form>
 
           <aside className={styles.researchPanel}>
@@ -587,7 +632,7 @@ export default function CopilotClient({
                 <ul><li><Check size={13} /> Fontes com links</li><li><Check size={13} /> Hipóteses separadas de fatos</li><li><Check size={13} /> Banco de perguntas PACE</li></ul>
               </div>
             )}
-            <div className={styles.privacyNote}><ShieldCheck size={17} /><p><strong>Fronteira de privacidade</strong>A busca recebe apenas nome e site públicos. Briefing e oferta entram somente na análise privada.</p></div>
+            <div className={styles.privacyNote}><ShieldCheck size={17} /><p><strong>Fronteira de privacidade</strong>A busca recebe apenas nome, site e perfis sociais oficiais. Briefing e oferta entram somente na análise privada.</p></div>
           </aside>
 
           {plan && <div className={styles.fullRow}><PlanDossier plan={plan} onGoLive={() => setTab('ao-vivo')} /></div>}

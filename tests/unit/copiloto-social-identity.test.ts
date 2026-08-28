@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   filterResearchByOfficialSocials,
   isAllowedSocialEvidence,
+  isExternalNewsUrl,
+  isOfficialSiteUrl,
   isOfficialSocialProfile,
   parseOfficialSocialUrls,
 } from '@/lib/copiloto/social-identity';
@@ -24,6 +26,16 @@ describe('identidade social do Copiloto', () => {
     expect(isOfficialSocialProfile('https://www.linkedin.com/company/vertho-ai/?view=all', official)).toBe(true);
   });
 
+  it('trata subdomínios regionais do LinkedIn como a mesma rede social', () => {
+    const official = ['https://linkedin.com/company/amigos-do-bem'];
+    expect(isAllowedSocialEvidence(
+      'https://pt.linkedin.com/posts/amigos-do-bem_impacto-activity-123',
+      'https://www.linkedin.com/company/amigos-do-bem/',
+      official,
+    )).toBe(true);
+    expect(isOfficialSocialProfile('https://pt.linkedin.com/company/amigos-do-bem', official)).toBe(true);
+  });
+
   it('aceita post social apenas quando associado ao perfil oficial informado', () => {
     const official = ['https://instagram.com/vertho.ai'];
     expect(isAllowedSocialEvidence(
@@ -40,6 +52,14 @@ describe('identidade social do Copiloto', () => {
 
   it('mantém fontes web comuns sem depender de perfil social', () => {
     expect(isAllowedSocialEvidence('https://empresa.com.br/noticias/1', null, [])).toBe(true);
+  });
+
+  it('separa imprensa externa do site oficial e das redes sociais', () => {
+    expect(isExternalNewsUrl('https://exame.com/materia/amigos-do-bem', 'amigosdobem.org')).toBe(true);
+    expect(isExternalNewsUrl('https://blog.amigosdobem.org/noticia', 'https://www.amigosdobem.org')).toBe(false);
+    expect(isExternalNewsUrl('https://pt.linkedin.com/posts/amigos-do-bem_1', 'amigosdobem.org')).toBe(false);
+    expect(isOfficialSiteUrl('https://arquivos.amigosdobem.org/relatorio.pdf', 'amigosdobem.org')).toBe(true);
+    expect(isOfficialSiteUrl('https://exame.com/materia', 'amigosdobem.org')).toBe(false);
   });
 
   it('remove sinais de outro perfil antes da síntese do plano', () => {

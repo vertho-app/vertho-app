@@ -161,6 +161,21 @@ export type CopilotPlan = {
   risks: string[];
   gaps: DiscoveryKey[];
   sources: Array<{ title: string; url: string }>;
+  researchAudit?: {
+    site: {
+      status: 'not_requested' | 'found' | 'none' | 'unavailable';
+      signalsFound: number;
+    };
+    news: {
+      status: 'not_requested' | 'found' | 'none' | 'unavailable';
+      signalsFound: number;
+    };
+    social: {
+      status: 'not_requested' | 'found' | 'none' | 'unavailable';
+      profilesConsulted: number;
+      signalsFound: number;
+    };
+  };
   researchedAt: string;
 };
 

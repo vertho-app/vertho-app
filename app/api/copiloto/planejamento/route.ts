@@ -114,6 +114,13 @@ function normalizePlan(
   synthesis: any,
   sources: Array<{ title: string; url: string }>,
   officialSocialUrls: string[],
+  execution: {
+    siteRequested: boolean;
+    siteCompleted: boolean;
+    newsRequested: boolean;
+    newsCompleted: boolean;
+    socialCompleted: boolean;
+  },
 ): CopilotPlan {
   const questions = (Array.isArray(synthesis?.perguntas) ? synthesis.perguntas : [])
     .map((item: any) => ({
@@ -129,6 +136,9 @@ function normalizePlan(
   const sourceMap = new Map<string, { title: string; url: string }>();
   const approvedSocialEvidence = new Set<string>();
   const facts: ResearchFact[] = [];
+  let siteSignalsFound = 0;
+  let newsSignalsFound = 0;
+  let socialSignalsFound = 0;
   for (const item of (Array.isArray(research?.fatos_relevantes) ? research.fatos_relevantes : []).slice(0, 12)) {
     const sourceUrl = safeUrl(item?.fonte_url);
     const claimedProfile = safeUrl(item?.perfil_oficial_url);
@@ -140,7 +150,12 @@ function normalizePlan(
       title: text(item?.titulo, 240), fact: text(item?.fato, 1200), relevance: text(item?.relevancia, 800),
       sourceUrl, publishedAt: text(item?.publicado_em, 80) || null,
     };
-    if (fact.fact) facts.push(fact);
+    if (fact.fact) {
+      facts.push(fact);
+      if (item?._research_channel === 'site') siteSignalsFound += 1;
+      if (item?._research_channel === 'news') newsSignalsFound += 1;
+      if (item?._research_channel === 'social') socialSignalsFound += 1;
+    }
     if (facts.length === 8) break;
   }
 
@@ -188,6 +203,27 @@ function normalizePlan(
     risks: (Array.isArray(research?.riscos) ? research.riscos : []).map((item: any) => text(item, 800)).filter(Boolean).slice(0, 6),
     gaps: DISCOVERY_CHECKLIST.map((item) => item.key).filter((key) => !covered.has(key)),
     sources: [...sourceMap.values()].slice(0, 16),
+    researchAudit: {
+      site: {
+        status: !execution.siteRequested ? 'not_requested'
+          : !execution.siteCompleted ? 'unavailable'
+            : siteSignalsFound ? 'found' : 'none',
+        signalsFound: siteSignalsFound,
+      },
+      news: {
+        status: !execution.newsRequested ? 'not_requested'
+          : !execution.newsCompleted ? 'unavailable'
+            : newsSignalsFound ? 'found' : 'none',
+        signalsFound: newsSignalsFound,
+      },
+      social: {
+        status: !officialSocialUrls.length ? 'not_requested'
+          : !execution.socialCompleted ? 'unavailable'
+            : socialSignalsFound ? 'found' : 'none',
+        profilesConsulted: officialSocialUrls.length,
+        signalsFound: socialSignalsFound,
+      },
+    },
     researchedAt: new Date().toISOString(),
   };
 }
@@ -229,10 +265,24 @@ export async function POST(req: Request) {
       tendencias_setor: [], hipoteses: [], objetivos: {}, metricas_roi: [], perguntas_estrategicas: [], riscos: [],
     };
     let sources: Array<{ title: string; url: string }> = [];
+    let researchExecution = {
+      siteRequested: false,
+      siteCompleted: true,
+      newsRequested: false,
+      newsCompleted: true,
+      socialCompleted: !officialSocialUrls.length,
+    };
     if (company.length >= 2 || site.length >= 4 || officialSocialUrls.length) {
       const result = await researchCompany(company, site, officialSocialUrls);
       research = filterResearchByOfficialSocials(result.research, officialSocialUrls);
       sources = result.sources;
+      researchExecution = {
+        siteRequested: result.siteSearchRequested,
+        siteCompleted: result.siteSearchCompleted,
+        newsRequested: result.newsSearchRequested,
+        newsCompleted: result.newsSearchCompleted,
+        socialCompleted: result.socialSearchCompleted,
+      };
     }
 
     const raw = await callAI(
@@ -240,12 +290,14 @@ export async function POST(req: Request) {
       synthesisPrompt(privateContext, offer, researchAsPrivateContext(research), grounding),
       { model: process.env.COPILOTO_PLANNING_MODEL || 'gpt-5.6-terra' },
       12000,
-      { taskKey: 'copiloto_planejamento', timeoutMs: 180000, reasoningEffort: 'low' },
+      { taskKey: 'copiloto_planejamento', timeoutMs: 150000, reasoningEffort: 'low' },
     );
     const synthesis = await extractJSON(raw);
     if (!synthesis) throw new Error('síntese sem JSON válido');
 
-    return NextResponse.json({ plan: normalizePlan(research, synthesis, sources, officialSocialUrls) });
+    return NextResponse.json({
+      plan: normalizePlan(research, synthesis, sources, officialSocialUrls, researchExecution),
+    });
   } catch (error: any) {
     console.error('[copiloto/planejamento]', error?.message || error);
     return NextResponse.json({ error: 'Não foi possível pesquisar e montar o planejamento agora.' }, { status: 502 });
