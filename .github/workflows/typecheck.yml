@@ -28,6 +28,13 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # i18n:check (28/08): existia como script desde sempre e NINGUÉM o invocava
+      # — a auditoria de guards do dia achou 0 executores. Determinístico e rápido
+      # (3114 keys × 4 locales, <10s), então o lugar dele é aqui, junto do
+      # typecheck, e não num workflow próprio.
+      - name: i18n keys completas (4 locales)
+        run: npm run i18n:check
+
       - name: Security tests + service-role guard
         run: npm run test:unit
 
