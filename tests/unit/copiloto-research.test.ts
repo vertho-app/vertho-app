@@ -109,4 +109,43 @@ describe('pesquisa pública do Copiloto', () => {
     expect(result.research.fatos_relevantes.map((item: any) => item._research_channel))
       .toEqual(['social', 'news']);
   });
+
+  it('mantém até oito candidatos por trilha e prioriza um contexto equilibrado', async () => {
+    const makeFacts = (prefix: string, host: string, amount = 10) => Array.from({ length: amount }, (_value, index) => ({
+      titulo: `${prefix} ${index + 1}`,
+      fato: `${prefix} fato ${index + 1}`,
+      relevancia: 'Contexto',
+      fonte_url: `https://${host}/fonte-${index + 1}`,
+      publicado_em: null,
+      perfil_oficial_url: prefix === 'Social' ? 'https://linkedin.com/company/amigos-do-bem' : null,
+    }));
+
+    vi.mocked(callOpenAIWebSearch).mockImplementation(async (prompt) => {
+      if (prompt.includes('DEDICADA a publicações')) {
+        return { text: JSON.stringify({ fatos_relevantes: makeFacts('Social', 'linkedin.com') }), sources: [] };
+      }
+      if (prompt.includes('DEDICADA a notícias')) {
+        return { text: JSON.stringify({ fatos_relevantes: makeFacts('Notícia', 'exame.com') }), sources: [] };
+      }
+      return {
+        text: JSON.stringify({ ...publicResearch, fatos_relevantes: makeFacts('Site', 'amigosdobem.org') }),
+        sources: [],
+      };
+    });
+
+    const result = await researchCompany(
+      'Amigos do Bem',
+      'https://amigosdobem.org',
+      ['https://linkedin.com/company/amigos-do-bem'],
+    );
+    const channels = result.research.fatos_relevantes.map((item: any) => item._research_channel);
+
+    expect(channels).toHaveLength(24);
+    expect(channels.filter((channel: string) => channel === 'site')).toHaveLength(8);
+    expect(channels.filter((channel: string) => channel === 'news')).toHaveLength(8);
+    expect(channels.filter((channel: string) => channel === 'social')).toHaveLength(8);
+    expect(channels.slice(0, 8)).toEqual([
+      'social', 'social', 'social', 'news', 'news', 'news', 'site', 'site',
+    ]);
+  });
 });

@@ -146,6 +146,15 @@ export type LikelyObjection = {
   question: string;
 };
 
+export type CopilotSourceKind = 'site' | 'news' | 'social';
+
+export type CopilotSource = {
+  title: string;
+  url: string;
+  /** Optional only to keep plans already saved in localStorage readable. */
+  kind?: CopilotSourceKind;
+};
+
 export type CopilotPlan = {
   companyIdentified: string;
   companySummary: string;
@@ -160,7 +169,7 @@ export type CopilotPlan = {
   objections: LikelyObjection[];
   risks: string[];
   gaps: DiscoveryKey[];
-  sources: Array<{ title: string; url: string }>;
+  sources: CopilotSource[];
   researchAudit?: {
     site: {
       status: 'not_requested' | 'found' | 'none' | 'unavailable';

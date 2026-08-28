@@ -11,8 +11,9 @@ import {
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import {
   DEFAULT_VERTHO_OFFER, DISCOVERY_CHECKLIST, PACE_PHASES,
-  type CopilotAccountListItem, type CopilotOpportunity, type CopilotPlan, type LiveReading, type LiveUtterance,
-  type PacePhase, type SupernormalPost, type SupernormalPostDetail,
+  type CopilotAccountListItem, type CopilotOpportunity, type CopilotPlan, type CopilotSource,
+  type CopilotSourceKind, type LiveReading, type LiveUtterance, type PacePhase, type SupernormalPost,
+  type SupernormalPostDetail,
 } from '@/lib/copiloto/types';
 import { LocalMeetingCapture, toUtterance, type CaptureState } from './audio-capture';
 import ClientsWorkspace from './clients-workspace';
@@ -58,6 +59,25 @@ function sourceChannel(value: string): 'LinkedIn' | 'Instagram' | 'Facebook' | '
   return 'Web';
 }
 
+type SourceDisplayKind = CopilotSourceKind | 'legacy';
+
+const SOURCE_GROUPS: Array<{
+  kind: SourceDisplayKind;
+  index: string;
+  label: string;
+  description: string;
+}> = [
+  { kind: 'site', index: '01', label: 'Site oficial', description: 'Páginas e documentos institucionais' },
+  { kind: 'news', index: '02', label: 'Imprensa externa', description: 'Notícias fora do domínio oficial' },
+  { kind: 'social', index: '03', label: 'Redes oficiais', description: 'Perfis e publicações confirmados' },
+  { kind: 'legacy', index: '—', label: 'Web · plano anterior', description: 'Gere o plano novamente para classificar' },
+];
+
+function sourceDisplayKind(source: CopilotSource): SourceDisplayKind {
+  if (source.kind) return source.kind;
+  return sourceChannel(source.url) === 'Web' ? 'legacy' : 'social';
+}
+
 function PaceRunway({ tab, livePhase }: { tab: Tab; livePhase: PacePhase }) {
   const currentIndex = PACE_PHASES.indexOf(livePhase);
   return (
@@ -87,6 +107,10 @@ function PlanDossier({ plan, onGoLive }: { plan: CopilotPlan; onGoLive: () => vo
   const phaseGroups = useMemo(() => PACE_PHASES.map((phase) => ({
     phase, questions: plan.questions.filter((question) => question.phase === phase),
   })), [plan.questions]);
+  const sourceGroups = useMemo(() => SOURCE_GROUPS.map((group) => ({
+    ...group,
+    sources: plan.sources.filter((source) => sourceDisplayKind(source) === group.kind),
+  })).filter((group) => group.sources.length), [plan.sources]);
 
   return (
     <section className={styles.dossier} aria-label="Planejamento pronto">
@@ -226,8 +250,32 @@ function PlanDossier({ plan, onGoLive }: { plan: CopilotPlan; onGoLive: () => vo
 
       {!!plan.sources.length && (
         <details className={styles.sources}>
-          <summary>Fontes públicas consultadas ({plan.sources.length})</summary>
-          <div>{plan.sources.map((source, index) => <a key={`${source.url}-${index}`} href={source.url} target="_blank" rel="noreferrer"><b>{sourceChannel(source.url)}</b><span>{source.title}</span><ExternalLink size={12} /></a>)}</div>
+          <summary>
+            <span>Fontes públicas consultadas <b>{plan.sources.length}</b></span>
+            <em>até 8 por trilha</em>
+          </summary>
+          <div className={styles.sourceGroups}>
+            {sourceGroups.map((group) => (
+              <section key={group.kind} className={styles.sourceGroup} data-kind={group.kind} aria-label={group.label}>
+                <header>
+                  <span>{group.index}</span>
+                  <div><h4>{group.label}</h4><p>{group.description}</p></div>
+                  <b>{group.sources.length}{group.kind === 'legacy' ? '' : '/8'}</b>
+                </header>
+                <div className={styles.sourceList}>
+                  {group.sources.map((source, index) => {
+                    const channel = sourceChannel(source.url);
+                    const badge = channel === 'Web' ? (group.kind === 'news' ? 'Imprensa' : 'Site') : channel;
+                    return (
+                      <a key={`${source.url}-${index}`} href={source.url} target="_blank" rel="noreferrer" title={source.url}>
+                        <b>{badge}</b><span>{source.title}</span><ExternalLink size={12} />
+                      </a>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
         </details>
       )}
 

@@ -9,13 +9,17 @@ import { researchAsPrivateContext, researchCompany } from '@/lib/copiloto/resear
 import {
   filterResearchByOfficialSocials,
   isAllowedSocialEvidence,
+  isExternalNewsUrl,
+  isOfficialSiteUrl,
   isOfficialSocialProfile,
   isSocialUrl,
   parseOfficialSocialUrls,
 } from '@/lib/copiloto/social-identity';
+import { limitSourcesByKind } from '@/lib/copiloto/source-selection';
 import {
   DISCOVERY_CHECKLIST, PACE_PHASES,
-  type CopilotPlan, type DiscoveryKey, type PacePhase, type ResearchFact, type ResearchTrend,
+  type CopilotPlan, type CopilotSource, type CopilotSourceKind, type DiscoveryKey, type PacePhase,
+  type ResearchFact, type ResearchTrend,
 } from '@/lib/copiloto/types';
 
 export const runtime = 'nodejs';
@@ -36,6 +40,13 @@ function safeUrl(value: unknown): string | null {
   } catch {
     return null;
   }
+}
+
+function sourceKind(channel: unknown, url: string, officialSite: string): CopilotSourceKind {
+  if (channel === 'site' || channel === 'news' || channel === 'social') return channel;
+  if (isSocialUrl(url)) return 'social';
+  if (isOfficialSiteUrl(url, officialSite)) return 'site';
+  return 'news';
 }
 
 async function opportunityContext(access: CopilotAccess, opportunityId: string): Promise<string> {
@@ -112,8 +123,9 @@ JSON:
 function normalizePlan(
   research: any,
   synthesis: any,
-  sources: Array<{ title: string; url: string }>,
+  sources: CopilotSource[],
   officialSocialUrls: string[],
+  officialSite: string,
   execution: {
     siteRequested: boolean;
     siteCompleted: boolean;
@@ -133,30 +145,35 @@ function normalizePlan(
     .slice(0, 32);
   const covered = new Set(questions.map((item) => item.discovery).filter(Boolean));
 
-  const sourceMap = new Map<string, { title: string; url: string }>();
+  const sourceMap = new Map<string, CopilotSource>();
   const approvedSocialEvidence = new Set<string>();
   const facts: ResearchFact[] = [];
   let siteSignalsFound = 0;
   let newsSignalsFound = 0;
   let socialSignalsFound = 0;
-  for (const item of (Array.isArray(research?.fatos_relevantes) ? research.fatos_relevantes : []).slice(0, 12)) {
+  for (const item of (Array.isArray(research?.fatos_relevantes) ? research.fatos_relevantes : []).slice(0, 24)) {
     const sourceUrl = safeUrl(item?.fonte_url);
     const claimedProfile = safeUrl(item?.perfil_oficial_url);
     if (item?.perfil_oficial_url && !isOfficialSocialProfile(claimedProfile, officialSocialUrls)) continue;
     if (isSocialUrl(sourceUrl) && !isAllowedSocialEvidence(sourceUrl, claimedProfile, officialSocialUrls)) continue;
+    if (item?._research_channel === 'social' && sourceUrl && !isSocialUrl(sourceUrl)) continue;
+    if (item?._research_channel === 'news' && sourceUrl && !isExternalNewsUrl(sourceUrl, officialSite)) continue;
+    if (item?._research_channel === 'site' && sourceUrl && officialSite.trim() && !isOfficialSiteUrl(sourceUrl, officialSite)) continue;
+    const kind = sourceKind(item?._research_channel, sourceUrl || '', officialSite);
     if (sourceUrl && isSocialUrl(sourceUrl)) approvedSocialEvidence.add(sourceUrl);
-    if (sourceUrl && !sourceMap.has(sourceUrl)) sourceMap.set(sourceUrl, { title: text(item?.titulo, 240) || sourceUrl, url: sourceUrl });
+    if (sourceUrl && !sourceMap.has(sourceUrl)) {
+      sourceMap.set(sourceUrl, { title: text(item?.titulo, 240) || sourceUrl, url: sourceUrl, kind });
+    }
     const fact = {
       title: text(item?.titulo, 240), fact: text(item?.fato, 1200), relevance: text(item?.relevancia, 800),
       sourceUrl, publishedAt: text(item?.publicado_em, 80) || null,
     };
-    if (fact.fact) {
+    if (fact.fact && facts.length < 8) {
       facts.push(fact);
-      if (item?._research_channel === 'site') siteSignalsFound += 1;
-      if (item?._research_channel === 'news') newsSignalsFound += 1;
-      if (item?._research_channel === 'social') socialSignalsFound += 1;
+      if (kind === 'site') siteSignalsFound += 1;
+      if (kind === 'news') newsSignalsFound += 1;
+      if (kind === 'social') socialSignalsFound += 1;
     }
-    if (facts.length === 8) break;
   }
 
   const trends: ResearchTrend[] = [];
@@ -165,6 +182,13 @@ function normalizePlan(
     if (isSocialUrl(sourceUrl) && !isOfficialSocialProfile(sourceUrl, officialSocialUrls)) continue;
     const trend = { title: text(item?.titulo, 240), impact: text(item?.impacto, 900), sourceUrl };
     if (trend.title) trends.push(trend);
+    if (trend.title && sourceUrl && !sourceMap.has(sourceUrl)) {
+      sourceMap.set(sourceUrl, {
+        title: trend.title,
+        url: sourceUrl,
+        kind: sourceKind(item?._research_channel, sourceUrl, officialSite),
+      });
+    }
     if (trends.length === 6) break;
   }
 
@@ -172,7 +196,13 @@ function normalizePlan(
     const url = safeUrl(source.url);
     if (!url) continue;
     if (isSocialUrl(url) && !approvedSocialEvidence.has(url) && !isOfficialSocialProfile(url, officialSocialUrls)) continue;
-    if (!sourceMap.has(url)) sourceMap.set(url, { title: text(source.title, 240) || url, url });
+    if (!sourceMap.has(url)) {
+      sourceMap.set(url, {
+        title: text(source.title, 240) || url,
+        url,
+        kind: source.kind || sourceKind(null, url, officialSite),
+      });
+    }
   }
 
   const publicHypotheses = (Array.isArray(research?.hipoteses) ? research.hipoteses : []);
@@ -202,7 +232,7 @@ function normalizePlan(
     })).filter((item: any) => item.objection && item.question),
     risks: (Array.isArray(research?.riscos) ? research.riscos : []).map((item: any) => text(item, 800)).filter(Boolean).slice(0, 6),
     gaps: DISCOVERY_CHECKLIST.map((item) => item.key).filter((key) => !covered.has(key)),
-    sources: [...sourceMap.values()].slice(0, 16),
+    sources: limitSourcesByKind([...sourceMap.values()]),
     researchAudit: {
       site: {
         status: !execution.siteRequested ? 'not_requested'
@@ -264,7 +294,7 @@ export async function POST(req: Request) {
       empresa_identificada: company || 'Cliente informado no briefing', resumo_empresa: '', fatos_relevantes: [],
       tendencias_setor: [], hipoteses: [], objetivos: {}, metricas_roi: [], perguntas_estrategicas: [], riscos: [],
     };
-    let sources: Array<{ title: string; url: string }> = [];
+    let sources: CopilotSource[] = [];
     let researchExecution = {
       siteRequested: false,
       siteCompleted: true,
@@ -296,7 +326,7 @@ export async function POST(req: Request) {
     if (!synthesis) throw new Error('síntese sem JSON válido');
 
     return NextResponse.json({
-      plan: normalizePlan(research, synthesis, sources, officialSocialUrls, researchExecution),
+      plan: normalizePlan(research, synthesis, sources, officialSocialUrls, site, researchExecution),
     });
   } catch (error: any) {
     console.error('[copiloto/planejamento]', error?.message || error);
