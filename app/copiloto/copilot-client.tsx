@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   ArrowLeft, AudioLines, Building2, Check, ChevronRight, CircleAlert, Clock3,
-  Database, ExternalLink, FileText, Headphones, LoaderCircle, Mic, Radio,
+  ClipboardPaste, Database, ExternalLink, FileText, Headphones, LoaderCircle, Mic, Radio,
   RefreshCw, Search, ShieldCheck, Sparkles, Square, Wifi, WifiOff,
 } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
@@ -329,6 +329,31 @@ export default function CopilotClient({
     setContext((current) => current.trim() ? current : selected.context);
   }
 
+  async function pasteTranscript() {
+    setError(null);
+
+    try {
+      if (!navigator.clipboard?.readText) throw new Error('clipboard-unavailable');
+
+      const transcript = (await navigator.clipboard.readText()).trim();
+      if (!transcript) {
+        setError('A área de transferência está vazia. Copie a transcrição e tente novamente.');
+        return;
+      }
+
+      const currentContext = context.trimEnd();
+      const separator = currentContext ? '\n\n' : '';
+      const combinedContext = `${currentContext}${separator}${transcript}`;
+
+      setContext(combinedContext.slice(0, 30000));
+      if (combinedContext.length > 30000) {
+        setError('A transcrição foi colada até o limite de 30.000 caracteres do campo.');
+      }
+    } catch {
+      setError('O navegador não permitiu ler a área de transferência. Clique no campo e use Ctrl+V.');
+    }
+  }
+
   async function startCapture() {
     setError(null);
     const capture = new LocalMeetingCapture({
@@ -456,10 +481,16 @@ export default function CopilotClient({
               <label>Site público<input value={site} onChange={(event) => setSite(event.target.value)} placeholder="empresa.com.br" inputMode="url" maxLength={320} /></label>
             </div>
 
-            <label>O que você já sabe deste cliente
-              <textarea value={context} onChange={(event) => setContext(event.target.value)} rows={8} maxLength={30000} placeholder="Cole anotações ou a transcrição de uma conversa anterior…" />
+            <div className={styles.contextField}>
+              <div className={styles.contextFieldHeader}>
+                <label htmlFor="copilot-context">O que você já sabe deste cliente</label>
+                <button type="button" onClick={() => void pasteTranscript()}>
+                  <ClipboardPaste size={13} /> Colar transcrição
+                </button>
+              </div>
+              <textarea id="copilot-context" value={context} onChange={(event) => setContext(event.target.value)} rows={8} maxLength={30000} placeholder="Cole anotações ou a transcrição de uma conversa anterior…" />
               <small><ShieldCheck size={12} /> Não entra na busca pública.</small>
-            </label>
+            </div>
 
             <label>O que você vende
               <textarea value={offer} onChange={(event) => setOffer(event.target.value)} rows={5} maxLength={12000} />

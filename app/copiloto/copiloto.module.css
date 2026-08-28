@@ -107,6 +107,13 @@
 .setupPanel input, .setupPanel textarea, .setupPanel select { width: 100%; border: 1px solid rgba(164, 194, 216, .18); background: #071a2e; color: #f4f9fd; padding: 13px 14px; outline: none; border-radius: 4px; font: 500 13px/1.55 var(--font-manrope); text-transform: none; letter-spacing: normal; resize: vertical; transition: border-color .16s, box-shadow .16s; }
 .setupPanel input:focus, .setupPanel textarea:focus, .setupPanel select:focus { border-color: rgba(66, 212, 215, .62); box-shadow: 0 0 0 3px rgba(66, 212, 215, .08); }
 .setupPanel label > small { display: flex; gap: 6px; align-items: center; color: #718da4; font-size: 9px; letter-spacing: .03em; text-transform: none; }
+.contextField { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.contextFieldHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.contextFieldHeader label { display: block; margin: 0; }
+.contextFieldHeader button { min-height: 30px; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 7px; border: 1px solid rgba(66, 212, 215, .28); border-radius: 4px; padding: 0 10px; color: var(--cyan); background: rgba(66, 212, 215, .06); cursor: pointer; font: 750 9px/1 var(--font-inter); letter-spacing: .07em; text-transform: uppercase; transition: border-color .16s, background .16s, color .16s; }
+.contextFieldHeader button:hover { border-color: rgba(66, 212, 215, .58); background: rgba(66, 212, 215, .12); color: #8debed; }
+.contextFieldHeader button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.contextField > small { display: flex; gap: 6px; align-items: center; color: #718da4; font-size: 9px; letter-spacing: .03em; }
 .twoFields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 .formActions { display: flex; align-items: center; gap: 10px; }
@@ -301,6 +308,7 @@
   .tabs button > span { font-size: 10px; }
   .runway { padding-left: 0; }
   .twoFields, .objectives, .questionColumns, .sources > div { grid-template-columns: 1fr; }
+  .contextFieldHeader { align-items: flex-start; flex-direction: column; }
   .setupPanel, .researchPanel, .dossier { padding: 19px 16px; }
   .dossierHeader, .dossierAction, .liveHeader, .postWorkspace > header { flex-direction: column; align-items: stretch; }
   .dossierStats { align-items: flex-start; flex-direction: row; flex-wrap: wrap; }
