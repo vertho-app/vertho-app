@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { resolveCopilotAccess } from '@/lib/copiloto/auth';
+import { listCopilotAccounts } from '@/lib/copiloto/accounts';
 import { isSupernormalConfigured } from '@/lib/copiloto/supernormal';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import type { CopilotOpportunity } from '@/lib/copiloto/types';
@@ -13,7 +14,7 @@ export const maxDuration = 300;
 async function opportunitiesFor(repId: string): Promise<CopilotOpportunity[]> {
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('sales_opportunities')
-    .select(`id, opportunity_name, identified_need, stage, product_interest, competitors, objections,
+    .select(`id, account_id, opportunity_name, identified_need, stage, product_interest, competitors, objections,
       account:sales_accounts (legal_name, trade_name, segment, city, state),
       primary_contact:sales_contacts!sales_opportunities_primary_contact_id_fkey (name, role)`)
     .eq('representante_id', repId)
@@ -35,7 +36,7 @@ async function opportunitiesFor(repId: string): Promise<CopilotOpportunity[]> {
       row.objections ? `Objeções já sinalizadas: ${row.objections}` : '',
       `Estágio: ${row.stage}`,
     ].filter(Boolean).join('\n');
-    return { id: row.id, name: row.opportunity_name, accountName, segment: account.segment || null, context };
+    return { id: row.id, accountId: row.account_id, name: row.opportunity_name, accountName, segment: account.segment || null, context };
   });
 }
 
@@ -63,13 +64,18 @@ export default async function CopilotPage() {
   const access = await resolveCopilotAccess(email);
   if (!access) return <AccessScreen loggedIn />;
 
-  const opportunities = access.kind === 'representative' ? await opportunitiesFor(access.rep.id) : [];
+  const [opportunities, accounts] = await Promise.all([
+    access.kind === 'representative' ? opportunitiesFor(access.rep.id) : Promise.resolve([]),
+    listCopilotAccounts(access),
+  ]);
   const userName = access.kind === 'representative' ? access.rep.name : email.split('@')[0];
 
   return (
     <CopilotClient
       userName={userName}
       opportunities={opportunities}
+      accounts={accounts}
+      canCreateLeads={access.kind === 'representative'}
       supernormalStatus={
         access.kind !== 'admin'
           ? 'admin-only'

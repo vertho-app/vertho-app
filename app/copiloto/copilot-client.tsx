@@ -6,19 +6,20 @@ import Image from 'next/image';
 import {
   ArrowLeft, AudioLines, Building2, Check, ChevronRight, CircleAlert, Clock3,
   ClipboardPaste, Database, ExternalLink, FileText, Headphones, LoaderCircle, Mic, Radio,
-  RefreshCw, Search, ShieldCheck, Sparkles, Square, Wifi, WifiOff,
+  RefreshCw, Search, ShieldCheck, Sparkles, Square, UsersRound, Wifi, WifiOff,
 } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import {
   DEFAULT_VERTHO_OFFER, DISCOVERY_CHECKLIST, PACE_PHASES,
-  type CopilotOpportunity, type CopilotPlan, type LiveReading, type LiveUtterance,
+  type CopilotAccountListItem, type CopilotOpportunity, type CopilotPlan, type LiveReading, type LiveUtterance,
   type PacePhase, type SupernormalPost, type SupernormalPostDetail,
 } from '@/lib/copiloto/types';
 import { LocalMeetingCapture, toUtterance, type CaptureState } from './audio-capture';
+import ClientsWorkspace from './clients-workspace';
 import { selectImmediateQuestions } from './local-bank';
 import styles from './copiloto.module.css';
 
-type Tab = 'planejamento' | 'ao-vivo' | 'pos-reuniao';
+type Tab = 'clientes' | 'planejamento' | 'ao-vivo' | 'pos-reuniao';
 
 const PLAN_STORAGE_KEY = 'vertho-copiloto-plan-v1';
 const ASR_URL = process.env.NEXT_PUBLIC_COPILOTO_ASR_URL || 'ws://127.0.0.1:8765';
@@ -42,10 +43,26 @@ function formatDate(value: string): string {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(date);
 }
 
+function sourceChannel(value: string): 'LinkedIn' | 'Instagram' | 'X' | 'Web' {
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    if (host === 'linkedin.com' || host.endsWith('.linkedin.com')) return 'LinkedIn';
+    if (host === 'instagram.com' || host.endsWith('.instagram.com')) return 'Instagram';
+    if (host === 'x.com' || host.endsWith('.x.com') || host === 'twitter.com' || host.endsWith('.twitter.com')) return 'X';
+  } catch {
+    // URLs já são validadas no servidor; o fallback mantém o dossiê utilizável.
+  }
+  return 'Web';
+}
+
 function PaceRunway({ tab, livePhase }: { tab: Tab; livePhase: PacePhase }) {
   const currentIndex = PACE_PHASES.indexOf(livePhase);
   return (
     <div className={styles.runway} aria-label="Jornada PACE">
+      <div className={classNames(styles.runwayStep, tab === 'clientes' && styles.runwayCurrent)} data-tone="memory">
+        <span>M</span> Memória
+      </div>
+      <i>→</i>
       <div className={classNames(styles.runwayStep, tab === 'planejamento' && styles.runwayCurrent)} data-tone="plan">
         <span>00</span> Planejamento
       </div>
@@ -165,7 +182,7 @@ function PlanDossier({ plan, onGoLive }: { plan: CopilotPlan; onGoLive: () => vo
       {!!plan.sources.length && (
         <details className={styles.sources}>
           <summary>Fontes públicas consultadas ({plan.sources.length})</summary>
-          <div>{plan.sources.map((source, index) => <a key={`${source.url}-${index}`} href={source.url} target="_blank" rel="noreferrer">{source.title}<ExternalLink size={12} /></a>)}</div>
+          <div>{plan.sources.map((source, index) => <a key={`${source.url}-${index}`} href={source.url} target="_blank" rel="noreferrer"><b>{sourceChannel(source.url)}</b><span>{source.title}</span><ExternalLink size={12} /></a>)}</div>
         </details>
       )}
 
@@ -178,13 +195,15 @@ function PlanDossier({ plan, onGoLive }: { plan: CopilotPlan; onGoLive: () => vo
 }
 
 export default function CopilotClient({
-  userName, opportunities, supernormalStatus,
+  userName, opportunities, accounts, canCreateLeads, supernormalStatus,
 }: {
   userName: string;
   opportunities: CopilotOpportunity[];
+  accounts: CopilotAccountListItem[];
+  canCreateLeads: boolean;
   supernormalStatus: 'connected' | 'not-configured' | 'admin-only';
 }) {
-  const [tab, setTab] = useState<Tab>('planejamento');
+  const [tab, setTab] = useState<Tab>('clientes');
   const [company, setCompany] = useState('');
   const [site, setSite] = useState('');
   const [context, setContext] = useState('');
@@ -329,6 +348,15 @@ export default function CopilotClient({
     setContext((current) => current.trim() ? current : selected.context);
   }
 
+  function prepareFromAccount(seed: { company: string; context: string; opportunityId: string }) {
+    clearPlan();
+    setCompany(seed.company);
+    setSite('');
+    setContext(seed.context);
+    setOpportunityId(seed.opportunityId);
+    setTab('planejamento');
+  }
+
   async function pasteTranscript() {
     setError(null);
 
@@ -453,6 +481,7 @@ export default function CopilotClient({
       </section>
 
       <nav className={styles.tabs} aria-label="Momentos do copiloto">
+        <button onClick={() => setTab('clientes')} className={tab === 'clientes' ? styles.tabActive : ''}><UsersRound size={16} /><span>Leads e clientes<small>memória comercial</small></span></button>
         <button onClick={() => setTab('planejamento')} className={tab === 'planejamento' ? styles.tabActive : ''}><Search size={16} /><span>Planejamento<small>antes da conversa</small></span></button>
         <button onClick={() => setTab('ao-vivo')} className={tab === 'ao-vivo' ? styles.tabActive : ''}><Headphones size={16} /><span>Apoio ao vivo<small>Whisper local</small></span></button>
         <button onClick={() => setTab('pos-reuniao')} className={tab === 'pos-reuniao' ? styles.tabActive : ''}><FileText size={16} /><span>Pós-reunião<small>Supernormal</small></span></button>
@@ -461,6 +490,10 @@ export default function CopilotClient({
       <PaceRunway tab={tab} livePhase={reading.phase} />
 
       {error && <div className={styles.error}><CircleAlert size={17} /><span>{error}</span><button onClick={() => setError(null)}>Fechar</button></div>}
+
+      {tab === 'clientes' && (
+        <ClientsWorkspace initialAccounts={accounts} canCreateLeads={canCreateLeads} onPrepare={prepareFromAccount} />
+      )}
 
       {tab === 'planejamento' && (
         <div className={styles.workspace}>
@@ -519,7 +552,7 @@ export default function CopilotClient({
               <div className={styles.emptyResearch}>
                 <Building2 size={28} />
                 <h3>O dossiê aparece aqui</h3>
-                <p>A pesquisa procura sinais do negócio, movimentos recentes, tendências do setor e caminhos de ROI.</p>
+                <p>A pesquisa procura sinais do negócio, notícias, posts públicos indexados, tendências do setor e caminhos de ROI.</p>
                 <ul><li><Check size={13} /> Fontes com links</li><li><Check size={13} /> Hipóteses separadas de fatos</li><li><Check size={13} /> Banco de perguntas PACE</li></ul>
               </div>
             )}

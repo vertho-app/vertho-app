@@ -16,10 +16,102 @@ export type DiscoveryKey = (typeof DISCOVERY_CHECKLIST)[number]['key'];
 
 export type CopilotOpportunity = {
   id: string;
+  accountId: string;
   name: string;
   accountName: string;
   segment: string | null;
   context: string;
+};
+
+export type CopilotAccountStatus = 'prospect' | 'active_client' | 'inactive' | 'lost';
+
+export type CopilotAccountListItem = {
+  id: string;
+  name: string;
+  legalName: string;
+  status: CopilotAccountStatus;
+  segment: string | null;
+  city: string | null;
+  state: string | null;
+  representativeName: string | null;
+  conversationCount: number;
+  lastConversationAt: string | null;
+  openOpportunityCount: number;
+  currentStage: string | null;
+  nextAction: string | null;
+  nextActionDate: string | null;
+};
+
+export type CopilotConversationSource = 'paste' | 'whisper_local' | 'supernormal' | 'manual';
+export type CopilotEvolutionStatus = 'novo' | 'confirmado' | 'mudou' | 'pendente';
+
+export type CopilotAccountMemory = {
+  situation: string[];
+  pains: string[];
+  impacts: string[];
+  attempts: string[];
+  decisionCriteria: string[];
+  stakeholders: string[];
+  budget: string[];
+  timing: string[];
+  objections: string[];
+  commitments: string[];
+  nextStep: string;
+};
+
+export type CopilotConversationAnalysis = {
+  paceCoverage: DiscoveryKey[];
+  memory: CopilotAccountMemory;
+  evolution: Array<{
+    status: CopilotEvolutionStatus;
+    text: string;
+    evidence: string;
+  }>;
+};
+
+export type CopilotConversation = {
+  id: string;
+  accountId: string;
+  opportunityId: string | null;
+  title: string;
+  happenedAt: string;
+  source: CopilotConversationSource;
+  transcript: string;
+  summary: string;
+  analysis: CopilotConversationAnalysis;
+  createdByEmail: string;
+  createdAt: string;
+};
+
+export type CopilotAccountDetail = {
+  account: {
+    id: string;
+    name: string;
+    legalName: string;
+    status: CopilotAccountStatus;
+    segment: string | null;
+    city: string | null;
+    state: string | null;
+    notes: string | null;
+  };
+  contacts: Array<{
+    id: string;
+    name: string;
+    role: string | null;
+    email: string | null;
+    phone: string | null;
+    isPrimary: boolean;
+  }>;
+  opportunities: Array<{
+    id: string;
+    name: string;
+    stage: string;
+    status: string;
+    identifiedNeed: string | null;
+    nextAction: string | null;
+    nextActionDate: string | null;
+  }>;
+  conversations: CopilotConversation[];
 };
 
 export type ResearchFact = {

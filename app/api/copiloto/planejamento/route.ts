@@ -29,15 +29,15 @@ function safeUrl(value: unknown): string | null {
 }
 
 async function opportunityContext(access: CopilotAccess, opportunityId: string): Promise<string> {
-  if (access.kind !== 'representative' || !/^[0-9a-f-]{20,50}$/i.test(opportunityId)) return '';
+  if (!/^[0-9a-f-]{20,50}$/i.test(opportunityId)) return '';
   const sb = createSupabaseAdmin();
-  const { data } = await sb.from('sales_opportunities')
+  let query = sb.from('sales_opportunities')
     .select(`opportunity_name, identified_need, stage, estimated_value, next_action, competitors, objections,
       account:sales_accounts (legal_name, trade_name, segment, city, state),
       primary_contact:sales_contacts!sales_opportunities_primary_contact_id_fkey (name, role)`)
-    .eq('id', opportunityId)
-    .eq('representante_id', access.rep.id)
-    .maybeSingle();
+    .eq('id', opportunityId);
+  if (access.kind === 'representative') query = query.eq('representante_id', access.rep.id);
+  const { data } = await query.maybeSingle();
   if (!data) return '';
   const account: any = data.account || {};
   const contact: any = data.primary_contact || {};
