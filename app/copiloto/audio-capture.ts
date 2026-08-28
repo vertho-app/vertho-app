@@ -3,6 +3,8 @@ import type { LiveUtterance } from '@/lib/copiloto/types';
 const TARGET_RATE = 16000;
 
 export type CaptureState = 'parado' | 'conectando' | 'gravando' | 'erro';
+export type CaptureSurface = 'browser' | 'window' | 'monitor' | 'unknown';
+export type CaptureAudioLevels = { system: number; microphone: number };
 
 type SegmentPayload = {
   type: 'segmento' | 'parcial_texto';
@@ -14,6 +16,8 @@ type CaptureOptions = {
   url: string;
   onSegment: (payload: SegmentPayload) => void;
   onPartial?: (payload: SegmentPayload) => void;
+  onLevels?: (levels: CaptureAudioLevels) => void;
+  onSurface?: (surface: CaptureSurface) => void;
   onState: (state: CaptureState) => void;
   onError: (message: string) => void;
 };
@@ -33,8 +37,10 @@ export class LocalMeetingCapture {
   async start() {
     this.options.onState('conectando');
     try {
-      await this.connectAsr();
+      // A caixa de compartilhamento deve ser aberta enquanto o clique do usuário
+      // ainda está ativo; uma espera de rede antes dela pode perder essa permissão.
       await this.openAudio();
+      await this.connectAsr();
       await this.buildGraph();
       this.options.onState('gravando');
     } catch (error: any) {
@@ -84,13 +90,31 @@ export class LocalMeetingCapture {
   }
 
   private async openAudio() {
-    // Chrome exige vídeo no pedido para oferecer a caixa “compartilhar áudio”.
+    // `systemAudio` pertence ao nível superior de DisplayMediaStreamOptions.
+    // `displaySurface: browser` apenas prioriza abas; o usuário ainda pode escolher
+    // janela ou tela quando a reunião estiver em um aplicativo nativo.
     this.systemStream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
-      audio: { systemAudio: 'include', echoCancellation: false, noiseSuppression: false },
+      video: { displaySurface: 'browser' },
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        suppressLocalAudioPlayback: false,
+      },
+      systemAudio: 'include',
+      windowAudio: 'system',
+      surfaceSwitching: 'include',
+      selfBrowserSurface: 'exclude',
     } as any);
     if (!this.systemStream.getAudioTracks().length) throw new Error('NO_SYSTEM_AUDIO');
-    this.systemStream.getVideoTracks().forEach((track) => track.stop());
+
+    const surface = this.systemStream.getVideoTracks()[0]?.getSettings().displaySurface;
+    this.options.onSurface?.(
+      surface === 'browser' || surface === 'window' || surface === 'monitor' ? surface : 'unknown',
+    );
+
+    // O vídeo mantém a sessão de compartilhamento viva em implementações que
+    // vinculam o áudio à superfície capturada. Ele nunca é exibido nem enviado.
 
     this.microphoneStream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
@@ -99,7 +123,7 @@ export class LocalMeetingCapture {
 
   private async buildGraph() {
     this.context = new AudioContext({ sampleRate: TARGET_RATE });
-    await this.context.audioWorklet.addModule('/copiloto-capture-worklet.js');
+    await this.context.audioWorklet.addModule('/copiloto-capture-worklet.js?v=2');
     const system = this.context.createMediaStreamSource(this.systemStream!);
     const microphone = this.context.createMediaStreamSource(this.microphoneStream!);
     const merger = this.context.createChannelMerger(2);
@@ -114,7 +138,20 @@ export class LocalMeetingCapture {
       channelInterpretation: 'discrete',
     });
     this.worklet.port.onmessage = (event) => {
-      if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(event.data.buffer);
+      const data = event.data;
+      if (data?.type === 'audio_levels') {
+        this.options.onLevels?.({
+          system: Number(data.system) || 0,
+          microphone: Number(data.microphone) || 0,
+        });
+        return;
+      }
+      if (
+        this.socket?.readyState === WebSocket.OPEN
+        && (data instanceof ArrayBuffer || ArrayBuffer.isView(data))
+      ) {
+        this.socket.send(data);
+      }
     };
     merger.connect(this.worklet);
   }

@@ -51,11 +51,52 @@ describe('rota de apoio ao vivo', () => {
     expect(data.reading.questions[0].text).toBe('Como isso funciona hoje?');
     expect(callAI).toHaveBeenCalledWith(
       expect.any(String),
-      expect.stringContaining('[vendedor]'),
+      expect.stringContaining('[vertho_local]'),
       { model: 'gpt-5.6-luna' },
-      1800,
-      expect.objectContaining({ timeoutMs: 12000, reasoningEffort: 'low' }),
+      700,
+      expect.objectContaining({ timeoutMs: 8000, reasoningEffort: 'none' }),
     );
+  });
+
+  it('não chama toda voz remota de cliente quando há outra pessoa da Vertho', async () => {
+    vi.mocked(callAI).mockResolvedValue(JSON.stringify({
+      fase: 'preparar', sinal: 'neutro', objecao: null, descobertas_cobertas: [],
+      alerta: null, foco: 'Continue ouvindo.', perguntas: [],
+    }));
+
+    const response = await POST(request({
+      sharedAudioRole: 'misto',
+      utterances: [{ channel: 'cliente', text: 'Posso complementar esse ponto.' }],
+    }));
+    const prompt = vi.mocked(callAI).mock.calls[0][1];
+
+    expect(response.status).toBe(200);
+    expect(prompt).toContain('[reuniao_compartilhada_papel_nao_confirmado]');
+    expect(prompt).not.toContain('[cliente_remoto]');
+  });
+
+  it('envia somente a janela recente e as doze perguntas mais relevantes', async () => {
+    vi.mocked(callAI).mockResolvedValue(JSON.stringify({
+      fase: 'preparar', sinal: 'neutro', objecao: null, descobertas_cobertas: [],
+      alerta: null, foco: 'Continue ouvindo.', perguntas: [],
+    }));
+    const utterances = Array.from({ length: 15 }, (_value, index) => ({
+      channel: index % 2 ? 'cliente' : 'vendedor', text: `TRECHO_${String(index).padStart(2, '0')}`,
+    }));
+    const questions = Array.from({ length: 20 }, (_value, index) => ({
+      phase: 'preparar', discovery: null, text: `PERGUNTA_${String(index).padStart(2, '0')}`, why: 'Teste',
+    }));
+
+    const response = await POST(request({ utterances, plan: { questions } }));
+    const prompt = vi.mocked(callAI).mock.calls[0][1];
+
+    expect(response.status).toBe(200);
+    expect(prompt).not.toContain('TRECHO_00');
+    expect(prompt).not.toContain('TRECHO_06');
+    expect(prompt).toContain('TRECHO_07');
+    expect(prompt).toContain('TRECHO_14');
+    expect(prompt).toContain('PERGUNTA_11');
+    expect(prompt).not.toContain('PERGUNTA_12');
   });
 
   it('devolve o banco PACE local quando todos os provedores falham', async () => {

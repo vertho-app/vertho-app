@@ -91,14 +91,16 @@ export interface AICallOptions {
   // Liga o history caching (relocação do userSuffix + cache_control). Só Claude.
   // O caller gateia por flag (IA_CACHE_HISTORY) até a qualidade ser validada.
   cacheHistory?: boolean;
-  // Esforço de raciocínio. Medido no kimi-k3 (20/07): low=7 tokens de thinking
+  // Esforço de raciocínio. GPT-5.6 também aceita none/minimal; `none` é a
+  // baseline oficial para fluxos sensíveis a latência, como o Copiloto ao vivo.
+  // Medido no kimi-k3 (20/07): low=7 tokens de thinking
   // vs high=62 no mesmo prompt — em tarefa de redação, low corta o custo dominante.
   //  - OpenAI-compatible (kimi-k3, gpt-5.x): vira `reasoning_effort` no body.
   //  - Claude geração 5 / 4.7+ : vira `output_config.effort` (07/08). Antes era
   //    IGNORADO no ramo Anthropic, então "opus-5 em high" rodava em esforço
   //    PADRÃO com o rótulo errado — pior que falhar, porque a tabela mente.
   //  - Gemini: ignorado.
-  reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+  reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   /**
    * INTERNO — preenchido por `callAI`/`callAIChat` quando falta `taskKey`.
    * Capturado na ENTRADA, onde a pilha ainda e sincrona: dentro de

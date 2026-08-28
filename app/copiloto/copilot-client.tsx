@@ -15,17 +15,25 @@ import {
   type CopilotSourceKind, type LiveReading, type LiveUtterance, type PacePhase, type SupernormalPost,
   type SupernormalPostDetail,
 } from '@/lib/copiloto/types';
-import { LocalMeetingCapture, toUtterance, type CaptureState } from './audio-capture';
+import {
+  LocalMeetingCapture, toUtterance,
+  type CaptureAudioLevels, type CaptureState, type CaptureSurface,
+} from './audio-capture';
+import {
+  addAudioEvidence, assessAudioInputHealth, EMPTY_AUDIO_EVIDENCE,
+  type AudioInputEvidence, type AudioInputHealth,
+} from './audio-health';
 import ClientsWorkspace from './clients-workspace';
 import { selectImmediateQuestions } from './local-bank';
 import styles from './copiloto.module.css';
 
 type Tab = 'clientes' | 'planejamento' | 'ao-vivo' | 'pos-reuniao';
 type LiveAnalysisState = 'idle' | 'active' | 'fallback' | 'error';
+type MeetingComposition = 'solo-vertho' | 'mixed-remote';
 
 const PLAN_STORAGE_KEY = 'vertho-copiloto-plan-v1';
 const ASR_URL = process.env.NEXT_PUBLIC_COPILOTO_ASR_URL || 'ws://127.0.0.1:8765';
-const LIVE_ANALYSIS_COOLDOWN_MS = 3500;
+const LIVE_ANALYSIS_COOLDOWN_MS = 2600;
 
 const PHASE_LABELS: Record<PacePhase, string> = {
   preparar: 'Preparar', analisar: 'Analisar', cocriar: 'Cocriar', engajar: 'Engajar',
@@ -311,6 +319,9 @@ export default function CopilotClient({
   const [error, setError] = useState<string | null>(null);
 
   const [captureState, setCaptureState] = useState<CaptureState>('parado');
+  const [captureSurface, setCaptureSurface] = useState<CaptureSurface>('unknown');
+  const [audioHealth, setAudioHealth] = useState<AudioInputHealth>('checking');
+  const [meetingComposition, setMeetingComposition] = useState<MeetingComposition>('solo-vertho');
   const [utterances, setUtterances] = useState<LiveUtterance[]>([]);
   const [partial, setPartial] = useState<{ channel: LiveUtterance['channel']; text: string } | null>(null);
   const [reading, setReading] = useState<LiveReading>(EMPTY_READING);
@@ -333,6 +344,9 @@ export default function CopilotClient({
   const lastAnalysisStartedAtRef = useRef(0);
   const processLiveTurnRef = useRef<(nextUtterances: LiveUtterance[]) => void>(() => undefined);
   const timerRef = useRef<number | null>(null);
+  const audioEvidenceRef = useRef<AudioInputEvidence>({ ...EMPTY_AUDIO_EVIDENCE });
+  const captureStartedAtRef = useRef(0);
+  const meetingCompositionRef = useRef<MeetingComposition>('solo-vertho');
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -357,6 +371,7 @@ export default function CopilotClient({
   useEffect(() => { readingRef.current = reading; }, [reading]);
   useEffect(() => { planRef.current = plan; }, [plan]);
   useEffect(() => { contextRef.current = context; }, [context]);
+  useEffect(() => { meetingCompositionRef.current = meetingComposition; }, [meetingComposition]);
   useEffect(() => () => {
     captureRef.current?.stop();
     if (timerRef.current) window.clearTimeout(timerRef.current);
@@ -380,11 +395,16 @@ export default function CopilotClient({
     lastAnalysisStartedAtRef.current = Date.now();
     setThinking(true);
     try {
+      const livePlan = planRef.current ? {
+        questions: planRef.current.questions,
+        objections: planRef.current.objections,
+      } : null;
       const res = await fetchAuth('/api/copiloto/live', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          utterances: nextUtterances.slice(-14), phase: readingRef.current.phase,
-          covered: readingRef.current.covered, context: contextRef.current, plan: planRef.current,
+          utterances: nextUtterances.slice(-8), phase: readingRef.current.phase,
+          covered: readingRef.current.covered, context: contextRef.current.slice(0, 4000), plan: livePlan,
+          sharedAudioRole: meetingCompositionRef.current === 'solo-vertho' ? 'cliente' : 'misto',
         }),
       });
       const data = await res.json();
@@ -413,7 +433,7 @@ export default function CopilotClient({
 
   useEffect(() => { processLiveTurnRef.current = (next) => { void processLiveTurn(next); }; }, [processLiveTurn]);
 
-  const scheduleLiveAnalysis = useCallback((nextUtterances: LiveUtterance[], settleMs = 650) => {
+  const scheduleLiveAnalysis = useCallback((nextUtterances: LiveUtterance[], settleMs = 200) => {
     if (!nextUtterances.length) return;
     analysisInputRef.current = nextUtterances;
     if (timerRef.current) window.clearTimeout(timerRef.current);
@@ -461,8 +481,14 @@ export default function CopilotClient({
     }].slice(-200);
     // Se o Whisper demorar para fechar o segmento, a parcial ainda mantém o
     // Copiloto responsivo. O debounce substitui versões anteriores da mesma fala.
-    scheduleLiveAnalysis(preview, 1200);
+    scheduleLiveAnalysis(preview, 500);
   }, [scheduleLiveAnalysis]);
+
+  const onAudioLevels = useCallback((levels: CaptureAudioLevels) => {
+    const evidence = addAudioEvidence(audioEvidenceRef.current, levels);
+    audioEvidenceRef.current = evidence;
+    setAudioHealth(assessAudioInputHealth(evidence, Date.now() - captureStartedAtRef.current));
+  }, []);
 
   async function generatePlan(event: FormEvent) {
     event.preventDefault();
@@ -555,10 +581,16 @@ export default function CopilotClient({
     setError(null);
     setLiveAnalysisState('idle');
     pendingAnalysisRef.current = false;
+    audioEvidenceRef.current = { ...EMPTY_AUDIO_EVIDENCE };
+    captureStartedAtRef.current = Date.now();
+    setAudioHealth('checking');
+    setCaptureSurface('unknown');
     const capture = new LocalMeetingCapture({
       url: ASR_URL,
       onSegment,
       onPartial,
+      onLevels: onAudioLevels,
+      onSurface: setCaptureSurface,
       onState: setCaptureState,
       onError: setError,
     });
@@ -570,6 +602,11 @@ export default function CopilotClient({
     captureRef.current?.stop();
     captureRef.current = null;
     setPartial(null);
+  }
+
+  async function restartCapture() {
+    stopCapture();
+    await startCapture();
   }
 
   const loadPosts = useCallback(async () => {
@@ -627,6 +664,35 @@ export default function CopilotClient({
 
   const recording = captureState === 'gravando';
   const firstName = userName.split(' ')[0] || userName;
+  const audioIssue = audioHealth === 'microphone-only'
+    ? {
+        title: 'Estou ouvindo apenas você.',
+        detail: captureSurface === 'browser'
+          ? 'O som da aba compartilhada não chegou. Confirme que escolheu a aba da reunião e ativou “Compartilhar áudio da guia”.'
+          : 'O áudio dos participantes não chegou. Recompartilhe e prefira a aba da reunião com “Compartilhar áudio da guia” ativado.',
+      }
+    : audioHealth === 'system-only'
+      ? {
+          title: 'Estou ouvindo a reunião, mas não o seu microfone.',
+          detail: 'Confira o microfone selecionado e a permissão do navegador antes de continuar.',
+        }
+      : audioHealth === 'silent'
+        ? {
+            title: 'Ainda não detectei fala em nenhum canal.',
+            detail: 'Confira se a reunião está reproduzindo áudio e se o microfone correto foi autorizado.',
+          }
+        : null;
+  const audioStatus = !recording
+    ? 'parado'
+    : audioHealth === 'ready'
+      ? '2 fontes ativas'
+      : audioHealth === 'checking'
+        ? 'verificando canais'
+        : audioHealth === 'microphone-only'
+          ? 'somente você'
+          : audioHealth === 'system-only'
+            ? 'somente reunião'
+            : 'sem áudio';
 
   return (
     <main className={styles.page}>
@@ -754,6 +820,28 @@ export default function CopilotClient({
             </button>
           </header>
 
+          {!recording && (
+            <div className={styles.captureGuide}>
+              <Headphones size={18} />
+              <div><strong>Para ouvir os dois lados</strong><span>Escolha a aba da reunião e ative “Compartilhar áudio da guia”. A captura separa fontes; várias vozes dentro da reunião continuam agrupadas.</span></div>
+              <label className={styles.meetingMode} htmlFor="copilot-meeting-composition">
+                <span>Quem está pela Vertho?</span>
+                <select id="copilot-meeting-composition" value={meetingComposition} onChange={(event) => setMeetingComposition(event.target.value as MeetingComposition)}>
+                  <option value="solo-vertho">Somente eu</option>
+                  <option value="mixed-remote">Também há colegas remotos</option>
+                </select>
+              </label>
+            </div>
+          )}
+
+          {recording && audioIssue && (
+            <div className={styles.audioWarning} role="alert">
+              <CircleAlert size={19} />
+              <div><strong>{audioIssue.title}</strong><span>{audioIssue.detail}</span></div>
+              <button type="button" onClick={() => void restartCapture()}>Recompartilhar áudio</button>
+            </div>
+          )}
+
           {!plan && <div className={styles.liveHint}><CircleAlert size={17} /><span>Você pode iniciar sem plano, mas o apoio melhora muito quando o banco de perguntas já foi preparado.</span><button onClick={() => setTab('planejamento')}>Planejar primeiro</button></div>}
 
           <div className={styles.liveGrid}>
@@ -788,11 +876,11 @@ export default function CopilotClient({
             </aside>
 
             <section className={styles.transcriptPanel}>
-              <div className={styles.liveLabel}><AudioLines size={15} /> Transcrição local <span className={recording ? styles.connected : ''}>{recording ? <Wifi size={13} /> : <WifiOff size={13} />}{recording ? 'conectado' : 'parado'}</span></div>
+              <div className={styles.liveLabel}><AudioLines size={15} /> Transcrição local <span className={recording ? (audioHealth === 'ready' ? styles.connected : audioHealth === 'checking' ? styles.degraded : styles.failed) : ''}>{recording ? (audioHealth === 'checking' ? <LoaderCircle size={13} className={styles.spin} /> : audioHealth === 'ready' ? <Wifi size={13} /> : <CircleAlert size={13} />) : <WifiOff size={13} />}{audioStatus}</span></div>
               <div className={styles.transcript}>
                 {!utterances.length && !partial && <p className={styles.transcriptEmpty}>A transcrição não é salva no servidor do Copiloto.</p>}
-                {utterances.slice(-40).map((item, index) => <p key={`${item.at}-${index}`} data-channel={item.channel}><span>{item.channel === 'cliente' ? 'Cliente' : 'Você'}</span>{item.text}</p>)}
-                {partial && <p data-channel={partial.channel} className={styles.partial}><span>{partial.channel === 'cliente' ? 'Cliente' : 'Você'}</span>{partial.text}</p>}
+                {utterances.slice(-40).map((item, index) => <p key={`${item.at}-${index}`} data-channel={item.channel}><span title={item.channel === 'cliente' ? 'Áudio compartilhado da reunião' : 'Microfone deste computador'}>{item.channel === 'cliente' ? (meetingComposition === 'solo-vertho' ? 'Cliente(s)' : 'Reunião') : 'Vertho local'}</span>{item.text}</p>)}
+                {partial && <p data-channel={partial.channel} className={styles.partial}><span title={partial.channel === 'cliente' ? 'Áudio compartilhado da reunião' : 'Microfone deste computador'}>{partial.channel === 'cliente' ? (meetingComposition === 'solo-vertho' ? 'Cliente(s)' : 'Reunião') : 'Vertho local'}</span>{partial.text}</p>}
               </div>
             </section>
           </div>
