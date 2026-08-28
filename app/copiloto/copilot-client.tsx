@@ -206,6 +206,7 @@ export default function CopilotClient({
   const [tab, setTab] = useState<Tab>('clientes');
   const [company, setCompany] = useState('');
   const [site, setSite] = useState('');
+  const [socialProfiles, setSocialProfiles] = useState('');
   const [context, setContext] = useState('');
   const [offer, setOffer] = useState(DEFAULT_VERTHO_OFFER);
   const [opportunityId, setOpportunityId] = useState('');
@@ -242,6 +243,7 @@ export default function CopilotClient({
         if (parsed?.plan) setPlan(parsed.plan);
         if (typeof parsed?.company === 'string') setCompany(parsed.company);
         if (typeof parsed?.site === 'string') setSite(parsed.site);
+        if (typeof parsed?.socialProfiles === 'string') setSocialProfiles(parsed.socialProfiles);
         if (typeof parsed?.context === 'string') setContext(parsed.context);
         if (typeof parsed?.offer === 'string') setOffer(parsed.offer);
         if (typeof parsed?.opportunityId === 'string') setOpportunityId(parsed.opportunityId);
@@ -321,14 +323,14 @@ export default function CopilotClient({
     try {
       const res = await fetchAuth('/api/copiloto/planejamento', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company, site, context, offer, opportunityId }),
+        body: JSON.stringify({ company, site, socialProfiles, context, offer, opportunityId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Falha ao montar o planejamento');
       setPlan(data.plan);
       try {
         localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify({
-          plan: data.plan, company, site, context, offer, opportunityId,
+          plan: data.plan, company, site, socialProfiles, context, offer, opportunityId,
         }));
       } catch {
         // O plano continua utilizável na sessão se o navegador bloquear storage.
@@ -340,9 +342,26 @@ export default function CopilotClient({
     }
   }
 
+  function changeCompany(nextCompany: string) {
+    const changedIdentity = company.trim()
+      && company.trim().toLocaleLowerCase('pt-BR') !== nextCompany.trim().toLocaleLowerCase('pt-BR');
+    if (changedIdentity) {
+      clearPlan();
+      setSite('');
+      setSocialProfiles('');
+    }
+    setCompany(nextCompany);
+  }
+
   function selectOpportunity(id: string) {
-    setOpportunityId(id);
+    const previous = opportunities.find((item) => item.id === opportunityId);
     const selected = opportunities.find((item) => item.id === id);
+    if (previous?.accountId !== selected?.accountId) {
+      clearPlan();
+      setSite('');
+      setSocialProfiles('');
+    }
+    setOpportunityId(id);
     if (!selected) return;
     setCompany(selected.accountName);
     setContext((current) => current.trim() ? current : selected.context);
@@ -352,6 +371,7 @@ export default function CopilotClient({
     clearPlan();
     setCompany(seed.company);
     setSite('');
+    setSocialProfiles('');
     setContext(seed.context);
     setOpportunityId(seed.opportunityId);
     setTab('planejamento');
@@ -510,9 +530,20 @@ export default function CopilotClient({
             )}
 
             <div className={styles.twoFields}>
-              <label>Empresa<input value={company} onChange={(event) => setCompany(event.target.value)} placeholder="Ex.: Grupo Sinal" maxLength={200} /></label>
+              <label>Empresa<input value={company} onChange={(event) => changeCompany(event.target.value)} placeholder="Ex.: Grupo Sinal" maxLength={200} /></label>
               <label>Site público<input value={site} onChange={(event) => setSite(event.target.value)} placeholder="empresa.com.br" inputMode="url" maxLength={320} /></label>
             </div>
+
+            <label className={styles.identityField}>Redes sociais oficiais
+              <textarea
+                value={socialProfiles}
+                onChange={(event) => setSocialProfiles(event.target.value)}
+                rows={3}
+                maxLength={3000}
+                placeholder={'https://linkedin.com/company/empresa\nhttps://instagram.com/empresa\nhttps://x.com/empresa'}
+              />
+              <small><ShieldCheck size={12} /> Use os links dos perfis oficiais. Sinais de outros perfis serão descartados; ao trocar de cliente, o campo é limpo.</small>
+            </label>
 
             <div className={styles.contextField}>
               <div className={styles.contextFieldHeader}>
@@ -531,7 +562,7 @@ export default function CopilotClient({
             </label>
 
             <div className={styles.formActions}>
-              <button type="submit" disabled={planning || (!company.trim() && !site.trim() && context.trim().length < 20)}>
+              <button type="submit" disabled={planning || (!company.trim() && !site.trim() && !socialProfiles.trim() && context.trim().length < 20)}>
                 {planning ? <><LoaderCircle size={17} className={styles.spin} /> Pesquisando · {planningSeconds}s</> : <><Search size={17} /> Pesquisar e montar plano</>}
               </button>
               {plan && <button type="button" className={styles.secondaryButton} onClick={clearPlan}>Limpar</button>}
