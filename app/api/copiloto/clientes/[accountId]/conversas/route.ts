@@ -42,6 +42,10 @@ export async function POST(
     const body = await req.json();
     const transcript = clean(body?.transcript, 30000);
     const opportunityId = clean(body?.opportunityId, 60);
+    const planningId = clean(body?.planningId, 60);
+    const source = body?.source === 'whisper_local' || body?.source === 'supernormal' || body?.source === 'manual'
+      ? body.source
+      : 'paste';
     const happenedAt = validDate(body?.happenedAt);
     const fallbackTitle = `Conversa de ${new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo' }).format(new Date(happenedAt))}`;
     const title = clean(body?.title, 180) || fallbackTitle;
@@ -51,6 +55,7 @@ export async function POST(
 
     const sb = createSupabaseAdmin();
     let opportunity: any = null;
+    let planning: any = null;
     if (opportunityId) {
       if (!UUID.test(opportunityId)) return NextResponse.json({ error: 'Oportunidade inválida' }, { status: 400 });
       const { data } = await sb.from('sales_opportunities')
@@ -60,6 +65,20 @@ export async function POST(
         .maybeSingle();
       if (!data) return NextResponse.json({ error: 'A oportunidade não pertence a este cliente' }, { status: 400 });
       opportunity = data;
+    }
+    if (planningId) {
+      if (!UUID.test(planningId)) return NextResponse.json({ error: 'Planejamento inválido' }, { status: 400 });
+      const { data, error: planningError } = await sb.from('copilot_plans')
+        .select('id, opportunity_id, conversation_id')
+        .eq('id', planningId)
+        .eq('account_id', accountId)
+        .maybeSingle();
+      if (planningError) throw new Error(planningError.message);
+      if (!data) return NextResponse.json({ error: 'O planejamento não pertence a esta empresa' }, { status: 400 });
+      if (data.conversation_id) {
+        return NextResponse.json({ error: 'Este planejamento já possui um resultado salvo' }, { status: 409 });
+      }
+      planning = data;
     }
 
     const [{ data: previousRows }, { data: activityRows }] = await Promise.all([
@@ -106,13 +125,24 @@ export async function POST(
       representante_id: account.representante_id,
       title,
       happened_at: happenedAt,
-      source: 'paste',
+      source,
       transcript,
       summary,
       analysis,
       created_by_email: access.email,
     }).select('*').single();
     if (error || !inserted) throw new Error(error?.message || 'falha ao salvar conversa');
+
+    if (planning) {
+      const { error: linkError } = await sb.from('copilot_plans')
+        .update({ conversation_id: inserted.id, updated_at: new Date().toISOString() })
+        .eq('id', planning.id)
+        .eq('account_id', accountId)
+        .is('conversation_id', null);
+      if (linkError) {
+        console.warn('[copiloto/conversas] resultado salvo sem ligação ao planejamento:', linkError.message);
+      }
+    }
 
     await Promise.all([
       sb.from('sales_activity_notes').insert({

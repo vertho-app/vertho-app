@@ -1,36 +1,37 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import {
-  ArrowRight, Building2, Check, ChevronRight, CircleAlert,
-  ClipboardPaste, Clock3, FileText, History, LoaderCircle, MapPin, MessageSquareText,
-  Plus, Search, ShieldCheck, Sparkles, UserRound, UsersRound,
+  ArrowRight, Building2, Check, ChevronRight, CircleAlert, ClipboardPaste,
+  Clock3, FileText, History, LoaderCircle, NotebookPen, Plus, Search, Sparkles,
 } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
-import { DISCOVERY_CHECKLIST } from '@/lib/copiloto/types';
-import { STAGE_LABELS, type PipelineStage } from '@/lib/sales/constants';
+import { createSalesAccount } from '@/actions/sales/accounts';
 import type {
   CopilotAccountDetail,
   CopilotAccountListItem,
   CopilotAccountMemory,
   CopilotConversation,
-  CopilotEvolutionStatus,
+  CopilotSavedPlan,
 } from '@/lib/copiloto/types';
 import styles from './copiloto.module.css';
 
-type AccountFilter = 'all' | 'prospect' | 'active_client';
+export type CopilotPreparationSeed = {
+  accountId: string;
+  company: string;
+  context: string;
+  opportunityId: string;
+  site: string;
+  socialProfiles: string;
+  offer: string;
+};
 
-const STATUS_LABELS = {
-  prospect: 'Lead', active_client: 'Cliente', inactive: 'Inativo', lost: 'Perdido',
-} as const;
-
-const EVOLUTION_LABELS: Record<CopilotEvolutionStatus, string> = {
-  novo: 'Novo', confirmado: 'Confirmado', mudou: 'Mudou', pendente: 'Pendente',
+export type CopilotOpenPlanSeed = CopilotPreparationSeed & {
+  planning: CopilotSavedPlan;
 };
 
 function formatDate(value: string | null): string {
-  if (!value) return 'Sem conversa';
+  if (!value) return 'Ainda sem registro';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Data não informada';
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(date);
@@ -40,69 +41,87 @@ function localDateTimeValue(date = new Date()): string {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
+function latestDate(account: CopilotAccountListItem): string | null {
+  const candidates = [account.lastConversationAt, account.lastPlanningAt]
+    .filter((value): value is string => !!value)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  return candidates[0] || null;
+}
+
 function compactMemory(memory: CopilotAccountMemory): string {
-  const lines = [
+  return [
     memory.situation.length ? `Situação atual: ${memory.situation.join(' | ')}` : '',
     memory.pains.length ? `Dores: ${memory.pains.join(' | ')}` : '',
     memory.impacts.length ? `Impactos: ${memory.impacts.join(' | ')}` : '',
-    memory.attempts.length ? `Tentativas anteriores: ${memory.attempts.join(' | ')}` : '',
     memory.decisionCriteria.length ? `Critérios de decisão: ${memory.decisionCriteria.join(' | ')}` : '',
     memory.stakeholders.length ? `Pessoas envolvidas: ${memory.stakeholders.join(' | ')}` : '',
-    memory.budget.length ? `Orçamento: ${memory.budget.join(' | ')}` : '',
-    memory.timing.length ? `Prazo: ${memory.timing.join(' | ')}` : '',
     memory.objections.length ? `Objeções: ${memory.objections.join(' | ')}` : '',
     memory.commitments.length ? `Combinados: ${memory.commitments.join(' | ')}` : '',
     memory.nextStep ? `Próximo passo: ${memory.nextStep}` : '',
-  ].filter(Boolean);
-  return lines.join('\n');
+  ].filter(Boolean).join('\n');
 }
 
 function preparationContext(detail: CopilotAccountDetail): string {
-  const latest = detail.conversations.reduce<CopilotConversation | null>((current, conversation) => (
-    !current || new Date(conversation.createdAt).getTime() > new Date(current.createdAt).getTime() ? conversation : current
-  ), null);
+  const latestResult = detail.conversations[0] || null;
+  const latestPlanning = detail.plans[0] || null;
   const recent = detail.conversations.slice(0, 4).map((conversation) => (
-    `${formatDate(conversation.happenedAt)} — ${conversation.title}: ${conversation.summary}`
-  ));
-  const opportunities = detail.opportunities.filter((item) => item.status === 'open').slice(0, 3).map((item) => (
-    `${item.name} | estágio: ${STAGE_LABELS[item.stage as PipelineStage] || item.stage}`
-      + `${item.identifiedNeed ? ` | necessidade: ${item.identifiedNeed}` : ''}`
-      + `${item.nextAction ? ` | próxima ação: ${item.nextAction}` : ''}`
+    `- ${formatDate(conversation.happenedAt)} — ${conversation.title}: ${conversation.summary}`
   ));
   return [
-    `MEMÓRIA COMERCIAL — ${detail.account.name}`,
-    detail.account.notes ? `Notas do CRM: ${detail.account.notes}` : '',
-    opportunities.length ? `Oportunidades abertas:\n${opportunities.map((item) => `- ${item}`).join('\n')}` : '',
-    latest ? compactMemory(latest.analysis.memory) : '',
-    recent.length ? `Últimas conversas:\n${recent.map((item) => `- ${item}`).join('\n')}` : '',
+    `CONTINUIDADE COMERCIAL — ${detail.account.name}`,
+    latestPlanning?.plan?.objectives?.primary
+      ? `Objetivo do planejamento anterior: ${latestPlanning.plan.objectives.primary}`
+      : '',
+    latestResult ? `Resultado da última reunião:\n${latestResult.summary}` : '',
+    latestResult ? compactMemory(latestResult.analysis.memory) : '',
+    recent.length ? `Histórico recente:\n${recent.join('\n')}` : '',
   ].filter(Boolean).join('\n\n').slice(0, 30000);
 }
 
-function MemoryList({ items, empty }: { items: string[]; empty: string }) {
-  return items.length
-    ? <ul>{items.slice(0, 6).map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul>
-    : <p>{empty}</p>;
+function planningSeed(detail: CopilotAccountDetail, planning?: CopilotSavedPlan | null): CopilotPreparationSeed {
+  const latest = planning || detail.plans[0] || null;
+  const opportunity = detail.opportunities.find((item) => item.id === latest?.opportunityId)
+    || detail.opportunities.find((item) => item.status === 'open');
+  return {
+    accountId: detail.account.id,
+    company: detail.account.name,
+    context: preparationContext(detail),
+    opportunityId: opportunity?.id || '',
+    site: latest?.inputs.site || '',
+    socialProfiles: latest?.inputs.socialProfiles || '',
+    offer: latest?.inputs.offer || '',
+  };
 }
+
+type ArchiveEntry = {
+  at: string;
+  planning: CopilotSavedPlan | null;
+  result: CopilotConversation | null;
+};
 
 export default function ClientsWorkspace({
   initialAccounts,
   canCreateLeads,
   onPrepare,
+  onOpenPlan,
 }: {
   initialAccounts: CopilotAccountListItem[];
   canCreateLeads: boolean;
-  onPrepare: (seed: { company: string; context: string; opportunityId: string }) => void;
+  onPrepare: (seed: CopilotPreparationSeed) => void;
+  onOpenPlan: (seed: CopilotOpenPlanSeed) => void;
 }) {
   const [accounts, setAccounts] = useState(initialAccounts);
   const [selectedId, setSelectedId] = useState<string | null>(initialAccounts[0]?.id || null);
   const [detail, setDetail] = useState<CopilotAccountDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [filter, setFilter] = useState<AccountFilter>('all');
   const [query, setQuery] = useState('');
+  const [addingCompany, setAddingCompany] = useState(false);
+  const [newCompanyName, setNewCompanyName] = useState('');
+  const [creatingCompany, setCreatingCompany] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [resultPlanningId, setResultPlanningId] = useState('');
   const [title, setTitle] = useState('');
   const [happenedAt, setHappenedAt] = useState(localDateTimeValue);
-  const [opportunityId, setOpportunityId] = useState('');
   const [transcript, setTranscript] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,15 +135,13 @@ export default function ClientsWorkspace({
     try {
       const res = await fetchAuth(`/api/copiloto/clientes/${encodeURIComponent(accountId)}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Falha ao abrir o cliente');
+      if (!res.ok) throw new Error(data?.error || 'Falha ao abrir a empresa');
       if (requestId !== detailRequestRef.current) return;
       setDetail(data.detail);
-      const openOpportunity = data.detail?.opportunities?.find((item: any) => item.status === 'open');
-      setOpportunityId(openOpportunity?.id || '');
     } catch (err: any) {
       if (requestId !== detailRequestRef.current) return;
       setDetail(null);
-      setError(err?.message || 'Não foi possível abrir o cliente');
+      setError(err?.message || 'Não foi possível abrir o histórico');
     } finally {
       if (requestId === detailRequestRef.current) setDetailLoading(false);
     }
@@ -138,52 +155,117 @@ export default function ClientsWorkspace({
 
   const filteredAccounts = useMemo(() => {
     const term = query.trim().toLocaleLowerCase('pt-BR');
-    return accounts.filter((account) => {
-      if (filter !== 'all' && account.status !== filter) return false;
-      if (!term) return true;
-      return [account.name, account.legalName, account.segment, account.city, account.representativeName]
-        .filter(Boolean).some((value) => String(value).toLocaleLowerCase('pt-BR').includes(term));
-    });
-  }, [accounts, filter, query]);
+    if (!term) return accounts;
+    return accounts.filter((account) => [account.name, account.legalName, account.segment]
+      .filter(Boolean).some((value) => String(value).toLocaleLowerCase('pt-BR').includes(term)));
+  }, [accounts, query]);
+
+  const archive = useMemo<ArchiveEntry[]>(() => {
+    if (!detail) return [];
+    const conversations = new Map(detail.conversations.map((conversation) => [conversation.id, conversation]));
+    const linked = new Set(detail.plans.map((planning) => planning.conversationId).filter(Boolean));
+    return [
+      ...detail.plans.map((planning) => ({
+        at: planning.createdAt,
+        planning,
+        result: planning.conversationId ? conversations.get(planning.conversationId) || null : null,
+      })),
+      ...detail.conversations.filter((conversation) => !linked.has(conversation.id)).map((result) => ({
+        at: result.happenedAt,
+        planning: null,
+        result,
+      })),
+    ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  }, [detail]);
+
+  const latestResult = detail?.conversations[0] || null;
+  const openPlanning = detail?.plans.find((planning) => !planning.conversationId) || null;
+
+  function openComposer(planningId = openPlanning?.id || '') {
+    setResultPlanningId(planningId);
+    setComposerOpen(true);
+    setNotice(null);
+    window.setTimeout(() => document.getElementById('meeting-result')?.focus(), 0);
+  }
 
   async function pasteConversation() {
     setError(null);
     try {
       if (!navigator.clipboard?.readText) throw new Error('clipboard-unavailable');
       const text = (await navigator.clipboard.readText()).trim();
-      if (!text) {
-        setError('A área de transferência está vazia. Copie a transcrição e tente novamente.');
-        return;
-      }
+      if (!text) return setError('A área de transferência está vazia.');
       setTranscript((current) => [current.trim(), text].filter(Boolean).join('\n\n').slice(0, 30000));
     } catch {
       setError('O navegador bloqueou a área de transferência. Clique no campo e use Ctrl+V.');
     }
   }
 
+  async function createCompany() {
+    const name = newCompanyName.trim();
+    if (!name) return;
+    setCreatingCompany(true);
+    setError(null);
+    try {
+      const result = await createSalesAccount({ legal_name: name, trade_name: name });
+      if (!result.success) throw new Error(result.error || 'Falha ao adicionar empresa');
+      const row: any = result.data;
+      const account: CopilotAccountListItem = {
+        id: row.id,
+        name: row.trade_name || row.legal_name,
+        legalName: row.legal_name,
+        status: row.status,
+        segment: row.segment || null,
+        city: row.city || null,
+        state: row.state || null,
+        representativeName: null,
+        conversationCount: 0,
+        lastConversationAt: null,
+        planningCount: 0,
+        lastPlanningAt: null,
+        openOpportunityCount: 0,
+        currentStage: null,
+        nextAction: null,
+        nextActionDate: null,
+      };
+      setAccounts((current) => [account, ...current]);
+      setSelectedId(account.id);
+      setNewCompanyName('');
+      setAddingCompany(false);
+      setNotice('Empresa adicionada. Você já pode criar o primeiro planejamento.');
+    } catch (err: any) {
+      setError(err?.message || 'Não foi possível adicionar a empresa');
+    } finally {
+      setCreatingCompany(false);
+    }
+  }
+
   async function saveConversation() {
-    if (!selectedId || transcript.trim().length < 20) return;
+    if (!selectedId || transcript.trim().length < 20 || !detail) return;
     setSaving(true);
     setError(null);
     setNotice(null);
     try {
+      const planning = detail.plans.find((item) => item.id === resultPlanningId) || null;
       const res = await fetchAuth(`/api/copiloto/clientes/${encodeURIComponent(selectedId)}/conversas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
           happenedAt: happenedAt ? new Date(happenedAt).toISOString() : new Date().toISOString(),
-          opportunityId,
+          opportunityId: planning?.opportunityId || '',
+          planningId: planning?.id || '',
           transcript,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Falha ao salvar a conversa');
+      if (!res.ok) throw new Error(data?.error || 'Falha ao salvar o resultado');
       const conversation = data.conversation as CopilotConversation;
       setDetail((current) => current ? {
         ...current,
-        conversations: [conversation, ...current.conversations]
-          .sort((a, b) => new Date(b.happenedAt).getTime() - new Date(a.happenedAt).getTime()),
+        conversations: [conversation, ...current.conversations],
+        plans: current.plans.map((item) => item.id === planning?.id
+          ? { ...item, conversationId: conversation.id }
+          : item),
       } : current);
       setAccounts((current) => current.map((account) => account.id === selectedId ? {
         ...account,
@@ -193,158 +275,117 @@ export default function ClientsWorkspace({
       setTranscript('');
       setTitle('');
       setHappenedAt(localDateTimeValue());
+      setResultPlanningId('');
       setComposerOpen(false);
-      setNotice('Conversa analisada e adicionada ao histórico.');
+      setNotice('Resultado salvo. A próxima preparação já poderá partir desta reunião.');
     } catch (err: any) {
-      setError(err?.message || 'Não foi possível salvar a conversa');
+      setError(err?.message || 'Não foi possível salvar o resultado');
     } finally {
       setSaving(false);
     }
   }
 
   function prepareNextConversation() {
-    if (!detail) return;
-    const selectedOpportunity = detail.opportunities.find((item) => item.id === opportunityId)
-      || detail.opportunities.find((item) => item.status === 'open');
-    onPrepare({
-      company: detail.account.name,
-      context: preparationContext(detail),
-      opportunityId: selectedOpportunity?.id || '',
-    });
+    if (detail) onPrepare(planningSeed(detail));
   }
 
-  const latest = detail?.conversations.reduce<CopilotConversation | null>((current, conversation) => (
-    !current || new Date(conversation.createdAt).getTime() > new Date(current.createdAt).getTime() ? conversation : current
-  ), null) || null;
-  const memory = latest?.analysis.memory || null;
+  function openSavedPlanning(planning: CopilotSavedPlan) {
+    if (detail) onOpenPlan({ ...planningSeed(detail, planning), planning });
+  }
 
   return (
-    <section className={styles.clientsWorkspace} aria-label="Leads e clientes">
-      <aside className={styles.clientRail}>
+    <section className={styles.meetingLibrary} aria-label="Histórico de reuniões">
+      <aside className={styles.meetingIndex}>
         <header>
-          <div><p className={styles.eyebrow}>Memória comercial</p><h2>Leads e clientes</h2></div>
-          {canCreateLeads && <Link href="/representante/crm/nova" aria-label="Cadastrar novo lead"><Plus size={16} /></Link>}
+          <div><p className={styles.eyebrow}>Continuidade</p><h2>Empresas</h2></div>
+          {canCreateLeads && <button type="button" onClick={() => setAddingCompany((current) => !current)} aria-label="Adicionar empresa"><Plus size={16} /></button>}
         </header>
-
-        <label className={styles.clientSearch}>
+        {addingCompany && <div className={styles.quickCompany}><input autoFocus value={newCompanyName} onChange={(event) => setNewCompanyName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void createCompany(); }} placeholder="Nome da empresa" maxLength={200} /><button type="button" onClick={() => void createCompany()} disabled={creatingCompany || !newCompanyName.trim()}>{creatingCompany ? <LoaderCircle size={14} className={styles.spin} /> : <Check size={14} />}</button></div>}
+        <label className={styles.meetingSearch}>
           <Search size={14} />
           <span className={styles.srOnly}>Buscar empresa</span>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar empresa…" />
         </label>
-
-        <div className={styles.clientFilters} aria-label="Filtrar contas">
-          <button className={filter === 'all' ? styles.filterActive : ''} onClick={() => setFilter('all')}>Todos <span>{accounts.length}</span></button>
-          <button className={filter === 'prospect' ? styles.filterActive : ''} onClick={() => setFilter('prospect')}>Leads</button>
-          <button className={filter === 'active_client' ? styles.filterActive : ''} onClick={() => setFilter('active_client')}>Clientes</button>
-        </div>
-
-        <div className={styles.clientList}>
+        <div className={styles.meetingCompanyList}>
           {filteredAccounts.map((account) => (
-            <button key={account.id} className={account.id === selectedId ? styles.clientActive : ''} onClick={() => {
+            <button key={account.id} className={account.id === selectedId ? styles.meetingCompanyActive : ''} onClick={() => {
               setSelectedId(account.id);
               setComposerOpen(false);
               setNotice(null);
             }}>
-              <span className={styles.clientMonogram}>{account.name.slice(0, 2).toUpperCase()}</span>
-              <span className={styles.clientIdentity}>
-                <strong>{account.name}</strong>
-                <small>{STATUS_LABELS[account.status]}{account.currentStage ? ` · ${STAGE_LABELS[account.currentStage as PipelineStage] || account.currentStage.replaceAll('_', ' ')}` : ''}</small>
-                <em><Clock3 size={11} /> {formatDate(account.lastConversationAt)}{account.representativeName ? ` · ${account.representativeName}` : ''}</em>
-              </span>
-              <ChevronRight size={15} />
+              <span>{account.name.slice(0, 2).toUpperCase()}</span>
+              <div><strong>{account.name}</strong><small>{account.planningCount} planos · {account.conversationCount} resultados</small><em><Clock3 size={10} /> {formatDate(latestDate(account))}</em></div>
+              <ChevronRight size={14} />
             </button>
           ))}
-          {!filteredAccounts.length && (
-            <div className={styles.noClients}><UsersRound size={23} /><p>Nenhuma empresa neste filtro.</p>{canCreateLeads && <Link href="/representante/crm/nova">Cadastrar lead</Link>}</div>
-          )}
+          {!filteredAccounts.length && <div className={styles.meetingEmptyIndex}><Building2 size={22} /><p>Nenhuma empresa encontrada.</p>{canCreateLeads && <button type="button" onClick={() => setAddingCompany(true)}>Adicionar empresa</button>}</div>}
         </div>
       </aside>
 
-      <div className={styles.clientDetail}>
+      <div className={styles.meetingNotebook}>
         {error && <div className={styles.clientMessage} data-tone="error"><CircleAlert size={15} /><span>{error}</span><button onClick={() => setError(null)}>Fechar</button></div>}
         {notice && <div className={styles.clientMessage} data-tone="success"><Check size={15} /><span>{notice}</span><button onClick={() => setNotice(null)}>Fechar</button></div>}
 
         {detailLoading ? (
-          <div className={styles.clientLoading}><LoaderCircle size={25} className={styles.spin} /> Abrindo memória comercial…</div>
+          <div className={styles.meetingLoading}><LoaderCircle size={24} className={styles.spin} /> Abrindo histórico…</div>
         ) : detail ? (
           <>
-            <header className={styles.clientDetailHeader}>
-              <div>
-                <div className={styles.accountStatus}><span data-status={detail.account.status}>{STATUS_LABELS[detail.account.status]}</span>{detail.account.segment && <em>{detail.account.segment}</em>}</div>
-                <h2>{detail.account.name}</h2>
-                <p>
-                  {(detail.account.city || detail.account.state) && <span><MapPin size={13} /> {[detail.account.city, detail.account.state].filter(Boolean).join(' / ')}</span>}
-                  {detail.contacts[0] && <span><UserRound size={13} /> {detail.contacts[0].name}{detail.contacts[0].role ? ` · ${detail.contacts[0].role}` : ''}</span>}
-                </p>
-              </div>
-              <div className={styles.clientActions}>
-                <button className={styles.quietAction} onClick={() => setComposerOpen((current) => !current)}><MessageSquareText size={15} /> Registrar conversa</button>
-                <button className={styles.primaryAction} onClick={prepareNextConversation}><Sparkles size={15} /> Planejar próxima</button>
-              </div>
+            <header className={styles.meetingNotebookHeader}>
+              <div><p className={styles.eyebrow}>Arquivo de reuniões</p><h2>{detail.account.name}</h2><span>{detail.plans.length} planejamentos · {detail.conversations.length} resultados</span></div>
+              <button className={styles.quietAction} onClick={() => openComposer()}><FileText size={15} /> Salvar resultado</button>
             </header>
 
             {composerOpen && (
-              <section className={styles.conversationComposer}>
-                <header><div><span>Novo registro</span><h3>Transforme a transcrição em memória</h3></div><ShieldCheck size={18} /></header>
-                <div className={styles.composerMeta}>
-                  <label>Título<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={180} placeholder="Ex.: Diagnóstico com RH" /></label>
+              <section className={styles.simpleResultComposer}>
+                <header><div><span>Resultado da reunião</span><h3>O que ficou desta conversa?</h3></div>{resultPlanningId && <small><Check size={12} /> Ligado ao planejamento anterior</small>}</header>
+                <div className={styles.simpleResultMeta}>
+                  <label>Título opcional<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={180} placeholder="Ex.: Diagnóstico com RH" /></label>
                   <label>Quando<input type="datetime-local" value={happenedAt} onChange={(event) => setHappenedAt(event.target.value)} /></label>
-                  <label>Oportunidade<select value={opportunityId} onChange={(event) => setOpportunityId(event.target.value)}><option value="">Relacionamento geral</option>{detail.opportunities.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                 </div>
-                <div className={styles.composerTranscript}>
-                  <div><label htmlFor="client-transcript">Transcrição</label><button onClick={() => void pasteConversation()}><ClipboardPaste size={13} /> Colar transcrição</button></div>
-                  <textarea id="client-transcript" value={transcript} onChange={(event) => setTranscript(event.target.value)} rows={9} maxLength={30000} placeholder="Cole aqui a transcrição da conversa…" />
-                  <small>A transcrição só é enviada e salva quando você clicar em “Analisar e salvar”.</small>
+                <div className={styles.simpleResultText}>
+                  <div><label htmlFor="meeting-result">Resultado ou transcrição</label><button onClick={() => void pasteConversation()}><ClipboardPaste size={13} /> Colar</button></div>
+                  <textarea id="meeting-result" value={transcript} onChange={(event) => setTranscript(event.target.value)} rows={8} maxLength={30000} placeholder="Cole a transcrição ou escreva os principais pontos, decisões e próximo passo…" />
                 </div>
-                <div className={styles.composerActions}>
-                  <button className={styles.primaryAction} disabled={saving || transcript.trim().length < 20} onClick={() => void saveConversation()}>{saving ? <><LoaderCircle size={15} className={styles.spin} /> Analisando histórico…</> : <><Sparkles size={15} /> Analisar e salvar</>}</button>
-                  <button className={styles.quietAction} disabled={saving} onClick={() => setComposerOpen(false)}>Cancelar</button>
-                </div>
+                <footer><button className={styles.primaryAction} disabled={saving || transcript.trim().length < 20} onClick={() => void saveConversation()}>{saving ? <><LoaderCircle size={15} className={styles.spin} /> Analisando…</> : <><Sparkles size={15} /> Analisar e salvar resultado</>}</button><button className={styles.quietAction} disabled={saving} onClick={() => setComposerOpen(false)}>Cancelar</button></footer>
               </section>
             )}
 
-            <section className={styles.memoryBoard}>
-              <header><div><p className={styles.eyebrow}>Leitura acumulada</p><h3>O que sabemos agora</h3></div><span>{detail.conversations.length} {detail.conversations.length === 1 ? 'conversa' : 'conversas'}</span></header>
-              {memory ? (
-                <>
-                  <div className={styles.memoryGrid}>
-                    <article><span>Realidade atual</span><MemoryList items={[...memory.situation, ...memory.attempts]} empty="Ainda não registrada." /></article>
-                    <article><span>Dor e impacto</span><MemoryList items={[...memory.pains, ...memory.impacts]} empty="Ainda não dimensionados." /></article>
-                    <article><span>Decisão</span><MemoryList items={[...memory.stakeholders, ...memory.decisionCriteria, ...memory.budget, ...memory.timing]} empty="Decisão ainda não mapeada." /></article>
-                    <article><span>Tensões</span><MemoryList items={memory.objections} empty="Nenhuma objeção explícita." /></article>
-                  </div>
-                  <div className={styles.nextCommitment}><ArrowRight size={18} /><div><span>Próximo movimento</span><strong>{memory.nextStep || 'Ainda não houve um próximo passo acordado.'}</strong>{memory.commitments.length > 0 && <small>{memory.commitments.join(' · ')}</small>}</div></div>
-                </>
-              ) : (
-                <div className={styles.emptyMemory}><History size={27} /><div><h4>A memória começa na primeira conversa</h4><p>Cole uma transcrição para a IA separar fatos, mudanças, pendências e próximos passos.</p></div><button onClick={() => setComposerOpen(true)}>Registrar primeira conversa</button></div>
-              )}
+            <section className={styles.continuityBridge}>
+              <article>
+                <span>Último resultado</span>
+                {latestResult ? <><time>{formatDate(latestResult.happenedAt)}</time><h3>{latestResult.summary}</h3><p>{latestResult.analysis.memory.nextStep || 'Nenhum próximo passo explícito foi registrado.'}</p></> : <><h3>Ainda não há resultado salvo.</h3><p>Depois da reunião, cole a transcrição ou registre os pontos principais.</p></>}
+              </article>
+              <div><ArrowRight size={20} /></div>
+              <article data-next>
+                <span>{openPlanning ? 'Planejamento em aberto' : 'Próxima conversa'}</span>
+                <h3>{openPlanning ? openPlanning.plan.objectives?.primary || 'Planejamento pronto para abrir.' : 'Continue exatamente de onde parou.'}</h3>
+                <p>{openPlanning ? 'Revise o plano antes de entrar na reunião.' : 'O último resultado entra automaticamente como contexto.'}</p>
+                <button className={styles.primaryAction} onClick={() => openPlanning ? openSavedPlanning(openPlanning) : prepareNextConversation()}><NotebookPen size={15} /> {openPlanning ? 'Abrir planejamento' : 'Preparar próxima conversa'}</button>
+              </article>
             </section>
 
-            <section className={styles.conversationHistory}>
-              <header><div><p className={styles.eyebrow}>Linha do tempo</p><h3>Evolução das conversas</h3></div><History size={19} /></header>
-              {detail.conversations.length ? (
-                <div className={styles.conversationRail}>
-                  {detail.conversations.map((conversation, index) => (
-                    <article key={conversation.id} className={styles.conversationCard}>
-                      <div className={styles.conversationMarker}><span>{String(detail.conversations.length - index).padStart(2, '0')}</span></div>
-                      <div>
-                        <header>
-                          <div><time>{formatDate(conversation.happenedAt)}</time><h4>{conversation.title}</h4></div>
-                          <span><FileText size={12} /> {conversation.source === 'paste' ? 'Transcrição colada' : conversation.source.replaceAll('_', ' ')}</span>
-                        </header>
-                        <p>{conversation.summary}</p>
-                        {!!conversation.analysis.evolution.length && <div className={styles.evolutionList}>{conversation.analysis.evolution.map((item, itemIndex) => <div key={`${item.text}-${itemIndex}`} data-status={item.status}><span>{EVOLUTION_LABELS[item.status]}</span><strong>{item.text}</strong>{item.evidence && <small>{item.evidence}</small>}</div>)}</div>}
-                        {!!conversation.analysis.paceCoverage.length && <div className={styles.coverageTags}>{conversation.analysis.paceCoverage.map((key) => <span key={key}>{DISCOVERY_CHECKLIST.find((item) => item.key === key)?.label || key}</span>)}</div>}
-                        <details><summary>Ver transcrição</summary><pre>{conversation.transcript}</pre></details>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : <p className={styles.historyEmpty}>Nenhuma conversa salva para este cliente.</p>}
+            <section className={styles.meetingArchive}>
+              <header><div><p className={styles.eyebrow}>Histórico</p><h3>Planejamento → resultado</h3></div><History size={18} /></header>
+              {archive.length ? <div className={styles.meetingArchiveList}>{archive.map((entry, index) => (
+                <article key={entry.planning?.id || entry.result?.id || index} className={styles.meetingPair}>
+                  <header><span>{entry.result ? 'Reunião concluída' : 'Aguardando resultado'}</span><time>{formatDate(entry.result?.happenedAt || entry.planning?.createdAt || null)}</time></header>
+                  <div>
+                    <section data-kind="plan">
+                      <label>Planejamento</label>
+                      {entry.planning ? <><h4>{entry.planning.plan.objectives?.primary || 'Planejamento PACE'}</h4><p>{entry.planning.plan.companySummary || entry.planning.plan.valueSummary}</p><button onClick={() => openSavedPlanning(entry.planning!)}>Abrir plano <ChevronRight size={13} /></button></> : <><h4>Sem planejamento salvo</h4><p>Este resultado foi registrado diretamente.</p></>}
+                    </section>
+                    <ArrowRight size={17} />
+                    <section data-kind="result">
+                      <label>Resultado</label>
+                      {entry.result ? <><h4>{entry.result.title}</h4><p>{entry.result.summary}</p>{entry.result.analysis.memory.nextStep && <small>Próximo passo: {entry.result.analysis.memory.nextStep}</small>}<details><summary>Ver registro</summary><pre>{entry.result.transcript}</pre></details></> : <><h4>Reunião ainda não registrada</h4><p>Salve o resultado para fechar este ciclo.</p><button onClick={() => openComposer(entry.planning?.id)}>Salvar resultado <ChevronRight size={13} /></button></>}
+                    </section>
+                  </div>
+                </article>
+              ))}</div> : <div className={styles.emptyMeetingArchive}><NotebookPen size={25} /><h4>Comece pelo primeiro planejamento</h4><p>Depois, o resultado ficará ligado a ele nesta mesma linha.</p><button className={styles.primaryAction} onClick={prepareNextConversation}>Criar planejamento</button></div>}
             </section>
           </>
-        ) : selectedId ? null : (
-          <div className={styles.clientLoading}><Building2 size={27} /> Selecione uma empresa para abrir a memória.</div>
+        ) : (
+          <div className={styles.meetingLoading}><Building2 size={26} /> Escolha uma empresa para abrir o histórico.</div>
         )}
       </div>
     </section>

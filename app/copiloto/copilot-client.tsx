@@ -6,7 +6,7 @@ import Image from 'next/image';
 import {
   ArrowLeft, AudioLines, Building2, Check, ChevronRight, CircleAlert, Clock3,
   ClipboardPaste, Database, ExternalLink, FileText, Headphones, LoaderCircle, Mic, Radio,
-  Newspaper, RefreshCw, Search, Share2, ShieldCheck, Sparkles, Square, UsersRound, Wifi, WifiOff,
+  Newspaper, RefreshCw, Save, Search, Share2, ShieldCheck, Sparkles, Square, UsersRound, Wifi, WifiOff,
 } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import {
@@ -23,7 +23,10 @@ import {
   addAudioEvidence, assessAudioInputHealth, EMPTY_AUDIO_EVIDENCE,
   type AudioInputEvidence, type AudioInputHealth,
 } from './audio-health';
-import ClientsWorkspace from './clients-workspace';
+import ClientsWorkspace, {
+  type CopilotOpenPlanSeed,
+  type CopilotPreparationSeed,
+} from './clients-workspace';
 import { selectImmediateQuestions } from './local-bank';
 import styles from './copiloto.module.css';
 
@@ -93,7 +96,7 @@ function PaceRunway({ tab, livePhase }: { tab: Tab; livePhase: PacePhase }) {
   return (
     <div className={styles.runway} aria-label="Jornada PACE">
       <div className={classNames(styles.runwayStep, tab === 'clientes' && styles.runwayCurrent)} data-tone="memory">
-        <span>M</span> Memória
+        <span>H</span> Histórico
       </div>
       <i>→</i>
       <div className={classNames(styles.runwayStep, tab === 'planejamento' && styles.runwayCurrent)} data-tone="plan">
@@ -113,7 +116,7 @@ function PaceRunway({ tab, livePhase }: { tab: Tab; livePhase: PacePhase }) {
   );
 }
 
-function PlanDossier({ plan, onGoLive }: { plan: CopilotPlan; onGoLive: () => void }) {
+function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLive: () => void; persisted: boolean }) {
   const phaseGroups = useMemo(() => PACE_PHASES.map((phase) => ({
     phase, questions: plan.questions.filter((question) => question.phase === phase),
   })), [plan.questions]);
@@ -290,7 +293,7 @@ function PlanDossier({ plan, onGoLive }: { plan: CopilotPlan; onGoLive: () => vo
       )}
 
       <div className={styles.dossierAction}>
-        <div><Radio size={18} /><span>Plano salvo neste navegador</span></div>
+        <div><Radio size={18} /><span>{persisted ? 'Plano salvo no histórico da empresa' : 'Plano disponível neste navegador'}</span></div>
         <button type="button" onClick={onGoLive}>Abrir apoio ao vivo <ChevronRight size={17} /></button>
       </div>
     </section>
@@ -313,6 +316,9 @@ export default function CopilotClient({
   const [context, setContext] = useState('');
   const [offer, setOffer] = useState(DEFAULT_VERTHO_OFFER);
   const [opportunityId, setOpportunityId] = useState('');
+  const [accountId, setAccountId] = useState('');
+  const [activePlanningId, setActivePlanningId] = useState('');
+  const [planPersisted, setPlanPersisted] = useState(false);
   const [plan, setPlan] = useState<CopilotPlan | null>(null);
   const [planning, setPlanning] = useState(false);
   const [planningSeconds, setPlanningSeconds] = useState(0);
@@ -327,6 +333,8 @@ export default function CopilotClient({
   const [reading, setReading] = useState<LiveReading>(EMPTY_READING);
   const [thinking, setThinking] = useState(false);
   const [liveAnalysisState, setLiveAnalysisState] = useState<LiveAnalysisState>('idle');
+  const [resultSaving, setResultSaving] = useState(false);
+  const [resultSaved, setResultSaved] = useState(false);
 
   const [posts, setPosts] = useState<SupernormalPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
@@ -361,6 +369,12 @@ export default function CopilotClient({
         if (typeof parsed?.context === 'string') setContext(parsed.context);
         if (typeof parsed?.offer === 'string') setOffer(parsed.offer);
         if (typeof parsed?.opportunityId === 'string') setOpportunityId(parsed.opportunityId);
+        if (typeof parsed?.accountId === 'string') setAccountId(parsed.accountId);
+        if (typeof parsed?.planningId === 'string') {
+          setActivePlanningId(parsed.planningId);
+          setPlanPersisted(!!parsed.planningId);
+        }
+        if (parsed?.persisted === true) setPlanPersisted(true);
       } catch {
         localStorage.removeItem(PLAN_STORAGE_KEY);
       }
@@ -502,14 +516,48 @@ export default function CopilotClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Falha ao montar o planejamento');
-      setPlan(data.plan);
+      const generatedPlan = data.plan as CopilotPlan;
+      setPlan(generatedPlan);
+      setPlanPersisted(false);
+      const selectedOpportunity = opportunities.find((item) => item.id === opportunityId);
+      const normalizedCompany = company.trim().toLocaleLowerCase('pt-BR');
+      const matchingAccount = accounts.find((item) => [item.name, item.legalName]
+        .some((name) => name.trim().toLocaleLowerCase('pt-BR') === normalizedCompany));
+      const linkedAccountId = accountId || selectedOpportunity?.accountId || matchingAccount?.id || '';
+      let savedPlanningId = '';
+      let persistenceError = linkedAccountId
+        ? ''
+        : 'Planejamento gerado neste navegador. Para salvá-lo no histórico, comece pela aba Reuniões e escolha uma empresa.';
+      if (linkedAccountId) {
+        setAccountId(linkedAccountId);
+        try {
+          const saveRes = await fetchAuth(`/api/copiloto/clientes/${encodeURIComponent(linkedAccountId)}/planejamentos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              plan: generatedPlan,
+              opportunityId,
+              inputs: { company, site, socialProfiles, context, offer },
+            }),
+          });
+          const saved = await saveRes.json();
+          if (!saveRes.ok) throw new Error(saved?.error || 'Falha ao salvar o planejamento');
+          savedPlanningId = saved.planning.id;
+          setActivePlanningId(savedPlanningId);
+          setPlanPersisted(true);
+        } catch (saveError: any) {
+          persistenceError = saveError?.message || 'O planejamento foi gerado, mas não foi salvo no histórico.';
+        }
+      }
       try {
         localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify({
-          plan: data.plan, company, site, socialProfiles, context, offer, opportunityId,
+          plan: generatedPlan, company, site, socialProfiles, context, offer, opportunityId,
+          accountId: linkedAccountId, planningId: savedPlanningId, persisted: !!savedPlanningId,
         }));
       } catch {
         // O plano continua utilizável na sessão se o navegador bloquear storage.
       }
+      if (persistenceError) setError(persistenceError);
     } catch (err: any) {
       setError(err?.message || 'Não foi possível montar o planejamento');
     } finally {
@@ -526,6 +574,10 @@ export default function CopilotClient({
       setSocialProfiles('');
     }
     setCompany(nextCompany);
+    const normalized = nextCompany.trim().toLocaleLowerCase('pt-BR');
+    const matched = accounts.find((item) => [item.name, item.legalName]
+      .some((name) => name.trim().toLocaleLowerCase('pt-BR') === normalized));
+    setAccountId(matched?.id || '');
   }
 
   function selectOpportunity(id: string) {
@@ -538,17 +590,50 @@ export default function CopilotClient({
     }
     setOpportunityId(id);
     if (!selected) return;
+    setAccountId(selected.accountId);
     setCompany(selected.accountName);
     setContext((current) => current.trim() ? current : selected.context);
   }
 
-  function prepareFromAccount(seed: { company: string; context: string; opportunityId: string }) {
+  function prepareFromAccount(seed: CopilotPreparationSeed) {
     clearPlan();
+    setAccountId(seed.accountId);
     setCompany(seed.company);
-    setSite('');
-    setSocialProfiles('');
+    setSite(seed.site);
+    setSocialProfiles(seed.socialProfiles);
     setContext(seed.context);
+    setOffer(seed.offer || DEFAULT_VERTHO_OFFER);
     setOpportunityId(seed.opportunityId);
+    setTab('planejamento');
+  }
+
+  function openSavedPlan(seed: CopilotOpenPlanSeed) {
+    const savedCompany = seed.planning.inputs.company || seed.company;
+    const savedContext = seed.planning.inputs.context || seed.context;
+    setAccountId(seed.accountId);
+    setCompany(savedCompany);
+    setSite(seed.site);
+    setSocialProfiles(seed.socialProfiles);
+    setContext(savedContext);
+    setOffer(seed.offer || DEFAULT_VERTHO_OFFER);
+    setOpportunityId(seed.opportunityId);
+    setPlan(seed.planning.plan);
+    setPlanPersisted(true);
+    setActivePlanningId(seed.planning.conversationId ? '' : seed.planning.id);
+    try {
+      localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify({
+        plan: seed.planning.plan,
+        company: savedCompany,
+        site: seed.site,
+        socialProfiles: seed.socialProfiles,
+        context: savedContext,
+        offer: seed.offer || DEFAULT_VERTHO_OFFER,
+        opportunityId: seed.opportunityId,
+        accountId: seed.accountId,
+        planningId: seed.planning.conversationId ? '' : seed.planning.id,
+        persisted: true,
+      }));
+    } catch { /* storage bloqueado */ }
     setTab('planejamento');
   }
 
@@ -580,6 +665,7 @@ export default function CopilotClient({
   async function startCapture() {
     setError(null);
     setLiveAnalysisState('idle');
+    setResultSaved(false);
     pendingAnalysisRef.current = false;
     audioEvidenceRef.current = { ...EMPTY_AUDIO_EVIDENCE };
     captureStartedAtRef.current = Date.now();
@@ -607,6 +693,51 @@ export default function CopilotClient({
   async function restartCapture() {
     stopCapture();
     await startCapture();
+  }
+
+  async function saveLiveResult() {
+    if (!accountId) {
+      setError('Abra a reunião a partir de uma empresa para salvar o resultado no histórico.');
+      return;
+    }
+    const transcript = utterancesRef.current.map((item) => {
+      const speaker = item.channel === 'vendedor'
+        ? 'Vertho local'
+        : meetingCompositionRef.current === 'solo-vertho' ? 'Cliente(s)' : 'Reunião';
+      return `${speaker}: ${item.text}`;
+    }).join('\n');
+    if (transcript.trim().length < 20) {
+      setError('Ainda não há transcrição suficiente para salvar o resultado.');
+      return;
+    }
+    setResultSaving(true);
+    setError(null);
+    try {
+      const res = await fetchAuth(`/api/copiloto/clientes/${encodeURIComponent(accountId)}/conversas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: company ? `Reunião com ${company}` : '',
+          happenedAt: new Date().toISOString(),
+          opportunityId,
+          planningId: activePlanningId,
+          source: 'whisper_local',
+          transcript,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Falha ao salvar o resultado');
+      setResultSaved(true);
+      setActivePlanningId('');
+      try {
+        const saved = JSON.parse(localStorage.getItem(PLAN_STORAGE_KEY) || '{}');
+        localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify({ ...saved, planningId: '' }));
+      } catch { /* storage bloqueado */ }
+    } catch (saveError: any) {
+      setError(saveError?.message || 'Não foi possível salvar o resultado da reunião.');
+    } finally {
+      setResultSaving(false);
+    }
   }
 
   const loadPosts = useCallback(async () => {
@@ -660,6 +791,8 @@ export default function CopilotClient({
   function clearPlan() {
     try { localStorage.removeItem(PLAN_STORAGE_KEY); } catch { /* storage bloqueado */ }
     setPlan(null);
+    setActivePlanningId('');
+    setPlanPersisted(false);
   }
 
   const recording = captureState === 'gravando';
@@ -718,7 +851,7 @@ export default function CopilotClient({
       </section>
 
       <nav className={styles.tabs} aria-label="Momentos do copiloto">
-        <button onClick={() => setTab('clientes')} className={tab === 'clientes' ? styles.tabActive : ''}><UsersRound size={16} /><span>Leads e clientes<small>memória comercial</small></span></button>
+        <button onClick={() => setTab('clientes')} className={tab === 'clientes' ? styles.tabActive : ''}><UsersRound size={16} /><span>Reuniões<small>planejamento e resultado</small></span></button>
         <button onClick={() => setTab('planejamento')} className={tab === 'planejamento' ? styles.tabActive : ''}><Search size={16} /><span>Planejamento<small>antes da conversa</small></span></button>
         <button onClick={() => setTab('ao-vivo')} className={tab === 'ao-vivo' ? styles.tabActive : ''}><Headphones size={16} /><span>Apoio ao vivo<small>Whisper local</small></span></button>
         <button onClick={() => setTab('pos-reuniao')} className={tab === 'pos-reuniao' ? styles.tabActive : ''}><FileText size={16} /><span>Pós-reunião<small>Supernormal</small></span></button>
@@ -729,7 +862,7 @@ export default function CopilotClient({
       {error && <div className={styles.error}><CircleAlert size={17} /><span>{error}</span><button onClick={() => setError(null)}>Fechar</button></div>}
 
       {tab === 'clientes' && (
-        <ClientsWorkspace initialAccounts={accounts} canCreateLeads={canCreateLeads} onPrepare={prepareFromAccount} />
+        <ClientsWorkspace initialAccounts={accounts} canCreateLeads={canCreateLeads} onPrepare={prepareFromAccount} onOpenPlan={openSavedPlan} />
       )}
 
       {tab === 'planejamento' && (
@@ -807,7 +940,7 @@ export default function CopilotClient({
             <div className={styles.privacyNote}><ShieldCheck size={17} /><p><strong>Fronteira de privacidade</strong>A busca recebe apenas nome, site e perfis sociais oficiais. Briefing e oferta entram somente na análise privada.</p></div>
           </aside>
 
-          {plan && <div className={styles.fullRow}><PlanDossier plan={plan} onGoLive={() => setTab('ao-vivo')} /></div>}
+          {plan && <div className={styles.fullRow}><PlanDossier plan={plan} onGoLive={() => setTab('ao-vivo')} persisted={planPersisted} /></div>}
         </div>
       )}
 
@@ -815,9 +948,12 @@ export default function CopilotClient({
         <section className={styles.liveWorkspace}>
           <header className={styles.liveHeader}>
             <div><p className={styles.eyebrow}>Sala de comando</p><h2>{recording ? 'Conversa em andamento' : 'Apoio ao vivo com Whisper local'}</h2><p>O áudio é transcrito na sua máquina. Somente trechos de texto seguem para a IA montar as sugestões.</p></div>
-            <button className={recording ? styles.stopButton : styles.startButton} onClick={recording ? stopCapture : startCapture} disabled={captureState === 'conectando'}>
-              {recording ? <><Square size={16} fill="currentColor" /> Parar conversa</> : captureState === 'conectando' ? <><LoaderCircle size={17} className={styles.spin} /> Conectando…</> : <><Mic size={17} /> Iniciar conversa</>}
-            </button>
+            <div className={styles.liveHeaderActions}>
+              {!recording && utterances.length > 0 && accountId && <button className={styles.saveResultButton} onClick={() => void saveLiveResult()} disabled={resultSaving || resultSaved}>{resultSaving ? <><LoaderCircle size={16} className={styles.spin} /> Salvando…</> : resultSaved ? <><Check size={16} /> Resultado salvo</> : <><Save size={16} /> Salvar resultado</>}</button>}
+              <button className={recording ? styles.stopButton : styles.startButton} onClick={recording ? stopCapture : startCapture} disabled={captureState === 'conectando'}>
+                {recording ? <><Square size={16} fill="currentColor" /> Parar conversa</> : captureState === 'conectando' ? <><LoaderCircle size={17} className={styles.spin} /> Conectando…</> : <><Mic size={17} /> Iniciar conversa</>}
+              </button>
+            </div>
           </header>
 
           {!recording && (

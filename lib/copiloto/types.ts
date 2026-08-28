@@ -36,6 +36,8 @@ export type CopilotAccountListItem = {
   representativeName: string | null;
   conversationCount: number;
   lastConversationAt: string | null;
+  planningCount: number;
+  lastPlanningAt: string | null;
   openOpportunityCount: number;
   currentStage: string | null;
   nextAction: string | null;
@@ -83,6 +85,26 @@ export type CopilotConversation = {
   createdAt: string;
 };
 
+export type CopilotPlanInputs = {
+  company: string;
+  site: string;
+  socialProfiles: string;
+  context: string;
+  offer: string;
+  opportunityId: string;
+};
+
+export type CopilotSavedPlan = {
+  id: string;
+  accountId: string;
+  opportunityId: string | null;
+  conversationId: string | null;
+  plan: CopilotPlan;
+  inputs: CopilotPlanInputs;
+  createdByEmail: string;
+  createdAt: string;
+};
+
 export type CopilotAccountDetail = {
   account: {
     id: string;
@@ -111,6 +133,7 @@ export type CopilotAccountDetail = {
     nextAction: string | null;
     nextActionDate: string | null;
   }>;
+  plans: CopilotSavedPlan[];
   conversations: CopilotConversation[];
 };
 

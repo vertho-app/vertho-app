@@ -10,6 +10,9 @@ import type {
   CopilotConversationAnalysis,
   CopilotConversationSource,
   CopilotEvolutionStatus,
+  CopilotPlan,
+  CopilotPlanInputs,
+  CopilotSavedPlan,
   DiscoveryKey,
 } from './types';
 import { DISCOVERY_CHECKLIST } from './types';
@@ -77,6 +80,27 @@ export function normalizeConversationRow(row: any): CopilotConversation {
   };
 }
 
+export function normalizePlanRow(row: any): CopilotSavedPlan {
+  const inputs = row?.inputs && typeof row.inputs === 'object' ? row.inputs : {};
+  return {
+    id: String(row.id),
+    accountId: String(row.account_id),
+    opportunityId: row.opportunity_id ? String(row.opportunity_id) : null,
+    conversationId: row.conversation_id ? String(row.conversation_id) : null,
+    plan: (row?.plan && typeof row.plan === 'object' ? row.plan : {}) as CopilotPlan,
+    inputs: {
+      company: shortText(inputs.company, 240),
+      site: shortText(inputs.site, 1000),
+      socialProfiles: shortText(inputs.socialProfiles, 5000),
+      context: shortText(inputs.context, 30000),
+      offer: shortText(inputs.offer, 12000),
+      opportunityId: shortText(inputs.opportunityId, 60),
+    } satisfies CopilotPlanInputs,
+    createdByEmail: shortText(row.created_by_email, 320),
+    createdAt: String(row.created_at),
+  };
+}
+
 function accountQueryFor(access: CopilotAccess) {
   const sb = createSupabaseAdmin();
   let query = sb.from('sales_accounts').select(
@@ -99,7 +123,7 @@ export async function listCopilotAccounts(access: CopilotAccess): Promise<Copilo
 
   const accountIds = accountRows.map((row: any) => row.id);
   const repIds = [...new Set(accountRows.map((row: any) => row.representante_id).filter(Boolean))];
-  const [{ data: opportunityRows }, { data: conversationRows }, { data: repRows }] = await Promise.all([
+  const [{ data: opportunityRows }, { data: conversationRows }, { data: planRows }, { data: repRows }] = await Promise.all([
     sb.from('sales_opportunities')
       .select('account_id, stage, status, next_action, next_action_date, updated_at')
       .in('account_id', accountIds)
@@ -109,6 +133,11 @@ export async function listCopilotAccounts(access: CopilotAccess): Promise<Copilo
       .select('account_id, happened_at')
       .in('account_id', accountIds)
       .order('happened_at', { ascending: false })
+      .limit(5000),
+    sb.from('copilot_plans')
+      .select('account_id, created_at')
+      .in('account_id', accountIds)
+      .order('created_at', { ascending: false })
       .limit(5000),
     repIds.length
       ? sb.from('sales_representatives').select('id, name').in('id', repIds)
@@ -129,11 +158,19 @@ export async function listCopilotAccounts(access: CopilotAccess): Promise<Copilo
     if (!current.latest) current.latest = row.happened_at;
     conversations.set(row.account_id, current);
   }
+  const plans = new Map<string, { count: number; latest: string | null }>();
+  for (const row of planRows || []) {
+    const current = plans.get(row.account_id) || { count: 0, latest: null };
+    current.count += 1;
+    if (!current.latest) current.latest = row.created_at;
+    plans.set(row.account_id, current);
+  }
 
   return accountRows.map((row: any) => {
     const accountOpportunities = opportunities.get(row.id) || [];
     const latestOpportunity = accountOpportunities[0] || null;
     const conversation = conversations.get(row.id) || { count: 0, latest: null };
+    const planning = plans.get(row.id) || { count: 0, latest: null };
     return {
       id: row.id,
       name: row.trade_name || row.legal_name,
@@ -145,6 +182,8 @@ export async function listCopilotAccounts(access: CopilotAccess): Promise<Copilo
       representativeName: reps.get(row.representante_id) || null,
       conversationCount: conversation.count,
       lastConversationAt: conversation.latest,
+      planningCount: planning.count,
+      lastPlanningAt: planning.latest,
       openOpportunityCount: accountOpportunities.length,
       currentStage: latestOpportunity?.stage || null,
       nextAction: latestOpportunity?.next_action || null,
@@ -160,12 +199,14 @@ export async function getCopilotAccountDetail(
   const account = await findCopilotAccount(access, accountId);
   if (!account) return null;
   const sb = createSupabaseAdmin();
-  const [{ data: contacts }, { data: opportunities }, { data: conversations }] = await Promise.all([
+  const [{ data: contacts }, { data: opportunities }, { data: plans }, { data: conversations }] = await Promise.all([
     sb.from('sales_contacts').select('id, name, role, email, phone, is_primary')
       .eq('account_id', accountId).order('is_primary', { ascending: false }).order('name'),
     sb.from('sales_opportunities')
       .select('id, opportunity_name, stage, status, identified_need, next_action, next_action_date')
       .eq('account_id', accountId).order('updated_at', { ascending: false }),
+    sb.from('copilot_plans').select('*')
+      .eq('account_id', accountId).order('created_at', { ascending: false }).limit(50),
     sb.from('copilot_conversations').select('*')
       .eq('account_id', accountId).order('happened_at', { ascending: false }).limit(50),
   ]);
@@ -190,6 +231,7 @@ export async function getCopilotAccountDetail(
       identifiedNeed: row.identified_need || null, nextAction: row.next_action || null,
       nextActionDate: row.next_action_date || null,
     })),
+    plans: (plans || []).map(normalizePlanRow),
     conversations: (conversations || []).map(normalizeConversationRow),
   };
 }
