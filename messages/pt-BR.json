@@ -888,9 +888,9 @@
     "qa": {
       "title": "Tira-Dúvidas",
       "scope": "só responde sobre {descriptor}",
-      "markContentFirst": "Marque o conteúdo como realizado antes de tirar dúvidas",
+      "markContentFirst": "Abra um dos formatos acima para tirar dúvidas",
       "ask": "Tirar dúvida sobre a semana",
-      "unlockAfterContent": "Libera após marcar conteúdo como realizado",
+      "unlockAfterContent": "Libera depois que você abrir o conteúdo",
       "empty": "Pergunte o que quiser sobre <strong>{descriptor}</strong>.",
       "placeholder": "Sua dúvida... (Shift+Enter pra nova linha)"
     },
@@ -939,7 +939,6 @@
       "contentPending": "a fazer",
       "contentNone": "sem conteúdo esta semana",
       "evidenceProgress": "{done} de {total} respostas",
-      "evidenceNotStarted": "não começou",
       "closesHere": "A semana só é concluída na conversa de evidências — abrir o conteúdo não conclui.",
       "doneAll": "Concluída. A próxima já está liberada.",
       "weekDone": "Semana {week} concluída",

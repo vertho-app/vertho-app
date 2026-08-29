@@ -888,9 +888,9 @@
     "qa": {
       "title": "Questions",
       "scope": "only responds about {descriptor}",
-      "markContentFirst": "Mark the content as completed before asking questions",
+      "markContentFirst": "Open one of the formats above to ask questions",
       "ask": "Ask questions about the week",
-      "unlockAfterContent": "Releases after marking content as done",
+      "unlockAfterContent": "Unlocks once you open the content",
       "empty": "Ask anything you want about <strong>{descriptor}</strong>.",
       "placeholder": "Your question... (Shift+Enter to new line)"
     },
@@ -939,7 +939,6 @@
       "contentPending": "to do",
       "contentNone": "no content this week",
       "evidenceProgress": "{done} of {total} replies",
-      "evidenceNotStarted": "not started",
       "closesHere": "The week is only completed in the evidence conversation — opening the content does not complete it.",
       "doneAll": "Completed. The next week is now open.",
       "weekDone": "Week {week} completed",

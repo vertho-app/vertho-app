@@ -509,10 +509,23 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               <span className={`flex items-center gap-1.5 ${turnosFeitos > 0 ? 'text-brand-400' : 'text-gray-400'}`}>
                 <span className="w-[13px] text-center">2</span>
                 {t('progress.stepEvidence')}
+                {/*
+                  🔴 "não começou" VIROU "0 de 6 respostas" (28/08/2026, pedido
+                  do dono depois do caso da Edileide, Ibipeba).
+
+                  O estado inicial era o único da barra que não dizia TAMANHO.
+                  Quem nunca clicou lia "Evidências · não começou" e não tinha
+                  como saber se aquilo custava uma resposta ou vinte — e é
+                  exatamente essa pessoa que a barra precisa convencer, porque
+                  ela ainda acredita que o que fecha a semana é marcar o
+                  conteúdo. Ela ficou 6 dias (21 a 27/08) escrevendo "assisti o
+                  vídeo e não consigo marcar que concluí".
+
+                  `evidenceNotStarted` saiu dos 4 locales junto: manter a chave
+                  seria deixar registrada a formulação que omite o número.
+                */}
                 <span className="text-gray-500">
-                  · {turnosFeitos > 0
-                      ? t('progress.evidenceProgress', { done: turnosFeitos, total: turnosNecessarios })
-                      : t('progress.evidenceNotStarted')}
+                  · {t('progress.evidenceProgress', { done: turnosFeitos, total: turnosNecessarios })}
                 </span>
               </span>
               <span className="text-gray-600">→</span>
@@ -942,17 +955,47 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               );
             }
             return (
-              <button
-                onClick={startChat}
-                disabled={(!podeConversar && !isAplicacao && !isAvaliacao) || aplicacaoSemModo}
-                title={aplicacaoSemModo ? t('evidence.chooseMissionFirst') : ''}
-                className="w-full px-4 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold"
-              >
-                {semanaNum === 13 ? t('evidence.startClosing')
-                 : semanaNum === 14 ? t('evidence.viewFinalScenario')
-                 : isAplicacao ? t('evidence.sendAnswer')
-                 : t('evidence.start')}
-              </button>
+              <>
+                {/*
+                  O TAMANHO DA CONVERSA, DITO NA PORTA (28/08/2026, pedido do
+                  dono).
+                  🔴 ISTO CONTRARIA, DE PROPÓSITO, A DECISÃO DE 25/08 — que está
+                  três blocos abaixo, no contador de dentro do chat: "antes do 1º
+                  turno o número seria o total e soaria como uma tarefa de 6
+                  passos anunciada na porta". A premissa era que anunciar o custo
+                  afugenta. O caso que a derrubou: a pessoa não chegava a ser
+                  afugentada pelo número porque não chegava ao botão — ela
+                  passava dias procurando um "marcar como concluído" que não
+                  existe mais, e o botão roxo ao lado, chamado "Levantar
+                  evidências", não se anunciava como o que fecha a semana.
+                  Custo desconhecido não é custo zero: é motivo para não clicar.
+                  O contador de DENTRO continua como estava — lá o número é
+                  "quanto falta", aqui é "quanto custa", e os dois saem da mesma
+                  régua (`turnosFaltando`), então não podem divergir.
+                  Fica de fora quando a missão da semana de aplicação ainda não
+                  foi escolhida: ali o botão está desabilitado por outro motivo
+                  (`chooseMissionFirst`), e cobrar respostas sem dar o caminho é
+                  o defeito que esta tela passou o mês inteiro corrigindo.
+                */}
+                {!aplicacaoSemModo && turnosFaltando > 0 && (
+                  <p className="mb-2 text-[13px] leading-snug text-purple-200">
+                    {turnosFaltando === 1
+                      ? t('evidence.remainingOne', { week: semanaNum })
+                      : t('evidence.remaining', { count: turnosFaltando, week: semanaNum })}
+                  </p>
+                )}
+                <button
+                  onClick={startChat}
+                  disabled={(!podeConversar && !isAplicacao && !isAvaliacao) || aplicacaoSemModo}
+                  title={aplicacaoSemModo ? t('evidence.chooseMissionFirst') : ''}
+                  className="w-full px-4 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold"
+                >
+                  {semanaNum === 13 ? t('evidence.startClosing')
+                   : semanaNum === 14 ? t('evidence.viewFinalScenario')
+                   : isAplicacao ? t('evidence.sendAnswer')
+                   : t('evidence.start')}
+                </button>
+              </>
             );
           })() : (
             <>

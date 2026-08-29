@@ -210,12 +210,100 @@ describe('itens 3 e 4 — a régua passou a ser dita', () => {
   });
 });
 
+/**
+ * 🔴 O QUE A TELA DIZ ANTES DO PRIMEIRO CLIQUE (28/08/2026).
+ *
+ * Tudo acima foi medido em quem já tinha CLICADO em Evidências. O caso que
+ * faltava é o de quem nunca chegou lá: Edileide, de Ibipeba, escreveu por
+ * WhatsApp em 21, 24 e 27/08 — "assisti o vídeo e não consigo marcar que
+ * concluí", "não fica verde quando confirmo", "como não consigo marcar como
+ * feito não passo para a próxima etapa". Ela nunca usou a palavra evidências.
+ * Procurava o botão "marcar como realizado", que estava travado até 25/08 e foi
+ * removido em 27/08.
+ *
+ * Nos dois pontos que ela lia antes de desistir, a tela não dizia o tamanho:
+ *   · a barra do topo: "Evidências · não começou";
+ *   · o botão roxo: "Levantar evidências", sem dizer que é ele que fecha.
+ *
+ * Denominador na mesma medição (Ibipeba, 36 trilhas ativas): 16 sem nenhuma
+ * semana concluída, das quais 9 nunca começaram a conversa — o estado que estas
+ * asserções cobrem — e 5 pararam no meio, uma delas em 5 de 6 desde 21/07.
+ */
+describe('a porta da conversa diz quanto custa', () => {
+  it('a barra do topo mostra a régua desde o turno ZERO', () => {
+    // O `? :` que escolhia entre progresso e "não começou" saiu: o estado
+    // inicial passa a ser `0 de N`, na mesma unidade dos outros.
+    expect(TELA).toContain("· {t('progress.evidenceProgress', { done: turnosFeitos, total: turnosNecessarios })}");
+    expect(TELA).not.toContain("t('progress.evidenceNotStarted')");
+  });
+
+  it('o card FECHADO diz quantas respostas faltam, com a régua real', () => {
+    // Mesma chave e mesma variável que o contador de dentro do chat. Um número
+    // literal ou uma segunda conta aqui seria a divergência que a tela toda
+    // existe para não ter.
+    const porta = TELA.slice(
+      TELA.indexOf('const aplicacaoSemModo ='),
+      TELA.indexOf("t('evidence.start')"),
+    );
+    expect(porta).toContain('{!aplicacaoSemModo && turnosFaltando > 0 && (');
+    expect(porta).toContain("t('evidence.remainingOne', { week: semanaNum })");
+    expect(porta).toContain("t('evidence.remaining', { count: turnosFaltando, week: semanaNum })");
+    expect(porta).not.toMatch(/turnosFaltando\s*=\s*\d+/);
+  });
+
+  it('não cobra respostas de quem ainda não pode responder', () => {
+    // Semana de aplicação sem missão escolhida: o botão está desabilitado por
+    // `chooseMissionFirst`. Anunciar "faltam 10 respostas" ali seria cobrar sem
+    // dar caminho — o defeito que este arquivo inteiro documenta.
+    expect(TELA).toContain('!aplicacaoSemModo && turnosFaltando > 0');
+  });
+});
+
+/**
+ * A copy que sobreviveu ao botão que ela nomeava.
+ *
+ * O botão "Marcar como realizado" saiu em 27/08, mas o Tira-Dúvidas continuou
+ * dizendo "Libera após marcar conteúdo como realizado" nos 4 locales — uma
+ * instrução para apertar algo que não existe, na tela de quem já estava
+ * convencida de que era isso que faltava. `content.openToUnlock` (a instrução
+ * gêmea, no card do conteúdo) já tinha sido corrigida na mesma rodada; estas
+ * duas ficaram para trás porque estão em outro card.
+ */
+describe('nenhuma copy manda marcar o conteúdo — o botão não existe', () => {
+  const LOCALES = ['pt-BR', 'pt-PT', 'en-US', 'es-ES'] as const;
+  const semanaDoLocale = (loc: string) => JSON.parse(
+    readFileSync(join(process.cwd(), 'messages', `${loc}.json`), 'utf-8'),
+  ).SeasonWeek;
+
+  it('as duas chaves do tira-dúvidas apontam para ABRIR, nos 4 idiomas', () => {
+    for (const loc of LOCALES) {
+      const qa = semanaDoLocale(loc).qa;
+      for (const k of ['markContentFirst', 'unlockAfterContent']) {
+        expect(qa[k], `${loc} · qa.${k}`).toBeTruthy();
+        expect(qa[k].toLowerCase(), `${loc} · qa.${k}`).not.toMatch(/marc|mark/);
+      }
+    }
+  });
+
+  it('a chave que omitia o tamanho saiu dos 4 locales', () => {
+    for (const loc of LOCALES) {
+      const progress = semanaDoLocale(loc).progress;
+      // ⚠️ `toBeUndefined()` sozinho fica verde quando o CAMINHO está errado
+      // (um typo em `.progress` some com a chave e com o teste junto). A
+      // asserção positiva ao lado é o que prova que estamos olhando o objeto
+      // certo antes de afirmar a ausência.
+      expect(progress.evidenceProgress, `${loc} · progress.evidenceProgress`).toBeTruthy();
+      expect(progress.evidenceNotStarted, `${loc} · progress.evidenceNotStarted`).toBeUndefined();
+    }
+  });
+});
+
 describe('as chaves de i18n que a tela passou a usar existem', () => {
   const sw = (ptBR as any).SeasonWeek;
 
   it('o bloco de progresso está completo em pt-BR', () => {
     for (const k of ['title', 'stepContent', 'stepEvidence', 'stepDone', 'contentDone',
-      'contentPending', 'evidenceProgress', 'evidenceNotStarted', 'closesHere',
+      'contentPending', 'evidenceProgress', 'closesHere',
       'weekDone', 'nextOpens', 'nextAlreadyOpen', 'goToNext', 'seasonDone']) {
       expect(sw.progress?.[k], `SeasonWeek.progress.${k}`).toBeTruthy();
     }

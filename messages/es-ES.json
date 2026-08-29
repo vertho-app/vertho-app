@@ -888,9 +888,9 @@
     "qa": {
       "title": "Preguntas",
       "scope": "solo responde sobre {descriptor}",
-      "markContentFirst": "Marca el contenido como realizado antes de hacer preguntas",
+      "markContentFirst": "Abre uno de los formatos de arriba para hacer preguntas",
       "ask": "Hacer una pregunta sobre la semana",
-      "unlockAfterContent": "Se libera después de marcar el contenido como realizado",
+      "unlockAfterContent": "Se libera cuando abras el contenido",
       "empty": "Pregunta lo que quieras sobre <strong>{descriptor}</strong>.",
       "placeholder": "Tu pregunta... (Shift+Enter para nueva línea)"
     },
@@ -939,7 +939,6 @@
       "contentPending": "pendiente",
       "contentNone": "sin contenido esta semana",
       "evidenceProgress": "{done} de {total} respuestas",
-      "evidenceNotStarted": "sin empezar",
       "closesHere": "La semana solo se completa en la conversación de evidencias — abrir el contenido no la completa.",
       "doneAll": "Completada. La siguiente ya está disponible.",
       "weekDone": "Semana {week} completada",
