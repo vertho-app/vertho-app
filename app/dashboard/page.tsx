@@ -13,6 +13,7 @@ import { loadHomeData } from './home-actions';
 import HomeRH from './home-rh';
 import VideoModal from '@/components/video-modal';
 import { ContentThumb } from '@/components/content-thumb';
+import { getRecommendedContentHref } from '@/lib/home/recommended-content-link';
 
 const BUNNY_LIBRARY = 636615;
 
@@ -542,14 +543,9 @@ export default function DashboardHomePage() {
                 // aparecia uma única vez no repositório, nesta linha, do lado de
                 // quem LÊ. A coluna que a query traz é `duracao_min`.
                 const duracao = item.duracao_min ? `${Math.round(item.duracao_min)} min` : null;
-                return (
-                  <article key={item.id}
-                    className="rounded-[22px] overflow-hidden cursor-pointer transition-all active:scale-[0.98]"
-                    style={{ background: 'linear-gradient(180deg, rgba(12,32,56,0.95), rgba(8,26,46,0.95))', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 8px 24px rgba(0,0,0,0.18)' }}
-                    onClick={() => {
-                      if (isVideo) setActiveVideo({ videoId: item.bunny_video_id, titulo: item.titulo });
-                      else if (item.url) window.open(item.url, '_blank', 'noopener');
-                    }}>
+                const href = getRecommendedContentHref(item);
+                const cardContent = (
+                  <>
                     <ContentThumb
                       formato={item.formato}
                       ordem={ordem}
@@ -566,6 +562,48 @@ export default function DashboardHomePage() {
                       </span>
                       <p className="text-[12px] text-white/50 line-clamp-1">{item.descritor || item.competencia || ''}</p>
                     </div>
+                  </>
+                );
+
+                const cardClass = 'block w-full rounded-[22px] overflow-hidden text-left transition-all active:scale-[0.98]';
+                const cardStyle = {
+                  background: 'linear-gradient(180deg, rgba(12,32,56,0.95), rgba(8,26,46,0.95))',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                };
+
+                if (isVideo) {
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`${cardClass} cursor-pointer`}
+                      style={cardStyle}
+                      onClick={() => setActiveVideo({ videoId: item.bunny_video_id, titulo: item.titulo })}
+                    >
+                      {cardContent}
+                    </button>
+                  );
+                }
+
+                if (href) {
+                  return (
+                    <a
+                      key={item.id}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${cardClass} cursor-pointer`}
+                      style={cardStyle}
+                    >
+                      {cardContent}
+                    </a>
+                  );
+                }
+
+                return (
+                  <article key={item.id} className={`${cardClass} opacity-60`} style={cardStyle}>
+                    {cardContent}
                   </article>
                 );
               })}
