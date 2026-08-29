@@ -33,6 +33,21 @@ const ARQUIVOS = () =>
 const ehComentario = (l: string) => /^\s*(\/\/|\*|\/\*)/.test(l);
 
 /**
+ * `turma.sys_config` é a FONTE, não a violação.
+ *
+ * O padrão abaixo casa `sys_config` + chave na mesma linha, sem olhar de QUEM é
+ * o `sys_config` — e o que este guard caça é a config da EMPRESA decidindo etapa
+ * de turma. Ler a config da própria turma é exatamente o comportamento correto.
+ *
+ * Medido em 29/08/2026: `app/admin-v2/actions.ts:543` (`programaModo:
+ * turma.sys_config?.programa_modo`) reprovava aqui exibindo o modo DA TURMA na
+ * tela da turma. Falso positivo trava o push de todo mundo (a suíte lê o DISCO),
+ * e guard que reprova o caminho certo ensina a contorná-lo pela allowlist — que
+ * é o único lugar onde este guard não pode crescer.
+ */
+const ehConfigDaPropriaTurma = (l: string) => /\bturma\s*\??\.\s*sys_config/.test(l);
+
+/**
  * DÍVIDA DECLARADA — só pode ENCOLHER. Entrada nova aqui é exatamente o bug que
  * este guard existe para pegar.
  *
@@ -100,7 +115,7 @@ describe('Guard: config de turma tem fonte única', () => {
       if (!txt.includes('sys_config')) continue;
       const linhas = txt.split('\n')
         .map((l, i) => ({ l, n: i + 1 }))
-        .filter(({ l }) => !ehComentario(l) && padrao.test(l));
+        .filter(({ l }) => !ehComentario(l) && !ehConfigDaPropriaTurma(l) && padrao.test(l));
       if (linhas.length) violacoes[arq] = linhas.map(({ l, n }) => `:${n} ${l.trim().slice(0, 90)}`);
     }
 
@@ -122,7 +137,7 @@ describe('Guard: config de turma tem fonte única', () => {
     const obsoletos = Object.keys(ALLOWLIST).filter((arq) => {
       let txt: string;
       try { txt = readFileSync(arq, 'utf8'); } catch { return true; }
-      return !txt.split('\n').some((l) => !ehComentario(l) && padrao.test(l));
+      return !txt.split('\n').some((l) => !ehComentario(l) && !ehConfigDaPropriaTurma(l) && padrao.test(l));
     });
     // Allowlist que não encolhe deixa de ser dívida e vira decoração.
     expect(obsoletos, `remova de ALLOWLIST: ${obsoletos.join(', ')}`).toEqual([]);
