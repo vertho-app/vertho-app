@@ -70,3 +70,16 @@ done
   "removido" de "achei que removi".
 - **Capacidade do projeto sobe durante a operação** (13% → 21% com as duplicatas). Ela só volta ao
   normal depois de remover as velhas — não é sinal de erro no meio do caminho.
+- 🔴 **O upload pode criar um card A MAIS, e o card extra aparece DEPOIS da conferência.** Medido
+  29/08/2026: subi 2 arquivos, conferi logo em seguida e vi 17 cards (16 + as 2 novas menos uma que
+  o `find` truncou) — parecia certo. Minutos depois havia **19**: o `CLAUDE.md` novo estava lá
+  **duas vezes**, com a mesma contagem. Contar 16+N e achar o total plausível não basta: conte
+  **por nome**, e um nome com duas contagens IGUAIS é duplicata do seu próprio upload, não a velha.
+  Nesta rodada as remoções foram **3**, não 2.
+- ⚠️ **`find` trunca sem avisar** — devolveu 16 quando havia 17, omitindo justamente o
+  `MODULOS-BASE-CONTEUDO.md`, e 17 quando havia 19. Para a contagem que DECIDE a remoção, use
+  `get_page_text` (a seção Context sai em lista, nome + linhas) e confira nome a nome contra a
+  tabela do repo. O `find` serve para pegar `ref`, não para contar.
+- **O X fica no canto superior DIREITO do card** (a versão anterior desta receita dizia esquerdo).
+  Ele só aparece no `hover`, e a janela pode mudar de tamanho no meio da operação — refaça o
+  `screenshot` antes de cada clique em vez de reaproveitar coordenada.
