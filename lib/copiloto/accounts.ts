@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { COPILOTO_EVOLUCAO } from '@/lib/status';
 import type { CopilotAccess } from './auth';
 import type {
   CopilotAccountDetail,
@@ -23,7 +24,7 @@ const EMPTY_MEMORY: CopilotAccountMemory = {
 };
 
 const DISCOVERY_KEYS = new Set(DISCOVERY_CHECKLIST.map((item) => item.key));
-const EVOLUTION_STATUSES = new Set<CopilotEvolutionStatus>(['novo', 'confirmado', 'mudou', 'pendente']);
+const EVOLUTION_STATUSES = new Set<CopilotEvolutionStatus>(Object.values(COPILOTO_EVOLUCAO));
 const SOURCES = new Set<CopilotConversationSource>(['paste', 'whisper_local', 'supernormal', 'manual']);
 
 function shortText(value: unknown, max = 800): string {
@@ -57,7 +58,7 @@ export function normalizeConversationAnalysis(value: unknown): CopilotConversati
       nextStep: shortText(memory.nextStep, 600),
     },
     evolution: (Array.isArray(raw.evolution) ? raw.evolution : []).map((item: any) => ({
-      status: EVOLUTION_STATUSES.has(item?.status) ? item.status as CopilotEvolutionStatus : 'pendente',
+      status: EVOLUTION_STATUSES.has(item?.status) ? item.status as CopilotEvolutionStatus : COPILOTO_EVOLUCAO.PENDENTE,
       text: shortText(item?.text, 600),
       evidence: shortText(item?.evidence, 500),
     })).filter((item: { text: string }) => item.text).slice(0, 12),

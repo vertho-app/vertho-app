@@ -5,6 +5,7 @@ import { csrfCheck } from '@/lib/csrf';
 import { aiLimiter } from '@/lib/rate-limit';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireRepresentativeOrAdminRequest, type CopilotAccess } from '@/lib/copiloto/auth';
+import { comContexto } from '@/lib/execucao-contexto';
 import { researchAsPrivateContext, researchCompany } from '@/lib/copiloto/research';
 import {
   filterResearchByOfficialSocials,
@@ -77,10 +78,11 @@ async function opportunityContext(access: CopilotAccess, opportunityId: string):
 
 async function verthoGrounding(): Promise<string> {
   const sb = createSupabaseAdmin();
-  const { data } = await sb.from('sales_materials')
+  const { data, error } = await sb.from('sales_materials')
     .select('title, category, segment, description, content')
     .eq('is_active', true)
     .in('category', ['playbook', 'diagnostico', 'objecoes', 'case']);
+  if (error) throw new Error('falha ao ler materiais comerciais: ' + error.message);
   if (!data?.length) return 'Sem materiais comerciais adicionais cadastrados.';
   return data.slice(0, 16).map((item: any) => {
     const body = String(item.content || item.description || '').replace(/\s+/g, ' ').trim().slice(0, 1600);
@@ -258,7 +260,7 @@ function normalizePlan(
   };
 }
 
-export async function POST(req: Request) {
+async function planejarConversa(req: Request) {
   try {
     const csrf = csrfCheck(req);
     if (csrf) return csrf;
@@ -332,4 +334,9 @@ export async function POST(req: Request) {
     console.error('[copiloto/planejamento]', error?.message || error);
     return NextResponse.json({ error: 'Não foi possível pesquisar e montar o planejamento agora.' }, { status: 502 });
   }
+}
+
+export async function POST(req: Request) {
+  return comContexto({ runtime: 'rota', orcamentoMs: 300 * 1000, onde: 'api/copiloto/planejamento' },
+    () => planejarConversa(req));
 }

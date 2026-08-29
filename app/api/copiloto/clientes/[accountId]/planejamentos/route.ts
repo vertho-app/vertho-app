@@ -46,8 +46,9 @@ export async function POST(
       return NextResponse.json({ error: 'Oportunidade inválida' }, { status: 400 });
     }
     if (opportunityId) {
-      const { data } = await createSupabaseAdmin().from('sales_opportunities')
+      const { data, error: opportunityError } = await createSupabaseAdmin().from('sales_opportunities')
         .select('id').eq('id', opportunityId).eq('account_id', accountId).maybeSingle();
+      if (opportunityError) throw new Error(opportunityError.message);
       if (!data) return NextResponse.json({ error: 'A oportunidade não pertence a esta empresa' }, { status: 400 });
     }
 

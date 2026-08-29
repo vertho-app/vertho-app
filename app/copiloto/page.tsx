@@ -13,7 +13,7 @@ export const maxDuration = 300;
 
 async function opportunitiesFor(repId: string): Promise<CopilotOpportunity[]> {
   const sb = createSupabaseAdmin();
-  const { data } = await sb.from('sales_opportunities')
+  const { data, error } = await sb.from('sales_opportunities')
     .select(`id, account_id, opportunity_name, identified_need, stage, product_interest, competitors, objections,
       account:sales_accounts (legal_name, trade_name, segment, city, state),
       primary_contact:sales_contacts!sales_opportunities_primary_contact_id_fkey (name, role)`)
@@ -21,6 +21,9 @@ async function opportunitiesFor(repId: string): Promise<CopilotOpportunity[]> {
     .eq('status', 'open')
     .order('updated_at', { ascending: false })
     .limit(60);
+  // Erro de leitura não pode virar "sem oportunidades" — lista vazia é dado,
+  // falha é falha (E11).
+  if (error) throw new Error('falha ao carregar oportunidades: ' + error.message);
 
   return (data || []).map((row: any) => {
     const account = row.account || {};

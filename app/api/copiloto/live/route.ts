@@ -4,6 +4,7 @@ import { extractJSON } from '@/actions/utils';
 import { csrfCheck } from '@/lib/csrf';
 import { createRateLimiter } from '@/lib/rate-limit';
 import { requireRepresentativeOrAdminRequest } from '@/lib/copiloto/auth';
+import { comContexto } from '@/lib/execucao-contexto';
 import { buildFallbackLiveReading } from '@/lib/copiloto/live-support';
 import { DISCOVERY_CHECKLIST, PACE_PHASES, type DiscoveryKey, type PacePhase } from '@/lib/copiloto/types';
 
@@ -75,7 +76,7 @@ async function generateLiveReading(system: string, prompt: string): Promise<{
   return null;
 }
 
-export async function POST(req: Request) {
+async function leituraAoVivo(req: Request) {
   try {
     const csrf = csrfCheck(req);
     if (csrf) return csrf;
@@ -167,4 +168,9 @@ JSON:
     console.error('[copiloto/live]', error?.message || error);
     return NextResponse.json({ error: 'Não foi possível atualizar a leitura da conversa.' }, { status: 502 });
   }
+}
+
+export async function POST(req: Request) {
+  return comContexto({ runtime: 'rota', orcamentoMs: 60 * 1000, onde: 'api/copiloto/live' },
+    () => leituraAoVivo(req));
 }

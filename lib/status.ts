@@ -145,3 +145,21 @@ export type EntregaT0Status = (typeof ENTREGA_T0)[keyof typeof ENTREGA_T0];
 
 /** Os que ainda devem entrega — a fila que o cron e o botão da equipe varrem. */
 export const ENTREGA_T0_NA_FILA: EntregaT0Status[] = [ENTREGA_T0.PENDENTE, ENTREGA_T0.FALHOU];
+
+/**
+ * copiloto evolution — o estágio de um item de EVOLUÇÃO DE CONTA (vendas).
+ *
+ * NONO domínio (28/08). `PENDENTE` coincide em valor com PROGRESSO/PAINEL/
+ * ENTREGA_T0 por acaso: aqui é "a IA anotou que algo evoluiu na conversa
+ * comercial e ninguém confirmou ainda", não uma semana de trilha nem uma
+ * entrega nossa. Nasceu em `lib/copiloto/types.ts` como union de literais;
+ * o `status-literal-guard` congela literal em arquivo novo, então o domínio
+ * vem morar aqui como os outros oito.
+ */
+export const COPILOTO_EVOLUCAO = {
+  NOVO: 'novo',
+  CONFIRMADO: 'confirmado',
+  MUDOU: 'mudou',
+  PENDENTE: 'pendente',
+} as const;
+export type CopilotEvolutionStatus = (typeof COPILOTO_EVOLUCAO)[keyof typeof COPILOTO_EVOLUCAO];

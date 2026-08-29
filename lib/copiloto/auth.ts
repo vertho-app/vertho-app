@@ -13,11 +13,14 @@ export async function resolveCopilotAccess(email: string | null): Promise<Copilo
   if (!email) return null;
   const normalized = email.trim().toLowerCase();
   const sb = createSupabaseAdmin();
-  const { data: rep } = await sb
+  const { data: rep, error } = await sb
     .from('sales_representatives')
     .select('*')
     .eq('email', normalized)
     .maybeSingle();
+  // Gate de acesso: falha de leitura não pode virar "sem acesso" (403 para
+  // quem tem) — nem pular para o ramo de admin com o lookup morto (E11).
+  if (error) throw new Error('falha ao resolver representante: ' + error.message);
 
   if (rep?.status === 'active') {
     return { kind: 'representative', email: normalized, rep: rep as SalesRepresentative };

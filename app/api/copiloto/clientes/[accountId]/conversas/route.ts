@@ -58,11 +58,15 @@ export async function POST(
     let planning: any = null;
     if (opportunityId) {
       if (!UUID.test(opportunityId)) return NextResponse.json({ error: 'Oportunidade inválida' }, { status: 400 });
-      const { data } = await sb.from('sales_opportunities')
+      const { data, error: opportunityError } = await sb.from('sales_opportunities')
         .select('id, opportunity_name, stage, identified_need, next_action, next_action_date, objections, competitors')
         .eq('id', opportunityId)
         .eq('account_id', accountId)
         .maybeSingle();
+      if (opportunityError) {
+        console.error('[copiloto/conversas] oportunidade:', opportunityError.message);
+        return NextResponse.json({ error: 'Falha ao ler a oportunidade do CRM' }, { status: 502 });
+      }
       if (!data) return NextResponse.json({ error: 'A oportunidade não pertence a este cliente' }, { status: 400 });
       opportunity = data;
     }
@@ -144,7 +148,10 @@ export async function POST(
       }
     }
 
-    await Promise.all([
+    // A conversa principal já persistiu: a nota no CRM e o touch do updated_at
+    // são espelho acessório — falha aqui é degradação registrada, não erro para
+    // quem já recebeu a análise (E11: mutação ignorada mascarava isso).
+    const [noteResult, touchResult] = await Promise.all([
       sb.from('sales_activity_notes').insert({
         representante_id: account.representante_id,
         opportunity_id: opportunity?.id || null,
@@ -155,6 +162,10 @@ export async function POST(
       }),
       sb.from('sales_accounts').update({ updated_at: new Date().toISOString() }).eq('id', accountId),
     ]);
+    if (noteResult.error || touchResult.error) {
+      console.warn('[copiloto/conversas] pós-save parcial:',
+        noteResult.error?.message || touchResult.error?.message);
+    }
 
     return NextResponse.json({ conversation: normalizeConversationRow(inserted) });
   } catch (error: any) {

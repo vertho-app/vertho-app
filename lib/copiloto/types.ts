@@ -45,7 +45,10 @@ export type CopilotAccountListItem = {
 };
 
 export type CopilotConversationSource = 'paste' | 'whisper_local' | 'supernormal' | 'manual';
-export type CopilotEvolutionStatus = 'novo' | 'confirmado' | 'mudou' | 'pendente';
+// Fonte única passou a ser lib/status.ts (nono domínio, 28/08): o union de
+// literais aqui derrubava o status-literal-guard em arquivo novo.
+import type { CopilotEvolutionStatus } from '@/lib/status';
+export type { CopilotEvolutionStatus };
 
 export type CopilotAccountMemory = {
   situation: string[];

@@ -120,6 +120,11 @@ export const AI_TASKS = [
   { key: 'copiloto_pesquisa_empresa', label: 'Copiloto PACE — pesquisa pública', fase: 'Copiloto' },
   { key: 'copiloto_planejamento', label: 'Copiloto PACE — planejamento da conversa', fase: 'Copiloto' },
   { key: 'copiloto_ao_vivo', label: 'Copiloto PACE — leitura ao vivo', fase: 'Copiloto' },
+  // 28/08: as três abaixo já rodavam com taskKey no código sem estarem aqui —
+  // invisíveis na tela de modelos e sem pino declarado (taskkey-declarada-guard).
+  { key: 'copiloto_memoria_conversa', label: 'Copiloto PACE — memória da conversa', fase: 'Copiloto' },
+  { key: 'copiloto_pesquisa_social_oficial', label: 'Copiloto PACE — pesquisa redes oficiais', fase: 'Copiloto' },
+  { key: 'copiloto_pesquisa_noticias_externas', label: 'Copiloto PACE — pesquisa notícias externas', fase: 'Copiloto' },
 ];
 
 /**
@@ -186,6 +191,14 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   copiloto_pesquisa_empresa: 'gpt-5.5',
   copiloto_planejamento:     'gpt-5.6-terra',
   copiloto_ao_vivo:          'gemini-3.7-flash',
+  // 28/08: incumbentes tornados explícitos — as chamadas já resolvem modelo
+  // inline (env COPILOTO_RESEARCH_MODEL || 'gpt-5.5' nas duas pesquisas,
+  // COPILOTO_MEMORY_MODEL || 'gpt-5.6-terra' na memória), então o pino espelha
+  // o que já roda. Sem estas linhas o custo caía sem rótulo no ledger e a task
+  // não aparecia na tela de modelos.
+  copiloto_memoria_conversa:          'gpt-5.6-terra',
+  copiloto_pesquisa_social_oficial:   'gpt-5.5',
+  copiloto_pesquisa_noticias_externas: 'gpt-5.5',
   // Módulos-Base — autora (extração/segmentação/estruturação) em Claude Sonnet 4.6
   // (24/06): qualidade pedagógica e aderência ao spec acima do Gemini Flash, que
   // entregava segmentação/estruturação mais rasa. Custo/latência maiores, aceitos

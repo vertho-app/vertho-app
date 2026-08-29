@@ -233,6 +233,12 @@
     "scripts/_probe-contexto-ledger.ts": 1,
     "scripts/_probe-pdi-check.ts": 1,
     "scripts/_medir-ia4-sem-censura.ts": 1,
-    "scripts/_experimento-pdi-opus-vs-sonnet.ts": 1
+    "scripts/_experimento-pdi-opus-vs-sonnet.ts": 1,
+    "lib/copiloto/accounts.ts": 2,
+    "lib/copiloto/auth.ts": 1,
+    "app/copiloto/page.tsx": 1,
+    "app/api/copiloto/planejamento/route.ts": 2,
+    "app/api/copiloto/clientes/[accountId]/conversas/route.ts": 1,
+    "app/api/copiloto/clientes/[accountId]/planejamentos/route.ts": 2
   }
 }
