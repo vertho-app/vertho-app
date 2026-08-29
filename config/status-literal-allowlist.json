@@ -10,7 +10,7 @@
     "actions/temporada-concluida.ts": 1,
     "actions/whatsapp-lote.ts": 1,
     "app/admin/empresas/[empresaId]/actions.ts": 9,
-    "app/admin/empresas/[empresaId]/fase2/page.tsx": 5,
+    "app/admin/empresas/[empresaId]/fase2/page.tsx": 3,
     "app/admin/temporadas/page.tsx": 11,
     "app/admin/vertho/auditoria-sem14/actions.ts": 1,
     "app/admin/vertho/evidencias/actions.ts": 1,

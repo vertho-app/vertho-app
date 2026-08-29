@@ -163,3 +163,23 @@ export const COPILOTO_EVOLUCAO = {
   PENDENTE: 'pendente',
 } as const;
 export type CopilotEvolutionStatus = (typeof COPILOTO_EVOLUCAO)[keyof typeof COPILOTO_EVOLUCAO];
+
+/**
+ * Filtro de status do painel de respostas da IA4 (`/admin/empresas/[id]/fase2`).
+ *
+ * DÉCIMO domínio (29/08), e o primeiro que NÃO descreve uma linha de banco: são
+ * os valores do `<select>` da tela, lidos por `lib/ia4-painel-respostas.ts`.
+ * `PENDENTE` coincide em valor com PROGRESSO/PAINEL/ENTREGA_T0/COPILOTO_EVOLUCAO
+ * por acaso — aqui quer dizer "a IA4 ainda não avaliou esta resposta"
+ * (`avaliacao_ia` nulo), um estado DERIVADO; já APROVADO/APROVADO_COM_AJUSTES/
+ * REVISAR são o `status_ia4` gravado. Os dois grupos convivem no mesmo select
+ * porque a pergunta do operador é uma só: em que pé está esta resposta?
+ */
+export const IA4_FILTRO = {
+  PENDENTE: 'pendente',
+  AVALIADO: 'avaliado',
+  APROVADO: 'aprovado',
+  APROVADO_COM_AJUSTES: 'aprovado_com_ajustes',
+  REVISAR: 'revisar',
+} as const;
+export type Ia4FiltroStatus = (typeof IA4_FILTRO)[keyof typeof IA4_FILTRO];

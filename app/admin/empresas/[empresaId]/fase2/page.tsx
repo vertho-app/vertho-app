@@ -13,6 +13,8 @@ import {
 import BackButton from '@/components/back-button';
 import { loadRespostasAvaliadas, reavaliarResposta, rechecarResposta, loadRosterDiagnostico } from '@/actions/fase3';
 import { selecionarParaReavaliar, resumoPuladas, PISO_REAVALIACAO } from '@/lib/ia4-fila-reavaliacao';
+import { filtrarRespostas, contarStats, temFiltro, type NotaBanda } from '@/lib/ia4-painel-respostas';
+import { IA4_FILTRO } from '@/lib/status';
 import { MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
 import { loadTrilhas } from '@/actions/trilhas-load';
 import VideoModal from '@/components/video-modal';
@@ -191,25 +193,6 @@ const CHECK_DIM_LABELS: Record<string, string> = {
   evidencias_niveis: 'Evidências', consolidacao: 'Consolidação', feedback_especificidade: 'Feedback', desenvolvimento: 'Recomend.',
 };
 
-// Bandas do filtro de nota de check (IA4). Alinhadas às cores da própria tela:
-// ≥90 verde (alto), 80–89 cyan (medio), <80 amber (baixo), sem check (sem).
-type NotaBanda = '' | 'alto' | 'medio' | 'baixo' | 'sem';
-const NOTA_BANDAS: NotaBanda[] = ['', 'alto', 'medio', 'baixo', 'sem'];
-function getCheck(r: any): any {
-  if (!r) return null;
-  try { return typeof r.payload_ia4 === 'string' ? JSON.parse(r.payload_ia4) : r.payload_ia4; }
-  catch { return null; }
-}
-function notaBanda(r: any): NotaBanda {
-  const check = getCheck(r);
-  if (!check || check.nota === undefined || check.nota === null) return 'sem';
-  const n = Number(check.nota);
-  if (!Number.isFinite(n)) return 'sem';
-  if (n >= 90) return 'alto';
-  if (n >= 80) return 'medio';
-  return 'baixo';
-}
-
 export default function Fase2Page({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
   const router = useRouter();
@@ -268,7 +251,10 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
     // e quem está ACIMA do piso — medido, reavaliar ali PIORA (−7,6 de média,
     // 6 de 8 caindo). O que ficou de fora é anunciado: filtro silencioso é
     // indistinguível de "reavaliei tudo".
-    const { elegiveis, puladas } = selecionarParaReavaliar(respostas as any);
+    // A fila sai do conjunto VISÍVEL (`filaReavaliacao`), o mesmo que o botão
+    // conta — antes vinha de `respostas` e o clique alcançava quem o filtro
+    // tinha tirado da tela.
+    const { elegiveis, puladas } = filaReavaliacao;
     const fora = resumoPuladas(puladas);
     if (!elegiveis.length) {
       flash(fora ? `Nada elegível — ${fora}` : tr('messages.noneToReview'));
@@ -327,17 +313,8 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   // Limpa a seleção ao trocar filtros (uma resposta pode sair do conjunto visível).
   useEffect(() => { setSelecionados(new Set()); }, [filtroCargo, filtroColab, filtroStatus, filtroNota]);
 
-  const filtered = respostas.filter(r => {
-    if (filtroColab && r.colaborador_nome !== filtroColab) return false;
-    if (filtroCargo && r.colaborador_cargo !== filtroCargo) return false;
-    if (filtroStatus === 'avaliado' && !r.avaliacao_ia) return false;
-    if (filtroStatus === 'pendente' && r.avaliacao_ia) return false;
-    if (filtroStatus === 'aprovado' && r.status_ia4 !== 'aprovado') return false;
-    if (filtroStatus === 'aprovado_com_ajustes' && r.status_ia4 !== 'aprovado_com_ajustes') return false;
-    if (filtroStatus === 'revisar' && r.status_ia4 !== 'revisar') return false;
-    if (filtroNota && notaBanda(r) !== filtroNota) return false;
-    return true;
-  });
+  const filtros = { colab: filtroColab, cargo: filtroCargo, status: filtroStatus, nota: filtroNota };
+  const filtered = filtrarRespostas(respostas as any[], filtros);
 
   // Agrupar por colaborador
   const porColab = {};
@@ -346,14 +323,21 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
     porColab[r.colaborador_nome].items.push(r);
   });
 
-  const stats = {
-    total: respostas.length,
-    avaliadas: respostas.filter(r => r.avaliacao_ia).length,
-    aprovadas: respostas.filter(r => r.status_ia4 === 'aprovado').length,
-    com_ajustes: respostas.filter(r => r.status_ia4 === 'aprovado_com_ajustes').length,
-    revisar: respostas.filter(r => r.status_ia4 === 'revisar').length,
-    pendentes: respostas.filter(r => !r.avaliacao_ia).length,
-  };
+  // Os chips do topo contam o que está NA TELA. Com filtro ativo, um número
+  // calculado sobre `respostas` mede outro conjunto e é indistinguível do
+  // certo — quem filtra "revisar" de um cargo lê o total da empresa achando
+  // que é o do recorte. O total geral fica ao lado, como "de N".
+  const filtroAtivo = temFiltro(filtros);
+  const stats = contarStats(filtered);
+  const statsGerais = filtroAtivo ? contarStats(respostas as any[]) : stats;
+
+  // A fila do lote segue o MESMO recorte dos chips: o botão fica ao lado deles,
+  // e reavaliar fora do filtro custa IA e reescreve avaliação que ninguém pediu.
+  const filaReavaliacao = selecionarParaReavaliar(filtered as any);
+
+  function limparFiltros() {
+    setFiltroCargo(''); setFiltroColab(''); setFiltroStatus(''); setFiltroNota('');
+  }
 
   // Progresso de diagnóstico:
   // 1) por COLABORADOR — quem já respondeu (tem ≥1 resposta) vs roster.
@@ -364,13 +348,18 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   respostas.forEach((r: any) => {
     if (r.colaborador_id) respostasPorColab[r.colaborador_id] = (respostasPorColab[r.colaborador_id] || 0) + 1;
   });
-  const realizados = roster.filter((c: any) => (respostasPorColab[c.id] || 0) > 0);
-  const faltam = roster.filter((c: any) => !(respostasPorColab[c.id] > 0));
-  const totalRoster = roster.length;
+  // O progresso segue o filtro de CARGO — o único que existe dos dois lados
+  // (roster e resposta). Com "Professor(a)" na tela, uma barra que conta a
+  // empresa inteira responde outra pergunta. Status e nota são atributos da
+  // RESPOSTA, não da pessoa, então não recortam o roster.
+  const rosterEscopo = filtroCargo ? roster.filter((c: any) => c.cargo === filtroCargo) : roster;
+  const realizados = rosterEscopo.filter((c: any) => (respostasPorColab[c.id] || 0) > 0);
+  const faltam = rosterEscopo.filter((c: any) => !(respostasPorColab[c.id] > 0));
+  const totalRoster = rosterEscopo.length;
   const pctDiag = totalRoster > 0 ? Math.round((realizados.length / totalRoster) * 100) : 0;
 
   const cenariosEsperados = totalRoster * CENARIOS_POR_COLAB;
-  const cenariosRespondidos = roster.reduce(
+  const cenariosRespondidos = rosterEscopo.reduce(
     (sum: number, c: any) => sum + Math.min(respostasPorColab[c.id] || 0, CENARIOS_POR_COLAB), 0,
   );
   const pctCenarios = cenariosEsperados > 0 ? Math.round((cenariosRespondidos / cenariosEsperados) * 100) : 0;
@@ -413,7 +402,10 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
         const txtColor = (pct: number) => pct >= 80 ? 'text-green-400' : pct >= 40 ? 'text-cyan-400' : 'text-amber-400';
         return (
         <div className="mb-5 rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
-          <p className="text-sm font-bold text-white mb-3">{tr('diagProgress.title')}</p>
+          <p className="text-sm font-bold text-white mb-3">
+            {tr('diagProgress.title')}
+            {filtroCargo && <span className="ml-1.5 text-[11px] font-normal text-cyan-400">· {filtroCargo}</span>}
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mb-1">
             {/* Colaboradores */}
             <div>
@@ -467,8 +459,20 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
 
       {/* Stats */}
       <div className="flex items-center gap-3 mb-4 flex-wrap text-[10px]">
-        <span className="text-gray-400">{tr('stats.total')}: <span className="text-white font-bold">{stats.total}</span></span>
-        <span className="text-gray-400">{tr('stats.evaluated')}: <span className="text-cyan-400 font-bold">{stats.avaliadas}</span></span>
+        <span className="text-gray-400">
+          {tr('stats.total')}: <span className="text-white font-bold">{stats.total}</span>
+          {filtroAtivo && <span className="text-gray-600"> {tr('stats.ofTotal', { total: statsGerais.total })}</span>}
+        </span>
+        <span className="text-gray-400">
+          {tr('stats.evaluated')}: <span className="text-cyan-400 font-bold">{stats.avaliadas}</span>
+          {filtroAtivo && <span className="text-gray-600"> {tr('stats.ofTotal', { total: statsGerais.avaliadas })}</span>}
+        </span>
+        {filtroAtivo && (
+          <button onClick={limparFiltros}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/[0.06] text-gray-300 font-bold hover:bg-white/10 transition-colors">
+            <Filter size={9} /> {tr('filters.clearAll')}
+          </button>
+        )}
         {stats.aprovadas > 0 && <span className="bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded font-bold">{tr('stats.approved', { count: stats.aprovadas })}</span>}
         {stats.com_ajustes > 0 && <span className="bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded font-bold">{tr('stats.withAdjustments', { count: stats.com_ajustes })}</span>}
         {stats.revisar > 0 && <span className="bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded font-bold">{tr('stats.review', { count: stats.revisar })}</span>}
@@ -487,7 +491,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
           <button onClick={handleRevisarTodos} disabled={batchRunning}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
             {batchRunning ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-            {tr('actions.reevaluateAll', { count: selecionarParaReavaliar(respostas as any).elegiveis.length })}
+            {tr('actions.reevaluateAll', { count: filaReavaliacao.elegiveis.length })}
           </button>
         )}
       </div>
@@ -532,11 +536,11 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
         <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}
           className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
           <option value="">{tr('filters.allStatuses')}</option>
-          <option value="pendente">{tr('status.pending')}</option>
-          <option value="avaliado">{tr('status.evaluated')}</option>
-          <option value="aprovado">{tr('status.approved')}</option>
-          <option value="aprovado_com_ajustes">{tr('status.withAdjustments')}</option>
-          <option value="revisar">{tr('status.review')}</option>
+          <option value={IA4_FILTRO.PENDENTE}>{tr('status.pending')}</option>
+          <option value={IA4_FILTRO.AVALIADO}>{tr('status.evaluated')}</option>
+          <option value={IA4_FILTRO.APROVADO}>{tr('status.approved')}</option>
+          <option value={IA4_FILTRO.APROVADO_COM_AJUSTES}>{tr('status.withAdjustments')}</option>
+          <option value={IA4_FILTRO.REVISAR}>{tr('status.review')}</option>
         </select>
         <select value={filtroNota} onChange={e => setFiltroNota(e.target.value as NotaBanda)}
           className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
@@ -567,6 +571,17 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
         <div className="text-center py-12">
           <FileText size={32} className="text-gray-600 mx-auto mb-3" />
           <p className="text-sm text-gray-500">{tr('empty.answers')}</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        // Lista vazia POR FILTRO é diferente de "não há resposta": sem esta
+        // mensagem a tela fica em branco embaixo dos filtros, como se o
+        // carregamento tivesse falhado.
+        <div className="text-center py-12">
+          <Filter size={32} className="text-gray-600 mx-auto mb-3" />
+          <p className="text-sm text-gray-500">{tr('empty.noMatch')}</p>
+          <button onClick={limparFiltros} className="mt-2 text-xs font-bold text-cyan-400 hover:underline">
+            {tr('filters.clearAll')}
+          </button>
         </div>
       ) : Object.entries(porColab).map(([nome, _v]: [string, any]) => { const { cargo, items } = _v; return (
         <div key={nome} className="mb-6">

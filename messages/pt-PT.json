@@ -1715,7 +1715,8 @@
       "approved": "{count} aprovadas",
       "withAdjustments": "{count} com ajustes",
       "review": "{count} revisar",
-      "pending": "{count} pendentes"
+      "pending": "{count} pendentes",
+      "ofTotal": "de {total}"
     },
     "actions": {
       "reevaluateAll": "Re-avaliar todos ({count})",
@@ -1742,7 +1743,8 @@
       "checkNotaAlto": "Check ≥90 (aprovado)",
       "checkNotaMedio": "Check 80–89 (com ajustes)",
       "checkNotaBaixo": "Check <80 (revisar)",
-      "checkNotaSem": "Sem check"
+      "checkNotaSem": "Sem check",
+      "clearAll": "Limpar filtros"
     },
     "status": {
       "pending": "Pendente",
@@ -1773,7 +1775,8 @@
       "answers": "Nenhuma resposta encontrada. Execute \"Simular Respostas\" primeiro.",
       "trails": "Nenhuma temporada encontrada. Execute \"Gerar Temporadas\" na pipeline primeiro.",
       "noCourseForFocus": "Nenhum curso disponível no catálogo para \"{focus}\"",
-      "noRecommendedCourse": "Nenhum curso recomendado"
+      "noRecommendedCourse": "Nenhum curso recomendado",
+      "noMatch": "Nenhuma resposta com os filtros atuais."
     },
     "messages": {
       "noneToReview": "Nenhuma avaliação para revisar",

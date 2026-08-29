@@ -1715,7 +1715,8 @@
       "approved": "{count} approved",
       "withAdjustments": "{count} with adjustments",
       "review": "{count} review",
-      "pending": "{count} pending"
+      "pending": "{count} pending",
+      "ofTotal": "of {total}"
     },
     "actions": {
       "reevaluateAll": "Re-evaluate all ({count})",
@@ -1742,7 +1743,8 @@
       "checkNotaAlto": "Check ≥90 (approved)",
       "checkNotaMedio": "Check 80–89 (w/ adjustments)",
       "checkNotaBaixo": "Check <80 (review)",
-      "checkNotaSem": "No check"
+      "checkNotaSem": "No check",
+      "clearAll": "Clear filters"
     },
     "status": {
       "pending": "Pending",
@@ -1773,7 +1775,8 @@
       "answers": "No answers found. Run \"Simulate Responses\" first.",
       "trails": "No season found. Run \"Generate Seasons\" in the pipeline first.",
       "noCourseForFocus": "No courses available in the catalog for \"{focus}\"",
-      "noRecommendedCourse": "No courses recommended"
+      "noRecommendedCourse": "No courses recommended",
+      "noMatch": "No answers match the current filters."
     },
     "messages": {
       "noneToReview": "No reviews to review",
