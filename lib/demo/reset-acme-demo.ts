@@ -1,6 +1,13 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantUrl } from '@/lib/domain';
 import { randomBytes } from 'node:crypto';
+import {
+  DEMO_PRESENTATION_ROLES,
+  DEMO_PRESENTATION_TENANT_SLUG,
+  demoPresentationUrl,
+  getDemoPresentationRole,
+  type DemoPresentationRoleKey,
+} from '@/lib/demo/presentation';
 import fixture from '@/lib/demo/acme-demo-fixture.json';
 // Artefatos de IA CONGELADOS dos cargos extra (Financeiro/Operações/Gerente):
 // gabaritos (IA2) + cenários ricos com rubrica N1-N4 (IA3). Gerados 1x no
@@ -29,7 +36,7 @@ import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
  * `cadencia.email_ativo/whatsapp_ativo=false` seguem por convenção (cosméticos).
  */
 
-const DEMO_SLUG = 'acme-demo';
+const DEMO_SLUG = DEMO_PRESENTATION_TENANT_SLUG;
 const DEMO_NAME = 'ACME Demo';
 const GRUPO_SINAL_SLUG = 'gruposinal';
 // Gerente Comercial sai do FIXTURE (o acme não tinha competências/cenários do
@@ -458,10 +465,23 @@ export interface DemoMagicLinksResult {
   error?: string;
 }
 
+export interface DemoPresentationLinksResult {
+  ok: boolean;
+  acessos?: Array<{
+    roleKey: DemoPresentationRoleKey;
+    visao: string;
+    nome: string;
+    email: string;
+    url: string;
+    directUrl: string;
+  }>;
+  error?: string;
+}
+
 const DEMO_ACCESS_PERSONAS = [
-  { visao: 'Participante', nome: 'Bruna Costa', email: 'bruna.demo@vertho.ai', role: 'colaborador', nextPath: '/dashboard' },
-  { visao: 'Liderança', nome: 'Carla Menezes', email: 'carla.demo@vertho.ai', role: 'gestor', nextPath: '/dashboard/gestor' },
-  { visao: 'RH', nome: DEMO_RH_PERSONA.nome_completo, email: DEMO_RH_PERSONA.email, role: DEMO_RH_PERSONA.role, nextPath: '/dashboard' },
+  { presentationRoleKey: 'usuario', visao: 'Participante', nome: 'Bruna Costa', email: 'bruna.demo@vertho.ai', role: 'colaborador', nextPath: '/dashboard' },
+  { presentationRoleKey: 'gestor', visao: 'Liderança', nome: 'Carla Menezes', email: 'carla.demo@vertho.ai', role: 'gestor', nextPath: '/dashboard/gestor' },
+  { presentationRoleKey: 'rh', visao: 'RH', nome: DEMO_RH_PERSONA.nome_completo, email: DEMO_RH_PERSONA.email, role: DEMO_RH_PERSONA.role, nextPath: '/dashboard' },
 ] as const;
 
 async function validarTenantEAcessosDemo(sb: any, slug: DemoTenantSlug) {
@@ -1241,6 +1261,74 @@ export async function gerarMagicLinksDemo(slug: DemoTenantSlug): Promise<DemoMag
     return { ok: true, acessos };
   } catch (error: any) {
     console.error('[demo-access] gerar magic links:', error?.message);
+    return { ok: false, error: error?.message || 'erro desconhecido' };
+  }
+}
+
+/**
+ * Prepara as três sessões REAIS da sala de apresentação no ACME Demo neutro.
+ *
+ * Cada callback cai em um hostname próprio (`usuario-demo`, `gestor-demo`,
+ * `rh-demo`). Como os cookies são host-only, os três usuários ficam logados ao
+ * mesmo tempo. O operador abre cada link uma vez e depois troca de visão pelo
+ * dropdown do dashboard, sem logout e sem qualquer override de autorização.
+ */
+export async function gerarMagicLinksApresentacaoDemo(): Promise<DemoPresentationLinksResult> {
+  try {
+    const sb = createSupabaseAdmin();
+    await validarTenantEAcessosDemo(sb, DEMO_SLUG);
+
+    // O DNS é wildcard, mas o projeto Vercel ainda precisa conhecer cada host
+    // para rotear e emitir SSL. A operação é idempotente (409 = já existe).
+    const { addVercelDomain } = await import('@/lib/vercel-domain');
+    const dominios = await Promise.all(
+      DEMO_PRESENTATION_ROLES.map((role) => addVercelDomain(role.hostSlug)),
+    );
+    const dominioComErro = dominios.find((result) => !result.ok && !('skipped' in result));
+    if (dominioComErro && 'error' in dominioComErro) {
+      throw new Error(`preparar domínios da apresentação: ${dominioComErro.error}`);
+    }
+
+    const acessos: NonNullable<DemoPresentationLinksResult['acessos']> = [];
+
+    for (const acesso of DEMO_ACCESS_PERSONAS) {
+      const existente = await buscarUsuarioAuth(sb, acesso.email);
+      if (!existente) {
+        const { error: createError } = await sb.auth.admin.createUser({
+          email: acesso.email,
+          email_confirm: true,
+        });
+        if (createError) throw new Error(`criar ${acesso.email}: ${createError.message}`);
+      }
+
+      const role = getDemoPresentationRole(acesso.presentationRoleKey);
+      const directUrl = demoPresentationUrl(role.key, acesso.nextPath);
+      const { data: link, error: linkError } = await sb.auth.admin.generateLink({
+        type: 'magiclink',
+        email: acesso.email,
+        options: { redirectTo: directUrl },
+      });
+      const tokenHash = link?.properties?.hashed_token;
+      if (linkError || !tokenHash) {
+        throw new Error(`gerar link de ${role.label}: ${linkError?.message || 'token ausente'}`);
+      }
+
+      acessos.push({
+        roleKey: role.key,
+        visao: role.label,
+        nome: acesso.nome,
+        email: acesso.email,
+        directUrl,
+        url: demoPresentationUrl(
+          role.key,
+          `/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(acesso.nextPath)}`,
+        ),
+      });
+    }
+
+    return { ok: true, acessos };
+  } catch (error: any) {
+    console.error('[demo-access] preparar apresentação:', error?.message);
     return { ok: false, error: error?.message || 'erro desconhecido' };
   }
 }

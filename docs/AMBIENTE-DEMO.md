@@ -50,6 +50,29 @@ humana, preservando o bloqueio automático do ambiente demo.
 Uma senha compartilhada continua disponível na seção de contingência. O reset
 recompõe os dados do tenant, mas não altera os usuários do Auth.
 
+## Sala de apresentação ao vivo
+
+Para demonstrar as três funções sem logout, abra `/admin/demo` e clique
+**Preparar apresentação**. A sala usa sempre o `acme-demo`: ele contém o mesmo
+fixture e os mesmos artefatos do Grupo Sinal, mas mantém identidade genérica.
+
+O botão gera um acesso de uso único para cada origem:
+
+| Visão | Host isolado | Conta real |
+|---|---|---|
+| Usuário | `usuario-demo.vertho.ai` | `bruna.demo@vertho.ai` |
+| Gestor | `gestor-demo.vertho.ai` | `carla.demo@vertho.ai` |
+| RH | `rh-demo.vertho.ai` | `helena.demo@vertho.ai` |
+
+Abra as três visões uma vez. Depois, o dropdown **Visão apresentada** alterna
+entre elas. Os aliases são três origens diferentes e, por isso, preservam três
+cookies de sessão host-only no mesmo navegador. O proxy mapeia todos para o
+tenant canônico `acme-demo`, mas o papel e as permissões continuam vindo do
+usuário realmente autenticado — não existe override de role por URL ou cookie.
+
+Os hosts da apresentação são registrados na Vercel de forma idempotente no
+preparo da sala. Fora desses três aliases o dropdown não é renderizado.
+
 ## Fixture congelado
 O reset semeia de `lib/demo/acme-demo-fixture.json` (golden state VERSIONADO), **não** do acme vivo → a demo é estável e imune a mexidas no `acme`. O fixture guarda:
 - Estrutura: empresa + competências + cargos + top10 + cenários (com source ids para remapeamento).

@@ -12,6 +12,14 @@ describe('proxy multi-tenant routing', () => {
     expect(extractTenantSlug('preview.vercel.app')).toBeNull();
   });
 
+  it('mapeia os três hosts isolados da apresentação para o ACME Demo', () => {
+    expect(extractTenantSlug('usuario-demo.vertho.ai')).toBe('acme-demo');
+    expect(extractTenantSlug('gestor-demo.vertho.ai')).toBe('acme-demo');
+    expect(extractTenantSlug('rh-demo.vertho.ai')).toBe('acme-demo');
+    // Um slug parecido não ganha tratamento especial nem acesso implícito.
+    expect(extractTenantSlug('usuario-demo-falso.vertho.ai')).toBe('usuario-demo-falso');
+  });
+
   it('so a imprensa segue como subdominio publico com rewrite', () => {
     expect(extractTenantSlug('radar.vertho.ai')).toBeNull();
     expect(extractTenantSlug('radarbett.vertho.ai')).toBeNull();

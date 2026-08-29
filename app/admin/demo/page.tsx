@@ -7,10 +7,12 @@ import {
   Building2,
   Check,
   Copy,
+  ExternalLink,
   KeyRound,
   Link2,
   Loader2,
   MessageCircle,
+  MonitorPlay,
   RefreshCw,
   ShieldCheck,
 } from 'lucide-react';
@@ -18,6 +20,7 @@ import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import {
   gerarMagicLinksTemporariosDemo,
+  prepararSalaApresentacaoDemo,
   prepararAcessosTemporariosDemo,
   resetarDemo,
 } from '@/actions/demo';
@@ -37,26 +40,38 @@ type MagicLinkDemo = {
   url: string;
 };
 
+type PresentationLinkDemo = {
+  roleKey: 'usuario' | 'gestor' | 'rh';
+  visao: string;
+  nome: string;
+  email: string;
+  url: string;
+  directUrl: string;
+};
+
 const TENANTS: Record<TenantSlug, { nome: string; descricao: string }> = {
-  gruposinal: {
-    nome: 'Grupo Sinal',
-    descricao: 'Demonstração contextualizada para a oportunidade comercial',
-  },
   'acme-demo': {
     nome: 'ACME Demo',
     descricao: 'Ambiente genérico compartilhado pelo time comercial',
+  },
+  gruposinal: {
+    nome: 'Grupo Sinal',
+    descricao: 'Demonstração contextualizada para a oportunidade comercial',
   },
 };
 
 export default function AdminDemoPage() {
   const confirmDialog = useConfirm();
-  const [tenantSlug, setTenantSlug] = useState<TenantSlug>('gruposinal');
+  const [tenantSlug, setTenantSlug] = useState<TenantSlug>('acme-demo');
   const [busy, setBusy] = useState(false);
   const [ultimo, setUltimo] = useState<Record<string, number | null> | null>(null);
   const [preparando, setPreparando] = useState(false);
   const [gerandoLinks, setGerandoLinks] = useState(false);
   const [credenciais, setCredenciais] = useState<AcessosDemo | null>(null);
   const [magicLinks, setMagicLinks] = useState<MagicLinkDemo[] | null>(null);
+  const [presentationLinks, setPresentationLinks] = useState<PresentationLinkDemo[] | null>(null);
+  const [preparandoApresentacao, setPreparandoApresentacao] = useState(false);
+  const [presentationOpened, setPresentationOpened] = useState<Set<string>>(new Set());
   const [copiado, setCopiado] = useState<string | null>(null);
 
   const tenant = TENANTS[tenantSlug];
@@ -136,6 +151,29 @@ export default function AdminDemoPage() {
     } finally {
       setPreparando(false);
     }
+  }
+
+  async function prepararApresentacao() {
+    setPreparandoApresentacao(true);
+    setPresentationLinks(null);
+    setPresentationOpened(new Set());
+    try {
+      const r = await prepararSalaApresentacaoDemo();
+      if (!r.success) {
+        toast.error(`Falha ao preparar apresentação: ${r.error || 'erro'}`);
+        return;
+      }
+      setPresentationLinks(r.acessos);
+      toast.success('As três visões estão prontas para abrir.');
+    } catch (e: any) {
+      toast.error(`Erro: ${e?.message || 'inesperado'}`);
+    } finally {
+      setPreparandoApresentacao(false);
+    }
+  }
+
+  function marcarVisaoAberta(roleKey: string) {
+    setPresentationOpened((atuais) => new Set(atuais).add(roleKey));
   }
 
   async function copiar(texto: string, chave: string) {
@@ -239,6 +277,71 @@ export default function AdminDemoPage() {
               </div>
             </div>
           )}
+
+          <div className="my-6 border-t border-white/10" />
+
+          <section className="overflow-hidden rounded-2xl border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.08),rgba(255,255,255,0.015)_55%)]">
+            <div className="p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-cyan-300">
+                    <MonitorPlay size={15} aria-hidden="true" />
+                    <span className="text-[9px] font-bold uppercase tracking-[0.18em]">Apresentação ao vivo</span>
+                  </div>
+                  <h2 className="text-sm font-bold text-white">Troque de função sem sair da conta</h2>
+                  <p className="mt-1 text-[11px] leading-relaxed text-gray-400">
+                    Usa o ACME Demo, que tem o mesmo conteúdo-base do Grupo Sinal sem a marca do prospect.
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full border border-white/10 bg-black/15 px-2 py-1 font-mono text-[9px] text-white/45">
+                  ACME
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={prepararApresentacao}
+                disabled={preparandoApresentacao || busy}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-bold text-[#0C1829] transition-colors hover:bg-cyan-50 disabled:opacity-50"
+              >
+                {preparandoApresentacao
+                  ? <><Loader2 size={16} className="animate-spin" /> Preparando as três visões…</>
+                  : <><MonitorPlay size={16} /> Preparar apresentação</>}
+              </button>
+
+              {presentationLinks && (
+                <div className="mt-4">
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {presentationLinks.map((acesso) => {
+                      const aberto = presentationOpened.has(acesso.roleKey);
+                      return (
+                        <a
+                          key={acesso.roleKey}
+                          href={aberto ? acesso.directUrl : acesso.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => marcarVisaoAberta(acesso.roleKey)}
+                          className="group rounded-xl border border-white/10 bg-[#081523]/75 p-3 transition-colors hover:border-cyan-300/35 hover:bg-[#0b1b2c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                        >
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-white">{acesso.visao}</span>
+                            <ExternalLink size={13} className="text-white/35 transition-colors group-hover:text-cyan-300" aria-hidden="true" />
+                          </span>
+                          <span className="mt-1 block truncate text-[9px] text-white/40">{acesso.nome}</span>
+                          <span className={`mt-3 block text-[9px] font-bold ${aberto ? 'text-emerald-300' : 'text-cyan-300'}`}>
+                            {aberto ? 'Sessão preparada' : 'Abrir esta visão'}
+                          </span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-3 text-[10px] leading-relaxed text-gray-500">
+                    Abra as três visões uma vez. Depois use o dropdown “Visão apresentada” dentro do dashboard para alternar instantaneamente.
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
 
           <div className="my-6 border-t border-white/10" />
 

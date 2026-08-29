@@ -8,6 +8,7 @@ import { localeCookieName } from '@/lib/i18n';
 import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
+import { PresentationRoleSwitcher } from '@/components/dashboard/presentation-role-switcher';
 import type { TenantTheme } from '@/lib/ui-resolver';
 
 type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean; participante?: boolean };
@@ -145,6 +146,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
         ...(theme.accentRaw ? brandRampVars(theme.accentRaw) : {}),
       }}
     >
+      <PresentationRoleSwitcher />
 
       {/* Sidebar (desktop) */}
       <aside

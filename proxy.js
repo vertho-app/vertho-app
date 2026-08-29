@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { resolvePresentationTenantSlug } from './lib/demo/presentation';
 
 /**
  * Multi-tenant subdomain proxy.
@@ -97,7 +98,10 @@ export function extractTenantSlug(hostname) {
 
       if (!slug || RESERVED_SUBDOMAINS.has(slug)) return null;
 
-      return slug;
+      // Sala de apresentação: três ORIGENS (cookies/sessões independentes),
+      // um único tenant canônico. O alias escolhe apenas o tenant; o papel
+      // continua vindo do usuário realmente autenticado naquele hostname.
+      return resolvePresentationTenantSlug(slug) || slug;
     }
   }
 

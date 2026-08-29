@@ -4,10 +4,12 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import {
   gerarMagicLinksDemo,
+  gerarMagicLinksApresentacaoDemo,
   prepararAcessosDemo,
   resetDemoTenant,
   type DemoTenantSlug,
 } from '@/lib/demo/reset-acme-demo';
+import { DEMO_PRESENTATION_TENANT_SLUG } from '@/lib/demo/presentation';
 
 /** Reset sob demanda do tenant demo escolhido, com allowlist tipada e auditoria. */
 export async function resetarDemo(slug: DemoTenantSlug = 'acme-demo') {
@@ -45,6 +47,23 @@ export async function gerarMagicLinksTemporariosDemo(slug: DemoTenantSlug) {
     adminEmail: ctx.email,
     acao: 'demo.prepare_magic_links',
     alvo: slug,
+    detalhes: r.ok ? { contas: r.acessos?.map((a) => a.email) } : { error: r.error },
+  });
+  if (!r.ok) return { success: false as const, error: r.error };
+  return { success: true as const, acessos: r.acessos! };
+}
+
+/**
+ * Prepara as três origens isoladas da sala de apresentação. O tenant é fixo e
+ * neutro (`acme-demo`); não aceitamos alvo vindo do client neste fluxo.
+ */
+export async function prepararSalaApresentacaoDemo() {
+  const ctx = await requireAdminAction();
+  const r = await gerarMagicLinksApresentacaoDemo();
+  await logAdminAction({
+    adminEmail: ctx.email,
+    acao: 'demo.prepare_presentation',
+    alvo: DEMO_PRESENTATION_TENANT_SLUG,
     detalhes: r.ok ? { contas: r.acessos?.map((a) => a.email) } : { error: r.error },
   });
   if (!r.ok) return { success: false as const, error: r.error };

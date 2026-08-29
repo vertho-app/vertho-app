@@ -43,6 +43,11 @@ describe('proxy — tenant não pode vir do cliente', () => {
     const res = await proxy(fakeRequest('ibipeba.vertho.ai', { 'x-tenant-slug': 'macae' }));
     expect(headerRepassado(res, 'x-tenant-slug')).toBe('ibipeba');
   });
+
+  it('no host da apresentação, o alias fixo vence o header forjado', async () => {
+    const res = await proxy(fakeRequest('gestor-demo.vertho.ai', { 'x-tenant-slug': 'macae' }));
+    expect(headerRepassado(res, 'x-tenant-slug')).toBe('acme-demo');
+  });
 });
 
 describe('stripTenantCookie', () => {

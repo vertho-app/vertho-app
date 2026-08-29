@@ -27,8 +27,15 @@ const listUsers = vi.fn(async () => ({
 sb.client.auth = { admin: { listUsers, updateUserById, createUser, generateLink } };
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
+vi.mock('@/lib/vercel-domain', () => ({
+  addVercelDomain: vi.fn(async () => ({ ok: true })),
+}));
 
-import { gerarMagicLinksDemo, prepararAcessosDemo } from '@/lib/demo/reset-acme-demo';
+import {
+  gerarMagicLinksApresentacaoDemo,
+  gerarMagicLinksDemo,
+  prepararAcessosDemo,
+} from '@/lib/demo/reset-acme-demo';
 
 describe('preparo dos acessos temporários do demo', () => {
   beforeEach(() => {
@@ -59,6 +66,23 @@ describe('preparo dos acessos temporários do demo', () => {
       'https://gruposinal.vertho.ai/dashboard',
     ]);
     expect(r.acessos?.every((a) => a.url.startsWith('https://gruposinal.vertho.ai/auth/callback?'))).toBe(true);
+  });
+
+  it('prepara três sessões isoladas para a apresentação neutra', async () => {
+    const r = await gerarMagicLinksApresentacaoDemo();
+
+    expect(r.ok).toBe(true);
+    expect(generateLink).toHaveBeenCalledTimes(3);
+    expect(generateLink.mock.calls.map((call) => call[0].options.redirectTo)).toEqual([
+      'https://usuario-demo.vertho.ai/dashboard',
+      'https://gestor-demo.vertho.ai/dashboard/gestor',
+      'https://rh-demo.vertho.ai/dashboard',
+    ]);
+    expect(r.acessos?.map((a) => [a.roleKey, new URL(a.url).hostname])).toEqual([
+      ['usuario', 'usuario-demo.vertho.ai'],
+      ['gestor', 'gestor-demo.vertho.ai'],
+      ['rh', 'rh-demo.vertho.ai'],
+    ]);
   });
 
   it('rotaciona exatamente as três contas e devolve uma única senha', async () => {
