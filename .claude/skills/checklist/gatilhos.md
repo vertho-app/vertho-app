@@ -725,3 +725,37 @@ o dono olhando a tela.
 
 Detalhe: `lib/ia4-painel-respostas.ts`, `tests/unit/ia4-painel-respostas.test.ts`, memória
 `feedback_contador_ignora_filtro`.
+
+---
+
+## § Vou SOMAR o ledger de IA, ou instrumentar uma camada paga nova
+
+**Casa quando:** a pergunta é "quanto custa X?", "vale trocar de fornecedor?", "qual modelo sai mais
+caro?" — ou quando você vai fazer uma camada nova gravar em `ia_usage_log`.
+
+**Confira, nesta ordem:**
+
+1. **Quem ESCREVE no ledger?** Grep do INSERT (`from('ia_usage_log')`), não do wrapper. A cobertura
+   é por construção **para quem passa por `callAI`**, e só. Toda camada que fala com fornecedor por
+   fora do wrapper é candidata a buraco: TTS, embeddings, render, avatar, transcrição.
+2. **Zero linha é ausência de instrumento ou ausência de gasto?** As duas se parecem numa soma. Antes
+   de concluir "essa camada não custa nada", confronte com o volume PRODUZIDO no mesmo período
+   (quantos vídeos, quantos áudios, quantos PDFs) — o denominador está fora do ledger.
+3. **`costFromTokens` conhece o id EXATO?** O lookup é exato, sem normalização de sufixo. Id novo
+   fora do catálogo produz `cost_usd = null` em 100% das linhas: instrumentar e não conseguir somar.
+4. **A falha PAGA está sendo gravada?** Resposta 200 sem conteúdo é cobrada no input. Se só o caminho
+   feliz grava, o desperdício fica invisível justamente onde ele dói.
+5. **Tem algo no runtime que nenhuma env revela?** Var marcada *Sensitive* na Vercel volta
+   `[SENSITIVE]` no `env pull`. Se uma decisão depende do valor dela, carregue-o numa coluna do
+   ledger (`source`) — é a única testemunha possível.
+
+**Consequência medida (29/08/2026):** a pergunta era comercial ("trocar o TTS do Google por
+Speechify?") e morreu no primeiro passo: **0 linha** com `model ilike '%tts%'` em 90 dias, contra 210
+vídeos, 227 podcasts e 1.136 personalizações pagas. O ledger somava US$ 380,09 no período e parecia
+resposta completa. Depois de instrumentado, o custo real saiu **US$ 0,1195** por podcast de 4 min
+(~US$ 52/trimestre), confirmando a estimativa do catálogo que até então era só aritmética — e o
+`source` respondeu de quebra qual backend produção usa, coisa que nenhuma leitura de env alcançava.
+
+Detalhe: `lib/ia-ledger.ts`, `lib/gemini-tts.ts::registrarUsoTts`,
+`tests/unit/integrations/tts-ledger.test.ts`, `docs/CUSTO-QUALIDADE.md` §29/08, memória
+`project_ledger_fronteira_do_wrapper`.

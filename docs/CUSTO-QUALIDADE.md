@@ -1500,3 +1500,112 @@ seis caíram 3-4 achados, muito acima do ruído de ±1.
 ⚠️ Melhorou, não resolveu: os 6 ainda dão `fail`, com 22 achados restantes que
 não examinei. Modelo melhor não conserta prompt que pede a coisa errada — e
 prompt corrigido não esgota o que o auditor tem a dizer.
+
+## 29/08 — o ledger não cobria o TTS: 0 linha em 90 dias, e o custo era só aritmética
+
+A pergunta que abriu a rodada era comercial ("vale trocar o TTS do Google por
+Speechify?"), e ela morreu no primeiro passo: **não havia com que responder**.
+
+```sql
+select ... from ia_usage_log where model ilike '%tts%';   -- 0 linhas, 90 dias
+```
+
+Zero linha contra o que foi efetivamente gerado e **pago** no mesmo período:
+
+| produção real (90 dias) | volume |
+|---|---:|
+| vídeos gerados (~4 min de narração cada) | 210 |
+| podcasts / conteúdo final em áudio | 227 |
+| personalizações nominais ("Olá, {nome}") | 1.136 |
+| **linhas de TTS no ledger** | **0** |
+
+O total do ledger no período era **US$ 380,09 em 17.047 chamadas**, e esse número
+tinha cara de resposta completa. Não era: é o total do que passa por `callAI`.
+
+### 🔑 A classe: instrumentação centralizada tem a fronteira do WRAPPER
+
+O ledger nasceu dentro de `actions/ai-client.ts` — decisão correta, e o comentário
+lá diz "cobertura por construção: o log vive AQUI, não nos call-sites". A cobertura
+é por construção **para quem passa por ali**. `lib/gemini-tts.ts` fala HTTP direto
+com o Gemini (é geração de áudio, não LLM de texto), então nunca esteve coberto.
+
+O sintoma é traiçoeiro porque **a ausência se parece com um zero**: quem soma
+`ia_usage_log` conclui que TTS não custa nada, em vez de concluir que TTS não é
+medido. Mesma família do "não achei nada exige o denominador".
+
+Corolário para a próxima instrumentação: **antes de somar um ledger, liste quem
+ESCREVE nele.** Custo que não passa pelo wrapper não existe no ledger.
+
+### O que passou a ser gravado
+
+`lib/ia-ledger.ts` (novo) concentra o INSERT em `ia_usage_log`; `ai-client.ts` e
+`lib/gemini-tts.ts` montam a linha e delegam. No TTS o registro vive em
+`ttsGenerate`, ponto único por onde toda síntese passa — mesma decisão do wrapper.
+
+Três detalhes que não são cosméticos:
+
+1. **Tokens REAIS, não estimados.** O `usageMetadata` da resposta vinha sendo
+   descartado. Sonda nos dois backends (29/08): `promptTokenCount` +
+   `candidatesTokenCount`, com `candidatesTokensDetails[modality=AUDIO]`.
+2. **`source` carrega o backend** (`tts:vertex` / `tts:aistudio`). `TTS_BACKEND` é
+   *Sensitive* na Vercel: `env ls` mostra `Hidden` e `env pull` devolve
+   `[SENSITIVE]`. Não existe leitura — o runtime é a única testemunha.
+3. **Resposta 200 SEM áudio também grava** (`status = sem-audio:<motivo>`). Ela é
+   cobrada no input e sumiria do custo. Não é hipotético: 13 vídeos morreram em
+   `TTS: resposta sem áudio após 4 tentativas` até 18/08, pagos e invisíveis.
+
+⚠️ **A armadilha do lookup exato.** `costFromTokens` faz busca EXATA no catálogo e
+o id que a API cobra é `gemini-3.1-flash-tts-preview`, **com** o sufixo. Sem a
+entrada nova em `lib/ia-cost-catalog.ts`, 100% das linhas novas nasceriam com
+`cost_usd = null` — instrumentar o custo e não conseguir somá-lo.
+
+### `Medido em produção` (29/08/2026, 18:43 Brasília)
+
+Uma síntese real provocada pela rota de prewarm, no tenant de demonstração:
+
+```
+source=tts:vertex   feature=tts_podcast_pregerado   status=ok
+model=gemini-3.1-flash-tts-preview
+input=737 tok · output=5.940 tok de ÁUDIO · US$ 0,11954 · 94.286 ms
+```
+
+Duas coisas ficam decididas por esse registro:
+
+- **Produção usa Vertex.** Era irrespondível por leitura de env.
+- **A régua do catálogo estava certa:** ~US$ 0,12 por áudio de 4 min, contra
+  US$ 0,1195 medido. A estimativa era boa; o que faltava era a medição.
+
+Extrapolando o volume de 90 dias pela régua agora medida: **~US$ 52 por trimestre**
+em TTS, contra US$ 380 de IA total. Não era o gargalo de custo, e segue não sendo.
+
+### E a pergunta original (Speechify): NÃO, por enquanto
+
+Preço de tabela do Speechify (ago/2026): US$ 10/mês com 1M de caracteres, overage
+de US$ 10 a 6 por 1M. O volume atual (~0,5M chars/mês) cabe no plano de entrada.
+**A economia potencial é da ordem de US$ 10/mês**, e o custo da troca não é o
+plano: é perder a **direção de estilo em linguagem natural** (o vídeo passa um
+`style` por tipo de cena, a devolutiva usa outro) e o **multi-speaker nativo**
+(Mentor/Campo numa chamada só), além da calibragem de segmentação que foi ajustada
+contra o comportamento do Gemini (pausa de 0,7s injetada em PCM porque o modelo
+ignora `<break>`; `coalesceCurtos` porque fragmentos curtos fazem ele alucinar).
+
+O que o Speechify vende de melhor é latência sub-300ms com streaming, para voice
+agent ao vivo. O pipeline daqui é assíncrono (Trigger.dev, worker de render,
+Whisper align depois): latência não é a métrica. E o `simba-3.2`, o modelo dessa
+latência, **é só inglês** — pt-BR cai no `simba-multilingual`/`simba-3.0`.
+
+`Suponho:` o único argumento que reabriria a decisão é **voz clonada** (zero-shot
+self-serve), e aí é escolha de MARCA, não de custo. Lembrar que a voz feminina
+está amarrada ao avatar HeyGen (Vindemiatrix alinhada à Abigail).
+
+`Suponho (n=1):` a sonda deu ~25 tok/s de áudio no Vertex contra ~32 tok/s no AI
+Studio para o MESMO texto. Se confirmar em volume, o Vertex é mais barato pelo
+mesmo trabalho, não só menos limitado por cota. O ledger responde isso sozinho.
+
+### Aberto
+
+`ia_usage_log.runtime` saiu **`desconhecido`** na medição: a rota
+`/api/internal/pregerar-podcast` não declara `comContexto`. Ela tem
+`maxDuration = 300` e o podcast gastou 94s — **31% do orçamento** — mas o ledger
+não sabe disso sozinho. Cobertura faltando, não chute (é o desenho de
+`lib/execucao-contexto.ts`).

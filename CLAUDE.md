@@ -435,6 +435,16 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   botão** (a tela dizia "1 recorte não chegou" e a ação não fazia nada para ele). Corolário: em
   disparo MANUAL quem decide insistir é o **servidor**, não o corpo do pedido — herdar o teto do
   automático transforma a tela em enfeite. `docs/FMEA-PIPELINE.md` §F-C12.
+- NÃO somar `ia_usage_log` e chamar aquilo de custo de IA sem listar **quem ESCREVE** no ledger. A
+  cobertura é por construção para quem passa pelo wrapper, e só. Medido 29/08: **0 linha** com
+  `model ilike '%tts%'` em 90 dias, contra 210 vídeos, 227 podcasts e 1.136 personalizações
+  efetivamente geradas e PAGAS — o TTS fala HTTP direto com o Gemini e nunca esteve coberto. O
+  sintoma engana porque **a ausência se parece com um zero**: soma-se o ledger e conclui-se que a
+  camada não custa nada, em vez de que ela não é medida (mesma família do "não achei nada exige o
+  denominador"). Hoje o INSERT é fonte única em `lib/ia-ledger.ts` e o TTS grava em `ttsGenerate`.
+  ⚠️ Ao instrumentar custo novo, confira que `costFromTokens` conhece o id **EXATO** (lookup exato;
+  o do TTS tem sufixo `-preview`) — senão nasce 100% de linha com `cost_usd = null`, que é
+  instrumentar e não conseguir somar. Detalhe: `docs/CUSTO-QUALIDADE.md` §29/08.
 - NÃO afirmar que uma task de IA roda no modelo X só porque está em `DEFAULT_TASK_MODELS`. `callAI`
   faz `aiConfig?.model || DEFAULT_MODEL` (`claude-sonnet-4-6`) e **não** consulta `getModelForTask` —
   o `taskKey` só marca o custo no ledger. Nos fluxos de assessment/relatório quem passa o modelo é a
