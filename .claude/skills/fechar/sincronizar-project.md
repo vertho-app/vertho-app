@@ -52,8 +52,27 @@ done
    as velhas. Se a contagem não bateu, **pare** — não remova nada.
 6. **⚠️ Remoção é irreversível: peça o ok do Rodrigo aqui**, listando o que vai sair (nome +
    contagem antiga → nova). Só então remova.
-7. **Remover as velhas.** O botão só existe no **hover**: `hover` no card → `screenshot` → clicar no
-   **X** que aparece no canto superior esquerdo.
+7. **Remover as velhas.** O botão só existe no **hover**, e clicar nele por COORDENADA é o caminho
+   que falha. Use o `aria-label`, selecionando o card pelo TEXTO:
+
+   ```js
+   const cards = [...document.querySelectorAll('button')].filter(b => /\.md/.test(b.innerText));
+   const alvos = cards.filter(b => /CLAUDE\.md/.test(b.innerText) && /573 linhas/.test(b.innerText));
+   if (alvos.length !== 1) `ABORTADO: ${alvos.length} candidatos`;   // nunca remova no escuro
+   else alvos[0].parentElement.querySelector('button[aria-label="Excluir"]').click();
+   ```
+
+   O card e o botão de excluir são **irmãos** dentro de `div[data-testid="file-thumbnail"]`; o botão
+   nasce com `opacity-0` e só aparece no hover, mas `.click()` funciona sem hover nenhum. Remova
+   **um por vez** e re-liste entre os dois — se o primeiro sair errado, o segundo não sai.
+
+   🔴 **Por que coordenada falha: a screenshot NÃO está na escala da página.** Medido 29/08/2026 —
+   `window.innerWidth = 1700` com screenshot de 1568 e `devicePixelRatio = 1,13` (zoom do
+   navegador). Quatro cliques erraram o alvo, e **três deles abriram uma conversa da coluna do
+   meio** em vez de remover, porque x≈992 cai na coluna central da página. Pior: `hover` com `ref`
+   faz `scroll_to` implícito, então a coordenada lida na screenshot anterior já está velha quando o
+   clique sai. Se insistir em coordenada, leia o rect por JS **no mesmo instante** do clique — mas
+   o `.click()` acima dispensa isso.
    🔑 Clicar no `ref` do botão "Remove" **não funciona** — testado em 27/08, o clique não surte
    efeito e a lista continua intacta. E clicar no card **abre a visualização**, não o menu.
 8. **Fechar contando.** Ao final tem que haver **exatamente 16**, um por nome, todos com a contagem
