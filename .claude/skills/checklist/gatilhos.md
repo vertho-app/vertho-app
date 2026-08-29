@@ -429,8 +429,20 @@ a falar com outro serviço.
   deixe o valor na constante que manda (`lib/whatsapp/cadencia.ts`).
 - Contrato ≠ preenchimento: se a tela ficou genérica sobre N variantes, cada uma precisa dizer de
   ONDE sai cada valor (`RESOLVEDORES` em `lib/notifications/envio-template-lote.ts`).
+- 🔴 **REMOVEU um controle? grep a palavra dele nos 4 locales** — não só os arquivos do card onde
+  ele morava. A copy que o NOMEIA sobrevive e vira instrução para apertar o que não existe. Medido
+  29/08/2026: o botão "Marcar como realizado" saiu da tela da semana em 27/08 e o **Tira-Dúvidas**
+  seguiu dizendo "Libera após marcar conteúdo como realizado" nos 4 idiomas. A instrução gêmea
+  (`content.openToUnlock`) tinha sido corrigida na MESMA rodada — as que ficaram moravam em outro
+  card. Quem achou foi uma pessoa de Ibipeba escrevendo por WhatsApp durante 6 dias, presa na
+  semana 1 desde 13/07. Comando: `grep -rn "<palavra do botão>" messages/` + conferir que a chave
+  removida saiu dos 4 (`npm run i18n:check` só prova simetria, não que a frase ainda faz sentido).
+- ⚠️ **Escondeu um número "para não assustar"? pergunte quem chega a vê-lo.** A tela omitia
+  "faltam N respostas" antes do 1º turno, de propósito, para o total não soar como uma tarefa de 6
+  passos. Mas quem desiste na PORTA nunca chega ao número — e sem ele não sabe se aquilo custa uma
+  resposta ou vinte. **Custo desconhecido não é custo zero.**
 
-Detalhe: `docs/FMEA-PIPELINE.md` §F-C13 · `docs/INBOX-WHATSAPP.md` §2.1.
+Detalhe: `docs/FMEA-PIPELINE.md` §F-C13 e §F-I28 · `docs/INBOX-WHATSAPP.md` §2.1.
 
 ---
 

@@ -515,6 +515,22 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   estado local; gate, não. E ao trocar um gate, **varra quem ALIMENTA o gate**: a 1ª correção deixou
   só texto/case liberando, e quem preferia áudio seguia com os botões cinza. `docs/FMEA-PIPELINE.md`
   §F-I23.
+- NÃO remover um controle sem **grepar a palavra dele nos locales** — a copy que o NOMEIA sobrevive
+  e vira instrução para apertar o que não existe. O botão "Marcar como realizado" saiu em 27/08 e o
+  Tira-Dúvidas seguiu dizendo "Libera após marcar conteúdo como realizado" nos 4 idiomas; a
+  instrução gêmea, no card do conteúdo, tinha sido corrigida na mesma rodada — **as que ficaram
+  moravam em outro card**. Quem achou foi uma pessoa de Ibipeba escrevendo por WhatsApp *"assisti o
+  vídeo e não consigo marcar que concluir"* durante 6 dias, presa na semana 1 desde 13/07. Na mesma
+  família: **custo desconhecido não é custo zero**. A tela escondia de propósito "faltam N
+  respostas" antes do 1º turno, para o número não afugentar — mas quem desiste na porta nunca chega
+  a ver o número, e sem ele não sabe se aquilo custa uma resposta ou vinte. `docs/FMEA-PIPELINE.md`
+  §F-I28.
+- 🔑 Ao investigar "fulana está travada", leia as **palavras dela** em
+  `whatsapp_mensagens_recebidas` antes do código: a paráfrase de quem relata já traduziu o problema
+  para o vocabulário do produto e aponta a tela errada. E **cruze cada reclamação com o horário do
+  deploy** que mexeu naquela tela — reclamação anterior ao fix não é fix que não funcionou (2 das 3
+  dela eram contra a versão velha). `auth.sessions` + `trilha_eventos` respondem "ela ENTROU?" antes
+  de "a tela está errada?".
 - NÃO confiar em suíte verde para julgar TELA ou VÍDEO. Guard estático prova que o código chama a
   função certa; só a imagem prova o que a pessoa vê. Medido 25/08: **seis defeitos numa rodada, zero
   achados por teste** — três estados contraditórios na mesma dobra, destaque de vídeo emoldurando o

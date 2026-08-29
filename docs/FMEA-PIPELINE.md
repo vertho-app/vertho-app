@@ -806,8 +806,8 @@ ramo texto/case (um `<a>` que abre PDF): quem preferia **áudio** clicava, ouvia
 os botões seguiam cinza; no vídeo dependia de o player emitir `play` por postMessage. Mesma família
 de F-C13 (controles vizinhos sobrevivem à troca de mecanismo).
 
-Guarda: `tests/unit/semana-gates-tela.test.ts` (28 asserções estáticas sobre as duas telas, validadas
-por mutação).
+Guarda: `tests/unit/semana-gates-tela.test.ts` (asserções estáticas sobre as duas telas, validadas
+por mutação; ampliado em 29/08 pelo F-I28).
 
 ### F-I24 · Um campo, duas perguntas, seis réguas — e duas escritas que se destruíam ✅ (corrigido 25/08, `4d697acf`)
 
@@ -945,6 +945,63 @@ seria latência imprevisível e custo não planejado.
   literal`. Nenhum typecheck pega — o supabase-js aceita o array. Corrigido em `arrayLiteralPg`.
 - `empresa_id` é `NOT NULL` de propósito: `UNIQUE` com coluna nula não impede duplicata (NULL nunca
   é igual a NULL), a mesma família do índice parcial que já quebrou upsert aqui (`42P10`).
+
+### F-I28 · A copy sobreviveu ao botão que ela nomeava, e o custo da conversa não era dito ✅ (corrigido 29/08, `2046c90a`)
+
+**Como apareceu:** não por teste nem por painel — por WhatsApp, uma pessoa de Ibipeba presa na
+semana 1 desde 13/07. As palavras dela, em `whatsapp_mensagens_recebidas`:
+
+| quando | ela escreveu |
+|---|---|
+| 21/08 19:29 | "Já assistir o vídeo. **Não consigo marcar que concluir**" |
+| 24/08 18:05 | "Pois **não ficar verde quando confirmo**" |
+| 27/08 14:11 | "**Como não consigo marcar como feito** não passo para a próxima etapa" |
+
+Ela nunca escreveu "evidências". O pedido que chegou à sessão foi *"peço para ela registrar a
+evidência e ela diz que não está habilitado"* — a paráfrase apontava para o card que **funcionava**.
+Ver [[feedback_palavras_do_usuario_na_fonte]] na memória.
+
+**Gatilho, duas metades:**
+
+1. **`SeasonWeek.qa.markContentFirst` e `qa.unlockAfterContent`, nos 4 locales** — "Libera após
+   marcar conteúdo como realizado". O botão "Marcar como realizado" saiu em 27/08 (F-I23), mas
+   estas duas frases ficaram, no card do Tira-Dúvidas. `content.openToUnlock` — a instrução GÊMEA,
+   no card do conteúdo — tinha sido corrigida na mesma rodada. **As que ficaram estavam em outro
+   card**, e por isso escaparam da varredura.
+2. **`page.tsx` não dizia o TAMANHO da conversa antes do clique.** A barra do topo mostrava
+   `Evidências · não começou` (único estado da barra sem número) e o botão dizia "Levantar
+   evidências", sem se anunciar como o que conclui a semana. O contador "faltam N" existia desde
+   25/08 mas só depois do 1º turno, **de propósito**: *"antes disso o número seria o total e
+   soaria como uma tarefa de 6 passos anunciada na porta"*.
+
+🔑 **A premissa da decisão de 25/08 estava errada para quem mais importava.** Ela não chegava a ser
+afugentada pelo número porque não chegava ao botão. **Custo desconhecido não é custo zero: é motivo
+para não clicar.** Decisão revertida na porta e mantida dentro do chat — lá o número é "quanto
+falta", aqui é "quanto custa", e os dois saem da MESMA variável (`turnosFaltando`).
+
+**Medido em 28/08 (Ibipeba, 36 trilhas ativas, censo):** 16 sem nenhuma semana concluída. Na
+semana 1 — 9 **nunca começaram a conversa** (o estado que esta correção cobre), 5 pararam no meio,
+uma delas em **5 de 6 desde 21/07** (38 dias a um turno de destravar).
+
+⚠️ **Cruze a reclamação com o HORÁRIO do deploy antes de concluir que o fix não funcionou.** Duas
+das três reclamações dela foram contra a versão VELHA: em 25/08 ela abriu a tela às 08:16 e as
+correções do F-I23 entraram às 09:05+. Na primeira vez que viu a tela corrigida (27/08 14:16), ela
+foi às Evidências e respondeu em 14 minutos.
+
+**Correção:** barra do topo usa `evidenceProgress` desde o turno zero (`0 de 6 respostas`, e
+`evidenceNotStarted` sai dos 4 locales); o card fechado exibe `evidence.remaining` com
+`turnosFaltando`, suprimido quando a missão da semana de aplicação ainda não foi escolhida (ali o
+botão está desabilitado por outro motivo — cobrar sem dar caminho é o defeito que esta tela passou
+o mês corrigindo); as duas chaves do Tira-Dúvidas passam a falar em ABRIR.
+
+**A regra que fica:** ao remover um controle, **grep a palavra do controle nos locales**, não só os
+arquivos do card onde ele morava. Mesma família de F-C13 (controles vizinhos sobrevivem à troca de
+mecanismo) e do braço 🔴 de F-I23 (quem ALIMENTA o gate) — aqui o que sobreviveu foi o TEXTO que
+o nomeava. Guarda: `tests/unit/semana-gates-tela.test.ts`, describes "a porta da conversa diz
+quanto custa" e "nenhuma copy manda marcar o conteúdo", validados por mutação nos 4 pontos.
+
+⚠️ **Não verificado por imagem** (nenhum dev da Vertho no ar na hora): a guarda prova que a tela
+CHAMA a régua, não o que a pessoa vê. Vale a régua de "só a imagem prova o visual".
 
 ### F-C12 · Cota de retentativa consumida por avaria do CANAL torna o resgate inalcançável ✅ (corrigido 19/08, `984607e3`)
 
