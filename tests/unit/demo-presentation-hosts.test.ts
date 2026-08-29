@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   demoPresentationUrl,
   getDemoPresentationRoleFromHostname,
+  launchDemoPresentationAccess,
   resolvePresentationTenantSlug,
 } from '@/lib/demo/presentation';
 
@@ -23,5 +24,28 @@ describe('hosts da sala de apresentação', () => {
     expect(demoPresentationUrl('usuario', undefined, 'vertho.test')).toBe('https://usuario-demo.vertho.test/dashboard');
     expect(demoPresentationUrl('gestor', undefined, 'vertho.test')).toBe('https://gestor-demo.vertho.test/dashboard/gestor');
     expect(demoPresentationUrl('rh', '/dashboard', 'vertho.test')).toBe('https://rh-demo.vertho.test/dashboard');
+  });
+
+  it('consome o magic link antes de marcar a sessão como preparada', () => {
+    const events: string[] = [];
+    launchDemoPresentationAccess(
+      { authUrl: 'https://usuario-demo.test/auth/callback?token=one-time', directUrl: 'https://usuario-demo.test/dashboard', prepared: false },
+      (url) => events.push(`open:${url}`),
+      () => events.push('mark'),
+    );
+    expect(events).toEqual([
+      'open:https://usuario-demo.test/auth/callback?token=one-time',
+      'mark',
+    ]);
+  });
+
+  it('reabre direto somente depois que a sessão já foi preparada', () => {
+    const events: string[] = [];
+    launchDemoPresentationAccess(
+      { authUrl: 'https://rh-demo.test/auth/callback?token=one-time', directUrl: 'https://rh-demo.test/dashboard', prepared: true },
+      (url) => events.push(`open:${url}`),
+      () => events.push('mark'),
+    );
+    expect(events).toEqual(['open:https://rh-demo.test/dashboard']);
   });
 });

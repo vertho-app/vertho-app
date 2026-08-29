@@ -67,3 +67,18 @@ export function demoPresentationUrl(
   const normalizedPath = targetPath.startsWith('/') ? targetPath : `/${targetPath}`;
   return `https://${role.hostSlug}.${rootDomain}${normalizedPath}`;
 }
+
+/**
+ * Abre primeiro o destino capturado e só depois marca a sessão como preparada.
+ * A ordem é parte do contrato: antecipar `markPrepared` pode trocar o destino
+ * renderizado para a URL direta antes de o magic link ser consumido.
+ */
+export function launchDemoPresentationAccess(
+  access: { authUrl: string; directUrl: string; prepared: boolean },
+  openUrl: (url: string) => void,
+  markPrepared: () => void,
+): void {
+  const target = access.prepared ? access.directUrl : access.authUrl;
+  openUrl(target);
+  if (!access.prepared) markPrepared();
+}

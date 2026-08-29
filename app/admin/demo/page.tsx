@@ -24,6 +24,7 @@ import {
   prepararAcessosTemporariosDemo,
   resetarDemo,
 } from '@/actions/demo';
+import { launchDemoPresentationAccess } from '@/lib/demo/presentation';
 
 type TenantSlug = 'acme-demo' | 'gruposinal';
 
@@ -176,6 +177,18 @@ export default function AdminDemoPage() {
     setPresentationOpened((atuais) => new Set(atuais).add(roleKey));
   }
 
+  function abrirVisaoApresentacao(acesso: PresentationLinkDemo) {
+    const jaPreparada = presentationOpened.has(acesso.roleKey);
+    // Captura o destino ANTES de atualizar o estado. Quando isto era um <a>, o
+    // setState do onClick trocava o href para `directUrl` antes da ação default
+    // do navegador; a aba pulava o callback, não criava sessão e caía no login.
+    launchDemoPresentationAccess(
+      { authUrl: acesso.url, directUrl: acesso.directUrl, prepared: jaPreparada },
+      (destino) => { window.open(destino, '_blank', 'noopener,noreferrer'); },
+      () => marcarVisaoAberta(acesso.roleKey),
+    );
+  }
+
   async function copiar(texto: string, chave: string) {
     try {
       await navigator.clipboard.writeText(texto);
@@ -315,13 +328,11 @@ export default function AdminDemoPage() {
                     {presentationLinks.map((acesso) => {
                       const aberto = presentationOpened.has(acesso.roleKey);
                       return (
-                        <a
+                        <button
+                          type="button"
                           key={acesso.roleKey}
-                          href={aberto ? acesso.directUrl : acesso.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => marcarVisaoAberta(acesso.roleKey)}
-                          className="group rounded-xl border border-white/10 bg-[#081523]/75 p-3 transition-colors hover:border-cyan-300/35 hover:bg-[#0b1b2c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                          onClick={() => abrirVisaoApresentacao(acesso)}
+                          className="group rounded-xl border border-white/10 bg-[#081523]/75 p-3 text-left transition-colors hover:border-cyan-300/35 hover:bg-[#0b1b2c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                         >
                           <span className="flex items-center justify-between gap-2">
                             <span className="text-xs font-bold text-white">{acesso.visao}</span>
@@ -331,7 +342,7 @@ export default function AdminDemoPage() {
                           <span className={`mt-3 block text-[9px] font-bold ${aberto ? 'text-emerald-300' : 'text-cyan-300'}`}>
                             {aberto ? 'Sessão preparada' : 'Abrir esta visão'}
                           </span>
-                        </a>
+                        </button>
                       );
                     })}
                   </div>
