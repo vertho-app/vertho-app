@@ -53,10 +53,15 @@ describe('Guard: rota que chama IA declara orçamento de tempo', () => {
   });
 
   it('nenhuma rota NOVA chama IA sem declarar contexto', () => {
+    // `\(\s*\{`: o wrapper pode quebrar linha entre ( e { — medido 29/08, um
+    // comContexto legítimo formatado em múltiplas linhas passava batido e a
+    // rota aparecia como dívida que não era. O padrão é sobre o CONTEÚDO
+    // (runtime: 'rota'), não sobre a formatação de quem escreveu.
+    const declaraContexto = (src: string) => /comContexto\(\s*\{\s*runtime: 'rota'/.test(src);
     const faltando = rotas
       .filter((f) => !ALLOWLIST.has(f))
       .filter((f) => chamaIA(readFileSync(f, 'utf-8')))
-      .filter((f) => !/comContexto\(\{\s*runtime: 'rota'/.test(readFileSync(f, 'utf-8')));
+      .filter((f) => !declaraContexto(readFileSync(f, 'utf-8')));
     expect(faltando, `sem orçamento declarado:\n  ${faltando.join('\n  ')}\n\n`
       + 'Sem isto a chamada entra no ledger como runtime "desconhecido" e a pergunta '
       + '"perto do timeout?" volta a não ter denominador. Envolva o handler:\n'
@@ -82,7 +87,7 @@ describe('Guard: rota que chama IA declara orçamento de tempo', () => {
       if (!existsSync(f)) return true;
       const src = readFileSync(f, 'utf-8');
       // Já declarou contexto, ou nem chama IA: a entrada não é mais dívida.
-      return /comContexto\(\{\s*runtime: 'rota'/.test(src) || !chamaIA(src);
+      return /comContexto\(\s*\{\s*runtime: 'rota'/.test(src) || !chamaIA(src);
     });
     expect(stale, `entradas que já não são dívida — remova:\n  ${stale.join('\n  ')}`).toEqual([]);
   });
