@@ -168,6 +168,12 @@ tests/unit/          vitest
   carrega, e o histórico deixa de servir para achar quando algo entrou. Conferir `git status` antes
   **não** defende: a janela entre o `add` e o `commit` é exatamente onde o outro lado escreve — e ela
   é grande de propósito, porque os guards de CI só enxergam o que está **staged** (`git ls-files`).
+  ⚠️ **O pathspec é `--only`: ele commita o WORKING TREE desses caminhos, não o index.** Então
+  `git rm --cached` **não sobrevive** a um commit por pathspec — o arquivo segue no disco, o commit o
+  re-adiciona, e a remoção do índice é desfeita sem nenhum aviso (medido 29/08: 160 remoções
+  encenadas, commit respondeu "1 file changed" e os 160 continuaram rastreados). Para desversionar
+  mantendo o arquivo: mova-o para fora do repo, commite a deleção com pathspec, devolva-o já coberto
+  pelo `.gitignore`. `--pathspec-from-file` não serve — o hook procura o `--` na linha de comando.
 - `git -C "<repo>" ...` — nunca `cd ... && git` (dispara approval).
 - **`git push origin master`** deploya a Vercel. **NUNCA** `vercel --prod` (duplica).
 - ⚠️ **O push pode NÃO gerar build — sem erro e sem aviso** (medido 06/08: commit chegou ao GitHub,
@@ -538,4 +544,13 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
 - NÃO enviar comunicação real de tenant de demo.
 - NÃO commitar secrets / instalar dependência desnecessária sem necessidade clara.
 - NÃO criar `.md` fora de `docs/` (salvo as 4 exceções de contrato) nem versionar dump de dados de tenant / notas de sessão — **o repo é público**.
+  - E NÃO versionar **artefato de workspace em lote** (`scripts/_*.ts`, `.md` de sessão na raiz). Não é
+    só higiene: esses scripts rodam service-role e leem PII sem filtro de tenant **de propósito** (quem
+    os executa já escolheu o tenant na mão), então versioná-los é importar violação para dentro dos
+    guards. Medido 29/08: um `chore(repo)` com 255 artefatos reabriu **5 guards** (tenant-read,
+    service-role, ia-taskkey, turmas-config, docs-location) com **86 scripts** em violação e travou o
+    push de todo mundo, com a suíte apontando para arquivos que a pessoa não tinha tocado. Suíte
+    vermelha **por herança** é a que ninguém lê. Hoje o `.gitignore` cobre `scripts/_*.{ts,mts,mjs}`;
+    o estoque antigo segue rastreado e allowlistado. ⚠️ E os `.md` que voltaram para a raiz eram as
+    versões VELHAS das de `docs/` (ARQUITETURA 1.534 contra 2.018 linhas) — doc velho ensina o errado.
 - O backend legado em **Google Apps Script** (GAS) é **dormant** — o app evoluiu muito além dele; NÃO tentar manter paridade.

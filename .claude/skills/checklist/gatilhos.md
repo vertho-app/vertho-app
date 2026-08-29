@@ -684,3 +684,32 @@ autenticação** num app onde todas as outras exigem `requireNextUser` — endpo
 descoberto só na hora de commitar.
 
 Detalhe: memória `project_copiloto_ao_vivo_pace`, `C:\GAS\Simulador\docs\copiloto-ao-vivo.md`.
+
+---
+
+## § Mexeu num CONTADOR, resumo ou barra de progresso de uma tela que tem FILTRO
+
+**Casa quando a mudança:** toca um agregado exibido acima de uma lista filtrável (`stats`, "Total:",
+"N de M", `%`), ou adiciona/altera um filtro numa tela que já mostra números.
+
+**Confira, nesta ordem:**
+
+1. **O agregado sai do MESMO conjunto que a lista?** Se a lista usa `filtered` e o contador usa a
+   coleção inteira, o número não some nem pisca: fica plausível medindo outra população. Régua:
+   filtro e contagem numa função só, e teste que prove que os dois saem de lá.
+2. **Quem MAIS lê aquela variável?** É aqui que o defeito fica caro. Botão de lote, seleção,
+   exportação e "selecionar todos" costumam herdar a mesma fonte — e um botão que age fora do
+   filtro gasta dinheiro ou reescreve dado de quem saiu da tela.
+3. **Lista vazia POR FILTRO tem mensagem própria?** O `empty state` normalmente só cobre "não há
+   nada"; com filtro que não casa, a tela fica em branco e parece falha de carregamento.
+4. **O agregado que NÃO deve seguir o filtro está declarado?** Se um número é intencionalmente
+   global, ele precisa dizer isso na tela ("de 115") ou vira a mesma mentira ao contrário.
+
+**Consequência medida (29/08/2026):** no painel da IA4 (`/admin/empresas/[id]/fase2`), filtrar
+"Professor(a)" não mexia em nenhum dos 5 chips (Total 115, Avaliadas 115), e o botão "Re-avaliar
+todos" ao lado montava a fila da mesma fonte: um clique com filtro ativo alcançaria as respostas dos
+diretores, pagando IA e reescrevendo avaliação que ninguém pediu. Nenhum teste pegou; quem achou foi
+o dono olhando a tela.
+
+Detalhe: `lib/ia4-painel-respostas.ts`, `tests/unit/ia4-painel-respostas.test.ts`, memória
+`feedback_contador_ignora_filtro`.
