@@ -352,14 +352,12 @@ async function registrarUsoIA(
       console.log(`[ai-cache] ${model} hit=${base ? Math.round((read / base) * 100) : 0}% read=${read} write=${write} fresh=${u.inTokens}`);
     }
     const ctx = contextoAtual();
-    const { createSupabaseAdmin } = await import('@/lib/supabase');
-    // ⚠️ O `{ error }` do supabase-js NÃO lança, então o catch abaixo nunca via
-    // falha de gravação: o ledger podia estar perdendo linhas em silêncio. Isso
-    // não é perda de log — é perda do DADO que decide teto, modelo e custo, e
-    // esta sessão inteira mostrou o que conclusão sobre ledger incompleto
-    // produz. Best-effort segue sendo best-effort (não derruba a chamada de IA),
-    // mas agora é VISÍVEL. (26/08/2026)
-    const { error: erroLedger } = await createSupabaseAdmin().from('ia_usage_log').insert({
+    // O INSERT (e o aviso de falha) vivem em `lib/ia-ledger.ts` desde 29/08/2026,
+    // porque o TTS também precisa gravar e duas cópias do mesmo registro divergem.
+    // A MONTAGEM da linha continua aqui: o que o wrapper sabe (cache, truncagem,
+    // origem do call-site) o TTS não sabe.
+    const { gravarLinhaLedger } = await import('@/lib/ia-ledger');
+    await gravarLinhaLedger({
       feature: options.taskKey || 'untagged',
       empresa_id: options.empresaId ?? null,
       colaborador_id: options.colaboradorId ?? null,
@@ -391,13 +389,6 @@ async function registrarUsoIA(
       // etiqueta, e que encolhe conforme elas ganham uma.
       origem_codigo: options.taskKey ? null : (options._origemCodigo ?? null),
     });
-    if (erroLedger) {
-      console.warn(
-        `[ia-ledger] NÃO gravou ${options.taskKey || 'untagged'} (${model}): ${erroLedger.message}. `
-        + 'A chamada de IA foi feita e paga — o custo dela some do ledger, e toda conta sobre esta '
-        + 'feature passa a ter denominador menor que a realidade.',
-      );
-    }
     // Alerta na trilha quente: 80% do orçamento é onde a próxima chamada um
     // pouco mais longa vira timeout — e timeout, aqui, é trabalho pago e perdido.
     const fracao = fracaoDoOrcamento(latencyMs, ctx);

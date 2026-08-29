@@ -1201,7 +1201,11 @@ export async function prepararAudioPersonalizado({ contentId, colab }: { content
     const { extractNarration, generatePersonalizedPodcastAudio } = await import('@/lib/gemini-tts');
     const narracao = extractNarration(content.conteudo_inline || '');
     if (narracao.length < 20) return { success: false, error: 'narração curta' };
-    const audio = await generatePersonalizedPodcastAudio(narracao, nome);
+    const audio = await generatePersonalizedPodcastAudio(narracao, nome, {
+      feature: 'tts_podcast_personalizado',
+      empresaId: alvo.empresa_id,
+      colaboradorId: colab.id,
+    });
     const { error } = await sb.storage.from('conteudos').upload(cachePath, audio.buffer, {
       contentType: audio.contentType, upsert: true,
     });
@@ -1237,7 +1241,7 @@ export async function gerarPodcastAudio(id: string) {
       return { success: false, error: 'Não foi possível extrair a narração do roteiro' };
     }
 
-    const audio = await generatePodcastAudio(narracao);
+    const audio = await generatePodcastAudio(narracao, { feature: 'tts_podcast', empresaId: c.empresa_id });
 
     const slug = String(c.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');
     const path = `final/audio/${slug}/${c.id}-${Date.now()}.${audio.extension}`;

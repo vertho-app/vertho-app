@@ -52,7 +52,11 @@ export async function POST(req: Request) {
     const { data: colab } = await sb.from('colaboradores')
       .select('nome_completo').eq('id', colaboradorId).maybeSingle();
     const nome = colab?.nome_completo?.trim() || '';
-    const audio = await generatePersonalizedPodcastAudio(narracao, nome);
+    const audio = await generatePersonalizedPodcastAudio(narracao, nome, {
+      feature: 'tts_podcast_pregerado',
+      empresaId: content.empresa_id,
+      colaboradorId,
+    });
     // MESMO path que /api/conteudo/[id]/podcast lê no cache.
     const path = `final/audio-personalizado/${sanitizeSegment(content.id)}/${sanitizeSegment(colaboradorId)}.mp3`;
     const { error: upErr } = await sb.storage.from('conteudos')
@@ -62,7 +66,10 @@ export async function POST(req: Request) {
   }
 
   // ── BASE (sem nome) → fallback + url no micro_conteudo ─────────────────────────
-  const audio = await generatePersonalizedPodcastAudio(narracao, '');
+  const audio = await generatePersonalizedPodcastAudio(narracao, '', {
+    feature: 'tts_podcast_pregerado',
+    empresaId: content.empresa_id,
+  });
   const path = `final/podcast-base/${id}.mp3`;
   const { error: upErr } = await sb.storage.from('conteudos')
     .upload(path, audio.buffer, { contentType: audio.contentType, upsert: true });

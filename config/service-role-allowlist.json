@@ -30,7 +30,7 @@
     "app/api/notifications/optin-event/route.ts": 1,
     "lib/i18n-server.ts": 1,
     "lib/permissions.ts": 1,
-    "actions/ai-client.ts": 1,
+    "lib/ia-ledger.ts": 1,
     "lib/ai-batch.ts": 1,
     "actions/ia-uso.ts": 1,
     "lib/modulos-base/pipeline.ts": 4,

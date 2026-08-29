@@ -280,6 +280,7 @@ async function gerarEsalvarDevolutivaComportamental({ colab: inputColab, colabId
     const audio = await generateNarrationAudio(narracao, {
       voice: process.env.GEMINI_TTS_DEVOLUTIVA_VOICE || 'Achird',
       style: 'Narre em português do Brasil, com voz masculina brasileira acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa',
+      ledger: { feature: 'tts_devolutiva', empresaId: colab.empresa_id, colaboradorId: colab.id },
     });
 
     // Upload + persiste path

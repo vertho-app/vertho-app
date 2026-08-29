@@ -18,6 +18,9 @@ import {
   splitNarrationForTts,
 } from './tts/narration-text';
 import { getGoogleAccessToken, vertexProjectId } from './tts/google-token';
+import { costFromTokens } from './ia-cost-catalog';
+import { gravarLinhaLedger } from './ia-ledger';
+import { contextoAtual } from './execucao-contexto';
 
 // Re-export da API pública (callers continuam importando de '@/lib/gemini-tts').
 export { buildPersonalizedPodcastNarration, extractNarration, ensurePodcastBrandNarration } from './tts/narration-text';
@@ -102,15 +105,77 @@ function rateFromMime(mime?: string): number {
 const TTS_MAX_RETRIES = Number(process.env.GEMINI_TTS_RETRIES) || 4;
 
 /**
+ * Etiqueta da síntese no ledger de IA. Declarada pelo call-site, como o
+ * `taskKey` do `callAI` — quem chama sabe se aquilo é narração de vídeo,
+ * devolutiva ou podcast, e `ttsGenerate` não tem como descobrir.
+ */
+export interface TtsLedger {
+  feature: string;
+  empresaId?: string | null;
+  colaboradorId?: string | null;
+}
+
+/** Modelo efetivamente pedido (o endpoint do Vertex aceita id próprio). */
+function modeloEfetivo(): string {
+  return TTS_BACKEND === 'vertex' ? VERTEX_MODEL : MODEL;
+}
+
+/**
+ * Registra a chamada no ledger de IA (`ia_usage_log`).
+ *
+ * Por que aqui e não nos call-sites: cobertura por construção, mesma decisão do
+ * `registrarUsoIA` em `actions/ai-client.ts`. Toda síntese passa por
+ * `ttsGenerate`, então nenhuma geração nova pode nascer sem custo registrado.
+ *
+ * `source` carrega o BACKEND (`tts:vertex` / `tts:aistudio`). Isso não é enfeite:
+ * `TTS_BACKEND` está marcada como *Sensitive* na Vercel, o que a torna ilegível
+ * por `env ls` e por `env pull` (volta `[SENSITIVE]`) — a única forma de saber
+ * qual backend produção usa de fato é o próprio comportamento em runtime.
+ *
+ * Grava também a resposta 200 SEM áudio: ela é cobrada no input e hoje some do
+ * custo, apesar de ser exatamente o caso que já custou um diagnóstico por chute
+ * (ver o bloco de `finishReason` abaixo).
+ */
+async function registrarUsoTts(
+  ledger: TtsLedger,
+  data: any,
+  latencyMs: number,
+  status: 'ok' | string,
+) {
+  const usage = data?.usageMetadata;
+  if (!usage) return;
+  const inTokens = Number(usage.promptTokenCount) || 0;
+  const outTokens = Number(usage.candidatesTokenCount) || 0;
+  const model = modeloEfetivo();
+  const ctx = contextoAtual();
+  await gravarLinhaLedger({
+    feature: ledger.feature,
+    empresa_id: ledger.empresaId ?? null,
+    colaborador_id: ledger.colaboradorId ?? null,
+    provider: 'gemini',
+    model,
+    input_tokens: inTokens,
+    output_tokens: outTokens,
+    cost_usd: costFromTokens(model, { inTokens, outTokens }),
+    latency_ms: latencyMs,
+    status,
+    source: `tts:${TTS_BACKEND}`,
+    runtime: ctx.runtime,
+    orcamento_ms: ctx.orcamentoMs ?? null,
+  });
+}
+
+/**
  * Chamada crua ao TTS (AI Studio OU Vertex, conforme TTS_BACKEND): body → PCM
  * 16-bit mono. RETRY com backoff exponencial em 429 (rate-limit) e 503; respeita
  * `Retry-After`. O body (contents/generationConfig/speechConfig) é idêntico nos
  * dois backends — só o endpoint/auth muda (ttsEndpoint).
  */
-async function ttsGenerate(body: unknown, attempt = 0): Promise<{ pcm: Buffer; sampleRate: number }> {
+async function ttsGenerate(body: unknown, ledger: TtsLedger, attempt = 0): Promise<{ pcm: Buffer; sampleRate: number }> {
   const { url, headers } = await ttsEndpoint();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 170_000);
+  const t0 = Date.now();
   let res: Response;
   try {
     res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl.signal });
@@ -121,7 +186,7 @@ async function ttsGenerate(body: unknown, attempt = 0): Promise<{ pcm: Buffer; s
       // até 170s, e timeout repetido indica problema não-transitório.
       if (attempt < Math.min(2, TTS_MAX_RETRIES)) {
         console.warn(`TTS timeout 170s (${TTS_BACKEND}) — retry imediato (tentativa ${attempt + 1}/2)`);
-        return ttsGenerate(body, attempt + 1);
+        return ttsGenerate(body, ledger, attempt + 1);
       }
       throw new Error(`Gemini TTS: timeout (170s) após ${attempt + 1} tentativas`);
     }
@@ -135,7 +200,7 @@ async function ttsGenerate(body: unknown, attempt = 0): Promise<{ pcm: Buffer; s
     const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : backoff;
     console.warn(`TTS ${res.status} (${TTS_BACKEND}) — retry em ${Math.round(wait / 1000)}s (tentativa ${attempt + 1}/${TTS_MAX_RETRIES})`);
     await new Promise((r) => setTimeout(r, wait));
-    return ttsGenerate(body, attempt + 1);
+    return ttsGenerate(body, ledger, attempt + 1);
   }
   if (!res.ok) throw new Error(`TTS ${res.status} (${TTS_BACKEND}): ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
@@ -162,19 +227,24 @@ async function ttsGenerate(body: unknown, attempt = 0): Promise<{ pcm: Buffer; s
     const finish = data?.candidates?.[0]?.finishReason
       || data?.promptFeedback?.blockReason
       || 'sem-inlineData';
+    // Resposta sem áudio TAMBÉM é paga (o input foi processado) e some do custo
+    // se só o caminho feliz gravar. É justamente o caso que precisa aparecer:
+    // 4 tentativas da mesma célula custaram um diagnóstico por chute em 17/08.
+    await registrarUsoTts(ledger, data, Date.now() - t0, `sem-audio:${finish}`);
     if (attempt < TTS_MAX_RETRIES) {
       const backoff = Math.min(30_000, 2_000 * 2 ** attempt);
       console.warn(`TTS resposta sem áudio (${finish}, ${TTS_BACKEND}) — retry em ${Math.round(backoff / 1000)}s (tentativa ${attempt + 1}/${TTS_MAX_RETRIES})`);
       await new Promise((r) => setTimeout(r, backoff));
-      return ttsGenerate(body, attempt + 1);
+      return ttsGenerate(body, ledger, attempt + 1);
     }
     throw new Error(`TTS: resposta sem áudio após ${TTS_MAX_RETRIES} tentativas (motivo: ${finish})`);
   }
+  await registrarUsoTts(ledger, data, Date.now() - t0, 'ok');
   return { pcm: Buffer.from(b64, 'base64'), sampleRate: rateFromMime(part.inlineData.mimeType) };
 }
 
 /** Single-speaker: texto+direção de estilo → PCM. */
-function ttsToPcm(prompt: string, voiceName: string): Promise<{ pcm: Buffer; sampleRate: number }> {
+function ttsToPcm(prompt: string, voiceName: string, ledger: TtsLedger): Promise<{ pcm: Buffer; sampleRate: number }> {
   return ttsGenerate({
     // role:'user' é OBRIGATÓRIO no Vertex (o AI Studio aceita também → compatível).
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -182,7 +252,7 @@ function ttsToPcm(prompt: string, voiceName: string): Promise<{ pcm: Buffer; sam
       responseModalities: ['AUDIO'],
       speechConfig: { languageCode: 'pt-BR', voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
     },
-  });
+  }, ledger);
 }
 
 // Direção de estilo default (devolutiva comportamental): mensagem pessoal do
@@ -246,10 +316,14 @@ function coalesceCurtos(parts: { text: string; q: boolean }[]): { text: string; 
  * narração limpa. Narra em TRECHOS (mesma voz) e concatena o PCM com uma pausa
  * curta entre eles — mantém voz e volume consistentes do início ao fim.
  */
-export async function generateNarrationAudio(texto: string, opts: { voice?: string; style?: string } = {}): Promise<PodcastAudioFile> {
+export async function generateNarrationAudio(
+  texto: string,
+  opts: { voice?: string; style?: string; ledger?: TtsLedger } = {},
+): Promise<PodcastAudioFile> {
   if (!texto?.trim()) throw new Error('texto de narração vazio');
   const voice = opts.voice || VOICE;
   const styleDirective = opts.style || NARRATION_STYLE_DEFAULT;
+  const ledger = opts.ledger || { feature: 'tts_narracao' };
   // Trechos do chunker → segmentos por pausa (corta após perguntas retóricas) →
   // coalesce de fragmentos curtos (evita "palavras fantasmas" do TTS no fim).
   const segmentos = coalesceCurtos(splitNarrationForTts(texto).flatMap(segmentarPorPausa));
@@ -259,7 +333,7 @@ export async function generateNarrationAudio(texto: string, opts: { voice?: stri
   let prevPergunta = false;
   for (const seg of segmentos) {
     const styled = `${styleDirective}:\n\n${seg.text}`;
-    const { pcm, sampleRate: sr } = await ttsToPcm(styled, voice);
+    const { pcm, sampleRate: sr } = await ttsToPcm(styled, voice, ledger);
     sampleRate = sr;
     if (partes.length) {
       // Silêncio EXATO: longo após pergunta retórica (pausa dramática), normal senão.
@@ -283,7 +357,7 @@ export async function generateNarrationAudio(texto: string, opts: { voice?: stri
  * de marca). Lança em erro/sem chave — o caller decide o fallback. `texto` deve
  * ser a narração limpa (use extractNarration).
  */
-export async function generatePodcastAudio(texto: string): Promise<PodcastAudioFile> {
+export async function generatePodcastAudio(texto: string, ledger?: TtsLedger): Promise<PodcastAudioFile> {
   if (!texto?.trim()) throw new Error('texto de narração vazio');
 
   const textoComMarca = ensurePodcastBrandNarration(texto);
@@ -314,7 +388,7 @@ export async function generatePodcastAudio(texto: string): Promise<PodcastAudioF
   };
 
   // Mesmo caminho (AI Studio ou Vertex) com retry — ver ttsGenerate.
-  const { pcm, sampleRate } = await ttsGenerate(body);
+  const { pcm, sampleRate } = await ttsGenerate(body, ledger || { feature: 'tts_podcast' });
   const mixedPcm = addPodcastBrandSting(pcm, sampleRate);
   return {
     buffer: exportPodcastMp3FromPcm(mixedPcm, sampleRate),
@@ -327,7 +401,11 @@ export async function generatePodcastAudio(texto: string): Promise<PodcastAudioF
  * Gera o mesmo podcast final, mas com saudação nominal antes do conteúdo.
  * O caller deve passar a narração limpa extraída do roteiro.
  */
-export async function generatePersonalizedPodcastAudio(texto: string, nomeCompleto: string): Promise<PodcastAudioFile> {
+export async function generatePersonalizedPodcastAudio(
+  texto: string,
+  nomeCompleto: string,
+  ledger?: TtsLedger,
+): Promise<PodcastAudioFile> {
   const textoPersonalizado = buildPersonalizedPodcastNarration(texto, nomeCompleto);
-  return generatePodcastAudio(textoPersonalizado);
+  return generatePodcastAudio(textoPersonalizado, ledger || { feature: 'tts_podcast_personalizado' });
 }

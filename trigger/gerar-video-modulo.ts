@@ -185,7 +185,13 @@ export const gerarVideoModuloTask = task({
       await patchVideo(videoId, { etapa: 'narracao' });
       const comNarracao = roteiro.scenes.filter((s) => s.narration?.trim() && !assets[s.id]?.src);
       await mapPool(comNarracao, NARRACAO_CONCURRENCY, async (s) => {
-        const audio = await generateNarrationAudio(aplicarPronuncia(s.narration as string), { voice: VOICE, style: styleForScene(s.type) });
+        // `ledger` sem empresa de propósito: o vídeo é do MÓDULO-BASE (conteúdo
+        // canônico da plataforma), não de um tenant. Etiqueta vazia seria chute.
+        const audio = await generateNarrationAudio(aplicarPronuncia(s.narration as string), {
+          voice: VOICE,
+          style: styleForScene(s.type),
+          ledger: { feature: 'tts_video_cena' },
+        });
         // Corta a cauda muda do TTS → avatar termina junto com a fala + Whisper não alucina no silêncio.
         const buf = await trimTrailingSilence(audio.buffer);
         const src = await storagePut('video-assets', `${videoId}/${s.id}.mp3`, buf, 'audio/mpeg');

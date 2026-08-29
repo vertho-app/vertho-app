@@ -128,7 +128,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const narracao = extractNarration(content.conteudo_inline || '');
     if (narracao.length >= 20) {
-      const audio = await generatePersonalizedPodcastAudio(narracao, nome);
+      const audio = await generatePersonalizedPodcastAudio(narracao, nome, {
+        feature: 'tts_podcast_personalizado',
+        empresaId: content.empresa_id,
+        colaboradorId: alvo!.id,
+      });
       const { error: uploadError } = await sb.storage.from('conteudos').upload(cachePath, audio.buffer, {
         contentType: audio.contentType,
         upsert: true,

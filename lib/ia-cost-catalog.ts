@@ -95,6 +95,15 @@ export const MODELS = {
   'voyage-3-large':             { label: 'Voyage-3-large (embed)', inUsd: 0.18, outUsd: 0 },
   // TTS — por token. Input = texto; Output = tokens de áudio (custo dominante).
   'gemini-3.1-flash-tts':       { label: 'Gemini 3.1 Flash TTS (áudio)', inUsd: 1, outUsd: 20 },
+  // ⚠️ O id que a API cobra tem o sufixo `-preview` (é o default de
+  // `GEMINI_TTS_MODEL` em `lib/gemini-tts.ts`, e o `modelVersion` que a resposta
+  // devolve). `costFromTokens` faz lookup EXATO: sem esta entrada, toda linha de
+  // TTS no ledger nasceria com `cost_usd = null` — instrumentar o custo e não
+  // conseguir somá-lo. A entrada sem sufixo fica porque é a que o catálogo de
+  // features (`defaultModel`) referencia. Mesmo preço nas duas.
+  // Medido em 29/08/2026, sonda nos dois backends: ~25 tok/s de áudio no Vertex,
+  // ~32 tok/s no AI Studio, para o MESMO texto (~2,9s de fala).
+  'gemini-3.1-flash-tts-preview': { label: 'Gemini 3.1 Flash TTS (áudio)', inUsd: 1, outUsd: 20 },
 };
 
 export const MODEL_IDS = Object.keys(MODELS);
