@@ -117,3 +117,19 @@ triagem-*.json
 /video-spike/tutorial/out/
 /.antigravitycli/
 .commit-msg-*.txt
+
+# Scripts de diagnóstico da sessão (`scripts/_nome.ts`) e notas de sessão na
+# raiz. São utilitários locais: rodam com service-role e leem tabela de PII sem
+# filtro de tenant porque quem os roda já escolheu o tenant na mão. Versionar
+# 155 deles de uma vez em 29/08 reabriu 5 guards (tenant-read, service-role,
+# ia-taskkey, turmas-config, docs-location) e travou o push de todo mundo com
+# violações que ninguém tinha introduzido. O estoque antigo segue rastreado e
+# allowlistado; o que nasce agora fica local. Doc de engenharia vai em `docs/`.
+scripts/_*.ts
+scripts/_*.mts
+scripts/_*.mjs
+/ARQUITETURA.md
+/CODEx_SESSION_NOTES.md
+/FEATURES-E-BENEFICIOS.md
+/PASSO-A-PASSO-VERTHO.md
+/RESUMO.md
