@@ -347,7 +347,7 @@ export default function AdminDemoPage() {
                     })}
                   </div>
                   <p className="mt-3 text-[10px] leading-relaxed text-gray-500">
-                    Abra qualquer visão. O dropdown “Visão apresentada” autentica as outras funções automaticamente, sem pedir login ou senha.
+                    Abra qualquer visão. Use “Visão apresentada” para trocar de função sem login e “Dispositivo” para alternar entre Computador e a experiência responsiva de Celular.
                   </p>
                 </div>
               )}

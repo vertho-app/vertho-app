@@ -8,7 +8,7 @@ import { localeCookieName } from '@/lib/i18n';
 import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
-import { PresentationRoleSwitcher } from '@/components/dashboard/presentation-role-switcher';
+import { PresentationEnvironment } from '@/components/dashboard/presentation-role-switcher';
 import type { TenantTheme } from '@/lib/ui-resolver';
 
 type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean; participante?: boolean };
@@ -135,18 +135,18 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   if (!user) return null;
 
   return (
-    <div
-      className="min-h-dvh flex flex-col"
-      style={{
-        background: `linear-gradient(180deg, ${theme.bgStart} 0%, ${theme.bgEnd} 100%)`,
-        // White-label do ramp de marca: só sobrescreve quando o tenant configurou
-        // um accent (senão cai nos fallbacks = cyan exato = Vertho). brand-400 é o
-        // accent; as demais tonalidades são derivadas (clarear p/ 100-300, escurecer
-        // p/ 500-700) via color-mix, dando um ramp coerente a partir de 1 cor.
-        ...(theme.accentRaw ? brandRampVars(theme.accentRaw) : {}),
-      }}
-    >
-      <PresentationRoleSwitcher />
+    <PresentationEnvironment>
+      <div
+        className="min-h-dvh flex flex-col"
+        style={{
+          background: `linear-gradient(180deg, ${theme.bgStart} 0%, ${theme.bgEnd} 100%)`,
+          // White-label do ramp de marca: só sobrescreve quando o tenant configurou
+          // um accent (senão cai nos fallbacks = cyan exato = Vertho). brand-400 é o
+          // accent; as demais tonalidades são derivadas (clarear p/ 100-300, escurecer
+          // p/ 500-700) via color-mix, dando um ramp coerente a partir de 1 cor.
+          ...(theme.accentRaw ? brandRampVars(theme.accentRaw) : {}),
+        }}
+      >
 
       {/* Sidebar (desktop) */}
       <aside
@@ -262,7 +262,8 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
         })}
       </nav>
 
-      {!/^\/dashboard\/temporada\/semana\//.test(pathname) && <BetoChat />}
-    </div>
+        {!/^\/dashboard\/temporada\/semana\//.test(pathname) && <BetoChat />}
+      </div>
+    </PresentationEnvironment>
   );
 }

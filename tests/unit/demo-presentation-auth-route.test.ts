@@ -39,6 +39,23 @@ describe('rota de autenticação automática da apresentação', () => {
     const destino = new URL(res.headers.get('location')!);
     expect(destino.origin + destino.pathname).toBe('https://gestor-demo.vertho.ai/dashboard/gestor');
     expect(destino.searchParams.get('sala')).toBe('passe.assinado');
+    expect(destino.searchParams.get('tela')).toBe('computador');
+  });
+
+  it('preserva a visão de celular ao preparar a sessão do próximo papel', async () => {
+    const req = new NextRequest('https://gestor-demo.vertho.ai/auth/apresentacao?ticket=passe.assinado&tela=celular');
+    const res = await GET(req);
+
+    const destino = new URL(res.headers.get('location')!);
+    expect(destino.searchParams.get('sala')).toBe('passe.assinado');
+    expect(destino.searchParams.get('tela')).toBe('celular');
+  });
+
+  it('descarta dispositivos fora da allowlist', async () => {
+    const req = new NextRequest('https://gestor-demo.vertho.ai/auth/apresentacao?ticket=passe.assinado&tela=tablet');
+    const res = await GET(req);
+
+    expect(new URL(res.headers.get('location')!).searchParams.get('tela')).toBe('computador');
   });
 
   it('nega passe inválido antes de tocar no Auth', async () => {

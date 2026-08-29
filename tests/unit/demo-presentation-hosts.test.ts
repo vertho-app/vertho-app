@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   demoPresentationAuthUrl,
   demoPresentationUrl,
+  getDemoPresentationDeviceQueryValue,
   getDemoPresentationRoleFromHostname,
   launchDemoPresentationAccess,
+  parseDemoPresentationDevice,
   resolvePresentationTenantSlug,
 } from '@/lib/demo/presentation';
 
@@ -28,6 +30,14 @@ describe('hosts da sala de apresentação', () => {
     expect(demoPresentationAuthUrl('gestor', 'passe.assinado', 'vertho.test')).toBe(
       'https://gestor-demo.vertho.test/auth/apresentacao?ticket=passe.assinado',
     );
+  });
+
+  it('aceita somente Computador e Celular como dispositivos da apresentação', () => {
+    expect(parseDemoPresentationDevice('computador')).toBe('desktop');
+    expect(parseDemoPresentationDevice('celular')).toBe('mobile');
+    expect(parseDemoPresentationDevice('tablet')).toBeNull();
+    expect(getDemoPresentationDeviceQueryValue('desktop')).toBe('computador');
+    expect(getDemoPresentationDeviceQueryValue('mobile')).toBe('celular');
   });
 
   it('consome o magic link antes de marcar a sessão como preparada', () => {

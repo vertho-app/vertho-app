@@ -13,6 +13,13 @@ import { ROOT_DOMAIN } from '@/lib/domain';
 export const DEMO_PRESENTATION_TENANT_SLUG = 'acme-demo' as const;
 export const DEMO_PRESENTATION_TICKET_PARAM = 'sala';
 export const DEMO_PRESENTATION_TICKET_STORAGE_KEY = 'vertho-demo-presentation-ticket';
+export const DEMO_PRESENTATION_DEVICE_PARAM = 'tela';
+export const DEMO_PRESENTATION_DEVICE_STORAGE_KEY = 'vertho-demo-presentation-device';
+
+export const DEMO_PRESENTATION_DEVICES = [
+  { key: 'desktop', label: 'Computador', queryValue: 'computador' },
+  { key: 'mobile', label: 'Celular', queryValue: 'celular' },
+] as const;
 
 export const DEMO_PRESENTATION_ROLES = [
   {
@@ -37,11 +44,21 @@ export const DEMO_PRESENTATION_ROLES = [
 
 export type DemoPresentationRoleKey = typeof DEMO_PRESENTATION_ROLES[number]['key'];
 export type DemoPresentationRole = typeof DEMO_PRESENTATION_ROLES[number];
+export type DemoPresentationDeviceKey = typeof DEMO_PRESENTATION_DEVICES[number]['key'];
 
 export function getDemoPresentationRole(key: DemoPresentationRoleKey): DemoPresentationRole {
   const role = DEMO_PRESENTATION_ROLES.find((item) => item.key === key);
   if (!role) throw new Error(`Papel de apresentação inválido: ${key}`);
   return role;
+}
+
+/** Aceita somente os dois valores públicos usados pela sala de apresentação. */
+export function parseDemoPresentationDevice(value: string | null | undefined): DemoPresentationDeviceKey | null {
+  return DEMO_PRESENTATION_DEVICES.find((device) => device.queryValue === value)?.key ?? null;
+}
+
+export function getDemoPresentationDeviceQueryValue(deviceKey: DemoPresentationDeviceKey): string {
+  return DEMO_PRESENTATION_DEVICES.find((device) => device.key === deviceKey)?.queryValue ?? 'computador';
 }
 
 /** Retorna o tenant canônico somente para aliases fixos da sala de apresentação. */

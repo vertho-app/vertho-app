@@ -69,6 +69,13 @@ Abra qualquer uma das visões. O preparo emite um passe assinado, restrito ao
 passe para a origem escolhida, e a rota `/auth/apresentacao` cria a sessão da
 persona correta no servidor — sem expor a senha compartilhada ao browser.
 
+Ao lado dele, o dropdown **Dispositivo** alterna entre **Computador** e
+**Celular**. No modo Celular, a aplicação real roda numa viewport isolada de
+390 px, dentro de uma moldura de aparelho. Portanto os breakpoints, o header e
+a navegação inferior são exatamente os responsivos do produto, não uma imagem
+reduzida. A preferência acompanha a troca de função; ao voltar para Computador,
+a sala mantém a tela até então navegada dentro da prévia.
+
 Os aliases são três origens diferentes e, por isso, preservam três cookies de
 sessão host-only no mesmo navegador. O proxy mapeia todos para o tenant canônico
 `acme-demo`, mas o papel e as permissões continuam vindo do usuário realmente

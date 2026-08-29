@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import {
+  DEMO_PRESENTATION_DEVICE_PARAM,
   DEMO_PRESENTATION_TICKET_PARAM,
+  getDemoPresentationDeviceQueryValue,
   getDemoPresentationRoleFromHostname,
+  parseDemoPresentationDevice,
 } from '@/lib/demo/presentation';
 import { verifyDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
 import { gerarMagicLinkPapelApresentacaoDemo } from '@/lib/demo/reset-acme-demo';
@@ -54,5 +57,15 @@ export async function GET(req: NextRequest) {
   // de endereço. Ele precisa chegar uma vez a cada origem para que o próximo
   // salto do dropdown também seja automático.
   destino.searchParams.set(DEMO_PRESENTATION_TICKET_PARAM, ticket!);
+  // A preferência também precisa atravessar os hostnames. Quando o link vem da
+  // preparação inicial, o padrão explícito é Computador; valores arbitrários
+  // são descartados e nunca reaproveitados no redirect.
+  const device = parseDemoPresentationDevice(
+    req.nextUrl.searchParams.get(DEMO_PRESENTATION_DEVICE_PARAM),
+  ) || 'desktop';
+  destino.searchParams.set(
+    DEMO_PRESENTATION_DEVICE_PARAM,
+    getDemoPresentationDeviceQueryValue(device),
+  );
   return NextResponse.redirect(destino);
 }
