@@ -347,7 +347,7 @@ export default function AdminDemoPage() {
                     })}
                   </div>
                   <p className="mt-3 text-[10px] leading-relaxed text-gray-500">
-                    Abra as três visões uma vez. Depois use o dropdown “Visão apresentada” dentro do dashboard para alternar instantaneamente.
+                    Abra qualquer visão. O dropdown “Visão apresentada” autentica as outras funções automaticamente, sem pedir login ou senha.
                   </p>
                 </div>
               )}

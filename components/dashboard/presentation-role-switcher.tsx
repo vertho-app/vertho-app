@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { ChevronDown, Eye, Loader2 } from 'lucide-react';
 import {
   DEMO_PRESENTATION_ROLES,
+  DEMO_PRESENTATION_TICKET_PARAM,
+  DEMO_PRESENTATION_TICKET_STORAGE_KEY,
+  demoPresentationAuthUrl,
   demoPresentationUrl,
   getDemoPresentationRoleFromHostname,
   type DemoPresentationRole,
@@ -13,6 +16,17 @@ import {
 const subscribeToHostname = () => () => {};
 const getPresentationRoleSnapshot = () => getDemoPresentationRoleFromHostname(window.location.hostname);
 const getPresentationRoleServerSnapshot = () => null;
+
+function readPresentationTicket(): string | null {
+  if (typeof window === 'undefined') return null;
+  const fromUrl = new URLSearchParams(window.location.search).get(DEMO_PRESENTATION_TICKET_PARAM);
+  if (fromUrl) return fromUrl;
+  try {
+    return window.sessionStorage.getItem(DEMO_PRESENTATION_TICKET_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Dropdown da sala de apresentação. Ele só renderiza nos três aliases fixos;
@@ -25,6 +39,19 @@ export function PresentationRoleSwitcher() {
     getPresentationRoleServerSnapshot,
   );
   const [switching, setSwitching] = useState(false);
+  const [ticket] = useState<string | null>(readPresentationTicket);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const fromUrl = url.searchParams.get(DEMO_PRESENTATION_TICKET_PARAM);
+    if (!fromUrl || fromUrl !== ticket) return;
+    try {
+      window.sessionStorage.setItem(DEMO_PRESENTATION_TICKET_STORAGE_KEY, fromUrl);
+    } catch {}
+    // O passe não precisa ficar exposto na barra, histórico ou captura de tela.
+    url.searchParams.delete(DEMO_PRESENTATION_TICKET_PARAM);
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }, [ticket]);
 
   if (!currentRole) return null;
 
@@ -33,7 +60,11 @@ export function PresentationRoleSwitcher() {
     setSwitching(true);
     // Cada destino tem a própria sessão real já preparada. Ir para a home do
     // papel evita carregar um deep-link que aquela função não pode acessar.
-    window.location.assign(demoPresentationUrl(nextRole));
+    window.location.assign(
+      ticket
+        ? demoPresentationAuthUrl(nextRole, ticket)
+        : demoPresentationUrl(nextRole),
+    );
   }
 
   return (

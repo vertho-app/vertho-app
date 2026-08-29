@@ -56,7 +56,7 @@ Para demonstrar as três funções sem logout, abra `/admin/demo` e clique
 **Preparar apresentação**. A sala usa sempre o `acme-demo`: ele contém o mesmo
 fixture e os mesmos artefatos do Grupo Sinal, mas mantém identidade genérica.
 
-O botão gera um acesso de uso único para cada origem:
+O botão prepara um ponto de entrada para cada origem:
 
 | Visão | Host isolado | Conta real |
 |---|---|---|
@@ -64,11 +64,16 @@ O botão gera um acesso de uso único para cada origem:
 | Gestor | `gestor-demo.vertho.ai` | `carla.demo@vertho.ai` |
 | RH | `rh-demo.vertho.ai` | `helena.demo@vertho.ai` |
 
-Abra as três visões uma vez. Depois, o dropdown **Visão apresentada** alterna
-entre elas. Os aliases são três origens diferentes e, por isso, preservam três
-cookies de sessão host-only no mesmo navegador. O proxy mapeia todos para o
-tenant canônico `acme-demo`, mas o papel e as permissões continuam vindo do
-usuário realmente autenticado — não existe override de role por URL ou cookie.
+Abra qualquer uma das visões. O preparo emite um passe assinado, restrito ao
+`acme-demo` e válido por 4 horas. O dropdown **Visão apresentada** leva esse
+passe para a origem escolhida, e a rota `/auth/apresentacao` cria a sessão da
+persona correta no servidor — sem expor a senha compartilhada ao browser.
+
+Os aliases são três origens diferentes e, por isso, preservam três cookies de
+sessão host-only no mesmo navegador. O proxy mapeia todos para o tenant canônico
+`acme-demo`, mas o papel e as permissões continuam vindo do usuário realmente
+autenticado — não existe override de role por URL ou cookie. A rota deriva o
+papel exclusivamente do hostname fixo, nunca de parâmetros enviados pelo client.
 
 Os hosts da apresentação são registrados na Vercel de forma idempotente no
 preparo da sala. Fora desses três aliases o dropdown não é renderizado.

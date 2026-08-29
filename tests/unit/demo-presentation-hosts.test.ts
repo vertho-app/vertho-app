@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  demoPresentationAuthUrl,
   demoPresentationUrl,
   getDemoPresentationRoleFromHostname,
   launchDemoPresentationAccess,
@@ -24,6 +25,9 @@ describe('hosts da sala de apresentação', () => {
     expect(demoPresentationUrl('usuario', undefined, 'vertho.test')).toBe('https://usuario-demo.vertho.test/dashboard');
     expect(demoPresentationUrl('gestor', undefined, 'vertho.test')).toBe('https://gestor-demo.vertho.test/dashboard/gestor');
     expect(demoPresentationUrl('rh', '/dashboard', 'vertho.test')).toBe('https://rh-demo.vertho.test/dashboard');
+    expect(demoPresentationAuthUrl('gestor', 'passe.assinado', 'vertho.test')).toBe(
+      'https://gestor-demo.vertho.test/auth/apresentacao?ticket=passe.assinado',
+    );
   });
 
   it('consome o magic link antes de marcar a sessão como preparada', () => {

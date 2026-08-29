@@ -11,6 +11,8 @@ import { ROOT_DOMAIN } from '@/lib/domain';
  * tenant canônico `acme-demo`; o hostname nunca concede papel ou permissão.
  */
 export const DEMO_PRESENTATION_TENANT_SLUG = 'acme-demo' as const;
+export const DEMO_PRESENTATION_TICKET_PARAM = 'sala';
+export const DEMO_PRESENTATION_TICKET_STORAGE_KEY = 'vertho-demo-presentation-ticket';
 
 export const DEMO_PRESENTATION_ROLES = [
   {
@@ -66,6 +68,18 @@ export function demoPresentationUrl(
   const targetPath = path ?? role.homePath;
   const normalizedPath = targetPath.startsWith('/') ? targetPath : `/${targetPath}`;
   return `https://${role.hostSlug}.${rootDomain}${normalizedPath}`;
+}
+
+export function demoPresentationAuthUrl(
+  roleKey: DemoPresentationRoleKey,
+  ticket: string,
+  rootDomain: string = ROOT_DOMAIN,
+): string {
+  return demoPresentationUrl(
+    roleKey,
+    `/auth/apresentacao?ticket=${encodeURIComponent(ticket)}`,
+    rootDomain,
+  );
 }
 
 /**

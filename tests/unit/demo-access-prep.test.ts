@@ -32,13 +32,15 @@ vi.mock('@/lib/vercel-domain', () => ({
 }));
 
 import {
-  gerarMagicLinksApresentacaoDemo,
+  gerarMagicLinkPapelApresentacaoDemo,
   gerarMagicLinksDemo,
   prepararAcessosDemo,
+  prepararAcessosApresentacaoDemo,
 } from '@/lib/demo/reset-acme-demo';
 
 describe('preparo dos acessos temporários do demo', () => {
   beforeEach(() => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key-for-demo-access-tests';
     isDemo = true;
     sb.reset();
     updateUserById.mockClear();
@@ -69,20 +71,30 @@ describe('preparo dos acessos temporários do demo', () => {
   });
 
   it('prepara três sessões isoladas para a apresentação neutra', async () => {
-    const r = await gerarMagicLinksApresentacaoDemo();
+    const r = await prepararAcessosApresentacaoDemo();
 
     expect(r.ok).toBe(true);
-    expect(generateLink).toHaveBeenCalledTimes(3);
-    expect(generateLink.mock.calls.map((call) => call[0].options.redirectTo)).toEqual([
-      'https://usuario-demo.vertho.ai/dashboard',
-      'https://gestor-demo.vertho.ai/dashboard/gestor',
-      'https://rh-demo.vertho.ai/dashboard',
-    ]);
+    expect(generateLink).not.toHaveBeenCalled();
     expect(r.acessos?.map((a) => [a.roleKey, new URL(a.url).hostname])).toEqual([
       ['usuario', 'usuario-demo.vertho.ai'],
       ['gestor', 'gestor-demo.vertho.ai'],
       ['rh', 'rh-demo.vertho.ai'],
     ]);
+    expect(r.acessos?.every((a) => new URL(a.url).pathname === '/auth/apresentacao')).toBe(true);
+    expect(new Set(r.acessos?.map((a) => new URL(a.url).searchParams.get('ticket'))).size).toBe(1);
+  });
+
+  it('gera o login de uso único somente para o papel fixo solicitado pela rota', async () => {
+    const r = await gerarMagicLinkPapelApresentacaoDemo('gestor');
+
+    expect(r.ok).toBe(true);
+    expect(generateLink).toHaveBeenCalledTimes(1);
+    expect(generateLink).toHaveBeenCalledWith({
+      type: 'magiclink',
+      email: 'carla.demo@vertho.ai',
+      options: { redirectTo: 'https://gestor-demo.vertho.ai/dashboard/gestor' },
+    });
+    if (r.ok) expect(r.nextPath).toBe('/dashboard/gestor');
   });
 
   it('rotaciona exatamente as três contas e devolve uma única senha', async () => {

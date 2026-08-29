@@ -140,7 +140,7 @@
     "app/api/sales/materials/[id]/download/route.ts": 1,
     "app/proposta/[token]/pdf/route.ts": 1,
     "lib/demo/envio-guard.ts": 1,
-    "lib/demo/reset-acme-demo.ts": 4,
+    "lib/demo/reset-acme-demo.ts": 5,
     "lib/sales/permissions.ts": 1,
     "trigger/acumulada-piloto.ts": 1,
     "lib/modulo-base-auditor.ts": 2,

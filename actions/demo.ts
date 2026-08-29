@@ -4,8 +4,8 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import {
   gerarMagicLinksDemo,
-  gerarMagicLinksApresentacaoDemo,
   prepararAcessosDemo,
+  prepararAcessosApresentacaoDemo,
   resetDemoTenant,
   type DemoTenantSlug,
 } from '@/lib/demo/reset-acme-demo';
@@ -59,7 +59,7 @@ export async function gerarMagicLinksTemporariosDemo(slug: DemoTenantSlug) {
  */
 export async function prepararSalaApresentacaoDemo() {
   const ctx = await requireAdminAction();
-  const r = await gerarMagicLinksApresentacaoDemo();
+  const r = await prepararAcessosApresentacaoDemo();
   await logAdminAction({
     adminEmail: ctx.email,
     acao: 'demo.prepare_presentation',

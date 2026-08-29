@@ -4,10 +4,12 @@ import { randomBytes } from 'node:crypto';
 import {
   DEMO_PRESENTATION_ROLES,
   DEMO_PRESENTATION_TENANT_SLUG,
+  demoPresentationAuthUrl,
   demoPresentationUrl,
   getDemoPresentationRole,
   type DemoPresentationRoleKey,
 } from '@/lib/demo/presentation';
+import { issueDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
 import fixture from '@/lib/demo/acme-demo-fixture.json';
 // Artefatos de IA CONGELADOS dos cargos extra (Financeiro/Operações/Gerente):
 // gabaritos (IA2) + cenários ricos com rubrica N1-N4 (IA3). Gerados 1x no
@@ -1266,14 +1268,13 @@ export async function gerarMagicLinksDemo(slug: DemoTenantSlug): Promise<DemoMag
 }
 
 /**
- * Prepara as três sessões REAIS da sala de apresentação no ACME Demo neutro.
+ * Prepara os três pontos de entrada da sala no ACME Demo neutro.
  *
- * Cada callback cai em um hostname próprio (`usuario-demo`, `gestor-demo`,
- * `rh-demo`). Como os cookies são host-only, os três usuários ficam logados ao
- * mesmo tempo. O operador abre cada link uma vez e depois troca de visão pelo
- * dropdown do dashboard, sem logout e sem qualquer override de autorização.
+ * Um passe assinado e temporário acompanha o dropdown. Cada hostname
+ * (`usuario-demo`, `gestor-demo`, `rh-demo`) o troca por uma sessão real da
+ * persona correspondente somente quando é visitado.
  */
-export async function gerarMagicLinksApresentacaoDemo(): Promise<DemoPresentationLinksResult> {
+export async function prepararAcessosApresentacaoDemo(): Promise<DemoPresentationLinksResult> {
   try {
     const sb = createSupabaseAdmin();
     await validarTenantEAcessosDemo(sb, DEMO_SLUG);
@@ -1289,6 +1290,7 @@ export async function gerarMagicLinksApresentacaoDemo(): Promise<DemoPresentatio
       throw new Error(`preparar domínios da apresentação: ${dominioComErro.error}`);
     }
 
+    const ticket = issueDemoPresentationTicket();
     const acessos: NonNullable<DemoPresentationLinksResult['acessos']> = [];
 
     for (const acesso of DEMO_ACCESS_PERSONAS) {
@@ -1303,15 +1305,6 @@ export async function gerarMagicLinksApresentacaoDemo(): Promise<DemoPresentatio
 
       const role = getDemoPresentationRole(acesso.presentationRoleKey);
       const directUrl = demoPresentationUrl(role.key, acesso.nextPath);
-      const { data: link, error: linkError } = await sb.auth.admin.generateLink({
-        type: 'magiclink',
-        email: acesso.email,
-        options: { redirectTo: directUrl },
-      });
-      const tokenHash = link?.properties?.hashed_token;
-      if (linkError || !tokenHash) {
-        throw new Error(`gerar link de ${role.label}: ${linkError?.message || 'token ausente'}`);
-      }
 
       acessos.push({
         roleKey: role.key,
@@ -1319,16 +1312,44 @@ export async function gerarMagicLinksApresentacaoDemo(): Promise<DemoPresentatio
         nome: acesso.nome,
         email: acesso.email,
         directUrl,
-        url: demoPresentationUrl(
-          role.key,
-          `/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(acesso.nextPath)}`,
-        ),
+        url: demoPresentationAuthUrl(role.key, ticket),
       });
     }
 
     return { ok: true, acessos };
   } catch (error: any) {
     console.error('[demo-access] preparar apresentação:', error?.message);
+    return { ok: false, error: error?.message || 'erro desconhecido' };
+  }
+}
+
+/**
+ * Gera um token de login de uso único para UM papel depois que a rota pública
+ * validou o passe assinado da sala. Este núcleo não aceita e-mail nem tenant do
+ * client: ambos vêm da allowlist fixa acima.
+ */
+export async function gerarMagicLinkPapelApresentacaoDemo(roleKey: DemoPresentationRoleKey): Promise<
+  { ok: true; tokenHash: string; nextPath: string } | { ok: false; error: string }
+> {
+  try {
+    const acesso = DEMO_ACCESS_PERSONAS.find((item) => item.presentationRoleKey === roleKey);
+    if (!acesso) return { ok: false, error: 'Papel de apresentação inválido.' };
+
+    const sb = createSupabaseAdmin();
+    await validarTenantEAcessosDemo(sb, DEMO_SLUG);
+    const redirectTo = demoPresentationUrl(roleKey, acesso.nextPath);
+    const { data: link, error } = await sb.auth.admin.generateLink({
+      type: 'magiclink',
+      email: acesso.email,
+      options: { redirectTo },
+    });
+    const tokenHash = link?.properties?.hashed_token;
+    if (error || !tokenHash) {
+      throw new Error(`gerar login de ${roleKey}: ${error?.message || 'token ausente'}`);
+    }
+    return { ok: true, tokenHash, nextPath: acesso.nextPath };
+  } catch (error: any) {
+    console.error('[demo-access] autenticar papel da apresentação:', error?.message);
     return { ok: false, error: error?.message || 'erro desconhecido' };
   }
 }
