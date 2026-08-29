@@ -1,6 +1,6 @@
 # Catálogo de Prompts da IA — Vertho Mentor IA
 
-> Revisão: 2026-07-27 | Total: **70** prompts catalogados (+5 nesta revisão: seção **Kit Semanal** 13.1-13.5, que estava inteira fora do catálogo)
+> Revisão: 2026-08-25 | Total: **105** prompts/famílias catalogados (**70** já documentados + **35** encontrados nesta auditoria)
 >
 > Roteador universal: `actions/ai-client.ts` (`callAI` single-turn + `callAIChat` multi-turn). Default = `claude-sonnet-4-6`; OpenAI, Gemini e **Kimi** (`kimi*`, OpenAI-compatible) pelo mesmo wrapper.
 > Prompt caching automático: `system` > 4000 chars → `cache_control: ephemeral`. Prefixo grande e estável de lote → `options.cachedUserPrefix` (2º breakpoint).
@@ -8,7 +8,7 @@
 > Streaming: automático quando `maxTokens > 8192`.
 > Geração em lote: `lib/ai-batch.ts` — Batch API da Anthropic **e** da OpenAI (−50%).
 >
-> **Auditores 2ª-IA (desde 22/07):** `ia3_check`, `ia4_check`, `cenarios_b_check`, `acumulada_check`, `sem14_check`, `pulse_audit` e `modulo_base_auditor` rodam em **GPT 5.6 Terra** e estão **pinned** em `lib/ai-tasks.ts` — o `modelo_padrao` do tenant não os rebaixa. Onde o catálogo abaixo ainda diz "auditor Gemini", leia "auditor pinned".
+> **Modelos por tarefa (estado em 25/08):** o fallback global continua `claude-sonnet-4-6`; `ia4_avaliacao`, `pdi_individual`, `relatorio_gestor` e `relatorio_rh` estão pinned em **Claude Sonnet 5**; `conteudo_video` usa **Claude Opus 5**; e os auditores `ia3_check`, `ia4_check`, `cenarios_b_check`, `acumulada_check`, `sem14_check`, `pulse_audit` e `modulo_base_auditor` estão pinned em **GPT 5.6 Terra**. Override explícito por task continua prevalecendo.
 >
 > **Regeneração nunca destrói a campeã (23/07):** nos cenários A e B, "regenerar com feedback" gera a candidata em memória, audita e **só aplica se a nota for ≥ a atual** (`travaRegeneracao`). O prompt de regeneração tem regras anti-inflação — o gerador tende a responder crítica **adicionando** conteúdo.
 
@@ -33,9 +33,9 @@
 1. [Fase 1 — Parametrização (IA1/IA2/IA3 + Check)](#fase-1--parametrização-ia1ia2ia3--check)
 2. [Fase 3 — Avaliação IA4 (Mapeamento)](#fase-3--avaliação-ia4-mapeamento)
 3. [Chat Fase 3 — Entrevista + Avaliação + Auditoria](#chat-fase-3--entrevista--avaliação--auditoria)
-4. [Check IA4 (Auditor Gemini)](#check-ia4-auditor-gemini)
+4. [Check IA4 (Auditor 2ª IA)](#check-ia4-auditor-2ª-ia)
 5. [Fase 5 — Cenário B + Reavaliação + Fusão + Plenária](#fase-5--cenário-b--reavaliação--fusão--plenária)
-6. [Motor de Temporadas (14 semanas)](#motor-de-temporadas-14-semanas)
+6. [Motor de Temporadas (duração configurável)](#motor-de-temporadas-duração-configurável)
 7. [Relatórios (Individual / Gestor / RH)](#relatórios-individual--gestor--rh)
 8. [PPP / Dossiê Corporativo](#ppp--dossiê-corporativo)
 9. [Perfil Comportamental (Dashboard)](#perfil-comportamental-dashboard)
@@ -46,6 +46,12 @@
 14. [Fase 4 (PDI legado)](#fase-4-pdi-legado)
 15. [Outros (Cenário B legado, Evolução Granular, Tutor Evidência)](#outros-cenário-b-legado-evolução-granular-tutor-evidência)
 16. [Módulos-Base de Conteúdo (Vertho Master)](#módulos-base-de-conteúdo-vertho-master)
+17. [Development Blueprint](#development-blueprint)
+18. [Pulso de Desenvolvimento](#pulso-de-desenvolvimento)
+19. [Modo Cena (experimental)](#modo-cena-experimental)
+20. [Diagnósticos, seleção e assistentes](#diagnósticos-seleção-e-assistentes)
+21. [Radar Vertho](#radar-vertho)
+22. [Prompts multimodais e mídia](#prompts-multimodais-e-mídia)
 
 ---
 
@@ -56,11 +62,12 @@
 
 - **Arquivo**: `actions/fase1.ts::rodarIA1` (build em `buildSystemPromptSelecao` + `buildUserPrompt`)
 - **Modelo default**: Claude Sonnet 4.6 (configurável via `aiConfig.model`)
-- **Max tokens**: 4096
+- **Max tokens**: 8192
 - **Trigger**: Admin clica em "IA1 — Top 10" em `/admin/empresas/{id}` (Fase 1). Só chama IA se o cargo tem >10 competências (senão seleciona todas direto).
 - **Grounding RAG**: Não. Usa contexto do PPP via `buscarContextoPPP` (extração salva em `ppp_escolas.extracao`).
 - **Thinking**: Não.
 - **Loop**: Sim — para cada cargo distinto com >10 competências.
+- **Retry**: 1 nova chamada quando a resposta não contém a quantidade mínima de competências válidas da lista.
 - **System prompt**:
   ```text
   Você é a IA de parametrização da Vertho.
@@ -95,10 +102,11 @@
 
 - **Arquivo**: `actions/fase1.ts::rodarIA2`
 - **Modelo default**: Claude Sonnet 4.6
-- **Max tokens**: 6000
+- **Max tokens**: 8192
 - **Trigger**: Admin clica em "IA2 — Gabarito CIS" em `/admin/empresas/{id}` (Fase 1). Exige IA1 rodada antes.
 - **Grounding RAG**: Não. Usa contexto do PPP.
 - **Loop**: Sim — 1 chamada por cargo.
+- **Retry**: 1 nova chamada se o JSON não traz `gabarito`; há também caminho Batch/Trigger em `trigger/gerar-ia2-batch.ts` com fallback síncrono equivalente.
 - **Insumo "valores" (corrigido em 26/07, `062dca13`)**: `buscarValores` (`lib/ia2-gabarito.ts`) deixou de pegar `ppp_escolas.valores` do PPP mais recente e passa a **consolidar os valores de TODAS as escolas** da empresa por frequência (`consolidarValoresDaRede`, determinístico, teto de 10, ordem estável porque o prompt é cacheado). Antes, numa rede como Ibipeba (11 PPPs, 86 valores), o gabarito de **todos os cargos do município** era ancorado nos valores de uma escola sorteada pela data de extração. O `buscarContextoPPP` tinha o mesmo defeito com insumo maior — **fechado em 27/07** (F-I10 do `docs/FMEA-PIPELINE.md`): resolve por número de PPPs (1 → seções curadas, idêntico ao anterior; N → síntese municipal consolidada, compartilhada com o Kit).
 - **System prompt** (~2200 chars, resumo):
   ```text
@@ -136,30 +144,34 @@
 ### 1.3 IA3 — Gerar cenários contextuais
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase1.ts::rodarIA3Uma` (build em `buildIA3SystemPrompt` + `buildIA3UserPrompt`)
+- **Arquivo**: `lib/ia3-cenarios.ts::rodarIA3UmaCore` (prompts em `buildIA3SystemPrompt` + `buildIA3UserPrompt`; wrappers/gates em `actions/fase1.ts` e execução em lote em `trigger/gerar-ia3-batch.ts`)
 - **Modelo default**: Claude Sonnet 4.6
-- **Max tokens**: 64000 (streaming)
+- **Max tokens**: 6144
 - **Trigger**: Admin executa fila de cenários em `/admin/empresas/{id}` → `listarFilaIA3` → `rodarIA3Uma` por item. 1 competência × cargo por chamada (processamento unitário p/ caber em timeout Vercel Hobby).
 - **Grounding RAG**: Não. Usa PPP.
 - **Loop**: Sim — fila de competências Top 5 do cargo.
+- **Retry**: 1 nova chamada quando a validação estrutural acusa JSON/cobertura inválida; a correção enumera os erros detectados em código.
 - **System prompt** (~2000 chars, resumo):
   ```text
   Você é um especialista com 20 anos em avaliação de competências em organizações brasileiras.
   TAREFA: Crie UM cenário situacional + 4 perguntas temáticas para a competência descrita.
 
   REGRAS DE CONSTRUÇÃO:
-  1. ESTRUTURA: 250-400 palavras, 1 tensão + 1 complicador, máx 2 stakeholders, máx 900 chars contexto
-  2. REALISMO: Vocabulário e siglas da organização, nomes brasileiros
-  3. DECISÃO FORÇADA (REGRA DE OURO): Se pode responder sem abrir mão de nada → cenário NÃO funciona
+  1. DECISÃO FORÇADA (REGRA DE OURO): Se pode responder sem abrir mão de nada → cenário NÃO funciona
      - P1: ESCOLHA — trade-off real
      - P2: COMO — execução com resistência
      - P3: TENSÃO HUMANA
      - P4: SUSTENTABILIDADE
-  4. COBERTURA DE DESCRITORES: Cada pergunta 2-3 descritores. As 4 juntas cobrem TODOS.
-  5. DILEMA ÉTICO EMBUTIDO: caminho fácil conflita com valor organizacional (emerge naturalmente)
-  6. Perguntas ABERTAS, máx 200 chars cada
+  2. FACETA ESPECÍFICA: testar um aspecto explícito da competência, não a competência genérica
+  3. TRADE-OFF CENTRAL: uma escolha difícil e com custo no centro do caso
+  4. PODER DISCRIMINANTE: N1 deve ser visivelmente diferente de N3; clichê deve falhar
+  5. COBERTURA: cada pergunta cobre 2-3 descritores; as quatro juntas cobrem todos
+  6. REALISMO: situação plausível, vocabulário organizacional e um dado concreto
+  7. DILEMA ÉTICO EMBUTIDO: caminho fácil conflita com valor, sem moralizar
+  8. SOBRIEDADE: máx 2 stakeholders, 2 tensões, contexto ≤900 chars e pergunta ≤200 chars
+  9. ANONIMIZAÇÃO: nunca nomear escola, rede, secretaria ou cidade real/inventada
 
-  Retorne APENAS JSON: {cenario:{titulo,contexto}, perguntas:[{numero,texto,descritores_primarios,o_que_diferencia_niveis}], dilema_etico:{valor_testado,caminho_facil,caminho_etico}}
+  Retorne APENAS JSON com cenario enriquecido, 4 perguntas diagnósticas e mapa_cobertura_descritores.
   ```
 - **Inputs no user prompt**:
   - Empresa (nome, segmento)
@@ -169,38 +181,41 @@
   - Valores organizacionais + regra de dilema ético
   - Perfil CIS ideal do cargo (tela3 estilos + tela4 faixas DISC)
   - Contexto PPP (até 3000 chars)
-- **Output esperado**: JSON `{ cenario, perguntas[], dilema_etico }`.
+- **Output esperado**: JSON com `cenario{titulo, contexto, faceta_testada_principal, tradeoff_testado, fator_complicador, stakeholders_centrais[], dilema_etico, armadilha_de_resposta_generica, confianca_cenario, riscos_do_cenario[]}`, quatro `perguntas[{numero, texto, objetivo_diagnostico, descritores_primarios[], o_que_diferencia_niveis, resposta_generica_falha_porque}]` e `mapa_cobertura_descritores`.
+- **Inconsistência observada no contrato atual**: o exemplo do campo `contexto` ainda diz “250-400 palavras”, mas a regra de sobriedade, o prompt de regeneração e o auditor usam **≤900 caracteres**. `validarRespostaIA3` verifica quantidade de perguntas, cobertura e confiança, mas não impõe esse comprimento; portanto o limite depende hoje do gerador/auditor.
 - **Consumido por**: `banco_cenarios` (alternativas[]). Usado por IA4 (Fase 3) para avaliar respostas.
 
 ### 1.4 IA3 — Regenerar cenário (com feedback)
 > `WRAPPER` · Prompt documentado como: `reuso` (de 1.3 com appendix de feedback)
 
-- **Arquivo**: `actions/fase1.ts::regenerarCenario`
+- **Arquivo**: `lib/ia3-cenarios.ts::regenerarCenarioIA3ComTrava` (wrapper em `actions/fase1.ts`)
 - **Idêntico a IA3** (mesmo system prompt `buildIA3SystemPrompt`), mas com appendix no user prompt:
   ```text
   FEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS): {cen.justificativa_check}\n{cen.sugestao_check}
   ```
 - **Trigger**: Admin clica em "Regerar" em cenário com status_check='revisar'.
-- **Max tokens**: 64000.
-- **Consumido por**: Atualiza `banco_cenarios` (limpa campos de check).
+- **Max tokens**: 6144.
+- **Consumido por**: gera a candidata em memória, audita com 1.5 e só atualiza `banco_cenarios` quando `nota_candidata >= nota_atual`; a versão campeã não é destruída.
 
-### 1.5 Check Cenário (Auditor — Gemini)
+### 1.5 Check Cenário (Auditor 2ª IA)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase1.ts::checkCenarioUm`
-- **Modelo default**: `gemini-3-flash-preview` (parâmetro `modelo`)
+- **Arquivo**: `lib/ia3-cenarios.ts::montarCheckIA3Prompt` + `checkCenarioIA3Core` (wrapper em `actions/fase1.ts`)
+- **Modelo default**: `gpt-5.6-terra`, pinned pela task `ia3_check`; override explícito por task/modelo é aceito.
 - **Max tokens**: 4096
 - **Trigger**: Admin clica em "Check" em cenário individual OU lote. Usa IA diferente da que gerou (cross-validation).
 - **System prompt** (inline):
   ```text
   Voce e um avaliador especialista em Assessment Comportamental.
-  Avalie o cenario e as perguntas com base em 5 dimensoes (20pts cada, total 100):
+  Avalie o cenario e as perguntas com base em 7 dimensoes (total 100):
 
-  1. ADERENCIA A COMPETENCIA (20pts): avalia a competencia indicada? descritores cobertos?
-  2. REALISMO CONTEXTUAL (20pts): cenarios criveis para cargo/empresa? usa vocabulario PPP?
-  3. CONTENCAO (20pts): contexto max ~900 chars? max 2 tensoes? max 2 stakeholders? perguntas max ~200 chars?
-  4. FORCA DE DECISAO (20pts): P1 escolha? P2 como com obstaculo? P3 tensao humana? P4 acompanhamento?
-  5. PODER DISCRIMINANTE (20pts): resposta N2 diferente de N3? nao permite resposta vaga?
+  1. ADERENCIA A COMPETENCIA (15pts)
+  2. COBERTURA DE DESCRITORES (15pts)
+  3. REALISMO CONTEXTUAL (15pts)
+  4. CONTENCAO E SOBRIEDADE (10pts)
+  5. CLAREZA DO TRADE-OFF (15pts)
+  6. PODER DISCRIMINANTE (20pts) — dimensão mais importante
+  7. AUDITABILIDADE (10pts)
 
   ERROS GRAVES (forca nota max 60):
   - Pergunta fechada (sim/nao)
@@ -209,9 +224,9 @@
   - Pergunta que permite resposta generica sem escolha
   - Competencia avaliada nao e a indicada
 
-  Nota >= 90 = aprovado. Nota < 90 = revisar com sugestao concreta.
+  Nota >= 90 = aprovado; 80-89 = aprovado_com_ressalvas; abaixo de 80 = revisar.
 
-  Retorne APENAS JSON: {"nota":85,"erro_grave":false,"dimensoes":{aderencia,realismo,contencao,decisao,discriminante},"justificativa":"...","sugestao":"...","alertas":[]}
+  Retorne APENAS JSON: {"nota":85,"erro_grave":false,"dimensoes":{aderencia_competencia,cobertura_descritores,realismo_contextual,contencao_sobriedade,clareza_tradeoff,poder_discriminante,auditabilidade},"justificativa":"...","sugestao":"...","alertas":[]}
   ```
 - **Inputs no user prompt**:
   - Cargo, competência
@@ -219,7 +234,7 @@
   - Perguntas (P1-P4)
   - Descritores (D1-Dn com nome curto)
   - Contexto PPP resumido (500 chars)
-- **Output esperado**: JSON `{ nota, erro_grave, dimensoes, justificativa, sugestao, alertas }`.
+- **Output esperado**: JSON `{ nota, erro_grave, dimensoes, ponto_mais_forte, ponto_mais_fraco, descritores_sem_cobertura, perguntas_com_risco, justificativa, sugestao, alertas }`; nota/status são normalizados em código.
 - **Consumido por**: Atualiza `banco_cenarios` com `nota_check`, `status_check`, `dimensoes_check`, `justificativa_check`, `sugestao_check`, `alertas_check`. Feedback volta pra regeneração.
 
 ---
@@ -229,9 +244,9 @@
 ### 2.1 IA4 — Motor de Avaliação de Competências (constante `IA4_SYSTEM`)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase3.ts::rodarIA4` (system prompt em `IA4_SYSTEM` no topo do arquivo)
-- **Modelo default**: Claude Sonnet 4.6
-- **Max tokens**: 64000 (streaming)
+- **Arquivo**: `lib/ia4-avaliacao.ts::avaliarUmaRespostaCore` (system prompt em `IA4_SYSTEM`; wrapper/gates em `actions/fase3.ts`; lote em `trigger/gerar-ia4-batch.ts`)
+- **Modelo default**: `claude-sonnet-5`, pinned pela task `ia4_avaliacao` (override explícito por task continua valendo)
+- **Max tokens**: 16000 (streaming no caminho Claude)
 - **Trigger**: Admin executa "Rodar IA4" em `/admin/empresas/{id}`. Avalia TODAS as respostas de colaboradores pendentes (`avaliacao_ia IS NULL`).
 - **Grounding RAG**: Não. Usa PPP extraction.
 - **Loop**: Sim — 1 chamada por resposta (4 respostas por colab × cenários Top 5).
@@ -239,8 +254,8 @@
 - **System prompt** (>4000 chars, beneficia cache. Resumo):
   ```text
   Voce e o Motor de Avaliacao de Competencias da Vertho Mentor IA.
-  Sua tarefa e avaliar as 4 respostas de um profissional a um cenario situacional,
-  classificando-o nos 4 niveis de maturidade usando a regua fornecida, e gerar feedback personalizado.
+  Sua tarefa e avaliar as 4 respostas de um profissional a um cenario situacional
+  e gerar INSUMOS auditaveis. Media, travas, gap e nivel geral sao calculados em codigo.
 
   === FILOSOFIA (MODELO TEMATICO) ===
   - 1 cenário padronizado + 4 perguntas temáticas
@@ -253,15 +268,18 @@
   4. NA DUVIDA ENTRE DOIS NIVEIS → ESCOLHER O INFERIOR
   5. RESPOSTA SEM ACAO CONCRETA → tende a N2-N3, não N4
   6. LIMITACOES GRAVES pesam mais que pontos positivos
-  7. CONFIANCA 0-100 (<70 = evidência insuficiente)
+  7. CONFIANCA 0.0-1.0; sustentação insuficiente deve ser explícita
 
   === TRAVA ANTI-REBAIXAMENTO ===
-  N1 = postura excludente/passiva/ignora a competencia.
-  Se demonstra ações concretas em qualquer descritor, nivel minimo é N2.
+  Ausência de menção não é automaticamente N1. N1 exige postura excludente,
+  passiva ou que ignora a competência; ação concreta impede rebaixamento indevido.
 
-  === PROCESSO 2 ETAPAS ===
-  ETAPA 1 (por R1-R4): identifica descritores cobertos, extrai evidencias textuais, compara com regua, atribui nota_decimal 1.00-4.00 (2 casas), confianca 0-100
-  ETAPA 2 (consolidacao): media por descritor, nivel=floor(media), travas (critico N1 → max N2; 3+ N1 → N1), feedback positivo/construtivo
+  === PROCESSO 3 ETAPAS ===
+  ETAPA 1 (por R1-R4): descritores, evidencias com origem R1-R4, limites, nota_decimal e confianca 0-1
+  ETAPA 2 (por descritor): agrega evidencias, sugere nota/nivel e sustentacao forte|fraca|insuficiente
+  ETAPA 3: feedback especifico e recomendacoes praticas; consolidacao numerica fica fora do modelo
+
+  O CENARIO NAO E EVIDENCIA: nenhuma frase do enunciado pode sustentar nota da pessoa.
 
   === ANTI-ALUCINACAO ===
   PROIBIDO inventar nomes ou situações não mencionados.
@@ -269,7 +287,7 @@
 
   CAMPOS OBRIGATORIOS: feedback (nunca vazio), pontos_fortes (≥1), gaps_prioritarios (todos <3)
 
-  Retorne APENAS JSON: {profissional, cargo, competencia, avaliacao_por_resposta:{R1,R2,R3,R4}, consolidacao:{notas_por_descritor, media_descritores, nivel_geral, gap, confianca_geral, travas_aplicadas}, descritores_destaque:{pontos_fortes, gaps_prioritarios}, feedback}
+  Retorne APENAS JSON: {profissional, cargo, competencia, avaliacao_por_resposta, avaliacao_por_descritor, insumos_consolidacao, descritores_destaque, feedback, recomendacoes_pdi}
   ```
 - **Inputs no user prompt**:
   - Profissional (nome completo, cargo)
@@ -281,22 +299,26 @@
   - Cenário (título, contexto)
   - Perguntas com descritores primários e diferenciação por nível
   - 4 Respostas (R1, R2, R3, R4)
-- **Output esperado**: JSON grande conforme schema acima.
+- **Output esperado**: JSON de insumos por resposta e por descritor. `consolidarNotasIA4` deriva em código média, nível, gap e travas; `normalizarNiveisDaAvaliacao` propaga a régua única para destaques/PDI.
 - **Consumido por**: `respostas` (avaliacao_ia JSONB, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4). Também popula `descriptor_assessments` (alimentando o motor de temporadas).
 
 ### 2.2 IA4 — Re-avaliação com feedback do check
-> `WRAPPER` · Prompt documentado como: `reuso` (de 2.1 com appendix de check)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase3.ts::reavaliarResposta`
-- **System prompt**: Mesmo `IA4_SYSTEM` de 2.1.
-- **Max tokens**: 64000.
+- **Arquivo**: `lib/ia4-reavaliacao.ts::IA4_REVIEW_SYSTEM` + `reavaliarRespostaCore` (wrapper em `actions/fase3.ts`)
+- **Modelo default**: `claude-sonnet-5`, pela mesma task pinned `ia4_avaliacao`.
+- **System prompt**: prompt próprio de **revisão controlada**; não reutiliza mais `IA4_SYSTEM`.
+- **Max tokens**: 16000.
 - **Trigger**: Admin clica em "Reavaliar" em resposta com `status_ia4 = 'revisar'`.
-- **Appendix no user prompt**:
+- **Princípios**:
   ```text
-  === FEEDBACK DA AUDITORIA ANTERIOR (CORRIJA ESTES PONTOS) ===
-  {check.justificativa}\n{check.revisao}
+  Preserve o que era defensável; corrija só o que a auditoria apontou e as
+  respostas sustentam. Para cada ponto decida corrigir, corrigir_parcialmente,
+  manter ou nao_aplicavel. O cenário nunca é evidência. Toda mudança de nota
+  precisa de justificativa explícita.
   ```
-- **Consumido por**: Atualiza `respostas` limpando campos de check antigos.
+- **Output**: `{ avaliacao_revisada, tratamento_do_feedback:{itens,mudancas_relevantes,pontos_preservados} }`; a consolidação e a normalização de níveis são reaplicadas em código.
+- **Consumido por**: Atualiza `respostas`, preserva `avaliacao_anterior` e limpa os campos de check para nova auditoria.
 
 ---
 
@@ -517,43 +539,31 @@
 
 ---
 
-## Check IA4 (Auditor Gemini)
+## Check IA4 (Auditor 2ª IA)
 
 ### 4.1 CHECK IA4 — Auditor de avaliações
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/check-ia4-core.ts` (constante `CHECK_SYSTEM`) — actions em `actions/check-ia4.ts::listarPendentesCheck` + `checarUmaResposta`
-- **Modelo default**: `gemini-3-flash-preview` (configurável)
+- **Modelo default**: `gpt-5.6-terra`, pinned pela task `ia4_check`; override explícito por task é aceito.
 - **Max tokens**: 8192
 - **Trigger**: Admin clica "Check IA4" em `/admin/empresas/{id}` → lista as respostas com `status_ia4 IS NULL` e audita **uma por request**.
 - **Loop**: Sim — 1 chamada por resposta avaliada, **iterada no CLIENTE**. O lote inteiro numa action existe só headless (`checkAvaliacoesCore`, via `scripts/_run-check-ia4.ts`): dentro de um request ele estoura o `maxDuration` de 300s — em 11/08/2026, 14 de 72 checadas e 504 na rota.
-- **System prompt** (~2500 chars):
+- **System prompt atual** (checklist binário; a IA não escreve nota/status):
   ```text
-  Voce e um auditor de qualidade de Assessment Comportamental.
-  Verificar se a avaliacao gerada por uma IA e ACEITAVEL — nao perfeita.
+  Você é auditor de qualidade de Assessment Comportamental da Vertho.
+  Verifique item a item se a avaliação de outra IA é DEFENSÁVEL.
 
-  FILOSOFIA:
-  - NAO esta refazendo a avaliacao. Esta verificando se e RAZOAVEL.
-  - Diferencas de +-1 nivel em descritores individuais sao ACEITAVEIS.
-  - Foco em ERROS GRAVES: nivel errado, feedback generico, matematica errada.
-  - Nivel geral dentro de +-1 da regua → coerencia BOA.
-  - Imperfeitas mas razoaveis → 85-95. Nota < 70 só pra erros objetivos.
+  Você NÃO dá nota. Para cada verificação semântica (A1, A2, D1, D2, E1,
+  E2, F1, F2), responda {"ok":true|false,"obs":"..."}.
+  A2 (evidência inventada) é fatal. Na dúvida, marque false e explique.
 
-  4 DIMENSOES (25pts cada = 100pts):
-  1. EVIDENCIAS E NIVEIS (25pts)
-     - Descritores tem evidencia textual? Nivel dentro de +-1 → 20-25pts
-     - Penalize APENAS se: N3+ sem evidencia concreta, ou claramente N1 avaliada como N3+
-  2. COERENCIA DA CONSOLIDACAO (25pts)
-     - media→nivel_geral arredondado pra baixo? Travas aplicadas? GAP correto?
-  3. FEEDBACK + ESPECIFICIDADE (25pts)
-     - Feedback menciona algo especifico? ERRO GRAVE (max 60): feedback 100% generico
-  4. DESENVOLVIMENTO (25pts)
-     - Gaps acionaveis? NAO sugere recursos externos (livros/podcasts)? Se sim, -5pts
+  Coerência de origem da evidência (A3), níveis (B1/B2), média (C1) e
+  travas/gap (C2) são verificadas deterministicamente em código.
 
-  Nota >= 90 = Aprovado | < 90 = Revisar
-  ERRO GRAVE = nota maxima 60
-
-  Retorne APENAS JSON: {nota, status, erro_grave, dimensoes:{evidencias_niveis, consolidacao, feedback_especificidade, desenvolvimento}, justificativa, revisao, alertas}
+  Retorne APENAS JSON: {verificacoes, ponto_mais_confiavel,
+  ponto_mais_fragil, descritores_com_risco, tipo_de_erro_predominante,
+  justificativa, mudancas_sugeridas, alertas}
   ```
 - **Inputs no user prompt**:
   - Colaborador (nome, cargo) + perfil DISC
@@ -562,7 +572,7 @@
   - Régua N1-N4 por descritor
   - Cenário + Perguntas
   - Avaliação a auditar (JSON inteiro da IA4)
-- **Output esperado**: JSON de auditoria.
+- **Output esperado**: checklist semântico. O servidor funde os itens de IA com 5 checks determinísticos, soma os pesos até 100 e deriva `aprovado|revisar`; o modelo não controla diretamente nota nem veredito.
 - **Consumido por**: `respostas.status_ia4` ('aprovado'|'revisar') + `respostas.payload_ia4` (JSON check).
 
 ---
@@ -572,13 +582,13 @@
 ### 5.1 Gerar Cenário B (lote)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase5.ts::buildCenBPrompts` (usado em `gerarCenariosBLote` e `regenerarCenarioB`)
+- **Arquivo**: `actions/fase5/cenarios-b.ts::buildCenBPrompts` (usado em `gerarCenariosBLote` e `regenerarCenarioB`)
 - **Modelo default**: Claude Sonnet 4.6
-- **Max tokens**: 4096
+- **Max tokens**: 6144
 - **Temperature**: 0.4 (fiel ao GAS)
 - **Trigger**: Admin "Gerar Cenários B" → cria 1 cenário B por competência×cargo que tem cenário A.
 - **Loop**: Sim — itera cenários A.
-- **System prompt** (~800 chars):
+- **System prompt** (resumo atual):
   ```text
   <PAPEL>
   Você é um especialista em avaliação de competências comportamentais com 20 anos de experiência.
@@ -592,11 +602,14 @@
   </TAREFA>
 
   <REGRAS>
-  1. REALISMO CONTEXTUAL — elementos reais, nomes brasileiros, contexto específico
-  2. ESTRUTURA DO DILEMA — situação concreta, tensão real, não extrema
-  3. PODER DISCRIMINANTE — respostas em 4 níveis (N1-N4)
-  4. DIVERSIDADE vs CENÁRIO A — situação-gatilho OBRIGATORIAMENTE diferente
-  5. DILEMA ÉTICO EMBUTIDO — tensão ética sutil
+  1. MESMA COMPETÊNCIA, OUTRA SITUAÇÃO-GATILHO — diferença estrutural, não cosmética
+  2. COMPLEMENTARIDADE — observar uma faceta relevante diferente da principal do A
+  3. UTILIDADE PARA TRIANGULAÇÃO — reduzir resposta ensaiada sem perder comparabilidade
+  4. REALISMO CONTEXTUAL — máx. 2 stakeholders, sem teatralidade
+  5. TRADE-OFF real — se responder bem sem escolher, o instrumento falhou
+  6. PODER DISCRIMINANTE — resposta genérica deve falhar
+  7. P1 situação · P2 ação · P3 raciocínio · P4 autossensibilidade
+  8. DILEMA ÉTICO sutil
   </REGRAS>
 
   Responda APENAS com JSON válido.
@@ -607,24 +620,24 @@
   - Contexto PPP (valores)
   - Cenário A original (título, descrição) — "NÃO repetir"
   - Feedback extra (em regenerarCenarioB: `justificativa_check` + `sugestao_check`)
-- **Output esperado**: JSON `{ titulo, descricao, p1, p2, p3, p4, faceta_avaliada, referencia_avaliacao:{nivel_1..4}, dilema_etico_embutido:{valor_testado, caminho_facil, caminho_etico} }`.
+- **Output esperado**: JSON com cenário/perguntas + `faceta_avaliada`, `facetas_secundarias`, `diferenca_estrutural_vs_cenario_a`, `por_que_essa_variacao_importa`, `tradeoff_testado`, `armadilha_de_resposta_generica`, `objetivo_diagnostico`, régua N1-N4, dilema ético, confiança e riscos.
 - **Consumido por**: `banco_cenarios` com `tipo_cenario = 'cenario_b'`.
 
 ### 5.2 Check Cenário B
-> `WRAPPER` · Prompt documentado como: `reuso` (de 1.5, harmonizado)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase5.ts::CHECK_CEN_B_SYSTEM` (constante) + `runCheckOnCenB`
-- **Modelo default**: `gemini-3-flash-preview`
+- **Arquivo**: `actions/fase5/cenarios-b.ts::CHECK_CEN_B_SYSTEM` + `avaliarCenB`
+- **Modelo default**: `gpt-5.6-terra`, pinned pela task `cenarios_b_check`.
 - **Max tokens**: 4096
 - **Temperature**: 0.4
-- **System prompt**: Harmonizado com check cenário A (5 dimensões × 20pts). Idêntico ao 1.5 mas focado em cenário B.
+- **System prompt**: auditoria própria em 8 dimensões: aderência (15), diferença estrutural vs A (15), complementaridade (10), realismo (10), trade-off (15), poder discriminante (15), adequação das perguntas à semana final (10) e utilidade para triangulação (10). Erro grave limita a nota a 60 em código.
 - **Trigger**: Inline após geração lote (se `checkModel` informado), ou standalone `checkCenarioBUm` / `checkCenariosBLote`.
 - **Output/Consumido**: Mesmos campos `nota_check`, `status_check`, etc em `banco_cenarios`.
 
 ### 5.3 Reavaliação conversacional (sessão 8 turnos)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase5.ts::buildReavSystemPrompt` + `processarReavaliacao`
+- **Arquivo**: `actions/fase5/reavaliacao.ts::buildReavSystemPrompt` + `processarReavaliacao`
 - **Modelo default**: Claude Sonnet 4.6
 - **Max tokens**: 4096
 - **Temperature**: 0.4
@@ -669,11 +682,11 @@
 ### 5.4 Extração qualitativa (após encerrar reavaliação)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase5.ts::extrairDadosReavaliacao`
+- **Arquivo**: `actions/fase5/reavaliacao.ts::extrairDadosReavaliacao`
 - **Max tokens**: 8192
 - **Temperature**: 0.4
 - **System prompt** (resumo editorial do prompt real):
-  O prompt completo está em `actions/fase5.ts:extrairDadosReavaliacao` (linha ~989). Princípios-chave:
+  O prompt completo está em `actions/fase5/reavaliacao.ts::extrairDadosReavaliacao`. Princípios-chave:
   1. Extrair APENAS o que foi dito ou claramente sustentado — não completar lacunas.
   2. Fala teórica não vale como evidência forte; exemplo concreto pesa mais.
   3. Se não houver base suficiente, reduzir a confiança.
@@ -694,14 +707,14 @@
 ### 5.5 Evolução com Fusão de 3 Fontes
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase5.ts::gerarEvolucaoFusao`
+- **Arquivo**: `actions/fase5/evolucao.ts::gerarEvolucaoFusao`
 - **Modelo default**: Claude Sonnet 4.6
 - **Max tokens**: 8192 (system alocado 64000 no select, mas callAI recebe 8192)
 - **Temperature**: 0.4
 - **Trigger**: Admin "Gerar Evolução" — por colaborador×competência.
 - **Loop**: Sim.
 - **System prompt** (resumo editorial do prompt real):
-  O prompt completo está em `actions/fase5.ts:gerarEvolucaoFusao` (linha ~1178). Princípios-chave:
+  O prompt completo está em `actions/fase5/evolucao.ts::gerarEvolucaoFusao`. Princípios-chave:
   1. Evidência demonstrada (Cenário B) pesa mais que relato (conversa).
   2. Relato qualitativo forte pode complementar ou revelar "evolução invisível".
   3. Fala bonita mas abstrata NÃO confirma evolução.
@@ -725,12 +738,12 @@
 ### 5.6 Plenária de Evolução Institucional
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase5.ts::gerarPlenariaEvolucao`
+- **Arquivo**: `actions/fase5/evolucao.ts::gerarPlenariaEvolucao`
 - **Max tokens**: 8192
 - **Temperature**: 0.4
 - **Trigger**: Admin "Gerar Plenária" — agrega todos os relatórios de evolução (anônimo).
 - **System prompt** (resumo editorial do prompt real):
-  O prompt completo está em `actions/fase5.ts:gerarPlenariaEvolucao` (linha ~1418). Princípios-chave:
+  O prompt completo está em `actions/fase5/evolucao.ts::gerarPlenariaEvolucao`. Princípios-chave:
   1. Dados são ANÔNIMOS — NUNCA citar nomes ou casos identificáveis.
   2. Usar estatísticas, percentuais, tendências e padrões.
   3. CELEBRAR avanços ANTES de apontar gaps.
@@ -746,11 +759,11 @@
 ### 5.7 Relatório RH Manual (pós-ciclo)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase5.ts::gerarRelatorioRHManual`
+- **Arquivo**: `actions/fase5/relatorios-envios.ts::gerarRelatorioRHManual`
 - **Max tokens**: 8192
 - **Temperature**: 0.4
 - **System prompt** (resumo editorial do prompt real):
-  O prompt completo está em `actions/fase5.ts:gerarRelatorioRHManual` (linha ~1532). Princípios-chave:
+  O prompt completo está em `actions/fase5/relatorios-envios.ts::gerarRelatorioRHManual`. Princípios-chave:
   1. Relatório executivo, analítico e útil para decisão de RH — NÃO resumo genérico, comemoração ou marketing.
   2. Comparar diagnóstico anterior (relatório RH baseline) com evolução observada.
   3. Produzir leitura estratégica sobre: o que mudou, o que permaneceu, o que vale sustentar, o que precisa entrar no próximo ciclo.
@@ -767,11 +780,11 @@
 ### 5.8 Relatório Plenária (formal)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase5.ts::gerarRelatorioPlenaria`
+- **Arquivo**: `actions/fase5/relatorios-envios.ts::gerarRelatorioPlenaria`
 - **Max tokens**: 8192
 - **Temperature**: 0.4
 - **System prompt** (resumo editorial do prompt real):
-  O prompt completo está em `actions/fase5.ts:gerarRelatorioPlenaria` (linha ~1649). Princípios-chave:
+  O prompt completo está em `actions/fase5/relatorios-envios.ts::gerarRelatorioPlenaria`. Princípios-chave:
   1. Documento formal, executivo e acionável — NÃO ata literal, transcrição ou texto genérico.
   2. Manter anonimato dos participantes e dados individuais.
   3. Diferenciar claramente dado apresentado de decisão tomada.
@@ -787,11 +800,11 @@
 ### 5.9 Dossiê do Gestor (executivo)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase5.ts::gerarDossieGestor`
+- **Arquivo**: `actions/fase5/relatorios-envios.ts::gerarDossieGestor`
 - **Max tokens**: 8192
 - **Temperature**: 0.4
 - **System prompt** (resumo editorial do prompt real):
-  O prompt completo está em `actions/fase5.ts:gerarDossieGestor` (linha ~1774). Princípios-chave:
+  O prompt completo está em `actions/fase5/relatorios-envios.ts::gerarDossieGestor`. Princípios-chave:
   1. Documento executivo, claro e útil para o gestor entender o time e agir — NÃO resumo bonito, marketing ou relatório individual.
   2. Comparar diagnóstico inicial e evolução observada.
   3. Não forçar conclusões positivas.
@@ -807,12 +820,12 @@
 ### 5.10 Check Cenários (lote geral)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase5.ts::checkCenarios`
-- **Modelo default**: Gemini 3 Flash Preview (configurável via `aiConfig.model`)
+- **Arquivo**: `actions/fase5/relatorios-envios.ts::checkCenarios`
+- **Modelo default**: `gemini-3.6-flash` quando não há modelo explícito.
 - **Max tokens**: 8192
 - **Temperature**: 0.4
 - **System prompt** (resumo editorial do prompt real):
-  O prompt completo está em `actions/fase5.ts:checkCenarios` (linha ~1894). Princípios-chave:
+  O prompt completo está em `actions/fase5/relatorios-envios.ts::checkCenarios`. Princípios-chave:
   1. Auditar se cada cenário realmente funciona como instrumento prático e discriminante — NÃO apenas revisar texto ou procurar "cenários bonitos".
   2. Realismo contextual, dilema concreto e poder discriminante importam.
   3. Perguntas genéricas enfraquecem o cenário.
@@ -825,16 +838,16 @@
 
 ---
 
-## Motor de Temporadas (14 semanas)
+## Motor de Temporadas (duração configurável)
 
-> **Modos** (02/07/2026): a mesma cadeia de prompts serve Regular DUO/single (14 sem), Onboarding (10 sem) e **Piloto** (2 sem + fechamento — `docs/MODO-PILOTO.md`). As semanas de acumulada/fechamento vêm do **carimbo da trilha** (`trilhas.programa_modo`, mig 154), não mais do sys_config vivo. Os prompts 6.12/6.13 são parametrizados por `semanaFinal`/`semanasEvidencia` (defaults 14/13 = regular byte-idêntico).
+> **Modos atuais:** a mesma cadeia atende Regular/DUO (14 sem), Onboarding (10), Jornada (7) e Piloto (2 semanas de evidência + fechamento). Duração e marcos vêm do plano/carimbo da trilha (`programa_modo` + `programa_config`), não de literais `14`. Os prompts de fechamento recebem `semanaFinal` e `semanasEvidencia`.
 
 ### 6.1 Prompt Desafio Semanal (conteúdo)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/challenge.ts::promptDesafio`
 - **Callers**: `lib/season-engine/build-season.ts::montarSemanaConteudo`, `actions/temporadas.ts::regerarSemana`
-- **Max tokens**: 300
+- **Max tokens**: 400
 - **Trigger**: Geração de temporada (semanas 1-12 de conteúdo, exceto 4/8/12) ou regenerar semana.
 - **System prompt** (resumo editorial do prompt real em `challenge.ts`):
   Você é um designer instrucional da Vertho especializado em micro-ações práticas para desenvolvimento de competências em adultos. Princípios-chave:
@@ -870,7 +883,7 @@
 
 - **Arquivo**: `lib/season-engine/prompts/missao.ts::promptMissao`
 - **Callers**: `lib/season-engine/build-season.ts::montarSemanaAplicacao`, `actions/temporadas.ts::regerarSemana`
-- **Max tokens**: 500
+- **Max tokens**: 600
 - **System prompt** (resumo editorial do prompt real em `missao.ts`):
   Voce e um designer de missoes praticas de desenvolvimento da Vertho. Cria UMA missao pratica de trabalho real para semanas 4, 8, 12. Principios-chave:
   1. A missao e uma ACAO REAL no trabalho (nao resposta escrita, nao cenario hipotetico, nao reflexao)
@@ -888,7 +901,7 @@
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/socratic.ts::promptSocratic`
-- **Callers**: `app/api/temporada/reflection/route.ts` (send/init), `actions/simulador-temporada.ts::simularSocratico`
+- **Callers**: `app/api/temporada/reflection/route.ts` (send/init), `lib/season-engine/simulador-core.ts::simularSocratico`
 - **Max tokens**: 2000
 - **Multi-turn**: Sim (`callAIChat`). Max 6 turnos IA.
 - **Grounding RAG**: Sim — `groundingContext` passado via parâmetro (vem de `retrieveContext` no route).
@@ -980,7 +993,7 @@
 
 - **Arquivo**: `lib/season-engine/prompts/tira-duvidas.ts::promptTiraDuvidas`
 - **Caller**: `app/api/temporada/tira-duvidas/route.ts`
-- **Modelo**: `claude-haiku-4-5-20251001` (hardcoded — rápido+barato)
+- **Modelo**: `claude-sonnet-4-6` (hardcoded atualmente na rota)
 - **Max tokens**: 1500
 - **Multi-turn**: Sim. Sem limite rígido de turnos (rate limit 10/dia).
 - **Grounding RAG**: Sim — `retrieveContext` com query = última pergunta, top 5 chunks.
@@ -998,11 +1011,11 @@
 - **Inputs (messages)**: Histórico completo.
 - **Consumido por**: `temporada_semana_progresso.tira_duvidas.transcript_completo` + `ia_usage_log`.
 
-### 6.9 Evolution Qualitative — Conversa sem 13 (fechamento temporada)
+### 6.9 Evolution Qualitative — Conversa na semana de acumulado (fechamento)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/evolution-qualitative.ts::promptEvolutionQualitative` + `promptEvolutionQualitativeExtract`
-- **Callers**: `app/api/temporada/evaluation/route.ts` (sem=13), `actions/simulador-temporada.ts::simularQualitativa`
+- **Callers**: `app/api/temporada/evaluation/route.ts` quando `semana = programaConfig.semanaAcumulada` (13 Regular/DUO, 9 Onboarding e 6 Jornada; Piloto não tem esta conversa) e `lib/season-engine/simulador-core.ts::simularQualitativa`.
 - **Max tokens**: 4000 (conversa), 8000 (extração)
 - **Max turnos IA**: 12
 - **System prompt** (resumo editorial do prompt real em `evolution-qualitative.ts`):
@@ -1016,7 +1029,8 @@
 
   PROGRESSAO 12 TURNOS:
   T1 ABERTURA (mensagem quase fixa) | T2 RETROSPECTIVA | T3-5 EVIDENCIA REAL (3 exemplos, confronte super/subestimacao) | T6 MICROCASO (4-6 linhas, forca escolha real, sem gabarito) | T7-8 FOLLOW-UPS do microcaso | T9-10 INTEGRACAO DOS DESCRITORES | T11 MAIOR AVANCO | T12 SINTESE FINAL (sintese evolucao com evidencias literais + ponto atencao + frase fechamento DISC, max 180 palavras, sem plano de acao/proximos passos)
-- **Consumido por**: `temporada_semana_progresso.reflexao.transcript_completo` (sem 13).
+- **Consumido por**: `temporada_semana_progresso.reflexao.transcript_completo` na `semanaAcumulada` do programa.
+- **Divergência ainda presente no prompt**: `promptEvolutionQualitative` continua dizendo “após 12 semanas” e a extração se apresenta como “semana 13”. Diferentemente do scorer 6.12/6.13, esse par ainda não recebe a duração configurada; em Onboarding/Jornada, o fluxo roda na semana correta, mas a redação interna permanece a do programa regular.
 
 #### 6.9.1 Extracao qualitativa (apos sem 13)
 
@@ -1031,7 +1045,7 @@
 - **Output**: JSON `{ evolucao_percebida[{descritor, antes, depois, nivel_percebido:1.0-4.0, forca_evidencia, confianca:0.0-1.0, evidencia, citacoes_literais[], limites_da_leitura[]}], insight_geral, maior_avanco, ponto_atencao, microcaso_resposta_qualidade:"alta|media|baixa", microcaso_justificativa, consciencia_do_gap:"alta|media|baixa", dificuldades_persistentes[], ganhos_qualitativos[], alertas_metodologicos[], limites_gerais_da_conversa[] }`. Validacao: `validateEvolutionExtract`.
 - **Consumido por**: Merge em `reflexao` da sem 13.
 
-### 6.10 Avaliação Acumulada (IA1 — fim sem 13 no regular; fim sem 2 no piloto)
+### 6.10 Avaliação Acumulada (IA1 — `programaConfig.semanaAcumulada`)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/acumulado.ts::promptAvaliacaoAcumulada`
@@ -1055,6 +1069,7 @@
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/acumulado.ts::promptAvaliacaoAcumuladaCheck`
+- **Modelo default**: `gpt-5.6-terra`, pinned pela task `acumulada_check`.
 - **Max tokens**: 6000
 - **System prompt** (resumo editorial do prompt real em `acumulado.ts`):
   Voce e um auditor de qualidade da avaliacao acumulada da Vertho. Audita se a avaliacao feita por outra IA ao final da semana 13 esta metodologicamente DEFENSAVEL como leitura do padrao da temporada. Nao refaz a avaliacao; verifica se se sustenta com base em regua, evidencias acumuladas, padrao das 13 semanas e consistencia interna. Principios-chave:
@@ -1073,7 +1088,7 @@
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/evolution-scenario.ts::promptEvolutionScenarioScore`
-- **Caller**: `app/api/temporada/evaluation/route.ts` (sem = `semanaCenarioB` da config: 14 regular · 10 onboarding · **3 piloto**), `app/admin/vertho/auditoria-sem14/actions.ts::regerarScoringComFeedback`
+- **Execução**: `lib/season-engine/fechamento-scorer.ts::pontuarFechamento`; callers em `app/api/temporada/evaluation/route.ts` (sem = `semanaCenarioB` da config: 14 regular · 10 onboarding · **3 piloto**) e `app/admin/vertho/auditoria-sem14/actions.ts::regerarScoringComFeedback`.
 - **Params de régua temporal** (02/07): `semanaFinal`/`semanasEvidencia` (defaults 14/13 = regular byte-idêntico) + `notaPrograma` (piloto injeta contexto: "demonstra o método, NÃO mede evolução; janela curta não é falha do colaborador")
 - **Pós-processamento piloto-only**: após `validateEvolutionScenarioScore`, o branch piloto aplica `aplicarTravaPiloto` (lib/season-engine/piloto-trava.ts): `nota_pos = max(bruto, baseline)`, `nota_pos_bruto`+`piso_aplicado` preservados, `spec_version='piloto-v1'` no snapshot — o prompt e o output dos demais modos ficam intocados
 - **Max tokens**: 10000
@@ -1100,6 +1115,8 @@
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/evolution-scenario-check.ts::promptEvolutionScenarioCheck`
+- **Execução**: `lib/season-engine/fechamento-scorer.ts::pontuarFechamento`, logo depois do scorer primário.
+- **Modelo default**: `gpt-5.6-terra`, pinned pela task `sem14_check`.
 - **Params de régua temporal** (02/07): `semanaFinal`/`semanasEvidencia` (defaults 14/13 = regular byte-idêntico; piloto = 3/2)
 - **Max tokens**: 8000
 - **System prompt** (resumo editorial do prompt real em `evolution-scenario-check.ts`):
@@ -1145,8 +1162,8 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 ### 7.1 Relatório Individual — PDI (RELATORIO_IND_SYSTEM)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/relatorios.ts::gerarRelatorioIndividual` (constante `RELATORIO_IND_SYSTEM`)
-- **Modelo default**: Claude Sonnet 4.6
+- **Arquivo**: `lib/relatorio-individual-prompt.ts::RELATORIO_IND_SYSTEM` + `buildRelatorioIndividualPrompt`; execução headless em `lib/relatorios/individual-core.ts` e wrapper em `actions/relatorios.ts`.
+- **Modelo default**: `claude-sonnet-5`, pinned pela task `pdi_individual`.
 - **Max tokens**: 64000 (streaming)
 - **Trigger**: Admin gera relatórios individuais (único ou lote).
 - **Grounding RAG**: Não direto.
@@ -1180,7 +1197,8 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 ### 7.2 Relatório Gestor (RELATORIO_GESTOR_SYSTEM)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/relatorios.ts::gerarRelatorioGestor`
+- **Arquivo**: `lib/relatorios/prompts.ts::RELATORIO_GESTOR_SYSTEM`; execução em `actions/relatorios.ts::gerarRelatorioGestor`
+- **Modelo default**: `claude-sonnet-5`, pinned pela task `relatorio_gestor`.
 - **Max tokens**: 64000
 - **Grounding RAG**: **Sim** — `retrieveContext(empresaId, 'valores cultura organizacional políticas desenvolvimento pessoas', 4)`.
 - **Trigger**: Admin gera relatórios por gestor (agrupa por `gestor_email`).
@@ -1206,7 +1224,8 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 ### 7.3 Relatório RH (RELATORIO_RH_SYSTEM)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/relatorios.ts::gerarRelatorioRH`
+- **Arquivo**: `lib/relatorios/prompts.ts::RELATORIO_RH_SYSTEM`; execução em `actions/relatorios.ts::gerarRelatorioRH`
+- **Modelo default**: `claude-sonnet-5`, pinned pela task `relatorio_rh`.
 - **Max tokens**: 64000
 - **Grounding RAG**: **Sim** — `retrieveContext(empresaId, 'valores cultura organizacional políticas treinamento desenvolvimento estrategia', 5)`.
 - **System prompt** (resumo editorial do prompt real em `actions/relatorios.ts`):
@@ -1303,7 +1322,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 ### 9.1 Relatório Comportamental (Textos narrativos)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts::gerarTextosLLM` (prompt em `lib/prompts/behavioral-report-prompt.js`)
+- **Arquivo**: `lib/relatorio-comportamental/relatorio-core.ts::gerarTextosLLM` (caller em `app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts`; prompt em `lib/prompts/behavioral-report-prompt.js`)
 - **Modelo**: Via `getModelForTask(empresaId, 'relatorio_comportamental')`
 - **Max tokens**: 4096
 - **Trigger**: Colaborador abre `/dashboard/perfil-comportamental/relatorio` (ou regenerar). Cache 30 dias.
@@ -1345,6 +1364,15 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Robustez (2026-05-27)**: parsing tolerante (`extractInsights` — tenta JSON do texto limpo, depois o primeiro `{...}` embutido, depois array cru; aceita `{insights:[...]}` ou array direto) + **1 retry** em falha de parse/chamada. Antes, qualquer preâmbulo/markdown/JSON truncado derrubava o `JSON.parse` e os insights ficavam `null` silenciosamente.
 - **Inputs user**: Output de `buildInsightsExecutivosPrompt({ colab, arquetipo, tags })` — nome, arquétipo, perfil dominante, tags, DISC natural (D/I/S/C), liderança (4 estilos %).
 - **Consumido por**: `colaboradores.insights_executivos` (cache 30 dias). Geração disparada lazy ao abrir `/dashboard/perfil-comportamental` (email da sessão) **e** na pré-geração pós-mapeamento (via `colabId`).
+
+### 9.3 Devolutiva comportamental em voz — roteiro
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/prompts/devolutiva-comportamental.ts::promptDevolutivaComportamental`; caller em `app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts`.
+- **Modelo**: via `getModelForTask(empresaId, 'devolutiva_comportamental')`. **Max tokens**: 1500.
+- **Tarefa**: BETO escreve um roteiro oral pessoal, de 2-3 minutos, em seções `[NARRAÇÃO]`, usando primeiro nome, arquétipo, combinação DISC, liderança, forças, riscos de excesso e contexto do cargo/empresa.
+- **Regras**: DISC como tendência, sem scores falados, sem diagnóstico, sem promessas deterministas; texto natural para áudio, sem listas/tabelas e sem repetir o relatório escrito.
+- **Output/consumo**: roteiro textual → `extractNarration` → Gemini TTS (22.3) → MP3 salvo por empresa e disponibilizado no dashboard/WhatsApp.
 
 ---
 
@@ -1520,8 +1548,8 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 
 - **Arquivo**: `lib/video/roteiro-prompt.ts::buildRoteiroPrompt`
 - **Caller**: `lib/video/gerar-roteiro.ts::gerarRoteiroDeModulo` (chamado por `actions/gerar-video.ts`)
-- **Modelo**: `claude-opus-4-6` com extended thinking (default da task `conteudo_video` em `lib/ai-tasks.ts`; mesmo preço do 4.8 — $5/$25)
-- **Max tokens**: 8000
+- **Modelo**: `claude-opus-5` com thinking adaptativo (default da task `conteudo_video` em `lib/ai-tasks.ts`)
+- **Max tokens**: 16000 (thinking + texto compartilham o teto na geração 5)
 - **O que faz**: transforma um Módulo-Base num ROTEIRO TÉCNICO de vídeo de 3-5 min em JSON. Estrutura: `avatar_intro` + miolo de 6-12 cenas + `avatar_outro`. 13 templates de cena: `avatar_intro`, `avatar_outro`, `concept_reveal`, `comparison_motion`, `icon_story`, `steps_flow`, `stat_highlight`, `quote_spotlight`, `scenario_card`, `maturity_ladder`, `myth_truth`, `definition_card`, `reflection_prompt`. Avatar ~30s (intro 26-30 + outro 22-26 palavras) p/ custo HeyGen ~$0,51/deck. O `avatar_intro` **não cumprimenta** (abre direto no gancho) — a saudação nominal "Olá, {nome}" é prependada por pessoa fora do deck. Doc dos templates: `docs/GERADOR-VIDEO-MODULO.md` (seção Templates de cena); pipeline completo (áudio/master/saudação/render): `docs/GERADOR-VIDEO-MODULO.md`.
 - **Personalização por célula**: recebe **cargo** (bloco de contexto), **PPP** (brief da escola) e **DISC dominante**. O DISC ajusta SÓ o **tom da narração**; o deck visual é **invariante por perfil** (campos `deck_invariant` / `disc_sensitive_fields` na saída).
 - **System prompt** (resumo editorial; prompt completo em `docs/PROMPT-ROTEIRO-VIDEO.md`). Princípios-chave:
@@ -1533,7 +1561,17 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
   6. Salvaguardas LGPD (sem nomes/dados reais, sem invenção)
 - **Output**: JSON `VideoRoteiro` `{ title, theme, deck_invariant, scenes[] }`. Cada cena: `type` (1 dos 13 templates) + `narration` + `key_idea` + `source_anchor` + `estimated_words` + campos visuais do template. A `narration` é a **fonte canônica de TTS e legendas**.
 - **Inputs user**: Módulo-Base (4 blocos) + cargo + PPP da escola + DISC dominante + duração-alvo.
-- **Consumido por**: pipeline de vídeo (`lib/video/gerar-narracao.ts` para TTS, `lib/video/montar-inputprops.ts` + Remotion para o deck, HeyGen para o avatar).
+- **Consumido por**: pipeline de vídeo (`trigger/gerar-video-modulo.ts` para TTS/assets, `lib/video/montar-inputprops.ts` + Remotion para o deck, HeyGen para o avatar).
+
+### 11.9 Camada de personalização do PDF final (DISC + PPP)
+> `ATIVO` · Prompt documentado como: `literal` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/season-engine/prompts/personalizacao.ts::buildPersonalizacaoPrompt`; caller em `actions/conteudos.ts::gerarConteudoFinalPersonalizado`.
+- **Modelo default**: resolvido pela task `conteudo_personalizacao` (sem pin próprio, cai no fallback global `claude-sonnet-4-6`). **Max tokens**: 2000. **Temperature**: 0.5.
+- **Tarefa**: acrescenta ao conteúdo-núcleo, sem reescrevê-lo, uma seção `## Para o seu perfil: {arquétipo}` e, quando existe brief, `## No contexto da sua escola`.
+- **Regras**: DISC e PPP funcionam como lentes de aplicação; não explicar DISC, citar siglas/scores ou inventar dados da escola. Cada seção tem 1-2 parágrafos curtos e, opcionalmente, 2-4 ações. O núcleo curricular permanece invariável.
+- **Inputs**: competência, descritor, arquétipo DISC, descrição do arquétipo, brief estruturado da escola e até 12.000 caracteres do conteúdo já pronto.
+- **Output/consumo**: somente o markdown das seções adicionais; o caller concatena ao núcleo, planeja o layout e gera/cacheia o PDF personalizado por conteúdo × empresa × arquétipo × assinatura de contexto.
 
 ---
 
@@ -1544,7 +1582,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 > por tema, um DESAFIO por perfil, e cada formato recebe o núcleo como appendix. Doc funcional:
 > `docs/KIT-SEMANAL.md`.
 
-### 13.1 Kit — Núcleo conceitual do tema (brief)
+### 12.1 Kit — Núcleo conceitual do tema (brief)
 > `ATIVO` · Prompt documentado como: `literal`
 
 - **Arquivo**: `lib/season-engine/kit/brief.ts::gerarKitBrief` (persistido em `kit_briefs`, idempotente por tema via `resolverOuCriarBrief`).
@@ -1553,9 +1591,9 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **System prompt**: "Você é designer instrucional da Vertho. Destile o NÚCLEO CONCEITUAL de um tema… a espinha que TODOS os formatos (vídeo, podcast, texto, estudo de caso) vão expressar para 'dizer a mesma coisa'." O núcleo é **NEUTRO de perfil (não personaliza por DISC) e NEUTRO de formato**.
 - **Output**: JSON `{ideia_central, pontos_chave[3], exemplo_ancora}` — 1 frase-síntese, exatamente 3 pilares, 1 situação concreta sem nome próprio.
 - **Inputs user**: competência, descritor, faixa de nível (1-4), cargo, contexto + **matéria-prima canônica** do Módulo-Base quando existir ("preserve as bases") + `pppBrief` como *lente de aplicação, sem citar o nome da instituição*.
-- **Consumido por**: 13.2 (desafio) e 13.3 (appendix de cada formato).
+- **Consumido por**: 12.2 (desafio) e 12.3 (appendix de cada formato).
 
-### 13.2 Kit — Desafio da semana por perfil DISC
+### 12.2 Kit — Desafio da semana por perfil DISC
 > `ATIVO` · Prompt documentado como: `literal`
 
 - **Arquivo**: `lib/season-engine/kit/brief.ts::gerarKitDesafio` (uma chamada por letra DISC).
@@ -1564,14 +1602,14 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Output**: JSON `{desafio_texto, acao_observavel, criterio_de_execucao, por_que_cabe_na_semana}`.
 - ⚠️ **É este desafio que a pessoa vê** — o `conteudo.desafio_texto` gravado na semana é placeholder, substituído na leitura pelo overlay do kit.
 
-### 13.3 Kit — Appendix de enriquecimento por formato
+### 12.3 Kit — Appendix de enriquecimento por formato
 > `ATIVO` · Prompt documentado como: `appendix`
 
 - **Arquivo**: `lib/season-engine/kit/enrich.ts` — **não é prompt próprio**: injeta um bloco no system dos autores de conteúdo (11.1 vídeo, 11.2 podcast, 11.3 texto, 11.4 case).
 - **O que injeta**: a espinha compartilhada (ideia central obrigatória, os 3 pontos-chave a cobrir, o exemplo-âncora), a **lente de arquétipo DISC** (tom/exemplos/enquadramento, de novo com a proibição de citar o perfil), e o **desafio ao qual o conteúdo deve conduzir** — com um fecho específico por formato (`COMO_FECHA`).
 - **Efeito**: 4 formatos de uma mesma célula ficam coerentes entre si e distintos por perfil, sem reescrever os prompts-autores.
 
-### 13.4 Contexto municipal consolidado (empresa-rede)
+### 12.4 Contexto municipal consolidado (empresa-rede)
 > `ATIVO` · Prompt documentado como: `literal`
 
 - **Arquivo**: `lib/season-engine/kit/contexto-empresa.ts::resolverContextoEmpresa`.
@@ -1581,7 +1619,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Por que existe**: pegar "o PPP mais recente" numa rede aplica **uma escola sorteada** ao município inteiro. Esse é o modo de falha **F-I10** (`docs/FMEA-PIPELINE.md`), fechado em **9 sites** (26-27/07) e agora protegido por guard de CI (`tests/unit/security/ppp-rede-guard.test.ts`).
 - **Quem mais consome agora**: além do Kit — `buscarContextoPPP` (IA1/IA2/IA3, só quando a empresa tem **N** PPPs), IA4, Cenário B do fechamento e o PDF personalizado. Todos compartilham o cache `empresas.kit_contexto` — **uma** síntese por rede, e a mesma lente na régua, no cenário, no kit e no PDF.
 
-### 13.5 Paleta de marca a partir do site do cliente
+### 12.5 Paleta de marca a partir do site do cliente
 > `ATIVO` desde 2026-07-22 · Prompt documentado como: `literal`
 
 - **Arquivo**: `lib/site-palette.ts::SYSTEM_PALETA` (fetch da página com guarda anti-SSRF antes).
@@ -1595,7 +1633,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 
 ## Simuladores
 
-### 12.1 Simulador de Respostas (Fase 3)
+### 13.1 Simulador de Respostas (Fase 3)
 > `AUXILIAR` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/simulador-conversas.ts::simularUmaResposta`
@@ -1620,11 +1658,11 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Inputs user**: Colaborador (nome, cargo), competência, perfil-alvo (fraco/medio/forte + nível N1-N4), cenário (descrição), 4 perguntas (P1-P4). Distribuição: 30% fraco, 50% médio, 20% forte.
 - **Consumido por**: `respostas` (para testar IA4).
 
-### 12.2 Simulador de Temporada — Colab (Haiku)
+### 13.2 Simulador de Temporada — Colab (Haiku)
 > `AUXILIAR` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivos**: `lib/season-engine/prompts/simulador-temporada.ts::promptSimuladorColab` + `promptSimuladorCompromisso`
-- **Caller**: `actions/simulador-temporada.ts` (várias funções: `simularSocratico`, `simularMissaoPratica`, `simularQualitativa`, `simularSem14Ate`)
+- **Caller**: `lib/season-engine/simulador-core.ts` (funções `simularSocratico`, `simularMissaoPratica`, `simularQualitativa`, `simularSem14Ate`; a action `actions/simulador-temporada.ts` delega ao core)
 - **Modelo**: `claude-haiku-4-5-20251001` (hardcoded via `SIM_MODEL` — rápido+barato)
 - **Max tokens**: 500-2500 (varia por cenário)
 - **Trigger**: Admin da Vertho (platform admin) usa em `/admin/vertho/simulador-temporada` pra simular 14 semanas de uma trilha completa.
@@ -1651,7 +1689,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Loop**: Sim — 1 chamada por turn colab na simulação.
 - **Consumido por**: Persistido em `temporada_semana_progresso` como se fosse colab real.
 
-### 12.3 Simulador de Compromisso (missão prática)
+### 13.3 Simulador de Compromisso (missão prática)
 > `AUXILIAR` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/simulador-temporada.ts::promptSimuladorCompromisso`
@@ -1671,11 +1709,11 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Output**: Texto livre (1-2 frases do compromisso).
 - **Consumido por**: `temporada_semana_progresso.feedback.compromisso`.
 
-### 12.4 Extração pós-simulação (simulador)
+### 13.4 Extração pós-simulação (simulador)
 > `AUXILIAR` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/simulador-temporada.ts` — constante `SIM_EXTRACTOR_SYSTEM`, várias chamadas inline
-- **System prompt** (resumo editorial do prompt real em `actions/simulador-temporada.ts`):
+- **Arquivo**: `lib/season-engine/simulador-core.ts` — constante `SIM_EXTRACTOR_SYSTEM`, várias chamadas inline
+- **System prompt** (resumo editorial do prompt real em `lib/season-engine/simulador-core.ts`):
   "Você é um extrator de dados estruturados da Vertho." Analisa conversa SIMULADA e transforma em JSON estruturado fiel. Princípios-chave:
   1. Extraia somente o que foi efetivamente dito ou claramente sustentado
   2. Não invente comportamento, avanço, execução ou insight
@@ -1696,7 +1734,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 
 ## Fase 4 (PDI legado)
 
-### 13.1 Gerar PDIs
+### 14.1 Gerar PDIs
 > `LEGADO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase4.ts::gerarPDIs`
@@ -1717,7 +1755,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 
 ## Outros (Cenário B legado, Evolução Granular, Tutor Evidência)
 
-### 14.1 Gerar Cenário B (legado / DISC-aware)
+### 15.1 Gerar Cenário B (legado / DISC-aware)
 > `LEGADO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/cenario-b.ts::gerarCenarioB`
@@ -1747,7 +1785,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Output**: JSON `{ descricao, personagens, situacao_gatilho, pergunta_aprofund_1, pergunta_aprofund_2, pergunta_raciocinio, pergunta_cis, objetivo_conversacional, referencia_avaliacao:{nivel_1..4}, faceta_avaliada, dilema_etico_embutido }`.
 - **Consumido por**: `banco_cenarios`.
 
-### 14.2 Evolução Granular (por descritor)
+### 15.2 Evolução Granular (por descritor)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/evolucao-granular.ts::gerarEvolucaoDescritores`
@@ -1768,7 +1806,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Output**: Array JSON `[{descritor, nivel_inicial, nivel_reavaliacao, delta, evidencia_cenario_B, convergencia, convergencia_detalhe, conexao_CIS, recomendacao}]`.
 - **Consumido por**: `evolucao_descritores` (upsert).
 
-### 14.3 Tutor Evidência (Avaliar evidência submetida — legado Fase 4 GAS)
+### 15.3 Tutor Evidência (Avaliar evidência submetida — legado Fase 4 GAS)
 > `LEGADO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/tutor-evidencia.ts::avaliarEvidencia`
@@ -1797,7 +1835,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Output**: JSON `{ criterios:{concretude, autenticidade, reflexao, impacto, aplicacao}, pontos_total, feedback, qualidade }`.
 - **Consumido por**: `capacitacao.evidencia_avaliacao` + pontos.
 
-### 14.4 Auditoria Sem 14 — Regerar com Feedback
+### 15.4 Auditoria Sem 14 — Regerar com Feedback
 > `ATIVO` · Prompt documentado como: `appendix (sobre 6.12)`
 
 - **Arquivo**: `app/admin/vertho/auditoria-sem14/actions.ts::regerarScoringComFeedback`
@@ -1814,7 +1852,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Trigger**: Platform admin Vertho em `/admin/vertho/auditoria-sem14` → "Regerar com feedback".
 - **Consumido por**: Substitui `feedback` + preserva `auditoria_anterior` + dispara regen do Evolution Report.
 
-### 14.5 Auditoria Sem 14 — Check com Feedback
+### 15.5 Auditoria Sem 14 — Check com Feedback
 > `ATIVO` · Prompt documentado como: `appendix (sobre 6.13)`
 
 - **Arquivo**: `app/admin/vertho/auditoria-sem14/actions.ts` (segunda chamada em `regerarScoringComFeedback`)
@@ -1825,7 +1863,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 
 ## Módulos-Base de Conteúdo (Vertho Master)
 
-### 15.1 Rascunhar Módulo-Base (autor assistido + import docx)
+### 16.1 Rascunhar Módulo-Base (autor assistido + import docx)
 > `ATIVO` desde 2026-05-28 · Frente 2/3 dos Módulos-Base (ver `docs/MODULOS-BASE-CONTEUDO.md`).
 
 - **Arquivo**: prompt em `lib/modulo-base-autor.ts` (`SYSTEM_AUTOR`, `montarUserPrompt`). Callers: `actions/modulos-base.ts::rascunharModuloBase`, `importarModuloDocx`, `criarModuloBaseDeManuscrito`, e a task `trigger/gerar-modulos-manuscrito.ts`. Moveu pra `lib/` porque um `'use server'` não pode ser importado por tasks sem virar endpoint HTTP.
@@ -1839,18 +1877,18 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
   3. Exemplos universais (sem cargo específico salvo contexto exclusivo)
   4. Linguagem clara, aplicada, profissional. Sem jargão excessivo
   Formato de saída: APENAS JSON válido, sem markdown."
-- **User prompt** (`montarUserPrompt`): nome+pilar+segmento da competência canônica + descritor completo + textos N_entrada/N_destino da régua (n1_gap/n2_desenvolvimento/n3_meta/n4_referencia) + contexto pedagógico + evidências esperadas + (opcional) módulo de referência (caso de tradução) + (opcional) texto extraído do docx via `mammoth` (até 12k chars) + schema JSON exigido inline com mínimos (5 princípios, 4 situações, 4 erros, 4 boas práticas).
+- **User prompt** (`montarUserPrompt`): nome+pilar+segmento da competência canônica + descritor completo + textos N_entrada/N_destino da régua + público/termo canônico/cargo + contexto pedagógico + evidências esperadas + referência opcional + texto-fonte opcional (teto default 60k chars) + schema JSON. Faixas fechadas: 5-6 princípios, 4-5 situações, 4-5 erros e 4-5 boas práticas; repertório linguístico com 6 categorias obrigatórias.
 - **Output**: JSON com `{ conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato }`.
 - **Robustez**: parsing tolerante (`extractCorpo` — texto limpo → primeiro `{...}` embutido) + **1 retry**.
 - **Validação**: `validarCorpo` verifica campos obrigatórios e mínimos (ideia, explicação, ≥3 princípios, ≥3 situações, preservar+evitar presentes). Avisos são persistidos pra revisão humana — não bloqueiam o INSERT.
-- **Workflow**: output sempre vira `status='rascunho'`. Publicação exige aprovação da IA-auditora (15.2) — padrão Dual-IA, não mais revisão humana cruzada.
+- **Workflow**: output sempre vira `status='rascunho'`. Publicação exige aprovação da IA-auditora (16.2) — padrão Dual-IA, não mais revisão humana cruzada.
 - **Consumido por**: tabela `modulos_base_conteudo` (platform-level, sem `empresa_id`).
 
-### 15.2 IA-Auditora de Módulo-Base (padrão Dual-IA)
+### 16.2 IA-Auditora de Módulo-Base (padrão Dual-IA)
 > `ATIVO` desde 2026-05-28 · Substitui a regra de revisão humana cruzada (criador-vs-aprovador).
 
 - **Arquivo**: prompt em `lib/modulo-base-auditor.ts` (`SYSTEM_AUDITOR`, `auditarModuloCore`). Disparada por `submeterRevisao`; pelo botão "Reauditar"; dentro do refino; e ao fim da task de manuscrito. ⚠️ O modelo **não** devolve mais `nota`/`veredito` — só `problemas`. A conversão é `derivarVeredito()`, em código.
-- **Modelo**: Via `getModelForTask(null, 'modulo_base_auditor')` — default **`gpt-5.4`** (configurado em `lib/ai-tasks::DEFAULT_TASK_MODELS`). Configurável por sys_config global Vertho. Modelo diferente da autora (Claude Sonnet) **de propósito** — Dual-IA com perspectivas distintas, mesmo padrão de IA4+Check (Claude+Gemini Flash) e Pulso classifier+auditor.
+- **Modelo**: Via `getModelForTask(null, 'modulo_base_auditor')` — default **`gpt-5.6-terra`**, pinned. Modelo diferente da autora (Claude) de propósito.
 - **Max tokens**: 16000 (output) — confortável pra veredito + lista detalhada de problemas com gravidade.
 - **System prompt** (resumo editorial):
   "Você é IA-auditora de Módulos-Base. Valide RIGOROSAMENTE contra spec e guarda-corpos. NÃO suavize. 9 critérios:
@@ -1863,52 +1901,297 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
   7. AUTO-CONSISTÊNCIA com os guarda_corpos do próprio módulo
   8. PROFUNDIDADE adequada (não stubs)
   9. LINGUAGEM clara e aplicada
-  Veredito: REPROVADO se ≥1 problema alta; APROVADO_COM_RESSALVAS se só média/baixa; APROVADO se nada."
+  O modelo NÃO calcula nota nem veredito: apenas acha defeitos reais, classifica gravidade e cita o campo afetado."
 - **User prompt**: contexto da competência canônica + descritor + transição + locale + título + finalidade + JSON completo dos 4 blocos do módulo a auditar.
-- **Output**: JSON `{ nota: 0.0-10.0 (1 casa decimal), veredito, problemas: [{categoria,descricao,gravidade,campo_afetado}], recomendacoes: [], confianca }`. 9 categorias possíveis de problema (estrutura/regua-vs-base/aula-vs-base/exemplos/invencao/etica/auto-consistencia/profundidade/linguagem).
-- **Escala de nota** (alinhada ao padrão de cenários A/B do projeto, com 1 casa decimal):
-  - **9.0-10**: modelar (sem problemas relevantes).
-  - **7.0-8.9**: bom com ajustes menores (só média/baixa).
-  - **5.0-6.9**: limítrofe (vários ajustes ou 1-2 problemas altos pontuais).
-  - **3.0-4.9**: insuficiente (múltiplos problemas altos ou bloco essencial fraco).
-  - **0.0-2.9**: inservível (falhas estruturais graves ou conceito incorreto).
-- Nota é clampada a 0-10 e arredondada a 1 casa no servidor (`Math.round(x*10)/10`).
-- **Robustez**: parsing tolerante + 1 retry; valida `veredito ∈ {aprovado, aprovado_com_ressalvas, reprovado}`.
+- **Output da IA**: JSON `{ problemas:[{categoria,descricao,gravidade,campo_afetado}], recomendacoes, confianca }`.
+- **Nota/veredito em código** (`derivarVeredito`): parte de 10 e desconta 2,5 por alta, 0,6 por média e 0,1 por baixa; qualquer alta impõe teto 4,9; estrutura completa sem alta tem piso 7,0. `reprovado` se alta ou nota <5; `aprovado` se nota ≥9 e sem média; demais = `aprovado_com_ressalvas`.
+- **Robustez**: parsing tolerante + 1 retry; aceita array `problemas` vazio. Eventuais `nota/veredito` sugeridos pelo modelo são ignorados para a decisão e preservados apenas para medição.
 - **Persistência**: `modulos_base_conteudo.auditoria_ia` JSONB + `auditado_em` + `auditado_por_modelo` + `auditado_em_versao`. Gate da publicação: módulo só pode ir pra `publicado` se veredito é aprovado/aprovado_com_ressalvas E `auditado_em_versao = versao atual` (edição após auditoria invalida).
 
-### 15.3 Refinador (autora consome feedback da auditora — fecha o loop Dual-IA)
+### 16.3 Refinador (autora consome feedback da auditora — fecha o loop Dual-IA)
 > `ATIVO` desde 2026-05-28 · Loop manual disparado pelo autor humano (decisão B — controle do humano sobre quantas iterações).
 
 - **Arquivo**: `lib/modulo-base-refino.ts` (`montarPromptRefinador`, `refinarModuloCore`); wrapper com guard em `actions/modulos-base.ts::refinarComFeedback`.
-- **Modelo**: a **MESMA IA-autora** (15.1) — `getModelForTask(null, 'modulo_base_autor')`, default Claude Sonnet 4.6. Consistência de estilo entre versões.
+- **Modelo**: a **MESMA IA-autora** (16.1) — `getModelForTask(null, 'modulo_base_autor')`, default Claude Sonnet 4.6. Consistência de estilo entre versões.
 - **Max tokens**: 64000 (mesmos do autor original).
-- **System prompt**: reutiliza o `SYSTEM_AUTOR` (15.1).
+- **System prompt**: reutiliza o `SYSTEM_AUTOR` (16.1).
 - **User prompt** (`montarPromptRefinador`):
   - Contexto da competência canônica + descritor + transição N→N (com textos n_entrada e n_destino da régua).
   - JSON completo dos 4 blocos da versão atual (rejeitada/com ressalvas).
   - **Feedback estruturado da auditora**: problemas **ordenados por gravidade** (alta → média → baixa) + lista de recomendações.
   - Instruções de refinamento: corrigir ALTA (obrigatório); ajustar média/baixa (recomendado); **preservar o que não foi apontado** (não regerar do zero); manter consistência conceitual; respeitar mínimos do spec.
-- **Pós-processamento**: persiste os 4 blocos refinados, **incrementa `versao`**, e dispara `auditarModuloBase` (15.2) automaticamente sobre a nova versão. Retorna nova auditoria pra UI.
+- **Pós-processamento**: persiste os 4 blocos refinados, **incrementa `versao`**, e dispara `auditarModuloBase` (16.2) automaticamente sobre a nova versão. Retorna nova auditoria pra UI.
 - **Fluxo end-to-end**: humano clica "Refinar com IA" → autora regera com feedback → auditora avalia versão nova → veredito mostrado. Humano decide se publica, refina de novo, ou edita manualmente.
+
+### 16.4 Segmentador de material longo em Módulos-Base
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/modulos-base/pipeline.ts::SEG_SYSTEM` + `segmentarEEstruturarExtracao`.
+- **Modelo**: mesmo contexto da task `modulo_base_autor`. **Max tokens**: 32000 por trecho; timeout 180s, sem retry do wrapper.
+- **Tarefa**: divide transcrição/material longo em seções temáticas, mapeia cada seção para uma competência canônica e emite blocos delimitados que alimentam o autor 16.1.
+- **Regras**: preservar conteúdo-fonte, não misturar temas sem unidade, não inventar competência/descritor e escolher o catálogo controlado fornecido.
+
+### 16.5 Detector de metadados de DOCX
+> `AUXILIAR` · Prompt documentado como: `literal` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `actions/modulos-base.ts::detectarMetadadosDocx`.
+- **Modelo**: task `modulo_base_autor`. **Max tokens**: 800.
+- **Input**: primeiros 4.000 chars do DOCX + até 200 competências oficiais.
+- **Output**: JSON com competência detectada/match/confiança, transição N1→N2/N2→N3/N3→N4, locale, título, finalidade e contexto pedagógico; usa `null` quando não há base.
+
+### 16.6 Detector de metadados de vídeo/texto-base
+> `AUXILIAR` · Prompt documentado como: `literal` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `actions/modulos-base.ts::detectarMetadadosDeTexto`.
+- **Modelo**: task `modulo_base_autor`. **Max tokens**: 800.
+- **Input**: título do vídeo + primeiros 5.000 chars do texto-base + catálogo de competências.
+- **Output**: competência canônica, confiança, descritor granular, transição de nível, contexto pedagógico, título e finalidade. Confiança <0,4 força `null` para a competência.
+
+---
+
+## Development Blueprint
+
+### 17.1 Gerador de Blueprint (PDI + trilha como fonte única)
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/blueprint/prompt.ts::BLUEPRINT_SYSTEM` + `buildBlueprintPrompt`; núcleo em `lib/blueprint/core.ts`; lote em `trigger/gerar-blueprint-batch.ts`.
+- **Modelo default**: `claude-sonnet-4-6` (configurável). **Max tokens**: 64000.
+- **Trigger**: geração individual/headless ou lote de colaboradores com 100% das competências foco mapeadas.
+- **Tarefa**: gerar uma única estrutura JSON da qual derivam PDI e trilha, mantendo ligação nominal entre objetivo de 30 dias, semanas, missões, evidência esperada e critério de sucesso.
+- **Regras centrais**: não inventar comportamento; ações ancoradas em artefatos/rotinas reais do cargo; evidência **contável** (quantificador explícito); carga compatível com nível; calendário parametrizado pelo programa da empresa; níveis finais sobrescritos pelos cálculos autoritativos em código.
+- **Output**: `DevelopmentBlueprint` com colaborador, foco geral, competências, objetivos de 30 dias e `trilha.semanas[]`; validações duras rejeitam semana sem `conexao_com_pdi`.
+
+### 17.2 Auditor semântico de Blueprint
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/blueprint/audit.ts::buildBlueprintAuditPrompt`; chamada em `lib/blueprint/core.ts::auditarBlueprintCore`.
+- **Modelo default**: `claude-sonnet-4-6` salvo override. **Max tokens**: 4000.
+- **Tarefa**: 2ª camada adversarial sobre seis checks semânticos: cobre o que promete, missão↔evidência, exigência↔nível, avaliação mede o prometido, conteúdo genérico e tom/saúde.
+- **Output**: checks `pass|warn|fail` com ids fixos e evidência concreta. O servidor funde com checks estruturais determinísticos; denominador fixo impede auditoria parcial de inflar o score.
+
+---
+
+## Pulso de Desenvolvimento
+
+### 18.1 Classificador de texto aberto do Pulso
+> `ATIVO` · Prompt documentado como: `literal` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/pulse/dual-ai.ts::CLASSIFY_SYSTEM`.
+- **Modelo default**: `claude-sonnet-4-6`. **Max tokens**: 512.
+- **Tarefa/output**: classifica resposta curta em no máximo 3 chaves da taxonomia fechada, sentimento, evidência curta sem PII e confiança `low|medium|high`. Não diagnostica burnout, doença ou assédio.
+
+### 18.2 Auditor da classificação do Pulso
+> `ATIVO` · Prompt documentado como: `literal` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/pulse/dual-ai.ts::AUDIT_SYSTEM`.
+- **Modelo default**: `gpt-5.6-terra`, pinned pela task `pulse_audit`. **Max tokens**: 512.
+- **Tarefa/output**: compara texto original e classificação, retorna concordância, divergências, confiança ajustada e nota curta. A confiança final é resolvida em código e o texto bruto não é persistido na classificação.
+
+---
+
+## Modo Cena (experimental)
+
+> **Estado:** núcleo headless criado em 24/08/2026; ainda não existe rota, action ou tela de produção. O consumidor atual é o harness interno `scripts/_cena-fase0.ts`. Os seis prompts abaixo estão catalogados como `EXPERIMENTAL`, não `ATIVO`.
+
+### 19.1 Derivação da persona do interlocutor
+> `EXPERIMENTAL` · Prompt documentado como: `resumo_editorial` · **Novo em 24/08/2026**
+
+- **Arquivo**: `lib/season-engine/cena/prompts.ts::promptPersona`; modelo `claude-opus-5`; max tokens 4000; effort médio.
+- **Tarefa**: deriva do cenário quem está do outro lado, sua agenda legítima, o que nunca aceita, condição única observável para ceder, tom e primeira fala já em tensão.
+
+### 19.2 Interlocutor em personagem (multi-turn)
+> `EXPERIMENTAL` · Prompt documentado como: `resumo_editorial` · **Novo em 24/08/2026**
+
+- **Arquivo**: `buildInterlocutorSystemEstavel` + appendix volátil `buildInstrucaoDoBeat`; execução em `lib/season-engine/cena/core.ts::turnoCena`.
+- **Modelo**: `claude-opus-5`; max tokens 4000/turno; até 16 turnos; effort médio.
+- **Tarefa**: sustenta personagem resistente, uma reação/pergunta por vez, sem ensinar nem revelar a avaliação. O próximo beat é escolhido em código e entra em `systemSuffix`; `[META]` informa movimento/cessão, mas não decide o encerramento.
+
+### 19.3 Guarda de integridade da cena
+> `EXPERIMENTAL` · Prompt documentado como: `literal` · **Novo em 24/08/2026**
+
+- **Arquivo**: `promptGuarda` / `checarGuarda`.
+- **Modelo**: `grok-4.6`; max tokens 1500; effort baixo.
+- **Output**: `ok|quebra_de_papel|impropria|vazia`; protege contra prompt injection/cola sem confundir firmeza na dramatização com impropriedade.
+
+### 19.4 Juiz independente de beat
+> `EXPERIMENTAL` · Prompt documentado como: `literal` · **Novo em 24/08/2026**
+
+- **Arquivo**: `promptJuizDeBeat` / `julgarBeat`.
+- **Modelo**: `grok-4.6`; max tokens 1500; effort baixo.
+- **Tarefa**: leitor sem agenda decide se um sinal específico apareceu na janela de 6 mensagens. O sinal pode estar repartido entre turnos e pode ser positivo ou negativo; retorna apenas `{cumprido, porque}`.
+
+### 19.5 Extrator de evidências da cena
+> `EXPERIMENTAL` · Prompt documentado como: `resumo_editorial` · **Novo em 24/08/2026**
+
+- **Arquivo**: `promptExtracao` / `extrairCena`.
+- **Modelo**: `claude-opus-5`; max tokens 10000; effort alto.
+- **Tarefa**: por momento/turno/beat, classifica `demonstrou|tentou|falhou|sem_sinal`, força e citação literal. Não dá nota; `consolidarCena` faz a conta em código e preserva trajetórias como falhou→recuperou.
+
+### 19.6 Triagem de adequação da competência ao formato Cena
+> `EXPERIMENTAL` · Prompt documentado como: `literal` · **Novo em 24/08/2026**
+
+- **Arquivo**: `promptTriagemAdequacao` / `triarAdequacaoCena`.
+- **Modelo**: `claude-opus-5`; max tokens 6000; effort alto.
+- **Tarefa/output**: julga descritor por descritor se o comportamento aparece numa conversa resistente (`sim|parcial|nao`) e retorna veredito `adequada|parcial|inadequada`, evitando forçar competências intrapessoais num conflito artificial.
+
+---
+
+## Diagnósticos, seleção e assistentes
+
+### 20.1 Extrator estruturado de descrição de cargo
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/cargo-extracao/prompts.ts` + `extrator.ts`; caller em `actions/cargo-extracao.ts`.
+- **Modelo**: `gemini-3.6-flash` (env `GEMINI_CARGO_MODEL`). **Max tokens**: 16384; structured output nativo; até 3 tentativas.
+- **Tarefa**: PDF/texto → campos canônicos consumidos pela IA2. Só extrai o que o documento sustenta; cada valor leva confiança e trecho literal; lacunas geram perguntas dirigidas para revisão humana.
+
+### 20.2 Brief visual da escola a partir do PPP
+> `ATIVO` · Prompt documentado como: `literal` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/escola-brief.ts::resumirPPP`.
+- **Modelo**: `gemini-3.6-flash`. **Max tokens**: 2000.
+- **Tarefa/output**: reduz até 60k chars de PPP aos campos `etapas`, `rede`, `contexto`, `ambientes`, `identidade` e `tom` que guiam estética/narração de vídeo; ignora burocracia, metas e marco legal sem tradução visual.
+
+### 20.3 Narrativa do DNA Organizacional
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/dna-organizacional/narrative.ts::gerarNarrativaDna`.
+- **Modelo default**: `claude-sonnet-4-6`; max tokens 4096; temperatura 0,6.
+- **Tarefa/output**: transforma agregado anônimo de competências em intro, 3 forças, leitura geral, padrões, 3 prioridades, 3 ações de 30 dias, referências por contagem/cargo e fecho. Nunca inventa números nem identifica pessoas.
+
+### 20.4 Narrativas de adequação pessoa-cargo
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/adequacao-cargo/narrative.ts::gerarNarrativasAdequacao`.
+- **Modelo default**: roteador global/configurado; max tokens 2500; chunks de até 12 pessoas.
+- **Tarefa**: 2-3 frases por pessoa, estritamente ancoradas nos `DRIVERS` calculados. Respeita tipo/direção da régua (`floor|ceiling|target`) e severidade; não interpreta DISC bruto que não seja driver nem oferece desenvolvimento a requisito eliminatório bloqueado.
+
+### 20.5 Perfil de vaga por competências
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `actions/selecao.ts::gerarPerfilVaga`.
+- **Modelo default**: `claude-sonnet-4-6`. **Max tokens**: 1200.
+- **Tarefa/output**: escolhe 8-12 competências relevantes do catálogo fornecido para a vaga e devolve JSON de ids/nomes/justificativas; não pode criar competência fora da lista.
+
+### 20.6 BETO — mentor geral do colaborador
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `app/actions/beto.ts::SYSTEM_PROMPT_BASE` + `chatWithBeto`.
+- **Modelo**: `claude-sonnet-4-6`. **Max tokens**: 500. Multi-turn.
+- **Tarefa**: mentor acolhedor com contexto autenticado do colaborador (perfil, cargo, empresa), respostas curtas e práticas; não substitui avaliação formal nem aconselhamento médico/psicológico.
+
+### 20.7 Assistente comercial — preparação de reunião
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `actions/sales/ai-assistant.ts::prepararReuniao`; system compartilhado do assistente comercial.
+- **Modelo default**: `claude-sonnet-4-6`. **Max tokens**: 2200.
+- **Grounding**: oportunidade/conta + materiais aprovados de playbook, diagnóstico e objeções.
+- **Output**: resumo de contexto, 4-6 perguntas diagnósticas, objeções prováveis/respostas e próximo passo.
+
+### 20.8 Assistente comercial — fortalecer proposta
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `actions/sales/ai-assistant.ts::assistirProposta`; mesmo system de 20.7.
+- **Max tokens**: 2200. **Grounding**: playbook, objeções e cases aprovados.
+- **Output**: proposta de valor específica, escopo, pontos comerciais e objeções prováveis; proibido inventar números, cases ou promessas.
+
+### 20.9 Assistente comercial — análise de objeção
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `actions/sales/ai-assistant.ts::analisarObjecao`; mesmo system de 20.7.
+- **Max tokens**: 1600. **Grounding**: materiais aprovados de objeções/playbook.
+- **Output**: 2-3 respostas consultivas, pergunta de retorno e dica de postura/timing.
+
+---
+
+## Radar Vertho
+
+### 21.1 Narrativa pública de escola — Radar clássico
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/radar/ia-narrativa.ts::getNarrativaEscola`.
+- **Modelos**: `claude-sonnet-4-6` → fallback `gpt-5.1`. **Max tokens**: 1400; temperatura 0,4; cache por hash/version.
+- **Tarefa/output**: JSON com resumo, destaques, atenções e perguntas pedagógicas usando apenas dados estruturados (Saeb, Ideb, ENEM comparável, Censo, SARESP, PDDE), sempre distinguindo dado de hipótese.
+
+### 21.2 Narrativa pública de município — Radar clássico
+> `ATIVO` · Prompt documentado como: `reuso` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/radar/ia-narrativa.ts::getNarrativaMunicipio`; reusa o system de 21.1.
+- **Inputs próprios**: ICA, escolas/redes, ENEM municipal, FUNDEB e PDDE. Mesmo modelo/teto/cache e mesmo schema de saída.
+
+### 21.3 Glimpse de escola — Radar Bett 2026
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/radar/ia-narrativa-radarbett.ts::getNarrativaRadarbettEscola`.
+- **Modelos**: `claude-sonnet-4-6` → fallback `gpt-5.6-luna`. **Max tokens**: 600; temperatura 0,4; cache.
+- **Output**: um parágrafo institucional de até 380 caracteres, com ano/fonte, comparação justa por INSE/microrregião e foco pedagógico/gestão, sem promoção nem alarmismo.
+
+### 21.4 Glimpse de município — Radar Bett 2026
+> `ATIVO` · Prompt documentado como: `reuso` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/radar/ia-narrativa-radarbett.ts::getNarrativaRadarbettMunicipio`; reusa system/modelos de 21.3.
+- **Inputs próprios**: ICA, Ideb agregado oficial, ENEM, FUNDEB, VAAR, receita prevista e PDDE; leitor-alvo é gestor da rede municipal.
+
+### 21.5 Proposta pública em PDF do Radar
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/radar/proposta-pdf-data.ts::SYSTEM_PROPOSTA`.
+- **Modelos**: `claude-sonnet-4-6` → fallback OpenAI configurado. **Max tokens**: 3500; temperatura 0,5; cache/versionamento.
+- **Tarefa/output**: proposta técnico-pedagógica com resumo, leituras Saeb/Ideb/infra/recursos, 1-3 pontos críticos com gravidade+dado+fonte+impacto+competência Vertho, perguntas e próximos passos 30/60/90 dias. Nunca inventa dado para completar três pontos.
+
+---
+
+## Prompts multimodais e mídia
+
+### 22.1 Extração densa de conteúdo de vídeo
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/gemini-video.ts::buildSystem`; caller em `actions/extracao-video.ts`.
+- **Modelo**: `gemini-3.6-flash`. **Max tokens**: 65536; até 3 tentativas.
+- **Tarefa/output**: vídeo/áudio → JSON com título, resumo, `texto_base` markdown denso e proporcional à duração, pontos-chave e competência/descritor sugeridos. A regra central é **não resumir**: preservar definições, argumentos, exemplos, dados, passos, ressalvas e ordem do vídeo.
+
+### 22.2 Transcrição/ tradução de áudio de vídeo longo
+> `ATIVO` · Prompt documentado como: `literal` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `trigger/extracao-video.ts::transcreverBloco`.
+- **Modelo**: `gemini-3.5-flash`. **Max tokens**: 8192 por bloco de até 15 min; até 20 blocos.
+- **Tarefa**: transcrever fielmente, corrigindo só hesitações/ruído, sem resumir nem inventar; traduz para o locale de saída quando necessário. A transcrição concatenada alimenta 16.4.
+
+### 22.3 Direção de voz — narração/devolutiva/vídeo
+> `ATIVO` · Prompt documentado como: `appendix` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/gemini-tts.ts::generateNarrationAudio`; estilos específicos de vídeo em `trigger/gerar-video-modulo.ts`.
+- **Modelo**: `gemini-3.1-flash-tts-preview` (AI Studio ou Vertex).
+- **Prompt**: direção de voz + trecho da narração. Default: português do Brasil, voz acolhedora/segura/íntima, ritmo moderado e pausas reflexivas; vídeo sobrescreve por tipo de cena. Pausas após perguntas são inseridas deterministicamente, não por SSML.
+
+### 22.4 Direção de voz — podcast single/multi-speaker
+> `ATIVO` · Prompt documentado como: `appendix` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/gemini-tts.ts::generatePodcastAudio`.
+- **Modelo**: mesmo de 22.3.
+- **Prompt**: single-speaker feminino acolhedor ou diálogo `Mentor` masculino consultivo + `Campo` feminino prático, com turn-taking natural; vinhetas de marca são adicionadas depois por DSP, fora da IA.
+
+### 22.5 Imagem editorial de capa
+> `ATIVO` · Prompt documentado como: `literal` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/openai-image.ts::buildCoverPrompt` / `generateCoverImage`.
+- **Modelo**: `gpt-image-2`; 1024×1536; qualidade medium.
+- **Prompt**: metáfora visual específica ao tema, editorial premium em navy/cyan, cena à direita e 45% de espaço negativo à esquerda; sem texto, logos, pessoas ou clichês de estrada/xadrez.
+
+### 22.6 Imagem editorial de seção
+> `ATIVO` · Prompt documentado como: `literal` · **Ausente até 25/08/2026**
+
+- **Arquivo**: `lib/openai-image.ts::buildSectionPrompt` / `generateSectionImage`.
+- **Modelo**: `gpt-image-2`; 1536×1024; qualidade medium.
+- **Prompt**: mesma identidade editorial, mas composição horizontal distribuída para banda interna; sem área vazia obrigatória e sem texto/logos/pessoas.
 
 ---
 
 ## Resumo Estatístico
 
-**Total de prompts catalogados: 70** *(65 + os 5 do Kit Semanal, incorporados em 27/07)*
+**Total: 105 prompts/famílias.** A base anterior tinha 70; a auditoria de 25/08 encontrou **35 ausentes**: 27 ativos, 2 auxiliares e 6 experimentais (Modo Cena).
 
-Por status:
-
-| Status | Qtd | Itens |
-|--------|-----|-------|
-| `ATIVO` | 52 | Prompts em uso na produção (inclui 13.1, 13.2, 13.4, 13.5) |
-| `WRAPPER` | 3 | Reusos: 1.4, 2.2, 5.2 |
-| `LEGADO` | 3 | Mantidos: 13.1, 14.1, 14.3 |
-| `AUXILIAR` | 5 | Simulação/teste: 3.4, 12.1–12.4 |
-| `APPENDIX` | 3 | Instruções extras: 14.4, 14.5, **13.3** (enriquecimento do Kit) |
-| `ATIVO + APPENDIX` | 1 | 5.10 (check lote ativo mas simplificado) |
-
-Por categoria:
+Por categoria (esta tabela é a fonte da contagem):
 
 | Seção | Qtd | Detalhes |
 |---|---|---|
@@ -1920,13 +2203,21 @@ Por categoria:
 | Motor Temporadas | 13 | desafio, cenário, missão, socrático, analytic, missão feedback, extração (1 prompt, 2 modos), tira-dúvidas, qualitativa, extract qualitativa, acumulada, acumulada check, scorer sem14, check sem14 |
 | Relatórios | 3 | individual, gestor, RH |
 | PPP | 3 | educacional, corporativo, enriquecimento web |
-| Dashboard Perfil | 2 | comportamental, insights |
+| Dashboard Perfil | 3 | comportamental, insights, devolutiva em voz |
 | FIT v2 | 1 | leitura executiva |
-| Conteúdos/Tagging | 8 | video script, podcast, texto, case, tags, planner editorial PDF, expansão mínima PDF, roteiro vídeo Módulo-Base |
+| Conteúdos/Tagging | 9 | video script, podcast, texto, case, tags, planner editorial PDF, expansão mínima PDF, roteiro vídeo Módulo-Base, camada de personalização DISC+PPP |
 | **Kit Semanal** | **5** | núcleo/brief, desafio por DISC, appendix de enriquecimento, contexto municipal consolidado, paleta do site |
 | Simuladores | 4 | respostas, colab temporada, compromisso, extração sim |
 | Fase 4 | 1 | PDI legado |
 | Outros | 5 | cenárioB legado, evolução granular, tutor evidência, regerar sem14, check sem14 com feedback |
+| Módulos-Base | 6 | autor, auditor, refinador, segmentador, metadados DOCX, metadados vídeo |
+| Development Blueprint | 2 | gerador + auditor semântico |
+| Pulso | 2 | classificador + auditor |
+| Modo Cena | 6 | persona, interlocutor, guarda, juiz de beat, extrator, triagem |
+| Diagnósticos/seleção/assistentes | 9 | cargo, brief escola, DNA, adequação, vaga, BETO, comercial ×3 |
+| Radar | 5 | escola/município clássico, escola/município Bett, proposta PDF |
+| Multimodal/mídia | 6 | extração vídeo, transcrição, TTS ×2, imagem ×2 |
+| **TOTAL** | **105** | **70 anteriores + 35 incorporados nesta revisão** |
 
 ## Notas de Integração
 
@@ -1935,34 +2226,44 @@ Por categoria:
 - **Reflection/Socrático/Missão Feedback** (`app/api/temporada/reflection/route.ts`): query = competência + descritor + últimas 2 msgs colab, top 4 chunks
 - **Relatório Gestor** (`actions/relatorios.ts::gerarRelatorioGestor`): query fixa "valores cultura organizacional políticas desenvolvimento pessoas", top 4 chunks
 - **Relatório RH** (`actions/relatorios.ts::gerarRelatorioRH`): query fixa "valores cultura organizacional políticas treinamento desenvolvimento estrategia", top 5 chunks
+- **Assistente comercial** (`actions/sales/ai-assistant.ts`): materiais aprovados em `sales_materials` (playbook, diagnóstico, objeções e cases), filtrados por segmento.
 
 ### Prompts com PII Masking (LGPD)
-- **Avaliação Acumulada** (`actions/avaliacao-acumulada.ts`): mascara nome, sanitiza evidências, desmascara output
+- **Avaliação Acumulada** (`lib/season-engine/avaliacao-acumulada-core.ts`): mascara nome, sanitiza evidências, desmascara output
 - **Reflection Sem 13 qualitativa** (`app/api/temporada/evaluation/route.ts`): mascara histórico + insights anteriores
 - **Evolution Scenario Score Sem 14** (`app/api/temporada/evaluation/route.ts`): mascara nome + resposta + evidências
 - **Tira-Dúvidas** (`app/api/temporada/tira-duvidas/route.ts`): mascara histórico, desmascara output
 - **Reflection semanal** (`app/api/temporada/reflection/route.ts`): mascara histórico + compromisso
 
 ### Prompts com Retry
-- **IA4** (`actions/fase3.ts::rodarIA4`): 1 retry se primeira resposta não for JSON válido, com appendix "Retorne APENAS o JSON, sem texto antes ou depois"
+- **IA1**: 1 retry se vierem competências válidas insuficientes.
+- **IA2**: 1 retry se faltar `gabarito`/JSON válido.
+- **IA3**: 1 retry com a lista de erros da validação estrutural.
+- **IA4** (`lib/ia4-avaliacao.ts`): 1 retry se a primeira resposta não for JSON válido.
+- **Módulo-Base autor/auditor**: até 2 tentativas; extrator de cargo e extração de vídeo: até 3.
 
 ### Prompts com Streaming (automático em `callAI` se `maxTokens > 8192`)
-- IA3 (64000), IA4 (64000), Relatórios (64000), Fusão (64000), Plenária (64000), Cenário B legado (32768), Evolução Granular (32768), Evaluation chat (32768), Chat audit (65536)
+- IA4 (16000), relatórios Individual/Gestor/RH (64000), Blueprint (64000), autor/refinador de Módulo-Base (64000), segmentador de Módulo-Base (32000), roteiro de vídeo (16000), PPP educacional (16000), Cenário B legado (32768), Evolução Granular (32768) e extrator do Modo Cena (10000).
 
 ### Prompts que rodam em loop (processamento batch)
-- IA1 (1 por cargo), IA2 (1 por cargo), IA3 (1 por competência×cargo via fila), IA4 (1 por resposta, com retry), Check IA4 (1 por resposta), Cenários B lote, Reavaliação, Evolução Fusão (1 por colab×competência), Relatórios Individuais (1 por colab), Relatório Gestor (1 por gestor), PDIs (1 por colab), Simulador temporada (1 por turn × 14 semanas), Conteúdos lote (1 por descritor).
+- IA1 (1/cargo), IA2 (1/cargo), IA3 (1/competência×cargo), IA4 e Check IA4 (1/resposta), Cenários B, Reavaliação, Evolução Fusão (1/colaborador×competência), relatórios individuais/gestor, Blueprint (1/colaborador), módulos de manuscrito (1/transição×descritor), simulação de temporada (1/turno×duração do programa), Modo Cena (guarda+juiz+interlocutor por turno) e conteúdos por descritor.
 
 ### Modelos não-default hardcoded
-- **Gemini** `gemini-3-flash-preview`: Check IA4, Check Cenário (A/B), Audit Chat Fase 3
-- **Claude Haiku** `claude-haiku-4-5-20251001`: Tira-Dúvidas, Simulador temporada (colab)
-- Demais: usam default `claude-sonnet-4-6` ou configuração `getModelForTask(empresaId, taskKey)` (ai-tasks table).
+- **Chat audit Fase 3**: `gemini-3.1-flash-lite`.
+- **Simulador temporada (colaborador fictício)**: `claude-haiku-4-5-20251001`.
+- **Tira-Dúvidas**: `claude-sonnet-4-6` hardcoded na rota.
+- **Modo Cena experimental**: `claude-opus-5` (papéis pesados) + `grok-4.6` (guarda/juiz).
+- **Multimodal**: Gemini 3.6 Flash (extrações/brief), Gemini 3.5 Flash (transcrição longa), Gemini 3.1 Flash TTS Preview e GPT Image 2.
+- **Pins por task**: Sonnet 5 nas quatro saídas longas; GPT 5.6 Terra nos auditores; Opus 5 no roteiro de vídeo. Consulte `lib/ai-tasks.ts`.
 
 ### Prompts não catalogados (intencionalmente)
-- Extract helpers inline curtos (schemas JSON sem lógica própria)
+- Schemas/appendices inline que apenas repetem contrato já catalogado e não fazem chamada própria
 - Chamadas a embeddings Voyage/OpenAI (fora do escopo — não são chat/completion)
+- Transcrição Whisper sem instrução textual própria e prompts descartáveis em `scripts/`/fixtures
 - Prompts do roteador interno (`ai-client.ts` em si)
 
 ### Observações
-- O arquivo `lib/prompts/` contém 3 construtores de prompt (`.js`): `behavioral-report-prompt.js`, `fit-executive-prompt.js`, `insights-executivos-prompt.js`. Estes contêm os system prompts reais (inline na string retornada pela função). Os princípios completos estão documentados nas seções 9.1, 9.2, 10.1.
-- O prompt de Check Cenário B de Fase 5 é idêntico ao de Cenário A — harmonizado no refactor.
-- `fase5.ts::checkCenarios` é um dossie rudimentar/antigo; produção usa `checkCenarioUm`/`checkCenarioBUm`.
+- `lib/prompts/` contém quatro construtores de negócio: relatório comportamental, insights executivos, FIT e devolutiva em voz (9.1-9.3 e 10.1).
+- Check Cenário B **não** é mais idêntico ao A: tem 8 dimensões próprias de complementaridade/triangulação.
+- `actions/fase5/relatorios-envios.ts::checkCenarios` continua um check geral simplificado; produção individual usa os cores de IA3/Cenário B.
+- `AI_TASKS` em `lib/ai-tasks.ts` é o catálogo da tela de configuração de modelos, **não** um inventário completo dos prompts. Há inclusive uma divergência de chave: a lista expõe `ia4_avaliar`, enquanto os call sites e `DEFAULT_TASK_MODELS` usam `ia4_avaliacao`; por isso esta revisão adotou as chamadas reais como fonte de verdade.

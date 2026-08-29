@@ -1,0 +1,485 @@
+{
+  "flow": "jornada",
+  "cut": "full",
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "totalFrames": 4102,
+  "intro": {
+    "title": "Sua jornada semanal",
+    "subtitle": "Onde o seu desenvolvimento acontece",
+    "durationInFrames": 0
+  },
+  "outro": {
+    "durationInFrames": 90,
+    "fromFrame": 4012
+  },
+  "marca": "vertho",
+  "steps": [
+    {
+      "id": "abertura",
+      "index": 1,
+      "total": 11,
+      "title": "Boas-vindas",
+      "kind": "cartela",
+      "cartela": {
+        "eyebrow": "Bem-vindo ao Vertho",
+        "title": "Sua jornada semanal"
+      },
+      "image": null,
+      "bbox": null,
+      "label": null,
+      "dragHint": null,
+      "fromFrame": 0,
+      "durationInFrames": 349,
+      "audio": "tutorial/jornada/audio/abertura.mp3",
+      "audioFromFrame": 12,
+      "audioDurationInFrames": 313,
+      "captions": [
+        {
+          "text": "Boas-vindas à sua jornada semanal!",
+          "fromFrame": 12,
+          "durationInFrames": 83
+        },
+        {
+          "text": "É aqui que o seu desenvolvimento acontece, semana a",
+          "fromFrame": 95,
+          "durationInFrames": 125
+        },
+        {
+          "text": "semana.",
+          "fromFrame": 220,
+          "durationInFrames": 21
+        },
+        {
+          "text": "Deixa eu te mostrar como aproveitar.",
+          "fromFrame": 237,
+          "durationInFrames": 88
+        }
+      ]
+    },
+    {
+      "id": "sua-trilha",
+      "index": 2,
+      "total": 11,
+      "title": "Sua trilha",
+      "kind": "screen",
+      "cartela": null,
+      "image": "tutorial/jornada/temporada.png",
+      "bbox": {
+        "x": 490,
+        "y": 425.75,
+        "width": 1020,
+        "height": 185
+      },
+      "label": "Sua trilha",
+      "dragHint": null,
+      "fromFrame": 349,
+      "durationInFrames": 404,
+      "audio": "tutorial/jornada/audio/sua-trilha.mp3",
+      "audioFromFrame": 12,
+      "audioDurationInFrames": 368,
+      "captions": [
+        {
+          "text": "Esta é a sua trilha.",
+          "fromFrame": 12,
+          "durationInFrames": 61
+        },
+        {
+          "text": "Cada semana traz um tema ligado à sua competência",
+          "fromFrame": 73,
+          "durationInFrames": 149
+        },
+        {
+          "text": "de foco",
+          "fromFrame": 222,
+          "durationInFrames": 21
+        },
+        {
+          "text": "e elas se abrem no seu ritmo, uma de",
+          "fromFrame": 243,
+          "durationInFrames": 110
+        },
+        {
+          "text": "cada vez.",
+          "fromFrame": 353,
+          "durationInFrames": 27
+        }
+      ]
+    },
+    {
+      "id": "abrir-semana",
+      "index": 3,
+      "total": 11,
+      "title": "A semana",
+      "kind": "screen",
+      "cartela": null,
+      "image": "tutorial/jornada/semana.png",
+      "bbox": {
+        "x": 490,
+        "y": 96,
+        "width": 1020,
+        "height": 32
+      },
+      "label": "Tema da semana",
+      "dragHint": null,
+      "fromFrame": 753,
+      "durationInFrames": 281,
+      "audio": "tutorial/jornada/audio/abrir-semana.mp3",
+      "audioFromFrame": 12,
+      "audioDurationInFrames": 245,
+      "captions": [
+        {
+          "text": "Ao abrir a semana, você encontra o conteúdo daquela",
+          "fromFrame": 12,
+          "durationInFrames": 119
+        },
+        {
+          "text": "etapa, com um desafio prático pra aplicar no dia",
+          "fromFrame": 131,
+          "durationInFrames": 112
+        },
+        {
+          "text": "a dia.",
+          "fromFrame": 243,
+          "durationInFrames": 21
+        }
+      ]
+    },
+    {
+      "id": "conteudo",
+      "index": 4,
+      "total": 11,
+      "title": "O conteúdo",
+      "kind": "screen",
+      "cartela": null,
+      "image": "tutorial/jornada/conteudo.png",
+      "bbox": {
+        "x": 593.953125,
+        "y": 376.875,
+        "width": 264.796875,
+        "height": 24.5
+      },
+      "label": "Escolha o formato",
+      "dragHint": null,
+      "fromFrame": 1034,
+      "durationInFrames": 454,
+      "audio": "tutorial/jornada/audio/conteudo.mp3",
+      "audioFromFrame": 12,
+      "audioDurationInFrames": 418,
+      "captions": [
+        {
+          "text": "O conteúdo vem em vários formatos:",
+          "fromFrame": 12,
+          "durationInFrames": 103
+        },
+        {
+          "text": "texto, case, áudio e vídeo.",
+          "fromFrame": 115,
+          "durationInFrames": 82
+        },
+        {
+          "text": "Toque no que combina mais com você",
+          "fromFrame": 197,
+          "durationInFrames": 103
+        },
+        {
+          "text": "e é esse toque que libera o resto da",
+          "fromFrame": 300,
+          "durationInFrames": 109
+        },
+        {
+          "text": "semana.",
+          "fromFrame": 409,
+          "durationInFrames": 21
+        }
+      ]
+    },
+    {
+      "id": "estado",
+      "index": 5,
+      "total": 11,
+      "title": "O que destrava a semana",
+      "kind": "screen",
+      "cartela": null,
+      "image": "tutorial/jornada/estado.png",
+      "bbox": {
+        "x": 490,
+        "y": 152,
+        "width": 1020,
+        "height": 112.875
+      },
+      "label": "Onde a semana fecha",
+      "dragHint": null,
+      "fromFrame": 1488,
+      "durationInFrames": 583,
+      "audio": "tutorial/jornada/audio/estado.mp3",
+      "audioFromFrame": 12,
+      "audioDurationInFrames": 547,
+      "captions": [
+        {
+          "text": "Aqui em cima você acompanha a sua semana:",
+          "fromFrame": 12,
+          "durationInFrames": 115
+        },
+        {
+          "text": "o conteúdo, a conversa de evidências e a conclusão.",
+          "fromFrame": 127,
+          "durationInFrames": 143
+        },
+        {
+          "text": "Assim que você abre o conteúdo, as conversas liberam",
+          "fromFrame": 270,
+          "durationInFrames": 146
+        },
+        {
+          "text": "e a semana só é concluída na conversa de",
+          "fromFrame": 416,
+          "durationInFrames": 112
+        },
+        {
+          "text": "evidências.",
+          "fromFrame": 528,
+          "durationInFrames": 31
+        }
+      ]
+    },
+    {
+      "id": "tira-duvidas",
+      "index": 6,
+      "total": 11,
+      "title": "Tira-dúvidas",
+      "kind": "screen",
+      "cartela": null,
+      "image": "tutorial/jornada/tiraduvidas.png",
+      "bbox": {
+        "x": 539,
+        "y": 689.375,
+        "width": 83.203125,
+        "height": 16
+      },
+      "label": "Pergunte ao mentor",
+      "dragHint": null,
+      "fromFrame": 2071,
+      "durationInFrames": 328,
+      "audio": "tutorial/jornada/audio/tira-duvidas.mp3",
+      "audioFromFrame": 12,
+      "audioDurationInFrames": 292,
+      "captions": [
+        {
+          "text": "Ficou com dúvida?",
+          "fromFrame": 12,
+          "durationInFrames": 44
+        },
+        {
+          "text": "O Beto, seu mentor, está ali no Tira-Dúvidas pra",
+          "fromFrame": 56,
+          "durationInFrames": 125
+        },
+        {
+          "text": "explicar, dar exemplos e ajudar você a aplicar.",
+          "fromFrame": 181,
+          "durationInFrames": 122
+        }
+      ]
+    },
+    {
+      "id": "evidencias",
+      "index": 7,
+      "total": 11,
+      "title": "Evidências",
+      "kind": "screen",
+      "cartela": null,
+      "image": "tutorial/jornada/evidencias.png",
+      "bbox": {
+        "x": 515,
+        "y": 855.375,
+        "width": 970,
+        "height": 44
+      },
+      "label": "É uma conversa",
+      "dragHint": null,
+      "fromFrame": 2399,
+      "durationInFrames": 299,
+      "audio": "tutorial/jornada/audio/evidencias.mp3",
+      "audioFromFrame": 12,
+      "audioDurationInFrames": 263,
+      "captions": [
+        {
+          "text": "E o passo mais importante:",
+          "fromFrame": 12,
+          "durationInFrames": 77
+        },
+        {
+          "text": "as Evidências.",
+          "fromFrame": 89,
+          "durationInFrames": 41
+        },
+        {
+          "text": "É aqui que a semana se conclui",
+          "fromFrame": 130,
+          "durationInFrames": 88
+        },
+        {
+          "text": "não em outro lugar.",
+          "fromFrame": 218,
+          "durationInFrames": 56
+        }
+      ]
+    },
+    {
+      "id": "conversa",
+      "index": 8,
+      "total": 11,
+      "title": "A conversa abre",
+      "kind": "screen",
+      "cartela": null,
+      "image": "tutorial/jornada/conversa.png",
+      "bbox": {
+        "x": 490,
+        "y": 716.375,
+        "width": 1020,
+        "height": 307.5
+      },
+      "label": "Clique e comece",
+      "dragHint": null,
+      "fromFrame": 2698,
+      "durationInFrames": 396,
+      "audio": "tutorial/jornada/audio/conversa.mp3",
+      "audioFromFrame": 12,
+      "audioDurationInFrames": 360,
+      "captions": [
+        {
+          "text": "Ao clicar em Levantar evidências, a conversa começa.",
+          "fromFrame": 12,
+          "durationInFrames": 132
+        },
+        {
+          "text": "Você conta como colocou o aprendizado em prática",
+          "fromFrame": 144,
+          "durationInFrames": 122
+        },
+        {
+          "text": "sem anexar nenhum arquivo, sem formulário.",
+          "fromFrame": 265,
+          "durationInFrames": 106
+        }
+      ]
+    },
+    {
+      "id": "progresso",
+      "index": 9,
+      "total": 11,
+      "title": "Quanto falta",
+      "kind": "screen",
+      "cartela": null,
+      "image": "tutorial/jornada/progresso.png",
+      "bbox": {
+        "x": 515,
+        "y": 879.375,
+        "width": 970,
+        "height": 16.5
+      },
+      "label": "Quantas faltam",
+      "dragHint": null,
+      "fromFrame": 3094,
+      "durationInFrames": 318,
+      "audio": "tutorial/jornada/audio/progresso.mp3",
+      "audioFromFrame": 12,
+      "audioDurationInFrames": 282,
+      "captions": [
+        {
+          "text": "A conversa tem um fim, e a tela mostra",
+          "fromFrame": 12,
+          "durationInFrames": 96
+        },
+        {
+          "text": "quantas respostas ainda faltam.",
+          "fromFrame": 108,
+          "durationInFrames": 78
+        },
+        {
+          "text": "Você não precisa adivinhar quando terminou.",
+          "fromFrame": 186,
+          "durationInFrames": 108
+        }
+      ]
+    },
+    {
+      "id": "concluida",
+      "index": 10,
+      "total": 11,
+      "title": "Semana concluída",
+      "kind": "screen",
+      "cartela": null,
+      "image": "tutorial/jornada/concluida.png",
+      "bbox": {
+        "x": 490,
+        "y": 152,
+        "width": 1020,
+        "height": 102
+      },
+      "label": "Semana fechada",
+      "dragHint": null,
+      "fromFrame": 3412,
+      "durationInFrames": 347,
+      "audio": "tutorial/jornada/audio/concluida.mp3",
+      "audioFromFrame": 12,
+      "audioDurationInFrames": 311,
+      "captions": [
+        {
+          "text": "Quando a conversa fecha, a semana é dada como",
+          "fromFrame": 12,
+          "durationInFrames": 118
+        },
+        {
+          "text": "concluída e a próxima libera.",
+          "fromFrame": 130,
+          "durationInFrames": 76
+        },
+        {
+          "text": "É isso que comprova a sua evolução na trilha.",
+          "fromFrame": 205,
+          "durationInFrames": 118
+        }
+      ]
+    },
+    {
+      "id": "fecho",
+      "index": 11,
+      "total": 11,
+      "title": "Fecho",
+      "kind": "cartela",
+      "cartela": {
+        "eyebrow": "Sua jornada semanal",
+        "title": "Bom desenvolvimento!"
+      },
+      "image": null,
+      "bbox": null,
+      "label": null,
+      "dragHint": null,
+      "fromFrame": 3759,
+      "durationInFrames": 253,
+      "audio": "tutorial/jornada/audio/fecho.mp3",
+      "audioFromFrame": 12,
+      "audioDurationInFrames": 217,
+      "captions": [
+        {
+          "text": "Semana após semana, é assim que você cresce de",
+          "fromFrame": 12,
+          "durationInFrames": 135
+        },
+        {
+          "text": "verdade.",
+          "fromFrame": 147,
+          "durationInFrames": 23
+        },
+        {
+          "text": "Bom desenvolvimento!",
+          "fromFrame": 170,
+          "durationInFrames": 59
+        }
+      ]
+    }
+  ]
+}

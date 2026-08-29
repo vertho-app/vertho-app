@@ -1,0 +1,292 @@
+# Checklist de Validação — Vertho Mentor IA
+
+> Baseado no PASSO-A-PASSO-VERTHO.md
+> Para cada passo, verifique os itens antes de seguir para o próximo.
+> ✅ = ok | ⚠️ = parcial | ❌ = bloqueado
+
+---
+
+## Fase 0 — Setup da Empresa e Colaboradores
+
+### Passo 1 — Criar empresa
+- [ ] Empresa aparece em `/admin/dashboard`
+- [ ] Nome, slug e segmento estão preenchidos
+- [ ] Logo foi uploaded (se aplicável)
+- [ ] Subdomínio `{slug}.vertho.ai` resolve corretamente
+- [ ] Botão **"Vincular ao Vercel"** em `/admin/empresas/{id}/configuracoes` (Branding) executa sem erro (auto-registro foi removido em 2026-04)
+
+### Passo 2 — Cadastrar colaboradores
+- [ ] Colaboradores aparecem na lista em `/admin/empresas/{id}`
+- [ ] Cada colab tem: nome, email, cargo, área/depto, role
+- [ ] Import de CSV reconhece coluna `area_depto` (+ aliases: `area`, `departamento`, `setor`, `depto`)
+- [ ] Roles estão corretos (colaborador/gestor/rh)
+- [ ] Gestor tem `gestor_email` preenchido para vincular equipe
+- [ ] **Ordenação por coluna** funciona (clique em qualquer header da tabela)
+- [ ] **Danger zone** exclui colaboradores/competências sem afetar outras empresas
+- [ ] **Lixeira** (`/admin/lixeira`) restaura registros excluídos
+
+### Passo 3 — Cadastrar cargos e competências
+- [ ] CSV importou sem erro em `/admin/competencias`
+- [ ] Cada competência tem descritores com régua n1-n4
+- [ ] Verificar amostra: abrir 1 competência e confirmar que os 4 níveis estão preenchidos
+- [ ] Quantidade de competências por cargo faz sentido (mínimo 5)
+
+### Passo 3.5 — Base de Conhecimento (RAG)
+- [ ] Tela `/admin/vertho/knowledge-base` abre sem erro
+- [ ] Dropdown de empresas funciona (fundo escuro, texto legível)
+- [ ] "Popular base inicial" cria 6 docs seed
+- [ ] Upload de PDF/DOCX funciona (até 4MB)
+- [ ] Preview de busca retorna resultados relevantes
+
+### Passo 4 — Preferências de aprendizagem
+- [ ] Colab consegue acessar `/dashboard/perfil`
+- [ ] Ranking de formatos salva corretamente
+
+---
+
+## Fase 1 — Diagnóstico (Fit v2)
+
+### Passo 5 — IA1 — Top 10
+- [ ] Botão "IA1 — Top 10" roda sem erro
+- [ ] Top 10 aparece por cargo em `/admin/cargos`
+- [ ] Competências fazem sentido para o cargo (revisão humana)
+- [ ] Dados salvos em `top10_cargos` com `aderencia_cargo`, `aderencia_mercado` e `motivo` (migration 052)
+- [ ] Match cargo é case+accent insensitive (ex: "Coordenação Pedagógica" = "coordenacao pedagogica")
+
+### Passo 5b — Votação dos colaboradores
+- [ ] Card "Votação aberta" aparece **antes** de "Foco da semana" no `/dashboard`
+- [ ] Colab consegue votar em `/dashboard/votacao` (top 10 do próprio cargo)
+- [ ] Votos persistem em `votacao_competencias`
+- [ ] Admin vê resultados agregados em `/admin/empresas/{id}/votacao`
+
+### Passo 6 — Validar Top 5
+- [ ] Admin revisou e editou o Top 5 de cada cargo
+- [ ] Top 5 está salvo (verificar em `/admin/cargos`)
+- [ ] Nenhum cargo ficou sem Top 5
+
+### Passo 7 — IA2 — Gabarito
+- [ ] Botão "IA2 — Gabarito" rodou sem erro
+- [ ] Cada competência do Top 5 tem descrição enriquecida
+- [ ] Verificar amostra: abrir 1 gabarito e revisar qualidade
+
+### Passo 8 — IA3 — Cenários + Check
+- [ ] Cenários gerados (5 por cargo × competência)
+- [ ] Check dual-IA rodou (nota ≥ 80 na maioria)
+- [ ] Cenários com nota < 70 foram regenerados ou revisados
+- [ ] Cada cenário tem 4 perguntas (p1-p4) no campo `alternativas`
+
+### Passo 9 — Fit v2 + Envios
+- [ ] Fit v2 calculou para todos os colabs
+- [ ] Links de WhatsApp/email foram disparados
+- [ ] Colaborador consegue acessar link recebido
+
+### Passo 10 — Colaborador responde
+- [ ] Colab consegue fazer login via link
+- [ ] Tela de assessment carrega cenários
+- [ ] Chat funciona (enviar resposta, receber feedback)
+- [ ] Mapeamento DISC funciona em `/dashboard/perfil-comportamental/mapeamento`
+- [ ] Perfil DISC aparece após conclusão
+
+---
+
+## Fase 2 — Avaliação e Trilhas
+
+### Passo 11 — IA4 avalia
+- [ ] Botão "IA4 — Avaliar" rodou sem erro
+- [ ] Cada resposta tem `nivel_ia4` entre 1 e 4
+- [ ] Check dual-IA rodou (nota ≥ 80 na maioria)
+- [ ] Verificar amostra: nota faz sentido vs resposta do colab
+
+### Passo 12 — Competências Foco
+- [ ] Cada colab tem `competencia_foco` definida
+- [ ] A escolha faz sentido (menor fit × maior gap)
+- [ ] Trilhas foram criadas em `trilhas`
+
+### Passo 13 — Assessment de descritores
+- [ ] Grid colab × descritor acessível em `/admin/assessment-descritores`
+- [ ] Admin/RH preencheu notas (ou deixou vazio para default 1.5)
+- [ ] Notas fazem sentido como baseline (1-4, granularidade 0.1)
+
+### Passo 14 — PDI individual (opcional)
+- [ ] PDI gera sem erro
+- [ ] PDF abre corretamente
+- [ ] Conteúdo do PDI faz sentido (acolhimento, perfil, competências, plano 30 dias)
+- [ ] Plano de 30 dias tem ações concretas por semana
+
+---
+
+## Fase 3 — Motor de Temporadas
+
+### Passo 15 — Micro-conteúdos
+- [ ] Banco tem conteúdos suficientes para as competências foco
+- [ ] Mix de formatos (vídeo, texto, áudio, case) presente
+- [ ] Tags de competência/descritor/nível estão preenchidas
+- [ ] Vídeos Bunny importados e com thumbnail
+
+### Passo 16 — Gerar temporadas
+- [ ] Botão "Gerar Temporadas" rodou sem erro para todos os colabs
+- [ ] Cada colab tem plano de 14 semanas em `trilhas.temporada_plano`
+- [ ] Verificar amostra: semanas de conteúdo têm `desafio_texto` preenchido
+- [ ] Verificar amostra: semanas de prática (4/8/12) têm missão + cenário
+- [ ] `data_inicio` definida para cada trilha
+
+### Passo 17 — Revisar temporadas
+- [ ] Tela `/admin/temporadas` lista todas as trilhas
+- [ ] Modal de detalhe mostra semanas corretamente
+- [ ] Simulador (botão SIM) funciona sem erro
+
+---
+
+## Fase 4 — Jornada do Colaborador
+
+### Passo 18 — Acesso à temporada
+- [ ] Colab vê timeline com 14 cards em `/dashboard/temporada`
+- [ ] Semana 1 está liberada (se dentro do gate calendário)
+- [ ] Semanas futuras estão bloqueadas
+- [ ] Gate calendário funciona (semana N libera no dia correto)
+
+### Passo 19 — Semanas de Conteúdo (sem 1-3, 5-7, 9-11)
+- [ ] Conteúdo carrega (vídeo embed / áudio player / markdown renderizado)
+- [ ] "Marcar como realizado" funciona
+- [ ] Desafio da semana aparece com campos estruturados (ação observável, critério)
+- [ ] Tira-Dúvidas responde dentro do escopo do descritor
+- [ ] Tira-Dúvidas bloqueia se conteúdo não consumido
+- [ ] Evidências (chat socrático) inicia corretamente
+- [ ] Chat socrático: 6 turnos, fechamento com Desafio/Insight/Compromisso
+- [ ] Input por voz funciona (botão microfone)
+- [ ] Ao concluir, próxima semana libera
+
+### Passo 20 — Semanas de Prática (sem 4, 8, 12)
+- [ ] Missão prática aparece com texto estruturado
+- [ ] Colab consegue aceitar missão e declarar compromisso
+- [ ] Ao retornar: opção "Sim, executei" abre chat de relato (missão feedback)
+- [ ] Chat de feedback: 10 turnos, fechamento com 3 bullets
+- [ ] Opção "Não consegui" cai para cenário escrito (analytic)
+- [ ] Analytic: 10 turnos, fechamento com 3 bullets
+- [ ] Dados extraídos aparecem no admin (avaliação por descritor)
+
+### Passo 21 — Semana 13
+- [ ] Conversa qualitativa inicia com mensagem de abertura
+- [ ] 12 turnos com progressão (abertura → retrospectiva → evidências → microcaso → integração → fechamento)
+- [ ] Microcaso é apresentado no turno 6
+- [ ] Fechamento não faz pergunta, dá síntese
+- [ ] Extração qualitativa gera JSON com `evolucao_percebida` por descritor
+- [ ] Avaliação acumulada dispara automaticamente ao concluir
+
+### Passo 22 — Avaliação Acumulada
+- [ ] Rodou automaticamente (verificar em `/admin/vertho/avaliacao-acumulada`)
+- [ ] 1ª IA gerou notas por descritor
+- [ ] 2ª IA auditou (status: aprovado / com_ajustes / revisar)
+- [ ] Se "revisar": regerar com feedback e verificar melhora
+
+### Passo 23 — Semana 14
+- [ ] Cenário B carrega (do `banco_cenarios`)
+- [ ] 4 perguntas aparecem em sequência (wizard)
+- [ ] Scorer triangula e gera 4 notas por descritor
+- [ ] Check por 2ª IA rodou
+- [ ] `resumo_avaliacao` é objeto (com `mensagem_geral`, `principal_avanco`)
+- [ ] Evolution Report gera automaticamente
+
+### Passo 24 — Temporada Concluída
+- [ ] Tela `/dashboard/temporada/concluida` carrega
+- [ ] 5 blocos presentes (hero, comparativo, insights, missões, avaliação)
+- [ ] PDF individual gera via botão de download
+- [ ] Delta por descritor faz sentido
+- [ ] Classificações coerentes (evoluiu/manteve/regrediu)
+
+---
+
+## Fase 5 — Consolidação
+
+### Passo 25 — Dashboard Gestor
+- [ ] Gestor vê lista de liderados em `/dashboard/gestor/equipe-evolucao`
+- [ ] Delta e status por descritor aparecem
+- [ ] Modal de detalhe funciona
+- [ ] Gestor não vê colabs de outra área/empresa
+
+### Passo 26 — Plenária PDF
+- [ ] PDF consolida dados do time
+- [ ] Conteúdo faz sentido (avanços, gaps, padrões)
+
+### Passo 27 — Evolution Report empresa
+- [ ] KPIs agregados aparecem em `/admin/evolucao`
+- [ ] Expansão por competência funciona
+- [ ] Lista de colabs com resumo
+
+### Passo 28 — Painéis Admin Vertho
+- [ ] `/admin/vertho/evidencias` — transcripts carregam
+- [ ] `/admin/vertho/avaliacao-acumulada` — notas e auditoria visíveis
+- [ ] `/admin/vertho/auditoria-sem14` — 4 notas + regerar funciona
+- [ ] `/admin/vertho/simulador-custo` — calculadora responde
+- [ ] `/admin/vertho/knowledge-base` — CRUD funciona
+
+### Passo 29 — Próxima temporada
+- [ ] Temporadas concluídas podem ser arquivadas
+- [ ] Nova competência foco pode ser definida
+- [ ] Novo ciclo pode ser iniciado sem conflito
+
+---
+
+## Verificações Transversais
+
+### Auth e Segurança
+- [ ] Login funciona (email + senha + magic link)
+- [ ] Redirect para `/login` quando não autenticado
+- [ ] Colaborador não acessa dados de outra empresa
+- [ ] Gestor só vê liderados da própria área
+- [ ] Admin actions exigem platform admin (`requireAdminAction()`)
+- [ ] Actions de dashboard usam `requireUserAction()` em vez de aceitar `email` do client
+- [ ] Cron jobs autenticam via assinatura QStash (`requireAdminOrCronAction()`)
+- [ ] `diag_analises_ia` tem RLS restrita (migration 081)
+
+### Visual e UX
+- [ ] Cores da marca estão corretas (navy `#0F2B54`, cyan `#34C5CC`)
+- [ ] Avatar do usuário aparece na sidebar/header
+- [ ] Tokens de fase mudam cor ao navegar (F1-F5)
+- [ ] Thumbnails de conteúdo mostram glifos tipográficos
+- [ ] Dropdowns têm fundo escuro (legíveis)
+- [ ] Favicon aparece (logo "vi" oficial Vertho)
+- [ ] App principal: tipografia **Manrope + Instrument Serif**
+- [ ] `/radarbett/*`: tipografia **Plus Jakarta Sans + Fraunces** (escopada via `.radarbett-shell`)
+- [ ] Radarbett "Agendar conversa" abre WhatsApp direto (NÃO modal de lead)
+- [ ] Radarbett "Receber leitura completa" abre modal de lead (formulário)
+
+### Infraestrutura
+- [ ] Variáveis de ambiente configuradas (ver `docs/GO-LIVE-CHECKLIST.md`)
+- [ ] Migrations aplicadas (022-082, 62 arquivos)
+- [ ] Storage buckets criados (avatars, relatorios-pdf, conteudos, backups, **diag-relatorios** privado)
+- [ ] SMTP configurado no Supabase
+- [ ] Cron job ativo (`/api/cron`)
+- [ ] Subdomínios `radar.vertho.ai` e `radarbett.vertho.ai` resolvem corretamente
+- [ ] Materialized views do Radar com refresh automático funcionando
+
+### Dados e Persistência
+- [ ] Relatórios salvam em `relatorios` com upsert correto (incluindo NULL)
+- [ ] `capacitacao` existe e aceita inserts
+- [ ] `knowledge_base` tem docs indexados
+- [ ] `temporada_semana_progresso` persiste reflexao/feedback/tira_duvidas
+
+### Modo Piloto (degustação de 2 semanas)
+- [ ] Ao concluir a sem 2, a acumulada é marcada `processing` e a task `trigger/acumulada-piloto.ts` dispara (migration 169)
+- [ ] Task Trigger.dev deployada MANUALMENTE (`npx trigger.dev deploy`) — git push NÃO a deploya
+- [ ] Fechamento fica em "Preparando sua avaliação…" com polling enquanto a acumulada processa (gate); abre só quando `done`
+- [ ] Self-heal do gate cobre falha da task (fechamento não fica preso)
+- [ ] Fechamento não trava por Cenário B faltando; report não trava por avaliação parcial (tolera N-1 descritores)
+- [ ] **E2E ao vivo em prod validado** (gate + task Trigger executando)
+- [ ] **73 testes unit/integração do piloto verdes** (inclui integração B1/B2/B4/B5)
+
+### Portal do Representante + ACME Demo
+- [ ] Documento da proposta em `/proposta/[token]` (página pública) + PDF renderiza no visual claro/editorial
+- [ ] Simulador de preço calcula valor mensal automático (variáveis) + valor final após desconto, com o mensal em destaque
+- [ ] **Versionamento**: de uma proposta enviada/aprovada, "Nova versão" cria cópia editável `-Rn`; segue de novo pela aprovação; original vira **"Substituída"** (`superseded`) — **E2E validado** (migration 168)
+- [ ] Toasts do portal do RC aparecem (ex.: "submeter para aprovação" dá feedback)
+- [ ] ACME Demo: reset via `npm run reset:demo` (ou botão em `/admin/demo`) recria o estado inicial
+- [ ] 6 personas aparecem no portal `/representante/demo` e no ranking/estatísticas (Mariana, Renato inclusas)
+- [ ] **Após reset, clicar "Calcular Fit" 1× por cargo em `/admin/fit`** (fit NÃO é pré-computado no reset) — só então o ranking aparece
+- [ ] Ranking de Adequação diferenciado: Mariana 92 "Alta"; Renato 88 e Carla 88 "Excelente"; Bruna 50 "Baixa" (visual da Mariana renderizado em `/admin/fit`)
+
+---
+
+> Referência: `PASSO-A-PASSO-VERTHO.md` para detalhes de cada passo.
+> Infraestrutura: `docs/GO-LIVE-CHECKLIST.md` para env vars e troubleshooting.
+> Schema: `docs/SCHEMA-PROCESS.md` para processo de alteração de banco.

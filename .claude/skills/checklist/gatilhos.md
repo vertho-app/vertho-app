@@ -654,3 +654,33 @@ mostrava semana 0 com 941 progressos reais, e o card caía num título fixo do i
 de liderança") que parecia conteúdo real.
 
 Detalhe: `docs/FMEA-PIPELINE.md` §F-D1, memória `project_coluna_fantasma_sem_escritor`.
+
+---
+
+## Feature nova que abre conexão, origem ou endpoint pago
+
+**Casa quando a mudança:** adiciona `WebSocket`/`fetch` para host novo, `getDisplayMedia`/
+`getUserMedia`, iframe, script externo, fonte remota — ou cria rota de API que chama modelo pago.
+
+**Confira, nesta ordem:**
+
+1. **O CSP do projeto permite essa origem?** `connect-src 'self'` proíbe WebSocket para
+   `ws://127.0.0.1:*`, e o sintoma **não parece CSP**: a conexão falha calada e a feature parece
+   quebrada. Cheque também `img-src`/`font-src`/`frame-src` conforme o recurso.
+2. **O `Permissions-Policy` cobre a API?** `getDisplayMedia` precisa de `display-capture`.
+3. **A rota nova tem o MESMO gate das rotas vizinhas?** Liste-as (`ls app/api/*/route.*`) e veja o
+   que elas chamam antes de trabalhar. Rota que chama IA sem gate é conta de terceiro — e "só uso
+   local" é intenção, não proteção. Se o recurso não funciona em produção por construção, o padrão
+   ali é **404 fail-closed**, não deixar aberto.
+4. **Em dev, o header não quebra o próprio dev?** Sem `'unsafe-eval'` o react-refresh não roda e
+   **nenhuma página client-side hidrata** — a tela renderiza e nenhum botão responde, sem erro na
+   UI. Só aparece no console do navegador.
+
+**Consequência medida (27/08/2026, `C:\GAS\Simulador`):** o CSP global bloqueou as duas pontas do
+copiloto ao vivo — o WebSocket do ASR (mataria também em produção) e a hidratação inteira em dev.
+Gastei uma rodada de depuração achando que era o meu código; o erro estava só no console, como
+`EvalError`. E as duas rotas novas (`/api/live/tick`, `/api/live/preparo`) nasceram **sem
+autenticação** num app onde todas as outras exigem `requireNextUser` — endpoint pago aberto,
+descoberto só na hora de commitar.
+
+Detalhe: memória `project_copiloto_ao_vivo_pace`, `C:\GAS\Simulador\docs\copiloto-ao-vivo.md`.

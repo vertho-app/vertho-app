@@ -109,3 +109,11 @@ worker-hetzner/.env
 # (escolas, PPP, personagens reais). O repo é público — nunca entram.
 cena-*.json
 tri-*.json
+triagem-*.json
+
+# Artefatos locais gerados (podem conter PII, áudio, PDFs ou renders pesados)
+/tmp/
+/output/
+/video-spike/tutorial/out/
+/.antigravitycli/
+.commit-msg-*.txt
