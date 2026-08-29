@@ -258,6 +258,21 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
 
 **Skills** (`.claude/skills/`, versionadas — invocar por `/nome` ou carregar quando o contexto casar): `deploy`, `migrations`, `multi-tenant`, `trigger-dev`, `ai-calls`, `video`, `competency-matrix`, `scenario-generation`, `vertho-design`, `fechar`, **`checklist`** (o que conferir nesta mudança — roteia pelos arquivos tocados, tabela em `checklist/gatilhos.md`) e **`conferir`** (a afirmação ainda bate com o código? — antes de declarar algo fechado/coberto/em produção).
 
+## Zonas de autonomia (quem decide o quê)
+
+De 28/08: o agente segue sozinho onde o CI dá veredito, propõe plano antes de tocar o meio,
+e não decide sozinho o que é de produção. As catracas da sessão executam a zona 🔴
+(`permissions` ask/deny + hooks de commit pathspec e suíte pré-push); esta tabela guia o julgamento
+nos casos que a regra não alcança (ex.: disparo de WhatsApp em lote não é um comando identificável).
+
+| Zona | O que entra | Regra |
+|---|---|---|
+| 🔴 Decisão do dono sempre | `migrations/` e qualquer DDL · RLS/policy · allowlists de guard (`config/`) · secrets/env (`**/.env*`, `vercel env`) · disparo WhatsApp em lote · deploy de tasks (`trigger.dev deploy`) | `ask` no settings: nada sem confirmação explícita. `vercel --prod` e `npm audit fix` são `deny` sem exceção (duplica deploy / destrói o lock). `git push` volta a dispensar confirmação (pedido do dono 28/08): o gate de qualidade é a suíte no hook de push, e a decisão de subir é do pedido, não do comando |
+| 🟡 Plano aprovado antes | `actions/` e rotas de API · query de tenant fora de `tenantDb` · prompts de IA · núcleos de motor (`season-engine/`, `scoring/`, régua DISC) · `trigger/` e crons | Entrar em plan mode antes de escrever; skills `multi-tenant`, `ai-calls`, `trigger-dev` carregadas no contexto |
+| 🟢 CI decide | telas/copy/componentes em `page-shell` e design system · testes novos · `docs/` · scripts read-only · refactors cobertos por typecheck + suíte | Segue direto; a suíte no push é o gate |
+
+Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política, não sugestão).
+
 ## NÃO fazer
 - NÃO escrever JavaScript — é **TypeScript**.
 - NÃO `git add -A`, `vercel --prod`, `cd && git`.
