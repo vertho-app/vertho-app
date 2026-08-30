@@ -35,6 +35,39 @@ jobs:
       - name: i18n keys completas (4 locales)
         run: npm run i18n:check
 
+      # Fail-closed de INVENTÁRIO (30/08). A suíte não assere o próprio tamanho,
+      # então um arquivo de teste renomeado para fora de `tests/unit/**/*.test.ts`
+      # some da coleta com o CI VERDE: 318 vira 317 e ninguém lê a diferença.
+      # É o mesmo modo de falha que o passo "o guard rodou de verdade?" do job
+      # `action-ids` fecha para o build, e que a auditoria dos guards de tenant
+      # apontou como a única lacuna de fail-closed que sobrou nos 13 auditados.
+      #
+      # Roda ANTES da suíte de propósito: é barato, não depende de npm, e falha
+      # rápido dizendo o que sumiu em vez de deixar a suíte reportar um total
+      # menor que ninguém compara com nada.
+      #
+      # O piso SÓ SOBE. Se um teste for removido de propósito (código morto que
+      # saiu junto, por exemplo), baixe o número AQUI, no mesmo commit, com o
+      # motivo na mensagem. É o mesmo contrato das allowlists do repo: o número
+      # é uma declaração, e mexer nele tem que ser um ato consciente.
+      - name: a suíte não encolheu (inventário fail-closed)
+        run: |
+          PISO_TOTAL=318
+          PISO_SEC=75
+          total=$(git ls-files tests/unit | grep -c '\.test\.ts$')
+          sec=$(git ls-files tests/unit/security | grep -c '\.test\.ts$')
+          echo "test files: $total (piso $PISO_TOTAL) · security: $sec (piso $PISO_SEC)"
+          falhou=0
+          if [ "$total" -lt "$PISO_TOTAL" ]; then
+            echo "::error::a suíte ENCOLHEU: $total arquivos .test.ts em tests/unit, piso é $PISO_TOTAL. Algum teste saiu da coleta (renomeado, movido para fora do padrão do vitest, ou removido). Se foi de propósito, baixe o piso neste arquivo no mesmo commit, com o motivo."
+            falhou=1
+          fi
+          if [ "$sec" -lt "$PISO_SEC" ]; then
+            echo "::error::tests/unit/security ENCOLHEU: $sec arquivos, piso é $PISO_SEC. Guard de segurança não some em silêncio."
+            falhou=1
+          fi
+          exit $falhou
+
       - name: Security tests + service-role guard
         run: npm run test:unit
 
