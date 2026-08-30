@@ -36,6 +36,13 @@ export interface BatchReq {
   user: string;
   model: string;
   maxTokens: number;
+  /**
+   * Espelha `AICallOptions.cacheSystem` (default: liga acima de 4.000 chars).
+   * Precisa existir aqui porque o lote é o caminho DEFAULT da geração de
+   * conteúdo: honrar a opção só no síncrono seria consertar o gêmeo que não
+   * roda — a mesma forma do F-I14.
+   */
+  cacheSystem?: boolean;
 }
 
 function anthropicClient() {
@@ -55,7 +62,7 @@ export async function createClaudeBatch(
   const locale = opts.locale || defaultLocale;
   const requests = reqs.map((r) => {
     const system = withLanguageInstruction(r.system, locale);
-    const systemBlock: any = system.length > 4000
+    const systemBlock: any = r.cacheSystem !== false && system.length > 4000
       ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
       : system;
     return {
@@ -383,7 +390,7 @@ export function createAIBatchCollector(
     // Modelo não-Claude (override por-tarefa da empresa) → síncrono, preserva o provedor.
     if (!String(model).startsWith('claude')) return callAI(system, user, aiConfig, maxTokens, options);
     return new Promise<string>((resolve, reject) => {
-      queue.push({ customId: `r${seq++}`, system, user, model, maxTokens, resolve, reject, options });
+      queue.push({ customId: `r${seq++}`, system, user, model, maxTokens, cacheSystem: options?.cacheSystem, resolve, reject, options });
       schedule();
     });
   };

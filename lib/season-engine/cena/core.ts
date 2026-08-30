@@ -481,6 +481,14 @@ export async function turnoCena(
         temperature: 0.85, // personagem, não avaliador: variação é realismo
         reasoningEffort: 'low', // presença, não deliberação — e a cena é ao vivo
         systemSuffix: buildInstrucaoDoBeat(beatAProvocar, novoTurno, teto, ctx.modo),
+        // O histórico cresce a cada turno e era reenviado FRIO: `Medido:` 30/08,
+        // 30 dias — 2,9M tokens de input não cacheado em `cena_turno`, 34% de
+        // todo o input frio da conta Anthropic, com gap mediano de 25s entre
+        // turnos (bem dentro do TTL de 5 min). Aqui a flag NÃO muda o prompt: a
+        // relocação do `userSuffix` é o que mexeria nele, e a cena usa
+        // `systemSuffix`, não `userSuffix` — o efeito é só o 2º breakpoint na
+        // última mensagem do interlocutor, que congela system+histórico.
+        cacheHistory: true,
         ...opcoesLedger(opts, 'cena_turno'),
       },
     ),
@@ -512,6 +520,9 @@ export async function turnoCena(
         {
           temperature: 0.85,
           reasoningEffort: 'low',
+          // Mesmo prefixo da 1ª tentativa (o que muda é o systemSuffix, que fica
+          // FORA do trecho cacheado) → a regeneração lê o histórico a 0,1×.
+          cacheHistory: true,
           systemSuffix:
             buildInstrucaoDoBeat(beatAProvocar, novoTurno, teto, ctx.modo) +
             `\n\n⚠️ Sua resposta anterior ENTREGOU o que você devia só cobrar` +

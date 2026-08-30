@@ -203,8 +203,17 @@ export async function gerarConteudoIA({
     // (`getModelForTask`). Não era repassado ao ledger, então a geração de
     // conteúdo caía em `untagged`: medido em 31/07, 2.812 chamadas / $87,28 (89%
     // do untagged) sem nenhuma atribuição. Mesma etiqueta, os dois usos.
+    // O system daqui passa dos 4.000 chars porque foi ENRIQUECIDO logo acima
+    // (módulo-base + kit) — ou seja, é longo e ÚNICO por (competência ×
+    // descritor × cargo × módulo × kit). O auto-cache do wrapper lê comprimento
+    // como estabilidade e cobra o write (1,25×) de um prefixo que nunca repete.
+    // `Medido:` 30/08, 30 dias de ia_usage_log — conteudo_texto 282.120 tokens
+    // escritos / 0 lidos, conteudo_podcast 276.536 / 0, conteudo_case 275.633 /
+    // 2.845. VÍDEO fica de fora: no mesmo call-site ele LÊ 75.366 contra
+    // 234.545 escritos, e desligar lá custaria mais do que economiza.
+    const cacheSystem = formato === 'video' ? undefined : false;
     let conteudoGerado = (await ai(system, user, { ...aiConfig, model: model || aiConfig?.model }, maxTokens, {
-      taskKey: taskKey || 'conteudo_gerar', empresaId,
+      taskKey: taskKey || 'conteudo_gerar', empresaId, cacheSystem,
     })).trim();
 
     // Garante o mínimo de 8.000 caracteres nos PDFs (texto/case): se vier curto,

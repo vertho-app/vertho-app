@@ -91,6 +91,17 @@ export interface AICallOptions {
   // Liga o history caching (relocação do userSuffix + cache_control). Só Claude.
   // O caller gateia por flag (IA_CACHE_HISTORY) até a qualidade ser validada.
   cacheHistory?: boolean;
+  // Desliga o auto-cache do system. O default (`system.length > 4000`) trata
+  // COMPRIMENTO como sinal de ESTABILIDADE, e nos geradores de conteúdo isso é
+  // falso: o system passa dos 4.000 chars justamente porque foi enriquecido com
+  // módulo-base + kit (actions/conteudos.ts), que são únicos por chamada. O
+  // prefixo nunca repete, então cada chamada paga o write (1,25×) de um cache
+  // que ninguém lê. Medido em 30/08, 30 dias de ia_usage_log: conteudo_texto
+  // 282.120 tokens escritos contra 0 lidos, conteudo_podcast 276.536 contra 0,
+  // conteudo_case 275.633 contra 2.845. Passe `false` só com a leitura do
+  // ledger na mão — em conteudo_video o mesmo call-site LÊ (75.366 contra
+  // 234.545 escritos), e ali desligar sairia mais caro que manter.
+  cacheSystem?: boolean;
   // Esforço de raciocínio. GPT-5.6 também aceita none/minimal; `none` é a
   // baseline oficial para fluxos sensíveis a latência, como o Copiloto ao vivo.
   // Medido no kimi-k3 (20/07): low=7 tokens de thinking
@@ -574,12 +585,15 @@ async function callClaude(
   // Com systemSuffix: 2 blocos — [estável cacheado] + [volátil sem cache]. O
   // prefixo estável (>1024 tok) é lido a 0,1× nas chamadas seguintes; o sufixo
   // (ex.: instrução do turno) não quebra o cache. Sem suffix: igual a antes.
+  // `cacheSystem: false` desliga o write do system (ver AICallOptions): cachear
+  // um prefixo que nunca repete é 1,25× por nada.
+  const cacheDoSystem = options.cacheSystem !== false;
   const systemBlock: any = options.systemSuffix
     ? [
-        { type: 'text', text: system, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: system, ...(cacheDoSystem ? { cache_control: { type: 'ephemeral' } } : {}) },
         { type: 'text', text: options.systemSuffix },
       ]
-    : (typeof system === 'string' && system.length > 4000
+    : (cacheDoSystem && typeof system === 'string' && system.length > 4000
         ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
         : system);
 
@@ -687,12 +701,15 @@ async function callClaudeChat(
   const sysText = options.userSuffix && !cacheHistory ? `${system}\n\n${options.userSuffix}` : system;
 
   // Bloco de system (com systemSuffix: 2 blocos estável/volátil — feature à parte).
+  // `cacheSystem: false` vale aqui pelo mesmo motivo que em `callClaude`: opção
+  // declarada no tipo e ignorada num dos dois ramos é config sem consumidor.
+  const cacheDoSystem = options.cacheSystem !== false;
   const systemBlock: any = options.systemSuffix
     ? [
-        { type: 'text', text: sysText, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: sysText, ...(cacheDoSystem ? { cache_control: { type: 'ephemeral' } } : {}) },
         { type: 'text', text: options.systemSuffix },
       ]
-    : (cacheHistory || (typeof sysText === 'string' && sysText.length > 4000)
+    : (cacheDoSystem && (cacheHistory || (typeof sysText === 'string' && sysText.length > 4000))
         ? [{ type: 'text', text: sysText, cache_control: { type: 'ephemeral' } }]
         : sysText);
 
