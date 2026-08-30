@@ -144,7 +144,9 @@ function CompetenciaBlock({ c }: { c: CompetenciaStat }) {
 }
 
 function SecTitle({ children }: { children: string }) {
-  return <View style={s.secTitleRow}><View style={s.secBar} /><Text style={s.secTitle}>{children}</Text></View>;
+  // O título e sua barra são uma unidade visual. Sem `wrap={false}`, a barra
+  // podia ficar órfã no rodapé enquanto o texto abria a página seguinte.
+  return <View wrap={false} style={s.secTitleRow}><View style={s.secBar} /><Text style={s.secTitle}>{children}</Text></View>;
 }
 
 // ── Bloco compacto do DNA de um cargo (distribuição N1-N4 + maior gap) ───────
@@ -216,15 +218,17 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
             </View>
           ))}
 
-          <SecTitle>RETRATO GERAL</SecTitle>
-          <View style={s.trHead}><Text style={s.thNivel}>Nível</Text><Text style={s.thPct}>% Equipe</Text><Text style={s.thSig}>Significado</Text></View>
-          {NIVEIS.map((n, i) => (
-            <View key={i} style={[s.trRow, { backgroundColor: n.bg }]}>
-              <Text style={[s.tdNivel, { color: n.tx }]}>{n.label}</Text>
-              <Text style={[s.tdPct, { color: n.tx }]}>{(dna.distGeralPct as any)[n.key]}%</Text>
-              <Text style={s.tdSig}>{n.sig}</Text>
-            </View>
-          ))}
+          <View wrap={false}>
+            <SecTitle>RETRATO GERAL</SecTitle>
+            <View style={s.trHead}><Text style={s.thNivel}>Nível</Text><Text style={s.thPct}>% Equipe</Text><Text style={s.thSig}>Significado</Text></View>
+            {NIVEIS.map((n, i) => (
+              <View key={i} style={[s.trRow, { backgroundColor: n.bg }]}>
+                <Text style={[s.tdNivel, { color: n.tx }]}>{n.label}</Text>
+                <Text style={[s.tdPct, { color: n.tx }]}>{(dna.distGeralPct as any)[n.key]}%</Text>
+                <Text style={s.tdSig}>{n.sig}</Text>
+              </View>
+            ))}
+          </View>
 
           {dna.porCargo && dna.porCargo.length > 0 ? (
             <>

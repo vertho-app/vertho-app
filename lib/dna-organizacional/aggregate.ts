@@ -172,7 +172,7 @@ export async function aggregateDna(sb: SupabaseClient, empresaId: string): Promi
 }
 
 /** Agrega uma lista de avaliações (já dedupada) num DnaAggregate. Puro. */
-function computeDna(assess: any[], totalColaboradores: number): DnaAggregate {
+export function computeDna(assess: any[], totalColaboradores: number): DnaAggregate {
   const avaliados = new Set(assess.map((a) => a.colaborador_id)).size;
   const distGeral: Dist = { n1: 0, n2: 0, n3: 0, n4: 0 };
 

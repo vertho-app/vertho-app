@@ -95,7 +95,9 @@ const s = StyleSheet.create({
   destDot: { width: 11, height: 11, borderRadius: 6, borderWidth: 2, borderColor: C.gold, marginRight: 7 },
   destTxt: { color: '#D8E0EC', fontSize: 8.5, fontWeight: 700 },
   // grid individual
-  gItem: { width: '31.5%', backgroundColor: '#EAF6F6', borderRadius: 8, padding: 7, marginBottom: 8, marginRight: '1.5%' },
+  // Compacto o bastante para uma empresa de até 30 pessoas caber numa única
+  // página A4 (10 linhas × 3), sem criar uma página de continuação quase vazia.
+  gItem: { width: '31.5%', backgroundColor: '#EAF6F6', borderRadius: 8, padding: 5, marginBottom: 5, marginRight: '1.5%' },
   gNome: { fontSize: 7.5, fontWeight: 700, color: C.navy, marginBottom: 3 },
   legendRow: { flexDirection: 'row', gap: 14, marginTop: 6, marginBottom: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -481,11 +483,11 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
             {p.pessoas.map((pe) => (
               <View key={pe.numero} style={s.gItem} wrap={false}>
                 <Text style={s.gNome}>{pe.numero}. {pe.nome.length > 22 ? pe.nome.slice(0, 21) + '…' : pe.nome}  ({pe.perfil})</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: 44 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: 36 }}>
                   {([['D', pe.natural.d, C.d], ['I', pe.natural.i, C.i], ['S', pe.natural.s, C.s], ['C', pe.natural.c, C.c]] as [string, number, string][]).map(([f, v, col]) => (
                     <View key={f} style={{ alignItems: 'center' }}>
                       <Text style={{ fontSize: 6.5, fontWeight: 700, color: C.navy }}>{Math.round(v)}</Text>
-                      <View style={{ width: 9, height: Math.max(3, (v / 100) * 34), backgroundColor: col, borderRadius: 5 }} />
+                      <View style={{ width: 9, height: Math.max(3, (v / 100) * 27), backgroundColor: col, borderRadius: 5 }} />
                       <Text style={{ fontSize: 6, color: C.sub }}>{f}</Text>
                     </View>
                   ))}

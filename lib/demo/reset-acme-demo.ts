@@ -29,6 +29,7 @@ import {
   criarRelatorioGestorAcmeDemo,
   criarRelatorioRhAcmeDemo,
 } from '@/lib/demo/acme-rh-report-fixture';
+import { seedAcmeOrganizationReports } from '@/lib/demo/acme-organization-reports';
 // Régua canônica de competências — a MESMA que o mapeamento real e o simulador
 // usam. O demo tinha derivação própria; ver comportamentosDoDisc.
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
@@ -1681,6 +1682,9 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     await ensurePresentationVideo(demo.id, personaMap);
     await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);
     await seedAcmeRhReportCenter(demo.id);
+    if (slug === DEMO_SLUG) {
+      await seedAcmeOrganizationReports(sb, demo.id, DEMO_NAME);
+    }
     const fitOk = await precomputarFit(demo.id);
 
     const counts: Record<string, number | null> = {};
