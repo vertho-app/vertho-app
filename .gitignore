@@ -78,6 +78,8 @@ playwright/.auth/
 /.claude/*
 # exceção: skills compartilhadas com o time (procedimentos versionados)
 !/.claude/skills/
+# exceção: subagents, pela mesma razão das skills (é método, não estado local)
+!/.claude/agents/
 /.codex/
 
 # python bytecode
