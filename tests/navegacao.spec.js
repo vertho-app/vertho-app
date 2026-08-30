@@ -31,21 +31,19 @@ test.describe('Navegação autenticada', () => {
     await expect(page.locator('text=/evolução|Próximo Passo|Acesso/i').first()).toBeVisible();
   });
 
-  test('bottom nav funciona', async ({ page }) => {
-    // Jornada
-    await page.getByText('Jornada').click();
-    await page.waitForURL('**/jornada');
+  test('navegação lateral funciona (visão RH)', async ({ page }) => {
+    // 30/08: o teste antigo ("bottom nav": Jornada/Praticar/Perfil) era do
+    // layout de COLABORADOR; a conta de smoke é RH e a sidebar dela tem outros
+    // itens. As rotas de colaborador seguem cobertas por URL no
+    // fluxos-criticos.spec.js; conta colaboradora de smoke fica para a fase 2.
+    await page.getByRole('button', { name: 'Equipe' }).click();
+    await page.waitForURL('**/gestor**');
 
-    // Praticar
-    await page.getByText('Praticar').click();
-    await page.waitForURL('**/praticar');
-
-    // Perfil
-    await page.getByText('Perfil').click();
+    // exact: o avatar também é botão "Perfil de Smoke E2E" (strict mode, 30/08)
+    await page.getByRole('button', { name: 'Perfil', exact: true }).click();
     await page.waitForURL('**/perfil');
 
-    // Início
-    await page.getByText('Início').click();
+    await page.getByRole('button', { name: 'Início', exact: true }).click();
     await page.waitForURL('**/dashboard');
   });
 

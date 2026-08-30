@@ -27,8 +27,11 @@ test.describe('Login', () => {
     await page.locator('input[type="password"]').fill(pass);
     await page.getByText('Entrar com senha').click();
 
-    // Deve redirecionar para dashboard
+    // Deve redirecionar para dashboard. Headline de marketing muda com
+    // frequência (30/08: "Vamos continuar sua evolução" já não existia);
+    // a âncora é o ESTRUTURAL: saudação personalizada + navegação viva.
     await page.waitForURL('**/dashboard', { timeout: 10000 });
-    await expect(page.getByText('Vamos continuar sua evolução')).toBeVisible();
+    await expect(page.getByText(/^Olá,/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible();
   });
 });

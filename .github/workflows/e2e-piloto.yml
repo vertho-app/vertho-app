@@ -1,0 +1,55 @@
+name: E2E Piloto (fluxos críticos)
+
+# Piloto medido (30/08/2026): 3 specs read-mostly contra PRODUÇÃO com a conta
+# smoke-e2e.demo@vertho.ai no tenant demo Grupo Sinal (is_demo: sem envio real).
+# Duas rodadas locais consecutivas 13/13, ~50s. A métrica do piloto é a taxa de
+# FALSO-VERMELHO: se intermitir, o honesto é aposentar, não ensinar a ignorar.
+#
+# 🔴 push apenas, NUNCA pull_request: o job de PR executa código do PR, e este
+# workflow carrega SMOKE_PASS — entregar credencial a código de terceiro é o
+# padrão que o rls-posture.yml proíbe (repo público).
+#
+# Conta destravada/resetada: `npx --yes tsx scripts/criar-smoke-e2e.ts`
+# (repõe colaborador, rotaciona a senha e atualiza o secret sozinho).
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: Fluxos críticos (login, navegação, telas)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.13.1'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Instalar chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Rodar o piloto
+        env:
+          CI: '1'
+          SMOKE_EMAIL: smoke-e2e.demo@vertho.ai
+          SMOKE_PASS: ${{ secrets.SMOKE_PASS }}
+          DIAG_EMPRESA_ID: e3912402-8828-474f-965a-cab579c72d56
+        run: npx playwright test tests/login.spec.js tests/navegacao.spec.js tests/fluxos-criticos.spec.js
+
+      - name: Relatório em artefato (sempre que falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

@@ -51,6 +51,11 @@ module.exports = defineConfig({
   workers: 1, // Serial execution — avoids Supabase Auth rate limiting
   use: {
     baseURL: ALVO,
+    // Medido 30/08: o chromium nasce en-US e a tela de login segue o idioma do
+    // navegador ("Sign in with password") — os specs em pt-BR ficavam 60s
+    // esperando um texto que não existia. Locale e fuso fixos em pt-BR/SP.
+    locale: 'pt-BR',
+    timezoneId: 'America/Sao_Paulo',
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
   },
