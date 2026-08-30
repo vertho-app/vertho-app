@@ -53,6 +53,42 @@ export const ACME_DEMO_REPORT_DIRECTORY: AcmeDemoDirectoryPerson[] = [
   { key: 'vanessa', nome_completo: 'Vanessa Silveira', email: 'vanessa.demo@vertho.ai', cargo: 'Coordenador de Operações', role: 'colaborador', area_depto: 'Operações', gestor_nome: EDUARDO.nome, gestor_email: EDUARDO.email, d_natural: 51, i_natural: 41, s_natural: 64, c_natural: 44 },
 ];
 
+/**
+ * Funil narrativo da ACME Demo. Os grupos são cumulativos: ninguém entra em
+ * mapeamento sem perfil e ninguém entra em jornada sem concluir o Top 5.
+ * Mantê-los como chaves estáveis deixa o reset e a aplicação operacional do
+ * fixture produzirem exatamente a mesma fotografia.
+ */
+export const ACME_DEMO_FUNNEL_TARGETS = Object.freeze({
+  people: ACME_DEMO_TEAM_SIZE,
+  withProfile: 28,
+  withMapping: 25,
+  inJourney: 20,
+  onTrack: 17,
+  behind: 3,
+});
+
+export const ACME_DEMO_WITHOUT_PROFILE_KEYS = ['ana', 'vanessa'] as const;
+
+export const ACME_DEMO_SYNTHETIC_MAPPED_KEYS = ACME_DEMO_REPORT_DIRECTORY
+  .filter((person) => person.key !== 'vanessa')
+  .map((person) => person.key);
+
+export const ACME_DEMO_MAPPED_KEYS = [
+  'bruna',
+  'mariana',
+  ...ACME_DEMO_SYNTHETIC_MAPPED_KEYS,
+];
+
+export const ACME_DEMO_JOURNEY_KEYS = ACME_DEMO_MAPPED_KEYS.slice(
+  0,
+  ACME_DEMO_FUNNEL_TARGETS.inJourney,
+);
+
+export const ACME_DEMO_BEHIND_KEYS = ACME_DEMO_JOURNEY_KEYS.slice(
+  -ACME_DEMO_FUNNEL_TARGETS.behind,
+);
+
 const COMPETENCIAS_POR_CARGO: Record<string, string[]> = {
   'Representante Comercial': [
     'Comunicação e Apresentação de Valor',

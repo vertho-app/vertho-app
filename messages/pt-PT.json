@@ -284,7 +284,10 @@
       "eyebrow": "Leitura segura",
       "download": "Descarregar PDF",
       "close": "Fechar relatório",
-      "loading": "A preparar relatório"
+      "loading": "A preparar relatório",
+      "back": "Voltar aos relatórios",
+      "error": "Não foi possível abrir este relatório.",
+      "retry": "Tentar novamente"
     },
     "emptyTitle": "Nenhum relatório nesta secção",
     "emptySearchTitle": "Nenhum resultado encontrado",

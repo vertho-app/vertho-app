@@ -16,8 +16,13 @@ import fixture from '@/lib/demo/acme-demo-fixture.json';
 // acme-demo (scripts/_capture-*) e replicados no reset SEM rodar IA.
 import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
 import {
+  ACME_DEMO_BEHIND_KEYS,
+  ACME_DEMO_FUNNEL_TARGETS,
+  ACME_DEMO_JOURNEY_KEYS,
   ACME_DEMO_REPORT_DIRECTORY,
+  ACME_DEMO_SYNTHETIC_MAPPED_KEYS,
   ACME_DEMO_TEAM_SIZE,
+  ACME_DEMO_WITHOUT_PROFILE_KEYS,
   avaliacaoAcmeDemo,
   competenciasAcmeDemoPorCargo,
   criarPdiAcmeDemo,
@@ -28,7 +33,7 @@ import {
 // usam. O demo tinha derivação própria; ver comportamentosDoDisc.
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile } from '@/lib/disc-mapeamento';
-import { IA4_FILTRO } from '@/lib/status';
+import { IA4_FILTRO, TRILHA } from '@/lib/status';
 
 /**
  * Reset/seed do tenant ACME Demo (slug `acme-demo`) — versão IN-APP da lógica
@@ -66,6 +71,7 @@ const REPRESENTANTE_TOP5 = [
 ];
 
 const REPRESENTANTE_FOCO = ['Negociação e Fechamento'];
+const DEMO_JOURNEY_CONTENT_KIND = 'conteudo' as const;
 
 /**
  * Vídeo editorial fixo da sala de apresentação.
@@ -1168,14 +1174,15 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   async function insertPersonas(destId: string) {
     const idMap = new Map<string, string>();
     for (const p of PERSONAS) {
+      const semPerfil = slug === DEMO_SLUG && ACME_DEMO_WITHOUT_PROFILE_KEYS.some((key) => key === p.key);
       const inserted = await must(`insert persona ${p.key}`, sb.from('colaboradores').insert({
         empresa_id: destId, nome_completo: p.nome_completo, email: p.email, cargo: p.cargo, role: p.role,
         area_depto: p.area_depto, gestor_nome: p.gestor_nome, gestor_email: p.gestor_email, gestor_whatsapp: p.gestor_whatsapp,
-        perfil_dominante: p.perfil_dominante,
-        mapeamento_em: new Date().toISOString(),
+        perfil_dominante: semPerfil ? null : p.perfil_dominante,
+        mapeamento_em: semPerfil ? null : new Date().toISOString(),
         d_natural: p.d_natural, i_natural: p.i_natural, s_natural: p.s_natural, c_natural: p.c_natural,
         ...comportamentosDoDisc(p.d_natural, p.i_natural, p.s_natural, p.c_natural),
-        disc_resultados: { demo: true, estado_demo: p.scenario },
+        disc_resultados: semPerfil ? null : { demo: true, estado_demo: p.scenario },
       }).select('id').single());
       idMap.set(p.key, inserted.id);
     }
@@ -1185,6 +1192,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     // escala realista ao panorama e aos relatórios (30 participantes no total).
     if (slug === DEMO_SLUG) {
       for (const pessoa of ACME_DEMO_REPORT_DIRECTORY) {
+        const semPerfil = ACME_DEMO_WITHOUT_PROFILE_KEYS.some((key) => key === pessoa.key);
         const disc = {
           D: pessoa.d_natural,
           I: pessoa.i_natural,
@@ -1201,14 +1209,14 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
           gestor_nome: pessoa.gestor_nome,
           gestor_email: pessoa.gestor_email,
           gestor_whatsapp: null,
-          perfil_dominante: deriveProfile(disc),
-          mapeamento_em: new Date().toISOString(),
+          perfil_dominante: semPerfil ? null : deriveProfile(disc),
+          mapeamento_em: semPerfil ? null : new Date().toISOString(),
           d_natural: pessoa.d_natural,
           i_natural: pessoa.i_natural,
           s_natural: pessoa.s_natural,
           c_natural: pessoa.c_natural,
           ...comportamentosDoDisc(pessoa.d_natural, pessoa.i_natural, pessoa.s_natural, pessoa.c_natural),
-          disc_resultados: { demo: true, estado_demo: 'relatorio-rh' },
+          disc_resultados: semPerfil ? null : { demo: true, estado_demo: 'relatorio-rh' },
         }).select('id').single());
         idMap.set(pessoa.key, inserted.id);
       }
@@ -1400,6 +1408,112 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   }
 
   /**
+   * Fotografia executiva da ACME: 30 → 28 → 25 → 20, com 17 jornadas em dia
+   * e 3 atrasadas. O funil é material de apresentação, mas continua usando as
+   * mesmas tabelas e a mesma régua do produto — nenhum número é sobrescrito na
+   * camada visual.
+   */
+  async function seedAcmePanorama(destId: string, personaMap: Map<string, string>) {
+    if (slug !== DEMO_SLUG) return;
+
+    const pessoaPorChave = new Map<string, any>([
+      ...PERSONAS.map((pessoa) => [pessoa.key, pessoa] as const),
+      ...ACME_DEMO_REPORT_DIRECTORY.map((pessoa) => [pessoa.key, pessoa] as const),
+    ]);
+    const agora = new Date();
+    const assessmentDate = agora.toISOString();
+
+    const assessments = ACME_DEMO_SYNTHETIC_MAPPED_KEYS.flatMap((key) => {
+      const pessoa = pessoaPorChave.get(key);
+      const colaboradorId = personaMap.get(key);
+      if (!pessoa || !colaboradorId) throw new Error(`pessoa do funil ACME ausente: ${key}`);
+      return competenciasAcmeDemoPorCargo(pessoa.cargo).map((competencia, index) => ({
+        empresa_id: destId,
+        colaborador_id: colaboradorId,
+        cargo: pessoa.cargo,
+        competencia,
+        descritor: `Evidência demonstrativa ${index + 1}`,
+        nota: 2 + ((key.length + index) % 3) * 0.5,
+        origem: 'ia4',
+        assessment_date: assessmentDate,
+      }));
+    });
+    if (assessments.length) {
+      const result = await sb.from('descriptor_assessments').insert(assessments);
+      if (result.error) throw new Error(`mapeamentos do panorama ACME: ${result.error.message}`);
+    }
+
+    const formatDate = (date: Date) => new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(date);
+    const hojeDemo = formatDate(agora);
+    const inicioAtrasado = formatDate(new Date(agora.getTime() - 28 * 24 * 60 * 60 * 1000));
+    const atrasadas = new Set(ACME_DEMO_BEHIND_KEYS);
+    const trilhasExistentes = await must('listar jornadas do panorama ACME', sb.from('trilhas')
+      .select('id,colaborador_id,numero_temporada,status')
+      .eq('empresa_id', destId));
+    const trilhaTemporadaUmPorPessoa = new Map(
+      (trilhasExistentes || [])
+        .filter((trilha: any) => trilha.numero_temporada === 1)
+        .map((trilha: any) => [trilha.colaborador_id, trilha]),
+    );
+    const idsEmJornada = new Set(ACME_DEMO_JOURNEY_KEYS.map((key) => personaMap.get(key)));
+    for (const trilha of trilhasExistentes || []) {
+      if (trilha.status !== TRILHA.ATIVA || idsEmJornada.has(trilha.colaborador_id)) continue;
+      const result = await sb.from('trilhas').update({ status: TRILHA.PAUSADA })
+        .eq('id', trilha.id).eq('empresa_id', destId);
+      if (result.error) throw new Error(`pausar jornada fora do panorama ACME: ${result.error.message}`);
+    }
+
+    for (const key of ACME_DEMO_JOURNEY_KEYS) {
+      const pessoa = pessoaPorChave.get(key);
+      const colaboradorId = personaMap.get(key);
+      if (!pessoa || !colaboradorId) throw new Error(`jornada do funil ACME ausente: ${key}`);
+      const competencia = competenciasAcmeDemoPorCargo(pessoa.cargo)[0];
+      const dataInicio = atrasadas.has(key) ? inicioAtrasado : hojeDemo;
+      const existente = trilhaTemporadaUmPorPessoa.get(colaboradorId) as any;
+      if (existente) {
+        const result = await sb.from('trilhas').update({
+          status: TRILHA.ATIVA,
+          data_inicio: dataInicio,
+        }).eq('id', existente.id).eq('empresa_id', destId);
+        if (result.error) throw new Error(`atualizar jornada ${key}: ${result.error.message}`);
+        continue;
+      }
+
+      const result = await sb.from('trilhas').insert({
+        empresa_id: destId,
+        colaborador_id: colaboradorId,
+        numero_temporada: 1,
+        cursos: [],
+        status: TRILHA.ATIVA,
+        criado_em: assessmentDate,
+        data_inicio: dataInicio,
+        competencia_foco: competencia,
+        competencias_foco: [competencia],
+        descritores_selecionados: ['Evidência demonstrativa'],
+        temporada_plano: Array.from({ length: 14 }, (_, index) => ({
+          semana: index + 1,
+          tipo: DEMO_JOURNEY_CONTENT_KIND,
+          status: index === 0 ? 'disponivel' : 'bloqueada',
+          competencia,
+          descritor: 'Evidência demonstrativa',
+        })),
+      });
+      if (result.error) throw new Error(`inserir jornada ${key}: ${result.error.message}`);
+    }
+
+    if (
+      ACME_DEMO_WITHOUT_PROFILE_KEYS.length !== ACME_DEMO_TEAM_SIZE - ACME_DEMO_FUNNEL_TARGETS.withProfile
+      || ACME_DEMO_SYNTHETIC_MAPPED_KEYS.length + 2 !== ACME_DEMO_FUNNEL_TARGETS.withMapping
+      || ACME_DEMO_JOURNEY_KEYS.length !== ACME_DEMO_FUNNEL_TARGETS.inJourney
+      || ACME_DEMO_BEHIND_KEYS.length !== ACME_DEMO_FUNNEL_TARGETS.behind
+    ) {
+      throw new Error('coortes do panorama ACME não correspondem aos totais declarados');
+    }
+  }
+
+  /**
    * Relatórios sintéticos, exclusivos da ACME, para a demonstração do papel RH.
    * Primeiro restauramos qualquer PDF já aquecido; aqui criamos somente o que
    * estiver faltando, preservando o arquivo pronto e evitando trabalho no clique.
@@ -1563,6 +1677,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     const personaMap = await insertPersonas(demo.id);
     await seedRespostas(demo.id, personaMap);
     await applyPersonaArtifacts(demo.id, personaMap);
+    await seedAcmePanorama(demo.id, personaMap);
     await ensurePresentationVideo(demo.id, personaMap);
     await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);
     await seedAcmeRhReportCenter(demo.id);

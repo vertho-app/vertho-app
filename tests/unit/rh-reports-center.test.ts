@@ -65,13 +65,20 @@ describe('central de relatórios do RH', () => {
     expect(page).not.toMatch(/searchParams|empresaId:\s*string/);
   });
 
-  it('abre o PDF dentro da central e mantém o download como ação separada', () => {
+  it('renderiza o PDF dentro da tela e mantém o download como ação separada', () => {
     const view = readFileSync('app/dashboard/relatorios/relatorios-rh-view.tsx', 'utf8');
+    const reader = readFileSync('components/pdf/in-app-pdf-document.tsx', 'utf8');
+    const home = readFileSync('app/dashboard/home-rh.tsx', 'utf8');
     const pdfRoute = readFileSync('app/api/relatorios/pdf/route.ts', 'utf8');
 
-    expect(view).toContain('<ReportViewer');
-    expect(view).toContain('view=inline');
+    expect(view).toContain('<ReportReader');
+    expect(view).toContain('<InAppPdfDocument');
+    expect(view).not.toContain('<iframe');
     expect(view).not.toContain('target="_blank"');
+    expect(reader).toContain("import('pdfjs-dist')");
+    expect(reader).toContain('<canvas');
+    expect(home).toContain('/dashboard/relatorios?document=organization-rh');
+    expect(home).not.toContain('target="_blank"');
     expect(pdfRoute).toContain("searchParams.get('view') === 'inline'");
     expect(pdfRoute).toContain('`${contentDisposition}; filename=');
   });

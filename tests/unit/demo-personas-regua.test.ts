@@ -7,8 +7,13 @@ import { deriveProfile, DISC_SOMA_ALVO } from '@/lib/disc-mapeamento';
 import fixture from '@/lib/demo/acme-demo-fixture.json';
 import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
 import {
+  ACME_DEMO_BEHIND_KEYS,
+  ACME_DEMO_FUNNEL_TARGETS,
+  ACME_DEMO_JOURNEY_KEYS,
+  ACME_DEMO_MAPPED_KEYS,
   ACME_DEMO_REPORT_DIRECTORY,
   ACME_DEMO_TEAM_SIZE,
+  ACME_DEMO_WITHOUT_PROFILE_KEYS,
   criarPdiAcmeDemo,
   criarRelatorioRhAcmeDemo,
 } from '@/lib/demo/acme-rh-report-fixture';
@@ -27,6 +32,23 @@ describe('Personas do acme-demo seguem a régua do produto', () => {
     expect(new Set([...PERSONAS, ...ACME_DEMO_REPORT_DIRECTORY].map((p) => p.email)).size).toBe(ACME_DEMO_TEAM_SIZE);
     expect(ACME_DEMO_REPORT_DIRECTORY.every((p) => p.email.endsWith('@vertho.ai'))).toBe(true);
     expect(ACME_DEMO_REPORT_DIRECTORY.filter((p) => p.role === 'gestor')).toHaveLength(3);
+  });
+
+  it('mantém o funil executivo em 30 / 28 / 25 / 20 / 17 / 3', () => {
+    expect(ACME_DEMO_FUNNEL_TARGETS).toEqual({
+      people: 30,
+      withProfile: 28,
+      withMapping: 25,
+      inJourney: 20,
+      onTrack: 17,
+      behind: 3,
+    });
+    expect(ACME_DEMO_TEAM_SIZE - ACME_DEMO_WITHOUT_PROFILE_KEYS.length).toBe(28);
+    expect(new Set(ACME_DEMO_MAPPED_KEYS).size).toBe(25);
+    expect(new Set(ACME_DEMO_JOURNEY_KEYS).size).toBe(20);
+    expect(new Set(ACME_DEMO_BEHIND_KEYS).size).toBe(3);
+    expect(ACME_DEMO_JOURNEY_KEYS.filter((key) => !ACME_DEMO_BEHIND_KEYS.includes(key))).toHaveLength(17);
+    expect(ACME_DEMO_JOURNEY_KEYS.every((key) => ACME_DEMO_MAPPED_KEYS.includes(key))).toBe(true);
   });
 
   it('gera PDIs válidos e um consolidado coerente para a central demonstrativa', () => {

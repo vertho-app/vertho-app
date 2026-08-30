@@ -284,7 +284,10 @@
       "eyebrow": "Lectura segura",
       "download": "Descargar PDF",
       "close": "Cerrar informe",
-      "loading": "Preparando informe"
+      "loading": "Preparando informe",
+      "back": "Volver a los informes",
+      "error": "No se pudo abrir este informe.",
+      "retry": "Intentar de nuevo"
     },
     "emptyTitle": "No hay informes en esta sección",
     "emptySearchTitle": "No se encontraron resultados",

@@ -15,7 +15,7 @@
  */
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Users2, Brain, Route, ListOrdered, TrendingUp, ArrowRight, ClipboardCheck, CalendarCheck, CalendarClock, FileText, Download } from 'lucide-react';
+import { Users2, Brain, Route, ListOrdered, TrendingUp, ArrowRight, ClipboardCheck, CalendarCheck, CalendarClock, FileText, Eye } from 'lucide-react';
 
 const serifStyle: React.CSSProperties = {
   fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
@@ -28,11 +28,11 @@ const ACCENT = 'var(--brand-400, #34C5CC)';
 type Relatorio = { url: string; em: string | null } | null;
 type RelatoriosGerenciais = { rh: Relatorio; perfilOrg: Relatorio; dna: Relatorio } | null;
 
-/** Um documento pronto: abre em aba nova, com a data da geracao. */
-function Documento({ titulo, descricao, em, url }: { titulo: string; descricao: string; em: string | null; url: string }) {
+/** Um documento pronto: entra na leitura interna, com a data da geração. */
+function Documento({ titulo, descricao, em, onOpen }: { titulo: string; descricao: string; em: string | null; onOpen: () => void }) {
   const quando = em ? new Date(em).toLocaleDateString('pt-BR') : null;
   return (
-    <a href={url} target="_blank" rel="noreferrer"
+    <button type="button" onClick={onOpen}
       className="w-full text-left rounded-[22px] p-4 flex items-start gap-4 transition-all active:scale-[0.99] block"
       style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
       <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
@@ -44,8 +44,8 @@ function Documento({ titulo, descricao, em, url }: { titulo: string; descricao: 
         <p className="text-sm text-white/55 leading-relaxed">{descricao}</p>
         {quando && <p className="text-[10px] text-white/35 mt-1">{quando}</p>}
       </div>
-      <Download size={17} className="mt-1 shrink-0" style={{ color: ACCENT }} />
-    </a>
+      <Eye size={17} className="mt-1 shrink-0" style={{ color: ACCENT }} />
+    </button>
   );
 }
 
@@ -203,13 +203,13 @@ export default function HomeRH({ firstName, panorama, relatorios }: { firstName:
               {t('rh.reports')}
             </h3>
             {relatorios.rh && (
-              <Documento titulo={t('rh.reportHr')} descricao={t('rh.reportHrDescription')} em={relatorios.rh.em} url={relatorios.rh.url} />
+              <Documento titulo={t('rh.reportHr')} descricao={t('rh.reportHrDescription')} em={relatorios.rh.em} onOpen={() => router.push('/dashboard/relatorios?document=organization-rh')} />
             )}
             {relatorios.perfilOrg && (
-              <Documento titulo={t('rh.reportProfile')} descricao={t('rh.reportProfileDescription')} em={relatorios.perfilOrg.em} url={relatorios.perfilOrg.url} />
+              <Documento titulo={t('rh.reportProfile')} descricao={t('rh.reportProfileDescription')} em={relatorios.perfilOrg.em} onOpen={() => router.push('/dashboard/relatorios?document=organization-profile')} />
             )}
             {relatorios.dna && (
-              <Documento titulo={t('rh.reportDna')} descricao={t('rh.reportDnaDescription')} em={relatorios.dna.em} url={relatorios.dna.url} />
+              <Documento titulo={t('rh.reportDna')} descricao={t('rh.reportDnaDescription')} em={relatorios.dna.em} onOpen={() => router.push('/dashboard/relatorios?document=organization-dna')} />
             )}
           </section>
         )}

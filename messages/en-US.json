@@ -284,7 +284,10 @@
       "eyebrow": "Secure reading",
       "download": "Download PDF",
       "close": "Close report",
-      "loading": "Preparing report"
+      "loading": "Preparing report",
+      "back": "Back to reports",
+      "error": "This report could not be opened.",
+      "retry": "Try again"
     },
     "emptyTitle": "No reports in this section",
     "emptySearchTitle": "No results found",
