@@ -106,7 +106,9 @@ export const DEMO_PRESENTATION_VIDEO = {
  * porque as duas salas usam a mesma persona Bruna e a arte é neutra (Vertho). */
 export const DEMO_PRESENTATION_WEEK_VIDEO = {
   competenciaBaseId: '004408f2-6ae4-41a0-87ae-ace7ad54b32c',
-  personalizedBunnyVideoId: '3325bd10-e53b-4f22-a583-8eab05c07303',
+  // Saudação e tutorial usam a mesma voz (Achird). O asset anterior começava
+  // com Vindemiatrix e trocava de narrador ao entrar no tutorial.
+  personalizedBunnyVideoId: '2f1d3db8-afb4-4329-bf0a-8ed8408a5a54',
   byTenant: {
     'acme-demo': {
       moduleId: '5faaf43b-8b80-4bd7-aab1-204fa83dad56',

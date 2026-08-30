@@ -4159,7 +4159,15 @@
     "profiles": {
       "behavioral": "conductuales",
       "noProfile": "Sin perfil mapeado",
+      "noProfileDetail": "El perfil aparecerá aquí cuando se complete el mapeo.",
       "discDominant": "DISC dominante",
+      "discDimensions": "Dimensiones DISC",
+      "profileTitle": "Perfil conductual",
+      "openProfile": "Abrir perfil conductual",
+      "openProfileFor": "Abrir el perfil conductual de {name}",
+      "close": "Cerrar",
+      "highlights": "Aspectos destacados",
+      "attentionPoints": "Puntos de atención",
       "openPdf": "Abrir el PDF del mapeo",
       "openPdfFor": "Abrir el PDF del mapeo de {name}",
       "pdfError": "No se pudo abrir el PDF"

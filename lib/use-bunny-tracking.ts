@@ -32,9 +32,14 @@ function loadPlayerJs(): Promise<any> {
   });
 }
 
-export function useBunnyTracking(iframeRef: RefObject<HTMLIFrameElement | null>, colaboradorId?: string | null, videoId?: string | null) {
+export function useBunnyTracking(
+  iframeRef: RefObject<HTMLIFrameElement | null>,
+  colaboradorId?: string | null,
+  videoId?: string | null,
+  sessionKey?: string | number,
+) {
   useEffect(() => {
-    if (!colaboradorId || !videoId || !iframeRef.current) return;
+    if (!iframeRef.current) return;
     // semana vem do metaData do embed (trilha-X_semana-N) — evita prop extra na página.
     const semana = (() => { const m = (iframeRef.current.src || '').match(/semana-(\d+)/); return m ? Number(m[1]) : null; })();
     let cancelled = false;
@@ -56,6 +61,11 @@ export function useBunnyTracking(iframeRef: RefObject<HTMLIFrameElement | null>,
       if (cancelled || !iframeRef.current) return;
       try { player = new pj.Player(iframeRef.current); } catch { return; }
       player.on('ready', () => {
+        // O Bunny pode restaurar a posição da sessão anterior. Cada montagem do
+        // player representa uma nova abertura e deve começar em 00:00.
+        try { player.setCurrentTime(0)?.catch?.(() => {}); } catch { /* player antigo sem seek */ }
+        time = 0;
+        if (!colaboradorId || !videoId) return;
         player.getDuration((d: any) => { dur = Number(d) || 0; });
         player.on('play', () => {
           if (started) return; started = true;
@@ -89,5 +99,5 @@ export function useBunnyTracking(iframeRef: RefObject<HTMLIFrameElement | null>,
       }
       if (player) ['play', 'ended', 'timeupdate', 'ready'].forEach((e) => { try { player.off(e); } catch {} });
     };
-  }, [colaboradorId, videoId]);
+  }, [colaboradorId, videoId, sessionKey]);
 }

@@ -359,11 +359,6 @@ export default function AssessmentPage() {
                             {t('done.level')} N{Math.round(resultado.nivel)}
                           </span>
                         )}
-                        {resultado.nota != null && (
-                          <span className="rounded-full bg-white/[0.06] px-2 py-1 text-[10px] font-bold text-white/65">
-                            {t('done.score')} {Number(resultado.nota).toFixed(1)}
-                          </span>
-                        )}
                       </div>
                     </div>
 

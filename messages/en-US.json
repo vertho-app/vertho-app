@@ -4159,7 +4159,15 @@
     "profiles": {
       "behavioral": "behavioral",
       "noProfile": "No profile mapped",
+      "noProfileDetail": "The profile will appear here after the mapping is completed.",
       "discDominant": "Dominant DISC",
+      "discDimensions": "DISC dimensions",
+      "profileTitle": "Behavioral profile",
+      "openProfile": "Open behavioral profile",
+      "openProfileFor": "Open the behavioral profile for {name}",
+      "close": "Close",
+      "highlights": "Highlights",
+      "attentionPoints": "Attention points",
       "openPdf": "Open the mapping PDF",
       "openPdfFor": "Open the mapping PDF for {name}",
       "pdfError": "Could not open the PDF"

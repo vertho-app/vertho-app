@@ -61,13 +61,12 @@ describe('item 2 — o degrau manual deixou de ser catraca', () => {
     expect(TELA).not.toContain('disabled={!conteudoConsumido}');
   });
 
-  it('🔴 TODO formato com fonte conta como abertura, não só texto/case', () => {
-    // O bug que sobrou da 1ª rodada: só o ramo texto/case (um `<a>` que sai da
-    // página) chamava `onAbrirConteudo`. Quem preferia ÁUDIO clicava, ouvia o
-    // conteúdo inteiro e os botões seguiam cinza; no vídeo a abertura dependia
-    // de o player emitir `play` por postMessage.
-    const chipInline = 'onClick={() => { if (tem) { setFormatoAtivo(f); onAbrirConteudo?.(); logFormato(f); } }}';
-    expect(TELA).toContain(chipInline);
+  it('🔴 TODO formato com fonte conta como abertura', () => {
+    // Uma ação única atende texto, case, áudio e vídeo. Isso também impede que
+    // um formato volte a sair da experiência por um ramo especial em `<a>`.
+    expect(TELA).toContain('onClick={() => abrirFormato(f)}');
+    expect(TELA).toContain('onAbrirConteudo?.();');
+    expect(TELA).toContain('logFormato(f);');
     // A forma antiga (sem a abertura) não volta.
     expect(TELA).not.toContain('onClick={() => { if (tem) { setFormatoAtivo(f); logFormato(f); } }}');
   });

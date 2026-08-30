@@ -4159,7 +4159,15 @@
     "profiles": {
       "behavioral": "comportamentais",
       "noProfile": "Sem perfil mapeado",
+      "noProfileDetail": "O perfil ficará disponível aqui assim que o mapeamento estiver concluído.",
       "discDominant": "DISC dominante",
+      "discDimensions": "Dimensões DISC",
+      "profileTitle": "Perfil comportamental",
+      "openProfile": "Abrir perfil comportamental",
+      "openProfileFor": "Abrir perfil comportamental de {name}",
+      "close": "Fechar",
+      "highlights": "Destaques",
+      "attentionPoints": "Pontos de atenção",
       "openPdf": "Abrir o PDF do mapeamento",
       "openPdfFor": "Abrir o PDF do mapeamento de {name}",
       "pdfError": "Não foi possível abrir o PDF"

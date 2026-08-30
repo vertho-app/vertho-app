@@ -60,7 +60,7 @@ export function BunnyVideoPlayer({
   const src = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?autoplay=${autoplay ? 'true' : 'false'}&loop=false&muted=false&preload=true&responsive=true${metaParam}`;
 
   useEffect(() => {
-    if (!colaboradorId || !videoId) return;
+    if (!videoId) return;
 
     startedRef.current = false;
     finishedRef.current = false;
@@ -80,6 +80,11 @@ export function BunnyVideoPlayer({
       }
 
       player.on('ready', () => {
+        // Bunny/Plyr pode lembrar a última posição. Abrir o conteúdo novamente
+        // é uma sessão nova e sempre começa do início.
+        try { player.setCurrentTime(0)?.catch?.(() => {}); } catch { /* player antigo sem seek */ }
+        timeRef.current = 0;
+        if (!colaboradorId) return;
         player.getDuration((duration: any) => {
           durationRef.current = Number(duration) || 0;
         });

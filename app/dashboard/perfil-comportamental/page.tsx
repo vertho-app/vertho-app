@@ -648,7 +648,13 @@ export default function PerfilComportamentalPage() {
           <Volume2 size={18} className="text-purple-300 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold text-purple-200 mb-1">{t('audio.title')}</p>
-            <audio controls autoPlay={audioAutoplay} src={audioUrl} className="w-full h-9" />
+            <audio
+              controls
+              autoPlay={audioAutoplay}
+              src={audioUrl}
+              onLoadedMetadata={(event) => { event.currentTarget.currentTime = 0; }}
+              className="w-full h-9"
+            />
           </div>
         </div>
       )}

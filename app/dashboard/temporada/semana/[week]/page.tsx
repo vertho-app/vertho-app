@@ -1080,6 +1080,7 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
   // Aparece como um formato a mais (chip clicável); o player abre inline igual
   // aos outros. Não dispara geração (gerar=false) — só reusa pronto/em-preparo.
   const [vid, setVid] = useState<any>(null);
+  const [mediaSession, setMediaSession] = useState(0);
   const videoIframeRef = useRef(null);
   useEffect(() => {
     if (!competencia) return;
@@ -1104,7 +1105,12 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
   const fonteId = (item as any)?.id || conteudo.core_id;
   const temFonte = ativo === 'video' ? temVideo : !!(item?.url || fonteId);
 
-  useBunnyTracking(videoIframeRef, videoPronto ? vid?.colaboradorId : null, videoPronto ? vid?.bunny_video_id : null);
+  useBunnyTracking(
+    videoIframeRef,
+    videoPronto ? vid?.colaboradorId : null,
+    videoPronto ? vid?.bunny_video_id : null,
+    mediaSession,
+  );
 
   // Listener postMessage Bunny → auto-marca conteudo_consumido ao atingir 80%
   useEffect(() => {
@@ -1154,6 +1160,17 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
     registrarEventoTrilha({ trilhaId, semana, pilula, formato: f, tipo: 'formato' }).catch(() => {});
   };
 
+  const abrirFormato = (f: string) => {
+    const { tem } = fonteDoFormato(f);
+    if (!tem) return;
+    setFormatoAtivo(f);
+    // Cada abertura de mídia é uma nova sessão. A key abaixo remonta o player,
+    // impedindo que vídeo/podcast reaproveite a posição anterior.
+    if (f === 'video' || f === 'audio') setMediaSession((current) => current + 1);
+    onAbrirConteudo?.();
+    logFormato(f);
+  };
+
   // NADA abrível nesta pílula (nenhum formato com fonte e nem vídeo): reporta ao
   // pai — se todas as pílulas estiverem assim, o gate "abra antes de marcar" é
   // insatisfazível e o pai libera o marcar. Espera o vídeo RESOLVER (vid !== null)
@@ -1167,44 +1184,24 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
 
   return (
     <div>
-      {/* Formatos como LINKS/ações diretas: texto/case abrem o PDF em nova aba;
-          áudio/vídeo selecionam e tocam inline abaixo. Sem passo "Abrir conteúdo". */}
+      {/* Todos os formatos permanecem nesta experiência. Na apresentação em
+          celular, sair por target=_blank também saía do aparelho simulado. */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span className="text-[10px] uppercase text-gray-500">{t('content.availableIn')}</span>
         {formatos.map(f => {
           const Icon = FORMAT_ICON[f] || FileText;
-          const { info, fid, tem } = fonteDoFormato(f);
+          const { tem } = fonteDoFormato(f);
           const base = 'flex items-center gap-1 px-2.5 py-1 rounded text-[11px] transition-colors';
           const cls = `${base} ${f === ativo ? 'bg-brand-600 text-white' : 'bg-white/5 text-gray-300 hover:bg-white/10'} ${!tem ? 'opacity-40 cursor-not-allowed' : ''}`;
-          // texto/case → link direto pro PDF (nova aba)
-          if (tem && (f === 'texto' || f === 'case')) {
-            return (
-              <a key={f} href={fid ? `/api/conteudo/${fid}/pdf` : info?.url}
-                target="_blank" rel="noopener"
-                onClick={() => { setFormatoAtivo(f); onAbrirConteudo?.(); logFormato(f); }}
-                className={cls}>
-                <Icon size={12} /> {f}
-              </a>
-            );
-          }
-          // áudio/vídeo → seleciona e toca inline abaixo
-          //
-          // 🔴 `onAbrirConteudo` AQUI TAMBÉM (25/08/2026). Só o ramo texto/case
-          // acima o chamava, porque ele é um `<a>` que sai da página. Resultado:
-          // quem prefere ÁUDIO clicava, ouvia o conteúdo inteiro e os botões de
-          // Evidências e Tira-Dúvidas continuavam cinza — e no vídeo a abertura
-          // dependia de o player emitir `play` por postMessage, que pode nunca
-          // chegar. Abrir é abrir, independentemente de o formato levar para
-          // outra aba ou tocar aqui dentro.
           return (
-            <button key={f} onClick={() => { if (tem) { setFormatoAtivo(f); onAbrirConteudo?.(); logFormato(f); } }} disabled={!tem} className={cls}>
+            <button key={f} onClick={() => abrirFormato(f)} disabled={!tem} className={cls}>
               <Icon size={12} /> {f}
             </button>
           );
         })}
       </div>
 
-      {/* Player inline para áudio/vídeo selecionados (texto/case abrem em nova aba) */}
+      {/* Leitores inline: nenhum formato abandona a tela atual. */}
       {!temFonte && (
         <div className="text-sm text-gray-400 italic p-4 rounded bg-white/5 border border-amber-500/20">
           {t('content.preparingFormats')}
@@ -1212,7 +1209,7 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
       )}
       {ativo === 'video' && videoPronto && (
         <div className="aspect-video rounded-lg overflow-hidden bg-black">
-          <iframe ref={videoIframeRef} src={embedUrl} className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen />
+          <iframe key={`video-${mediaSession}`} ref={videoIframeRef} src={embedUrl} className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen />
           {vid?.isPersonalizado && <p className="text-[10px] text-emerald-400 font-semibold mt-1">· com seu nome</p>}
         </div>
       )}
@@ -1223,11 +1220,24 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
       )}
       {temFonte && ativo === 'audio' && (
         <audio
+          key={`audio-${mediaSession}`}
           controls
           className="w-full"
           src={fonteId ? `/api/conteudo/${fonteId}/podcast` : item.url}
+          onLoadedMetadata={(event) => { event.currentTarget.currentTime = 0; }}
           onEnded={() => registrarEventoTrilha({ trilhaId, semana, pilula, formato: 'audio', tipo: 'audio_fim' }).catch(() => {})}
         />
+      )}
+      {temFonte && (ativo === 'texto' || ativo === 'case') && (
+        <div className="h-[68dvh] min-h-[480px] max-h-[760px] overflow-hidden rounded-xl border border-white/10 bg-white">
+          <iframe
+            src={fonteId
+              ? `/api/conteudo/${encodeURIComponent(fonteId)}/pdf#view=FitH&navpanes=0`
+              : `${item.url}#view=FitH&navpanes=0`}
+            title={`${ativo}: ${item?.titulo || conteudo.core_titulo || ''}`}
+            className="h-full w-full border-0 bg-white"
+          />
+        </div>
       )}
     </div>
   );

@@ -143,6 +143,7 @@ export default function ContentExperience({
               controls
               preload="metadata"
               src={audioSource}
+              onLoadedMetadata={(event) => { event.currentTarget.currentTime = 0; }}
               className="mt-6 w-full [color-scheme:dark]"
             >
               Seu navegador não suporta reprodução de áudio.

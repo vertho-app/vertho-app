@@ -203,7 +203,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // Fail-closed: se zero match, retorna lista vazia.
   const meuEmail = ctx.colaborador.email?.toLowerCase().trim();
   let colabQ = sb.from('colaboradores')
-    .select('id, nome_completo, cargo, email, area_depto, perfil_dominante, perfil_externo_dados, perfil_externo_pdf_path, foto_url, gestor_email, role')
+    .select('id, nome_completo, cargo, email, area_depto, perfil_dominante, d_natural, i_natural, s_natural, c_natural, perfil_externo_dados, perfil_externo_pdf_path, foto_url, gestor_email, role')
     .eq('empresa_id', empresaId)
     .neq('id', meuId);
   if (isGestor && meuEmail) {
@@ -595,7 +595,10 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
         fonte: 'disc',
         temPdf,
         letraDom: c.perfil_dominante,
-        // disc_d/i/s/c não estão no select inicial; ficam null aqui (UI handle)
+        d: c.d_natural,
+        i: c.i_natural,
+        s: c.s_natural,
+        c: c.c_natural,
       };
     }
     return {
