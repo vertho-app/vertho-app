@@ -128,6 +128,57 @@ describe('conteudo_semana_pendente_v2 — o gêmeo na fila', () => {
   });
 });
 
+/**
+ * O v3 é o experimento que muda a variável certa: link NO CORPO, sem botão.
+ *
+ * Os v1 e v2 carregavam o destino no `botaoParam` e os dois voltaram MARKETING;
+ * o cruzamento dos 20 templates da conta diz que botão → 3 MARKETING / 1
+ * UTILITY e corpo → 2 MARKETING / 14 UTILITY. Como o contrato aqui tem uma
+ * variável A MAIS, mandar os params de um irmão entrega a mensagem SEM link e
+ * com um buraco em `{{4}}` — sem erro na API, na mão de gente real.
+ */
+describe('conteudo_semana_pendente_v3 — link no corpo, sem botão', () => {
+  const v3 = contratoDoTemplate('conteudo_semana_pendente_v3');
+
+  it('tem contrato mapeado', () => {
+    expect(v3).toBeTruthy();
+  });
+
+  it('o 4º parâmetro é o LINK, e não há botão', () => {
+    const { params, botaoParam } = v3!(ARGS);
+    expect(params).toHaveLength(4);
+    expect(params[3]).toBe(`${BASE_URL}/dashboard/temporada/semana/1?formato=video&p=1`);
+    expect(botaoParam).toBeNull();
+  });
+
+  it('o template não declara botão — é a forma dos 14 UTILITY', () => {
+    // `as const satisfies` tipa cada entrada pelo literal, então `.botao` nem
+    // existe no tipo de quem não o declara: o alargamento é o que permite
+    // ASSERIR a ausência em vez de o compilador a esconder.
+    const v3def = TEMPLATES.conteudo_semana_pendente_v3 as { botao?: unknown };
+    expect(v3def.botao).toBeUndefined();
+    // Asserção de ausência não basta: prova que o campo EXISTE nos irmãos, ou
+    // um `botao` renomeado deixaria este teste verde sem olhar nada.
+    expect(TEMPLATES.conteudo_semana_pendente.botao?.texto).toBe('Abrir a semana');
+  });
+
+  it('todo `{{n}}` do corpo recebe um parâmetro — buraco não dá erro na API', () => {
+    const body = TEMPLATES.conteudo_semana_pendente_v3.body;
+    const usadas = [...body.matchAll(/\{\{(\d)\}\}/g)].map((m) => Number(m[1]));
+    expect(Math.max(...usadas)).toBe(v3!(ARGS).params.length);
+    expect(new Set(usadas).size).toBe(usadas.length); // sem variável repetida
+  });
+
+  it('mantém a frase que destrava e a copy do UTILITY em uso', () => {
+    const body = TEMPLATES.conteudo_semana_pendente_v3.body;
+    expect(body).toContain('conversa de evidências');
+    // Só a frase final difere do `conteudo_semana` aprovado: é o que isola o
+    // botão como variável do experimento.
+    const prefixo = TEMPLATES.conteudo_semana.body.split('\n\n').slice(0, 2).join('\n\n');
+    expect(body).toContain(prefixo);
+  });
+});
+
 describe('e-mail da pílula pendente', () => {
   const item = { conteudo: { titulo: TEMA } };
   const opts = { semana: ACESSIVEL, baseUrl: BASE_URL, formato: 'video', pilula: 1 } as any;

@@ -139,9 +139,24 @@ export const TEMPLATES = {
    * queimado enquanto a exclusão processa (mordeu em 14/08). Nome novo entra na
    * fila em paralelo; o antigo só sai depois que este aprovar.
    *
+   * 🔴 ESTE TEMPLATE ESTÁ APROVADO COMO **MARKETING** (medido 30/08/2026) e
+   * NUNCA foi ligado: `whatsapp_mensagens_enviadas` tem 198 envios de
+   * `conteudo_semana` e **zero** dele. Não é dívida inofensiva — é uma armadilha
+   * carregada: basta alguém apontar `WHATSAPP_TEMPLATE_PILULA` para "o desenho
+   * novo" e a mensagem de MAIOR volume da operação passa a custar 6×, sem
+   * nenhum sintoma. Antes de ligá-lo, confira a categoria na Meta.
+   *
    * O QUE MUDOU EM RELAÇÃO AO `conteudo_semana`:
-   *   1. O link saiu do CORPO e virou BOTÃO. Link no corpo é o sinal que mais se
-   *      correlacionou com reprovação e com reclassificação para MARKETING.
+   *   1. O link saiu do CORPO e virou BOTÃO.
+   *      ⚠️ A JUSTIFICATIVA ORIGINAL DESTA LINHA ESTAVA ERRADA. Ela dizia que
+   *      "link no corpo é o sinal que mais se correlacionou com reprovação e
+   *      com reclassificação para MARKETING" — escrita em 14/08, quando nenhum
+   *      template com botão tinha voltado da revisão. Com 20 templates na conta
+   *      o cruzamento diz o contrário: botão → 3 MARKETING e 1 UTILITY; corpo →
+   *      2 MARKETING e 14 UTILITY. E o par mais limpo é este mesmo: a copy é a
+   *      do `conteudo_semana`, que é UTILITY; a diferença é o botão, e ela caiu.
+   *      A linha fica registrada em vez de apagada porque foi ela que fez o v1 e
+   *      o v2 de `conteudo_semana_pendente` nascerem com botão, e ambos caíram.
    *   2. O link agora é `app.vertho.ai/ir/…` — domínio FIXO, porque a variável
    *      de botão da Meta só pode ir no fim de uma URL fixa e aqui o domínio é
    *      o tenant.
@@ -620,6 +635,44 @@ export const TEMPLATES = {
       url: 'https://app.vertho.ai/ir/{{1}}',
       exemplo: 'https://app.vertho.ai/ir/ibipeba/1/video/1',
     },
+  },
+
+  /**
+   * Terceira tentativa do MESMO momento, e a que muda a variável certa.
+   *
+   * 🔴 O QUE OS DOIS PRIMEIROS ENSINARAM (medido 30/08/2026). O v1 (anuncia +
+   * cobra) e o v2 (só cobra) voltaram MARKETING. A hipótese do v2 — "anunciar e
+   * cobrar na mesma mensagem" — morreu aí: o v2 não anuncia e caiu igual. O que
+   * sobra, cruzando FORMA × categoria real da Meta nos 20 templates da conta:
+   *
+   *   link em BOTÃO → 3 MARKETING, 1 UTILITY
+   *   link no CORPO → 2 MARKETING, 14 UTILITY
+   *
+   * O par mais limpo é interno: `conteudo_semana` (link no corpo) é UTILITY e
+   * `conteudo_semana_v2` (MESMA copy, link em botão) é MARKETING.
+   *
+   * ⚠️ ISSO INVERTE O QUE ESTAVA ESCRITO AQUI. O comentário do
+   * `conteudo_semana_v2` afirmava que "link no corpo é o sinal que mais se
+   * correlacionou com reprovação e com reclassificação para MARKETING", e foi
+   * por causa dele que o v1 e o v2 nasceram com botão. A afirmação era de
+   * 14/08, quando nenhum template com botão tinha voltado ainda — hoje há
+   * quatro, e três caíram. Corrigido lá também: comentário que ensina o oposto
+   * do medido custa uma submissão a cada pessoa que o lê.
+   *
+   * ✅ ESTE É O EXPERIMENTO: copy do `conteudo_semana` (UTILITY, APROVADO, 198
+   * envios reais), com a ÚNICA alteração sendo a frase final, que troca a
+   * explicação da seleção pela pendência. Se voltar UTILITY, o botão era o
+   * sinal. Se voltar MARKETING, a combinação conteúdo+cobrança não passa nesta
+   * conta, e a saída é o `semana_pendente_v2` (já aprovado) na segunda.
+   *
+   * Contrato = o do `conteudo_semana`: `{{4}}` é o link, no corpo, sem botão.
+   */
+  conteudo_semana_pendente_v3: {
+    name: 'conteudo_semana_pendente_v3',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. O conteúdo da semana {{2}} da sua trilha já está disponível: {{3}}.\n\nVocê pode acessar em:\n{{4}}\n\nEsta semana somente é concluída na conversa de evidências.',
+    example: ['Maria', '1', 'Escuta ativa na sala de aula', 'https://ibipeba.vertho.ai/dashboard/temporada/semana/1'],
   },
 
   /** Resultado do assessment comportamental liberado. */

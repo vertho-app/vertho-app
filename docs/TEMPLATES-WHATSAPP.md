@@ -462,24 +462,42 @@ MESMO contrato do v1, com a ordem invertida. Corre em paralelo em vez de esperar
 precedente é o `semana_pendente` v1/v2 (23/08), e o perdedor só é apagado depois que o vencedor
 aprova **e** entrega.
 
-📊 **O PAR ISOLA UMA VARIÁVEL, e é o dado mais útil que esta base tem sobre o classificador.**
-Medido 30/08, consulta feita minutos depois de cada submissão:
+⏳ **`conteudo_semana_pendente_v3`** — submetido 30/08/2026 (`id=2450758295411521`). Link **no
+corpo**, sem botão, e é o experimento que muda a variável certa.
 
-| | abertura | fecho | categoria |
-|---|---|---|---|
-| `conteudo_semana_pendente` | anuncia disponibilidade + tema | cobra a pendência | **MARKETING** |
-| `conteudo_semana_pendente_v2` | afirma a pendência | conteúdo como continuidade | **UTILITY** |
+### 🔴 O sinal é o BOTÃO, e isto inverte o que estava escrito no código
 
-⚠️ **Anunciar disponibilidade NÃO é o sinal** — quem "corrigir" esse lado vai reescrever a copy
-errada. `conteudo_semana_v2` diz *"o conteúdo da semana X está disponível. Tema: Y"* e é UTILITY
-aprovado. O que os 17 aprovados nunca fazem é **anunciar e cobrar na mesma mensagem, nessa ordem**:
-`conteudo_semana_v2` anuncia e fecha justificando o serviço; `registro_evidencia` e
-`registro_desafio` cobram, mas abrem pelo ESTADO da conta. A hipótese que o par sustenta é a
-COMBINAÇÃO, não o anúncio — e ela é uma hipótese de amostra 2, não regra publicada pela Meta.
+Os v1 (anuncia + cobra) e v2 (só cobra) voltaram **MARKETING**. A hipótese do v2 — "anunciar e cobrar
+na mesma mensagem" — morreu com ele: o v2 não anuncia e caiu igual. Cruzando FORMA × categoria real
+nos **20 templates da conta** (medido 30/08):
 
-Ambos seguem `PENDING`: o veredito final pode mudar nos dois sentidos e só vale quando sair
-`APPROVED`. Os dois compartilham o montador em `CONTRATOS`, então escolher o vencedor é trocar o
-valor de `WHATSAPP_TEMPLATE_CONTEUDO_PENDENTE` — sem tocar em código.
+| | MARKETING | UTILITY |
+|---|---|---|
+| link em **BOTÃO** | 3 | 1 |
+| link **no CORPO** | 2 | 14 |
+
+O par mais limpo é interno e não depende de estatística: **`conteudo_semana` (link no corpo) é
+UTILITY** e **`conteudo_semana_v2` (a MESMA copy, link em botão) é MARKETING**.
+
+⚠️ **O comentário do `conteudo_semana_v2` afirmava o contrário** — que "link no corpo é o sinal que
+mais se correlacionou com reclassificação para MARKETING" — e foi por causa dele que o v1 e o v2
+nasceram com botão, queimando duas submissões. A frase era de 14/08, quando nenhum template com
+botão tinha voltado da revisão. Corrigida no código, com a linha original preservada e datada:
+comentário que ensina o oposto do medido custa uma submissão a cada pessoa que o lê.
+
+🔴 **ARMADILHA CARREGADA: `conteudo_semana_v2` está APPROVED/MARKETING e nunca foi ligado.**
+`whatsapp_mensagens_enviadas` (30 dias) tem **198 envios de `conteudo_semana`** e **zero** dele — ou
+seja, a cadência roda no UTILITY e não há custo de 6× correndo. Mas basta alguém apontar
+`WHATSAPP_TEMPLATE_PILULA` para "o desenho novo" e a mensagem de MAIOR volume da operação passa a
+custar 6× sem nenhum sintoma. Ligar só depois de conferir a categoria na Meta.
+
+Os três seguem `PENDING`/`MARKETING`/`MARKETING`: o veredito final só vale quando sair `APPROVED`.
+v1 e v2 compartilham o montador em `CONTRATOS`; o v3 tem contrato PRÓPRIO (4 variáveis, link em
+`{{4}}`), então trocar a env entre v3 e os irmãos exige o par certo — travado em
+`tests/unit/p1-conteudo-pendente.test.ts`, validado por mutação.
+
+**Se o v3 também voltar MARKETING**, a leitura é que conteúdo + cobrança não passa nesta conta, e a
+saída que não depende de ninguém é usar o `semana_pendente_v2` (APPROVED/UTILITY) na segunda-feira.
 Papel `conteudo_pendente` · `WHATSAPP_TEMPLATE_CONTEUDO_PENDENTE` (ainda **não gravada** — o código
 está no ar desligado, e `templateAtivo` é fail-closed sem ela).
 Contrato: `{{1}}`=nome, `{{2}}`=semana **ACESSÍVEL**, `{{3}}`=tema; botão

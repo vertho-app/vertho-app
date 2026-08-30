@@ -305,6 +305,20 @@ const CONTRATOS: Record<string, MontarParams> = {
     botaoParam: caminhoDoBotao(a),
   }),
 
+  /**
+   * v3: link NO CORPO (`{{4}}`), sem botão — contrato idêntico ao do
+   * `conteudo_semana`, que é o UTILITY aprovado e em uso.
+   *
+   * ⚠️ Uma variável a mais que os irmãos, e é isso que está sendo testado: os
+   * v1/v2 carregavam o destino no `botaoParam` e os dois voltaram MARKETING.
+   * Aqui o destino é o 4º parâmetro do corpo. Mandar os params do v1 para este
+   * nome entregaria a mensagem SEM link e com um buraco em `{{4}}`.
+   */
+  conteudo_semana_pendente_v3: (a) => ({
+    params: [a.nome, String(a.semana), a.tema, deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
+    botaoParam: null,
+  }),
+
   registro_evidencia: (a) => ({
     params: [a.nome, String(a.semana), deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
     botaoParam: null,
