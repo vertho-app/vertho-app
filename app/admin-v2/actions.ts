@@ -297,7 +297,8 @@ export async function carregarClienteWorkspace(empresaId: string): Promise<{ ws?
     // Feature flag: env global OU por empresa (`sys_config.turmas_ui`), mesmo
     // padrão de BLUEPRINT_DRIVES_TRILHA. Desligada, esta tela é byte-igual à
     // anterior — o que permite subir o código sem mexer no que está no ar.
-    const { data: empCfg } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+    const { data: empCfg, error: erroCfg } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+    if (erroCfg) return { erro: erroCfg.message };
     const turmasLigadas = process.env.TURMAS_UI === '1'
       || (empCfg?.sys_config as any)?.turmas_ui === true;
     const portfolio = turmasLigadas ? await levantarPortfolioTurmas(sb, empresaId) : null;
