@@ -20,8 +20,12 @@ const txt = await callAI(system, user, { model? }, maxTokens?, options?);
 
 ## Prompt caching (economia real)
 
-- System **> 4000 chars** já é cacheado automaticamente (`cache_control`).
+- System **> 4000 chars** é cacheado automaticamente (`cache_control`).
 - Em **lote** com prefixo GRANDE e ESTÁVEL do user (régua + cenário + rubrica, idênticos entre colaboradores do mesmo lote), passe **`options.cachedUserPrefix`** → vira um 2º breakpoint. Chamadas seguintes em 5 min pagam ~10% nesse trecho. (Gemini/OpenAI: concatenado, sem cache.)
+- Chat multi-turn: **`options.cacheHistory`** congela system + histórico (breakpoint na última mensagem `assistant`). Sem `userSuffix`, o prompt enviado é IDÊNTICO — é só billing.
+- 🔴 **Comprimento não é estabilidade — use `options.cacheSystem: false` quando o system é longo por ser ÚNICO.** Prompt enriquecido por chamada (módulo-base + kit) cruza os 4.000 chars por construção, e o default então paga write (**1,25×**) de um prefixo que nunca repete. `Medido:` 30/08/2026 — `conteudo_texto` escreveu 282.120 tokens de cache e leu **0**; podcast 276.536 e 0. Decisão POR FEATURE, com `sum(cache_write_tokens)` vs `sum(cache_read_tokens)` na mão: no MESMO call-site, `conteudo_video` LÊ 75.366 e desligar lá sairia mais caro.
+- ⚠️ Toda opção de cache vale nos DOIS caminhos (síncrono e `lib/ai-batch.ts`) — o lote é o default da geração de conteúdo.
+- 🔑 Antes de prometer economia: **decomponha a conta**. Em 30/08 output era **78%** dela, input frio 21% — o teto de cachear tudo era 18,7%, e o resto se ganha em `reasoningEffort`, prompt mais curto e Batch. Detalhe: `docs/CUSTO-QUALIDADE.md` §30/08.
 
 ## Geração em lote de fundo
 

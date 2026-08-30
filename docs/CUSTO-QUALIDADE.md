@@ -1609,3 +1609,106 @@ mesmo trabalho, não só menos limitado por cota. O ledger responde isso sozinho
 `maxDuration = 300` e o podcast gastou 94s — **31% do orçamento** — mas o ledger
 não sabe disso sozinho. Cobertura faltando, não chute (é o desenho de
 `lib/execucao-contexto.ts`).
+
+---
+
+## 30/08 — o teto do caching é 19%, e o auto-cache por COMPRIMENTO paga write que ninguém lê
+
+A rodada começou por um aviso da Anthropic no console: *"your prompt cache hit
+rate is low — caching repeated content could save up to 22% of direct API
+spend"*. A pergunta certa não é "como subir o hit rate", é **de que é feita a
+conta** — e a resposta muda a decisão inteira.
+
+### O denominador
+
+`Medido:` 30 dias de `ia_usage_log`, `provider='anthropic'`, 4.892 chamadas,
+**US$ 201,33**. Hit global **32,8%** (7,1M lidos do cache contra 12,3M frios).
+
+| Componente | USD | % da conta |
+|---|---:|---:|
+| **Output** | **156,03** | **78%** |
+| Input frio (não cacheado) | 41,86 | 21% |
+| Cache write (1,25×) | 9,56 | 4,7% |
+| Cache read (0,1×) | 2,57 | 1,3% |
+
+**Cache só toca 21% da conta.** Se 100% do input frio virasse leitura a 0,1× —
+impossível na prática — o corte seria ~US$ 37/mês, **18,7%**. Ou seja: os "22%"
+do aviso são o **teto de cachear tudo o que é cacheável**, não uma expectativa. O
+ganho realista desta rodada é de US$ 8 a 15/mês.
+
+🔑 **A regra que sobrevive:** antes de investir em caching, decomponha a conta em
+output / input frio / write / read. Onde output domina (aqui, 78%), as alavancas
+são `reasoningEffort`, prompt que pede menos texto e **Batch — que hoje leva só
+US$ 15 dos 201** (7%). Otimizar o cache com output dominando é polir 21% do
+problema.
+
+### Achado 1 · write órfão: o auto-cache lê COMPRIMENTO como ESTABILIDADE
+
+A régua era `system.length > 4000 → cache_control`. Nos geradores de conteúdo ela
+é falsa por construção: o system passa dos 4.000 chars **justamente porque foi
+enriquecido** com módulo-base + kit (`actions/conteudos.ts:156-188`), que são
+únicos por (competência × descritor × cargo × módulo × kit). O prefixo nunca
+repete, e cada chamada paga o write de um cache que ninguém lê.
+
+| Feature | Escritos | Lidos |
+|---|---:|---:|
+| `conteudo_texto` | 282.120 | **0** |
+| `conteudo_podcast` | 276.536 | **0** |
+| `conteudo_case` | 275.633 | 2.845 |
+| `conteudo_video` | 234.545 | 75.366 |
+
+O gate da S3 pedia **write-sem-leitura < 10%**; nessas três estava em ~100%, e
+ninguém tinha olhado porque a métrica agregada (32,8% de hit) parecia saudável.
+Write custa 1,25×: cachear prefixo que não repete é **pior** que não cachear.
+
+Correção: `options.cacheSystem` em `actions/ai-client.ts`, honrado nos três
+caminhos — síncrono, chat e **lote** (`lib/ai-batch.ts`). O lote não é detalhe: é
+o caminho DEFAULT da geração de conteúdo, e opção honrada só no síncrono seria
+consertar o gêmeo que não roda (§F-I14).
+
+⚠️ **O opt-out é por feature, com o ledger na mão.** No MESMO call-site, o vídeo
+LÊ (75.366 contra 234.545): desligar lá custaria mais do que economiza. Ficou de
+fora explicitamente.
+
+### Achado 2 · o lever caro existia e não tinha consumidor
+
+`cena_turno` sozinha respondia por **34% de todo o input frio** (2,9M tokens,
+US$ 14,07): o histórico da conversa era reenviado inteiro a cada turno, com gap
+mediano de **25 s** entre turnos (bem dentro do TTL de 5 min). O mecanismo
+(`options.cacheHistory`) existia no wrapper desde o piloto de history caching,
+validado por probe — e o **único caller que o ligava era o tira-dúvidas**, que
+custa US$ 0,13 em 30 dias.
+
+Ligar na cena não muda o prompt: a relocação que mexeria no texto é a do
+`userSuffix`, e a cena usa `systemSuffix`. O efeito é só o 2º breakpoint na
+última mensagem do interlocutor. Mesma família do "config declarada não é config
+aplicada" — ao achar um lever caro, a pergunta seguinte é **quem o consome**.
+
+### O que ficou de fora, e por quê
+
+| Feature | Input frio | Por que não mexi |
+|---|---:|---|
+| `modulo_base_autor` | US$ 2,53 | gap mediano **0 s** (disparo paralelo): nenhuma chamada acha o cache da outra. Só priming resolve, e custa uma rodada de latência para ~US$ 2/mês |
+| `cena_extracao` | US$ 2,76 | gap mediano 267 s, perto do TTL de 5 min. Exigiria `ttl: '1h'` (write a 2×), decisão que precisa de medição própria |
+| `blueprint_audit`, `kit_desafio_semana` | US$ 3,21 | zero cache hoje; system abaixo do mínimo cacheável |
+| `untagged` | US$ 2,57 | 439 chamadas sem `taskKey` — não dá para decidir sem saber quem é |
+
+### Guarda
+
+`tests/unit/integrations/ai-cache-breakpoints.test.ts` (9 asserções) e
+`tests/unit/cena-cache-historico.test.ts` (2). Toda asserção de ausência vem
+pareada com o caso positivo — `toBeUndefined()` fica verde quando o caminho nem
+foi percorrido. Validado por **mutação (4 mutações, 4 vermelhos)**: wrapper
+ignorando a opção, cena sem a flag, lote ignorando o request do batch e call-site
+sem repassar.
+
+### Aberto
+
+`Suponho:` o ledger cobre quem passa pelo wrapper (§29/08), então se a fatura da
+Anthropic for materialmente maior que US$ 201/mês há consumo fora dele. **Não
+medido:** `C:\GAS\Simulador` (copiloto PACE) chama a Claude direto em
+`src/lib/ai-call.js` **sem nenhum `cache_control`** e sem gravar no ledger.
+
+**Não medido ainda:** o efeito das duas correções. A verificação é comparar, daqui
+a alguns dias, `frio` caindo e `lido` subindo em `cena_turno`, e `escrito` perto
+de zero nos três `conteudo_*`.

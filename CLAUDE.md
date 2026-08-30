@@ -142,7 +142,9 @@ tests/unit/          vitest
   - Ao trocar de modelo, além do mapa de ~26 arquivos, **grepar chamada crua**
     (`api.anthropic.com`, `new Anthropic(`, `generativelanguage`) e conferir o contrato dos parâmetros
     de raciocínio — não só o id.
-- **Prompt caching**: o system >4000 chars já é cacheado (`cache_control`). Para lote com prefixo grande e estável (régua/cenário repetidos entre colabs), passar `options.cachedUserPrefix` (2º breakpoint). Ver IA4 (`fase3.ts`) e o check (`check-ia4.ts`).
+- **Prompt caching**: o system >4000 chars é cacheado por default (`cache_control`); prefixo grande e estável do user (régua/cenário repetidos entre colabs) vira 2º breakpoint com `options.cachedUserPrefix` (ver IA4 em `fase3.ts` e o check em `check-ia4.ts`); chat multi-turn cacheia o histórico com `options.cacheHistory`.
+  - ⚠️ **Comprimento NÃO é estabilidade** — `options.cacheSystem: false` existe para isso. Prompt enriquecido por chamada (módulo-base + kit) passa dos 4.000 chars **por ser único**, e aí o default paga write (1,25×) de um prefixo que nunca repete: medido em 30/08, `conteudo_texto` escreveu 282.120 tokens de cache e leu **0**. Desligar é decisão POR FEATURE, com o ledger na mão (no mesmo call-site, `conteudo_video` LÊ).
+  - 🔑 E antes de prometer economia de cache, **decomponha a conta**: em 30/08 output era **78%** dela, então o teto de cachear tudo era 18,7%. Detalhe: `docs/CUSTO-QUALIDADE.md` §30/08.
 - Geração em lote de fundo (kit/conteúdos/roteiros) usa **`lib/ai-batch.ts`** (−50%).
 - JSON estruturado: pedir JSON no prompt + parsear (há helpers de extração).
 

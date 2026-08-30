@@ -759,3 +759,39 @@ resposta completa. Depois de instrumentado, o custo real saiu **US$ 0,1195** por
 Detalhe: `lib/ia-ledger.ts`, `lib/gemini-tts.ts::registrarUsoTts`,
 `tests/unit/integrations/tts-ledger.test.ts`, `docs/CUSTO-QUALIDADE.md` §29/08, memória
 `project_ledger_fronteira_do_wrapper`.
+
+---
+
+## § Vou ligar/desligar CACHE de prompt, ou responder "quanto isso economiza?"
+
+**Casa quando:** chegou aviso de cache hit rate baixo, alguém pergunta se vale cachear, ou você vai
+mexer em `cache_control` / `cacheSystem` / `cacheHistory` / `cachedUserPrefix`.
+
+**Confira, nesta ordem:**
+
+1. **Decomponha a conta ANTES.** Output, input frio, cache write, cache read — em dólares, não em
+   tokens. Cache só toca o input; se output domina, o teto do ganho é pequeno por construção e as
+   alavancas são outras (`reasoningEffort`, prompt mais curto, Batch a −50%).
+2. **Write sem leitura é PIOR que não cachear.** Por feature: `sum(cache_write_tokens)` contra
+   `sum(cache_read_tokens)`. Write custa 1,25×; prefixo que não repete é dinheiro jogado fora. O
+   agregado esconde isso — a média pode estar saudável com features em 100% de write órfão.
+3. **System longo é estável ou só GRANDE?** A régua automática é `length > 4000`, e comprimento não
+   é estabilidade: prompt enriquecido por chamada (módulo-base, kit, contexto do colaborador) é
+   longo justamente por ser único.
+4. **O gap entre chamadas cabe no TTL?** 5 min no default. `gap` mediano por feature decide: rajada
+   paralela (gap 0) não acha cache nenhum sem priming, e gap acima de 5 min só compensa com
+   `ttl: '1h'`, que custa write a 2×.
+5. **O mecanismo já existe e ninguém liga?** Antes de escrever cache novo, grep no wrapper: a opção
+   pode estar lá, gateada por flag, com um caller de US$ 0,13 e o caro de fora.
+6. **A opção vale nos DOIS caminhos?** Geração de conteúdo tem síncrono e LOTE (`lib/ai-batch.ts`),
+   e o lote é o default. Opção honrada só num deles é o gêmeo que não roda (F-I14).
+
+**Consequência medida (30/08/2026):** o aviso do console prometia "até 22%". Medido em 30 dias,
+output era **78%** da conta (US$ 156 de 201) e o input frio 21% — o teto real de cachear TUDO era
+**18,7%**, e o ganho realista US$ 8 a 15/mês. No caminho apareceram os dois defeitos que a soma
+escondia: `conteudo_texto`/`podcast`/`case` escreviam ~276k tokens de cache cada e liam **0**
+(pagando 1,25× por nada), e `cena_turno`, com **34% de todo o input frio**, reenviava o histórico
+frio porque o `cacheHistory` do wrapper só era ligado pelo tira-dúvidas.
+
+Detalhe: `actions/ai-client.ts`, `lib/ai-batch.ts`, `docs/CUSTO-QUALIDADE.md` §30/08, memória
+`project_cache_teto_e_write_orfao`.
