@@ -13,6 +13,8 @@ import { execFileSync } from 'child_process';
  *  - `CLAUDE.md` / `AGENTS.md`: carregados por convenção de CAMINHO. Movidos, o
  *    agente perde as regras do projeto em toda sessão.
  *  - `.claude/skills/<nome>/*.md`: o caminho É o identificador da skill.
+ *  - `.claude/agents/<nome>.md`: mesma razão, o caminho É o identificador do
+ *    subagent. Movido para `docs/`, ele deixa de ser invocável.
  *  - `README.md` de subprojeto: pertence à pasta que descreve.
  *
  * ⚠️ Varre apenas arquivos VERSIONADOS (`git ls-files`), igual aos outros guards do
@@ -24,6 +26,7 @@ const EXCECOES = [
   /^CLAUDE\.md$/,
   /^AGENTS\.md$/,
   /^\.claude\/skills\/[^/]+\/.*\.md$/i,
+  /^\.claude\/agents\/[^/]+\.md$/i,
   /(^|\/)README\.md$/i,
 ];
 
@@ -64,6 +67,11 @@ describe('Guard: documentação vive em docs/', () => {
     }
     if (!todos.some((f) => /^\.claude\/skills\/[^/]+\/SKILL\.md$/.test(f))) {
       throw new Error('Nenhuma SKILL.md encontrada — o padrão de caminho das skills mudou?');
+    }
+    // Mesmo canário para a exceção dos agents: sem ele, a linha da EXCECOES
+    // vira letra morta e ninguém percebe se o caminho mudar.
+    if (!todos.some((f) => /^\.claude\/agents\/[^/]+\.md$/.test(f))) {
+      throw new Error('Nenhum agent em .claude/agents/ — o padrão de caminho dos subagents mudou?');
     }
   });
 });
