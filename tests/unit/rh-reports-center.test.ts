@@ -64,4 +64,15 @@ describe('central de relatórios do RH', () => {
     expect(page).toContain('carregarCentralRelatoriosRH(auth.empresaId)');
     expect(page).not.toMatch(/searchParams|empresaId:\s*string/);
   });
+
+  it('abre o PDF dentro da central e mantém o download como ação separada', () => {
+    const view = readFileSync('app/dashboard/relatorios/relatorios-rh-view.tsx', 'utf8');
+    const pdfRoute = readFileSync('app/api/relatorios/pdf/route.ts', 'utf8');
+
+    expect(view).toContain('<ReportViewer');
+    expect(view).toContain('view=inline');
+    expect(view).not.toContain('target="_blank"');
+    expect(pdfRoute).toContain("searchParams.get('view') === 'inline'");
+    expect(pdfRoute).toContain('`${contentDisposition}; filename=');
+  });
 });

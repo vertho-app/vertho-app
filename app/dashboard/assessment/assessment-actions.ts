@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
+import { assessmentCompetencyWasAnswered, findAssessmentAnswer } from '@/lib/assessment/completion';
 
 async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string, top5: string[], escolaId: string | null = null) {
   const { data: compsDoCargo } = await sb.from('competencias')
@@ -160,11 +161,13 @@ async function _getDiagnosticoDoDia() {
     .eq('colaborador_id', colab.id)
     .eq('empresa_id', colab.empresa_id);
   if (respostasError) return { error: respostasError.message };
-  const jaRespondidasIds = new Set((respostas || []).map(r => r.competencia_id).filter(Boolean));
-
-  // Pega o primeiro do top5 que ainda não foi respondido (por id)
+  // Pega o primeiro do Top 5 que ainda não foi respondido. O ID é a chave
+  // preferencial, mas o catálogo pode ser recomposto e receber novos UUIDs
+  // preservando o nome. Nesse caso a resposta anterior continua válida.
   // Sem limite diário — o colaborador pode responder quantas competências quiser no mesmo dia
-  const pendentes = top5ComCenario.filter(c => c.id && !jaRespondidasIds.has(c.id));
+  const pendentes = top5ComCenario.filter((competencia) =>
+    !assessmentCompetencyWasAnswered(competencia, respostas || []),
+  );
   const respondidas = top5.length - pendentes.length;
   const pct = top5.length > 0 ? Math.round((respondidas / top5.length) * 100) : 0;
 
@@ -178,12 +181,8 @@ async function _getDiagnosticoDoDia() {
 
   // Concluiu todas (só se havia competências pra responder e todas foram respondidas)
   if (!pendentes.length) {
-    const respostaPorNome = new Map((respostas || []).map((row: any) => [
-      String(row.competencia_nome || '').trim().toLowerCase(),
-      row,
-    ]));
-    const resultados = top5.map((competencia: string) => {
-      const row: any = respostaPorNome.get(String(competencia).trim().toLowerCase());
+    const resultados = top5ComCenario.map((competencia) => {
+      const row: any = findAssessmentAnswer(competencia, respostas || []);
       const avaliacao = typeof row?.avaliacao_ia === 'string'
         ? (() => { try { return JSON.parse(row.avaliacao_ia); } catch { return null; } })()
         : row?.avaliacao_ia;
@@ -205,7 +204,7 @@ async function _getDiagnosticoDoDia() {
         || '',
       ).trim();
       return {
-        competencia,
+        competencia: competencia.nome,
         avaliada: Number.isFinite(nivel) || Number.isFinite(nota) || Boolean(feedback),
         nivel: Number.isFinite(nivel) ? nivel : null,
         nota: Number.isFinite(nota) ? nota : null,
@@ -335,12 +334,12 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) 
 
   const top5ComCenario = await resolverTop5ComCenario(sb, colab.empresa_id, colab.cargo, top5, (colab as any).escola_id || null);
 
-  const { data: respostas } = await sb.from('respostas')
-    .select('competencia_id').eq('colaborador_id', colab.id).eq('empresa_id', colab.empresa_id);
-  const jaSet = new Set((respostas || []).map(r => r.competencia_id).filter(Boolean));
+  const { data: respostas, error: respostasRecalcError } = await sb.from('respostas')
+    .select('competencia_id,competencia_nome').eq('colaborador_id', colab.id).eq('empresa_id', colab.empresa_id);
+  if (respostasRecalcError) return { error: respostasRecalcError.message };
 
   const pendentes = top5ComCenario
-    .filter((c: any) => c.id && !jaSet.has(c.id))
+    .filter((competencia: any) => !assessmentCompetencyWasAnswered(competencia, respostas || []))
     .map((c: any) => c.nome);
 
   return {

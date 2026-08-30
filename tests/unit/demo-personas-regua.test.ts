@@ -6,6 +6,12 @@ import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile, DISC_SOMA_ALVO } from '@/lib/disc-mapeamento';
 import fixture from '@/lib/demo/acme-demo-fixture.json';
 import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
+import {
+  ACME_DEMO_REPORT_DIRECTORY,
+  ACME_DEMO_TEAM_SIZE,
+  criarPdiAcmeDemo,
+  criarRelatorioRhAcmeDemo,
+} from '@/lib/demo/acme-rh-report-fixture';
 
 /**
  * As personas do demo são o que o cliente vê. Se elas saírem da régua do
@@ -16,6 +22,24 @@ import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
  * `comp_persistencia = S = 24` impossível pela regressão canônica.
  */
 describe('Personas do acme-demo seguem a régua do produto', () => {
+  it('mantém 30 participantes na vitrine do RH sem transformar o RH em participante', () => {
+    expect(PERSONAS.length + ACME_DEMO_REPORT_DIRECTORY.length).toBe(ACME_DEMO_TEAM_SIZE);
+    expect(new Set([...PERSONAS, ...ACME_DEMO_REPORT_DIRECTORY].map((p) => p.email)).size).toBe(ACME_DEMO_TEAM_SIZE);
+    expect(ACME_DEMO_REPORT_DIRECTORY.every((p) => p.email.endsWith('@vertho.ai'))).toBe(true);
+    expect(ACME_DEMO_REPORT_DIRECTORY.filter((p) => p.role === 'gestor')).toHaveLength(3);
+  });
+
+  it('gera PDIs válidos e um consolidado coerente para a central demonstrativa', () => {
+    const pessoa = ACME_DEMO_REPORT_DIRECTORY[0];
+    const pdi = criarPdiAcmeDemo(pessoa);
+    const rh = criarRelatorioRhAcmeDemo();
+
+    expect(relatorioIndividualDemoValido(pdi)).toBe(true);
+    expect(pdi.competencias.length).toBeGreaterThan(0);
+    expect(rh.indicadores.total_avaliados).toBe(ACME_DEMO_TEAM_SIZE);
+    expect(rh.indicadores.total_avaliacoes).toBe(ACME_DEMO_TEAM_SIZE * 5);
+  });
+
   it('limpa relatórios antes de colaboradores para o reset nunca ficar pela metade', () => {
     expect(DEMO_RESET_TABLES.indexOf('relatorios')).toBeLessThan(DEMO_RESET_TABLES.indexOf('colaboradores'));
   });

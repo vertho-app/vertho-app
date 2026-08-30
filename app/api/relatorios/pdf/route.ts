@@ -30,6 +30,7 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const relatorioId = searchParams.get('id');
+    const contentDisposition = searchParams.get('view') === 'inline' ? 'inline' : 'attachment';
 
     if (!relatorioId) return NextResponse.json({ error: 'ID obrigatório' }, { status: 400 });
 
@@ -85,7 +86,7 @@ export async function GET(request) {
         return new NextResponse(buffer, {
           headers: {
             'Content-Type': 'application/pdf',
-            'Content-Disposition': `attachment; filename="${filename}"`,
+            'Content-Disposition': `${contentDisposition}; filename="${filename}"`,
             'X-Pdf-Source': 'storage',
           },
         });
@@ -101,7 +102,13 @@ export async function GET(request) {
         .select('cargo').eq('id', rel.colaborador_id).maybeSingle();
       colaboradorCargo = c?.cargo || '';
     }
-    const data = { ...rel, conteudo, colaborador_nome: colaboradorNome, colaborador_cargo: colaboradorCargo };
+    const data = {
+      ...rel,
+      conteudo,
+      colaborador_nome: colaboradorNome,
+      colaborador_cargo: colaboradorCargo,
+      gestor_nome: rel.tipo === 'gestor' ? colaboradorNome : undefined,
+    };
 
     const buffer = await renderToBuffer(
       React.createElement(tipoCfg.C, {
@@ -129,7 +136,7 @@ export async function GET(request) {
     return new NextResponse(buffer as any, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': `${contentDisposition}; filename="${filename}"`,
         'X-Pdf-Source': 'generated',
       },
     });

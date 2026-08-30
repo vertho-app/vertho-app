@@ -279,7 +279,13 @@
       "individual": "Individual Development Plan"
     },
     "search": "Search person or role",
-    "download": "Open report",
+    "open": "Open report",
+    "viewer": {
+      "eyebrow": "Secure reading",
+      "download": "Download PDF",
+      "close": "Close report",
+      "loading": "Preparing report"
+    },
     "emptyTitle": "No reports in this section",
     "emptySearchTitle": "No results found",
     "emptySearchDescription": "Try another name or role.",

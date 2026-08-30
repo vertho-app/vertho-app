@@ -279,7 +279,13 @@
       "individual": "Plano de Desenvolvimento Individual"
     },
     "search": "Buscar pessoa ou cargo",
-    "download": "Abrir relatório",
+    "open": "Abrir relatório",
+    "viewer": {
+      "eyebrow": "Leitura segura",
+      "download": "Baixar PDF",
+      "close": "Fechar relatório",
+      "loading": "Preparando relatório"
+    },
     "emptyTitle": "Nenhum relatório nesta seção",
     "emptySearchTitle": "Nenhum resultado encontrado",
     "emptySearchDescription": "Tente buscar por outro nome ou cargo.",

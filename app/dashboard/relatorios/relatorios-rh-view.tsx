@@ -1,17 +1,20 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   Building2,
   CalendarDays,
   Download,
+  Eye,
   FileChartColumn,
   FileText,
+  Loader2,
   Search,
   Sparkles,
   UserRound,
   UsersRound,
+  X,
 } from 'lucide-react';
 import { PageContainer, PageHero } from '@/components/page-shell';
 import type { RhReportDocument, RhReportKind, RhReportsCenter } from '@/lib/relatorios/rh-center';
@@ -38,17 +41,31 @@ function normalize(value: unknown): string {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-function DocumentCard({ document, t, locale }: { document: RhReportDocument; t: any; locale: string }) {
+function inlineReportUrl(url: string): string {
+  if (!url.includes('/api/relatorios/pdf')) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}view=inline`;
+}
+
+function DocumentCard({
+  document,
+  t,
+  locale,
+  onOpen,
+}: {
+  document: RhReportDocument;
+  t: any;
+  locale: string;
+  onOpen: () => void;
+}) {
   const Icon = DOCUMENT_ICONS[document.kind] || FileText;
   const date = document.generatedAt
     ? new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(document.generatedAt))
     : null;
 
   return (
-    <a
-      href={document.url}
-      target="_blank"
-      rel="noreferrer"
+    <button
+      type="button"
+      onClick={onOpen}
       className="group relative flex min-h-[168px] flex-col overflow-hidden rounded-[22px] border border-white/[0.08] p-5 transition duration-200 hover:-translate-y-0.5 hover:border-[var(--brand-400,#22d3ee)]/35 hover:bg-white/[0.055]"
       style={{ background: 'linear-gradient(145deg, rgba(15,42,74,.94), rgba(7,22,39,.96))' }}
     >
@@ -73,9 +90,96 @@ function DocumentCard({ document, t, locale }: { document: RhReportDocument; t: 
       </div>
 
       <span className="relative mt-4 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--brand-300,#67e8f9)]">
-        <Download size={13} /> {t('download')}
+        <Eye size={13} /> {t('open')}
       </span>
-    </a>
+    </button>
+  );
+}
+
+function ReportViewer({
+  document: report,
+  t,
+  onClose,
+}: {
+  document: RhReportDocument;
+  t: any;
+  onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const title = t(`kinds.${report.kind}`);
+
+  useEffect(() => {
+    const previousOverflow = documentBodyOverflow();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose]);
+
+  function documentBodyOverflow() {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return previous;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-stretch bg-[#020711]/95 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <div className="relative flex min-h-0 w-full flex-col overflow-hidden border border-white/10 bg-[#071829] shadow-[0_28px_100px_rgba(0,0,0,.65)] sm:mx-auto sm:max-w-[1240px] sm:rounded-[26px]">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3 sm:px-5">
+          <div className="min-w-0">
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">
+              {t('viewer.eyebrow')}
+            </p>
+            <h2 className="mt-0.5 truncate text-lg text-white sm:text-xl" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>
+              {title}{report.recipient ? ` · ${report.recipient}` : ''}
+            </h2>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <a
+              href={report.url}
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)] transition hover:bg-[var(--brand-400,#22d3ee)]/15"
+            >
+              <Download size={14} /> <span className="hidden sm:inline">{t('viewer.download')}</span>
+            </a>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t('viewer.close')}
+              className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/65 transition hover:bg-white/[0.08] hover:text-white"
+            >
+              <X size={17} />
+            </button>
+          </div>
+        </header>
+
+        <div className="relative min-h-0 flex-1 bg-[#dce4ea]">
+          {loading && (
+            <div className="absolute inset-0 z-10 grid place-items-center bg-[#071829] text-[var(--brand-300,#67e8f9)]" role="status">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 size={26} className="animate-spin" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">{t('viewer.loading')}</span>
+              </div>
+            </div>
+          )}
+          <iframe
+            src={inlineReportUrl(report.url)}
+            title={`${title}${report.recipient ? ` — ${report.recipient}` : ''}`}
+            onLoad={() => setLoading(false)}
+            className="h-full w-full border-0 bg-white"
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -84,6 +188,7 @@ export default function RelatoriosRhView({ reports }: { reports: RhReportsCenter
   const locale = useLocale();
   const [active, setActive] = useState<SectionKey>('organization');
   const [query, setQuery] = useState('');
+  const [selectedDocument, setSelectedDocument] = useState<RhReportDocument | null>(null);
   const sections: Record<SectionKey, RhReportDocument[]> = {
     organization: reports.organization,
     managers: reports.managers,
@@ -158,7 +263,15 @@ export default function RelatoriosRhView({ reports }: { reports: RhReportsCenter
 
         {visible.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {visible.map((document) => <DocumentCard key={document.id} document={document} t={t} locale={locale} />)}
+            {visible.map((document) => (
+              <DocumentCard
+                key={document.id}
+                document={document}
+                t={t}
+                locale={locale}
+                onOpen={() => setSelectedDocument(document)}
+              />
+            ))}
           </div>
         ) : (
           <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.025] px-6 py-12 text-center">
@@ -176,6 +289,14 @@ export default function RelatoriosRhView({ reports }: { reports: RhReportsCenter
       <p className="mt-6 text-[11px] leading-relaxed text-white/30">
         {t('footer', { count: total })}
       </p>
+
+      {selectedDocument && (
+        <ReportViewer
+          document={selectedDocument}
+          t={t}
+          onClose={() => setSelectedDocument(null)}
+        />
+      )}
     </PageContainer>
   );
 }

@@ -15,9 +15,20 @@ import fixture from '@/lib/demo/acme-demo-fixture.json';
 // gabaritos (IA2) + cenários ricos com rubrica N1-N4 (IA3). Gerados 1x no
 // acme-demo (scripts/_capture-*) e replicados no reset SEM rodar IA.
 import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
+import {
+  ACME_DEMO_REPORT_DIRECTORY,
+  ACME_DEMO_TEAM_SIZE,
+  avaliacaoAcmeDemo,
+  competenciasAcmeDemoPorCargo,
+  criarPdiAcmeDemo,
+  criarRelatorioGestorAcmeDemo,
+  criarRelatorioRhAcmeDemo,
+} from '@/lib/demo/acme-rh-report-fixture';
 // Régua canônica de competências — a MESMA que o mapeamento real e o simulador
 // usam. O demo tinha derivação própria; ver comportamentosDoDisc.
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
+import { deriveProfile } from '@/lib/disc-mapeamento';
+import { IA4_FILTRO } from '@/lib/status';
 
 /**
  * Reset/seed do tenant ACME Demo (slug `acme-demo`) — versão IN-APP da lógica
@@ -698,6 +709,12 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       const id = personaMap.get(persona.key);
       if (id) idPorEmail.set(persona.email, id);
     }
+    if (slug === DEMO_SLUG) {
+      for (const pessoa of ACME_DEMO_REPORT_DIRECTORY) {
+        const id = personaMap.get(pessoa.key);
+        if (id) idPorEmail.set(pessoa.email, id);
+      }
+    }
     const rhId = personaMap.get(DEMO_RH_PERSONA.key);
     if (rhId) idPorEmail.set(DEMO_RH_PERSONA.email, rhId);
 
@@ -1163,6 +1180,40 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       idMap.set(p.key, inserted.id);
     }
 
+    // A ACME é também a sala de apresentação da central do RH. Estas pessoas
+    // não têm credencial própria nem entram nas três personas navegáveis; dão
+    // escala realista ao panorama e aos relatórios (30 participantes no total).
+    if (slug === DEMO_SLUG) {
+      for (const pessoa of ACME_DEMO_REPORT_DIRECTORY) {
+        const disc = {
+          D: pessoa.d_natural,
+          I: pessoa.i_natural,
+          S: pessoa.s_natural,
+          C: pessoa.c_natural,
+        };
+        const inserted = await must(`insert diretório RH ${pessoa.key}`, sb.from('colaboradores').insert({
+          empresa_id: destId,
+          nome_completo: pessoa.nome_completo,
+          email: pessoa.email,
+          cargo: pessoa.cargo,
+          role: pessoa.role,
+          area_depto: pessoa.area_depto,
+          gestor_nome: pessoa.gestor_nome,
+          gestor_email: pessoa.gestor_email,
+          gestor_whatsapp: null,
+          perfil_dominante: deriveProfile(disc),
+          mapeamento_em: new Date().toISOString(),
+          d_natural: pessoa.d_natural,
+          i_natural: pessoa.i_natural,
+          s_natural: pessoa.s_natural,
+          c_natural: pessoa.c_natural,
+          ...comportamentosDoDisc(pessoa.d_natural, pessoa.i_natural, pessoa.s_natural, pessoa.c_natural),
+          disc_resultados: { demo: true, estado_demo: 'relatorio-rh' },
+        }).select('id').single());
+        idMap.set(pessoa.key, inserted.id);
+      }
+    }
+
     // O RH precisa de uma linha em colaboradores para resolver tenant e papel,
     // mas nasce sem DISC, avaliação ou trilha: ela administra o programa, não o
     // percorre. As métricas do RH excluem `role='rh'`, portanto esta conta não
@@ -1223,8 +1274,18 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     if (cenErr) throw cenErr;
     const cenarioByComp = new Map((cenarios || []).map((c: any) => [c.competencia_id, c.id]));
 
+    const participantes: any[] = slug === DEMO_SLUG
+      ? [
+          ...PERSONAS,
+          ...ACME_DEMO_REPORT_DIRECTORY.map((pessoa) => ({
+            ...pessoa,
+            responder: competenciasAcmeDemoPorCargo(pessoa.cargo),
+            demo_report_fixture: true,
+          })),
+        ]
+      : PERSONAS;
     const payload: any[] = [];
-    for (const p of PERSONAS) {
+    for (const p of participantes) {
       const colabId = personaMap.get(p.key);
       for (const compNome of p.responder || []) {
         const comp = compByCargoNome.get(`${p.cargo}::${compNome}`);
@@ -1232,12 +1293,29 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         const respostas = p.key === 'mariana'
           ? respostasFortesFinanceiro(compNome)
           : respostasPara(compNome, p.nome_completo);
+        const avaliacaoDemo = p.demo_report_fixture
+          ? avaliacaoAcmeDemo(p.email, compNome)
+          : null;
         payload.push({
           empresa_id: destId, colaborador_id: colabId, email_colaborador: p.email,
           nome_colaborador: p.nome_completo, cargo: p.cargo,
           cenario_id: cenarioByComp.get(comp.id) || null, competencia_id: comp.id, competencia_nome: comp.nome,
           ...respostas, canal: 'demo-seed', tipo_resposta: 'cenario_a', rodada: 1,
           timestamp_resposta: new Date().toISOString(),
+          ...(avaliacaoDemo ? {
+            avaliacao_ia: {
+              consolidacao: { nivel_geral: avaliacaoDemo.nivel, nota_geral: avaliacaoDemo.nota },
+              resumo_geral: avaliacaoDemo.feedback,
+              pontos_fortes: avaliacaoDemo.pontosFortes,
+              pontos_atencao: avaliacaoDemo.pontosAtencao,
+            },
+            nivel_ia4: avaliacaoDemo.nivel,
+            nota_ia4: avaliacaoDemo.nota,
+            pontos_fortes: avaliacaoDemo.pontosFortes,
+            pontos_atencao: avaliacaoDemo.pontosAtencao,
+            feedback_ia4: avaliacaoDemo.feedback,
+            status_ia4: IA4_FILTRO.APROVADO,
+          } : {}),
         });
       }
     }
@@ -1311,6 +1389,76 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
           if (result.error) throw new Error(`progresso ${p.email}: ${result.error.message}`);
         }
       }
+    }
+  }
+
+  /**
+   * Relatórios sintéticos, exclusivos da ACME, para a demonstração do papel RH.
+   * Primeiro restauramos qualquer PDF já aquecido; aqui criamos somente o que
+   * estiver faltando, preservando o arquivo pronto e evitando trabalho no clique.
+   */
+  async function seedAcmeRhReportCenter(destId: string) {
+    if (slug !== DEMO_SLUG) return;
+
+    const colaboradores = await must('listar diretório da central RH', sb.from('colaboradores')
+      .select('id,nome_completo,email,cargo,role,area_depto,gestor_email')
+      .eq('empresa_id', destId));
+    const participantes = (colaboradores || []).filter((pessoa: any) => pessoa.role !== 'rh');
+    if (participantes.length !== ACME_DEMO_TEAM_SIZE) {
+      throw new Error(`central RH esperava ${ACME_DEMO_TEAM_SIZE} participantes e encontrou ${participantes.length}`);
+    }
+
+    const existentes = await must('listar relatórios aquecidos da central RH', sb.from('relatorios')
+      .select('colaborador_id,tipo')
+      .eq('empresa_id', destId)
+      .in('tipo', ['individual', 'gestor', 'rh']));
+    const keys = new Set((existentes || []).map((relatorio: any) =>
+      `${relatorio.tipo}:${relatorio.colaborador_id || 'organizacao'}`,
+    ));
+    const agora = new Date().toISOString();
+    const rows: any[] = [];
+
+    for (const pessoa of participantes) {
+      if (!keys.has(`individual:${pessoa.id}`)) {
+        rows.push({
+          empresa_id: destId,
+          colaborador_id: pessoa.id,
+          tipo: 'individual',
+          conteudo: criarPdiAcmeDemo(pessoa),
+          pdf_path: null,
+          gerado_em: agora,
+        });
+      }
+
+      if (pessoa.role === 'gestor' && !keys.has(`gestor:${pessoa.id}`)) {
+        const equipeDireta = participantes.filter((integrante: any) =>
+          integrante.gestor_email === pessoa.email,
+        );
+        rows.push({
+          empresa_id: destId,
+          colaborador_id: pessoa.id,
+          tipo: 'gestor',
+          conteudo: criarRelatorioGestorAcmeDemo(pessoa, equipeDireta),
+          pdf_path: null,
+          gerado_em: agora,
+        });
+      }
+    }
+
+    if (!keys.has('rh:organizacao')) {
+      rows.push({
+        empresa_id: destId,
+        colaborador_id: null,
+        tipo: 'rh',
+        conteudo: criarRelatorioRhAcmeDemo(),
+        pdf_path: null,
+        gerado_em: agora,
+      });
+    }
+
+    if (rows.length) {
+      const { error } = await sb.from('relatorios').insert(rows);
+      if (error) throw new Error(`criar relatórios demonstrativos da central RH: ${error.message}`);
     }
   }
 
@@ -1410,6 +1558,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     await applyPersonaArtifacts(demo.id, personaMap);
     await ensurePresentationVideo(demo.id, personaMap);
     await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);
+    await seedAcmeRhReportCenter(demo.id);
     const fitOk = await precomputarFit(demo.id);
 
     const counts: Record<string, number | null> = {};
