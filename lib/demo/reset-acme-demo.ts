@@ -30,6 +30,7 @@ import {
   criarRelatorioRhAcmeDemo,
 } from '@/lib/demo/acme-rh-report-fixture';
 import { seedAcmeOrganizationReports } from '@/lib/demo/acme-organization-reports';
+import { precomputeDemoFitResults, seedAcmeFitRankingSnapshots } from '@/lib/demo/acme-fit-rankings';
 // Régua canônica de competências — a MESMA que o mapeamento real e o simulador
 // usam. O demo tinha derivação própria; ver comportamentosDoDisc.
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
@@ -1584,73 +1585,6 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     }
   }
 
-  /**
-   * Pré-computa o Ranking de Adequação das personas.
-   *
-   * 🔴 `fit_resultados` tem `ON DELETE CASCADE` em `colaborador_id`: o reset
-   * recria os colaboradores e o fit vai junto. Sem isto, a aba Fit v2 de
-   * `/admin/fit` amanhece VAZIA todo dia e alguém precisa lembrar de clicar
-   * "Calcular Fit" cargo a cargo antes de uma demo — a tela mais vendedora do
-   * produto dependendo de um passo manual que ninguém documenta na hora certa.
-   *
-   * Não custa IA: o motor é determinístico (`calcularFitUnificado`) e a leitura
-   * executiva com LLM é outra action, on-demand. Best-effort como os demais
-   * artefatos — falhar aqui não derruba o reset, só deixa o ranking vazio.
-   */
-  async function precomputarFit(empresaId: string): Promise<number> {
-    let ok = 0;
-    try {
-      const { calcularFitUnificado } = await import('@/lib/scoring/fit-v2-adapter');
-      // supabase-js RETORNA o erro: sem checar, uma leitura falha vira "nenhum
-      // cargo" e o reset reportaria 0 fits como se não houvesse o que calcular.
-      const { data: cargos, error: errCargos } = await sb.from('cargos_empresa')
-        .select('id, nome, gabarito, fit_perfil_ideal, eh_lideranca').eq('empresa_id', empresaId);
-      if (errCargos) { console.warn(`[reset-demo] precomputarFit cargos: ${errCargos.message}`); return 0; }
-      const { data: colabs, error: errColabs } = await sb.from('colaboradores')
-        .select('*').eq('empresa_id', empresaId).not('d_natural', 'is', null);
-      if (errColabs) { console.warn(`[reset-demo] precomputarFit colaboradores: ${errColabs.message}`); return 0; }
-
-      for (const cargo of cargos || []) {
-        const gab = cargo.gabarito
-          ? (typeof cargo.gabarito === 'string' ? JSON.parse(cargo.gabarito) : cargo.gabarito)
-          : null;
-        // Só o caminho unificado (gabarito.tela4 e sem perfil ideal customizado)
-        // — é o que os 4 cargos do demo usam.
-        if (!gab?.tela4 || cargo.fit_perfil_ideal) continue;
-
-        for (const colab of (colabs || []).filter((c: any) => c.cargo === cargo.nome)) {
-          const r = calcularFitUnificado(gab, colab, { ehLideranca: cargo.eh_lideranca, cargoNome: cargo.nome });
-          if (!r || r.success === false) continue;
-          const { error } = await sb.from('fit_resultados').upsert({
-            empresa_id: empresaId,
-            colaborador_id: colab.id,
-            cargo_id: cargo.id,
-            cargo_nome: cargo.nome,
-            versao_modelo: '2.0',
-            fit_final: r.fit_final,
-            classificacao: r.classificacao,
-            recomendacao: r.recomendacao,
-            score_base: r.score_base,
-            fator_critico: r.fatores.fator_critico,
-            fator_excesso: r.fatores.fator_excesso,
-            score_mapeamento: r.blocos.mapeamento.score,
-            score_competencias: r.blocos.competencias.score,
-            score_lideranca: r.blocos.lideranca?.score ?? null,
-            score_disc: r.blocos.disc.score,
-            resultado_json: r,
-            leitura_executiva: r.leitura_executiva,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'empresa_id,colaborador_id' });
-          if (!error) ok++;
-          else console.warn(`[reset-demo] fit ${colab.nome_completo}: ${error.message}`);
-        }
-      }
-    } catch (e: any) {
-      console.warn('[reset-demo] precomputarFit:', e?.message);
-    }
-    return ok;
-  }
-
   try {
     const demo = await upsertEmpresaDemo((fixture as any).empresa);
     // Um reset de sala de demo deve recompor dados, não devolver a experiência
@@ -1684,8 +1618,16 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     await seedAcmeRhReportCenter(demo.id);
     if (slug === DEMO_SLUG) {
       await seedAcmeOrganizationReports(sb, demo.id, DEMO_NAME);
+      await seedAcmeFitRankingSnapshots(sb, demo.id, DEMO_NAME);
     }
-    const fitOk = await precomputarFit(demo.id);
+    let fitOk = 0;
+    try {
+      const fit = await precomputeDemoFitResults(sb, demo.id);
+      fitOk = fit.total;
+      for (const failure of fit.failures) console.warn(`[reset-demo] fit: ${failure}`);
+    } catch (e: any) {
+      console.warn('[reset-demo] precomputeDemoFitResults:', e?.message);
+    }
 
     const counts: Record<string, number | null> = {};
     for (const table of ['colaboradores', 'cargos_empresa', 'competencias', 'top10_cargos', 'banco_cenarios', 'respostas', 'relatorios']) {
