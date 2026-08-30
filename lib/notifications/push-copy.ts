@@ -92,6 +92,20 @@ export function pushEvidencia(semana: number): TextoPush {
  * "Mentora", que não é palavra do produto e apontaria para o Beto, que não
  * conclui semana nenhuma.
  */
+/**
+ * SEGUNDA de quem está travado: conteúdo + pendência da MESMA semana.
+ *
+ * O título anuncia o conteúdo (é o que faz a pessoa tocar) e o corpo carrega a
+ * pendência — a ordem inversa deixaria a informação que destrava fora da
+ * pré-visualização em telas que truncam o corpo.
+ */
+export function pushPilulaPendente(semana: number, tema: string): TextoPush {
+  return {
+    titulo: limitar(`Semana ${semana}: ${tema || 'conteúdo disponível'}`, LIMITE_TITULO),
+    corpo: limitar('Esta semana continua pendente: só é concluída na conversa de evidências.', LIMITE_CORPO),
+  };
+}
+
 export function pushSemanaPendente(semanaPendente: number): TextoPush {
   return {
     titulo: limitar(`Semana ${semanaPendente} pendente`, LIMITE_TITULO),

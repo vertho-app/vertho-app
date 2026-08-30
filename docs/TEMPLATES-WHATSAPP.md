@@ -444,12 +444,43 @@ papel desligado aparece como `(desligado)`, que é o caso que o silêncio escond
 
 ---
 
-## 5. Fila da Meta (23/08)
+## 5. Fila da Meta (30/08)
 
-⏳ **`semana_pendente_v2`** — PENDING/UTILITY (provisória), submetido 23/08/2026
+⏳ **`conteudo_semana_pendente`** — submetido 30/08/2026 (`id=4542094136055090`). A SEGUNDA de quem
+está travado: afirma o conteúdo da semana (com tema e botão para o formato) **e** que ela continua
+pendente, numa mensagem só.
+
+🔴 **A CATEGORIA JÁ VIROU, E EM MINUTOS.** A criação devolveu `PENDING/UTILITY`; a consulta feita
+**5 minutos depois**, na mesma sessão, devolveu `PENDING/MARKETING` — 6× o custo. É a terceira vez
+que esta base observa a reclassificação silenciosa (14/08 com 4 de 8; 15/08 com `pilula_semanal`
+segurando UTILITY por vinte minutos), e a primeira em que o intervalo foi curto o bastante para
+alguém ver acontecer. **Nunca registre a categoria da resposta de criação** — consulte
+`GET /{waba}/message_templates?fields=name,status,category` depois, e de novo antes de ligar a env.
+Status ainda é `PENDING`: o veredito final pode mudar nos dois sentidos e só vale quando sair
+`APPROVED`.
+Papel `conteudo_pendente` · `WHATSAPP_TEMPLATE_CONTEUDO_PENDENTE` (ainda **não gravada** — o código
+está no ar desligado, e `templateAtivo` é fail-closed sem ela).
+Contrato: `{{1}}`=nome, `{{2}}`=semana **ACESSÍVEL**, `{{3}}`=tema; botão
+`<slug>/<semana>/<formato>/<pílula>`.
+
+⚠️ **A semana aqui é a ACESSÍVEL — o oposto do `semana_pendente_v2`**, onde `{{2}}` é o calendário.
+Quem está travado tem conteúdo e pendência na MESMA semana, e é isso que permite dizer as duas coisas
+sem repetir variável. Mandar o calendário é typecheck-limpo e entrega "o conteúdo da semana 7 está
+disponível" com tema de outra semana e botão para a porta fechada. Travado em
+`tests/unit/p1-conteudo-pendente.test.ts` (validado por mutação).
+
+🔑 **Por que ele existe (medido 30/08/2026).** A segunda de quem está travado não entregava nada de
+novo: a semana acessível não muda, então era a MESMA pílula da semana anterior, mesmo tema e mesmo
+link, sem uma palavra sobre o que falta. Na coorte real de Ibipeba e Macaé, **46 das 74 pessoas** não
+concluíram nada desde 24/08 (37 nunca concluíram nada em toda a trilha). Efeito colateral que
+ninguém tinha notado: com a pendência ocupando o slot da terça, essas pessoas **nunca** recebiam o
+segundo conteúdo da semana. Ligar esta chave move a pendência para a segunda e devolve a P2 à terça,
+sem uma única mensagem a mais.
+
+✅ **`semana_pendente_v2`** — APPROVED/UTILITY, submetido 23/08/2026
 (`id=28202583309372601`). Afirma que a semana anterior continua pendente e leva, **em botão**, para a
 semana que DESTRAVA — nunca para a trancada, que é o defeito que ele existe para corrigir.
-Papel `pendencia` · `WHATSAPP_TEMPLATE_PENDENCIA` (ainda **não gravada** — desligado de propósito).
+Papel `pendencia` · `WHATSAPP_TEMPLATE_PENDENCIA` (gravada em produção em 25/08).
 Contrato: `{{1}}`=nome, `{{2}}`=semana do calendário, `{{3}}`=semana pendente; botão `<slug>/<semana
 PENDENTE>`. Fail-closed sem `semanaPendente`: corpo com buraco e botão `/NaN` não dão erro na API,
 chegam assim na mão da pessoa.

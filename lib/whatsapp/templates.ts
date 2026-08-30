@@ -538,6 +538,49 @@ export const TEMPLATES = {
     },
   },
 
+  /**
+   * SEGUNDA de quem está TRAVADO: o conteúdo da semana E a pendência dela, numa
+   * mensagem só.
+   *
+   * 🔴 O QUE ISTO CORRIGE (medido 30/08/2026). Desde 25/08 a pendência sai na
+   * TERÇA e a segunda segue entregando `conteudo_semana_v2`, que diz apenas
+   * *"o conteúdo da semana X está disponível"*. Para quem está travado, essa
+   * segunda-feira não entrega nada de novo: a semana acessível dele não mudou,
+   * então é a MESMA pílula da semana anterior, mesmo tema e mesmo link. Medido
+   * na coorte real: **46 das 74 pessoas** de Ibipeba e Macaé não concluíram nada
+   * desde 24/08 (37 nunca concluíram nada em toda a trilha), e a informação que
+   * as destrava só chegava 24h depois.
+   *
+   * 🔑 POR QUE UM TEMPLATE E NÃO DUAS MENSAGENS. Somar a pendência à segunda
+   * seria uma 2ª mensagem no mesmo dia para a mesma pessoa — volume que o número
+   * aguenta hoje (Cloud API, 80 msg/s de teto técnico; medido 20/08: 36 em
+   * 24,1s), mas que a Meta lê como pressão. Uma mensagem que afirma os DOIS
+   * fatos custa uma conversa, não duas.
+   *
+   * ⚠️ NÃO REPETE VARIÁVEL. "Esta semana" retoma `{{2}}`, o mesmo recurso do
+   * "Ela" no `semana_pendente_v2`: nenhum dos 17 aprovados repete variável, e
+   * estrear esse formato numa submissão irreversível seria risco sem ganho.
+   *
+   * O botão diz "Abrir a semana", NÃO "Ver conteúdo": a crença que trava essas
+   * pessoas é justamente que abrir o conteúdo conclui a semana (24 delas tinham
+   * evento de abertura registrado na semana em que estavam paradas, 25/08). Um
+   * rótulo que promete conteúdo reforçaria o defeito que a copy existe para
+   * desfazer. O caminho do botão carrega formato e pílula, como no
+   * `conteudo_semana_v2`, para o link não cair numa tela genérica.
+   */
+  conteudo_semana_pendente: {
+    name: 'conteudo_semana_pendente',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. O conteúdo da semana {{2}} da sua trilha está disponível.\n\nTema: {{3}}\n\nEsta semana continua pendente: ela somente é concluída na conversa de evidências.',
+    example: ['Maria', '1', 'Escuta ativa na sala de aula'],
+    botao: {
+      texto: 'Abrir a semana',
+      url: 'https://app.vertho.ai/ir/{{1}}',
+      exemplo: 'https://app.vertho.ai/ir/ibipeba/1/video/1',
+    },
+  },
+
   /** Resultado do assessment comportamental liberado. */
   perfil_disponivel: {
     name: 'resultado_perfil',

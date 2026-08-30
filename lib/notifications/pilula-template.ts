@@ -109,7 +109,7 @@ export function caminhoDoBotao(a: Pick<PilulaTemplateArgs, 'slug' | 'semana' | '
  */
 export type PapelCadencia =
   | 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil' | 'acesso' | 'missao' | 'plano'
-  | 'boas_vindas' | 'recorte' | 'pendencia';
+  | 'boas_vindas' | 'recorte' | 'pendencia' | 'conteudo_pendente';
 
 const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   pilula: 'WHATSAPP_TEMPLATE_PILULA',
@@ -130,6 +130,21 @@ const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
    * obrigaria a ligar os dois juntos, ou nenhum.
    */
   pendencia: 'WHATSAPP_TEMPLATE_PENDENCIA',
+  /**
+   * SEGUNDA de quem está travado: o conteúdo da semana E a pendência dela.
+   *
+   * Chave PRÓPRIA, e não um reuso de `pendencia`: aquele anuncia só a pendência
+   * e é o que sai na terça; este anuncia conteúdo COM tema e leva ao formato
+   * escolhido. Mandar um no lugar do outro entrega a mensagem certa no dia
+   * errado, sem erro nenhum na API.
+   *
+   * 🔑 É esta chave que inverte a semana inteira de quem está travado: ligada,
+   * a segunda passa a dizer o que destrava e a terça volta a entregar a 2ª
+   * pílula (que hoje essas pessoas NUNCA recebem, porque a pendência ocupa o
+   * slot). Ausente, tudo volta ao comportamento de 25/08 por inteiro — é o
+   * mesmo desenho de interruptor único do `pendencia`.
+   */
+  conteudo_pendente: 'WHATSAPP_TEMPLATE_CONTEUDO_PENDENTE',
   /**
    * CONARH: o recorte da demonstração para o lead que pediu no estande.
    *
@@ -259,6 +274,21 @@ const CONTRATOS: Record<string, MontarParams> = {
       formato: null,
       pilula: null,
     }),
+  }),
+
+  /**
+   * Conteúdo da semana + pendência dela, na SEGUNDA de quem está travado.
+   * `{{1}}`=nome, `{{2}}`=semana (a acessível, que é a pendente), `{{3}}`=tema.
+   * Botão com `<slug>/<semana>/<formato>/<pilula>`, igual ao `conteudo_semana_v2`.
+   *
+   * ⚠️ A semana é UMA só aqui, e é a acessível — o oposto do
+   * `semana_pendente_v2`, onde `{{2}}` é o calendário e `{{3}}` a pendente.
+   * Quem está travado tem conteúdo e pendência na MESMA semana: é justamente
+   * isso que permite dizer as duas coisas sem repetir variável.
+   */
+  conteudo_semana_pendente: (a) => ({
+    params: [a.nome, String(a.semana), a.tema],
+    botaoParam: caminhoDoBotao(a),
   }),
 
   registro_evidencia: (a) => ({

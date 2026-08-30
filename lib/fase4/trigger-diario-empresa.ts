@@ -23,7 +23,7 @@ import { mesmoDiaUTC, pilulaPendente } from '@/lib/notifications/carimbo-canal';
 import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, tenantUrl } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppNudgeDesafio } from '@/lib/notifications';
-import { textoPilulaWhatsapp, emailPilula, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao, emailEvidencia, emailSemanaPendente } from '@/lib/notifications/pilula-envio';
+import { textoPilulaWhatsapp, emailPilula, emailPilulaPendente, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao, emailEvidencia, emailSemanaPendente } from '@/lib/notifications/pilula-envio';
 import { enviarPilulaPorTemplate, enviarPorTemplate, templateAtivo } from '@/lib/notifications/pilula-template';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { formatosEntregaveis, escolherFormatoAnunciado } from '@/lib/season-engine/formato-anunciado';
@@ -35,7 +35,7 @@ import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
 import { criarRelogioCadencia, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { enviarPush } from '@/lib/notifications/push-core';
-import { pushPilula, pushMissao, pushEvidencia, pushSemanaPendente } from '@/lib/notifications/push-copy';
+import { pushPilula, pushPilulaPendente, pushMissao, pushEvidencia, pushSemanaPendente } from '@/lib/notifications/push-copy';
 import { temaPilula } from '@/lib/notifications/pilula-envio';
 import { ENVIO } from '@/lib/status';
 
@@ -298,6 +298,28 @@ export async function processarEmpresaDiario(
    * decisão precisa valer igual no worker QStash e no caminho inline.
    */
   const pendenciaLigada = !!templateAtivo('pendencia');
+  /**
+   * 🔑 O INTERRUPTOR QUE MOVE A PENDÊNCIA DA TERÇA PARA A SEGUNDA (30/08/2026).
+   *
+   * Ligado, quem está travado recebe na SEGUNDA uma mensagem que diz as duas
+   * coisas (conteúdo da semana + ela continua pendente) e a TERÇA volta a
+   * entregar a 2ª pílula. Ausente, tudo permanece como em 25/08: pílula muda na
+   * segunda, pendência na terça.
+   *
+   * 🔴 POR QUE MUDOU. A segunda de quem está travado não entregava nada de novo:
+   * a semana acessível dele não muda, então era a MESMA pílula da semana
+   * anterior, com o mesmo tema e o mesmo link, e sem uma palavra sobre o que
+   * falta. Medido em 30/08 na coorte real: **46 das 74 pessoas** de Ibipeba e
+   * Macaé não concluíram nada desde 24/08 (37 nunca concluíram nada em toda a
+   * trilha) — para elas a informação que destrava só chegava 24h depois, e o
+   * segundo conteúdo da semana NUNCA chegava, porque a pendência ocupava o slot
+   * da terça toda semana.
+   *
+   * Uma chave, os três canais, pelo mesmo motivo do `pendenciaLigada`: ligar só
+   * o WhatsApp deixaria o e-mail da mesma manhã dizendo apenas "seu conteúdo
+   * está disponível", um canal desfazendo o outro.
+   */
+  const conteudoPendenteLigado = !!templateAtivo('conteudo_pendente');
   const comPush = new Set<string>();
   if (pushLigado) {
     const { data: eps, error: errEps } = await tdb
@@ -420,7 +442,19 @@ export async function processarEmpresaDiario(
 
     // Envia a pílula do dia por WhatsApp E e-mail (cada canal best-effort), no
     // formato preferido + deep-link do tenant. Carimba o timestamp da pílula.
-    const enviarPilulaDia = async (item: any, stampCol: 'ultima_pilula1_em' | 'ultima_pilula2_em') => {
+    const enviarPilulaDia = async (
+      item: any,
+      stampCol: 'ultima_pilula1_em' | 'ultima_pilula2_em',
+      /**
+       * A pessoa está travada NESTA semana? Muda a copy dos três canais (papel
+       * `conteudo_pendente` no WhatsApp, `emailPilulaPendente`,
+       * `pushPilulaPendente`) e NADA mais: formato anunciado, porteiro, carimbos
+       * e idempotência seguem idênticos. Manter um caminho só é deliberado —
+       * duplicar esta função para a variante pendente recriaria o par de gêmeos
+       * que esta base já pagou três vezes para consertar.
+       */
+      pendente = false,
+    ) => {
       const pilula = stampCol === 'ultima_pilula1_em' ? 1 : 2;   // atribuição de abertura (?p=)
       const wppCol = pilula === 1 ? 'ultima_pilula1_whatsapp_em' : 'ultima_pilula2_whatsapp_em';
       const mailCol = pilula === 1 ? 'ultima_pilula1_email_em' : 'ultima_pilula2_email_em';
@@ -466,17 +500,32 @@ export async function processarEmpresaDiario(
       const vaga = telefone && !mesmoDiaUTC(envio[wppCol], hojeUTC) ? vagaWhatsapp() : null;
       if (vaga !== null) {
         try {
-          const viaTemplate = await enviarPilulaPorTemplate({
+          const argsTemplate = {
             telefone, nome, semana, tema: temaPilula(item),
             slug: (empresa as any).slug, baseUrl, formato: formatoAnunciado, pilula,
             empresaId: empresa.id, colaboradorId: envio.colaborador_id,
             dedupeKey: `${wppCol}:${envio.id}`,
-          });
+          };
+          const viaTemplate = pendente
+            ? await enviarPorTemplate('conteudo_pendente', argsTemplate)
+            : await enviarPilulaPorTemplate(argsTemplate);
 
           if (viaTemplate.tentou) {
             // Caminho da Cloud API: síncrono, então o carimbo é aqui e agora —
             // não há webhook de fila para confirmar depois.
             if (viaTemplate.ok) { pilulas++; stamp[wppCol] = agora; } else erros++;
+          } else if (pendente) {
+            /**
+             * SEM caminho legado para a variante pendente, de propósito — a
+             * mesma regra do `enviarSemanaPendente`: não existe texto livre
+             * aprovado que afirme a pendência, e o canal de texto livre está
+             * morto desde 13/08 (fora da janela de 24h a Meta só entrega
+             * template). Cair no `templateWhatsAppPilula` aqui mandaria a copy
+             * ANTIGA, sem uma palavra sobre o que destrava — exatamente o
+             * defeito que esta chave existe para corrigir, reaparecendo pela
+             * porta dos fundos no dia em que a Cloud API estiver fora.
+             * O WhatsApp fica PENDENTE e recuperável; e-mail e push seguem.
+             */
           } else {
             const enfileirou = await agendarWhatsapp({
               telefone,
@@ -489,8 +538,12 @@ export async function processarEmpresaDiario(
         } catch { erros++; }
       }
       if (email && !mesmoDiaUTC(envio[mailCol], hojeUTC)) {
-        const { subject, html } = emailPilula(nome, item, opts);
+        const { subject, html } = pendente ? emailPilulaPendente(nome, item, opts) : emailPilula(nome, item, opts);
         const r = await enviarEmailPilula(email, subject, html, {
+          // `kind` segue 'pilula': a mensagem ENTREGA conteúdo (com tema e link
+          // de formato), e é isso que a contagem de cadência mede. A pendência
+          // aqui é um adendo à mesma entrega, não um evento de cobrança — ao
+          // contrário do 'pendencia' da terça, que não entrega conteúdo nenhum.
           kind: 'pilula',
           empresaId: empresa.id,
           colaboradorId: envio.colaborador_id,
@@ -508,7 +561,7 @@ export async function processarEmpresaDiario(
       // `comPush` já garante que só entra quem tem inscrição ativa, então isto
       // não custa nada para quem não aderiu.
       if (pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio[pushCol], hojeUTC)) {
-        const texto = pushPilula(semana, temaPilula(item));
+        const texto = pendente ? pushPilulaPendente(semana, temaPilula(item)) : pushPilula(semana, temaPilula(item));
         const r = await enviarPush({
           colaboradorId: envio.colaborador_id,
           empresaId: empresa.id,
@@ -667,9 +720,19 @@ export async function processarEmpresaDiario(
         hojeUTC,
       });
 
-    // ── 1ª PÍLULA ──
+    /**
+     * A pessoa está numa semana ANTERIOR à do calendário, ou seja, travada.
+     *
+     * Declarado aqui e não junto do bloco da P2 (onde nasceu) porque agora a
+     * SEGUNDA também depende dele: é o mesmo predicado decidindo a copy dos
+     * dois dias, e duas expressões equivalentes em pontos distantes é como as
+     * duas metades da semana passam a discordar sobre quem está travado.
+     */
+    const bloqueadaNaAnterior = semana < semanaCalendario;
+
+    // ── 1ª PÍLULA (com a PENDÊNCIA embutida, para quem está travado) ──
     if (hoje === diaP1 && !ehImpl(semana, plan) && conteudosDia[0] && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
-      await enviarPilulaDia(conteudosDia[0], 'ultima_pilula1_em');
+      await enviarPilulaDia(conteudosDia[0], 'ultima_pilula1_em', conteudoPendenteLigado && bloqueadaNaAnterior);
     }
 
     // ── MISSÃO (semana de aplicação 4/8/12): a segunda ANUNCIA a missão ──
@@ -777,9 +840,23 @@ export async function processarEmpresaDiario(
      * está disponível" — um canal desfazendo o outro, que é pior que os dois
      * calados. E é a chave que já existe: `templateAtivo` fail-closed sem ela.
      */
-    const bloqueadaNaAnterior = semana < semanaCalendario;
+    /**
+     * ⚠️ `!conteudoPendenteLigado` É O QUE DEVOLVE A 2ª PÍLULA A ESSAS PESSOAS.
+     *
+     * Com a chave nova ligada, a pendência já saiu na segunda, embutida na
+     * própria pílula — repeti-la aqui gastaria a terça para dizer de novo o que
+     * a pessoa leu ontem, e manteria o efeito colateral que ninguém tinha
+     * notado: quem está travado NUNCA recebia o segundo conteúdo da semana,
+     * porque este ramo ocupava o slot toda terça.
+     *
+     * As duas chaves juntas descrevem quatro estados, e só três existem na
+     * prática: nenhuma ligada = comportamento de antes de 25/08 (pílula nos dois
+     * dias, sem pendência nenhuma); só `pendencia` = comportamento de 25/08;
+     * `conteudo_pendente` ligada = pendência na segunda e P2 na terça. Ligar
+     * `conteudo_pendente` sem `pendencia` é legítimo e cai no mesmo lugar.
+     */
     if (
-      hoje === diaP2 && pendenciaLigada && bloqueadaNaAnterior
+      hoje === diaP2 && pendenciaLigada && !conteudoPendenteLigado && bloqueadaNaAnterior
       && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em', 'ultima_pilula2_push_em')
     ) {
       await enviarSemanaPendente();

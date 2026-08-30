@@ -34,6 +34,18 @@ export const PAPEIS: PapelCadencia[] = [
   // conhece, isso só apareceria como 132001 no dia da abertura da turma — que é
   // o pior dia possível para descobrir.
   'boas_vindas',
+  /**
+   * A dupla da segunda/terça de quem está travado.
+   *
+   * 🔴 Entraram em 30/08/2026 porque a lacuna era do tamanho exato do defeito
+   * que este módulo existe para pegar: `pendencia` está LIGADA em produção desde
+   * 25/08 e nunca teve ninguém olhando a categoria dela, e o
+   * `conteudo_semana_pendente` foi submetido devolvendo `UTILITY` e apareceu
+   * `MARKETING` na consulta cinco minutos depois. Sem estes dois na lista, a
+   * reclassificação continua sendo exatamente o que o comentário do topo
+   * descreve: sai, entrega, e custa 6× em silêncio.
+   */
+  'pendencia', 'conteudo_pendente',
 ];
 
 export interface TemplateLigado {

@@ -253,6 +253,38 @@ export type SemanaPendenteOpts = {
  * cairia na mesma porta fechada, agora vinda de um e-mail que acabou de dizer
  * que ela está travada.
  */
+/**
+ * SEGUNDA de quem está travado: o conteúdo da semana E a pendência dela.
+ *
+ * Espelha o corpo do template `conteudo_semana_pendente` (mesma ordem, mesmas
+ * afirmações). Não é coerência de marca apenas: canal dizendo uma coisa e
+ * template dizendo outra é como o produto se contradiz na mesma manhã, e é a
+ * razão de a chave única ligar os três canais de uma vez.
+ *
+ * A frase "abrir o conteúdo não conclui a semana" existe SÓ no e-mail e no push
+ * (o template do WhatsApp não a traz) porque aqui não há revisão da Meta nem
+ * limite de corpo — e é ela que ataca de frente a crença que trava essas
+ * pessoas. Mesmo precedente do `emailSemanaPendente`.
+ */
+export function emailPilulaPendente(
+  nome: string,
+  e: any,
+  opts: PilulaOpts,
+): { subject: string; html: string } {
+  const tema = temaPilula(e);
+  const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato, opts.pilula);
+  const primeiro = (nome || 'Colaborador').split(' ')[0];
+  const subject = `Semana ${opts.semana} — ${tema} (pendente)`;
+  const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
+<p>Olá, ${primeiro}.</p>
+<p>O conteúdo da <strong>semana ${opts.semana}</strong> da sua trilha está disponível.</p>
+<p>Tema: <strong>${tema}</strong>.</p>
+<p>Esta semana continua <strong>pendente</strong>: ela somente é concluída na <strong>conversa de evidências</strong> — abrir o conteúdo não conclui a semana.</p>
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir a semana ${opts.semana} →</a></p>
+<p style="color:#666;font-size:14px">— Equipe Vertho</p></div>`;
+  return { subject, html };
+}
+
 export function emailSemanaPendente(
   nome: string,
   opts: SemanaPendenteOpts,
