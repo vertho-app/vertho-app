@@ -36,6 +36,8 @@ na linha da tabela: a tabela é para o veredito, a seção é para o que o suste
 | `CEGO` | Roda e vê o alvo, mas a mutação passou verde. Distinga o porquê (P3). |
 | `NÃO VERIFICÁVEL` | Faltou pré-condição para provar. **Sempre com a causa ao lado**, porque "o guard é frágil demais para ser testado" e "o auditor foi proibido de testar" são coisas opostas: `NÃO VERIFICÁVEL (working tree sujo)` ou `NÃO VERIFICÁVEL (P3 vetado pelo chamador)`. |
 
+**O veredito admite fração de casos**, e quase sempre é assim que a verdade cabe. Um arquivo com 9 casos pode ter 7 provados e 2 cegos: escreva `CEGO (2 de 9 casos)`. `PROVA` puro esconderia o achado e `CEGO` puro condenaria um guard que funciona em 7 de 9. A fração vai na própria linha da tabela, não só no texto.
+
 Regra de procedência, obrigatória em toda linha: `Medido:` seguido do comando e
 da saída, ou `Suponho:`. Sem intermediário.
 
@@ -93,8 +95,35 @@ Como derivar os executores (derive, não confie em lista decorada):
 
 Guard sobre alvo morto reporta verde para sempre, e o verde é o problema.
 
+**Antes de tudo, classifique o guard, porque as duas famílias falham de forma
+oposta e o instrumento é outro em cada uma:**
+
+| | Guard de VARREDURA | Guard de COMPORTAMENTO |
+|---|---|---|
+| O que faz | percorre arquivos (`git ls-files`, `readdirSync`) e conta violações | importa o símbolo, monta um caso e assere a saída |
+| Como fica cego | **não lê nada** (`catch` que devolve `[]`, skip, glob que não casa mais) e as asserções "nenhum X" ficam verdes | **lê o lugar errado**: o caso sai por um ramo mais raso e nunca alcança a linha vigiada |
+| O que prova | o **denominador**: quantos itens percorreu, e ele é maior que zero | **qual ramo** o caso executa, provado por mutação da linha exata |
+
+As armadilhas de `catch`/skip/asserção-de-ausência são o retrato da primeira
+família. Num guard de comportamento elas frequentemente **não podem estar lá**,
+e procurá-las gasta uma passada inteira. Confira em um comando (`grep -n
+"skipIf\|it.skip\|process.env\|catch"`) e, se der zero, mude de família em vez
+de insistir.
+
+**Na família comportamento, o defeito típico é o default do mock.** Um caso com
+`role = 'colaborador'` por default nunca chega no ramo `rh`/`gestor` onde mora a
+comparação que o nome do teste promete; o 403 esperado chega por outro motivo e
+o verde não vale nada. A prova é mutar a linha alvo e exigir que **aquele caso
+específico** vermelhe. E cuidado com a variável não isolada: se além do tenant
+existe uma checagem de área, o fixture precisa da área IGUAL, senão o 403 vem da
+área e o caso sobrevive à mutação.
+
 - Faça o grep do **campo, do símbolo ou da string**, nunca do arquivo. Alcance
   por diretório deixa passar o consumidor gêmeo que mora em outro lugar.
+- 🔴 **E sem filtro de extensão.** `grep --include="*.ts" --include="*.tsx"` já
+  devolveu **0 consumidores** para um símbolo cujo alvo era `proxy.js`, e isso
+  quase virou um `VÁCUO` falso. O gêmeo pode estar em `.js`, `.mjs`, `.sql` ou
+  `.yml`. É a mesma lição do alcance por diretório, aplicada à extensão.
 - Procure o **consumidor**, não a declaração. Chave declarada não é chave
   aplicada; coluna sem escritor vivo é ilusão preservada.
 - Alvos que já se provaram mortos aqui: `lib/fit-v2/` (cálculo inalcançável,
@@ -136,7 +165,19 @@ Protocolo, sem atalho:
    confirme com `status --porcelain` que voltou limpo. Nunca deixe mutação no
    disco: o hook de pré-push lê o DISCO e uma sobra trava o push de todas as
    sessões.
-5. Vermelho no passo 3 é o único resultado que vale `PROVA`.
+5. Vermelho no passo 3 é o único resultado que vale `PROVA`. E o vermelho tem
+   que ser **do caso certo**: "a suíte ficou vermelha" pode ser outro teste.
+   Nomeie qual caso caiu.
+
+**Uma exceção declarada à regra de uma violação por vez: a mutação COMBINADA
+para medir cobertura.** Quando a pergunta não é "esta asserção sabe falhar?" e
+sim "quantos dos N casos deste guard são de fato carregados pela dimensão que
+ele diz proteger?", desligue as duas ou três linhas juntas e conte os vermelhos.
+Isso mede o quanto do arquivo depende do alvo, o que nenhuma mutação isolada
+responde. Rotule como combinada, liste as linhas mutadas, e leia o resultado
+como cobertura, não como prova de asserção. Os sobreviventes precisam de
+explicação nominal: casos positivos de caminho legítimo não vermelham por
+desenho e não são achado.
 
 Cuidado com asserção de ausência (`toHaveLength(0)`, `toBeUndefined()`,
 `expect(violacoes).toEqual([])`): ela fica verde quando o caminho está certo e

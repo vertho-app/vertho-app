@@ -51,6 +51,10 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - 🔴 **Baixar o número de uma allowlist exige a correção NO MESMO commit.** Declarar "-1, trecho
   corrigido" e deixar o conserto no working tree deixa o local VERDE (lê o disco) e o CI VERMELHO
   (lê o commit): 14 pushes assim em 30/08, no E11. Memória `feedback_guard_varre_tracked`.
+- 🔴 **Teste de gate: confirme por mutação que o caso ALCANÇA o alvo.** Função com vários `return`
+  de guarda deixa o caso sair no primeiro que casar, e o 403 chega pelo motivo errado. Em 30/08 o
+  `tenant-isolation` passava 9/9 com a comparação de tenant desligada, por causa do default do mock
+  (`role = 'colaborador'`). Isole a variável no fixture. Memória `feedback_ramo_mais_raso`.
 - 🔴 Colaborador por e-mail: **`findColabByEmail`**, nunca `.eq('email')` (pessoa em 2+ empresas).
 - **Não conte com RLS**: o app roda service-role (`BYPASSRLS`) e as policies são decorativas por
   decisão (CLAUDE.md §Multi-tenant). Tabela nova de PII nasce protegida por **guard**, não por policy.
