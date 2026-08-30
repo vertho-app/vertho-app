@@ -2,6 +2,7 @@
   "description": "Arquivos autorizados a usar createSupabaseAdmin(). Inclui contagem esperada por arquivo. Qualquer uso novo fora desta lista falha no CI.",
   "allowlist": {
     "scripts/_probe-health-modelos.ts": 1,
+    "scripts/generate-acme-fit-rankings.ts": 1,
     "actions/modulos-base.ts": 24,
     "actions/assessment-descritores.ts": 1,
     "app/admin/competencias/actions.ts": 1,
