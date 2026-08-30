@@ -88,6 +88,46 @@ describe('conteudo_semana_pendente — contrato do template', () => {
   });
 });
 
+/**
+ * Os DOIS nomes correm na fila da Meta ao mesmo tempo (o v1 voltou MARKETING na
+ * consulta feita minutos depois da criação). Enquanto o veredito não sai,
+ * qualquer um dos dois pode ser o escolhido — e a escolha é o valor de uma env.
+ *
+ * O que este bloco protege: que trocar a env NÃO exija tocar em código, e que o
+ * v2 não tenha nascido com a ordem dos parâmetros do v1 invertida.
+ */
+describe('conteudo_semana_pendente_v2 — o gêmeo na fila', () => {
+  const v1 = contratoDoTemplate('conteudo_semana_pendente');
+  const v2 = contratoDoTemplate('conteudo_semana_pendente_v2');
+
+  it('tem contrato mapeado', () => {
+    expect(v2).toBeTruthy();
+  });
+
+  it('produz params e botão IDÊNTICOS aos do v1 — a env é a única diferença', () => {
+    expect(v2!(ARGS)).toEqual(v1!(ARGS));
+  });
+
+  it('abre pela PENDÊNCIA e trata o conteúdo como continuidade', () => {
+    const { params } = v2!(ARGS);
+    const corpo = TEMPLATES.conteudo_semana_pendente_v2.body
+      .replace('{{1}}', params[0]).replace('{{2}}', params[1]).replace('{{3}}', params[2]);
+
+    // A inversão que define o v2: a pendência vem ANTES do conteúdo.
+    expect(corpo.indexOf('continua pendente')).toBeLessThan(corpo.indexOf(TEMA));
+    expect(corpo).toContain('conversa de evidências');
+    // "segue disponível", não "está disponível": continuidade, não novidade.
+    expect(corpo).toContain('segue disponível');
+  });
+
+  it('também não repete variável', () => {
+    const body = TEMPLATES.conteudo_semana_pendente_v2.body;
+    for (const v of ['{{1}}', '{{2}}', '{{3}}']) {
+      expect(body.split(v).length - 1).toBe(1);
+    }
+  });
+});
+
 describe('e-mail da pílula pendente', () => {
   const item = { conteudo: { titulo: TEMA } };
   const opts = { semana: ACESSIVEL, baseUrl: BASE_URL, formato: 'video', pilula: 1 } as any;

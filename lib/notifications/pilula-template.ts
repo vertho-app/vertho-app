@@ -291,6 +291,20 @@ const CONTRATOS: Record<string, MontarParams> = {
     botaoParam: caminhoDoBotao(a),
   }),
 
+  /**
+   * Mesmo contrato do v1 — os dois corpos usam as MESMAS três variáveis, na
+   * mesma ordem, e trocar de um para o outro é trocar o valor da env.
+   *
+   * Não é economia de digitação: enquanto o veredito da Meta não sai, os dois
+   * nomes estão vivos, e um contrato por nome abriria a chance de o vencedor
+   * receber os parâmetros na ordem do perdedor — o defeito que a tabela
+   * `CONTRATOS` inteira existe para impedir.
+   */
+  conteudo_semana_pendente_v2: (a) => ({
+    params: [a.nome, String(a.semana), a.tema],
+    botaoParam: caminhoDoBotao(a),
+  }),
+
   registro_evidencia: (a) => ({
     params: [a.nome, String(a.semana), deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
     botaoParam: null,

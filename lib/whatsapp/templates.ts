@@ -581,6 +581,47 @@ export const TEMPLATES = {
     },
   },
 
+  /**
+   * MESMO momento do `conteudo_semana_pendente`, com a ordem INVERTIDA.
+   *
+   * 🔴 POR QUE EXISTE (30/08/2026, minutos depois do v1). O v1 voltou
+   * `PENDING/MARKETING` na consulta feita 5 min após a criação, que devolvera
+   * UTILITY. Em vez de esperar o veredito e perder um ciclo de revisão, os dois
+   * correm em paralelo — o precedente é o `semana_pendente` v1/v2 (23/08), e o
+   * perdedor só é apagado depois que o vencedor aprova E entrega, nunca antes.
+   *
+   * O QUE MUDOU, e a evidência por trás:
+   *   · O v1 abre ANUNCIANDO disponibilidade e fecha COBRANDO. Nenhum dos 17
+   *     aprovados faz as duas coisas nessa ordem: `conteudo_semana_v2` abre
+   *     anunciando e fecha justificando o serviço; `registro_evidencia` e
+   *     `registro_desafio` cobram, mas abrem pelo ESTADO da conta.
+   *   · Aqui a abertura é a do `semana_pendente_v2` — aprovado UTILITY, o mais
+   *     próximo que existe deste momento — e o conteúdo entra como
+   *     CONTINUIDADE ("segue disponível"), não como novidade ("está
+   *     disponível"). Muda-se o mínimo em relação a uma copy que passou.
+   *
+   * ⚠️ Anunciar disponibilidade NÃO é o sinal, e vale registrar para a próxima
+   * pessoa não "corrigir" o lado errado: `conteudo_semana_v2` diz "o conteúdo da
+   * semana X está disponível. Tema: Y" e é UTILITY. A hipótese aqui é a
+   * COMBINAÇÃO de anúncio com cobrança, não o anúncio.
+   *
+   * ✅ Contrato IDÊNTICO ao do v1 (`{{1}}`=nome, `{{2}}`=semana acessível,
+   * `{{3}}`=tema), de propósito: os dois compartilham o montador em `CONTRATOS`,
+   * e escolher entre eles é trocar o valor da env — sem tocar em código.
+   */
+  conteudo_semana_pendente_v2: {
+    name: 'conteudo_semana_pendente_v2',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. A semana {{2}} da sua trilha continua pendente: ela somente é concluída na conversa de evidências.\n\nO conteúdo desta semana, {{3}}, segue disponível na página da semana.',
+    example: ['Maria', '1', 'Escuta ativa na sala de aula'],
+    botao: {
+      texto: 'Abrir a semana',
+      url: 'https://app.vertho.ai/ir/{{1}}',
+      exemplo: 'https://app.vertho.ai/ir/ibipeba/1/video/1',
+    },
+  },
+
   /** Resultado do assessment comportamental liberado. */
   perfil_disponivel: {
     name: 'resultado_perfil',

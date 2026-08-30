@@ -456,8 +456,30 @@ que esta base observa a reclassificação silenciosa (14/08 com 4 de 8; 15/08 co
 segurando UTILITY por vinte minutos), e a primeira em que o intervalo foi curto o bastante para
 alguém ver acontecer. **Nunca registre a categoria da resposta de criação** — consulte
 `GET /{waba}/message_templates?fields=name,status,category` depois, e de novo antes de ligar a env.
-Status ainda é `PENDING`: o veredito final pode mudar nos dois sentidos e só vale quando sair
-`APPROVED`.
+
+⏳ **`conteudo_semana_pendente_v2`** — submetido 30/08/2026 (`id=908796505239144`), MESMO momento e
+MESMO contrato do v1, com a ordem invertida. Corre em paralelo em vez de esperar o veredito: o
+precedente é o `semana_pendente` v1/v2 (23/08), e o perdedor só é apagado depois que o vencedor
+aprova **e** entrega.
+
+📊 **O PAR ISOLA UMA VARIÁVEL, e é o dado mais útil que esta base tem sobre o classificador.**
+Medido 30/08, consulta feita minutos depois de cada submissão:
+
+| | abertura | fecho | categoria |
+|---|---|---|---|
+| `conteudo_semana_pendente` | anuncia disponibilidade + tema | cobra a pendência | **MARKETING** |
+| `conteudo_semana_pendente_v2` | afirma a pendência | conteúdo como continuidade | **UTILITY** |
+
+⚠️ **Anunciar disponibilidade NÃO é o sinal** — quem "corrigir" esse lado vai reescrever a copy
+errada. `conteudo_semana_v2` diz *"o conteúdo da semana X está disponível. Tema: Y"* e é UTILITY
+aprovado. O que os 17 aprovados nunca fazem é **anunciar e cobrar na mesma mensagem, nessa ordem**:
+`conteudo_semana_v2` anuncia e fecha justificando o serviço; `registro_evidencia` e
+`registro_desafio` cobram, mas abrem pelo ESTADO da conta. A hipótese que o par sustenta é a
+COMBINAÇÃO, não o anúncio — e ela é uma hipótese de amostra 2, não regra publicada pela Meta.
+
+Ambos seguem `PENDING`: o veredito final pode mudar nos dois sentidos e só vale quando sair
+`APPROVED`. Os dois compartilham o montador em `CONTRATOS`, então escolher o vencedor é trocar o
+valor de `WHATSAPP_TEMPLATE_CONTEUDO_PENDENTE` — sem tocar em código.
 Papel `conteudo_pendente` · `WHATSAPP_TEMPLATE_CONTEUDO_PENDENTE` (ainda **não gravada** — o código
 está no ar desligado, e `templateAtivo` é fail-closed sem ela).
 Contrato: `{{1}}`=nome, `{{2}}`=semana **ACESSÍVEL**, `{{3}}`=tema; botão
