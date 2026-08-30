@@ -1,6 +1,6 @@
 {
   "description": "E11 (auditoria 22/08) — estoque CONGELADO da classe \"error não checado\": o supabase-js retorna { data, error } e não lança, então quem ignora o retorno vira falha silenciosa. Chave = arquivo, valor = fingerprints (hash do trecho normalizado). Por fingerprint e não por contagem porque contagem deixa a dívida TROCAR DE LUGAR sem o guard ver (modo de falha documentado no E8). Esta lista SÓ ENCOLHE. Guard: tests/unit/security/error-nao-checado-guard.test.ts | 27/08/2026: -6 em actions/fase4.ts — nao foi correcao: gerarPDIs e gerarPDIsDescritores foram REMOVIDAS junto com a tabela `pdis` (mig 233), que tinha 0 linhas, nenhuma FK/view/policy e nenhum consumidor. Divida que some porque o codigo saiu conta como paga. | 29/08/2026: -1 em app/admin-v2/actions.ts (fingerprint 4bbab016), trecho corrigido/reescrito. ⚠️ `scripts/_atualizar-allowlist-erro.ts` REGENERA esta description e apaga o historico anexado: reanexe apos rodar.",
-  "total_declarado": 966,
+  "total_declarado": 961,
   "gerado_em": "2026-08-24",
   "allowlist": {
     "actions/adequacao-cargo.ts": {
@@ -690,13 +690,6 @@
       "cfbad400": 2,
       "f1624219": 3,
       "f3474169": 2
-    },
-    "app/api/assessment/route.ts": {
-      "32499fc6": 1,
-      "4cfb4524": 1,
-      "d98909b8": 1,
-      "e3a07149": 1,
-      "fcd9560e": 1
     },
     "app/api/auth/cargos/route.ts": {
       "8bcdd6dd": 1,

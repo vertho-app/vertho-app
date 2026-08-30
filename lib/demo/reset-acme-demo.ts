@@ -1272,7 +1272,11 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       .select('id,competencia_id,cargo,tipo_cenario').eq('empresa_id', destId)
       .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b');
     if (cenErr) throw cenErr;
-    const cenarioByComp = new Map((cenarios || []).map((c: any) => [c.competencia_id, c.id]));
+    const nomeByCompId = new Map((comps || []).map((comp: any) => [comp.id, comp.nome]));
+    const cenarioByCargoNome = new Map((cenarios || []).map((cenario: any) => [
+      `${cenario.cargo}::${nomeByCompId.get(cenario.competencia_id)}`,
+      cenario,
+    ]));
 
     const participantes: any[] = slug === DEMO_SLUG
       ? [
@@ -1289,7 +1293,8 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       const colabId = personaMap.get(p.key);
       for (const compNome of p.responder || []) {
         const comp = compByCargoNome.get(`${p.cargo}::${compNome}`);
-        if (!comp) continue;
+        const cenario = cenarioByCargoNome.get(`${p.cargo}::${compNome}`);
+        if (!comp && !cenario) continue;
         const respostas = p.key === 'mariana'
           ? respostasFortesFinanceiro(compNome)
           : respostasPara(compNome, p.nome_completo);
@@ -1299,7 +1304,9 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         payload.push({
           empresa_id: destId, colaborador_id: colabId, email_colaborador: p.email,
           nome_colaborador: p.nome_completo, cargo: p.cargo,
-          cenario_id: cenarioByComp.get(comp.id) || null, competencia_id: comp.id, competencia_nome: comp.nome,
+          cenario_id: cenario?.id || null,
+          competencia_id: cenario?.competencia_id || comp.id,
+          competencia_nome: comp?.nome || compNome,
           ...respostas, canal: 'demo-seed', tipo_resposta: 'cenario_a', rodada: 1,
           timestamp_resposta: new Date().toISOString(),
           ...(avaliacaoDemo ? {

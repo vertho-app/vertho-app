@@ -5,12 +5,14 @@ import { csrfCheck } from '@/lib/csrf';
 import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { findColabByEmail } from '@/lib/authz';
+import { assessmentCompetencyWasAnswered } from '@/lib/assessment/completion';
 
 // PPP-alvo do colaborador: a escola dele define o PPP (escolas que compartilham
 // o PPP usam o mesmo cenário). Sem escola/PPP → null = rede.
 async function pppDaEscola(sb: any, escolaId: string | null): Promise<string | null> {
   if (!escolaId) return null;
-  const { data } = await sb.from('escolas').select('ppp_escola_id').eq('id', escolaId).maybeSingle();
+  const { data, error } = await sb.from('escolas').select('ppp_escola_id').eq('id', escolaId).maybeSingle();
+  if (error) throw new Error(`Falha ao resolver o PPP da pessoa: ${error.message}`);
   return data?.ppp_escola_id || null;
 }
 
@@ -52,25 +54,43 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: gateGet.message, code: gateGet.code, remediation: gateGet.remediation }, { status: 403 });
     }
 
-    const { data: cenariosRaw } = await sb.from('banco_cenarios')
+    const { data: cenariosRaw, error: cenariosError } = await sb.from('banco_cenarios')
       .select('id, competencia_id, ppp_escola_id, titulo, descricao, alternativas, p1, p2, p3, p4')
       .eq('empresa_id', colab.empresa_id)
+      .eq('cargo', colab.cargo)
       .order('created_at');
+    if (cenariosError) return NextResponse.json({ error: cenariosError.message }, { status: 500 });
 
     // Roteia pelo PPP do colaborador (via escola): 1 cenário por competência —
     // PPP do colab > rede (ppp_escola_id null) > mais recente.
     const pppEscolaId = await pppDaEscola(sb, (colab as any).escola_id || null);
     const cenarios = selecionarCenariosElegiveis(cenariosRaw, pppEscolaId);
 
-    const { data: respostas } = await sb.from('respostas')
-      .select('competencia_id')
+    const competenciaIds = [...new Set(cenarios.map((cenario: any) => cenario.competencia_id).filter(Boolean))];
+    const { data: competencias, error: competenciasError } = competenciaIds.length
+      ? await sb.from('competencias')
+          .select('id,nome')
+          .eq('empresa_id', colab.empresa_id)
+          .in('id', competenciaIds)
+      : { data: [], error: null };
+    if (competenciasError) return NextResponse.json({ error: competenciasError.message }, { status: 500 });
+    const nomePorId = new Map((competencias || []).map((competencia: any) => [competencia.id, competencia.nome]));
+
+    const { data: respostas, error: respostasError } = await sb.from('respostas')
+      .select('competencia_id,competencia_nome')
       .eq('colaborador_id', colab.id)
+      .eq('empresa_id', colab.empresa_id)
       .not('r1', 'is', null);
+    if (respostasError) return NextResponse.json({ error: respostasError.message }, { status: 500 });
 
-    const respondidas = new Set((respostas || []).map((r: any) => r.competencia_id));
-    const pendentes = (cenarios || []).filter((c: any) => !respondidas.has(c.competencia_id));
+    const respondidos = (cenarios || []).filter((cenario: any) => assessmentCompetencyWasAnswered({
+      id: cenario.competencia_id,
+      nome: nomePorId.get(cenario.competencia_id),
+    }, respostas || []));
+    const respondidasIds = new Set(respondidos.map((cenario: any) => cenario.competencia_id));
+    const pendentes = (cenarios || []).filter((cenario: any) => !respondidasIds.has(cenario.competencia_id));
 
-    return NextResponse.json({ colaborador: colab, pendentes, total: cenarios?.length || 0, respondidas: respondidas.size });
+    return NextResponse.json({ colaborador: colab, pendentes, total: cenarios?.length || 0, respondidas: respondidasIds.size });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -91,7 +111,7 @@ export async function POST(req: Request) {
     }
 
     const sb = createSupabaseAdmin();
-    const colab = await findColabByEmail(auth.email, 'id, empresa_id, escola_id') as any;
+    const colab = await findColabByEmail(auth.email, 'id, empresa_id, escola_id, cargo') as any;
     if (!colab) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
 
     const cfgPost = await configEfetivaDoColaborador(sb, colab.empresa_id, colab.id);
@@ -100,10 +120,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: gatePost.message, code: gatePost.code, remediation: gatePost.remediation }, { status: 403 });
     }
 
-    const { data: cenariosRaw } = await sb.from('banco_cenarios')
+    const { data: cenariosRaw, error: cenariosError } = await sb.from('banco_cenarios')
       .select('id, competencia_id, ppp_escola_id')
       .eq('empresa_id', colab.empresa_id)
+      .eq('cargo', colab.cargo)
       .order('created_at');
+    if (cenariosError) return NextResponse.json({ error: cenariosError.message }, { status: 500 });
 
     const pppEscolaId = await pppDaEscola(sb, (colab as any).escola_id || null);
     const elegiveis = selecionarCenariosElegiveis(cenariosRaw, pppEscolaId);
@@ -112,14 +134,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Cenário não elegível para este colaborador' }, { status: 403 });
     }
 
-    const { data: existente } = await sb.from('respostas')
-      .select('id')
-      .eq('colaborador_id', colab.id)
-      .eq('competencia_id', competencia_id)
-      .not('r1', 'is', null)
-      .limit(1)
+    const { data: competencia, error: competenciaError } = await sb.from('competencias')
+      .select('nome')
+      .eq('empresa_id', colab.empresa_id)
+      .eq('id', competencia_id)
       .maybeSingle();
-    if (existente) {
+    if (competenciaError) return NextResponse.json({ error: competenciaError.message }, { status: 500 });
+
+    const { data: respostasExistentes, error: respostasExistentesError } = await sb.from('respostas')
+      .select('id,competencia_id,competencia_nome')
+      .eq('colaborador_id', colab.id)
+      .eq('empresa_id', colab.empresa_id)
+      .not('r1', 'is', null)
+      .limit(100);
+    if (respostasExistentesError) return NextResponse.json({ error: respostasExistentesError.message }, { status: 500 });
+    if (assessmentCompetencyWasAnswered({ id: competencia_id, nome: competencia?.nome }, respostasExistentes || [])) {
       return NextResponse.json({ error: 'Competência já respondida' }, { status: 409 });
     }
 

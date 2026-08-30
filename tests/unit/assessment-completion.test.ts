@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   assessmentCompetencyWasAnswered,
   findAssessmentAnswer,
@@ -31,5 +32,14 @@ describe('conclusão da avaliação por competência', () => {
 
   it('normaliza acentos, espaços e caixa sem apagar o conteúdo', () => {
     expect(normalizeAssessmentCompetency('  Resiliência E Constância  ')).toBe('resiliencia e constancia');
+  });
+
+  it('aplica a mesma regra na action do dashboard e na rota legada', () => {
+    const action = readFileSync('app/dashboard/assessment/assessment-actions.ts', 'utf8');
+    const route = readFileSync('app/api/assessment/route.ts', 'utf8');
+
+    expect(action).toContain('assessmentCompetencyWasAnswered');
+    expect(route).toContain('assessmentCompetencyWasAnswered');
+    expect(route).toContain(".eq('cargo', colab.cargo)");
   });
 });
