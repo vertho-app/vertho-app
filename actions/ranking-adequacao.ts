@@ -1,14 +1,13 @@
 'use server';
 /**
- * Ranking de Adequação ao Cargo — VIEW pura sobre o SNAPSHOT (self-service do gestor).
+ * Ranking de Adequação ao Cargo — VIEW pura sobre o SNAPSHOT (self-service do RH).
  *
  * NÃO recomputa o motor: lê o `.json` assado gravado por geração (reprodução = servir o
  * resultado entregue). Engine-free: importa zero de lib/scoring. Eixo discriminante e
  * divergência saem do próprio snapshot (perfilIdeal.pesos + fit por bloco). Permissão:
- * reports.individual.view (indivíduos nomeados = alto risco). Escopo: empresa do gestor.
+ * Acesso exclusivo ao papel RH (indivíduos nomeados = alto risco). Escopo: empresa do RH.
  */
 import { getUserContext } from '@/lib/authz';
-import { canBase } from '@/lib/permissions';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 
@@ -18,22 +17,22 @@ const BLOCOS = ['Competência', 'Liderança', 'DISC', 'Mapeamento'] as const;
 const BLOCO_PESSOA: Record<string, 'competencia' | 'lideranca' | 'discScore' | 'mapeamento'> = { 'Competência': 'competencia', 'Liderança': 'lideranca', 'DISC': 'discScore', 'Mapeamento': 'mapeamento' };
 const sd = (a: number[]) => { if (a.length < 2) return 0; const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / a.length); };
 
-async function ctxGestor() {
+async function ctxRh() {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { erro: 'Não autenticado.' as const };
   const ctx = await getUserContext(email);
-  if (!canBase(ctx, 'reports.individual.view')) return { erro: 'Sem permissão para ver relatórios individuais.' as const };
-  const empresaId = ctx?.colaborador?.empresa_id;
-  if (!empresaId) return { erro: 'Gestor sem empresa vinculada.' as const };
+  if (ctx?.role !== 'rh') return { erro: 'Acesso exclusivo do RH.' as const };
+  const empresaId = ctx.empresaId;
+  if (!empresaId) return { erro: 'RH sem empresa vinculada.' as const };
   return { empresaId, ctx };
 }
 
 const cargoEnc = (c: string) => encodeURIComponent(c).replace(/%/g, '');
 
-// ── Núcleo compartilhado (gestor self-service E preview de admin) ────────────
+// ── Núcleo compartilhado (RH self-service E preview de admin) ────────────────
 async function _listarCargos(sb: any, empresaId: string, incluirVagas = false): Promise<string[]> {
-  // incluirVagas: a tela de ranking do gestor mostra também as VAGAS (eh_vaga=true) — numa
+  // incluirVagas: a tela de ranking do RH mostra também as VAGAS (eh_vaga=true) — numa
   // empresa de seleção (só vagas) a tela viveria vazia senão. O cadastro segue separado.
   let cq = sb.from('cargos_empresa').select('nome, gabarito').eq('empresa_id', empresaId);
   if (!incluirVagas) cq = cq.eq('eh_vaga', false);
@@ -44,9 +43,9 @@ async function _listarCargos(sb: any, empresaId: string, incluirVagas = false): 
   return comGab.filter((nome: string) => nomes.some((fn) => fn.startsWith(`${empresaId}-${cargoEnc(nome)}-`) && fn.endsWith('.json'))).sort((a: string, b: string) => a.localeCompare(b));
 }
 
-/** Cargos da empresa que TÊM snapshot de ranking (relatório gerado) — GESTOR. */
+/** Cargos da empresa que TÊM snapshot de ranking (relatório gerado) — RH. */
 export async function listarCargosComRanking(): Promise<{ cargos: string[]; erro?: string }> {
-  const g = await ctxGestor(); if ('erro' in g) return { cargos: [], erro: g.erro };
+  const g = await ctxRh(); if ('erro' in g) return { cargos: [], erro: g.erro };
   return { cargos: await _listarCargos(createSupabaseAdmin(), g.empresaId, true) };
 }
 /** Idem — PREVIEW de admin (empresa vem da rota, gated p/ platform_admin). */
@@ -170,9 +169,9 @@ async function _exportarPDF(sb: any, empresaId: string, cargo: string): Promise<
   return { success: true, url: signed.data.signedUrl };
 }
 
-/** GESTOR — exporta o PDF do ranking (empresa da sessão). */
+/** RH — exporta o PDF do ranking (empresa da sessão). */
 export async function exportarRankingPDF(cargo: string) {
-  const g = await ctxGestor(); if ('erro' in g) return { success: false as const, error: g.erro };
+  const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro };
   return _exportarPDF(createSupabaseAdmin(), g.empresaId, cargo);
 }
 /** ADMIN — exporta o PDF do ranking (empresa da rota, gated p/ platform_admin). */
@@ -181,9 +180,9 @@ export async function exportarRankingPDFAdmin(empresaId: string, cargo: string) 
   return _exportarPDF(sb, empresaId, cargo);
 }
 
-/** GESTOR self-service (empresa da sessão). */
+/** RH self-service (empresa da sessão). */
 export async function getRankingAdequacao(cargo: string): Promise<any> {
-  const g = await ctxGestor(); if ('erro' in g) return { success: false, error: g.erro };
+  const g = await ctxRh(); if ('erro' in g) return { success: false, error: g.erro };
   return _getRanking(createSupabaseAdmin(), g.empresaId, cargo);
 }
 /** PREVIEW de admin (empresa da rota, gated p/ platform_admin). */

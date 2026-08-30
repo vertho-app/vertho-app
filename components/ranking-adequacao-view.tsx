@@ -6,8 +6,9 @@
  * (cada página provê o seu shell). Nunca recomputa — só exibe o que a action devolve.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, ShieldAlert, Info, FileDown } from 'lucide-react';
+import { ArrowLeft, FileText, Info, Loader2, ShieldAlert } from 'lucide-react';
 import { GlassCard } from '@/components/page-shell';
+import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
 
 const STATUS_COR: Record<string, { cor: string; label: string }> = {
   recomendado: { cor: '#10b981', label: 'Recomendado' },
@@ -37,13 +38,14 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
   const [sort, setSort] = useState<'eixo' | 'aderencia'>('aderencia');
   const [exportando, setExportando] = useState(false);
   const [erroExport, setErroExport] = useState('');
+  const [pdfUrl, setPdfUrl] = useState('');
 
   async function exportarPDF() {
     if (!exportar || !sel) return;
     setExportando(true); setErroExport('');
     try {
       const r = await exportar(sel);
-      if (r.success && r.url) window.open(r.url, '_blank');
+      if (r.success && r.url) setPdfUrl(r.url);
       else setErroExport(r.error || 'Falha ao gerar o PDF.');
     } catch { setErroExport('Falha ao gerar o PDF.'); }
     setExportando(false);
@@ -52,11 +54,11 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
   // `listar` muda de identidade quando a empresa muda (useCallback keyed no empresaId).
   // Reseta o que estava carregado do tenant anterior — senão o ranking velho fica grudado.
   useEffect(() => {
-    setSel(''); setData(null); setErro(''); setCargos([]);
+    setSel(''); setData(null); setErro(''); setCargos([]); setPdfUrl('');
     listar().then((r) => { setCargos(r.cargos); if (r.erro) setErro(r.erro); });
   }, [listar]);
   async function run(cargo: string) {
-    setSel(cargo); setLoading(true); setData(null); setErro(''); setSort('aderencia'); setFStatus('todos'); setFDriver('qualquer'); setFMin(0);
+    setSel(cargo); setLoading(true); setData(null); setErro(''); setPdfUrl(''); setErroExport(''); setSort('aderencia'); setFStatus('todos'); setFDriver('qualquer'); setFMin(0);
     const r = await carregar(cargo);
     if (r.success) setData(r); else setErro(r.error || 'Erro.');
     setLoading(false);
@@ -98,9 +100,44 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
         {cargos.length === 0 && !erro && <p className="text-xs text-slate-500">Nenhum cargo com ranking gerado ainda.</p>}
       </div>
 
-      {loading && <div className="flex justify-center py-12"><Loader2 className="animate-spin text-brand-400" /></div>}
+      {pdfUrl && (
+        <section aria-label={`PDF do ranking de ${sel}`}>
+          <button
+            type="button"
+            onClick={() => setPdfUrl('')}
+            className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em] text-white/45 transition hover:text-brand-200"
+          >
+            <ArrowLeft size={14} /> Voltar ao ranking
+          </button>
 
-      {data?.success && (
+          <div className="overflow-hidden rounded-[26px] border border-white/[0.09] bg-[#071829] shadow-[0_24px_80px_rgba(0,0,0,.28)]">
+            <header className="flex items-center gap-3 border-b border-white/[0.08] px-4 py-4 sm:px-6">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-brand-400/20 bg-brand-400/10 text-brand-200">
+                <FileText size={18} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-300">Leitor de relatório</p>
+                <h2 className="mt-0.5 truncate text-lg text-white sm:text-xl" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>
+                  Ranking de adequação · {sel}
+                </h2>
+              </div>
+            </header>
+            <div className="p-2 sm:p-4">
+              <InAppPdfDocument
+                src={pdfUrl}
+                title={`Ranking de adequação ao cargo — ${sel}`}
+                loadingLabel="Carregando relatório…"
+                errorLabel="Não foi possível abrir este PDF dentro da tela."
+                retryLabel="Tentar novamente"
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {!pdfUrl && loading && <div className="flex justify-center py-12"><Loader2 className="animate-spin text-brand-400" /></div>}
+
+      {!pdfUrl && data?.success && (
         <div className="space-y-4">
           <GlassCard>
             <div className="flex gap-2 items-start p-1">
@@ -143,8 +180,8 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
             <span className="text-slate-500 ml-auto">{visiveis.length} de {data.totais.elegiveis} elegíveis</span>
             {exportar && (
               <button onClick={exportarPDF} disabled={exportando} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-400/40 bg-brand-500/10 text-brand-200 hover:bg-brand-500/20 disabled:opacity-50">
-                {exportando ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
-                {exportando ? 'Gerando…' : 'Exportar PDF'}
+                {exportando ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
+                {exportando ? 'Gerando…' : 'Visualizar PDF'}
               </button>
             )}
           </div>

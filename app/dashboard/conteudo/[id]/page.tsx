@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { requireUserAction } from '@/lib/auth/action-context';
 import { tenantDb } from '@/lib/tenant-db';
 import { guidDoEmbedBunny } from '@/lib/conteudo/bunny-embed';
+import { findReadyPersonalizedVideo, personalizedGreetingCopy } from '@/lib/video/personalized-ready';
 import ContentExperience, { type ContentExperienceData } from './content-experience';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,7 @@ export default async function RecommendedContentPage({ params }: { params: Promi
   if (!auth.empresaId) notFound();
   const sb = tenantDb(auth.empresaId).raw;
   const { data: content, error } = await sb.from('micro_conteudos')
-    .select('id,empresa_id,titulo,descricao,formato,duracao_min,url,bunny_video_id,ativo')
+    .select('id,empresa_id,titulo,descricao,formato,duracao_min,url,bunny_video_id,modulo_base_id,ativo')
     .eq('id', id)
     // A consulta já nasce no alcance da sessão: catálogo global OU tenant
     // atual. O teste posterior permanece como defesa em profundidade.
@@ -48,9 +49,32 @@ export default async function RecommendedContentPage({ params }: { params: Promi
   }
 
   const url = safeHttpUrl(content.url);
-  const bunnyVideoId = content.formato === 'video'
+  let bunnyVideoId = content.formato === 'video'
     ? String(content.bunny_video_id || '').trim() || guidDoEmbedBunny(url)
     : null;
+  let bunnyLibraryId: string | number = process.env.BUNNY_LIBRARY_ID || 636615;
+  let title = content.titulo;
+  let description = content.descricao;
+
+  // O catálogo guarda o deck editorial da célula. Na ENTREGA, uma versão já
+  // pronta com “Olá, {nome}” substitui esse deck para a pessoa autenticada.
+  // Falha ou ausência preserva o genérico; esta tela nunca gera vídeo.
+  if (content.formato === 'video' && content.modulo_base_id && auth.colaborador?.id) {
+    const personalized = await findReadyPersonalizedVideo(sb, {
+      empresaId: auth.empresaId,
+      colaboradorId: auth.colaborador.id,
+      cargo: auth.colaborador.cargo,
+      perfilDominante: auth.colaborador.perfil_dominante,
+      moduloBaseId: content.modulo_base_id,
+    });
+    if (personalized) {
+      const greeting = personalizedGreetingCopy(auth.colaborador.nome_completo);
+      bunnyVideoId = personalized.bunnyVideoId;
+      bunnyLibraryId = personalized.bunnyLibrary;
+      title = greeting.title;
+      description = greeting.description;
+    }
+  }
 
   const hasSource = content.formato === 'texto'
     || content.formato === 'case'
@@ -61,8 +85,8 @@ export default async function RecommendedContentPage({ params }: { params: Promi
 
   const viewerData: ContentExperienceData = {
     id: content.id,
-    title: content.titulo,
-    description: content.descricao,
+    title,
+    description,
     format: content.formato as ContentExperienceData['format'],
     durationMinutes: content.duracao_min == null ? null : Number(content.duracao_min),
     url,
@@ -72,7 +96,7 @@ export default async function RecommendedContentPage({ params }: { params: Promi
   return (
     <ContentExperience
       content={viewerData}
-      bunnyLibraryId={process.env.BUNNY_LIBRARY_ID || 636615}
+      bunnyLibraryId={bunnyLibraryId}
       colaboradorId={auth.colaborador?.id || null}
     />
   );

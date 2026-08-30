@@ -40,11 +40,11 @@ function brandRampVars(accent: string): Record<string, string> {
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', labelKey: 'home', icon: Home },
   { href: '/dashboard/gestor', labelKey: 'team', icon: Users2, gestorOnly: true },
-  { href: '/dashboard/gestor/ranking', labelKey: 'ranking', icon: ListOrdered, gestorOnly: true },
+  { href: '/dashboard/gestor/ranking', labelKey: 'ranking', icon: ListOrdered, rhOnly: true },
   { href: '/dashboard/relatorios', labelKey: 'reports', icon: FileChartColumn, rhOnly: true },
   // Seleção saiu daqui em 24/08/2026: era a única tela de OPERAÇÃO no menu do
   // cliente (criar vaga · gerar perfil · avaliar candidatos) e virou operação da
-  // Vertho em /admin. O ranking das vagas segue visível em .../ranking, que já
+  // Vertho em /admin. O ranking das vagas segue visível ao RH em .../ranking, que já
   // inclui `eh_vaga`. Ver o docstring de `gestor/selecao/page.tsx`.
   // `participante`: telas da jornada de quem FAZ o programa. O papel `rh` é o
   // Admin da empresa e não participa (medido 24/08/2026: 0 dos 8 com role='rh'

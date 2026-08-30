@@ -608,7 +608,7 @@ export async function carregarCapacitacoes(empresaId: string | null, competencia
   try {
     const sb = createSupabaseAdmin();
     let q = sb.from('micro_conteudos')
-      .select('id, titulo, descricao, formato, descritor, bunny_video_id, url, conteudo_inline, duracao_min, tipo_conteudo, created_at')
+      .select('id, titulo, descricao, formato, descritor, bunny_video_id, url, conteudo_inline, duracao_min, tipo_conteudo, modulo_base_id, created_at')
       .eq('competencia', competencia)
       .eq('ativo', true)
       .order('tipo_conteudo', { ascending: true }) // 'core' antes de 'complementar'

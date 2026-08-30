@@ -17,6 +17,7 @@ import {
 } from '@/lib/home/loaders';
 import { carregarContextoTurma } from '@/lib/turmas';
 import { getDashboardView } from '@/lib/authz';
+import { findReadyPersonalizedVideo, personalizedGreetingCopy } from '@/lib/video/personalized-ready';
 
 /**
  * Carregamento CONSOLIDADO da home do dashboard.
@@ -105,6 +106,30 @@ export async function loadHomeData() {
   const dashboardP = carregarDashboardData(ctx, shared);
   const jornadaP = carregarJornada(colabJornada, shared);
 
+  async function carregarCapacitacoesPersonalizadas(competencia: string | null) {
+    const items = await carregarCapacitacoes(colab.empresa_id, competencia, 12);
+    const greeting = personalizedGreetingCopy(colab.nome_completo);
+
+    return Promise.all(items.map(async (item: any) => {
+      if (item.formato !== 'video' || !item.modulo_base_id) return item;
+      const personalized = await findReadyPersonalizedVideo(sb, {
+        empresaId: colab.empresa_id,
+        colaboradorId: colab.id,
+        cargo: colab.cargo,
+        perfilDominante: colab.perfil_dominante,
+        moduloBaseId: item.modulo_base_id,
+      });
+      if (!personalized) return item;
+      return {
+        ...item,
+        titulo: greeting.title,
+        descricao: greeting.description,
+        bunny_video_id: personalized.bunnyVideoId,
+        video_personalizado: true,
+      };
+    }));
+  }
+
   const [dashboardR, kpisR, videosR, pulsosR, votacaoR, capacR] = await Promise.allSettled([
     dashboardP,
     // KPIs aguarda a jornada internamente (só no passo da fase) — paralelo
@@ -114,7 +139,7 @@ export async function loadHomeData() {
     carregarVotacaoStatus(colab, shared),
     // Capacitações depende da competência foco (vem da trilha, via seção
     // dashboard) — encadeado na promise, sem roundtrip extra do client.
-    dashboardP.then(d => carregarCapacitacoes(colab.empresa_id, d?.competenciaFoco ?? null, 12)),
+    dashboardP.then(d => carregarCapacitacoesPersonalizadas(d?.competenciaFoco ?? null)),
   ]);
 
   const val = (r: PromiseSettledResult<any>, fallback: any): any =>

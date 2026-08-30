@@ -1,5 +1,5 @@
 'use client';
-/** Tab "Ranking" do workspace Adequação — PREVIEW de admin. Mesma tela do gestor
+/** Tab "Ranking" do workspace Adequação — PREVIEW de admin. Mesma tela do RH
  *  (`/dashboard/gestor/ranking`), mas escopada pela empresa do contexto do admin
  *  (useEmpresaContexto na página), gated p/ platform_admin. Dev/staff.
  *  Extraída da rota legada /admin/empresas/[empresaId]/ranking (Reorganização, Fase 3);
@@ -14,7 +14,7 @@ export default function RankingTab({ empresaId }: { empresaId: string }) {
   const exportar = useCallback((c: string) => exportarRankingPDFAdmin(empresaId, c), [empresaId]);
   return (
     <div className="max-w-4xl mx-auto text-slate-200">
-      <div className="mb-3 text-[11px] text-amber-400/80">Preview interno — é a tela que o gestor do cliente vê (`/dashboard/gestor/ranking`), escopada pela empresa selecionada.</div>
+      <div className="mb-3 text-[11px] text-amber-400/80">Preview interno — é a tela que o RH do cliente vê (`/dashboard/gestor/ranking`), escopada pela empresa selecionada.</div>
       <RankingAdequacaoView listar={listar} carregar={carregar} exportar={exportar} />
     </div>
   );

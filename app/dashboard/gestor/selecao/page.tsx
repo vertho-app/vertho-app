@@ -8,11 +8,9 @@ import { redirect } from 'next/navigation';
  * o cliente consome** — essas três ações são operação da plataforma e vivem em
  * `/admin/empresas/[empresaId]/selecao`, com o mesmo `SelecaoPanel`.
  *
- * O que o RH consome do módulo de Seleção continua inteiro em
- * `/dashboard/gestor/ranking`: `listarCargosComRanking()` passa `incluirVagas=true`,
- * então as VAGAS com snapshot aparecem lá, e o gate é o self-service
- * (`ctxGestor` → `reports.individual.view`, empresa da SESSÃO), permissão que o
- * papel `rh` tem. Nada de leitura se perde aqui.
+ * O ranking continua disponível ao RH em `/dashboard/gestor/ranking`, mas este
+ * endereço antigo não pode servir de atalho indireto para gestores. Por isso o
+ * destino neutro é a home do dashboard; o RH encontra o ranking no próprio menu.
  *
  * 🔴 A tela também já não funcionava. Desde o commit 7afc0c33 (H0, 23/08 23h05)
  * `requireEmpresaSupabase` exige a permissão de TODO papel — antes ela era
@@ -26,5 +24,5 @@ import { redirect } from 'next/navigation';
  * `app/dashboard/home/page.tsx`.
  */
 export default function SelecaoAposentada() {
-  redirect('/dashboard/gestor/ranking');
+  redirect('/dashboard');
 }
