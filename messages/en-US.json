@@ -112,6 +112,7 @@
     "nav": {
       "home": "Home",
       "ranking": "Job Fit",
+      "reports": "Reports",
       "team": "Team",
       "selection": "Selection",
       "journey": "Journey",
@@ -243,6 +244,7 @@
       "evolution": "Team evolution",
       "evolutionDescription": "How levels moved between seasons.",
       "reports": "Company reports",
+      "reportsDescription": "All organization, leadership, and individual reports in one place.",
       "reportHr": "HR report",
       "reportHrDescription": "The cycle read for whoever owns the program: where the team stands and what to do next.",
       "reportProfile": "Organizational Profile",
@@ -251,6 +253,42 @@
       "reportDnaDescription": "The culture read: how the organization decides, communicates and learns.",
       "operatedByVertho": "Setup, content and messaging are run by Vertho. Talk to us whenever you need a change."
     }
+  },
+  "RhReports": {
+    "eyebrow": "Decision center",
+    "title": "Reports for",
+    "fallbackCompany": "your company",
+    "subtitle": "Access organization, leadership, and individual insights without leaving the HR workspace.",
+    "sections": {
+      "organization": "Organization",
+      "managers": "Leaders",
+      "people": "People"
+    },
+    "descriptions": {
+      "organization": "Consolidated views for culture, development, and organizational health decisions.",
+      "managers": "Reports prepared for those who directly support team development.",
+      "people": "Individual plans available for the company's HR team to review."
+    },
+    "kinds": {
+      "rh": "HR Report",
+      "perfil_org": "Organizational Profile",
+      "dna": "Organizational DNA",
+      "pulso_executivo": "Executive Pulse",
+      "pulso_complementar_nr1": "Supplemental NR-1 Pulse",
+      "gestor": "Leadership Report",
+      "individual": "Individual Development Plan"
+    },
+    "search": "Search person or role",
+    "download": "Open report",
+    "emptyTitle": "No reports in this section",
+    "emptySearchTitle": "No results found",
+    "emptySearchDescription": "Try another name or role.",
+    "empty": {
+      "organization": "Consolidated documents will appear here as soon as Vertho generates them.",
+      "managers": "Leadership reports will appear here when the team's cycle is ready.",
+      "people": "Individual plans will appear here as they are generated for people."
+    },
+    "footer": "Total available: {count}. Every file respects this company's access rules and visual identity."
   },
   "DashboardJourney": {
     "cta": {

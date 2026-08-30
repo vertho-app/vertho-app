@@ -302,8 +302,8 @@ export function PresentationEnvironment({ children }: { children: ReactNode }) {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(2,7,17,0.72)_76%)]" />
       </div>
 
-      <div className="relative flex min-h-dvh items-center justify-center px-3 pb-4 pt-20 sm:px-6 sm:pb-6 sm:pt-24">
-        <div className="relative h-[min(862px,calc(100dvh-7rem))] w-[408px] max-w-full rounded-[2.9rem] border border-white/15 bg-[#02060b] p-[8px] shadow-[0_35px_90px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.04)]">
+      <div className="relative flex min-h-dvh items-start justify-center px-3 pb-4 pt-20 sm:px-6 sm:pb-6 sm:pt-24 md:pb-4 md:pt-4">
+        <div className="relative h-[calc(100dvh-6rem)] max-h-[920px] w-[408px] max-w-full rounded-[2.9rem] border border-white/15 bg-[#02060b] p-[8px] shadow-[0_35px_90px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.04)] sm:h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-2rem)]">
           <span className="pointer-events-none absolute left-1/2 top-[3px] z-10 h-1 w-12 -translate-x-1/2 rounded-full bg-white/20" aria-hidden="true" />
 
           {frameUrl ? (

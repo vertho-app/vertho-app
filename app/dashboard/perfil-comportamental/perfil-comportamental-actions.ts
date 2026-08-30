@@ -6,6 +6,8 @@ import { callAI } from '@/actions/ai-client';
 import { derivarArquetipo, derivarTagsExecutivas, insightsHardcoded } from '@/lib/disc-arquetipos';
 import { buildInsightsExecutivosPrompt } from '@/lib/prompts/insights-executivos-prompt';
 import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
+import { CACHE_MAX_AGE_MS, isFreshReportCache } from '@/lib/relatorio-comportamental/relatorio-core';
+import { isAudioArtifactReady } from '@/lib/relatorio-comportamental/audio-cache';
 
 const INSIGHTS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
@@ -28,7 +30,20 @@ const COLS = [
   'comp_organizacao', 'comp_detalhismo', 'comp_prudencia', 'comp_concentracao',
   // Cache de insights
   'insights_executivos', 'insights_executivos_at',
+  // Cache da devolutiva em voz — permite à tela mostrar o player já pronto,
+  // sem transformar a abertura do perfil em um novo pedido de TTS.
+  'report_texts', 'report_generated_at',
+  'comportamental_audio_path', 'comportamental_audio_at',
 ].join(', ');
+
+function audioComportamentalEmCache(colab: any): boolean {
+  return isAudioArtifactReady({
+    path: colab?.comportamental_audio_path,
+    audioAt: colab?.comportamental_audio_at,
+    reportAt: colab?.report_generated_at,
+    reportIsFresh: isFreshReportCache(colab?.report_texts, colab?.report_generated_at),
+  }, Date.now(), CACHE_MAX_AGE_MS);
+}
 
 /**
  * Carrega todos os dados do perfil comportamental do colaborador:
@@ -83,6 +98,7 @@ export async function loadPerfilCIS() {
     empresaPerfilExternoLabel,
     perfilComportamentalLiberado,
     temPdfPerfilExterno: !!colab.perfil_externo_pdf_path,
+    audioComportamentalDisponivel: audioComportamentalEmCache(colab),
   };
 }
 

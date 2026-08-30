@@ -402,6 +402,7 @@ export default function PerfilComportamentalPage() {
   const [downloading, setDownloading] = useState(false);
   const [abrindoPdfExterno, setAbrindoPdfExterno] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioAutoplay, setAudioAutoplay] = useState(false);
   const [gerandoAudio, setGerandoAudio] = useState(false);
   const [enviandoWhats, setEnviandoWhats] = useState(false);
   const router = useRouter();
@@ -414,6 +415,7 @@ export default function PerfilComportamentalPage() {
     const r = await ouvirDevolutivaComportamental();
     setGerandoAudio(false);
     if (r.error) { flash(r.error); return; }
+    setAudioAutoplay(true);
     setAudioUrl(r.url);
   }
 
@@ -435,7 +437,18 @@ export default function PerfilComportamentalPage() {
         loadBehavioralReport().catch(() => null),
       ]);
       if (result.error) setError(result.error);
-      else setData(result);
+      else {
+        setData(result);
+        // Cache aquecido: assina o arquivo e já monta os controles. Não gera
+        // áudio aqui — a flag só fica true quando relatório e MP3 estão atuais.
+        if (result.audioComportamentalDisponivel) {
+          const cachedAudio = await ouvirDevolutivaComportamental().catch(() => null);
+          if (cachedAudio?.url) {
+            setAudioAutoplay(false);
+            setAudioUrl(cachedAudio.url);
+          }
+        }
+      }
       if (narr && !narr.error) setNarrativa(narr);
       setLoading(false);
     }
@@ -635,7 +648,7 @@ export default function PerfilComportamentalPage() {
           <Volume2 size={18} className="text-purple-300 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold text-purple-200 mb-1">{t('audio.title')}</p>
-            <audio controls autoPlay src={audioUrl} className="w-full h-9" />
+            <audio controls autoPlay={audioAutoplay} src={audioUrl} className="w-full h-9" />
           </div>
         </div>
       )}

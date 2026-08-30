@@ -174,6 +174,12 @@ export default function HomeRH({ firstName, panorama, relatorios }: { firstName:
             icon={ListOrdered}
             onClick={() => router.push('/dashboard/gestor/ranking')}
           />
+          <Atalho
+            titulo={t('rh.reports')}
+            descricao={t('rh.reportsDescription')}
+            icon={FileText}
+            onClick={() => router.push('/dashboard/relatorios')}
+          />
           {/* Só depois que a primeira jornada encerra: o veredito de evolução
               nasce no fechamento, então antes disso o atalho leva a seis KPIs
               zerados. Atalho para o vazio ensina a ignorar o menu. */}

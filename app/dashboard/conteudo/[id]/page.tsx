@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUserAction } from '@/lib/auth/action-context';
+import { tenantDb } from '@/lib/tenant-db';
 import { guidDoEmbedBunny } from '@/lib/conteudo/bunny-embed';
 import ContentExperience, { type ContentExperienceData } from './content-experience';
 
@@ -28,10 +28,14 @@ export default async function RecommendedContentPage({ params }: { params: Promi
   }
 
   const { id } = await params;
-  const sb = createSupabaseAdmin();
+  if (!auth.empresaId) notFound();
+  const sb = tenantDb(auth.empresaId).raw;
   const { data: content, error } = await sb.from('micro_conteudos')
     .select('id,empresa_id,titulo,descricao,formato,duracao_min,url,bunny_video_id,ativo')
     .eq('id', id)
+    // A consulta já nasce no alcance da sessão: catálogo global OU tenant
+    // atual. O teste posterior permanece como defesa em profundidade.
+    .or(`empresa_id.is.null,empresa_id.eq.${auth.empresaId}`)
     .maybeSingle();
 
   if (error) throw new Error(`Falha ao carregar conteúdo: ${error.message}`);

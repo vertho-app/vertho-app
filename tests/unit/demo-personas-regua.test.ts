@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { DEMO_PRESENTATION_VIDEO, DEMO_RESET_TABLES, DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo, relatorioIndividualDemoValido } from '@/lib/demo/reset-acme-demo';
+import { readFileSync } from 'node:fs';
+import { DEMO_PRESENTATION_VIDEO, DEMO_PRESENTATION_WEEK_VIDEO, DEMO_RESET_TABLES, DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo, relatorioIndividualDemoValido } from '@/lib/demo/reset-acme-demo';
 import { DEMO_PERSONAS } from '@/lib/sales/demo-personas';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile, DISC_SOMA_ALVO } from '@/lib/disc-mapeamento';
@@ -27,6 +28,19 @@ describe('Personas do acme-demo seguem a régua do produto', () => {
       ativo: true,
     });
     expect(DEMO_PRESENTATION_VIDEO.bunny_video_id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('mantém a célula e o vídeo nominal da semana 1 aquecidos após cada reset', () => {
+    expect(DEMO_PRESENTATION_WEEK_VIDEO.personalizedBunnyVideoId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(DEMO_PRESENTATION_WEEK_VIDEO.byTenant['acme-demo']).toMatchObject({
+      moduleId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      cellId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+    });
+
+    const resetSource = readFileSync('lib/demo/reset-acme-demo.ts', 'utf8');
+    expect(resetSource).toContain('videosPersonalizadosJornada');
+    expect(resetSource).toContain("onConflict: 'cell_video_id,colaborador_id'");
+    expect(resetSource).toContain('ensurePresentationVideo(demo.id, personaMap)');
   });
 
   it('só preserva PDI aquecido com competências entre N1 e N4', () => {

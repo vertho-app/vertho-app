@@ -112,6 +112,7 @@
     "nav": {
       "home": "Inicio",
       "ranking": "Adecuación",
+      "reports": "Informes",
       "team": "Equipo",
       "selection": "Selección",
       "journey": "Itinerario",
@@ -243,6 +244,7 @@
       "evolution": "Evolución del equipo",
       "evolutionDescription": "Cómo avanzaron los niveles entre temporadas.",
       "reports": "Informes de la empresa",
+      "reportsDescription": "Todos los informes de la organización, los líderes y las personas en un solo lugar.",
       "reportHr": "Informe de RR. HH.",
       "reportHrDescription": "La lectura del ciclo para quien responde por el programa: dónde está el equipo y qué hacer después.",
       "reportProfile": "Perfil Organizacional",
@@ -251,6 +253,42 @@
       "reportDnaDescription": "La lectura de cultura: cómo la organización decide, se comunica y aprende.",
       "operatedByVertho": "La configuración, el contenido y los envíos los opera Vertho. Habla con nosotros cuando necesites un cambio."
     }
+  },
+  "RhReports": {
+    "eyebrow": "Centro de decisiones",
+    "title": "Informes de",
+    "fallbackCompany": "tu empresa",
+    "subtitle": "Accede a las lecturas de la organización, los líderes y las personas sin salir del espacio de RR. HH.",
+    "sections": {
+      "organization": "Organización",
+      "managers": "Líderes",
+      "people": "Personas"
+    },
+    "descriptions": {
+      "organization": "Visiones consolidadas para decisiones de cultura, desarrollo y salud organizacional.",
+      "managers": "Informes para quienes acompañan directamente el desarrollo de los equipos.",
+      "people": "Planes individuales disponibles para consulta por RR. HH. de la empresa."
+    },
+    "kinds": {
+      "rh": "Informe de RR. HH.",
+      "perfil_org": "Perfil Organizacional",
+      "dna": "ADN Organizacional",
+      "pulso_executivo": "Pulso Ejecutivo",
+      "pulso_complementar_nr1": "Pulso Complementario NR-1",
+      "gestor": "Informe del Liderazgo",
+      "individual": "Plan de Desarrollo Individual"
+    },
+    "search": "Buscar persona o puesto",
+    "download": "Abrir informe",
+    "emptyTitle": "No hay informes en esta sección",
+    "emptySearchTitle": "No se encontraron resultados",
+    "emptySearchDescription": "Prueba con otro nombre o puesto.",
+    "empty": {
+      "organization": "Los documentos consolidados aparecerán aquí cuando Vertho los genere.",
+      "managers": "Los informes de los líderes aparecerán aquí cuando esté listo el ciclo del equipo.",
+      "people": "Los planes individuales aparecerán aquí a medida que se generen para las personas."
+    },
+    "footer": "Total disponible: {count}. Cada archivo respeta el acceso y la identidad visual de esta empresa."
   },
   "DashboardJourney": {
     "cta": {

@@ -82,6 +82,24 @@ export const DEMO_PRESENTATION_VIDEO = {
   ativo: true,
 } as const;
 
+/** Infraestrutura estável do vídeo nominal da semana 1. Os UUIDs por tenant
+ * evitam colisão na unique da célula; o asset nominal pode ser compartilhado
+ * porque as duas salas usam a mesma persona Bruna e a arte é neutra (Vertho). */
+export const DEMO_PRESENTATION_WEEK_VIDEO = {
+  competenciaBaseId: '004408f2-6ae4-41a0-87ae-ace7ad54b32c',
+  personalizedBunnyVideoId: '3325bd10-e53b-4f22-a583-8eab05c07303',
+  byTenant: {
+    'acme-demo': {
+      moduleId: '5faaf43b-8b80-4bd7-aab1-204fa83dad56',
+      cellId: 'f02bd1e6-cca5-468c-a749-ecc33f797242',
+    },
+    gruposinal: {
+      moduleId: 'a5137b5f-6302-43de-8bb1-7e981b948a12',
+      cellId: 'ec1a7025-78c3-4c26-9f7f-4efec7962cbe',
+    },
+  },
+} as const;
+
 export function focosValidosDemo(row: any, top5: string[]): string[] {
   const focoOriginal = [
     ...(Array.isArray(row.competencias_foco) ? row.competencias_foco : []),
@@ -460,6 +478,14 @@ type DemoWarmSnapshot = {
     contentId: string;
     sourcePath: string;
   }>;
+  videosPersonalizadosJornada: Array<{
+    ownerEmail: string;
+    cellVideoId: string;
+    nomeUsado: string;
+    videoUrl: string | null;
+    bunnyVideoId: string;
+    bunnyLibrary: string | null;
+  }>;
 };
 
 function demoAudioPersonalizadoPath(contentId: string, colaboradorId: string): string {
@@ -590,6 +616,20 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       .in('tipo', ['individual', 'gestor', 'rh']));
     const emailPorId = new Map<string, string>((colaboradores || [])
       .map((colaborador: any) => [String(colaborador.id), String(colaborador.email)] as const));
+    // A linha nominal usa o UUID do colaborador e recebe CASCADE quando o reset
+    // recria as personas. O asset no Bunny continua pronto, mas sem esta ponte a
+    // semana volta silenciosamente ao deck genérico. Snapshot por EMAIL (chave
+    // estável da persona) e restauração para o UUID novo mantêm a saudação pronta.
+    const celulas = await must('snapshot células de vídeo demo', sb.from('videos_gerados')
+      .select('id')
+      .eq('empresa_id', empresaId));
+    const cellIds = (celulas || []).map((celula: any) => celula.id);
+    const personalizados = cellIds.length
+      ? await must('snapshot vídeos personalizados demo', sb.from('videos_personalizados')
+          .select('cell_video_id,colaborador_id,nome_usado,status,video_url,bunny_video_id,bunny_library')
+          .in('cell_video_id', cellIds)
+          .eq('status', 'done'))
+      : [];
     // O cache de podcast personalizado usa o UUID do colaborador no path. Como
     // o reset apaga/recria as personas, esse UUID muda e o primeiro play voltava
     // a pagar TTS (~2-5 min), mesmo com o áudio já pronto. Capturamos somente os
@@ -635,6 +675,16 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
           gerado_em: relatorio.gerado_em,
         })),
       audiosPersonalizadosJornada,
+      videosPersonalizadosJornada: (personalizados || [])
+        .filter((video: any) => emailPorId.has(String(video.colaborador_id)) && video.bunny_video_id)
+        .map((video: any) => ({
+          ownerEmail: emailPorId.get(String(video.colaborador_id))!,
+          cellVideoId: video.cell_video_id,
+          nomeUsado: video.nome_usado,
+          videoUrl: video.video_url,
+          bunnyVideoId: video.bunny_video_id,
+          bunnyLibrary: video.bunny_library,
+        })),
     };
   }
 
@@ -657,7 +707,12 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       const result = await sb.from('colaboradores').update({
         comportamental_pdf_path: artifact.comportamental_pdf_path,
         comportamental_audio_path: artifact.comportamental_audio_path,
-        comportamental_audio_at: artifact.comportamental_audio_at,
+        // O reset diário comprovou que o arquivo segue no Storage. Renovar o
+        // carimbo evita que o cache de 30 dias mande a apresentação de volta ao
+        // TTS mesmo com o MP3 aquecido e válido.
+        comportamental_audio_at: artifact.comportamental_audio_path
+          ? new Date().toISOString()
+          : artifact.comportamental_audio_at,
       }).eq('empresa_id', empresaId).eq('id', colaboradorId);
       if (result.error) throw new Error(`restaurar mídia ${artifact.email}: ${result.error.message}`);
     }
@@ -674,6 +729,23 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         gerado_em: relatorio.gerado_em || new Date().toISOString(),
       });
       if (result.error) throw new Error(`restaurar relatório ${relatorio.tipo}: ${result.error.message}`);
+    }
+
+    for (const video of snapshot.videosPersonalizadosJornada) {
+      const colaboradorId = idPorEmail.get(video.ownerEmail);
+      if (!colaboradorId) continue;
+      const result = await sb.from('videos_personalizados').upsert({
+        cell_video_id: video.cellVideoId,
+        colaborador_id: colaboradorId,
+        nome_usado: video.nomeUsado,
+        status: 'done',
+        video_url: video.videoUrl,
+        bunny_video_id: video.bunnyVideoId,
+        bunny_library: video.bunnyLibrary,
+        error: null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'cell_video_id,colaborador_id' });
+      if (result.error) throw new Error(`restaurar vídeo nominal ${video.ownerEmail}: ${result.error.message}`);
     }
 
     for (const audio of snapshot.audiosPersonalizadosJornada) {
@@ -749,7 +821,56 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     return idMap;
   }
 
-  async function ensurePresentationVideo(destId: string) {
+  async function ensurePresentationVideo(destId: string, personaMap: Map<string, string>) {
+    const videoInfra = DEMO_PRESENTATION_WEEK_VIDEO.byTenant[slug];
+    const libraryId = String(process.env.BUNNY_LIBRARY_ID || 636615);
+
+    // Módulo real da semana 1: sem ele `resolverVideoDaSemana` não tem uma
+    // célula para consultar, ainda que exista um MP4 editorial no catálogo.
+    const competenciaBaseResult = await sb.from('competencias_base').upsert({
+      id: DEMO_PRESENTATION_WEEK_VIDEO.competenciaBaseId,
+      segmento: 'corporativo',
+      cod_comp: 'DEMO_NEGOCIACAO',
+      nome: 'Negociação e Fechamento',
+      pilar: 'Comercial',
+      descricao: 'Conduzir negociações de forma consultiva e avançar para decisões sustentáveis.',
+      cod_desc: 'DEMO_NEG_D1',
+      nome_curto: 'Senso de urgência',
+      descritor_completo: 'Criar senso de urgência legítimo, sem pressão artificial.',
+      n1_gap: 'Evita explicitar o custo de adiar a decisão.',
+      n2_desenvolvimento: 'Apresenta motivos concretos para decidir no tempo certo.',
+      n3_meta: 'Conduz urgência consultiva com consistência.',
+      n4_referencia: 'É referência em acelerar decisões preservando confiança.',
+      cargo: DEMO_PRESENTATION_VIDEO.cargo,
+    }, { onConflict: 'id' });
+    if (competenciaBaseResult.error) throw new Error(`competência-base do vídeo da apresentação: ${competenciaBaseResult.error.message}`);
+
+    const moduloResult = await sb.from('modulos_base_conteudo').upsert({
+      id: videoInfra.moduleId,
+      empresa_id: destId,
+      competencia_base_id: DEMO_PRESENTATION_WEEK_VIDEO.competenciaBaseId,
+      competencia_id: null,
+      locale: 'pt-BR',
+      nivel_entrada: 'N1',
+      nivel_destino: 'N2',
+      titulo: 'Senso de urgência legítimo',
+      finalidade: 'Ajudar representantes comerciais a tornar claro o custo de adiar uma decisão sem recorrer a pressão artificial.',
+      contexto_pedagogico: DEMO_PRESENTATION_VIDEO.cargo,
+      tags: ['negociação', 'fechamento', 'urgência'],
+      preferido: false,
+      status: 'publicado',
+      versao: 1,
+      descritor: 'Criação de senso de urgência',
+      conteudo_central: { ideia: 'Urgência legítima nasce de fatos concretos e do custo real de adiar.' },
+      conteudo_aplicavel: { pratica: 'Explicite uma razão verdadeira para decidir agora.' },
+      guarda_corpos: { evitar: ['pressão artificial', 'escassez falsa'] },
+      adaptacao_por_formato: { video_roteiro: 'Tom consultivo, direto e aplicável.' },
+      created_by: 'demo-presentation',
+      published_by: 'demo-presentation',
+      published_at: new Date().toISOString(),
+    }, { onConflict: 'id' });
+    if (moduloResult.error) throw new Error(`módulo do vídeo da apresentação: ${moduloResult.error.message}`);
+
     // O tuple abaixo é o mesmo da unique parcial uq_micro_conteudos_core.
     // Buscar pelo SLOT (e não só pelo GUID) torna a atualização idempotente e
     // evita colidir se o vídeo editorial for trocado no futuro.
@@ -766,7 +887,8 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     const payload = {
       ...DEMO_PRESENTATION_VIDEO,
       empresa_id: destId,
-      url: `https://iframe.mediadelivery.net/embed/${process.env.BUNNY_LIBRARY_ID || 636615}/${DEMO_PRESENTATION_VIDEO.bunny_video_id}`,
+      modulo_base_id: videoInfra.moduleId,
+      url: `https://iframe.mediadelivery.net/embed/${libraryId}/${DEMO_PRESENTATION_VIDEO.bunny_video_id}`,
     };
 
     if (existing?.id) {
@@ -775,11 +897,80 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         .eq('id', existing.id)
         .eq('empresa_id', destId);
       if (error) throw new Error(`update vídeo da apresentação: ${error.message}`);
-      return;
+    } else {
+      const { error } = await sb.from('micro_conteudos').insert(payload);
+      if (error) throw new Error(`insert vídeo da apresentação: ${error.message}`);
     }
 
-    const { error } = await sb.from('micro_conteudos').insert(payload);
-    if (error) throw new Error(`insert vídeo da apresentação: ${error.message}`);
+    // Liga também os formatos do kit ao mesmo módulo. É o `core_id` de texto,
+    // áudio ou case que a semana passa ao resolvedor de vídeo.
+    const kit = await must('load kit do vídeo da apresentação', sb.from('kits')
+      .select('id,brief_id,kit_briefs!inner(empresa_id,competencia,descritor,cargo)')
+      .eq('disc', 'C')
+      .eq('status', 'published')
+      .eq('kit_briefs.empresa_id', destId)
+      .eq('kit_briefs.competencia', REPRESENTANTE_FOCO[0])
+      .eq('kit_briefs.descritor', 'Criação de senso de urgência')
+      .eq('kit_briefs.cargo', DEMO_PRESENTATION_VIDEO.cargo)
+      .maybeSingle());
+    if (kit?.brief_id) {
+      const briefResult = await sb.from('kit_briefs')
+        .update({ modulo_base_id: videoInfra.moduleId }).eq('id', kit.brief_id);
+      if (briefResult.error) throw new Error(`vincular brief ao módulo da apresentação: ${briefResult.error.message}`);
+      const kitContentsResult = await sb.from('micro_conteudos')
+        .update({ modulo_base_id: videoInfra.moduleId })
+        .eq('kit_id', kit.id)
+        .eq('empresa_id', destId);
+      if (kitContentsResult.error) throw new Error(`vincular kit ao módulo da apresentação: ${kitContentsResult.error.message}`);
+    }
+
+    const existingCell = await must('load célula do vídeo da apresentação', sb.from('videos_gerados')
+      .select('id')
+      .eq('modulo_base_id', videoInfra.moduleId)
+      .eq('empresa_id', destId)
+      .eq('cargo', DEMO_PRESENTATION_VIDEO.cargo)
+      .eq('disc_dominante', 'C')
+      .neq('status', 'error')
+      .maybeSingle());
+    const cellId = existingCell?.id || videoInfra.cellId;
+    const cellPayload = {
+      modulo_base_id: videoInfra.moduleId,
+      empresa_id: destId,
+      status: 'done',
+      etapa: 'done',
+      bunny_video_id: DEMO_PRESENTATION_VIDEO.bunny_video_id,
+      bunny_library: libraryId,
+      video_url: `https://iframe.mediadelivery.net/play/${libraryId}/${DEMO_PRESENTATION_VIDEO.bunny_video_id}`,
+      cargo: DEMO_PRESENTATION_VIDEO.cargo,
+      disc_dominante: 'C',
+      kit_id: kit?.id || null,
+      created_by: 'demo-presentation',
+      error: null,
+    };
+    if (existingCell?.id) {
+      const cellResult = await sb.from('videos_gerados')
+        .update(cellPayload).eq('id', cellId).eq('empresa_id', destId);
+      if (cellResult.error) throw new Error(`update célula do vídeo da apresentação: ${cellResult.error.message}`);
+    } else {
+      const cellResult = await sb.from('videos_gerados').insert({ id: cellId, ...cellPayload });
+      if (cellResult.error) throw new Error(`insert célula do vídeo da apresentação: ${cellResult.error.message}`);
+    }
+
+    const brunaId = personaMap.get('bruna');
+    if (brunaId) {
+      const personalizedResult = await sb.from('videos_personalizados').upsert({
+        cell_video_id: cellId,
+        colaborador_id: brunaId,
+        nome_usado: 'Bruna',
+        status: 'done',
+        video_url: `https://iframe.mediadelivery.net/play/${libraryId}/${DEMO_PRESENTATION_WEEK_VIDEO.personalizedBunnyVideoId}`,
+        bunny_video_id: DEMO_PRESENTATION_WEEK_VIDEO.personalizedBunnyVideoId,
+        bunny_library: libraryId,
+        error: null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'cell_video_id,colaborador_id' });
+      if (personalizedResult.error) throw new Error(`vídeo nominal da Bruna na apresentação: ${personalizedResult.error.message}`);
+    }
   }
 
   async function seedCargos(rows: any[], destId: string) {
@@ -1208,7 +1399,6 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     }
 
     await resetTenant(demo.id);
-    await ensurePresentationVideo(demo.id);
     const compMap = await seedCompetencias((fixture as any).competencias, demo.id);
     await seedCargos((fixture as any).cargos, demo.id);
     await seedTop10((fixture as any).top10, demo.id, compMap);
@@ -1218,6 +1408,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     const personaMap = await insertPersonas(demo.id);
     await seedRespostas(demo.id, personaMap);
     await applyPersonaArtifacts(demo.id, personaMap);
+    await ensurePresentationVideo(demo.id, personaMap);
     await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);
     const fitOk = await precomputarFit(demo.id);
 

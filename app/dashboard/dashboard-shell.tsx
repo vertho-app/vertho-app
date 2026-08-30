@@ -5,13 +5,13 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
-import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import { PresentationEnvironment } from '@/components/dashboard/presentation-role-switcher';
 import type { TenantTheme } from '@/lib/ui-resolver';
 
-type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean; participante?: boolean };
+type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean; rhOnly?: boolean; participante?: boolean };
 
 // Fallback = tema Vertho atual (usado se o layout não passar theme).
 const DEFAULT_THEME: TenantTheme = {
@@ -41,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', labelKey: 'home', icon: Home },
   { href: '/dashboard/gestor', labelKey: 'team', icon: Users2, gestorOnly: true },
   { href: '/dashboard/gestor/ranking', labelKey: 'ranking', icon: ListOrdered, gestorOnly: true },
+  { href: '/dashboard/relatorios', labelKey: 'reports', icon: FileChartColumn, rhOnly: true },
   // Seleção saiu daqui em 24/08/2026: era a única tela de OPERAÇÃO no menu do
   // cliente (criar vaga · gerar perfil · avaliar candidatos) e virou operação da
   // Vertho em /admin. O ranking das vagas segue visível em .../ranking, que já
@@ -71,7 +72,9 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   // decide é o servidor, no /api/me; o gate real é o layout de /admin.
   const ehAdminDaPlataforma = colaborador?.platformAdmin === true;
   const navItems = NAV_ITEMS.filter((it) =>
-    (!it.gestorOnly || isGestorOuRH) && (!it.participante || !ehAdminDaEmpresa),
+    (!it.gestorOnly || isGestorOuRH)
+    && (!it.rhOnly || ehAdminDaEmpresa)
+    && (!it.participante || !ehAdminDaEmpresa),
   );
 
   useEffect(() => {
