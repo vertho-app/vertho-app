@@ -2,15 +2,18 @@
 import { toast } from 'sonner';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, AlertCircle, Download, Zap, Users, Anchor, ListChecks, Sparkles, Volume2, Send, FileText } from 'lucide-react';
-import { loadPerfilCIS, gerarInsightsExecutivos, getMeuPerfilExternoPdfUrl } from './perfil-comportamental-actions';
-import { ouvirDevolutivaComportamental, enviarDevolutivaWhatsApp } from './relatorio/relatorio-actions';
+import { Loader2, AlertCircle, Download, Zap, Users, Anchor, ListChecks, Sparkles, Volume2, Send, FileText, ArrowLeft } from 'lucide-react';
+import { loadPerfilCIS, loadPerfilCISGestor, gerarInsightsExecutivos, getMeuPerfilExternoPdfUrl } from './perfil-comportamental-actions';
+import { getPerfilExternoPdfUrl as getPerfilExternoPdfUrlGestor } from '../gestor/actions';
+import { ouvirDevolutivaComportamental, ouvirDevolutivaComportamentalGestor, enviarDevolutivaWhatsApp } from './relatorio/relatorio-actions';
 import {
   loadBehavioralReport,
+  loadBehavioralReportGestor,
   baixarRelatorioComportamentalPdf,
+  baixarRelatorioComportamentalPdfGestor,
 } from './relatorio/relatorio-actions';
 import { PageContainer, PageHero } from '@/components/page-shell';
 import { intensidadeQualitativa } from '@/lib/disc-arquetipos';
@@ -264,7 +267,7 @@ function InsightText({ text }) {
   );
 }
 
-function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCached, t }) {
+function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCached, canGenerateInsights = true, t }) {
   const router = useRouter();
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsLocal, setInsightsLocal] = useState(insights);
@@ -272,7 +275,7 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
 
   // Dispara geração via IA na primeira visita após o mapeamento
   useEffect(() => {
-    if (insightsCached || generated) return;
+    if (!canGenerateInsights || insightsCached || generated) return;
     let cancelled = false;
     setInsightsLoading(true);
     gerarInsightsExecutivos()
@@ -284,8 +287,7 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
       .catch(() => { if (!cancelled) setGenerated(true); })
       .finally(() => { if (!cancelled) setInsightsLoading(false); });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [canGenerateInsights, generated, insightsCached]);
 
   const letraDominante = inferLetraDominante(c.perfil_dominante);
   const discScores = [
@@ -395,6 +397,11 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
 
 export default function PerfilComportamentalPage() {
   const t = useTranslations('BehavioralProfile');
+  const searchParams = useSearchParams();
+  const colaboradorAlvo = searchParams.get('colaborador');
+  // A presença do ID já implica consulta de terceiro. O modo de segurança não
+  // depende de `origem`, que é apenas um parâmetro manipulável da URL.
+  const visaoGestor = !!colaboradorAlvo;
   const [data, setData] = useState(null);
   const [narrativa, setNarrativa] = useState(null); // { raw, texts } do loadBehavioralReport
   const [loading, setLoading] = useState(true);
@@ -412,7 +419,9 @@ export default function PerfilComportamentalPage() {
 
   async function handleOuvirDevolutiva() {
     setGerandoAudio(true);
-    const r = await ouvirDevolutivaComportamental();
+    const r = colaboradorAlvo
+      ? await ouvirDevolutivaComportamentalGestor(colaboradorAlvo)
+      : await ouvirDevolutivaComportamental();
     setGerandoAudio(false);
     if (r.error) { flash(r.error); return; }
     setAudioAutoplay(true);
@@ -427,22 +436,33 @@ export default function PerfilComportamentalPage() {
   }
 
   useEffect(() => {
+    let ativo = true;
     async function init() {
+      setLoading(true);
+      setError('');
+      setData(null);
+      setNarrativa(null);
+      setAudioUrl(null);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
 
       // Carrega perfil (barras, 16 competências etc) e análise narrativa em paralelo
-      const [result, narr] = await Promise.all([
-        loadPerfilCIS(),
-        loadBehavioralReport().catch(() => null),
+      const [resultRaw, narr] = await Promise.all([
+        colaboradorAlvo ? loadPerfilCISGestor(colaboradorAlvo) : loadPerfilCIS(),
+        (colaboradorAlvo ? loadBehavioralReportGestor(colaboradorAlvo) : loadBehavioralReport()).catch(() => null),
       ]);
+      const result: any = resultRaw;
+      if (!ativo) return;
       if (result.error) setError(result.error);
       else {
         setData(result);
         // Cache aquecido: assina o arquivo e já monta os controles. Não gera
         // áudio aqui — a flag só fica true quando relatório e MP3 estão atuais.
         if (result.audioComportamentalDisponivel) {
-          const cachedAudio = await ouvirDevolutivaComportamental().catch(() => null);
+          const cachedAudio = await (colaboradorAlvo
+            ? ouvirDevolutivaComportamentalGestor(colaboradorAlvo)
+            : ouvirDevolutivaComportamental()).catch(() => null);
+          if (!ativo) return;
           if (cachedAudio?.url) {
             setAudioAutoplay(false);
             setAudioUrl(cachedAudio.url);
@@ -452,15 +472,18 @@ export default function PerfilComportamentalPage() {
       if (narr && !narr.error) setNarrativa(narr);
       setLoading(false);
     }
-    init();
-  }, []);
+    void init();
+    return () => { ativo = false; };
+  }, [colaboradorAlvo, router, supabase]);
 
   async function handleAbrirPdfExterno() {
     setAbrindoPdfExterno(true);
     // Abre a aba ANTES do await: popup criado depois da resposta assíncrona
     // perde o gesto do usuário e é bloqueado pelo navegador.
     const aba = window.open('', '_blank');
-    const r = await getMeuPerfilExternoPdfUrl();
+    const r = colaboradorAlvo
+      ? await getPerfilExternoPdfUrlGestor(colaboradorAlvo)
+      : await getMeuPerfilExternoPdfUrl();
     setAbrindoPdfExterno(false);
     if (r.error || !r.url) { aba?.close(); flash(r.error || t('external.pdfError')); return; }
     if (aba) aba.location.href = r.url;
@@ -469,7 +492,9 @@ export default function PerfilComportamentalPage() {
 
   async function handleDownloadPdf() {
     setDownloading(true);
-    const r = await baixarRelatorioComportamentalPdf();
+    const r = colaboradorAlvo
+      ? await baixarRelatorioComportamentalPdfGestor(colaboradorAlvo)
+      : await baixarRelatorioComportamentalPdf();
     setDownloading(false);
     if (r.error) { setError(r.error); return; }
     const a = document.createElement('a');
@@ -480,8 +505,18 @@ export default function PerfilComportamentalPage() {
     document.body.removeChild(a);
   }
 
+  const voltarEquipe = visaoGestor ? (
+    <button
+      type="button"
+      onClick={() => router.push('/dashboard/gestor')}
+      className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/45 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60"
+    >
+      <ArrowLeft size={14} /> {t('teamView.back')}
+    </button>
+  ) : null;
+
   if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-brand-400" /></div>;
-  if (error) return <div className="p-6 text-center text-gray-400">{error}</div>;
+  if (error) return <PageContainer>{voltarEquipe}<div className="p-6 text-center text-gray-400">{error}</div></PageContainer>;
   if (!data) return null;
 
   const { colaborador: c, empresaPerfilExternoFonte, empresaPerfilExternoLabel } = data as any;
@@ -499,9 +534,10 @@ export default function PerfilComportamentalPage() {
     const altas = Array.isArray(perfil?.resumo?.altas) ? perfil.resumo.altas.slice(0, 3) : [];
     return (
       <PageContainer>
+        {voltarEquipe}
         <PageHero
-          eyebrow="PERFIL COMPORTAMENTAL"
-          title={temPerfilExterno ? t('external.receivedTitle') : t('external.handledTitle')}
+          eyebrow={visaoGestor ? t('teamView.eyebrow') : 'PERFIL COMPORTAMENTAL'}
+          title={visaoGestor ? c.nome_completo : (temPerfilExterno ? t('external.receivedTitle') : t('external.handledTitle'))}
           subtitle={t('external.subtitle', { source: empresaPerfilExternoLabel || t('external.defaultSource') })}
         />
         <div className="flex justify-center">
@@ -549,9 +585,10 @@ export default function PerfilComportamentalPage() {
     if (!perfilComportamentalLiberado) {
       return (
         <PageContainer>
+          {voltarEquipe}
           <PageHero
-            eyebrow="PERFIL COMPORTAMENTAL"
-            title={t('blocked.title')}
+            eyebrow={visaoGestor ? t('teamView.eyebrow') : 'PERFIL COMPORTAMENTAL'}
+            title={visaoGestor ? c.nome_completo : t('blocked.title')}
             subtitle={t('blocked.subtitle')}
           />
           <div className="flex justify-center">
@@ -569,10 +606,11 @@ export default function PerfilComportamentalPage() {
 
     return (
       <PageContainer>
+        {voltarEquipe}
         <PageHero
-          eyebrow="PERFIL COMPORTAMENTAL"
-          title={t('notMapped.title')}
-          subtitle={t('notMapped.subtitle')}
+          eyebrow={visaoGestor ? t('teamView.eyebrow') : 'PERFIL COMPORTAMENTAL'}
+          title={visaoGestor ? c.nome_completo : t('notMapped.title')}
+          subtitle={visaoGestor ? t('teamView.notMapped') : t('notMapped.subtitle')}
         />
         <div className="flex justify-center">
           <div className="rounded-2xl border border-white/[0.06] p-8 text-center max-w-[520px] w-full"
@@ -581,11 +619,13 @@ export default function PerfilComportamentalPage() {
             <p className="text-sm text-gray-400 mb-5">
               {t('notMapped.description')}
             </p>
-            <button onClick={() => router.push('/dashboard/perfil-comportamental/mapeamento')}
-              className="px-6 py-3 rounded-full text-sm font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-              {t('notMapped.start')}
-            </button>
+            {!visaoGestor && (
+              <button onClick={() => router.push('/dashboard/perfil-comportamental/mapeamento')}
+                className="px-6 py-3 rounded-full text-sm font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                {t('notMapped.start')}
+              </button>
+            )}
           </div>
         </div>
       </PageContainer>
@@ -616,9 +656,10 @@ export default function PerfilComportamentalPage() {
 
   return (
     <PageContainer className="space-y-5">
+      {voltarEquipe}
       <PageHero
-        eyebrow={t('hero.eyebrow')}
-        title={t('hero.title')}
+        eyebrow={visaoGestor ? t('teamView.eyebrow') : t('hero.eyebrow')}
+        title={visaoGestor ? c.nome_completo : t('hero.title')}
         actions={narrativa ? (
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={handleOuvirDevolutiva} disabled={gerandoAudio}
@@ -627,12 +668,14 @@ export default function PerfilComportamentalPage() {
               {gerandoAudio ? <Loader2 size={14} className="animate-spin" /> : <Volume2 size={14} />}
               {gerandoAudio ? t('audio.generating') : t('audio.listen')}
             </button>
-            <button onClick={handleEnviarWhats} disabled={enviandoWhats}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #22C55E, #15803D)', boxShadow: '0 0 20px rgba(34,197,94,0.25)' }}>
-              {enviandoWhats ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              {enviandoWhats ? t('audio.sending') : t('audio.whatsapp')}
-            </button>
+            {!visaoGestor && (
+              <button onClick={handleEnviarWhats} disabled={enviandoWhats}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #22C55E, #15803D)', boxShadow: '0 0 20px rgba(34,197,94,0.25)' }}>
+                {enviandoWhats ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                {enviandoWhats ? t('audio.sending') : t('audio.whatsapp')}
+              </button>
+            )}
             <button onClick={handleDownloadPdf} disabled={downloading}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)', boxShadow: '0 0 20px rgba(0,180,216,0.25)' }}>
@@ -660,11 +703,13 @@ export default function PerfilComportamentalPage() {
       )}
 
       <ResumoExecutivo
+        key={c.id}
         colaborador={c}
         arquetipo={arquetipo}
         tags={tags}
         insights={insights}
         insightsCached={data.insightsCached}
+        canGenerateInsights={!visaoGestor}
         t={t}
       />
 

@@ -1,7 +1,8 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { findColabByEmail } from '@/lib/authz';
+import { tenantDb } from '@/lib/tenant-db';
+import { canViewColabJourney, findColabByEmail, getUserContext } from '@/lib/authz';
 import { CIS_COLUMNS, mapSupabaseToCISRawData } from '@/lib/supabase/mapCISProfile';
 import { callAI } from '@/actions/ai-client';
 import { isCurrentBehavioralReport } from '@/lib/behavioral-report-schema';
@@ -23,6 +24,45 @@ function isArtifactCurrent(artifactAt: unknown, reportAt: unknown): boolean {
   return new Date(String(artifactAt)).getTime() >= new Date(String(reportAt)).getTime();
 }
 
+async function resolveColaboradorGestor(email: string, colaboradorId: string): Promise<{ colab?: any; error?: string }> {
+  // `colaboradorId` é controlado pelo cliente. O gate central cobre próprio,
+  // RH, gestor responsável, tutor e admin — sempre com isolamento de tenant.
+  const ctx = await getUserContext(email);
+  if (!ctx?.empresaId) return { error: 'Usuário sem empresa vinculada' };
+  const tdb = tenantDb(ctx.empresaId);
+  const { data: colab, error } = await tdb.from('colaboradores')
+    .select(`${CIS_COLUMNS}, email, gestor_email`)
+    .eq('id', colaboradorId)
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!colab || !canViewColabJourney(ctx, colab as any)) return { error: 'Colaborador fora do seu escopo' };
+  return { colab };
+}
+
+async function loadBehavioralReportForColab(colab: any, force = false) {
+  const hasDISC = colab.perfil_dominante && (colab.d_natural || colab.i_natural || colab.s_natural || colab.c_natural);
+  if (!hasDISC) {
+    return { error: 'Mapeamento comportamental ainda não realizado', semMapeamento: true };
+  }
+
+  const raw = mapSupabaseToCISRawData(colab);
+  if (!force && isFreshReportCache(colab.report_texts, colab.report_generated_at)) {
+    return { raw, texts: colab.report_texts, cached: true };
+  }
+
+  let texts;
+  try {
+    texts = await gerarTextosLLM(raw, colab.empresa_id);
+  } catch (e) {
+    console.error('[loadBehavioralReport] Falha ao parsear JSON do LLM:', e);
+    return { error: 'Erro ao interpretar resposta do modelo. Tente novamente.' };
+  }
+
+  const sb = createSupabaseAdmin();
+  await persistReportTexts(sb, colab.id, texts, colab.empresa_id);
+  return { raw, texts, cached: false };
+}
+
 // ── Public actions ──────────────────────────────────────────────────────────
 
 /**
@@ -38,36 +78,25 @@ export async function loadBehavioralReport(opts: any = {}) {
 
     const colab: any = await findColabByEmail(email, CIS_COLUMNS);
     if (!colab) return { error: 'Colaborador não encontrado' };
-
-    const hasDISC = colab.perfil_dominante && (colab.d_natural || colab.i_natural || colab.s_natural || colab.c_natural);
-    if (!hasDISC) {
-      return { error: 'Mapeamento comportamental ainda não realizado', semMapeamento: true };
-    }
-
-    const raw = mapSupabaseToCISRawData(colab);
-
-    // 1) Cache válido?
-    const force = !!opts.force;
-    if (!force && isFreshReportCache(colab.report_texts, colab.report_generated_at)) {
-      return { raw, texts: colab.report_texts, cached: true };
-    }
-
-    // 2) Gera via LLM
-    let texts;
-    try {
-      texts = await gerarTextosLLM(raw, colab.empresa_id);
-    } catch (e) {
-      console.error('[loadBehavioralReport] Falha ao parsear JSON do LLM:', e);
-      return { error: 'Erro ao interpretar resposta do modelo. Tente novamente.' };
-    }
-
-    // 3) Salva cache
-    const sb = createSupabaseAdmin();
-    await persistReportTexts(sb, colab.id, texts, colab.empresa_id);
-
-    return { raw, texts, cached: false };
+    return await loadBehavioralReportForColab(colab, !!opts.force);
   } catch (err) {
     console.error('[loadBehavioralReport]', err);
+    return { error: err?.message || 'Erro ao carregar relatório' };
+  }
+}
+
+/** Variante de consulta da equipe; o alvo passa pelo gate de posse canônico. */
+export async function loadBehavioralReportGestor(colaboradorId: string) {
+  try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
+    if (!email) return { error: 'Não autenticado' };
+    if (!colaboradorId) return { error: 'Colaborador inválido' };
+    const resolved = await resolveColaboradorGestor(email, colaboradorId);
+    if (resolved.error) return { error: resolved.error };
+    return await loadBehavioralReportForColab(resolved.colab, false);
+  } catch (err) {
+    console.error('[loadBehavioralReportGestor]', err);
     return { error: err?.message || 'Erro ao carregar relatório' };
   }
 }
@@ -163,6 +192,22 @@ export async function baixarRelatorioComportamentalPdf() {
     return await _baixarPdfParaColab(colab);
   } catch (err) {
     console.error('[baixarRelatorioComportamentalPdf]', err);
+    return { error: err?.message || 'Erro ao gerar PDF' };
+  }
+}
+
+/** PDF completo de um liderado/RH/tutor, após gate de posse do alvo. */
+export async function baixarRelatorioComportamentalPdfGestor(colaboradorId: string) {
+  try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
+    if (!email) return { error: 'Não autenticado' };
+    if (!colaboradorId) return { error: 'Colaborador inválido' };
+    const resolved = await resolveColaboradorGestor(email, colaboradorId);
+    if (resolved.error) return { error: resolved.error };
+    return await _baixarPdfParaColab(resolved.colab);
+  } catch (err) {
+    console.error('[baixarRelatorioComportamentalPdfGestor]', err);
     return { error: err?.message || 'Erro ao gerar PDF' };
   }
 }
@@ -337,6 +382,22 @@ export async function ouvirDevolutivaComportamental() {
     return await _devolutivaSignedUrl(colab, 600);
   } catch (err) {
     console.error('[ouvirDevolutivaComportamental]', err);
+    return { error: err?.message || 'Erro ao gerar devolutiva' };
+  }
+}
+
+/** Áudio do perfil de um liderado/RH/tutor, após gate de posse do alvo. */
+export async function ouvirDevolutivaComportamentalGestor(colaboradorId: string) {
+  try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
+    if (!email) return { error: 'Não autenticado' };
+    if (!colaboradorId) return { error: 'Colaborador inválido' };
+    const resolved = await resolveColaboradorGestor(email, colaboradorId);
+    if (resolved.error) return { error: resolved.error };
+    return await _devolutivaSignedUrl(resolved.colab, 600);
+  } catch (err) {
+    console.error('[ouvirDevolutivaComportamentalGestor]', err);
     return { error: err?.message || 'Erro ao gerar devolutiva' };
   }
 }

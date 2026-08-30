@@ -5,7 +5,7 @@
  * gestor vs. rota do admin) e renderiza o ranking com as 3 travas. Não wrappa container
  * (cada página provê o seu shell). Nunca recomputa — só exibe o que a action devolve.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, FileText, Info, Loader2, ShieldAlert } from 'lucide-react';
 import { GlassCard } from '@/components/page-shell';
 import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
@@ -22,14 +22,17 @@ const iniciais = (n: string) => n.split(' ').filter(Boolean).slice(0, 2).map((x)
 const fmtBeta = (v: number) => (Math.round(v * 10) / 10).toFixed(1).replace('.', ',');
 const fmtData = (iso: string | null) => iso ? (() => { const [y, m, d] = iso.slice(0, 10).split('-'); return `${d}/${m}/${y}`; })() : '—';
 
-export default function RankingAdequacaoView({ listar, carregar, exportar }: {
+export default function RankingAdequacaoView({ listar, carregar, exportar, scopeKey = 'default' }: {
   listar: () => Promise<{ cargos: string[]; erro?: string }>;
   carregar: (cargo: string) => Promise<any>;
   exportar?: (cargo: string) => Promise<{ success: boolean; url?: string; error?: string }>;
+  /** Identidade estável do tenant/escopo. Evita reiniciar a busca a cada render. */
+  scopeKey?: string;
 }) {
   const [cargos, setCargos] = useState<string[]>([]);
   const [sel, setSel] = useState('');
   const [data, setData] = useState<any>(null);
+  const [listando, setListando] = useState(true);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
   const [fStatus, setFStatus] = useState<'todos' | 'recomendado' | 'recomendado_com_ressalvas'>('todos');
@@ -39,6 +42,15 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
   const [exportando, setExportando] = useState(false);
   const [erroExport, setErroExport] = useState('');
   const [pdfUrl, setPdfUrl] = useState('');
+  const listarRef = useRef(listar);
+  const carregarRef = useRef(carregar);
+  const cargoRequestRef = useRef(0);
+
+  // Server Actions podem chegar com uma nova identidade de função após qualquer
+  // atualização de estado. A operação usa sempre a versão atual, mas o efeito
+  // abaixo depende somente do escopo real (tenant), não da referência transitória.
+  listarRef.current = listar;
+  carregarRef.current = carregar;
 
   async function exportarPDF() {
     if (!exportar || !sel) return;
@@ -51,15 +63,42 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
     setExportando(false);
   }
 
-  // `listar` muda de identidade quando a empresa muda (useCallback keyed no empresaId).
-  // Reseta o que estava carregado do tenant anterior — senão o ranking velho fica grudado.
+  // Reseta somente quando o tenant/escopo muda. Antes a dependência era a Server
+  // Action `listar`; no App Router sua referência pode mudar em re-renderizações,
+  // criando o ciclo visual "limpa → lista → limpa" que fazia os filtros piscarem.
   useEffect(() => {
+    let ativo = true;
+    cargoRequestRef.current += 1;
     setSel(''); setData(null); setErro(''); setCargos([]); setPdfUrl('');
-    listar().then((r) => { setCargos(r.cargos); if (r.erro) setErro(r.erro); });
-  }, [listar]);
+    setListando(true); setLoading(false);
+    void (async () => {
+      try {
+        const r = await listarRef.current();
+        if (!ativo) return;
+        const disponiveis = Array.isArray(r.cargos) ? r.cargos : [];
+        setCargos(disponiveis);
+        if (r.erro) setErro(r.erro);
+        setListando(false);
+        // O ranking é uma tela de consulta, não um seletor vazio: abre a primeira
+        // fotografia disponível assim que a lista chega.
+        if (!r.erro && disponiveis[0]) void run(disponiveis[0]);
+      } catch {
+        if (!ativo) return;
+        setErro('Não foi possível carregar os rankings disponíveis.');
+        setListando(false);
+      }
+    })();
+    return () => {
+      ativo = false;
+      cargoRequestRef.current += 1;
+    };
+    // `listarRef` mantém a action atual; a identidade do escopo é a dependência.
+  }, [scopeKey]);
   async function run(cargo: string) {
+    const requestId = ++cargoRequestRef.current;
     setSel(cargo); setLoading(true); setData(null); setErro(''); setPdfUrl(''); setErroExport(''); setSort('aderencia'); setFStatus('todos'); setFDriver('qualquer'); setFMin(0);
-    const r = await carregar(cargo);
+    const r = await carregarRef.current(cargo);
+    if (requestId !== cargoRequestRef.current) return;
     if (r.success) setData(r); else setErro(r.error || 'Erro.');
     setLoading(false);
   }
@@ -97,7 +136,8 @@ export default function RankingAdequacaoView({ listar, carregar, exportar }: {
 
       <div className="flex flex-wrap gap-2 mb-4">
         {cargos.map((c) => <button key={c} onClick={() => run(c)} className={`text-xs px-3 py-1.5 rounded-lg border ${sel === c ? 'bg-brand-500/20 border-brand-400 text-brand-200' : 'border-white/10 text-slate-300 hover:bg-white/5'}`}>{c}</button>)}
-        {cargos.length === 0 && !erro && <p className="text-xs text-slate-500">Nenhum cargo com ranking gerado ainda.</p>}
+        {listando && <p className="inline-flex items-center gap-2 text-xs text-slate-400"><Loader2 size={13} className="animate-spin" /> Carregando cargos…</p>}
+        {!listando && cargos.length === 0 && !erro && <p className="text-xs text-slate-500">Nenhum cargo com ranking gerado ainda.</p>}
       </div>
 
       {pdfUrl && (

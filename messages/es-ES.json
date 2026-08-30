@@ -763,6 +763,11 @@
     "dominantProfile": "{profile} dominante",
     "dominant": "Dominante",
     "actionableInsights": "Insights accionables",
+    "teamView": {
+      "back": "Volver al equipo",
+      "eyebrow": "PERFIL CONDUCTUAL · VISTA DEL EQUIPO",
+      "notMapped": "El mapeo conductual aún no se ha completado."
+    },
     "labels": {
       "natural": "Natural"
     },
@@ -1085,6 +1090,13 @@
     "video": {
       "label": "Cómo funciona tu recorrido",
       "title": "Tu recorrido semanal"
+    },
+    "managerView": {
+      "back": "Volver al equipo",
+      "eyebrow": "RECORRIDO INDIVIDUAL · {name}",
+      "title": "Vista del gestor · solo lectura",
+      "subtitle": "El recorrido real del colaborador, con su plan y progreso.",
+      "readOnly": "Visualización de solo lectura"
     },
     "empty": {
       "title": "Tu temporada aún no se ha generado",

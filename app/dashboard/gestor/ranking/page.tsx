@@ -17,7 +17,12 @@ export default async function RankingPage() {
 
   return (
     <PageContainer>
-      <RankingAdequacaoView listar={listarCargosComRanking} carregar={getRankingAdequacao} exportar={exportarRankingPDF} />
+      <RankingAdequacaoView
+        scopeKey="rh-session"
+        listar={listarCargosComRanking}
+        carregar={getRankingAdequacao}
+        exportar={exportarRankingPDF}
+      />
     </PageContainer>
   );
 }

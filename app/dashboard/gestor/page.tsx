@@ -3,15 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { toast } from 'sonner';
 import {
   Users, AlertTriangle, ChevronRight, Loader2, ArrowRight,
   Calendar, TrendingUp, Activity, ClipboardCheck, FileText,
-  Brain, CalendarClock, Rocket, Target, X,
+  Brain, CalendarClock, Rocket, Target,
 } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
-import { derivarArquetipo, intensidadeQualitativa } from '@/lib/disc-arquetipos';
-import { getGestorHomeData, getPerfilExternoPdfUrl, type GestorHomeData, type CheckpointPendenteDetalhado } from './actions';
+import { getGestorHomeData, type GestorHomeData, type CheckpointPendenteDetalhado } from './actions';
 import { salvarCheckpointGestor } from './equipe-evolucao/actions';
 
 export default function GestorHomePage() {
@@ -496,8 +494,10 @@ function EquipeSection({ equipe, fonteExterna, filtro, setFiltro }: {
       <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
         {filtrados.map((e, i) => (
           <button key={e.colabId}
-            onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/[0.04] ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}>
+            type="button"
+            disabled={e.status === 'sem_trilha'}
+            onClick={() => router.push(`/dashboard/temporada?colaborador=${encodeURIComponent(e.colabId)}&origem=gestor`)}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors enabled:hover:bg-white/[0.04] disabled:cursor-default ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}>
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
               style={{ background: 'linear-gradient(135deg, #34c5cc, #2aa8ae)' }}>
               {e.colab.split(/\s+/).slice(0, 2).map((s: string) => s[0]?.toUpperCase()).join('')}
@@ -543,6 +543,7 @@ function EquipeSection({ equipe, fonteExterna, filtro, setFiltro }: {
                   {e.delta > 0 ? '+' : ''}{e.delta}
                 </span>
               )}
+              {e.status !== 'sem_trilha' && <ChevronRight size={15} className="text-brand-300/55" />}
             </div>
           </button>
         ))}
@@ -572,228 +573,58 @@ function StatusPill({ status }: { status: string }) {
 
 function PerfisSection({ perfis, fonteExterna }: { perfis: any[]; fonteExterna?: string | null }) {
   const t = useTranslations('ManagerDashboard');
-  const [selecionado, setSelecionado] = useState<any | null>(null);
-  const [abrindo, setAbrindo] = useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!selecionado) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setSelecionado(null);
-        setPdfUrl(null);
-        setAbrindo(null);
-      }
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [selecionado]);
+  const router = useRouter();
 
   if (perfis.length === 0) return null;
 
-  async function abrirPdf(colabId: string) {
-    setAbrindo(colabId);
-    const r = await getPerfilExternoPdfUrl(colabId);
-    setAbrindo(null);
-    if (r.error || !r.url) {
-      toast.error(r.error || t('profiles.pdfError'));
-      return;
-    }
-    setPdfUrl(r.url);
-  }
-
-  function fecharPerfil() {
-    setSelecionado(null);
-    setPdfUrl(null);
-    setAbrindo(null);
-  }
-
   return (
-    <>
-      <section className="mb-6">
-        <h2 className="text-white text-base font-bold mb-3">
-          {t('titles.profileMap', { type: fonteExterna === 'opq32' ? 'OPQ32' : t('profiles.behavioral') })}
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          {perfis.map((p) => (
-            <button
-              key={p.colabId}
-              type="button"
-              onClick={() => { setPdfUrl(null); setSelecionado(p); }}
-              aria-label={t('profiles.openProfileFor', { name: p.colab })}
-              title={t('profiles.openProfile')}
-              className="w-full cursor-pointer rounded-xl border border-white/[0.06] p-3 text-left transition-colors hover:border-brand-400/40 hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60"
-              style={{ background: 'rgba(255,255,255,0.025)' }}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[12px] text-white font-bold truncate">{p.colab}</p>
-                  <p className="text-[10px] text-white/45 truncate mb-2">{p.cargo || '—'}</p>
-                </div>
-                <ChevronRight size={14} className="mt-0.5 shrink-0 text-brand-300/65" />
+    <section className="mb-6">
+      <h2 className="text-white text-base font-bold mb-3">
+        {t('titles.profileMap', { type: fonteExterna === 'opq32' ? 'OPQ32' : t('profiles.behavioral') })}
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {perfis.map((p) => (
+          <button
+            key={p.colabId}
+            type="button"
+            onClick={() => router.push(`/dashboard/perfil-comportamental?colaborador=${encodeURIComponent(p.colabId)}&origem=gestor`)}
+            aria-label={t('profiles.openProfileFor', { name: p.colab })}
+            title={t('profiles.openProfile')}
+            className="w-full cursor-pointer rounded-xl border border-white/[0.06] p-3 text-left transition-colors hover:border-brand-400/40 hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60"
+            style={{ background: 'rgba(255,255,255,0.025)' }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[12px] text-white font-bold truncate">{p.colab}</p>
+                <p className="text-[10px] text-white/45 truncate mb-2">{p.cargo || '—'}</p>
               </div>
-              {p.fonte === 'sem_perfil' && (
-                <p className="text-[10px] text-white/35 italic">{t('profiles.noProfile')}</p>
-              )}
-              {p.fonte === 'disc' && (
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold tabular-nums" style={{ color: '#34c5cc', fontFamily: 'var(--font-serif, "Instrument Serif", serif)' }}>
-                    {p.letraDom || '—'}
-                  </span>
-                  <span className="text-[10px] text-white/45">{t('profiles.discDominant')}</span>
-                </div>
-              )}
-              {p.fonte === 'opq32' && (
-                <div className="space-y-1">
-                  {(p.altas || []).slice(0, 2).map((a: any) => (
-                    <div key={a.codigo} className="flex items-center gap-1 text-[10px]">
-                      <span className="text-emerald-300 font-mono w-7">{a.sten}</span>
-                      <span className="text-white/75 truncate">{a.nome}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {selecionado && (
-        <PerfilComportamentalModal
-          perfil={selecionado}
-          pdfUrl={pdfUrl}
-          abrindoPdf={abrindo === selecionado.colabId}
-          onAbrirPdf={() => abrirPdf(selecionado.colabId)}
-          onClose={fecharPerfil}
-          t={t}
-        />
-      )}
-    </>
-  );
-}
-
-function PerfilComportamentalModal({ perfil, pdfUrl, abrindoPdf, onAbrirPdf, onClose, t }: {
-  perfil: any;
-  pdfUrl: string | null;
-  abrindoPdf: boolean;
-  onAbrirPdf: () => void;
-  onClose: () => void;
-  t: any;
-}) {
-  const arquetipo = derivarArquetipo(perfil.letraDom);
-  const dimensoes = [
-    { key: 'D', value: Number(perfil.d) || 0, color: '#fb7185' },
-    { key: 'I', value: Number(perfil.i) || 0, color: '#fbbf24' },
-    { key: 'S', value: Number(perfil.s) || 0, color: '#34d399' },
-    { key: 'C', value: Number(perfil.c) || 0, color: '#38bdf8' },
-  ];
-
-  return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm md:p-6"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${t('profiles.profileTitle')}: ${perfil.colab}`}
-        onClick={(event) => event.stopPropagation()}
-        className="flex max-h-[90dvh] w-full max-w-[760px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0A1D35] shadow-2xl"
-      >
-        <header className="flex shrink-0 items-start gap-3 border-b border-white/[0.07] px-5 py-4">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-400/10 text-brand-300">
-            <Brain size={20} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-300">{t('profiles.profileTitle')}</p>
-            <h3 className="truncate text-lg font-bold text-white">{perfil.colab}</h3>
-            <p className="truncate text-xs text-white/45">{perfil.cargo || '—'}</p>
-          </div>
-          <button type="button" onClick={onClose} aria-label={t('profiles.close')}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/55 hover:bg-white/10 hover:text-white">
-            <X size={18} />
+              <ChevronRight size={14} className="mt-0.5 shrink-0 text-brand-300/65" />
+            </div>
+            {p.fonte === 'sem_perfil' && (
+              <p className="text-[10px] text-white/35 italic">{t('profiles.noProfile')}</p>
+            )}
+            {p.fonte === 'disc' && (
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold tabular-nums" style={{ color: '#34c5cc', fontFamily: 'var(--font-serif, "Instrument Serif", serif)' }}>
+                  {p.letraDom || '—'}
+                </span>
+                <span className="text-[10px] text-white/45">{t('profiles.discDominant')}</span>
+              </div>
+            )}
+            {p.fonte === 'opq32' && (
+              <div className="space-y-1">
+                {(p.altas || []).slice(0, 2).map((a: any) => (
+                  <div key={a.codigo} className="flex items-center gap-1 text-[10px]">
+                    <span className="text-emerald-300 font-mono w-7">{a.sten}</span>
+                    <span className="text-white/75 truncate">{a.nome}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </button>
-        </header>
-
-        {pdfUrl ? (
-          <iframe src={pdfUrl} title={`${t('profiles.profileTitle')}: ${perfil.colab}`} className="min-h-[520px] flex-1 bg-white" />
-        ) : (
-          <div className="min-h-0 overflow-y-auto p-5 md:p-6">
-            {perfil.fonte === 'sem_perfil' && (
-              <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-5 text-center">
-                <Brain size={30} className="mx-auto mb-3 text-amber-300/70" />
-                <p className="text-sm font-semibold text-amber-100">{t('profiles.noProfile')}</p>
-                <p className="mt-1 text-xs text-amber-100/55">{t('profiles.noProfileDetail')}</p>
-              </div>
-            )}
-
-            {perfil.fonte === 'disc' && (
-              <>
-                <div className="mb-5 rounded-xl border border-brand-400/15 bg-brand-400/[0.05] p-4">
-                  <div className="flex items-center gap-3">
-                    <span className="text-4xl font-bold text-brand-300" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)' }}>
-                      {perfil.letraDom || '—'}
-                    </span>
-                    <div>
-                      <p className="text-sm font-bold text-white">{arquetipo.nome}</p>
-                      <p className="text-xs text-white/50">{arquetipo.desc}</p>
-                    </div>
-                  </div>
-                </div>
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">{t('profiles.discDimensions')}</p>
-                <div className="space-y-3">
-                  {dimensoes.map((dimensao) => (
-                    <div key={dimensao.key} className="grid grid-cols-[24px_1fr_auto] items-center gap-3">
-                      <span className="text-sm font-black" style={{ color: dimensao.color }}>{dimensao.key}</span>
-                      <div className="h-2 overflow-hidden rounded-full bg-white/[0.07]">
-                        <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, dimensao.value))}%`, background: dimensao.color }} />
-                      </div>
-                      <span className="w-20 text-right text-[10px] text-white/50">{intensidadeQualitativa(dimensao.value)}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {perfil.fonte === 'opq32' && (
-              <div className="space-y-4">
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">{t('profiles.highlights')}</p>
-                  {(perfil.altas || []).map((item: any) => (
-                    <div key={item.codigo} className="mb-2 flex items-center justify-between rounded-lg bg-white/[0.04] px-3 py-2 text-xs text-white/75">
-                      <span>{item.nome}</span><span className="font-mono text-emerald-300">{item.sten}</span>
-                    </div>
-                  ))}
-                </div>
-                {(perfil.baixas || []).length > 0 && (
-                  <div>
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">{t('profiles.attentionPoints')}</p>
-                    {(perfil.baixas || []).map((item: any) => (
-                      <div key={item.codigo} className="mb-2 flex items-center justify-between rounded-lg bg-white/[0.04] px-3 py-2 text-xs text-white/65">
-                        <span>{item.nome}</span><span className="font-mono text-amber-300">{item.sten}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {perfil.temPdf && (
-              <button type="button" onClick={onAbrirPdf} disabled={abrindoPdf}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-brand-400/25 bg-brand-400/10 px-4 py-3 text-xs font-bold text-brand-200 hover:bg-brand-400/15 disabled:opacity-60">
-                {abrindoPdf ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-                {t('profiles.openPdf')}
-              </button>
-            )}
-          </div>
-        )}
+        ))}
       </div>
-    </div>
+    </section>
   );
 }
 

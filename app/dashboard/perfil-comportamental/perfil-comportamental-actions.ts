@@ -1,7 +1,8 @@
 'use server';
 
-import { findColabByEmail } from '@/lib/authz';
+import { canViewColabJourney, findColabByEmail, getUserContext } from '@/lib/authz';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { callAI } from '@/actions/ai-client';
 import { derivarArquetipo, derivarTagsExecutivas, insightsHardcoded } from '@/lib/disc-arquetipos';
 import { buildInsightsExecutivosPrompt } from '@/lib/prompts/insights-executivos-prompt';
@@ -35,6 +36,7 @@ const COLS = [
   'report_texts', 'report_generated_at',
   'comportamental_audio_path', 'comportamental_audio_at',
 ].join(', ');
+const SELECT_PERFIL = COLS + ', email, gestor_email, perfil_externo_fonte, perfil_externo_dados, perfil_externo_pdf_path';
 
 function audioComportamentalEmCache(colab: any): boolean {
   return isAudioArtifactReady({
@@ -45,18 +47,7 @@ function audioComportamentalEmCache(colab: any): boolean {
   }, Date.now(), CACHE_MAX_AGE_MS);
 }
 
-/**
- * Carrega todos os dados do perfil comportamental do colaborador:
- * DISC natural, liderança, 16 competências e perfil dominante.
- */
-export async function loadPerfilCIS() {
-  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
-  const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { error: 'Não autenticado' };
-
-  const colab: any = await findColabByEmail(email, COLS + ', empresa_id, perfil_externo_fonte, perfil_externo_dados, perfil_externo_pdf_path');
-  if (!colab) return { error: 'Colaborador nao encontrado' };
-
+async function montarPerfilCIS(colab: any) {
   // Empresa usa fonte externa de perfil (OPQ32 etc.)?
   let empresaPerfilExternoFonte: string | null = null;
   let empresaPerfilExternoLabel = 'mapeamento comportamental próprio';
@@ -100,6 +91,39 @@ export async function loadPerfilCIS() {
     temPdfPerfilExterno: !!colab.perfil_externo_pdf_path,
     audioComportamentalDisponivel: audioComportamentalEmCache(colab),
   };
+}
+
+/**
+ * Carrega o perfil do PRÓPRIO colaborador. Mantém a identidade exclusivamente
+ * na sessão; consultas de terceiros usam a action separada e explicitamente
+ * autorizada abaixo.
+ */
+export async function loadPerfilCIS() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
+  const colab: any = await findColabByEmail(email, SELECT_PERFIL);
+  if (!colab) return { error: 'Colaborador nao encontrado' };
+  return montarPerfilCIS(colab);
+}
+
+/** Perfil completo de um liderado/RH/tutor, com gate de posse sobre o alvo. */
+export async function loadPerfilCISGestor(colaboradorId: string) {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
+  if (!colaboradorId) return { error: 'Colaborador inválido' };
+
+  const ctx = await getUserContext(email);
+  if (!ctx?.empresaId) return { error: 'Usuário sem empresa vinculada' };
+  const tdb = tenantDb(ctx.empresaId);
+  const { data: alvo, error } = await tdb.from('colaboradores')
+    .select(SELECT_PERFIL)
+    .eq('id', colaboradorId)
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!alvo || !canViewColabJourney(ctx, alvo as any)) return { error: 'Colaborador fora do seu escopo' };
+  return montarPerfilCIS(alvo);
 }
 
 /**

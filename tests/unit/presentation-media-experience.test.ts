@@ -38,12 +38,34 @@ describe('resultados e perfis da apresentação', () => {
     expect(assessment).not.toContain("t('done.score')");
   });
 
-  it('faz cada card do gestor abrir o perfil comportamental interno', () => {
+  it('faz cada card do gestor abrir a experiência comportamental completa e escopada', () => {
     const page = read('app/dashboard/gestor/page.tsx');
-    const action = read('app/dashboard/gestor/actions.ts');
-    expect(page).toContain('setSelecionado(p)');
-    expect(page).toContain('<PerfilComportamentalModal');
-    expect(page).toContain('intensidadeQualitativa(dimensao.value)');
-    expect(action).toContain('d_natural, i_natural, s_natural, c_natural');
+    const profile = read('app/dashboard/perfil-comportamental/page.tsx');
+    const action = read('app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts');
+    expect(page).toContain('/dashboard/perfil-comportamental?colaborador=');
+    expect(profile).toContain('loadPerfilCISGestor(colaboradorAlvo)');
+    expect(profile).toContain('loadBehavioralReportGestor(colaboradorAlvo)');
+    expect(profile).toContain('canGenerateInsights={!visaoGestor}');
+    expect(action).toContain('export async function loadPerfilCISGestor(colaboradorId: string)');
+    expect(action).toContain('canViewColabJourney(ctx, alvo as any)');
+  });
+
+  it('leva a equipe para a trilha individual real em modo somente leitura', () => {
+    const manager = read('app/dashboard/gestor/page.tsx');
+    const season = read('app/dashboard/temporada/page.tsx');
+    expect(manager).toContain('/dashboard/temporada?colaborador=');
+    expect(manager).toContain("disabled={e.status === 'sem_trilha'}");
+    expect(season).toContain('await loadTemporada(colaboradorAlvo)');
+    expect(season).toContain("t('managerView.title')");
+    expect(season).toContain('disabled={!liberada || visaoGestor}');
+  });
+
+  it('mantém o ranking estável por tenant e abre a primeira fotografia', () => {
+    const ranking = read('components/ranking-adequacao-view.tsx');
+    const rhPage = read('app/dashboard/gestor/ranking/page.tsx');
+    expect(ranking).toContain('listarRef.current = listar');
+    expect(ranking).toContain('}, [scopeKey]);');
+    expect(ranking).toContain('void run(disponiveis[0])');
+    expect(rhPage).toContain('scopeKey="rh-session"');
   });
 });

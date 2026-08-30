@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, BookOpen, Target, Sparkles, Lock, Check, Play, Video, FileText, Headphones, Award } from 'lucide-react';
-import { loadTemporadaPorEmail } from '@/actions/temporadas';
+import { Loader2, BookOpen, Target, Sparkles, Lock, Check, Play, Video, FileText, Headphones, Award, ArrowLeft, Eye } from 'lucide-react';
+import { loadTemporada, loadTemporadaPorEmail } from '@/actions/temporadas';
 import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 import { semanaLiberadaPorData, formatarLiberacao, turnosIaNecessarios, contarTurnosIa } from '@/lib/season-engine/week-gating';
 import FirstViewVideo from '@/components/first-view-video';
@@ -36,6 +36,11 @@ const serifStyle: React.CSSProperties = {
 export default function TemporadaPage() {
   const t = useTranslations('Season');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const colaboradorAlvo = searchParams.get('colaborador');
+  // A presença do ID já implica consulta de terceiro. Não confia em `origem`
+  // (parâmetro controlado pelo cliente) para decidir o modo somente leitura.
+  const visaoGestor = !!colaboradorAlvo;
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -45,11 +50,16 @@ export default function TemporadaPage() {
     (async () => {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const r = await loadTemporadaPorEmail(user.email);
+      // A action por ID aplica o mesmo gate central da jornada: próprio usuário,
+      // RH, gestor responsável ou tutor. Assim o gestor vê a temporada REAL do
+      // colaborador, sem impersonar a conta nem trocar a sessão.
+      const r = colaboradorAlvo
+        ? await loadTemporada(colaboradorAlvo)
+        : await loadTemporadaPorEmail(user.email);
       if (r.error) setError(r.error); else setData(r);
       setLoading(false);
     })();
-  }, [router, sb]);
+  }, [colaboradorAlvo, router, sb]);
 
   if (loading) return <Center><Loader2 className="animate-spin" style={{ color: 'var(--phase-accent, #b888e8)' }} /></Center>;
   if (error || !data?.trilha) return (
@@ -81,8 +91,19 @@ export default function TemporadaPage() {
     // ✅ data-phase="4" + CSS vars — toda a página herda a cor violeta da Temporada
     <div data-phase={String(PHASE_NUM)} style={PHASE_VARS}>
       <PageContainer>
+        {visaoGestor && (
+          <button
+            type="button"
+            onClick={() => router.push('/dashboard/gestor')}
+            className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/45 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60"
+          >
+            <ArrowLeft size={14} /> {t('managerView.back')}
+          </button>
+        )}
         <PageHero
-          eyebrow={t('hero.eyebrow', { number: trilha.numero_temporada })}
+          eyebrow={visaoGestor
+            ? t('managerView.eyebrow', { name: data.colaborador?.nome_completo || '—' })
+            : t('hero.eyebrow', { number: trilha.numero_temporada })}
           title={Array.isArray(trilha.competencias_foco) && trilha.competencias_foco.length > 1
             ? trilha.competencias_foco.join(' + ')
             : trilha.competencia_foco}
@@ -98,9 +119,21 @@ export default function TemporadaPage() {
           }
         />
 
-        <div className="mb-6">
-          <FirstViewVideo videoId={JORNADA_VIDEO_ID} title={t('video.title')} label={t('video.label')} sectionKey="jornada" colabId={trilha.colaborador_id} />
-        </div>
+        {visaoGestor ? (
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border bg-white/[0.025] px-4 py-3" style={{ borderColor: 'color-mix(in oklab, var(--phase-accent) 28%, transparent)' }}>
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: 'color-mix(in oklab, var(--phase-accent) 14%, transparent)', color: 'var(--phase-accent)' }}>
+              <Eye size={17} />
+            </span>
+            <div>
+              <p className="text-xs font-bold text-white">{t('managerView.title')}</p>
+              <p className="text-[10px] leading-relaxed text-white/45">{t('managerView.subtitle')}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6">
+            <FirstViewVideo videoId={JORNADA_VIDEO_ID} title={t('video.title')} label={t('video.label')} sectionKey="jornada" colabId={trilha.colaborador_id} />
+          </div>
+        )}
 
         {pausada && (
           <GlassCard className="mb-4 border-amber-500/30 bg-amber-500/5">
@@ -111,7 +144,7 @@ export default function TemporadaPage() {
         {trilha.status === 'concluida' && trilha.evolution_report && (
           <>
             <EvolutionReportCard report={trilha.evolution_report} t={t} />
-            <div className="mb-6">
+            {!visaoGestor && <div className="mb-6">
               <button
                 onClick={() => router.push('/dashboard/temporada/concluida')}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98]"
@@ -119,7 +152,7 @@ export default function TemporadaPage() {
               >
                 {t('viewFullReport')}
               </button>
-            </div>
+            </div>}
           </>
         )}
 
@@ -185,9 +218,9 @@ export default function TemporadaPage() {
             return (
               <button
                 key={s.semana}
-                onClick={() => liberada && router.push(s.semana === semCenarioB ? '/dashboard/temporada/sem14' : `/dashboard/temporada/semana/${s.semana}`)}
-                disabled={!liberada}
-                title={motivoBloqueio}
+                onClick={() => !visaoGestor && liberada && router.push(s.semana === semCenarioB ? '/dashboard/temporada/sem14' : `/dashboard/temporada/semana/${s.semana}`)}
+                disabled={!liberada || visaoGestor}
+                title={visaoGestor ? t('managerView.readOnly') : motivoBloqueio}
                 className={`relative rounded-xl p-3 text-left transition-all border ${
                   concluida
                     ? 'bg-emerald-500/10 border-emerald-500/30 hover:border-emerald-400'
@@ -196,7 +229,7 @@ export default function TemporadaPage() {
                     : liberada
                     ? 'bg-white/5 border-white/10 hover:border-white/30'
                     : 'bg-white/[0.02] border-white/5 opacity-50 cursor-not-allowed'
-                }`}
+                } ${visaoGestor ? 'disabled:cursor-default' : ''}`}
                 style={emAndamento ? {
                   background: 'color-mix(in oklab, var(--phase-accent) 10%, transparent)',
                   borderColor: 'color-mix(in oklab, var(--phase-accent) 45%, transparent)',

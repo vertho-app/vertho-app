@@ -763,6 +763,11 @@
     "dominantProfile": "{profile} dominante",
     "dominant": "Dominante",
     "actionableInsights": "Insights acionáveis",
+    "teamView": {
+      "back": "Voltar à equipa",
+      "eyebrow": "PERFIL COMPORTAMENTAL · VISÃO DA EQUIPA",
+      "notMapped": "O mapeamento comportamental ainda não foi concluído."
+    },
     "labels": {
       "natural": "Natural"
     },
@@ -1085,6 +1090,13 @@
     "video": {
       "label": "Como funciona a sua jornada",
       "title": "A sua jornada semanal"
+    },
+    "managerView": {
+      "back": "Voltar à equipa",
+      "eyebrow": "TRILHO INDIVIDUAL · {name}",
+      "title": "Visão do gestor · apenas leitura",
+      "subtitle": "O mesmo trilho do colaborador, com plano e progresso reais.",
+      "readOnly": "Visualização apenas de leitura"
     },
     "empty": {
       "title": "A sua temporada ainda não foi gerada",

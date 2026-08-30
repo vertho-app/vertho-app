@@ -15,7 +15,7 @@ export default function RankingTab({ empresaId }: { empresaId: string }) {
   return (
     <div className="max-w-4xl mx-auto text-slate-200">
       <div className="mb-3 text-[11px] text-amber-400/80">Preview interno — é a tela que o RH do cliente vê (`/dashboard/gestor/ranking`), escopada pela empresa selecionada.</div>
-      <RankingAdequacaoView listar={listar} carregar={carregar} exportar={exportar} />
+      <RankingAdequacaoView scopeKey={empresaId} listar={listar} carregar={carregar} exportar={exportar} />
     </div>
   );
 }

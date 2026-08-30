@@ -763,6 +763,11 @@
     "dominantProfile": "{profile} dominant",
     "dominant": "Dominant",
     "actionableInsights": "Actionable insights",
+    "teamView": {
+      "back": "Back to team",
+      "eyebrow": "BEHAVIORAL PROFILE · TEAM VIEW",
+      "notMapped": "The behavioral mapping has not been completed yet."
+    },
     "labels": {
       "natural": "natural"
     },
@@ -1085,6 +1090,13 @@
     "video": {
       "label": "How your journey works",
       "title": "Your weekly journey"
+    },
+    "managerView": {
+      "back": "Back to team",
+      "eyebrow": "INDIVIDUAL JOURNEY · {name}",
+      "title": "Manager view · read only",
+      "subtitle": "The employee's real journey, including the plan and progress.",
+      "readOnly": "Read-only view"
     },
     "empty": {
       "title": "Your season has not yet been generated",
