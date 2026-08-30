@@ -59,6 +59,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   const t = useTranslations('DashboardShell');
   const router = useRouter();
   const pathname = usePathname();
+  const isImmersiveContent = pathname.startsWith('/dashboard/conteudo/');
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
   const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean } | null>(null);
@@ -235,7 +236,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto pb-[calc(var(--nav-height)+72px)] md:pb-0 md:ml-20">
+      <main className={`flex-1 overflow-y-auto md:ml-20 ${isImmersiveContent ? 'pb-0' : 'pb-[calc(var(--nav-height)+72px)] md:pb-0'}`}>
         {children}
       </main>
 
@@ -262,7 +263,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
         })}
       </nav>
 
-        {!/^\/dashboard\/temporada\/semana\//.test(pathname) && <BetoChat />}
+        {!/^\/dashboard\/temporada\/semana\//.test(pathname) && !isImmersiveContent && <BetoChat />}
       </div>
     </PresentationEnvironment>
   );

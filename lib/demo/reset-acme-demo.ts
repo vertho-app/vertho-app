@@ -56,6 +56,32 @@ const REPRESENTANTE_TOP5 = [
 
 const REPRESENTANTE_FOCO = ['Negociação e Fechamento'];
 
+/**
+ * Vídeo editorial fixo da sala de apresentação.
+ *
+ * A library também recebe vídeos personalizados de clientes; por isso o GUID
+ * aqui é deliberadamente o tutorial genérico do produto, e não um item
+ * "parecido" descoberto por título. O slot é recomposto a cada reset para a
+ * visão Usuário nunca voltar a ficar só com artigo, case e áudio.
+ */
+export const DEMO_PRESENTATION_VIDEO = {
+  titulo: 'Sua jornada semanal, por dentro',
+  descricao: 'Veja como as atividades, os conteúdos e o acompanhamento se conectam ao longo da sua jornada de desenvolvimento.',
+  formato: 'video',
+  duracao_min: 2.3,
+  bunny_video_id: '64c4f43d-7c5d-4b1e-9433-725a1dddbf34',
+  competencia: REPRESENTANTE_FOCO[0],
+  descritor: 'Navegação pela jornada semanal',
+  nivel_min: 1,
+  nivel_max: 4,
+  tipo_conteudo: 'core',
+  contexto: 'corporativo',
+  cargo: 'Representante Comercial',
+  setor: 'todos',
+  origem: 'pre_produzido',
+  ativo: true,
+} as const;
+
 export function focosValidosDemo(row: any, top5: string[]): string[] {
   const focoOriginal = [
     ...(Array.isArray(row.competencias_foco) ? row.competencias_foco : []),
@@ -723,6 +749,39 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     return idMap;
   }
 
+  async function ensurePresentationVideo(destId: string) {
+    // O tuple abaixo é o mesmo da unique parcial uq_micro_conteudos_core.
+    // Buscar pelo SLOT (e não só pelo GUID) torna a atualização idempotente e
+    // evita colidir se o vídeo editorial for trocado no futuro.
+    const existing = await must('load vídeo da apresentação', sb.from('micro_conteudos')
+      .select('id')
+      .eq('empresa_id', destId)
+      .eq('competencia', DEMO_PRESENTATION_VIDEO.competencia)
+      .eq('descritor', DEMO_PRESENTATION_VIDEO.descritor)
+      .eq('formato', DEMO_PRESENTATION_VIDEO.formato)
+      .eq('cargo', DEMO_PRESENTATION_VIDEO.cargo)
+      .is('kit_id', null)
+      .maybeSingle());
+
+    const payload = {
+      ...DEMO_PRESENTATION_VIDEO,
+      empresa_id: destId,
+      url: `https://iframe.mediadelivery.net/embed/${process.env.BUNNY_LIBRARY_ID || 636615}/${DEMO_PRESENTATION_VIDEO.bunny_video_id}`,
+    };
+
+    if (existing?.id) {
+      const { error } = await sb.from('micro_conteudos')
+        .update(payload)
+        .eq('id', existing.id)
+        .eq('empresa_id', destId);
+      if (error) throw new Error(`update vídeo da apresentação: ${error.message}`);
+      return;
+    }
+
+    const { error } = await sb.from('micro_conteudos').insert(payload);
+    if (error) throw new Error(`insert vídeo da apresentação: ${error.message}`);
+  }
+
   async function seedCargos(rows: any[], destId: string) {
     if (!rows?.length) return;
     const payload = rows.filter((row: any) => !DEMO_EXCLUDED_ROLES.has(row.nome)).map((row: any) => {
@@ -1149,6 +1208,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     }
 
     await resetTenant(demo.id);
+    await ensurePresentationVideo(demo.id);
     const compMap = await seedCompetencias((fixture as any).competencias, demo.id);
     await seedCargos((fixture as any).cargos, demo.id);
     await seedTop10((fixture as any).top10, demo.id, compMap);

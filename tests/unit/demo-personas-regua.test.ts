@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEMO_RESET_TABLES, DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo, relatorioIndividualDemoValido } from '@/lib/demo/reset-acme-demo';
+import { DEMO_PRESENTATION_VIDEO, DEMO_RESET_TABLES, DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo, relatorioIndividualDemoValido } from '@/lib/demo/reset-acme-demo';
 import { DEMO_PERSONAS } from '@/lib/sales/demo-personas';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile, DISC_SOMA_ALVO } from '@/lib/disc-mapeamento';
@@ -17,6 +17,16 @@ import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
 describe('Personas do acme-demo seguem a régua do produto', () => {
   it('limpa relatórios antes de colaboradores para o reset nunca ficar pela metade', () => {
     expect(DEMO_RESET_TABLES.indexOf('relatorios')).toBeLessThan(DEMO_RESET_TABLES.indexOf('colaboradores'));
+  });
+
+  it('mantém um vídeo editorial real no foco do usuário da apresentação', () => {
+    expect(DEMO_PRESENTATION_VIDEO).toMatchObject({
+      formato: 'video',
+      competencia: 'Negociação e Fechamento',
+      cargo: 'Representante Comercial',
+      ativo: true,
+    });
+    expect(DEMO_PRESENTATION_VIDEO.bunny_video_id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('só preserva PDI aquecido com competências entre N1 e N4', () => {

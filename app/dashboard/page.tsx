@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import {
@@ -531,7 +532,6 @@ export default function DashboardHomePage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               {capacitacoes.slice(0, 4).map((item, i) => {
-                const isVideo = item.formato === 'video' && item.bunny_video_id;
                 const labelKey = FORMATO_LABEL[item.formato] || 'content';
                 const label = t(`contentFormats.${labelKey}`);
                 // `micro_conteudos` NÃO tem coluna de ordem — `item.ordem` era
@@ -572,32 +572,16 @@ export default function DashboardHomePage() {
                   boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
                 };
 
-                if (isVideo) {
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`${cardClass} cursor-pointer`}
-                      style={cardStyle}
-                      onClick={() => setActiveVideo({ videoId: item.bunny_video_id, titulo: item.titulo })}
-                    >
-                      {cardContent}
-                    </button>
-                  );
-                }
-
                 if (href) {
                   return (
-                    <a
+                    <Link
                       key={item.id}
                       href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className={`${cardClass} cursor-pointer`}
                       style={cardStyle}
                     >
                       {cardContent}
-                    </a>
+                    </Link>
                   );
                 }
 
