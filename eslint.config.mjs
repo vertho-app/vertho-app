@@ -1,4 +1,5 @@
 import next from 'eslint-config-next';
+import tsParser from '@typescript-eslint/parser';
 
 /**
  * Flat config (ESLint 9 / Next 16 — o `next lint` foi removido). Roda com
@@ -54,7 +55,27 @@ export default [
       '.claude/**',
     ],
   },
-  { ...next[0], rules: { ...next[0].rules, ...OVERRIDES } },
+  {
+    // Parser TROCADO (29/08): o parser Babel empacotado que o eslint-config-next
+    // registra não consegue resolver 'next/babel' a partir do bundle compilado
+    // ("Parsing error: Cannot find module 'next/babel'" em TODO arquivo — medido
+    // 2×, 20/07 e 29/08; o `babel-preset-next-react-app` nem existe na árvore).
+    // O @typescript-eslint/parser já presente parseia TS/TSX e as regras deste
+    // bloco (react-hooks, jsx-a11y, @next) não dependem de Babel — o
+    // typed-linting já ficou de fora por decisão (comentário no topo).
+    // parserOptions do next[0] era todo de Babel (presets/caller) e sai junto.
+    ...next[0],
+    languageOptions: {
+      ...next[0].languageOptions,
+      parser: tsParser,
+      parserOptions: {
+        sourceType: 'module',
+        ecmaVersion: 'latest',
+        ecmaFeatures: { jsx: true },
+      },
+    },
+    rules: { ...next[0].rules, ...OVERRIDES },
+  },
   {
     /**
      * `<SectionLabel>// Contexto</SectionLabel>` é ELEMENTO DE MARCA na proposta
