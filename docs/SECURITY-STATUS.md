@@ -1,8 +1,22 @@
 # Estado atual de seguranca — Vertho Mentor IA
 
-> Ultima revisao: 2026-07-26 — **os 2 guards de tenant voltaram ao verde** (`3367efb7`; ver "Manutenção 26/07"). Antes: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
+> Ultima revisao: 2026-08-30 — **`tenant-mutation-guard` estava FAIL-OPEN** (passava verde com 0 arquivos varridos); corrigido em `ec4d3fdd` e validado por mutação. 8 dos 13 guards de tenant seguem NÃO auditados (ver "Manutenção 30/08"). Antes: 2026-07-26 — **os 2 guards de tenant voltaram ao verde** (`3367efb7`; ver "Manutenção 26/07"). Antes: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
 > Antes: 2026-07-17 (auditoria geral — detalhes em `docs/LEVANTAMENTO-2026-07.md` §4. **3 achados altos NOVOS**, hoje fechados: (1) `api/bunny-videos` + `api/video-download` sem auth — enumeracao + download anonimo de videos, PII potencial nos personalizados; (2) header `x-tenant-slug` forjavel no apex/vercel.app — enumeracao de e-mails cross-tenant e signup em tenant alheio; (3) open redirect de `token_hash` de sessao em `api/auth/phone-otp/verify`. Numeros corrigidos: service-role = **130 arquivos / 299 usos** (nao 91/168); residuo `internal` = **5 entradas** (nao 8; fase1/fase3 removidos 10/07). As 4 classes criticas de 03/07 seguem confirmadas fechadas.)
 > Anterior: 2026-07-07 (defense-in-depth de tenant nas ações internas + filtro de contas internas demo-aware; ver seção "Endurecimento 06-07/07"). Anterior: 2026-07-03 (auditoria de segurança — RCE/RLS/IDOR/search_path/MVs fechados; ver seção "Auditoria de segurança 03/07")
+
+## Manutenção 30/08: `tenant-mutation-guard` estava FAIL-OPEN
+
+Este documento cita `tenant-read/mutation-guard` entre as guardas de CI que sustentam a postura de tenant. Auditoria de 30/08 (subagent `guard-auditor`, 5 dos 13 guards de tenant, 6 mutações) mediu que um deles **passava verde com a varredura morta**.
+
+`arquivos()` engole a falha do `git ls-files` num `catch { return [] }`, e os 4 testes do guard eram todos da forma "nenhum X", que é exatamente o que uma varredura de zero arquivos devolve. Forçando o ramo catch: **0 arquivos varridos, 4 de 4 verdes**. O irmão `tenant-read-guard` já tinha a trava (`o guard enxerga o repositório`, linha 277) e este ficou sem ela.
+
+Corrigido em `ec4d3fdd`, duas linhas, cada uma pegando o caso por conta própria: um `it` novo exigindo que a varredura tenha visto ao menos 100 arquivos, e o teste de stale passou a conferir também `!realCounts[f]`, o que o amarra ao RESULTADO da varredura em vez de só à existência do arquivo no disco. **Validado por mutação:** com o `git ls-files` quebrado, 2 dos 5 ficam vermelhos.
+
+🔑 O achado veio da prova de pré-condição, **não da mutação**: os 5 guards souberam ficar vermelhos quando a invariante foi quebrada. O buraco estava em passar sem ter lido nada.
+
+**Denominador, para isto não virar carimbo largo.** Receberam `PROVA` (execução no CI observada com SHA conferido, alvo vivo, mutação vermelha): `tenant-read-guard`, `dashboard-isolation`, `colab-idor-gate`, `admin-actions-tenant-gate`. **Não foram auditados**, 8 de 13: `a5-gate-tenant`, `envios-tenant-gate`, `gate-linha-tenant`, `proxy-tenant-forge`, `relatorio-fetch-colab-tenant`, `tenant-access`, `tenant-db-contrato`, `tenant-isolation`.
+
+Teto conhecido: `dashboard-isolation` é **lista fixa** (12 dos 14 arquivos de action de dashboard), não varredura, então arquivo novo de dashboard nasce invisível para ele. Hoje nenhuma instância viva escapa: dos 2 fora, um é coberto por `ownership-guard` e `perfil-externo-pdf-posse`, e o outro não recebe parâmetro de identidade, o que torna a classe estruturalmente impossível ali.
 
 ## Fechamento da auditoria 23/07
 

@@ -48,6 +48,9 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - 🔴 Passar por **`tenantDb(empresaId)`**. Guards: `tenant-mutation-guard`, `tenant-read-guard`
   (allowlists que só encolhem; a **constante no topo de cada teste é a fonte da verdade** sobre
   cobertura — não o resumo em doc nenhum).
+- 🔴 **Baixar o número de uma allowlist exige a correção NO MESMO commit.** Declarar "-1, trecho
+  corrigido" e deixar o conserto no working tree deixa o local VERDE (lê o disco) e o CI VERMELHO
+  (lê o commit): 14 pushes assim em 30/08, no E11. Memória `feedback_guard_varre_tracked`.
 - 🔴 Colaborador por e-mail: **`findColabByEmail`**, nunca `.eq('email')` (pessoa em 2+ empresas).
 - **Não conte com RLS**: o app roda service-role (`BYPASSRLS`) e as policies são decorativas por
   decisão (CLAUDE.md §Multi-tenant). Tabela nova de PII nasce protegida por **guard**, não por policy.

@@ -266,6 +266,8 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
 
 **Skills** (`.claude/skills/`, versionadas — invocar por `/nome` ou carregar quando o contexto casar): `deploy`, `migrations`, `multi-tenant`, `trigger-dev`, `ai-calls`, `video`, `competency-matrix`, `scenario-generation`, `vertho-design`, `fechar`, **`checklist`** (o que conferir nesta mudança — roteia pelos arquivos tocados, tabela em `checklist/gatilhos.md`) e **`conferir`** (a afirmação ainda bate com o código? — antes de declarar algo fechado/coberto/em produção).
 
+**Subagents** (`.claude/agents/`, versionados pela mesma razão das skills): **`guard-auditor`** — audita se um guard prova o que diz, em vez de só estar verde (execução observada, alvo vivo, mutação, pré-condição fechada fora do teste). Rode em worktree isolado: a prova de mutação escreve no código de produção. Agents só carregam no START da sessão. Primeira rodada (30/08) achou o `tenant-mutation-guard` fail-open; ver `docs/SECURITY-STATUS.md` §Manutenção 30/08.
+
 ## Zonas de autonomia (quem decide o quê)
 
 De 28/08: o agente segue sozinho onde o CI dá veredito, propõe plano antes de tocar o meio,
