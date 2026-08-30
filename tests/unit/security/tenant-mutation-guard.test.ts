@@ -106,6 +106,26 @@ const realCounts: Record<string, number> = {};
 scanTracked(realCounts);
 
 describe('Guard: mutações raw em tabelas tenant-owned sem filtro de tenant', () => {
+  // `arquivos()` engole a falha do `git ls-files` num `catch { return []; }`, e
+  // com zero arquivos varridos os outros quatro testes daqui ficam VERDES: os
+  // quatro são da forma "nenhum X", e "nenhum" é o que uma varredura morta
+  // devolve. Auditoria de 30/08 provou o fail-open forçando o ramo catch: 0
+  // arquivos varridos, 4 de 4 passando.
+  //
+  // O irmão `tenant-read-guard` já tinha esta trava (linha 277); este ficou sem
+  // ela. Como o app roda em service_role, que tem BYPASSRLS, estes guards são a
+  // única barreira contra escrita cross-tenant, e um deles passar sem ter lido
+  // nada é a falha que menos aparece e mais custa.
+  it('o guard enxerga o repositório (não passou vazio por engano)', () => {
+    const total = arquivos().length;
+    if (total < 100) {
+      throw new Error(
+        `git ls-files devolveu ${total} arquivo(s) em ${DIRS.join(', ')} — guard cego. ` +
+        'Um guard que não lê nada passa sempre.',
+      );
+    }
+  });
+
   it('nenhum arquivo fora da allowlist', () => {
     const violations = Object.keys(realCounts).filter(f => !(f in allowlist));
     if (violations.length > 0) {
@@ -117,10 +137,19 @@ describe('Guard: mutações raw em tabelas tenant-owned sem filtro de tenant', (
     }
   });
 
-  it('nenhuma entrada stale na allowlist', () => {
-    const stale = Object.keys(allowlist).filter(f => !existsSync(f));
+  it('nenhuma entrada stale na allowlist (arquivo sumiu ou já foi corrigido)', () => {
+    // `!existsSync(f)` sozinho sobrevive a uma varredura morta: os arquivos
+    // continuam no disco, então a lista parece saudável mesmo quando ninguém
+    // leu nada. Conferir também contra `realCounts` amarra este teste ao
+    // RESULTADO da varredura, que é como o `tenant-read-guard` faz (linha 309).
+    // Efeito colateral bem-vindo: entrada que já foi corrigida e ficou para
+    // trás na allowlist agora aparece.
+    const stale = Object.keys(allowlist).filter(f => !existsSync(f) || !realCounts[f]);
     if (stale.length > 0) {
-      throw new Error(`${stale.length} entrada(s) stale:\n` + stale.map(f => `  🗑️ ${f}`).join('\n'));
+      throw new Error(
+        `${stale.length} entrada(s) stale — remova da allowlist:\n` +
+        stale.map(f => `  🗑️ ${f}${existsSync(f) ? ' — já não tem mutação raw sem tenant (ótimo!)' : ' — arquivo não existe'}`).join('\n'),
+      );
     }
   });
 
