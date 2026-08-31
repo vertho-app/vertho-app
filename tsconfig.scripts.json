@@ -1,0 +1,13 @@
+{
+  // tsx (CLI) não tem o alias interno do webpack do Next para `server-only` —
+  // sem este mapeamento, qualquer script que importe um núcleo de lib/ que se
+  // protege com a marca quebra com MODULE_NOT_FOUND (ou, se o pacote real for
+  // instalado, com o throw de "client component"). O stub é o mesmo do vitest.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./*"],
+      "server-only": ["./tests/stubs/server-only.ts"]
+    }
+  }
+}
