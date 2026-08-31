@@ -6,20 +6,23 @@ import { useLocale, useTranslations } from 'next-intl';
 import {
   Users, AlertTriangle, ChevronRight, Loader2, ArrowRight,
   Calendar, TrendingUp, Activity, ClipboardCheck, FileText,
-  Brain, CalendarClock, Rocket, Target,
+  Brain, CalendarClock, Rocket, Target, Sparkles, X, BarChart3,
 } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
+import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
 import { getGestorHomeData, type GestorHomeData, type CheckpointPendenteDetalhado } from './actions';
 import { salvarCheckpointGestor } from './equipe-evolucao/actions';
 
 export default function GestorHomePage() {
   const t = useTranslations('ManagerDashboard');
+  const locale = useLocale();
   const router = useRouter();
   const [data, setData] = useState<GestorHomeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [avaliando, setAvaliando] = useState<string | null>(null);
   const [modal, setModal] = useState<{ cp: CheckpointPendenteDetalhado; avaliacao: 'evoluindo' | 'estagnado' | 'regredindo' } | null>(null);
   const [observacao, setObservacao] = useState('');
+  const [reportReaderOpen, setReportReaderOpen] = useState(false);
   // O filtro da tabela vive AQUI porque os cards de ação o comandam: clicar em
   // "30 atrasados" tem que virar a lista dos 30, senão o número não vira nome.
   const [filtroEquipe, setFiltroEquipe] = useState<FiltroEquipe>('todos');
@@ -163,6 +166,18 @@ export default function GestorHomePage() {
         />
       </div>
 
+      {/* O relatório do gestor deixa de ser uma peça estática: a leitura
+          executiva entra no fluxo onde ele já acompanha a equipe. O PDF segue
+          disponível como evidência, aberto dentro da própria tela. */}
+      {data.scope === 'gestor' && data.reportDashboard && (
+        <ManagerReportDashboard
+          report={data.reportDashboard}
+          locale={locale}
+          t={t}
+          onOpenPdf={() => setReportReaderOpen(true)}
+        />
+      )}
+
       {/* Alertas */}
       {alertas.length > 0 && (
         <div className="mb-5 rounded-2xl border border-amber-400/25 overflow-hidden"
@@ -276,11 +291,162 @@ export default function GestorHomePage() {
           </div>
         </div>
       )}
+
+      {reportReaderOpen && data.reportDashboard && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-2 backdrop-blur-sm md:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('reportDashboard.pdfTitle')}
+          onClick={() => setReportReaderOpen(false)}
+        >
+          <div
+            className="flex h-[min(92dvh,980px)] w-full max-w-[1100px] flex-col overflow-hidden rounded-[24px] border border-white/[0.1] bg-[#071829] shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/[0.08] px-4 py-3 md:px-6">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-300">{t('reportDashboard.pdfEyebrow')}</p>
+                <h2 className="mt-0.5 text-xl text-white" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>{t('reportDashboard.pdfTitle')}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReportReaderOpen(false)}
+                className="grid h-9 w-9 place-items-center rounded-xl border border-white/[0.08] text-white/50 transition hover:bg-white/[0.06] hover:text-white"
+                aria-label={t('reportDashboard.closePdf')}
+              >
+                <X size={17} />
+              </button>
+            </header>
+            <div className="min-h-0 flex-1 p-2 md:p-4">
+              <InAppPdfDocument
+                src={data.reportDashboard.pdfUrl}
+                title={t('reportDashboard.pdfTitle')}
+                loadingLabel={t('reportDashboard.pdfLoading')}
+                errorLabel={t('reportDashboard.pdfError')}
+                retryLabel={t('reportDashboard.pdfRetry')}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </PageContainer>
   );
 }
 
 // ── Componentes auxiliares ──
+
+type ManagerDashboardReport = NonNullable<GestorHomeData['reportDashboard']>;
+
+function ManagerReportDashboard({
+  report,
+  locale,
+  t,
+  onOpenPdf,
+}: {
+  report: ManagerDashboardReport;
+  locale: string;
+  t: any;
+  onOpenPdf: () => void;
+}) {
+  const insight = report.insight;
+  const generatedAt = report.generatedAt
+    ? new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(report.generatedAt))
+    : null;
+
+  return (
+    <section className="mb-6 overflow-hidden rounded-[24px] border border-violet-400/20" style={{ background: 'linear-gradient(145deg, rgba(32,40,78,.78), rgba(9,29,51,.96) 58%)' }}>
+      <header className="flex flex-col gap-3 border-b border-white/[0.08] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.22em] text-violet-300"><Sparkles size={12} /> {t('reportDashboard.eyebrow')}</p>
+          <h2 className="mt-1 text-[25px] leading-none text-white" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>{t('reportDashboard.title')}</h2>
+          {generatedAt && <p className="mt-1 font-mono text-[9px] text-white/30">{t('reportDashboard.updated', { date: generatedAt })}</p>}
+        </div>
+        <button type="button" onClick={onOpenPdf} className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-xl border border-violet-300/20 bg-violet-300/[0.07] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-violet-200 transition hover:bg-violet-300/[0.12] sm:self-auto">
+          <FileText size={13} /> {t('reportDashboard.openPdf')}
+        </button>
+      </header>
+
+      <div className="p-4 md:p-5">
+        <div className="grid gap-3 lg:grid-cols-[1.35fr_.65fr]">
+          <div className="rounded-[20px] border border-white/[0.07] bg-black/10 p-5">
+            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-brand-300">{t('reportDashboard.reading')}</p>
+            <p className="mt-2 text-[21px] leading-[1.28] text-white" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>{insight.executive.reading || '—'}</p>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <div className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.05] p-3">
+                <p className="text-[9px] font-bold uppercase tracking-[0.13em] text-emerald-300">{t('reportDashboard.strength')}</p>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-white/58">{insight.executive.strength || '—'}</p>
+              </div>
+              <div className="rounded-xl border border-amber-300/15 bg-amber-300/[0.05] p-3">
+                <p className="text-[9px] font-bold uppercase tracking-[0.13em] text-amber-300">{t('reportDashboard.attention')}</p>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-white/58">{insight.executive.risk || '—'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-[20px] border border-violet-400/20 bg-violet-400/[0.07] p-5">
+            <Target size={52} className="absolute -right-2 -top-2 text-violet-300/[0.08]" />
+            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-violet-300">{t('reportDashboard.nextDecision')}</p>
+            <p className="mt-3 text-sm leading-relaxed text-white/70">{insight.actions.primary || t('reportDashboard.noPrimaryAction')}</p>
+            {insight.actions.thisWeek.length > 0 && (
+              <div className="mt-5 border-t border-violet-300/15 pt-4">
+                <p className="text-[9px] font-bold uppercase tracking-[0.13em] text-white/35">{t('reportDashboard.thisWeek')}</p>
+                <ul className="mt-2 space-y-2 text-[11px] leading-relaxed text-white/55">
+                  {insight.actions.thisWeek.map((item) => <li key={item} className="flex gap-2"><ArrowRight size={12} className="mt-0.5 shrink-0 text-violet-300" />{item}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {insight.competencies.length > 0 && (
+          <div className="mt-4">
+            <div className="mb-2 flex items-center gap-2"><BarChart3 size={14} className="text-brand-400" /><h3 className="text-xs font-bold text-white">{t('reportDashboard.competencies')}</h3></div>
+            <div className="grid gap-2 md:grid-cols-2">
+              {insight.competencies.slice(0, 2).map((competency) => {
+                const total = competency.distribution.reduce((sum, item) => sum + item.people, 0);
+                return (
+                  <div key={competency.competency} className="rounded-[18px] border border-white/[0.07] bg-black/10 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-[12px] font-bold leading-snug text-white/80">{competency.competency}</p>
+                      <span className="shrink-0 font-mono text-[10px] text-brand-300">{competency.average != null ? competency.average.toFixed(1) : '—'} / 4</span>
+                    </div>
+                    <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-white/[0.05]">
+                      {competency.distribution.map((item, index) => (
+                        <div key={item.level} title={`N${item.level}: ${item.people}`} style={{ width: `${total > 0 ? (item.people / total) * 100 : 0}%`, background: ['#FB7185', '#FBBF24', '#22D3EE', '#34D399'][index] }} />
+                      ))}
+                    </div>
+                    {competency.pattern && <p className="mt-3 text-[11px] leading-relaxed text-white/45">{competency.pattern}</p>}
+                    {competency.managerAction && <p className="mt-2 flex gap-2 text-[11px] leading-relaxed text-brand-200/65"><ArrowRight size={12} className="mt-0.5 shrink-0" />{competency.managerAction}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {(insight.highlights.length > 0 || insight.attention.length > 0) && (
+          <div className="mt-4 grid gap-2 md:grid-cols-2">
+            <div className="rounded-[18px] border border-emerald-400/15 bg-emerald-400/[0.04] p-4">
+              <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-300"><TrendingUp size={12} /> {t('reportDashboard.highlights')}</p>
+              <div className="mt-3 space-y-3">
+                {insight.highlights.map((person) => <div key={`${person.person}-${person.competency}`}><p className="text-xs font-bold text-white/80">{person.person}</p><p className="mt-0.5 text-[10px] text-emerald-100/45">{person.competency}{person.level ? ` · N${person.level}` : ''}</p>{person.reason && <p className="mt-1 text-[11px] leading-relaxed text-white/45">{person.reason}</p>}</div>)}
+                {insight.highlights.length === 0 && <p className="text-[11px] text-white/35">—</p>}
+              </div>
+            </div>
+            <div className="rounded-[18px] border border-amber-300/15 bg-amber-300/[0.04] p-4">
+              <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-300"><AlertTriangle size={12} /> {t('reportDashboard.attentionPeople')}</p>
+              <div className="mt-3 space-y-3">
+                {insight.attention.map((person) => <div key={`${person.person}-${person.competency}`}><p className="text-xs font-bold text-white/80">{person.person}</p><p className="mt-0.5 text-[10px] text-amber-100/45">{person.competency}{person.level ? ` · N${person.level}` : ''}</p>{person.reason && <p className="mt-1 text-[11px] leading-relaxed text-white/45">{person.reason}</p>}</div>)}
+                {insight.attention.length === 0 && <p className="text-[11px] text-white/35">—</p>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 function KpiCard({
   icon: Icon, label, valor, subtitulo, acento = 'gray', sufixo,

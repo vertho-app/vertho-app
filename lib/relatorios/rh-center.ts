@@ -1,7 +1,8 @@
 import 'server-only';
 
 import { tenantDb } from '@/lib/tenant-db';
-import { carregarRelatoriosGerenciais } from '@/lib/home/loaders';
+import { carregarPanoramaRH, carregarRelatoriosGerenciais } from '@/lib/home/loaders';
+import { normalizeRhReportInsight, type RhReportInsight } from './dashboard-insights';
 
 export type RhReportKind =
   | 'rh'
@@ -23,6 +24,22 @@ export type RhReportDocument = {
 
 export type RhReportsCenter = {
   companyName: string | null;
+  dashboard: {
+    panorama: {
+      empresaNome: string | null;
+      pessoas: number;
+      comPerfil: number;
+      comMapeamento: number;
+      emJornada: number;
+      emDia: number;
+      atrasadas: number;
+      jornadasEncerradas: number;
+      indisponivel: boolean;
+    };
+    insight: RhReportInsight | null;
+    generatedAt: string | null;
+    insightUnavailable: boolean;
+  };
   organization: RhReportDocument[];
   managers: RhReportDocument[];
   people: RhReportDocument[];
@@ -44,13 +61,23 @@ const PDF_TYPES = [
  */
 export async function carregarCentralRelatoriosRH(empresaId: string): Promise<RhReportsCenter> {
   const tdb = tenantDb(empresaId);
-  const [gerenciais, reportsResult, companyResult] = await Promise.all([
+  const [gerenciais, panorama, reportsResult, companyResult, insightResult] = await Promise.all([
     carregarRelatoriosGerenciais(empresaId),
+    carregarPanoramaRH(empresaId),
     tdb.from('relatorios')
       .select('id,colaborador_id,tipo,gerado_em')
       .in('tipo', [...PDF_TYPES])
       .order('gerado_em', { ascending: false }),
     tdb.raw.from('empresas').select('nome').eq('id', empresaId).maybeSingle(),
+    // Só o consolidado mais recente alimenta o dashboard. Não trazemos o
+    // `conteudo` dos 30+ PDIs: além de desnecessário, isso faria a página pagar
+    // pelo peso de todos os documentos para desenhar quatro gráficos.
+    tdb.from('relatorios')
+      .select('conteudo,gerado_em')
+      .eq('tipo', 'rh')
+      .order('gerado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   if (reportsResult.error) {
@@ -58,6 +85,11 @@ export async function carregarCentralRelatoriosRH(empresaId: string): Promise<Rh
   }
   if (companyResult.error) {
     throw new Error(`Falha ao carregar empresa do RH: ${companyResult.error.message}`);
+  }
+  if (insightResult.error) {
+    // Os números vivos e os PDFs continuam úteis. O estado de indisponibilidade
+    // vai para a UI, em vez de transformar erro de leitura em relatório vazio.
+    console.error('[central-rh] leitura analítica indisponível:', insightResult.error.message);
   }
 
   const rows = reportsResult.data || [];
@@ -109,6 +141,12 @@ export async function carregarCentralRelatoriosRH(empresaId: string): Promise<Rh
 
   return {
     companyName: companyResult.data?.nome || null,
+    dashboard: {
+      panorama,
+      insight: insightResult.error ? null : normalizeRhReportInsight(insightResult.data?.conteudo),
+      generatedAt: insightResult.data?.gerado_em || null,
+      insightUnavailable: Boolean(insightResult.error),
+    },
     organization,
     managers: rows.filter((row: any) => row.tipo === 'gestor').map(asDocument),
     people: rows.filter((row: any) => row.tipo === 'individual').map(asDocument),

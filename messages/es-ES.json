@@ -259,6 +259,64 @@
     "title": "Informes de",
     "fallbackCompany": "tu empresa",
     "subtitle": "Accede a las lecturas de la organización, los líderes y las personas sin salir del espacio de RR. HH.",
+    "dashboard": {
+      "navigation": "Vistas del dashboard de RR. HH.",
+      "eyebrow": "Inteligencia de personas",
+      "title": "Decisiones sobre",
+      "subtitle": "Del pulso del recorrido a las prioridades de desarrollo, con los documentos preservados como evidencia.",
+      "updated": "Lectura del {date}",
+      "tabs": { "overview": "Panorama", "roles": "Puestos", "priorities": "Prioridades", "documents": "Documentos" },
+      "pulse": {
+        "eyebrow": "Pulso del recorrido",
+        "title": "Dónde están las personas ahora",
+        "subtitle": "Cada etapa usa la población total como referencia para mostrar dónde el recorrido pierde tracción.",
+        "people": "Personas",
+        "profile": "Con perfil",
+        "mapping": "Con competencias mapeadas",
+        "journey": "En recorrido",
+        "onTrack": "Recorrido al día",
+        "behind": "Recorrido atrasado",
+        "completed": "Finalizados"
+      },
+      "unavailable": {
+        "title": "La lectura analítica aún no está disponible",
+        "description": "Los datos en vivo y los documentos siguen disponibles. La narrativa ejecutiva aparecerá cuando el informe consolidado de RR. HH. esté listo."
+      },
+      "executive": {
+        "eyebrow": "Lectura ejecutiva",
+        "fallback": "El consolidado está listo para explorarse en las demás vistas.",
+        "strength": "Fortaleza organizacional",
+        "risk": "Riesgo a seguir"
+      },
+      "levels": { "title": "Madurez de las competencias", "ofFour": "de 4 niveles", "evaluated": "Personas evaluadas", "assessments": "Evaluaciones" },
+      "comparison": { "title": "Qué cambió" },
+      "profile": { "title": "Perfil colectivo" },
+      "roles": {
+        "eyebrow": "Lectura por puesto",
+        "title": "Contextos diferentes requieren acciones diferentes",
+        "subtitle": "Selecciona un puesto para comparar madurez, fortalezas, riesgos y el foco sugerido para el próximo ciclo.",
+        "average": "Madurez media",
+        "focus": "Foco recomendado",
+        "reading": "Lectura del puesto",
+        "strengths": "Fortalezas",
+        "risks": "Puntos de atención"
+      },
+      "priorities": {
+        "eyebrow": "Agenda de desarrollo",
+        "title": "Dónde invertir primero",
+        "subtitle": "Competencias críticas, formación recomendada y decisiones organizadas por horizonte.",
+        "attention": "Atención",
+        "training": "Formación recomendada",
+        "plan": "Plan de acción de RR. HH.",
+        "horizons": { "short": "Próximas 2 semanas", "medium": "1 a 2 meses", "long": "Próximo semestre" },
+        "talents": "Talentos a potenciar"
+      },
+      "documents": {
+        "eyebrow": "Biblioteca de evidencias",
+        "title": "Informes y planes exportables",
+        "subtitle": "Abre cada documento dentro de la plataforma o descárgalo cuando necesites registrarlo y compartirlo."
+      }
+    },
     "sections": {
       "organization": "Organización",
       "managers": "Líderes",
@@ -4075,6 +4133,27 @@
   },
   "ManagerDashboard": {
     "loadError": "Error al cargar",
+    "reportDashboard": {
+      "eyebrow": "Inteligencia del equipo",
+      "title": "Leer para decidir y actuar",
+      "updated": "Actualizado el {date}",
+      "openPdf": "Abrir informe",
+      "reading": "Síntesis ejecutiva",
+      "strength": "Qué sostener",
+      "attention": "Qué acompañar",
+      "nextDecision": "Próxima decisión",
+      "noPrimaryAction": "Usa las señales del equipo para definir el foco de la próxima conversación.",
+      "thisWeek": "Esta semana",
+      "competencies": "Pulso de competencias",
+      "highlights": "Avances a reconocer",
+      "attentionPeople": "Conversaciones prioritarias",
+      "pdfEyebrow": "Documento de apoyo",
+      "pdfTitle": "Informe completo del equipo",
+      "closePdf": "Cerrar informe",
+      "pdfLoading": "Preparando informe",
+      "pdfError": "No fue posible abrir este informe.",
+      "pdfRetry": "Intentar de nuevo"
+    },
     "scopes": {
       "rh": "RR. HH. · toda la empresa",
       "tutor": "Tutor · sus tutorados",

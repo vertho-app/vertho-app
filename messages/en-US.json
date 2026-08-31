@@ -259,6 +259,64 @@
     "title": "Reports for",
     "fallbackCompany": "your company",
     "subtitle": "Access organization, leadership, and individual insights without leaving the HR workspace.",
+    "dashboard": {
+      "navigation": "HR dashboard views",
+      "eyebrow": "People intelligence",
+      "title": "Decisions about",
+      "subtitle": "From the journey pulse to development priorities — with documents preserved as evidence.",
+      "updated": "Reading from {date}",
+      "tabs": { "overview": "Overview", "roles": "Roles", "priorities": "Priorities", "documents": "Documents" },
+      "pulse": {
+        "eyebrow": "Journey pulse",
+        "title": "Where people are now",
+        "subtitle": "Each stage uses the full population as its reference so loss of momentum stays visible.",
+        "people": "People",
+        "profile": "With profile",
+        "mapping": "With mapped competencies",
+        "journey": "In a journey",
+        "onTrack": "Journey on track",
+        "behind": "Journey behind",
+        "completed": "Completed"
+      },
+      "unavailable": {
+        "title": "Analytical reading not available yet",
+        "description": "Live data and documents remain available. The executive narrative will appear when the consolidated HR report is ready."
+      },
+      "executive": {
+        "eyebrow": "Executive reading",
+        "fallback": "The consolidated data is ready to be explored in the other views.",
+        "strength": "Organizational strength",
+        "risk": "Risk to monitor"
+      },
+      "levels": { "title": "Competency maturity", "ofFour": "of 4 levels", "evaluated": "People assessed", "assessments": "Assessments" },
+      "comparison": { "title": "What changed" },
+      "profile": { "title": "Collective profile" },
+      "roles": {
+        "eyebrow": "Reading by role",
+        "title": "Different contexts need different actions",
+        "subtitle": "Select a role to compare maturity, strengths, risks, and the suggested focus for the next cycle.",
+        "average": "Average maturity",
+        "focus": "Recommended focus",
+        "reading": "Role reading",
+        "strengths": "Strengths",
+        "risks": "Attention points"
+      },
+      "priorities": {
+        "eyebrow": "Development agenda",
+        "title": "Where to invest first",
+        "subtitle": "Critical competencies, recommended learning, and decisions organized by time horizon.",
+        "attention": "Attention",
+        "training": "Recommended learning",
+        "plan": "HR action plan",
+        "horizons": { "short": "Next 2 weeks", "medium": "1 to 2 months", "long": "Next semester" },
+        "talents": "Talent to amplify"
+      },
+      "documents": {
+        "eyebrow": "Evidence library",
+        "title": "Exportable reports and plans",
+        "subtitle": "Open each document inside the platform or download it when you need to record and share it."
+      }
+    },
     "sections": {
       "organization": "Organization",
       "managers": "Leaders",
@@ -4075,6 +4133,27 @@
   },
   "ManagerDashboard": {
     "loadError": "Error loading",
+    "reportDashboard": {
+      "eyebrow": "Team intelligence",
+      "title": "Read to decide and act",
+      "updated": "Updated on {date}",
+      "openPdf": "Open report",
+      "reading": "Executive summary",
+      "strength": "What to sustain",
+      "attention": "What to monitor",
+      "nextDecision": "Next decision",
+      "noPrimaryAction": "Use the team signals below to define the focus of the next conversation.",
+      "thisWeek": "This week",
+      "competencies": "Competency pulse",
+      "highlights": "Progress to recognize",
+      "attentionPeople": "Priority conversations",
+      "pdfEyebrow": "Supporting document",
+      "pdfTitle": "Full team report",
+      "closePdf": "Close report",
+      "pdfLoading": "Preparing report",
+      "pdfError": "This report could not be opened.",
+      "pdfRetry": "Try again"
+    },
     "scopes": {
       "rh": "HR · whole company",
       "tutor": "Tutor · your learners",

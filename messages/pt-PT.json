@@ -259,6 +259,64 @@
     "title": "Relatórios de",
     "fallbackCompany": "sua empresa",
     "subtitle": "Aceda às leituras da organização, das lideranças e das pessoas sem sair do ambiente de RH.",
+    "dashboard": {
+      "navigation": "Visões do dashboard de RH",
+      "eyebrow": "Inteligência de pessoas",
+      "title": "Decisões sobre",
+      "subtitle": "Do pulso da jornada às prioridades de desenvolvimento, com os documentos preservados como evidência.",
+      "updated": "Leitura de {date}",
+      "tabs": { "overview": "Panorama", "roles": "Funções", "priorities": "Prioridades", "documents": "Documentos" },
+      "pulse": {
+        "eyebrow": "Pulso da jornada",
+        "title": "Onde estão as pessoas agora",
+        "subtitle": "Cada etapa usa a população total como referência para mostrar onde a jornada perde tração.",
+        "people": "Pessoas",
+        "profile": "Com perfil",
+        "mapping": "Com competências mapeadas",
+        "journey": "Em jornada",
+        "onTrack": "Jornada em dia",
+        "behind": "Jornada atrasada",
+        "completed": "Concluídas"
+      },
+      "unavailable": {
+        "title": "Leitura analítica ainda não disponível",
+        "description": "Os dados em direto e os documentos continuam acessíveis. A narrativa executiva aparecerá quando o relatório consolidado de RH estiver pronto."
+      },
+      "executive": {
+        "eyebrow": "Leitura executiva",
+        "fallback": "O consolidado está pronto para ser explorado nas restantes visões.",
+        "strength": "Força organizacional",
+        "risk": "Risco a acompanhar"
+      },
+      "levels": { "title": "Maturidade das competências", "ofFour": "de 4 níveis", "evaluated": "Pessoas avaliadas", "assessments": "Avaliações" },
+      "comparison": { "title": "O que mudou" },
+      "profile": { "title": "Perfil coletivo" },
+      "roles": {
+        "eyebrow": "Leitura por função",
+        "title": "Contextos diferentes pedem ações diferentes",
+        "subtitle": "Selecione uma função para comparar maturidade, forças, riscos e o foco sugerido para o próximo ciclo.",
+        "average": "Média de maturidade",
+        "focus": "Foco recomendado",
+        "reading": "Leitura da função",
+        "strengths": "Forças",
+        "risks": "Pontos de atenção"
+      },
+      "priorities": {
+        "eyebrow": "Agenda de desenvolvimento",
+        "title": "Onde investir primeiro",
+        "subtitle": "Competências críticas, formações recomendadas e decisões organizadas por horizonte.",
+        "attention": "Atenção",
+        "training": "Formação recomendada",
+        "plan": "Plano de ação do RH",
+        "horizons": { "short": "Próximas 2 semanas", "medium": "1 a 2 meses", "long": "Próximo semestre" },
+        "talents": "Talentos a potenciar"
+      },
+      "documents": {
+        "eyebrow": "Biblioteca de evidências",
+        "title": "Relatórios e planos exportáveis",
+        "subtitle": "Abra cada documento dentro da plataforma ou descarregue-o quando precisar de o registar e partilhar."
+      }
+    },
     "sections": {
       "organization": "Organização",
       "managers": "Lideranças",
@@ -4075,6 +4133,27 @@
   },
   "ManagerDashboard": {
     "loadError": "Erro ao carregar",
+    "reportDashboard": {
+      "eyebrow": "Inteligência da equipa",
+      "title": "Ler para decidir e agir",
+      "updated": "Atualizado em {date}",
+      "openPdf": "Abrir relatório",
+      "reading": "Síntese executiva",
+      "strength": "O que sustentar",
+      "attention": "O que acompanhar",
+      "nextDecision": "Próxima decisão",
+      "noPrimaryAction": "Use os sinais da equipa para definir o foco da próxima conversa.",
+      "thisWeek": "Esta semana",
+      "competencies": "Pulso das competências",
+      "highlights": "Evoluções a reconhecer",
+      "attentionPeople": "Conversas prioritárias",
+      "pdfEyebrow": "Documento de apoio",
+      "pdfTitle": "Relatório completo da equipa",
+      "closePdf": "Fechar relatório",
+      "pdfLoading": "A preparar relatório",
+      "pdfError": "Não foi possível abrir este relatório.",
+      "pdfRetry": "Tentar novamente"
+    },
     "scopes": {
       "rh": "RH · empresa toda",
       "tutor": "Tutor · os seus tutorandos",

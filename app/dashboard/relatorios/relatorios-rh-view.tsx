@@ -3,23 +3,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
-  ArrowLeft,
-  Building2,
-  CalendarDays,
-  Download,
-  Eye,
-  FileChartColumn,
-  FileText,
-  Search,
-  Sparkles,
-  UserRound,
-  UsersRound,
+  ArrowLeft, ArrowRight, BarChart3, Brain, Building2, CalendarDays, Check,
+  Download, Eye, FileChartColumn, FileText, Flag, Gauge, Lightbulb, Route,
+  Search, ShieldAlert, Sparkles, Target, TrendingUp, UserRound, UsersRound,
 } from 'lucide-react';
 import { PageContainer, PageHero } from '@/components/page-shell';
 import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
 import type { RhReportDocument, RhReportKind, RhReportsCenter } from '@/lib/relatorios/rh-center';
 
-type SectionKey = 'organization' | 'managers' | 'people';
+type DashboardTab = 'overview' | 'roles' | 'priorities' | 'documents';
+type DocumentSection = 'organization' | 'managers' | 'people';
+
+const serifStyle = {
+  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+  fontStyle: 'italic' as const,
+  fontWeight: 400,
+};
+
+const DASHBOARD_TABS = [
+  { key: 'overview', icon: Gauge },
+  { key: 'roles', icon: UsersRound },
+  { key: 'priorities', icon: Target },
+  { key: 'documents', icon: FileText },
+] as const;
 
 const SECTION_ICONS = {
   organization: Building2,
@@ -37,109 +43,409 @@ const DOCUMENT_ICONS: Record<RhReportKind, any> = {
   individual: UserRound,
 };
 
+const LEVEL_COLORS = ['#FB7185', '#FBBF24', '#22D3EE', '#34D399'];
+
 function normalize(value: unknown): string {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-function DocumentCard({
-  document,
-  t,
-  locale,
-  onOpen,
-}: {
-  document: RhReportDocument;
-  t: any;
-  locale: string;
-  onOpen: () => void;
-}) {
-  const Icon = DOCUMENT_ICONS[document.kind] || FileText;
-  const date = document.generatedAt
-    ? new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(document.generatedAt))
-    : null;
+function formatDate(value: string | null, locale: string): string | null {
+  if (!value) return null;
+  return new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
+}
+
+function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-[24px] border border-white/[0.08] ${className}`} style={{ background: 'linear-gradient(150deg, rgba(18,49,83,.92), rgba(7,24,42,.96))' }}>
+      {children}
+    </div>
+  );
+}
+
+function SectionTitle({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle?: string }) {
+  return (
+    <div className="mb-4">
+      <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#67e8f9)]">{eyebrow}</p>
+      <h2 className="mt-1 text-[26px] leading-none text-white" style={serifStyle}>{title}</h2>
+      {subtitle && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/45">{subtitle}</p>}
+    </div>
+  );
+}
+
+function DashboardNavigation({ active, onChange, t }: { active: DashboardTab; onChange: (tab: DashboardTab) => void; t: any }) {
+  return (
+    <nav aria-label={t('dashboard.navigation')} className="mb-7 overflow-x-auto pb-1 [scrollbar-width:none]">
+      <div className="flex min-w-max gap-1 rounded-2xl border border-white/[0.08] bg-[#071829]/75 p-1.5">
+        {DASHBOARD_TABS.map(({ key, icon: Icon }) => {
+          const selected = active === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onChange(key)}
+              aria-current={selected ? 'page' : undefined}
+              className="flex h-10 items-center gap-2 rounded-xl px-4 text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]"
+              style={{
+                color: selected ? '#fff' : 'rgba(255,255,255,.42)',
+                background: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 18%, #0b2138)' : 'transparent',
+                boxShadow: selected ? 'inset 0 0 0 1px color-mix(in oklab, var(--brand-400, #22d3ee) 30%, transparent)' : 'none',
+              }}
+            >
+              <Icon size={15} className={selected ? 'text-[var(--brand-300,#67e8f9)]' : ''} />
+              {t(`dashboard.tabs.${key}`)}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+function JourneyPulse({ reports, t }: { reports: RhReportsCenter; t: any }) {
+  const p = reports.dashboard.panorama;
+  const stages = [
+    { key: 'people', value: p.pessoas, icon: UserRound, color: '#8BE8EF' },
+    { key: 'profile', value: p.comPerfil, icon: Brain, color: '#69D6E2' },
+    { key: 'mapping', value: p.comMapeamento, icon: BarChart3, color: '#B77CFF' },
+    { key: 'journey', value: p.emJornada, icon: Route, color: '#34D399' },
+  ] as const;
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group relative flex min-h-[168px] flex-col overflow-hidden rounded-[22px] border border-white/[0.08] p-5 transition duration-200 hover:-translate-y-0.5 hover:border-[var(--brand-400,#22d3ee)]/35 hover:bg-white/[0.055]"
-      style={{ background: 'linear-gradient(145deg, rgba(15,42,74,.94), rgba(7,22,39,.96))' }}
-    >
+    <Panel className="relative overflow-hidden p-5 md:p-6">
+      <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-[var(--brand-400,#22d3ee)]/[0.09] blur-3xl" />
+      <div className="relative flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#67e8f9)]">{t('dashboard.pulse.eyebrow')}</p>
+          <h2 className="mt-1 text-[27px] leading-none text-white" style={serifStyle}>{t('dashboard.pulse.title')}</h2>
+        </div>
+        <p className="max-w-sm text-xs leading-relaxed text-white/40">{t('dashboard.pulse.subtitle')}</p>
+      </div>
+
+      <div className="relative mt-6 grid gap-2 sm:grid-cols-4">
+        <div className="pointer-events-none absolute left-[8%] right-[8%] top-[25px] hidden h-px bg-gradient-to-r from-cyan-300/30 via-violet-400/40 to-emerald-400/30 sm:block" />
+        {stages.map(({ key, value, icon: Icon, color }, index) => {
+          const percentage = p.pessoas > 0 ? Math.round((value / p.pessoas) * 100) : 0;
+          return (
+            <div key={key} className="relative rounded-[18px] border border-white/[0.07] bg-black/10 p-4">
+              <div className="relative z-10 flex items-center justify-between">
+                <span className="grid h-10 w-10 place-items-center rounded-full border bg-[#0b2138]" style={{ color, borderColor: `${color}55` }}><Icon size={17} /></span>
+                <span className="font-mono text-[10px] text-white/35">{String(index + 1).padStart(2, '0')}</span>
+              </div>
+              <div className="mt-4 flex items-end justify-between gap-2">
+                <div>
+                  <p className="text-[30px] leading-none text-white tabular-nums" style={serifStyle}>{p.indisponivel ? '—' : value}</p>
+                  <p className="mt-1 text-[11px] leading-tight text-white/55">{t(`dashboard.pulse.${key}`)}</p>
+                </div>
+                {!p.indisponivel && <span className="font-mono text-[10px]" style={{ color }}>{percentage}%</span>}
+              </div>
+              <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/[0.06]">
+                <div className="h-full rounded-full transition-[width] duration-700 motion-reduce:transition-none" style={{ width: `${p.indisponivel ? 0 : percentage}%`, background: color }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="relative mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        <div className="flex items-center justify-between rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.055] px-4 py-3">
+          <span className="flex items-center gap-2 text-xs text-white/60"><Check size={14} className="text-emerald-300" /> {t('dashboard.pulse.onTrack')}</span>
+          <strong className="text-lg text-emerald-300 tabular-nums">{p.indisponivel ? '—' : p.emDia}</strong>
+        </div>
+        <div className="flex items-center justify-between rounded-2xl border border-amber-300/15 bg-amber-300/[0.055] px-4 py-3">
+          <span className="flex items-center gap-2 text-xs text-white/60"><ShieldAlert size={14} className="text-amber-300" /> {t('dashboard.pulse.behind')}</span>
+          <strong className="text-lg text-amber-300 tabular-nums">{p.indisponivel ? '—' : p.atrasadas}</strong>
+        </div>
+        <div className="flex items-center justify-between gap-5 rounded-2xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
+          <span className="text-xs text-white/45">{t('dashboard.pulse.completed')}</span>
+          <strong className="text-lg text-white tabular-nums">{p.indisponivel ? '—' : p.jornadasEncerradas}</strong>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function ExecutiveReading({ reports, t }: { reports: RhReportsCenter; t: any }) {
+  const insight = reports.dashboard.insight;
+  if (!insight) {
+    return (
+      <Panel className="p-5 md:p-6">
+        <FileChartColumn className="text-white/25" size={24} />
+        <h2 className="mt-3 text-xl text-white" style={serifStyle}>{t('dashboard.unavailable.title')}</h2>
+        <p className="mt-1 max-w-xl text-sm leading-relaxed text-white/40">{t('dashboard.unavailable.description')}</p>
+      </Panel>
+    );
+  }
+
+  return (
+    <div className="grid gap-3 lg:grid-cols-[1.35fr_.65fr]">
+      <Panel className="relative overflow-hidden p-5 md:p-6">
+        <span className="absolute right-5 top-4 text-[72px] leading-none text-[var(--brand-300,#67e8f9)]/[0.07]" style={serifStyle}>“</span>
+        <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#67e8f9)]">{t('dashboard.executive.eyebrow')}</p>
+        <h2 className="mt-2 max-w-3xl text-[22px] leading-[1.25] text-white md:text-[26px]" style={serifStyle}>{insight.executive.reading || t('dashboard.executive.fallback')}</h2>
+        <div className="mt-6 grid gap-2 sm:grid-cols-2">
+          <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.05] p-4">
+            <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-300"><TrendingUp size={13} /> {t('dashboard.executive.strength')}</p>
+            <p className="mt-2 text-xs leading-relaxed text-white/60">{insight.executive.strength || '—'}</p>
+          </div>
+          <div className="rounded-2xl border border-amber-300/15 bg-amber-300/[0.05] p-4">
+            <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.16em] text-amber-300"><ShieldAlert size={13} /> {t('dashboard.executive.risk')}</p>
+            <p className="mt-2 text-xs leading-relaxed text-white/60">{insight.executive.risk || '—'}</p>
+          </div>
+        </div>
+      </Panel>
+
+      <Panel className="p-5 md:p-6">
+        <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-white/40">{t('dashboard.levels.title')}</p>
+        <div className="mt-4 flex items-baseline gap-2">
+          <span className="text-[48px] leading-none text-white tabular-nums" style={serifStyle}>{insight.indicators.average ?? '—'}</span>
+          <span className="text-xs text-white/35">{t('dashboard.levels.ofFour')}</span>
+        </div>
+        <div className="mt-5 flex h-3 overflow-hidden rounded-full bg-white/[0.05]">
+          {insight.indicators.levels.map(({ level, percentage }, index) => <div key={level} title={`N${level}: ${percentage}%`} style={{ width: `${percentage}%`, background: LEVEL_COLORS[index] }} />)}
+        </div>
+        <div className="mt-3 grid grid-cols-4 gap-1">
+          {insight.indicators.levels.map(({ level, percentage }, index) => (
+            <div key={level}><p className="font-mono text-[9px]" style={{ color: LEVEL_COLORS[index] }}>N{level}</p><p className="mt-0.5 text-sm font-bold text-white tabular-nums">{percentage}%</p></div>
+          ))}
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-2 border-t border-white/[0.07] pt-4">
+          <div><p className="text-[10px] text-white/35">{t('dashboard.levels.evaluated')}</p><p className="mt-1 text-lg text-white">{insight.indicators.evaluated ?? '—'}</p></div>
+          <div><p className="text-[10px] text-white/35">{t('dashboard.levels.assessments')}</p><p className="mt-1 text-lg text-white">{insight.indicators.assessments ?? '—'}</p></div>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function OverviewTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
+  const comparison = reports.dashboard.insight?.comparison;
+  const profile = reports.dashboard.insight?.organizationalProfile;
+  return (
+    <div className="space-y-4">
+      <JourneyPulse reports={reports} t={t} />
+      <ExecutiveReading reports={reports} t={t} />
+      {(comparison?.analysis || profile?.description) && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {comparison?.analysis && (
+            <Panel className="p-5">
+              <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]"><BarChart3 size={13} /> {t('dashboard.comparison.title')}</p>
+              <p className="mt-3 text-sm leading-relaxed text-white/65">{comparison.analysis}</p>
+              <div className="mt-4 space-y-2">
+                {comparison.positive && <p className="rounded-xl bg-emerald-400/[0.06] px-3 py-2 text-xs leading-relaxed text-emerald-100/75">+ {comparison.positive}</p>}
+                {comparison.attention && <p className="rounded-xl bg-amber-300/[0.06] px-3 py-2 text-xs leading-relaxed text-amber-100/75">! {comparison.attention}</p>}
+              </div>
+            </Panel>
+          )}
+          {profile?.description && (
+            <Panel className="p-5">
+              <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-violet-300"><Brain size={13} /> {t('dashboard.profile.title')}</p>
+              <p className="mt-3 text-sm leading-relaxed text-white/65">{profile.description}</p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {profile.strength && <p className="text-xs leading-relaxed text-emerald-200/70"><strong className="block text-[9px] uppercase tracking-wider text-emerald-300">{t('dashboard.executive.strength')}</strong>{profile.strength}</p>}
+                {profile.risk && <p className="text-xs leading-relaxed text-amber-100/70"><strong className="block text-[9px] uppercase tracking-wider text-amber-300">{t('dashboard.executive.risk')}</strong>{profile.risk}</p>}
+              </div>
+            </Panel>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RolesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
+  const insight = reports.dashboard.insight;
+  const [selectedRole, setSelectedRole] = useState(0);
+  const role = insight?.roles[selectedRole];
+  const focus = insight?.roleFocus.find((item) => normalize(item.role) === normalize(role?.role));
+  if (!insight || insight.roles.length === 0) return <ExecutiveReading reports={reports} t={t} />;
+
+  return (
+    <div>
+      <SectionTitle eyebrow={t('dashboard.roles.eyebrow')} title={t('dashboard.roles.title')} subtitle={t('dashboard.roles.subtitle')} />
+      <div className="mb-4 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
+        {insight.roles.map((item, index) => (
+          <button key={`${item.role}-${index}`} type="button" onClick={() => setSelectedRole(index)} className="shrink-0 rounded-full border px-4 py-2 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]" style={{ color: selectedRole === index ? '#fff' : 'rgba(255,255,255,.45)', borderColor: selectedRole === index ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 55%, transparent)' : 'rgba(255,255,255,.09)', background: selectedRole === index ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 14%, transparent)' : 'transparent' }}>
+            {item.role}
+          </button>
+        ))}
+      </div>
+
+      {role && (
+        <div className="grid gap-3 lg:grid-cols-[.75fr_1.25fr]">
+          <Panel className="p-5 md:p-6">
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/35">{t('dashboard.roles.average')}</p>
+            <div className="mt-3 flex items-end gap-2"><span className="text-[54px] leading-none text-white" style={serifStyle}>{role.average?.toFixed(1) ?? '—'}</span><span className="pb-1 text-xs text-white/35">/ 4</span></div>
+            <div className="mt-4 grid grid-cols-4 gap-1">
+              {[1, 2, 3, 4].map((level) => (
+                <div key={level} className="h-2 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full" style={{ width: role.average && role.average >= level ? '100%' : role.average && role.average > level - 1 ? `${(role.average - (level - 1)) * 100}%` : '0%', background: LEVEL_COLORS[level - 1] }} /></div>
+              ))}
+            </div>
+            {focus && (
+              <div className="mt-6 rounded-2xl border border-violet-400/20 bg-violet-400/[0.07] p-4">
+                <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.16em] text-violet-300"><Target size={13} /> {t('dashboard.roles.focus')}</p>
+                <p className="mt-2 text-base text-white" style={serifStyle}>{focus.competency}</p>
+                {focus.horizon && <p className="mt-1 text-[10px] text-violet-200/55">{focus.horizon}</p>}
+              </div>
+            )}
+          </Panel>
+
+          <Panel className="p-5 md:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">{t('dashboard.roles.reading')}</p><h3 className="mt-1 text-[25px] leading-none text-white" style={serifStyle}>{role.role}</h3></div>
+              <UsersRound size={20} className="text-white/25" />
+            </div>
+            <p className="mt-4 text-sm leading-relaxed text-white/60">{role.reading || '—'}</p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div><p className="text-[9px] font-bold uppercase tracking-[0.15em] text-emerald-300">{t('dashboard.roles.strengths')}</p><ul className="mt-2 space-y-2 text-xs leading-relaxed text-white/55">{(role.strengths.length ? role.strengths : ['—']).map((item) => <li key={item} className="flex gap-2"><span className="text-emerald-300">+</span>{item}</li>)}</ul></div>
+              <div><p className="text-[9px] font-bold uppercase tracking-[0.15em] text-amber-300">{t('dashboard.roles.risks')}</p><ul className="mt-2 space-y-2 text-xs leading-relaxed text-white/55">{(role.risks.length ? role.risks : ['—']).map((item) => <li key={item} className="flex gap-2"><span className="text-amber-300">!</span>{item}</li>)}</ul></div>
+            </div>
+            {focus && (focus.rationale || focus.impact) && (
+              <div className="mt-5 border-t border-white/[0.07] pt-4">
+                {focus.rationale && <p className="text-xs leading-relaxed text-white/48">{focus.rationale}</p>}
+                {focus.impact && <p className="mt-2 flex gap-2 text-xs leading-relaxed text-[var(--brand-200,#a5f3fc)]/70"><ArrowRight size={13} className="mt-0.5 shrink-0" /> {focus.impact}</p>}
+              </div>
+            )}
+          </Panel>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PrioritiesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
+  const insight = reports.dashboard.insight;
+  if (!insight) return <ExecutiveReading reports={reports} t={t} />;
+  const plan = [
+    { key: 'short', items: insight.actionPlan.shortTerm, color: '#FB7185' },
+    { key: 'medium', items: insight.actionPlan.mediumTerm, color: '#22D3EE' },
+    { key: 'long', items: insight.actionPlan.longTerm, color: '#34D399' },
+  ] as const;
+
+  return (
+    <div>
+      <SectionTitle eyebrow={t('dashboard.priorities.eyebrow')} title={t('dashboard.priorities.title')} subtitle={t('dashboard.priorities.subtitle')} />
+      <div className="grid gap-3 lg:grid-cols-[1.15fr_.85fr]">
+        <div className="space-y-3">
+          {insight.criticalCompetencies.map((item, index) => (
+            <Panel key={`${item.competency}-${index}`} className="overflow-hidden">
+              <div className="flex items-start justify-between gap-3 border-b border-white/[0.07] px-5 py-4">
+                <div><p className="text-[9px] font-bold uppercase tracking-[0.17em] text-amber-300">{item.criticality || t('dashboard.priorities.attention')}</p><h3 className="mt-1 text-xl leading-tight text-white" style={serifStyle}>{item.competency}</h3></div>
+                <Flag size={17} className="shrink-0 text-amber-300/60" />
+              </div>
+              <div className="p-5">
+                {item.rationale && <p className="text-sm leading-relaxed text-white/60">{item.rationale}</p>}
+                {item.impact && <p className="mt-3 border-l-2 border-amber-300/50 pl-3 text-xs leading-relaxed text-amber-100/60">{item.impact}</p>}
+                {item.training && (
+                  <div className="mt-5 rounded-2xl border border-[var(--brand-400,#22d3ee)]/15 bg-[var(--brand-400,#22d3ee)]/[0.05] p-4">
+                    <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--brand-300,#67e8f9)]"><Lightbulb size={13} /> {t('dashboard.priorities.training')}</p>
+                    <p className="mt-2 text-sm font-semibold text-white/80">{item.training.title}</p>
+                    <p className="mt-1 text-[10px] text-white/38">{[item.training.audience, item.training.format, item.training.workload].filter(Boolean).join(' · ')}</p>
+                  </div>
+                )}
+              </div>
+            </Panel>
+          ))}
+        </div>
+
+        <div className="space-y-3">
+          <Panel className="p-5">
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-violet-300">{t('dashboard.priorities.plan')}</p>
+            <div className="relative mt-5 space-y-5 before:absolute before:bottom-2 before:left-[7px] before:top-2 before:w-px before:bg-white/[0.08]">
+              {plan.map(({ key, items, color }) => (
+                <div key={key} className="relative pl-7">
+                  <span className="absolute left-0 top-1 h-[15px] w-[15px] rounded-full border-4 border-[#102c4a]" style={{ background: color }} />
+                  <p className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color }}>{t(`dashboard.priorities.horizons.${key}`)}</p>
+                  <ul className="mt-2 space-y-2 text-xs leading-relaxed text-white/55">{(items.length ? items : ['—']).map((item) => <li key={item}>{item}</li>)}</ul>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          {insight.talents.length > 0 && (
+            <Panel className="p-5">
+              <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-emerald-300"><Sparkles size={13} /> {t('dashboard.priorities.talents')}</p>
+              <div className="mt-4 space-y-4">
+                {insight.talents.map((talent) => (
+                  <div key={talent.person} className="border-t border-white/[0.07] pt-4 first:border-0 first:pt-0">
+                    <p className="text-sm font-bold text-white">{talent.person}</p>
+                    {talent.situation && <p className="mt-1 text-xs leading-relaxed text-white/48">{talent.situation}</p>}
+                    {talent.action && <p className="mt-2 flex gap-2 text-xs leading-relaxed text-emerald-100/65"><ArrowRight size={13} className="mt-0.5 shrink-0" /> {talent.action}</p>}
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DocumentCard({ document, t, locale, onOpen }: { document: RhReportDocument; t: any; locale: string; onOpen: () => void }) {
+  const Icon = DOCUMENT_ICONS[document.kind] || FileText;
+  const date = formatDate(document.generatedAt, locale);
+  return (
+    <button type="button" onClick={onOpen} className="group relative flex min-h-[168px] flex-col overflow-hidden rounded-[22px] border border-white/[0.08] p-5 text-left transition duration-200 hover:-translate-y-0.5 hover:border-[var(--brand-400,#22d3ee)]/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]" style={{ background: 'linear-gradient(145deg, rgba(15,42,74,.94), rgba(7,22,39,.96))' }}>
       <div className="pointer-events-none absolute -right-10 -top-14 h-32 w-32 rounded-full bg-[var(--brand-400,#22d3ee)]/[0.08] blur-2xl transition group-hover:bg-[var(--brand-400,#22d3ee)]/[0.13]" />
-      <div className="relative flex items-start justify-between gap-3">
-        <span className="grid h-11 w-11 place-items-center rounded-2xl border border-[var(--brand-400,#22d3ee)]/20 bg-[var(--brand-400,#22d3ee)]/10 text-[var(--brand-300,#67e8f9)]">
-          <Icon size={19} />
-        </span>
-        {date && (
-          <span className="flex items-center gap-1.5 text-[10px] text-white/40">
-            <CalendarDays size={12} /> {date}
-          </span>
-        )}
-      </div>
-
-      <div className="relative mt-4 flex-1">
-        <h3 className="text-[17px] leading-tight text-white" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>
-          {t(`kinds.${document.kind}`)}
-        </h3>
-        {document.recipient && <p className="mt-1 truncate text-xs font-semibold text-white/65">{document.recipient}</p>}
-        {document.role && <p className="mt-0.5 truncate text-[11px] text-white/35">{document.role}</p>}
-      </div>
-
-      <span className="relative mt-4 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--brand-300,#67e8f9)]">
-        <Eye size={13} /> {t('open')}
-      </span>
+      <div className="relative flex items-start justify-between gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl border border-[var(--brand-400,#22d3ee)]/20 bg-[var(--brand-400,#22d3ee)]/10 text-[var(--brand-300,#67e8f9)]"><Icon size={19} /></span>{date && <span className="flex items-center gap-1.5 text-[10px] text-white/40"><CalendarDays size={12} /> {date}</span>}</div>
+      <div className="relative mt-4 flex-1"><h3 className="text-[17px] leading-tight text-white" style={serifStyle}>{t(`kinds.${document.kind}`)}</h3>{document.recipient && <p className="mt-1 truncate text-xs font-semibold text-white/65">{document.recipient}</p>}{document.role && <p className="mt-0.5 truncate text-[11px] text-white/35">{document.role}</p>}</div>
+      <span className="relative mt-4 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--brand-300,#67e8f9)]"><Eye size={13} /> {t('open')}</span>
     </button>
   );
 }
 
-function ReportReader({
-  document: report,
-  t,
-  onBack,
-}: {
-  document: RhReportDocument;
-  t: any;
-  onBack: () => void;
-}) {
-  const title = t(`kinds.${report.kind}`);
+function DocumentsTab({ reports, t, locale, onOpen }: { reports: RhReportsCenter; t: any; locale: string; onOpen: (document: RhReportDocument) => void }) {
+  const [active, setActive] = useState<DocumentSection>('organization');
+  const [query, setQuery] = useState('');
+  const sections: Record<DocumentSection, RhReportDocument[]> = { organization: reports.organization, managers: reports.managers, people: reports.people };
+  const needle = normalize(query.trim());
+  const visible = needle
+    ? sections[active].filter((document) => normalize(`${document.recipient} ${document.role} ${t(`kinds.${document.kind}`)}`).includes(needle))
+    : sections[active];
 
   return (
-    <section aria-label={title}>
-      <button
-        type="button"
-        onClick={onBack}
-        className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em] text-white/45 transition hover:text-[var(--brand-300,#67e8f9)]"
-      >
-        <ArrowLeft size={14} /> {t('viewer.back')}
-      </button>
+    <div>
+      <SectionTitle eyebrow={t('dashboard.documents.eyebrow')} title={t('dashboard.documents.title')} subtitle={t('dashboard.documents.subtitle')} />
+      <div className="mb-6 grid grid-cols-3 gap-2 md:gap-3">
+        {(Object.keys(sections) as DocumentSection[]).map((key) => {
+          const Icon = SECTION_ICONS[key];
+          const selected = active === key;
+          return (
+            <button key={key} type="button" onClick={() => { setActive(key); setQuery(''); }} className="rounded-[18px] border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)] md:px-4 md:py-4" style={{ background: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 13%, rgba(8,26,46,.95))' : 'rgba(8,26,46,.8)', borderColor: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 38%, transparent)' : 'rgba(255,255,255,.07)' }}>
+              <div className="flex items-center justify-between gap-2"><Icon size={16} className={selected ? 'text-[var(--brand-300,#67e8f9)]' : 'text-white/35'} /><span className="text-xl text-white tabular-nums md:text-2xl" style={serifStyle}>{sections[key].length}</span></div>
+              <p className="mt-2 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-white/50 md:text-xs">{t(`sections.${key}`)}</p>
+            </button>
+          );
+        })}
+      </div>
 
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">{t(`sections.${active}`)}</p><p className="mt-1 text-sm text-white/45">{t(`descriptions.${active}`)}</p></div>
+        {(active === 'managers' || active === 'people') && sections[active].length > 0 && (
+          <label className="flex h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 text-white/55 sm:w-64"><Search size={15} className="shrink-0" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('search')} className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30" /></label>
+        )}
+      </div>
+
+      {visible.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{visible.map((document) => <DocumentCard key={document.id} document={document} t={t} locale={locale} onOpen={() => onOpen(document)} />)}</div>
+      ) : (
+        <Panel className="border-dashed px-6 py-12 text-center"><FileText size={28} className="mx-auto text-white/20" /><h3 className="mt-3 text-lg text-white" style={serifStyle}>{query ? t('emptySearchTitle') : t('emptyTitle')}</h3><p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-white/40">{query ? t('emptySearchDescription') : t(`empty.${active}`)}</p></Panel>
+      )}
+    </div>
+  );
+}
+
+function ReportReader({ document: report, t, onBack }: { document: RhReportDocument; t: any; onBack: () => void }) {
+  const title = t(`kinds.${report.kind}`);
+  return (
+    <section aria-label={title}>
+      <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em] text-white/45 transition hover:text-[var(--brand-300,#67e8f9)]"><ArrowLeft size={14} /> {t('viewer.back')}</button>
       <div className="overflow-hidden rounded-[26px] border border-white/[0.09] bg-[#071829] shadow-[0_24px_80px_rgba(0,0,0,.28)]">
         <header className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-4 sm:px-6">
-          <div className="min-w-0">
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">
-              {t('viewer.eyebrow')}
-            </p>
-            <h2 className="mt-0.5 truncate text-lg text-white sm:text-xl" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>
-              {title}{report.recipient ? ` · ${report.recipient}` : ''}
-            </h2>
-          </div>
-          <a
-            href={report.url}
-            download
-            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)] transition hover:bg-[var(--brand-400,#22d3ee)]/15"
-          >
-            <Download size={14} /> <span className="hidden sm:inline">{t('viewer.download')}</span>
-          </a>
+          <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">{t('viewer.eyebrow')}</p><h2 className="mt-0.5 truncate text-lg text-white sm:text-xl" style={serifStyle}>{title}{report.recipient ? ` · ${report.recipient}` : ''}</h2></div>
+          <a href={report.url} download className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)] transition hover:bg-[var(--brand-400,#22d3ee)]/15"><Download size={14} /> <span className="hidden sm:inline">{t('viewer.download')}</span></a>
         </header>
-
-        <div className="p-2 sm:p-4">
-          <InAppPdfDocument
-            src={report.url}
-            title={`${title}${report.recipient ? ` — ${report.recipient}` : ''}`}
-            loadingLabel={t('viewer.loading')}
-            errorLabel={t('viewer.error')}
-            retryLabel={t('viewer.retry')}
-          />
-        </div>
+        <div className="p-2 sm:p-4"><InAppPdfDocument src={report.url} title={`${title}${report.recipient ? ` — ${report.recipient}` : ''}`} loadingLabel={t('viewer.loading')} errorLabel={t('viewer.error')} retryLabel={t('viewer.retry')} /></div>
       </div>
     </section>
   );
@@ -148,27 +454,10 @@ function ReportReader({
 export default function RelatoriosRhView({ reports }: { reports: RhReportsCenter }) {
   const t = useTranslations('RhReports');
   const locale = useLocale();
-  const [active, setActive] = useState<SectionKey>('organization');
-  const [query, setQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [selectedDocument, setSelectedDocument] = useState<RhReportDocument | null>(null);
-  const sections: Record<SectionKey, RhReportDocument[]> = {
-    organization: reports.organization,
-    managers: reports.managers,
-    people: reports.people,
-  };
-  const visible = useMemo(() => {
-    const needle = normalize(query.trim());
-    if (!needle) return sections[active];
-    return sections[active].filter((document) =>
-      normalize(`${document.recipient} ${document.role} ${t(`kinds.${document.kind}`)}`).includes(needle),
-    );
-  }, [active, query, reports, t]);
-  const total = reports.organization.length + reports.managers.length + reports.people.length;
-
-  const allDocuments = useMemo(
-    () => [...reports.organization, ...reports.managers, ...reports.people],
-    [reports],
-  );
+  const allDocuments = useMemo(() => [...reports.organization, ...reports.managers, ...reports.people], [reports]);
+  const generatedAt = formatDate(reports.dashboard.generatedAt, locale);
 
   useEffect(() => {
     const requestedId = new URLSearchParams(window.location.search).get('document');
@@ -176,10 +465,8 @@ export default function RelatoriosRhView({ reports }: { reports: RhReportsCenter
     const requestedDocument = allDocuments.find((document) => document.id === requestedId);
     if (!requestedDocument) return;
     setSelectedDocument(requestedDocument);
-    if (reports.organization.some((document) => document.id === requestedId)) setActive('organization');
-    else if (reports.managers.some((document) => document.id === requestedId)) setActive('managers');
-    else setActive('people');
-  }, [allDocuments, reports.managers, reports.organization]);
+    setActiveTab('documents');
+  }, [allDocuments]);
 
   function openDocument(document: RhReportDocument) {
     setSelectedDocument(document);
@@ -198,94 +485,16 @@ export default function RelatoriosRhView({ reports }: { reports: RhReportsCenter
 
   return (
     <PageContainer className="pb-28">
-      <PageHero
-        eyebrow={t('eyebrow')}
-        title={t('title')}
-        titleAccent={reports.companyName || t('fallbackCompany')}
-        subtitle={t('subtitle')}
-      />
-
+      <PageHero eyebrow={t('dashboard.eyebrow')} title={t('dashboard.title')} titleAccent={reports.companyName || t('fallbackCompany')} subtitle={t('dashboard.subtitle')} actions={generatedAt ? <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-2 font-mono text-[9px] uppercase tracking-[0.12em] text-white/40"><CalendarDays size={12} className="text-[var(--brand-300,#67e8f9)]" /> {t('dashboard.updated', { date: generatedAt })}</span> : undefined} />
       {selectedDocument ? (
         <ReportReader document={selectedDocument} t={t} onBack={closeDocument} />
       ) : (
         <>
-      <div className="mb-6 grid grid-cols-3 gap-2 md:gap-3">
-        {(Object.keys(sections) as SectionKey[]).map((key) => {
-          const Icon = SECTION_ICONS[key];
-          const selected = active === key;
-          return (
-            <button
-              key={key}
-              onClick={() => { setActive(key); setQuery(''); }}
-              className="rounded-[18px] border px-3 py-3 text-left transition md:px-4 md:py-4"
-              style={{
-                background: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 13%, rgba(8,26,46,.95))' : 'rgba(8,26,46,.8)',
-                borderColor: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 38%, transparent)' : 'rgba(255,255,255,.07)',
-              }}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <Icon size={16} className={selected ? 'text-[var(--brand-300,#67e8f9)]' : 'text-white/35'} />
-                <span className="text-xl tabular-nums text-white md:text-2xl" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>
-                  {sections[key].length}
-                </span>
-              </div>
-              <p className="mt-2 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-white/50 md:text-xs">
-                {t(`sections.${key}`)}
-              </p>
-            </button>
-          );
-        })}
-      </div>
-
-      <section>
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">
-              {t(`sections.${active}`)}
-            </p>
-            <p className="mt-1 text-sm text-white/45">{t(`descriptions.${active}`)}</p>
-          </div>
-          {(active === 'managers' || active === 'people') && sections[active].length > 0 && (
-            <label className="flex h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 text-white/55 sm:w-64">
-              <Search size={15} className="shrink-0" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t('search')}
-                className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30"
-              />
-            </label>
-          )}
-        </div>
-
-        {visible.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {visible.map((document) => (
-              <DocumentCard
-                key={document.id}
-                document={document}
-                t={t}
-                locale={locale}
-                onOpen={() => openDocument(document)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.025] px-6 py-12 text-center">
-            <FileText size={28} className="mx-auto text-white/20" />
-            <h3 className="mt-3 text-lg text-white" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>
-              {query ? t('emptySearchTitle') : t('emptyTitle')}
-            </h3>
-            <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-white/40">
-              {query ? t('emptySearchDescription') : t(`empty.${active}`)}
-            </p>
-          </div>
-        )}
-      </section>
-
-      <p className="mt-6 text-[11px] leading-relaxed text-white/30">
-        {t('footer', { count: total })}
-      </p>
+          <DashboardNavigation active={activeTab} onChange={setActiveTab} t={t} />
+          {activeTab === 'overview' && <OverviewTab reports={reports} t={t} />}
+          {activeTab === 'roles' && <RolesTab reports={reports} t={t} />}
+          {activeTab === 'priorities' && <PrioritiesTab reports={reports} t={t} />}
+          {activeTab === 'documents' && <DocumentsTab reports={reports} t={t} locale={locale} onOpen={openDocument} />}
         </>
       )}
     </PageContainer>

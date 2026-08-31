@@ -6,6 +6,10 @@ import { PROGRESSO, TRILHA, TURMA_MEMBRO } from '@/lib/status';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { estaAtrasada } from '@/lib/season-engine/atraso';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
+import {
+  normalizeManagerReportInsight,
+  type ManagerReportInsight,
+} from '@/lib/relatorios/dashboard-insights';
 
 /**
  * Home do gestor — dados consolidados em uma única chamada:
@@ -115,6 +119,12 @@ export type GestorHomeData = {
   perfis?: PerfilColab[];
   timeline?: TimelineEvento[];
   empresaPerfilExternoFonte?: string | null;
+  reportDashboard?: {
+    id: string;
+    generatedAt: string | null;
+    pdfUrl: string;
+    insight: ManagerReportInsight;
+  } | null;
 };
 
 /**
@@ -189,11 +199,40 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // Detecta se a empresa tem fonte externa de perfil (OPQ32, Hogan, etc.)
   // Quando tem, ela NÃO usa DISC — então "sem perfil" só conta quem está
   // sem perfil_externo_dados (e ignora a ausência de DISC).
-  const { data: empCfg } = await sb.from('empresas')
+  const { data: empCfg, error: empCfgError } = await sb.from('empresas')
     .select('sys_config')
     .eq('id', empresaId)
     .maybeSingle();
+  if (empCfgError) console.error('[gestor] configuração da empresa indisponível:', empCfgError.message);
   const fonteExterna = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
+
+  // A leitura narrativa pertence ao próprio gestor. Ela complementa os dados
+  // vivos abaixo, mas nunca amplia o escopo: o filtro combina tenant + id do
+  // colaborador autenticado, e só então o conteúdo vira dashboard.
+  let reportDashboard: GestorHomeData['reportDashboard'] = null;
+  if (isGestor) {
+    const { data: managerReport, error: managerReportError } = await sb.from('relatorios')
+      .select('id,conteudo,gerado_em')
+      .eq('empresa_id', empresaId)
+      .eq('colaborador_id', meuId)
+      .eq('tipo', 'gestor')
+      .order('gerado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (managerReportError) {
+      console.error('[gestor] leitura executiva indisponível:', managerReportError.message);
+    } else if (managerReport) {
+      const insight = normalizeManagerReportInsight(managerReport.conteudo);
+      if (insight) {
+        reportDashboard = {
+          id: managerReport.id,
+          generatedAt: managerReport.gerado_em || null,
+          pdfUrl: `/api/relatorios/pdf?id=${encodeURIComponent(managerReport.id)}`,
+          insight,
+        };
+      }
+    }
+  }
 
   // ── 1. Liderados ──
   // Vínculo gestor→liderado é por colaboradores.gestor_email (string).
@@ -215,6 +254,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
         ok: true, scope: 'tutor',
         kpis: { liderados: { total: 0, em_trilha: 0, sem_trilha: 0 }, em_andamento: { count: 0, distribuicao_semanas: [] }, checkpoints: { pendentes: 0, respondidos: 0 }, atividade_semana: { ativos: 0, total: 0 } },
         alertas: [], checkpointsPendentes: [],
+        reportDashboard,
       };
     }
     colabQ = colabQ.in('id', tutoradosIds);
@@ -242,6 +282,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       },
       alertas: [],
       checkpointsPendentes: [],
+      reportDashboard,
     };
   }
 
@@ -677,5 +718,6 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     perfis,
     timeline: timeline.slice(0, 10),
     empresaPerfilExternoFonte: fonteExterna,
+    reportDashboard,
   };
 }

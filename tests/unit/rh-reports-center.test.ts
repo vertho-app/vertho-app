@@ -25,6 +25,11 @@ const sb = criarSupabaseMock({
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/lib/home/loaders', () => ({
+  carregarPanoramaRH: async () => ({
+    empresaNome: 'Empresa Teste', pessoas: 30, comPerfil: 28,
+    comMapeamento: 25, emJornada: 20, emDia: 17, atrasadas: 3,
+    jornadasEncerradas: 2, indisponivel: false,
+  }),
   carregarRelatoriosGerenciais: async () => ({
     rh: { url: '/api/relatorios/pdf?id=rel-rh', em: '2026-08-29T10:00:00Z' },
     perfilOrg: { url: 'https://cdn/perfil.pdf', em: '2026-08-25T10:00:00Z' },
@@ -50,6 +55,9 @@ describe('central de relatórios do RH', () => {
     expect(result.people).toEqual([
       expect.objectContaining({ id: 'rel-pdi', recipient: 'Bruna Pessoa', role: 'Representante Comercial' }),
     ]);
+    expect(result.dashboard.panorama).toMatchObject({
+      pessoas: 30, comPerfil: 28, comMapeamento: 25, emJornada: 20,
+    });
   });
 
   it('consulta relatórios e colaboradores sempre com o filtro automático do tenant', async () => {
