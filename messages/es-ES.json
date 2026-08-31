@@ -260,6 +260,14 @@
     "fallbackCompany": "tu empresa",
     "subtitle": "Accede a las lecturas de la organización, los líderes y las personas sin salir del espacio de RR. HH.",
     "dashboard": {
+      "scope": {
+        "eyebrow": "Alcance",
+        "all": "Todas las cohortes",
+        "people": "{count, plural, one {# persona} other {# personas}}",
+        "reading": "Leyendo {name}",
+        "companyBadge": "Empresa completa",
+        "companyNotice": "Este análisis procede del informe consolidado de RR. HH. y describe a toda la empresa: no sigue a la cohorte seleccionada."
+      },
       "navigation": "Vistas del dashboard de RR. HH.",
       "eyebrow": "Inteligencia de personas",
       "title": "Decisiones sobre",

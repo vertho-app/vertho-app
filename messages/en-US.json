@@ -260,6 +260,14 @@
     "fallbackCompany": "your company",
     "subtitle": "Access organization, leadership, and individual insights without leaving the HR workspace.",
     "dashboard": {
+      "scope": {
+        "eyebrow": "Scope",
+        "all": "All cohorts",
+        "people": "{count, plural, one {# person} other {# people}}",
+        "reading": "Reading {name}",
+        "companyBadge": "Whole company",
+        "companyNotice": "This analysis comes from the consolidated HR report and describes the whole company. It does not follow the selected cohort."
+      },
       "navigation": "HR dashboard views",
       "eyebrow": "People intelligence",
       "title": "Decisions about",

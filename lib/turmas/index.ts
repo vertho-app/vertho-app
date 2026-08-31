@@ -11,5 +11,6 @@ export {
   carregarParticipacaoAtiva,
   configEfetivaDoColaborador,
   contarTurmasAtivas,
+  listarTurmasDoTenant,
 } from './contexto';
-export type { ContextoTurma } from './contexto';
+export type { ContextoTurma, TurmaDoTenant } from './contexto';

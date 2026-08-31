@@ -125,3 +125,67 @@ describe('panorama do RH', () => {
     expect(p.indisponivel).toBe(true);
   });
 });
+
+/**
+ * Recorte por TURMA (mig 210).
+ *
+ * A invariante não é "aplicou o filtro em algum lugar", é **em todas as
+ * varreduras de população**. Painel meio recortado é pior que painel sem
+ * recorte: o RH leria "42% com perfil" (turma) ao lado de "38 em jornada"
+ * (empresa) sem nada na tela dizendo que os dois falam de gente diferente.
+ *
+ * Por isso a asserção compara CONTADORES: uma query nova que esqueça o
+ * `recortar()` quebra o teste, mesmo que as outras continuem filtrando.
+ */
+describe('panorama do RH: recorte por turma', () => {
+  beforeEach(() => { sb.reset(); sysConfig = {}; });
+
+  /** Quantas vezes esta tabela foi CONSULTADA vs. quantas foi RECORTADA. */
+  function cobertura(tabela: string, coluna: string) {
+    const selects = sb.chamadas.filter((c) => c.tabela === tabela && c.metodo === 'select').length;
+    const recortes = sb.chamadas.filter(
+      (c) => c.tabela === tabela && c.metodo === 'in' && c.args[0] === coluna,
+    ).length;
+    return { selects, recortes };
+  }
+
+  it('recorta TODAS as varreduras de população pela lista da turma', async () => {
+    const ids = ['p1', 'p2', 'p3'];
+    await carregarPanoramaRH('emp-1', { colaboradorIds: ids });
+
+    const colaboradores = cobertura('colaboradores', 'id');
+    expect(colaboradores.selects).toBeGreaterThan(0);
+    expect(colaboradores.recortes).toBe(colaboradores.selects);
+
+    const trilhas = cobertura('trilhas', 'colaborador_id');
+    expect(trilhas.selects).toBeGreaterThan(0);
+    expect(trilhas.recortes).toBe(trilhas.selects);
+
+    const assessments = cobertura('descriptor_assessments', 'colaborador_id');
+    expect(assessments.selects).toBeGreaterThan(0);
+    expect(assessments.recortes).toBe(assessments.selects);
+
+    // E é a lista da turma que vai no filtro, não uma lista qualquer.
+    const filtro = sb.chamadas.find((c) => c.tabela === 'colaboradores' && c.metodo === 'in');
+    expect(filtro?.args[1]).toEqual(ids);
+  });
+
+  it('recorta também quando a empresa usa fonte externa de perfil', async () => {
+    // O ramo do OPQ32/Hogan é uma query DIFERENTE. Foi por um ramo alternativo
+    // esquecido que este projeto já entregou painel com duas réguas.
+    sysConfig = { perfil_externo_fonte: 'opq32' };
+    await carregarPanoramaRH('emp-1', { colaboradorIds: ['p1'] });
+    const colaboradores = cobertura('colaboradores', 'id');
+    expect(colaboradores.recortes).toBe(colaboradores.selects);
+  });
+
+  it('sem turma escolhida, nenhuma query é filtrada por lista de pessoas', async () => {
+    await carregarPanoramaRH('emp-1');
+    const porLista = sb.chamadas.filter(
+      (c) => c.metodo === 'in' && (c.args[0] === 'id' || c.args[0] === 'colaborador_id'),
+    );
+    // Um recorte que se aplica sozinho transformaria a empresa inteira no
+    // recorte de ninguém: `.in(col, [])` volta vazio sem erro.
+    expect(porLista).toHaveLength(0);
+  });
+});

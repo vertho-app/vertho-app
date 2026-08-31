@@ -654,11 +654,28 @@ export async function carregarCapacitacoes(empresaId: string | null, competencia
  * `null || 0` = 0: sem isso a home anunciaria "0 pessoas" para uma empresa
  * inteira por causa de um erro de banco — o mesmo modo de falha do F15.
  */
-export async function carregarPanoramaRH(empresaId: string) {
+export async function carregarPanoramaRH(
+  empresaId: string,
+  opts: { colaboradorIds?: string[] | null } = {},
+) {
   // `tenantDb` e não `createSupabaseAdmin`: os três números são de UMA empresa,
   // e o wrapper injeta o `empresa_id` em toda cadeia. `empresas` é a própria
   // linha do tenant (a chave é `id`, não `empresa_id`), então vai pelo `raw`.
   const tdb = tenantDb(empresaId);
+
+  // Recorte por turma (mig 210). `null`/ausente = empresa inteira, que é como
+  // esta função sempre se comportou. Quando vem lista, ela entra em TODA query
+  // do painel. Meio painel recortado e meio não seria pior que nenhum recorte:
+  // o operador leria "42% com perfil" ao lado de "38 em jornada" sem saber que
+  // os dois numeradores falam de populações diferentes.
+  //
+  // `.in()` e não uma varredura filtrada em memória: os contadores continuam
+  // sendo `count: 'exact'` no banco, sem o teto de 1.000 linhas do PostgREST
+  // que transformaria tenant grande em amostra silenciosa. `Medido em 31/08`:
+  // `.in()` com 3.000 uuids responde normalmente neste projeto.
+  const ids = opts.colaboradorIds ?? null;
+  const recortar = <T>(query: T, coluna: string): T =>
+    ids ? ((query as any).in(coluna, ids) as T) : query;
 
   // A empresa vem antes das contagens porque a régua de "tem perfil" depende
   // dela: quem usa fonte externa (OPQ32, Hogan) não faz DISC, e ali "sem perfil"
@@ -668,12 +685,12 @@ export async function carregarPanoramaRH(empresaId: string) {
   const fonteExterna = (empresaRes.data?.sys_config as any)?.perfil_externo_fonte ?? null;
 
   const [pessoasRes, participantesRes, comPerfilRes, trilhasRes, encerradasRes, assessRes, cargosRes] = await Promise.all([
-    tdb.from('colaboradores')
+    recortar(tdb.from('colaboradores')
       .select('id', { count: 'exact', head: true })
-      .neq('role', 'rh'),
-    tdb.from('colaboradores')
+      .neq('role', 'rh'), 'id'),
+    recortar(tdb.from('colaboradores')
       .select('id, cargo')
-      .neq('role', 'rh'),
+      .neq('role', 'rh'), 'id'),
     // 🔑 `perfil_dominante`, não `disc_resultados`. É a MESMA coluna que o resto
     // do app usa para decidir se a pessoa tem perfil — o gate da home
     // (`precisaMapeamentoDISC`), o alerta do gestor e o mapa de perfis. Medido em
@@ -682,28 +699,28 @@ export async function carregarPanoramaRH(empresaId: string) {
     // grava o JSON). Contar pelo JSON fazia este card dizer 105 enquanto a tela
     // de Equipe tratava 144 como mapeadas — dois números para a mesma pergunta.
     fonteExterna
-      ? tdb.from('colaboradores')
+      ? recortar(tdb.from('colaboradores')
           .select('id', { count: 'exact', head: true })
           .neq('role', 'rh')
-          .not('perfil_externo_dados', 'is', null)
-      : tdb.from('colaboradores')
+          .not('perfil_externo_dados', 'is', null), 'id')
+      : recortar(tdb.from('colaboradores')
           .select('id', { count: 'exact', head: true })
           .neq('role', 'rh')
-          .or('perfil_dominante.not.is.null,perfil_externo_dados.not.is.null'),
-    tdb.from('trilhas')
+          .or('perfil_dominante.not.is.null,perfil_externo_dados.not.is.null'), 'id'),
+    recortar(tdb.from('trilhas')
       .select('id, colaborador_id, data_inicio, temporada_plano')
-      .eq('status', TRILHA.ATIVA),
+      .eq('status', TRILHA.ATIVA), 'colaborador_id'),
     // Jornadas ENCERRADAS: é o que libera a tela de evolução. O veredito
     // (confirmada · parcial · estagnação · regressão) nasce no fechamento, então
     // antes da primeira conclusão aquela tela é seis KPIs zerados — e um atalho
     // para ela é um convite para o vazio.
-    tdb.from('trilhas')
+    recortar(tdb.from('trilhas')
       .select('id', { count: 'exact', head: true })
-      .eq('status', TRILHA.CONCLUIDA),
+      .eq('status', TRILHA.CONCLUIDA), 'colaborador_id'),
     // Uma linha por DESCRITOR avaliado — o maior tenant hoje tem 576 (macae).
     // Traz só a coluna que identifica a pessoa e deduplica em código: é o
     // "quantas PESSOAS" que a tela pergunta, não quantas notas existem.
-    tdb.from('descriptor_assessments').select('colaborador_id, competencia'),
+    recortar(tdb.from('descriptor_assessments').select('colaborador_id, competencia'), 'colaborador_id'),
     tdb.from('cargos_empresa').select('nome, top5_workshop'),
   ]);
 

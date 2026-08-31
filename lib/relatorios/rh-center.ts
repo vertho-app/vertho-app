@@ -6,6 +6,8 @@ import { aggregateDna, type DnaAggregate } from '@/lib/dna-organizacional/aggreg
 import { criarDnaOrganizacionalAcmeDemo } from '@/lib/demo/acme-organization-report-fixture';
 import { DEMO_PRESENTATION_TENANT_SLUG } from '@/lib/demo/presentation';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
+import { listarTurmasDoTenant, type TurmaDoTenant } from '@/lib/turmas';
+import { resolverEscopoDeLote } from '@/lib/turmas/escopo';
 import {
   normalizeRhDescriptorAnalysis,
   normalizeRhReportInsight,
@@ -31,8 +33,36 @@ export type RhReportDocument = {
   role: string | null;
 };
 
+/**
+ * O recorte VIGENTE da leitura e, explicitamente, o que ele NÃO alcança.
+ *
+ * `insightScopeIsCompany` existe porque a narrativa executiva e as prioridades
+ * nascem de um PDF consolidado da empresa: elas não podem ser recortadas sem
+ * regerar o documento. Sem este sinal a tela ficaria pior que antes do filtro:
+ * hoje o RH desconfia do número; com um seletor no topo ele confiaria, e leria
+ * a análise dos 282 achando que fala dos 126 diretores.
+ */
+export type RhReportsScope = {
+  turmas: TurmaDoTenant[];
+  turmaId: string | null;
+  turmaNome: string | null;
+  /** Pessoas dentro do recorte (a empresa inteira quando `turmaId` é null). */
+  pessoas: number;
+  /**
+   * Pessoas da empresa toda, sempre: é o que o chip "todas as turmas" mostra.
+   *
+   * Existe para que a conta FECHE à vista: se as turmas somam menos que este
+   * número, há gente sem turma ativa, e a diferença aparece na própria barra de
+   * filtro em vez de virar um mistério entre dois painéis.
+   */
+  pessoasEmpresa: number;
+  /** true quando as seções vindas do PDF consolidado ignoram o recorte. */
+  insightScopeIsCompany: boolean;
+};
+
 export type RhReportsCenter = {
   companyName: string | null;
+  scope: RhReportsScope;
   dashboard: {
     panorama: {
       empresaNome: string | null;
@@ -66,18 +96,21 @@ const PDF_TYPES = [
 async function carregarDnaDoDashboard(
   empresaId: string,
   slug: string | null,
+  colaboradorIds: string[] | null,
 ): Promise<DnaAggregate> {
   const tdb = tenantDb(empresaId);
   if (slug !== DEMO_PRESENTATION_TENANT_SLUG) {
-    return aggregateDna(tdb.raw, empresaId);
+    return aggregateDna(tdb.raw, empresaId, colaboradorIds);
   }
 
   // O PDF demonstrativo da ACME usa um retrato organizacional sintético e
   // determinístico. Recriamos o mesmo agregado para o dashboard, mas a coorte
   // de 25 pessoas continua vindo das tabelas e da régua real de conclusão.
+  const recortar = <T>(query: T, coluna: string): T =>
+    colaboradorIds ? ((query as any).in(coluna, colaboradorIds) as T) : query;
   const [peopleResult, assessmentsResult, rolesResult] = await Promise.all([
-    tdb.from('colaboradores').select('*').neq('role', 'rh'),
-    tdb.from('descriptor_assessments').select('colaborador_id,competencia'),
+    recortar(tdb.from('colaboradores').select('*').neq('role', 'rh'), 'id'),
+    recortar(tdb.from('descriptor_assessments').select('colaborador_id,competencia'), 'colaborador_id'),
     tdb.from('cargos_empresa').select('nome,top5_workshop'),
   ]);
   if (peopleResult.error) throw new Error(`descritores RH: pessoas: ${peopleResult.error.message}`);
@@ -99,16 +132,38 @@ async function carregarDnaDoDashboard(
  * aceito do browser. Assim a mesma rota serve todos os tenants sem abrir uma
  * consulta cross-tenant.
  */
-export async function carregarCentralRelatoriosRH(empresaId: string): Promise<RhReportsCenter> {
+export async function carregarCentralRelatoriosRH(
+  empresaId: string,
+  opts: { turmaId?: string | null } = {},
+): Promise<RhReportsCenter> {
   const tdb = tenantDb(empresaId);
   const companyResult = await tdb.raw.from('empresas').select('nome,slug').eq('id', empresaId).maybeSingle();
   if (companyResult.error) {
     throw new Error(`Falha ao carregar empresa do RH: ${companyResult.error.message}`);
   }
 
+  // ── Recorte por turma ─────────────────────────────────────────────────────
+  // `turmaId` vem da URL, ou seja, do CLIENTE. Só vale se for uma das turmas
+  // ativas DESTE tenant: id de outra empresa, turma arquivada ou link velho
+  // caem para "empresa inteira". E, como o seletor é desenhado a partir da
+  // mesma lista, a tela mostra "Todas as turmas" selecionado. O que se lê no
+  // filtro é sempre o que foi aplicado nos números.
+  const turmas = await listarTurmasDoTenant(tdb.raw, empresaId);
+  // Mesma régua do painel (`neq('role','rh')`), para o chip "todas as turmas"
+  // dizer o mesmo número que o card "Pessoas" quando nada está filtrado.
+  const pessoasEmpresaResult = await tdb.from('colaboradores')
+    .select('id', { count: 'exact', head: true })
+    .neq('role', 'rh');
+  const turmaEscolhida = opts.turmaId ? turmas.find((t) => t.id === opts.turmaId) || null : null;
+  const escopo = turmaEscolhida
+    ? await resolverEscopoDeLote(tdb.raw, empresaId, { tipo: 'turma', turmaId: turmaEscolhida.id })
+    : null;
+  const colaboradorIds = escopo ? escopo.colaboradorIds : null;
+  const idsNoEscopo = colaboradorIds ? new Set(colaboradorIds) : null;
+
   const [gerenciais, panorama, reportsResult, insightResult, descriptorResult] = await Promise.all([
     carregarRelatoriosGerenciais(empresaId),
-    carregarPanoramaRH(empresaId),
+    carregarPanoramaRH(empresaId, { colaboradorIds }),
     tdb.from('relatorios')
       .select('id,colaborador_id,tipo,gerado_em')
       .in('tipo', [...PDF_TYPES])
@@ -122,7 +177,7 @@ export async function carregarCentralRelatoriosRH(empresaId: string): Promise<Rh
       .order('gerado_em', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    carregarDnaDoDashboard(empresaId, companyResult.data?.slug || null)
+    carregarDnaDoDashboard(empresaId, companyResult.data?.slug || null, colaboradorIds)
       .then((dna) => ({ data: normalizeRhDescriptorAnalysis(dna), error: null }))
       .catch((error: unknown) => ({
         data: null,
@@ -144,7 +199,12 @@ export async function carregarCentralRelatoriosRH(empresaId: string): Promise<Rh
     console.error('[central-rh] leitura por descritor indisponível:', descriptorResult.error.message);
   }
 
-  const rows = reportsResult.data || [];
+  // Documento de PESSOA fora do recorte não aparece; o organizacional (sem
+  // `colaborador_id`) fica, porque o PDF de RH e o DNA descrevem a empresa e
+  // não a turma. Escondê-los faria a aba Documentos parecer vazia.
+  const rows = (reportsResult.data || []).filter(
+    (row: any) => !idsNoEscopo || !row.colaborador_id || idsNoEscopo.has(row.colaborador_id),
+  );
   const collaboratorIds = [...new Set(rows.map((row: any) => row.colaborador_id).filter(Boolean))];
   const collaboratorsResult = collaboratorIds.length
     ? await tdb.from('colaboradores')
@@ -193,6 +253,17 @@ export async function carregarCentralRelatoriosRH(empresaId: string): Promise<Rh
 
   return {
     companyName: companyResult.data?.nome || null,
+    scope: {
+      turmas,
+      turmaId: turmaEscolhida?.id || null,
+      turmaNome: turmaEscolhida?.nome || null,
+      // Do PANORAMA, não de `escopo.total`: a resolução de escopo conta a
+      // participação crua (a conta de RH inclusa), e o painel conta
+      // participantes. Um número por pergunta.
+      pessoas: panorama.pessoas,
+      pessoasEmpresa: pessoasEmpresaResult.count ?? panorama.pessoas,
+      insightScopeIsCompany: Boolean(turmaEscolhida),
+    },
     dashboard: {
       panorama,
       insight: insightResult.error ? null : normalizeRhReportInsight(insightResult.data?.conteudo),

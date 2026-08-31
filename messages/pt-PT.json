@@ -260,6 +260,14 @@
     "fallbackCompany": "sua empresa",
     "subtitle": "Aceda às leituras da organização, das lideranças e das pessoas sem sair do ambiente de RH.",
     "dashboard": {
+      "scope": {
+        "eyebrow": "Recorte",
+        "all": "Todas as turmas",
+        "people": "{count, plural, one {# pessoa} other {# pessoas}}",
+        "reading": "A ler {name}",
+        "companyBadge": "Empresa inteira",
+        "companyNotice": "Esta análise vem do relatório consolidado de RH e descreve a empresa inteira. Não acompanha a turma selecionada."
+      },
       "navigation": "Visões do dashboard de RH",
       "eyebrow": "Inteligência de pessoas",
       "title": "Decisões sobre",

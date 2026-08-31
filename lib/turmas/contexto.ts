@@ -15,7 +15,7 @@
  */
 
 import { resolverConfigEfetiva, type ConfigEfetiva, type FontesConfig } from './config-efetiva';
-import { TURMA_MEMBRO, TURMA_ENCERRADAS } from '@/lib/status';
+import { TURMA_MEMBRO, TURMA_ENCERRADAS, type TurmaStatus } from '@/lib/status';
 
 export interface ContextoTurma {
   turmaId: string | null;
@@ -128,4 +128,68 @@ export async function contarTurmasAtivas(sb: any, empresaId: string): Promise<nu
     .eq('empresa_id', empresaId)
     .not('status', 'in', encerradas);
   return count || 0;
+}
+
+/** Turma vista por um FILTRO de leitura: rótulo + denominador, nada além. */
+export interface TurmaDoTenant {
+  id: string;
+  nome: string;
+  status: TurmaStatus;
+  /**
+   * Participantes ATIVOS, sem a conta de RH: o denominador que acompanha todo
+   * número da turma.
+   *
+   * 🔑 A régua é a MESMA do painel (`neq('role','rh')`). Contar a participação
+   * crua faria o chip dizer "127 pessoas" ao lado de um painel que conta 126:
+   * dois números para a mesma pergunta na mesma tela, que é justamente o que o
+   * filtro veio resolver um nível acima. `Medido em 31/08` em macae: a conta de
+   * RH é membro ativo da turma de diretores.
+   */
+  membros: number;
+}
+
+/**
+ * Turmas ativas de uma empresa, com a contagem de participantes.
+ *
+ * Deliberadamente mais pobre que `levantarPortfolioTurmas`: aquele agrega
+ * respostas, IA4, trilhas e a distribuição de semanas para o operador da
+ * Vertho. Um seletor de turma precisa do nome e de quantas pessoas ele recorta.
+ * Pagar as quatro varreduras do portfólio para desenhar dois chips seria cobrar
+ * da tela do RH o custo de um painel que ela não mostra.
+ */
+export async function listarTurmasDoTenant(sb: any, empresaId: string): Promise<TurmaDoTenant[]> {
+  if (!empresaId) return [];
+  const encerradas = `(${TURMA_ENCERRADAS.map((s) => `"${s}"`).join(',')})`;
+  const { data: turmas, error } = await sb.from('turmas')
+    .select('id, nome, status')
+    .eq('empresa_id', empresaId)
+    .not('status', 'in', encerradas)
+    .order('created_at');
+  if (error) {
+    console.error('[turmas] listar do tenant:', error.message);
+    return [];
+  }
+  if (!turmas?.length) return [];
+
+  const [{ data: membros }, { data: administrativos }] = await Promise.all([
+    sb.from('turma_membros')
+      .select('turma_id, colaborador_id')
+      .eq('empresa_id', empresaId)
+      .eq('status', TURMA_MEMBRO.ATIVO),
+    sb.from('colaboradores').select('id').eq('empresa_id', empresaId).eq('role', 'rh'),
+  ]);
+
+  const foraDaContagem = new Set((administrativos || []).map((c: any) => c.id));
+  const porTurma = new Map<string, number>();
+  for (const m of membros || []) {
+    if (foraDaContagem.has(m.colaborador_id)) continue;
+    porTurma.set(m.turma_id, (porTurma.get(m.turma_id) || 0) + 1);
+  }
+
+  return turmas.map((t: any) => ({
+    id: t.id,
+    nome: t.nome,
+    status: t.status,
+    membros: porTurma.get(t.id) || 0,
+  }));
 }

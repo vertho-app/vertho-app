@@ -10,10 +10,24 @@ const REPORTS = [
   { id: 'rel-pdi', colaborador_id: 'pessoa-1', tipo: 'individual', gerado_em: '2026-08-26T10:00:00Z' },
 ];
 
+/** O que a central pediu ao panorama: é aqui que o recorte tem que chegar. */
+const espiao = vi.hoisted(() => ({ panorama: [] as any[] }));
+
+const TURMA = { id: 'turma-a', nome: 'Turma A', status: 'em_jornada' };
+
 const sb = criarSupabaseMock({
-  resolver: (table) => table === 'empresas' ? { nome: 'Empresa Teste' } : null,
-  lista: (table) => {
+  resolver: (table) => {
+    if (table === 'empresas') return { nome: 'Empresa Teste' };
+    if (table === 'turmas') return TURMA;
+    return null;
+  },
+  lista: (table, cols) => {
     if (table === 'relatorios') return REPORTS;
+    if (table === 'turmas') return [TURMA];
+    if (table === 'turma_membros') return [{ turma_id: TURMA.id, colaborador_id: 'pessoa-1' }];
+    // `select('id')` em colaboradores é a busca das contas de RH (fora da
+    // contagem da turma). Nenhuma aqui.
+    if (table === 'colaboradores' && cols === 'id') return [];
     if (table === 'colaboradores') return [
       { id: 'gestor-1', nome_completo: 'Carla Gestora', cargo: 'Gerente Comercial' },
       { id: 'pessoa-1', nome_completo: 'Bruna Pessoa', cargo: 'Representante Comercial' },
@@ -32,7 +46,7 @@ const sb = criarSupabaseMock({
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/lib/home/loaders', () => ({
-  carregarPanoramaRH: async () => ({
+  carregarPanoramaRH: async (empresaId: string, opts?: any) => (espiao.panorama.push({ empresaId, opts }), {
     empresaNome: 'Empresa Teste', pessoas: 30, comPerfil: 28,
     comMapeamento: 25, emJornada: 20, emDia: 17, atrasadas: 3,
     jornadasEncerradas: 2, indisponivel: false,
@@ -47,7 +61,7 @@ vi.mock('@/lib/home/loaders', () => ({
 import { carregarCentralRelatoriosRH } from '@/lib/relatorios/rh-center';
 
 describe('central de relatórios do RH', () => {
-  beforeEach(() => sb.reset());
+  beforeEach(() => { sb.reset(); espiao.panorama.length = 0; });
 
   it('agrupa documentos sem duplicar o relatório de RH e identifica os destinatários', async () => {
     const result = await carregarCentralRelatoriosRH(EMPRESA_ID);
@@ -81,8 +95,40 @@ describe('central de relatórios do RH', () => {
   it('a rota deriva o tenant da sessão RH, sem aceitar empresa do browser', () => {
     const page = readFileSync('app/dashboard/relatorios/page.tsx', 'utf8');
     expect(page).toContain("requireRoleAction(['rh'])");
-    expect(page).toContain('carregarCentralRelatoriosRH(auth.empresaId)');
-    expect(page).not.toMatch(/searchParams|empresaId:\s*string/);
+    // O tenant é SEMPRE `auth.empresaId`. A URL só pode escolher o recorte
+    // (`turmaId`) dentro dele, e mesmo esse valor é validado no servidor
+    // contra as turmas do próprio tenant.
+    expect(page).toMatch(/carregarCentralRelatoriosRH\(auth\.empresaId(,|\))/);
+    expect(page).not.toMatch(/empresaId:\s*string/);
+    const usosDoBrowser = page.match(/params\??\.\w+/g) || [];
+    expect(usosDoBrowser).toEqual(['params?.turma']);
+  });
+
+  it('recorta a leitura pela turma escolhida na URL', async () => {
+    const result = await carregarCentralRelatoriosRH(EMPRESA_ID, { turmaId: TURMA.id });
+
+    // O recorte chega ao panorama…
+    expect(espiao.panorama[0].opts?.colaboradorIds).toEqual(['pessoa-1']);
+    // …e aos documentos de pessoa: o PDI da Bruna fica, o do gestor sai.
+    expect(result.people.map((d) => d.id)).toEqual(['rel-pdi']);
+    expect(result.managers).toEqual([]);
+    // Os organizacionais descrevem a empresa e continuam acessíveis.
+    expect(result.organization.map((item) => item.kind)).toContain('rh');
+    expect(result.scope.turmaId).toBe(TURMA.id);
+    // …e a tela é avisada de que a narrativa do PDF NÃO segue o recorte.
+    expect(result.scope.insightScopeIsCompany).toBe(true);
+  });
+
+  it('turma que não é deste tenant não recorta nada, e o escopo DIZ isso', async () => {
+    const result = await carregarCentralRelatoriosRH(EMPRESA_ID, { turmaId: 'turma-de-outra-empresa' });
+
+    // Nem meio recorte, nem recorte silencioso: a leitura é a empresa inteira,
+    // e `scope.turmaId` null é o que faz a barra de filtro mostrar "todas".
+    expect(espiao.panorama[0].opts?.colaboradorIds).toBeNull();
+    expect(result.scope.turmaId).toBeNull();
+    expect(result.scope.insightScopeIsCompany).toBe(false);
+    expect(result.people.map((d) => d.id)).toEqual(['rel-pdi']);
+    expect(result.managers.map((d) => d.id)).toEqual(['rel-gestor']);
   });
 
   it('renderiza o PDF dentro da tela e mantém o download como ação separada', () => {

@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   ArrowLeft, ArrowRight, BarChart3, Brain, Building2, CalendarDays, Check,
-  Download, Eye, FileChartColumn, FileText, Flag, Gauge, Lightbulb, Route,
-  Search, ShieldAlert, Sparkles, Target, TrendingUp, UserRound, UsersRound,
+  Download, Eye, FileChartColumn, FileText, Flag, Gauge, Layers, Lightbulb,
+  Route, Search, ShieldAlert, Sparkles, Target, TrendingUp, UserRound, UsersRound,
 } from 'lucide-react';
 import { PageContainer, PageHero } from '@/components/page-shell';
 import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
-import type { RhReportDocument, RhReportKind, RhReportsCenter } from '@/lib/relatorios/rh-center';
+import type { RhReportDocument, RhReportKind, RhReportsCenter, RhReportsScope } from '@/lib/relatorios/rh-center';
 import type { RhDescriptorScope } from '@/lib/relatorios/dashboard-insights';
 
 type DashboardTab = 'overview' | 'roles' | 'priorities' | 'documents';
@@ -102,6 +103,92 @@ function DashboardNavigation({ active, onChange, t }: { active: DashboardTab; on
   );
 }
 
+/**
+ * Filtro de turma (mig 210).
+ *
+ * Só aparece com 2+ turmas ativas: com uma turma o recorte é a empresa, e um
+ * seletor de opção única seria ruído. O estado mora na URL: a página é montada
+ * no servidor, então trocar de turma tem que refazer as consultas, e o RH
+ * consegue mandar a leitura de uma turma por link.
+ */
+function ScopeFilter({ scope, t }: { scope: RhReportsScope; t: any }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [pending, startTransition] = useTransition();
+
+  // Com uma turma só o recorte é a empresa e o seletor seria ruído. A exceção é
+  // um link que já chega recortado (`?turma=`): aí a barra tem que aparecer, ou
+  // a tela mostraria números de uma turma sem nada dizendo qual.
+  if (scope.turmas.length < 2 && !scope.turmaId) return null;
+
+  function selecionar(turmaId: string | null) {
+    // O `?document=` sai junto: um PDF individual da turma anterior não
+    // pertence ao novo recorte, e reabri-lo mostraria uma pessoa que a lista
+    // filtrada nem lista.
+    const destino = turmaId ? `${pathname}?turma=${encodeURIComponent(turmaId)}` : pathname;
+    startTransition(() => router.replace(destino, { scroll: false }));
+  }
+
+  const opcoes = [{ id: null as string | null, nome: t('dashboard.scope.all'), membros: scope.pessoasEmpresa }]
+    .concat(scope.turmas.map((turma) => ({ id: turma.id, nome: turma.nome, membros: turma.membros })));
+
+  return (
+    <section aria-label={t('dashboard.scope.eyebrow')} className={`mb-4 rounded-2xl border border-white/[0.08] bg-[#071829]/75 px-4 py-3 transition-opacity ${pending ? 'opacity-50' : ''}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <p className="flex shrink-0 items-center gap-2 text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#67e8f9)]">
+          <Layers size={13} /> {t('dashboard.scope.eyebrow')}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {opcoes.map((opcao) => {
+            const selected = scope.turmaId === opcao.id;
+            return (
+              <button
+                key={opcao.id || 'todas'}
+                type="button"
+                onClick={() => selecionar(opcao.id)}
+                aria-pressed={selected}
+                disabled={pending}
+                className="flex items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)] disabled:cursor-wait"
+                style={{
+                  color: selected ? '#fff' : 'rgba(255,255,255,.45)',
+                  borderColor: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 55%, transparent)' : 'rgba(255,255,255,.09)',
+                  background: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 14%, transparent)' : 'transparent',
+                }}
+              >
+                {opcao.nome}
+                <span className="font-mono text-[9px] text-white/35">{t('dashboard.scope.people', { count: opcao.membros })}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Selo das seções que NÃO seguem o recorte.
+ *
+ * A narrativa executiva e as prioridades nascem do PDF consolidado da empresa:
+ * recortá-las exigiria regerar o documento por turma. Sem este aviso o filtro
+ * deixaria a tela pior do que era. Hoje o RH desconfia do número; com um
+ * seletor no topo ele leria a análise dos 282 achando que fala dos 126.
+ */
+function CompanyScopeNotice({ scope, t }: { scope: RhReportsScope; t: any }) {
+  if (!scope.insightScopeIsCompany) return null;
+  return (
+    <div className="mb-3 flex gap-3 rounded-2xl border border-amber-300/15 bg-amber-300/[0.055] px-4 py-3 text-xs leading-relaxed text-amber-100/65">
+      <Building2 size={15} className="mt-0.5 shrink-0 text-amber-300" />
+      <span>
+        <strong className="mr-2 rounded-full border border-amber-300/25 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-amber-200">
+          {t('dashboard.scope.companyBadge')}
+        </strong>
+        {t('dashboard.scope.companyNotice')}
+      </span>
+    </div>
+  );
+}
+
 function JourneyPulse({ reports, t }: { reports: RhReportsCenter; t: any }) {
   const p = reports.dashboard.panorama;
   const stages = [
@@ -178,7 +265,9 @@ function ExecutiveReading({ reports, t }: { reports: RhReportsCenter; t: any }) 
   }
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[1.35fr_.65fr]">
+    <div>
+      <CompanyScopeNotice scope={reports.scope} t={t} />
+      <div className="grid gap-3 lg:grid-cols-[1.35fr_.65fr]">
       <Panel className="relative overflow-hidden p-5 md:p-6">
         <span className="absolute right-5 top-4 text-[72px] leading-none text-[var(--brand-300,#67e8f9)]/[0.07]" style={serifStyle}>“</span>
         <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#67e8f9)]">{t('dashboard.executive.eyebrow')}</p>
@@ -214,6 +303,7 @@ function ExecutiveReading({ reports, t }: { reports: RhReportsCenter; t: any }) 
           <div><p className="text-[10px] text-white/35">{t('dashboard.levels.assessments')}</p><p className="mt-1 text-lg text-white">{insight.indicators.assessments ?? '—'}</p></div>
         </div>
       </Panel>
+      </div>
     </div>
   );
 }
@@ -257,11 +347,14 @@ function DescriptorAnalysis({
   scope,
   requestedRole,
   organizationFallback,
+  turmaNome,
   t,
 }: {
   scope: RhDescriptorScope | null;
   requestedRole: string;
   organizationFallback: boolean;
+  /** Turma do recorte, quando há uma. Este bloco SEGUE o filtro. */
+  turmaNome: string | null;
   t: any;
 }) {
   const [selectedName, setSelectedName] = useState(scope?.competencies[0]?.competency || '');
@@ -286,10 +379,17 @@ function DescriptorAnalysis({
           <h3 id="descriptor-analysis-title" className="mt-1 text-[26px] leading-none text-white" style={serifStyle}>{t('dashboard.roles.descriptors.title')}</h3>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/45">{t('dashboard.roles.descriptors.subtitle')}</p>
         </div>
-        <div className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-2 font-mono text-[9px] uppercase tracking-[0.1em] text-white/40">
-          {organizationFallback
-            ? t('dashboard.roles.descriptors.organizationScope', { count: scope.evaluated })
-            : t('dashboard.roles.descriptors.roleScope', { count: scope.evaluated })}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {turmaNome && (
+            <span className="rounded-full border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)]">
+              {t('dashboard.scope.reading', { name: turmaNome })}
+            </span>
+          )}
+          <span className="rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-2 font-mono text-[9px] uppercase tracking-[0.1em] text-white/40">
+            {organizationFallback
+              ? t('dashboard.roles.descriptors.organizationScope', { count: scope.evaluated })
+              : t('dashboard.roles.descriptors.roleScope', { count: scope.evaluated })}
+          </span>
         </div>
       </div>
 
@@ -433,6 +533,7 @@ function RolesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
   return (
     <div>
       <SectionTitle eyebrow={t('dashboard.roles.eyebrow')} title={t('dashboard.roles.title')} subtitle={t('dashboard.roles.subtitle')} />
+      <CompanyScopeNotice scope={reports.scope} t={t} />
       <div className="mb-4 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
         {insight.roles.map((item, index) => (
           <button key={`${item.role}-${index}`} type="button" onClick={() => setSelectedRole(index)} className="shrink-0 rounded-full border px-4 py-2 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]" style={{ color: selectedRole === index ? '#fff' : 'rgba(255,255,255,.45)', borderColor: selectedRole === index ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 55%, transparent)' : 'rgba(255,255,255,.09)', background: selectedRole === index ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 14%, transparent)' : 'transparent' }}>
@@ -486,6 +587,7 @@ function RolesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
             scope={descriptorScope}
             requestedRole={role.role}
             organizationFallback={!roleDescriptorScope && Boolean(descriptorScope)}
+            turmaNome={reports.scope.turmaNome}
             t={t}
           />
         </div>
@@ -506,6 +608,7 @@ function PrioritiesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
   return (
     <div>
       <SectionTitle eyebrow={t('dashboard.priorities.eyebrow')} title={t('dashboard.priorities.title')} subtitle={t('dashboard.priorities.subtitle')} />
+      <CompanyScopeNotice scope={reports.scope} t={t} />
       <div className="grid gap-3 lg:grid-cols-[1.15fr_.85fr]">
         <div className="space-y-3">
           {insight.criticalCompetencies.map((item, index) => (
@@ -672,6 +775,7 @@ export default function RelatoriosRhView({ reports }: { reports: RhReportsCenter
         <ReportReader document={selectedDocument} t={t} onBack={closeDocument} />
       ) : (
         <>
+          <ScopeFilter scope={reports.scope} t={t} />
           <DashboardNavigation active={activeTab} onChange={setActiveTab} t={t} />
           {activeTab === 'overview' && <OverviewTab reports={reports} t={t} />}
           {activeTab === 'roles' && <RolesTab reports={reports} t={t} />}

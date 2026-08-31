@@ -86,15 +86,31 @@ function pct(d: Dist): Dist {
 
 const MIN_POR_CARGO_DNA = 3; // cargos com menos avaliados que isso não viram seção
 
-export async function aggregateDna(sb: SupabaseClient, empresaId: string): Promise<DnaAggregate> {
-  const { data: rawRows, error: assessmentsError } = await sb
+/**
+ * @param colaboradorIds recorte OPCIONAL de população (turma, mig 210). Ausente
+ *        = empresa inteira, como sempre foi. Quando vem, ele entra nas DUAS
+ *        queries: filtrar só as avaliações deixaria o denominador
+ *        (`totalColaboradores`) com a empresa toda, e a participação cairia de
+ *        71% para 32% sem que nada tivesse mudado nos dados.
+ */
+export async function aggregateDna(
+  sb: SupabaseClient,
+  empresaId: string,
+  colaboradorIds?: string[] | null,
+): Promise<DnaAggregate> {
+  const recorte = colaboradorIds ?? null;
+  let assessmentsQuery = sb
     .from('descriptor_assessments')
     .select('colaborador_id, competencia, descritor, nota, nivel, assessment_date')
     .eq('empresa_id', empresaId);
+  if (recorte) assessmentsQuery = assessmentsQuery.in('colaborador_id', recorte);
+  const { data: rawRows, error: assessmentsError } = await assessmentsQuery;
   if (assessmentsError) throw new Error(`DNA: carregar avaliações: ${assessmentsError.message}`);
   // exclui contas internas @vertho.ai das estatísticas (colab interno → fora)
-  const { data: colabs, error: colaboradoresError } = await sb.from('colaboradores')
+  let colabsQuery = sb.from('colaboradores')
     .select('id, email, cargo, role').eq('empresa_id', empresaId);
+  if (recorte) colabsQuery = colabsQuery.in('id', recorte);
+  const { data: colabs, error: colaboradoresError } = await colabsQuery;
   if (colaboradoresError) throw new Error(`DNA: carregar colaboradores: ${colaboradoresError.message}`);
   // A conta de RH administra o programa; não participa do diagnóstico. Se ela
   // entrar no denominador, o DNA diz "3 de 7" enquanto o panorama (corretamente)
