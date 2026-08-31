@@ -20,6 +20,22 @@ const reenviarPendentesT0 = vi.fn();
 const contarEntregasT0 = vi.fn();
 const entregarT0 = vi.fn();
 
+/**
+ * CONARH 52 é bloco OFF-LINE desde 31/08/2026 (`lib/blocos-offline.ts`): a rota
+ * responde 410 antes de qualquer coisa. Ligado de propósito aqui — o que estes
+ * casos provam é a régua de reenvio (teto de tentativas, espaçamento, lead
+ * único ignorando o teto), e essa lógica precisa continuar coberta para o dia
+ * em que a feira seguinte reaproveitar o módulo.
+ *
+ * A cobertura de que a rota está FECHADA é outra, e vive em
+ * `tests/unit/security/blocos-offline-guard.test.ts`.
+ */
+vi.mock('@/lib/blocos-offline', () => ({
+  assertBlocoOnline: () => {},
+  blocoEstaOffline: () => false,
+  BLOCOS_OFFLINE: { conarh: { rotulo: 'CONARH 52', desde: '2026-08-31', evidencia: 'teste' } },
+}));
+
 vi.mock('@/lib/conarh/reenvio-t0', () => ({
   reenviarPendentesT0: (...a: any[]) => reenviarPendentesT0(...a),
   contarEntregasT0: (...a: any[]) => contarEntregasT0(...a),

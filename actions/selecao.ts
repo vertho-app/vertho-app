@@ -12,6 +12,7 @@ import { callAI } from '@/actions/ai-client';
 import { rodarIA2 } from '@/actions/fase1';
 import { gerarRelatorioAdequacao } from '@/actions/adequacao-cargo';
 import { exportarRankingPDFAdmin } from '@/actions/ranking-adequacao';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 function dedupComps(comps: any[]): { id: string; nome: string; descricao: string }[] {
   const seen = new Map<string, any>();
@@ -30,6 +31,7 @@ function extrairJson(raw: string): any {
 
 /** Gera o perfil ideal (gabarito) de uma vaga: seleciona competências da descrição + IA2. */
 export async function gerarPerfilVaga(empresaId: string, nomeVaga: string): Promise<{ success: boolean; competencias?: number; error?: string }> {
+  assertBlocoOnline('selecao');
   try {
     if (!empresaId || !nomeVaga?.trim()) return { success: false, error: 'Empresa e vaga obrigatórios.' };
     const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'gerarPerfilVaga');
@@ -83,6 +85,7 @@ export async function gerarPerfilVaga(empresaId: string, nomeVaga: string): Prom
  *  e gera o Ranking de Adequação. Reusa gerarRelatorioAdequacao (poolCompleto) → snapshot →
  *  exportarRankingPDFAdmin. Retorna a URL do ranking. */
 export async function gerarRankingVaga(empresaId: string, nomeVaga: string, opts: { comAnaliseIA?: boolean } = {}): Promise<{ success: boolean; url?: string; avaliados?: number; error?: string }> {
+  assertBlocoOnline('selecao');
   try {
     if (!empresaId || !nomeVaga?.trim()) return { success: false, error: 'Empresa e vaga obrigatórios.' };
     const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'gerarRankingVaga');

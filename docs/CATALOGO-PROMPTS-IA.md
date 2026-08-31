@@ -1973,6 +1973,13 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 
 ## Pulso de Desenvolvimento
 
+> ⛔ **Bloco OFF-LINE desde 31/08/2026** (`lib/blocos-offline.ts`). Os dois
+> prompts abaixo **não são chamados por ninguém**: os únicos call-sites eram
+> `actions/pulse/classify.ts`, que hoje recusa na entrada. Ficam catalogados
+> porque `lib/pulse/dual-ai.ts` está preservado — mas não entram em conta de
+> custo, não precisam de eval e não devem ser tomados como referência de
+> "prompt em produção" ao escrever um novo.
+
 ### 18.1 Classificador de texto aberto do Pulso
 > `ATIVO` · Prompt documentado como: `literal` · **Ausente até 25/08/2026**
 
@@ -2067,6 +2074,9 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Tarefa**: 2-3 frases por pessoa, estritamente ancoradas nos `DRIVERS` calculados. Respeita tipo/direção da régua (`floor|ceiling|target`) e severidade; não interpreta DISC bruto que não seja driver nem oferece desenvolvimento a requisito eliminatório bloqueado.
 
 ### 20.5 Perfil de vaga por competências
+> ⛔ `OFF-LINE desde 31/08/2026` (`lib/blocos-offline.ts`) — bloco Seleção de
+> pessoas. `gerarPerfilVaga` recusa na entrada; nunca chegou a rodar em
+> produção (0 vagas com perfil ideal fechado).
 > `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
 
 - **Arquivo**: `actions/selecao.ts::gerarPerfilVaga`.
@@ -2120,13 +2130,18 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Inputs próprios**: ICA, escolas/redes, ENEM municipal, FUNDEB e PDDE. Mesmo modelo/teto/cache e mesmo schema de saída.
 
 ### 21.3 Glimpse de escola — Radar Bett 2026
-> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
+> ⛔ `OFF-LINE desde 31/08/2026` (`lib/blocos-offline.ts`) · Prompt documentado como: `resumo_editorial`
+>
+> Os call-sites eram `app/radarbett/escola/[inep]` e `/municipio/[ibge]`, hoje em
+> 404. `lib/radar/ia-narrativa-radarbett.ts` segue no repo, mas ninguém o chama —
+> não confundir com 21.1/21.2, que são do Radar clássico e continuam ATIVOS.
 
 - **Arquivo**: `lib/radar/ia-narrativa-radarbett.ts::getNarrativaRadarbettEscola`.
 - **Modelos**: `claude-sonnet-4-6` → fallback `gpt-5.6-luna`. **Max tokens**: 600; temperatura 0,4; cache.
 - **Output**: um parágrafo institucional de até 380 caracteres, com ano/fonte, comparação justa por INSE/microrregião e foco pedagógico/gestão, sem promoção nem alarmismo.
 
 ### 21.4 Glimpse de município — Radar Bett 2026
+> ⛔ `OFF-LINE desde 31/08/2026` — ver 21.3.
 > `ATIVO` · Prompt documentado como: `reuso` · **Ausente até 25/08/2026**
 
 - **Arquivo**: `lib/radar/ia-narrativa-radarbett.ts::getNarrativaRadarbettMunicipio`; reusa system/modelos de 21.3.
@@ -2212,12 +2227,13 @@ Por categoria (esta tabela é a fonte da contagem):
 | Outros | 5 | cenárioB legado, evolução granular, tutor evidência, regerar sem14, check sem14 com feedback |
 | Módulos-Base | 6 | autor, auditor, refinador, segmentador, metadados DOCX, metadados vídeo |
 | Development Blueprint | 2 | gerador + auditor semântico |
-| Pulso | 2 | classificador + auditor |
+| ⛔ Pulso | 2 | classificador + auditor — **OFF-LINE 31/08/2026**, sem call-site |
 | Modo Cena | 6 | persona, interlocutor, guarda, juiz de beat, extrator, triagem |
-| Diagnósticos/seleção/assistentes | 9 | cargo, brief escola, DNA, adequação, vaga, BETO, comercial ×3 |
-| Radar | 5 | escola/município clássico, escola/município Bett, proposta PDF |
+| Diagnósticos/seleção/assistentes | 9 | cargo, brief escola, DNA, adequação, ⛔vaga, BETO, comercial ×3 |
+| Radar | 5 | escola/município clássico, ⛔escola/município Bett, proposta PDF |
 | Multimodal/mídia | 6 | extração vídeo, transcrição, TTS ×2, imagem ×2 |
 | **TOTAL** | **105** | **70 anteriores + 35 incorporados nesta revisão** |
+| ⛔ *dos quais inativos* | *5* | *Pulso ×2, vaga, Bett ×2 — blocos off-line (31/08/2026). O total acima **não** foi reduzido: eles seguem catalogados, mas não rodam, não custam e não servem de modelo para prompt novo.* |
 
 ## Notas de Integração
 

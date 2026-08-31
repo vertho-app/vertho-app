@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { canUseModulo, MODULOS } from '@/lib/access-gates';
 import { PULSE_TEMPLATE_VERSION, PulseMoment } from '@/lib/pulse/template';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 export interface PulseCiclo {
   id: string;
@@ -45,6 +46,7 @@ async function assertPulsoContratado(empresaId: string): Promise<{ ok: false; er
 }
 
 export async function listarCiclos(empresaId: string): Promise<PulseCicloStatus[]> {
+  assertBlocoOnline('pulso');
   await requireAdminAction();
   const tdb = tenantDb(empresaId);
   const { data: ciclos } = await tdb.from('pulse_ciclos')
@@ -73,6 +75,7 @@ export async function criarCiclo(
   empresaId: string,
   input: { nome: string; descricao?: string | null },
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  assertBlocoOnline('pulso');
   await requireAdminAction('assessments.dispatch');
   const semModulo = await assertPulsoContratado(empresaId);
   if (semModulo) return semModulo;
@@ -90,6 +93,7 @@ export async function editarCiclo(
   cicloId: string,
   input: { nome: string; descricao?: string | null },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  assertBlocoOnline('pulso');
   await requireAdminAction('assessments.dispatch');
   const tdb = tenantDb(empresaId);
   const nome = input.nome?.trim();
@@ -110,6 +114,7 @@ export async function excluirCiclo(
   empresaId: string,
   cicloId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  assertBlocoOnline('pulso');
   await requireAdminAction('assessments.dispatch');
   const tdb = tenantDb(empresaId);
 
@@ -136,6 +141,7 @@ export async function dispararPulso(
   pulseMoment: PulseMoment,
   opts?: { dueDays?: number; cargoFilter?: string },
 ): Promise<{ ok: true; criados: number; pulados: number } | { ok: false; error: string }> {
+  assertBlocoOnline('pulso');
   await requireAdminAction('assessments.dispatch');
   const semModulo = await assertPulsoContratado(empresaId);
   if (semModulo) return semModulo;
@@ -204,6 +210,7 @@ export async function fecharMomento(
   cicloId: string,
   pulseMoment: PulseMoment,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  assertBlocoOnline('pulso');
   await requireAdminAction('assessments.dispatch');
   const tdb = tenantDb(empresaId);
   const { data: ciclo } = await tdb.from('pulse_ciclos')
@@ -225,6 +232,7 @@ export async function fecharMomento(
 }
 
 export async function listarAssignmentsCiclo(empresaId: string, cicloId: string) {
+  assertBlocoOnline('pulso');
   await requireAdminAction();
   const tdb = tenantDb(empresaId);
   const { data } = await tdb.from('pulse_assignments')

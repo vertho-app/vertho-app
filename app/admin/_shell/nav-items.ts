@@ -55,7 +55,10 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'temporadas', labelKey: 'seasons',          subKey: 'seasonsSub',   group: 'operation', icon: CalendarDays, hrefFn: (id) => `/admin/temporadas?empresa=${id}`,  showWhenAll: false },
   { key: 'engajamento', labelKey: 'engagement',      subKey: 'engagementSub', group: 'operation', icon: BarChart2,   hrefFn: (id) => `/admin/engajamento?empresa=${id}`, showWhenAll: false },
   { key: 'envios',     labelKey: 'dispatch',         subKey: 'dispatchSub',  group: 'operation', icon: Send,         hrefFn: (id) => `/admin/whatsapp?empresa=${id}`,    showWhenAll: false },
-  { key: 'pulso',      labelKey: 'pulse',            subKey: 'pulseSub',     group: 'operation', icon: Activity,     hrefFn: (id) => `/admin/empresas/${id}/pulso`,      showWhenAll: false },
+  // ⛔ 'pulso' saiu em 31/08/2026 — bloco OFF-LINE (lib/blocos-offline.ts). Era
+  // a entrada mais exposta da lista: fixa no menu, levava a um módulo cujas 5
+  // tabelas de execução nunca receberam uma linha. Apontar para uma tela que
+  // responde 404 é pior do que não apontar.
 
   // ── Configuração (tenant) ─────────────────────────────────────────────────
   { key: 'competencias', labelKey: 'competencies',   subKey: 'baseByRole',    group: 'setup', icon: BookMarked, hrefFn: (id) => id ? `/admin/competencias?empresa=${id}` : '/admin/competencias' },
@@ -100,7 +103,11 @@ export const NAV_ITEMS: NavItem[] = [
 
   // ── Comercial (admin-wide, interno Vertho) ────────────────────────────────
   { key: 'canal-comercial', labelKey: 'salesChannel',  subKey: 'salesChannelSub',       group: 'commercial', icon: Briefcase,  hrefFn: () => '/admin/comercial',               showWhenEmpresa: false, permission: 'sales_channel.view' },
-  { key: 'radar-empresas', labelKey: 'companyRadar',    subKey: 'b2bIntelligence',       group: 'commercial', icon: Target,     hrefFn: () => '/admin/vertho/radarempresas',    showWhenEmpresa: false, permission: 'radar_empresas.access' },
+  // ⛔ 'radar-empresas' saiu em 31/08/2026 — bloco OFF-LINE (lib/blocos-offline.ts).
+  // A ingestão parou em 16/05 e o recurso de listas nunca foi usado. O acervo
+  // (92 mil empresas) continua no banco; o que saiu é a interface de consulta.
+  // `mercado-potencial`, logo abaixo, NÃO faz parte do bloco: apesar de vizinho
+  // aqui, ele lê as views do Radar de escolas, não as tabelas radarempresas_*.
   // potencial-cidades virou tab "unificado" do mercado-potencial (Fase 3)
   { key: 'mercado',        labelKey: 'potentialMarket', subKey: 'citiesNetworksSchools', group: 'commercial', icon: TrendingUp, hrefFn: () => '/admin/vertho/mercado-potencial', showWhenEmpresa: false, permission: 'radar_empresas.access' },
 

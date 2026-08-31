@@ -1,5 +1,10 @@
 # CONARH 52 — Pacote offline de conteúdo (`app/conarh/_data/conteudo.json`)
 
+> ⛔ **OFF-LINE desde 31/08/2026 — documento HISTÓRICO.** O bloco `/conarh` saiu
+> do ar depois da feira (18–20/08). Ver `docs/CONARH52-SPRINT-CONSOLIDADO.md` e
+> `lib/blocos-offline.ts`. **Não atualizar mais** — a instrução abaixo de manter
+> a proveniência em dia deixou de valer quando o módulo foi desligado.
+
 Nota de proveniência: o que veio de onde. Atualizar quando o caso ou os assets mudarem.
 
 ## As três réguas da feira (05/08/2026)

@@ -88,7 +88,9 @@ const PHASE_CONFIG = [
       { key: 'gerenciar',      label: 'Colaboradores & Cargos', icon: Users,        href: '/admin/empresas/gerenciar' },
       { key: 'competencias',   label: 'Competências',            icon: BookOpen,     href: '/admin/competencias' },
       { key: 'ppp',            label: 'Extrair PPPs',            icon: FileText,     href: '/admin/ppp' },
-      { key: 'selecao', label: 'Seleção — Vagas', icon: Briefcase, hrefFn: (id: string) => `/admin/empresas/${id}/selecao` },
+      // ⛔ 'selecao' saiu em 31/08/2026 — bloco OFF-LINE (lib/blocos-offline.ts).
+      // O fluxo tem 3 passos e nunca passou do primeiro: 2 vagas criadas, 0
+      // perfis ideais fechados, 0 candidatos avaliados.
       { key: 'preferencias',   label: 'Preferências',            icon: GraduationCap,hrefFn: (id: string) => `/admin/preferencias-aprendizagem?empresa=${id}` },
       { key: 'knowledge-base', label: 'Knowledge Base (RAG)',    icon: Database,     hrefFn: (id: string) => `/admin/vertho/knowledge-base?empresa=${id}` },
     ]},

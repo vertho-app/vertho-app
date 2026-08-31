@@ -3,6 +3,29 @@ import { safeSecretEqual } from '@/lib/secure-compare';
 import { contarEntregasT0, reenviarPendentesT0 } from '@/lib/conarh/reenvio-t0';
 import { entregarT0 } from '@/lib/conarh/entrega-t0';
 import { ENTREGA_T0 } from '@/lib/status';
+import { BLOCOS_OFFLINE, blocoEstaOffline } from '@/lib/blocos-offline';
+
+/**
+ * ⛔ CONARH 52 — bloco OFF-LINE desde 31/08/2026 (lib/blocos-offline.ts).
+ *
+ * Estas rotas são autenticadas por CHAVE, não por sessão: o tablet do estande e
+ * o painel do sócio chamavam com a key na query ou no header. Fechar apenas as
+ * telas deixaria a chave valendo — e ela circulou pela equipe durante a feira.
+ *
+ * 410 Gone, não 404: o recurso existiu e foi retirado de propósito. E o gate usa
+ * `blocoEstaOffline()` (que devolve `boolean`) em vez de um `return` seco no
+ * topo — com `strict: false`, um return incondicional torna o resto do handler
+ * inalcançável e o TypeScript PERDE o narrowing das uniões discriminadas abaixo,
+ * enchendo o typecheck de erros no código preservado.
+ */
+function respostaOffline() {
+  const reg = BLOCOS_OFFLINE.conarh;
+  return NextResponse.json(
+    { error: `CONARH 52 está off-line desde ${reg.desde}.`, motivo: reg.evidencia },
+    { status: 410 },
+  );
+}
+
 
 /**
  * CONARH 52 — disparo MANUAL da fila do T+0 (o recorte que não chegou).
@@ -47,6 +70,7 @@ function verificarChave(req: Request): NextResponse | null {
 }
 
 export async function POST(req: Request) {
+  if (blocoEstaOffline('conarh')) return respostaOffline();
   const bloqueio = verificarChave(req);
   if (bloqueio) return bloqueio;
 

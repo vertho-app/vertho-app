@@ -8,6 +8,7 @@ import { getUserContext } from '@/lib/authz';
 import { DIMENSIONS, type DimensionKey, type PulseMoment } from '@/lib/pulse/template';
 import { PULSE_MIN_N, classifyScore, type GuardedAggregate } from '@/lib/pulse/anonymity';
 import { isInternalEmail } from '@/lib/internal-emails';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 export type GroupType = 'company' | 'area' | 'cargo';
 
@@ -54,6 +55,7 @@ export async function loadPulseDashboard(
   groupType: GroupType = 'company',
   groupKey: string = 'all',
 ): Promise<{ ok: true; data: PulseDashboardData } | { ok: false; error: string } | { ok: 'masked'; n: number; threshold: number }> {
+  assertBlocoOnline('pulso');
   const ctx = await requireUserAction();
   const canSee = ctx.isPlatformAdmin || ctx.role === 'rh' || ctx.role === 'gestor';
   if (!canSee) return { ok: false, error: 'Sem permissão' };
@@ -217,6 +219,7 @@ export async function loadPulseDashboard(
  * Aciona o refresh da MV de agregados. Admin only.
  */
 export async function refreshPulseAggregates(): Promise<{ ok: boolean; error?: string }> {
+  assertBlocoOnline('pulso');
   const sb = await requireAdminSupabase('ai.audit.regenerate');
   const { error } = await sb.rpc('refresh_pulse_aggregates');
   if (error) return { ok: false, error: error.message };

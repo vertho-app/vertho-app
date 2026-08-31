@@ -9,6 +9,7 @@ import { estaAtrasada } from '@/lib/season-engine/atraso';
 import { semanaLiberadaEm, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
+import { blocoEstaOffline } from '@/lib/blocos-offline';
 
 /**
  * Loaders da home do dashboard — queries PURAS, sem 'use server' e sem auth
@@ -564,6 +565,16 @@ export async function carregarUltimosVideos(colabId: string, limit: number = 3) 
 // ── Pulsos pendentes ───────────────────────────────────────────────────────
 
 export async function carregarPulsosPendentes(colabId: string) {
+  // ⛔ Pulso é bloco OFF-LINE desde 31/08/2026 (lib/blocos-offline.ts).
+  //
+  // Corta ANTES da query, e não é economia de banco: este é exatamente o
+  // caminho que produziu o card fantasma de 14/05 — 40 diretores de Macaé com
+  // um "Pulso T0" pendente por 3 meses, vindo de um ciclo rascunho, porque o
+  // filtro deixa `due_date` NULL passar e a home renderiza sem outra condição.
+  // Com as telas em 404, um card que sobrasse aqui levaria a pessoa a uma
+  // porta fechada — pior do que não mostrar nada.
+  if (blocoEstaOffline('pulso')) return [];
+
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('pulse_assignments')
     .select('id, pulse_moment, status, due_date, ciclo_id')

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { RegistrarSW } from './_components/registrar-sw';
+import { notFound } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'CONARH 52 — Vertho',
@@ -17,16 +17,23 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-// Layout intencionalmente mínimo: cada sub-rota (/conarh, /fila, /painel,
-// /prancheta) monta a própria moldura — a demo conduzida, as telas da
-// equipe e a página de impressão têm necessidades opostas.
-export default function ConarhLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      {/* O SW é o que faz a demo abrir em MODO AVIÃO no iPad — sem ele, o
-          conteúdo é local mas a PÁGINA ainda precisa da rede para carregar. */}
-      <RegistrarSW />
-      {children}
-    </>
-  );
+/**
+ * ⛔ 31/08/2026 — bloco OFF-LINE (`lib/blocos-offline.ts`).
+ *
+ * O CONARH 52 é sazonal e terminou em 17/08. O layout era mínimo de propósito
+ * (cada sub-rota montava a própria moldura), e é justamente por ser o ponto que
+ * as 5 rotas atravessam que ele serve agora de interruptor único.
+ *
+ * ⚠️ Um 404 aqui NÃO desinstala o service worker já registrado. `conarh-sw.js`
+ * (escopo `/conarh`) foi instalado nos iPads do estande para a demo abrir em
+ * modo avião, e um SW com handler de `fetch` responde do cache antes de a rede
+ * ser consultada — o tablet que ainda o tiver continua abrindo a demo antiga
+ * até alguém limpar os dados do site. Isso é aceitável porque os aparelhos
+ * saíram de circulação com a feira; se algum voltar a ser usado, limpar o site
+ * nas configurações do Safari resolve.
+ *
+ * O `RegistrarSW` sai daqui para não instalar o worker em ninguém novo.
+ */
+export default function ConarhLayout() {
+  notFound();
 }

@@ -2,6 +2,7 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 /**
  * Funnel dedicado pra os eventos bett_*. Separado do funnel do radar
@@ -46,6 +47,7 @@ export type BettFunnelData = {
 };
 
 export async function loadFunnelBett(dias: number = 30): Promise<BettFunnelData> {
+  assertBlocoOnline('radarbett');
   await requireAdminAction();
   const sb = await requireAdminSupabase();
 

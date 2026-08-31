@@ -25,6 +25,23 @@ function makeClient() {
 }
 const client = makeClient();
 
+/**
+ * O Pulso é bloco OFF-LINE desde 31/08/2026 (`lib/blocos-offline.ts`), e
+ * `assertBlocoOnline` LANÇA no início de cada action — antes de qualquer gate
+ * de tenant ser exercitado.
+ *
+ * 🔴 Este mock devolve o bloco LIGADO de propósito. Sem ele, os 6 casos abaixo
+ * passariam a morrer no gate errado: continuariam vermelhos ou (pior) verdes
+ * por um motivo que não é o que testam, e a cobertura do vazamento cross-tenant
+ * sumiria calada no dia em que alguém religasse o módulo. O que se prova aqui é
+ * condicional e continua valendo: SE o Pulso voltar, o isolamento está de pé.
+ */
+vi.mock('@/lib/blocos-offline', () => ({
+  assertBlocoOnline: () => {},
+  blocoEstaOffline: () => false,
+  BLOCOS_OFFLINE: {},
+}));
+
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => client }));
 vi.mock('@/lib/tenant-db', () => ({ tenantDb: () => client }));
 vi.mock('@/lib/auth/action-context', () => ({

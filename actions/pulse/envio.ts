@@ -9,6 +9,7 @@ import { EMAIL_FROM_DEFAULT, tenantUrl } from '@/lib/domain';
 import { assertFilaDoProvedorLimpa, whatsappHealth } from '@/lib/whatsapp';
 import { publicarWhatsappCis } from '@/lib/qstash-publish';
 import { criarRelogioCadencia, duracaoEstimada, maxPorDisparo } from '@/lib/whatsapp/cadencia';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 const RESEND_MIN_INTERVAL_MS = 250;
 
@@ -82,6 +83,7 @@ export async function enviarConvitesPulso(
     apenas_status?: 'pending' | 'started';
   },
 ): Promise<{ ok: true; stats: EnvioStats } | { ok: false; error: string }> {
+  assertBlocoOnline('pulso');
   // Gate TENANT-SCOPED (auditoria 23/07): disparo real de WhatsApp/email — o
   // empresaId vem do client e precisa bater com o tenant da sessão.
   const sb = await requireEmpresaSupabase(empresaId, 'assessments.dispatch', 'enviarConvitesPulso');
@@ -362,6 +364,7 @@ export async function statusEnviosCiclo(
   cicloId: string,
   pulseMoment: 'T0' | 'T2',
 ): Promise<{ total: number; enviados_wa: number; enviados_email: number; completos: number; pending: number }> {
+  assertBlocoOnline('pulso');
   const sb = await requireAdminSupabase();
 
   const [{ data: assignments }, { data: logs }] = await Promise.all([

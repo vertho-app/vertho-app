@@ -12,10 +12,12 @@
 import { requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { extrairCargo, type ExtratorInput } from '@/lib/cargo-extracao/extrator';
 import { achatarExtracao, prepararRevisao, type ExtracaoCargo, type AchatarOpts } from '@/lib/cargo-extracao/adapter';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 /** VAGAS da empresa (nome + eh_lideranca) — a tela de extração cria SÓ vagas (eh_vaga=true),
  *  então o badge "atualiza existente" compara só entre vagas, nunca com cargos operacionais. */
 export async function listarCargosDaEmpresa(empresaId: string): Promise<{ cargos: { nome: string; eh_lideranca: boolean }[] }> {
+  assertBlocoOnline('selecao');
   try {
     const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'listarCargosDaEmpresa');
     const { data } = await sb.from('cargos_empresa').select('nome, eh_lideranca').eq('empresa_id', empresaId).eq('eh_vaga', true);
@@ -26,6 +28,7 @@ export async function listarCargosDaEmpresa(empresaId: string): Promise<{ cargos
 
 /** VAGAS abertas da empresa (Módulo de Seleção) — com status de descrição/gabarito. */
 export async function listarVagas(empresaId: string): Promise<{ vagas: { id: string; nome: string; area: string | null; temDescricao: boolean; temGabarito: boolean; ehLideranca: boolean; criadaEm: string | null }[]; erro?: string }> {
+  assertBlocoOnline('selecao');
   try {
     const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'listarVagas');
     const { data } = await sb.from('cargos_empresa')
@@ -46,6 +49,7 @@ export async function extrairDescricaoCargo(
   empresaId: string,
   input: ExtratorInput,
 ): Promise<{ success: boolean; extracao?: ExtracaoCargo; error?: string }> {
+  assertBlocoOnline('selecao');
   try {
     await requireEmpresaSupabase(empresaId, 'admin.access', 'extrairDescricaoCargo');
     const extracao = await extrairCargo(input);
@@ -66,6 +70,7 @@ export async function salvarRevisaoCargo(
   opts: AchatarOpts = {},
   ehLideranca?: boolean,
 ): Promise<{ success: boolean; criado?: boolean; gravados?: string[]; diagnostico?: any; error?: string }> {
+  assertBlocoOnline('selecao');
   try {
     if (!empresaId || !nome?.trim()) return { success: false, error: 'Empresa e nome da vaga são obrigatórios.' };
     const nomeCargo = nome.trim();

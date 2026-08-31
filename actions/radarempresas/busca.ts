@@ -3,6 +3,7 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { getSegmento } from '@/lib/radarempresas/segmentos';
 import { CLASSIFICACAO_LABEL, type Classificacao } from '@/lib/radarempresas/score';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 export interface FunilEtapa {
   etapa: string;
@@ -20,6 +21,7 @@ export interface FunilEtapa {
  * commercial_actionability, score_total.
  */
 export async function loadFunilMercado(): Promise<FunilEtapa[]> {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase();
   const T = 'radarempresas_scores';
   const cnt = async (f: (q: any) => any) => {
@@ -72,6 +74,7 @@ export async function loadModoBR(): Promise<{
   cidades: CidadeAgg[];
   funil: FunilEtapa[];
 }> {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase();
   const { data, error } = await sb.from('radarempresas_cidades_agg')
     .select('municipio_ibge, municipio_nome, uf, total_ativos, n_priorizados, n_abordar, n_boa, score_medio, seg_top, n_redes, xlsx_path')
@@ -96,6 +99,7 @@ export async function loadModoBR(): Promise<{
 
 /** URL assinada (10 min) do XLSX de priorizados de um município. */
 export async function getCidadeXlsxUrl(xlsxPath: string): Promise<string | null> {
+  assertBlocoOnline('radarempresas');
   if (!xlsxPath) return null;
   const sb = await requireAdminSupabase();
   const { data } = await sb.storage.from('radarempresas-priorizados')
@@ -110,6 +114,7 @@ export interface RadarRede {
 }
 
 export async function loadRedes(): Promise<RadarRede[]> {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase();
   const { data } = await sb.from('radarempresas_redes')
     .select('marca_norm, nome_exibicao, tipo, n_unidades, n_donos, segmento_nome, score_medio, classificacao, municipios, confianca_rede')
@@ -118,6 +123,7 @@ export async function loadRedes(): Promise<RadarRede[]> {
 }
 
 export async function listarUnidadesRede(marcaNorm: string) {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase();
   const { data: scs } = await sb.from('radarempresas_scores')
     .select('cnpj_completo, score_total, classificacao, radarempresas_estabelecimentos!inner(nome_fantasia, municipio_nome, uf, cnpj_basico)')
@@ -143,6 +149,7 @@ export interface RadarKpis {
 }
 
 export async function loadRadarKpis(): Promise<RadarKpis> {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase();
 
   const [{ count: totEmp }, { count: totEst }, { count: comScore }] = await Promise.all([
@@ -254,6 +261,7 @@ export interface RadarEmpresaRow {
 export async function listarEmpresas(
   f: RadarFiltros = {},
 ): Promise<{ rows: RadarEmpresaRow[]; total: number }> {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase();
   const page = f.page ?? 0;
   const pageSize = Math.min(f.pageSize ?? 50, 200);
@@ -323,6 +331,7 @@ export async function listarEmpresas(
 }
 
 export async function getFichaEmpresa(cnpjCompleto: string) {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase();
 
   const { data: est } = await sb.from('radarempresas_estabelecimentos')

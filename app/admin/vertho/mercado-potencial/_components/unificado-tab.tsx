@@ -153,10 +153,9 @@ export default function UnificadoTab({ onOpenMercado }: { onOpenMercado: () => v
       {rows.length > 1000 && <p className="text-[10px] text-gray-600 mt-2">{t('showingLimit', { total: fmt(rows.length, locale) })}</p>}
 
       <div className="flex gap-2 mt-5">
-        <button onClick={() => router.push('/admin/vertho/radarempresas')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-cyan-400/20 text-xs text-cyan-300 hover:bg-cyan-400/[0.06]">
-          <Target size={13} /> {t('actions.openCompanyRadar')}
-        </button>
+        {/* ⛔ 31/08/2026: o botão "abrir Radar de empresas" saiu — bloco
+            OFF-LINE (lib/blocos-offline.ts). Esta tela (Mercado potencial)
+            continua no ar: ela lê as views do Radar de ESCOLAS. */}
         {/* Cross-link antigo p/ /admin/vertho/mercado-potencial: agora vira troca de tab no workspace */}
         <button onClick={onOpenMercado}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-violet-400/20 text-xs text-violet-300 hover:bg-violet-400/[0.06]">

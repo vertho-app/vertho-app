@@ -6,6 +6,7 @@ import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppDesa
 import { resolverDesafiosDaSemana } from '@/lib/season-engine/kit/entrega-semana';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 import { processarEmpresaDiario } from '@/lib/fase4/trigger-diario-empresa';
 import { publicarQStashTask, publicarWhatsappCis } from '@/lib/qstash-publish';
 import { criarRelogioCadencia, maxPorDisparo } from '@/lib/whatsapp/cadencia';
@@ -454,6 +455,10 @@ export async function triggerDiario() {
 
 export async function conarhFollowup() {
   await requireAdminOrCronAction();
+  // Bloco off-line (31/08/2026): a feira terminou em 17/08 e a régua seguia
+  // armada. O gate vem DEPOIS da autenticação de propósito — quem chama sem
+  // credencial continua vendo o erro de auth, não a existência do bloco.
+  assertBlocoOnline('conarh');
   const { executarReguaConarh } = await import('@/lib/conarh/regua');
   return executarReguaConarh();
 }
@@ -468,6 +473,9 @@ export async function conarhFollowup() {
 
 export async function conarhReenvioT0() {
   await requireAdminOrCronAction();
+  // Bloco off-line (31/08/2026) — ver conarhFollowup acima. Este era o mais
+  // caro dos dois: rodava a cada 15 min, das 11h às 23h.
+  assertBlocoOnline('conarh');
   const { reenviarPendentesT0 } = await import('@/lib/conarh/reenvio-t0');
   return reenviarPendentesT0();
 }

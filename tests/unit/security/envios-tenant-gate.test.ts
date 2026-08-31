@@ -44,6 +44,23 @@ function makeClientSemModulo() {
 const client = makeClient();
 let clientAtual: any = client;
 
+/**
+ * Pulso é bloco OFF-LINE desde 31/08/2026 (`lib/blocos-offline.ts`) e
+ * `assertBlocoOnline` lança na entrada de `enviarConvitesPulso`, antes do gate
+ * de tenant. Ligado de propósito neste arquivo: o caso "RH NÃO dispara Pulse
+ * com cicloId de outro tenant" é sobre DISPARO EXTERNO real (WhatsApp/e-mail) e
+ * precisa continuar provado — desligar um módulo não pode ser o jeito acidental
+ * de apagar a prova de que ele não vazava.
+ *
+ * As outras actions cobertas aqui não pertencem a bloco off-line e seguem
+ * exercitando o código real.
+ */
+vi.mock('@/lib/blocos-offline', () => ({
+  assertBlocoOnline: () => {},
+  blocoEstaOffline: () => false,
+  BLOCOS_OFFLINE: {},
+}));
+
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => clientAtual }));
 vi.mock('@/lib/tenant-db', () => ({ tenantDb: () => clientAtual }));
 vi.mock('@/lib/auth/action-context', () => ({

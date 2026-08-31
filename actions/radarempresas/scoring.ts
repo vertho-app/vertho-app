@@ -3,6 +3,7 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { calcularScore, classificarHelper, SCORING_VERSION, type ScoreInput } from '@/lib/radarempresas/score';
 import { calcularPriorityRank } from '@/lib/radarempresas/priority-rank';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 const TETO_VAL: Record<string, number> = { boa: 79, nutrir: 59, baixa: 39 };
 
@@ -55,6 +56,7 @@ function nomeBloqueado(razao: string | null | undefined): boolean {
 export async function rodarScores(
   opts?: { scoringVersion?: string },
 ): Promise<{ ok: true; processados: number; sem_segmento: number; erros: number; job_id: string } | { ok: false; error: string }> {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase('ai.audit.regenerate');
   const version = opts?.scoringVersion || SCORING_VERSION;
 

@@ -7,6 +7,7 @@ import {
   SIGNAL_DIMENSIONS, SIGNAL_LABELS, type SignalKey, type SignalScore,
 } from '@/lib/pulse/signal-scoring';
 import { PULSE_MIN_N } from '@/lib/pulse/anonymity';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 interface ColabSnapshot {
   colaborador_id: string;
@@ -33,6 +34,7 @@ export async function loadPulseSignals(
   | { ok: false; error: string }
   | { ok: 'masked'; n: number; threshold: number }
 > {
+  assertBlocoOnline('pulso');
   const ctx = await requireUserAction();
   const canSee = ctx.isPlatformAdmin || ctx.role === 'rh' || ctx.role === 'gestor';
   if (!canSee) return { ok: false, error: 'Sem permissão' };

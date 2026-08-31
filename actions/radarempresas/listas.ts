@@ -5,6 +5,7 @@ import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { getSegmento, RADAR_DISCLAIMER } from '@/lib/radarempresas/segmentos';
 import { CLASSIFICACAO_LABEL, type Classificacao } from '@/lib/radarempresas/score';
 import type { RadarFiltros } from './busca';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 async function audit(sb: any, action: string, meta: any) {
   const email = (await getAuthenticatedEmailFromAction()) || 'admin';
@@ -16,6 +17,7 @@ async function audit(sb: any, action: string, meta: any) {
 }
 
 export async function listarListas() {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase();
   const { data } = await sb.from('radarempresas_listas')
     .select('*').order('created_at', { ascending: false });
@@ -31,6 +33,7 @@ export async function listarListas() {
 }
 
 export async function criarLista(input: { nome: string; descricao?: string; filtros?: RadarFiltros }) {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase('radar_empresas.access');
   if (!input.nome?.trim()) return { ok: false as const, error: 'Nome obrigatório' };
   const email = await audit(sb, 'criar_lista', { nome: input.nome });
@@ -44,6 +47,7 @@ export async function criarLista(input: { nome: string; descricao?: string; filt
 
 /** Adiciona estabelecimentos a uma lista (idempotente via UK). */
 export async function adicionarItens(listaId: string, estabelecimentoIds: string[]) {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase('radar_empresas.access');
   if (!estabelecimentoIds.length) return { ok: false as const, error: 'Nenhum item' };
   const rows = estabelecimentoIds.map(id => ({
@@ -57,6 +61,7 @@ export async function adicionarItens(listaId: string, estabelecimentoIds: string
 }
 
 export async function atualizarStatusItem(itemId: string, status: string) {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase('radar_empresas.access');
   const { error } = await sb.from('radarempresas_lista_itens')
     .update({ status, updated_at: new Date().toISOString() }).eq('id', itemId);
@@ -155,6 +160,7 @@ async function auditExport(sb: any, kind: string, src: any, n: number) {
 export async function exportarCSV(
   src: { listaId?: string; filtros?: RadarFiltros },
 ): Promise<{ ok: true; csv: string; n: number } | { ok: false; error: string }> {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase('radar_empresas.access');
   const r = await montarExport(sb, src);
   if (r.ok === false) return r;
@@ -171,6 +177,7 @@ export async function exportarCSV(
 export async function exportarXLSX(
   src: { listaId?: string; filtros?: RadarFiltros },
 ): Promise<{ ok: true; base64: string; n: number } | { ok: false; error: string }> {
+  assertBlocoOnline('radarempresas');
   const sb = await requireAdminSupabase('radar_empresas.access');
   const r = await montarExport(sb, src);
   if (r.ok === false) return r;

@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
-import { checarAcessoPlataforma } from '@/lib/authz-plataforma';
+import { notFound } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: {
@@ -38,15 +37,16 @@ export const dynamic = 'force-dynamic';
  * HOST. Elas consomem as mesmas actions do Radar, que ficaram internas em
  * 10/08/2026; sem este gate, a superfície pública continuaria de pé pela porta
  * dos fundos e as telas quebrariam na primeira busca.
+ *
+ * ⛔ 31/08/2026 — bloco OFF-LINE (`lib/blocos-offline.ts`). O gate deixou de ser
+ * por permissão e passou a ser incondicional: nenhuma das 7 rotas era
+ * referenciada por link em lugar nenhum do código, então mesmo o acesso interno
+ * que sobrava era só URL guardada. Um layout fecha as 7 de uma vez — é a porta
+ * que todas atravessam.
+ *
+ * `checarAcessoPlataforma` sai de cena junto: manter a chamada daria a impressão
+ * de que existe um perfil que ainda entra, e não existe.
  */
-export default async function RadarBettLayout({ children }: { children: React.ReactNode }) {
-  const acesso = await checarAcessoPlataforma();
-  if (acesso.reason === 'unauthenticated') redirect('/login?redirect=/radarbett');
-  if (!acesso.authorized) notFound();
-
-  return (
-    <div className="radarbett-shell">
-      {children}
-    </div>
-  );
+export default async function RadarBettLayout() {
+  notFound();
 }

@@ -24,8 +24,34 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > | Fluxo de dados pessoais (insumo p/ LGPD) | `docs/FLUXO-DE-DADOS-PESSOAIS.md` |
 > | Board (painel multi-modelo, interno) | `docs/BOARD-PAINEL.md` — a web enfileira, o **worker local** executa os 4 CLIs por assinatura |
 > | Histórico (não é backlog) | `docs/HISTORICO-MIGRACAO.md` · `docs/HISTORICO-AUDITORIAS.md` |
+> | ⛔ Blocos OFF-LINE — o que **não** manter | `lib/blocos-offline.ts` (o registro É o código) |
+> | O que roda e o que não (medido 31/08) | `docs/ARQUITETURA.md` §27 — inclui o que segue LIGADO sem uso |
 >
 > Este arquivo é o resumo operacional; `docs/LEVANTAMENTO-2026-07.md` guarda a auditoria geral de 17/07.
+
+### ⛔ Cinco blocos estão OFF-LINE (31/08/2026) — não manter, não estender
+
+**Pulso · Seleção de pessoas · Radar Empresas · RadarBett · CONARH 52.** Saíram
+do ar depois de um levantamento que mediu, bloco a bloco, quanto dado cada um
+produziu em produção. A lista, a data e a **evidência de cada um** vivem em
+**`lib/blocos-offline.ts`** — de propósito no código, e não aqui: o registro é
+consultado em runtime pelas telas e pelas actions, então ele não pode envelhecer
+em silêncio como uma tabela de doc envelheceria. Religar é remover a entrada de lá.
+
+Ao trabalhar nesta base, isso muda três coisas:
+
+- **Não conte esses blocos como capacidade do produto** em resposta, proposta ou
+  doc. As seções deles em `docs/` seguem no repositório com o carimbo ⛔ no topo:
+  descrevem o desenho, não o que está no ar.
+- **Não "conserte" o que parece quebrado neles.** Tela em 404 e action que recusa
+  são o comportamento correto. `tests/unit/security/blocos-offline-guard.test.ts`
+  falha se alguém reabrir uma porta sem tirar o bloco do registro.
+- **O dado ficou.** Nenhuma tabela foi apagada — inclusive as 92 mil empresas do
+  Radar. Desligar interface é reversível; re-ingerir não é.
+
+🔑 O que **não** entrou: o **Portal do Representante** (`sales_*`) está parado
+desde 10/07, não morto — 8.114 linhas com dado real de 6 representantes. Parado
+é uma pergunta de produto ("vai voltar?"), off-line é uma decisão já tomada.
 
 ### 📁 Onde criar `.md` — **`docs/` é o único lugar**
 

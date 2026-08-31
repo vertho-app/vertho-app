@@ -15,6 +15,7 @@ import {
   sanitizeContextualAnswer,
 } from '@/lib/pulse/contextual-disc';
 import { carregarPulsosPendentes } from '@/lib/home/loaders';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 interface StoredResponse {
   numeric_answer: number | null;
@@ -47,6 +48,7 @@ export interface AssignmentDetail {
 export async function loadAssignment(assignmentId: string): Promise<
   { ok: true; data: AssignmentDetail } | { ok: false; error: string }
 > {
+  assertBlocoOnline('pulso');
   const ctx = await requireUserAction();
   const sb = createSupabaseAdmin();
 
@@ -131,6 +133,7 @@ export async function saveResponse(
   questionId: string,
   value: { numeric?: number | null; text?: string | null; json?: unknown },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  assertBlocoOnline('pulso');
   const ctx = await requireUserAction();
   const sb = createSupabaseAdmin();
 
@@ -200,6 +203,7 @@ export async function saveResponse(
 export async function finishAssignment(
   assignmentId: string,
 ): Promise<{ ok: true } | { ok: false; error: string; faltam?: string[] }> {
+  assertBlocoOnline('pulso');
   const ctx = await requireUserAction();
   const sb = createSupabaseAdmin();
 
@@ -252,6 +256,7 @@ export async function finishAssignment(
  * call-to-action no dashboard).
  */
 export async function loadMeusPulsosPendentes() {
+  assertBlocoOnline('pulso');
   const ctx = await requireUserAction();
   if (!ctx.colaborador?.id) return [];
   return carregarPulsosPendentes(ctx.colaborador.id);

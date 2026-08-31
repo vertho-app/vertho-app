@@ -45,6 +45,17 @@ export const ACOES_SO_MANUAIS = [
   'trigger_quinta',
   // Recálculo pontual de taxa: roda quando alguém muda a régua, não por relógio.
   'recalcular_taxa',
+  // ── CONARH 52: bloco OFF-LINE desde 31/08/2026 (lib/blocos-offline.ts) ────
+  // Estas duas estavam AGENDADAS contra uma feira que terminou em 17/08: a
+  // régua de follow-up rodava diariamente e o reenvio de T+0 a cada 15 min,
+  // das 11h às 23h — 48 execuções por dia disparando cadência de WhatsApp para
+  // os leads de um evento encerrado. Saíram do `vercel.json` na mesma edição.
+  //
+  // Os cases continuam no switch porque o código do bloco foi preservado, mas
+  // `assertBlocoOnline('conarh')` recusa os dois: estão aqui por não terem
+  // agendamento, não por serem uma porta manual de verdade.
+  'conarh-followup',
+  'conarh_reenvio_t0',
 ] as const;
 export async function GET(req) {
   // Autenticação: Vercel envia Authorization: Bearer <CRON_SECRET>

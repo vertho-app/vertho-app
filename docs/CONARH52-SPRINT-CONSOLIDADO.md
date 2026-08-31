@@ -1,5 +1,26 @@
 # CONARH 52 — Sprint do App (consolidado)
 
+> ⛔ **OFF-LINE desde 31/08/2026 — documento HISTÓRICO.** A feira aconteceu em
+> 18–20/08 e o módulo saiu do ar. Não usar como referência do que o produto faz
+> hoje. Registro e chave de religamento: `lib/blocos-offline.ts`.
+>
+> **O que estava aberto quando desligamos:** os dois crons da régua seguiam
+> **agendados** contra o evento encerrado — `conarh-followup` diariamente e
+> `conarh_reenvio_t0` a cada 15 min das 11h às 23h, 48 execuções por dia
+> disparando cadência de WhatsApp para 7 leads de uma feira que já tinha
+> terminado. Saíram do `vercel.json`; as 4 rotas de API respondem 410 e as 5
+> telas, 404.
+>
+> ⚠️ **O service worker não se desinstala com 404.** `conarh-sw.js` (escopo
+> `/conarh`) ficou instalado nos iPads do estande para a demo abrir em modo
+> avião, e SW com handler de `fetch` responde do cache antes da rede. Um tablet
+> que ainda o tenha continua abrindo a demo antiga até alguém limpar os dados do
+> site no Safari. Aceitável porque os aparelhos saíram de circulação — mas se um
+> voltar a ser usado, é isso que explica o comportamento.
+>
+> O conteúdo abaixo fica preservado: a régua de classificação de lead e o
+> encadeamento das 5 portas são o que se reaproveita na próxima feira.
+
 Plano de engenharia e operação da rota `/conarh`. Consolida a **Proposta Resumida de Operação** e o **Sprint do App** (ambos de 29/07/2026), reconciliado com o estado real do produto.
 
 - **Janela:** 29/07 → 17/08/2026 · feira 18–20/08

@@ -216,8 +216,9 @@ export default function AdminDashboardPage() {
                     title={t('quickActions.newCompany.title')} desc={t('quickActions.newCompany.desc')} />
                   <QuickAction onClick={() => router.push('/admin/vertho/mercado-potencial')} icon={<TrendingUp size={16} />} accent="#f97354"
                     title={t('quickActions.market.title')} desc={t('quickActions.market.desc')} />
-                  <QuickAction onClick={() => router.push('/admin/vertho/radarempresas')} icon={<Target size={16} />} accent="#34c5cc"
-                    title={t('quickActions.companyRadar.title')} desc={t('quickActions.companyRadar.desc')} />
+                  {/* ⛔ Radar Empresas saiu em 31/08/2026 — bloco OFF-LINE
+                      (lib/blocos-offline.ts). O atalho apontava para uma tela
+                      que agora responde 404. */}
                   <QuickAction onClick={() => router.push('/admin/vertho/mercado-potencial?tab=unificado')} icon={<Globe size={16} />} accent="#9e7bff"
                     title={t('quickActions.cityPotential.title')} desc={t('quickActions.cityPotential.desc')} />
                   <QuickAction onClick={() => router.push('/admin/radar')} icon={<BarChart2 size={16} />} accent="#9e4edd"

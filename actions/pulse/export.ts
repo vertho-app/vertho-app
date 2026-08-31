@@ -7,6 +7,7 @@ import { obterTemasCiclo } from './classify';
 import { triangulate } from '@/lib/pulse/triangulation';
 import { SIGNAL_LABELS } from '@/lib/pulse/signal-scoring';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 export type PulseReportKind = 'pulso_executivo' | 'pulso_complementar_nr1';
 
@@ -34,6 +35,7 @@ export async function exportarRelatorioPulso(
   kind: PulseReportKind,
   opts?: { group_type?: GroupType; group_key?: string },
 ): Promise<{ ok: true; relatorio_id: string } | { ok: false; error: string }> {
+  assertBlocoOnline('pulso');
   const sb = await requireAdminSupabase('ai.audit.regenerate');
   const actorEmail = (await getAuthenticatedEmailFromAction()) || 'desconhecido';
 

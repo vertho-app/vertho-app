@@ -956,6 +956,32 @@ Tabelas: empresas, colaboradores, platform_admins
 ```
 
 ### Fluxo B: Assessment Conversacional
+
+> 🔴 **ESTE FLUXO NÃO RODA — e não é "pouco usado", é inalcançável por
+> construção** (medido 31/08/2026, não desligado: continua ligado e continua
+> sem funcionar).
+>
+> `sessoes_avaliacao` tem **0 linhas**, **9 leitores e ZERO escritores**: não
+> existe um único `insert` nem `rpc` de criação dessa tabela em todo o
+> repositório — só `select` e `update`. `/api/chat` sabe inserir em
+> `mensagens_chat`, mas todo insert precisa de um `sessao_id` que ninguém cria,
+> então `mensagens_chat` também está em **0**. O passo 1 abaixo não existe.
+>
+> Isso explica a nota de `prompt_versions` (§ acima, "rota com 0 sessões") e
+> alcança mais coisa do que parece: `/dashboard/assessment/chat`,
+> `/dashboard/evolucao` (que lê `evolucao` e `evolucao_descritores`, ambas em 0),
+> `actions/cenario-b.ts`, `actions/evolucao-granular.ts`, o cron de sessões
+> abandonadas em `cron-jobs.ts` e os componentes `ManagerView.tsx` / `RHView.tsx`
+> — estes dois já sem nenhum importador.
+>
+> ⚠️ **Não confundir com `/dashboard/assessment`, que está VIVO.** A raiz do
+> assessment é outro caminho: grava em `respostas` (393 linhas, escrita hoje) via
+> `assessment-actions.ts` e `/api/assessment`, e é o destino do template de
+> WhatsApp da pílula. O que está morto é o subdiretório `/chat`.
+>
+> Fica documentado em vez de removido porque a decisão sobre ele ainda não foi
+> tomada — mas **nada aqui deve ser citado como capacidade atual do produto**.
+
 ```
 1. Colaborador clica em competencia em /dashboard/assessment
 2. POST /api/chat: sessao → historico → Claude → [META] → state machine
@@ -1534,6 +1560,24 @@ inexistente. **Com fechamento**: idêntico ao piloto (Cenário B + arguição + 
 
 ## 18. Módulo Pulso de Desenvolvimento
 
+> ⛔ **OFF-LINE desde 31/08/2026.** Não manter, não estender, não citar como
+> capacidade do produto. Registro e chave de religamento: `lib/blocos-offline.ts`.
+>
+> **Medido:** as 5 tabelas de execução (`pulse_assignments`, `pulse_responses`,
+> `pulse_classifications`, `pulse_triangulations`, `pulse_audit_logs`) com **0
+> linhas**. O único ciclo criado — "Ibipeba Ciclo1", 01/06/2026 — ficou em
+> `draft` e nunca teve `t0_aberto_em`. O módulo saiu do menu do admin, as telas
+> respondem 404 e as 19 actions recusam na entrada.
+>
+> ⚠️ O gate de contratação (`lib/access-gates/modulos.ts`) continua valendo e é
+> outra coisa: ele responde "esta empresa comprou?", e nenhuma comprou
+> (`sys_config.modulos` não está definido em nenhum dos 12 tenants). O
+> desligamento é global e independe disso.
+>
+> A descrição abaixo fica preservada porque explica o desenho — e porque o
+> raciocínio do instrumento (T0/T2, anonimato por N mínimo, triangulação) é o
+> que se reaproveita se ele voltar.
+
 > Instrumento leve para entender se o ambiente favorece ou bloqueia o desenvolvimento das pessoas. **Não é** pesquisa de clima tradicional nem conformidade NR-1. **Não promete** diagnóstico psicossocial, laudo, risco individual, burnout ou saúde mental. Conexão com NR-1 é benefício colateral via relatório complementar opcional.
 
 ### 18.1 Conceito
@@ -1725,6 +1769,22 @@ Em `production`:
 ---
 
 ## 19. RadarEmpresas — Inteligência Comercial B2B (interno)
+
+> ⛔ **OFF-LINE desde 31/08/2026.** Não manter nem estender. Registro e chave de
+> religamento: `lib/blocos-offline.ts`.
+>
+> **Medido:** última ingestão em **16/05/2026** — nada em 90 dias. O recurso de
+> listas nunca foi usado (`radarempresas_listas`, `_lista_itens` e `_insights`
+> com 0 linhas). Saiu do menu; as 4 telas respondem 404 e as 15 actions recusam.
+>
+> ⚠️ **O DADO NÃO FOI TOCADO** e não deve ser: 91.934 empresas, 93.710
+> estabelecimentos e scores, 360.889 redes. Desligar a interface é reversível;
+> re-ingerir a Receita Federal inteira não é. O que envelhece é o acervo (RAIS e
+> CAGED de maio), não o schema.
+>
+> 🔑 Não confundir com `/admin/vertho/mercado-potencial`, que **continua no ar**:
+> apesar de vizinho no menu e de nome parecido, ele lê as views de mercado do
+> Radar de ESCOLAS (`diag_mv_mercado_*`), não as tabelas `radarempresas_*`.
 
 > Módulo **Vertho-interno** (não multi-tenant, não exposto a clientes). Mapeia empresas brasileiras a partir de dados públicos e ranqueia oportunidades comerciais por um Score de Oportunidade próprio. Guard `requireAdminSupabase()`. Migrations 099-111.
 
@@ -2010,6 +2070,70 @@ o título anunciando "Total 282". Hoje `resumo.encerradas === 0` troca tudo por 
 Sempre **"mapeamento de competências"**, nunca "avaliação" — exceto a **avaliação final/de
 fechamento** (semana 14, Cenário B), que é outro evento e mantém o nome. "Liderado" é palavra de
 gestor; para o RH são **colaboradores**. 64 strings trocadas nos 4 locales em 25/08.
+
+## 27. Levantamento de uso — o que roda e o que não (31/08/2026)
+
+Medição em produção de **152 telas** e **128 tabelas**, em dois eixos: quanto dado
+cada bloco produziu, e quem no código ainda aponta para ele. Um terceiro eixo,
+tráfego, **não foi medido** — o Web Analytics não está habilitado no projeto
+Vercel (404 na API). Então o que está provado aqui é mais estreito e mais
+confiável do que "ninguém acessa": **nada é escrito** nessas tabelas e **nada
+aponta** para essas rotas.
+
+Esta seção existe porque a alternativa é redescobrir o mesmo em seis meses. Ela
+é um retrato datado, não uma regra — reconferir antes de agir sobre ela.
+
+### 27.1 Desligados (bloco off-line)
+
+**Pulso · Seleção · Radar Empresas · RadarBett · CONARH 52.** Registro, evidência
+e chave de religamento em **`lib/blocos-offline.ts`**; guard em
+`tests/unit/security/blocos-offline-guard.test.ts`. Ver §18 e §19 acima.
+
+### 27.2 Ligados, mas sem uso — decisão pendente
+
+Estes **não** foram desligados. Ficam aqui para não serem citados como
+capacidade nem "consertados" por engano.
+
+| Bloco | O que a medição achou | Alcance |
+|---|---|---|
+| **Assessment por chat + Evolução** | `sessoes_avaliacao` com **9 leitores e 0 escritores** — inalcançável por construção (§Fluxo B) | ~2.400 linhas em 8 arquivos |
+| **Reavaliação (Fase 5)** | `reavaliacao_sessoes` = 0; depende da mesma cadeia | `actions/fase5/`, ~2.250 linhas |
+| **Copiloto** | `copilot_conversations` e `copilot_plans` = 0 | `/copiloto`, `lib/copiloto/`, 2 rotas de API |
+| **Checkpoints do gestor** | `checkpoints_gestor` = 0 | `dashboard/gestor/actions.ts` e `equipe-evolucao/` |
+| **Praticar / capacitação** | `capacitacao` = 0 (a tela em si é mista: `temporada_semana_progresso` e `trilhas` estão vivas) | 5 consumidores |
+| **Portal do Representante** | `sales_*` **parado**, não morto: dado real de 6 representantes, última escrita 10/07/2026 | ~8.100 linhas, ~60 arquivos |
+
+🔴 **`envios_diagnostico` = 0 merece investigação, não conclusão.** Tem **6
+consumidores em caminho vivo** (`actions/fase2.ts`, `whatsapp-lote.ts`,
+`app/admin/whatsapp/actions.ts`, o webhook `whatsapp-cis`). Ou o registro migrou
+para `fase4_envios` (75 linhas, ativa) e isto é resíduo, ou existe um caminho de
+escrita quebrado. É o único caso da lista em que "zero" pode significar bug.
+
+### 27.3 Tabelas sem tela e sem código
+
+Zero linhas **e** zero consumidores no repositório — sobras da migração do GAS e
+do Moodle, e de recursos que não saíram do papel:
+
+`academia` · `moodle_catalogo` · `trilhas_catalogo` · `catalogo_enriquecido` ·
+`cobertura_conteudo` · `cis_referencia` · `cis_ia_referencia` ·
+`regua_maturidade` · `radarempresas_municipios`
+
+São as únicas que um `DROP` alcançaria sem tocar em TypeScript. **Não dropar sem
+decisão do dono** (zona 🔴 do `CLAUDE.md`: DDL).
+
+### 27.4 Código órfão
+
+7 componentes sem nenhum importador — o maior é
+`components/pdf/RelatorioComportamental.tsx` (**681 linhas**); seguem
+`phase-transition` (288), `empty-state` (157), `RHView` (117) e `ManagerView`
+(109), ambos da cadeia morta do chat, `RelatorioTemplate` (48) e `version-badge`
+(28).
+
+E 5 rotas de API sem chamador no código, **das quais 2 são falso-positivo por
+construção**: `/api/webhooks/zapi/disconnected` é chamada de fora pela Z-API, e
+`/api/sales/materials/[id]/download` pode ser alcançada por `href` montado em
+runtime. As outras três: `/api/cenarios`, `/api/internal/pregerar-podcast` e
+`/api/copiloto/clientes/[accountId]/conversas`.
 
 ---
 

@@ -10,6 +10,7 @@ import {
 import { findTheme, THEMES } from '@/lib/pulse/themes-taxonomy';
 import { PULSE_MIN_N } from '@/lib/pulse/anonymity';
 import { getModelForTask } from '@/lib/ai-tasks';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 /**
  * Processa em lote as respostas abertas do ciclo que ainda não foram
@@ -23,6 +24,7 @@ export async function classificarRespostasAbertas(
   cicloId: string,
   opts?: { maxRespostas?: number; pulando?: boolean },
 ): Promise<{ ok: true; processadas: number; erros: number; ja_classificadas: number } | { ok: false; error: string }> {
+  assertBlocoOnline('pulso');
   const sb = await requireAdminSupabase('ai.audit.regenerate');
   const cap = opts?.maxRespostas || 50;
 
@@ -126,6 +128,7 @@ export async function obterTemasCiclo(
   | { ok: false; error: string }
   | { ok: 'masked'; n: number; threshold: number }
 > {
+  assertBlocoOnline('pulso');
   const ctx = await requireUserAction();
   const canSee = ctx.isPlatformAdmin || ctx.role === 'rh' || ctx.role === 'gestor';
   if (!canSee) return { ok: false, error: 'Sem permissão' };
