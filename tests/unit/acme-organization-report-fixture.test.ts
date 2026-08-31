@@ -33,6 +33,7 @@ describe('relatórios organizacionais demonstrativos da ACME', () => {
     expect(dna.avaliados).toBe(25);
     expect(dna.competencias).toHaveLength(ACME_DEMO_ORGANIZATION_COMPETENCIES.length);
     expect(dna.totalAvaliacoes).toBe(25 * 5 * 3);
+    expect(dna.porCargo).toBeUndefined();
   });
 
   it('gera narrativa completa sem depender de IA durante a apresentação', () => {

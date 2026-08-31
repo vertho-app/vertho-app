@@ -1,5 +1,5 @@
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
-import { computeDna, type DnaAggregate, type NBucket } from '@/lib/dna-organizacional/aggregate';
+import { computeDna, type DnaAggregate, type DnaPorCargo, type NBucket } from '@/lib/dna-organizacional/aggregate';
 import type { DnaNarrative } from '@/lib/dna-organizacional/narrative';
 import {
   COMP_LABEL,
@@ -144,6 +144,7 @@ function bucketDaFaixa(value: number): { bucket: NBucket; nota: number; nivel: s
 export function criarDnaOrganizacionalAcmeDemo(
   people: DemoOrganizationPerson[],
   mappedPersonIds: Set<string>,
+  options: { includeRoles?: boolean } = {},
 ): DnaAggregate {
   const mapped = people.filter((person) => mappedPersonIds.has(person.id));
   const assessments: any[] = [];
@@ -151,6 +152,7 @@ export function criarDnaOrganizacionalAcmeDemo(
   const referenceBucket = new Map<string, NBucket>();
 
   for (const person of mapped) {
+    const role = String(person.cargo || '').trim() || '(sem cargo)';
     for (const competence of COMPETENCIAS_ORGANIZACIONAIS) {
       let reachedReference = false;
       let topBucket: NBucket = 'n3';
@@ -162,12 +164,12 @@ export function criarDnaOrganizacionalAcmeDemo(
           descritor: descriptor,
           nota: band.nota,
           nivel: band.nivel,
+          cargo: role,
         });
         if (band.bucket === 'n3' || band.bucket === 'n4') reachedReference = true;
         if (band.bucket === 'n4') topBucket = 'n4';
       }
       if (reachedReference) {
-        const role = String(person.cargo || '').trim() || '(sem cargo)';
         const key = `${role}|||${competence.nome}`;
         const ids = referencePeople.get(key) || new Set<string>();
         ids.add(person.id);
@@ -178,6 +180,33 @@ export function criarDnaOrganizacionalAcmeDemo(
   }
 
   const dna = computeDna(assessments, people.length);
+  let porCargo: DnaPorCargo[] | undefined;
+  if (options.includeRoles) {
+    const totalPeopleByRole = new Map<string, number>();
+    for (const person of people) {
+      const role = String(person.cargo || '').trim() || '(sem cargo)';
+      totalPeopleByRole.set(role, (totalPeopleByRole.get(role) || 0) + 1);
+    }
+    const assessmentsByRole = new Map<string, any[]>();
+    for (const assessment of assessments) {
+      const group = assessmentsByRole.get(assessment.cargo) || [];
+      group.push(assessment);
+      assessmentsByRole.set(assessment.cargo, group);
+    }
+    porCargo = [...assessmentsByRole.entries()]
+      .map(([cargo, rows]) => ({
+        cargo,
+        avaliados: new Set(rows.map((row) => row.colaborador_id)).size,
+        rows,
+      }))
+      .filter((group) => group.avaliados >= 3)
+      .sort((a, b) => b.avaliados - a.avaliados || a.cargo.localeCompare(b.cargo, 'pt-BR'))
+      .map((group) => ({
+        cargo: group.cargo,
+        avaliados: group.avaliados,
+        dna: computeDna(group.rows, totalPeopleByRole.get(group.cargo) || group.avaliados),
+      }));
+  }
   const referencias = [...referencePeople.entries()]
     .map(([key, ids]) => {
       const [cargo, competencia] = key.split('|||');
@@ -191,7 +220,7 @@ export function criarDnaOrganizacionalAcmeDemo(
     .sort((a, b) => b.pessoas - a.pessoas || a.cargo.localeCompare(b.cargo, 'pt-BR'))
     .slice(0, 8);
 
-  return { ...dna, referencias };
+  return { ...dna, ...(porCargo ? { porCargo } : {}), referencias };
 }
 
 export function criarNarrativaDnaAcmeDemo(dna: DnaAggregate): DnaNarrative {

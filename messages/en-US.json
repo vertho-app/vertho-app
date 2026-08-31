@@ -288,18 +288,45 @@
         "strength": "Organizational strength",
         "risk": "Risk to monitor"
       },
-      "levels": { "title": "Competency maturity", "ofFour": "of 4 levels", "evaluated": "People assessed", "assessments": "Assessments" },
+      "levels": { "title": "Average competency level", "ofFour": "of 4 levels", "evaluated": "People assessed", "assessments": "Assessments" },
       "comparison": { "title": "What changed" },
       "profile": { "title": "Collective profile" },
       "roles": {
         "eyebrow": "Reading by role",
         "title": "Different contexts need different actions",
-        "subtitle": "Select a role to compare maturity, strengths, risks, and the suggested focus for the next cycle.",
-        "average": "Average maturity",
+        "subtitle": "Select a role to compare its average competency level, strengths, risks, and suggested focus for the next cycle.",
+        "average": "Average competency level",
+        "averageDescription": "Average of the competencies assessed for people in this role.",
         "focus": "Recommended focus",
         "reading": "Role reading",
         "strengths": "Strengths",
-        "risks": "Attention points"
+        "risks": "Attention points",
+        "descriptors": {
+          "eyebrow": "Descriptor analysis",
+          "title": "How the level is formed",
+          "subtitle": "Open a competency to see which behaviors support the result and where the main gaps sit.",
+          "roleScope": "{count, plural, one {# person in this role} other {# people in this role}}",
+          "organizationScope": "{count, plural, one {# person in the organization} other {# people in the organization}}",
+          "organizationNotice": "{role} does not yet have the minimum of three assessed people for an anonymous breakdown. This matrix therefore shows the organization-wide distribution.",
+          "competency": "Competency",
+          "competencyAverage": "average level {value}",
+          "levelAverage": "Average level",
+          "rowAverage": "average {value}",
+          "priority": "Priority",
+          "descriptor": "Descriptor",
+          "levels": {
+            "n1": "N1 · Gap",
+            "n2": "N2 · Developing",
+            "n3": "N3 · Target",
+            "n4": "N4 · Reference"
+          },
+          "strength": "Strength",
+          "strengthValue": "{percentage}% in N3/N4",
+          "opportunity": "Opportunity",
+          "opportunityValue": "{percentage}% in N1",
+          "emptyTitle": "Descriptor analysis is not available yet",
+          "emptyDescription": "The matrix will appear when there are enough descriptor assessments to form a collective reading."
+        }
       },
       "priorities": {
         "eyebrow": "Development agenda",

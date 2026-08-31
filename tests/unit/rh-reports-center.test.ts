@@ -18,6 +18,13 @@ const sb = criarSupabaseMock({
       { id: 'gestor-1', nome_completo: 'Carla Gestora', cargo: 'Gerente Comercial' },
       { id: 'pessoa-1', nome_completo: 'Bruna Pessoa', cargo: 'Representante Comercial' },
     ];
+    if (table === 'descriptor_assessments') return [
+      {
+        colaborador_id: 'pessoa-1', competencia: 'Comunicação para Decisão',
+        descritor: 'Confirma entendimento e próximo passo', nota: 3.2,
+        nivel: 'proficiente', assessment_date: '2026-08-27T10:00:00Z',
+      },
+    ];
     return [];
   },
 });
@@ -58,12 +65,17 @@ describe('central de relatórios do RH', () => {
     expect(result.dashboard.panorama).toMatchObject({
       pessoas: 30, comPerfil: 28, comMapeamento: 25, emJornada: 20,
     });
+    expect(result.dashboard.descriptorAnalysis?.organization.competencies[0]).toMatchObject({
+      competency: 'Comunicação para Decisão',
+      average: 3.2,
+    });
   });
 
   it('consulta relatórios e colaboradores sempre com o filtro automático do tenant', async () => {
     await carregarCentralRelatoriosRH(EMPRESA_ID);
     expect(sb.usou('relatorios', 'eq', 'empresa_id')).toBe(true);
     expect(sb.usou('colaboradores', 'eq', 'empresa_id')).toBe(true);
+    expect(sb.usou('descriptor_assessments', 'eq', 'empresa_id')).toBe(true);
   });
 
   it('a rota deriva o tenant da sessão RH, sem aceitar empresa do browser', () => {

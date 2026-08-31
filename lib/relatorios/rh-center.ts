@@ -2,7 +2,16 @@ import 'server-only';
 
 import { tenantDb } from '@/lib/tenant-db';
 import { carregarPanoramaRH, carregarRelatoriosGerenciais } from '@/lib/home/loaders';
-import { normalizeRhReportInsight, type RhReportInsight } from './dashboard-insights';
+import { aggregateDna, type DnaAggregate } from '@/lib/dna-organizacional/aggregate';
+import { criarDnaOrganizacionalAcmeDemo } from '@/lib/demo/acme-organization-report-fixture';
+import { DEMO_PRESENTATION_TENANT_SLUG } from '@/lib/demo/presentation';
+import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
+import {
+  normalizeRhDescriptorAnalysis,
+  normalizeRhReportInsight,
+  type RhDescriptorAnalysis,
+  type RhReportInsight,
+} from './dashboard-insights';
 
 export type RhReportKind =
   | 'rh'
@@ -37,6 +46,7 @@ export type RhReportsCenter = {
       indisponivel: boolean;
     };
     insight: RhReportInsight | null;
+    descriptorAnalysis: RhDescriptorAnalysis | null;
     generatedAt: string | null;
     insightUnavailable: boolean;
   };
@@ -53,6 +63,36 @@ const PDF_TYPES = [
   'pulso_complementar_nr1',
 ] as const;
 
+async function carregarDnaDoDashboard(
+  empresaId: string,
+  slug: string | null,
+): Promise<DnaAggregate> {
+  const tdb = tenantDb(empresaId);
+  if (slug !== DEMO_PRESENTATION_TENANT_SLUG) {
+    return aggregateDna(tdb.raw, empresaId);
+  }
+
+  // O PDF demonstrativo da ACME usa um retrato organizacional sintético e
+  // determinístico. Recriamos o mesmo agregado para o dashboard, mas a coorte
+  // de 25 pessoas continua vindo das tabelas e da régua real de conclusão.
+  const [peopleResult, assessmentsResult, rolesResult] = await Promise.all([
+    tdb.from('colaboradores').select('*').neq('role', 'rh'),
+    tdb.from('descriptor_assessments').select('colaborador_id,competencia'),
+    tdb.from('cargos_empresa').select('nome,top5_workshop'),
+  ]);
+  if (peopleResult.error) throw new Error(`descritores RH: pessoas: ${peopleResult.error.message}`);
+  if (assessmentsResult.error) throw new Error(`descritores RH: mapeamentos: ${assessmentsResult.error.message}`);
+  if (rolesResult.error) throw new Error(`descritores RH: cargos: ${rolesResult.error.message}`);
+
+  const people = peopleResult.data || [];
+  const mappedPersonIds = colaboradoresComMapeamentoCompleto(
+    people,
+    rolesResult.data || [],
+    assessmentsResult.data || [],
+  );
+  return criarDnaOrganizacionalAcmeDemo(people, mappedPersonIds, { includeRoles: true });
+}
+
 /**
  * Central de leitura do RH. O tenant vem exclusivamente da sessão e todas as
  * tabelas de negócio passam por `tenantDb`; nenhum identificador de empresa é
@@ -61,14 +101,18 @@ const PDF_TYPES = [
  */
 export async function carregarCentralRelatoriosRH(empresaId: string): Promise<RhReportsCenter> {
   const tdb = tenantDb(empresaId);
-  const [gerenciais, panorama, reportsResult, companyResult, insightResult] = await Promise.all([
+  const companyResult = await tdb.raw.from('empresas').select('nome,slug').eq('id', empresaId).maybeSingle();
+  if (companyResult.error) {
+    throw new Error(`Falha ao carregar empresa do RH: ${companyResult.error.message}`);
+  }
+
+  const [gerenciais, panorama, reportsResult, insightResult, descriptorResult] = await Promise.all([
     carregarRelatoriosGerenciais(empresaId),
     carregarPanoramaRH(empresaId),
     tdb.from('relatorios')
       .select('id,colaborador_id,tipo,gerado_em')
       .in('tipo', [...PDF_TYPES])
       .order('gerado_em', { ascending: false }),
-    tdb.raw.from('empresas').select('nome').eq('id', empresaId).maybeSingle(),
     // Só o consolidado mais recente alimenta o dashboard. Não trazemos o
     // `conteudo` dos 30+ PDIs: além de desnecessário, isso faria a página pagar
     // pelo peso de todos os documentos para desenhar quatro gráficos.
@@ -78,18 +122,26 @@ export async function carregarCentralRelatoriosRH(empresaId: string): Promise<Rh
       .order('gerado_em', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    carregarDnaDoDashboard(empresaId, companyResult.data?.slug || null)
+      .then((dna) => ({ data: normalizeRhDescriptorAnalysis(dna), error: null }))
+      .catch((error: unknown) => ({
+        data: null,
+        error: error instanceof Error ? error : new Error(String(error)),
+      })),
   ]);
 
   if (reportsResult.error) {
     throw new Error(`Falha ao carregar relatórios do RH: ${reportsResult.error.message}`);
   }
-  if (companyResult.error) {
-    throw new Error(`Falha ao carregar empresa do RH: ${companyResult.error.message}`);
-  }
   if (insightResult.error) {
     // Os números vivos e os PDFs continuam úteis. O estado de indisponibilidade
     // vai para a UI, em vez de transformar erro de leitura em relatório vazio.
     console.error('[central-rh] leitura analítica indisponível:', insightResult.error.message);
+  }
+  if (descriptorResult.error) {
+    // O detalhamento é complementar: um erro nele não pode derrubar o pulso,
+    // a narrativa nem o acesso aos documentos do RH.
+    console.error('[central-rh] leitura por descritor indisponível:', descriptorResult.error.message);
   }
 
   const rows = reportsResult.data || [];
@@ -144,6 +196,7 @@ export async function carregarCentralRelatoriosRH(empresaId: string): Promise<Rh
     dashboard: {
       panorama,
       insight: insightResult.error ? null : normalizeRhReportInsight(insightResult.data?.conteudo),
+      descriptorAnalysis: descriptorResult.data,
       generatedAt: insightResult.data?.gerado_em || null,
       insightUnavailable: Boolean(insightResult.error),
     },

@@ -10,6 +10,7 @@ import {
 import { PageContainer, PageHero } from '@/components/page-shell';
 import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
 import type { RhReportDocument, RhReportKind, RhReportsCenter } from '@/lib/relatorios/rh-center';
+import type { RhDescriptorScope } from '@/lib/relatorios/dashboard-insights';
 
 type DashboardTab = 'overview' | 'roles' | 'priorities' | 'documents';
 type DocumentSection = 'organization' | 'managers' | 'people';
@@ -252,11 +253,181 @@ function OverviewTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
   );
 }
 
+function DescriptorAnalysis({
+  scope,
+  requestedRole,
+  organizationFallback,
+  t,
+}: {
+  scope: RhDescriptorScope | null;
+  requestedRole: string;
+  organizationFallback: boolean;
+  t: any;
+}) {
+  const [selectedName, setSelectedName] = useState(scope?.competencies[0]?.competency || '');
+  const competency = scope?.competencies.find((item) => item.competency === selectedName)
+    || scope?.competencies[0];
+
+  if (!scope || !competency) {
+    return (
+      <Panel className="border-dashed p-5 md:p-6">
+        <BarChart3 size={22} className="text-white/20" />
+        <h3 className="mt-3 text-xl text-white" style={serifStyle}>{t('dashboard.roles.descriptors.emptyTitle')}</h3>
+        <p className="mt-1 max-w-2xl text-sm leading-relaxed text-white/40">{t('dashboard.roles.descriptors.emptyDescription')}</p>
+      </Panel>
+    );
+  }
+
+  return (
+    <section aria-labelledby="descriptor-analysis-title">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#67e8f9)]">{t('dashboard.roles.descriptors.eyebrow')}</p>
+          <h3 id="descriptor-analysis-title" className="mt-1 text-[26px] leading-none text-white" style={serifStyle}>{t('dashboard.roles.descriptors.title')}</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/45">{t('dashboard.roles.descriptors.subtitle')}</p>
+        </div>
+        <div className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-2 font-mono text-[9px] uppercase tracking-[0.1em] text-white/40">
+          {organizationFallback
+            ? t('dashboard.roles.descriptors.organizationScope', { count: scope.evaluated })
+            : t('dashboard.roles.descriptors.roleScope', { count: scope.evaluated })}
+        </div>
+      </div>
+
+      {organizationFallback && (
+        <div className="mb-3 flex gap-3 rounded-2xl border border-amber-300/15 bg-amber-300/[0.055] px-4 py-3 text-xs leading-relaxed text-amber-100/65">
+          <ShieldAlert size={15} className="mt-0.5 shrink-0 text-amber-300" />
+          <span>{t('dashboard.roles.descriptors.organizationNotice', { role: requestedRole })}</span>
+        </div>
+      )}
+
+      <div className="mb-3 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
+        {scope.competencies.map((item) => {
+          const selected = item.competency === competency.competency;
+          return (
+            <button
+              key={item.competency}
+              type="button"
+              onClick={() => setSelectedName(item.competency)}
+              aria-pressed={selected}
+              className="shrink-0 rounded-2xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]"
+              style={{
+                borderColor: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 48%, transparent)' : 'rgba(255,255,255,.08)',
+                background: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 12%, rgba(8,26,46,.94))' : 'rgba(8,26,46,.72)',
+              }}
+            >
+              <span className={`block max-w-[220px] truncate text-[11px] font-bold ${selected ? 'text-white' : 'text-white/50'}`}>{item.competency}</span>
+              <span className="mt-1 block font-mono text-[9px] text-white/30">{t('dashboard.roles.descriptors.competencyAverage', { value: item.average.toFixed(2) })}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <Panel className="overflow-hidden">
+        <header className="relative overflow-hidden border-b border-white/[0.08] px-5 py-5 md:px-6">
+          <div className="pointer-events-none absolute -right-12 -top-20 h-48 w-48 rounded-full bg-[var(--brand-400,#22d3ee)]/[0.1] blur-3xl" />
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--brand-300,#67e8f9)]">{t('dashboard.roles.descriptors.competency')}</p>
+                {competency.priority && <span className="rounded-full bg-rose-400/10 px-2 py-1 text-[8px] font-bold uppercase tracking-[0.12em] text-rose-300">{t('dashboard.roles.descriptors.priority')}</span>}
+              </div>
+              <h4 className="mt-1 max-w-3xl text-[24px] leading-tight text-white" style={serifStyle}>{competency.competency}</h4>
+            </div>
+            <div className="flex items-baseline gap-2 sm:text-right">
+              <span className="text-xs text-white/35">{t('dashboard.roles.descriptors.levelAverage')}</span>
+              <strong className="text-[31px] font-normal leading-none text-white tabular-nums" style={serifStyle}>{competency.average.toFixed(2)}</strong>
+              <span className="text-[10px] text-white/30">/ 4</span>
+            </div>
+          </div>
+          <div className="relative mt-4 flex h-2 overflow-hidden rounded-full bg-white/[0.05]">
+            {competency.levels.map(({ level, percentage }, index) => (
+              <div key={level} title={`N${level}: ${percentage}%`} style={{ width: `${percentage}%`, background: LEVEL_COLORS[index] }} />
+            ))}
+          </div>
+          <div className="relative mt-2 grid grid-cols-4 gap-2">
+            {competency.levels.map(({ level, percentage }, index) => (
+              <p key={level} className="font-mono text-[9px]" style={{ color: LEVEL_COLORS[index] }}>N{level} <strong>{percentage}%</strong></p>
+            ))}
+          </div>
+        </header>
+
+        <div className="space-y-2 p-4 md:hidden">
+          {competency.descriptors.map((descriptor) => (
+            <div key={descriptor.descriptor} className="rounded-2xl border border-white/[0.07] bg-black/10 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-semibold leading-snug text-white/75">{descriptor.descriptor}</p>
+                <span className="shrink-0 rounded-lg bg-white/[0.05] px-2 py-1 font-mono text-[9px] text-white/40">{descriptor.average.toFixed(2)}</span>
+              </div>
+              <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-white/[0.05]">
+                {descriptor.levels.map(({ level, percentage }, index) => (
+                  <div key={level} style={{ width: `${percentage}%`, background: LEVEL_COLORS[index] }} />
+                ))}
+              </div>
+              <div className="mt-2 grid grid-cols-4 gap-1">
+                {descriptor.levels.map(({ level, percentage }, index) => (
+                  <p key={level} className="font-mono text-[9px]" style={{ color: LEVEL_COLORS[index] }}>N{level} {percentage}%</p>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[760px] border-collapse text-left">
+            <thead className="bg-black/15">
+              <tr className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/40">
+                <th className="w-[48%] px-6 py-3">{t('dashboard.roles.descriptors.descriptor')}</th>
+                {[1, 2, 3, 4].map((level, index) => (
+                  <th key={level} className="px-3 py-3 text-center" style={{ color: LEVEL_COLORS[index] }}>{t(`dashboard.roles.descriptors.levels.n${level}`)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {competency.descriptors.map((descriptor) => (
+                <tr key={descriptor.descriptor} className="border-t border-white/[0.07]">
+                  <th scope="row" className="px-6 py-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-sm font-medium leading-snug text-white/72">{descriptor.descriptor}</span>
+                      <span className="shrink-0 font-mono text-[9px] text-white/28">{t('dashboard.roles.descriptors.rowAverage', { value: descriptor.average.toFixed(2) })}</span>
+                    </div>
+                  </th>
+                  {descriptor.levels.map(({ level, percentage }, index) => (
+                    <td key={level} className="border-l border-white/[0.05] px-3 py-4 text-center font-mono text-sm font-bold tabular-nums" style={{ color: LEVEL_COLORS[index], background: `${LEVEL_COLORS[index]}0D` }}>{percentage}%</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {(competency.strength || competency.opportunity) && (
+          <footer className="grid gap-2 border-t border-white/[0.08] bg-black/10 p-4 sm:grid-cols-2 md:px-6">
+            {competency.strength && (
+              <div className="rounded-xl border border-emerald-400/12 bg-emerald-400/[0.045] px-3 py-2.5 text-xs leading-relaxed text-emerald-100/70">
+                <strong className="text-emerald-300">{t('dashboard.roles.descriptors.strength')}:</strong> {competency.strength.descriptor} — {t('dashboard.roles.descriptors.strengthValue', { percentage: competency.strength.percentage })}
+              </div>
+            )}
+            {competency.opportunity && (
+              <div className="rounded-xl border border-rose-400/12 bg-rose-400/[0.045] px-3 py-2.5 text-xs leading-relaxed text-rose-100/70">
+                <strong className="text-rose-300">{t('dashboard.roles.descriptors.opportunity')}:</strong> {competency.opportunity.descriptor} — {t('dashboard.roles.descriptors.opportunityValue', { percentage: competency.opportunity.percentage })}
+              </div>
+            )}
+          </footer>
+        )}
+      </Panel>
+    </section>
+  );
+}
+
 function RolesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
   const insight = reports.dashboard.insight;
   const [selectedRole, setSelectedRole] = useState(0);
   const role = insight?.roles[selectedRole];
   const focus = insight?.roleFocus.find((item) => normalize(item.role) === normalize(role?.role));
+  const roleDescriptorScope = reports.dashboard.descriptorAnalysis?.roles.find(
+    (item) => normalize(item.role) === normalize(role?.role),
+  );
+  const descriptorScope = roleDescriptorScope || reports.dashboard.descriptorAnalysis?.organization || null;
   if (!insight || insight.roles.length === 0) return <ExecutiveReading reports={reports} t={t} />;
 
   return (
@@ -271,10 +442,12 @@ function RolesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
       </div>
 
       {role && (
-        <div className="grid gap-3 lg:grid-cols-[.75fr_1.25fr]">
-          <Panel className="p-5 md:p-6">
+        <div className="space-y-7">
+          <div className="grid gap-3 lg:grid-cols-[.75fr_1.25fr]">
+            <Panel className="p-5 md:p-6">
             <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/35">{t('dashboard.roles.average')}</p>
             <div className="mt-3 flex items-end gap-2"><span className="text-[54px] leading-none text-white" style={serifStyle}>{role.average?.toFixed(1) ?? '—'}</span><span className="pb-1 text-xs text-white/35">/ 4</span></div>
+            <p className="mt-3 text-[10px] leading-relaxed text-white/32">{t('dashboard.roles.averageDescription')}</p>
             <div className="mt-4 grid grid-cols-4 gap-1">
               {[1, 2, 3, 4].map((level) => (
                 <div key={level} className="h-2 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full" style={{ width: role.average && role.average >= level ? '100%' : role.average && role.average > level - 1 ? `${(role.average - (level - 1)) * 100}%` : '0%', background: LEVEL_COLORS[level - 1] }} /></div>
@@ -287,9 +460,9 @@ function RolesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
                 {focus.horizon && <p className="mt-1 text-[10px] text-violet-200/55">{focus.horizon}</p>}
               </div>
             )}
-          </Panel>
+            </Panel>
 
-          <Panel className="p-5 md:p-6">
+            <Panel className="p-5 md:p-6">
             <div className="flex items-start justify-between gap-3">
               <div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">{t('dashboard.roles.reading')}</p><h3 className="mt-1 text-[25px] leading-none text-white" style={serifStyle}>{role.role}</h3></div>
               <UsersRound size={20} className="text-white/25" />
@@ -305,7 +478,16 @@ function RolesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
                 {focus.impact && <p className="mt-2 flex gap-2 text-xs leading-relaxed text-[var(--brand-200,#a5f3fc)]/70"><ArrowRight size={13} className="mt-0.5 shrink-0" /> {focus.impact}</p>}
               </div>
             )}
-          </Panel>
+            </Panel>
+          </div>
+
+          <DescriptorAnalysis
+            key={`${role.role}-${roleDescriptorScope ? 'role' : 'organization'}`}
+            scope={descriptorScope}
+            requestedRole={role.role}
+            organizationFallback={!roleDescriptorScope && Boolean(descriptorScope)}
+            t={t}
+          />
         </div>
       )}
     </div>

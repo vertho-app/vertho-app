@@ -288,18 +288,45 @@
         "strength": "Fortaleza organizacional",
         "risk": "Riesgo a seguir"
       },
-      "levels": { "title": "Madurez de las competencias", "ofFour": "de 4 niveles", "evaluated": "Personas evaluadas", "assessments": "Evaluaciones" },
+      "levels": { "title": "Nivel medio de las competencias", "ofFour": "de 4 niveles", "evaluated": "Personas evaluadas", "assessments": "Evaluaciones" },
       "comparison": { "title": "Qué cambió" },
       "profile": { "title": "Perfil colectivo" },
       "roles": {
         "eyebrow": "Lectura por puesto",
         "title": "Contextos diferentes requieren acciones diferentes",
-        "subtitle": "Selecciona un puesto para comparar madurez, fortalezas, riesgos y el foco sugerido para el próximo ciclo.",
-        "average": "Madurez media",
+        "subtitle": "Selecciona un puesto para comparar el nivel medio de las competencias, fortalezas, riesgos y el foco sugerido para el próximo ciclo.",
+        "average": "Nivel medio de las competencias",
+        "averageDescription": "Promedio de las competencias evaluadas para las personas de este puesto.",
         "focus": "Foco recomendado",
         "reading": "Lectura del puesto",
         "strengths": "Fortalezas",
-        "risks": "Puntos de atención"
+        "risks": "Puntos de atención",
+        "descriptors": {
+          "eyebrow": "Lectura por descriptor",
+          "title": "Cómo se forma el nivel",
+          "subtitle": "Abre una competencia para ver qué comportamientos sostienen el resultado y dónde están las principales brechas.",
+          "roleScope": "{count, plural, one {# persona en este puesto} other {# personas en este puesto}}",
+          "organizationScope": "{count, plural, one {# persona en la organización} other {# personas en la organización}}",
+          "organizationNotice": "{role} aún no tiene el mínimo de tres personas evaluadas para un desglose anónimo. Por eso, esta matriz muestra la distribución de la organización.",
+          "competency": "Competencia",
+          "competencyAverage": "nivel medio {value}",
+          "levelAverage": "Nivel medio",
+          "rowAverage": "promedio {value}",
+          "priority": "Prioridad",
+          "descriptor": "Descriptor",
+          "levels": {
+            "n1": "N1 · Brecha",
+            "n2": "N2 · Desarrollo",
+            "n3": "N3 · Meta",
+            "n4": "N4 · Referencia"
+          },
+          "strength": "Fortaleza",
+          "strengthValue": "{percentage}% en N3/N4",
+          "opportunity": "Oportunidad",
+          "opportunityValue": "{percentage}% en N1",
+          "emptyTitle": "El análisis por descriptor aún no está disponible",
+          "emptyDescription": "La matriz aparecerá cuando haya suficientes evaluaciones de descriptores para formar una lectura colectiva."
+        }
       },
       "priorities": {
         "eyebrow": "Agenda de desarrollo",

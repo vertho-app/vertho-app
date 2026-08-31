@@ -6,6 +6,8 @@
  * recebe uma estrutura pequena, previsível e sem `any` escapando para a UI.
  */
 
+import type { DnaAggregate, Dist } from '@/lib/dna-organizacional/aggregate';
+
 export type ExecutiveReading = {
   reading: string | null;
   strength: string | null;
@@ -18,6 +20,39 @@ export type RhRoleReading = {
   reading: string | null;
   strengths: string[];
   risks: string[];
+};
+
+export type RhDescriptorLevel = {
+  level: 1 | 2 | 3 | 4;
+  percentage: number;
+};
+
+export type RhDescriptorReading = {
+  descriptor: string;
+  average: number;
+  evaluated: number;
+  levels: RhDescriptorLevel[];
+};
+
+export type RhCompetencyDescriptorReading = {
+  competency: string;
+  average: number;
+  priority: boolean;
+  levels: RhDescriptorLevel[];
+  descriptors: RhDescriptorReading[];
+  strength: { descriptor: string; percentage: number } | null;
+  opportunity: { descriptor: string; percentage: number } | null;
+};
+
+export type RhDescriptorScope = {
+  role: string | null;
+  evaluated: number;
+  competencies: RhCompetencyDescriptorReading[];
+};
+
+export type RhDescriptorAnalysis = {
+  organization: RhDescriptorScope;
+  roles: RhDescriptorScope[];
 };
 
 export type RhRoleFocus = {
@@ -162,6 +197,53 @@ function asActionList(value: unknown): string[] {
   return [source.titulo, source.descricao, source.impacto]
     .map(asText)
     .filter((item): item is string => Boolean(item));
+}
+
+function descriptorLevels(dist: Dist): RhDescriptorLevel[] {
+  return ([1, 2, 3, 4] as const).map((level) => ({
+    level,
+    percentage: Math.max(0, Math.min(100, asNumber(dist[`n${level}` as keyof Dist]) ?? 0)),
+  }));
+}
+
+function descriptorScope(dna: DnaAggregate, role: string | null): RhDescriptorScope {
+  return {
+    role,
+    evaluated: Math.max(0, dna.avaliados),
+    competencies: dna.competencias.map((competency) => ({
+      competency: competency.nome,
+      average: competency.media,
+      priority: competency.prioridade,
+      levels: descriptorLevels(competency.pct),
+      descriptors: competency.descritores.map((descriptor) => ({
+        descriptor: descriptor.descritor,
+        average: descriptor.media,
+        evaluated: descriptor.totalColabs,
+        levels: descriptorLevels(descriptor.pct),
+      })),
+      strength: competency.forca
+        ? { descriptor: competency.forca.descritor, percentage: competency.forca.nivelPct }
+        : null,
+      opportunity: competency.oportunidade
+        ? { descriptor: competency.oportunidade.descritor, percentage: competency.oportunidade.n1pct }
+        : null,
+    })),
+  };
+}
+
+/**
+ * Recorta o DNA coletivo para a interface do RH. O agregado não carrega nomes:
+ * a tela recebe apenas distribuições anônimas e os cargos que passaram pelo
+ * piso de privacidade do próprio DNA (três pessoas avaliadas).
+ */
+export function normalizeRhDescriptorAnalysis(dna: DnaAggregate | null | undefined): RhDescriptorAnalysis | null {
+  if (!dna || dna.semDados || dna.competencias.length === 0) return null;
+  return {
+    organization: descriptorScope(dna, null),
+    roles: (dna.porCargo || [])
+      .filter((group) => !group.dna.semDados && group.dna.competencias.length > 0)
+      .map((group) => descriptorScope(group.dna, group.cargo)),
+  };
 }
 
 function normalizeExecutive(value: unknown, kind: 'rh' | 'manager'): ExecutiveReading {

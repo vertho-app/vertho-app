@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   normalizeManagerReportInsight,
+  normalizeRhDescriptorAnalysis,
   normalizeRhReportInsight,
 } from '@/lib/relatorios/dashboard-insights';
 import {
   criarRelatorioGestorAcmeDemo,
   criarRelatorioRhAcmeDemo,
 } from '@/lib/demo/acme-rh-report-fixture';
+import { criarDnaOrganizacionalAcmeDemo } from '@/lib/demo/acme-organization-report-fixture';
 
 describe('normalização dos relatórios para dashboards', () => {
   it('transforma o consolidado de RH da demo nas quatro leituras do dashboard', () => {
@@ -48,5 +50,29 @@ describe('normalização dos relatórios para dashboards', () => {
     expect(insight?.executive.reading).toBe('Leitura legada');
     expect(insight?.indicators.levels[0].percentage).toBe(0);
     expect(insight?.indicators.levels[1].percentage).toBe(100);
+  });
+
+  it('transforma o DNA anônimo em matriz de competências e descritores por cargo', () => {
+    const people = Array.from({ length: 4 }, (_, index) => ({
+      id: `pessoa-${index + 1}`,
+      nome_completo: `Pessoa ${index + 1}`,
+      cargo: 'Representante Comercial',
+    }));
+    const dna = criarDnaOrganizacionalAcmeDemo(
+      people,
+      new Set(people.map((person) => person.id)),
+      { includeRoles: true },
+    );
+    const analysis = normalizeRhDescriptorAnalysis(dna);
+
+    expect(analysis?.organization.evaluated).toBe(4);
+    expect(analysis?.organization.competencies).toHaveLength(5);
+    expect(analysis?.roles).toHaveLength(1);
+    expect(analysis?.roles[0]).toMatchObject({
+      role: 'Representante Comercial',
+      evaluated: 4,
+    });
+    expect(analysis?.roles[0].competencies[0].descriptors).toHaveLength(3);
+    expect(analysis?.roles[0].competencies[0].descriptors[0].levels).toHaveLength(4);
   });
 });

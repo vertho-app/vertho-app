@@ -288,18 +288,45 @@
         "strength": "Força organizacional",
         "risk": "Risco a acompanhar"
       },
-      "levels": { "title": "Maturidade das competências", "ofFour": "de 4 níveis", "evaluated": "Pessoas avaliadas", "assessments": "Avaliações" },
+      "levels": { "title": "Nível médio das competências", "ofFour": "de 4 níveis", "evaluated": "Pessoas avaliadas", "assessments": "Avaliações" },
       "comparison": { "title": "O que mudou" },
       "profile": { "title": "Perfil coletivo" },
       "roles": {
         "eyebrow": "Leitura por função",
         "title": "Contextos diferentes pedem ações diferentes",
-        "subtitle": "Selecione uma função para comparar maturidade, forças, riscos e o foco sugerido para o próximo ciclo.",
-        "average": "Média de maturidade",
+        "subtitle": "Selecione uma função para comparar o nível médio das competências, forças, riscos e o foco sugerido para o próximo ciclo.",
+        "average": "Nível médio das competências",
+        "averageDescription": "Média das competências avaliadas para as pessoas desta função.",
         "focus": "Foco recomendado",
         "reading": "Leitura da função",
         "strengths": "Forças",
-        "risks": "Pontos de atenção"
+        "risks": "Pontos de atenção",
+        "descriptors": {
+          "eyebrow": "Leitura por descritor",
+          "title": "Como o nível se forma",
+          "subtitle": "Abra uma competência para ver que comportamentos sustentam o resultado e onde estão os principais gaps.",
+          "roleScope": "{count, plural, one {# pessoa nesta função} other {# pessoas nesta função}}",
+          "organizationScope": "{count, plural, one {# pessoa na organização} other {# pessoas na organização}}",
+          "organizationNotice": "{role} ainda não tem o mínimo de três pessoas avaliadas para um recorte anónimo. Por isso, esta matriz mostra a distribuição da organização.",
+          "competency": "Competência",
+          "competencyAverage": "nível médio {value}",
+          "levelAverage": "Nível médio",
+          "rowAverage": "média {value}",
+          "priority": "Prioridade",
+          "descriptor": "Descritor",
+          "levels": {
+            "n1": "N1 · Gap",
+            "n2": "N2 · Desenvolv.",
+            "n3": "N3 · Meta",
+            "n4": "N4 · Referência"
+          },
+          "strength": "Força",
+          "strengthValue": "{percentage}% em N3/N4",
+          "opportunity": "Oportunidade",
+          "opportunityValue": "{percentage}% em N1",
+          "emptyTitle": "Análise por descritor ainda indisponível",
+          "emptyDescription": "A matriz aparecerá quando existirem avaliações de descritores suficientes para formar uma leitura coletiva."
+        }
       },
       "priorities": {
         "eyebrow": "Agenda de desenvolvimento",
