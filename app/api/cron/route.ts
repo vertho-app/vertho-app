@@ -111,6 +111,14 @@ export async function GET(req) {
           await logAdminAction({ adminEmail: 'system:cron', acao: 'demo.reset', alvo: 'acme-demo', detalhes: r.ok ? { counts: r.counts } : { error: r.error } });
         } catch { /* auditoria best-effort */ }
         if (!r.ok) throw new Error(r.error || 'reset do demo falhou');
+        try {
+          const { removeAcmeProspectAuthUsers } = await import('@/lib/demo/acme-prospect-experience');
+          await removeAcmeProspectAuthUsers();
+        } catch (error: any) {
+          // O reset tenant-scoped já revogou o contexto no produto. Auth órfão
+          // é higiene best-effort e não deve transformar a recomposição em 500.
+          console.warn('[cron.reset_demo] limpar convidados Auth:', error?.message);
+        }
         result = { message: `demo resetada · ${JSON.stringify(r.counts)}`, counts: r.counts };
         break;
       }

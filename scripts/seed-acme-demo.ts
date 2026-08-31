@@ -17,9 +17,18 @@
  */
 import './_env'; // carrega .env.local no process.env ANTES do @/lib
 import { resetAcmeDemo } from '@/lib/demo/reset-acme-demo';
+import { removeAcmeProspectAuthUsers } from '@/lib/demo/acme-prospect-experience';
 
 async function main() {
   const r = await resetAcmeDemo();
+  if (r.ok) {
+    try {
+      const removidos = await removeAcmeProspectAuthUsers();
+      if (removidos > 0) console.log(`ACESSOS TEMPORÁRIOS REMOVIDOS DO AUTH: ${removidos}`);
+    } catch (error: any) {
+      console.warn('LIMPEZA AUTH BEST-EFFORT:', error?.message);
+    }
+  }
   console.log('RESET ACME DEMO:', JSON.stringify(r, null, 2));
   process.exit(r.ok ? 0 : 1);
 }

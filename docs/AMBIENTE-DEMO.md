@@ -100,6 +100,33 @@ papel exclusivamente do hostname fixo, nunca de parâmetros enviados pelo client
 Os hosts da apresentação são registrados na Vercel de forma idempotente no
 preparo da sala. Fora desses três aliases o dropdown não é renderizado.
 
+## Degustação individual reutilizável no ACME
+
+Para um prospect percorrer a experiência como ele mesmo sem criar um tenant
+contextualizado, use **Degustação individual** em `/admin/demo`. O operador
+informa nome, empresa, um meio de compartilhamento e escolhe um dos quatro cargos
+completos do fixture. A action é fixada no `acme-demo` — não recebe slug do
+client — e cria:
+
+- um colaborador zerado, com papel `colaborador`, pronto para iniciar pelo DISC;
+- uma identidade Auth aleatória `convidado.acme.<id>@vertho.ai`;
+- um magic link individual e de uso único para `acme-demo.vertho.ai/dashboard`.
+
+O e-mail e o WhatsApp reais **não são persistidos nem enviados pelo servidor**.
+Eles permanecem no browser do vendedor apenas para abrir `mailto:` ou `wa.me`;
+o token também não entra no audit log. Como o e-mail técnico não termina em
+`.demo@vertho.ai`, `isInternalEmail` o classifica como interno: o convidado pode
+usar os fluxos individuais, mas fica fora de indicadores, rankings e relatórios
+agregados.
+
+Depois que o magic link for consumido, a participação existe até o próximo reset
+diário das 04h BRT. O link deve ser compartilhado e usado logo após a geração:
+além de ser de uso único, ele segue a expiração de OTP configurada no provedor.
+O reset remove o colaborador tenant-scoped, revogando o contexto no produto, e
+limpa best-effort somente os usuários Auth que carregam o prefixo e o marcador
+exclusivos deste fluxo. Vários passes podem coexistir até esse reset sem
+compartilhar respostas ou perfil.
+
 ## Fixture congelado
 O reset semeia de `lib/demo/acme-demo-fixture.json` (golden state VERSIONADO), **não** do acme vivo → a demo é estável e imune a mexidas no `acme`. O fixture guarda:
 - Estrutura: empresa + competências + cargos + top10 + cenários (com source ids para remapeamento).

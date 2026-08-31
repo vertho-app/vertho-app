@@ -1,30 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
+  Briefcase,
   Building2,
   Check,
+  Clock,
   Copy,
   ExternalLink,
   KeyRound,
   Link2,
   Loader2,
+  Mail,
   MessageCircle,
   MonitorPlay,
   RefreshCw,
   ShieldCheck,
+  UserPlus,
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import {
   gerarMagicLinksTemporariosDemo,
+  prepararExperienciaProspectAcme,
   prepararSalaApresentacaoDemo,
   prepararAcessosTemporariosDemo,
   resetarDemo,
 } from '@/actions/demo';
 import { launchDemoPresentationAccess } from '@/lib/demo/presentation';
+import {
+  ACME_PROSPECT_ROLES,
+  type AcmeProspectExperienceAccess,
+  type AcmeProspectRoleKey,
+} from '@/lib/demo/acme-prospect-config';
 
 type TenantSlug = 'acme-demo' | 'gruposinal';
 
@@ -50,6 +60,29 @@ type PresentationLinkDemo = {
   directUrl: string;
 };
 
+type ProspectForm = {
+  nome: string;
+  empresa: string;
+  email: string;
+  whatsapp: string;
+  roleKey: AcmeProspectRoleKey;
+};
+
+type ProspectAccessView = AcmeProspectExperienceAccess & {
+  contactEmail: string;
+  whatsapp: string;
+};
+
+const EMPTY_PROSPECT_FORM: ProspectForm = {
+  nome: '',
+  empresa: '',
+  email: '',
+  whatsapp: '',
+  roleKey: 'representante-comercial',
+};
+
+const inputClass = 'w-full rounded-lg border border-white/10 bg-[#081523]/80 px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-white/20 focus:border-emerald-300/45 focus:ring-2 focus:ring-emerald-300/10';
+
 const TENANTS: Record<TenantSlug, { nome: string; descricao: string }> = {
   'acme-demo': {
     nome: 'ACME Demo',
@@ -73,6 +106,9 @@ export default function AdminDemoPage() {
   const [presentationLinks, setPresentationLinks] = useState<PresentationLinkDemo[] | null>(null);
   const [preparandoApresentacao, setPreparandoApresentacao] = useState(false);
   const [presentationOpened, setPresentationOpened] = useState<Set<string>>(new Set());
+  const [prospectForm, setProspectForm] = useState<ProspectForm>(EMPTY_PROSPECT_FORM);
+  const [prospectAccess, setProspectAccess] = useState<ProspectAccessView | null>(null);
+  const [preparandoProspect, setPreparandoProspect] = useState(false);
   const [copiado, setCopiado] = useState<string | null>(null);
 
   const tenant = TENANTS[tenantSlug];
@@ -100,6 +136,7 @@ export default function AdminDemoPage() {
       const r = await resetarDemo(tenantSlug);
       if (r.success) {
         setUltimo(r.counts || null);
+        if (tenantSlug === 'acme-demo') setProspectAccess(null);
         toast.success(`${tenant.nome} foi recriado.`);
       } else {
         toast.error(`Falha ao resetar: ${r.error || 'erro'}`);
@@ -187,6 +224,88 @@ export default function AdminDemoPage() {
       (destino) => { window.open(destino, '_blank', 'noopener,noreferrer'); },
       () => marcarVisaoAberta(acesso.roleKey),
     );
+  }
+
+  function updateProspectForm<K extends keyof ProspectForm>(key: K, value: ProspectForm[K]) {
+    setProspectForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function prepararProspect(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const email = prospectForm.email.trim();
+    const whatsappDigits = prospectForm.whatsapp.replace(/\D/g, '');
+    if (!email && !whatsappDigits) {
+      toast.error('Informe um e-mail ou WhatsApp para compartilhar o acesso.');
+      return;
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Informe um e-mail válido.');
+      return;
+    }
+    if (whatsappDigits && whatsappDigits.length < 10) {
+      toast.error('Informe um WhatsApp com DDD.');
+      return;
+    }
+
+    setPreparandoProspect(true);
+    setProspectAccess(null);
+    try {
+      const r = await prepararExperienciaProspectAcme({
+        nome: prospectForm.nome,
+        empresa: prospectForm.empresa,
+        roleKey: prospectForm.roleKey,
+      });
+      if (!r.success) {
+        toast.error(`Falha ao preparar experiência: ${r.error || 'erro'}`);
+        return;
+      }
+      setProspectAccess({
+        ...r.acesso,
+        contactEmail: email,
+        whatsapp: prospectForm.whatsapp.trim(),
+      });
+      toast.success('Passe temporário criado. Agora compartilhe o link sem abri-lo.');
+    } catch (e: any) {
+      toast.error(`Erro: ${e?.message || 'inesperado'}`);
+    } finally {
+      setPreparandoProspect(false);
+    }
+  }
+
+  function mensagemProspect(acesso: ProspectAccessView) {
+    return [
+      `Olá, ${acesso.nome.split(' ')[0]}!`,
+      '',
+      `Preparei uma experiência da Vertho para você, em um ambiente neutro de demonstração para a ${acesso.empresa}.`,
+      `Você começará como ${acesso.cargo} e poderá percorrer o mapeamento comportamental desde o início.`,
+      '',
+      'Toque no link para entrar — não precisa de senha:',
+      acesso.url,
+      '',
+      'O link é individual e funciona uma única vez.',
+    ].join('\n');
+  }
+
+  function compartilharProspectWhatsapp(acesso: ProspectAccessView) {
+    let digits = acesso.whatsapp.replace(/\D/g, '');
+    if (digits.length === 10 || digits.length === 11) digits = `55${digits}`;
+    const target = digits ? `https://wa.me/${digits}` : 'https://wa.me/';
+    window.open(`${target}?text=${encodeURIComponent(mensagemProspect(acesso))}`, '_blank', 'noopener,noreferrer');
+  }
+
+  function compartilharProspectEmail(acesso: ProspectAccessView) {
+    const subject = 'Sua experiência Vertho está pronta';
+    window.location.href = `mailto:${encodeURIComponent(acesso.contactEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mensagemProspect(acesso))}`;
+  }
+
+  function formatProspectExpiry(value: string) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value));
   }
 
   async function copiar(texto: string, chave: string) {
@@ -352,6 +471,189 @@ export default function AdminDemoPage() {
                 </div>
               )}
             </div>
+          </section>
+
+          <div className="my-6 border-t border-white/10" />
+
+          <section className="overflow-hidden rounded-2xl border border-emerald-300/20 bg-[linear-gradient(145deg,rgba(16,185,129,0.075),rgba(8,21,35,0.72)_52%,rgba(34,211,238,0.04))]">
+            <div className="border-b border-dashed border-emerald-200/15 px-4 py-4 sm:px-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-emerald-300">
+                    <UserPlus size={15} aria-hidden="true" />
+                    <span className="text-[9px] font-bold uppercase tracking-[0.18em]">Degustação individual</span>
+                  </div>
+                  <h2 className="text-sm font-bold text-white">Crie um passe para o prospect começar do zero</h2>
+                  <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-gray-400">
+                    A pessoa entra como participante do ACME, faz o próprio mapeamento e não altera os indicadores da sala.
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full border border-emerald-300/20 bg-emerald-300/[0.06] px-2 py-1 font-mono text-[9px] text-emerald-200/70">
+                  ACME
+                </span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-3 gap-1" aria-label="Etapas da degustação">
+                {[
+                  ['01', 'Identifique'],
+                  ['02', 'Compartilhe'],
+                  ['03', 'Experimente'],
+                ].map(([number, label], index) => (
+                  <div key={number} className="relative flex items-center gap-2 rounded-lg bg-black/10 px-2 py-2">
+                    <span className="font-mono text-[9px] text-emerald-300/70">{number}</span>
+                    <span className="truncate text-[9px] font-semibold text-white/55">{label}</span>
+                    {index < 2 && <span className="absolute -right-1 top-1/2 h-px w-2 bg-emerald-200/20" aria-hidden="true" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <form onSubmit={prepararProspect} className="p-4 sm:p-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-[10px] font-semibold text-white/55">
+                  Nome do prospect
+                  <input
+                    type="text"
+                    required
+                    minLength={2}
+                    maxLength={100}
+                    value={prospectForm.nome}
+                    onChange={(event) => updateProspectForm('nome', event.target.value)}
+                    placeholder="Ex.: Marina Souza"
+                    autoComplete="off"
+                    className={`${inputClass} mt-1.5`}
+                  />
+                </label>
+                <label className="block text-[10px] font-semibold text-white/55">
+                  Empresa
+                  <input
+                    type="text"
+                    required
+                    minLength={2}
+                    maxLength={120}
+                    value={prospectForm.empresa}
+                    onChange={(event) => updateProspectForm('empresa', event.target.value)}
+                    placeholder="Ex.: Empresa Horizonte"
+                    autoComplete="off"
+                    className={`${inputClass} mt-1.5`}
+                  />
+                </label>
+                <label className="block text-[10px] font-semibold text-white/55">
+                  E-mail para compartilhar
+                  <div className="relative mt-1.5">
+                    <Mail size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/25" aria-hidden="true" />
+                    <input
+                      type="email"
+                      value={prospectForm.email}
+                      onChange={(event) => updateProspectForm('email', event.target.value)}
+                      placeholder="marina@empresa.com"
+                      autoComplete="off"
+                      className={`${inputClass} pl-9`}
+                    />
+                  </div>
+                </label>
+                <label className="block text-[10px] font-semibold text-white/55">
+                  WhatsApp para compartilhar
+                  <div className="relative mt-1.5">
+                    <MessageCircle size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/25" aria-hidden="true" />
+                    <input
+                      type="tel"
+                      value={prospectForm.whatsapp}
+                      onChange={(event) => updateProspectForm('whatsapp', event.target.value)}
+                      placeholder="+55 11 99999-9999"
+                      autoComplete="off"
+                      className={`${inputClass} pl-9`}
+                    />
+                  </div>
+                </label>
+              </div>
+
+              <label className="mt-3 block text-[10px] font-semibold text-white/55">
+                Papel demonstrado
+                <div className="relative mt-1.5">
+                  <Briefcase size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/25" aria-hidden="true" />
+                  <select
+                    value={prospectForm.roleKey}
+                    onChange={(event) => updateProspectForm('roleKey', event.target.value as AcmeProspectRoleKey)}
+                    className={`${inputClass} appearance-none pl-9`}
+                  >
+                    {ACME_PROSPECT_ROLES.map((role) => (
+                      <option key={role.key} value={role.key}>{role.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </label>
+
+              <div className="mt-3 flex items-start gap-2 text-[9px] leading-relaxed text-white/35">
+                <ShieldCheck size={13} className="mt-0.5 shrink-0 text-emerald-300/55" aria-hidden="true" />
+                <p>O contato real fica apenas nesta tela. A Vertho não envia nada automaticamente; você escolhe como compartilhar.</p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={preparandoProspect || busy}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 py-3 text-sm font-bold text-[#071923] transition-colors hover:bg-emerald-200 disabled:opacity-50"
+              >
+                {preparandoProspect
+                  ? <><Loader2 size={16} className="animate-spin" /> Criando o passe…</>
+                  : <><UserPlus size={16} /> {prospectAccess ? 'Criar um novo passe' : 'Preparar experiência individual'}</>}
+              </button>
+
+              {prospectAccess && (
+                <div className="relative mt-5 overflow-hidden rounded-xl border border-dashed border-emerald-200/25 bg-[#06131f]/80" aria-live="polite">
+                  <span className="absolute -left-2 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border border-emerald-200/20 bg-[#0d1726]" aria-hidden="true" />
+                  <span className="absolute -right-2 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border border-emerald-200/20 bg-[#0d1726]" aria-hidden="true" />
+                  <div className="p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-emerald-300/65">Passe preparado</p>
+                        <p className="mt-1 text-sm font-bold text-white">{prospectAccess.nome}</p>
+                        <p className="mt-0.5 text-[10px] text-white/40">{prospectAccess.empresa} · {prospectAccess.cargo}</p>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.035] px-2.5 py-2 text-right">
+                        <p className="flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider text-white/30"><Clock size={10} /> Experiência até</p>
+                        <p className="mt-1 font-mono text-[10px] text-emerald-200">{formatProspectExpiry(prospectAccess.expiresAt)}</p>
+                      </div>
+                    </div>
+
+                    <div className="my-4 border-t border-dashed border-white/10" />
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => copiar(prospectAccess.url, `prospect-${prospectAccess.sessionId}`)}
+                        className="flex min-w-[120px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-white/[0.07] px-3 py-2.5 text-[11px] font-bold text-white/75 hover:bg-white/[0.11]"
+                      >
+                        {copiado === `prospect-${prospectAccess.sessionId}`
+                          ? <><Check size={13} className="text-emerald-300" /> Copiado</>
+                          : <><Copy size={13} /> Copiar link</>}
+                      </button>
+                      {prospectAccess.whatsapp && (
+                        <button
+                          type="button"
+                          onClick={() => compartilharProspectWhatsapp(prospectAccess)}
+                          className="flex min-w-[120px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/20"
+                        >
+                          <MessageCircle size={13} /> WhatsApp
+                        </button>
+                      )}
+                      {prospectAccess.contactEmail && (
+                        <button
+                          type="button"
+                          onClick={() => compartilharProspectEmail(prospectAccess)}
+                          className="flex min-w-[120px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-cyan-400/[0.09] px-3 py-2.5 text-[11px] font-bold text-cyan-200 hover:bg-cyan-400/[0.14]"
+                        >
+                          <Mail size={13} /> E-mail
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-3 text-[9px] leading-relaxed text-amber-200/65">
+                      Não abra o link para testar: ele é individual e de uso único. Se for consumido antes do prospect, prepare um novo passe.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </form>
           </section>
 
           <div className="my-6 border-t border-white/10" />
