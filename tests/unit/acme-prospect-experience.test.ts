@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { criarSupabaseMock } from '../helpers/supabase-mock';
 import { isDemoPersonaEmail, isInternalEmail } from '@/lib/internal-emails';
 
@@ -31,6 +32,8 @@ import {
   removeAcmeProspectAuthUsers,
 } from '@/lib/demo/acme-prospect-experience';
 import {
+  buildAcmeProspectShareText,
+  getAcmeProspectExperienceSteps,
   nextAcmeDemoResetAt,
   validateAcmeProspectExperienceInput,
 } from '@/lib/demo/acme-prospect-config';
@@ -157,6 +160,52 @@ describe('contratos puros da experiência ACME', () => {
   it('calcula a próxima fronteira real do reset diário às 07:00 UTC', () => {
     expect(nextAcmeDemoResetAt(new Date('2026-08-31T06:30:00.000Z'))).toBe('2026-08-31T07:00:00.000Z');
     expect(nextAcmeDemoResetAt(new Date('2026-08-31T12:00:00.000Z'))).toBe('2026-09-01T07:00:00.000Z');
+  });
+
+  it('monta o roteiro compartilhável nas quatro perspectivas e na ordem correta', () => {
+    const access = {
+      sessionId: 'session-1',
+      nome: 'Marina Souza',
+      empresa: 'Empresa Horizonte',
+      cargo: 'Representante Comercial',
+      expiresAt: '2026-09-01T07:00:00.000Z',
+      url: 'https://acme-demo.vertho.ai/acesso-pessoal',
+      views: [
+        { roleKey: 'rh' as const, url: 'https://rh-demo.vertho.ai/acesso-rh' },
+        { roleKey: 'usuario' as const, url: 'https://usuario-demo.vertho.ai/acesso-colaborador' },
+        { roleKey: 'gestor' as const, url: 'https://gestor-demo.vertho.ai/acesso-gestor' },
+      ],
+    };
+
+    const steps = getAcmeProspectExperienceSteps(access);
+    expect(steps.map((step) => step.title)).toEqual([
+      'Comece como você',
+      'Veja como colaborador',
+      'Veja como gestor',
+      'Veja como RH',
+    ]);
+    expect(steps.map((step) => step.url)).toEqual([
+      access.url,
+      access.views[1].url,
+      access.views[2].url,
+      access.views[0].url,
+    ]);
+
+    const text = buildAcmeProspectShareText(access);
+    expect(text).toContain('01/04 — Comece como você');
+    expect(text).toContain('02/04 — Veja como colaborador');
+    expect(text).toContain('03/04 — Veja como gestor');
+    expect(text).toContain('04/04 — Veja como RH');
+    expect(text.match(/https:\/\//g)).toHaveLength(4);
+    expect(text).toContain('As etapas 02 a 04 ficam disponíveis por 4 horas.');
+  });
+
+  it('não oferece envio por e-mail e mantém o texto completo copiável na interface', () => {
+    const source = readFileSync('app/admin/demo/page.tsx', 'utf8');
+    expect(source).not.toContain('mailto:');
+    expect(source).not.toContain('type="email"');
+    expect(source).not.toContain('E-mail para compartilhar');
+    expect(source).toContain('Copiar texto completo');
   });
 
   it('limpa somente usuários Auth com prefixo e marcador do fluxo', async () => {

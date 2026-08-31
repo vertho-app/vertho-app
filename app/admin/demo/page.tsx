@@ -13,7 +13,6 @@ import {
   KeyRound,
   Link2,
   Loader2,
-  Mail,
   MessageCircle,
   MonitorPlay,
   RefreshCw,
@@ -32,6 +31,8 @@ import {
 import { launchDemoPresentationAccess } from '@/lib/demo/presentation';
 import {
   ACME_PROSPECT_ROLES,
+  buildAcmeProspectShareText,
+  getAcmeProspectExperienceSteps,
   type AcmeProspectExperienceAccess,
   type AcmeProspectRoleKey,
 } from '@/lib/demo/acme-prospect-config';
@@ -63,20 +64,18 @@ type PresentationLinkDemo = {
 type ProspectForm = {
   nome: string;
   empresa: string;
-  email: string;
   whatsapp: string;
   roleKey: AcmeProspectRoleKey;
 };
 
 type ProspectAccessView = AcmeProspectExperienceAccess & {
-  contactEmail: string;
   whatsapp: string;
+  views: PresentationLinkDemo[];
 };
 
 const EMPTY_PROSPECT_FORM: ProspectForm = {
   nome: '',
   empresa: '',
-  email: '',
   whatsapp: '',
   roleKey: 'representante-comercial',
 };
@@ -232,16 +231,7 @@ export default function AdminDemoPage() {
 
   async function prepararProspect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const email = prospectForm.email.trim();
     const whatsappDigits = prospectForm.whatsapp.replace(/\D/g, '');
-    if (!email && !whatsappDigits) {
-      toast.error('Informe um e-mail ou WhatsApp para compartilhar o acesso.');
-      return;
-    }
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error('Informe um e-mail válido.');
-      return;
-    }
     if (whatsappDigits && whatsappDigits.length < 10) {
       toast.error('Informe um WhatsApp com DDD.');
       return;
@@ -261,10 +251,10 @@ export default function AdminDemoPage() {
       }
       setProspectAccess({
         ...r.acesso,
-        contactEmail: email,
         whatsapp: prospectForm.whatsapp.trim(),
+        views: r.visoes,
       });
-      toast.success('Passe temporário criado. Agora compartilhe o link sem abri-lo.');
+      toast.success('Roteiro com as quatro perspectivas criado.');
     } catch (e: any) {
       toast.error(`Erro: ${e?.message || 'inesperado'}`);
     } finally {
@@ -273,17 +263,7 @@ export default function AdminDemoPage() {
   }
 
   function mensagemProspect(acesso: ProspectAccessView) {
-    return [
-      `Olá, ${acesso.nome.split(' ')[0]}!`,
-      '',
-      `Preparei uma experiência da Vertho para você, em um ambiente neutro de demonstração para a ${acesso.empresa}.`,
-      `Você começará como ${acesso.cargo} e poderá percorrer o mapeamento comportamental desde o início.`,
-      '',
-      'Toque no link para entrar — não precisa de senha:',
-      acesso.url,
-      '',
-      'O link é individual e funciona uma única vez.',
-    ].join('\n');
+    return buildAcmeProspectShareText(acesso);
   }
 
   function compartilharProspectWhatsapp(acesso: ProspectAccessView) {
@@ -291,11 +271,6 @@ export default function AdminDemoPage() {
     if (digits.length === 10 || digits.length === 11) digits = `55${digits}`;
     const target = digits ? `https://wa.me/${digits}` : 'https://wa.me/';
     window.open(`${target}?text=${encodeURIComponent(mensagemProspect(acesso))}`, '_blank', 'noopener,noreferrer');
-  }
-
-  function compartilharProspectEmail(acesso: ProspectAccessView) {
-    const subject = 'Sua experiência Vertho está pronta';
-    window.location.href = `mailto:${encodeURIComponent(acesso.contactEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mensagemProspect(acesso))}`;
   }
 
   function formatProspectExpiry(value: string) {
@@ -483,9 +458,9 @@ export default function AdminDemoPage() {
                     <UserPlus size={15} aria-hidden="true" />
                     <span className="text-[9px] font-bold uppercase tracking-[0.18em]">Degustação individual</span>
                   </div>
-                  <h2 className="text-sm font-bold text-white">Crie um passe para o prospect começar do zero</h2>
+                  <h2 className="text-sm font-bold text-white">Crie um roteiro em quatro perspectivas</h2>
                   <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-gray-400">
-                    A pessoa entra como participante do ACME, faz o próprio mapeamento e não altera os indicadores da sala.
+                    A pessoa começa do zero e depois conhece as visões prontas de colaborador, gestor e RH.
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full border border-emerald-300/20 bg-emerald-300/[0.06] px-2 py-1 font-mono text-[9px] text-emerald-200/70">
@@ -493,16 +468,17 @@ export default function AdminDemoPage() {
                 </span>
               </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-1" aria-label="Etapas da degustação">
+              <div className="mt-4 grid grid-cols-2 gap-1 sm:grid-cols-4" aria-label="Perspectivas da experiência">
                 {[
-                  ['01', 'Identifique'],
-                  ['02', 'Compartilhe'],
-                  ['03', 'Experimente'],
+                  ['01', 'Você'],
+                  ['02', 'Colaborador'],
+                  ['03', 'Gestor'],
+                  ['04', 'RH'],
                 ].map(([number, label], index) => (
                   <div key={number} className="relative flex items-center gap-2 rounded-lg bg-black/10 px-2 py-2">
                     <span className="font-mono text-[9px] text-emerald-300/70">{number}</span>
                     <span className="truncate text-[9px] font-semibold text-white/55">{label}</span>
-                    {index < 2 && <span className="absolute -right-1 top-1/2 h-px w-2 bg-emerald-200/20" aria-hidden="true" />}
+                    {index < 3 && <span className="absolute -right-1 top-1/2 hidden h-px w-2 bg-emerald-200/20 sm:block" aria-hidden="true" />}
                   </div>
                 ))}
               </div>
@@ -539,21 +515,7 @@ export default function AdminDemoPage() {
                   />
                 </label>
                 <label className="block text-[10px] font-semibold text-white/55">
-                  E-mail para compartilhar
-                  <div className="relative mt-1.5">
-                    <Mail size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/25" aria-hidden="true" />
-                    <input
-                      type="email"
-                      value={prospectForm.email}
-                      onChange={(event) => updateProspectForm('email', event.target.value)}
-                      placeholder="marina@empresa.com"
-                      autoComplete="off"
-                      className={`${inputClass} pl-9`}
-                    />
-                  </div>
-                </label>
-                <label className="block text-[10px] font-semibold text-white/55">
-                  WhatsApp para compartilhar
+                  WhatsApp do prospect <span className="font-normal text-white/30">(opcional)</span>
                   <div className="relative mt-1.5">
                     <MessageCircle size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/25" aria-hidden="true" />
                     <input
@@ -566,27 +528,26 @@ export default function AdminDemoPage() {
                     />
                   </div>
                 </label>
+                <label className="block text-[10px] font-semibold text-white/55">
+                  Cargo da primeira etapa
+                  <div className="relative mt-1.5">
+                    <Briefcase size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/25" aria-hidden="true" />
+                    <select
+                      value={prospectForm.roleKey}
+                      onChange={(event) => updateProspectForm('roleKey', event.target.value as AcmeProspectRoleKey)}
+                      className={`${inputClass} appearance-none pl-9`}
+                    >
+                      {ACME_PROSPECT_ROLES.map((role) => (
+                        <option key={role.key} value={role.key}>{role.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </label>
               </div>
-
-              <label className="mt-3 block text-[10px] font-semibold text-white/55">
-                Papel demonstrado
-                <div className="relative mt-1.5">
-                  <Briefcase size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/25" aria-hidden="true" />
-                  <select
-                    value={prospectForm.roleKey}
-                    onChange={(event) => updateProspectForm('roleKey', event.target.value as AcmeProspectRoleKey)}
-                    className={`${inputClass} appearance-none pl-9`}
-                  >
-                    {ACME_PROSPECT_ROLES.map((role) => (
-                      <option key={role.key} value={role.key}>{role.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </label>
 
               <div className="mt-3 flex items-start gap-2 text-[9px] leading-relaxed text-white/35">
                 <ShieldCheck size={13} className="mt-0.5 shrink-0 text-emerald-300/55" aria-hidden="true" />
-                <p>O contato real fica apenas nesta tela. A Vertho não envia nada automaticamente; você escolhe como compartilhar.</p>
+                <p>Nenhum contato é enviado ou armazenado. Copie o roteiro completo ou abra o WhatsApp para escolher como compartilhar.</p>
               </div>
 
               <button
@@ -595,7 +556,7 @@ export default function AdminDemoPage() {
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 py-3 text-sm font-bold text-[#071923] transition-colors hover:bg-emerald-200 disabled:opacity-50"
               >
                 {preparandoProspect
-                  ? <><Loader2 size={16} className="animate-spin" /> Criando o passe…</>
+                  ? <><Loader2 size={16} className="animate-spin" /> Preparando o roteiro…</>
                   : <><UserPlus size={16} /> {prospectAccess ? 'Criar um novo passe' : 'Preparar experiência individual'}</>}
               </button>
 
@@ -606,49 +567,69 @@ export default function AdminDemoPage() {
                   <div className="p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-emerald-300/65">Passe preparado</p>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-emerald-300/65">Roteiro preparado</p>
                         <p className="mt-1 text-sm font-bold text-white">{prospectAccess.nome}</p>
                         <p className="mt-0.5 text-[10px] text-white/40">{prospectAccess.empresa} · {prospectAccess.cargo}</p>
                       </div>
                       <div className="rounded-lg border border-white/10 bg-white/[0.035] px-2.5 py-2 text-right">
-                        <p className="flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider text-white/30"><Clock size={10} /> Experiência até</p>
+                        <p className="flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider text-white/30"><Clock size={10} /> Etapa 01 até</p>
                         <p className="mt-1 font-mono text-[10px] text-emerald-200">{formatProspectExpiry(prospectAccess.expiresAt)}</p>
                       </div>
                     </div>
 
                     <div className="my-4 border-t border-dashed border-white/10" />
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className="space-y-2" aria-label="Roteiro de experiência do prospect">
+                      {getAcmeProspectExperienceSteps(prospectAccess).map((step, index) => {
+                        const copyKey = `prospect-step-${prospectAccess.sessionId}-${step.number}`;
+                        const isPersonal = index === 0;
+                        return (
+                          <div
+                            key={step.number}
+                            className={`flex items-start gap-3 rounded-xl border px-3 py-3 ${isPersonal ? 'border-emerald-300/20 bg-emerald-300/[0.045]' : 'border-cyan-300/15 bg-cyan-300/[0.025]'}`}
+                          >
+                            <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg font-mono text-[9px] font-bold ${isPersonal ? 'bg-emerald-300/[0.12] text-emerald-200' : 'bg-cyan-300/[0.08] text-cyan-200'}`}>
+                              {step.number}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-[11px] font-bold text-white">{step.title}</span>
+                              <span className="mt-0.5 block text-[9px] leading-relaxed text-white/40">{step.description}</span>
+                              <span className="mt-1.5 block font-mono text-[8px] uppercase tracking-wide text-white/25">{step.note}</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => copiar(step.url, copyKey)}
+                              aria-label={`Copiar link: ${step.title}`}
+                              className="flex shrink-0 items-center gap-1 rounded-lg bg-white/[0.06] px-2 py-1.5 text-[9px] font-bold text-white/55 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50"
+                            >
+                              {copiado === copyKey ? <Check size={11} className="text-emerald-300" /> : <Copy size={11} />}
+                              Link
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
                       <button
                         type="button"
-                        onClick={() => copiar(prospectAccess.url, `prospect-${prospectAccess.sessionId}`)}
-                        className="flex min-w-[120px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-white/[0.07] px-3 py-2.5 text-[11px] font-bold text-white/75 hover:bg-white/[0.11]"
+                        onClick={() => copiar(mensagemProspect(prospectAccess), `prospect-text-${prospectAccess.sessionId}`)}
+                        className="flex items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2.5 text-[11px] font-bold text-[#071923] hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60"
                       >
-                        {copiado === `prospect-${prospectAccess.sessionId}`
-                          ? <><Check size={13} className="text-emerald-300" /> Copiado</>
-                          : <><Copy size={13} /> Copiar link</>}
+                        {copiado === `prospect-text-${prospectAccess.sessionId}`
+                          ? <><Check size={13} className="text-emerald-600" /> Texto copiado</>
+                          : <><Copy size={13} /> Copiar texto completo</>}
                       </button>
-                      {prospectAccess.whatsapp && (
-                        <button
-                          type="button"
-                          onClick={() => compartilharProspectWhatsapp(prospectAccess)}
-                          className="flex min-w-[120px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/20"
-                        >
-                          <MessageCircle size={13} /> WhatsApp
-                        </button>
-                      )}
-                      {prospectAccess.contactEmail && (
-                        <button
-                          type="button"
-                          onClick={() => compartilharProspectEmail(prospectAccess)}
-                          className="flex min-w-[120px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-cyan-400/[0.09] px-3 py-2.5 text-[11px] font-bold text-cyan-200 hover:bg-cyan-400/[0.14]"
-                        >
-                          <Mail size={13} /> E-mail
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => compartilharProspectWhatsapp(prospectAccess)}
+                        className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50"
+                      >
+                        <MessageCircle size={13} /> Abrir no WhatsApp
+                      </button>
                     </div>
                     <p className="mt-3 text-[9px] leading-relaxed text-amber-200/65">
-                      Não abra o link para testar: ele é individual e de uso único. Se for consumido antes do prospect, prepare um novo passe.
+                      A etapa 01 é individual e de uso único. As etapas 02–04 abrem sessões demonstrativas isoladas e ficam disponíveis por 4 horas.
                     </p>
                   </div>
                 </div>

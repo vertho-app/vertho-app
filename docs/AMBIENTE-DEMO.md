@@ -104,20 +104,27 @@ preparo da sala. Fora desses três aliases o dropdown não é renderizado.
 
 Para um prospect percorrer a experiência como ele mesmo sem criar um tenant
 contextualizado, use **Degustação individual** em `/admin/demo`. O operador
-informa nome, empresa, um meio de compartilhamento e escolhe um dos quatro cargos
-completos do fixture. A action é fixada no `acme-demo` — não recebe slug do
-client — e cria:
+informa nome, empresa, WhatsApp opcional e escolhe um dos quatro cargos completos
+do fixture. A action é fixada no `acme-demo` — não recebe slug do client — e
+prepara um roteiro de quatro etapas:
 
-- um colaborador zerado, com papel `colaborador`, pronto para iniciar pelo DISC;
-- uma identidade Auth aleatória `convidado.acme.<id>@vertho.ai`;
-- um magic link individual e de uso único para `acme-demo.vertho.ai/dashboard`.
+1. **Comece como você:** um colaborador zerado, uma identidade Auth aleatória
+   `convidado.acme.<id>@vertho.ai` e um magic link individual para iniciar pelo DISC;
+2. **Veja como colaborador:** a jornada preenchida da persona Bruna;
+3. **Veja como gestor:** a leitura de equipe da persona Carla;
+4. **Veja como RH:** o panorama organizacional da persona Helena.
 
-O e-mail e o WhatsApp reais **não são persistidos nem enviados pelo servidor**.
-Eles permanecem no browser do vendedor apenas para abrir `mailto:` ou `wa.me`;
-o token também não entra no audit log. Como o e-mail técnico não termina em
+O e-mail real não é coletado. O WhatsApp opcional **não é persistido nem enviado
+pelo servidor**: permanece no browser apenas para abrir `wa.me`. A interface
+também oferece **Copiar texto completo**, com as quatro etapas e seus links. Os
+tokens não entram no audit log. Como o e-mail técnico não termina em
 `.demo@vertho.ai`, `isInternalEmail` o classifica como interno: o convidado pode
 usar os fluxos individuais, mas fica fora de indicadores, rankings e relatórios
 agregados.
+
+As etapas 2–4 reutilizam o passe assinado da sala de apresentação e ficam
+disponíveis por 4 horas. Cada uma cria uma sessão real em seu hostname isolado;
+elas não compartilham a sessão nem as respostas do convidado da etapa 1.
 
 Depois que o magic link for consumido, a participação existe até o próximo reset
 diário das 04h BRT. O link deve ser compartilhado e usado logo após a geração:

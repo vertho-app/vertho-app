@@ -14,7 +14,11 @@ import {
   prepareAcmeProspectExperience,
   removeAcmeProspectAuthUsers,
 } from '@/lib/demo/acme-prospect-experience';
-import type { AcmeProspectExperienceInput } from '@/lib/demo/acme-prospect-config';
+import {
+  ACME_PROSPECT_EXPERIENCE_VIEWS,
+  validateAcmeProspectExperienceInput,
+  type AcmeProspectExperienceInput,
+} from '@/lib/demo/acme-prospect-config';
 
 /** Reset sob demanda do tenant demo escolhido, com allowlist tipada e auditoria. */
 export async function resetarDemo(slug: DemoTenantSlug = 'acme-demo') {
@@ -92,7 +96,35 @@ export async function prepararSalaApresentacaoDemo() {
  */
 export async function prepararExperienciaProspectAcme(input: AcmeProspectExperienceInput) {
   const ctx = await requireAdminAction();
-  const r = await prepareAcmeProspectExperience(input);
+  const parsed = validateAcmeProspectExperienceInput(input);
+  if (parsed.ok === false) {
+    await logAdminAction({
+      adminEmail: ctx.email,
+      acao: 'demo.prepare_prospect_experience',
+      alvo: DEMO_PRESENTATION_TENANT_SLUG,
+      detalhes: { error: parsed.error },
+    });
+    return { success: false as const, error: parsed.error };
+  }
+
+  const presentation = await prepararAcessosApresentacaoDemo();
+  const presentationViews = presentation.acessos || [];
+  const missingViews = ACME_PROSPECT_EXPERIENCE_VIEWS
+    .filter((required) => !presentationViews.some((view) => view.roleKey === required.roleKey))
+    .map((view) => view.roleKey);
+  if (!presentation.ok || missingViews.length > 0) {
+    const error = presentation.error
+      || `As três visões da experiência não foram preparadas: ${missingViews.join(', ')}.`;
+    await logAdminAction({
+      adminEmail: ctx.email,
+      acao: 'demo.prepare_prospect_experience',
+      alvo: DEMO_PRESENTATION_TENANT_SLUG,
+      detalhes: { error },
+    });
+    return { success: false as const, error };
+  }
+
+  const r = await prepareAcmeProspectExperience(parsed.value);
   await logAdminAction({
     adminEmail: ctx.email,
     acao: 'demo.prepare_prospect_experience',
@@ -104,9 +136,10 @@ export async function prepararExperienciaProspectAcme(input: AcmeProspectExperie
           empresa: r.access.empresa,
           cargo: r.access.cargo,
           expiresAt: r.access.expiresAt,
+          visoes: presentationViews.map((view) => view.roleKey),
         }
       : { error: r.error },
   });
   if (r.ok === false) return { success: false as const, error: r.error };
-  return { success: true as const, acesso: r.access };
+  return { success: true as const, acesso: r.access, visoes: presentationViews };
 }

@@ -42,6 +42,46 @@ export type AcmeProspectExperienceAccess = {
   expiresAt: string;
 };
 
+export const ACME_PROSPECT_EXPERIENCE_VIEWS = [
+  {
+    roleKey: 'usuario',
+    number: '02',
+    title: 'Veja como colaborador',
+    description: 'Explore uma jornada preenchida pela perspectiva de quem participa.',
+  },
+  {
+    roleKey: 'gestor',
+    number: '03',
+    title: 'Veja como gestor',
+    description: 'Veja a leitura de equipe, a adequação e o desenvolvimento da liderança.',
+  },
+  {
+    roleKey: 'rh',
+    number: '04',
+    title: 'Veja como RH',
+    description: 'Veja o panorama organizacional, os indicadores e os relatórios de RH.',
+  },
+] as const;
+
+export type AcmeProspectPresentationRoleKey = typeof ACME_PROSPECT_EXPERIENCE_VIEWS[number]['roleKey'];
+
+export type AcmeProspectPresentationAccess = {
+  roleKey: AcmeProspectPresentationRoleKey;
+  url: string;
+};
+
+export type AcmeProspectExperienceShareAccess = AcmeProspectExperienceAccess & {
+  views: readonly AcmeProspectPresentationAccess[];
+};
+
+export type AcmeProspectExperienceStep = {
+  number: '01' | '02' | '03' | '04';
+  title: string;
+  description: string;
+  url: string;
+  note: string;
+};
+
 function cleanHumanText(value: unknown): string {
   return String(value ?? '')
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
@@ -95,4 +135,56 @@ export function nextAcmeDemoResetAt(now: Date = new Date()): string {
   ));
   if (candidate.getTime() <= now.getTime()) candidate.setUTCDate(candidate.getUTCDate() + 1);
   return candidate.toISOString();
+}
+
+export function getAcmeProspectExperienceSteps(
+  access: AcmeProspectExperienceShareAccess,
+): AcmeProspectExperienceStep[] {
+  const views = new Map(access.views.map((view) => [view.roleKey, view]));
+  const presentationSteps = ACME_PROSPECT_EXPERIENCE_VIEWS.map((step) => {
+    const view = views.get(step.roleKey);
+    if (!view?.url) {
+      throw new Error(`Fluxo de experiência incompleto: visão ${step.roleKey} ausente.`);
+    }
+    return {
+      number: step.number,
+      title: step.title,
+      description: step.description,
+      url: view.url,
+      note: 'Visão demonstrativa disponível por 4 horas',
+    };
+  });
+
+  return [
+    {
+      number: '01',
+      title: 'Comece como você',
+      description: `Comece do zero como ${access.cargo} e faça seu próprio mapeamento.`,
+      url: access.url,
+      note: 'Link individual e de uso único',
+    },
+    ...presentationSteps,
+  ];
+}
+
+export function buildAcmeProspectShareText(access: AcmeProspectExperienceShareAccess): string {
+  const firstName = access.nome.split(/\s+/)[0] || access.nome;
+  const steps = getAcmeProspectExperienceSteps(access);
+  const itinerary = steps.flatMap((step) => [
+    `${step.number}/04 — ${step.title}`,
+    step.description,
+    step.url,
+    '',
+  ]);
+
+  return [
+    `Olá, ${firstName}!`,
+    '',
+    `Preparei um roteiro de experiência da Vertho em um ambiente neutro para a ${access.empresa}.`,
+    'Siga as quatro etapas abaixo para conhecer a plataforma por diferentes perspectivas:',
+    '',
+    ...itinerary,
+    'O link da etapa 01 é individual e funciona uma única vez.',
+    'As etapas 02 a 04 ficam disponíveis por 4 horas.',
+  ].join('\n').trim();
 }

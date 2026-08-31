@@ -66,8 +66,8 @@ async function rollbackGuest(
  * Núcleo headless da experiência individual no ACME Demo.
  *
  * O tenant não é parâmetro: esta função só pode operar no `acme-demo`. O e-mail
- * técnico é interno e aleatório; o contato real permanece no browser do
- * vendedor, usado apenas para abrir o WhatsApp ou o cliente de e-mail.
+ * técnico é interno e aleatório; o WhatsApp real, quando informado, permanece
+ * no browser do vendedor e só é usado para abrir o compartilhamento manual.
  */
 export async function prepareAcmeProspectExperience(
   input: AcmeProspectExperienceInput,
