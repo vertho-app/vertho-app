@@ -802,3 +802,52 @@ frio porque o `cacheHistory` do wrapper só era ligado pelo tira-dúvidas.
 
 Detalhe: `actions/ai-client.ts`, `lib/ai-batch.ts`, `docs/CUSTO-QUALIDADE.md` §30/08, memória
 `project_cache_teto_e_write_orfao`.
+
+---
+
+## § Vou criar automação para algo com DATA DE FIM (feira, campanha, piloto, turma)
+
+**Casa quando:** entrada nova em `vercel.json`, `case` novo em `app/api/cron/route.ts`, task
+Trigger, ou qualquer disparo recorrente amarrado a um evento datado.
+
+**Confira:**
+
+1. **O que a desliga está escrito no MESMO commit?** Gate que lê a data de fim, entrada em
+   `lib/blocos-offline.ts`, ou — no mínimo — o prazo comentado **em cima do `schedule`**, não só na
+   descrição da regra.
+2. **Ao encerrar o evento, varra o `vercel.json`** — não os logs. Cron órfão não deixa rastro: rodada
+   sem pendente é uma query que devolve 0 linhas, barata e silenciosa.
+3. **Tirou do `vercel.json`? Toque em `ACOES_SO_MANUAIS`.** `cron-agendado-existe.test.ts` exige que
+   todo `case` declare um lado; remover só o agendamento deixa a suíte vermelha para todo mundo.
+
+**Consequência medida (31/08/2026):** o CONARH 52 acabou em **17/08** e, duas semanas depois, os dois
+crons da régua seguiam armados — `conarh-followup` diário e `conarh_reenvio_t0` **a cada 15 min das
+11h às 23h**, 48 execuções/dia disparando cadência de WhatsApp para 7 leads de uma feira encerrada.
+O comentário no código justificava o intervalo curto, e estava certo *durante* a feira: é isso que
+faz ninguém questionar depois. Memória: `feedback_trabalho_sazonal_sem_desligamento`.
+
+---
+
+## § Vou passar um commit com `-F <arquivo>`, ou editar arquivo por script
+
+**Casa quando:** `git commit -F`, ou script `.mjs`/`python` que faz `replace`/`splice` em arquivo
+do repo.
+
+**Confira:**
+
+1. **Mensagem de commit vai em arquivo com nome PRÓPRIO no scratchpad da sessão**, escrito com a
+   ferramenta Write. Nunca `/tmp/msg.txt`, `/tmp/msg3.txt` e amigos: `/tmp` é compartilhado entre
+   sessões e entre mim e o dono.
+2. **`head -1` no arquivo antes do `-F`.** Custa nada e é o único sinal disponível.
+3. **`assert` na âncora de todo `replace`, e imprima `aplicadas: N de M`.** Um `print('ok')`
+   incondicional é uma mentira que custa a próxima meia hora.
+4. **Inserir em posição sintática usa o parser do TypeScript**, não contagem de chaves —
+   `): Promise<{ ok: true }> {` tem a chave do TIPO antes da do corpo.
+5. **`return` incondicional no topo de um handler mata o narrowing** com `strict: false`: use um
+   predicado que devolve `boolean`.
+
+**Consequência medida (31/08/2026):** um commit saiu com a mensagem **"feat(cadencia): v3 com link
+NO CORPO"** — texto do dono, de 30/08, que já morava em `/tmp/msg3.txt`. O heredoc não sobrescreveu
+e nada acusou: o `-F` leu um arquivo que existia, e existir bastou. Na mesma sessão, um contador de
+chaves ingênuo quebrou 4 arquivos de `actions/` e um `replace` falhou calado porque a âncora tinha
+`C:\GAS`. Memória: `reference_shell_escrita_arquivos`.

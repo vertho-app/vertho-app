@@ -613,6 +613,17 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   um par** (mesma pessoa, mesmos modelos). Ruído de ±1 achado, efeito procurado de 1 a 3 = sorteio.
   E fixe `timeoutMs` folgado nos DOIS braços: chamada que morre no relógio cria viés de
   sobrevivência, sumindo justo a execução mais longa.
+- NÃO criar automação para algo com **data de fim** (feira, campanha, piloto) sem escrever, no
+  MESMO commit, o que a desliga. Medido 31/08: o CONARH acabou em 17/08 e duas semanas depois os
+  dois crons da régua seguiam armados — `conarh_reenvio_t0` **a cada 15 min das 11h às 23h**, 48
+  execuções/dia disparando WhatsApp para 7 leads de um evento encerrado. O comentário justificava
+  o intervalo curto e estava certo *durante* a feira: é isso que faz ninguém questionar depois, e
+  o sintoma é a AUSÊNCIA de sintoma (rodada sem pendente = query que devolve 0 linhas). Ao
+  encerrar evento, varra o **`vercel.json`**, não os logs. Gatilho § da skill `checklist`.
+- NÃO passar mensagem de commit por `/tmp/msg*.txt`: `/tmp` é compartilhado entre sessões e com o
+  dono, e o heredoc **não sobrescreve sem avisar** — medido 31/08, um commit meu saiu com a
+  mensagem de outro trabalho, do dia anterior. Arquivo com nome próprio no scratchpad + `head -1`
+  antes do `-F`.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
