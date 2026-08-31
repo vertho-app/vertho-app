@@ -13,6 +13,7 @@
 // por um blip); a proteção de última instância continua sendo as personas
 // @vertho.ai sem telefone. Observável: loga toda supressão.
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
 // Cache curto por processo — dispatch em lote chama uma vez por ação, mas o
 // login/signup chama por usuário; evita repetir a query no mesmo burst.
@@ -26,7 +27,30 @@ async function demoInfo(empresaId: string): Promise<DemoInfo> {
   if (hit && now - hit.at < CACHE_TTL_MS) return hit;
   try {
     const sb = createSupabaseAdmin();
-    const { data } = await sb.from('empresas').select('is_demo, sys_config').eq('id', empresaId).maybeSingle();
+    const { data, error } = await sb.from('empresas').select('is_demo, sys_config').eq('id', empresaId).maybeSingle();
+    // 🔴 O supabase-js RETORNA `{ error }` — não lança. Sem esta checagem a falha
+    // de leitura não caía no `catch` abaixo: passava reto, `data` vinha `null`,
+    // `isDemo` virava `false` e o tenant de DEMO mandava comunicação real. Ou
+    // seja, a política de fail-open era aplicada no caso mais provável (erro de
+    // query) sem sequer o `console.warn` que o catch promete.
+    //
+    // A política continua a MESMA — não bloquear, porque travar envio de todo
+    // mundo por uma leitura instável é pior. O que muda é que ela deixa rastro.
+    //
+    // ⚠️ E não entra no cache: guardar um fail-open estenderia por 60s inteiros
+    // a janela em que um tenant de demo é tratado como real.
+    if (error) {
+      console.warn('[envio-guard] falha ao ler is_demo, NÃO bloqueando:', error.message);
+      await registrarDegradacao({
+        fluxo: 'envio',
+        tipo: DEGRADACAO.DEMO_GUARD_CEGO,
+        chave: empresaId,
+        empresaId,
+        severidade: 'critico',
+        detalhe: { erro: error.message },
+      }, sb);
+      return { isDemo: false, allowlist: [], at: now };
+    }
     const raw = (data as any)?.sys_config?.demo_acesso_allowlist;
     const info: DemoInfo = {
       isDemo: !!(data as any)?.is_demo,

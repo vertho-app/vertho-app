@@ -188,6 +188,20 @@ export const DEGRADACAO = {
    * Ver lib/video/reconciliar-personalizados.ts.
    */
   RECONCILIACAO_SEM_WORKER: 'reconciliacao-sem-worker',
+  /**
+   * envio: o gate de tenant-demo não conseguiu LER `empresas.is_demo`.
+   *
+   * A política do `envio-guard` é fail-open declarada (não derrubar envio real
+   * por um blip de leitura), e continua sendo. `critico` porque a consequência
+   * dela, quando acionada, é a promessa que o produto faz ao cliente: um tenant
+   * de demonstração disparando WhatsApp/e-mail REAL. A última linha de defesa
+   * vira só as personas `@vertho.ai` sem telefone.
+   *
+   * Existe porque o fail-open estava sendo aplicado em SILÊNCIO: o
+   * `console.warn` morava num `catch`, e o supabase-js RETORNA o erro em vez de
+   * lançar — o caso mais provável nunca chegava lá.
+   */
+  DEMO_GUARD_CEGO: 'demo-guard-cego',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
