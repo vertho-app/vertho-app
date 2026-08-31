@@ -412,6 +412,9 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         const r: any = await enqueueBlueprintBatch(empresaId, aiConfig);
         if (!r?.success) { addLog(`❌ ${r?.error || 'Falha ao enfileirar'}`, 'error'); setPendingAction(null); return; }
         if (!r.jobId) { addLog(`${r.message || 'Nada na fila'}`, 'info'); setPendingAction(null); return; }
+        // `pulados` DITO em voz alta: o lote agora manda só quem ainda não tem
+        // blueprint, e um total que encolhe sem explicação parece fila vazia.
+        if (r.pulados) addLog(`↷ ${r.pulados} já tinha(m) blueprint e ficou(aram) de fora (o persist é upsert e sobrescreveria).`, 'info');
         addLog(`📦 ${r.total} blueprint(s) no lote ${String(r.jobId).slice(0, 8)}… — rodando em segundo plano.`, 'info');
         addLog('Pode fechar a aba: o progresso é re-adotado quando você voltar.', 'info');
         watchJob(r.jobId, 'Blueprints');

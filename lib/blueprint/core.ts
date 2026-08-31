@@ -67,6 +67,50 @@ export async function resolverFilaBlueprint100(tdb: any): Promise<FilaBlueprintI
   return fila;
 }
 
+/**
+ * Divide a fila entre quem AINDA NÃO TEM blueprint e quem já tem.
+ *
+ * 🔴 POR QUE ISTO EXISTE (medido 31/08/2026, Macaé). `resolverFilaBlueprint100`
+ * responde "quem está ELEGÍVEL", e o lote tratava isso como "quem precisa ser
+ * gerado". São coisas diferentes: naquele tenant a fila tinha 81 pessoas, das
+ * quais 38 já tinham blueprint desde 14/08 — e o persist é `upsert` com
+ * `onConflict (empresa_id, colaborador_id)`, ou seja, SOBRESCREVE.
+ *
+ * Disparar o lote para gerar os 43 professores que faltavam teria regerado os 38
+ * diretores por cima, e o dano não é o custo dobrado:
+ *
+ *  1. os 38 têm `auditoria` de 14/08 e o upsert NÃO toca nesse campo — a
+ *     auditoria velha ficaria carimbada sobre um conteúdo que ela nunca viu, o
+ *     que é pior que auditoria ausente (uma diz "não sei", a outra mente);
+ *  2. **34 deles já viraram PDI entregue** por WhatsApp em 17/08. Trocada a
+ *     base, o plano na mão da pessoa passa a divergir da origem — e artefato
+ *     antigo não se anuncia: o PDF abre normal descrevendo uma âncora que não
+ *     existe mais.
+ *
+ * É a classe do "filtro de retomada": o filtro tem que descrever o que a rodada
+ * CORRIGE, e "está na fila" não é sinônimo de "precisa ser gerado".
+ *
+ * Devolve os dois lados (não só os pendentes) porque quem chama precisa DIZER
+ * quantos pulou: um lote que silenciosamente encolhe de 81 para 43 é
+ * indistinguível de uma fila que encolheu sozinha.
+ */
+export async function separarPorBlueprintExistente(
+  tdb: any,
+  fila: FilaBlueprintItem[],
+): Promise<{ pendentes: FilaBlueprintItem[]; jaTem: FilaBlueprintItem[] }> {
+  if (!fila.length) return { pendentes: [], jaTem: [] };
+  const { data, error } = await tdb.from('development_blueprints').select('colaborador_id');
+  // supabase-js RETORNA `{ error }`. Sem checar, uma falha de leitura viraria
+  // "ninguém tem blueprint" e o lote regeraria a coorte INTEIRA — exatamente o
+  // estrago que esta função existe para impedir, entrando pela porta dos fundos.
+  if (error) throw new Error(`development_blueprints: ${error.message}`);
+  const comBp = new Set(((data as any[]) || []).map((b) => b.colaborador_id));
+  return {
+    pendentes: fila.filter((f) => !comBp.has(f.id)),
+    jaTem: fila.filter((f) => comBp.has(f.id)),
+  };
+}
+
 export interface GerarBlueprintResult {
   ok?: true;
   blueprintId?: string;

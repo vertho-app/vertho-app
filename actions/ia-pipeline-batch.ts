@@ -14,7 +14,7 @@ import type { AIConfig } from '@/actions/ai-client';
 import { listarCargosParaIA2, listarFilaIA3 } from '@/actions/fase1';
 import { listarPendentesIA4 } from '@/actions/fase3';
 import { listarPendentesCheckCore } from '@/lib/check-ia4-core';
-import { resolverFilaBlueprint100 } from '@/lib/blueprint/core';
+import { resolverFilaBlueprint100, separarPorBlueprintExistente } from '@/lib/blueprint/core';
 import type { gerarIA2BatchTask } from '@/trigger/gerar-ia2-batch';
 import type { gerarIA3BatchTask } from '@/trigger/gerar-ia3-batch';
 import type { gerarIA4BatchTask } from '@/trigger/gerar-ia4-batch';
@@ -212,7 +212,18 @@ export async function enqueueIA4Batch(
  * 100% (colabs com todas as competências foco mapeadas) e dispara a task
  * `gerar-blueprint-batch`. Gate de tenant AQUI; a task roda service-role.
  */
-export async function enqueueBlueprintBatch(empresaId: string, aiConfig: AIConfig = {}) {
+export async function enqueueBlueprintBatch(
+  empresaId: string,
+  aiConfig: AIConfig = {},
+  /**
+   * `regerar: true` inclui quem JÁ TEM blueprint (o comportamento anterior, que
+   * era o único). Fica como escolha explícita de quem tem
+   * `ai.audit.regenerate` — não é bypass de gate, é intenção: regerar por cima
+   * de blueprint auditado e já virado PDI precisa ser um ato deliberado, nunca
+   * o default de um botão chamado "gerar".
+   */
+  opts: { regerar?: boolean } = {},
+) {
   try {
     if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
     const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'enqueueBlueprintBatch');
@@ -224,7 +235,19 @@ export async function enqueueBlueprintBatch(empresaId: string, aiConfig: AIConfi
     if (!fila.length) {
       return { success: true as const, jobId: null, total: 0, message: 'Nenhum colaborador com as competências foco 100% mapeadas' };
     }
-    const colabIds = fila.map((c) => c.id);
+
+    // Elegível ≠ pendente. Ver `separarPorBlueprintExistente`: o persist é
+    // upsert, então incluir quem já tem SOBRESCREVE blueprint auditado — e,
+    // em Macaé, 34 deles já viraram PDI entregue.
+    const { pendentes, jaTem } = await separarPorBlueprintExistente(tdb, fila);
+    const alvo = opts.regerar ? fila : pendentes;
+    if (!alvo.length) {
+      return {
+        success: true as const, jobId: null, total: 0, pulados: jaTem.length,
+        message: `Todos os ${jaTem.length} elegíveis já têm blueprint. Use "regerar" para refazê-los.`,
+      };
+    }
+    const colabIds = alvo.map((c) => c.id);
 
     const { data: job, error } = await sb.from('ia_jobs').insert({
       empresa_id: empresaId,
@@ -242,7 +265,9 @@ export async function enqueueBlueprintBatch(empresaId: string, aiConfig: AIConfi
       await sb.from('ia_jobs').update({ status: 'error', error: 'dispatch: ' + (e?.message || e) }).eq('id', job.id);
       return { success: false as const, error: 'Não foi possível enfileirar: ' + (e?.message || e) };
     }
-    return { success: true as const, jobId: job.id, total: colabIds.length };
+    // `pulados` sobe para a tela: um lote que encolhe de 81 para 43 sem dizer
+    // por quê é indistinguível de uma fila que encolheu sozinha.
+    return { success: true as const, jobId: job.id, total: colabIds.length, pulados: opts.regerar ? 0 : jaTem.length };
   } catch (err: any) {
     return { success: false as const, error: err?.message || 'Erro' };
   }
