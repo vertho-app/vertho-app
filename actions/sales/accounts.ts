@@ -10,6 +10,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import {
   requireRepresentativeAction,
   requireRepresentativeOrAdminAction,
+  requireCommercialAdminAction,
   assertRepresentativeOwnership,
 } from '@/lib/sales/permissions';
 import { numOrNull } from '@/lib/sales/validation';
@@ -17,6 +18,7 @@ import type { SalesAccount, SalesProposal } from '@/lib/sales/types';
 
 const ACCOUNT_STATUSES = ['prospect', 'active_client', 'inactive', 'lost'] as const;
 const CHURN_RISKS = ['baixo', 'medio', 'alto'] as const;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function listSalesAccounts(filters?: {
   status?: string;
@@ -134,6 +136,82 @@ export async function updateSalesAccount(accountId: string, input: Record<string
   const { error } = await sb.from('sales_accounts').update(patch).eq('id', accountId);
   if (error) return { success: false as const, error: error.message };
   return { success: true as const };
+}
+
+/** Conta linhas de uma tabela ligadas à conta. Erro de leitura NÃO vira zero (E11). */
+async function countByAccount(
+  sb: ReturnType<typeof createSupabaseAdmin>,
+  table: string,
+  accountId: string,
+): Promise<number> {
+  const { count, error } = await sb.from(table).select('id', { count: 'exact', head: true }).eq('account_id', accountId);
+  if (error) throw new Error(`falha ao verificar ${table}: ${error.message}`);
+  return count || 0;
+}
+
+/**
+ * Apaga uma empresa do canal comercial (usado na lista do Copiloto).
+ *
+ * Fail-closed: a conta só sai se não houver histórico comercial duro —
+ * oportunidade, proposta ou evento de comissão. Esse histórico é a base do
+ * cálculo de comissão e não pode sumir por um clique na lista; nesses casos a
+ * action devolve o que está segurando, em vez de apagar em cascata.
+ *
+ * O que é acessório da conta sai junto: contatos, planejamentos e resultados do
+ * copiloto (FK ON DELETE CASCADE no banco) e as notas de acompanhamento (FK sem
+ * cascade — apagadas aqui, senão o DELETE bate em violação de chave).
+ */
+export async function deleteSalesAccount(accountId: string) {
+  const ctx = await requireRepresentativeOrAdminAction();
+  // Do lado admin isso é escrita destrutiva: exige sales_channel.manage (sócio não apaga).
+  if (ctx.kind === 'admin') await requireCommercialAdminAction(true);
+  if (!UUID_RE.test(String(accountId || ''))) return { success: false as const, error: 'Empresa inválida' };
+
+  const sb = createSupabaseAdmin();
+  const { data: account, error: readError } = await sb.from('sales_accounts')
+    .select('id, representante_id, legal_name, trade_name, status').eq('id', accountId).maybeSingle();
+  if (readError) return { success: false as const, error: readError.message };
+  if (!account) return { success: false as const, error: 'Conta não encontrada' };
+  if (ctx.kind === 'representative' && account.representante_id !== ctx.rep.id) {
+    return { success: false as const, error: 'FORBIDDEN: conta de outro representante' };
+  }
+  if (account.status === 'active_client') {
+    return {
+      success: false as const,
+      error: 'Esta empresa está marcada como cliente ativo. Mude o status antes de apagar.',
+    };
+  }
+
+  const [opportunities, proposals, commissions] = await Promise.all([
+    countByAccount(sb, 'sales_opportunities', accountId),
+    countByAccount(sb, 'sales_proposals', accountId),
+    countByAccount(sb, 'sales_commission_events', accountId),
+  ]);
+  const blockers = [
+    opportunities ? `${opportunities} oportunidade(s)` : '',
+    proposals ? `${proposals} proposta(s)` : '',
+    commissions ? `${commissions} evento(s) de comissão` : '',
+  ].filter(Boolean);
+  if (blockers.length) {
+    return {
+      success: false as const,
+      error: `Esta empresa tem ${blockers.join(' e ')} no funil. Remova esses registros antes de apagar a empresa.`,
+    };
+  }
+
+  // Contagem ANTES do delete: depois do cascade não há mais o que contar.
+  const [contacts, plans, conversations] = await Promise.all([
+    countByAccount(sb, 'sales_contacts', accountId),
+    countByAccount(sb, 'copilot_plans', accountId),
+    countByAccount(sb, 'copilot_conversations', accountId),
+  ]);
+
+  const { error: notesError } = await sb.from('sales_activity_notes').delete().eq('account_id', accountId);
+  if (notesError) return { success: false as const, error: notesError.message };
+
+  const { error } = await sb.from('sales_accounts').delete().eq('id', accountId);
+  if (error) return { success: false as const, error: error.message };
+  return { success: true as const, removed: { contacts, plans, conversations } };
 }
 
 // ── Pós-venda / carteira (MVP 3) ────────────────────────────────────────────

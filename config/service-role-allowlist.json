@@ -125,7 +125,7 @@
     "lib/tenant-resolver.ts": 1,
     "lib/versioning.ts": 2,
     "app/admin/vertho/knowledge-base/actions.ts": 3,
-    "actions/sales/accounts.ts": 9,
+    "actions/sales/accounts.ts": 10,
     "actions/sales/admin-dashboard.ts": 1,
     "actions/sales/ai-assistant.ts": 3,
     "actions/sales/benchmark.ts": 1,

@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight, Building2, Check, ChevronRight, CircleAlert, ClipboardPaste,
-  Clock3, FileText, History, LoaderCircle, NotebookPen, Plus, Search, Sparkles,
+  Clock3, FileText, History, LoaderCircle, NotebookPen, Plus, Search, Sparkles, Trash2,
 } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
-import { createSalesAccount } from '@/actions/sales/accounts';
+import { createSalesAccount, deleteSalesAccount } from '@/actions/sales/accounts';
 import type {
   CopilotAccountDetail,
   CopilotAccountListItem,
@@ -143,6 +143,8 @@ export default function ClientsWorkspace({
   const [addingCompany, setAddingCompany] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState('');
   const [creatingCompany, setCreatingCompany] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [resultPlanningId, setResultPlanningId] = useState('');
   const [title, setTitle] = useState('');
@@ -264,6 +266,34 @@ export default function ClientsWorkspace({
     }
   }
 
+  async function removeCompany(account: CopilotAccountListItem) {
+    setDeletingId(account.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await deleteSalesAccount(account.id);
+      if (!result.success) throw new Error(result.error || 'Falha ao apagar a empresa');
+      const remaining = accounts.filter((item) => item.id !== account.id);
+      setAccounts(remaining);
+      if (account.id === selectedId) {
+        setDetail(null);
+        setComposerOpen(false);
+        setSelectedId(remaining[0]?.id || null);
+      }
+      setPendingDeleteId(null);
+      const together = [
+        result.removed.plans ? `${result.removed.plans} planejamento(s)` : '',
+        result.removed.conversations ? `${result.removed.conversations} resultado(s)` : '',
+        result.removed.contacts ? `${result.removed.contacts} contato(s)` : '',
+      ].filter(Boolean);
+      setNotice(`Empresa “${account.name}” apagada${together.length ? ` junto com ${together.join(', ')}` : ''}.`);
+    } catch (err: any) {
+      setError(err?.message || 'Não foi possível apagar a empresa');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   async function saveConversation() {
     if (!selectedId || transcript.trim().length < 20 || !detail) return;
     setSaving(true);
@@ -333,15 +363,38 @@ export default function ClientsWorkspace({
         </label>
         <div className={styles.meetingCompanyList}>
           {filteredAccounts.map((account) => (
-            <button key={account.id} className={account.id === selectedId ? styles.meetingCompanyActive : ''} onClick={() => {
-              setSelectedId(account.id);
-              setComposerOpen(false);
-              setNotice(null);
-            }}>
-              <span>{account.name.slice(0, 2).toUpperCase()}</span>
-              <div><strong>{account.name}</strong><small>{account.planningCount} planos · {account.conversationCount} resultados</small><em><Clock3 size={10} /> {formatDate(latestDate(account))}</em></div>
-              <ChevronRight size={14} />
-            </button>
+            <div key={account.id} className={styles.meetingCompanyRow}>
+              <button className={`${styles.meetingCompanyItem} ${account.id === selectedId ? styles.meetingCompanyActive : ''}`} onClick={() => {
+                setSelectedId(account.id);
+                setComposerOpen(false);
+                setNotice(null);
+                setPendingDeleteId(null);
+              }}>
+                <span>{account.name.slice(0, 2).toUpperCase()}</span>
+                <div><strong>{account.name}</strong><small>{account.planningCount} planos · {account.conversationCount} resultados</small><em><Clock3 size={10} /> {formatDate(latestDate(account))}</em></div>
+                <ChevronRight size={14} />
+              </button>
+              {pendingDeleteId !== account.id && (
+                <button type="button" className={styles.companyDelete} title="Apagar empresa" aria-label={`Apagar ${account.name}`} onClick={() => {
+                  setPendingDeleteId(account.id);
+                  setError(null);
+                  setNotice(null);
+                }}>
+                  <Trash2 size={13} />
+                </button>
+              )}
+              {pendingDeleteId === account.id && (
+                <div className={styles.companyDeleteConfirm}>
+                  <p>Apagar “{account.name}”? Os planejamentos, resultados e contatos desta empresa vão junto — não dá para desfazer.</p>
+                  <div>
+                    <button type="button" data-danger disabled={deletingId === account.id} onClick={() => void removeCompany(account)}>
+                      {deletingId === account.id ? <><LoaderCircle size={11} className={styles.spin} /> Apagando…</> : <><Trash2 size={11} /> Apagar</>}
+                    </button>
+                    <button type="button" disabled={deletingId === account.id} onClick={() => setPendingDeleteId(null)}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+            </div>
           ))}
           {!filteredAccounts.length && <div className={styles.meetingEmptyIndex}><Building2 size={22} /><p>Nenhuma empresa encontrada.</p>{canCreateLeads && <button type="button" onClick={() => setAddingCompany(true)}>Adicionar empresa</button>}</div>}
         </div>
