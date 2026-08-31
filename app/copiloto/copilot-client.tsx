@@ -17,6 +17,7 @@ import {
   type SupernormalPostDetail,
 } from '@/lib/copiloto/types';
 import { inferMeetingKind } from '@/lib/copiloto/play';
+import { mesclarPerfisSociais } from '@/lib/copiloto/social-discovery';
 import {
   LocalMeetingCapture, toUtterance,
   type CaptureAudioLevels, type CaptureState, type CaptureSurface,
@@ -96,6 +97,25 @@ function sourceDisplayKind(source: CopilotSource): SourceDisplayKind {
 function meetingKindLabel(kind: MeetingKind): string {
   return MEETING_KINDS.find((item) => item.key === kind)?.label || 'Reunião';
 }
+
+type SocialDiscoveryState =
+  | { status: 'idle' }
+  | { status: 'buscando' }
+  | { status: 'ok'; encontrados: number; adicionados: number; host: string }
+  | { status: 'vazio'; host: string }
+  | { status: 'erro'; mensagem: string };
+
+/** Só vale varrer quando o que está no campo já parece um domínio inteiro. */
+const SITE_VARRIVEL = /^(https?:\/\/)?[a-z0-9-]+(\.[a-z0-9-]+)+([/?#]|$)/i;
+
+function hostVisivel(value: string): string {
+  try {
+    return new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`).hostname.replace(/^www\./, '');
+  } catch {
+    return value.replace(/^https?:\/\//i, '').replace(/^www\./, '').split('/')[0];
+  }
+}
+
 
 function PlayCard({ play }: { play: CopilotPlay }) {
   return (
@@ -426,6 +446,7 @@ export default function CopilotClient({
   const [audience, setAudience] = useState('');
   const [audienceOptions, setAudienceOptions] = useState<string[]>([]);
   const [goalThisHour, setGoalThisHour] = useState('');
+  const [socialDiscovery, setSocialDiscovery] = useState<SocialDiscoveryState>({ status: 'idle' });
   const [activePlanningId, setActivePlanningId] = useState('');
   const [planPersisted, setPlanPersisted] = useState(false);
   const [plan, setPlan] = useState<CopilotPlan | null>(null);
@@ -465,6 +486,11 @@ export default function CopilotClient({
   const captureStartedAtRef = useRef(0);
   const meetingCompositionRef = useRef<MeetingComposition>('solo-vertho');
   const audienceRequestRef = useRef(0);
+  // Site já varrido: sem isso o efeito de descoberta reexecuta a cada render e
+  // um seed que já traz redes salvas dispararia uma busca que não muda nada.
+  const siteVarridoRef = useRef('');
+  const socialRequestRef = useRef(0);
+  const socialProfilesRef = useRef('');
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -476,6 +502,10 @@ export default function CopilotClient({
         if (typeof parsed?.company === 'string') setCompany(parsed.company);
         if (typeof parsed?.site === 'string') setSite(parsed.site);
         if (typeof parsed?.socialProfiles === 'string') setSocialProfiles(parsed.socialProfiles);
+        // Rascunho restaurado que já tem redes declaradas não vira varredura nova.
+        if (typeof parsed?.site === 'string' && typeof parsed?.socialProfiles === 'string' && parsed.socialProfiles.trim()) {
+          siteVarridoRef.current = parsed.site.trim();
+        }
         if (typeof parsed?.context === 'string') setContext(parsed.context);
         if (typeof parsed?.offer === 'string') setOffer(parsed.offer);
         if (typeof parsed?.opportunityId === 'string') setOpportunityId(parsed.opportunityId);
@@ -501,6 +531,7 @@ export default function CopilotClient({
   useEffect(() => { readingRef.current = reading; }, [reading]);
   useEffect(() => { planRef.current = plan; }, [plan]);
   useEffect(() => { contextRef.current = context; }, [context]);
+  useEffect(() => { socialProfilesRef.current = socialProfiles; }, [socialProfiles]);
   useEffect(() => { meetingCompositionRef.current = meetingComposition; }, [meetingComposition]);
   useEffect(() => () => {
     captureRef.current?.stop();
@@ -623,6 +654,54 @@ export default function CopilotClient({
     setAudioHealth(assessAudioInputHealth(evidence, Date.now() - captureStartedAtRef.current));
   }, []);
 
+  /**
+   * Lê o site informado e traz de lá os perfis oficiais. O rodapé do site é a
+   * evidência de titularidade que a régua de identidade exige — sem isso, a
+   * trilha "Redes oficiais" da pesquisa não roda (campo vazio = busca social
+   * não acontece).
+   */
+  const descobrirRedes = useCallback(async (rawSite: string) => {
+    const alvo = rawSite.trim();
+    if (!alvo) return;
+    const requestId = ++socialRequestRef.current;
+    siteVarridoRef.current = alvo;
+    setSocialDiscovery({ status: 'buscando' });
+    try {
+      const res = await fetchAuth('/api/copiloto/redes-sociais', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ site: alvo }),
+      });
+      const data = await res.json();
+      if (requestId !== socialRequestRef.current) return;
+      if (!res.ok) throw new Error(data?.error || 'Não foi possível ler o site');
+      const perfis: string[] = Array.isArray(data?.perfis)
+        ? data.perfis.filter((item: unknown) => typeof item === 'string')
+        : [];
+      const host = hostVisivel(typeof data?.siteLido === 'string' && data.siteLido ? data.siteLido : alvo);
+      if (!perfis.length) {
+        setSocialDiscovery({ status: 'vazio', host });
+        return;
+      }
+      const { texto, adicionados } = mesclarPerfisSociais(socialProfilesRef.current, perfis);
+      if (adicionados.length) setSocialProfiles(texto);
+      setSocialDiscovery({ status: 'ok', encontrados: perfis.length, adicionados: adicionados.length, host });
+    } catch (err: any) {
+      if (requestId !== socialRequestRef.current) return;
+      setSocialDiscovery({ status: 'erro', mensagem: err?.message || 'Não foi possível ler o site' });
+    }
+  }, []);
+
+  // Automático: o vendedor digita o site e o campo de redes se preenche sozinho.
+  // O debounce evita uma requisição por tecla; `siteVarridoRef` evita repetir o
+  // mesmo domínio (inclusive quando um seed já traz as redes salvas).
+  useEffect(() => {
+    const alvo = site.trim();
+    if (!alvo || alvo === siteVarridoRef.current || !SITE_VARRIVEL.test(alvo)) return;
+    const timer = window.setTimeout(() => { void descobrirRedes(alvo); }, 900);
+    return () => window.clearTimeout(timer);
+  }, [site, descobrirRedes]);
+
   async function generatePlan(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -713,6 +792,24 @@ export default function CopilotClient({
     })();
   }
 
+  /** Zera a memória da varredura: o próximo site digitado volta a ser buscado. */
+  function esquecerVarreduraDeRedes() {
+    socialRequestRef.current += 1;
+    siteVarridoRef.current = '';
+    setSocialDiscovery({ status: 'idle' });
+  }
+
+  /**
+   * Seed que já traz redes salvas não precisa de varredura — marcar o site como
+   * varrido impede que abrir um cliente do histórico dispare uma leitura que não
+   * mudaria nada.
+   */
+  function adotarRedesDoSeed(seedSite: string, seedSocialProfiles: string) {
+    socialRequestRef.current += 1;
+    siteVarridoRef.current = seedSocialProfiles.trim() ? seedSite.trim() : '';
+    setSocialDiscovery({ status: 'idle' });
+  }
+
   function changeCompany(nextCompany: string) {
     const changedIdentity = company.trim()
       && company.trim().toLocaleLowerCase('pt-BR') !== nextCompany.trim().toLocaleLowerCase('pt-BR');
@@ -720,6 +817,7 @@ export default function CopilotClient({
       clearPlan();
       setSite('');
       setSocialProfiles('');
+      esquecerVarreduraDeRedes();
       setAudience('');
       setAudienceOptions([]);
       setGoalThisHour('');
@@ -745,6 +843,7 @@ export default function CopilotClient({
       clearPlan();
       setSite('');
       setSocialProfiles('');
+      esquecerVarreduraDeRedes();
     }
     setOpportunityId(id);
     if (!selected) {
@@ -775,6 +874,7 @@ export default function CopilotClient({
     setCompany(seed.company);
     setSite(seed.site);
     setSocialProfiles(seed.socialProfiles);
+    adotarRedesDoSeed(seed.site, seed.socialProfiles);
     setContext(seed.context);
     setOffer(seed.offer || DEFAULT_VERTHO_OFFER);
     setOpportunityId(seed.opportunityId);
@@ -793,6 +893,7 @@ export default function CopilotClient({
     setCompany(savedCompany);
     setSite(seed.site);
     setSocialProfiles(seed.socialProfiles);
+    adotarRedesDoSeed(seed.site, seed.socialProfiles);
     setContext(savedContext);
     setOffer(seed.offer || DEFAULT_VERTHO_OFFER);
     setOpportunityId(seed.opportunityId);
@@ -1104,16 +1205,39 @@ export default function CopilotClient({
               <label>Site público<input value={site} onChange={(event) => setSite(event.target.value)} placeholder="empresa.com.br" inputMode="url" maxLength={320} /></label>
             </div>
 
-            <label className={styles.identityField}>Redes sociais oficiais
+            <div className={styles.identityField}>
+              <div className={styles.identityFieldHeader}>
+                <label htmlFor="copilot-social">Redes sociais oficiais</label>
+                <button
+                  type="button"
+                  onClick={() => void descobrirRedes(site)}
+                  disabled={!site.trim() || socialDiscovery.status === 'buscando'}
+                >
+                  {socialDiscovery.status === 'buscando'
+                    ? <><LoaderCircle size={13} className={styles.spin} /> Lendo o site</>
+                    : <><Search size={13} /> Buscar no site</>}
+                </button>
+              </div>
               <textarea
+                id="copilot-social"
                 value={socialProfiles}
                 onChange={(event) => setSocialProfiles(event.target.value)}
                 rows={3}
                 maxLength={3000}
                 placeholder={'https://linkedin.com/company/empresa\nhttps://instagram.com/empresa\nhttps://x.com/empresa'}
               />
-              <small><ShieldCheck size={12} /> Use os links dos perfis oficiais. Sinais de outros perfis serão descartados; ao trocar de cliente, o campo é limpo.</small>
-            </label>
+              <small><ShieldCheck size={12} /> Ao informar o site, os perfis linkados nele entram aqui sozinhos. Sinais de outros perfis serão descartados; ao trocar de cliente, o campo é limpo.</small>
+              {socialDiscovery.status !== 'idle' && (
+                <small data-status={socialDiscovery.status} className={styles.socialDiscoveryNote}>
+                  {socialDiscovery.status === 'buscando' && <>Procurando os perfis oficiais no site…</>}
+                  {socialDiscovery.status === 'ok' && (socialDiscovery.adicionados
+                    ? <>{socialDiscovery.adicionados} {socialDiscovery.adicionados === 1 ? 'perfil veio' : 'perfis vieram'} de {socialDiscovery.host}. Confira antes de gerar o Play.</>
+                    : <>Os {socialDiscovery.encontrados === 1 ? 'perfil' : `${socialDiscovery.encontrados} perfis`} de {socialDiscovery.host} já estavam no campo.</>)}
+                  {socialDiscovery.status === 'vazio' && <>{socialDiscovery.host} não publica perfis oficiais nas páginas lidas. Cole os links à mão.</>}
+                  {socialDiscovery.status === 'erro' && <>{socialDiscovery.mensagem}. Cole os links à mão ou tente de novo.</>}
+                </small>
+              )}
+            </div>
 
             <div className={styles.contextField}>
               <div className={styles.contextFieldHeader}>

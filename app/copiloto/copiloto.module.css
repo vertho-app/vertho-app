@@ -244,6 +244,9 @@
 .companyDeleteConfirm button { flex: 1; min-height: 28px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid rgba(164,194,216,.2); padding: 0 8px; color: #9db4c5; background: transparent; cursor: pointer; font: 800 8px/1 var(--font-inter); }
 .companyDeleteConfirm button[data-danger] { border-color: rgba(255,112,124,.42); color: #ffb9bd; background: rgba(160,39,50,.28); }
 .companyDeleteConfirm button:disabled { opacity: .45; cursor: not-allowed; }
+/* 2ª confirmação (há funil/cliente ativo em jogo): mais peso que a primeira. */
+.companyDeleteConfirm[data-forcar] { border-top-width: 2px; border-top-color: rgba(255,112,124,.6); background: rgba(160,39,50,.24); }
+.companyDeleteConfirm[data-forcar] button[data-danger] { border-color: rgba(255,112,124,.75); color: #fff0f0; background: rgba(184,44,56,.6); }
 .meetingCompanyList strong { overflow: hidden; color: currentColor; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .meetingCompanyList small { margin-top: 3px; color: #68849a; font-size: 8px; }
 .meetingCompanyList em { display: flex; align-items: center; gap: 5px; margin-top: 6px; color: #58748b; font-size: 8px; font-style: normal; }
@@ -328,8 +331,20 @@
 .contextFieldHeader button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .contextField > small { display: flex; gap: 6px; align-items: center; color: #718da4; font-size: 9px; letter-spacing: .03em; }
 .twoFields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.setupPanel .identityField { padding: 14px; border: 1px solid rgba(138, 217, 201, .2); border-left: 2px solid var(--mint); background: rgba(138, 217, 201, .035); }
+.setupPanel .identityField { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; padding: 14px; border: 1px solid rgba(138, 217, 201, .2); border-left: 2px solid var(--mint); background: rgba(138, 217, 201, .035); }
 .identityField textarea { min-height: 90px; }
+/* O campo deixou de ser <label> quando ganhou o botão: sem esta regra os avisos
+   perdem o 9px que `.setupPanel label > small` dava e ficam do tamanho do corpo. */
+.setupPanel .identityField > small { display: flex; gap: 6px; align-items: center; color: #718da4; font-size: 9px; line-height: 1.5; letter-spacing: .03em; text-transform: none; }
+.identityFieldHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.setupPanel .identityFieldHeader label { display: block; margin: 0; }
+.identityFieldHeader button { min-height: 30px; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 7px; border: 1px solid rgba(138, 217, 201, .3); border-radius: 4px; padding: 0 10px; color: var(--mint); background: rgba(138, 217, 201, .07); cursor: pointer; font: 750 9px/1 var(--font-inter); letter-spacing: .07em; text-transform: uppercase; transition: border-color .16s, background .16s, color .16s; }
+.identityFieldHeader button:hover:not(:disabled) { border-color: rgba(138, 217, 201, .6); background: rgba(138, 217, 201, .14); color: #b6ecdf; }
+.identityFieldHeader button:disabled { opacity: .45; cursor: not-allowed; }
+.identityFieldHeader button:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.setupPanel .socialDiscoveryNote { color: #8fb0c4; }
+.setupPanel .socialDiscoveryNote[data-status="ok"] { color: var(--mint); }
+.setupPanel .socialDiscoveryNote[data-status="vazio"], .setupPanel .socialDiscoveryNote[data-status="erro"] { color: var(--amber); }
 .playSetup { min-width: 0; margin: 0 0 22px; border: 1px solid rgba(66,212,215,.28); border-left: 3px solid var(--cyan); padding: 18px 18px 4px; background: linear-gradient(110deg, rgba(66,212,215,.065), rgba(5,23,40,.32) 62%); }
 .playSetup legend { display: flex; align-items: center; gap: 7px; padding: 0 9px; color: var(--cyan); font: 800 9px/1 var(--font-inter); letter-spacing: .11em; text-transform: uppercase; }
 .playSetup legend small { margin-left: 5px; color: #67849a; font-size: 8px; letter-spacing: .08em; }

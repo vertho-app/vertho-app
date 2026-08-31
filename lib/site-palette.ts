@@ -13,7 +13,8 @@
 
 import { callAI } from '@/actions/ai-client';
 import { parseJsonIA } from '@/lib/ai-json';
-import { ehIpPrivado as _ehIpPrivado, validarUrlPublica, fetchPublico } from '@/lib/net-guard';
+import { ehIpPrivado as _ehIpPrivado, validarUrlPublica } from '@/lib/net-guard';
+import { fetchTextoPublico } from '@/lib/fetch-texto-publico';
 
 export interface PaletaLogin {
   font_color: string;
@@ -51,38 +52,11 @@ export function validarUrlSite(raw: string): { ok: true; url: URL } | { ok: fals
   return validarUrlPublica(raw);
 }
 
-/** GET com timeout, teto de bytes e redirects validados hop a hop. */
-async function fetchTexto(rawUrl: string, maxBytes: number, accept: string): Promise<{ texto: string; urlFinal: string } | null> {
-  let atual = rawUrl;
-  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const v = validarUrlSite(atual);
-    if (!v.ok) return null;
-    let res: Response;
-    try {
-      // fetchPublico: o lookup do Agent valida o IP NO CONNECT (anti-TOCTOU/
-      // rebinding) — o DNS-check prévio sozinho deixava janela entre check e fetch.
-      res = await fetchPublico(v.url.toString(), {
-        redirect: 'manual',
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        headers: { 'User-Agent': UA, Accept: accept, 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.5' },
-      });
-    } catch {
-      return null;
-    }
-    if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get('location');
-      if (!loc) return null;
-      atual = new URL(loc, v.url).toString();
-      continue;
-    }
-    if (!res.ok) return null;
-    const len = Number(res.headers.get('content-length') || 0);
-    if (len && len > maxBytes) return null;
-    const texto = await res.text();
-    if (texto.length > maxBytes) return { texto: texto.slice(0, maxBytes), urlFinal: v.url.toString() };
-    return { texto, urlFinal: v.url.toString() };
-  }
-  return null;
+/** GET com timeout, teto de bytes e redirects validados hop a hop (lib/fetch-texto-publico). */
+function fetchTexto(rawUrl: string, maxBytes: number, accept: string): Promise<{ texto: string; urlFinal: string } | null> {
+  return fetchTextoPublico(rawUrl, {
+    maxBytes, accept, timeoutMs: FETCH_TIMEOUT_MS, maxRedirects: MAX_REDIRECTS, userAgent: UA,
+  });
 }
 
 // ── Extração pura (testável) ────────────────────────────────────────────────
