@@ -30,26 +30,6 @@ TENANT-SAFE — todo delete/insert é filtrado pelo `empresa_id` do tenant escol
 | **Manual (CLI)** | `npm run reset:demo` (= `npx tsx scripts/seed-acme-demo.ts`) — DELEGA ao reset canônico (mesmo fixture + artefatos do botão/cron) | CLI/scripts/CI |
 | **Grupo Sinal (CLI)** | `npm run reset:demo:gruposinal` | Cria ou recompõe `gruposinal.vertho.ai` |
 
-## Acesso temporário para prospect
-
-Para uma degustação assíncrona, use as três contas estáveis no mesmo tenant:
-
-| Visão | Conta |
-|---|---|
-| Participante | `bruna.demo@vertho.ai` |
-| Liderança | `carla.demo@vertho.ai` |
-| RH | `helena.demo@vertho.ai` |
-
-Depois do reset, abra `/admin/demo`, escolha o tenant e clique **Gerar links de
-entrada**. A ação valida `is_demo=true`, confere as três personas e gera um magic
-link real e de uso único para cada destino (`/dashboard`, `/dashboard/gestor` e
-home de RH). Os tokens não entram no log de auditoria. A tela permite copiar o
-link ou abrir o WhatsApp com a mensagem pronta; o envio continua sendo uma ação
-humana, preservando o bloqueio automático do ambiente demo.
-
-Uma senha compartilhada continua disponível na seção de contingência. O reset
-recompõe os dados do tenant, mas não altera os usuários do Auth.
-
 ## Degustação self-service com contato real (allowlist)
 
 O login self-service (prospect digita o próprio e-mail e recebe o magic link

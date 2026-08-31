@@ -11,8 +11,6 @@ import {
   Clock,
   Copy,
   ExternalLink,
-  KeyRound,
-  Link2,
   Loader2,
   MessageCircle,
   MonitorPlay,
@@ -23,11 +21,9 @@ import {
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import {
-  gerarMagicLinksTemporariosDemo,
   listarExperienciasProspectAcme,
   prepararExperienciaProspectAcme,
   prepararSalaApresentacaoDemo,
-  prepararAcessosTemporariosDemo,
   resetarDemo,
 } from '@/actions/demo';
 import { launchDemoPresentationAccess } from '@/lib/demo/presentation';
@@ -41,19 +37,6 @@ import {
 } from '@/lib/demo/acme-prospect-config';
 
 type TenantSlug = 'acme-demo' | 'gruposinal';
-
-type AcessosDemo = {
-  url: string;
-  senha: string;
-  acessos: Array<{ visao: string; nome: string; email: string }>;
-};
-
-type MagicLinkDemo = {
-  visao: string;
-  nome: string;
-  email: string;
-  url: string;
-};
 
 type PresentationLinkDemo = {
   roleKey: 'usuario' | 'gestor' | 'rh';
@@ -107,10 +90,6 @@ export default function AdminDemoPage() {
   const [tenantSlug, setTenantSlug] = useState<TenantSlug>('acme-demo');
   const [busy, setBusy] = useState(false);
   const [ultimo, setUltimo] = useState<Record<string, number | null> | null>(null);
-  const [preparando, setPreparando] = useState(false);
-  const [gerandoLinks, setGerandoLinks] = useState(false);
-  const [credenciais, setCredenciais] = useState<AcessosDemo | null>(null);
-  const [magicLinks, setMagicLinks] = useState<MagicLinkDemo[] | null>(null);
   const [presentationLinks, setPresentationLinks] = useState<PresentationLinkDemo[] | null>(null);
   const [preparandoApresentacao, setPreparandoApresentacao] = useState(true);
   const [presentationError, setPresentationError] = useState<string | null>(null);
@@ -189,8 +168,6 @@ export default function AdminDemoPage() {
   function selecionarTenant(slug: TenantSlug) {
     setTenantSlug(slug);
     setUltimo(null);
-    setCredenciais(null);
-    setMagicLinks(null);
     setCopiado(null);
   }
 
@@ -203,8 +180,6 @@ export default function AdminDemoPage() {
     });
     if (!ok) return;
     setBusy(true);
-    setMagicLinks(null);
-    setCredenciais(null);
     try {
       const r = await resetarDemo(tenantSlug);
       if (r.success) {
@@ -223,49 +198,6 @@ export default function AdminDemoPage() {
       toast.error(`Erro: ${e?.message || 'inesperado'}`);
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function gerarLinks() {
-    setGerandoLinks(true);
-    setMagicLinks(null);
-    try {
-      const r = await gerarMagicLinksTemporariosDemo(tenantSlug);
-      if (!r.success) {
-        toast.error(`Falha ao gerar links: ${r.error || 'erro'}`);
-        return;
-      }
-      setMagicLinks(r.acessos);
-      toast.success('Links de entrada gerados.');
-    } catch (e: any) {
-      toast.error(`Erro: ${e?.message || 'inesperado'}`);
-    } finally {
-      setGerandoLinks(false);
-    }
-  }
-
-  async function prepararAcessos() {
-    const ok = await confirmDialog({
-      title: 'Gerar senha de contingência',
-      message: 'Criar uma nova senha compartilhada para Participante, Liderança e RH? A senha anterior deixará de funcionar.',
-      severity: 'normal',
-      scopeNote: `Só altera as três contas do tenant ${tenantSlug}`,
-    });
-    if (!ok) return;
-    setPreparando(true);
-    setCredenciais(null);
-    try {
-      const r = await prepararAcessosTemporariosDemo(tenantSlug);
-      if (!r.success) {
-        toast.error(`Falha ao preparar acessos: ${r.error || 'erro'}`);
-        return;
-      }
-      setCredenciais({ url: r.url, senha: r.senha, acessos: r.acessos });
-      toast.success('Senha de contingência preparada.');
-    } catch (e: any) {
-      toast.error(`Erro: ${e?.message || 'inesperado'}`);
-    } finally {
-      setPreparando(false);
     }
   }
 
@@ -365,28 +297,6 @@ export default function AdminDemoPage() {
     }
   }
 
-  function compartilharNoWhatsapp(acesso: MagicLinkDemo) {
-    const mensagem = [
-      `Olá! Este é o seu acesso à demonstração da Vertho para o ${tenant.nome}.`,
-      `Visão: ${acesso.visao}`,
-      'Basta tocar no link para entrar — não precisa de senha:',
-      acesso.url,
-    ].join('\n');
-    window.open(`https://wa.me/?text=${encodeURIComponent(mensagem)}`, '_blank', 'noopener,noreferrer');
-  }
-
-  async function copiarAcessos() {
-    if (!credenciais) return;
-    const linhas = [
-      `Endereço: ${credenciais.url}`,
-      ...credenciais.acessos.map((a) => `${a.visao}: ${a.email}`),
-      `Senha temporária: ${credenciais.senha}`,
-      '',
-      'Para trocar de visão, use Sair e entre com o próximo e-mail.',
-    ];
-    await copiar(linhas.join('\n'), 'senha');
-  }
-
   return (
     <div className="max-w-[720px] mx-auto px-4 py-6 sm:px-6">
       <BackButton href="/admin/dashboard" />
@@ -434,7 +344,7 @@ export default function AdminDemoPage() {
           <button
             type="button"
             onClick={resetar}
-            disabled={busy || gerandoLinks || preparando}
+            disabled={busy}
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 py-3 text-sm font-bold text-[#0C1829] hover:bg-cyan-400 disabled:opacity-50"
           >
             {busy ? <><Loader2 size={16} className="animate-spin" /> Recriando {tenant.nome}…</> : <><RefreshCw size={16} /> Recriar dados de {tenant.nome}</>}
@@ -813,95 +723,6 @@ export default function AdminDemoPage() {
               )}
             </div>
           </section>
-
-          <div className="my-6 border-t border-white/10" />
-
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-sm font-bold text-white">Entrada em um toque</h2>
-              <p className="mt-1 text-[11px] leading-relaxed text-gray-400">
-                O prospect recebe o link no WhatsApp e entra direto na visão escolhida, sem digitar senha.
-              </p>
-            </div>
-            <Link2 size={18} className="shrink-0 text-cyan-300" aria-hidden="true" />
-          </div>
-
-          <button
-            type="button"
-            onClick={gerarLinks}
-            disabled={gerandoLinks || busy}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/[0.08] py-3 text-sm font-bold text-cyan-200 hover:bg-cyan-400/[0.12] disabled:opacity-50"
-          >
-            {gerandoLinks ? <><Loader2 size={16} className="animate-spin" /> Gerando links…</> : <><Link2 size={16} /> Gerar links de entrada</>}
-          </button>
-
-          {magicLinks && (
-            <div className="mt-4 space-y-2">
-              {magicLinks.map((acesso) => (
-                <div key={acesso.email} className="rounded-xl border border-white/10 bg-white/[0.025] p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-bold text-white">{acesso.visao}</p>
-                      <p className="mt-0.5 text-[10px] text-gray-500">{acesso.nome} · link individual e de uso único</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => copiar(acesso.url, acesso.email)}
-                      className="flex items-center justify-center gap-1.5 rounded-lg bg-white/[0.06] py-2 text-[11px] font-bold text-white/75 hover:bg-white/[0.1]"
-                    >
-                      {copiado === acesso.email ? <><Check size={13} className="text-emerald-400" /> Copiado</> : <><Copy size={13} /> Copiar link</>}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => compartilharNoWhatsapp(acesso)}
-                      className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 py-2 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/20"
-                    >
-                      <MessageCircle size={13} /> Enviar no WhatsApp
-                    </button>
-                  </div>
-                </div>
-              ))}
-              <p className="pt-1 text-[10px] leading-relaxed text-gray-500">
-                Gere novos links imediatamente antes de compartilhar. Cada link funciona uma única vez.
-              </p>
-            </div>
-          )}
-
-          <details className="mt-6 rounded-xl border border-white/10 bg-black/10 p-3">
-            <summary className="cursor-pointer text-xs font-bold text-white/65">Usar senha como contingência</summary>
-            <p className="mt-2 text-[10px] leading-relaxed text-gray-500">
-              Rotaciona uma senha única para as três contas. Use apenas se o magic link não puder ser compartilhado.
-            </p>
-            <button
-              type="button"
-              onClick={prepararAcessos}
-              disabled={preparando || busy}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-white/[0.06] py-2.5 text-xs font-bold text-white/75 hover:bg-white/[0.1] disabled:opacity-50"
-            >
-              {preparando ? <><Loader2 size={14} className="animate-spin" /> Preparando…</> : <><KeyRound size={14} /> Gerar senha de contingência</>}
-            </button>
-
-            {credenciais && (
-              <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] p-3">
-                <div className="space-y-1 text-[10px] text-white/65">
-                  <p><span className="text-white/35">Endereço:</span> {credenciais.url}</p>
-                  {credenciais.acessos.map((a) => (
-                    <p key={a.email}><span className="text-white/35">{a.visao}:</span> {a.email}</p>
-                  ))}
-                  <p className="pt-1"><span className="text-white/35">Senha:</span> <span className="font-mono text-emerald-300">{credenciais.senha}</span></p>
-                </div>
-                <button
-                  type="button"
-                  onClick={copiarAcessos}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-white/[0.06] py-2 text-[11px] font-bold text-white/75 hover:bg-white/[0.1]"
-                >
-                  {copiado === 'senha' ? <><Check size={13} className="text-emerald-400" /> Copiado</> : <><Copy size={13} /> Copiar credenciais</>}
-                </button>
-              </div>
-            )}
-          </details>
         </div>
       </div>
     </div>
