@@ -431,6 +431,20 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   também envelhece: F-I4 pedia coluna `origem_disc` nova e a `micro_conteudos.disc` (mig 142) já fazia
   o papel (sobrevive ao SET NULL). E antes de deletar conteúdo, varrer **referências JSONB**
   (`temporada_plano`: `core_id`, `formatos_disponiveis[].id`) — não há FK que avise.
+- NÃO escrever exclusão de entidade raiz sem LER as FKs dela (`pg_constraint.confdeltype`): elas não
+  são uniformes, e as que não cascateiam ditam a ORDEM do delete. Em `sales_accounts` (31/08) são 7
+  referências — 3 `CASCADE`, 4 que **bloqueiam** —, e o segundo nível força
+  comissão → proposta → nota → oportunidade → conta; errar isso é `23503` na cara do usuário.
+  Duas regras que vêm junto: (a) contagem que DECIDE a exclusão vai com o `{ error }` checado, senão
+  falha de leitura vira "não tem nada ligado" e apaga o histórico em silêncio (E11); (b) exclusão que
+  leva registro financeiro (`sales_commission_events`) grava em `admin_audit_log` **antes** de o
+  inventário deixar de existir. Detalhe: `docs/PORTAL-REPRESENTANTE.md` §Apagar uma empresa.
+- NÃO transformar em RECUSA o que era para ser AVISO, quando quem age é o dono do próprio dado. Guard
+  fail-closed só se sustenta se existir caminho na UI para satisfazer a condição exigida — senão é
+  beco, e o operador vai para o SQL. Medido 31/08: apagar empresa recusava por ter oportunidade e
+  proposta, e a tela do Copiloto não oferece como removê-las; o serviço real que a recusa prestava era
+  **informar o que se perde**, e isso cabe na confirmação ("Vai junto: 1 proposta, 1 oportunidade…").
+  Vale para o dono agindo sobre o dado dele — não afrouxa gate de tenant, de envio real ou de terceiro.
 - NÃO rodar na mesma janela dois lotes que compartilham **fornecedor** — o TTS do Vertex serve a
   narração do vídeo E o podcast, então prewarm de áudio + disparo de vídeo é auto-saturação (medido
   12/08: a única célula que ainda não tinha passado da narração morreu em `TTS: resposta sem áudio`, e

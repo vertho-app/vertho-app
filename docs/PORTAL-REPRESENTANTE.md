@@ -301,3 +301,54 @@ e o doc mostra o selo "Versão N". A nova versão segue de novo pelo fluxo norma
 (`actions/sales/proposals.ts:230`). **Mig 168** adicionou `sales_proposals.version`
 + `supersedes_id` + o status `'superseded'` no CHECK. Commit `8bbcbf1b`. Validado
 E2E ao vivo.
+
+## Apagar uma empresa (`sales_accounts`) — a ordem é do banco, não minha (31/08)
+
+A lista de empresas do Copiloto (`/copiloto`, aba Histórico) ganhou exclusão. Ela
+vale para todo o módulo `sales_*`, porque `sales_accounts` é a raiz do canal:
+sete tabelas apontam para ela, e **a metade que não cascateia dita a ordem**.
+
+`Medido: 31/08/2026` (via `pg_constraint.confdeltype`; `c` = cascade, `n` = set
+null, `a` = bloqueia):
+
+| Regra | Tabelas |
+|---|---|
+| `c` — sai sozinho | `sales_contacts` · `copilot_plans` · `copilot_conversations` |
+| `a` — bloqueia o DELETE | `sales_activity_notes` · `sales_opportunities` · `sales_proposals` · `sales_commission_events` |
+
+O segundo nível decide a sequência: `sales_commission_events.proposal_id` →
+`sales_proposals.opportunity_id` → `sales_opportunities` (e
+`sales_opportunities.primary_contact_id` é `a`, então as oportunidades saem antes
+de a conta cascatear os contatos). Daí a ordem em
+`deleteSalesAccount` (`actions/sales/accounts.ts`):
+
+```
+sales_commission_events → sales_proposals → sales_activity_notes → sales_opportunities → sales_accounts
+```
+
+**Duas funções, dois papéis.** `getSalesAccountVinculos` só conta (mesmo gate,
+nenhuma escrita) e é o que a confirmação da tela mostra —
+*"Apagar “X”? Vai junto: 1 proposta, 1 oportunidade, 2 planejamentos, 1
+resultado. Não dá para desfazer."*. `deleteSalesAccount(id, { forcar })` apaga.
+Sem `forcar`, conta com funil (ou marcada `active_client`) devolve
+`precisaConfirmar` + o inventário em vez de apagar: a action é um endpoint HTTP,
+e quem chama direto não passou por confirmação nenhuma.
+
+**Por que não recusa.** A versão anterior bloqueava a exclusão quando havia
+funil. Estava tecnicamente certa e era um beco: a tela do Copiloto não oferece
+caminho para remover oportunidade ou proposta, então a recusa empurrava o
+operador para fora do produto. O que aquele bloqueio realmente prestava era
+INFORMAR, e informação cabe na confirmação — decisão do dono, mesma data.
+
+⚠️ **Apagar `sales_commission_events` deixa comissão paga sem lastro.** Por isso a
+exclusão de conta com histórico grava `sales_account.excluir` em
+`admin_audit_log` (`lib/audit.ts`) com o inventário, contado ANTES do delete —
+depois não há mais o que contar. E a contagem usa `count: 'exact', head: true`
+**com o `{ error }` checado**: leitura que falha e vira 0 apaga a conta com funil
+em silêncio (E11).
+
+Cobertura: `tests/unit/copiloto-apagar-empresa.test.ts` (18 casos, validados por
+mutação — ignorar o `forcar`, inverter a ordem do delete, tirar a auditoria, não
+checar o erro do loop, deixar a falha de leitura virar inventário vazio e tirar o
+gate de dono do `getSalesAccountVinculos`; cada uma derruba exatamente o teste que
+a descreve). Commits `d152ef13` (primeira versão, com bloqueio) e `735ef946`.

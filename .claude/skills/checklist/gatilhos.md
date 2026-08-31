@@ -851,3 +851,32 @@ NO CORPO"** — texto do dono, de 30/08, que já morava em `/tmp/msg3.txt`. O he
 e nada acusou: o `-F` leu um arquivo que existia, e existir bastou. Na mesma sessão, um contador de
 chaves ingênuo quebrou 4 arquivos de `actions/` e um `replace` falhou calado porque a âncora tinha
 `C:\GAS`. Memória: `reference_shell_escrita_arquivos`.
+
+---
+
+## § Vou escrever um DELETE de entidade raiz (ou um botão de apagar)
+
+**Casa quando:** `.delete()` numa tabela que outras referenciam (`empresas`, `sales_accounts`,
+`colaboradores`, `trilhas`, `sales_opportunities`…), ou uma tela nova com botão de excluir.
+
+**Confira:**
+
+1. **Leia as FKs ANTES de escrever o código** — `pg_constraint.confdeltype` para a tabela alvo
+   (`c` = cascade, `n` = set null, `a` = bloqueia). As regras não são uniformes na mesma tabela.
+2. **O segundo nível dita a ORDEM.** Quem aponta para os dependentes que você vai apagar tem que
+   sair primeiro; a ordem correta não é adivinhável pelo nome das tabelas.
+3. **A contagem que DECIDE a exclusão checa o `{ error }`.** Leitura falhando e virando 0 apaga o
+   histórico em silêncio (E11).
+4. **Se leva registro financeiro ou de auditoria junto, grave `admin_audit_log` ANTES** de o
+   inventário deixar de existir para ser contado.
+5. **A confirmação diz o que sai junto**, com números lidos do banco. Se a contagem falhar, o botão
+   de apagar não aparece — confirmação que informa errado é pior que confirmação genérica.
+6. **A action continua sendo endpoint HTTP:** o gate de dono vale por LINHA, e o parâmetro que pula
+   a confirmação (`forcar`) é escolhido pelo cliente.
+
+**Consequência medida (31/08/2026):** `sales_accounts` tinha **7 referências — 3 cascade e 4 que
+bloqueiam** —, com `sales_commission_events → sales_proposals → sales_opportunities` encadeados: um
+`.delete().eq('id')` direto daria `23503` na cara do usuário, e a ordem "óbvia" (oportunidades
+primeiro) também. Na mesma rodada, a primeira versão RECUSAVA a exclusão por causa do funil — sem
+oferecer caminho na tela para remover o funil, o que virou um beco e foi revertido a pedido do dono.
+Memórias: `project_exclusao_conta_comercial`, `feedback_bloqueio_vs_informacao`.
