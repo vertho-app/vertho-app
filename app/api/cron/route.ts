@@ -102,8 +102,29 @@ export async function GET(req) {
       }
 
       // Reset noturno do ambiente de demonstração (tenant acme-demo) ao estado
-      // inicial. Falha → 500 (observável no log do Vercel). Tenant-safe.
+      // inicial. Convidados vencidos saem primeiro; qualquer convidado ainda em
+      // D+2 adia a recomposição para não perder sessão ou progresso.
       case 'reset_demo': {
+        const { cleanupExpiredAcmeProspects } = await import('@/lib/demo/acme-prospect-tracking');
+        const lifecycle = await cleanupExpiredAcmeProspects();
+        if (lifecycle.activeCount > 0) {
+          try {
+            const { logAdminAction } = await import('@/lib/audit');
+            await logAdminAction({
+              adminEmail: 'system:cron',
+              acao: 'demo.reset',
+              alvo: 'acme-demo',
+              detalhes: { skipped: true, ...lifecycle },
+              resultado: 'parcial',
+            });
+          } catch { /* auditoria best-effort */ }
+          result = {
+            message: `reset adiado · ${lifecycle.activeCount} convidado(s) em D+2`,
+            skipped: true,
+            ...lifecycle,
+          };
+          break;
+        }
         const { resetAcmeDemo } = await import('@/lib/demo/reset-acme-demo');
         const r = await resetAcmeDemo();
         try {
@@ -111,15 +132,11 @@ export async function GET(req) {
           await logAdminAction({ adminEmail: 'system:cron', acao: 'demo.reset', alvo: 'acme-demo', detalhes: r.ok ? { counts: r.counts } : { error: r.error } });
         } catch { /* auditoria best-effort */ }
         if (!r.ok) throw new Error(r.error || 'reset do demo falhou');
-        try {
-          const { removeAcmeProspectAuthUsers } = await import('@/lib/demo/acme-prospect-experience');
-          await removeAcmeProspectAuthUsers();
-        } catch (error: any) {
-          // O reset tenant-scoped já revogou o contexto no produto. Auth órfão
-          // é higiene best-effort e não deve transformar a recomposição em 500.
-          console.warn('[cron.reset_demo] limpar convidados Auth:', error?.message);
-        }
-        result = { message: `demo resetada · ${JSON.stringify(r.counts)}`, counts: r.counts };
+        result = {
+          message: `demo resetada · ${JSON.stringify(r.counts)}`,
+          counts: r.counts,
+          expiredRemoved: lifecycle.expiredRemoved,
+        };
         break;
       }
 

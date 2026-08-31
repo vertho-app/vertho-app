@@ -3,6 +3,10 @@ import { cookies } from 'next/headers';
 import { getLocaleForEmail } from '@/lib/i18n-server';
 import { localeCookieName } from '@/lib/i18n';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import {
+  readAcmeProspectAuthContext,
+  recordAcmeProspectPersonalAccess,
+} from '@/lib/demo/acme-prospect-tracking';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +51,21 @@ export async function GET(req: NextRequest) {
   }
 
   const { data: { user } } = await supabase.auth.getUser();
+  const prospect = user ? readAcmeProspectAuthContext(user) : null;
+  if (prospect?.expired) {
+    await supabase.auth.signOut();
+    const loginUrl = new URL('/login', origin);
+    loginUrl.searchParams.set('error', 'convite-expirado');
+    return NextResponse.redirect(loginUrl);
+  }
+  if (prospect) {
+    try {
+      await recordAcmeProspectPersonalAccess(user!);
+    } catch (trackingError: any) {
+      // Telemetria comercial não pode impedir a entrada válida do convidado.
+      console.warn('[auth/callback] registrar acesso do prospect:', trackingError?.message);
+    }
+  }
   const locale = await getLocaleForEmail(user?.email);
   if (locale) {
     store.set(localeCookieName, locale, {

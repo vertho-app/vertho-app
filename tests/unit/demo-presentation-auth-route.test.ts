@@ -9,16 +9,22 @@ const mocks = vi.hoisted(() => ({
     nextPath: '/dashboard/gestor',
   })),
   verifyOtp: vi.fn(async () => ({ error: null })),
+  recordAccess: vi.fn(async () => true),
 }));
 
 vi.mock('@/lib/demo/presentation-ticket', () => ({
-  verifyDemoPresentationTicket: () => mocks.state.ticketValid ? { tenant: 'acme-demo' } : null,
+  verifyDemoPresentationTicket: () => mocks.state.ticketValid
+    ? { tenant: 'acme-demo', prospectSessionId: '1234567890abcdef1234' }
+    : null,
 }));
 vi.mock('@/lib/demo/reset-acme-demo', () => ({
   gerarMagicLinkPapelApresentacaoDemo: mocks.gerarLogin,
 }));
 vi.mock('@/lib/auth/supabase-server', () => ({
   createSupabaseServerClient: async () => ({ auth: { verifyOtp: mocks.verifyOtp } }),
+}));
+vi.mock('@/lib/demo/acme-prospect-tracking', () => ({
+  recordAcmeProspectPresentationAccess: mocks.recordAccess,
 }));
 
 import { GET } from '@/app/auth/apresentacao/route';
@@ -28,6 +34,7 @@ describe('rota de autenticação automática da apresentação', () => {
     mocks.state.ticketValid = true;
     mocks.gerarLogin.mockClear();
     mocks.verifyOtp.mockClear();
+    mocks.recordAccess.mockClear();
   });
 
   it('deriva o papel do hostname e cria a sessão sem aceitar role da query', async () => {
@@ -36,6 +43,7 @@ describe('rota de autenticação automática da apresentação', () => {
 
     expect(mocks.gerarLogin).toHaveBeenCalledWith('gestor');
     expect(mocks.verifyOtp).toHaveBeenCalledWith({ token_hash: 'hashed-token-gestor', type: 'email' });
+    expect(mocks.recordAccess).toHaveBeenCalledWith('1234567890abcdef1234', 'gestor');
     const destino = new URL(res.headers.get('location')!);
     expect(destino.origin + destino.pathname).toBe('https://gestor-demo.vertho.ai/dashboard/gestor');
     expect(destino.searchParams.get('sala')).toBe('passe.assinado');
@@ -66,6 +74,7 @@ describe('rota de autenticação automática da apresentação', () => {
     expect(new URL(res.headers.get('location')!).pathname).toBe('/login');
     expect(mocks.gerarLogin).not.toHaveBeenCalled();
     expect(mocks.verifyOtp).not.toHaveBeenCalled();
+    expect(mocks.recordAccess).not.toHaveBeenCalled();
   });
 
   it('não funciona no tenant canônico nem em host fora da allowlist', async () => {

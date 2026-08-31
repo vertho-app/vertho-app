@@ -122,17 +122,25 @@ tokens não entram no audit log. Como o e-mail técnico não termina em
 usar os fluxos individuais, mas fica fora de indicadores, rankings e relatórios
 agregados.
 
-As etapas 2–4 reutilizam o passe assinado da sala de apresentação e ficam
-disponíveis por 4 horas. Cada uma cria uma sessão real em seu hostname isolado;
-elas não compartilham a sessão nem as respostas do convidado da etapa 1.
+As etapas 2–4 reutilizam um passe assinado da sala de apresentação vinculado ao
+roteiro. Os quatro acessos expiram às **04h BRT de D+2**, considerando `D` como o
+dia civil em que o roteiro foi criado. Cada visão cria uma sessão real em seu
+hostname isolado; elas não compartilham a sessão nem as respostas do convidado
+da etapa 1. A sala de apresentação avulsa, sem prospect vinculado, mantém a
+janela de 4 horas.
 
-Depois que o magic link for consumido, a participação existe até o próximo reset
-diário das 04h BRT. O link deve ser compartilhado e usado logo após a geração:
-além de ser de uso único, ele segue a expiração de OTP configurada no provedor.
-O reset remove o colaborador tenant-scoped, revogando o contexto no produto, e
-limpa best-effort somente os usuários Auth que carregam o prefixo e o marcador
-exclusivos deste fluxo. Vários passes podem coexistir até esse reset sem
+O magic link da etapa 1 continua sendo de uso único e também segue a expiração
+de OTP configurada no provedor; depois de consumido, a sessão permanece no mesmo
+navegador até D+2. O reset das 04h primeiro remove somente convidados vencidos.
+Enquanto houver algum roteiro ativo, a recomposição integral do ACME é adiada
+para preservar colaborador, respostas e progresso. Vários passes coexistem sem
 compartilhar respostas ou perfil.
+
+Cada roteiro bem-sucedido cria uma linha em `demo_prospect_sessions`. O painel
+mostra o primeiro acesso pessoal, a conclusão do DISC e a primeira entrada nas
+visões Colaborador, Gestor e RH. A linha de acompanhamento sobrevive à expiração
+e à remoção do colaborador temporário, preservando o histórico comercial; o
+WhatsApp opcional nunca é persistido.
 
 ## Fixture congelado
 O reset semeia de `lib/demo/acme-demo-fixture.json` (golden state VERSIONADO), **não** do acme vivo → a demo é estável e imune a mexidas no `acme`. O fixture guarda:

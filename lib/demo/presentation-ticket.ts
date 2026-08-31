@@ -5,6 +5,7 @@ import { DEMO_PRESENTATION_TENANT_SLUG } from '@/lib/demo/presentation';
 
 const TICKET_VERSION = 1 as const;
 export const DEMO_PRESENTATION_TICKET_TTL_SECONDS = 4 * 60 * 60;
+export const DEMO_PROSPECT_PRESENTATION_MAX_TTL_SECONDS = 3 * 24 * 60 * 60;
 const MAX_TICKET_LENGTH = 2_048;
 const SIGNING_CONTEXT = 'vertho:demo-presentation:v1';
 
@@ -14,7 +15,13 @@ export interface DemoPresentationTicketPayload {
   iat: number;
   exp: number;
   nonce: string;
+  prospectSessionId?: string;
 }
+
+export type DemoPresentationTicketOptions = {
+  prospectSessionId: string;
+  expiresAtSeconds: number;
+};
 
 function signingKey(): Buffer {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -28,13 +35,26 @@ function signature(encodedPayload: string): Buffer {
   return createHmac('sha256', signingKey()).update(encodedPayload).digest();
 }
 
-export function issueDemoPresentationTicket(nowSeconds: number = Math.floor(Date.now() / 1000)): string {
+export function issueDemoPresentationTicket(
+  nowSeconds: number = Math.floor(Date.now() / 1000),
+  options?: DemoPresentationTicketOptions,
+): string {
+  const exp = options?.expiresAtSeconds ?? nowSeconds + DEMO_PRESENTATION_TICKET_TTL_SECONDS;
+  if (options && (
+    !/^[a-f0-9]{20}$/.test(options.prospectSessionId)
+    || !Number.isInteger(exp)
+    || exp <= nowSeconds
+    || exp - nowSeconds > DEMO_PROSPECT_PRESENTATION_MAX_TTL_SECONDS
+  )) {
+    throw new Error('Validade do passe acompanhado da apresentação inválida.');
+  }
   const payload: DemoPresentationTicketPayload = {
     v: TICKET_VERSION,
     tenant: DEMO_PRESENTATION_TENANT_SLUG,
     iat: nowSeconds,
-    exp: nowSeconds + DEMO_PRESENTATION_TICKET_TTL_SECONDS,
+    exp,
     nonce: randomBytes(16).toString('base64url'),
+    ...(options ? { prospectSessionId: options.prospectSessionId } : {}),
   };
   const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
   return `${encoded}.${signature(encoded).toString('base64url')}`;
@@ -67,7 +87,13 @@ export function verifyDemoPresentationTicket(
     // assinado com uma janela maior que a oficial.
     if (payload.iat! > nowSeconds + 60) return null;
     if (payload.exp! <= nowSeconds) return null;
-    if (payload.exp! - payload.iat! !== DEMO_PRESENTATION_TICKET_TTL_SECONDS) return null;
+    if (payload.prospectSessionId !== undefined) {
+      if (!/^[a-f0-9]{20}$/.test(payload.prospectSessionId)) return null;
+      if (payload.exp! <= payload.iat!) return null;
+      if (payload.exp! - payload.iat! > DEMO_PROSPECT_PRESENTATION_MAX_TTL_SECONDS) return null;
+    } else if (payload.exp! - payload.iat! !== DEMO_PRESENTATION_TICKET_TTL_SECONDS) {
+      return null;
+    }
 
     return payload as DemoPresentationTicketPayload;
   } catch {

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
+  Activity,
   Briefcase,
   Building2,
   Check,
@@ -23,6 +24,7 @@ import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import {
   gerarMagicLinksTemporariosDemo,
+  listarExperienciasProspectAcme,
   prepararExperienciaProspectAcme,
   prepararSalaApresentacaoDemo,
   prepararAcessosTemporariosDemo,
@@ -34,6 +36,7 @@ import {
   buildAcmeProspectShareText,
   getAcmeProspectExperienceSteps,
   type AcmeProspectExperienceAccess,
+  type AcmeProspectProgress,
   type AcmeProspectRoleKey,
 } from '@/lib/demo/acme-prospect-config';
 
@@ -108,9 +111,44 @@ export default function AdminDemoPage() {
   const [prospectForm, setProspectForm] = useState<ProspectForm>(EMPTY_PROSPECT_FORM);
   const [prospectAccess, setProspectAccess] = useState<ProspectAccessView | null>(null);
   const [preparandoProspect, setPreparandoProspect] = useState(false);
+  const [prospectProgress, setProspectProgress] = useState<AcmeProspectProgress[]>([]);
+  const [carregandoProgress, setCarregandoProgress] = useState(true);
+  const [progressUpdatedAt, setProgressUpdatedAt] = useState<Date | null>(null);
   const [copiado, setCopiado] = useState<string | null>(null);
 
   const tenant = TENANTS[tenantSlug];
+
+  const carregarAndamento = useCallback(async (options: { silencioso?: boolean } = {}) => {
+    if (!options.silencioso) setCarregandoProgress(true);
+    try {
+      const result = await listarExperienciasProspectAcme();
+      if (!result.success) {
+        if (!options.silencioso) toast.error(`Falha ao carregar acompanhamento: ${result.error || 'erro'}`);
+        return;
+      }
+      setProspectProgress(result.experiencias);
+      setProgressUpdatedAt(new Date());
+    } catch (error: any) {
+      if (!options.silencioso) toast.error(`Falha ao carregar acompanhamento: ${error?.message || 'erro'}`);
+    } finally {
+      setCarregandoProgress(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void listarExperienciasProspectAcme()
+      .then((result) => {
+        if (!active || !result.success) return;
+        setProspectProgress(result.experiencias);
+        setProgressUpdatedAt(new Date());
+      })
+      .catch(() => { /* o botão Atualizar permite tentar novamente */ })
+      .finally(() => {
+        if (active) setCarregandoProgress(false);
+      });
+    return () => { active = false; };
+  }, []);
 
   function selecionarTenant(slug: TenantSlug) {
     setTenantSlug(slug);
@@ -134,6 +172,11 @@ export default function AdminDemoPage() {
     try {
       const r = await resetarDemo(tenantSlug);
       if (r.success) {
+        if (r.skipped) {
+          toast.info(`Reset adiado: ${r.activeGuests} convidado(s) ainda estão no prazo D+2.`);
+          await carregarAndamento({ silencioso: true });
+          return;
+        }
         setUltimo(r.counts || null);
         if (tenantSlug === 'acme-demo') setProspectAccess(null);
         toast.success(`${tenant.nome} foi recriado.`);
@@ -254,6 +297,7 @@ export default function AdminDemoPage() {
         whatsapp: prospectForm.whatsapp.trim(),
         views: r.visoes,
       });
+      await carregarAndamento({ silencioso: true });
       toast.success('Roteiro com as quatro perspectivas criado.');
     } catch (e: any) {
       toast.error(`Erro: ${e?.message || 'inesperado'}`);
@@ -274,6 +318,17 @@ export default function AdminDemoPage() {
   }
 
   function formatProspectExpiry(value: string) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value));
+  }
+
+  function formatProspectEvent(value: string | null) {
+    if (!value) return 'Aguardando';
     return new Intl.DateTimeFormat('pt-BR', {
       timeZone: 'America/Sao_Paulo',
       day: '2-digit',
@@ -547,7 +602,7 @@ export default function AdminDemoPage() {
 
               <div className="mt-3 flex items-start gap-2 text-[9px] leading-relaxed text-white/35">
                 <ShieldCheck size={13} className="mt-0.5 shrink-0 text-emerald-300/55" aria-hidden="true" />
-                <p>Nenhum contato é enviado ou armazenado. Copie o roteiro completo ou abra o WhatsApp para escolher como compartilhar.</p>
+                <p>O WhatsApp não é enviado nem armazenado. Nome e empresa ficam no acompanhamento deste roteiro; o compartilhamento continua manual.</p>
               </div>
 
               <button
@@ -572,7 +627,7 @@ export default function AdminDemoPage() {
                         <p className="mt-0.5 text-[10px] text-white/40">{prospectAccess.empresa} · {prospectAccess.cargo}</p>
                       </div>
                       <div className="rounded-lg border border-white/10 bg-white/[0.035] px-2.5 py-2 text-right">
-                        <p className="flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider text-white/30"><Clock size={10} /> Etapa 01 até</p>
+                        <p className="flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider text-white/30"><Clock size={10} /> Roteiro até</p>
                         <p className="mt-1 font-mono text-[10px] text-emerald-200">{formatProspectExpiry(prospectAccess.expiresAt)}</p>
                       </div>
                     </div>
@@ -629,12 +684,102 @@ export default function AdminDemoPage() {
                       </button>
                     </div>
                     <p className="mt-3 text-[9px] leading-relaxed text-amber-200/65">
-                      A etapa 01 é individual e de uso único. As etapas 02–04 abrem sessões demonstrativas isoladas e ficam disponíveis por 4 horas.
+                      A etapa 01 usa um link individual de uso único. Depois da entrada, a sessão e as etapas 02–04 ficam disponíveis até as 04h BRT de D+2.
                     </p>
                   </div>
                 </div>
               )}
             </form>
+
+            <div className="border-t border-dashed border-emerald-200/15 bg-[#06131f]/45 px-4 py-4 sm:px-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 text-emerald-300">
+                    <Activity size={14} aria-hidden="true" />
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.16em]">Acompanhamento dos clientes</h3>
+                  </div>
+                  <p className="mt-1 text-[10px] text-white/35">
+                    Primeiro acesso e avanço pelas cinco marcas da experiência.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => carregarAndamento()}
+                  disabled={carregandoProgress}
+                  className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[9px] font-bold text-white/55 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50 disabled:opacity-50"
+                >
+                  <RefreshCw size={11} className={carregandoProgress ? 'animate-spin' : ''} aria-hidden="true" />
+                  Atualizar andamento
+                </button>
+              </div>
+
+              {carregandoProgress && prospectProgress.length === 0 ? (
+                <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-white/8 bg-black/10 py-7 text-[10px] text-white/35">
+                  <Loader2 size={13} className="animate-spin" aria-hidden="true" /> Carregando experiências…
+                </div>
+              ) : prospectProgress.length === 0 ? (
+                <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-black/10 px-4 py-6 text-center">
+                  <p className="text-[11px] font-semibold text-white/55">Nenhum roteiro acompanhado ainda</p>
+                  <p className="mt-1 text-[9px] text-white/30">O primeiro cliente criado aparecerá aqui com o avanço de cada etapa.</p>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {prospectProgress.map((experience) => {
+                    const expired = Boolean(experience.accessClosedAt)
+                      || Date.parse(experience.expiresAt) <= (progressUpdatedAt?.getTime() || 0);
+                    const milestones = [
+                      ['Acesso pessoal', experience.personalAccessedAt],
+                      ['DISC', experience.discCompletedAt],
+                      ['Colaborador', experience.colaboradorAccessedAt],
+                      ['Gestor', experience.gestorAccessedAt],
+                      ['RH', experience.rhAccessedAt],
+                    ] as const;
+                    const completed = milestones.filter(([, value]) => Boolean(value)).length;
+                    return (
+                      <article key={experience.sessionId} className="relative overflow-hidden rounded-xl border border-white/10 bg-[#081523]/85 p-3.5">
+                        <span className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#0b1928]" aria-hidden="true" />
+                        <span className="absolute -right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#0b1928]" aria-hidden="true" />
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="text-[11px] font-bold text-white">{experience.nome}</p>
+                            <p className="mt-0.5 text-[9px] text-white/35">{experience.empresa} · {experience.cargo}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className={`inline-flex rounded-full border px-2 py-1 font-mono text-[8px] uppercase tracking-wide ${expired ? 'border-white/10 bg-white/[0.03] text-white/35' : 'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-200/75'}`}>
+                              {expired ? 'Encerrado' : `${completed}/5 concluídos`}
+                            </span>
+                            <p className="mt-1 font-mono text-[8px] text-white/25">até {formatProspectExpiry(experience.expiresAt)}</p>
+                          </div>
+                        </div>
+
+                        <ol className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-5" aria-label={`Andamento de ${experience.nome}`}>
+                          {milestones.map(([label, timestamp], index) => {
+                            const done = Boolean(timestamp);
+                            return (
+                              <li key={label} className={`relative rounded-lg border px-2 py-2 ${done ? 'border-emerald-300/18 bg-emerald-300/[0.045]' : 'border-white/[0.07] bg-white/[0.018]'}`}>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`grid h-4 w-4 shrink-0 place-items-center rounded-full ${done ? 'bg-emerald-300 text-[#071923]' : 'border border-white/15 text-white/20'}`}>
+                                    {done ? <Check size={9} strokeWidth={3} aria-hidden="true" /> : <span className="font-mono text-[7px]">{index + 1}</span>}
+                                  </span>
+                                  <span className={`truncate text-[8px] font-bold ${done ? 'text-emerald-100/80' : 'text-white/35'}`}>{label}</span>
+                                </div>
+                                <p className={`mt-1.5 font-mono text-[7px] ${done ? 'text-emerald-200/45' : 'text-white/20'}`}>{formatProspectEvent(timestamp)}</p>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+
+              {progressUpdatedAt && (
+                <p className="mt-3 text-right font-mono text-[8px] text-white/20">
+                  Atualizado às {progressUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+            </div>
           </section>
 
           <div className="my-6 border-t border-white/10" />

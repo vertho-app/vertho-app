@@ -27,14 +27,17 @@ vi.mock('@/lib/tenant-resolver', () => ({
 }));
 
 import {
-  isAcmeProspectAuthUser,
+  createAcmeProspectLifecycle,
   prepareAcmeProspectExperience,
-  removeAcmeProspectAuthUsers,
 } from '@/lib/demo/acme-prospect-experience';
 import {
+  isAcmeProspectAuthUser,
+  readAcmeProspectAuthContext,
+} from '@/lib/demo/acme-prospect-tracking';
+import {
+  acmeProspectExpiresAt,
   buildAcmeProspectShareText,
   getAcmeProspectExperienceSteps,
-  nextAcmeDemoResetAt,
   validateAcmeProspectExperienceInput,
 } from '@/lib/demo/acme-prospect-config';
 
@@ -86,12 +89,22 @@ describe('experiência temporária de prospect no ACME', () => {
       user_metadata: expect.objectContaining({
         vertho_demo_access: 'acme-prospect-experience-v1',
         vertho_demo_tenant: 'acme-demo',
+        vertho_demo_session_id: expect.stringMatching(/^[a-f0-9]{20}$/),
       }),
     }));
     expect(generateLink).toHaveBeenCalledWith({
       type: 'magiclink',
       email: insert?.payload.email,
       options: { redirectTo: 'https://acme-demo.vertho.ai/dashboard' },
+    });
+
+    const tracking = sb.escritas.find((write) => write.tabela === 'demo_prospect_sessions' && write.op === 'insert');
+    expect(tracking?.payload).toMatchObject({
+      empresa_id: 'acme-id',
+      colaborador_id: insert?.payload.id,
+      prospect_name: 'Marina Souza',
+      prospect_company: 'Empresa Horizonte',
+      expires_at: result.access.expiresAt,
     });
   });
 
@@ -157,9 +170,16 @@ describe('contratos puros da experiência ACME', () => {
     })).toEqual({ ok: false, error: 'Escolha um papel demonstrativo válido.' });
   });
 
-  it('calcula a próxima fronteira real do reset diário às 07:00 UTC', () => {
-    expect(nextAcmeDemoResetAt(new Date('2026-08-31T06:30:00.000Z'))).toBe('2026-08-31T07:00:00.000Z');
-    expect(nextAcmeDemoResetAt(new Date('2026-08-31T12:00:00.000Z'))).toBe('2026-09-01T07:00:00.000Z');
+  it('calcula 04h BRT de D+2 pela data civil brasileira, inclusive à noite', () => {
+    expect(acmeProspectExpiresAt(new Date('2026-08-31T06:30:00.000Z'))).toBe('2026-09-02T07:00:00.000Z');
+    expect(acmeProspectExpiresAt(new Date('2026-08-31T12:00:00.000Z'))).toBe('2026-09-02T07:00:00.000Z');
+    expect(acmeProspectExpiresAt(new Date('2026-09-01T02:30:00.000Z'))).toBe('2026-09-02T07:00:00.000Z');
+  });
+
+  it('gera ciclo com id opaco e a expiração D+2', () => {
+    const lifecycle = createAcmeProspectLifecycle(new Date('2026-08-31T15:00:00.000Z'));
+    expect(lifecycle.sessionId).toMatch(/^[a-f0-9]{20}$/);
+    expect(lifecycle.expiresAt).toBe('2026-09-02T07:00:00.000Z');
   });
 
   it('monta o roteiro compartilhável nas quatro perspectivas e na ordem correta', () => {
@@ -168,7 +188,7 @@ describe('contratos puros da experiência ACME', () => {
       nome: 'Marina Souza',
       empresa: 'Empresa Horizonte',
       cargo: 'Representante Comercial',
-      expiresAt: '2026-09-01T07:00:00.000Z',
+      expiresAt: '2026-09-02T07:00:00.000Z',
       url: 'https://acme-demo.vertho.ai/acesso-pessoal',
       views: [
         { roleKey: 'rh' as const, url: 'https://rh-demo.vertho.ai/acesso-rh' },
@@ -197,7 +217,8 @@ describe('contratos puros da experiência ACME', () => {
     expect(text).toContain('03/04 — Veja como gestor');
     expect(text).toContain('04/04 — Veja como RH');
     expect(text.match(/https:\/\//g)).toHaveLength(4);
-    expect(text).toContain('As etapas 02 a 04 ficam disponíveis por 4 horas.');
+    expect(text).toContain('Os quatro acessos ficam disponíveis até 02/09, 04:00');
+    expect(text).toContain('O link da etapa 01 é individual e funciona uma única vez');
   });
 
   it('não oferece envio por e-mail e mantém o texto completo copiável na interface', () => {
@@ -208,29 +229,25 @@ describe('contratos puros da experiência ACME', () => {
     expect(source).toContain('Copiar texto completo');
   });
 
-  it('limpa somente usuários Auth com prefixo e marcador do fluxo', async () => {
-    deleteUser.mockClear();
+  it('reconhece somente Auth do fluxo e aplica a expiração do metadado', () => {
     const matching = {
       id: 'guest-1',
       email: 'convidado.acme.1234567890abcdef1234@vertho.ai',
-      user_metadata: { vertho_demo_access: 'acme-prospect-experience-v1' },
-    };
-    listUsers.mockResolvedValueOnce({
-      data: {
-        users: [
-          matching,
-          { ...matching, id: 'wrong-marker', user_metadata: { vertho_demo_access: 'outro-fluxo' } },
-          { ...matching, id: 'wrong-email', email: 'bruna.demo@vertho.ai' },
-        ],
+      user_metadata: {
+        vertho_demo_access: 'acme-prospect-experience-v1',
+        expires_at: '2026-09-02T07:00:00.000Z',
       },
-      error: null,
-    });
-
+    };
     expect(isAcmeProspectAuthUser(matching)).toBe(true);
-    const removed = await removeAcmeProspectAuthUsers(sb.client);
-
-    expect(removed).toBe(1);
-    expect(deleteUser).toHaveBeenCalledTimes(1);
-    expect(deleteUser).toHaveBeenCalledWith('guest-1');
+    expect(isAcmeProspectAuthUser({
+      ...matching,
+      user_metadata: { vertho_demo_access: 'outro-fluxo' },
+    })).toBe(false);
+    expect(isAcmeProspectAuthUser({ ...matching, email: 'bruna.demo@vertho.ai' })).toBe(false);
+    expect(readAcmeProspectAuthContext(matching, new Date('2026-09-02T06:59:59.000Z'))).toMatchObject({
+      sessionId: '1234567890abcdef1234',
+      expired: false,
+    });
+    expect(readAcmeProspectAuthContext(matching, new Date('2026-09-02T07:00:00.000Z'))?.expired).toBe(true);
   });
 });

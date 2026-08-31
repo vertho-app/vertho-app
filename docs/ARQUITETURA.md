@@ -459,7 +459,7 @@ nextjs-app/
 ├── video-spike/                  # NOVO: Composicao Remotion VerthoVideo (13 templates de cena)
 │   └── remotion/
 ├── tests/                        # Vitest (89 arquivos / 814 testes) + Playwright
-├── migrations/                   # 164 arquivos SQL (022 -> 183, com gaps)
+├── migrations/                   # 218 arquivos SQL (000 + 022 -> 236, com gaps)
 ├── tsconfig.json                 # TypeScript config (strict:false, allowJs, checkJs:false)
 ├── docs/                         # ÚNICO lugar de .md novo (27/07) — indice no CLAUDE.md
 │   ├── ARQUITETURA.md            # este arquivo (saiu da raiz em 27/07)
@@ -1019,7 +1019,7 @@ Tabelas: trilhas, colaboradores, temporada_semana_progresso
 
 ---
 
-## 8. Modelagem de Dados (164 arquivos SQL — 022 a 183, com gaps)
+## 8. Modelagem de Dados (218 arquivos SQL — 000 + 022 a 236, com gaps)
 
 ### Migrations 022-051 (core Mentor IA)
 Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvector 1024d) + Capacitacao + Relatorios.

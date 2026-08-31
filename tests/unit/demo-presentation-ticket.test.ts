@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  DEMO_PROSPECT_PRESENTATION_MAX_TTL_SECONDS,
   DEMO_PRESENTATION_TICKET_TTL_SECONDS,
   issueDemoPresentationTicket,
   verifyDemoPresentationTicket,
@@ -44,5 +45,28 @@ describe('passe assinado da sala de apresentação', () => {
     const issuedAt = 1_800_000_000;
     const ticket = issueDemoPresentationTicket(issuedAt);
     expect(verifyDemoPresentationTicket(ticket, issuedAt + DEMO_PRESENTATION_TICKET_TTL_SECONDS)).toBeNull();
+  });
+
+  it('vincula o passe do prospect ao roteiro e aceita a validade D+2', () => {
+    const issuedAt = 1_800_000_000;
+    const expiresAt = issuedAt + (48 * 60 * 60);
+    const ticket = issueDemoPresentationTicket(issuedAt, {
+      prospectSessionId: '1234567890abcdef1234',
+      expiresAtSeconds: expiresAt,
+    });
+
+    expect(verifyDemoPresentationTicket(ticket, issuedAt + 60)).toMatchObject({
+      prospectSessionId: '1234567890abcdef1234',
+      exp: expiresAt,
+    });
+    expect(verifyDemoPresentationTicket(ticket, expiresAt)).toBeNull();
+  });
+
+  it('recusa um passe acompanhado além do teto de segurança', () => {
+    const issuedAt = 1_800_000_000;
+    expect(() => issueDemoPresentationTicket(issuedAt, {
+      prospectSessionId: '1234567890abcdef1234',
+      expiresAtSeconds: issuedAt + DEMO_PROSPECT_PRESENTATION_MAX_TTL_SECONDS + 1,
+    })).toThrow('Validade do passe acompanhado');
   });
 });

@@ -82,6 +82,26 @@ export type AcmeProspectExperienceStep = {
   note: string;
 };
 
+export type AcmeProspectProgress = {
+  sessionId: string;
+  nome: string;
+  empresa: string;
+  cargo: string;
+  createdAt: string;
+  expiresAt: string;
+  personalAccessedAt: string | null;
+  discCompletedAt: string | null;
+  colaboradorAccessedAt: string | null;
+  gestorAccessedAt: string | null;
+  rhAccessedAt: string | null;
+  accessClosedAt: string | null;
+};
+
+export const ACME_PROSPECT_AUTH_PREFIX = 'convidado.acme.';
+export const ACME_PROSPECT_AUTH_SUFFIX = '@vertho.ai';
+export const ACME_PROSPECT_AUTH_MARKER = 'acme-prospect-experience-v1';
+export const ACME_PROSPECT_SESSION_PATTERN = /^[a-f0-9]{20}$/;
+
 function cleanHumanText(value: unknown): string {
   return String(value ?? '')
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
@@ -122,19 +142,28 @@ export function validateAcmeProspectExperienceInput(input: unknown):
 }
 
 /**
- * O cron canônico do ACME roda às 07:00 UTC (04:00 BRT). O colaborador
- * temporário deixa de existir nesse reset, encerrando a sessão no produto mesmo
- * que o cookie do Auth ainda esteja presente no navegador.
+ * O passe expira às 04:00 BRT do segundo dia civil depois da criação (D+2).
+ * BRT é UTC-3; deslocamos o relógio antes de extrair a data para não transformar
+ * uma criação depois das 21h BRT no dia seguinte por causa da data UTC.
  */
-export function nextAcmeDemoResetAt(now: Date = new Date()): string {
-  const candidate = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
+export function acmeProspectExpiresAt(now: Date = new Date()): string {
+  const brtClock = new Date(now.getTime() - (3 * 60 * 60 * 1_000));
+  return new Date(Date.UTC(
+    brtClock.getUTCFullYear(),
+    brtClock.getUTCMonth(),
+    brtClock.getUTCDate() + 2,
     7, 0, 0, 0,
-  ));
-  if (candidate.getTime() <= now.getTime()) candidate.setUTCDate(candidate.getUTCDate() + 1);
-  return candidate.toISOString();
+  )).toISOString();
+}
+
+export function formatAcmeProspectExpiry(value: string): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 }
 
 export function getAcmeProspectExperienceSteps(
@@ -151,7 +180,7 @@ export function getAcmeProspectExperienceSteps(
       title: step.title,
       description: step.description,
       url: view.url,
-      note: 'Visão demonstrativa disponível por 4 horas',
+      note: `Disponível até ${formatAcmeProspectExpiry(access.expiresAt)}`,
     };
   });
 
@@ -161,7 +190,7 @@ export function getAcmeProspectExperienceSteps(
       title: 'Comece como você',
       description: `Comece do zero como ${access.cargo} e faça seu próprio mapeamento.`,
       url: access.url,
-      note: 'Link individual e de uso único',
+      note: `Acesso individual até ${formatAcmeProspectExpiry(access.expiresAt)}`,
     },
     ...presentationSteps,
   ];
@@ -184,7 +213,7 @@ export function buildAcmeProspectShareText(access: AcmeProspectExperienceShareAc
     'Siga as quatro etapas abaixo para conhecer a plataforma por diferentes perspectivas:',
     '',
     ...itinerary,
-    'O link da etapa 01 é individual e funciona uma única vez.',
-    'As etapas 02 a 04 ficam disponíveis por 4 horas.',
+    `Os quatro acessos ficam disponíveis até ${formatAcmeProspectExpiry(access.expiresAt)} (horário de Brasília).`,
+    'O link da etapa 01 é individual e funciona uma única vez; depois da entrada, a sessão permanece ativa neste navegador até o prazo acima.',
   ].join('\n').trim();
 }

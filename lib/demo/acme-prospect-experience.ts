@@ -1,19 +1,21 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { tenantUrl } from '@/lib/domain';
 import { tenantDb } from '@/lib/tenant-db';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import {
   getAcmeProspectRole,
-  nextAcmeDemoResetAt,
+  acmeProspectExpiresAt,
+  ACME_PROSPECT_AUTH_MARKER,
+  ACME_PROSPECT_AUTH_PREFIX,
+  ACME_PROSPECT_AUTH_SUFFIX,
+  ACME_PROSPECT_SESSION_PATTERN,
   validateAcmeProspectExperienceInput,
   type AcmeProspectExperienceAccess,
   type AcmeProspectExperienceInput,
 } from '@/lib/demo/acme-prospect-config';
+export { isAcmeProspectAuthUser } from '@/lib/demo/acme-prospect-tracking';
 
 const ACME_DEMO_SLUG = 'acme-demo';
-const ACME_PROSPECT_AUTH_PREFIX = 'convidado.acme.';
-const ACME_PROSPECT_AUTH_SUFFIX = '@vertho.ai';
-const ACME_PROSPECT_AUTH_MARKER = 'acme-prospect-experience-v1';
 const ACME_MANAGER = {
   nome: 'Carla Menezes',
   email: 'carla.demo@vertho.ai',
@@ -23,6 +25,11 @@ export type AcmeProspectExperienceResult =
   | { ok: true; access: AcmeProspectExperienceAccess }
   | { ok: false; error: string };
 
+export type AcmeProspectLifecycle = {
+  sessionId: string;
+  expiresAt: string;
+};
+
 function buildGuestAuthEmail(sessionId: string): string {
   // Deliberadamente NÃO termina em `.demo@vertho.ai`: o filtro canônico trata
   // esta conta como interna e a exclui dos indicadores agregados. O login e os
@@ -30,21 +37,26 @@ function buildGuestAuthEmail(sessionId: string): string {
   return `${ACME_PROSPECT_AUTH_PREFIX}${sessionId}${ACME_PROSPECT_AUTH_SUFFIX}`;
 }
 
-export function isAcmeProspectAuthUser(user: {
-  email?: string | null;
-  user_metadata?: Record<string, unknown> | null;
-}): boolean {
-  const email = String(user.email || '').trim().toLowerCase();
-  return email.startsWith(ACME_PROSPECT_AUTH_PREFIX)
-    && email.endsWith(ACME_PROSPECT_AUTH_SUFFIX)
-    && user.user_metadata?.vertho_demo_access === ACME_PROSPECT_AUTH_MARKER;
+export function createAcmeProspectLifecycle(now: Date = new Date()): AcmeProspectLifecycle {
+  return {
+    sessionId: randomBytes(10).toString('hex'),
+    expiresAt: acmeProspectExpiresAt(now),
+  };
 }
 
 async function rollbackGuest(
   tdb: ReturnType<typeof tenantDb>,
   authEmail: string,
   authUserId: string | null,
+  sessionId: string,
 ) {
+  try {
+    const tracking = await tdb.from('demo_prospect_sessions').delete().eq('session_id', sessionId);
+    if (tracking.error) console.warn('[acme-prospect] rollback acompanhamento:', tracking.error.message);
+  } catch (error: any) {
+    console.warn('[acme-prospect] rollback acompanhamento:', error?.message);
+  }
+
   try {
     const colab = await tdb.from('colaboradores').delete().eq('email', authEmail);
     if (colab.error) console.warn('[acme-prospect] rollback colaborador:', colab.error.message);
@@ -71,6 +83,8 @@ async function rollbackGuest(
  */
 export async function prepareAcmeProspectExperience(
   input: AcmeProspectExperienceInput,
+  lifecycle: AcmeProspectLifecycle = createAcmeProspectLifecycle(),
+  createdByEmail: string = 'system:unknown',
 ): Promise<AcmeProspectExperienceResult> {
   const parsed = validateAcmeProspectExperienceInput(input);
   if (parsed.ok === false) return { ok: false, error: parsed.error };
@@ -79,6 +93,7 @@ export async function prepareAcmeProspectExperience(
     tdb: ReturnType<typeof tenantDb>;
     authEmail: string;
     authUserId: string | null;
+    sessionId: string;
   } | null = null;
 
   try {
@@ -98,12 +113,21 @@ export async function prepareAcmeProspectExperience(
 
     const role = getAcmeProspectRole(parsed.value.roleKey);
     if (!role) throw new Error('Papel demonstrativo inválido.');
+    if (!ACME_PROSPECT_SESSION_PATTERN.test(lifecycle.sessionId)) {
+      throw new Error('Identificador da experiência inválido.');
+    }
+    const expiryTime = Date.parse(lifecycle.expiresAt);
+    if (!Number.isFinite(expiryTime) || expiryTime <= Date.now()) {
+      throw new Error('Validade da experiência inválida.');
+    }
 
-    const sessionId = randomBytes(10).toString('hex');
+    const sessionId = lifecycle.sessionId;
     const authEmail = buildGuestAuthEmail(sessionId);
-    const expiresAt = nextAcmeDemoResetAt();
+    const expiresAt = lifecycle.expiresAt;
+    const colaboradorId = randomUUID();
 
     const { error: colabError } = await tdb.from('colaboradores').insert({
+      id: colaboradorId,
       nome_completo: parsed.value.nome,
       email: authEmail,
       cargo: role.cargo,
@@ -117,7 +141,7 @@ export async function prepareAcmeProspectExperience(
       locale: 'pt-BR',
     });
     if (colabError) throw new Error(`criar convidado no ACME Demo: ${colabError.message}`);
-    createdGuest = { tdb, authEmail, authUserId: null };
+    createdGuest = { tdb, authEmail, authUserId: null, sessionId };
 
     const { data: authData, error: authError } = await tdb.auth.admin.createUser({
       email: authEmail,
@@ -126,6 +150,7 @@ export async function prepareAcmeProspectExperience(
         name: parsed.value.nome,
         vertho_demo_access: ACME_PROSPECT_AUTH_MARKER,
         vertho_demo_tenant: ACME_DEMO_SLUG,
+        vertho_demo_session_id: sessionId,
         expires_at: expiresAt,
       },
     });
@@ -133,6 +158,21 @@ export async function prepareAcmeProspectExperience(
     createdGuest.authUserId = authUserId;
     if (authError || !authUserId) {
       throw new Error(`criar acesso temporário: ${authError?.message || 'usuário não retornado'}`);
+    }
+
+    const { error: trackingError } = await tdb.from('demo_prospect_sessions').insert({
+      session_id: sessionId,
+      colaborador_id: colaboradorId,
+      auth_email: authEmail,
+      prospect_name: parsed.value.nome,
+      prospect_company: parsed.value.empresa,
+      role_key: role.key,
+      cargo: role.label,
+      created_by_email: createdByEmail,
+      expires_at: expiresAt,
+    });
+    if (trackingError) {
+      throw new Error(`criar acompanhamento do prospect: ${trackingError.message}`);
     }
 
     const nextPath = '/dashboard';
@@ -164,46 +204,14 @@ export async function prepareAcmeProspectExperience(
     };
   } catch (error: any) {
     if (createdGuest) {
-      await rollbackGuest(createdGuest.tdb, createdGuest.authEmail, createdGuest.authUserId);
+      await rollbackGuest(
+        createdGuest.tdb,
+        createdGuest.authEmail,
+        createdGuest.authUserId,
+        createdGuest.sessionId,
+      );
     }
     console.error('[acme-prospect] preparar experiência:', error?.message);
     return { ok: false, error: error?.message || 'erro desconhecido' };
   }
-}
-
-/**
- * Remove somente identidades Auth criadas por este fluxo. A exclusão do
- * colaborador acontece no reset tenant-scoped; esta limpeza evita acumular
- * usuários órfãos no Auth depois de muitas demonstrações.
- */
-export async function removeAcmeProspectAuthUsers(client?: any): Promise<number> {
-  let authAdmin = client?.auth?.admin;
-  if (!authAdmin) {
-    const resolved = await resolveTenant(ACME_DEMO_SLUG);
-    if (!resolved?.id) return 0;
-    authAdmin = tenantDb(resolved.id).auth.admin;
-  }
-  if (typeof authAdmin?.listUsers !== 'function' || typeof authAdmin?.deleteUser !== 'function') {
-    return 0;
-  }
-
-  const matches: Array<{ id: string }> = [];
-  const perPage = 200;
-  for (let page = 1; page <= 50; page++) {
-    const { data, error } = await authAdmin.listUsers({ page, perPage });
-    if (error) throw new Error(`listar convidados Auth: ${error.message}`);
-    const users = (data?.users || []) as Array<{
-      id: string;
-      email?: string | null;
-      user_metadata?: Record<string, unknown> | null;
-    }>;
-    matches.push(...users.filter(isAcmeProspectAuthUser));
-    if (users.length < perPage) break;
-  }
-
-  for (const user of matches) {
-    const { error } = await authAdmin.deleteUser(user.id);
-    if (error) throw new Error(`remover convidado Auth ${user.id}: ${error.message}`);
-  }
-  return matches.length;
 }

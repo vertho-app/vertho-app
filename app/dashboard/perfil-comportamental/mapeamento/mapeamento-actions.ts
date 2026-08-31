@@ -89,6 +89,7 @@ export async function salvarPerfilComportamental(resultados) {
 
   const { disc, lead, profile, learnPrefs } = resultados;
   const comp = computeDiscCompetenciesNatural(disc);
+  const mapeamentoEm = new Date().toISOString();
 
   // Antes de sobrescrever, deleta PDF antigo no Storage (se existir)
   const { data: colabAtual } = await sb.from('colaboradores')
@@ -147,7 +148,7 @@ export async function salvarPerfilComportamental(resultados) {
       pref_estudo_caso: learnPrefs?.case || 0,
 
       // Timestamp + JSON backup
-      mapeamento_em: new Date().toISOString(),
+      mapeamento_em: mapeamentoEm,
       disc_resultados: JSON.stringify({
         lead, comp, learnPrefs,
         competencyModelVersion: DISC_COMPETENCY_MODEL_VERSION,
@@ -166,6 +167,16 @@ export async function salvarPerfilComportamental(resultados) {
     .eq('id', colab.id).eq('empresa_id', colab.empresa_id);
 
   if (error) return { success: false, error: error.message };
+
+  try {
+    const { recordAcmeProspectDiscCompletion } = await import(
+      '@/lib/demo/acme-prospect-tracking'
+    );
+    await recordAcmeProspectDiscCompletion(colab.id, mapeamentoEm);
+  } catch (trackingError) {
+    // Acompanhamento comercial não pode transformar um DISC salvo em falha.
+    console.warn('[salvarPerfilComportamental] registrar conclusão do prospect:', trackingError?.message);
+  }
 
   // Pós-resposta: gera textos LLM + PDF em background para que, quando o
   // colab clicar em "Relatório Completo", já esteja pronto. `after()` do

@@ -9,6 +9,7 @@ import {
 } from '@/lib/demo/presentation';
 import { verifyDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
 import { gerarMagicLinkPapelApresentacaoDemo } from '@/lib/demo/reset-acme-demo';
+import { recordAcmeProspectPresentationAccess } from '@/lib/demo/acme-prospect-tracking';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,8 @@ export async function GET(req: NextRequest) {
   if (!role) return loginComErro(req, 'apresentacao-invalida');
 
   const ticket = req.nextUrl.searchParams.get('ticket');
-  if (!verifyDemoPresentationTicket(ticket)) {
+  const ticketPayload = verifyDemoPresentationTicket(ticket);
+  if (!ticketPayload) {
     return loginComErro(req, 'apresentacao-expirada');
   }
 
@@ -50,6 +52,15 @@ export async function GET(req: NextRequest) {
   if (error) {
     console.error('[auth/apresentacao] verifyOtp:', error.message);
     return loginComErro(req, 'apresentacao-indisponivel');
+  }
+
+  if (ticketPayload.prospectSessionId) {
+    try {
+      await recordAcmeProspectPresentationAccess(ticketPayload.prospectSessionId, role.key);
+    } catch (trackingError: any) {
+      // O acompanhamento é best-effort; uma sessão válida não deve ser negada.
+      console.warn('[auth/apresentacao] registrar acesso do prospect:', trackingError?.message);
+    }
   }
 
   const destino = new URL(login.nextPath, req.url);

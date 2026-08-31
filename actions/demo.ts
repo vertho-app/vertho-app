@@ -9,11 +9,19 @@ import {
   resetDemoTenant,
   type DemoTenantSlug,
 } from '@/lib/demo/reset-acme-demo';
-import { DEMO_PRESENTATION_TENANT_SLUG } from '@/lib/demo/presentation';
 import {
+  DEMO_PRESENTATION_TENANT_SLUG,
+  demoPresentationAuthUrl,
+} from '@/lib/demo/presentation';
+import { issueDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
+import {
+  createAcmeProspectLifecycle,
   prepareAcmeProspectExperience,
-  removeAcmeProspectAuthUsers,
 } from '@/lib/demo/acme-prospect-experience';
+import {
+  cleanupExpiredAcmeProspects,
+  listAcmeProspectProgress,
+} from '@/lib/demo/acme-prospect-tracking';
 import {
   ACME_PROSPECT_EXPERIENCE_VIEWS,
   validateAcmeProspectExperienceInput,
@@ -23,25 +31,54 @@ import {
 /** Reset sob demanda do tenant demo escolhido, com allowlist tipada e auditoria. */
 export async function resetarDemo(slug: DemoTenantSlug = 'acme-demo') {
   const ctx = await requireAdminAction();
-  const r = await resetDemoTenant(slug);
-  let authGuestsRemoved = 0;
-  if (r.ok && slug === DEMO_PRESENTATION_TENANT_SLUG) {
+  if (slug === DEMO_PRESENTATION_TENANT_SLUG) {
     try {
-      authGuestsRemoved = await removeAcmeProspectAuthUsers();
+      const lifecycle = await cleanupExpiredAcmeProspects();
+      if (lifecycle.activeCount > 0) {
+        await logAdminAction({
+          adminEmail: ctx.email,
+          acao: 'demo.reset',
+          alvo: slug,
+          detalhes: { skipped: true, ...lifecycle },
+          resultado: 'parcial',
+        });
+        return {
+          success: true as const,
+          skipped: true as const,
+          activeGuests: lifecycle.activeCount,
+          nextExpiry: lifecycle.nextExpiry,
+        };
+      }
     } catch (error: any) {
-      // Os colaboradores já foram apagados pelo reset tenant-scoped; sem eles,
-      // os Auth órfãos não resolvem contexto. Esta limpeza é higiene best-effort.
-      console.warn('[demo.reset] limpar convidados temporários do Auth:', error?.message);
+      await logAdminAction({
+        adminEmail: ctx.email,
+        acao: 'demo.reset',
+        alvo: slug,
+        detalhes: { error: error?.message },
+        resultado: 'erro',
+      });
+      return { success: false as const, error: error?.message || 'falha ao conferir convidados ativos' };
     }
   }
+  const r = await resetDemoTenant(slug);
   await logAdminAction({
     adminEmail: ctx.email,
     acao: 'demo.reset',
     alvo: slug,
-    detalhes: r.ok ? { counts: r.counts, authGuestsRemoved } : { error: r.error },
+    detalhes: r.ok ? { counts: r.counts } : { error: r.error },
   });
   if (!r.ok) return { success: false, error: r.error };
-  return { success: true, counts: r.counts };
+  return { success: true as const, skipped: false as const, counts: r.counts };
+}
+
+/** Lista os passaportes recentes do ACME; leitura exclusiva de platform admin. */
+export async function listarExperienciasProspectAcme() {
+  await requireAdminAction();
+  try {
+    return { success: true as const, experiencias: await listAcmeProspectProgress() };
+  } catch (error: any) {
+    return { success: false as const, error: error?.message || 'falha ao carregar experiências' };
+  }
 }
 
 /** Rotaciona as credenciais temporárias do prospect sem registrar a senha no audit log. */
@@ -107,10 +144,11 @@ export async function prepararExperienciaProspectAcme(input: AcmeProspectExperie
     return { success: false as const, error: parsed.error };
   }
 
+  const lifecycle = createAcmeProspectLifecycle();
   const presentation = await prepararAcessosApresentacaoDemo();
-  const presentationViews = presentation.acessos || [];
+  const rawPresentationViews = presentation.acessos || [];
   const missingViews = ACME_PROSPECT_EXPERIENCE_VIEWS
-    .filter((required) => !presentationViews.some((view) => view.roleKey === required.roleKey))
+    .filter((required) => !rawPresentationViews.some((view) => view.roleKey === required.roleKey))
     .map((view) => view.roleKey);
   if (!presentation.ok || missingViews.length > 0) {
     const error = presentation.error
@@ -124,7 +162,16 @@ export async function prepararExperienciaProspectAcme(input: AcmeProspectExperie
     return { success: false as const, error };
   }
 
-  const r = await prepareAcmeProspectExperience(parsed.value);
+  const issuedAt = Math.floor(Date.now() / 1_000);
+  const trackedTicket = issueDemoPresentationTicket(issuedAt, {
+    prospectSessionId: lifecycle.sessionId,
+    expiresAtSeconds: Math.floor(Date.parse(lifecycle.expiresAt) / 1_000),
+  });
+  const presentationViews = rawPresentationViews.map((view) => ({
+    ...view,
+    url: demoPresentationAuthUrl(view.roleKey, trackedTicket),
+  }));
+  const r = await prepareAcmeProspectExperience(parsed.value, lifecycle, ctx.email);
   await logAdminAction({
     adminEmail: ctx.email,
     acao: 'demo.prepare_prospect_experience',
