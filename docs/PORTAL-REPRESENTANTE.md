@@ -352,3 +352,49 @@ mutação — ignorar o `forcar`, inverter a ordem do delete, tirar a auditoria,
 checar o erro do loop, deixar a falha de leitura virar inventário vazio e tirar o
 gate de dono do `getSalesAccountVinculos`; cada uma derruba exatamente o teste que
 a descreve). Commits `d152ef13` (primeira versão, com bloqueio) e `735ef946`.
+
+## Redes oficiais descobertas no PRÓPRIO site da empresa (31/08)
+
+O planejamento pede três coisas ao vendedor: empresa, site e os perfis oficiais. O
+terceiro era o que ficava vazio, e ele não é decorativo:
+`lib/copiloto/social-identity.ts` descarta todo sinal social cujo perfil não tenha sido
+declarado ali, e `researchCompany` só dispara a trilha "Redes oficiais" quando a lista
+tem ao menos um item. Campo vazio não degradava a pesquisa: apagava uma das três
+trilhas, em silêncio, e o Play saía com uma fonte a menos sem nada na tela dizendo isso.
+
+Agora, ao informar o site (debounce de 900 ms, ou o botão **Buscar no site**),
+`POST /api/copiloto/redes-sociais` lê o HTML e devolve os perfis que o próprio site
+publica. **Por que o site e não busca aberta:** o link no rodapé é evidência de
+titularidade, porque quem publicou foi a empresa. Busca traria homônimo e perfil de fã
+com a mesma confiança, que é exatamente o que a régua de identidade existe para barrar.
+
+Onde mora o quê:
+
+- `lib/copiloto/social-discovery.ts` — puro, sem rede: `perfilCanonico`,
+  `extrairPerfisSociais`, `paginasCandidatas`, `mesclarPerfisSociais`. É puro **porque a
+  tela o importa** (`'use client'`): um import de `net-guard` (`node:dns`) quebraria o bundle.
+- `lib/copiloto/social-discovery-fetch.ts` — a leitura: home e, só se ela vier com menos
+  de 2 perfis, UMA página interna de contato/sobre. Teto de 3 requisições, 8 s, 1,5 MB.
+- `lib/fetch-texto-publico.ts` — o GET público com a guarda anti-SSRF em cada hop,
+  extraído de `lib/site-palette.ts` (paleta de login) e agora compartilhado pelos dois.
+
+Régua do que conta como perfil DA EMPRESA (`perfilCanonico`):
+
+- LinkedIn: só `/company`, `/school` e `/showcase`. `/in/` fica de fora **de propósito** —
+  é o perfil de uma pessoa, e um fato do fundador entraria carimbado como fato da organização;
+- fora também: botão de compartilhar (`sharer.php`, `intent/tweet`, `shareArticle`,
+  `sharing/share-offsite`), post e reel avulsos, pixel e página de plugin;
+- `twitter.com` e `x.com` colapsam num perfil só, senão a mesma conta come duas das 8 vagas.
+
+A mescla **nunca sobrescreve**: entra só o que ainda não está no campo, comparado
+canonicamente (`www.`, barra final e a dupla twitter/x não viram entrada duplicada). Quem
+declara oficialidade continua sendo o vendedor; a descoberta é sugestão.
+
+`Medido: 31/08/2026` — 8 domínios testados, 7 existentes, **7 devolveram perfis**:
+anchieta.br (6), nubank.com.br (4), sesisp.org.br (4), anthropic.com (3), objetivo.br (3),
+fiap.com.br (2) e sebsa.com.br (1 — este exercitou o caminho da página interna, porque a
+home trazia um só). `example.com` respondeu corretamente "não publica nenhum", e o único
+`sem_resposta` foi domínio inexistente, não bloqueio de bot.
+
+Cobertura: `tests/unit/copiloto-social-discovery.test.ts` (16 casos, validados por mutação
+— soltar o bloqueio de `sharer` e aceitar `/in/` derruba exatamente 3). Commit `f8852f18`.

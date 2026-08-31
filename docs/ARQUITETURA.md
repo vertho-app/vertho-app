@@ -1374,7 +1374,7 @@ Os quatro guards que reprovam o build: `tenant-read-guard`, `tenant-mutation-gua
 - **Auditoria**: `logAdminAction()` grava disparos e mutacoes admin em `admin_audit_log` (migration 116), best-effort, com IP + user-agent
 - RLS (migration 113) fecha o caminho do **browser**: `empresas`, `colaboradores`, `sessoes_avaliacao`, `mensagens_chat` com policy tenant-scoped; demais tabelas sensiveis sem policy = bloqueadas pra anon/authenticated. Zero tabelas `public` sem RLS.
 - Login OTP WhatsApp: codigo em hash (sha256 + pepper), TTL 10min, max 5 tentativas, rate-limit + anti-enumeracao (seção 22)
-- SSRF: guarda compartilhada `lib/net-guard.ts` (sintaxe + DNS pré-check + enforcement no connect) em todo fetch de URL escolhida por usuário/admin
+- SSRF: guarda compartilhada `lib/net-guard.ts` (sintaxe + DNS pré-check + enforcement no connect) em todo fetch de URL escolhida por usuário/admin. Para **ler HTML de um site do cliente** o wrapper é `lib/fetch-texto-publico.ts` (timeout, teto de bytes e cada hop de redirect revalidado); consumidores: paleta de login (`lib/site-palette.ts`) e descoberta de redes do Copiloto (`lib/copiloto/social-discovery-fetch.ts`). Fetch de site novo entra por ele, não por um `fetch` próprio
 - Nenhuma NEXT_PUBLIC sensivel · Sentry com scrub de PII
 
 ### 11.2 Auditoria multi-agente 23/07 (remediada) + manutenção 26/07

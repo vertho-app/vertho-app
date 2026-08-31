@@ -561,6 +561,13 @@ Detalhe: memória `project_rh_admin_da_empresa`.
 - 🔴 **Estado que decide ACESSO não pode viver só em `useState`.** Morre no F5. Se o gate depende
   dele, hidrate da fonte persistente — e faça a hidratação só LIGAR, nunca desligar (um `false` da
   rede não pode apagar o clique da sessão). §F-I23 do FMEA.
+- ⚠️ **Trocou a TAG de um container (`<label>` → `<div>`, `<div>` → `<section>`)? Grep os seletores
+  DESCENDENTES daquela classe no `.module.css`.** O CSS que dava tamanho, cor ou espaçamento pode
+  depender do pai (`label > small`, `.card p`), e a regra mora em OUTRO arquivo do diff: typecheck e
+  suíte ficam verdes e o texto renderiza no tamanho do corpo. Medido 31/08/2026 no campo de redes do
+  Copiloto, achado na imagem. 🔑 E se for provar por harness (tela atrás de login), **copie as regras
+  do `.module.css` por script** — redigitar o CSS de memória mascara exatamente este defeito.
+  `feedback_so_a_imagem_prova_o_visual` (7º caso) · `reference_verificacao_navegador`.
 - ⚠️ **Trocou o predicado de um gate? Varra quem o ALIMENTA.** Os controles vizinhos continuam
   alimentando o mecanismo antigo — em 25/08 só texto/case chamavam `onAbrirConteudo`, e quem
   preferia áudio ficou com os botões cinza. Irmão do §F-C13.
