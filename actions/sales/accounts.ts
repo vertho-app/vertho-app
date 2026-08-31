@@ -14,6 +14,7 @@ import {
   assertRepresentativeOwnership,
 } from '@/lib/sales/permissions';
 import { numOrNull } from '@/lib/sales/validation';
+import { logAdminAction } from '@/lib/audit';
 import type { SalesAccount, SalesProposal } from '@/lib/sales/types';
 
 const ACCOUNT_STATUSES = ['prospect', 'active_client', 'inactive', 'lost'] as const;
@@ -149,19 +150,132 @@ async function countByAccount(
   return count || 0;
 }
 
+export type SalesAccountVinculos = {
+  opportunities: number;
+  proposals: number;
+  commissions: number;
+  contacts: number;
+  plans: number;
+  conversations: number;
+  notes: number;
+  clienteAtivo: boolean;
+};
+
+/**
+ * Os campos ausentes vêm declarados como `undefined` de propósito: o projeto
+ * roda com `strict: false`, e ali união discriminada por booleano NÃO estreita
+ * — sem isso, `result.error` depois de `if (!result.success)` não compila.
+ */
+export type DeleteSalesAccountResult =
+  | { success: true; removed: SalesAccountVinculos; error?: undefined; precisaConfirmar?: undefined; vinculos?: undefined }
+  /** `precisaConfirmar`: há histórico comercial e a chamada não veio com `forcar`. */
+  | { success: false; error: string; precisaConfirmar?: boolean; vinculos?: SalesAccountVinculos; removed?: undefined };
+
+/** Inventário do que está ligado à conta. Erro de leitura lança (E11). */
+async function contarVinculos(
+  sb: ReturnType<typeof createSupabaseAdmin>,
+  accountId: string,
+  status: string,
+): Promise<SalesAccountVinculos> {
+  const [opportunities, proposals, commissions, contacts, plans, conversations, notes] = await Promise.all([
+    countByAccount(sb, 'sales_opportunities', accountId),
+    countByAccount(sb, 'sales_proposals', accountId),
+    countByAccount(sb, 'sales_commission_events', accountId),
+    countByAccount(sb, 'sales_contacts', accountId),
+    countByAccount(sb, 'copilot_plans', accountId),
+    countByAccount(sb, 'copilot_conversations', accountId),
+    countByAccount(sb, 'sales_activity_notes', accountId),
+  ]);
+  return {
+    opportunities, proposals, commissions, contacts, plans, conversations, notes,
+    clienteAtivo: status === 'active_client',
+  };
+}
+
+/** Funil ou carteira em jogo — o que faz a confirmação precisar ser explícita. */
+function temHistoricoComercial(v: SalesAccountVinculos): boolean {
+  return v.opportunities + v.proposals + v.commissions > 0 || v.clienteAtivo;
+}
+
+function contar(n: number, singular: string, plural: string): string {
+  return n ? `${n} ${n === 1 ? singular : plural}` : '';
+}
+
+/**
+ * Frase do que existe hoje ligado à conta — completa a pergunta da tela
+ * ("Apagar “X”? …"), então lista o que some junto, do mais caro ao mais barato.
+ */
+function descreverVinculos(v: SalesAccountVinculos): string {
+  const itens = [
+    contar(v.commissions, 'evento de comissão', 'eventos de comissão'),
+    contar(v.proposals, 'proposta', 'propostas'),
+    contar(v.opportunities, 'oportunidade', 'oportunidades'),
+    contar(v.plans, 'planejamento', 'planejamentos'),
+    contar(v.conversations, 'resultado', 'resultados'),
+    contar(v.contacts, 'contato', 'contatos'),
+    contar(v.notes, 'nota', 'notas'),
+  ].filter(Boolean);
+  const ativo = v.clienteAtivo ? ' Ela está marcada como cliente ativo.' : '';
+  if (!itens.length) return `Ela não tem nenhum registro ligado.${ativo} Não dá para desfazer.`;
+  return `Vai junto: ${itens.join(', ')}.${ativo} Não dá para desfazer.`;
+}
+
+/**
+ * O que está ligado a esta conta hoje — lido ANTES de perguntar se pode apagar,
+ * para a confirmação dizer o que se perde em vez de descobrir depois.
+ *
+ * Leitura pura: mesmo gate da exclusão, nenhuma escrita.
+ */
+export async function getSalesAccountVinculos(accountId: string) {
+  const ctx = await requireRepresentativeOrAdminAction();
+  if (!UUID_RE.test(String(accountId || ''))) return { success: false as const, error: 'Empresa inválida' };
+
+  const sb = createSupabaseAdmin();
+  const { data: account, error: readError } = await sb.from('sales_accounts')
+    .select('id, representante_id, status').eq('id', accountId).maybeSingle();
+  if (readError) return { success: false as const, error: readError.message };
+  if (!account) return { success: false as const, error: 'Conta não encontrada' };
+  if (ctx.kind === 'representative' && account.representante_id !== ctx.rep.id) {
+    return { success: false as const, error: 'FORBIDDEN: conta de outro representante' };
+  }
+
+  try {
+    const vinculos = await contarVinculos(sb, accountId, account.status);
+    return {
+      success: true as const,
+      vinculos,
+      temHistorico: temHistoricoComercial(vinculos),
+      resumo: descreverVinculos(vinculos),
+    };
+  } catch (err: any) {
+    // Erro de leitura não pode virar "não tem nada ligado" (E11): quem confirma
+    // decidiria às cegas achando que está informado.
+    return { success: false as const, error: err?.message || 'Falha ao verificar o que está ligado à empresa' };
+  }
+}
+
 /**
  * Apaga uma empresa do canal comercial (usado na lista do Copiloto).
  *
- * Fail-closed: a conta só sai se não houver histórico comercial duro —
- * oportunidade, proposta ou evento de comissão. Esse histórico é a base do
- * cálculo de comissão e não pode sumir por um clique na lista; nesses casos a
- * action devolve o que está segurando, em vez de apagar em cascata.
+ * Duas etapas de propósito. Sem `forcar`, a conta com histórico comercial —
+ * oportunidade, proposta, evento de comissão ou status de cliente ativo — NÃO
+ * sai: a action devolve `precisaConfirmar` com o inventário, e a tela pergunta
+ * de novo dizendo o que vai junto. Com `forcar`, apaga tudo.
  *
- * O que é acessório da conta sai junto: contatos, planejamentos e resultados do
- * copiloto (FK ON DELETE CASCADE no banco) e as notas de acompanhamento (FK sem
- * cascade — apagadas aqui, senão o DELETE bate em violação de chave).
+ * ⚠️ Apagar `sales_commission_events` deixa comissão paga ou prevista sem
+ * lastro — o valor pago continua no extrato do RC sem a conta que o originou.
+ * Por isso a exclusão forçada é registrada em `admin_audit_log` com o
+ * inventário do que saiu (`sales_account.excluir`), antes que ele deixe de
+ * existir para ser contado.
+ *
+ * A ordem do delete é ditada pelas FKs, e não é livre: comissões apontam para
+ * propostas, propostas apontam para oportunidades, e só o que é acessório da
+ * conta (contatos, planejamentos e conversas do copiloto) sai por CASCADE.
  */
-export async function deleteSalesAccount(accountId: string) {
+export async function deleteSalesAccount(
+  accountId: string,
+  opts?: { forcar?: boolean },
+): Promise<DeleteSalesAccountResult> {
   const ctx = await requireRepresentativeOrAdminAction();
   // Do lado admin isso é escrita destrutiva: exige sales_channel.manage (sócio não apaga).
   if (ctx.kind === 'admin') await requireCommercialAdminAction(true);
@@ -175,43 +289,36 @@ export async function deleteSalesAccount(accountId: string) {
   if (ctx.kind === 'representative' && account.representante_id !== ctx.rep.id) {
     return { success: false as const, error: 'FORBIDDEN: conta de outro representante' };
   }
-  if (account.status === 'active_client') {
-    return {
-      success: false as const,
-      error: 'Esta empresa está marcada como cliente ativo. Mude o status antes de apagar.',
-    };
-  }
-
-  const [opportunities, proposals, commissions] = await Promise.all([
-    countByAccount(sb, 'sales_opportunities', accountId),
-    countByAccount(sb, 'sales_proposals', accountId),
-    countByAccount(sb, 'sales_commission_events', accountId),
-  ]);
-  const blockers = [
-    opportunities ? `${opportunities} oportunidade(s)` : '',
-    proposals ? `${proposals} proposta(s)` : '',
-    commissions ? `${commissions} evento(s) de comissão` : '',
-  ].filter(Boolean);
-  if (blockers.length) {
-    return {
-      success: false as const,
-      error: `Esta empresa tem ${blockers.join(' e ')} no funil. Remova esses registros antes de apagar a empresa.`,
-    };
-  }
 
   // Contagem ANTES do delete: depois do cascade não há mais o que contar.
-  const [contacts, plans, conversations] = await Promise.all([
-    countByAccount(sb, 'sales_contacts', accountId),
-    countByAccount(sb, 'copilot_plans', accountId),
-    countByAccount(sb, 'copilot_conversations', accountId),
-  ]);
+  const vinculos = await contarVinculos(sb, accountId, account.status);
+  const temHistorico = temHistoricoComercial(vinculos);
+  if (temHistorico && !opts?.forcar) {
+    return { success: false as const, precisaConfirmar: true as const, vinculos, error: descreverVinculos(vinculos) };
+  }
 
-  const { error: notesError } = await sb.from('sales_activity_notes').delete().eq('account_id', accountId);
-  if (notesError) return { success: false as const, error: notesError.message };
+  // Ordem ditada pelas FKs: comissão → proposta → oportunidade. As notas com
+  // opportunity_id caem por cascade da oportunidade; as soltas, por account_id.
+  for (const tabela of ['sales_commission_events', 'sales_proposals', 'sales_activity_notes', 'sales_opportunities']) {
+    const { error } = await sb.from(tabela).delete().eq('account_id', accountId);
+    if (error) return { success: false as const, error: `Falha ao apagar ${tabela}: ${error.message}` };
+  }
 
   const { error } = await sb.from('sales_accounts').delete().eq('id', accountId);
   if (error) return { success: false as const, error: error.message };
-  return { success: true as const, removed: { contacts, plans, conversations } };
+
+  if (temHistorico) {
+    // Best-effort e depois do fato: o que se perde aqui não é recuperável, mas
+    // o registro de QUEM apagou O QUÊ tem que sobreviver à conta.
+    await logAdminAction({
+      adminEmail: ctx.email,
+      acao: 'sales_account.excluir',
+      alvo: `${account.trade_name || account.legal_name} (${accountId})`,
+      detalhes: { ...vinculos, forcado: true, status: account.status },
+    });
+  }
+
+  return { success: true as const, removed: vinculos };
 }
 
 // ── Pós-venda / carteira (MVP 3) ────────────────────────────────────────────
