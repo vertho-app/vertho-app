@@ -600,8 +600,10 @@ briefs duplicados por tupla.
   script manual. Não prejudica quem já tem vídeo: `resolverCelulaVideo` busca com
   `.neq('status','error')` (célula segue servida durante o re-render) e `personalizeCell` pula quem
   está 'done'. Guarda: `tests/unit/reconciliar-personalizados.test.ts`.
-- ⚠️ **Não observado em produção ainda:** a primeira execução real é **sábado 01/08 03:00 UTC** —
-  implementado e agendado, mas nunca rodou de verdade até a auditoria de 27/07.
+- 🔴 **Observado em 29/08/2026, e o job MORDEU — ver F-V5.** A execução de sábado re-enfileirou 3
+  células que tinham cobertura nominal **completa**, tirou as três de `done` e deixou 102 pessoas de
+  macae vendo "estamos preparando seu vídeo" por 3 dias. O desenho descrito acima está certo; o que
+  falhou foi a LEITURA que alimenta a decisão de lacuna e a ausência de checagem do provisionamento.
 
 ### F-V2 · Personalização fora do watchdog, serial por colab 🔵
 - **Gatilho:** o watchdog (`MAX_RENDER_MS`) envolve só o render do deck; `personalizeCell` roda depois
@@ -632,6 +634,13 @@ briefs duplicados por tupla.
   `pipeline-health-regras.test.ts` (R10).
 - **Segue sem retry automático:** a recuperação é o re-disparo manual com `--conc 2`. Automatizar
   exigiria fila com backoff por fornecedor — não feito, e o alarme agora avisa quem precisa agir.
+- ⚠️ **A amostra do R10 pode descrever um estado já SUPERADO** (31/08/2026). `coletarCelulasVideoSemDeck`
+  guarda o erro mais recente **entre as linhas `error`** e não olha se existe tentativa POSTERIOR em
+  curso. Medido: a célula `macae · Diretor(a) Escolar · I` aparecia como "4× · TTS: resposta sem áudio",
+  mas a 5ª tentativa **passou do TTS** e estava em `render_queued` — o diagnóstico apontava para
+  saturação de fornecedor num caso que já era outro problema (F-V5). O critério "erro E nenhum deck"
+  continua certo; a AMOSTRA é que engana. Ao agir sobre este achado, leia a linha mais recente da
+  célula, não a última que falhou.
 
 ### F-V4 · Dois lotes NOSSOS disputam o mesmo TTS — e o 504 do gateway não prova trabalho perdido 🟠 (recuperável)
 - **Gatilho:** o TTS do Vertex é compartilhado por caminhos que ninguém lê juntos — a **narração do
@@ -1221,6 +1230,40 @@ API (teto 80 msg/s, o limite restante é o tier de destinatários únicos — vo
 em 17/08: 38 boas-vindas a 7,0s e 34 avisos de plano a 6,5s, **72 mensagens, 0 falhas**. A régua do
 incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detalhe em
 `docs/TEMPLATES-WHATSAPP.md` e na memória `project_whatsapp_ban_lote`.
+
+### F-V5 · A reconciliação DERRUBA a célula boa: leitura truncada em 1.000 vira "lacuna" 🔴 (corrigido 31/08)
+- **Medido 29-31/08/2026:** o cron de sábado (`reconciliar_videos`, `0 3 * * 6`) re-enfileirou **3
+  células** de `macae · Diretor(a) Escolar` que tinham cobertura nominal **completa** (102
+  personalizados `done`, prontos desde 17/08). Elas saíram de `done`, ficaram **3 dias** em
+  `render_queued` e a week page passou a mostrar "estamos preparando seu vídeo" para até 102 pessoas,
+  no lugar do vídeo com o nome delas. O deck e os personalizados estavam intactos no Bunny o tempo
+  todo — o único dano foi o estado da linha.
+- **Causa 1, a leitura (`reconciliar-personalizados.ts:118`):** `videos_personalizados` tinha **1.034
+  linhas** nas células servidas e o `.in('cell_video_id', […])` **sem `.range()`** devolveu **1.000**
+  (medido contra o PostgREST de produção; o cap de `db-max-rows` **não precisa de `.limit()` para
+  morder**). As 34 invisíveis não chegaram como erro: chegaram como **ausência**, e `motivoDaLacuna`
+  traduz ausência para `'ausente'`. O truncamento entrou disfarçado de **conclusão** — "estas pessoas
+  não têm vídeo nominal" — e a ação foi destrutiva. Prova de que não havia lacuna: 102/102 com
+  nominal `done`, e **nenhum** colaborador do cargo criado depois de 17/08 nem alterado depois de
+  29/08, ou seja, a coorte de 29/08 era a de hoje.
+- **Causa 2, o provisionamento (`reconciliar-personalizados.ts:200`):** `await ensureRenderWorker()`
+  tinha o **retorno descartado**, sob um comentário que prometia exatamente o contrário ("enfileirar
+  sem provisionar seria trocar sem vídeo nominal por célula presa"). "Não consegui subir box" chegava
+  idêntico a "subiu". Agravante de desenho: `provisioned: false` tem **dois sentidos opostos** (já há
+  box de sobra × não subiu nenhuma), separados só por texto livre em `reason`.
+- **Correção (31/08, `26b47149`):** as três leituras do arquivo paginam com `.range()` e ordem estável
+  por `id`, e estourar o teto de páginas **lança** em vez de devolver resultado parcial;
+  `EnsureResult` ganhou o campo **`alive`** como discriminante, e com `alive === 0` o enfileiramento é
+  **desfeito** (volta a `done`) e registra `registrarDegradacao` (`reconciliacao-sem-worker`). As 3
+  células foram restauradas no banco na mesma rodada; `video-stale` voltou a **0**.
+- **Guarda:** `tests/unit/reconciliar-personalizados.test.ts` — 5 casos, validados por **mutação**
+  (remover a paginação reproduz `expected 34 to be +0`; descartar o retorno do worker deixa a célula
+  em `render_queued`). 🔑 O mock **trunca em 1.000 de propósito**: `criarSupabaseMock` registra
+  `.range()` mas devolve a lista inteira, então contra o helper cru a leitura sem paginação passaria
+  **verde** — o instrumento precisava reproduzir o cap para provar alguma coisa.
+- **Classe:** ver `project_limite_vira_amostra` na memória. O giro que faltava: o corte morde **sem
+  `.limit()` na query**, e quando a ausência de linha é uma AFIRMAÇÃO no domínio, ele não degrada o
+  resultado — ele o **inverte**.
 
 ## 5. Parse de IA / robustez
 

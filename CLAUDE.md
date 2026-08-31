@@ -294,6 +294,12 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   - 🔴 **E coluna inexistente no `select` derruba a QUERY INTEIRA (400/`42703`), não o campo** —
     então `data` vem `null` e o destructuring transforma isso em "não existe registro". Medido
     27/08: **5 referências fantasma** em código vivo, invisíveis ao `tsc` e aos 3.056 testes.
+  - 🔑 **E `catch` que implementa POLÍTICA cobre o caso errado.** `lib/demo/envio-guard.ts` tratava a
+    falha de leitura de `is_demo` só no catch, com a política de fail-safe escrita no cabeçalho do
+    arquivo — mas o caso provável (erro de query) não passa por lá: `data` vinha `null`, `isDemo`
+    virava `false` e o tenant de DEMO mandava mensagem REAL, sem nem o `console.warn` que o catch
+    promete. Política declarada num ramo que o defeito não percorre é política ausente (medido e
+    corrigido 31/08, `721472c4`).
     Antes de criar a coluna para calar o compilador, **procure quem ESCREVERIA nela**: em
     `fase4_envios.competencia_id`, nenhum dos 9 escritores gravava — a coluna nasceria nula.
     Detalhe e as 4 gavetas de decisão: `docs/FMEA-PIPELINE.md` §F-D1.
@@ -383,6 +389,18 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   (**F-I10** do `docs/FMEA-PIPELINE.md`); **guard de CI**: `tests/unit/security/ppp-rede-guard.test.ts`
   falha em cadeia que reduz a 1 linha sem `.eq('id')`. Uma escola específica é legítima — só precisa
   ser dita explicitamente.
+- NÃO varrer tabela com `.in()`/`.select()` **sem paginar** e concluir pela AUSÊNCIA de uma linha. O
+  cap de `db-max-rows` do PostgREST (1.000) morde **sem `.limit()` na query**, calado: medido 31/08,
+  `videos_personalizados` tinha 1.034 linhas nas células servidas e a leitura devolveu **1.000**. As
+  34 que faltaram não chegaram como erro, chegaram como ausência — e ali ausência SIGNIFICA "esta
+  pessoa não tem vídeo nominal", então o corte não degradou o resultado, **inverteu**: o cron
+  derrubou 3 células com cobertura 100% e 102 pessoas ficaram 3 dias vendo "estamos preparando seu
+  vídeo". Paginar com `.range(de, de+999)` até vir página curta, e comparar `data.length` com o
+  `count` exato antes de decidir por ausência. Detalhe: `docs/FMEA-PIPELINE.md` §F-V5.
+- NÃO chamar função de PROVISIONAMENTO (ou qualquer coisa que habilita o passo seguinte) descartando
+  o retorno — e, se o retorno tem dois sentidos opostos, o discriminante é um CAMPO, não texto livre.
+  `await ensureRenderWorker()` era chamado sem ler nada sob um comentário que prometia o contrário;
+  "não subi box" chegava igual a "subiu" (mesma rodada, §F-V5). Comentário não é comportamento.
 - NÃO criar coluna/DDL novo para correção sem conferir o **schema atual** — a especificação do FMEA
   também envelhece: F-I4 pedia coluna `origem_disc` nova e a `micro_conteudos.disc` (mig 142) já fazia
   o papel (sobrevive ao SET NULL). E antes de deletar conteúdo, varrer **referências JSONB**
