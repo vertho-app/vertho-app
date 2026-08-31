@@ -1292,12 +1292,24 @@ e todo `case` declara um lado (agendado ou `ACOES_SO_MANUAIS`).
 `trigger_quinta`, `recalcular_taxa` — e, desde 31/08, `conarh-followup` e
 `conarh_reenvio_t0`, do bloco off-line (§27).
 
-> ⚠️ **Os IDs `R1..R14` dos comentários de `regras.ts` NÃO são únicos** (conferido
-> 31/08/2026): **`R7` e `R10` aparecem duas vezes cada**, existe um `R11b`, e a ordem
-> no arquivo não segue a numeração (R10, depois R9, depois R8). Ou seja: um achado
-> descrito como “R7” é ambíguo entre *entrega incompleta* e *horizonte de kits*.
-> Ao citar uma regra, use o **nome da função** (`checarEntregaIncompleta`), não o
-> número — a função é que é única.
+> ✅ **IDs das regras — duplicação resolvida em 31/08/2026.** `R7` e `R10` apareciam
+> **duas vezes cada** em `lib/pipeline-health/regras.ts`, e a ambiguidade já tinha
+> vazado para a documentação: o `FMEA-PIPELINE.md` descrevia “R10” como a regra de
+> célula de vídeo enquanto `CLAUDE.md` e `RESUMO.md` descreviam “R10” como a de
+> degradação — duas verdades sobre o mesmo rótulo no mesmo repositório.
+>
+> Quem perdeu a disputa foi quem tinha menos citações vivas: **horizonte de kits R7 →
+> R15** e **célula de vídeo R10 → R16**. Os demais números ficaram intactos de
+> propósito — `R10` (degradação) é citado em ~19 lugares, e renumerar por estética
+> quebraria referência viva em doc, teste e código.
+>
+> O mapa **ID → função** vive no cabeçalho de `regras.ts` (fonte única), e
+> `tests/unit/pipeline-health-ids-unicos.test.ts` impede a regressão: falha se um ID
+> duplicar, se o índice sair de sincronia com as regras, ou se apontar para função
+> que não existe. Validado por mutação nas três famílias.
+>
+> ⚠️ **O número não segue a ordem do arquivo, e isso continua assim** — a identidade
+> é o ID, não a posição.
 
 ---
 

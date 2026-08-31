@@ -403,7 +403,7 @@ export async function coletarPushDiario(sb: any): Promise<PushDiario> {
 }
 
 /**
- * Células de vídeo que falharam e seguem SEM deck assistível (R10 / F-V3).
+ * Células de vídeo que falharam e seguem SEM deck assistível (R16 / F-V3).
  *
  * Agrupa por (módulo × empresa × cargo × DISC) — a mesma chave da UNIQUE parcial e do
  * resolver da entrega — e só reporta quem tem `error` e ZERO `done` com Bunny. Célula que

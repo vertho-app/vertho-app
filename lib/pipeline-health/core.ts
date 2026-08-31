@@ -255,7 +255,7 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
     // R9: MB publicado com descritor fora da régua — ancora o conteúdo no assunto vizinho.
     achados.push(checarMbForaDaRegua(await coletarMbForaDaRegua(sb)));
 
-    // R10: célula que falhou e segue sem deck — o `video-stale` acima só pega presos,
+    // R16: célula que falhou e segue sem deck — o `video-stale` acima só pega presos,
     // e quem termina em `error` sai do radar da entrega em silêncio (F-V3).
     achados.push(checarCelulaVideoEmError(await coletarCelulasVideoSemDeck(sb)));
 

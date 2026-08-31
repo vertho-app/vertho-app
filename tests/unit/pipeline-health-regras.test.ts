@@ -203,12 +203,12 @@ describe('agregação', () => {
 });
 
 /**
- * R7 · HORIZONTE. Nasceu do caso medido em 27/07 no Ibipeba: a trilha troca de BLOCO
+ * R15 · HORIZONTE (era R7 até 31/08/2026 — o 7 é do pós-voo). Nasceu do caso medido em 27/07 no Ibipeba: a trilha troca de BLOCO
  * DE COMPETÊNCIAS na semana 5, os 3 pares (competência × cargo) que entram ali eram
  * 100% novos, nenhum tinha kit, e o piloto já estava na semana 3. O pré-voo teria
  * acusado 25h antes — tempo de reenviar um e-mail, não de produzir 41 kits.
  */
-describe('R7 · horizonte de kits', () => {
+describe('R15 · horizonte de kits', () => {
   const lac = (over: Partial<LacunaKitHorizonte> = {}): LacunaKitHorizonte => ({
     competencia: 'Apoio técnico e monitoramento das unidades',
     descritor: 'Registro e devolutiva',
@@ -356,7 +356,7 @@ describe('R10 · degradações das últimas 24h', () => {
 });
 
 /**
- * R10 · célula de vídeo que falhou e segue sem deck (F-V3). Medido 28/07: num lote de 41,
+ * R16 · célula de vídeo que falhou e segue sem deck (F-V3). Era R10 até 31/08/2026. Medido 28/07: num lote de 41,
  * 6 falharam por saturação de fornecedor (TTS/HeyGen) e a entrega as ignora em silêncio,
  * porque o resolver filtra `status<>'error'` e o `video-stale` só pega presos.
  *
@@ -364,7 +364,7 @@ describe('R10 · degradações das últimas 24h', () => {
  * e 33 estavam resolvidas por tentativa posterior. Contar `error` cru viraria ruído
  * permanente — e alarme ruidoso é alarme desligado.
  */
-describe('R10 · célula de vídeo em error sem deck', () => {
+describe('R16 · célula de vídeo em error sem deck', () => {
   const cel = (over: Partial<CelulaVideoSemDeck> = {}): CelulaVideoSemDeck => ({
     empresaSlug: 'ibipeba', cargo: 'Gestão Educacional', disc: 'S',
     erros: 1, ultimoErro: 'TTS: resposta sem áudio após 4 tentativas', ...over,

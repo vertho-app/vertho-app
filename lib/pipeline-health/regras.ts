@@ -4,6 +4,33 @@
  * Ficam separadas da leitura do banco de propósito: é o que permite testá-las por
  * mutação (tests/unit/pipeline-health-regras.test.ts). Cada regra nasceu de uma
  * falha REAL, medida em produção — a referência está no comentário de cada uma.
+ *
+ * ── ÍNDICE (o ID é CITADO fora daqui — não renumere sem varrer) ─────────────
+ *
+ * Pré-voo (entregas previstas)   Estrutural / avulsas
+ *   R1  checarFormatoPrometido      R8   checarDestinoDoAlerta
+ *   R2  checarCoberturaKit          R9   checarMbForaDaRegua
+ *   R3  checarDesafioPlaceholder    R10  checarDegradacoes
+ *   R4  checarContatos              R11  checarPushDegradado
+ *   R5  checarCoreAusente           R11b checarPushSemVapid
+ *                                   R12  checarCanalEntradaWhatsapp
+ * Pós-voo (envios observados)      R13  checarTemplatesLigados
+ *   R6  checarCanalZerado           R14  checarModelosConfigurados
+ *   R7  checarEntregaIncompleta     R15  checarHorizonteKits
+ *                                   R16  checarCelulaVideoEmError
+ *
+ * ⚠️ **O número NÃO segue a ordem do arquivo, e isso é deliberado.** Os IDs são
+ * citados em docs, testes e outros módulos (`lib/degradacao.ts`, `admin-supabase.ts`,
+ * CLAUDE.md, FMEA, RESUMO…), então renumerar por estética quebraria referência viva.
+ * A ordem aqui é a de leitura; a identidade é o número.
+ *
+ * 🔴 **31/08/2026 — por que este índice existe.** `R7` e `R10` estavam DUPLICADOS
+ * (R7 = pós-voo *e* horizonte; R10 = degradações *e* célula de vídeo), e a
+ * ambiguidade já tinha vazado: o FMEA documentava "R10" como a regra de vídeo
+ * enquanto o CLAUDE.md e o RESUMO documentavam "R10" como a de degradação — duas
+ * verdades sobre o mesmo rótulo no mesmo repositório. Horizonte virou **R15** e
+ * célula de vídeo virou **R16** (perderam a disputa por terem menos citações).
+ * `tests/unit/pipeline-health-ids-unicos.test.ts` impede a regressão.
  */
 import { achado, type Achado } from './types';
 
@@ -216,7 +243,12 @@ export function checarEntregaIncompleta(envios: EnvioObservado[]): Achado | null
 }
 
 /**
- * R7 · HORIZONTE: tema demandado por uma semana FUTURA sem kit publicado.
+ * R15 · HORIZONTE: tema demandado por uma semana FUTURA sem kit publicado.
+ *
+ * ⚠️ **Era R7 até 31/08/2026** — número que já pertencia a `checarEntregaIncompleta`
+ * (o pós-voo). Renumerada porque o ID duplicado tornava ambíguo todo achado
+ * descrito como "R7"; quem ficou com o 7 foi o pós-voo, por ser a sequência
+ * natural de R6. Referências externas atualizadas na mesma passada.
  *
  * As outras regras olham a entrega de amanhã — servem para corrigir, não para
  * planejar. Esta olha semanas à frente, porque a produção de kit não cabe em 25h:
@@ -294,7 +326,12 @@ export function checarHorizonteKits(
 }
 
 /**
- * R10 · Célula de vídeo que FALHOU e continua sem deck (F-V3).
+ * R16 · Célula de vídeo que FALHOU e continua sem deck (F-V3).
+ *
+ * ⚠️ **Era R10 até 31/08/2026.** O número 10 ficou com `checarDegradacoes`, que o
+ * carrega em ~19 lugares (CLAUDE.md, RESUMO, FMEA, `lib/degradacao.ts`, testes).
+ * A duplicata já tinha vazado para a documentação: o FMEA descrevia "R10" como
+ * esta regra e o CLAUDE.md como a outra, no mesmo repositório.
  *
  * O achado `video-stale` só pega célula presa em `processing/rendering/render_queued`.
  * Quem termina em **`error`** sai do radar: o resolver da entrega filtra

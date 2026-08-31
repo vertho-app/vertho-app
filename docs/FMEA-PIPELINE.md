@@ -460,7 +460,7 @@ briefs duplicados por tupla.
 - ⚠️ **A contagem é a parte fácil de errar** — a unidade de esforço é **(tema × DISC)**, contada na
   PRIMEIRA semana que a demanda: um kit serve todas as semanas que pedirem aquele tema. Duas versões
   erradas passaram por plausíveis antes de baterem contra um medidor independente (68 e 97, onde eram
-  42). Guardas: `tests/unit/pipeline-health-horizonte.test.ts` e `pipeline-health-regras.test.ts` (R7),
+  42). Guardas: `tests/unit/pipeline-health-horizonte.test.ts` e `pipeline-health-regras.test.ts` (**R15**, era R7 até 31/08/2026),
   ambos validados por mutação.
 
 ### F-I14 · Request cru de IA fica FORA do fix do wrapper e some na troca de geração ✅ (corrigido 10/08)
@@ -625,16 +625,16 @@ briefs duplicados por tupla.
 - **Resolução (o que já funciona):** re-rodar o disparo com `--conc 2` recuperou **6/6** na primeira
   tentativa. É seguro e idempotente: `error` não conta como "tem deck" e a UNIQUE parcial permite a
   linha nova. **Custo do padrão:** 47 renders pagos para 42 células (~12% de desperdício).
-- ✅ **Observabilidade fechada em 28/07 — R10 `celula-video-em-error`** (run estrutural, diário):
+- ✅ **Observabilidade fechada em 28/07 — R16 `celula-video-em-error`** (era R10 até 31/08/2026) (run estrutural, diário):
   o buraco não era o render falhar, era **ninguém ver**. ⚠️ O critério é **"erro E nenhum deck"**, não
   "tem erro": medido no mesmo dia, **35 células já falharam alguma vez e 33 estavam resolvidas** por
   tentativa posterior — contar `error` cru acusaria 35 para sempre, e alarme crônico é alarme
   desligado. Validado contra produção: reporta **2** (resíduos antigos — `projetomacae` box morta e
   `ibipeba` `render_inputprops inválido`), com a causa de cada um na amostra. Guarda:
-  `pipeline-health-regras.test.ts` (R10).
+  `pipeline-health-regras.test.ts` (**R16**).
 - **Segue sem retry automático:** a recuperação é o re-disparo manual com `--conc 2`. Automatizar
   exigiria fila com backoff por fornecedor — não feito, e o alarme agora avisa quem precisa agir.
-- ⚠️ **A amostra do R10 pode descrever um estado já SUPERADO** (31/08/2026). `coletarCelulasVideoSemDeck`
+- ⚠️ **A amostra do R16 pode descrever um estado já SUPERADO** (31/08/2026). `coletarCelulasVideoSemDeck`
   guarda o erro mais recente **entre as linhas `error`** e não olha se existe tentativa POSTERIOR em
   curso. Medido: a célula `macae · Diretor(a) Escolar · I` aparecia como "4× · TTS: resposta sem áudio",
   mas a 5ª tentativa **passou do TTS** e estava em `render_queued` — o diagnóstico apontava para
