@@ -636,12 +636,33 @@ lib/tenant-resolver.js:
 **Camada 1 — Schema (FK)**
 - Todas as tabelas transacionais possuem `empresa_id` (FK para `empresas.id`)
 
-**Camada 2 — RLS (Row Level Security)** — *reforçada na migration 113 (25/05)*
-- Tabelas com leitura direta do browser autenticado ganharam policies **reais por tenant** (não mais `USING (true)`): `empresas`, `colaboradores`, `sessoes_avaliacao`, `mensagens_chat` — via funções SECURITY DEFINER `current_empresa_id()` / `current_colaborador_id()` / `can_read_sessao_avaliacao()`.
-- Tabelas exclusivamente server-side (`colab_otp`, `tutor_log`, `platform_admins`, `reavaliacao_sessoes`, `videos_watched`, `ia_usage_log`, `fase4_progresso`, ...) ficam **sem policy** = anon/authenticated bloqueados; `service_role` continua com bypass.
+**Camada 2 — RLS (Row Level Security)** — *migration 113 (25/05)*
+
+> 🔴 **NÃO conte esta camada como defesa. Leia §11.0 antes de usar qualquer coisa
+> daqui.** O texto abaixo descrevia o que a migration 113 pretendia; o parágrafo
+> "defense-in-depth real para leituras client-side" que fechava esta camada
+> **estava errado e foi removido em 31/08/2026**. Ele contradizia a §11.0 do
+> mesmo documento — e era o trecho que alguém procurando "como o tenant é
+> isolado" encontrava primeiro.
+>
+> **Medido em 31/08/2026:** `auth.users` tem **413 registros e 0 com o claim
+> `empresa_id`** no `app_metadata`. `get_empresa_id()` lê exatamente esse claim,
+> então devolve NULL para todo JWT real — e `empresa_id = NULL` é NULL, não
+> `false`. As **53 policies** que dependem de `get_empresa_id()` /
+> `current_empresa_id()` **negam tudo** para `authenticated`: não é "cada um
+> enxerga o próprio tenant", é "ninguém enxerga nada". Elas não estão
+> protegendo, estão inertes.
+>
+> Isso é **decisão registrada** (11/08/2026), não pendência: a defesa real é
+> `service_role` + código + guards de CI. Consequências práticas em `CLAUDE.md`
+> §Multi-tenant — a principal sendo que popular o claim não é um ajuste de auth,
+> é ligar 53 policies de uma vez.
+
+- Tabelas com leitura direta do browser autenticado ganharam policies por tenant (não mais `USING (true)`): `empresas`, `colaboradores`, `sessoes_avaliacao`, `mensagens_chat` — via funções SECURITY DEFINER `current_empresa_id()` / `current_colaborador_id()` / `can_read_sessao_avaliacao()`. Todas as 4 seguem com RLS ligada (6, 5, 2 e 2 policies respectivamente, conferido 31/08).
+- Tabelas exclusivamente server-side (`colab_otp`, `tutor_log`, `platform_admins`, `reavaliacao_sessoes`, `videos_watched`, `ia_usage_log`, `fase4_progresso`, ...) ficam **sem policy** = anon/authenticated bloqueados; `service_role` continua com bypass (`rolbypassrls = true`, conferido — `anon` e `authenticated` não têm).
 - "Cinto e suspensório": qualquer tabela `public` ainda sem RLS é fechada por um `DO $$` final. Verificação da migration retorna **0 tabelas public sem RLS**.
-- Fecha o alerta Supabase "Table publicly accessible". Confirmado aplicado em prod (5/5 policies + 3/3 funções presentes).
-- **Status real**: as queries server-side continuam usando `createSupabaseAdmin()` (service_role bypassa RLS), mas agora o cliente browser autenticado (anon key) só enxerga o próprio tenant — defense-in-depth real para leituras client-side.
+- Fecha o alerta Supabase "Table publicly accessible" — que é o benefício que esta camada **de fato** entrega hoje.
+- ⚠️ Policy **permissiva** é pior que policy faltando: RLS ligada sem policy nega tudo para `anon` (lado seguro), enquanto `USING(true)` entrega o acervo inteiro. Guard estático: `tests/unit/security/rls-policy-estatica-guard.test.ts`.
 
 **Camada 3 — Codigo (Server Actions + API Routes)**
 - Server actions usam `createSupabaseAdmin()` com filtro EXPLICITO de `empresa_id`
@@ -2087,7 +2108,37 @@ Esta seção existe porque a alternativa é redescobrir o mesmo em seis meses. E
 
 **Pulso · Seleção · Radar Empresas · RadarBett · CONARH 52.** Registro, evidência
 e chave de religamento em **`lib/blocos-offline.ts`**; guard em
-`tests/unit/security/blocos-offline-guard.test.ts`. Ver §18 e §19 acima.
+`tests/unit/security/blocos-offline-guard.test.ts` (11 casos, validado por
+mutação). Ver §18 e §19 acima.
+
+A porta fecha em **dois** pontos, e os dois são necessários: `notFound()` no
+layout (o que o operador encontra) e `assertBlocoOnline()` no topo das 41 Server
+Actions — num arquivo `'use server'` todo export é endpoint HTTP, então a tela em
+404 não fecha a action. As 4 rotas de API do CONARH respondem **410** porque
+autenticam por CHAVE, não por sessão: fechar só as telas deixaria a chave valendo.
+
+**Verificado em produção** (deploy `05600a44`, requisição real sem sessão):
+
+| Rota | Antes | Depois |
+|---|---|---|
+| `/api/conarh/painel`, `/api/conarh/fila` | 401 | **410** |
+| `/conarh`, `/conarh/painel`, `/conarh/prancheta` | 200 | **404** |
+| `/radarbett`, `/radarbett/buscar`, `/radarbett/metodologia` | 307 | **404** |
+| `/login` (controle, segue vivo) | 200 | 200 |
+
+⚠️ **O que NÃO foi verificado em produção, e por quê.** As telas de Pulso,
+Seleção e Radar Empresas são de admin e exigem sessão — sem login não se alcança
+nenhuma delas. E `/radar/bett` responde 307 para `/login?redirect=/radar`, o
+**mesmo** 307 de `/radar` e `/radar/metodologia`: o gate de auth do Radar (interno
+desde 10/08) sai antes do layout, então a resposta não distingue "fechado pelo
+bloco" de "fechado por falta de sessão". Para essas quatro, o que sustenta a
+afirmação é o guard estático mais o build — não uma observação. Fechar esse eixo
+exige abrir uma delas logado no admin.
+
+⚠️ **O 404 do CONARH não desinstala o service worker.** `conarh-sw.js` (escopo
+`/conarh`) foi instalado nos iPads do estande para a demo abrir em modo avião, e
+SW com handler de `fetch` responde do cache antes da rede. Tablet que ainda o
+tenha segue abrindo a demo antiga até limpar os dados do site.
 
 ### 27.2 Ligados, mas sem uso — decisão pendente
 
@@ -2137,6 +2188,13 @@ runtime. As outras três: `/api/cenarios`, `/api/internal/pregerar-podcast` e
 
 ---
 
-*Documento validado contra o codigo-fonte local em 25/05/2026 (patches pós-response/demo em 07/07/2026; seção 25 em 04/08/2026).*
-*~429 arquivos TS/TSX + ~72 JS/MJS | arquivos SQL 022-169 (com gaps) | vertho.ai*
-*Revisao: 07/07/2026 (HEAD `83c8092a` — padroes pos-response Trigger.dev + tenant de demo/contas internas; base 25/05 `2730cd7`)*
+*Base validada contra o codigo-fonte local em 25/05/2026. Revisoes posteriores: pos-response/demo 07/07 · secao 25 em 04/08 · **§11 Camada 2 (RLS), §18, §19, Fluxo B e §27 em 31/08/2026**.*
+
+*Tamanho do repo — **medido em 31/08/2026** (`git ls-files`, so versionado; o criterio importa porque o numero anterior, "~429 TS/TSX", nao dizia o dele e envelheceu por um fator de 2):*
+*· **984** arquivos `.ts/.tsx` de producao (`app` + `actions` + `lib` + `components` + `trigger`)*
+*· **1.372** incluindo `tests/` · **1.504** o repo inteiro (com `scripts/`)*
+*· **218** migrations: 216 no formato `NNN-nome.sql` (000 a 236, com gaps) + 1 com prefixo de timestamp*
+
+*Revisao: 31/08/2026 (HEAD `05600a44` — desliga 5 blocos sem uso e corrige a Camada 2 do RLS; base 25/05 `2730cd7`).*
+
+*⚠️ Este rodape e um retrato datado, nao um contrato. Antes de citar qualquer numero daqui, meça-o de novo — a skill `conferir` existe para isso.*

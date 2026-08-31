@@ -73,7 +73,7 @@ no repo** — o repositório é público.
 
 ## Stack (real)
 
-- **Runtime**: Next.js 16 (App Router) + React — **TypeScript em todo o projeto** (~670 arquivos `.ts/.tsx`). NÃO escrever JavaScript.
+- **Runtime**: Next.js 16 (App Router) + React — **TypeScript em todo o projeto** (**984** arquivos `.ts/.tsx` de produção — `app`+`actions`+`lib`+`components`+`trigger`, versionados; 1.372 com `tests/`. Medido 31/08/2026; o "~670" anterior era de outra época e sem critério declarado). NÃO escrever JavaScript.
 - **Banco**: Supabase (PostgreSQL). O app acessa via **supabase-js/PostgREST** (não `pg` direto, exceto scripts).
 - **Estilo**: Tailwind CSS.
 - **LLM**: **Claude API** via `@anthropic-ai/sdk` — sempre por `callAI`/`callAIChat` (`actions/ai-client.ts`). Gemini, OpenAI e **Kimi/Moonshot (`kimi*`, OpenAI-compatible)** também suportados; modelos reasoning usam `options.reasoningEffort` (kimi-k3, gpt-5.x).
