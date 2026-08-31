@@ -1,8 +1,9 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { LocalAsrLaunchLink } from '@/app/copiloto/local-asr-launch-link';
 import {
-  LOCAL_ASR_LAUNCH_URI,
   probeLocalAsr,
-  requestLocalAsrStart,
   waitForLocalAsr,
 } from '@/app/copiloto/local-asr';
 
@@ -55,26 +56,13 @@ describe('acionamento local do Whisper', () => {
     expect(attempts).toBe(3);
   });
 
-  it('abre o protocolo registrado no Windows a partir do clique', () => {
-    const click = vi.fn();
-    const remove = vi.fn();
-    const appendChild = vi.fn();
-    const link = {
-      href: '',
-      hidden: false,
-      setAttribute: vi.fn(),
-      click,
-      remove,
-    };
-    const launcherDocument = {
-      createElement: vi.fn(() => link),
-      body: { appendChild },
-    } as unknown as Pick<Document, 'createElement' | 'body'>;
+  it('renderiza o acionamento como link real para preservar o gesto do usuário', () => {
+    const html = renderToStaticMarkup(createElement(
+      LocalAsrLaunchLink,
+      { onLaunch: vi.fn() },
+      'Iniciar conversa',
+    ));
 
-    expect(requestLocalAsrStart(launcherDocument)).toBe(true);
-    expect(link.href).toBe(LOCAL_ASR_LAUNCH_URI);
-    expect(appendChild).toHaveBeenCalledWith(link);
-    expect(click).toHaveBeenCalledOnce();
-    expect(remove).toHaveBeenCalledOnce();
+    expect(html).toContain('<a href="vertho-whisper://start">');
   });
 });

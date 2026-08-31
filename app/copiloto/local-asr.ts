@@ -80,23 +80,3 @@ export async function waitForLocalAsr(
   }
   return false;
 }
-
-type LauncherDocument = Pick<Document, 'createElement' | 'body'>;
-
-export function requestLocalAsrStart(
-  launcherDocument: LauncherDocument = document,
-  uri: string = LOCAL_ASR_LAUNCH_URI,
-): boolean {
-  try {
-    const link = launcherDocument.createElement('a');
-    link.href = uri;
-    link.hidden = true;
-    link.setAttribute('aria-hidden', 'true');
-    launcherDocument.body.appendChild(link);
-    link.click();
-    link.remove();
-    return true;
-  } catch {
-    return false;
-  }
-}

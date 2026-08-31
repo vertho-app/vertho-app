@@ -24,10 +24,10 @@ import {
 } from './audio-capture';
 import {
   probeLocalAsr,
-  requestLocalAsrStart,
   waitForLocalAsr,
   type LocalAsrState,
 } from './local-asr';
+import { LocalAsrLaunchLink } from './local-asr-launch-link';
 import {
   addAudioEvidence, assessAudioInputHealth, EMPTY_AUDIO_EVIDENCE,
   type AudioInputEvidence, type AudioInputHealth,
@@ -1000,7 +1000,7 @@ export default function CopilotClient({
     }
   }
 
-  async function activateLocalAsr() {
+  async function awaitLocalAsrActivation() {
     if (localAsrState === 'starting') return;
     setError(null);
     setLocalAsrReadyNotice(false);
@@ -1008,12 +1008,6 @@ export default function CopilotClient({
     asrActivationRef.current?.abort();
     const controller = new AbortController();
     asrActivationRef.current = controller;
-
-    if (!requestLocalAsrStart()) {
-      setLocalAsrState('error');
-      setError('O navegador não conseguiu acionar o Whisper local nesta máquina.');
-      return;
-    }
 
     const ready = await waitForLocalAsr(ASR_URL, {
       timeoutMs: 90_000,
@@ -1024,7 +1018,7 @@ export default function CopilotClient({
 
     if (!ready) {
       setLocalAsrState('error');
-      setError('O iniciador local não respondeu. Permita abrir “Vertho Whisper Local” no aviso do navegador e tente novamente.');
+      setError('O navegador não abriu o Whisper local. Clique novamente em “Iniciar conversa” e confirme “Abrir Vertho Whisper Local” se o aviso aparecer.');
       return;
     }
 
@@ -1034,7 +1028,6 @@ export default function CopilotClient({
 
   async function startCapture() {
     if (localAsrState !== 'ready') {
-      await activateLocalAsr();
       return;
     }
 
@@ -1226,7 +1219,7 @@ export default function CopilotClient({
       : localAsrState === 'error'
         ? {
             title: 'O iniciador local não respondeu',
-            detail: 'Clique em “Iniciar conversa” para tentar novamente e confirme a abertura no navegador.',
+            detail: 'Clique novamente em “Iniciar conversa”. O botão agora abre o protocolo local diretamente.',
           }
         : localAsrState === 'checking'
           ? {
@@ -1409,17 +1402,27 @@ export default function CopilotClient({
             <div><p className={styles.eyebrow}>Sala de comando</p><h2>{recording ? 'Conversa em andamento' : 'Apoio ao vivo com Whisper local'}</h2><p>O áudio é transcrito na sua máquina. Somente trechos de texto seguem para a IA montar as sugestões.</p></div>
             <div className={styles.liveHeaderActions}>
               {!recording && utterances.length > 0 && accountId && <button className={styles.saveResultButton} onClick={() => void saveLiveResult()} disabled={resultSaving || resultSaved}>{resultSaving ? <><LoaderCircle size={16} className={styles.spin} /> Salvando…</> : resultSaved ? <><Check size={16} /> Resultado salvo</> : <><Save size={16} /> Salvar resultado</>}</button>}
-              <button ref={startCaptureButtonRef} className={recording ? styles.stopButton : styles.startButton} onClick={recording ? stopCapture : startCapture} disabled={captureState === 'conectando' || localAsrState === 'starting'}>
-                {recording
-                  ? <><Square size={16} fill="currentColor" /> Parar conversa</>
-                  : localAsrState === 'starting'
-                    ? <><LoaderCircle size={17} className={styles.spin} /> Iniciando Whisper…</>
-                    : captureState === 'conectando'
-                      ? <><LoaderCircle size={17} className={styles.spin} /> Conectando…</>
-                      : localAsrReadyNotice
-                        ? <><Mic size={17} /> Compartilhar áudio e iniciar</>
-                        : <><Mic size={17} /> Iniciar conversa</>}
-              </button>
+              {recording ? (
+                <button className={styles.stopButton} onClick={stopCapture}>
+                  <Square size={16} fill="currentColor" /> Parar conversa
+                </button>
+              ) : localAsrState === 'starting' ? (
+                <button className={styles.startButton} disabled>
+                  <LoaderCircle size={17} className={styles.spin} /> Iniciando Whisper…
+                </button>
+              ) : localAsrState !== 'ready' ? (
+                <LocalAsrLaunchLink className={styles.startButton} onLaunch={awaitLocalAsrActivation}>
+                  <Mic size={17} /> Iniciar conversa
+                </LocalAsrLaunchLink>
+              ) : (
+                <button ref={startCaptureButtonRef} className={styles.startButton} onClick={startCapture} disabled={captureState === 'conectando'}>
+                  {captureState === 'conectando'
+                    ? <><LoaderCircle size={17} className={styles.spin} /> Conectando…</>
+                    : localAsrReadyNotice
+                      ? <><Mic size={17} /> Compartilhar áudio e iniciar</>
+                      : <><Mic size={17} /> Iniciar conversa</>}
+                </button>
+              )}
             </div>
           </header>
 
