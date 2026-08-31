@@ -87,6 +87,9 @@ describe('persistência do planejamento do copiloto', () => {
         site: ' https://empresa.example ',
         context: 'Resultado da conversa anterior',
         offer: 'Programa de desenvolvimento',
+        meetingKind: 'retorno',
+        audience: 'Maria, Head de T&D',
+        goalThisHour: 'Sair com a demo marcada.',
       },
     }), { params: Promise.resolve({ accountId: ACCOUNT_ID }) });
     const body = await response.json();
@@ -101,6 +104,9 @@ describe('persistência do planejamento do copiloto', () => {
         company: 'Empresa Exemplo',
         site: 'https://empresa.example',
         context: 'Resultado da conversa anterior',
+        meetingKind: 'retorno',
+        audience: 'Maria, Head de T&D',
+        goalThisHour: 'Sair com a demo marcada.',
       }),
     }));
   });

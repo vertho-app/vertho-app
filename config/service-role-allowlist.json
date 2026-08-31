@@ -235,7 +235,7 @@
     "scripts/_probe-pdi-check.ts": 1,
     "scripts/_medir-ia4-sem-censura.ts": 1,
     "scripts/_experimento-pdi-opus-vs-sonnet.ts": 1,
-    "lib/copiloto/accounts.ts": 2,
+    "lib/copiloto/accounts.ts": 3,
     "lib/copiloto/auth.ts": 1,
     "app/copiloto/page.tsx": 1,
     "app/api/copiloto/planejamento/route.ts": 2,

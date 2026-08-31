@@ -117,4 +117,46 @@ describe('rota de apoio ao vivo', () => {
     expect(data.reading.questions[0].text).toBe('Como o processo funciona hoje?');
     expect(data.reading.alert).toContain('banco PACE local');
   });
+
+  it('leva o Play e três fatos citáveis para a leitura ao vivo', async () => {
+    vi.mocked(callAI).mockResolvedValue(JSON.stringify({
+      fase: 'analisar', sinal: 'neutro', objecao: null, descobertas_cobertas: [],
+      alerta: null, foco: 'Teste a pergunta do Play.', perguntas: [],
+    }));
+    const play = {
+      kind: 'retorno', audience: 'Maria, Head de T&D', goalThisHour: 'Marcar a demo até sexta.',
+      mustAsk: [
+        { text: 'Como funciona hoje?', discovery: 'situacao_atual', green: 'Processo claro', red: 'Sem processo', ifGreen: 'Avançar' },
+        { text: 'Qual impacto ainda está aberto?', discovery: 'impacto', green: 'Impacto concreto', red: 'Sem impacto', ifGreen: 'Dimensionar' },
+      ],
+      doNot: ['Não repetir o diagnóstico.'], closeWith: 'Abrir a agenda e marcar a demo.',
+      landmine: { objection: 'Já temos plataforma.', ask: 'O que ela ainda não comprova?' },
+    };
+
+    const response = await POST(request({
+      covered: ['situacao_atual'],
+      plan: {
+        play,
+        gaps: ['impacto'],
+        questions: [{ phase: 'analisar', discovery: 'dor_principal', text: 'Pergunta de reserva', why: 'Reserva' }],
+        objections: [],
+        facts: [
+          { title: 'Expansão', fact: 'A empresa abriu uma unidade.' },
+          { title: 'Vagas', fact: 'Há vagas para liderança.' },
+          { title: 'Projeto', fact: 'A empresa lançou um programa interno.' },
+          { title: 'Excedente', fact: 'Este quarto fato não deve seguir.' },
+        ],
+      },
+    }));
+    const prompt = vi.mocked(callAI).mock.calls[0][1];
+
+    expect(response.status).toBe(200);
+    expect(prompt).toContain('Objetivo desta hora: Marcar a demo até sexta.');
+    expect(prompt).toContain('[PLAY/impacto] Qual impacto ainda está aberto?');
+    expect(prompt).not.toContain('[PLAY/situacao_atual]');
+    expect(prompt).toContain('dor_principal (O que mais incomoda): coberto');
+    expect(prompt).toContain('F3: Projeto');
+    expect(prompt).not.toContain('Excedente');
+    expect(prompt).toContain('Não faça: Não repetir o diagnóstico.');
+  });
 });

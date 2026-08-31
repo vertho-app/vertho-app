@@ -1,6 +1,15 @@
 export const PACE_PHASES = ['preparar', 'analisar', 'cocriar', 'engajar'] as const;
 export type PacePhase = (typeof PACE_PHASES)[number];
 
+export const MEETING_KINDS = [
+  { key: 'primeira_conversa', label: 'Primeira conversa' },
+  { key: 'retorno', label: 'Retorno' },
+  { key: 'demonstracao', label: 'Demonstração' },
+  { key: 'negociacao', label: 'Negociação' },
+] as const;
+
+export type MeetingKind = (typeof MEETING_KINDS)[number]['key'];
+
 export const DISCOVERY_CHECKLIST = [
   { key: 'situacao_atual', label: 'Como funciona hoje' },
   { key: 'dor_principal', label: 'O que mais incomoda' },
@@ -21,6 +30,8 @@ export type CopilotOpportunity = {
   accountName: string;
   segment: string | null;
   context: string;
+  stage: string;
+  primaryContact: string;
 };
 
 export type CopilotAccountStatus = 'prospect' | 'active_client' | 'inactive' | 'lost';
@@ -95,6 +106,10 @@ export type CopilotPlanInputs = {
   context: string;
   offer: string;
   opportunityId: string;
+  /** Optional so plans saved before the meeting-play rollout remain readable. */
+  meetingKind?: MeetingKind;
+  audience?: string;
+  goalThisHour?: string;
 };
 
 export type CopilotSavedPlan = {
@@ -172,6 +187,30 @@ export type LikelyObjection = {
   question: string;
 };
 
+export type CopilotPlay = {
+  kind: MeetingKind;
+  audience: string;
+  goalThisHour: string;
+  openers: Array<{
+    say: string;
+    /** Index in plan.facts; null means the opener is grounded in the private briefing. */
+    factIndex: number | null;
+  }>;
+  mustAsk: Array<{
+    text: string;
+    discovery: DiscoveryKey | null;
+    green: string;
+    red: string;
+    ifGreen: string;
+  }>;
+  doNot: string[];
+  closeWith: string;
+  landmine: {
+    objection: string;
+    ask: string;
+  };
+};
+
 export type CopilotSourceKind = 'site' | 'news' | 'social';
 
 export type CopilotSource = {
@@ -195,6 +234,8 @@ export type CopilotPlan = {
   objections: LikelyObjection[];
   risks: string[];
   gaps: DiscoveryKey[];
+  /** Missing only in plans created before the meeting-play rollout. */
+  play?: CopilotPlay;
   sources: CopilotSource[];
   researchAudit?: {
     site: {

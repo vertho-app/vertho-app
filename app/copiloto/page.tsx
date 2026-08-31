@@ -39,7 +39,16 @@ async function opportunitiesFor(repId: string): Promise<CopilotOpportunity[]> {
       row.objections ? `Objeções já sinalizadas: ${row.objections}` : '',
       `Estágio: ${row.stage}`,
     ].filter(Boolean).join('\n');
-    return { id: row.id, accountId: row.account_id, name: row.opportunity_name, accountName, segment: account.segment || null, context };
+    return {
+      id: row.id,
+      accountId: row.account_id,
+      name: row.opportunity_name,
+      accountName,
+      segment: account.segment || null,
+      context,
+      stage: row.stage,
+      primaryContact: contact.name ? `${contact.name}${contact.role ? `, ${contact.role}` : ''}` : '',
+    };
   });
 }
 

@@ -13,7 +13,9 @@ import type {
   CopilotAccountMemory,
   CopilotConversation,
   CopilotSavedPlan,
+  MeetingKind,
 } from '@/lib/copiloto/types';
+import { inferMeetingKind } from '@/lib/copiloto/play';
 import styles from './copiloto.module.css';
 
 export type CopilotPreparationSeed = {
@@ -24,6 +26,10 @@ export type CopilotPreparationSeed = {
   site: string;
   socialProfiles: string;
   offer: string;
+  meetingKind: MeetingKind;
+  audience: string;
+  audienceOptions: string[];
+  goalThisHour: string;
 };
 
 export type CopilotOpenPlanSeed = CopilotPreparationSeed & {
@@ -80,8 +86,15 @@ function preparationContext(detail: CopilotAccountDetail): string {
 
 function planningSeed(detail: CopilotAccountDetail, planning?: CopilotSavedPlan | null): CopilotPreparationSeed {
   const latest = planning || detail.plans[0] || null;
-  const opportunity = detail.opportunities.find((item) => item.id === latest?.opportunityId)
-    || detail.opportunities.find((item) => item.status === 'open');
+  const opportunity = planning
+    ? detail.opportunities.find((item) => item.id === planning.opportunityId)
+      || detail.opportunities.find((item) => item.status === 'open')
+    : detail.opportunities.find((item) => item.status === 'open');
+  const audienceOptions = detail.contacts.map((contact) =>
+    `${contact.name}${contact.role ? `, ${contact.role}` : ''}`);
+  const defaultAudience = detail.contacts.find((contact) => contact.isPrimary)
+    || detail.contacts[0]
+    || null;
   return {
     accountId: detail.account.id,
     company: detail.account.name,
@@ -90,6 +103,18 @@ function planningSeed(detail: CopilotAccountDetail, planning?: CopilotSavedPlan 
     site: latest?.inputs.site || '',
     socialProfiles: latest?.inputs.socialProfiles || '',
     offer: latest?.inputs.offer || '',
+    meetingKind: planning
+      ? planning.inputs.meetingKind || planning.plan.play?.kind || inferMeetingKind({
+          stage: opportunity?.stage,
+          hasConversation: detail.conversations.length > 0,
+        })
+      : inferMeetingKind({ stage: opportunity?.stage, hasConversation: detail.conversations.length > 0 }),
+    audience: planning
+      ? planning.inputs.audience || planning.plan.play?.audience
+        || (defaultAudience ? `${defaultAudience.name}${defaultAudience.role ? `, ${defaultAudience.role}` : ''}` : '')
+      : defaultAudience ? `${defaultAudience.name}${defaultAudience.role ? `, ${defaultAudience.role}` : ''}` : '',
+    audienceOptions,
+    goalThisHour: planning ? planning.inputs.goalThisHour || planning.plan.play?.goalThisHour || '' : '',
   };
 }
 

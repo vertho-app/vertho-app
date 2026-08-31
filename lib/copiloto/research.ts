@@ -247,7 +247,7 @@ function uniqueSources<T extends OpenAIWebSearchSource>(sources: T[]): T[] {
   });
 }
 
-function prioritizeResearchFacts(value: unknown): any[] {
+export function prioritizeResearchFacts(value: unknown): any[] {
   const facts = Array.isArray(value) ? value : [];
   const preferred: Array<{ channel: 'social' | 'news' | 'site'; amount: number }> = [
     { channel: 'social', amount: 3 },
@@ -362,7 +362,7 @@ export async function researchCompany(
 
 export function researchAsPrivateContext(research: any): string {
   const facts = prioritizeResearchFacts(research?.fatos_relevantes).slice(0, 8)
-    .map((item: any) => `- FATO: ${item.fato} | relevância: ${item.relevancia}`);
+    .map((item: any, index: number) => `- [F${index}] FATO: ${item.fato} | relevância: ${item.relevancia}`);
   const trends = (research?.tendencias_setor || []).slice(0, 6)
     .map((item: any) => `- TENDÊNCIA: ${item.titulo} | impacto: ${item.impacto}`);
   const hypotheses = (research?.hipoteses || []).slice(0, 6)

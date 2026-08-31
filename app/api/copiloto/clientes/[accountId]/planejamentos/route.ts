@@ -4,6 +4,7 @@ import { createRateLimiter } from '@/lib/rate-limit';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findCopilotAccount, normalizePlanRow } from '@/lib/copiloto/accounts';
 import { requireRepresentativeOrAdminRequest } from '@/lib/copiloto/auth';
+import { normalizeMeetingKind } from '@/lib/copiloto/play';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,6 +60,9 @@ export async function POST(
       context: clean(body?.inputs?.context, 30000),
       offer: clean(body?.inputs?.offer, 12000),
       opportunityId,
+      meetingKind: normalizeMeetingKind(body?.inputs?.meetingKind),
+      audience: clean(body?.inputs?.audience, 1000),
+      goalThisHour: clean(body?.inputs?.goalThisHour, 1200),
     };
     const { data, error } = await createSupabaseAdmin().from('copilot_plans').insert({
       account_id: accountId,

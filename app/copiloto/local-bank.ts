@@ -1,5 +1,5 @@
 import type { CopilotPlan, DiscoveryKey, LiveReading, PaceQuestion } from '@/lib/copiloto/types';
-import { genericLiveQuestions } from '@/lib/copiloto/live-support';
+import { genericLiveQuestions, knownReturnCoverage } from '@/lib/copiloto/live-support';
 
 const PHASE_ORDER = ['preparar', 'analisar', 'cocriar', 'engajar'] as const;
 
@@ -35,24 +35,63 @@ export function selectImmediateQuestions(
   reading: LiveReading,
   sellerUtterances: string[],
 ): Array<{ text: string; why: string }> {
+  const covered = new Set([...reading.covered, ...knownReturnCoverage(plan)]);
+  const effectiveReading: LiveReading = {
+    ...reading,
+    covered: [...covered],
+    pending: reading.pending.filter((item) => !covered.has(item.key)),
+  };
+  const selected: Array<{ text: string; why: string }> = [];
   const usedDiscoveries = new Set<DiscoveryKey>();
-  const selected = (plan?.questions || [])
+  const usedTexts = new Set<string>();
+
+  for (const mustAsk of plan?.play?.mustAsk || []) {
+    const asQuestion: PaceQuestion = {
+      phase: mustAsk.discovery === 'criterio' || mustAsk.discovery === 'decisor' || mustAsk.discovery === 'prazo'
+        ? 'engajar' : 'analisar',
+      discovery: mustAsk.discovery,
+      text: mustAsk.text,
+      why: `Play · ouça: ${mustAsk.green}`.slice(0, 100),
+    };
+    if (asQuestion.discovery && covered.has(asQuestion.discovery)) continue;
+    if (alreadyAsked(asQuestion, sellerUtterances)) continue;
+    const normalized = normalize(asQuestion.text);
+    if (usedTexts.has(normalized) || (asQuestion.discovery && usedDiscoveries.has(asQuestion.discovery))) continue;
+    selected.push({ text: asQuestion.text, why: asQuestion.why });
+    usedTexts.add(normalized);
+    if (asQuestion.discovery) usedDiscoveries.add(asQuestion.discovery);
+    if (selected.length === 3) return selected;
+  }
+
+  const bankSeenTexts = new Set(usedTexts);
+  const bank = (plan?.questions || [])
+    .filter((question) => !question.discovery || !covered.has(question.discovery))
     .filter((question) => !alreadyAsked(question, sellerUtterances))
-    .map((question) => ({ question, points: score(question, reading) }))
+    .map((question) => ({ question, points: score(question, effectiveReading) }))
     .filter((item) => item.points >= 0)
     .sort((a, b) => b.points - a.points)
     .filter(({ question }) => {
-      if (!question.discovery) return true;
+      const normalized = normalize(question.text);
+      if (bankSeenTexts.has(normalized)) return false;
+      if (!question.discovery) {
+        bankSeenTexts.add(normalized);
+        return true;
+      }
       if (usedDiscoveries.has(question.discovery)) return false;
+      bankSeenTexts.add(normalized);
       usedDiscoveries.add(question.discovery);
       return true;
     })
-    .slice(0, 3)
+    .slice(0, 3 - selected.length)
     .map(({ question }) => ({ text: question.text, why: question.why }));
 
+  for (const question of bank) {
+    selected.push(question);
+    usedTexts.add(normalize(question.text));
+  }
+
   if (selected.length === 3) return selected;
-  const usedTexts = new Set(selected.map((item) => normalize(item.text)));
-  const generic = genericLiveQuestions(reading.pending, 3)
+  const generic = genericLiveQuestions(effectiveReading.pending, 3)
     .filter((item) => !usedTexts.has(normalize(item.text)))
     .slice(0, 3 - selected.length);
   return [...selected, ...generic];

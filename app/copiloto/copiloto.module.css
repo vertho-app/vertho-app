@@ -320,6 +320,17 @@
 .twoFields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .setupPanel .identityField { padding: 14px; border: 1px solid rgba(138, 217, 201, .2); border-left: 2px solid var(--mint); background: rgba(138, 217, 201, .035); }
 .identityField textarea { min-height: 90px; }
+.playSetup { min-width: 0; margin: 0 0 22px; border: 1px solid rgba(66,212,215,.28); border-left: 3px solid var(--cyan); padding: 18px 18px 4px; background: linear-gradient(110deg, rgba(66,212,215,.065), rgba(5,23,40,.32) 62%); }
+.playSetup legend { display: flex; align-items: center; gap: 7px; padding: 0 9px; color: var(--cyan); font: 800 9px/1 var(--font-inter); letter-spacing: .11em; text-transform: uppercase; }
+.playSetup legend small { margin-left: 5px; color: #67849a; font-size: 8px; letter-spacing: .08em; }
+.playSetupGrid { display: grid; grid-template-columns: .72fr 1.28fr; gap: 12px; }
+.playSetup .playSetupGrid label, .playSetup .hourGoal { margin-bottom: 14px; }
+.playSetup .hourGoal { position: relative; }
+.playSetup .hourGoal em { position: absolute; top: 1px; right: 0; color: #648096; font-size: 8px; font-style: normal; font-weight: 650; letter-spacing: .06em; }
+.audienceChips { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 14px; }
+.audienceChips button { min-height: 27px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(164,194,216,.16); border-radius: 999px; padding: 0 9px; color: #88a2b6; background: rgba(255,255,255,.02); cursor: pointer; font: 700 8px/1 var(--font-inter); }
+.audienceChips button[aria-pressed="true"] { border-color: rgba(138,217,201,.42); color: var(--mint); background: rgba(138,217,201,.075); }
+.audienceChips button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
 .formActions { display: flex; align-items: center; gap: 10px; }
 .formActions button, .dossierAction button, .startButton, .stopButton, .postWorkspace > header button, .postsGrid article button, .manualFallback button, .integrationEmpty > a { min-height: 43px; display: inline-flex; justify-content: center; align-items: center; gap: 8px; border: 1px solid transparent; border-radius: 4px; padding: 0 18px; cursor: pointer; font: 800 11px/1 var(--font-inter); transition: .16s ease; }
@@ -358,6 +369,44 @@
 .objectives article { background: #0a2037; padding: 19px 21px; }
 .objectives span { color: var(--mint); font: 750 9px/1 var(--font-inter); letter-spacing: .12em; text-transform: uppercase; }
 .objectives p { margin: 8px 0 0; color: #e1edf4; font-size: 12px; line-height: 1.55; }
+.playCard { margin-top: 18px; border: 1px solid rgba(66,212,215,.3); border-left: 3px solid var(--cyan); background: linear-gradient(135deg, rgba(66,212,215,.06), rgba(6,23,44,.72) 48%, rgba(138,217,201,.035)); box-shadow: 0 20px 55px rgba(0,0,0,.14); }
+.playHeader { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, .65fr); border-bottom: 1px solid var(--line); }
+.playTitle { min-width: 0; padding: 24px 26px; }
+.playTitle > span, .playSectionLabel { display: flex; align-items: center; gap: 7px; color: var(--cyan); font: 800 9px/1 var(--font-inter); letter-spacing: .12em; text-transform: uppercase; }
+.playTitle > p { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 12px 0 0; color: #87a1b5; font-size: 9px; }
+.playTitle > p b { color: var(--mint); font: 800 9px/1 var(--font-inter); letter-spacing: .08em; text-transform: uppercase; }
+.playTitle > p i { width: 3px; height: 3px; border-radius: 50%; background: #4f6d84; }
+.playTitle h3 { max-width: 850px; margin: 18px 0 0; color: #f5fbff; font: 400 clamp(23px,3vw,36px)/1.12 var(--font-serif), serif; letter-spacing: -.02em; }
+.playTitle h3 small { display: block; margin-bottom: 7px; color: #6d899f; font: 750 8px/1 var(--font-inter); letter-spacing: .12em; text-transform: uppercase; }
+.playCloseFlag { display: flex; flex-direction: column; justify-content: center; gap: 9px; border-left: 1px solid var(--line); padding: 22px 24px; background: rgba(242,184,75,.045); }
+.playCloseFlag span { color: var(--amber); font: 800 8px/1 var(--font-inter); letter-spacing: .12em; text-transform: uppercase; }
+.playCloseFlag strong { color: #f0e5c8; font-size: 11px; line-height: 1.55; }
+.playOpeners, .playQuestions { display: grid; grid-template-columns: 135px minmax(0, 1fr); gap: 18px; padding: 21px 26px; border-bottom: 1px solid var(--line); }
+.playSectionLabel { align-self: start; padding-top: 2px; color: #7e9aaf; }
+.playOpeners > div:last-child { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.playOpeners blockquote { min-width: 0; display: grid; grid-template-columns: 47px minmax(0,1fr); gap: 10px; margin: 0; padding: 13px 14px; border: 1px solid rgba(164,194,216,.13); background: rgba(255,255,255,.022); }
+.playOpeners blockquote > b { align-self: start; padding: 4px 5px; border: 1px solid rgba(242,184,75,.27); color: var(--amber); font: 750 7px/1 var(--font-inter); letter-spacing: .06em; text-align: center; text-transform: uppercase; }
+.playOpeners blockquote p { margin: 0; color: #d4e4ec; font-size: 11px; line-height: 1.55; }
+.playQuestionGrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+.playQuestionGrid article { min-width: 0; display: flex; flex-direction: column; border: 1px solid rgba(66,212,215,.16); background: rgba(5,23,40,.5); padding: 15px; }
+.playQuestionGrid article > span { color: var(--cyan); font: 750 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.playQuestionGrid h4 { margin: 9px 0 13px; color: #eff8fc; font-size: 12px; line-height: 1.45; }
+.playSignals { display: grid; gap: 7px; margin-top: auto; }
+.playSignals p { position: relative; margin: 0; padding-left: 10px; color: #88a2b4; font-size: 9px; line-height: 1.5; }
+.playSignals p::before { content: ''; width: 3px; position: absolute; inset: 2px auto 2px 0; background: var(--mint); }
+.playSignals p[data-signal="red"]::before { background: #f07f85; }
+.playSignals b { display: block; margin-bottom: 2px; color: var(--mint); font: 800 7px/1 var(--font-inter); letter-spacing: .08em; text-transform: uppercase; }
+.playSignals p[data-signal="red"] b { color: #f39aa0; }
+.playQuestionGrid footer { display: flex; align-items: flex-start; gap: 5px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); color: #bdd5d1; font-size: 8px; line-height: 1.45; }
+.playQuestionGrid footer svg { flex: 0 0 auto; margin-top: 1px; color: var(--mint); }
+.playFooter { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); }
+.playFooter > section { min-width: 0; padding: 18px 22px; background: rgba(5,23,40,.72); }
+.playFooter ul { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.playFooter li, .playFooter section > p { position: relative; margin: 10px 0 0; padding-left: 11px; color: #9eb4c3; font-size: 9px; line-height: 1.5; }
+.playFooter li::before, .playFooter section > p::before { content: '×'; position: absolute; left: 0; color: #f39aa0; }
+.playLandmine strong { display: block; margin-top: 10px; color: #e7d4a6; font-size: 10px; }
+.playLandmine > p { color: #bba974 !important; }
+.playLandmine > p::before { content: '→' !important; color: var(--amber) !important; }
 .valueSummary { display: flex; align-items: flex-start; gap: 10px; margin: 18px 0 0; padding: 15px 18px; border-left: 2px solid var(--cyan); background: rgba(66,212,215,.055); color: #cce4ed; font-size: 12px; line-height: 1.6; }
 .valueSummary svg { flex: 0 0 auto; color: var(--cyan); margin-top: 2px; }
 .researchAudit { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 16px 0 0; border: 1px solid var(--line); background: var(--line); }
@@ -456,6 +505,21 @@
 .liveHint { margin: 14px 18px 0; display: flex; align-items: center; gap: 9px; padding: 11px 13px; border: 1px solid rgba(242,184,75,.25); background: rgba(242,184,75,.05); color: #cbbd94; font-size: 10px; }
 .liveHint span { flex: 1; }
 .liveHint button { color: var(--amber); background: transparent; border: 0; cursor: pointer; font-weight: 800; }
+.livePlayStrip { position: sticky; top: 64px; z-index: 15; display: grid; grid-template-columns: minmax(230px,.85fr) minmax(0,1.6fr) minmax(230px,.72fr); gap: 1px; margin: 14px 18px 0; border: 1px solid rgba(66,212,215,.3); border-left: 3px solid var(--cyan); background: var(--line); box-shadow: 0 12px 32px rgba(0,0,0,.24); }
+.livePlayStripOpen { grid-template-columns: minmax(230px,.65fr) minmax(0,1.65fr); }
+.livePlayGoal, .livePlayClose { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 12px 14px; background: #071a2e; }
+.livePlayGoal span, .livePlayClose span { display: flex; align-items: center; gap: 6px; color: var(--cyan); font: 800 7px/1 var(--font-inter); letter-spacing: .1em; text-transform: uppercase; }
+.livePlayGoal strong, .livePlayClose strong { color: #dfeef3; font-size: 10px; line-height: 1.45; }
+.livePlayStrip ol { min-width: 0; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1px; margin: 0; padding: 0; list-style: none; background: var(--line); }
+.livePlayStrip li { min-width: 0; display: grid; grid-template-columns: 22px minmax(0,1fr); align-items: center; gap: 7px; padding: 10px; background: #081d33; }
+.livePlayStrip li > span { width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid rgba(66,212,215,.24); color: var(--cyan); font: 700 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.livePlayStrip li p { overflow: hidden; margin: 0; color: #aabfcd; font-size: 9px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.livePlayStrip .livePlayCovered { opacity: .55; }
+.livePlayStrip .livePlayCovered > span { border-color: rgba(138,217,201,.4); color: var(--mint); background: rgba(138,217,201,.08); }
+.livePlayStrip .livePlayCovered p { text-decoration: line-through; }
+.livePlayClose { background: rgba(242,184,75,.08); }
+.livePlayClose span { color: var(--amber); }
+.livePlayClose strong { color: #efe1bb; }
 .liveGrid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(260px, .6fr); grid-template-areas: "next discovery" "transcript transcript"; gap: 1px; background: var(--line); margin-top: 1px; }
 .nextMove, .discoveryPanel, .transcriptPanel { background: #081d33; padding: clamp(20px, 3vw, 32px); }
 .nextMove { grid-area: next; min-height: 380px; }
@@ -529,6 +593,9 @@
   .postsGrid { grid-template-columns: 1fr 1fr; }
   .memoryGrid { grid-template-columns: 1fr 1fr; }
   .sourceGroups { grid-template-columns: 1fr 1fr; }
+  .playHeader { grid-template-columns: minmax(0,1.25fr) minmax(250px,.75fr); }
+  .livePlayStrip, .livePlayStripOpen { grid-template-columns: 1fr; }
+  .livePlayStrip ol { grid-template-columns: repeat(3,minmax(0,1fr)); }
 }
 
 @media (max-width: 680px) {
@@ -557,6 +624,10 @@
   .integrationEmpty ol { grid-template-columns: 1fr; }
   .postsGrid { grid-template-columns: 1fr; }
   .sourceGroups { grid-template-columns: 1fr; }
+  .playHeader { grid-template-columns: 1fr; }
+  .playCloseFlag { border-top: 1px solid var(--line); border-left: 0; }
+  .playOpeners, .playQuestions { grid-template-columns: 1fr; }
+  .playQuestionGrid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {
@@ -571,7 +642,7 @@
   .tabs button small { display: none; }
   .tabs button > span { font-size: 10px; }
   .runway { padding-left: 0; }
-  .twoFields, .objectives, .questionColumns, .researchAudit { grid-template-columns: 1fr; }
+  .twoFields, .playSetupGrid, .objectives, .questionColumns, .researchAudit { grid-template-columns: 1fr; }
   .sources summary em { display: none; }
   .contextFieldHeader { align-items: flex-start; flex-direction: column; }
   .clientDetailHeader, .memoryBoard, .conversationHistory { padding-left: 16px; padding-right: 16px; }
@@ -595,6 +666,11 @@
   .evolutionList > div { grid-template-columns: 1fr; }
   .evolutionList small { grid-column: 1; }
   .setupPanel, .researchPanel, .dossier { padding: 19px 16px; }
+  .playSetup { padding-left: 13px; padding-right: 13px; }
+  .playTitle, .playOpeners, .playQuestions { padding-left: 16px; padding-right: 16px; }
+  .playOpeners > div:last-child, .playFooter { grid-template-columns: 1fr; }
+  .playFooter { gap: 1px; }
+  .livePlayStrip { top: 58px; margin-left: 12px; margin-right: 12px; }
   .dossierHeader, .dossierAction, .liveHeader, .postWorkspace > header { flex-direction: column; align-items: stretch; }
   .liveHeaderActions { align-items: stretch; flex-direction: column-reverse; }
   .saveResultButton { width: 100%; }

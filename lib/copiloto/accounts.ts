@@ -17,6 +17,7 @@ import type {
   DiscoveryKey,
 } from './types';
 import { DISCOVERY_CHECKLIST } from './types';
+import { normalizeMeetingKind } from './play';
 
 const EMPTY_MEMORY: CopilotAccountMemory = {
   situation: [], pains: [], impacts: [], attempts: [], decisionCriteria: [], stakeholders: [],
@@ -96,10 +97,80 @@ export function normalizePlanRow(row: any): CopilotSavedPlan {
       context: shortText(inputs.context, 30000),
       offer: shortText(inputs.offer, 12000),
       opportunityId: shortText(inputs.opportunityId, 60),
+      meetingKind: normalizeMeetingKind(inputs.meetingKind) || undefined,
+      audience: shortText(inputs.audience, 1000),
+      goalThisHour: shortText(inputs.goalThisHour, 1200),
     } satisfies CopilotPlanInputs,
     createdByEmail: shortText(row.created_by_email, 320),
     createdAt: String(row.created_at),
   };
+}
+
+export type CopilotPlanningMemory = {
+  hasConversations: boolean;
+  covered: DiscoveryKey[];
+  pending: DiscoveryKey[];
+  nextStep: string;
+  pains: string[];
+  objections: string[];
+  commitments: string[];
+};
+
+function uniqueText(values: unknown[], maxItems = 8): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const item = shortText(value, 500);
+    const key = item.toLocaleLowerCase('pt-BR');
+    if (!item || seen.has(key)) continue;
+    seen.add(key);
+    result.push(item);
+    if (result.length === maxItems) break;
+  }
+  return result;
+}
+
+export function compactCopilotPlanningMemory(rows: unknown): CopilotPlanningMemory {
+  const conversations = Array.isArray(rows) ? rows : [];
+  const analyses = conversations.map((row: any) => row?.analysis && typeof row.analysis === 'object' ? row.analysis : {});
+  const covered = DISCOVERY_CHECKLIST.map((item) => item.key).filter((key) =>
+    analyses.some((analysis: any) => Array.isArray(analysis.paceCoverage) && analysis.paceCoverage.includes(key)));
+  const memories = analyses.map((analysis: any) => analysis.memory && typeof analysis.memory === 'object' ? analysis.memory : {});
+  return {
+    hasConversations: conversations.length > 0,
+    covered,
+    pending: DISCOVERY_CHECKLIST.map((item) => item.key).filter((key) => !covered.includes(key)),
+    nextStep: memories.map((memory: any) => shortText(memory.nextStep, 600)).find(Boolean) || '',
+    pains: uniqueText(memories.flatMap((memory: any) => Array.isArray(memory.pains) ? memory.pains : [])),
+    objections: uniqueText(memories.flatMap((memory: any) => Array.isArray(memory.objections) ? memory.objections : [])),
+    commitments: uniqueText(memories.flatMap((memory: any) => Array.isArray(memory.commitments) ? memory.commitments : [])),
+  };
+}
+
+export function formatCopilotPlanningMemory(memory: CopilotPlanningMemory): string {
+  return [
+    `coberto: ${memory.covered.length ? memory.covered.join(', ') : 'nenhuma chave confirmada'}`,
+    `pendente: ${memory.pending.length ? memory.pending.join(', ') : 'nenhuma chave pendente'}`,
+    `proximo_passo_anterior: ${memory.nextStep || 'não registrado'}`,
+    `dores: ${memory.pains.length ? memory.pains.join(' | ') : 'não registradas'}`,
+    `objecoes: ${memory.objections.length ? memory.objections.join(' | ') : 'não registradas'}`,
+    `combinados: ${memory.commitments.length ? memory.commitments.join(' | ') : 'não registrados'}`,
+  ].join('\n');
+}
+
+export async function getCopilotPlanningMemory(
+  access: CopilotAccess,
+  accountId: string,
+): Promise<CopilotPlanningMemory | null> {
+  const account = await findCopilotAccount(access, accountId);
+  if (!account) return null;
+  const { data, error } = await createSupabaseAdmin().from('copilot_conversations')
+    .select('analysis')
+    .eq('account_id', accountId)
+    .order('happened_at', { ascending: false })
+    .limit(50);
+  if (error) throw new Error('falha ao ler memória da conta: ' + error.message);
+  return compactCopilotPlanningMemory(data || []);
 }
 
 function accountQueryFor(access: CopilotAccess) {

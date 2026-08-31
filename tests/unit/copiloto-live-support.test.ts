@@ -3,6 +3,21 @@ import { selectImmediateQuestions } from '@/app/copiloto/local-bank';
 import { buildFallbackLiveReading } from '@/lib/copiloto/live-support';
 import type { LiveReading } from '@/lib/copiloto/types';
 
+const play = {
+  kind: 'retorno' as const,
+  audience: 'Maria, Head de T&D',
+  goalThisHour: 'Sair com a demo marcada.',
+  openers: [{ say: 'Quero retomar nosso combinado.', factIndex: null }],
+  mustAsk: [
+    { text: 'Como funciona hoje?', discovery: 'situacao_atual' as const, green: 'Processo claro', red: 'Sem processo', ifGreen: 'Avançar' },
+    { text: 'Qual impacto ainda está aberto?', discovery: 'impacto' as const, green: 'Impacto concreto', red: 'Sem impacto', ifGreen: 'Dimensionar' },
+    { text: 'Quem valida o próximo passo?', discovery: 'decisor' as const, green: 'Decisor nomeado', red: 'Decisão difusa', ifGreen: 'Convidar' },
+  ],
+  doNot: ['Não repetir o diagnóstico já feito.'],
+  closeWith: 'Marcar a demo até sexta.',
+  landmine: { objection: 'Sem prioridade.', ask: 'O que mudou desde a última conversa?' },
+};
+
 const emptyReading: LiveReading = {
   phase: 'analisar',
   covered: [],
@@ -52,5 +67,43 @@ describe('apoio ao vivo resiliente', () => {
 
     expect(reading.pending.map((item) => item.key)).not.toContain('dor_principal');
     expect(reading.questions[0].text).toBe('Como vão escolher?');
+  });
+
+  it('prioriza as três must-ask do Play acima do banco PACE', () => {
+    const reading = buildFallbackLiveReading({
+      play,
+      questions: [
+        { phase: 'analisar', discovery: 'dor_principal', text: 'Pergunta do banco', why: 'Banco' },
+      ],
+    }, 'analisar', []);
+
+    expect(reading.questions.map((item) => item.text)).toEqual(play.mustAsk.map((item) => item.text));
+    expect(reading.questions[0].why).toContain('Play');
+  });
+
+  it('num retorno não repergunta uma must-ask cuja descoberta já está coberta', () => {
+    const reading = buildFallbackLiveReading({
+      play,
+      questions: [{ phase: 'analisar', discovery: 'situacao_atual', text: 'Conte de novo como funciona hoje?', why: 'Banco coberto' }],
+    }, 'analisar', ['situacao_atual']);
+
+    expect(reading.questions.map((item) => item.text)).not.toContain('Como funciona hoje?');
+    expect(reading.questions.map((item) => item.text)).not.toContain('Conte de novo como funciona hoje?');
+    expect(reading.questions[0].text).toBe('Qual impacto ainda está aberto?');
+  });
+
+  it('preserva a cobertura histórica do retorno mesmo depois de fechar as must-ask', () => {
+    const returnPlan = {
+      play,
+      gaps: ['impacto', 'decisor'],
+      questions: [],
+    } as unknown as NonNullable<Parameters<typeof selectImmediateQuestions>[0]>;
+    const currentReading: LiveReading = {
+      ...emptyReading,
+      covered: ['impacto', 'decisor'],
+    };
+
+    expect(buildFallbackLiveReading(returnPlan, 'analisar', currentReading.covered).questions).toEqual([]);
+    expect(selectImmediateQuestions(returnPlan, currentReading, [])).toEqual([]);
   });
 });

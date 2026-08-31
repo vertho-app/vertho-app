@@ -4,17 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  ArrowLeft, AudioLines, Building2, Check, ChevronRight, CircleAlert, Clock3,
+  ArrowLeft, AudioLines, Ban, Building2, Check, ChevronRight, CircleAlert, Clock3,
   ClipboardPaste, Database, ExternalLink, FileText, Headphones, LoaderCircle, Mic, Radio,
-  Newspaper, RefreshCw, Save, Search, Share2, ShieldCheck, Sparkles, Square, UsersRound, Wifi, WifiOff,
+  MessageSquareQuote, Newspaper, RefreshCw, Save, Search, Share2, ShieldAlert, ShieldCheck,
+  Sparkles, Square, Target, UsersRound, Wifi, WifiOff,
 } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import {
-  DEFAULT_VERTHO_OFFER, DISCOVERY_CHECKLIST, PACE_PHASES,
-  type CopilotAccountListItem, type CopilotOpportunity, type CopilotPlan, type CopilotSource,
-  type CopilotSourceKind, type LiveReading, type LiveUtterance, type PacePhase, type SupernormalPost,
+  DEFAULT_VERTHO_OFFER, DISCOVERY_CHECKLIST, MEETING_KINDS, PACE_PHASES,
+  type CopilotAccountListItem, type CopilotOpportunity, type CopilotPlan, type CopilotPlay, type CopilotSource,
+  type CopilotSourceKind, type LiveReading, type LiveUtterance, type MeetingKind, type PacePhase, type SupernormalPost,
   type SupernormalPostDetail,
 } from '@/lib/copiloto/types';
+import { inferMeetingKind } from '@/lib/copiloto/play';
 import {
   LocalMeetingCapture, toUtterance,
   type CaptureAudioLevels, type CaptureState, type CaptureSurface,
@@ -91,6 +93,108 @@ function sourceDisplayKind(source: CopilotSource): SourceDisplayKind {
   return sourceChannel(source.url) === 'Web' ? 'legacy' : 'social';
 }
 
+function meetingKindLabel(kind: MeetingKind): string {
+  return MEETING_KINDS.find((item) => item.key === kind)?.label || 'Reunião';
+}
+
+function PlayCard({ play }: { play: CopilotPlay }) {
+  return (
+    <section className={styles.playCard} aria-label="Play desta reunião">
+      <header className={styles.playHeader}>
+        <div className={styles.playTitle}>
+          <span><Target size={15} /> Play desta reunião</span>
+          <p><b>{meetingKindLabel(play.kind)}</b><i /> <UsersRound size={13} /> {play.audience}</p>
+          <h3><small>Esta hora precisa terminar com</small>{play.goalThisHour}</h3>
+        </div>
+        <div className={styles.playCloseFlag}>
+          <span>Feche pedindo</span>
+          <strong>{play.closeWith}</strong>
+        </div>
+      </header>
+
+      <div className={styles.playOpeners}>
+        <div className={styles.playSectionLabel}><MessageSquareQuote size={14} /><span>Abra com</span></div>
+        <div>
+          {play.openers.map((opener, index) => (
+            <blockquote key={`${opener.say}-${index}`}>
+              <b>{opener.factIndex === null ? 'Briefing' : `F${opener.factIndex + 1}`}</b>
+              <p>“{opener.say}”</p>
+            </blockquote>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.playQuestions}>
+        <div className={styles.playSectionLabel}><Radio size={14} /><span>Pergunte estas 3</span></div>
+        <div className={styles.playQuestionGrid}>
+          {play.mustAsk.map((question, index) => (
+            <article key={`${question.text}-${index}`}>
+              <span>0{index + 1}</span>
+              <h4>{question.text}</h4>
+              <div className={styles.playSignals}>
+                <p data-signal="green"><b>Verde</b>{question.green}</p>
+                <p data-signal="red"><b>Vermelho</b>{question.red}</p>
+              </div>
+              <footer><ChevronRight size={12} /><span>Se verde: {question.ifGreen}</span></footer>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <footer className={styles.playFooter}>
+        <section>
+          <div className={styles.playSectionLabel}><Ban size={14} /><span>Não faça</span></div>
+          {play.doNot.length
+            ? <ul>{play.doNot.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul>
+            : <p>Não antecipe solução antes de confirmar a dor desta conversa.</p>}
+        </section>
+        <section className={styles.playLandmine}>
+          <div className={styles.playSectionLabel}><ShieldAlert size={14} /><span>Minado provável</span></div>
+          <strong>“{play.landmine.objection}”</strong>
+          <p>Pergunte: {play.landmine.ask}</p>
+        </section>
+      </footer>
+    </section>
+  );
+}
+
+function LivePlayStrip({ play, reading }: { play: CopilotPlay; reading: LiveReading }) {
+  return (
+    <aside className={classNames(styles.livePlayStrip, reading.phase !== 'engajar' && styles.livePlayStripOpen)} aria-label="Play em andamento">
+      <div className={styles.livePlayGoal}>
+        <span><Target size={13} /> Objetivo desta hora</span>
+        <strong>{play.goalThisHour}</strong>
+      </div>
+      <ol>
+        {play.mustAsk.map((question, index) => {
+          const covered = Boolean(question.discovery && reading.covered.includes(question.discovery));
+          return (
+            <li key={`${question.text}-${index}`} className={covered ? styles.livePlayCovered : ''}>
+              <span>{covered ? <Check size={11} /> : `0${index + 1}`}</span>
+              <p>{question.text}</p>
+            </li>
+          );
+        })}
+      </ol>
+      {reading.phase === 'engajar' && (
+        <div className={styles.livePlayClose}>
+          <span>Feche pedindo</span>
+          <strong>{play.closeWith}</strong>
+        </div>
+      )}
+    </aside>
+  );
+}
+
+function DossierAction({ persisted, onGoLive }: { persisted: boolean; onGoLive: () => void }) {
+  return (
+    <div className={styles.dossierAction}>
+      <div><Radio size={18} /><span>{persisted ? 'Plano salvo no histórico da empresa' : 'Plano disponível neste navegador'}</span></div>
+      <button type="button" onClick={onGoLive}>Abrir apoio ao vivo <ChevronRight size={17} /></button>
+    </div>
+  );
+}
+
 function PaceRunway({ tab, livePhase }: { tab: Tab; livePhase: PacePhase }) {
   const currentIndex = PACE_PHASES.indexOf(livePhase);
   return (
@@ -134,15 +238,19 @@ function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLiv
           <p>{plan.companySummary || plan.valueSummary}</p>
         </div>
         <div className={styles.dossierStats}>
-          <span><FileText size={14} /> {plan.questions.length} perguntas</span>
+          <span><FileText size={14} /> {plan.play ? '3 perguntas essenciais' : `${plan.questions.length} perguntas`}</span>
           <span><Database size={14} /> {plan.sources.length} fontes</span>
         </div>
       </header>
 
-      <div className={styles.objectives}>
-        <article><span>Objetivo principal</span><p>{plan.objectives.primary}</p></article>
-        <article><span>Objetivo reserva</span><p>{plan.objectives.fallback}</p></article>
-      </div>
+      {plan.play
+        ? <PlayCard play={plan.play} />
+        : <div className={styles.objectives}>
+            <article><span>Objetivo principal</span><p>{plan.objectives.primary}</p></article>
+            <article><span>Objetivo reserva</span><p>{plan.objectives.fallback}</p></article>
+          </div>}
+
+      {plan.play && <DossierAction persisted={persisted} onGoLive={onGoLive} />}
 
       {plan.valueSummary && <p className={styles.valueSummary}><Sparkles size={16} /> {plan.valueSummary}</p>}
 
@@ -233,7 +341,7 @@ function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLiv
         </section>
 
         <section className={classNames(styles.dossierBlock, styles.wideBlock)}>
-          <div className={styles.blockTitle}><div><span>04</span><h3>Banco de perguntas PACE</h3></div><small>prontas para falar</small></div>
+          <div className={styles.blockTitle}><div><span>04</span><h3>{plan.play ? 'Banco de reserva PACE' : 'Banco de perguntas PACE'}</h3></div><small>{plan.play ? 'consulte se precisar aprofundar' : 'prontas para falar'}</small></div>
           <div className={styles.questionColumns}>
             {phaseGroups.map(({ phase, questions }) => (
               <article key={phase}>
@@ -255,7 +363,7 @@ function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLiv
           <div className={styles.blockTitle}><div><span>06</span><h3>Riscos e lacunas</h3></div></div>
           <ul className={styles.riskList}>
             {plan.risks.map((risk, index) => <li key={`${risk}-${index}`}><CircleAlert size={14} /> {risk}</li>)}
-            {plan.gaps.map((gap) => <li key={gap}><CircleAlert size={14} /> Banco ainda não cobre: {DISCOVERY_CHECKLIST.find((item) => item.key === gap)?.label}</li>)}
+            {plan.gaps.map((gap) => <li key={gap}><CircleAlert size={14} /> {plan.play ? 'Ainda não consta na memória' : 'Banco ainda não cobre'}: {DISCOVERY_CHECKLIST.find((item) => item.key === gap)?.label}</li>)}
             {!plan.risks.length && !plan.gaps.length && <li><Check size={14} /> Checklist coberto pelo banco de perguntas.</li>}
           </ul>
         </section>
@@ -292,10 +400,7 @@ function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLiv
         </details>
       )}
 
-      <div className={styles.dossierAction}>
-        <div><Radio size={18} /><span>{persisted ? 'Plano salvo no histórico da empresa' : 'Plano disponível neste navegador'}</span></div>
-        <button type="button" onClick={onGoLive}>Abrir apoio ao vivo <ChevronRight size={17} /></button>
-      </div>
+      {!plan.play && <DossierAction persisted={persisted} onGoLive={onGoLive} />}
     </section>
   );
 }
@@ -317,6 +422,10 @@ export default function CopilotClient({
   const [offer, setOffer] = useState(DEFAULT_VERTHO_OFFER);
   const [opportunityId, setOpportunityId] = useState('');
   const [accountId, setAccountId] = useState('');
+  const [meetingKind, setMeetingKind] = useState<MeetingKind>('primeira_conversa');
+  const [audience, setAudience] = useState('');
+  const [audienceOptions, setAudienceOptions] = useState<string[]>([]);
+  const [goalThisHour, setGoalThisHour] = useState('');
   const [activePlanningId, setActivePlanningId] = useState('');
   const [planPersisted, setPlanPersisted] = useState(false);
   const [plan, setPlan] = useState<CopilotPlan | null>(null);
@@ -355,6 +464,7 @@ export default function CopilotClient({
   const audioEvidenceRef = useRef<AudioInputEvidence>({ ...EMPTY_AUDIO_EVIDENCE });
   const captureStartedAtRef = useRef(0);
   const meetingCompositionRef = useRef<MeetingComposition>('solo-vertho');
+  const audienceRequestRef = useRef(0);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -370,6 +480,12 @@ export default function CopilotClient({
         if (typeof parsed?.offer === 'string') setOffer(parsed.offer);
         if (typeof parsed?.opportunityId === 'string') setOpportunityId(parsed.opportunityId);
         if (typeof parsed?.accountId === 'string') setAccountId(parsed.accountId);
+        if (MEETING_KINDS.some((item) => item.key === parsed?.meetingKind)) setMeetingKind(parsed.meetingKind);
+        if (typeof parsed?.audience === 'string') setAudience(parsed.audience);
+        if (Array.isArray(parsed?.audienceOptions)) {
+          setAudienceOptions(parsed.audienceOptions.filter((item: unknown) => typeof item === 'string').slice(0, 20));
+        }
+        if (typeof parsed?.goalThisHour === 'string') setGoalThisHour(parsed.goalThisHour);
         if (typeof parsed?.planningId === 'string') {
           setActivePlanningId(parsed.planningId);
           setPlanPersisted(!!parsed.planningId);
@@ -412,6 +528,9 @@ export default function CopilotClient({
       const livePlan = planRef.current ? {
         questions: planRef.current.questions,
         objections: planRef.current.objections,
+        play: planRef.current.play,
+        gaps: planRef.current.gaps,
+        facts: planRef.current.facts.slice(0, 3).map((fact) => ({ title: fact.title, fact: fact.fact })),
       } : null;
       const res = await fetchAuth('/api/copiloto/live', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -512,12 +631,16 @@ export default function CopilotClient({
     try {
       const res = await fetchAuth('/api/copiloto/planejamento', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company, site, socialProfiles, context, offer, opportunityId }),
+        body: JSON.stringify({
+          company, site, socialProfiles, context, offer, opportunityId, accountId,
+          meetingKind, audience, goalThisHour,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Falha ao montar o planejamento');
       const generatedPlan = data.plan as CopilotPlan;
       setPlan(generatedPlan);
+      setReading(EMPTY_READING);
       setPlanPersisted(false);
       const selectedOpportunity = opportunities.find((item) => item.id === opportunityId);
       const normalizedCompany = company.trim().toLocaleLowerCase('pt-BR');
@@ -537,7 +660,7 @@ export default function CopilotClient({
             body: JSON.stringify({
               plan: generatedPlan,
               opportunityId,
-              inputs: { company, site, socialProfiles, context, offer },
+              inputs: { company, site, socialProfiles, context, offer, meetingKind, audience, goalThisHour },
             }),
           });
           const saved = await saveRes.json();
@@ -553,6 +676,7 @@ export default function CopilotClient({
         localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify({
           plan: generatedPlan, company, site, socialProfiles, context, offer, opportunityId,
           accountId: linkedAccountId, planningId: savedPlanningId, persisted: !!savedPlanningId,
+          meetingKind, audience, audienceOptions, goalThisHour,
         }));
       } catch {
         // O plano continua utilizável na sessão se o navegador bloquear storage.
@@ -565,6 +689,30 @@ export default function CopilotClient({
     }
   }
 
+  function loadAudienceContacts(nextAccountId: string, fallbackAudience = '') {
+    const requestId = ++audienceRequestRef.current;
+    setAudienceOptions(fallbackAudience ? [fallbackAudience] : []);
+    void (async () => {
+      try {
+        const res = await fetchAuth(`/api/copiloto/clientes/${encodeURIComponent(nextAccountId)}`);
+        const data = await res.json();
+        if (!res.ok || requestId !== audienceRequestRef.current) return;
+        const contacts = Array.isArray(data?.detail?.contacts) ? data.detail.contacts : [];
+        const options = contacts.map((contact: any) =>
+          `${String(contact?.name || '').trim()}${contact?.role ? `, ${String(contact.role).trim()}` : ''}`)
+          .filter(Boolean).slice(0, 20);
+        const primary = contacts.find((contact: any) => contact?.isPrimary) || contacts[0];
+        const primaryLabel = primary
+          ? `${String(primary.name || '').trim()}${primary.role ? `, ${String(primary.role).trim()}` : ''}`
+          : fallbackAudience;
+        setAudienceOptions(options);
+        setAudience((current) => current.trim() ? current : primaryLabel);
+      } catch {
+        // O contato primário vindo da oportunidade continua disponível.
+      }
+    })();
+  }
+
   function changeCompany(nextCompany: string) {
     const changedIdentity = company.trim()
       && company.trim().toLocaleLowerCase('pt-BR') !== nextCompany.trim().toLocaleLowerCase('pt-BR');
@@ -572,12 +720,22 @@ export default function CopilotClient({
       clearPlan();
       setSite('');
       setSocialProfiles('');
+      setAudience('');
+      setAudienceOptions([]);
+      setGoalThisHour('');
+      setMeetingKind('primeira_conversa');
     }
     setCompany(nextCompany);
     const normalized = nextCompany.trim().toLocaleLowerCase('pt-BR');
     const matched = accounts.find((item) => [item.name, item.legalName]
       .some((name) => name.trim().toLocaleLowerCase('pt-BR') === normalized));
     setAccountId(matched?.id || '');
+    if (matched) {
+      setMeetingKind(inferMeetingKind({ stage: matched.currentStage, hasConversation: matched.conversationCount > 0 }));
+      loadAudienceContacts(matched.id);
+    } else {
+      audienceRequestRef.current += 1;
+    }
   }
 
   function selectOpportunity(id: string) {
@@ -589,13 +747,29 @@ export default function CopilotClient({
       setSocialProfiles('');
     }
     setOpportunityId(id);
-    if (!selected) return;
+    if (!selected) {
+      audienceRequestRef.current += 1;
+      setAudience('');
+      setAudienceOptions([]);
+      setGoalThisHour('');
+      setMeetingKind('primeira_conversa');
+      return;
+    }
     setAccountId(selected.accountId);
     setCompany(selected.accountName);
     setContext((current) => current.trim() ? current : selected.context);
+    const account = accounts.find((item) => item.id === selected.accountId);
+    setMeetingKind(inferMeetingKind({
+      stage: selected.stage,
+      hasConversation: Boolean(account?.conversationCount),
+    }));
+    setAudience(selected.primaryContact);
+    loadAudienceContacts(selected.accountId, selected.primaryContact);
+    setGoalThisHour('');
   }
 
   function prepareFromAccount(seed: CopilotPreparationSeed) {
+    audienceRequestRef.current += 1;
     clearPlan();
     setAccountId(seed.accountId);
     setCompany(seed.company);
@@ -604,10 +778,15 @@ export default function CopilotClient({
     setContext(seed.context);
     setOffer(seed.offer || DEFAULT_VERTHO_OFFER);
     setOpportunityId(seed.opportunityId);
+    setMeetingKind(seed.meetingKind);
+    setAudience(seed.audience);
+    setAudienceOptions(seed.audienceOptions);
+    setGoalThisHour(seed.goalThisHour);
     setTab('planejamento');
   }
 
   function openSavedPlan(seed: CopilotOpenPlanSeed) {
+    audienceRequestRef.current += 1;
     const savedCompany = seed.planning.inputs.company || seed.company;
     const savedContext = seed.planning.inputs.context || seed.context;
     setAccountId(seed.accountId);
@@ -617,7 +796,12 @@ export default function CopilotClient({
     setContext(savedContext);
     setOffer(seed.offer || DEFAULT_VERTHO_OFFER);
     setOpportunityId(seed.opportunityId);
+    setMeetingKind(seed.planning.inputs.meetingKind || seed.planning.plan.play?.kind || seed.meetingKind);
+    setAudience(seed.planning.inputs.audience || seed.planning.plan.play?.audience || seed.audience);
+    setAudienceOptions(seed.audienceOptions);
+    setGoalThisHour(seed.planning.inputs.goalThisHour || seed.planning.plan.play?.goalThisHour || seed.goalThisHour);
     setPlan(seed.planning.plan);
+    setReading(EMPTY_READING);
     setPlanPersisted(true);
     setActivePlanningId(seed.planning.conversationId ? '' : seed.planning.id);
     try {
@@ -632,9 +816,19 @@ export default function CopilotClient({
         accountId: seed.accountId,
         planningId: seed.planning.conversationId ? '' : seed.planning.id,
         persisted: true,
+        meetingKind: seed.planning.inputs.meetingKind || seed.planning.plan.play?.kind || seed.meetingKind,
+        audience: seed.planning.inputs.audience || seed.planning.plan.play?.audience || seed.audience,
+        audienceOptions: seed.audienceOptions,
+        goalThisHour: seed.planning.inputs.goalThisHour || seed.planning.plan.play?.goalThisHour || seed.goalThisHour,
       }));
     } catch { /* storage bloqueado */ }
     setTab('planejamento');
+  }
+
+  function toggleAudienceOption(option: string) {
+    const current = audience.split(';').map((item) => item.trim()).filter(Boolean);
+    const selected = current.some((item) => item.toLocaleLowerCase('pt-BR') === option.toLocaleLowerCase('pt-BR'));
+    setAudience((selected ? current.filter((item) => item.toLocaleLowerCase('pt-BR') !== option.toLocaleLowerCase('pt-BR')) : [...current, option]).join('; '));
   }
 
   async function pasteTranscript() {
@@ -791,6 +985,7 @@ export default function CopilotClient({
   function clearPlan() {
     try { localStorage.removeItem(PLAN_STORAGE_KEY); } catch { /* storage bloqueado */ }
     setPlan(null);
+    setReading(EMPTY_READING);
     setActivePlanningId('');
     setPlanPersisted(false);
   }
@@ -868,7 +1063,7 @@ export default function CopilotClient({
       {tab === 'planejamento' && (
         <div className={styles.workspace}>
           <form className={styles.setupPanel} onSubmit={generatePlan}>
-            <header><span>01 · INPUT</span><h2>Planeje a conversa</h2><p>Comece pelo nome da empresa. O briefing pode ser uma nota curta ou a transcrição de uma conversa anterior.</p></header>
+            <header><span>01 · INPUT</span><h2>Prepare esta hora</h2><p>Defina o tipo, quem estará na conversa e o avanço desejado. A pesquisa sustenta o Play — não substitui a condução.</p></header>
 
             {!!opportunities.length && (
               <label>Oportunidade no CRM
@@ -878,6 +1073,31 @@ export default function CopilotClient({
                 </select>
               </label>
             )}
+
+            <fieldset className={styles.playSetup}>
+              <legend><Target size={14} /><span>Play desta hora</span><small>30 segundos</small></legend>
+              <div className={styles.playSetupGrid}>
+                <label>Tipo da reunião
+                  <select value={meetingKind} onChange={(event) => setMeetingKind(event.target.value as MeetingKind)}>
+                    {MEETING_KINDS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+                  </select>
+                </label>
+                <label>Quem vai estar
+                  <input value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="Ex.: Maria Souza, Head de T&D" maxLength={1000} />
+                </label>
+              </div>
+              {!!audienceOptions.length && (
+                <div className={styles.audienceChips} aria-label="Contatos desta empresa">
+                  {audienceOptions.map((option) => {
+                    const selected = audience.split(';').some((item) => item.trim().toLocaleLowerCase('pt-BR') === option.toLocaleLowerCase('pt-BR'));
+                    return <button key={option} type="button" aria-pressed={selected} onClick={() => toggleAudienceOption(option)}>{selected && <Check size={11} />}{option}</button>;
+                  })}
+                </div>
+              )}
+              <label className={styles.hourGoal}>O que precisa sair desta hora <em>opcional</em>
+                <textarea value={goalThisHour} onChange={(event) => setGoalThisHour(event.target.value)} rows={2} maxLength={1200} placeholder="Ex.: sair com uma demo de 25 min marcada até sexta. Se vazio, o Copiloto infere pelo estágio e pelo playbook." />
+              </label>
+            </fieldset>
 
             <div className={styles.twoFields}>
               <label>Empresa<input value={company} onChange={(event) => changeCompany(event.target.value)} placeholder="Ex.: Grupo Sinal" maxLength={200} /></label>
@@ -913,7 +1133,7 @@ export default function CopilotClient({
 
             <div className={styles.formActions}>
               <button type="submit" disabled={planning || (!company.trim() && !site.trim() && !socialProfiles.trim() && context.trim().length < 20)}>
-                {planning ? <><LoaderCircle size={17} className={styles.spin} /> Pesquisando · {planningSeconds}s</> : <><Search size={17} /> Pesquisar e montar plano</>}
+                {planning ? <><LoaderCircle size={17} className={styles.spin} /> Preparando o Play · {planningSeconds}s</> : <><Target size={17} /> Montar Play da reunião</>}
               </button>
               {plan && <button type="button" className={styles.secondaryButton} onClick={clearPlan}>Limpar</button>}
             </div>
@@ -921,20 +1141,20 @@ export default function CopilotClient({
           </form>
 
           <aside className={styles.researchPanel}>
-            <header><span>02 · OUTPUT</span><h2>Mapa de evidências</h2><p>Fatos verificáveis de um lado; hipóteses que precisam ser testadas do outro.</p></header>
+            <header><span>02 · OUTPUT</span><h2>Play + evidências</h2><p>Primeiro, o roteiro desta hora. Depois, a pesquisa que sustenta cada movimento.</p></header>
             {plan ? (
               <div className={styles.miniMap}>
                 <div><b>{plan.facts.length}</b><span>fatos públicos</span></div>
                 <div><b>{plan.hypotheses.length}</b><span>hipóteses</span></div>
-                <div><b>{plan.questions.length}</b><span>perguntas</span></div>
+                <div><b>{plan.play?.mustAsk.length || plan.questions.length}</b><span>{plan.play ? 'perguntas do Play' : 'perguntas'}</span></div>
                 <div><b>{plan.sources.length}</b><span>fontes</span></div>
               </div>
             ) : (
               <div className={styles.emptyResearch}>
                 <Building2 size={28} />
-                <h3>O dossiê aparece aqui</h3>
-                <p>A pesquisa procura sinais do negócio, notícias, posts públicos indexados, tendências do setor e caminhos de ROI.</p>
-                <ul><li><Check size={13} /> Fontes com links</li><li><Check size={13} /> Hipóteses separadas de fatos</li><li><Check size={13} /> Banco de perguntas PACE</li></ul>
+                <h3>O Play aparece aqui</h3>
+                <p>O Copiloto cruza o momento da conta, o playbook do segmento e sinais públicos para preparar esta conversa.</p>
+                <ul><li><Check size={13} /> Objetivo concreto da hora</li><li><Check size={13} /> Três perguntas com verde/vermelho</li><li><Check size={13} /> Evidências e fontes como apêndice</li></ul>
               </div>
             )}
             <div className={styles.privacyNote}><ShieldCheck size={17} /><p><strong>Fronteira de privacidade</strong>A busca recebe apenas nome, site e perfis sociais oficiais. Briefing e oferta entram somente na análise privada.</p></div>
@@ -978,7 +1198,9 @@ export default function CopilotClient({
             </div>
           )}
 
-          {!plan && <div className={styles.liveHint}><CircleAlert size={17} /><span>Você pode iniciar sem plano, mas o apoio melhora muito quando o banco de perguntas já foi preparado.</span><button onClick={() => setTab('planejamento')}>Planejar primeiro</button></div>}
+          {!plan && <div className={styles.liveHint}><CircleAlert size={17} /><span>Você pode iniciar sem plano, mas o apoio melhora quando já conhece o objetivo e as três perguntas desta hora.</span><button onClick={() => setTab('planejamento')}>Planejar primeiro</button></div>}
+
+          {plan?.play && <LivePlayStrip play={plan.play} reading={reading} />}
 
           <div className={styles.liveGrid}>
             <section className={styles.nextMove}>
