@@ -23,6 +23,12 @@ import {
   type CaptureAudioLevels, type CaptureState, type CaptureSurface,
 } from './audio-capture';
 import {
+  probeLocalAsr,
+  requestLocalAsrStart,
+  waitForLocalAsr,
+  type LocalAsrState,
+} from './local-asr';
+import {
   addAudioEvidence, assessAudioInputHealth, EMPTY_AUDIO_EVIDENCE,
   type AudioInputEvidence, type AudioInputHealth,
 } from './audio-health';
@@ -455,6 +461,8 @@ export default function CopilotClient({
   const [error, setError] = useState<string | null>(null);
 
   const [captureState, setCaptureState] = useState<CaptureState>('parado');
+  const [localAsrState, setLocalAsrState] = useState<LocalAsrState>('checking');
+  const [localAsrReadyNotice, setLocalAsrReadyNotice] = useState(false);
   const [captureSurface, setCaptureSurface] = useState<CaptureSurface>('unknown');
   const [audioHealth, setAudioHealth] = useState<AudioInputHealth>('checking');
   const [meetingComposition, setMeetingComposition] = useState<MeetingComposition>('solo-vertho');
@@ -472,6 +480,9 @@ export default function CopilotClient({
   const [importingPost, setImportingPost] = useState<string | null>(null);
 
   const captureRef = useRef<LocalMeetingCapture | null>(null);
+  const asrActivationRef = useRef<AbortController | null>(null);
+  const asrFreshnessTimerRef = useRef<number | null>(null);
+  const startCaptureButtonRef = useRef<HTMLButtonElement | null>(null);
   const utterancesRef = useRef<LiveUtterance[]>([]);
   const readingRef = useRef<LiveReading>(EMPTY_READING);
   const planRef = useRef<CopilotPlan | null>(null);
@@ -491,6 +502,18 @@ export default function CopilotClient({
   const siteVarridoRef = useRef('');
   const socialRequestRef = useRef(0);
   const socialProfilesRef = useRef('');
+
+  const markLocalAsrReady = useCallback((showCaptureNotice: boolean = false) => {
+    if (asrFreshnessTimerRef.current) window.clearTimeout(asrFreshnessTimerRef.current);
+    setLocalAsrState('ready');
+    setLocalAsrReadyNotice(showCaptureNotice);
+    // O sidecar encerra após 5 min sem cliente. Invalidamos um pouco antes para
+    // nunca abrir o seletor de tela contando com um processo que já morreu.
+    asrFreshnessTimerRef.current = window.setTimeout(() => {
+      setLocalAsrState((current) => current === 'ready' ? 'offline' : current);
+      setLocalAsrReadyNotice(false);
+    }, 270_000);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -534,9 +557,29 @@ export default function CopilotClient({
   useEffect(() => { socialProfilesRef.current = socialProfiles; }, [socialProfiles]);
   useEffect(() => { meetingCompositionRef.current = meetingComposition; }, [meetingComposition]);
   useEffect(() => () => {
+    asrActivationRef.current?.abort();
+    if (asrFreshnessTimerRef.current) window.clearTimeout(asrFreshnessTimerRef.current);
     captureRef.current?.stop();
     if (timerRef.current) window.clearTimeout(timerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (tab !== 'ao-vivo' || captureState === 'gravando') {
+      if (asrFreshnessTimerRef.current) window.clearTimeout(asrFreshnessTimerRef.current);
+      return;
+    }
+    let active = true;
+    const check = async () => {
+      const available = await probeLocalAsr(ASR_URL);
+      if (!active) return;
+      if (available) markLocalAsrReady(false);
+      else setLocalAsrState((current) => current === 'starting' ? current : 'offline');
+    };
+    void check();
+    return () => {
+      active = false;
+    };
+  }, [captureState, markLocalAsrReady, tab]);
 
   useEffect(() => {
     if (!planning) return;
@@ -957,8 +1000,47 @@ export default function CopilotClient({
     }
   }
 
-  async function startCapture() {
+  async function activateLocalAsr() {
+    if (localAsrState === 'starting') return;
     setError(null);
+    setLocalAsrReadyNotice(false);
+    setLocalAsrState('starting');
+    asrActivationRef.current?.abort();
+    const controller = new AbortController();
+    asrActivationRef.current = controller;
+
+    if (!requestLocalAsrStart()) {
+      setLocalAsrState('error');
+      setError('O navegador não conseguiu acionar o Whisper local nesta máquina.');
+      return;
+    }
+
+    const ready = await waitForLocalAsr(ASR_URL, {
+      timeoutMs: 90_000,
+      signal: controller.signal,
+    });
+    if (controller.signal.aborted) return;
+    asrActivationRef.current = null;
+
+    if (!ready) {
+      setLocalAsrState('error');
+      setError('O iniciador local não respondeu. Permita abrir “Vertho Whisper Local” no aviso do navegador e tente novamente.');
+      return;
+    }
+
+    markLocalAsrReady(true);
+    window.setTimeout(() => startCaptureButtonRef.current?.focus(), 0);
+  }
+
+  async function startCapture() {
+    if (localAsrState !== 'ready') {
+      await activateLocalAsr();
+      return;
+    }
+
+    setError(null);
+    if (asrFreshnessTimerRef.current) window.clearTimeout(asrFreshnessTimerRef.current);
+    setLocalAsrReadyNotice(false);
     setLiveAnalysisState('idle');
     setResultSaved(false);
     pendingAnalysisRef.current = false;
@@ -976,7 +1058,14 @@ export default function CopilotClient({
       onError: setError,
     });
     captureRef.current = capture;
-    try { await capture.start(); } catch { captureRef.current = null; }
+    try {
+      await capture.start();
+    } catch (captureError: any) {
+      captureRef.current = null;
+      if (captureError?.message === 'ASR_UNAVAILABLE' || captureError?.message === 'ASR_TIMEOUT') {
+        setLocalAsrState('offline');
+      }
+    }
   }
 
   function stopCapture() {
@@ -1122,6 +1211,32 @@ export default function CopilotClient({
           : audioHealth === 'system-only'
             ? 'somente reunião'
             : 'sem áudio';
+  const localAsrCopy = localAsrState === 'ready'
+    ? {
+        title: localAsrReadyNotice ? 'Whisper pronto — falta compartilhar o áudio' : 'Whisper pronto nesta máquina',
+        detail: localAsrReadyNotice
+          ? 'Clique novamente em “Compartilhar áudio e iniciar” para escolher a aba da reunião.'
+          : 'Ao iniciar, escolha a aba da reunião e ative “Compartilhar áudio da guia”.',
+      }
+    : localAsrState === 'starting'
+      ? {
+          title: 'Iniciando Whisper local…',
+          detail: 'O modelo está carregando na GPU. Se o navegador perguntar, permita abrir “Vertho Whisper Local”.',
+        }
+      : localAsrState === 'error'
+        ? {
+            title: 'O iniciador local não respondeu',
+            detail: 'Clique em “Iniciar conversa” para tentar novamente e confirme a abertura no navegador.',
+          }
+        : localAsrState === 'checking'
+          ? {
+              title: 'Verificando o Whisper local…',
+              detail: 'Isso leva apenas alguns segundos e não envia áudio para a internet.',
+            }
+          : {
+              title: 'Whisper desligado — será iniciado sob demanda',
+              detail: 'Clique em “Iniciar conversa”. O modelo liga somente para a reunião e desliga após ficar ocioso.',
+            };
 
   return (
     <main className={styles.page}>
@@ -1294,16 +1409,28 @@ export default function CopilotClient({
             <div><p className={styles.eyebrow}>Sala de comando</p><h2>{recording ? 'Conversa em andamento' : 'Apoio ao vivo com Whisper local'}</h2><p>O áudio é transcrito na sua máquina. Somente trechos de texto seguem para a IA montar as sugestões.</p></div>
             <div className={styles.liveHeaderActions}>
               {!recording && utterances.length > 0 && accountId && <button className={styles.saveResultButton} onClick={() => void saveLiveResult()} disabled={resultSaving || resultSaved}>{resultSaving ? <><LoaderCircle size={16} className={styles.spin} /> Salvando…</> : resultSaved ? <><Check size={16} /> Resultado salvo</> : <><Save size={16} /> Salvar resultado</>}</button>}
-              <button className={recording ? styles.stopButton : styles.startButton} onClick={recording ? stopCapture : startCapture} disabled={captureState === 'conectando'}>
-                {recording ? <><Square size={16} fill="currentColor" /> Parar conversa</> : captureState === 'conectando' ? <><LoaderCircle size={17} className={styles.spin} /> Conectando…</> : <><Mic size={17} /> Iniciar conversa</>}
+              <button ref={startCaptureButtonRef} className={recording ? styles.stopButton : styles.startButton} onClick={recording ? stopCapture : startCapture} disabled={captureState === 'conectando' || localAsrState === 'starting'}>
+                {recording
+                  ? <><Square size={16} fill="currentColor" /> Parar conversa</>
+                  : localAsrState === 'starting'
+                    ? <><LoaderCircle size={17} className={styles.spin} /> Iniciando Whisper…</>
+                    : captureState === 'conectando'
+                      ? <><LoaderCircle size={17} className={styles.spin} /> Conectando…</>
+                      : localAsrReadyNotice
+                        ? <><Mic size={17} /> Compartilhar áudio e iniciar</>
+                        : <><Mic size={17} /> Iniciar conversa</>}
               </button>
             </div>
           </header>
 
           {!recording && (
-            <div className={styles.captureGuide}>
-              <Headphones size={18} />
-              <div><strong>Para ouvir os dois lados</strong><span>Escolha a aba da reunião e ative “Compartilhar áudio da guia”. A captura separa fontes; várias vozes dentro da reunião continuam agrupadas.</span></div>
+            <div className={styles.captureGuide} data-asr-state={localAsrState} role="status" aria-live="polite">
+              {localAsrState === 'starting' || localAsrState === 'checking'
+                ? <LoaderCircle size={18} className={styles.spin} />
+                : localAsrState === 'ready'
+                  ? <Wifi size={18} />
+                  : <WifiOff size={18} />}
+              <div><strong>{localAsrCopy.title}</strong><span>{localAsrCopy.detail}</span></div>
               <label className={styles.meetingMode} htmlFor="copilot-meeting-composition">
                 <span>Quem está pela Vertho?</span>
                 <select id="copilot-meeting-composition" value={meetingComposition} onChange={(event) => setMeetingComposition(event.target.value as MeetingComposition)}>

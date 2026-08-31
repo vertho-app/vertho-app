@@ -1,0 +1,15 @@
+[project]
+name = "vertho-copiloto-whisper"
+version = "0.1.0"
+description = "Sidecar local de transcrição do Copiloto Vertho"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "faster-whisper>=1.1.0",
+    "websockets>=13.0",
+    "numpy>=1.26",
+    "nvidia-cublas-cu12>=12.4",
+    "nvidia-cudnn-cu12>=9.1,<10",
+]
+
+[tool.uv]
+package = false
