@@ -46,7 +46,7 @@
 | **Scraping Fallback** | Firecrawl | — | 🔑 |
 | **Error Tracking** | Sentry | — | 🔑 |
 | **TypeScript** | tsc --noEmit (strict: false) | 5.9 | ✅ |
-| **Testes** | **vitest** (1041 testes / 120 arquivos, roda no CI) + Playwright + smoke-test.js. ⚠️ `npm run lint` quebrado desde o Next 16 | 4.1 | ✅ |
+| **Testes** | **vitest** (**3.365 testes / 331 arquivos**, medido 31/08/2026 — roda no CI) + Playwright + smoke-test.js. ⚠️ `npm run lint` quebrado desde o Next 16 | 4.1 | ✅ |
 | **i18n** | next-intl (pt-BR / pt-PT / es-ES) | — | ✅ |
 | **Hospedagem** | Vercel (Serverless) | — | ✅ |
 | **DNS/CDN** | Cloudflare (Full Strict SSL) | — | ✅ |
@@ -58,8 +58,13 @@
 
 ---
 
-## 1.1 Estado de Retomada (27/07/2026)
+## 1.1 Frentes de julho/2026 — histórico
 
+> ⚠️ **Isto é um registro DATADO, não o estado atual.** A seção se chamava "Estado
+> de Retomada (27/07/2026)" e, um mês depois, o título passou a prometer o que o
+> conteúdo não entrega: **565 commits** entraram em agosto e nenhum deles está aqui.
+> O que veio depois está na **§1.2**. Renomeada em 31/08/2026.
+>
 > Retomada operacional do dia a dia (comandos, o que rodar antes de considerar pronto) vive no
 > `RESUMO.md`. Aqui fica o estado **arquitetural**.
 
@@ -111,7 +116,7 @@
   dia: `try/catch` NÃO pega erro de query do supabase-js (ele retorna `{ error }`) — regra no
   CLAUDE.md.
 
-**Migrations: 172 arquivos, `022` a `191`** (com gaps). Marcos recentes: 153-158 (modo piloto +
+**Migrations: 218 arquivos, `000` a `236`** (com gaps; +1 com prefixo de timestamp — medido 31/08/2026). Marcos recentes: 153-158 (modo piloto +
 hardening RLS/RCE), 159-168 (Portal do Representante + proposta comercial), 169 (`acumulada_status`
 do piloto), 172/173 (`ia_jobs`), 174-176 (competencias-foco do cargo + development blueprints),
 177/178 (ledger de uso de IA + funcao de resumo), 179-181 (eventos de trilha, `videos_watched` por
@@ -139,7 +144,47 @@ semana, carimbo de pilula por canal), 182 (Modo Personalizado), 183 (DISC contex
 
 ---
 
-## 2. Estrutura de Pastas (~898 arquivos TS/TSX versionados + scripts .mjs/.js em `scripts/`, `tests/` e configs)
+## 1.2 Frentes de agosto/2026 (565 commits)
+
+> Escrito em 31/08/2026 para fechar o vazio entre a §1.1 e o presente. Cada linha
+> aponta para onde o assunto vive — esta seção é índice, não descrição.
+
+**Canal e entrega**
+- **WhatsApp Cloud API** no ar (14/08) — número, webhook e status real de entrega
+  (`lib/whatsapp/cloud-api.ts`). O legado Z-API/WaSender ainda leva a cadência enquanto os
+  templates não aprovam. Detalhe: `docs/INBOX-WHATSAPP.md` e `docs/TEMPLATES-WHATSAPP.md`.
+- **Cadência v2/v3** — o sinal era o BOTÃO, não a copy: link no corpo da mensagem.
+- **Caixa de entrada do WhatsApp** — caixa da EQUIPE, com associação e reprocessamento.
+
+**Turmas e superfície do cliente**
+- **Turmas/coortes** (mig 210) — uma empresa passa a ter safras em estágios diferentes.
+  Detalhe: `docs/TURMAS.md`.
+- **RH = Admin da empresa** (24-25/08) — *a Vertho opera, o cliente consome*. Tela nova de
+  cliente nasce só de leitura. Ver **§26**.
+- **`/admin-v2`** — protótipo de reorganização do admin por verbo.
+
+**Conteúdo, IA e custo**
+- **PDI em lote** pela Batch API (−50%) — a aba deixou de ficar presa 45 min.
+- **Custo do TTS instrumentado** no ledger — eram **0 linha em 90 dias** contra centenas de
+  áudios pagos: a ausência se parecia com um zero. Ver `docs/CUSTO-QUALIDADE.md`.
+- **Modo Cena** — sondagem com gabarito.
+
+**Demo e comercial**
+- **Ambiente de demo** (ACME + Grupo Sinal) — experiência de prospect e allowlist de acesso
+  real em tenant demo. Ver **§24** e `docs/AMBIENTE-DEMO.md`.
+- **Copiloto PACE** — workspace de reunião. ⚠️ As tabelas `copilot_*` seguem **vazias**; ver §27.2.
+- **CONARH 52** — feira 18-20/08. Hoje **off-line** (§27.1).
+
+**Qualidade**
+- **Subagent `guard-auditor`** (`.claude/agents/`) — audita se um guard prova o que diz, em vez
+  de só estar verde. A primeira rodada achou o `tenant-mutation-guard` fail-open.
+- **Piloto de E2E no CI** — a suíte existia sem executor nenhum: cobertura declarada que nunca
+  observou.
+- **Levantamento de uso e desligamento de 5 blocos** (31/08) — ver **§27**.
+
+---
+
+## 2. Estrutura de Pastas (**984** arquivos TS/TSX de produção versionados — `app`+`actions`+`lib`+`components`+`trigger`; 1.372 com `tests/`. Medido 31/08/2026)
 
 ```
 nextjs-app/
@@ -286,7 +331,7 @@ nextjs-app/
 │       │   ├── qstash/route.ts
 │       │   └── qstash/whatsapp-cis/route.ts
 │       └── ...
-├── actions/                      # Server Actions (logica de negocio, 42 arquivos .ts)
+├── actions/                      # Server Actions (logica de negocio, 94 arquivos .ts)
 │   ├── ai-client.ts              # callAI + callAIChat + Extended Thinking
 │   ├── utils.ts                  # extractJSON, extractBlock, stripBlocks
 │   ├── fase1.ts                  # IA1, IA2, IA3, Cenarios (Top 10 case+accent insensitive)
@@ -352,7 +397,7 @@ nextjs-app/
 │       ├── StatusBadge.tsx
 │       ├── CompetencyBlock.tsx
 │       └── ChecklistBox.tsx
-├── lib/                          # ~60 arquivos (.ts + .js residuais em fit-v2/, prompts/)
+├── lib/                          # 374 arquivos (.ts/.tsx + .js residuais em fit-v2/, prompts/)
 │   ├── supabase.ts               # createSupabaseClient + createSupabaseAdmin
 │   ├── supabase-browser.ts       # Singleton browser client
 │   ├── tenant-resolver.ts        # resolveTenant(slug) cache 5min
@@ -408,7 +453,7 @@ nextjs-app/
 │   │   ├── build-season.ts       # buildSeason(): 14 semanas (missao+cenario em paralelo)
 │   │   ├── select-descriptors.ts # selectDescriptors / selectDescriptorsDuo / *Multi
 │   │   ├── week-gating.ts        # Gate calendario + anterior concluida
-│   │   └── prompts/              # 16 prompts (todos .ts)
+│   │   └── prompts/              # 17 prompts (todos .ts)
 │   │       ├── socratic.ts       # Evidencias: 6 turnos, DISC, anti-alucinacao (c/ grounding)
 │   │       ├── analytic.ts       # Feedback analitico: 10 turnos
 │   │       ├── challenge.ts      # Desafio semanal
@@ -458,7 +503,7 @@ nextjs-app/
 │   └── worker.mjs                # Pull/poll + claim atomico (FOR UPDATE SKIP LOCKED)
 ├── video-spike/                  # NOVO: Composicao Remotion VerthoVideo (13 templates de cena)
 │   └── remotion/
-├── tests/                        # Vitest (89 arquivos / 814 testes) + Playwright
+├── tests/                        # Vitest (331 arquivos / 3.365 testes) + Playwright
 ├── migrations/                   # 218 arquivos SQL (000 + 022 -> 236, com gaps)
 ├── tsconfig.json                 # TypeScript config (strict:false, allowJs, checkJs:false)
 ├── docs/                         # ÚNICO lugar de .md novo (27/07) — indice no CLAUDE.md
@@ -469,7 +514,7 @@ nextjs-app/
 │   ├── PIPELINE-TRILHA.md        # mapa ponta a ponta do produto
 │   ├── FMEA-PIPELINE.md          # modos de falha + verificacao 17/07 (§6) + pegadinhas (§7)
 │   ├── SECURITY-STATUS.md        # estado de seguranca + criterios de service-role
-│   ├── CATALOGO-PROMPTS-IA.md    # 70 prompts
+│   ├── CATALOGO-PROMPTS-IA.md    # 105 prompts (5 inativos: blocos off-line)
 │   ├── CUSTO-QUALIDADE.md        # plano de custo + leitura do ledger
 │   ├── SCHEMA-PROCESS.md         # schema + migrations (receita real)
 │   ├── GERADOR-VIDEO-MODULO.md   # pipeline de video + 13 templates de cena
@@ -659,7 +704,8 @@ lib/tenant-resolver.js:
 > é ligar 53 policies de uma vez.
 
 - Tabelas com leitura direta do browser autenticado ganharam policies por tenant (não mais `USING (true)`): `empresas`, `colaboradores`, `sessoes_avaliacao`, `mensagens_chat` — via funções SECURITY DEFINER `current_empresa_id()` / `current_colaborador_id()` / `can_read_sessao_avaliacao()`. Todas as 4 seguem com RLS ligada (6, 5, 2 e 2 policies respectivamente, conferido 31/08).
-- Tabelas exclusivamente server-side (`colab_otp`, `tutor_log`, `platform_admins`, `reavaliacao_sessoes`, `videos_watched`, `ia_usage_log`, `fase4_progresso`, ...) ficam **sem policy** = anon/authenticated bloqueados; `service_role` continua com bypass (`rolbypassrls = true`, conferido — `anon` e `authenticated` não têm).
+- Tabelas exclusivamente server-side (`colab_otp`, `platform_admins`, `reavaliacao_sessoes`, `videos_watched`, `ia_usage_log`, ...) ficam **sem policy** = anon/authenticated bloqueados; `service_role` continua com bypass (`rolbypassrls = true`, conferido — `anon` e `authenticated` não têm).
+  - ⚠️ Esta lista citava `tutor_log` e `fase4_progresso` até 31/08/2026. **As duas foram dropadas na migration 035** e a §16 já registrava isso — o documento se contradizia, listando como camada de segurança ativa duas tabelas que não existem há dezenas de migrations. Conferido no catálogo: ausentes.
 - "Cinto e suspensório": qualquer tabela `public` ainda sem RLS é fechada por um `DO $$` final. Verificação da migration retorna **0 tabelas public sem RLS**.
 - Fecha o alerta Supabase "Table publicly accessible" — que é o benefício que esta camada **de fato** entrega hoje.
 - ⚠️ Policy **permissiva** é pior que policy faltando: RLS ligada sem policy nega tudo para `anon` (lado seguro), enquanto `USING(true)` entrega o acervo inteiro. Guard estático: `tests/unit/security/rls-policy-estatica-guard.test.ts`.
@@ -872,7 +918,7 @@ junto com ela**, que é o que custou 5 dias de vídeo em `docs/FMEA-PIPELINE.md`
 - Granularidade 0.1 (era 0.5)
 
 ### 5.5 Versionamento de Prompts
-Tabela `prompt_versions` (SHA-256 dedup). ⚠️ **A TABELA NÃO EXISTE** — nenhuma das 212 migrations a cria (conferido no banco em 27/08/2026). `lib/versioning.ts` escreve nela, o PostgREST recusa, e a função loga e devolve `null`. O único consumidor é `/api/chat`, rota com **0 sessões**; criar ou remover é decisão pendente. Ver `docs/FMEA-PIPELINE.md` §F-D1.
+Tabela `prompt_versions` (SHA-256 dedup). ⚠️ **A TABELA NÃO EXISTE** — nenhuma das 218 migrations a cria (conferido no banco em 27/08 e reconferido em 31/08/2026). `lib/versioning.ts` escreve nela, o PostgREST recusa, e a função loga e devolve `null`. O único consumidor é `/api/chat`, rota com **0 sessões**; criar ou remover é decisão pendente. Ver `docs/FMEA-PIPELINE.md` §F-D1.
 
 ### 5.6 Tokens
 | Fase | Tokens |
@@ -932,8 +978,27 @@ Documentacao detalhada: **`docs/rag-architecture.md`**.
 
 ## 6. Integracoes
 
-### 6.1 WhatsApp — Z-API + QStash
-Dispatch async com delay incremental 2s. Status: ✅ operacional, 🔑 Z-API credentials.
+### 6.1 WhatsApp — Cloud API oficial (+ legado Z-API) + QStash
+
+> 🔴 **Atualizado em 31/08/2026.** Esta seção dizia apenas “Z-API + QStash” e ficou
+> um mês e meio desatualizada: a **Cloud API oficial da Meta está no ar desde 14/08**
+> (`lib/whatsapp/cloud-api.ts`) e já é quem entrega número, webhook e **status real de
+> entrega** — hoje consumida por OTP de telefone, templates em lote, inbox, mídia e
+> pelo health estrutural. Quem lesse só esta seção concluiria que o canal é Z-API.
+
+**Dois caminhos convivem, de propósito:**
+- **Cloud API** (`lib/whatsapp/cloud-api.ts`) — oficial, com status de entrega. ⚠️ Disparo por
+  **template aprovado**: a categoria da Meta é PROVISÓRIA até `APPROVED` e MARKETING custa
+  **6×** UTILITY. Ver `docs/TEMPLATES-WHATSAPP.md`.
+- **Legado Z-API/WaSender** (`lib/whatsapp`) — ainda leva a **cadência** enquanto os templates
+  não aprovam. Dispatch async com delay incremental (a cadência real vive em
+  `lib/whatsapp/cadencia.ts`, não em “2s” fixo — 155 envios a 2s derrubaram o número em
+  1min47 no incidente de 11/08).
+
+⚠️ **`assertWhatsappAvailable` só conhece Z-API/WaSender**: reusá-lo num fluxo de template
+barraria o envio pela saúde do provedor **morto**. Detalhe: `docs/INBOX-WHATSAPP.md`.
+
+Status: ✅ operacional (Cloud API + legado).
 
 ### 6.2 Email — Resend API
 Dispatch de formularios e relatorios. Status: 🔑 RESEND_API_KEY.
@@ -1196,12 +1261,43 @@ cis_referencia, cis_ia_referencia
 
 ## 9. Cron Jobs (Vercel)
 
-| Cron | Horario (BRT) | Acao |
-|---|---|---|
-| cleanup_sessoes | Diario 05:00 | Reseta sessoes abandonadas >48h, recalcula taxa_conclusao |
-| trigger_segunda | Segunda 11:00 | Envia pilula semanal via QStash |
-| trigger_quinta | Quinta 11:00 | Solicita evidencia + nudge inatividade |
-| backup_diario | Diario 04:00 | Executa rotina de backup via `/api/cron?action=backup_diario` |
+> 🔴 **Reescrita em 31/08/2026 — a tabela anterior mandava para o job errado.**
+> Ela listava `trigger_segunda` e `trigger_quinta` como agendados: os dois estão em
+> `ACOES_SO_MANUAIS` no handler (“quem roda hoje é o `trigger_diario`, que cobre os
+> dois e respeita a cadência por empresa”) e **não têm entrada no `vercel.json`**.
+> Faltavam **8 dos 10** crons reais. Quem investigasse “o cron não rodou”
+> procuraria um job que não existe.
+
+**A fonte é o `vercel.json`** — e esta seção *não repete horário* de propósito. A
+tabela antiga trazia horário em BRT, e a cópia equivalente no cabeçalho do handler
+chegou a ter **UTC e BRT trocados nas três linhas**, mandando quem depura procurar
+3 h fora da janela. Hoje `tests/unit/security/cron-agendado-existe.test.ts` proíbe
+horário literal no cabeçalho e confere os dois sentidos: todo agendado tem `case`,
+e todo `case` declara um lado (agendado ou `ACOES_SO_MANUAIS`).
+
+| Cron (`/api/cron?action=`) | O que faz |
+|---|---|
+| `cleanup_sessoes` | Reseta sessões abandonadas >48h, recalcula `taxa_conclusao` |
+| `trigger_diario` | **O dispatcher da cadência** (fan-out por empresa) — substituiu segunda/quinta |
+| `preflight_entrega` | Pré-voo da entrega do dia |
+| `postflight_entrega` | Pós-voo — roda **depois** do disparo, nunca junto (medir no mesmo minuto dá “nenhum canal saiu” com as mensagens em voo). O guard exige o intervalo |
+| `health_estrutural` | **17 checagens** de saúde do pipeline (`lib/pipeline-health/regras.ts`, funções `checar*`) — lê `degradacao_log`, templates ligados, canal de entrada, modelos configurados… |
+| `backup_diario` | Rotina de backup |
+| `reset_demo` | Reseta o tenant `acme-demo` |
+| `avisar_planos` | Aviso de plano |
+| `horizonte_kits` | Semanal — horizonte de kits |
+| `reconciliar_videos` | Semanal — reconcilia vídeos personalizados (F-V1) |
+
+**Só manuais** (`ACOES_SO_MANUAIS`, sem entrada no `vercel.json`): `trigger_segunda`,
+`trigger_quinta`, `recalcular_taxa` — e, desde 31/08, `conarh-followup` e
+`conarh_reenvio_t0`, do bloco off-line (§27).
+
+> ⚠️ **Os IDs `R1..R14` dos comentários de `regras.ts` NÃO são únicos** (conferido
+> 31/08/2026): **`R7` e `R10` aparecem duas vezes cada**, existe um `R11b`, e a ordem
+> no arquivo não segue a numeração (R10, depois R9, depois R8). Ou seja: um achado
+> descrito como “R7” é ambíguo entre *entrega incompleta* e *horizonte de kits*.
+> Ao citar uma regra, use o **nome da função** (`checarEntregaIncompleta`), não o
+> número — a função é que é única.
 
 ---
 
@@ -1321,8 +1417,8 @@ Padrao das mensagens: explicar **o que** vai acontecer, **escopo** (todos / N it
 | Painel | Rota | Funcao |
 |---|---|---|
 | Evidencias | `/admin/vertho/evidencias` | Conversas socraticas sem 1-12, extracao, transcript |
-| Avaliacao Acumulada | `/admin/vertho/avaliacao-acumulada` | Nota por descritor + auditoria + regerar |
-| Auditoria Sem 14 | `/admin/vertho/auditoria-sem14` | 4 notas (pre/acumulada/cenario/final) + delta + regerar com feedback |
+| Avaliacao Acumulada | **`/admin/vertho/auditorias?tab=sem13`** | Nota por descritor + auditoria + regerar |
+| Auditoria Sem 14 | **`/admin/vertho/auditorias?tab=sem14`** | 4 notas (pre/acumulada/cenario/final) + delta + regerar com feedback |
 | Simulador de Custo | `/admin/vertho/simulador-custo` | Calculadora (catalogo x modelos x presets) **+ painel "Real medido (ledger)"** — `ia_usage_log` por janela 7/30/90d, via a funcao SQL `ia_uso_resumo` (mig 178) |
 | Custo de IA | `/admin/vertho/custo-ia` | Plano custo/qualidade — **espelho de `docs/CUSTO-QUALIDADE.md`; atualizar os DOIS** |
 | Modulos-Base | `/admin/vertho/modulos-base` | Autoria + auditoria dual-IA dos modulos canonicos de conteudo |
@@ -1330,6 +1426,13 @@ Padrao das mensagens: explicar **o que** vai acontecer, **escopo** (todos / N it
 | Knowledge Base (RAG) | `/admin/vertho/knowledge-base` | CRUD + Upload PDF/DOCX + Seed + preview de busca (grounding per-tenant) |
 
 Todos com filtro `?empresa=` e back button context-aware. Dados via `lib/ia-cost-catalog.ts`.
+
+> ⚠️ **Corrigido em 31/08/2026:** as duas primeiras linhas apontavam para
+> `/admin/vertho/avaliacao-acumulada` e `/admin/vertho/auditoria-sem14`, que desde a
+> Fase 3 da reorganização do admin são **redirects** — as telas foram fundidas em
+> abas do workspace `/admin/vertho/auditorias`. Os endereços antigos continuam
+> funcionando (preservam bookmark e o `?empresa=`), mas um doc que ensina a rota
+> legada faz a próxima pessoa procurar a tela onde ela não mora mais.
 
 Fora do `/vertho` mas de mesma natureza operacional:
 
@@ -1412,7 +1515,7 @@ Z-API: WhatsApp gateway
 - Tabelas `fase4_progresso` e `tutor_log` — dropadas (migration 035)
 - Labels renomeadas: "Aplicacao" → "Pratica", "Mentor IA" → "Evidencias"
 - Cenario: titulo removido, "CENARIO" → "CONTEXTO"
-- "Marcar como assistido" → "Marcar como realizado"
+- "Marcar como assistido" → "Marcar como realizado" → **botão REMOVIDO em 27/08/2026** (servia à métrica, não à pessoa). ⚠️ A copy que o NOMEAVA sobreviveu nos 4 idiomas e virou instrução para apertar o que não existe — quem achou foi uma pessoa de Ibipeba presa na semana 1 por 6 dias. Ao remover controle, **grepe a palavra dele nos locales**.
 - `xlsx` — removido (2 CVEs high sem fix) → substituido por `read-excel-file@^8`
 - `jsconfig.json` — substituido por `tsconfig.json` (migração majoritária para TypeScript; arquivos .js/.mjs residuais permanecem em scripts, tests e configs)
 - `gas-antigo/` (69 arquivos GAS) — removido 2026-04-17
@@ -1420,7 +1523,7 @@ Z-API: WhatsApp gateway
 - `migrate:legacy` npm script — removido
 - `relatorio-arquitetura-vertho.md` — removido
 - Compatibilidade legada removida: perfil_disc fallback, typeof string checks em PDFs, resumo_avaliacao_detalhado
-- `radarbett.vertho.ai` — **DESCONTINUADO** (commit `b04e3ee`): 301 redirect (deep-links → radar.vertho.ai, resto → vertho.ai). Frentes "Onde a Vertho pode ajudar" migradas pro Radar (`0c57c19`). Código `app/radarbett/` segue no repo, dormant.
+- `radarbett.vertho.ai` — **DESCONTINUADO** (commit `b04e3ee`): 301 redirect (deep-links → radar.vertho.ai, resto → vertho.ai). Frentes "Onde a Vertho pode ajudar" migradas pro Radar (`0c57c19`). Código `app/radarbett/` segue no repo e, desde **31/08/2026**, está **OFF-LINE**: o layout responde `notFound()` incondicional (antes era gate por permissão). “Dormant” subestimava — as 7 rotas seguiam alcancáveis por `app.vertho.ai/radarbett/*`, porque o 301 do subdomínio é por HOST. Ver §27.1.
 - `middleware.js` → `proxy.js` (Next 16 proxy API, commits `38a8b71` + `4bac514`)
 
 ---
@@ -2188,7 +2291,20 @@ runtime. As outras três: `/api/cenarios`, `/api/internal/pregerar-podcast` e
 
 ---
 
-*Base validada contra o codigo-fonte local em 25/05/2026. Revisoes posteriores: pos-response/demo 07/07 · secao 25 em 04/08 · **§11 Camada 2 (RLS), §18, §19, Fluxo B e §27 em 31/08/2026**.*
+*Base validada contra o codigo-fonte local em 25/05/2026. Revisoes posteriores: pos-response/demo 07/07 · secao 25 em 04/08.*
+
+***Revisão completa em 31/08/2026*** — varredura do documento inteiro contra código e banco.
+*Verificado automaticamente: toda referência a arquivo (nenhuma quebrada), toda rota citada
+(nenhuma inexistente) e todo nome de tabela (2 fantasmas achados). Seções corrigidas:*
+*· **§1.1** renomeada — “Estado de Retomada (27/07)” prometia estado atual com 565 commits de atraso*
+*· **§1.2** nova — frentes de agosto/2026*
+*· **§2, §10** contagens (actions 42→94, lib 60→374, testes 814→3.365, migrations 172→218)*
+*· **§6.1** WhatsApp — dizia só “Z-API”; a Cloud API está no ar desde 14/08*
+*· **§9** crons — reescrita: listava 2 jobs **não agendados** e omitia 8 dos 10 reais*
+*· **§11** Camada 2 do RLS — prometia defesa que não existe; `tutor_log`/`fase4_progresso` citadas como ativas e dropadas na mig 035*
+*· **§13** dois painéis apontavam para rota legada (hoje redirect)*
+*· **§16** botão “Marcar como realizado” (removido 27/08) e RadarBett (dormant → off-line)*
+*· **§18, §19, §27** e Fluxo B — blocos off-line e levantamento de uso*
 
 *Tamanho do repo — **medido em 31/08/2026** (`git ls-files`, so versionado; o criterio importa porque o numero anterior, "~429 TS/TSX", nao dizia o dele e envelheceu por um fator de 2):*
 *· **984** arquivos `.ts/.tsx` de producao (`app` + `actions` + `lib` + `components` + `trigger`)*
