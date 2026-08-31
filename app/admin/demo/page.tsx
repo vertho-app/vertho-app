@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
@@ -76,6 +76,12 @@ type ProspectAccessView = AcmeProspectExperienceAccess & {
   views: PresentationLinkDemo[];
 };
 
+const PRESENTATION_VIEWS = [
+  { roleKey: 'usuario', visao: 'Usuário', nome: 'Bruna Costa' },
+  { roleKey: 'gestor', visao: 'Gestor', nome: 'Carla Menezes' },
+  { roleKey: 'rh', visao: 'RH', nome: 'Helena Duarte' },
+] as const satisfies ReadonlyArray<Pick<PresentationLinkDemo, 'roleKey' | 'visao' | 'nome'>>;
+
 const EMPTY_PROSPECT_FORM: ProspectForm = {
   nome: '',
   empresa: '',
@@ -106,8 +112,10 @@ export default function AdminDemoPage() {
   const [credenciais, setCredenciais] = useState<AcessosDemo | null>(null);
   const [magicLinks, setMagicLinks] = useState<MagicLinkDemo[] | null>(null);
   const [presentationLinks, setPresentationLinks] = useState<PresentationLinkDemo[] | null>(null);
-  const [preparandoApresentacao, setPreparandoApresentacao] = useState(false);
+  const [preparandoApresentacao, setPreparandoApresentacao] = useState(true);
+  const [presentationError, setPresentationError] = useState<string | null>(null);
   const [presentationOpened, setPresentationOpened] = useState<Set<string>>(new Set());
+  const presentationAutoRequested = useRef(false);
   const [prospectForm, setProspectForm] = useState<ProspectForm>(EMPTY_PROSPECT_FORM);
   const [prospectAccess, setProspectAccess] = useState<ProspectAccessView | null>(null);
   const [preparandoProspect, setPreparandoProspect] = useState(false);
@@ -117,6 +125,28 @@ export default function AdminDemoPage() {
   const [copiado, setCopiado] = useState<string | null>(null);
 
   const tenant = TENANTS[tenantSlug];
+
+  const disponibilizarApresentacao = useCallback(async (notificar = false) => {
+    setPreparandoApresentacao(true);
+    setPresentationError(null);
+    try {
+      const r = await prepararSalaApresentacaoDemo();
+      if (!r.success) {
+        const mensagem = r.error || 'erro desconhecido';
+        setPresentationError(mensagem);
+        if (notificar) toast.error(`Falha ao disponibilizar as visões: ${mensagem}`);
+        return;
+      }
+      setPresentationLinks(r.acessos);
+      if (notificar) toast.success('As três visões estão disponíveis.');
+    } catch (e: any) {
+      const mensagem = e?.message || 'erro inesperado';
+      setPresentationError(mensagem);
+      if (notificar) toast.error(`Falha ao disponibilizar as visões: ${mensagem}`);
+    } finally {
+      setPreparandoApresentacao(false);
+    }
+  }, []);
 
   const carregarAndamento = useCallback(async (options: { silencioso?: boolean } = {}) => {
     if (!options.silencioso) setCarregandoProgress(true);
@@ -149,6 +179,12 @@ export default function AdminDemoPage() {
       });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (presentationAutoRequested.current) return;
+    presentationAutoRequested.current = true;
+    void disponibilizarApresentacao();
+  }, [disponibilizarApresentacao]);
 
   function selecionarTenant(slug: TenantSlug) {
     setTenantSlug(slug);
@@ -230,25 +266,6 @@ export default function AdminDemoPage() {
       toast.error(`Erro: ${e?.message || 'inesperado'}`);
     } finally {
       setPreparando(false);
-    }
-  }
-
-  async function prepararApresentacao() {
-    setPreparandoApresentacao(true);
-    setPresentationLinks(null);
-    setPresentationOpened(new Set());
-    try {
-      const r = await prepararSalaApresentacaoDemo();
-      if (!r.success) {
-        toast.error(`Falha ao preparar apresentação: ${r.error || 'erro'}`);
-        return;
-      }
-      setPresentationLinks(r.acessos);
-      toast.success('As três visões estão prontas para abrir.');
-    } catch (e: any) {
-      toast.error(`Erro: ${e?.message || 'inesperado'}`);
-    } finally {
-      setPreparandoApresentacao(false);
     }
   }
 
@@ -460,46 +477,61 @@ export default function AdminDemoPage() {
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={prepararApresentacao}
-                disabled={preparandoApresentacao || busy}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-bold text-[#0C1829] transition-colors hover:bg-cyan-50 disabled:opacity-50"
-              >
-                {preparandoApresentacao
-                  ? <><Loader2 size={16} className="animate-spin" /> Preparando as três visões…</>
-                  : <><MonitorPlay size={16} /> Preparar apresentação</>}
-              </button>
-
-              {presentationLinks && (
-                <div className="mt-4">
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {presentationLinks.map((acesso) => {
-                      const aberto = presentationOpened.has(acesso.roleKey);
-                      return (
-                        <button
-                          type="button"
-                          key={acesso.roleKey}
-                          onClick={() => abrirVisaoApresentacao(acesso)}
-                          className="group rounded-xl border border-white/10 bg-[#081523]/75 p-3 text-left transition-colors hover:border-cyan-300/35 hover:bg-[#0b1b2c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-                        >
-                          <span className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-white">{acesso.visao}</span>
-                            <ExternalLink size={13} className="text-white/35 transition-colors group-hover:text-cyan-300" aria-hidden="true" />
-                          </span>
-                          <span className="mt-1 block truncate text-[9px] text-white/40">{acesso.nome}</span>
-                          <span className={`mt-3 block text-[9px] font-bold ${aberto ? 'text-emerald-300' : 'text-cyan-300'}`}>
-                            {aberto ? 'Sessão preparada' : 'Abrir esta visão'}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="mt-3 text-[10px] leading-relaxed text-gray-500">
-                    Abra qualquer visão. Use “Visão apresentada” para trocar de função sem login e “Dispositivo” para alternar entre Computador e a experiência responsiva de Celular.
-                  </p>
+              <div className="mt-4" aria-busy={preparandoApresentacao}>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {PRESENTATION_VIEWS.map((visao) => {
+                    const acesso = presentationLinks?.find((item) => item.roleKey === visao.roleKey);
+                    const aberto = presentationOpened.has(visao.roleKey);
+                    const carregando = preparandoApresentacao && !acesso;
+                    return (
+                      <button
+                        type="button"
+                        key={visao.roleKey}
+                        onClick={() => acesso && abrirVisaoApresentacao(acesso)}
+                        disabled={!acesso || busy}
+                        className="group rounded-xl border border-white/10 bg-[#081523]/75 p-3 text-left transition-colors hover:border-cyan-300/35 hover:bg-[#0b1b2c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-wait disabled:opacity-65"
+                      >
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-white">{visao.visao}</span>
+                          {carregando
+                            ? <Loader2 size={13} className="animate-spin text-cyan-300" aria-hidden="true" />
+                            : <ExternalLink size={13} className="text-white/35 transition-colors group-hover:text-cyan-300" aria-hidden="true" />}
+                        </span>
+                        <span className="mt-1 block truncate text-[9px] text-white/40">{visao.nome}</span>
+                        <span className={`mt-3 flex items-center gap-1.5 text-[9px] font-bold ${aberto ? 'text-emerald-300' : 'text-cyan-300'}`}>
+                          {carregando
+                            ? 'Disponibilizando acesso…'
+                            : aberto
+                              ? 'Sessão ativa'
+                              : acesso
+                                ? 'Abrir esta visão'
+                                : 'Acesso indisponível'}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+
+                {presentationError && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.04] px-3 py-2">
+                    <p className="text-[10px] leading-relaxed text-amber-100/70">
+                      Não foi possível liberar as visões automaticamente.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void disponibilizarApresentacao(true)}
+                      disabled={preparandoApresentacao || busy}
+                      className="text-[10px] font-bold text-cyan-300 transition-colors hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:opacity-50"
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
+                )}
+
+                <p className="mt-3 text-[10px] leading-relaxed text-gray-500">
+                  As visões ficam disponíveis automaticamente. Use “Visão apresentada” para trocar de função sem login e “Dispositivo” para alternar entre Computador e a experiência responsiva de Celular.
+                </p>
+              </div>
             </div>
           </section>
 

@@ -67,11 +67,12 @@ com `email_confirm: true`, sem senha — o login é por magic link).
 
 ## Sala de apresentação ao vivo
 
-Para demonstrar as três funções sem logout, abra `/admin/demo` e clique
-**Preparar apresentação**. A sala usa sempre o `acme-demo`: ele contém o mesmo
-fixture e os mesmos artefatos do Grupo Sinal, mas mantém identidade genérica.
+Para demonstrar as três funções sem logout, abra `/admin/demo`. As três visões
+ficam sempre visíveis e o acesso seguro é disponibilizado automaticamente ao
+carregar a página. A sala usa sempre o `acme-demo`: ele contém o mesmo fixture
+e os mesmos artefatos do Grupo Sinal, mas mantém identidade genérica.
 
-O botão prepara um ponto de entrada para cada origem:
+O carregamento automático prepara um ponto de entrada para cada origem:
 
 | Visão | Host isolado | Conta real |
 |---|---|---|
