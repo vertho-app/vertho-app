@@ -848,6 +848,7 @@ export async function loadTemporada(colaboradorId: string, opts: { semanaTranscr
 
     return {
       ok: true,
+      viewerRole: ctx.role,
       trilha: {
         ...trilha,
         temporada_plano: plano,

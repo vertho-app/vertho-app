@@ -16,6 +16,7 @@ import {
   fetchColabPorId,
   gerarEsalvarRelatorioComportamentalCore,
 } from '@/lib/relatorio-comportamental/relatorio-core';
+import { buildAcmeDemoBehavioralReport } from '@/lib/demo/acme-behavioral-report';
 
 // ── Helpers internos ────────────────────────────────────────────────────────
 
@@ -49,6 +50,24 @@ async function loadBehavioralReportForColab(colab: any, force = false) {
   if (!force && isFreshReportCache(colab.report_texts, colab.report_generated_at)) {
     return { raw, texts: colab.report_texts, cached: true };
   }
+  const sb = createSupabaseAdmin();
+
+  // A sala demo precisa abrir instantaneamente durante uma apresentação. As
+  // personas sintéticas têm números DISC coerentes, mas não podem depender de
+  // uma chamada de IA ao vivo para ganhar a narrativa completa. O fallback é
+  // restrito a tenant explicitamente marcado como demo e usa o schema canônico.
+  if (!force && colab.empresa_id) {
+    const { data: empresa, error: empresaError } = await sb.from('empresas')
+      .select('is_demo')
+      .eq('id', colab.empresa_id)
+      .maybeSingle();
+    if (empresaError) console.error('[loadBehavioralReport] Falha ao identificar tenant demo:', empresaError.message);
+    if (!empresaError && empresa?.is_demo) {
+      const texts = buildAcmeDemoBehavioralReport(colab);
+      await persistReportTexts(sb, colab.id, texts, colab.empresa_id);
+      return { raw, texts, cached: false, demo: true };
+    }
+  }
 
   let texts;
   try {
@@ -58,7 +77,6 @@ async function loadBehavioralReportForColab(colab: any, force = false) {
     return { error: 'Erro ao interpretar resposta do modelo. Tente novamente.' };
   }
 
-  const sb = createSupabaseAdmin();
   await persistReportTexts(sb, colab.id, texts, colab.empresa_id);
   return { raw, texts, cached: false };
 }

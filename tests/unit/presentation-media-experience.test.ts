@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DEMO_PRESENTATION_WEEK_VIDEO } from '@/lib/demo/reset-acme-demo';
+import { DEMO_PRESENTATION_VIDEO, DEMO_PRESENTATION_WEEK_VIDEO } from '@/lib/demo/reset-acme-demo';
 
 const read = (file: string) => readFileSync(join(process.cwd(), file), 'utf8');
 
@@ -25,9 +25,12 @@ describe('experiência de mídia na apresentação', () => {
     expect(week).toContain('setMediaSession((current) => current + 1)');
   });
 
-  it('usa o vídeo nominal da Bruna com voz única', () => {
+  it('usa conteúdo editorial com saudação nominal da Bruna na mesma voz', () => {
+    expect(DEMO_PRESENTATION_VIDEO.bunny_video_id)
+      .toBe('e8b77be3-ce8d-4993-8e18-b1cc1514a5ab');
+    expect(DEMO_PRESENTATION_VIDEO.titulo).not.toMatch(/jornada semanal|tutorial/i);
     expect(DEMO_PRESENTATION_WEEK_VIDEO.personalizedBunnyVideoId)
-      .toBe('2f1d3db8-afb4-4329-bf0a-8ed8408a5a54');
+      .toBe('8c3fd9f0-eb48-4398-aac6-242a1398e1e1');
   });
 });
 
@@ -57,7 +60,21 @@ describe('resultados e perfis da apresentação', () => {
     expect(manager).toContain("disabled={e.status === 'sem_trilha'}");
     expect(season).toContain('await loadTemporada(colaboradorAlvo)');
     expect(season).toContain("t('managerView.title')");
-    expect(season).toContain('disabled={!liberada || visaoGestor}');
+    expect(season).toContain('router.push(s.semana === semCenarioB ?');
+    expect(season).toContain('urlConsulta');
+    expect(season).not.toContain('disabled={!liberada || visaoGestor}');
+  });
+
+  it('abre a semana de terceiro em prévia sem gravar progresso ou telemetria', () => {
+    const week = read('app/dashboard/temporada/semana/[week]/page.tsx');
+    const videoAction = read('actions/gerar-video.ts');
+    expect(week).toContain('await loadTemporada(colaboradorAlvo, { semanaTranscrito: semanaNum })');
+    expect(week).toContain('resolverVideoDaSemanaGestor(colaboradorAlvo');
+    expect(week).toContain('if (visaoLeitura) return;');
+    expect(week).toContain('!visaoLeitura && !isAplicacao && !isAvaliacao');
+    expect(videoAction).toContain('export async function resolverVideoDaSemanaGestor');
+    expect(videoAction).toContain('canViewColabJourney(ctx, colab)');
+    expect(videoAction).toContain('resolverVideoDaSemanaParaColaborador(tdb.raw, colab, competencia, descritor, false, opts)');
   });
 
   it('mantém o ranking estável por tenant e abre a primeira fotografia', () => {

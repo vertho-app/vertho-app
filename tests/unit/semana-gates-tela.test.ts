@@ -160,7 +160,7 @@ describe('itens 3 e 4 — a régua passou a ser dita', () => {
     // desaparecia exatamente quando ela venceu. Some o que COBRA; o que CELEBRA
     // fica. A régua correta é: aviso de PENDÊNCIA some ao ser resolvido, marco
     // de CONCLUSÃO aparece.
-    expect(TELA).toContain('{!isAvaliacao && (');
+    expect(TELA).toContain('{!visaoLeitura && !isAvaliacao && (');
     expect(TELA).toContain('chatFinished ? (');
     expect(TELA).toContain("t('progress.weekDone', { week: semanaNum })");
     expect(TELA).not.toContain('{!chatFinished && !isAvaliacao && (');

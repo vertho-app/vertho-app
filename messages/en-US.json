@@ -900,6 +900,12 @@
     "header": {
       "weekOf": "Week {week} of {total}"
     },
+    "readonly": {
+      "titleRh": "HR preview · {name}",
+      "titleManager": "Manager preview · {name}",
+      "subtitle": "The week's real content, without recording consumption, progress, or answers.",
+      "actionsHidden": "Employee actions are hidden in this preview."
+    },
     "type": {
       "practice": "Practice",
       "assessment": "Assessment",
@@ -1095,8 +1101,10 @@
       "back": "Back to team",
       "eyebrow": "INDIVIDUAL JOURNEY · {name}",
       "title": "Manager view · read only",
+      "titleRh": "HR view · read only",
       "subtitle": "The employee's real journey, including the plan and progress.",
-      "readOnly": "Read-only view"
+      "readOnly": "Read-only view",
+      "finalAssessmentReadOnly": "The final assessment can only be completed by the employee"
     },
     "empty": {
       "title": "Your season has not yet been generated",

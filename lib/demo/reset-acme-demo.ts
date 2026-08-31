@@ -36,6 +36,7 @@ import { precomputeDemoFitResults, seedAcmeFitRankingSnapshots } from '@/lib/dem
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile } from '@/lib/disc-mapeamento';
 import { IA4_FILTRO, TRILHA } from '@/lib/status';
+import { buildAcmeDemoBehavioralReport } from '@/lib/demo/acme-behavioral-report';
 
 /**
  * Reset/seed do tenant ACME Demo (slug `acme-demo`) — versão IN-APP da lógica
@@ -79,18 +80,18 @@ const DEMO_JOURNEY_CONTENT_KIND = 'conteudo' as const;
  * Vídeo editorial fixo da sala de apresentação.
  *
  * A library também recebe vídeos personalizados de clientes; por isso o GUID
- * aqui é deliberadamente o tutorial genérico do produto, e não um item
- * "parecido" descoberto por título. O slot é recomposto a cada reset para a
- * visão Usuário nunca voltar a ficar só com artigo, case e áudio.
+ * aqui é deliberadamente um conteúdo editorial da Vertho, e não o tutorial de
+ * navegação. O slot é recomposto a cada reset para a visão Usuário sempre ter
+ * um vídeo de desenvolvimento real, além de artigo, case e áudio.
  */
 export const DEMO_PRESENTATION_VIDEO = {
-  titulo: 'Sua jornada semanal, por dentro',
-  descricao: 'Veja como as atividades, os conteúdos e o acompanhamento se conectam ao longo da sua jornada de desenvolvimento.',
+  titulo: 'Antecipar cenários: perceber antes, agir melhor',
+  descricao: 'Conteúdo prático sobre reconhecer sinais e agir antes que a urgência vire pressão.',
   formato: 'video',
-  duracao_min: 2.3,
-  bunny_video_id: '64c4f43d-7c5d-4b1e-9433-725a1dddbf34',
+  duracao_min: 1.7,
+  bunny_video_id: 'e8b77be3-ce8d-4993-8e18-b1cc1514a5ab',
   competencia: REPRESENTANTE_FOCO[0],
-  descritor: 'Navegação pela jornada semanal',
+  descritor: 'Criação de senso de urgência',
   nivel_min: 1,
   nivel_max: 4,
   tipo_conteudo: 'core',
@@ -106,9 +107,8 @@ export const DEMO_PRESENTATION_VIDEO = {
  * porque as duas salas usam a mesma persona Bruna e a arte é neutra (Vertho). */
 export const DEMO_PRESENTATION_WEEK_VIDEO = {
   competenciaBaseId: '004408f2-6ae4-41a0-87ae-ace7ad54b32c',
-  // Saudação e tutorial usam a mesma voz (Achird). O asset anterior começava
-  // com Vindemiatrix e trocava de narrador ao entrar no tutorial.
-  personalizedBunnyVideoId: '2f1d3db8-afb4-4329-bf0a-8ed8408a5a54',
+  // Saudação e conteúdo usam a mesma narradora feminina (Vindemiatrix).
+  personalizedBunnyVideoId: '8c3fd9f0-eb48-4398-aac6-242a1398e1e1',
   byTenant: {
     'acme-demo': {
       moduleId: '5faaf43b-8b80-4bd7-aab1-204fa83dad56',
@@ -1179,6 +1179,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     const idMap = new Map<string, string>();
     for (const p of PERSONAS) {
       const semPerfil = slug === DEMO_SLUG && ACME_DEMO_WITHOUT_PROFILE_KEYS.some((key) => key === p.key);
+      const reportTexts = semPerfil ? null : buildAcmeDemoBehavioralReport(p);
       const inserted = await must(`insert persona ${p.key}`, sb.from('colaboradores').insert({
         empresa_id: destId, nome_completo: p.nome_completo, email: p.email, cargo: p.cargo, role: p.role,
         area_depto: p.area_depto, gestor_nome: p.gestor_nome, gestor_email: p.gestor_email, gestor_whatsapp: p.gestor_whatsapp,
@@ -1187,6 +1188,8 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         d_natural: p.d_natural, i_natural: p.i_natural, s_natural: p.s_natural, c_natural: p.c_natural,
         ...comportamentosDoDisc(p.d_natural, p.i_natural, p.s_natural, p.c_natural),
         disc_resultados: semPerfil ? null : { demo: true, estado_demo: p.scenario },
+        report_texts: reportTexts,
+        report_generated_at: reportTexts ? new Date().toISOString() : null,
       }).select('id').single());
       idMap.set(p.key, inserted.id);
     }
@@ -1203,6 +1206,10 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
           S: pessoa.s_natural,
           C: pessoa.c_natural,
         };
+        const perfilDominante = semPerfil ? null : deriveProfile(disc);
+        const reportTexts = perfilDominante
+          ? buildAcmeDemoBehavioralReport({ ...pessoa, perfil_dominante: perfilDominante })
+          : null;
         const inserted = await must(`insert diretório RH ${pessoa.key}`, sb.from('colaboradores').insert({
           empresa_id: destId,
           nome_completo: pessoa.nome_completo,
@@ -1213,7 +1220,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
           gestor_nome: pessoa.gestor_nome,
           gestor_email: pessoa.gestor_email,
           gestor_whatsapp: null,
-          perfil_dominante: semPerfil ? null : deriveProfile(disc),
+          perfil_dominante: perfilDominante,
           mapeamento_em: semPerfil ? null : new Date().toISOString(),
           d_natural: pessoa.d_natural,
           i_natural: pessoa.i_natural,
@@ -1221,6 +1228,8 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
           c_natural: pessoa.c_natural,
           ...comportamentosDoDisc(pessoa.d_natural, pessoa.i_natural, pessoa.s_natural, pessoa.c_natural),
           disc_resultados: semPerfil ? null : { demo: true, estado_demo: 'relatorio-rh' },
+          report_texts: reportTexts,
+          report_generated_at: reportTexts ? new Date().toISOString() : null,
         }).select('id').single());
         idMap.set(pessoa.key, inserted.id);
       }

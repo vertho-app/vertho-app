@@ -900,6 +900,12 @@
     "header": {
       "weekOf": "Semana {week} de {total}"
     },
+    "readonly": {
+      "titleRh": "Prévia do RH · {name}",
+      "titleManager": "Prévia da liderança · {name}",
+      "subtitle": "Conteúdos reais da semana, sem registrar consumo, progresso ou respostas.",
+      "actionsHidden": "As ações do colaborador ficam ocultas nesta prévia."
+    },
     "pdi": {
       "badge": "No seu PDI",
       "sustains": "Esta semana sustenta"
@@ -1095,8 +1101,10 @@
       "back": "Voltar à equipe",
       "eyebrow": "TRILHA INDIVIDUAL · {name}",
       "title": "Visão do gestor · somente leitura",
+      "titleRh": "Visão do RH · somente leitura",
       "subtitle": "A mesma trilha do colaborador, com plano e progresso reais.",
-      "readOnly": "Visualização somente leitura"
+      "readOnly": "Visualização somente leitura",
+      "finalAssessmentReadOnly": "A avaliação final só pode ser realizada pelo colaborador"
     },
     "empty": {
       "title": "Sua temporada ainda não foi gerada",

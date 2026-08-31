@@ -86,6 +86,9 @@ export default function TemporadaPage() {
   // A jornada "vendida" são as semanas de CONTEÚDO (2) — o fechamento é etapa.
   const isPiloto = semanas.some((s: any) => s.calendario_semana != null);
   const semanasJornada = isPiloto ? semanas.filter((s: any) => s.tipo === 'conteudo').length : totalSemanas;
+  const tituloConsulta = data.viewerRole === 'rh'
+    ? t('managerView.titleRh')
+    : t('managerView.title');
 
   return (
     // ✅ data-phase="4" + CSS vars — toda a página herda a cor violeta da Temporada
@@ -125,7 +128,7 @@ export default function TemporadaPage() {
               <Eye size={17} />
             </span>
             <div>
-              <p className="text-xs font-bold text-white">{t('managerView.title')}</p>
+              <p className="text-xs font-bold text-white">{tituloConsulta}</p>
               <p className="text-[10px] leading-relaxed text-white/45">{t('managerView.subtitle')}</p>
             </div>
           </div>
@@ -214,13 +217,21 @@ export default function TemporadaPage() {
               : 0;
 
             const Icon = s.tipo === 'aplicacao' ? Target : s.tipo === 'avaliacao' ? Sparkles : (FORMAT_ICON[s.conteudo?.formato_core] || BookOpen);
+            const avaliacaoFinalSomenteLeitura = visaoGestor && s.semana === semCenarioB;
+            const urlSemana = `/dashboard/temporada/semana/${s.semana}`;
+            const urlConsulta = colaboradorAlvo
+              ? `${urlSemana}?colaborador=${encodeURIComponent(colaboradorAlvo)}&origem=gestor`
+              : urlSemana;
 
             return (
               <button
                 key={s.semana}
-                onClick={() => !visaoGestor && liberada && router.push(s.semana === semCenarioB ? '/dashboard/temporada/sem14' : `/dashboard/temporada/semana/${s.semana}`)}
-                disabled={!liberada || visaoGestor}
-                title={visaoGestor ? t('managerView.readOnly') : motivoBloqueio}
+                onClick={() => {
+                  if (!liberada || avaliacaoFinalSomenteLeitura) return;
+                  router.push(s.semana === semCenarioB ? '/dashboard/temporada/sem14' : urlConsulta);
+                }}
+                disabled={!liberada || avaliacaoFinalSomenteLeitura}
+                title={avaliacaoFinalSomenteLeitura ? t('managerView.finalAssessmentReadOnly') : motivoBloqueio}
                 className={`relative rounded-xl p-3 text-left transition-all border ${
                   concluida
                     ? 'bg-emerald-500/10 border-emerald-500/30 hover:border-emerald-400'
@@ -229,7 +240,7 @@ export default function TemporadaPage() {
                     : liberada
                     ? 'bg-white/5 border-white/10 hover:border-white/30'
                     : 'bg-white/[0.02] border-white/5 opacity-50 cursor-not-allowed'
-                } ${visaoGestor ? 'disabled:cursor-default' : ''}`}
+                } ${avaliacaoFinalSomenteLeitura ? 'disabled:cursor-default' : ''}`}
                 style={emAndamento ? {
                   background: 'color-mix(in oklab, var(--phase-accent) 10%, transparent)',
                   borderColor: 'color-mix(in oklab, var(--phase-accent) 45%, transparent)',

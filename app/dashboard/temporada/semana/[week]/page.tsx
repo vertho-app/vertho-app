@@ -7,10 +7,10 @@ import { getSupabase } from '@/lib/supabase-browser';
 import { formatarLiberacao, avaliarAcessoSemana, turnosIaNecessarios, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import ReactMarkdown from 'react-markdown';
-import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle, Lock } from 'lucide-react';
+import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle, Lock, Eye } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { loadTemporadaPorEmail, marcarConteudoConsumido } from '@/actions/temporadas';
-import { resolverVideoDaSemana } from '@/actions/gerar-video';
+import { loadTemporada, loadTemporadaPorEmail, marcarConteudoConsumido } from '@/actions/temporadas';
+import { resolverVideoDaSemana, resolverVideoDaSemanaGestor } from '@/actions/gerar-video';
 import { useBunnyTracking } from '@/lib/use-bunny-tracking';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
@@ -55,6 +55,10 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const semanaNum = Number(week);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const colaboradorAlvo = searchParams.get('colaborador');
+  // Um ID de terceiro sempre ativa a prévia somente leitura. `origem` é apenas
+  // navegação e nunca participa da autorização.
+  const visaoLeitura = !!colaboradorAlvo;
   const sb = getSupabase();
 
   const [data, setData] = useState(null);
@@ -75,6 +79,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   // frustrada como consumo de conteúdo.
   const aberturaLogada = useRef(false);
   useEffect(() => {
+    if (visaoLeitura) return;
     const trilhaId = data?.trilha?.id;
     if (!trilhaId || aberturaLogada.current) return;
     aberturaLogada.current = true;
@@ -93,12 +98,13 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
       formato: searchParams.get('formato'),
       tipo: liberada ? 'abertura' : 'bloqueio',
     }).catch(() => {});
-  }, [data?.trilha?.id, semanaNum]);
+  }, [data?.trilha?.id, semanaNum, visaoLeitura]);
 
   // Hidrata `abriuConteudo` do histórico (ver o comentário do estado). Só LIGA,
   // nunca desliga: um `false` da rede não pode apagar o clique que a pessoa
   // acabou de dar nesta sessão.
   useEffect(() => {
+    if (visaoLeitura) return;
     const trilhaId = data?.trilha?.id;
     if (!trilhaId) return;
     let vivo = true;
@@ -106,7 +112,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
       .then((r) => { if (vivo && r?.abriu) setAbriuConteudo(true); })
       .catch(() => {});
     return () => { vivo = false; };
-  }, [data?.trilha?.id, semanaNum]);
+  }, [data?.trilha?.id, semanaNum, visaoLeitura]);
 
   /**
    * A pessoa já abriu o conteúdo desta semana?
@@ -148,7 +154,9 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     (async () => {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const r = await loadTemporadaPorEmail(user.email, { semanaTranscrito: semanaNum });
+      const r = colaboradorAlvo
+        ? await loadTemporada(colaboradorAlvo, { semanaTranscrito: semanaNum })
+        : await loadTemporadaPorEmail(user.email, { semanaTranscrito: semanaNum });
       if (!r.error) {
         setData(r);
         const semana = (r.trilha?.temporada_plano || []).find(s => s.semana === semanaNum);
@@ -174,10 +182,16 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
       }
       setLoading(false);
     })();
-  }, [router, sb, semanaNum]);
+  }, [colaboradorAlvo, router, sb, searchParams, semanaNum]);
 
-  // Sem 14 tem UI própria (idêntica ao mapeamento)
-  if (semanaNum === 14) { router.replace('/dashboard/temporada/sem14'); return <Center><Loader2 className="animate-spin text-brand-400" /></Center>; }
+  // Sem 14 tem UI própria (idêntica ao mapeamento). A avaliação é mutativa e
+  // não entra na prévia de terceiros; o card correspondente já fica desabilitado.
+  if (semanaNum === 14) {
+    router.replace(visaoLeitura && colaboradorAlvo
+      ? `/dashboard/temporada?colaborador=${encodeURIComponent(colaboradorAlvo)}&origem=gestor`
+      : '/dashboard/temporada/sem14');
+    return <Center><Loader2 className="animate-spin text-brand-400" /></Center>;
+  }
   if (loading) return <Center><Loader2 className="animate-spin text-brand-400" /></Center>;
   if (!data?.trilha) return <Center><p className="text-gray-400">{t('errors.seasonNotFound')}</p></Center>;
 
@@ -237,6 +251,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const conteudoConsumido = consumiuConteudo(progressoSemana?.conteudo_consumido);
 
   async function handleConsumido() {
+    if (visaoLeitura) return;
     await marcarConteudoConsumido(data.trilha.id, semanaNum);
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { router.replace('/login'); return; }
@@ -301,6 +316,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const turnosFaltando = Math.max(turnosNecessarios - turnosFeitos, 0);
 
   async function startChat() {
+    if (visaoLeitura) return;
     setChatStarted(true);
     // Registra o consumo ao ENTRAR na conversa, para quem chegou aqui sem ter
     // clicado no botão manual. Best-effort e idempotente: se falhar, a conversa
@@ -328,6 +344,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   }
 
   async function setMissaoModo(modo) {
+    if (visaoLeitura) return;
     if (missaoBusy) return;
     if (modo === 'pratica' && !compromissoInput.trim()) return;
     setMissaoBusy(true);
@@ -351,6 +368,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   }
 
   async function sendTiraDuvida() {
+    if (visaoLeitura) return;
     if (!tdInput.trim() || tdBusy) return;
     tdMicRef.current?.stop();
     const msg = tdInput;
@@ -367,6 +385,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   }
 
   async function sendMessage() {
+    if (visaoLeitura) return;
     if (!chatInput.trim() || chatBusy) return;
     chatMicRef.current?.stop();
     const msg = chatInput;
@@ -385,7 +404,9 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
 
   return (
     <PageContainer>
-      <BackButton href="/dashboard/temporada" />
+      <BackButton href={visaoLeitura && colaboradorAlvo
+        ? `/dashboard/temporada?colaborador=${encodeURIComponent(colaboradorAlvo)}&origem=gestor`
+        : '/dashboard/temporada'} />
 
       {/* Header */}
       <div className="mb-6">
@@ -401,7 +422,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
             pílula pra consumir, tem missão pra executar e relatar. O vídeo abre
             sozinho na PRIMEIRA que a pessoa acessar e depois fica como botão: a
             mecânica é a mesma nas três, então repetir seria ruído. */}
-        {isAplicacao && (
+        {isAplicacao && !visaoLeitura && (
           <div className="mt-3">
             <FirstViewVideo
               videoId={APLICACAO_VIDEO_ID}
@@ -413,6 +434,22 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
           </div>
         )}
       </div>
+
+      {visaoLeitura && (
+        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/[0.06] px-4 py-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-violet-400/10 text-violet-300">
+            <Eye size={17} />
+          </span>
+          <div>
+            <p className="text-xs font-bold text-white">
+              {t(data.viewerRole === 'rh' ? 'readonly.titleRh' : 'readonly.titleManager', {
+                name: data.colaborador?.nome_completo || '—',
+              })}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-white/50">{t('readonly.subtitle')}</p>
+          </div>
+        </div>
+      )}
 
       {/*
         ESTADO DA SEMANA — o que falta para ela fechar, dito antes de tudo.
@@ -429,7 +466,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
         mostrada onde a decisão acontece. Some quando a semana está concluída —
         aviso que fica depois de resolvido é aviso que se aprende a ignorar.
       */}
-      {!isAvaliacao && (
+      {!visaoLeitura && !isAvaliacao && (
         chatFinished ? (
           /*
             SEMANA CONCLUÍDA — e este é o momento de MAIOR valor do produto.
@@ -586,6 +623,8 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                   setFormatoAtivo={(formato) => setFormatoAtivo(prev => ({ ...(typeof prev === 'object' && prev !== null ? prev : {}), [idx]: formato }))}
                   trilhaId={data.trilha.id}
                   semana={semanaNum}
+                  colaboradorAlvo={colaboradorAlvo}
+                  somenteLeitura={visaoLeitura}
                   /*
                    * Abrir um formato JÁ marca a semana como realizada.
                    *
@@ -605,10 +644,11 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                    * esquecimento.
                    */
                   onAbrirConteudo={() => {
+                    if (visaoLeitura) return;
                     setAbriuConteudo(true);
                     if (!conteudoConsumido) handleConsumido();
                   }}
-                  onAutoConsumido={() => !conteudoConsumido && handleConsumido()}
+                  onAutoConsumido={() => !visaoLeitura && !conteudoConsumido && handleConsumido()}
                   onSemFonte={() => setSemFonte((p) => (p[idx] ? p : { ...p, [idx]: true }))}
                   t={t}
                 />
@@ -750,18 +790,24 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               <div className="prose prose-invert prose-sm max-w-none mb-4">
                 <ReactMarkdown>{missaoTexto}</ReactMarkdown>
               </div>
-              <label className="block text-xs text-gray-400 mb-2">
-                {t('mission.commitmentPrompt')}
-              </label>
-              <textarea value={compromissoInput}
-                onChange={e => setCompromissoInput(e.target.value)}
-                rows={2} placeholder={t('mission.commitmentPlaceholder')}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500 mb-3" />
-              <button onClick={() => setMissaoModo('pratica')}
-                disabled={missaoBusy || !compromissoInput.trim()}
-                className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-sm font-bold">
-                {t('mission.accept')}
-              </button>
+              {visaoLeitura ? (
+                <p className="text-xs text-white/45">{t('readonly.actionsHidden')}</p>
+              ) : (
+                <>
+                  <label className="block text-xs text-gray-400 mb-2">
+                    {t('mission.commitmentPrompt')}
+                  </label>
+                  <textarea value={compromissoInput}
+                    onChange={e => setCompromissoInput(e.target.value)}
+                    rows={2} placeholder={t('mission.commitmentPlaceholder')}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500 mb-3" />
+                  <button onClick={() => setMissaoModo('pratica')}
+                    disabled={missaoBusy || !compromissoInput.trim()}
+                    className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-sm font-bold">
+                    {t('mission.accept')}
+                  </button>
+                </>
+              )}
             </GlassCard>
           );
         }
@@ -783,7 +829,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                 <p className="text-[10px] uppercase text-amber-400 font-bold tracking-wider mb-1">{t('mission.yourCommitment')}</p>
                 <p className="text-sm text-gray-200">{compromissoSalvo}</p>
               </div>
-              {!chatStarted && (
+              {!visaoLeitura && !chatStarted && (
                 <>
                   <p className="text-xs text-gray-400 mb-3">
                     {t('mission.didYouExecute')}
@@ -856,7 +902,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
       {/* Tira-Dúvidas: só em semanas de conteúdo. Botão liberado após marcar
           o conteúdo como realizado — mas renderiza o card sempre pra dar
           visibilidade do recurso. */}
-      {!isAplicacao && !isAvaliacao && (
+      {!visaoLeitura && !isAplicacao && !isAvaliacao && (
         <GlassCard className="mb-4">
           <div className="flex items-center gap-2 mb-3">
             <HelpCircle size={16} className="text-brand-400" />
@@ -927,7 +973,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
           (Antes chamado de "Mentor IA".) Inclui semanas de avaliação (13/14).
           Em sems 4/8/12 com modo=prática, só aparece depois do colab clicar 'Sim'
           (chatStarted) pra não poluir a tela com botão duplicado / card sem sentido. */}
-      {!(isAplicacao && progressoSemana?.feedback?.modo === 'pratica' && !chatStarted) && (
+      {!visaoLeitura && !(isAplicacao && progressoSemana?.feedback?.modo === 'pratica' && !chatStarted) && (
         <GlassCard className="mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles size={16} className="text-purple-400" />
@@ -1075,7 +1121,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   );
 }
 
-function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo, setFormatoAtivo, onAutoConsumido, onAbrirConteudo, onSemFonte, trilhaId, semana, t }) {
+function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo, setFormatoAtivo, onAutoConsumido, onAbrirConteudo, onSemFonte, trilhaId, semana, colaboradorAlvo, somenteLeitura, t }) {
   // Vídeo da CÉLULA (cargo × DISC × PPP), resolvido pela competência da semana.
   // Aparece como um formato a mais (chip clicável); o player abre inline igual
   // aos outros. Não dispara geração (gerar=false) — só reusa pronto/em-preparo.
@@ -1085,11 +1131,14 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
   useEffect(() => {
     if (!competencia) return;
     let alive = true;
-    resolverVideoDaSemana(competencia, descritor || null, false, { coreId: conteudo?.core_id || null })
+    const resolver = somenteLeitura && colaboradorAlvo
+      ? resolverVideoDaSemanaGestor(colaboradorAlvo, competencia, descritor || null, { coreId: conteudo?.core_id || null })
+      : resolverVideoDaSemana(competencia, descritor || null, false, { coreId: conteudo?.core_id || null });
+    resolver
       .then((r) => { if (alive) setVid(r); })
       .catch(() => { if (alive) setVid({ available: false }); });
     return () => { alive = false; };
-  }, [competencia, descritor, conteudo?.core_id]);
+  }, [colaboradorAlvo, competencia, descritor, conteudo?.core_id, somenteLeitura]);
   const videoPronto = !!(vid?.available && vid?.status === 'done' && vid?.bunny_video_id && vid?.bunny_library);
   const videoPreparando = !!(vid?.available && ['processing', 'render_queued', 'rendering'].includes(vid?.status));
   const temVideo = videoPronto || videoPreparando;
@@ -1107,8 +1156,8 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
 
   useBunnyTracking(
     videoIframeRef,
-    videoPronto ? vid?.colaboradorId : null,
-    videoPronto ? vid?.bunny_video_id : null,
+    videoPronto && !somenteLeitura ? vid?.colaboradorId : null,
+    videoPronto && !somenteLeitura ? vid?.bunny_video_id : null,
     mediaSession,
   );
 
@@ -1157,6 +1206,7 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
 
   // Telemetria: loga qual formato o colab abriu (atribuído à pílula deste descritor).
   const logFormato = (f) => {
+    if (somenteLeitura) return;
     registrarEventoTrilha({ trilhaId, semana, pilula, formato: f, tipo: 'formato' }).catch(() => {});
   };
 
@@ -1223,9 +1273,13 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
           key={`audio-${mediaSession}`}
           controls
           className="w-full"
-          src={fonteId ? `/api/conteudo/${fonteId}/podcast` : item.url}
+          src={fonteId
+            ? `/api/conteudo/${fonteId}/podcast${somenteLeitura && colaboradorAlvo ? `?colaboradorId=${encodeURIComponent(colaboradorAlvo)}` : ''}`
+            : item.url}
           onLoadedMetadata={(event) => { event.currentTarget.currentTime = 0; }}
-          onEnded={() => registrarEventoTrilha({ trilhaId, semana, pilula, formato: 'audio', tipo: 'audio_fim' }).catch(() => {})}
+          onEnded={() => {
+            if (!somenteLeitura) registrarEventoTrilha({ trilhaId, semana, pilula, formato: 'audio', tipo: 'audio_fim' }).catch(() => {});
+          }}
         />
       )}
       {temFonte && (ativo === 'texto' || ativo === 'case') && (

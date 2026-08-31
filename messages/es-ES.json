@@ -900,6 +900,12 @@
     "header": {
       "weekOf": "Semana {week} de {total}"
     },
+    "readonly": {
+      "titleRh": "Vista previa de RR. HH. · {name}",
+      "titleManager": "Vista previa del liderazgo · {name}",
+      "subtitle": "Contenido real de la semana, sin registrar consumo, progreso ni respuestas.",
+      "actionsHidden": "Las acciones del colaborador están ocultas en esta vista previa."
+    },
     "pdi": {
       "badge": "En tu PDI",
       "sustains": "Esta semana sostiene"
@@ -1095,8 +1101,10 @@
       "back": "Volver al equipo",
       "eyebrow": "RECORRIDO INDIVIDUAL · {name}",
       "title": "Vista del gestor · solo lectura",
+      "titleRh": "Vista de RR. HH. · solo lectura",
       "subtitle": "El recorrido real del colaborador, con su plan y progreso.",
-      "readOnly": "Visualización de solo lectura"
+      "readOnly": "Visualización de solo lectura",
+      "finalAssessmentReadOnly": "La evaluación final solo puede ser realizada por el colaborador"
     },
     "empty": {
       "title": "Tu temporada aún no se ha generado",

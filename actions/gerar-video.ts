@@ -3,7 +3,8 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { findColabByEmail } from '@/lib/authz';
+import { canViewColabJourney, findColabByEmail } from '@/lib/authz';
+import { tenantDb } from '@/lib/tenant-db';
 import { gerarRoteiroDeModulo } from '@/lib/video/gerar-roteiro';
 import type { ModuloParaRoteiro } from '@/lib/video/roteiro-prompt';
 import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
@@ -188,6 +189,46 @@ export async function resolverCelulaVideo(moduloBaseId: string, empresaId: strin
  * o vídeo da célula. `gerar=false` (default) só REUSA prontos/em-andamento — não
  * dispara geração (controle de custo); a geração é feita pelo admin / pré-aquecimento.
  */
+async function resolverVideoDaSemanaParaColaborador(
+  sb: any,
+  colab: any,
+  competencia: string,
+  descritor: string | null,
+  gerar: boolean,
+  opts: { coreId?: string | null },
+) {
+  if (!colab?.empresa_id || !colab.cargo) return { available: false, reason: 'sem-cargo' };
+  const disc = (colab.perfil_dominante || '').trim().charAt(0).toUpperCase();
+  if (!['D', 'I', 'S', 'C'].includes(disc)) return { available: false, reason: 'sem-disc' };
+
+  // ESTRUTURAL: o vídeo segue o MESMO módulo-base do CONTEÚDO (texto/case) que a
+  // trilha já resolveu — via `core_id` do micro-conteúdo. Isso mantém vídeo↔texto
+  // consistentes (mesmo módulo/nível) E ESTÁVEL: não re-resolve por embedding/
+  // anti-repetição a cada acesso (que orfanava o vídeo em regen). Fallback pra
+  // resolução por competência+nível só quando não há core_id / módulo no conteúdo.
+  let moduloId: string | null = null;
+  if (opts.coreId) {
+    const { data: mc } = await sb.from('micro_conteudos')
+      .select('modulo_base_id').eq('id', opts.coreId).eq('empresa_id', colab.empresa_id).maybeSingle();
+    if (mc?.modulo_base_id) moduloId = mc.modulo_base_id;
+  }
+  if (!moduloId) {
+    // nível do colab na competência (média do assessment) → transição N→N
+    let aq = sb.from('descriptor_assessments').select('nota').eq('colaborador_id', colab.id).eq('competencia', competencia);
+    if (descritor) aq = aq.eq('descritor', descritor);
+    const { data: assess } = await aq;
+    const notas = (assess || []).map((a: any) => Number(a.nota)).filter((n: number) => n > 0);
+    const nivelMin = notas.length ? notas.reduce((s: number, n: number) => s + n, 0) / notas.length : 1.5;
+    const escolha = await resolverModuloBaseParaConteudo(sb, { competenciaNome: competencia, descritor: descritor || undefined, nivelMin, locale: colab.locale || 'pt-BR', cargo: colab.cargo, empresaId: colab.empresa_id });
+    if (!escolha?.modulo?.id) return { available: false, reason: 'sem-modulo' };
+    moduloId = escolha.modulo.id;
+  }
+
+  const cel = await resolverCelulaVideo(moduloId, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`, { sb, gerar, colaboradorId: colab.id });
+  if ((cel as any).error) return { available: false, reason: (cel as any).error };
+  return { available: true, moduloId, colaboradorId: colab.id, ...cel };
+}
+
 export async function resolverVideoDaSemana(competencia: string, descritor: string | null = null, gerar = false, opts: { coreId?: string | null } = {}) {
   try {
     await requireUserAction();
@@ -195,39 +236,46 @@ export async function resolverVideoDaSemana(competencia: string, descritor: stri
     const cb = email ? await findColabByEmail(email, 'id') : null;
     if (!cb) return { available: false };
     const sb = createSupabaseAdmin();
-    const { data: colab } = await sb.from('colaboradores').select('id, empresa_id, cargo, perfil_dominante, locale').eq('id', cb.id).maybeSingle();
-    if (!colab?.empresa_id || !colab.cargo) return { available: false, reason: 'sem-cargo' };
-    const disc = (colab.perfil_dominante || '').trim().charAt(0).toUpperCase();
-    if (!['D', 'I', 'S', 'C'].includes(disc)) return { available: false, reason: 'sem-disc' };
-
-    // ESTRUTURAL: o vídeo segue o MESMO módulo-base do CONTEÚDO (texto/case) que a
-    // trilha já resolveu — via `core_id` do micro-conteúdo. Isso mantém vídeo↔texto
-    // consistentes (mesmo módulo/nível) E ESTÁVEL: não re-resolve por embedding/
-    // anti-repetição a cada acesso (que orfanava o vídeo em regen). Fallback pra
-    // resolução por competência+nível só quando não há core_id / módulo no conteúdo.
-    let moduloId: string | null = null;
-    if (opts.coreId) {
-      const { data: mc } = await sb.from('micro_conteudos')
-        .select('modulo_base_id').eq('id', opts.coreId).eq('empresa_id', colab.empresa_id).maybeSingle();
-      if (mc?.modulo_base_id) moduloId = mc.modulo_base_id;
-    }
-    if (!moduloId) {
-      // nível do colab na competência (média do assessment) → transição N→N
-      let aq = sb.from('descriptor_assessments').select('nota').eq('colaborador_id', colab.id).eq('competencia', competencia);
-      if (descritor) aq = aq.eq('descritor', descritor);
-      const { data: assess } = await aq;
-      const notas = (assess || []).map((a: any) => Number(a.nota)).filter((n: number) => n > 0);
-      const nivelMin = notas.length ? notas.reduce((s: number, n: number) => s + n, 0) / notas.length : 1.5;
-      const escolha = await resolverModuloBaseParaConteudo(sb, { competenciaNome: competencia, descritor: descritor || undefined, nivelMin, locale: colab.locale || 'pt-BR', cargo: colab.cargo, empresaId: colab.empresa_id });
-      if (!escolha?.modulo?.id) return { available: false, reason: 'sem-modulo' };
-      moduloId = escolha.modulo.id;
-    }
-
-    const cel = await resolverCelulaVideo(moduloId, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`, { sb, gerar, colaboradorId: colab.id });
-    if ((cel as any).error) return { available: false, reason: (cel as any).error };
-    return { available: true, moduloId, colaboradorId: colab.id, ...cel };
+    const { data: colab, error: colabError } = await sb.from('colaboradores')
+      .select('id, empresa_id, cargo, perfil_dominante, locale')
+      .eq('id', cb.id)
+      .maybeSingle();
+    if (colabError) return { available: false, reason: colabError.message };
+    return await resolverVideoDaSemanaParaColaborador(sb, colab, competencia, descritor, gerar, opts);
   } catch (err: any) {
     console.error('[resolverVideoDaSemana]', err);
+    return { available: false };
+  }
+}
+
+/**
+ * Consulta o vídeo que um colaborador específico vê, para a prévia somente
+ * leitura de RH/gestor/tutor. Nunca dispara geração e mantém o gate de posse no
+ * servidor; o ID vindo da URL não é tratado como autorização.
+ */
+export async function resolverVideoDaSemanaGestor(
+  colaboradorId: string,
+  competencia: string,
+  descritor: string | null = null,
+  opts: { coreId?: string | null } = {},
+) {
+  try {
+    const ctx = await requireUserAction();
+    if (!ctx.empresaId || !colaboradorId) return { available: false };
+    const tdb = tenantDb(ctx.empresaId);
+    const { data: colab, error: colabError } = await tdb.from('colaboradores')
+      .select('id, empresa_id, cargo, perfil_dominante, locale, gestor_email')
+      .eq('id', colaboradorId)
+      .maybeSingle();
+    if (colabError) return { available: false, reason: colabError.message };
+    if (!colab || !canViewColabJourney(ctx, colab)) return { available: false, reason: 'fora-do-escopo' };
+    // A autorização/tenant já foram fixados acima. O resolvedor também consulta
+    // catálogo global (competencias_base / módulos compartilhados) e a tabela
+    // nominal, que não possui empresa_id; por isso usa o escape hatch explícito.
+    // Todas as leituras do alvo continuam ancoradas no colab autorizado.
+    return await resolverVideoDaSemanaParaColaborador(tdb.raw, colab, competencia, descritor, false, opts);
+  } catch (err: any) {
+    console.error('[resolverVideoDaSemanaGestor]', err);
     return { available: false };
   }
 }
