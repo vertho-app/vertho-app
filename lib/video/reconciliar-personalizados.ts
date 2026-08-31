@@ -31,6 +31,7 @@
  * ninguém tivesse pedido.
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
 export interface LacunaPersonalizacao {
   cellVideoId: string;
@@ -51,6 +52,46 @@ export interface ResultadoReconciliacao {
 
 /** Considera travado o que está 'processing'/'pending' há mais de N horas. */
 const HORAS_ATE_TRAVADO = 2;
+
+/** Página do PostgREST. É o teto de `db-max-rows` do Supabase, não uma escolha. */
+const PAGINA = 1000;
+
+/**
+ * 🔴 LER TUDO, EM PÁGINAS — e nunca a primeira página fingindo ser o todo.
+ *
+ * Medido em 31/08/2026, contra o PostgREST de produção: `videos_personalizados`
+ * tinha 1.034 linhas nas células servidas e a leitura sem `.range()` devolveu
+ * exatamente **1.000**, sem erro e sem aviso. As 34 invisíveis não vieram como
+ * "erro de leitura": vieram como AUSÊNCIA, que `motivoDaLacuna` traduz para
+ * `'ausente'`. Ou seja, o truncamento entrava aqui disfarçado de conclusão —
+ * "estas pessoas não têm vídeo nominal" — e o custo era pago do outro lado:
+ * 3 células de macae com cobertura 100% foram devolvidas à fila em 29/08 e
+ * ficaram presas em `render_queued` por 3 dias, trocando o vídeo nominal de 102
+ * pessoas por "estamos preparando seu vídeo".
+ *
+ * A ordem é por `id` (PK) porque `.range()` sobre resultado sem ordem estável
+ * pode repetir e pular linhas entre páginas — o mesmo defeito, mais difícil de
+ * ver.
+ *
+ * Atingir o TETO de páginas LANÇA. Devolver o que coube seria voltar ao começo:
+ * um resultado parcial com cara de completo.
+ */
+const MAX_PAGINAS = 100;
+
+async function lerPaginado<T>(rotulo: string, montar: (de: number, ate: number) => any): Promise<T[]> {
+  const out: T[] = [];
+  for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
+    const de = pagina * PAGINA;
+    const { data, error } = await montar(de, de + PAGINA - 1);
+    // Propaga: sem a lista completa, "nenhuma lacuna" (ou "lacuna") é uma
+    // conclusão falsa — o modo de falha que este arquivo existe para combater.
+    if (error) throw new Error(`reconciliar: leitura de ${rotulo} falhou (${error.message})`);
+    const linhas = (data as T[]) || [];
+    out.push(...linhas);
+    if (linhas.length < PAGINA) return out;
+  }
+  throw new Error(`reconciliar: leitura de ${rotulo} passou de ${MAX_PAGINAS * PAGINA} linhas — recusando resultado parcial`);
+}
 
 /**
  * Reduz cópias da MESMA célula lógica à que a entrega realmente serve.
@@ -104,25 +145,29 @@ export async function reconciliarPersonalizados(opts: {
 
   // 1) Células prontas e servíveis. Só 'done': célula em render já vai personalizar
   //    ao terminar, e re-enfileirar o que está na fila seria trabalho em dobro.
-  let q = sb.from('videos_gerados')
-    .select('id, empresa_id, cargo, disc_dominante, modulo_base_id, created_at')
-    .eq('status', 'done')
-    .not('bunny_video_id', 'is', null);
-  if (empresaId) q = q.eq('empresa_id', empresaId);
-  const { data: celulasRaw, error: errCel } = await q;
-  // Propaga: sem a lista, "nenhuma lacuna" seria uma conclusão falsa — o modo de
-  // falha que este arquivo inteiro existe para combater.
-  if (errCel) throw new Error(`reconciliar: leitura de células falhou (${errCel.message})`);
+  const celulasRaw = await lerPaginado<any>('células', (de, ate) => {
+    let q = sb.from('videos_gerados')
+      .select('id, empresa_id, cargo, disc_dominante, modulo_base_id, created_at')
+      .eq('status', 'done')
+      .not('bunny_video_id', 'is', null)
+      .order('id')
+      .range(de, ate);
+    if (empresaId) q = q.eq('empresa_id', empresaId);
+    return q;
+  });
   if (!celulasRaw?.length) {
     return { lacunas: [], pessoasSemVideoNominal: 0, celulasReenfileiradas: [], ignoradasPorLimite: 0, executado: executar };
   }
 
   const celulas = celulasServidas(celulasRaw as any[]);
 
-  const { data: persoTodos, error: errPerso } = await sb.from('videos_personalizados')
+  // ⚠️ A leitura que truncou em 29/08/2026 (1.000 de 1.034). Ver `lerPaginado`.
+  const persoTodos = await lerPaginado<any>('personalizados', (de, ate) => sb
+    .from('videos_personalizados')
     .select('cell_video_id, colaborador_id, status, created_at')
-    .in('cell_video_id', celulas.map((c: any) => c.id));
-  if (errPerso) throw new Error(`reconciliar: leitura de personalizados falhou (${errPerso.message})`);
+    .in('cell_video_id', celulas.map((c: any) => c.id))
+    .order('id')
+    .range(de, ate));
 
   const persoPorCelula = new Map<string, Map<string, { status: string; created_at: string }>>();
   for (const p of (persoTodos as any[] || [])) {
@@ -132,11 +177,15 @@ export async function reconciliarPersonalizados(opts: {
 
   // 2) Colaboradores de cada célula — mesma regra do worker: cargo exato + 1ª letra
   //    do DISC + nome preenchido (sem nome não há saudação a montar).
+  //    Paginado pela MESMA razão: 382 hoje, mas é a lista que decide quem "não
+  //    tem vídeo" — truncar aqui inverte o erro (esconderia lacuna real).
   const empresas = [...new Set(celulas.map((c: any) => c.empresa_id).filter(Boolean))];
-  const { data: colabs, error: errColab } = await sb.from('colaboradores')
+  const colabs = await lerPaginado<any>('colaboradores', (de, ate) => sb
+    .from('colaboradores')
     .select('id, nome_completo, cargo, perfil_dominante, empresa_id')
-    .in('empresa_id', empresas);
-  if (errColab) throw new Error(`reconciliar: leitura de colaboradores falhou (${errColab.message})`);
+    .in('empresa_id', empresas)
+    .order('id')
+    .range(de, ate));
 
   const agora = Date.now();
   const lacunas: LacunaPersonalizacao[] = [];
@@ -195,12 +244,54 @@ export async function reconciliarPersonalizados(opts: {
 
   // 4) Sem worker, a fila fica parada — enfileirar sem provisionar seria trocar
   //    "sem vídeo nominal" por "célula presa em render_queued".
+  //
+  // 🔴 ISTO ERA UM COMENTÁRIO, NÃO UM COMPORTAMENTO (até 31/08/2026). A chamada
+  // existia e o RETORNO era descartado, então "não consegui subir box" chegava
+  // aqui idêntico a "subiu": em 29/08 três células saíram de `done` e ficaram
+  // em `render_queued` por 3 dias, com 102 pessoas de macae vendo "estamos
+  // preparando seu vídeo" no lugar do vídeo com o nome delas — que estava
+  // pronto no Bunny o tempo todo. Agora o resultado é LIDO e, sem ninguém para
+  // drenar, o enfileiramento é DESFEITO.
   if (reenfileiradas.length) {
+    let vivas = 0;
+    let motivo = 'exceção antes da resposta';
     try {
       const { ensureRenderWorker } = await import('@/lib/video/ensure-render-worker');
-      await ensureRenderWorker();
+      const r = await ensureRenderWorker();
+      vivas = r.alive ?? 0;
+      motivo = r.reason || (r.provisioned ? 'provisionou' : 'sem motivo');
+      console.log(`[reconciliar] ensureRenderWorker → provisioned=${r.provisioned} alive=${vivas} (${motivo})`);
     } catch (e: any) {
-      console.error('[reconciliar] ensureRenderWorker falhou:', e?.message);
+      motivo = e?.message || 'exceção';
+      console.error('[reconciliar] ensureRenderWorker falhou:', motivo);
+    }
+
+    // `alive === 0` cobre os dois modos em que ninguém drena: config ausente
+    // (nem dá para perguntar à Hetzner) e ladder sem capacidade. O caso legítimo
+    // de `provisioned: false` — já há box de sobra — chega aqui com `alive > 0`.
+    if (!vivas) {
+      const { error } = await sb.from('videos_gerados')
+        .update({ status: 'done', etapa: 'upload', updated_at: new Date().toISOString() })
+        .in('id', reenfileiradas)
+        .eq('status', 'render_queued');   // guarda: não desfaz o que um worker já pegou
+      console.error(`[reconciliar] sem box de render (${motivo}) — desfazendo ${reenfileiradas.length} enfileiramento(s)${error ? ` FALHOU: ${error.message}` : ''}`);
+      // Fallback com rastro (regra do projeto): sem isto, "a reconciliação não
+      // aconteceu" seria indistinguível de "não havia lacuna".
+      await registrarDegradacao({
+        fluxo: 'video',
+        tipo: DEGRADACAO.RECONCILIACAO_SEM_WORKER,
+        chave: 'reconciliar-videos',
+        severidade: 'aviso',
+        detalhe: { celulas: reenfileiradas.length, pessoasSemVideoNominal, motivo, rollback: !error },
+      }, sb);
+      if (!error) {
+        return {
+          lacunas, pessoasSemVideoNominal,
+          celulasReenfileiradas: [],   // nada ficou enfileirado: dizer 3 seria mentir no log do cron
+          ignoradasPorLimite: Math.max(0, lacunas.length - alvos.length),
+          executado: true,
+        };
+      }
     }
   }
 

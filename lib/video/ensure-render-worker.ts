@@ -33,7 +33,17 @@ import { SUPA, KEY } from './render-helpers';
 
 const HCLOUD = 'https://api.hetzner.cloud/v1';
 
-export type EnsureResult = { provisioned: boolean; created?: number[]; reason?: string };
+/**
+ * `provisioned: false` tem DOIS significados opostos, e quem chama precisa
+ * distinguir: "já há box de sobra para esta fila" (ótimo) e "não consegui subir
+ * nenhuma" (a fila não será drenada). Só `reason` separava os dois, em texto
+ * livre — e ninguém lê texto livre para decidir.
+ *
+ * `alive` é o discriminante: quantas boxes ficam de pé atendendo a fila depois
+ * desta chamada. `0` (ou ausente, quando faltou config e nem deu para perguntar
+ * à Hetzner) significa que NINGUÉM vai drenar o que foi enfileirado.
+ */
+export type EnsureResult = { provisioned: boolean; created?: number[]; reason?: string; alive?: number };
 
 /** Profundidade da fila de render (jobs ainda não finalizados). */
 async function queueDepth(): Promise<number> {
@@ -66,7 +76,7 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
   const depth = await queueDepth();
   const desired = Math.min(MAX, Math.max(1, Math.ceil(depth / JPB)));
   const deficit = desired - alive.length;
-  if (deficit <= 0) return { provisioned: false, reason: `${alive.length} box(es) p/ fila ${depth} (desejado ${desired})` };
+  if (deficit <= 0) return { provisioned: false, alive: alive.length, reason: `${alive.length} box(es) p/ fila ${depth} (desejado ${desired})` };
 
   // ── LADDER de fallback (tipo × location) ──────────────────────────────────
   // resource_unavailable (412) é comum no CX shared: um tipo/location fica sem
@@ -160,6 +170,6 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
     }
     if (!boxOk) break; // ladder inteira sem capacidade → para (a fila fica p/ próxima tentativa)
   }
-  if (!created.length) return { provisioned: false, reason: `ladder esgotada: ${errors.slice(-4).join(' | ')}` };
-  return { provisioned: true, created, reason: `+${created.length} box(es) via ${preferred?.type}@${preferred?.loc} (fila ${depth}, alvo ${desired})${errors.length ? ' · tentativas: ' + errors.length : ''}` };
+  if (!created.length) return { provisioned: false, alive: alive.length, reason: `ladder esgotada: ${errors.slice(-4).join(' | ')}` };
+  return { provisioned: true, created, alive: alive.length + created.length, reason: `+${created.length} box(es) via ${preferred?.type}@${preferred?.loc} (fila ${depth}, alvo ${desired})${errors.length ? ' · tentativas: ' + errors.length : ''}` };
 }

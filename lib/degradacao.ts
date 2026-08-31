@@ -175,6 +175,19 @@ export const DEGRADACAO = {
    * Ver lib/season-engine/kit/desafio-par.ts.
    */
   DESAFIO_PAR_AUSENTE: 'desafio-par-ausente',
+  /**
+   * video: a reconciliação de vídeo nominal desistiu porque não há box de render
+   * viva para drenar o que ela enfileiraria.
+   *
+   * A célula volta ao estado `done` (rollback) em vez de ficar em
+   * `render_queued`: sem worker, enfileirar trocaria "algumas pessoas sem o nome
+   * no vídeo" por "TODAS as pessoas da célula vendo 'estamos preparando seu
+   * vídeo'" — que foi o que aconteceu de 29/08 a 31/08/2026 com 3 células de
+   * macae e 102 pessoas, porque o retorno de `ensureRenderWorker` era
+   * descartado. `aviso`, não `critico`: ninguém piora, só deixa de melhorar.
+   * Ver lib/video/reconciliar-personalizados.ts.
+   */
+  RECONCILIACAO_SEM_WORKER: 'reconciliacao-sem-worker',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
