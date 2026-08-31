@@ -11,6 +11,12 @@ vi.mock('@/lib/i18n-auth-templates', () => ({
 }));
 vi.mock('@/lib/domain', () => ({ EMAIL_FROM_DEFAULT: 'no-reply@vertho.ai' }));
 
+const guardMocks = vi.hoisted(() => ({
+  isTenantDemo: vi.fn(async (_id?: string | null) => false),
+  destinatarioLiberadoEmDemo: vi.fn(async (_id?: string | null, _email?: string | null) => false),
+}));
+vi.mock('@/lib/demo/envio-guard', () => guardMocks);
+
 import { sendAccessLink, recipientFromLookup } from '@/lib/notifications/access-link-service';
 
 describe('recipientFromLookup (elegibilidade)', () => {
@@ -187,5 +193,52 @@ describe('🔴 o link de acesso sai pela Cloud API, não pelo legado', () => {
     const envio = chamadas.find((c) => c.url.includes('graph.facebook.com'))!;
     // O host vence quando existe: é onde a pessoa já está.
     expect(JSON.stringify(envio.body)).toContain('macae~pkce_abc12345');
+  });
+});
+
+/**
+ * Gate de tenant-demo (is_demo) no link de acesso — com a exceção da
+ * allowlist (`sys_config.demo_acesso_allowlist`), criada para a degustação
+ * self-service: o prospect digita o e-mail na tela de login do tenant demo
+ * e recebe o magic link DE VERDADE. Todo o resto (lote, cadência) segue
+ * bloqueado pelo gate, que não conhece destinatário.
+ */
+describe('gate de tenant demo no access-link', () => {
+  const base = { to: 'prospect@cliente.com', nome: 'Prospect', empresaNome: 'Demo', empresaId: 'emp-demo', locale: 'pt-BR' as const, emailLink: 'https://l/e', whatsappLink: 'https://l/w', telefone: '11999998888' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    guardMocks.isTenantDemo.mockResolvedValue(true);
+    guardMocks.destinatarioLiberadoEmDemo.mockResolvedValue(false);
+    process.env.RESEND_API_KEY = 'rk';
+    sendMock.mockResolvedValue({ id: 'em_1' });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('demo SEM allowlist → nenhum canal envia (motivo explícito)', async () => {
+    const r = await sendAccessLink({ ...base });
+    expect(r.anySent).toBe(false);
+    expect(r.email).toBe('skipped');
+    expect(r.whatsapp).toBe('skipped');
+    expect(r.emailReason).toMatch(/demonstração/);
+  });
+
+  it('demo COM destinatário allowlistado → envia de verdade', async () => {
+    guardMocks.destinatarioLiberadoEmDemo.mockResolvedValue(true);
+    const r = await sendAccessLink({ ...base });
+    expect(r.anySent).toBe(true);
+    expect(r.email).toBe('sent');
+    // WhatsApp pode falhar por config de provider no teste — o que o gate
+    // não pode mais devolver é o skip de "ambiente de demonstração".
+    expect(r.whatsapp).not.toBe('skipped');
+    expect(r.whatsappReason ?? '').not.toMatch(/demonstração/);
+  });
+
+  it('tenant NÃO demo nem consulta a allowlist', async () => {
+    guardMocks.isTenantDemo.mockResolvedValue(false);
+    const r = await sendAccessLink({ ...base });
+    expect(r.anySent).toBe(true);
+    expect(guardMocks.destinatarioLiberadoEmDemo).not.toHaveBeenCalled();
   });
 });

@@ -50,6 +50,21 @@ humana, preservando o bloqueio automático do ambiente demo.
 Uma senha compartilhada continua disponível na seção de contingência. O reset
 recompõe os dados do tenant, mas não altera os usuários do Auth.
 
+## Degustação self-service com contato real (allowlist)
+
+O login self-service (prospect digita o próprio e-mail e recebe o magic link
+por e-mail/WhatsApp) é bloqueado pelo envio-guard em tenants demo. A exceção é
+`empresas.sys_config.demo_acesso_allowlist`: e-mails listados ali recebem o
+link **de verdade** — só o access-link; disparos em lote seguem bloqueados
+(`lib/demo/envio-guard.ts::destinatarioLiberadoEmDemo`).
+
+No `gruposinal`, o seed já cria o convidado **Alpheu** (`alpheu.sousa@gruposinal.com`,
+perfil do tenant em `DEMO_TENANT_PROFILES`): conta zerada de Representante
+Comercial, na equipe da Carla, fora da régua DISC/fit, com a allowlist ligada.
+É ele quem faz o mapeamento comportamental do zero na degustação. O reset o
+recria; a conta de Auth precisa existir (criar via `auth.admin.createUser`
+com `email_confirm: true`, sem senha — o login é por magic link).
+
 ## Sala de apresentação ao vivo
 
 Para demonstrar as três funções sem logout, abra `/admin/demo` e clique

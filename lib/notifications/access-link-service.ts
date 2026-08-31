@@ -6,7 +6,7 @@ import { magicLinkEmail, magicLinkWhatsapp, signupEmail, signupWhatsapp } from '
 import { sendWhatsapp } from '@/lib/whatsapp';
 import { enviarPorTemplate } from '@/lib/notifications/pilula-template';
 import { derivarParametroAcesso, parametroAcessoParaTenant } from '@/lib/auth/magic-link-whatsapp';
-import { isTenantDemo } from '@/lib/demo/envio-guard';
+import { isTenantDemo, destinatarioLiberadoEmDemo } from '@/lib/demo/envio-guard';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { createSupabaseAdmin } from '@/lib/supabase';
 
@@ -253,12 +253,18 @@ export async function sendAccessLink(p: SendAccessLinkInput): Promise<SendAccess
   // (cobre o auto-cadastro aberto — allow_open_signup — que era o vetor de
   // envio a contato REAL durante uma demo). Sessão de demo é mintada
   // server-side sem passar por aqui, então este gate não a afeta.
+  // Exceção: destinatário em `sys_config.demo_acesso_allowlist` recebe o
+  // link de verdade — é o prospect fazendo a degustação self-service.
   if (p.empresaId && (await isTenantDemo(p.empresaId))) {
-    out.email = 'skipped';
-    out.whatsapp = 'skipped';
-    out.emailReason = out.whatsappReason = 'ambiente de demonstração (envio desligado)';
-    out.anySent = false;
-    return out;
+    if (await destinatarioLiberadoEmDemo(p.empresaId, p.to)) {
+      console.log(`[envio-guard] tenant demo ${p.empresaId}: ${p.to} na allowlist — link de acesso REAL liberado`);
+    } else {
+      out.email = 'skipped';
+      out.whatsapp = 'skipped';
+      out.emailReason = out.whatsappReason = 'ambiente de demonstração (envio desligado)';
+      out.anySent = false;
+      return out;
+    }
   }
 
   if (channels.includes('email')) await enviarEmail(p, out);

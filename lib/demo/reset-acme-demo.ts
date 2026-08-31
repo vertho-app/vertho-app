@@ -253,6 +253,13 @@ const GRUPO_SINAL_PPP = {
 
 const GRUPO_SINAL_VALUES = ['Cliente no centro', 'Ética', 'Responsabilidade', 'Colaboração', 'Agilidade', 'Desenvolvimento das pessoas'];
 
+/** Convidado REAL (prospect) num tenant demo: conta zerada para a degustação
+ * self-service — faz o mapeamento do zero e recebe o magic link de verdade
+ * (o e-mail entra em `demo_acesso_allowlist`, ver envio-guard). Fica FORA de
+ * `PERSONAS`: não passa pela régua DISC, não tem artefato congelado e não
+ * entra no ranking de fit. */
+type DemoConvidado = { nome: string; email: string; telefone: string; cargo: string };
+
 export const DEMO_TENANT_PROFILES = {
   [DEMO_SLUG]: {
     slug: DEMO_SLUG,
@@ -264,6 +271,8 @@ export const DEMO_TENANT_PROFILES = {
     pppNome: 'ACME Demo - Cultura e Operação',
     ppp: ACME_DEMO_PPP,
     valores: ACME_DEMO_VALUES,
+    acessoAllowlist: null as readonly string[] | null,
+    convidado: null as DemoConvidado | null,
   },
   [GRUPO_SINAL_SLUG]: {
     slug: GRUPO_SINAL_SLUG,
@@ -275,6 +284,13 @@ export const DEMO_TENANT_PROFILES = {
     pppNome: 'Grupo Sinal — Contexto organizacional',
     ppp: GRUPO_SINAL_PPP,
     valores: GRUPO_SINAL_VALUES,
+    acessoAllowlist: ['alpheu.sousa@gruposinal.com'] as readonly string[],
+    convidado: {
+      nome: 'Alpheu',
+      email: 'alpheu.sousa@gruposinal.com',
+      telefone: '+5511967673976',
+      cargo: 'Representante Comercial',
+    } as DemoConvidado,
   },
 } as const;
 
@@ -813,6 +829,9 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       programa_modo: 'regular',
       cadencia: { ...(sourceConfig.cadencia || {}), email_ativo: false, whatsapp_ativo: false },
       envios: {},
+      // Exceção do envio-guard (login self-service do prospect). NÃO entra no
+      // acme-demo: lá nenhum contato real deve receber link.
+      ...(profile.acessoAllowlist?.length ? { demo_acesso_allowlist: [...profile.acessoAllowlist] } : {}),
     };
   }
 
@@ -1621,6 +1640,25 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     await insertDemoPPP(demo.id);
     await insertDemoExtraRoles(demo.id);
     const personaMap = await insertPersonas(demo.id);
+    if (profile.convidado) {
+      // Convidado real do tenant (ver DemoConvidado): conta zerada, fora da
+      // régua DISC e do fit. O reset o recria para o acesso do prospect não
+      // depender de passo manual depois de cada recomposição.
+      await must('insert convidado demo', sb.from('colaboradores').insert({
+        empresa_id: demo.id,
+        email: profile.convidado.email,
+        nome_completo: profile.convidado.nome,
+        cargo: profile.convidado.cargo,
+        role: 'colaborador',
+        area_depto: COMERCIAL_AREA,
+        gestor_nome: DEMO_MANAGER.nome,
+        gestor_email: DEMO_MANAGER.email,
+        gestor_whatsapp: DEMO_MANAGER.whatsapp,
+        telefone: profile.convidado.telefone,
+        whatsapp: profile.convidado.telefone,
+        locale: 'pt-BR',
+      }));
+    }
     await seedRespostas(demo.id, personaMap);
     await applyPersonaArtifacts(demo.id, personaMap);
     await seedAcmePanorama(demo.id, personaMap);
