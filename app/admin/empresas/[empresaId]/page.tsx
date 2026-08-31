@@ -19,7 +19,7 @@ import { useConfirm } from '@/components/admin/confirm-dialog';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
-import { enqueueIA2Batch, enqueueIA3Batch, enqueueIA4Batch, enqueueBlueprintBatch, statusIAJob, cancelIAJob, listarJobsAtivosIA } from '@/actions/ia-pipeline-batch';
+import { enqueueIA2Batch, enqueueIA3Batch, enqueueIA4Batch, enqueueBlueprintBatch, enqueueRelatoriosBatch, statusIAJob, cancelIAJob, listarJobsAtivosIA } from '@/actions/ia-pipeline-batch';
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { resolveTaskModel } from '@/lib/ai-tasks';
@@ -442,6 +442,19 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         setPendingAction(null); return;
       }
       if (actionKey === 'rel-ind') {
+        // ── Em lote: Batch API (−50%) e, sobretudo, a aba livre ──
+        // O laço abaixo prende a aba: Server Action é despachada UMA POR VEZ
+        // por cliente, e o PDI leva 59s de média (p90 70s, medido em 78
+        // gerações). 43 pessoas = ~45 min de janela aberta.
+        if (aiConfig?.modo === 'lote') {
+          addLog('📦 PDIs em lote (Batch API −50%, assíncrono).', 'info');
+          const r: any = await enqueueRelatoriosBatch(empresaId, aiConfig);
+          if (!r.success) { addLog(`❌ ${r.error}`, 'error'); setPendingAction(null); return; }
+          if (!r.jobId) { addLog(`✅ ${r.message || 'Nada pendente'}`, 'success'); loadData(); setPendingAction(null); return; }
+          addLog(`📋 ${r.total} PDI(s) no lote ${String(r.jobId).slice(0, 8)}… — rodando em segundo plano, pode fechar a aba.`, 'info');
+          watchJob(r.jobId, 'PDIs');
+          setPendingAction(null); return;
+        }
         const fila = await gerarRelatoriosIndividuaisLote(empresaId);
         if (!fila?.success || !fila.data?.length) { addLog(`${fila?.message || fila?.error || t('feedback.noPendingReports')}`, fila?.success ? 'success' : 'error'); setPendingAction(null); return; }
         addLog(`📋 ${t('feedback.reportsQueue', { count: fila.data.length })}`, 'info');

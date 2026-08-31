@@ -19,6 +19,8 @@ import type { gerarIA2BatchTask } from '@/trigger/gerar-ia2-batch';
 import type { gerarIA3BatchTask } from '@/trigger/gerar-ia3-batch';
 import type { gerarIA4BatchTask } from '@/trigger/gerar-ia4-batch';
 import type { gerarBlueprintBatchTask } from '@/trigger/gerar-blueprint-batch';
+import type { gerarRelatoriosBatchTask } from '@/trigger/gerar-relatorios-batch';
+import { gerarRelatoriosIndividuaisLote } from '@/actions/relatorios';
 
 /**
  * Guard anti-duplicata: um lote POR FASE por empresa. Lotes de fases
@@ -268,6 +270,74 @@ export async function enqueueBlueprintBatch(
     // `pulados` sobe para a tela: um lote que encolhe de 81 para 43 sem dizer
     // por quê é indistinguível de uma fila que encolheu sozinha.
     return { success: true as const, jobId: job.id, total: colabIds.length, pulados: opts.regerar ? 0 : jaTem.length };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || 'Erro' };
+  }
+}
+
+/**
+ * PDI (relatório individual) em LOTE (Batch API, −50%).
+ *
+ * 🔴 POR QUE ENTROU (31/08/2026): o PDI era o único da família sem lote. A tela
+ * montava a fila e iterava chamando a action uma vez por pessoa — e Server
+ * Action é despachada UMA POR VEZ por cliente, então a aba ficava presa do
+ * começo ao fim. Medido em 78 gerações reais: 59s de média, p90 de 70s. Para os
+ * 43 professores de Macaé isso é ~45 min de aba aberta.
+ *
+ * O desconto de 50% é o menor dos ganhos (US$ 1,40 em 43 PDIs); o que o lote
+ * resolve é a aba — e a retomada, que no laço do cliente dependia de a pessoa
+ * não fechar a janela.
+ *
+ * 🔑 A FILA É A MESMA de `gerarRelatoriosIndividuaisLote`, importada em vez de
+ * reescrita. Ela carrega duas regras que custaram caro: pula quem JÁ TEM
+ * relatório (o upsert sobrescreveria PDI entregue) e exige avaliação COMPLETA
+ * do top5 do cargo (antes, 1 de 2 competências gerava um PDI capado). Uma
+ * segunda fila aqui seria o gêmeo que diverge na primeira correção.
+ */
+export async function enqueueRelatoriosBatch(empresaId: string, aiConfig: AIConfig = {}) {
+  try {
+    if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
+    const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'enqueueRelatoriosBatch');
+    const dup = await jaTemLoteAtivo(sb, empresaId, 'relatorios');
+    if (dup) return { success: false as const, error: `Já existe um lote de PDIs em andamento (${dup.slice(0, 8)}…) — aguarde ou cancele antes de disparar outro.` };
+
+    const fila = await gerarRelatoriosIndividuaisLote(empresaId);
+    if (!fila?.success) return { success: false as const, error: fila?.error || 'Falha ao montar a fila' };
+    const colabIds = fila.data || [];
+    if (!colabIds.length) {
+      return { success: true as const, jobId: null, total: 0, message: fila.message || 'Nada pendente' };
+    }
+
+    const { data: job, error } = await sb.from('ia_jobs').insert({
+      empresa_id: empresaId,
+      fase: 'relatorios',
+      params: { aiConfig, colabIds },
+      status: 'queued',
+      progress: { done: 0, total: colabIds.length, current: 'na fila', resultados: [] },
+    }).select('id').single();
+    if (error) return { success: false as const, error: error.message };
+
+    try {
+      const handle = await tasks.trigger<typeof gerarRelatoriosBatchTask>('gerar-relatorios-batch', { jobId: job.id }, regionOpts());
+      // O supabase-js RETORNA `{ error }`. Aqui a falha NÃO pode derrubar a
+      // action: a task já foi disparada e vai gerar (e cobrar). Dizer "não foi
+      // possível enfileirar" faria a pessoa clicar de novo e pagar duas vezes.
+      // O que se perde é o `runId`, usado só pelo cancel best-effort — degrada
+      // registrando, que é a régua da ENTREGA.
+      const { error: errRun } = await sb.from('ia_jobs')
+        .update({ params: { aiConfig, colabIds, runId: handle.id } }).eq('id', job.id);
+      if (errRun) console.error(`[enqueueRelatoriosBatch] runId ${handle.id} NÃO persistido no job ${job.id}: ${errRun.message} — o lote roda, mas o cancel pela tela não acha o run`);
+    } catch (e: any) {
+      // Se ESTE update falhar, o job fica 'queued' para sempre e o guard
+      // anti-duplicata passa a barrar todo lote futuro de PDI desta empresa.
+      // Não há a quem propagar (já estamos no catch), então o registro é o
+      // único rastro — e ele precisa dizer o que destrava.
+      const { error: errMarca } = await sb.from('ia_jobs')
+        .update({ status: 'error', error: 'dispatch: ' + (e?.message || e) }).eq('id', job.id);
+      if (errMarca) console.error(`[enqueueRelatoriosBatch] job ${job.id} ficou preso em 'queued' (falha ao marcar erro: ${errMarca.message}) — cancelar na tela para liberar novos lotes`);
+      return { success: false as const, error: 'Não foi possível enfileirar: ' + (e?.message || e) };
+    }
+    return { success: true as const, jobId: job.id, total: colabIds.length, message: fila.message };
   } catch (err: any) {
     return { success: false as const, error: err?.message || 'Erro' };
   }

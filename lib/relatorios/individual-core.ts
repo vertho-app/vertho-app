@@ -74,24 +74,69 @@ async function salvarPDFStorage(
   return path;
 }
 
-export async function gerarRelatorioIndividualCore(
+/** Teto de saída do PDI. Um número só, para o síncrono e o lote não divergirem. */
+export const PDI_MAX_TOKENS = 64000;
+
+export interface RelatorioIndividualReq {
+  /** = colaboradorId: é a chave que o batch devolve em cada resultado. */
+  customId: string;
+  system: string;
+  user: string;
+  maxTokens: number;
+}
+
+/**
+ * Request do PDI pronto para a IA — síncrono OU batch.
+ *
+ * Existe pelo mesmo motivo de `buildBlueprintReq`: a Batch API precisa de
+ * (system, user) ANTES de haver resposta, e sem esta função o caminho em lote
+ * teria de remontar o prompt por conta própria. Prompt remontado é o gêmeo que
+ * diverge na primeira correção — e aqui a divergência seria invisível, porque o
+ * PDI sai bonito de qualquer jeito.
+ */
+export async function buildRelatorioIndividualReq(
   sbRaw: SupabaseClient,
-  empresaId: string,
-  colaboradorId: string,
-  aiConfig: AIConfig = {},
+  { empresaId, colaboradorId }: { empresaId: string; colaboradorId: string },
+): Promise<RelatorioIndividualReq | { error: string }> {
+  const built = await buildRelatorioIndividualPrompt(sbRaw, { empresaId, colaboradorId });
+  if ('error' in built) return { error: built.error };
+  return { customId: colaboradorId, system: built.system, user: built.user, maxTokens: PDI_MAX_TOKENS };
+}
+
+/**
+ * TUDO o que acontece depois da IA: parse, overlay dos níveis reais, binding do
+ * blueprint, auditoria, PDF e persistência.
+ *
+ * 🔑 POR QUE ISTO É UMA FUNÇÃO, e não código dentro do core síncrono: quando o
+ * lote chegou (31/08/2026), o pós-processamento tinha 130 linhas de regra que
+ * decidem o que a pessoa recebe — o overlay que corrige o nível quando a IA
+ * arredonda, o `trilha_mapa` que liga o PDI à trilha, a auditoria em duas
+ * camadas. Reescrever isso no lado do lote seria duplicar a parte mais cara de
+ * errar, e o sintoma de uma divergência aqui é um PDI que abre normal
+ * descrevendo uma régua que não existe.
+ *
+ * `built` é opcional: o síncrono já o tem em mãos e passa; o lote (que só
+ * guarda o texto do batch) deixa reconstruir. Reconstruir é a MESMA chamada de
+ * `buildRelatorioIndividualPrompt`, não uma reconstrução paralela — é o que
+ * mantém a evidência da auditoria igual ao prompt que o gerador recebeu.
+ */
+export async function persistRelatorioIndividualFromText(
+  sbRaw: SupabaseClient,
+  args: {
+    empresaId: string;
+    colaboradorId: string;
+    texto: string;
+    built?: Awaited<ReturnType<typeof buildRelatorioIndividualPrompt>>;
+  },
 ): Promise<{ success: boolean; message?: string; error?: string; pdfPath?: string | null }> {
+  const { empresaId, colaboradorId, texto } = args;
   const tdb = tenantDb(empresaId);
   try {
-    // Montagem do prompt EXTRAÍDA p/ lib/relatorio-individual-prompt (núcleo
-    // headless, fonte única com scripts/lotes). Comportamento idêntico.
-    const built = await buildRelatorioIndividualPrompt(sbRaw, { empresaId, colaboradorId });
+    const built = args.built ?? await buildRelatorioIndividualPrompt(sbRaw, { empresaId, colaboradorId });
     if ('error' in built) return { success: false, error: built.error };
-    const { system, user, dadosComps, blueprint, colab, empresa } = built;
+    const { user, dadosComps, blueprint, colab, empresa } = built;
 
-    const resultado = await callAI(system, user, aiConfig, 64000, {
-      taskKey: 'pdi_individual', empresaId, colaboradorId,
-    });
-    const relatorio: any = await extractJSON(resultado);
+    const relatorio: any = await extractJSON(texto);
 
     if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
 
@@ -236,7 +281,41 @@ export async function gerarRelatorioIndividualCore(
     }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
 
     if (saveErr) return { success: false, error: saveErr.message };
-    return { success: true, message: `Relatório gerado: ${colab.nome_completo}${pdfPath ? ' (PDF salvo)' : ''}` };
+    // `pdfPath` VOLTA para quem chamou: em lote, `success` sozinho esconde o
+    // relatório salvo com `pdf_path: null` — o defeito que fez 40
+    // micro-conteúdos nascerem sem PDF, pagos e em silêncio.
+    return { success: true, pdfPath, message: `Relatório gerado: ${colab.nome_completo}${pdfPath ? ' (PDF salvo)' : ''}` };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * PDI de UM colaborador, SÍNCRONO (build → IA → persist).
+ *
+ * Continua sendo o caminho da tela e dos scripts. As três etapas viraram
+ * funções para o lote reusar as pontas: o que muda entre síncrono e batch é
+ * exclusivamente COMO a IA é chamada no meio.
+ */
+export async function gerarRelatorioIndividualCore(
+  sbRaw: SupabaseClient,
+  empresaId: string,
+  colaboradorId: string,
+  aiConfig: AIConfig = {},
+): Promise<{ success: boolean; message?: string; error?: string; pdfPath?: string | null }> {
+  try {
+    const built = await buildRelatorioIndividualPrompt(sbRaw, { empresaId, colaboradorId });
+    if ('error' in built) return { success: false, error: built.error };
+
+    const resultado = await callAI(built.system, built.user, aiConfig, PDI_MAX_TOKENS, {
+      taskKey: 'pdi_individual', empresaId, colaboradorId,
+    });
+
+    // `built` passado adiante: o síncrono já pagou a leitura, não há por que
+    // refazê-la — e garante que a auditoria veja exatamente o prompt enviado.
+    return await persistRelatorioIndividualFromText(sbRaw, {
+      empresaId, colaboradorId, texto: resultado, built,
+    });
   } catch (err: any) {
     return { success: false, error: err.message };
   }
