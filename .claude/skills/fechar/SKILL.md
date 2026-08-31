@@ -82,13 +82,14 @@ docs/FEATURES-E-BENEFICIOS.md · docs/LEVANTAMENTO-2026-07.md · docs/plano-refa
 ```
 
 🔴 **NÃO use `git diff` da rodada como filtro.** Ele só enxerga o que EU mudei, e a defasagem se
-acumula de outras sessões e do trabalho do dono. Compare **as 16 contra o Project**, sempre — a
-contagem do card é `wc -l` + 1.
+acumula de outras sessões e do trabalho do dono. Compare **as 16 contra o Project**, sempre — o card
+mostra **kB de CARACTERES** (`git show HEAD:<arq> | wc -m`, ÷ 1000; `wc -c` erra para mais em 3-4%
+por causa dos acentos), e a unidade já mudou uma vez: confirme num card antes de comparar.
 
 `Medido: 27/08/2026` — pelo diff da rodada eu subiria 4 arquivos; comparando as 16, apareceram **3
 defasadas que o diff não pegava** (`CATALOGO-PROMPTS-IA.md` com **301 linhas** de atraso), e duas das
 4 estavam muito piores que a rodada explicava: `CUSTO-QUALIDADE.md` com **545 linhas no Project
-contra 1.436** no repo.
+contra 1.436** no repo. `Medido: 31/08/2026` — **15 das 16 defasadas**, numa rodada que tocou em 2.
 
 Subir é ação minha, pela extensão do Chrome. **A remoção das versões antigas é irreversível: peça o
 ok antes dela** — e só dela; o upload não precisa de confirmação, porque conviver com a duplicata
