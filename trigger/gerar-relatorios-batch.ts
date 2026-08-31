@@ -77,7 +77,13 @@ export const gerarRelatoriosBatchTask = task({
       const pushProgress = (current: string) => patch({ progress: { done, total, current, resultados } });
       await patch({ progress: { done: 0, total, current: `lote (batch) — ${total} PDI(s)…`, resultados: [] } });
 
-      const { data: colabs } = await sb.from('colaboradores').select('id, nome_completo').in('id', colabIds).eq('empresa_id', empresaId);
+      // Nomes só para o progresso ser legível. Falha aqui NÃO derruba o lote —
+      // seria trocar 43 PDIs por uma lista de rótulos — mas também não passa
+      // calada: sem o registro, a tela mostraria UUIDs e pareceria dado
+      // faltando no cadastro, mandando quem investiga para o lugar errado.
+      const { data: colabs, error: errColabs } = await sb.from('colaboradores')
+        .select('id, nome_completo').in('id', colabIds).eq('empresa_id', empresaId);
+      if (errColabs) console.error(`[gerar-relatorios-batch] nomes não lidos (${errColabs.message}) — o progresso vai mostrar ids, o lote segue`);
       const nomeById = new Map<string, string>((colabs || []).map((c: any) => [c.id, c.nome_completo]));
       const nome = (id: string) => nomeById.get(id) || id;
 
