@@ -98,6 +98,23 @@ describe('roster escolar: a Rede de Escolas ACME', () => {
     }
   });
 
+  // Decisão do dono (01/09): a persona da régua eliminatória fica na
+  // COORDENAÇÃO, não na direção. O motivo vale como invariante: uma reprovação
+  // só é legível ao lado de alguém do mesmo cargo que passa — ranking de um
+  // não compara nada.
+  it('cargo com jornada parcial tem com quem comparar', () => {
+    const porCargo = new Map<string, number>();
+    for (const persona of ROSTER_ESCOLAR.personas) {
+      porCargo.set(persona.cargo, (porCargo.get(persona.cargo) || 0) + 1);
+    }
+    const parciais = ROSTER_ESCOLAR.personas.filter((persona) => persona.scenario === 'parcial');
+    expect(parciais.length).toBeGreaterThan(0);
+    for (const persona of parciais) {
+      expect(porCargo.get(persona.cargo), `${persona.cargo} tem só ${persona.key}`)
+        .toBeGreaterThanOrEqual(2);
+    }
+  });
+
   it('a rede tem unidades, e cada persona vive em uma delas', () => {
     const unidades = new Set(UNIDADES_ESCOLARES.map((unidade) => unidade.nome));
     expect(unidades.size).toBe(3);

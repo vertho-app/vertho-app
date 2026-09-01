@@ -39,7 +39,11 @@ const DIRETORA = {
   whatsapp: null as string | null,
 };
 
-const DIRETOR_PARQUE = {
+/**
+ * A coordenação da segunda unidade. É ela que acompanha os professores de lá no
+ * dia a dia, então é ela que responde como gestora deles.
+ */
+const COORDENACAO_PARQUE = {
   nome: 'Sérgio Bastos',
   email: 'sergio.demo@vertho.ai',
   whatsapp: null as string | null,
@@ -177,10 +181,14 @@ export const PERSONAS_ESCOLARES = [
     responder: TOP5_DIRECAO,
   },
   {
+    // O papel da régua eliminatória: aderência alta e, ainda assim, bloqueado
+    // por uma premissa do cargo. Fica na COORDENAÇÃO, e não na direção, porque
+    // é lá que a demo tem duas pessoas no mesmo cargo para comparar — um
+    // ranking de adequação com uma pessoa só não mostra o que ele faz.
     key: 'sergio',
-    nome_completo: DIRETOR_PARQUE.nome,
-    email: DIRETOR_PARQUE.email,
-    cargo: DIRECAO,
+    nome_completo: COORDENACAO_PARQUE.nome,
+    email: COORDENACAO_PARQUE.email,
+    cargo: COORDENACAO,
     role: 'gestor',
     area_depto: PARQUE,
     gestor_nome: null as string | null,
@@ -189,7 +197,7 @@ export const PERSONAS_ESCOLARES = [
     perfil_dominante: 'IC',
     d_natural: 46, i_natural: 76, s_natural: 20, c_natural: 58,
     scenario: 'parcial',
-    responder: ['Planejamento e Organização', 'Gestão da Comunidade Escolar'],
+    responder: ['Gestão da Aprendizagem', 'Desenvolvimento Docente'],
   },
   {
     key: 'renata',
@@ -228,9 +236,9 @@ export const PERSONAS_ESCOLARES = [
     cargo: DOCENCIA,
     role: 'colaborador',
     area_depto: PARQUE,
-    gestor_nome: DIRETOR_PARQUE.nome,
-    gestor_email: DIRETOR_PARQUE.email,
-    gestor_whatsapp: DIRETOR_PARQUE.whatsapp,
+    gestor_nome: COORDENACAO_PARQUE.nome,
+    gestor_email: COORDENACAO_PARQUE.email,
+    gestor_whatsapp: COORDENACAO_PARQUE.whatsapp,
     perfil_dominante: 'D',
     d_natural: 66, i_natural: 44, s_natural: 46, c_natural: 44,
     scenario: 'novo',
