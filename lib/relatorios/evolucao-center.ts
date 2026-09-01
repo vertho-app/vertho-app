@@ -53,7 +53,6 @@ export type EvolucaoAgregado = {
   confirmadas: number;
   parciais: number;
   estaveis: number;
-  atencao: number;
   semVeredito: number;
 };
 
@@ -89,7 +88,6 @@ export type EvolucaoCentro = {
     confirmadas: number;
     parciais: number;
     estaveis: number;
-    atencao: number;
     semVeredito: number;
     deltaMedio: number;
     descritoresMedidos: number;
@@ -108,7 +106,7 @@ export type EvolucaoCentro = {
 
 const VAZIO: EvolucaoCentro = {
   cobertura: { participantes: 0, emJornada: 0, medidos: 0, percentual: 0 },
-  resumo: { confirmadas: 0, parciais: 0, estaveis: 0, atencao: 0, semVeredito: 0, deltaMedio: 0, descritoresMedidos: 0 },
+  resumo: { confirmadas: 0, parciais: 0, estaveis: 0, semVeredito: 0, deltaMedio: 0, descritoresMedidos: 0 },
   porCompetencia: [],
   porDescritor: [],
   pessoas: [],
@@ -154,21 +152,18 @@ function agregar(chave: string, competencia: string | null, linhas: EvolucaoDesc
     confirmadas: linhas.filter((l) => l.convergencia === CONVERGENCIA.CONFIRMADA).length,
     parciais: linhas.filter((l) => l.convergencia === CONVERGENCIA.PARCIAL).length,
     estaveis: linhas.filter((l) => l.convergencia === CONVERGENCIA.ESTAVEL).length,
-    atencao: linhas.filter((l) => l.convergencia === CONVERGENCIA.ATENCAO).length,
     semVeredito: linhas.filter((l) => !l.convergencia).length,
   };
 }
 
 /**
- * O veredito da PESSOA a partir dos descritores dela. Não é média de rótulo: é
- * a pior classificação que ainda descreve o conjunto, com prioridade para o que
- * exige ação. Alguém com três confirmadas e uma em atenção não é "confirmada" —
- * a que precisa de apoio é a informação acionável.
+ * O veredito da PESSOA a partir dos descritores dela. Não é média de rótulo: a
+ * confirmação exige que a MAIORIA dos comportamentos medidos a sustente. Quem
+ * avançou em um de quatro entra como parcial, porque é isso que aconteceu.
  */
 function vereditoDaPessoa(descritores: EvolucaoDescritorLinha[]): EvolucaoVeredito {
   const vereditos = descritores.map((d) => d.convergencia).filter(Boolean) as Convergencia[];
   if (!vereditos.length) return null;
-  if (vereditos.includes(CONVERGENCIA.ATENCAO)) return CONVERGENCIA.ATENCAO;
   if (vereditos.some((v) => v === CONVERGENCIA.CONFIRMADA)) {
     const confirmadas = vereditos.filter((v) => v === CONVERGENCIA.CONFIRMADA).length;
     return confirmadas >= vereditos.length / 2 ? CONVERGENCIA.CONFIRMADA : CONVERGENCIA.PARCIAL;
@@ -278,7 +273,7 @@ export function agregarEvolucao(
   const porDescritor = agruparPor((l) => l.descritor, (l) => l.competencia);
 
   const precisamApoio = pessoas
-    .filter((p) => p.veredito === CONVERGENCIA.ATENCAO || p.veredito === CONVERGENCIA.ESTAVEL || p.veredito === null)
+    .filter((p) => p.veredito === CONVERGENCIA.ESTAVEL || p.veredito === null)
     .sort((a, b) => a.delta - b.delta);
 
   return {
@@ -292,7 +287,6 @@ export function agregarEvolucao(
       confirmadas: pessoas.filter((p) => p.veredito === CONVERGENCIA.CONFIRMADA).length,
       parciais: pessoas.filter((p) => p.veredito === CONVERGENCIA.PARCIAL).length,
       estaveis: pessoas.filter((p) => p.veredito === CONVERGENCIA.ESTAVEL).length,
-      atencao: pessoas.filter((p) => p.veredito === CONVERGENCIA.ATENCAO).length,
       semVeredito: pessoas.filter((p) => p.veredito === null).length,
       deltaMedio: media(pessoas.map((p) => p.delta)),
       descritoresMedidos: todasLinhas.length,

@@ -144,7 +144,6 @@ export async function loadEvolucao() {
       confirmadas: descritores.filter((d) => d.convergencia === CONVERGENCIA.CONFIRMADA).length,
       parciais: descritores.filter((d) => d.convergencia === CONVERGENCIA.PARCIAL).length,
       estaveis: descritores.filter((d) => d.convergencia === CONVERGENCIA.ESTAVEL).length,
-      atencao: descritores.filter((d) => d.convergencia === CONVERGENCIA.ATENCAO).length,
     },
   };
 }

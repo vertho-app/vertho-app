@@ -175,7 +175,7 @@ export type EvolucaoDemo = {
     proximo_passo: string;
     resumo_avaliacao: string;
     nota_media_pos: number;
-    resumo: { confirmadas: number; parciais: number; estagnacoes: number; regressoes: number };
+    resumo: { confirmadas: number; parciais: number; estagnacoes: number };
     demo_fixture: true;
   };
 };
@@ -248,7 +248,6 @@ export function construirEvolucaoAcmeDemo(
         confirmadas: descritores.filter((d) => d.convergencia === 'evolucao_confirmada').length,
         parciais: descritores.filter((d) => d.convergencia === 'evolucao_parcial').length,
         estagnacoes: descritores.filter((d) => d.convergencia === 'estagnacao').length,
-        regressoes: descritores.filter((d) => d.convergencia === 'regressao').length,
       },
       // Marca de origem: qualquer leitura que precise separar vitrine de dado
       // real tem um campo para isso, em vez de inferir pelo slug do tenant.

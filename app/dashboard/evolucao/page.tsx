@@ -14,7 +14,6 @@ const PILL_POR_CONVERGENCIA: Record<string, { chave: string; pill: string }> = {
   [CONVERGENCIA.CONFIRMADA]: { chave: 'classification.confirmed', pill: 'bg-green-500/12 text-green-300 border border-green-500/22' },
   [CONVERGENCIA.PARCIAL]: { chave: 'classification.partial', pill: 'bg-[#9ae2e6]/8 text-[#9ae2e6] border border-[#9ae2e6]/16' },
   [CONVERGENCIA.ESTAVEL]: { chave: 'classification.stable', pill: 'bg-white/[0.06] text-white/70 border border-white/12' },
-  [CONVERGENCIA.ATENCAO]: { chave: 'classification.regression', pill: 'bg-red-500/12 text-red-300 border border-red-500/18' },
 };
 
 /**
@@ -83,7 +82,6 @@ export default function EvolucaoPage() {
   // Contadores JA classificados pela regua de producao (ver metricas na action).
   const confirmadas = metricas.confirmadas ?? 0;
   const parciais = metricas.parciais ?? 0;
-  const atencao = metricas.atencao ?? 0;
 
   // Competência foco (da primeira competência)
   const compFoco = competencias[0]?.nome || t('fallbackCompetency');
@@ -142,7 +140,7 @@ export default function EvolucaoPage() {
             {t('heroSubtitle')}
           </p>
 
-          <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="grid grid-cols-2 gap-3 mb-5">
             <div className="rounded-2xl bg-white/5 border border-white/10 p-3">
               <p className="text-[11px] text-white/55 mb-1">{t('metrics.confirmed')}</p>
               <p className="text-xl font-extrabold text-green-300">{confirmadas}</p>
@@ -150,10 +148,6 @@ export default function EvolucaoPage() {
             <div className="rounded-2xl bg-white/5 border border-white/10 p-3">
               <p className="text-[11px] text-white/55 mb-1">{t('metrics.partial')}</p>
               <p className="text-xl font-extrabold text-[#9AE2E6]">{parciais}</p>
-            </div>
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-3">
-              <p className="text-[11px] text-white/55 mb-1">{t('metrics.attention')}</p>
-              <p className="text-xl font-extrabold text-red-300">{atencao}</p>
             </div>
           </div>
 

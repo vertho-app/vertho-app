@@ -272,7 +272,6 @@ const VERDICT_STYLE: Record<string, { chave: string; cor: string; fundo: string 
   evolucao_confirmada: { chave: 'confirmed', cor: '#34D399', fundo: 'rgba(52,211,153,.12)' },
   evolucao_parcial: { chave: 'partial', cor: '#67E8F9', fundo: 'rgba(103,232,249,.1)' },
   estagnacao: { chave: 'stable', cor: 'rgba(255,255,255,.62)', fundo: 'rgba(255,255,255,.06)' },
-  regressao: { chave: 'attention', cor: '#FBBF24', fundo: 'rgba(251,191,36,.12)' },
 };
 
 function VerdictPill({ veredito, t }: { veredito: string | null; t: any }) {
@@ -460,7 +459,6 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
     { key: 'confirmed', valor: resumo.confirmadas, cor: '#34D399' },
     { key: 'partial', valor: resumo.parciais, cor: '#67E8F9' },
     { key: 'stable', valor: resumo.estaveis, cor: 'rgba(255,255,255,.72)' },
-    { key: 'attention', valor: resumo.atencao, cor: '#FBBF24' },
   ] as const;
 
   return (
@@ -523,7 +521,6 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
               { chave: 'confirmed', cor: '#34D399' },
               { chave: 'partial', cor: '#67E8F9' },
               { chave: 'stable', cor: 'rgba(255,255,255,.72)' },
-              { chave: 'attention', cor: '#FBBF24' },
             ].map(({ chave, cor }) => (
               <div key={chave} className="flex gap-2 text-[12px] leading-relaxed">
                 <dt className="shrink-0 font-bold" style={{ color: cor }}>

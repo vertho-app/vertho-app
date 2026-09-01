@@ -181,7 +181,6 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
         confirmadas: consolidado.filter(c => c.convergencia === CONVERGENCIA.CONFIRMADA).length,
         parciais: consolidado.filter(c => c.convergencia === CONVERGENCIA.PARCIAL).length,
         estagnacoes: consolidado.filter(c => c.convergencia === CONVERGENCIA.ESTAVEL).length,
-        regressoes: consolidado.filter(c => c.convergencia === CONVERGENCIA.ATENCAO).length,
       },
     };
 

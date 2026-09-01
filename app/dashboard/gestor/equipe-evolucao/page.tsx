@@ -13,7 +13,6 @@ const STATUS_CFG = {
   evolucao_confirmada:  { cor: 'emerald', icon: TrendingUp,   label: 'Evolução confirmada' },
   evolucao_parcial:     { cor: 'amber',   icon: TrendingUp,   label: 'Evolução parcial' },
   estagnacao:           { cor: 'gray',    icon: Minus,        label: 'Estagnação' },
-  regressao:            { cor: 'red',     icon: TrendingDown, label: 'Regressão' },
   sem_trilha:           { cor: 'gray',    icon: X,            label: 'Sem trilha' },
   arquivada:            { cor: 'gray',    icon: X,            label: 'Arquivada' },
 };
@@ -132,13 +131,12 @@ export default function EquipeEvolucaoPage() {
       )}
 
       {resumo && resumo.encerradas > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-6">
           <Card label="Total" valor={resumo.total} cor="text-white" />
           <Card label="Em andamento" valor={resumo.emAndamento} cor="text-brand-300" />
           <Card label="Confirmadas" valor={resumo.evolucaoConfirmada} cor="text-emerald-300" />
           <Card label="Parciais" valor={resumo.evolucaoParcial} cor="text-amber-300" />
-          <Card label="Estagnação" valor={resumo.estagnacao} cor="text-gray-400" />
-          <Card label="Regressão" valor={resumo.regressao} cor="text-red-400" />
+          <Card label="Estável" valor={resumo.estagnacao} cor="text-gray-400" />
         </div>
       )}
 

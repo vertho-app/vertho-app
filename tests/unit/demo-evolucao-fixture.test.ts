@@ -57,24 +57,25 @@ describe('Evolução da ACME Demo', () => {
     // régua, a contagem sai do lugar e este teste acusa.
     const vereditos = evolucaoDeTodas().map((e) => {
       const resumo = e.evolution_report.resumo;
-      const maior = Math.max(resumo.confirmadas, resumo.parciais, resumo.estagnacoes, resumo.regressoes);
+      const maior = Math.max(resumo.confirmadas, resumo.parciais, resumo.estagnacoes);
       if (resumo.confirmadas === maior) return 'confirmada';
       if (resumo.parciais === maior) return 'parcial';
-      if (resumo.estagnacoes === maior) return 'estavel';
-      return 'atencao';
+      return 'estavel';
     });
 
     expect(vereditos.filter((v) => v === 'confirmada')).toHaveLength(ACME_DEMO_EVOLUTION_TARGETS.confirmadas);
     expect(vereditos.filter((v) => v === 'parcial')).toHaveLength(ACME_DEMO_EVOLUTION_TARGETS.parciais);
     expect(vereditos.filter((v) => v === 'estavel')).toHaveLength(ACME_DEMO_EVOLUTION_TARGETS.estaveis);
-    expect(vereditos.filter((v) => v === 'atencao')).toHaveLength(0);
   });
 
-  it('não coloca nenhuma pessoa da demo em regressão', () => {
-    // Decisão do dono (01/09/2026): a demo mostra estabilidade, não regressão.
+  it('não produz veredito fora dos três da régua', () => {
+    // A régua não tem regressão (ninguém desaprende uma competência), e a demo
+    // não pode inventar um quarto rótulo por conta própria.
+    const validos = Object.values(CONVERGENCIA) as string[];
     for (const evolucao of evolucaoDeTodas()) {
-      expect(evolucao.evolution_report.resumo.regressoes).toBe(0);
-      expect(evolucao.descritores.every((d) => d.convergencia !== CONVERGENCIA.ATENCAO)).toBe(true);
+      for (const d of evolucao.descritores) {
+        expect(validos).toContain(d.convergencia);
+      }
     }
   });
 

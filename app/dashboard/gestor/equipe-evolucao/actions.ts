@@ -78,9 +78,12 @@ export async function listarEquipeEvolucao() {
     if (!t) status = 'sem_trilha';
     else if (t.status === 'ativa' || t.status === 'pausada') status = 'em_andamento';
     else if (t.status === 'concluida') {
-      const { confirmadas = 0, parciais = 0, regressoes = 0, estagnacoes = 0 } = resumo;
-      if (regressoes > parciais + confirmadas) status = 'regressao';
-      else if (confirmadas > parciais + estagnacoes) status = 'evolucao_confirmada';
+      // Sem ramo de regressão: a régua não produz esse veredito (ninguém
+      // desaprende uma competência — ver `lib/season-engine/convergencia.ts`).
+      // O `if` que existia aqui dependia de `resumo.regressoes`, que o motor
+      // não grava mais, então era condição que nunca dispara.
+      const { confirmadas = 0, parciais = 0, estagnacoes = 0 } = resumo;
+      if (confirmadas > parciais + estagnacoes) status = 'evolucao_confirmada';
       else if (confirmadas + parciais > estagnacoes) status = 'evolucao_parcial';
       else status = 'estagnacao';
     } else status = 'arquivada';
@@ -103,7 +106,7 @@ export async function listarEquipeEvolucao() {
   // tela tem o que mostrar: sem nenhuma trilha concluída ela desenha seis KPIs
   // zerados e uma lista de "em andamento" sem delta — a promessa de evolução
   // sem evolução nenhuma. Em Macaé isso é 0 de 282.
-  const VEREDITOS = ['evolucao_confirmada', 'evolucao_parcial', 'estagnacao', 'regressao'];
+  const VEREDITOS = ['evolucao_confirmada', 'evolucao_parcial', 'estagnacao'];
   const resumo = {
     total: rows.length,
     encerradas: rows.filter(r => VEREDITOS.includes(r.status)).length,
@@ -111,7 +114,6 @@ export async function listarEquipeEvolucao() {
     evolucaoConfirmada: rows.filter(r => r.status === 'evolucao_confirmada').length,
     evolucaoParcial: rows.filter(r => r.status === 'evolucao_parcial').length,
     estagnacao: rows.filter(r => r.status === 'estagnacao').length,
-    regressao: rows.filter(r => r.status === 'regressao').length,
     semTrilha: rows.filter(r => r.status === 'sem_trilha').length,
   };
 

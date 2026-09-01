@@ -68,19 +68,20 @@ describe('agregarEvolucao', () => {
     expect(r.pessoas[0].veredito).toBeNull();
   });
 
-  it('deixa o que precisa de atenção mandar no veredito da pessoa', () => {
+  it('chama de estável quem não teve maioria de comportamentos avançando', () => {
     const r = agregarEvolucao(
       [trilha('p1', [
-        d('Metas', 2, 3, CONVERGENCIA.CONFIRMADA),
-        d('Plano', 2, 3, CONVERGENCIA.CONFIRMADA),
-        d('Risco', 2.5, 2, CONVERGENCIA.ATENCAO),
+        d('Metas', 2, 2.1, CONVERGENCIA.ESTAVEL),
+        d('Plano', 2, 2.05, CONVERGENCIA.ESTAVEL),
+        d('Risco', 2.5, 2, CONVERGENCIA.ESTAVEL),
       ])],
       participantes,
       0,
     );
-    // Duas confirmadas contra uma em atenção: a acionável é a que precisa
-    // aparecer, senão o painel esconde justamente quem precisa de apoio.
-    expect(r.pessoas[0].veredito).toBe(CONVERGENCIA.ATENCAO);
+    // Queda não vira veredito próprio: a régua não tem regressão, então quem
+    // não avançou aparece como estável — e entra em "precisa de apoio", que é
+    // a informação acionável.
+    expect(r.pessoas[0].veredito).toBe(CONVERGENCIA.ESTAVEL);
     expect(r.proximasAcoes.precisamApoio.map((p) => p.colaboradorId)).toContain('p1');
   });
 

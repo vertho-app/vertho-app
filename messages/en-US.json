@@ -382,7 +382,6 @@
         "confirmed": "Growth confirmed",
         "partial": "Partial growth",
         "stable": "Stable",
-        "attention": "Needs attention",
         "noVerdict": "No verdict",
         "averageDelta": "Average change",
         "byCompetencyTitle": "What grew",
@@ -417,8 +416,7 @@
         "criteria": {
           "confirmed": "a gain of 0.5 or more AND evidence that the change was noticed.",
           "partial": "a gain from 0.2 up, or positive evidence the score does not yet confirm.",
-          "stable": "change between −0.2 and +0.2: held the starting level.",
-          "attention": "a drop greater than 0.2 between the initial assessment and the close."
+          "stable": "change between −0.2 and +0.2: held the starting level."
         }
       }
     },
@@ -1378,14 +1376,12 @@
     "classification": {
       "confirmed": "Evolution confirmed",
       "partial": "Partial evolution",
-      "regression": "Regression",
       "stable": "Stable"
     },
     "metrics": {
       "competenciesShort": "{count} comp.",
       "confirmed": "Confirmed",
-      "partial": "Partials",
-      "attention": "Attention"
+      "partial": "Partials"
     },
     "sections": {
       "descriptorComparison": "Comparison by descriptor",

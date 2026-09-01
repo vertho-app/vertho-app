@@ -382,7 +382,6 @@
         "confirmed": "Evolução confirmada",
         "partial": "Evolução parcial",
         "stable": "Estável",
-        "attention": "Requer atenção",
         "noVerdict": "Sem veredicto",
         "averageDelta": "Variação média",
         "byCompetencyTitle": "O que evoluiu",
@@ -417,8 +416,7 @@
         "criteria": {
           "confirmed": "ganho de 0,5 ou mais na nota E evidência de que a mudança foi percebida.",
           "partial": "ganho a partir de 0,2, ou evidência positiva que a nota ainda não confirma.",
-          "stable": "variação entre −0,2 e +0,2: manteve o patamar de partida.",
-          "attention": "queda maior que 0,2 entre a avaliação inicial e o fecho."
+          "stable": "variação entre −0,2 e +0,2: manteve o patamar de partida."
         }
       }
     },
@@ -1378,14 +1376,12 @@
     "classification": {
       "confirmed": "Evolução confirmada",
       "partial": "Evolução parcial",
-      "regression": "Regressão",
       "stable": "Estável"
     },
     "metrics": {
       "competenciesShort": "{count} comp.",
       "confirmed": "Confirmadas",
-      "partial": "Parciais",
-      "attention": "Atenção"
+      "partial": "Parciais"
     },
     "sections": {
       "descriptorComparison": "Comparativo por descritor",

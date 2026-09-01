@@ -15,12 +15,26 @@
  * (demonstração). Guard de paridade: `tests/unit/convergencia-regua.test.ts`.
  */
 
-/** Os quatro vereditos possíveis, no VALOR gravado em `trilhas.evolution_report`. */
+/**
+ * Os três vereditos possíveis, no VALOR gravado em `trilhas.evolution_report`.
+ *
+ * 🔑 NÃO EXISTE VEREDITO DE REGRESSÃO, e a ausência é uma decisão do dono do
+ * produto (01/09/2026): **ninguém desaprende uma competência**. Uma nota que
+ * cai entre o diagnóstico e o fechamento não descreve alguém que piorou;
+ * descreve a variação do instrumento, que avalia conversas diferentes com
+ * prompts diferentes. Carimbar isso como "regressão" seria transformar ruído
+ * de medição numa afirmação sobre a pessoa, dentro de um relatório que o
+ * gestor dela lê.
+ *
+ * Queda entra em `ESTAVEL`: o patamar de partida se manteve, e é só isso que a
+ * medição sustenta. Foi removido antes de existir um único registro
+ * (`Medido:` 0 linhas com `regressao` em todos os tenants), então não há
+ * histórico a migrar.
+ */
 export const CONVERGENCIA = {
   CONFIRMADA: 'evolucao_confirmada',
   PARCIAL: 'evolucao_parcial',
   ESTAVEL: 'estagnacao',
-  ATENCAO: 'regressao',
 } as const;
 
 export type Convergencia = typeof CONVERGENCIA[keyof typeof CONVERGENCIA];
@@ -31,13 +45,12 @@ export type Convergencia = typeof CONVERGENCIA[keyof typeof CONVERGENCIA];
  */
 export const CORTE_CONFIRMADA = 0.5;
 export const CORTE_PARCIAL = 0.2;
-export const CORTE_ATENCAO = -0.2;
 
 /**
- * Rótulos de APRESENTAÇÃO. O valor gravado no banco (`estagnacao`, `regressao`)
- * é vocabulário de engenharia e já está em 170 relatórios; o que a pessoa lê é
- * outra coisa. Trocar o valor exigiria migrar o histórico e reescrever a régua
- * do gestor por nada — trocar o rótulo custa uma linha e é reversível.
+ * Rótulos de APRESENTAÇÃO. O valor gravado no banco (`estagnacao`) é
+ * vocabulário de engenharia; o que a pessoa lê é outra coisa. Trocar o valor
+ * exigiria migrar histórico e reescrever a régua do gestor por nada — trocar o
+ * rótulo custa uma linha e é reversível.
  *
  * ⚠️ Toda tela que mostrar convergência usa esta função. Escrever "Estagnação"
  * à mão numa tela recria a divergência que este arquivo existe para impedir.
@@ -46,7 +59,6 @@ const ROTULOS: Record<Convergencia, string> = {
   [CONVERGENCIA.CONFIRMADA]: 'Evolução confirmada',
   [CONVERGENCIA.PARCIAL]: 'Evolução parcial',
   [CONVERGENCIA.ESTAVEL]: 'Estável',
-  [CONVERGENCIA.ATENCAO]: 'Requer atenção',
 };
 
 export function rotuloConvergencia(valor: string | null | undefined): string {
@@ -77,6 +89,7 @@ export function classificarConvergencia({
 
   if (delta >= CORTE_CONFIRMADA && qualitativaPositiva) return CONVERGENCIA.CONFIRMADA;
   if (delta >= CORTE_PARCIAL || qualitativaPositiva) return CONVERGENCIA.PARCIAL;
-  if (delta < CORTE_ATENCAO) return CONVERGENCIA.ATENCAO;
+  // Queda cai aqui de propósito: sem veredito de regressão, o piso da régua é
+  // "manteve o patamar". Ver o cabeçalho de CONVERGENCIA.
   return CONVERGENCIA.ESTAVEL;
 }
