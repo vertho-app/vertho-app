@@ -10,6 +10,7 @@ import { hasDiscMapeado } from '@/lib/disc-status';
 import {
   buscarContextoPPP, buscarValores,
   carregarContextoIA2, montarPromptIA2, validarGabaritoIA2, persistirGabaritoIA2,
+  gerarGabaritosIA2Core,
 } from '@/lib/ia2-gabarito';
 import { gerarCenarioIA3Core, checkCenarioIA3Core, regenerarCenarioIA3ComTrava } from '@/lib/ia3-cenarios';
 import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
@@ -648,45 +649,10 @@ export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}, opts:
   const sbRaw = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'rodarIA2');
   const tdb = tenantDb(empresaId);
   try {
-    // Contexto compartilhado (empresa + PPP + valores + top10 + detalhe + população
-    // p/ colinearidade) — extraído p/ `@/lib/ia2-gabarito` e reusado pela task de lote.
-    const { ctx, error } = await carregarContextoIA2(empresaId, tdb, sbRaw, { cargoNome: opts.cargoNome });
-    if (error || !ctx) return { success: false, error: error || 'contexto IA2 indisponível' };
-    const { empresa, contextoPPP, valores, top10PorCargo, cargosDetalheMap, colabsParaMetrica } = ctx;
-
-    // 5. Para cada cargo com top10, gerar gabarito CIS (1 chamada por cargo).
-    let totalGerados = 0;
-
-    for (const [cargoNome, compNomes] of Object.entries(top10PorCargo)) {
-      const detalhe = cargosDetalheMap[cargoNome.toLowerCase()] || {};
-
-      // Montagem do prompt (system + user) extraída p/ montarPromptIA2.
-      const { system, user } = montarPromptIA2({ cargoNome, compNomes, detalhe, contextoPPP, valores, empresa });
-      let resposta = await callAI(system, user, aiConfig, 8192, { taskKey: 'ia2_gabarito' });
-      let resultado = await extractJSON(resposta);
-
-      // ── Validação pós-resposta + RETRY (permanece aqui, no caminho síncrono) ──
-      if (resultado?.gabarito) {
-        const { invalid, errors } = validarGabaritoIA2(resultado);
-        // Retry se soma errada ou erro grave
-        if (invalid) {
-          console.warn(`[IA2] ${cargoNome}: validação falhou (${errors.join('; ')}). Retry.`);
-          const retryUser = user + `\n\n═══ ATENÇÃO: CORREÇÃO NECESSÁRIA ═══\n${errors.join('\n')}\nCorrija e retorne JSON válido.`;
-          resposta = await callAI(system, retryUser, aiConfig, 8192, { taskKey: 'ia2_gabarito' });
-          const retryResult = await extractJSON(resposta);
-          if (retryResult?.gabarito) resultado = retryResult;
-        }
-      }
-
-      // Validação + gravação extraídas p/ persistirGabaritoIA2 (grava sempre que há
-      // gabarito, como antes; o retorno é ignorado no síncrono — só o lote o usa).
-      if (resultado?.gabarito) {
-        await persistirGabaritoIA2({ tdb, cargoNome, resultado, detalhe, colabsParaMetrica });
-        totalGerados++;
-      }
-    }
-
-    return { success: true, message: `IA2 concluída: ${totalGerados} gabaritos CIS gerados` };
+    // O laço (contexto → prompt → validação/retry → persistência) vive no
+    // núcleo headless `lib/ia2-gabarito`, que script e task de lote usam sem
+    // sessão. Aqui fica só o gate.
+    return await gerarGabaritosIA2Core({ empresaId, tdb, sbRaw, aiConfig, cargoNome: opts.cargoNome });
   } catch (err) {
     return { success: false, error: err.message };
   }

@@ -194,8 +194,18 @@ export const PERSONAS_ESCOLARES = [
     gestor_nome: null as string | null,
     gestor_email: null as string | null,
     gestor_whatsapp: null as string | null,
+    // DISC CALIBRADO com o motor como oráculo (01/09), não escolhido a olho: o
+    // primeiro palpite (D46 I76 S20 C58) dava 77,7 com ZERO premissas
+    // reprovadas — o papel da régua eliminatória não existia de fato. A busca
+    // em grade varreu os perfis que somam 200, derivou as colunas
+    // comportamentais pela régua do produto e perguntou ao `calcularFitUnificado`:
+    // 3.074 bloqueiam, 956 deles na faixa plausível para uma pessoa. Este é o
+    // de maior aderência entre os que preservam o perfil IC.
+    // `Medido:` fit 83,8 · "Não recomendado" por Persistência insuficiente —
+    // a premissa que o gabarito do cargo descreve como "sustentar processos
+    // lentos de mudança de prática sob pressão por resultado rápido".
     perfil_dominante: 'IC',
-    d_natural: 46, i_natural: 76, s_natural: 20, c_natural: 58,
+    d_natural: 24, i_natural: 74, s_natural: 30, c_natural: 72,
     scenario: 'parcial',
     responder: ['Gestão da Aprendizagem', 'Desenvolvimento Docente'],
   },

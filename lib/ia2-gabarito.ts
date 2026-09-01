@@ -13,6 +13,10 @@ import { LATEST_SPEC_VERSION } from '@/lib/scoring/role-spec';
 import { candidateColumns } from '@/lib/scoring/candidate';
 import { medirColinearidadeMapDisc } from '@/lib/scoring/colinearidade';
 import { isInternalEmail } from '@/lib/internal-emails';
+// O núcleo headless (no fim do arquivo) chama a IA, como faz o irmão
+// `lib/ia3-cenarios.ts`. Os helpers acima seguem puros.
+import { callAI } from '@/actions/ai-client';
+import { extractJSON } from '@/actions/utils';
 
 // ── Referências comportamentais (idênticas ao GAS/fase1) ─────────────────────
 export const PARES_DISC = [
@@ -637,4 +641,58 @@ export async function persistirGabaritoIA2({ tdb, cargoNome, resultado, detalhe,
 
   if (invalid) return { ok: false, error: `gabarito gravado com ressalva: ${errors.join('; ')}`, message: 'gravado com aviso de validação' };
   return { ok: true, message: `gabarito de "${cargoNome}" gravado` };
+}
+
+/**
+ * Núcleo HEADLESS do IA2 — o laço que gera um gabarito por cargo.
+ *
+ * Extraído de `actions/fase1.ts::rodarIA2` (01/09/2026) no mesmo padrão do IA3
+ * (`lib/ia3-cenarios.ts::gerarCenarioIA3Core`): a action `'use server'` aplica o
+ * gate e delega; script e task usam este núcleo direto. Sem isso, quem precisa
+ * rodar sem sessão (semear um ambiente demo novo, por exemplo) copiaria o laço
+ * para um script, e o gêmeo copiado é o que envelhece calado.
+ *
+ * Nada aqui tem gate: quem chama de servidor passa o client service-role, e o
+ * isolamento é o `tenantDb` do `empresaId`.
+ */
+export async function gerarGabaritosIA2Core(args: {
+  empresaId: string;
+  tdb: any;
+  sbRaw: any;
+  aiConfig?: any;
+  cargoNome?: string;
+}): Promise<{ success: boolean; error?: string; message?: string; totalGerados?: number }> {
+  const { empresaId, tdb, sbRaw, aiConfig = {}, cargoNome } = args;
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+
+  const { ctx, error } = await carregarContextoIA2(empresaId, tdb, sbRaw, { cargoNome });
+  if (error || !ctx) return { success: false, error: error || 'contexto IA2 indisponível' };
+  const { empresa, contextoPPP, valores, top10PorCargo, cargosDetalheMap, colabsParaMetrica } = ctx;
+
+  let totalGerados = 0;
+  for (const [nomeDoCargo, compNomes] of Object.entries(top10PorCargo)) {
+    const detalhe = cargosDetalheMap[nomeDoCargo.toLowerCase()] || {};
+    const { system, user } = montarPromptIA2({ cargoNome: nomeDoCargo, compNomes, detalhe, contextoPPP, valores, empresa });
+
+    let resposta = await callAI(system, user, aiConfig, 8192, { taskKey: 'ia2_gabarito' });
+    let resultado = await extractJSON(resposta);
+
+    if (resultado?.gabarito) {
+      const { invalid, errors } = validarGabaritoIA2(resultado);
+      if (invalid) {
+        console.warn(`[IA2] ${nomeDoCargo}: validação falhou (${errors.join('; ')}). Retry.`);
+        const retryUser = `${user}\n\n═══ ATENÇÃO: CORREÇÃO NECESSÁRIA ═══\n${errors.join('\n')}\nCorrija e retorne JSON válido.`;
+        resposta = await callAI(system, retryUser, aiConfig, 8192, { taskKey: 'ia2_gabarito' });
+        const retryResult = await extractJSON(resposta);
+        if (retryResult?.gabarito) resultado = retryResult;
+      }
+    }
+
+    if (resultado?.gabarito) {
+      await persistirGabaritoIA2({ tdb, cargoNome: nomeDoCargo, resultado, detalhe, colabsParaMetrica });
+      totalGerados++;
+    }
+  }
+
+  return { success: true, totalGerados, message: `IA2 concluída: ${totalGerados} gabaritos CIS gerados` };
 }

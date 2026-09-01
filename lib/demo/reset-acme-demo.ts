@@ -311,7 +311,12 @@ export const DEMO_TENANT_PROFILES = {
     ppp: PPP_REDE_ESCOLAS_ACME,
     valores: VALORES_REDE_ESCOLAS_ACME,
     acessoAllowlist: null as readonly string[] | null,
-    resetPausadoAte: null as string | null,
+    // 🔴 PAUSA COM DATA DE FIM enquanto o golden não está congelado. O reset
+    // apaga `cargos_empresa` e `banco_cenarios`, e o conteúdo de IA deste
+    // ambiente (gabaritos e cenários) ainda vive SÓ no banco — sem a pausa, o
+    // cron das 4h apagaria de madrugada o que a geração pagou. Sai quando o
+    // fixture escolar estiver commitado, e não depois.
+    resetPausadoAte: '2026-09-08T07:00:00.000Z' as string | null,
     convidado: null as DemoConvidado | null,
   },
   [GRUPO_SINAL_SLUG]: {
