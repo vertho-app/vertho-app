@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   prospectResult: null as any,
   prospectArgs: [] as any[],
   cleanupResult: { expiredRemoved: 0, activeCount: 0, nextExpiry: null } as any,
+  cleanupSlugs: [] as string[],
   resetDemo: vi.fn(async () => ({ ok: true, counts: { colaboradores: 30 } })),
 }));
 
@@ -56,7 +57,10 @@ vi.mock('@/lib/demo/acme-prospect-experience', () => ({
 }));
 
 vi.mock('@/lib/demo/acme-prospect-tracking', () => ({
-  cleanupExpiredAcmeProspects: async () => h.cleanupResult,
+  cleanupExpiredDemoProspects: async (slug: string) => {
+    h.cleanupSlugs.push(slug);
+    return h.cleanupResult;
+  },
   listAcmeProspectProgress: vi.fn(),
 }));
 
@@ -80,6 +84,7 @@ describe('action do roteiro de experiência ACME', () => {
     h.audits = [];
     h.prospectArgs = [];
     h.cleanupResult = { expiredRemoved: 0, activeCount: 0, nextExpiry: null };
+    h.cleanupSlugs = [];
     h.resetDemo.mockClear();
     h.presentationResult = { ok: true, acessos: views };
     h.prospectResult = {
@@ -154,5 +159,27 @@ describe('action do roteiro de experiência ACME', () => {
 
     expect(result).toMatchObject({ success: true, skipped: false });
     expect(h.resetDemo).toHaveBeenCalledWith('acme-demo');
+    expect(h.cleanupSlugs).toEqual(['acme-demo']);
+  });
+
+  // O preflight lia o ACME fixo: resetar outro ambiente passava sem olhar
+  // convidado nenhum, e um convidado ativo no ACME travava o reset do vizinho.
+  it('confere os convidados DO ambiente que está sendo resetado, não os do ACME', async () => {
+    const result = await resetarDemo('gruposinal');
+
+    expect(result).toMatchObject({ success: true, skipped: false });
+    expect(h.cleanupSlugs).toEqual(['gruposinal']);
+    expect(h.resetDemo).toHaveBeenCalledWith('gruposinal');
+  });
+
+  it('adia o reset do ambiente que tem convidado ativo, com o alvo certo na auditoria', async () => {
+    h.cleanupResult = { expiredRemoved: 0, activeCount: 1, nextExpiry: '2026-09-03T07:00:00.000Z' };
+
+    const result = await resetarDemo('gruposinal');
+
+    expect(result).toMatchObject({ success: true, skipped: true, activeGuests: 1 });
+    expect(h.cleanupSlugs).toEqual(['gruposinal']);
+    expect(h.resetDemo).not.toHaveBeenCalled();
+    expect(h.audits[0]).toMatchObject({ alvo: 'gruposinal', resultado: 'parcial' });
   });
 });

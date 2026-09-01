@@ -17,16 +17,21 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantUrl } from '@/lib/domain';
 import { requireRepresentativeAction } from '@/lib/sales/permissions';
-import { DEMO_PERSONAS } from '@/lib/sales/demo-personas';
+import { personasDemoDoTenant } from '@/lib/sales/demo-personas';
 
 const DEMO_SLUG = 'acme-demo';
 
-/** Lista as personas disponíveis para o RC (sem tokens). */
-export async function listarPersonasDemo() {
+/**
+ * Lista as personas do ambiente pedido (sem tokens). O slug vem do cliente,
+ * então passa pela allowlist de `personasDemoDoTenant` antes de virar consulta.
+ */
+export async function listarPersonasDemo(slug: string = DEMO_SLUG) {
   await requireRepresentativeAction();
+  const personas = personasDemoDoTenant(slug);
+  if (!personas) return { success: false as const, error: 'Ambiente de demonstração inválido' };
   return {
     success: true as const,
-    personas: DEMO_PERSONAS.map(({ key, nome, papel, cenario, disc, hint }) => ({ key, nome, papel, cenario, disc, hint })),
+    personas: personas.map(({ key, nome, papel, cenario, disc, hint }) => ({ key, nome, papel, cenario, disc, hint })),
   };
 }
 
@@ -34,16 +39,23 @@ export async function listarPersonasDemo() {
  * Abre o Ambiente de Demonstração como a persona escolhida. Retorna a URL de
  * callback no host do demo (o cliente faz window.open). NÃO envia nada.
  */
-export async function entrarNoDemoComoPersona(personaKey: string) {
+export async function entrarNoDemoComoPersona(personaKey: string, slug: string = DEMO_SLUG) {
   const ctx = await requireRepresentativeAction();
-  const persona = DEMO_PERSONAS.find((p) => p.key === personaKey);
+  const personas = personasDemoDoTenant(slug);
+  if (!personas) return { success: false as const, error: 'Ambiente de demonstração inválido' };
+  const persona = personas.find((p) => p.key === personaKey);
   if (!persona) return { success: false as const, error: 'Persona de demonstração inválida' };
 
   const sb = createSupabaseAdmin();
 
   // Confirma que o tenant de demo existe e É demo (defesa: nunca minta sessão
   // fora do acme-demo).
-  const { data: empresa } = await sb.from('empresas').select('id, is_demo').eq('slug', DEMO_SLUG).maybeSingle();
+  const { data: empresa, error: erroEmpresa } = await sb.from('empresas')
+    .select('id, is_demo').eq('slug', slug).maybeSingle();
+  // Falha de leitura não pode virar "não existe": sem checar o `error`, uma
+  // query quebrada aparece como ambiente indisponível e manda o vendedor
+  // procurar o problema no tenant errado.
+  if (erroEmpresa) return { success: false as const, error: `Falha ao carregar o ambiente ${slug}: ${erroEmpresa.message}` };
   if (!empresa?.is_demo) return { success: false as const, error: 'Ambiente de demonstração indisponível' };
 
   // Garante o usuário auth da persona (idempotente — se já existe, ignora).
@@ -53,12 +65,13 @@ export async function entrarNoDemoComoPersona(personaKey: string) {
 
   // Confirma que a persona é colaboradora do acme-demo (senão o dashboard não
   // teria contexto). Se o demo ainda não foi semeado, orienta o reset.
-  const { data: colab } = await sb.from('colaboradores')
+  const { data: colab, error: erroColab } = await sb.from('colaboradores')
     .select('id').eq('empresa_id', empresa.id).eq('email', persona.email).maybeSingle();
+  if (erroColab) return { success: false as const, error: `Falha ao carregar a persona ${persona.key}: ${erroColab.message}` };
   if (!colab) return { success: false as const, error: 'Personas do demo não encontradas — rode o reset do ambiente (admin).' };
 
   const nextPath = persona.papel === 'Gestora' ? '/dashboard/gestor' : '/dashboard';
-  const redirectTo = tenantUrl(DEMO_SLUG, nextPath);
+  const redirectTo = tenantUrl(slug, nextPath);
 
   const { data: link, error } = await (sb as any).auth.admin.generateLink({
     type: 'magiclink',
@@ -70,10 +83,10 @@ export async function entrarNoDemoComoPersona(personaKey: string) {
   }
 
   const url = tenantUrl(
-    DEMO_SLUG,
+    slug,
     `/auth/callback?token_hash=${encodeURIComponent(link.properties.hashed_token)}&type=email&next=${encodeURIComponent(nextPath)}`,
   );
 
-  console.log(`[demo-access] RC ${ctx.email} entrou no demo como ${persona.key}`);
+  console.log(`[demo-access] RC ${ctx.email} entrou no demo ${slug} como ${persona.key}`);
   return { success: true as const, url, persona: { nome: persona.nome, papel: persona.papel } };
 }

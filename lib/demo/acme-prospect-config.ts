@@ -141,12 +141,56 @@ export const ACME_PROSPECT_AUTH_MARKER = 'acme-prospect-experience-v1';
 export const ACME_PROSPECT_SESSION_PATTERN = /^[a-f0-9]{20}$/;
 
 /**
+ * Ambientes de demonstração que oferecem degustação self-service.
+ *
+ * 🔑 **O prefixo do e-mail é o que separa um ambiente do outro no Auth.** A
+ * conta do convidado não guarda tenant em lugar nenhum: o marcador
+ * (`vertho_demo_access`) é o mesmo para todos e a tabela `demo_prospect_sessions`
+ * só é consultada por `empresa_id`. A limpeza varre o Auth atrás de convidados
+ * SEM sessão rastreada no tenant e os apaga como resíduo — então, com um prefixo
+ * compartilhado, a faxina de um ambiente apagaria os convidados vivos do outro.
+ * Um prefixo por tenant mantém cada varredura dentro da própria casa.
+ */
+export const DEMO_PROSPECT_TENANTS = {
+  'acme-demo': {
+    slug: 'acme-demo',
+    authPrefix: ACME_PROSPECT_AUTH_PREFIX,
+  },
+} as const;
+
+export type DemoProspectTenantSlug = keyof typeof DEMO_PROSPECT_TENANTS;
+
+export function getDemoProspectTenant(slug: string) {
+  return (DEMO_PROSPECT_TENANTS as Record<string, { slug: string; authPrefix: string }>)[slug] ?? null;
+}
+
+/**
+ * Prefixo do ambiente. Um tenant ainda não registrado ganha prefixo DERIVADO do
+ * próprio slug — nunca o do ACME por omissão: herdar o prefixo do vizinho é
+ * exatamente o que faz a faxina de um ambiente apagar o convidado vivo do outro.
+ */
+export function demoProspectAuthPrefix(slug: string): string {
+  const registrado = getDemoProspectTenant(slug);
+  if (registrado) return registrado.authPrefix;
+  const token = String(slug || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `convidado.${token || 'demo'}.`;
+}
+
+/**
  * E-mail técnico do convidado de passaporte. Deliberadamente NÃO termina em
  * `.demo@vertho.ai`: o filtro canônico (`lib/internal-emails`) trata esta conta
  * como interna e a exclui dos indicadores agregados.
  */
 export function acmeProspectAuthEmail(sessionId: string): string {
   return `${ACME_PROSPECT_AUTH_PREFIX}${sessionId}${ACME_PROSPECT_AUTH_SUFFIX}`;
+}
+
+/** Igual ao anterior, com o prefixo do ambiente que hospeda o convidado. */
+export function demoProspectAuthEmail(slug: string, sessionId: string): string {
+  return `${demoProspectAuthPrefix(slug)}${sessionId}${ACME_PROSPECT_AUTH_SUFFIX}`;
 }
 
 function cleanHumanText(value: unknown): string {

@@ -112,41 +112,62 @@ export async function GET(req) {
         break;
       }
 
-      // Reset noturno do ambiente de demonstração (tenant acme-demo) ao estado
-      // inicial. Convidados vencidos saem primeiro; qualquer convidado ainda em
-      // D+2 adia a recomposição para não perder sessão ou progresso.
+      // Reset noturno dos ambientes de demonstração ao estado inicial, um por
+      // vez. Convidados vencidos saem primeiro; qualquer convidado ainda em D+2
+      // adia a recomposição daquele ambiente, para não perder sessão ou progresso.
+      //
+      // 🔑 **O adiamento é por AMBIENTE, e a lista sai de `DEMO_TENANT_PROFILES`.**
+      // Até 01/09 este case chamava `resetAcmeDemo()` com o alvo escrito na mão:
+      // o Grupo Sinal virou tenant demo em 25/08 e nunca teve reset noturno, e o
+      // preflight de convidados lia só o ACME — um convidado ativo lá adiaria a
+      // recomposição de todos. Ambiente que falha não impede os demais, mas o
+      // erro sobe no fim: a rota traduz exceção em 500, que é o que torna a
+      // falha observável no log do Vercel.
       case 'reset_demo': {
-        const { cleanupExpiredAcmeProspects } = await import('@/lib/demo/acme-prospect-tracking');
-        const lifecycle = await cleanupExpiredAcmeProspects();
-        if (lifecycle.activeCount > 0) {
+        const { cleanupExpiredDemoProspects } = await import('@/lib/demo/acme-prospect-tracking');
+        const { DEMO_TENANT_PROFILES, resetDemoTenant } = await import('@/lib/demo/reset-acme-demo');
+        const { logAdminAction } = await import('@/lib/audit');
+        const auditar = async (alvo, detalhes, resultado = null) => {
           try {
-            const { logAdminAction } = await import('@/lib/audit');
             await logAdminAction({
               adminEmail: 'system:cron',
               acao: 'demo.reset',
-              alvo: 'acme-demo',
-              detalhes: { skipped: true, ...lifecycle },
-              resultado: 'parcial',
+              alvo,
+              detalhes,
+              ...(resultado ? { resultado } : {}),
             });
           } catch { /* auditoria best-effort */ }
-          result = {
-            message: `reset adiado · ${lifecycle.activeCount} convidado(s) em D+2`,
-            skipped: true,
-            ...lifecycle,
-          };
-          break;
+        };
+
+        const ambientes = [];
+        const falhas = [];
+        const slugsDemo = Object.keys(DEMO_TENANT_PROFILES) as Array<keyof typeof DEMO_TENANT_PROFILES>;
+        for (const slug of slugsDemo) {
+          try {
+            const lifecycle = await cleanupExpiredDemoProspects(slug);
+            if (lifecycle.activeCount > 0) {
+              await auditar(slug, { skipped: true, ...lifecycle }, 'parcial');
+              ambientes.push({ slug, skipped: true, ...lifecycle });
+              continue;
+            }
+            const r = await resetDemoTenant(slug);
+            await auditar(slug, r.ok ? { counts: r.counts } : { error: r.error });
+            if (!r.ok) throw new Error(r.error || 'reset do demo falhou');
+            ambientes.push({ slug, counts: r.counts, expiredRemoved: lifecycle.expiredRemoved });
+          } catch (erro) {
+            const mensagem = erro?.message || String(erro);
+            await auditar(slug, { error: mensagem }, 'erro');
+            falhas.push(`${slug}: ${mensagem}`);
+          }
         }
-        const { resetAcmeDemo } = await import('@/lib/demo/reset-acme-demo');
-        const r = await resetAcmeDemo();
-        try {
-          const { logAdminAction } = await import('@/lib/audit');
-          await logAdminAction({ adminEmail: 'system:cron', acao: 'demo.reset', alvo: 'acme-demo', detalhes: r.ok ? { counts: r.counts } : { error: r.error } });
-        } catch { /* auditoria best-effort */ }
-        if (!r.ok) throw new Error(r.error || 'reset do demo falhou');
+
+        if (falhas.length > 0) throw new Error(`reset do demo falhou · ${falhas.join(' | ')}`);
+        const adiados = ambientes.filter((item) => item.skipped).length;
         result = {
-          message: `demo resetada · ${JSON.stringify(r.counts)}`,
-          counts: r.counts,
-          expiredRemoved: lifecycle.expiredRemoved,
+          message: adiados > 0
+            ? `${ambientes.length - adiados} ambiente(s) resetado(s) · ${adiados} adiado(s) por convidado em D+2`
+            : `${ambientes.length} ambiente(s) resetado(s)`,
+          ambientes,
         };
         break;
       }

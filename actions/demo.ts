@@ -20,7 +20,7 @@ import {
   prepareAcmeProspectExperience,
 } from '@/lib/demo/acme-prospect-experience';
 import {
-  cleanupExpiredAcmeProspects,
+  cleanupExpiredDemoProspects,
   listDemoGuestProgress,
 } from '@/lib/demo/acme-prospect-tracking';
 import {
@@ -32,34 +32,37 @@ import {
 /** Reset sob demanda do tenant demo escolhido, com allowlist tipada e auditoria. */
 export async function resetarDemo(slug: DemoTenantSlug = 'acme-demo') {
   const ctx = await requireAdminAction();
-  if (slug === DEMO_PRESENTATION_TENANT_SLUG) {
-    try {
-      const lifecycle = await cleanupExpiredAcmeProspects();
-      if (lifecycle.activeCount > 0) {
-        await logAdminAction({
-          adminEmail: ctx.email,
-          acao: 'demo.reset',
-          alvo: slug,
-          detalhes: { skipped: true, ...lifecycle },
-          resultado: 'parcial',
-        });
-        return {
-          success: true as const,
-          skipped: true as const,
-          activeGuests: lifecycle.activeCount,
-          nextExpiry: lifecycle.nextExpiry,
-        };
-      }
-    } catch (error: any) {
+  try {
+    // O preflight é do ambiente que está sendo resetado. Ele valia só para o
+    // ACME e, pior, lia sempre o ACME: o botão de outro ambiente recompunha
+    // sem olhar convidado nenhum, e um convidado ativo no ACME travaria o
+    // reset do vizinho. Ambiente sem degustação simplesmente não tem sessão
+    // para achar, então a checagem é inofensiva onde não se aplica.
+    const lifecycle = await cleanupExpiredDemoProspects(slug);
+    if (lifecycle.activeCount > 0) {
       await logAdminAction({
         adminEmail: ctx.email,
         acao: 'demo.reset',
         alvo: slug,
-        detalhes: { error: error?.message },
-        resultado: 'erro',
+        detalhes: { skipped: true, ...lifecycle },
+        resultado: 'parcial',
       });
-      return { success: false as const, error: error?.message || 'falha ao conferir convidados ativos' };
+      return {
+        success: true as const,
+        skipped: true as const,
+        activeGuests: lifecycle.activeCount,
+        nextExpiry: lifecycle.nextExpiry,
+      };
     }
+  } catch (error: any) {
+    await logAdminAction({
+      adminEmail: ctx.email,
+      acao: 'demo.reset',
+      alvo: slug,
+      detalhes: { error: error?.message },
+      resultado: 'erro',
+    });
+    return { success: false as const, error: error?.message || 'falha ao conferir convidados ativos' };
   }
   const r = await resetDemoTenant(slug);
   await logAdminAction({

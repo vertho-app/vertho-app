@@ -9,6 +9,7 @@ import {
   ACME_PROSPECT_AUTH_SUFFIX,
   ACME_PROSPECT_SESSION_PATTERN,
   acmeProspectAuthEmail,
+  demoProspectAuthPrefix,
   type AcmeProspectPresentationRoleKey,
   type AcmeProspectProgress,
   type DemoGuestProgress,
@@ -67,30 +68,39 @@ function asValidTime(value: unknown): number | null {
   return Number.isFinite(time) ? time : null;
 }
 
-function sessionIdFromEmail(email: string): string | null {
-  if (!email.startsWith(ACME_PROSPECT_AUTH_PREFIX) || !email.endsWith(ACME_PROSPECT_AUTH_SUFFIX)) {
+function sessionIdFromEmail(email: string, prefix: string = ACME_PROSPECT_AUTH_PREFIX): string | null {
+  if (!email.startsWith(prefix) || !email.endsWith(ACME_PROSPECT_AUTH_SUFFIX)) {
     return null;
   }
-  const value = email.slice(ACME_PROSPECT_AUTH_PREFIX.length, -ACME_PROSPECT_AUTH_SUFFIX.length);
+  const value = email.slice(prefix.length, -ACME_PROSPECT_AUTH_SUFFIX.length);
   return ACME_PROSPECT_SESSION_PATTERN.test(value) ? value : null;
 }
 
-export function isAcmeProspectAuthUser(user: ProspectAuthUser): boolean {
+/**
+ * Convidado de passaporte DESTE ambiente. O marcador de metadata é comum a
+ * todos os tenants demo; quem identifica a casa é o prefixo do e-mail.
+ */
+export function isDemoProspectAuthUser(user: ProspectAuthUser, prefix: string): boolean {
   const email = String(user.email || '').trim().toLowerCase();
-  return Boolean(sessionIdFromEmail(email))
+  return Boolean(sessionIdFromEmail(email, prefix))
     && user.user_metadata?.vertho_demo_access === ACME_PROSPECT_AUTH_MARKER;
 }
 
-export function readAcmeProspectAuthContext(
+export function isAcmeProspectAuthUser(user: ProspectAuthUser): boolean {
+  return isDemoProspectAuthUser(user, ACME_PROSPECT_AUTH_PREFIX);
+}
+
+export function readDemoProspectAuthContext(
   user: ProspectAuthUser,
+  prefix: string,
   now: Date = new Date(),
 ): AcmeProspectAuthContext | null {
-  if (!isAcmeProspectAuthUser(user)) return null;
+  if (!isDemoProspectAuthUser(user, prefix)) return null;
   const email = String(user.email || '').trim().toLowerCase();
   const metadataSession = String(user.user_metadata?.vertho_demo_session_id || '').trim();
   const sessionId = ACME_PROSPECT_SESSION_PATTERN.test(metadataSession)
     ? metadataSession
-    : sessionIdFromEmail(email);
+    : sessionIdFromEmail(email, prefix);
   const expiresAt = typeof user.user_metadata?.expires_at === 'string'
     ? user.user_metadata.expires_at
     : null;
@@ -100,6 +110,13 @@ export function readAcmeProspectAuthContext(
     expiresAt,
     expired: !sessionId || expiryTime === null || expiryTime <= now.getTime(),
   };
+}
+
+export function readAcmeProspectAuthContext(
+  user: ProspectAuthUser,
+  now: Date = new Date(),
+): AcmeProspectAuthContext | null {
+  return readDemoProspectAuthContext(user, ACME_PROSPECT_AUTH_PREFIX, now);
 }
 
 /**
@@ -126,7 +143,10 @@ async function acmeTenant(client: any) {
   return demoTenantId(client, ACME_DEMO_SLUG);
 }
 
-async function listProspectAuthUsers(authAdmin: any): Promise<Array<ProspectAuthUser & { id: string }>> {
+async function listProspectAuthUsers(
+  authAdmin: any,
+  prefix: string = ACME_PROSPECT_AUTH_PREFIX,
+): Promise<Array<ProspectAuthUser & { id: string }>> {
   if (typeof authAdmin?.listUsers !== 'function') return [];
   const matches: Array<ProspectAuthUser & { id: string }> = [];
   const perPage = 200;
@@ -134,7 +154,7 @@ async function listProspectAuthUsers(authAdmin: any): Promise<Array<ProspectAuth
     const { data, error } = await authAdmin.listUsers({ page, perPage });
     if (error) throw new Error(`listar convidados Auth: ${error.message}`);
     const users = (data?.users || []) as Array<ProspectAuthUser & { id: string }>;
-    matches.push(...users.filter(isAcmeProspectAuthUser));
+    matches.push(...users.filter((user) => isDemoProspectAuthUser(user, prefix)));
     if (users.length < perPage) break;
   }
   return matches;
@@ -381,12 +401,14 @@ async function deleteGuestCollaborator(client: any, empresaId: string, authEmail
  * Fecha somente acessos vencidos. O retorno também funciona como preflight do
  * reset: enquanto houver qualquer sessão ativa, o tenant não pode ser recomposto.
  */
-export async function cleanupExpiredAcmeProspects(
+export async function cleanupExpiredDemoProspects(
+  slug: string,
   now: Date = new Date(),
   client?: any,
 ): Promise<AcmeProspectCleanupResult> {
   const sb = demoAdmin(client);
-  const empresaId = await acmeTenant(sb);
+  const empresaId = await demoTenantId(sb, slug);
+  const authPrefix = demoProspectAuthPrefix(slug);
   const { data, error } = await sb.from('demo_prospect_sessions')
     .select('session_id,colaborador_id,auth_email,prospect_name,prospect_company,cargo,created_at,expires_at,personal_accessed_at,disc_completed_at,colaborador_accessed_at,gestor_accessed_at,rh_accessed_at,access_closed_at')
     .eq('empresa_id', empresaId)
@@ -401,7 +423,7 @@ export async function cleanupExpiredAcmeProspects(
     return expiry !== null && expiry > nowTime;
   });
   const expiredRows = rows.filter((row) => !activeRows.includes(row));
-  const authUsers = await listProspectAuthUsers(sb.auth?.admin);
+  const authUsers = await listProspectAuthUsers(sb.auth?.admin, authPrefix);
   const authByEmail = new Map(authUsers.map((user) => [String(user.email || '').toLowerCase(), user]));
   const trackedEmails = new Set(rows.map((row) => row.auth_email.toLowerCase()));
   let expiredRemoved = 0;
@@ -426,7 +448,7 @@ export async function cleanupExpiredAcmeProspects(
   for (const user of authUsers) {
     const email = String(user.email || '').toLowerCase();
     if (trackedEmails.has(email)) continue;
-    const context = readAcmeProspectAuthContext(user, now);
+    const context = readDemoProspectAuthContext(user, authPrefix, now);
     const expiry = asValidTime(context?.expiresAt);
     if (context && !context.expired && expiry !== null) {
       activeLegacyExpiries.push(expiry);
@@ -449,4 +471,12 @@ export async function cleanupExpiredAcmeProspects(
       ? new Date(Math.min(...activeExpiries)).toISOString()
       : null,
   };
+}
+
+/** Preflight/faxina do ACME Demo, o ambiente onde a degustação nasceu. */
+export async function cleanupExpiredAcmeProspects(
+  now: Date = new Date(),
+  client?: any,
+): Promise<AcmeProspectCleanupResult> {
+  return cleanupExpiredDemoProspects(ACME_DEMO_SLUG, now, client);
 }

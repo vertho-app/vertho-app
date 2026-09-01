@@ -1,9 +1,9 @@
 /**
- * Captura a estrutura do tenant `acme` (fonte de verdade do demo) num FIXTURE
- * congelado: lib/demo/acme-demo-fixture.json. O reset do ACME Demo semeia a
- * partir desse JSON (não do acme VIVO) → a demo fica imune a mexidas no acme.
+ * Captura a estrutura de um tenant vivo (fonte de verdade de um ambiente demo)
+ * num FIXTURE congelado. O reset semeia a partir desse JSON, e não do tenant
+ * VIVO → a demo fica imune a mexidas na origem.
  *
- * Rode este script quando quiser ATUALIZAR o golden state do demo:
+ * Rode quando quiser ATUALIZAR o golden state:
  *   node scripts/capture-acme-fixture.mjs
  *
  * Guarda os `id` de origem (competências/cenários) para o remapeamento no reset.
@@ -11,8 +11,23 @@
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, writeFileSync } from 'fs';
 
-const SOURCE_SLUG = 'acme';
-const OUT = 'lib/demo/acme-demo-fixture.json';
+/**
+ * Origem, ambiente demo e destino são PARÂMETROS: o mesmo motor congela o
+ * golden de qualquer par (tenant vivo → tenant demo). Sem argumento, mantém o
+ * par histórico `acme` → `acme-demo`.
+ *
+ *   node scripts/capture-acme-fixture.mjs
+ *   node scripts/capture-acme-fixture.mjs --source=ibipeba --demo=escolas-acme \
+ *     --out=lib/demo/escolas-demo-fixture.json
+ */
+const arg = (nome, padrao) => {
+  const achado = process.argv.slice(2).find((item) => item.startsWith(`--${nome}=`));
+  return achado ? achado.slice(nome.length + 3).trim() : padrao;
+};
+
+const SOURCE_SLUG = arg('source', 'acme');
+const DEMO_SLUG = arg('demo', 'acme-demo');
+const OUT = arg('out', 'lib/demo/acme-demo-fixture.json');
 
 const env = Object.fromEntries(
   readFileSync('.env.local', 'utf8').split(/\r?\n/)
@@ -34,10 +49,10 @@ async function main() {
   const top10 = await must('top10', sb.from('top10_cargos').select('*').eq('empresa_id', sid).order('cargo').order('posicao'));
   const cenarios = await must('cenarios', sb.from('banco_cenarios').select('*').eq('empresa_id', sid).order('created_at'));
 
-  // ── Artefatos AVALIADOS das personas (do acme-demo, após rodar IA4) ─────────
+  // ── Artefatos AVALIADOS das personas (do tenant demo, após rodar IA4) ──────
   // Congela o MAPEAMENTO já avaliado por persona (chaveado por e-mail, estável
   // entre resets) → a demo abre com notas prontas, SEM rodar IA no reset.
-  const demo = await sb.from('empresas').select('id').eq('slug', 'acme-demo').maybeSingle();
+  const demo = await sb.from('empresas').select('id').eq('slug', DEMO_SLUG).maybeSingle();
   const personaArtifacts = {};
   if (demo.data?.id) {
     const did = demo.data.id;
@@ -86,7 +101,7 @@ async function main() {
   }
 
   const fixture = {
-    _meta: { source: SOURCE_SLUG, capturedAt: new Date().toISOString(), note: 'Golden state congelado do ACME Demo. Regenerar com scripts/capture-acme-fixture.mjs (rode IA4 no acme-demo ANTES, p/ congelar o mapeamento avaliado).' },
+    _meta: { source: SOURCE_SLUG, demo: DEMO_SLUG, capturedAt: new Date().toISOString(), note: `Golden state congelado de ${DEMO_SLUG} (estrutura de ${SOURCE_SLUG}). Regenerar com scripts/capture-acme-fixture.mjs (rode IA4 no tenant demo ANTES, p/ congelar o mapeamento avaliado).` },
     empresa,
     competencias: competencias || [],
     cargos: cargos || [],
@@ -98,7 +113,7 @@ async function main() {
   console.log(`Fixture salvo em ${OUT}`);
   console.log(`  competencias=${fixture.competencias.length} cargos=${fixture.cargos.length} top10=${fixture.top10.length} cenarios=${fixture.cenarios.length}`);
   const pa = Object.entries(personaArtifacts).map(([e, a]) => `${e}: ${a.respostas.length}resp/${a.descriptor_assessments.length}desc/${a.report ? 'report✓' : '—'}/${a.trilha ? 'trilha✓(' + (a.trilha.progress?.length || 0) + 'sem)' : '—'}`);
-  console.log(`  personaArtifacts: ${pa.length ? pa.join(' · ') : '(nenhum — rode IA4 no acme-demo antes de capturar)'}`);
+  console.log(`  personaArtifacts: ${pa.length ? pa.join(' · ') : `(nenhum — rode IA4 no ${DEMO_SLUG} antes de capturar)`}`);
 }
 
 main().catch((e) => { console.error('ERRO:', e.message); process.exit(1); });
