@@ -332,19 +332,18 @@ export const DEMO_TENANT_PROFILES = {
     ppp: GRUPO_SINAL_PPP,
     valores: GRUPO_SINAL_VALUES,
     acessoAllowlist: ['alpheu.sousa@gruposinal.com'] as readonly string[],
-    // Pausa do reset noturno com DATA DE FIM (01/09/2026, a pedido do dono):
-    // o Alpheu vai percorrer a experiência nesta semana e a conversa acontece
-    // depois, então o que ele fizer precisa sobreviver às madrugadas.
+    // Sem pausa: o ambiente volta a ser recomposto toda madrugada.
     //
-    // O adiamento normal do reset só cobre PASSAPORTE no prazo D+2 — e ele é
-    // convidado nomeado do perfil, não passaporte: sem isto, resposta, DISC e
-    // avaliação dele sumiriam às 04h e o seed o recriaria zerado.
+    // Teve uma, de 01/09 a 07/09/2026, para a experiência do Alpheu atravessar a
+    // semana — o adiamento normal só cobre PASSAPORTE no prazo D+2, e convidado
+    // nomeado do perfil não tem esse prazo. Removida a pedido do dono em 01/09,
+    // quando o Grupo Sinal saiu do seletor da sala de demonstração e o Alpheu
+    // seguia sem primeiro acesso (0 login, 0 DISC, 0 respostas).
     //
-    // 🔑 A data é o desligamento: passado o instante abaixo (segunda, 07/09, no
-    // horário do próprio cron), o ambiente volta a ser recomposto sozinho, sem
-    // depender de alguém lembrar. Pausa sem data vira reset desligado para
-    // sempre — o modo de falha do trabalho sazonal.
-    resetPausadoAte: '2026-09-07T07:00:00.000Z' as string | null,
+    // Para pausar de novo: ponha um instante ISO aqui. 🔑 A data É o
+    // desligamento — pausa sem prazo vira reset desligado para sempre, que é o
+    // modo de falha do trabalho sazonal.
+    resetPausadoAte: null as string | null,
     convidado: {
       nome: 'Alpheu',
       email: 'alpheu.sousa@gruposinal.com',

@@ -8,57 +8,72 @@ import { DEMO_TENANT_PROFILES, resetPausadoAte } from '@/lib/demo/reset-acme-dem
  * O risco desta feature não é falhar em pausar — é pausar PARA SEMPRE. Uma
  * automação com data de fim que não se desliga sozinha é o modo de falha já
  * medido nesta base (os crons do CONARH seguiram disparando 48×/dia duas
- * semanas depois do evento acabar). Por isso o teste central aqui é o da
- * EXPIRAÇÃO, não o do bloqueio.
+ * semanas depois do evento acabar). Por isso o teste central é o da EXPIRAÇÃO,
+ * e por isso existe o de ESTADO: nenhum ambiente pode amanhecer pausado sem
+ * alguém ter decidido isso.
+ *
+ * Houve uma pausa real de 01/09 a 07/09/2026 (a experiência do Alpheu no Grupo
+ * Sinal), removida a pedido do dono no mesmo dia. O mecanismo fica; a pausa,
+ * não — é assim que ele não vira um reset desligado que ninguém religa.
  */
-describe('pausa do reset dos ambientes demo', () => {
-  const slug = 'gruposinal' as const;
-  const pausaDeclarada = DEMO_TENANT_PROFILES[slug].resetPausadoAte!;
 
-  it('segura o reset enquanto a data não chegou', () => {
-    const antes = new Date(Date.parse(pausaDeclarada) - 60_000);
-    expect(resetPausadoAte(slug, antes)).toBe(pausaDeclarada);
+type Slug = keyof typeof DEMO_TENANT_PROFILES;
+const SLUGS = Object.keys(DEMO_TENANT_PROFILES) as Slug[];
+const AGORA = new Date();
+const UMA_DATA = '2026-09-07T07:00:00.000Z';
+
+/** Declara uma pausa só durante o teste, e devolve o perfil ao estado real. */
+function comPausa<T>(slug: Slug, valor: string | null, fn: () => T): T {
+  const perfil = DEMO_TENANT_PROFILES[slug] as any;
+  const original = perfil.resetPausadoAte;
+  perfil.resetPausadoAte = valor;
+  try { return fn(); } finally { perfil.resetPausadoAte = original; }
+}
+
+describe('pausa do reset dos ambientes demo', () => {
+  it('ESTADO: toda pausa vigente tem prazo CURTO — nenhuma é eterna', () => {
+    // Pausar é decisão legítima (o `escolas-acme` está pausado enquanto o
+    // fixture escolar não é congelado, senão o cron apaga o conteúdo de IA que
+    // só vive no banco). O que não pode existir é pausa SEM fim prático: é ela
+    // que vira reset desligado para sempre.
+    const TETO_DIAS = 30;
+    for (const slug of SLUGS) {
+      const ate = resetPausadoAte(slug, AGORA);
+      if (!ate) continue;
+      const dias = (Date.parse(ate) - AGORA.getTime()) / 86_400_000;
+      expect(dias, `${slug}: pausa até ${ate} é longa demais para ser uma janela`).toBeLessThan(TETO_DIAS);
+    }
+  });
+
+  it('segura o reset enquanto a data declarada não chegou', () => {
+    comPausa('gruposinal', UMA_DATA, () => {
+      const antes = new Date(Date.parse(UMA_DATA) - 60_000);
+      expect(resetPausadoAte('gruposinal', antes)).toBe(UMA_DATA);
+    });
   });
 
   it('EXPIRA sozinha: no instante do limite o reset volta, sem intervenção', () => {
-    const noLimite = new Date(Date.parse(pausaDeclarada));
-    const depois = new Date(Date.parse(pausaDeclarada) + 60_000);
-    expect(resetPausadoAte(slug, noLimite)).toBeNull();
-    expect(resetPausadoAte(slug, depois)).toBeNull();
+    comPausa('gruposinal', UMA_DATA, () => {
+      expect(resetPausadoAte('gruposinal', new Date(Date.parse(UMA_DATA)))).toBeNull();
+      expect(resetPausadoAte('gruposinal', new Date(Date.parse(UMA_DATA) + 60_000))).toBeNull();
+    });
   });
 
-  it('a pausa tem prazo declarado e curto — não é um reset desligado', () => {
-    const limite = Date.parse(pausaDeclarada);
-    expect(Number.isFinite(limite)).toBe(true);
-    // 30 dias é folgado para uma janela de demonstração e ainda assim fecha a
-    // porta para "pausei e esqueci": passar disso é decisão, não descuido.
-    const trintaDias = 30 * 24 * 60 * 60 * 1000;
-    expect(limite - Date.parse('2026-09-01T00:00:00.000Z')).toBeLessThan(trintaDias);
-  });
-
-  it('ambiente sem pausa declarada nunca é pulado', () => {
-    expect(DEMO_TENANT_PROFILES['acme-demo'].resetPausadoAte).toBeNull();
-    expect(resetPausadoAte('acme-demo', new Date('2026-09-02T07:00:00.000Z'))).toBeNull();
+  it('é POR AMBIENTE: pausar um não congela os outros', () => {
+    const antes = new Date(Date.parse(UMA_DATA) - 60_000);
+    comPausa('gruposinal', UMA_DATA, () => {
+      expect(resetPausadoAte('gruposinal', antes)).toBe(UMA_DATA);
+      for (const outro of SLUGS.filter((s) => s !== 'gruposinal')) {
+        // pode ter pausa PRÓPRIA (o escolas-acme tem); o que não pode é herdar a do vizinho
+        expect(resetPausadoAte(outro, antes)).not.toBe(UMA_DATA);
+      }
+    });
   });
 
   it('data inválida não vira pausa infinita', () => {
-    const perfil = DEMO_TENANT_PROFILES[slug] as any;
-    const original = perfil.resetPausadoAte;
-    try {
-      perfil.resetPausadoAte = 'domingo que vem';
-      expect(resetPausadoAte(slug, new Date('2026-09-02T07:00:00.000Z'))).toBeNull();
-    } finally {
-      perfil.resetPausadoAte = original;
-    }
-  });
-
-  it('o ACME segue resetando todas as madrugadas da janela do Grupo Sinal', () => {
-    // a pausa é POR AMBIENTE: pausar um não pode congelar o outro, que é onde
-    // os passaportes do dia a dia são criados
-    for (const dia of ['2026-09-02', '2026-09-04', '2026-09-06']) {
-      expect(resetPausadoAte('acme-demo', new Date(`${dia}T07:00:00.000Z`))).toBeNull();
-      expect(resetPausadoAte(slug, new Date(`${dia}T07:00:00.000Z`))).toBe(pausaDeclarada);
-    }
+    comPausa('gruposinal', 'domingo que vem', () => {
+      expect(resetPausadoAte('gruposinal', AGORA)).toBeNull();
+    });
   });
 
   it('a faxina de convidados vencidos roda ANTES da pausa, e não é pulada por ela', () => {
@@ -79,14 +94,5 @@ describe('pausa do reset dos ambientes demo', () => {
     expect(faxina).toBeGreaterThan(-1);
     expect(pausa).toBeGreaterThan(-1);
     expect(faxina).toBeLessThan(pausa);
-  });
-
-  it('cobre a janela pedida: nenhuma madrugada de terça a domingo recompõe o ambiente', () => {
-    const madrugadas = ['2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05', '2026-09-06'];
-    for (const dia of madrugadas) {
-      expect(resetPausadoAte(slug, new Date(`${dia}T07:00:00.000Z`))).toBe(pausaDeclarada);
-    }
-    // e na segunda seguinte o ciclo normal volta
-    expect(resetPausadoAte(slug, new Date('2026-09-07T07:00:00.000Z'))).toBeNull();
   });
 });

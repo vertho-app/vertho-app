@@ -82,7 +82,18 @@ const EMPTY_PROSPECT_FORM: ProspectForm = {
 
 const inputClass = 'w-full rounded-lg border border-white/10 bg-[#081523]/80 px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-white/20 focus:border-emerald-300/45 focus:ring-2 focus:ring-emerald-300/10';
 
-const TENANTS: Record<TenantSlug, { nome: string; descricao: string }> = {
+/**
+ * `oculto` tira o ambiente do SELETOR, não do produto.
+ *
+ * O tenant continua existindo por inteiro — reset, hosts, convidados e o
+ * acompanhamento seguem funcionando —, ele só deixa de ocupar espaço numa tela
+ * que é usada às pressas, antes de uma conversa comercial. Voltar é apagar a
+ * linha `oculto`.
+ *
+ * ⚠️ O acompanhamento é POR AMBIENTE: ambiente fora do seletor é ambiente cujos
+ * convidados ninguém vê. Só oculte o que não está com gente em experiência.
+ */
+const TENANTS: Record<TenantSlug, { nome: string; descricao: string; oculto?: boolean }> = {
   'acme-demo': {
     nome: 'ACME Demo',
     descricao: 'Ambiente genérico compartilhado pelo time comercial',
@@ -94,8 +105,13 @@ const TENANTS: Record<TenantSlug, { nome: string; descricao: string }> = {
   gruposinal: {
     nome: 'Grupo Sinal',
     descricao: 'Demonstração contextualizada para a oportunidade comercial',
+    // Oculto a pedido do dono em 01/09/2026. Já tinha saído da sala de
+    // apresentação (`PRESENTATION_ROOMS`); o card era o que restava dele aqui.
+    oculto: true,
   },
 };
+
+const TENANTS_VISIVEIS = (Object.keys(TENANTS) as TenantSlug[]).filter((slug) => !TENANTS[slug].oculto);
 
 export default function AdminDemoPage() {
   const confirmDialog = useConfirm();
@@ -359,7 +375,7 @@ export default function AdminDemoPage() {
 
         <div className="p-5 sm:p-6">
           <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="Tenant de demonstração">
-            {(Object.keys(TENANTS) as TenantSlug[]).map((slug) => {
+            {TENANTS_VISIVEIS.map((slug) => {
               const item = TENANTS[slug];
               const ativo = tenantSlug === slug;
               return (

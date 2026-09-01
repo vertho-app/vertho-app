@@ -155,8 +155,12 @@ O reset **manual** não é bloqueado pela pausa: ele avisa, na confirmação, at
 quando o ambiente está segurado e o que se perde ao recompor agora. Quem aperta
 o botão é o dono do ambiente — recusar sem caminho de saída na tela seria beco.
 
-⚠️ Pausa vigente em 01/09/2026: `gruposinal` até **07/09 07:00 UTC** (a
-experiência do Alpheu atravessa a semana até domingo).
+⚠️ **Pausa é janela, não estado.** A do `gruposinal` (01/09 a 07/09, para a
+experiência do Alpheu) foi removida no mesmo dia, quando o ambiente saiu do
+seletor. Segue vigente a do `escolas-acme` (até 08/09), com motivo próprio: o
+conteúdo de IA da rede escolar ainda vive só no banco, e o reset o apagaria.
+Guard: `tests/unit/demo-reset-pausa.test.ts` recusa pausa a mais de 30 dias —
+pausar é decisão legítima, pausa eterna é o reset desligado que ninguém religa.
 
 ### A etapa 01 é uma DEGUSTAÇÃO: uma competência, avaliada sozinha
 
