@@ -8,6 +8,7 @@ import {
   ChartNoAxesCombined,
   CheckCircle2,
   ClipboardCheck,
+  FileChartColumnIncreasing,
   Loader2,
   RefreshCw,
   RotateCcw,
@@ -445,6 +446,12 @@ export default function EngajamentoEvolucaoPage() {
               className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10"
             >
               <ArrowLeft size={13} /> Visão atual
+            </Link>
+            <Link
+              href={empresaId ? `/admin/engajamento/relatorio?empresa=${empresaId}` : '/admin/engajamento/relatorio'}
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20 text-amber-200 hover:bg-amber-400/15"
+            >
+              <FileChartColumnIncreasing size={13} /> Mockup relatório
             </Link>
             <select
               value={area}
