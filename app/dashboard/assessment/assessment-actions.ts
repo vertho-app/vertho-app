@@ -1,11 +1,40 @@
 'use server';
 
+import { after } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { assessmentCompetencyWasAnswered, findAssessmentAnswer } from '@/lib/assessment/completion';
+import { competenciasDaDegustacao, isAssessmentDeDegustacao } from '@/lib/demo/convidado-demo';
+
+/**
+ * Lista de competências que ESTA pessoa responde — fonte única.
+ *
+ * Existe porque duas actions decidem sobre a mesma coisa: `getDiagnosticoDoDia`
+ * monta o progresso e a tela de resultado, `salvarRespostaDiagnostico` calcula
+ * a próxima pendente. Com o corte da degustação em só uma delas, a tela diria
+ * "1 de 1 concluído" enquanto a outra devolvia uma próxima competência — a
+ * pessoa terminaria e continuaria sendo empurrada para o cenário seguinte.
+ */
+async function competenciasDoColaborador(
+  sb: any,
+  colab: { id: string; empresa_id: string; cargo: string; email?: string | null; escola_id?: string | null },
+  empresaIsDemo: boolean,
+) {
+  const { data: cargoEmp } = await sb.from('cargos_empresa')
+    .select('top5_workshop')
+    .eq('empresa_id', colab.empresa_id)
+    .eq('nome', colab.cargo)
+    .maybeSingle();
+  const top5: string[] = cargoEmp?.top5_workshop || [];
+  const comCenario = await resolverTop5ComCenario(
+    sb, colab.empresa_id, colab.cargo, top5, colab.escola_id || null,
+  );
+  const degustacao = isAssessmentDeDegustacao(empresaIsDemo, colab.email);
+  return { competencias: competenciasDaDegustacao(comCenario, degustacao), degustacao };
+}
 
 async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string, top5: string[], escolaId: string | null = null) {
   const { data: compsDoCargo } = await sb.from('competencias')
@@ -129,7 +158,7 @@ async function _getDiagnosticoDoDia() {
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
 
-  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id, escola_id');
+  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, email, empresa_id, escola_id');
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   const sb = createSupabaseAdmin();
@@ -141,19 +170,18 @@ async function _getDiagnosticoDoDia() {
     return { error: gate.message, code: gate.code, remediation: gate.remediation };
   }
 
-  // Top 5 do cargo
-  const { data: cargoEmp } = await sb.from('cargos_empresa')
-    .select('top5_workshop')
-    .eq('empresa_id', colab.empresa_id)
-    .eq('nome', colab.cargo)
+  const { data: empresaRow, error: empresaErr } = await sb.from('empresas')
+    .select('is_demo')
+    .eq('id', colab.empresa_id)
     .maybeSingle();
-  const top5 = cargoEmp?.top5_workshop || [];
-  if (!top5.length) return { error: 'Nenhuma competência configurada para seu cargo' };
+  if (empresaErr) return { error: empresaErr.message };
 
-  // Regra de negócio: cada competência do Top 5 tem um cenário.
-  // Como a tabela de competências pode ter linhas de descritores, resolvemos
-  // o cenário pelo nome da competência e usamos o id vinculado a esse cenário.
-  const top5ComCenario = await resolverTop5ComCenario(sb, colab.empresa_id, colab.cargo, top5, (colab as any).escola_id || null);
+  // Competências desta pessoa (com o corte da degustação, quando for o caso).
+  const { competencias: top5ComCenario, degustacao } = await competenciasDoColaborador(
+    sb, colab as any, empresaRow?.is_demo === true,
+  );
+  if (!top5ComCenario.length) return { error: 'Nenhuma competência configurada para seu cargo' };
+  const top5 = top5ComCenario;
 
   // Respostas já dadas pelo colaborador (filtra por competencia_id — mais confiável)
   const { data: respostas, error: respostasError } = await sb.from('respostas')
@@ -172,12 +200,11 @@ async function _getDiagnosticoDoDia() {
   const pct = top5.length > 0 ? Math.round((respondidas / top5.length) * 100) : 0;
 
   const progresso = { pct, total: top5.length, respondidas };
+  // A tela precisa saber que é degustação para encerrar mandando à etapa 02 e
+  // explicar que a análise amadurece durante o percurso.
+
   const colaboradorPayload = { id: colab.id, nome: colab.nome_completo, cargo: colab.cargo };
 
-  // Se não há Top 5 configurado, mostra aviso (não falso 'concluiu tudo')
-  if (top5.length === 0) {
-    return { error: 'Seu cargo ainda não tem competências Top 5 configuradas. Fale com o RH/gestor.' };
-  }
 
   // Concluiu todas (só se havia competências pra responder e todas foram respondidas)
   if (!pendentes.length) {
@@ -222,6 +249,7 @@ async function _getDiagnosticoDoDia() {
     return {
       colaborador: colaboradorPayload,
       progresso,
+      degustacao,
       concluiuTudo: true,
       resultados,
       temPdi: (pdiCount || 0) > 0,
@@ -258,6 +286,7 @@ async function _getDiagnosticoDoDia() {
   return {
     colaborador: colaboradorPayload,
     progresso,
+    degustacao,
     concluiuTudo: false,
     respondeuHoje: false,
     proximaCompetencia: proxima.nome,
@@ -327,12 +356,16 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) 
   }, { onConflict: 'empresa_id,colaborador_id,competencia_id' });
   if (upErr) return { error: upErr.message };
 
-  // Recalcula próxima (por id, não por nome)
-  const { data: cargoEmp } = await sb.from('cargos_empresa')
-    .select('top5_workshop').eq('empresa_id', colab.empresa_id).eq('nome', colab.cargo).maybeSingle();
-  const top5 = cargoEmp?.top5_workshop || [];
+  const { data: empresaRow, error: empresaErr } = await sb.from('empresas')
+    .select('is_demo')
+    .eq('id', colab.empresa_id)
+    .maybeSingle();
+  if (empresaErr) return { error: empresaErr.message };
 
-  const top5ComCenario = await resolverTop5ComCenario(sb, colab.empresa_id, colab.cargo, top5, (colab as any).escola_id || null);
+  // Recalcula próxima pela MESMA lista que a tela usa (por id, não por nome)
+  const { competencias: top5ComCenario, degustacao } = await competenciasDoColaborador(
+    sb, colab as any, empresaRow?.is_demo === true,
+  );
 
   const { data: respostas, error: respostasRecalcError } = await sb.from('respostas')
     .select('competencia_id,competencia_nome').eq('colaborador_id', colab.id).eq('empresa_id', colab.empresa_id);
@@ -341,11 +374,29 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) 
   const pendentes = top5ComCenario
     .filter((competencia: any) => !assessmentCompetencyWasAnswered(competencia, respostas || []))
     .map((c: any) => c.nome);
+  const concluiuTudo = top5ComCenario.length > 0 && pendentes.length === 0;
+
+  // Degustação: ninguém vai apertar "IA4 — Avaliar" por este convidado, então a
+  // avaliação sai daqui. Em `after()` porque leva ~1min48 de mediana: a pessoa
+  // segue para a etapa 02 e a devolutiva dela amadurece durante o percurso.
+  if (degustacao && concluiuTudo) {
+    const empresaId = colab.empresa_id;
+    const alvo = { colaboradorId: colab.id, competenciaId: compId };
+    after(async () => {
+      try {
+        const { avaliarRespostaDaDegustacao } = await import('@/lib/demo/degustacao-avaliacao');
+        const r = await avaliarRespostaDaDegustacao(empresaId, alvo);
+        if (!r.success) console.warn('[degustacao] avaliar resposta:', r.error);
+      } catch (e: any) {
+        console.warn('[degustacao] avaliar resposta threw:', e?.message || e);
+      }
+    });
+  }
 
   return {
     success: true,
-    // Só é "concluído tudo" se havia competências pra responder
-    concluiuTudo: top5.length > 0 && pendentes.length === 0,
+    concluiuTudo,
+    degustacao,
     proximaCompetencia: pendentes[0] || null,
   };
 }

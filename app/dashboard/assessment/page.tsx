@@ -103,6 +103,16 @@ export default function AssessmentPage() {
     } else setPhase(PHASE.CONFIRM);
   }
 
+  // Degustação em que a IA ainda não devolveu nada: a tela fala de resposta
+  // registrada, não de resultado. Uma expressão só — em dois lugares ela
+  // divergiria e o cartão diria "Resultado" com o aviso de "em preparação".
+  const aguardandoAnalise = Boolean(
+    data?.degustacao
+    && Array.isArray(data?.resultados)
+    && data.resultados.length > 0
+    && data.resultados.every((item: any) => !item.avaliada),
+  );
+
   // ══════════════ RENDERS ══════════════
 
   if (phase === PHASE.LOADING) {
@@ -337,16 +347,31 @@ export default function AssessmentPage() {
           <Trophy size={56} className="text-amber-400 mx-auto mb-3" />
           {Array.isArray(data?.resultados) && data.resultados.length > 0 ? (
             <>
-              <p className="text-xl font-black text-white mb-1">{t('done.resultTitle')}</p>
-              <p className="text-sm text-gray-300 mb-1">
-                {t('done.resultSubtitle', { name: data?.colaborador?.nome?.split(' ')[0] || '' })}
-              </p>
-              <p className="text-[11px] text-brand-300 mb-5">
-                {t('done.resultSummary', {
-                  evaluated: data.resultados.filter((item: any) => item.avaliada).length,
-                  total: data.resultados.length,
-                })}
-              </p>
+              {/* Enquanto NADA foi avaliado, chamar a tela de "Resultado" e
+                  anunciar "0 de 1 com análise concluída" é prometer na mesma
+                  dobra o que ainda não existe. O que existe é a resposta
+                  registrada — e é isso que a tela diz até a análise chegar. */}
+              {aguardandoAnalise ? (
+                <>
+                  <p className="text-xl font-black text-white mb-1">{t('done.degustacaoTitle')}</p>
+                  <p className="text-sm text-gray-300 mb-5">
+                    {t('done.degustacaoSubtitle', { name: data?.colaborador?.nome?.split(' ')[0] || '' })}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xl font-black text-white mb-1">{t('done.resultTitle')}</p>
+                  <p className="text-sm text-gray-300 mb-1">
+                    {t('done.resultSubtitle', { name: data?.colaborador?.nome?.split(' ')[0] || '' })}
+                  </p>
+                  <p className="text-[11px] text-brand-300 mb-5">
+                    {t('done.resultSummary', {
+                      evaluated: data.resultados.filter((item: any) => item.avaliada).length,
+                      total: data.resultados.length,
+                    })}
+                  </p>
+                </>
+              )}
 
               <div className="space-y-3 text-left mb-5">
                 {data.resultados.map((resultado: any) => (
@@ -363,7 +388,9 @@ export default function AssessmentPage() {
                     </div>
 
                     {!resultado.avaliada && (
-                      <p className="mt-2 text-xs text-amber-300">{t('done.analysisPending')}</p>
+                      <p className="mt-2 text-xs text-amber-300">
+                        {data?.degustacao ? t('done.analysisRunning') : t('done.analysisPending')}
+                      </p>
                     )}
                     {resultado.feedback && (
                       <p className="mt-2 text-xs leading-relaxed text-gray-400">
@@ -391,6 +418,15 @@ export default function AssessmentPage() {
                 {t.rich('done.description', { br: () => <br /> })}
               </p>
             </>
+          )}
+
+          {/* Degustação: a análise leva ~2 min e o roteiro continua. Em vez de
+              deixar a pessoa esperando nesta tela, ela segue para a próxima
+              visão e a devolutiva dela fica pronta durante o percurso. */}
+          {aguardandoAnalise && (
+            <p className="mb-4 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] px-4 py-3 text-left text-[12px] leading-relaxed text-amber-100/85">
+              {t('done.degustacaoHint')}
+            </p>
           )}
 
           <div className="flex flex-col gap-2">

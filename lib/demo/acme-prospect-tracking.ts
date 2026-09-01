@@ -2,7 +2,7 @@ import 'server-only';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { resolveTenant } from '@/lib/tenant-resolver';
-import { isDemoPersonaEmail, isInternalEmail } from '@/lib/internal-emails';
+import { isEmailDeConvidadoDemo } from '@/lib/demo/convidado-demo';
 import {
   ACME_PROSPECT_AUTH_MARKER,
   ACME_PROSPECT_AUTH_PREFIX,
@@ -274,22 +274,15 @@ type DemoGuestRow = {
 };
 
 /**
- * Quem, dentro de um tenant de demonstração, é CONVIDADO e não cenário.
- *
- * O elenco fixo do seed (`*.demo@vertho.ai`) é conteúdo do ambiente, não gente
- * acompanhada. A conta de staff da Vertho também fica de fora. Já o e-mail
- * técnico do passaporte (`convidado.acme.<id>@vertho.ai`) é interno pela régua
- * canônica, mas é exatamente a pessoa que o painel acompanha: ele entra aqui
- * quando não veio pela tabela de sessões (passaporte cuja linha se perdeu),
- * para o convidado não sumir do acompanhamento sem ninguém notar.
+ * Convidado que ainda não veio pela tabela de sessões. A régua de quem É
+ * convidado mora em `lib/demo/convidado-demo` (mesma que o assessment usa para
+ * decidir a degustação); aqui só se acrescenta o que é próprio desta lista:
+ * quem já entrou como passaporte não entra de novo como cadastro.
  */
 function isDemoGuestEmail(email: string | null | undefined, cobertos: Set<string>): boolean {
   const valor = String(email || '').trim().toLowerCase();
-  if (!valor) return false;
-  if (isDemoPersonaEmail(valor)) return false;
-  if (cobertos.has(valor)) return false;
-  if (valor.startsWith(ACME_PROSPECT_AUTH_PREFIX)) return true;
-  return !isInternalEmail(valor);
+  if (!valor || cobertos.has(valor)) return false;
+  return isEmailDeConvidadoDemo(valor);
 }
 
 /**
