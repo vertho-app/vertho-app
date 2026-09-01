@@ -75,8 +75,53 @@ export const ACME_DEMO_EVOLUTION_TARGETS = Object.freeze({
   confirmadas: 9,
   parciais: 4,
   estaveis: 3,
-  regressoes: 0,
 });
+
+/** Quantas pessoas, no mínimo, cada competência da vitrine deve ter. */
+export const ACME_DEMO_MINIMO_POR_COMPETENCIA = 3;
+
+/**
+ * Qual competência do cargo esta pessoa trabalhou.
+ *
+ * ⚠️ NÃO É SEMPRE A PRIMEIRA. Com todo mundo do mesmo cargo focando a mesma
+ * competência, o painel mostrava duas linhas com **uma pessoa cada** ao lado de
+ * uma com nove: médias de n=1 com o mesmo peso visual de médias de n=9, que é
+ * a leitura que um painel de evolução não pode induzir.
+ *
+ * A distribuição é por CARGO e mira um piso de pessoas por competência, em vez
+ * de espalhar o máximo possível: espalhar em cinco devolveria o mesmo problema
+ * pelo outro lado. Com 9 pessoas dá 3 competências de 3; com 7, duas de 4 e 3.
+ */
+export function competenciaFocoDaDemo(cargo: string, indiceNoCargo: number, totalNoCargo: number): string {
+  const competencias = competenciasAcmeDemoPorCargo(cargo);
+  if (!competencias.length) {
+    throw new Error(`cargo sem competência na régua da ACME Demo: ${cargo}`);
+  }
+  const grupos = Math.max(
+    1,
+    Math.min(competencias.length, Math.floor(totalNoCargo / ACME_DEMO_MINIMO_POR_COMPETENCIA)),
+  );
+  return competencias[indiceNoCargo % grupos];
+}
+
+/**
+ * Posição de cada pessoa dentro do próprio cargo, para alimentar
+ * `competenciaFocoDaDemo`. Recebe os cargos por parâmetro porque o elenco vive
+ * em `reset-acme-demo`, e importá-lo aqui fecharia um ciclo.
+ */
+export function distribuicaoPorCargo(
+  pessoas: readonly { chave: string; cargo: string }[],
+): Map<string, { indice: number; total: number }> {
+  const porCargo = new Map<string, string[]>();
+  for (const pessoa of pessoas) {
+    porCargo.set(pessoa.cargo, [...(porCargo.get(pessoa.cargo) || []), pessoa.chave]);
+  }
+  const saida = new Map<string, { indice: number; total: number }>();
+  for (const chaves of porCargo.values()) {
+    chaves.forEach((chave, indice) => saida.set(chave, { indice, total: chaves.length }));
+  }
+  return saida;
+}
 
 function seedOf(value: string): number {
   return [...value].reduce((total, char) => total + char.charCodeAt(0), 0);
@@ -187,11 +232,16 @@ export type EvolucaoDemo = {
 export function construirEvolucaoAcmeDemo(
   pessoa: { email: string; nome_completo: string; cargo: string },
   perfil: PerfilEvolucao,
+  distribuicao?: { indice: number; total: number },
 ): EvolucaoDemo {
-  const competencia = competenciasAcmeDemoPorCargo(pessoa.cargo)[0];
-  if (!competencia) {
-    throw new Error(`cargo sem competência na régua da ACME Demo: ${pessoa.cargo}`);
-  }
+  // Sem distribuição informada, cai na primeira competência do cargo — é o que
+  // um chamador avulso espera. Quem monta a vitrine inteira passa a posição,
+  // para as competências não ficarem com uma pessoa cada.
+  const competencia = competenciaFocoDaDemo(
+    pessoa.cargo,
+    distribuicao?.indice ?? 0,
+    distribuicao?.total ?? 1,
+  );
 
   const descritores: DescritorEvolucao[] = ACME_DEMO_DESCRITORES
     .slice(0, ACME_DEMO_DESCRITORES_POR_TRILHA)

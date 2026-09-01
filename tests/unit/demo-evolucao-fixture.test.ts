@@ -5,8 +5,11 @@ import {
   ACME_DEMO_DESCRITORES_POR_TRILHA,
   ACME_DEMO_EVOLUTION_MIX,
   ACME_DEMO_EVOLUTION_TARGETS,
+  ACME_DEMO_MINIMO_POR_COMPETENCIA,
+  competenciaFocoDaDemo,
   construirEvolucaoAcmeDemo,
   construirFechamentoAcmeDemo,
+  distribuicaoPorCargo,
   notaDePartida,
 } from '@/lib/demo/acme-evolucao-fixture';
 import {
@@ -24,6 +27,15 @@ const pessoaPorChave = new Map<string, any>([
   ...PERSONAS.map((p) => [p.key, p] as const),
   ...ACME_DEMO_REPORT_DIRECTORY.map((p) => [p.key, p] as const),
 ]);
+
+function distribuicao() {
+  return distribuicaoPorCargo(
+    ACME_DEMO_CONCLUDED_KEYS.map((chave) => ({
+      chave,
+      cargo: pessoaPorChave.get(chave)?.cargo || '',
+    })),
+  );
+}
 
 function evolucaoDeTodas() {
   return ACME_DEMO_CONCLUDED_KEYS.map((key, index) => {
@@ -49,6 +61,51 @@ describe('Evolução da ACME Demo', () => {
     // conclui sem ter entrado é a contradição que o cliente enxerga primeiro.
     expect(ACME_DEMO_CONCLUDED_KEYS.every((key) => ACME_DEMO_JOURNEY_KEYS.includes(key))).toBe(true);
     expect(ACME_DEMO_EVOLUTION_MIX).toHaveLength(ACME_DEMO_FUNNEL_TARGETS.concluded);
+  });
+
+  it('espalha um cargo numeroso por VÁRIAS competências, não só a primeira', () => {
+    // ⚠️ Este caso existe porque o teste do mínimo abaixo passava VERDE com a
+    // distribuição desligada: trocar quem está atrasado já garantia o piso de
+    // pessoas, então o mínimo sozinho não prova que a distribuição funciona.
+    // Aqui a função é exercitada direto.
+    const cargo = 'Representante Comercial';
+    const nove = Array.from({ length: 9 }, (_, i) => competenciaFocoDaDemo(cargo, i, 9));
+    expect(new Set(nove).size).toBe(3);          // 9 pessoas ÷ piso de 3
+    for (const competencia of new Set(nove)) {
+      expect(nove.filter((c) => c === competencia)).toHaveLength(3);
+    }
+
+    // Grupos pequenos não se fragmentam: 2 pessoas ficam juntas.
+    expect(new Set([0, 1].map((i) => competenciaFocoDaDemo(cargo, i, 2))).size).toBe(1);
+    // E o teto é o número de competências do cargo, não o de pessoas.
+    const cem = Array.from({ length: 100 }, (_, i) => competenciaFocoDaDemo(cargo, i, 100));
+    expect(new Set(cem).size).toBe(5);
+  });
+
+  it('distribui as pessoas entre competências, sem nenhuma com uma pessoa só', () => {
+    // Com todo mundo do mesmo cargo focando a primeira competência, o painel
+    // exibia duas linhas de n=1 ao lado de uma de n=9 — médias de uma pessoa
+    // com o mesmo peso visual de médias de nove. É leitura que um painel de
+    // evolução não pode induzir, ainda mais numa demonstração comercial.
+    const porCompetencia = new Map<string, number>();
+    for (const [indice, chave] of ACME_DEMO_CONCLUDED_KEYS.entries()) {
+      const pessoa = pessoaPorChave.get(chave);
+      const evolucao = construirEvolucaoAcmeDemo(
+        pessoa,
+        ACME_DEMO_EVOLUTION_MIX[indice],
+        distribuicao().get(chave),
+      );
+      porCompetencia.set(evolucao.competencia, (porCompetencia.get(evolucao.competencia) || 0) + 1);
+    }
+
+    expect(porCompetencia.size).toBeGreaterThan(1);
+    for (const [competencia, pessoas] of porCompetencia) {
+      expect(pessoas, `competência com poucas pessoas: ${competencia}`)
+        .toBeGreaterThanOrEqual(ACME_DEMO_MINIMO_POR_COMPETENCIA);
+    }
+    // A soma continua sendo todo mundo: distribuir não pode perder ninguém.
+    expect([...porCompetencia.values()].reduce((a, b) => a + b, 0))
+      .toBe(ACME_DEMO_CONCLUDED_KEYS.length);
   });
 
   it('produz o mix declarado APLICANDO a régua de produção, não o rótulo escolhido', () => {

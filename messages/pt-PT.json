@@ -416,7 +416,7 @@
         "criteria": {
           "confirmed": "ganho de 0,5 ou mais na nota E evidência de que a mudança foi percebida.",
           "partial": "ganho a partir de 0,2, ou evidência positiva que a nota ainda não confirma.",
-          "stable": "variação entre −0,2 e +0,2: manteve o patamar de partida."
+          "stable": "variação até +0,2: manteve o patamar de partida."
         }
       }
     },

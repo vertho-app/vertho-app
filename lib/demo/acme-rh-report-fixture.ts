@@ -96,9 +96,17 @@ export const ACME_DEMO_JOURNEY_KEYS = ACME_DEMO_MAPPED_KEYS.slice(
   ACME_DEMO_FUNNEL_TARGETS.inJourney,
 );
 
-export const ACME_DEMO_BEHIND_KEYS = ACME_DEMO_JOURNEY_KEYS.slice(
-  -ACME_DEMO_FUNNEL_TARGETS.behind,
-);
+/**
+ * Quem está atrasado na jornada. São os DOIS gestores e uma pessoa de
+ * operações, e a escolha não é decorativa: eles são os únicos do cargo deles
+ * entre quem entrou em jornada, então deixá-los concluir produziria
+ * competências medidas com UMA pessoa só no painel de evolução — uma média de
+ * n=1 apresentada ao lado de médias de n=9, com o mesmo peso visual.
+ *
+ * Gestor atrasado também é a versão mais crível da história: quem lidera é
+ * quem mais perde a cadência.
+ */
+export const ACME_DEMO_BEHIND_KEYS = ['marcelo', 'eduardo', 'debora'];
 
 /**
  * A persona navegável do participante. A jornada EM ANDAMENTO dela é o roteiro

@@ -416,7 +416,7 @@
         "criteria": {
           "confirmed": "a gain of 0.5 or more AND evidence that the change was noticed.",
           "partial": "a gain from 0.2 up, or positive evidence the score does not yet confirm.",
-          "stable": "change between −0.2 and +0.2: held the starting level."
+          "stable": "change up to +0.2: held the starting level."
         }
       }
     },

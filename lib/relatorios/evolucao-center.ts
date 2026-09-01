@@ -258,19 +258,40 @@ export function agregarEvolucao(
     return { ...VAZIO, cobertura: { participantes: participantes.length, emJornada: totalEmJornada, medidos: 0, percentual: 0 } };
   }
 
-  const agruparPor = (chaveDe: (l: EvolucaoDescritorLinha) => string, compDe: (l: EvolucaoDescritorLinha) => string | null) => {
+  /**
+   * `chaveDe` é a chave de AGRUPAMENTO e `rotuloDe` é o que aparece na tela.
+   * Elas são diferentes de propósito no caso do descritor.
+   *
+   * 🔴 O DESCRITOR NÃO É ÚNICO ENTRE COMPETÊNCIAS. Numa régua onde os mesmos
+   * comportamentos ("Comunicação com stakeholders", "Execução com método") se
+   * repetem em várias competências — que é o caso da régua padrão —, agrupar só
+   * pelo nome funde linhas de competências diferentes num grupo só. O efeito é
+   * duplo e passa despercebido: a média sai de uma mistura que ninguém pediu, e
+   * o grupo herda a competência da PRIMEIRA linha, então todos os
+   * comportamentos ficam pendurados numa competência e as outras aparecem sem
+   * nenhum. Foi assim que a tela mostrou uma única competência expansível.
+   */
+  const agruparPor = (
+    chaveDe: (l: EvolucaoDescritorLinha) => string,
+    rotuloDe: (l: EvolucaoDescritorLinha) => string,
+    compDe: (l: EvolucaoDescritorLinha) => string | null,
+  ) => {
     const grupos = new Map<string, EvolucaoDescritorLinha[]>();
     for (const linha of todasLinhas) {
       const chave = chaveDe(linha);
       grupos.set(chave, [...(grupos.get(chave) || []), linha]);
     }
-    return [...grupos.entries()]
-      .map(([chave, linhas]) => agregar(chave, compDe(linhas[0]), linhas))
+    return [...grupos.values()]
+      .map((linhas) => agregar(rotuloDe(linhas[0]), compDe(linhas[0]), linhas))
       .sort((a, b) => b.delta - a.delta);
   };
 
-  const porCompetencia = agruparPor((l) => l.competencia, () => null);
-  const porDescritor = agruparPor((l) => l.descritor, (l) => l.competencia);
+  const porCompetencia = agruparPor((l) => l.competencia, (l) => l.competencia, () => null);
+  const porDescritor = agruparPor(
+    (l) => [l.competencia, l.descritor].join(' :: '),
+    (l) => l.descritor,
+    (l) => l.competencia,
+  );
 
   const precisamApoio = pessoas
     .filter((p) => p.veredito === CONVERGENCIA.ESTAVEL || p.veredito === null)

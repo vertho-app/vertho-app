@@ -43,6 +43,7 @@ import {
   ACME_DEMO_EVOLUTION_MIX,
   construirEvolucaoAcmeDemo,
   construirFechamentoAcmeDemo,
+  distribuicaoPorCargo,
   notaDePartida,
 } from '@/lib/demo/acme-evolucao-fixture';
 import { seedAcmeOrganizationReports } from '@/lib/demo/acme-organization-reports';
@@ -1568,6 +1569,14 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     }
 
     const concluidas = new Set<string>(ACME_DEMO_CONCLUDED_KEYS);
+    // Espalha as pessoas do MESMO cargo entre competências, para o painel de
+    // evolução não exibir médias de uma pessoa ao lado de médias de nove.
+    const distribuicao = distribuicaoPorCargo(
+      ACME_DEMO_CONCLUDED_KEYS.map((chave) => ({
+        chave,
+        cargo: pessoaPorChave.get(chave)?.cargo || '',
+      })),
+    );
     // O fechamento é datado no passado para a jornada não parecer concluída no
     // mesmo dia em que começou — quem apresenta a demo é perguntado sobre isso.
     const inicioConcluido = formatDate(new Date(agora.getTime() - 105 * 24 * 60 * 60 * 1000));
@@ -1577,15 +1586,22 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       const pessoa = pessoaPorChave.get(key);
       const colaboradorId = personaMap.get(key);
       if (!pessoa || !colaboradorId) throw new Error(`jornada do funil ACME ausente: ${key}`);
-      const competencia = competenciasAcmeDemoPorCargo(pessoa.cargo)[0];
       const concluiu = concluidas.has(key);
       const dataInicio = concluiu ? inicioConcluido : (atrasadas.has(key) ? inicioAtrasado : hojeDemo);
 
       // A evolução é DERIVADA (notas + régua de produção), nunca carimbada:
       // ver o cabeçalho de `acme-evolucao-fixture`.
       const evolucao = concluiu
-        ? construirEvolucaoAcmeDemo(pessoa, ACME_DEMO_EVOLUTION_MIX[ACME_DEMO_CONCLUDED_KEYS.indexOf(key)])
+        ? construirEvolucaoAcmeDemo(
+            pessoa,
+            ACME_DEMO_EVOLUTION_MIX[ACME_DEMO_CONCLUDED_KEYS.indexOf(key)],
+            distribuicao.get(key),
+          )
         : null;
+      // A competência da trilha é a que o RELATÓRIO mediu — as duas divergindo
+      // fariam o painel agrupar a pessoa numa competência e o relatório dela
+      // falar de outra.
+      const competencia = evolucao ? evolucao.competencia : competenciasAcmeDemoPorCargo(pessoa.cargo)[0];
       const descritoresDaTrilha = evolucao
         ? evolucao.descritores.map((d) => ({ descritor: d.descritor, competencia, nota_atual: d.nota_pre }))
         : ['Evidência demonstrativa'];

@@ -130,6 +130,42 @@ describe('agregarEvolucao', () => {
     expect(metas.delta).toBe(1);
   });
 
+  it('NÃO funde comportamentos de MESMO NOME em competências diferentes', () => {
+    // A régua padrão repete os mesmos comportamentos em várias competências.
+    // Agrupar só pelo nome fundia as linhas: a média saía de uma mistura, e o
+    // grupo herdava a competência da primeira linha — então todos os
+    // comportamentos ficavam pendurados numa competência só e as outras
+    // apareciam vazias na tela. Foi o defeito visto em produção.
+    const linha = (comp: string, desc: string, pre: number, pos: number) => ({
+      competencia: comp, descritor: desc, nota_pre: pre, nota_pos: pos,
+      convergencia: CONVERGENCIA.PARCIAL, depois: null,
+    });
+    const r = agregarEvolucao(
+      [
+        { colaborador_id: 'p1', competencia_foco: 'Comunicação', evolution_generated_at: null,
+          evolution_report: { descritores: [linha('Comunicação', 'Execução com método', 2, 2.4)] } },
+        { colaborador_id: 'p2', competencia_foco: 'Controle', evolution_generated_at: null,
+          evolution_report: { descritores: [linha('Controle', 'Execução com método', 1, 1.4)] } },
+      ],
+      participantes,
+      0,
+    );
+
+    // Dois grupos com o MESMO rótulo, um por competência.
+    const grupos = r.porDescritor.filter((x) => x.chave === 'Execução com método');
+    expect(grupos).toHaveLength(2);
+    expect(grupos.map((g) => g.competencia).sort()).toEqual(['Comunicação', 'Controle']);
+    // E cada média é a da sua competência, não a da mistura (que daria 1,5).
+    expect(grupos.find((g) => g.competencia === 'Comunicação')!.mediaPre).toBe(2);
+    expect(grupos.find((g) => g.competencia === 'Controle')!.mediaPre).toBe(1);
+
+    // Toda competência da lista tem os seus comportamentos: é isso que a tela
+    // usa para decidir quais linhas abrem.
+    for (const competencia of r.porCompetencia) {
+      expect(r.porDescritor.some((d) => d.competencia === competencia.chave)).toBe(true);
+    }
+  });
+
   it('converte a média em nível pela régua oficial, com o corte de 3,5', () => {
     const r = agregarEvolucao([trilha('p1', [d('Metas', 1.9, 3.6, CONVERGENCIA.CONFIRMADA)])], participantes, 0);
     // 1,9 é N1 (só conta quando consolida) e 3,6 é N4 (abre em 3,5, não em 4).

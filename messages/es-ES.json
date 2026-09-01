@@ -416,7 +416,7 @@
         "criteria": {
           "confirmed": "ganancia de 0,5 o más Y evidencia de que el cambio se percibió.",
           "partial": "ganancia desde 0,2, o evidencia positiva que la nota aún no confirma.",
-          "stable": "variación entre −0,2 y +0,2: mantuvo el nivel de partida."
+          "stable": "variación hasta +0,2: mantuvo el nivel de partida."
         }
       }
     },
