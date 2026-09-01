@@ -130,6 +130,7 @@ describe('rota de apoio ao vivo', () => {
         { text: 'Qual impacto ainda está aberto?', discovery: 'impacto', green: 'Impacto concreto', red: 'Sem impacto', ifGreen: 'Dimensionar' },
       ],
       doNot: ['Não repetir o diagnóstico.'], closeWith: 'Abrir a agenda e marcar a demo.',
+      fallbackGoal: 'Se a demo não fechar, sair com a lista de quem precisa participar.',
       landmine: { objection: 'Já temos plataforma.', ask: 'O que ela ainda não comprova?' },
     };
 
@@ -140,11 +141,17 @@ describe('rota de apoio ao vivo', () => {
         gaps: ['impacto'],
         questions: [{ phase: 'analisar', discovery: 'dor_principal', text: 'Pergunta de reserva', why: 'Reserva' }],
         objections: [],
+        hypotheses: [
+          { hypothesis: 'A régua de avaliação é informal.', basis: 'Nada publicado', howToTest: 'Perguntar como avaliam hoje.' },
+          { hypothesis: 'O ciclo roda duas vezes por ano.', basis: 'Site', howToTest: 'Confirmar a periodicidade.' },
+          { hypothesis: 'Terceira hipótese.', basis: 'Briefing', howToTest: 'Perguntar.' },
+          { hypothesis: 'Quarta hipótese não deve seguir.', basis: 'Briefing', howToTest: 'Perguntar.' },
+        ],
         facts: [
-          { title: 'Expansão', fact: 'A empresa abriu uma unidade.' },
-          { title: 'Vagas', fact: 'Há vagas para liderança.' },
-          { title: 'Projeto', fact: 'A empresa lançou um programa interno.' },
-          { title: 'Excedente', fact: 'Este quarto fato não deve seguir.' },
+          { title: 'Expansão', fact: 'A empresa abriu uma unidade.', relevance: 'Unidade nova precisa de gestor formado.' },
+          { title: 'Vagas', fact: 'Há vagas para liderança.', relevance: 'Sinal de time em formação.', publishedAt: '2026-08-20' },
+          { title: 'Projeto', fact: 'A empresa lançou um programa interno.', relevance: 'Já investem em desenvolvimento.' },
+          { title: 'Excedente', fact: 'Este quarto fato não deve seguir.', relevance: 'Irrelevante.' },
         ],
       },
     }));
@@ -158,5 +165,27 @@ describe('rota de apoio ao vivo', () => {
     expect(prompt).toContain('F3: Projeto');
     expect(prompt).not.toContain('Excedente');
     expect(prompt).toContain('Não faça: Não repetir o diagnóstico.');
+    // A implicacao e o elo que torna o fato falavel: sem ela o modelo recebe a
+    // observacao e nao o motivo de ela importar.
+    expect(prompt).toContain('por que importa: Unidade nova precisa de gestor formado.');
+    expect(prompt).toContain('(2026-08-20)');
+    // Hipotese e o que se testa DURANTE a conversa; era gerada e descartada aqui.
+    expect(prompt).toContain('H1: A régua de avaliação é informal. | testar com: Perguntar como avaliam hoje.');
+    expect(prompt).toContain('H3: Terceira hipótese.');
+    expect(prompt).not.toContain('Quarta hipótese');
+    // O objetivo reserva do PACE: o avanco que ainda salva a reuniao.
+    expect(prompt).toContain('Se o objetivo não sair: Se a demo não fechar, sair com a lista de quem precisa participar.');
+  });
+
+  it('não anuncia hipótese quando o plano não tem nenhuma', async () => {
+    vi.mocked(callAI).mockResolvedValue(JSON.stringify({
+      fase: 'preparar', sinal: 'neutro', objecao: null, descobertas_cobertas: [],
+      alerta: null, foco: 'Ouça.', perguntas: [],
+    }));
+
+    await POST(request({ plan: { questions: [], hypotheses: [{ hypothesis: '   ', howToTest: 'x' }] } }));
+    const prompt = vi.mocked(callAI).mock.calls[0][1];
+
+    expect(prompt).toContain('nenhuma hipótese preparada');
   });
 });

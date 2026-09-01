@@ -62,6 +62,19 @@ function fallbackGoal(kind: MeetingKind): string {
   return 'Classificar a aderência e, com dois sinais verdes, sair com uma demo de 25 minutos marcada.';
 }
 
+/**
+ * O objetivo reserva do PACE (slide 23): se o principal nao for possivel, qual alternativa seguir.
+ *
+ * Precisa ser um AVANCO menor, nunca "entender melhor" e nunca o proprio fechamento do
+ * objetivo principal — o campo nasceu como apelido do `closeWith` e isso o tornava inutil.
+ */
+function fallbackAlternativeGoal(kind: MeetingKind): string {
+  if (kind === 'retorno') return 'Se o próximo passo não fechar hoje, sair com a lista de quem precisa participar e a data da próxima conversa.';
+  if (kind === 'demonstracao') return 'Se o piloto não for combinado, sair com o cenário real que a próxima demonstração precisa provar.';
+  if (kind === 'negociacao') return 'Se a decisão não avançar, sair com o critério que falta e quem precisa validá-lo.';
+  return 'Se não houver aderência para uma demo, sair com a área e a pessoa certa para uma conversa futura.';
+}
+
 function fallbackClose(kind: MeetingKind): string {
   if (kind === 'retorno') return 'Podemos registrar agora o próximo passo, quem assume e a data?';
   if (kind === 'demonstracao') return 'Podemos definir o recorte do piloto e marcar a conversa com os envolvidos?';
@@ -127,7 +140,9 @@ export function normalizeCopilotPlay(
     covered: DiscoveryKey[];
     fallbackQuestions: PaceQuestion[];
   },
-): CopilotPlay {
+  // `fallbackGoal` e opcional no tipo para planos ja salvos, mas quem passa por aqui
+  // sempre sai com ele preenchido: e o que permite o objetivo reserva ter valor proprio.
+): CopilotPlay & { fallbackGoal: string } {
   const raw: any = value && typeof value === 'object' ? value : {};
   // The user's editable meeting kind is authoritative; the model cannot silently
   // turn a return or negotiation into another script shape.
@@ -226,6 +241,8 @@ export function normalizeCopilotPlay(
     kind,
     audience: text(options.audience, 500) || text(raw.audience ?? raw.publico, 500) || 'Participante ainda não confirmado',
     goalThisHour,
+    fallbackGoal: text(raw.fallbackGoal ?? raw.fallback_goal ?? raw.objetivo_reserva, 700)
+      || fallbackAlternativeGoal(kind),
     openers,
     mustAsk: mustAsk.slice(0, 3),
     doNot,

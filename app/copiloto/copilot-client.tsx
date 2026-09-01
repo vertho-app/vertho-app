@@ -135,6 +135,7 @@ function PlayCard({ play }: { play: CopilotPlay }) {
         <div className={styles.playCloseFlag}>
           <span>Feche pedindo</span>
           <strong>{play.closeWith}</strong>
+          {play.fallbackGoal && <em>Se travar: {play.fallbackGoal}</em>}
         </div>
       </header>
 

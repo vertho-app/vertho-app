@@ -5,7 +5,7 @@ vi.mock('@/actions/ai-client', () => ({
 }));
 
 import { callOpenAIWebSearch } from '@/actions/ai-client';
-import { researchCompany } from '@/lib/copiloto/research';
+import { prioritizeResearchFacts, researchCompany } from '@/lib/copiloto/research';
 
 const publicResearch = {
   empresa_identificada: 'Amigos do Bem',
@@ -21,7 +21,7 @@ const publicResearch = {
 describe('pesquisa pública do Copiloto', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('executa site, imprensa e redes em trilhas separadas e aplica cotas', async () => {
+  it('executa site, imprensa e redes em trilhas separadas e filtra fonte fora da trilha', async () => {
     vi.mocked(callOpenAIWebSearch).mockImplementation(async (prompt) => {
       if (prompt.includes('DEDICADA a publicações')) {
         return {
@@ -144,8 +144,84 @@ describe('pesquisa pública do Copiloto', () => {
     expect(channels.filter((channel: string) => channel === 'site')).toHaveLength(8);
     expect(channels.filter((channel: string) => channel === 'news')).toHaveLength(8);
     expect(channels.filter((channel: string) => channel === 'social')).toHaveLength(8);
-    expect(channels.slice(0, 8)).toEqual([
-      'social', 'social', 'social', 'news', 'news', 'news', 'site', 'site',
-    ]);
+    // Com todos os fatos igualmente uteis, a penalidade de repeticao intercala os canais.
+    // Os tres primeiros sao os unicos que chegam ao apoio ao vivo: nenhuma fonte pode
+    // ocupar essa lista sozinha so por ter respondido primeiro.
+    expect(new Set(channels.slice(0, 3))).toEqual(new Set(['social', 'news', 'site']));
+    expect(channels.slice(0, 6)).toEqual(['social', 'news', 'site', 'social', 'news', 'site']);
+  });
+});
+
+describe('prioridade dos fatos de pesquisa', () => {
+  const base = {
+    titulo: 'Sinal', publicado_em: null, perfil_oficial_url: null,
+    fonte_url: 'https://exemplo.com/materia',
+  };
+
+  // Cada teste abaixo isola UMA variavel: os demais campos ficam identicos entre os
+  // candidatos, senao o comprimento do texto sozinho ja decide e a assercao nao prova nada.
+  const corpo = 'Um fato com corpo de tamanho equivalente ao do outro candidato desta comparação, para não pesar.';
+
+  it('a implicação escrita decide entre fatos idênticos no resto', () => {
+    const hoje = Date.parse('2026-09-01T12:00:00.000Z');
+    const ordered = prioritizeResearchFacts([
+      { ...base, fato: corpo, relevancia: 'Contexto', _research_channel: 'social' },
+      { ...base, fato: corpo, relevancia: 'Gestor novo assume sem régua escrita, e é essa a porta da conversa.', _research_channel: 'social' },
+    ], hoje);
+
+    expect(ordered[0].relevancia).toContain('porta da conversa');
+  });
+
+  it('a recência decide entre fatos idênticos no resto', () => {
+    const hoje = Date.parse('2026-09-01T12:00:00.000Z');
+    const ordered = prioritizeResearchFacts([
+      { ...base, fato: corpo, relevancia: 'Contexto', publicado_em: '2024-01-10', _research_channel: 'news' },
+      { ...base, fato: corpo, relevancia: 'Contexto', publicado_em: '2026-08-20', _research_channel: 'news' },
+    ], hoje);
+
+    expect(ordered[0].publicado_em).toBe('2026-08-20');
+  });
+
+  it('a fonte verificável decide entre fatos idênticos no resto', () => {
+    const hoje = Date.parse('2026-09-01T12:00:00.000Z');
+    const ordered = prioritizeResearchFacts([
+      { ...base, fonte_url: null, fato: corpo, relevancia: 'Contexto', _research_channel: 'site' },
+      { ...base, fato: corpo, relevancia: 'Contexto', _research_channel: 'site' },
+    ], hoje);
+
+    expect(ordered[0].fonte_url).toBe('https://exemplo.com/materia');
+  });
+
+  it('não deixa um canal ocupar sozinho os três fatos que vão ao apoio ao vivo', () => {
+    const hoje = Date.parse('2026-09-01T12:00:00.000Z');
+    // A cota antiga (social 3, news 3, site 2) entregava social, social, social.
+    const ordered = prioritizeResearchFacts([
+      { ...base, fato: corpo, relevancia: 'Contexto', _research_channel: 'social' },
+      { ...base, fato: corpo, relevancia: 'Contexto', _research_channel: 'social' },
+      { ...base, fato: corpo, relevancia: 'Contexto', _research_channel: 'social' },
+      { ...base, fato: corpo, relevancia: 'Contexto', _research_channel: 'news' },
+    ], hoje);
+
+    expect(ordered.slice(0, 3).map((item: any) => item._research_channel)).toContain('news');
+  });
+
+  it('preserva a ordem original entre fatos de utilidade idêntica', () => {
+    const hoje = Date.parse('2026-09-01T12:00:00.000Z');
+    const facts = [
+      { ...base, fato: 'Primeiro', relevancia: 'Contexto', _research_channel: 'site' },
+      { ...base, fato: 'Segundo', relevancia: 'Contexto', _research_channel: 'site' },
+    ];
+
+    expect(prioritizeResearchFacts(facts, hoje).map((item: any) => item.fato)).toEqual(['Primeiro', 'Segundo']);
+  });
+
+  it('não premia data futura', () => {
+    const hoje = Date.parse('2026-09-01T12:00:00.000Z');
+    const facts = [
+      { ...base, fato: 'Sem data', relevancia: 'Contexto', _research_channel: 'site' },
+      { ...base, fato: 'Data futura', relevancia: 'Contexto', publicado_em: '2027-01-01', _research_channel: 'news' },
+    ];
+
+    expect(prioritizeResearchFacts(facts, hoje)[0].fato).toBe('Sem data');
   });
 });

@@ -247,29 +247,71 @@ function uniqueSources<T extends OpenAIWebSearchSource>(sources: T[]): T[] {
   });
 }
 
-export function prioritizeResearchFacts(value: unknown): any[] {
-  const facts = Array.isArray(value) ? value : [];
-  const preferred: Array<{ channel: 'social' | 'news' | 'site'; amount: number }> = [
-    { channel: 'social', amount: 3 },
-    { channel: 'news', amount: 3 },
-    { channel: 'site', amount: 2 },
-  ];
-  const selectedIndexes = new Set<number>();
-  const selected: any[] = [];
+/** Cada fato adicional do mesmo canal vale um pouco menos: diversidade desempata, não decide. */
+const CHANNEL_REPEAT_PENALTY = 2;
 
-  for (const { channel, amount } of preferred) {
-    for (let index = 0; index < facts.length && selected.length < 8; index += 1) {
-      if (selectedIndexes.has(index) || facts[index]?._research_channel !== channel) continue;
-      selected.push(facts[index]);
-      selectedIndexes.add(index);
-      if (selected.filter((item) => item?._research_channel === channel).length === amount) break;
+function recencyScore(publishedAt: unknown, now: number): number {
+  if (typeof publishedAt !== 'string' || !publishedAt.trim()) return 0;
+  const parsed = Date.parse(publishedAt);
+  if (Number.isNaN(parsed)) return 0;
+  const days = (now - parsed) / 86_400_000;
+  if (days < 0) return 0;
+  if (days <= 90) return 6;
+  if (days <= 180) return 4;
+  if (days <= 365) return 2;
+  return 0;
+}
+
+/**
+ * Quanto este fato serve para a CONVERSA, e nao para o dossie.
+ *
+ * `relevancia` pesa mais que o resto porque e a implicacao: e o elo que transforma
+ * observacao em frase falavel. Fato sem implicacao escrita e curiosidade.
+ */
+function factUsefulness(fact: any, now: number): number {
+  let score = 0;
+  if (typeof fact?.relevancia === 'string' && fact.relevancia.trim().length >= 20) score += 6;
+  if (typeof fact?.fonte_url === 'string' && /^https?:\/\//i.test(fact.fonte_url)) score += 4;
+  score += recencyScore(fact?.publicado_em, now);
+  const body = typeof fact?.fato === 'string' ? fact.fato.trim() : '';
+  if (body.length >= 80) score += 2;
+  else if (body.length >= 30) score += 1;
+  return score;
+}
+
+/**
+ * Ordena os fatos por utilidade para a reuniao.
+ *
+ * Era cota fixa por canal (social 3, noticias 3, site 2). Como so os 3 primeiros fatos
+ * chegam ao apoio ao vivo, a cota decidia por ORIGEM quais tres o vendedor ouviria:
+ * havendo 3 sinais sociais, os tres eram sociais, independentemente de servirem. Agora a
+ * utilidade decide e o canal so evita que uma unica fonte ocupe a lista inteira.
+ * Empate preserva a ordem original.
+ */
+export function prioritizeResearchFacts(value: unknown, now: number = Date.now()): any[] {
+  const remaining = (Array.isArray(value) ? value : [])
+    .map((fact, index) => ({ fact, index, base: factUsefulness(fact, now) }));
+  const selected: any[] = [];
+  const usedByChannel = new Map<string, number>();
+
+  while (remaining.length) {
+    let bestPosition = 0;
+    let bestScore = -Infinity;
+    for (let position = 0; position < remaining.length; position += 1) {
+      const channel = String(remaining[position].fact?._research_channel ?? 'desconhecido');
+      const score = remaining[position].base - CHANNEL_REPEAT_PENALTY * (usedByChannel.get(channel) ?? 0);
+      if (score > bestScore) {
+        bestScore = score;
+        bestPosition = position;
+      }
     }
+    const [chosen] = remaining.splice(bestPosition, 1);
+    const channel = String(chosen.fact?._research_channel ?? 'desconhecido');
+    usedByChannel.set(channel, (usedByChannel.get(channel) ?? 0) + 1);
+    selected.push(chosen.fact);
   }
 
-  return [
-    ...selected,
-    ...facts.filter((_item, index) => !selectedIndexes.has(index)),
-  ];
+  return selected;
 }
 
 export async function researchCompany(

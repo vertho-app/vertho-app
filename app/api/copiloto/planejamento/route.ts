@@ -202,6 +202,8 @@ Regras do Play:
   literalmente no briefing privado; sem base, faça uma abertura consultiva sem alegação factual;
 - green e red descrevem o que ouvir; if_green é o movimento seguinte, não uma resposta genérica;
 - goal_this_hour e close_with são compromissos observáveis, não “entender melhor”;
+- fallback_goal é o objetivo RESERVA do PACE: um avanço menor e ainda observável para quando o
+  principal não for possível. Nunca repita o close_with nem escreva “entender melhor”;
 - do_not deve vir das armadilhas reais dos materiais e deste negócio.
 
 JSON:
@@ -212,6 +214,7 @@ JSON:
     "kind": "primeira_conversa|retorno|demonstracao|negociacao",
     "audience": "quem estará na conversa",
     "goal_this_hour": "compromisso concreto para esta hora",
+    "fallback_goal": "avanço menor que ainda vale se o principal não sair",
     "openers": [
       {"say":"primeira fala natural de abertura","fact_index":0},
       {"say":"segunda fala natural de abertura","fact_index":null}
@@ -346,9 +349,11 @@ export function normalizePlan(
     hypotheses: [...privateHypotheses, ...publicHypotheses].slice(0, 7).map((item: any) => ({
       hypothesis: text(item?.hipotese, 800), basis: text(item?.base, 800), howToTest: text(item?.como_testar, 800),
     })).filter((item: any) => item.hypothesis),
+    // O reserva era apelido do `closeWith`: a tela mostrava o fechamento do objetivo
+    // principal rotulado como alternativa, e o plano B do PACE (slide 23) nao existia.
     objectives: {
       primary: play.goalThisHour,
-      fallback: play.closeWith,
+      fallback: play.fallbackGoal,
     },
     roiMetrics: (Array.isArray(research?.metricas_roi) ? research.metricas_roi : []).slice(0, 5).map((item: any) => ({
       metric: text(item?.metrica, 240), howToMeasure: text(item?.como_medir, 800),

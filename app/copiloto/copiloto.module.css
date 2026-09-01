@@ -406,6 +406,7 @@
 .playCloseFlag { display: flex; flex-direction: column; justify-content: center; gap: 9px; border-left: 1px solid var(--line); padding: 22px 24px; background: rgba(242,184,75,.045); }
 .playCloseFlag span { color: var(--amber); font: 800 8px/1 var(--font-inter); letter-spacing: .12em; text-transform: uppercase; }
 .playCloseFlag strong { color: #f0e5c8; font-size: 11px; line-height: 1.55; }
+.playCloseFlag em { padding-top: 8px; border-top: 1px dashed rgba(242,184,75,.22); color: #b9ab8c; font-size: 9.5px; font-style: normal; line-height: 1.5; }
 .playOpeners, .playQuestions { display: grid; grid-template-columns: 135px minmax(0, 1fr); gap: 18px; padding: 21px 26px; border-bottom: 1px solid var(--line); }
 .playSectionLabel { align-self: start; padding-top: 2px; color: #7e9aaf; }
 .playOpeners > div:last-child { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

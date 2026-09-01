@@ -56,6 +56,7 @@ describe('normalização do Play da reunião', () => {
         ],
         do_not: ['Não repetir o diagnóstico já concluído.'],
         close_with: 'Abrir a agenda e marcar a demo de 25 minutos.',
+        fallback_goal: 'Se a demo não fechar, sair com a lista de quem precisa participar dela.',
         landmine: { objection: 'Já temos uma plataforma.', ask: 'O que ela ainda não consegue comprovar?' },
       },
       perguntas: [
@@ -87,6 +88,10 @@ describe('normalização do Play da reunião', () => {
     expect(plan.questions.map((item) => item.discovery)).not.toContain('situacao_atual');
     expect(plan.objectives.primary).toBe('Sair com uma demo de 25 minutos marcada até sexta.');
     expect(plan.objectives.primary).not.toContain('OBJETIVO PÚBLICO');
+    // O reserva era apelido do `closeWith`: a tela rotulava o fechamento do objetivo
+    // principal como alternativa, e o plano B do PACE nao existia.
+    expect(plan.objectives.fallback).toBe('Se a demo não fechar, sair com a lista de quem precisa participar dela.');
+    expect(plan.objectives.fallback).not.toBe(plan.play?.closeWith);
     expect(plan.facts[0].title).toBe('Expansão');
     expect(plan.play?.openers[0].factIndex).toBe(0);
     expect(plan.play?.openers[1].factIndex).toBeNull();
@@ -128,6 +133,11 @@ describe('normalização do Play da reunião', () => {
     expect(plan.play?.mustAsk.every((item) => item.discovery === null)).toBe(true);
     expect(plan.play?.mustAsk.map((item) => item.text)).not.toContain('Como esse processo funciona hoje?');
     expect(plan.play?.doNot).toHaveLength(1);
+    // Sem `fallback_goal` do modelo, o reserva ainda nasce com valor proprio e do tipo
+    // certo de reuniao, em vez de repetir o fechamento do objetivo principal.
+    expect(plan.play?.fallbackGoal).toContain('lista de quem precisa participar');
+    expect(plan.objectives.fallback).toBe(plan.play?.fallbackGoal);
+    expect(plan.objectives.fallback).not.toBe(plan.play?.closeWith);
   });
 
   it('na primeira conversa, mostra como lacuna apenas o que não está nas três must-ask', () => {

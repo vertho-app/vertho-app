@@ -191,6 +191,11 @@ export type CopilotPlay = {
   kind: MeetingKind;
   audience: string;
   goalThisHour: string;
+  /**
+   * O avanço que ainda salva a reunião quando o objetivo principal não sai.
+   * Optional so plans saved before the fallback-goal rollout remain readable.
+   */
+  fallbackGoal?: string;
   openers: Array<{
     say: string;
     /** Index in plan.facts; null means the opener is grounded in the private briefing. */
