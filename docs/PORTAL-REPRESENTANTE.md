@@ -302,6 +302,41 @@ e o doc mostra o selo "Versão N". A nova versão segue de novo pelo fluxo norma
 + `supersedes_id` + o status `'superseded'` no CHECK. Commit `8bbcbf1b`. Validado
 E2E ao vivo.
 
+## Copiloto PACE — empresas compartilhadas e foco ao vivo (01/09)
+
+O Copiloto usa as mesmas contas de `sales_accounts` do canal comercial; não
+existe uma cópia privada de empresa por administrador. A visibilidade é resolvida
+no servidor por `resolveCopilotAccess` + `accountQueryFor`:
+
+- **representante ativo:** a consulta aplica `representante_id = rep.id`; vê
+  somente as próprias empresas;
+- **administrador de plataforma** (`master` ou `sócio`): não recebe filtro por
+  representante e vê as empresas do canal inteiro, limitadas às 200 mais
+  recentemente atualizadas;
+- **RH ou gestor de tenant:** não é administrador do Copiloto e não entra por
+  esse ramo de acesso;
+- **ADM também cadastrado como representante ativo:** o representante é
+  resolvido primeiro; portanto, esse usuário vê somente a própria carteira até o
+  cadastro ativo de representante deixar de prevalecer.
+
+Consequência operacional: uma empresa salva por um representante aparece para
+todos os administradores de plataforma na próxima carga da tela, junto com os
+planejamentos, conversas e oportunidades vinculados. Visibilidade não concede
+automaticamente escrita destrutiva: no ramo admin, apagar continua exigindo
+`sales_channel.manage` (master; sócio não apaga). Quando autorizada, a exclusão
+atua sobre a mesma linha compartilhada — não é “só da minha lista”.
+
+Durante uma captura ativa, a aba **Apoio ao vivo** troca automaticamente para um
+painel de foco destinado a ocupar meia tela ao lado da reunião. A interface
+completa sai de cena e ficam apenas estado do áudio/encerramento, objetivo,
+progresso essencial, orientação **Agora**, até duas perguntas, alertas críticos e
+as três falas mais recentes. Ao encerrar, o workspace completo volta. A régua
+visual é uma linha ciano contínua entre objetivo, intervenção e transcrição; ela
+serve como eixo de leitura, sem adicionar animações ou cartões secundários.
+
+O funcionamento e o diagnóstico do sidecar estão em
+`docs/COPILOTO-WHISPER-LOCAL.md`.
+
 ## Apagar uma empresa (`sales_accounts`) — a ordem é do banco, não minha (31/08)
 
 A lista de empresas do Copiloto (`/copiloto`, aba Histórico) ganhou exclusão. Ela
