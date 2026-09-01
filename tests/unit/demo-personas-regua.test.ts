@@ -67,6 +67,10 @@ describe('Personas do acme-demo seguem a régua do produto', () => {
 
   it('limpa relatórios antes de colaboradores para o reset nunca ficar pela metade', () => {
     expect(DEMO_RESET_TABLES.indexOf('relatorios')).toBeLessThan(DEMO_RESET_TABLES.indexOf('colaboradores'));
+    // FK `escolas.ppp_escola_id` e `colaboradores.escola_id`: a unidade sai
+    // depois de quem a referencia e antes de quem ela referencia.
+    expect(DEMO_RESET_TABLES.indexOf('colaboradores')).toBeLessThan(DEMO_RESET_TABLES.indexOf('escolas'));
+    expect(DEMO_RESET_TABLES.indexOf('escolas')).toBeLessThan(DEMO_RESET_TABLES.indexOf('ppp_escolas'));
   });
 
   it('mantém um vídeo editorial real no foco do usuário da apresentação', () => {

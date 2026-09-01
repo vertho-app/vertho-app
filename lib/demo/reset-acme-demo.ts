@@ -52,6 +52,7 @@ import { buildAcmeDemoBehavioralReport } from '@/lib/demo/acme-behavioral-report
 // novo troca o roster, não o reset. A identidade da empresa continua em
 // DEMO_TENANT_PROFILES, logo abaixo.
 import { rosterDemo, type DemoRosterKey } from '@/lib/demo/rosters';
+import { PPP_REDE_ESCOLAS_ACME, VALORES_REDE_ESCOLAS_ACME } from '@/lib/demo/rosters/escolar';
 import {
   COMERCIAL_AREA,
   DEMO_EXCLUDED_ROLES,
@@ -96,6 +97,7 @@ export { DEMO_RH_PERSONA, PERSONAS };
 const DEMO_SLUG = DEMO_PRESENTATION_TENANT_SLUG;
 const DEMO_NAME = 'ACME Demo';
 const GRUPO_SINAL_SLUG = 'gruposinal';
+const ESCOLAS_ACME_SLUG = 'escolas-acme';
 const DEMO_JOURNEY_CONTENT_KIND = 'conteudo' as const;
 
 /**
@@ -276,6 +278,7 @@ export const DEMO_TENANT_PROFILES = {
     marca: DEMO_NAME,
     segmento: 'corporativo',
     roster: 'comercial' as DemoRosterKey,
+    fixture: 'acme' as DemoFixtureKey,
     loginSubtitle: 'Ambiente de treinamento e demonstração da Vertho',
     logoUrl: null,
     pppNome: 'ACME Demo - Cultura e Operação',
@@ -290,12 +293,34 @@ export const DEMO_TENANT_PROFILES = {
       withMapping: ACME_DEMO_FUNNEL_TARGETS.withMapping,
     } as DemoRelatoriosOrganizacionais,
   },
+  /**
+   * O ambiente de outro SEGMENTO. Ele não é uma ACME com outra marca: o elenco
+   * inteiro muda (roster escolar), e por isso ele não herda estrutura de
+   * fixture nenhum — os três cargos nascem construídos.
+   */
+  [ESCOLAS_ACME_SLUG]: {
+    slug: ESCOLAS_ACME_SLUG,
+    nome: 'Rede de Escolas ACME',
+    marca: 'Rede de Escolas ACME',
+    segmento: 'educacao',
+    roster: 'escolar' as DemoRosterKey,
+    fixture: null as DemoFixtureKey,
+    loginSubtitle: 'Ambiente de demonstração da jornada Vertho para redes de ensino',
+    logoUrl: null,
+    pppNome: 'Rede de Escolas ACME — Projeto Político-Pedagógico',
+    ppp: PPP_REDE_ESCOLAS_ACME,
+    valores: VALORES_REDE_ESCOLAS_ACME,
+    acessoAllowlist: null as readonly string[] | null,
+    resetPausadoAte: null as string | null,
+    convidado: null as DemoConvidado | null,
+  },
   [GRUPO_SINAL_SLUG]: {
     slug: GRUPO_SINAL_SLUG,
     nome: 'Grupo Sinal — Demonstração',
     marca: 'Grupo Sinal',
     segmento: 'corporativo',
     roster: 'comercial' as DemoRosterKey,
+    fixture: 'acme' as DemoFixtureKey,
     loginSubtitle: 'Ambiente de demonstração da jornada Vertho para o Grupo Sinal',
     logoUrl: 'https://www.gruposinal.com.br/assets/logo-grupo-sinal-white.webp',
     pppNome: 'Grupo Sinal — Contexto organizacional',
@@ -325,6 +350,12 @@ export const DEMO_TENANT_PROFILES = {
 } as const;
 
 export type DemoTenantSlug = keyof typeof DEMO_TENANT_PROFILES;
+
+/**
+ * De onde vem a ESTRUTURA do ambiente. `'acme'` semeia o fixture congelado do
+ * tenant comercial; `null` é o ambiente cujos cargos nascem todos do roster.
+ */
+export type DemoFixtureKey = 'acme' | null;
 
 /**
  * Até quando o reset AUTOMÁTICO deste ambiente está pausado, ou `null`.
@@ -462,7 +493,10 @@ export const DEMO_RESET_TABLES = [
   'temporada_semana_progresso', 'trilhas', 'reavaliacao_sessoes', 'sessoes_avaliacao',
   'descriptor_assessments', 'respostas', 'videos_watched', 'fase4_progresso',
   'banco_cenarios', 'top10_cargos', 'colaboradores', 'cargos_empresa',
-  'competencias', 'ppp_escolas',
+  // `escolas` sai ANTES de `ppp_escolas` (FK `ppp_escola_id`) e depois de
+  // `colaboradores` (FK `escola_id`). Sem ela na lista, cada reset somaria as
+  // unidades de novo: a rede amanheceria com nove escolas na terceira noite.
+  'competencias', 'escolas', 'ppp_escolas',
 ] as const;
 
 type DemoWarmSnapshot = {
@@ -592,6 +626,18 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   // O elenco vem do PERFIL do ambiente; o motor não sabe de que segmento se
   // trata. Trocar o roster é trocar esta declaração, não o reset.
   const roster: DemoRoster = rosterDemo(profile.roster);
+  // O fixture de ESTRUTURA (competências, cargos, top10, cenários capturados de
+  // um tenant vivo) é do ambiente, não do motor. Quem tem todos os cargos
+  // construídos no roster não herda estrutura de ninguém, e semear o fixture
+  // comercial ali plantaria Representante Comercial numa rede de escolas.
+  const fx: any = profile.fixture === 'acme' ? (fixture as any) : {
+    empresa: {},
+    competencias: [],
+    cargos: [],
+    top10: [],
+    cenarios: [],
+    personaArtifacts: {},
+  };
   const brand = <T,>(value: T): T => personalizarArtefatoDemo(value, slug);
 
   async function must(label: string, promise: any) {
@@ -841,7 +887,11 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   }
 
   async function ensurePresentationVideo(destId: string, personaMap: Map<string, string>) {
-    const videoInfra = DEMO_PRESENTATION_WEEK_VIDEO.byTenant[slug];
+    const videoInfra = (DEMO_PRESENTATION_WEEK_VIDEO.byTenant as Record<string, any>)[slug];
+    // Sem célula declarada para este ambiente não há vídeo nominal a recompor.
+    // Seguir daqui plantaria a competência-base e o módulo COMERCIAIS num
+    // tenant de outro segmento.
+    if (!videoInfra) return;
     const libraryId = String(process.env.BUNNY_LIBRARY_ID || 636615);
 
     // Módulo real da semana 1: sem ele `resolverVideoDaSemana` não tem uma
@@ -1085,6 +1135,30 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       extracted_at: new Date().toISOString(),
     });
     await must('insert ppp demo', result);
+  }
+
+  /**
+   * Unidades da organização (as escolas de uma rede). `area_depto_origens` é o
+   * elo com o cadastro: as pessoas trazem o nome da unidade em `area_depto`, e
+   * é por ele que as telas de rede agrupam. Elenco sem unidades (uma empresa
+   * só) não escreve nada aqui.
+   */
+  async function seedUnidades(destId: string) {
+    if (!roster.unidades?.length) return;
+    const payload = roster.unidades.map((unidade) => ({
+      empresa_id: destId,
+      nome: unidade.nome,
+      is_central: false,
+      area_depto_origens: [unidade.nome],
+    }));
+    // Retorno capturado e conferido: `must` faz o mesmo, mas o guard E11 lê a
+    // ÁRVORE, não a semântica de quem chama. Os vizinhos com `await must(...)`
+    // são dívida allowlistada antiga, e allowlist só encolhe — escrita nova
+    // nasce checando o `error` onde o guard enxerga.
+    const unidadesResult = await sb.from('escolas').insert(payload);
+    if (unidadesResult.error) {
+      throw new Error(`insert unidades demo: ${unidadesResult.error.message}`);
+    }
   }
 
   async function insertDemoExtraRoles(destId: string) {
@@ -1355,7 +1429,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     // perfil disparando IA ao vivo, no meio da demo. Sintoma longe da causa:
     // congelar o artefato no arquivo "certo" não adiantava nada.
     const artifacts: any = mesclarPersonaArtifacts(
-      (fixture as any).personaArtifacts,
+      fx.personaArtifacts,
       (extraArtifacts as any).personaArtifacts,
     );
     for (const p of roster.personas) {
@@ -1670,7 +1744,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   }
 
   try {
-    const demo = await upsertEmpresaDemo((fixture as any).empresa);
+    const demo = await upsertEmpresaDemo(fx.empresa);
     // Um reset de sala de demo deve recompor dados, não devolver a experiência
     // ao estado frio. Guardamos somente artefatos já renderizados e PDIs com
     // níveis válidos; nenhum conteúdo novo é gerado aqui.
@@ -1687,11 +1761,12 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     }
 
     await resetTenant(demo.id);
-    const compMap = await seedCompetencias((fixture as any).competencias, demo.id);
-    await seedCargos((fixture as any).cargos, demo.id);
-    await seedTop10((fixture as any).top10, demo.id, compMap);
-    await seedCenarios((fixture as any).cenarios, demo.id, compMap);
+    const compMap = await seedCompetencias(fx.competencias, demo.id);
+    await seedCargos(fx.cargos, demo.id);
+    await seedTop10(fx.top10, demo.id, compMap);
+    await seedCenarios(fx.cenarios, demo.id, compMap);
     await insertDemoPPP(demo.id);
+    await seedUnidades(demo.id);
     await insertDemoExtraRoles(demo.id);
     const personaMap = await insertPersonas(demo.id);
     if (profile.convidado) {

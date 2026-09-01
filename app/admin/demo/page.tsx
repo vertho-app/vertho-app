@@ -36,7 +36,7 @@ import {
   type DemoGuestProgress,
 } from '@/lib/demo/acme-prospect-config';
 
-type TenantSlug = 'acme-demo' | 'gruposinal';
+type TenantSlug = 'acme-demo' | 'gruposinal' | 'escolas-acme';
 
 type PresentationLinkDemo = {
   roleKey: 'usuario' | 'gestor' | 'rh';
@@ -59,11 +59,19 @@ type ProspectAccessView = AcmeProspectExperienceAccess & {
   views: PresentationLinkDemo[];
 };
 
-const PRESENTATION_VIEWS = [
-  { roleKey: 'usuario', visao: 'Usuário', nome: 'Bruna Costa' },
-  { roleKey: 'gestor', visao: 'Gestor', nome: 'Carla Menezes' },
-  { roleKey: 'rh', visao: 'RH', nome: 'Helena Duarte' },
-] as const satisfies ReadonlyArray<Pick<PresentationLinkDemo, 'roleKey' | 'visao' | 'nome'>>;
+/**
+ * Os ambientes que têm sala ao vivo. O card abre a visão de QUEM PARTICIPA em
+ * cada um; as outras duas visões continuam preparadas no mesmo carregamento, e
+ * a troca de função acontece por dentro, no seletor "Visão apresentada" — que é
+ * o que este card duplicava antes, enquanto deixava a escolha do ambiente de
+ * fora (a única coisa que o seletor de lá não faz).
+ */
+const PRESENTATION_ROOMS = [
+  { slug: 'acme-demo' as const, nome: 'ACME Demo' },
+  { slug: 'escolas-acme' as const, nome: 'Rede de Escolas ACME' },
+];
+
+const VISAO_DE_ENTRADA = 'usuario' as const;
 
 const EMPTY_PROSPECT_FORM: ProspectForm = {
   nome: '',
@@ -79,6 +87,10 @@ const TENANTS: Record<TenantSlug, { nome: string; descricao: string }> = {
     nome: 'ACME Demo',
     descricao: 'Ambiente genérico compartilhado pelo time comercial',
   },
+  'escolas-acme': {
+    nome: 'Rede de Escolas ACME',
+    descricao: 'Rede de ensino com três unidades, para conversas do segmento educacional',
+  },
   gruposinal: {
     nome: 'Grupo Sinal',
     descricao: 'Demonstração contextualizada para a oportunidade comercial',
@@ -90,7 +102,7 @@ export default function AdminDemoPage() {
   const [tenantSlug, setTenantSlug] = useState<TenantSlug>('acme-demo');
   const [busy, setBusy] = useState(false);
   const [ultimo, setUltimo] = useState<Record<string, number | null> | null>(null);
-  const [presentationLinks, setPresentationLinks] = useState<PresentationLinkDemo[] | null>(null);
+  const [presentationLinks, setPresentationLinks] = useState<Record<string, PresentationLinkDemo[]>>({});
   const [preparandoApresentacao, setPreparandoApresentacao] = useState(true);
   const [presentationError, setPresentationError] = useState<string | null>(null);
   const [presentationOpened, setPresentationOpened] = useState<Set<string>>(new Set());
@@ -113,15 +125,26 @@ export default function AdminDemoPage() {
     setPreparandoApresentacao(true);
     setPresentationError(null);
     try {
-      const r = await prepararSalaApresentacaoDemo();
-      if (!r.success) {
-        const mensagem = r.error || 'erro desconhecido';
+      // Um ambiente que falha não pode esconder o outro: o vendedor pode estar
+      // a caminho de uma reunião do segmento que funcionou.
+      const resultados = await Promise.all(PRESENTATION_ROOMS.map(async (sala) => ({
+        sala,
+        r: await prepararSalaApresentacaoDemo(sala.slug),
+      })));
+      const acessosPorAmbiente: Record<string, PresentationLinkDemo[]> = {};
+      const falhas: string[] = [];
+      for (const { sala, r } of resultados) {
+        if (r.success) acessosPorAmbiente[sala.slug] = r.acessos;
+        else falhas.push(`${sala.nome}: ${r.error || 'erro desconhecido'}`);
+      }
+      setPresentationLinks(acessosPorAmbiente);
+      if (falhas.length > 0) {
+        const mensagem = falhas.join(' · ');
         setPresentationError(mensagem);
-        if (notificar) toast.error(`Falha ao disponibilizar as visões: ${mensagem}`);
+        if (notificar) toast.error(`Falha ao disponibilizar: ${mensagem}`);
         return;
       }
-      setPresentationLinks(r.acessos);
-      if (notificar) toast.success('As três visões estão disponíveis.');
+      if (notificar) toast.success('Os ambientes estão disponíveis.');
     } catch (e: any) {
       const mensagem = e?.message || 'erro inesperado';
       setPresentationError(mensagem);
@@ -222,15 +245,19 @@ export default function AdminDemoPage() {
     setPresentationOpened((atuais) => new Set(atuais).add(roleKey));
   }
 
-  function abrirVisaoApresentacao(acesso: PresentationLinkDemo) {
-    const jaPreparada = presentationOpened.has(acesso.roleKey);
+  function abrirVisaoApresentacao(acesso: PresentationLinkDemo, slug: string) {
+    // A marca é por (ambiente, papel): dois ambientes têm o mesmo `roleKey`, e
+    // uma chave só faria o segundo pular o callback — abrindo a URL direta sem
+    // sessão criada, que cai no login.
+    const chave = `${slug}:${acesso.roleKey}`;
+    const jaPreparada = presentationOpened.has(chave);
     // Captura o destino ANTES de atualizar o estado. Quando isto era um <a>, o
     // setState do onClick trocava o href para `directUrl` antes da ação default
     // do navegador; a aba pulava o callback, não criava sessão e caía no login.
     launchDemoPresentationAccess(
       { authUrl: acesso.url, directUrl: acesso.directUrl, prepared: jaPreparada },
       (destino) => { window.open(destino, '_blank', 'noopener,noreferrer'); },
-      () => marcarVisaoAberta(acesso.roleKey),
+      () => marcarVisaoAberta(chave),
     );
   }
 
@@ -394,44 +421,47 @@ export default function AdminDemoPage() {
                     <MonitorPlay size={15} aria-hidden="true" />
                     <span className="text-[9px] font-bold uppercase tracking-[0.18em]">Apresentação ao vivo</span>
                   </div>
-                  <h2 className="text-sm font-bold text-white">Troque de função sem sair da conta</h2>
+                  <h2 className="text-sm font-bold text-white">Escolha o ambiente e apresente</h2>
                   <p className="mt-1 text-[11px] leading-relaxed text-gray-400">
-                    Usa o ACME Demo, que tem o mesmo conteúdo-base do Grupo Sinal sem a marca do prospect.
+                    Abre como quem participa da jornada. As visões de liderança e de programa ficam prontas no mesmo ambiente, e a troca de função é por dentro.
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full border border-white/10 bg-black/15 px-2 py-1 font-mono text-[9px] text-white/45">
-                  ACME
+                  AO VIVO
                 </span>
               </div>
 
               <div className="mt-4" aria-busy={preparandoApresentacao}>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {PRESENTATION_VIEWS.map((visao) => {
-                    const acesso = presentationLinks?.find((item) => item.roleKey === visao.roleKey);
-                    const aberto = presentationOpened.has(visao.roleKey);
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {PRESENTATION_ROOMS.map((sala) => {
+                    const acessos = presentationLinks[sala.slug];
+                    const acesso = acessos?.find((item) => item.roleKey === VISAO_DE_ENTRADA);
+                    const aberto = presentationOpened.has(`${sala.slug}:${VISAO_DE_ENTRADA}`);
                     const carregando = preparandoApresentacao && !acesso;
                     return (
                       <button
                         type="button"
-                        key={visao.roleKey}
-                        onClick={() => acesso && abrirVisaoApresentacao(acesso)}
+                        key={sala.slug}
+                        onClick={() => acesso && abrirVisaoApresentacao(acesso, sala.slug)}
                         disabled={!acesso || busy}
                         className="group rounded-xl border border-white/10 bg-[#081523]/75 p-3 text-left transition-colors hover:border-cyan-300/35 hover:bg-[#0b1b2c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-wait disabled:opacity-65"
                       >
                         <span className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold text-white">{visao.visao}</span>
+                          <span className="text-xs font-bold text-white">{sala.nome}</span>
                           {carregando
                             ? <Loader2 size={13} className="animate-spin text-cyan-300" aria-hidden="true" />
                             : <ExternalLink size={13} className="text-white/35 transition-colors group-hover:text-cyan-300" aria-hidden="true" />}
                         </span>
-                        <span className="mt-1 block truncate text-[9px] text-white/40">{visao.nome}</span>
+                        <span className="mt-1 block truncate text-[9px] text-white/40">
+                          {acesso ? `${acesso.visao} · ${acesso.nome}` : 'Preparando…'}
+                        </span>
                         <span className={`mt-3 flex items-center gap-1.5 text-[9px] font-bold ${aberto ? 'text-emerald-300' : 'text-cyan-300'}`}>
                           {carregando
                             ? 'Disponibilizando acesso…'
                             : aberto
                               ? 'Sessão ativa'
                               : acesso
-                                ? 'Abrir esta visão'
+                                ? 'Abrir esta demo'
                                 : 'Acesso indisponível'}
                         </span>
                       </button>
@@ -456,7 +486,7 @@ export default function AdminDemoPage() {
                 )}
 
                 <p className="mt-3 text-[10px] leading-relaxed text-gray-500">
-                  As visões ficam disponíveis automaticamente. Use “Visão apresentada” para trocar de função sem login e “Dispositivo” para alternar entre Computador e a experiência responsiva de Celular.
+                  Os dois ambientes ficam disponíveis automaticamente, cada um com as três visões prontas. Dentro da demo, use “Visão apresentada” para trocar de função sem login e “Dispositivo” para alternar entre Computador e a experiência responsiva de Celular.
                 </p>
               </div>
             </div>

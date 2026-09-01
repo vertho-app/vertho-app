@@ -59,6 +59,18 @@ export const DEMO_PRESENTATION_ROOMS = {
     rotulo: 'ACME Demo',
     roles: DEMO_PRESENTATION_ROLES,
   },
+  'escolas-acme': {
+    tenantSlug: 'escolas-acme',
+    rotulo: 'Rede de Escolas ACME',
+    // Hosts próprios, e os rótulos no vocabulário de quem vai assistir: o papel
+    // técnico continua sendo usuário/gestor/rh (é o que o produto autoriza),
+    // mas ninguém numa escola se reconhece como "RH".
+    roles: [
+      { key: 'usuario', label: 'Professor(a)', hostSlug: 'professor-escolas', homePath: '/dashboard' },
+      { key: 'gestor', label: 'Direção', hostSlug: 'direcao-escolas', homePath: '/dashboard/gestor' },
+      { key: 'rh', label: 'Mantenedora', hostSlug: 'mantenedora-escolas', homePath: '/dashboard' },
+    ],
+  },
 } as const;
 
 export type DemoPresentationTenantSlug = keyof typeof DEMO_PRESENTATION_ROOMS;
@@ -103,7 +115,17 @@ const PAPEIS_DE_APRESENTACAO: readonly (DemoPresentationRole & { tenantSlug: Dem
 export function listarPapeisDeApresentacao() {
   return PAPEIS_DE_APRESENTACAO;
 }
-export type DemoPresentationRole = typeof DEMO_PRESENTATION_ROLES[number];
+/**
+ * O papel de uma sala. A CHAVE é fechada (é ela que o produto autoriza), mas o
+ * rótulo e o host são de cada ambiente: numa rede de escolas ninguém se
+ * reconhece como "RH", e o tipo não pode exigir que se reconheça.
+ */
+export type DemoPresentationRole = {
+  key: DemoPresentationRoleKey;
+  label: string;
+  hostSlug: string;
+  homePath: string;
+};
 export type DemoPresentationDeviceKey = typeof DEMO_PRESENTATION_DEVICES[number]['key'];
 
 export function getDemoPresentationRole(

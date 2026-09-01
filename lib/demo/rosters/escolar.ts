@@ -272,6 +272,62 @@ export const SALA_ESCOLAR = [
   { presentationRoleKey: 'rh', visao: 'Mantenedora', nome: MANTENEDORA_PERSONA.nome_completo, email: MANTENEDORA_PERSONA.email, role: MANTENEDORA_PERSONA.role, nextPath: '/dashboard' },
 ] as const;
 
+/**
+ * O PPP da rede: o contexto institucional que os cenários e as avaliações leem.
+ * É fictício de ponta a ponta — o que veio do mundo real foi a MATRIZ, não a
+ * instituição. Vocabulário e tensões são os de uma rede privada de porte médio,
+ * porque é isso que o cenário precisa refletir para soar verdadeiro na demo.
+ */
+export const PPP_REDE_ESCOLAS_ACME = {
+  perfil_instituicao: {
+    nome: 'Rede de Escolas ACME',
+    tipo: 'Rede privada de educação básica',
+    segmento: 'Educação Infantil, Fundamental e Ensino Médio',
+    porte: 'Três unidades e cerca de 180 profissionais',
+    localizacao: 'Rede regional, com unidades de perfis diferentes',
+  },
+  comunidade_contexto: 'A Rede de Escolas ACME reúne três unidades com histórias e comunidades distintas: uma escola grande e consolidada, uma unidade em crescimento que recebeu muitas famílias novas nos últimos anos e uma escola antiga, de bairro, com forte vínculo comunitário. A mantenedora busca consistência pedagógica entre elas sem apagar a identidade de cada uma.',
+  identidade: {
+    missao: 'Formar estudantes capazes de aprender com autonomia, conviver com respeito e agir com responsabilidade.',
+    visao: 'Ser uma rede reconhecida pela consistência pedagógica entre as unidades e pelo cuidado com quem ensina.',
+    principios: ['Aprendizagem no centro', 'Cuidado com quem ensina', 'Escuta das famílias', 'Decisão com evidência', 'Equidade', 'Trabalho colaborativo'],
+    concepcao: 'A rede entende qualidade como a combinação entre aprendizagem dos estudantes, clareza do trabalho pedagógico e sustentabilidade da equipe. Valoriza professores que ajustam a prática com base em evidências e lideranças que sustentam acordos.',
+  },
+  praticas_descritas: [
+    { nome: 'Reunião pedagógica semanal', descricao: 'Encontro da equipe para alinhar planejamento, discutir turmas e combinar intervenções.', frequencia: 'semanal' },
+    { nome: 'Conselho de classe', descricao: 'Leitura coletiva do desempenho e do percurso de cada turma, com encaminhamentos registrados.', frequencia: 'bimestral' },
+    { nome: 'Observação de aula com devolutiva', descricao: 'Coordenação observa a prática combinada previamente e devolve ao professor em até uma semana.', frequencia: 'mensal' },
+    { nome: 'Encontro da rede', descricao: 'Direções e coordenações das três unidades alinham prioridades e comparam indicadores.', frequencia: 'bimestral' },
+  ],
+  gestao_participacao: 'As decisões pedagógicas são tomadas pela direção com a coordenação, com espaço real de participação dos professores nos ritos coletivos. A mantenedora acompanha indicadores das três unidades e cobra consistência, sem decidir a rotina de cada escola.',
+  desafios_metas: {
+    desafios: ['Defasagem de aprendizagem em algumas turmas', 'Sustentar a mesma qualidade nas três unidades', 'Tempo coletivo curto para formação', 'Relação com famílias em situações difíceis', 'Sobrecarga da equipe ao fim de cada ciclo'],
+    metas: ['Reduzir a defasagem nas turmas prioritárias', 'Tornar a devolutiva ao professor uma prática regular', 'Fortalecer o planejamento com intencionalidade', 'Cuidar da sustentabilidade da equipe docente'],
+  },
+  vocabulario: [
+    { termo: 'PPP', significado: 'Projeto Político-Pedagógico: o documento que declara a intenção educativa da escola.' },
+    { termo: 'Conselho de classe', significado: 'Rito coletivo em que a equipe lê o percurso de cada turma e combina encaminhamentos.' },
+    { termo: 'Devolutiva', significado: 'Retorno estruturado sobre uma prática observada, com combinados para o próximo ciclo.' },
+    { termo: 'Recomposição', significado: 'Trabalho pedagógico para retomar aprendizagens não consolidadas.' },
+    { termo: 'Unidade', significado: 'Cada escola da rede, com comunidade e equipe próprias.' },
+  ],
+  competencias_priorizadas: [
+    { nome: 'Liderança pedagógica', justificativa: 'A consistência entre as unidades depende de direção pedagógica clara e acompanhada.', relevancia: 'alta' },
+    { nome: 'Planejamento e Organização', justificativa: 'É o que impede a urgência do dia de consumir a prioridade pedagógica.', relevancia: 'alta' },
+    { nome: 'Colaboração docente e cultura formativa', justificativa: 'A troca entre professores é o que sustenta mudança de prática ao longo do tempo.', relevancia: 'alta' },
+    { nome: 'Didática e estratégias de ensino', justificativa: 'É onde a aprendizagem acontece ou deixa de acontecer.', relevancia: 'alta' },
+    { nome: 'Diversidade e Inclusão', justificativa: 'As três unidades atendem comunidades com necessidades bastante diferentes.', relevancia: 'alta' },
+  ],
+  valores_institucionais: ['Aprendizagem no centro', 'Cuidado com quem ensina', 'Escuta das famílias', 'Decisão com evidência', 'Equidade', 'Trabalho colaborativo'],
+  competencias: [
+    { nome: 'Liderança pedagógica', justificativa: 'Sustenta direção clara e devolutiva à equipe docente.', relevancia: 'alta' },
+    { nome: 'Colaboração docente e cultura formativa', justificativa: 'Transforma prática individual em aprendizagem coletiva.', relevancia: 'alta' },
+    { nome: 'Didática e estratégias de ensino', justificativa: 'Conecta intenção pedagógica ao que o estudante de fato aprende.', relevancia: 'alta' },
+  ],
+};
+
+export const VALORES_REDE_ESCOLAS_ACME = PPP_REDE_ESCOLAS_ACME.valores_institucionais;
+
 export const ROSTER_ESCOLAR: DemoRoster = {
   key: 'escolar',
   // Todos os cargos nascem construídos (o acervo de origem tem cenários fracos

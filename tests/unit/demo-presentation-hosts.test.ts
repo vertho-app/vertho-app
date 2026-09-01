@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEMO_PRESENTATION_ROOMS,
+  listarPapeisDeApresentacao,
   demoPresentationAuthUrl,
   demoPresentationUrl,
   getDemoPresentationDeviceQueryValue,
@@ -61,5 +63,34 @@ describe('hosts da sala de apresentação', () => {
       () => events.push('mark'),
     );
     expect(events).toEqual(['open:https://rh-demo.test/dashboard']);
+  });
+
+  /**
+   * 🔴 O hostname identifica papel E ambiente. Um alias repetido entre salas
+   * abriria tenants diferentes conforme quem emitiu o passe — e como a rota de
+   * auth confere o passe CONTRA o host, um host ambíguo transforma essa
+   * conferência num sorteio.
+   */
+  it('nenhum host de apresentação pertence a dois ambientes', () => {
+    const papeis = listarPapeisDeApresentacao();
+    const hosts = papeis.map((papel) => papel.hostSlug);
+    expect(new Set(hosts).size, `hosts repetidos em ${hosts.join(', ')}`).toBe(hosts.length);
+  });
+
+  it('toda sala cobre as três visões que o produto autoriza', () => {
+    for (const sala of Object.values(DEMO_PRESENTATION_ROOMS)) {
+      expect(sala.roles.map((role) => role.key)).toEqual(['usuario', 'gestor', 'rh']);
+      for (const role of sala.roles) {
+        expect(role.label.length, `${sala.tenantSlug}/${role.key} sem rótulo`).toBeGreaterThan(1);
+      }
+    }
+  });
+
+  it('cada host resolve para o tenant da própria sala', () => {
+    for (const sala of Object.values(DEMO_PRESENTATION_ROOMS)) {
+      for (const role of sala.roles) {
+        expect(resolvePresentationTenantSlug(role.hostSlug)).toBe(sala.tenantSlug);
+      }
+    }
   });
 });

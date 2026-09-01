@@ -14,6 +14,7 @@ import {
 import {
   DEMO_PRESENTATION_TENANT_SLUG,
   demoPresentationAuthUrl,
+  isDemoPresentationTenant,
 } from '@/lib/demo/presentation';
 import { issueDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
 import {
@@ -128,16 +129,22 @@ export async function gerarMagicLinksTemporariosDemo(slug: DemoTenantSlug) {
 }
 
 /**
- * Prepara as três origens isoladas da sala de apresentação. O tenant é fixo e
- * neutro (`acme-demo`); não aceitamos alvo vindo do client neste fluxo.
+ * Prepara as três origens isoladas da sala de apresentação do ambiente pedido.
+ *
+ * O alvo passou a vir do client (há mais de um ambiente com sala), então ele
+ * atravessa a allowlist das SALAS REGISTRADAS antes de virar qualquer coisa —
+ * um slug livre aqui mintaria sessão num tenant que não é sala de apresentação.
  */
-export async function prepararSalaApresentacaoDemo() {
+export async function prepararSalaApresentacaoDemo(slug: string = DEMO_PRESENTATION_TENANT_SLUG) {
   const ctx = await requireAdminAction();
-  const r = await prepararAcessosApresentacaoDemo();
+  if (!isDemoPresentationTenant(slug)) {
+    return { success: false as const, error: 'Ambiente de apresentação inválido' };
+  }
+  const r = await prepararAcessosApresentacaoDemo(slug);
   await logAdminAction({
     adminEmail: ctx.email,
     acao: 'demo.prepare_presentation',
-    alvo: DEMO_PRESENTATION_TENANT_SLUG,
+    alvo: slug,
     detalhes: r.ok ? { contas: r.acessos?.map((a) => a.email) } : { error: r.error },
   });
   if (!r.ok) return { success: false as const, error: r.error };
