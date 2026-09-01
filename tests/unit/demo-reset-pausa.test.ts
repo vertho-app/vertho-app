@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DEMO_TENANT_PROFILES, resetPausadoAte } from '@/lib/demo/reset-acme-demo';
 
@@ -58,6 +59,26 @@ describe('pausa do reset dos ambientes demo', () => {
       expect(resetPausadoAte('acme-demo', new Date(`${dia}T07:00:00.000Z`))).toBeNull();
       expect(resetPausadoAte(slug, new Date(`${dia}T07:00:00.000Z`))).toBe(pausaDeclarada);
     }
+  });
+
+  it('a faxina de convidados vencidos roda ANTES da pausa, e não é pulada por ela', () => {
+    // Invariante de ORDEM, por isso lida no fonte: a pausa segura a RECOMPOSIÇÃO
+    // do ambiente, nunca a remoção de acesso de quem passou do prazo. Invertido,
+    // um passaporte vencido continuaria entrando até a pausa expirar.
+    const fonte = readFileSync('app/api/cron/route.ts', 'utf8');
+    const inicio = fonte.indexOf('const slugsDemo');
+    const fim = fonte.indexOf('reset do demo falhou');
+    // as duas âncoras têm de EXISTIR: um recorte que não acha o alvo mede o
+    // arquivo inteiro e passa por acidente
+    expect(inicio).toBeGreaterThan(-1);
+    expect(fim).toBeGreaterThan(inicio);
+
+    const bloco = fonte.slice(inicio, fim);
+    const faxina = bloco.indexOf('cleanupExpiredDemoProspects(slug)');
+    const pausa = bloco.indexOf('resetPausadoAte(slug)');
+    expect(faxina).toBeGreaterThan(-1);
+    expect(pausa).toBeGreaterThan(-1);
+    expect(faxina).toBeLessThan(pausa);
   });
 
   it('cobre a janela pedida: nenhuma madrugada de terça a domingo recompõe o ambiente', () => {

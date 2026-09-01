@@ -144,16 +144,21 @@ export async function GET(req) {
         const slugsDemo = Object.keys(DEMO_TENANT_PROFILES) as Array<keyof typeof DEMO_TENANT_PROFILES>;
         for (const slug of slugsDemo) {
           try {
+            // A faxina de convidados VENCIDOS roda sempre, inclusive sob pausa:
+            // ela é o que remove o acesso de quem passou do prazo. Pausar a
+            // recomposição do ambiente não pode manter conta expirada de pé.
+            const lifecycle = await cleanupExpiredDemoProspects(slug);
+
             // Pausa com data de fim (ver `resetPausadoAte`): enquanto vigora, o
-            // ambiente não é recomposto — é o que segura a experiência de um
+            // ambiente não é RECOMPOSTO — é o que segura a experiência de um
             // convidado nomeado, que não tem o prazo D+2 do passaporte.
             const pausadoAte = resetPausadoAte(slug);
             if (pausadoAte) {
-              await auditar(slug, { skipped: true, motivo: 'reset_pausado', pausadoAte }, 'parcial');
-              ambientes.push({ slug, skipped: true, motivo: 'reset_pausado', pausadoAte });
+              const motivo = { skipped: true as const, motivo: 'reset_pausado', pausadoAte, expiredRemoved: lifecycle.expiredRemoved };
+              await auditar(slug, motivo, 'parcial');
+              ambientes.push({ slug, ...motivo });
               continue;
             }
-            const lifecycle = await cleanupExpiredDemoProspects(slug);
             if (lifecycle.activeCount > 0) {
               await auditar(slug, { skipped: true, ...lifecycle }, 'parcial');
               ambientes.push({ slug, skipped: true, ...lifecycle });
