@@ -411,7 +411,15 @@
         "emptyDescription": "A comparação entre início e fim nasce na avaliação final da temporada. Enquanto ninguém concluir, o Panorama mostra onde as pessoas estão agora.",
         "unavailableTitle": "Não foi possível ler a evolução",
         "unavailableDescription": "A leitura falhou. Isto não quer dizer que ninguém evoluiu: quer dizer que não conseguimos medir agora.",
-        "level": "N{nivel}"
+        "level": "N{nivel}",
+        "criteriaTitle": "Como cada resultado é definido",
+        "toggleDescriptors": "Ver comportamentos",
+        "criteria": {
+          "confirmed": "ganho de 0,5 ou mais na nota E evidência de que a mudança foi percebida.",
+          "partial": "ganho a partir de 0,2, ou evidência positiva que a nota ainda não confirma.",
+          "stable": "variação entre −0,2 e +0,2: manteve o patamar de partida.",
+          "attention": "queda maior que 0,2 entre a avaliação inicial e o fechamento."
+        }
       }
     },
     "sections": {

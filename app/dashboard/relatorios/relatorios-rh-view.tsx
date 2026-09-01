@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import {
-  ArrowLeft, ArrowRight, BarChart3, Brain, Building2, CalendarDays, Check,
+  ArrowLeft, ArrowRight, BarChart3, Brain, Building2, CalendarDays, Check, ChevronRight,
   Download, Eye, FileChartColumn, FileText, Flag, Gauge, Layers, Lightbulb,
   Route, Search, ShieldAlert, Sparkles, Target, TrendingUp, UserRound, UsersRound,
 } from 'lucide-react';
@@ -12,6 +12,7 @@ import { PageContainer, PageHero } from '@/components/page-shell';
 import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
 import type { RhReportDocument, RhReportKind, RhReportsCenter, RhReportsScope } from '@/lib/relatorios/rh-center';
 import type { EvolucaoAgregado } from '@/lib/relatorios/evolucao-center';
+import { TETO_N3 } from '@/lib/nivel-regua';
 import type { RhDescriptorScope } from '@/lib/relatorios/dashboard-insights';
 
 type DashboardTab = 'overview' | 'evolution' | 'roles' | 'priorities' | 'documents';
@@ -291,43 +292,75 @@ function VerdictPill({ veredito, t }: { veredito: string | null; t: any }) {
 }
 
 /** Barra de entrada e saída na escala 1 a 4 do modelo de competências. */
+/**
+ * Escala fixa 1 a 4 do modelo de competências, com os cortes de nível
+ * desenhados no trilho.
+ *
+ * ⚠️ A ESCALA PRECISA ESTAR VISÍVEL. A primeira versão desenhava a barra
+ * proporcional (isso estava certo) mas imprimia os valores de entrada e saída
+ * nas duas extremidades — e aí a leitura natural é que o trilho VAI de 1,83 a
+ * 2,70, não que ele vai de 1 a 4 e a pessoa ocupa aquele pedaço. Duas
+ * competências com deltas iguais e patamares diferentes ficavam
+ * indistinguíveis. Agora os limites da escala ficam nas pontas, os cortes de
+ * N2/N3/N4 aparecem como marcas, e os valores da pessoa vão em cima do
+ * respectivo ponto.
+ */
+const CORTES_DE_NIVEL = [2, 3, TETO_N3];
+
 function DeltaBar({ pre, pos }: { pre: number; pos: number }) {
   const pct = (nota: number) => Math.max(0, Math.min(100, ((nota - 1) / 3) * 100));
   const inicio = pct(Math.min(pre, pos));
   const fim = pct(Math.max(pre, pos));
   const subiu = pos >= pre;
   return (
-    <div className="relative h-[22px] overflow-hidden rounded-md border border-white/[0.07] bg-white/[0.03]">
-      <div className="absolute inset-y-[4px] rounded-sm bg-white/20" style={{ left: 0, width: `${inicio}%` }} />
-      <div
-        className="absolute inset-y-[4px] rounded-sm"
-        style={{
-          left: `${inicio}%`,
-          width: `${Math.max(fim - inicio, 0.6)}%`,
-          background: subiu ? '#34D399' : '#FBBF24',
-        }}
-      />
+    <div>
+      <div className="relative h-[22px] overflow-hidden rounded-md border border-white/[0.07] bg-white/[0.03]">
+        {CORTES_DE_NIVEL.map((corte) => (
+          <div
+            key={corte}
+            aria-hidden="true"
+            className="absolute inset-y-0 w-px bg-white/[0.14]"
+            style={{ left: `${pct(corte)}%` }}
+          />
+        ))}
+        <div className="absolute inset-y-[4px] rounded-sm bg-white/20" style={{ left: 0, width: `${inicio}%` }} />
+        <div
+          className="absolute inset-y-[4px] rounded-sm"
+          style={{
+            left: `${inicio}%`,
+            width: `${Math.max(fim - inicio, 0.6)}%`,
+            background: subiu ? '#34D399' : '#FBBF24',
+          }}
+        />
+      </div>
+      {/* Os LIMITES da escala nas pontas e os valores da pessoa juntos no
+          meio. Posicionar cada valor sobre o seu ponto foi tentado e cai num
+          defeito visível: com delta pequeno (que é a maioria) os dois números
+          se sobrepõem. Os cortes de nível no trilho já dizem onde a pessoa
+          está; aqui basta dizer de quanto para quanto. */}
+      <div className="mt-1 flex items-baseline justify-between font-mono text-[10px] tabular-nums">
+        <span className="text-white/25">1</span>
+        <span className="text-white/45">
+          {pre.toFixed(2)}
+          <span className="mx-1 text-white/25">→</span>
+          <span className="font-bold" style={{ color: subiu ? '#34D399' : '#FBBF24' }}>{pos.toFixed(2)}</span>
+        </span>
+        <span className="text-white/25">4</span>
+      </div>
     </div>
   );
 }
 
-function EvolutionAggregateRow({ item, t }: { item: EvolucaoAgregado; t: any }) {
+function EvolutionAggregateRow({ item, t, aninhado = false }: { item: EvolucaoAgregado; t: any; aninhado?: boolean }) {
   return (
-    <div className="grid items-center gap-3 border-b border-white/[0.05] py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_180px_120px]">
+    <div className={`grid items-center gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_180px_120px] ${aninhado ? '' : 'border-b border-white/[0.05] last:border-b-0'}`}>
       <div className="min-w-0">
-        <p className="truncate text-sm text-white/85">{item.chave}</p>
+        <p className={`truncate ${aninhado ? 'text-[13px] text-white/70' : 'text-sm text-white/85'}`}>{item.chave}</p>
         <p className="mt-0.5 text-[11px] text-white/35">
-          {item.competencia ? `${item.competencia} · ` : ''}
           {t('dashboard.evolution.peopleCount', { n: item.n })}
         </p>
       </div>
-      <div>
-        <DeltaBar pre={item.mediaPre} pos={item.mediaPos} />
-        <p className="mt-1 flex justify-between font-mono text-[10px] text-white/35 tabular-nums">
-          <span>{item.mediaPre.toFixed(2)}</span>
-          <span>{item.mediaPos.toFixed(2)}</span>
-        </p>
-      </div>
+      <DeltaBar pre={item.mediaPre} pos={item.mediaPos} />
       <div className="flex items-center justify-end gap-2">
         <span className="rounded-md border border-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] text-white/40">
           {t('dashboard.evolution.level', { nivel: item.nivelPre })} → {t('dashboard.evolution.level', { nivel: item.nivelPos })}
@@ -339,6 +372,51 @@ function EvolutionAggregateRow({ item, t }: { item: EvolucaoAgregado; t: any }) 
           {item.delta > 0 ? '+' : ''}{item.delta.toFixed(2)}
         </strong>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Competência que abre nos comportamentos que a compõem.
+ *
+ * A média da competência responde "evoluiu?", e só os descritores respondem
+ * "no quê?" — que é a pergunta seguinte de quem vai agir. Antes eles viviam
+ * numa segunda lista solta embaixo, sem dizer a qual competência pertenciam.
+ */
+function CompetencyRow({ item, descritores, t }: { item: EvolucaoAgregado; descritores: EvolucaoAgregado[]; t: any }) {
+  const [aberto, setAberto] = useState(false);
+  const temDetalhe = descritores.length > 0;
+
+  return (
+    <div className="border-b border-white/[0.05] last:border-b-0">
+      <div className="flex items-start gap-2">
+        {temDetalhe ? (
+          <button
+            type="button"
+            onClick={() => setAberto((v) => !v)}
+            aria-expanded={aberto}
+            className="mt-4 shrink-0 rounded-md p-1 text-white/35 transition hover:bg-white/[0.06] hover:text-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]"
+            title={t('dashboard.evolution.toggleDescriptors')}
+          >
+            <ChevronRight size={14} className={`transition-transform ${aberto ? 'rotate-90' : ''}`} />
+          </button>
+        ) : (
+          <span className="w-[22px] shrink-0" aria-hidden="true" />
+        )}
+        <div className="min-w-0 flex-1">
+          <EvolutionAggregateRow item={item} t={t} aninhado />
+        </div>
+      </div>
+      {aberto && (
+        <div className="mb-3 ml-[22px] border-l border-white/[0.07] pl-4">
+          <p className="pb-1 text-[9px] font-bold uppercase tracking-[0.16em] text-white/25">
+            {t('dashboard.evolution.byDescriptorTitle')}
+          </p>
+          {descritores.map((descritor) => (
+            <EvolutionAggregateRow key={descritor.chave} item={descritor} t={t} aninhado />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -432,6 +510,30 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
             </strong>
           </div>
         </div>
+
+        {/* A RÉGUA FICA NA TELA, não numa nota de rodapé do PDF. Quatro
+            rótulos avaliativos sobre pessoas, sem o critério ao lado, obrigam
+            quem apresenta a explicar de memória e quem recebe a confiar. */}
+        <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-5 py-4">
+          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/35">
+            {t('dashboard.evolution.criteriaTitle')}
+          </p>
+          <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+            {[
+              { chave: 'confirmed', cor: '#34D399' },
+              { chave: 'partial', cor: '#67E8F9' },
+              { chave: 'stable', cor: 'rgba(255,255,255,.72)' },
+              { chave: 'attention', cor: '#FBBF24' },
+            ].map(({ chave, cor }) => (
+              <div key={chave} className="flex gap-2 text-[12px] leading-relaxed">
+                <dt className="shrink-0 font-bold" style={{ color: cor }}>
+                  {t(`dashboard.evolution.${chave}`)}
+                </dt>
+                <dd className="m-0 text-white/40">{t(`dashboard.evolution.criteria.${chave}`)}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </Panel>
 
       {/* 2. O QUE evoluiu, por competência e por comportamento. */}
@@ -442,15 +544,15 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
           subtitle={t('dashboard.evolution.byCompetencySubtitle')}
         />
         <div className="overflow-x-auto">
-          <div className="min-w-[520px]">
-            {porCompetencia.map((item) => <EvolutionAggregateRow key={item.chave} item={item} t={t} />)}
-          </div>
-        </div>
-
-        <h3 className="mb-1 mt-7 text-lg text-white" style={serifStyle}>{t('dashboard.evolution.byDescriptorTitle')}</h3>
-        <div className="overflow-x-auto">
-          <div className="min-w-[520px]">
-            {porDescritor.map((item) => <EvolutionAggregateRow key={item.chave} item={item} t={t} />)}
+          <div className="min-w-[560px]">
+            {porCompetencia.map((item) => (
+              <CompetencyRow
+                key={item.chave}
+                item={item}
+                descritores={porDescritor.filter((descritor) => descritor.competencia === item.chave)}
+                t={t}
+              />
+            ))}
           </div>
         </div>
       </Panel>

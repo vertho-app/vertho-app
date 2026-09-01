@@ -411,7 +411,15 @@
         "emptyDescription": "The start-to-finish comparison is born in the season's final evaluation. Until someone completes it, Overview shows where people are right now.",
         "unavailableTitle": "Could not read growth data",
         "unavailableDescription": "The read failed. This does not mean nobody grew: it means we could not measure right now.",
-        "level": "L{nivel}"
+        "level": "L{nivel}",
+        "criteriaTitle": "How each result is defined",
+        "toggleDescriptors": "Show behaviors",
+        "criteria": {
+          "confirmed": "a gain of 0.5 or more AND evidence that the change was noticed.",
+          "partial": "a gain from 0.2 up, or positive evidence the score does not yet confirm.",
+          "stable": "change between −0.2 and +0.2: held the starting level.",
+          "attention": "a drop greater than 0.2 between the initial assessment and the close."
+        }
       }
     },
     "sections": {
