@@ -2,13 +2,13 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { DollarSign, Users, School, FileText, Building2, Clapperboard, UploadCloud, Activity, RefreshCw } from 'lucide-react';
+import { DollarSign, Users, School, FileText, Building2, Clapperboard, UploadCloud, Activity, RefreshCw, PhoneCall, Bot } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { CALLS, MODELS, MODEL_IDS, PRESETS, SCALE_LABEL, calcCost } from '@/lib/ia-cost-catalog';
 import { getUsoRealIA, type UsoRealLinha } from '@/actions/ia-uso';
 import type { AppLocale } from '@/i18n/routing';
 
-type ScaleType = 'colab' | 'conteudo' | 'extracao' | 'video_gerado' | 'pagina_radar' | 'lead_radar' | 'empresa';
+type ScaleType = 'colab' | 'conteudo' | 'extracao' | 'video_gerado' | 'pagina_radar' | 'lead_radar' | 'empresa' | 'reuniao' | 'simulacao';
 
 const PRESET_KEYS = ['atual', 'premium', 'balanced', 'cheap'] as const;
 
@@ -23,6 +23,8 @@ export default function SimuladorCustoPage() {
     pagina_radar: 100,
     lead_radar: 5,
     empresa: 1,
+    reuniao: 10,
+    simulacao: 0,
   });
   const [models, setModels] = useState(() =>
     Object.fromEntries(CALLS.map(c => [c.id, c.defaultModel]))
@@ -53,6 +55,8 @@ export default function SimuladorCustoPage() {
       pagina_radar: { usd: 0 },
       lead_radar: { usd: 0 },
       empresa: { usd: 0 },
+      reuniao: { usd: 0 },
+      simulacao: { usd: 0 },
     };
     for (const call of CALLS) {
       const u = units[call.scaleType as ScaleType] ?? 0;
@@ -84,7 +88,7 @@ export default function SimuladorCustoPage() {
       </div>
 
       {/* Inputs de escala */}
-      <div className="grid gap-3 mb-4 grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
+      <div className="grid gap-3 mb-4 grid-cols-2 sm:grid-cols-4 lg:grid-cols-9">
         <ScaleInput icon={<Users size={14} />} label={t('scale.colab.label')} sub={t('scale.colab.sub')} value={units.colab} onChange={v => setUnit('colab', v)} />
         <ScaleInput icon={<FileText size={14} />} label={t('scale.conteudo.label')} sub={t('scale.conteudo.sub')} value={units.conteudo} onChange={v => setUnit('conteudo', v)} />
         <ScaleInput icon={<UploadCloud size={14} />} label={t('scale.extracao.label')} sub={t('scale.extracao.sub')} value={units.extracao} onChange={v => setUnit('extracao', v)} />
@@ -92,6 +96,8 @@ export default function SimuladorCustoPage() {
         <ScaleInput icon={<School size={14} />} label={t('scale.pagina_radar.label')} sub={t('scale.pagina_radar.sub')} value={units.pagina_radar} onChange={v => setUnit('pagina_radar', v)} />
         <ScaleInput icon={<FileText size={14} />} label={t('scale.lead_radar.label')} sub={t('scale.lead_radar.sub')} value={units.lead_radar} onChange={v => setUnit('lead_radar', v)} />
         <ScaleInput icon={<Building2 size={14} />} label={t('scale.empresa.label')} sub={t('scale.empresa.sub')} value={units.empresa} onChange={v => setUnit('empresa', v)} />
+        <ScaleInput icon={<PhoneCall size={14} />} label={t('scale.reuniao.label')} sub={t('scale.reuniao.sub')} value={units.reuniao} onChange={v => setUnit('reuniao', v)} />
+        <ScaleInput icon={<Bot size={14} />} label={t('scale.simulacao.label')} sub={t('scale.simulacao.sub')} value={units.simulacao} onChange={v => setUnit('simulacao', v)} />
       </div>
 
       {/* Preset */}

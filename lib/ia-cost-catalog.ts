@@ -9,6 +9,11 @@
  *   - 'pagina_radar'  → escala por escola/município único analisado no Radar (cache por dadosHash)
  *   - 'lead_radar'    → escala por lead capturado no Radar (PDF gerado)
  *   - 'empresa'       → setup one-time por empresa (rodada única)
+ *   - 'reuniao'       → escala por reunião comercial do Copiloto PACE (pesquisa
+ *                       + planejamento + leitura ao vivo + memória; o áudio entra
+ *                       por Whisper LOCAL, sidecar sem custo de API)
+ *   - 'simulacao'     → escala por colaborador SIMULADO no Simulador (ensaios de
+ *                       pipeline/QA — custo de operação interna, não de cliente)
  *
  * Estimativas de tokens são aproximadas (sistema + histórico médio + output).
  * Ajuste conforme uso real for observado.
@@ -137,6 +142,8 @@ export const SCALE_LABEL = {
   pagina_radar: 'por escola/município único (Radar)',
   lead_radar: 'por lead PDF (Radar)',
   empresa: 'one-time por empresa',
+  reuniao: 'por reunião preparada/analisada (Copiloto PACE)',
+  simulacao: 'por colaborador simulado (Simulador — QA interna)',
 };
 
 /**
@@ -192,6 +199,18 @@ export const CALLS = [
     descricao: '3-4 insights curtos a partir do perfil DISC + competências. Cache 30 dias em colaboradores.insights_executivos.',
     inTokens: 2000,
     outTokens: 600,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'devolutiva-voz',
+    fase: 'Perfil DISC',
+    scaleType: 'colab',
+    nome: 'Devolutiva em voz — roteiro',
+    descricao: 'Roteiro da devolutiva narrada (insumo do áudio de voz do relatório comportamental). Cache como os demais textos DISC.',
+    inTokens: 3000,
+    outTokens: 1500,
     exec: 1,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
@@ -404,6 +423,32 @@ export const CALLS = [
     critical: true,
   },
 
+  // ── ARGUIÇÃO DO FECHAMENTO (lib/season-engine/arguicao.ts; taskKey partida em 27/08) ──
+  {
+    id: 'arguicao-turno',
+    fase: 'Sem 14',
+    scaleType: 'colab',
+    nome: 'Arguição — turno da conversa',
+    descricao: 'Turno da arguição sobre o relato da missão no fechamento (teto 2.048 por desenho). Estimativa ~10 turnos por arguição.',
+    inTokens: 2500,
+    outTokens: 350,
+    exec: 10,
+    defaultModel: 'claude-sonnet-4-6', // pino em DEFAULT_TASK_MODELS (arguicao_turno)
+    critical: true,
+  },
+  {
+    id: 'arguicao-avaliacao',
+    fase: 'Sem 14',
+    scaleType: 'colab',
+    nome: 'Arguição — avaliação final (evidências)',
+    descricao: 'Extrai o JSON de evidências por descritor ao fechar a arguição (teto 4.096). 1× por colab no fechamento.',
+    inTokens: 4000,
+    outTokens: 1200,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6', // pino em DEFAULT_TASK_MODELS (arguicao_avaliacao)
+    critical: true,
+  },
+
   // ── RELATÓRIOS (opcionais — Evolution Report já cobre o caso padrão) ──
   {
     id: 'pdi',
@@ -417,6 +462,18 @@ export const CALLS = [
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
     opcional: true,
+  },
+  {
+    id: 'pdi-check',
+    fase: 'Relatórios',
+    scaleType: 'colab',
+    nome: 'PDI — auditor (check dual)',
+    descricao: 'Auditor cross-LLM do PDI (27/08: o bloco C — artefato irreversível que vai pra pessoa — era o único sem 2ª IA).',
+    inTokens: 5000,
+    outTokens: 800,
+    exec: 1,
+    defaultModel: 'gpt-5.6-terra', // pino + guard ai-dual-familia
+    critical: true,
   },
   {
     id: 'relatorio-individual',
@@ -455,6 +512,18 @@ export const CALLS = [
     outTokens: 4000,
     exec: 1,
     defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'escola-brief',
+    fase: 'Setup Empresa',
+    scaleType: 'empresa',
+    nome: 'Brief da escola (contexto institucional)',
+    descricao: 'Destila o PPP (até 60k chars) no brief institucional que calibra kits e conteúdo. Gemini 3.6 Flash — pino das tarefas vivas de extração.',
+    inTokens: 15000,
+    outTokens: 1500,
+    exec: 1,
+    defaultModel: 'gemini-3.6-flash',
     critical: false,
   },
   {
@@ -529,6 +598,18 @@ export const CALLS = [
     defaultModel: 'gpt-5.6-terra', // 22/07: todas as checagens no Terra (DEFAULT_TASK_MODELS.cenarios_b_check)
     critical: false,
   },
+  {
+    id: 'cenarios-lote-check',
+    fase: 'Setup Empresa',
+    scaleType: 'empresa',
+    nome: 'Cenários — relatório de auditoria em lote',
+    descricao: 'Veredito agregado da tela Fase 5 (rh-check). 27/08: antes sem taskKey rodava em Gemini enquanto o check por-cenário rodava em Terra — dois vereditos sobre os mesmos cenários. Pino Terra.',
+    inTokens: 4000,
+    outTokens: 1500,
+    exec: 1,
+    defaultModel: 'gpt-5.6-terra',
+    critical: false,
+  },
 
   // ── GERAÇÃO DE CONTEÚDO (biblioteca micro_conteudos, reusada entre colabs) ──
   // Escala por PEÇA autorada. units = nº de conteúdos daquele formato.
@@ -591,6 +672,68 @@ export const CALLS = [
     inTokens: 3000,
     outTokens: 2000,
     exec: 4,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+    opcional: true,
+  },
+  {
+    id: 'conteudo-layout-plan',
+    fase: 'Geração de Conteúdo',
+    scaleType: 'conteudo',
+    nome: 'Plano de layout do PDF',
+    descricao: 'Planeja o layout do PDF antes do render (teto 8.000). Medido 16/08: texto+case+layout+expansão = US$ 0,104/conteúdo.',
+    inTokens: 3000,
+    outTokens: 2000,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'conteudo-expansao-pdf',
+    fase: 'Geração de Conteúdo',
+    scaleType: 'conteudo',
+    nome: 'Expansão para o PDF',
+    descricao: 'Expande o texto ao mínimo de caracteres do PDF. ⚠️ Roda ANTES do render (F-I18: pagou por PDF que não nascia — medido US$ 0,26 em 4 chamadas).',
+    inTokens: 3500,
+    outTokens: 4000,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  // ── KIT SEMANAL (brief idempotente por tema em kit_briefs; desafio por arquétipo DISC) ──
+  {
+    id: 'kit-nucleo',
+    fase: 'Kit Semanal',
+    scaleType: 'conteudo',
+    nome: 'Kit — núcleo conceitual do tema',
+    descricao: 'Destila o núcleo DISC-neutro que todos os formatos da semana expressam (teto 1.500; até 3 tentativas p/ JSON válido). Idempotente por (competência×descritor×nível×cargo×contexto).',
+    inTokens: 2000,
+    outTokens: 400,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'kit-desafio',
+    fase: 'Kit Semanal',
+    scaleType: 'conteudo',
+    nome: 'Kit — desafio da semana (por DISC)',
+    descricao: 'Micro-ação prática sob a lente de cada arquétipo (teto 800). exec=4 arquétipos D/I/S/C.',
+    inTokens: 1200,
+    outTokens: 250,
+    exec: 4,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'kit-desafio-semana',
+    fase: 'Kit Semanal',
+    scaleType: 'conteudo',
+    nome: 'Kit — tarefa da semana (2 descritores)',
+    descricao: 'Tarefa integrada quando a semana entrega 2 descritores da MESMA competência (matriz por PAR ~2,5× a por descritor — taskKey própria desde 27/08 por isso). Só conta nas semanas com par.',
+    inTokens: 1500,
+    outTokens: 400,
+    exec: 1,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
     opcional: true,
@@ -758,15 +901,221 @@ export const CALLS = [
     defaultModel: 'claude-sonnet-4-6',
     critical: true,
   },
+  // ── RadarBett: linha REMOVIDA em 01/09/2026 ──
+  // Bloco off-line desde 31/08 (lib/blocos-offline.ts): descontinuado após a
+  // feira, nenhuma das 7 rotas referenciada por link em lugar nenhum. Enquanto
+  // desligado, narrativa Bett não é custo de plataforma. Religar o bloco =
+  // ressuscitar a linha (histórico: git log -S radarbett-narrativa).
+
+  // ── FASE 3 — CHAT DE AVALIAÇÃO (app/api/chat/route.ts) ──
   {
-    id: 'radarbett-narrativa',
-    fase: 'Radar',
-    scaleType: 'pagina_radar',
-    nome: 'Radarbett — narrativa Bett',
-    descricao: 'Variante Bett 2026 da narrativa pública (radarbett.vertho.ai), output mais curto (600 tok max).',
-    inTokens: 2500,
-    outTokens: 500,
+    id: 'conversa-fase3',
+    fase: 'Fase 3',
+    scaleType: 'colab',
+    nome: 'Chat de avaliação — turno',
+    descricao: 'Turno da conversa de avaliação com o colab (teto 1.024). Estimativa ~10 turnos por conversa.',
+    inTokens: 3000,
+    outTokens: 300,
+    exec: 10,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'chat-fase3-eval',
+    fase: 'Fase 3',
+    scaleType: 'colab',
+    nome: 'Chat de avaliação — avaliador final',
+    descricao: 'Fecha a conversa com avaliação estruturada (teto 8.192). 1× por conversa.',
+    inTokens: 6000,
+    outTokens: 2000,
     exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: true,
+  },
+  {
+    id: 'chat-fase3-audit',
+    fase: 'Fase 3',
+    scaleType: 'colab',
+    nome: 'Chat de avaliação — auditor (check dual)',
+    descricao: 'Auditor cross-LLM da avaliação final (teto 8.192). ⚠️ Sem pino em DEFAULT_TASK_MODELS: hoje cai no FALLBACK_GLOBAL (Sonnet 4.6, MESMA família do gerador) — fio solto apontado em 01/09 (docs/CUSTO-QUALIDADE.md).',
+    inTokens: 7000,
+    outTokens: 600,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: true,
+  },
+
+  // ── FASE 5 — REAVALIAÇÃO (uma rodada por colab; actions/fase5/) ──
+  {
+    id: 'evolucao-fusao',
+    fase: 'Fase 5',
+    scaleType: 'colab',
+    nome: 'Evolução — fusão 3 fontes',
+    descricao: 'Funde as 3 fontes de evidência na síntese evolutiva (teto 8.192). 1× por reavaliação.',
+    inTokens: 5000,
+    outTokens: 1500,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: true,
+  },
+  {
+    id: 'evolucao-plenaria',
+    fase: 'Fase 5',
+    scaleType: 'colab',
+    nome: 'Evolução — plenária',
+    descricao: 'Relatório de plenária da reavaliação (teto 8.192). 1× por reavaliação.',
+    inTokens: 6000,
+    outTokens: 2000,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'reavaliacao-chat',
+    fase: 'Fase 5',
+    scaleType: 'colab',
+    nome: 'Reavaliação — chat (turno)',
+    descricao: 'Turno do chat de reavaliação (teto 4.096). Estimativa ~8 turnos. ⚠️ O fechamento da conversa (callAI teto 8.192 no mesmo arquivo) segue SEM taskKey no ledger — fio solto 01/09.',
+    inTokens: 3000,
+    outTokens: 400,
+    exec: 8,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+
+  // ── DEVELOPMENT BLUEPRINT (PDI + trilha por colab; migrações 175/191) ──
+  {
+    id: 'blueprint-gerar',
+    fase: 'Blueprint',
+    scaleType: 'colab',
+    nome: 'Blueprint — gerador (PDI + trilha)',
+    descricao: 'Gera o blueprint do colaborador (teto folgado 64.000 — régua do teto 26/08: erre pra cima). Em LOTE pela Batch API (trigger/gerar-blueprint-batch) → −50%.',
+    inTokens: 12000,
+    outTokens: 10000,
+    costMultiplier: 0.5,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'blueprint-audit',
+    fase: 'Blueprint',
+    scaleType: 'colab',
+    nome: 'Blueprint — auditor semântico (check dual)',
+    descricao: 'Auditor cross-LLM do blueprint (teto 4.000→7.000 em 26/08; pino Terra + guard ai-dual-familia). Medido 30/08: US$ 3,21 de input frio, zero cache — system abaixo do mínimo cacheável.',
+    inTokens: 8000,
+    outTokens: 1500,
+    exec: 1,
+    defaultModel: 'gpt-5.6-terra',
+    critical: true,
+  },
+
+  // ── COPILOTO PACE (vendas: pesquisa + planejamento + leitura ao vivo + memória) ──
+  // Escala por REUNIÃO. O áudio entra por Whisper LOCAL (sidecar na máquina do
+  // representante — docs/COPILOTO-WHISPER-LOCAL.md): só TEXTO chega à análise e o
+  // sidecar não é custo de API (por isso não tem linha de preço aqui).
+  // Research é OpenAI WEB SEARCH (gpt-5.5): o input inclui páginas lidas pela
+  // ferramenta, então inTokens DOMINA e a estimativa é deliberadamente larga.
+  {
+    id: 'copiloto-pesquisa-publica',
+    fase: 'Copiloto PACE',
+    scaleType: 'reuniao',
+    nome: 'Pesquisa pública — site/empresa',
+    descricao: 'Web search do site e da empresa informados (teto 12.000). Roda quando há empresa ou site no briefing.',
+    inTokens: 8000,
+    outTokens: 5000,
+    exec: 1,
+    defaultModel: 'gpt-5.5',
+    critical: false,
+  },
+  {
+    id: 'copiloto-pesquisa-noticias',
+    fase: 'Copiloto PACE',
+    scaleType: 'reuniao',
+    nome: 'Pesquisa notícias externas',
+    descricao: 'Web search de notícias/sinais externos (teto 6.000). Dispara junto com a pesquisa pública.',
+    inTokens: 6000,
+    outTokens: 2500,
+    exec: 1,
+    defaultModel: 'gpt-5.5',
+    critical: false,
+  },
+  {
+    id: 'copiloto-pesquisa-social',
+    fase: 'Copiloto PACE',
+    scaleType: 'reuniao',
+    nome: 'Pesquisa redes oficiais',
+    descricao: 'Web search nos perfis oficiais informados (teto 6.000). Só roda com perfis declarados.',
+    inTokens: 6000,
+    outTokens: 2500,
+    exec: 1,
+    defaultModel: 'gpt-5.5',
+    critical: false,
+    opcional: true,
+  },
+  {
+    id: 'copiloto-planejamento',
+    fase: 'Copiloto PACE',
+    scaleType: 'reuniao',
+    nome: 'Planejamento — síntese do Play',
+    descricao: 'Monta o Play + banco de reserva: briefing privado (até 30k chars) + pesquisa + 16 materiais aprovados + memória da conta (teto 12.000). Terra, reasoningEffort low.',
+    inTokens: 12000,
+    outTokens: 5000,
+    exec: 1,
+    defaultModel: 'gpt-5.6-terra',
+    critical: false,
+  },
+  {
+    id: 'copiloto-ao-vivo',
+    fase: 'Copiloto PACE',
+    scaleType: 'reuniao',
+    nome: 'Leitura ao vivo (por atualização)',
+    descricao: 'Lê as últimas 8 falas e devolve fase/sinal/perguntas (teto 700, timeout 8s, sem reasoning). Estimativa ~12 leituras por reunião de 1h (rate limit 24/min). Gemini 3.7 Flash.',
+    inTokens: 3000,
+    outTokens: 400,
+    exec: 12,
+    defaultModel: 'gemini-3.7-flash',
+    critical: false,
+  },
+  {
+    id: 'copiloto-memoria',
+    fase: 'Copiloto PACE',
+    scaleType: 'reuniao',
+    nome: 'Memória da conversa',
+    descricao: 'Consolida transcrição + CRM + histórico anterior na memória da conta (teto 7.000). 1× por conversa registrada. Terra, reasoningEffort low.',
+    inTokens: 10000,
+    outTokens: 2000,
+    exec: 1,
+    defaultModel: 'gpt-5.6-terra',
+    critical: false,
+  },
+
+  // ── SIMULADOR (QA interna — o "aluno" é Haquia de propósito; mentor usa o modelo real) ──
+  // As chamadas-mentor/extras do Simulador REUSAM os taskKeys reais dos fluxos
+  // (simOpts com o taskKey da trilha) — quando a unidade é uma simulação, elas
+  // já contam nas entradas de Temporada acima. Aqui só o OVERLAY do aluno
+  // simulado (sim_aluno) e o chat interativo (chat_simulador).
+  {
+    id: 'sim-aluno',
+    fase: 'Simulador (QA)',
+    scaleType: 'simulacao',
+    nome: 'Simulador — aluno simulado (turno)',
+    descricao: 'Turnos do aluno simulado em Haiku 4.5 (barato de propósito). Medido 27/08: 2.570 chamadas, p95 13,5s, máx 94s — MAIOR consumidor de chamadas da base. Estimativa ~80 turnos por simulação completa.',
+    inTokens: 1200,
+    outTokens: 250,
+    exec: 80,
+    defaultModel: 'claude-haiku-4-5-20251001',
+    critical: false,
+  },
+  {
+    id: 'chat-simulador',
+    fase: 'Simulador (QA)',
+    scaleType: 'simulacao',
+    nome: 'Simulador — chat interativo',
+    descricao: 'Turnos do chat interativo do Simulador (app/api/chat-simulador). Mentor no modelo do braço; estimativa ~12 turnos por sessão.',
+    inTokens: 2500,
+    outTokens: 300,
+    exec: 12,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
   },
@@ -782,6 +1131,11 @@ const CHECK_PRIMARIES = {
   'sem14-check': 'sem14-scorer',
   'ia3-cenarios-check': 'ia3-cenarios',
   'cenarios-b-check': 'cenarios-b',
+  // 01/09: pares declarados junto com as entradas novas do catálogo
+  'pdi-check': 'pdi',
+  'blueprint-audit': 'blueprint-gerar',
+  'chat-fase3-audit': 'chat-fase3-eval',
+  'cenarios-lote-check': 'cenarios-b',
 };
 
 /**
@@ -807,7 +1161,9 @@ function crossLlmCheck(primaryModel) {
 function applyPreset(call, primaryFn) {
   // RAG (embeddings) e Geração de Conteúdo (TTS/Veo/serviços fixos) têm modelo
   // determinado pelo serviço, não pelo preset de qualidade da avaliação.
-  if (call.fase === 'RAG' || call.fase === 'Geração de Conteúdo' || call.fase === 'Extração de Vídeo' || call.fase === 'Vídeo do Módulo-Base') return call.defaultModel;
+  // 01/09: Copiloto PACE e Simulador idem — modelos PINADOS por task/env
+  // (COPILOTO_*_MODEL, SIM_MODEL), não escalonáveis por tier de qualidade.
+  if (call.fase === 'RAG' || call.fase === 'Geração de Conteúdo' || call.fase === 'Extração de Vídeo' || call.fase === 'Vídeo do Módulo-Base' || call.fase === 'Copiloto PACE' || call.fase === 'Simulador (QA)') return call.defaultModel;
   const primaryId = CHECK_PRIMARIES[call.id];
   if (primaryId) {
     const primaryCall = CALLS.find((c) => c.id === primaryId);

@@ -3990,6 +3990,14 @@
       "empresa": {
         "label": "Companies (setup)",
         "sub": "one-time"
+      },
+      "reuniao": {
+        "label": "Meetings (PACE Copilot)",
+        "sub": "research + planning + live + memory"
+      },
+      "simulacao": {
+        "label": "Simulations (QA)",
+        "sub": "simulated team member"
       }
     },
     "preset": {

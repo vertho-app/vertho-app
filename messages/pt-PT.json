@@ -3209,6 +3209,14 @@
       "empresa": {
         "label": "Empresas (setup)",
         "sub": "one-time"
+      },
+      "reuniao": {
+        "label": "Reuniões (Copiloto PACE)",
+        "sub": "pesquisa + planeamento + ao vivo + memória"
+      },
+      "simulacao": {
+        "label": "Simulações (QA)",
+        "sub": "colaborador simulado"
       }
     },
     "preset": {
