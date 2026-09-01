@@ -19,6 +19,7 @@
  */
 
 import { classificarConvergencia, type Convergencia } from '@/lib/season-engine/convergencia';
+import { PROGRESSO } from '@/lib/status';
 
 /** Quantos comportamentos a trilha de vitrine trabalha. */
 export const DESCRITORES_POR_TRILHA = 4;
@@ -256,7 +257,7 @@ export function construirFechamento(
     {
       semana: semanas.qualitativa,
       tipo: 'avaliacao',
-      status: 'concluido',
+      status: PROGRESSO.CONCLUIDO,
       conteudo_consumido: true,
       iniciado_em: concluidoEm,
       concluido_em: concluidoEm,
@@ -276,7 +277,7 @@ export function construirFechamento(
     {
       semana: semanas.cenario,
       tipo: 'avaliacao',
-      status: 'concluido',
+      status: PROGRESSO.CONCLUIDO,
       conteudo_consumido: true,
       iniciado_em: concluidoEm,
       concluido_em: concluidoEm,
