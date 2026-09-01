@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import {
   Loader2, Send, CheckCircle, AlertCircle, Mail, MessageCircle,
   Filter, Eye, Tag, Users, Paperclip, FileText, X, ShieldCheck,
-  Workflow,
+  Workflow, MousePointerClick,
 } from 'lucide-react';
 import { loadEmpresas, loadColaboradoresEnvio, loadTurmasEnvio, dispararMensagemCustomizada, enviarMagicLinksWhatsApp, listarTemplatesDeEnvio, previewTemplateWhatsApp, dispararTemplateWhatsApp } from './actions';
 import BackButton from '@/components/back-button';
@@ -126,6 +126,7 @@ export default function EnviosPage() {
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [templatesError, setTemplatesError] = useState('');
   const [templateSel, setTemplateSel] = useState('');
+  const [etapaTemplateSel, setEtapaTemplateSel] = useState('');
   const [previewLote, setPreviewLote] = useState<any>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const templateAtual = templates.find((x) => x.template === templateSel) || null;
@@ -134,6 +135,19 @@ export default function EnviosPage() {
     (grupos[etapa] ||= []).push(tp);
     return grupos;
   }, {});
+  const etapasTemplates = Object.entries(templatesPorEtapa) as [string, any[]][];
+  const etapaTemplateAtiva = templatesPorEtapa[etapaTemplateSel]
+    ? etapaTemplateSel
+    : etapasTemplates[0]?.[0] || '';
+  const templatesEtapaAtiva = templatesPorEtapa[etapaTemplateAtiva] || [];
+
+  function selecionarEtapaTemplate(etapa: string) {
+    setEtapaTemplateSel(etapa);
+    const itens = templatesPorEtapa[etapa] || [];
+    const primeiro = itens.find((tp: any) => tp.disponivel !== false) || itens[0];
+    if (primeiro) setTemplateSel(primeiro.template);
+    setResult(null);
+  }
   const catalogoAprovados = catalogoFonte === 'meta'
     ? catalogoTemplates.filter((tp: any) => tp.status === 'APPROVED').length
     : templates.filter((tp: any) => tp.disponivel !== false).length;
@@ -197,7 +211,9 @@ export default function EnviosPage() {
       setCatalogoTemplates(r.catalogo || disponiveis);
       setCatalogoFonte(r.catalogoFonte === 'meta' ? 'meta' : 'local');
       if (!templateSel && disponiveis.length) {
-        setTemplateSel(disponiveis.find((tp: any) => tp.disponivel !== false)?.template || disponiveis[0].template);
+        const primeiro = disponiveis.find((tp: any) => tp.disponivel !== false) || disponiveis[0];
+        setTemplateSel(primeiro.template);
+        setEtapaTemplateSel(primeiro.etapa || t('templateMode.otherStage'));
       }
       setLoadingTemplates(false);
     });
@@ -683,45 +699,67 @@ export default function EnviosPage() {
                     </div>
                   ) : (
                     <div className="mt-4 space-y-4">
-                      {Object.entries(templatesPorEtapa).map(([etapa, itens]) => (
-                        <div key={etapa}>
-                          <div className="mb-2 flex items-center gap-2">
-                            <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-gray-500">{etapa}</span>
-                            <span className="h-px flex-1 bg-white/[0.05]" />
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {(itens as any[]).map((tp: any) => {
-                              const selecionado = tp.template === templateSel;
-                              const indisponivel = tp.disponivel === false;
-                              return (
-                                <button
-                                  key={tp.template}
-                                  type="button"
-                                  disabled={indisponivel}
-                                  title={tp.motivoIndisponivel || tp.rotulo}
-                                  aria-pressed={selecionado}
-                                  onClick={() => { setTemplateSel(tp.template); setResult(null); }}
-                                  className={`min-h-[88px] rounded-lg border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:cursor-not-allowed disabled:opacity-45 ${
-                                    selecionado
-                                      ? 'border-cyan-400/55 bg-cyan-400/[0.09] shadow-[inset_3px_0_0_#22d3ee]'
-                                      : 'border-white/[0.07] bg-[#091D35] hover:border-white/[0.16] hover:bg-white/[0.025]'
-                                  }`}>
-                                  <span className="flex items-start justify-between gap-2">
-                                    <span className="text-[11px] font-bold leading-snug text-white">{tp.rotulo}</span>
-                                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide ${
-                                      indisponivel ? 'bg-red-400/10 text-red-300' : 'bg-emerald-400/10 text-emerald-300'
-                                    }`}>
-                                      {indisponivel ? t('templateMode.unavailable') : t('templateMode.approved')}
-                                    </span>
-                                  </span>
-                                  <code className="mt-1 block text-[9px] text-cyan-400/70">{tp.template}</code>
-                                  <span className="mt-2 line-clamp-2 block text-[9px] leading-relaxed text-gray-500">{tp.alvoSugerido}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
+                      <div
+                        role="tablist"
+                        aria-label={t('templateMode.stageFilter')}
+                        className="flex flex-wrap gap-1.5">
+                        {etapasTemplates.map(([etapa, itens]) => {
+                          const ativa = etapa === etapaTemplateAtiva;
+                          return (
+                            <button
+                              key={etapa}
+                              type="button"
+                              role="tab"
+                              aria-selected={ativa}
+                              onClick={() => selecionarEtapaTemplate(etapa)}
+                              className={`rounded-full border px-2.5 py-1.5 text-[9px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 ${
+                                ativa
+                                  ? 'border-cyan-400/45 bg-cyan-400/[0.1] text-cyan-200'
+                                  : 'border-white/[0.07] bg-[#091D35] text-gray-500 hover:border-white/[0.16] hover:text-gray-300'
+                              }`}>
+                              {etapa} <span className="ml-1 text-[8px] opacity-60">{itens.length}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div>
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-gray-500">{etapaTemplateAtiva}</span>
+                          <span className="h-px flex-1 bg-white/[0.05]" />
                         </div>
-                      ))}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {templatesEtapaAtiva.map((tp: any) => {
+                            const selecionado = tp.template === templateSel;
+                            const indisponivel = tp.disponivel === false;
+                            return (
+                              <button
+                                key={tp.template}
+                                type="button"
+                                disabled={indisponivel}
+                                title={tp.motivoIndisponivel || tp.rotulo}
+                                aria-pressed={selecionado}
+                                onClick={() => { setTemplateSel(tp.template); setResult(null); }}
+                                className={`min-h-[88px] rounded-lg border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:cursor-not-allowed disabled:opacity-45 ${
+                                  selecionado
+                                    ? 'border-cyan-400/55 bg-cyan-400/[0.09] shadow-[inset_3px_0_0_#22d3ee]'
+                                    : 'border-white/[0.07] bg-[#091D35] hover:border-white/[0.16] hover:bg-white/[0.025]'
+                                }`}>
+                                <span className="flex items-start justify-between gap-2">
+                                  <span className="text-[11px] font-bold leading-snug text-white">{tp.rotulo}</span>
+                                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide ${
+                                    indisponivel ? 'bg-red-400/10 text-red-300' : 'bg-emerald-400/10 text-emerald-300'
+                                  }`}>
+                                    {indisponivel ? t('templateMode.unavailable') : t('templateMode.approved')}
+                                  </span>
+                                </span>
+                                <code className="mt-1 block text-[9px] text-cyan-400/70">{tp.template}</code>
+                                <span className="mt-2 line-clamp-2 block text-[9px] leading-relaxed text-gray-500">{tp.alvoSugerido}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -736,6 +774,11 @@ export default function EnviosPage() {
                             <Tag size={9} /> {`{{${i + 1}}}`} · {v}
                           </span>
                         ))}
+                        {templateAtual.botaoVariavel && (
+                          <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold text-violet-300 border border-violet-400/30">
+                            <MousePointerClick size={9} /> {t('templateMode.buttonVariable')} · {templateAtual.botaoVariavel}
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
@@ -862,7 +905,15 @@ export default function EnviosPage() {
                   </p>
                 )}
                 {tab === 'whatsapp' && previewLote?.amostra?.[0] && (
-                  <p className="text-[9px] text-gray-600 mt-2">{t('templateMode.previewOf', { nome: previewLote.amostra[0].nome })}</p>
+                  <>
+                    <p className="text-[9px] text-gray-600 mt-2">{t('templateMode.previewOf', { nome: previewLote.amostra[0].nome })}</p>
+                    {previewLote.amostra[0].botaoParam && (
+                      <p className="mt-1 flex items-center gap-1 text-[9px] text-violet-300/80">
+                        <MousePointerClick size={9} />
+                        {t('templateMode.buttonDestination', { destino: `/ir/${previewLote.amostra[0].botaoParam}` })}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
 

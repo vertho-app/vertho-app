@@ -28,10 +28,13 @@
  */
 import { TEMPLATES, type TemplateDef } from '@/lib/whatsapp/templates';
 import { contratoDoTemplate, type PilulaTemplateArgs } from '@/lib/notifications/pilula-template';
+import { temaPilula } from '@/lib/notifications/pilula-envio';
 import { enviarTemplateCloud, cloudApiConfigurada } from '@/lib/whatsapp/cloud-api';
 import { aplicarTetoLote, criarPaceadorSincrono } from '@/lib/whatsapp/cadencia';
 import { tenantUrl } from '@/lib/domain';
-import { TRILHA } from '@/lib/status';
+import { primeiraSemanaAcessivel } from '@/lib/season-engine/week-gating';
+import { ehSemanaDeImplementacao } from '@/lib/season-engine/trilha-runtime';
+import { ENVIO, PROGRESSO, TRILHA } from '@/lib/status';
 
 /** Primeiro nome apresentável — "JANAINA" vira "Janaina", "McDonald" fica. */
 export function primeiroNome(completo: string | null | undefined): string {
@@ -51,6 +54,19 @@ export interface ContextoEnvio {
   avaliacaoPorColab: Map<string, { respondidas: number; total: number }>;
   /** Trilha mais recente por pessoa — insumo dos templates de abertura/fechamento. */
   trilhaPorColab: Map<string, { status: string; competencia: string; totalSemanas: number }>;
+  /** Semana real por pessoa — calendário, gate sequencial, plano e atividade. */
+  cadenciaPorColab: Map<string, ContextoCadenciaEnvio>;
+}
+
+interface ContextoCadenciaEnvio {
+  statusTrilha: string;
+  semanaCalendario: number;
+  semanaAcessivel: number;
+  plano: any[];
+  planoDaSemana: any | null;
+  conteudoPrincipal: any | null;
+  statusDaSemana: string | null;
+  ultimaAtividadeEm: number | null;
 }
 
 export interface ColaboradorAlvo {
@@ -64,6 +80,36 @@ export interface ColaboradorAlvo {
 /** Args montados, ou o motivo de a pessoa NÃO poder receber este template. */
 type Resolucao = { args: PilulaTemplateArgs } | { excluir: string };
 
+function exigirCadencia(c: ColaboradorAlvo, ctx: ContextoEnvio): ContextoCadenciaEnvio | { excluir: string } {
+  const cadencia = ctx.cadenciaPorColab.get(c.id);
+  if (!cadencia) return { excluir: 'sem cadência ativa ou trilha gerada' };
+  if (cadencia.statusTrilha !== TRILHA.ATIVA) return { excluir: 'trilha não está ativa' };
+  if (!cadencia.planoDaSemana) return { excluir: 'sem plano para a semana acessível' };
+  return cadencia;
+}
+
+function resolverConteudoSemanal(
+  c: ColaboradorAlvo,
+  ctx: ContextoEnvio,
+  exigirPendencia: boolean,
+): Resolucao {
+  const cadencia = exigirCadencia(c, ctx);
+  if ('excluir' in cadencia) return cadencia;
+  if (exigirPendencia && cadencia.semanaAcessivel >= cadencia.semanaCalendario) {
+    return { excluir: 'não tem semana anterior pendente' };
+  }
+  if (ehSemanaDeImplementacao(cadencia.plano, cadencia.semanaAcessivel)) {
+    return { excluir: 'semana acessível é de aplicação, não de conteúdo' };
+  }
+  if (!cadencia.conteudoPrincipal) return { excluir: 'sem conteúdo configurado na semana acessível' };
+  return {
+    args: base(c, ctx, {
+      semana: cadencia.semanaAcessivel,
+      tema: temaPilula(cadencia.conteudoPrincipal),
+    }),
+  };
+}
+
 /**
  * Como cada template disparável preenche os seus `{{n}}`.
  *
@@ -72,12 +118,10 @@ type Resolucao = { args: PilulaTemplateArgs } | { excluir: string };
  * noutro. Este mapa é o par que faltava — sem ele, uma tela genérica mandaria
  * a mesma variável para todos e entregaria mensagem sem sentido.
  *
- * Quem NÃO está aqui não aparece na tela, mesmo aprovado na Meta. Ficam de fora,
- * por decisão:
- *   - os da CADÊNCIA (`conteudo_semana`, `registro_*`, `missao_*`,
- *     `retomada_trilha`): dependem de semana/tema/formato da trilha da pessoa e
- *     têm dono próprio (o cron). Disparar à mão anunciaria uma semana que o
- *     motor não considera entregue;
+ * Quem NÃO está aqui não aparece na tela, mesmo aprovado na Meta. Os templates
+ * de CADÊNCIA canônicos entram porque a tela agora carrega a mesma semana
+ * acessível, o mesmo plano e o mesmo progresso usados pelo cron. Continuam de
+ * fora, por decisão:
  *   - `acesso_vertho` e `otp_acesso`: carregam CREDENCIAL, gerada por pessoa. O
  *     caminho é o botão de magic link desta mesma tela, que passa pelo serviço
  *     de acesso;
@@ -120,6 +164,56 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
       }),
     };
   },
+  conteudo_semana: (c, ctx) => resolverConteudoSemanal(c, ctx, false),
+  missao_semana_v2: (c, ctx) => {
+    const cadencia = exigirCadencia(c, ctx);
+    if ('excluir' in cadencia) return cadencia;
+    if (!ehSemanaDeImplementacao(cadencia.plano, cadencia.semanaAcessivel)) {
+      return { excluir: 'semana acessível não é de aplicação' };
+    }
+    return { args: base(c, ctx, { semana: cadencia.semanaAcessivel }) };
+  },
+  semana_pendente_v2: (c, ctx) => {
+    const cadencia = exigirCadencia(c, ctx);
+    if ('excluir' in cadencia) return cadencia;
+    if (cadencia.semanaAcessivel >= cadencia.semanaCalendario) {
+      return { excluir: 'não tem semana anterior pendente' };
+    }
+    return {
+      args: base(c, ctx, {
+        semana: cadencia.semanaCalendario,
+        semanaPendente: cadencia.semanaAcessivel,
+      }),
+    };
+  },
+  conteudo_semana_pendente_v3: (c, ctx) => resolverConteudoSemanal(c, ctx, true),
+  registro_desafio: (c, ctx) => {
+    const cadencia = exigirCadencia(c, ctx);
+    if ('excluir' in cadencia) return cadencia;
+    if (cadencia.statusDaSemana === PROGRESSO.CONCLUIDO) return { excluir: 'semana acessível já foi concluída' };
+    if (ehSemanaDeImplementacao(cadencia.plano, cadencia.semanaAcessivel)) {
+      return { excluir: 'semana acessível é de aplicação; use registro de evidência' };
+    }
+    if (!cadencia.conteudoPrincipal) return { excluir: 'sem desafio configurado na semana acessível' };
+    return { args: base(c, ctx, { semana: cadencia.semanaAcessivel }) };
+  },
+  registro_evidencia: (c, ctx) => {
+    const cadencia = exigirCadencia(c, ctx);
+    if ('excluir' in cadencia) return cadencia;
+    if (cadencia.statusDaSemana === PROGRESSO.CONCLUIDO) return { excluir: 'semana acessível já foi concluída' };
+    if (!ehSemanaDeImplementacao(cadencia.plano, cadencia.semanaAcessivel)) {
+      return { excluir: 'semana acessível não é de aplicação; use registro de desafio' };
+    }
+    return { args: base(c, ctx, { semana: cadencia.semanaAcessivel }) };
+  },
+  retomada_trilha: (c, ctx) => {
+    const cadencia = exigirCadencia(c, ctx);
+    if ('excluir' in cadencia) return cadencia;
+    if (!cadencia.ultimaAtividadeEm) return { excluir: 'sem histórico de envio para medir inatividade' };
+    const diasSemAtividade = (Date.now() - cadencia.ultimaAtividadeEm) / 86_400_000;
+    if (diasSemAtividade < 14) return { excluir: 'última atividade ocorreu há menos de 14 dias' };
+    return { args: base(c, ctx, { semana: cadencia.semanaAcessivel }) };
+  },
   trilha_concluida: (c, ctx) => {
     const trilha = ctx.trilhaPorColab.get(c.id);
     if (!trilha) return { excluir: 'sem trilha gerada' };
@@ -160,6 +254,8 @@ export interface TemplateDisparavel {
   corpo: string;
   /** O que preenche cada `{{n}}`, na ordem. */
   variaveis: string[];
+  /** Variável do botão de URL, separada das variáveis numeradas do corpo. */
+  botaoVariavel?: string;
   /** Quem costuma ser o destinatário — orienta o filtro, não o aplica. */
   alvoSugerido: string;
 }
@@ -172,7 +268,18 @@ const VARIAVEIS_DE: Record<string, string[]> = {
   resultado_perfil: ['primeiro nome', 'link do perfil comportamental'],
   plano_desenvolvimento: ['primeiro nome', 'link do PDI'],
   trilha_liberada_v2: ['primeiro nome', 'competência da trilha', 'total de semanas', 'link da trilha'],
+  conteudo_semana: ['primeiro nome', 'semana acessível', 'tema do conteúdo', 'link da semana'],
+  missao_semana_v2: ['primeiro nome', 'semana de aplicação', 'link da semana'],
+  semana_pendente_v2: ['primeiro nome', 'semana do calendário', 'semana pendente'],
+  conteudo_semana_pendente_v3: ['primeiro nome', 'semana pendente', 'tema do conteúdo', 'link da semana'],
+  registro_desafio: ['primeiro nome', 'semana acessível', 'link da semana'],
+  registro_evidencia: ['primeiro nome', 'semana de aplicação', 'link da semana'],
+  retomada_trilha: ['primeiro nome', 'link da semana acessível'],
   trilha_concluida: ['primeiro nome', 'competência da trilha', 'total de semanas', 'link do resultado'],
+};
+
+const BOTAO_DE: Record<string, string> = {
+  semana_pendente_v2: 'link da semana pendente',
 };
 
 const ALVO_DE: Record<string, string> = {
@@ -183,6 +290,13 @@ const ALVO_DE: Record<string, string> = {
   resultado_perfil: 'já tem perfil comportamental e pode não saber',
   plano_desenvolvimento: 'já tem relatório/PDI gerado',
   trilha_liberada_v2: 'tem uma trilha ativa pronta para começar',
+  conteudo_semana: 'está numa semana de conteúdo; o link acompanha a semana que consegue abrir',
+  missao_semana_v2: 'está numa semana de aplicação prática',
+  semana_pendente_v2: 'está atrás do calendário e precisa concluir uma semana anterior',
+  conteudo_semana_pendente_v3: 'está atrás do calendário, numa semana com conteúdo disponível',
+  registro_desafio: 'está numa semana de conteúdo e ainda precisa registrar o desafio',
+  registro_evidencia: 'está numa semana de aplicação e precisa registrar a prática',
+  retomada_trilha: 'está há pelo menos 14 dias sem atividade registrada',
   trilha_concluida: 'concluiu todas as semanas da trilha',
 };
 
@@ -194,6 +308,13 @@ const ROTULO_DE: Record<string, string> = {
   resultado_perfil: 'Perfil comportamental disponível',
   plano_desenvolvimento: 'Plano de desenvolvimento disponível',
   trilha_liberada_v2: 'Trilha liberada',
+  conteudo_semana: 'Conteúdo da semana disponível',
+  missao_semana_v2: 'Missão da semana disponível',
+  semana_pendente_v2: 'Semana anterior pendente',
+  conteudo_semana_pendente_v3: 'Conteúdo com pendência',
+  registro_desafio: 'Registro do desafio pendente',
+  registro_evidencia: 'Registro de evidências pendente',
+  retomada_trilha: 'Retomada por inatividade',
   trilha_concluida: 'Trilha concluída',
 };
 
@@ -205,8 +326,25 @@ const ETAPA_DE: Record<string, string> = {
   resultado_perfil: 'Resultados',
   plano_desenvolvimento: 'Resultados',
   trilha_liberada_v2: 'Jornada',
+  conteudo_semana: 'Semana atual',
+  missao_semana_v2: 'Semana atual',
+  semana_pendente_v2: 'Pendências e retomada',
+  conteudo_semana_pendente_v3: 'Pendências e retomada',
+  registro_desafio: 'Pendências e retomada',
+  registro_evidencia: 'Pendências e retomada',
+  retomada_trilha: 'Pendências e retomada',
   trilha_concluida: 'Jornada',
 };
+
+const TEMPLATES_CADENCIA_MANUAL = new Set([
+  'conteudo_semana',
+  'missao_semana_v2',
+  'semana_pendente_v2',
+  'conteudo_semana_pendente_v3',
+  'registro_desafio',
+  'registro_evidencia',
+  'retomada_trilha',
+]);
 
 /** Templates que a tela pode disparar: têm resolvedor E contrato de parâmetros. */
 export function listarTemplatesDisparaveis(): TemplateDisparavel[] {
@@ -222,6 +360,7 @@ export function listarTemplatesDisparaveis(): TemplateDisparavel[] {
         etapa: ETAPA_DE[nome] || 'Outros',
         corpo: def?.body || '',
         variaveis: VARIAVEIS_DE[nome] || [],
+        botaoVariavel: BOTAO_DE[nome],
         alvoSugerido: ALVO_DE[nome] || '',
       };
     });
@@ -293,11 +432,146 @@ async function carregarTrilhasManuais(
   return porColab;
 }
 
+/**
+ * Contexto dos templates recorrentes, em lote e pela régua canônica da trilha.
+ *
+ * O ponto importante não é só evitar N+1. A semana exibida no template precisa
+ * ser a primeira que a pessoa consegue abrir, não simplesmente o relógio de
+ * `fase4_envios`. É a mesma decisão do cron e da página da semana; uma cópia
+ * simplificada aqui faria a mensagem prometer uma porta que o app mantém
+ * trancada.
+ */
+async function carregarCadenciaManual(
+  sb: any,
+  empresaId: string,
+  colabs: ColaboradorAlvo[],
+): Promise<Map<string, ContextoCadenciaEnvio>> {
+  const colabIds = [...new Set(colabs.map((c) => c.id).filter(Boolean))];
+  if (!colabIds.length) return new Map();
+
+  const [{ data: envios, error: eE }, { data: trilhas, error: eT }] = await Promise.all([
+    sb.from('fase4_envios')
+      .select('colaborador_id, semana_atual, status, ultima_pilula1_em, ultima_pilula2_em, ultima_evidencia_em')
+      .in('colaborador_id', colabIds)
+      .eq('status', ENVIO.ATIVO),
+    sb.from('trilhas')
+      .select('id, colaborador_id, status, numero_temporada, temporada_plano, competencia_foco, data_inicio')
+      .eq('empresa_id', empresaId)
+      .in('colaborador_id', colabIds)
+      .order('numero_temporada', { ascending: false }),
+  ]);
+  if (eE) throw new Error(`fase4_envios: ${eE.message}`);
+  if (eT) throw new Error(`trilhas: ${eT.message}`);
+
+  const envioPorColab = new Map<string, any>();
+  for (const envio of (envios || [])) {
+    if (envio.colaborador_id && !envioPorColab.has(envio.colaborador_id)) {
+      envioPorColab.set(envio.colaborador_id, envio);
+    }
+  }
+
+  const trilhaPorColab = new Map<string, any>();
+  for (const trilha of (trilhas || [])) {
+    if (trilha.colaborador_id && !trilhaPorColab.has(trilha.colaborador_id)) {
+      trilhaPorColab.set(trilha.colaborador_id, trilha);
+    }
+  }
+
+  const trilhaIds = [...trilhaPorColab.values()].map((t) => t.id).filter(Boolean);
+  let progressos: any[] = [];
+  if (trilhaIds.length) {
+    const { data, error } = await sb.from('temporada_semana_progresso')
+      .select('trilha_id, colaborador_id, semana, status, reflexao, feedback')
+      .in('trilha_id', trilhaIds);
+    if (error) throw new Error(`temporada_semana_progresso: ${error.message}`);
+    progressos = data || [];
+  }
+
+  const progressoPorTrilha = new Map<string, any[]>();
+  for (const progresso of progressos) {
+    const lista = progressoPorTrilha.get(progresso.trilha_id) || [];
+    lista.push(progresso);
+    progressoPorTrilha.set(progresso.trilha_id, lista);
+  }
+
+  const resultado = new Map<string, ContextoCadenciaEnvio>();
+  for (const colaboradorId of colabIds) {
+    const envio = envioPorColab.get(colaboradorId);
+    const trilha = trilhaPorColab.get(colaboradorId);
+    if (!envio || !trilha) continue;
+
+    const plano = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
+    const semanaCalendarioBruta = Number(envio.semana_atual || 1);
+    const semanaCalendario = Number.isFinite(semanaCalendarioBruta) && semanaCalendarioBruta > 0
+      ? semanaCalendarioBruta
+      : 1;
+    const semanaAcessivel = primeiraSemanaAcessivel({
+      dataInicio: trilha.data_inicio,
+      plano,
+      progresso: progressoPorTrilha.get(trilha.id) || [],
+      semana: semanaCalendario,
+    });
+    const progressoDaSemana = (progressoPorTrilha.get(trilha.id) || [])
+      .find((p: any) => Number(p?.semana) === semanaAcessivel);
+    const planoDaSemana = plano.find((s: any) => Number(s?.semana) === semanaAcessivel)
+      || plano[semanaAcessivel - 1]
+      || null;
+    const conteudos = Array.isArray(planoDaSemana?.conteudos_dia) && planoDaSemana.conteudos_dia.length
+      ? planoDaSemana.conteudos_dia
+      : planoDaSemana?.conteudo
+        ? [{
+            competencia: trilha.competencia_foco,
+            descritor: planoDaSemana.descritor,
+            conteudo: planoDaSemana.conteudo,
+          }]
+        : [];
+    const atividades = [envio.ultima_pilula1_em, envio.ultima_pilula2_em, envio.ultima_evidencia_em]
+      .filter(Boolean)
+      .map((valor: string) => new Date(valor).getTime())
+      .filter(Number.isFinite);
+
+    resultado.set(colaboradorId, {
+      statusTrilha: String(trilha.status || ''),
+      semanaCalendario,
+      semanaAcessivel,
+      plano,
+      planoDaSemana,
+      conteudoPrincipal: conteudos[0] || null,
+      statusDaSemana: progressoDaSemana?.status ? String(progressoDaSemana.status) : null,
+      ultimaAtividadeEm: atividades.length ? Math.max(...atividades) : null,
+    });
+  }
+  return resultado;
+}
+
+function chaveDoDisparo(
+  template: string,
+  colaboradorId: string,
+  args: PilulaTemplateArgs,
+  ctx: ContextoEnvio,
+): string {
+  const cadencia = ctx.cadenciaPorColab.get(colaboradorId);
+  if (template === 'semana_pendente_v2' || template === 'conteudo_semana_pendente_v3') {
+    return `${template}:${colaboradorId}:calendario:${cadencia?.semanaCalendario ?? args.semana}:pendente:${args.semanaPendente ?? args.semana}`;
+  }
+  if (template === 'retomada_trilha') {
+    return `${template}:${colaboradorId}:calendario:${cadencia?.semanaCalendario ?? args.semana}:semana:${args.semana}`;
+  }
+  if (TEMPLATES_CADENCIA_MANUAL.has(template)) {
+    return `${template}:${colaboradorId}:semana:${args.semana}`;
+  }
+  return `${template}:${colaboradorId}`;
+}
+
 export interface AlvoPreparado {
   colaboradorId: string;
   nome: string;
   telefone: string;
   params: string[];
+  /** Sufixo do botão de URL da Meta; nunca é a URL completa. */
+  botaoParam: string | null;
+  /** Slot lógico do envio: templates semanais podem voltar na semana seguinte. */
+  dedupeKey: string;
 }
 
 export interface LotePreparado {
@@ -350,16 +624,24 @@ export async function prepararLoteTemplate(
     trilhaPorColab: template === 'trilha_liberada_v2' || template === 'trilha_concluida'
       ? await carregarTrilhasManuais(sb, empresaId)
       : new Map(),
+    cadenciaPorColab: TEMPLATES_CADENCIA_MANUAL.has(template)
+      ? await carregarCadenciaManual(sb, empresaId, colabs)
+      : new Map(),
   };
 
-  // Idempotência por TEMPLATE (`kind` = nome do template): dois templates podem
-  // descrever o mesmo momento com textos diferentes, e o segundo existe para
-  // alcançar quem o primeiro não moveu. Guarda genérica tornaria correção de
-  // copy inaplicável.
+  // Idempotência por TEMPLATE e, nos recorrentes, pelo slot da semana. Usar só
+  // `kind` faria `conteudo_semana` poder sair UMA vez na vida da pessoa — a
+  // primeira semana bloquearia todas as seguintes. O `dedupe_key` preserva a
+  // distinção sem perder a métrica pelo nome técnico do template.
   const { data: jaForam, error: eJ } = await sb.from('notification_deliveries')
-    .select('colaborador_id').eq('empresa_id', empresaId).eq('kind', template).eq('channel', 'whatsapp');
+    .select('colaborador_id, dedupe_key')
+    .eq('empresa_id', empresaId)
+    .eq('kind', template)
+    .eq('channel', 'whatsapp')
+    .eq('status', 'sucesso');
   if (eJ) throw new Error(`notification_deliveries: ${eJ.message}`);
   const recebidos = new Set((jaForam || []).map((d: any) => d.colaborador_id));
+  const chavesRecebidas = new Set((jaForam || []).map((d: any) => d.dedupe_key).filter(Boolean));
 
   const excl = new Map<string, string[]>();
   const empurra = (motivo: string, nome: string) => {
@@ -369,16 +651,32 @@ export async function prepararLoteTemplate(
   };
 
   const alvos: AlvoPreparado[] = [];
+  let jaReceberam = 0;
   for (const c of colabs) {
     const nome = c.nome_completo || '(sem nome)';
     const fone = c.whatsapp || c.telefone;
     if (!fone) { empurra('sem telefone/WhatsApp', nome); continue; }
-    if (!incluirJaEnviados && recebidos.has(c.id)) continue;
     const r = resolver(c, ctx);
     if ('excluir' in r) { empurra(r.excluir, nome); continue; }
-    const { params } = montar(r.args);
+    const dedupeKey = chaveDoDisparo(template, c.id, r.args, ctx);
+    const recebeuEsteSlot = TEMPLATES_CADENCIA_MANUAL.has(template)
+      ? chavesRecebidas.has(dedupeKey)
+      : recebidos.has(c.id);
+    if (recebeuEsteSlot) {
+      jaReceberam++;
+      if (!incluirJaEnviados) continue;
+    }
+    const { params, botaoParam = null } = montar(r.args);
     if (params.some((p) => !String(p || '').trim())) { empurra('parâmetro do template ficou vazio', nome); continue; }
-    alvos.push({ colaboradorId: c.id, nome, telefone: String(fone), params });
+    if (botaoParam !== null && !String(botaoParam).trim()) { empurra('parâmetro do botão ficou vazio', nome); continue; }
+    alvos.push({
+      colaboradorId: c.id,
+      nome,
+      telefone: String(fone),
+      params,
+      botaoParam,
+      dedupeKey,
+    });
   }
 
   const { enviar, adiados, aviso } = aplicarTetoLote(alvos);
@@ -389,7 +687,7 @@ export async function prepararLoteTemplate(
     corpo: def?.body || '',
     alvos: enviar,
     excluidos: [...excl.entries()].map(([motivo, nomes]) => ({ motivo, quantidade: nomes.length, amostra: nomes.slice(0, 5) })),
-    jaReceberam: colabs.filter((c) => recebidos.has(c.id)).length,
+    jaReceberam,
     adiadosPorTeto: adiados.length,
     avisoTeto: aviso,
   };
@@ -433,6 +731,8 @@ export async function enfileirarLoteTemplate(lote: LotePreparado, empresaId: str
         telefone: alvo.telefone,
         template: lote.template,
         templateParams: alvo.params,
+        templateBotaoParam: alvo.botaoParam,
+        templateDedupeKey: alvo.dedupeKey,
         colaboradorId: alvo.colaboradorId,
         empresaId,
       }, atrasos[i]);
@@ -479,10 +779,10 @@ export async function dispararLoteTemplate(lote: LotePreparado, empresaId: strin
     if (paceador.tetoAtingido()) break;
     await paceador.aguardarVez();
     const r = await enviarTemplateCloud(
-      { phone: alvo.telefone, template: lote.template, params: alvo.params, botaoParam: null },
+      { phone: alvo.telefone, template: lote.template, params: alvo.params, botaoParam: alvo.botaoParam },
       // `motivo` vira o `kind` da telemetria — é o que permite medir cada copy
       // separadamente e o que faz a idempotência acima funcionar.
-      { motivo: lote.template, empresaId, colaboradorId: alvo.colaboradorId, dedupeKey: `${lote.template}:${alvo.colaboradorId}` },
+      { motivo: lote.template, empresaId, colaboradorId: alvo.colaboradorId, dedupeKey: alvo.dedupeKey },
     );
     enviados++;
     if (r.ok) { aceitos++; detalhes.push({ nome: alvo.nome, ok: true }); }

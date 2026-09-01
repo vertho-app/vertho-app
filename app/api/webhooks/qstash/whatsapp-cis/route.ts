@@ -69,6 +69,10 @@ const whatsappPayloadSchema = z.object({
    */
   template: z.string().trim().min(1).max(80).optional(),
   templateParams: z.array(z.string().max(1000)).max(10).optional(),
+  /** Sufixo da URL dinâmica do botão; a URL fixa fica no template da Meta. */
+  templateBotaoParam: z.string().trim().min(1).max(1000).nullable().optional(),
+  /** Slot lógico calculado antes da fila (inclui a semana nos recorrentes). */
+  templateDedupeKey: z.string().trim().min(1).max(300).optional(),
 }).strict()
   // `mensagem` era obrigatória no schema; com o modo template ela deixa de ser,
   // mas o payload continua tendo de dizer O QUE enviar — um dos dois, nunca
@@ -271,7 +275,7 @@ export async function POST(req) {
 
     const {
       telefone, mensagem, envioId, fase4EnvioId, carimboCampo, documentoUrl, documentoNome,
-      colaboradorId, empresaId, kindEnvio, template, templateParams,
+      colaboradorId, empresaId, kindEnvio, template, templateParams, templateBotaoParam, templateDedupeKey,
     } = payload;
 
     if (!telefone) {
@@ -299,8 +303,13 @@ export async function POST(req) {
       }
       const { enviarTemplateCloud } = await import('@/lib/whatsapp/cloud-api');
       const rt = await enviarTemplateCloud(
-        { phone: telefone, template, params: templateParams || [], botaoParam: null },
-        { motivo: template, empresaId: empresaId ?? null, colaboradorId: colaboradorId ?? null, dedupeKey: `${template}:${colaboradorId ?? telefone}` },
+        { phone: telefone, template, params: templateParams || [], botaoParam: templateBotaoParam ?? null },
+        {
+          motivo: template,
+          empresaId: empresaId ?? null,
+          colaboradorId: colaboradorId ?? null,
+          dedupeKey: templateDedupeKey || `${template}:${colaboradorId ?? telefone}`,
+        },
       );
       console.log(`[qstash/whatsapp-cis] template=${template} phone=***${telefone.replace(/\D/g, '').slice(-4)} ok=${rt.ok}${rt.ok ? '' : ` motivo=${rt.reason}`}`);
       if (!rt.ok) return NextResponse.json({ error: rt.reason || 'Cloud API indisponível' }, { status: 503 });

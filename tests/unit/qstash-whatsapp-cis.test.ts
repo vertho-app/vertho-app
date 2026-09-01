@@ -372,6 +372,28 @@ describe('qstash whatsapp-cis webhook', () => {
       );
     });
 
+    it('preserva o botão dinâmico e o slot semanal calculados antes da fila', async () => {
+      await POST(makeReq({
+        telefone: '5522999999999',
+        template: 'semana_pendente_v2',
+        templateParams: ['Maria', '3', '2'],
+        templateBotaoParam: 'macae/2',
+        templateDedupeKey: 'semana_pendente_v2:colab-1:calendario:3:pendente:2',
+        colaboradorId: '33333333-3333-4333-8333-333333333333',
+      }));
+
+      expect(enviarTemplateCloud).toHaveBeenCalledWith(
+        expect.objectContaining({
+          template: 'semana_pendente_v2',
+          params: ['Maria', '3', '2'],
+          botaoParam: 'macae/2',
+        }),
+        expect.objectContaining({
+          dedupeKey: 'semana_pendente_v2:colab-1:calendario:3:pendente:2',
+        }),
+      );
+    });
+
     it('template sem contrato é recusado com 400 — e sem tentar enviar', async () => {
       const res = await POST(makeReq({
         telefone: '5522999999999',

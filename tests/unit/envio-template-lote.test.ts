@@ -6,7 +6,7 @@ import {
   prepararLoteTemplate,
   primeiroNome,
 } from '@/lib/notifications/envio-template-lote';
-import { TRILHA } from '@/lib/status';
+import { ENVIO, PROGRESSO, TRILHA } from '@/lib/status';
 
 /**
  * A tela de Envios deixou de mandar texto livre e passou a disparar TEMPLATE.
@@ -28,6 +28,8 @@ function mock(opts: {
   respostas?: any[];
   cenarios?: any[];
   trilhas?: any[];
+  envios?: any[];
+  progressos?: any[];
   empresa?: any;
 } = {}) {
   return criarSupabaseMock({
@@ -38,6 +40,8 @@ function mock(opts: {
       if (tabela === 'respostas') return opts.respostas ?? [];
       if (tabela === 'banco_cenarios') return opts.cenarios ?? [];
       if (tabela === 'trilhas') return opts.trilhas ?? [];
+      if (tabela === 'fase4_envios') return opts.envios ?? [];
+      if (tabela === 'temporada_semana_progresso') return opts.progressos ?? [];
       return [];
     },
   });
@@ -46,6 +50,55 @@ function mock(opts: {
 const professor = (over: any = {}) => ({
   id: 'c1', nome_completo: 'MARIA DAS DORES SILVA', cargo: 'Professor(a)', telefone: '5522999999999', ...over,
 });
+
+const planoCadencia = [
+  {
+    semana: 1,
+    tipo: 'conteudo',
+    conteudos_dia: [{ conteudo: { core_titulo: 'Escuta ativa' } }],
+  },
+  {
+    semana: 2,
+    tipo: 'conteudo',
+    conteudos_dia: [{ conteudo: { core_titulo: 'Comunicação clara' } }],
+  },
+  { semana: 3, tipo: 'aplicacao' },
+];
+
+function contextoCadencia(over: {
+  semanaAtual?: number;
+  plano?: any[];
+  progressos?: any[];
+  ultimaAtividade?: string | null;
+} = {}) {
+  return {
+    envios: [{
+      colaborador_id: 'c1',
+      semana_atual: over.semanaAtual ?? 2,
+      status: ENVIO.ATIVO,
+      ultima_pilula1_em: over.ultimaAtividade ?? '2025-01-01T12:00:00.000Z',
+      ultima_pilula2_em: null,
+      ultima_evidencia_em: null,
+    }],
+    trilhas: [{
+      id: 'trilha-1',
+      colaborador_id: 'c1',
+      status: TRILHA.ATIVA,
+      numero_temporada: 1,
+      temporada_plano: over.plano ?? planoCadencia,
+      competencia_foco: 'Comunicação',
+      data_inicio: '2025-01-06',
+    }],
+    progressos: over.progressos ?? [{
+      trilha_id: 'trilha-1',
+      colaborador_id: 'c1',
+      semana: 1,
+      status: PROGRESSO.CONCLUIDO,
+      reflexao: null,
+      feedback: null,
+    }],
+  };
+}
 
 describe('primeiroNome', () => {
   it('normaliza só o que está TODO em maiúsculas', () => {
@@ -65,8 +118,16 @@ describe('listarTemplatesDisparaveis', () => {
     expect(nomes).toContain('boas_vindas_v2');
     expect(nomes).toContain('trilha_liberada_v2');
     expect(nomes).toContain('trilha_concluida');
-    // Cadência e credencial ficam de fora por decisão — ver o comentário do módulo.
-    expect(nomes).not.toContain('conteudo_semana');
+    // A cadência canônica também pode ser recuperada manualmente; a prévia usa
+    // o contexto individual antes de incluir alguém no lote.
+    expect(nomes).toContain('conteudo_semana');
+    expect(nomes).toContain('semana_pendente_v2');
+    expect(nomes).toContain('conteudo_semana_pendente_v3');
+    expect(nomes).toContain('missao_semana_v2');
+    expect(nomes).toContain('registro_desafio');
+    expect(nomes).toContain('registro_evidencia');
+    expect(nomes).toContain('retomada_trilha');
+    // Credencial continua no fluxo de acesso, nunca num lote genérico.
     expect(nomes).not.toContain('acesso_vertho');
     expect(nomes).not.toContain('otp_acesso');
   });
@@ -214,10 +275,97 @@ describe('prepararLoteTemplate', () => {
     })).rejects.toThrow(/demonstração/i);
   });
 
+  it('conteúdo semanal usa a semana que a pessoa consegue abrir e o tema do plano real', async () => {
+    const sb = mock(contextoCadencia());
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'conteudo_semana', colabs: [professor()],
+    });
+
+    expect(lote.alvos).toHaveLength(1);
+    expect(lote.alvos[0]).toMatchObject({
+      params: ['Maria', '2', 'Comunicação clara', 'https://macae.vertho.ai/dashboard/temporada/semana/2'],
+      botaoParam: null,
+      dedupeKey: 'conteudo_semana:c1:semana:2',
+    });
+  });
+
+  it('semana pendente usa calendário no corpo, acessível no corpo e no botão', async () => {
+    const sb = mock(contextoCadencia({
+      semanaAtual: 3,
+      progressos: [{
+        trilha_id: 'trilha-1', colaborador_id: 'c1', semana: 1,
+        status: PROGRESSO.CONCLUIDO, reflexao: null, feedback: null,
+      }],
+    }));
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'semana_pendente_v2', colabs: [professor()],
+    });
+
+    expect(lote.alvos[0]).toMatchObject({
+      params: ['Maria', '3', '2'],
+      botaoParam: 'macae/2',
+      dedupeKey: 'semana_pendente_v2:c1:calendario:3:pendente:2',
+    });
+  });
+
+  it('semana pendente exclui quem está em dia, em vez de inventar uma pendência', async () => {
+    const sb = mock(contextoCadencia({ semanaAtual: 2 }));
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'semana_pendente_v2', colabs: [professor()],
+    });
+
+    expect(lote.alvos).toHaveLength(0);
+    expect(lote.excluidos[0]).toMatchObject({ motivo: 'não tem semana anterior pendente', quantidade: 1 });
+  });
+
+  it('distingue missão de conteúdo pela semana carimbada no plano', async () => {
+    const sb = mock(contextoCadencia({
+      semanaAtual: 3,
+      progressos: [
+        { trilha_id: 'trilha-1', colaborador_id: 'c1', semana: 1, status: PROGRESSO.CONCLUIDO },
+        { trilha_id: 'trilha-1', colaborador_id: 'c1', semana: 2, status: PROGRESSO.CONCLUIDO },
+      ],
+    }));
+    const missao = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'missao_semana_v2', colabs: [professor()],
+    });
+    const conteudo = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'conteudo_semana', colabs: [professor()],
+    });
+
+    expect(missao.alvos[0].params).toEqual([
+      'Maria', '3', 'https://macae.vertho.ai/dashboard/temporada/semana/3',
+    ]);
+    expect(conteudo.alvos).toHaveLength(0);
+    expect(conteudo.excluidos[0].motivo).toMatch(/aplicação/);
+  });
+
+  it('idempotência do template recorrente vale por semana, não para a vida inteira', async () => {
+    const anterior = mock({
+      ...contextoCadencia(),
+      jaReceberam: [{ colaborador_id: 'c1', dedupe_key: 'conteudo_semana:c1:semana:1' }],
+    });
+    const loteNovo = await prepararLoteTemplate(anterior.client, {
+      empresaId: 'emp-1', template: 'conteudo_semana', colabs: [professor()],
+    });
+    expect(loteNovo.alvos).toHaveLength(1);
+    expect(loteNovo.jaReceberam).toBe(0);
+
+    const mesmoSlot = mock({
+      ...contextoCadencia(),
+      jaReceberam: [{ colaborador_id: 'c1', dedupe_key: 'conteudo_semana:c1:semana:2' }],
+    });
+    const loteRepetido = await prepararLoteTemplate(mesmoSlot.client, {
+      empresaId: 'emp-1', template: 'conteudo_semana', colabs: [professor()],
+    });
+    expect(loteRepetido.alvos).toHaveLength(0);
+    expect(loteRepetido.jaReceberam).toBe(1);
+  });
+
   it('recusa template sem resolvedor — não envia parâmetro no formato errado', async () => {
     const sb = mock();
     await expect(prepararLoteTemplate(sb.client, {
-      empresaId: 'emp-1', template: 'conteudo_semana', colabs: [professor()],
+      empresaId: 'emp-1', template: 'conteudo_semana_v2', colabs: [professor()],
     })).rejects.toThrow(/não é disparável/i);
   });
 

@@ -1036,7 +1036,11 @@ export async function previewTemplateWhatsApp(empresaId: string, template: strin
         excluidos: lote.excluidos,
         adiadosPorTeto: lote.adiadosPorTeto,
         avisoTeto: lote.avisoTeto,
-        amostra: lote.alvos.slice(0, 5).map((a) => ({ nome: a.nome, params: a.params })),
+        amostra: lote.alvos.slice(0, 5).map((a) => ({
+          nome: a.nome,
+          params: a.params,
+          botaoParam: a.botaoParam,
+        })),
       },
     };
   } catch (err: any) {
