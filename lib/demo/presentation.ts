@@ -73,10 +73,35 @@ export function getDemoPresentationRoom(slug: string) {
   return DEMO_PRESENTATION_ROOMS[slug];
 }
 
-/** Todos os papéis de todas as salas, cada um sabendo de que ambiente é. */
+/**
+ * Todos os papéis de todas as salas, cada um sabendo de que ambiente é.
+ *
+ * 🔴 A LISTA É CONSTRUÍDA UMA VEZ, E ISSO É REQUISITO, NÃO OTIMIZAÇÃO.
+ *
+ * `getDemoPresentationRoleFromHostname` alimenta o `getSnapshot` de um
+ * `useSyncExternalStore` (`PresentationEnvironment`), e o React compara
+ * snapshots com `Object.is`. Enquanto esta função montava os objetos a cada
+ * chamada (`.map(role => ({ ...role, tenantSlug }))`), cada leitura devolvia
+ * uma referência NOVA: a comparação falhava sempre, o React concluía que a
+ * store tinha mudado e forçava outro render, que lia de novo, para sempre.
+ *
+ * `Medido:` 01/09/2026 — o dashboard inteiro caiu com "Maximum update depth
+ * exceeded" (React #185) em `rh-demo.vertho.ai`, e SOMENTE nos domínios de
+ * apresentação, porque só neles o `PresentationEnvironment` monta. O sintoma
+ * não aponta para cá: chega como tela de erro genérica no dashboard, com um
+ * stack inteiro de funções internas do React.
+ *
+ * Ao mexer aqui, a invariante é: **a mesma entrada devolve a mesma
+ * referência**. Guard: `tests/unit/demo-presentation-snapshot.test.ts`.
+ */
+const PAPEIS_DE_APRESENTACAO: readonly (DemoPresentationRole & { tenantSlug: DemoPresentationTenantSlug })[] =
+  Object.freeze(
+    Object.values(DEMO_PRESENTATION_ROOMS).flatMap((sala) =>
+      sala.roles.map((role) => Object.freeze({ ...role, tenantSlug: sala.tenantSlug }))),
+  );
+
 export function listarPapeisDeApresentacao() {
-  return Object.values(DEMO_PRESENTATION_ROOMS).flatMap((sala) =>
-    sala.roles.map((role) => ({ ...role, tenantSlug: sala.tenantSlug })));
+  return PAPEIS_DE_APRESENTACAO;
 }
 export type DemoPresentationRole = typeof DEMO_PRESENTATION_ROLES[number];
 export type DemoPresentationDeviceKey = typeof DEMO_PRESENTATION_DEVICES[number]['key'];
