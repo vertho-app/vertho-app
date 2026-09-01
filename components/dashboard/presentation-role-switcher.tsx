@@ -6,18 +6,20 @@ import {
   DEMO_PRESENTATION_DEVICES,
   DEMO_PRESENTATION_DEVICE_PARAM,
   DEMO_PRESENTATION_DEVICE_STORAGE_KEY,
-  DEMO_PRESENTATION_ROLES,
   DEMO_PRESENTATION_TICKET_PARAM,
   DEMO_PRESENTATION_TICKET_STORAGE_KEY,
   demoPresentationAuthUrl,
   demoPresentationUrl,
   getDemoPresentationDeviceQueryValue,
   getDemoPresentationRoleFromHostname,
+  getDemoPresentationRoom,
   parseDemoPresentationDevice,
   type DemoPresentationDeviceKey,
-  type DemoPresentationRole,
   type DemoPresentationRoleKey,
 } from '@/lib/demo/presentation';
+
+/** O papel resolvido pelo hostname sabe de que sala ele é. */
+type PapelDaSala = NonNullable<ReturnType<typeof getDemoPresentationRoleFromHostname>>;
 
 const subscribeToBrowserContext = () => () => {};
 const getPresentationRoleSnapshot = () => getDemoPresentationRoleFromHostname(window.location.hostname);
@@ -83,7 +85,7 @@ function readInitialPresentationState(): PresentationState {
 }
 
 type PresentationControlsProps = {
-  currentRole: DemoPresentationRole;
+  currentRole: PapelDaSala;
   device: DemoPresentationDeviceKey;
   switching: boolean;
   onRoleChange: (role: DemoPresentationRoleKey) => void;
@@ -98,6 +100,8 @@ function PresentationControls({
   onDeviceChange,
 }: PresentationControlsProps) {
   const DeviceIcon = device === 'mobile' ? Smartphone : Monitor;
+  // As opções são as da SALA atual: cada ambiente nomeia as próprias visões.
+  const papeisDaSala = getDemoPresentationRoom(currentRole.tenantSlug).roles;
 
   return (
     <div className="fixed right-3 top-[calc(var(--header-height)+0.5rem)] z-[90] max-w-[calc(100vw-1.5rem)] md:right-5 md:top-4">
@@ -119,7 +123,7 @@ function PresentationControls({
                 aria-label="Trocar função apresentada"
                 className="block min-w-[80px] cursor-pointer appearance-none bg-transparent pr-5 text-xs font-bold text-white outline-none disabled:cursor-wait sm:min-w-[108px]"
               >
-                {DEMO_PRESENTATION_ROLES.map((role) => (
+                {papeisDaSala.map((role) => (
                   <option key={role.key} value={role.key} className="bg-[#0b1a2b] text-white">
                     {role.label}
                   </option>
@@ -180,7 +184,7 @@ function PresentationControls({
  * interativa. Dentro do iframe, `window.self !== window.top` impede recursão.
  */
 export function PresentationEnvironment({ children }: { children: ReactNode }) {
-  const currentRole = useSyncExternalStore<DemoPresentationRole | null>(
+  const currentRole = useSyncExternalStore<PapelDaSala | null>(
     subscribeToBrowserContext,
     getPresentationRoleSnapshot,
     getPresentationRoleServerSnapshot,
@@ -229,10 +233,14 @@ export function PresentationEnvironment({ children }: { children: ReactNode }) {
 
     // Cada papel usa uma sessão real em seu hostname. O passe prepara essa
     // sessão no servidor e `tela` leva junto a preferência do apresentador.
+    // A troca é de FUNÇÃO, nunca de ambiente: o destino sai da sala do papel
+    // atual (o hostname já disse qual é). Sem isso, o switcher de uma demo
+    // escolar levaria o apresentador para os hosts do ACME no meio da reunião.
+    const salaAtual = currentRole.tenantSlug;
     const target = new URL(
       ticket
-        ? demoPresentationAuthUrl(nextRole, ticket)
-        : demoPresentationUrl(nextRole),
+        ? demoPresentationAuthUrl(nextRole, ticket, undefined, salaAtual)
+        : demoPresentationUrl(nextRole, undefined, undefined, salaAtual),
     );
     target.searchParams.set(
       DEMO_PRESENTATION_DEVICE_PARAM,

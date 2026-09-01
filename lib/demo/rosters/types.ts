@@ -69,6 +69,16 @@ export type DemoRosterAdministradora = {
   area_depto: string;
 };
 
+/** Um papel da sala de apresentação, e a persona que o atende. */
+export type DemoRosterSalaAcesso = {
+  presentationRoleKey: string;
+  visao: string;
+  nome: string;
+  email: string;
+  role: string;
+  nextPath: string;
+};
+
 export type DemoRoster = {
   key: string;
   /**
@@ -84,4 +94,6 @@ export type DemoRoster = {
   cargosConstruidos: DemoRosterCargo[];
   personas: DemoRosterPersona[];
   administradora: DemoRosterAdministradora;
+  /** Quem abre cada visão da sala ao vivo (participante, liderança, programa). */
+  salaApresentacao: DemoRosterSalaAcesso[];
 };

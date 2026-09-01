@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const mocks = vi.hoisted(() => ({
-  state: { ticketValid: true },
+  state: { ticketValid: true, ticketTenant: 'acme-demo' },
   gerarLogin: vi.fn(async () => ({
     ok: true as const,
     tokenHash: 'hashed-token-gestor',
@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/demo/presentation-ticket', () => ({
   verifyDemoPresentationTicket: () => mocks.state.ticketValid
-    ? { tenant: 'acme-demo', prospectSessionId: '1234567890abcdef1234' }
+    ? { tenant: mocks.state.ticketTenant, prospectSessionId: '1234567890abcdef1234' }
     : null,
 }));
 vi.mock('@/lib/demo/reset-acme-demo', () => ({
@@ -32,6 +32,7 @@ import { GET } from '@/app/auth/apresentacao/route';
 describe('rota de autenticação automática da apresentação', () => {
   beforeEach(() => {
     mocks.state.ticketValid = true;
+    mocks.state.ticketTenant = 'acme-demo';
     mocks.gerarLogin.mockClear();
     mocks.verifyOtp.mockClear();
     mocks.recordAccess.mockClear();
@@ -41,7 +42,7 @@ describe('rota de autenticação automática da apresentação', () => {
     const req = new NextRequest('https://gestor-demo.vertho.ai/auth/apresentacao?ticket=passe.assinado&role=rh');
     const res = await GET(req);
 
-    expect(mocks.gerarLogin).toHaveBeenCalledWith('gestor');
+    expect(mocks.gerarLogin).toHaveBeenCalledWith('gestor', 'acme-demo');
     expect(mocks.verifyOtp).toHaveBeenCalledWith({ token_hash: 'hashed-token-gestor', type: 'email' });
     expect(mocks.recordAccess).toHaveBeenCalledWith('1234567890abcdef1234', 'gestor');
     const destino = new URL(res.headers.get('location')!);
@@ -83,5 +84,21 @@ describe('rota de autenticação automática da apresentação', () => {
 
     expect(new URL(res.headers.get('location')!).pathname).toBe('/login');
     expect(mocks.gerarLogin).not.toHaveBeenCalled();
+  });
+
+  // Com mais de um ambiente demo, a assinatura deixa de bastar: ela prova que o
+  // passe é nosso, não que ele é DESTA sala. Sem esta conferência, um passe
+  // legítimo do ambiente escolar abriria sessão no ACME, e vice-versa.
+  it('recusa passe assinado para OUTRO ambiente demo', async () => {
+    mocks.state.ticketTenant = 'escolas-acme';
+
+    const req = new NextRequest('https://gestor-demo.vertho.ai/auth/apresentacao?ticket=passe.de.outra.sala');
+    const res = await GET(req);
+
+    expect(mocks.gerarLogin).not.toHaveBeenCalled();
+    expect(mocks.verifyOtp).not.toHaveBeenCalled();
+    const destino = new URL(res.headers.get('location')!);
+    expect(destino.pathname).toBe('/login');
+    expect(destino.searchParams.get('error')).toBe('apresentacao-invalida');
   });
 });

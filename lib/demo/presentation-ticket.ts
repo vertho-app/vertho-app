@@ -1,7 +1,11 @@
 import 'server-only';
 
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { DEMO_PRESENTATION_TENANT_SLUG } from '@/lib/demo/presentation';
+import {
+  DEMO_PRESENTATION_TENANT_SLUG,
+  isDemoPresentationTenant,
+  type DemoPresentationTenantSlug,
+} from '@/lib/demo/presentation';
 
 const TICKET_VERSION = 1 as const;
 export const DEMO_PRESENTATION_TICKET_TTL_SECONDS = 4 * 60 * 60;
@@ -11,7 +15,8 @@ const SIGNING_CONTEXT = 'vertho:demo-presentation:v1';
 
 export interface DemoPresentationTicketPayload {
   v: typeof TICKET_VERSION;
-  tenant: typeof DEMO_PRESENTATION_TENANT_SLUG;
+  /** Ambiente que o passe abre. Quem autentica confere contra o hostname. */
+  tenant: DemoPresentationTenantSlug;
   iat: number;
   exp: number;
   nonce: string;
@@ -38,7 +43,11 @@ function signature(encodedPayload: string): Buffer {
 export function issueDemoPresentationTicket(
   nowSeconds: number = Math.floor(Date.now() / 1000),
   options?: DemoPresentationTicketOptions,
+  tenantSlug: DemoPresentationTenantSlug = DEMO_PRESENTATION_TENANT_SLUG,
 ): string {
+  if (!isDemoPresentationTenant(tenantSlug)) {
+    throw new Error(`Sala de apresentação inválida: ${tenantSlug}`);
+  }
   const exp = options?.expiresAtSeconds ?? nowSeconds + DEMO_PRESENTATION_TICKET_TTL_SECONDS;
   if (options && (
     !/^[a-f0-9]{20}$/.test(options.prospectSessionId)
@@ -50,7 +59,7 @@ export function issueDemoPresentationTicket(
   }
   const payload: DemoPresentationTicketPayload = {
     v: TICKET_VERSION,
-    tenant: DEMO_PRESENTATION_TENANT_SLUG,
+    tenant: tenantSlug,
     iat: nowSeconds,
     exp,
     nonce: randomBytes(16).toString('base64url'),
@@ -76,7 +85,11 @@ export function verifyDemoPresentationTicket(
     const payload = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')) as Partial<DemoPresentationTicketPayload>;
     if (
       payload.v !== TICKET_VERSION
-      || payload.tenant !== DEMO_PRESENTATION_TENANT_SLUG
+      // Ambiente registrado, e nada além disso: o passe DIZ para qual sala vale,
+      // e é a rota de autenticação que confere isso contra o hostname. Aceitar
+      // aqui um slug qualquer deixaria o passe apontar para um tenant que não é
+      // sala de apresentação.
+      || !isDemoPresentationTenant(payload.tenant)
       || !Number.isInteger(payload.iat)
       || !Number.isInteger(payload.exp)
       || typeof payload.nonce !== 'string'

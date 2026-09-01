@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ROSTER_COMERCIAL } from '@/lib/demo/rosters/comercial';
-import { focosValidosDemo } from '@/lib/demo/reset-acme-demo';
+import { DEMO_TENANT_PROFILES, focosValidosDemo } from '@/lib/demo/reset-acme-demo';
+import { DEMO_ROSTERS } from '@/lib/demo/rosters';
 
 /**
  * O elenco saiu do motor do reset e virou dado (`lib/demo/rosters/`). Dois
@@ -90,6 +91,17 @@ describe('roster comercial: o elenco extraído do motor', () => {
       .toEqual(ROSTER_COMERCIAL.cargoPrincipalFoco);
     expect(focosValidosDemo(cargo, ROSTER_COMERCIAL.cargoPrincipalTop5, ROSTER_COMERCIAL))
       .toEqual(ROSTER_COMERCIAL.cargoPrincipalFoco);
+  });
+
+  // Perfil novo sem elenco semearia um tenant vazio, e um reset "bem-sucedido"
+  // que deixa a demo sem ninguém é pior que um erro na cara.
+  it('todo ambiente demo declara um roster que existe', () => {
+    const perfis = Object.values(DEMO_TENANT_PROFILES);
+    expect(perfis.length).toBeGreaterThan(0);
+    for (const perfil of perfis) {
+      expect(Object.keys(DEMO_ROSTERS), `${perfil.slug} declara "${perfil.roster}"`)
+        .toContain(perfil.roster);
+    }
   });
 
   it('cargo fora do principal mantém o foco próprio, filtrado pelo Top 5', () => {

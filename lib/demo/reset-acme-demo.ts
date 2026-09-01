@@ -4,6 +4,8 @@ import { randomBytes } from 'node:crypto';
 import {
   DEMO_PRESENTATION_ROLES,
   DEMO_PRESENTATION_TENANT_SLUG,
+  getDemoPresentationRoom,
+  type DemoPresentationTenantSlug,
   demoPresentationAuthUrl,
   demoPresentationUrl,
   getDemoPresentationRole,
@@ -49,6 +51,7 @@ import { buildAcmeDemoBehavioralReport } from '@/lib/demo/acme-behavioral-report
 // O ELENCO (cargos, competências, personas) vive fora do motor: um segmento
 // novo troca o roster, não o reset. A identidade da empresa continua em
 // DEMO_TENANT_PROFILES, logo abaixo.
+import { rosterDemo, type DemoRosterKey } from '@/lib/demo/rosters';
 import {
   COMERCIAL_AREA,
   DEMO_EXCLUDED_ROLES,
@@ -272,6 +275,7 @@ export const DEMO_TENANT_PROFILES = {
     nome: DEMO_NAME,
     marca: DEMO_NAME,
     segmento: 'corporativo',
+    roster: 'comercial' as DemoRosterKey,
     loginSubtitle: 'Ambiente de treinamento e demonstração da Vertho',
     logoUrl: null,
     pppNome: 'ACME Demo - Cultura e Operação',
@@ -290,6 +294,7 @@ export const DEMO_TENANT_PROFILES = {
     nome: 'Grupo Sinal — Demonstração',
     marca: 'Grupo Sinal',
     segmento: 'corporativo',
+    roster: 'comercial' as DemoRosterKey,
     loginSubtitle: 'Ambiente de demonstração da jornada Vertho para o Grupo Sinal',
     logoUrl: 'https://www.gruposinal.com.br/assets/logo-grupo-sinal-white.webp',
     pppNome: 'Grupo Sinal — Contexto organizacional',
@@ -504,14 +509,15 @@ export interface DemoPresentationLinksResult {
   error?: string;
 }
 
-const DEMO_ACCESS_PERSONAS = [
-  { presentationRoleKey: 'usuario', visao: 'Participante', nome: 'Bruna Costa', email: 'bruna.demo@vertho.ai', role: 'colaborador', nextPath: '/dashboard' },
-  { presentationRoleKey: 'gestor', visao: 'Liderança', nome: 'Carla Menezes', email: 'carla.demo@vertho.ai', role: 'gestor', nextPath: '/dashboard/gestor' },
-  { presentationRoleKey: 'rh', visao: 'RH', nome: DEMO_RH_PERSONA.nome_completo, email: DEMO_RH_PERSONA.email, role: DEMO_RH_PERSONA.role, nextPath: '/dashboard' },
-] as const;
+
+/** Quem atende cada visão da sala NESTE ambiente (vem do roster do perfil). */
+function salaDoTenant(slug: DemoTenantSlug) {
+  return rosterDemo(DEMO_TENANT_PROFILES[slug].roster).salaApresentacao;
+}
 
 async function validarTenantEAcessosDemo(sb: any, slug: DemoTenantSlug) {
   const profile = DEMO_TENANT_PROFILES[slug];
+  const sala = salaDoTenant(slug);
   const { data: empresa, error: empresaError } = await sb.from('empresas')
     .select('id, is_demo')
     .eq('slug', profile.slug)
@@ -521,19 +527,19 @@ async function validarTenantEAcessosDemo(sb: any, slug: DemoTenantSlug) {
     throw new Error(`O tenant ${profile.slug} não existe ou não está marcado como demonstração.`);
   }
 
-  const emails = DEMO_ACCESS_PERSONAS.map((a) => a.email);
+  const emails = sala.map((a) => a.email);
   const { data: colabs, error: colabsError } = await sb.from('colaboradores')
     .select('email, role')
     .eq('empresa_id', empresa.id)
     .in('email', emails);
   if (colabsError) throw new Error(`validar personas: ${colabsError.message}`);
-  for (const acesso of DEMO_ACCESS_PERSONAS) {
+  for (const acesso of sala) {
     const colab = (colabs || []).find((c: any) => c.email?.toLowerCase() === acesso.email);
     if (!colab || colab.role !== acesso.role) {
       throw new Error(`${acesso.email} não existe no ${profile.slug} com role=${acesso.role}. Resete o ambiente antes de preparar os acessos.`);
     }
   }
-  return { empresa, profile };
+  return { empresa, profile, sala };
 }
 
 async function buscarUsuarioAuth(sb: any, email: string) {
@@ -554,10 +560,9 @@ async function buscarUsuarioAuth(sb: any, email: string) {
 export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoResult> {
   const sb = createSupabaseAdmin();
   const profile = DEMO_TENANT_PROFILES[slug];
-  // O elenco do ambiente. Hoje os dois tenants demo são comerciais; quando o
-  // perfil declarar o roster, é esta linha que passa a lê-lo — e nada mais no
-  // motor precisa saber de que segmento se trata.
-  const roster: DemoRoster = ROSTER_COMERCIAL;
+  // O elenco vem do PERFIL do ambiente; o motor não sabe de que segmento se
+  // trata. Trocar o roster é trocar esta declaração, não o reset.
+  const roster: DemoRoster = rosterDemo(profile.roster);
   const brand = <T,>(value: T): T => personalizarArtefatoDemo(value, slug);
 
   async function must(label: string, promise: any) {
@@ -1727,11 +1732,11 @@ export async function resetGrupoSinalDemo(): Promise<ResetDemoResult> {
 export async function prepararAcessosDemo(slug: DemoTenantSlug = DEMO_SLUG): Promise<DemoAccessResult> {
   try {
     const sb = createSupabaseAdmin();
-    const { profile } = await validarTenantEAcessosDemo(sb, slug);
+    const { profile, sala } = await validarTenantEAcessosDemo(sb, slug);
 
     const senha = `Demo-${randomBytes(9).toString('base64url')}-Aa7!`;
     // Só depois de validar tenant + as três personas exatas alteramos o Auth.
-    for (const acesso of DEMO_ACCESS_PERSONAS) {
+    for (const acesso of sala) {
       const existente = await buscarUsuarioAuth(sb, acesso.email);
       if (existente) {
         const { error } = await sb.auth.admin.updateUserById(existente.id, { password: senha, email_confirm: true });
@@ -1746,7 +1751,7 @@ export async function prepararAcessosDemo(slug: DemoTenantSlug = DEMO_SLUG): Pro
       ok: true,
       url: tenantUrl(profile.slug, '/login'),
       senha,
-      acessos: DEMO_ACCESS_PERSONAS.map(({ visao, nome, email }) => ({ visao, nome, email })),
+      acessos: sala.map(({ visao, nome, email }) => ({ visao, nome, email })),
     };
   } catch (error: any) {
     console.error('[demo-access] preparar contas:', error?.message);
@@ -1762,10 +1767,10 @@ export async function prepararAcessosDemo(slug: DemoTenantSlug = DEMO_SLUG): Pro
 export async function gerarMagicLinksDemo(slug: DemoTenantSlug): Promise<DemoMagicLinksResult> {
   try {
     const sb = createSupabaseAdmin();
-    const { profile } = await validarTenantEAcessosDemo(sb, slug);
+    const { profile, sala } = await validarTenantEAcessosDemo(sb, slug);
     const acessos: NonNullable<DemoMagicLinksResult['acessos']> = [];
 
-    for (const acesso of DEMO_ACCESS_PERSONAS) {
+    for (const acesso of sala) {
       const existente = await buscarUsuarioAuth(sb, acesso.email);
       if (!existente) {
         const { error: createError } = await sb.auth.admin.createUser({
@@ -1811,26 +1816,28 @@ export async function gerarMagicLinksDemo(slug: DemoTenantSlug): Promise<DemoMag
  * (`usuario-demo`, `gestor-demo`, `rh-demo`) o troca por uma sessão real da
  * persona correspondente somente quando é visitado.
  */
-export async function prepararAcessosApresentacaoDemo(): Promise<DemoPresentationLinksResult> {
+export async function prepararAcessosApresentacaoDemo(
+  slug: DemoPresentationTenantSlug = DEMO_SLUG,
+): Promise<DemoPresentationLinksResult> {
   try {
     const sb = createSupabaseAdmin();
-    await validarTenantEAcessosDemo(sb, DEMO_SLUG);
+    const { sala } = await validarTenantEAcessosDemo(sb, slug as DemoTenantSlug);
 
     // O DNS é wildcard, mas o projeto Vercel ainda precisa conhecer cada host
     // para rotear e emitir SSL. A operação é idempotente (409 = já existe).
     const { addVercelDomain } = await import('@/lib/vercel-domain');
     const dominios = await Promise.all(
-      DEMO_PRESENTATION_ROLES.map((role) => addVercelDomain(role.hostSlug)),
+      getDemoPresentationRoom(slug).roles.map((role) => addVercelDomain(role.hostSlug)),
     );
     const dominioComErro = dominios.find((result) => !result.ok && !('skipped' in result));
     if (dominioComErro && 'error' in dominioComErro) {
       throw new Error(`preparar domínios da apresentação: ${dominioComErro.error}`);
     }
 
-    const ticket = issueDemoPresentationTicket();
+    const ticket = issueDemoPresentationTicket(undefined, undefined, slug);
     const acessos: NonNullable<DemoPresentationLinksResult['acessos']> = [];
 
-    for (const acesso of DEMO_ACCESS_PERSONAS) {
+    for (const acesso of sala) {
       const existente = await buscarUsuarioAuth(sb, acesso.email);
       if (!existente) {
         const { error: createError } = await sb.auth.admin.createUser({
@@ -1840,8 +1847,8 @@ export async function prepararAcessosApresentacaoDemo(): Promise<DemoPresentatio
         if (createError) throw new Error(`criar ${acesso.email}: ${createError.message}`);
       }
 
-      const role = getDemoPresentationRole(acesso.presentationRoleKey);
-      const directUrl = demoPresentationUrl(role.key, acesso.nextPath);
+      const role = getDemoPresentationRole(acesso.presentationRoleKey as DemoPresentationRoleKey, slug);
+      const directUrl = demoPresentationUrl(role.key, acesso.nextPath, undefined, slug);
 
       acessos.push({
         roleKey: role.key,
@@ -1849,7 +1856,7 @@ export async function prepararAcessosApresentacaoDemo(): Promise<DemoPresentatio
         nome: acesso.nome,
         email: acesso.email,
         directUrl,
-        url: demoPresentationAuthUrl(role.key, ticket),
+        url: demoPresentationAuthUrl(role.key, ticket, undefined, slug),
       });
     }
 
@@ -1865,16 +1872,20 @@ export async function prepararAcessosApresentacaoDemo(): Promise<DemoPresentatio
  * validou o passe assinado da sala. Este núcleo não aceita e-mail nem tenant do
  * client: ambos vêm da allowlist fixa acima.
  */
-export async function gerarMagicLinkPapelApresentacaoDemo(roleKey: DemoPresentationRoleKey): Promise<
+export async function gerarMagicLinkPapelApresentacaoDemo(
+  roleKey: DemoPresentationRoleKey,
+  slug: DemoPresentationTenantSlug = DEMO_SLUG,
+): Promise<
   { ok: true; tokenHash: string; nextPath: string } | { ok: false; error: string }
 > {
   try {
-    const acesso = DEMO_ACCESS_PERSONAS.find((item) => item.presentationRoleKey === roleKey);
+    const acesso = salaDoTenant(slug as DemoTenantSlug)
+      .find((item) => item.presentationRoleKey === roleKey);
     if (!acesso) return { ok: false, error: 'Papel de apresentação inválido.' };
 
     const sb = createSupabaseAdmin();
-    await validarTenantEAcessosDemo(sb, DEMO_SLUG);
-    const redirectTo = demoPresentationUrl(roleKey, acesso.nextPath);
+    await validarTenantEAcessosDemo(sb, slug as DemoTenantSlug);
+    const redirectTo = demoPresentationUrl(roleKey, acesso.nextPath, undefined, slug);
     const { data: link, error } = await sb.auth.admin.generateLink({
       type: 'magiclink',
       email: acesso.email,

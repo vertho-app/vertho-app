@@ -43,11 +43,49 @@ export const DEMO_PRESENTATION_ROLES = [
 ] as const;
 
 export type DemoPresentationRoleKey = typeof DEMO_PRESENTATION_ROLES[number]['key'];
+
+/**
+ * As SALAS: cada ambiente demo tem os seus três hostnames.
+ *
+ * 🔑 **O hostname identifica a sala inteira, papel E ambiente.** É por isso que
+ * os hosts não podem se repetir entre ambientes: `usuario-demo` só pode
+ * pertencer a um deles, senão o mesmo endereço abriria tenants diferentes
+ * dependendo de quem emitiu o passe. O papel continua saindo do host; o passe
+ * assinado é que carrega o ambiente, e a rota confere os dois.
+ */
+export const DEMO_PRESENTATION_ROOMS = {
+  [DEMO_PRESENTATION_TENANT_SLUG]: {
+    tenantSlug: DEMO_PRESENTATION_TENANT_SLUG,
+    rotulo: 'ACME Demo',
+    roles: DEMO_PRESENTATION_ROLES,
+  },
+} as const;
+
+export type DemoPresentationTenantSlug = keyof typeof DEMO_PRESENTATION_ROOMS;
+
+export function isDemoPresentationTenant(slug: unknown): slug is DemoPresentationTenantSlug {
+  return typeof slug === 'string'
+    && Object.prototype.hasOwnProperty.call(DEMO_PRESENTATION_ROOMS, slug);
+}
+
+export function getDemoPresentationRoom(slug: string) {
+  if (!isDemoPresentationTenant(slug)) throw new Error(`Sala de apresentação inválida: ${slug}`);
+  return DEMO_PRESENTATION_ROOMS[slug];
+}
+
+/** Todos os papéis de todas as salas, cada um sabendo de que ambiente é. */
+export function listarPapeisDeApresentacao() {
+  return Object.values(DEMO_PRESENTATION_ROOMS).flatMap((sala) =>
+    sala.roles.map((role) => ({ ...role, tenantSlug: sala.tenantSlug })));
+}
 export type DemoPresentationRole = typeof DEMO_PRESENTATION_ROLES[number];
 export type DemoPresentationDeviceKey = typeof DEMO_PRESENTATION_DEVICES[number]['key'];
 
-export function getDemoPresentationRole(key: DemoPresentationRoleKey): DemoPresentationRole {
-  const role = DEMO_PRESENTATION_ROLES.find((item) => item.key === key);
+export function getDemoPresentationRole(
+  key: DemoPresentationRoleKey,
+  tenantSlug: string = DEMO_PRESENTATION_TENANT_SLUG,
+): DemoPresentationRole {
+  const role = getDemoPresentationRoom(tenantSlug).roles.find((item) => item.key === key);
   if (!role) throw new Error(`Papel de apresentação inválido: ${key}`);
   return role;
 }
@@ -61,27 +99,32 @@ export function getDemoPresentationDeviceQueryValue(deviceKey: DemoPresentationD
   return DEMO_PRESENTATION_DEVICES.find((device) => device.key === deviceKey)?.queryValue ?? 'computador';
 }
 
-/** Retorna o tenant canônico somente para aliases fixos da sala de apresentação. */
-export function resolvePresentationTenantSlug(hostSlug: string): typeof DEMO_PRESENTATION_TENANT_SLUG | null {
+/** Retorna o tenant canônico somente para aliases fixos das salas de apresentação. */
+export function resolvePresentationTenantSlug(hostSlug: string): DemoPresentationTenantSlug | null {
   const normalized = String(hostSlug || '').trim().toLowerCase();
-  return DEMO_PRESENTATION_ROLES.some((role) => role.hostSlug === normalized)
-    ? DEMO_PRESENTATION_TENANT_SLUG
-    : null;
+  return listarPapeisDeApresentacao().find((role) => role.hostSlug === normalized)?.tenantSlug ?? null;
 }
 
-/** Identifica a visão atual pelo hostname; fora da sala retorna null. */
-export function getDemoPresentationRoleFromHostname(hostname: string): DemoPresentationRole | null {
+/**
+ * Identifica a visão atual pelo hostname; fora das salas retorna null. O papel
+ * volta com o `tenantSlug` junto: quem autentica precisa saber de que ambiente
+ * é este host para conferir contra o passe.
+ */
+export function getDemoPresentationRoleFromHostname(
+  hostname: string,
+): (DemoPresentationRole & { tenantSlug: DemoPresentationTenantSlug }) | null {
   const host = String(hostname || '').trim().toLowerCase().split(':')[0];
   const hostSlug = host.split('.')[0];
-  return DEMO_PRESENTATION_ROLES.find((role) => role.hostSlug === hostSlug) || null;
+  return listarPapeisDeApresentacao().find((role) => role.hostSlug === hostSlug) || null;
 }
 
 export function demoPresentationUrl(
   roleKey: DemoPresentationRoleKey,
   path?: string,
   rootDomain: string = ROOT_DOMAIN,
+  tenantSlug: string = DEMO_PRESENTATION_TENANT_SLUG,
 ): string {
-  const role = getDemoPresentationRole(roleKey);
+  const role = getDemoPresentationRole(roleKey, tenantSlug);
   const targetPath = path ?? role.homePath;
   const normalizedPath = targetPath.startsWith('/') ? targetPath : `/${targetPath}`;
   return `https://${role.hostSlug}.${rootDomain}${normalizedPath}`;
@@ -91,11 +134,13 @@ export function demoPresentationAuthUrl(
   roleKey: DemoPresentationRoleKey,
   ticket: string,
   rootDomain: string = ROOT_DOMAIN,
+  tenantSlug: string = DEMO_PRESENTATION_TENANT_SLUG,
 ): string {
   return demoPresentationUrl(
     roleKey,
     `/auth/apresentacao?ticket=${encodeURIComponent(ticket)}`,
     rootDomain,
+    tenantSlug,
   );
 }
 

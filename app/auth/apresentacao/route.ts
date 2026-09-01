@@ -24,9 +24,9 @@ function loginComErro(req: NextRequest, codigo: string) {
  *
  * O passe só nasce numa server action de platform admin, expira em quatro
  * horas e é assinado no servidor. O hostname escolhe um dos três papéis da
- * allowlist; nenhum e-mail, tenant ou role vem da query string. Assim o
- * dropdown entrega a conveniência de uma senha "por trás" sem expor senha no
- * browser e sem criar override de autorização.
+ * allowlist E o ambiente; nenhum e-mail, tenant ou role vem da query string.
+ * Assim o dropdown entrega a conveniência de uma senha "por trás" sem expor
+ * senha no browser e sem criar override de autorização.
  */
 export async function GET(req: NextRequest) {
   const role = getDemoPresentationRoleFromHostname(req.nextUrl.hostname);
@@ -38,7 +38,15 @@ export async function GET(req: NextRequest) {
     return loginComErro(req, 'apresentacao-expirada');
   }
 
-  const login = await gerarMagicLinkPapelApresentacaoDemo(role.key);
+  // O hostname diz QUAL SALA é esta; o passe diz para qual sala foi emitido.
+  // Com mais de um ambiente demo, conferir só a assinatura deixaria um passe
+  // válido de um ambiente abrir sessão no outro — mesma assinatura, tenant
+  // diferente. O passe vale onde foi emitido, e em nenhum outro lugar.
+  if (ticketPayload.tenant !== role.tenantSlug) {
+    return loginComErro(req, 'apresentacao-invalida');
+  }
+
+  const login = await gerarMagicLinkPapelApresentacaoDemo(role.key, role.tenantSlug);
   if ('error' in login) {
     console.error('[auth/apresentacao] gerar login:', login.error);
     return loginComErro(req, 'apresentacao-indisponivel');

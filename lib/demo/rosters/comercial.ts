@@ -135,6 +135,17 @@ export const PERSONAS = [
 ];
 
 /**
+ * Quem atende cada papel da sala de apresentação. É elenco, não motor: numa
+ * rede de escolas as três visões continuam existindo (participante, liderança e
+ * quem administra o programa), mas com outras pessoas e outro vocabulário.
+ */
+export const SALA_COMERCIAL = [
+  { presentationRoleKey: 'usuario', visao: 'Participante', nome: 'Bruna Costa', email: 'bruna.demo@vertho.ai', role: 'colaborador', nextPath: '/dashboard' },
+  { presentationRoleKey: 'gestor', visao: 'Liderança', nome: 'Carla Menezes', email: 'carla.demo@vertho.ai', role: 'gestor', nextPath: '/dashboard/gestor' },
+  { presentationRoleKey: 'rh', visao: 'RH', nome: DEMO_RH_PERSONA.nome_completo, email: DEMO_RH_PERSONA.email, role: DEMO_RH_PERSONA.role, nextPath: '/dashboard' },
+] as const;
+
+/**
  * O elenco comercial, montado. `acme-demo` e `gruposinal` usam este mesmo
  * roster: o que os distingue é a identidade da empresa, não o conteúdo.
  */
@@ -147,4 +158,5 @@ export const ROSTER_COMERCIAL: DemoRoster = {
   cargosConstruidos: DEMO_EXTRA_ROLES,
   personas: PERSONAS,
   administradora: DEMO_RH_PERSONA,
+  salaApresentacao: SALA_COMERCIAL.map((acesso) => ({ ...acesso })),
 };
