@@ -123,6 +123,38 @@ visões Colaborador, Gestor e RH. A linha de acompanhamento sobrevive à expira�
 e à remoção do colaborador temporário, preservando o histórico comercial; o
 WhatsApp opcional nunca é persistido.
 
+### Acompanhamento dos clientes: duas origens, um tenant por vez
+
+O bloco **Acompanhamento dos clientes** lista **todo convidado do tenant
+selecionado**, não só os passaportes:
+
+| Origem | Quem é | Marcas | Prazo |
+|---|---|---|---|
+| `passaporte` | veio da Degustação individual (linha em `demo_prospect_sessions`) | as 5 | D+2, às 04h BRT |
+| `cadastro` | colaborador do tenant fora do elenco fixo: o convidado nomeado do seed (Alpheu, no `gruposinal`) ou alguém cadastrado à mão | acesso e DISC | não expira |
+
+A régua de "convidado" é o **e-mail**: fica de fora o elenco do seed
+(`*.demo@vertho.ai`, que é conteúdo do ambiente) e a conta de staff da Vertho.
+No `cadastro` não existem as visões 02–04, e o cartão mostra só as duas marcas
+que ele pode cumprir — pintar as outras como "Aguardando" inventaria etapa que
+ninguém alcança.
+
+⚠️ **O passaporte só existe no ACME, mas o acompanhamento é por tenant**: até
+01/09/2026 a leitura era fixa no `acme-demo` e o Alpheu, convidado real do Grupo
+Sinal, nunca apareceu na tela. Trocar o seletor de ambiente troca a lista.
+
+O primeiro acesso de quem entrou por `cadastro` não tem carimbo do app: vem do
+`last_sign_in_at` do Supabase Auth pela RPC `demo_guest_auth_activity` (mig 237,
+`SECURITY DEFINER`, só `service_role`, restrita a e-mail de tenant `is_demo`).
+Varrer `auth.admin.listUsers` no lugar dela custaria paginar **todos** os
+usuários do projeto a cada atualização do painel. Falha na RPC derruba a
+listagem de propósito: silêncio ali viraria "ninguém acessou" na tela.
+
+⚠️ Convidado de `cadastro` no ACME **não sobrevive ao reset das 04h** —
+`colaboradores` está em `DEMO_RESET_TABLES`. Para acompanhar alguém por mais de
+um dia, use a Degustação individual (o reset adia enquanto houver passaporte no
+prazo) ou o convidado nomeado do perfil do tenant, que o seed recria.
+
 ## Fixture congelado
 O reset semeia de `lib/demo/acme-demo-fixture.json` (golden state VERSIONADO), **não** do acme vivo → a demo é estável e imune a mexidas no `acme`. O fixture guarda:
 - Estrutura: empresa + competências + cargos + top10 + cenários (com source ids para remapeamento).

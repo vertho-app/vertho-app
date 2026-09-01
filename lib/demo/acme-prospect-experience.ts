@@ -6,8 +6,7 @@ import {
   getAcmeProspectRole,
   acmeProspectExpiresAt,
   ACME_PROSPECT_AUTH_MARKER,
-  ACME_PROSPECT_AUTH_PREFIX,
-  ACME_PROSPECT_AUTH_SUFFIX,
+  acmeProspectAuthEmail,
   ACME_PROSPECT_SESSION_PATTERN,
   validateAcmeProspectExperienceInput,
   type AcmeProspectExperienceAccess,
@@ -29,13 +28,6 @@ export type AcmeProspectLifecycle = {
   sessionId: string;
   expiresAt: string;
 };
-
-function buildGuestAuthEmail(sessionId: string): string {
-  // Deliberadamente NÃO termina em `.demo@vertho.ai`: o filtro canônico trata
-  // esta conta como interna e a exclui dos indicadores agregados. O login e os
-  // fluxos individuais continuam funcionando normalmente.
-  return `${ACME_PROSPECT_AUTH_PREFIX}${sessionId}${ACME_PROSPECT_AUTH_SUFFIX}`;
-}
 
 export function createAcmeProspectLifecycle(now: Date = new Date()): AcmeProspectLifecycle {
   return {
@@ -122,7 +114,7 @@ export async function prepareAcmeProspectExperience(
     }
 
     const sessionId = lifecycle.sessionId;
-    const authEmail = buildGuestAuthEmail(sessionId);
+    const authEmail = acmeProspectAuthEmail(sessionId);
     const expiresAt = lifecycle.expiresAt;
     const colaboradorId = randomUUID();
 

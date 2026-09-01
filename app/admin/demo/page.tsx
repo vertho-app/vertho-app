@@ -21,7 +21,7 @@ import {
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import {
-  listarExperienciasProspectAcme,
+  listarConvidadosDemo,
   prepararExperienciaProspectAcme,
   prepararSalaApresentacaoDemo,
   resetarDemo,
@@ -32,8 +32,8 @@ import {
   buildAcmeProspectShareText,
   getAcmeProspectExperienceSteps,
   type AcmeProspectExperienceAccess,
-  type AcmeProspectProgress,
   type AcmeProspectRoleKey,
+  type DemoGuestProgress,
 } from '@/lib/demo/acme-prospect-config';
 
 type TenantSlug = 'acme-demo' | 'gruposinal';
@@ -98,7 +98,7 @@ export default function AdminDemoPage() {
   const [prospectForm, setProspectForm] = useState<ProspectForm>(EMPTY_PROSPECT_FORM);
   const [prospectAccess, setProspectAccess] = useState<ProspectAccessView | null>(null);
   const [preparandoProspect, setPreparandoProspect] = useState(false);
-  const [prospectProgress, setProspectProgress] = useState<AcmeProspectProgress[]>([]);
+  const [convidados, setConvidados] = useState<DemoGuestProgress[]>([]);
   const [carregandoProgress, setCarregandoProgress] = useState(true);
   const [progressUpdatedAt, setProgressUpdatedAt] = useState<Date | null>(null);
   const [copiado, setCopiado] = useState<string | null>(null);
@@ -130,26 +130,30 @@ export default function AdminDemoPage() {
   const carregarAndamento = useCallback(async (options: { silencioso?: boolean } = {}) => {
     if (!options.silencioso) setCarregandoProgress(true);
     try {
-      const result = await listarExperienciasProspectAcme();
+      const result = await listarConvidadosDemo(tenantSlug);
       if (!result.success) {
         if (!options.silencioso) toast.error(`Falha ao carregar acompanhamento: ${result.error || 'erro'}`);
         return;
       }
-      setProspectProgress(result.experiencias);
+      setConvidados(result.convidados);
       setProgressUpdatedAt(new Date());
     } catch (error: any) {
       if (!options.silencioso) toast.error(`Falha ao carregar acompanhamento: ${error?.message || 'erro'}`);
     } finally {
       setCarregandoProgress(false);
     }
-  }, []);
+  }, [tenantSlug]);
 
+  // O acompanhamento é POR TENANT: trocar de ambiente troca a lista, senão a
+  // tela mostraria os convidados do ACME com o Grupo Sinal selecionado.
   useEffect(() => {
     let active = true;
-    void listarExperienciasProspectAcme()
+    setCarregandoProgress(true);
+    setConvidados([]);
+    void listarConvidadosDemo(tenantSlug)
       .then((result) => {
         if (!active || !result.success) return;
-        setProspectProgress(result.experiencias);
+        setConvidados(result.convidados);
         setProgressUpdatedAt(new Date());
       })
       .catch(() => { /* o botão Atualizar permite tentar novamente */ })
@@ -157,7 +161,7 @@ export default function AdminDemoPage() {
         if (active) setCarregandoProgress(false);
       });
     return () => { active = false; };
-  }, []);
+  }, [tenantSlug]);
 
   useEffect(() => {
     if (presentationAutoRequested.current) return;
@@ -641,7 +645,8 @@ export default function AdminDemoPage() {
                     <h3 className="text-[10px] font-bold uppercase tracking-[0.16em]">Acompanhamento dos clientes</h3>
                   </div>
                   <p className="mt-1 text-[10px] text-white/35">
-                    Primeiro acesso e avanço pelas cinco marcas da experiência.
+                    Quem foi convidado para o {tenant.nome} e até onde chegou. As visões 02–04 só
+                    existem no passaporte; quem entrou por cadastro tem acesso e DISC.
                   </p>
                 </div>
                 <button
@@ -655,45 +660,67 @@ export default function AdminDemoPage() {
                 </button>
               </div>
 
-              {carregandoProgress && prospectProgress.length === 0 ? (
+              {carregandoProgress && convidados.length === 0 ? (
                 <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-white/8 bg-black/10 py-7 text-[10px] text-white/35">
                   <Loader2 size={13} className="animate-spin" aria-hidden="true" /> Carregando experiências…
                 </div>
-              ) : prospectProgress.length === 0 ? (
+              ) : convidados.length === 0 ? (
                 <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-black/10 px-4 py-6 text-center">
-                  <p className="text-[11px] font-semibold text-white/55">Nenhum roteiro acompanhado ainda</p>
-                  <p className="mt-1 text-[9px] text-white/30">O primeiro cliente criado aparecerá aqui com o avanço de cada etapa.</p>
+                  <p className="text-[11px] font-semibold text-white/55">Nenhum convidado no {tenant.nome}</p>
+                  <p className="mt-1 text-[9px] text-white/30">O primeiro cliente convidado aparecerá aqui com o avanço de cada etapa.</p>
                 </div>
               ) : (
                 <div className="mt-4 space-y-3">
-                  {prospectProgress.map((experience) => {
-                    const expired = Boolean(experience.accessClosedAt)
-                      || Date.parse(experience.expiresAt) <= (progressUpdatedAt?.getTime() || 0);
-                    const milestones = [
-                      ['Acesso pessoal', experience.personalAccessedAt],
-                      ['DISC', experience.discCompletedAt],
-                      ['Colaborador', experience.colaboradorAccessedAt],
-                      ['Gestor', experience.gestorAccessedAt],
-                      ['RH', experience.rhAccessedAt],
-                    ] as const;
+                  {convidados.map((experience) => {
+                    const comPassaporte = experience.origem === 'passaporte';
+                    const expired = comPassaporte && (
+                      Boolean(experience.accessClosedAt)
+                      || Date.parse(experience.expiresAt || '') <= (progressUpdatedAt?.getTime() || 0)
+                    );
+                    // Quem entrou por cadastro não tem as visões 02–04: mostrá-las
+                    // como "Aguardando" inventaria uma etapa que ninguém pode cumprir.
+                    const milestones = comPassaporte
+                      ? [
+                        ['Acesso pessoal', experience.personalAccessedAt],
+                        ['DISC', experience.discCompletedAt],
+                        ['Colaborador', experience.colaboradorAccessedAt],
+                        ['Gestor', experience.gestorAccessedAt],
+                        ['RH', experience.rhAccessedAt],
+                      ] as const
+                      : [
+                        ['Acesso', experience.personalAccessedAt],
+                        ['DISC', experience.discCompletedAt],
+                      ] as const;
                     const completed = milestones.filter(([, value]) => Boolean(value)).length;
                     return (
-                      <article key={experience.sessionId} className="relative overflow-hidden rounded-xl border border-white/10 bg-[#081523]/85 p-3.5">
+                      <article key={experience.id} className="relative overflow-hidden rounded-xl border border-white/10 bg-[#081523]/85 p-3.5">
                         <span className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#0b1928]" aria-hidden="true" />
                         <span className="absolute -right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#0b1928]" aria-hidden="true" />
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
-                            <p className="text-[11px] font-bold text-white">{experience.nome}</p>
-                            <p className="mt-0.5 text-[9px] text-white/35">{experience.empresa} · {experience.cargo}</p>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="text-[11px] font-bold text-white">{experience.nome}</p>
+                              <span className={`rounded-full border px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-wide ${comPassaporte ? 'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-200/70' : 'border-white/10 bg-white/[0.04] text-white/40'}`}>
+                                {comPassaporte ? 'Passaporte' : 'Cadastro'}
+                              </span>
+                            </div>
+                            <p className="mt-0.5 text-[9px] text-white/35">{experience.contexto} · {experience.cargo}</p>
                           </div>
                           <div className="text-right">
                             <span className={`inline-flex rounded-full border px-2 py-1 font-mono text-[8px] uppercase tracking-wide ${expired ? 'border-white/10 bg-white/[0.03] text-white/35' : 'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-200/75'}`}>
-                              {expired ? 'Encerrado' : `${completed}/5 concluídos`}
+                              {expired ? 'Encerrado' : `${completed}/${milestones.length} concluídos`}
                             </span>
-                            <p className="mt-1 font-mono text-[8px] text-white/25">até {formatProspectExpiry(experience.expiresAt)}</p>
+                            <p className="mt-1 font-mono text-[8px] text-white/25">
+                              {experience.expiresAt
+                                ? `até ${formatProspectExpiry(experience.expiresAt)}`
+                                : `desde ${formatProspectExpiry(experience.createdAt)}`}
+                            </p>
                           </div>
                         </div>
 
+                        {/* 5 colunas SEMPRE: com duas marcas esticadas na largura toda,
+                            o cartão de cadastro não alinha com os de passaporte e a
+                            comparação entre pessoas se perde. */}
                         <ol className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-5" aria-label={`Andamento de ${experience.nome}`}>
                           {milestones.map(([label, timestamp], index) => {
                             const done = Boolean(timestamp);

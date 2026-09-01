@@ -7,6 +7,7 @@ import {
   prepararAcessosDemo,
   prepararAcessosApresentacaoDemo,
   resetDemoTenant,
+  DEMO_TENANT_PROFILES,
   type DemoTenantSlug,
 } from '@/lib/demo/reset-acme-demo';
 import {
@@ -20,7 +21,7 @@ import {
 } from '@/lib/demo/acme-prospect-experience';
 import {
   cleanupExpiredAcmeProspects,
-  listAcmeProspectProgress,
+  listDemoGuestProgress,
 } from '@/lib/demo/acme-prospect-tracking';
 import {
   ACME_PROSPECT_EXPERIENCE_VIEWS,
@@ -71,13 +72,20 @@ export async function resetarDemo(slug: DemoTenantSlug = 'acme-demo') {
   return { success: true as const, skipped: false as const, counts: r.counts };
 }
 
-/** Lista os passaportes recentes do ACME; leitura exclusiva de platform admin. */
-export async function listarExperienciasProspectAcme() {
+/**
+ * Acompanhamento dos convidados de um tenant de demonstração; leitura exclusiva
+ * de platform admin. O slug vem do cliente, então passa pela MESMA allowlist
+ * tipada do reset (`DEMO_TENANT_PROFILES`) antes de virar consulta.
+ */
+export async function listarConvidadosDemo(slug: DemoTenantSlug = 'acme-demo') {
   await requireAdminAction();
+  if (!Object.prototype.hasOwnProperty.call(DEMO_TENANT_PROFILES, slug)) {
+    return { success: false as const, error: 'Tenant de demonstração inválido.' };
+  }
   try {
-    return { success: true as const, experiencias: await listAcmeProspectProgress() };
+    return { success: true as const, convidados: await listDemoGuestProgress(slug) };
   } catch (error: any) {
-    return { success: false as const, error: error?.message || 'falha ao carregar experiências' };
+    return { success: false as const, error: error?.message || 'falha ao carregar convidados' };
   }
 }
 

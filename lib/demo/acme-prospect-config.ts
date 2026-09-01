@@ -97,10 +97,57 @@ export type AcmeProspectProgress = {
   accessClosedAt: string | null;
 };
 
+/**
+ * Como a pessoa entrou no tenant de demonstração:
+ *
+ * - `passaporte`: veio do botão "preparar experiência", tem linha em
+ *   `demo_prospect_sessions`, prazo D+2 e as três visões da apresentação.
+ * - `cadastro`: é um colaborador do tenant que não faz parte do elenco fixo
+ *   (convidado nomeado do seed, como o Alpheu no Grupo Sinal, ou alguém
+ *   cadastrado à mão). Não tem prazo nem visões; só entrada e DISC.
+ */
+export type DemoGuestOrigin = 'passaporte' | 'cadastro';
+
+/**
+ * Linha do acompanhamento comercial. Une as duas origens acima: o cartão do
+ * `cadastro` só preenche as duas primeiras marcas, porque as visões 02–04 não
+ * existem fora do passaporte (dizer "Aguardando" nelas seria inventar uma
+ * etapa que ninguém pode cumprir).
+ *
+ * `personalAccessedAt` no `passaporte` é o PRIMEIRO acesso, carimbado pelo app;
+ * no `cadastro` é o último login do Supabase Auth, o único registro que existe.
+ * Para o que o painel responde (entrou ou não entrou) os dois servem.
+ */
+export type DemoGuestProgress = {
+  id: string;
+  origem: DemoGuestOrigin;
+  nome: string;
+  /** Empresa do prospect (passaporte) ou e-mail do convidado (cadastro). */
+  contexto: string;
+  cargo: string;
+  createdAt: string;
+  expiresAt: string | null;
+  personalAccessedAt: string | null;
+  discCompletedAt: string | null;
+  colaboradorAccessedAt: string | null;
+  gestorAccessedAt: string | null;
+  rhAccessedAt: string | null;
+  accessClosedAt: string | null;
+};
+
 export const ACME_PROSPECT_AUTH_PREFIX = 'convidado.acme.';
 export const ACME_PROSPECT_AUTH_SUFFIX = '@vertho.ai';
 export const ACME_PROSPECT_AUTH_MARKER = 'acme-prospect-experience-v1';
 export const ACME_PROSPECT_SESSION_PATTERN = /^[a-f0-9]{20}$/;
+
+/**
+ * E-mail técnico do convidado de passaporte. Deliberadamente NÃO termina em
+ * `.demo@vertho.ai`: o filtro canônico (`lib/internal-emails`) trata esta conta
+ * como interna e a exclui dos indicadores agregados.
+ */
+export function acmeProspectAuthEmail(sessionId: string): string {
+  return `${ACME_PROSPECT_AUTH_PREFIX}${sessionId}${ACME_PROSPECT_AUTH_SUFFIX}`;
+}
 
 function cleanHumanText(value: unknown): string {
   return String(value ?? '')
