@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { tenantUrl } from '@/lib/domain';
+import { montarParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
 import { tenantDb } from '@/lib/tenant-db';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import {
@@ -188,9 +189,21 @@ export async function prepareAcmeProspectExperience(
         empresa: parsed.value.empresa,
         cargo: role.label,
         expiresAt,
+        // 🔴 NUNCA aponte o link do convidado direto para `/auth/callback`.
+        //
+        // O callback chama `verifyOtp`, que CONSOME o token de uso único — e o
+        // link do passaporte trafega por WhatsApp, onde o robô de preview da
+        // Meta busca a URL para montar o cartão. `Medido 01/09/2026:` os dois
+        // passaportes criados na tarde tiveram login carimbado 12s e 13s depois
+        // da criação, e o clique de verdade, um minuto depois, bateu em
+        // "Email link is invalid or has expired" no callback.
+        //
+        // `/entrar` é a rota de despacho criada em 15/08 para exatamente isso:
+        // ela responde HTML e só vai ao callback quando o JS executa, então o
+        // robô fica do lado de fora e o token chega inteiro em quem clicou.
         url: tenantUrl(
           ACME_DEMO_SLUG,
-          `/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`,
+          `/entrar?t=${encodeURIComponent(montarParametroAcesso(ACME_DEMO_SLUG, tokenHash))}`,
         ),
       },
     };

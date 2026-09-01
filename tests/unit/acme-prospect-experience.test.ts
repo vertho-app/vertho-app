@@ -71,9 +71,20 @@ describe('experiência temporária de prospect no ACME', () => {
       empresa: 'Empresa Horizonte',
       cargo: 'Representante Comercial',
     });
-    expect(new URL(result.access.url).hostname).toBe('acme-demo.vertho.ai');
-    expect(new URL(result.access.url).pathname).toBe('/auth/callback');
-    expect(new URL(result.access.url).searchParams.get('token_hash')).toBe('guest-token-hash');
+    // 🔴 O link do convidado NÃO pode apontar para o callback: ele trafega por
+    // WhatsApp, e o robô de preview consumiria o token de uso único antes do
+    // clique (medido 01/09: login carimbado 12s após a criação, e o clique de
+    // verdade caindo em "link is invalid or has expired").
+    const acesso = new URL(result.access.url);
+    expect(acesso.hostname).toBe('acme-demo.vertho.ai');
+    expect(acesso.pathname).toBe('/entrar');
+    expect(acesso.pathname).not.toBe('/auth/callback');
+    expect(acesso.searchParams.get('t')).toBe('acme-demo~guest-token-hash');
+    // e o token não pode viajar solto num parâmetro que o callback aceite
+    expect(acesso.searchParams.get('token_hash')).toBeNull();
+    // sem `ir=1`: é ele que autoriza o consumo, e quem o adiciona é o JS da
+    // tela de despacho, não o link que sai daqui
+    expect(acesso.searchParams.get('ir')).toBeNull();
 
     const insert = sb.escritas.find((write) => write.tabela === 'colaboradores' && write.op === 'insert');
     expect(insert?.payload.empresa_id).toBe('acme-id');
