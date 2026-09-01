@@ -1,0 +1,1029 @@
+{
+  "_meta": {
+    "origem": "ibipeba",
+    "capturadoEm": "2026-09-01T18:17:32.101Z",
+    "nota": "Régua metodológica das competências escolares. Sem dado de cliente: só nome do descritor, níveis N1-N4, evidências e perguntas-alvo."
+  },
+  "descritores": {
+    "Diretor(a) Escolar::Liderança pedagógica": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Direção pedagógica",
+        "descritor_completo": "Define prioridades pedagógicas claras para a escola e orienta a equipe em torno delas.",
+        "n1_gap": "Atua sem direção pedagógica clara; decisões são reativas e desconectadas entre si.",
+        "n2_desenvolvimento": "Define prioridades pedagógicas, mas comunica de forma vaga ou inconsistente; a equipe não se orienta por elas.",
+        "n3_meta": "Define prioridades pedagógicas claras, comunica com regularidade e alinha a equipe em torno delas.",
+        "n4_referencia": "Transforma prioridades em metas, rotinas e rituais que a escola sustenta mesmo na sua ausência.",
+        "evidencias_esperadas": "Ação/Exemplo: Cita prioridade pedagógica explícita; Critério: mostra como comunicou à equipe; Acompanhamento: descreve como orienta decisões cotidianas a partir dela",
+        "perguntas_alvo": "Qual é a principal prioridade pedagógica da escola hoje? Como a equipe sabe disso? Me dê um exemplo de decisão recente orientada por essa prioridade"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Observação de práticas",
+        "descritor_completo": "Observa e acompanha a qualidade das práticas pedagógicas com critérios consistentes e foco formativo.",
+        "n1_gap": "Não acompanha práticas pedagógicas; baseia-se apenas em queixas ou relatórios superficiais.",
+        "n2_desenvolvimento": "Acompanha práticas pontualmente, mas sem critérios claros ou devolutiva estruturada.",
+        "n3_meta": "Acompanha práticas com critérios definidos, identifica forças e gaps, e usa o que observa para apoiar a equipe.",
+        "n4_referencia": "Constrói cultura de acompanhamento pedagógico onde a observação entre pares é natural e valorizada.",
+        "evidencias_esperadas": "Ação/Exemplo: identifica pelo menos uma força e um gap; Critério: Menciona visita a sala com pauta/critério definido; Acompanhamento: descreve devolutiva feita ao professor",
+        "perguntas_alvo": "Quando foi a última vez que observou uma aula? O que buscava observar? O que identificou e como devolveu ao professor?"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Feedback docente",
+        "descritor_completo": "Oferece devolutivas pedagógicas úteis aos professores com base em evidências observadas.",
+        "n1_gap": "Não oferece devolutivas pedagógicas ou o faz de forma genérica e sem base em observação.",
+        "n2_desenvolvimento": "Oferece devolutivas em algumas situações, mas com baixa especificidade ou regularidade.",
+        "n3_meta": "Oferece devolutivas claras, específicas e orientadas por dados, com regularidade e em ambiente seguro.",
+        "n4_referencia": "Usa devolutivas como motor de desenvolvimento contínuo; professores buscam ativamente seu feedback.",
+        "evidencias_esperadas": "Ação/Exemplo: Feedback cita evidência concreta (não impressão); Critério: conecta observação a próximo passo; Acompanhamento: descreve tom e contexto da devolutiva",
+        "perguntas_alvo": "Me dê um exemplo de feedback que deu a um professor recentemente. Em que se baseou? Qual foi o próximo passo combinado?"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Uso de evidências",
+        "descritor_completo": "Usa evidências e dados pedagógicos (avaliações internas, externas, frequência, IDEB) para orientar decisões.",
+        "n1_gap": "Não utiliza dados; decisões pedagógicas são baseadas em impressões ou pressão externa.",
+        "n2_desenvolvimento": "Consulta dados quando disponíveis, mas sem análise sistemática ou conexão com decisões.",
+        "n3_meta": "Analisa dados regularmente, identifica padrões e lacunas, e traduz evidências em ações pedagógicas.",
+        "n4_referencia": "Cria cultura de decisão baseada em evidências; equipe usa dados autonomamente para ajustar práticas.",
+        "evidencias_esperadas": "Ação/Exemplo: mostra como interpretou; Critério: descreve decisão tomada a partir do dado; Acompanhamento: Cita dado ou evidência específica (avaliação, frequência, IDEB)",
+        "perguntas_alvo": "Qual dado ou evidência pedagógica você usou recentemente para tomar uma decisão? Como interpretou esse dado? O que decidiu fazer?"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Desenvolvimento docente",
+        "descritor_completo": "Cria condições para o desenvolvimento docente com base nas necessidades observadas.",
+        "n1_gap": "Não investe em formação docente ou repassa formações da Secretaria sem curadoria.",
+        "n2_desenvolvimento": "Promove formação pontualmente, mas desconectada das necessidades reais da escola.",
+        "n3_meta": "Planeja formação continuada alinhada aos gaps observados, com acompanhamento do impacto em sala.",
+        "n4_referencia": "Articula formação com universidades, redes e pares; professores se tornam formadores uns dos outros.",
+        "evidencias_esperadas": "Ação/Exemplo: Identifica necessidade formativa com base em observação/dado; Critério: descreve ação formativa oferecida; Acompanhamento: menciona como verificou aplicação na prática",
+        "perguntas_alvo": "Como identifica que um professor precisa de apoio? Que tipo de formação ou apoio você ofereceu? Como sabe se funcionou?"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Ajuste de rota",
+        "descritor_completo": "Monitora resultados e ajusta estratégias pedagógicas de forma coerente e tempestiva.",
+        "n1_gap": "Não monitora resultados ou constata problemas sem agir.",
+        "n2_desenvolvimento": "Monitora resultados, mas ajustes são lentos ou desconectados do diagnóstico.",
+        "n3_meta": "Monitora com regularidade e ajusta estratégias com agilidade quando os dados indicam necessidade.",
+        "n4_referencia": "Antecipa desvios antes que se consolidem; a escola opera em ciclos de melhoria contínua.",
+        "evidencias_esperadas": "Ação/Exemplo: descreve o que mudou na estratégia; Critério: descreve o que mudou na estratégia; Acompanhamento: Cita resultado que motivou ajuste / mostra acompanhamento do efeito da mudança",
+        "perguntas_alvo": "Me conte uma situação em que os resultados não estavam como esperado. O que você mudou? Como acompanhou se o ajuste funcionou?"
+      }
+    ],
+    "Diretor(a) Escolar::Gestão democrática e cultura colaborativa": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Participação nas decisões",
+        "descritor_completo": "Cria espaço real para participação de diferentes atores nas decisões relevantes da escola.",
+        "n1_gap": "Gestão centralizada; decide sozinho e comunica depois.",
+        "n2_desenvolvimento": "Consulta pontualmente, mas já chega com decisão tomada; participação é figurativa.",
+        "n3_meta": "Submete decisões relevantes a espaços coletivos; colegiados deliberam de verdade.",
+        "n4_referencia": "Comunidade escolar participa desde a formulação; colegiados são autônomos e propositivos.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve decisão que passou por colegiado ou escuta coletiva; Critério: mostra se a participação foi real (não consultiva pro forma); Acompanhamento: cita resultado da participação",
+        "perguntas_alvo": "Me conte uma decisão importante que foi tomada coletivamente. Quem participou? A participação mudou o resultado?"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Transparência",
+        "descritor_completo": "Compartilha informações relevantes sobre decisões, recursos e resultados com clareza e oportunidade.",
+        "n1_gap": "Informações centralizadas; equipe e famílias não sabem o que acontece nem por quê.",
+        "n2_desenvolvimento": "Compartilha quando cobrado ou em momentos formais, de forma parcial.",
+        "n3_meta": "Compartilha informações proativamente, com clareza e nos canais adequados para cada público.",
+        "n4_referencia": "Transparência é valor institucional; a comunidade acessa informações relevantes com facilidade e regularidade.",
+        "evidencias_esperadas": "Ação/Exemplo: Cita informação compartilhada proativamente (financeira, pedagógica, de gestão); Critério: descreve canal e frequência; Acompanhamento: mostra acessibilidade",
+        "perguntas_alvo": "Que informações a escola compartilha com a equipe e as famílias? Como e quando? Qualquer pessoa consegue acessar?"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Escuta de múltiplas vozes",
+        "descritor_completo": "Considera perspectivas diversas de profissionais, famílias e estudantes nas decisões.",
+        "n1_gap": "Escuta seletiva; só ouve quem concorda ou quem tem mais poder.",
+        "n2_desenvolvimento": "Escuta várias vozes, mas sem método para incluir os menos visíveis (funcionários, alunos, famílias vulneráveis).",
+        "n3_meta": "Cria espaços intencionais de escuta que incluem todos os segmentos, inclusive os mais silenciados.",
+        "n4_referencia": "Garante que alunos e funcionários tenham peso efetivo nas decisões; a pluralidade é real.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve como incluiu vozes menos ouvidas (funcionários, alunos, famílias vulneráveis); Critério: mostra método ou espaço criado; Acompanhamento: cita impacto",
+        "perguntas_alvo": "Quem geralmente não é ouvido nas decisões da escola? O que faz para incluir essas vozes? Me dê um exemplo concreto"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Construção de acordos",
+        "descritor_completo": "Facilita a construção de acordos claros, viáveis e sustentáveis entre os envolvidos.",
+        "n1_gap": "Impõe decisões sem buscar consenso; ou cede para evitar conflito sem resolver a questão.",
+        "n2_desenvolvimento": "Tenta construir acordos, mas sem método ou com dificuldade de sustentar o combinado.",
+        "n3_meta": "Facilita acordos claros com compromissos de ambas as partes e acompanhamento.",
+        "n4_referencia": "Acordos são construídos de forma colaborativa e se sustentam porque todos se sentem donos.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve processo de construção de acordo (não imposição); Critério: mostra compromissos de ambos os lados; Acompanhamento: cita como sustenta o combinado",
+        "perguntas_alvo": "Me conte uma situação em que precisou construir acordo entre partes com opiniões diferentes. Como fez? O acordo se sustentou?"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Corresponsabilidade",
+        "descritor_completo": "Estimula senso de responsabilidade compartilhada sobre metas e desafios da escola.",
+        "n1_gap": "A escola é \"problema do diretor\"; equipe se exime de responsabilidade coletiva.",
+        "n2_desenvolvimento": "Alguns grupos assumem corresponsabilidade, mas outros se isentam.",
+        "n3_meta": "Estimula corresponsabilidade concreta: metas compartilhadas, prestação de contas mútua.",
+        "n4_referencia": "Cultura de corresponsabilidade consolidada; a escola funciona como organismo coletivo.",
+        "evidencias_esperadas": "Ação/Exemplo: Mostra como distribui responsabilidade (não concentra em si); Critério: cita meta compartilhada; Acompanhamento: descreve prestação de contas mútua",
+        "perguntas_alvo": "As metas da escola são sentidas como responsabilidade de todos ou só da direção? Me dê exemplo de como gera corresponsabilidade"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Rituais colaborativos",
+        "descritor_completo": "Estrutura rotinas e espaços de colaboração produtiva entre equipes e grupos.",
+        "n1_gap": "Não existem espaços de colaboração; cada um trabalha isoladamente.",
+        "n2_desenvolvimento": "Espaços existem (HTPC, reuniões), mas são usados para avisos, não para colaboração.",
+        "n3_meta": "Estrutura rituais produtivos de colaboração: planejamento conjunto, estudos de caso, troca de práticas.",
+        "n4_referencia": "Colaboração é o modo padrão de operar; equipes se auto-organizam para aprender e resolver juntas.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve ritual colaborativo concreto (planejamento conjunto, estudo de caso, troca de práticas); Critério: cita frequência e pauta; Acompanhamento: mostra impacto",
+        "perguntas_alvo": "Que espaços regulares de colaboração existem na escola? O que acontece nesses encontros? A equipe valoriza?"
+      }
+    ],
+    "Diretor(a) Escolar::Gestão de Desempenho e Avaliação": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Critérios de desempenho",
+        "descritor_completo": "Define critérios claros de desempenho para a escola, para a equipe e para os processos pedagógicos e administrativos.",
+        "n1_gap": "Não define critérios de desempenho; a escola funciona por percepções dispersas e expectativas implícitas.",
+        "n2_desenvolvimento": "Define alguns critérios, mas eles são genéricos, pouco comunicados ou pouco usados no cotidiano.",
+        "n3_meta": "Define critérios claros, comunica-os à equipe e os utiliza para orientar acompanhamento e decisões.",
+        "n4_referencia": "Consolida cultura institucional em que critérios de desempenho são compartilhados, compreendidos e mobilizam autonomia com responsabilidade.",
+        "evidencias_esperadas": "Ação/Exemplo: apresenta critérios e indicadores usados pela escola; Critério: mostra como foram comunicados; Acompanhamento: descreve como orientam decisões",
+        "perguntas_alvo": "Quais critérios a escola usa para saber se está avançando? Como esses critérios são comunicados e usados pela equipe?"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Metas e indicadores",
+        "descritor_completo": "Estabelece metas e indicadores relevantes, acompanhando resultados com regularidade e foco em melhoria.",
+        "n1_gap": "Não estabelece metas ou acompanha indicadores de forma sistemática.",
+        "n2_desenvolvimento": "Acompanha alguns números, mas sem periodicidade, interpretação consistente ou conexão com ação.",
+        "n3_meta": "Define metas e acompanha indicadores relevantes com regularidade, identificando avanços e alertas.",
+        "n4_referencia": "Orquestra painel de indicadores que apoia decisões rápidas, aprendizagem institucional e foco em resultados sustentáveis.",
+        "evidencias_esperadas": "Ação/Exemplo: cita meta e indicador acompanhado; Critério: mostra periodicidade de acompanhamento; Acompanhamento: descreve como age diante dos dados",
+        "perguntas_alvo": "Que metas e indicadores acompanha hoje? Com que frequência? O que faz quando os resultados ficam abaixo do esperado?"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Análise de resultados",
+        "descritor_completo": "Analisa resultados pedagógicos e institucionais com profundidade, distinguindo sintomas, causas e prioridades de ação.",
+        "n1_gap": "Observa resultados de forma superficial ou apenas reativa, sem análise consistente.",
+        "n2_desenvolvimento": "Analisa resultados pontualmente, mas com foco descritivo e pouca identificação de causas.",
+        "n3_meta": "Analisa resultados com profundidade suficiente para identificar causas prováveis e prioridades de intervenção.",
+        "n4_referencia": "Promove análise qualificada e coletiva de resultados, conectando dados, contexto e decisões estratégicas de forma madura.",
+        "evidencias_esperadas": "Ação/Exemplo: relata análise de resultado recente; Critério: diferencia causa e sintoma; Acompanhamento: mostra prioridade definida a partir da análise",
+        "perguntas_alvo": "Conte um resultado que exigiu análise mais cuidadosa. Como você identificou causas e definiu prioridades?"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Acompanhamento da equipe",
+        "descritor_completo": "Acompanha o desempenho da equipe e das lideranças intermediárias com clareza, regularidade e foco formativo.",
+        "n1_gap": "Não acompanha o desempenho da equipe de forma estruturada; atua apenas quando surgem problemas graves.",
+        "n2_desenvolvimento": "Acompanha algumas pessoas ou situações, mas sem rotina clara, critérios comuns ou devolutivas consistentes.",
+        "n3_meta": "Acompanha o desempenho da equipe com regularidade, critérios claros e devolutivas orientadas à melhoria.",
+        "n4_referencia": "Sustenta sistema formativo de acompanhamento que fortalece accountability, desenvolvimento e alinhamento entre lideranças.",
+        "evidencias_esperadas": "Ação/Exemplo: descreve como acompanha equipe/lideranças; Critério: mostra regularidade e critério; Acompanhamento: apresenta devolutiva ou plano decorrente",
+        "perguntas_alvo": "Como acompanha o desempenho da equipe e das lideranças? Que critérios usa? Como devolve e apoia a melhoria?"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Tomada de decisão avaliativa",
+        "descritor_completo": "Transforma evidências em decisões, priorizando ações, recursos e apoios de acordo com necessidades reais.",
+        "n1_gap": "Decide sem base em evidências ou muda de rumo por pressão momentânea.",
+        "n2_desenvolvimento": "Usa evidências de modo ocasional, mas ainda decide com pouca consistência ou priorização.",
+        "n3_meta": "Usa evidências para priorizar ações, alocar apoios e ajustar estratégias de forma coerente.",
+        "n4_referencia": "Converte avaliação em rotina decisória madura, combinando dados, escuta e leitura de contexto para agir com precisão.",
+        "evidencias_esperadas": "Ação/Exemplo: apresenta decisão tomada a partir de evidências; Critério: explicita dado usado; Acompanhamento: mostra impacto esperado ou monitorado",
+        "perguntas_alvo": "Me dê um exemplo de decisão importante tomada com base em evidências. Que dados considerou? O que priorizou?"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Aprendizagem institucional",
+        "descritor_completo": "Garante que a avaliação produza aprendizagem institucional, revisão de práticas e melhoria contínua.",
+        "n1_gap": "A avaliação não gera aprendizagem; problemas se repetem sem revisão consistente de práticas.",
+        "n2_desenvolvimento": "Há alguma revisão após resultados, mas de modo pontual e pouco sistemático.",
+        "n3_meta": "Usa avaliação para revisar práticas, consolidar aprendizados e melhorar processos com continuidade.",
+        "n4_referencia": "Cria cultura de aprendizagem institucional em que resultados alimentam reflexão, revisão e evolução contínua da escola.",
+        "evidencias_esperadas": "Ação/Exemplo: descreve mudança institucional decorrente de avaliação; Critério: mostra revisão de prática/processo; Acompanhamento: apresenta continuidade do aprendizado",
+        "perguntas_alvo": "Que aprendizados institucionais recentes surgiram de avaliações ou resultados analisados? O que mudou depois disso?"
+      }
+    ],
+    "Diretor(a) Escolar::Gestão da Comunidade Escolar": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Engajamento familiar",
+        "descritor_completo": "Promove a participação das famílias na vida escolar de forma intencional e contínua.",
+        "n1_gap": "Contato com famílias ocorre principalmente em situações disciplinares ou urgentes.",
+        "n2_desenvolvimento": "Promove participação pontual (reuniões de pais), mas sem estratégia de engajamento.",
+        "n3_meta": "Cria canais e momentos que geram participação real e contínua das famílias.",
+        "n4_referencia": "Famílias são parceiras ativas da gestão; co-constroem soluções e se responsabilizam pelo processo educativo.",
+        "evidencias_esperadas": "Ação/Exemplo: mostra canal ou momento criado para participação; Critério: Descreve ação intencional de engajamento (não só reunião de pais); Acompanhamento: cita resultado",
+        "perguntas_alvo": "Além das reuniões de pais, o que a escola faz para engajar as famílias? Me dê exemplo. As famílias realmente participam?"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Escuta das famílias",
+        "descritor_completo": "Escuta famílias com abertura, respeito e disposição para compreender demandas reais.",
+        "n1_gap": "Postura defensiva; vê famílias como adversárias ou problema a ser gerenciado.",
+        "n2_desenvolvimento": "Escuta quando procurado, mas com pouca abertura genuína a críticas ou sugestões.",
+        "n3_meta": "Cria espaços regulares de escuta e demonstra que as contribuições influenciam decisões.",
+        "n4_referencia": "Relação de confiança consolidada; famílias sabem que serão ouvidas e que sua voz importa.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve como ouve famílias (canal, espaço, postura); Critério: mostra como o que ouviu influenciou decisão; Acompanhamento: diferencia escuta genuína de atendimento protocolar",
+        "perguntas_alvo": "Quando uma família traz uma preocupação, como você acolhe? Me conte uma situação em que o que ouviu mudou algo na escola"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Comunicação escola-família",
+        "descritor_completo": "Comunica-se com as famílias de forma clara, respeitosa e orientada à parceria.",
+        "n1_gap": "Comunicação falha, tardia ou em linguagem inacessível; famílias não entendem o que a escola espera.",
+        "n2_desenvolvimento": "Comunica o básico (calendário, notas), mas sem abertura para diálogo ou sem acessibilidade.",
+        "n3_meta": "Comunicação clara, acessível, bidirecional e oportuna; famílias se sentem informadas e incluídas.",
+        "n4_referencia": "Comunicação engajadora que fortalece vínculos; a escola é percebida como aliada, não como burocracia.",
+        "evidencias_esperadas": "Ação/Exemplo: Cita canal e formato de comunicação com famílias; Critério: mostra adequação de linguagem; Acompanhamento: descreve se é bidirecional ou só informativo",
+        "perguntas_alvo": "Como a escola se comunica com as famílias no dia a dia? As famílias conseguem responder, perguntar, opinar? A linguagem é acessível?"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Gestão de expectativas",
+        "descritor_completo": "Alinha expectativas entre escola e famílias sobre papéis, limites e responsabilidades.",
+        "n1_gap": "Não alinha; conflitos surgem de expectativas desencontradas que nunca foram tratadas.",
+        "n2_desenvolvimento": "Alinha parcialmente, mas sem consistência; cada situação é resolvida ad hoc.",
+        "n3_meta": "Pactua com clareza papéis, limites e responsabilidades; revisita combinados quando necessário.",
+        "n4_referencia": "Constrói pacto educativo explícito onde escola e famílias compartilham responsabilidades de forma equilibrada.",
+        "evidencias_esperadas": "Ação/Exemplo: mostra como esclareceu papéis e limites; Critério: Descreve situação de expectativa desalinhada; Acompanhamento: cita combinado feito com a família",
+        "perguntas_alvo": "Me conte uma situação em que a expectativa da família era diferente do que a escola podia oferecer. Como resolveu? Que combinado fez?"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Resposta a demandas",
+        "descritor_completo": "Responde e encaminha demandas das famílias com critério, respeito e agilidade.",
+        "n1_gap": "Demandas ficam sem resposta ou são tratadas com descaso e lentidão.",
+        "n2_desenvolvimento": "Responde a maioria das demandas, mas com inconsistência de prazo e qualidade.",
+        "n3_meta": "Responde com agilidade, critério e respeito; famílias sabem o que esperar e quando.",
+        "n4_referencia": "Sistema de resposta que funciona institucionalmente, com fluxos claros e satisfação das famílias.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve demanda recebida e como encaminhou; Critério: diferencia resposta ágil de postergação; Acompanhamento: mostra critério, prazo e retorno dado à família",
+        "perguntas_alvo": "Quando uma família traz uma demanda, em quanto tempo responde? Me dê exemplo. A família ficou sabendo do encaminhamento?"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Articulação territorial",
+        "descritor_completo": "Articula relações produtivas com atores do território e da rede (educação, saúde, assistência e proteção) para ampliar recursos e soluções.",
+        "n1_gap": "Escola isolada; sem relação com equipamentos do território ou instâncias da rede.",
+        "n2_desenvolvimento": "Relação principalmente burocrática com a rede; cumpre demandas sem articulação estratégica.",
+        "n3_meta": "Articula com outros equipamentos, escolas e instâncias para potencializar recursos e soluções.",
+        "n4_referencia": "Escola é polo de articulação territorial; referência para a rede e para a comunidade.",
+        "evidencias_esperadas": "Ação/Exemplo: Cita parceiro ou ator do território (CRAS, UBS, CT, outra escola, ONG); Critério: descreve articulação concreta; Acompanhamento: mostra resultado para os alunos",
+        "perguntas_alvo": "Com quais equipamentos ou instituições do território a escola se articula? Me dê exemplo concreto. Que diferença isso fez para os alunos?"
+      }
+    ],
+    "Diretor(a) Escolar::Planejamento e Organização": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Definição de metas",
+        "descritor_completo": "Define metas claras, relevantes e compreensíveis para a escola.",
+        "n1_gap": "Atua sem metas definidas; prioridades mudam com frequência por pressão de urgências.",
+        "n2_desenvolvimento": "Define metas genéricas ou imprecisas que a equipe não consegue operacionalizar.",
+        "n3_meta": "Define metas claras, mensuráveis e conectadas às necessidades reais da escola.",
+        "n4_referencia": "As metas orientam toda a escola; equipe se auto-organiza em torno delas.",
+        "evidencias_esperadas": "Ação/Exemplo: Cita meta específica e compreensível; Critério: mostra como a equipe tomou conhecimento; Acompanhamento: descreve conexão com necessidade real da escola",
+        "perguntas_alvo": "Quais são as metas da escola para este semestre? A equipe sabe quais são? Como definiu essas metas?"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Priorização estratégica",
+        "descritor_completo": "Seleciona prioridades realistas e coerentes com os desafios da escola.",
+        "n1_gap": "Tudo é prioridade — ou seja, nada é; agenda dominada por urgências.",
+        "n2_desenvolvimento": "Prioriza, mas muda de foco frequentemente ou por pressão externa.",
+        "n3_meta": "Prioriza com critérios claros e mantém foco mesmo sob pressões concorrentes.",
+        "n4_referencia": "Ensina a equipe a priorizar; a escola inteira opera com foco estratégico.",
+        "evidencias_esperadas": "Ação/Exemplo: cita como manteve foco sob pressão; Critério: Descreve como escolheu o que priorizar (critério, dado, conversa) / mostra o que decidiu NÃO fazer; Acompanhamento: cita como manteve foco sob pressão",
+        "perguntas_alvo": "Quando tudo parece urgente, como decide o que vem primeiro? O que deliberadamente deixou de lado? Como sustenta o foco?"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Organização do plano",
+        "descritor_completo": "Traduz metas em planos de ação com responsáveis, prazos e etapas.",
+        "n1_gap": "Não tem plano de ação; intenções existem mas não viram execução.",
+        "n2_desenvolvimento": "Tem planos vagos sem responsáveis claros, prazos definidos ou etapas.",
+        "n3_meta": "Planos de ação com responsáveis, prazos, etapas e indicadores de progresso.",
+        "n4_referencia": "Planos se conectam ao PPP e ao ciclo de melhoria; a execução é parte da cultura.",
+        "evidencias_esperadas": "Ação/Exemplo: mostra como comunicou e onde está registrado; Critério: mostra como comunicou e onde está registrado; Acompanhamento: Cita plano com responsável nomeado, prazo definido e etapas claras",
+        "perguntas_alvo": "Para a meta principal, existe um plano de ação? Quem é responsável por quê? Até quando? Onde está escrito?"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Acompanhamento de execução",
+        "descritor_completo": "Acompanha a implementação dos planos com regularidade e foco em avanço.",
+        "n1_gap": "Não acompanha; planos são feitos e esquecidos.",
+        "n2_desenvolvimento": "Acompanha pontualmente, geralmente quando pressionado por instâncias externas.",
+        "n3_meta": "Acompanha com regularidade usando indicadores; ajusta quando necessário.",
+        "n4_referencia": "Ciclo de acompanhamento é institucionalizado; equipe reporta avanços naturalmente.",
+        "evidencias_esperadas": "Ação/Exemplo: cita frequência; Critério: mostra como age quando identifica atraso; Acompanhamento: Descreve ritual ou momento de acompanhamento (reunião, check-in, painel)",
+        "perguntas_alvo": "Como acompanha se os planos estão avançando? Com que frequência? O que faz quando percebe que algo atrasou?"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Gestão de riscos",
+        "descritor_completo": "Antecipа riscos e define respostas/planos de contingência, gerindo imprevistos sem comprometer o essencial.",
+        "n1_gap": "Imprevistos paralisam a gestão; não há plano alternativo definido.",
+        "n2_desenvolvimento": "Reage a imprevistos, mas com perda de foco e desgaste excessivo.",
+        "n3_meta": "Antecipа riscos, mantém planos alternativos e gere imprevistos sem perder o rumo.",
+        "n4_referencia": "A escola opera com margem de manobra; imprevistos são absorvidos sem comprometer resultados.",
+        "evidencias_esperadas": "Ação/Exemplo: Cita risco antecipado antes de acontecer; Critério: descreve plano B ou contingência; Acompanhamento: mostra como geriu imprevisto sem perder o rumo",
+        "perguntas_alvo": "Me conte um imprevisto que ameaçou um plano. Você tinha antecipado? Tinha plano alternativo? Como resolveu?"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Entrega de resultados",
+        "descritor_completo": "Garante que o planejamento se converta em entregas concretas e resultados percebidos.",
+        "n1_gap": "Planejamentos não viram resultados; ciclo de intenções sem concretização.",
+        "n2_desenvolvimento": "Entrega resultados parciais; lacuna visível entre plano e realidade.",
+        "n3_meta": "Garante entregas concretas e mensuráveis dentro do prazo comprometido.",
+        "n4_referencia": "Resultados consistentes e sustentáveis; a escola demonstra evolução a cada ciclo.",
+        "evidencias_esperadas": "Ação/Exemplo: diferencia fazer de entregar; Critério: diferencia fazer de entregar; Acompanhamento: Cita resultado concreto entregue (não só atividade realizada) / mostra evidência de impacto",
+        "perguntas_alvo": "O que de concreto a escola entregou neste ciclo? Como sabe que teve impacto? Qual a diferença entre o que fez e o que realmente mudou?"
+      }
+    ],
+    "Coordenador(a) Pedagógico(a)::Gestão da Aprendizagem": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Foco na aprendizagem",
+        "descritor_completo": "Define prioridades pedagógicas claras para o trabalho da equipe, com foco na aprendizagem dos estudantes.",
+        "n1_gap": "Atua sem foco pedagógico claro; orientações mudam com frequência e sem coerência.",
+        "n2_desenvolvimento": "Define prioridades pedagógicas, mas com baixa clareza de foco ou pouco desdobramento para a equipe.",
+        "n3_meta": "Define prioridades pedagógicas claras e orienta a equipe com coerência em torno delas.",
+        "n4_referencia": "Transforma prioridades pedagógicas em referência estável para a equipe, sustentando foco e melhoria contínua.",
+        "evidencias_esperadas": "Ação/Exemplo: Cita foco pedagógico explícito para o período; Critério: descreve como mantém coerência; Acompanhamento: mostra como orienta o planejamento docente a partir dele",
+        "perguntas_alvo": "Qual é o foco pedagógico principal neste momento? Como os professores sabem? Como garante que o trabalho da equipe esteja alinhado a esse foco?"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Observação de aulas",
+        "descritor_completo": "Observa práticas de ensino com critérios consistentes e foco formativo.",
+        "n1_gap": "Não observa aulas ou baseia sua leitura apenas em relatos e impressões gerais.",
+        "n2_desenvolvimento": "Observa aulas pontualmente, mas sem critérios claros ou sem continuidade.",
+        "n3_meta": "Observa aulas com critérios claros e identifica forças e pontos de melhoria.",
+        "n4_referencia": "Constrói rotina consistente de observação formativa, elevando a qualidade pedagógica da equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: identifica força e gap; Critério: Descreve observação de aula com critério definido; Acompanhamento: mostra como devolveu ao professor com foco formativo",
+        "perguntas_alvo": "Quando observou uma aula pela última vez? O que buscava? O que identificou? Como devolveu ao professor?"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Devolutiva docente",
+        "descritor_completo": "Oferece devolutivas pedagógicas úteis aos professores com base em evidências observadas.",
+        "n1_gap": "Não oferece devolutivas pedagógicas ou o faz de forma genérica e sem base em observação.",
+        "n2_desenvolvimento": "Oferece devolutivas em algumas situações, mas com pouca especificidade ou aplicabilidade.",
+        "n3_meta": "Oferece devolutivas claras, específicas e orientadas por evidências.",
+        "n4_referencia": "Usa devolutivas como motor contínuo de desenvolvimento profissional e de refinamento da prática docente.",
+        "evidencias_esperadas": "Ação/Exemplo: Cita devolutiva com base em evidência concreta; Critério: conecta observação a próximo passo prático; Acompanhamento: descreve tom e contexto",
+        "perguntas_alvo": "Me dê exemplo de devolutiva que deu a um professor. Em que se baseou? Que próximo passo combinaram?"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Alinhamento de práticas",
+        "descritor_completo": "Promove coerência entre práticas docentes, objetivos de aprendizagem e expectativas pedagógicas.",
+        "n1_gap": "A equipe atua com práticas muito dispersas, sem alinhamento pedagógico consistente.",
+        "n2_desenvolvimento": "Busca algum alinhamento, mas com orientações parciais ou pouca sustentação.",
+        "n3_meta": "Promove alinhamento entre práticas, objetivos e expectativas pedagógicas.",
+        "n4_referencia": "Consolida linguagem comum e consistência pedagógica entre docentes, ampliando a qualidade do trabalho coletivo.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve como promove coerência entre professores (linguagem comum, expectativas compartilhadas); Critério: Descreve como promove coerência entre professores (linguagem comum, expectativas compartilhadas) / cita ação concreta de alinhamento; Acompanhamento: —",
+        "perguntas_alvo": "As práticas dos professores estão alinhadas entre si? O que faz para garantir isso? Me dê exemplo de desalinhamento que corrigiu"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Referência pedagógica",
+        "descritor_completo": "Oferece referência pedagógica consistente sobre ensino, aprendizagem e avaliação.",
+        "n1_gap": "Tem dificuldade para orientar didaticamente a equipe ou oferece apoio pouco consistente.",
+        "n2_desenvolvimento": "Oferece referência didática em alguns temas, mas com profundidade ou constância limitadas.",
+        "n3_meta": "Oferece referência didática consistente e aplicável ao cotidiano docente.",
+        "n4_referencia": "É reconhecido como referência pedagógica sólida e amplia a capacidade didática da equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: Mostra domínio didático aplicado (sugere estratégia concreta, modela, co-planeja); Critério: diferencia orientação genérica de referência prática; Acompanhamento: Mostra domínio didático aplicado (sugere estratégia concreta, modela, co-planeja)",
+        "perguntas_alvo": "Quando um professor precisa de ajuda didática, como orienta? Me dê exemplo de sugestão prática que deu. O professor aplicou?"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Ajuste de rota",
+        "descritor_completo": "Revê estratégias pedagógicas com base em evidências e necessidades da equipe.",
+        "n1_gap": "Mantém orientações e estratégias mesmo quando os resultados indicam necessidade de revisão.",
+        "n2_desenvolvimento": "Faz ajustes pontuais, mas sem rotina clara ou sem critério consistente.",
+        "n3_meta": "Revê estratégias com base em evidências e ajusta o trabalho de forma coerente.",
+        "n4_referencia": "Constrói ciclos consistentes de revisão e ajuste, fortalecendo a melhoria pedagógica contínua.",
+        "evidencias_esperadas": "Ação/Exemplo: Cita resultado que motivou mudança de rota; Critério: —; Acompanhamento: Cita resultado que motivou mudança de rota / descreve o que ajustou",
+        "perguntas_alvo": "Me conte uma situação em que os resultados não estavam bons. O que mudou? Como decidiu o que ajustar?"
+      }
+    ],
+    "Coordenador(a) Pedagógico(a)::Desenvolvimento Docente": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Mapeamento de necessidades",
+        "descritor_completo": "Identifica necessidades de desenvolvimento docente com base em evidências da prática.",
+        "n1_gap": "Não identifica necessidades de desenvolvimento ou se baseia apenas em impressões vagas.",
+        "n2_desenvolvimento": "Reconhece algumas necessidades, mas sem critérios consistentes ou sem visão de conjunto.",
+        "n3_meta": "Mapeia necessidades relevantes com base em evidências da prática docente.",
+        "n4_referencia": "Constrói leitura contínua e precisa dos gaps e potencialidades de desenvolvimento da equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: Cita método de diagnóstico (observação, dado, conversa); Critério: mostra como priorizou a necessidade formativa; Acompanhamento: nomeia gap específico",
+        "perguntas_alvo": "Como identifica o que cada professor precisa? Me dê exemplo de necessidade que mapeou. Como decidiu o que priorizar?"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Planejamento formativo",
+        "descritor_completo": "Planeja ações formativas coerentes com as necessidades priorizadas.",
+        "n1_gap": "Promove formações desconectadas das necessidades da equipe ou apenas por demanda externa.",
+        "n2_desenvolvimento": "Planeja algumas ações, mas sem encadeamento claro ou foco suficiente.",
+        "n3_meta": "Planeja ações formativas coerentes com os gaps identificados e as prioridades da escola.",
+        "n4_referencia": "Estrutura percurso formativo consistente, progressivo e alinhado à melhoria da prática docente.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve formação planejada com conexão a gap real; Critério: mostra sequência e progressão entre encontros; Acompanhamento: diferencia plano de evento avulso",
+        "perguntas_alvo": "Como planeja as formações? O que conecta um encontro ao seguinte? Me dê exemplo de formação que teve progressão"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Formação situada",
+        "descritor_completo": "Conduz formações conectadas ao contexto real da sala de aula e da escola.",
+        "n1_gap": "Oferece formações genéricas, pouco aplicáveis ou distantes dos desafios reais da equipe.",
+        "n2_desenvolvimento": "Realiza algumas formações contextualizadas, mas ainda com baixa consistência ou profundidade.",
+        "n3_meta": "Conduz formações situadas, conectadas aos desafios concretos da prática docente.",
+        "n4_referencia": "Transforma o cotidiano escolar em espaço permanente de aprendizagem profissional aplicada.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve formação que usou situação real da escola como material; Critério: mostra aplicabilidade imediata; Acompanhamento: diferencia teoria desconectada de prática situada",
+        "perguntas_alvo": "Me dê exemplo de formação que partiu de um problema real da escola. Os professores aplicaram? Que resultado percebeu?"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Acompanhamento da aplicação",
+        "descritor_completo": "Acompanha se o que foi trabalhado na formação se traduz em mudança de prática.",
+        "n1_gap": "Não acompanha a aplicação das formações ou presume mudança sem verificar evidências.",
+        "n2_desenvolvimento": "Acompanha pontualmente, mas sem continuidade ou sem foco claro na prática.",
+        "n3_meta": "Acompanha a aplicação das formações e verifica mudanças na prática docente.",
+        "n4_referencia": "Usa acompanhamento consistente para sustentar transferência para a prática e melhoria real do ensino.",
+        "evidencias_esperadas": "Ação/Exemplo: Mostra como verificou se a formação chegou à prática (observação, conversa, dado); Critério: descreve ação quando a transferência não aconteceu; Acompanhamento: Mostra como verificou se a formação chegou à prática (observação, conversa, dado)",
+        "perguntas_alvo": "Depois de uma formação, como sabe se os professores estão aplicando? O que faz quando percebe que não aplicaram?"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Diferenciação de apoio",
+        "descritor_completo": "Oferece apoio diferenciado conforme o nível de necessidade e maturidade dos professores.",
+        "n1_gap": "Oferece o mesmo tipo de apoio para todos, sem considerar necessidades distintas.",
+        "n2_desenvolvimento": "Faz algumas diferenciações, mas com baixa consistência ou critério limitado.",
+        "n3_meta": "Oferece apoio diferenciado de acordo com necessidades e perfis profissionais.",
+        "n4_referencia": "Combina diferentes formas de apoio com precisão e aumenta a efetividade do desenvolvimento docente.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve apoio diferenciado para professores com necessidades distintas (iniciante vs. experiente, dificuldade específica vs. ampliação); Critério: Descreve apoio diferenciado para professores com necessidades distintas (iniciante vs. experiente, dificuldade específica vs. ampliação); Acompanhamento: Descreve apoio diferenciado para professores com necessidades distintas (iniciante vs. experiente, dificuldade específica vs. ampliação)",
+        "perguntas_alvo": "Você oferece o mesmo tipo de apoio para todos? Me dê exemplo de como diferenciou o apoio para dois professores distintos"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Sustentação da mudança",
+        "descritor_completo": "Cria condições para que avanços formativos se consolidem ao longo do tempo.",
+        "n1_gap": "As mudanças dependem apenas do esforço individual do professor e não se sustentam.",
+        "n2_desenvolvimento": "Tenta sustentar mudanças, mas sem rotina clara de acompanhamento e reforço.",
+        "n3_meta": "Cria condições e rotinas para consolidar avanços formativos de forma consistente.",
+        "n4_referencia": "Estrutura cultura formativa que sustenta mudança, continuidade e aprendizagem profissional coletiva.",
+        "evidencias_esperadas": "Ação/Exemplo: diferencia mudança pontual de consolidação; Critério: diferencia mudança pontual de consolidação; Acompanhamento: Mostra como garante que mudanças de prática se sustentam (rotina, acompanhamento, reforço)",
+        "perguntas_alvo": "Quando um professor muda algo na prática, como garante que sustente? Me dê exemplo de mudança que se manteve — e uma que não"
+      }
+    ],
+    "Coordenador(a) Pedagógico(a)::Planejamento curricular e intencionalidade pedagógica": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Coerência curricular",
+        "descritor_completo": "Assegura alinhamento entre currículo, expectativas de aprendizagem e planejamento docente.",
+        "n1_gap": "Não garante alinhamento curricular; planejamento e prática caminham de forma desconectada.",
+        "n2_desenvolvimento": "Busca alinhamento curricular em alguns momentos, mas com pouca consistência entre turmas ou etapas.",
+        "n3_meta": "Assegura alinhamento entre currículo, expectativas e planejamento docente.",
+        "n4_referencia": "Consolida coerência curricular ampla e ajuda a equipe a tomar decisões pedagógicas mais consistentes.",
+        "evidencias_esperadas": "Ação/Exemplo: cita verificação concreta; Critério: Mostra como garante alinhamento entre currículo prescrito e planejamento docente / descreve como corrige desalinhamento; Acompanhamento: cita verificação concreta",
+        "perguntas_alvo": "Como sabe se o que os professores planejam está alinhado ao currículo? O que faz quando percebe desalinhamento?"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Objetivos de aprendizagem",
+        "descritor_completo": "Orienta a equipe a definir objetivos de aprendizagem claros e relevantes.",
+        "n1_gap": "Os objetivos de aprendizagem são vagos, genéricos ou pouco considerados no planejamento.",
+        "n2_desenvolvimento": "Há definição de objetivos, mas com clareza ou foco insuficientes.",
+        "n3_meta": "Orienta a formulação de objetivos claros, relevantes e coerentes com o currículo.",
+        "n4_referencia": "Aprofunda a qualidade dos objetivos e sustenta cultura de planejamento intencional na equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve como orienta professores na formulação de objetivos (clareza, relevância, mensuração); Critério: cita exemplo de objetivo melhorado; Acompanhamento: Descreve como orienta professores na formulação de objetivos (clareza, relevância, mensuração)",
+        "perguntas_alvo": "Me dê exemplo de objetivo de aprendizagem que ajudou um professor a reformular. O que mudou? Por quê?"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Sequência didática",
+        "descritor_completo": "Apoia a construção de sequências didáticas coerentes e progressivas.",
+        "n1_gap": "As propostas pedagógicas são fragmentadas e sem progressão clara.",
+        "n2_desenvolvimento": "Há alguma organização de sequência, mas com lacunas de progressão ou articulação.",
+        "n3_meta": "Apoia a construção de sequências didáticas coerentes, progressivas e bem articuladas.",
+        "n4_referencia": "Ajuda a equipe a estruturar sequências robustas que favorecem progressão, engajamento e aprendizagem.",
+        "evidencias_esperadas": "Ação/Exemplo: cita exemplo concreto; Critério: Mostra como apoia construção de sequências didáticas (progressão, coerência, articulação entre aulas); Acompanhamento: cita exemplo concreto",
+        "perguntas_alvo": "Como ajuda os professores a construírem sequências didáticas coerentes? Me dê exemplo de sequência que orientou"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Adequação de estratégias",
+        "descritor_completo": "Orienta a escolha de estratégias pedagógicas adequadas aos objetivos e ao perfil dos estudantes.",
+        "n1_gap": "As estratégias são escolhidas sem critério claro ou repetidas de modo pouco intencional.",
+        "n2_desenvolvimento": "Há alguma adequação de estratégias, mas de forma irregular ou pouco refletida.",
+        "n3_meta": "Orienta a seleção de estratégias coerentes com os objetivos e com o perfil da turma.",
+        "n4_referencia": "Refina a escolha de estratégias com alto grau de intencionalidade e amplia o repertório pedagógico da equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve como orienta escolha de estratégias conectadas ao objetivo e ao perfil da turma; Critério: diferencia orientação intencional de \"faça o que achar melhor\"; Acompanhamento: Descreve como orienta escolha de estratégias conectadas ao objetivo e ao perfil da turma",
+        "perguntas_alvo": "Quando um professor escolhe uma estratégia, como orienta? O que considera? Me dê exemplo de adequação que sugeriu"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Articulação entre etapas",
+        "descritor_completo": "Promove continuidade e articulação entre anos, ciclos ou segmentos.",
+        "n1_gap": "As transições entre etapas são desarticuladas e pouco consideradas no planejamento.",
+        "n2_desenvolvimento": "Há alguma articulação entre etapas, mas ainda com lacunas ou dependência de iniciativas individuais.",
+        "n3_meta": "Promove continuidade e articulação entre etapas de forma planejada.",
+        "n4_referencia": "Consolida visão integrada do percurso formativo e reduz rupturas pedagógicas entre etapas.",
+        "evidencias_esperadas": "Ação/Exemplo: Mostra como articula transições entre etapas/anos (compartilhamento de informação, planejamento conjunto, continuidade); Critério: cita ação concreta; Acompanhamento: Mostra como articula transições entre etapas/anos (compartilhamento de informação, planejamento conjunto, continuidade)",
+        "perguntas_alvo": "O que faz para garantir que a transição entre anos/etapas não gere ruptura? Os professores conversam entre si sobre isso?"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Revisão do planejamento",
+        "descritor_completo": "Analisa e revisa planejamentos à luz do currículo, dos resultados e das necessidades da turma.",
+        "n1_gap": "Os planejamentos não são revisados de forma sistemática ou permanecem apenas formais.",
+        "n2_desenvolvimento": "Há revisão pontual dos planejamentos, mas sem critérios claros ou sem impacto consistente.",
+        "n3_meta": "Analisa e revisa planejamentos com base em evidências e necessidades reais da turma.",
+        "n4_referencia": "Institui rotina qualificada de revisão do planejamento, fortalecendo coerência e responsividade pedagógica.",
+        "evidencias_esperadas": "Ação/Exemplo: mostra que revisão gera mudança real; Critério: mostra que revisão gera mudança real; Acompanhamento: Descreve como revisa planejamentos com professores (frequência, critério, base em dados)",
+        "perguntas_alvo": "Com que frequência revisa os planejamentos com os professores? O que olha? Me conte uma revisão que gerou mudança na prática"
+      }
+    ],
+    "Coordenador(a) Pedagógico(a)::Gestão de Desempenho e Avaliação": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Monitoramento de desempenho",
+        "descritor_completo": "Acompanha a aprendizagem e o desempenho pedagógico com regularidade e foco analítico.",
+        "n1_gap": "Não acompanha a aprendizagem de forma sistemática ou se baseia apenas em percepções gerais.",
+        "n2_desenvolvimento": "Acompanha alguns dados de aprendizagem, mas sem regularidade ou foco analítico consistente.",
+        "n3_meta": "Acompanha a aprendizagem com regularidade e utiliza esse monitoramento para orientar o trabalho pedagógico.",
+        "n4_referencia": "Consolida rotina qualificada de monitoramento que amplia visibilidade sobre a aprendizagem e acelera respostas pedagógicas.",
+        "evidencias_esperadas": "Ação/Exemplo: mostra como usa na coordenação pedagógica; Critério: mostra como usa na coordenação pedagógica; Acompanhamento: Descreve como monitora aprendizagem (instrumentos, frequência, organização)",
+        "perguntas_alvo": "Como monitora a aprendizagem dos alunos? Que instrumentos usa? Com que frequência? Como usa essas informações?"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Identificação de gaps",
+        "descritor_completo": "Reconhece lacunas de aprendizagem prioritárias em turmas, grupos e casos específicos.",
+        "n1_gap": "Tem dificuldade para identificar lacunas relevantes ou reage apenas quando o problema já se ampliou.",
+        "n2_desenvolvimento": "Identifica algumas lacunas, mas com pouca precisão ou sem priorização clara.",
+        "n3_meta": "Reconhece lacunas prioritárias e diferencia níveis de necessidade entre turmas e estudantes.",
+        "n4_referencia": "Realiza leitura precisa dos gaps e ajuda a equipe a priorizar intervenções com alto potencial de impacto.",
+        "evidencias_esperadas": "Ação/Exemplo: Mostra como identifica lacunas prioritárias (cruza dados, conversa com professor, observa cadernos/atividades); Critério: diferencia alunos e turmas; Acompanhamento: Mostra como identifica lacunas prioritárias (cruza dados, conversa com professor, observa cadernos/atividades)",
+        "perguntas_alvo": "Como identifica quais alunos estão com mais dificuldade? Me dê exemplo. Consegue diferenciar lacunas por turma ou grupo?"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Intervenção pedagógica",
+        "descritor_completo": "Orienta intervenções coerentes com as lacunas identificadas.",
+        "n1_gap": "Propõe ações genéricas ou desconectadas das necessidades observadas.",
+        "n2_desenvolvimento": "Indica algumas intervenções, mas sem foco, consistência ou acompanhamento suficiente.",
+        "n3_meta": "Orienta intervenções coerentes com os gaps identificados e com o contexto da turma.",
+        "n4_referencia": "Refina intervenções com precisão, amplia repertório da equipe e aumenta a efetividade da resposta pedagógica.",
+        "evidencias_esperadas": "Ação/Exemplo: mostra conexão com o gap identificado; Critério: mostra conexão com o gap identificado; Acompanhamento: Descreve intervenção pedagógica concreta orientada (reforço, reagrupamento, ajuste de estratégia)",
+        "perguntas_alvo": "Me dê exemplo de intervenção que orientou para uma turma com dificuldade. O que propôs? Por que essa intervenção?"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Acompanhamento de casos",
+        "descritor_completo": "Monitora estudantes, grupos ou turmas que demandam atenção pedagógica adicional.",
+        "n1_gap": "Não acompanha casos prioritários de forma organizada ou consistente.",
+        "n2_desenvolvimento": "Acompanha alguns casos, mas com baixa continuidade ou sem registro claro de encaminhamentos.",
+        "n3_meta": "Monitora casos prioritários com regularidade e coordena encaminhamentos pedagógicos.",
+        "n4_referencia": "Estrutura acompanhamento consistente de casos e fortalece resposta pedagógica integrada da equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: cita frequência e ação tomada; Critério: cita frequência e ação tomada; Acompanhamento: Mostra como acompanha alunos ou casos prioritários (fichas, reuniões, checagens)",
+        "perguntas_alvo": "Como acompanha os alunos que mais preocupam? Tem sistema organizado? Com que frequência revisa? O que faz com a informação?"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Replanejamento",
+        "descritor_completo": "Revê estratégias e planos a partir dos resultados das intervenções.",
+        "n1_gap": "Mantém as mesmas estratégias mesmo quando não produzem avanço esperado.",
+        "n2_desenvolvimento": "Revê estratégias pontualmente, mas com pouca sistematização ou baixa clareza de critério.",
+        "n3_meta": "Replaneja com base nos resultados observados e nas necessidades emergentes.",
+        "n4_referencia": "Institui rotina robusta de replanejamento, tornando a prática mais responsiva e eficaz.",
+        "evidencias_esperadas": "Ação/Exemplo: mostra o que mudou e por quê; Critério: mostra o que mudou e por quê; Acompanhamento: Descreve replanejamento feito com base em resultado observado / diferencia ajuste de abandono",
+        "perguntas_alvo": "Me conte uma situação em que precisou repensar o que estava sendo feito. O que motivou? O que mudou? Funcionou melhor?"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Avaliação de impacto",
+        "descritor_completo": "Verifica se as ações implementadas produzem mudança relevante na aprendizagem.",
+        "n1_gap": "Não avalia o efeito das intervenções ou considera sucesso sem evidências.",
+        "n2_desenvolvimento": "Avalia alguns resultados, mas sem indicadores claros ou baixa consistência.",
+        "n3_meta": "Verifica efeitos das ações com base em evidências e ajusta decisões quando necessário.",
+        "n4_referencia": "Constrói cultura de avaliação de impacto pedagógico, aprendendo com resultados e refinando continuamente o trabalho.",
+        "evidencias_esperadas": "Ação/Exemplo: Mostra como avaliou se a intervenção funcionou (dado, observação, produção do aluno); Critério: Mostra como avaliou se a intervenção funcionou (dado, observação, produção do aluno); Acompanhamento: cita o que fez com o resultado",
+        "perguntas_alvo": "Como sabe se uma intervenção pedagógica deu resultado? Que evidência usa? O que faz quando não funciona?"
+      }
+    ],
+    "Coordenador(a) Pedagógico(a)::Colaboração docente e cultura formativa": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Trabalho colaborativo",
+        "descritor_completo": "Estrutura e incentiva colaboração produtiva entre docentes.",
+        "n1_gap": "O trabalho docente ocorre de forma isolada, sem incentivo consistente à colaboração.",
+        "n2_desenvolvimento": "Promove colaboração em alguns momentos, mas com baixa intencionalidade ou regularidade.",
+        "n3_meta": "Estrutura colaboração produtiva entre docentes com foco pedagógico claro.",
+        "n4_referencia": "Consolida colaboração como prática habitual de aprendizagem, apoio e solução de problemas.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve ação intencional de colaboração entre professores (co-planejamento, troca, projeto conjunto); Critério: Descreve ação intencional de colaboração entre professores (co-planejamento, troca, projeto conjunto); Acompanhamento: mostra resultado pedagógico",
+        "perguntas_alvo": "Me dê exemplo de trabalho colaborativo que promoveu entre professores. O que produziram juntos? Que impacto teve?"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Troca de práticas",
+        "descritor_completo": "Favorece compartilhamento de estratégias, experiências e evidências de prática.",
+        "n1_gap": "As práticas docentes permanecem isoladas e pouco compartilhadas.",
+        "n2_desenvolvimento": "Há trocas pontuais de práticas, mas com pouco aprofundamento ou continuidade.",
+        "n3_meta": "Favorece troca qualificada de práticas úteis ao desenvolvimento pedagógico.",
+        "n4_referencia": "Cria ambiente em que o compartilhamento de práticas fortalece repertório e consistência da equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: Mostra como facilitou troca de práticas (professor mostra aula, compartilha material, relata experiência); Critério: Mostra como facilitou troca de práticas (professor mostra aula, compartilha material, relata experiência); Acompanhamento: cita impacto no repertório da equipe",
+        "perguntas_alvo": "Os professores compartilham práticas entre si? Como isso acontece? Me dê exemplo de troca que enriqueceu o trabalho"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Corresponsabilidade",
+        "descritor_completo": "Estimula responsabilidade compartilhada sobre a aprendizagem dos estudantes.",
+        "n1_gap": "Cada professor atua apenas sobre sua própria turma, sem visão coletiva da aprendizagem.",
+        "n2_desenvolvimento": "Há alguma corresponsabilidade, mas ainda limitada ou dependente de poucos profissionais.",
+        "n3_meta": "Estimula responsabilidade compartilhada sobre metas, casos e desafios pedagógicos.",
+        "n4_referencia": "Consolida cultura em que a equipe assume a aprendizagem como compromisso coletivo.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve como gera responsabilidade compartilhada (meta coletiva, caso discutido em conjunto, compromisso mútuo sobre aluno); Critério: Descreve como gera responsabilidade compartilhada (meta coletiva, caso discutido em conjunto, compromisso mútuo sobre aluno); Acompanhamento: Descreve como gera responsabilidade compartilhada (meta coletiva, caso discutido em conjunto, compromisso mútuo sobre aluno)",
+        "perguntas_alvo": "A aprendizagem dos alunos é responsabilidade de cada professor individualmente ou do grupo? Me dê exemplo de responsabilidade compartilhada"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Rituais formativos",
+        "descritor_completo": "Cria rotinas e espaços de formação colaborativa com foco em prática e resultados.",
+        "n1_gap": "Não organiza rituais formativos consistentes ou os mantém pouco produtivos.",
+        "n2_desenvolvimento": "Realiza momentos formativos, mas com baixa intencionalidade ou foco disperso.",
+        "n3_meta": "Estrutura rituais formativos úteis, focados e consistentes.",
+        "n4_referencia": "Consolida rotina formativa que fortalece alinhamento, aprendizagem e melhoria contínua.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve ritual formativo com pauta, frequência e foco pedagógico; Critério: diferencia encontro produtivo de reunião de avisos; Acompanhamento: Descreve ritual formativo com pauta, frequência e foco pedagógico",
+        "perguntas_alvo": "Como são as reuniões pedagógicas? Têm pauta definida? O que acontece de útil? Me dê exemplo de encontro que gerou impacto"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Segurança para aprender",
+        "descritor_completo": "Promove ambiente em que docentes podem expor dúvidas, erros e necessidades sem medo de julgamento.",
+        "n1_gap": "O ambiente inibe exposição de dúvidas, erros ou vulnerabilidades profissionais.",
+        "n2_desenvolvimento": "Há alguma abertura, mas ainda com receio, defensividade ou pouca confiança.",
+        "n3_meta": "Promove ambiente de segurança profissional para aprendizagem e desenvolvimento.",
+        "n4_referencia": "Consolida cultura em que aprender com a prática, inclusive com erros, é parte legítima do trabalho docente.",
+        "evidencias_esperadas": "Ação/Exemplo: Mostra como cria segurança para professor expor dúvida, erro ou dificuldade; Critério: cita exemplo de vulnerabilidade acolhida; Acompanhamento: Mostra como cria segurança para professor expor dúvida, erro ou dificuldade",
+        "perguntas_alvo": "Os professores se sentem seguros para dizer que não sabem algo? Me dê exemplo. O que faz para criar esse ambiente?"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Aprendizagem entre pares",
+        "descritor_completo": "Estimula que professores aprendam uns com os outros de forma estruturada.",
+        "n1_gap": "Não promove aprendizagem entre pares ou deixa essa troca ao acaso.",
+        "n2_desenvolvimento": "Estimula algumas trocas, mas sem estrutura ou continuidade suficiente.",
+        "n3_meta": "Promove aprendizagem entre pares de forma organizada e útil à prática.",
+        "n4_referencia": "Estrutura rede de aprendizagem docente em que pares se apoiam e elevam o nível coletivo da escola.",
+        "evidencias_esperadas": "Ação/Exemplo: Descreve como organiza aprendizagem entre pares (observação cruzada, mentoria, estudo de caso); Critério: Descreve como organiza aprendizagem entre pares (observação cruzada, mentoria, estudo de caso); Acompanhamento: mostra intencionalidade e resultado",
+        "perguntas_alvo": "Professores aprendem uns com os outros de forma organizada? Como? Me dê exemplo. Que diferença fez?"
+      }
+    ],
+    "Professor(a)::Didática e estratégias de ensino": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Instruções claras",
+        "descritor_completo": "Explica objetivos, passos e critérios de sucesso de forma clara e compreensível.",
+        "n1_gap": "Dá instruções confusas ou incompletas; alunos não sabem o que fazer e perdem tempo pedindo explicação.",
+        "n2_desenvolvimento": "Dá instruções, mas precisa repetir várias vezes; alunos começam a atividade com dúvidas e pedem confirmação frequentemente; falta checagem de entendimento antes de iniciar.",
+        "n3_meta": "Explica passos e critérios com exemplo; checa entendimento antes de iniciar; ajusta instruções conforme dúvidas.",
+        "n4_referencia": "Instrui com clareza exemplar e ensina alunos a interpretar instruções com autonomia; referência para colegas em como dar instruções eficazes.",
+        "evidencias_esperadas": "Ação/Exemplo: explica passos e critérios com exemplo; Critério: checa entendimento antes de iniciar; Acompanhamento: ajusta instruções conforme dúvidas",
+        "perguntas_alvo": "Como dá instruções para uma atividade? O que faz quando percebe que os alunos não entenderam? Me dê exemplo de instrução que funcionou bem"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Mediação da aprendizagem",
+        "descritor_completo": "Faz perguntas e intervenções que ajudam o aluno a pensar, avançar e construir compreensão.",
+        "n1_gap": "Transmite conteúdo sem mediar a construção do conhecimento; não faz perguntas durante a atividade nem oferece andaimagem.",
+        "n2_desenvolvimento": "Circula pela sala e ajuda quem pede, mas a mediação é reativa — responde dúvidas em vez de fazer perguntas que provoquem o pensamento; tende a dar a resposta.",
+        "n3_meta": "Usa perguntas/andaimagem durante a atividade; escolhe intervenção pelo nível de necessidade; observa avanço e ajusta a mediação.",
+        "n4_referencia": "Domina múltiplas formas de mediação e ajusta em tempo real conforme a resposta dos alunos; forma colegas em técnicas de mediação.",
+        "evidencias_esperadas": "Ação/Exemplo: usa perguntas/andaimagem durante a atividade; Critério: escolhe intervenção pelo nível de necessidade; Acompanhamento: observa avanço e ajusta a mediação",
+        "perguntas_alvo": "Durante a atividade, como ajuda alunos que travam? Me dê exemplo de pergunta ou apoio que ofereceu. Como decidiu o tipo de intervenção?"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Engajamento ativo",
+        "descritor_completo": "Promove participação ativa e significativa dos estudantes.",
+        "n1_gap": "Alunos são espectadores passivos; aula centrada na exposição do professor sem estratégias de participação ativa.",
+        "n2_desenvolvimento": "Propõe atividades que envolvem os alunos, mas a participação se concentra nos mais extrovertidos; alunos quietos permanecem passivos sem que se perceba.",
+        "n3_meta": "Usa estratégias de participação (turnos, pares, mão na massa); explica por que a estratégia aumenta aprendizagem; observa participação e inclui quem fica de fora.",
+        "n4_referencia": "Cria experiências de aprendizagem em que a turma participa ativamente (incluindo quem tende a ficar à margem); varia formatos e compartilha estratégias de engajamento com a equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: usa estratégias de participação (turnos, pares, mão na massa); Critério: explica por que a estratégia aumenta aprendizagem; Acompanhamento: observa participação e inclui quem fica de fora",
+        "perguntas_alvo": "O que faz para garantir que todos participem, não só os que levantam a mão? Me dê exemplo de estratégia de participação ativa que usou"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Recursos didáticos",
+        "descritor_completo": "Seleciona e usa recursos (materiais, exemplos, visual) que apoiam a compreensão.",
+        "n1_gap": "Não usa recursos ou representações além do quadro/livro; oportunidades de concretizar o abstrato são perdidas.",
+        "n2_desenvolvimento": "Usa recursos (vídeo, material concreto, imagens), mas a escolha é mais por conveniência ou hábito do que por adequação ao objetivo de aprendizagem.",
+        "n3_meta": "Usa recurso/representação adequada; justifica o recurso pelo objetivo; verifica se o recurso ajudou e troca se necessário.",
+        "n4_referencia": "Cria e adapta recursos didáticos com alto impacto; referência para colegas em curadoria e uso intencional de materiais.",
+        "evidencias_esperadas": "Ação/Exemplo: usa recurso/representação adequada; Critério: justifica o recurso pelo objetivo; Acompanhamento: verifica se o recurso ajudou e troca se necessário",
+        "perguntas_alvo": "Que recurso usou na última aula? Por que escolheu esse? Me conte uma aula que ficou melhor por causa do recurso usado"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Ritmo e transições",
+        "descritor_completo": "Gerencia ritmo, tempo e transições sem perder foco pedagógico.",
+        "n1_gap": "Transições entre atividades são caóticas; alunos perdem o foco e muito tempo é desperdiçado entre uma etapa e outra.",
+        "n2_desenvolvimento": "Gerencia o tempo da aula de forma básica, mas transições entre atividades geram dispersão; quando o tempo aperta, corta atividades importantes em vez de ajustar o ritmo.",
+        "n3_meta": "Faz transições com sinal claro e tempo definido; define ritmo coerente com objetivo e turma; ajusta tempo/ritmo conforme evidências.",
+        "n4_referencia": "Gere o tempo da aula com maestria; transições são fluidas e o ritmo sustenta engajamento do início ao fim; ensina colegas técnicas de gestão de ritmo.",
+        "evidencias_esperadas": "Ação/Exemplo: faz transições com sinal claro e tempo definido; Critério: define ritmo coerente com objetivo e turma; Acompanhamento: ajusta tempo/ritmo conforme evidências",
+        "perguntas_alvo": "Como faz a transição entre atividades? O que acontece quando uma atividade demora mais que o previsto? Me dê exemplo de como gerenciou o ritmo"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Explicitação de critérios",
+        "descritor_completo": "Torna critérios de qualidade explícitos (o que é um bom trabalho/resposta).",
+        "n1_gap": "Não explicita critérios de qualidade; alunos não sabem o que diferencia um trabalho bom de um ruim.",
+        "n2_desenvolvimento": "Comunica o que espera (\"façam bem feito\"), mas sem critérios explícitos de qualidade; alunos dependem da correção do professor para saber se acertaram.",
+        "n3_meta": "Mostra exemplo/contraexemplo e critérios; conecta critérios ao objetivo de aprendizagem; retoma critérios na devolutiva e revisões.",
+        "n4_referencia": "Usa critérios e exemplos como ferramenta de ensino explícito; alunos se autoavaliam com autonomia; compartilha rubricas com colegas.",
+        "evidencias_esperadas": "Ação/Exemplo: mostra exemplo/contraexemplo e critérios; Critério: conecta critérios ao objetivo de aprendizagem; Acompanhamento: retoma critérios na devolutiva e revisões",
+        "perguntas_alvo": "Como seus alunos sabem se fizeram um bom trabalho? Usa exemplos ou critérios? Me dê exemplo de como explicitou o que esperava"
+      }
+    ],
+    "Professor(a)::Planejamento e intencionalidade pedagógica": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Objetivos de aprendizagem",
+        "descritor_completo": "Define objetivos de aprendizagem claros e comunicáveis para a aula/sequência.",
+        "n1_gap": "Não define objetivo claro de aprendizagem; a aula acontece sem que os alunos saibam o que se espera que aprendam.",
+        "n2_desenvolvimento": "Define objetivo, mas de forma vaga ou genérica; a turma sabe o que vai fazer mas não necessariamente o que vai aprender; o objetivo nem sempre se conecta ao que será avaliado.",
+        "n3_meta": "Define objetivo claro (o que os alunos vão aprender); alinha objetivo ao currículo e ao nível da turma; verifica se os alunos atingiram o objetivo e ajusta.",
+        "n4_referencia": "Formula objetivos precisos e os usa como bússola de toda a aula; compartilha estratégias de formulação com colegas e eleva a intencionalidade do grupo.",
+        "evidencias_esperadas": "Ação/Exemplo: define objetivo claro (o que os alunos vão aprender); Critério: alinha objetivo ao currículo e ao nível da turma; Acompanhamento: verifica se os alunos atingiram o objetivo e ajusta",
+        "perguntas_alvo": "Me conte o objetivo da última aula que deu. Os alunos sabiam o que iam aprender? Como verificou se o objetivo foi alcançado?"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Sequência didática",
+        "descritor_completo": "Organiza atividades em sequência coerente e progressiva.",
+        "n1_gap": "Aula sem progressão clara; atividades soltas sem conexão entre início, desenvolvimento e fechamento.",
+        "n2_desenvolvimento": "Estrutura a aula com começo e fim, mas a progressão entre atividades é frágil; às vezes falta conexão lógica entre uma etapa e outra ou o fechamento é apressado.",
+        "n3_meta": "Estrutura início–meio–fim com progressão; justifica a sequência pelo raciocínio pedagógico; ajusta ritmo/retomadas com base em evidências da turma.",
+        "n4_referencia": "Constrói sequências didáticas robustas que servem de referência para colegas; antecipa ajustes e documenta para replicação.",
+        "evidencias_esperadas": "Ação/Exemplo: estrutura início–meio–fim com progressão; Critério: justifica a sequência pelo raciocínio pedagógico; Acompanhamento: ajusta ritmo/retomadas com base em evidências da turma",
+        "perguntas_alvo": "Como organiza o início, meio e fim de uma sequência? Me dê exemplo de aula onde a progressão fez diferença na aprendizagem"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Alinhamento curricular",
+        "descritor_completo": "Alinha planejamento ao currículo e às expectativas da etapa/ano.",
+        "n1_gap": "Não conecta o que ensina ao currículo prescrito; as atividades não se ancoram em expectativas ou competências definidas.",
+        "n2_desenvolvimento": "Menciona o currículo no planejamento, mas a conexão entre a atividade proposta e a expectativa de aprendizagem é superficial ou pouco explícita.",
+        "n3_meta": "Cita expectativa/competência do currículo; explica como a atividade desenvolve a expectativa; registra e revisa coerência ao longo das semanas.",
+        "n4_referencia": "Domina o currículo a ponto de fazer articulações interdisciplinares e ajuda colegas a alinhar suas práticas.",
+        "evidencias_esperadas": "Ação/Exemplo: cita expectativa/competência do currículo; Critério: explica como a atividade desenvolve a expectativa; Acompanhamento: registra e revisa coerência ao longo das semanas",
+        "perguntas_alvo": "Como garante que sua aula está conectada ao currículo? Me dê exemplo de como uma atividade desenvolveu uma competência específica"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Adequação à turma",
+        "descritor_completo": "Adequa planejamento ao perfil da turma (linguagem, tempo, repertório, contexto).",
+        "n1_gap": "Planeja a mesma aula de forma padronizada, sem considerar perfil, ritmo ou necessidades específicas dos alunos.",
+        "n2_desenvolvimento": "Percebe diferenças entre alunos, mas as adaptações são reativas (quando o problema já apareceu) em vez de planejadas; tende a ajustar tempo, não estratégia.",
+        "n3_meta": "Adapta linguagem/tempo/material ao perfil; explica critérios de adaptação (barreiras e necessidades); observa engajamento/compreensão e recalibra.",
+        "n4_referencia": "Antecipa necessidades de diferentes perfis e prepara variações de apoio e extensão como parte natural do planejamento; compartilha repertório com a equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: adapta linguagem/tempo/material ao perfil; Critério: explica critérios de adaptação (barreiras e necessidades); Acompanhamento: observa engajamento/compreensão e recalibra",
+        "perguntas_alvo": "O que muda no seu planejamento quando pensa nesta turma específica? Me dê exemplo de adaptação que fez. Como decidiu o que adaptar?"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Antecipação de dificuldades",
+        "descritor_completo": "Antecipa dificuldades comuns e planeja suportes (scaffolds) e extensões.",
+        "n1_gap": "Não antecipa erros comuns ou dificuldades previsíveis; é surpreendido quando alunos não entendem.",
+        "n2_desenvolvimento": "Reconhece dificuldades quando surgem, mas não as antecipa no planejamento; o suporte é improvisado no momento em vez de preparado previamente.",
+        "n3_meta": "Antecipa erros/dúvidas e prepara suporte; define critérios para quando oferecer suporte ou extensão; observa quem precisa e ajusta intervenções.",
+        "n4_referencia": "Mapeia dificuldades previstas e prepara intervenções antes da aula; documenta padrões de erro e compartilha com a equipe para prevenção coletiva.",
+        "evidencias_esperadas": "Ação/Exemplo: antecipa erros/dúvidas e prepara suporte; Critério: define critérios para quando oferecer suporte ou extensão; Acompanhamento: observa quem precisa e ajusta intervenções",
+        "perguntas_alvo": "Quais dificuldades você já esperava nesta aula? O que preparou para quando aparecessem? Me dê exemplo de erro que antecipou"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Revisão do planejamento",
+        "descritor_completo": "Revisa o planejamento a partir do que funcionou, do que não funcionou e dos resultados observados.",
+        "n1_gap": "Não revisa o que funcionou ou não; repete o mesmo planejamento independente dos resultados.",
+        "n2_desenvolvimento": "Percebe quando algo não funcionou, mas a revisão fica na impressão pessoal; não usa evidências concretas (produções dos alunos, observações) para decidir o que mudar.",
+        "n3_meta": "Revê o que funcionou e o que não funcionou; conecta revisão a evidências (trabalho dos alunos/observação); implementa ajuste e monitora impacto.",
+        "n4_referencia": "Opera em ciclo contínuo de revisão: analisa resultados, ajusta, testa de novo; compartilha aprendizados com colegas e fortalece cultura de melhoria.",
+        "evidencias_esperadas": "Ação/Exemplo: revê o que funcionou e o que não funcionou; Critério: conecta revisão a evidências (trabalho dos alunos/observação); Acompanhamento: implementa ajuste e monitora impacto",
+        "perguntas_alvo": "Depois de uma aula que não foi como esperava, o que faz? Me conte algo que mudou no planejamento por causa do que observou"
+      }
+    ],
+    "Professor(a)::Diversidade e Inclusão": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Leitura de barreiras",
+        "descritor_completo": "Identifica barreiras de acesso, participação e aprendizagem na turma.",
+        "n1_gap": "Não percebe barreiras que impedem alguns alunos de participar ou aprender; trata todos de forma idêntica ignorando desigualdades.",
+        "n2_desenvolvimento": "Percebe que alguns alunos participam menos, mas atribui a causas individuais (\"é tímido\", \"não se esforça\") sem investigar barreiras estruturais ou pedagógicas.",
+        "n3_meta": "Identifica uma barreira concreta; explica impacto da barreira; ajusta prática e verifica se a barreira reduziu.",
+        "n4_referencia": "Mapeia barreiras sistematicamente e antecipa soluções; referência para colegas em leitura inclusiva do ambiente de aprendizagem.",
+        "evidencias_esperadas": "Ação/Exemplo: identifica uma barreira concreta; Critério: explica impacto da barreira; Acompanhamento: ajusta prática e verifica se a barreira reduziu",
+        "perguntas_alvo": "Que barreiras de participação ou aprendizagem existem na sua turma? Como percebeu? Quais alunos são mais afetados?"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Adaptações e acessibilidade",
+        "descritor_completo": "Realiza adaptações razoáveis (linguagem, material, tempo, suporte) para acessibilidade.",
+        "n1_gap": "Não adapta materiais, tempo ou linguagem para alunos com necessidades diferentes; inclusão é vista como responsabilidade do especialista.",
+        "n2_desenvolvimento": "Faz adaptações quando solicitado (pela coordenação, pela família, pelo laudo), mas não toma a iniciativa; a inclusão depende de demanda externa, não de leitura própria.",
+        "n3_meta": "Faz adaptação concreta (material/tempo/linguagem); justifica adaptação pela necessidade; verifica se o aluno acessou e ajusta.",
+        "n4_referencia": "Cria adaptações integradas ao planejamento como prática natural; compartilha repertório de adaptações com colegas e amplia a capacidade da equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: faz adaptação concreta (material/tempo/linguagem); Critério: justifica adaptação pela necessidade; Acompanhamento: verifica se o aluno acessou e ajusta",
+        "perguntas_alvo": "Me dê exemplo de adaptação que fez para um aluno com necessidade específica. O que mudou? Funcionou? Como decidiu o que adaptar?"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Diferenciação pedagógica",
+        "descritor_completo": "Diferencia tarefas, suportes e expectativas para atender diferentes níveis.",
+        "n1_gap": "Oferece o mesmo caminho para todos; alunos avançados ficam ociosos e alunos com dificuldade ficam para trás.",
+        "n2_desenvolvimento": "Oferece reforço para quem tem dificuldade, mas não extensão para quem avança; diferenciação é vista como \"ajudar os fracos\", não como atender todos.",
+        "n3_meta": "Oferece caminhos diferentes (suporte/extensão); define critérios de quem recebe o quê; monitora progresso e reequilibra.",
+        "n4_referencia": "Diferencia com naturalidade e precisão; antecipa caminhos múltiplos e ensina colegas a diferenciar sem sobrecarregar.",
+        "evidencias_esperadas": "Ação/Exemplo: oferece caminhos diferentes (suporte/extensão); Critério: define critérios de quem recebe o quê; Acompanhamento: monitora progresso e reequilibra",
+        "perguntas_alvo": "Como faz quando na mesma turma tem alunos em níveis muito diferentes? Me dê exemplo de como ofereceu caminhos distintos na mesma aula"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Altas expectativas",
+        "descritor_completo": "Mantém altas expectativas com apoio, evitando rótulos e baixas expectativas.",
+        "n1_gap": "Usa linguagem que comunica baixa expectativa (\"esse aluno não consegue\", \"com essa turma não dá\"); rotula alunos.",
+        "n2_desenvolvimento": "Acredita no potencial dos alunos em geral, mas baixa a expectativa para alunos específicos sem perceber; frases como \"para ele, já está bom\" aparecem.",
+        "n3_meta": "Usa linguagem de potencial e apoio; define expectativa + suporte adequado; observa progresso e ajusta sem rótulos.",
+        "n4_referencia": "Comunica altas expectativas para a turma de forma autêntica, com critérios claros e suporte para que se realizem; influencia positivamente colegas a fazer o mesmo.",
+        "evidencias_esperadas": "Ação/Exemplo: usa linguagem de potencial e apoio; Critério: define expectativa + suporte adequado; Acompanhamento: observa progresso e ajusta sem rótulos",
+        "perguntas_alvo": "Como demonstra que acredita na capacidade de todos os alunos? Me dê exemplo de aluno que surpreendeu quando recebeu apoio adequado"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Apoio a casos sensíveis",
+        "descritor_completo": "Acolhe e encaminha situações sensíveis (vulnerabilidade, sofrimento, bullying) de forma adequada.",
+        "n1_gap": "Ignora situações sensíveis, expõe aluno ou encaminha sem acolher; não sabe como agir diante de vulnerabilidade.",
+        "n2_desenvolvimento": "Percebe situações sensíveis mas hesita em agir; tende a esperar que a coordenação resolva ou a minimizar a gravidade para evitar conflito.",
+        "n3_meta": "Acolhe sem expor e registra o essencial; segue protocolo/critério de encaminhamento; faz follow-up e garante suporte.",
+        "n4_referencia": "Acolhe com sensibilidade, segue protocolo e articula com a rede; ajuda colegas a reconhecer e encaminhar casos sensíveis.",
+        "evidencias_esperadas": "Ação/Exemplo: acolhe sem expor e registra o essencial; Critério: segue protocolo/critério de encaminhamento; Acompanhamento: faz follow-up e garante suporte",
+        "perguntas_alvo": "Me conte como lidou com uma situação sensível de um aluno (sem identificá-lo). O que fez primeiro? Quem envolveu? Como protegeu o aluno?"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Linguagem inclusiva",
+        "descritor_completo": "Usa e promove linguagem respeitosa e inclusiva, intervindo em discriminação.",
+        "n1_gap": "Não intervém em falas ou condutas discriminatórias; permite que exclusão aconteça sem nomear o problema.",
+        "n2_desenvolvimento": "Não usa linguagem discriminatória, mas também não intervém consistentemente quando alunos usam; a omissão é mais comum que a ação.",
+        "n3_meta": "Intervém em fala/conduta inadequada; explica por que é inadequado e qual combinado; acompanha recorrência e reforça cultura.",
+        "n4_referencia": "Intervém com firmeza educativa e usa episódios como oportunidade de aprendizagem coletiva; promove cultura antidiscriminatória que funciona sem o professor presente.",
+        "evidencias_esperadas": "Ação/Exemplo: intervém em fala/conduta inadequada; Critério: explica por que é inadequado e qual combinado; Acompanhamento: acompanha recorrência e reforça cultura",
+        "perguntas_alvo": "Me conte uma situação de fala ou conduta inadequada entre alunos. Como interveio? O que disse? Os alunos entenderam por que era um problema?"
+      }
+    ],
+    "Professor(a)::Gestão da Aprendizagem": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Evidências de aprendizagem",
+        "descritor_completo": "Coleta evidências de aprendizagem durante e após as atividades (observação, registros, produções).",
+        "n1_gap": "Não coleta evidências durante a aula; baseia-se apenas na prova final para saber se alunos aprenderam.",
+        "n2_desenvolvimento": "Coleta alguma evidência (observa cadernos, corrige exercícios), mas de forma assistemática; a informação coletada nem sempre orienta o que faz em seguida.",
+        "n3_meta": "Coleta evidência (observa/registro/produção); define o que observar conforme objetivo; usa evidência para ajustar a próxima ação.",
+        "n4_referencia": "Opera sistema integrado de coleta de evidências que informa decisões em tempo real; compartilha instrumentos e estratégias com a equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: coleta evidência (observa/registro/produção); Critério: define o que observar conforme objetivo; Acompanhamento: usa evidência para ajustar a próxima ação",
+        "perguntas_alvo": "Como sabe se os alunos estão aprendendo DURANTE a aula, não só na prova? Me dê exemplo de evidência que coletou e o que fez com ela"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Feedback ao estudante",
+        "descritor_completo": "Oferece feedback específico e orientado a próximo passo.",
+        "n1_gap": "Dá feedback genérico (\"bom trabalho\", \"precisa melhorar\") ou apenas nota numérica sem orientação sobre o que mudar.",
+        "n2_desenvolvimento": "Dá feedback, mas focado no erro (\"está errado aqui\") sem indicar caminho de melhoria; ou dá feedback positivo genérico (\"muito bem!\") que não orienta.",
+        "n3_meta": "Dá feedback com exemplo do que melhorar; usa critérios claros para orientar; combina próximo passo e verifica melhora.",
+        "n4_referencia": "Dá feedback que os alunos usam para melhorar de forma autônoma; ensina autoavaliação; referência para a equipe em práticas de devolutiva.",
+        "evidencias_esperadas": "Ação/Exemplo: dá feedback com exemplo do que melhorar; Critério: usa critérios claros para orientar; Acompanhamento: combina próximo passo e verifica melhora",
+        "perguntas_alvo": "Me dê exemplo de feedback que deu a um aluno. O que disse exatamente? O aluno soube o que fazer para melhorar?"
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Critérios e rubricas",
+        "descritor_completo": "Usa critérios/rubricas para avaliar e orientar qualidade.",
+        "n1_gap": "Avalia sem critérios explícitos ou com critérios que os alunos desconhecem; a correção parece arbitrária.",
+        "n2_desenvolvimento": "Tem critérios na cabeça, mas não os compartilha com os alunos antes da atividade; a avaliação parece imprevisível para quem está sendo avaliado.",
+        "n3_meta": "Apresenta critérios/rubrica de forma acessível; explica como aplica critérios; usa critérios para orientar revisão/novo ciclo.",
+        "n4_referencia": "Co-constrói rubricas com alunos e as usa como ferramenta de aprendizagem; dissemina práticas de avaliação criterial na equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: apresenta critérios/rubrica de forma acessível; Critério: explica como aplica critérios; Acompanhamento: usa critérios para orientar revisão/novo ciclo",
+        "perguntas_alvo": "Como seus alunos sabem os critérios de avaliação antes de fazer a atividade? Usa rubrica? Me dê exemplo"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Monitoramento de progresso",
+        "descritor_completo": "Acompanha progresso ao longo do tempo (metas, registros, portfólio).",
+        "n1_gap": "Não mantém registro de progresso; não sabe dizer como cada aluno evoluiu ao longo do tempo.",
+        "n2_desenvolvimento": "Tem noção geral de quem está indo bem ou mal, mas sem registro organizado; quando perguntado sobre um aluno específico, recorre à memória, não a dados.",
+        "n3_meta": "Mantém registro simples de progresso; define referência/meta realista; revisa progresso e ajusta estratégias.",
+        "n4_referencia": "Mantém sistema robusto de acompanhamento que permite intervenção precisa; compartilha método com colegas e fortalece acompanhamento coletivo.",
+        "evidencias_esperadas": "Ação/Exemplo: mantém registro simples de progresso; Critério: define referência/meta realista; Acompanhamento: revisa progresso e ajusta estratégias",
+        "perguntas_alvo": "Como acompanha o progresso de cada aluno? Tem registro? Me mostre como sabe se um aluno específico avançou ou não"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Intervenção e reensino",
+        "descritor_completo": "Organiza intervenções (reensino, grupos, apoios) para superar lacunas.",
+        "n1_gap": "Quando alunos não aprendem, segue em frente ou repete a mesma explicação do mesmo jeito.",
+        "n2_desenvolvimento": "Quando alunos não aprendem, repete a mesma explicação com mais ênfase ou mais lentamente; não muda a estratégia, muda o volume.",
+        "n3_meta": "Propõe intervenção concreta para lacuna; seleciona intervenção pelo diagnóstico; avalia se a intervenção funcionou e ajusta.",
+        "n4_referencia": "Domina repertório amplo de intervenções e seleciona com precisão; antecipa necessidades de reensino e documenta para a equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: propõe intervenção concreta para lacuna; Critério: seleciona intervenção pelo diagnóstico; Acompanhamento: avalia se a intervenção funcionou e ajusta",
+        "perguntas_alvo": "Quando percebe que parte da turma não aprendeu, o que faz? Me dê exemplo de intervenção diferente da explicação original. Funcionou?"
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Comunicação do progresso",
+        "descritor_completo": "Comunica progresso e necessidades de forma clara (alunos, famílias, equipe).",
+        "n1_gap": "Não comunica progresso às famílias ou o faz apenas com nota; famílias não sabem o que o aluno precisa melhorar.",
+        "n2_desenvolvimento": "Comunica resultados às famílias quando solicitado, mas focando na nota ou no comportamento; falta explicação sobre o que o aluno precisa fazer para avançar.",
+        "n3_meta": "Compartilha síntese de progresso; explica critérios e próximos passos; alinha ações e acompanha continuidade.",
+        "n4_referencia": "Comunica progresso de forma clara e acionável para famílias e alunos; cria cultura de transparência sobre aprendizagem que inspira a equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: compartilha síntese de progresso; Critério: explica critérios e próximos passos; Acompanhamento: alinha ações e acompanha continuidade",
+        "perguntas_alvo": "Como comunica às famílias o progresso do aluno? Fala só de nota ou de aprendizagem? Me dê exemplo do que disse e como a família reagiu"
+      }
+    ],
+    "Professor(a)::Observação e Contexto": [
+      {
+        "suffix": "D01",
+        "nome_curto": "Observação da aprendizagem",
+        "descritor_completo": "Observa comportamentos, falas, produções e dúvidas para compreender como os estudantes estão aprendendo.",
+        "n1_gap": "Observa pouco o processo dos estudantes e atua quase só pela impressão geral ou pelo resultado final.",
+        "n2_desenvolvimento": "Observa alguns sinais, mas sem intenção clara ou sem transformar isso em leitura pedagógica consistente.",
+        "n3_meta": "Observa com atenção e intencionalidade, identificando sinais úteis para compreender a aprendizagem.",
+        "n4_referencia": "Desenvolve olhar refinado e sistemático sobre a aprendizagem, compartilhando leituras úteis com a equipe.",
+        "evidencias_esperadas": "Ação/Exemplo: relata o que observou em aula; Critério: mostra que olhou além do acerto/erro; Acompanhamento: explica como a observação ajudou a compreender a aprendizagem",
+        "perguntas_alvo": "Que sinais você observa durante a aula para entender como os alunos estão aprendendo?"
+      },
+      {
+        "suffix": "D02",
+        "nome_curto": "Leitura do contexto",
+        "descritor_completo": "Considera aspectos da turma, da rotina, do território e da realidade dos estudantes ao interpretar situações pedagógicas.",
+        "n1_gap": "Interpreta dificuldades e comportamentos sem considerar o contexto dos estudantes ou da turma.",
+        "n2_desenvolvimento": "Reconhece alguns aspectos de contexto, mas ainda de modo superficial ou pouco integrado à análise pedagógica.",
+        "n3_meta": "Considera contexto e realidade dos estudantes para interpretar situações e tomar decisões mais justas.",
+        "n4_referencia": "Integra de forma madura leitura de contexto e análise pedagógica, evitando julgamentos apressados e ampliando a precisão das intervenções.",
+        "evidencias_esperadas": "Ação/Exemplo: descreve situação em que o contexto alterou sua interpretação; Critério: mostra o que considerou; Acompanhamento: indica decisão pedagógica decorrente",
+        "perguntas_alvo": "Conte uma situação em que entender o contexto da turma ou do aluno mudou sua leitura do que estava acontecendo."
+      },
+      {
+        "suffix": "D03",
+        "nome_curto": "Identificação de barreiras e sinais",
+        "descritor_completo": "Reconhece sinais de dificuldade, desengajamento, sofrimento ou barreiras de participação e aprendizagem.",
+        "n1_gap": "Não percebe ou demora a perceber sinais importantes de dificuldade, exclusão ou sofrimento.",
+        "n2_desenvolvimento": "Percebe sinais evidentes, mas pode tardar a agir ou não distinguir bem sua natureza.",
+        "n3_meta": "Reconhece sinais relevantes com boa rapidez e diferencia necessidades pedagógicas, relacionais e de proteção.",
+        "n4_referencia": "Antecipa sinais sutis, articula apoio e contribui para prevenção antes que a situação se agrave.",
+        "evidencias_esperadas": "Ação/Exemplo: relata sinal identificado; Critério: mostra distinção do tipo de necessidade; Acompanhamento: explica como agiu ou encaminhou",
+        "perguntas_alvo": "Que sinais fazem você perceber que um estudante ou grupo precisa de atenção diferente?"
+      },
+      {
+        "suffix": "D04",
+        "nome_curto": "Registro e acompanhamento",
+        "descritor_completo": "Registra observações relevantes de forma organizada para acompanhar casos, evolução e necessidades.",
+        "n1_gap": "Não registra observações ou depende apenas da memória para acompanhar situações.",
+        "n2_desenvolvimento": "Registra algumas informações, mas de modo irregular ou pouco útil para acompanhamento.",
+        "n3_meta": "Mantém registros objetivos e organizados que ajudam a acompanhar evolução e necessidades dos estudantes.",
+        "n4_referencia": "Constrói repertório consistente de registros que qualifica decisões, comunicação com a equipe e continuidade do acompanhamento.",
+        "evidencias_esperadas": "Ação/Exemplo: apresenta tipo de registro usado; Critério: mostra objetividade e utilidade; Acompanhamento: explica como acompanha evolução ao longo do tempo",
+        "perguntas_alvo": "Como registra o que observa sobre aprendizagem, comportamento ou necessidades dos alunos?"
+      },
+      {
+        "suffix": "D05",
+        "nome_curto": "Ajuste pedagógico contextualizado",
+        "descritor_completo": "Ajusta estratégias, agrupamentos, linguagem ou apoio a partir do que observa no contexto real da turma.",
+        "n1_gap": "Mantém a mesma estratégia mesmo quando os sinais mostram que ela não está funcionando.",
+        "n2_desenvolvimento": "Faz alguns ajustes, mas ainda genéricos ou pouco conectados ao que observou.",
+        "n3_meta": "Ajusta estratégias de forma coerente com os sinais observados e com o contexto da turma.",
+        "n4_referencia": "Realiza ajustes finos e oportunos que ampliam participação, compreensão e avanço de diferentes estudantes.",
+        "evidencias_esperadas": "Ação/Exemplo: relata ajuste feito com base na observação; Critério: mostra conexão entre sinal e decisão; Acompanhamento: descreve efeito percebido",
+        "perguntas_alvo": "Me dê um exemplo de mudança que fez na aula porque observou algo importante na turma."
+      },
+      {
+        "suffix": "D06",
+        "nome_curto": "Compartilhamento de percepções",
+        "descritor_completo": "Compartilha observações relevantes com coordenação, famílias e equipe de modo ético, objetivo e colaborativo.",
+        "n1_gap": "Não compartilha percepções importantes ou o faz de maneira vaga, tardia ou inadequada.",
+        "n2_desenvolvimento": "Compartilha algumas observações, mas sem regularidade, objetividade ou cuidado suficiente.",
+        "n3_meta": "Compartilha observações relevantes com clareza, ética e foco em favorecer o acompanhamento do estudante.",
+        "n4_referencia": "Torna-se referência no compartilhamento qualificado de percepções, fortalecendo ação conjunta entre professor, equipe e família.",
+        "evidencias_esperadas": "Ação/Exemplo: descreve situação em que compartilhou observações; Critério: mostra objetividade e ética; Acompanhamento: explica como isso apoiou o estudante",
+        "perguntas_alvo": "Como você comunica à coordenação ou à família algo importante que observou sobre um estudante?"
+      }
+    ]
+  }
+}

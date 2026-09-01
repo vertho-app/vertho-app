@@ -53,6 +53,11 @@ export type DemoRosterPersona = {
   scenario: string;
   /** Competências que a persona responde no assessment (vazio = só diagnóstico). */
   responder: string[];
+  /**
+   * Qual conjunto de respostas o seed usa. `forte` é para a persona que a demo
+   * mostra no melhor caso (avaliação alta, jornada completa).
+   */
+  estiloResposta?: 'padrao' | 'forte';
 };
 
 /**
@@ -67,6 +72,28 @@ export type DemoRosterAdministradora = {
   cargo: string;
   role: string;
   area_depto: string;
+};
+
+/** Um descritor da régua: o que a avaliação mede dentro de uma competência. */
+export type DemoRosterDescritor = {
+  suffix: string;
+  nome_curto: string;
+  descritor_completo: string;
+  n1_gap: string;
+  n2_desenvolvimento: string;
+  n3_meta: string;
+  n4_referencia: string;
+  evidencias_esperadas: string;
+  perguntas_alvo: string;
+};
+
+/** O que uma persona responde no assessment de uma competência. */
+export type DemoRespostaSemeada = {
+  r1: string;
+  r2: string;
+  r3: string;
+  r4: string;
+  representatividade: number;
 };
 
 /** Um papel da sala de apresentação, e a persona que o atende. */
@@ -99,6 +126,24 @@ export type DemoRoster = {
   administradora: DemoRosterAdministradora;
   /** Quem abre cada visão da sala ao vivo (participante, liderança, programa). */
   salaApresentacao: DemoRosterSalaAcesso[];
+  /**
+   * O texto que as personas respondem. É ELENCO, não motor: o comercial fala em
+   * CRM, cliente e margem, e uma diretora de escola dizendo "risco comercial"
+   * entrega a demo errada — além de a IA4 avaliar esse jargão como se fosse a
+   * resposta da pessoa.
+   */
+  respostas: {
+    padrao: (competencia: string, persona: DemoRosterPersona) => DemoRespostaSemeada;
+    forte?: (competencia: string, persona: DemoRosterPersona) => DemoRespostaSemeada;
+  };
+  /**
+   * A RÉGUA por `${cargo}::${competência}`. Sem ela o motor cai num gerador
+   * genérico ("Leitura do contexto", "Comunicação com stakeholders", com o mesmo
+   * N1-N4 em toda competência) — que aparece na tela E é o que a IA3 e a IA4
+   * leem: os primeiros cenários escolares saíram com mapa incoerente porque as
+   * perguntas eram do segmento e a régua não.
+   */
+  descritores?: Record<string, DemoRosterDescritor[]>;
   /**
    * Unidades da organização (as escolas de uma rede). Ausente num elenco de
    * empresa única, onde a área do colaborador já basta.

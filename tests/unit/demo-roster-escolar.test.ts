@@ -161,6 +161,67 @@ describe('roster escolar: a Rede de Escolas ACME', () => {
     }
   });
 
+  /**
+   * O seed usava o texto COMERCIAL para qualquer ambiente, e a diretora da rede
+   * aparecia dizendo "interesses do cliente e riscos comerciais". Além de ser a
+   * demo errada na tela, é o texto que a IA4 avalia: a nota sairia de um
+   * vocabulário que o segmento não fala.
+   */
+  it('as respostas do elenco não carregam jargão comercial', () => {
+    const proibidos = [/cliente/i, /CRM/, /margem/i, /comercia(l|is)/i, /venda/i, /pipeline/i];
+    const competencia = 'Planejamento e Organização';
+    const persona = ROSTER_ESCOLAR.personas[0];
+    const conjuntos = [
+      ROSTER_ESCOLAR.respostas.padrao(competencia, persona),
+      ROSTER_ESCOLAR.respostas.forte!(competencia, persona),
+    ];
+    for (const conjunto of conjuntos) {
+      const texto = [conjunto.r1, conjunto.r2, conjunto.r3, conjunto.r4].join(' ');
+      expect(texto.length).toBeGreaterThan(400);
+      for (const proibido of proibidos) {
+        expect(proibido.test(texto), `"${proibido}" aparece na resposta escolar`).toBe(false);
+      }
+    }
+  });
+
+  it('quem tem jornada completa responde no melhor caso', () => {
+    for (const persona of ROSTER_ESCOLAR.personas) {
+      if (persona.scenario === 'completo') expect(persona.estiloResposta).toBe('forte');
+    }
+  });
+
+  /**
+   * A régua é o que a IA3 e a IA4 leem, e o que aparece na tela do mapeamento.
+   * O gerador genérico do motor repete os mesmos 6 rótulos ("Leitura do
+   * contexto", "Comunicação com stakeholders") e o MESMO N1-N4 em toda
+   * competência — foi por isso que 10 dos 15 primeiros cenários vieram com
+   * mapa incoerente entre pergunta e descritor.
+   */
+  it('toda competência tem régua própria, com seis descritores', () => {
+    expect(ROSTER_ESCOLAR.descritores).toBeDefined();
+    for (const cargo of ROSTER_ESCOLAR.cargosConstruidos) {
+      for (const [competencia] of cargo.competencias) {
+        const regua = ROSTER_ESCOLAR.descritores![`${cargo.nome}::${competencia}`];
+        expect(regua, `sem régua: ${cargo.nome} · ${competencia}`).toBeDefined();
+        expect(regua).toHaveLength(6);
+      }
+    }
+  });
+
+  it('a régua não repete o mesmo nível entre descritores da competência', () => {
+    // O gerador genérico dá o mesmo N3 a todos: com ele, a avaliação não
+    // consegue diferenciar um descritor do outro.
+    for (const [chave, regua] of Object.entries(ROSTER_ESCOLAR.descritores!)) {
+      const nomes = new Set(regua.map((d) => d.nome_curto));
+      const metas = new Set(regua.map((d) => d.n3_meta));
+      expect(nomes.size, `${chave}: descritores repetidos`).toBe(regua.length);
+      expect(metas.size, `${chave}: mesmo N3 em mais de um descritor`).toBe(regua.length);
+      for (const descritor of regua) {
+        expect(descritor.evidencias_esperadas.length, `${chave}/${descritor.nome_curto} sem evidências`).toBeGreaterThan(40);
+      }
+    }
+  });
+
   it('não reaproveita e-mail nem chave do elenco comercial', () => {
     const comercial = new Set([
       ...ROSTER_COMERCIAL.personas.map((persona) => persona.email),

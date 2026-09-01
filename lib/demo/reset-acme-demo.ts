@@ -1193,7 +1193,12 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       for (const [idx, [nome, descricao]] of role.competencias.entries()) {
         const codComp = `${role.codPrefix}${String(idx + 1).padStart(2, '0')}`;
         let firstComp: any = null;
-        for (const d of demoDescriptorsFor(nome, descricao)) {
+        // A régua vem do ROSTER quando ele a declara; o gerador genérico é o
+        // fallback de quem ainda não tem matriz própria. Ele repete os mesmos 6
+        // rótulos e o mesmo N1-N4 em toda competência, o que a IA3/IA4 leem
+        // como régua — e produz mapa incoerente entre pergunta e descritor.
+        const reguaDoRoster = roster.descritores?.[`${role.nome}::${nome}`];
+        for (const d of reguaDoRoster ?? demoDescriptorsFor(nome, descricao)) {
           const comp = await must(`insert competencia ${role.nome} ${nome} ${d.suffix}`, sb.from('competencias').insert({
             empresa_id: destId,
             cargo: role.nome,
@@ -1330,26 +1335,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
 
   // Respostas FORTES (nível 3-4) da Mariana no Financeiro — para a demo mostrar
   // um candidato REALMENTE avaliado com fit positivo (o IA4 pontua alto).
-  function respostasFortesFinanceiro(compNome: string) {
-    const c = compNome.toLowerCase();
-    return {
-      r1: `Antes de agir eu isolo o problema central e valido a base. Em ${c}, cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio — para não reportar um número que induza a diretoria a uma decisão errada.`,
-      r2: `Corrijo na origem e deixo rastro auditável: reconcilio contra o razão, ajusto o lançamento, registro a premissa e comunico o impacto na margem antes do fechamento. Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo.`,
-      r3: `Meu critério é confiabilidade acima de velocidade: prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro. Sinalizo cedo o que ainda está em verificação e negocio prazo quando a precisão exige.`,
-      r4: `Depois comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz. Se algo passou, ajusto o controle para não repetir e explico o aprendizado para a área.`,
-      representatividade: 9,
-    };
-  }
 
-  function respostasPara(compNome: string, personaNome: string) {
-    return {
-      r1: `Eu começaria delimitando o problema principal antes de agir. No caso de ${compNome}, eu separaria fatos, interesses do cliente e riscos comerciais para evitar uma resposta automática.`,
-      r2: `Minha ação seria combinar uma conversa objetiva com registro no CRM e um próximo passo claro. Eu priorizaria o que preserva valor para o cliente sem comprometer margem ou previsibilidade.`,
-      r3: `O critério seria equilibrar relação, resultado e sustentabilidade. Uma decisão boa precisa resolver o curto prazo sem criar dependência ou promessa difícil de cumprir depois.`,
-      r4: `Eu acompanharia indicadores e pediria feedback. Também observaria onde minha reação inicial poderia ter sido impulsiva ou defensiva, para ajustar a próxima abordagem.`,
-      representatividade: personaNome === 'Bruna Costa' ? 9 : 8,
-    };
-  }
 
   async function seedRespostas(destId: string, personaMap: Map<string, string>) {
     const { data: comps, error: compErr } = await sb.from('competencias').select('id,nome,cargo,cod_desc').eq('empresa_id', destId);
@@ -1387,9 +1373,12 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         const comp = compByCargoNome.get(`${p.cargo}::${compNome}`);
         const cenario = cenarioByCargoNome.get(`${p.cargo}::${compNome}`);
         if (!comp && !cenario) continue;
-        const respostas = p.key === 'mariana'
-          ? respostasFortesFinanceiro(compNome)
-          : respostasPara(compNome, p.nome_completo);
+        // O texto é do elenco. A regra era `p.key === 'mariana'` — o nome de
+        // uma persona escrito dentro do motor, que num roster novo não existe.
+        const usarForte = p.estiloResposta === 'forte' && roster.respostas.forte;
+        const respostas = usarForte
+          ? roster.respostas.forte!(compNome, p)
+          : roster.respostas.padrao(compNome, p);
         const avaliacaoDemo = p.demo_report_fixture
           ? avaliacaoAcmeDemo(p.email, compNome)
           : null;

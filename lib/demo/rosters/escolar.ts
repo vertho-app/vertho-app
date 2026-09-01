@@ -14,7 +14,11 @@
  * exatamente o que travou o piloto docente em Macaé.
  */
 
-import type { DemoRoster } from '@/lib/demo/rosters/types';
+import type { DemoRoster, DemoRosterDescritor } from '@/lib/demo/rosters/types';
+// A régua real do segmento (6 descritores por competência, com N1-N4,
+// evidências e perguntas-alvo), capturada por
+// `scripts/_extrair-descritores-escolares.ts`.
+import reguaEscolar from '@/lib/demo/escolas-descritores.json';
 
 const DIRECAO = 'Diretor(a) Escolar';
 const COORDENACAO = 'Coordenador(a) Pedagógico(a)';
@@ -178,6 +182,7 @@ export const PERSONAS_ESCOLARES = [
     perfil_dominante: 'DI',
     d_natural: 62, i_natural: 58, s_natural: 42, c_natural: 38,
     scenario: 'completo',
+    estiloResposta: 'forte' as const,
     responder: TOP5_DIRECAO,
   },
   {
@@ -222,6 +227,7 @@ export const PERSONAS_ESCOLARES = [
     perfil_dominante: 'SC',
     d_natural: 24, i_natural: 44, s_natural: 66, c_natural: 66,
     scenario: 'completo',
+    estiloResposta: 'forte' as const,
     responder: TOP5_COORDENACAO,
   },
   {
@@ -338,6 +344,37 @@ export const PPP_REDE_ESCOLAS_ACME = {
 
 export const VALORES_REDE_ESCOLAS_ACME = PPP_REDE_ESCOLAS_ACME.valores_institucionais;
 
+/**
+ * As respostas do assessment, no vocabulário de quem trabalha em escola.
+ *
+ * 🔴 Não é preciosismo: o seed usava o texto COMERCIAL para qualquer ambiente, e
+ * a diretora da rede aparecia dizendo "separaria fatos, interesses do cliente e
+ * riscos comerciais". Além de entregar a demo errada, a IA4 avaliaria esse
+ * jargão como se fosse a resposta da pessoa — a nota sairia de um texto que o
+ * segmento não fala.
+ */
+export function respostaEscolarPadrao(competencia: string) {
+  return {
+    r1: `Eu começaria separando o que é evidência do que é impressão. Em ${competencia}, olho o que os dados da turma mostram, escuto quem está envolvido e delimito o problema antes de propor qualquer mudança de prática.`,
+    r2: 'Minha ação seria combinar uma conversa direta com um plano curto e verificável: o que muda na próxima semana, quem acompanha e como saberemos que funcionou. Registro os combinados para não depender de memória.',
+    r3: 'O critério é o efeito na aprendizagem, não a rapidez da solução. Prefiro um passo menor que a equipe sustenta a um plano grande que morre no primeiro imprevisto do calendário.',
+    r4: 'Depois eu comparo o combinado com o que aconteceu de fato, ouço a percepção de quem executou e ajusto. Também reviso se minha leitura inicial do problema estava certa, porque às vezes o sintoma não era a causa.',
+    representatividade: 8,
+  };
+}
+
+/** A persona que a demo mostra no melhor caso: evidência, método e follow-up. */
+export function respostaEscolarForte(competencia: string) {
+  const c = competencia.toLowerCase();
+  return {
+    r1: `Antes de agir eu monto o quadro com evidência. Em ${c}, cruzo os resultados da avaliação diagnóstica com o que vejo em sala e com o que os professores relatam, e separo o que é lacuna de aprendizagem do que é problema de rotina ou de vínculo — porque a intervenção é diferente em cada caso.`,
+    r2: 'Transformo isso num plano com dono e prazo: prioridade da quinzena, quem acompanha cada turma, que evidência vamos olhar e em que reunião revisamos. Deixo registrado no plano de ação e devolvo para a equipe no encontro seguinte, com o combinado escrito.',
+    r3: 'Meu critério é sustentabilidade: escolho o menor conjunto de mudanças que a equipe consegue manter durante o bimestre inteiro. Uma prática que a pessoa sustenta por oito semanas muda a aprendizagem; três práticas abandonadas na segunda semana não mudam nada.',
+    r4: 'No fechamento comparo o previsto com o realizado por turma, devolvo o resultado para quem executou e registro o que funcionou e o que não. Quando o resultado não vem, reviso primeiro a minha hipótese antes de cobrar a execução — e ajusto o acompanhamento para o ciclo seguinte.',
+    representatividade: 9,
+  };
+}
+
 export const ROSTER_ESCOLAR: DemoRoster = {
   key: 'escolar',
   // Todos os cargos nascem construídos (o acervo de origem tem cenários fracos
@@ -350,5 +387,10 @@ export const ROSTER_ESCOLAR: DemoRoster = {
   personas: PERSONAS_ESCOLARES,
   administradora: MANTENEDORA_PERSONA,
   salaApresentacao: SALA_ESCOLAR.map((acesso) => ({ ...acesso })),
+  respostas: {
+    padrao: (competencia) => respostaEscolarPadrao(competencia),
+    forte: (competencia) => respostaEscolarForte(competencia),
+  },
+  descritores: (reguaEscolar as any).descritores as Record<string, DemoRosterDescritor[]>,
   unidades: UNIDADES_ESCOLARES.map((unidade) => ({ ...unidade })),
 };

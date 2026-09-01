@@ -124,7 +124,7 @@ export const PERSONAS = [
   { key: 'paulo', nome_completo: 'Paulo Demo', email: 'paulo.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'IC', d_natural: 36, i_natural: 84, s_natural: 18, c_natural: 62, scenario: 'parcial', responder: ['Negociação e Fechamento', 'Orientação a Metas e Resultados'] },
   { key: 'bruna', nome_completo: 'Bruna Costa', email: 'bruna.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'CS', d_natural: 24, i_natural: 27, s_natural: 69, c_natural: 80, scenario: 'completo', responder: REPRESENTANTE_TOP5 },
   { key: 'carla', nome_completo: 'Carla Menezes', email: 'carla.demo@vertho.ai', cargo: 'Gerente Comercial', role: 'gestor', area_depto: COMERCIAL_AREA, gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'D', d_natural: 79, i_natural: 49, s_natural: 29, c_natural: 43, scenario: 'gestor-parcial', responder: [] as string[] },
-  { key: 'mariana', nome_completo: 'Mariana Lopes', email: 'mariana.demo@vertho.ai', cargo: 'Analista Financeiro', role: 'colaborador', area_depto: 'Financeiro', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'CS', d_natural: 22, i_natural: 34, s_natural: 65, c_natural: 79, scenario: 'completo', responder: [
+  { key: 'mariana', nome_completo: 'Mariana Lopes', email: 'mariana.demo@vertho.ai', cargo: 'Analista Financeiro', role: 'colaborador', area_depto: 'Financeiro', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'CS', d_natural: 22, i_natural: 34, s_natural: 65, c_natural: 79, scenario: 'completo', estiloResposta: 'forte' as const, responder: [
     'Controle, Precisão e Confiabilidade dos Dados',
     'Análise de Indicadores Financeiros',
     'Organização de Rotinas e Prazos',
@@ -146,6 +146,32 @@ export const SALA_COMERCIAL = [
 ] as const;
 
 /**
+ * As respostas que as personas dão no assessment. Vieram VERBATIM do motor do
+ * reset (`respostasPara` / `respostasFortesFinanceiro`): o vocabulário é o do
+ * segmento, e é justamente por isso que ele não pode morar no motor.
+ */
+export function respostaComercialPadrao(competencia: string, persona: { nome_completo: string }) {
+  return {
+    r1: `Eu começaria delimitando o problema principal antes de agir. No caso de ${competencia}, eu separaria fatos, interesses do cliente e riscos comerciais para evitar uma resposta automática.`,
+    r2: 'Minha ação seria combinar uma conversa objetiva com registro no CRM e um próximo passo claro. Eu priorizaria o que preserva valor para o cliente sem comprometer margem ou previsibilidade.',
+    r3: 'O critério seria equilibrar relação, resultado e sustentabilidade. Uma decisão boa precisa resolver o curto prazo sem criar dependência ou promessa difícil de cumprir depois.',
+    r4: 'Eu acompanharia indicadores e pediria feedback. Também observaria onde minha reação inicial poderia ter sido impulsiva ou defensiva, para ajustar a próxima abordagem.',
+    representatividade: persona.nome_completo === 'Bruna Costa' ? 9 : 8,
+  };
+}
+
+export function respostaComercialForte(competencia: string) {
+  const c = competencia.toLowerCase();
+  return {
+    r1: `Antes de agir eu isolo o problema central e valido a base. Em ${c}, cruzo as fontes, encontro a inconsistência na origem e separo erro de lançamento de efeito real de negócio — para não reportar um número que induza a diretoria a uma decisão errada.`,
+    r2: 'Corrijo na origem e deixo rastro auditável: reconcilio contra o razão, ajusto o lançamento, registro a premissa e comunico o impacto na margem antes do fechamento. Priorizo o que trava a decisão da gestão, sem estourar o prazo do ciclo.',
+    r3: 'Meu critério é confiabilidade acima de velocidade: prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro. Sinalizo cedo o que ainda está em verificação e negocio prazo quando a precisão exige.',
+    r4: 'Depois comparo previsto versus realizado, meço quantas correções vieram da minha revisão e atualizo o checklist de fechamento na causa-raiz. Se algo passou, ajusto o controle para não repetir e explico o aprendizado para a área.',
+    representatividade: 9,
+  };
+}
+
+/**
  * O elenco comercial, montado. `acme-demo` e `gruposinal` usam este mesmo
  * roster: o que os distingue é a identidade da empresa, não o conteúdo.
  */
@@ -159,4 +185,8 @@ export const ROSTER_COMERCIAL: DemoRoster = {
   personas: PERSONAS,
   administradora: DEMO_RH_PERSONA,
   salaApresentacao: SALA_COMERCIAL.map((acesso) => ({ ...acesso })),
+  respostas: {
+    padrao: (competencia, persona) => respostaComercialPadrao(competencia, persona),
+    forte: (competencia) => respostaComercialForte(competencia),
+  },
 };
