@@ -279,7 +279,12 @@ export function getAcmeProspectExperienceSteps(
     {
       number: '01',
       title: 'Comece como você',
-      description: `Comece do zero como ${access.cargo} e faça seu próprio mapeamento.`,
+      // A segunda frase existe para dar MOTIVO de não parar na 01: quem responde
+      // e fecha a aba nunca volta, e o resultado dele fica pronto para ninguém.
+      // Sem número de propósito — a duração muda com modelo e fila, e prazo em
+      // copy que sai para o cliente vira promessa.
+      description: `Comece do zero como ${access.cargo} e faça seu próprio mapeamento. `
+        + 'O resultado fica pronto enquanto você avança pelas próximas etapas.',
       url: access.url,
       note: `Acesso individual até ${formatAcmeProspectExpiry(access.expiresAt)}`,
     },

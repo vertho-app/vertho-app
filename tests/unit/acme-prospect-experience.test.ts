@@ -217,6 +217,12 @@ describe('contratos puros da experiência ACME', () => {
     expect(text).toContain('03/04 — Veja como gestor');
     expect(text).toContain('04/04 — Veja como RH');
     expect(text.match(/https:\/\//g)).toHaveLength(4);
+    // A etapa 01 precisa dizer POR QUE seguir: quem responde e para ali nunca
+    // volta, e a avaliação que dispara no envio fica pronta para ninguém.
+    expect(text).toContain('O resultado fica pronto enquanto você avança pelas próximas etapas.');
+    // e sem prazo em número: a duração muda com modelo e fila, e minuto
+    // prometido em texto que sai para o cliente vira dívida
+    expect(text).not.toMatch(/\d+\s*(minuto|min|segundo)/i);
     expect(text).toContain('Os quatro acessos ficam disponíveis até 02/09, 04:00');
     expect(text).toContain('O link da etapa 01 é individual e funciona uma única vez');
   });
