@@ -465,7 +465,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
   const system = buildIA3SystemPrompt();
   const user = buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS);
 
-  let resposta = await callAI(system, user, aiConfig, 10000, { taskKey: 'ia3_cenarios' });
+  let resposta = await callAI(system, user, aiConfig, 10000, { taskKey: 'ia3_cenarios', empresaId });
   let resultado = await extractJSON(resposta);
   if (!resultado) return { success: false, error: 'IA não retornou JSON válido' };
 
@@ -476,7 +476,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
   if (norm.errors.length > 0) {
     console.warn(`[IA3] ${comp.nome}: validação (${norm.errors.join('; ')}). Retry.`);
     const retryUser = user + `\n\n═══ ATENÇÃO: CORREÇÃO NECESSÁRIA ═══\n${norm.errors.join('\n')}\nCorrija e retorne JSON válido.`;
-    resposta = await callAI(system, retryUser, aiConfig, 10000, { taskKey: 'ia3_cenarios' });
+    resposta = await callAI(system, retryUser, aiConfig, 10000, { taskKey: 'ia3_cenarios', empresaId });
     const retryResult = await extractJSON(resposta);
     if (retryResult) {
       resultado = retryResult;
@@ -706,7 +706,7 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
 2. Os limites de sobriedade são inegociáveis: contexto ≤900 caracteres (conte antes de finalizar), máx 2 tensões, máx 2 stakeholders.
 3. Se o feedback pedir mais cobertura, obtenha-a REFORMULANDO perguntas — nunca inflando o contexto.`;
 
-  const resposta = await callAI(system, user, aiConfig, 10000, { taskKey: 'ia3_cenarios' });
+  const resposta = await callAI(system, user, aiConfig, 10000, { taskKey: 'ia3_cenarios', empresaId: cen.empresa_id });
   const resultado = await extractJSON(resposta);
   const norm = resultado ? validarRespostaIA3(resultado, descritores.length) : null;
   if (!norm) return { success: false, error: 'IA não retornou cenário válido — NADA foi alterado (a versão atual continua valendo)' };

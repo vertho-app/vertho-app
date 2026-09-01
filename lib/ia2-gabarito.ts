@@ -674,7 +674,7 @@ export async function gerarGabaritosIA2Core(args: {
     const detalhe = cargosDetalheMap[nomeDoCargo.toLowerCase()] || {};
     const { system, user } = montarPromptIA2({ cargoNome: nomeDoCargo, compNomes, detalhe, contextoPPP, valores, empresa });
 
-    let resposta = await callAI(system, user, aiConfig, 8192, { taskKey: 'ia2_gabarito' });
+    let resposta = await callAI(system, user, aiConfig, 8192, { taskKey: 'ia2_gabarito', empresaId });
     let resultado = await extractJSON(resposta);
 
     if (resultado?.gabarito) {
@@ -682,7 +682,7 @@ export async function gerarGabaritosIA2Core(args: {
       if (invalid) {
         console.warn(`[IA2] ${nomeDoCargo}: validação falhou (${errors.join('; ')}). Retry.`);
         const retryUser = `${user}\n\n═══ ATENÇÃO: CORREÇÃO NECESSÁRIA ═══\n${errors.join('\n')}\nCorrija e retorne JSON válido.`;
-        resposta = await callAI(system, retryUser, aiConfig, 8192, { taskKey: 'ia2_gabarito' });
+        resposta = await callAI(system, retryUser, aiConfig, 8192, { taskKey: 'ia2_gabarito', empresaId });
         const retryResult = await extractJSON(resposta);
         if (retryResult?.gabarito) resultado = retryResult;
       }
