@@ -85,8 +85,11 @@ export type DemoRoster = {
    * Cargo que vem do FIXTURE e tem o Top 5 fixado pelo roster. O fixture guarda
    * o Top 5 histórico da origem; para o cargo principal a ordem é decisão de
    * demonstração, não herança.
+   *
+   * `null` quando TODOS os cargos do roster nascem construídos — aí não há
+   * cargo herdado para reordenar, e nada no fixture responde por este elenco.
    */
-  cargoPrincipal: string;
+  cargoPrincipal: string | null;
   cargoPrincipalTop5: string[];
   cargoPrincipalFoco: string[];
   /** Cargos do fixture que o roster NÃO semeia (vêm construídos, ou saíram). */
@@ -96,4 +99,9 @@ export type DemoRoster = {
   administradora: DemoRosterAdministradora;
   /** Quem abre cada visão da sala ao vivo (participante, liderança, programa). */
   salaApresentacao: DemoRosterSalaAcesso[];
+  /**
+   * Unidades da organização (as escolas de uma rede). Ausente num elenco de
+   * empresa única, onde a área do colaborador já basta.
+   */
+  unidades?: Array<{ nome: string; segmentos: string; porte: string }>;
 };

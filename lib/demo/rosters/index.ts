@@ -1,4 +1,5 @@
 import { ROSTER_COMERCIAL } from '@/lib/demo/rosters/comercial';
+import { ROSTER_ESCOLAR } from '@/lib/demo/rosters/escolar';
 import type { DemoRoster } from '@/lib/demo/rosters/types';
 
 /**
@@ -7,6 +8,7 @@ import type { DemoRoster } from '@/lib/demo/rosters/types';
  */
 export const DEMO_ROSTERS = {
   comercial: ROSTER_COMERCIAL,
+  escolar: ROSTER_ESCOLAR,
 } as const;
 
 export type DemoRosterKey = keyof typeof DEMO_ROSTERS;
@@ -19,5 +21,5 @@ export function rosterDemo(key: DemoRosterKey): DemoRoster {
   return roster;
 }
 
-export { ROSTER_COMERCIAL };
+export { ROSTER_COMERCIAL, ROSTER_ESCOLAR };
 export type { DemoRoster };
