@@ -26,7 +26,7 @@ TENANT-SAFE — todo delete/insert é filtrado pelo `empresa_id` do tenant escol
 | Caminho | Como | Quando |
 |---|---|---|
 | **Sob demanda** | Seletor + botão "Recriar dados" em `/admin/demo` (server action gated a platform admin + `admin_audit_log`) | Vendedor prepara o tenant escolhido |
-| **Noturno** | `/api/cron?action=reset_demo` (gated CRON_SECRET) + `vercel.json` `0 7 * * *` (04h BRT). Falha → 500 (log Vercel) + audit | Automático |
+| **Noturno** | `/api/cron?action=reset_demo` (gated CRON_SECRET) + `vercel.json` `0 7 * * *` (04h BRT). Percorre **todos** os ambientes de `DEMO_TENANT_PROFILES`, um a um; falha → 500 (log Vercel) + audit por ambiente | Automático |
 | **Manual (CLI)** | `npm run reset:demo` (= `npx tsx scripts/seed-acme-demo.ts`) — DELEGA ao reset canônico (mesmo fixture + artefatos do botão/cron) | CLI/scripts/CI |
 | **Grupo Sinal (CLI)** | `npm run reset:demo:gruposinal` | Cria ou recompõe `gruposinal.vertho.ai` |
 
@@ -61,7 +61,10 @@ O carregamento automático prepara um ponto de entrada para cada origem:
 | RH | `rh-demo.vertho.ai` | `helena.demo@vertho.ai` |
 
 Abra qualquer uma das visões. O preparo emite um passe assinado, restrito ao
-`acme-demo` e válido por 4 horas. O dropdown **Visão apresentada** leva esse
+ambiente que o emitiu (`DEMO_PRESENTATION_ROOMS`) e válido por 4 horas.
+🔴 **A rota confere o `tenant` do passe contra o ambiente do hostname**: a
+assinatura prova que o passe é nosso, não que ele é DESTA sala — sem a
+comparação, um passe legítimo de outro ambiente demo abriria sessão aqui. O dropdown **Visão apresentada** leva esse
 passe para a origem escolhida, e a rota `/auth/apresentacao` cria a sessão da
 persona correta no servidor — sem expor a senha compartilhada ao browser.
 
@@ -79,7 +82,13 @@ autenticado — não existe override de role por URL ou cookie. A rota deriva o
 papel exclusivamente do hostname fixo, nunca de parâmetros enviados pelo client.
 
 Os hosts da apresentação são registrados na Vercel de forma idempotente no
-preparo da sala. Fora desses três aliases o dropdown não é renderizado.
+preparo da sala. Fora dos aliases registrados o dropdown não é renderizado.
+
+⚠️ **Cada ambiente tem os seus três hosts, e eles não podem se repetir**: o
+hostname identifica papel E ambiente, então um alias compartilhado abriria
+tenants diferentes conforme quem emitiu o passe. O seletor de função navega
+dentro da sala atual (`currentRole.tenantSlug`), nunca para os hosts de outro
+ambiente.
 
 ## Degustação individual reutilizável no ACME
 
@@ -123,6 +132,48 @@ visões Colaborador, Gestor e RH. A linha de acompanhamento sobrevive à expira�
 e à remoção do colaborador temporário, preservando o histórico comercial; o
 WhatsApp opcional nunca é persistido.
 
+### A etapa 01 é uma DEGUSTAÇÃO: uma competência, avaliada sozinha
+
+O convidado responde **uma** competência, não as cinco do cargo
+(`DEGUSTACAO_MAX_COMPETENCIAS`, em `lib/demo/convidado-demo.ts`). A etapa 01
+existe para a pessoa entender o fluxo; o diagnóstico completo é o que ela vê
+pronto nas visões 02–04, com o ambiente já preenchido. O corte é aplicado num
+ponto só (`competenciasDoColaborador`, em `app/dashboard/assessment/assessment-actions.ts`)
+porque **duas** actions decidem sobre a mesma lista: a que monta a tela e a que
+calcula a próxima pendente. Divergirem significa a pessoa concluir e continuar
+sendo empurrada para o próximo cenário.
+
+A régua de quem está em degustação exige as **duas** pontas: tenant `is_demo` E
+convidado (a mesma `isEmailDeConvidadoDemo` do acompanhamento). Só o `is_demo`
+cortaria as personas do fixture; só o e-mail cortaria gente real em tenant de
+cliente, que é exatamente quem precisa das cinco.
+
+⚠️ **Não mexa no `top5_workshop` do ACME para conseguir esse corte.** Ele é
+fixture congelado e alimenta o ranking de fit e os relatórios organizacionais da
+demo inteira; o corte é do CONVIDADO, não do cargo.
+
+**A avaliação sai sozinha.** Fora da demo, quem manda avaliar é um humano no
+painel ("IA4 — Avaliar + Check") — correto para cliente real, onde a nota vira
+PDI. Na degustação não existe esse alguém: `Medido 01/09/2026:` a única resposta
+de convidado no ACME estava com `nivel_ia4` nulo, e a tela dizia "Análise em
+processamento" para sempre. Agora o envio da resposta dispara
+`avaliarRespostaDaDegustacao` em `after()`.
+
+Por que em segundo plano, e não na tela: `Medido:` a IA4 leva **107,5s de
+mediana** e 153,6s no p90 (60 dias de `ia_usage_log`, `claude-sonnet-5`). Segurar
+uma demonstração por dois minutos não é espera, é desistência — então quem
+espera é o roteiro, e a análise amadurece enquanto a pessoa percorre as visões
+02–04. Sem o check dual (`ia4_check`, +19,4s e +US$ 0,045): a segunda IA existe
+para auditar nota que vira PDI, e esta morre com o passaporte em D+2. Custo:
+~US$ 0,12 por convidado.
+
+Enquanto nada foi avaliado, a tela de conclusão diz **"Respostas registradas"**,
+e não "Resultado da avaliação — 0 de 1 com análise concluída": anunciar resultado
+e ausência de resultado na mesma dobra é prometer o que ainda não existe. E o
+aviso manda continuar **pelo roteiro que a pessoa recebeu**, porque as etapas
+02–04 são links do passaporte que o dashboard não conhece — mandar "siga para a
+próxima etapa" sem oferecer o caminho seria um beco.
+
 ### Acompanhamento dos clientes: duas origens, um tenant por vez
 
 O bloco **Acompanhamento dos clientes** lista **todo convidado do tenant
@@ -154,6 +205,41 @@ listagem de propósito: silêncio ali viraria "ninguém acessou" na tela.
 `colaboradores` está em `DEMO_RESET_TABLES`. Para acompanhar alguém por mais de
 um dia, use a Degustação individual (o reset adia enquanto houver passaporte no
 prazo) ou o convidado nomeado do perfil do tenant, que o seed recria.
+
+## Um ambiente demo é IDENTIDADE + ROSTER
+
+Um tenant de demonstração é a soma de duas coisas, e elas mudam por motivos
+diferentes:
+
+| Dimensão | Onde | Muda quando |
+|---|---|---|
+| **Identidade** | `DEMO_TENANT_PROFILES` (nome, marca, PPP, valores, logo, allowlist) | O prospect é outro (foi assim que o Grupo Sinal nasceu do ACME) |
+| **Roster** | `lib/demo/rosters/` (cargos, competências, personas, Top 5, sala) | O SEGMENTO é outro (uma rede de escolas não tem Representante Comercial) |
+
+Cada perfil declara o próprio elenco (`roster: 'comercial'`) e o motor lê
+`rosterDemo(profile.roster)`. Trocar de elenco deixou de ser editar o reset.
+
+🔑 **Dois campos do roster são dado, não regra.** `codPrefix` (prefixo do
+`cod_comp`) e `ehLideranca` saíam de heurística sobre o NOME do cargo
+(`startsWith('Analista')`, `includes('Coordenador')`). Isso acertava por
+acidente com um elenco só: "Coordenação Pedagógica" cairia no `else` e levaria
+o prefixo do Gerente Comercial, gravando `cod_comp` colidente em dois cargos.
+Travado em `tests/unit/demo-roster-comercial.test.ts`, que roda a régua antiga
+contra a nova.
+
+**Para nascer, um ambiente novo precisa de:** perfil em `DEMO_TENANT_PROFILES`
+(com `roster`) · roster em `lib/demo/rosters/` · fixture congelado
+(`node scripts/capture-acme-fixture.mjs --source=<tenant vivo> --demo=<tenant demo> --out=<arquivo>`)
+· hosts da sala em `DEMO_PRESENTATION_ROOMS` · prefixo de convidado em
+`DEMO_PROSPECT_TENANTS` se oferecer degustação · o tenant no banco com
+`is_demo=true`.
+
+⚠️ **O prefixo do convidado é o que separa os ambientes no Auth.** A conta de
+degustação não guarda tenant, e a faxina apaga como resíduo todo usuário com o
+marcador que não tem sessão rastreada no tenant varrido — com prefixo
+compartilhado, limpar um ambiente apagaria o convidado vivo do outro. Um tenant
+não registrado deriva o prefixo do próprio slug, nunca herda o do ACME
+(`tests/unit/demo-prospect-isolamento-ambiente.test.ts`).
 
 ## Fixture congelado
 O reset semeia de `lib/demo/acme-demo-fixture.json` (golden state VERSIONADO), **não** do acme vivo → a demo é estável e imune a mexidas no `acme`. O fixture guarda:
@@ -202,7 +288,7 @@ Quando quiser um novo estado de referência (ex.: após mudar competências no a
    - **Relatórios DISC**: `gerarEsalvarRelatorioComportamental({ colabId })` por persona.
    - **Trilhas**: gerar pela tela de admin (`gerarTemporada`, com sessão) — a competência PRECISA ter avaliação (`descriptor_assessments`), senão erra. O antigo `gerarTemporadaInternal` foi REMOVIDO: era um export `'use server'` que rodava service-role incondicionalmente, ou seja, um endpoint HTTP sem gate. Se a geração headless voltar a ser necessária, extrair um núcleo sem gate pra `lib/` (modelo: `lib/blueprint/core.ts`) em vez de reabrir a flag.
 3. Capturar:
-   - `node scripts/capture-acme-fixture.mjs` (dumpa estrutura do acme + artefatos do acme-demo → `acme-demo-fixture.json`).
+   - `node scripts/capture-acme-fixture.mjs` (dumpa estrutura do acme + artefatos do acme-demo → `acme-demo-fixture.json`). Outro par vai por argumento: `--source=<tenant vivo> --demo=<tenant demo> --out=<arquivo>`.
    - `scripts/_capture-fixture-extra.mjs` / `scripts/_capture-demo-extra.mts` (gabaritos + cenários dos cargos extra → `acme-demo-extra-artifacts.json`).
 4. Commitar o `acme-demo-fixture.json` (e o `acme-demo-extra-artifacts.json`, se mudou).
 
@@ -212,5 +298,6 @@ Quando quiser um novo estado de referência (ex.: após mudar competências no a
 - O render do PDF via tsx falha (`Font family not registered: NotoSans`) — mas `report_texts` salva ANTES, e o PDF regenera on-demand no app (o que congelamos é o `report_texts`, não o binário).
 
 ## Follow-ups (não feitos)
+- ⛔ *(resolvido em 01/09)* Reset noturno cobria só o ACME: o Grupo Sinal era tenant demo desde 25/08 e **nunca foi recomposto**, e o preflight de convidados lia sempre o ACME (um convidado ativo lá adiaria o reset do vizinho).
 - Tenant por vendedor (`acme-demo-<rep>`) contra colisão simultânea — o reset sob demanda mitiga.
 - Season "em ANDAMENTO" de verdade (a trilha nasce gerada mas sem semanas concluídas).
