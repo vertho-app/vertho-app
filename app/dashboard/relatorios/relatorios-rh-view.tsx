@@ -191,11 +191,16 @@ function CompanyScopeNotice({ scope, t }: { scope: RhReportsScope; t: any }) {
 
 function JourneyPulse({ reports, t }: { reports: RhReportsCenter; t: any }) {
   const p = reports.dashboard.panorama;
+  // `journey` é INSTANTÂNEO (trilhas ativas), como o título da seção promete:
+  // "onde as pessoas estão agora". Quem conclui sai dele, e sem o degrau de
+  // conclusão ao lado isso lê como perda de tração — o oposto do que aconteceu.
+  // O número já era calculado e aparecia só num rodapé chamado "Encerradas".
   const stages = [
     { key: 'people', value: p.pessoas, icon: UserRound, color: '#8BE8EF' },
     { key: 'profile', value: p.comPerfil, icon: Brain, color: '#69D6E2' },
     { key: 'mapping', value: p.comMapeamento, icon: BarChart3, color: '#B77CFF' },
     { key: 'journey', value: p.emJornada, icon: Route, color: '#34D399' },
+    { key: 'completed', value: p.jornadasEncerradas, icon: Check, color: '#F5C97B' },
   ] as const;
 
   return (
@@ -234,7 +239,10 @@ function JourneyPulse({ reports, t }: { reports: RhReportsCenter; t: any }) {
         })}
       </div>
 
-      <div className="relative mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+      {/* Em dia e atrasada qualificam SÓ quem está em jornada agora: com a
+          conclusão promovida a degrau, repetir o total de encerradas aqui
+          embaixo daria dois lugares para o mesmo número. */}
+      <div className="relative mt-3 grid gap-2 sm:grid-cols-2">
         <div className="flex items-center justify-between rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.055] px-4 py-3">
           <span className="flex items-center gap-2 text-xs text-white/60"><Check size={14} className="text-emerald-300" /> {t('dashboard.pulse.onTrack')}</span>
           <strong className="text-lg text-emerald-300 tabular-nums">{p.indisponivel ? '—' : p.emDia}</strong>
@@ -242,10 +250,6 @@ function JourneyPulse({ reports, t }: { reports: RhReportsCenter; t: any }) {
         <div className="flex items-center justify-between rounded-2xl border border-amber-300/15 bg-amber-300/[0.055] px-4 py-3">
           <span className="flex items-center gap-2 text-xs text-white/60"><ShieldAlert size={14} className="text-amber-300" /> {t('dashboard.pulse.behind')}</span>
           <strong className="text-lg text-amber-300 tabular-nums">{p.indisponivel ? '—' : p.atrasadas}</strong>
-        </div>
-        <div className="flex items-center justify-between gap-5 rounded-2xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
-          <span className="text-xs text-white/45">{t('dashboard.pulse.completed')}</span>
-          <strong className="text-lg text-white tabular-nums">{p.indisponivel ? '—' : p.jornadasEncerradas}</strong>
         </div>
       </div>
     </Panel>
