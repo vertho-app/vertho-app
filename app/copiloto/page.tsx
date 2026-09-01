@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
+import { isPlatformAdmin } from '@/lib/authz';
 import { resolveCopilotAccess } from '@/lib/copiloto/auth';
 import { listCopilotAccounts } from '@/lib/copiloto/accounts';
+import { resolveCopilotHomeHref } from '@/lib/copiloto/navigation';
 import { isSupernormalConfigured } from '@/lib/copiloto/supernormal';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import type { CopilotOpportunity } from '@/lib/copiloto/types';
@@ -76,16 +78,17 @@ export default async function CopilotPage() {
   const access = await resolveCopilotAccess(email);
   if (!access) return <AccessScreen loggedIn />;
 
-  const [opportunities, accounts] = await Promise.all([
+  const [opportunities, accounts, hasPlatformAdminAccess] = await Promise.all([
     access.kind === 'representative' ? opportunitiesFor(access.rep.id) : Promise.resolve([]),
     listCopilotAccounts(access),
+    access.kind === 'admin' ? Promise.resolve(true) : isPlatformAdmin(email),
   ]);
   const userName = access.kind === 'representative' ? access.rep.name : email.split('@')[0];
 
   return (
     <CopilotClient
       userName={userName}
-      homeHref={access.kind === 'admin' ? '/admin/dashboard' : '/representante'}
+      homeHref={resolveCopilotHomeHref(access.kind, hasPlatformAdminAccess)}
       opportunities={opportunities}
       accounts={accounts}
       canCreateLeads={access.kind === 'representative'}
