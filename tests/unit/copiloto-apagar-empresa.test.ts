@@ -92,6 +92,19 @@ describe('getSalesAccountVinculos: o que a confirmação mostra antes de apagar'
     expect(r.success === false && r.error).toContain('copilot_plans');
   });
 
+  it('empresa já apagada devolve o motivo, não só uma mensagem de erro', async () => {
+    // A tela precisa distinguir "não deu para verificar" de "não existe mais": no
+    // segundo caso ela tira a linha da lista em vez de pedir uma confirmação
+    // impossível, cuja única saída seria Cancelar.
+    estado.conta = null;
+
+    const r = await getSalesAccountVinculos(CONTA);
+
+    expect(r.success).toBe(false);
+    expect(r.success === false && r.motivo).toBe('nao_encontrada');
+    expect(r.success === false && r.error).toMatch(/[.!?]$/);
+  });
+
   it('não conta os vínculos de conta de outro representante', async () => {
     estado.conta.representante_id = 'rep-2';
 

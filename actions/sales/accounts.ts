@@ -166,10 +166,20 @@ export type SalesAccountVinculos = {
  * roda com `strict: false`, e ali união discriminada por booleano NÃO estreita
  * — sem isso, `result.error` depois de `if (!result.success)` não compila.
  */
+/**
+ * `nao_encontrada` é um sinal ESTRUTURADO de propósito.
+ *
+ * A tela precisa distinguir "não deu para verificar" de "não existe mais": no segundo
+ * caso o objetivo de quem clicou (sumir com aquela linha) já está satisfeito no banco,
+ * e insistir numa confirmação deixa a pessoa presa com uma linha fantasma. Casar pelo
+ * TEXTO do erro seria frágil — a mensagem muda, o código não.
+ */
+export type SalesAccountFalha = 'nao_encontrada';
+
 export type DeleteSalesAccountResult =
-  | { success: true; removed: SalesAccountVinculos; error?: undefined; precisaConfirmar?: undefined; vinculos?: undefined }
+  | { success: true; removed: SalesAccountVinculos; error?: undefined; precisaConfirmar?: undefined; vinculos?: undefined; motivo?: undefined }
   /** `precisaConfirmar`: há histórico comercial e a chamada não veio com `forcar`. */
-  | { success: false; error: string; precisaConfirmar?: boolean; vinculos?: SalesAccountVinculos; removed?: undefined };
+  | { success: false; error: string; precisaConfirmar?: boolean; vinculos?: SalesAccountVinculos; removed?: undefined; motivo?: SalesAccountFalha };
 
 /** Inventário do que está ligado à conta. Erro de leitura lança (E11). */
 async function contarVinculos(
@@ -234,7 +244,9 @@ export async function getSalesAccountVinculos(accountId: string) {
   const { data: account, error: readError } = await sb.from('sales_accounts')
     .select('id, representante_id, status').eq('id', accountId).maybeSingle();
   if (readError) return { success: false as const, error: readError.message };
-  if (!account) return { success: false as const, error: 'Conta não encontrada' };
+  if (!account) {
+    return { success: false as const, error: 'Esta empresa já não existe.', motivo: 'nao_encontrada' as const };
+  }
   if (ctx.kind === 'representative' && account.representante_id !== ctx.rep.id) {
     return { success: false as const, error: 'FORBIDDEN: conta de outro representante' };
   }
@@ -285,7 +297,9 @@ export async function deleteSalesAccount(
   const { data: account, error: readError } = await sb.from('sales_accounts')
     .select('id, representante_id, legal_name, trade_name, status').eq('id', accountId).maybeSingle();
   if (readError) return { success: false as const, error: readError.message };
-  if (!account) return { success: false as const, error: 'Conta não encontrada' };
+  if (!account) {
+    return { success: false as const, error: 'Esta empresa já não existe.', motivo: 'nao_encontrada' as const };
+  }
   if (ctx.kind === 'representative' && account.representante_id !== ctx.rep.id) {
     return { success: false as const, error: 'FORBIDDEN: conta de outro representante' };
   }

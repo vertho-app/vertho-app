@@ -275,11 +275,35 @@ export default function ClientsWorkspace({
     setError(null);
     setNotice(null);
     const result = await getSalesAccountVinculos(account.id);
+
+    // A empresa ja nao existe (lista aberta antes de ela ser apagada, aqui ou em outra
+    // aba). O que a pessoa queria — sumir com esta linha — ja esta feito no banco, entao
+    // pedir confirmacao de uma exclusao impossivel a prenderia num beco: a unica saida
+    // seria Cancelar, e a linha fantasma ficaria ali ate um F5.
+    if (!result.success && result.motivo === 'nao_encontrada') {
+      esquecerEmpresa(account, `“${account.name}” já não existia. Tirei da lista.`);
+      return;
+    }
+
     setInventario((current) => {
       if (!current || current.id !== account.id) return current; // trocou de alvo no meio
       if (!result.success) return { ...current, texto: '', falha: result.error || 'Não deu para verificar o que está ligado a esta empresa.' };
       return { id: account.id, texto: result.resumo, forte: result.temHistorico };
     });
+  }
+
+  /** Tira a empresa da lista sem apagar nada: ela ja nao esta no banco. */
+  function esquecerEmpresa(account: CopilotAccountListItem, aviso: string) {
+    const remaining = accounts.filter((item) => item.id !== account.id);
+    setAccounts(remaining);
+    setPendingDeleteId(null);
+    setInventario(null);
+    if (account.id === selectedId) {
+      setDetail(null);
+      setComposerOpen(false);
+      setSelectedId(remaining[0]?.id || null);
+    }
+    setNotice(aviso);
   }
 
   async function removeCompany(account: CopilotAccountListItem) {
@@ -290,6 +314,10 @@ export default function ClientsWorkspace({
       // `forcar` porque a confirmação já mostrou o inventário; a action sozinha
       // (é endpoint HTTP) continua recusando quem chama sem ter perguntado.
       const result = await deleteSalesAccount(account.id, { forcar: true });
+      if (!result.success && result.motivo === 'nao_encontrada') {
+        esquecerEmpresa(account, `“${account.name}” já não existia. Tirei da lista.`);
+        return;
+      }
       if (!result.success) throw new Error(result.error || 'Falha ao apagar a empresa');
       const remaining = accounts.filter((item) => item.id !== account.id);
       setAccounts(remaining);
@@ -406,7 +434,7 @@ export default function ClientsWorkspace({
                 <div className={styles.companyDeleteConfirm} data-forcar={inventario?.forte ? '' : undefined}>
                   <p>
                     {inventario?.falha
-                      ? `${inventario.falha} Sem saber o que se perde, é melhor não apagar agora.`
+                      ? `${/[.!?]$/.test(inventario.falha) ? inventario.falha : `${inventario.falha}.`} Sem saber o que se perde, é melhor não apagar agora.`
                       : inventario?.texto == null
                         ? <><LoaderCircle size={11} className={styles.spin} /> Verificando o que está ligado a “{account.name}”…</>
                         : `Apagar “${account.name}”? ${inventario.texto}`}
