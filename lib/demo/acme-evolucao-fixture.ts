@@ -33,6 +33,7 @@
  * uma pessoa fictícia em situação de exposição negativa numa tela de vendas.
  */
 
+import { PROGRESSO } from '@/lib/status';
 import { classificarConvergencia, type Convergencia } from '@/lib/season-engine/convergencia';
 import { competenciasAcmeDemoPorCargo } from './acme-rh-report-fixture';
 
@@ -267,7 +268,7 @@ export function construirFechamentoAcmeDemo(evolucao: EvolucaoDemo, concluidoEm:
     {
       semana: 13,
       tipo: 'avaliacao',
-      status: 'concluido',
+      status: PROGRESSO.CONCLUIDO,
       conteudo_consumido: true,
       iniciado_em: concluidoEm,
       concluido_em: concluidoEm,
@@ -287,7 +288,7 @@ export function construirFechamentoAcmeDemo(evolucao: EvolucaoDemo, concluidoEm:
     {
       semana: 14,
       tipo: 'avaliacao',
-      status: 'concluido',
+      status: PROGRESSO.CONCLUIDO,
       conteudo_consumido: true,
       iniciado_em: concluidoEm,
       concluido_em: concluidoEm,
