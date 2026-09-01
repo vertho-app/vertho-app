@@ -308,57 +308,11 @@ async function gerarEsalvarDevolutivaComportamental({ colab: inputColab, colabId
 
     const { raw, texts } = await _ensureTextos(colab);
 
-    // Contexto do cargo (cargos_empresa por nome) + empresa, para ancorar os exemplos.
-    const sbCtx = createSupabaseAdmin();
-    let cargo: any = null;
-    let empresaNome: string | null = null;
-    try {
-      if (colab.cargo) {
-        const { data } = await sbCtx.from('cargos_empresa')
-          .select('nome, area_depto, descricao, principais_entregas, stakeholders, decisoes_recorrentes, tensoes_comuns, contexto_cultural, eh_lideranca')
-          .eq('empresa_id', colab.empresa_id).ilike('nome', colab.cargo).limit(1).maybeSingle();
-        cargo = data || { nome: colab.cargo };
-      }
-      const { data: emp } = await sbCtx.from('empresas').select('nome').eq('id', colab.empresa_id).maybeSingle();
-      empresaNome = emp?.nome || null;
-    } catch { /* contexto é best-effort */ }
-
-    // Roteiro da devolutiva
-    const { derivarArquetipo } = await import('@/lib/disc-arquetipos');
-    const { promptDevolutivaComportamental } = await import('@/lib/prompts/devolutiva-comportamental');
-    const { getModelForTask } = await import('@/lib/ai-tasks');
-    const arquetipo = derivarArquetipo(colab.perfil_dominante);
-    const primeiroNome = String(colab.nome_completo || 'você').split(' ')[0];
-    const { system, user } = promptDevolutivaComportamental({ primeiroNome, arquetipo, raw, texts, cargo, empresaNome });
-    const model = await getModelForTask(colab.empresa_id, 'devolutiva_comportamental');
-    const roteiro = await callAI(system, user, { model }, 1500);
-    if (!roteiro?.trim()) return { error: 'Roteiro vazio' };
-
-    // TTS → MP3. Voz Achird = a voz do BETO (masculina), a mesma persona que
-    // assina o roteiro acima. Override por env GEMINI_TTS_DEVOLUTIVA_VOICE.
-    // ⚠️ Voz e estilo andam JUNTOS: o prompt de estilo dirige a prosódia, então
-    // trocar só o `voice` deixa a narração com prosódia do gênero anterior.
-    const { extractNarration, generateNarrationAudio } = await import('@/lib/gemini-tts');
-    const narracao = extractNarration(roteiro);
-    const audio = await generateNarrationAudio(narracao, {
-      voice: process.env.GEMINI_TTS_DEVOLUTIVA_VOICE || 'Achird',
-      style: 'Narre em português do Brasil, com voz masculina brasileira acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa',
-      ledger: { feature: 'tts_devolutiva', empresaId: colab.empresa_id, colaboradorId: colab.id },
-    });
-
-    // Upload + persiste path
-    const sb = createSupabaseAdmin();
-    const slug = storageSlug(colab.nome_completo, 'colab');
-    const path = `${colab.empresa_id}/devolutiva-${slug}-${Date.now()}.mp3`;
-    const { error: upErr } = await sb.storage.from(AUDIO_BUCKET)
-      .upload(path, audio.buffer, { contentType: audio.contentType, upsert: true });
-    if (upErr) return { error: `Falha ao salvar áudio: ${upErr.message}` };
-
-    await sb.from('colaboradores')
-      .update({ comportamental_audio_path: path, comportamental_audio_at: new Date().toISOString() })
-      .eq('id', colab.id).eq('empresa_id', colab.empresa_id);
-
-    return { success: true, path };
+    // Núcleo único (`lib/relatorio-comportamental/devolutiva-audio`): o MESMO
+    // trabalho roda aqui, sob demanda, e na pré-geração que o `after()` do DISC
+    // dispara. Duas implementações do mesmo áudio virariam gêmeos divergentes.
+    const { gerarDevolutivaEmAudioCore } = await import('@/lib/relatorio-comportamental/devolutiva-audio');
+    return await gerarDevolutivaEmAudioCore({ colab, raw, texts, sb: createSupabaseAdmin() });
   } catch (err) {
     console.error('[gerarEsalvarDevolutivaComportamental]', err);
     return { error: err?.message || 'Erro ao gerar devolutiva em voz' };
@@ -377,7 +331,7 @@ async function _devolutivaSignedUrl(colab: any, ttlSec = 300) {
     stale = (Date.now() - new Date(colab.comportamental_audio_at).getTime()) >= CACHE_MAX_AGE_MS;
   }
   if (!path || stale) {
-    const r = await gerarEsalvarDevolutivaComportamental({ colab });
+    const r: any = await gerarEsalvarDevolutivaComportamental({ colab });
     if (r.error) return { error: r.error };
     path = r.path;
   }

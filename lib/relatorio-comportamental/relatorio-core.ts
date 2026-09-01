@@ -120,7 +120,7 @@ export async function fetchColabPorId(colabId, empresaIdEsperado?: string | null
  * `empresaId`: tenant esperado do `colabId`. Passe SEMPRE que souber (fluxo de
  * sessão, lote por empresa) — vira barreira em `fetchColabPorId`.
  */
-export async function gerarEsalvarRelatorioComportamentalCore({ colab: inputColab, colabId, empresaId }: any = {}) {
+export async function gerarEsalvarRelatorioComportamentalCore({ colab: inputColab, colabId, empresaId, comAudio }: any = {}) {
   try {
     let colab: any = inputColab;
     if (!colab && !colabId) {
@@ -170,7 +170,32 @@ export async function gerarEsalvarRelatorioComportamentalCore({ colab: inputCola
       .update({ comportamental_pdf_path: path })
       .eq('id', colab.id).eq('empresa_id', colab.empresa_id);
 
-    return { success: true, path, filename };
+    // 5) Devolutiva em voz, quando pedida (pré-geração pós-DISC).
+    //
+    // POR QUE AQUI, e não em outro `after()` paralelo: o áudio precisa dos
+    // MESMOS `texts` — disparado em paralelo, os dois caminhos veriam o cache
+    // vazio ao mesmo tempo e pagariam a geração dos textos duas vezes.
+    //
+    // POR QUE DEPOIS DO PDF: o PDF é o artefato que a pessoa mais pede e o
+    // barato dos dois. Se o orçamento da função acabar no meio, o que sobra
+    // entregue é o mais usado, não o mais caro.
+    //
+    // Falha aqui NÃO derruba o relatório: o botão "Ouvir devolutiva" continua
+    // gerando sob demanda, pelo mesmo núcleo. O que se perde é a antecipação.
+    let audio: { path?: string; error?: string } | null = null;
+    if (comAudio) {
+      try {
+        const { gerarDevolutivaEmAudioCore } = await import('@/lib/relatorio-comportamental/devolutiva-audio');
+        const r = await gerarDevolutivaEmAudioCore({ colab, raw, texts, sb });
+        audio = 'error' in r ? { error: r.error } : { path: r.path };
+        if (audio.error) console.warn('[relatorio-core] pré-gerar devolutiva em voz:', audio.error);
+      } catch (e: any) {
+        audio = { error: e?.message || 'erro inesperado' };
+        console.warn('[relatorio-core] pré-gerar devolutiva em voz:', audio.error);
+      }
+    }
+
+    return { success: true, path, filename, audio };
   } catch (err) {
     console.error('[gerarEsalvarRelatorioComportamentalCore]', err);
     return { error: err?.message || 'Erro ao gerar relatório' };

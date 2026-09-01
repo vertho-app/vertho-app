@@ -30,7 +30,6 @@
     "actions/temporadas.ts": 3,
     "actions/tutor-evidencia.ts": 1,
     "app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts": 1,
-    "app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts": 1,
     "lib/adequacao-cargo/narrative.ts": 1,
     "lib/ai-batch.ts": 1,
     "lib/dna-organizacional/narrative.ts": 1,

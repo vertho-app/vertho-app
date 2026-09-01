@@ -194,6 +194,14 @@ export async function salvarPerfilComportamental(resultados) {
       const result = await gerarEsalvarRelatorioComportamentalCore({
         colabId: colab.id,
         empresaId: colab.empresa_id, // tenant da sessão: barra colabId de outro tenant
+        // A devolutiva em voz vem junto: `Medido 01/09/2026:` 47 das 112 pessoas
+        // que fizeram o DISC nos últimos 30 dias pediram o áudio (42%), e quem
+        // pede espera o encadeamento inteiro — roteiro por IA e depois o TTS
+        // (17,6s de mediana só no TTS). Pré-gerado aqui, o botão devolve o
+        // arquivo pronto. Custa ~US$ 0,02 por pessoa, inclusive para quem não
+        // ouvir; a alternativa é 42% da base esperando meio minuto olhando um
+        // botão girar.
+        comAudio: true,
       });
       if (result?.error) {
         console.warn('[salvarPerfilComportamental] pré-geração falhou:', result.error);
